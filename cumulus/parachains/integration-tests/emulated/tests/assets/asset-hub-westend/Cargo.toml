@@ -11,28 +11,34 @@ publish = false
 workspace = true
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.4.0", default-features = false }
+codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false }
 assert_matches = "1.5.0"
 
 # Substrate
 sp-runtime = { path = "../../../../../../../substrate/primitives/runtime", default-features = false }
+sp-keyring = { path = "../../../../../../../substrate/primitives/keyring", default-features = false }
+sp-core = { path = "../../../../../../../substrate/primitives/core", default-features = false }
+frame-metadata-hash-extension = { path = "../../../../../../../substrate/frame/metadata-hash-extension" }
 frame-support = { path = "../../../../../../../substrate/frame/support", default-features = false }
+frame-system = { path = "../../../../../../../substrate/frame/system", default-features = false }
 pallet-balances = { path = "../../../../../../../substrate/frame/balances", default-features = false }
 pallet-assets = { path = "../../../../../../../substrate/frame/assets", default-features = false }
 pallet-asset-conversion = { path = "../../../../../../../substrate/frame/asset-conversion", default-features = false }
 pallet-treasury = { path = "../../../../../../../substrate/frame/treasury", default-features = false }
 pallet-message-queue = { path = "../../../../../../../substrate/frame/message-queue", default-features = false }
+pallet-transaction-payment = { path = "../../../../../../../substrate/frame/transaction-payment", default-features = false }
+pallet-asset-tx-payment = { path = "../../../../../../../substrate/frame/transaction-payment/asset-tx-payment", default-features = false }
 
 # Polkadot
 polkadot-runtime-common = { path = "../../../../../../../polkadot/runtime/common" }
 xcm = { package = "staging-xcm", path = "../../../../../../../polkadot/xcm", default-features = false }
 xcm-executor = { package = "staging-xcm-executor", path = "../../../../../../../polkadot/xcm/xcm-executor", default-features = false }
 pallet-xcm = { path = "../../../../../../../polkadot/xcm/pallet-xcm", default-features = false }
+xcm-fee-payment-runtime-api = { path = "../../../../../../../polkadot/xcm/xcm-fee-payment-runtime-api", default-features = false }
 westend-runtime = { path = "../../../../../../../polkadot/runtime/westend" }
 
 # Cumulus
 parachains-common = { path = "../../../../../common" }
-testnet-parachains-constants = { path = "../../../../../runtimes/constants", features = ["westend"] }
 penpal-runtime = { path = "../../../../../runtimes/testing/penpal" }
 asset-hub-westend-runtime = { path = "../../../../../runtimes/assets/asset-hub-westend" }
 asset-test-utils = { path = "../../../../../runtimes/assets/test-utils" }

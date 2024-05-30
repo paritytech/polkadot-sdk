@@ -35,6 +35,7 @@ use frame_support::{
 	pallet_prelude::*,
 	storage_alias,
 	traits::{fungible::MutateHold, ReservableCurrency},
+	weights::WeightMeter,
 	DefaultNoBound,
 };
 use sp_core::hexdisplay::HexDisplay;
@@ -132,7 +133,7 @@ where
 		T::WeightInfo::v14_migration_step()
 	}
 
-	fn step(&mut self) -> (IsFinished, Weight) {
+	fn step(&mut self, meter: &mut WeightMeter) -> IsFinished {
 		let mut iter = if let Some(last_hash) = self.last_code_hash.take() {
 			v13::CodeInfoOf::<T, OldCurrency>::iter_from(
 				v13::CodeInfoOf::<T, OldCurrency>::hashed_key_for(last_hash),
@@ -185,10 +186,12 @@ where
 			});
 
 			self.last_code_hash = Some(hash);
-			(IsFinished::No, T::WeightInfo::v14_migration_step())
+			meter.consume(T::WeightInfo::v14_migration_step());
+			IsFinished::No
 		} else {
 			log::debug!(target: LOG_TARGET, "No more code upload deposit to migrate");
-			(IsFinished::Yes, T::WeightInfo::v14_migration_step())
+			meter.consume(T::WeightInfo::v14_migration_step());
+			IsFinished::Yes
 		}
 	}
 

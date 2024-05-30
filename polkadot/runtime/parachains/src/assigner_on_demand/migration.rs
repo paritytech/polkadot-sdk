@@ -56,7 +56,7 @@ mod v1 {
 			let mut weight: Weight = Weight::zero();
 
 			// Migrate the current traffic value
-			let config = <configuration::Pallet<T>>::config();
+			let config = configuration::ActiveConfig::<T>::get();
 			QueueStatus::<T>::mutate(|mut queue_status| {
 				Pallet::<T>::update_spot_traffic(&config, &mut queue_status);
 

@@ -18,7 +18,7 @@
 
 use frame_system::unique;
 use parity_scale_codec::Encode;
-use sp_std::{marker::PhantomData, result::Result};
+use sp_std::{marker::PhantomData, result::Result, vec::Vec};
 use xcm::prelude::*;
 use xcm_executor::{traits::FeeReason, FeesMode};
 
@@ -58,6 +58,11 @@ impl<Inner: SendXcm> SendXcm for WithUniqueTopic<Inner> {
 		let (ticket, unique_id) = ticket;
 		Inner::deliver(ticket)?;
 		Ok(unique_id)
+	}
+}
+impl<Inner: InspectMessageQueues> InspectMessageQueues for WithUniqueTopic<Inner> {
+	fn get_messages() -> Vec<(VersionedLocation, Vec<VersionedXcm<()>>)> {
+		Inner::get_messages()
 	}
 }
 
@@ -137,5 +142,59 @@ impl EnsureDelivery for Tuple {
 		)* );
 		// doing nothing
 		(None, None)
+	}
+}
+
+/// Inspects messages in queues.
+/// Meant to be used in runtime APIs, not in runtimes.
+pub trait InspectMessageQueues {
+	/// Get queued messages and their destinations.
+	fn get_messages() -> Vec<(VersionedLocation, Vec<VersionedXcm<()>>)>;
+}
+
+#[impl_trait_for_tuples::impl_for_tuples(30)]
+impl InspectMessageQueues for Tuple {
+	fn get_messages() -> Vec<(VersionedLocation, Vec<VersionedXcm<()>>)> {
+		let mut messages = Vec::new();
+
+		for_tuples!( #(
+			messages.append(&mut Tuple::get_messages());
+		)* );
+
+		messages
+	}
+}
+
+/// A wrapper router that attempts to *encode* and *decode* passed XCM `message` to ensure that the
+/// receiving side will be able to decode, at least with the same XCM version.
+///
+/// This is designed to be at the top-level of any routers which do the real delivery. While other
+/// routers can manipulate the `message`, we cannot access the final XCM due to the generic
+/// `Inner::Ticket`. Therefore, this router aims to validate at least the passed `message`.
+///
+/// NOTE: For use in mock runtimes which don't have the DMP/UMP/HRMP XCM validations.
+pub struct EnsureDecodableXcm<Inner>(sp_std::marker::PhantomData<Inner>);
+impl<Inner: SendXcm> SendXcm for EnsureDecodableXcm<Inner> {
+	type Ticket = Inner::Ticket;
+
+	fn validate(
+		destination: &mut Option<Location>,
+		message: &mut Option<Xcm<()>>,
+	) -> SendResult<Self::Ticket> {
+		if let Some(msg) = message {
+			let versioned_xcm = VersionedXcm::<()>::from(msg.clone());
+			if versioned_xcm.validate_xcm_nesting().is_err() {
+				log::error!(
+					target: "xcm::validate_xcm_nesting",
+					"EnsureDecodableXcm validate_xcm_nesting error for \nversioned_xcm: {versioned_xcm:?}\nbased on xcm: {msg:?}"
+				);
+				return Err(SendError::Transport("EnsureDecodableXcm validate_xcm_nesting error"))
+			}
+		}
+		Inner::validate(destination, message)
+	}
+
+	fn deliver(ticket: Self::Ticket) -> Result<XcmHash, SendError> {
+		Inner::deliver(ticket)
 	}
 }

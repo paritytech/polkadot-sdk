@@ -11,6 +11,7 @@ workspace = true
 
 [dependencies]
 derive_more = "0.99.17"
+fatality = "0.1.1"
 futures = "0.3.30"
 polkadot-primitives = { path = "../../primitives" }
 polkadot-node-primitives = { path = "../primitives" }
@@ -19,6 +20,7 @@ polkadot-statement-table = { path = "../../statement-table" }
 polkadot-node-jaeger = { path = "../jaeger" }
 orchestra = { version = "0.3.5", default-features = false, features = ["futures_channel"] }
 sc-network = { path = "../../../substrate/client/network" }
+sc-network-types = { path = "../../../substrate/client/network/types" }
 sp-api = { path = "../../../substrate/primitives/api" }
 sp-blockchain = { path = "../../../substrate/primitives/blockchain" }
 sp-consensus-babe = { path = "../../../substrate/primitives/consensus/babe" }

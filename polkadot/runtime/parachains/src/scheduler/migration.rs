@@ -172,7 +172,7 @@ mod v1 {
 			v0::ParathreadQueue::<T>::kill();
 			v0::ParathreadClaimIndex::<T>::kill();
 
-			let now = <frame_system::Pallet<T>>::block_number();
+			let now = frame_system::Pallet::<T>::block_number();
 			let scheduled = v0::Scheduled::<T>::take();
 			let sched_len = scheduled.len() as u64;
 			for core_assignment in scheduled {
@@ -182,7 +182,7 @@ mod v1 {
 				v1::add_to_claimqueue::<T>(core_idx, pe);
 			}
 
-			let parachains = paras::Pallet::<T>::parachains();
+			let parachains = paras::Parachains::<T>::get();
 			let availability_cores = v0::AvailabilityCores::<T>::take();
 			let mut new_availability_cores = Vec::new();
 

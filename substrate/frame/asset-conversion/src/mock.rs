@@ -137,8 +137,11 @@ ord_parameter_types! {
 }
 
 pub type NativeAndAssets = UnionOf<Balances, Assets, NativeFromLeft, NativeOrWithId<u32>, u128>;
-pub type AscendingLocator = Ascending<u128, NativeOrWithId<u32>>;
-pub type WithFirstAssetLocator = WithFirstAsset<Native, u128, NativeOrWithId<u32>>;
+pub type PoolIdToAccountId =
+	AccountIdConverter<AssetConversionPalletId, (NativeOrWithId<u32>, NativeOrWithId<u32>)>;
+pub type AscendingLocator = Ascending<u128, NativeOrWithId<u32>, PoolIdToAccountId>;
+pub type WithFirstAssetLocator =
+	WithFirstAsset<Native, u128, NativeOrWithId<u32>, PoolIdToAccountId>;
 
 impl Config for Test {
 	type RuntimeEvent = RuntimeEvent;

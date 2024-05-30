@@ -1103,11 +1103,7 @@ mod benchmarks {
 mod mock {
 	use super::*;
 	use crate as pallet_state_trie_migration;
-	use frame_support::{
-		derive_impl, parameter_types,
-		traits::{ConstU32, Hooks},
-		weights::Weight,
-	};
+	use frame_support::{derive_impl, parameter_types, traits::Hooks, weights::Weight};
 	use frame_system::{EnsureRoot, EnsureSigned};
 	use sp_core::{
 		storage::{ChildInfo, StateVersion},
@@ -1134,7 +1130,6 @@ mod mock {
 	#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 	impl frame_system::Config for Test {
 		type Block = Block;
-		type BlockHashCount = ConstU32<250>;
 		type AccountData = pallet_balances::AccountData<u64>;
 	}
 
@@ -1698,8 +1693,10 @@ pub(crate) mod remote_tests {
 	///
 	/// This will print some very useful statistics, make sure [`crate::LOG_TARGET`] is enabled.
 	#[allow(dead_code)]
-	pub(crate) async fn run_with_limits<Runtime, Block>(limits: MigrationLimits, mode: Mode<Block>)
-	where
+	pub(crate) async fn run_with_limits<Runtime, Block>(
+		limits: MigrationLimits,
+		mode: Mode<Block::Hash>,
+	) where
 		Runtime: crate::Config<Hash = H256>,
 		Block: BlockT<Hash = H256> + DeserializeOwned,
 		Block::Header: serde::de::DeserializeOwned,

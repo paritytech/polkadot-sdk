@@ -1,0 +1,19 @@
+title: Add `Deposited`/`Withdrawn` events for `pallet-assets`
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      New events were added to `pallet-assets`: `Deposited` and `Withdrawn`. Make sure
+      to cover those events on tests if necessary.
+  - audience: Runtime User
+    description: |
+      New events were added to `pallet-assets`: `Deposited` and `Withdrawn`. These indicate
+      a change in the balance of an account.
+
+crates:
+  - name: pallet-assets
+    bump: minor
+  - name: pallet-asset-tx-payment
+    bump: minor
+  - name: pallet-asset-conversion-tx-payment
+    bump: minor

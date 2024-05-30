@@ -186,7 +186,7 @@ impl OperationState {
 	/// Stops the operation if `waitingForContinue` event was emitted for the associated
 	/// operation ID.
 	///
-	/// Returns nothing in accordance with `chainHead_unstable_stopOperation`.
+	/// Returns nothing in accordance with `chainHead_v1_stopOperation`.
 	pub fn stop_operation(&self) {
 		// `waitingForContinue` not generated.
 		if !self.shared_state.requested_continue.load(std::sync::atomic::Ordering::Acquire) {
@@ -560,6 +560,7 @@ pub struct SubscriptionsInner<Block: BlockT, BE: Backend<Block>> {
 	max_ongoing_operations: usize,
 	/// Map the subscription ID to internal details of the subscription.
 	subs: HashMap<String, SubscriptionState<Block>>,
+
 	/// Backend pinning / unpinning blocks.
 	///
 	/// The `Arc` is handled one level-above, but substrate exposes the backend as Arc<T>.
@@ -620,6 +621,15 @@ impl<Block: BlockT, BE: Backend<Block>> SubscriptionsInner<Block, BE> {
 			if !state.state_machine.was_unpinned() {
 				self.global_unregister_block(*hash);
 			}
+		}
+	}
+
+	/// All active subscriptions are removed.
+	pub fn stop_all_subscriptions(&mut self) {
+		let to_remove: Vec<_> = self.subs.keys().map(|sub_id| sub_id.clone()).collect();
+
+		for sub_id in to_remove {
+			self.remove_subscription(&sub_id);
 		}
 	}
 
@@ -854,7 +864,7 @@ mod tests {
 		Arc<Client<sc_client_api::in_mem::Backend<Block>>>,
 	) {
 		let backend = Arc::new(sc_client_api::in_mem::Backend::new());
-		let executor = substrate_test_runtime_client::new_native_or_wasm_executor();
+		let executor = substrate_test_runtime_client::WasmExecutor::default();
 		let client_config = sc_service::ClientConfig::default();
 		let genesis_block_builder = sc_service::GenesisBlockBuilder::new(
 			&substrate_test_runtime_client::GenesisParameters::default().genesis_storage(),
@@ -876,6 +886,30 @@ mod tests {
 			.unwrap(),
 		);
 		(backend, client)
+	}
+
+	fn produce_blocks(
+		mut client: Arc<Client<sc_client_api::in_mem::Backend<Block>>>,
+		num_blocks: usize,
+	) -> Vec<<Block as BlockT>::Hash> {
+		let mut blocks = Vec::with_capacity(num_blocks);
+		let mut parent_hash = client.chain_info().genesis_hash;
+
+		for i in 0..num_blocks {
+			let block = BlockBuilderBuilder::new(&*client)
+				.on_parent_block(parent_hash)
+				.with_parent_block_number(i as u64)
+				.build()
+				.unwrap()
+				.build()
+				.unwrap()
+				.block;
+			parent_hash = block.header.hash();
+			futures::executor::block_on(client.import(BlockOrigin::Own, block.clone())).unwrap();
+			blocks.push(block.header.hash());
+		}
+
+		blocks
 	}
 
 	#[test]
@@ -1003,37 +1037,10 @@ mod tests {
 
 	#[test]
 	fn unpin_duplicate_hashes() {
-		let (backend, mut client) = init_backend();
-		let block = BlockBuilderBuilder::new(&*client)
-			.on_parent_block(client.chain_info().genesis_hash)
-			.with_parent_block_number(0)
-			.build()
-			.unwrap()
-			.build()
-			.unwrap()
-			.block;
-		let hash_1 = block.header.hash();
-		futures::executor::block_on(client.import(BlockOrigin::Own, block.clone())).unwrap();
-		let block = BlockBuilderBuilder::new(&*client)
-			.on_parent_block(hash_1)
-			.with_parent_block_number(1)
-			.build()
-			.unwrap()
-			.build()
-			.unwrap()
-			.block;
-		let hash_2 = block.header.hash();
-		futures::executor::block_on(client.import(BlockOrigin::Own, block.clone())).unwrap();
-		let block = BlockBuilderBuilder::new(&*client)
-			.on_parent_block(hash_2)
-			.with_parent_block_number(2)
-			.build()
-			.unwrap()
-			.build()
-			.unwrap()
-			.block;
-		let hash_3 = block.header.hash();
-		futures::executor::block_on(client.import(BlockOrigin::Own, block.clone())).unwrap();
+		let (backend, client) = init_backend();
+
+		let hashes = produce_blocks(client, 3);
+		let (hash_1, hash_2, hash_3) = (hashes[0], hashes[1], hashes[2]);
 
 		let mut subs =
 			SubscriptionsInner::new(10, Duration::from_secs(10), MAX_OPERATIONS_PER_SUB, backend);
@@ -1102,18 +1109,10 @@ mod tests {
 
 	#[test]
 	fn subscription_check_block() {
-		let (backend, mut client) = init_backend();
+		let (backend, client) = init_backend();
 
-		let block = BlockBuilderBuilder::new(&*client)
-			.on_parent_block(client.chain_info().genesis_hash)
-			.with_parent_block_number(0)
-			.build()
-			.unwrap()
-			.build()
-			.unwrap()
-			.block;
-		let hash = block.hash();
-		futures::executor::block_on(client.import(BlockOrigin::Own, block.clone())).unwrap();
+		let hashes = produce_blocks(client, 1);
+		let hash = hashes[0];
 
 		let mut subs =
 			SubscriptionsInner::new(10, Duration::from_secs(10), MAX_OPERATIONS_PER_SUB, backend);
@@ -1140,17 +1139,10 @@ mod tests {
 
 	#[test]
 	fn subscription_ref_count() {
-		let (backend, mut client) = init_backend();
-		let block = BlockBuilderBuilder::new(&*client)
-			.on_parent_block(client.chain_info().genesis_hash)
-			.with_parent_block_number(0)
-			.build()
-			.unwrap()
-			.build()
-			.unwrap()
-			.block;
-		let hash = block.header.hash();
-		futures::executor::block_on(client.import(BlockOrigin::Own, block.clone())).unwrap();
+		let (backend, client) = init_backend();
+
+		let hashes = produce_blocks(client, 1);
+		let hash = hashes[0];
 
 		let mut subs =
 			SubscriptionsInner::new(10, Duration::from_secs(10), MAX_OPERATIONS_PER_SUB, backend);
@@ -1190,37 +1182,10 @@ mod tests {
 
 	#[test]
 	fn subscription_remove_subscription() {
-		let (backend, mut client) = init_backend();
-		let block = BlockBuilderBuilder::new(&*client)
-			.on_parent_block(client.chain_info().genesis_hash)
-			.with_parent_block_number(0)
-			.build()
-			.unwrap()
-			.build()
-			.unwrap()
-			.block;
-		let hash_1 = block.header.hash();
-		futures::executor::block_on(client.import(BlockOrigin::Own, block.clone())).unwrap();
-		let block = BlockBuilderBuilder::new(&*client)
-			.on_parent_block(hash_1)
-			.with_parent_block_number(1)
-			.build()
-			.unwrap()
-			.build()
-			.unwrap()
-			.block;
-		let hash_2 = block.header.hash();
-		futures::executor::block_on(client.import(BlockOrigin::Own, block.clone())).unwrap();
-		let block = BlockBuilderBuilder::new(&*client)
-			.on_parent_block(hash_2)
-			.with_parent_block_number(2)
-			.build()
-			.unwrap()
-			.build()
-			.unwrap()
-			.block;
-		let hash_3 = block.header.hash();
-		futures::executor::block_on(client.import(BlockOrigin::Own, block.clone())).unwrap();
+		let (backend, client) = init_backend();
+
+		let hashes = produce_blocks(client, 3);
+		let (hash_1, hash_2, hash_3) = (hashes[0], hashes[1], hashes[2]);
 
 		let mut subs =
 			SubscriptionsInner::new(10, Duration::from_secs(10), MAX_OPERATIONS_PER_SUB, backend);
@@ -1256,37 +1221,10 @@ mod tests {
 
 	#[test]
 	fn subscription_check_limits() {
-		let (backend, mut client) = init_backend();
-		let block = BlockBuilderBuilder::new(&*client)
-			.on_parent_block(client.chain_info().genesis_hash)
-			.with_parent_block_number(0)
-			.build()
-			.unwrap()
-			.build()
-			.unwrap()
-			.block;
-		let hash_1 = block.header.hash();
-		futures::executor::block_on(client.import(BlockOrigin::Own, block.clone())).unwrap();
-		let block = BlockBuilderBuilder::new(&*client)
-			.on_parent_block(hash_1)
-			.with_parent_block_number(1)
-			.build()
-			.unwrap()
-			.build()
-			.unwrap()
-			.block;
-		let hash_2 = block.header.hash();
-		futures::executor::block_on(client.import(BlockOrigin::Own, block.clone())).unwrap();
-		let block = BlockBuilderBuilder::new(&*client)
-			.on_parent_block(hash_2)
-			.with_parent_block_number(2)
-			.build()
-			.unwrap()
-			.build()
-			.unwrap()
-			.block;
-		let hash_3 = block.header.hash();
-		futures::executor::block_on(client.import(BlockOrigin::Own, block.clone())).unwrap();
+		let (backend, client) = init_backend();
+
+		let hashes = produce_blocks(client, 3);
+		let (hash_1, hash_2, hash_3) = (hashes[0], hashes[1], hashes[2]);
 
 		// Maximum number of pinned blocks is 2.
 		let mut subs =
@@ -1328,37 +1266,10 @@ mod tests {
 
 	#[test]
 	fn subscription_check_limits_with_duration() {
-		let (backend, mut client) = init_backend();
-		let block = BlockBuilderBuilder::new(&*client)
-			.on_parent_block(client.chain_info().genesis_hash)
-			.with_parent_block_number(0)
-			.build()
-			.unwrap()
-			.build()
-			.unwrap()
-			.block;
-		let hash_1 = block.hash();
-		futures::executor::block_on(client.import(BlockOrigin::Own, block.clone())).unwrap();
-		let block = BlockBuilderBuilder::new(&*client)
-			.on_parent_block(hash_1)
-			.with_parent_block_number(1)
-			.build()
-			.unwrap()
-			.build()
-			.unwrap()
-			.block;
-		let hash_2 = block.header.hash();
-		futures::executor::block_on(client.import(BlockOrigin::Own, block.clone())).unwrap();
-		let block = BlockBuilderBuilder::new(&*client)
-			.on_parent_block(hash_2)
-			.with_parent_block_number(2)
-			.build()
-			.unwrap()
-			.build()
-			.unwrap()
-			.block;
-		let hash_3 = block.header.hash();
-		futures::executor::block_on(client.import(BlockOrigin::Own, block.clone())).unwrap();
+		let (backend, client) = init_backend();
+
+		let hashes = produce_blocks(client, 3);
+		let (hash_1, hash_2, hash_3) = (hashes[0], hashes[1], hashes[2]);
 
 		// Maximum number of pinned blocks is 2 and maximum pin duration is 5 second.
 		let mut subs =
@@ -1454,6 +1365,39 @@ mod tests {
 		// Can reserve again
 		let permit_three = ops.reserve_at_most(1).unwrap();
 		assert_eq!(permit_three.num_ops, 1);
+	}
+
+	#[test]
+	fn stop_all_subscriptions() {
+		let (backend, client) = init_backend();
+
+		let hashes = produce_blocks(client, 3);
+		let (hash_1, hash_2, hash_3) = (hashes[0], hashes[1], hashes[2]);
+
+		let mut subs =
+			SubscriptionsInner::new(10, Duration::from_secs(10), MAX_OPERATIONS_PER_SUB, backend);
+		let id_1 = "abc".to_string();
+		let id_2 = "abcd".to_string();
+
+		// Pin all blocks for the first subscription.
+		let _stop = subs.insert_subscription(id_1.clone(), true).unwrap();
+		assert_eq!(subs.pin_block(&id_1, hash_1).unwrap(), true);
+		assert_eq!(subs.pin_block(&id_1, hash_2).unwrap(), true);
+		assert_eq!(subs.pin_block(&id_1, hash_3).unwrap(), true);
+
+		// Pin only block 2 for the second subscription.
+		let _stop = subs.insert_subscription(id_2.clone(), true).unwrap();
+		assert_eq!(subs.pin_block(&id_2, hash_2).unwrap(), true);
+
+		// Check reference count.
+		assert_eq!(*subs.global_blocks.get(&hash_1).unwrap(), 1);
+		assert_eq!(*subs.global_blocks.get(&hash_2).unwrap(), 2);
+		assert_eq!(*subs.global_blocks.get(&hash_3).unwrap(), 1);
+		assert_eq!(subs.global_blocks.len(), 3);
+
+		// Stop all active subscriptions.
+		subs.stop_all_subscriptions();
+		assert!(subs.global_blocks.is_empty());
 	}
 
 	#[test]

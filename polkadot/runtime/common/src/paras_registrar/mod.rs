@@ -412,7 +412,7 @@ pub mod pallet {
 		/// validators have reported on the validity of the code, the code will either be enacted
 		/// or the upgrade will be rejected. If the code will be enacted, the current code of the
 		/// parachain will be overwritten directly. This means that any PoV will be checked by this
-		/// new code. The parachain itself will not be informed explictely that the validation code
+		/// new code. The parachain itself will not be informed explicitly that the validation code
 		/// has changed.
 		///
 		/// Can be called by Root, the parachain, or the parachain manager if the parachain is
@@ -462,7 +462,7 @@ impl<T: Config> Registrar for Pallet<T> {
 	// All lease holding parachains. Ordered ascending by ParaId. On-demand parachains are not
 	// included.
 	fn parachains() -> Vec<ParaId> {
-		paras::Pallet::<T>::parachains()
+		paras::Parachains::<T>::get()
 	}
 
 	// Return if a para is a parathread (on-demand parachain)
@@ -530,14 +530,14 @@ impl<T: Config> Registrar for Pallet<T> {
 
 	#[cfg(any(feature = "runtime-benchmarks", test))]
 	fn worst_head_data() -> HeadData {
-		let max_head_size = configuration::Pallet::<T>::config().max_head_data_size;
+		let max_head_size = configuration::ActiveConfig::<T>::get().max_head_data_size;
 		assert!(max_head_size > 0, "max_head_data can't be zero for generating worst head data.");
 		vec![0u8; max_head_size as usize].into()
 	}
 
 	#[cfg(any(feature = "runtime-benchmarks", test))]
 	fn worst_validation_code() -> ValidationCode {
-		let max_code_size = configuration::Pallet::<T>::config().max_code_size;
+		let max_code_size = configuration::ActiveConfig::<T>::get().max_code_size;
 		assert!(max_code_size > 0, "max_code_size can't be zero for generating worst code data.");
 		let validation_code = vec![0u8; max_code_size as usize];
 		validation_code.into()
@@ -667,7 +667,7 @@ impl<T: Config> Pallet<T> {
 		validation_code: ValidationCode,
 		para_kind: ParaKind,
 	) -> Result<(ParaGenesisArgs, BalanceOf<T>), sp_runtime::DispatchError> {
-		let config = configuration::Pallet::<T>::config();
+		let config = configuration::ActiveConfig::<T>::get();
 		ensure!(validation_code.0.len() >= MIN_CODE_SIZE as usize, Error::<T>::InvalidCode);
 		ensure!(validation_code.0.len() <= config.max_code_size as usize, Error::<T>::CodeTooLarge);
 		ensure!(
@@ -761,7 +761,6 @@ mod tests {
 
 	const NORMAL_RATIO: Perbill = Perbill::from_percent(75);
 	parameter_types! {
-		pub const BlockHashCount: u32 = 250;
 		pub BlockWeights: limits::BlockWeights =
 			frame_system::limits::BlockWeights::simple_max(Weight::from_parts(1024, u64::MAX));
 		pub BlockLength: limits::BlockLength =
@@ -780,7 +779,6 @@ mod tests {
 		type Lookup = IdentityLookup<u64>;
 		type Block = Block;
 		type RuntimeEvent = RuntimeEvent;
-		type BlockHashCount = BlockHashCount;
 		type DbWeight = ();
 		type BlockWeights = BlockWeights;
 		type BlockLength = BlockLength;
@@ -915,7 +913,7 @@ mod tests {
 			}
 			// Session change every 3 blocks.
 			if (b + 1) % BLOCKS_PER_SESSION == 0 {
-				let session_index = shared::Pallet::<Test>::session_index() + 1;
+				let session_index = shared::CurrentSessionIndex::<Test>::get() + 1;
 				let validators_pub_keys = VALIDATORS.iter().map(|v| v.public().into()).collect();
 
 				shared::Pallet::<Test>::set_session_index(session_index);
@@ -947,11 +945,11 @@ mod tests {
 	}
 
 	fn max_code_size() -> u32 {
-		Configuration::config().max_code_size
+		configuration::ActiveConfig::<Test>::get().max_code_size
 	}
 
 	fn max_head_size() -> u32 {
-		Configuration::config().max_head_data_size
+		configuration::ActiveConfig::<Test>::get().max_head_data_size
 	}
 
 	#[test]

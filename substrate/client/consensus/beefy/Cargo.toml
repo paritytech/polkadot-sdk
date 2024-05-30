@@ -12,10 +12,10 @@ homepage = "https://substrate.io"
 workspace = true
 
 [dependencies]
-array-bytes = "6.1"
+array-bytes = "6.2.2"
 async-channel = "1.8.0"
 async-trait = "0.1.79"
-codec = { package = "parity-scale-codec", version = "3.6.1", features = ["derive"] }
+codec = { package = "parity-scale-codec", version = "3.6.12", features = ["derive"] }
 fnv = "1.0.6"
 futures = "0.3.30"
 log = { workspace = true, default-features = true }
@@ -28,6 +28,7 @@ sc-consensus = { path = "../common" }
 sc-network = { path = "../../network" }
 sc-network-gossip = { path = "../../network-gossip" }
 sc-network-sync = { path = "../../network/sync" }
+sc-network-types = { path = "../../network/types" }
 sc-utils = { path = "../../utils" }
 sp-api = { path = "../../../primitives/api" }
 sp-application-crypto = { path = "../../../primitives/application-crypto" }
@@ -38,7 +39,6 @@ sp-consensus-beefy = { path = "../../../primitives/consensus/beefy" }
 sp-core = { path = "../../../primitives/core" }
 sp-crypto-hashing = { path = "../../../primitives/crypto/hashing" }
 sp-keystore = { path = "../../../primitives/keystore" }
-sp-mmr-primitives = { path = "../../../primitives/merkle-mountain-range" }
 sp-runtime = { path = "../../../primitives/runtime" }
 tokio = "1.37"
 
@@ -50,6 +50,7 @@ sc-block-builder = { path = "../../block-builder" }
 sc-network-test = { path = "../../network/test" }
 sp-consensus-grandpa = { path = "../../../primitives/consensus/grandpa" }
 sp-keyring = { path = "../../../primitives/keyring" }
+sp-mmr-primitives = { path = "../../../primitives/merkle-mountain-range" }
 sp-tracing = { path = "../../../primitives/tracing" }
 substrate-test-runtime-client = { path = "../../../test-utils/runtime/client" }
 

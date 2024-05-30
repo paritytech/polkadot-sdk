@@ -62,6 +62,9 @@ pub struct ChainHeadConfig {
 	pub subscription_max_pinned_duration: Duration,
 	/// The maximum number of ongoing operations per subscription.
 	pub subscription_max_ongoing_operations: usize,
+	/// Stop all subscriptions if the distance between the leaves and the current finalized
+	/// block is larger than this value.
+	pub max_lagging_distance: usize,
 	/// The maximum number of items reported by the `chainHead_storage` before
 	/// pagination is required.
 	pub operation_max_storage_items: usize,
@@ -72,7 +75,7 @@ pub struct ChainHeadConfig {
 /// Maximum pinned blocks across all connections.
 /// This number is large enough to consider immediate blocks.
 /// Note: This should never exceed the `PINNING_CACHE_SIZE` from client/db.
-const MAX_PINNED_BLOCKS: usize = 512;
+pub(crate) const MAX_PINNED_BLOCKS: usize = 512;
 
 /// Any block of any subscription should not be pinned more than
 /// this constant. When a subscription contains a block older than this,
@@ -88,6 +91,10 @@ const MAX_ONGOING_OPERATIONS: usize = 16;
 /// before paginations is required.
 const MAX_STORAGE_ITER_ITEMS: usize = 5;
 
+/// Stop all subscriptions if the distance between the leaves and the current finalized
+/// block is larger than this value.
+const MAX_LAGGING_DISTANCE: usize = 128;
+
 /// The maximum number of `chainHead_follow` subscriptions per connection.
 const MAX_FOLLOW_SUBSCRIPTIONS_PER_CONNECTION: usize = 4;
 
@@ -97,6 +104,7 @@ impl Default for ChainHeadConfig {
 			global_max_pinned_blocks: MAX_PINNED_BLOCKS,
 			subscription_max_pinned_duration: MAX_PINNED_DURATION,
 			subscription_max_ongoing_operations: MAX_ONGOING_OPERATIONS,
+			max_lagging_distance: MAX_LAGGING_DISTANCE,
 			operation_max_storage_items: MAX_STORAGE_ITER_ITEMS,
 			max_follow_subscriptions_per_connection: MAX_FOLLOW_SUBSCRIPTIONS_PER_CONNECTION,
 		}
@@ -116,6 +124,9 @@ pub struct ChainHead<BE: Backend<Block>, Block: BlockT, Client> {
 	/// The maximum number of items reported by the `chainHead_storage` before
 	/// pagination is required.
 	operation_max_storage_items: usize,
+	/// Stop all subscriptions if the distance between the leaves and the current finalized
+	/// block is larger than this value.
+	max_lagging_distance: usize,
 	/// Phantom member to pin the block type.
 	_phantom: PhantomData<Block>,
 }
@@ -140,6 +151,7 @@ impl<BE: Backend<Block>, Block: BlockT, Client> ChainHead<BE, Block, Client> {
 				backend,
 			),
 			operation_max_storage_items: config.operation_max_storage_items,
+			max_lagging_distance: config.max_lagging_distance,
 			_phantom: PhantomData,
 		}
 	}
@@ -187,6 +199,7 @@ where
 		let subscriptions = self.subscriptions.clone();
 		let backend = self.backend.clone();
 		let client = self.client.clone();
+		let max_lagging_distance = self.max_lagging_distance;
 
 		let fut = async move {
 			// Ensure the current connection ID has enough space to accept a new subscription.
@@ -207,8 +220,8 @@ where
 			let Some(sub_data) =
 				reserved_subscription.insert_subscription(sub_id.clone(), with_runtime)
 			else {
-				// Inserting the subscription can only fail if the JsonRPSee
-				// generated a duplicate subscription ID.
+				// Inserting the subscription can only fail if the JsonRPSee generated a duplicate
+				// subscription ID.
 				debug!(target: LOG_TARGET, "[follow][id={:?}] Subscription already accepted", sub_id);
 				let msg = to_sub_message(&sink, &FollowEvent::<String>::Stop);
 				let _ = sink.send(msg).await;
@@ -222,9 +235,13 @@ where
 				subscriptions,
 				with_runtime,
 				sub_id.clone(),
+				max_lagging_distance,
 			);
-
-			chain_head_follow.generate_events(sink, sub_data).await;
+			let result = chain_head_follow.generate_events(sink, sub_data).await;
+			if let Err(SubscriptionManagementError::BlockDistanceTooLarge) = result {
+				debug!(target: LOG_TARGET, "[follow][id={:?}] All subscriptions are stopped", sub_id);
+				reserved_subscription.stop_all_subscriptions();
+			}
 
 			debug!(target: LOG_TARGET, "[follow][id={:?}] Subscription removed", sub_id);
 		};

@@ -20,13 +20,15 @@
 //! runtime to the core mixnet state. It is called every time a block is finalised.
 
 use super::peer_id::from_core_peer_id;
-use libp2p_identity::PeerId;
 use log::{debug, info};
 use mixnet::core::{
 	Mixnet, Mixnode as CoreMixnode, MixnodesErr as CoreMixnodesErr, RelSessionIndex,
 	SessionPhase as CoreSessionPhase, SessionStatus as CoreSessionStatus,
 };
-use multiaddr::{Multiaddr, Protocol};
+use sc_network_types::{
+	multiaddr::{multiaddr, Multiaddr, Protocol},
+	PeerId,
+};
 use sp_api::{ApiError, ApiRef};
 use sp_mixnet::{
 	runtime_api::MixnetApi,
@@ -191,7 +193,6 @@ where
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use multiaddr::multiaddr;
 
 	#[test]
 	fn fixup_empty_external_addresses() {

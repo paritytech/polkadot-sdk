@@ -1,13 +1,13 @@
 [package]
 name = "bridge-hub-common"
-version = "0.0.0"
+version = "0.1.0"
 authors.workspace = true
 edition.workspace = true
 description = "Bridge hub common utilities"
 license = "Apache-2.0"
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
+codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false, features = ["derive"] }
 scale-info = { version = "2.11.1", default-features = false, features = ["derive"] }
 frame-support = { path = "../../../../../substrate/frame/support", default-features = false }
 sp-std = { path = "../../../../../substrate/primitives/std", default-features = false }

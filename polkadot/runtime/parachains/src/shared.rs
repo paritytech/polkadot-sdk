@@ -138,25 +138,20 @@ pub mod pallet {
 
 	/// The current session index.
 	#[pallet::storage]
-	#[pallet::getter(fn session_index)]
-	pub(super) type CurrentSessionIndex<T: Config> = StorageValue<_, SessionIndex, ValueQuery>;
+	pub type CurrentSessionIndex<T: Config> = StorageValue<_, SessionIndex, ValueQuery>;
 
 	/// All the validators actively participating in parachain consensus.
 	/// Indices are into the broader validator set.
 	#[pallet::storage]
-	#[pallet::getter(fn active_validator_indices)]
-	pub(super) type ActiveValidatorIndices<T: Config> =
-		StorageValue<_, Vec<ValidatorIndex>, ValueQuery>;
+	pub type ActiveValidatorIndices<T: Config> = StorageValue<_, Vec<ValidatorIndex>, ValueQuery>;
 
 	/// The parachain attestation keys of the validators actively participating in parachain
 	/// consensus. This should be the same length as `ActiveValidatorIndices`.
 	#[pallet::storage]
-	#[pallet::getter(fn active_validator_keys)]
-	pub(super) type ActiveValidatorKeys<T: Config> = StorageValue<_, Vec<ValidatorId>, ValueQuery>;
+	pub type ActiveValidatorKeys<T: Config> = StorageValue<_, Vec<ValidatorId>, ValueQuery>;
 
 	/// All allowed relay-parents.
 	#[pallet::storage]
-	#[pallet::getter(fn allowed_relay_parents)]
 	pub(crate) type AllowedRelayParents<T: Config> =
 		StorageValue<_, AllowedRelayParentsTracker<T::Hash, BlockNumberFor<T>>, ValueQuery>;
 
@@ -218,13 +213,13 @@ impl<T: Config> Pallet<T> {
 
 	/// Return the session index that should be used for any future scheduled changes.
 	pub fn scheduled_session() -> SessionIndex {
-		Self::session_index().saturating_add(SESSION_DELAY)
+		CurrentSessionIndex::<T>::get().saturating_add(SESSION_DELAY)
 	}
 
 	/// Fetches disabled validators list from session pallet.
 	/// CAVEAT: this might produce incorrect results on session boundaries
 	pub fn disabled_validators() -> Vec<ValidatorIndex> {
-		let shuffled_indices = Pallet::<T>::active_validator_indices();
+		let shuffled_indices = ActiveValidatorIndices::<T>::get();
 		// mapping from raw validator index to `ValidatorIndex`
 		// this computation is the same within a session, but should be cheap
 		let reverse_index = shuffled_indices

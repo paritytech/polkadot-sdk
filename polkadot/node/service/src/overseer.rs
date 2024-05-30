@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use super::{Block, Error, Hash, IsParachainNode, Registry};
+use super::{Error, IsParachainNode, Registry};
 use polkadot_node_subsystem_types::{ChainApiBackend, RuntimeApiSubsystemClient};
 use polkadot_overseer::{DummySubsystem, InitializedOverseerBuilder, SubsystemError};
 use sp_core::traits::SpawnNamed;
@@ -80,7 +80,7 @@ where
 	/// Runtime client generic, providing the `ProvideRuntimeApi` trait besides others.
 	pub runtime_client: Arc<RuntimeClient>,
 	/// Underlying network service implementation.
-	pub network_service: Arc<sc_network::NetworkService<Block, Hash>>,
+	pub network_service: Arc<dyn sc_network::service::traits::NetworkService>,
 	/// Underlying syncing service implementation.
 	pub sync_service: Arc<dyn consensus_common::SyncOracle + Send + Sync>,
 	/// Underlying authority discovery service.
@@ -119,8 +119,10 @@ pub struct ExtendedOverseerGenArgs {
 	pub availability_config: AvailabilityConfig,
 	/// POV request receiver.
 	pub pov_req_receiver: IncomingRequestReceiver<request_v1::PoVFetchingRequest>,
-	/// Erasure chunks request receiver.
-	pub chunk_req_receiver: IncomingRequestReceiver<request_v1::ChunkFetchingRequest>,
+	/// Erasure chunk request v1 receiver.
+	pub chunk_req_v1_receiver: IncomingRequestReceiver<request_v1::ChunkFetchingRequest>,
+	/// Erasure chunk request v2 receiver.
+	pub chunk_req_v2_receiver: IncomingRequestReceiver<request_v2::ChunkFetchingRequest>,
 	/// Receiver for incoming large statement requests.
 	pub statement_req_receiver: IncomingRequestReceiver<request_v1::StatementFetchingRequest>,
 	/// Receiver for incoming candidate requests.
@@ -133,6 +135,10 @@ pub struct ExtendedOverseerGenArgs {
 	pub dispute_coordinator_config: DisputeCoordinatorConfig,
 	/// Configuration for the chain selection subsystem.
 	pub chain_selection_config: ChainSelectionConfig,
+	/// Optional availability recovery fetch chunks threshold. If PoV size size is lower
+	/// than the value put in here we always try to recovery availability from backers.
+	/// The presence of this parameter here is needed to have different values per chain.
+	pub fetch_chunks_threshold: Option<usize>,
 }
 
 /// Obtain a prepared validator `Overseer`, that is initialized with all default values.
@@ -159,13 +165,15 @@ pub fn validator_overseer_builder<Spawner, RuntimeClient>(
 		candidate_validation_config,
 		availability_config,
 		pov_req_receiver,
-		chunk_req_receiver,
+		chunk_req_v1_receiver,
+		chunk_req_v2_receiver,
 		statement_req_receiver,
 		candidate_req_v2_receiver,
 		approval_voting_config,
 		dispute_req_receiver,
 		dispute_coordinator_config,
 		chain_selection_config,
+		fetch_chunks_threshold,
 	}: ExtendedOverseerGenArgs,
 ) -> Result<
 	InitializedOverseerBuilder<
@@ -183,11 +191,11 @@ pub fn validator_overseer_builder<Spawner, RuntimeClient>(
 		RuntimeApiSubsystem<RuntimeClient>,
 		AvailabilityStoreSubsystem,
 		NetworkBridgeRxSubsystem<
-			Arc<sc_network::NetworkService<Block, Hash>>,
+			Arc<dyn sc_network::service::traits::NetworkService>,
 			AuthorityDiscoveryService,
 		>,
 		NetworkBridgeTxSubsystem<
-			Arc<sc_network::NetworkService<Block, Hash>>,
+			Arc<dyn sc_network::service::traits::NetworkService>,
 			AuthorityDiscoveryService,
 		>,
 		ChainApiSubsystem<RuntimeClient>,
@@ -221,7 +229,7 @@ where
 			network_service.clone(),
 			authority_discovery_service.clone(),
 			network_bridge_metrics.clone(),
-			req_protocol_names,
+			req_protocol_names.clone(),
 			peerset_protocol_names.clone(),
 			notification_sinks.clone(),
 		))
@@ -236,11 +244,18 @@ where
 		))
 		.availability_distribution(AvailabilityDistributionSubsystem::new(
 			keystore.clone(),
-			IncomingRequestReceivers { pov_req_receiver, chunk_req_receiver },
+			IncomingRequestReceivers {
+				pov_req_receiver,
+				chunk_req_v1_receiver,
+				chunk_req_v2_receiver,
+			},
+			req_protocol_names.clone(),
 			Metrics::register(registry)?,
 		))
-		.availability_recovery(AvailabilityRecoverySubsystem::with_chunks_if_pov_large(
+		.availability_recovery(AvailabilityRecoverySubsystem::for_validator(
+			fetch_chunks_threshold,
 			available_data_req_receiver,
+			&req_protocol_names,
 			Metrics::register(registry)?,
 		))
 		.availability_store(AvailabilityStoreSubsystem::new(
@@ -369,11 +384,11 @@ pub fn collator_overseer_builder<Spawner, RuntimeClient>(
 		RuntimeApiSubsystem<RuntimeClient>,
 		DummySubsystem,
 		NetworkBridgeRxSubsystem<
-			Arc<sc_network::NetworkService<Block, Hash>>,
+			Arc<dyn sc_network::service::traits::NetworkService>,
 			AuthorityDiscoveryService,
 		>,
 		NetworkBridgeTxSubsystem<
-			Arc<sc_network::NetworkService<Block, Hash>>,
+			Arc<dyn sc_network::service::traits::NetworkService>,
 			AuthorityDiscoveryService,
 		>,
 		ChainApiSubsystem<RuntimeClient>,
@@ -385,7 +400,7 @@ pub fn collator_overseer_builder<Spawner, RuntimeClient>(
 		DummySubsystem,
 		DummySubsystem,
 		DummySubsystem,
-		ProspectiveParachainsSubsystem,
+		DummySubsystem,
 	>,
 	Error,
 >
@@ -406,7 +421,7 @@ where
 			network_service.clone(),
 			authority_discovery_service.clone(),
 			network_bridge_metrics.clone(),
-			req_protocol_names,
+			req_protocol_names.clone(),
 			peerset_protocol_names.clone(),
 			notification_sinks.clone(),
 		))
@@ -421,7 +436,9 @@ where
 		))
 		.availability_distribution(DummySubsystem)
 		.availability_recovery(AvailabilityRecoverySubsystem::for_collator(
+			None,
 			available_data_req_receiver,
+			&req_protocol_names,
 			Metrics::register(registry)?,
 		))
 		.availability_store(DummySubsystem)
@@ -462,7 +479,7 @@ where
 		.dispute_coordinator(DummySubsystem)
 		.dispute_distribution(DummySubsystem)
 		.chain_selection(DummySubsystem)
-		.prospective_parachains(ProspectiveParachainsSubsystem::new(Metrics::register(registry)?))
+		.prospective_parachains(DummySubsystem)
 		.activation_external_listeners(Default::default())
 		.span_per_active_leaf(Default::default())
 		.active_leaves(Default::default())

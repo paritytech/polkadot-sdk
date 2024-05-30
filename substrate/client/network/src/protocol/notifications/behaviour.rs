@@ -19,10 +19,13 @@
 use crate::{
 	protocol::notifications::{
 		handler::{self, NotificationsSink, NotifsHandler, NotifsHandlerIn, NotifsHandlerOut},
-		service::{metrics, NotificationCommand, ProtocolHandle, ValidationCallResult},
+		service::{NotificationCommand, ProtocolHandle, ValidationCallResult},
 	},
 	protocol_controller::{self, IncomingIndex, Message, SetId},
-	service::traits::{Direction, ValidationResult},
+	service::{
+		metrics::NotificationMetrics,
+		traits::{Direction, ValidationResult},
+	},
 	types::ProtocolName,
 };
 
@@ -167,7 +170,7 @@ pub struct Notifications {
 	pending_inbound_validations: FuturesUnordered<PendingInboundValidation>,
 
 	/// Metrics for notifications.
-	metrics: Option<metrics::Metrics>,
+	metrics: NotificationMetrics,
 }
 
 /// Configuration for a notifications protocol.
@@ -404,7 +407,7 @@ impl Notifications {
 	pub(crate) fn new(
 		protocol_controller_handles: Vec<protocol_controller::ProtocolHandle>,
 		from_protocol_controllers: TracingUnboundedReceiver<Message>,
-		metrics: Option<metrics::Metrics>,
+		metrics: NotificationMetrics,
 		notif_protocols: impl Iterator<
 			Item = (
 				ProtocolConfig,
@@ -1230,7 +1233,7 @@ impl NetworkBehaviour for Notifications {
 				send_back_addr: remote_addr.clone(),
 			},
 			self.notif_protocols.clone(),
-			self.metrics.clone(),
+			Some(self.metrics.clone()),
 		))
 	}
 
@@ -1245,7 +1248,7 @@ impl NetworkBehaviour for Notifications {
 			peer,
 			ConnectedPoint::Dialer { address: addr.clone(), role_override },
 			self.notif_protocols.clone(),
-			self.metrics.clone(),
+			Some(self.metrics.clone()),
 		))
 	}
 
@@ -2425,7 +2428,7 @@ mod tests {
 				reserved_only: false,
 			},
 			to_notifications,
-			Box::new(MockPeerStore {}),
+			Arc::new(MockPeerStore {}),
 		);
 
 		let (notif_handle, command_stream) = protocol_handle_pair.split();
@@ -2433,7 +2436,7 @@ mod tests {
 			Notifications::new(
 				vec![handle],
 				from_controller,
-				None,
+				NotificationMetrics::new(None),
 				iter::once((
 					ProtocolConfig {
 						name: "/foo".into(),

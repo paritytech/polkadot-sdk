@@ -34,9 +34,7 @@ use futures::{channel::mpsc, future, stream::Fuse, FutureExt, Stream, StreamExt}
 use addr_cache::AddrCache;
 use codec::{Decode, Encode};
 use ip_network::IpNetwork;
-use libp2p::{core::multiaddr, identity::PublicKey, Multiaddr};
 use linked_hash_set::LinkedHashSet;
-use multihash_codetable::{Code, MultihashDigest};
 
 use log::{debug, error, log_enabled};
 use prometheus_endpoint::{register, Counter, CounterVec, Gauge, Opts, U64};
@@ -44,7 +42,12 @@ use prost::Message;
 use rand::{seq::SliceRandom, thread_rng};
 
 use sc_network::{
-	event::DhtEvent, KademliaKey, NetworkDHTProvider, NetworkSigner, NetworkStateInfo, Signature,
+	event::DhtEvent, multiaddr, KademliaKey, Multiaddr, NetworkDHTProvider, NetworkSigner,
+	NetworkStateInfo,
+};
+use sc_network_types::{
+	multihash::{Code, Multihash},
+	PeerId,
 };
 use sp_api::{ApiError, ProvideRuntimeApi};
 use sp_authority_discovery::{
@@ -108,13 +111,13 @@ pub enum Role {
 ///    network peerset.
 ///
 ///    5. Allow querying of the collected addresses via the [`crate::Service`].
-pub struct Worker<Client, Network, Block, DhtEventStream> {
+pub struct Worker<Client, Block, DhtEventStream> {
 	/// Channel receiver for messages send by a [`crate::Service`].
 	from_service: Fuse<mpsc::Receiver<ServicetoWorkerMsg>>,
 
 	client: Arc<Client>,
 
-	network: Arc<Network>,
+	network: Arc<dyn NetworkProvider>,
 
 	/// Channel we receive Dht events on.
 	dht_event_rx: DhtEventStream,
@@ -192,10 +195,9 @@ where
 	}
 }
 
-impl<Client, Network, Block, DhtEventStream> Worker<Client, Network, Block, DhtEventStream>
+impl<Client, Block, DhtEventStream> Worker<Client, Block, DhtEventStream>
 where
 	Block: BlockT + Unpin + 'static,
-	Network: NetworkProvider,
 	Client: AuthorityDiscovery<Block> + 'static,
 	DhtEventStream: Stream<Item = DhtEvent> + Unpin,
 {
@@ -203,7 +205,7 @@ where
 	pub(crate) fn new(
 		from_service: mpsc::Receiver<ServicetoWorkerMsg>,
 		client: Arc<Client>,
-		network: Arc<Network>,
+		network: Arc<dyn NetworkProvider>,
 		dht_event_rx: DhtEventStream,
 		role: Role,
 		prometheus_registry: Option<prometheus_endpoint::Registry>,
@@ -405,10 +407,14 @@ where
 			Role::Discover => return Ok(()),
 		};
 
-		let keys = Worker::<Client, Network, Block, DhtEventStream>::get_own_public_keys_within_authority_set(
-			key_store.clone(),
-			self.client.as_ref(),
-		).await?.into_iter().collect::<HashSet<_>>();
+		let keys =
+			Worker::<Client, Block, DhtEventStream>::get_own_public_keys_within_authority_set(
+				key_store.clone(),
+				self.client.as_ref(),
+			)
+			.await?
+			.into_iter()
+			.collect::<HashSet<_>>();
 
 		if only_if_changed {
 			// If the authority keys did not change and the `publish_if_changed_interval` was
@@ -433,7 +439,7 @@ where
 		}
 
 		let serialized_record = serialize_authority_record(addresses)?;
-		let peer_signature = sign_record_with_peer_id(&serialized_record, self.network.as_ref())?;
+		let peer_signature = sign_record_with_peer_id(&serialized_record, &self.network)?;
 
 		let keys_vec = keys.iter().cloned().collect::<Vec<_>>();
 
@@ -633,12 +639,15 @@ where
 				// properly signed by the owner of the PeerId
 
 				if let Some(peer_signature) = peer_signature {
-					let public_key = PublicKey::try_decode_protobuf(&peer_signature.public_key)
-						.map_err(Error::ParsingLibp2pIdentity)?;
-					let signature = Signature { public_key, bytes: peer_signature.signature };
-
-					if !signature.verify(record, &remote_peer_id) {
-						return Err(Error::VerifyingDhtPayload)
+					match self.network.verify(
+						remote_peer_id.into(),
+						&peer_signature.public_key,
+						&peer_signature.signature,
+						&record,
+					) {
+						Ok(true) => {},
+						Ok(false) => return Err(Error::VerifyingDhtPayload),
+						Err(error) => return Err(Error::ParsingLibp2pIdentity(error)),
 					}
 				} else if self.strict_record_validation {
 					return Err(Error::MissingPeerIdSignature)
@@ -700,9 +709,15 @@ where
 /// NetworkProvider provides [`Worker`] with all necessary hooks into the
 /// underlying Substrate networking. Using this trait abstraction instead of
 /// `sc_network::NetworkService` directly is necessary to unit test [`Worker`].
-pub trait NetworkProvider: NetworkDHTProvider + NetworkStateInfo + NetworkSigner {}
+pub trait NetworkProvider:
+	NetworkDHTProvider + NetworkStateInfo + NetworkSigner + Send + Sync
+{
+}
 
-impl<T> NetworkProvider for T where T: NetworkDHTProvider + NetworkStateInfo + NetworkSigner {}
+impl<T> NetworkProvider for T where
+	T: NetworkDHTProvider + NetworkStateInfo + NetworkSigner + Send + Sync
+{
+}
 
 fn hash_authority_id(id: &[u8]) -> KademliaKey {
 	KademliaKey::new(&Code::Sha2_256.digest(id).digest())
@@ -740,7 +755,7 @@ fn sign_record_with_peer_id(
 	network: &impl NetworkSigner,
 ) -> Result<schema::PeerSignature> {
 	let signature = network
-		.sign_with_local_identity(serialized_record)
+		.sign_with_local_identity(serialized_record.to_vec())
 		.map_err(|e| Error::CannotSign(format!("{} (network packet)", e)))?;
 	let public_key = signature.public_key.encode_protobuf();
 	let signature = signature.bytes;
@@ -854,7 +869,7 @@ impl Metrics {
 
 // Helper functions for unit testing.
 #[cfg(test)]
-impl<Block, Client, Network, DhtEventStream> Worker<Client, Network, Block, DhtEventStream> {
+impl<Block, Client, DhtEventStream> Worker<Client, Block, DhtEventStream> {
 	pub(crate) fn inject_addresses(&mut self, authority: AuthorityId, addresses: Vec<Multiaddr>) {
 		self.addr_cache.insert(authority, addresses);
 	}

@@ -22,12 +22,14 @@ members = [
 	"bridges/chains/chain-polkadot-bulletin",
 	"bridges/chains/chain-rococo",
 	"bridges/chains/chain-westend",
+	"bridges/modules/beefy",
 	"bridges/modules/grandpa",
 	"bridges/modules/messages",
 	"bridges/modules/parachains",
 	"bridges/modules/relayers",
 	"bridges/modules/xcm-bridge-hub",
 	"bridges/modules/xcm-bridge-hub-router",
+	"bridges/primitives/beefy",
 	"bridges/primitives/header-chain",
 	"bridges/primitives/messages",
 	"bridges/primitives/parachains",
@@ -37,6 +39,13 @@ members = [
 	"bridges/primitives/test-utils",
 	"bridges/primitives/xcm-bridge-hub",
 	"bridges/primitives/xcm-bridge-hub-router",
+	"bridges/relays/client-substrate",
+	"bridges/relays/equivocation",
+	"bridges/relays/finality",
+	"bridges/relays/lib-substrate-relay",
+	"bridges/relays/messages",
+	"bridges/relays/parachains",
+	"bridges/relays/utils",
 	"bridges/snowbridge/pallets/ethereum-client",
 	"bridges/snowbridge/pallets/ethereum-client/fixtures",
 	"bridges/snowbridge/pallets/inbound-queue",
@@ -94,6 +103,7 @@ members = [
 	"cumulus/parachains/integration-tests/emulated/tests/assets/asset-hub-westend",
 	"cumulus/parachains/integration-tests/emulated/tests/bridges/bridge-hub-rococo",
 	"cumulus/parachains/integration-tests/emulated/tests/bridges/bridge-hub-westend",
+	"cumulus/parachains/integration-tests/emulated/tests/collectives/collectives-westend",
 	"cumulus/parachains/integration-tests/emulated/tests/people/people-rococo",
 	"cumulus/parachains/integration-tests/emulated/tests/people/people-westend",
 	"cumulus/parachains/pallets/collective-content",
@@ -208,6 +218,7 @@ members = [
 	"polkadot/utils/generate-bags",
 	"polkadot/utils/remote-ext-tests/bags-list",
 	"polkadot/xcm",
+	"polkadot/xcm/docs",
 	"polkadot/xcm/pallet-xcm",
 	"polkadot/xcm/pallet-xcm-benchmarks",
 	"polkadot/xcm/procedural",
@@ -260,13 +271,13 @@ members = [
 	"substrate/client/mixnet",
 	"substrate/client/network",
 	"substrate/client/network-gossip",
-	"substrate/client/network/bitswap",
 	"substrate/client/network/common",
 	"substrate/client/network/light",
 	"substrate/client/network/statement",
 	"substrate/client/network/sync",
 	"substrate/client/network/test",
 	"substrate/client/network/transactions",
+	"substrate/client/network/types",
 	"substrate/client/offchain",
 	"substrate/client/proposer-metrics",
 	"substrate/client/rpc",
@@ -291,6 +302,7 @@ members = [
 	"substrate/frame",
 	"substrate/frame/alliance",
 	"substrate/frame/asset-conversion",
+	"substrate/frame/asset-conversion/ops",
 	"substrate/frame/asset-rate",
 	"substrate/frame/assets",
 	"substrate/frame/atomic-swap",
@@ -317,6 +329,7 @@ members = [
 	"substrate/frame/contracts/uapi",
 	"substrate/frame/conviction-voting",
 	"substrate/frame/core-fellowship",
+	"substrate/frame/delegated-staking",
 	"substrate/frame/democracy",
 	"substrate/frame/election-provider-multi-phase",
 	"substrate/frame/election-provider-multi-phase/test-staking-e2e",
@@ -331,6 +344,7 @@ members = [
 	"substrate/frame/examples/dev-mode",
 	"substrate/frame/examples/frame-crate",
 	"substrate/frame/examples/kitchensink",
+	"substrate/frame/examples/multi-block-migrations",
 	"substrate/frame/examples/offchain-worker",
 	"substrate/frame/examples/single-block-migrations",
 	"substrate/frame/examples/split",
@@ -347,6 +361,7 @@ members = [
 	"substrate/frame/membership",
 	"substrate/frame/merkle-mountain-range",
 	"substrate/frame/message-queue",
+	"substrate/frame/metadata-hash-extension",
 	"substrate/frame/migrations",
 	"substrate/frame/mixnet",
 	"substrate/frame/multisig",
@@ -359,7 +374,8 @@ members = [
 	"substrate/frame/nomination-pools/benchmarking",
 	"substrate/frame/nomination-pools/fuzzer",
 	"substrate/frame/nomination-pools/runtime-api",
-	"substrate/frame/nomination-pools/test-staking",
+	"substrate/frame/nomination-pools/test-delegate-stake",
+	"substrate/frame/nomination-pools/test-transfer-stake",
 	"substrate/frame/offences",
 	"substrate/frame/offences/benchmarking",
 	"substrate/frame/paged-list",
@@ -488,32 +504,34 @@ members = [
 	"substrate/utils/build-script-utils",
 	"substrate/utils/fork-tree",
 	"substrate/utils/frame/benchmarking-cli",
-	"substrate/utils/frame/frame-utilities-cli",
 	"substrate/utils/frame/generate-bags",
 	"substrate/utils/frame/generate-bags/node-runtime",
+	"substrate/utils/frame/omni-bencher",
 	"substrate/utils/frame/remote-externalities",
 	"substrate/utils/frame/rpc/client",
 	"substrate/utils/frame/rpc/state-trie-migration-rpc",
 	"substrate/utils/frame/rpc/support",
 	"substrate/utils/frame/rpc/system",
-	"substrate/utils/frame/try-runtime/cli",
 	"substrate/utils/prometheus",
 	"substrate/utils/substrate-bip39",
 	"substrate/utils/wasm-builder",
-
+	"templates/minimal",
 	"templates/minimal/node",
 	"templates/minimal/pallets/template",
 	"templates/minimal/runtime",
-
-	"templates/solochain/node",
-	"templates/solochain/pallets/template",
-	"templates/solochain/runtime",
-
 	"templates/parachain/node",
 	"templates/parachain/pallets/template",
 	"templates/parachain/runtime",
+	"templates/solochain/node",
+	"templates/solochain/pallets/template",
+	"templates/solochain/runtime",
+	"umbrella",
 ]
-default-members = ["polkadot", "substrate/bin/node/cli"]
+
+default-members = [
+	"polkadot",
+	"substrate/bin/node/cli",
+]
 
 [workspace.lints.rust]
 suspicious_double_ref_op = { level = "allow", priority = 2 }
@@ -557,6 +575,7 @@ serde_json = { version = "1.0.114", default-features = false }
 serde_yaml = { version = "0.9" }
 syn = { version = "2.0.53" }
 thiserror = { version = "1.0.48" }
+tracing-subscriber = { version = "0.3.18" }
 
 [profile.release]
 # Polkadot runtime requires unwinding.

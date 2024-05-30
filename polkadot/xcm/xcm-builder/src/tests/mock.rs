@@ -19,6 +19,7 @@
 use crate::{
 	barriers::{AllowSubscriptionsFrom, RespectSuspension, TrailingSetTopicAsId},
 	test_utils::*,
+	EnsureDecodableXcm,
 };
 pub use crate::{
 	AliasForeignAccountId32, AllowExplicitUnpaidExecutionFrom, AllowKnownQueryResponses,
@@ -165,8 +166,8 @@ pub fn set_exporter_override(
 pub fn clear_exporter_override() {
 	EXPORTER_OVERRIDE.with(|x| x.replace(None));
 }
-pub struct TestMessageSender;
-impl SendXcm for TestMessageSender {
+pub struct TestMessageSenderImpl;
+impl SendXcm for TestMessageSenderImpl {
 	type Ticket = (Location, Xcm<()>, XcmHash);
 	fn validate(
 		dest: &mut Option<Location>,
@@ -183,6 +184,8 @@ impl SendXcm for TestMessageSender {
 		Ok(hash)
 	}
 }
+pub type TestMessageSender = EnsureDecodableXcm<TestMessageSenderImpl>;
+
 pub struct TestMessageExporter;
 impl ExportXcm for TestMessageExporter {
 	type Ticket = (NetworkId, u32, InteriorLocation, InteriorLocation, Xcm<()>, XcmHash);
@@ -745,6 +748,7 @@ impl Config for TestConfig {
 	type HrmpNewChannelOpenRequestHandler = ();
 	type HrmpChannelAcceptedHandler = ();
 	type HrmpChannelClosingHandler = ();
+	type XcmRecorder = ();
 }
 
 pub fn fungible_multi_asset(location: Location, amount: u128) -> Asset {

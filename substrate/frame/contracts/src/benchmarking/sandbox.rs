@@ -20,7 +20,8 @@
 /// ! environment that provides the seal interface as imported functions.
 use super::{code::WasmModule, Config};
 use crate::wasm::{
-	AllowDeprecatedInterface, AllowUnstableInterface, Determinism, Environment, WasmBlob,
+	AllowDeprecatedInterface, AllowUnstableInterface, Determinism, Environment, LoadedModule,
+	LoadingMode, WasmBlob,
 };
 use sp_core::Get;
 use wasmi::{errors::LinkerError, Func, Linker, StackLimits, Store};
@@ -42,12 +43,18 @@ impl<T: Config> From<&WasmModule<T>> for Sandbox {
 	/// Creates an instance from the supplied module.
 	/// Sets the execution engine fuel level to `u64::MAX`.
 	fn from(module: &WasmModule<T>) -> Self {
-		let (mut store, _memory, instance) = WasmBlob::<T>::instantiate::<EmptyEnv, _>(
+		let contract = LoadedModule::new::<T>(
 			&module.code,
+			Determinism::Relaxed,
+			Some(StackLimits::default()),
+			LoadingMode::Checked,
+		)
+		.expect("Failed to load Wasm module");
+
+		let (mut store, _memory, instance) = WasmBlob::<T>::instantiate::<EmptyEnv, _>(
+			contract,
 			(),
 			&<T>::Schedule::get(),
-			Determinism::Relaxed,
-			StackLimits::default(),
 			// We are testing with an empty environment anyways
 			AllowDeprecatedInterface::No,
 		)

@@ -11,7 +11,6 @@ publish = false
 workspace = true
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.6.0" }
 
 # Substrate
 frame-support = { path = "../../../../../../../substrate/frame/support", default-features = false }
@@ -28,7 +27,6 @@ xcm-executor = { package = "staging-xcm-executor", path = "../../../../../../../
 
 # Bridges
 pallet-bridge-messages = { path = "../../../../../../../bridges/modules/messages", default-features = false }
-bp-messages = { path = "../../../../../../../bridges/primitives/messages", default-features = false }
 
 # Cumulus
 parachains-common = { path = "../../../../../common" }

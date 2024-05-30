@@ -92,7 +92,7 @@ fn new_session_every_block(n: BlockNumber) -> Option<SessionChangeNotification<B
 fn session_pruning_is_based_on_dispute_period() {
 	new_test_ext(genesis_config()).execute_with(|| {
 		// Dispute period starts at 2
-		let config = Configuration::config();
+		let config = configuration::ActiveConfig::<Test>::get();
 		assert_eq!(config.dispute_period, 2);
 
 		// Move to session 10
@@ -109,11 +109,11 @@ fn session_pruning_is_based_on_dispute_period() {
 		Configuration::set_dispute_period(RuntimeOrigin::root(), dispute_period).unwrap();
 
 		// Dispute period does not automatically change
-		let config = Configuration::config();
+		let config = configuration::ActiveConfig::<Test>::get();
 		assert_eq!(config.dispute_period, 2);
 		// Two sessions later it will though
 		run_to_block(120, session_changes);
-		let config = Configuration::config();
+		let config = configuration::ActiveConfig::<Test>::get();
 		assert_eq!(config.dispute_period, 5);
 
 		run_to_block(200, session_changes);
@@ -128,7 +128,7 @@ fn session_pruning_is_based_on_dispute_period() {
 
 		// Two sessions later it kicks in
 		run_to_block(220, session_changes);
-		let config = Configuration::config();
+		let config = configuration::ActiveConfig::<Test>::get();
 		assert_eq!(config.dispute_period, 16);
 		// Earliest session stays the same
 		assert_eq!(EarliestStoredSession::<Test>::get(), 21 - dispute_period);
@@ -183,7 +183,7 @@ fn session_info_active_subsets() {
 	new_test_ext(genesis_config()).execute_with(|| {
 		ParasShared::set_active_validators_with_indices(active_set.clone(), validators.clone());
 
-		assert_eq!(ParasShared::active_validator_indices(), active_set);
+		assert_eq!(shared::ActiveValidatorIndices::<Test>::get(), active_set);
 
 		AssignmentKeysUnsafe::<Test>::set(unscrambled_assignment.clone());
 		crate::mock::set_discovery_authorities(unscrambled_discovery.clone());

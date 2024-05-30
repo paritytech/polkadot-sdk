@@ -189,11 +189,15 @@ mod benches {
 		let config = new_config_record::<T>();
 		Configuration::<T>::put(config.clone());
 
+		let mut extra_cores = n;
+
 		// Assume Reservations to be filled for worst case
-		setup_reservations::<T>(T::MaxReservedCores::get());
+		setup_reservations::<T>(extra_cores.min(T::MaxReservedCores::get()));
+		extra_cores = extra_cores.saturating_sub(T::MaxReservedCores::get());
 
 		// Assume Leases to be filled for worst case
-		setup_leases::<T>(T::MaxLeasedCores::get(), 1, 10);
+		setup_leases::<T>(extra_cores.min(T::MaxLeasedCores::get()), 1, 10);
+		extra_cores = extra_cores.saturating_sub(T::MaxLeasedCores::get());
 
 		let latest_region_begin = Broker::<T>::latest_timeslice_ready_to_commit(&config);
 
@@ -203,7 +207,7 @@ mod benches {
 			T::AdminOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
 
 		#[extrinsic_call]
-		_(origin as T::RuntimeOrigin, initial_price, n.try_into().unwrap());
+		_(origin as T::RuntimeOrigin, initial_price, extra_cores.try_into().unwrap());
 
 		assert!(SaleInfo::<T>::get().is_some());
 		assert_last_event::<T>(
@@ -313,8 +317,8 @@ mod benches {
 		assert_last_event::<T>(
 			Event::Transferred {
 				region_id: region,
-				old_owner: caller,
-				owner: recipient,
+				old_owner: Some(caller),
+				owner: Some(recipient),
 				duration: 3u32.into(),
 			}
 			.into(),

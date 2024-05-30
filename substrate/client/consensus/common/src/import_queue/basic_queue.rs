@@ -632,7 +632,7 @@ mod tests {
 			let hash = Hash::random();
 			finality_sender
 				.unbounded_send(worker_messages::ImportJustification(
-					libp2p_identity::PeerId::random(),
+					sc_network_types::PeerId::random(),
 					hash,
 					1,
 					(*b"TEST", Vec::new()),

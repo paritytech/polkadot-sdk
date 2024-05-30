@@ -786,9 +786,10 @@ macro_rules! benchmark_backend {
 
 			fn instance(
 				&self,
+				recording: &mut impl $crate::Recording,
 				components: &[($crate::BenchmarkParameter, u32)],
 				verify: bool
-			) -> Result<$crate::__private::Box<dyn FnOnce() -> Result<(), $crate::BenchmarkError>>, $crate::BenchmarkError> {
+			) -> Result<(), $crate::BenchmarkError> {
 				$(
 					// Prepare instance
 					let $param = components.iter()
@@ -802,13 +803,14 @@ macro_rules! benchmark_backend {
 				$( $param_instancer ; )*
 				$( $post )*
 
-				Ok($crate::__private::Box::new(move || -> Result<(), $crate::BenchmarkError> {
-					$eval;
-					if verify {
-						$postcode;
-					}
-					Ok(())
-				}))
+				recording.start();
+				$eval;
+				recording.stop();
+
+				if verify {
+					$postcode;
+				}
+				Ok(())
 			}
 		}
 	};
@@ -850,8 +852,8 @@ macro_rules! impl_bench_name_tests {
 					if !($extra) {
 						let disabled = $crate::__private::vec![ $( stringify!($names_extra).as_ref() ),* ];
 						if disabled.contains(&stringify!($name)) {
-							$crate::__private::log::error!(
-								"INFO: extra benchmark skipped - {}",
+							$crate::__private::log::debug!(
+								"extra benchmark skipped - {}",
 								stringify!($name),
 							);
 							return ();
@@ -874,21 +876,21 @@ macro_rules! impl_bench_name_tests {
 								$crate::BenchmarkError::Override(_) => {
 									// This is still considered a success condition.
 									$crate::__private::log::error!(
-										"WARNING: benchmark error overridden - {}",
+										"benchmark error overridden - {}",
 										stringify!($name),
 									);
 								},
 								$crate::BenchmarkError::Skip => {
 									// This is considered a success condition.
-									$crate::__private::log::error!(
-										"WARNING: benchmark error skipped - {}",
+									$crate::__private::log::debug!(
+										"benchmark skipped - {}",
 										stringify!($name),
 									);
 								},
 								$crate::BenchmarkError::Weightless => {
 									// This is considered a success condition.
-									$crate::__private::log::error!(
-										"WARNING: benchmark weightless skipped - {}",
+									$crate::__private::log::debug!(
+										"benchmark weightless skipped - {}",
 										stringify!($name),
 									);
 								}
@@ -960,14 +962,15 @@ macro_rules! selected_benchmark {
 
 			fn instance(
 				&self,
+				recording: &mut impl $crate::Recording,
 				components: &[($crate::BenchmarkParameter, u32)],
 				verify: bool
-			) -> Result<$crate::__private::Box<dyn FnOnce() -> Result<(), $crate::BenchmarkError>>, $crate::BenchmarkError> {
+			) -> Result<(), $crate::BenchmarkError> {
 				match self {
 					$(
 						Self::$bench => <
 							$bench as $crate::BenchmarkingSetup<T $(, $bench_inst)? >
-						>::instance(&$bench, components, verify),
+						>::instance(&$bench, recording, components, verify),
 					)*
 				}
 			}
@@ -1069,18 +1072,7 @@ macro_rules! impl_benchmark {
 				$crate::benchmarking::set_whitelist(whitelist.clone());
 
 				let mut results: $crate::__private::Vec<$crate::BenchmarkResult> = $crate::__private::Vec::new();
-
-				// Always do at least one internal repeat...
-				for _ in 0 .. internal_repeats.max(1) {
-					// Always reset the state after the benchmark.
-					$crate::__private::defer!($crate::benchmarking::wipe_db());
-
-					// Set up the externalities environment for the setup we want to
-					// benchmark.
-					let closure_to_benchmark = <
-						SelectedBenchmark as $crate::BenchmarkingSetup<T $(, $instance)?>
-					>::instance(&selected_benchmark, c, verify)?;
-
+				let on_before_start = || {
 					// Set the block number to at least 1 so events are deposited.
 					if $crate::__private::Zero::is_zero(&frame_system::Pallet::<T>::block_number()) {
 						frame_system::Pallet::<T>::set_block_number(1u32.into());
@@ -1098,6 +1090,12 @@ macro_rules! impl_benchmark {
 
 					// Reset the read/write counter so we don't count operations in the setup process.
 					$crate::benchmarking::reset_read_write_count();
+				};
+
+				// Always do at least one internal repeat...
+				for _ in 0 .. internal_repeats.max(1) {
+					// Always reset the state after the benchmark.
+					$crate::__private::defer!($crate::benchmarking::wipe_db());
 
 					// Time the extrinsic logic.
 					$crate::__private::log::trace!(
@@ -1108,20 +1106,14 @@ macro_rules! impl_benchmark {
 						verify
 					);
 
-					let start_pov = $crate::benchmarking::proof_size();
-					let start_extrinsic = $crate::benchmarking::current_time();
-
-					closure_to_benchmark()?;
-
-					let finish_extrinsic = $crate::benchmarking::current_time();
-					let end_pov = $crate::benchmarking::proof_size();
+					// Set up the externalities environment for the setup we want to
+					// benchmark.
+					let mut recording = $crate::BenchmarkRecording::new(&on_before_start);
+					<SelectedBenchmark as $crate::BenchmarkingSetup<T $(, $instance)?>>::instance(&selected_benchmark, &mut recording, c, verify)?;
 
 					// Calculate the diff caused by the benchmark.
-					let elapsed_extrinsic = finish_extrinsic.saturating_sub(start_extrinsic);
-					let diff_pov = match (start_pov, end_pov) {
-						(Some(start), Some(end)) => end.saturating_sub(start),
-						_ => Default::default(),
-					};
+					let elapsed_extrinsic = recording.elapsed_extrinsic().expect("elapsed time should be recorded");
+					let diff_pov = recording.diff_pov().unwrap_or_default();
 
 					// Commit the changes to get proper write count
 					$crate::benchmarking::commit_db();
@@ -1136,7 +1128,7 @@ macro_rules! impl_benchmark {
 					);
 					$crate::__private::log::trace!(
 						target: "benchmark",
-						"Proof sizes: before {:?} after {:?} diff {}", &start_pov, &end_pov, &diff_pov
+						"Proof sizes: before {:?} after {:?} diff {}", recording.start_pov(), recording.end_pov(), &diff_pov
 					);
 
 					// Time the storage root recalculation.
@@ -1230,18 +1222,15 @@ macro_rules! impl_benchmark_test {
 						// Always reset the state after the benchmark.
 						$crate::__private::defer!($crate::benchmarking::wipe_db());
 
-						// Set up the benchmark, return execution + verification function.
-						let closure_to_verify = <
-							SelectedBenchmark as $crate::BenchmarkingSetup<T, _>
-						>::instance(&selected_benchmark, &c, true)?;
-
-						// Set the block number to at least 1 so events are deposited.
-						if $crate::__private::Zero::is_zero(&frame_system::Pallet::<T>::block_number()) {
-							frame_system::Pallet::<T>::set_block_number(1u32.into());
-						}
+						let on_before_start = || {
+							// Set the block number to at least 1 so events are deposited.
+							if $crate::__private::Zero::is_zero(&frame_system::Pallet::<T>::block_number()) {
+								frame_system::Pallet::<T>::set_block_number(1u32.into());
+							}
+						};
 
 						// Run execution + verification
-						closure_to_verify()
+						<SelectedBenchmark as $crate::BenchmarkingSetup<T, _>>::test_instance(&selected_benchmark, &c, &on_before_start)
 					};
 
 					if components.is_empty() {

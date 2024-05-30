@@ -119,19 +119,26 @@ default:
 #
 .forklift-cache:
   before_script:
-    - 'curl --header "PRIVATE-TOKEN: $FL_CI_GROUP_TOKEN" -o forklift  -L "${CI_API_V4_URL}/projects/676/packages/generic/forklift/${FL_FORKLIFT_VERSION}/forklift_${FL_FORKLIFT_VERSION}_linux_amd64"'
-    - chmod +x forklift
     - mkdir ~/.forklift
-    - cp $FL_FORKLIFT_CONFIG ~/.forklift/config.toml
-    - shopt -s expand_aliases
-    - export PATH=$PATH:$(pwd)
-    - |
+    - cp .forklift/config.toml ~/.forklift/config.toml
+    - >
       if [ "$FORKLIFT_BYPASS" != "true" ]; then
-      echo "FORKLIFT_BYPASS not set, creating alias cargo='forklift cargo'"
-      alias cargo="forklift cargo"
+        echo "FORKLIFT_BYPASS not set"; 
+        if command -v forklift >/dev/null 2>&1; then
+          echo "forklift already exists"; 
+          forklift version
+        else
+          echo "forklift does not exist, downloading";
+          curl --header "PRIVATE-TOKEN: $FL_CI_GROUP_TOKEN" -o forklift  -L "${CI_API_V4_URL}/projects/676/packages/generic/forklift/${FL_FORKLIFT_VERSION}/forklift_${FL_FORKLIFT_VERSION}_linux_amd64"; 
+          chmod +x forklift;
+          export PATH=$PATH:$(pwd);
+          echo ${FL_FORKLIFT_VERSION};
+        fi
+        echo "Creating alias cargo='forklift cargo'"; 
+        shopt -s expand_aliases;
+        alias cargo="forklift cargo";
       fi
     #
-    - echo "FL_FORKLIFT_VERSION ${FL_FORKLIFT_VERSION}"
 
 .common-refs:
   rules:

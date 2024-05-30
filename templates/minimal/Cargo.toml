@@ -1,0 +1,22 @@
+[package]
+name = "minimal-template"
+description = "A minimal template built with Substrate, part of Polkadot Sdk."
+version = "0.0.0"
+license = "MIT-0"
+authors.workspace = true
+homepage.workspace = true
+repository.workspace = true
+edition.workspace = true
+publish = false
+
+[dependencies]
+minimal-template-node = { path = "./node" }
+minimal-template-runtime = { path = "./runtime" }
+pallet-minimal-template = { path = "./pallets/template" }
+polkadot-sdk-docs = { path = "../../docs/sdk" }
+
+frame = { package = "polkadot-sdk-frame", path = "../../substrate/frame" }
+
+# How we build docs in rust-docs
+simple-mermaid = "0.1.1"
+docify = "0.2.7"

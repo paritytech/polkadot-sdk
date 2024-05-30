@@ -79,24 +79,52 @@ pub fn new_full<OverseerGenerator: OverseerGen>(
 ) -> Result<NewFull, Error> {
 	let workers_path = Some(workers_path.unwrap_or_else(get_relative_workers_path_for_test));
 
-	polkadot_service::new_full(
-		config,
-		polkadot_service::NewFullParams {
-			is_parachain_node,
-			enable_beefy: true,
-			force_authoring_backoff: false,
-			jaeger_agent: None,
-			telemetry_worker_handle: None,
-			node_version: None,
-			secure_validator_mode: false,
-			workers_path,
-			workers_names: None,
-			overseer_gen,
-			overseer_message_channel_capacity_override: None,
-			malus_finality_delay: None,
-			hwbench: None,
-		},
-	)
+	match config.network.network_backend {
+		sc_network::config::NetworkBackendType::Libp2p =>
+			polkadot_service::new_full::<_, sc_network::NetworkWorker<_, _>>(
+				config,
+				polkadot_service::NewFullParams {
+					is_parachain_node,
+					enable_beefy: true,
+					force_authoring_backoff: false,
+					jaeger_agent: None,
+					telemetry_worker_handle: None,
+					node_version: None,
+					secure_validator_mode: false,
+					workers_path,
+					workers_names: None,
+					overseer_gen,
+					overseer_message_channel_capacity_override: None,
+					malus_finality_delay: None,
+					hwbench: None,
+					execute_workers_max_num: None,
+					prepare_workers_hard_max_num: None,
+					prepare_workers_soft_max_num: None,
+				},
+			),
+		sc_network::config::NetworkBackendType::Litep2p =>
+			polkadot_service::new_full::<_, sc_network::Litep2pNetworkBackend>(
+				config,
+				polkadot_service::NewFullParams {
+					is_parachain_node,
+					enable_beefy: true,
+					force_authoring_backoff: false,
+					jaeger_agent: None,
+					telemetry_worker_handle: None,
+					node_version: None,
+					secure_validator_mode: false,
+					workers_path,
+					workers_names: None,
+					overseer_gen,
+					overseer_message_channel_capacity_override: None,
+					malus_finality_delay: None,
+					hwbench: None,
+					execute_workers_max_num: None,
+					prepare_workers_hard_max_num: None,
+					prepare_workers_soft_max_num: None,
+				},
+			),
+	}
 }
 
 fn get_relative_workers_path_for_test() -> PathBuf {
@@ -188,6 +216,8 @@ pub fn node_config(
 		rpc_message_buffer_capacity: Default::default(),
 		rpc_batch_config: RpcBatchRequestConfig::Unlimited,
 		rpc_rate_limit: None,
+		rpc_rate_limit_whitelisted_ips: Default::default(),
+		rpc_rate_limit_trust_proxy_headers: Default::default(),
 		prometheus_config: None,
 		telemetry_endpoints: None,
 		default_heap_pages: None,

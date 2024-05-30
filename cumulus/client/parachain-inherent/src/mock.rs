@@ -28,6 +28,9 @@ use std::collections::BTreeMap;
 
 use cumulus_test_relay_sproof_builder::RelayStateSproofBuilder;
 
+/// Relay chain slot duration, in milliseconds.
+pub const RELAY_CHAIN_SLOT_DURATION_MILLIS: u32 = 6000;
+
 /// Inherent data provider that supplies mocked validation data.
 ///
 /// This is useful when running a node that is not actually backed by any relay chain.
@@ -45,6 +48,8 @@ use cumulus_test_relay_sproof_builder::RelayStateSproofBuilder;
 pub struct MockValidationDataInherentDataProvider<R = ()> {
 	/// The current block number of the local block chain (the parachain)
 	pub current_para_block: u32,
+	/// The current block head data of the local block chain (the parachain)
+	pub current_para_block_head: Option<cumulus_primitives_core::relay_chain::HeadData>,
 	/// The relay block in which this parachain appeared to start. This will be the relay block
 	/// number in para block #P1
 	pub relay_offset: u32,
@@ -159,13 +164,15 @@ impl<R: Send + Sync + GenerateRandomness<u64>> InherentDataProvider
 		&self,
 		inherent_data: &mut InherentData,
 	) -> Result<(), sp_inherents::Error> {
-		// Calculate the mocked relay block based on the current para block
-		let relay_parent_number =
-			self.relay_offset + self.relay_blocks_per_para_block * self.current_para_block;
-
 		// Use the "sproof" (spoof proof) builder to build valid mock state root and proof.
 		let mut sproof_builder =
 			RelayStateSproofBuilder { para_id: self.xcm_config.para_id, ..Default::default() };
+
+		// Calculate the mocked relay block based on the current para block
+		let relay_parent_number =
+			self.relay_offset + self.relay_blocks_per_para_block * self.current_para_block;
+		sproof_builder.current_slot =
+			((relay_parent_number / RELAY_CHAIN_SLOT_DURATION_MILLIS) as u64).into();
 
 		// Process the downward messages and set up the correct head
 		let mut downward_messages = Vec::new();
@@ -216,6 +223,9 @@ impl<R: Send + Sync + GenerateRandomness<u64>> InherentDataProvider
 		if let Some(key_values) = &self.additional_key_values {
 			sproof_builder.additional_key_values = key_values.clone()
 		}
+
+		// Inject current para block head, if any
+		sproof_builder.included_para_head = self.current_para_block_head.clone();
 
 		let (relay_parent_storage_root, proof) = sproof_builder.into_state_root_and_proof();
 

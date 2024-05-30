@@ -159,18 +159,6 @@ fn encode_decode_versioned_multi_assets_v3() {
 }
 
 #[test]
-fn encode_decode_versioned_xcm_v2() {
-	let xcm = VersionedXcm::V2(v2::Xcm::<()>::new());
-	let encoded = xcm.encode();
-
-	assert_eq!(encoded, hex_literal::hex!("0200"), "encode format changed");
-	assert_eq!(encoded[0], 2, "bad version number");
-
-	let decoded = VersionedXcm::decode(&mut &encoded[..]).unwrap();
-	assert_eq!(xcm, decoded);
-}
-
-#[test]
 fn encode_decode_versioned_xcm_v3() {
 	let xcm = VersionedXcm::V3(v3::Xcm::<()>::new());
 	let encoded = xcm.encode();

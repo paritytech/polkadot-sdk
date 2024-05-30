@@ -1,0 +1,61 @@
+[package]
+name = "relay-substrate-client"
+version = "0.1.0"
+authors.workspace = true
+edition.workspace = true
+license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
+repository.workspace = true
+publish = false
+
+[lints]
+workspace = true
+
+[dependencies]
+async-std = { version = "1.9.0", features = ["attributes"] }
+async-trait = "0.1.79"
+codec = { package = "parity-scale-codec", version = "3.6.12" }
+futures = "0.3.30"
+jsonrpsee = { version = "0.22", features = ["macros", "ws-client"] }
+log = { workspace = true }
+num-traits = "0.2"
+rand = "0.8.5"
+scale-info = { version = "2.11.1", features = ["derive"] }
+tokio = { version = "1.37", features = ["rt-multi-thread"] }
+thiserror = { workspace = true }
+
+# Bridge dependencies
+
+bp-header-chain = { path = "../../primitives/header-chain" }
+bp-messages = { path = "../../primitives/messages" }
+bp-polkadot-core = { path = "../../primitives/polkadot-core" }
+bp-runtime = { path = "../../primitives/runtime" }
+pallet-bridge-messages = { path = "../../modules/messages" }
+finality-relay = { path = "../finality" }
+relay-utils = { path = "../utils" }
+
+# Substrate Dependencies
+
+frame-support = { path = "../../../substrate/frame/support" }
+frame-system = { path = "../../../substrate/frame/system" }
+pallet-balances = { path = "../../../substrate/frame/balances" }
+pallet-transaction-payment = { path = "../../../substrate/frame/transaction-payment" }
+pallet-transaction-payment-rpc-runtime-api = { path = "../../../substrate/frame/transaction-payment/rpc/runtime-api" }
+pallet-utility = { path = "../../../substrate/frame/utility" }
+sc-chain-spec = { path = "../../../substrate/client/chain-spec" }
+sc-rpc-api = { path = "../../../substrate/client/rpc-api" }
+sc-transaction-pool-api = { path = "../../../substrate/client/transaction-pool/api" }
+sp-consensus-grandpa = { path = "../../../substrate/primitives/consensus/grandpa" }
+sp-core = { path = "../../../substrate/primitives/core" }
+sp-rpc = { path = "../../../substrate/primitives/rpc" }
+sp-runtime = { path = "../../../substrate/primitives/runtime" }
+sp-std = { path = "../../../substrate/primitives/std" }
+sp-trie = { path = "../../../substrate/primitives/trie" }
+sp-version = { path = "../../../substrate/primitives/version" }
+
+# Polkadot Dependencies
+
+xcm = { package = "staging-xcm", path = "../../../polkadot/xcm" }
+
+[features]
+default = []
+test-helpers = []

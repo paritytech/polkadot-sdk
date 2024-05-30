@@ -19,7 +19,6 @@ targets = ["x86_64-unknown-linux-gnu"]
 async-trait = "0.1.79"
 futures = { version = "0.3.30", features = ["thread-pool"] }
 futures-timer = "3.0.1"
-libp2p-identity = { version = "0.2.3", features = ["ed25519", "peerid"] }
 log = { workspace = true, default-features = true }
 mockall = "0.11.3"
 parking_lot = "0.12.1"
@@ -27,6 +26,7 @@ serde = { features = ["derive"], workspace = true, default-features = true }
 thiserror = { workspace = true }
 prometheus-endpoint = { package = "substrate-prometheus-endpoint", path = "../../../utils/prometheus" }
 sc-client-api = { path = "../../api" }
+sc-network-types = { path = "../../network/types" }
 sc-utils = { path = "../../utils" }
 sp-api = { path = "../../../primitives/api" }
 sp-blockchain = { path = "../../../primitives/blockchain" }

@@ -26,6 +26,8 @@ use std::{
 	sync::Arc,
 };
 
+pub use libp2p::{multiaddr, Multiaddr, PeerId};
+
 /// The protocol name transmitted on the wire.
 #[derive(Debug, Clone)]
 pub enum ProtocolName {
@@ -93,6 +95,24 @@ impl fmt::Display for ProtocolName {
 impl AsRef<str> for ProtocolName {
 	fn as_ref(&self) -> &str {
 		self as &str
+	}
+}
+
+impl From<ProtocolName> for litep2p::ProtocolName {
+	fn from(protocol: ProtocolName) -> Self {
+		match protocol {
+			ProtocolName::Static(inner) => litep2p::ProtocolName::from(inner),
+			ProtocolName::OnHeap(inner) => litep2p::ProtocolName::from(inner),
+		}
+	}
+}
+
+impl From<litep2p::ProtocolName> for ProtocolName {
+	fn from(protocol: litep2p::ProtocolName) -> Self {
+		match protocol {
+			litep2p::ProtocolName::Static(protocol) => ProtocolName::from(protocol),
+			litep2p::ProtocolName::Allocated(protocol) => ProtocolName::from(protocol),
+		}
 	}
 }
 

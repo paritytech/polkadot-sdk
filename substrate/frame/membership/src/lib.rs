@@ -369,6 +369,18 @@ impl<T: Config<I>, I: 'static> SortedMembers<T::AccountId> for Pallet<T, I> {
 	fn count() -> usize {
 		Members::<T, I>::decode_len().unwrap_or(0)
 	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn add(new_member: &T::AccountId) {
+		use frame_support::{assert_ok, traits::EnsureOrigin};
+		let new_member_lookup = T::Lookup::unlookup(new_member.clone());
+
+		if let Ok(origin) = T::AddOrigin::try_successful_origin() {
+			assert_ok!(Pallet::<T, I>::add_member(origin, new_member_lookup,));
+		} else {
+			log::error!(target: LOG_TARGET, "Failed to add `{new_member:?}` in `SortedMembers::add`.")
+		}
+	}
 }
 
 #[cfg(feature = "runtime-benchmarks")]

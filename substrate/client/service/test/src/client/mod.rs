@@ -28,6 +28,7 @@ use sc_client_db::{Backend, BlocksPruning, DatabaseSettings, DatabaseSource, Pru
 use sc_consensus::{
 	BlockCheckParams, BlockImport, BlockImportParams, ForkChoiceStrategy, ImportResult,
 };
+use sc_executor::WasmExecutor;
 use sc_service::client::{new_in_mem, Client, LocalCallExecutor};
 use sp_api::ProvideRuntimeApi;
 use sp_consensus::{BlockOrigin, Error as ConsensusError, SelectChain};
@@ -42,8 +43,6 @@ use sp_storage::{ChildInfo, StorageKey};
 use std::{collections::HashSet, sync::Arc};
 use substrate_test_runtime::TestAPI;
 use substrate_test_runtime_client::{
-	new_native_or_wasm_executor,
-	prelude::*,
 	runtime::{
 		currency::DOLLARS,
 		genesismap::{insert_genesis_block, GenesisStorageBuilder},
@@ -79,7 +78,7 @@ fn construct_block(
 	StateMachine::new(
 		backend,
 		&mut overlay,
-		&new_native_or_wasm_executor(),
+		&WasmExecutor::default(),
 		"Core_initialize_block",
 		&header.encode(),
 		&mut Default::default(),
@@ -93,7 +92,7 @@ fn construct_block(
 		StateMachine::new(
 			backend,
 			&mut overlay,
-			&new_native_or_wasm_executor(),
+			&WasmExecutor::default(),
 			"BlockBuilder_apply_extrinsic",
 			&tx.encode(),
 			&mut Default::default(),
@@ -107,7 +106,7 @@ fn construct_block(
 	let ret_data = StateMachine::new(
 		backend,
 		&mut overlay,
-		&new_native_or_wasm_executor(),
+		&WasmExecutor::default(),
 		"BlockBuilder_finalize_block",
 		&[],
 		&mut Default::default(),
@@ -175,7 +174,7 @@ fn construct_genesis_should_work_with_native() {
 	let _ = StateMachine::new(
 		&backend,
 		&mut overlay,
-		&new_native_or_wasm_executor(),
+		&WasmExecutor::default(),
 		"Core_execute_block",
 		&b1data,
 		&mut Default::default(),
@@ -206,7 +205,7 @@ fn construct_genesis_should_work_with_wasm() {
 	let _ = StateMachine::new(
 		&backend,
 		&mut overlay,
-		&new_native_or_wasm_executor(),
+		&WasmExecutor::default(),
 		"Core_execute_block",
 		&b1data,
 		&mut Default::default(),
@@ -1165,7 +1164,7 @@ fn finalizing_diverged_block_should_trigger_reorg() {
 
 	// G -> A1 -> A2
 	//   \
-	//    -> B1 -> B2
+	//    -> B1 -> B2 -> B3
 
 	let mut finality_notifications = client.finality_notification_stream();
 
@@ -1250,8 +1249,8 @@ fn finalizing_diverged_block_should_trigger_reorg() {
 
 	ClientExt::finalize_block(&client, b3.hash(), None).unwrap();
 
-	finality_notification_check(&mut finality_notifications, &[b1.hash()], &[]);
-	finality_notification_check(&mut finality_notifications, &[b2.hash(), b3.hash()], &[a2.hash()]);
+	finality_notification_check(&mut finality_notifications, &[b1.hash()], &[a2.hash()]);
+	finality_notification_check(&mut finality_notifications, &[b2.hash(), b3.hash()], &[]);
 	assert!(matches!(finality_notifications.try_recv().unwrap_err(), TryRecvError::Empty));
 }
 
@@ -1372,8 +1371,12 @@ fn finality_notifications_content() {
 	// Import and finalize D4
 	block_on(client.import_as_final(BlockOrigin::Own, d4.clone())).unwrap();
 
-	finality_notification_check(&mut finality_notifications, &[a1.hash(), a2.hash()], &[c1.hash()]);
-	finality_notification_check(&mut finality_notifications, &[d3.hash(), d4.hash()], &[b2.hash()]);
+	finality_notification_check(
+		&mut finality_notifications,
+		&[a1.hash(), a2.hash()],
+		&[c1.hash(), b2.hash()],
+	);
+	finality_notification_check(&mut finality_notifications, &[d3.hash(), d4.hash()], &[a3.hash()]);
 	assert!(matches!(finality_notifications.try_recv().unwrap_err(), TryRecvError::Empty));
 }
 
@@ -1602,9 +1605,9 @@ fn doesnt_import_blocks_that_revert_finality() {
 	block_on(client.import(BlockOrigin::Own, a3.clone())).unwrap();
 	ClientExt::finalize_block(&client, a3.hash(), None).unwrap();
 
-	finality_notification_check(&mut finality_notifications, &[a1.hash(), a2.hash()], &[]);
+	finality_notification_check(&mut finality_notifications, &[a1.hash(), a2.hash()], &[b2.hash()]);
 
-	finality_notification_check(&mut finality_notifications, &[a3.hash()], &[b2.hash()]);
+	finality_notification_check(&mut finality_notifications, &[a3.hash()], &[]);
 
 	assert!(matches!(finality_notifications.try_recv().unwrap_err(), TryRecvError::Empty));
 }
@@ -2072,7 +2075,7 @@ fn cleans_up_closed_notification_sinks_on_block_import() {
 	use substrate_test_runtime_client::GenesisInit;
 
 	let backend = Arc::new(sc_client_api::in_mem::Backend::new());
-	let executor = new_native_or_wasm_executor();
+	let executor = WasmExecutor::default();
 	let client_config = sc_service::ClientConfig::default();
 
 	let genesis_block_builder = sc_service::GenesisBlockBuilder::new(
@@ -2099,11 +2102,7 @@ fn cleans_up_closed_notification_sinks_on_block_import() {
 
 	type TestClient = Client<
 		in_mem::Backend<Block>,
-		LocalCallExecutor<
-			Block,
-			in_mem::Backend<Block>,
-			sc_executor::NativeElseWasmExecutor<LocalExecutorDispatch>,
-		>,
+		LocalCallExecutor<Block, in_mem::Backend<Block>, WasmExecutor>,
 		Block,
 		RuntimeApi,
 	>;

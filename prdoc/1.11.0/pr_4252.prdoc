@@ -1,0 +1,15 @@
+title: "Add logic to increase pvf worker based on chain"
+
+doc:
+  - audience: Node Operator
+    description: |
+      A new logic and cli parameters were added to allow increasing the number of pvf
+      workers based on the chain-id.
+
+crates:
+  - name: polkadot-node-core-candidate-validation
+    bump: minor
+  - name: polkadot-cli
+    bump: minor
+  - name: polkadot-service
+    bump: minor

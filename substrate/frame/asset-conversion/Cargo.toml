@@ -16,7 +16,8 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false }
+codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false }
+log = { version = "0.4.20", default-features = false }
 frame-support = { path = "../support", default-features = false }
 frame-system = { path = "../system", default-features = false }
 frame-benchmarking = { path = "../benchmarking", default-features = false, optional = true }
@@ -40,6 +41,7 @@ std = [
 	"frame-benchmarking?/std",
 	"frame-support/std",
 	"frame-system/std",
+	"log/std",
 	"pallet-assets/std",
 	"pallet-balances/std",
 	"primitive-types/std",

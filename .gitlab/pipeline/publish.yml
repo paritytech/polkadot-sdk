@@ -70,7 +70,13 @@ publish-subsystem-benchmarks:
     - .kubernetes-env
     - .publish-gh-pages-refs
   needs:
-    - job: subsystem-regression-tests
+    - job: subsystem-benchmark-availability-recovery
+      artifacts: true
+    - job: subsystem-benchmark-availability-distribution
+      artifacts: true
+    - job: subsystem-benchmark-approval-voting
+      artifacts: true
+    - job: subsystem-benchmark-statement-distribution
       artifacts: true
     - job: publish-rustdoc
       artifacts: false
@@ -109,21 +115,27 @@ trigger_workflow:
   needs:
     - job: publish-subsystem-benchmarks
       artifacts: false
-    - job: subsystem-regression-tests
+    - job: subsystem-benchmark-availability-recovery
+      artifacts: true
+    - job: subsystem-benchmark-availability-distribution
+      artifacts: true
+    - job: subsystem-benchmark-approval-voting
+      artifacts: true
+    - job: subsystem-benchmark-statement-distribution
       artifacts: true
   script:
     - echo "Triggering workflow"
-    - |
+    - >
       for benchmark in $(ls charts/*.json); do
-        export bencmark_name=$(basename $benchmark)
-        echo "Benchmark: $bencmark_name"
-        export benchmark_dir=$(echo $bencmark_name | sed 's/\.json//')
+        export benchmark_name=$(basename $benchmark);
+        echo "Benchmark: $benchmark_name";
+        export benchmark_dir=$(echo $benchmark_name | sed 's/\.json//');
         curl -q -X POST \
               -H "Accept: application/vnd.github.v3+json" \
               -H "Authorization: token $GITHUB_TOKEN" \
-               https://api.github.com/repos/paritytech/${CI_PROJECT_NAME}/actions/workflows/subsystem-benchmarks.yml/dispatches \
-                -d '{"ref":"refs/heads/master","inputs":{"benchmark-data-dir-path":"'$benchmark_dir'","output-file-path":"'$bencmark_name'"}}'
-        sleep 300
+              https://api.github.com/repos/paritytech/${CI_PROJECT_NAME}/actions/workflows/publish-subsystem-benchmarks.yml/dispatches \
+              -d "{\"ref\":\"refs/heads/master\",\"inputs\":{\"benchmark-data-dir-path\":\"$benchmark_dir\",\"output-file-path\":\"$benchmark_name\"}}";
+        sleep 300;
       done
   allow_failure: true
 

@@ -108,7 +108,7 @@ pub mod v1 {
 				.collect::<Vec<_>>();
 			let bounded = BoundedVec::<_, T::MaxProposals>::truncate_from(props.clone());
 			PublicProps::<T>::put(bounded);
-			weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
+			weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 2));
 
 			if props.len() as u32 > T::MaxProposals::get() {
 				log::error!(
@@ -126,7 +126,7 @@ pub mod v1 {
 
 			StorageVersion::new(1).put::<Pallet<T>>();
 
-			weight.saturating_add(T::DbWeight::get().reads_writes(1, 2))
+			weight.saturating_add(T::DbWeight::get().reads_writes(1, 3))
 		}
 
 		#[cfg(feature = "try-runtime")]

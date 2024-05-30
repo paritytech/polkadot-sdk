@@ -33,7 +33,6 @@ sp-io = { path = "../../substrate/primitives/io" }
 sp-keyring = { path = "../../substrate/primitives/keyring" }
 sp-maybe-compressed-blob = { path = "../../substrate/primitives/maybe-compressed-blob" }
 frame-benchmarking-cli = { path = "../../substrate/utils/frame/benchmarking-cli", optional = true }
-try-runtime-cli = { path = "../../substrate/utils/frame/try-runtime/cli", optional = true }
 sc-cli = { path = "../../substrate/client/cli", optional = true }
 sc-service = { path = "../../substrate/client/service", optional = true }
 polkadot-node-metrics = { path = "../node/metrics" }
@@ -57,7 +56,6 @@ cli = [
 	"sc-service",
 	"sc-tracing",
 	"service",
-	"try-runtime-cli",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking-cli?/runtime-benchmarks",
@@ -70,7 +68,6 @@ full-node = ["service/full-node"]
 try-runtime = [
 	"service/try-runtime",
 	"sp-runtime/try-runtime",
-	"try-runtime-cli/try-runtime",
 ]
 fast-runtime = ["service/fast-runtime"]
 pyroscope = ["pyro", "pyroscope_pprofrs"]

@@ -256,7 +256,7 @@ pub mod pallet {
 
 impl<T: Config> AssignmentProvider<BlockNumberFor<T>> for Pallet<T> {
 	fn pop_assignment_for_core(core_idx: CoreIndex) -> Option<Assignment> {
-		let now = <frame_system::Pallet<T>>::block_number();
+		let now = frame_system::Pallet::<T>::block_number();
 
 		CoreDescriptors::<T>::mutate(core_idx, |core_state| {
 			Self::ensure_workload(now, core_idx, core_state);
@@ -324,7 +324,7 @@ impl<T: Config> AssignmentProvider<BlockNumberFor<T>> for Pallet<T> {
 	}
 
 	fn session_core_count() -> u32 {
-		let config = <configuration::Pallet<T>>::config();
+		let config = configuration::ActiveConfig::<T>::get();
 		config.scheduler_params.num_cores
 	}
 }
@@ -473,7 +473,7 @@ impl<T: Config> AssignCoretime for Pallet<T> {
 		let current_block = frame_system::Pallet::<T>::block_number();
 
 		// Add a new core and assign the para to it.
-		let mut config = <configuration::Pallet<T>>::config();
+		let mut config = configuration::ActiveConfig::<T>::get();
 		let core = config.scheduler_params.num_cores;
 		config.scheduler_params.num_cores.saturating_inc();
 

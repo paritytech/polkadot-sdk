@@ -148,7 +148,6 @@ impl frame_system::Config for TestRuntime {
 	type AccountId = ThisChainAccountId;
 	type Block = ThisChainBlock;
 	type AccountData = pallet_balances::AccountData<ThisChainBalance>;
-	type BlockHashCount = ConstU32<250>;
 }
 
 impl pallet_utility::Config for TestRuntime {
@@ -166,7 +165,7 @@ impl pallet_balances::Config for TestRuntime {
 
 #[derive_impl(pallet_transaction_payment::config_preludes::TestDefaultConfig)]
 impl pallet_transaction_payment::Config for TestRuntime {
-	type OnChargeTransaction = pallet_transaction_payment::CurrencyAdapter<Balances, ()>;
+	type OnChargeTransaction = pallet_transaction_payment::FungibleAdapter<Balances, ()>;
 	type OperationalFeeMultiplier = ConstU8<5>;
 	type WeightToFee = IdentityFee<ThisChainBalance>;
 	type LengthToFee = ConstantMultiplier<ThisChainBalance, TransactionByteFee>;
@@ -183,7 +182,8 @@ impl pallet_transaction_payment::Config for TestRuntime {
 impl pallet_bridge_grandpa::Config for TestRuntime {
 	type RuntimeEvent = RuntimeEvent;
 	type BridgedChain = BridgedUnderlyingChain;
-	type MaxFreeMandatoryHeadersPerBlock = ConstU32<4>;
+	type MaxFreeHeadersPerBlock = ConstU32<4>;
+	type FreeHeadersInterval = ConstU32<1_024>;
 	type HeadersToKeep = ConstU32<8>;
 	type WeightInfo = pallet_bridge_grandpa::weights::BridgeWeight<TestRuntime>;
 }
@@ -406,6 +406,7 @@ impl Chain for BridgedUnderlyingParachain {
 
 impl Parachain for BridgedUnderlyingParachain {
 	const PARACHAIN_ID: u32 = 42;
+	const MAX_HEADER_SIZE: u32 = 1_024;
 }
 
 /// The other, bridged chain, used in tests.

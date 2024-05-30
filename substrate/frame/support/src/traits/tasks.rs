@@ -46,6 +46,10 @@ pub trait Task: Sized + FullCodec + TypeInfo + Clone + Debug + PartialEq + Eq {
 	fn iter() -> Self::Enumeration;
 
 	/// Checks if a particular instance of this `Task` variant is a valid piece of work.
+	///
+	/// This is used to validate tasks for unsigned execution. Hence, it MUST be cheap
+	/// with minimal to no storage reads. Else, it can make the blockchain vulnerable
+	/// to DoS attacks.
 	fn is_valid(&self) -> bool;
 
 	/// Performs the work for this particular `Task` variant.

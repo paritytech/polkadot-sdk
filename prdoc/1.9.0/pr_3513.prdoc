@@ -5,7 +5,13 @@ title: Fix call enum's metadata regression
 
 doc:
   - audience: Runtime Dev
-  - audience: Runtime User
+    description: |
+      This PR fixes an issue where in the metadata of all FRAME-based chains, the documentation for
+      all extrinsic/call/transactions has been replaced by a single line saying "see Pallet::name".
+
+      Many wallets display the metadata of transactions to the user before signing, and this bug
+      might have affected this process.
+  - audience: [Runtime User, Runtime Dev]
     description: |
       This PR fixes an issue where in the metadata of all FRAME-based chains, the documentation for
       all extrinsic/call/transactions has been replaced by a single line saying "see Pallet::name".

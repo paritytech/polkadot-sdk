@@ -17,7 +17,7 @@ path = "src/main.rs"
 [dependencies]
 async-trait = "0.1.79"
 clap = { version = "4.5.3", features = ["derive"] }
-codec = { package = "parity-scale-codec", version = "3.0.0" }
+codec = { package = "parity-scale-codec", version = "3.6.12" }
 futures = "0.3.28"
 hex-literal = "0.4.1"
 log = { workspace = true, default-features = true }
@@ -118,7 +118,7 @@ substrate-build-script-utils = { path = "../../substrate/utils/build-script-util
 
 [dev-dependencies]
 assert_cmd = "2.0"
-nix = { version = "0.26.1", features = ["signal"] }
+nix = { version = "0.28.0", features = ["signal"] }
 tempfile = "3.8.0"
 tokio = { version = "1.32.0", features = ["macros", "parking_lot", "time"] }
 wait-timeout = "0.2"

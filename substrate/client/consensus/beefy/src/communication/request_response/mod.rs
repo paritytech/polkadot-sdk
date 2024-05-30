@@ -26,7 +26,8 @@ pub use incoming_requests_handler::BeefyJustifsRequestHandler;
 use std::time::Duration;
 
 use codec::{Decode, Encode, Error as CodecError};
-use sc_network::{config::RequestResponseConfig, PeerId};
+use sc_network::NetworkBackend;
+use sc_network_types::PeerId;
 use sp_runtime::traits::{Block, NumberFor};
 
 use crate::communication::{beefy_protocol_name::justifications_protocol_name, peers::PeerReport};
@@ -47,23 +48,27 @@ const BEEFY_SYNC_LOG_TARGET: &str = "beefy::sync";
 /// `ProtocolConfig`.
 ///
 /// Consider using [`BeefyJustifsRequestHandler`] instead of this low-level function.
-pub(crate) fn on_demand_justifications_protocol_config<Hash: AsRef<[u8]>>(
+pub(crate) fn on_demand_justifications_protocol_config<
+	Hash: AsRef<[u8]>,
+	B: Block,
+	Network: NetworkBackend<B, <B as Block>::Hash>,
+>(
 	genesis_hash: Hash,
 	fork_id: Option<&str>,
-) -> (IncomingRequestReceiver, RequestResponseConfig) {
+) -> (IncomingRequestReceiver, Network::RequestResponseProtocolConfig) {
 	let name = justifications_protocol_name(genesis_hash, fork_id);
 	let fallback_names = vec![];
 	let (tx, rx) = async_channel::bounded(JUSTIF_CHANNEL_SIZE);
 	let rx = IncomingRequestReceiver::new(rx);
-	let cfg = RequestResponseConfig {
+	let cfg = Network::request_response_config(
 		name,
 		fallback_names,
-		max_request_size: 32,
-		max_response_size: MAX_RESPONSE_SIZE,
+		32,
+		MAX_RESPONSE_SIZE,
 		// We are connected to all validators:
-		request_timeout: JUSTIF_REQUEST_TIMEOUT,
-		inbound_queue: Some(tx),
-	};
+		JUSTIF_REQUEST_TIMEOUT,
+		Some(tx),
+	);
 	(rx, cfg)
 }
 

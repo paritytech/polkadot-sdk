@@ -20,7 +20,7 @@
 //! Also see the [`frame_tokens`] reference docs for more information about the place of
 //! `fungible` traits in Substrate.
 //!
-//! # Avaliable Traits
+//! # Available Traits
 //! - [`Inspect`]: Regular balance inspector functions.
 //! - [`Unbalanced`]: Low-level balance mutating functions. Does not guarantee proper book-keeping
 //!   and so should not be called into directly from application code. Other traits depend on this

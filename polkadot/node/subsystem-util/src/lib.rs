@@ -25,16 +25,14 @@
 
 #![warn(missing_docs)]
 
+pub use overseer::{
+	gen::{OrchestraError as OverseerError, Timeout},
+	Subsystem, TimeoutExt,
+};
 use polkadot_node_subsystem::{
 	errors::{RuntimeApiError, SubsystemError},
 	messages::{RuntimeApiMessage, RuntimeApiRequest, RuntimeApiSender},
 	overseer, SubsystemSender,
-};
-use polkadot_primitives::{async_backing::BackingState, slashing, CoreIndex, ExecutorParams};
-
-pub use overseer::{
-	gen::{OrchestraError as OverseerError, Timeout},
-	Subsystem, TimeoutExt,
 };
 
 pub use polkadot_node_metrics::{metrics, Metronome};
@@ -43,11 +41,12 @@ use futures::channel::{mpsc, oneshot};
 use parity_scale_codec::Encode;
 
 use polkadot_primitives::{
-	AsyncBackingParams, AuthorityDiscoveryId, CandidateEvent, CandidateHash,
-	CommittedCandidateReceipt, CoreState, EncodeAs, GroupIndex, GroupRotationInfo, Hash,
-	Id as ParaId, OccupiedCoreAssumption, PersistedValidationData, ScrapedOnChainVotes,
-	SessionIndex, SessionInfo, Signed, SigningContext, ValidationCode, ValidationCodeHash,
-	ValidatorId, ValidatorIndex, ValidatorSignature,
+	async_backing::BackingState, slashing, AsyncBackingParams, AuthorityDiscoveryId,
+	CandidateEvent, CandidateHash, CommittedCandidateReceipt, CoreIndex, CoreState, EncodeAs,
+	ExecutorParams, GroupIndex, GroupRotationInfo, Hash, Id as ParaId, OccupiedCoreAssumption,
+	PersistedValidationData, ScrapedOnChainVotes, SessionIndex, SessionInfo, Signed,
+	SigningContext, ValidationCode, ValidationCodeHash, ValidatorId, ValidatorIndex,
+	ValidatorSignature,
 };
 pub use rand;
 use sp_application_crypto::AppCrypto;
@@ -60,10 +59,9 @@ use std::{
 use thiserror::Error;
 use vstaging::get_disabled_validators_with_fallback;
 
+pub use determine_new_blocks::determine_new_blocks;
 pub use metered;
 pub use polkadot_node_network_protocol::MIN_GOSSIP_PEERS;
-
-pub use determine_new_blocks::determine_new_blocks;
 
 /// These reexports are required so that external crates can use the `delegated_subsystem` macro
 /// properly.
@@ -71,6 +69,8 @@ pub mod reexports {
 	pub use polkadot_overseer::gen::{SpawnedSubsystem, Spawner, Subsystem, SubsystemContext};
 }
 
+/// Helpers for the validator->chunk index mapping.
+pub mod availability_chunks;
 /// A utility for managing the implicit view of the relay-chain derived from active
 /// leaves and the minimum allowed relay-parents that parachain candidates can have
 /// and be backed in those leaves' children.
@@ -296,6 +296,7 @@ specialize_requests! {
 	fn request_validation_code(para_id: ParaId, assumption: OccupiedCoreAssumption) -> Option<ValidationCode>; ValidationCode;
 	fn request_validation_code_by_hash(validation_code_hash: ValidationCodeHash) -> Option<ValidationCode>; ValidationCodeByHash;
 	fn request_candidate_pending_availability(para_id: ParaId) -> Option<CommittedCandidateReceipt>; CandidatePendingAvailability;
+	fn request_candidates_pending_availability(para_id: ParaId) -> Vec<CommittedCandidateReceipt>; CandidatesPendingAvailability;
 	fn request_candidate_events() -> Vec<CandidateEvent>; CandidateEvents;
 	fn request_session_info(index: SessionIndex) -> Option<SessionInfo>; SessionInfo;
 	fn request_validation_code_hash(para_id: ParaId, assumption: OccupiedCoreAssumption)

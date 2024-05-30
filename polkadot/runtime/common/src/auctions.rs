@@ -174,7 +174,6 @@ pub mod pallet {
 
 	/// Number of auctions started so far.
 	#[pallet::storage]
-	#[pallet::getter(fn auction_counter)]
 	pub type AuctionCounter<T> = StorageValue<_, AuctionIndex, ValueQuery>;
 
 	/// Information relating to the current auction, if there is one.
@@ -183,13 +182,11 @@ pub mod pallet {
 	/// contiguous lease periods on auction is for. The second is the block number when the
 	/// auction will "begin to end", i.e. the first block of the Ending Period of the auction.
 	#[pallet::storage]
-	#[pallet::getter(fn auction_info)]
 	pub type AuctionInfo<T: Config> = StorageValue<_, (LeasePeriodOf<T>, BlockNumberFor<T>)>;
 
 	/// Amounts currently reserved in the accounts of the bidders currently winning
 	/// (sub-)ranges.
 	#[pallet::storage]
-	#[pallet::getter(fn reserved_amounts)]
 	pub type ReservedAmounts<T: Config> =
 		StorageMap<_, Twox64Concat, (T::AccountId, ParaId), BalanceOf<T>>;
 
@@ -197,7 +194,6 @@ pub mod pallet {
 	/// the current auction. The map's key is the 0-based index into the Sample Size. The
 	/// first sample of the ending period is 0; the last is `Sample Size - 1`.
 	#[pallet::storage]
-	#[pallet::getter(fn winning)]
 	pub type Winning<T: Config> = StorageMap<_, Twox64Concat, BlockNumberFor<T>, WinningData<T>>;
 
 	#[pallet::extra_constants]
@@ -703,10 +699,6 @@ mod tests {
 		}
 	);
 
-	parameter_types! {
-		pub const BlockHashCount: u32 = 250;
-	}
-
 	#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 	impl frame_system::Config for Test {
 		type BaseCallFilter = frame_support::traits::Everything;
@@ -722,7 +714,6 @@ mod tests {
 		type Lookup = IdentityLookup<Self::AccountId>;
 		type Block = Block;
 		type RuntimeEvent = RuntimeEvent;
-		type BlockHashCount = BlockHashCount;
 		type Version = ();
 		type PalletInfo = PalletInfo;
 		type AccountData = pallet_balances::AccountData<u64>;
@@ -983,7 +974,7 @@ mod tests {
 			assert_eq!(Balances::reserved_balance(1), 5);
 			assert_eq!(Balances::free_balance(1), 5);
 			assert_eq!(
-				Auctions::winning(0).unwrap()[SlotRange::ZeroThree as u8 as usize],
+				Winning::<Test>::get(0).unwrap()[SlotRange::ZeroThree as u8 as usize],
 				Some((1, 0.into(), 5))
 			);
 		});
@@ -1016,7 +1007,7 @@ mod tests {
 			assert_eq!(Balances::reserved_balance(2), 6);
 			assert_eq!(Balances::free_balance(2), 14);
 			assert_eq!(
-				Auctions::winning(0).unwrap()[SlotRange::ZeroThree as u8 as usize],
+				Winning::<Test>::get(0).unwrap()[SlotRange::ZeroThree as u8 as usize],
 				Some((2, 0.into(), 6))
 			);
 		});
@@ -1453,7 +1444,7 @@ mod tests {
 			let mut winning = [None; SlotRange::SLOT_RANGE_COUNT];
 			winning[SlotRange::ZeroThree as u8 as usize] = Some((1, para_1, 9));
 			winning[SlotRange::TwoThree as u8 as usize] = Some((2, para_2, 19));
-			assert_eq!(Auctions::winning(0), Some(winning));
+			assert_eq!(Winning::<Test>::get(0), Some(winning));
 
 			run_to_block(9);
 			assert_eq!(
@@ -1466,14 +1457,14 @@ mod tests {
 				Auctions::auction_status(System::block_number()),
 				AuctionStatus::<u32>::EndingPeriod(0, 0)
 			);
-			assert_eq!(Auctions::winning(0), Some(winning));
+			assert_eq!(Winning::<Test>::get(0), Some(winning));
 
 			run_to_block(11);
 			assert_eq!(
 				Auctions::auction_status(System::block_number()),
 				AuctionStatus::<u32>::EndingPeriod(1, 0)
 			);
-			assert_eq!(Auctions::winning(1), Some(winning));
+			assert_eq!(Winning::<Test>::get(1), Some(winning));
 			assert_ok!(Auctions::bid(RuntimeOrigin::signed(3), para_3, 1, 3, 4, 29));
 
 			run_to_block(12);
@@ -1482,7 +1473,7 @@ mod tests {
 				AuctionStatus::<u32>::EndingPeriod(2, 0)
 			);
 			winning[SlotRange::TwoThree as u8 as usize] = Some((3, para_3, 29));
-			assert_eq!(Auctions::winning(2), Some(winning));
+			assert_eq!(Winning::<Test>::get(2), Some(winning));
 		});
 	}
 
@@ -1569,7 +1560,7 @@ mod tests {
 			let mut winning = [None; SlotRange::SLOT_RANGE_COUNT];
 			winning[SlotRange::ZeroThree as u8 as usize] = Some((1, para_1, 9));
 			winning[SlotRange::TwoThree as u8 as usize] = Some((2, para_2, 19));
-			assert_eq!(Auctions::winning(0), Some(winning));
+			assert_eq!(Winning::<Test>::get(0), Some(winning));
 
 			run_to_block(9);
 			assert_eq!(
@@ -1582,31 +1573,31 @@ mod tests {
 				Auctions::auction_status(System::block_number()),
 				AuctionStatus::<u32>::EndingPeriod(0, 0)
 			);
-			assert_eq!(Auctions::winning(0), Some(winning));
+			assert_eq!(Winning::<Test>::get(0), Some(winning));
 
 			// New bids update the current winning
 			assert_ok!(Auctions::bid(RuntimeOrigin::signed(3), para_3, 1, 14, 14, 29));
 			winning[SlotRange::ThreeThree as u8 as usize] = Some((3, para_3, 29));
-			assert_eq!(Auctions::winning(0), Some(winning));
+			assert_eq!(Winning::<Test>::get(0), Some(winning));
 
 			run_to_block(20);
 			assert_eq!(
 				Auctions::auction_status(System::block_number()),
 				AuctionStatus::<u32>::EndingPeriod(1, 0)
 			);
-			assert_eq!(Auctions::winning(1), Some(winning));
+			assert_eq!(Winning::<Test>::get(1), Some(winning));
 			run_to_block(25);
 			// Overbid mid sample
 			assert_ok!(Auctions::bid(RuntimeOrigin::signed(3), para_3, 1, 13, 14, 29));
 			winning[SlotRange::TwoThree as u8 as usize] = Some((3, para_3, 29));
-			assert_eq!(Auctions::winning(1), Some(winning));
+			assert_eq!(Winning::<Test>::get(1), Some(winning));
 
 			run_to_block(30);
 			assert_eq!(
 				Auctions::auction_status(System::block_number()),
 				AuctionStatus::<u32>::EndingPeriod(2, 0)
 			);
-			assert_eq!(Auctions::winning(2), Some(winning));
+			assert_eq!(Winning::<Test>::get(2), Some(winning));
 
 			set_last_random(H256::from([254; 32]), 40);
 			run_to_block(40);
@@ -1899,10 +1890,13 @@ mod benchmarking {
 
 			// Trigger epoch change for new random number value:
 			{
+				pallet_babe::EpochStart::<T>::set((Zero::zero(), u32::MAX.into()));
 				pallet_babe::Pallet::<T>::on_initialize(duration + now + T::EndingPeriod::get());
 				let authorities = pallet_babe::Pallet::<T>::authorities();
-				let next_authorities = authorities.clone();
-				pallet_babe::Pallet::<T>::enact_epoch_change(authorities, next_authorities, None);
+				// Check for non empty authority set since it otherwise emits a No-OP warning.
+				if !authorities.is_empty() {
+					pallet_babe::Pallet::<T>::enact_epoch_change(authorities.clone(), authorities, None);
+				}
 			}
 
 		}: {

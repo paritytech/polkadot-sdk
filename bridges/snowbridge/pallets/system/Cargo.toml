@@ -15,7 +15,7 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = [
+codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false, features = [
 	"derive",
 ] }
 scale-info = { version = "2.9.0", default-features = false, features = ["derive"] }
@@ -30,10 +30,8 @@ sp-io = { path = "../../../../substrate/primitives/io", default-features = false
 sp-runtime = { path = "../../../../substrate/primitives/runtime", default-features = false }
 
 xcm = { package = "staging-xcm", path = "../../../../polkadot/xcm", default-features = false }
-xcm-builder = { package = "staging-xcm-builder", path = "../../../../polkadot/xcm/xcm-builder", default-features = false }
 xcm-executor = { package = "staging-xcm-executor", path = "../../../../polkadot/xcm/xcm-executor", default-features = false }
 
-ethabi = { package = "ethabi-decode", version = "1.0.0", default-features = false }
 snowbridge-core = { path = "../../primitives/core", default-features = false }
 
 [dev-dependencies]
@@ -49,7 +47,6 @@ snowbridge-pallet-outbound-queue = { path = "../outbound-queue" }
 default = ["std"]
 std = [
 	"codec/std",
-	"ethabi/std",
 	"frame-benchmarking?/std",
 	"frame-support/std",
 	"frame-system/std",
@@ -60,7 +57,6 @@ std = [
 	"sp-io/std",
 	"sp-runtime/std",
 	"sp-std/std",
-	"xcm-builder/std",
 	"xcm-executor/std",
 	"xcm/std",
 ]
@@ -74,7 +70,6 @@ runtime-benchmarks = [
 	"snowbridge-core/runtime-benchmarks",
 	"snowbridge-pallet-outbound-queue/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
-	"xcm-builder/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",
 ]
 try-runtime = [

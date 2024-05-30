@@ -17,7 +17,7 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = ["derive"] }
+codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false, features = ["derive"] }
 impl-trait-for-tuples = "0.2.2"
 log = { optional = true, workspace = true, default-features = true }
 wasmtime = { version = "8.0.1", default-features = false, optional = true }
@@ -25,5 +25,5 @@ anyhow = { version = "1.0.81", optional = true }
 
 [features]
 default = ["std"]
-std = ["codec/std", "log/std", "wasmtime"]
+std = ["codec/std", "log/std"]
 wasmtime = ["anyhow", "dep:wasmtime"]

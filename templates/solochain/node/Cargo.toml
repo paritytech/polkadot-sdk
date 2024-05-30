@@ -11,9 +11,6 @@ publish = false
 
 build = "build.rs"
 
-[lints]
-workspace = true
-
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
@@ -64,9 +61,6 @@ frame-benchmarking-cli = { path = "../../../substrate/utils/frame/benchmarking-c
 # Local Dependencies
 solochain-template-runtime = { path = "../runtime" }
 
-# CLI-specific dependencies
-try-runtime-cli = { path = "../../../substrate/utils/frame/try-runtime/cli", optional = true }
-
 [build-dependencies]
 substrate-build-script-utils = { path = "../../../substrate/utils/build-script-utils" }
 
@@ -87,5 +81,4 @@ try-runtime = [
 	"pallet-transaction-payment/try-runtime",
 	"solochain-template-runtime/try-runtime",
 	"sp-runtime/try-runtime",
-	"try-runtime-cli/try-runtime",
 ]

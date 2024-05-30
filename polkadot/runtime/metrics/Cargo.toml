@@ -12,7 +12,7 @@ workspace = true
 [dependencies]
 sp-std = { package = "sp-std", path = "../../../substrate/primitives/std", default-features = false }
 sp-tracing = { path = "../../../substrate/primitives/tracing", default-features = false }
-parity-scale-codec = { version = "3.6.1", default-features = false }
+parity-scale-codec = { version = "3.6.12", default-features = false }
 primitives = { package = "polkadot-primitives", path = "../../primitives", default-features = false }
 frame-benchmarking = { path = "../../../substrate/frame/benchmarking", default-features = false, optional = true }
 

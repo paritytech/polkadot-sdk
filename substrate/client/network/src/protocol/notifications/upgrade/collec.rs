@@ -19,7 +19,6 @@
 use futures::prelude::*;
 use libp2p::core::upgrade::{InboundUpgrade, UpgradeInfo};
 use std::{
-	iter::FromIterator,
 	pin::Pin,
 	task::{Context, Poll},
 	vec,

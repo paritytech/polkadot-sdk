@@ -182,7 +182,7 @@ impl From<MultiRemovalResults> for KillStorageResult {
 pub trait Storage {
 	/// Returns the data for `key` in the storage or `None` if the key can not be found.
 	fn get(&self, key: &[u8]) -> Option<bytes::Bytes> {
-		self.storage(key).map(|s| bytes::Bytes::from(s.to_vec()))
+		self.storage(key).map(bytes::Bytes::from)
 	}
 
 	/// Get `key` from storage, placing the value into `value_out` and return the number of

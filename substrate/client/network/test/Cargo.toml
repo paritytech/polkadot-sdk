@@ -29,6 +29,7 @@ sc-client-api = { path = "../../api" }
 sc-consensus = { path = "../../consensus/common" }
 sc-network = { path = ".." }
 sc-network-common = { path = "../common" }
+sc-network-types = { path = "../types" }
 sc-utils = { path = "../../utils" }
 sc-network-light = { path = "../light" }
 sc-network-sync = { path = "../sync" }

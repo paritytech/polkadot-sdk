@@ -17,7 +17,6 @@
 
 //! Test utilities
 
-use core::convert::{TryFrom, TryInto};
 pub use sp_core::H256;
 use sp_runtime::traits::Hash;
 pub use sp_runtime::{
@@ -43,7 +42,6 @@ type BlockNumber = u64;
 type AccountId = u64;
 
 parameter_types! {
-	pub const BlockHashCount: BlockNumber = 250;
 	pub BlockWeights: frame_system::limits::BlockWeights =
 		frame_system::limits::BlockWeights::simple_max(Weight::MAX);
 }

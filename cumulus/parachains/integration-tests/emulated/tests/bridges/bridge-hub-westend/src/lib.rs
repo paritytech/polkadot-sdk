@@ -26,6 +26,7 @@ mod imports {
 		v3,
 		v4::NetworkId::Rococo as RococoId,
 	};
+	pub use xcm_executor::traits::TransferType;
 
 	// Cumulus
 	pub use emulated_integration_tests_common::{
@@ -48,13 +49,15 @@ mod imports {
 			genesis::ED as BRIDGE_HUB_WESTEND_ED,
 			BridgeHubWestendParaPallet as BridgeHubWestendPallet,
 		},
+		penpal_emulated_chain::{PenpalAssetOwner, PenpalBParaPallet as PenpalBPallet},
 		westend_emulated_chain::WestendRelayPallet as WestendPallet,
 		AssetHubRococoPara as AssetHubRococo, AssetHubRococoParaReceiver as AssetHubRococoReceiver,
 		AssetHubRococoParaSender as AssetHubRococoSender, AssetHubWestendPara as AssetHubWestend,
 		AssetHubWestendParaReceiver as AssetHubWestendReceiver,
 		AssetHubWestendParaSender as AssetHubWestendSender, BridgeHubRococoPara as BridgeHubRococo,
 		BridgeHubWestendPara as BridgeHubWestend,
-		BridgeHubWestendParaSender as BridgeHubWestendSender, WestendRelay as Westend,
+		BridgeHubWestendParaSender as BridgeHubWestendSender, PenpalBPara as PenpalB,
+		PenpalBParaSender as PenpalBSender, WestendRelay as Westend,
 	};
 
 	pub const ASSET_MIN_BALANCE: u128 = 1000;
