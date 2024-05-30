@@ -103,6 +103,8 @@ mod cost {
 	pub(super) const UNKNOWN_VOTER: Rep = Rep::new(-150, "BEEFY: Unknown voter");
 	// Message containing invalid proof.
 	pub(super) const INVALID_PROOF: Rep = Rep::new(-5000, "BEEFY: Invalid commit");
+	// Message containing equivocating payload.
+	pub(super) const EQUIVOCATION: Rep = Rep::new(-30000, "BEEFY: Equivocation detected");
 	// Reputation cost per signature checked for invalid proof.
 	pub(super) const PER_SIGNATURE_CHECKED: i32 = -25;
 	// Reputation cost per byte for un-decodable message.

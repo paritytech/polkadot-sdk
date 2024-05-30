@@ -1115,6 +1115,7 @@ pub(crate) mod tests {
 			"/beefy/justifs/1".into(),
 			known_peers,
 			None,
+			fisherman.clone(),
 		);
 		// If chain's still at genesis, push 1 block to start first session.
 		if backend.blockchain().info().best_hash == backend.blockchain().info().genesis_hash {

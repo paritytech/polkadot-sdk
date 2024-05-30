@@ -22,12 +22,16 @@ use codec::Encode;
 use futures::channel::{oneshot, oneshot::Canceled};
 use log::{debug, warn};
 use parking_lot::Mutex;
+use sc_client_api::Backend;
 use sc_network::{
 	request_responses::{IfDisconnected, RequestFailure},
 	NetworkRequest, ProtocolName,
 };
 use sc_network_types::PeerId;
-use sp_consensus_beefy::{ecdsa_crypto::AuthorityId, ValidatorSet};
+use sp_api::ProvideRuntimeApi;
+use sp_consensus_beefy::{
+	ecdsa_crypto::AuthorityId, BeefyApi, MmrRootHash, PayloadProvider, ValidatorSet,
+};
 use sp_runtime::traits::{Block, NumberFor};
 use std::{collections::VecDeque, result::Result, sync::Arc};
 
@@ -37,11 +41,13 @@ use crate::{
 		peers::PeerReport,
 		request_response::{Error, JustificationRequest, BEEFY_SYNC_LOG_TARGET},
 	},
+	fisherman::Fisherman,
 	justification::{decode_and_verify_finality_proof, BeefyVersionedFinalityProof},
 	metric_inc,
 	metrics::{register_metrics, OnDemandOutgoingRequestsMetrics},
 	KnownPeers,
 };
+use sp_mmr_primitives::MmrApi;
 
 /// Response type received from network.
 type Response = Result<(Vec<u8>, ProtocolName), RequestFailure>;
@@ -69,7 +75,7 @@ pub(crate) enum ResponseInfo<B: Block> {
 	PeerReport(PeerReport),
 }
 
-pub struct OnDemandJustificationsEngine<B: Block> {
+pub struct OnDemandJustificationsEngine<B: Block, BE, R, P> {
 	network: Arc<dyn NetworkRequest + Send + Sync>,
 	protocol_name: ProtocolName,
 
@@ -78,14 +84,24 @@ pub struct OnDemandJustificationsEngine<B: Block> {
 
 	state: State<B>,
 	metrics: Option<OnDemandOutgoingRequestsMetrics>,
+
+	fisherman: Arc<Fisherman<B, BE, R, P>>,
 }
 
-impl<B: Block> OnDemandJustificationsEngine<B> {
+impl<B, BE, R, P> OnDemandJustificationsEngine<B, BE, R, P>
+where
+	B: Block,
+	BE: Backend<B> + Send + Sync,
+	P: PayloadProvider<B> + Send + Sync,
+	R: ProvideRuntimeApi<B> + Send + Sync,
+	R::Api: BeefyApi<B, AuthorityId, MmrRootHash> + MmrApi<B, MmrRootHash, NumberFor<B>>,
+{
 	pub fn new(
 		network: Arc<dyn NetworkRequest + Send + Sync>,
 		protocol_name: ProtocolName,
 		live_peers: Arc<Mutex<KnownPeers<B>>>,
 		prometheus_registry: Option<prometheus::Registry>,
+		fisherman: Arc<Fisherman<B, BE, R, P>>,
 	) -> Self {
 		let metrics = register_metrics(prometheus_registry);
 		Self {
@@ -95,6 +111,7 @@ impl<B: Block> OnDemandJustificationsEngine<B> {
 			peers_cache: VecDeque::new(),
 			state: State::Idle,
 			metrics,
+			fisherman,
 		}
 	}
 
@@ -224,6 +241,21 @@ impl<B: Block> OnDemandJustificationsEngine<B> {
 						cost::PER_SIGNATURE_CHECKED.saturating_mul(signatures_checked as i32);
 					Error::InvalidResponse(PeerReport { who: *peer, cost_benefit: cost })
 				})
+			})
+			.and_then(|proof| match self.fisherman.check_proof(proof.clone()) {
+				Ok(()) => Ok(proof),
+				Err(err) => {
+					metric_inc!(self.metrics, beefy_on_demand_justification_equivocation);
+					warn!(
+						target: BEEFY_SYNC_LOG_TARGET,
+						"🥩 for on demand justification #{:?}, peer {:?} responded with equivocation: {:?}",
+						req_info.block, peer, err
+					);
+					Err(Error::InvalidResponse(PeerReport {
+						who: *peer,
+						cost_benefit: cost::EQUIVOCATION,
+					}))
+				},
 			})
 	}
 

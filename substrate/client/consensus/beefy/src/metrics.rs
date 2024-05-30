@@ -236,6 +236,8 @@ pub struct OnDemandOutgoingRequestsMetrics {
 	pub beefy_on_demand_justification_invalid_proof: Counter<U64>,
 	/// Number of on-demand justification good proof
 	pub beefy_on_demand_justification_good_proof: Counter<U64>,
+	/// Number of on-demand justification equivocation
+	pub beefy_on_demand_justification_equivocation: Counter<U64>,
 }
 
 impl PrometheusRegister for OnDemandOutgoingRequestsMetrics {
@@ -274,6 +276,13 @@ impl PrometheusRegister for OnDemandOutgoingRequestsMetrics {
 				Counter::new(
 					"substrate_beefy_on_demand_justification_good_proof",
 					"Number of on-demand justification good proof",
+				)?,
+				registry,
+			)?,
+			beefy_on_demand_justification_equivocation: register(
+				Counter::new(
+					"substrate_beefy_on_demand_justification_equivocation",
+					"Number of on-demand justification equivocations",
 				)?,
 				registry,
 			)?,

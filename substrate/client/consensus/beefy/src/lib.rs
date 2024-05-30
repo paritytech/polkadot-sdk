@@ -235,7 +235,7 @@ pub struct BeefyParams<B: Block, BE, C, N, P, R, S> {
 pub(crate) struct BeefyComms<B: Block, N, BE, P, R> {
 	pub gossip_engine: GossipEngine<B>,
 	pub gossip_validator: Arc<GossipValidator<B, N, BE, P, R>>,
-	pub on_demand_justifications: OnDemandJustificationsEngine<B>,
+	pub on_demand_justifications: OnDemandJustificationsEngine<B, BE, R, P>,
 }
 
 /// Helper builder object for building [worker::BeefyWorker].
@@ -556,6 +556,7 @@ pub async fn start_beefy_gadget<B, BE, C, N, P, R, S>(
 		justifications_protocol_name.clone(),
 		known_peers,
 		prometheus_registry.clone(),
+		fisherman.clone(),
 	);
 	let mut beefy_comms = BeefyComms { gossip_engine, gossip_validator, on_demand_justifications };
 
