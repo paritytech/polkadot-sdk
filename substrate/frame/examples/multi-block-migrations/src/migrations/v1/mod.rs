@@ -138,6 +138,13 @@ impl<T: Config, W: weights::WeightInfo> SteppedMigration for LazyMigrationV1<T, 
 		let prev_map = BTreeMap::<u32, u32>::decode(&mut &prev[..])
 			.expect("Failed to decode the previous storage state");
 
+		// Check the len of prev and post are the same.
+		assert_eq!(
+			MyMap::<T>::iter().count(),
+			prev_map.len(),
+			"Migration failed: the number of items in the storage after the migration is not the same as before"
+		);
+
 		for (key, value) in MyMap::<T>::iter() {
 			let prev_value =
 				prev_map.get(&key).expect("Key not found in the previous storage state");
