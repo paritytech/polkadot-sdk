@@ -15,9 +15,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use frame_support_procedural_tools::get_doc_literals;
 use inflector::Inflector;
 use syn::spanned::Spanned;
-use frame_support_procedural_tools::get_doc_literals;
 
 /// Definition of dispatchables typically `impl<T: Config> Pallet<T> { ... }`
 pub struct ViewFunctionsImplDef {
@@ -107,5 +107,37 @@ impl ViewFunctionDef {
 			&format!("{}Query", self.name.to_string().to_pascal_case()),
 			self.name.span(),
 		)
+	}
+
+	pub fn query_id_suffix_bytes_lits(&self) -> [syn::LitInt; 16] {
+		let mut output = [0u8; 16];
+		let arg_types = self
+			.args_names_types()
+			.1
+			.iter()
+			.map(|ty| quote::quote!(#ty).to_string())
+			.collect::<Vec<_>>()
+			.join(",");
+		let return_type = &self.return_type;
+		let view_fn_signature =
+			format!("{}({}) -> {}", self.name, arg_types, quote::quote!(#return_type),);
+		let hash = sp_crypto_hashing::twox_128(view_fn_signature.as_bytes());
+		output.copy_from_slice(&hash[..]);
+		output.map(|byte| {
+			syn::LitInt::new(&format!("0x{:X}_u8", byte), proc_macro2::Span::call_site())
+		})
+	}
+
+	pub fn args_names_types(&self) -> (Vec<syn::Ident>, Vec<syn::Type>) {
+		self.args
+			.iter()
+			.map(|arg| match arg {
+				syn::FnArg::Typed(pat_type) => match &*pat_type.pat {
+					syn::Pat::Ident(ident) => (ident.ident.clone(), *pat_type.ty.clone()),
+					_ => panic!("Unsupported pattern in view function argument"),
+				},
+				_ => panic!("Unsupported argument in view function"),
+			})
+			.unzip()
 	}
 }

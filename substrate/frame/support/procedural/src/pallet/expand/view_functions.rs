@@ -56,19 +56,11 @@ fn expand_view_function(
 
 	let query_struct_ident = view_fn.query_struct_ident();
 	let view_fn_name = &view_fn.name;
-	let (arg_names, arg_types): (Vec<_>, Vec<_>) = view_fn
-		.args
-		.iter()
-		.map(|arg| match arg {
-			syn::FnArg::Typed(pat_type) => match &*pat_type.pat {
-				syn::Pat::Ident(ident) => (ident.ident.clone(), pat_type.ty.clone()),
-				_ => panic!("Unsupported pattern in view function argument"),
-			},
-			_ => panic!("Unsupported argument in view function"),
-		})
-		.unzip();
+	let (arg_names, arg_types) = view_fn.args_names_types();
 	let return_type = &view_fn.return_type;
 	let docs = &view_fn.docs;
+
+	let query_id_suffix_bytes = view_fn.query_id_suffix_bytes_lits();
 
 	quote::quote! {
 		#( #[doc = #docs] )*
@@ -103,7 +95,7 @@ fn expand_view_function(
 		}
 
 		impl<#type_impl_gen> #frame_support::traits::QueryIdSuffix for #query_struct_ident<#type_use_gen> #where_clause {
-			const SUFFIX: [u8; 16] = [0u8; 16];
+			const SUFFIX: [::core::primitive::u8; 16usize] = [ #( #query_id_suffix_bytes ),* ];
 		}
 
 		impl<#type_impl_gen> #frame_support::traits::Query for #query_struct_ident<#type_use_gen> #where_clause {
@@ -146,13 +138,13 @@ fn impl_dispatch_query(def: &Def, view_fns_impl: &ViewFunctionsImplDef) -> Token
 			impl<#type_impl_gen> #frame_support::traits::DispatchQuery
 				for #pallet_ident<#type_use_gen> #where_clause
 			{
-				#[deny(unreachable_patterns)]
+				#[deny(unreachable_patterns)] // todo: [AJ] should error if identical suffixes, does not atm
 				fn dispatch_query<
 					O: #frame_support::__private::codec::Output,
 				>
 					(id: & #frame_support::traits::QueryId, input: &mut &[u8], output: &mut O) -> Result<(), #frame_support::__private::codec::Error>
 				{
-					let x = 1;
+					// let y = 1; // todo: [AJ] why is unused variable error not triggered here - unused functions?
 					match id.suffix {
 						#( #query_match_arms )*
 						_ => Err(#frame_support::__private::codec::Error::from("DispatchQuery not implemented")), // todo: [AJ]
