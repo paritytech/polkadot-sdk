@@ -351,7 +351,8 @@ use sp_runtime::BuildStorage;
 ///
 /// This can be used by tools to determine the type of a chain for displaying
 /// additional information or enabling additional features.
-#[derive(clap::ValueEnum, serde::Serialize, serde::Deserialize, Debug, PartialEq, Clone)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, PartialEq, Clone)]
+#[cfg_attr(feature = "clap", derive(clap::ValueEnum))]
 pub enum ChainType {
 	/// A development chain that runs mainly on one node.
 	Development,
@@ -360,7 +361,7 @@ pub enum ChainType {
 	/// A live chain.
 	Live,
 	/// Some custom chain type.
-	#[clap(skip)]
+	#[cfg_attr(feature = "clap", clap(skip))]
 	Custom(String),
 }
 
