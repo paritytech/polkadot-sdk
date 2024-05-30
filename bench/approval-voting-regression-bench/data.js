@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1717023240977,
+  "lastUpdate": 1717067617261,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -5686,6 +5686,53 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-distribution",
             "value": 7.189827579339986,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "drskalman",
+            "username": "drskalman",
+            "email": "35698397+drskalman@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "bcab07a8c63687a148f19883688c50a9fa603091",
+          "message": "Beefy client generic on aduthority Id (#1816)\n\nRevived version of https://github.com/paritytech/substrate/pull/13311 .\nExcept Signature is not generic and is dictated by AuthorityId.\n\n---------\n\nCo-authored-by: Davide Galassi <davxy@datawok.net>\nCo-authored-by: Robert Hambrock <roberthambrock@gmail.com>\nCo-authored-by: Adrian Catangiu <adrian@parity.io>",
+          "timestamp": "2024-05-30T09:31:39Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/bcab07a8c63687a148f19883688c50a9fa603091"
+        },
+        "date": 1717067589249,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52938.5,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63540.16000000001,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 3.3139209798701486,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 7.383507485549979,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 9.960458793990032,
             "unit": "seconds"
           }
         ]
