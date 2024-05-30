@@ -89,8 +89,8 @@
 //! ### Custom `TryState` logic
 //!
 //! You can add custom logic that should be called in your runtime on a try-state test. This is
-//! done by setting an optional generic parameter after the `OnRuntimeUpgrade` type. The custom logic will be called before
-//! the `try-state` logic of all modules is called.
+//! done by setting an optional generic parameter after the `OnRuntimeUpgrade` type. The custom
+//! logic will be called before the `try-state` logic of all modules is called.
 //!
 //! ```
 //! # use sp_runtime::generic;
@@ -678,9 +678,9 @@ impl<
 		// Check that `parent_hash` is correct.
 		let n = *header.number();
 		assert!(
-			n > BlockNumberFor::<System>::zero()
-				&& <frame_system::Pallet<System>>::block_hash(n - BlockNumberFor::<System>::one())
-					== *header.parent_hash(),
+			n > BlockNumberFor::<System>::zero() &&
+				<frame_system::Pallet<System>>::block_hash(n - BlockNumberFor::<System>::one()) ==
+					*header.parent_hash(),
 			"Parent hash should be valid.",
 		);
 

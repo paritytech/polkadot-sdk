@@ -314,9 +314,9 @@ mod custom2 {
 		// Inherent call is accepted for being dispatched
 		fn pre_dispatch(call: &Self::Call) -> Result<(), TransactionValidityError> {
 			match call {
-				Call::allowed_unsigned { .. }
-				| Call::optional_inherent { .. }
-				| Call::inherent { .. } => Ok(()),
+				Call::allowed_unsigned { .. } |
+				Call::optional_inherent { .. } |
+				Call::inherent { .. } => Ok(()),
 				_ => Err(UnknownTransaction::NoUnsignedValidator.into()),
 			}
 		}
@@ -550,8 +550,8 @@ fn balance_transfer_dispatch_works() {
 		.assimilate_storage(&mut t)
 		.unwrap();
 	let xt = TestXt::new(call_transfer(2, 69), sign_extra(1, 0, 0));
-	let weight = xt.get_dispatch_info().weight
-		+ <Runtime as frame_system::Config>::BlockWeights::get()
+	let weight = xt.get_dispatch_info().weight +
+		<Runtime as frame_system::Config>::BlockWeights::get()
 			.get(DispatchClass::Normal)
 			.base_extrinsic;
 	let fee: Balance =
@@ -738,8 +738,8 @@ fn block_weight_and_size_is_stored_per_tx() {
 	let mut t = new_test_ext(1);
 	t.execute_with(|| {
 		// Block execution weight + on_initialize weight from custom module
-		let base_block_weight = Weight::from_parts(175, 0)
-			+ <Runtime as frame_system::Config>::BlockWeights::get().base_block;
+		let base_block_weight = Weight::from_parts(175, 0) +
+			<Runtime as frame_system::Config>::BlockWeights::get().base_block;
 
 		Executive::initialize_block(&Header::new_from_number(1));
 
@@ -751,8 +751,8 @@ fn block_weight_and_size_is_stored_per_tx() {
 		assert!(Executive::apply_extrinsic(x2.clone()).unwrap().is_ok());
 
 		// default weight for `TestXt` == encoded length.
-		let extrinsic_weight = Weight::from_parts(len as u64, 0)
-			+ <Runtime as frame_system::Config>::BlockWeights::get()
+		let extrinsic_weight = Weight::from_parts(len as u64, 0) +
+			<Runtime as frame_system::Config>::BlockWeights::get()
 				.get(DispatchClass::Normal)
 				.base_extrinsic;
 		// Check we account for all extrinsic weight and their len.
@@ -1014,10 +1014,10 @@ fn all_weights_are_recorded_correctly() {
 		// Weights are recorded correctly
 		assert_eq!(
 			frame_system::Pallet::<Runtime>::block_weight().total(),
-			custom_runtime_upgrade_weight
-				+ runtime_upgrade_weight
-				+ on_initialize_weight
-				+ base_block_weight,
+			custom_runtime_upgrade_weight +
+				runtime_upgrade_weight +
+				on_initialize_weight +
+				base_block_weight,
 		);
 	});
 }

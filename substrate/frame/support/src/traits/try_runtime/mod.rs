@@ -79,7 +79,7 @@ impl sp_std::str::FromStr for Select {
 		match s {
 			"all" | "All" => Ok(Select::All),
 			"none" | "None" => Ok(Select::None),
-			_ => {
+			_ =>
 				if s.starts_with("rr-") {
 					let count = s
 						.split_once('-')
@@ -89,8 +89,7 @@ impl sp_std::str::FromStr for Select {
 				} else {
 					let pallets = s.split(',').map(|x| x.as_bytes().to_vec()).collect::<Vec<_>>();
 					Ok(Select::Only(pallets))
-				}
-			},
+				},
 		}
 	}
 }
@@ -172,7 +171,8 @@ where
 
 /// Logic executed when `try-state` filters are provided in the `try-runtime` CLI.
 ///
-/// Returning `true` for the provided ID will include this `try-state` logic in the overall tests performed.
+/// Returning `true` for the provided ID will include this `try-state` logic in the overall tests
+/// performed.
 pub trait IdentifiableTryStateLogic<BlockNumber>: TryStateLogic<BlockNumber> {
 	fn matches_id(_id: &[u8]) -> bool;
 }
