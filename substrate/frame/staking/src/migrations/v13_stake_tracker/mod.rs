@@ -21,19 +21,32 @@
 
 use super::PALLET_MIGRATIONS_ID;
 use crate::{log, weights, Config, Nominations, Nominators, Pallet, StakerStatus, Validators};
+use codec::{Decode, Encode, MaxEncodedLen};
 use core::marker::PhantomData;
 use frame_election_provider_support::{SortedListProvider, VoteWeight};
 use frame_support::{
 	ensure,
 	migrations::{MigrationId, SteppedMigration, SteppedMigrationError},
 	traits::Defensive,
-	BoundedVec,
 };
+use scale_info::TypeInfo;
 use sp_staking::StakingInterface;
 use sp_std::prelude::*;
 
 #[cfg(test)]
 mod tests;
+
+#[derive(Encode, Decode, TypeInfo, MaxEncodedLen, PartialEq, Debug, Clone)]
+pub enum Processing {
+	Nominators,
+	Validators,
+	Done,
+}
+impl Default for Processing {
+	fn default() -> Self {
+		Processing::Nominators
+	}
+}
 
 /// V13 Multi-block migration to introduce the stake-tracker pallet.
 ///
@@ -51,7 +64,8 @@ pub struct MigrationV13<T: Config, W: weights::WeightInfo>(PhantomData<(T, W)>);
 impl<T: Config<CurrencyBalance = u128>, W: weights::WeightInfo> SteppedMigration
 	for MigrationV13<T, W>
 {
-	type Cursor = T::AccountId;
+	// nominator cursor and validator cursor.
+	type Cursor = (Option<T::AccountId>, Processing);
 	type Identifier = MigrationId<18>;
 
 	/// Identifier of this migration which should be globally unique.
@@ -72,48 +86,55 @@ impl<T: Config<CurrencyBalance = u128>, W: weights::WeightInfo> SteppedMigration
 
 		// do as much progress as possible per step.
 		while meter.try_consume(required).is_ok() {
-			// fetch the next nominator to migrate.
-			let mut iter = if let Some(ref last_nom) = cursor {
-				Nominators::<T>::iter_from(Nominators::<T>::hashed_key_for(last_nom))
-			} else {
-				Nominators::<T>::iter()
+			let new_cursor = match cursor {
+				None | Some((None, Processing::Nominators)) => {
+					// start processing nominators, start from the first.
+					if let Some((nominator, nominations)) = Nominators::<T>::iter().next() {
+						Self::process_nominator(&nominator, nominations)?;
+						Some((Some(nominator), Processing::Nominators))
+					} else {
+						Some((None, Processing::Validators))
+					}
+				},
+				Some((Some(ref last_nom), Processing::Nominators)) => {
+					// proceed with nominators.
+					let mut iter =
+						Nominators::<T>::iter_from(Nominators::<T>::hashed_key_for(last_nom));
+
+					if let Some((nominator, nominations)) = iter.next() {
+						Self::process_nominator(&nominator, nominations)?;
+						Some((Some(nominator), Processing::Nominators))
+					} else {
+						Some((None, Processing::Validators))
+					}
+				},
+				Some((None, Processing::Validators)) => {
+					// nominators have been all processed, start processing validators.
+					if let Some((validator, _)) = Validators::<T>::iter().next() {
+						Self::process_validator(&validator);
+						Some((Some(validator), Processing::Validators))
+					} else {
+						Some((None, Processing::Done))
+					}
+				},
+				Some((Some(ref last_val), Processing::Validators)) => {
+					let mut iter =
+						Validators::<T>::iter_from(Validators::<T>::hashed_key_for(last_val));
+					if let Some((validator, _)) = iter.next() {
+						Self::process_validator(&validator);
+						Some((Some(validator), Processing::Validators))
+					} else {
+						Some((None, Processing::Done))
+					}
+				},
+				Some((_, Processing::Done)) => Some((None, Processing::Done)),
 			};
 
-			if let Some((nominator, _)) = iter.next() {
-				let nominator_vote = Pallet::<T>::weight_of(&nominator);
-
-				// clean the nominations before migrating. This will ensure that the voter is not
-				// nominating duplicate and/or dangling targets.
-				let nominations = Self::clean_nominations(&nominator)?;
-
-				// iter over up to `MaxNominationsOf<T>` targets of `nominator` and insert or
-				// update the target's approval's score.
-				for target in nominations.into_iter() {
-					if <T as Config>::TargetList::contains(&target) {
-						Self::update_target(&target, nominator_vote)?;
-					} else {
-						Self::insert_target(&target, nominator_vote)?;
-					}
-				}
-
-				// progress cursor.
-				cursor = Some(nominator)
-			} else {
-				// done, return earlier.
-
-				// TODO: do this as the migration is performed -- not a large step at the end.
-				// but before, add active validators without any nominations.
-				for (validator, _) in Validators::<T>::iter() {
-					if !<T as Config>::TargetList::contains(&validator) &&
-						<Pallet<T> as StakingInterface>::status(&validator) ==
-							Ok(StakerStatus::Validator)
-					{
-						let self_stake = Pallet::<T>::weight_of(&validator);
-						<T as Config>::TargetList::on_insert(validator, self_stake.into())
-							.expect("node does not exist, checked above; qed.");
-					}
-				}
+			// progress or terminate.
+			if new_cursor.clone().unwrap_or_default().1 == Processing::Done {
 				return Ok(None)
+			} else {
+				cursor = new_cursor;
 			}
 		}
 
@@ -122,6 +143,37 @@ impl<T: Config<CurrencyBalance = u128>, W: weights::WeightInfo> SteppedMigration
 }
 
 impl<T: Config<CurrencyBalance = u128>, W: weights::WeightInfo> MigrationV13<T, W> {
+	fn process_nominator(
+		nominator: &T::AccountId,
+		nominations: Nominations<T>,
+	) -> Result<(), SteppedMigrationError> {
+		let nominator_vote = Pallet::<T>::weight_of(nominator);
+		// clean the nominations before migrating. This will ensure that the voter is not
+		// nominating duplicate and/or dangling targets.
+		let nominations = Self::clean_nominations(nominator, nominations)?;
+
+		// iter over up to `MaxNominationsOf<T>` targets of `nominator` and insert or
+		// update the target's approval's score.
+		for target in nominations.into_iter() {
+			if <T as Config>::TargetList::contains(&target) {
+				Self::update_target(&target, nominator_vote)?;
+			} else {
+				Self::insert_target(&target, nominator_vote)?;
+			}
+		}
+		Ok(())
+	}
+
+	fn process_validator(validator: &T::AccountId) {
+		if !<T as Config>::TargetList::contains(validator) &&
+			<Pallet<T> as StakingInterface>::status(validator) == Ok(StakerStatus::Validator)
+		{
+			let self_stake = Pallet::<T>::weight_of(validator);
+			<T as Config>::TargetList::on_insert(validator.clone(), self_stake.into())
+				.expect("node does not exist, checked above; qed.");
+		}
+	}
+
 	/// Inserts a new target in the list.
 	///
 	/// Note: the caller must ensure that the target node does not exist in the list yet.
@@ -185,6 +237,7 @@ impl<T: Config<CurrencyBalance = u128>, W: weights::WeightInfo> MigrationV13<T, 
 	/// When successful, the final nominations of the stash are returned.
 	pub(crate) fn clean_nominations(
 		who: &T::AccountId,
+		raw_nominations: Nominations<T>,
 	) -> Result<Vec<T::AccountId>, SteppedMigrationError> {
 		use sp_std::collections::btree_set::BTreeSet;
 
@@ -193,10 +246,7 @@ impl<T: Config<CurrencyBalance = u128>, W: weights::WeightInfo> MigrationV13<T, 
 			SteppedMigrationError::Failed
 		);
 
-		let raw_nominations =
-			Nominators::<T>::get(who).expect("who is nominator as per the check above; qed.");
 		let mut raw_targets = raw_nominations.targets.into_inner();
-
 		let count_before = raw_targets.len();
 
 		// remove duplicate nominations.
