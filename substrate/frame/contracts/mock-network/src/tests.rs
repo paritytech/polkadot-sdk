@@ -22,10 +22,7 @@ use crate::{
 	relay_chain, MockNet, ParaA, ParachainBalances, Relay, ALICE, BOB, INITIAL_BALANCE,
 };
 use codec::{Decode, Encode};
-use frame_support::{
-	assert_err,
-	traits::{fungibles::Mutate, Currency},
-};
+use frame_support::traits::{fungibles::Mutate, Currency};
 use pallet_contracts::{test_utils::builder::*, Code};
 use pallet_contracts_fixtures::compile_module;
 use pallet_contracts_uapi::ReturnErrorCode;
@@ -129,26 +126,6 @@ fn test_xcm_execute_incomplete() {
 
 		assert_eq!(ParachainBalances::free_balance(BOB), INITIAL_BALANCE);
 		assert_eq!(ParachainBalances::free_balance(&contract_addr), INITIAL_BALANCE - amount);
-	});
-}
-
-#[test]
-fn test_xcm_execute_filtered_call() {
-	MockNet::reset();
-
-	let contract_addr = instantiate_test_contract("xcm_execute");
-
-	ParaA::execute_with(|| {
-		// `remark`  should be rejected, as it is not allowed by our CallFilter.
-		let call = parachain::RuntimeCall::System(frame_system::Call::remark { remark: vec![] });
-		let message: Xcm<parachain::RuntimeCall> = Xcm::builder_unsafe()
-			.transact(OriginKind::Native, Weight::MAX, call.encode())
-			.build();
-		let result = bare_call(contract_addr.clone())
-			.data(VersionedXcm::V4(message).encode())
-			.build()
-			.result;
-		assert_err!(result, frame_system::Error::<parachain::Runtime>::CallFiltered);
 	});
 }
 

@@ -35,7 +35,7 @@ use std::{
 };
 
 use futures::{channel::oneshot, future::BoxFuture, pin_mut, prelude::*};
-use libp2p::{build_multiaddr, PeerId};
+use libp2p::PeerId;
 use log::trace;
 use parking_lot::Mutex;
 use sc_block_builder::{BlockBuilder, BlockBuilderBuilder};
@@ -57,8 +57,8 @@ use sc_network::{
 	peer_store::PeerStore,
 	request_responses::ProtocolConfig as RequestResponseConfig,
 	types::ProtocolName,
-	Multiaddr, NetworkBlock, NetworkService, NetworkStateInfo, NetworkSyncForkRequest,
-	NetworkWorker, NotificationMetrics, NotificationService,
+	NetworkBlock, NetworkService, NetworkStateInfo, NetworkSyncForkRequest, NetworkWorker,
+	NotificationMetrics, NotificationService,
 };
 use sc_network_common::role::Roles;
 use sc_network_light::light_client_requests::handler::LightClientRequestHandler;
@@ -71,6 +71,7 @@ use sc_network_sync::{
 	},
 	warp_request_handler,
 };
+use sc_network_types::{build_multiaddr, multiaddr::Multiaddr};
 use sc_service::client::Client;
 use sp_blockchain::{
 	Backend as BlockchainBackend, HeaderBackend, Info as BlockchainInfo, Result as ClientResult,
@@ -985,7 +986,7 @@ pub trait TestNetFactory: Default + Sized + Send {
 			for peer in peers.iter_mut() {
 				peer.network.add_known_address(
 					network.service().local_peer_id().into(),
-					listen_addr.clone(),
+					listen_addr.clone().into(),
 				);
 			}
 

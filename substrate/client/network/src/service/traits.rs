@@ -28,7 +28,7 @@ use crate::{
 	request_responses::{IfDisconnected, RequestFailure},
 	service::{metrics::NotificationMetrics, signature::Signature, PeerStoreProvider},
 	types::ProtocolName,
-	Multiaddr, ReputationChange,
+	ReputationChange,
 };
 
 use futures::{channel::oneshot, Stream};
@@ -36,7 +36,7 @@ use prometheus_endpoint::Registry;
 
 use sc_client_api::BlockBackend;
 use sc_network_common::{role::ObservedRole, ExHashT};
-use sc_network_types::PeerId;
+use sc_network_types::{multiaddr::Multiaddr, PeerId};
 use sp_runtime::traits::Block as BlockT;
 
 use std::{collections::HashSet, fmt::Debug, future::Future, pin::Pin, sync::Arc, time::Duration};

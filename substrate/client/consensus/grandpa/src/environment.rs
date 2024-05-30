@@ -18,7 +18,6 @@
 
 use std::{
 	collections::{BTreeMap, HashMap},
-	iter::FromIterator,
 	marker::PhantomData,
 	pin::Pin,
 	sync::Arc,

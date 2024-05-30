@@ -1,0 +1,15 @@
+title: "Re-prepare PVF artifacts only if needed"
+
+doc:
+  - audience: Node Dev
+    description: |
+      When a change in the executor environment parameters can not affect the prepared artifact,
+      it is preserved without recompilation and used for future executions. That mitigates
+      situations where every unrelated executor parameter change resulted in re-preparing every
+      artifact on every validator, causing a significant finality lag.
+
+crates:
+  - name: polkadot-node-core-pvf
+    bump: minor
+  - name: polkadot-primitives
+    bump: minor

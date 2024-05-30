@@ -58,6 +58,7 @@ impl Chain for BridgeHubWestend {
 
 impl Parachain for BridgeHubWestend {
 	const PARACHAIN_ID: u32 = BRIDGE_HUB_WESTEND_PARACHAIN_ID;
+	const MAX_HEADER_SIZE: u32 = MAX_BRIDGE_HUB_HEADER_SIZE;
 }
 
 impl ChainWithMessages for BridgeHubWestend {
@@ -93,10 +94,10 @@ frame_support::parameter_types! {
 	pub const BridgeHubWestendBaseXcmFeeInWnds: u128 = 17_756_830_000;
 
 	/// Transaction fee that is paid at the Westend BridgeHub for delivering single inbound message.
-	/// (initially was calculated by test `BridgeHubWestend::can_calculate_fee_for_complex_message_delivery_transaction` + `33%`)
-	pub const BridgeHubWestendBaseDeliveryFeeInWnds: u128 = 1_695_489_961_344;
+	/// (initially was calculated by test `BridgeHubWestend::can_calculate_fee_for_standalone_message_delivery_transaction` + `33%`)
+	pub const BridgeHubWestendBaseDeliveryFeeInWnds: u128 = 94_211_536_452;
 
 	/// Transaction fee that is paid at the Westend BridgeHub for delivering single outbound message confirmation.
-	/// (initially was calculated by test `BridgeHubWestend::can_calculate_fee_for_complex_message_confirmation_transaction` + `33%`)
-	pub const BridgeHubWestendBaseConfirmationFeeInWnds: u128 = 1_618_309_961_344;
+	/// (initially was calculated by test `BridgeHubWestend::can_calculate_fee_for_standalone_message_confirmation_transaction` + `33%`)
+	pub const BridgeHubWestendBaseConfirmationFeeInWnds: u128 = 17_224_486_452;
 }

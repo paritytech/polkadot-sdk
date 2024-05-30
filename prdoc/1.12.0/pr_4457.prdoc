@@ -1,0 +1,15 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: "sc-service: export all public functions"
+
+doc:
+  - audience: Node Dev
+    description: |
+      A PR #3166 converted private functions used in `spawn_tasks()` to public to make it possible to have custom 
+      implementation of the `spawn_tasks()`. However, not all functions were included in the list of exports from 
+      `sc-service` crate.
+
+crates: 
+  - name: sc-service
+    bump: minor

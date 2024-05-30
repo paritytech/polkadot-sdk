@@ -64,7 +64,7 @@ use sp_runtime::{
 	KeyTypeId, Perbill,
 };
 use sp_session::{GetSessionNumber, GetValidatorCount};
-use sp_staking::offence::{DisableStrategy, Kind, Offence, OffenceError, ReportOffence};
+use sp_staking::offence::{Kind, Offence, OffenceError, ReportOffence};
 use sp_std::{
 	collections::{btree_map::Entry, btree_set::BTreeSet},
 	prelude::*,
@@ -132,15 +132,6 @@ where
 
 	fn time_slot(&self) -> Self::TimeSlot {
 		self.time_slot.clone()
-	}
-
-	fn disable_strategy(&self) -> DisableStrategy {
-		match self.kind {
-			SlashingOffenceKind::ForInvalid => DisableStrategy::Always,
-			// in the future we might change it based on number of disputes initiated:
-			// <https://github.com/paritytech/polkadot/issues/5946>
-			SlashingOffenceKind::AgainstValid => DisableStrategy::Never,
-		}
 	}
 
 	fn slash_fraction(&self, _offenders: u32) -> Perbill {

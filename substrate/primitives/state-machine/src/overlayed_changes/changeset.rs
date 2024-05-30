@@ -935,7 +935,7 @@ mod test {
 	}
 
 	fn assert_drained_changes(is: OverlayedChangeSet, expected: Changes) {
-		let is = is.drain_commited().map(|(k, v)| (k, v.to_option())).collect::<Vec<_>>();
+		let is = is.drain_committed().map(|(k, v)| (k, v.to_option())).collect::<Vec<_>>();
 		let expected = expected
 			.iter()
 			.map(|(k, v)| (k.to_vec(), v.0.map(From::from)))
@@ -944,7 +944,7 @@ mod test {
 	}
 
 	fn assert_drained(is: OverlayedChangeSet, expected: Drained) {
-		let is = is.drain_commited().map(|(k, v)| (k, v.to_option())).collect::<Vec<_>>();
+		let is = is.drain_committed().map(|(k, v)| (k, v.to_option())).collect::<Vec<_>>();
 		let expected = expected
 			.iter()
 			.map(|(k, v)| (k.to_vec(), v.map(From::from)))

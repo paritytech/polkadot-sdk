@@ -9,9 +9,6 @@ repository.workspace = true
 edition.workspace = true
 publish = false
 
-[lints]
-workspace = true
-
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
@@ -20,7 +17,7 @@ substrate-wasm-builder = { path = "../../../substrate/utils/wasm-builder", optio
 docify = "0.2.8"
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = [
+codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false, features = [
 	"derive",
 ] }
 hex-literal = { version = "0.4.1", optional = true }
@@ -29,6 +26,7 @@ scale-info = { version = "2.11.1", default-features = false, features = [
 	"derive",
 ] }
 smallvec = "1.11.0"
+docify = "0.2.8"
 
 # Local
 pallet-parachain-template = { path = "../pallets/template", default-features = false }
@@ -78,12 +76,11 @@ xcm-executor = { package = "staging-xcm-executor", path = "../../../polkadot/xcm
 
 # Cumulus
 cumulus-pallet-aura-ext = { path = "../../../cumulus/pallets/aura-ext", default-features = false }
-cumulus-pallet-parachain-system = { path = "../../../cumulus/pallets/parachain-system", default-features = false, features = [
-	"parameterized-consensus-hook",
-] }
+cumulus-pallet-parachain-system = { path = "../../../cumulus/pallets/parachain-system", default-features = false }
 cumulus-pallet-session-benchmarking = { path = "../../../cumulus/pallets/session-benchmarking", default-features = false }
 cumulus-pallet-xcm = { path = "../../../cumulus/pallets/xcm", default-features = false }
 cumulus-pallet-xcmp-queue = { path = "../../../cumulus/pallets/xcmp-queue", default-features = false }
+cumulus-primitives-aura = { path = "../../../cumulus/primitives/aura", default-features = false }
 cumulus-primitives-core = { path = "../../../cumulus/primitives/core", default-features = false }
 cumulus-primitives-utility = { path = "../../../cumulus/primitives/utility", default-features = false }
 cumulus-primitives-storage-weight-reclaim = { path = "../../../cumulus/primitives/storage-weight-reclaim", default-features = false }
@@ -100,6 +97,7 @@ std = [
 	"cumulus-pallet-session-benchmarking/std",
 	"cumulus-pallet-xcm/std",
 	"cumulus-pallet-xcmp-queue/std",
+	"cumulus-primitives-aura/std",
 	"cumulus-primitives-core/std",
 	"cumulus-primitives-storage-weight-reclaim/std",
 	"cumulus-primitives-utility/std",

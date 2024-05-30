@@ -46,7 +46,7 @@ use relay_utils::{
 };
 use sp_core::Pair;
 use sp_runtime::traits::Zero;
-use std::{convert::TryFrom, fmt::Debug, marker::PhantomData};
+use std::{fmt::Debug, marker::PhantomData, ops::RangeInclusive};
 
 /// Substrate -> Substrate messages synchronization pipeline.
 pub trait SubstrateMessageLane: 'static + Clone + Debug + Send + Sync {
@@ -262,7 +262,7 @@ where
 			source_client,
 			params.lane_id,
 			relayer_id_at_source,
-			params.target_transaction_params,
+			Some(params.target_transaction_params),
 			params.source_to_target_headers_relay,
 		),
 		{
@@ -273,6 +273,87 @@ where
 	)
 	.await
 	.map_err(Into::into)
+}
+
+/// Deliver range of Substrate-to-Substrate messages. No checks are made to ensure that transaction
+/// will succeed.
+pub async fn relay_messages_range<P: SubstrateMessageLane>(
+	source_client: Client<P::SourceChain>,
+	target_client: Client<P::TargetChain>,
+	source_transaction_params: TransactionParams<AccountKeyPairOf<P::SourceChain>>,
+	target_transaction_params: TransactionParams<AccountKeyPairOf<P::TargetChain>>,
+	at_source_block: HeaderIdOf<P::SourceChain>,
+	lane_id: LaneId,
+	range: RangeInclusive<MessageNonce>,
+	outbound_state_proof_required: bool,
+) -> anyhow::Result<()>
+where
+	AccountIdOf<P::SourceChain>: From<<AccountKeyPairOf<P::SourceChain> as Pair>::Public>,
+	AccountIdOf<P::TargetChain>: From<<AccountKeyPairOf<P::TargetChain> as Pair>::Public>,
+	BalanceOf<P::SourceChain>: TryFrom<BalanceOf<P::TargetChain>>,
+{
+	let relayer_id_at_source: AccountIdOf<P::SourceChain> =
+		source_transaction_params.signer.public().into();
+	messages_relay::relay_messages_range(
+		SubstrateMessagesSource::<P>::new(
+			source_client.clone(),
+			target_client.clone(),
+			lane_id,
+			source_transaction_params,
+			None,
+		),
+		SubstrateMessagesTarget::<P>::new(
+			target_client,
+			source_client,
+			lane_id,
+			relayer_id_at_source,
+			Some(target_transaction_params),
+			None,
+		),
+		at_source_block,
+		range,
+		outbound_state_proof_required,
+	)
+	.await
+	.map_err(|_| anyhow::format_err!("The command has failed"))
+}
+
+/// Relay messages delivery confirmation of Substrate-to-Substrate messages.
+/// No checks are made to ensure that transaction will succeed.
+pub async fn relay_messages_delivery_confirmation<P: SubstrateMessageLane>(
+	source_client: Client<P::SourceChain>,
+	target_client: Client<P::TargetChain>,
+	source_transaction_params: TransactionParams<AccountKeyPairOf<P::SourceChain>>,
+	at_target_block: HeaderIdOf<P::TargetChain>,
+	lane_id: LaneId,
+) -> anyhow::Result<()>
+where
+	AccountIdOf<P::SourceChain>: From<<AccountKeyPairOf<P::SourceChain> as Pair>::Public>,
+	AccountIdOf<P::TargetChain>: From<<AccountKeyPairOf<P::TargetChain> as Pair>::Public>,
+	BalanceOf<P::SourceChain>: TryFrom<BalanceOf<P::TargetChain>>,
+{
+	let relayer_id_at_source: AccountIdOf<P::SourceChain> =
+		source_transaction_params.signer.public().into();
+	messages_relay::relay_messages_delivery_confirmation(
+		SubstrateMessagesSource::<P>::new(
+			source_client.clone(),
+			target_client.clone(),
+			lane_id,
+			source_transaction_params,
+			None,
+		),
+		SubstrateMessagesTarget::<P>::new(
+			target_client,
+			source_client,
+			lane_id,
+			relayer_id_at_source,
+			None,
+			None,
+		),
+		at_target_block,
+	)
+	.await
+	.map_err(|_| anyhow::format_err!("The command has failed"))
 }
 
 /// Different ways of building `receive_messages_proof` calls.
