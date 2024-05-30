@@ -510,9 +510,11 @@ impl<T: Config> Pallet<T> {
 			T::Currency::deposit_creating(who, reward.saturating_add(call_fee));
 		T::RewardHandler::on_unbalanced(positive_imbalance);
 
-		// register submitter as whitelisted for the next round(s).
+		// register submitter as whitelisted for the next round(s). It inserts the new account in
+		// the beginning of the whitelist, which may push out the account in the whitelist that has
+		// been there for longer if the whitelist is saturated (FIFO).
 		SignedWhitelist::<T>::mutate(|w| {
-			w.force_push(who.clone());
+			let _ = w.force_insert_keep_left(0, who.clone());
 		})
 	}
 
@@ -903,6 +905,69 @@ mod tests {
 
 				check_progressive_base_fee(&progression_40);
 			});
+	}
+
+	#[test]
+	fn whitelisted_fifo_works() {
+		ExtBuilder::default().signed_whitelist(3, 10).build_and_execute(|| {
+			assert_eq!(SignedWhitelistMax::get(), 3);
+			assert_eq!(SignedWhitelist::<Runtime>::get(), vec![]);
+
+			Pallet::<Runtime>::finalize_signed_phase_accept_solution(
+				Default::default(),
+				&1,
+				Default::default(),
+				Default::default(),
+			);
+
+			// 1 is part of the whitelist.
+			assert_eq!(SignedWhitelist::<Runtime>::get(), vec![1]);
+
+			Pallet::<Runtime>::finalize_signed_phase_accept_solution(
+				Default::default(),
+				&2,
+				Default::default(),
+				Default::default(),
+			);
+
+			// 2 is also is part of the whitelist.
+			assert_eq!(SignedWhitelist::<Runtime>::get(), vec![2, 1]);
+
+			Pallet::<Runtime>::finalize_signed_phase_accept_solution(
+				Default::default(),
+				&3,
+				Default::default(),
+				Default::default(),
+			);
+
+			// 3 is also is part of the whitelist.
+			assert_eq!(SignedWhitelist::<Runtime>::get(), vec![3, 2, 1]);
+
+			// and now the whitelist is saturated.
+			assert_eq!(SignedWhitelist::<Runtime>::get().len(), SignedWhitelistMax::get() as usize);
+
+			// since the whitelist is saturated, the next submitter added to the whitelist will push
+			// out the first submitter (1) of the whitelist.
+			Pallet::<Runtime>::finalize_signed_phase_accept_solution(
+				Default::default(),
+				&4,
+				Default::default(),
+				Default::default(),
+			);
+
+			assert_eq!(SignedWhitelist::<Runtime>::get(), vec![4, 3, 2]);
+
+			// duplicate whitelisted accounts are allowed and will push out submitters if the
+			// whitelist is saturated.
+			Pallet::<Runtime>::finalize_signed_phase_accept_solution(
+				Default::default(),
+				&4,
+				Default::default(),
+				Default::default(),
+			);
+
+			assert_eq!(SignedWhitelist::<Runtime>::get(), vec![4, 4, 3]);
+		})
 	}
 
 	#[test]

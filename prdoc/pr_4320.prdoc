@@ -6,7 +6,8 @@ doc:
       Implementation of a whitelisting feature for signed solution submitters for staking.
       When a signed solution is validated and accepted, its account is whitelisted.
       A whitelisted submitter's based deposit is fixed and it does not depend on the size of the
-      submission queue.
+      submission queue. In summary, this allows a dynamic set of previouslt successful signed
+      solution submitters to submit a solution with a fixed fee.
 
 crates:
 - name: pallet-election-provider-multi-phase

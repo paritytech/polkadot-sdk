@@ -98,8 +98,9 @@
 //! Each signed submission must hold a deposit that will be returned to the submitter if their
 //! solution was accepted or not processed. The deposit will be slashed if the submission is not
 //! valid. The amount to deposit per submission *may* depend on multiple factors, namely the size of
-//! the submission (in bytes and weight), the deposit base, the inclusion or not of the submitter in
-//! a whitelist and, potentially, on the size of the submission queue.
+//! the submission (in bytes and weight), the deposit base, if the submitters have submitted a
+//! successult solution (and therefore are whitelisted) and, potentially, on the size of the
+//! submission queue.
 //!
 //! The base deposit of a submission is calculated based on whether a submitter is whitelisted. Up
 //! to [`pallet::Config::SignedWhitelistMax`] can be whitelisted at a given time. Everytime a
@@ -642,7 +643,7 @@ pub mod pallet {
 			MaxWinners = Self::MaxWinners,
 		>;
 
-		/// Maximum number of whitelisted accounts.
+		/// Maximum number of whitelisted accounts that only deposit the base submission deposit.
 		///
 		/// The value returned by this getter should be lower or the same as `SignedMaxSubmissions`.
 		#[pallet::constant]
