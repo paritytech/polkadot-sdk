@@ -17,8 +17,10 @@ sp-blockchain = { path = "../../substrate/primitives/blockchain" }
 sp-keystore = { path = "../../substrate/primitives/keystore" }
 sp-runtime = { path = "../../substrate/primitives/runtime" }
 sp-api = { path = "../../substrate/primitives/api" }
+sp-application-crypto = { path = "../../substrate/primitives/application-crypto" }
 sp-consensus = { path = "../../substrate/primitives/consensus/common" }
 sp-consensus-babe = { path = "../../substrate/primitives/consensus/babe" }
+sp-consensus-beefy = { path = "../../substrate/primitives/consensus/beefy" }
 sc-chain-spec = { path = "../../substrate/client/chain-spec" }
 sc-rpc = { path = "../../substrate/client/rpc" }
 sc-rpc-spec-v2 = { path = "../../substrate/client/rpc-spec-v2" }
