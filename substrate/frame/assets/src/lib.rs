@@ -1695,7 +1695,7 @@ pub mod pallet {
 		/// Transfer the entire transferable balance from the caller asset account.
 		///
 		/// NOTE: This function only attempts to transfer _transferable_ balances. This means that
-		/// any held, frozen, or existential deposits (when `keep_alive` is `true`), will not be
+		/// any held, frozen, or minimum balance (when `keep_alive` is `true`), will not be
 		/// transferred by this function. To ensure that this function results in a killed account,
 		/// you might need to prepare the account by removing any reference counters, storage
 		/// deposits, etc...
@@ -1706,7 +1706,7 @@ pub mod pallet {
 		/// - `dest`: The recipient of the transfer.
 		/// - `keep_alive`: A boolean to determine if the `transfer_all` operation should send all
 		///   of the funds the asset account has, causing the sender asset account to be killed
-		///   (false), or transfer everything except at least the existential deposit, which will
+		///   (false), or transfer everything except at least the minimum balance, which will
 		///   guarantee to keep the sender asset account alive (true).
 		#[pallet::call_index(32)]
 		#[pallet::weight(T::WeightInfo::refund_other())]
