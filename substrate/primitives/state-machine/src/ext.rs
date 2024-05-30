@@ -31,8 +31,8 @@ use sp_core::storage::{
 };
 use sp_externalities::{Extension, ExtensionStore, Externalities, MultiRemovalResults};
 
-use crate::{log_error, trace, warn};
-use alloc::{boxed::Box, vec, vec::Vec};
+use crate::{trace, warn};
+use alloc::{boxed::Box, vec::Vec};
 use core::{
 	any::{Any, TypeId},
 	cmp::Ordering,
