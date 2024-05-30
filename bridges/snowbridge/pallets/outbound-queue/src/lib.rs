@@ -180,12 +180,16 @@ pub mod pallet {
 	pub enum Event<T: Config> {
 		/// Message has been queued and will be processed in the future
 		MessageQueued {
+			/// The message channel.
+			channel_id: ChannelId,
 			/// ID of the message. Usually the XCM message hash or a SetTopic.
 			id: H256,
 		},
 		/// Message will be committed at the end of current block. From now on, to track the
 		/// progress the message, use the `nonce` of `id`.
 		MessageAccepted {
+			/// The message channel.
+			channel_id: ChannelId,
 			/// ID of the message
 			id: H256,
 			/// The nonce assigned to this message
@@ -358,7 +362,11 @@ pub mod pallet {
 			Messages::<T>::append(Box::new(message));
 			MessageLeaves::<T>::append(message_abi_encoded_hash);
 
-			Self::deposit_event(Event::MessageAccepted { id: queued_message.id, nonce });
+			Self::deposit_event(Event::MessageAccepted {
+				channel_id: queued_message.channel_id,
+				id: queued_message.id,
+				nonce,
+			});
 
 			Ok(true)
 		}
