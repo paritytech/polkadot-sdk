@@ -242,9 +242,8 @@ impl ExtBuilder {
 		ext.execute_with(test);
 		ext.execute_with(|| {
 			#[cfg(feature = "try-runtime")]
-			<AllPalletsWithSystem as frame_support::traits::TryState<u64>>::try_state(
+			<AllPalletsWithSystem as frame_support::traits::TryStateLogic<u64>>::try_state(
 				frame_system::Pallet::<Runtime>::block_number(),
-				frame_support::traits::TryStateSelect::All,
 			)
 			.unwrap();
 			#[cfg(not(feature = "try-runtime"))]
@@ -297,8 +296,8 @@ pub(crate) fn start_era(era: sp_staking::EraIndex) {
 }
 
 pub(crate) fn eq_stake(who: AccountId, total: Balance, active: Balance) -> bool {
-	Staking::stake(&who).unwrap() == Stake { total, active } &&
-		get_agent_ledger(&who).ledger.stakeable_balance() == total
+	Staking::stake(&who).unwrap() == Stake { total, active }
+		&& get_agent_ledger(&who).ledger.stakeable_balance() == total
 }
 
 pub(crate) fn get_agent_ledger(agent: &AccountId) -> AgentLedgerOuter<T> {

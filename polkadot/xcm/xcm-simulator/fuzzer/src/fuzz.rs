@@ -24,7 +24,7 @@ use sp_runtime::{traits::AccountIdConversion, BuildStorage};
 use xcm_simulator::{decl_test_network, decl_test_parachain, decl_test_relay_chain, TestExt};
 
 #[cfg(feature = "try-runtime")]
-use frame_support::traits::{TryState, TryStateSelect::All};
+use frame_support::traits::TryStateLogic;
 use frame_support::{assert_ok, traits::IntegrityTest};
 use xcm::{latest::prelude::*, MAX_XCM_DECODE_DEPTH};
 
@@ -153,13 +153,13 @@ pub type ParachainPalletXcm = pallet_xcm::Pallet<parachain::Runtime>;
 // We check XCM messages recursively for blocklisted messages
 fn recursively_matches_blocklisted_messages(message: &Instruction<()>) -> bool {
 	match message {
-		DepositReserveAsset { xcm, .. } |
-		ExportMessage { xcm, .. } |
-		InitiateReserveWithdraw { xcm, .. } |
-		InitiateTeleport { xcm, .. } |
-		TransferReserveAsset { xcm, .. } |
-		SetErrorHandler(xcm) |
-		SetAppendix(xcm) => xcm.iter().any(recursively_matches_blocklisted_messages),
+		DepositReserveAsset { xcm, .. }
+		| ExportMessage { xcm, .. }
+		| InitiateReserveWithdraw { xcm, .. }
+		| InitiateTeleport { xcm, .. }
+		| TransferReserveAsset { xcm, .. }
+		| SetErrorHandler(xcm)
+		| SetAppendix(xcm) => xcm.iter().any(recursively_matches_blocklisted_messages),
 		// The blocklisted message is the Transact instruction.
 		m => matches!(m, Transact { .. }),
 	}
@@ -224,14 +224,14 @@ fn run_input(xcm_messages: [XcmMessage; 5]) {
 			|execute_with| {
 				execute_with(|| {
 					#[cfg(feature = "try-runtime")]
-					parachain::AllPalletsWithSystem::try_state(Default::default(), All).unwrap();
+					parachain::AllPalletsWithSystem::try_state(Default::default()).unwrap();
 					parachain::AllPalletsWithSystem::integrity_test();
 				});
 			},
 		);
 		Relay::execute_with(|| {
 			#[cfg(feature = "try-runtime")]
-			relay_chain::AllPalletsWithSystem::try_state(Default::default(), All).unwrap();
+			relay_chain::AllPalletsWithSystem::try_state(Default::default()).unwrap();
 			relay_chain::AllPalletsWithSystem::integrity_test();
 		});
 	}
