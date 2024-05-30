@@ -202,6 +202,12 @@
 //! ```nocompile
 //! remaining_payout = max_yearly_inflation * total_tokens / era_per_year - staker_payout
 //! ```
+//!
+//! Note, however, that it is possible to set a cap on the total `staker_payout` for the era through
+//! the `MaxStakersRewards` storage type. The `era_payout` implementor must ensure that the
+//! `max_payout = remaining_payout + (staker_payout * max_stakers_rewards)`. The excess payout that
+//! is not allocated for stakers is the era remaining reward.
+//!
 //! The remaining reward is send to the configurable end-point [`Config::RewardRemainder`].
 //!
 //! ### Reward Calculation
@@ -483,6 +489,20 @@ pub struct StakingLedger<T: Config> {
 	/// Use [`controller`] function to get the controller associated with the ledger.
 	#[codec(skip)]
 	controller: Option<T::AccountId>,
+}
+
+/// State of a ledger with regards with its data and metadata integrity.
+#[derive(PartialEq, Debug)]
+enum LedgerIntegrityState {
+	/// Ledger, bond and corresponding staking lock is OK.
+	Ok,
+	/// Ledger and/or bond is corrupted. This means that the bond has a ledger with a different
+	/// stash than the bonded stash.
+	Corrupted,
+	/// Ledger was corrupted and it has been killed.
+	CorruptedKilled,
+	/// Ledger and bond are OK, however the ledger's stash lock is out of sync.
+	LockCorrupted,
 }
 
 impl<T: Config> StakingLedger<T> {
@@ -897,8 +917,10 @@ impl<Balance: Default> EraPayout<Balance> for () {
 /// Adaptor to turn a `PiecewiseLinear` curve definition into an `EraPayout` impl, used for
 /// backwards compatibility.
 pub struct ConvertCurve<T>(sp_std::marker::PhantomData<T>);
-impl<Balance: AtLeast32BitUnsigned + Clone, T: Get<&'static PiecewiseLinear<'static>>>
-	EraPayout<Balance> for ConvertCurve<T>
+impl<Balance, T> EraPayout<Balance> for ConvertCurve<T>
+where
+	Balance: AtLeast32BitUnsigned + Clone + Copy,
+	T: Get<&'static PiecewiseLinear<'static>>,
 {
 	fn era_payout(
 		total_staked: Balance,
@@ -912,7 +934,7 @@ impl<Balance: AtLeast32BitUnsigned + Clone, T: Get<&'static PiecewiseLinear<'sta
 			// Duration of era; more than u64::MAX is rewarded as u64::MAX.
 			era_duration_millis,
 		);
-		let rest = max_payout.saturating_sub(validator_payout.clone());
+		let rest = max_payout.saturating_sub(validator_payout);
 		(validator_payout, rest)
 	}
 }

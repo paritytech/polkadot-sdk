@@ -16,8 +16,9 @@
 
 //! Benchmarks for the GRANDPA Pallet.
 //!
-//! The main dispatchable for the GRANDPA pallet is `submit_finality_proof`, so these benchmarks are
-//! based around that. There are to main factors which affect finality proof verification:
+//! The main dispatchable for the GRANDPA pallet is `submit_finality_proof_ex`. Our benchmarks
+//! are based around `submit_finality_proof`, though - from weight PoV they are the same calls.
+//! There are to main factors which affect finality proof verification:
 //!
 //! 1. The number of `votes-ancestries` in the justification
 //! 2. The number of `pre-commits` in the justification

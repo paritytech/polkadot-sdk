@@ -21,7 +21,7 @@
 //! it to substrate specific layout and child trie system.
 
 use crate::{CompactProof, HashDBT, TrieConfiguration, TrieHash, EMPTY_PREFIX};
-use sp_std::{boxed::Box, vec::Vec};
+use alloc::{boxed::Box, vec::Vec};
 use trie_db::{CError, Trie};
 
 /// Error for trie node decoding.

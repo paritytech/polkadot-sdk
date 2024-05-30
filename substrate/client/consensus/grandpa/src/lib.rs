@@ -67,7 +67,7 @@ use sc_client_api::{
 	BlockchainEvents, CallExecutor, ExecutorProvider, Finalizer, LockImportRun, StorageProvider,
 };
 use sc_consensus::BlockImport;
-use sc_network::{types::ProtocolName, NotificationService};
+use sc_network::{types::ProtocolName, NetworkBackend, NotificationService};
 use sc_telemetry::{telemetry, TelemetryHandle, CONSENSUS_DEBUG, CONSENSUS_INFO};
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
 use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedReceiver};
@@ -343,7 +343,7 @@ pub(crate) trait BlockSyncRequester<Block: BlockT> {
 	/// connected to (NOTE: this assumption will change in the future #3629).
 	fn set_sync_fork_request(
 		&self,
-		peers: Vec<sc_network::PeerId>,
+		peers: Vec<sc_network_types::PeerId>,
 		hash: Block::Hash,
 		number: NumberFor<Block>,
 	);
@@ -357,7 +357,7 @@ where
 {
 	fn set_sync_fork_request(
 		&self,
-		peers: Vec<sc_network::PeerId>,
+		peers: Vec<sc_network_types::PeerId>,
 		hash: Block::Hash,
 		number: NumberFor<Block>,
 	) {
@@ -707,11 +707,13 @@ pub struct GrandpaParams<Block: BlockT, C, N, S, SC, VR> {
 /// Returns the configuration value to put in
 /// [`sc_network::config::FullNetworkConfiguration`].
 /// For standard protocol name see [`crate::protocol_standard_name`].
-pub fn grandpa_peers_set_config(
+pub fn grandpa_peers_set_config<B: BlockT, N: NetworkBackend<B, <B as BlockT>::Hash>>(
 	protocol_name: ProtocolName,
-) -> (sc_network::config::NonDefaultSetConfig, Box<dyn NotificationService>) {
+	metrics: sc_network::service::NotificationMetrics,
+	peer_store_handle: Arc<dyn sc_network::peer_store::PeerStoreProvider>,
+) -> (N::NotificationProtocolConfig, Box<dyn NotificationService>) {
 	use communication::grandpa_protocol_name;
-	sc_network::config::NonDefaultSetConfig::new(
+	N::notification_config(
 		protocol_name,
 		grandpa_protocol_name::LEGACY_NAMES.iter().map(|&n| n.into()).collect(),
 		// Notifications reach ~256kiB in size at the time of writing on Kusama and Polkadot.
@@ -723,6 +725,8 @@ pub fn grandpa_peers_set_config(
 			reserved_nodes: Vec::new(),
 			non_reserved_mode: sc_network::config::NonReservedPeerMode::Deny,
 		},
+		metrics,
+		peer_store_handle,
 	)
 }
 

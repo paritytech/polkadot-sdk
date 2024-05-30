@@ -527,12 +527,16 @@ impl GridTracker {
 	}
 
 	/// Determine the validators which can send a statement to us by direct broadcast.
+	///
+	/// Returns a list of tuples representing each potential sender(ValidatorIndex)
+	/// and if the sender should already know about the statement, because we just
+	/// sent it to it.
 	pub fn direct_statement_providers(
 		&self,
 		groups: &Groups,
 		originator: ValidatorIndex,
 		statement: &CompactStatement,
-	) -> Vec<ValidatorIndex> {
+	) -> Vec<(ValidatorIndex, bool)> {
 		let (g, c_h, kind, in_group) =
 			match extract_statement_and_group_info(groups, originator, statement) {
 				None => return Vec::new(),
@@ -616,12 +620,13 @@ impl GridTracker {
 		originator: ValidatorIndex,
 		counterparty: ValidatorIndex,
 		statement: &CompactStatement,
+		received: bool,
 	) {
 		if let Some((_, c_h, kind, in_group)) =
 			extract_statement_and_group_info(groups, originator, statement)
 		{
 			if let Some(known) = self.confirmed_backed.get_mut(&c_h) {
-				known.sent_or_received_direct_statement(counterparty, in_group, kind);
+				known.sent_or_received_direct_statement(counterparty, in_group, kind, received);
 
 				if let Some(pending) = self.pending_statements.get_mut(&counterparty) {
 					pending.remove(&(originator, statement.clone()));
@@ -908,6 +913,12 @@ struct MutualKnowledge {
 	/// `Some` only if we have advertised, acknowledged, or requested the candidate
 	/// from them.
 	local_knowledge: Option<StatementFilter>,
+	/// Knowledge peer circulated to us, this is different from `local_knowledge` and
+	/// `remote_knowledge`, through the fact that includes only statements that we received from
+	/// peer while the other two, after manifest exchange part will include both what we sent to
+	/// the peer and what we received from peer, see `sent_or_received_direct_statement` for more
+	/// details.
+	received_knowledge: Option<StatementFilter>,
 }
 
 // A utility struct for keeping track of metadata about candidates
@@ -933,10 +944,13 @@ impl KnownBackedCandidate {
 	}
 
 	fn manifest_sent_to(&mut self, validator: ValidatorIndex, local_knowledge: StatementFilter) {
-		let k = self
-			.mutual_knowledge
-			.entry(validator)
-			.or_insert_with(|| MutualKnowledge { remote_knowledge: None, local_knowledge: None });
+		let k = self.mutual_knowledge.entry(validator).or_insert_with(|| MutualKnowledge {
+			remote_knowledge: None,
+			local_knowledge: None,
+			received_knowledge: None,
+		});
+		k.received_knowledge =
+			Some(StatementFilter::blank(local_knowledge.seconded_in_group.len()));
 
 		k.local_knowledge = Some(local_knowledge);
 	}
@@ -946,20 +960,24 @@ impl KnownBackedCandidate {
 		validator: ValidatorIndex,
 		remote_knowledge: StatementFilter,
 	) {
-		let k = self
-			.mutual_knowledge
-			.entry(validator)
-			.or_insert_with(|| MutualKnowledge { remote_knowledge: None, local_knowledge: None });
+		let k = self.mutual_knowledge.entry(validator).or_insert_with(|| MutualKnowledge {
+			remote_knowledge: None,
+			local_knowledge: None,
+			received_knowledge: None,
+		});
 
 		k.remote_knowledge = Some(remote_knowledge);
 	}
 
+	/// Returns a list of tuples representing each potential sender(ValidatorIndex)
+	/// and if the sender should already know about the statement, because we just
+	/// sent it to it.
 	fn direct_statement_senders(
 		&self,
 		group_index: GroupIndex,
 		originator_index_in_group: usize,
 		statement_kind: StatementKind,
-	) -> Vec<ValidatorIndex> {
+	) -> Vec<(ValidatorIndex, bool)> {
 		if group_index != self.group_index {
 			return Vec::new()
 		}
@@ -968,11 +986,18 @@ impl KnownBackedCandidate {
 			.iter()
 			.filter(|(_, k)| k.remote_knowledge.is_some())
 			.filter(|(_, k)| {
-				k.local_knowledge
+				k.received_knowledge
 					.as_ref()
 					.map_or(false, |r| !r.contains(originator_index_in_group, statement_kind))
 			})
-			.map(|(v, _)| *v)
+			.map(|(v, k)| {
+				(
+					*v,
+					k.local_knowledge
+						.as_ref()
+						.map_or(false, |r| r.contains(originator_index_in_group, statement_kind)),
+				)
+			})
 			.collect()
 	}
 
@@ -1014,11 +1039,18 @@ impl KnownBackedCandidate {
 		validator: ValidatorIndex,
 		statement_index_in_group: usize,
 		statement_kind: StatementKind,
+		received: bool,
 	) {
 		if let Some(k) = self.mutual_knowledge.get_mut(&validator) {
 			if let (Some(r), Some(l)) = (k.remote_knowledge.as_mut(), k.local_knowledge.as_mut()) {
 				r.set(statement_index_in_group, statement_kind);
 				l.set(statement_index_in_group, statement_kind);
+			}
+
+			if received {
+				k.received_knowledge
+					.as_mut()
+					.map(|knowledge| knowledge.set(statement_index_in_group, statement_kind));
 			}
 		}
 	}
@@ -2238,6 +2270,7 @@ mod tests {
 			validator_index,
 			counterparty,
 			&statement,
+			false,
 		);
 
 		// There should be no pending statements now (for the counterparty).

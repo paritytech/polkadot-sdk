@@ -32,7 +32,9 @@ use core::{clone::Clone, cmp::Eq, default::Default, fmt::Debug};
 use frame_support::PalletError;
 use scale_info::TypeInfo;
 use serde::{Deserialize, Serialize};
-use sp_consensus_grandpa::{AuthorityList, ConsensusLog, SetId, GRANDPA_ENGINE_ID};
+use sp_consensus_grandpa::{
+	AuthorityList, ConsensusLog, ScheduledChange, SetId, GRANDPA_ENGINE_ID,
+};
 use sp_runtime::{traits::Header as HeaderT, Digest, RuntimeDebug};
 use sp_std::{boxed::Box, vec::Vec};
 
@@ -147,24 +149,23 @@ pub struct GrandpaConsensusLogReader<Number>(sp_std::marker::PhantomData<Number>
 
 impl<Number: Codec> GrandpaConsensusLogReader<Number> {
 	/// Find and return scheduled (regular) change digest item.
-	pub fn find_scheduled_change(
-		digest: &Digest,
-	) -> Option<sp_consensus_grandpa::ScheduledChange<Number>> {
+	pub fn find_scheduled_change(digest: &Digest) -> Option<ScheduledChange<Number>> {
+		use sp_runtime::generic::OpaqueDigestItemId;
+		let id = OpaqueDigestItemId::Consensus(&GRANDPA_ENGINE_ID);
+
+		let filter_log = |log: ConsensusLog<Number>| match log {
+			ConsensusLog::ScheduledChange(change) => Some(change),
+			_ => None,
+		};
+
 		// find the first consensus digest with the right ID which converts to
 		// the right kind of consensus log.
-		digest
-			.convert_first(|log| log.consensus_try_to(&GRANDPA_ENGINE_ID))
-			.and_then(|log| match log {
-				ConsensusLog::ScheduledChange(change) => Some(change),
-				_ => None,
-			})
+		digest.convert_first(|l| l.try_to(id).and_then(filter_log))
 	}
 
 	/// Find and return forced change digest item. Or light client can't do anything
 	/// with forced changes, so we can't accept header with the forced change digest.
-	pub fn find_forced_change(
-		digest: &Digest,
-	) -> Option<(Number, sp_consensus_grandpa::ScheduledChange<Number>)> {
+	pub fn find_forced_change(digest: &Digest) -> Option<(Number, ScheduledChange<Number>)> {
 		// find the first consensus digest with the right ID which converts to
 		// the right kind of consensus log.
 		digest
@@ -244,6 +245,16 @@ pub enum BridgeGrandpaCall<Header: HeaderT> {
 		/// All data, required to initialize the pallet.
 		init_data: InitializationData<Header>,
 	},
+	/// `pallet-bridge-grandpa::Call::submit_finality_proof_ex`
+	#[codec(index = 4)]
+	submit_finality_proof_ex {
+		/// The header that we are going to finalize.
+		finality_target: Box<Header>,
+		/// Finality justification for the `finality_target`.
+		justification: justification::GrandpaJustification<Header>,
+		/// An identifier of the validators set, that have signed the justification.
+		current_set_id: SetId,
+	},
 }
 
 /// The `BridgeGrandpaCall` used by a chain.
@@ -273,7 +284,7 @@ pub trait ChainWithGrandpa: Chain {
 	/// ancestry and the pallet will accept such justification. The limit is only used to compute
 	/// maximal refund amount and submitting justifications which exceed the limit, may be costly
 	/// to submitter.
-	const REASONABLE_HEADERS_IN_JUSTIFICATON_ANCESTRY: u32;
+	const REASONABLE_HEADERS_IN_JUSTIFICATION_ANCESTRY: u32;
 
 	/// Maximal size of the mandatory chain header. Mandatory header is the header that enacts new
 	/// GRANDPA authorities set (so it has large digest inside).
@@ -307,8 +318,8 @@ where
 	const WITH_CHAIN_GRANDPA_PALLET_NAME: &'static str =
 		<T::Chain as ChainWithGrandpa>::WITH_CHAIN_GRANDPA_PALLET_NAME;
 	const MAX_AUTHORITIES_COUNT: u32 = <T::Chain as ChainWithGrandpa>::MAX_AUTHORITIES_COUNT;
-	const REASONABLE_HEADERS_IN_JUSTIFICATON_ANCESTRY: u32 =
-		<T::Chain as ChainWithGrandpa>::REASONABLE_HEADERS_IN_JUSTIFICATON_ANCESTRY;
+	const REASONABLE_HEADERS_IN_JUSTIFICATION_ANCESTRY: u32 =
+		<T::Chain as ChainWithGrandpa>::REASONABLE_HEADERS_IN_JUSTIFICATION_ANCESTRY;
 	const MAX_MANDATORY_HEADER_SIZE: u32 =
 		<T::Chain as ChainWithGrandpa>::MAX_MANDATORY_HEADER_SIZE;
 	const AVERAGE_HEADER_SIZE: u32 = <T::Chain as ChainWithGrandpa>::AVERAGE_HEADER_SIZE;
@@ -336,7 +347,7 @@ mod tests {
 	use super::*;
 	use bp_runtime::ChainId;
 	use frame_support::weights::Weight;
-	use sp_runtime::{testing::H256, traits::BlakeTwo256, MultiSignature};
+	use sp_runtime::{testing::H256, traits::BlakeTwo256, DigestItem, MultiSignature};
 
 	struct TestChain;
 
@@ -363,7 +374,7 @@ mod tests {
 	impl ChainWithGrandpa for TestChain {
 		const WITH_CHAIN_GRANDPA_PALLET_NAME: &'static str = "Test";
 		const MAX_AUTHORITIES_COUNT: u32 = 128;
-		const REASONABLE_HEADERS_IN_JUSTIFICATON_ANCESTRY: u32 = 2;
+		const REASONABLE_HEADERS_IN_JUSTIFICATION_ANCESTRY: u32 = 2;
 		const MAX_MANDATORY_HEADER_SIZE: u32 = 100_000;
 		const AVERAGE_HEADER_SIZE: u32 = 1_024;
 	}
@@ -373,6 +384,37 @@ mod tests {
 		assert!(
 			max_expected_submit_finality_proof_arguments_size::<TestChain>(true, 100) >
 				max_expected_submit_finality_proof_arguments_size::<TestChain>(false, 100),
+		);
+	}
+
+	#[test]
+	fn find_scheduled_change_works() {
+		let scheduled_change = ScheduledChange { next_authorities: vec![], delay: 0 };
+
+		// first
+		let mut digest = Digest::default();
+		digest.push(DigestItem::Consensus(
+			GRANDPA_ENGINE_ID,
+			ConsensusLog::ScheduledChange(scheduled_change.clone()).encode(),
+		));
+		assert_eq!(
+			GrandpaConsensusLogReader::find_scheduled_change(&digest),
+			Some(scheduled_change.clone())
+		);
+
+		// not first
+		let mut digest = Digest::default();
+		digest.push(DigestItem::Consensus(
+			GRANDPA_ENGINE_ID,
+			ConsensusLog::<u64>::OnDisabled(0).encode(),
+		));
+		digest.push(DigestItem::Consensus(
+			GRANDPA_ENGINE_ID,
+			ConsensusLog::ScheduledChange(scheduled_change.clone()).encode(),
+		));
+		assert_eq!(
+			GrandpaConsensusLogReader::find_scheduled_change(&digest),
+			Some(scheduled_change.clone())
 		);
 	}
 }

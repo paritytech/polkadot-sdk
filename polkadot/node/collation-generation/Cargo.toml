@@ -10,7 +10,7 @@ description = "Collator-side subsystem that handles incoming candidate submissio
 workspace = true
 
 [dependencies]
-futures = "0.3.21"
+futures = "0.3.30"
 gum = { package = "tracing-gum", path = "../gum" }
 polkadot-erasure-coding = { path = "../../erasure-coding" }
 polkadot-node-primitives = { path = "../primitives" }
@@ -19,11 +19,12 @@ polkadot-node-subsystem-util = { path = "../subsystem-util" }
 polkadot-primitives = { path = "../../primitives" }
 sp-core = { path = "../../../substrate/primitives/core" }
 sp-maybe-compressed-blob = { path = "../../../substrate/primitives/maybe-compressed-blob" }
-thiserror = "1.0.48"
+thiserror = { workspace = true }
 parity-scale-codec = { version = "3.6.1", default-features = false, features = ["bit-vec", "derive"] }
 
 [dev-dependencies]
 polkadot-node-subsystem-test-helpers = { path = "../subsystem-test-helpers" }
 test-helpers = { package = "polkadot-primitives-test-helpers", path = "../../primitives/test-helpers" }
 assert_matches = "1.4.0"
+rstest = "0.18.2"
 sp-keyring = { path = "../../../substrate/primitives/keyring" }

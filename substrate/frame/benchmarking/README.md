@@ -177,8 +177,8 @@ requirements.
 The benchmarking CLI uses a Handlebars template to format the final output file. You can optionally pass the flag
 `--template` pointing to a custom template that can be used instead. Within the template, you have access to all the
 data provided by the `TemplateData` struct in the [benchmarking CLI
-writer](../../utils/frame/benchmarking-cli/src/writer.rs). You can find the default template used
-[here](../../utils/frame/benchmarking-cli/src/template.hbs).
+writer](../../utils/frame/benchmarking-cli/src/pallet/writer.rs). You can find the default template used
+[here](../../utils/frame/benchmarking-cli/src/pallet/template.hbs).
 
 There are some custom Handlebars helpers included with our output generation:
 

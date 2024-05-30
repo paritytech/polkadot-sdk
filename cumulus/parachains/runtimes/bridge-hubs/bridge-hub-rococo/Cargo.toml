@@ -17,11 +17,11 @@ codec = { package = "parity-scale-codec", version = "3.0.0", default-features = 
 	"derive",
 ] }
 hex-literal = { version = "0.4.1" }
-log = { version = "0.4.20", default-features = false }
-scale-info = { version = "2.10.0", default-features = false, features = [
+log = { workspace = true }
+scale-info = { version = "2.11.1", default-features = false, features = [
 	"derive",
 ] }
-serde = { version = "1.0.195", optional = true, features = ["derive"] }
+serde = { optional = true, features = ["derive"], workspace = true, default-features = true }
 
 # Substrate
 frame-benchmarking = { path = "../../../../../substrate/frame/benchmarking", default-features = false, optional = true }
@@ -76,7 +76,9 @@ cumulus-pallet-xcm = { path = "../../../../pallets/xcm", default-features = fals
 cumulus-pallet-xcmp-queue = { path = "../../../../pallets/xcmp-queue", default-features = false, features = [
 	"bridging",
 ] }
+cumulus-primitives-aura = { path = "../../../../primitives/aura", default-features = false }
 cumulus-primitives-core = { path = "../../../../primitives/core", default-features = false }
+cumulus-primitives-storage-weight-reclaim = { path = "../../../../primitives/storage-weight-reclaim", default-features = false }
 cumulus-primitives-utility = { path = "../../../../primitives/utility", default-features = false }
 pallet-collator-selection = { path = "../../../../pallets/collator-selection", default-features = false }
 parachain-info = { package = "staging-parachain-info", path = "../../../pallets/parachain-info", default-features = false }
@@ -84,20 +86,20 @@ parachains-common = { path = "../../../common", default-features = false }
 testnet-parachains-constants = { path = "../../constants", default-features = false, features = ["rococo"] }
 
 # Bridges
-bp-asset-hub-rococo = { path = "../../../../../bridges/primitives/chain-asset-hub-rococo", default-features = false }
-bp-asset-hub-westend = { path = "../../../../../bridges/primitives/chain-asset-hub-westend", default-features = false }
-bp-bridge-hub-polkadot = { path = "../../../../../bridges/primitives/chain-bridge-hub-polkadot", default-features = false }
-bp-bridge-hub-rococo = { path = "../../../../../bridges/primitives/chain-bridge-hub-rococo", default-features = false }
-bp-bridge-hub-westend = { path = "../../../../../bridges/primitives/chain-bridge-hub-westend", default-features = false }
+bp-asset-hub-rococo = { path = "../../../../../bridges/chains/chain-asset-hub-rococo", default-features = false }
+bp-asset-hub-westend = { path = "../../../../../bridges/chains/chain-asset-hub-westend", default-features = false }
+bp-bridge-hub-polkadot = { path = "../../../../../bridges/chains/chain-bridge-hub-polkadot", default-features = false }
+bp-bridge-hub-rococo = { path = "../../../../../bridges/chains/chain-bridge-hub-rococo", default-features = false }
+bp-bridge-hub-westend = { path = "../../../../../bridges/chains/chain-bridge-hub-westend", default-features = false }
 bp-header-chain = { path = "../../../../../bridges/primitives/header-chain", default-features = false }
 bp-messages = { path = "../../../../../bridges/primitives/messages", default-features = false }
 bp-parachains = { path = "../../../../../bridges/primitives/parachains", default-features = false }
-bp-polkadot-bulletin = { path = "../../../../../bridges/primitives/chain-polkadot-bulletin", default-features = false }
+bp-polkadot-bulletin = { path = "../../../../../bridges/chains/chain-polkadot-bulletin", default-features = false }
 bp-polkadot-core = { path = "../../../../../bridges/primitives/polkadot-core", default-features = false }
 bp-relayers = { path = "../../../../../bridges/primitives/relayers", default-features = false }
 bp-runtime = { path = "../../../../../bridges/primitives/runtime", default-features = false }
-bp-rococo = { path = "../../../../../bridges/primitives/chain-rococo", default-features = false }
-bp-westend = { path = "../../../../../bridges/primitives/chain-westend", default-features = false }
+bp-rococo = { path = "../../../../../bridges/chains/chain-rococo", default-features = false }
+bp-westend = { path = "../../../../../bridges/chains/chain-westend", default-features = false }
 pallet-bridge-grandpa = { path = "../../../../../bridges/modules/grandpa", default-features = false }
 pallet-bridge-messages = { path = "../../../../../bridges/modules/messages", default-features = false }
 pallet-bridge-parachains = { path = "../../../../../bridges/modules/parachains", default-features = false }
@@ -106,16 +108,16 @@ pallet-xcm-bridge-hub = { path = "../../../../../bridges/modules/xcm-bridge-hub"
 bridge-runtime-common = { path = "../../../../../bridges/bin/runtime-common", default-features = false }
 
 # Ethereum Bridge (Snowbridge)
-snowbridge-beacon-primitives = { path = "../../../../../bridges/snowbridge/parachain/primitives/beacon", default-features = false }
-snowbridge-pallet-system = { path = "../../../../../bridges/snowbridge/parachain/pallets/system", default-features = false }
-snowbridge-system-runtime-api = { path = "../../../../../bridges/snowbridge/parachain/pallets/system/runtime-api", default-features = false }
-snowbridge-core = { path = "../../../../../bridges/snowbridge/parachain/primitives/core", default-features = false }
-snowbridge-pallet-ethereum-client = { path = "../../../../../bridges/snowbridge/parachain/pallets/ethereum-client", default-features = false }
-snowbridge-pallet-inbound-queue = { path = "../../../../../bridges/snowbridge/parachain/pallets/inbound-queue", default-features = false }
-snowbridge-pallet-outbound-queue = { path = "../../../../../bridges/snowbridge/parachain/pallets/outbound-queue", default-features = false }
-snowbridge-outbound-queue-runtime-api = { path = "../../../../../bridges/snowbridge/parachain/pallets/outbound-queue/runtime-api", default-features = false }
-snowbridge-router-primitives = { path = "../../../../../bridges/snowbridge/parachain/primitives/router", default-features = false }
-snowbridge-runtime-common = { path = "../../../../../bridges/snowbridge/parachain/runtime/runtime-common", default-features = false }
+snowbridge-beacon-primitives = { path = "../../../../../bridges/snowbridge/primitives/beacon", default-features = false }
+snowbridge-pallet-system = { path = "../../../../../bridges/snowbridge/pallets/system", default-features = false }
+snowbridge-system-runtime-api = { path = "../../../../../bridges/snowbridge/pallets/system/runtime-api", default-features = false }
+snowbridge-core = { path = "../../../../../bridges/snowbridge/primitives/core", default-features = false }
+snowbridge-pallet-ethereum-client = { path = "../../../../../bridges/snowbridge/pallets/ethereum-client", default-features = false }
+snowbridge-pallet-inbound-queue = { path = "../../../../../bridges/snowbridge/pallets/inbound-queue", default-features = false }
+snowbridge-pallet-outbound-queue = { path = "../../../../../bridges/snowbridge/pallets/outbound-queue", default-features = false }
+snowbridge-outbound-queue-runtime-api = { path = "../../../../../bridges/snowbridge/pallets/outbound-queue/runtime-api", default-features = false }
+snowbridge-router-primitives = { path = "../../../../../bridges/snowbridge/primitives/router", default-features = false }
+snowbridge-runtime-common = { path = "../../../../../bridges/snowbridge/runtime/runtime-common", default-features = false }
 
 bridge-hub-common = { path = "../common", default-features = false }
 
@@ -126,7 +128,7 @@ bridge-runtime-common = { path = "../../../../../bridges/bin/runtime-common", fe
 	"integrity-test",
 ] }
 sp-keyring = { path = "../../../../../substrate/primitives/keyring" }
-snowbridge-runtime-test-common = { path = "../../../../../bridges/snowbridge/parachain/runtime/test-common" }
+snowbridge-runtime-test-common = { path = "../../../../../bridges/snowbridge/runtime/test-common" }
 
 [features]
 default = ["std"]
@@ -153,7 +155,9 @@ std = [
 	"cumulus-pallet-session-benchmarking/std",
 	"cumulus-pallet-xcm/std",
 	"cumulus-pallet-xcmp-queue/std",
+	"cumulus-primitives-aura/std",
 	"cumulus-primitives-core/std",
+	"cumulus-primitives-storage-weight-reclaim/std",
 	"cumulus-primitives-utility/std",
 	"frame-benchmarking/std",
 	"frame-executive/std",
@@ -294,7 +298,6 @@ try-runtime = [
 	"sp-runtime/try-runtime",
 ]
 
-experimental = ["pallet-aura/experimental"]
 fast-runtime = []
 
 # A feature that should be enabled when the runtime should be built for on-chain

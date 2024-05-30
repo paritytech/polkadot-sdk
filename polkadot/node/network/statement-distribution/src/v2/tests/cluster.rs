@@ -170,7 +170,7 @@ fn cluster_valid_statement_before_seconded_ignored() {
 			overseer.recv().await,
 			AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::ReportPeer(ReportPeerMessage::Single(p, r))) => {
 				assert_eq!(p, peer_a);
-				assert_eq!(r, COST_UNEXPECTED_STATEMENT.into());
+				assert_eq!(r, COST_UNEXPECTED_STATEMENT_CLUSTER_REJECTED.into());
 			}
 		);
 
@@ -305,7 +305,67 @@ fn useful_cluster_statement_from_non_cluster_peer_rejected() {
 		assert_matches!(
 			overseer.recv().await,
 			AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::ReportPeer(ReportPeerMessage::Single(p, r)))
-				if p == peer_a && r == COST_UNEXPECTED_STATEMENT.into() => { }
+				if p == peer_a && r == COST_UNEXPECTED_STATEMENT_INVALID_SENDER.into() => { }
+		);
+
+		overseer
+	});
+}
+
+// Both validators in the test are part of backing groups assigned to same parachain
+#[test]
+fn elastic_scaling_useful_cluster_statement_from_non_cluster_peer_rejected() {
+	let config = TestConfig {
+		validator_count: 20,
+		group_size: 3,
+		local_validator: LocalRole::Validator,
+		async_backing_params: None,
+	};
+
+	let relay_parent = Hash::repeat_byte(1);
+	let peer_a = PeerId::random();
+
+	test_harness(config, |state, mut overseer| async move {
+		let candidate_hash = CandidateHash(Hash::repeat_byte(42));
+
+		let test_leaf = state.make_dummy_leaf_with_multiple_cores_per_para(relay_parent, 3);
+
+		// Peer A is not in our group, but its group is assigned to same para as we are.
+		let not_our_group = GroupIndex(1);
+
+		let that_group_validators = state.group_validators(not_our_group, false);
+		let v_non = that_group_validators[0];
+
+		connect_peer(
+			&mut overseer,
+			peer_a.clone(),
+			Some(vec![state.discovery_id(v_non)].into_iter().collect()),
+		)
+		.await;
+
+		send_peer_view_change(&mut overseer, peer_a.clone(), view![relay_parent]).await;
+		activate_leaf(&mut overseer, &test_leaf, &state, true, vec![]).await;
+
+		let statement = state
+			.sign_statement(
+				v_non,
+				CompactStatement::Seconded(candidate_hash),
+				&SigningContext { parent_hash: relay_parent, session_index: 1 },
+			)
+			.as_unchecked()
+			.clone();
+
+		send_peer_message(
+			&mut overseer,
+			peer_a.clone(),
+			protocol_v2::StatementDistributionMessage::Statement(relay_parent, statement),
+		)
+		.await;
+
+		assert_matches!(
+			overseer.recv().await,
+			AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::ReportPeer(ReportPeerMessage::Single(p, r)))
+				if p == peer_a && r == COST_UNEXPECTED_STATEMENT_INVALID_SENDER.into() => { }
 		);
 
 		overseer
@@ -359,7 +419,7 @@ fn statement_from_non_cluster_originator_unexpected() {
 		assert_matches!(
 			overseer.recv().await,
 			AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::ReportPeer(ReportPeerMessage::Single(p, r)))
-				if p == peer_a && r == COST_UNEXPECTED_STATEMENT.into() => { }
+				if p == peer_a && r == COST_UNEXPECTED_STATEMENT_INVALID_SENDER.into() => { }
 		);
 
 		overseer

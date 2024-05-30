@@ -12,7 +12,7 @@ workspace = true
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.0.0" }
 paste = "1.0.14"
-log = { version = "0.4.20", default-features = false }
+log = { workspace = true }
 lazy_static = "1.4.0"
 impl-trait-for-tuples = "0.2.2"
 

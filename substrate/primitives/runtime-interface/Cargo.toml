@@ -29,6 +29,9 @@ primitive-types = { version = "0.12.0", default-features = false }
 sp-storage = { path = "../storage", default-features = false }
 impl-trait-for-tuples = "0.2.2"
 
+[target.'cfg(all(any(target_arch = "riscv32", target_arch = "riscv64"), substrate_runtime))'.dependencies]
+polkavm-derive = { workspace = true }
+
 [dev-dependencies]
 sp-runtime-interface-test-wasm = { path = "test-wasm" }
 sp-state-machine = { path = "../state-machine" }

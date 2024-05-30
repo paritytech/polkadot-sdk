@@ -440,6 +440,12 @@ fn mint_should_work() {
 			account(2),
 			Some(MintWitness { owned_item: Some(43), ..Default::default() })
 		));
+		assert!(events().contains(&Event::<Test>::PalletAttributeSet {
+			collection: 0,
+			item: Some(43),
+			attribute: PalletAttributes::<<Test as Config>::CollectionId>::UsedToClaim(1),
+			value: Nfts::construct_attribute_value(vec![]).unwrap(),
+		}));
 
 		// can't mint twice
 		assert_noop!(
@@ -3827,5 +3833,46 @@ fn basic_create_collection_with_id_should_work() {
 			),
 			Error::<Test>::CollectionIdInUse
 		);
+	});
+}
+
+#[test]
+fn clear_collection_metadata_works() {
+	new_test_ext().execute_with(|| {
+		// Start with an account with 100 tokens, 10 of which are reserved
+		Balances::make_free_balance_be(&account(1), 100);
+		Balances::reserve(&account(1), 10).unwrap();
+
+		// Creating a collection increases owner deposit by 2
+		assert_ok!(Nfts::create(
+			RuntimeOrigin::signed(account(1)),
+			account(1),
+			collection_config_with_all_settings_enabled()
+		));
+		assert_eq!(Collection::<Test>::get(0).unwrap().owner_deposit, 2);
+		assert_eq!(Balances::reserved_balance(&account(1)), 12);
+
+		// Setting collection metadata increases owner deposit by 10
+		assert_ok!(Nfts::set_collection_metadata(
+			RuntimeOrigin::signed(account(1)),
+			0,
+			bvec![0, 0, 0, 0, 0, 0, 0, 0, 0],
+		));
+		assert_eq!(Collection::<Test>::get(0).unwrap().owner_deposit, 12);
+		assert_eq!(Balances::reserved_balance(&account(1)), 22);
+
+		// Clearing collection metadata decreases owner deposit by 10
+		assert_ok!(Nfts::clear_collection_metadata(RuntimeOrigin::signed(account(1)), 0));
+		assert_eq!(Collection::<Test>::get(0).unwrap().owner_deposit, 2);
+		assert_eq!(Balances::reserved_balance(&account(1)), 12);
+
+		// Destroying the collection removes it from storage
+		assert_ok!(Nfts::destroy(
+			RuntimeOrigin::signed(account(1)),
+			0,
+			DestroyWitness { item_configs: 0, item_metadatas: 0, attributes: 0 }
+		));
+		assert_eq!(Collection::<Test>::get(0), None);
+		assert_eq!(Balances::reserved_balance(&account(1)), 10);
 	});
 }

@@ -20,6 +20,8 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![warn(missing_docs)]
 
+extern crate alloc;
+
 // Re-export.
 #[doc(hidden)]
 pub use frame_metadata;
@@ -52,8 +54,8 @@ pub fn into_version(metadata: MetadataIR, version: u32) -> Option<RuntimeMetadat
 }
 
 /// Returns the supported metadata versions.
-pub fn supported_versions() -> sp_std::vec::Vec<u32> {
-	sp_std::vec![V14, V15]
+pub fn supported_versions() -> alloc::vec::Vec<u32> {
+	alloc::vec![V14, V15]
 }
 
 /// Transform the IR to the latest stable metadata version.

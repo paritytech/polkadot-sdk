@@ -17,10 +17,11 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false }
+log = { version = "0.4.20", default-features = false }
 frame-support = { path = "../support", default-features = false }
 frame-system = { path = "../system", default-features = false }
 frame-benchmarking = { path = "../benchmarking", default-features = false, optional = true }
-scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
+scale-info = { version = "2.11.1", default-features = false, features = ["derive"] }
 sp-api = { path = "../../primitives/api", default-features = false }
 sp-core = { path = "../../primitives/core", default-features = false }
 sp-io = { path = "../../primitives/io", default-features = false }
@@ -40,6 +41,7 @@ std = [
 	"frame-benchmarking?/std",
 	"frame-support/std",
 	"frame-system/std",
+	"log/std",
 	"pallet-assets/std",
 	"pallet-balances/std",
 	"primitive-types/std",

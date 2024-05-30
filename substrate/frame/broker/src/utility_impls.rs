@@ -72,11 +72,11 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
-	pub(crate) fn issue(
+	pub fn issue(
 		core: CoreIndex,
 		begin: Timeslice,
 		end: Timeslice,
-		owner: T::AccountId,
+		owner: Option<T::AccountId>,
 		paid: Option<BalanceOf<T>>,
 	) -> RegionId {
 		let id = RegionId { begin, core, mask: CoreMask::complete() };
@@ -94,7 +94,7 @@ impl<T: Config> Pallet<T> {
 		let region = Regions::<T>::get(&region_id).ok_or(Error::<T>::UnknownRegion)?;
 
 		if let Some(check_owner) = maybe_check_owner {
-			ensure!(check_owner == region.owner, Error::<T>::NotOwner);
+			ensure!(Some(check_owner) == region.owner, Error::<T>::NotOwner);
 		}
 
 		Regions::<T>::remove(&region_id);

@@ -21,7 +21,6 @@ use std::collections::HashSet;
 use crate::*;
 use frame_support::traits::WhitelistedStorageKeys;
 use sp_core::hexdisplay::HexDisplay;
-use xcm::latest::prelude::*;
 
 #[test]
 fn remove_keys_weight_is_sensible() {
@@ -55,11 +54,12 @@ fn sanity_check_teleport_assets_weight() {
 	// Usually when XCM runs into an issue, it will return a weight of `Weight::MAX`,
 	// so this test will certainly ensure that this problem does not occur.
 	use frame_support::dispatch::GetDispatchInfo;
-	let weight = pallet_xcm::Call::<Runtime>::teleport_assets {
+	let weight = pallet_xcm::Call::<Runtime>::limited_teleport_assets {
 		dest: Box::new(Here.into()),
 		beneficiary: Box::new(Here.into()),
 		assets: Box::new((Here, 200_000).into()),
 		fee_asset_item: 0,
+		weight_limit: Unlimited,
 	}
 	.get_dispatch_info()
 	.weight;

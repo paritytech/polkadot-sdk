@@ -160,7 +160,7 @@ pub fn expand_pallet_struct(def: &mut Def) -> proc_macro2::TokenStream {
 		}
 	);
 
-	let (storage_version, current_storage_version_ty) =
+	let (storage_version, in_code_storage_version_ty) =
 		if let Some(v) = def.pallet_struct.storage_version.as_ref() {
 			(quote::quote! { #v }, quote::quote! { #frame_support::traits::StorageVersion })
 		} else {
@@ -203,9 +203,9 @@ pub fn expand_pallet_struct(def: &mut Def) -> proc_macro2::TokenStream {
 			for #pallet_ident<#type_use_gen>
 			#config_where_clause
 		{
-			type CurrentStorageVersion = #current_storage_version_ty;
+			type InCodeStorageVersion = #in_code_storage_version_ty;
 
-			fn current_storage_version() -> Self::CurrentStorageVersion {
+			fn in_code_storage_version() -> Self::InCodeStorageVersion {
 				#storage_version
 			}
 

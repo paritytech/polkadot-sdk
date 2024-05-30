@@ -51,7 +51,7 @@ type Timestamp = u64;
 // If a block isn't approved in 120 seconds, nodes will abandon it
 // and begin building on another chain.
 const STAGNANT_TIMEOUT: Timestamp = 120;
-// Delay prunning of the stagnant keys in prune only mode by 25 hours to avoid interception with the
+// Delay pruning of the stagnant keys in prune only mode by 25 hours to avoid interception with the
 // finality
 const STAGNANT_PRUNE_DELAY: Timestamp = 25 * 60 * 60;
 // Maximum number of stagnant entries cleaned during one `STAGNANT_TIMEOUT` iteration
@@ -237,7 +237,7 @@ impl Clock for SystemClock {
 		//
 		// The exact time that a block becomes stagnant in the local node is always expected
 		// to differ from other nodes due to network asynchrony and delays in block propagation.
-		// Non-monotonicity exarcerbates that somewhat, but not meaningfully.
+		// Non-monotonicity exacerbates that somewhat, but not meaningfully.
 
 		match SystemTime::now().duration_since(UNIX_EPOCH) {
 			Ok(d) => d.as_secs(),
@@ -619,7 +619,7 @@ async fn handle_active_leaf(
 
 // Extract all reversion logs from a header in ascending order.
 //
-// Ignores logs with number >= the block header number.
+// Ignores logs with number > the block header number.
 fn extract_reversion_logs(header: &Header) -> Vec<BlockNumber> {
 	let number = header.number;
 	let mut logs = header
@@ -639,14 +639,14 @@ fn extract_reversion_logs(header: &Header) -> Vec<BlockNumber> {
 
 				None
 			},
-			Ok(Some(ConsensusLog::Revert(b))) if b < number => Some(b),
+			Ok(Some(ConsensusLog::Revert(b))) if b <= number => Some(b),
 			Ok(Some(ConsensusLog::Revert(b))) => {
 				gum::warn!(
 					target: LOG_TARGET,
 					revert_target = b,
 					block_number = number,
 					block_hash = ?header.hash(),
-					"Block issued invalid revert digest targeting itself or future"
+					"Block issued invalid revert digest targeting future"
 				);
 
 				None

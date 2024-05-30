@@ -57,7 +57,7 @@ impl StorageCmd {
 		let best_hash = client.usage_info().chain.best_hash;
 		let header = client.header(best_hash)?.ok_or("Header not found")?;
 		let original_root = *header.state_root();
-		let trie = DbStateBuilder::<Block>::new(storage.clone(), original_root).build();
+		let trie = DbStateBuilder::<HashingFor<Block>>::new(storage.clone(), original_root).build();
 
 		info!("Preparing keys from block {}", best_hash);
 		// Load all KV pairs and randomly shuffle them.
@@ -189,7 +189,7 @@ fn convert_tx<B: BlockT>(
 /// if `child_info` exist then it means this is a child tree key
 fn measure_write<Block: BlockT>(
 	db: Arc<dyn sp_database::Database<DbHash>>,
-	trie: &DbState<Block>,
+	trie: &DbState<HashingFor<Block>>,
 	key: Vec<u8>,
 	new_v: Vec<u8>,
 	version: StateVersion,
@@ -220,7 +220,7 @@ fn measure_write<Block: BlockT>(
 /// if `child_info` exist then it means this is a child tree key
 fn check_new_value<Block: BlockT>(
 	db: Arc<dyn sp_database::Database<DbHash>>,
-	trie: &DbState<Block>,
+	trie: &DbState<HashingFor<Block>>,
 	key: &Vec<u8>,
 	new_v: &Vec<u8>,
 	version: StateVersion,

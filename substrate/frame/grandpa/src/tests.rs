@@ -634,7 +634,7 @@ fn report_equivocation_invalid_equivocation_proof() {
 			(1, H256::zero(), 10, &equivocation_keyring),
 		));
 
-		// votes targetting different rounds, there is no equivocation.
+		// votes targeting different rounds, there is no equivocation.
 		assert_invalid_equivocation_proof(generate_equivocation_proof(
 			set_id,
 			(1, H256::random(), 10, &equivocation_keyring),

@@ -24,8 +24,8 @@ use frame_support::{
 		BalanceStatus::{Free, Reserved},
 		Currency,
 		ExistenceRequirement::{self, AllowDeath, KeepAlive},
-		Hooks, LockIdentifier, LockableCurrency, NamedReservableCurrency, ReservableCurrency,
-		WithdrawReasons,
+		Hooks, InspectLockableCurrency, LockIdentifier, LockableCurrency, NamedReservableCurrency,
+		ReservableCurrency, WithdrawReasons,
 	},
 	StorageNoopGuard,
 };
@@ -86,6 +86,24 @@ fn basic_locking_should_work() {
 				TokenError::Frozen
 			);
 		});
+}
+
+#[test]
+fn inspect_lock_should_work() {
+	ExtBuilder::default()
+		.existential_deposit(1)
+		.monied(true)
+		.build_and_execute_with(|| {
+			Balances::set_lock(ID_1, &1, 10, WithdrawReasons::all());
+			Balances::set_lock(ID_2, &1, 10, WithdrawReasons::all());
+			Balances::set_lock(ID_1, &2, 20, WithdrawReasons::all());
+
+			assert_eq!(<Balances as InspectLockableCurrency<_>>::balance_locked(ID_1, &1), 10);
+			assert_eq!(<Balances as InspectLockableCurrency<_>>::balance_locked(ID_2, &1), 10);
+			assert_eq!(<Balances as InspectLockableCurrency<_>>::balance_locked(ID_1, &2), 20);
+			assert_eq!(<Balances as InspectLockableCurrency<_>>::balance_locked(ID_2, &2), 0);
+			assert_eq!(<Balances as InspectLockableCurrency<_>>::balance_locked(ID_1, &3), 0);
+		})
 }
 
 #[test]
@@ -1024,7 +1042,7 @@ fn slash_consumed_slash_partial_works() {
 }
 
 #[test]
-fn slash_on_non_existant_works() {
+fn slash_on_non_existent_works() {
 	ExtBuilder::default().existential_deposit(100).build_and_execute_with(|| {
 		// Slash on non-existent account is okay.
 		assert_eq!(Balances::slash(&12345, 1_300), (NegativeImbalance::new(0), 1300));
@@ -1071,7 +1089,7 @@ fn slash_reserved_overslash_does_not_touch_free_balance() {
 }
 
 #[test]
-fn slash_reserved_on_non_existant_works() {
+fn slash_reserved_on_non_existent_works() {
 	ExtBuilder::default().existential_deposit(100).build_and_execute_with(|| {
 		// Slash on non-existent account is okay.
 		assert_eq!(Balances::slash_reserved(&12345, 1_300), (NegativeImbalance::new(0), 1300));

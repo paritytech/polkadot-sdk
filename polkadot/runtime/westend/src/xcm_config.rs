@@ -34,21 +34,18 @@ use runtime_common::{
 };
 use sp_core::ConstU32;
 use westend_runtime_constants::{
-	currency::CENTS,
-	system_parachain::*,
-	xcm::body::{FELLOWSHIP_ADMIN_INDEX, TREASURER_INDEX},
+	currency::CENTS, system_parachain::*, xcm::body::FELLOWSHIP_ADMIN_INDEX,
 };
 use xcm::latest::prelude::*;
-#[allow(deprecated)]
-use xcm_builder::CurrencyAdapter as XcmCurrencyAdapter;
 use xcm_builder::{
 	AccountId32Aliases, AllowExplicitUnpaidExecutionFrom, AllowKnownQueryResponses,
 	AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom, ChildParachainAsNative,
-	ChildParachainConvertsVia, DescribeBodyTerminal, DescribeFamily, FrameTransactionalProcessor,
-	HashedDescription, IsConcrete, MintLocation, OriginToPluralityVoice, SignedAccountId32AsNative,
-	SignedToAccountId32, SovereignSignedViaLocation, TakeWeightCredit, TrailingSetTopicAsId,
-	UsingComponents, WeightInfoBounds, WithComputedOrigin, WithUniqueTopic,
-	XcmFeeManagerFromComponents, XcmFeeToAccount,
+	ChildParachainConvertsVia, DescribeAllTerminal, DescribeFamily, FrameTransactionalProcessor,
+	FungibleAdapter, HashedDescription, IsChildSystemParachain, IsConcrete, MintLocation,
+	OriginToPluralityVoice, SignedAccountId32AsNative, SignedToAccountId32,
+	SovereignSignedViaLocation, TakeWeightCredit, TrailingSetTopicAsId, UsingComponents,
+	WeightInfoBounds, WithComputedOrigin, WithUniqueTopic, XcmFeeManagerFromComponents,
+	XcmFeeToAccount,
 };
 use xcm_executor::XcmExecutor;
 
@@ -71,12 +68,11 @@ pub type LocationConverter = (
 	ChildParachainConvertsVia<ParaId, AccountId>,
 	// We can directly alias an `AccountId32` into a local account.
 	AccountId32Aliases<ThisNetwork, AccountId>,
-	// Allow governance body to be used as a sovereign account.
-	HashedDescription<AccountId, DescribeFamily<DescribeBodyTerminal>>,
+	// Foreign locations alias into accounts according to a hash of their standard description.
+	HashedDescription<AccountId, DescribeFamily<DescribeAllTerminal>>,
 );
 
-#[allow(deprecated)]
-pub type LocalAssetTransactor = XcmCurrencyAdapter<
+pub type LocalAssetTransactor = FungibleAdapter<
 	// Use this currency:
 	Balances,
 	// Use this currency when it is a fungible asset matching the given location or name:
@@ -117,12 +113,16 @@ parameter_types! {
 	pub AssetHub: Location = Parachain(ASSET_HUB_ID).into_location();
 	pub Collectives: Location = Parachain(COLLECTIVES_ID).into_location();
 	pub BridgeHub: Location = Parachain(BRIDGE_HUB_ID).into_location();
+	pub Encointer: Location = Parachain(ENCOINTER_ID).into_location();
 	pub People: Location = Parachain(PEOPLE_ID).into_location();
+	pub Broker: Location = Parachain(BROKER_ID).into_location();
 	pub Wnd: AssetFilter = Wild(AllOf { fun: WildFungible, id: AssetId(TokenLocation::get()) });
 	pub WndForAssetHub: (AssetFilter, Location) = (Wnd::get(), AssetHub::get());
 	pub WndForCollectives: (AssetFilter, Location) = (Wnd::get(), Collectives::get());
 	pub WndForBridgeHub: (AssetFilter, Location) = (Wnd::get(), BridgeHub::get());
+	pub WndForEncointer: (AssetFilter, Location) = (Wnd::get(), Encointer::get());
 	pub WndForPeople: (AssetFilter, Location) = (Wnd::get(), People::get());
+	pub WndForBroker: (AssetFilter, Location) = (Wnd::get(), Broker::get());
 	pub MaxInstructions: u32 = 100;
 	pub MaxAssetsIntoHolding: u32 = 64;
 }
@@ -131,7 +131,9 @@ pub type TrustedTeleporters = (
 	xcm_builder::Case<WndForAssetHub>,
 	xcm_builder::Case<WndForCollectives>,
 	xcm_builder::Case<WndForBridgeHub>,
+	xcm_builder::Case<WndForEncointer>,
 	xcm_builder::Case<WndForPeople>,
+	xcm_builder::Case<WndForBroker>,
 );
 
 pub struct OnlyParachains;
@@ -141,13 +143,12 @@ impl Contains<Location> for OnlyParachains {
 	}
 }
 
-pub struct CollectivesOrFellows;
-impl Contains<Location> for CollectivesOrFellows {
+pub struct Fellows;
+impl Contains<Location> for Fellows {
 	fn contains(location: &Location) -> bool {
 		matches!(
 			location.unpack(),
-			(0, [Parachain(COLLECTIVES_ID)]) |
-				(0, [Parachain(COLLECTIVES_ID), Plurality { id: BodyId::Technical, .. }])
+			(0, [Parachain(COLLECTIVES_ID), Plurality { id: BodyId::Technical, .. }])
 		)
 	}
 }
@@ -171,8 +172,8 @@ pub type Barrier = TrailingSetTopicAsId<(
 			AllowTopLevelPaidExecutionFrom<Everything>,
 			// Subscriptions for version tracking are OK.
 			AllowSubscriptionsFrom<OnlyParachains>,
-			// Collectives and Fellows plurality get free execution.
-			AllowExplicitUnpaidExecutionFrom<CollectivesOrFellows>,
+			// Messages from system parachains or the Fellows plurality need not pay for execution.
+			AllowExplicitUnpaidExecutionFrom<(IsChildSystemParachain<ParaId>, Fellows)>,
 		),
 		UniversalLocation,
 		ConstU32<8>,
@@ -218,6 +219,9 @@ impl xcm_executor::Config for XcmConfig {
 	type SafeCallFilter = Everything;
 	type Aliasers = Nothing;
 	type TransactionalProcessor = FrameTransactionalProcessor;
+	type HrmpNewChannelOpenRequestHandler = ();
+	type HrmpChannelAcceptedHandler = ();
+	type HrmpChannelClosingHandler = ();
 }
 
 parameter_types! {
@@ -228,7 +232,7 @@ parameter_types! {
 	// FellowshipAdmin pluralistic body.
 	pub const FellowshipAdminBodyId: BodyId = BodyId::Index(FELLOWSHIP_ADMIN_INDEX);
 	// `Treasurer` pluralistic body.
-	pub const TreasurerBodyId: BodyId = BodyId::Index(TREASURER_INDEX);
+	pub const TreasurerBodyId: BodyId = BodyId::Treasury;
 }
 
 /// Type to convert the `GeneralAdmin` origin to a Plurality `Location` value.
@@ -262,18 +266,19 @@ pub type LocalPalletOriginToLocation = (
 	StakingAdminToPlurality,
 	// FellowshipAdmin origin to be used in XCM as a corresponding Plurality `Location` value.
 	FellowshipAdminToPlurality,
-	// `Treasurer` origin to be used in XCM as a corresponding Plurality `MultiLocation` value.
+	// `Treasurer` origin to be used in XCM as a corresponding Plurality `Location` value.
 	TreasurerToPlurality,
 );
 
 impl pallet_xcm::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type SendXcmOrigin = xcm_builder::EnsureXcmOrigin<RuntimeOrigin, LocalPalletOriginToLocation>;
+	// Note that this configuration of `SendXcmOrigin` is different from the one present in
+	// production.
+	type SendXcmOrigin = xcm_builder::EnsureXcmOrigin<RuntimeOrigin, LocalOriginToLocation>;
 	type XcmRouter = XcmRouter;
-	// Anyone can execute XCM messages locally...
+	// Anyone can execute XCM messages locally.
 	type ExecuteXcmOrigin = xcm_builder::EnsureXcmOrigin<RuntimeOrigin, LocalOriginToLocation>;
-	// ...but they must match our filter, which rejects everything.
-	type XcmExecuteFilter = Nothing;
+	type XcmExecuteFilter = Everything;
 	type XcmExecutor = XcmExecutor<XcmConfig>;
 	type XcmTeleportFilter = Everything;
 	type XcmReserveTransferFilter = Everything;

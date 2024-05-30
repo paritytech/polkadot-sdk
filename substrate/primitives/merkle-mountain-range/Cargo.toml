@@ -16,16 +16,15 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false }
-scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
-log = { version = "0.4.17", default-features = false }
+scale-info = { version = "2.11.1", default-features = false, features = ["derive"] }
+log = { workspace = true }
 mmr-lib = { package = "ckb-merkle-mountain-range", version = "0.5.2", default-features = false }
-serde = { version = "1.0.195", features = ["alloc", "derive"], default-features = false, optional = true }
+serde = { features = ["alloc", "derive"], optional = true, workspace = true }
 sp-api = { path = "../api", default-features = false }
 sp-core = { path = "../core", default-features = false }
 sp-debug-derive = { path = "../debug-derive", default-features = false }
 sp-runtime = { path = "../runtime", default-features = false }
-sp-std = { path = "../std", default-features = false }
-thiserror = "1.0"
+thiserror = { optional = true, workspace = true }
 
 [dev-dependencies]
 array-bytes = "6.1"
@@ -34,6 +33,7 @@ array-bytes = "6.1"
 default = ["std"]
 std = [
 	"codec/std",
+	"dep:thiserror",
 	"log/std",
 	"mmr-lib/std",
 	"scale-info/std",
@@ -42,7 +42,6 @@ std = [
 	"sp-core/std",
 	"sp-debug-derive/std",
 	"sp-runtime/std",
-	"sp-std/std",
 ]
 
 # Serde support without relying on std features.

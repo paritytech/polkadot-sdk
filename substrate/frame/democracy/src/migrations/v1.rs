@@ -54,7 +54,7 @@ pub mod v1 {
 	use super::*;
 
 	/// Migration for translating bare `Hash`es into `Bounded<Call>`s.
-	pub struct Migration<T>(sp_std::marker::PhantomData<T>);
+	pub struct Migration<T>(core::marker::PhantomData<T>);
 
 	impl<T: Config + frame_system::Config<Hash = H256>> OnRuntimeUpgrade for Migration<T> {
 		#[cfg(feature = "try-runtime")]

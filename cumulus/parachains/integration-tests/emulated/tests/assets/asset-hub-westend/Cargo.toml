@@ -16,6 +16,7 @@ assert_matches = "1.5.0"
 
 # Substrate
 sp-runtime = { path = "../../../../../../../substrate/primitives/runtime", default-features = false }
+frame-metadata-hash-extension = { path = "../../../../../../../substrate/frame/metadata-hash-extension" }
 frame-support = { path = "../../../../../../../substrate/frame/support", default-features = false }
 pallet-balances = { path = "../../../../../../../substrate/frame/balances", default-features = false }
 pallet-assets = { path = "../../../../../../../substrate/frame/assets", default-features = false }
@@ -31,11 +32,11 @@ pallet-xcm = { path = "../../../../../../../polkadot/xcm/pallet-xcm", default-fe
 westend-runtime = { path = "../../../../../../../polkadot/runtime/westend" }
 
 # Cumulus
-parachains-common = { path = "../../../../../../parachains/common" }
-testnet-parachains-constants = { path = "../../../../../runtimes/constants", features = ["westend"] }
+parachains-common = { path = "../../../../../common" }
+penpal-runtime = { path = "../../../../../runtimes/testing/penpal" }
 asset-hub-westend-runtime = { path = "../../../../../runtimes/assets/asset-hub-westend" }
 asset-test-utils = { path = "../../../../../runtimes/assets/test-utils" }
-cumulus-pallet-xcmp-queue = { default-features = false, path = "../../../../../../pallets/xcmp-queue" }
-cumulus-pallet-parachain-system = { default-features = false, path = "../../../../../../pallets/parachain-system" }
+cumulus-pallet-xcmp-queue = { path = "../../../../../../pallets/xcmp-queue", default-features = false }
+cumulus-pallet-parachain-system = { path = "../../../../../../pallets/parachain-system", default-features = false }
 emulated-integration-tests-common = { path = "../../../common", default-features = false }
 westend-system-emulated-network = { path = "../../../networks/westend-system" }

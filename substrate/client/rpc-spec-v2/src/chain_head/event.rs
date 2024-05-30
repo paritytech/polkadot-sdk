@@ -111,8 +111,8 @@ impl From<ApiError> for RuntimeEvent {
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Initialized<Hash> {
-	/// The hash of the latest finalized block.
-	pub finalized_block_hash: Hash,
+	/// The hash of the latest finalized blocks.
+	pub finalized_block_hashes: Vec<Hash>,
 	/// The runtime version of the finalized block.
 	///
 	/// # Note
@@ -135,12 +135,12 @@ impl<Hash: Serialize> Serialize for Initialized<Hash> {
 	{
 		if self.with_runtime {
 			let mut state = serializer.serialize_struct("Initialized", 2)?;
-			state.serialize_field("finalizedBlockHash", &self.finalized_block_hash)?;
+			state.serialize_field("finalizedBlockHashes", &self.finalized_block_hashes)?;
 			state.serialize_field("finalizedBlockRuntime", &self.finalized_block_runtime)?;
 			state.end()
 		} else {
 			let mut state = serializer.serialize_struct("Initialized", 1)?;
-			state.serialize_field("finalizedBlockHash", &self.finalized_block_hash)?;
+			state.serialize_field("finalizedBlockHashes", &self.finalized_block_hashes)?;
 			state.end()
 		}
 	}
@@ -315,7 +315,7 @@ pub enum FollowEvent<Hash> {
 	Stop,
 }
 
-/// The method respose of `chainHead_body`, `chainHead_call` and `chainHead_storage`.
+/// The method response of `chainHead_body`, `chainHead_call` and `chainHead_storage`.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 #[serde(tag = "result")]
@@ -348,13 +348,13 @@ mod tests {
 	fn follow_initialized_event_no_updates() {
 		// Runtime flag is false.
 		let event: FollowEvent<String> = FollowEvent::Initialized(Initialized {
-			finalized_block_hash: "0x1".into(),
+			finalized_block_hashes: vec!["0x1".into()],
 			finalized_block_runtime: None,
 			with_runtime: false,
 		});
 
 		let ser = serde_json::to_string(&event).unwrap();
-		let exp = r#"{"event":"initialized","finalizedBlockHash":"0x1"}"#;
+		let exp = r#"{"event":"initialized","finalizedBlockHashes":["0x1"]}"#;
 		assert_eq!(ser, exp);
 
 		let event_dec: FollowEvent<String> = serde_json::from_str(exp).unwrap();
@@ -373,7 +373,7 @@ mod tests {
 
 		let runtime_event = RuntimeEvent::Valid(RuntimeVersionEvent { spec: runtime.into() });
 		let mut initialized = Initialized {
-			finalized_block_hash: "0x1".into(),
+			finalized_block_hashes: vec!["0x1".into()],
 			finalized_block_runtime: Some(runtime_event),
 			with_runtime: true,
 		};
@@ -381,7 +381,7 @@ mod tests {
 
 		let ser = serde_json::to_string(&event).unwrap();
 		let exp = concat!(
-			r#"{"event":"initialized","finalizedBlockHash":"0x1","#,
+			r#"{"event":"initialized","finalizedBlockHashes":["0x1"],"#,
 			r#""finalizedBlockRuntime":{"type":"valid","spec":{"specName":"ABC","implName":"Impl","#,
 			r#""specVersion":1,"implVersion":0,"apis":{},"transactionVersion":0}}}"#,
 		);

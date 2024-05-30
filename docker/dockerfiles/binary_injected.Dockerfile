@@ -2,7 +2,7 @@ FROM docker.io/parity/base-bin
 
 # This file allows building a Generic container image
 # based on one or multiple pre-built Linux binaries.
-# Some defaults are set to polkadot but all can be overriden.
+# Some defaults are set to polkadot but all can be overridden.
 
 SHELL ["/bin/bash", "-c"]
 

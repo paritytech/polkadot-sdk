@@ -27,7 +27,7 @@ pub type Header = sp_runtime::generic::Header<u32, sp_runtime::traits::BlakeTwo2
 pub type Block = sp_runtime::generic::Block<Header, UncheckedExtrinsic>;
 pub type UncheckedExtrinsic = sp_runtime::generic::UncheckedExtrinsic<u32, RuntimeCall, (), ()>;
 
-#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Runtime {
 	type BlockWeights = ();
 	type BlockLength = ();
@@ -101,7 +101,7 @@ sp_api::impl_runtime_apis! {
 		fn execute_block(_: Block) {
 			unimplemented!()
 		}
-		fn initialize_block(_: &<Block as BlockT>::Header) {
+		fn initialize_block(_: &<Block as BlockT>::Header) -> sp_runtime::ExtrinsicInclusionMode {
 			unimplemented!()
 		}
 	}
@@ -200,8 +200,8 @@ fn runtime_metadata() {
 						name: "header",
 						ty: meta_type::<&<Block as BlockT>::Header>(),
 					}],
-					output: meta_type::<()>(),
-					docs: maybe_docs(vec![" Initialize a block with the given header."]),
+					output: meta_type::<sp_runtime::ExtrinsicInclusionMode>(),
+					docs: maybe_docs(vec![" Initialize a block with the given header and return the runtime executive mode."]),
 				},
 			],
 			docs: maybe_docs(vec![

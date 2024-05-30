@@ -20,17 +20,15 @@
 use super::{Extrinsics, StorageKey, StorageValue};
 
 #[cfg(not(feature = "std"))]
-use sp_std::collections::btree_set::BTreeSet as Set;
+use alloc::collections::btree_set::BTreeSet as Set;
 #[cfg(feature = "std")]
 use std::collections::HashSet as Set;
 
 use crate::{ext::StorageAppend, warn};
+use crate::warn;
+use alloc::collections::{btree_map::BTreeMap, btree_set::BTreeSet};
+use core::hash::Hash;
 use smallvec::SmallVec;
-use sp_std::{
-	collections::{btree_map::BTreeMap, btree_set::BTreeSet},
-	hash::Hash,
-	vec::Vec,
-};
 
 const PROOF_OVERLAY_NON_EMPTY: &str = "\
 	An OverlayValue is always created with at least one transaction and dropped as soon
@@ -50,7 +48,7 @@ pub struct NoOpenTransaction;
 #[cfg_attr(test, derive(PartialEq))]
 pub struct AlreadyInRuntime;
 
-/// Error when calling `exit_runtime` when not being in runtime exection mdde.
+/// Error when calling `exit_runtime` when not being in runtime execution mode.
 #[derive(Debug)]
 #[cfg_attr(test, derive(PartialEq))]
 pub struct NotInRuntime;
@@ -524,7 +522,7 @@ impl<K: Ord + Hash + Clone, V> OverlayedMap<K, V> {
 	/// This changeset might be created when there are already open transactions.
 	/// We need to catch up here so that the child is at the same transaction depth.
 	pub fn spawn_child(&self) -> Self {
-		use sp_std::iter::repeat;
+		use core::iter::repeat;
 		Self {
 			changes: Default::default(),
 			dirty_keys: repeat(Set::new()).take(self.transaction_depth()).collect(),
@@ -541,7 +539,7 @@ impl<K: Ord + Hash + Clone, V> OverlayedMap<K, V> {
 	/// Get an optional reference to the value stored for the specified key.
 	pub fn get<Q>(&mut self, key: &Q) -> Option<&mut OverlayedEntry<V>>
 	where
-		K: sp_std::borrow::Borrow<Q>,
+		K: core::borrow::Borrow<Q>,
 		Q: Ord + ?Sized,
 	{
 		self.changes.get_mut(key)
@@ -570,7 +568,7 @@ impl<K: Ord + Hash + Clone, V> OverlayedMap<K, V> {
 	///
 	/// Panics:
 	/// Panics if there are open transactions: `transaction_depth() > 0`
-	pub fn drain_commited(self) -> impl Iterator<Item = (K, V)> {
+	pub fn drain_committed(self) -> impl Iterator<Item = (K, V)> {
 		assert!(self.transaction_depth() == 0, "Drain is not allowed with open transactions.");
 		self.changes.into_iter().map(|(k, mut v)| (k, v.pop_transaction().value))
 	}
@@ -582,7 +580,7 @@ impl<K: Ord + Hash + Clone, V> OverlayedMap<K, V> {
 		self.dirty_keys.len()
 	}
 
-	/// Call this before transfering control to the runtime.
+	/// Call this before transferring control to the runtime.
 	///
 	/// This protects all existing transactions from being removed by the runtime.
 	/// Calling this while already inside the runtime will return an error.
@@ -910,7 +908,7 @@ impl OverlayedChangeSet {
 		&mut self,
 		key: &[u8],
 	) -> impl Iterator<Item = (&[u8], &mut OverlayedValue)> {
-		use sp_std::ops::Bound;
+		use core::ops::Bound;
 		let range = (Bound::Excluded(key), Bound::Unbounded);
 		self.changes.range_mut::<[u8], _>(range).map(|(k, v)| (k.as_slice(), v))
 	}
@@ -991,7 +989,7 @@ mod test {
 		changeset.set(b"key0".to_vec(), Some(b"val0-rolled".to_vec()), Some(1000));
 		changeset.set(b"key5".to_vec(), Some(b"val5-rolled".to_vec()), None);
 
-		// changes contain all changes not only the commmited ones.
+		// changes contain all changes not only the committed ones.
 		let all_changes: Changes = vec![
 			(b"key0", (Some(b"val0-rolled"), vec![1, 10, 1000])),
 			(b"key1", (Some(b"val1"), vec![1])),
@@ -1344,7 +1342,7 @@ mod test {
 	fn drain_with_open_transaction_panics() {
 		let mut changeset = OverlayedChangeSet::default();
 		changeset.start_transaction();
-		let _ = changeset.drain_commited();
+		let _ = changeset.drain_committed();
 	}
 
 	#[test]

@@ -117,7 +117,7 @@
 //! - **Contract Code Updates**: Once deployed, although typically immutable, Smart Contracts can be
 //!   upgraded, but lack of migration logic. The [pallet_contracts](../../../pallet_contracts/index.html)
 //!   allows for contracts to be upgraded by exposing the `set_code` dispatchable. More details on this
-//!   can be found in [Ink! documentation on upgradeable contracts](https://use.ink/5.x/basics/upgradeable-contracts).
+//!   can be found in [Ink! documentation on upgradeable contracts](https://use.ink/basics/upgradeable-contracts).
 //! - **Isolated Impact**: Upgrades or changes to a smart contract generally impact only that
 //!   contract and its users, unlike Runtime upgrades that have a network-wide effect.
 //! - **Simplicity and Rapid Development**: The development cycle for Smart Contracts is usually

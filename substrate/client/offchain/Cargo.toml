@@ -20,13 +20,13 @@ array-bytes = "6.1"
 bytes = "1.1"
 codec = { package = "parity-scale-codec", version = "3.6.1", features = ["derive"] }
 fnv = "1.0.6"
-futures = "0.3.21"
+futures = "0.3.30"
 futures-timer = "3.0.2"
 hyper = { version = "0.14.16", features = ["http2", "stream"] }
 hyper-rustls = { version = "0.24.0", features = ["http2"] }
 libp2p = "0.51.4"
 num_cpus = "1.13"
-once_cell = "1.8"
+once_cell = "1.19"
 parking_lot = "0.12.1"
 rand = "0.8.5"
 threadpool = "1.7"
@@ -34,6 +34,7 @@ tracing = "0.1.29"
 sc-client-api = { path = "../api" }
 sc-network = { path = "../network" }
 sc-network-common = { path = "../network/common" }
+sc-network-types = { path = "../network/types" }
 sc-transaction-pool-api = { path = "../transaction-pool/api" }
 sc-utils = { path = "../utils" }
 sp-api = { path = "../../primitives/api" }
@@ -42,11 +43,12 @@ sp-offchain = { path = "../../primitives/offchain" }
 sp-runtime = { path = "../../primitives/runtime" }
 sp-keystore = { path = "../../primitives/keystore" }
 sp-externalities = { path = "../../primitives/externalities" }
-log = "0.4.17"
+log = { workspace = true, default-features = true }
 
 [dev-dependencies]
+async-trait = "0.1"
 lazy_static = "1.4.0"
-tokio = "1.22.0"
+tokio = "1.37"
 sc-block-builder = { path = "../block-builder" }
 sc-client-db = { path = "../db", default-features = true }
 sc-transaction-pool = { path = "../transaction-pool" }

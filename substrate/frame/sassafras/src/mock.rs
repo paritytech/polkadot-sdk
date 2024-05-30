@@ -43,7 +43,7 @@ const LOG_TARGET: &str = "sassafras::tests";
 const EPOCH_LENGTH: u32 = 10;
 const MAX_AUTHORITIES: u32 = 100;
 
-#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
 	type Block = frame_system::mocking::MockBlock<Test>;
 }
@@ -99,7 +99,7 @@ pub fn new_test_ext_with_pairs(
 	pallet_sassafras::GenesisConfig::<Test> {
 		authorities: authorities.clone(),
 		epoch_config: TEST_EPOCH_CONFIGURATION,
-		_phantom: sp_std::marker::PhantomData,
+		_phantom: core::marker::PhantomData,
 	}
 	.assimilate_storage(&mut storage)
 	.unwrap();

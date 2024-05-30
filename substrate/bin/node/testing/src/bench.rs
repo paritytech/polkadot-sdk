@@ -84,7 +84,7 @@ impl BenchPair {
 
 /// Drop system cache.
 ///
-/// Will panic if cache drop is impossbile.
+/// Will panic if cache drop is impossible.
 pub fn drop_system_cache() {
 	#[cfg(target_os = "windows")]
 	{
@@ -173,7 +173,7 @@ impl Clone for BenchDb {
 
 		// We clear system cache after db clone but before any warmups.
 		// This populates system cache with some data unrelated to actual
-		// data we will be quering further under benchmark (like what
+		// data we will be querying further under benchmark (like what
 		// would have happened in real system that queries random entries
 		// from database).
 		drop_system_cache();
@@ -443,7 +443,7 @@ impl BenchDb {
 		BlockContentIterator::new(content, &self.keyring, client)
 	}
 
-	/// Get cliet for this database operations.
+	/// Get client for this database operations.
 	pub fn client(&mut self) -> Client {
 		let (client, _backend, _task_executor) =
 			Self::bench_client(self.database_type, self.directory_guard.path(), &self.keyring);
@@ -571,6 +571,8 @@ impl BenchKeyring {
 					tx_version,
 					genesis_hash,
 					genesis_hash,
+					// metadata_hash
+					None::<()>,
 				);
 				let key = self.accounts.get(&signed).expect("Account id not found in keyring");
 				let signature = payload.using_encoded(|b| {

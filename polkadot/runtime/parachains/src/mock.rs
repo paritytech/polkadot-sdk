@@ -23,7 +23,7 @@ use crate::{
 	initializer, origin, paras,
 	paras::ParaKind,
 	paras_inherent, scheduler,
-	scheduler::common::{AssignmentProvider, AssignmentProviderConfig},
+	scheduler::common::AssignmentProvider,
 	session_info, shared, ParaId,
 };
 use frame_support::pallet_prelude::*;
@@ -103,7 +103,7 @@ parameter_types! {
 
 pub type AccountId = u64;
 
-#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
 	type BaseCallFilter = frame_support::traits::Everything;
 	type BlockWeights = BlockWeights;
@@ -248,6 +248,7 @@ impl crate::dmp::Config for Test {}
 
 parameter_types! {
 	pub const FirstMessageFactorPercent: u64 = 100;
+	pub const DefaultChannelSizeAndCapacityWithSystem: (u32, u32) = (4, 1);
 }
 
 impl crate::hrmp::Config for Test {
@@ -255,6 +256,7 @@ impl crate::hrmp::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type ChannelManager = frame_system::EnsureRoot<u64>;
 	type Currency = pallet_balances::Pallet<Test>;
+	type DefaultChannelSizeAndCapacityWithSystem = DefaultChannelSizeAndCapacityWithSystem;
 	type WeightInfo = crate::hrmp::TestWeightInfo;
 }
 
@@ -365,6 +367,7 @@ impl pallet_message_queue::Config for Test {
 	type HeapSize = ConstU32<65536>;
 	type MaxStale = ConstU32<8>;
 	type ServiceWeight = MessageQueueServiceWeight;
+	type IdleMaxServiceWeight = ();
 }
 
 parameter_types! {
@@ -384,6 +387,7 @@ impl assigner_coretime::Config for Test {}
 
 parameter_types! {
 	pub const BrokerId: u32 = 10u32;
+	pub MaxXcmTransactWeight: Weight = Weight::from_parts(10_000_000, 10_000);
 }
 
 impl coretime::Config for Test {
@@ -393,6 +397,7 @@ impl coretime::Config for Test {
 	type BrokerId = BrokerId;
 	type WeightInfo = crate::coretime::TestWeightInfo;
 	type SendXcm = DummyXcmSender;
+	type MaxXcmTransactWeight = MaxXcmTransactWeight;
 }
 
 pub struct DummyXcmSender;
@@ -464,10 +469,6 @@ pub mod mock_assigner {
 			StorageValue<_, VecDeque<Assignment>, ValueQuery>;
 
 		#[pallet::storage]
-		pub(super) type MockProviderConfig<T: Config> =
-			StorageValue<_, AssignmentProviderConfig<BlockNumber>, OptionQuery>;
-
-		#[pallet::storage]
 		pub(super) type MockCoreCount<T: Config> = StorageValue<_, u32, OptionQuery>;
 	}
 
@@ -476,12 +477,6 @@ pub mod mock_assigner {
 		/// scheduler when filling the claim queue for tests.
 		pub fn add_test_assignment(assignment: Assignment) {
 			MockAssignmentQueue::<T>::mutate(|queue| queue.push_back(assignment));
-		}
-
-		// This configuration needs to be customized to service `get_provider_config` in
-		// scheduler tests.
-		pub fn set_assignment_provider_config(config: AssignmentProviderConfig<BlockNumber>) {
-			MockProviderConfig::<T>::set(Some(config));
 		}
 
 		// Allows for customized core count in scheduler tests, rather than a core count
@@ -512,17 +507,6 @@ pub mod mock_assigner {
 		// in the mock assigner.
 		fn push_back_assignment(_assignment: Assignment) {}
 
-		// Gets the provider config we set earlier using `set_assignment_provider_config`, falling
-		// back to the on demand parachain configuration if none was set.
-		fn get_provider_config(_core_idx: CoreIndex) -> AssignmentProviderConfig<BlockNumber> {
-			match MockProviderConfig::<T>::get() {
-				Some(config) => config,
-				None => AssignmentProviderConfig {
-					max_availability_timeouts: 1,
-					ttl: BlockNumber::from(5u32),
-				},
-			}
-		}
 		#[cfg(any(feature = "runtime-benchmarks", test))]
 		fn get_mock_assignment(_: CoreIndex, para_id: ParaId) -> Assignment {
 			Assignment::Bulk(para_id)

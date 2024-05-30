@@ -39,13 +39,7 @@ cat chain-spec-plain.json | jq --rawfile code rt-hex.txt '.genesis.runtimeGenesi
     | jq '.chainType = "Live"' \
     | jq '.bootNodes = [
           "/dns/westend-coretime-collator-0.parity-testnet.parity.io/tcp/30333/p2p/12D3KooWP93Dzk8T7GWxyWw9jhLcz8Pksokk3R9vL2eEH337bNkT",
-          "/dns/westend-coretime-collator-1.parity-testnet.parity.io/tcp/30333/p2p/12D3KooWMh2imeAzsZKGQgm2cv6Uoep3GBYtwGfujt1bs5YfVzkH",
-          "/dns/westend-coretime-collator-2.parity-testnet.parity.io/tcp/30333/p2p/12D3KooWAys2hVpF7AN8hYGnu1T6XYFRGKeBFqD8q5LUcvWXRLg8",
-          "/dns/westend-coretime-collator-3.parity-testnet.parity.io/tcp/30333/p2p/12D3KooWSGgmiRryoi7A3qAmeYWgmVeGQkk66PrhDjJ6ZPP555as",
-          "/dns/westend-coretime-connect-0.polkadot.io/tcp/443/wss/p2p/12D3KooWP93Dzk8T7GWxyWw9jhLcz8Pksokk3R9vL2eEH337bNkT",
-          "/dns/westend-coretime-connect-1.polkadot.io/tcp/443/wss/p2p/12D3KooWMh2imeAzsZKGQgm2cv6Uoep3GBYtwGfujt1bs5YfVzkH",
-          "/dns/westend-coretime-connect-2.polkadot.io/tcp/443/wss/p2p/12D3KooWAys2hVpF7AN8hYGnu1T6XYFRGKeBFqD8q5LUcvWXRLg8",
-          "/dns/westend-coretime-connect-3.polkadot.io/tcp/443/wss/p2p/12D3KooWSGgmiRryoi7A3qAmeYWgmVeGQkk66PrhDjJ6ZPP555as",
+          "/dns/westend-coretime-collator-1.parity-testnet.parity.io/tcp/30333/p2p/12D3KooWMh2imeAzsZKGQgm2cv6Uoep3GBYtwGfujt1bs5YfVzkH"
         ]' \
     | jq '.relay_chain = "westend"' \
     | jq --argjson para_id $para_id '.para_id = $para_id' \
@@ -53,37 +47,21 @@ cat chain-spec-plain.json | jq --rawfile code rt-hex.txt '.genesis.runtimeGenesi
     | jq '.genesis.runtimeGenesis.patch.balances.balances = []' \
     | jq '.genesis.runtimeGenesis.patch.collatorSelection.invulnerables = [
           "5GKXTtB7RG3mLJ2kT4AkDXoxvKCFDVUdwyRmeMEbX3gBwcGi",
-          "5DknBCD1h49nc8eqnm6XtHz3bMQm5hfMuGYcLenRfCmpnBJG",
-          "5D52g9Mt9jQnZn6hwYhv649QYqGwhjygxkpb6rm3FYzYHEs3",
-          "5Egx2B41PYj8uvuhkNJeucA54h6Xmi7ZH9wqrZLwj3CuvQKA"
+          "5DknBCD1h49nc8eqnm6XtHz3bMQm5hfMuGYcLenRfCmpnBJG"
         ]' \
     | jq '.genesis.runtimeGenesis.patch.session.keys = [
           [
             "5GKXTtB7RG3mLJ2kT4AkDXoxvKCFDVUdwyRmeMEbX3gBwcGi",
             "5GKXTtB7RG3mLJ2kT4AkDXoxvKCFDVUdwyRmeMEbX3gBwcGi",
             {
-              "aura": "0xbc3ea120d2991b75447b0b53cd8623970a0f6d98fa2701036c74d94e6b79252c"
+              "aura": "5GKXTtB7RG3mLJ2kT4AkDXoxvKCFDVUdwyRmeMEbX3gBwcGi"
             }
           ],
           [
             "5DknBCD1h49nc8eqnm6XtHz3bMQm5hfMuGYcLenRfCmpnBJG",
             "5DknBCD1h49nc8eqnm6XtHz3bMQm5hfMuGYcLenRfCmpnBJG",
             {
-              "aura": "0x4acc970c28713ec93bf925352d3023418fdf89933227e1e2fdae8481103dfe28"
-            }
-          ],
-          [
-            "5D52g9Mt9jQnZn6hwYhv649QYqGwhjygxkpb6rm3FYzYHEs3",
-            "5D52g9Mt9jQnZn6hwYhv649QYqGwhjygxkpb6rm3FYzYHEs3",
-            {
-              "aura": "0x2c7b95155708c10616b6f1a77a84f3d92c9a0272609ed24dbb7e6bdb81b53e76"
-            }
-          ],
-          [
-            "5Egx2B41PYj8uvuhkNJeucA54h6Xmi7ZH9wqrZLwj3CuvQKA",
-            "5Egx2B41PYj8uvuhkNJeucA54h6Xmi7ZH9wqrZLwj3CuvQKA",
-            {
-              "aura": "0x741cfb39ec61bc76824ccec62d61670a80a890e0e21d58817f84040d3ec54474"
+              "aura": "5DknBCD1h49nc8eqnm6XtHz3bMQm5hfMuGYcLenRfCmpnBJG"
             }
           ]
         ]' \

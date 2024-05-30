@@ -22,6 +22,9 @@ use polkadot_primitives::{OccupiedCore, ScheduledCore};
 const MOCK_GROUP_SIZE: usize = 5;
 
 pub fn occupied_core(para_id: u32) -> CoreState {
+	let mut candidate_descriptor = dummy_candidate_descriptor(dummy_hash());
+	candidate_descriptor.para_id = para_id.into();
+
 	CoreState::Occupied(OccupiedCore {
 		group_responsible: para_id.into(),
 		next_up_on_available: None,
@@ -29,7 +32,7 @@ pub fn occupied_core(para_id: u32) -> CoreState {
 		time_out_at: 200_u32,
 		next_up_on_time_out: None,
 		availability: bitvec![u8, bitvec::order::Lsb0; 0; 32],
-		candidate_descriptor: dummy_candidate_descriptor(dummy_hash()),
+		candidate_descriptor,
 		candidate_hash: Default::default(),
 	})
 }
@@ -254,10 +257,58 @@ mod select_candidates {
 	use polkadot_primitives::{
 		BlockNumber, CandidateCommitments, CommittedCandidateReceipt, PersistedValidationData,
 	};
+	use rstest::rstest;
+	use std::ops::Not;
+	use CoreState::{Free, Scheduled};
 
 	const BLOCK_UNDER_PRODUCTION: BlockNumber = 128;
 
-	// For test purposes, we always return this set of availability cores:
+	fn dummy_candidate_template() -> CandidateReceipt {
+		let empty_hash = PersistedValidationData::<Hash, BlockNumber>::default().hash();
+
+		let mut descriptor_template = dummy_candidate_descriptor(dummy_hash());
+		descriptor_template.persisted_validation_data_hash = empty_hash;
+		CandidateReceipt {
+			descriptor: descriptor_template,
+			commitments_hash: CandidateCommitments::default().hash(),
+		}
+	}
+
+	fn make_candidates(
+		core_count: usize,
+		expected_backed_indices: Vec<usize>,
+	) -> (Vec<CandidateHash>, Vec<BackedCandidate>) {
+		let candidate_template = dummy_candidate_template();
+		let candidates: Vec<_> = std::iter::repeat(candidate_template)
+			.take(core_count)
+			.enumerate()
+			.map(|(idx, mut candidate)| {
+				candidate.descriptor.para_id = idx.into();
+				candidate
+			})
+			.collect();
+
+		let expected_backed = expected_backed_indices
+			.iter()
+			.map(|&idx| candidates[idx].clone())
+			.map(|c| {
+				BackedCandidate::new(
+					CommittedCandidateReceipt {
+						descriptor: c.descriptor.clone(),
+						commitments: Default::default(),
+					},
+					Vec::new(),
+					default_bitvec(MOCK_GROUP_SIZE),
+					None,
+				)
+			})
+			.collect();
+		let candidate_hashes = candidates.into_iter().map(|c| c.hash()).collect();
+
+		(candidate_hashes, expected_backed)
+	}
+
+	// For testing only one core assigned to a parachain, we return this set of availability cores:
 	//
 	//   [
 	//      0: Free,
@@ -273,10 +324,7 @@ mod select_candidates {
 	//     10: Occupied(both next_up set, not available, timeout),
 	//     11: Occupied(next_up_on_available and available, but different successor para_id)
 	//   ]
-	fn mock_availability_cores() -> Vec<CoreState> {
-		use std::ops::Not;
-		use CoreState::{Free, Scheduled};
-
+	fn mock_availability_cores_one_per_para() -> Vec<CoreState> {
 		vec![
 			// 0: Free,
 			Free,
@@ -292,6 +340,7 @@ mod select_candidates {
 			build_occupied_core(4, |core| {
 				core.next_up_on_available = Some(scheduled_core(4));
 				core.availability = core.availability.clone().not();
+				core.candidate_hash = CandidateHash(Hash::from_low_u64_be(41));
 			}),
 			// 5: Occupied(next_up_on_time_out set but not timeout),
 			build_occupied_core(5, |core| {
@@ -307,12 +356,14 @@ mod select_candidates {
 			build_occupied_core(7, |core| {
 				core.next_up_on_time_out = Some(scheduled_core(7));
 				core.time_out_at = BLOCK_UNDER_PRODUCTION;
+				core.candidate_hash = CandidateHash(Hash::from_low_u64_be(71));
 			}),
 			// 8: Occupied(both next_up set, available),
 			build_occupied_core(8, |core| {
 				core.next_up_on_available = Some(scheduled_core(8));
 				core.next_up_on_time_out = Some(scheduled_core(8));
 				core.availability = core.availability.clone().not();
+				core.candidate_hash = CandidateHash(Hash::from_low_u64_be(81));
 			}),
 			// 9: Occupied(both next_up set, not available, no timeout),
 			build_occupied_core(9, |core| {
@@ -324,6 +375,7 @@ mod select_candidates {
 				core.next_up_on_available = Some(scheduled_core(10));
 				core.next_up_on_time_out = Some(scheduled_core(10));
 				core.time_out_at = BLOCK_UNDER_PRODUCTION;
+				core.candidate_hash = CandidateHash(Hash::from_low_u64_be(101));
 			}),
 			// 11: Occupied(next_up_on_available and available, but different successor para_id)
 			build_occupied_core(11, |core| {
@@ -333,19 +385,188 @@ mod select_candidates {
 		]
 	}
 
+	// For test purposes with multiple possible cores assigned to a para, we always return this set
+	// of availability cores:
+	fn mock_availability_cores_multiple_per_para() -> Vec<CoreState> {
+		vec![
+			// 0: Free,
+			Free,
+			// 1: Scheduled(default),
+			Scheduled(scheduled_core(1)),
+			// 2: Occupied(no next_up set),
+			occupied_core(2),
+			// 3: Occupied(next_up_on_available set but not available),
+			build_occupied_core(3, |core| {
+				core.next_up_on_available = Some(scheduled_core(3));
+			}),
+			// 4: Occupied(next_up_on_available set and available),
+			build_occupied_core(4, |core| {
+				core.next_up_on_available = Some(scheduled_core(4));
+				core.availability = core.availability.clone().not();
+				core.candidate_hash = CandidateHash(Hash::from_low_u64_be(41));
+			}),
+			// 5: Occupied(next_up_on_time_out set but not timeout),
+			build_occupied_core(5, |core| {
+				core.next_up_on_time_out = Some(scheduled_core(5));
+			}),
+			// 6: Occupied(next_up_on_time_out set and timeout but available),
+			build_occupied_core(6, |core| {
+				core.next_up_on_time_out = Some(scheduled_core(6));
+				core.time_out_at = BLOCK_UNDER_PRODUCTION;
+				core.availability = core.availability.clone().not();
+			}),
+			// 7: Occupied(next_up_on_time_out set and timeout and not available),
+			build_occupied_core(7, |core| {
+				core.next_up_on_time_out = Some(scheduled_core(7));
+				core.time_out_at = BLOCK_UNDER_PRODUCTION;
+				core.candidate_hash = CandidateHash(Hash::from_low_u64_be(71));
+			}),
+			// 8: Occupied(both next_up set, available),
+			build_occupied_core(8, |core| {
+				core.next_up_on_available = Some(scheduled_core(8));
+				core.next_up_on_time_out = Some(scheduled_core(8));
+				core.availability = core.availability.clone().not();
+				core.candidate_hash = CandidateHash(Hash::from_low_u64_be(81));
+			}),
+			// 9: Occupied(both next_up set, not available, no timeout),
+			build_occupied_core(9, |core| {
+				core.next_up_on_available = Some(scheduled_core(9));
+				core.next_up_on_time_out = Some(scheduled_core(9));
+			}),
+			// 10: Occupied(both next_up set, not available, timeout),
+			build_occupied_core(10, |core| {
+				core.next_up_on_available = Some(scheduled_core(10));
+				core.next_up_on_time_out = Some(scheduled_core(10));
+				core.time_out_at = BLOCK_UNDER_PRODUCTION;
+				core.candidate_hash = CandidateHash(Hash::from_low_u64_be(101));
+			}),
+			// 11: Occupied(next_up_on_available and available, but different successor para_id)
+			build_occupied_core(11, |core| {
+				core.next_up_on_available = Some(scheduled_core(12));
+				core.availability = core.availability.clone().not();
+			}),
+			// 12-14: Occupied(next_up_on_available and available, same para_id).
+			build_occupied_core(12, |core| {
+				core.next_up_on_available = Some(scheduled_core(12));
+				core.availability = core.availability.clone().not();
+				core.candidate_hash = CandidateHash(Hash::from_low_u64_be(121));
+			}),
+			build_occupied_core(12, |core| {
+				core.next_up_on_available = Some(scheduled_core(12));
+				core.availability = core.availability.clone().not();
+				core.candidate_hash = CandidateHash(Hash::from_low_u64_be(122));
+			}),
+			build_occupied_core(12, |core| {
+				core.next_up_on_available = Some(scheduled_core(12));
+				core.availability = core.availability.clone().not();
+				core.candidate_hash = CandidateHash(Hash::from_low_u64_be(123));
+			}),
+			// 15: Scheduled on same para_id as 12-14.
+			Scheduled(scheduled_core(12)),
+			// 16: Occupied(13, no next_up set, not available)
+			build_occupied_core(13, |core| {
+				core.candidate_hash = CandidateHash(Hash::from_low_u64_be(131));
+			}),
+			// 17: Occupied(13, no next_up set, available)
+			build_occupied_core(13, |core| {
+				core.availability = core.availability.clone().not();
+				core.candidate_hash = CandidateHash(Hash::from_low_u64_be(132));
+			}),
+			// 18: Occupied(13, next_up_on_available set to 13 but not available)
+			build_occupied_core(13, |core| {
+				core.next_up_on_available = Some(scheduled_core(13));
+				core.candidate_hash = CandidateHash(Hash::from_low_u64_be(133));
+			}),
+			// 19: Occupied(13, next_up_on_available set to 13 and available)
+			build_occupied_core(13, |core| {
+				core.next_up_on_available = Some(scheduled_core(13));
+				core.availability = core.availability.clone().not();
+				core.candidate_hash = CandidateHash(Hash::from_low_u64_be(134));
+			}),
+			// 20: Occupied(13, next_up_on_time_out set to 13 but not timeout)
+			build_occupied_core(13, |core| {
+				core.next_up_on_time_out = Some(scheduled_core(13));
+				core.candidate_hash = CandidateHash(Hash::from_low_u64_be(135));
+			}),
+			// 21: Occupied(13, next_up_on_available set to 14 and available)
+			build_occupied_core(13, |core| {
+				core.next_up_on_available = Some(scheduled_core(14));
+				core.availability = core.availability.clone().not();
+				core.candidate_hash = CandidateHash(Hash::from_low_u64_be(136));
+			}),
+			// 22: Occupied(13, next_up_on_available set to 14 but not available)
+			build_occupied_core(13, |core| {
+				core.next_up_on_available = Some(scheduled_core(14));
+				core.candidate_hash = CandidateHash(Hash::from_low_u64_be(137));
+			}),
+			// 23: Occupied(13, both next_up set to 14, available)
+			build_occupied_core(13, |core| {
+				core.next_up_on_available = Some(scheduled_core(14));
+				core.next_up_on_time_out = Some(scheduled_core(14));
+				core.availability = core.availability.clone().not();
+				core.candidate_hash = CandidateHash(Hash::from_low_u64_be(138));
+			}),
+			// 24: Occupied(13, both next_up set to 14, not available, timeout)
+			build_occupied_core(13, |core| {
+				core.next_up_on_available = Some(scheduled_core(14));
+				core.next_up_on_time_out = Some(scheduled_core(14));
+				core.time_out_at = BLOCK_UNDER_PRODUCTION;
+				core.candidate_hash = CandidateHash(Hash::from_low_u64_be(1399));
+			}),
+			// 25: Occupied(13, next_up_on_available and available, but successor para_id 15)
+			build_occupied_core(13, |core| {
+				core.next_up_on_available = Some(scheduled_core(15));
+				core.availability = core.availability.clone().not();
+				core.candidate_hash = CandidateHash(Hash::from_low_u64_be(139));
+			}),
+			// 26: Occupied(15, next_up_on_available and available, but successor para_id 13)
+			build_occupied_core(15, |core| {
+				core.next_up_on_available = Some(scheduled_core(13));
+				core.availability = core.availability.clone().not();
+				core.candidate_hash = CandidateHash(Hash::from_low_u64_be(151));
+			}),
+			// 27: Occupied(15, both next_up, both available and timed out)
+			build_occupied_core(15, |core| {
+				core.next_up_on_available = Some(scheduled_core(15));
+				core.availability = core.availability.clone().not();
+				core.candidate_hash = CandidateHash(Hash::from_low_u64_be(152));
+				core.time_out_at = BLOCK_UNDER_PRODUCTION;
+			}),
+			// 28: Occupied(13, both next_up set to 13, not available)
+			build_occupied_core(13, |core| {
+				core.next_up_on_available = Some(scheduled_core(13));
+				core.next_up_on_time_out = Some(scheduled_core(13));
+				core.candidate_hash = CandidateHash(Hash::from_low_u64_be(1398));
+			}),
+			// 29: Occupied(13, both next_up set to 13, not available, timeout)
+			build_occupied_core(13, |core| {
+				core.next_up_on_available = Some(scheduled_core(13));
+				core.next_up_on_time_out = Some(scheduled_core(13));
+				core.time_out_at = BLOCK_UNDER_PRODUCTION;
+				core.candidate_hash = CandidateHash(Hash::from_low_u64_be(1397));
+			}),
+		]
+	}
+
 	async fn mock_overseer(
 		mut receiver: mpsc::UnboundedReceiver<AllMessages>,
-		expected: Vec<BackedCandidate>,
+		mock_availability_cores: Vec<CoreState>,
+		mut expected: Vec<BackedCandidate>,
+		mut expected_ancestors: HashMap<Vec<CandidateHash>, Ancestors>,
 		prospective_parachains_mode: ProspectiveParachainsMode,
 	) {
 		use ChainApiMessage::BlockNumber;
 		use RuntimeApiMessage::Request;
 
+		let mut backed = expected.clone().into_iter().fold(HashMap::new(), |mut acc, candidate| {
+			acc.entry(candidate.descriptor().para_id).or_insert(vec![]).push(candidate);
+			acc
+		});
+
+		expected.sort_by_key(|c| c.candidate().descriptor.para_id);
 		let mut candidates_iter = expected
 			.iter()
 			.map(|candidate| (candidate.hash(), candidate.descriptor().relay_parent));
-
-		let mut backed_iter = expected.clone().into_iter();
 
 		while let Some(from_job) = receiver.next().await {
 			match from_job {
@@ -356,16 +577,35 @@ mod select_candidates {
 					PersistedValidationDataReq(_para_id, _assumption, tx),
 				)) => tx.send(Ok(Some(Default::default()))).unwrap(),
 				AllMessages::RuntimeApi(Request(_parent_hash, AvailabilityCores(tx))) =>
-					tx.send(Ok(mock_availability_cores())).unwrap(),
+					tx.send(Ok(mock_availability_cores.clone())).unwrap(),
 				AllMessages::CandidateBacking(CandidateBackingMessage::GetBackedCandidates(
 					hashes,
 					sender,
 				)) => {
-					let response: Vec<BackedCandidate> =
-						backed_iter.by_ref().take(hashes.len()).collect();
-					let expected_hashes: Vec<(CandidateHash, Hash)> = response
+					let mut response: HashMap<ParaId, Vec<BackedCandidate>> = HashMap::new();
+					for (para_id, requested_candidates) in hashes.clone() {
+						response.insert(
+							para_id,
+							backed
+								.get_mut(&para_id)
+								.unwrap()
+								.drain(0..requested_candidates.len())
+								.collect(),
+						);
+					}
+					let expected_hashes: HashMap<ParaId, Vec<(CandidateHash, Hash)>> = response
 						.iter()
-						.map(|candidate| (candidate.hash(), candidate.descriptor().relay_parent))
+						.map(|(para_id, candidates)| {
+							(
+								*para_id,
+								candidates
+									.iter()
+									.map(|candidate| {
+										(candidate.hash(), candidate.descriptor().relay_parent)
+									})
+									.collect(),
+							)
+						})
 						.collect();
 
 					assert_eq!(expected_hashes, hashes);
@@ -373,10 +613,36 @@ mod select_candidates {
 					let _ = sender.send(response);
 				},
 				AllMessages::ProspectiveParachains(
-					ProspectiveParachainsMessage::GetBackableCandidate(.., tx),
+					ProspectiveParachainsMessage::GetBackableCandidates(
+						_,
+						_para_id,
+						count,
+						actual_ancestors,
+						tx,
+					),
 				) => match prospective_parachains_mode {
 					ProspectiveParachainsMode::Enabled { .. } => {
-						let _ = tx.send(candidates_iter.next());
+						assert!(count > 0);
+						let candidates =
+							(&mut candidates_iter).take(count as usize).collect::<Vec<_>>();
+						assert_eq!(candidates.len(), count as usize);
+
+						if !expected_ancestors.is_empty() {
+							if let Some(expected_required_ancestors) = expected_ancestors.remove(
+								&(candidates
+									.clone()
+									.into_iter()
+									.take(actual_ancestors.len())
+									.map(|(c_hash, _)| c_hash)
+									.collect::<Vec<_>>()),
+							) {
+								assert_eq!(expected_required_ancestors, actual_ancestors);
+							} else {
+								assert_eq!(actual_ancestors.len(), 0);
+							}
+						}
+
+						let _ = tx.send(candidates);
 					},
 					ProspectiveParachainsMode::Disabled =>
 						panic!("unexpected prospective parachains request"),
@@ -384,19 +650,34 @@ mod select_candidates {
 				_ => panic!("Unexpected message: {:?}", from_job),
 			}
 		}
+
+		if let ProspectiveParachainsMode::Enabled { .. } = prospective_parachains_mode {
+			assert_eq!(candidates_iter.next(), None);
+		}
+		assert_eq!(expected_ancestors.len(), 0);
 	}
 
-	#[test]
-	fn can_succeed() {
+	#[rstest]
+	#[case(ProspectiveParachainsMode::Disabled)]
+	#[case(ProspectiveParachainsMode::Enabled {max_candidate_depth: 0, allowed_ancestry_len: 0})]
+	fn can_succeed(#[case] prospective_parachains_mode: ProspectiveParachainsMode) {
 		test_harness(
-			|r| mock_overseer(r, Vec::new(), ProspectiveParachainsMode::Disabled),
+			|r| {
+				mock_overseer(
+					r,
+					Vec::new(),
+					Vec::new(),
+					HashMap::new(),
+					prospective_parachains_mode,
+				)
+			},
 			|mut tx: TestSubsystemSender| async move {
-				let prospective_parachains_mode = ProspectiveParachainsMode::Disabled;
 				select_candidates(
 					&[],
 					&[],
 					&[],
 					prospective_parachains_mode,
+					false,
 					Default::default(),
 					&mut tx,
 				)
@@ -406,22 +687,22 @@ mod select_candidates {
 		)
 	}
 
-	// this tests that only the appropriate candidates get selected.
-	// To accomplish this, we supply a candidate list containing one candidate per possible core;
-	// the candidate selection algorithm must filter them to the appropriate set
-	#[test]
-	fn selects_correct_candidates() {
-		let mock_cores = mock_availability_cores();
-
-		let empty_hash = PersistedValidationData::<Hash, BlockNumber>::default().hash();
-
-		let mut descriptor_template = dummy_candidate_descriptor(dummy_hash());
-		descriptor_template.persisted_validation_data_hash = empty_hash;
-		let candidate_template = CandidateReceipt {
-			descriptor: descriptor_template,
-			commitments_hash: CandidateCommitments::default().hash(),
-		};
-
+	// Test candidate selection when prospective parachains mode is disabled.
+	// This tests that only the appropriate candidates get selected when prospective parachains mode
+	// is disabled. To accomplish this, we supply a candidate list containing one candidate per
+	// possible core; the candidate selection algorithm must filter them to the appropriate set
+	#[rstest]
+	// why those particular indices? see the comments on mock_availability_cores_*() functions.
+	#[case(mock_availability_cores_one_per_para(), vec![1, 4, 7, 8, 10], true)]
+	#[case(mock_availability_cores_one_per_para(), vec![1, 4, 7, 8, 10], false)]
+	#[case(mock_availability_cores_multiple_per_para(), vec![1, 4, 7, 8, 10, 12, 13, 14, 15], true)]
+	#[case(mock_availability_cores_multiple_per_para(), vec![1, 4, 7, 8, 10, 12, 13, 14, 15], false)]
+	fn test_in_subsystem_selection(
+		#[case] mock_cores: Vec<CoreState>,
+		#[case] expected_candidates: Vec<usize>,
+		#[case] elastic_scaling_mvp: bool,
+	) {
+		let candidate_template = dummy_candidate_template();
 		let candidates: Vec<_> = std::iter::repeat(candidate_template)
 			.take(mock_cores.len())
 			.enumerate()
@@ -448,31 +729,43 @@ mod select_candidates {
 			})
 			.collect();
 
-		// why those particular indices? see the comments on mock_availability_cores()
 		let expected_candidates: Vec<_> =
-			[1, 4, 7, 8, 10].iter().map(|&idx| candidates[idx].clone()).collect();
+			expected_candidates.into_iter().map(|idx| candidates[idx].clone()).collect();
 		let prospective_parachains_mode = ProspectiveParachainsMode::Disabled;
 
 		let expected_backed = expected_candidates
 			.iter()
-			.map(|c| BackedCandidate {
-				candidate: CommittedCandidateReceipt {
-					descriptor: c.descriptor.clone(),
-					commitments: Default::default(),
-				},
-				validity_votes: Vec::new(),
-				validator_indices: default_bitvec(MOCK_GROUP_SIZE),
+			.map(|c| {
+				BackedCandidate::new(
+					CommittedCandidateReceipt {
+						descriptor: c.descriptor().clone(),
+						commitments: Default::default(),
+					},
+					Vec::new(),
+					default_bitvec(MOCK_GROUP_SIZE),
+					None,
+				)
 			})
 			.collect();
 
+		let mock_cores_clone = mock_cores.clone();
 		test_harness(
-			|r| mock_overseer(r, expected_backed, prospective_parachains_mode),
+			|r| {
+				mock_overseer(
+					r,
+					mock_cores_clone,
+					expected_backed,
+					HashMap::new(),
+					prospective_parachains_mode,
+				)
+			},
 			|mut tx: TestSubsystemSender| async move {
-				let result = select_candidates(
+				let result: Vec<BackedCandidate> = select_candidates(
 					&mock_cores,
 					&[],
 					&candidates,
 					prospective_parachains_mode,
+					elastic_scaling_mvp,
 					Default::default(),
 					&mut tx,
 				)
@@ -481,7 +774,7 @@ mod select_candidates {
 
 				result.into_iter().for_each(|c| {
 					assert!(
-						expected_candidates.iter().any(|c2| c.candidate.corresponds_to(c2)),
+						expected_candidates.iter().any(|c2| c.candidate().corresponds_to(c2)),
 						"Failed to find candidate: {:?}",
 						c,
 					)
@@ -490,20 +783,29 @@ mod select_candidates {
 		)
 	}
 
-	#[test]
-	fn selects_max_one_code_upgrade() {
-		let mock_cores = mock_availability_cores();
+	#[rstest]
+	#[case(ProspectiveParachainsMode::Disabled)]
+	#[case(ProspectiveParachainsMode::Enabled {max_candidate_depth: 0, allowed_ancestry_len: 0})]
+	fn selects_max_one_code_upgrade_one_core_per_para(
+		#[case] prospective_parachains_mode: ProspectiveParachainsMode,
+	) {
+		let mock_cores = mock_availability_cores_one_per_para();
 
 		let empty_hash = PersistedValidationData::<Hash, BlockNumber>::default().hash();
 
 		// why those particular indices? see the comments on mock_availability_cores()
-		// the first candidate with code is included out of [1, 4, 7, 8, 10].
-		let cores = [1, 4, 7, 8, 10];
+		// the first candidate with code is included out of [1, 4, 7, 8, 10, 12].
+		let cores = [1, 4, 7, 8, 10, 12];
 		let cores_with_code = [1, 4, 8];
 
-		let expected_cores = [1, 7, 10];
+		// We can't be sure which one code upgrade the provisioner will pick. We can only assert
+		// that it only picks one. These are the possible cores for which the provisioner will
+		// supply candidates.
+		// There are multiple possibilities depending on which code upgrade it
+		// chooses.
+		let possible_expected_cores = [[1, 7, 10, 12], [4, 7, 10, 12], [7, 8, 10, 12]];
 
-		let committed_receipts: Vec<_> = (0..mock_cores.len())
+		let committed_receipts: Vec<_> = (0..=mock_cores.len())
 			.map(|i| {
 				let mut descriptor = dummy_candidate_descriptor(dummy_hash());
 				descriptor.para_id = i.into();
@@ -527,10 +829,13 @@ mod select_candidates {
 		// Build possible outputs from select_candidates
 		let backed_candidates: Vec<_> = committed_receipts
 			.iter()
-			.map(|committed_receipt| BackedCandidate {
-				candidate: committed_receipt.clone(),
-				validity_votes: Vec::new(),
-				validator_indices: default_bitvec(MOCK_GROUP_SIZE),
+			.map(|committed_receipt| {
+				BackedCandidate::new(
+					committed_receipt.clone(),
+					Vec::new(),
+					default_bitvec(MOCK_GROUP_SIZE),
+					None,
+				)
 			})
 			.collect();
 
@@ -538,30 +843,216 @@ mod select_candidates {
 		// Then, some of them get filtered due to new validation code rule.
 		let expected_backed: Vec<_> =
 			cores.iter().map(|&idx| backed_candidates[idx].clone()).collect();
-		let expected_backed_filtered: Vec<_> =
-			expected_cores.iter().map(|&idx| candidates[idx].clone()).collect();
+		let expected_backed_filtered: Vec<Vec<_>> = possible_expected_cores
+			.iter()
+			.map(|indices| indices.iter().map(|&idx| candidates[idx].clone()).collect())
+			.collect();
 
-		let prospective_parachains_mode = ProspectiveParachainsMode::Disabled;
+		let mock_cores_clone = mock_cores.clone();
 
 		test_harness(
-			|r| mock_overseer(r, expected_backed, prospective_parachains_mode),
+			|r| {
+				mock_overseer(
+					r,
+					mock_cores_clone,
+					expected_backed,
+					HashMap::new(),
+					prospective_parachains_mode,
+				)
+			},
 			|mut tx: TestSubsystemSender| async move {
 				let result = select_candidates(
 					&mock_cores,
 					&[],
 					&candidates,
 					prospective_parachains_mode,
+					false,
 					Default::default(),
 					&mut tx,
 				)
 				.await
 				.unwrap();
 
-				assert_eq!(result.len(), 3);
+				assert_eq!(result.len(), 4);
 
+				assert!(expected_backed_filtered.iter().any(|expected_backed_filtered| {
+					result.clone().into_iter().all(|c| {
+						expected_backed_filtered.iter().any(|c2| c.candidate().corresponds_to(c2))
+					})
+				}));
+			},
+		)
+	}
+
+	#[test]
+	fn selects_max_one_code_upgrade_multiple_cores_per_para() {
+		let prospective_parachains_mode =
+			ProspectiveParachainsMode::Enabled { max_candidate_depth: 0, allowed_ancestry_len: 0 };
+		let mock_cores = vec![
+			// 0: Scheduled(default),
+			Scheduled(scheduled_core(1)),
+			// 1: Scheduled(default),
+			Scheduled(scheduled_core(2)),
+			// 2: Scheduled(default),
+			Scheduled(scheduled_core(2)),
+			// 3: Scheduled(default),
+			Scheduled(scheduled_core(2)),
+			// 4: Scheduled(default),
+			Scheduled(scheduled_core(3)),
+			// 5: Scheduled(default),
+			Scheduled(scheduled_core(3)),
+			// 6: Scheduled(default),
+			Scheduled(scheduled_core(3)),
+		];
+
+		let empty_hash = PersistedValidationData::<Hash, BlockNumber>::default().hash();
+		let cores_with_code = [0, 2, 4, 5];
+
+		// We can't be sure which one code upgrade the provisioner will pick. We can only assert
+		// that it only picks one.
+		// These are the possible cores for which the provisioner will
+		// supply candidates. There are multiple possibilities depending on which code upgrade it
+		// chooses.
+		let possible_expected_cores = [vec![0, 1], vec![1, 2, 3], vec![4, 1]];
+
+		let committed_receipts: Vec<_> = (0..mock_cores.len())
+			.map(|i| {
+				let mut descriptor = dummy_candidate_descriptor(dummy_hash());
+				descriptor.para_id = if let Scheduled(scheduled_core) = &mock_cores[i] {
+					scheduled_core.para_id
+				} else {
+					panic!("`mock_cores` is not initialized with `Scheduled`?")
+				};
+				descriptor.persisted_validation_data_hash = empty_hash;
+				descriptor.pov_hash = Hash::from_low_u64_be(i as u64);
+				CommittedCandidateReceipt {
+					descriptor,
+					commitments: CandidateCommitments {
+						new_validation_code: if cores_with_code.contains(&i) {
+							Some(vec![].into())
+						} else {
+							None
+						},
+						..Default::default()
+					},
+				}
+			})
+			.collect();
+
+		// Input to select_candidates
+		let candidates: Vec<_> = committed_receipts.iter().map(|r| r.to_plain()).collect();
+		// Build possible outputs from select_candidates
+		let backed_candidates: Vec<_> = committed_receipts
+			.iter()
+			.map(|committed_receipt| {
+				BackedCandidate::new(
+					committed_receipt.clone(),
+					Vec::new(),
+					default_bitvec(MOCK_GROUP_SIZE),
+					None,
+				)
+			})
+			.collect();
+
+		// First, provisioner will request backable candidates for each scheduled core.
+		// Then, some of them get filtered due to new validation code rule.
+		let expected_backed: Vec<_> =
+			(0..mock_cores.len()).map(|idx| backed_candidates[idx].clone()).collect();
+		let expected_backed_filtered: Vec<Vec<_>> = possible_expected_cores
+			.iter()
+			.map(|indices| indices.iter().map(|&idx| candidates[idx].clone()).collect())
+			.collect();
+
+		let mock_cores_clone = mock_cores.clone();
+
+		test_harness(
+			|r| {
+				mock_overseer(
+					r,
+					mock_cores_clone,
+					expected_backed,
+					HashMap::new(),
+					prospective_parachains_mode,
+				)
+			},
+			|mut tx: TestSubsystemSender| async move {
+				let result = select_candidates(
+					&mock_cores,
+					&[],
+					&candidates,
+					prospective_parachains_mode,
+					true,
+					Default::default(),
+					&mut tx,
+				)
+				.await
+				.unwrap();
+
+				assert!(expected_backed_filtered.iter().any(|expected_backed_filtered| {
+					result.clone().into_iter().all(|c| {
+						expected_backed_filtered.iter().any(|c2| c.candidate().corresponds_to(c2))
+					}) && (expected_backed_filtered.len() == result.len())
+				}));
+			},
+		)
+	}
+
+	#[rstest]
+	#[case(true)]
+	#[case(false)]
+	fn request_from_prospective_parachains_one_core_per_para(#[case] elastic_scaling_mvp: bool) {
+		let mock_cores = mock_availability_cores_one_per_para();
+
+		// why those particular indices? see the comments on mock_availability_cores()
+		let expected_candidates: Vec<_> = vec![1, 4, 7, 8, 10, 12];
+		let (candidates, expected_candidates) =
+			make_candidates(mock_cores.len() + 1, expected_candidates);
+
+		// Expect prospective parachains subsystem requests.
+		let prospective_parachains_mode =
+			ProspectiveParachainsMode::Enabled { max_candidate_depth: 0, allowed_ancestry_len: 0 };
+
+		let mut required_ancestors: HashMap<Vec<CandidateHash>, Ancestors> = HashMap::new();
+		required_ancestors.insert(
+			vec![candidates[4]],
+			vec![CandidateHash(Hash::from_low_u64_be(41))].into_iter().collect(),
+		);
+		required_ancestors.insert(
+			vec![candidates[8]],
+			vec![CandidateHash(Hash::from_low_u64_be(81))].into_iter().collect(),
+		);
+
+		let mock_cores_clone = mock_cores.clone();
+		let expected_candidates_clone = expected_candidates.clone();
+		test_harness(
+			|r| {
+				mock_overseer(
+					r,
+					mock_cores_clone,
+					expected_candidates_clone,
+					required_ancestors,
+					prospective_parachains_mode,
+				)
+			},
+			|mut tx: TestSubsystemSender| async move {
+				let result = select_candidates(
+					&mock_cores,
+					&[],
+					&[],
+					prospective_parachains_mode,
+					elastic_scaling_mvp,
+					Default::default(),
+					&mut tx,
+				)
+				.await
+				.unwrap();
+
+				assert_eq!(result.len(), expected_candidates.len());
 				result.into_iter().for_each(|c| {
 					assert!(
-						expected_backed_filtered.iter().any(|c2| c.candidate.corresponds_to(c2)),
+						expected_candidates
+							.iter()
+							.any(|c2| c.candidate().corresponds_to(&c2.receipt())),
 						"Failed to find candidate: {:?}",
 						c,
 					)
@@ -571,62 +1062,149 @@ mod select_candidates {
 	}
 
 	#[test]
-	fn request_from_prospective_parachains() {
-		let mock_cores = mock_availability_cores();
-		let empty_hash = PersistedValidationData::<Hash, BlockNumber>::default().hash();
-
-		let mut descriptor_template = dummy_candidate_descriptor(dummy_hash());
-		descriptor_template.persisted_validation_data_hash = empty_hash;
-		let candidate_template = CandidateReceipt {
-			descriptor: descriptor_template,
-			commitments_hash: CandidateCommitments::default().hash(),
-		};
-
-		let candidates: Vec<_> = std::iter::repeat(candidate_template)
-			.take(mock_cores.len())
-			.enumerate()
-			.map(|(idx, mut candidate)| {
-				candidate.descriptor.para_id = idx.into();
-				candidate
-			})
-			.collect();
+	fn request_from_prospective_parachains_multiple_cores_per_para_elastic_scaling_mvp() {
+		let mock_cores = mock_availability_cores_multiple_per_para();
 
 		// why those particular indices? see the comments on mock_availability_cores()
 		let expected_candidates: Vec<_> =
-			[1, 4, 7, 8, 10].iter().map(|&idx| candidates[idx].clone()).collect();
+			vec![1, 4, 7, 8, 10, 12, 12, 12, 12, 12, 13, 13, 13, 14, 14, 14, 15, 15];
 		// Expect prospective parachains subsystem requests.
 		let prospective_parachains_mode =
 			ProspectiveParachainsMode::Enabled { max_candidate_depth: 0, allowed_ancestry_len: 0 };
 
-		let expected_backed = expected_candidates
-			.iter()
-			.map(|c| BackedCandidate {
-				candidate: CommittedCandidateReceipt {
-					descriptor: c.descriptor.clone(),
-					commitments: Default::default(),
-				},
-				validity_votes: Vec::new(),
-				validator_indices: default_bitvec(MOCK_GROUP_SIZE),
-			})
-			.collect();
+		let (candidates, expected_candidates) =
+			make_candidates(mock_cores.len(), expected_candidates);
 
+		let mut required_ancestors: HashMap<Vec<CandidateHash>, Ancestors> = HashMap::new();
+		required_ancestors.insert(
+			vec![candidates[4]],
+			vec![CandidateHash(Hash::from_low_u64_be(41))].into_iter().collect(),
+		);
+		required_ancestors.insert(
+			vec![candidates[8]],
+			vec![CandidateHash(Hash::from_low_u64_be(81))].into_iter().collect(),
+		);
+		required_ancestors.insert(
+			[12, 12, 12].iter().map(|&idx| candidates[idx]).collect::<Vec<_>>(),
+			vec![
+				CandidateHash(Hash::from_low_u64_be(121)),
+				CandidateHash(Hash::from_low_u64_be(122)),
+				CandidateHash(Hash::from_low_u64_be(123)),
+			]
+			.into_iter()
+			.collect(),
+		);
+		required_ancestors.insert(
+			[13, 13, 13].iter().map(|&idx| candidates[idx]).collect::<Vec<_>>(),
+			(131..=139)
+				.map(|num| CandidateHash(Hash::from_low_u64_be(num)))
+				.chain(std::iter::once(CandidateHash(Hash::from_low_u64_be(1398))))
+				.collect(),
+		);
+
+		required_ancestors.insert(
+			[15, 15].iter().map(|&idx| candidates[idx]).collect::<Vec<_>>(),
+			vec![
+				CandidateHash(Hash::from_low_u64_be(151)),
+				CandidateHash(Hash::from_low_u64_be(152)),
+			]
+			.into_iter()
+			.collect(),
+		);
+
+		let mock_cores_clone = mock_cores.clone();
+		let expected_candidates_clone = expected_candidates.clone();
 		test_harness(
-			|r| mock_overseer(r, expected_backed, prospective_parachains_mode),
+			|r| {
+				mock_overseer(
+					r,
+					mock_cores_clone,
+					expected_candidates,
+					required_ancestors,
+					prospective_parachains_mode,
+				)
+			},
 			|mut tx: TestSubsystemSender| async move {
 				let result = select_candidates(
 					&mock_cores,
 					&[],
 					&[],
 					prospective_parachains_mode,
+					true,
 					Default::default(),
 					&mut tx,
 				)
 				.await
 				.unwrap();
 
+				assert_eq!(result.len(), expected_candidates_clone.len());
 				result.into_iter().for_each(|c| {
 					assert!(
-						expected_candidates.iter().any(|c2| c.candidate.corresponds_to(c2)),
+						expected_candidates_clone
+							.iter()
+							.any(|c2| c.candidate().corresponds_to(&c2.receipt())),
+						"Failed to find candidate: {:?}",
+						c,
+					)
+				});
+			},
+		)
+	}
+
+	#[test]
+	fn request_from_prospective_parachains_multiple_cores_per_para_elastic_scaling_mvp_disabled() {
+		let mock_cores = mock_availability_cores_multiple_per_para();
+
+		// why those particular indices? see the comments on mock_availability_cores()
+		let expected_candidates: Vec<_> = vec![1, 4, 7, 8, 10];
+		// Expect prospective parachains subsystem requests.
+		let prospective_parachains_mode =
+			ProspectiveParachainsMode::Enabled { max_candidate_depth: 0, allowed_ancestry_len: 0 };
+
+		let (candidates, expected_candidates) =
+			make_candidates(mock_cores.len(), expected_candidates);
+
+		let mut required_ancestors: HashMap<Vec<CandidateHash>, Ancestors> = HashMap::new();
+		required_ancestors.insert(
+			vec![candidates[4]],
+			vec![CandidateHash(Hash::from_low_u64_be(41))].into_iter().collect(),
+		);
+		required_ancestors.insert(
+			vec![candidates[8]],
+			vec![CandidateHash(Hash::from_low_u64_be(81))].into_iter().collect(),
+		);
+
+		let mock_cores_clone = mock_cores.clone();
+		let expected_candidates_clone = expected_candidates.clone();
+		test_harness(
+			|r| {
+				mock_overseer(
+					r,
+					mock_cores_clone,
+					expected_candidates,
+					required_ancestors,
+					prospective_parachains_mode,
+				)
+			},
+			|mut tx: TestSubsystemSender| async move {
+				let result = select_candidates(
+					&mock_cores,
+					&[],
+					&[],
+					prospective_parachains_mode,
+					false,
+					Default::default(),
+					&mut tx,
+				)
+				.await
+				.unwrap();
+
+				assert_eq!(result.len(), expected_candidates_clone.len());
+				result.into_iter().for_each(|c| {
+					assert!(
+						expected_candidates_clone
+							.iter()
+							.any(|c2| c.candidate().corresponds_to(&c2.receipt())),
 						"Failed to find candidate: {:?}",
 						c,
 					)
@@ -637,18 +1215,11 @@ mod select_candidates {
 
 	#[test]
 	fn request_receipts_based_on_relay_parent() {
-		let mock_cores = mock_availability_cores();
-		let empty_hash = PersistedValidationData::<Hash, BlockNumber>::default().hash();
-
-		let mut descriptor_template = dummy_candidate_descriptor(dummy_hash());
-		descriptor_template.persisted_validation_data_hash = empty_hash;
-		let candidate_template = CandidateReceipt {
-			descriptor: descriptor_template,
-			commitments_hash: CandidateCommitments::default().hash(),
-		};
+		let mock_cores = mock_availability_cores_one_per_para();
+		let candidate_template = dummy_candidate_template();
 
 		let candidates: Vec<_> = std::iter::repeat(candidate_template)
-			.take(mock_cores.len())
+			.take(mock_cores.len() + 1)
 			.enumerate()
 			.map(|(idx, mut candidate)| {
 				candidate.descriptor.para_id = idx.into();
@@ -659,31 +1230,44 @@ mod select_candidates {
 
 		// why those particular indices? see the comments on mock_availability_cores()
 		let expected_candidates: Vec<_> =
-			[1, 4, 7, 8, 10].iter().map(|&idx| candidates[idx].clone()).collect();
+			[1, 4, 7, 8, 10, 12].iter().map(|&idx| candidates[idx].clone()).collect();
 		// Expect prospective parachains subsystem requests.
 		let prospective_parachains_mode =
 			ProspectiveParachainsMode::Enabled { max_candidate_depth: 0, allowed_ancestry_len: 0 };
 
 		let expected_backed = expected_candidates
 			.iter()
-			.map(|c| BackedCandidate {
-				candidate: CommittedCandidateReceipt {
-					descriptor: c.descriptor.clone(),
-					commitments: Default::default(),
-				},
-				validity_votes: Vec::new(),
-				validator_indices: default_bitvec(MOCK_GROUP_SIZE),
+			.map(|c| {
+				BackedCandidate::new(
+					CommittedCandidateReceipt {
+						descriptor: c.descriptor().clone(),
+						commitments: Default::default(),
+					},
+					Vec::new(),
+					default_bitvec(MOCK_GROUP_SIZE),
+					None,
+				)
 			})
 			.collect();
 
+		let mock_cores_clone = mock_cores.clone();
 		test_harness(
-			|r| mock_overseer(r, expected_backed, prospective_parachains_mode),
+			|r| {
+				mock_overseer(
+					r,
+					mock_cores_clone,
+					expected_backed,
+					HashMap::new(),
+					prospective_parachains_mode,
+				)
+			},
 			|mut tx: TestSubsystemSender| async move {
 				let result = select_candidates(
 					&mock_cores,
 					&[],
 					&[],
 					prospective_parachains_mode,
+					false,
 					Default::default(),
 					&mut tx,
 				)
@@ -692,7 +1276,7 @@ mod select_candidates {
 
 				result.into_iter().for_each(|c| {
 					assert!(
-						expected_candidates.iter().any(|c2| c.candidate.corresponds_to(c2)),
+						expected_candidates.iter().any(|c2| c.candidate().corresponds_to(c2)),
 						"Failed to find candidate: {:?}",
 						c,
 					)

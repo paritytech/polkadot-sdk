@@ -69,6 +69,9 @@ where
 			let price = P::price_for_delivery((), &xcm);
 			let versioned_xcm =
 				W::wrap_version(&d, xcm).map_err(|()| SendError::DestinationUnsupported)?;
+			versioned_xcm
+				.validate_xcm_nesting()
+				.map_err(|()| SendError::ExceedsMaxMessageSize)?;
 			let data = versioned_xcm.encode();
 
 			Ok((data, price))
@@ -141,7 +144,7 @@ impl<
 	) -> Result<xcm_executor::AssetsInHolding, XcmError> {
 		log::trace!(target: "xcm::weight", "TakeFirstAssetTrader::buy_weight weight: {:?}, payment: {:?}, context: {:?}", weight, payment, context);
 
-		// Make sure we dont enter twice
+		// Make sure we don't enter twice
 		if self.0.is_some() {
 			return Err(XcmError::NotWithdrawable)
 		}
@@ -176,7 +179,7 @@ impl<
 		// Convert to the same kind of asset, with the required fungible balance
 		let required = first.id.clone().into_asset(asset_balance.into());
 
-		// Substract payment
+		// Subtract payment
 		let unused = payment.checked_sub(required.clone()).map_err(|_| XcmError::TooExpensive)?;
 
 		// record weight and asset
@@ -203,7 +206,7 @@ impl<
 
 			// Calculate asset_balance
 			// This read should have already be cached in buy_weight
-			let (asset_balance, outstanding_minus_substracted) =
+			let (asset_balance, outstanding_minus_subtracted) =
 				FeeCharger::charge_weight_in_fungibles(local_asset_id, weight).ok().map(
 					|asset_balance| {
 						// Require at least a drop of minimum_balance
@@ -221,16 +224,15 @@ impl<
 				)?;
 
 			// Convert balances into u128
-			let outstanding_minus_substracted: u128 =
-				outstanding_minus_substracted.saturated_into();
+			let outstanding_minus_subtracted: u128 = outstanding_minus_subtracted.saturated_into();
 			let asset_balance: u128 = asset_balance.saturated_into();
 
-			// Construct outstanding_concrete_asset with the same location id and substracted
+			// Construct outstanding_concrete_asset with the same location id and subtracted
 			// balance
 			let outstanding_concrete_asset: Asset =
-				(id.clone(), outstanding_minus_substracted).into();
+				(id.clone(), outstanding_minus_subtracted).into();
 
-			// Substract from existing weight and balance
+			// Subtract from existing weight and balance
 			weight_outstanding = weight_outstanding.saturating_sub(weight);
 
 			// Override AssetTraderRefunder
@@ -263,9 +265,10 @@ impl<
 	}
 }
 
-/// XCM fee depositor to which we implement the TakeRevenue trait
-/// It receives a Transact implemented argument, a 32 byte convertible acocuntId, and the fee
-/// receiver account FungiblesMutateAdapter should be identical to that implemented by WithdrawAsset
+/// XCM fee depositor to which we implement the `TakeRevenue` trait.
+/// It receives a `Transact` implemented argument and a 32 byte convertible `AccountId`, and the fee
+/// receiver account's `FungiblesMutateAdapter` should be identical to that implemented by
+/// `WithdrawAsset`.
 pub struct XcmFeesTo32ByteAccount<FungiblesMutateAdapter, AccountId, ReceiverAccount>(
 	PhantomData<(FungiblesMutateAdapter, AccountId, ReceiverAccount)>,
 );
@@ -526,6 +529,8 @@ impl<
 mod test_xcm_router {
 	use super::*;
 	use cumulus_primitives_core::UpwardMessage;
+	use frame_support::assert_ok;
+	use xcm::MAX_XCM_DECODE_DEPTH;
 
 	/// Validates [`validate`] for required Some(destination) and Some(message)
 	struct OkFixedXcmHashWithAssertingRequiredInputsSender;
@@ -619,6 +624,29 @@ mod test_xcm_router {
 				ParentAsUmp<OtherErrorUpwardMessageSender, (), ()>,
 				OkFixedXcmHashWithAssertingRequiredInputsSender
 			)>(dest.into(), message)
+		);
+	}
+
+	#[test]
+	fn parent_as_ump_validate_nested_xcm_works() {
+		let dest = Parent;
+
+		type Router = ParentAsUmp<(), (), ()>;
+
+		// Message that is not too deeply nested:
+		let mut good = Xcm(vec![ClearOrigin]);
+		for _ in 0..MAX_XCM_DECODE_DEPTH - 1 {
+			good = Xcm(vec![SetAppendix(good)]);
+		}
+
+		// Check that the good message is validated:
+		assert_ok!(<Router as SendXcm>::validate(&mut Some(dest.into()), &mut Some(good.clone())));
+
+		// Nesting the message one more time should reject it:
+		let bad = Xcm(vec![SetAppendix(good)]);
+		assert_eq!(
+			Err(SendError::ExceedsMaxMessageSize),
+			<Router as SendXcm>::validate(&mut Some(dest.into()), &mut Some(bad))
 		);
 	}
 }
@@ -760,10 +788,11 @@ mod test_trader {
 	}
 }
 
-/// Implementation of `pallet_xcm_benchmarks::EnsureDelivery` which helps to ensure delivery to the
+/// Implementation of `xcm_builder::EnsureDelivery` which helps to ensure delivery to the
 /// parent relay chain. Deposits existential deposit for origin (if needed).
 /// Deposits estimated fee to the origin account (if needed).
-/// Allows to trigger additional logic for specific `ParaId` (e.g. open HRMP channel) (if neeeded).
+/// Allows triggering of additional logic for a specific `ParaId` (e.g. to open an HRMP channel) if
+/// needed.
 #[cfg(feature = "runtime-benchmarks")]
 pub struct ToParentDeliveryHelper<XcmConfig, ExistentialDeposit, PriceForDelivery>(
 	sp_std::marker::PhantomData<(XcmConfig, ExistentialDeposit, PriceForDelivery)>,
@@ -774,16 +803,21 @@ impl<
 		XcmConfig: xcm_executor::Config,
 		ExistentialDeposit: Get<Option<Asset>>,
 		PriceForDelivery: PriceForMessageDelivery<Id = ()>,
-	> pallet_xcm_benchmarks::EnsureDelivery
+	> xcm_builder::EnsureDelivery
 	for ToParentDeliveryHelper<XcmConfig, ExistentialDeposit, PriceForDelivery>
 {
 	fn ensure_successful_delivery(
 		origin_ref: &Location,
-		_dest: &Location,
+		dest: &Location,
 		fee_reason: xcm_executor::traits::FeeReason,
 	) -> (Option<xcm_executor::FeesMode>, Option<Assets>) {
 		use xcm::latest::{MAX_INSTRUCTIONS_TO_DECODE, MAX_ITEMS_IN_ASSETS};
 		use xcm_executor::{traits::FeeManager, FeesMode};
+
+		// check if the destination is relay/parent
+		if dest.ne(&Location::parent()) {
+			return (None, None);
+		}
 
 		let mut fees_mode = None;
 		if !XcmConfig::FeeManager::is_waived(Some(origin_ref), fee_reason) {

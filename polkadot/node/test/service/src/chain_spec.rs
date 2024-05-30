@@ -19,7 +19,9 @@
 use babe_primitives::AuthorityId as BabeId;
 use grandpa::AuthorityId as GrandpaId;
 use pallet_staking::Forcing;
-use polkadot_primitives::{AccountId, AssignmentId, ValidatorId, MAX_CODE_SIZE, MAX_POV_SIZE};
+use polkadot_primitives::{
+	vstaging::SchedulerParams, AccountId, AssignmentId, ValidatorId, MAX_CODE_SIZE, MAX_POV_SIZE,
+};
 use polkadot_service::chain_spec::{get_account_id_from_seed, get_from_seed, Extensions};
 use polkadot_test_runtime::BABE_GENESIS_EPOCH_CONFIG;
 use sc_chain_spec::{ChainSpec, ChainType};
@@ -165,10 +167,14 @@ fn polkadot_testnet_genesis(
 				max_code_size: MAX_CODE_SIZE,
 				max_pov_size: MAX_POV_SIZE,
 				max_head_data_size: 32 * 1024,
-				group_rotation_frequency: 20,
-				paras_availability_period: 4,
 				no_show_slots: 10,
 				minimum_validation_upgrade_delay: 5,
+				max_downward_message_size: 1024,
+				scheduler_params: SchedulerParams {
+					group_rotation_frequency: 20,
+					paras_availability_period: 4,
+					..Default::default()
+				},
 				..Default::default()
 			},
 		}

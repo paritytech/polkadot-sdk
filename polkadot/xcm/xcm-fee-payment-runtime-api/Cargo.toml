@@ -1,0 +1,40 @@
+[package]
+name = "xcm-fee-payment-runtime-api"
+version = "0.1.0"
+authors.workspace = true
+edition.workspace = true
+license = "Apache-2.0"
+repository.workspace = true
+description = "XCM fee payment runtime API"
+
+[package.metadata.docs.rs]
+targets = ["x86_64-unknown-linux-gnu"]
+
+[dependencies]
+codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = [
+	"derive",
+] }
+
+sp-api = { path = "../../../substrate/primitives/api", default-features = false }
+scale-info = { version = "2.11.1", default-features = false, features = [
+	"derive",
+	"serde",
+] }
+sp-std = { path = "../../../substrate/primitives/std", default-features = false }
+sp-runtime = { path = "../../../substrate/primitives/runtime", default-features = false }
+sp-weights = { path = "../../../substrate/primitives/weights", default-features = false }
+xcm = { package = "staging-xcm", path = "../", default-features = false }
+frame-support = { path = "../../../substrate/frame/support", default-features = false }
+
+[features]
+default = ["std"]
+std = [
+	"codec/std",
+	"frame-support/std",
+	"scale-info/std",
+	"sp-api/std",
+	"sp-runtime/std",
+	"sp-std/std",
+	"sp-weights/std",
+	"xcm/std",
+]

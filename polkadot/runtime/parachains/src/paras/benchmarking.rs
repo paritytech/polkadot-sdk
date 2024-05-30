@@ -68,7 +68,7 @@ pub(crate) fn generate_disordered_upgrades<T: Config>() {
 
 fn generate_disordered_actions_queue<T: Config>() {
 	let mut queue = Vec::new();
-	let next_session = shared::Pallet::<T>::session_index().saturating_add(One::one());
+	let next_session = shared::CurrentSessionIndex::<T>::get().saturating_add(One::one());
 
 	for _ in 0..SAMPLE_SIZE {
 		let id = ParaId::from(1000);
@@ -82,7 +82,7 @@ fn generate_disordered_actions_queue<T: Config>() {
 
 benchmarks! {
 	force_set_current_code {
-		let c in 1 .. MAX_CODE_SIZE;
+		let c in MIN_CODE_SIZE .. MAX_CODE_SIZE;
 		let new_code = ValidationCode(vec![0; c as usize]);
 		let para_id = ParaId::from(c as u32);
 		CurrentCodeHash::<T>::insert(&para_id, new_code.hash());
@@ -92,7 +92,7 @@ benchmarks! {
 		assert_last_event::<T>(Event::CurrentCodeUpdated(para_id).into());
 	}
 	force_set_current_head {
-		let s in 1 .. MAX_HEAD_DATA_SIZE;
+		let s in MIN_CODE_SIZE .. MAX_HEAD_DATA_SIZE;
 		let new_head = HeadData(vec![0; s as usize]);
 		let para_id = ParaId::from(1000);
 	}: _(RawOrigin::Root, para_id, new_head)
@@ -104,7 +104,7 @@ benchmarks! {
 		let context = BlockNumberFor::<T>::from(1000u32);
 	}: _(RawOrigin::Root, para_id, context)
 	force_schedule_code_upgrade {
-		let c in 1 .. MAX_CODE_SIZE;
+		let c in MIN_CODE_SIZE .. MAX_CODE_SIZE;
 		let new_code = ValidationCode(vec![0; c as usize]);
 		let para_id = ParaId::from(c as u32);
 		let block = BlockNumberFor::<T>::from(c);
@@ -114,7 +114,7 @@ benchmarks! {
 		assert_last_event::<T>(Event::CodeUpgradeScheduled(para_id).into());
 	}
 	force_note_new_head {
-		let s in 1 .. MAX_HEAD_DATA_SIZE;
+		let s in MIN_CODE_SIZE .. MAX_HEAD_DATA_SIZE;
 		let para_id = ParaId::from(1000);
 		let new_head = HeadData(vec![0; s as usize]);
 		let old_code_hash = ValidationCode(vec![0]).hash();
@@ -126,10 +126,10 @@ benchmarks! {
 		generate_disordered_pruning::<T>();
 		Pallet::<T>::schedule_code_upgrade(
 			para_id,
-			ValidationCode(vec![0]),
+			ValidationCode(vec![0u8; MIN_CODE_SIZE as usize]),
 			expired,
 			&config,
-			SetGoAhead::Yes,
+			UpgradeStrategy::SetGoAheadSignal,
 		);
 	}: _(RawOrigin::Root, para_id, new_head)
 	verify {
@@ -140,12 +140,12 @@ benchmarks! {
 		generate_disordered_actions_queue::<T>();
 	}: _(RawOrigin::Root, para_id)
 	verify {
-		let next_session = crate::shared::Pallet::<T>::session_index().saturating_add(One::one());
+		let next_session = crate::shared::CurrentSessionIndex::<T>::get().saturating_add(One::one());
 		assert_last_event::<T>(Event::ActionQueued(para_id, next_session).into());
 	}
 
 	add_trusted_validation_code {
-		let c in 1 .. MAX_CODE_SIZE;
+		let c in MIN_CODE_SIZE .. MAX_CODE_SIZE;
 		let new_code = ValidationCode(vec![0; c as usize]);
 
 		pvf_check::prepare_bypassing_bench::<T>(new_code.clone());

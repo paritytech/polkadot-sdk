@@ -1,0 +1,94 @@
+[package]
+name = "snowbridge-runtime-test-common"
+description = "Snowbridge Runtime Tests"
+version = "0.2.0"
+authors = ["Snowfork <contact@snowfork.com>"]
+edition = "2021"
+license = "Apache-2.0"
+categories = ["cryptography::cryptocurrencies"]
+
+[lints]
+workspace = true
+
+[dependencies]
+codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = ["derive"] }
+
+# Substrate
+frame-support = { path = "../../../../substrate/frame/support", default-features = false }
+frame-system = { path = "../../../../substrate/frame/system", default-features = false }
+pallet-balances = { path = "../../../../substrate/frame/balances", default-features = false }
+pallet-session = { path = "../../../../substrate/frame/session", default-features = false }
+pallet-message-queue = { path = "../../../../substrate/frame/message-queue", default-features = false }
+pallet-timestamp = { path = "../../../../substrate/frame/timestamp", default-features = false }
+pallet-utility = { path = "../../../../substrate/frame/utility", default-features = false }
+sp-core = { path = "../../../../substrate/primitives/core", default-features = false }
+sp-io = { path = "../../../../substrate/primitives/io", default-features = false }
+sp-keyring = { path = "../../../../substrate/primitives/keyring" }
+sp-runtime = { path = "../../../../substrate/primitives/runtime", default-features = false }
+
+# Polkadot
+pallet-xcm = { path = "../../../../polkadot/xcm/pallet-xcm", default-features = false }
+xcm = { package = "staging-xcm", path = "../../../../polkadot/xcm", default-features = false }
+xcm-executor = { package = "staging-xcm-executor", path = "../../../../polkadot/xcm/xcm-executor", default-features = false }
+
+# Cumulus
+cumulus-pallet-parachain-system = { path = "../../../../cumulus/pallets/parachain-system", default-features = false, features = ["parameterized-consensus-hook"] }
+pallet-collator-selection = { path = "../../../../cumulus/pallets/collator-selection", default-features = false }
+parachain-info = { package = "staging-parachain-info", path = "../../../../cumulus/parachains/pallets/parachain-info", default-features = false }
+parachains-runtimes-test-utils = { path = "../../../../cumulus/parachains/runtimes/test-utils", default-features = false }
+
+# Ethereum Bridge (Snowbridge)
+snowbridge-core = { path = "../../primitives/core", default-features = false }
+snowbridge-pallet-ethereum-client = { path = "../../pallets/ethereum-client", default-features = false }
+snowbridge-pallet-ethereum-client-fixtures = { path = "../../pallets/ethereum-client/fixtures", default-features = false }
+snowbridge-pallet-outbound-queue = { path = "../../pallets/outbound-queue", default-features = false }
+snowbridge-pallet-system = { path = "../../pallets/system", default-features = false }
+
+[features]
+default = ["std"]
+std = [
+	"codec/std",
+	"cumulus-pallet-parachain-system/std",
+	"frame-support/std",
+	"frame-system/std",
+	"pallet-balances/std",
+	"pallet-collator-selection/std",
+	"pallet-message-queue/std",
+	"pallet-session/std",
+	"pallet-timestamp/std",
+	"pallet-utility/std",
+	"pallet-xcm/std",
+	"parachain-info/std",
+	"parachains-runtimes-test-utils/std",
+	"snowbridge-core/std",
+	"snowbridge-pallet-ethereum-client-fixtures/std",
+	"snowbridge-pallet-ethereum-client/std",
+	"snowbridge-pallet-outbound-queue/std",
+	"snowbridge-pallet-system/std",
+	"sp-core/std",
+	"sp-io/std",
+	"sp-keyring/std",
+	"sp-runtime/std",
+	"xcm-executor/std",
+	"xcm/std",
+]
+
+runtime-benchmarks = [
+	"cumulus-pallet-parachain-system/runtime-benchmarks",
+	"frame-support/runtime-benchmarks",
+	"frame-system/runtime-benchmarks",
+	"pallet-balances/runtime-benchmarks",
+	"pallet-collator-selection/runtime-benchmarks",
+	"pallet-message-queue/runtime-benchmarks",
+	"pallet-timestamp/runtime-benchmarks",
+	"pallet-utility/runtime-benchmarks",
+	"pallet-xcm/runtime-benchmarks",
+	"snowbridge-core/runtime-benchmarks",
+	"snowbridge-pallet-ethereum-client-fixtures/runtime-benchmarks",
+	"snowbridge-pallet-ethereum-client/runtime-benchmarks",
+	"snowbridge-pallet-outbound-queue/runtime-benchmarks",
+	"snowbridge-pallet-system/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"xcm-executor/runtime-benchmarks",
+]
+fast-runtime = []

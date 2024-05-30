@@ -18,11 +18,10 @@
 
 use xcm::latest::prelude::*;
 
-/// Returns the delivery fees amount for pallet xcm's `teleport_assets` and
-/// `reserve_transfer_assets` extrinsics.
+/// Returns the delivery fees amount for pallet xcm's `teleport_assets` extrinsics.
 /// Because it returns only a `u128`, it assumes delivery fees are only paid
 /// in one asset and that asset is known.
-pub fn transfer_assets_delivery_fees<S: SendXcm>(
+pub fn teleport_assets_delivery_fees<S: SendXcm>(
 	assets: Assets,
 	fee_asset_item: u32,
 	weight_limit: WeightLimit,

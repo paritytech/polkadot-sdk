@@ -93,7 +93,7 @@ pub trait HostFn {
 	/// - `output`: A reference to the output data buffer to write the address.
 	fn address(output: &mut &mut [u8]);
 
-	/// Adds a new delegate dependency to the contract.
+	/// Lock a new delegate dependency to the contract.
 	///
 	/// Traps if the maximum number of delegate_dependencies is reached or if
 	/// the delegate dependency already exists.
@@ -102,10 +102,7 @@ pub trait HostFn {
 	///
 	/// - `code_hash`: The code hash of the dependency. Should be decodable as an `T::Hash`. Traps
 	///   otherwise.
-	#[deprecated(
-		note = "Unstable function. Behaviour can change without further notice. Use only for testing."
-	)]
-	fn add_delegate_dependency(code_hash: &[u8]);
+	fn lock_delegate_dependency(code_hash: &[u8]);
 
 	/// Stores the *free* balance of the current account into the supplied buffer.
 	///
@@ -142,6 +139,7 @@ pub trait HostFn {
 	///
 	/// Equivalent to the newer [`Self::call_v2`] version but works with
 	/// *ref_time* Weight only
+	#[deprecated(note = "Deprecated, use newer version instead")]
 	fn call_v1(
 		flags: CallFlags,
 		callee: &[u8],
@@ -178,14 +176,11 @@ pub trait HostFn {
 	/// - [CalleeTrapped][`crate::ReturnErrorCode::CalleeTrapped]
 	/// - [TransferFailed][`crate::ReturnErrorCode::TransferFailed]
 	/// - [NotCallable][`crate::ReturnErrorCode::NotCallable]
-	#[deprecated(
-		note = "Unstable function. Behaviour can change without further notice. Use only for testing."
-	)]
 	fn call_v2(
 		flags: CallFlags,
 		callee: &[u8],
 		ref_time_limit: u64,
-		proof_time_limit: u64,
+		proof_size_limit: u64,
 		deposit: Option<&[u8]>,
 		value: &[u8],
 		input_data: &[u8],
@@ -277,9 +272,6 @@ pub trait HostFn {
 	///
 	/// A return value of `true` indicates that this contract is being called by a root origin,
 	/// and `false` indicates that the caller is a signed origin.
-	#[deprecated(
-		note = "Unstable function. Behaviour can change without further notice. Use only for testing."
-	)]
 	fn caller_is_root() -> u32;
 
 	/// Clear the value at the given key in the contract storage.
@@ -483,6 +475,7 @@ pub trait HostFn {
 	///
 	/// Equivalent to the newer [`Self::instantiate_v2`] version but works
 	/// with *ref_time* Weight only.
+	#[deprecated(note = "Deprecated, use newer version instead")]
 	fn instantiate_v1(
 		code_hash: &[u8],
 		gas: u64,
@@ -527,9 +520,6 @@ pub trait HostFn {
 	/// - [CalleeTrapped][`crate::ReturnErrorCode::CalleeTrapped]
 	/// - [TransferFailed][`crate::ReturnErrorCode::TransferFailed]
 	/// - [CodeNotFound][`crate::ReturnErrorCode::CodeNotFound]
-	#[deprecated(
-		note = "Unstable function. Behaviour can change without further notice. Use only for testing."
-	)]
 	fn instantiate_v2(
 		code_hash: &[u8],
 		ref_time_limit: u64,
@@ -605,10 +595,7 @@ pub trait HostFn {
 	///
 	/// - `code_hash`: The code hash of the dependency. Should be decodable as an `T::Hash`. Traps
 	///   otherwise.
-	#[deprecated(
-		note = "Unstable function. Behaviour can change without further notice. Use only for testing."
-	)]
-	fn remove_delegate_dependency(code_hash: &[u8]);
+	fn unlock_delegate_dependency(code_hash: &[u8]);
 
 	/// Cease contract execution and save a data buffer as a result of the execution.
 	///
@@ -795,7 +782,7 @@ pub trait HostFn {
 	#[deprecated(
 		note = "Unstable function. Behaviour can change without further notice. Use only for testing."
 	)]
-	fn xcm_execute(msg: &[u8], output: &mut &mut [u8]) -> Result;
+	fn xcm_execute(msg: &[u8]) -> Result;
 
 	/// Send an XCM program from the contract to the specified destination.
 	/// This is equivalent to dispatching `pallet_xcm::send` through `call_runtime`, except that
@@ -803,11 +790,10 @@ pub trait HostFn {
 	///
 	/// # Parameters
 	///
-	/// - `dest`: The XCM destination, should be decodable as [VersionedMultiLocation](https://paritytech.github.io/polkadot-sdk/master/staging_xcm/enum.VersionedMultiLocation.html),
+	/// - `dest`: The XCM destination, should be decodable as [VersionedLocation](https://paritytech.github.io/polkadot-sdk/master/staging_xcm/enum.VersionedLocation.html),
 	///   traps otherwise.
 	/// - `msg`: The message, should be decodable as a [VersionedXcm](https://paritytech.github.io/polkadot-sdk/master/staging_xcm/enum.VersionedXcm.html),
 	///   traps otherwise.
-	/// - `output`: A reference to the output data buffer to write the [XcmHash](https://paritytech.github.io/polkadot-sdk/master/staging_xcm/v3/type.XcmHash.html)
 	///
 	/// # Return
 	///

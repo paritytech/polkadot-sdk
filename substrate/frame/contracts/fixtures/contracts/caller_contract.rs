@@ -40,7 +40,6 @@ pub extern "C" fn call() {
 	let reverted_input = [1u8, 34, 51, 68, 85, 102, 119];
 
 	// Fail to deploy the contract since it returns a non-zero exit status.
-	#[allow(deprecated)]
 	let res = api::instantiate_v2(
 		code_hash,
 		0u64, // How much ref_time weight to devote for the execution. 0 = all.
@@ -55,7 +54,6 @@ pub extern "C" fn call() {
 	assert!(matches!(res, Err(ReturnErrorCode::CalleeReverted)));
 
 	// Fail to deploy the contract due to insufficient ref_time weight.
-	#[allow(deprecated)]
 	let res = api::instantiate_v2(
 		code_hash, 1u64, // too little ref_time weight
 		0u64, // How much proof_size weight to devote for the execution. 0 = all.
@@ -65,7 +63,6 @@ pub extern "C" fn call() {
 	assert!(matches!(res, Err(ReturnErrorCode::CalleeTrapped)));
 
 	// Fail to deploy the contract due to insufficient proof_size weight.
-	#[allow(deprecated)]
 	let res = api::instantiate_v2(
 		code_hash, 0u64, // How much ref_time weight to devote for the execution. 0 = all.
 		1u64, // Too little proof_size weight
@@ -78,7 +75,6 @@ pub extern "C" fn call() {
 	let mut callee = [0u8; 32];
 	let callee = &mut &mut callee[..];
 
-	#[allow(deprecated)]
 	api::instantiate_v2(
 		code_hash,
 		0u64, // How much ref_time weight to devote for the execution. 0 = all.
@@ -94,7 +90,6 @@ pub extern "C" fn call() {
 	assert_eq!(callee.len(), 32);
 
 	// Call the new contract and expect it to return failing exit code.
-	#[allow(deprecated)]
 	let res = api::call_v2(
 		uapi::CallFlags::empty(),
 		callee,
@@ -108,11 +103,10 @@ pub extern "C" fn call() {
 	assert!(matches!(res, Err(ReturnErrorCode::CalleeReverted)));
 
 	// Fail to call the contract due to insufficient ref_time weight.
-	#[allow(deprecated)]
 	let res = api::call_v2(
 		uapi::CallFlags::empty(),
 		callee,
-		1u64, // too little ref_time weight
+		1u64, // Too little ref_time weight.
 		0u64, // How much proof_size weight to devote for the execution. 0 = all.
 		None, // No deposit limit.
 		&value,
@@ -122,7 +116,6 @@ pub extern "C" fn call() {
 	assert!(matches!(res, Err(ReturnErrorCode::CalleeTrapped)));
 
 	// Fail to call the contract due to insufficient proof_size weight.
-	#[allow(deprecated)]
 	let res = api::call_v2(
 		uapi::CallFlags::empty(),
 		callee,
@@ -137,7 +130,6 @@ pub extern "C" fn call() {
 
 	// Call the contract successfully.
 	let mut output = [0u8; 4];
-	#[allow(deprecated)]
 	api::call_v2(
 		uapi::CallFlags::empty(),
 		callee,

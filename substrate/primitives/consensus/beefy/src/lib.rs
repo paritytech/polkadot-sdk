@@ -31,24 +31,28 @@
 //! it will use a different set of keys. For Polkadot use case we plan to use `secp256k1` for BEEFY,
 //! while GRANDPA uses `ed25519`.
 
+extern crate alloc;
+
 mod commitment;
-pub mod mmr;
 mod payload;
-#[cfg(feature = "std")]
-mod test_utils;
+
+pub mod mmr;
 pub mod witness;
 
-pub use commitment::{Commitment, SignedCommitment, VersionedFinalityProof};
-pub use payload::{known_payloads, BeefyPayloadId, Payload, PayloadProvider};
+/// Test utilities
 #[cfg(feature = "std")]
-pub use test_utils::*;
+pub mod test_utils;
 
+pub use commitment::{Commitment, KnownSignature, SignedCommitment, VersionedFinalityProof};
+pub use payload::{known_payloads, BeefyPayloadId, Payload, PayloadProvider};
+
+use alloc::vec::Vec;
 use codec::{Codec, Decode, Encode};
+use core::fmt::{Debug, Display};
 use scale_info::TypeInfo;
-use sp_application_crypto::RuntimeAppPublic;
+use sp_application_crypto::{AppCrypto, AppPublic, ByteArray, RuntimeAppPublic};
 use sp_core::H256;
 use sp_runtime::traits::{Hash, Keccak256, NumberFor};
-use sp_std::prelude::*;
 
 /// Key type for BEEFY module.
 pub const KEY_TYPE: sp_core::crypto::KeyTypeId = sp_application_crypto::key_types::BEEFY;
@@ -63,6 +67,25 @@ pub trait BeefyAuthorityId<MsgHash: Hash>: RuntimeAppPublic {
 	fn verify(&self, signature: &<Self as RuntimeAppPublic>::Signature, msg: &[u8]) -> bool;
 }
 
+/// Hasher used for BEEFY signatures.
+pub type BeefySignatureHasher = sp_runtime::traits::Keccak256;
+
+/// A trait bound which lists all traits which are required to be implemented by
+/// a BEEFY AuthorityId type in order to be able to be used in BEEFY Keystore
+pub trait AuthorityIdBound:
+	Codec
+	+ Debug
+	+ Clone
+	+ AsRef<[u8]>
+	+ ByteArray
+	+ AppPublic
+	+ AppCrypto
+	+ RuntimeAppPublic
+	+ Display
+	+ BeefyAuthorityId<BeefySignatureHasher>
+{
+}
+
 /// BEEFY cryptographic types for ECDSA crypto
 ///
 /// This module basically introduces four crypto types:
@@ -74,7 +97,7 @@ pub trait BeefyAuthorityId<MsgHash: Hash>: RuntimeAppPublic {
 /// Your code should use the above types as concrete types for all crypto related
 /// functionality.
 pub mod ecdsa_crypto {
-	use super::{BeefyAuthorityId, Hash, RuntimeAppPublic, KEY_TYPE};
+	use super::{AuthorityIdBound, BeefyAuthorityId, Hash, RuntimeAppPublic, KEY_TYPE};
 	use sp_application_crypto::{app_crypto, ecdsa};
 	use sp_core::crypto::Wraps;
 
@@ -101,6 +124,7 @@ pub mod ecdsa_crypto {
 			}
 		}
 	}
+	impl AuthorityIdBound for AuthorityId {}
 }
 
 /// BEEFY cryptographic types for BLS crypto
@@ -116,7 +140,7 @@ pub mod ecdsa_crypto {
 
 #[cfg(feature = "bls-experimental")]
 pub mod bls_crypto {
-	use super::{BeefyAuthorityId, Hash, RuntimeAppPublic, KEY_TYPE};
+	use super::{AuthorityIdBound, BeefyAuthorityId, Hash, RuntimeAppPublic, KEY_TYPE};
 	use sp_application_crypto::{app_crypto, bls377};
 	use sp_core::{bls377::Pair as BlsPair, crypto::Wraps, Pair as _};
 
@@ -134,13 +158,14 @@ pub mod bls_crypto {
 	{
 		fn verify(&self, signature: &<Self as RuntimeAppPublic>::Signature, msg: &[u8]) -> bool {
 			// `w3f-bls` library uses IETF hashing standard and as such does not expose
-			// a choice of hash to field function.
+			// a choice of hash-to-field function.
 			// We are directly calling into the library to avoid introducing new host call.
 			// and because BeefyAuthorityId::verify is being called in the runtime so we don't have
 
 			BlsPair::verify(signature.as_inner_ref(), msg, self.as_inner_ref())
 		}
 	}
+	impl AuthorityIdBound for AuthorityId {}
 }
 
 /// BEEFY cryptographic types for (ECDSA,BLS) crypto pair
@@ -155,7 +180,7 @@ pub mod bls_crypto {
 /// functionality.
 #[cfg(feature = "bls-experimental")]
 pub mod ecdsa_bls_crypto {
-	use super::{BeefyAuthorityId, Hash, RuntimeAppPublic, KEY_TYPE};
+	use super::{AuthorityIdBound, BeefyAuthorityId, Hash, RuntimeAppPublic, KEY_TYPE};
 	use sp_application_crypto::{app_crypto, ecdsa_bls377};
 	use sp_core::{crypto::Wraps, ecdsa_bls377::Pair as EcdsaBlsPair};
 
@@ -175,7 +200,7 @@ pub mod ecdsa_bls_crypto {
 		fn verify(&self, signature: &<Self as RuntimeAppPublic>::Signature, msg: &[u8]) -> bool {
 			// We can not simply call
 			// `EcdsaBlsPair::verify(signature.as_inner_ref(), msg, self.as_inner_ref())`
-			// because that invokes ECDSA default verification which perfoms Blake2b hash
+			// because that invokes ECDSA default verification which performs Blake2b hash
 			// which we don't want. This is because ECDSA signatures are meant to be verified
 			// on Ethereum network where Keccak hasher is significantly cheaper than Blake2b.
 			// See Figure 3 of [OnSc21](https://www.scitepress.org/Papers/2021/106066/106066.pdf)
@@ -187,6 +212,8 @@ pub mod ecdsa_bls_crypto {
 			)
 		}
 	}
+
+	impl AuthorityIdBound for AuthorityId {}
 }
 
 /// The `ConsensusEngineId` of BEEFY.

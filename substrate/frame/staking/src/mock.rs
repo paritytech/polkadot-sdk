@@ -25,20 +25,14 @@ use frame_election_provider_support::{
 use frame_support::{
 	assert_ok, derive_impl, ord_parameter_types, parameter_types,
 	traits::{
-		ConstU64, Currency, EitherOfDiverse, FindAuthor, Get, Hooks, Imbalance, OnUnbalanced,
-		OneSessionHandler,
+		ConstU64, Currency, EitherOfDiverse, FindAuthor, Get, Hooks, Imbalance, LockableCurrency,
+		OnUnbalanced, OneSessionHandler, WithdrawReasons,
 	},
 	weights::constants::RocksDbWeight,
 };
 use frame_system::{EnsureRoot, EnsureSignedBy};
-use sp_core::H256;
 use sp_io;
-use sp_runtime::{
-	curve::PiecewiseLinear,
-	testing::UintAuthorityId,
-	traits::{IdentityLookup, Zero},
-	BuildStorage,
-};
+use sp_runtime::{curve::PiecewiseLinear, testing::UintAuthorityId, traits::Zero, BuildStorage};
 use sp_staking::{
 	offence::{DisableStrategy, OffenceDetails, OnOffenceHandler},
 	OnStakingUpdate,
@@ -49,7 +43,6 @@ pub const BLOCK_TIME: u64 = 1000;
 
 /// The AccountId alias in this test module.
 pub(crate) type AccountId = u64;
-pub(crate) type Nonce = u64;
 pub(crate) type BlockNumber = u64;
 pub(crate) type Balance = u128;
 
@@ -125,31 +118,11 @@ parameter_types! {
 	pub static MaxControllersInDeprecationBatch: u32 = 5900;
 }
 
-#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
-	type BaseCallFilter = frame_support::traits::Everything;
-	type BlockWeights = ();
-	type BlockLength = ();
 	type DbWeight = RocksDbWeight;
-	type RuntimeOrigin = RuntimeOrigin;
-	type Nonce = Nonce;
-	type RuntimeCall = RuntimeCall;
-	type Hash = H256;
-	type Hashing = ::sp_runtime::traits::BlakeTwo256;
-	type AccountId = AccountId;
-	type Lookup = IdentityLookup<Self::AccountId>;
 	type Block = Block;
-	type RuntimeEvent = RuntimeEvent;
-	type BlockHashCount = frame_support::traits::ConstU64<250>;
-	type Version = ();
-	type PalletInfo = PalletInfo;
 	type AccountData = pallet_balances::AccountData<Balance>;
-	type OnNewAccount = ();
-	type OnKilledAccount = ();
-	type SystemWeightInfo = ();
-	type SS58Prefix = ();
-	type OnSetCode = ();
-	type MaxConsumers = frame_support::traits::ConstU32<16>;
 }
 impl pallet_balances::Config for Test {
 	type MaxLocks = frame_support::traits::ConstU32<1024>;
@@ -276,17 +249,21 @@ parameter_types! {
 	pub static LedgerSlashPerEra:
 		(BalanceOf<Test>, BTreeMap<EraIndex, BalanceOf<Test>>) =
 		(Zero::zero(), BTreeMap::new());
+	pub static SlashObserver: BTreeMap<AccountId, BalanceOf<Test>> = BTreeMap::new();
 }
 
 pub struct EventListenerMock;
 impl OnStakingUpdate<AccountId, Balance> for EventListenerMock {
 	fn on_slash(
-		_pool_account: &AccountId,
+		pool_account: &AccountId,
 		slashed_bonded: Balance,
 		slashed_chunks: &BTreeMap<EraIndex, Balance>,
-		_total_slashed: Balance,
+		total_slashed: Balance,
 	) {
 		LedgerSlashPerEra::set((slashed_bonded, slashed_chunks.clone()));
+		SlashObserver::mutate(|map| {
+			map.insert(*pool_account, map.get(pool_account).unwrap_or(&0) + total_slashed)
+		});
 	}
 }
 
@@ -625,6 +602,21 @@ pub(crate) fn bond_nominator(who: AccountId, val: Balance, target: Vec<AccountId
 	assert_ok!(Staking::nominate(RuntimeOrigin::signed(who), target));
 }
 
+pub(crate) fn bond_virtual_nominator(
+	who: AccountId,
+	payee: AccountId,
+	val: Balance,
+	target: Vec<AccountId>,
+) {
+	// In a real scenario, `who` is a keyless account managed by another pallet which provides for
+	// it.
+	System::inc_providers(&who);
+
+	// Bond who virtually.
+	assert_ok!(<Staking as sp_staking::StakingUnchecked>::virtual_bond(&who, val, &payee));
+	assert_ok!(Staking::nominate(RuntimeOrigin::signed(who), target));
+}
+
 /// Progress to the given block, triggering session and era changes as we progress.
 ///
 /// This will finalize the previous block, initialize up to the given block, essentially simulating
@@ -811,6 +803,88 @@ pub(crate) fn bond_controller_stash(controller: AccountId, stash: AccountId) -> 
 	<Ledger<Test>>::insert(controller, StakingLedger::<Test>::default_from(stash));
 
 	Ok(())
+}
+
+// simulates `set_controller` without corrupted ledger checks for testing purposes.
+pub(crate) fn set_controller_no_checks(stash: &AccountId) {
+	let controller = Bonded::<Test>::get(stash).expect("testing stash should be bonded");
+	let ledger = Ledger::<Test>::get(&controller).expect("testing ledger should exist");
+
+	Ledger::<Test>::remove(&controller);
+	Ledger::<Test>::insert(stash, ledger);
+	Bonded::<Test>::insert(stash, stash);
+}
+
+// simulates `bond_extra` without corrupted ledger checks for testing purposes.
+pub(crate) fn bond_extra_no_checks(stash: &AccountId, amount: Balance) {
+	let controller = Bonded::<Test>::get(stash).expect("bond must exist to bond_extra");
+	let mut ledger = Ledger::<Test>::get(&controller).expect("ledger must exist to bond_extra");
+
+	let new_total = ledger.total + amount;
+	Balances::set_lock(crate::STAKING_ID, stash, new_total, WithdrawReasons::all());
+	ledger.total = new_total;
+	ledger.active = new_total;
+	Ledger::<Test>::insert(controller, ledger);
+}
+
+pub(crate) fn setup_double_bonded_ledgers() {
+	let init_ledgers = Ledger::<Test>::iter().count();
+
+	let _ = Balances::make_free_balance_be(&333, 2000);
+	let _ = Balances::make_free_balance_be(&444, 2000);
+	let _ = Balances::make_free_balance_be(&555, 2000);
+	let _ = Balances::make_free_balance_be(&777, 2000);
+
+	assert_ok!(Staking::bond(RuntimeOrigin::signed(333), 10, RewardDestination::Staked));
+	assert_ok!(Staking::bond(RuntimeOrigin::signed(444), 20, RewardDestination::Staked));
+	assert_ok!(Staking::bond(RuntimeOrigin::signed(555), 20, RewardDestination::Staked));
+	// not relevant to the test case, but ensures try-runtime checks pass.
+	[333, 444, 555]
+		.iter()
+		.for_each(|s| Payee::<Test>::insert(s, RewardDestination::Staked));
+
+	// we want to test the case where a controller can also be a stash of another ledger.
+	// for that, we change the controller/stash bonding so that:
+	// * 444 becomes controller of 333.
+	// * 555 becomes controller of 444.
+	// * 777 becomes controller of 555.
+	let ledger_333 = Ledger::<Test>::get(333).unwrap();
+	let ledger_444 = Ledger::<Test>::get(444).unwrap();
+	let ledger_555 = Ledger::<Test>::get(555).unwrap();
+
+	// 777 becomes controller of 555.
+	Bonded::<Test>::mutate(555, |controller| *controller = Some(777));
+	Ledger::<Test>::insert(777, ledger_555);
+
+	// 555 becomes controller of 444.
+	Bonded::<Test>::mutate(444, |controller| *controller = Some(555));
+	Ledger::<Test>::insert(555, ledger_444);
+
+	// 444 becomes controller of 333.
+	Bonded::<Test>::mutate(333, |controller| *controller = Some(444));
+	Ledger::<Test>::insert(444, ledger_333);
+
+	// 333 is not controller anymore.
+	Ledger::<Test>::remove(333);
+
+	// checks. now we have:
+	// * +3 ledgers
+	assert_eq!(Ledger::<Test>::iter().count(), 3 + init_ledgers);
+
+	// * stash 333 has controller 444.
+	assert_eq!(Bonded::<Test>::get(333), Some(444));
+	assert_eq!(StakingLedger::<Test>::paired_account(StakingAccount::Stash(333)), Some(444));
+	assert_eq!(Ledger::<Test>::get(444).unwrap().stash, 333);
+
+	// * stash 444 has controller 555.
+	assert_eq!(Bonded::<Test>::get(444), Some(555));
+	assert_eq!(StakingLedger::<Test>::paired_account(StakingAccount::Stash(444)), Some(555));
+	assert_eq!(Ledger::<Test>::get(555).unwrap().stash, 444);
+
+	// * stash 555 has controller 777.
+	assert_eq!(Bonded::<Test>::get(555), Some(777));
+	assert_eq!(StakingLedger::<Test>::paired_account(StakingAccount::Stash(555)), Some(777));
+	assert_eq!(Ledger::<Test>::get(777).unwrap().stash, 555);
 }
 
 #[macro_export]

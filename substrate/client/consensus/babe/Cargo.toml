@@ -17,15 +17,15 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-async-trait = "0.1.74"
+async-trait = "0.1.79"
 codec = { package = "parity-scale-codec", version = "3.6.1", features = ["derive"] }
-futures = "0.3.21"
-log = "0.4.17"
+futures = "0.3.30"
+log = { workspace = true, default-features = true }
 num-bigint = "0.4.3"
 num-rational = "0.4.1"
 num-traits = "0.2.17"
 parking_lot = "0.12.1"
-thiserror = "1.0"
+thiserror = { workspace = true }
 fork-tree = { path = "../../../utils/fork-tree" }
 prometheus-endpoint = { package = "substrate-prometheus-endpoint", path = "../../../utils/prometheus" }
 sc-client-api = { path = "../../api" }
@@ -54,4 +54,4 @@ sc-network-test = { path = "../../network/test" }
 sp-timestamp = { path = "../../../primitives/timestamp" }
 sp-tracing = { path = "../../../primitives/tracing" }
 substrate-test-runtime-client = { path = "../../../test-utils/runtime/client" }
-tokio = "1.22.0"
+tokio = "1.37"

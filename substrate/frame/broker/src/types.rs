@@ -55,7 +55,7 @@ pub enum Finality {
 pub struct RegionId {
 	/// The timeslice at which this Region begins.
 	pub begin: Timeslice,
-	/// The index of the Polakdot Core on which this Region will be scheduled.
+	/// The index of the Polkadot Core on which this Region will be scheduled.
 	pub core: CoreIndex,
 	/// The regularity parts in which this Region will be scheduled.
 	pub mask: CoreMask,
@@ -84,7 +84,7 @@ pub struct RegionRecord<AccountId, Balance> {
 	/// The end of the Region.
 	pub end: Timeslice,
 	/// The owner of the Region.
-	pub owner: AccountId,
+	pub owner: Option<AccountId>,
 	/// The amount paid to Polkadot for this Region, or `None` if renewal is not allowed.
 	pub paid: Option<Balance>,
 }
@@ -198,7 +198,7 @@ pub struct PoolIoRecord {
 	/// The total change of the portion of the pool supplied by purchased Bulk Coretime, measured
 	/// in Core Mask Bits.
 	pub private: SignedCoreMaskBitCount,
-	/// The total change of the portion of the pool supplied by the Polkaot System, measured in
+	/// The total change of the portion of the pool supplied by the Polkadot System, measured in
 	/// Core Mask Bits.
 	pub system: SignedCoreMaskBitCount,
 }

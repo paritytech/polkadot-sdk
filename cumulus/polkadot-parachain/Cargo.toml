@@ -1,6 +1,6 @@
 [package]
 name = "polkadot-parachain-bin"
-version = "4.0.0"
+version = "1.11.0"
 authors.workspace = true
 build = "build.rs"
 edition.workspace = true
@@ -15,14 +15,14 @@ name = "polkadot-parachain"
 path = "src/main.rs"
 
 [dependencies]
-async-trait = "0.1.74"
-clap = { version = "4.4.18", features = ["derive"] }
+async-trait = "0.1.79"
+clap = { version = "4.5.3", features = ["derive"] }
 codec = { package = "parity-scale-codec", version = "3.0.0" }
 futures = "0.3.28"
 hex-literal = "0.4.1"
-log = "0.4.20"
-serde = { version = "1.0.195", features = ["derive"] }
-serde_json = "1.0.111"
+log = { workspace = true, default-features = true }
+serde = { features = ["derive"], workspace = true, default-features = true }
+serde_json = { workspace = true, default-features = true }
 
 # Local
 rococo-parachain-runtime = { path = "../parachains/runtimes/testing/rococo-parachain" }
@@ -38,11 +38,14 @@ coretime-rococo-runtime = { path = "../parachains/runtimes/coretime/coretime-roc
 coretime-westend-runtime = { path = "../parachains/runtimes/coretime/coretime-westend" }
 bridge-hub-westend-runtime = { path = "../parachains/runtimes/bridge-hubs/bridge-hub-westend" }
 penpal-runtime = { path = "../parachains/runtimes/testing/penpal" }
-jsonrpsee = { version = "0.20.3", features = ["server"] }
+jsonrpsee = { version = "0.22", features = ["server"] }
 people-rococo-runtime = { path = "../parachains/runtimes/people/people-rococo" }
 people-westend-runtime = { path = "../parachains/runtimes/people/people-westend" }
 parachains-common = { path = "../parachains/common" }
-testnet-parachains-constants = { path = "../parachains/runtimes/constants", default-features = false, features = ["rococo", "westend"] }
+testnet-parachains-constants = { path = "../parachains/runtimes/constants", default-features = false, features = [
+	"rococo",
+	"westend",
+] }
 
 # Substrate
 frame-benchmarking = { path = "../../substrate/frame/benchmarking" }
@@ -168,6 +171,5 @@ try-runtime = [
 	"shell-runtime/try-runtime",
 	"sp-runtime/try-runtime",
 ]
-fast-runtime = [
-	"bridge-hub-rococo-runtime/fast-runtime",
-]
+fast-runtime = ["bridge-hub-rococo-runtime/fast-runtime"]
+elastic-scaling-experimental = ["polkadot-service/elastic-scaling-experimental"]

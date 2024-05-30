@@ -19,6 +19,9 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use frame_support::dispatch::DispatchResult;
+use frame_system::offchain::SendTransactionTypes;
+#[cfg(feature = "experimental")]
+use frame_system::offchain::SubmitTransaction;
 // Re-export pallet items so that they can be accessed from the crate namespace.
 pub use pallet::*;
 
@@ -31,10 +34,14 @@ mod benchmarking;
 pub mod weights;
 pub use weights::*;
 
+#[cfg(feature = "experimental")]
+const LOG_TARGET: &str = "pallet-example-tasks";
+
 #[frame_support::pallet(dev_mode)]
 pub mod pallet {
 	use super::*;
 	use frame_support::pallet_prelude::*;
+	use frame_system::pallet_prelude::*;
 
 	#[pallet::error]
 	pub enum Error<T> {
@@ -59,9 +66,36 @@ pub mod pallet {
 		}
 	}
 
+	#[pallet::hooks]
+	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+		#[cfg(feature = "experimental")]
+		fn offchain_worker(_block_number: BlockNumberFor<T>) {
+			if let Some(key) = Numbers::<T>::iter_keys().next() {
+				// Create a valid task
+				let task = Task::<T>::AddNumberIntoTotal { i: key };
+				let runtime_task = <T as Config>::RuntimeTask::from(task);
+				let call = frame_system::Call::<T>::do_task { task: runtime_task.into() };
+
+				// Submit the task as an unsigned transaction
+				let res =
+					SubmitTransaction::<T, frame_system::Call<T>>::submit_unsigned_transaction(
+						call.into(),
+					);
+				match res {
+					Ok(_) => log::info!(target: LOG_TARGET, "Submitted the task."),
+					Err(e) => log::error!(target: LOG_TARGET, "Error submitting task: {:?}", e),
+				}
+			}
+		}
+	}
+
 	#[pallet::config]
-	pub trait Config: frame_system::Config {
-		type RuntimeTask: frame_support::traits::Task;
+	pub trait Config:
+		SendTransactionTypes<frame_system::Call<Self>> + frame_system::Config
+	{
+		type RuntimeTask: frame_support::traits::Task
+			+ IsType<<Self as frame_system::Config>::RuntimeTask>
+			+ From<Task<Self>>;
 		type WeightInfo: WeightInfo;
 	}
 

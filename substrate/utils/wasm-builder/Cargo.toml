@@ -18,7 +18,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 build-helper = "0.1.1"
 cargo_metadata = "0.15.4"
 console = "0.15.8"
-strum = { version = "0.24.1", features = ["derive"] }
+strum = { version = "0.26.2", features = ["derive"] }
 tempfile = "3.1.0"
 toml = "0.8.8"
 walkdir = "2.4.0"
@@ -26,3 +26,35 @@ sp-maybe-compressed-blob = { path = "../../primitives/maybe-compressed-blob" }
 filetime = "0.2.16"
 wasm-opt = "0.116"
 parity-wasm = "0.45"
+polkavm-linker = { workspace = true }
+
+# Dependencies required for the `metadata-hash` feature.
+merkleized-metadata = { version = "0.1.0", optional = true }
+sc-executor = { path = "../../client/executor", optional = true }
+sp-core = { path = "../../primitives/core", optional = true }
+sp-io = { path = "../../primitives/io", optional = true }
+sp-version = { path = "../../primitives/version", optional = true }
+frame-metadata = { version = "16.0.0", features = ["current"], optional = true }
+codec = { package = "parity-scale-codec", version = "3.1.5", optional = true }
+array-bytes = { version = "6.1", optional = true }
+sp-tracing = { path = "../../primitives/tracing", optional = true }
+
+[features]
+# Enable support for generating the metadata hash.
+#
+# To generate the metadata hash the runtime is build once, executed to build the metadata and then
+# build a second time with the `RUNTIME_METADATA_HASH` environment variable set. The environment
+# variable then contains the hash and can be used inside the runtime.
+#
+# This pulls in quite a lot of dependencies and thus, is disabled by default.
+metadata-hash = [
+	"array-bytes",
+	"codec",
+	"frame-metadata",
+	"merkleized-metadata",
+	"sc-executor",
+	"sp-core",
+	"sp-io",
+	"sp-tracing",
+	"sp-version",
+]

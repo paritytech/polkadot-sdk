@@ -83,6 +83,8 @@ enum CoretimeCalls {
 	SetLease(pallet_broker::TaskId, pallet_broker::Timeslice),
 	#[codec(index = 19)]
 	NotifyCoreCount(u16),
+	#[codec(index = 99)]
+	SwapLeases(ParaId, ParaId),
 }
 
 #[frame_support::pallet]
@@ -108,6 +110,11 @@ pub mod pallet {
 		/// Something that provides the weight of this pallet.
 		type WeightInfo: WeightInfo;
 		type SendXcm: SendXcm;
+
+		/// Maximum weight for any XCM transact call that should be executed on the coretime chain.
+		///
+		/// Basically should be `max_weight(set_leases, reserve, notify_core_count)`.
+		type MaxXcmTransactWeight: Get<Weight>;
 	}
 
 	#[pallet::event]
@@ -214,8 +221,8 @@ impl<T: Config> Pallet<T> {
 	}
 
 	pub fn initializer_on_new_session(notification: &SessionChangeNotification<BlockNumberFor<T>>) {
-		let old_core_count = notification.prev_config.coretime_cores;
-		let new_core_count = notification.new_config.coretime_cores;
+		let old_core_count = notification.prev_config.scheduler_params.num_cores;
+		let new_core_count = notification.new_config.scheduler_params.num_cores;
 		if new_core_count != old_core_count {
 			let core_count: u16 = new_core_count.saturated_into();
 			let message = Xcm(vec![
@@ -223,7 +230,7 @@ impl<T: Config> Pallet<T> {
 					weight_limit: WeightLimit::Unlimited,
 					check_origin: None,
 				},
-				mk_coretime_call(crate::coretime::CoretimeCalls::NotifyCoreCount(core_count)),
+				mk_coretime_call::<T>(crate::coretime::CoretimeCalls::NotifyCoreCount(core_count)),
 			]);
 			if let Err(err) = send_xcm::<T::SendXcm>(
 				Location::new(0, [Junction::Parachain(T::BrokerId::get())]),
@@ -231,6 +238,24 @@ impl<T: Config> Pallet<T> {
 			) {
 				log::error!("Sending `NotifyCoreCount` to coretime chain failed: {:?}", err);
 			}
+		}
+	}
+
+	// Handle legacy swaps in coretime. Notifies broker parachain that a lease swap has occurred via
+	// XCM message. This function is meant to be used in an implementation of `OnSwap` trait.
+	pub fn on_legacy_lease_swap(one: ParaId, other: ParaId) {
+		let message = Xcm(vec![
+			Instruction::UnpaidExecution {
+				weight_limit: WeightLimit::Unlimited,
+				check_origin: None,
+			},
+			mk_coretime_call::<T>(crate::coretime::CoretimeCalls::SwapLeases(one, other)),
+		]);
+		if let Err(err) = send_xcm::<T::SendXcm>(
+			Location::new(0, [Junction::Parachain(T::BrokerId::get())]),
+			message,
+		) {
+			log::error!("Sending `SwapLeases` to coretime chain failed: {:?}", err);
 		}
 	}
 }
@@ -241,12 +266,10 @@ impl<T: Config> OnNewSession<BlockNumberFor<T>> for Pallet<T> {
 	}
 }
 
-fn mk_coretime_call(call: crate::coretime::CoretimeCalls) -> Instruction<()> {
+fn mk_coretime_call<T: Config>(call: crate::coretime::CoretimeCalls) -> Instruction<()> {
 	Instruction::Transact {
 		origin_kind: OriginKind::Superuser,
-		// Largest call is set_lease with 1526 byte:
-		// Longest call is reserve() with 31_000_000
-		require_weight_at_most: Weight::from_parts(170_000_000, 20_000),
+		require_weight_at_most: T::MaxXcmTransactWeight::get(),
 		call: BrokerRuntimePallets::Broker(call).encode().into(),
 	}
 }

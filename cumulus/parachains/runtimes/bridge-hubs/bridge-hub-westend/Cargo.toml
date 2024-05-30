@@ -15,9 +15,9 @@ substrate-wasm-builder = { path = "../../../../../substrate/utils/wasm-builder",
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
 hex-literal = { version = "0.4.1" }
-log = { version = "0.4.20", default-features = false }
-scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
-serde = { version = "1.0.195", optional = true, features = ["derive"] }
+log = { workspace = true }
+scale-info = { version = "2.11.1", default-features = false, features = ["derive"] }
+serde = { optional = true, features = ["derive"], workspace = true, default-features = true }
 
 # Substrate
 frame-benchmarking = { path = "../../../../../substrate/frame/benchmarking", default-features = false, optional = true }
@@ -68,33 +68,36 @@ cumulus-pallet-parachain-system = { path = "../../../../pallets/parachain-system
 cumulus-pallet-session-benchmarking = { path = "../../../../pallets/session-benchmarking", default-features = false }
 cumulus-pallet-xcm = { path = "../../../../pallets/xcm", default-features = false }
 cumulus-pallet-xcmp-queue = { path = "../../../../pallets/xcmp-queue", default-features = false, features = ["bridging"] }
+cumulus-primitives-aura = { path = "../../../../primitives/aura", default-features = false }
 cumulus-primitives-core = { path = "../../../../primitives/core", default-features = false }
 cumulus-primitives-utility = { path = "../../../../primitives/utility", default-features = false }
+cumulus-primitives-storage-weight-reclaim = { path = "../../../../primitives/storage-weight-reclaim", default-features = false }
+
 pallet-collator-selection = { path = "../../../../pallets/collator-selection", default-features = false }
 parachain-info = { package = "staging-parachain-info", path = "../../../pallets/parachain-info", default-features = false }
 parachains-common = { path = "../../../common", default-features = false }
 testnet-parachains-constants = { path = "../../constants", default-features = false, features = ["westend"] }
 
 # Bridges
-bp-asset-hub-rococo = { path = "../../../../../bridges/primitives/chain-asset-hub-rococo", default-features = false }
-bp-asset-hub-westend = { path = "../../../../../bridges/primitives/chain-asset-hub-westend", default-features = false }
-bp-bridge-hub-rococo = { path = "../../../../../bridges/primitives/chain-bridge-hub-rococo", default-features = false }
-bp-bridge-hub-westend = { path = "../../../../../bridges/primitives/chain-bridge-hub-westend", default-features = false }
+bp-asset-hub-rococo = { path = "../../../../../bridges/chains/chain-asset-hub-rococo", default-features = false }
+bp-asset-hub-westend = { path = "../../../../../bridges/chains/chain-asset-hub-westend", default-features = false }
+bp-bridge-hub-rococo = { path = "../../../../../bridges/chains/chain-bridge-hub-rococo", default-features = false }
+bp-bridge-hub-westend = { path = "../../../../../bridges/chains/chain-bridge-hub-westend", default-features = false }
 bp-header-chain = { path = "../../../../../bridges/primitives/header-chain", default-features = false }
 bp-messages = { path = "../../../../../bridges/primitives/messages", default-features = false }
 bp-parachains = { path = "../../../../../bridges/primitives/parachains", default-features = false }
 bp-polkadot-core = { path = "../../../../../bridges/primitives/polkadot-core", default-features = false }
 bp-relayers = { path = "../../../../../bridges/primitives/relayers", default-features = false }
 bp-runtime = { path = "../../../../../bridges/primitives/runtime", default-features = false }
-bp-rococo = { path = "../../../../../bridges/primitives/chain-rococo", default-features = false }
-bp-westend = { path = "../../../../../bridges/primitives/chain-westend", default-features = false }
+bp-rococo = { path = "../../../../../bridges/chains/chain-rococo", default-features = false }
+bp-westend = { path = "../../../../../bridges/chains/chain-westend", default-features = false }
 pallet-bridge-grandpa = { path = "../../../../../bridges/modules/grandpa", default-features = false }
 pallet-bridge-messages = { path = "../../../../../bridges/modules/messages", default-features = false }
 pallet-bridge-parachains = { path = "../../../../../bridges/modules/parachains", default-features = false }
 pallet-bridge-relayers = { path = "../../../../../bridges/modules/relayers", default-features = false }
 pallet-xcm-bridge-hub = { path = "../../../../../bridges/modules/xcm-bridge-hub", default-features = false }
 bridge-runtime-common = { path = "../../../../../bridges/bin/runtime-common", default-features = false }
-bridge-hub-common = { path = "../../bridge-hubs/common", default-features = false }
+bridge-hub-common = { path = "../common", default-features = false }
 
 [dev-dependencies]
 static_assertions = "1.1"
@@ -125,7 +128,9 @@ std = [
 	"cumulus-pallet-session-benchmarking/std",
 	"cumulus-pallet-xcm/std",
 	"cumulus-pallet-xcmp-queue/std",
+	"cumulus-primitives-aura/std",
 	"cumulus-primitives-core/std",
+	"cumulus-primitives-storage-weight-reclaim/std",
 	"cumulus-primitives-utility/std",
 	"frame-benchmarking/std",
 	"frame-executive/std",
@@ -243,8 +248,6 @@ try-runtime = [
 	"polkadot-runtime-common/try-runtime",
 	"sp-runtime/try-runtime",
 ]
-
-experimental = ["pallet-aura/experimental"]
 
 # A feature that should be enabled when the runtime should be built for on-chain
 # deployment. This will disable stuff that shouldn't be part of the on-chain wasm

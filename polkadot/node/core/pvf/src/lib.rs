@@ -97,6 +97,7 @@ mod host;
 mod metrics;
 mod prepare;
 mod priority;
+#[cfg(target_os = "linux")]
 mod security;
 mod worker_interface;
 
@@ -135,3 +136,22 @@ pub fn get_worker_version(worker_path: &Path) -> std::io::Result<String> {
 		.trim()
 		.to_string())
 }
+
+// Trying to run securely and some mandatory errors occurred.
+pub(crate) const SECURE_MODE_ERROR: &'static str =
+	"🚨 Your system cannot securely run a validator. \
+\nRunning validation of malicious PVF code has a higher risk of compromising this machine.";
+// Some errors occurred when running insecurely, or some optional errors occurred when running
+// securely.
+pub(crate) const SECURE_MODE_WARNING: &'static str = "🚨 Some security issues have been detected. \
+\nRunning validation of malicious PVF code has a higher risk of compromising this machine.";
+// Message to be printed only when running securely and mandatory errors occurred.
+pub(crate) const IGNORE_SECURE_MODE_TIP: &'static str =
+"\nYou can ignore this error with the `--insecure-validator-i-know-what-i-do` \
+command line argument if you understand and accept the risks of running insecurely. \
+With this flag, security features are enabled on a best-effort basis, but not mandatory. \
+\nMore information: https://wiki.polkadot.network/docs/maintain-guides-secure-validator#secure-validator-mode";
+// Only Linux supports security features
+#[cfg(not(target_os = "linux"))]
+pub(crate) const SECURE_LINUX_NOTE: &'static str = "\nSecure mode is enabled only for Linux \
+\nand a full secure mode is enabled only for Linux x86-64.";

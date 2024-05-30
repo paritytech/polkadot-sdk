@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Means for splitting an imbalance into two and hanlding them differently.
+//! Means for splitting an imbalance into two and handling them differently.
 
 use super::super::imbalance::{Imbalance, OnUnbalanced};
 use sp_runtime::traits::Saturating;

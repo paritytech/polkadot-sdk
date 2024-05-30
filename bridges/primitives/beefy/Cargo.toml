@@ -1,0 +1,47 @@
+[package]
+name = "bp-beefy"
+description = "Primitives of pallet-bridge-beefy module."
+version = "0.1.0"
+authors.workspace = true
+edition.workspace = true
+license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
+repository.workspace = true
+publish = false
+
+[lints]
+workspace = true
+
+[dependencies]
+codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = ["bit-vec", "derive"] }
+scale-info = { version = "2.11.1", default-features = false, features = ["bit-vec", "derive"] }
+serde = { default-features = false, features = ["alloc", "derive"], workspace = true }
+
+# Bridge Dependencies
+
+bp-runtime = { path = "../runtime", default-features = false }
+
+# Substrate Dependencies
+
+binary-merkle-tree = { path = "../../../substrate/utils/binary-merkle-tree", default-features = false }
+sp-consensus-beefy = { path = "../../../substrate/primitives/consensus/beefy", default-features = false }
+frame-support = { path = "../../../substrate/frame/support", default-features = false }
+pallet-beefy-mmr = { path = "../../../substrate/frame/beefy-mmr", default-features = false }
+pallet-mmr = { path = "../../../substrate/frame/merkle-mountain-range", default-features = false }
+sp-runtime = { path = "../../../substrate/primitives/runtime", default-features = false }
+sp-std = { path = "../../../substrate/primitives/std", default-features = false }
+
+[features]
+default = ["std"]
+std = [
+	"binary-merkle-tree/std",
+	"bp-runtime/std",
+	"codec/std",
+	"frame-support/std",
+	"pallet-beefy-mmr/std",
+	"pallet-mmr/std",
+	"scale-info/std",
+	"serde/std",
+	"sp-consensus-beefy/std",
+	"sp-runtime/std",
+	"sp-std/std",
+]

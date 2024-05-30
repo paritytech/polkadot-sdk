@@ -1,12 +1,12 @@
 [package]
-name = "frame"
-version = "0.0.1-dev"
+name = "polkadot-sdk-frame"
+version = "0.1.0"
 authors = ["Parity Technologies <admin@parity.io>"]
 edition = "2021"
 license = "Apache-2.0"
 homepage = "paritytech.github.io"
 repository.workspace = true
-description = "The single package to get you started with building frame pallets and runtimes"
+description = "Experimental: The single package to get you started with building frame pallets and runtimes"
 publish = false
 
 [lints]
@@ -19,8 +19,12 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 # external deps
-parity-scale-codec = { version = "3.2.2", default-features = false, features = ["derive"] }
-scale-info = { version = "2.6.0", default-features = false, features = ["derive"] }
+parity-scale-codec = { version = "3.2.2", default-features = false, features = [
+	"derive",
+] }
+scale-info = { version = "2.11.1", default-features = false, features = [
+	"derive",
+] }
 
 # primitive deps, used for developing FRAME pallets.
 sp-runtime = { default-features = false, path = "../primitives/runtime" }
@@ -47,9 +51,8 @@ sp-inherents = { default-features = false, path = "../primitives/inherents", opt
 frame-executive = { default-features = false, path = "../frame/executive", optional = true }
 frame-system-rpc-runtime-api = { default-features = false, path = "../frame/system/rpc/runtime-api", optional = true }
 
-docify = "0.2.7"
-simple-mermaid = { git = "https://github.com/kianenigma/simple-mermaid.git", rev = "e48b187bcfd5cc75111acd9d241f1bd36604344b", optional = true }
-log = { version = "0.4.20", default-features = false }
+docify = "0.2.8"
+log = { workspace = true }
 
 [dev-dependencies]
 pallet-examples = { path = "./examples" }
@@ -58,8 +61,6 @@ pallet-examples = { path = "./examples" }
 default = ["runtime", "std"]
 experimental = ["frame-support/experimental"]
 runtime = [
-	"frame-executive",
-	"frame-system-rpc-runtime-api",
 	"sp-api",
 	"sp-block-builder",
 	"sp-consensus-aura",
@@ -69,6 +70,9 @@ runtime = [
 	"sp-session",
 	"sp-transaction-pool",
 	"sp-version",
+
+	"frame-executive",
+	"frame-system-rpc-runtime-api",
 ]
 std = [
 	"frame-executive?/std",
@@ -78,7 +82,6 @@ std = [
 	"log/std",
 	"parity-scale-codec/std",
 	"scale-info/std",
-	"simple-mermaid",
 	"sp-api?/std",
 	"sp-arithmetic/std",
 	"sp-block-builder?/std",

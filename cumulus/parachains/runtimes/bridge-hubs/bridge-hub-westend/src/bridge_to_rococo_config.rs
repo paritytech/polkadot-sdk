@@ -25,6 +25,10 @@ use bp_messages::LaneId;
 use bp_parachains::SingleParaStoredHeaderDataBuilder;
 use bp_runtime::Chain;
 use bridge_runtime_common::{
+	extensions::refund_relayer_extension::{
+		ActualFeeRefund, RefundBridgedParachainMessages, RefundSignedExtensionAdapter,
+		RefundableMessagesLane, RefundableParachain,
+	},
 	messages,
 	messages::{
 		source::{FromBridgedChainMessagesDeliveryProof, TargetHeaderChainAdapter},
@@ -34,10 +38,6 @@ use bridge_runtime_common::{
 	messages_xcm_extension::{
 		SenderAndLane, XcmAsPlainPayload, XcmBlobHauler, XcmBlobHaulerAdapter,
 		XcmBlobMessageDispatch, XcmVersionOfDestAndRemoteBridge,
-	},
-	refund_relayer_extension::{
-		ActualFeeRefund, RefundBridgedParachainMessages, RefundSignedExtensionAdapter,
-		RefundableMessagesLane, RefundableParachain,
 	},
 };
 use codec::Encode;
@@ -334,7 +334,7 @@ mod tests {
 		>(AssertCompleteBridgeConstants {
 			this_chain_constants: AssertChainConstants {
 				block_length: bp_bridge_hub_westend::BlockLength::get(),
-				block_weights: bp_bridge_hub_westend::BlockWeights::get(),
+				block_weights: bp_bridge_hub_westend::BlockWeightsForAsyncBacking::get(),
 			},
 			messages_pallet_constants: AssertBridgeMessagesPalletConstants {
 				max_unrewarded_relayers_in_bridged_confirmation_tx:
@@ -352,7 +352,7 @@ mod tests {
 			},
 		});
 
-		bridge_runtime_common::priority_calculator::ensure_priority_boost_is_sane::<
+		bridge_runtime_common::extensions::priority_calculator::ensure_priority_boost_is_sane::<
 			Runtime,
 			WithBridgeHubRococoMessagesInstance,
 			PriorityBoostPerMessage,

@@ -1,0 +1,16 @@
+title: Try State Hook for Ranked Collective.
+
+doc:
+  - audience: Runtime User
+    description: |
+      Invariants for storage items in the ranked collective pallet. Enforces the following Invariants:
+      1. Total number of `Members` in storage should be >= [`MemberIndex`] of a [`Rank`] in `MemberCount`.
+      2. `Rank` in Members should be in `MemberCount`.
+      3.`Sum` of `MemberCount` index should be the same as the sum of all the index attained for
+      rank possessed by `Members`
+      4. `Member` in storage of `IdToIndex` should be the same as `Member` in `IndexToId`.
+      5. `Rank` in `IdToIndex` should be the same as the the `Rank` in  `IndexToId`.
+      6. `Rank` of the member `who` in `IdToIndex` should be the same as the `Rank` of
+      the member `who` in `Members`
+crates:
+- name: pallet-ranked-collective

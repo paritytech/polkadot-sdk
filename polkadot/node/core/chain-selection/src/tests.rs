@@ -406,7 +406,7 @@ async fn import_chains_into_empty(
 // some pre-blocks may need to be supplied to answer ancestry requests
 // that gather batches beyond the beginning of the new chain.
 // pre-blocks are those already known by the subsystem, however,
-// the subsystem has no way of knowin that until requesting ancestry.
+// the subsystem has no way of knowing that until requesting ancestry.
 async fn import_all_blocks_into(
 	virtual_overseer: &mut VirtualOverseer,
 	backend: &TestBackend,
@@ -966,19 +966,54 @@ fn ancestor_of_unviable_is_not_leaf_if_has_children() {
 }
 
 #[test]
-fn self_and_future_reversions_are_ignored() {
+fn self_reversions_are_not_ignored() {
 	test_harness(|backend, _, mut virtual_overseer| async move {
 		let finalized_number = 0;
 		let finalized_hash = Hash::repeat_byte(0);
 
 		// F <- A1 <- A2 <- A3.
 		//
-		// A3 reverts itself and future blocks. ignored.
+		// A3 reverts itself
+
+		let (_, chain_a) =
+			construct_chain_on_base(vec![1, 2, 3], finalized_number, finalized_hash, |h| {
+				if h.number == 3 {
+					add_reversions(h, vec![3])
+				}
+			});
+
+		let a2_hash = chain_a.iter().rev().nth(1).unwrap().0.hash();
+
+		import_blocks_into(
+			&mut virtual_overseer,
+			&backend,
+			Some((finalized_number, finalized_hash)),
+			chain_a.clone(),
+		)
+		.await;
+
+		assert_backend_contains(&backend, chain_a.iter().map(|(h, _)| h));
+		assert_leaves(&backend, vec![a2_hash]);
+		assert_leaves_query(&mut virtual_overseer, vec![a2_hash]).await;
+
+		virtual_overseer
+	});
+}
+
+#[test]
+fn future_reversions_are_ignored() {
+	test_harness(|backend, _, mut virtual_overseer| async move {
+		let finalized_number = 0;
+		let finalized_hash = Hash::repeat_byte(0);
+
+		// F <- A1 <- A2 <- A3.
+		//
+		// A3 reverts future blocks. ignored.
 
 		let (a3_hash, chain_a) =
 			construct_chain_on_base(vec![1, 2, 3], finalized_number, finalized_hash, |h| {
 				if h.number == 3 {
-					add_reversions(h, vec![3, 4, 100])
+					add_reversions(h, vec![4, 100])
 				}
 			});
 
@@ -1006,7 +1041,7 @@ fn revert_finalized_is_ignored() {
 
 		// F <- A1 <- A2 <- A3.
 		//
-		// A3 reverts itself and future blocks. ignored.
+		// A3 reverts finalized F and its ancestors. ignored.
 
 		let (a3_hash, chain_a) =
 			construct_chain_on_base(vec![1, 2, 3], finalized_number, finalized_hash, |h| {
@@ -1300,7 +1335,7 @@ fn finalize_erases_unviable_from_one_but_not_all_reverts() {
 		// F <- A1 <- A2 <- A3
 		//
 		// A3 reverts A2 and A1.
-		// Finalize A1. A2 is stil unviable.
+		// Finalize A1. A2 is still unviable.
 
 		let (a3_hash, chain_a) =
 			construct_chain_on_base(vec![1, 2, 3], finalized_number, finalized_hash, |h| {

@@ -13,7 +13,7 @@
 # - Multiple owners are supported.
 # - Either handle (e.g, @github_user or @github/team) or email can be used. Keep in mind,
 #   that handles might work better because they are more recognizable on GitHub,
-#   eyou can use them for mentioning unlike an email.
+#   you can use them for mentioning unlike an email.
 # - The latest matching rule, if multiple, takes precedence.
 
 # CI

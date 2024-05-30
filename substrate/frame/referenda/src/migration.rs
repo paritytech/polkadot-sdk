@@ -109,16 +109,16 @@ pub mod v1 {
 		}
 
 		fn on_runtime_upgrade() -> Weight {
-			let current_version = Pallet::<T, I>::current_storage_version();
-			let onchain_version = Pallet::<T, I>::on_chain_storage_version();
+			let in_code_version = Pallet::<T, I>::in_code_storage_version();
+			let on_chain_version = Pallet::<T, I>::on_chain_storage_version();
 			let mut weight = T::DbWeight::get().reads(1);
 			log::info!(
 				target: TARGET,
-				"running migration with current storage version {:?} / onchain {:?}.",
-				current_version,
-				onchain_version
+				"running migration with in-code storage version {:?} / onchain {:?}.",
+				in_code_version,
+				on_chain_version
 			);
-			if onchain_version != 0 {
+			if on_chain_version != 0 {
 				log::warn!(target: TARGET, "skipping migration from v0 to v1.");
 				return weight
 			}
@@ -149,8 +149,8 @@ pub mod v1 {
 
 		#[cfg(feature = "try-runtime")]
 		fn post_upgrade(state: Vec<u8>) -> Result<(), TryRuntimeError> {
-			let onchain_version = Pallet::<T, I>::on_chain_storage_version();
-			ensure!(onchain_version == 1, "must upgrade from version 0 to 1.");
+			let on_chain_version = Pallet::<T, I>::on_chain_storage_version();
+			ensure!(on_chain_version == 1, "must upgrade from version 0 to 1.");
 			let pre_referendum_count: u32 = Decode::decode(&mut &state[..])
 				.expect("failed to decode the state from pre-upgrade.");
 			let post_referendum_count = ReferendumInfoFor::<T, I>::iter().count() as u32;

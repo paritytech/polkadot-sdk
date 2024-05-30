@@ -18,7 +18,7 @@
 //! Provides functions to interact with the dispatch context.
 //!
 //! A Dispatch context is created by calling [`run_in_context`] and then the given closure will be
-//! executed in this dispatch context. Everyting run in this `closure` will have access to the same
+//! executed in this dispatch context. Everything run in this `closure` will have access to the same
 //! dispatch context. This also applies to nested calls of [`run_in_context`]. The dispatch context
 //! can be used to store and retrieve information locally in this context. The dispatch context can
 //! be accessed by using [`with_context`]. This function will execute the given closure and give it
@@ -51,7 +51,7 @@
 //!
 //! run_in_context(|| {
 //!     with_context::<CustomContext, _>(|v| {
-//!         // Intitialize the value to the default value.
+//!         // Initialize the value to the default value.
 //!         assert_eq!(0, v.or_default().0);
 //!         v.or_default().0 = 10;
 //!     });

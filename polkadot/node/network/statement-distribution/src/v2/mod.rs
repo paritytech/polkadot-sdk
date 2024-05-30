@@ -46,6 +46,7 @@ use polkadot_node_subsystem_util::{
 	backing_implicit_view::View as ImplicitView,
 	reputation::ReputationAggregator,
 	runtime::{request_min_backing_votes, ProspectiveParachainsMode},
+	vstaging::{fetch_claim_queue, ClaimQueueSnapshot},
 };
 use polkadot_primitives::{
 	AuthorityDiscoveryId, CandidateHash, CompactStatement, CoreIndex, CoreState, GroupIndex,
@@ -93,14 +94,26 @@ mod statement_store;
 #[cfg(test)]
 mod tests;
 
-const COST_UNEXPECTED_STATEMENT: Rep = Rep::CostMinor("Unexpected Statement");
+const COST_UNEXPECTED_STATEMENT_NOT_VALIDATOR: Rep =
+	Rep::CostMinor("Unexpected Statement, not a validator");
+const COST_UNEXPECTED_STATEMENT_VALIDATOR_NOT_FOUND: Rep =
+	Rep::CostMinor("Unexpected Statement, validator not found");
+const COST_UNEXPECTED_STATEMENT_INVALID_SENDER: Rep =
+	Rep::CostMinor("Unexpected Statement, invalid sender");
+const COST_UNEXPECTED_STATEMENT_BAD_ADVERTISE: Rep =
+	Rep::CostMinor("Unexpected Statement, bad advertise");
+const COST_UNEXPECTED_STATEMENT_CLUSTER_REJECTED: Rep =
+	Rep::CostMinor("Unexpected Statement, cluster rejected");
+const COST_UNEXPECTED_STATEMENT_NOT_IN_GROUP: Rep =
+	Rep::CostMinor("Unexpected Statement, not in group");
+
 const COST_UNEXPECTED_STATEMENT_MISSING_KNOWLEDGE: Rep =
 	Rep::CostMinor("Unexpected Statement, missing knowledge for relay parent");
 const COST_EXCESSIVE_SECONDED: Rep = Rep::CostMinor("Sent Excessive `Seconded` Statements");
 const COST_DISABLED_VALIDATOR: Rep = Rep::CostMinor("Sent a statement from a disabled validator");
 
 const COST_UNEXPECTED_MANIFEST_MISSING_KNOWLEDGE: Rep =
-	Rep::CostMinor("Unexpected Manifest, missing knowlege for relay parent");
+	Rep::CostMinor("Unexpected Manifest, missing knowledge for relay parent");
 const COST_UNEXPECTED_MANIFEST_DISALLOWED: Rep =
 	Rep::CostMinor("Unexpected Manifest, Peer Disallowed");
 const COST_UNEXPECTED_MANIFEST_PEER_UNKNOWN: Rep =
@@ -137,10 +150,9 @@ pub(crate) const REQUEST_RETRY_DELAY: Duration = Duration::from_secs(1);
 struct PerRelayParentState {
 	local_validator: Option<LocalValidatorState>,
 	statement_store: StatementStore,
-	availability_cores: Vec<CoreState>,
-	group_rotation_info: GroupRotationInfo,
 	seconding_limit: usize,
 	session: SessionIndex,
+	groups_per_para: HashMap<ParaId, Vec<GroupIndex>>,
 }
 
 impl PerRelayParentState {
@@ -239,6 +251,13 @@ impl PerSessionState {
 		if local_index.is_some() {
 			self.local_validator.get_or_insert(LocalValidatorIndex::Inactive);
 		}
+
+		gum::info!(
+			target: LOG_TARGET,
+			index_in_gossip_topology = ?local_index,
+			index_in_parachain_authorities = ?self.local_validator,
+			"Node uses the following topology indices"
+		);
 	}
 
 	/// Returns `true` if local is neither active or inactive validator node.
@@ -544,10 +563,12 @@ pub(crate) async fn handle_active_leaves_update<Context>(
 	activated: &ActivatedLeaf,
 	leaf_mode: ProspectiveParachainsMode,
 ) -> JfyiErrorResult<()> {
-	let seconding_limit = match leaf_mode {
+	let max_candidate_depth = match leaf_mode {
 		ProspectiveParachainsMode::Disabled => return Ok(()),
-		ProspectiveParachainsMode::Enabled { max_candidate_depth, .. } => max_candidate_depth + 1,
+		ProspectiveParachainsMode::Enabled { max_candidate_depth, .. } => max_candidate_depth,
 	};
+
+	let seconding_limit = max_candidate_depth + 1;
 
 	state
 		.implicit_view
@@ -609,8 +630,8 @@ pub(crate) async fn handle_active_leaves_update<Context>(
 				request_min_backing_votes(new_relay_parent, session_index, ctx.sender()).await?;
 			let mut per_session_state =
 				PerSessionState::new(session_info, &state.keystore, minimum_backing_votes);
-			if let Some(toplogy) = state.unused_topologies.remove(&session_index) {
-				per_session_state.supply_topology(&toplogy.topology, toplogy.local_index);
+			if let Some(topology) = state.unused_topologies.remove(&session_index) {
+				per_session_state.supply_topology(&topology.topology, topology.local_index);
 			}
 			state.per_session.insert(session_index, per_session_state);
 		}
@@ -660,6 +681,13 @@ pub(crate) async fn handle_active_leaves_update<Context>(
 				.map_err(JfyiError::FetchValidatorGroups)?
 				.1;
 
+		let maybe_claim_queue = fetch_claim_queue(ctx.sender(), new_relay_parent)
+		.await
+		.unwrap_or_else(|err| {
+				gum::debug!(target: LOG_TARGET, ?new_relay_parent, ?err, "handle_active_leaves_update: `claim_queue` API not available");
+				None
+			});
+
 		let local_validator = per_session.local_validator.and_then(|v| {
 			if let LocalValidatorIndex::Active(idx) = v {
 				find_active_validator_state(
@@ -667,22 +695,31 @@ pub(crate) async fn handle_active_leaves_update<Context>(
 					&per_session.groups,
 					&availability_cores,
 					&group_rotation_info,
+					&maybe_claim_queue,
 					seconding_limit,
+					max_candidate_depth,
 				)
 			} else {
 				Some(LocalValidatorState { grid_tracker: GridTracker::default(), active: None })
 			}
 		});
 
+		let groups_per_para = determine_groups_per_para(
+			availability_cores,
+			group_rotation_info,
+			&maybe_claim_queue,
+			max_candidate_depth,
+		)
+		.await;
+
 		state.per_relay_parent.insert(
 			new_relay_parent,
 			PerRelayParentState {
 				local_validator,
 				statement_store: StatementStore::new(&per_session.groups),
-				availability_cores,
-				group_rotation_info,
 				seconding_limit,
 				session: session_index,
+				groups_per_para,
 			},
 		);
 	}
@@ -723,7 +760,9 @@ fn find_active_validator_state(
 	groups: &Groups,
 	availability_cores: &[CoreState],
 	group_rotation_info: &GroupRotationInfo,
+	maybe_claim_queue: &Option<ClaimQueueSnapshot>,
 	seconding_limit: usize,
+	max_candidate_depth: usize,
 ) -> Option<LocalValidatorState> {
 	if groups.all().is_empty() {
 		return None
@@ -731,18 +770,28 @@ fn find_active_validator_state(
 
 	let our_group = groups.by_validator_index(validator_index)?;
 
-	// note: this won't work well for on-demand parachains because it only works
-	// when core assignments to paras are static throughout the session.
-
-	let core = group_rotation_info.core_for_group(our_group, availability_cores.len());
-	let para = availability_cores.get(core.0 as usize).and_then(|c| c.para_id());
+	let core_index = group_rotation_info.core_for_group(our_group, availability_cores.len());
+	let para_assigned_to_core = if let Some(claim_queue) = maybe_claim_queue {
+		claim_queue.get_claim_for(core_index, 0)
+	} else {
+		availability_cores
+			.get(core_index.0 as usize)
+			.and_then(|core_state| match core_state {
+				CoreState::Scheduled(scheduled_core) => Some(scheduled_core.para_id),
+				CoreState::Occupied(occupied_core) if max_candidate_depth >= 1 => occupied_core
+					.next_up_on_available
+					.as_ref()
+					.map(|scheduled_core| scheduled_core.para_id),
+				CoreState::Free | CoreState::Occupied(_) => None,
+			})
+	};
 	let group_validators = groups.get(our_group)?.to_owned();
 
 	Some(LocalValidatorState {
 		active: Some(ActiveValidatorState {
 			index: validator_index,
 			group: our_group,
-			assignment: para,
+			assignment: para_assigned_to_core,
 			cluster_tracker: ClusterTracker::new(group_validators, seconding_limit)
 				.expect("group is non-empty because we are in it; qed"),
 		}),
@@ -756,7 +805,15 @@ pub(crate) fn handle_deactivate_leaves(state: &mut State, leaves: &[Hash]) {
 		let pruned = state.implicit_view.deactivate_leaf(*leaf);
 		for pruned_rp in pruned {
 			// clean up per-relay-parent data based on everything removed.
-			state.per_relay_parent.remove(&pruned_rp);
+			state
+				.per_relay_parent
+				.remove(&pruned_rp)
+				.as_ref()
+				.and_then(|pruned| pruned.active_validator_state())
+				.map(|active_state| {
+					active_state.cluster_tracker.warn_if_too_many_pending_statements(pruned_rp)
+				});
+
 			// clean up requests related to this relay parent.
 			state.request_manager.remove_by_relay_parent(*leaf);
 		}
@@ -1086,6 +1143,7 @@ async fn send_pending_grid_messages<Context>(
 						originator,
 						peer_validator_id,
 						&compact,
+						false,
 					);
 				}
 
@@ -1378,6 +1436,7 @@ async fn circulate_statement<Context>(
 					originator,
 					target,
 					&compact_statement,
+					false,
 				);
 			},
 		}
@@ -1515,7 +1574,13 @@ async fn handle_incoming_statement<Context>(
 			// we shouldn't be receiving statements unless we're a validator
 			// this session.
 			if per_session.is_not_validator() {
-				modify_reputation(reputation, ctx.sender(), peer, COST_UNEXPECTED_STATEMENT).await;
+				modify_reputation(
+					reputation,
+					ctx.sender(),
+					peer,
+					COST_UNEXPECTED_STATEMENT_NOT_VALIDATOR,
+				)
+				.await;
 			}
 			return
 		},
@@ -1526,7 +1591,13 @@ async fn handle_incoming_statement<Context>(
 		match per_session.groups.by_validator_index(statement.unchecked_validator_index()) {
 			Some(g) => g,
 			None => {
-				modify_reputation(reputation, ctx.sender(), peer, COST_UNEXPECTED_STATEMENT).await;
+				modify_reputation(
+					reputation,
+					ctx.sender(),
+					peer,
+					COST_UNEXPECTED_STATEMENT_VALIDATOR_NOT_FOUND,
+				)
+				.await;
 				return
 			},
 		};
@@ -1565,38 +1636,45 @@ async fn handle_incoming_statement<Context>(
 		(active, idx)
 	};
 
-	let checked_statement =
-		if let Some((active, cluster_sender_index)) = active.zip(cluster_sender_index) {
-			match handle_cluster_statement(
-				relay_parent,
-				&mut active.cluster_tracker,
-				per_relay_parent.session,
-				&per_session.session_info,
-				statement,
-				cluster_sender_index,
-			) {
-				Ok(Some(s)) => s,
-				Ok(None) => return,
-				Err(rep) => {
-					modify_reputation(reputation, ctx.sender(), peer, rep).await;
-					return
-				},
-			}
-		} else {
-			let grid_sender_index = local_validator
-				.grid_tracker
-				.direct_statement_providers(
-					&per_session.groups,
-					statement.unchecked_validator_index(),
-					statement.unchecked_payload(),
-				)
-				.into_iter()
-				.filter_map(|i| session_info.discovery_keys.get(i.0 as usize).map(|ad| (i, ad)))
-				.filter(|(_, ad)| peer_state.is_authority(ad))
-				.map(|(i, _)| i)
-				.next();
+	let checked_statement = if let Some((active, cluster_sender_index)) =
+		active.zip(cluster_sender_index)
+	{
+		match handle_cluster_statement(
+			relay_parent,
+			&mut active.cluster_tracker,
+			per_relay_parent.session,
+			&per_session.session_info,
+			statement,
+			cluster_sender_index,
+		) {
+			Ok(Some(s)) => s,
+			Ok(None) => return,
+			Err(rep) => {
+				modify_reputation(reputation, ctx.sender(), peer, rep).await;
+				return
+			},
+		}
+	} else {
+		let grid_sender_index = local_validator
+			.grid_tracker
+			.direct_statement_providers(
+				&per_session.groups,
+				statement.unchecked_validator_index(),
+				statement.unchecked_payload(),
+			)
+			.into_iter()
+			.filter_map(|(i, validator_knows_statement)| {
+				session_info
+					.discovery_keys
+					.get(i.0 as usize)
+					.map(|ad| (i, ad, validator_knows_statement))
+			})
+			.filter(|(_, ad, _)| peer_state.is_authority(ad))
+			.map(|(i, _, validator_knows_statement)| (i, validator_knows_statement))
+			.next();
 
-			if let Some(grid_sender_index) = grid_sender_index {
+		if let Some((grid_sender_index, validator_knows_statement)) = grid_sender_index {
+			if !validator_knows_statement {
 				match handle_grid_statement(
 					relay_parent,
 					&mut local_validator.grid_tracker,
@@ -1612,11 +1690,22 @@ async fn handle_incoming_statement<Context>(
 					},
 				}
 			} else {
-				// Not a cluster or grid peer.
-				modify_reputation(reputation, ctx.sender(), peer, COST_UNEXPECTED_STATEMENT).await;
-				return
+				// Reward the peer for sending us the statement
+				modify_reputation(reputation, ctx.sender(), peer, BENEFIT_VALID_STATEMENT).await;
+				return;
 			}
-		};
+		} else {
+			// Not a cluster or grid peer.
+			modify_reputation(
+				reputation,
+				ctx.sender(),
+				peer,
+				COST_UNEXPECTED_STATEMENT_INVALID_SENDER,
+			)
+			.await;
+			return
+		}
+	};
 
 	let statement = checked_statement.payload().clone();
 	let originator_index = checked_statement.validator_index();
@@ -1635,7 +1724,13 @@ async fn handle_incoming_statement<Context>(
 		);
 
 		if let Err(BadAdvertisement) = res {
-			modify_reputation(reputation, ctx.sender(), peer, COST_UNEXPECTED_STATEMENT).await;
+			modify_reputation(
+				reputation,
+				ctx.sender(),
+				peer,
+				COST_UNEXPECTED_STATEMENT_BAD_ADVERTISE,
+			)
+			.await;
 			return
 		}
 	}
@@ -1743,11 +1838,11 @@ fn handle_cluster_statement(
 			Ok(ClusterAccept::WithPrejudice) => false,
 			Err(ClusterRejectIncoming::ExcessiveSeconded) => return Err(COST_EXCESSIVE_SECONDED),
 			Err(ClusterRejectIncoming::CandidateUnknown | ClusterRejectIncoming::Duplicate) =>
-				return Err(COST_UNEXPECTED_STATEMENT),
+				return Err(COST_UNEXPECTED_STATEMENT_CLUSTER_REJECTED),
 			Err(ClusterRejectIncoming::NotInGroup) => {
 				// sanity: shouldn't be possible; we already filtered this
 				// out above.
-				return Err(COST_UNEXPECTED_STATEMENT)
+				return Err(COST_UNEXPECTED_STATEMENT_NOT_IN_GROUP)
 			},
 		}
 	};
@@ -1798,6 +1893,7 @@ fn handle_grid_statement(
 		checked_statement.validator_index(),
 		grid_sender_index,
 		&checked_statement.payload(),
+		true,
 	);
 
 	Ok(checked_statement)
@@ -2060,17 +2156,51 @@ async fn provide_candidate_to_grid<Context>(
 	}
 }
 
-fn group_for_para(
-	availability_cores: &[CoreState],
-	group_rotation_info: &GroupRotationInfo,
-	para_id: ParaId,
-) -> Option<GroupIndex> {
-	// Note: this won't work well for on-demand parachains as it assumes that core assignments are
-	// fixed across blocks.
-	let core_index = availability_cores.iter().position(|c| c.para_id() == Some(para_id));
+// Utility function to populate per relay parent `ParaId` to `GroupIndex` mappings.
+async fn determine_groups_per_para(
+	availability_cores: Vec<CoreState>,
+	group_rotation_info: GroupRotationInfo,
+	maybe_claim_queue: &Option<ClaimQueueSnapshot>,
+	max_candidate_depth: usize,
+) -> HashMap<ParaId, Vec<GroupIndex>> {
+	let n_cores = availability_cores.len();
 
-	core_index
-		.map(|c| group_rotation_info.group_for_core(CoreIndex(c as _), availability_cores.len()))
+	// Determine the core indices occupied by each para at the current relay parent. To support
+	// on-demand parachains we also consider the core indices at next block if core has a candidate
+	// pending availability.
+	let para_core_indices: Vec<_> = if let Some(claim_queue) = maybe_claim_queue {
+		claim_queue
+			.iter_claims_at_depth(0)
+			.map(|(core_index, para)| (para, core_index))
+			.collect()
+	} else {
+		availability_cores
+			.into_iter()
+			.enumerate()
+			.filter_map(|(index, core)| match core {
+				CoreState::Scheduled(scheduled_core) =>
+					Some((scheduled_core.para_id, CoreIndex(index as u32))),
+				CoreState::Occupied(occupied_core) =>
+					if max_candidate_depth >= 1 {
+						occupied_core
+							.next_up_on_available
+							.map(|scheduled_core| (scheduled_core.para_id, CoreIndex(index as u32)))
+					} else {
+						None
+					},
+				CoreState::Free => None,
+			})
+			.collect()
+	};
+
+	let mut groups_per_para = HashMap::new();
+	// Map from `CoreIndex` to `GroupIndex` and collect as `HashMap`.
+	for (para, core_index) in para_core_indices {
+		let group_index = group_rotation_info.group_for_core(core_index, n_cores);
+		groups_per_para.entry(para).or_insert_with(Vec::new).push(group_index)
+	}
+
+	groups_per_para
 }
 
 #[overseer::contextbounds(StatementDistribution, prefix=self::overseer)]
@@ -2126,18 +2256,23 @@ async fn fragment_tree_update_inner<Context>(
 			let confirmed_candidate = state.candidates.get_confirmed(&candidate_hash);
 			let prs = state.per_relay_parent.get_mut(&receipt.descriptor().relay_parent);
 			if let (Some(confirmed), Some(prs)) = (confirmed_candidate, prs) {
-				let group_index = group_for_para(
-					&prs.availability_cores,
-					&prs.group_rotation_info,
-					receipt.descriptor().para_id,
-				);
-
 				let per_session = state.per_session.get(&prs.session);
-				if let (Some(per_session), Some(group_index)) = (per_session, group_index) {
+				let group_index = confirmed.group_index();
+
+				// Sanity check if group_index is valid for this para at relay parent.
+				let Some(expected_groups) = prs.groups_per_para.get(&receipt.descriptor().para_id)
+				else {
+					continue
+				};
+				if !expected_groups.iter().any(|g| *g == group_index) {
+					continue
+				}
+
+				if let Some(per_session) = per_session {
 					send_backing_fresh_statements(
 						ctx,
 						candidate_hash,
-						group_index,
+						confirmed.group_index(),
 						&receipt.descriptor().relay_parent,
 						prs,
 						confirmed,
@@ -2245,13 +2380,12 @@ async fn handle_incoming_manifest_common<'a, Context>(
 		Some(x) => x,
 	};
 
-	let expected_group = group_for_para(
-		&relay_parent_state.availability_cores,
-		&relay_parent_state.group_rotation_info,
-		para_id,
-	);
+	let Some(expected_groups) = relay_parent_state.groups_per_para.get(&para_id) else {
+		modify_reputation(reputation, ctx.sender(), peer, COST_MALFORMED_MANIFEST).await;
+		return None
+	};
 
-	if expected_group != Some(manifest_summary.claimed_group_index) {
+	if !expected_groups.iter().any(|g| g == &manifest_summary.claimed_group_index) {
 		modify_reputation(reputation, ctx.sender(), peer, COST_MALFORMED_MANIFEST).await;
 		return None
 	}
@@ -2376,6 +2510,7 @@ fn post_acknowledgement_statement_messages(
 			statement.validator_index(),
 			recipient,
 			statement.payload(),
+			false,
 		);
 		match peer.1.into() {
 			ValidationVersion::V2 => messages.push(Versioned::V2(
@@ -2970,13 +3105,11 @@ pub(crate) async fn handle_response<Context>(
 			relay_parent_state.session,
 			|v| per_session.session_info.validators.get(v).map(|x| x.clone()),
 			|para, g_index| {
-				let expected_group = group_for_para(
-					&relay_parent_state.availability_cores,
-					&relay_parent_state.group_rotation_info,
-					para,
-				);
+				let Some(expected_groups) = relay_parent_state.groups_per_para.get(&para) else {
+					return false
+				};
 
-				Some(g_index) == expected_group
+				expected_groups.iter().any(|g| g == &g_index)
 			},
 			disabled_mask,
 		);
@@ -3255,6 +3388,7 @@ pub(crate) fn answer_request(state: &mut State, message: ResponderMessage) {
 				statement.unchecked_validator_index(),
 				validator_id,
 				statement.unchecked_payload(),
+				false,
 			);
 		}
 	}

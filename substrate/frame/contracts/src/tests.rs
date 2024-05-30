@@ -33,18 +33,19 @@ use crate::{
 	primitives::CodeUploadReturnValue,
 	storage::DeletionQueueManager,
 	tests::test_utils::{get_contract, get_contract_checked},
-	wasm::{Determinism, ReturnErrorCode as RuntimeReturnCode},
+	wasm::{Determinism, LoadingMode, ReturnErrorCode as RuntimeReturnCode},
 	weights::WeightInfo,
-	BalanceOf, Code, CodeHash, CodeInfoOf, CollectEvents, Config, ContractInfo, ContractInfoOf,
-	DebugInfo, DefaultAddressGenerator, DeletionQueueCounter, Error, HoldReason,
+	Array, BalanceOf, Code, CodeHash, CodeInfoOf, CollectEvents, Config, ContractInfo,
+	ContractInfoOf, DebugInfo, DefaultAddressGenerator, DeletionQueueCounter, Error, HoldReason,
 	MigrationInProgress, Origin, Pallet, PristineCode, Schedule,
 };
 use assert_matches::assert_matches;
-use codec::Encode;
+use codec::{Decode, Encode};
 use frame_support::{
 	assert_err, assert_err_ignore_postinfo, assert_err_with_weight, assert_noop, assert_ok,
 	derive_impl,
 	dispatch::{DispatchErrorWithPostInfo, PostDispatchInfo},
+	pallet_prelude::EnsureOrigin,
 	parameter_types,
 	storage::child,
 	traits::{
@@ -52,7 +53,7 @@ use frame_support::{
 		tokens::Preservation,
 		ConstU32, ConstU64, Contains, OnIdle, OnInitialize, StorageVersion,
 	},
-	weights::{constants::WEIGHT_REF_TIME_PER_SECOND, Weight},
+	weights::{constants::WEIGHT_REF_TIME_PER_SECOND, Weight, WeightMeter},
 };
 use frame_system::{EventRecord, Phase};
 use pallet_contracts_fixtures::compile_module;
@@ -96,7 +97,6 @@ macro_rules! assert_refcount {
 }
 
 pub mod test_utils {
-
 	use super::{Contracts, DepositPerByte, DepositPerItem, Hash, SysConfig, Test};
 	use crate::{
 		exec::AccountIdOf, BalanceOf, CodeHash, CodeInfo, CodeInfoOf, Config, ContractInfo,
@@ -164,6 +164,38 @@ pub mod test_utils {
 	}
 }
 
+mod builder {
+	use super::Test;
+	use crate::{
+		test_utils::{builder::*, AccountId32, ALICE},
+		tests::RuntimeOrigin,
+		AccountIdLookupOf, Code, CodeHash,
+	};
+
+	pub fn bare_instantiate(code: Code<CodeHash<Test>>) -> BareInstantiateBuilder<Test> {
+		BareInstantiateBuilder::<Test>::bare_instantiate(ALICE, code)
+	}
+
+	pub fn bare_call(dest: AccountId32) -> BareCallBuilder<Test> {
+		BareCallBuilder::<Test>::bare_call(ALICE, dest)
+	}
+
+	pub fn instantiate_with_code(code: Vec<u8>) -> InstantiateWithCodeBuilder<Test> {
+		InstantiateWithCodeBuilder::<Test>::instantiate_with_code(
+			RuntimeOrigin::signed(ALICE),
+			code,
+		)
+	}
+
+	pub fn instantiate(code_hash: CodeHash<Test>) -> InstantiateBuilder<Test> {
+		InstantiateBuilder::<Test>::instantiate(RuntimeOrigin::signed(ALICE), code_hash)
+	}
+
+	pub fn call(dest: AccountIdLookupOf<Test>) -> CallBuilder<Test> {
+		CallBuilder::<Test>::call(RuntimeOrigin::signed(ALICE), dest)
+	}
+}
+
 impl Test {
 	pub fn set_unstable_interface(unstable_interface: bool) {
 		UNSTABLE_INTERFACE.with(|v| *v.borrow_mut() = unstable_interface);
@@ -217,8 +249,6 @@ impl ChainExtension<Test> for TestExtension {
 	where
 		E: Ext<T = Test>,
 	{
-		use codec::Decode;
-
 		let func_id = env.func_id();
 		let id = env.ext_id() as u32 | func_id as u32;
 		match func_id {
@@ -332,55 +362,26 @@ parameter_types! {
 	pub static ExistentialDeposit: u64 = 1;
 }
 
-#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
-	type BaseCallFilter = frame_support::traits::Everything;
-	type BlockWeights = BlockWeights;
-	type BlockLength = ();
-	type DbWeight = ();
-	type RuntimeOrigin = RuntimeOrigin;
-	type Nonce = u64;
-	type Hash = H256;
-	type RuntimeCall = RuntimeCall;
-	type Hashing = BlakeTwo256;
+	type Block = Block;
 	type AccountId = AccountId32;
 	type Lookup = IdentityLookup<Self::AccountId>;
-	type Block = Block;
-	type RuntimeEvent = RuntimeEvent;
-	type BlockHashCount = ConstU64<250>;
-	type Version = ();
-	type PalletInfo = PalletInfo;
 	type AccountData = pallet_balances::AccountData<u64>;
-	type OnNewAccount = ();
-	type OnKilledAccount = ();
-	type SystemWeightInfo = ();
-	type SS58Prefix = ();
-	type OnSetCode = ();
-	type MaxConsumers = frame_support::traits::ConstU32<16>;
-}
-impl pallet_insecure_randomness_collective_flip::Config for Test {}
-impl pallet_balances::Config for Test {
-	type MaxLocks = ();
-	type MaxReserves = ();
-	type ReserveIdentifier = [u8; 8];
-	type Balance = u64;
-	type RuntimeEvent = RuntimeEvent;
-	type DustRemoval = ();
-	type ExistentialDeposit = ExistentialDeposit;
-	type AccountStore = System;
-	type WeightInfo = ();
-	type FreezeIdentifier = ();
-	type MaxFreezes = ();
-	type RuntimeHoldReason = RuntimeHoldReason;
-	type RuntimeFreezeReason = RuntimeFreezeReason;
 }
 
-impl pallet_timestamp::Config for Test {
-	type Moment = u64;
-	type OnTimestampSet = ();
-	type MinimumPeriod = ConstU64<1>;
-	type WeightInfo = ();
+impl pallet_insecure_randomness_collective_flip::Config for Test {}
+
+#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
+impl pallet_balances::Config for Test {
+	type ExistentialDeposit = ExistentialDeposit;
+	type ReserveIdentifier = [u8; 8];
+	type AccountStore = System;
 }
+
+#[derive_impl(pallet_timestamp::config_preludes::TestDefaultConfig)]
+impl pallet_timestamp::Config for Test {}
+
 impl pallet_utility::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type RuntimeCall = RuntimeCall;
@@ -456,19 +457,43 @@ impl Contains<RuntimeCall> for TestFilter {
 }
 
 parameter_types! {
+	pub static UploadAccount: Option<<Test as frame_system::Config>::AccountId> = None;
+	pub static InstantiateAccount: Option<<Test as frame_system::Config>::AccountId> = None;
+}
+
+pub struct EnsureAccount<T, A>(sp_std::marker::PhantomData<(T, A)>);
+impl<T: Config, A: sp_core::Get<Option<crate::AccountIdOf<T>>>>
+	EnsureOrigin<<T as frame_system::Config>::RuntimeOrigin> for EnsureAccount<T, A>
+where
+	<T as frame_system::Config>::AccountId: From<AccountId32>,
+{
+	type Success = T::AccountId;
+
+	fn try_origin(o: T::RuntimeOrigin) -> Result<Self::Success, T::RuntimeOrigin> {
+		let who = <frame_system::EnsureSigned<_> as EnsureOrigin<_>>::try_origin(o.clone())?;
+		if matches!(A::get(), Some(a) if who != a) {
+			return Err(o)
+		}
+
+		Ok(who)
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn try_successful_origin() -> Result<T::RuntimeOrigin, ()> {
+		Err(())
+	}
+}
+parameter_types! {
 	pub static UnstableInterface: bool = true;
 }
 
+#[derive_impl(crate::config_preludes::TestDefaultConfig)]
 impl Config for Test {
 	type Time = Timestamp;
 	type Randomness = Randomness;
 	type Currency = Balances;
-	type RuntimeEvent = RuntimeEvent;
-	type RuntimeCall = RuntimeCall;
 	type CallFilter = TestFilter;
 	type CallStack = [Frame<Self>; 5];
-	type WeightPrice = Self;
-	type WeightInfo = ();
 	type ChainExtension =
 		(TestExtension, DisabledExtension, RevertingExtension, TempStorageExtension);
 	type Schedule = MySchedule;
@@ -476,17 +501,13 @@ impl Config for Test {
 	type DepositPerItem = DepositPerItem;
 	type DefaultDepositLimit = DefaultDepositLimit;
 	type AddressGenerator = DefaultAddressGenerator;
-	type MaxCodeLen = ConstU32<{ 123 * 1024 }>;
-	type MaxStorageKeyLen = ConstU32<128>;
 	type UnsafeUnstableInterface = UnstableInterface;
-	type MaxDebugBufferLen = ConstU32<{ 2 * 1024 * 1024 }>;
-	type RuntimeHoldReason = RuntimeHoldReason;
+	type UploadOrigin = EnsureAccount<Self, UploadAccount>;
+	type InstantiateOrigin = EnsureAccount<Self, InstantiateAccount>;
 	type Migrations = crate::migration::codegen::BenchMigrations;
 	type CodeHashLockupDepositPercent = CodeHashLockupDepositPercent;
 	type MaxDelegateDependencies = MaxDelegateDependencies;
 	type Debug = TestDebug;
-	type Environment = ();
-	type Xcm = ();
 }
 
 pub const ALICE: AccountId32 = AccountId32::new([1u8; 32]);
@@ -600,7 +621,7 @@ fn calling_plain_account_fails() {
 		let base_cost = <<Test as Config>::WeightInfo as WeightInfo>::call();
 
 		assert_eq!(
-			Contracts::call(RuntimeOrigin::signed(ALICE), BOB, 0, GAS_LIMIT, None, Vec::new()),
+			builder::call(BOB).build(),
 			Err(DispatchErrorWithPostInfo {
 				error: Error::<Test>::ContractNotFound.into(),
 				post_info: PostDispatchInfo {
@@ -658,32 +679,13 @@ fn migration_in_progress_works() {
 			Contracts::set_code(RuntimeOrigin::signed(ALICE), BOB.clone(), code_hash),
 			Error::<Test>::MigrationInProgress,
 		);
+		assert_err_ignore_postinfo!(builder::call(BOB).build(), Error::<Test>::MigrationInProgress);
 		assert_err_ignore_postinfo!(
-			Contracts::call(RuntimeOrigin::signed(ALICE), BOB, 0, GAS_LIMIT, None, vec![],),
+			builder::instantiate_with_code(wasm).value(100_000).build(),
 			Error::<Test>::MigrationInProgress,
 		);
 		assert_err_ignore_postinfo!(
-			Contracts::instantiate_with_code(
-				RuntimeOrigin::signed(ALICE),
-				100_000,
-				GAS_LIMIT,
-				None,
-				wasm,
-				vec![],
-				vec![],
-			),
-			Error::<Test>::MigrationInProgress,
-		);
-		assert_err_ignore_postinfo!(
-			Contracts::instantiate(
-				RuntimeOrigin::signed(ALICE),
-				100_000,
-				GAS_LIMIT,
-				None,
-				code_hash,
-				vec![],
-				vec![],
-			),
+			builder::instantiate(code_hash).value(100_000).build(),
 			Error::<Test>::MigrationInProgress,
 		);
 	});
@@ -711,20 +713,9 @@ fn instantiate_and_call_and_deposit_event() {
 		initialize_block(2);
 
 		// Check at the end to get hash on error easily
-		let addr = Contracts::bare_instantiate(
-			ALICE,
-			value,
-			GAS_LIMIT,
-			None,
-			Code::Existing(code_hash),
-			vec![],
-			vec![],
-			DebugInfo::Skip,
-			CollectEvents::Skip,
-		)
-		.result
-		.unwrap()
-		.account_id;
+		let addr = builder::bare_instantiate(Code::Existing(code_hash))
+			.value(value)
+			.build_and_unwrap_account_id();
 		assert!(ContractInfoOf::<Test>::contains_key(&addr));
 
 		assert_eq!(
@@ -802,63 +793,22 @@ fn deposit_event_max_value_limit() {
 	ExtBuilder::default().existential_deposit(50).build().execute_with(|| {
 		// Create
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
-		let addr = Contracts::bare_instantiate(
-			ALICE,
-			30_000,
-			GAS_LIMIT,
-			None,
-			Code::Upload(wasm),
-			vec![],
-			vec![],
-			DebugInfo::Skip,
-			CollectEvents::Skip,
-		)
-		.result
-		.unwrap()
-		.account_id;
+		let addr = builder::bare_instantiate(Code::Upload(wasm))
+			.value(30_000)
+			.build_and_unwrap_account_id();
 
 		// Call contract with allowed storage value.
-		assert_ok!(Contracts::call(
-			RuntimeOrigin::signed(ALICE),
-			addr.clone(),
-			0,
-			GAS_LIMIT.set_ref_time(GAS_LIMIT.ref_time() * 2), // we are copying a huge buffer,
-			None,
-			<Test as Config>::Schedule::get().limits.payload_len.encode(),
-		));
+		assert_ok!(builder::call(addr.clone())
+			.gas_limit(GAS_LIMIT.set_ref_time(GAS_LIMIT.ref_time() * 2)) // we are copying a huge buffer,
+			.data(<Test as Config>::Schedule::get().limits.payload_len.encode())
+			.build());
 
 		// Call contract with too large a storage value.
 		assert_err_ignore_postinfo!(
-			Contracts::call(
-				RuntimeOrigin::signed(ALICE),
-				addr,
-				0,
-				GAS_LIMIT,
-				None,
-				(<Test as Config>::Schedule::get().limits.payload_len + 1).encode(),
-			),
+			builder::call(addr)
+				.data((<Test as Config>::Schedule::get().limits.payload_len + 1).encode())
+				.build(),
 			Error::<Test>::ValueTooLarge,
-		);
-	});
-}
-
-// Fail out of fuel (ref_time weight) inside the start function.
-#[test]
-fn run_out_of_fuel_start_fun() {
-	let (wasm, _code_hash) = compile_module::<Test>("run_out_of_gas_start_fn").unwrap();
-	ExtBuilder::default().existential_deposit(50).build().execute_with(|| {
-		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
-		assert_err_ignore_postinfo!(
-			Contracts::instantiate_with_code(
-				RuntimeOrigin::signed(ALICE),
-				0,
-				Weight::from_parts(1_000_000_000_000, u64::MAX),
-				None,
-				wasm,
-				vec![],
-				vec![],
-			),
-			Error::<Test>::OutOfGas,
 		);
 	});
 }
@@ -871,32 +821,16 @@ fn run_out_of_fuel_engine() {
 		let min_balance = Contracts::min_balance();
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
 
-		let addr = Contracts::bare_instantiate(
-			ALICE,
-			100 * min_balance,
-			GAS_LIMIT,
-			None,
-			Code::Upload(wasm),
-			vec![],
-			vec![],
-			DebugInfo::Skip,
-			CollectEvents::Skip,
-		)
-		.result
-		.unwrap()
-		.account_id;
+		let addr = builder::bare_instantiate(Code::Upload(wasm))
+			.value(100 * min_balance)
+			.build_and_unwrap_account_id();
 
 		// Call the contract with a fixed gas limit. It must run out of gas because it just
 		// loops forever.
 		assert_err_ignore_postinfo!(
-			Contracts::call(
-				RuntimeOrigin::signed(ALICE),
-				addr, // newly created account
-				0,
-				Weight::from_parts(1_000_000_000_000, u64::MAX),
-				None,
-				vec![],
-			),
+			builder::call(addr)
+				.gas_limit(Weight::from_parts(1_000_000_000_000, u64::MAX))
+				.build(),
 			Error::<Test>::OutOfGas,
 		);
 	});
@@ -910,136 +844,41 @@ fn run_out_of_fuel_host() {
 		let min_balance = Contracts::min_balance();
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1000 * min_balance);
 
-		let addr = Contracts::bare_instantiate(
-			ALICE,
-			min_balance * 100,
-			GAS_LIMIT,
-			None,
-			Code::Upload(code),
-			vec![],
-			vec![],
-			DebugInfo::Skip,
-			CollectEvents::Skip,
-		)
-		.result
-		.unwrap()
-		.account_id;
+		let addr = builder::bare_instantiate(Code::Upload(code))
+			.value(min_balance * 100)
+			.build_and_unwrap_account_id();
 
 		let gas_limit = Weight::from_parts(u32::MAX as u64, GAS_LIMIT.proof_size());
 
 		// Use chain extension to charge more ref_time than it is available.
-		let result = Contracts::bare_call(
-			ALICE,
-			addr.clone(),
-			0,
-			gas_limit,
-			None,
-			ExtensionInput { extension_id: 0, func_id: 2, extra: &u32::MAX.encode() }.into(),
-			DebugInfo::Skip,
-			CollectEvents::Skip,
-			Determinism::Enforced,
-		)
-		.result;
+		let result = builder::bare_call(addr.clone())
+			.gas_limit(gas_limit)
+			.data(ExtensionInput { extension_id: 0, func_id: 2, extra: &u32::MAX.encode() }.into())
+			.build()
+			.result;
 		assert_err!(result, <Error<Test>>::OutOfGas);
 	});
 }
 
 #[test]
 fn gas_syncs_work() {
-	let (wasm0, _code_hash) = compile_module::<Test>("seal_input_noop").unwrap();
-	let (wasm1, _code_hash) = compile_module::<Test>("seal_input_once").unwrap();
-	let (wasm2, _code_hash) = compile_module::<Test>("seal_input_twice").unwrap();
+	let (code, _code_hash) = compile_module::<Test>("caller_is_origin_n").unwrap();
 	ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
-		// Instantiate noop contract.
-		let addr0 = Contracts::bare_instantiate(
-			ALICE,
-			0,
-			GAS_LIMIT,
-			None,
-			Code::Upload(wasm0),
-			vec![],
-			vec![],
-			DebugInfo::Skip,
-			CollectEvents::Skip,
-		)
-		.result
-		.unwrap()
-		.account_id;
+		let addr = builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_account_id();
 
-		// Instantiate 1st contract.
-		let addr1 = Contracts::bare_instantiate(
-			ALICE,
-			0,
-			GAS_LIMIT,
-			None,
-			Code::Upload(wasm1),
-			vec![],
-			vec![],
-			DebugInfo::Skip,
-			CollectEvents::Skip,
-		)
-		.result
-		.unwrap()
-		.account_id;
-
-		// Instantiate 2nd contract.
-		let addr2 = Contracts::bare_instantiate(
-			ALICE,
-			0,
-			GAS_LIMIT,
-			None,
-			Code::Upload(wasm2),
-			vec![],
-			vec![],
-			DebugInfo::Skip,
-			CollectEvents::Skip,
-		)
-		.result
-		.unwrap()
-		.account_id;
-
-		let result = Contracts::bare_call(
-			ALICE,
-			addr0,
-			0,
-			GAS_LIMIT,
-			None,
-			1u8.to_le_bytes().to_vec(),
-			DebugInfo::Skip,
-			CollectEvents::Skip,
-			Determinism::Enforced,
-		);
+		let result = builder::bare_call(addr.clone()).data(0u32.encode()).build();
 		assert_ok!(result.result);
 		let engine_consumed_noop = result.gas_consumed.ref_time();
 
-		let result = Contracts::bare_call(
-			ALICE,
-			addr1,
-			0,
-			GAS_LIMIT,
-			None,
-			1u8.to_le_bytes().to_vec(),
-			DebugInfo::Skip,
-			CollectEvents::Skip,
-			Determinism::Enforced,
-		);
+		let result = builder::bare_call(addr.clone()).data(1u32.encode()).build();
 		assert_ok!(result.result);
 		let gas_consumed_once = result.gas_consumed.ref_time();
-		let host_consumed_once = <Test as Config>::Schedule::get().host_fn_weights.input.ref_time();
+		let host_consumed_once =
+			<Test as Config>::Schedule::get().host_fn_weights.caller_is_origin.ref_time();
 		let engine_consumed_once = gas_consumed_once - host_consumed_once - engine_consumed_noop;
 
-		let result = Contracts::bare_call(
-			ALICE,
-			addr2,
-			0,
-			GAS_LIMIT,
-			None,
-			1u8.to_le_bytes().to_vec(),
-			DebugInfo::Skip,
-			CollectEvents::Skip,
-			Determinism::Enforced,
-		);
+		let result = builder::bare_call(addr).data(2u32.encode()).build();
 		assert_ok!(result.result);
 		let gas_consumed_twice = result.gas_consumed.ref_time();
 		let host_consumed_twice = host_consumed_once * 2;
@@ -1063,59 +902,39 @@ fn instantiate_unique_trie_id() {
 			.unwrap();
 
 		// Instantiate the contract and store its trie id for later comparison.
-		let addr = Contracts::bare_instantiate(
-			ALICE,
-			0,
-			GAS_LIMIT,
-			None,
-			Code::Existing(code_hash),
-			vec![],
-			vec![],
-			DebugInfo::Skip,
-			CollectEvents::Skip,
-		)
-		.result
-		.unwrap()
-		.account_id;
+		let addr =
+			builder::bare_instantiate(Code::Existing(code_hash)).build_and_unwrap_account_id();
 		let trie_id = get_contract(&addr).trie_id;
 
 		// Try to instantiate it again without termination should yield an error.
 		assert_err_ignore_postinfo!(
-			Contracts::instantiate(
-				RuntimeOrigin::signed(ALICE),
-				0,
-				GAS_LIMIT,
-				None,
-				code_hash,
-				vec![],
-				vec![],
-			),
+			builder::instantiate(code_hash).build(),
 			<Error<Test>>::DuplicateContract,
 		);
 
 		// Terminate the contract.
-		assert_ok!(Contracts::call(
-			RuntimeOrigin::signed(ALICE),
-			addr.clone(),
-			0,
-			GAS_LIMIT,
-			None,
-			vec![]
-		));
+		assert_ok!(builder::call(addr.clone()).build());
 
 		// Re-Instantiate after termination.
-		assert_ok!(Contracts::instantiate(
-			RuntimeOrigin::signed(ALICE),
-			0,
-			GAS_LIMIT,
-			None,
-			code_hash,
-			vec![],
-			vec![],
-		));
+		assert_ok!(builder::instantiate(code_hash).build());
 
 		// Trie ids shouldn't match or we might have a collision
 		assert_ne!(trie_id, get_contract(&addr).trie_id);
+	});
+}
+
+#[test]
+fn storage_work() {
+	let (code, _code_hash) = compile_module::<Test>("storage").unwrap();
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+		let min_balance = Contracts::min_balance();
+		let addr = builder::bare_instantiate(Code::Upload(code))
+			.value(min_balance * 100)
+			.build_and_unwrap_account_id();
+
+		builder::bare_call(addr).build_and_unwrap_result();
 	});
 }
 
@@ -1126,42 +945,22 @@ fn storage_max_value_limit() {
 	ExtBuilder::default().existential_deposit(50).build().execute_with(|| {
 		// Create
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
-		let addr = Contracts::bare_instantiate(
-			ALICE,
-			30_000,
-			GAS_LIMIT,
-			None,
-			Code::Upload(wasm),
-			vec![],
-			vec![],
-			DebugInfo::Skip,
-			CollectEvents::Skip,
-		)
-		.result
-		.unwrap()
-		.account_id;
+		let addr = builder::bare_instantiate(Code::Upload(wasm))
+			.value(30_000)
+			.build_and_unwrap_account_id();
 		get_contract(&addr);
 
 		// Call contract with allowed storage value.
-		assert_ok!(Contracts::call(
-			RuntimeOrigin::signed(ALICE),
-			addr.clone(),
-			0,
-			GAS_LIMIT.set_ref_time(GAS_LIMIT.ref_time() * 2), // we are copying a huge buffer
-			None,
-			<Test as Config>::Schedule::get().limits.payload_len.encode(),
-		));
+		assert_ok!(builder::call(addr.clone())
+			.gas_limit(GAS_LIMIT.set_ref_time(GAS_LIMIT.ref_time() * 2)) // we are copying a huge buffer
+			.data(<Test as Config>::Schedule::get().limits.payload_len.encode())
+			.build());
 
 		// Call contract with too large a storage value.
 		assert_err_ignore_postinfo!(
-			Contracts::call(
-				RuntimeOrigin::signed(ALICE),
-				addr,
-				0,
-				GAS_LIMIT,
-				None,
-				(<Test as Config>::Schedule::get().limits.payload_len + 1).encode(),
-			),
+			builder::call(addr)
+				.data((<Test as Config>::Schedule::get().limits.payload_len + 1).encode())
+				.build(),
 			Error::<Test>::ValueTooLarge,
 		);
 	});
@@ -1177,20 +976,9 @@ fn deploy_and_call_other_contract() {
 
 		// Create
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
-		let caller_addr = Contracts::bare_instantiate(
-			ALICE,
-			100_000,
-			GAS_LIMIT,
-			None,
-			Code::Upload(caller_wasm),
-			vec![],
-			vec![],
-			DebugInfo::Skip,
-			CollectEvents::Skip,
-		)
-		.result
-		.unwrap()
-		.account_id;
+		let caller_addr = builder::bare_instantiate(Code::Upload(caller_wasm))
+			.value(100_000)
+			.build_and_unwrap_account_id();
 		Contracts::bare_upload_code(ALICE, callee_wasm, None, Determinism::Enforced).unwrap();
 
 		let callee_addr = Contracts::contract_address(
@@ -1205,14 +993,9 @@ fn deploy_and_call_other_contract() {
 
 		// Call BOB contract, which attempts to instantiate and call the callee contract and
 		// makes various assertions on the results from those calls.
-		assert_ok!(Contracts::call(
-			RuntimeOrigin::signed(ALICE),
-			caller_addr.clone(),
-			0,
-			GAS_LIMIT,
-			None,
-			callee_code_hash.as_ref().to_vec(),
-		));
+		assert_ok!(builder::call(caller_addr.clone())
+			.data(callee_code_hash.as_ref().to_vec())
+			.build());
 
 		assert_eq!(
 			System::events(),
@@ -1311,20 +1094,9 @@ fn delegate_call() {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
 
 		// Instantiate the 'caller'
-		let caller_addr = Contracts::bare_instantiate(
-			ALICE,
-			300_000,
-			GAS_LIMIT,
-			None,
-			Code::Upload(caller_wasm),
-			vec![],
-			vec![],
-			DebugInfo::Skip,
-			CollectEvents::Skip,
-		)
-		.result
-		.unwrap()
-		.account_id;
+		let caller_addr = builder::bare_instantiate(Code::Upload(caller_wasm))
+			.value(300_000)
+			.build_and_unwrap_account_id();
 		// Only upload 'callee' code
 		assert_ok!(Contracts::upload_code(
 			RuntimeOrigin::signed(ALICE),
@@ -1333,15 +1105,25 @@ fn delegate_call() {
 			Determinism::Enforced,
 		));
 
-		assert_ok!(Contracts::call(
-			RuntimeOrigin::signed(ALICE),
-			caller_addr.clone(),
-			1337,
-			GAS_LIMIT,
-			None,
-			callee_code_hash.as_ref().to_vec(),
-		));
+		assert_ok!(builder::call(caller_addr.clone())
+			.value(1337)
+			.data(callee_code_hash.as_ref().to_vec())
+			.build());
 	});
+}
+
+#[test]
+fn track_check_uncheck_module_call() {
+	let (wasm, code_hash) = compile_module::<Test>("dummy").unwrap();
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+		Contracts::bare_upload_code(ALICE, wasm, None, Determinism::Enforced).unwrap();
+		builder::bare_instantiate(Code::Existing(code_hash)).build_and_unwrap_result();
+	});
+
+	// It should have recorded 1 `Checked` for the upload and 1 `Unchecked` for the instantiate.
+	let record = crate::wasm::tracker::LOADED_MODULE.with(|stack| stack.borrow().clone());
+	assert_eq!(record, vec![LoadingMode::Checked, LoadingMode::Unchecked]);
 }
 
 #[test]
@@ -1351,20 +1133,9 @@ fn transfer_expendable_cannot_kill_account() {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
 
 		// Instantiate the BOB contract.
-		let addr = Contracts::bare_instantiate(
-			ALICE,
-			1_000,
-			GAS_LIMIT,
-			None,
-			Code::Upload(wasm),
-			vec![],
-			vec![],
-			DebugInfo::Skip,
-			CollectEvents::Skip,
-		)
-		.result
-		.unwrap()
-		.account_id;
+		let addr = builder::bare_instantiate(Code::Upload(wasm))
+			.value(1_000)
+			.build_and_unwrap_account_id();
 
 		// Check that the BOB contract has been instantiated.
 		get_contract(&addr);
@@ -1392,7 +1163,7 @@ fn transfer_expendable_cannot_kill_account() {
 }
 
 #[test]
-fn cannot_self_destruct_through_draning() {
+fn cannot_self_destruct_through_draining() {
 	let (wasm, _code_hash) = compile_module::<Test>("drain").unwrap();
 	ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
@@ -1400,34 +1171,16 @@ fn cannot_self_destruct_through_draning() {
 		let min_balance = Contracts::min_balance();
 
 		// Instantiate the BOB contract.
-		let addr = Contracts::bare_instantiate(
-			ALICE,
-			value,
-			GAS_LIMIT,
-			None,
-			Code::Upload(wasm),
-			vec![],
-			vec![],
-			DebugInfo::Skip,
-			CollectEvents::Skip,
-		)
-		.result
-		.unwrap()
-		.account_id;
+		let addr = builder::bare_instantiate(Code::Upload(wasm))
+			.value(value)
+			.build_and_unwrap_account_id();
 
 		// Check that the BOB contract has been instantiated.
 		get_contract(&addr);
 
 		// Call BOB which makes it send all funds to the zero address
 		// The contract code asserts that the transfer fails with the correct error code
-		assert_ok!(Contracts::call(
-			RuntimeOrigin::signed(ALICE),
-			addr.clone(),
-			0,
-			GAS_LIMIT,
-			None,
-			vec![]
-		));
+		assert_ok!(builder::call(addr.clone()).build());
 
 		// Make sure the account wasn't remove by sending all free balance away.
 		assert_eq!(
@@ -1445,20 +1198,7 @@ fn cannot_self_destruct_through_storage_refund_after_price_change() {
 		let min_balance = Contracts::min_balance();
 
 		// Instantiate the BOB contract.
-		let addr = Contracts::bare_instantiate(
-			ALICE,
-			0,
-			GAS_LIMIT,
-			None,
-			Code::Upload(wasm),
-			vec![],
-			vec![],
-			DebugInfo::Skip,
-			CollectEvents::Skip,
-		)
-		.result
-		.unwrap()
-		.account_id;
+		let addr = builder::bare_instantiate(Code::Upload(wasm)).build_and_unwrap_account_id();
 
 		let info_deposit = test_utils::contract_info_storage_deposit(&addr);
 
@@ -1468,27 +1208,13 @@ fn cannot_self_destruct_through_storage_refund_after_price_change() {
 		assert_eq!(<Test as Config>::Currency::total_balance(&addr), info_deposit + min_balance);
 
 		// Create 100 bytes of storage with a price of per byte and a single storage item of price 2
-		assert_ok!(Contracts::call(
-			RuntimeOrigin::signed(ALICE),
-			addr.clone(),
-			0,
-			GAS_LIMIT,
-			None,
-			100u32.to_le_bytes().to_vec()
-		));
+		assert_ok!(builder::call(addr.clone()).data(100u32.to_le_bytes().to_vec()).build());
 		assert_eq!(get_contract(&addr).total_deposit(), info_deposit + 102);
 
 		// Increase the byte price and trigger a refund. This should not have any influence because
 		// the removal is pro rata and exactly those 100 bytes should have been removed.
 		DEPOSIT_PER_BYTE.with(|c| *c.borrow_mut() = 500);
-		assert_ok!(Contracts::call(
-			RuntimeOrigin::signed(ALICE),
-			addr.clone(),
-			0,
-			GAS_LIMIT,
-			None,
-			0u32.to_le_bytes().to_vec()
-		));
+		assert_ok!(builder::call(addr.clone()).data(0u32.to_le_bytes().to_vec()).build());
 
 		// Make sure the account wasn't removed by the refund
 		assert_eq!(
@@ -1506,20 +1232,9 @@ fn cannot_self_destruct_while_live() {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
 
 		// Instantiate the BOB contract.
-		let addr = Contracts::bare_instantiate(
-			ALICE,
-			100_000,
-			GAS_LIMIT,
-			None,
-			Code::Upload(wasm),
-			vec![],
-			vec![],
-			DebugInfo::Skip,
-			CollectEvents::Skip,
-		)
-		.result
-		.unwrap()
-		.account_id;
+		let addr = builder::bare_instantiate(Code::Upload(wasm))
+			.value(100_000)
+			.build_and_unwrap_account_id();
 
 		// Check that the BOB contract has been instantiated.
 		get_contract(&addr);
@@ -1527,14 +1242,7 @@ fn cannot_self_destruct_while_live() {
 		// Call BOB with input data, forcing it make a recursive call to itself to
 		// self-destruct, resulting in a trap.
 		assert_err_ignore_postinfo!(
-			Contracts::call(
-				RuntimeOrigin::signed(ALICE),
-				addr.clone(),
-				0,
-				GAS_LIMIT,
-				None,
-				vec![0],
-			),
+			builder::call(addr.clone()).data(vec![0]).build(),
 			Error::<Test>::ContractTrapped,
 		);
 
@@ -1552,20 +1260,9 @@ fn self_destruct_works() {
 		let min_balance = Contracts::min_balance();
 
 		// Instantiate the BOB contract.
-		let addr = Contracts::bare_instantiate(
-			ALICE,
-			100_000,
-			GAS_LIMIT,
-			None,
-			Code::Upload(wasm),
-			vec![],
-			vec![],
-			DebugInfo::Skip,
-			CollectEvents::Skip,
-		)
-		.result
-		.unwrap()
-		.account_id;
+		let addr = builder::bare_instantiate(Code::Upload(wasm))
+			.value(100_000)
+			.build_and_unwrap_account_id();
 
 		// Check that the BOB contract has been instantiated.
 		let _ = get_contract(&addr);
@@ -1576,10 +1273,7 @@ fn self_destruct_works() {
 		initialize_block(2);
 
 		// Call BOB without input data which triggers termination.
-		assert_matches!(
-			Contracts::call(RuntimeOrigin::signed(ALICE), addr.clone(), 0, GAS_LIMIT, None, vec![],),
-			Ok(_)
-		);
+		assert_matches!(builder::call(addr.clone()).build(), Ok(_));
 
 		// Check that code is still there but refcount dropped to zero.
 		assert_refcount!(&code_hash, 0);
@@ -1666,20 +1360,10 @@ fn destroy_contract_and_transfer_funds() {
 
 		// This deploys the BOB contract, which in turn deploys the CHARLIE contract during
 		// construction.
-		let addr_bob = Contracts::bare_instantiate(
-			ALICE,
-			200_000,
-			GAS_LIMIT,
-			None,
-			Code::Upload(caller_wasm),
-			callee_code_hash.as_ref().to_vec(),
-			vec![],
-			DebugInfo::Skip,
-			CollectEvents::Skip,
-		)
-		.result
-		.unwrap()
-		.account_id;
+		let addr_bob = builder::bare_instantiate(Code::Upload(caller_wasm))
+			.value(200_000)
+			.data(callee_code_hash.as_ref().to_vec())
+			.build_and_unwrap_account_id();
 
 		// Check that the CHARLIE contract has been instantiated.
 		let addr_charlie =
@@ -1687,14 +1371,7 @@ fn destroy_contract_and_transfer_funds() {
 		get_contract(&addr_charlie);
 
 		// Call BOB, which calls CHARLIE, forcing CHARLIE to self-destruct.
-		assert_ok!(Contracts::call(
-			RuntimeOrigin::signed(ALICE),
-			addr_bob,
-			0,
-			GAS_LIMIT,
-			None,
-			addr_charlie.encode(),
-		));
+		assert_ok!(builder::call(addr_bob).data(addr_charlie.encode()).build());
 
 		// Check that CHARLIE has moved on to the great beyond (ie. died).
 		assert!(get_contract_checked(&addr_charlie).is_none());
@@ -1707,17 +1384,9 @@ fn cannot_self_destruct_in_constructor() {
 	ExtBuilder::default().existential_deposit(50).build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
 
-		// Fail to instantiate the BOB because the contructor calls seal_terminate.
+		// Fail to instantiate the BOB because the constructor calls seal_terminate.
 		assert_err_ignore_postinfo!(
-			Contracts::instantiate_with_code(
-				RuntimeOrigin::signed(ALICE),
-				100_000,
-				GAS_LIMIT,
-				None,
-				wasm,
-				vec![],
-				vec![],
-			),
+			builder::instantiate_with_code(wasm).value(100_000).build(),
 			Error::<Test>::TerminatedInConstructor,
 		);
 	});
@@ -1731,20 +1400,9 @@ fn crypto_hashes() {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
 
 		// Instantiate the CRYPTO_HASHES contract.
-		let addr = Contracts::bare_instantiate(
-			ALICE,
-			100_000,
-			GAS_LIMIT,
-			None,
-			Code::Upload(wasm),
-			vec![],
-			vec![],
-			DebugInfo::Skip,
-			CollectEvents::Skip,
-		)
-		.result
-		.unwrap()
-		.account_id;
+		let addr = builder::bare_instantiate(Code::Upload(wasm))
+			.value(100_000)
+			.build_and_unwrap_account_id();
 		// Perform the call.
 		let input = b"_DEAD_BEEF";
 		use sp_io::hashing::*;
@@ -1766,19 +1424,7 @@ fn crypto_hashes() {
 			// We offset data in the contract tables by 1.
 			let mut params = vec![(n + 1) as u8];
 			params.extend_from_slice(input);
-			let result = <Pallet<Test>>::bare_call(
-				ALICE,
-				addr.clone(),
-				0,
-				GAS_LIMIT,
-				None,
-				params,
-				DebugInfo::Skip,
-				CollectEvents::Skip,
-				Determinism::Enforced,
-			)
-			.result
-			.unwrap();
+			let result = builder::bare_call(addr.clone()).data(params).build_and_unwrap_result();
 			assert!(!result.did_revert());
 			let expected = hash_fn(input.as_ref());
 			assert_eq!(&result.data[..*expected_size], &*expected);
@@ -1793,36 +1439,13 @@ fn transfer_return_code() {
 		let min_balance = Contracts::min_balance();
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1000 * min_balance);
 
-		let addr = Contracts::bare_instantiate(
-			ALICE,
-			min_balance * 100,
-			GAS_LIMIT,
-			None,
-			Code::Upload(wasm),
-			vec![],
-			vec![],
-			DebugInfo::Skip,
-			CollectEvents::Skip,
-		)
-		.result
-		.unwrap()
-		.account_id;
+		let addr = builder::bare_instantiate(Code::Upload(wasm))
+			.value(min_balance * 100)
+			.build_and_unwrap_account_id();
 
 		// Contract has only the minimal balance so any transfer will fail.
 		<Test as Config>::Currency::set_balance(&addr, min_balance);
-		let result = Contracts::bare_call(
-			ALICE,
-			addr.clone(),
-			0,
-			GAS_LIMIT,
-			None,
-			vec![],
-			DebugInfo::Skip,
-			CollectEvents::Skip,
-			Determinism::Enforced,
-		)
-		.result
-		.unwrap();
+		let result = builder::bare_call(addr.clone()).build_and_unwrap_result();
 		assert_return_code!(result, RuntimeReturnCode::TransferFailed);
 	});
 }
@@ -1836,113 +1459,60 @@ fn call_return_code() {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1000 * min_balance);
 		let _ = <Test as Config>::Currency::set_balance(&CHARLIE, 1000 * min_balance);
 
-		let addr_bob = Contracts::bare_instantiate(
-			ALICE,
-			min_balance * 100,
-			GAS_LIMIT,
-			None,
-			Code::Upload(caller_code),
-			vec![0],
-			vec![],
-			DebugInfo::Skip,
-			CollectEvents::Skip,
-		)
-		.result
-		.unwrap()
-		.account_id;
+		let addr_bob = builder::bare_instantiate(Code::Upload(caller_code))
+			.value(min_balance * 100)
+			.data(vec![0])
+			.build_and_unwrap_account_id();
 		<Test as Config>::Currency::set_balance(&addr_bob, min_balance);
 
 		// Contract calls into Django which is no valid contract
-		let result = Contracts::bare_call(
-			ALICE,
-			addr_bob.clone(),
-			0,
-			GAS_LIMIT,
-			None,
-			AsRef::<[u8]>::as_ref(&DJANGO).to_vec(),
-			DebugInfo::Skip,
-			CollectEvents::Skip,
-			Determinism::Enforced,
-		)
-		.result
-		.unwrap();
+		let result = builder::bare_call(addr_bob.clone())
+			.data(AsRef::<[u8]>::as_ref(&DJANGO).to_vec())
+			.build_and_unwrap_result();
 		assert_return_code!(result, RuntimeReturnCode::NotCallable);
 
-		let addr_django = Contracts::bare_instantiate(
-			CHARLIE,
-			min_balance * 100,
-			GAS_LIMIT,
-			None,
-			Code::Upload(callee_code),
-			vec![0],
-			vec![],
-			DebugInfo::Skip,
-			CollectEvents::Skip,
-		)
-		.result
-		.unwrap()
-		.account_id;
+		let addr_django = builder::bare_instantiate(Code::Upload(callee_code))
+			.origin(CHARLIE)
+			.value(min_balance * 100)
+			.data(vec![0])
+			.build_and_unwrap_account_id();
 		<Test as Config>::Currency::set_balance(&addr_django, min_balance);
 
 		// Contract has only the minimal balance so any transfer will fail.
-		let result = Contracts::bare_call(
-			ALICE,
-			addr_bob.clone(),
-			0,
-			GAS_LIMIT,
-			None,
-			AsRef::<[u8]>::as_ref(&addr_django)
-				.iter()
-				.chain(&0u32.to_le_bytes())
-				.cloned()
-				.collect(),
-			DebugInfo::Skip,
-			CollectEvents::Skip,
-			Determinism::Enforced,
-		)
-		.result
-		.unwrap();
+		let result = builder::bare_call(addr_bob.clone())
+			.data(
+				AsRef::<[u8]>::as_ref(&addr_django)
+					.iter()
+					.chain(&0u32.to_le_bytes())
+					.cloned()
+					.collect(),
+			)
+			.build_and_unwrap_result();
 		assert_return_code!(result, RuntimeReturnCode::TransferFailed);
 
 		// Contract has enough balance but callee reverts because "1" is passed.
 		<Test as Config>::Currency::set_balance(&addr_bob, min_balance + 1000);
-		let result = Contracts::bare_call(
-			ALICE,
-			addr_bob.clone(),
-			0,
-			GAS_LIMIT,
-			None,
-			AsRef::<[u8]>::as_ref(&addr_django)
-				.iter()
-				.chain(&1u32.to_le_bytes())
-				.cloned()
-				.collect(),
-			DebugInfo::Skip,
-			CollectEvents::Skip,
-			Determinism::Enforced,
-		)
-		.result
-		.unwrap();
+		let result = builder::bare_call(addr_bob.clone())
+			.data(
+				AsRef::<[u8]>::as_ref(&addr_django)
+					.iter()
+					.chain(&1u32.to_le_bytes())
+					.cloned()
+					.collect(),
+			)
+			.build_and_unwrap_result();
 		assert_return_code!(result, RuntimeReturnCode::CalleeReverted);
 
 		// Contract has enough balance but callee traps because "2" is passed.
-		let result = Contracts::bare_call(
-			ALICE,
-			addr_bob,
-			0,
-			GAS_LIMIT,
-			None,
-			AsRef::<[u8]>::as_ref(&addr_django)
-				.iter()
-				.chain(&2u32.to_le_bytes())
-				.cloned()
-				.collect(),
-			DebugInfo::Skip,
-			CollectEvents::Skip,
-			Determinism::Enforced,
-		)
-		.result
-		.unwrap();
+		let result = builder::bare_call(addr_bob)
+			.data(
+				AsRef::<[u8]>::as_ref(&addr_django)
+					.iter()
+					.chain(&2u32.to_le_bytes())
+					.cloned()
+					.collect(),
+			)
+			.build_and_unwrap_result();
 		assert_return_code!(result, RuntimeReturnCode::CalleeTrapped);
 	});
 }
@@ -1957,95 +1527,34 @@ fn instantiate_return_code() {
 		let _ = <Test as Config>::Currency::set_balance(&CHARLIE, 1000 * min_balance);
 		let callee_hash = callee_hash.as_ref().to_vec();
 
-		assert_ok!(Contracts::instantiate_with_code(
-			RuntimeOrigin::signed(ALICE),
-			min_balance * 100,
-			GAS_LIMIT,
-			None,
-			callee_code,
-			vec![],
-			vec![],
-		));
+		assert_ok!(builder::instantiate_with_code(callee_code).value(min_balance * 100).build());
 
-		let addr = Contracts::bare_instantiate(
-			ALICE,
-			min_balance * 100,
-			GAS_LIMIT,
-			None,
-			Code::Upload(caller_code),
-			vec![],
-			vec![],
-			DebugInfo::Skip,
-			CollectEvents::Skip,
-		)
-		.result
-		.unwrap()
-		.account_id;
+		let addr = builder::bare_instantiate(Code::Upload(caller_code))
+			.value(min_balance * 100)
+			.build_and_unwrap_account_id();
 
 		// Contract has only the minimal balance so any transfer will fail.
 		<Test as Config>::Currency::set_balance(&addr, min_balance);
-		let result = Contracts::bare_call(
-			ALICE,
-			addr.clone(),
-			0,
-			GAS_LIMIT,
-			None,
-			callee_hash.clone(),
-			DebugInfo::Skip,
-			CollectEvents::Skip,
-			Determinism::Enforced,
-		)
-		.result
-		.unwrap();
+		let result = builder::bare_call(addr.clone())
+			.data(callee_hash.clone())
+			.build_and_unwrap_result();
 		assert_return_code!(result, RuntimeReturnCode::TransferFailed);
 
 		// Contract has enough balance but the passed code hash is invalid
 		<Test as Config>::Currency::set_balance(&addr, min_balance + 10_000);
-		let result = Contracts::bare_call(
-			ALICE,
-			addr.clone(),
-			0,
-			GAS_LIMIT,
-			None,
-			vec![0; 33],
-			DebugInfo::Skip,
-			CollectEvents::Skip,
-			Determinism::Enforced,
-		)
-		.result
-		.unwrap();
+		let result = builder::bare_call(addr.clone()).data(vec![0; 33]).build_and_unwrap_result();
 		assert_return_code!(result, RuntimeReturnCode::CodeNotFound);
 
 		// Contract has enough balance but callee reverts because "1" is passed.
-		let result = Contracts::bare_call(
-			ALICE,
-			addr.clone(),
-			0,
-			GAS_LIMIT,
-			None,
-			callee_hash.iter().chain(&1u32.to_le_bytes()).cloned().collect(),
-			DebugInfo::Skip,
-			CollectEvents::Skip,
-			Determinism::Enforced,
-		)
-		.result
-		.unwrap();
+		let result = builder::bare_call(addr.clone())
+			.data(callee_hash.iter().chain(&1u32.to_le_bytes()).cloned().collect())
+			.build_and_unwrap_result();
 		assert_return_code!(result, RuntimeReturnCode::CalleeReverted);
 
 		// Contract has enough balance but callee traps because "2" is passed.
-		let result = Contracts::bare_call(
-			ALICE,
-			addr,
-			0,
-			GAS_LIMIT,
-			None,
-			callee_hash.iter().chain(&2u32.to_le_bytes()).cloned().collect(),
-			DebugInfo::Skip,
-			CollectEvents::Skip,
-			Determinism::Enforced,
-		)
-		.result
-		.unwrap();
+		let result = builder::bare_call(addr)
+			.data(callee_hash.iter().chain(&2u32.to_le_bytes()).cloned().collect())
+			.build_and_unwrap_result();
 		assert_return_code!(result, RuntimeReturnCode::CalleeTrapped);
 	});
 }
@@ -2058,15 +1567,7 @@ fn disabled_chain_extension_wont_deploy() {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1000 * min_balance);
 		TestExtension::disable();
 		assert_err_ignore_postinfo!(
-			Contracts::instantiate_with_code(
-				RuntimeOrigin::signed(ALICE),
-				3 * min_balance,
-				GAS_LIMIT,
-				None,
-				code,
-				vec![],
-				vec![],
-			),
+			builder::instantiate_with_code(code).value(3 * min_balance).build(),
 			<Error<Test>>::CodeRejected,
 		);
 	});
@@ -2078,23 +1579,12 @@ fn disabled_chain_extension_errors_on_call() {
 	ExtBuilder::default().existential_deposit(50).build().execute_with(|| {
 		let min_balance = Contracts::min_balance();
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1000 * min_balance);
-		let addr = Contracts::bare_instantiate(
-			ALICE,
-			min_balance * 100,
-			GAS_LIMIT,
-			None,
-			Code::Upload(code),
-			vec![],
-			vec![],
-			DebugInfo::Skip,
-			CollectEvents::Skip,
-		)
-		.result
-		.unwrap()
-		.account_id;
+		let addr = builder::bare_instantiate(Code::Upload(code))
+			.value(min_balance * 100)
+			.build_and_unwrap_account_id();
 		TestExtension::disable();
 		assert_err_ignore_postinfo!(
-			Contracts::call(RuntimeOrigin::signed(ALICE), addr.clone(), 0, GAS_LIMIT, None, vec![],),
+			builder::call(addr.clone()).build(),
 			Error::<Test>::CodeRejected,
 		);
 	});
@@ -2106,141 +1596,61 @@ fn chain_extension_works() {
 	ExtBuilder::default().existential_deposit(50).build().execute_with(|| {
 		let min_balance = Contracts::min_balance();
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1000 * min_balance);
-		let addr = Contracts::bare_instantiate(
-			ALICE,
-			min_balance * 100,
-			GAS_LIMIT,
-			None,
-			Code::Upload(code),
-			vec![],
-			vec![],
-			DebugInfo::Skip,
-			CollectEvents::Skip,
-		)
-		.result
-		.unwrap()
-		.account_id;
+		let addr = builder::bare_instantiate(Code::Upload(code))
+			.value(min_balance * 100)
+			.build_and_unwrap_account_id();
 
 		// 0 = read input buffer and pass it through as output
 		let input: Vec<u8> = ExtensionInput { extension_id: 0, func_id: 0, extra: &[99] }.into();
-		let result = Contracts::bare_call(
-			ALICE,
-			addr.clone(),
-			0,
-			GAS_LIMIT,
-			None,
-			input.clone(),
-			DebugInfo::Skip,
-			CollectEvents::Skip,
-			Determinism::Enforced,
-		);
+		let result = builder::bare_call(addr.clone()).data(input.clone()).build();
 		assert_eq!(TestExtension::last_seen_buffer(), input);
 		assert_eq!(result.result.unwrap().data, input);
 
 		// 1 = treat inputs as integer primitives and store the supplied integers
-		Contracts::bare_call(
-			ALICE,
-			addr.clone(),
-			0,
-			GAS_LIMIT,
-			None,
-			ExtensionInput { extension_id: 0, func_id: 1, extra: &[] }.into(),
-			DebugInfo::Skip,
-			CollectEvents::Skip,
-			Determinism::Enforced,
-		)
-		.result
-		.unwrap();
+		builder::bare_call(addr.clone())
+			.data(ExtensionInput { extension_id: 0, func_id: 1, extra: &[] }.into())
+			.build_and_unwrap_result();
 		assert_eq!(TestExtension::last_seen_input_len(), 4);
 
 		// 2 = charge some extra weight (amount supplied in the fifth byte)
-		let result = Contracts::bare_call(
-			ALICE,
-			addr.clone(),
-			0,
-			GAS_LIMIT,
-			None,
-			ExtensionInput { extension_id: 0, func_id: 2, extra: &0u32.encode() }.into(),
-			DebugInfo::Skip,
-			CollectEvents::Skip,
-			Determinism::Enforced,
-		);
+		let result = builder::bare_call(addr.clone())
+			.data(ExtensionInput { extension_id: 0, func_id: 2, extra: &0u32.encode() }.into())
+			.build();
 		assert_ok!(result.result);
 		let gas_consumed = result.gas_consumed;
-		let result = Contracts::bare_call(
-			ALICE,
-			addr.clone(),
-			0,
-			GAS_LIMIT,
-			None,
-			ExtensionInput { extension_id: 0, func_id: 2, extra: &42u32.encode() }.into(),
-			DebugInfo::Skip,
-			CollectEvents::Skip,
-			Determinism::Enforced,
-		);
+		let result = builder::bare_call(addr.clone())
+			.data(ExtensionInput { extension_id: 0, func_id: 2, extra: &42u32.encode() }.into())
+			.build();
 		assert_ok!(result.result);
 		assert_eq!(result.gas_consumed.ref_time(), gas_consumed.ref_time() + 42);
-		let result = Contracts::bare_call(
-			ALICE,
-			addr.clone(),
-			0,
-			GAS_LIMIT,
-			None,
-			ExtensionInput { extension_id: 0, func_id: 2, extra: &95u32.encode() }.into(),
-			DebugInfo::Skip,
-			CollectEvents::Skip,
-			Determinism::Enforced,
-		);
+		let result = builder::bare_call(addr.clone())
+			.data(ExtensionInput { extension_id: 0, func_id: 2, extra: &95u32.encode() }.into())
+			.build();
 		assert_ok!(result.result);
 		assert_eq!(result.gas_consumed.ref_time(), gas_consumed.ref_time() + 95);
 
 		// 3 = diverging chain extension call that sets flags to 0x1 and returns a fixed buffer
-		let result = Contracts::bare_call(
-			ALICE,
-			addr.clone(),
-			0,
-			GAS_LIMIT,
-			None,
-			ExtensionInput { extension_id: 0, func_id: 3, extra: &[] }.into(),
-			DebugInfo::Skip,
-			CollectEvents::Skip,
-			Determinism::Enforced,
-		)
-		.result
-		.unwrap();
+		let result = builder::bare_call(addr.clone())
+			.data(ExtensionInput { extension_id: 0, func_id: 3, extra: &[] }.into())
+			.build_and_unwrap_result();
 		assert_eq!(result.flags, ReturnFlags::REVERT);
 		assert_eq!(result.data, vec![42, 99]);
 
 		// diverging to second chain extension that sets flags to 0x1 and returns a fixed buffer
 		// We set the MSB part to 1 (instead of 0) which routes the request into the second
 		// extension
-		let result = Contracts::bare_call(
-			ALICE,
-			addr.clone(),
-			0,
-			GAS_LIMIT,
-			None,
-			ExtensionInput { extension_id: 1, func_id: 0, extra: &[] }.into(),
-			DebugInfo::Skip,
-			CollectEvents::Skip,
-			Determinism::Enforced,
-		)
-		.result
-		.unwrap();
+		let result = builder::bare_call(addr.clone())
+			.data(ExtensionInput { extension_id: 1, func_id: 0, extra: &[] }.into())
+			.build_and_unwrap_result();
 		assert_eq!(result.flags, ReturnFlags::REVERT);
 		assert_eq!(result.data, vec![0x4B, 0x1D]);
 
 		// Diverging to third chain extension that is disabled
 		// We set the MSB part to 2 (instead of 0) which routes the request into the third extension
 		assert_err_ignore_postinfo!(
-			Contracts::call(
-				RuntimeOrigin::signed(ALICE),
-				addr.clone(),
-				0,
-				GAS_LIMIT,
-				None,
-				ExtensionInput { extension_id: 2, func_id: 0, extra: &[] }.into(),
-			),
+			builder::call(addr.clone())
+				.data(ExtensionInput { extension_id: 2, func_id: 0, extra: &[] }.into())
+				.build(),
 			Error::<Test>::NoChainExtension,
 		);
 	});
@@ -2252,20 +1662,9 @@ fn chain_extension_temp_storage_works() {
 	ExtBuilder::default().existential_deposit(50).build().execute_with(|| {
 		let min_balance = Contracts::min_balance();
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1000 * min_balance);
-		let addr = Contracts::bare_instantiate(
-			ALICE,
-			min_balance * 100,
-			GAS_LIMIT,
-			None,
-			Code::Upload(code),
-			vec![],
-			vec![],
-			DebugInfo::Skip,
-			CollectEvents::Skip,
-		)
-		.result
-		.unwrap()
-		.account_id;
+		let addr = builder::bare_instantiate(Code::Upload(code))
+			.value(min_balance * 100)
+			.build_and_unwrap_account_id();
 
 		// Call func 0 and func 1 back to back.
 		let stop_recursion = 0u8;
@@ -2276,20 +1675,7 @@ fn chain_extension_temp_storage_works() {
 				.as_ref(),
 		);
 
-		assert_ok!(
-			Contracts::bare_call(
-				ALICE,
-				addr.clone(),
-				0,
-				GAS_LIMIT,
-				None,
-				input.clone(),
-				DebugInfo::Skip,
-				CollectEvents::Skip,
-				Determinism::Enforced,
-			)
-			.result
-		);
+		assert_ok!(builder::bare_call(addr.clone()).data(input.clone()).build().result);
 	})
 }
 
@@ -2300,20 +1686,9 @@ fn lazy_removal_works() {
 		let min_balance = Contracts::min_balance();
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1000 * min_balance);
 
-		let addr = Contracts::bare_instantiate(
-			ALICE,
-			min_balance * 100,
-			GAS_LIMIT,
-			None,
-			Code::Upload(code),
-			vec![],
-			vec![],
-			DebugInfo::Skip,
-			CollectEvents::Skip,
-		)
-		.result
-		.unwrap()
-		.account_id;
+		let addr = builder::bare_instantiate(Code::Upload(code))
+			.value(min_balance * 100)
+			.build_and_unwrap_account_id();
 
 		let info = get_contract(&addr);
 		let trie = &info.child_trie_info();
@@ -2322,14 +1697,7 @@ fn lazy_removal_works() {
 		child::put(trie, &[99], &42);
 
 		// Terminate the contract
-		assert_ok!(Contracts::call(
-			RuntimeOrigin::signed(ALICE),
-			addr.clone(),
-			0,
-			GAS_LIMIT,
-			None,
-			vec![]
-		));
+		assert_ok!(builder::call(addr.clone()).build());
 
 		// Contract info should be gone
 		assert!(!<ContractInfoOf::<Test>>::contains_key(&addr));
@@ -2354,20 +1722,10 @@ fn lazy_batch_removal_works() {
 		let mut tries: Vec<child::ChildInfo> = vec![];
 
 		for i in 0..3u8 {
-			let addr = Contracts::bare_instantiate(
-				ALICE,
-				min_balance * 100,
-				GAS_LIMIT,
-				None,
-				Code::Upload(code.clone()),
-				vec![],
-				vec![i],
-				DebugInfo::Skip,
-				CollectEvents::Skip,
-			)
-			.result
-			.unwrap()
-			.account_id;
+			let addr = builder::bare_instantiate(Code::Upload(code.clone()))
+				.value(min_balance * 100)
+				.salt(vec![i])
+				.build_and_unwrap_account_id();
 
 			let info = get_contract(&addr);
 			let trie = &info.child_trie_info();
@@ -2377,14 +1735,7 @@ fn lazy_batch_removal_works() {
 
 			// Terminate the contract. Contract info should be gone, but value should be still there
 			// as the lazy removal did not run, yet.
-			assert_ok!(Contracts::call(
-				RuntimeOrigin::signed(ALICE),
-				addr.clone(),
-				0,
-				GAS_LIMIT,
-				None,
-				vec![]
-			));
+			assert_ok!(builder::call(addr.clone()).build());
 
 			assert!(!<ContractInfoOf::<Test>>::contains_key(&addr));
 			assert_matches!(child::get(trie, &[99]), Some(42));
@@ -2408,8 +1759,8 @@ fn lazy_removal_partial_remove_works() {
 
 	// We create a contract with some extra keys above the weight limit
 	let extra_keys = 7u32;
-	let weight_limit = Weight::from_parts(5_000_000_000, 0);
-	let (_, max_keys) = ContractInfo::<Test>::deletion_budget(weight_limit);
+	let mut meter = WeightMeter::with_limit(Weight::from_parts(5_000_000_000, 100 * 1024));
+	let (weight_per_key, max_keys) = ContractInfo::<Test>::deletion_budget(&meter);
 	let vals: Vec<_> = (0..max_keys + extra_keys)
 		.map(|i| (blake2_256(&i.encode()), (i as u32), (i as u32).encode()))
 		.collect();
@@ -2420,20 +1771,9 @@ fn lazy_removal_partial_remove_works() {
 		let min_balance = Contracts::min_balance();
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1000 * min_balance);
 
-		let addr = Contracts::bare_instantiate(
-			ALICE,
-			min_balance * 100,
-			GAS_LIMIT,
-			None,
-			Code::Upload(code),
-			vec![],
-			vec![],
-			DebugInfo::Skip,
-			CollectEvents::Skip,
-		)
-		.result
-		.unwrap()
-		.account_id;
+		let addr = builder::bare_instantiate(Code::Upload(code))
+			.value(min_balance * 100)
+			.build_and_unwrap_account_id();
 
 		let info = get_contract(&addr);
 
@@ -2444,14 +1784,7 @@ fn lazy_removal_partial_remove_works() {
 		<ContractInfoOf<Test>>::insert(&addr, info.clone());
 
 		// Terminate the contract
-		assert_ok!(Contracts::call(
-			RuntimeOrigin::signed(ALICE),
-			addr.clone(),
-			0,
-			GAS_LIMIT,
-			None,
-			vec![]
-		));
+		assert_ok!(builder::call(addr.clone()).build());
 
 		// Contract info should be gone
 		assert!(!<ContractInfoOf::<Test>>::contains_key(&addr));
@@ -2472,10 +1805,10 @@ fn lazy_removal_partial_remove_works() {
 
 	ext.execute_with(|| {
 		// Run the lazy removal
-		let weight_used = ContractInfo::<Test>::process_deletion_queue_batch(weight_limit);
+		ContractInfo::<Test>::process_deletion_queue_batch(&mut meter);
 
 		// Weight should be exhausted because we could not even delete all keys
-		assert_eq!(weight_used, weight_limit);
+		assert!(!meter.can_consume(weight_per_key));
 
 		let mut num_deleted = 0u32;
 		let mut num_remaining = 0u32;
@@ -2502,20 +1835,9 @@ fn lazy_removal_does_no_run_on_low_remaining_weight() {
 		let min_balance = Contracts::min_balance();
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1000 * min_balance);
 
-		let addr = Contracts::bare_instantiate(
-			ALICE,
-			min_balance * 100,
-			GAS_LIMIT,
-			None,
-			Code::Upload(code),
-			vec![],
-			vec![],
-			DebugInfo::Skip,
-			CollectEvents::Skip,
-		)
-		.result
-		.unwrap()
-		.account_id;
+		let addr = builder::bare_instantiate(Code::Upload(code))
+			.value(min_balance * 100)
+			.build_and_unwrap_account_id();
 
 		let info = get_contract(&addr);
 		let trie = &info.child_trie_info();
@@ -2524,14 +1846,7 @@ fn lazy_removal_does_no_run_on_low_remaining_weight() {
 		child::put(trie, &[99], &42);
 
 		// Terminate the contract
-		assert_ok!(Contracts::call(
-			RuntimeOrigin::signed(ALICE),
-			addr.clone(),
-			0,
-			GAS_LIMIT,
-			None,
-			vec![]
-		));
+		assert_ok!(builder::call(addr.clone()).build());
 
 		// Contract info should be gone
 		assert!(!<ContractInfoOf::<Test>>::contains_key(&addr));
@@ -2567,30 +1882,20 @@ fn lazy_removal_does_no_run_on_low_remaining_weight() {
 fn lazy_removal_does_not_use_all_weight() {
 	let (code, _hash) = compile_module::<Test>("self_destruct").unwrap();
 
-	let weight_limit = Weight::from_parts(5_000_000_000, 100 * 1024);
+	let mut meter = WeightMeter::with_limit(Weight::from_parts(5_000_000_000, 100 * 1024));
 	let mut ext = ExtBuilder::default().existential_deposit(50).build();
 
 	let (trie, vals, weight_per_key) = ext.execute_with(|| {
 		let min_balance = Contracts::min_balance();
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1000 * min_balance);
 
-		let addr = Contracts::bare_instantiate(
-			ALICE,
-			min_balance * 100,
-			GAS_LIMIT,
-			None,
-			Code::Upload(code),
-			vec![],
-			vec![],
-			DebugInfo::Skip,
-			CollectEvents::Skip,
-		)
-		.result
-		.unwrap()
-		.account_id;
+		let addr = builder::bare_instantiate(Code::Upload(code))
+			.value(min_balance * 100)
+			.build_and_unwrap_account_id();
 
 		let info = get_contract(&addr);
-		let (weight_per_key, max_keys) = ContractInfo::<Test>::deletion_budget(weight_limit);
+		let (weight_per_key, max_keys) = ContractInfo::<Test>::deletion_budget(&meter);
+		assert!(max_keys > 0);
 
 		// We create a contract with one less storage item than we can remove within the limit
 		let vals: Vec<_> = (0..max_keys - 1)
@@ -2604,14 +1909,7 @@ fn lazy_removal_does_not_use_all_weight() {
 		<ContractInfoOf<Test>>::insert(&addr, info.clone());
 
 		// Terminate the contract
-		assert_ok!(Contracts::call(
-			RuntimeOrigin::signed(ALICE),
-			addr.clone(),
-			0,
-			GAS_LIMIT,
-			None,
-			vec![]
-		));
+		assert_ok!(builder::call(addr.clone()).build());
 
 		// Contract info should be gone
 		assert!(!<ContractInfoOf::<Test>>::contains_key(&addr));
@@ -2632,10 +1930,10 @@ fn lazy_removal_does_not_use_all_weight() {
 
 	ext.execute_with(|| {
 		// Run the lazy removal
-		let weight_used = ContractInfo::<Test>::process_deletion_queue_batch(weight_limit);
-
-		// We have one less key in our trie than our weight limit suffices for
-		assert_eq!(weight_used, weight_limit - weight_per_key);
+		ContractInfo::<Test>::process_deletion_queue_batch(&mut meter);
+		let base_weight =
+			<<Test as Config>::WeightInfo as WeightInfo>::on_process_deletion_queue_batch();
+		assert_eq!(meter.consumed(), weight_per_key.mul(vals.len() as _) + base_weight);
 
 		// All the keys are removed
 		for val in vals {
@@ -2665,20 +1963,10 @@ fn deletion_queue_ring_buffer_overflow() {
 
 		// add 3 contracts to the deletion queue
 		for i in 0..3u8 {
-			let addr = Contracts::bare_instantiate(
-				ALICE,
-				min_balance * 100,
-				GAS_LIMIT,
-				None,
-				Code::Upload(code.clone()),
-				vec![],
-				vec![i],
-				DebugInfo::Skip,
-				CollectEvents::Skip,
-			)
-			.result
-			.unwrap()
-			.account_id;
+			let addr = builder::bare_instantiate(Code::Upload(code.clone()))
+				.value(min_balance * 100)
+				.salt(vec![i])
+				.build_and_unwrap_account_id();
 
 			let info = get_contract(&addr);
 			let trie = &info.child_trie_info();
@@ -2688,14 +1976,7 @@ fn deletion_queue_ring_buffer_overflow() {
 
 			// Terminate the contract. Contract info should be gone, but value should be still
 			// there as the lazy removal did not run, yet.
-			assert_ok!(Contracts::call(
-				RuntimeOrigin::signed(ALICE),
-				addr.clone(),
-				0,
-				GAS_LIMIT,
-				None,
-				vec![]
-			));
+			assert_ok!(builder::call(addr.clone()).build());
 
 			assert!(!<ContractInfoOf::<Test>>::contains_key(&addr));
 			assert_matches!(child::get(trie, &[99]), Some(42));
@@ -2723,87 +2004,36 @@ fn refcounter() {
 		let min_balance = Contracts::min_balance();
 
 		// Create two contracts with the same code and check that they do in fact share it.
-		let addr0 = Contracts::bare_instantiate(
-			ALICE,
-			min_balance * 100,
-			GAS_LIMIT,
-			None,
-			Code::Upload(wasm.clone()),
-			vec![],
-			vec![0],
-			DebugInfo::Skip,
-			CollectEvents::Skip,
-		)
-		.result
-		.unwrap()
-		.account_id;
-		let addr1 = Contracts::bare_instantiate(
-			ALICE,
-			min_balance * 100,
-			GAS_LIMIT,
-			None,
-			Code::Upload(wasm.clone()),
-			vec![],
-			vec![1],
-			DebugInfo::Skip,
-			CollectEvents::Skip,
-		)
-		.result
-		.unwrap()
-		.account_id;
+		let addr0 = builder::bare_instantiate(Code::Upload(wasm.clone()))
+			.value(min_balance * 100)
+			.salt(vec![0])
+			.build_and_unwrap_account_id();
+		let addr1 = builder::bare_instantiate(Code::Upload(wasm.clone()))
+			.value(min_balance * 100)
+			.salt(vec![1])
+			.build_and_unwrap_account_id();
 		assert_refcount!(code_hash, 2);
 
 		// Sharing should also work with the usual instantiate call
-		let addr2 = Contracts::bare_instantiate(
-			ALICE,
-			min_balance * 100,
-			GAS_LIMIT,
-			None,
-			Code::Existing(code_hash),
-			vec![],
-			vec![2],
-			DebugInfo::Skip,
-			CollectEvents::Skip,
-		)
-		.result
-		.unwrap()
-		.account_id;
+		let addr2 = builder::bare_instantiate(Code::Existing(code_hash))
+			.value(min_balance * 100)
+			.salt(vec![2])
+			.build_and_unwrap_account_id();
 		assert_refcount!(code_hash, 3);
 
 		// Terminating one contract should decrement the refcount
-		assert_ok!(Contracts::call(
-			RuntimeOrigin::signed(ALICE),
-			addr0,
-			0,
-			GAS_LIMIT,
-			None,
-			vec![]
-		));
+		assert_ok!(builder::call(addr0).build());
 		assert_refcount!(code_hash, 2);
 
 		// remove another one
-		assert_ok!(Contracts::call(
-			RuntimeOrigin::signed(ALICE),
-			addr1,
-			0,
-			GAS_LIMIT,
-			None,
-			vec![]
-		));
+		assert_ok!(builder::call(addr1).build());
 		assert_refcount!(code_hash, 1);
 
 		// Pristine code should still be there
 		PristineCode::<Test>::get(code_hash).unwrap();
 
 		// remove the last contract
-		assert_ok!(Contracts::call(
-			RuntimeOrigin::signed(ALICE),
-			addr2,
-			0,
-			GAS_LIMIT,
-			None,
-			vec![]
-		));
+		assert_ok!(builder::call(addr2).build());
 		assert_refcount!(code_hash, 0);
 
 		// refcount is `0` but code should still exists because it needs to be removed manually
@@ -2817,31 +2047,10 @@ fn debug_message_works() {
 
 	ExtBuilder::default().existential_deposit(50).build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
-		let addr = Contracts::bare_instantiate(
-			ALICE,
-			30_000,
-			GAS_LIMIT,
-			None,
-			Code::Upload(wasm),
-			vec![],
-			vec![],
-			DebugInfo::Skip,
-			CollectEvents::Skip,
-		)
-		.result
-		.unwrap()
-		.account_id;
-		let result = Contracts::bare_call(
-			ALICE,
-			addr,
-			0,
-			GAS_LIMIT,
-			None,
-			vec![],
-			DebugInfo::UnsafeDebug,
-			CollectEvents::Skip,
-			Determinism::Enforced,
-		);
+		let addr = builder::bare_instantiate(Code::Upload(wasm))
+			.value(30_000)
+			.build_and_unwrap_account_id();
+		let result = builder::bare_call(addr).debug(DebugInfo::UnsafeDebug).build();
 
 		assert_matches!(result.result, Ok(_));
 		assert_eq!(std::str::from_utf8(&result.debug_message).unwrap(), "Hello World!");
@@ -2854,32 +2063,11 @@ fn debug_message_logging_disabled() {
 
 	ExtBuilder::default().existential_deposit(50).build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
-		let addr = Contracts::bare_instantiate(
-			ALICE,
-			30_000,
-			GAS_LIMIT,
-			None,
-			Code::Upload(wasm),
-			vec![],
-			vec![],
-			DebugInfo::Skip,
-			CollectEvents::Skip,
-		)
-		.result
-		.unwrap()
-		.account_id;
+		let addr = builder::bare_instantiate(Code::Upload(wasm))
+			.value(30_000)
+			.build_and_unwrap_account_id();
 		// disable logging by passing `false`
-		let result = Contracts::bare_call(
-			ALICE,
-			addr.clone(),
-			0,
-			GAS_LIMIT,
-			None,
-			vec![],
-			DebugInfo::Skip,
-			CollectEvents::Skip,
-			Determinism::Enforced,
-		);
+		let result = builder::bare_call(addr.clone()).build();
 		assert_matches!(result.result, Ok(_));
 		// the dispatchables always run without debugging
 		assert_ok!(Contracts::call(RuntimeOrigin::signed(ALICE), addr, 0, GAS_LIMIT, None, vec![]));
@@ -2893,206 +2081,152 @@ fn debug_message_invalid_utf8() {
 
 	ExtBuilder::default().existential_deposit(50).build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
-		let addr = Contracts::bare_instantiate(
-			ALICE,
-			30_000,
-			GAS_LIMIT,
-			None,
-			Code::Upload(wasm),
-			vec![],
-			vec![],
-			DebugInfo::Skip,
-			CollectEvents::Skip,
-		)
-		.result
-		.unwrap()
-		.account_id;
-		let result = Contracts::bare_call(
-			ALICE,
-			addr,
-			0,
-			GAS_LIMIT,
-			None,
-			vec![],
-			DebugInfo::UnsafeDebug,
-			CollectEvents::Skip,
-			Determinism::Enforced,
-		);
+		let addr = builder::bare_instantiate(Code::Upload(wasm))
+			.value(30_000)
+			.build_and_unwrap_account_id();
+		let result = builder::bare_call(addr).debug(DebugInfo::UnsafeDebug).build();
 		assert_ok!(result.result);
 		assert!(result.debug_message.is_empty());
 	});
 }
 
 #[test]
-fn gas_estimation_nested_call_fixed_limit() {
+fn gas_estimation_for_subcalls() {
 	let (caller_code, _caller_hash) = compile_module::<Test>("call_with_limit").unwrap();
-	let (callee_code, _callee_hash) = compile_module::<Test>("dummy").unwrap();
+	let (call_runtime_code, _caller_hash) = compile_module::<Test>("call_runtime").unwrap();
+	let (dummy_code, _callee_hash) = compile_module::<Test>("dummy").unwrap();
 	ExtBuilder::default().existential_deposit(50).build().execute_with(|| {
 		let min_balance = Contracts::min_balance();
-		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1000 * min_balance);
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 2_000 * min_balance);
 
-		let addr_caller = Contracts::bare_instantiate(
-			ALICE,
-			min_balance * 100,
+		let addr_caller = builder::bare_instantiate(Code::Upload(caller_code))
+			.value(min_balance * 100)
+			.build_and_unwrap_account_id();
+
+		let addr_dummy = builder::bare_instantiate(Code::Upload(dummy_code))
+			.value(min_balance * 100)
+			.build_and_unwrap_account_id();
+
+		let addr_call_runtime = builder::bare_instantiate(Code::Upload(call_runtime_code))
+			.value(min_balance * 100)
+			.build_and_unwrap_account_id();
+
+		// Run the test for all of those weight limits for the subcall
+		let weights = [
+			Weight::zero(),
 			GAS_LIMIT,
-			None,
-			Code::Upload(caller_code),
-			vec![],
-			vec![0],
-			DebugInfo::Skip,
-			CollectEvents::Skip,
-		)
-		.result
-		.unwrap()
-		.account_id;
+			GAS_LIMIT * 2,
+			GAS_LIMIT / 5,
+			Weight::from_parts(0, GAS_LIMIT.proof_size()),
+			Weight::from_parts(GAS_LIMIT.ref_time(), 0),
+		];
 
-		let addr_callee = Contracts::bare_instantiate(
-			ALICE,
-			min_balance * 100,
-			GAS_LIMIT,
-			None,
-			Code::Upload(callee_code),
-			vec![],
-			vec![1],
-			DebugInfo::Skip,
-			CollectEvents::Skip,
-		)
-		.result
-		.unwrap()
-		.account_id;
+		// This call is passed to the sub call in order to create a large `required_weight`
+		let runtime_call = RuntimeCall::Dummy(pallet_dummy::Call::overestimate_pre_charge {
+			pre_charge: Weight::from_parts(10_000_000_000, 512 * 1024),
+			actual_weight: Weight::from_parts(1, 1),
+		})
+		.encode();
 
-		let input: Vec<u8> = AsRef::<[u8]>::as_ref(&addr_callee)
-			.iter()
-			.cloned()
-			.chain((GAS_LIMIT / 5).ref_time().to_le_bytes())
-			.chain((GAS_LIMIT / 5).proof_size().to_le_bytes())
-			.collect();
+		// Encodes which contract should be sub called with which input
+		let sub_calls: [(&[u8], Vec<_>, bool); 2] = [
+			(addr_dummy.as_ref(), vec![], false),
+			(addr_call_runtime.as_ref(), runtime_call, true),
+		];
 
-		// Call in order to determine the gas that is required for this call
-		let result = Contracts::bare_call(
-			ALICE,
-			addr_caller.clone(),
-			0,
-			GAS_LIMIT,
-			None,
-			input.clone(),
-			DebugInfo::Skip,
-			CollectEvents::Skip,
-			Determinism::Enforced,
-		);
-		assert_ok!(&result.result);
+		for weight in weights {
+			for (sub_addr, sub_input, out_of_gas_in_subcall) in &sub_calls {
+				let input: Vec<u8> = sub_addr
+					.iter()
+					.cloned()
+					.chain(weight.ref_time().to_le_bytes())
+					.chain(weight.proof_size().to_le_bytes())
+					.chain(sub_input.clone())
+					.collect();
 
-		// We have a subcall with a fixed gas limit. This constitutes precharging.
-		assert!(result.gas_required.all_gt(result.gas_consumed));
+				// Call in order to determine the gas that is required for this call
+				let result = builder::bare_call(addr_caller.clone()).data(input.clone()).build();
+				assert_ok!(&result.result);
 
-		// Make the same call using the estimated gas. Should succeed.
-		assert_ok!(
-			Contracts::bare_call(
-				ALICE,
-				addr_caller.clone(),
-				0,
-				result.gas_required,
-				Some(result.storage_deposit.charge_or_zero()),
-				input.clone(),
-				DebugInfo::Skip,
-				CollectEvents::Skip,
-				Determinism::Enforced,
-			)
-			.result
-		);
+				// If the out of gas happens in the subcall the caller contract
+				// will just trap. Otherwise we would need to forward an error
+				// code to signal that the sub contract ran out of gas.
+				let error: DispatchError = if *out_of_gas_in_subcall {
+					assert!(result.gas_required.all_gt(result.gas_consumed));
+					<Error<Test>>::ContractTrapped.into()
+				} else {
+					assert_eq!(result.gas_required, result.gas_consumed);
+					<Error<Test>>::OutOfGas.into()
+				};
 
-		// Make the same call using proof_size but less than estimated. Should fail with OutOfGas.
-		let result = Contracts::bare_call(
-			ALICE,
-			addr_caller,
-			0,
-			result.gas_required.sub_proof_size(1),
-			Some(result.storage_deposit.charge_or_zero()),
-			input,
-			DebugInfo::Skip,
-			CollectEvents::Skip,
-			Determinism::Enforced,
-		)
-		.result;
-		assert_err!(result, <Error<Test>>::OutOfGas);
+				// Make the same call using the estimated gas. Should succeed.
+				assert_ok!(
+					builder::bare_call(addr_caller.clone())
+						.gas_limit(result.gas_required)
+						.storage_deposit_limit(Some(result.storage_deposit.charge_or_zero()))
+						.data(input.clone())
+						.build()
+						.result
+				);
+
+				// Check that it fails with too little ref_time
+				assert_err!(
+					builder::bare_call(addr_caller.clone())
+						.gas_limit(result.gas_required.sub_ref_time(1))
+						.storage_deposit_limit(Some(result.storage_deposit.charge_or_zero()))
+						.data(input.clone())
+						.build()
+						.result,
+					error,
+				);
+
+				// Check that it fails with too little proof_size
+				assert_err!(
+					builder::bare_call(addr_caller.clone())
+						.gas_limit(result.gas_required.sub_proof_size(1))
+						.storage_deposit_limit(Some(result.storage_deposit.charge_or_zero()))
+						.data(input)
+						.build()
+						.result,
+					error,
+				);
+			}
+		}
 	});
 }
 
 #[test]
 fn gas_estimation_call_runtime() {
-	use codec::Decode;
 	let (caller_code, _caller_hash) = compile_module::<Test>("call_runtime").unwrap();
-	let (callee_code, _callee_hash) = compile_module::<Test>("dummy").unwrap();
 	ExtBuilder::default().existential_deposit(50).build().execute_with(|| {
 		let min_balance = Contracts::min_balance();
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1000 * min_balance);
 		let _ = <Test as Config>::Currency::set_balance(&CHARLIE, 1000 * min_balance);
 
-		let addr_caller = Contracts::bare_instantiate(
-			ALICE,
-			min_balance * 100,
-			GAS_LIMIT,
-			None,
-			Code::Upload(caller_code),
-			vec![],
-			vec![0],
-			DebugInfo::Skip,
-			CollectEvents::Skip,
-		)
-		.result
-		.unwrap()
-		.account_id;
-
-		Contracts::bare_instantiate(
-			ALICE,
-			min_balance * 100,
-			GAS_LIMIT,
-			None,
-			Code::Upload(callee_code),
-			vec![],
-			vec![1],
-			DebugInfo::Skip,
-			CollectEvents::Skip,
-		)
-		.result
-		.unwrap();
+		let addr_caller = builder::bare_instantiate(Code::Upload(caller_code))
+			.value(min_balance * 100)
+			.salt(vec![0])
+			.build_and_unwrap_account_id();
 
 		// Call something trivial with a huge gas limit so that we can observe the effects
 		// of pre-charging. This should create a difference between consumed and required.
 		let call = RuntimeCall::Dummy(pallet_dummy::Call::overestimate_pre_charge {
-			pre_charge: Weight::from_parts(10_000_000, 0),
-			actual_weight: Weight::from_parts(100, 0),
+			pre_charge: Weight::from_parts(10_000_000, 1_000),
+			actual_weight: Weight::from_parts(100, 100),
 		});
-		let result = Contracts::bare_call(
-			ALICE,
-			addr_caller.clone(),
-			0,
-			GAS_LIMIT,
-			None,
-			call.encode(),
-			DebugInfo::Skip,
-			CollectEvents::Skip,
-			Determinism::Enforced,
-		);
+		let result = builder::bare_call(addr_caller.clone()).data(call.encode()).build();
 		// contract encodes the result of the dispatch runtime
 		let outcome = u32::decode(&mut result.result.unwrap().data.as_ref()).unwrap();
 		assert_eq!(outcome, 0);
-		assert!(result.gas_required.ref_time() > result.gas_consumed.ref_time());
+		assert!(result.gas_required.all_gt(result.gas_consumed));
 
 		// Make the same call using the required gas. Should succeed.
 		assert_ok!(
-			Contracts::bare_call(
-				ALICE,
-				addr_caller,
-				0,
-				result.gas_required,
-				None,
-				call.encode(),
-				DebugInfo::Skip,
-				CollectEvents::Skip,
-				Determinism::Enforced,
-			)
-			.result
+			builder::bare_call(addr_caller)
+				.gas_limit(result.gas_required)
+				.data(call.encode())
+				.build()
+				.result
 		);
 	});
 }
@@ -3106,35 +2240,15 @@ fn call_runtime_reentrancy_guarded() {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1000 * min_balance);
 		let _ = <Test as Config>::Currency::set_balance(&CHARLIE, 1000 * min_balance);
 
-		let addr_caller = Contracts::bare_instantiate(
-			ALICE,
-			min_balance * 100,
-			GAS_LIMIT,
-			None,
-			Code::Upload(caller_code),
-			vec![],
-			vec![0],
-			DebugInfo::Skip,
-			CollectEvents::Skip,
-		)
-		.result
-		.unwrap()
-		.account_id;
+		let addr_caller = builder::bare_instantiate(Code::Upload(caller_code))
+			.value(min_balance * 100)
+			.salt(vec![0])
+			.build_and_unwrap_account_id();
 
-		let addr_callee = Contracts::bare_instantiate(
-			ALICE,
-			min_balance * 100,
-			GAS_LIMIT,
-			None,
-			Code::Upload(callee_code),
-			vec![],
-			vec![1],
-			DebugInfo::Skip,
-			CollectEvents::Skip,
-		)
-		.result
-		.unwrap()
-		.account_id;
+		let addr_callee = builder::bare_instantiate(Code::Upload(callee_code))
+			.value(min_balance * 100)
+			.salt(vec![1])
+			.build_and_unwrap_account_id();
 
 		// Call pallet_contracts call() dispatchable
 		let call = RuntimeCall::Contracts(crate::Call::call {
@@ -3147,19 +2261,9 @@ fn call_runtime_reentrancy_guarded() {
 
 		// Call runtime to re-enter back to contracts engine by
 		// calling dummy contract
-		let result = Contracts::bare_call(
-			ALICE,
-			addr_caller.clone(),
-			0,
-			GAS_LIMIT,
-			None,
-			call.encode(),
-			DebugInfo::Skip,
-			CollectEvents::Skip,
-			Determinism::Enforced,
-		)
-		.result
-		.unwrap();
+		let result = builder::bare_call(addr_caller.clone())
+			.data(call.encode())
+			.build_and_unwrap_result();
 		// Call to runtime should fail because of the re-entrancy guard
 		assert_return_code!(result, RuntimeReturnCode::CallRuntimeFailed);
 	});
@@ -3173,20 +2277,9 @@ fn ecdsa_recover() {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
 
 		// Instantiate the ecdsa_recover contract.
-		let addr = Contracts::bare_instantiate(
-			ALICE,
-			100_000,
-			GAS_LIMIT,
-			None,
-			Code::Upload(wasm),
-			vec![],
-			vec![],
-			DebugInfo::Skip,
-			CollectEvents::Skip,
-		)
-		.result
-		.unwrap()
-		.account_id;
+		let addr = builder::bare_instantiate(Code::Upload(wasm))
+			.value(100_000)
+			.build_and_unwrap_account_id();
 
 		#[rustfmt::skip]
 		let signature: [u8; 65] = [
@@ -3211,19 +2304,7 @@ fn ecdsa_recover() {
 		params.extend_from_slice(&signature);
 		params.extend_from_slice(&message_hash);
 		assert!(params.len() == 65 + 32);
-		let result = <Pallet<Test>>::bare_call(
-			ALICE,
-			addr.clone(),
-			0,
-			GAS_LIMIT,
-			None,
-			params,
-			DebugInfo::Skip,
-			CollectEvents::Skip,
-			Determinism::Enforced,
-		)
-		.result
-		.unwrap();
+		let result = builder::bare_call(addr.clone()).data(params).build_and_unwrap_result();
 		assert!(!result.did_revert());
 		assert_eq!(result.data, EXPECTED_COMPRESSED_PUBLIC_KEY);
 	})
@@ -3236,17 +2317,10 @@ fn bare_instantiate_returns_events() {
 		let min_balance = Contracts::min_balance();
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1000 * min_balance);
 
-		let result = Contracts::bare_instantiate(
-			ALICE,
-			min_balance * 100,
-			GAS_LIMIT,
-			None,
-			Code::Upload(wasm),
-			vec![],
-			vec![],
-			DebugInfo::Skip,
-			CollectEvents::UnsafeCollect,
-		);
+		let result = builder::bare_instantiate(Code::Upload(wasm))
+			.value(min_balance * 100)
+			.collect_events(CollectEvents::UnsafeCollect)
+			.build();
 
 		let events = result.events.unwrap();
 		assert!(!events.is_empty());
@@ -3261,17 +2335,7 @@ fn bare_instantiate_does_not_return_events() {
 		let min_balance = Contracts::min_balance();
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1000 * min_balance);
 
-		let result = Contracts::bare_instantiate(
-			ALICE,
-			min_balance * 100,
-			GAS_LIMIT,
-			None,
-			Code::Upload(wasm),
-			vec![],
-			vec![],
-			DebugInfo::Skip,
-			CollectEvents::Skip,
-		);
+		let result = builder::bare_instantiate(Code::Upload(wasm)).value(min_balance * 100).build();
 
 		let events = result.events;
 		assert!(!System::events().is_empty());
@@ -3286,32 +2350,13 @@ fn bare_call_returns_events() {
 		let min_balance = Contracts::min_balance();
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1000 * min_balance);
 
-		let addr = Contracts::bare_instantiate(
-			ALICE,
-			min_balance * 100,
-			GAS_LIMIT,
-			None,
-			Code::Upload(wasm),
-			vec![],
-			vec![],
-			DebugInfo::Skip,
-			CollectEvents::Skip,
-		)
-		.result
-		.unwrap()
-		.account_id;
+		let addr = builder::bare_instantiate(Code::Upload(wasm))
+			.value(min_balance * 100)
+			.build_and_unwrap_account_id();
 
-		let result = Contracts::bare_call(
-			ALICE,
-			addr.clone(),
-			0,
-			GAS_LIMIT,
-			None,
-			vec![],
-			DebugInfo::Skip,
-			CollectEvents::UnsafeCollect,
-			Determinism::Enforced,
-		);
+		let result = builder::bare_call(addr.clone())
+			.collect_events(CollectEvents::UnsafeCollect)
+			.build();
 
 		let events = result.events.unwrap();
 		assert_return_code!(&result.result.unwrap(), RuntimeReturnCode::Success);
@@ -3327,32 +2372,11 @@ fn bare_call_does_not_return_events() {
 		let min_balance = Contracts::min_balance();
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1000 * min_balance);
 
-		let addr = Contracts::bare_instantiate(
-			ALICE,
-			min_balance * 100,
-			GAS_LIMIT,
-			None,
-			Code::Upload(wasm),
-			vec![],
-			vec![],
-			DebugInfo::Skip,
-			CollectEvents::Skip,
-		)
-		.result
-		.unwrap()
-		.account_id;
+		let addr = builder::bare_instantiate(Code::Upload(wasm))
+			.value(min_balance * 100)
+			.build_and_unwrap_account_id();
 
-		let result = Contracts::bare_call(
-			ALICE,
-			addr.clone(),
-			0,
-			GAS_LIMIT,
-			None,
-			vec![],
-			DebugInfo::Skip,
-			CollectEvents::Skip,
-			Determinism::Enforced,
-		);
+		let result = builder::bare_call(addr.clone()).build();
 
 		let events = result.events;
 		assert_return_code!(&result.result.unwrap(), RuntimeReturnCode::Success);
@@ -3369,20 +2393,9 @@ fn sr25519_verify() {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
 
 		// Instantiate the sr25519_verify contract.
-		let addr = Contracts::bare_instantiate(
-			ALICE,
-			100_000,
-			GAS_LIMIT,
-			None,
-			Code::Upload(wasm),
-			vec![],
-			vec![],
-			DebugInfo::Skip,
-			CollectEvents::Skip,
-		)
-		.result
-		.unwrap()
-		.account_id;
+		let addr = builder::bare_instantiate(Code::Upload(wasm))
+			.value(100_000)
+			.build_and_unwrap_account_id();
 
 		let call_with = |message: &[u8; 11]| {
 			// Alice's signature for "hello world"
@@ -3406,19 +2419,7 @@ fn sr25519_verify() {
 			params.extend_from_slice(&public_key);
 			params.extend_from_slice(message);
 
-			<Pallet<Test>>::bare_call(
-				ALICE,
-				addr.clone(),
-				0,
-				GAS_LIMIT,
-				None,
-				params,
-				DebugInfo::Skip,
-				CollectEvents::Skip,
-				Determinism::Enforced,
-			)
-			.result
-			.unwrap()
+			builder::bare_call(addr.clone()).data(params).build_and_unwrap_result()
 		};
 
 		// verification should succeed for "hello world"
@@ -3440,34 +2441,10 @@ fn failed_deposit_charge_should_roll_back_call() {
 			let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
 
 			// Instantiate both contracts.
-			let addr_caller = Contracts::bare_instantiate(
-				ALICE,
-				0,
-				GAS_LIMIT,
-				None,
-				Code::Upload(wasm_caller.clone()),
-				vec![],
-				vec![],
-				DebugInfo::Skip,
-				CollectEvents::Skip,
-			)
-			.result
-			.unwrap()
-			.account_id;
-			let addr_callee = Contracts::bare_instantiate(
-				ALICE,
-				0,
-				GAS_LIMIT,
-				None,
-				Code::Upload(wasm_callee.clone()),
-				vec![],
-				vec![],
-				DebugInfo::Skip,
-				CollectEvents::Skip,
-			)
-			.result
-			.unwrap()
-			.account_id;
+			let addr_caller = builder::bare_instantiate(Code::Upload(wasm_caller.clone()))
+				.build_and_unwrap_account_id();
+			let addr_callee = builder::bare_instantiate(Code::Upload(wasm_callee.clone()))
+				.build_and_unwrap_account_id();
 
 			// Give caller proxy access to Alice.
 			assert_ok!(Proxy::add_proxy(RuntimeOrigin::signed(ALICE), addr_caller.clone(), (), 0));
@@ -3492,14 +2469,7 @@ fn failed_deposit_charge_should_roll_back_call() {
 				transfer_proxy_call,
 			);
 
-			<Pallet<Test>>::call(
-				RuntimeOrigin::signed(ALICE),
-				addr_caller.clone(),
-				0,
-				GAS_LIMIT,
-				None,
-				data.encode(),
-			)
+			builder::call(addr_caller).data(data.encode()).build()
 		})
 	};
 
@@ -3691,15 +2661,7 @@ fn remove_code_in_use() {
 	ExtBuilder::default().existential_deposit(100).build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
 
-		assert_ok!(Contracts::instantiate_with_code(
-			RuntimeOrigin::signed(ALICE),
-			0,
-			GAS_LIMIT,
-			None,
-			wasm,
-			vec![],
-			vec![],
-		));
+		assert_ok!(builder::instantiate_with_code(wasm).build());
 
 		// Drop previous events
 		initialize_block(2);
@@ -3743,20 +2705,7 @@ fn instantiate_with_zero_balance_works() {
 		initialize_block(2);
 
 		// Instantiate the BOB contract.
-		let addr = Contracts::bare_instantiate(
-			ALICE,
-			0,
-			GAS_LIMIT,
-			None,
-			Code::Upload(wasm),
-			vec![],
-			vec![],
-			DebugInfo::Skip,
-			CollectEvents::Skip,
-		)
-		.result
-		.unwrap()
-		.account_id;
+		let addr = builder::bare_instantiate(Code::Upload(wasm)).build_and_unwrap_account_id();
 
 		// Ensure the contract was stored and get expected deposit amount to be reserved.
 		let deposit_expected = expected_deposit(ensure_stored(code_hash));
@@ -3840,20 +2789,9 @@ fn instantiate_with_below_existential_deposit_works() {
 		initialize_block(2);
 
 		// Instantiate the BOB contract.
-		let addr = Contracts::bare_instantiate(
-			ALICE,
-			value,
-			GAS_LIMIT,
-			None,
-			Code::Upload(wasm),
-			vec![],
-			vec![],
-			DebugInfo::Skip,
-			CollectEvents::Skip,
-		)
-		.result
-		.unwrap()
-		.account_id;
+		let addr = builder::bare_instantiate(Code::Upload(wasm))
+			.value(value)
+			.build_and_unwrap_account_id();
 
 		// Ensure the contract was stored and get expected deposit amount to be reserved.
 		let deposit_expected = expected_deposit(ensure_stored(code_hash));
@@ -3939,20 +2877,7 @@ fn storage_deposit_works() {
 	ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
 
-		let addr = Contracts::bare_instantiate(
-			ALICE,
-			0,
-			GAS_LIMIT,
-			None,
-			Code::Upload(wasm),
-			vec![],
-			vec![],
-			DebugInfo::Skip,
-			CollectEvents::Skip,
-		)
-		.result
-		.unwrap()
-		.account_id;
+		let addr = builder::bare_instantiate(Code::Upload(wasm)).build_and_unwrap_account_id();
 
 		let mut deposit = test_utils::contract_info_storage_deposit(&addr);
 
@@ -3960,41 +2885,23 @@ fn storage_deposit_works() {
 		initialize_block(2);
 
 		// Create storage
-		assert_ok!(Contracts::call(
-			RuntimeOrigin::signed(ALICE),
-			addr.clone(),
-			42,
-			GAS_LIMIT,
-			None,
-			(1_000u32, 5_000u32).encode(),
-		));
+		assert_ok!(builder::call(addr.clone())
+			.value(42)
+			.data((1_000u32, 5_000u32).encode())
+			.build());
 		// 4 is for creating 2 storage items
 		let charged0 = 4 + 1_000 + 5_000;
 		deposit += charged0;
 		assert_eq!(get_contract(&addr).total_deposit(), deposit);
 
 		// Add more storage (but also remove some)
-		assert_ok!(Contracts::call(
-			RuntimeOrigin::signed(ALICE),
-			addr.clone(),
-			0,
-			GAS_LIMIT,
-			None,
-			(2_000u32, 4_900u32).encode(),
-		));
+		assert_ok!(builder::call(addr.clone()).data((2_000u32, 4_900u32).encode()).build());
 		let charged1 = 1_000 - 100;
 		deposit += charged1;
 		assert_eq!(get_contract(&addr).total_deposit(), deposit);
 
 		// Remove more storage (but also add some)
-		assert_ok!(Contracts::call(
-			RuntimeOrigin::signed(ALICE),
-			addr.clone(),
-			0,
-			GAS_LIMIT,
-			None,
-			(2_100u32, 900u32).encode(),
-		));
+		assert_ok!(builder::call(addr.clone()).data((2_100u32, 900u32).encode()).build());
 		// -1 for numeric instability
 		let refunded0 = 4_000 - 100 - 1;
 		deposit -= refunded0;
@@ -4083,43 +2990,12 @@ fn storage_deposit_callee_works() {
 		let min_balance = Contracts::min_balance();
 
 		// Create both contracts: Constructors do nothing.
-		let addr_caller = Contracts::bare_instantiate(
-			ALICE,
-			0,
-			GAS_LIMIT,
-			None,
-			Code::Upload(wasm_caller),
-			vec![],
-			vec![],
-			DebugInfo::Skip,
-			CollectEvents::Skip,
-		)
-		.result
-		.unwrap()
-		.account_id;
-		let addr_callee = Contracts::bare_instantiate(
-			ALICE,
-			0,
-			GAS_LIMIT,
-			None,
-			Code::Upload(wasm_callee),
-			vec![],
-			vec![],
-			DebugInfo::Skip,
-			CollectEvents::Skip,
-		)
-		.result
-		.unwrap()
-		.account_id;
+		let addr_caller =
+			builder::bare_instantiate(Code::Upload(wasm_caller)).build_and_unwrap_account_id();
+		let addr_callee =
+			builder::bare_instantiate(Code::Upload(wasm_callee)).build_and_unwrap_account_id();
 
-		assert_ok!(Contracts::call(
-			RuntimeOrigin::signed(ALICE),
-			addr_caller,
-			0,
-			GAS_LIMIT,
-			None,
-			(100u32, &addr_callee).encode()
-		));
+		assert_ok!(builder::call(addr_caller).data((100u32, &addr_callee).encode()).build());
 
 		let callee = get_contract(&addr_callee);
 		let deposit = DepositPerByte::get() * 100 + DepositPerItem::get() * 1;
@@ -4142,20 +3018,7 @@ fn set_code_extrinsic() {
 	ExtBuilder::default().existential_deposit(100).build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
 
-		let addr = Contracts::bare_instantiate(
-			ALICE,
-			0,
-			GAS_LIMIT,
-			None,
-			Code::Upload(wasm),
-			vec![],
-			vec![],
-			DebugInfo::Skip,
-			CollectEvents::Skip,
-		)
-		.result
-		.unwrap()
-		.account_id;
+		let addr = builder::bare_instantiate(Code::Upload(wasm)).build_and_unwrap_account_id();
 
 		assert_ok!(Contracts::upload_code(
 			RuntimeOrigin::signed(ALICE),
@@ -4179,7 +3042,7 @@ fn set_code_extrinsic() {
 		assert_eq!(get_contract(&addr).code_hash, code_hash);
 		assert_refcount!(&code_hash, 1);
 		assert_refcount!(&new_code_hash, 0);
-		assert_eq!(System::events(), vec![],);
+		assert_eq!(System::events(), vec![]);
 
 		// contract must exist
 		assert_noop!(
@@ -4189,7 +3052,7 @@ fn set_code_extrinsic() {
 		assert_eq!(get_contract(&addr).code_hash, code_hash);
 		assert_refcount!(&code_hash, 1);
 		assert_refcount!(&new_code_hash, 0);
-		assert_eq!(System::events(), vec![],);
+		assert_eq!(System::events(), vec![]);
 
 		// new code hash must exist
 		assert_noop!(
@@ -4199,7 +3062,7 @@ fn set_code_extrinsic() {
 		assert_eq!(get_contract(&addr).code_hash, code_hash);
 		assert_refcount!(&code_hash, 1);
 		assert_refcount!(&new_code_hash, 0);
-		assert_eq!(System::events(), vec![],);
+		assert_eq!(System::events(), vec![]);
 
 		// successful call
 		assert_ok!(Contracts::set_code(RuntimeOrigin::root(), addr.clone(), new_code_hash));
@@ -4229,20 +3092,9 @@ fn slash_cannot_kill_account() {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
 		let min_balance = Contracts::min_balance();
 
-		let addr = Contracts::bare_instantiate(
-			ALICE,
-			value,
-			GAS_LIMIT,
-			None,
-			Code::Upload(wasm),
-			vec![],
-			vec![],
-			DebugInfo::Skip,
-			CollectEvents::Skip,
-		)
-		.result
-		.unwrap()
-		.account_id;
+		let addr = builder::bare_instantiate(Code::Upload(wasm))
+			.value(value)
+			.build_and_unwrap_account_id();
 
 		// Drop previous events
 		initialize_block(2);
@@ -4293,29 +3145,13 @@ fn contract_reverted() {
 
 		// Calling extrinsic: revert leads to an error
 		assert_err_ignore_postinfo!(
-			Contracts::instantiate(
-				RuntimeOrigin::signed(ALICE),
-				0,
-				GAS_LIMIT,
-				None,
-				code_hash,
-				input.clone(),
-				vec![],
-			),
+			builder::instantiate(code_hash).data(input.clone()).build(),
 			<Error<Test>>::ContractReverted,
 		);
 
 		// Calling extrinsic: revert leads to an error
 		assert_err_ignore_postinfo!(
-			Contracts::instantiate_with_code(
-				RuntimeOrigin::signed(ALICE),
-				0,
-				GAS_LIMIT,
-				None,
-				wasm,
-				input.clone(),
-				vec![],
-			),
+			builder::instantiate_with_code(wasm).data(input.clone()).build(),
 			<Error<Test>>::ContractReverted,
 		);
 
@@ -4323,158 +3159,28 @@ fn contract_reverted() {
 		// This is just a different way of transporting the error that allows the read out
 		// the `data` which is only there on success. Obviously, the contract isn't
 		// instantiated.
-		let result = Contracts::bare_instantiate(
-			ALICE,
-			0,
-			GAS_LIMIT,
-			None,
-			Code::Existing(code_hash),
-			input.clone(),
-			vec![],
-			DebugInfo::Skip,
-			CollectEvents::Skip,
-		)
-		.result
-		.unwrap();
+		let result = builder::bare_instantiate(Code::Existing(code_hash))
+			.data(input.clone())
+			.build_and_unwrap_result();
 		assert_eq!(result.result.flags, flags);
 		assert_eq!(result.result.data, buffer);
 		assert!(!<ContractInfoOf<Test>>::contains_key(result.account_id));
 
 		// Pass empty flags and therefore successfully instantiate the contract for later use.
-		let addr = Contracts::bare_instantiate(
-			ALICE,
-			0,
-			GAS_LIMIT,
-			None,
-			Code::Existing(code_hash),
-			ReturnFlags::empty().bits().encode(),
-			vec![],
-			DebugInfo::Skip,
-			CollectEvents::Skip,
-		)
-		.result
-		.unwrap()
-		.account_id;
+		let addr = builder::bare_instantiate(Code::Existing(code_hash))
+			.data(ReturnFlags::empty().bits().encode())
+			.build_and_unwrap_account_id();
 
 		// Calling extrinsic: revert leads to an error
 		assert_err_ignore_postinfo!(
-			Contracts::call(
-				RuntimeOrigin::signed(ALICE),
-				addr.clone(),
-				0,
-				GAS_LIMIT,
-				None,
-				input.clone()
-			),
+			builder::call(addr.clone()).data(input.clone()).build(),
 			<Error<Test>>::ContractReverted,
 		);
 
 		// Calling directly: revert leads to success but the flags indicate the error
-		let result = Contracts::bare_call(
-			ALICE,
-			addr.clone(),
-			0,
-			GAS_LIMIT,
-			None,
-			input,
-			DebugInfo::Skip,
-			CollectEvents::Skip,
-			Determinism::Enforced,
-		)
-		.result
-		.unwrap();
+		let result = builder::bare_call(addr.clone()).data(input).build_and_unwrap_result();
 		assert_eq!(result.flags, flags);
 		assert_eq!(result.data, buffer);
-	});
-}
-
-#[test]
-fn code_rejected_error_works() {
-	ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
-		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
-
-		let (wasm, _) = compile_module::<Test>("invalid_module").unwrap();
-		assert_noop!(
-			Contracts::upload_code(
-				RuntimeOrigin::signed(ALICE),
-				wasm.clone(),
-				None,
-				Determinism::Enforced
-			),
-			<Error<Test>>::CodeRejected,
-		);
-		let result = Contracts::bare_instantiate(
-			ALICE,
-			0,
-			GAS_LIMIT,
-			None,
-			Code::Upload(wasm),
-			vec![],
-			vec![],
-			DebugInfo::UnsafeDebug,
-			CollectEvents::Skip,
-		);
-		assert_err!(result.result, <Error<Test>>::CodeRejected);
-		assert_eq!(
-			std::str::from_utf8(&result.debug_message).unwrap(),
-			"Can't load the module into wasmi!"
-		);
-
-		let (wasm, _) = compile_module::<Test>("invalid_contract_no_call").unwrap();
-		assert_noop!(
-			Contracts::upload_code(
-				RuntimeOrigin::signed(ALICE),
-				wasm.clone(),
-				None,
-				Determinism::Enforced
-			),
-			<Error<Test>>::CodeRejected,
-		);
-
-		let result = Contracts::bare_instantiate(
-			ALICE,
-			0,
-			GAS_LIMIT,
-			None,
-			Code::Upload(wasm),
-			vec![],
-			vec![],
-			DebugInfo::UnsafeDebug,
-			CollectEvents::Skip,
-		);
-		assert_err!(result.result, <Error<Test>>::CodeRejected);
-		assert_eq!(
-			std::str::from_utf8(&result.debug_message).unwrap(),
-			"call function isn't exported"
-		);
-
-		let (wasm, _) = compile_module::<Test>("invalid_contract_no_memory").unwrap();
-		assert_noop!(
-			Contracts::upload_code(
-				RuntimeOrigin::signed(ALICE),
-				wasm.clone(),
-				None,
-				Determinism::Enforced
-			),
-			<Error<Test>>::CodeRejected,
-		);
-
-		let result = Contracts::bare_instantiate(
-			ALICE,
-			0,
-			GAS_LIMIT,
-			None,
-			Code::Upload(wasm),
-			vec![],
-			vec![],
-			DebugInfo::UnsafeDebug,
-			CollectEvents::Skip,
-		);
-		assert_err!(result.result, <Error<Test>>::CodeRejected);
-		assert_eq!(
-			std::str::from_utf8(&result.debug_message).unwrap(),
-			"No memory import found in the module"
-		);
 	});
 }
 
@@ -4487,20 +3193,9 @@ fn set_code_hash() {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
 
 		// Instantiate the 'caller'
-		let contract_addr = Contracts::bare_instantiate(
-			ALICE,
-			300_000,
-			GAS_LIMIT,
-			None,
-			Code::Upload(wasm),
-			vec![],
-			vec![],
-			DebugInfo::Skip,
-			CollectEvents::Skip,
-		)
-		.result
-		.unwrap()
-		.account_id;
+		let contract_addr = builder::bare_instantiate(Code::Upload(wasm))
+			.value(300_000)
+			.build_and_unwrap_account_id();
 		// upload new code
 		assert_ok!(Contracts::upload_code(
 			RuntimeOrigin::signed(ALICE),
@@ -4512,35 +3207,16 @@ fn set_code_hash() {
 		System::reset_events();
 
 		// First call sets new code_hash and returns 1
-		let result = Contracts::bare_call(
-			ALICE,
-			contract_addr.clone(),
-			0,
-			GAS_LIMIT,
-			None,
-			new_code_hash.as_ref().to_vec(),
-			DebugInfo::UnsafeDebug,
-			CollectEvents::Skip,
-			Determinism::Enforced,
-		)
-		.result
-		.unwrap();
+		let result = builder::bare_call(contract_addr.clone())
+			.data(new_code_hash.as_ref().to_vec())
+			.debug(DebugInfo::UnsafeDebug)
+			.build_and_unwrap_result();
 		assert_return_code!(result, 1);
 
 		// Second calls new contract code that returns 2
-		let result = Contracts::bare_call(
-			ALICE,
-			contract_addr.clone(),
-			0,
-			GAS_LIMIT,
-			None,
-			vec![],
-			DebugInfo::UnsafeDebug,
-			CollectEvents::Skip,
-			Determinism::Enforced,
-		)
-		.result
-		.unwrap();
+		let result = builder::bare_call(contract_addr.clone())
+			.debug(DebugInfo::UnsafeDebug)
+			.build_and_unwrap_result();
 		assert_return_code!(result, 2);
 
 		// Checking for the last event only
@@ -4592,37 +3268,16 @@ fn storage_deposit_limit_is_enforced() {
 
 		// Setting insufficient storage_deposit should fail.
 		assert_err!(
-			Contracts::bare_instantiate(
-				ALICE,
-				0,
-				GAS_LIMIT,
-				Some((2 * min_balance + 3 - 1).into()), /* expected deposit is 2 * ed + 3 for
-				                                         * the call */
-				Code::Upload(wasm.clone()),
-				vec![],
-				vec![],
-				DebugInfo::Skip,
-				CollectEvents::Skip,
-			)
-			.result,
+			builder::bare_instantiate(Code::Upload(wasm.clone()))
+				// expected deposit is 2 * ed + 3 for the call
+				.storage_deposit_limit(Some((2 * min_balance + 3 - 1).into()))
+				.build()
+				.result,
 			<Error<Test>>::StorageDepositLimitExhausted,
 		);
 
 		// Instantiate the BOB contract.
-		let addr = Contracts::bare_instantiate(
-			ALICE,
-			0,
-			GAS_LIMIT,
-			None,
-			Code::Upload(wasm),
-			vec![],
-			vec![],
-			DebugInfo::Skip,
-			CollectEvents::Skip,
-		)
-		.result
-		.unwrap()
-		.account_id;
+		let addr = builder::bare_instantiate(Code::Upload(wasm)).build_and_unwrap_account_id();
 
 		let info_deposit = test_utils::contract_info_storage_deposit(&addr);
 		// Check that the BOB contract has been instantiated and has the minimum balance
@@ -4633,14 +3288,10 @@ fn storage_deposit_limit_is_enforced() {
 		// setting insufficient deposit limit, as it requires 3 Balance:
 		// 2 for the item added + 1 for the new storage item.
 		assert_err_ignore_postinfo!(
-			Contracts::call(
-				RuntimeOrigin::signed(ALICE),
-				addr.clone(),
-				0,
-				GAS_LIMIT,
-				Some(codec::Compact(2)),
-				1u32.to_le_bytes().to_vec()
-			),
+			builder::call(addr.clone())
+				.storage_deposit_limit(Some(codec::Compact(2)))
+				.data(1u32.to_le_bytes().to_vec())
+				.build(),
 			<Error<Test>>::StorageDepositLimitExhausted,
 		);
 
@@ -4651,26 +3302,12 @@ fn storage_deposit_limit_is_enforced() {
 		// Create 1 byte of storage, should cost 3 Balance:
 		// 2 for the item added + 1 for the new storage item.
 		// Should pass as it fallbacks to DefaultDepositLimit.
-		assert_ok!(Contracts::call(
-			RuntimeOrigin::signed(ALICE),
-			addr.clone(),
-			0,
-			GAS_LIMIT,
-			None,
-			1u32.to_le_bytes().to_vec()
-		));
+		assert_ok!(builder::call(addr.clone()).data(1u32.to_le_bytes().to_vec()).build());
 
 		// Use 4 more bytes of the storage for the same item, which requires 4 Balance.
 		// Should fail as DefaultDepositLimit is 3 and hence isn't enough.
 		assert_err_ignore_postinfo!(
-			Contracts::call(
-				RuntimeOrigin::signed(ALICE),
-				addr.clone(),
-				0,
-				GAS_LIMIT,
-				None,
-				5u32.to_le_bytes().to_vec()
-			),
+			builder::call(addr.clone()).data(5u32.to_le_bytes().to_vec()).build(),
 			<Error<Test>>::StorageDepositLimitExhausted,
 		);
 	});
@@ -4685,45 +3322,17 @@ fn deposit_limit_in_nested_calls() {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
 
 		// Create both contracts: Constructors do nothing.
-		let addr_caller = Contracts::bare_instantiate(
-			ALICE,
-			0,
-			GAS_LIMIT,
-			None,
-			Code::Upload(wasm_caller),
-			vec![],
-			vec![],
-			DebugInfo::Skip,
-			CollectEvents::Skip,
-		)
-		.result
-		.unwrap()
-		.account_id;
-		let addr_callee = Contracts::bare_instantiate(
-			ALICE,
-			0,
-			GAS_LIMIT,
-			None,
-			Code::Upload(wasm_callee),
-			vec![],
-			vec![],
-			DebugInfo::Skip,
-			CollectEvents::Skip,
-		)
-		.result
-		.unwrap()
-		.account_id;
+		let addr_caller =
+			builder::bare_instantiate(Code::Upload(wasm_caller)).build_and_unwrap_account_id();
+		let addr_callee =
+			builder::bare_instantiate(Code::Upload(wasm_callee)).build_and_unwrap_account_id();
 
 		// Create 100 bytes of storage with a price of per byte
 		// This is 100 Balance + 2 Balance for the item
-		assert_ok!(Contracts::call(
-			RuntimeOrigin::signed(ALICE),
-			addr_callee.clone(),
-			0,
-			GAS_LIMIT,
-			Some(codec::Compact(102)),
-			100u32.to_le_bytes().to_vec()
-		));
+		assert_ok!(builder::call(addr_callee.clone())
+			.storage_deposit_limit(Some(codec::Compact(102)))
+			.data(100u32.to_le_bytes().to_vec())
+			.build());
 
 		// We do not remove any storage but add a storage item of 12 bytes in the caller
 		// contract. This would cost 12 + 2 = 14 Balance.
@@ -4731,14 +3340,10 @@ fn deposit_limit_in_nested_calls() {
 		// This should fail as the specified parent's limit is less than the cost: 13 <
 		// 14.
 		assert_err_ignore_postinfo!(
-			Contracts::call(
-				RuntimeOrigin::signed(ALICE),
-				addr_caller.clone(),
-				0,
-				GAS_LIMIT,
-				Some(codec::Compact(13)),
-				(100u32, &addr_callee, 0u64).encode(),
-			),
+			builder::call(addr_caller.clone())
+				.storage_deposit_limit(Some(codec::Compact(13)))
+				.data((100u32, &addr_callee, 0u64).encode())
+				.build(),
 			<Error<Test>>::StorageDepositLimitExhausted,
 		);
 		// Now we specify the parent's limit high enough to cover the caller's storage additions.
@@ -4748,14 +3353,10 @@ fn deposit_limit_in_nested_calls() {
 		// This should fail as the specified parent's limit is less than the cost: 14
 		// < 15.
 		assert_err_ignore_postinfo!(
-			Contracts::call(
-				RuntimeOrigin::signed(ALICE),
-				addr_caller.clone(),
-				0,
-				GAS_LIMIT,
-				Some(codec::Compact(14)),
-				(101u32, &addr_callee, 0u64).encode(),
-			),
+			builder::call(addr_caller.clone())
+				.storage_deposit_limit(Some(codec::Compact(14)))
+				.data((101u32, &addr_callee, 0u64).encode())
+				.build(),
 			<Error<Test>>::StorageDepositLimitExhausted,
 		);
 
@@ -4765,14 +3366,10 @@ fn deposit_limit_in_nested_calls() {
 		// call should have a deposit limit of at least 2 Balance. The sub-call should be rolled
 		// back, which is covered by the next test case.
 		assert_err_ignore_postinfo!(
-			Contracts::call(
-				RuntimeOrigin::signed(ALICE),
-				addr_caller.clone(),
-				0,
-				GAS_LIMIT,
-				Some(codec::Compact(16)),
-				(102u32, &addr_callee, 1u64).encode(),
-			),
+			builder::call(addr_caller.clone())
+				.storage_deposit_limit(Some(codec::Compact(16)))
+				.data((102u32, &addr_callee, 1u64).encode())
+				.build(),
 			<Error<Test>>::StorageDepositLimitExhausted,
 		);
 
@@ -4780,14 +3377,10 @@ fn deposit_limit_in_nested_calls() {
 		// caller. Note that if previous sub-call wouldn't roll back, this call would pass making
 		// the test case fail. We don't set a special limit for the nested call here.
 		assert_err_ignore_postinfo!(
-			Contracts::call(
-				RuntimeOrigin::signed(ALICE),
-				addr_caller.clone(),
-				0,
-				GAS_LIMIT,
-				Some(codec::Compact(0)),
-				(87u32, &addr_callee, 0u64).encode(),
-			),
+			builder::call(addr_caller.clone())
+				.storage_deposit_limit(Some(codec::Compact(0)))
+				.data((87u32, &addr_callee, 0u64).encode())
+				.build(),
 			<Error<Test>>::StorageDepositLimitExhausted,
 		);
 
@@ -4796,28 +3389,19 @@ fn deposit_limit_in_nested_calls() {
 		// Require more than the sender's balance.
 		// We don't set a special limit for the nested call.
 		assert_err_ignore_postinfo!(
-			Contracts::call(
-				RuntimeOrigin::signed(ALICE),
-				addr_caller.clone(),
-				0,
-				GAS_LIMIT,
-				None,
-				(1200u32, &addr_callee, 1u64).encode(),
-			),
+			builder::call(addr_caller.clone())
+				.data((1200u32, &addr_callee, 1u64).encode())
+				.build(),
 			<Error<Test>>::StorageDepositLimitExhausted,
 		);
 
 		// Same as above but allow for the additional deposit of 1 Balance in parent.
 		// We set the special deposit limit of 1 Balance for the nested call, which isn't
 		// enforced as callee frees up storage. This should pass.
-		assert_ok!(Contracts::call(
-			RuntimeOrigin::signed(ALICE),
-			addr_caller.clone(),
-			0,
-			GAS_LIMIT,
-			Some(codec::Compact(1)),
-			(87u32, &addr_callee, 1u64).encode(),
-		));
+		assert_ok!(builder::call(addr_caller.clone())
+			.storage_deposit_limit(Some(codec::Compact(1)))
+			.data((87u32, &addr_callee, 1u64).encode())
+			.build());
 	});
 }
 
@@ -4831,35 +3415,13 @@ fn deposit_limit_in_nested_instantiate() {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
 		let _ = <Test as Config>::Currency::set_balance(&BOB, 1_000_000);
 		// Create caller contract
-		let addr_caller = Contracts::bare_instantiate(
-			ALICE,
-			10_000u64, // this balance is later passed to the deployed contract
-			GAS_LIMIT,
-			None,
-			Code::Upload(wasm_caller),
-			vec![],
-			vec![],
-			DebugInfo::Skip,
-			CollectEvents::Skip,
-		)
-		.result
-		.unwrap()
-		.account_id;
+		let addr_caller = builder::bare_instantiate(Code::Upload(wasm_caller))
+			.value(10_000u64) // this balance is later passed to the deployed contract
+			.build_and_unwrap_account_id();
 		// Deploy a contract to get its occupied storage size
-		let addr = Contracts::bare_instantiate(
-			ALICE,
-			0,
-			GAS_LIMIT,
-			None,
-			Code::Upload(wasm_callee),
-			vec![0, 0, 0, 0],
-			vec![],
-			DebugInfo::Skip,
-			CollectEvents::Skip,
-		)
-		.result
-		.unwrap()
-		.account_id;
+		let addr = builder::bare_instantiate(Code::Upload(wasm_callee))
+			.data(vec![0, 0, 0, 0])
+			.build_and_unwrap_account_id();
 
 		let callee_info_len = ContractInfoOf::<Test>::get(&addr).unwrap().encoded_size() as u64;
 
@@ -4875,14 +3437,11 @@ fn deposit_limit_in_nested_instantiate() {
 		// Provided the limit is set to be 1 Balance less,
 		// this call should fail on the return from the caller contract.
 		assert_err_ignore_postinfo!(
-			Contracts::call(
-				RuntimeOrigin::signed(BOB),
-				addr_caller.clone(),
-				0,
-				GAS_LIMIT,
-				Some(codec::Compact(callee_info_len + 2 + ED + 1)),
-				(0u32, &code_hash_callee, 0u64).encode(),
-			),
+			builder::call(addr_caller.clone())
+				.origin(RuntimeOrigin::signed(BOB))
+				.storage_deposit_limit(Some(codec::Compact(callee_info_len + 2 + ED + 1)))
+				.data((0u32, &code_hash_callee, 0u64).encode())
+				.build(),
 			<Error<Test>>::StorageDepositLimitExhausted,
 		);
 		// The charges made on instantiation should be rolled back.
@@ -4892,14 +3451,11 @@ fn deposit_limit_in_nested_instantiate() {
 		// byte in the constructor. Hence +1 Balance to the limit is needed. This should fail on the
 		// return from constructor.
 		assert_err_ignore_postinfo!(
-			Contracts::call(
-				RuntimeOrigin::signed(BOB),
-				addr_caller.clone(),
-				0,
-				GAS_LIMIT,
-				Some(codec::Compact(callee_info_len + 2 + ED + 2)),
-				(1u32, &code_hash_callee, 0u64).encode(),
-			),
+			builder::call(addr_caller.clone())
+				.origin(RuntimeOrigin::signed(BOB))
+				.storage_deposit_limit(Some(codec::Compact(callee_info_len + 2 + ED + 2)))
+				.data((1u32, &code_hash_callee, 0u64).encode())
+				.build(),
 			<Error<Test>>::StorageDepositLimitExhausted,
 		);
 		// The charges made on the instantiation should be rolled back.
@@ -4909,14 +3465,11 @@ fn deposit_limit_in_nested_instantiate() {
 		// This should fail during the charging for the instantiation in
 		// `RawMeter::charge_instantiate()`
 		assert_err_ignore_postinfo!(
-			Contracts::call(
-				RuntimeOrigin::signed(BOB),
-				addr_caller.clone(),
-				0,
-				GAS_LIMIT,
-				Some(codec::Compact(callee_info_len + 2 + ED + 2)),
-				(0u32, &code_hash_callee, callee_info_len + 2 + ED + 1).encode(),
-			),
+			builder::call(addr_caller.clone())
+				.origin(RuntimeOrigin::signed(BOB))
+				.storage_deposit_limit(Some(codec::Compact(callee_info_len + 2 + ED + 2)))
+				.data((0u32, &code_hash_callee, callee_info_len + 2 + ED + 1).encode())
+				.build(),
 			<Error<Test>>::StorageDepositLimitExhausted,
 		);
 		// The charges made on the instantiation should be rolled back.
@@ -4927,31 +3480,22 @@ fn deposit_limit_in_nested_instantiate() {
 		// Now we set enough limit for the parent call, but insufficient limit for child
 		// instantiate. This should fail right after the constructor execution.
 		assert_err_ignore_postinfo!(
-			Contracts::call(
-				RuntimeOrigin::signed(BOB),
-				addr_caller.clone(),
-				0,
-				GAS_LIMIT,
-				Some(codec::Compact(callee_info_len + 2 + ED + 3)), // enough parent limit
-				(1u32, &code_hash_callee, callee_info_len + 2 + ED + 2).encode(),
-			),
+			builder::call(addr_caller.clone())
+				.origin(RuntimeOrigin::signed(BOB))
+				.storage_deposit_limit(Some(codec::Compact(callee_info_len + 2 + ED + 3))) // enough parent limit
+				.data((1u32, &code_hash_callee, callee_info_len + 2 + ED + 2).encode())
+				.build(),
 			<Error<Test>>::StorageDepositLimitExhausted,
 		);
 		// The charges made on the instantiation should be rolled back.
 		assert_eq!(<Test as Config>::Currency::free_balance(&BOB), 1_000_000);
 
 		// Set enough deposit limit for the child instantiate. This should succeed.
-		let result = Contracts::bare_call(
-			BOB,
-			addr_caller.clone(),
-			0,
-			GAS_LIMIT,
-			Some(codec::Compact(callee_info_len + 2 + ED + 4).into()),
-			(1u32, &code_hash_callee, callee_info_len + 2 + ED + 3).encode(),
-			DebugInfo::Skip,
-			CollectEvents::Skip,
-			Determinism::Enforced,
-		);
+		let result = builder::bare_call(addr_caller.clone())
+			.origin(BOB)
+			.storage_deposit_limit(Some(codec::Compact(callee_info_len + 2 + ED + 4).into()))
+			.data((1u32, &code_hash_callee, callee_info_len + 2 + ED + 3).encode())
+			.build();
 
 		let returned = result.result.unwrap();
 		// All balance of the caller except ED has been transferred to the callee.
@@ -4971,7 +3515,7 @@ fn deposit_limit_in_nested_instantiate() {
 			1_000_000 - (callee_info_len + 2 + ED + 3)
 		);
 		// Check that deposit due to be charged still includes these 3 Balance
-		assert_eq!(result.storage_deposit.charge_or_zero(), (callee_info_len + 2 + ED + 3),)
+		assert_eq!(result.storage_deposit.charge_or_zero(), (callee_info_len + 2 + ED + 3))
 	});
 }
 
@@ -4985,20 +3529,7 @@ fn deposit_limit_honors_liquidity_restrictions() {
 		let min_balance = Contracts::min_balance();
 
 		// Instantiate the BOB contract.
-		let addr = Contracts::bare_instantiate(
-			ALICE,
-			0,
-			GAS_LIMIT,
-			None,
-			Code::Upload(wasm),
-			vec![],
-			vec![],
-			DebugInfo::Skip,
-			CollectEvents::Skip,
-		)
-		.result
-		.unwrap()
-		.account_id;
+		let addr = builder::bare_instantiate(Code::Upload(wasm)).build_and_unwrap_account_id();
 
 		let info_deposit = test_utils::contract_info_storage_deposit(&addr);
 		// Check that the contract has been instantiated and has the minimum balance
@@ -5013,14 +3544,11 @@ fn deposit_limit_honors_liquidity_restrictions() {
 		)
 		.unwrap();
 		assert_err_ignore_postinfo!(
-			Contracts::call(
-				RuntimeOrigin::signed(BOB),
-				addr.clone(),
-				0,
-				GAS_LIMIT,
-				Some(codec::Compact(200)),
-				100u32.to_le_bytes().to_vec()
-			),
+			builder::call(addr.clone())
+				.origin(RuntimeOrigin::signed(BOB))
+				.storage_deposit_limit(Some(codec::Compact(200)))
+				.data(100u32.to_le_bytes().to_vec())
+				.build(),
 			<Error<Test>>::StorageDepositNotEnoughFunds,
 		);
 		assert_eq!(<Test as Config>::Currency::free_balance(&BOB), min_balance);
@@ -5036,20 +3564,7 @@ fn deposit_limit_honors_existential_deposit() {
 		let min_balance = Contracts::min_balance();
 
 		// Instantiate the BOB contract.
-		let addr = Contracts::bare_instantiate(
-			ALICE,
-			0,
-			GAS_LIMIT,
-			None,
-			Code::Upload(wasm),
-			vec![],
-			vec![],
-			DebugInfo::Skip,
-			CollectEvents::Skip,
-		)
-		.result
-		.unwrap()
-		.account_id;
+		let addr = builder::bare_instantiate(Code::Upload(wasm)).build_and_unwrap_account_id();
 
 		let info_deposit = test_utils::contract_info_storage_deposit(&addr);
 
@@ -5059,14 +3574,11 @@ fn deposit_limit_honors_existential_deposit() {
 
 		// check that the deposit can't bring the account below the existential deposit
 		assert_err_ignore_postinfo!(
-			Contracts::call(
-				RuntimeOrigin::signed(BOB),
-				addr.clone(),
-				0,
-				GAS_LIMIT,
-				Some(codec::Compact(900)),
-				100u32.to_le_bytes().to_vec()
-			),
+			builder::call(addr.clone())
+				.origin(RuntimeOrigin::signed(BOB))
+				.storage_deposit_limit(Some(codec::Compact(900)))
+				.data(100u32.to_le_bytes().to_vec())
+				.build(),
 			<Error<Test>>::StorageDepositNotEnoughFunds,
 		);
 		assert_eq!(<Test as Config>::Currency::free_balance(&BOB), 1_000);
@@ -5082,20 +3594,7 @@ fn deposit_limit_honors_min_leftover() {
 		let min_balance = Contracts::min_balance();
 
 		// Instantiate the BOB contract.
-		let addr = Contracts::bare_instantiate(
-			ALICE,
-			0,
-			GAS_LIMIT,
-			None,
-			Code::Upload(wasm),
-			vec![],
-			vec![],
-			DebugInfo::Skip,
-			CollectEvents::Skip,
-		)
-		.result
-		.unwrap()
-		.account_id;
+		let addr = builder::bare_instantiate(Code::Upload(wasm)).build_and_unwrap_account_id();
 
 		let info_deposit = test_utils::contract_info_storage_deposit(&addr);
 
@@ -5106,18 +3605,36 @@ fn deposit_limit_honors_min_leftover() {
 
 		// check that the minimum leftover (value send) is considered
 		assert_err_ignore_postinfo!(
-			Contracts::call(
-				RuntimeOrigin::signed(BOB),
-				addr.clone(),
-				400,
-				GAS_LIMIT,
-				Some(codec::Compact(500)),
-				100u32.to_le_bytes().to_vec()
-			),
+			builder::call(addr.clone())
+				.origin(RuntimeOrigin::signed(BOB))
+				.value(400)
+				.storage_deposit_limit(Some(codec::Compact(500)))
+				.data(100u32.to_le_bytes().to_vec())
+				.build(),
 			<Error<Test>>::StorageDepositNotEnoughFunds,
 		);
 		assert_eq!(<Test as Config>::Currency::free_balance(&BOB), 1_000);
 	});
+}
+
+#[test]
+fn upload_should_enforce_deterministic_mode_when_possible() {
+	let upload = |fixture, determinism| {
+		let (wasm, code_hash) = compile_module::<Test>(fixture).unwrap();
+		ExtBuilder::default()
+			.build()
+			.execute_with(|| -> Result<Determinism, DispatchError> {
+				let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+				Contracts::bare_upload_code(ALICE, wasm, None, determinism)?;
+				let info = CodeInfoOf::<Test>::get(code_hash).unwrap();
+				Ok(info.determinism())
+			})
+	};
+
+	assert_eq!(upload("dummy", Determinism::Enforced), Ok(Determinism::Enforced));
+	assert_eq!(upload("dummy", Determinism::Relaxed), Ok(Determinism::Enforced));
+	assert_eq!(upload("float_instruction", Determinism::Relaxed), Ok(Determinism::Relaxed));
+	assert!(upload("float_instruction", Determinism::Enforced).is_err());
 }
 
 #[test]
@@ -5129,34 +3646,15 @@ fn cannot_instantiate_indeterministic_code() {
 
 		// Try to instantiate directly from code
 		assert_err_ignore_postinfo!(
-			Contracts::instantiate_with_code(
-				RuntimeOrigin::signed(ALICE),
-				0,
-				GAS_LIMIT,
-				None,
-				wasm.clone(),
-				vec![],
-				vec![],
-			),
+			builder::instantiate_with_code(wasm.clone()).build(),
 			<Error<Test>>::CodeRejected,
 		);
 		assert_err!(
-			Contracts::bare_instantiate(
-				ALICE,
-				0,
-				GAS_LIMIT,
-				None,
-				Code::Upload(wasm.clone()),
-				vec![],
-				vec![],
-				DebugInfo::Skip,
-				CollectEvents::Skip,
-			)
-			.result,
+			builder::bare_instantiate(Code::Upload(wasm.clone())).build().result,
 			<Error<Test>>::CodeRejected,
 		);
 
-		// Try to upload a non deterministic code as deterministic
+		// Try to upload a non-deterministic code as deterministic
 		assert_err!(
 			Contracts::upload_code(
 				RuntimeOrigin::signed(ALICE),
@@ -5176,80 +3674,27 @@ fn cannot_instantiate_indeterministic_code() {
 		));
 
 		assert_err_ignore_postinfo!(
-			Contracts::instantiate(
-				RuntimeOrigin::signed(ALICE),
-				0,
-				GAS_LIMIT,
-				None,
-				code_hash,
-				vec![],
-				vec![],
-			),
+			builder::instantiate(code_hash).build(),
 			<Error<Test>>::Indeterministic,
 		);
 		assert_err!(
-			Contracts::bare_instantiate(
-				ALICE,
-				0,
-				GAS_LIMIT,
-				None,
-				Code::Existing(code_hash),
-				vec![],
-				vec![],
-				DebugInfo::Skip,
-				CollectEvents::Skip,
-			)
-			.result,
+			builder::bare_instantiate(Code::Existing(code_hash)).build().result,
 			<Error<Test>>::Indeterministic,
 		);
 
 		// Deploy contract which instantiates another contract
-		let addr = Contracts::bare_instantiate(
-			ALICE,
-			0,
-			GAS_LIMIT,
-			None,
-			Code::Upload(caller_wasm),
-			vec![],
-			vec![],
-			DebugInfo::Skip,
-			CollectEvents::Skip,
-		)
-		.result
-		.unwrap()
-		.account_id;
+		let addr =
+			builder::bare_instantiate(Code::Upload(caller_wasm)).build_and_unwrap_account_id();
 
 		// Try to instantiate `code_hash` from another contract in deterministic mode
 		assert_err!(
-			<Pallet<Test>>::bare_call(
-				ALICE,
-				addr.clone(),
-				0,
-				GAS_LIMIT,
-				None,
-				code_hash.encode(),
-				DebugInfo::Skip,
-				CollectEvents::Skip,
-				Determinism::Enforced,
-			)
-			.result,
+			builder::bare_call(addr.clone()).data(code_hash.encode()).build().result,
 			<Error<Test>>::Indeterministic,
 		);
 
-		// Instantiations are not allowed even in non determinism mode
+		// Instantiations are not allowed even in non-determinism mode
 		assert_err!(
-			<Pallet<Test>>::bare_call(
-				ALICE,
-				addr.clone(),
-				0,
-				GAS_LIMIT,
-				None,
-				code_hash.encode(),
-				DebugInfo::Skip,
-				CollectEvents::Skip,
-				Determinism::Relaxed,
-			)
-			.result,
+			builder::bare_call(addr.clone()).data(code_hash.encode()).build().result,
 			<Error<Test>>::Indeterministic,
 		);
 	});
@@ -5262,7 +3707,7 @@ fn cannot_set_code_indeterministic_code() {
 	ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
 
-		// Put the non deterministic contract on-chain
+		// Put the non-deterministic contract on-chain
 		assert_ok!(Contracts::upload_code(
 			RuntimeOrigin::signed(ALICE),
 			wasm,
@@ -5271,35 +3716,12 @@ fn cannot_set_code_indeterministic_code() {
 		));
 
 		// Create the contract that will call `seal_set_code_hash`
-		let caller_addr = Contracts::bare_instantiate(
-			ALICE,
-			0,
-			GAS_LIMIT,
-			None,
-			Code::Upload(caller_wasm),
-			vec![],
-			vec![],
-			DebugInfo::Skip,
-			CollectEvents::Skip,
-		)
-		.result
-		.unwrap()
-		.account_id;
+		let caller_addr =
+			builder::bare_instantiate(Code::Upload(caller_wasm)).build_and_unwrap_account_id();
 
-		// We do not allow to set the code hash to a non determinstic wasm
+		// We do not allow to set the code hash to a non-deterministic wasm
 		assert_err!(
-			<Pallet<Test>>::bare_call(
-				ALICE,
-				caller_addr.clone(),
-				0,
-				GAS_LIMIT,
-				None,
-				code_hash.encode(),
-				DebugInfo::Skip,
-				CollectEvents::Skip,
-				Determinism::Relaxed,
-			)
-			.result,
+			builder::bare_call(caller_addr.clone()).data(code_hash.encode()).build().result,
 			<Error<Test>>::Indeterministic,
 		);
 	});
@@ -5312,7 +3734,7 @@ fn delegate_call_indeterministic_code() {
 	ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
 
-		// Put the non deterministic contract on-chain
+		// Put the non-deterministic contract on-chain
 		assert_ok!(Contracts::upload_code(
 			RuntimeOrigin::signed(ALICE),
 			wasm,
@@ -5321,111 +3743,62 @@ fn delegate_call_indeterministic_code() {
 		));
 
 		// Create the contract that will call `seal_delegate_call`
-		let caller_addr = Contracts::bare_instantiate(
-			ALICE,
-			0,
-			GAS_LIMIT,
-			None,
-			Code::Upload(caller_wasm),
-			vec![],
-			vec![],
-			DebugInfo::Skip,
-			CollectEvents::Skip,
-		)
-		.result
-		.unwrap()
-		.account_id;
+		let caller_addr =
+			builder::bare_instantiate(Code::Upload(caller_wasm)).build_and_unwrap_account_id();
 
 		// The delegate call will fail in deterministic mode
 		assert_err!(
-			<Pallet<Test>>::bare_call(
-				ALICE,
-				caller_addr.clone(),
-				0,
-				GAS_LIMIT,
-				None,
-				code_hash.encode(),
-				DebugInfo::Skip,
-				CollectEvents::Skip,
-				Determinism::Enforced,
-			)
-			.result,
+			builder::bare_call(caller_addr.clone()).data(code_hash.encode()).build().result,
 			<Error<Test>>::Indeterministic,
 		);
 
-		// The delegate call will work on non deterministic mode
+		// The delegate call will work on non-deterministic mode
 		assert_ok!(
-			<Pallet<Test>>::bare_call(
-				ALICE,
-				caller_addr.clone(),
-				0,
-				GAS_LIMIT,
-				None,
-				code_hash.encode(),
-				DebugInfo::Skip,
-				CollectEvents::Skip,
-				Determinism::Relaxed,
-			)
-			.result
+			builder::bare_call(caller_addr.clone())
+				.data(code_hash.encode())
+				.determinism(Determinism::Relaxed)
+				.build()
+				.result
 		);
 	});
 }
 
 #[test]
-fn add_remove_delegate_dependency_works() {
+fn locking_delegate_dependency_works() {
 	// set hash lock up deposit to 30%, to test deposit calculation.
 	CODE_HASH_LOCKUP_DEPOSIT_PERCENT.with(|c| *c.borrow_mut() = Perbill::from_percent(30));
 	MAX_DELEGATE_DEPENDENCIES.with(|c| *c.borrow_mut() = 1);
 
 	let (wasm_caller, self_code_hash) =
-		compile_module::<Test>("add_remove_delegate_dependency").unwrap();
+		compile_module::<Test>("locking_delegate_dependency").unwrap();
 	let (wasm_callee, code_hash) = compile_module::<Test>("dummy").unwrap();
 	let (wasm_other, other_code_hash) = compile_module::<Test>("call").unwrap();
 
-	// Define inputs with various actions to test adding / removing delegate_dependencies.
+	// Define inputs with various actions to test locking / unlocking delegate_dependencies.
 	// See the contract for more details.
 	let noop_input = (0u32, code_hash);
-	let add_delegate_dependency_input = (1u32, code_hash);
-	let remove_delegate_dependency_input = (2u32, code_hash);
+	let lock_delegate_dependency_input = (1u32, code_hash);
+	let unlock_delegate_dependency_input = (2u32, code_hash);
 	let terminate_input = (3u32, code_hash);
 
 	// Instantiate the caller contract with the given input.
 	let instantiate = |input: &(u32, H256)| {
-		Contracts::bare_instantiate(
-			ALICE,
-			0,
-			GAS_LIMIT,
-			None,
-			Code::Upload(wasm_caller.clone()),
-			input.encode(),
-			vec![],
-			DebugInfo::Skip,
-			CollectEvents::Skip,
-		)
+		builder::bare_instantiate(Code::Upload(wasm_caller.clone()))
+			.data(input.encode())
+			.build()
 	};
 
 	// Call contract with the given input.
 	let call = |addr_caller: &AccountId32, input: &(u32, H256)| {
-		<Pallet<Test>>::bare_call(
-			ALICE,
-			addr_caller.clone(),
-			0,
-			GAS_LIMIT,
-			None,
-			input.encode(),
-			DebugInfo::UnsafeDebug,
-			CollectEvents::Skip,
-			Determinism::Enforced,
-		)
+		builder::bare_call(addr_caller.clone()).data(input.encode()).build()
 	};
-
 	const ED: u64 = 2000;
 	ExtBuilder::default().existential_deposit(ED).build().execute_with(|| {
 		let _ = Balances::set_balance(&ALICE, 1_000_000);
 
-		// Instantiate with add_delegate_dependency should fail since the code is not yet on chain.
+		// Instantiate with lock_delegate_dependency should fail since the code is not yet on chain.
 		assert_err!(
-			instantiate(&add_delegate_dependency_input).result,
+			instantiate(&lock_delegate_dependency_input).result,
 			Error::<Test>::CodeNotFound
 		);
 
@@ -5435,7 +3808,7 @@ fn add_remove_delegate_dependency_works() {
 				.unwrap();
 
 		// Instantiate should now work.
-		let addr_caller = instantiate(&add_delegate_dependency_input).result.unwrap().account_id;
+		let addr_caller = instantiate(&lock_delegate_dependency_input).result.unwrap().account_id;
 
 		// There should be a dependency and a deposit.
 		let contract = test_utils::get_contract(&addr_caller);
@@ -5447,7 +3820,7 @@ fn add_remove_delegate_dependency_works() {
 				&HoldReason::StorageDepositReserve.into(),
 				&addr_caller
 			),
-			dependency_deposit + contract.storage_base_deposit() - ED
+			dependency_deposit + contract.storage_base_deposit()
 		);
 
 		// Removing the code should fail, since we have added a dependency.
@@ -5456,27 +3829,27 @@ fn add_remove_delegate_dependency_works() {
 			<Error<Test>>::CodeInUse
 		);
 
-		// Adding an already existing dependency should fail.
+		// Locking an already existing dependency should fail.
 		assert_err!(
-			call(&addr_caller, &add_delegate_dependency_input).result,
+			call(&addr_caller, &lock_delegate_dependency_input).result,
 			Error::<Test>::DelegateDependencyAlreadyExists
 		);
 
-		// Adding a dependency to self should fail.
+		// Locking self should fail.
 		assert_err!(
 			call(&addr_caller, &(1u32, self_code_hash)).result,
 			Error::<Test>::CannotAddSelfAsDelegateDependency
 		);
 
-		// Adding more than the maximum allowed delegate_dependencies should fail.
+		// Locking more than the maximum allowed delegate_dependencies should fail.
 		Contracts::bare_upload_code(ALICE, wasm_other, None, Determinism::Enforced).unwrap();
 		assert_err!(
 			call(&addr_caller, &(1u32, other_code_hash)).result,
 			Error::<Test>::MaxDelegateDependenciesReached
 		);
 
-		// Removing dependency should work.
-		assert_ok!(call(&addr_caller, &remove_delegate_dependency_input).result);
+		// Unlocking dependency should work.
+		assert_ok!(call(&addr_caller, &unlock_delegate_dependency_input).result);
 
 		// Dependency should be removed, and deposit should be returned.
 		let contract = test_utils::get_contract(&addr_caller);
@@ -5486,23 +3859,23 @@ fn add_remove_delegate_dependency_works() {
 				&HoldReason::StorageDepositReserve.into(),
 				&addr_caller
 			),
-			contract.storage_base_deposit() - ED
+			contract.storage_base_deposit()
 		);
 
-		// Removing an unexisting dependency should fail.
+		// Removing a nonexistent dependency should fail.
 		assert_err!(
-			call(&addr_caller, &remove_delegate_dependency_input).result,
+			call(&addr_caller, &unlock_delegate_dependency_input).result,
 			Error::<Test>::DelegateDependencyNotFound
 		);
 
-		// Adding a dependency with a storage limit too low should fail.
+		// Locking a dependency with a storage limit too low should fail.
 		DEFAULT_DEPOSIT_LIMIT.with(|c| *c.borrow_mut() = dependency_deposit - 1);
 		assert_err!(
-			call(&addr_caller, &add_delegate_dependency_input).result,
+			call(&addr_caller, &lock_delegate_dependency_input).result,
 			Error::<Test>::StorageDepositLimitExhausted
 		);
 
-		// Since we removed the dependency we should now be able to remove the code.
+		// Since we unlocked the dependency we should now be able to remove the code.
 		assert_ok!(Contracts::remove_code(RuntimeOrigin::signed(ALICE), code_hash));
 
 		// Calling should fail since the delegated contract is not on chain anymore.
@@ -5511,14 +3884,14 @@ fn add_remove_delegate_dependency_works() {
 		// Restore initial deposit limit and add the dependency back.
 		DEFAULT_DEPOSIT_LIMIT.with(|c| *c.borrow_mut() = 10_000_000);
 		Contracts::bare_upload_code(ALICE, wasm_callee, None, Determinism::Enforced).unwrap();
-		call(&addr_caller, &add_delegate_dependency_input).result.unwrap();
+		call(&addr_caller, &lock_delegate_dependency_input).result.unwrap();
 
 		// Call terminate should work, and return the deposit.
 		let balance_before = test_utils::get_balance(&ALICE);
 		assert_ok!(call(&addr_caller, &terminate_input).result);
 		assert_eq!(
 			test_utils::get_balance(&ALICE),
-			balance_before + contract.storage_base_deposit() + dependency_deposit
+			ED + balance_before + contract.storage_base_deposit() + dependency_deposit
 		);
 
 		// Terminate should also remove the dependency, so we can remove the code.
@@ -5534,13 +3907,9 @@ fn native_dependency_deposit_works() {
 	// Set hash lock up deposit to 30%, to test deposit calculation.
 	CODE_HASH_LOCKUP_DEPOSIT_PERCENT.with(|c| *c.borrow_mut() = Perbill::from_percent(30));
 
-	// Set a low existential deposit so that the base storage deposit is based on the contract
-	// storage deposit rather than the existential deposit.
-	const ED: u64 = 10;
-
 	// Test with both existing and uploaded code
 	for code in [Code::Upload(wasm.clone()), Code::Existing(code_hash)] {
-		ExtBuilder::default().existential_deposit(ED).build().execute_with(|| {
+		ExtBuilder::default().build().execute_with(|| {
 			let _ = Balances::set_balance(&ALICE, 1_000_000);
 			let lockup_deposit_percent = CodeHashLockupDepositPercent::get();
 
@@ -5569,52 +3938,33 @@ fn native_dependency_deposit_works() {
 			};
 
 			// Instantiate the set_code_hash contract.
-			let res = Contracts::bare_instantiate(
-				ALICE,
-				0,
-				GAS_LIMIT,
-				None,
-				code,
-				vec![],
-				vec![],
-				DebugInfo::Skip,
-				CollectEvents::Skip,
-			);
+			let res = builder::bare_instantiate(code).build();
 
 			let addr = res.result.unwrap().account_id;
-			let base_deposit = ED + test_utils::contract_info_storage_deposit(&addr);
+			let base_deposit = test_utils::contract_info_storage_deposit(&addr);
 			let upload_deposit = test_utils::get_code_deposit(&code_hash);
 			let extra_deposit = add_upload_deposit.then(|| upload_deposit).unwrap_or_default();
 
 			// Check initial storage_deposit
-			// The base deposit should be: ED + contract_info_storage_deposit + 30% * deposit
+			// The base deposit should be: contract_info_storage_deposit + 30% * deposit
 			let deposit =
 				extra_deposit + base_deposit + lockup_deposit_percent.mul_ceil(upload_deposit);
 
-			assert_eq!(res.storage_deposit.charge_or_zero(), deposit);
+			assert_eq!(res.storage_deposit.charge_or_zero(), deposit + Contracts::min_balance());
 
 			// call set_code_hash
-			<Pallet<Test>>::bare_call(
-				ALICE,
-				addr.clone(),
-				0,
-				GAS_LIMIT,
-				None,
-				dummy_code_hash.encode(),
-				DebugInfo::Skip,
-				CollectEvents::Skip,
-				Determinism::Enforced,
-			)
-			.result
-			.unwrap();
+			builder::bare_call(addr.clone())
+				.data(dummy_code_hash.encode())
+				.build_and_unwrap_result();
 
 			// Check updated storage_deposit
 			let code_deposit = test_utils::get_code_deposit(&dummy_code_hash);
 			let deposit = base_deposit + lockup_deposit_percent.mul_ceil(code_deposit);
 			assert_eq!(test_utils::get_contract(&addr).storage_base_deposit(), deposit);
+
 			assert_eq!(
 				test_utils::get_balance_on_hold(&HoldReason::StorageDepositReserve.into(), &addr),
-				deposit - ED
+				deposit
 			);
 		});
 	}
@@ -5627,37 +3977,17 @@ fn reentrance_count_works_with_call() {
 	ExtBuilder::default().existential_deposit(100).build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
 
-		let contract_addr = Contracts::bare_instantiate(
-			ALICE,
-			300_000,
-			GAS_LIMIT,
-			None,
-			Code::Upload(wasm),
-			vec![],
-			vec![],
-			DebugInfo::Skip,
-			CollectEvents::Skip,
-		)
-		.result
-		.unwrap()
-		.account_id;
+		let contract_addr = builder::bare_instantiate(Code::Upload(wasm))
+			.value(300_000)
+			.build_and_unwrap_account_id();
 
 		// passing reentrant count to the input
 		let input = 0.encode();
 
-		Contracts::bare_call(
-			ALICE,
-			contract_addr,
-			0,
-			GAS_LIMIT,
-			None,
-			input,
-			DebugInfo::UnsafeDebug,
-			CollectEvents::Skip,
-			Determinism::Enforced,
-		)
-		.result
-		.unwrap();
+		builder::bare_call(contract_addr)
+			.data(input)
+			.debug(DebugInfo::UnsafeDebug)
+			.build_and_unwrap_result();
 	});
 }
 
@@ -5668,37 +3998,17 @@ fn reentrance_count_works_with_delegated_call() {
 	ExtBuilder::default().existential_deposit(100).build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
 
-		let contract_addr = Contracts::bare_instantiate(
-			ALICE,
-			300_000,
-			GAS_LIMIT,
-			None,
-			Code::Upload(wasm),
-			vec![],
-			vec![],
-			DebugInfo::Skip,
-			CollectEvents::Skip,
-		)
-		.result
-		.unwrap()
-		.account_id;
+		let contract_addr = builder::bare_instantiate(Code::Upload(wasm))
+			.value(300_000)
+			.build_and_unwrap_account_id();
 
 		// adding a callstack height to the input
 		let input = (code_hash, 1).encode();
 
-		Contracts::bare_call(
-			ALICE,
-			contract_addr.clone(),
-			0,
-			GAS_LIMIT,
-			None,
-			input,
-			DebugInfo::UnsafeDebug,
-			CollectEvents::Skip,
-			Determinism::Enforced,
-		)
-		.result
-		.unwrap();
+		builder::bare_call(contract_addr.clone())
+			.data(input)
+			.debug(DebugInfo::UnsafeDebug)
+			.build_and_unwrap_result();
 	});
 }
 
@@ -5711,63 +4021,23 @@ fn account_reentrance_count_works() {
 	ExtBuilder::default().existential_deposit(100).build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
 
-		let contract_addr = Contracts::bare_instantiate(
-			ALICE,
-			300_000,
-			GAS_LIMIT,
-			None,
-			Code::Upload(wasm),
-			vec![],
-			vec![],
-			DebugInfo::Skip,
-			CollectEvents::Skip,
-		)
-		.result
-		.unwrap()
-		.account_id;
+		let contract_addr = builder::bare_instantiate(Code::Upload(wasm))
+			.value(300_000)
+			.build_and_unwrap_account_id();
 
-		let another_contract_addr = Contracts::bare_instantiate(
-			ALICE,
-			300_000,
-			GAS_LIMIT,
-			None,
-			Code::Upload(wasm_reentrance_count),
-			vec![],
-			vec![],
-			DebugInfo::Skip,
-			CollectEvents::Skip,
-		)
-		.result
-		.unwrap()
-		.account_id;
+		let another_contract_addr = builder::bare_instantiate(Code::Upload(wasm_reentrance_count))
+			.value(300_000)
+			.build_and_unwrap_account_id();
 
-		let result1 = Contracts::bare_call(
-			ALICE,
-			contract_addr.clone(),
-			0,
-			GAS_LIMIT,
-			None,
-			contract_addr.encode(),
-			DebugInfo::UnsafeDebug,
-			CollectEvents::Skip,
-			Determinism::Enforced,
-		)
-		.result
-		.unwrap();
+		let result1 = builder::bare_call(contract_addr.clone())
+			.data(contract_addr.encode())
+			.debug(DebugInfo::UnsafeDebug)
+			.build_and_unwrap_result();
 
-		let result2 = Contracts::bare_call(
-			ALICE,
-			contract_addr.clone(),
-			0,
-			GAS_LIMIT,
-			None,
-			another_contract_addr.encode(),
-			DebugInfo::UnsafeDebug,
-			CollectEvents::Skip,
-			Determinism::Enforced,
-		)
-		.result
-		.unwrap();
+		let result2 = builder::bare_call(contract_addr.clone())
+			.data(another_contract_addr.encode())
+			.debug(DebugInfo::UnsafeDebug)
+			.build_and_unwrap_result();
 
 		assert_eq!(result1.data, 1.encode());
 		assert_eq!(result2.data, 0.encode());
@@ -5814,7 +4084,7 @@ fn signed_cannot_set_code() {
 fn none_cannot_call_code() {
 	ExtBuilder::default().build().execute_with(|| {
 		assert_noop!(
-			Contracts::call(RuntimeOrigin::none(), BOB, 0, GAS_LIMIT, None, Vec::new()),
+			builder::call(BOB).origin(RuntimeOrigin::none()).build(),
 			DispatchError::BadOrigin,
 		);
 	});
@@ -5827,30 +4097,10 @@ fn root_can_call() {
 	ExtBuilder::default().existential_deposit(100).build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
 
-		let addr = Contracts::bare_instantiate(
-			ALICE,
-			0,
-			GAS_LIMIT,
-			None,
-			Code::Upload(wasm),
-			vec![],
-			vec![],
-			DebugInfo::Skip,
-			CollectEvents::Skip,
-		)
-		.result
-		.unwrap()
-		.account_id;
+		let addr = builder::bare_instantiate(Code::Upload(wasm)).build_and_unwrap_account_id();
 
 		// Call the contract.
-		assert_ok!(Contracts::call(
-			RuntimeOrigin::root(),
-			addr.clone(),
-			0,
-			GAS_LIMIT,
-			None,
-			vec![]
-		));
+		assert_ok!(builder::call(addr.clone()).origin(RuntimeOrigin::root()).build());
 	});
 }
 
@@ -5860,15 +4110,7 @@ fn root_cannot_instantiate_with_code() {
 
 	ExtBuilder::default().build().execute_with(|| {
 		assert_err_ignore_postinfo!(
-			Contracts::instantiate_with_code(
-				RuntimeOrigin::root(),
-				0,
-				GAS_LIMIT,
-				None,
-				wasm,
-				vec![],
-				vec![],
-			),
+			builder::instantiate_with_code(wasm).origin(RuntimeOrigin::root()).build(),
 			DispatchError::BadOrigin
 		);
 	});
@@ -5880,16 +4122,79 @@ fn root_cannot_instantiate() {
 
 	ExtBuilder::default().build().execute_with(|| {
 		assert_err_ignore_postinfo!(
-			Contracts::instantiate(
+			builder::instantiate(code_hash).origin(RuntimeOrigin::root()).build(),
+			DispatchError::BadOrigin
+		);
+	});
+}
+
+#[test]
+fn only_upload_origin_can_upload() {
+	let (wasm, _) = compile_module::<Test>("dummy").unwrap();
+	UploadAccount::set(Some(ALICE));
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = Balances::set_balance(&ALICE, 1_000_000);
+		let _ = Balances::set_balance(&BOB, 1_000_000);
+
+		assert_err!(
+			Contracts::upload_code(
 				RuntimeOrigin::root(),
-				0,
-				GAS_LIMIT,
+				wasm.clone(),
 				None,
-				code_hash,
-				vec![],
-				vec![],
+				Determinism::Enforced,
 			),
-			DispatchError::RootNotAllowed
+			DispatchError::BadOrigin
+		);
+
+		assert_err!(
+			Contracts::upload_code(
+				RuntimeOrigin::signed(BOB),
+				wasm.clone(),
+				None,
+				Determinism::Enforced,
+			),
+			DispatchError::BadOrigin
+		);
+
+		// Only alice is allowed to upload contract code.
+		assert_ok!(Contracts::upload_code(
+			RuntimeOrigin::signed(ALICE),
+			wasm.clone(),
+			None,
+			Determinism::Enforced,
+		));
+	});
+}
+
+#[test]
+fn only_instantiation_origin_can_instantiate() {
+	let (code, code_hash) = compile_module::<Test>("dummy").unwrap();
+	InstantiateAccount::set(Some(ALICE));
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = Balances::set_balance(&ALICE, 1_000_000);
+		let _ = Balances::set_balance(&BOB, 1_000_000);
+
+		assert_err_ignore_postinfo!(
+			builder::instantiate_with_code(code.clone())
+				.origin(RuntimeOrigin::root())
+				.build(),
+			DispatchError::BadOrigin
+		);
+
+		assert_err_ignore_postinfo!(
+			builder::instantiate_with_code(code.clone())
+				.origin(RuntimeOrigin::signed(BOB))
+				.build(),
+			DispatchError::BadOrigin
+		);
+
+		// Only Alice can instantiate
+		assert_ok!(builder::instantiate_with_code(code).build());
+
+		// Bob cannot instantiate with either `instantiate_with_code` or `instantiate`.
+		assert_err_ignore_postinfo!(
+			builder::instantiate(code_hash).origin(RuntimeOrigin::signed(BOB)).build(),
+			DispatchError::BadOrigin
 		);
 	});
 }
@@ -5901,45 +4206,46 @@ fn balance_api_returns_free_balance() {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
 
 		// Instantiate the BOB contract without any extra balance.
-		let addr = Contracts::bare_instantiate(
-			ALICE,
-			0,
-			GAS_LIMIT,
-			None,
-			Code::Upload(wasm.to_vec()),
-			vec![],
-			vec![],
-			DebugInfo::Skip,
-			CollectEvents::Skip,
-		)
-		.result
-		.unwrap()
-		.account_id;
+		let addr =
+			builder::bare_instantiate(Code::Upload(wasm.to_vec())).build_and_unwrap_account_id();
 
 		let value = 0;
 		// Call BOB which makes it call the balance runtime API.
 		// The contract code asserts that the returned balance is 0.
-		assert_ok!(Contracts::call(
-			RuntimeOrigin::signed(ALICE),
-			addr.clone(),
-			value,
-			GAS_LIMIT,
-			None,
-			vec![]
-		));
+		assert_ok!(builder::call(addr.clone()).value(value).build());
 
 		let value = 1;
 		// Calling with value will trap the contract.
 		assert_err_ignore_postinfo!(
-			Contracts::call(
-				RuntimeOrigin::signed(ALICE),
-				addr.clone(),
-				value,
-				GAS_LIMIT,
-				None,
-				vec![]
-			),
+			builder::call(addr.clone()).value(value).build(),
 			<Error<Test>>::ContractTrapped
 		);
+	});
+}
+
+#[test]
+fn gas_consumed_is_linear_for_nested_calls() {
+	let (code, _code_hash) = compile_module::<Test>("recurse").unwrap();
+	ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+
+		let addr = builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_account_id();
+
+		let max_call_depth = <Test as Config>::CallStack::size() as u32;
+		let [gas_0, gas_1, gas_2, gas_max] = {
+			[0u32, 1u32, 2u32, max_call_depth]
+				.iter()
+				.map(|i| {
+					let result = builder::bare_call(addr.clone()).data(i.encode()).build();
+					assert_ok!(result.result);
+					result.gas_consumed
+				})
+				.collect::<Vec<_>>()
+				.try_into()
+				.unwrap()
+		};
+
+		let gas_per_recursion = gas_2.checked_sub(&gas_1).unwrap();
+		assert_eq!(gas_max, gas_0 + gas_per_recursion * max_call_depth as u64);
 	});
 }

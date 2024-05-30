@@ -1,4 +1,4 @@
-error: expected one of: `getter`, `storage_prefix`, `unbounded`, `whitelist_storage`
+error: expected one of: `getter`, `storage_prefix`, `unbounded`, `whitelist_storage`, `disable_try_decode_storage`
   --> tests/pallet_ui/storage_invalid_attribute.rs:33:12
    |
 33 |     #[pallet::generate_store(pub trait Store)]

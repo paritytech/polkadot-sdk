@@ -1,0 +1,11 @@
+title: Update benchmarking macros
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Current benchmarking macro return a closure with the captured benchmarked code.
+      This could cause compilation issues when the benchmarked code has complex lifetime requirements.
+      This PR updates the existing macro by injecting the recoding parameter and invoking the start / stop method around the benchmarked block instead of returning a closure 
+
+crates: []
+

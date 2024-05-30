@@ -17,17 +17,16 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 use futures::channel::oneshot;
-use libp2p::{Multiaddr, PeerId};
 
 use sc_consensus::{BlockImportError, BlockImportStatus};
 use sc_network::{
 	config::MultiaddrWithPeerId,
 	request_responses::{IfDisconnected, RequestFailure},
 	types::ProtocolName,
-	NetworkNotification, NetworkPeers, NetworkRequest, NetworkSyncForkRequest,
-	NotificationSenderError, NotificationSenderT, ReputationChange,
+	Multiaddr, NetworkPeers, NetworkRequest, NetworkSyncForkRequest, ReputationChange,
 };
 use sc_network_common::role::ObservedRole;
+use sc_network_types::PeerId;
 use sp_runtime::traits::{Block as BlockT, NumberFor};
 
 use std::collections::HashSet;
@@ -80,6 +79,7 @@ mockall::mock! {
 mockall::mock! {
 	pub Network {}
 
+	#[async_trait::async_trait]
 	impl NetworkPeers for Network {
 		fn set_authorized_peers(&self, peers: HashSet<PeerId>);
 		fn set_authorized_only(&self, reserved_only: bool);
@@ -108,6 +108,7 @@ mockall::mock! {
 		) -> Result<(), String>;
 		fn sync_num_connected(&self) -> usize;
 		fn peer_role(&self, peer_id: PeerId, handshake: Vec<u8>) -> Option<ObservedRole>;
+		async fn reserved_peers(&self) -> Result<Vec<sc_network_types::PeerId>, ()>;
 	}
 
 	#[async_trait::async_trait]
@@ -129,15 +130,5 @@ mockall::mock! {
 			tx: oneshot::Sender<Result<(Vec<u8>, ProtocolName), RequestFailure>>,
 			connect: IfDisconnected,
 		);
-	}
-
-	impl NetworkNotification for Network {
-		fn write_notification(&self, target: PeerId, protocol: ProtocolName, message: Vec<u8>);
-		fn notification_sender(
-			&self,
-			target: PeerId,
-			protocol: ProtocolName,
-		) -> Result<Box<dyn NotificationSenderT>, NotificationSenderError>;
-		fn set_notification_handshake(&self, protocol: ProtocolName, handshake: Vec<u8>);
 	}
 }

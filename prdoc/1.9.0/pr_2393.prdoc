@@ -1,0 +1,16 @@
+title: "[XCMP] Use the number of 'ready' pages in XCMP suspend logic"
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Semantics of the suspension logic in the XCMP queue pallet change from using the number of
+      total pages to the number of 'ready' pages. The number of ready pages is now also exposed by
+      the `MessageQueue` pallet to downstream via the queue `footprint`.
+
+crates:
+  - name: cumulus-pallet-xcmp-queue
+    bump: patch
+  - name: pallet-message-queue
+    bump: patch
+  - name: frame-support
+    bump: major

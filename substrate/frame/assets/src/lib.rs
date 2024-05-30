@@ -17,7 +17,15 @@
 
 //! # Assets Pallet
 //!
-//! A simple, secure module for dealing with fungible assets.
+//! A simple, secure module for dealing with sets of assets implementing
+//! [`fungible`](frame_support::traits::fungible) traits, via [`fungibles`] traits.
+//!
+//! The pallet makes heavy use of concepts such as Holds and Freezes from the
+//! [`frame_support::traits::fungible`] traits, therefore you should read and understand those docs
+//! as a prerequisite to understanding this pallet.
+//!
+//! See the [`frame_tokens`] reference docs for more information about the place of the
+//! Assets pallet in FRAME.
 //!
 //! ## Overview
 //!
@@ -133,6 +141,8 @@
 //!
 //! * [`System`](../frame_system/index.html)
 //! * [`Support`](../frame_support/index.html)
+//!
+//! [`frame_tokens`]: ../polkadot_sdk_docs/reference_docs/frame_tokens/index.html
 
 // This recursion limit is needed because we have too many benchmarks and benchmarking will fail if
 // we add more without this limit.
@@ -183,7 +193,7 @@ pub use weights::WeightInfo;
 type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
 const LOG_TARGET: &str = "runtime::assets";
 
-/// Trait with callbacks that are executed after successfull asset creation or destruction.
+/// Trait with callbacks that are executed after successful asset creation or destruction.
 pub trait AssetsCallback<AssetId, AccountId> {
 	/// Indicates that asset with `id` was successfully created by the `owner`
 	fn created(_id: &AssetId, _owner: &AccountId) -> Result<(), ()> {
@@ -208,7 +218,7 @@ pub mod pallet {
 	};
 	use frame_system::pallet_prelude::*;
 
-	/// The current storage version.
+	/// The in-code storage version.
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
 
 	#[pallet::pallet]
@@ -226,10 +236,42 @@ pub mod pallet {
 		}
 	}
 
-	#[pallet::config]
+	/// Default implementations of [`DefaultConfig`], which can be used to implement [`Config`].
+	pub mod config_preludes {
+		use super::*;
+		use frame_support::{derive_impl, traits::ConstU64};
+		pub struct TestDefaultConfig;
+
+		#[derive_impl(frame_system::config_preludes::TestDefaultConfig, no_aggregated_types)]
+		impl frame_system::DefaultConfig for TestDefaultConfig {}
+
+		#[frame_support::register_default_impl(TestDefaultConfig)]
+		impl DefaultConfig for TestDefaultConfig {
+			#[inject_runtime_type]
+			type RuntimeEvent = ();
+			type Balance = u64;
+			type RemoveItemsLimit = ConstU32<5>;
+			type AssetId = u32;
+			type AssetIdParameter = u32;
+			type AssetDeposit = ConstU64<1>;
+			type AssetAccountDeposit = ConstU64<10>;
+			type MetadataDepositBase = ConstU64<1>;
+			type MetadataDepositPerByte = ConstU64<1>;
+			type ApprovalDeposit = ConstU64<1>;
+			type StringLimit = ConstU32<50>;
+			type Extra = ();
+			type CallbackHandle = ();
+			type WeightInfo = ();
+			#[cfg(feature = "runtime-benchmarks")]
+			type BenchmarkHelper = ();
+		}
+	}
+
+	#[pallet::config(with_default)]
 	/// The module configuration trait.
 	pub trait Config<I: 'static = ()>: frame_system::Config {
 		/// The overarching event type.
+		#[pallet::no_default_bounds]
 		type RuntimeEvent: From<Event<Self, I>>
 			+ IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
@@ -262,10 +304,12 @@ pub mod pallet {
 		type AssetIdParameter: Parameter + From<Self::AssetId> + Into<Self::AssetId> + MaxEncodedLen;
 
 		/// The currency mechanism.
+		#[pallet::no_default]
 		type Currency: ReservableCurrency<Self::AccountId>;
 
 		/// Standard asset class creation is only allowed if the origin attempting it and the
 		/// asset class are in this set.
+		#[pallet::no_default]
 		type CreateOrigin: EnsureOriginWithArg<
 			Self::RuntimeOrigin,
 			Self::AssetId,
@@ -274,28 +318,34 @@ pub mod pallet {
 
 		/// The origin which may forcibly create or destroy an asset or otherwise alter privileged
 		/// attributes.
+		#[pallet::no_default]
 		type ForceOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
 		/// The basic amount of funds that must be reserved for an asset.
 		#[pallet::constant]
+		#[pallet::no_default_bounds]
 		type AssetDeposit: Get<DepositBalanceOf<Self, I>>;
 
 		/// The amount of funds that must be reserved for a non-provider asset account to be
 		/// maintained.
 		#[pallet::constant]
+		#[pallet::no_default_bounds]
 		type AssetAccountDeposit: Get<DepositBalanceOf<Self, I>>;
 
 		/// The basic amount of funds that must be reserved when adding metadata to your asset.
 		#[pallet::constant]
+		#[pallet::no_default_bounds]
 		type MetadataDepositBase: Get<DepositBalanceOf<Self, I>>;
 
 		/// The additional funds that must be reserved for the number of bytes you store in your
 		/// metadata.
 		#[pallet::constant]
+		#[pallet::no_default_bounds]
 		type MetadataDepositPerByte: Get<DepositBalanceOf<Self, I>>;
 
 		/// The amount of funds that must be reserved when creating a new approval.
 		#[pallet::constant]
+		#[pallet::no_default_bounds]
 		type ApprovalDeposit: Get<DepositBalanceOf<Self, I>>;
 
 		/// The maximum length of a name or symbol stored on-chain.
@@ -304,6 +354,7 @@ pub mod pallet {
 
 		/// A hook to allow a per-asset, per-account minimum balance to be enforced. This must be
 		/// respected in all permissionless operations.
+		#[pallet::no_default]
 		type Freezer: FrozenBalance<Self::AssetId, Self::AccountId, Self::Balance>;
 
 		/// Additional data to be stored with an account's asset balance.
@@ -936,7 +987,7 @@ pub mod pallet {
 			let d = Asset::<T, I>::get(&id).ok_or(Error::<T, I>::Unknown)?;
 			ensure!(
 				d.status == AssetStatus::Live || d.status == AssetStatus::Frozen,
-				Error::<T, I>::AssetNotLive
+				Error::<T, I>::IncorrectStatus
 			);
 			ensure!(origin == d.freezer, Error::<T, I>::NoPermission);
 			let who = T::Lookup::lookup(who)?;
@@ -973,7 +1024,7 @@ pub mod pallet {
 			let details = Asset::<T, I>::get(&id).ok_or(Error::<T, I>::Unknown)?;
 			ensure!(
 				details.status == AssetStatus::Live || details.status == AssetStatus::Frozen,
-				Error::<T, I>::AssetNotLive
+				Error::<T, I>::IncorrectStatus
 			);
 			ensure!(origin == details.admin, Error::<T, I>::NoPermission);
 			let who = T::Lookup::lookup(who)?;
@@ -1062,7 +1113,7 @@ pub mod pallet {
 
 			Asset::<T, I>::try_mutate(id.clone(), |maybe_details| {
 				let details = maybe_details.as_mut().ok_or(Error::<T, I>::Unknown)?;
-				ensure!(details.status == AssetStatus::Live, Error::<T, I>::LiveAsset);
+				ensure!(details.status == AssetStatus::Live, Error::<T, I>::AssetNotLive);
 				ensure!(origin == details.owner, Error::<T, I>::NoPermission);
 				if details.owner == owner {
 					return Ok(())
@@ -1593,7 +1644,7 @@ pub mod pallet {
 			let origin = ensure_signed(origin)?;
 			let who = T::Lookup::lookup(who)?;
 			let id: T::AssetId = id.into();
-			Self::do_refund_other(id, &who, &origin)
+			Self::do_refund_other(id, &who, Some(origin))
 		}
 
 		/// Disallow further unprivileged transfers of an asset `id` to and from an account `who`.
@@ -1618,7 +1669,7 @@ pub mod pallet {
 			let d = Asset::<T, I>::get(&id).ok_or(Error::<T, I>::Unknown)?;
 			ensure!(
 				d.status == AssetStatus::Live || d.status == AssetStatus::Frozen,
-				Error::<T, I>::AssetNotLive
+				Error::<T, I>::IncorrectStatus
 			);
 			ensure!(origin == d.freezer, Error::<T, I>::NoPermission);
 			let who = T::Lookup::lookup(who)?;
@@ -1646,7 +1697,9 @@ pub mod pallet {
 
 		fn should_touch(asset: T::AssetId, who: &T::AccountId) -> bool {
 			match Asset::<T, I>::get(&asset) {
+				// refer to the [`Self::new_account`] function for more details.
 				Some(info) if info.is_sufficient => false,
+				Some(_) if frame_system::Pallet::<T>::can_accrue_consumers(who, 2) => false,
 				Some(_) => !Account::<T, I>::contains_key(asset, who),
 				_ => true,
 			}

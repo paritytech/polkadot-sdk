@@ -25,7 +25,8 @@ use crate::{
 };
 use codec::{Decode, Encode};
 use frame_support::{
-	pallet_prelude::*, storage_alias, traits::ReservableCurrency, DefaultNoBound, Identity,
+	pallet_prelude::*, storage_alias, traits::ReservableCurrency, weights::WeightMeter,
+	DefaultNoBound, Identity,
 };
 use scale_info::prelude::format;
 use sp_core::hexdisplay::HexDisplay;
@@ -34,7 +35,7 @@ use sp_runtime::TryRuntimeError;
 use sp_runtime::{traits::Zero, FixedPointNumber, FixedU128, Saturating};
 use sp_std::prelude::*;
 
-mod old {
+mod v11 {
 	use super::*;
 
 	pub type BalanceOf<T, OldCurrency> = <OldCurrency as frame_support::traits::Currency<
@@ -87,7 +88,7 @@ where
 {
 	owner: AccountIdOf<T>,
 	#[codec(compact)]
-	deposit: old::BalanceOf<T, OldCurrency>,
+	deposit: v11::BalanceOf<T, OldCurrency>,
 	#[codec(compact)]
 	refcount: u64,
 	determinism: Determinism,
@@ -112,17 +113,17 @@ where
 	let hash = T::Hashing::hash(&code);
 	PristineCode::<T>::insert(hash, code.clone());
 
-	let module = old::PrefabWasmModule {
+	let module = v11::PrefabWasmModule {
 		instruction_weights_version: Default::default(),
 		initial: Default::default(),
 		maximum: Default::default(),
 		code,
 		determinism: Determinism::Enforced,
 	};
-	old::CodeStorage::<T>::insert(hash, module);
+	v11::CodeStorage::<T>::insert(hash, module);
 
-	let info = old::OwnerInfo { owner: account, deposit: u32::MAX.into(), refcount: u64::MAX };
-	old::OwnerInfoOf::<T, OldCurrency>::insert(hash, info);
+	let info = v11::OwnerInfo { owner: account, deposit: u32::MAX.into(), refcount: u64::MAX };
+	v11::OwnerInfoOf::<T, OldCurrency>::insert(hash, info);
 }
 
 #[derive(Encode, Decode, MaxEncodedLen, DefaultNoBound)]
@@ -146,18 +147,18 @@ where
 		T::WeightInfo::v12_migration_step(T::MaxCodeLen::get())
 	}
 
-	fn step(&mut self) -> (IsFinished, Weight) {
+	fn step(&mut self, meter: &mut WeightMeter) -> IsFinished {
 		let mut iter = if let Some(last_key) = self.last_code_hash.take() {
-			old::OwnerInfoOf::<T, OldCurrency>::iter_from(
-				old::OwnerInfoOf::<T, OldCurrency>::hashed_key_for(last_key),
+			v11::OwnerInfoOf::<T, OldCurrency>::iter_from(
+				v11::OwnerInfoOf::<T, OldCurrency>::hashed_key_for(last_key),
 			)
 		} else {
-			old::OwnerInfoOf::<T, OldCurrency>::iter()
+			v11::OwnerInfoOf::<T, OldCurrency>::iter()
 		};
 		if let Some((hash, old_info)) = iter.next() {
 			log::debug!(target: LOG_TARGET, "Migrating OwnerInfo for code_hash {:?}", hash);
 
-			let module = old::CodeStorage::<T>::take(hash)
+			let module = v11::CodeStorage::<T>::take(hash)
 				.expect(format!("No PrefabWasmModule found for code_hash: {:?}", hash).as_str());
 
 			let code_len = module.code.len();
@@ -184,7 +185,7 @@ where
 			let bytes_before = module
 				.encoded_size()
 				.saturating_add(code_len)
-				.saturating_add(old::OwnerInfo::<T, OldCurrency>::max_encoded_len())
+				.saturating_add(v11::OwnerInfo::<T, OldCurrency>::max_encoded_len())
 				as u32;
 			let items_before = 3u32;
 			let deposit_expected_before = price_per_byte
@@ -230,10 +231,12 @@ where
 
 			self.last_code_hash = Some(hash);
 
-			(IsFinished::No, T::WeightInfo::v12_migration_step(code_len as u32))
+			meter.consume(T::WeightInfo::v12_migration_step(code_len as u32));
+			IsFinished::No
 		} else {
 			log::debug!(target: LOG_TARGET, "No more OwnerInfo to migrate");
-			(IsFinished::Yes, T::WeightInfo::v12_migration_step(0))
+			meter.consume(T::WeightInfo::v12_migration_step(0));
+			IsFinished::Yes
 		}
 	}
 
@@ -241,10 +244,10 @@ where
 	fn pre_upgrade_step() -> Result<Vec<u8>, TryRuntimeError> {
 		let len = 100;
 		log::debug!(target: LOG_TARGET, "Taking sample of {} OwnerInfo(s)", len);
-		let sample: Vec<_> = old::OwnerInfoOf::<T, OldCurrency>::iter()
+		let sample: Vec<_> = v11::OwnerInfoOf::<T, OldCurrency>::iter()
 			.take(len)
 			.map(|(k, v)| {
-				let module = old::CodeStorage::<T>::get(k)
+				let module = v11::CodeStorage::<T>::get(k)
 					.expect("No PrefabWasmModule found for code_hash: {:?}");
 				let info: CodeInfo<T, OldCurrency> = CodeInfo {
 					determinism: module.determinism,
@@ -258,9 +261,9 @@ where
 			.collect();
 
 		let storage: u32 =
-			old::CodeStorage::<T>::iter().map(|(_k, v)| v.encoded_size() as u32).sum();
-		let mut deposit: old::BalanceOf<T, OldCurrency> = Default::default();
-		old::OwnerInfoOf::<T, OldCurrency>::iter().for_each(|(_k, v)| deposit += v.deposit);
+			v11::CodeStorage::<T>::iter().map(|(_k, v)| v.encoded_size() as u32).sum();
+		let mut deposit: v11::BalanceOf<T, OldCurrency> = Default::default();
+		v11::OwnerInfoOf::<T, OldCurrency>::iter().for_each(|(_k, v)| deposit += v.deposit);
 
 		Ok((sample, deposit, storage).encode())
 	}
@@ -269,7 +272,7 @@ where
 	fn post_upgrade_step(state: Vec<u8>) -> Result<(), TryRuntimeError> {
 		let state = <(
 			Vec<(CodeHash<T>, CodeInfo<T, OldCurrency>)>,
-			old::BalanceOf<T, OldCurrency>,
+			v11::BalanceOf<T, OldCurrency>,
 			u32,
 		) as Decode>::decode(&mut &state[..])
 		.unwrap();
@@ -283,7 +286,7 @@ where
 			ensure!(info.refcount == old.refcount, "invalid refcount");
 		}
 
-		if let Some((k, _)) = old::CodeStorage::<T>::iter().next() {
+		if let Some((k, _)) = v11::CodeStorage::<T>::iter().next() {
 			log::warn!(
 				target: LOG_TARGET,
 				"CodeStorage is still NOT empty, found code_hash: {:?}",
@@ -292,7 +295,7 @@ where
 		} else {
 			log::debug!(target: LOG_TARGET, "CodeStorage is empty.");
 		}
-		if let Some((k, _)) = old::OwnerInfoOf::<T, OldCurrency>::iter().next() {
+		if let Some((k, _)) = v11::OwnerInfoOf::<T, OldCurrency>::iter().next() {
 			log::warn!(
 				target: LOG_TARGET,
 				"OwnerInfoOf is still NOT empty, found code_hash: {:?}",
@@ -302,7 +305,7 @@ where
 			log::debug!(target: LOG_TARGET, "OwnerInfoOf is empty.");
 		}
 
-		let mut deposit: old::BalanceOf<T, OldCurrency> = Default::default();
+		let mut deposit: v11::BalanceOf<T, OldCurrency> = Default::default();
 		let mut items = 0u32;
 		let mut storage_info = 0u32;
 		CodeInfoOf::<T, OldCurrency>::iter().for_each(|(_k, v)| {

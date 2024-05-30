@@ -13,11 +13,11 @@ workspace = true
 impl-trait-for-tuples = "0.2.2"
 bitvec = { version = "1.0.0", default-features = false, features = ["alloc"] }
 parity-scale-codec = { version = "3.6.1", default-features = false, features = ["derive"] }
-log = { version = "0.4.17", default-features = false }
+log = { workspace = true }
 rustc-hex = { version = "2.1.0", default-features = false }
-scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
-serde = { version = "1.0.195", default-features = false, features = ["alloc"] }
-serde_derive = { version = "1.0.117" }
+scale-info = { version = "2.11.1", default-features = false, features = ["derive"] }
+serde = { features = ["alloc"], workspace = true }
+serde_derive = { workspace = true }
 static_assertions = "1.1.0"
 
 sp-api = { path = "../../../substrate/primitives/api", default-features = false }
@@ -58,8 +58,6 @@ runtime-parachains = { package = "polkadot-runtime-parachains", path = "../parac
 slot-range-helper = { path = "slot_range_helper", default-features = false }
 xcm = { package = "staging-xcm", path = "../../xcm", default-features = false }
 xcm-executor = { package = "staging-xcm-executor", path = "../../xcm/xcm-executor", default-features = false, optional = true }
-
-pallet-xcm-benchmarks = { path = "../../xcm/pallet-xcm-benchmarks", default-features = false, optional = true }
 xcm-builder = { package = "staging-xcm-builder", path = "../../xcm/xcm-builder", default-features = false }
 
 [dev-dependencies]
@@ -69,7 +67,7 @@ pallet-babe = { path = "../../../substrate/frame/babe" }
 pallet-treasury = { path = "../../../substrate/frame/treasury" }
 sp-keystore = { path = "../../../substrate/primitives/keystore" }
 sp-keyring = { path = "../../../substrate/primitives/keyring" }
-serde_json = "1.0.111"
+serde_json = { workspace = true, default-features = true }
 libsecp256k1 = "0.7.0"
 test-helpers = { package = "polkadot-primitives-test-helpers", path = "../../primitives/test-helpers" }
 
@@ -99,7 +97,6 @@ std = [
 	"pallet-transaction-payment/std",
 	"pallet-treasury/std",
 	"pallet-vesting/std",
-	"pallet-xcm-benchmarks/std",
 	"parity-scale-codec/std",
 	"primitives/std",
 	"runtime-parachains/std",
@@ -137,7 +134,6 @@ runtime-benchmarks = [
 	"pallet-timestamp/runtime-benchmarks",
 	"pallet-treasury/runtime-benchmarks",
 	"pallet-vesting/runtime-benchmarks",
-	"pallet-xcm-benchmarks/runtime-benchmarks",
 	"primitives/runtime-benchmarks",
 	"runtime-parachains/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",

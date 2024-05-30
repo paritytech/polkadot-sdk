@@ -16,10 +16,10 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-log = { version = "0.4.20", default-features = false }
+log = { workspace = true }
 codec = { default-features = false, features = ["derive"], package = "parity-scale-codec", version = "3.0.0" }
 rand = { version = "0.8.5", features = ["std_rng"], default-features = false }
-scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
+scale-info = { version = "2.11.1", default-features = false, features = ["derive"] }
 
 sp-std = { path = "../../../substrate/primitives/std", default-features = false }
 sp-runtime = { path = "../../../substrate/primitives/runtime", default-features = false }
@@ -27,6 +27,7 @@ sp-staking = { path = "../../../substrate/primitives/staking", default-features 
 frame-support = { path = "../../../substrate/frame/support", default-features = false }
 frame-system = { path = "../../../substrate/frame/system", default-features = false }
 pallet-authorship = { path = "../../../substrate/frame/authorship", default-features = false }
+pallet-balances = { path = "../../../substrate/frame/balances", default-features = false }
 pallet-session = { path = "../../../substrate/frame/session", default-features = false }
 
 frame-benchmarking = { path = "../../../substrate/frame/benchmarking", default-features = false, optional = true }
@@ -38,7 +39,6 @@ sp-tracing = { path = "../../../substrate/primitives/tracing" }
 sp-runtime = { path = "../../../substrate/primitives/runtime" }
 pallet-timestamp = { path = "../../../substrate/frame/timestamp" }
 sp-consensus-aura = { path = "../../../substrate/primitives/consensus/aura" }
-pallet-balances = { path = "../../../substrate/frame/balances" }
 pallet-aura = { path = "../../../substrate/frame/aura" }
 
 [features]
@@ -59,6 +59,7 @@ std = [
 	"frame-system/std",
 	"log/std",
 	"pallet-authorship/std",
+	"pallet-balances/std",
 	"pallet-session/std",
 	"rand/std",
 	"scale-info/std",
@@ -77,5 +78,3 @@ try-runtime = [
 	"pallet-timestamp/try-runtime",
 	"sp-runtime/try-runtime",
 ]
-
-experimental = ["pallet-aura/experimental"]

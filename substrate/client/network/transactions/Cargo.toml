@@ -18,13 +18,14 @@ targets = ["x86_64-unknown-linux-gnu"]
 [dependencies]
 array-bytes = "6.1"
 codec = { package = "parity-scale-codec", version = "3.6.1", features = ["derive"] }
-futures = "0.3.21"
+futures = "0.3.30"
 libp2p = "0.51.4"
-log = "0.4.17"
+log = { workspace = true, default-features = true }
 prometheus-endpoint = { package = "substrate-prometheus-endpoint", path = "../../../utils/prometheus" }
 sc-network = { path = ".." }
 sc-network-common = { path = "../common" }
 sc-network-sync = { path = "../sync" }
+sc-network-types = { path = "../types" }
 sc-utils = { path = "../../utils" }
 sp-runtime = { path = "../../../primitives/runtime" }
 sp-consensus = { path = "../../../primitives/consensus/common" }

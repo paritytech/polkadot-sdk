@@ -25,9 +25,13 @@ rococo-runtime-constants = { path = "../../../../polkadot/runtime/rococo/constan
 westend-runtime-constants = { path = "../../../../polkadot/runtime/westend/constants", default-features = false, optional = true }
 xcm = { package = "staging-xcm", path = "../../../../polkadot/xcm", default-features = false }
 
+# Cumulus
+cumulus-primitives-core = { path = "../../../primitives/core", default-features = false }
+
 [features]
 default = ["std"]
 std = [
+	"cumulus-primitives-core/std",
 	"frame-support/std",
 	"polkadot-core-primitives/std",
 	"rococo-runtime-constants?/std",

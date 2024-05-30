@@ -1,0 +1,8 @@
+title: Stabilize transactionWatch RPC class to version 1
+
+doc:
+  - audience: Node Dev
+    description: |
+      The transactionWatch RPC API is stabilized to version 1.
+
+crates: [ ]

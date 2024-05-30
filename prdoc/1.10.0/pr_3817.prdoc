@@ -1,0 +1,23 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Parachain Runtime API Implementations into mod apis Refactoring
+
+doc:
+  - audience: Runtime Dev
+    description: |
+        This PR introduces a refactoring to the runtime API implementations within the parachain template project. The primary changes include enhancing the visibility of `RUNTIME_API_VERSIONS` to `pub` in `impl_runtime_apis.rs`, centralizing API implementations in a new `apis.rs` file, and streamlining `lib.rs`. These changes aim to improve project structure, maintainability, and readability.
+        
+        Key Changes:
+        - `RUNTIME_API_VERSIONS` is now publicly accessible, enhancing module-wide visibility.
+        - Introduction of `apis.rs` centralizes runtime API implementations, promoting a cleaner and more navigable project structure.
+        - The main runtime library file, `lib.rs`, has been updated to reflect these structural changes, removing redundant API implementations and simplifying runtime configuration by pointing `VERSION` to the newly exposed `RUNTIME_API_VERSIONS` from `apis.rs`.
+        
+        Motivations:
+        - **Improved Project Structure**: Centralizing API implementations offers a more organized and understandable project layout.
+        - **Enhanced Readability**: The refactoring efforts aim to declutter `lib.rs`, facilitating easier comprehension for new contributors.
+
+crates: 
+  - name: sp-api-proc-macro
+  - name: parachain-template-node
+  - name: parachain-template-runtime

@@ -18,7 +18,7 @@
 //! Runtime API for querying mixnet configuration and registering mixnodes.
 
 use super::types::{Mixnode, MixnodesErr, SessionIndex, SessionStatus};
-use sp_std::vec::Vec;
+use alloc::vec::Vec;
 
 sp_api::decl_runtime_apis! {
 	/// API to query the mixnet session status and mixnode sets, and to register mixnodes.

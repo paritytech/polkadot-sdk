@@ -1,0 +1,88 @@
+[settings]
+node_spawn_timeout = 240
+
+[relaychain]
+default_command = "{{POLKADOT_BINARY}}"
+default_args = [ "-lparachain=debug,xcm=trace" ]
+chain = "rococo-local"
+
+	[[relaychain.nodes]]
+	name = "alice-rococo-validator"
+	validator = true
+	rpc_port = 9932
+	ws_port = 9942
+	balance = 2000000000000
+
+	[[relaychain.nodes]]
+	name = "bob-rococo-validator"
+	validator = true
+	rpc_port = 9933
+	ws_port = 9943
+	balance = 2000000000000
+
+	[[relaychain.nodes]]
+	name = "charlie-rococo-validator"
+	validator = true
+	rpc_port = 9934
+	ws_port = 9944
+	balance = 2000000000000
+
+[[parachains]]
+id = 1013
+chain = "bridge-hub-rococo-local"
+cumulus_based = true
+
+	# run alice as parachain collator
+	[[parachains.collators]]
+	name = "bridge-hub-rococo-collator1"
+	validator = true
+	command = "{{POLKADOT_PARACHAIN_BINARY}}"
+	rpc_port = 8933
+	ws_port = 8943
+	args = [
+		"-lparachain=debug,runtime::bridge-hub=trace,runtime::bridge=trace,runtime::bridge-dispatch=trace,bridge=trace,runtime::bridge-messages=trace,xcm=trace"
+	]
+
+	# run bob as parachain collator
+	[[parachains.collators]]
+	name = "bridge-hub-rococo-collator2"
+	validator = true
+	command = "{{POLKADOT_PARACHAIN_BINARY}}"
+	rpc_port = 8934
+	ws_port = 8944
+	args = [
+		"-lparachain=trace,runtime::bridge-hub=trace,runtime::bridge=trace,runtime::bridge-dispatch=trace,bridge=trace,runtime::bridge-messages=trace,xcm=trace"
+	]
+
+[[parachains]]
+id = 1000
+chain = "asset-hub-rococo-local"
+cumulus_based = true
+
+	[[parachains.collators]]
+	name = "asset-hub-rococo-collator1"
+	rpc_port = 9911
+	ws_port = 9910
+	command = "{{POLKADOT_PARACHAIN_BINARY}}"
+	args = [
+		"-lparachain=debug,xcm=trace,runtime::bridge-transfer=trace"
+	]
+
+	[[parachains.collators]]
+	name = "asset-hub-rococo-collator2"
+	command = "{{POLKADOT_PARACHAIN_BINARY}}"
+	args = [
+		"-lparachain=debug,xcm=trace,runtime::bridge-transfer=trace"
+	]
+
+#[[hrmp_channels]]
+#sender = 1000
+#recipient = 1013
+#max_capacity = 4
+#max_message_size = 524288
+#
+#[[hrmp_channels]]
+#sender = 1013
+#recipient = 1000
+#max_capacity = 4
+#max_message_size = 524288

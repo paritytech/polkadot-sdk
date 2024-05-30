@@ -65,9 +65,9 @@ sp-version = { path = "../../../substrate/primitives/version" }
 
 # Substrate Pallets
 pallet-babe = { path = "../../../substrate/frame/babe" }
-pallet-im-online = { path = "../../../substrate/frame/im-online" }
 pallet-staking = { path = "../../../substrate/frame/staking" }
 pallet-transaction-payment-rpc-runtime-api = { path = "../../../substrate/frame/transaction-payment/rpc/runtime-api" }
+frame-metadata-hash-extension = { path = "../../../substrate/frame/metadata-hash-extension", optional = true }
 frame-system = { path = "../../../substrate/frame/system" }
 
 # Substrate Other
@@ -78,21 +78,22 @@ frame-benchmarking-cli = { path = "../../../substrate/utils/frame/benchmarking-c
 frame-benchmarking = { path = "../../../substrate/frame/benchmarking" }
 
 # External Crates
-async-trait = "0.1.74"
-futures = "0.3.21"
+async-trait = "0.1.79"
+futures = "0.3.30"
 hex-literal = "0.4.1"
 is_executable = "1.0.1"
 gum = { package = "tracing-gum", path = "../gum" }
-log = "0.4.17"
+log = { workspace = true, default-features = true }
 schnellru = "0.2.1"
-serde = { version = "1.0.195", features = ["derive"] }
-serde_json = "1.0.111"
-thiserror = "1.0.48"
+serde = { features = ["derive"], workspace = true, default-features = true }
+serde_json = { workspace = true, default-features = true }
+thiserror = { workspace = true }
 kvdb = "0.13.0"
 kvdb-rocksdb = { version = "0.19.0", optional = true }
 parity-db = { version = "0.4.12", optional = true }
 codec = { package = "parity-scale-codec", version = "3.6.1" }
 parking_lot = "0.12.1"
+bitvec = { version = "1.0.1", optional = true }
 
 # Polkadot
 polkadot-core-primitives = { path = "../../core-primitives" }
@@ -141,11 +142,14 @@ polkadot-node-core-pvf-checker = { path = "../core/pvf-checker", optional = true
 polkadot-node-core-runtime-api = { path = "../core/runtime-api", optional = true }
 polkadot-statement-distribution = { path = "../network/statement-distribution", optional = true }
 
+xcm = { package = "staging-xcm", path = "../../xcm" }
+xcm-fee-payment-runtime-api = { path = "../../xcm/xcm-fee-payment-runtime-api" }
+
 [dev-dependencies]
 polkadot-test-client = { path = "../test/client" }
 polkadot-node-subsystem-test-helpers = { path = "../subsystem-test-helpers" }
 test-helpers = { package = "polkadot-primitives-test-helpers", path = "../../primitives/test-helpers" }
-env_logger = "0.9.0"
+env_logger = "0.11"
 assert_matches = "1.5.0"
 serial_test = "2.0.0"
 tempfile = "3.2"
@@ -184,8 +188,18 @@ full-node = [
 ]
 
 # Configure the native runtimes to use.
-westend-native = ["westend-runtime", "westend-runtime-constants"]
-rococo-native = ["rococo-runtime", "rococo-runtime-constants"]
+westend-native = [
+	"bitvec",
+	"frame-metadata-hash-extension",
+	"westend-runtime",
+	"westend-runtime-constants",
+]
+rococo-native = [
+	"bitvec",
+	"frame-metadata-hash-extension",
+	"rococo-runtime",
+	"rococo-runtime-constants",
+]
 
 runtime-benchmarks = [
 	"frame-benchmarking-cli/runtime-benchmarks",
@@ -193,7 +207,6 @@ runtime-benchmarks = [
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"pallet-babe/runtime-benchmarks",
-	"pallet-im-online/runtime-benchmarks",
 	"pallet-staking/runtime-benchmarks",
 	"polkadot-parachain-primitives/runtime-benchmarks",
 	"polkadot-primitives/runtime-benchmarks",
@@ -209,7 +222,6 @@ try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
 	"pallet-babe/try-runtime",
-	"pallet-im-online/try-runtime",
 	"pallet-staking/try-runtime",
 	"pallet-transaction-payment/try-runtime",
 	"polkadot-runtime-parachains/try-runtime",
@@ -217,14 +229,15 @@ try-runtime = [
 	"sp-runtime/try-runtime",
 	"westend-runtime?/try-runtime",
 ]
-fast-runtime = [
-	"rococo-runtime?/fast-runtime",
-	"westend-runtime?/fast-runtime",
-]
+fast-runtime = ["rococo-runtime?/fast-runtime", "westend-runtime?/fast-runtime"]
 
 malus = ["full-node"]
 runtime-metrics = [
 	"polkadot-runtime-parachains/runtime-metrics",
 	"rococo-runtime?/runtime-metrics",
 	"westend-runtime?/runtime-metrics",
+]
+
+elastic-scaling-experimental = [
+	"polkadot-collator-protocol?/elastic-scaling-experimental",
 ]

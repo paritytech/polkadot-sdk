@@ -1,32 +1,40 @@
-# Snowbridge
-[![codecov](https://codecov.io/gh/Snowfork/snowbridge/branch/main/graph/badge.svg?token=9hvgSws4rN)](https://codecov.io/gh/Snowfork/snowbridge)
+# Snowbridge &middot;
+[![codecov](https://codecov.io/gh/Snowfork/polkadot-sdk/branch/snowbridge/graph/badge.svg?token=9hvgSws4rN)](https://codecov.io/gh/Snowfork/polkadot-sdk)
 ![GitHub](https://img.shields.io/github/license/Snowfork/snowbridge)
 
 Snowbridge is a trustless bridge between Polkadot and Ethereum. For documentation, visit https://docs.snowbridge.network.
 
 ## Components
 
+The Snowbridge project lives in two repositories:
+
+- [Snowfork/Polkadot-sdk](https://github.com/Snowfork/polkadot-sdk): The Snowbridge parachain and pallets live in
+a fork of the Polkadot SDK. Changes are eventually contributed back to
+[paritytech/Polkadot-sdk](https://github.com/paritytech/polkadot-sdk)
+- [Snowfork/snowbridge](https://github.com/Snowfork/snowbridge): The rest of the Snowbridge components, like contracts,
+off-chain relayer, end-to-end tests and test-net setup code.
+
 ### Parachain
 
-Polkadot parachain and our pallets. See [parachain/README.md](https://github.com/Snowfork/snowbridge/blob/main/parachain/README.md).
+Polkadot parachain and our pallets. See [README.md](https://github.com/Snowfork/polkadot-sdk/blob/snowbridge/bridges/snowbridge/README.md).
 
 ### Contracts
 
-Ethereum contracts and unit tests. See [contracts/README.md](https://github.com/Snowfork/snowbridge/blob/main/contracts/README.md)
+Ethereum contracts and unit tests. See [Snowfork/snowbridge/contracts/README.md](https://github.com/Snowfork/snowbridge/blob/main/contracts/README.md)
 
 ### Relayer
 
 Off-chain relayer services for relaying messages between Polkadot and Ethereum. See
-[relayer/README.md](https://github.com/Snowfork/snowbridge/blob/main/relayer/README.md)
+[Snowfork/snowbridge/relayer/README.md](https://github.com/Snowfork/snowbridge/blob/main/relayer/README.md)
 
 ### Local Testnet
 
 Scripts to provision a local testnet, running the above services to bridge between local deployments of Polkadot and
-Ethereum. See [web/packages/test/README.md](https://github.com/Snowfork/snowbridge/blob/main/web/packages/test/README.md).
+Ethereum. See [Snowfork/snowbridge/web/packages/test/README.md](https://github.com/Snowfork/snowbridge/blob/main/web/packages/test/README.md).
 
 ### Smoke Tests
 
-Integration tests for our local testnet. See [smoketest/README.md](https://github.com/Snowfork/snowbridge/blob/main/smoketest/README.md).
+Integration tests for our local testnet. See [Snowfork/snowbridge/smoketest/README.md](https://github.com/Snowfork/snowbridge/blob/main/smoketest/README.md).
 
 ## Development
 
@@ -83,7 +91,7 @@ direnv allow
 
 ### Upgrading the Rust toolchain
 
-Sometimes we would like to upgrade rust toolchain. First update `parachain/rust-toolchain.toml` as required and then
+Sometimes we would like to upgrade rust toolchain. First update `rust-toolchain.toml` as required and then
 update `flake.lock` running
 ```sh
 nix flake lock --update-input rust-overlay

@@ -29,7 +29,7 @@ pub mod v1 {
 
 		log::debug!(
 			target: "runtime::vesting",
-			"migration: Vesting storage version v1 PRE migration checks succesful!"
+			"migration: Vesting storage version v1 PRE migration checks successful!"
 		);
 
 		Ok(())

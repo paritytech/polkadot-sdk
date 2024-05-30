@@ -2,8 +2,6 @@ name: Check workspace
 
 on:
   pull_request:
-    paths:
-      - "*.toml"
   merge_group:
 
 jobs:
@@ -19,5 +17,5 @@ jobs:
         run: >
             python3 .github/scripts/check-workspace.py .
             --exclude
-            "substrate/frame/contracts/fixtures/build" 
+            "substrate/frame/contracts/fixtures/build"
             "substrate/frame/contracts/fixtures/contracts/common"

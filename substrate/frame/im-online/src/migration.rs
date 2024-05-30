@@ -56,7 +56,7 @@ pub mod v1 {
 	use super::*;
 
 	/// Simple migration that replaces `ReceivedHeartbeats` values with `true`.
-	pub struct Migration<T>(sp_std::marker::PhantomData<T>);
+	pub struct Migration<T>(core::marker::PhantomData<T>);
 
 	impl<T: Config> OnRuntimeUpgrade for Migration<T> {
 		#[cfg(feature = "try-runtime")]
@@ -72,7 +72,7 @@ pub mod v1 {
 			if StorageVersion::get::<Pallet<T>>() != 0 {
 				log::warn!(
 					target: TARGET,
-					"Skipping migration because current storage version is not 0"
+					"Skipping migration because in-code storage version is not 0"
 				);
 				return weight
 			}
@@ -114,6 +114,21 @@ pub mod v1 {
 			Ok(())
 		}
 	}
+}
+
+/// Clears the pallet's offchain storage.
+///
+/// Must be put in `OffchainWorkerApi::offchain_worker` after
+/// the pallet was removed.
+pub fn clear_offchain_storage(validator_set_size: u32) {
+	(0..validator_set_size).for_each(|idx| {
+		let key = {
+			let mut key = DB_PREFIX.to_vec();
+			key.extend(idx.encode());
+			key
+		};
+		sp_runtime::offchain::storage::StorageValueRef::persistent(&key).clear();
+	});
 }
 
 #[cfg(all(feature = "try-runtime", test))]

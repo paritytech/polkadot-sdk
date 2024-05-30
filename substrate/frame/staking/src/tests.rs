@@ -27,7 +27,7 @@ use frame_support::{
 	assert_noop, assert_ok, assert_storage_noop,
 	dispatch::{extract_actual_weight, GetDispatchInfo, WithPostDispatchInfo},
 	pallet_prelude::*,
-	traits::{Currency, Get, ReservableCurrency},
+	traits::{Currency, Get, InspectLockableCurrency, ReservableCurrency},
 };
 
 use mock::*;
@@ -55,6 +55,7 @@ fn set_staking_configs_works() {
 			ConfigOp::Set(10),
 			ConfigOp::Set(20),
 			ConfigOp::Set(Percent::from_percent(75)),
+			ConfigOp::Set(Zero::zero()),
 			ConfigOp::Set(Zero::zero())
 		));
 		assert_eq!(MinNominatorBond::<Test>::get(), 1_500);
@@ -63,10 +64,12 @@ fn set_staking_configs_works() {
 		assert_eq!(MaxValidatorsCount::<Test>::get(), Some(20));
 		assert_eq!(ChillThreshold::<Test>::get(), Some(Percent::from_percent(75)));
 		assert_eq!(MinCommission::<Test>::get(), Perbill::from_percent(0));
+		assert_eq!(MaxStakedRewards::<Test>::get(), Some(Percent::from_percent(0)));
 
 		// noop does nothing
 		assert_storage_noop!(assert_ok!(Staking::set_staking_configs(
 			RuntimeOrigin::root(),
+			ConfigOp::Noop,
 			ConfigOp::Noop,
 			ConfigOp::Noop,
 			ConfigOp::Noop,
@@ -83,6 +86,7 @@ fn set_staking_configs_works() {
 			ConfigOp::Remove,
 			ConfigOp::Remove,
 			ConfigOp::Remove,
+			ConfigOp::Remove,
 			ConfigOp::Remove
 		));
 		assert_eq!(MinNominatorBond::<Test>::get(), 0);
@@ -91,6 +95,7 @@ fn set_staking_configs_works() {
 		assert_eq!(MaxValidatorsCount::<Test>::get(), None);
 		assert_eq!(ChillThreshold::<Test>::get(), None);
 		assert_eq!(MinCommission::<Test>::get(), Perbill::from_percent(0));
+		assert_eq!(MaxStakedRewards::<Test>::get(), None);
 	});
 }
 
@@ -265,7 +270,7 @@ fn change_controller_works() {
 		assert_eq!(ledger.controller(), Some(stash));
 
 		// the raw storage ledger's controller is always `None`. however, we can still fetch the
-		// correct controller with `ledger.controler()`.
+		// correct controller with `ledger.controller()`.
 		let raw_ledger = <Ledger<Test>>::get(&stash).unwrap();
 		assert_eq!(raw_ledger.controller, None);
 
@@ -618,12 +623,8 @@ fn nominating_and_rewards_should_work() {
 			));
 			assert_ok!(Staking::nominate(RuntimeOrigin::signed(1), vec![11, 21, 31]));
 
-			assert_ok!(Staking::bond(
-				RuntimeOrigin::signed(3),
-				1000,
-				RewardDestination::Account(3)
-			));
-			assert_ok!(Staking::nominate(RuntimeOrigin::signed(3), vec![11, 21, 41]));
+			// the second nominator is virtual.
+			bond_virtual_nominator(3, 333, 1000, vec![11, 21, 41]);
 
 			// the total reward for era 0
 			let total_payout_0 = current_total_payout_for_duration(reward_time_per_era());
@@ -689,10 +690,12 @@ fn nominating_and_rewards_should_work() {
 			);
 			// Nominator 3: has [400/1800 ~ 2/9 from 10] + [600/2200 ~ 3/11 from 21]'s reward. ==>
 			// 2/9 + 3/11
+			assert_eq!(Balances::total_balance(&3), initial_balance);
+			// 333 is the reward destination for 3.
 			assert_eq_error_rate!(
-				Balances::total_balance(&3),
-				initial_balance + (2 * payout_for_11 / 9 + 3 * payout_for_21 / 11),
-				2,
+				Balances::total_balance(&333),
+				2 * payout_for_11 / 9 + 3 * payout_for_21 / 11,
+				2
 			);
 
 			// Validator 11: got 800 / 1800 external stake => 8/18 =? 4/9 => Validator's share = 5/9
@@ -1244,6 +1247,23 @@ fn bond_extra_works() {
 }
 
 #[test]
+fn bond_extra_controller_bad_state_works() {
+	ExtBuilder::default().try_state(false).build_and_execute(|| {
+		assert_eq!(StakingLedger::<Test>::get(StakingAccount::Stash(31)).unwrap().stash, 31);
+
+		// simulate ledger in bad state: the controller 41 is associated to the stash 31 and 41.
+		Bonded::<Test>::insert(31, 41);
+
+		// we confirm that the ledger is in bad state: 31 has 41 as controller and when fetching
+		// the ledger associated with the controller 41, its stash is 41 (and not 31).
+		assert_eq!(Ledger::<Test>::get(41).unwrap().stash, 41);
+
+		// if the ledger is in this bad state, the `bond_extra` should fail.
+		assert_noop!(Staking::bond_extra(RuntimeOrigin::signed(31), 10), Error::<Test>::BadState);
+	})
+}
+
+#[test]
 fn bond_extra_and_withdraw_unbonded_works() {
 	//
 	// * Should test
@@ -1740,6 +1760,74 @@ fn rebond_emits_right_value_in_event() {
 }
 
 #[test]
+fn max_staked_rewards_default_works() {
+	ExtBuilder::default().build_and_execute(|| {
+		assert_eq!(<MaxStakedRewards<Test>>::get(), None);
+
+		let default_stakers_payout = current_total_payout_for_duration(reward_time_per_era());
+		assert!(default_stakers_payout > 0);
+		start_active_era(1);
+
+		// the final stakers reward is the same as the reward before applied the cap.
+		assert_eq!(ErasValidatorReward::<Test>::get(0).unwrap(), default_stakers_payout);
+
+		// which is the same behaviour if the `MaxStakedRewards` is set to 100%.
+		<MaxStakedRewards<Test>>::set(Some(Percent::from_parts(100)));
+
+		let default_stakers_payout = current_total_payout_for_duration(reward_time_per_era());
+		assert_eq!(ErasValidatorReward::<Test>::get(0).unwrap(), default_stakers_payout);
+	})
+}
+
+#[test]
+fn max_staked_rewards_works() {
+	ExtBuilder::default().nominate(true).build_and_execute(|| {
+		let max_staked_rewards = 10;
+
+		// sets new max staked rewards through set_staking_configs.
+		assert_ok!(Staking::set_staking_configs(
+			RuntimeOrigin::root(),
+			ConfigOp::Noop,
+			ConfigOp::Noop,
+			ConfigOp::Noop,
+			ConfigOp::Noop,
+			ConfigOp::Noop,
+			ConfigOp::Noop,
+			ConfigOp::Set(Percent::from_percent(max_staked_rewards)),
+		));
+
+		assert_eq!(<MaxStakedRewards<Test>>::get(), Some(Percent::from_percent(10)));
+
+		// check validators account state.
+		assert_eq!(Session::validators().len(), 2);
+		assert!(Session::validators().contains(&11) & Session::validators().contains(&21));
+		// balance of the mock treasury account is 0
+		assert_eq!(RewardRemainderUnbalanced::get(), 0);
+
+		let max_stakers_payout = current_total_payout_for_duration(reward_time_per_era());
+
+		start_active_era(1);
+
+		let treasury_payout = RewardRemainderUnbalanced::get();
+		let validators_payout = ErasValidatorReward::<Test>::get(0).unwrap();
+		let total_payout = treasury_payout + validators_payout;
+
+		// max stakers payout (without max staked rewards cap applied) is larger than the final
+		// validator rewards. The final payment and remainder should be adjusted by redistributing
+		// the era inflation to apply the cap...
+		assert!(max_stakers_payout > validators_payout);
+
+		// .. which means that the final validator payout is 10% of the total payout..
+		assert_eq!(validators_payout, Percent::from_percent(max_staked_rewards) * total_payout);
+		// .. and the remainder 90% goes to the treasury.
+		assert_eq!(
+			treasury_payout,
+			Percent::from_percent(100 - max_staked_rewards) * (treasury_payout + validators_payout)
+		);
+	})
+}
+
+#[test]
 fn reward_to_stake_works() {
 	ExtBuilder::default()
 		.nominate(false)
@@ -1803,7 +1891,7 @@ fn reap_stash_works() {
 		.balance_factor(10)
 		.build_and_execute(|| {
 			// given
-			assert_eq!(Balances::free_balance(11), 10 * 1000);
+			assert_eq!(Balances::balance_locked(STAKING_ID, &11), 10 * 1000);
 			assert_eq!(Staking::bonded(&11), Some(11));
 
 			assert!(<Ledger<Test>>::contains_key(&11));
@@ -1829,6 +1917,8 @@ fn reap_stash_works() {
 			assert!(!<Bonded<Test>>::contains_key(&11));
 			assert!(!<Validators<Test>>::contains_key(&11));
 			assert!(!<Payee<Test>>::contains_key(&11));
+			// lock is removed.
+			assert_eq!(Balances::balance_locked(STAKING_ID, &11), 0);
 		});
 }
 
@@ -4596,7 +4686,7 @@ fn bond_during_era_does_not_populate_legacy_claimed_rewards() {
 			}
 		);
 
-		// make sure only era upto history depth is stored
+		// make sure only era up to history depth is stored
 		let current_era = 99;
 		mock::start_active_era(current_era);
 		bond_validator(13, 1000);
@@ -5322,7 +5412,7 @@ mod election_data_provider {
 					Event::SnapshotVotersSizeExceeded { size: 75 }
 				);
 
-				// however, if the election voter size bounds were largers, the snapshot would
+				// however, if the election voter size bounds were larger, the snapshot would
 				// include the electing voters of 70.
 				let bounds = ElectionBoundsBuilder::default().voters_size(1_000.into()).build();
 				assert_eq!(
@@ -5543,7 +5633,8 @@ fn chill_other_works() {
 				ConfigOp::Remove,
 				ConfigOp::Remove,
 				ConfigOp::Remove,
-				ConfigOp::Remove
+				ConfigOp::Remove,
+				ConfigOp::Noop,
 			));
 
 			// Still can't chill these users
@@ -5564,7 +5655,8 @@ fn chill_other_works() {
 				ConfigOp::Set(10),
 				ConfigOp::Set(10),
 				ConfigOp::Noop,
-				ConfigOp::Noop
+				ConfigOp::Noop,
+				ConfigOp::Noop,
 			));
 
 			// Still can't chill these users
@@ -5585,7 +5677,8 @@ fn chill_other_works() {
 				ConfigOp::Remove,
 				ConfigOp::Remove,
 				ConfigOp::Noop,
-				ConfigOp::Noop
+				ConfigOp::Noop,
+				ConfigOp::Noop,
 			));
 
 			// Still can't chill these users
@@ -5606,7 +5699,8 @@ fn chill_other_works() {
 				ConfigOp::Set(10),
 				ConfigOp::Set(10),
 				ConfigOp::Set(Percent::from_percent(75)),
-				ConfigOp::Noop
+				ConfigOp::Noop,
+				ConfigOp::Noop,
 			));
 
 			// 16 people total because tests start with 2 active one
@@ -5652,6 +5746,7 @@ fn capped_stakers_works() {
 			ConfigOp::Set(max),
 			ConfigOp::Remove,
 			ConfigOp::Remove,
+			ConfigOp::Noop,
 		));
 
 		// can create `max - validator_count` validators
@@ -5722,6 +5817,7 @@ fn capped_stakers_works() {
 			ConfigOp::Remove,
 			ConfigOp::Noop,
 			ConfigOp::Noop,
+			ConfigOp::Noop,
 		));
 		assert_ok!(Staking::nominate(RuntimeOrigin::signed(last_nominator), vec![1]));
 		assert_ok!(Staking::validate(
@@ -5757,6 +5853,7 @@ fn min_commission_works() {
 			ConfigOp::Remove,
 			ConfigOp::Remove,
 			ConfigOp::Set(Perbill::from_percent(10)),
+			ConfigOp::Noop,
 		));
 
 		// can't make it less than 10 now
@@ -6752,6 +6849,226 @@ mod staking_interface {
 	}
 }
 
+mod staking_unchecked {
+	use sp_staking::{Stake, StakingInterface, StakingUnchecked};
+
+	use super::*;
+
+	#[test]
+	fn virtual_bond_does_not_lock() {
+		ExtBuilder::default().build_and_execute(|| {
+			mock::start_active_era(1);
+			assert_eq!(Balances::free_balance(10), 1);
+			// 10 can bond more than its balance amount since we do not require lock for virtual
+			// bonding.
+			assert_ok!(<Staking as StakingUnchecked>::virtual_bond(&10, 100, &15));
+			// nothing is locked on 10.
+			assert_eq!(Balances::balance_locked(STAKING_ID, &10), 0);
+			// adding more balance does not lock anything as well.
+			assert_ok!(<Staking as StakingInterface>::bond_extra(&10, 1000));
+			// but ledger is updated correctly.
+			assert_eq!(
+				<Staking as StakingInterface>::stake(&10),
+				Ok(Stake { total: 1100, active: 1100 })
+			);
+
+			// lets try unbonding some amount.
+			assert_ok!(<Staking as StakingInterface>::unbond(&10, 200));
+			assert_eq!(
+				Staking::ledger(10.into()).unwrap(),
+				StakingLedgerInspect {
+					stash: 10,
+					total: 1100,
+					active: 1100 - 200,
+					unlocking: bounded_vec![UnlockChunk { value: 200, era: 1 + 3 }],
+					legacy_claimed_rewards: bounded_vec![],
+				}
+			);
+
+			assert_eq!(
+				<Staking as StakingInterface>::stake(&10),
+				Ok(Stake { total: 1100, active: 900 })
+			);
+			// still no locks.
+			assert_eq!(Balances::balance_locked(STAKING_ID, &10), 0);
+
+			mock::start_active_era(2);
+			// cannot withdraw without waiting for unbonding period.
+			assert_ok!(<Staking as StakingInterface>::withdraw_unbonded(10, 0));
+			assert_eq!(
+				<Staking as StakingInterface>::stake(&10),
+				Ok(Stake { total: 1100, active: 900 })
+			);
+
+			// in era 4, 10 can withdraw unlocking amount.
+			mock::start_active_era(4);
+			assert_ok!(<Staking as StakingInterface>::withdraw_unbonded(10, 0));
+			assert_eq!(
+				<Staking as StakingInterface>::stake(&10),
+				Ok(Stake { total: 900, active: 900 })
+			);
+
+			// unbond all.
+			assert_ok!(<Staking as StakingInterface>::unbond(&10, 900));
+			assert_eq!(
+				<Staking as StakingInterface>::stake(&10),
+				Ok(Stake { total: 900, active: 0 })
+			);
+			mock::start_active_era(7);
+			assert_ok!(<Staking as StakingInterface>::withdraw_unbonded(10, 0));
+
+			// ensure withdrawing all amount cleans up storage.
+			assert_eq!(Staking::ledger(10.into()), Err(Error::<Test>::NotStash));
+			assert_eq!(VirtualStakers::<Test>::contains_key(10), false);
+		})
+	}
+
+	#[test]
+	fn virtual_staker_cannot_pay_reward_to_self_account() {
+		ExtBuilder::default().build_and_execute(|| {
+			// cannot set payee to self
+			assert_noop!(
+				<Staking as StakingUnchecked>::virtual_bond(&10, 100, &10),
+				Error::<Test>::RewardDestinationRestricted
+			);
+
+			// to another account works
+			assert_ok!(<Staking as StakingUnchecked>::virtual_bond(&10, 100, &11));
+
+			// cannot set via set_payee as well.
+			assert_noop!(
+				<Staking as StakingInterface>::update_payee(&10, &10),
+				Error::<Test>::RewardDestinationRestricted
+			);
+		});
+	}
+
+	#[test]
+	fn virtual_staker_cannot_bond_again() {
+		ExtBuilder::default().build_and_execute(|| {
+			// 200 virtual bonds
+			bond_virtual_nominator(200, 201, 500, vec![11, 21]);
+
+			// Tries bonding again
+			assert_noop!(
+				<Staking as StakingUnchecked>::virtual_bond(&200, 200, &201),
+				Error::<Test>::AlreadyBonded
+			);
+
+			// And again with a different reward destination.
+			assert_noop!(
+				<Staking as StakingUnchecked>::virtual_bond(&200, 200, &202),
+				Error::<Test>::AlreadyBonded
+			);
+
+			// Direct bond is not allowed as well.
+			assert_noop!(
+				<Staking as StakingInterface>::bond(&200, 200, &202),
+				Error::<Test>::AlreadyBonded
+			);
+		});
+	}
+
+	#[test]
+	fn normal_staker_cannot_virtual_bond() {
+		ExtBuilder::default().build_and_execute(|| {
+			// 101 is a nominator trying to virtual bond
+			assert_noop!(
+				<Staking as StakingUnchecked>::virtual_bond(&101, 200, &102),
+				Error::<Test>::AlreadyBonded
+			);
+
+			// validator 21 tries to virtual bond
+			assert_noop!(
+				<Staking as StakingUnchecked>::virtual_bond(&21, 200, &22),
+				Error::<Test>::AlreadyBonded
+			);
+		});
+	}
+
+	#[test]
+	fn migrate_virtual_staker() {
+		ExtBuilder::default().build_and_execute(|| {
+			// give some balance to 200
+			Balances::make_free_balance_be(&200, 2000);
+
+			// stake
+			assert_ok!(Staking::bond(RuntimeOrigin::signed(200), 1000, RewardDestination::Staked));
+			assert_eq!(Balances::balance_locked(crate::STAKING_ID, &200), 1000);
+
+			// migrate them to virtual staker
+			<Staking as StakingUnchecked>::migrate_to_virtual_staker(&200);
+			// payee needs to be updated to a non-stash account.
+			assert_ok!(<Staking as StakingInterface>::update_payee(&200, &201));
+
+			// ensure the balance is not locked anymore
+			assert_eq!(Balances::balance_locked(crate::STAKING_ID, &200), 0);
+
+			// and they are marked as virtual stakers
+			assert_eq!(Pallet::<Test>::is_virtual_staker(&200), true);
+		});
+	}
+
+	#[test]
+	fn virtual_nominators_are_lazily_slashed() {
+		ExtBuilder::default().build_and_execute(|| {
+			mock::start_active_era(1);
+			let slash_percent = Perbill::from_percent(5);
+			let initial_exposure = Staking::eras_stakers(active_era(), &11);
+			// 101 is a nominator for 11
+			assert_eq!(initial_exposure.others.first().unwrap().who, 101);
+			// make 101 a virtual nominator
+			<Staking as StakingUnchecked>::migrate_to_virtual_staker(&101);
+			// set payee different to self.
+			assert_ok!(<Staking as StakingInterface>::update_payee(&101, &102));
+
+			// cache values
+			let nominator_stake = Staking::ledger(101.into()).unwrap().active;
+			let nominator_balance = balances(&101).0;
+			let validator_stake = Staking::ledger(11.into()).unwrap().active;
+			let validator_balance = balances(&11).0;
+			let exposed_stake = initial_exposure.total;
+			let exposed_validator = initial_exposure.own;
+			let exposed_nominator = initial_exposure.others.first().unwrap().value;
+
+			// 11 goes offline
+			on_offence_now(
+				&[OffenceDetails { offender: (11, initial_exposure.clone()), reporters: vec![] }],
+				&[slash_percent],
+			);
+
+			let slash_amount = slash_percent * exposed_stake;
+			let validator_share =
+				Perbill::from_rational(exposed_validator, exposed_stake) * slash_amount;
+			let nominator_share =
+				Perbill::from_rational(exposed_nominator, exposed_stake) * slash_amount;
+
+			// both slash amounts need to be positive for the test to make sense.
+			assert!(validator_share > 0);
+			assert!(nominator_share > 0);
+
+			// both stakes must have been decreased pro-rata.
+			assert_eq!(
+				Staking::ledger(101.into()).unwrap().active,
+				nominator_stake - nominator_share
+			);
+			assert_eq!(
+				Staking::ledger(11.into()).unwrap().active,
+				validator_stake - validator_share
+			);
+
+			// validator balance is slashed as usual
+			assert_eq!(balances(&11).0, validator_balance - validator_share);
+			// Because slashing happened.
+			assert!(is_disabled(11));
+
+			// but virtual nominator's balance is not slashed.
+			assert_eq!(Balances::free_balance(&101), nominator_balance);
+			// but slash is broadcasted to slash observers.
+			assert_eq!(SlashObserver::get().get(&101).unwrap(), &nominator_share);
+		})
+	}
+}
 mod ledger {
 	use super::*;
 
@@ -6831,6 +7148,52 @@ mod ledger {
 	}
 
 	#[test]
+	fn get_ledger_bad_state_fails() {
+		ExtBuilder::default().has_stakers(false).try_state(false).build_and_execute(|| {
+			setup_double_bonded_ledgers();
+
+			// Case 1: double bonded but not corrupted:
+			// stash 444 has controller 555:
+			assert_eq!(Bonded::<Test>::get(444), Some(555));
+			assert_eq!(Ledger::<Test>::get(555).unwrap().stash, 444);
+
+			// stash 444 is also a controller of 333:
+			assert_eq!(Bonded::<Test>::get(333), Some(444));
+			assert_eq!(
+				StakingLedger::<Test>::paired_account(StakingAccount::Stash(333)),
+				Some(444)
+			);
+			assert_eq!(Ledger::<Test>::get(444).unwrap().stash, 333);
+
+			// although 444 is double bonded (it is a controller and a stash of different ledgers),
+			// we can safely retrieve the ledger and mutate it since the correct ledger is
+			// returned.
+			let ledger_result = StakingLedger::<Test>::get(StakingAccount::Stash(444));
+			assert_eq!(ledger_result.unwrap().stash, 444); // correct ledger.
+
+			let ledger_result = StakingLedger::<Test>::get(StakingAccount::Controller(444));
+			assert_eq!(ledger_result.unwrap().stash, 333); // correct ledger.
+
+			// fetching ledger 333 by its stash works.
+			let ledger_result = StakingLedger::<Test>::get(StakingAccount::Stash(333));
+			assert_eq!(ledger_result.unwrap().stash, 333);
+
+			// Case 2: corrupted ledger bonding.
+			// in this case, we simulate what happens when fetching a ledger by stash returns a
+			// ledger with a different stash. when this happens, we return an error instead of the
+			// ledger to prevent ledger mutations.
+			let mut ledger = Ledger::<Test>::get(444).unwrap();
+			assert_eq!(ledger.stash, 333);
+			ledger.stash = 444;
+			Ledger::<Test>::insert(444, ledger);
+
+			// now, we are prevented from fetching the ledger by stash from 1. It's associated
+			// controller (2) is now bonding a ledger with a different stash (2, not 1).
+			assert!(StakingLedger::<Test>::get(StakingAccount::Stash(333)).is_err());
+		})
+	}
+
+	#[test]
 	fn bond_works() {
 		ExtBuilder::default().build_and_execute(|| {
 			assert!(!StakingLedger::<Test>::is_bonded(StakingAccount::Stash(42)));
@@ -6850,6 +7213,28 @@ mod ledger {
 			// once bonded, update works as expected.
 			ledger.legacy_claimed_rewards = bounded_vec![1];
 			assert_ok!(ledger.update());
+		})
+	}
+
+	#[test]
+	fn bond_controller_cannot_be_stash_works() {
+		ExtBuilder::default().build_and_execute(|| {
+			let (stash, controller) = testing_utils::create_unique_stash_controller::<Test>(
+				0,
+				10,
+				RewardDestination::Staked,
+				false,
+			)
+			.unwrap();
+
+			assert_eq!(Bonded::<Test>::get(stash), Some(controller));
+			assert_eq!(Ledger::<Test>::get(controller).map(|l| l.stash), Some(stash));
+
+			// existing controller should not be able become a stash.
+			assert_noop!(
+				Staking::bond(RuntimeOrigin::signed(controller), 10, RewardDestination::Staked),
+				Error::<Test>::AlreadyPaired,
+			);
 		})
 	}
 
@@ -6907,7 +7292,7 @@ mod ledger {
 
 	#[test]
 	fn deprecate_controller_batch_works_full_weight() {
-		ExtBuilder::default().build_and_execute(|| {
+		ExtBuilder::default().try_state(false).build_and_execute(|| {
 			// Given:
 
 			let start = 1001;
@@ -7079,6 +7464,465 @@ mod ledger {
 			// Ledger is still keyed by controller.
 			let ledger_updated = Ledger::<Test>::get(ctlr).unwrap();
 			assert_eq!(ledger_updated.stash, stash);
+		})
+	}
+
+	#[test]
+	fn deprecate_controller_batch_with_bad_state_ok() {
+		ExtBuilder::default().has_stakers(false).nominate(false).build_and_execute(|| {
+			setup_double_bonded_ledgers();
+
+			// now let's deprecate all the controllers for all the existing ledgers.
+			let bounded_controllers: BoundedVec<
+				_,
+				<Test as Config>::MaxControllersInDeprecationBatch,
+			> = BoundedVec::try_from(vec![333, 444, 555, 777]).unwrap();
+
+			assert_ok!(Staking::deprecate_controller_batch(
+				RuntimeOrigin::root(),
+				bounded_controllers
+			));
+
+			assert_eq!(
+				*staking_events().last().unwrap(),
+				Event::ControllerBatchDeprecated { failures: 0 }
+			);
+		})
+	}
+
+	#[test]
+	fn deprecate_controller_batch_with_bad_state_failures() {
+		ExtBuilder::default().has_stakers(false).try_state(false).build_and_execute(|| {
+			setup_double_bonded_ledgers();
+
+			// now let's deprecate all the controllers for all the existing ledgers.
+			let bounded_controllers: BoundedVec<
+				_,
+				<Test as Config>::MaxControllersInDeprecationBatch,
+			> = BoundedVec::try_from(vec![777, 555, 444, 333]).unwrap();
+
+			assert_ok!(Staking::deprecate_controller_batch(
+				RuntimeOrigin::root(),
+				bounded_controllers
+			));
+
+			assert_eq!(
+				*staking_events().last().unwrap(),
+				Event::ControllerBatchDeprecated { failures: 2 }
+			);
+		})
+	}
+
+	#[test]
+	fn set_controller_with_bad_state_ok() {
+		ExtBuilder::default().has_stakers(false).nominate(false).build_and_execute(|| {
+			setup_double_bonded_ledgers();
+
+			// in this case, setting controller works due to the ordering of the calls.
+			assert_ok!(Staking::set_controller(RuntimeOrigin::signed(333)));
+			assert_ok!(Staking::set_controller(RuntimeOrigin::signed(444)));
+			assert_ok!(Staking::set_controller(RuntimeOrigin::signed(555)));
+		})
+	}
+
+	#[test]
+	fn set_controller_with_bad_state_fails() {
+		ExtBuilder::default().has_stakers(false).try_state(false).build_and_execute(|| {
+			setup_double_bonded_ledgers();
+
+			// setting the controller of ledger associated with stash 555 fails since its stash is a
+			// controller of another ledger.
+			assert_noop!(
+				Staking::set_controller(RuntimeOrigin::signed(555)),
+				Error::<Test>::BadState
+			);
+			assert_noop!(
+				Staking::set_controller(RuntimeOrigin::signed(444)),
+				Error::<Test>::BadState
+			);
+			assert_ok!(Staking::set_controller(RuntimeOrigin::signed(333)));
+		})
+	}
+}
+
+mod ledger_recovery {
+	use super::*;
+
+	#[test]
+	fn inspect_recovery_ledger_simple_works() {
+		ExtBuilder::default().has_stakers(true).try_state(false).build_and_execute(|| {
+			setup_double_bonded_ledgers();
+
+			// non corrupted ledger.
+			assert_eq!(Staking::inspect_bond_state(&11).unwrap(), LedgerIntegrityState::Ok);
+
+			// non bonded stash.
+			assert!(Bonded::<Test>::get(&1111).is_none());
+			assert!(Staking::inspect_bond_state(&1111).is_err());
+
+			// double bonded but not corrupted.
+			assert_eq!(Staking::inspect_bond_state(&333).unwrap(), LedgerIntegrityState::Ok);
+		})
+	}
+
+	#[test]
+	fn inspect_recovery_ledger_corupted_killed_works() {
+		ExtBuilder::default().has_stakers(true).try_state(false).build_and_execute(|| {
+			setup_double_bonded_ledgers();
+
+			let lock_333_before = Balances::balance_locked(crate::STAKING_ID, &333);
+
+			// get into corrupted and killed ledger state by killing a corrupted ledger:
+			// init state:
+			//  (333, 444)
+			//  (444, 555)
+			// set_controller(444) to 444
+			//  (333, 444) -> corrupted
+			//  (444, 444)
+			// kill(333)
+			// (444, 444) -> corrupted and None.
+			assert_eq!(Staking::inspect_bond_state(&333).unwrap(), LedgerIntegrityState::Ok);
+			set_controller_no_checks(&444);
+
+			// now try-state fails.
+			assert!(Staking::do_try_state(System::block_number()).is_err());
+
+			// 333 is corrupted since it's controller is linking 444 ledger.
+			assert_eq!(Staking::inspect_bond_state(&333).unwrap(), LedgerIntegrityState::Corrupted);
+			// 444 however is OK.
+			assert_eq!(Staking::inspect_bond_state(&444).unwrap(), LedgerIntegrityState::Ok);
+
+			// kill the corrupted ledger that is associated with stash 333.
+			assert_ok!(StakingLedger::<Test>::kill(&333));
+
+			// 333 bond is no more but it returns `BadState` because the lock on this stash is
+			// still set (see checks below).
+			assert_eq!(Staking::inspect_bond_state(&333), Err(Error::<Test>::BadState));
+			// now the *other* ledger associated with 444 has been corrupted and killed (None).
+			assert_eq!(
+				Staking::inspect_bond_state(&444),
+				Ok(LedgerIntegrityState::CorruptedKilled)
+			);
+
+			// side effects on 333 - ledger, bonded, payee, lock should be completely empty.
+			// however, 333 lock remains.
+			assert_eq!(Balances::balance_locked(crate::STAKING_ID, &333), lock_333_before); // NOK
+			assert!(Bonded::<Test>::get(&333).is_none()); // OK
+			assert!(Payee::<Test>::get(&333).is_none()); // OK
+			assert!(Ledger::<Test>::get(&444).is_none()); // OK
+
+			// side effects on 444 - ledger, bonded, payee, lock should remain be intact.
+			// however, 444 lock was removed.
+			assert_eq!(Balances::balance_locked(crate::STAKING_ID, &444), 0); // NOK
+			assert!(Bonded::<Test>::get(&444).is_some()); // OK
+			assert!(Payee::<Test>::get(&444).is_some()); // OK
+			assert!(Ledger::<Test>::get(&555).is_none()); // NOK
+
+			assert!(Staking::do_try_state(System::block_number()).is_err());
+		})
+	}
+
+	#[test]
+	fn inspect_recovery_ledger_corupted_killed_other_works() {
+		ExtBuilder::default().has_stakers(true).try_state(false).build_and_execute(|| {
+			setup_double_bonded_ledgers();
+
+			let lock_333_before = Balances::balance_locked(crate::STAKING_ID, &333);
+
+			// get into corrupted and killed ledger state by killing a corrupted ledger:
+			// init state:
+			//  (333, 444)
+			//  (444, 555)
+			// set_controller(444) to 444
+			//  (333, 444) -> corrupted
+			//  (444, 444)
+			// kill(444)
+			// (333, 444) -> corrupted and None
+			assert_eq!(Staking::inspect_bond_state(&333).unwrap(), LedgerIntegrityState::Ok);
+			set_controller_no_checks(&444);
+
+			// now try-state fails.
+			assert!(Staking::do_try_state(System::block_number()).is_err());
+
+			// 333 is corrupted since it's controller is linking 444 ledger.
+			assert_eq!(Staking::inspect_bond_state(&333).unwrap(), LedgerIntegrityState::Corrupted);
+			// 444 however is OK.
+			assert_eq!(Staking::inspect_bond_state(&444).unwrap(), LedgerIntegrityState::Ok);
+
+			// kill the *other* ledger that is double bonded but not corrupted.
+			assert_ok!(StakingLedger::<Test>::kill(&444));
+
+			// now 333 is corrupted and None through the *other* ledger being killed.
+			assert_eq!(
+				Staking::inspect_bond_state(&333).unwrap(),
+				LedgerIntegrityState::CorruptedKilled,
+			);
+			// 444 is cleaned and not a stash anymore; no lock left behind.
+			assert_eq!(Ledger::<Test>::get(&444), None);
+			assert_eq!(Staking::inspect_bond_state(&444), Err(Error::<Test>::NotStash));
+
+			// side effects on 333 - ledger, bonded, payee, lock should be intact.
+			assert_eq!(Balances::balance_locked(crate::STAKING_ID, &333), lock_333_before); // OK
+			assert_eq!(Bonded::<Test>::get(&333), Some(444)); // OK
+			assert!(Payee::<Test>::get(&333).is_some()); // OK
+											 // however, ledger associated with its controller was killed.
+			assert!(Ledger::<Test>::get(&444).is_none()); // NOK
+
+			// side effects on 444 - ledger, bonded, payee, lock should be completely removed.
+			assert_eq!(Balances::balance_locked(crate::STAKING_ID, &444), 0); // OK
+			assert!(Bonded::<Test>::get(&444).is_none()); // OK
+			assert!(Payee::<Test>::get(&444).is_none()); // OK
+			assert!(Ledger::<Test>::get(&555).is_none()); // OK
+
+			assert!(Staking::do_try_state(System::block_number()).is_err());
+		})
+	}
+
+	#[test]
+	fn inspect_recovery_ledger_lock_corrupted_works() {
+		ExtBuilder::default().has_stakers(true).try_state(false).build_and_execute(|| {
+			setup_double_bonded_ledgers();
+
+			// get into lock corrupted ledger state by bond_extra on a ledger that is double bonded
+			// with a corrupted ledger.
+			// init state:
+			//  (333, 444)
+			//  (444, 555)
+			// set_controller(444) to 444
+			//  (333, 444) -> corrupted
+			//  (444, 444)
+			//  bond_extra(333, 10) -> lock corrupted on 444
+			assert_eq!(Staking::inspect_bond_state(&333).unwrap(), LedgerIntegrityState::Ok);
+			set_controller_no_checks(&444);
+			bond_extra_no_checks(&333, 10);
+
+			// now try-state fails.
+			assert!(Staking::do_try_state(System::block_number()).is_err());
+
+			// 333 is corrupted since it's controller is linking 444 ledger.
+			assert_eq!(Staking::inspect_bond_state(&333).unwrap(), LedgerIntegrityState::Corrupted);
+			// 444 ledger is not corrupted but locks got out of sync.
+			assert_eq!(
+				Staking::inspect_bond_state(&444).unwrap(),
+				LedgerIntegrityState::LockCorrupted
+			);
+		})
+	}
+
+	// Corrupted ledger restore.
+	//
+	// * Double bonded and corrupted ledger.
+	#[test]
+	fn restore_ledger_corrupted_works() {
+		ExtBuilder::default().has_stakers(true).build_and_execute(|| {
+			setup_double_bonded_ledgers();
+
+			// get into corrupted and killed ledger state.
+			// init state:
+			//  (333, 444)
+			//  (444, 555)
+			// set_controller(444) to 444
+			//  (333, 444) -> corrupted
+			//  (444, 444)
+			assert_eq!(Staking::inspect_bond_state(&333).unwrap(), LedgerIntegrityState::Ok);
+			set_controller_no_checks(&444);
+
+			assert_eq!(Staking::inspect_bond_state(&333).unwrap(), LedgerIntegrityState::Corrupted);
+
+			// now try-state fails.
+			assert!(Staking::do_try_state(System::block_number()).is_err());
+
+			// recover the ledger bonded by 333 stash.
+			assert_ok!(Staking::restore_ledger(RuntimeOrigin::root(), 333, None, None, None));
+
+			// try-state checks are ok now.
+			assert_ok!(Staking::do_try_state(System::block_number()));
+		})
+	}
+
+	// Corrupted and killed ledger restore.
+	//
+	// * Double bonded and corrupted ledger.
+	// * Ledger killed by own controller.
+	#[test]
+	fn restore_ledger_corrupted_killed_works() {
+		ExtBuilder::default().has_stakers(true).build_and_execute(|| {
+			setup_double_bonded_ledgers();
+
+			// ledger.total == lock
+			let total_444_before_corruption = Balances::balance_locked(crate::STAKING_ID, &444);
+
+			// get into corrupted and killed ledger state by killing a corrupted ledger:
+			// init state:
+			//  (333, 444)
+			//  (444, 555)
+			// set_controller(444) to 444
+			//  (333, 444) -> corrupted
+			//  (444, 444)
+			// kill(333)
+			// (444, 444) -> corrupted and None.
+			assert_eq!(Staking::inspect_bond_state(&333).unwrap(), LedgerIntegrityState::Ok);
+			set_controller_no_checks(&444);
+
+			// kill the corrupted ledger that is associated with stash 333.
+			assert_ok!(StakingLedger::<Test>::kill(&333));
+
+			// 333 bond is no more but it returns `BadState` because the lock on this stash is
+			// still set (see checks below).
+			assert_eq!(Staking::inspect_bond_state(&333), Err(Error::<Test>::BadState));
+			// now the *other* ledger associated with 444 has been corrupted and killed (None).
+			assert!(Staking::ledger(StakingAccount::Stash(444)).is_err());
+
+			// try-state should fail.
+			assert!(Staking::do_try_state(System::block_number()).is_err());
+
+			// recover the ledger bonded by 333 stash.
+			assert_ok!(Staking::restore_ledger(RuntimeOrigin::root(), 333, None, None, None));
+
+			// for the try-state checks to pass, we also need to recover the stash 444 which is
+			// corrupted too by proxy of kill(333). Currently, both the lock and the ledger of 444
+			// have been cleared so we need to provide the new amount to restore the ledger.
+			assert_noop!(
+				Staking::restore_ledger(RuntimeOrigin::root(), 444, None, None, None),
+				Error::<Test>::CannotRestoreLedger
+			);
+
+			assert_ok!(Staking::restore_ledger(
+				RuntimeOrigin::root(),
+				444,
+				None,
+				Some(total_444_before_corruption),
+				None,
+			));
+
+			// try-state checks are ok now.
+			assert_ok!(Staking::do_try_state(System::block_number()));
+		})
+	}
+
+	// Corrupted and killed by *other* ledger restore.
+	//
+	// * Double bonded and corrupted ledger.
+	// * Ledger killed by own controller.
+	#[test]
+	fn restore_ledger_corrupted_killed_other_works() {
+		ExtBuilder::default().has_stakers(true).build_and_execute(|| {
+			setup_double_bonded_ledgers();
+
+			// get into corrupted and killed ledger state by killing a corrupted ledger:
+			// init state:
+			//  (333, 444)
+			//  (444, 555)
+			// set_controller(444) to 444
+			//  (333, 444) -> corrupted
+			//  (444, 444)
+			// kill(444)
+			// (333, 444) -> corrupted and None
+			assert_eq!(Staking::inspect_bond_state(&333).unwrap(), LedgerIntegrityState::Ok);
+			set_controller_no_checks(&444);
+
+			// now try-state fails.
+			assert!(Staking::do_try_state(System::block_number()).is_err());
+
+			// 333 is corrupted since it's controller is linking 444 ledger.
+			assert_eq!(Staking::inspect_bond_state(&333).unwrap(), LedgerIntegrityState::Corrupted);
+			// 444 however is OK.
+			assert_eq!(Staking::inspect_bond_state(&444).unwrap(), LedgerIntegrityState::Ok);
+
+			// kill the *other* ledger that is double bonded but not corrupted.
+			assert_ok!(StakingLedger::<Test>::kill(&444));
+
+			// recover the ledger bonded by 333 stash.
+			assert_ok!(Staking::restore_ledger(RuntimeOrigin::root(), 333, None, None, None));
+
+			// 444 does not need recover in this case since it's been killed successfully.
+			assert_eq!(Staking::inspect_bond_state(&444), Err(Error::<Test>::NotStash));
+
+			// try-state checks are ok now.
+			assert_ok!(Staking::do_try_state(System::block_number()));
+		})
+	}
+
+	// Corrupted with bond_extra.
+	//
+	// * Double bonded and corrupted ledger.
+	// * Corrupted ledger calls `bond_extra`
+	#[test]
+	fn restore_ledger_corrupted_bond_extra_works() {
+		ExtBuilder::default().has_stakers(true).build_and_execute(|| {
+			setup_double_bonded_ledgers();
+
+			let lock_333_before = Balances::balance_locked(crate::STAKING_ID, &333);
+			let lock_444_before = Balances::balance_locked(crate::STAKING_ID, &444);
+
+			// get into corrupted and killed ledger state by killing a corrupted ledger:
+			// init state:
+			//  (333, 444)
+			//  (444, 555)
+			// set_controller(444) to 444
+			//  (333, 444) -> corrupted
+			//  (444, 444)
+			// bond_extra(444, 40) -> OK
+			// bond_extra(333, 30) -> locks out of sync
+
+			assert_eq!(Staking::inspect_bond_state(&333).unwrap(), LedgerIntegrityState::Ok);
+			set_controller_no_checks(&444);
+
+			// now try-state fails.
+			assert!(Staking::do_try_state(System::block_number()).is_err());
+
+			// if 444 bonds extra, the locks remain in sync.
+			bond_extra_no_checks(&444, 40);
+			assert_eq!(Balances::balance_locked(crate::STAKING_ID, &333), lock_333_before);
+			assert_eq!(Balances::balance_locked(crate::STAKING_ID, &444), lock_444_before + 40);
+
+			// however if 333 bonds extra, the wrong lock is updated.
+			bond_extra_no_checks(&333, 30);
+			assert_eq!(
+				Balances::balance_locked(crate::STAKING_ID, &333),
+				lock_444_before + 40 + 30
+			); //not OK
+			assert_eq!(Balances::balance_locked(crate::STAKING_ID, &444), lock_444_before + 40); // OK
+
+			// recover the ledger bonded by 333 stash. Note that the total/lock needs to be
+			// re-written since on-chain data lock has become out of sync.
+			assert_ok!(Staking::restore_ledger(
+				RuntimeOrigin::root(),
+				333,
+				None,
+				Some(lock_333_before + 30),
+				None
+			));
+
+			// now recover 444 that although it's not corrupted, its lock and ledger.total are out
+			// of sync. in which case, we need to explicitly set the ledger's lock and amount,
+			// otherwise the ledger recover will fail.
+			assert_noop!(
+				Staking::restore_ledger(RuntimeOrigin::root(), 444, None, None, None),
+				Error::<Test>::CannotRestoreLedger
+			);
+
+			//and enforcing a new ledger lock/total on this non-corrupted ledger will work.
+			assert_ok!(Staking::restore_ledger(
+				RuntimeOrigin::root(),
+				444,
+				None,
+				Some(lock_444_before + 40),
+				None
+			));
+
+			// double-check that ledgers got to expected state and bond_extra done during the
+			// corrupted state is part of the recovered ledgers.
+			let ledger_333 = Bonded::<Test>::get(&333).and_then(Ledger::<Test>::get).unwrap();
+			let ledger_444 = Bonded::<Test>::get(&444).and_then(Ledger::<Test>::get).unwrap();
+
+			assert_eq!(ledger_333.total, lock_333_before + 30);
+			assert_eq!(Balances::balance_locked(crate::STAKING_ID, &333), ledger_333.total);
+			assert_eq!(ledger_444.total, lock_444_before + 40);
+			assert_eq!(Balances::balance_locked(crate::STAKING_ID, &444), ledger_444.total);
+
+			// try-state checks are ok now.
+			assert_ok!(Staking::do_try_state(System::block_number()));
 		})
 	}
 }

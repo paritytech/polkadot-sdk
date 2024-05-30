@@ -28,17 +28,17 @@ runtime-benchmarks = [
 ]
 
 [dependencies]
-jsonrpsee = { version = "0.20.3", features = ["server"] }
-thiserror = "1.0.48"
-futures = "0.3.21"
+jsonrpsee = { version = "0.22", features = ["server"] }
+thiserror = { workspace = true }
+futures = "0.3.30"
 rand = "0.8.5"
 parking_lot = "0.12.1"
-log = "0.4.17"
+log = { workspace = true, default-features = true }
 futures-timer = "3.0.1"
 exit-future = "0.2.0"
 pin-project = "1.0.12"
-serde = "1.0.195"
-serde_json = "1.0.111"
+serde = { workspace = true, default-features = true }
+serde_json = { workspace = true, default-features = true }
 sc-keystore = { path = "../keystore" }
 sp-runtime = { path = "../../primitives/runtime" }
 sp-trie = { path = "../../primitives/trie" }
@@ -54,10 +54,10 @@ sp-consensus = { path = "../../primitives/consensus/common" }
 sc-consensus = { path = "../consensus/common" }
 sp-storage = { path = "../../primitives/storage" }
 sc-network = { path = "../network" }
-sc-network-bitswap = { path = "../network/bitswap" }
 sc-network-common = { path = "../network/common" }
 sc-network-light = { path = "../network/light" }
 sc-network-sync = { path = "../network/sync" }
+sc-network-types = { path = "../network/types" }
 sc-network-transactions = { path = "../network/transactions" }
 sc-chain-spec = { path = "../chain-spec" }
 sc-client-api = { path = "../api" }
@@ -79,11 +79,12 @@ sc-tracing = { path = "../tracing" }
 sc-sysinfo = { path = "../sysinfo" }
 tracing = "0.1.29"
 tracing-futures = { version = "0.2.4" }
-async-trait = "0.1.74"
+async-trait = "0.1.79"
 tokio = { version = "1.22.0", features = ["parking_lot", "rt-multi-thread", "time"] }
 tempfile = "3.1.0"
 directories = "5.0.1"
 static_init = "1.0.3"
+schnellru = "0.2.1"
 
 [dev-dependencies]
 substrate-test-runtime-client = { path = "../../test-utils/runtime/client" }

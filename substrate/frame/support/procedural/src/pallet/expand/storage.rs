@@ -834,7 +834,10 @@ pub fn expand_storages(def: &mut Def) -> proc_macro2::TokenStream {
 			.storages
 			.iter()
 			.filter_map(|storage| {
-				if storage.cfg_attrs.is_empty() {
+				// A little hacky; don't generate for cfg gated storages to not get compile errors
+				// when building "frame-feature-testing" gated storages in the "frame-support-test"
+				// crate.
+				if storage.try_decode && storage.cfg_attrs.is_empty() {
 					let ident = &storage.ident;
 					let gen = &def.type_use_generics(storage.attr_span);
 					Some(quote::quote_spanned!(storage.attr_span => #ident<#gen> ))

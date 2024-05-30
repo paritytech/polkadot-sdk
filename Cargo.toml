@@ -3,30 +3,33 @@ authors = ["Parity Technologies <admin@parity.io>"]
 edition = "2021"
 repository = "https://github.com/paritytech/polkadot-sdk.git"
 license = "GPL-3.0-only"
+homepage = "https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/index.html"
 
 [workspace]
 resolver = "2"
 
 members = [
 	"bridges/bin/runtime-common",
+	"bridges/chains/chain-asset-hub-rococo",
+	"bridges/chains/chain-asset-hub-westend",
+	"bridges/chains/chain-bridge-hub-cumulus",
+	"bridges/chains/chain-bridge-hub-kusama",
+	"bridges/chains/chain-bridge-hub-polkadot",
+	"bridges/chains/chain-bridge-hub-rococo",
+	"bridges/chains/chain-bridge-hub-westend",
+	"bridges/chains/chain-kusama",
+	"bridges/chains/chain-polkadot",
+	"bridges/chains/chain-polkadot-bulletin",
+	"bridges/chains/chain-rococo",
+	"bridges/chains/chain-westend",
+	"bridges/modules/beefy",
 	"bridges/modules/grandpa",
 	"bridges/modules/messages",
 	"bridges/modules/parachains",
 	"bridges/modules/relayers",
 	"bridges/modules/xcm-bridge-hub",
 	"bridges/modules/xcm-bridge-hub-router",
-	"bridges/primitives/chain-asset-hub-rococo",
-	"bridges/primitives/chain-asset-hub-westend",
-	"bridges/primitives/chain-bridge-hub-cumulus",
-	"bridges/primitives/chain-bridge-hub-kusama",
-	"bridges/primitives/chain-bridge-hub-polkadot",
-	"bridges/primitives/chain-bridge-hub-rococo",
-	"bridges/primitives/chain-bridge-hub-westend",
-	"bridges/primitives/chain-kusama",
-	"bridges/primitives/chain-polkadot",
-	"bridges/primitives/chain-polkadot-bulletin",
-	"bridges/primitives/chain-rococo",
-	"bridges/primitives/chain-westend",
+	"bridges/primitives/beefy",
 	"bridges/primitives/header-chain",
 	"bridges/primitives/messages",
 	"bridges/primitives/parachains",
@@ -36,19 +39,28 @@ members = [
 	"bridges/primitives/test-utils",
 	"bridges/primitives/xcm-bridge-hub",
 	"bridges/primitives/xcm-bridge-hub-router",
-	"bridges/snowbridge/parachain/pallets/ethereum-client",
-	"bridges/snowbridge/parachain/pallets/inbound-queue",
-	"bridges/snowbridge/parachain/pallets/outbound-queue",
-	"bridges/snowbridge/parachain/pallets/outbound-queue/merkle-tree",
-	"bridges/snowbridge/parachain/pallets/outbound-queue/runtime-api",
-	"bridges/snowbridge/parachain/pallets/system",
-	"bridges/snowbridge/parachain/pallets/system/runtime-api",
-	"bridges/snowbridge/parachain/primitives/beacon",
-	"bridges/snowbridge/parachain/primitives/core",
-	"bridges/snowbridge/parachain/primitives/ethereum",
-	"bridges/snowbridge/parachain/primitives/router",
-	"bridges/snowbridge/parachain/runtime/runtime-common",
-	"bridges/snowbridge/parachain/runtime/test-common",
+	"bridges/relays/client-substrate",
+	"bridges/relays/equivocation",
+	"bridges/relays/finality",
+	"bridges/relays/lib-substrate-relay",
+	"bridges/relays/messages",
+	"bridges/relays/parachains",
+	"bridges/relays/utils",
+	"bridges/snowbridge/pallets/ethereum-client",
+	"bridges/snowbridge/pallets/ethereum-client/fixtures",
+	"bridges/snowbridge/pallets/inbound-queue",
+	"bridges/snowbridge/pallets/inbound-queue/fixtures",
+	"bridges/snowbridge/pallets/outbound-queue",
+	"bridges/snowbridge/pallets/outbound-queue/merkle-tree",
+	"bridges/snowbridge/pallets/outbound-queue/runtime-api",
+	"bridges/snowbridge/pallets/system",
+	"bridges/snowbridge/pallets/system/runtime-api",
+	"bridges/snowbridge/primitives/beacon",
+	"bridges/snowbridge/primitives/core",
+	"bridges/snowbridge/primitives/ethereum",
+	"bridges/snowbridge/primitives/router",
+	"bridges/snowbridge/runtime/runtime-common",
+	"bridges/snowbridge/runtime/test-common",
 	"cumulus/client/cli",
 	"cumulus/client/collator",
 	"cumulus/client/consensus/aura",
@@ -72,9 +84,6 @@ members = [
 	"cumulus/pallets/solo-to-para",
 	"cumulus/pallets/xcm",
 	"cumulus/pallets/xcmp-queue",
-	"cumulus/parachain-template/node",
-	"cumulus/parachain-template/pallets/template",
-	"cumulus/parachain-template/runtime",
 	"cumulus/parachains/common",
 	"cumulus/parachains/integration-tests/emulated/chains/parachains/assets/asset-hub-rococo",
 	"cumulus/parachains/integration-tests/emulated/chains/parachains/assets/asset-hub-westend",
@@ -94,6 +103,7 @@ members = [
 	"cumulus/parachains/integration-tests/emulated/tests/assets/asset-hub-westend",
 	"cumulus/parachains/integration-tests/emulated/tests/bridges/bridge-hub-rococo",
 	"cumulus/parachains/integration-tests/emulated/tests/bridges/bridge-hub-westend",
+	"cumulus/parachains/integration-tests/emulated/tests/collectives/collectives-westend",
 	"cumulus/parachains/integration-tests/emulated/tests/people/people-rococo",
 	"cumulus/parachains/integration-tests/emulated/tests/people/people-westend",
 	"cumulus/parachains/pallets/collective-content",
@@ -108,6 +118,7 @@ members = [
 	"cumulus/parachains/runtimes/bridge-hubs/common",
 	"cumulus/parachains/runtimes/bridge-hubs/test-utils",
 	"cumulus/parachains/runtimes/collectives/collectives-westend",
+	"cumulus/parachains/runtimes/constants",
 	"cumulus/parachains/runtimes/contracts/contracts-rococo",
 	"cumulus/parachains/runtimes/coretime/coretime-rococo",
 	"cumulus/parachains/runtimes/coretime/coretime-westend",
@@ -124,6 +135,7 @@ members = [
 	"cumulus/primitives/core",
 	"cumulus/primitives/parachain-inherent",
 	"cumulus/primitives/proof-size-hostfunction",
+	"cumulus/primitives/storage-weight-reclaim",
 	"cumulus/primitives/timestamp",
 	"cumulus/primitives/utility",
 	"cumulus/test/client",
@@ -212,14 +224,10 @@ members = [
 	"polkadot/xcm/xcm-builder",
 	"polkadot/xcm/xcm-executor",
 	"polkadot/xcm/xcm-executor/integration-tests",
+	"polkadot/xcm/xcm-fee-payment-runtime-api",
 	"polkadot/xcm/xcm-simulator",
 	"polkadot/xcm/xcm-simulator/example",
 	"polkadot/xcm/xcm-simulator/fuzzer",
-	"substrate/bin/minimal/node",
-	"substrate/bin/minimal/runtime",
-	"substrate/bin/node-template/node",
-	"substrate/bin/node-template/pallets/template",
-	"substrate/bin/node-template/runtime",
 	"substrate/bin/node/bench",
 	"substrate/bin/node/cli",
 	"substrate/bin/node/inspect",
@@ -252,6 +260,7 @@ members = [
 	"substrate/client/db",
 	"substrate/client/executor",
 	"substrate/client/executor/common",
+	"substrate/client/executor/polkavm",
 	"substrate/client/executor/runtime-test",
 	"substrate/client/executor/wasmtime",
 	"substrate/client/informant",
@@ -261,13 +270,13 @@ members = [
 	"substrate/client/mixnet",
 	"substrate/client/network",
 	"substrate/client/network-gossip",
-	"substrate/client/network/bitswap",
 	"substrate/client/network/common",
 	"substrate/client/network/light",
 	"substrate/client/network/statement",
 	"substrate/client/network/sync",
 	"substrate/client/network/test",
 	"substrate/client/network/transactions",
+	"substrate/client/network/types",
 	"substrate/client/offchain",
 	"substrate/client/proposer-metrics",
 	"substrate/client/rpc",
@@ -292,6 +301,7 @@ members = [
 	"substrate/frame",
 	"substrate/frame/alliance",
 	"substrate/frame/asset-conversion",
+	"substrate/frame/asset-conversion/ops",
 	"substrate/frame/asset-rate",
 	"substrate/frame/assets",
 	"substrate/frame/atomic-swap",
@@ -332,7 +342,9 @@ members = [
 	"substrate/frame/examples/dev-mode",
 	"substrate/frame/examples/frame-crate",
 	"substrate/frame/examples/kitchensink",
+	"substrate/frame/examples/multi-block-migrations",
 	"substrate/frame/examples/offchain-worker",
+	"substrate/frame/examples/single-block-migrations",
 	"substrate/frame/examples/split",
 	"substrate/frame/examples/tasks",
 	"substrate/frame/executive",
@@ -347,6 +359,8 @@ members = [
 	"substrate/frame/membership",
 	"substrate/frame/merkle-mountain-range",
 	"substrate/frame/message-queue",
+	"substrate/frame/metadata-hash-extension",
+	"substrate/frame/migrations",
 	"substrate/frame/mixnet",
 	"substrate/frame/multisig",
 	"substrate/frame/nft-fractionalization",
@@ -363,6 +377,7 @@ members = [
 	"substrate/frame/offences/benchmarking",
 	"substrate/frame/paged-list",
 	"substrate/frame/paged-list/fuzzer",
+	"substrate/frame/parameters",
 	"substrate/frame/preimage",
 	"substrate/frame/proxy",
 	"substrate/frame/ranked-collective",
@@ -489,14 +504,27 @@ members = [
 	"substrate/utils/frame/frame-utilities-cli",
 	"substrate/utils/frame/generate-bags",
 	"substrate/utils/frame/generate-bags/node-runtime",
+	"substrate/utils/frame/omni-bencher",
 	"substrate/utils/frame/remote-externalities",
 	"substrate/utils/frame/rpc/client",
 	"substrate/utils/frame/rpc/state-trie-migration-rpc",
 	"substrate/utils/frame/rpc/support",
 	"substrate/utils/frame/rpc/system",
-	"substrate/utils/frame/try-runtime/cli",
 	"substrate/utils/prometheus",
+	"substrate/utils/substrate-bip39",
 	"substrate/utils/wasm-builder",
+
+	"templates/minimal/node",
+	"templates/minimal/pallets/template",
+	"templates/minimal/runtime",
+
+	"templates/solochain/node",
+	"templates/solochain/pallets/template",
+	"templates/solochain/runtime",
+
+	"templates/parachain/node",
+	"templates/parachain/pallets/template",
+	"templates/parachain/runtime",
 ]
 default-members = ["polkadot", "substrate/bin/node/cli"]
 
@@ -528,6 +556,21 @@ derivable_impls = { level = "allow", priority = 2 }                  # false pos
 stable_sort_primitive = { level = "allow", priority = 2 }            # prefer stable sort
 extra-unused-type-parameters = { level = "allow", priority = 2 }     # stylistic
 default_constructed_unit_structs = { level = "allow", priority = 2 } # stylistic
+
+[workspace.dependencies]
+polkavm = "0.9.3"
+polkavm-linker = "0.9.2"
+polkavm-derive = "0.9.1"
+log = { version = "0.4.21", default-features = false }
+quote = { version = "1.0.33" }
+serde = { version = "1.0.197", default-features = false }
+serde-big-array = { version = "0.3.2" }
+serde_derive = { version = "1.0.117" }
+serde_json = { version = "1.0.114", default-features = false }
+serde_yaml = { version = "0.9" }
+syn = { version = "2.0.53" }
+thiserror = { version = "1.0.48" }
+tracing-subscriber = { version = "0.3.18" }
 
 [profile.release]
 # Polkadot runtime requires unwinding.
@@ -588,6 +631,7 @@ num-bigint = { opt-level = 3 }
 parking_lot = { opt-level = 3 }
 parking_lot_core = { opt-level = 3 }
 percent-encoding = { opt-level = 3 }
+polkavm-linker = { opt-level = 3 }
 primitive-types = { opt-level = 3 }
 reed-solomon-novelpoly = { opt-level = 3 }
 ring = { opt-level = 3 }

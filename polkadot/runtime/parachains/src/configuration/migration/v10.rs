@@ -17,16 +17,18 @@
 //! A module that is responsible for migration of storage.
 
 use crate::configuration::{Config, Pallet};
-use frame_support::{pallet_prelude::*, traits::Defensive, weights::Weight};
+use frame_support::{
+	pallet_prelude::*,
+	traits::{Defensive, UncheckedOnRuntimeUpgrade},
+	weights::Weight,
+};
 use frame_system::pallet_prelude::BlockNumberFor;
 use primitives::{
-	vstaging::NodeFeatures, AsyncBackingParams, Balance, ExecutorParams, SessionIndex,
+	AsyncBackingParams, Balance, ExecutorParams, NodeFeatures, SessionIndex,
 	LEGACY_MIN_BACKING_VOTES, ON_DEMAND_DEFAULT_QUEUE_MAX_SIZE,
 };
 use sp_runtime::Perbill;
 use sp_std::vec::Vec;
-
-use frame_support::traits::OnRuntimeUpgrade;
 
 use super::v9::V9HostConfiguration;
 // All configuration of the runtime with respect to paras.
@@ -163,7 +165,7 @@ mod v10 {
 }
 
 pub struct VersionUncheckedMigrateToV10<T>(sp_std::marker::PhantomData<T>);
-impl<T: Config> OnRuntimeUpgrade for VersionUncheckedMigrateToV10<T> {
+impl<T: Config> UncheckedOnRuntimeUpgrade for VersionUncheckedMigrateToV10<T> {
 	#[cfg(feature = "try-runtime")]
 	fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::TryRuntimeError> {
 		log::trace!(target: crate::configuration::LOG_TARGET, "Running pre_upgrade() for HostConfiguration MigrateToV10");

@@ -1,0 +1,14 @@
+title: Improve beefy networking code by forwarding data more directly
+
+doc:
+  - audience: Node Operator
+    description: |
+      Improve internal implementation of beefy to forward data directly to the
+      networking layer instead of first storing them internally. So, the
+      following error message should not appear again:
+      ```
+      The number of unprocessed messages in channel `mpsc_beefy_gossip_validator` exceeded 100000.
+      ```
+
+crates:
+  - name: sc-consensus-beefy

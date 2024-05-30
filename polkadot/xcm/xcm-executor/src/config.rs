@@ -16,7 +16,8 @@
 
 use crate::traits::{
 	AssetExchange, AssetLock, CallDispatcher, ClaimAssets, ConvertOrigin, DropAssets, ExportXcm,
-	FeeManager, OnResponse, ProcessTransaction, ShouldExecute, TransactAsset,
+	FeeManager, HandleHrmpChannelAccepted, HandleHrmpChannelClosing,
+	HandleHrmpNewChannelOpenRequest, OnResponse, ProcessTransaction, ShouldExecute, TransactAsset,
 	VersionChangeNotifier, WeightBounds, WeightTrader,
 };
 use frame_support::{
@@ -114,4 +115,11 @@ pub trait Config {
 
 	/// Transactional processor for XCM instructions.
 	type TransactionalProcessor: ProcessTransaction;
+
+	/// Allows optional logic execution for the `HrmpNewChannelOpenRequest` XCM notification.
+	type HrmpNewChannelOpenRequestHandler: HandleHrmpNewChannelOpenRequest;
+	/// Allows optional logic execution for the `HrmpChannelAccepted` XCM notification.
+	type HrmpChannelAcceptedHandler: HandleHrmpChannelAccepted;
+	/// Allows optional logic execution for the `HrmpChannelClosing` XCM notification.
+	type HrmpChannelClosingHandler: HandleHrmpChannelClosing;
 }

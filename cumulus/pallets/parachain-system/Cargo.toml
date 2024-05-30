@@ -14,9 +14,9 @@ bytes = { version = "1.4.0", default-features = false }
 codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
 environmental = { version = "1.1.4", default-features = false }
 impl-trait-for-tuples = "0.2.1"
-log = { version = "0.4.20", default-features = false }
-trie-db = { version = "0.28.0", default-features = false }
-scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
+log = { workspace = true }
+trie-db = { version = "0.29.0", default-features = false }
+scale-info = { version = "2.11.1", default-features = false, features = ["derive"] }
 
 # Substrate
 frame-benchmarking = { path = "../../../substrate/frame/benchmarking", default-features = false, optional = true }
@@ -36,6 +36,7 @@ sp-version = { path = "../../../substrate/primitives/version", default-features 
 # Polkadot
 polkadot-parachain-primitives = { path = "../../../polkadot/parachain", default-features = false, features = ["wasm-api"] }
 polkadot-runtime-parachains = { path = "../../../polkadot/runtime/parachains", default-features = false }
+polkadot-runtime-common = { path = "../../../polkadot/runtime/common", default-features = false, optional = true }
 xcm = { package = "staging-xcm", path = "../../../polkadot/xcm", default-features = false }
 
 # Cumulus
@@ -58,10 +59,12 @@ sp-keyring = { path = "../../../substrate/primitives/keyring" }
 sp-crypto-hashing = { path = "../../../substrate/primitives/crypto/hashing" }
 sp-tracing = { path = "../../../substrate/primitives/tracing" }
 sp-version = { path = "../../../substrate/primitives/version" }
+sp-consensus-slots = { path = "../../../substrate/primitives/consensus/slots" }
 
 # Cumulus
 cumulus-test-client = { path = "../../test/client" }
 cumulus-test-relay-sproof-builder = { path = "../../test/relay-sproof-builder" }
+cumulus-test-runtime = { path = "../../test/runtime" }
 
 [features]
 default = ["std"]
@@ -79,6 +82,7 @@ std = [
 	"log/std",
 	"pallet-message-queue/std",
 	"polkadot-parachain-primitives/std",
+	"polkadot-runtime-common/std",
 	"polkadot-runtime-parachains/std",
 	"scale-info/std",
 	"sp-core/std",
@@ -102,6 +106,7 @@ runtime-benchmarks = [
 	"frame-system/runtime-benchmarks",
 	"pallet-message-queue/runtime-benchmarks",
 	"polkadot-parachain-primitives/runtime-benchmarks",
+	"polkadot-runtime-common/runtime-benchmarks",
 	"polkadot-runtime-parachains/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 ]
@@ -110,6 +115,7 @@ try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
 	"pallet-message-queue/try-runtime",
+	"polkadot-runtime-common?/try-runtime",
 	"polkadot-runtime-parachains/try-runtime",
 	"sp-runtime/try-runtime",
 ]

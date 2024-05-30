@@ -28,7 +28,7 @@ use sc_consensus::{
 use sc_service::{
 	config::{
 		BlocksPruning, DatabaseSource, KeystoreConfig, NetworkConfiguration, OffchainWorkerConfig,
-		PruningMode, WasmExecutionMethod, WasmtimeInstantiationStrategy,
+		PruningMode, RpcBatchRequestConfig, WasmExecutionMethod, WasmtimeInstantiationStrategy,
 	},
 	BasePath, Configuration, Role,
 };
@@ -84,6 +84,8 @@ fn new_node(tokio_handle: Handle) -> node_cli::service::NewFullBase {
 		rpc_max_subs_per_conn: Default::default(),
 		rpc_port: 9944,
 		rpc_message_buffer_capacity: Default::default(),
+		rpc_batch_config: RpcBatchRequestConfig::Unlimited,
+		rpc_rate_limit: None,
 		prometheus_config: None,
 		telemetry_endpoints: None,
 		default_heap_pages: None,
@@ -102,8 +104,13 @@ fn new_node(tokio_handle: Handle) -> node_cli::service::NewFullBase {
 		wasm_runtime_overrides: None,
 	};
 
-	node_cli::service::new_full_base(config, None, false, |_, _| ())
-		.expect("creating a full node doesn't fail")
+	node_cli::service::new_full_base::<sc_network::NetworkWorker<_, _>>(
+		config,
+		None,
+		false,
+		|_, _| (),
+	)
+	.expect("creating a full node doesn't fail")
 }
 
 fn extrinsic_set_time(now: u64) -> OpaqueExtrinsic {
@@ -143,7 +150,7 @@ fn prepare_benchmark(client: &FullClient) -> (usize, Vec<OpaqueExtrinsic>) {
 	let src = Sr25519Keyring::Alice.pair();
 	let dst: MultiAddress<AccountId32, u32> = Sr25519Keyring::Bob.to_account_id().into();
 
-	// Add as many tranfer extrinsics as possible into a single block.
+	// Add as many transfer extrinsics as possible into a single block.
 	for nonce in 0.. {
 		let extrinsic: OpaqueExtrinsic = create_extrinsic(
 			client,
@@ -177,7 +184,7 @@ fn block_production(c: &mut Criterion) {
 	let node = new_node(tokio_handle.clone());
 	let client = &*node.client;
 
-	// Buliding the very first block is around ~30x slower than any subsequent one,
+	// Building the very first block is around ~30x slower than any subsequent one,
 	// so let's make sure it's built and imported before we benchmark anything.
 	let mut block_builder = BlockBuilderBuilder::new(client)
 		.on_parent_block(client.chain_info().best_hash)

@@ -22,18 +22,27 @@ use frame_benchmarking::v1::{account, benchmarks, BenchmarkError};
 use frame_support::{
 	ensure,
 	traits::{schedule::Priority, BoundedInline},
+	weights::WeightMeter,
 };
 use frame_system::{pallet_prelude::BlockNumberFor, RawOrigin};
 use sp_std::{prelude::*, vec};
 
 use crate::Pallet as Scheduler;
-use frame_system::Call as SystemCall;
+use frame_system::{Call as SystemCall, EventRecord};
 
 const SEED: u32 = 0;
 
 const BLOCK_NUMBER: u32 = 2;
 
 type SystemOrigin<T> = <T as frame_system::Config>::RuntimeOrigin;
+
+fn assert_last_event<T: Config>(generic_event: <T as Config>::RuntimeEvent) {
+	let events = frame_system::Pallet::<T>::events();
+	let system_event: <T as frame_system::Config>::RuntimeEvent = generic_event.into();
+	// compare to the last event record
+	let EventRecord { event, .. } = &events[events.len() - 1];
+	assert_eq!(event, &system_event);
+}
 
 /// Add `n` items to the schedule.
 ///
@@ -202,7 +211,7 @@ benchmarks! {
 	} verify {
 	}
 
-	// `execute_dispatch` when the origin is `Signed`, not counting the dispatable's weight.
+	// `execute_dispatch` when the origin is `Signed`, not counting the dispatchable's weight.
 	execute_dispatch_signed {
 		let mut counter = WeightMeter::new();
 		let origin = make_origin::<T>(true);
@@ -213,7 +222,7 @@ benchmarks! {
 	verify {
 	}
 
-	// `execute_dispatch` when the origin is not `Signed`, not counting the dispatable's weight.
+	// `execute_dispatch` when the origin is not `Signed`, not counting the dispatchable's weight.
 	execute_dispatch_unsigned {
 		let mut counter = WeightMeter::new();
 		let origin = make_origin::<T>(false);
@@ -303,6 +312,106 @@ benchmarks! {
 		ensure!(
 			s > 1 || Agenda::<T>::get(when).len() == 0,
 			"remove from schedule if only 1 task scheduled for `when`"
+		);
+	}
+
+	schedule_retry {
+		let s in 1 .. T::MaxScheduledPerBlock::get();
+		let when = BLOCK_NUMBER.into();
+
+		fill_schedule::<T>(when, s)?;
+		let name = u32_to_name(s - 1);
+		let address = Lookup::<T>::get(name).unwrap();
+		let period: BlockNumberFor<T> = 1u32.into();
+		let root: <T as Config>::PalletsOrigin = frame_system::RawOrigin::Root.into();
+		let retry_config = RetryConfig { total_retries: 10, remaining: 10, period };
+		Retries::<T>::insert(address, retry_config);
+		let (mut when, index) = address;
+		let task = Agenda::<T>::get(when)[index as usize].clone().unwrap();
+		let mut weight_counter = WeightMeter::with_limit(T::MaximumWeight::get());
+	}: {
+		Scheduler::<T>::schedule_retry(&mut weight_counter, when, when, index, &task, retry_config);
+	} verify {
+		when = when + BlockNumberFor::<T>::one();
+		assert_eq!(
+			Retries::<T>::get((when, 0)),
+			Some(RetryConfig { total_retries: 10, remaining: 9, period })
+		);
+	}
+
+	set_retry {
+		let s = T::MaxScheduledPerBlock::get();
+		let when = BLOCK_NUMBER.into();
+
+		fill_schedule::<T>(when, s)?;
+		let name = u32_to_name(s - 1);
+		let address = Lookup::<T>::get(name).unwrap();
+		let (when, index) = address;
+		let period = BlockNumberFor::<T>::one();
+	}: _(RawOrigin::Root, (when, index), 10, period)
+	verify {
+		assert_eq!(
+			Retries::<T>::get((when, index)),
+			Some(RetryConfig { total_retries: 10, remaining: 10, period })
+		);
+		assert_last_event::<T>(
+			Event::RetrySet { task: address, id: None, period, retries: 10 }.into(),
+		);
+	}
+
+	set_retry_named {
+		let s = T::MaxScheduledPerBlock::get();
+		let when = BLOCK_NUMBER.into();
+
+		fill_schedule::<T>(when, s)?;
+		let name = u32_to_name(s - 1);
+		let address = Lookup::<T>::get(name).unwrap();
+		let (when, index) = address;
+		let period = BlockNumberFor::<T>::one();
+	}: _(RawOrigin::Root, name, 10, period)
+	verify {
+		assert_eq!(
+			Retries::<T>::get((when, index)),
+			Some(RetryConfig { total_retries: 10, remaining: 10, period })
+		);
+		assert_last_event::<T>(
+			Event::RetrySet { task: address, id: Some(name), period, retries: 10 }.into(),
+		);
+	}
+
+	cancel_retry {
+		let s = T::MaxScheduledPerBlock::get();
+		let when = BLOCK_NUMBER.into();
+
+		fill_schedule::<T>(when, s)?;
+		let name = u32_to_name(s - 1);
+		let address = Lookup::<T>::get(name).unwrap();
+		let (when, index) = address;
+		let period = BlockNumberFor::<T>::one();
+		assert!(Scheduler::<T>::set_retry(RawOrigin::Root.into(), (when, index), 10, period).is_ok());
+	}: _(RawOrigin::Root, (when, index))
+	verify {
+		assert!(!Retries::<T>::contains_key((when, index)));
+		assert_last_event::<T>(
+			Event::RetryCancelled { task: address, id: None }.into(),
+		);
+	}
+
+	cancel_retry_named {
+		let s = T::MaxScheduledPerBlock::get();
+		let when = BLOCK_NUMBER.into();
+
+		fill_schedule::<T>(when, s)?;
+		let name = u32_to_name(s - 1);
+		let address = Lookup::<T>::get(name).unwrap();
+		let (when, index) = address;
+		let period = BlockNumberFor::<T>::one();
+		assert!(Scheduler::<T>::set_retry_named(RawOrigin::Root.into(), name, 10, period).is_ok());
+	}: _(RawOrigin::Root, name)
+	verify {
+		assert!(!Retries::<T>::contains_key((when, index)));
+		assert_last_event::<T>(
+			Event::RetryCancelled { task: address, id: Some(name) }.into(),
 		);
 	}
 

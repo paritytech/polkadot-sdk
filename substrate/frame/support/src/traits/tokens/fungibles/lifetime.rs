@@ -15,11 +15,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Traits for creating and destroying assets.
-
-use sp_runtime::{DispatchError, DispatchResult};
+//! Traits for creating, editing and destroying assets.
+//!
+//! See the [`crate::traits::fungibles`] doc for more information about fungibles traits.
 
 use super::Inspect;
+use crate::traits::tokens::{AssetId, Balance};
+use sp_runtime::{DispatchError, DispatchResult};
 
 /// Trait for providing the ability to create new fungible assets.
 pub trait Create<AccountId>: Inspect<AccountId> {
@@ -30,6 +32,22 @@ pub trait Create<AccountId>: Inspect<AccountId> {
 		is_sufficient: bool,
 		min_balance: Self::Balance,
 	) -> DispatchResult;
+}
+
+/// Trait for refunding the existence deposit of a target asset account.
+///
+/// The existence deposit might by necessary and present in cases where the asset held by the
+/// account is insufficient for the required storage, or when the system cannot provide a consumer
+/// reference for any reason.
+pub trait Refund<AccountId> {
+	/// Means of identifying one asset class from another.
+	type AssetId: AssetId;
+	/// Scalar type for representing deposit balance of an account.
+	type Balance: Balance;
+	/// Returns the amount of account deposit and depositor address, if any.
+	fn deposit_held(id: Self::AssetId, who: AccountId) -> Option<(AccountId, Self::Balance)>;
+	/// Return the deposit (if any) of a target asset account.
+	fn refund(id: Self::AssetId, who: AccountId) -> DispatchResult;
 }
 
 /// Trait for providing the ability to destroy existing fungible assets.

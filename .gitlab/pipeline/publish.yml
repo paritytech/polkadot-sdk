@@ -3,16 +3,13 @@
 
 publish-rustdoc:
   stage: publish
-  extends: .kubernetes-env
+  extends:
+    - .kubernetes-env
+    - .publish-gh-pages-refs
   variables:
     CI_IMAGE: node:18
     GIT_DEPTH: 100
     RUSTDOCS_DEPLOY_REFS: "master"
-  rules:
-    - if: $CI_PIPELINE_SOURCE == "pipeline"
-      when: never
-    - if: $CI_PIPELINE_SOURCE == "web" && $CI_COMMIT_REF_NAME == "master"
-    - if: $CI_COMMIT_REF_NAME == "master"
   needs:
     - job: build-rustdoc
       artifacts: true
@@ -60,12 +57,89 @@ publish-rustdoc:
     - git commit -m "___Updated docs for ${CI_COMMIT_REF_NAME}___" ||
       echo "___Nothing to commit___"
     - git push origin gh-pages --force
+    # artificial sleep to publish gh-pages
+    - sleep 300
   after_script:
     - rm -rf .git/ ./*
+
+publish-subsystem-benchmarks:
+  stage: publish
+  variables:
+    CI_IMAGE: "paritytech/tools:latest"
+  extends:
+    - .kubernetes-env
+    - .publish-gh-pages-refs
+  needs:
+    - job: subsystem-benchmark-availability-recovery
+      artifacts: true
+    - job: subsystem-benchmark-availability-distribution
+      artifacts: true
+    - job: subsystem-benchmark-approval-voting
+      artifacts: true
+    - job: publish-rustdoc
+      artifacts: false
+  script:
+    # setup ssh
+    - eval $(ssh-agent)
+    - ssh-add - <<< ${GITHUB_SSH_PRIV_KEY}
+    - mkdir ~/.ssh && touch ~/.ssh/known_hosts
+    - ssh-keyscan -t rsa github.com >> ~/.ssh/known_hosts
+    # Set git config
+    - rm -rf .git/config
+    - git config user.email "devops-team@parity.io"
+    - git config user.name "${GITHUB_USER}"
+    - git config remote.origin.url "git@github.com:/paritytech/${CI_PROJECT_NAME}.git"
+    - git config remote.origin.fetch "+refs/heads/*:refs/remotes/origin/*"
+    - git fetch origin gh-pages
+    # Push result to github
+    - git checkout gh-pages --force
+    - mkdir -p bench/gitlab/ || echo "Directory exists"
+    - rm -rf bench/gitlab/*.json || echo "No json files"
+    - cp -r charts/*.json bench/gitlab/
+    - git add bench/gitlab/
+    - git commit -m "Add json files with benchmark results for ${CI_COMMIT_REF_NAME}"
+    - git push origin gh-pages
+    # artificial sleep to publish gh-pages
+    - sleep 300
+  allow_failure: true
+  after_script:
+    - rm -rf .git/ ./*
+
+trigger_workflow:
+  stage: deploy
+  extends:
+    - .kubernetes-env
+    - .publish-gh-pages-refs
+  needs:
+    - job: publish-subsystem-benchmarks
+      artifacts: false
+    - job: subsystem-benchmark-availability-recovery
+      artifacts: true
+    - job: subsystem-benchmark-availability-distribution
+      artifacts: true
+    - job: subsystem-benchmark-approval-voting
+      artifacts: true
+  script:
+    - echo "Triggering workflow"
+    - >
+      for benchmark in $(ls charts/*.json); do
+        export benchmark_name=$(basename $benchmark);
+        echo "Benchmark: $benchmark_name";
+        export benchmark_dir=$(echo $benchmark_name | sed 's/\.json//');
+        curl -q -X POST \
+              -H "Accept: application/vnd.github.v3+json" \
+              -H "Authorization: token $GITHUB_TOKEN" \
+              https://api.github.com/repos/paritytech/${CI_PROJECT_NAME}/actions/workflows/subsystem-benchmarks.yml/dispatches \
+              -d "{\"ref\":\"refs/heads/master\",\"inputs\":{\"benchmark-data-dir-path\":\"$benchmark_dir\",\"output-file-path\":\"$benchmark_name\"}}";
+        sleep 300;
+      done
+  allow_failure: true
 
 # note: images are used not only in zombienet but also in rococo, wococo and versi
 .build-push-image:
   image: $BUILDAH_IMAGE
+  extends:
+    - .zombienet-refs
   variables:
     DOCKERFILE: "" # docker/path-to.Dockerfile
     IMAGE_NAME: "" # docker.io/paritypr/image_name
@@ -77,6 +151,7 @@ publish-rustdoc:
       --build-arg VCS_REF="${CI_COMMIT_SHA}"
       --build-arg BUILD_DATE="$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
       --build-arg IMAGE_NAME="${IMAGE_NAME}"
+      --build-arg ZOMBIENET_IMAGE="${ZOMBIENET_IMAGE}"
       --tag "$IMAGE_NAME:${DOCKER_IMAGES_VERSION}"
       --file ${DOCKERFILE} .
     - echo "$PARITYPR_PASS" |
@@ -163,3 +238,22 @@ build-push-image-substrate-pr:
   variables:
     DOCKERFILE: "docker/dockerfiles/substrate_injected.Dockerfile"
     IMAGE_NAME: "docker.io/paritypr/substrate"
+
+# unlike other images, bridges+zombienet image is based on Zombienet image that pulls required binaries
+# from other fresh images (polkadot and cumulus)
+build-push-image-bridges-zombienet-tests:
+  stage: publish
+  extends:
+    - .kubernetes-env
+    - .common-refs
+    - .build-push-image
+  needs:
+    - job: build-linux-stable
+      artifacts: true
+    - job: build-linux-stable-cumulus
+      artifacts: true
+    - job: prepare-bridges-zombienet-artifacts
+      artifacts: true
+  variables:
+    DOCKERFILE: "docker/dockerfiles/bridges_zombienet_tests_injected.Dockerfile"
+    IMAGE_NAME: "docker.io/paritypr/bridges-zombienet-tests"

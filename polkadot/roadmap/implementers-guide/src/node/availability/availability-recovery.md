@@ -115,7 +115,7 @@ On `Conclude`, shut down the subsystem.
 
 Launch the source as a background task running `run(recovery_task)`.
 
-#### `run(recovery_task) -> Result<AvailableData, RecoeryError>`
+#### `run(recovery_task) -> Result<AvailableData, RecoveryError>`
 
 ```rust
 // How many parallel requests to have going at once.

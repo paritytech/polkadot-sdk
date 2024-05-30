@@ -40,7 +40,7 @@ use sp_std::{fmt, prelude::*};
 /// the decoding fails.
 const EXTRINSIC_FORMAT_VERSION: u8 = 4;
 
-/// The `SingaturePayload` of `UncheckedExtrinsic`.
+/// The `SignaturePayload` of `UncheckedExtrinsic`.
 type UncheckedSignaturePayload<Address, Signature, Extra> = (Address, Signature, Extra);
 
 /// An extrinsic right from the external world. This is unchecked and so can contain a signature.

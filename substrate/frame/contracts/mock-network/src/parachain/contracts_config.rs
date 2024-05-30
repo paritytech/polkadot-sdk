@@ -14,85 +14,28 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use super::{Balances, Runtime, RuntimeCall, RuntimeEvent};
-use crate::{
-	parachain,
-	parachain::RuntimeHoldReason,
-	primitives::{Balance, CENTS},
-};
-use frame_support::{
-	parameter_types,
-	traits::{ConstBool, ConstU32, Contains, Randomness},
-	weights::Weight,
-};
-use frame_system::pallet_prelude::BlockNumberFor;
-use pallet_xcm::BalanceOf;
-use sp_runtime::{traits::Convert, Perbill};
-
-pub const fn deposit(items: u32, bytes: u32) -> Balance {
-	items as Balance * 1 * CENTS + (bytes as Balance) * 1 * CENTS
-}
+use super::{Balances, Runtime, RuntimeCall, RuntimeEvent, RuntimeHoldReason};
+use frame_support::{derive_impl, parameter_types, traits::Contains};
 
 parameter_types! {
-	pub const DepositPerItem: Balance = deposit(1, 0);
-	pub const DepositPerByte: Balance = deposit(0, 1);
-	pub const DefaultDepositLimit: Balance = deposit(1024, 1024 * 1024);
 	pub Schedule: pallet_contracts::Schedule<Runtime> = Default::default();
-	pub const CodeHashLockupDepositPercent: Perbill = Perbill::from_percent(0);
-	pub const MaxDelegateDependencies: u32 = 32;
 }
 
-pub struct DummyRandomness<T: pallet_contracts::Config>(sp_std::marker::PhantomData<T>);
-
-impl<T: pallet_contracts::Config> Randomness<T::Hash, BlockNumberFor<T>> for DummyRandomness<T> {
-	fn random(_subject: &[u8]) -> (T::Hash, BlockNumberFor<T>) {
-		(Default::default(), Default::default())
-	}
-}
-
-impl Convert<Weight, BalanceOf<Self>> for Runtime {
-	fn convert(w: Weight) -> BalanceOf<Self> {
-		w.ref_time().into()
-	}
-}
-
-#[derive(Clone, Default)]
-pub struct Filters;
-
-impl Contains<RuntimeCall> for Filters {
-	fn contains(call: &RuntimeCall) -> bool {
-		match call {
-			parachain::RuntimeCall::Contracts(_) => true,
-			_ => false,
-		}
-	}
-}
-
+#[derive_impl(pallet_contracts::config_preludes::TestDefaultConfig)]
 impl pallet_contracts::Config for Runtime {
 	type AddressGenerator = pallet_contracts::DefaultAddressGenerator;
-	type CallFilter = Filters;
 	type CallStack = [pallet_contracts::Frame<Self>; 5];
-	type ChainExtension = ();
-	type CodeHashLockupDepositPercent = CodeHashLockupDepositPercent;
 	type Currency = Balances;
-	type DefaultDepositLimit = DefaultDepositLimit;
-	type DepositPerByte = DepositPerByte;
-	type DepositPerItem = DepositPerItem;
-	type MaxCodeLen = ConstU32<{ 123 * 1024 }>;
-	type MaxDebugBufferLen = ConstU32<{ 2 * 1024 * 1024 }>;
-	type MaxDelegateDependencies = MaxDelegateDependencies;
-	type MaxStorageKeyLen = ConstU32<128>;
-	type Migrations = ();
-	type Randomness = DummyRandomness<Self>;
-	type RuntimeCall = RuntimeCall;
-	type RuntimeEvent = RuntimeEvent;
-	type RuntimeHoldReason = RuntimeHoldReason;
 	type Schedule = Schedule;
 	type Time = super::Timestamp;
-	type UnsafeUnstableInterface = ConstBool<true>;
-	type WeightInfo = ();
-	type WeightPrice = Self;
-	type Debug = ();
-	type Environment = ();
+	type CallFilter = CallFilter;
 	type Xcm = pallet_xcm::Pallet<Self>;
+}
+
+/// In this mock, we only allow other contract calls via XCM.
+pub struct CallFilter;
+impl Contains<RuntimeCall> for CallFilter {
+	fn contains(call: &RuntimeCall) -> bool {
+		matches!(call, RuntimeCall::Contracts(pallet_contracts::Call::call { .. }))
+	}
 }

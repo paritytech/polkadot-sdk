@@ -253,6 +253,9 @@ where
 					.overseer_channel_capacity_override,
 				malus_finality_delay: maybe_malus_finality_delay,
 				hwbench,
+				execute_workers_max_num: cli.run.execute_workers_max_num,
+				prepare_workers_hard_max_num: cli.run.prepare_workers_hard_max_num,
+				prepare_workers_soft_max_num: cli.run.prepare_workers_soft_max_num,
 			},
 		)
 		.map(|full| full.task_manager)?;
@@ -451,8 +454,10 @@ pub fn run() -> Result<()> {
 
 					if cfg!(feature = "runtime-benchmarks") {
 						runner.sync_run(|config| {
-							cmd.run::<service::Block, ()>(config)
-								.map_err(|e| Error::SubstrateCli(e))
+							cmd.run_with_spec::<sp_runtime::traits::HashingFor<service::Block>, ()>(
+								Some(config.chain_spec),
+							)
+							.map_err(|e| Error::SubstrateCli(e))
 						})
 					} else {
 						Err(sc_cli::Error::Input(
@@ -474,13 +479,6 @@ pub fn run() -> Result<()> {
 			}
 		},
 		Some(Subcommand::Key(cmd)) => Ok(cmd.run(&cli)?),
-		#[cfg(feature = "try-runtime")]
-		Some(Subcommand::TryRuntime) => Err(try_runtime_cli::DEPRECATION_NOTICE.to_owned().into()),
-		#[cfg(not(feature = "try-runtime"))]
-		Some(Subcommand::TryRuntime) => Err("TryRuntime wasn't enabled when building the node. \
-				You can enable it with `--features try-runtime`."
-			.to_owned()
-			.into()),
 		Some(Subcommand::ChainInfo(cmd)) => {
 			let runner = cli.create_runner(cmd)?;
 			Ok(runner.sync_run(|config| cmd.run::<service::Block>(&config))?)

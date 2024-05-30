@@ -2,9 +2,9 @@
 # Run with `lychee -c .config/lychee.toml ./**/*.rs ./**/*.prdoc`
 
 cache = true
-max_cache_age = "1d"
+max_cache_age = "10d"
 max_redirects = 10
-max_retries = 6
+max_retries = 3
 
 # Exclude localhost et.al.
 exclude_all_private = true
@@ -51,4 +51,7 @@ exclude = [
 	# Behind a captcha (code 403):
 	"https://iohk.io/en/blog/posts/2023/11/03/partner-chains-are-coming-to-cardano/",
 	"https://www.reddit.com/r/rust/comments/3spfh1/does_collect_allocate_more_than_once_while/",
+	# 403 rate limited:
+	"https://etherscan.io/block/11090290",
+	"https://substrate.stackexchange.com/.*",
 ]

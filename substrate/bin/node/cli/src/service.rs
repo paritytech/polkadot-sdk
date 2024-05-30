@@ -29,7 +29,9 @@ use kitchensink_runtime::RuntimeApi;
 use node_primitives::Block;
 use sc_client_api::{Backend, BlockBackend};
 use sc_consensus_babe::{self, SlotProportion};
-use sc_network::{event::Event, NetworkEventStream, NetworkService};
+use sc_network::{
+	event::Event, service::traits::NetworkService, NetworkBackend, NetworkEventStream,
+};
 use sc_network_sync::{strategy::warp::WarpSyncParams, SyncingService};
 use sc_service::{config::Configuration, error::Error as ServiceError, RpcHandlers, TaskManager};
 use sc_statement_store::Store as StatementStore;
@@ -53,7 +55,7 @@ pub type HostFunctions = (
 	frame_benchmarking::benchmarking::HostFunctions,
 );
 
-/// A specialized `WasmExecutor` intended to use accross substrate node. It provides all required
+/// A specialized `WasmExecutor` intended to use across substrate node. It provides all required
 /// HostFunctions.
 pub type RuntimeExecutor = sc_executor::WasmExecutor<HostFunctions>;
 
@@ -124,6 +126,7 @@ pub fn create_extrinsic(
 					kitchensink_runtime::Runtime,
 				>::from(tip, None),
 			),
+			frame_metadata_hash_extension::CheckMetadataHash::new(false),
 		);
 
 	let raw_payload = kitchensink_runtime::SignedPayload::from_raw(
@@ -138,6 +141,7 @@ pub fn create_extrinsic(
 			(),
 			(),
 			(),
+			None,
 		),
 	);
 	let signature = raw_payload.using_encoded(|e| sender.sign(e));
@@ -368,7 +372,7 @@ pub struct NewFullBase {
 	/// The client instance of the node.
 	pub client: Arc<FullClient>,
 	/// The networking service of the node.
-	pub network: Arc<NetworkService<Block, <Block as BlockT>::Hash>>,
+	pub network: Arc<dyn NetworkService>,
 	/// The syncing service of the node.
 	pub sync: Arc<SyncingService<Block>>,
 	/// The transaction pool of the node.
@@ -378,7 +382,7 @@ pub struct NewFullBase {
 }
 
 /// Creates a full service from the configuration.
-pub fn new_full_base(
+pub fn new_full_base<N: NetworkBackend<Block, <Block as BlockT>::Hash>>(
 	config: Configuration,
 	mixnet_config: Option<sc_mixnet::Config>,
 	disable_hardware_benchmarks: bool,
@@ -420,14 +424,26 @@ pub fn new_full_base(
 			(rpc_builder, import_setup, rpc_setup, mut telemetry, statement_store, mixnet_api_backend),
 	} = new_partial(&config, mixnet_config.as_ref())?;
 
+	let metrics = N::register_notification_metrics(
+		config.prometheus_config.as_ref().map(|cfg| &cfg.registry),
+	);
 	let shared_voter_state = rpc_setup;
 	let auth_disc_publish_non_global_ips = config.network.allow_non_globals_in_dht;
-	let mut net_config = sc_network::config::FullNetworkConfiguration::new(&config.network);
+	let auth_disc_public_addresses = config.network.public_addresses.clone();
+
+	let mut net_config =
+		sc_network::config::FullNetworkConfiguration::<_, _, N>::new(&config.network);
+
 	let genesis_hash = client.block_hash(0).ok().flatten().expect("Genesis block exists; qed");
+	let peer_store_handle = net_config.peer_store_handle();
 
 	let grandpa_protocol_name = grandpa::protocol_standard_name(&genesis_hash, &config.chain_spec);
 	let (grandpa_protocol_config, grandpa_notification_service) =
-		grandpa::grandpa_peers_set_config(grandpa_protocol_name.clone());
+		grandpa::grandpa_peers_set_config::<_, N>(
+			grandpa_protocol_name.clone(),
+			metrics.clone(),
+			Arc::clone(&peer_store_handle),
+		);
 	net_config.add_notification_protocol(grandpa_protocol_config);
 
 	let beefy_gossip_proto_name =
@@ -435,7 +451,7 @@ pub fn new_full_base(
 	// `beefy_on_demand_justifications_handler` is given to `beefy-gadget` task to be run,
 	// while `beefy_req_resp_cfg` is added to `config.network.request_response_protocols`.
 	let (beefy_on_demand_justifications_handler, beefy_req_resp_cfg) =
-		beefy::communication::request_response::BeefyJustifsRequestHandler::new(
+		beefy::communication::request_response::BeefyJustifsRequestHandler::new::<_, N>(
 			&genesis_hash,
 			config.chain_spec.fork_id(),
 			client.clone(),
@@ -443,23 +459,33 @@ pub fn new_full_base(
 		);
 
 	let (beefy_notification_config, beefy_notification_service) =
-		beefy::communication::beefy_peers_set_config(beefy_gossip_proto_name.clone());
+		beefy::communication::beefy_peers_set_config::<_, N>(
+			beefy_gossip_proto_name.clone(),
+			metrics.clone(),
+			Arc::clone(&peer_store_handle),
+		);
 
 	net_config.add_notification_protocol(beefy_notification_config);
 	net_config.add_request_response_protocol(beefy_req_resp_cfg);
 
 	let (statement_handler_proto, statement_config) =
-		sc_network_statement::StatementHandlerPrototype::new(
+		sc_network_statement::StatementHandlerPrototype::new::<_, _, N>(
 			genesis_hash,
 			config.chain_spec.fork_id(),
+			metrics.clone(),
+			Arc::clone(&peer_store_handle),
 		);
 	net_config.add_notification_protocol(statement_config);
 
 	let mixnet_protocol_name =
 		sc_mixnet::protocol_name(genesis_hash.as_ref(), config.chain_spec.fork_id());
 	let mixnet_notification_service = mixnet_config.as_ref().map(|mixnet_config| {
-		let (config, notification_service) =
-			sc_mixnet::peers_set_config(mixnet_protocol_name.clone(), mixnet_config);
+		let (config, notification_service) = sc_mixnet::peers_set_config::<_, N>(
+			mixnet_protocol_name.clone(),
+			mixnet_config,
+			metrics.clone(),
+			Arc::clone(&peer_store_handle),
+		);
 		net_config.add_notification_protocol(config);
 		notification_service
 	});
@@ -481,6 +507,7 @@ pub fn new_full_base(
 			block_announce_validator_builder: None,
 			warp_sync_params: Some(WarpSyncParams::WithProvider(warp_sync)),
 			block_relay: None,
+			metrics,
 		})?;
 
 	if let Some(mixnet_config) = mixnet_config {
@@ -610,10 +637,11 @@ pub fn new_full_base(
 			sc_authority_discovery::new_worker_and_service_with_config(
 				sc_authority_discovery::WorkerConfig {
 					publish_non_global_ips: auth_disc_publish_non_global_ips,
+					public_addresses: auth_disc_public_addresses,
 					..Default::default()
 				},
 				client.clone(),
-				network.clone(),
+				Arc::new(network.clone()),
 				Box::pin(dht_event_stream),
 				authority_discovery_role,
 				prometheus_registry.clone(),
@@ -632,7 +660,7 @@ pub fn new_full_base(
 
 	// beefy is enabled if its notification service exists
 	let network_params = beefy::BeefyNetworkParams {
-		network: network.clone(),
+		network: Arc::new(network.clone()),
 		sync: sync_service.clone(),
 		gossip_protocol_name: beefy_gossip_proto_name,
 		justifications_protocol_name: beefy_on_demand_justifications_handler.protocol_name(),
@@ -650,6 +678,7 @@ pub fn new_full_base(
 		prometheus_registry: prometheus_registry.clone(),
 		links: beefy_links,
 		on_demand_justifications_handler: beefy_on_demand_justifications_handler,
+		is_authority: role.is_authority(),
 	};
 
 	let beefy_gadget = beefy::start_beefy_gadget::<_, _, _, _, _, _, _>(beefy_params);
@@ -743,7 +772,7 @@ pub fn new_full_base(
 				transaction_pool: Some(OffchainTransactionPoolFactory::new(
 					transaction_pool.clone(),
 				)),
-				network_provider: network.clone(),
+				network_provider: Arc::new(network.clone()),
 				is_validator: role.is_authority(),
 				enable_http_requests: true,
 				custom_extensions: move |_| {
@@ -770,8 +799,29 @@ pub fn new_full_base(
 pub fn new_full(config: Configuration, cli: Cli) -> Result<TaskManager, ServiceError> {
 	let mixnet_config = cli.mixnet_params.config(config.role.is_authority());
 	let database_path = config.database.path().map(Path::to_path_buf);
-	let task_manager = new_full_base(config, mixnet_config, cli.no_hardware_benchmarks, |_, _| ())
-		.map(|NewFullBase { task_manager, .. }| task_manager)?;
+
+	let task_manager = match config.network.network_backend {
+		sc_network::config::NetworkBackendType::Libp2p => {
+			let task_manager = new_full_base::<sc_network::NetworkWorker<_, _>>(
+				config,
+				mixnet_config,
+				cli.no_hardware_benchmarks,
+				|_, _| (),
+			)
+			.map(|NewFullBase { task_manager, .. }| task_manager)?;
+			task_manager
+		},
+		sc_network::config::NetworkBackendType::Litep2p => {
+			let task_manager = new_full_base::<sc_network::Litep2pNetworkBackend>(
+				config,
+				mixnet_config,
+				cli.no_hardware_benchmarks,
+				|_, _| (),
+			)
+			.map(|NewFullBase { task_manager, .. }| task_manager)?;
+			task_manager
+		},
+	};
 
 	if let Some(database_path) = database_path {
 		sc_storage_monitor::StorageMonitorService::try_spawn(
@@ -848,7 +898,7 @@ mod tests {
 			|config| {
 				let mut setup_handles = None;
 				let NewFullBase { task_manager, client, network, sync, transaction_pool, .. } =
-					new_full_base(
+					new_full_base::<sc_network::NetworkWorker<_, _>>(
 						config,
 						None,
 						false,
@@ -993,6 +1043,7 @@ mod tests {
 				let tx_payment = pallet_skip_feeless_payment::SkipCheckIfFeeless::from(
 					pallet_asset_conversion_tx_payment::ChargeAssetTxPayment::from(0, None),
 				);
+				let metadata_hash = frame_metadata_hash_extension::CheckMetadataHash::new(false);
 				let extra = (
 					check_non_zero_sender,
 					check_spec_version,
@@ -1002,11 +1053,22 @@ mod tests {
 					check_nonce,
 					check_weight,
 					tx_payment,
+					metadata_hash,
 				);
 				let raw_payload = SignedPayload::from_raw(
 					function,
 					extra,
-					((), spec_version, transaction_version, genesis_hash, genesis_hash, (), (), ()),
+					(
+						(),
+						spec_version,
+						transaction_version,
+						genesis_hash,
+						genesis_hash,
+						(),
+						(),
+						(),
+						None,
+					),
 				);
 				let signature = raw_payload.using_encoded(|payload| signer.sign(payload));
 				let (function, extra, _) = raw_payload.deconstruct();
@@ -1026,7 +1088,12 @@ mod tests {
 			crate::chain_spec::tests::integration_test_config_with_two_authorities(),
 			|config| {
 				let NewFullBase { task_manager, client, network, sync, transaction_pool, .. } =
-					new_full_base(config, None, false, |_, _| ())?;
+					new_full_base::<sc_network::NetworkWorker<_, _>>(
+						config,
+						None,
+						false,
+						|_, _| (),
+					)?;
 				Ok(sc_service_test::TestNetComponents::new(
 					task_manager,
 					client,

@@ -32,14 +32,12 @@ use xcm_executor::XcmExecutor;
 
 use staging_xcm_builder as xcm_builder;
 
-#[allow(deprecated)]
-use xcm_builder::CurrencyAdapter as XcmCurrencyAdapter;
 use xcm_builder::{
 	AccountId32Aliases, AllowTopLevelPaidExecutionFrom, AllowUnpaidExecutionFrom,
 	ChildParachainAsNative, ChildParachainConvertsVia, ChildSystemParachainAsSuperuser,
-	FixedRateOfFungible, FixedWeightBounds, IsChildSystemParachain, IsConcrete, MintLocation,
-	RespectSuspension, SignedAccountId32AsNative, SignedToAccountId32, SovereignSignedViaLocation,
-	TakeWeightCredit,
+	EnsureDecodableXcm, FixedRateOfFungible, FixedWeightBounds, FungibleAdapter,
+	IsChildSystemParachain, IsConcrete, MintLocation, RespectSuspension, SignedAccountId32AsNative,
+	SignedToAccountId32, SovereignSignedViaLocation, TakeWeightCredit,
 };
 
 pub type AccountId = AccountId32;
@@ -70,6 +68,8 @@ impl SendXcm for TestSendXcm {
 	}
 }
 
+pub type TestXcmRouter = EnsureDecodableXcm<TestSendXcm>;
+
 // copied from kusama constants
 pub const UNITS: Balance = 1_000_000_000_000;
 pub const CENTS: Balance = UNITS / 30_000;
@@ -78,7 +78,7 @@ parameter_types! {
 	pub const BlockHashCount: u64 = 250;
 }
 
-#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Runtime {
 	type RuntimeOrigin = RuntimeOrigin;
 	type RuntimeCall = RuntimeCall;
@@ -139,21 +139,15 @@ impl configuration::Config for Runtime {
 parameter_types! {
 	pub const KsmLocation: Location = Location::here();
 	pub const KusamaNetwork: NetworkId = NetworkId::Kusama;
-	pub UniversalLocation: InteriorLocation = Here;
+	pub UniversalLocation: InteriorLocation = KusamaNetwork::get().into();
 	pub CheckAccount: (AccountId, MintLocation) = (XcmPallet::check_account(), MintLocation::Local);
 }
 
 pub type SovereignAccountOf =
 	(ChildParachainConvertsVia<ParaId, AccountId>, AccountId32Aliases<KusamaNetwork, AccountId>);
 
-#[allow(deprecated)]
-pub type LocalCurrencyAdapter = XcmCurrencyAdapter<
-	Balances,
-	IsConcrete<KsmLocation>,
-	SovereignAccountOf,
-	AccountId,
-	CheckAccount,
->;
+pub type LocalCurrencyAdapter =
+	FungibleAdapter<Balances, IsConcrete<KsmLocation>, SovereignAccountOf, AccountId, CheckAccount>;
 
 pub type LocalAssetTransactor = (LocalCurrencyAdapter,);
 
@@ -188,7 +182,7 @@ pub type TrustedTeleporters = (xcm_builder::Case<KusamaForAssetHub>,);
 pub struct XcmConfig;
 impl xcm_executor::Config for XcmConfig {
 	type RuntimeCall = RuntimeCall;
-	type XcmSender = TestSendXcm;
+	type XcmSender = TestXcmRouter;
 	type AssetTransactor = LocalAssetTransactor;
 	type OriginConverter = LocalOriginConverter;
 	type IsReserve = ();
@@ -212,6 +206,9 @@ impl xcm_executor::Config for XcmConfig {
 	type SafeCallFilter = Everything;
 	type Aliasers = Nothing;
 	type TransactionalProcessor = ();
+	type HrmpNewChannelOpenRequestHandler = ();
+	type HrmpChannelAcceptedHandler = ();
+	type HrmpChannelClosingHandler = ();
 }
 
 pub type LocalOriginToLocation = SignedToAccountId32<RuntimeOrigin, AccountId, KusamaNetwork>;
@@ -220,7 +217,7 @@ impl pallet_xcm::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type UniversalLocation = UniversalLocation;
 	type SendXcmOrigin = xcm_builder::EnsureXcmOrigin<RuntimeOrigin, LocalOriginToLocation>;
-	type XcmRouter = TestSendXcm;
+	type XcmRouter = TestXcmRouter;
 	// Anyone can execute XCM messages locally...
 	type ExecuteXcmOrigin = xcm_builder::EnsureXcmOrigin<RuntimeOrigin, LocalOriginToLocation>;
 	type XcmExecuteFilter = Nothing;

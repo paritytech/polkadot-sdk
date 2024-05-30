@@ -14,7 +14,7 @@ sp-core = { path = "../../../../../../../../substrate/primitives/core", default-
 frame-support = { path = "../../../../../../../../substrate/frame/support", default-features = false }
 
 # Cumulus
-parachains-common = { path = "../../../../../../../parachains/common" }
+parachains-common = { path = "../../../../../../common" }
 cumulus-primitives-core = { path = "../../../../../../../primitives/core", default-features = false }
 emulated-integration-tests-common = { path = "../../../../common", default-features = false }
 people-rococo-runtime = { path = "../../../../../../runtimes/people/people-rococo" }

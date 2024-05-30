@@ -63,14 +63,14 @@ pub mod pallet {
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn on_finalize(_: BlockNumberFor<T>) {
 			// Update to the latest AuRa authorities.
-			Authorities::<T>::put(Aura::<T>::authorities());
+			Authorities::<T>::put(pallet_aura::Authorities::<T>::get());
 		}
 
 		fn on_initialize(_: BlockNumberFor<T>) -> Weight {
 			// Fetch the authorities once to get them into the storage proof of the PoV.
 			Authorities::<T>::get();
 
-			let new_slot = Aura::<T>::current_slot();
+			let new_slot = pallet_aura::CurrentSlot::<T>::get();
 
 			let (new_slot, authored) = match SlotInfo::<T>::get() {
 				Some((slot, authored)) if slot == new_slot => (slot, authored + 1),
@@ -103,7 +103,6 @@ pub mod pallet {
 	///
 	/// Updated on each block initialization.
 	#[pallet::storage]
-	#[pallet::getter(fn slot_info)]
 	pub(crate) type SlotInfo<T: Config> = StorageValue<_, (Slot, u32), OptionQuery>;
 
 	#[pallet::genesis_config]
@@ -116,13 +115,7 @@ pub mod pallet {
 	#[pallet::genesis_build]
 	impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
 		fn build(&self) {
-			let authorities = Aura::<T>::authorities();
-
-			assert!(
-				!authorities.is_empty(),
-				"AuRa authorities empty, maybe wrong order in `construct_runtime!`?",
-			);
-
+			let authorities = pallet_aura::Authorities::<T>::get();
 			Authorities::<T>::put(authorities);
 		}
 	}

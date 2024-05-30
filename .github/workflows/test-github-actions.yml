@@ -1,0 +1,46 @@
+name: test-github-actions
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  merge_group:
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_NET_GIT_FETCH_WITH_CLI: true
+
+jobs:
+  test-linux-stable-int:
+    runs-on: arc-runners-polkadot-sdk
+    timeout-minutes: 30
+    container:
+      image: "docker.io/paritytech/ci-unified:bullseye-1.77.0-2024-04-10-v20240408"
+    env:
+      RUSTFLAGS: "-C debug-assertions -D warnings"
+      RUST_BACKTRACE: 1
+      WASM_BUILD_NO_COLOR: 1
+      WASM_BUILD_RUSTFLAGS: "-C debug-assertions -D warnings"
+      # Ensure we run the UI tests.
+      RUN_UI_TESTS: 1
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: script
+        run: WASM_BUILD_NO_COLOR=1 time cargo test -p staging-node-cli --release --locked -- --ignored
+  quick-benchmarks:
+    runs-on: arc-runners-polkadot-sdk
+    timeout-minutes: 30
+    container:
+      image: "docker.io/paritytech/ci-unified:bullseye-1.77.0-2024-04-10-v20240408"
+    env:
+      RUSTFLAGS: "-C debug-assertions -D warnings"
+      RUST_BACKTRACE: "full"
+      WASM_BUILD_NO_COLOR: 1
+      WASM_BUILD_RUSTFLAGS: "-C debug-assertions -D warnings"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: script
+        run: time cargo run --locked --release -p staging-node-cli --bin substrate-node --features runtime-benchmarks --quiet -- benchmark pallet --chain dev --pallet "*" --extrinsic "*" --steps 2 --repeat 1 --quiet

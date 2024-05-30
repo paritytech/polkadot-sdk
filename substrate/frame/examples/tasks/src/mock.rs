@@ -20,6 +20,7 @@
 
 use crate::{self as tasks_example};
 use frame_support::derive_impl;
+use sp_runtime::testing::TestXt;
 
 pub type AccountId = u32;
 pub type Balance = u32;
@@ -32,12 +33,32 @@ frame_support::construct_runtime!(
 	}
 );
 
-#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+pub type Extrinsic = TestXt<RuntimeCall, ()>;
+
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Runtime {
 	type Block = Block;
+}
+
+impl<LocalCall> frame_system::offchain::SendTransactionTypes<LocalCall> for Runtime
+where
+	RuntimeCall: From<LocalCall>,
+{
+	type OverarchingCall = RuntimeCall;
+	type Extrinsic = Extrinsic;
 }
 
 impl tasks_example::Config for Runtime {
 	type RuntimeTask = RuntimeTask;
 	type WeightInfo = ();
+}
+
+pub fn advance_to(b: u64) {
+	#[cfg(feature = "experimental")]
+	use frame_support::traits::Hooks;
+	while System::block_number() < b {
+		System::set_block_number(System::block_number() + 1);
+		#[cfg(feature = "experimental")]
+		TasksExample::offchain_worker(System::block_number());
+	}
 }

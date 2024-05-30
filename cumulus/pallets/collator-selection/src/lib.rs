@@ -81,6 +81,8 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+use core::marker::PhantomData;
+use frame_support::traits::TypedGet;
 pub use pallet::*;
 
 #[cfg(test)]
@@ -118,8 +120,8 @@ pub mod pallet {
 	use sp_staking::SessionIndex;
 	use sp_std::vec::Vec;
 
-	/// The current storage version.
-	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
+	/// The in-code storage version.
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(2);
 
 	type BalanceOf<T> =
 		<<T as Config>::Currency as Currency<<T as SystemConfig>::AccountId>>::Balance;
@@ -196,7 +198,6 @@ pub mod pallet {
 
 	/// The invulnerable, permissioned collators. This list must be sorted.
 	#[pallet::storage]
-	#[pallet::getter(fn invulnerables)]
 	pub type Invulnerables<T: Config> =
 		StorageValue<_, BoundedVec<T::AccountId, T::MaxInvulnerables>, ValueQuery>;
 
@@ -206,7 +207,6 @@ pub mod pallet {
 	/// This list is sorted in ascending order by deposit and when the deposits are equal, the least
 	/// recently updated is considered greater.
 	#[pallet::storage]
-	#[pallet::getter(fn candidate_list)]
 	pub type CandidateList<T: Config> = StorageValue<
 		_,
 		BoundedVec<CandidateInfo<T::AccountId, BalanceOf<T>>, T::MaxCandidates>,
@@ -215,7 +215,6 @@ pub mod pallet {
 
 	/// Last block authored by collator.
 	#[pallet::storage]
-	#[pallet::getter(fn last_authored_block)]
 	pub type LastAuthoredBlock<T: Config> =
 		StorageMap<_, Twox64Concat, T::AccountId, BlockNumberFor<T>, ValueQuery>;
 
@@ -223,14 +222,12 @@ pub mod pallet {
 	///
 	/// This should ideally always be less than [`Config::MaxCandidates`] for weights to be correct.
 	#[pallet::storage]
-	#[pallet::getter(fn desired_candidates)]
 	pub type DesiredCandidates<T> = StorageValue<_, u32, ValueQuery>;
 
 	/// Fixed amount to deposit to become a collator.
 	///
 	/// When a collator calls `leave_intent` they immediately receive the deposit back.
 	#[pallet::storage]
-	#[pallet::getter(fn candidacy_bond)]
 	pub type CandidacyBond<T> = StorageValue<_, BalanceOf<T>, ValueQuery>;
 
 	#[pallet::genesis_config]
@@ -263,9 +260,9 @@ pub mod pallet {
 
 			bounded_invulnerables.sort();
 
-			<DesiredCandidates<T>>::put(self.desired_candidates);
-			<CandidacyBond<T>>::put(self.candidacy_bond);
-			<Invulnerables<T>>::put(bounded_invulnerables);
+			DesiredCandidates::<T>::put(self.desired_candidates);
+			CandidacyBond::<T>::put(self.candidacy_bond);
+			Invulnerables::<T>::put(bounded_invulnerables);
 		}
 	}
 
@@ -424,7 +421,7 @@ pub mod pallet {
 			// Invulnerables must be sorted for removal.
 			bounded_invulnerables.sort();
 
-			<Invulnerables<T>>::put(&bounded_invulnerables);
+			Invulnerables::<T>::put(&bounded_invulnerables);
 			Self::deposit_event(Event::NewInvulnerables {
 				invulnerables: bounded_invulnerables.to_vec(),
 			});
@@ -448,7 +445,7 @@ pub mod pallet {
 			if max > T::MaxCandidates::get() {
 				log::warn!("max > T::MaxCandidates; you might need to run benchmarks again");
 			}
-			<DesiredCandidates<T>>::put(max);
+			DesiredCandidates::<T>::put(max);
 			Self::deposit_event(Event::NewDesiredCandidates { desired_candidates: max });
 			Ok(().into())
 		}
@@ -470,17 +467,17 @@ pub mod pallet {
 			bond: BalanceOf<T>,
 		) -> DispatchResultWithPostInfo {
 			T::UpdateOrigin::ensure_origin(origin)?;
-			let bond_increased = <CandidacyBond<T>>::mutate(|old_bond| -> bool {
+			let bond_increased = CandidacyBond::<T>::mutate(|old_bond| -> bool {
 				let bond_increased = *old_bond < bond;
 				*old_bond = bond;
 				bond_increased
 			});
-			let initial_len = <CandidateList<T>>::decode_len().unwrap_or_default();
+			let initial_len = CandidateList::<T>::decode_len().unwrap_or_default();
 			let kicked = (bond_increased && initial_len > 0)
 				.then(|| {
 					// Closure below returns the number of candidates which were kicked because
 					// their deposits were lower than the new candidacy bond.
-					<CandidateList<T>>::mutate(|candidates| -> usize {
+					CandidateList::<T>::mutate(|candidates| -> usize {
 						let first_safe_candidate = candidates
 							.iter()
 							.position(|candidate| candidate.deposit >= bond)
@@ -488,14 +485,18 @@ pub mod pallet {
 						let kicked_candidates = candidates.drain(..first_safe_candidate);
 						for candidate in kicked_candidates {
 							T::Currency::unreserve(&candidate.who, candidate.deposit);
-							<LastAuthoredBlock<T>>::remove(candidate.who);
+							LastAuthoredBlock::<T>::remove(candidate.who);
 						}
 						first_safe_candidate
 					})
 				})
 				.unwrap_or_default();
 			Self::deposit_event(Event::NewCandidacyBond { bond_amount: bond });
-			Ok(Some(T::WeightInfo::set_candidacy_bond(initial_len as u32, kicked as u32)).into())
+			Ok(Some(T::WeightInfo::set_candidacy_bond(
+				bond_increased.then(|| initial_len as u32).unwrap_or_default(),
+				kicked as u32,
+			))
+			.into())
 		}
 
 		/// Register this account as a collator candidate. The account must (a) already have
@@ -508,12 +509,12 @@ pub mod pallet {
 			let who = ensure_signed(origin)?;
 
 			// ensure we are below limit.
-			let length: u32 = <CandidateList<T>>::decode_len()
+			let length: u32 = CandidateList::<T>::decode_len()
 				.unwrap_or_default()
 				.try_into()
 				.unwrap_or_default();
 			ensure!(length < T::MaxCandidates::get(), Error::<T>::TooManyCandidates);
-			ensure!(!Self::invulnerables().contains(&who), Error::<T>::AlreadyInvulnerable);
+			ensure!(!Invulnerables::<T>::get().contains(&who), Error::<T>::AlreadyInvulnerable);
 
 			let validator_key = T::ValidatorIdOf::convert(who.clone())
 				.ok_or(Error::<T>::NoAssociatedValidatorId)?;
@@ -522,15 +523,15 @@ pub mod pallet {
 				Error::<T>::ValidatorNotRegistered
 			);
 
-			let deposit = Self::candidacy_bond();
+			let deposit = CandidacyBond::<T>::get();
 			// First authored block is current block plus kick threshold to handle session delay
-			<CandidateList<T>>::try_mutate(|candidates| -> Result<(), DispatchError> {
+			CandidateList::<T>::try_mutate(|candidates| -> Result<(), DispatchError> {
 				ensure!(
 					!candidates.iter().any(|candidate_info| candidate_info.who == who),
 					Error::<T>::AlreadyCandidate
 				);
 				T::Currency::reserve(&who, deposit)?;
-				<LastAuthoredBlock<T>>::insert(
+				LastAuthoredBlock::<T>::insert(
 					who.clone(),
 					frame_system::Pallet::<T>::block_number() + T::KickThreshold::get(),
 				);
@@ -560,7 +561,7 @@ pub mod pallet {
 				Self::eligible_collators() > T::MinEligibleCollators::get(),
 				Error::<T>::TooFewEligibleCollators
 			);
-			let length = <CandidateList<T>>::decode_len().unwrap_or_default();
+			let length = CandidateList::<T>::decode_len().unwrap_or_default();
 			// Do remove their last authored block.
 			Self::try_remove_candidate(&who, true)?;
 
@@ -590,7 +591,7 @@ pub mod pallet {
 				Error::<T>::ValidatorNotRegistered
 			);
 
-			<Invulnerables<T>>::try_mutate(|invulnerables| -> DispatchResult {
+			Invulnerables::<T>::try_mutate(|invulnerables| -> DispatchResult {
 				match invulnerables.binary_search(&who) {
 					Ok(_) => return Err(Error::<T>::AlreadyInvulnerable)?,
 					Err(pos) => invulnerables
@@ -611,7 +612,7 @@ pub mod pallet {
 					.unwrap_or_default()
 					.try_into()
 					.unwrap_or(T::MaxInvulnerables::get().saturating_sub(1)),
-				<CandidateList<T>>::decode_len()
+				CandidateList::<T>::decode_len()
 					.unwrap_or_default()
 					.try_into()
 					.unwrap_or(T::MaxCandidates::get()),
@@ -634,7 +635,7 @@ pub mod pallet {
 				Error::<T>::TooFewEligibleCollators
 			);
 
-			<Invulnerables<T>>::try_mutate(|invulnerables| -> DispatchResult {
+			Invulnerables::<T>::try_mutate(|invulnerables| -> DispatchResult {
 				let pos =
 					invulnerables.binary_search(&who).map_err(|_| Error::<T>::NotInvulnerable)?;
 				invulnerables.remove(pos);
@@ -659,12 +660,12 @@ pub mod pallet {
 			new_deposit: BalanceOf<T>,
 		) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
-			ensure!(new_deposit >= <CandidacyBond<T>>::get(), Error::<T>::DepositTooLow);
+			ensure!(new_deposit >= CandidacyBond::<T>::get(), Error::<T>::DepositTooLow);
 			// The function below will try to mutate the `CandidateList` entry for the caller to
 			// update their deposit to the new value of `new_deposit`. The return value is the
 			// position of the entry in the list, used for weight calculation.
 			let length =
-				<CandidateList<T>>::try_mutate(|candidates| -> Result<usize, DispatchError> {
+				CandidateList::<T>::try_mutate(|candidates| -> Result<usize, DispatchError> {
 					let idx = candidates
 						.iter()
 						.position(|candidate_info| candidate_info.who == who)
@@ -678,7 +679,7 @@ pub mod pallet {
 					} else if new_deposit < old_deposit {
 						// Casting `u32` to `usize` should be safe on all machines running this.
 						ensure!(
-							idx.saturating_add(<DesiredCandidates<T>>::get() as usize) <
+							idx.saturating_add(DesiredCandidates::<T>::get() as usize) <
 								candidate_count,
 							Error::<T>::InvalidUnreserve
 						);
@@ -723,8 +724,8 @@ pub mod pallet {
 		) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
 
-			ensure!(!Self::invulnerables().contains(&who), Error::<T>::AlreadyInvulnerable);
-			ensure!(deposit >= Self::candidacy_bond(), Error::<T>::InsufficientBond);
+			ensure!(!Invulnerables::<T>::get().contains(&who), Error::<T>::AlreadyInvulnerable);
+			ensure!(deposit >= CandidacyBond::<T>::get(), Error::<T>::InsufficientBond);
 
 			let validator_key = T::ValidatorIdOf::convert(who.clone())
 				.ok_or(Error::<T>::NoAssociatedValidatorId)?;
@@ -733,12 +734,12 @@ pub mod pallet {
 				Error::<T>::ValidatorNotRegistered
 			);
 
-			let length = <CandidateList<T>>::decode_len().unwrap_or_default();
+			let length = CandidateList::<T>::decode_len().unwrap_or_default();
 			// The closure below iterates through all elements of the candidate list to ensure that
 			// the caller isn't already a candidate and to find the target it's trying to replace in
 			// the list. The return value is a tuple of the position of the candidate to be replaced
 			// in the list along with its candidate information.
-			let target_info = <CandidateList<T>>::try_mutate(
+			let target_info = CandidateList::<T>::try_mutate(
 				|candidates| -> Result<CandidateInfo<T::AccountId, BalanceOf<T>>, DispatchError> {
 					// Find the position in the list of the candidate that is being replaced.
 					let mut target_info_idx = None;
@@ -783,8 +784,8 @@ pub mod pallet {
 			)?;
 			T::Currency::reserve(&who, deposit)?;
 			T::Currency::unreserve(&target_info.who, target_info.deposit);
-			<LastAuthoredBlock<T>>::remove(target_info.who.clone());
-			<LastAuthoredBlock<T>>::insert(
+			LastAuthoredBlock::<T>::remove(target_info.who.clone());
+			LastAuthoredBlock::<T>::insert(
 				who.clone(),
 				frame_system::Pallet::<T>::block_number() + T::KickThreshold::get(),
 			);
@@ -803,7 +804,7 @@ pub mod pallet {
 		/// Return the total number of accounts that are eligible collators (candidates and
 		/// invulnerables).
 		fn eligible_collators() -> u32 {
-			<CandidateList<T>>::decode_len()
+			CandidateList::<T>::decode_len()
 				.unwrap_or_default()
 				.saturating_add(Invulnerables::<T>::decode_len().unwrap_or_default())
 				.try_into()
@@ -815,7 +816,7 @@ pub mod pallet {
 			who: &T::AccountId,
 			remove_last_authored: bool,
 		) -> Result<(), DispatchError> {
-			<CandidateList<T>>::try_mutate(|candidates| -> Result<(), DispatchError> {
+			CandidateList::<T>::try_mutate(|candidates| -> Result<(), DispatchError> {
 				let idx = candidates
 					.iter()
 					.position(|candidate_info| candidate_info.who == *who)
@@ -824,7 +825,7 @@ pub mod pallet {
 				T::Currency::unreserve(who, deposit);
 				candidates.remove(idx);
 				if remove_last_authored {
-					<LastAuthoredBlock<T>>::remove(who.clone())
+					LastAuthoredBlock::<T>::remove(who.clone())
 				};
 				Ok(())
 			})?;
@@ -837,10 +838,10 @@ pub mod pallet {
 		/// This is done on the fly, as frequent as we are told to do so, as the session manager.
 		pub fn assemble_collators() -> Vec<T::AccountId> {
 			// Casting `u32` to `usize` should be safe on all machines running this.
-			let desired_candidates = <DesiredCandidates<T>>::get() as usize;
-			let mut collators = Self::invulnerables().to_vec();
+			let desired_candidates = DesiredCandidates::<T>::get() as usize;
+			let mut collators = Invulnerables::<T>::get().to_vec();
 			collators.extend(
-				<CandidateList<T>>::get()
+				CandidateList::<T>::get()
 					.iter()
 					.rev()
 					.cloned()
@@ -861,10 +862,10 @@ pub mod pallet {
 			candidates
 				.into_iter()
 				.filter_map(|c| {
-					let last_block = <LastAuthoredBlock<T>>::get(c.clone());
+					let last_block = LastAuthoredBlock::<T>::get(c.clone());
 					let since_last = now.saturating_sub(last_block);
 
-					let is_invulnerable = Self::invulnerables().contains(&c);
+					let is_invulnerable = Invulnerables::<T>::get().contains(&c);
 					let is_lazy = since_last >= kick_threshold;
 
 					if is_invulnerable {
@@ -903,7 +904,7 @@ pub mod pallet {
 		///   or equal to the minimum number of eligible collators.
 		#[cfg(any(test, feature = "try-runtime"))]
 		pub fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
-			let desired_candidates = <DesiredCandidates<T>>::get();
+			let desired_candidates = DesiredCandidates::<T>::get();
 
 			frame_support::ensure!(
 				desired_candidates <= T::MaxCandidates::get(),
@@ -935,7 +936,7 @@ pub mod pallet {
 			// `reward` is half of pot account minus ED, this should never fail.
 			let _success = T::Currency::transfer(&pot, &author, reward, KeepAlive);
 			debug_assert!(_success.is_ok());
-			<LastAuthoredBlock<T>>::insert(author, frame_system::Pallet::<T>::block_number());
+			LastAuthoredBlock::<T>::insert(author, frame_system::Pallet::<T>::block_number());
 
 			frame_system::Pallet::<T>::register_extra_weight_unchecked(
 				T::WeightInfo::note_author(),
@@ -956,12 +957,12 @@ pub mod pallet {
 			// The `expect` below is safe because the list is a `BoundedVec` with a max size of
 			// `T::MaxCandidates`, which is a `u32`. When `decode_len` returns `Some(len)`, `len`
 			// must be valid and at most `u32::MAX`, which must always be able to convert to `u32`.
-			let candidates_len_before: u32 = <CandidateList<T>>::decode_len()
+			let candidates_len_before: u32 = CandidateList::<T>::decode_len()
 				.unwrap_or_default()
 				.try_into()
 				.expect("length is at most `T::MaxCandidates`, so it must fit in `u32`; qed");
 			let active_candidates_count = Self::kick_stale_candidates(
-				<CandidateList<T>>::get()
+				CandidateList::<T>::get()
 					.iter()
 					.map(|candidate_info| candidate_info.who.clone()),
 			);
@@ -980,5 +981,17 @@ pub mod pallet {
 		fn end_session(_: SessionIndex) {
 			// we don't care.
 		}
+	}
+}
+
+/// [`TypedGet`] implementation to get the AccountId of the StakingPot.
+pub struct StakingPotAccountId<R>(PhantomData<R>);
+impl<R> TypedGet for StakingPotAccountId<R>
+where
+	R: crate::Config,
+{
+	type Type = <R as frame_system::Config>::AccountId;
+	fn get() -> Self::Type {
+		<crate::Pallet<R>>::account_id()
 	}
 }

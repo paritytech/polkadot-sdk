@@ -38,7 +38,7 @@ mkdir -p ~/local_bridge_testing/logs
 ---
 # 1. Install zombienet
 Go to: https://github.com/paritytech/zombienet/releases
-Copy the apropriate binary (zombienet-linux) from the latest release to ~/local_bridge_testing/bin
+Copy the appropriate binary (zombienet-linux) from the latest release to ~/local_bridge_testing/bin
 
 
 ---
@@ -89,20 +89,18 @@ cp target/release/polkadot-parachain ~/local_bridge_testing/bin/polkadot-paracha
 cd <polkadot-sdk-git-repo-dir>
 
 # Rococo + BridgeHubRococo + AssetHub for Rococo (mirroring Kusama)
-POLKADOT_BINARY_PATH=~/local_bridge_testing/bin/polkadot \
-POLKADOT_PARACHAIN_BINARY_PATH=~/local_bridge_testing/bin/polkadot-parachain \
-POLKADOT_PARACHAIN_BINARY_PATH_FOR_ASSET_HUB_ROCOCO=~/local_bridge_testing/bin/polkadot-parachain-asset-hub \
-	~/local_bridge_testing/bin/zombienet-linux --provider native spawn ./cumulus/zombienet/bridge-hubs/bridge_hub_rococo_local_network.toml
+POLKADOT_BINARY=~/local_bridge_testing/bin/polkadot \
+POLKADOT_PARACHAIN_BINARY=~/local_bridge_testing/bin/polkadot-parachain \
+	~/local_bridge_testing/bin/zombienet-linux --provider native spawn ./bridges/testing/environments/rococo-westend/bridge_hub_rococo_local_network.toml
 ```
 
 ```
 cd <polkadot-sdk-git-repo-dir>
 
 # Westend + BridgeHubWestend + AssetHub for Westend (mirroring Polkadot)
-POLKADOT_BINARY_PATH=~/local_bridge_testing/bin/polkadot \
-POLKADOT_PARACHAIN_BINARY_PATH=~/local_bridge_testing/bin/polkadot-parachain \
-POLKADOT_PARACHAIN_BINARY_PATH_FOR_ASSET_HUB_WESTEND=~/local_bridge_testing/bin/polkadot-parachain-asset-hub \
-	~/local_bridge_testing/bin/zombienet-linux --provider native spawn ./cumulus/zombienet/bridge-hubs/bridge_hub_westend_local_network.toml
+POLKADOT_BINARY=~/local_bridge_testing/bin/polkadot \
+POLKADOT_PARACHAIN_BINARY=~/local_bridge_testing/bin/polkadot-parachain \
+	~/local_bridge_testing/bin/zombienet-linux --provider native spawn ./bridges/testing/environments/rococo-westend/bridge_hub_westend_local_network.toml
 ```
 
 ### Init bridge and run relayer between BridgeHubRococo and BridgeHubWestend
@@ -114,7 +112,7 @@ POLKADOT_PARACHAIN_BINARY_PATH_FOR_ASSET_HUB_WESTEND=~/local_bridge_testing/bin/
 ```
 cd <polkadot-sdk-git-repo-dir>
 
-./cumulus/scripts/bridges_rococo_westend.sh run-relay
+./bridges/testing/environments/rococo-westend/bridges_rococo_westend.sh run-relay
 ```
 
 **Check relay-chain headers relaying:**
@@ -137,10 +135,10 @@ This initialization does several things:
 ```
 cd <polkadot-sdk-git-repo-dir>
 
-./cumulus/scripts/bridges_rococo_westend.sh init-asset-hub-rococo-local
-./cumulus/scripts/bridges_rococo_westend.sh init-bridge-hub-rococo-local
-./cumulus/scripts/bridges_rococo_westend.sh init-asset-hub-westend-local
-./cumulus/scripts/bridges_rococo_westend.sh init-bridge-hub-westend-local
+./bridges/testing/environments/rococo-westend/bridges_rococo_westend.sh init-asset-hub-rococo-local
+./bridges/testing/environments/rococo-westend/bridges_rococo_westend.sh init-bridge-hub-rococo-local
+./bridges/testing/environments/rococo-westend/bridges_rococo_westend.sh init-asset-hub-westend-local
+./bridges/testing/environments/rococo-westend/bridges_rococo_westend.sh init-bridge-hub-westend-local
 ```
 
 ### Send messages - transfer asset over bridge (ROCs/WNDs)
@@ -150,13 +148,13 @@ Do reserve-backed transfers:
 cd <polkadot-sdk-git-repo-dir>
 
 # ROCs from Rococo's Asset Hub to Westend's.
-./cumulus/scripts/bridges_rococo_westend.sh reserve-transfer-assets-from-asset-hub-rococo-local
+./bridges/testing/environments/rococo-westend/bridges_rococo_westend.sh reserve-transfer-assets-from-asset-hub-rococo-local
 ```
 ```
 cd <polkadot-sdk-git-repo-dir>
 
 # WNDs from Westend's Asset Hub to Rococo's.
-./cumulus/scripts/bridges_rococo_westend.sh reserve-transfer-assets-from-asset-hub-westend-local
+./bridges/testing/environments/rococo-westend/bridges_rococo_westend.sh reserve-transfer-assets-from-asset-hub-westend-local
 ```
 
 - open explorers: (see zombienets)
@@ -171,13 +169,13 @@ Do reserve withdraw transfers: (when previous is finished)
 cd <polkadot-sdk-git-repo-dir>
 
 # wrappedWNDs from Rococo's Asset Hub to Westend's.
-./cumulus/scripts/bridges_rococo_westend.sh withdraw-reserve-assets-from-asset-hub-rococo-local
+./bridges/testing/environments/rococo-westend/bridges_rococo_westend.sh withdraw-reserve-assets-from-asset-hub-rococo-local
 ```
 ```
 cd <polkadot-sdk-git-repo-dir>
 
 # wrappedROCs from Westend's Asset Hub to Rococo's.
-./cumulus/scripts/bridges_rococo_westend.sh withdraw-reserve-assets-from-asset-hub-westend-local
+./bridges/testing/environments/rococo-westend/bridges_rococo_westend.sh withdraw-reserve-assets-from-asset-hub-westend-local
 ```
 
 ### Claim relayer's rewards on BridgeHubRococo and BridgeHubWestend
@@ -190,10 +188,10 @@ cd <polkadot-sdk-git-repo-dir>
 cd <polkadot-sdk-git-repo-dir>
 
 # Claim rewards on BridgeHubWestend:
-./cumulus/scripts/bridges_rococo_westend.sh claim-rewards-bridge-hub-rococo-local
+./bridges/testing/environments/rococo-westend/bridges_rococo_westend.sh claim-rewards-bridge-hub-rococo-local
 
 # Claim rewards on BridgeHubWestend:
-./cumulus/scripts/bridges_rococo_westend.sh claim-rewards-bridge-hub-westend-local
+./bridges/testing/environments/rococo-westend/bridges_rococo_westend.sh claim-rewards-bridge-hub-westend-local
 ```
 
 - open explorers: (see zombienets)

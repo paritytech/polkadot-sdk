@@ -12,6 +12,13 @@ on:
       - release-v[0-9]+.[0-9]+.[0-9]+*
       - release-cumulus-v[0-9]+*
       - release-polkadot-v[0-9]+*
+  workflow_call:
+    inputs:
+      excluded_runtimes:
+        type: string
+    outputs:
+      published_runtimes:
+        value: ${{ jobs.find-runtimes.outputs.runtime }}
 
   schedule:
     - cron: "00 02 * * 1" # 2AM weekly on monday
@@ -39,7 +46,7 @@ jobs:
 
         - name: Scan runtimes
           env:
-            EXCLUDED_RUNTIMES: "substrate-test"
+            EXCLUDED_RUNTIMES: ${{ inputs.excluded_runtimes }}:"substrate-test"
           run: |
             . ./.github/scripts/common/lib.sh
 
@@ -85,16 +92,6 @@ jobs:
           echo "Compact Runtime: ${{ steps.srtool_build.outputs.wasm }}"
           echo "Compressed Runtime: ${{ steps.srtool_build.outputs.wasm_compressed }}"
 
-      # it takes a while to build the runtime, so let's save the artifact as soon as we have it
-      - name: Archive Artifacts for ${{ matrix.chain }}
-        uses: actions/upload-artifact@0b7f8abb1508181956e8e162db84b466c27e18ce # v3.1.2
-        with:
-          name: ${{ matrix.chain }}-runtime
-          path: |
-            ${{ steps.srtool_build.outputs.wasm }}
-            ${{ steps.srtool_build.outputs.wasm_compressed }}
-            ${{ matrix.chain }}-srtool-digest.json
-
       # We now get extra information thanks to subwasm
       - name: Install subwasm
         run: |
@@ -125,7 +122,7 @@ jobs:
             tee ${{ matrix.chain }}-diff.txt
 
       - name: Archive Subwasm results
-        uses: actions/upload-artifact@0b7f8abb1508181956e8e162db84b466c27e18ce # v3.1.2
+        uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3 # v4.3.1
         with:
           name: ${{ matrix.chain }}-runtime
           path: |
@@ -133,3 +130,6 @@ jobs:
             ${{ matrix.chain }}-compressed-info.json
             ${{ matrix.chain }}-metadata.json
             ${{ matrix.chain }}-diff.txt
+            ${{ steps.srtool_build.outputs.wasm }}
+            ${{ steps.srtool_build.outputs.wasm_compressed }}
+            ${{ matrix.chain }}-srtool-digest.json

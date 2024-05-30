@@ -10,7 +10,7 @@ description = "Polkadot specific RPC functionality."
 workspace = true
 
 [dependencies]
-jsonrpsee = { version = "0.20.3", features = ["server"] }
+jsonrpsee = { version = "0.22", features = ["server"] }
 polkadot-primitives = { path = "../primitives" }
 sc-client-api = { path = "../../substrate/client/api" }
 sp-blockchain = { path = "../../substrate/primitives/blockchain" }

@@ -28,51 +28,84 @@
 //! See [`ChainSpecBuilderCmd`] for a list of available commands.
 //!
 //! ## Typical use-cases.
-//! ##### Get default config from runtime.
+//! ##### Generate chains-spec using default config from runtime.
 //!
-//! Query the default genesis config from the provided `runtime.wasm` and use it in the chain
-//! spec. The tool allows specifying where to write the chain spec, and optionally also where the
-//! write the default genesis state config (which is `/dev/stdout` in the following example):
-//! ```text
-//! chain-spec-builder --chain_spec_path ./my_chain_spec.json create -r runtime.wasm default /dev/stdout
+//!	Query the default genesis config from the provided `runtime.wasm` and use it in the chain
+//! spec.
+//!	```bash
+//! chain-spec-builder create -r runtime.wasm default
 //! ```
-//!
-//! _Note:_ [`GenesisBuilder::create_default_config`][sp-genesis-builder-create] runtime function is
+//! 
+//! _Note:_ [`GenesisBuilder::get_preset`][sp-genesis-builder-get-preset] runtime function is
 //! called.
 //!
+//!
+//! ##### Display the runtime's default `GenesisConfig`
+//!
+//! Displays the content of the runtime's default `GenesisConfig`
+//! ```bash
+//! chain-spec-builder display-preset -r runtime.wasm
+//! ```
+//! 
+//! _Note:_ [`GenesisBuilder::get_preset`][sp-genesis-builder-get-preset] runtime function is called.
+//!
+//! ##### Display the `GenesisConfig` preset with given name
+//!
+//! Displays the content of the `GenesisConfig` preset for given name
+//! ```bash
+//! chain-spec-builder display-preset -r runtime.wasm -p "staging"
+//! ```
+//! 
+//! _Note:_ [`GenesisBuilder::get_preset`][sp-genesis-builder-get-preset] runtime function is called.
+//!
+//! ##### List the names of `GenesisConfig` presets provided by runtime.
+//!
+//! Displays the names of the presets of `GenesisConfigs` provided by runtime.
+//! ```bash
+//! chain-spec-builder list-presets -r runtime.wasm
+//! ```
+//! 
+//! _Note:_ [`GenesisBuilder::preset_names`][sp-genesis-builder-list] runtime function is called.
+//!
+//! ##### Generate chain spec using runtime provided genesis config preset.
+//!
+//! Patch the runtime's default genesis config with the named preset provided by the runtime and generate the plain
+//! version of chain spec:
+//! ```bash
+//! chain-spec-builder create -r runtime.wasm named-preset "staging"
+//! ```
+//! 
+//! _Note:_ [`GenesisBuilder::get_preset`][sp-genesis-builder-get-preset] and [`GenesisBuilder::build_state`][sp-genesis-builder-build] runtime functions are called.
 //!
 //! ##### Generate raw storage chain spec using genesis config patch.
 //!
 //! Patch the runtime's default genesis config with provided `patch.json` and generate raw
 //! storage (`-s`) version of chain spec:
-//!
 //! ```bash
 //! chain-spec-builder create -s -r runtime.wasm patch patch.json
 //! ```
-//!
-//! _Note:_ [`GenesisBuilder::build_config`][sp-genesis-builder-build] runtime function is called.
+//! 
+//! _Note:_ [`GenesisBuilder::build_state`][sp-genesis-builder-build] runtime function is called.
 //!
 //! ##### Generate raw storage chain spec using full genesis config.
 //!
 //! Build the chain spec using provided full genesis config json file. No defaults will be used:
-//!
 //! ```bash
 //! chain-spec-builder create -s -r runtime.wasm full full-genesis-config.json
 //! ```
-//!
-//! _Note_: [`GenesisBuilder::build_config`][sp-genesis-builder-build] runtime function is called.
+//! 
+//! _Note_: [`GenesisBuilder::build_state`][sp-genesis-builder-build] runtime function is called.
 //!
 //! ##### Generate human readable chain spec using provided genesis config patch.
 //! ```bash
 //! chain-spec-builder create -r runtime.wasm patch patch.json
 //! ```
-//!
+//! 
 //! ##### Generate human readable chain spec using provided full genesis config.
-//!
 //! ```bash
 //! chain-spec-builder create -r runtime.wasm full full-genesis-config.json
 //! ```
-//!
+//! 
 //! ##### Extra tools.
 //! The `chain-spec-builder` provides also some extra utilities: [`VerifyCmd`], [`ConvertToRawCmd`],
 //! [`UpdateCodeCmd`].
@@ -80,8 +113,9 @@
 //! [`sc-chain-spec`]: ../sc_chain_spec/index.html
 //! [`node-cli`]: ../node_cli/index.html
 //! [`sp-genesis-builder`]: ../sp_genesis_builder/index.html
-//! [sp-genesis-builder-create]: ../sp_genesis_builder/trait.GenesisBuilder.html#method.create_default_config
-//! [sp-genesis-builder-build]: ../sp_genesis_builder/trait.GenesisBuilder.html#method.build_config
+//! [sp-genesis-builder-build]: ../sp_genesis_builder/trait.GenesisBuilder.html#method.build_state
+//! [sp-genesis-builder-list]: ../sp_genesis_builder/trait.GenesisBuilder.html#method.preset_names
+//! [sp-genesis-builder-get-preset]: ../sp_genesis_builder/trait.GenesisBuilder.html#method.get_preset
 
 use std::{fs, path::PathBuf};
 
@@ -107,6 +141,8 @@ pub enum ChainSpecBuilderCmd {
 	Verify(VerifyCmd),
 	UpdateCode(UpdateCodeCmd),
 	ConvertToRaw(ConvertToRawCmd),
+	ListPresets(ListPresetsCmd),
+	DisplayPreset(DisplayPresetCmd),
 }
 
 /// Create a new chain spec by interacting with the provided runtime wasm blob.
@@ -137,6 +173,7 @@ enum GenesisBuildAction {
 	Patch(PatchCmd),
 	Full(FullCmd),
 	Default(DefaultCmd),
+	NamedPreset(NamedPresetCmd),
 }
 
 /// Patches the runtime's default genesis config with provided patch.
@@ -157,10 +194,12 @@ struct FullCmd {
 /// default genesis config may not be valid. For some runtimes initial values should be added there
 /// (e.g. session keys, babe epoch).
 #[derive(Parser, Debug, Clone)]
-struct DefaultCmd {
-	/// If provided stores the default genesis config json file at given path (in addition to
-	/// chain-spec).
-	default_config_path: Option<PathBuf>,
+struct DefaultCmd {}
+
+/// Uses named preset provided by runtime to build the chains spec.
+#[derive(Parser, Debug, Clone)]
+struct NamedPresetCmd {
+	preset_name: String,
 }
 
 /// Updates the code in the provided input chain spec.
@@ -182,10 +221,29 @@ pub struct ConvertToRawCmd {
 	pub input_chain_spec: PathBuf,
 }
 
+/// Lists available presets
+#[derive(Parser, Debug, Clone)]
+pub struct ListPresetsCmd {
+	/// The path to runtime wasm blob.
+	#[arg(long, short)]
+	pub runtime_wasm_path: PathBuf,
+}
+
+/// Displays given preset
+#[derive(Parser, Debug, Clone)]
+pub struct DisplayPresetCmd {
+	/// The path to runtime wasm blob.
+	#[arg(long, short)]
+	pub runtime_wasm_path: PathBuf,
+	/// Preset to be displayed. If none is given default will be displayed.
+	#[arg(long, short)]
+	pub preset_name: Option<String>,
+}
+
 /// Verifies the provided input chain spec.
 ///
 /// Silently checks if given input chain spec can be converted to raw. It allows to check if all
-/// RuntimeGenesisConfig fiels are properly initialized and if the json does not contain invalid
+/// RuntimeGenesisConfig fields are properly initialized and if the json does not contain invalid
 /// fields.
 #[derive(Parser, Debug, Clone)]
 pub struct VerifyCmd {
@@ -204,6 +262,8 @@ pub fn generate_chain_spec_for_runtime(cmd: &CreateCmd) -> Result<String, String
 		.with_chain_type(sc_chain_spec::ChainType::Live);
 
 	let builder = match cmd.action {
+		GenesisBuildAction::NamedPreset(NamedPresetCmd { ref preset_name }) =>
+			builder.with_genesis_config_preset_name(&preset_name),
 		GenesisBuildAction::Patch(PatchCmd { ref patch_path }) => {
 			let patch = fs::read(patch_path.as_path())
 				.map_err(|e| format!("patch file {patch_path:?} shall be readable: {e}"))?;
@@ -218,16 +278,12 @@ pub fn generate_chain_spec_for_runtime(cmd: &CreateCmd) -> Result<String, String
 				|e| format!("config file {config_path:?} shall contain a valid json: {e}"),
 			)?)
 		},
-		GenesisBuildAction::Default(DefaultCmd { ref default_config_path }) => {
+		GenesisBuildAction::Default(DefaultCmd {}) => {
 			let caller: GenesisConfigBuilderRuntimeCaller =
 				GenesisConfigBuilderRuntimeCaller::new(&code[..]);
 			let default_config = caller
 				.get_default_config()
 				.map_err(|e| format!("getting default config from runtime should work: {e}"))?;
-			default_config_path.clone().map(|path| {
-				fs::write(path.as_path(), serde_json::to_string_pretty(&default_config).unwrap())
-					.map_err(|err| err.to_string())
-			});
 			builder.with_genesis_config(default_config)
 		},
 	};

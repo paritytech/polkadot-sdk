@@ -1,0 +1,12 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Remove Deprecated OldWeight
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Removed deprecated sp_weights::OldWeight type. Use [`weight_v2::Weight`] instead.
+
+crates:
+    - name: frame-support

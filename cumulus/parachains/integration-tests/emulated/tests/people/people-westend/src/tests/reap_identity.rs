@@ -38,7 +38,7 @@
 //! - The freed deposit from the Relay Chain is sufficient for the parachain deposit; and
 //! - The account will exist on the parachain.
 
-use crate::*;
+use crate::imports::*;
 use frame_support::BoundedVec;
 use pallet_balances::Event as BalancesEvent;
 use pallet_identity::{legacy::IdentityInfo, Data, Event as IdentityEvent};
@@ -368,7 +368,7 @@ fn assert_reap_events(id_deposit: Balance, id: &Identity) {
 				PeopleWestend,
 				vec![
 					// Deposit and Endowed from teleport
-					RuntimeEvent::Balances(BalancesEvent::Deposit { .. }) => {},
+					RuntimeEvent::Balances(BalancesEvent::Minted { .. }) => {},
 					RuntimeEvent::Balances(BalancesEvent::Endowed { .. }) => {},
 					// Amount reserved for identity info
 					RuntimeEvent::Balances(BalancesEvent::Reserved { who, amount }) => {
@@ -394,7 +394,7 @@ fn assert_reap_events(id_deposit: Balance, id: &Identity) {
 				PeopleWestend,
 				vec![
 					// Deposit and Endowed from teleport
-					RuntimeEvent::Balances(BalancesEvent::Deposit { .. }) => {},
+					RuntimeEvent::Balances(BalancesEvent::Minted { .. }) => {},
 					RuntimeEvent::Balances(BalancesEvent::Endowed { .. }) => {},
 					// Amount reserved for identity info
 					RuntimeEvent::Balances(BalancesEvent::Reserved { who, amount }) => {

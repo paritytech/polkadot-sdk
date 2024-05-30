@@ -37,7 +37,8 @@ pub fn change_storage_constant_by_governance_works<Runtime, StorageConstant, Sto
 		+ pallet_xcm::Config
 		+ parachain_info::Config
 		+ pallet_collator_selection::Config
-		+ cumulus_pallet_parachain_system::Config,
+		+ cumulus_pallet_parachain_system::Config
+		+ pallet_timestamp::Config,
 	ValidatorIdOf<Runtime>: From<AccountIdOf<Runtime>>,
 	StorageConstant: Get<StorageConstantType>,
 	StorageConstantType: Encode + PartialEq + std::fmt::Debug,
@@ -107,7 +108,8 @@ pub fn set_storage_keys_by_governance_works<Runtime>(
 		+ pallet_xcm::Config
 		+ parachain_info::Config
 		+ pallet_collator_selection::Config
-		+ cumulus_pallet_parachain_system::Config,
+		+ cumulus_pallet_parachain_system::Config
+		+ pallet_timestamp::Config,
 	ValidatorIdOf<Runtime>: From<AccountIdOf<Runtime>>,
 {
 	let mut runtime = ExtBuilder::<Runtime>::default()

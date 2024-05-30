@@ -1,0 +1,9 @@
+title: "Contracts: Stabilize caller_is_root API"
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Removed the `#[unstable]` attrribute on `caller_is_root` host function.
+
+crates:
+  - name: pallet-contracts

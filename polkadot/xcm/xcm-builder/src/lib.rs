@@ -30,15 +30,16 @@ mod asset_conversion;
 #[allow(deprecated)]
 pub use asset_conversion::ConvertedConcreteAssetId;
 pub use asset_conversion::{
-	AsPrefixedGeneralIndex, ConvertedConcreteId, MatchedConvertedConcreteId, V4V3LocationConverter,
+	AsPrefixedGeneralIndex, ConvertedConcreteId, MatchedConvertedConcreteId,
 };
 
 mod barriers;
 pub use barriers::{
-	AllowExplicitUnpaidExecutionFrom, AllowKnownQueryResponses, AllowSubscriptionsFrom,
-	AllowTopLevelPaidExecutionFrom, AllowUnpaidExecutionFrom, DenyReserveTransferToRelayChain,
-	DenyThenTry, IsChildSystemParachain, RespectSuspension, TakeWeightCredit, TrailingSetTopicAsId,
-	WithComputedOrigin,
+	AllowExplicitUnpaidExecutionFrom, AllowHrmpNotificationsFromRelayChain,
+	AllowKnownQueryResponses, AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom,
+	AllowUnpaidExecutionFrom, DenyReserveTransferToRelayChain, DenyThenTry, IsChildSystemParachain,
+	IsParentsOnly, IsSiblingSystemParachain, RespectSuspension, TakeWeightCredit,
+	TrailingSetTopicAsId, WithComputedOrigin,
 };
 
 mod controller;
@@ -81,7 +82,9 @@ pub use location_conversion::{
 };
 
 mod matches_location;
-pub use matches_location::{StartsWith, StartsWithExplicitGlobalConsensus};
+pub use matches_location::{
+	StartsWith, StartsWithExplicitGlobalConsensus, WithLatestLocationConverter,
+};
 
 mod matches_token;
 pub use matches_token::IsConcrete;
@@ -117,7 +120,7 @@ mod process_xcm_message;
 pub use process_xcm_message::ProcessXcmMessage;
 
 mod routing;
-pub use routing::{WithTopicSource, WithUniqueTopic};
+pub use routing::{EnsureDecodableXcm, EnsureDelivery, WithTopicSource, WithUniqueTopic};
 
 mod transactional;
 pub use transactional::FrameTransactionalProcessor;

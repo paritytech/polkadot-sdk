@@ -84,7 +84,7 @@ impl CandidateVotes {
 #[derive(Debug, Clone)]
 /// Valid candidate votes.
 ///
-/// Prefere backing votes over other votes.
+/// Prefer backing votes over other votes.
 pub struct ValidCandidateVotes {
 	votes: BTreeMap<ValidatorIndex, (ValidDisputeStatementKind, ValidatorSignature)>,
 }
@@ -133,7 +133,7 @@ impl ValidCandidateVotes {
 		self.votes.retain(f)
 	}
 
-	/// Get all the validator indeces we have votes for.
+	/// Get all the validator indices we have votes for.
 	pub fn keys(
 		&self,
 	) -> Bkeys<'_, ValidatorIndex, (ValidDisputeStatementKind, ValidatorSignature)> {

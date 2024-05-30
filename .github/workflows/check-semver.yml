@@ -1,0 +1,56 @@
+name: Check semver
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - prdoc/*.prdoc
+
+jobs:
+  check-semver:
+    runs-on: ubuntu-latest
+    container:
+      image: docker.io/paritytech/ci-unified:bullseye-1.77.0-2024-04-10-v20240408
+    steps:
+      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@23bce251a8cd2ffc3c1075eaa2367cf899916d84 # v2.7.3
+        with:
+          cache-on-failure: true
+
+      - name: Rust compilation prerequisites
+        run: |
+          rustup default nightly-2024-03-01
+          rustup target add wasm32-unknown-unknown --toolchain nightly-2024-03-01
+          rustup component add rust-src --toolchain nightly-2024-03-01
+
+      - name: install parity-publish
+        run: cargo install parity-publish@0.5.1
+
+      - name: extra git setup
+        run: |
+          git config --global --add safe.directory '*'
+          git fetch --no-tags --no-recurse-submodules --depth=1 origin master
+          git branch old origin/master
+
+      - name: check semver
+        run: |
+          export CARGO_TARGET_DIR=target
+          export RUSTFLAGS='-A warnings -A missing_docs'
+          export SKIP_WASM_BUILD=1
+          if ! parity-publish --color always prdoc --since old --validate prdoc/pr_$PR.prdoc --toolchain nightly-2024-03-01 -v; then
+            cat <<EOF
+          👋 Hello developer! The SemVer information that you declared in the prdoc file did not match what the CI detected.
+
+          Please check the output above and see the following links for more help:
+          - https://github.com/paritytech/polkadot-sdk/blob/master/docs/contributor/prdoc.md#record-semver-changes
+          - https://forum.polkadot.network/t/psa-polkadot-sdk-to-use-semver
+
+          Otherwise feel free to ask in the Merge Request or in Matrix chat.
+          EOF
+
+            exit 1
+          fi
+        env:
+          PR: ${{ github.event.pull_request.number }}

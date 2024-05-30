@@ -348,7 +348,7 @@ impl RunningTask {
 	async fn do_request(
 		&mut self,
 		validator: &AuthorityDiscoveryId,
-		nerwork_error_freq: &mut gum::Freq,
+		network_error_freq: &mut gum::Freq,
 		canceled_freq: &mut gum::Freq,
 	) -> std::result::Result<ChunkFetchingResponse, TaskError> {
 		gum::trace!(
@@ -395,7 +395,7 @@ impl RunningTask {
 			},
 			Err(RequestError::NetworkError(err)) => {
 				gum::warn_if_frequent!(
-					freq: nerwork_error_freq,
+					freq: network_error_freq,
 					max_rate: gum::Times::PerHour(100),
 					target: LOG_TARGET,
 					origin = ?validator,

@@ -43,7 +43,7 @@ where
 {
 	ParasShared::<T>::set_session_index(SESSION_INDEX);
 	let mut config = HostConfiguration::default();
-	config.coretime_cores = 1;
+	config.scheduler_params.num_cores = 1;
 	ConfigurationPallet::<T>::force_set_active_config(config);
 	let mut parachains = ParachainsCache::new();
 	ParasPallet::<T>::initialize_para_now(
@@ -70,11 +70,7 @@ mod benchmarks {
 		let para_id = ParaId::from(111u32);
 		init_parathread::<T>(para_id);
 		T::Currency::make_free_balance_be(&caller, BalanceOf::<T>::max_value());
-		let order = EnqueuedOrder::new(para_id);
-
-		for _ in 0..s {
-			Pallet::<T>::add_on_demand_order(order.clone(), QueuePushDirection::Back).unwrap();
-		}
+		Pallet::<T>::populate_queue(para_id, s);
 
 		#[extrinsic_call]
 		_(RawOrigin::Signed(caller.into()), BalanceOf::<T>::max_value(), para_id)
@@ -87,11 +83,8 @@ mod benchmarks {
 		let para_id = ParaId::from(111u32);
 		init_parathread::<T>(para_id);
 		T::Currency::make_free_balance_be(&caller, BalanceOf::<T>::max_value());
-		let order = EnqueuedOrder::new(para_id);
 
-		for _ in 0..s {
-			Pallet::<T>::add_on_demand_order(order.clone(), QueuePushDirection::Back).unwrap();
-		}
+		Pallet::<T>::populate_queue(para_id, s);
 
 		#[extrinsic_call]
 		_(RawOrigin::Signed(caller.into()), BalanceOf::<T>::max_value(), para_id)

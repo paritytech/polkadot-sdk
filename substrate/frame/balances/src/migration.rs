@@ -22,9 +22,9 @@ use frame_support::{
 };
 
 fn migrate_v0_to_v1<T: Config<I>, I: 'static>(accounts: &[T::AccountId]) -> Weight {
-	let onchain_version = Pallet::<T, I>::on_chain_storage_version();
+	let on_chain_version = Pallet::<T, I>::on_chain_storage_version();
 
-	if onchain_version == 0 {
+	if on_chain_version == 0 {
 		let total = accounts
 			.iter()
 			.map(|a| Pallet::<T, I>::total_balance(a))
@@ -76,9 +76,9 @@ impl<T: Config<I>, A: Get<Vec<T::AccountId>>, I: 'static> OnRuntimeUpgrade
 pub struct ResetInactive<T, I = ()>(PhantomData<(T, I)>);
 impl<T: Config<I>, I: 'static> OnRuntimeUpgrade for ResetInactive<T, I> {
 	fn on_runtime_upgrade() -> Weight {
-		let onchain_version = Pallet::<T, I>::on_chain_storage_version();
+		let on_chain_version = Pallet::<T, I>::on_chain_storage_version();
 
-		if onchain_version == 1 {
+		if on_chain_version == 1 {
 			// Remove the old `StorageVersion` type.
 			frame_support::storage::unhashed::kill(&frame_support::storage::storage_prefix(
 				Pallet::<T, I>::name().as_bytes(),

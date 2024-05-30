@@ -16,8 +16,12 @@
 
 //! Auxiliary `struct`/`enum`s for polkadot runtime.
 
-use crate::NegativeImbalance;
-use frame_support::traits::{Currency, Imbalance, OnUnbalanced};
+use frame_support::traits::{
+	fungible::{Balanced, Credit},
+	tokens::imbalance::ResolveTo,
+	Contains, ContainsPair, Imbalance, OnUnbalanced,
+};
+use pallet_treasury::TreasuryAccountId;
 use parity_scale_codec::{Decode, Encode, MaxEncodedLen};
 use primitives::Balance;
 use sp_runtime::{traits::TryConvert, Perquintill, RuntimeDebug};
@@ -25,28 +29,31 @@ use xcm::VersionedLocation;
 
 /// Logic for the author to get a portion of fees.
 pub struct ToAuthor<R>(sp_std::marker::PhantomData<R>);
-impl<R> OnUnbalanced<NegativeImbalance<R>> for ToAuthor<R>
+impl<R> OnUnbalanced<Credit<R::AccountId, pallet_balances::Pallet<R>>> for ToAuthor<R>
 where
 	R: pallet_balances::Config + pallet_authorship::Config,
 	<R as frame_system::Config>::AccountId: From<primitives::AccountId>,
 	<R as frame_system::Config>::AccountId: Into<primitives::AccountId>,
 {
-	fn on_nonzero_unbalanced(amount: NegativeImbalance<R>) {
+	fn on_nonzero_unbalanced(
+		amount: Credit<<R as frame_system::Config>::AccountId, pallet_balances::Pallet<R>>,
+	) {
 		if let Some(author) = <pallet_authorship::Pallet<R>>::author() {
-			<pallet_balances::Pallet<R>>::resolve_creating(&author, amount);
+			let _ = <pallet_balances::Pallet<R>>::resolve(&author, amount);
 		}
 	}
 }
 
 pub struct DealWithFees<R>(sp_std::marker::PhantomData<R>);
-impl<R> OnUnbalanced<NegativeImbalance<R>> for DealWithFees<R>
+impl<R> OnUnbalanced<Credit<R::AccountId, pallet_balances::Pallet<R>>> for DealWithFees<R>
 where
-	R: pallet_balances::Config + pallet_treasury::Config + pallet_authorship::Config,
-	pallet_treasury::Pallet<R>: OnUnbalanced<NegativeImbalance<R>>,
+	R: pallet_balances::Config + pallet_authorship::Config + pallet_treasury::Config,
 	<R as frame_system::Config>::AccountId: From<primitives::AccountId>,
 	<R as frame_system::Config>::AccountId: Into<primitives::AccountId>,
 {
-	fn on_unbalanceds<B>(mut fees_then_tips: impl Iterator<Item = NegativeImbalance<R>>) {
+	fn on_unbalanceds<B>(
+		mut fees_then_tips: impl Iterator<Item = Credit<R::AccountId, pallet_balances::Pallet<R>>>,
+	) {
 		if let Some(fees) = fees_then_tips.next() {
 			// for fees, 80% to treasury, 20% to author
 			let mut split = fees.ration(80, 20);
@@ -54,8 +61,7 @@ where
 				// for tips, if any, 100% to author
 				tips.merge_into(&mut split.1);
 			}
-			use pallet_treasury::Pallet as Treasury;
-			<Treasury<R> as OnUnbalanced<_>>::on_unbalanced(split.0);
+			ResolveTo::<TreasuryAccountId<R>, pallet_balances::Pallet<R>>::on_unbalanced(split.0);
 			<ToAuthor<R> as OnUnbalanced<_>>::on_unbalanced(split.1);
 		}
 	}
@@ -107,7 +113,7 @@ pub fn era_payout(
 )]
 pub enum VersionedLocatableAsset {
 	#[codec(index = 3)]
-	V3 { location: xcm::v3::MultiLocation, asset_id: xcm::v3::AssetId },
+	V3 { location: xcm::v3::Location, asset_id: xcm::v3::AssetId },
 	#[codec(index = 4)]
 	V4 { location: xcm::v4::Location, asset_id: xcm::v4::AssetId },
 }
@@ -140,13 +146,33 @@ impl TryConvert<&VersionedLocation, xcm::latest::Location> for VersionedLocation
 	) -> Result<xcm::latest::Location, &VersionedLocation> {
 		let latest = match location.clone() {
 			VersionedLocation::V2(l) => {
-				let v3: xcm::v3::MultiLocation = l.try_into().map_err(|_| location)?;
+				let v3: xcm::v3::Location = l.try_into().map_err(|_| location)?;
 				v3.try_into().map_err(|_| location)?
 			},
 			VersionedLocation::V3(l) => l.try_into().map_err(|_| location)?,
 			VersionedLocation::V4(l) => l,
 		};
 		Ok(latest)
+	}
+}
+
+/// Adapter for [`Contains`] trait to match [`VersionedLocatableAsset`] type converted to the latest
+/// version of itself where it's location matched by `L` and it's asset id by `A` parameter types.
+pub struct ContainsParts<C>(core::marker::PhantomData<C>);
+impl<C> Contains<VersionedLocatableAsset> for ContainsParts<C>
+where
+	C: ContainsPair<xcm::latest::Location, xcm::latest::Location>,
+{
+	fn contains(asset: &VersionedLocatableAsset) -> bool {
+		use VersionedLocatableAsset::*;
+		let (location, asset_id) = match asset.clone() {
+			V3 { location, asset_id } => match (location.try_into(), asset_id.try_into()) {
+				(Ok(l), Ok(a)) => (l, a),
+				_ => return false,
+			},
+			V4 { location, asset_id } => (location, asset_id),
+		};
+		C::contains(&location, &asset_id.0)
 	}
 }
 
@@ -191,11 +217,11 @@ pub mod benchmarks {
 	{
 		fn create_asset_kind(seed: u32) -> VersionedLocatableAsset {
 			VersionedLocatableAsset::V3 {
-				location: xcm::v3::MultiLocation::new(
+				location: xcm::v3::Location::new(
 					Parents::get(),
 					[xcm::v3::Junction::Parachain(ParaId::get())],
 				),
-				asset_id: xcm::v3::MultiLocation::new(
+				asset_id: xcm::v3::Location::new(
 					0,
 					[
 						xcm::v3::Junction::PalletInstance(seed.try_into().unwrap()),
@@ -264,7 +290,7 @@ mod tests {
 		pub const AvailableBlockRatio: Perbill = Perbill::one();
 	}
 
-	#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+	#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 	impl frame_system::Config for Test {
 		type BaseCallFilter = frame_support::traits::Everything;
 		type RuntimeOrigin = RuntimeOrigin;
@@ -366,8 +392,14 @@ mod tests {
 	#[test]
 	fn test_fees_and_tip_split() {
 		new_test_ext().execute_with(|| {
-			let fee = Balances::issue(10);
-			let tip = Balances::issue(20);
+			let fee =
+				<pallet_balances::Pallet<Test> as frame_support::traits::fungible::Balanced<
+					AccountId,
+				>>::issue(10);
+			let tip =
+				<pallet_balances::Pallet<Test> as frame_support::traits::fungible::Balanced<
+					AccountId,
+				>>::issue(20);
 
 			assert_eq!(Balances::free_balance(Treasury::account_id()), 0);
 			assert_eq!(Balances::free_balance(TEST_ACCOUNT), 0);

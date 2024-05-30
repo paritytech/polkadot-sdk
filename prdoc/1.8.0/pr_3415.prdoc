@@ -1,0 +1,9 @@
+title: "[pallet-contracts] Add APIVersion to the config."
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Add `APIVersion` to the config to communicate the state of the Host functions exposed by the pallet.
+
+crates:
+  - name: pallet-contracts

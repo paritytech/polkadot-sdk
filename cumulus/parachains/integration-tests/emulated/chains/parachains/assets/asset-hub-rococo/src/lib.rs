@@ -21,8 +21,9 @@ use frame_support::traits::OnInitialize;
 // Cumulus
 use emulated_integration_tests_common::{
 	impl_accounts_helpers_for_parachain, impl_assert_events_helpers_for_parachain,
-	impl_assets_helpers_for_parachain, impl_foreign_assets_helpers_for_parachain,
-	impl_xcm_helpers_for_parachain, impls::Parachain, xcm_emulator::decl_test_parachains,
+	impl_assets_helpers_for_parachain, impl_assets_helpers_for_system_parachain,
+	impl_foreign_assets_helpers_for_parachain, impl_xcm_helpers_for_parachain, impls::Parachain,
+	xcm_emulator::decl_test_parachains,
 };
 use rococo_emulated_chain::Rococo;
 
@@ -54,6 +55,7 @@ decl_test_parachains! {
 // AssetHubRococo implementation
 impl_accounts_helpers_for_parachain!(AssetHubRococo);
 impl_assert_events_helpers_for_parachain!(AssetHubRococo);
-impl_assets_helpers_for_parachain!(AssetHubRococo, Rococo);
-impl_foreign_assets_helpers_for_parachain!(AssetHubRococo, Rococo);
+impl_assets_helpers_for_system_parachain!(AssetHubRococo, Rococo);
+impl_assets_helpers_for_parachain!(AssetHubRococo);
+impl_foreign_assets_helpers_for_parachain!(AssetHubRococo, xcm::v3::Location);
 impl_xcm_helpers_for_parachain!(AssetHubRococo);

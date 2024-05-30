@@ -159,13 +159,13 @@ where
 						// The proof is valid and the block is imported and final, we can import.
 						debug!(
 							target: LOG_TARGET,
-							"🥩 import justif {:?} for block number {:?}.", proof, number
+							"🥩 import justif {} for block number {:?}.", proof, number
 						);
 						// Send the justification to the BEEFY voter for processing.
 						self.justification_sender
 							.notify(|| Ok::<_, ()>(proof))
 							.expect("the closure always returns Ok; qed.");
-						metric_inc!(self, beefy_good_justification_imports);
+						metric_inc!(self.metrics, beefy_good_justification_imports);
 					},
 					Err(err) => {
 						debug!(
@@ -174,7 +174,7 @@ where
 							number,
 							err,
 						);
-						metric_inc!(self, beefy_bad_justification_imports);
+						metric_inc!(self.metrics, beefy_bad_justification_imports);
 					},
 				}
 			},

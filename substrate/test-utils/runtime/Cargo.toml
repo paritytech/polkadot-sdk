@@ -22,13 +22,12 @@ sp-consensus-babe = { path = "../../primitives/consensus/babe", default-features
 sp-genesis-builder = { path = "../../primitives/genesis-builder", default-features = false }
 sp-block-builder = { path = "../../primitives/block-builder", default-features = false }
 codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = ["derive"] }
-scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
+scale-info = { version = "2.11.1", default-features = false, features = ["derive"] }
 sp-inherents = { path = "../../primitives/inherents", default-features = false }
-sp-keyring = { path = "../../primitives/keyring", optional = true }
+sp-keyring = { path = "../../primitives/keyring", default-features = false }
 sp-offchain = { path = "../../primitives/offchain", default-features = false }
-sp-core = { path = "../../primitives/core", default-features = false }
+sp-core = { path = "../../primitives/core", default-features = false, features = ["serde"] }
 sp-crypto-hashing = { path = "../../primitives/crypto/hashing", default-features = false }
-sp-std = { path = "../../primitives/std", default-features = false }
 sp-io = { path = "../../primitives/io", default-features = false }
 frame-support = { path = "../../frame/support", default-features = false }
 sp-version = { path = "../../primitives/version", default-features = false }
@@ -38,23 +37,26 @@ sp-runtime = { path = "../../primitives/runtime", default-features = false, feat
 pallet-babe = { path = "../../frame/babe", default-features = false }
 pallet-balances = { path = "../../frame/balances", default-features = false }
 frame-executive = { path = "../../frame/executive", default-features = false }
+frame-metadata-hash-extension = { path = "../../frame/metadata-hash-extension", default-features = false }
 frame-system = { path = "../../frame/system", default-features = false }
 frame-system-rpc-runtime-api = { path = "../../frame/system/rpc/runtime-api", default-features = false }
 pallet-timestamp = { path = "../../frame/timestamp", default-features = false }
 sp-consensus-grandpa = { path = "../../primitives/consensus/grandpa", default-features = false, features = ["serde"] }
 sp-trie = { path = "../../primitives/trie", default-features = false }
 sp-transaction-pool = { path = "../../primitives/transaction-pool", default-features = false }
-trie-db = { version = "0.28.0", default-features = false }
+trie-db = { version = "0.29.0", default-features = false }
 sc-service = { path = "../../client/service", default-features = false, features = ["test-helpers"], optional = true }
 sp-state-machine = { path = "../../primitives/state-machine", default-features = false }
 sp-externalities = { path = "../../primitives/externalities", default-features = false }
 
 # 3rd party
 array-bytes = { version = "6.1", optional = true }
-log = { version = "0.4.17", default-features = false }
+serde_json = { workspace = true, features = ["alloc"] }
+log = { workspace = true }
+hex-literal = { version = "0.4.1" }
 
 [dev-dependencies]
-futures = "0.3.21"
+futures = "0.3.30"
 sc-block-builder = { path = "../../client/block-builder" }
 sc-chain-spec = { path = "../../client/chain-spec" }
 sc-executor = { path = "../../client/executor" }
@@ -62,11 +64,11 @@ sc-executor-common = { path = "../../client/executor/common" }
 sp-consensus = { path = "../../primitives/consensus/common" }
 substrate-test-runtime-client = { path = "client" }
 sp-tracing = { path = "../../primitives/tracing" }
-serde = { version = "1.0.195", features = ["alloc", "derive"], default-features = false }
-serde_json = { version = "1.0.111", default-features = false, features = ["alloc"] }
+serde = { features = ["alloc", "derive"], workspace = true }
+serde_json = { features = ["alloc"], workspace = true }
 
 [build-dependencies]
-substrate-wasm-builder = { path = "../../utils/wasm-builder", optional = true }
+substrate-wasm-builder = { path = "../../utils/wasm-builder", optional = true, features = ["metadata-hash"] }
 
 [features]
 default = ["std"]
@@ -75,6 +77,7 @@ std = [
 	"array-bytes",
 	"codec/std",
 	"frame-executive/std",
+	"frame-metadata-hash-extension/std",
 	"frame-support/std",
 	"frame-system-rpc-runtime-api/std",
 	"frame-system/std",
@@ -99,12 +102,11 @@ std = [
 	"sp-genesis-builder/std",
 	"sp-inherents/std",
 	"sp-io/std",
-	"sp-keyring",
+	"sp-keyring/std",
 	"sp-offchain/std",
 	"sp-runtime/std",
 	"sp-session/std",
 	"sp-state-machine/std",
-	"sp-std/std",
 	"sp-tracing/std",
 	"sp-transaction-pool/std",
 	"sp-trie/std",
@@ -112,5 +114,6 @@ std = [
 	"substrate-wasm-builder",
 	"trie-db/std",
 ]
+
 # Special feature to disable logging
 disable-logging = ["sp-api/disable-logging"]

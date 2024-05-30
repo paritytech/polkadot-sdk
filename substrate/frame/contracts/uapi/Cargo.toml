@@ -14,14 +14,17 @@ workspace = true
 [dependencies]
 paste = { version = "1.0", default-features = false }
 bitflags = "1.0"
-scale-info = { version = "2.10.0", default-features = false, features = ["derive"], optional = true }
+scale-info = { version = "2.11.1", default-features = false, features = ["derive"], optional = true }
 scale = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = [
 	"derive",
 	"max-encoded-len",
 ], optional = true }
 
 [target.'cfg(target_arch = "riscv32")'.dependencies]
-polkavm-derive = '0.5.0'
+polkavm-derive = { workspace = true }
+
+[package.metadata.docs.rs]
+default-target = ["wasm32-unknown-unknown"]
 
 [features]
 default = ["scale"]

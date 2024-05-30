@@ -25,7 +25,8 @@ use std::{collections::HashMap, fmt};
 
 #[doc(hidden)]
 pub use polkadot_node_jaeger as jaeger;
-pub use sc_network::{IfDisconnected, PeerId};
+pub use sc_network::IfDisconnected;
+pub use sc_network_types::PeerId;
 #[doc(hidden)]
 pub use std::sync::Arc;
 
@@ -610,7 +611,7 @@ pub mod v1 {
 	///
 	/// The payload is the local peer id of the node, which serves to prove that it
 	/// controls the collator key it is declaring an intention to collate under.
-	pub fn declare_signature_payload(peer_id: &sc_network::PeerId) -> Vec<u8> {
+	pub fn declare_signature_payload(peer_id: &sc_network_types::PeerId) -> Vec<u8> {
 		let mut payload = peer_id.to_bytes();
 		payload.extend_from_slice(b"COLL");
 		payload
@@ -863,7 +864,7 @@ pub mod v2 {
 	///
 	/// The payload is the local peer id of the node, which serves to prove that it
 	/// controls the collator key it is declaring an intention to collate under.
-	pub fn declare_signature_payload(peer_id: &sc_network::PeerId) -> Vec<u8> {
+	pub fn declare_signature_payload(peer_id: &sc_network_types::PeerId) -> Vec<u8> {
 		let mut payload = peer_id.to_bytes();
 		payload.extend_from_slice(b"COLL");
 		payload
@@ -871,7 +872,7 @@ pub mod v2 {
 }
 
 /// v3 network protocol types.
-/// Purpose is for chaning ApprovalDistributionMessage to
+/// Purpose is for changing ApprovalDistributionMessage to
 /// include more than one assignment and approval in a message.
 pub mod v3 {
 	use parity_scale_codec::{Decode, Encode};

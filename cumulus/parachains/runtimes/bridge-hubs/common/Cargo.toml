@@ -1,6 +1,6 @@
 [package]
 name = "bridge-hub-common"
-version = "0.0.0"
+version = "0.1.0"
 authors.workspace = true
 edition.workspace = true
 description = "Bridge hub common utilities"
@@ -8,7 +8,7 @@ license = "Apache-2.0"
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
-scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
+scale-info = { version = "2.11.1", default-features = false, features = ["derive"] }
 frame-support = { path = "../../../../../substrate/frame/support", default-features = false }
 sp-std = { path = "../../../../../substrate/primitives/std", default-features = false }
 sp-core = { path = "../../../../../substrate/primitives/core", default-features = false }
@@ -16,7 +16,7 @@ sp-runtime = { path = "../../../../../substrate/primitives/runtime", default-fea
 cumulus-primitives-core = { path = "../../../../primitives/core", default-features = false }
 xcm = { package = "staging-xcm", path = "../../../../../polkadot/xcm", default-features = false }
 pallet-message-queue = { path = "../../../../../substrate/frame/message-queue", default-features = false }
-snowbridge-core = { path = "../../../../../bridges/snowbridge/parachain/primitives/core", default-features = false }
+snowbridge-core = { path = "../../../../../bridges/snowbridge/primitives/core", default-features = false }
 
 [features]
 default = ["std"]

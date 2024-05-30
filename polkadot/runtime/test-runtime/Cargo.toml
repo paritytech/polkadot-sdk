@@ -11,14 +11,10 @@ license.workspace = true
 workspace = true
 
 [dependencies]
-bitvec = { version = "1.0.0", default-features = false, features = ["alloc"] }
 parity-scale-codec = { version = "3.6.1", default-features = false, features = ["derive"] }
-log = { version = "0.4.17", default-features = false }
-rustc-hex = { version = "2.1.0", default-features = false }
-scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
-serde = { version = "1.0.195", default-features = false }
-serde_derive = { version = "1.0.117", optional = true }
-smallvec = "1.8.0"
+log = { workspace = true }
+scale-info = { version = "2.11.1", default-features = false, features = ["derive"] }
+serde = { workspace = true }
 
 authority-discovery-primitives = { package = "sp-authority-discovery", path = "../../../substrate/primitives/authority-discovery", default-features = false }
 babe-primitives = { package = "sp-consensus-babe", path = "../../../substrate/primitives/consensus/babe", default-features = false }
@@ -63,7 +59,6 @@ pallet-vesting = { path = "../../../substrate/frame/vesting", default-features =
 runtime-common = { package = "polkadot-runtime-common", path = "../common", default-features = false }
 primitives = { package = "polkadot-primitives", path = "../../primitives", default-features = false }
 pallet-xcm = { path = "../../xcm/pallet-xcm", default-features = false }
-polkadot-parachain-primitives = { path = "../../parachain", default-features = false }
 polkadot-runtime-parachains = { path = "../parachains", default-features = false }
 xcm-builder = { package = "staging-xcm-builder", path = "../../xcm/xcm-builder", default-features = false }
 xcm-executor = { package = "staging-xcm-executor", path = "../../xcm/xcm-executor", default-features = false }
@@ -74,7 +69,7 @@ hex-literal = "0.4.1"
 tiny-keccak = { version = "2.0.2", features = ["keccak"] }
 keyring = { package = "sp-keyring", path = "../../../substrate/primitives/keyring" }
 sp-trie = { path = "../../../substrate/primitives/trie" }
-serde_json = "1.0.111"
+serde_json = { workspace = true, default-features = true }
 
 [build-dependencies]
 substrate-wasm-builder = { path = "../../../substrate/utils/wasm-builder" }
@@ -92,7 +87,6 @@ std = [
 	"authority-discovery-primitives/std",
 	"babe-primitives/std",
 	"beefy-primitives/std",
-	"bitvec/std",
 	"block-builder-api/std",
 	"frame-election-provider-support/std",
 	"frame-executive/std",
@@ -118,14 +112,11 @@ std = [
 	"pallet-vesting/std",
 	"pallet-xcm/std",
 	"parity-scale-codec/std",
-	"polkadot-parachain-primitives/std",
 	"polkadot-runtime-parachains/std",
 	"primitives/std",
 	"runtime-common/std",
-	"rustc-hex/std",
 	"scale-info/std",
 	"serde/std",
-	"serde_derive",
 	"sp-api/std",
 	"sp-core/std",
 	"sp-genesis-builder/std",
@@ -157,7 +148,6 @@ runtime-benchmarks = [
 	"pallet-timestamp/runtime-benchmarks",
 	"pallet-vesting/runtime-benchmarks",
 	"pallet-xcm/runtime-benchmarks",
-	"polkadot-parachain-primitives/runtime-benchmarks",
 	"polkadot-runtime-parachains/runtime-benchmarks",
 	"primitives/runtime-benchmarks",
 	"runtime-common/runtime-benchmarks",

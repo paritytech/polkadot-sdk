@@ -16,6 +16,7 @@
 
 use crate::prepare::{PrepareSuccess, PrepareWorkerSuccess};
 use parity_scale_codec::{Decode, Encode};
+pub use sc_executor_common::error::Error as ExecuteError;
 
 /// Result of PVF preparation from a worker, with checksum of the compiled PVF and stats of the
 /// preparation if successful.
@@ -135,6 +136,9 @@ pub enum InternalValidationError {
 	/// Could not find or open compiled artifact file.
 	#[error("validation: could not find or open compiled artifact file: {0}")]
 	CouldNotOpenFile(String),
+	/// Could not create a pipe between the worker and a child process.
+	#[error("validation: could not create pipe: {0}")]
+	CouldNotCreatePipe(String),
 	/// Host could not clear the worker cache after a job.
 	#[error("validation: host could not clear the worker cache ({path:?}) after a job: {err}")]
 	CouldNotClearWorkerDir {

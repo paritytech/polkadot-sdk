@@ -18,10 +18,10 @@
 //! *Ed-on-BLS12-377* types and host functions.
 
 use crate::utils;
+use alloc::vec::Vec;
 use ark_ec::CurveConfig;
 use ark_ed_on_bls12_377_ext::CurveHooks;
 use sp_runtime_interface::runtime_interface;
-use sp_std::vec::Vec;
 
 /// Curve hooks jumping into [`host_calls`] host functions.
 #[derive(Copy, Clone)]

@@ -14,13 +14,13 @@ workspace = true
 [dependencies]
 array-bytes = "6.1"
 async-channel = "1.8.0"
-async-trait = "0.1.74"
+async-trait = "0.1.79"
 codec = { package = "parity-scale-codec", version = "3.6.1", features = ["derive"] }
 fnv = "1.0.6"
-futures = "0.3"
-log = "0.4"
+futures = "0.3.30"
+log = { workspace = true, default-features = true }
 parking_lot = "0.12.1"
-thiserror = "1.0"
+thiserror = { workspace = true }
 wasm-timer = "0.2.5"
 prometheus = { package = "substrate-prometheus-endpoint", path = "../../../utils/prometheus" }
 sc-client-api = { path = "../../api" }
@@ -28,6 +28,7 @@ sc-consensus = { path = "../common" }
 sc-network = { path = "../../network" }
 sc-network-gossip = { path = "../../network-gossip" }
 sc-network-sync = { path = "../../network/sync" }
+sc-network-types = { path = "../../network/types" }
 sc-utils = { path = "../../utils" }
 sp-api = { path = "../../../primitives/api" }
 sp-application-crypto = { path = "../../../primitives/application-crypto" }
@@ -40,11 +41,11 @@ sp-crypto-hashing = { path = "../../../primitives/crypto/hashing" }
 sp-keystore = { path = "../../../primitives/keystore" }
 sp-mmr-primitives = { path = "../../../primitives/merkle-mountain-range" }
 sp-runtime = { path = "../../../primitives/runtime" }
-tokio = "1.22.0"
+tokio = "1.37"
 
 
 [dev-dependencies]
-serde = "1.0.195"
+serde = { workspace = true, default-features = true }
 tempfile = "3.1.0"
 sc-block-builder = { path = "../../block-builder" }
 sc-network-test = { path = "../../network/test" }
@@ -52,3 +53,12 @@ sp-consensus-grandpa = { path = "../../../primitives/consensus/grandpa" }
 sp-keyring = { path = "../../../primitives/keyring" }
 sp-tracing = { path = "../../../primitives/tracing" }
 substrate-test-runtime-client = { path = "../../../test-utils/runtime/client" }
+
+[features]
+# This feature adds BLS crypto primitives. It should not be used in production since
+# the BLS implementation and interface may still be subject to significant change.
+bls-experimental = [
+	"sp-application-crypto/bls-experimental",
+	"sp-consensus-beefy/bls-experimental",
+	"sp-core/bls-experimental",
+]

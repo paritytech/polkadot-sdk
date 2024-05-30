@@ -18,7 +18,6 @@
 //! Inherents for BABE
 
 use sp_inherents::{Error, InherentData, InherentIdentifier};
-use sp_std::result::Result;
 
 /// The BABE inherent identifier.
 pub const INHERENT_IDENTIFIER: InherentIdentifier = *b"babeslot";
@@ -75,7 +74,7 @@ impl InherentDataProvider {
 }
 
 #[cfg(feature = "std")]
-impl sp_std::ops::Deref for InherentDataProvider {
+impl core::ops::Deref for InherentDataProvider {
 	type Target = InherentType;
 
 	fn deref(&self) -> &Self::Target {

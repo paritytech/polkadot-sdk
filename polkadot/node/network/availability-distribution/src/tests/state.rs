@@ -47,8 +47,8 @@ use polkadot_node_subsystem::{
 };
 use polkadot_node_subsystem_test_helpers as test_helpers;
 use polkadot_primitives::{
-	vstaging::NodeFeatures, CandidateHash, CoreState, ExecutorParams, GroupIndex, Hash,
-	Id as ParaId, ScheduledCore, SessionInfo, ValidatorIndex,
+	CandidateHash, CoreState, ExecutorParams, GroupIndex, Hash, Id as ParaId, NodeFeatures,
+	ScheduledCore, SessionInfo, ValidatorIndex,
 };
 use test_helpers::mock::{make_ferdie_keystore, new_leaf};
 
@@ -337,7 +337,7 @@ fn to_incoming_req(
 
 			IncomingRequest::new(
 				// We don't really care:
-				network::PeerId::random(),
+				network::PeerId::random().into(),
 				payload,
 				tx,
 			)

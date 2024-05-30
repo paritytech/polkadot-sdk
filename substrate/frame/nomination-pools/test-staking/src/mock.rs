@@ -38,7 +38,7 @@ pub(crate) type T = Runtime;
 pub(crate) const POOL1_BONDED: AccountId = 20318131474730217858575332831085u128;
 pub(crate) const POOL1_REWARD: AccountId = 20397359637244482196168876781421u128;
 
-#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Runtime {
 	type BaseCallFilter = frame_support::traits::Everything;
 	type BlockWeights = ();
@@ -186,6 +186,7 @@ impl pallet_nomination_pools::Config for Runtime {
 	type MaxUnbonding = ConstU32<8>;
 	type MaxPointsToBalance = ConstU8<10>;
 	type PalletId = PoolsPalletId;
+	type AdminOrigin = frame_system::EnsureRoot<Self::AccountId>;
 }
 
 type Block = frame_system::mocking::MockBlock<Runtime>;
@@ -231,6 +232,7 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 		assert_ok!(Staking::set_staking_configs(
 			RuntimeOrigin::root(),
 			pallet_staking::ConfigOp::Set(10), // minimum nominator bond
+			pallet_staking::ConfigOp::Noop,
 			pallet_staking::ConfigOp::Noop,
 			pallet_staking::ConfigOp::Noop,
 			pallet_staking::ConfigOp::Noop,

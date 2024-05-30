@@ -119,23 +119,26 @@ default:
 #
 .forklift-cache:
   before_script:
-    - 'curl --header "PRIVATE-TOKEN: $FL_CI_GROUP_TOKEN" -o forklift  -L "${CI_API_V4_URL}/projects/676/packages/generic/forklift/${FL_FORKLIFT_VERSION}/forklift_${FL_FORKLIFT_VERSION}_linux_amd64"'
-    - chmod +x forklift
-    - mkdir .forklift
-    - cp $FL_FORKLIFT_CONFIG .forklift/config.toml
-    - export FORKLIFT_PACKAGE_SUFFIX=${CI_JOB_NAME/ [0-9 \/]*}
-    - shopt -s expand_aliases
-    - export PATH=$PATH:$(pwd)
-    - |
+    - mkdir ~/.forklift
+    - cp $FL_FORKLIFT_CONFIG ~/.forklift/config.toml
+    - >
       if [ "$FORKLIFT_BYPASS" != "true" ]; then
-      echo "FORKLIFT_BYPASS not set, creating alias cargo='forklift cargo'"
-      alias cargo="forklift cargo"
+        echo "FORKLIFT_BYPASS not set"; 
+        if command -v forklift >/dev/null 2>&1; then
+          echo "forklift already exists"; 
+          forklift version
+        else
+          echo "forklift does not exist, downloading";
+          curl --header "PRIVATE-TOKEN: $FL_CI_GROUP_TOKEN" -o forklift  -L "${CI_API_V4_URL}/projects/676/packages/generic/forklift/${FL_FORKLIFT_VERSION}/forklift_${FL_FORKLIFT_VERSION}_linux_amd64"; 
+          chmod +x forklift;
+          export PATH=$PATH:$(pwd);
+          echo ${FL_FORKLIFT_VERSION};
+        fi
+        echo "Creating alias cargo='forklift cargo'"; 
+        shopt -s expand_aliases;
+        alias cargo="forklift cargo";
       fi
-    - ls -al
-    - rm -f forklift.sock
     #
-    - echo "FL_FORKLIFT_VERSION ${FL_FORKLIFT_VERSION}"
-    - echo "FORKLIFT_PACKAGE_SUFFIX $FORKLIFT_PACKAGE_SUFFIX"
 
 .common-refs:
   rules:
@@ -150,6 +153,13 @@ default:
   rules:
     - if: $CI_COMMIT_REF_NAME =~ /^[0-9]+$/ # PRs
     - if: $CI_COMMIT_REF_NAME =~ /^gh-readonly-queue.*$/ # merge queues
+
+.publish-gh-pages-refs:
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "pipeline"
+      when: never
+    - if: $CI_PIPELINE_SOURCE == "web" && $CI_COMMIT_REF_NAME == "master"
+    - if: $CI_COMMIT_REF_NAME == "master"
 
 # handle the specific case where benches could store incorrect bench data because of the downstream staging runs
 # exclude cargo-check-benches from such runs

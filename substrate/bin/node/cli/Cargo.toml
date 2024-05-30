@@ -41,12 +41,12 @@ crate-type = ["cdylib", "rlib"]
 [dependencies]
 # third-party dependencies
 array-bytes = "6.1"
-clap = { version = "4.4.18", features = ["derive"], optional = true }
+clap = { version = "4.5.3", features = ["derive"], optional = true }
 codec = { package = "parity-scale-codec", version = "3.6.1" }
-serde = { version = "1.0.195", features = ["derive"] }
-jsonrpsee = { version = "0.20.3", features = ["server"] }
-futures = "0.3.21"
-log = "0.4.17"
+serde = { features = ["derive"], workspace = true, default-features = true }
+jsonrpsee = { version = "0.22", features = ["server"] }
+futures = "0.3.30"
+log = { workspace = true, default-features = true }
 rand = "0.8"
 
 # primitives
@@ -58,6 +58,7 @@ sp-api = { path = "../../../primitives/api" }
 sp-core = { path = "../../../primitives/core" }
 sp-runtime = { path = "../../../primitives/runtime" }
 sp-timestamp = { path = "../../../primitives/timestamp" }
+sp-genesis-builder = { path = "../../../primitives/genesis-builder" }
 sp-inherents = { path = "../../../primitives/inherents" }
 sp-keyring = { path = "../../../primitives/keyring" }
 sp-keystore = { path = "../../../primitives/keystore" }
@@ -98,6 +99,7 @@ sc-offchain = { path = "../../../client/offchain" }
 
 # frame dependencies
 frame-benchmarking = { path = "../../../frame/benchmarking" }
+frame-metadata-hash-extension = { path = "../../../frame/metadata-hash-extension" }
 frame-system = { path = "../../../frame/system" }
 frame-system-rpc-runtime-api = { path = "../../../frame/system/rpc/runtime-api" }
 pallet-assets = { path = "../../../frame/assets" }
@@ -115,8 +117,7 @@ node-primitives = { path = "../primitives" }
 sc-cli = { path = "../../../client/cli", optional = true }
 frame-benchmarking-cli = { path = "../../../utils/frame/benchmarking-cli", optional = true }
 node-inspect = { package = "staging-node-inspect", path = "../inspect", optional = true }
-try-runtime-cli = { path = "../../../utils/frame/try-runtime/cli", optional = true }
-serde_json = "1.0.111"
+serde_json = { workspace = true, default-features = true }
 
 [dev-dependencies]
 sc-keystore = { path = "../../../client/keystore" }
@@ -129,7 +130,7 @@ sc-block-builder = { path = "../../../client/block-builder" }
 sp-tracing = { path = "../../../primitives/tracing" }
 sp-blockchain = { path = "../../../primitives/blockchain" }
 sp-crypto-hashing = { path = "../../../primitives/crypto/hashing" }
-futures = "0.3.21"
+futures = "0.3.30"
 tempfile = "3.1.0"
 assert_cmd = "2.0.2"
 nix = { version = "0.26.1", features = ["signal"] }
@@ -159,19 +160,18 @@ sp-consensus-babe = { path = "../../../primitives/consensus/babe" }
 sp-externalities = { path = "../../../primitives/externalities" }
 sp-keyring = { path = "../../../primitives/keyring" }
 sp-runtime = { path = "../../../primitives/runtime" }
-serde_json = "1.0.111"
-scale-info = { version = "2.10.0", features = ["derive", "serde"] }
+serde_json = { workspace = true, default-features = true }
+scale-info = { version = "2.11.1", features = ["derive", "serde"] }
 sp-trie = { path = "../../../primitives/trie" }
 sp-state-machine = { path = "../../../primitives/state-machine" }
 
 [build-dependencies]
-clap = { version = "4.4.18", optional = true }
+clap = { version = "4.5.3", optional = true }
 clap_complete = { version = "4.0.2", optional = true }
 node-inspect = { package = "staging-node-inspect", path = "../inspect", optional = true }
 frame-benchmarking-cli = { path = "../../../utils/frame/benchmarking-cli", optional = true }
 substrate-build-script-utils = { path = "../../../utils/build-script-utils", optional = true }
 substrate-frame-cli = { path = "../../../utils/frame/frame-utilities-cli", optional = true }
-try-runtime-cli = { path = "../../../utils/frame/try-runtime/cli", optional = true }
 sc-cli = { path = "../../../client/cli", optional = true }
 pallet-balances = { path = "../../../frame/balances" }
 sc-storage-monitor = { path = "../../../client/storage-monitor" }
@@ -187,7 +187,6 @@ cli = [
 	"sc-service/rocksdb",
 	"substrate-build-script-utils",
 	"substrate-frame-cli",
-	"try-runtime-cli",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking-cli/runtime-benchmarks",
@@ -231,7 +230,6 @@ try-runtime = [
 	"pallet-treasury/try-runtime",
 	"sp-runtime/try-runtime",
 	"substrate-cli-test-utils/try-runtime",
-	"try-runtime-cli/try-runtime",
 ]
 
 [[bench]]

@@ -23,10 +23,10 @@ codec = { package = "parity-scale-codec", version = "3.6.1", default-features = 
 	"derive",
 	"max-encoded-len",
 ] }
-scale-info = { version = "2.10.0", default-features = false, features = ["derive", "serde"] }
+scale-info = { version = "2.11.1", default-features = false, features = ["derive", "serde"] }
 static_assertions = "1.1.0"
-log = { version = "0.4.17", default-features = false }
-serde_json = { version = "1.0.111", default-features = false, features = ["alloc", "arbitrary_precision"] }
+log = { workspace = true }
+serde_json = { features = ["alloc", "arbitrary_precision"], workspace = true }
 
 # pallet-asset-conversion: turn on "num-traits" feature
 primitive-types = { version = "0.12.0", default-features = false, features = ["codec", "num-traits", "scale-info"] }
@@ -58,7 +58,8 @@ sp-io = { path = "../../../primitives/io", default-features = false }
 frame-executive = { path = "../../../frame/executive", default-features = false }
 frame-benchmarking = { path = "../../../frame/benchmarking", default-features = false }
 frame-benchmarking-pallet-pov = { path = "../../../frame/benchmarking/pov", default-features = false }
-frame-support = { path = "../../../frame/support", default-features = false, features = ["tuples-96"] }
+frame-metadata-hash-extension = { path = "../../../frame/metadata-hash-extension", default-features = false }
+frame-support = { path = "../../../frame/support", default-features = false, features = ["experimental", "tuples-96"] }
 frame-system = { path = "../../../frame/system", default-features = false }
 frame-system-benchmarking = { path = "../../../frame/system/benchmarking", default-features = false, optional = true }
 frame-election-provider-support = { path = "../../../frame/election-provider-support", default-features = false }
@@ -66,6 +67,7 @@ frame-system-rpc-runtime-api = { path = "../../../frame/system/rpc/runtime-api",
 frame-try-runtime = { path = "../../../frame/try-runtime", default-features = false, optional = true }
 pallet-alliance = { path = "../../../frame/alliance", default-features = false }
 pallet-asset-conversion = { path = "../../../frame/asset-conversion", default-features = false }
+pallet-asset-conversion-ops = { path = "../../../frame/asset-conversion/ops", default-features = false }
 pallet-asset-rate = { path = "../../../frame/asset-rate", default-features = false }
 pallet-assets = { path = "../../../frame/assets", default-features = false }
 pallet-authority-discovery = { path = "../../../frame/authority-discovery", default-features = false }
@@ -88,6 +90,8 @@ pallet-election-provider-support-benchmarking = { path = "../../../frame/electio
 pallet-elections-phragmen = { path = "../../../frame/elections-phragmen", default-features = false }
 pallet-example-tasks = { path = "../../../frame/examples/tasks", default-features = false }
 pallet-fast-unstake = { path = "../../../frame/fast-unstake", default-features = false }
+pallet-migrations = { path = "../../../frame/migrations", default-features = false }
+pallet-example-mbm = { path = "../../../frame/examples/multi-block-migrations", default-features = false }
 pallet-nis = { path = "../../../frame/nis", default-features = false }
 pallet-grandpa = { path = "../../../frame/grandpa", default-features = false }
 pallet-im-online = { path = "../../../frame/im-online", default-features = false }
@@ -142,6 +146,7 @@ pallet-vesting = { path = "../../../frame/vesting", default-features = false }
 pallet-whitelist = { path = "../../../frame/whitelist", default-features = false }
 pallet-tx-pause = { path = "../../../frame/tx-pause", default-features = false }
 pallet-safe-mode = { path = "../../../frame/safe-mode", default-features = false }
+pallet-parameters = { path = "../../../frame/parameters", default-features = false }
 
 [build-dependencies]
 substrate-wasm-builder = { path = "../../../utils/wasm-builder", optional = true }
@@ -155,6 +160,7 @@ std = [
 	"frame-benchmarking/std",
 	"frame-election-provider-support/std",
 	"frame-executive/std",
+	"frame-metadata-hash-extension/std",
 	"frame-support/std",
 	"frame-system-benchmarking?/std",
 	"frame-system-rpc-runtime-api/std",
@@ -163,6 +169,7 @@ std = [
 	"log/std",
 	"node-primitives/std",
 	"pallet-alliance/std",
+	"pallet-asset-conversion-ops/std",
 	"pallet-asset-conversion-tx-payment/std",
 	"pallet-asset-conversion/std",
 	"pallet-asset-rate/std",
@@ -186,6 +193,7 @@ std = [
 	"pallet-election-provider-multi-phase/std",
 	"pallet-election-provider-support-benchmarking?/std",
 	"pallet-elections-phragmen/std",
+	"pallet-example-mbm/std",
 	"pallet-example-tasks/std",
 	"pallet-fast-unstake/std",
 	"pallet-glutton/std",
@@ -197,6 +205,7 @@ std = [
 	"pallet-lottery/std",
 	"pallet-membership/std",
 	"pallet-message-queue/std",
+	"pallet-migrations/std",
 	"pallet-mixnet/std",
 	"pallet-mmr/std",
 	"pallet-multisig/std",
@@ -209,6 +218,7 @@ std = [
 	"pallet-nomination-pools/std",
 	"pallet-offences-benchmarking?/std",
 	"pallet-offences/std",
+	"pallet-parameters/std",
 	"pallet-preimage/std",
 	"pallet-proxy/std",
 	"pallet-ranked-collective/std",
@@ -272,6 +282,7 @@ runtime-benchmarks = [
 	"frame-system-benchmarking/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"pallet-alliance/runtime-benchmarks",
+	"pallet-asset-conversion-ops/runtime-benchmarks",
 	"pallet-asset-conversion/runtime-benchmarks",
 	"pallet-asset-rate/runtime-benchmarks",
 	"pallet-asset-tx-payment/runtime-benchmarks",
@@ -290,6 +301,7 @@ runtime-benchmarks = [
 	"pallet-election-provider-multi-phase/runtime-benchmarks",
 	"pallet-election-provider-support-benchmarking/runtime-benchmarks",
 	"pallet-elections-phragmen/runtime-benchmarks",
+	"pallet-example-mbm/runtime-benchmarks",
 	"pallet-example-tasks/runtime-benchmarks",
 	"pallet-fast-unstake/runtime-benchmarks",
 	"pallet-glutton/runtime-benchmarks",
@@ -300,6 +312,7 @@ runtime-benchmarks = [
 	"pallet-lottery/runtime-benchmarks",
 	"pallet-membership/runtime-benchmarks",
 	"pallet-message-queue/runtime-benchmarks",
+	"pallet-migrations/runtime-benchmarks",
 	"pallet-mixnet/runtime-benchmarks",
 	"pallet-mmr/runtime-benchmarks",
 	"pallet-multisig/runtime-benchmarks",
@@ -310,6 +323,7 @@ runtime-benchmarks = [
 	"pallet-nomination-pools/runtime-benchmarks",
 	"pallet-offences-benchmarking/runtime-benchmarks",
 	"pallet-offences/runtime-benchmarks",
+	"pallet-parameters/runtime-benchmarks",
 	"pallet-preimage/runtime-benchmarks",
 	"pallet-proxy/runtime-benchmarks",
 	"pallet-ranked-collective/runtime-benchmarks",
@@ -345,6 +359,7 @@ try-runtime = [
 	"frame-system/try-runtime",
 	"frame-try-runtime/try-runtime",
 	"pallet-alliance/try-runtime",
+	"pallet-asset-conversion-ops/try-runtime",
 	"pallet-asset-conversion-tx-payment/try-runtime",
 	"pallet-asset-conversion/try-runtime",
 	"pallet-asset-rate/try-runtime",
@@ -367,6 +382,7 @@ try-runtime = [
 	"pallet-democracy/try-runtime",
 	"pallet-election-provider-multi-phase/try-runtime",
 	"pallet-elections-phragmen/try-runtime",
+	"pallet-example-mbm/try-runtime",
 	"pallet-example-tasks/try-runtime",
 	"pallet-fast-unstake/try-runtime",
 	"pallet-glutton/try-runtime",
@@ -378,6 +394,7 @@ try-runtime = [
 	"pallet-lottery/try-runtime",
 	"pallet-membership/try-runtime",
 	"pallet-message-queue/try-runtime",
+	"pallet-migrations/try-runtime",
 	"pallet-mixnet/try-runtime",
 	"pallet-mmr/try-runtime",
 	"pallet-multisig/try-runtime",
@@ -386,6 +403,7 @@ try-runtime = [
 	"pallet-nis/try-runtime",
 	"pallet-nomination-pools/try-runtime",
 	"pallet-offences/try-runtime",
+	"pallet-parameters/try-runtime",
 	"pallet-preimage/try-runtime",
 	"pallet-proxy/try-runtime",
 	"pallet-ranked-collective/try-runtime",
@@ -420,3 +438,5 @@ experimental = [
 	"frame-system/experimental",
 	"pallet-example-tasks/experimental",
 ]
+
+metadata-hash = ["substrate-wasm-builder/metadata-hash"]

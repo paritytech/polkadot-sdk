@@ -54,8 +54,8 @@ where
 		let velocity = V.max(1);
 		let relay_chain_slot = state_proof.read_slot().expect("failed to read relay chain slot");
 
-		let (slot, authored) = pallet::Pallet::<T>::slot_info()
-			.expect("slot info is inserted on block initialization");
+		let (slot, authored) =
+			pallet::SlotInfo::<T>::get().expect("slot info is inserted on block initialization");
 
 		// Convert relay chain timestamp.
 		let relay_chain_timestamp =
@@ -100,7 +100,7 @@ impl<
 	/// is more recent than the included block itself.
 	pub fn can_build_upon(included_hash: T::Hash, new_slot: Slot) -> bool {
 		let velocity = V.max(1);
-		let (last_slot, authored_so_far) = match pallet::Pallet::<T>::slot_info() {
+		let (last_slot, authored_so_far) = match pallet::SlotInfo::<T>::get() {
 			None => return true,
 			Some(x) => x,
 		};

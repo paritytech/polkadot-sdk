@@ -18,10 +18,16 @@ Rococo. To easily refer to a release, it shall be named by its date in the form 
 
 ## Crate
 
-We try to follow [SemVer 2.0.0](https://semver.org/) as best as possible for versioning our crates. SemVer requires a
-piece of software to first declare a public API. The public API of the Polkadot SDK is hereby declared as the sum of all
-crates' public APIs.
+We try to follow [SemVer 2.0.0](https://semver.org/) as best as possible for versioning our crates. The definitions of
+`major`, `minor` and `patch` version for Rust crates are slightly altered from their standard for pre `1.0.0` versions.
+Quoting [rust-lang.org](https://doc.rust-lang.org/cargo/reference/semver.html):  
 
+>Initial development releases starting with “0.y.z” can treat changes in “y” as a major release, and “z” as a minor
+release. “0.0.z” releases are always major changes. This is because Cargo uses the convention that only changes in the
+left-most non-zero component are considered incompatible.
+
+SemVer requires a piece of software to first declare a public API. The public API of the Polkadot SDK
+is hereby declared as the sum of all crates' public APIs.
 
 Inductively, the public API of our library crates is declared as all public items that are neither:
 - Inside a `__private` module

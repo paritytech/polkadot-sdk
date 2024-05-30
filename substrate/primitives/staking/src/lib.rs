@@ -20,14 +20,17 @@
 //! A crate which contains primitives that are useful for implementation that uses staking
 //! approaches in general. Definitions related to sessions, slashing, etc go here.
 
+extern crate alloc;
+
 use crate::currency_to_vote::CurrencyToVote;
+use alloc::{collections::btree_map::BTreeMap, vec, vec::Vec};
 use codec::{Decode, Encode, FullCodec, HasCompact, MaxEncodedLen};
+use core::ops::Sub;
 use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{AtLeast32BitUnsigned, Zero},
-	DispatchError, DispatchResult, RuntimeDebug, Saturating,
+	DispatchError, DispatchResult, Perbill, RuntimeDebug, Saturating,
 };
-use sp_std::{collections::btree_map::BTreeMap, ops::Sub, vec, vec::Vec};
 
 pub mod offence;
 
@@ -150,6 +153,9 @@ pub trait OnStakingUpdate<AccountId, Balance> {
 		_slashed_total: Balance,
 	) {
 	}
+
+	/// Fired when a portion of a staker's balance has been withdrawn.
+	fn on_withdraw(_stash: &AccountId, _amount: Balance) {}
 }
 
 /// A generic representation of a staking implementation.
@@ -169,7 +175,7 @@ pub trait StakingInterface {
 		+ Saturating;
 
 	/// AccountId type used by the staking system.
-	type AccountId: Clone + sp_std::fmt::Debug;
+	type AccountId: Clone + core::fmt::Debug;
 
 	/// Means of converting Currency to VoteWeight.
 	type CurrencyToVote: CurrencyToVote<Self::Balance>;
@@ -248,6 +254,9 @@ pub trait StakingInterface {
 	/// schedules have reached their unlocking era should allow more calls to this function.
 	fn unbond(stash: &Self::AccountId, value: Self::Balance) -> DispatchResult;
 
+	/// Update the reward destination for the ledger associated with the stash.
+	fn update_payee(stash: &Self::AccountId, reward_acc: &Self::AccountId) -> DispatchResult;
+
 	/// Unlock any funds schedule to unlock before or at the current era.
 	///
 	/// Returns whether the stash was killed because of this withdraw or not.
@@ -268,7 +277,7 @@ pub trait StakingInterface {
 	/// Checks whether an account `staker` has been exposed in an era.
 	fn is_exposed_in_era(who: &Self::AccountId, era: &EraIndex) -> bool;
 
-	/// Return the status of the given staker, `None` if not staked at all.
+	/// Return the status of the given staker, `Err` if not staked at all.
 	fn status(who: &Self::AccountId) -> Result<StakerStatus<Self::AccountId>, DispatchError>;
 
 	/// Checks whether or not this is a validator account.
@@ -284,6 +293,9 @@ pub trait StakingInterface {
 		}
 	}
 
+	/// Returns the fraction of the slash to be rewarded to reporter.
+	fn slash_reward_fraction() -> Perbill;
+
 	#[cfg(feature = "runtime-benchmarks")]
 	fn max_exposure_page_size() -> Page;
 
@@ -296,6 +308,34 @@ pub trait StakingInterface {
 
 	#[cfg(feature = "runtime-benchmarks")]
 	fn set_current_era(era: EraIndex);
+}
+
+/// Set of low level apis to manipulate staking ledger.
+///
+/// These apis bypass some or all safety checks and should only be used if you know what you are
+/// doing.
+pub trait StakingUnchecked: StakingInterface {
+	/// Migrate an existing staker to a virtual staker.
+	///
+	/// It would release all funds held by the implementation pallet.
+	fn migrate_to_virtual_staker(who: &Self::AccountId);
+
+	/// Book-keep a new bond for `keyless_who` without applying any locks (hence virtual).
+	///
+	/// It is important that `keyless_who` is a keyless account and therefore cannot interact with
+	/// staking pallet directly. Caller is responsible for ensuring the passed amount is locked and
+	/// valid.
+	fn virtual_bond(
+		keyless_who: &Self::AccountId,
+		value: Self::Balance,
+		payee: &Self::AccountId,
+	) -> DispatchResult;
+
+	/// Migrate a virtual staker to a direct staker.
+	///
+	/// Only used for testing.
+	#[cfg(feature = "runtime-benchmarks")]
+	fn migrate_to_direct_staker(who: &Self::AccountId);
 }
 
 /// The amount of exposure for an era that an individual nominator has (susceptible to slashing).

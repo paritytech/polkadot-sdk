@@ -101,6 +101,7 @@ mod wasm;
 pub mod chain_extension;
 pub mod debug;
 pub mod migration;
+pub mod test_utils;
 pub mod weights;
 
 #[cfg(test)]
@@ -123,7 +124,7 @@ use frame_support::{
 		fungible::{Inspect, Mutate, MutateHold},
 		ConstU32, Contains, Get, Randomness, Time,
 	},
-	weights::Weight,
+	weights::{Weight, WeightMeter},
 	BoundedVec, DefaultNoBound, RuntimeDebugNoBound,
 };
 use frame_system::{
@@ -214,6 +215,27 @@ pub struct Environment<T: Config> {
 	block_number: EnvironmentType<BlockNumberFor<T>>,
 }
 
+/// Defines the current version of the HostFn APIs.
+/// This is used to communicate the available APIs in pallet-contracts.
+///
+/// The version is bumped any time a new HostFn is added or stabilized.
+#[derive(Encode, Decode, TypeInfo)]
+pub struct ApiVersion(u16);
+impl Default for ApiVersion {
+	fn default() -> Self {
+		Self(2)
+	}
+}
+
+#[test]
+fn api_version_is_up_to_date() {
+	assert_eq!(
+		109,
+		crate::wasm::STABLE_API_COUNT,
+		"Stable API count has changed. Bump the returned value of ApiVersion::default() and update the test."
+	);
+}
+
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
@@ -222,14 +244,14 @@ pub mod pallet {
 	use frame_system::pallet_prelude::*;
 	use sp_runtime::Perbill;
 
-	/// The current storage version.
-	pub(crate) const STORAGE_VERSION: StorageVersion = StorageVersion::new(15);
+	/// The in-code storage version.
+	pub(crate) const STORAGE_VERSION: StorageVersion = StorageVersion::new(16);
 
 	#[pallet::pallet]
 	#[pallet::storage_version(STORAGE_VERSION)]
 	pub struct Pallet<T>(_);
 
-	#[pallet::config]
+	#[pallet::config(with_default)]
 	pub trait Config: frame_system::Config {
 		/// The time implementation used to supply timestamps to contracts through `seal_now`.
 		type Time: Time;
@@ -242,21 +264,29 @@ pub mod pallet {
 		/// be instantiated from existing codes that use this deprecated functionality. It will
 		/// be removed eventually. Hence for new `pallet-contracts` deployments it is okay
 		/// to supply a dummy implementation for this type (because it is never used).
+		#[pallet::no_default_bounds]
 		type Randomness: Randomness<Self::Hash, BlockNumberFor<Self>>;
 
 		/// The fungible in which fees are paid and contract balances are held.
+		#[pallet::no_default]
 		type Currency: Inspect<Self::AccountId>
 			+ Mutate<Self::AccountId>
 			+ MutateHold<Self::AccountId, Reason = Self::RuntimeHoldReason>;
 
 		/// The overarching event type.
+		#[pallet::no_default_bounds]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		/// The overarching call type.
+		#[pallet::no_default_bounds]
 		type RuntimeCall: Dispatchable<RuntimeOrigin = Self::RuntimeOrigin, PostInfo = PostDispatchInfo>
 			+ GetDispatchInfo
 			+ codec::Decode
 			+ IsType<<Self as frame_system::Config>::RuntimeCall>;
+
+		/// Overarching hold reason.
+		#[pallet::no_default_bounds]
+		type RuntimeHoldReason: From<HoldReason>;
 
 		/// Filter that is applied to calls dispatched by contracts.
 		///
@@ -277,10 +307,12 @@ pub mod pallet {
 		/// Therefore please make sure to be restrictive about which dispatchables are allowed
 		/// in order to not introduce a new DoS vector like memory allocation patterns that can
 		/// be exploited to drive the runtime into a panic.
+		#[pallet::no_default_bounds]
 		type CallFilter: Contains<<Self as frame_system::Config>::RuntimeCall>;
 
 		/// Used to answer contracts' queries regarding the current weight price. This is **not**
 		/// used to calculate the actual fee and is only for informational purposes.
+		#[pallet::no_default_bounds]
 		type WeightPrice: Convert<Weight, BalanceOf<Self>>;
 
 		/// Describes the weights of the dispatchables of this module and is also used to
@@ -288,10 +320,12 @@ pub mod pallet {
 		type WeightInfo: WeightInfo;
 
 		/// Type that allows the runtime authors to add new host functions for a contract to call.
+		#[pallet::no_default_bounds]
 		type ChainExtension: chain_extension::ChainExtension<Self> + Default;
 
 		/// Cost schedule and limits.
 		#[pallet::constant]
+		#[pallet::no_default]
 		type Schedule: Get<Schedule<Self>>;
 
 		/// The type of the call stack determines the maximum nesting depth of contract calls.
@@ -302,6 +336,7 @@ pub mod pallet {
 		///
 		/// This setting along with [`MaxCodeLen`](#associatedtype.MaxCodeLen) directly affects
 		/// memory usage of your runtime.
+		#[pallet::no_default]
 		type CallStack: Array<Item = Frame<Self>>;
 
 		/// The amount of balance a caller has to pay for each byte of storage.
@@ -310,10 +345,12 @@ pub mod pallet {
 		///
 		/// Changing this value for an existing chain might need a storage migration.
 		#[pallet::constant]
+		#[pallet::no_default_bounds]
 		type DepositPerByte: Get<BalanceOf<Self>>;
 
 		/// Fallback value to limit the storage deposit if it's not being set by the caller.
 		#[pallet::constant]
+		#[pallet::no_default_bounds]
 		type DefaultDepositLimit: Get<BalanceOf<Self>>;
 
 		/// The amount of balance a caller has to pay for each storage item.
@@ -322,16 +359,18 @@ pub mod pallet {
 		///
 		/// Changing this value for an existing chain might need a storage migration.
 		#[pallet::constant]
+		#[pallet::no_default_bounds]
 		type DepositPerItem: Get<BalanceOf<Self>>;
 
 		/// The percentage of the storage deposit that should be held for using a code hash.
-		/// Instantiating a contract, or calling [`chain_extension::Ext::add_delegate_dependency`]
+		/// Instantiating a contract, or calling [`chain_extension::Ext::lock_delegate_dependency`]
 		/// protects the code from being removed. In order to prevent abuse these actions are
 		/// protected with a percentage of the code deposit.
 		#[pallet::constant]
 		type CodeHashLockupDepositPercent: Get<Perbill>;
 
 		/// The address generator used to generate the addresses of contracts.
+		#[pallet::no_default_bounds]
 		type AddressGenerator: AddressGenerator<Self>;
 
 		/// The maximum length of a contract code in bytes.
@@ -347,7 +386,7 @@ pub mod pallet {
 		type MaxStorageKeyLen: Get<u32>;
 
 		/// The maximum number of delegate_dependencies that a contract can lock with
-		/// [`chain_extension::Ext::add_delegate_dependency`].
+		/// [`chain_extension::Ext::lock_delegate_dependency`].
 		#[pallet::constant]
 		type MaxDelegateDependencies: Get<u32>;
 
@@ -367,8 +406,25 @@ pub mod pallet {
 		#[pallet::constant]
 		type MaxDebugBufferLen: Get<u32>;
 
-		/// Overarching hold reason.
-		type RuntimeHoldReason: From<HoldReason>;
+		/// Origin allowed to upload code.
+		///
+		/// By default, it is safe to set this to `EnsureSigned`, allowing anyone to upload contract
+		/// code.
+		#[pallet::no_default_bounds]
+		type UploadOrigin: EnsureOrigin<Self::RuntimeOrigin, Success = Self::AccountId>;
+
+		/// Origin allowed to instantiate code.
+		///
+		/// # Note
+		///
+		/// This is not enforced when a contract instantiates another contract. The
+		/// [`Self::UploadOrigin`] should make sure that no code is deployed that does unwanted
+		/// instantiations.
+		///
+		/// By default, it is safe to set this to `EnsureSigned`, allowing anyone to instantiate
+		/// contract code.
+		#[pallet::no_default_bounds]
+		type InstantiateOrigin: EnsureOrigin<Self::RuntimeOrigin, Success = Self::AccountId>;
 
 		/// The sequence of migration steps that will be applied during a migration.
 		///
@@ -393,6 +449,7 @@ pub mod pallet {
 		/// For most production chains, it's recommended to use the `()` implementation of this
 		/// trait. This implementation offers additional logging when the log target
 		/// "runtime::contracts" is set to trace.
+		#[pallet::no_default_bounds]
 		type Debug: Debugger<Self>;
 
 		/// Type that bundles together all the runtime configurable interface types.
@@ -400,10 +457,19 @@ pub mod pallet {
 		/// This is not a real config. We just mention the type here as constant so that
 		/// its type appears in the metadata. Only valid value is `()`.
 		#[pallet::constant]
+		#[pallet::no_default_bounds]
 		type Environment: Get<Environment<Self>>;
+
+		/// The version of the HostFn APIs that are available in the runtime.
+		///
+		/// Only valid value is `()`.
+		#[pallet::constant]
+		#[pallet::no_default_bounds]
+		type ApiVersion: Get<ApiVersion>;
 
 		/// A type that exposes XCM APIs, allowing contracts to interact with other parachains, and
 		/// execute XCM programs.
+		#[pallet::no_default_bounds]
 		type Xcm: xcm_builder::Controller<
 			OriginFor<Self>,
 			<Self as frame_system::Config>::RuntimeCall,
@@ -411,19 +477,106 @@ pub mod pallet {
 		>;
 	}
 
+	/// Container for different types that implement [`DefaultConfig`]` of this pallet.
+	pub mod config_preludes {
+		use super::*;
+		use frame_support::{
+			derive_impl,
+			traits::{ConstBool, ConstU32},
+		};
+		use frame_system::EnsureSigned;
+		use sp_core::parameter_types;
+
+		type AccountId = sp_runtime::AccountId32;
+		type Balance = u64;
+		const UNITS: Balance = 10_000_000_000;
+		const CENTS: Balance = UNITS / 100;
+
+		const fn deposit(items: u32, bytes: u32) -> Balance {
+			items as Balance * 1 * CENTS + (bytes as Balance) * 1 * CENTS
+		}
+
+		parameter_types! {
+			pub const DepositPerItem: Balance = deposit(1, 0);
+			pub const DepositPerByte: Balance = deposit(0, 1);
+			pub const DefaultDepositLimit: Balance = deposit(1024, 1024 * 1024);
+			pub const CodeHashLockupDepositPercent: Perbill = Perbill::from_percent(0);
+			pub const MaxDelegateDependencies: u32 = 32;
+		}
+
+		/// A type providing default configurations for this pallet in testing environment.
+		pub struct TestDefaultConfig;
+
+		impl<Output, BlockNumber> Randomness<Output, BlockNumber> for TestDefaultConfig {
+			fn random(_subject: &[u8]) -> (Output, BlockNumber) {
+				unimplemented!("No default `random` implementation in `TestDefaultConfig`, provide a custom `T::Randomness` type.")
+			}
+		}
+
+		impl Time for TestDefaultConfig {
+			type Moment = u64;
+			fn now() -> Self::Moment {
+				unimplemented!("No default `now` implementation in `TestDefaultConfig` provide a custom `T::Time` type.")
+			}
+		}
+
+		impl<T: From<u64>> Convert<Weight, T> for TestDefaultConfig {
+			fn convert(w: Weight) -> T {
+				w.ref_time().into()
+			}
+		}
+
+		#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig, no_aggregated_types)]
+		impl frame_system::DefaultConfig for TestDefaultConfig {}
+
+		#[frame_support::register_default_impl(TestDefaultConfig)]
+		impl DefaultConfig for TestDefaultConfig {
+			#[inject_runtime_type]
+			type RuntimeEvent = ();
+
+			#[inject_runtime_type]
+			type RuntimeHoldReason = ();
+
+			#[inject_runtime_type]
+			type RuntimeCall = ();
+
+			type AddressGenerator = DefaultAddressGenerator;
+			type CallFilter = ();
+			type ChainExtension = ();
+			type CodeHashLockupDepositPercent = CodeHashLockupDepositPercent;
+			type DefaultDepositLimit = DefaultDepositLimit;
+			type DepositPerByte = DepositPerByte;
+			type DepositPerItem = DepositPerItem;
+			type MaxCodeLen = ConstU32<{ 123 * 1024 }>;
+			type MaxDebugBufferLen = ConstU32<{ 2 * 1024 * 1024 }>;
+			type MaxDelegateDependencies = MaxDelegateDependencies;
+			type MaxStorageKeyLen = ConstU32<128>;
+			type Migrations = ();
+			type Time = Self;
+			type Randomness = Self;
+			type UnsafeUnstableInterface = ConstBool<true>;
+			type UploadOrigin = EnsureSigned<AccountId>;
+			type InstantiateOrigin = EnsureSigned<AccountId>;
+			type WeightInfo = ();
+			type WeightPrice = Self;
+			type Debug = ();
+			type Environment = ();
+			type ApiVersion = ();
+			type Xcm = ();
+		}
+	}
+
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-		fn on_idle(_block: BlockNumberFor<T>, mut remaining_weight: Weight) -> Weight {
+		fn on_idle(_block: BlockNumberFor<T>, limit: Weight) -> Weight {
 			use migration::MigrateResult::*;
+			let mut meter = WeightMeter::with_limit(limit);
 
 			loop {
-				let (result, weight) = Migration::<T>::migrate(remaining_weight);
-				remaining_weight.saturating_reduce(weight);
-
-				match result {
-					// There is not enough weight to perform a migration, or make any progress, we
-					// just return the remaining weight.
-					NoMigrationPerformed | InProgress { steps_done: 0 } => return remaining_weight,
+				match Migration::<T>::migrate(&mut meter) {
+					// There is not enough weight to perform a migration.
+					// We can't do anything more, so we return the used weight.
+					NoMigrationPerformed | InProgress { steps_done: 0 } => return meter.consumed(),
 					// Migration is still in progress, we can start the next step.
 					InProgress { .. } => continue,
 					// Either no migration is in progress, or we are done with all migrations, we
@@ -432,8 +585,8 @@ pub mod pallet {
 				}
 			}
 
-			ContractInfo::<T>::process_deletion_queue_batch(remaining_weight)
-				.saturating_add(T::WeightInfo::on_process_deletion_queue_batch())
+			ContractInfo::<T>::process_deletion_queue_batch(&mut meter);
+			meter.consumed()
 		}
 
 		fn integrity_test() {
@@ -609,8 +762,17 @@ pub mod pallet {
 		/// To avoid this situation a constructor could employ access control so that it can
 		/// only be instantiated by permissioned entities. The same is true when uploading
 		/// through [`Self::instantiate_with_code`].
+		///
+		/// Use [`Determinism::Relaxed`] exclusively for non-deterministic code. If the uploaded
+		/// code is deterministic, specifying [`Determinism::Relaxed`] will be disregarded and
+		/// result in higher gas costs.
 		#[pallet::call_index(3)]
-		#[pallet::weight(T::WeightInfo::upload_code(code.len() as u32))]
+		#[pallet::weight(
+			match determinism {
+				Determinism::Enforced => T::WeightInfo::upload_code_determinism_enforced(code.len() as u32),
+				Determinism::Relaxed => T::WeightInfo::upload_code_determinism_relaxed(code.len() as u32),
+			}
+		)]
 		pub fn upload_code(
 			origin: OriginFor<T>,
 			code: Vec<u8>,
@@ -618,7 +780,7 @@ pub mod pallet {
 			determinism: Determinism,
 		) -> DispatchResult {
 			Migration::<T>::ensure_migrated()?;
-			let origin = ensure_signed(origin)?;
+			let origin = T::UploadOrigin::ensure_origin(origin)?;
 			Self::bare_upload_code(origin, code, storage_deposit_limit.map(Into::into), determinism)
 				.map(|_| ())
 		}
@@ -767,11 +929,17 @@ pub mod pallet {
 			salt: Vec<u8>,
 		) -> DispatchResultWithPostInfo {
 			Migration::<T>::ensure_migrated()?;
-			let origin = ensure_signed(origin)?;
+
+			// These two origins will usually be the same; however, we treat them as separate since
+			// it is possible for the `Success` value of `UploadOrigin` and `InstantiateOrigin` to
+			// differ.
+			let upload_origin = T::UploadOrigin::ensure_origin(origin.clone())?;
+			let instantiate_origin = T::InstantiateOrigin::ensure_origin(origin)?;
+
 			let code_len = code.len() as u32;
 
 			let (module, upload_deposit) = Self::try_upload_code(
-				origin.clone(),
+				upload_origin,
 				code,
 				storage_deposit_limit.clone().map(Into::into),
 				Determinism::Enforced,
@@ -785,7 +953,7 @@ pub mod pallet {
 			let data_len = data.len() as u32;
 			let salt_len = salt.len() as u32;
 			let common = CommonInput {
-				origin: Origin::from_account_id(origin),
+				origin: Origin::from_account_id(instantiate_origin),
 				value,
 				data,
 				gas_limit,
@@ -826,10 +994,11 @@ pub mod pallet {
 			salt: Vec<u8>,
 		) -> DispatchResultWithPostInfo {
 			Migration::<T>::ensure_migrated()?;
+			let origin = T::InstantiateOrigin::ensure_origin(origin)?;
 			let data_len = data.len() as u32;
 			let salt_len = salt.len() as u32;
 			let common = CommonInput {
-				origin: Origin::from_runtime_origin(origin)?,
+				origin: Origin::from_account_id(origin),
 				value,
 				data,
 				gas_limit,
@@ -860,18 +1029,25 @@ pub mod pallet {
 			ensure_signed(origin)?;
 
 			let weight_limit = weight_limit.saturating_add(T::WeightInfo::migrate());
-			let (result, weight) = Migration::<T>::migrate(weight_limit);
+			let mut meter = WeightMeter::with_limit(weight_limit);
+			let result = Migration::<T>::migrate(&mut meter);
 
 			match result {
-				Completed =>
-					Ok(PostDispatchInfo { actual_weight: Some(weight), pays_fee: Pays::No }),
-				InProgress { steps_done, .. } if steps_done > 0 =>
-					Ok(PostDispatchInfo { actual_weight: Some(weight), pays_fee: Pays::No }),
-				InProgress { .. } =>
-					Ok(PostDispatchInfo { actual_weight: Some(weight), pays_fee: Pays::Yes }),
+				Completed => Ok(PostDispatchInfo {
+					actual_weight: Some(meter.consumed()),
+					pays_fee: Pays::No,
+				}),
+				InProgress { steps_done, .. } if steps_done > 0 => Ok(PostDispatchInfo {
+					actual_weight: Some(meter.consumed()),
+					pays_fee: Pays::No,
+				}),
+				InProgress { .. } => Ok(PostDispatchInfo {
+					actual_weight: Some(meter.consumed()),
+					pays_fee: Pays::Yes,
+				}),
 				NoMigrationInProgress | NoMigrationPerformed => {
 					let err: DispatchError = <Error<T>>::NoMigrationPerformed.into();
-					Err(err.with_weight(T::WeightInfo::migrate()))
+					Err(err.with_weight(meter.consumed()))
 				},
 			}
 		}
@@ -1043,7 +1219,7 @@ pub mod pallet {
 		/// A more detailed error can be found on the node console if debug messages are enabled
 		/// by supplying `-lruntime::contracts=debug`.
 		CodeRejected,
-		/// An indetermistic code was used in a context where this is not permitted.
+		/// An indeterministic code was used in a context where this is not permitted.
 		Indeterministic,
 		/// A pending migration needs to complete before the extrinsic can be called.
 		MigrationInProgress,

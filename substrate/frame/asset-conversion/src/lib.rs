@@ -40,7 +40,7 @@
 //! non-native asset 1, you would pass in a path of `[DOT, 1]` or `[1, DOT]`. If you want to swap
 //! from non-native asset 1 to non-native asset 2, you would pass in a path of `[1, DOT, 2]`.
 //!
-//! (For an example of configuring this pallet to use `MultiLocation` as an asset id, see the
+//! (For an example of configuring this pallet to use `Location` as an asset id, see the
 //! cumulus repo).
 //!
 //! Here is an example `state_call` that asks for a quote of a pool of native versus asset 1:
@@ -98,7 +98,10 @@ use sp_std::{boxed::Box, collections::btree_set::BTreeSet, vec::Vec};
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
-	use frame_support::pallet_prelude::*;
+	use frame_support::{
+		pallet_prelude::{DispatchResult, *},
+		traits::fungibles::Refund,
+	};
 	use frame_system::pallet_prelude::*;
 	use sp_arithmetic::{traits::Unsigned, Permill};
 
@@ -130,7 +133,8 @@ pub mod pallet {
 		type Assets: Inspect<Self::AccountId, AssetId = Self::AssetKind, Balance = Self::Balance>
 			+ Mutate<Self::AccountId>
 			+ AccountTouch<Self::AssetKind, Self::AccountId, Balance = Self::Balance>
-			+ Balanced<Self::AccountId>;
+			+ Balanced<Self::AccountId>
+			+ Refund<Self::AccountId, AssetId = Self::AssetKind>;
 
 		/// Liquidity pool identifier.
 		type PoolId: Parameter + MaxEncodedLen + Ord;
@@ -149,7 +153,8 @@ pub mod pallet {
 		type PoolAssets: Inspect<Self::AccountId, AssetId = Self::PoolAssetId, Balance = Self::Balance>
 			+ Create<Self::AccountId>
 			+ Mutate<Self::AccountId>
-			+ AccountTouch<Self::PoolAssetId, Self::AccountId, Balance = Self::Balance>;
+			+ AccountTouch<Self::PoolAssetId, Self::AccountId, Balance = Self::Balance>
+			+ Refund<Self::AccountId, AssetId = Self::PoolAssetId>;
 
 		/// A % the liquidity providers will take of every swap. Represents 10ths of a percent.
 		#[pallet::constant]
@@ -205,7 +210,7 @@ pub mod pallet {
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
-		/// A successful call of the `CretaPool` extrinsic will create this event.
+		/// A successful call of the `CreatePool` extrinsic will create this event.
 		PoolCreated {
 			/// The account that created the pool.
 			creator: T::AccountId,
@@ -280,6 +285,13 @@ pub mod pallet {
 			/// The route of asset IDs with amounts that the swap went through.
 			/// E.g. (A, amount_in) -> (Dot, amount_out) -> (B, amount_out)
 			path: BalancePath<T>,
+		},
+		/// Pool has been touched in order to fulfill operational requirements.
+		Touched {
+			/// The ID of the pool.
+			pool_id: T::PoolId,
+			/// The account initiating the touch.
+			who: T::AccountId,
 		},
 	}
 
@@ -391,7 +403,9 @@ pub mod pallet {
 			NextPoolAssetId::<T>::set(Some(next_lp_token_id));
 
 			T::PoolAssets::create(lp_token.clone(), pool_account.clone(), false, 1u32.into())?;
-			T::PoolAssets::touch(lp_token.clone(), &pool_account, &sender)?;
+			if T::PoolAssets::should_touch(lp_token.clone(), &pool_account) {
+				T::PoolAssets::touch(lp_token.clone(), &pool_account, &sender)?
+			};
 
 			let pool_info = PoolInfo { lp_token: lp_token.clone() };
 			Pools::<T>::insert(pool_id.clone(), pool_info);
@@ -412,6 +426,11 @@ pub mod pallet {
 		/// thus you should provide the min amount you're happy to provide.
 		/// Params `amount1_min`/`amount2_min` represent that.
 		/// `mint_to` will be sent the liquidity tokens that represent this share of the pool.
+		///
+		/// NOTE: when encountering an incorrect exchange rate and non-withdrawable pool liquidity,
+		/// batch an atomic call with [`Pallet::add_liquidity`] and
+		/// [`Pallet::swap_exact_tokens_for_tokens`] or [`Pallet::swap_tokens_for_exact_tokens`]
+		/// calls to render the liquidity withdrawable and rectify the exchange rate.
 		///
 		/// Once liquidity is added, someone may successfully call
 		/// [`Pallet::swap_exact_tokens_for_tokens`] successfully.
@@ -650,6 +669,49 @@ pub mod pallet {
 				keep_alive,
 			)?;
 			Ok(())
+		}
+
+		/// Touch an existing pool to fulfill prerequisites before providing liquidity, such as
+		/// ensuring that the pool's accounts are in place. It is typically useful when a pool
+		/// creator removes the pool's accounts and does not provide a liquidity. This action may
+		/// involve holding assets from the caller as a deposit for creating the pool's accounts.
+		///
+		/// The origin must be Signed.
+		///
+		/// - `asset1`: The asset ID of an existing pool with a pair (asset1, asset2).
+		/// - `asset2`: The asset ID of an existing pool with a pair (asset1, asset2).
+		///
+		/// Emits `Touched` event when successful.
+		#[pallet::call_index(5)]
+		#[pallet::weight(T::WeightInfo::touch(3))]
+		pub fn touch(
+			origin: OriginFor<T>,
+			asset1: Box<T::AssetKind>,
+			asset2: Box<T::AssetKind>,
+		) -> DispatchResultWithPostInfo {
+			let who = ensure_signed(origin)?;
+
+			let pool_id = T::PoolLocator::pool_id(&asset1, &asset2)
+				.map_err(|_| Error::<T>::InvalidAssetPair)?;
+			let pool = Pools::<T>::get(&pool_id).ok_or(Error::<T>::PoolNotFound)?;
+			let pool_account =
+				T::PoolLocator::address(&pool_id).map_err(|_| Error::<T>::InvalidAssetPair)?;
+
+			let mut refunds_number: u32 = 0;
+			if T::Assets::should_touch(*asset1.clone(), &pool_account) {
+				T::Assets::touch(*asset1, &pool_account, &who)?;
+				refunds_number += 1;
+			}
+			if T::Assets::should_touch(*asset2.clone(), &pool_account) {
+				T::Assets::touch(*asset2, &pool_account, &who)?;
+				refunds_number += 1;
+			}
+			if T::PoolAssets::should_touch(pool.lp_token.clone(), &pool_account) {
+				T::PoolAssets::touch(pool.lp_token, &pool_account, &who)?;
+				refunds_number += 1;
+			}
+			Self::deposit_event(Event::Touched { pool_id, who });
+			Ok(Some(T::WeightInfo::touch(refunds_number)).into())
 		}
 	}
 

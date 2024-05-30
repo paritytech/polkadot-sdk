@@ -18,9 +18,9 @@ targets = ["x86_64-unknown-linux-gnu"]
 [dependencies]
 cfg-if = "1.0"
 codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = ["derive"] }
-log = { version = "0.4.17", default-features = false }
-scale-info = { version = "2.10.0", default-features = false, features = ["derive", "serde"] }
-serde = { version = "1.0.195", default-features = false, features = ["alloc", "derive"] }
+log = { workspace = true }
+scale-info = { version = "2.11.1", default-features = false, features = ["derive", "serde"] }
+serde = { features = ["alloc", "derive"], workspace = true }
 frame-support = { path = "../support", default-features = false }
 sp-core = { path = "../../primitives/core", default-features = false, features = ["serde"] }
 sp-io = { path = "../../primitives/io", default-features = false }
@@ -28,7 +28,7 @@ sp-runtime = { path = "../../primitives/runtime", default-features = false, feat
 sp-std = { path = "../../primitives/std", default-features = false }
 sp-version = { path = "../../primitives/version", default-features = false, features = ["serde"] }
 sp-weights = { path = "../../primitives/weights", default-features = false, features = ["serde"] }
-docify = "0.2.7"
+docify = "0.2.8"
 
 [dev-dependencies]
 criterion = "0.4.0"

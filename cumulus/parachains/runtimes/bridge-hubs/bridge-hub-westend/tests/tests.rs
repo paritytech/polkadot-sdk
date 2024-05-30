@@ -33,16 +33,14 @@ use bridge_to_rococo_config::{
 };
 use codec::{Decode, Encode};
 use frame_support::{dispatch::GetDispatchInfo, parameter_types, traits::ConstU8};
-use parachains_common::{AccountId, AuraId, Balance, SLOT_DURATION};
+use parachains_common::{AccountId, AuraId, Balance};
 use sp_consensus_aura::SlotDuration;
 use sp_keyring::AccountKeyring::Alice;
 use sp_runtime::{
 	generic::{Era, SignedPayload},
-	AccountId32,
+	AccountId32, Perbill,
 };
-use testnet_parachains_constants::westend::{
-	consensus::RELAY_CHAIN_SLOT_DURATION_MILLIS, fee::WeightToFee,
-};
+use testnet_parachains_constants::westend::{consensus::*, fee::WeightToFee};
 use xcm::latest::prelude::*;
 
 // Para id of sibling chain used in tests.
@@ -80,15 +78,11 @@ fn construct_extrinsic(
 		pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::from(0),
 		BridgeRejectObsoleteHeadersAndMessages::default(),
 		(bridge_to_rococo_config::OnBridgeHubWestendRefundBridgeHubRococoMessages::default(),),
+		cumulus_primitives_storage_weight_reclaim::StorageWeightReclaim::new(),
 	);
 	let payload = SignedPayload::new(call.clone(), extra.clone()).unwrap();
 	let signature = payload.using_encoded(|e| sender.sign(e));
-	UncheckedExtrinsic::new_signed(
-		call,
-		account_id.into(),
-		Signature::Sr25519(signature.clone()),
-		extra,
-	)
+	UncheckedExtrinsic::new_signed(call, account_id.into(), Signature::Sr25519(signature), extra)
 }
 
 fn construct_and_apply_extrinsic(
@@ -295,50 +289,59 @@ pub fn complex_relay_extrinsic_works() {
 
 #[test]
 pub fn can_calculate_weight_for_paid_export_message_with_reserve_transfer() {
-	let estimated = bridge_hub_test_utils::test_cases::can_calculate_weight_for_paid_export_message_with_reserve_transfer::<
+	bridge_hub_test_utils::check_sane_fees_values(
+		"bp_bridge_hub_westend::BridgeHubWestendBaseXcmFeeInWnds",
+		bp_bridge_hub_westend::BridgeHubWestendBaseXcmFeeInWnds::get(),
+		|| {
+			bridge_hub_test_utils::test_cases::can_calculate_weight_for_paid_export_message_with_reserve_transfer::<
 			Runtime,
 			XcmConfig,
 			WeightToFee,
-		>();
-
-	// check if estimated value is sane
-	let max_expected = bp_bridge_hub_westend::BridgeHubWestendBaseXcmFeeInWnds::get();
-	assert!(
-			estimated <= max_expected,
-			"calculated: {:?}, max_expected: {:?}, please adjust `bp_bridge_hub_westend::BridgeHubWestendBaseXcmFeeInWnds` value",
-			estimated,
-			max_expected
-		);
+		>()
+		},
+		Perbill::from_percent(33),
+		Some(-33),
+		&format!(
+			"Estimate fee for `ExportMessage` for runtime: {:?}",
+			<Runtime as frame_system::Config>::Version::get()
+		),
+	)
 }
 
 #[test]
 pub fn can_calculate_fee_for_complex_message_delivery_transaction() {
-	let estimated = from_parachain::can_calculate_fee_for_complex_message_delivery_transaction::<
-		RuntimeTestsAdapter,
-	>(collator_session_keys(), construct_and_estimate_extrinsic_fee);
-
-	// check if estimated value is sane
-	let max_expected = bp_bridge_hub_westend::BridgeHubWestendBaseDeliveryFeeInWnds::get();
-	assert!(
-		estimated <= max_expected,
-		"calculated: {:?}, max_expected: {:?}, please adjust `bp_bridge_hub_westend::BridgeHubWestendBaseDeliveryFeeInWnds` value",
-		estimated,
-		max_expected
-	);
+	bridge_hub_test_utils::check_sane_fees_values(
+		"bp_bridge_hub_westend::BridgeHubWestendBaseDeliveryFeeInWnds",
+		bp_bridge_hub_westend::BridgeHubWestendBaseDeliveryFeeInWnds::get(),
+		|| {
+			from_parachain::can_calculate_fee_for_complex_message_delivery_transaction::<
+				RuntimeTestsAdapter,
+			>(collator_session_keys(), construct_and_estimate_extrinsic_fee)
+		},
+		Perbill::from_percent(33),
+		Some(-33),
+		&format!(
+			"Estimate fee for `single message delivery` for runtime: {:?}",
+			<Runtime as frame_system::Config>::Version::get()
+		),
+	)
 }
 
 #[test]
 pub fn can_calculate_fee_for_complex_message_confirmation_transaction() {
-	let estimated = from_parachain::can_calculate_fee_for_complex_message_confirmation_transaction::<
-		RuntimeTestsAdapter,
-	>(collator_session_keys(), construct_and_estimate_extrinsic_fee);
-
-	// check if estimated value is sane
-	let max_expected = bp_bridge_hub_westend::BridgeHubWestendBaseConfirmationFeeInWnds::get();
-	assert!(
-		estimated <= max_expected,
-		"calculated: {:?}, max_expected: {:?}, please adjust `bp_bridge_hub_westend::BridgeHubWestendBaseConfirmationFeeInWnds` value",
-		estimated,
-		max_expected
-	);
+	bridge_hub_test_utils::check_sane_fees_values(
+		"bp_bridge_hub_westend::BridgeHubWestendBaseConfirmationFeeInWnds",
+		bp_bridge_hub_westend::BridgeHubWestendBaseConfirmationFeeInWnds::get(),
+		|| {
+			from_parachain::can_calculate_fee_for_complex_message_confirmation_transaction::<
+				RuntimeTestsAdapter,
+			>(collator_session_keys(), construct_and_estimate_extrinsic_fee)
+		},
+		Perbill::from_percent(33),
+		Some(-33),
+		&format!(
+			"Estimate fee for `single message confirmation` for runtime: {:?}",
+			<Runtime as frame_system::Config>::Version::get()
+		),
+	)
 }

@@ -43,7 +43,7 @@ use frame_support::{
 use scale_info::{StaticTypeInfo, TypeInfo};
 use sp_runtime::{
 	traits::{DispatchInfoOf, PostDispatchInfoOf, SignedExtension},
-	transaction_validity::TransactionValidityError,
+	transaction_validity::{TransactionValidity, TransactionValidityError, ValidTransaction},
 };
 
 #[cfg(test)]
@@ -120,6 +120,20 @@ where
 
 	fn additional_signed(&self) -> Result<Self::AdditionalSigned, TransactionValidityError> {
 		self.0.additional_signed()
+	}
+
+	fn validate(
+		&self,
+		who: &Self::AccountId,
+		call: &Self::Call,
+		info: &DispatchInfoOf<Self::Call>,
+		len: usize,
+	) -> TransactionValidity {
+		if call.is_feeless(&<T as frame_system::Config>::RuntimeOrigin::signed(who.clone())) {
+			Ok(ValidTransaction::default())
+		} else {
+			self.0.validate(who, call, info, len)
+		}
 	}
 
 	fn pre_dispatch(

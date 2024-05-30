@@ -18,12 +18,11 @@ targets = ["x86_64-unknown-linux-gnu"]
 [dependencies]
 bounded-collections = { version = "0.2.0", default-features = false }
 codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = ["derive"] }
-scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
-serde = { version = "1.0.195", default-features = false, optional = true, features = ["alloc", "derive"] }
+scale-info = { version = "2.11.1", default-features = false, features = ["derive"] }
+serde = { optional = true, features = ["alloc", "derive"], workspace = true }
 smallvec = "1.11.0"
 sp-arithmetic = { path = "../arithmetic", default-features = false }
 sp-debug-derive = { path = "../debug-derive", default-features = false }
-sp-std = { path = "../std", default-features = false }
 schemars = { version = "0.8.3", default-features = false, optional = true }
 
 [features]
@@ -35,7 +34,6 @@ std = [
 	"serde/std",
 	"sp-arithmetic/std",
 	"sp-debug-derive/std",
-	"sp-std/std",
 ]
 # By default some types have documentation, `full-metadata-docs` allows to add documentation to
 # more types in the metadata.

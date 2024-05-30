@@ -258,6 +258,7 @@ where
 pub struct SlotClaim<Pub> {
 	author_pub: Pub,
 	pre_digest: DigestItem,
+	slot: Slot,
 	timestamp: Timestamp,
 }
 
@@ -272,7 +273,7 @@ impl<Pub> SlotClaim<Pub> {
 		P::Public: Codec,
 		P::Signature: Codec,
 	{
-		SlotClaim { author_pub, timestamp, pre_digest: aura_internal::pre_digest::<P>(slot) }
+		SlotClaim { author_pub, timestamp, pre_digest: aura_internal::pre_digest::<P>(slot), slot }
 	}
 
 	/// Get the author's public key.
@@ -283,6 +284,11 @@ impl<Pub> SlotClaim<Pub> {
 	/// Get the Aura pre-digest for this slot.
 	pub fn pre_digest(&self) -> &DigestItem {
 		&self.pre_digest
+	}
+
+	/// Get the slot assigned to this claim.
+	pub fn slot(&self) -> Slot {
+		self.slot
 	}
 
 	/// Get the timestamp corresponding to the relay-chain slot this claim was

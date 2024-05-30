@@ -1,0 +1,8 @@
+Description: Check if the HRMP channel between Rococo BH and Rococo AH was opened successfully
+Network: ./bridge_hub_rococo_local_network.toml
+Creds: config
+
+# ensure that initialization has completed
+asset-hub-rococo-collator1: js-script {{FRAMEWORK_PATH}}/js-helpers/wait-hrmp-channel-opened.js with "1013" within 300 seconds
+
+

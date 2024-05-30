@@ -10,14 +10,16 @@ license.workspace = true
 workspace = true
 
 [dependencies]
-cfg-if = "1.0"
 cpu-time = "1.0.0"
-futures = "0.3.21"
+futures = "0.3.30"
 gum = { package = "tracing-gum", path = "../../../gum" }
 libc = "0.2.152"
-thiserror = "1.0.31"
+nix = { version = "0.27.1", features = ["resource", "sched"] }
+thiserror = { workspace = true }
 
-parity-scale-codec = { version = "3.6.1", default-features = false, features = ["derive"] }
+parity-scale-codec = { version = "3.6.1", default-features = false, features = [
+	"derive",
+] }
 
 polkadot-parachain-primitives = { path = "../../../../parachain" }
 polkadot-primitives = { path = "../../../../primitives" }
@@ -34,7 +36,8 @@ sp-tracing = { path = "../../../../../substrate/primitives/tracing" }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 landlock = "0.3.0"
-nix = { version = "0.27.1", features = ["sched"] }
+
+[target.'cfg(all(target_os = "linux", target_arch = "x86_64"))'.dependencies]
 seccompiler = "0.4.0"
 
 [dev-dependencies]

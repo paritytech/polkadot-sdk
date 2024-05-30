@@ -11,7 +11,7 @@ workspace = true
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
-scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
+scale-info = { version = "2.11.1", default-features = false, features = ["derive"] }
 
 # Substrate
 frame-benchmarking = { path = "../../../../../substrate/frame/benchmarking", default-features = false, optional = true }
@@ -22,8 +22,8 @@ frame-system-rpc-runtime-api = { path = "../../../../../substrate/frame/system/r
 frame-system-benchmarking = { path = "../../../../../substrate/frame/system/benchmarking", default-features = false, optional = true }
 frame-try-runtime = { path = "../../../../../substrate/frame/try-runtime", default-features = false, optional = true }
 pallet-aura = { path = "../../../../../substrate/frame/aura", default-features = false }
-pallet-glutton = { path = "../../../../../substrate/frame/glutton", default-features = false, optional = true }
-pallet-sudo = { path = "../../../../../substrate/frame/sudo", default-features = false, optional = true }
+pallet-glutton = { path = "../../../../../substrate/frame/glutton", default-features = false }
+pallet-sudo = { path = "../../../../../substrate/frame/sudo", default-features = false }
 pallet-timestamp = { path = "../../../../../substrate/frame/timestamp", default-features = false }
 sp-api = { path = "../../../../../substrate/primitives/api", default-features = false }
 sp-block-builder = { path = "../../../../../substrate/primitives/block-builder", default-features = false }
@@ -134,8 +134,6 @@ try-runtime = [
 	"parachain-info/try-runtime",
 	"sp-runtime/try-runtime",
 ]
-
-experimental = ["pallet-aura/experimental"]
 
 # A feature that should be enabled when the runtime should be built for on-chain
 # deployment. This will disable stuff that shouldn't be part of the on-chain wasm

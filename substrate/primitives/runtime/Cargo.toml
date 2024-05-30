@@ -21,24 +21,24 @@ codec = { package = "parity-scale-codec", version = "3.6.1", default-features = 
 either = { version = "1.5", default-features = false }
 hash256-std-hasher = { version = "0.15.2", default-features = false }
 impl-trait-for-tuples = "0.2.2"
-log = { version = "0.4.17", default-features = false }
+log = { workspace = true }
 paste = "1.0"
 rand = { version = "0.8.5", optional = true }
-scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
-serde = { version = "1.0.195", default-features = false, features = ["alloc", "derive"], optional = true }
+scale-info = { version = "2.11.1", default-features = false, features = ["derive"] }
+serde = { features = ["alloc", "derive"], optional = true, workspace = true }
 sp-application-crypto = { path = "../application-crypto", default-features = false }
 sp-arithmetic = { path = "../arithmetic", default-features = false }
 sp-core = { path = "../core", default-features = false }
 sp-io = { path = "../io", default-features = false }
 sp-std = { path = "../std", default-features = false }
 sp-weights = { path = "../weights", default-features = false }
-docify = { version = "0.2.7" }
+docify = "0.2.8"
 
-simple-mermaid = { git = "https://github.com/kianenigma/simple-mermaid.git", rev = "e48b187bcfd5cc75111acd9d241f1bd36604344b", optional = true }
+simple-mermaid = { version = "0.1.1", optional = true }
 
 [dev-dependencies]
 rand = "0.8.5"
-serde_json = "1.0.111"
+serde_json = { workspace = true, default-features = true }
 zstd = { version = "0.12.4", default-features = false }
 sp-api = { path = "../api" }
 sp-state-machine = { path = "../state-machine" }

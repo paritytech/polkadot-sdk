@@ -17,7 +17,7 @@ sp-core = { path = "../../../../../../../../substrate/primitives/core", default-
 frame-support = { path = "../../../../../../../../substrate/frame/support", default-features = false }
 
 # Cumulus
-parachains-common = { path = "../../../../../../../parachains/common" }
+parachains-common = { path = "../../../../../../common" }
 emulated-integration-tests-common = { path = "../../../../common", default-features = false }
 bridge-hub-westend-runtime = { path = "../../../../../../runtimes/bridge-hubs/bridge-hub-westend" }
 bridge-hub-common = { path = "../../../../../../runtimes/bridge-hubs/common", default-features = false }

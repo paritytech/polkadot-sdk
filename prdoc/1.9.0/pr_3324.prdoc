@@ -1,0 +1,13 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: "Fix weight calculation and event emission in pallet-membership"
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Bug fix for the membership pallet to use correct weights. Also no event will be emitted
+      anymore when `change_key` is called with identical accounts.
+
+crates:
+  - name: pallet-membership

@@ -871,7 +871,7 @@ where
 			gum::trace!(
 				target: LOG_TARGET,
 				relay_parent = ?hash,
-				"Leaf got activated, notifying exterinal listeners"
+				"Leaf got activated, notifying external listeners"
 			);
 			for listener in listeners {
 				// it's fine if the listener is no longer interested

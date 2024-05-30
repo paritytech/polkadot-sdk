@@ -150,6 +150,32 @@ zombienet-polkadot-functional-0010-validator-disabling:
       --local-dir="${LOCAL_DIR}/functional"
       --test="0010-validator-disabling.zndsl"
 
+zombienet-polkadot-functional-0011-async-backing-6-seconds-rate:
+  extends:
+    - .zombienet-polkadot-common
+  script:
+    - /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh
+      --local-dir="${LOCAL_DIR}/functional"
+      --test="0011-async-backing-6-seconds-rate.zndsl"
+
+zombienet-polkadot-elastic-scaling-0001-basic-3cores-6s-blocks:
+  extends:
+    - .zombienet-polkadot-common
+  variables:
+    FORCED_INFRA_INSTANCE: "spot-iops"
+  script:
+    - /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh
+      --local-dir="${LOCAL_DIR}/elastic_scaling"
+      --test="0001-basic-3cores-6s-blocks.zndsl"
+
+zombienet-polkadot-elastic-scaling-0002-elastic-scaling-doesnt-break-parachains:
+  extends:
+    - .zombienet-polkadot-common
+  script:
+    - /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh
+      --local-dir="${LOCAL_DIR}/elastic_scaling"
+      --test="0002-elastic-scaling-doesnt-break-parachains.zndsl"
+
 zombienet-polkadot-smoke-0001-parachains-smoke-test:
   extends:
     - .zombienet-polkadot-common

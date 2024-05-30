@@ -18,7 +18,7 @@
 //!
 //! A parachain needs to build PoVs that are send to the relay chain to progress. These PoVs are
 //! erasure encoded and one piece of it is stored by each relay chain validator. As the relay chain
-//! decides on which PoV per parachain to include and thus, to progess the parachain it can happen
+//! decides on which PoV per parachain to include and thus, to progress the parachain it can happen
 //! that the block corresponding to this PoV isn't propagated in the parachain network. This can
 //! have several reasons, either a malicious collator that managed to include its own PoV and
 //! doesn't want to share it with the rest of the network or maybe a collator went down before it
@@ -338,8 +338,8 @@ where
 		let mut blocks_to_delete = vec![hash];
 
 		while let Some(delete) = blocks_to_delete.pop() {
-			if let Some(childs) = self.waiting_for_parent.remove(&delete) {
-				blocks_to_delete.extend(childs.iter().map(BlockT::hash));
+			if let Some(children) = self.waiting_for_parent.remove(&delete) {
+				blocks_to_delete.extend(children.iter().map(BlockT::hash));
 			}
 		}
 		self.clear_waiting_recovery(&hash);
@@ -448,7 +448,7 @@ where
 
 	/// Import the given `block`.
 	///
-	/// This will also recursivley drain `waiting_for_parent` and import them as well.
+	/// This will also recursively drain `waiting_for_parent` and import them as well.
 	fn import_block(&mut self, block: Block) {
 		let mut blocks = VecDeque::new();
 
@@ -495,7 +495,7 @@ where
 					tracing::debug!(
 						target: LOG_TARGET,
 						block_hash = ?hash,
-						"Cound not recover. Block was never announced as candidate"
+						"Could not recover. Block was never announced as candidate"
 					);
 					return
 				},

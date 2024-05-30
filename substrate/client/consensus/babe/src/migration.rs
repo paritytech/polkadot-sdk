@@ -64,7 +64,7 @@ impl EpochT for EpochV0 {
 
 // Implement From<EpochV0> for Epoch
 impl EpochV0 {
-	/// Migrate the sturct to current epoch version.
+	/// Migrate the struct to current epoch version.
 	pub fn migrate(self, config: &BabeConfiguration) -> Epoch {
 		sp_consensus_babe::Epoch {
 			epoch_index: self.epoch_index,

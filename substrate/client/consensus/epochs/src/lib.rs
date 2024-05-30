@@ -326,7 +326,7 @@ impl<E: Epoch> AsRef<E> for IncrementedEpoch<E> {
 ///
 /// The first epoch, epoch_0, is special cased by saying that it starts at
 /// slot number of the first block in the chain. When bootstrapping a chain,
-/// there can be multiple competing block #1s, so we have to ensure that the overlayed
+/// there can be multiple competing block #1s, so we have to ensure that the overlaid
 /// DAG doesn't get confused.
 ///
 /// The first block of every epoch should be producing a descriptor for the next
@@ -655,7 +655,7 @@ where
 
 	/// Revert to a specified block given its `hash` and `number`.
 	/// This removes all the epoch changes information that were announced by
-	/// all the given block descendents.
+	/// all the given block descendants.
 	pub fn revert<D: IsDescendentOfBuilder<Hash>>(
 		&mut self,
 		descendent_of_builder: D,

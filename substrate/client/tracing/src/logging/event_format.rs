@@ -23,10 +23,8 @@ use std::fmt::{self, Write};
 use tracing::{Event, Level, Subscriber};
 use tracing_log::NormalizeEvent;
 use tracing_subscriber::{
-	field::RecordFields,
-	fmt::{time::FormatTime, FmtContext, FormatEvent, FormatFields},
-	layer::Context,
-	registry::{LookupSpan, SpanRef},
+	fmt::{format, time::FormatTime, FmtContext, FormatEvent, FormatFields},
+	registry::LookupSpan,
 };
 
 /// A pre-configured event formatter.
@@ -52,23 +50,23 @@ where
 	// NOTE: the following code took inspiration from tracing-subscriber
 	//
 	//       https://github.com/tokio-rs/tracing/blob/2f59b32/tracing-subscriber/src/fmt/format/mod.rs#L449
-	pub(crate) fn format_event_custom<'b, S, N>(
+	pub(crate) fn format_event_custom<'b, 'w, S, N>(
 		&self,
-		ctx: CustomFmtContext<'b, S, N>,
-		writer: &mut dyn fmt::Write,
+		ctx: &FmtContext<'b, S, N>,
+		writer: format::Writer<'w>,
 		event: &Event,
 	) -> fmt::Result
 	where
 		S: Subscriber + for<'a> LookupSpan<'a>,
 		N: for<'a> FormatFields<'a> + 'static,
 	{
-		let writer = &mut ControlCodeSanitizer::new(!self.enable_color, writer);
+		let mut writer = &mut ControlCodeSanitizer::new(!self.enable_color, writer);
 		let normalized_meta = event.normalized_metadata();
 		let meta = normalized_meta.as_ref().unwrap_or_else(|| event.metadata());
-		time::write(&self.timer, writer, self.enable_color)?;
+		time::write(&self.timer, &mut format::Writer::new(&mut writer), self.enable_color)?;
 
 		if self.display_level {
-			let fmt_level = { FmtLevel::new(meta.level(), self.enable_color) };
+			let fmt_level = FmtLevel::new(meta.level(), self.enable_color);
 			write!(writer, "{} ", fmt_level)?;
 		}
 
@@ -108,7 +106,7 @@ where
 			writer.sanitize = true;
 		}
 
-		ctx.format_fields(writer, event)?;
+		ctx.format_fields(format::Writer::new(writer), event)?;
 		writeln!(writer)?;
 
 		writer.flush()
@@ -127,7 +125,7 @@ where
 	fn format_event(
 		&self,
 		ctx: &FmtContext<S, N>,
-		writer: &mut dyn fmt::Write,
+		mut writer: format::Writer<'_>,
 		event: &Event,
 	) -> fmt::Result {
 		if self.dup_to_stdout &&
@@ -136,12 +134,13 @@ where
 				event.metadata().level() == &Level::ERROR)
 		{
 			let mut out = String::new();
-			self.format_event_custom(CustomFmtContext::FmtContext(ctx), &mut out, event)?;
+			let buf_writer = format::Writer::new(&mut out);
+			self.format_event_custom(ctx, buf_writer, event)?;
 			writer.write_str(&out)?;
 			print!("{}", out);
 			Ok(())
 		} else {
-			self.format_event_custom(CustomFmtContext::FmtContext(ctx), writer, event)
+			self.format_event_custom(ctx, writer, event)
 		}
 	}
 }
@@ -237,9 +236,13 @@ impl<'a> fmt::Display for FmtThreadName<'a> {
 mod time {
 	use ansi_term::Style;
 	use std::fmt;
-	use tracing_subscriber::fmt::time::FormatTime;
+	use tracing_subscriber::fmt::{format, time::FormatTime};
 
-	pub(crate) fn write<T>(timer: T, writer: &mut dyn fmt::Write, with_ansi: bool) -> fmt::Result
+	pub(crate) fn write<T>(
+		timer: T,
+		writer: &mut format::Writer<'_>,
+		with_ansi: bool,
+	) -> fmt::Result
 	where
 		T: FormatTime,
 	{
@@ -256,52 +259,6 @@ mod time {
 	}
 }
 
-// NOTE: `FmtContext`'s fields are private. This enum allows us to make a `format_event` function
-//       that works with `FmtContext` or `Context` with `FormatFields`
-#[allow(dead_code)]
-pub(crate) enum CustomFmtContext<'a, S, N> {
-	FmtContext(&'a FmtContext<'a, S, N>),
-	ContextWithFormatFields(&'a Context<'a, S>, &'a N),
-}
-
-impl<'a, S, N> FormatFields<'a> for CustomFmtContext<'a, S, N>
-where
-	S: Subscriber + for<'lookup> LookupSpan<'lookup>,
-	N: for<'writer> FormatFields<'writer> + 'static,
-{
-	fn format_fields<R: RecordFields>(
-		&self,
-		writer: &'a mut dyn fmt::Write,
-		fields: R,
-	) -> fmt::Result {
-		match self {
-			CustomFmtContext::FmtContext(fmt_ctx) => fmt_ctx.format_fields(writer, fields),
-			CustomFmtContext::ContextWithFormatFields(_ctx, fmt_fields) =>
-				fmt_fields.format_fields(writer, fields),
-		}
-	}
-}
-
-// NOTE: the following code has been duplicated from tracing-subscriber
-//
-//       https://github.com/tokio-rs/tracing/blob/2f59b32/tracing-subscriber/src/fmt/fmt_layer.rs#L788
-impl<'a, S, N> CustomFmtContext<'a, S, N>
-where
-	S: Subscriber + for<'lookup> LookupSpan<'lookup>,
-	N: for<'writer> FormatFields<'writer> + 'static,
-{
-	#[inline]
-	pub fn lookup_current(&self) -> Option<SpanRef<'_, S>>
-	where
-		S: for<'lookup> LookupSpan<'lookup>,
-	{
-		match self {
-			CustomFmtContext::FmtContext(fmt_ctx) => fmt_ctx.lookup_current(),
-			CustomFmtContext::ContextWithFormatFields(ctx, _) => ctx.lookup_current(),
-		}
-	}
-}
-
 /// A writer which (optionally) strips out terminal control codes from the logs.
 ///
 /// This is used by [`EventFormat`] to sanitize the log messages.
@@ -312,7 +269,7 @@ where
 struct ControlCodeSanitizer<'a> {
 	sanitize: bool,
 	buffer: String,
-	inner_writer: &'a mut dyn fmt::Write,
+	inner_writer: format::Writer<'a>,
 }
 
 impl<'a> fmt::Write for ControlCodeSanitizer<'a> {
@@ -342,7 +299,7 @@ fn strip_control_codes(input: &str) -> std::borrow::Cow<str> {
 
 impl<'a> ControlCodeSanitizer<'a> {
 	/// Creates a new instance.
-	fn new(sanitize: bool, inner_writer: &'a mut dyn fmt::Write) -> Self {
+	fn new(sanitize: bool, inner_writer: format::Writer<'a>) -> Self {
 		Self { sanitize, inner_writer, buffer: String::new() }
 	}
 

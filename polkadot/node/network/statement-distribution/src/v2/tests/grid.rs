@@ -1829,9 +1829,7 @@ fn advertisement_not_re_sent_when_peer_re_enters_view() {
 	});
 }
 
-// Grid statements imported to backing once candidate enters hypothetical frontier.
-#[test]
-fn grid_statements_imported_to_backing() {
+fn inner_grid_statements_imported_to_backing(groups_for_first_para: usize) {
 	let validator_count = 6;
 	let group_size = 3;
 	let config = TestConfig {
@@ -1851,9 +1849,12 @@ fn grid_statements_imported_to_backing() {
 		let local_group_index = local_validator.group_index.unwrap();
 
 		let other_group = next_group_index(local_group_index, validator_count, group_size);
-		let other_para = ParaId::from(other_group.0);
 
-		let test_leaf = state.make_dummy_leaf(relay_parent);
+		// Other para is same para for elastic scaling test (groups_for_first_para > 1)
+		let other_para = ParaId::from((groups_for_first_para == 1) as u32);
+
+		let test_leaf =
+			state.make_dummy_leaf_with_multiple_cores_per_para(relay_parent, groups_for_first_para);
 
 		let (candidate, pvd) = make_candidate(
 			relay_parent,
@@ -2017,6 +2018,18 @@ fn grid_statements_imported_to_backing() {
 
 		overseer
 	});
+}
+// Grid statements imported to backing once candidate enters hypothetical frontier.
+#[test]
+fn grid_statements_imported_to_backing() {
+	inner_grid_statements_imported_to_backing(1);
+}
+
+// Grid statements imported to backing once candidate enters hypothetical frontier.
+// All statements are for candidates of the same parachain but from different backing groups.
+#[test]
+fn elastic_scaling_grid_statements_imported_to_backing() {
+	inner_grid_statements_imported_to_backing(2);
 }
 
 #[test]

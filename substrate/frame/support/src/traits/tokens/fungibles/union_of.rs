@@ -16,6 +16,8 @@
 // limitations under the License.
 
 //! Type to combine two `fungibles::*` implementations into one union `fungibles::*` implementation.
+//!
+//! See the [`crate::traits::fungibles`] doc for more information about fungibles traits.
 
 use frame_support::traits::{
 	tokens::{
@@ -899,6 +901,38 @@ impl<
 			Left(a) => <Left as AccountTouch<Left::AssetId, AccountId>>::touch(a, who, depositor),
 			Right(a) =>
 				<Right as AccountTouch<Right::AssetId, AccountId>>::touch(a, who, depositor),
+		}
+	}
+}
+
+impl<
+		Left: fungibles::Inspect<AccountId> + fungibles::Refund<AccountId>,
+		Right: fungibles::Inspect<AccountId>
+			+ fungibles::Refund<AccountId, Balance = <Left as fungibles::Refund<AccountId>>::Balance>,
+		Criterion: Convert<
+			AssetKind,
+			Either<
+				<Left as fungibles::Refund<AccountId>>::AssetId,
+				<Right as fungibles::Refund<AccountId>>::AssetId,
+			>,
+		>,
+		AssetKind: AssetId,
+		AccountId,
+	> fungibles::Refund<AccountId> for UnionOf<Left, Right, Criterion, AssetKind, AccountId>
+{
+	type AssetId = AssetKind;
+	type Balance = <Left as fungibles::Refund<AccountId>>::Balance;
+
+	fn deposit_held(asset: AssetKind, who: AccountId) -> Option<(AccountId, Self::Balance)> {
+		match Criterion::convert(asset) {
+			Left(a) => <Left as fungibles::Refund<AccountId>>::deposit_held(a, who),
+			Right(a) => <Right as fungibles::Refund<AccountId>>::deposit_held(a, who),
+		}
+	}
+	fn refund(asset: AssetKind, who: AccountId) -> DispatchResult {
+		match Criterion::convert(asset) {
+			Left(a) => <Left as fungibles::Refund<AccountId>>::refund(a, who),
+			Right(a) => <Right as fungibles::Refund<AccountId>>::refund(a, who),
 		}
 	}
 }
