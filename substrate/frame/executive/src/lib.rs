@@ -97,6 +97,7 @@
 //! # use frame_executive as executive;
 //! # pub struct UncheckedExtrinsic {};
 //! # pub struct Header {};
+//! # pub type BlockNumber = u32;
 //! # type Context = frame_system::ChainContext<Runtime>;
 //! # pub type Block = generic::Block<Header, UncheckedExtrinsic>;
 //! # pub type Balances = u64;
@@ -122,6 +123,8 @@
 //! }
 //!
 //! struct CustomTryState;
+//!
+//! #[cfg(feature = "try-runtime")]
 //! impl frame_support::traits::IdentifiableTryStateLogic<BlockNumber> for CustomTryState {
 //!
 //! 	fn try_state(_: BlockNumber) -> Result<(), sp_runtime::TryRuntimeError> {
