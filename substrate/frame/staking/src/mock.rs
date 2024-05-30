@@ -34,7 +34,7 @@ use frame_system::{EnsureRoot, EnsureSignedBy};
 use sp_io;
 use sp_runtime::{curve::PiecewiseLinear, testing::UintAuthorityId, traits::Zero, BuildStorage};
 use sp_staking::{
-	offence::{DisableStrategy, OffenceDetails, OnOffenceHandler},
+	offence::{OffenceDetails, OnOffenceHandler},
 	OnStakingUpdate,
 };
 
@@ -186,7 +186,6 @@ pallet_staking_reward_curve::build! {
 parameter_types! {
 	pub const BondingDuration: EraIndex = 3;
 	pub const RewardCurve: &'static PiecewiseLinear<'static> = &I_NPOS;
-	pub const OffendingValidatorsThreshold: Perbill = Perbill::from_percent(75);
 }
 
 parameter_types! {
@@ -249,19 +248,26 @@ parameter_types! {
 	pub static LedgerSlashPerEra:
 		(BalanceOf<Test>, BTreeMap<EraIndex, BalanceOf<Test>>) =
 		(Zero::zero(), BTreeMap::new());
+	pub static SlashObserver: BTreeMap<AccountId, BalanceOf<Test>> = BTreeMap::new();
 }
 
 pub struct EventListenerMock;
 impl OnStakingUpdate<AccountId, Balance> for EventListenerMock {
 	fn on_slash(
-		_pool_account: &AccountId,
+		pool_account: &AccountId,
 		slashed_bonded: Balance,
 		slashed_chunks: &BTreeMap<EraIndex, Balance>,
-		_total_slashed: Balance,
+		total_slashed: Balance,
 	) {
 		LedgerSlashPerEra::set((slashed_bonded, slashed_chunks.clone()));
+		SlashObserver::mutate(|map| {
+			map.insert(*pool_account, map.get(pool_account).unwrap_or(&0) + total_slashed)
+		});
 	}
 }
+
+// Disabling threshold for `UpToLimitDisablingStrategy`
+pub(crate) const DISABLING_LIMIT_FACTOR: usize = 3;
 
 impl crate::pallet::pallet::Config for Test {
 	type Currency = Balances;
@@ -280,7 +286,6 @@ impl crate::pallet::pallet::Config for Test {
 	type EraPayout = ConvertCurve<RewardCurve>;
 	type NextNewSession = Session;
 	type MaxExposurePageSize = MaxExposurePageSize;
-	type OffendingValidatorsThreshold = OffendingValidatorsThreshold;
 	type ElectionProvider = onchain::OnChainExecution<OnChainSeqPhragmen>;
 	type GenesisElectionProvider = Self::ElectionProvider;
 	// NOTE: consider a macro and use `UseNominatorsAndValidatorsMap<Self>` as well.
@@ -293,6 +298,7 @@ impl crate::pallet::pallet::Config for Test {
 	type EventListeners = EventListenerMock;
 	type BenchmarkingConfig = TestBenchmarkingConfig;
 	type WeightInfo = ();
+	type DisablingStrategy = pallet_staking::UpToLimitDisablingStrategy<DISABLING_LIMIT_FACTOR>;
 }
 
 pub struct WeightedNominationsQuota<const MAX: u32>;
@@ -457,6 +463,8 @@ impl ExtBuilder {
 				(31, self.balance_factor * 2000),
 				(41, self.balance_factor * 2000),
 				(51, self.balance_factor * 2000),
+				(201, self.balance_factor * 2000),
+				(202, self.balance_factor * 2000),
 				// optional nominator
 				(100, self.balance_factor * 2000),
 				(101, self.balance_factor * 2000),
@@ -484,8 +492,10 @@ impl ExtBuilder {
 				(31, 31, self.balance_factor * 500, StakerStatus::<AccountId>::Validator),
 				// an idle validator
 				(41, 41, self.balance_factor * 1000, StakerStatus::<AccountId>::Idle),
-			];
-			// optionally add a nominator
+				(51, 51, self.balance_factor * 1000, StakerStatus::<AccountId>::Idle),
+				(201, 201, self.balance_factor * 1000, StakerStatus::<AccountId>::Idle),
+				(202, 202, self.balance_factor * 1000, StakerStatus::<AccountId>::Idle),
+			]; // optionally add a nominator
 			if self.nominate {
 				stakers.push((
 					101,
@@ -595,6 +605,21 @@ pub(crate) fn bond_validator(who: AccountId, val: Balance) {
 
 pub(crate) fn bond_nominator(who: AccountId, val: Balance, target: Vec<AccountId>) {
 	bond(who, val);
+	assert_ok!(Staking::nominate(RuntimeOrigin::signed(who), target));
+}
+
+pub(crate) fn bond_virtual_nominator(
+	who: AccountId,
+	payee: AccountId,
+	val: Balance,
+	target: Vec<AccountId>,
+) {
+	// In a real scenario, `who` is a keyless account managed by another pallet which provides for
+	// it.
+	System::inc_providers(&who);
+
+	// Bond who virtually.
+	assert_ok!(<Staking as sp_staking::StakingUnchecked>::virtual_bond(&who, val, &payee));
 	assert_ok!(Staking::nominate(RuntimeOrigin::signed(who), target));
 }
 
@@ -709,12 +734,11 @@ pub(crate) fn on_offence_in_era(
 	>],
 	slash_fraction: &[Perbill],
 	era: EraIndex,
-	disable_strategy: DisableStrategy,
 ) {
 	let bonded_eras = crate::BondedEras::<Test>::get();
 	for &(bonded_era, start_session) in bonded_eras.iter() {
 		if bonded_era == era {
-			let _ = Staking::on_offence(offenders, slash_fraction, start_session, disable_strategy);
+			let _ = Staking::on_offence(offenders, slash_fraction, start_session);
 			return
 		} else if bonded_era > era {
 			break
@@ -726,7 +750,6 @@ pub(crate) fn on_offence_in_era(
 			offenders,
 			slash_fraction,
 			Staking::eras_start_session_index(era).unwrap(),
-			disable_strategy,
 		);
 	} else {
 		panic!("cannot slash in era {}", era);
@@ -741,7 +764,7 @@ pub(crate) fn on_offence_now(
 	slash_fraction: &[Perbill],
 ) {
 	let now = Staking::active_era().unwrap().index;
-	on_offence_in_era(offenders, slash_fraction, now, DisableStrategy::WhenSlashed)
+	on_offence_in_era(offenders, slash_fraction, now)
 }
 
 pub(crate) fn add_slash(who: &AccountId) {

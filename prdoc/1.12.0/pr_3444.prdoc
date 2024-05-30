@@ -1,0 +1,25 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Rate-limiting of statement distribution v2 requests to 1 per peer
+
+doc:
+  - audience: Node Dev
+    description: |
+      A new malicious node variant that sends duplicate statement
+      distribution messages to spam other peers.
+  
+  - audience: Node Operator
+    description: |
+      Added rate-limiting in the statement distribution request-response
+      protocol. Requesters will not issue another request to a peer if one
+      is already pending with that peer and receiving nodes will reject
+      requests from peers that they are currently serving. 
+      This should reduce the risk of validator-validator DoS attacks and
+      better load-balance statement distribution.
+
+crates: 
+  - name: polkadot-test-malus
+    bump: minor
+  - name: polkadot-statement-distribution
+    bump: minor

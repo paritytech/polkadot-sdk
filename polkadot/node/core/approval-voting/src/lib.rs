@@ -63,6 +63,12 @@ use sc_keystore::LocalKeystore;
 use sp_application_crypto::Pair;
 use sp_consensus::SyncOracle;
 use sp_consensus_slots::Slot;
+use std::time::Instant;
+
+// The max number of blocks we keep track of assignments gathering times. Normally,
+// this would never be reached because we prune the data on finalization, but we need
+// to also ensure the data is not growing unecessarily large.
+const MAX_BLOCKS_WITH_ASSIGNMENT_TIMESTAMPS: u32 = 100;
 
 use futures::{
 	channel::oneshot,
@@ -182,6 +188,14 @@ struct MetricsInner {
 	time_recover_and_approve: prometheus::Histogram,
 	candidate_signatures_requests_total: prometheus::Counter<prometheus::U64>,
 	unapproved_candidates_in_unfinalized_chain: prometheus::Gauge<prometheus::U64>,
+	// The time it takes in each stage to gather enough assignments.
+	// We defined a `stage` as being the entire process of gathering enough assignments to
+	// be able to approve a candidate:
+	// E.g:
+	// - Stage 0: We wait for the needed_approvals assignments to be gathered.
+	// - Stage 1: We wait for enough tranches to cover all no-shows in stage 0.
+	// - Stage 2: We wait for enough tranches to cover all no-shows  of stage 1.
+	assignments_gathering_time_by_stage: prometheus::HistogramVec,
 }
 
 /// Approval Voting metrics.
@@ -300,6 +314,20 @@ impl Metrics {
 	fn on_unapproved_candidates_in_unfinalized_chain(&self, count: usize) {
 		if let Some(metrics) = &self.0 {
 			metrics.unapproved_candidates_in_unfinalized_chain.set(count as u64);
+		}
+	}
+
+	pub fn observe_assignment_gathering_time(&self, stage: usize, elapsed_as_millis: usize) {
+		if let Some(metrics) = &self.0 {
+			let stage_string = stage.to_string();
+			// We don't want to have too many metrics entries with this label to not put unncessary
+			// pressure on the metrics infrastructure, so we cap the stage at 10, which is
+			// equivalent to having already a finalization lag to 10 * no_show_slots, so it should
+			// be more than enough.
+			metrics
+				.assignments_gathering_time_by_stage
+				.with_label_values(&[if stage < 10 { stage_string.as_str() } else { "inf" }])
+				.observe(elapsed_as_millis as f64);
 		}
 	}
 }
@@ -428,6 +456,17 @@ impl metrics::Metrics for Metrics {
 				prometheus::Gauge::new(
 					"polkadot_parachain_approval_unapproved_candidates_in_unfinalized_chain",
 					"Number of unapproved candidates in unfinalized chain",
+				)?,
+				registry,
+			)?,
+			assignments_gathering_time_by_stage: prometheus::register(
+				prometheus::HistogramVec::new(
+					prometheus::HistogramOpts::new(
+						"polkadot_parachain_assignments_gather_time_by_stage_ms",
+						"The time in ms it takes for each stage to gather enough assignments needed for approval",
+					)
+					.buckets(vec![0.0, 250.0, 500.0, 1000.0, 2000.0, 4000.0, 8000.0, 16000.0, 32000.0]),
+					&["stage"],
 				)?,
 				registry,
 			)?,
@@ -788,6 +827,28 @@ struct State {
 	clock: Box<dyn Clock + Send + Sync>,
 	assignment_criteria: Box<dyn AssignmentCriteria + Send + Sync>,
 	spans: HashMap<Hash, jaeger::PerLeafSpan>,
+	// Per block, candidate records about how long we take until we gather enough
+	// assignments, this is relevant because it gives us a good idea about how many
+	// tranches we trigger and why.
+	per_block_assignments_gathering_times:
+		LruMap<BlockNumber, HashMap<(Hash, CandidateHash), AssignmentGatheringRecord>>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct AssignmentGatheringRecord {
+	// The stage we are in.
+	// Candidate assignment gathering goes in stages, first we wait for needed_approvals(stage 0)
+	// Then if we have no-shows, we move into stage 1 and wait for enough tranches to cover all
+	// no-shows.
+	stage: usize,
+	// The time we started the stage.
+	stage_start: Option<Instant>,
+}
+
+impl Default for AssignmentGatheringRecord {
+	fn default() -> Self {
+		AssignmentGatheringRecord { stage: 0, stage_start: Some(Instant::now()) }
+	}
 }
 
 #[overseer::contextbounds(ApprovalVoting, prefix = self::overseer)]
@@ -893,6 +954,96 @@ impl State {
 			},
 		}
 	}
+
+	fn mark_begining_of_gathering_assignments(
+		&mut self,
+		block_number: BlockNumber,
+		block_hash: Hash,
+		candidate: CandidateHash,
+	) {
+		if let Some(record) = self
+			.per_block_assignments_gathering_times
+			.get_or_insert(block_number, HashMap::new)
+			.and_then(|records| Some(records.entry((block_hash, candidate)).or_default()))
+		{
+			if record.stage_start.is_none() {
+				record.stage += 1;
+				gum::debug!(
+					target: LOG_TARGET,
+					stage = ?record.stage,
+					?block_hash,
+					?candidate,
+					"Started a new assignment gathering stage",
+				);
+				record.stage_start = Some(Instant::now());
+			}
+		}
+	}
+
+	fn mark_gathered_enough_assignments(
+		&mut self,
+		block_number: BlockNumber,
+		block_hash: Hash,
+		candidate: CandidateHash,
+	) -> AssignmentGatheringRecord {
+		let record = self
+			.per_block_assignments_gathering_times
+			.get(&block_number)
+			.and_then(|entry| entry.get_mut(&(block_hash, candidate)));
+		let stage = record.as_ref().map(|record| record.stage).unwrap_or_default();
+		AssignmentGatheringRecord {
+			stage,
+			stage_start: record.and_then(|record| record.stage_start.take()),
+		}
+	}
+
+	fn cleanup_assignments_gathering_timestamp(&mut self, remove_lower_than: BlockNumber) {
+		while let Some((block_number, _)) = self.per_block_assignments_gathering_times.peek_oldest()
+		{
+			if *block_number < remove_lower_than {
+				self.per_block_assignments_gathering_times.pop_oldest();
+			} else {
+				break
+			}
+		}
+	}
+
+	fn observe_assignment_gathering_status(
+		&mut self,
+		metrics: &Metrics,
+		required_tranches: &RequiredTranches,
+		block_hash: Hash,
+		block_number: BlockNumber,
+		candidate_hash: CandidateHash,
+	) {
+		match required_tranches {
+			RequiredTranches::All | RequiredTranches::Pending { .. } => {
+				self.mark_begining_of_gathering_assignments(
+					block_number,
+					block_hash,
+					candidate_hash,
+				);
+			},
+			RequiredTranches::Exact { .. } => {
+				let time_to_gather =
+					self.mark_gathered_enough_assignments(block_number, block_hash, candidate_hash);
+				if let Some(gathering_started) = time_to_gather.stage_start {
+					if gathering_started.elapsed().as_millis() > 6000 {
+						gum::trace!(
+							target: LOG_TARGET,
+							?block_hash,
+							?candidate_hash,
+							"Long assignment gathering time",
+						);
+					}
+					metrics.observe_assignment_gathering_time(
+						time_to_gather.stage,
+						gathering_started.elapsed().as_millis() as usize,
+					)
+				}
+			},
+		}
+	}
 }
 
 #[derive(Debug, Clone)]
@@ -914,6 +1065,7 @@ enum Action {
 		candidate: CandidateReceipt,
 		backing_group: GroupIndex,
 		distribute_assignment: bool,
+		core_index: Option<CoreIndex>,
 	},
 	NoteApprovedInChainSelection(Hash),
 	IssueApproval(CandidateHash, ApprovalVoteRequest),
@@ -941,6 +1093,9 @@ where
 		clock: subsystem.clock,
 		assignment_criteria,
 		spans: HashMap::new(),
+		per_block_assignments_gathering_times: LruMap::new(ByLength::new(
+			MAX_BLOCKS_WITH_ASSIGNMENT_TIMESTAMPS,
+		)),
 	};
 
 	// `None` on start-up. Gets initialized/updated on leaf update
@@ -972,12 +1127,13 @@ where
 				subsystem.metrics.on_wakeup();
 				process_wakeup(
 					&mut ctx,
-					&state,
+					&mut state,
 					&mut overlayed_db,
 					&mut session_info_provider,
 					woken_block,
 					woken_candidate,
 					&subsystem.metrics,
+					&wakeups,
 				).await?
 			}
 			next_msg = ctx.recv().fuse() => {
@@ -1152,6 +1308,7 @@ async fn handle_actions<Context>(
 					candidate_hash,
 					delayed_approvals_timers,
 					approval_request,
+					&wakeups,
 				)
 				.await?
 				.into_iter()
@@ -1172,6 +1329,7 @@ async fn handle_actions<Context>(
 				candidate,
 				backing_group,
 				distribute_assignment,
+				core_index,
 			} => {
 				// Don't launch approval work if the node is syncing.
 				if let Mode::Syncing(_) = *mode {
@@ -1228,6 +1386,7 @@ async fn handle_actions<Context>(
 										block_hash,
 										backing_group,
 										executor_params,
+										core_index,
 										&launch_approval_span,
 									)
 									.await
@@ -1465,6 +1624,7 @@ async fn distribution_messages_for_activation<Context>(
 											candidate: candidate_entry.candidate_receipt().clone(),
 											backing_group: approval_entry.backing_group(),
 											distribute_assignment: false,
+											core_index: Some(*core_index),
 										});
 									}
 								},
@@ -1626,6 +1786,7 @@ async fn handle_from_overseer<Context>(
 			// `prune_finalized_wakeups` prunes all finalized block hashes. We prune spans
 			// accordingly.
 			wakeups.prune_finalized_wakeups(block_number, &mut state.spans);
+			state.cleanup_assignments_gathering_timestamp(block_number);
 
 			// // `prune_finalized_wakeups` prunes all finalized block hashes. We prune spans
 			// accordingly. let hash_set =
@@ -1663,6 +1824,7 @@ async fn handle_from_overseer<Context>(
 					|r| {
 						let _ = res.send(r);
 					},
+					&wakeups,
 				)
 				.await?
 				.0,
@@ -2471,12 +2633,13 @@ where
 
 async fn check_and_import_approval<T, Sender>(
 	sender: &mut Sender,
-	state: &State,
+	state: &mut State,
 	db: &mut OverlayedBackend<'_, impl Backend>,
 	session_info_provider: &mut RuntimeInfo,
 	metrics: &Metrics,
 	approval: IndirectSignedApprovalVoteV2,
 	with_response: impl FnOnce(ApprovalCheckResult) -> T,
+	wakeups: &Wakeups,
 ) -> SubsystemResult<(Vec<Action>, T)>
 where
 	Sender: SubsystemSender<RuntimeApiMessage>,
@@ -2655,6 +2818,7 @@ where
 			approved_candidate_hash,
 			candidate_entry,
 			ApprovalStateTransition::RemoteApproval(approval.validator),
+			wakeups,
 		)
 		.await;
 		actions.extend(new_actions);
@@ -2689,6 +2853,10 @@ impl ApprovalStateTransition {
 			ApprovalStateTransition::WakeupProcessed => false,
 		}
 	}
+
+	fn is_remote_approval(&self) -> bool {
+		matches!(*self, ApprovalStateTransition::RemoteApproval(_))
+	}
 }
 
 // Advance the approval state, either by importing an approval vote which is already checked to be
@@ -2697,7 +2865,7 @@ impl ApprovalStateTransition {
 // as necessary and schedules any further wakeups.
 async fn advance_approval_state<Sender>(
 	sender: &mut Sender,
-	state: &State,
+	state: &mut State,
 	db: &mut OverlayedBackend<'_, impl Backend>,
 	session_info_provider: &mut RuntimeInfo,
 	metrics: &Metrics,
@@ -2705,6 +2873,7 @@ async fn advance_approval_state<Sender>(
 	candidate_hash: CandidateHash,
 	mut candidate_entry: CandidateEntry,
 	transition: ApprovalStateTransition,
+	wakeups: &Wakeups,
 ) -> Vec<Action>
 where
 	Sender: SubsystemSender<RuntimeApiMessage>,
@@ -2746,6 +2915,13 @@ where
 			&candidate_entry,
 			approval_entry,
 			status.required_tranches.clone(),
+		);
+		state.observe_assignment_gathering_status(
+			&metrics,
+			&status.required_tranches,
+			block_hash,
+			block_entry.block_number(),
+			candidate_hash,
 		);
 
 		// Check whether this is approved, while allowing a maximum
@@ -2835,6 +3011,43 @@ where
 			status.required_tranches,
 		));
 
+		if is_approved && transition.is_remote_approval() {
+			// Make sure we wake other blocks in case they have
+			// a no-show that might be covered by this approval.
+			for (fork_block_hash, fork_approval_entry) in candidate_entry
+				.block_assignments
+				.iter()
+				.filter(|(hash, _)| **hash != block_hash)
+			{
+				let assigned_on_fork_block = validator_index
+					.as_ref()
+					.map(|validator_index| fork_approval_entry.is_assigned(*validator_index))
+					.unwrap_or_default();
+				if wakeups.wakeup_for(*fork_block_hash, candidate_hash).is_none() &&
+					!fork_approval_entry.is_approved() &&
+					assigned_on_fork_block
+				{
+					let fork_block_entry = db.load_block_entry(fork_block_hash);
+					if let Ok(Some(fork_block_entry)) = fork_block_entry {
+						actions.push(Action::ScheduleWakeup {
+							block_hash: *fork_block_hash,
+							block_number: fork_block_entry.block_number(),
+							candidate_hash,
+							// Schedule the wakeup next tick, since the assignment must be a
+							// no-show, because there is no-wakeup scheduled.
+							tick: tick_now + 1,
+						})
+					} else {
+						gum::debug!(
+							target: LOG_TARGET,
+							?fork_block_entry,
+							?fork_block_hash,
+							"Failed to load block entry"
+						)
+					}
+				}
+			}
+		}
 		// We have no need to write the candidate entry if all of the following
 		// is true:
 		//
@@ -2890,12 +3103,13 @@ fn should_trigger_assignment(
 #[overseer::contextbounds(ApprovalVoting, prefix = self::overseer)]
 async fn process_wakeup<Context>(
 	ctx: &mut Context,
-	state: &State,
+	state: &mut State,
 	db: &mut OverlayedBackend<'_, impl Backend>,
 	session_info_provider: &mut RuntimeInfo,
 	relay_block: Hash,
 	candidate_hash: CandidateHash,
 	metrics: &Metrics,
+	wakeups: &Wakeups,
 ) -> SubsystemResult<Vec<Action>> {
 	let mut span = state
 		.spans
@@ -3002,6 +3216,11 @@ async fn process_wakeup<Context>(
 			"Launching approval work.",
 		);
 
+		let candidate_core_index = block_entry
+			.candidates()
+			.iter()
+			.find_map(|(core_index, h)| (h == &candidate_hash).then_some(*core_index));
+
 		if let Some(claimed_core_indices) =
 			get_assignment_core_indices(&indirect_cert.cert.kind, &candidate_hash, &block_entry)
 		{
@@ -3014,7 +3233,6 @@ async fn process_wakeup<Context>(
 						true
 					};
 					db.write_block_entry(block_entry.clone());
-
 					actions.push(Action::LaunchApproval {
 						claimed_candidate_indices,
 						candidate_hash,
@@ -3026,10 +3244,12 @@ async fn process_wakeup<Context>(
 						candidate: candidate_receipt,
 						backing_group,
 						distribute_assignment,
+						core_index: candidate_core_index,
 					});
 				},
 				Err(err) => {
-					// Never happens, it should only happen if no cores are claimed, which is a bug.
+					// Never happens, it should only happen if no cores are claimed, which is a
+					// bug.
 					gum::warn!(
 						target: LOG_TARGET,
 						block_hash = ?relay_block,
@@ -3064,6 +3284,7 @@ async fn process_wakeup<Context>(
 			candidate_hash,
 			candidate_entry,
 			ApprovalStateTransition::WakeupProcessed,
+			wakeups,
 		)
 		.await,
 	);
@@ -3084,6 +3305,7 @@ async fn launch_approval<Context>(
 	block_hash: Hash,
 	backing_group: GroupIndex,
 	executor_params: ExecutorParams,
+	core_index: Option<CoreIndex>,
 	span: &jaeger::Span,
 ) -> SubsystemResult<RemoteHandle<ApprovalState>> {
 	let (a_tx, a_rx) = oneshot::channel();
@@ -3130,6 +3352,7 @@ async fn launch_approval<Context>(
 		candidate.clone(),
 		session_index,
 		Some(backing_group),
+		core_index,
 		a_tx,
 	))
 	.await;
@@ -3294,6 +3517,7 @@ async fn issue_approval<Context>(
 	candidate_hash: CandidateHash,
 	delayed_approvals_timers: &mut DelayedApprovalTimer,
 	ApprovalVoteRequest { validator_index, block_hash }: ApprovalVoteRequest,
+	wakeups: &Wakeups,
 ) -> SubsystemResult<Vec<Action>> {
 	let mut issue_approval_span = state
 		.spans
@@ -3415,6 +3639,7 @@ async fn issue_approval<Context>(
 		candidate_hash,
 		candidate_entry,
 		ApprovalStateTransition::LocalApproval(validator_index as _),
+		wakeups,
 	)
 	.await;
 

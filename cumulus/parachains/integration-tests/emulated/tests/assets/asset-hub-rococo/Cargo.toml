@@ -11,7 +11,7 @@ publish = false
 workspace = true
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.4.0", default-features = false }
+codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false }
 assert_matches = "1.5.0"
 
 # Substrate
@@ -21,15 +21,20 @@ pallet-balances = { path = "../../../../../../../substrate/frame/balances", defa
 pallet-assets = { path = "../../../../../../../substrate/frame/assets", default-features = false }
 pallet-asset-conversion = { path = "../../../../../../../substrate/frame/asset-conversion", default-features = false }
 pallet-message-queue = { path = "../../../../../../../substrate/frame/message-queue", default-features = false }
+pallet-treasury = { path = "../../../../../../../substrate/frame/treasury", default-features = false }
+pallet-utility = { path = "../../../../../../../substrate/frame/utility", default-features = false }
 
 # Polkadot
 xcm = { package = "staging-xcm", path = "../../../../../../../polkadot/xcm", default-features = false }
 pallet-xcm = { path = "../../../../../../../polkadot/xcm/pallet-xcm", default-features = false }
 xcm-executor = { package = "staging-xcm-executor", path = "../../../../../../../polkadot/xcm/xcm-executor", default-features = false }
 rococo-runtime = { path = "../../../../../../../polkadot/runtime/rococo" }
+polkadot-runtime-common = { path = "../../../../../../../polkadot/runtime/common" }
+rococo-runtime-constants = { path = "../../../../../../../polkadot/runtime/rococo/constants" }
 
 # Cumulus
 asset-test-utils = { path = "../../../../../runtimes/assets/test-utils" }
+cumulus-pallet-parachain-system = { path = "../../../../../../pallets/parachain-system", default-features = false }
 parachains-common = { path = "../../../../../common" }
 asset-hub-rococo-runtime = { path = "../../../../../runtimes/assets/asset-hub-rococo" }
 penpal-runtime = { path = "../../../../../runtimes/testing/penpal" }

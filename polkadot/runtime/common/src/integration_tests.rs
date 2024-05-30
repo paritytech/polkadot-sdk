@@ -39,7 +39,7 @@ use primitives::{
 	MAX_CODE_SIZE,
 };
 use runtime_parachains::{
-	configuration, origin, paras, shared, Origin as ParaOrigin, ParaLifecycle,
+	configuration, dmp, origin, paras, shared, Origin as ParaOrigin, ParaLifecycle,
 };
 use sp_core::H256;
 use sp_io::TestExternalities;
@@ -84,6 +84,7 @@ frame_support::construct_runtime!(
 		Paras: paras,
 		ParasShared: shared,
 		ParachainsOrigin: origin,
+		Dmp: dmp,
 
 		// Para Onboarding Pallets
 		Registrar: paras_registrar,
@@ -108,7 +109,6 @@ where
 use crate::{auctions::Error as AuctionsError, crowdloan::Error as CrowdloanError};
 
 parameter_types! {
-	pub const BlockHashCount: u32 = 250;
 	pub BlockWeights: frame_system::limits::BlockWeights =
 		frame_system::limits::BlockWeights::simple_max(
 			Weight::from_parts(4 * 1024 * 1024, u64::MAX),
@@ -130,7 +130,6 @@ impl frame_system::Config for Test {
 	type Lookup = IdentityLookup<AccountId>;
 	type Block = Block;
 	type RuntimeEvent = RuntimeEvent;
-	type BlockHashCount = BlockHashCount;
 	type Version = ();
 	type PalletInfo = PalletInfo;
 	type AccountData = pallet_balances::AccountData<Balance>;
@@ -200,6 +199,8 @@ impl configuration::Config for Test {
 impl shared::Config for Test {
 	type DisabledValidators = ();
 }
+
+impl dmp::Config for Test {}
 
 impl origin::Config for Test {}
 

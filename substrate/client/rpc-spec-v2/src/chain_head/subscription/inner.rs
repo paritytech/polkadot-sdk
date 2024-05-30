@@ -186,7 +186,7 @@ impl OperationState {
 	/// Stops the operation if `waitingForContinue` event was emitted for the associated
 	/// operation ID.
 	///
-	/// Returns nothing in accordance with `chainHead_unstable_stopOperation`.
+	/// Returns nothing in accordance with `chainHead_v1_stopOperation`.
 	pub fn stop_operation(&self) {
 		// `waitingForContinue` not generated.
 		if !self.shared_state.requested_continue.load(std::sync::atomic::Ordering::Acquire) {
@@ -864,7 +864,7 @@ mod tests {
 		Arc<Client<sc_client_api::in_mem::Backend<Block>>>,
 	) {
 		let backend = Arc::new(sc_client_api::in_mem::Backend::new());
-		let executor = substrate_test_runtime_client::new_native_or_wasm_executor();
+		let executor = substrate_test_runtime_client::WasmExecutor::default();
 		let client_config = sc_service::ClientConfig::default();
 		let genesis_block_builder = sc_service::GenesisBlockBuilder::new(
 			&substrate_test_runtime_client::GenesisParameters::default().genesis_storage(),

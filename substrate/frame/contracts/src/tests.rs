@@ -15,19 +15,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-mod builder;
 mod pallet_dummy;
 mod test_debug;
 
 use self::{
 	test_debug::TestDebug,
-	test_utils::{ensure_stored, expected_deposit, hash},
+	test_utils::{ensure_stored, expected_deposit},
 };
 use crate::{
 	self as pallet_contracts,
 	chain_extension::{
 		ChainExtension, Environment, Ext, InitState, RegisteredChainExtension,
-		Result as ExtensionResult, RetVal, ReturnFlags, SysConfig,
+		Result as ExtensionResult, RetVal, ReturnFlags,
 	},
 	exec::{Frame, Key},
 	migration::codegen::LATEST_MIGRATION_VERSION,
@@ -64,7 +63,7 @@ use sp_io::hashing::blake2_256;
 use sp_keystore::{testing::MemoryKeystore, KeystoreExt};
 use sp_runtime::{
 	testing::H256,
-	traits::{BlakeTwo256, Convert, Hash, IdentityLookup},
+	traits::{BlakeTwo256, Convert, IdentityLookup},
 	AccountId32, BuildStorage, DispatchError, Perbill, TokenError,
 };
 
@@ -98,8 +97,7 @@ macro_rules! assert_refcount {
 }
 
 pub mod test_utils {
-
-	use super::{Contracts, DepositPerByte, DepositPerItem, Hash, SysConfig, Test};
+	use super::{Contracts, DepositPerByte, DepositPerItem, Test};
 	use crate::{
 		exec::AccountIdOf, BalanceOf, CodeHash, CodeInfo, CodeInfoOf, Config, ContractInfo,
 		ContractInfoOf, Nonce, PristineCode,
@@ -147,9 +145,6 @@ pub mod test_utils {
 			.saturating_mul(info_size)
 			.saturating_add(DepositPerItem::get())
 	}
-	pub fn hash<S: Encode>(s: &S) -> <<Test as SysConfig>::Hashing as Hash>::Output {
-		<<Test as SysConfig>::Hashing as Hash>::hash_of(s)
-	}
 	pub fn expected_deposit(code_len: usize) -> u64 {
 		// For code_info, the deposit for max_encoded_len is taken.
 		let code_info_len = CodeInfo::<Test>::max_encoded_len() as u64;
@@ -163,6 +158,38 @@ pub mod test_utils {
 		assert!(CodeInfoOf::<Test>::contains_key(&code_hash));
 		// Assert that contract code is stored, and get its size.
 		PristineCode::<Test>::try_get(&code_hash).unwrap().len()
+	}
+}
+
+mod builder {
+	use super::Test;
+	use crate::{
+		test_utils::{builder::*, AccountId32, ALICE},
+		tests::RuntimeOrigin,
+		AccountIdLookupOf, Code, CodeHash,
+	};
+
+	pub fn bare_instantiate(code: Code<CodeHash<Test>>) -> BareInstantiateBuilder<Test> {
+		BareInstantiateBuilder::<Test>::bare_instantiate(ALICE, code)
+	}
+
+	pub fn bare_call(dest: AccountId32) -> BareCallBuilder<Test> {
+		BareCallBuilder::<Test>::bare_call(ALICE, dest)
+	}
+
+	pub fn instantiate_with_code(code: Vec<u8>) -> InstantiateWithCodeBuilder<Test> {
+		InstantiateWithCodeBuilder::<Test>::instantiate_with_code(
+			RuntimeOrigin::signed(ALICE),
+			code,
+		)
+	}
+
+	pub fn instantiate(code_hash: CodeHash<Test>) -> InstantiateBuilder<Test> {
+		InstantiateBuilder::<Test>::instantiate(RuntimeOrigin::signed(ALICE), code_hash)
+	}
+
+	pub fn call(dest: AccountIdLookupOf<Test>) -> CallBuilder<Test> {
+		CallBuilder::<Test>::call(RuntimeOrigin::signed(ALICE), dest)
 	}
 }
 
@@ -334,34 +361,24 @@ parameter_types! {
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
+	type Block = Block;
 	type AccountId = AccountId32;
 	type Lookup = IdentityLookup<Self::AccountId>;
-	type Block = Block;
 	type AccountData = pallet_balances::AccountData<u64>;
 }
+
 impl pallet_insecure_randomness_collective_flip::Config for Test {}
+
+#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Test {
-	type MaxLocks = ();
-	type MaxReserves = ();
-	type ReserveIdentifier = [u8; 8];
-	type Balance = u64;
-	type RuntimeEvent = RuntimeEvent;
-	type DustRemoval = ();
 	type ExistentialDeposit = ExistentialDeposit;
+	type ReserveIdentifier = [u8; 8];
 	type AccountStore = System;
-	type WeightInfo = ();
-	type FreezeIdentifier = ();
-	type MaxFreezes = ();
-	type RuntimeHoldReason = RuntimeHoldReason;
-	type RuntimeFreezeReason = RuntimeFreezeReason;
 }
 
-impl pallet_timestamp::Config for Test {
-	type Moment = u64;
-	type OnTimestampSet = ();
-	type MinimumPeriod = ConstU64<1>;
-	type WeightInfo = ();
-}
+#[derive_impl(pallet_timestamp::config_preludes::TestDefaultConfig)]
+impl pallet_timestamp::Config for Test {}
+
 impl pallet_utility::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type RuntimeCall = RuntimeCall;
@@ -467,16 +484,13 @@ parameter_types! {
 	pub static UnstableInterface: bool = true;
 }
 
+#[derive_impl(crate::config_preludes::TestDefaultConfig)]
 impl Config for Test {
 	type Time = Timestamp;
 	type Randomness = Randomness;
 	type Currency = Balances;
-	type RuntimeEvent = RuntimeEvent;
-	type RuntimeCall = RuntimeCall;
 	type CallFilter = TestFilter;
 	type CallStack = [Frame<Self>; 5];
-	type WeightPrice = Self;
-	type WeightInfo = ();
 	type ChainExtension =
 		(TestExtension, DisabledExtension, RevertingExtension, TempStorageExtension);
 	type Schedule = MySchedule;
@@ -484,20 +498,13 @@ impl Config for Test {
 	type DepositPerItem = DepositPerItem;
 	type DefaultDepositLimit = DefaultDepositLimit;
 	type AddressGenerator = DefaultAddressGenerator;
-	type MaxCodeLen = ConstU32<{ 123 * 1024 }>;
-	type MaxStorageKeyLen = ConstU32<128>;
 	type UnsafeUnstableInterface = UnstableInterface;
 	type UploadOrigin = EnsureAccount<Self, UploadAccount>;
 	type InstantiateOrigin = EnsureAccount<Self, InstantiateAccount>;
-	type MaxDebugBufferLen = ConstU32<{ 2 * 1024 * 1024 }>;
-	type RuntimeHoldReason = RuntimeHoldReason;
 	type Migrations = crate::migration::codegen::BenchMigrations;
 	type CodeHashLockupDepositPercent = CodeHashLockupDepositPercent;
 	type MaxDelegateDependencies = MaxDelegateDependencies;
 	type Debug = TestDebug;
-	type Environment = ();
-	type ApiVersion = ();
-	type Xcm = ();
 }
 
 pub const ALICE: AccountId32 = AccountId32::new([1u8; 32]);
@@ -758,7 +765,7 @@ fn instantiate_and_call_and_deposit_event() {
 						deployer: ALICE,
 						contract: addr.clone()
 					}),
-					topics: vec![hash(&ALICE), hash(&addr)],
+					topics: vec![],
 				},
 				EventRecord {
 					phase: Phase::Initialization,
@@ -769,7 +776,7 @@ fn instantiate_and_call_and_deposit_event() {
 							amount: test_utils::contract_info_storage_deposit(&addr),
 						}
 					),
-					topics: vec![hash(&ALICE), hash(&addr)],
+					topics: vec![],
 				},
 			]
 		);
@@ -864,8 +871,7 @@ fn gas_syncs_work() {
 		let result = builder::bare_call(addr.clone()).data(1u32.encode()).build();
 		assert_ok!(result.result);
 		let gas_consumed_once = result.gas_consumed.ref_time();
-		let host_consumed_once =
-			<Test as Config>::Schedule::get().host_fn_weights.caller_is_origin.ref_time();
+		let host_consumed_once = <Test as Config>::WeightInfo::seal_caller_is_origin().ref_time();
 		let engine_consumed_once = gas_consumed_once - host_consumed_once - engine_consumed_noop;
 
 		let result = builder::bare_call(addr).data(2u32.encode()).build();
@@ -1029,7 +1035,7 @@ fn deploy_and_call_other_contract() {
 						deployer: caller_addr.clone(),
 						contract: callee_addr.clone(),
 					}),
-					topics: vec![hash(&caller_addr), hash(&callee_addr)],
+					topics: vec![],
 				},
 				EventRecord {
 					phase: Phase::Initialization,
@@ -1046,10 +1052,7 @@ fn deploy_and_call_other_contract() {
 						caller: Origin::from_account_id(caller_addr.clone()),
 						contract: callee_addr.clone(),
 					}),
-					topics: vec![
-						hash(&Origin::<Test>::from_account_id(caller_addr.clone())),
-						hash(&callee_addr)
-					],
+					topics: vec![],
 				},
 				EventRecord {
 					phase: Phase::Initialization,
@@ -1057,7 +1060,7 @@ fn deploy_and_call_other_contract() {
 						caller: Origin::from_account_id(ALICE),
 						contract: caller_addr.clone(),
 					}),
-					topics: vec![hash(&Origin::<Test>::from_account_id(ALICE)), hash(&caller_addr)],
+					topics: vec![],
 				},
 				EventRecord {
 					phase: Phase::Initialization,
@@ -1068,7 +1071,7 @@ fn deploy_and_call_other_contract() {
 							amount: test_utils::contract_info_storage_deposit(&callee_addr),
 						}
 					),
-					topics: vec![hash(&ALICE), hash(&callee_addr)],
+					topics: vec![],
 				},
 			]
 		);
@@ -1294,7 +1297,7 @@ fn self_destruct_works() {
 						contract: addr.clone(),
 						beneficiary: DJANGO
 					}),
-					topics: vec![hash(&addr), hash(&DJANGO)],
+					topics: vec![],
 				},
 				EventRecord {
 					phase: Phase::Initialization,
@@ -1302,7 +1305,7 @@ fn self_destruct_works() {
 						caller: Origin::from_account_id(ALICE),
 						contract: addr.clone(),
 					}),
-					topics: vec![hash(&Origin::<Test>::from_account_id(ALICE)), hash(&addr)],
+					topics: vec![],
 				},
 				EventRecord {
 					phase: Phase::Initialization,
@@ -1313,7 +1316,7 @@ fn self_destruct_works() {
 							amount: info_deposit,
 						}
 					),
-					topics: vec![hash(&addr), hash(&ALICE)],
+					topics: vec![],
 				},
 				EventRecord {
 					phase: Phase::Initialization,
@@ -2459,14 +2462,7 @@ fn failed_deposit_charge_should_roll_back_call() {
 				transfer_proxy_call,
 			);
 
-			<Pallet<Test>>::call(
-				RuntimeOrigin::signed(ALICE),
-				addr_caller.clone(),
-				0,
-				GAS_LIMIT,
-				None,
-				data.encode(),
-			)
+			builder::call(addr_caller).data(data.encode()).build()
 		})
 	};
 
@@ -2508,7 +2504,7 @@ fn upload_code_works() {
 					deposit_held: deposit_expected,
 					uploader: ALICE
 				}),
-				topics: vec![code_hash],
+				topics: vec![],
 			},]
 		);
 	});
@@ -2596,7 +2592,7 @@ fn remove_code_works() {
 						deposit_held: deposit_expected,
 						uploader: ALICE
 					}),
-					topics: vec![code_hash],
+					topics: vec![],
 				},
 				EventRecord {
 					phase: Phase::Initialization,
@@ -2605,7 +2601,7 @@ fn remove_code_works() {
 						deposit_released: deposit_expected,
 						remover: ALICE
 					}),
-					topics: vec![code_hash],
+					topics: vec![],
 				},
 			]
 		);
@@ -2645,7 +2641,7 @@ fn remove_code_wrong_origin() {
 					deposit_held: deposit_expected,
 					uploader: ALICE
 				}),
-				topics: vec![code_hash],
+				topics: vec![],
 			},]
 		);
 	});
@@ -2724,7 +2720,7 @@ fn instantiate_with_zero_balance_works() {
 						deposit_held: deposit_expected,
 						uploader: ALICE
 					}),
-					topics: vec![code_hash],
+					topics: vec![],
 				},
 				EventRecord {
 					phase: Phase::Initialization,
@@ -2756,7 +2752,7 @@ fn instantiate_with_zero_balance_works() {
 						deployer: ALICE,
 						contract: addr.clone(),
 					}),
-					topics: vec![hash(&ALICE), hash(&addr)],
+					topics: vec![],
 				},
 				EventRecord {
 					phase: Phase::Initialization,
@@ -2767,7 +2763,7 @@ fn instantiate_with_zero_balance_works() {
 							amount: test_utils::contract_info_storage_deposit(&addr),
 						}
 					),
-					topics: vec![hash(&ALICE), hash(&addr)],
+					topics: vec![],
 				},
 			]
 		);
@@ -2809,7 +2805,7 @@ fn instantiate_with_below_existential_deposit_works() {
 						deposit_held: deposit_expected,
 						uploader: ALICE
 					}),
-					topics: vec![code_hash],
+					topics: vec![],
 				},
 				EventRecord {
 					phase: Phase::Initialization,
@@ -2850,7 +2846,7 @@ fn instantiate_with_below_existential_deposit_works() {
 						deployer: ALICE,
 						contract: addr.clone(),
 					}),
-					topics: vec![hash(&ALICE), hash(&addr)],
+					topics: vec![],
 				},
 				EventRecord {
 					phase: Phase::Initialization,
@@ -2861,7 +2857,7 @@ fn instantiate_with_below_existential_deposit_works() {
 							amount: test_utils::contract_info_storage_deposit(&addr),
 						}
 					),
-					topics: vec![hash(&ALICE), hash(&addr)],
+					topics: vec![],
 				},
 			]
 		);
@@ -2922,7 +2918,7 @@ fn storage_deposit_works() {
 						caller: Origin::from_account_id(ALICE),
 						contract: addr.clone(),
 					}),
-					topics: vec![hash(&Origin::<Test>::from_account_id(ALICE)), hash(&addr)],
+					topics: vec![],
 				},
 				EventRecord {
 					phase: Phase::Initialization,
@@ -2933,7 +2929,7 @@ fn storage_deposit_works() {
 							amount: charged0,
 						}
 					),
-					topics: vec![hash(&ALICE), hash(&addr)],
+					topics: vec![],
 				},
 				EventRecord {
 					phase: Phase::Initialization,
@@ -2941,7 +2937,7 @@ fn storage_deposit_works() {
 						caller: Origin::from_account_id(ALICE),
 						contract: addr.clone(),
 					}),
-					topics: vec![hash(&Origin::<Test>::from_account_id(ALICE)), hash(&addr)],
+					topics: vec![],
 				},
 				EventRecord {
 					phase: Phase::Initialization,
@@ -2952,7 +2948,7 @@ fn storage_deposit_works() {
 							amount: charged1,
 						}
 					),
-					topics: vec![hash(&ALICE), hash(&addr)],
+					topics: vec![],
 				},
 				EventRecord {
 					phase: Phase::Initialization,
@@ -2960,7 +2956,7 @@ fn storage_deposit_works() {
 						caller: Origin::from_account_id(ALICE),
 						contract: addr.clone(),
 					}),
-					topics: vec![hash(&Origin::<Test>::from_account_id(ALICE)), hash(&addr)],
+					topics: vec![],
 				},
 				EventRecord {
 					phase: Phase::Initialization,
@@ -2971,7 +2967,7 @@ fn storage_deposit_works() {
 							amount: refunded0,
 						}
 					),
-					topics: vec![hash(&addr.clone()), hash(&ALICE)],
+					topics: vec![],
 				},
 			]
 		);
@@ -3075,7 +3071,7 @@ fn set_code_extrinsic() {
 					new_code_hash,
 					old_code_hash: code_hash,
 				}),
-				topics: vec![hash(&addr), new_code_hash, code_hash],
+				topics: vec![],
 			},]
 		);
 	});
@@ -3227,7 +3223,7 @@ fn set_code_hash() {
 						new_code_hash,
 						old_code_hash: code_hash,
 					}),
-					topics: vec![hash(&contract_addr), new_code_hash, code_hash],
+					topics: vec![],
 				},
 				EventRecord {
 					phase: Phase::Initialization,
@@ -3235,10 +3231,7 @@ fn set_code_hash() {
 						caller: Origin::from_account_id(ALICE),
 						contract: contract_addr.clone(),
 					}),
-					topics: vec![
-						hash(&Origin::<Test>::from_account_id(ALICE)),
-						hash(&contract_addr)
-					],
+					topics: vec![],
 				},
 				EventRecord {
 					phase: Phase::Initialization,
@@ -3246,10 +3239,7 @@ fn set_code_hash() {
 						caller: Origin::from_account_id(ALICE),
 						contract: contract_addr.clone(),
 					}),
-					topics: vec![
-						hash(&Origin::<Test>::from_account_id(ALICE)),
-						hash(&contract_addr)
-					],
+					topics: vec![],
 				},
 			],
 		);

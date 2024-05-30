@@ -619,7 +619,7 @@ async fn handle_active_leaf(
 
 // Extract all reversion logs from a header in ascending order.
 //
-// Ignores logs with number >= the block header number.
+// Ignores logs with number > the block header number.
 fn extract_reversion_logs(header: &Header) -> Vec<BlockNumber> {
 	let number = header.number;
 	let mut logs = header
@@ -639,14 +639,14 @@ fn extract_reversion_logs(header: &Header) -> Vec<BlockNumber> {
 
 				None
 			},
-			Ok(Some(ConsensusLog::Revert(b))) if b < number => Some(b),
+			Ok(Some(ConsensusLog::Revert(b))) if b <= number => Some(b),
 			Ok(Some(ConsensusLog::Revert(b))) => {
 				gum::warn!(
 					target: LOG_TARGET,
 					revert_target = b,
 					block_number = number,
 					block_hash = ?header.hash(),
-					"Block issued invalid revert digest targeting itself or future"
+					"Block issued invalid revert digest targeting future"
 				);
 
 				None

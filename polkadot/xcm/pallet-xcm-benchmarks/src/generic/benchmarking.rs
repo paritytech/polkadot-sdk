@@ -19,9 +19,9 @@ use crate::{account_and_location, new_executor, EnsureDelivery, XcmCallOf};
 use codec::Encode;
 use frame_benchmarking::{benchmarks, BenchmarkError};
 use frame_support::{dispatch::GetDispatchInfo, traits::fungible::Inspect};
-use sp_std::vec;
+use sp_std::{prelude::*, vec};
 use xcm::{
-	latest::{prelude::*, MaxDispatchErrorLen, MaybeErrorCode, Weight},
+	latest::{prelude::*, MaxDispatchErrorLen, MaybeErrorCode, Weight, MAX_ITEMS_IN_ASSETS},
 	DoubleEncoded,
 };
 use xcm_executor::{
@@ -32,7 +32,6 @@ use xcm_executor::{
 benchmarks! {
 	report_holding {
 		let (sender_account, sender_location) = account_and_location::<T>(1);
-		let holding = T::worst_case_holding(0);
 		let destination = T::valid_destination().map_err(|_| BenchmarkError::Skip)?;
 
 		let (expected_fees_mode, expected_assets_in_holding) = T::DeliveryHelper::ensure_successful_delivery(
@@ -42,13 +41,21 @@ benchmarks! {
 		);
 		let sender_account_balance_before = T::TransactAsset::balance(&sender_account);
 
+		// generate holding and add possible required fees
+		let holding = if let Some(expected_assets_in_holding) = expected_assets_in_holding {
+			let mut holding = T::worst_case_holding(expected_assets_in_holding.len() as u32);
+			for a in expected_assets_in_holding.into_inner() {
+				holding.push(a);
+			}
+			holding
+		} else {
+			T::worst_case_holding(0)
+		};
+
 		let mut executor = new_executor::<T>(sender_location);
 		executor.set_holding(holding.clone().into());
 		if let Some(expected_fees_mode) = expected_fees_mode {
 			executor.set_fees_mode(expected_fees_mode);
-		}
-		if let Some(expected_assets_in_holding) = expected_assets_in_holding {
-			executor.set_holding(expected_assets_in_holding.into());
 		}
 
 		let instruction = Instruction::<XcmCallOf<T>>::ReportHolding {
@@ -57,8 +64,8 @@ benchmarks! {
 				query_id: Default::default(),
 				max_weight: Weight::MAX,
 			},
-			// Worst case is looking through all holdings for every asset explicitly.
-			assets: Definite(holding),
+			// Worst case is looking through all holdings for every asset explicitly - respecting the limit `MAX_ITEMS_IN_ASSETS`.
+			assets: Definite(holding.into_inner().into_iter().take(MAX_ITEMS_IN_ASSETS).collect::<Vec<_>>().into()),
 		};
 
 		let xcm = Xcm(vec![instruction]);
@@ -612,13 +619,18 @@ benchmarks! {
 		let sender_account = T::AccountIdConverter::convert_location(&owner).unwrap();
 		let sender_account_balance_before = T::TransactAsset::balance(&sender_account);
 
+		// generate holding and add possible required fees
+		let mut holding: Assets = asset.clone().into();
+		if let Some(expected_assets_in_holding) = expected_assets_in_holding {
+			for a in expected_assets_in_holding.into_inner() {
+				holding.push(a);
+			}
+		};
+
 		let mut executor = new_executor::<T>(owner);
-		executor.set_holding(asset.clone().into());
+		executor.set_holding(holding.into());
 		if let Some(expected_fees_mode) = expected_fees_mode {
 			executor.set_fees_mode(expected_fees_mode);
-		}
-		if let Some(expected_assets_in_holding) = expected_assets_in_holding {
-			executor.set_holding(expected_assets_in_holding.into());
 		}
 
 		let instruction = Instruction::LockAsset { asset, unlocker };

@@ -11,7 +11,7 @@ workspace = true
 
 [dependencies]
 bounded-collections = { version = "0.2.0", default-features = false }
-codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = ["derive"] }
+codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false, features = ["derive"] }
 scale-info = { version = "2.11.1", default-features = false, features = ["derive"] }
 serde = { optional = true, features = ["derive"], workspace = true, default-features = true }
 log = { workspace = true }
@@ -69,6 +69,7 @@ runtime-benchmarks = [
 	"sp-runtime/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",
+	"xcm-fee-payment-runtime-api/runtime-benchmarks",
 ]
 try-runtime = [
 	"frame-support/try-runtime",

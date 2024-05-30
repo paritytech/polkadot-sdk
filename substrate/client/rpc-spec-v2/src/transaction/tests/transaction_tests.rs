@@ -38,7 +38,7 @@ async fn tx_invalid_bytes() {
 
 	// This should not rely on the tx pool state.
 	let mut sub = tx_api
-		.subscribe_unbounded("transactionWatch_unstable_submitAndWatch", rpc_params![&"0xdeadbeef"])
+		.subscribe_unbounded("transactionWatch_v1_submitAndWatch", rpc_params![&"0xdeadbeef"])
 		.await
 		.unwrap();
 
@@ -56,7 +56,7 @@ async fn tx_in_finalized() {
 	let xt = hex_string(&uxt.encode());
 
 	let mut sub = tx_api
-		.subscribe_unbounded("transactionWatch_unstable_submitAndWatch", rpc_params![&xt])
+		.subscribe_unbounded("transactionWatch_v1_submitAndWatch", rpc_params![&xt])
 		.await
 		.unwrap();
 
@@ -95,7 +95,7 @@ async fn tx_with_pruned_best_block() {
 	let xt = hex_string(&uxt.encode());
 
 	let mut sub = tx_api
-		.subscribe_unbounded("transactionWatch_unstable_submitAndWatch", rpc_params![&xt])
+		.subscribe_unbounded("transactionWatch_v1_submitAndWatch", rpc_params![&xt])
 		.await
 		.unwrap();
 

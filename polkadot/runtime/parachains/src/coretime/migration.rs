@@ -46,7 +46,7 @@ mod v_coretime {
 	#[cfg(feature = "try-runtime")]
 	use sp_std::vec::Vec;
 	use sp_std::{iter, prelude::*, result};
-	use xcm::v4::{send_xcm, Instruction, Junction, Location, SendError, WeightLimit, Xcm};
+	use xcm::prelude::{send_xcm, Instruction, Junction, Location, SendError, WeightLimit, Xcm};
 
 	/// Return information about a legacy lease of a parachain.
 	pub trait GetLegacyLease<N> {
@@ -222,7 +222,7 @@ mod v_coretime {
 				mask: CoreMask::complete(),
 				assignment: CoreAssignment::Task(p.into()),
 			}]);
-			mk_coretime_call(crate::coretime::CoretimeCalls::Reserve(schedule))
+			mk_coretime_call::<T>(crate::coretime::CoretimeCalls::Reserve(schedule))
 		});
 
 		let leases = lease_holding.into_iter().filter_map(|p| {
@@ -243,14 +243,14 @@ mod v_coretime {
 			let round_up = if valid_until % TIME_SLICE_PERIOD > 0 { 1 } else { 0 };
 			let time_slice = valid_until / TIME_SLICE_PERIOD + TIME_SLICE_PERIOD * round_up;
 			log::trace!(target: "coretime-migration", "Sending of lease holding para {:?}, valid_until: {:?}, time_slice: {:?}", p, valid_until, time_slice);
-			Some(mk_coretime_call(crate::coretime::CoretimeCalls::SetLease(p.into(), time_slice)))
+			Some(mk_coretime_call::<T>(crate::coretime::CoretimeCalls::SetLease(p.into(), time_slice)))
 		});
 
 		let core_count: u16 = configuration::ActiveConfig::<T>::get()
 			.scheduler_params
 			.num_cores
 			.saturated_into();
-		let set_core_count = iter::once(mk_coretime_call(
+		let set_core_count = iter::once(mk_coretime_call::<T>(
 			crate::coretime::CoretimeCalls::NotifyCoreCount(core_count),
 		));
 
@@ -261,7 +261,7 @@ mod v_coretime {
 			}]);
 			// Reserved cores will come before lease cores, so cores will change their assignments
 			// when coretime chain sends us their assign_core calls -> Good test.
-			mk_coretime_call(crate::coretime::CoretimeCalls::Reserve(schedule))
+			mk_coretime_call::<T>(crate::coretime::CoretimeCalls::Reserve(schedule))
 		});
 
 		let message_content = iter::once(Instruction::UnpaidExecution {

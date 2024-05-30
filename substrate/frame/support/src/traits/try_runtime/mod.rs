@@ -161,22 +161,31 @@ impl<BlockNumber: Clone + sp_std::fmt::Debug + AtLeast32BitUnsigned> TryState<Bl
 		match targets {
 			Select::None => Ok(()),
 			Select::All => {
-				let mut error_count = 0;
+				let mut errors = Vec::<TryRuntimeError>::new();
+
 				for_tuples!(#(
-					if let Err(_) = Tuple::try_state(n.clone(), targets.clone()) {
-						error_count += 1;
+					if let Err(err) = Tuple::try_state(n.clone(), targets.clone()) {
+						errors.push(err);
 					}
 				)*);
 
-				if error_count > 0 {
+				if !errors.is_empty() {
 					log::error!(
 						target: "try-runtime",
-						"{} pallets exited with errors while executing try_state checks.",
-						error_count
+						"Detected errors while executing `try_state`:",
 					);
 
+					errors.iter().for_each(|err| {
+						log::error!(
+							target: "try-runtime",
+							"{:?}",
+							err
+						);
+					});
+
 					return Err(
-						"Detected errors while executing try_state checks. See logs for more info."
+						"Detected errors while executing `try_state` checks. See logs for more \
+						info."
 							.into(),
 					)
 				}

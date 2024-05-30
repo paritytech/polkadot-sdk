@@ -51,10 +51,8 @@ use std::{
 
 #[derive(Debug)]
 pub(crate) enum Event {
-	EventStream(TracingUnboundedSender<NetworkEvent>),
 	WriteNotification(PeerId, Vec<u8>),
 	Report(PeerId, ReputationChange),
-	Announce(Hash),
 }
 
 #[derive(Clone)]
@@ -146,15 +144,13 @@ impl NetworkEventStream for TestNetwork {
 		&self,
 		_name: &'static str,
 	) -> Pin<Box<dyn Stream<Item = NetworkEvent> + Send>> {
-		let (tx, rx) = tracing_unbounded("test", 100_000);
-		let _ = self.sender.unbounded_send(Event::EventStream(tx));
-		Box::pin(rx)
+		futures::stream::pending().boxed()
 	}
 }
 
 impl NetworkBlock<Hash, NumberFor<Block>> for TestNetwork {
-	fn announce_block(&self, hash: Hash, _data: Option<Vec<u8>>) {
-		let _ = self.sender.unbounded_send(Event::Announce(hash));
+	fn announce_block(&self, _: Hash, _data: Option<Vec<u8>>) {
+		unimplemented!();
 	}
 
 	fn new_best_block_imported(&self, _hash: Hash, _number: NumberFor<Block>) {
@@ -710,25 +706,12 @@ fn peer_with_higher_view_leads_to_catch_up_request() {
 }
 
 fn local_chain_spec() -> Box<dyn sc_chain_spec::ChainSpec> {
-	use sc_chain_spec::{ChainSpec, GenericChainSpec};
-	use serde::{Deserialize, Serialize};
-	use sp_runtime::{BuildStorage, Storage};
-
-	#[derive(Debug, Serialize, Deserialize)]
-	struct Genesis(std::collections::BTreeMap<String, String>);
-	impl BuildStorage for Genesis {
-		fn assimilate_storage(&self, storage: &mut Storage) -> Result<(), String> {
-			storage.top.extend(
-				self.0.iter().map(|(a, b)| (a.clone().into_bytes(), b.clone().into_bytes())),
-			);
-			Ok(())
-		}
-	}
-	let chain_spec = GenericChainSpec::<Genesis>::from_json_bytes(
-		&include_bytes!("../../../../chain-spec/res/chain_spec.json")[..],
-	)
-	.unwrap();
-	chain_spec.cloned_box()
+	let chain_spec =
+		sc_chain_spec::GenericChainSpec::<sc_chain_spec::NoExtension, ()>::from_json_bytes(
+			&include_bytes!("../../../../chain-spec/res/chain_spec.json")[..],
+		)
+		.unwrap();
+	sc_chain_spec::ChainSpec::cloned_box(&chain_spec)
 }
 
 #[test]

@@ -315,56 +315,150 @@ fn allow_subscriptions_from_should_work() {
 	// allow only parent
 	AllowSubsFrom::set(vec![Location::parent()]);
 
-	let valid_xcm_1 = Xcm::<TestCall>(vec![SubscribeVersion {
-		query_id: 42,
-		max_response_weight: Weight::from_parts(5000, 5000),
-	}]);
-	let valid_xcm_2 = Xcm::<TestCall>(vec![UnsubscribeVersion]);
-	let invalid_xcm_1 = Xcm::<TestCall>(vec![
-		SetAppendix(Xcm(vec![])),
-		SubscribeVersion { query_id: 42, max_response_weight: Weight::from_parts(5000, 5000) },
-	]);
-	let invalid_xcm_2 = Xcm::<TestCall>(vec![
-		SubscribeVersion { query_id: 42, max_response_weight: Weight::from_parts(5000, 5000) },
-		SetTopic([0; 32]),
-	]);
-
-	let test_data = vec![
-		(
-			valid_xcm_1.clone(),
-			Parachain(1).into_location(),
-			// not allowed origin
-			Err(ProcessMessageError::Unsupported),
-		),
-		(valid_xcm_1, Location::parent(), Ok(())),
-		(
-			valid_xcm_2.clone(),
-			Parachain(1).into_location(),
-			// not allowed origin
-			Err(ProcessMessageError::Unsupported),
-		),
-		(valid_xcm_2, Location::parent(), Ok(())),
-		(
-			invalid_xcm_1,
-			Location::parent(),
-			// invalid XCM
-			Err(ProcessMessageError::BadFormat),
-		),
-		(
-			invalid_xcm_2,
-			Location::parent(),
-			// invalid XCM
-			Err(ProcessMessageError::BadFormat),
-		),
-	];
-
-	for (mut message, origin, expected_result) in test_data {
-		let r = AllowSubscriptionsFrom::<IsInVec<AllowSubsFrom>>::should_execute(
-			&origin,
-			message.inner_mut(),
-			Weight::from_parts(10, 10),
-			&mut props(Weight::zero()),
+	// closure for (xcm, origin) testing with `AllowSubscriptionsFrom`
+	let assert_should_execute = |mut xcm: Vec<Instruction<()>>, origin, expected_result| {
+		assert_eq!(
+			AllowSubscriptionsFrom::<IsInVec<AllowSubsFrom>>::should_execute(
+				&origin,
+				&mut xcm,
+				Weight::from_parts(10, 10),
+				&mut props(Weight::zero()),
+			),
+			expected_result
 		);
-		assert_eq!(r, expected_result, "Failed for origin: {origin:?} and message: {message:?}");
-	}
+	};
+
+	// invalid origin
+	assert_should_execute(
+		vec![SubscribeVersion {
+			query_id: Default::default(),
+			max_response_weight: Default::default(),
+		}],
+		Parachain(1).into_location(),
+		Err(ProcessMessageError::Unsupported),
+	);
+	assert_should_execute(
+		vec![UnsubscribeVersion],
+		Parachain(1).into_location(),
+		Err(ProcessMessageError::Unsupported),
+	);
+
+	// invalid XCM (unexpected instruction before)
+	assert_should_execute(
+		vec![
+			SetAppendix(Xcm(vec![])),
+			SubscribeVersion {
+				query_id: Default::default(),
+				max_response_weight: Default::default(),
+			},
+		],
+		Location::parent(),
+		Err(ProcessMessageError::BadFormat),
+	);
+	assert_should_execute(
+		vec![SetAppendix(Xcm(vec![])), UnsubscribeVersion],
+		Location::parent(),
+		Err(ProcessMessageError::BadFormat),
+	);
+	// invalid XCM (unexpected instruction after)
+	assert_should_execute(
+		vec![
+			SubscribeVersion {
+				query_id: Default::default(),
+				max_response_weight: Default::default(),
+			},
+			SetTopic([0; 32]),
+		],
+		Location::parent(),
+		Err(ProcessMessageError::BadFormat),
+	);
+	assert_should_execute(
+		vec![UnsubscribeVersion, SetTopic([0; 32])],
+		Location::parent(),
+		Err(ProcessMessageError::BadFormat),
+	);
+	// invalid XCM (unexpected instruction)
+	assert_should_execute(
+		vec![SetAppendix(Xcm(vec![]))],
+		Location::parent(),
+		Err(ProcessMessageError::BadFormat),
+	);
+
+	// ok
+	assert_should_execute(
+		vec![SubscribeVersion {
+			query_id: Default::default(),
+			max_response_weight: Default::default(),
+		}],
+		Location::parent(),
+		Ok(()),
+	);
+	assert_should_execute(vec![UnsubscribeVersion], Location::parent(), Ok(()));
+}
+
+#[test]
+fn allow_hrmp_notifications_from_relay_chain_should_work() {
+	// closure for (xcm, origin) testing with `AllowHrmpNotificationsFromRelayChain`
+	let assert_should_execute = |mut xcm: Vec<Instruction<()>>, origin, expected_result| {
+		assert_eq!(
+			AllowHrmpNotificationsFromRelayChain::should_execute(
+				&origin,
+				&mut xcm,
+				Weight::from_parts(10, 10),
+				&mut props(Weight::zero()),
+			),
+			expected_result
+		);
+	};
+
+	// invalid origin
+	assert_should_execute(
+		vec![HrmpChannelAccepted { recipient: Default::default() }],
+		Location::new(1, [Parachain(1)]),
+		Err(ProcessMessageError::Unsupported),
+	);
+
+	// invalid XCM (unexpected instruction before)
+	assert_should_execute(
+		vec![SetAppendix(Xcm(vec![])), HrmpChannelAccepted { recipient: Default::default() }],
+		Location::parent(),
+		Err(ProcessMessageError::BadFormat),
+	);
+	// invalid XCM (unexpected instruction after)
+	assert_should_execute(
+		vec![HrmpChannelAccepted { recipient: Default::default() }, SetTopic([0; 32])],
+		Location::parent(),
+		Err(ProcessMessageError::BadFormat),
+	);
+	// invalid XCM (unexpected instruction)
+	assert_should_execute(
+		vec![SetAppendix(Xcm(vec![]))],
+		Location::parent(),
+		Err(ProcessMessageError::BadFormat),
+	);
+
+	// ok
+	assert_should_execute(
+		vec![HrmpChannelAccepted { recipient: Default::default() }],
+		Location::parent(),
+		Ok(()),
+	);
+	assert_should_execute(
+		vec![HrmpNewChannelOpenRequest {
+			max_capacity: Default::default(),
+			sender: Default::default(),
+			max_message_size: Default::default(),
+		}],
+		Location::parent(),
+		Ok(()),
+	);
+	assert_should_execute(
+		vec![HrmpChannelClosing {
+			recipient: Default::default(),
+			sender: Default::default(),
+			initiator: Default::default(),
+		}],
+		Location::parent(),
+		Ok(()),
+	);
 }

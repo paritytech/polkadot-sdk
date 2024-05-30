@@ -103,6 +103,7 @@ members = [
 	"cumulus/parachains/integration-tests/emulated/tests/assets/asset-hub-westend",
 	"cumulus/parachains/integration-tests/emulated/tests/bridges/bridge-hub-rococo",
 	"cumulus/parachains/integration-tests/emulated/tests/bridges/bridge-hub-westend",
+	"cumulus/parachains/integration-tests/emulated/tests/collectives/collectives-westend",
 	"cumulus/parachains/integration-tests/emulated/tests/people/people-rococo",
 	"cumulus/parachains/integration-tests/emulated/tests/people/people-westend",
 	"cumulus/parachains/pallets/collective-content",
@@ -217,6 +218,7 @@ members = [
 	"polkadot/utils/generate-bags",
 	"polkadot/utils/remote-ext-tests/bags-list",
 	"polkadot/xcm",
+	"polkadot/xcm/docs",
 	"polkadot/xcm/pallet-xcm",
 	"polkadot/xcm/pallet-xcm-benchmarks",
 	"polkadot/xcm/procedural",
@@ -300,6 +302,7 @@ members = [
 	"substrate/frame",
 	"substrate/frame/alliance",
 	"substrate/frame/asset-conversion",
+	"substrate/frame/asset-conversion/ops",
 	"substrate/frame/asset-rate",
 	"substrate/frame/assets",
 	"substrate/frame/atomic-swap",
@@ -326,6 +329,7 @@ members = [
 	"substrate/frame/contracts/uapi",
 	"substrate/frame/conviction-voting",
 	"substrate/frame/core-fellowship",
+	"substrate/frame/delegated-staking",
 	"substrate/frame/democracy",
 	"substrate/frame/election-provider-multi-phase",
 	"substrate/frame/election-provider-multi-phase/test-staking-e2e",
@@ -357,6 +361,7 @@ members = [
 	"substrate/frame/membership",
 	"substrate/frame/merkle-mountain-range",
 	"substrate/frame/message-queue",
+	"substrate/frame/metadata-hash-extension",
 	"substrate/frame/migrations",
 	"substrate/frame/mixnet",
 	"substrate/frame/multisig",
@@ -369,7 +374,8 @@ members = [
 	"substrate/frame/nomination-pools/benchmarking",
 	"substrate/frame/nomination-pools/fuzzer",
 	"substrate/frame/nomination-pools/runtime-api",
-	"substrate/frame/nomination-pools/test-staking",
+	"substrate/frame/nomination-pools/test-delegate-stake",
+	"substrate/frame/nomination-pools/test-transfer-stake",
 	"substrate/frame/offences",
 	"substrate/frame/offences/benchmarking",
 	"substrate/frame/paged-list",
@@ -498,7 +504,6 @@ members = [
 	"substrate/utils/build-script-utils",
 	"substrate/utils/fork-tree",
 	"substrate/utils/frame/benchmarking-cli",
-	"substrate/utils/frame/frame-utilities-cli",
 	"substrate/utils/frame/generate-bags",
 	"substrate/utils/frame/generate-bags/node-runtime",
 	"substrate/utils/frame/omni-bencher",
@@ -507,24 +512,26 @@ members = [
 	"substrate/utils/frame/rpc/state-trie-migration-rpc",
 	"substrate/utils/frame/rpc/support",
 	"substrate/utils/frame/rpc/system",
-	"substrate/utils/frame/try-runtime/cli",
 	"substrate/utils/prometheus",
 	"substrate/utils/substrate-bip39",
 	"substrate/utils/wasm-builder",
-
+	"templates/minimal",
 	"templates/minimal/node",
 	"templates/minimal/pallets/template",
 	"templates/minimal/runtime",
-
-	"templates/solochain/node",
-	"templates/solochain/pallets/template",
-	"templates/solochain/runtime",
-
 	"templates/parachain/node",
 	"templates/parachain/pallets/template",
 	"templates/parachain/runtime",
+	"templates/solochain/node",
+	"templates/solochain/pallets/template",
+	"templates/solochain/runtime",
+	"umbrella",
 ]
-default-members = ["polkadot", "substrate/bin/node/cli"]
+
+default-members = [
+	"polkadot",
+	"substrate/bin/node/cli",
+]
 
 [workspace.lints.rust]
 suspicious_double_ref_op = { level = "allow", priority = 2 }

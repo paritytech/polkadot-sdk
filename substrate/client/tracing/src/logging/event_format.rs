@@ -23,10 +23,8 @@ use std::fmt::{self, Write};
 use tracing::{Event, Level, Subscriber};
 use tracing_log::NormalizeEvent;
 use tracing_subscriber::{
-	field::RecordFields,
 	fmt::{format, time::FormatTime, FmtContext, FormatEvent, FormatFields},
-	layer::Context,
-	registry::{LookupSpan, SpanRef},
+	registry::LookupSpan,
 };
 
 /// A pre-configured event formatter.
@@ -54,7 +52,7 @@ where
 	//       https://github.com/tokio-rs/tracing/blob/2f59b32/tracing-subscriber/src/fmt/format/mod.rs#L449
 	pub(crate) fn format_event_custom<'b, 'w, S, N>(
 		&self,
-		ctx: CustomFmtContext<'b, S, N>,
+		ctx: &FmtContext<'b, S, N>,
 		writer: format::Writer<'w>,
 		event: &Event,
 	) -> fmt::Result
@@ -68,7 +66,7 @@ where
 		time::write(&self.timer, &mut format::Writer::new(&mut writer), self.enable_color)?;
 
 		if self.display_level {
-			let fmt_level = { FmtLevel::new(meta.level(), self.enable_color) };
+			let fmt_level = FmtLevel::new(meta.level(), self.enable_color);
 			write!(writer, "{} ", fmt_level)?;
 		}
 
@@ -137,12 +135,12 @@ where
 		{
 			let mut out = String::new();
 			let buf_writer = format::Writer::new(&mut out);
-			self.format_event_custom(CustomFmtContext::FmtContext(ctx), buf_writer, event)?;
+			self.format_event_custom(ctx, buf_writer, event)?;
 			writer.write_str(&out)?;
 			print!("{}", out);
 			Ok(())
 		} else {
-			self.format_event_custom(CustomFmtContext::FmtContext(ctx), writer, event)
+			self.format_event_custom(ctx, writer, event)
 		}
 	}
 }
@@ -258,48 +256,6 @@ mod time {
 		}
 		writer.write_char(' ')?;
 		Ok(())
-	}
-}
-
-// NOTE: `FmtContext`'s fields are private. This enum allows us to make a `format_event` function
-//       that works with `FmtContext` or `Context` with `FormatFields`
-#[allow(dead_code)]
-pub(crate) enum CustomFmtContext<'a, S, N> {
-	FmtContext(&'a FmtContext<'a, S, N>),
-	ContextWithFormatFields(&'a Context<'a, S>, &'a N),
-}
-
-impl<'a, S, N> FormatFields<'a> for CustomFmtContext<'a, S, N>
-where
-	S: Subscriber + for<'lookup> LookupSpan<'lookup>,
-	N: for<'writer> FormatFields<'writer> + 'static,
-{
-	fn format_fields<R: RecordFields>(&self, writer: format::Writer<'_>, fields: R) -> fmt::Result {
-		match self {
-			CustomFmtContext::FmtContext(fmt_ctx) => fmt_ctx.format_fields(writer, fields),
-			CustomFmtContext::ContextWithFormatFields(_ctx, fmt_fields) =>
-				fmt_fields.format_fields(writer, fields),
-		}
-	}
-}
-
-// NOTE: the following code has been duplicated from tracing-subscriber
-//
-//       https://github.com/tokio-rs/tracing/blob/2f59b32/tracing-subscriber/src/fmt/fmt_layer.rs#L788
-impl<'a, S, N> CustomFmtContext<'a, S, N>
-where
-	S: Subscriber + for<'lookup> LookupSpan<'lookup>,
-	N: for<'writer> FormatFields<'writer> + 'static,
-{
-	#[inline]
-	pub fn lookup_current(&self) -> Option<SpanRef<'_, S>>
-	where
-		S: for<'lookup> LookupSpan<'lookup>,
-	{
-		match self {
-			CustomFmtContext::FmtContext(fmt_ctx) => fmt_ctx.lookup_current(),
-			CustomFmtContext::ContextWithFormatFields(ctx, _) => ctx.lookup_current(),
-		}
 	}
 }
 

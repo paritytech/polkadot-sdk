@@ -52,7 +52,6 @@ frame_support::construct_runtime!(
 );
 
 parameter_types! {
-	pub const BlockHashCount: u64 = 250;
 	pub const SS58Prefix: u8 = 42;
 }
 
@@ -73,7 +72,6 @@ impl frame_system::Config for Test {
 	type Lookup = IdentityLookup<Self::AccountId>;
 	type Block = Block;
 	type RuntimeEvent = RuntimeEvent;
-	type BlockHashCount = BlockHashCount;
 	type Version = ();
 	type PalletInfo = PalletInfo;
 	type AccountData = pallet_balances::AccountData<u64>;
@@ -178,6 +176,7 @@ impl xcm_executor::Config for XcmConfig {
 	type HrmpNewChannelOpenRequestHandler = ();
 	type HrmpChannelAcceptedHandler = ();
 	type HrmpChannelClosingHandler = ();
+	type XcmRecorder = ();
 }
 
 pub type XcmRouter = (
@@ -276,7 +275,11 @@ impl Config for Test {
 	type ChannelInfo = MockedChannelInfo;
 	type VersionWrapper = ();
 	type XcmpQueue = EnqueueToLocalStorage<Pallet<Test>>;
-	type MaxInboundSuspended = sp_core::ConstU32<1_000>;
+	type MaxInboundSuspended = ConstU32<1_000>;
+	type MaxActiveOutboundChannels = ConstU32<128>;
+	// Most on-chain HRMP channels are configured to use 102400 bytes of max message size, so we
+	// need to set the page size larger than that until we reduce the channel size on-chain.
+	type MaxPageSize = ConstU32<{ 103 * 1024 }>;
 	type ControllerOrigin = EnsureRoot<AccountId>;
 	type ControllerOriginConverter = SystemParachainAsSuperuser<RuntimeOrigin>;
 	type WeightInfo = ();
@@ -318,10 +321,13 @@ impl GetChannelInfo for MockedChannelInfo {
 pub(crate) fn mk_page() -> Vec<u8> {
 	let mut page = Vec::<u8>::new();
 
+	let newer_xcm_version = xcm::prelude::XCM_VERSION;
+	let older_xcm_version = newer_xcm_version - 1;
+
 	for i in 0..100 {
 		page.extend(match i % 2 {
-			0 => v2_xcm().encode(),
-			1 => v3_xcm().encode(),
+			0 => versioned_xcm(older_xcm_version).encode(),
+			1 => versioned_xcm(newer_xcm_version).encode(),
 			// We cannot push an undecodable XCM here since it would break the decode stream.
 			// This is expected and the whole reason to introduce `MaybeDoubleEncodedVersionedXcm`
 			// instead.
@@ -332,12 +338,9 @@ pub(crate) fn mk_page() -> Vec<u8> {
 	page
 }
 
-pub(crate) fn v2_xcm() -> VersionedXcm<()> {
-	let instr = xcm::v2::Instruction::<()>::ClearOrigin;
-	VersionedXcm::V2(xcm::v2::Xcm::<()>(vec![instr; 3]))
-}
-
-pub(crate) fn v3_xcm() -> VersionedXcm<()> {
-	let instr = xcm::v3::Instruction::<()>::Trap(1);
-	VersionedXcm::V3(xcm::v3::Xcm::<()>(vec![instr; 3]))
+pub(crate) fn versioned_xcm(version: XcmVersion) -> VersionedXcm<()> {
+	let instr = Instruction::<()>::Trap(1);
+	VersionedXcm::from(Xcm::<()>(vec![instr; 3]))
+		.into_version(version)
+		.expect("Version conversion should work")
 }

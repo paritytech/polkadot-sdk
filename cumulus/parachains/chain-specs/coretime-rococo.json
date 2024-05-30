@@ -4,7 +4,11 @@
   "chainType": "Live",
   "bootNodes": [
     "/dns/rococo-coretime-collator-node-0.polkadot.io/tcp/30333/p2p/12D3KooWHBUH9wGBx1Yq1ZePov9VL3AzxRPv5DTR4KadiCU6VKxy",
-    "/dns/rococo-coretime-collator-node-1.polkadot.io/tcp/30333/p2p/12D3KooWB3SKxdj6kpwTkdMnHJi6YmadojCzmEqFkeFJjxN812XX"
+    "/dns/rococo-coretime-collator-node-1.polkadot.io/tcp/30333/p2p/12D3KooWB3SKxdj6kpwTkdMnHJi6YmadojCzmEqFkeFJjxN812XX",
+    "/dns/rococo-coretime-collator-node-0.polkadot.io/tcp/30335/ws/p2p/12D3KooWHBUH9wGBx1Yq1ZePov9VL3AzxRPv5DTR4KadiCU6VKxy",
+    "/dns/rococo-coretime-collator-node-1.polkadot.io/tcp/30335/ws/p2p/12D3KooWB3SKxdj6kpwTkdMnHJi6YmadojCzmEqFkeFJjxN812XX",
+    "/dns/rococo-coretime-collator-node-0.polkadot.io/tcp/443/wss/p2p/12D3KooWHBUH9wGBx1Yq1ZePov9VL3AzxRPv5DTR4KadiCU6VKxy",
+    "/dns/rococo-coretime-collator-node-1.polkadot.io/tcp/443/wss/p2p/12D3KooWB3SKxdj6kpwTkdMnHJi6YmadojCzmEqFkeFJjxN812XX"
   ],
   "telemetryEndpoints": null,
   "protocolId": null,

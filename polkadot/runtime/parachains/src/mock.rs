@@ -50,9 +50,16 @@ use sp_runtime::{
 	transaction_validity::TransactionPriority,
 	BuildStorage, FixedU128, Perbill, Permill,
 };
-use sp_std::collections::vec_deque::VecDeque;
-use std::{cell::RefCell, collections::HashMap};
-use xcm::v4::{Assets, Location, SendError, SendResult, SendXcm, Xcm, XcmHash};
+use sp_std::{
+	cell::RefCell,
+	collections::{btree_map::BTreeMap, vec_deque::VecDeque},
+};
+use std::collections::HashMap;
+use xcm::{
+	prelude::XcmVersion,
+	v4::{Assets, Location, SendError, SendResult, SendXcm, Xcm, XcmHash},
+	IntoVersion, VersionedXcm, WrapVersion,
+};
 
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlockU32<Test>;
@@ -93,7 +100,6 @@ where
 }
 
 parameter_types! {
-	pub const BlockHashCount: u32 = 250;
 	pub static BlockWeights: frame_system::limits::BlockWeights =
 		frame_system::limits::BlockWeights::simple_max(
 			Weight::from_parts(4 * 1024 * 1024, u64::MAX),
@@ -118,7 +124,6 @@ impl frame_system::Config for Test {
 	type Lookup = IdentityLookup<u64>;
 	type Block = Block;
 	type RuntimeEvent = RuntimeEvent;
-	type BlockHashCount = BlockHashCount;
 	type Version = ();
 	type PalletInfo = PalletInfo;
 	type AccountData = pallet_balances::AccountData<u128>;
@@ -247,7 +252,32 @@ impl crate::paras::Config for Test {
 impl crate::dmp::Config for Test {}
 
 parameter_types! {
-	pub const FirstMessageFactorPercent: u64 = 100;
+	pub const DefaultChannelSizeAndCapacityWithSystem: (u32, u32) = (4, 1);
+}
+
+thread_local! {
+	pub static VERSION_WRAPPER: RefCell<BTreeMap<Location, Option<XcmVersion>>> = RefCell::new(BTreeMap::new());
+}
+/// Mock implementation of the [`WrapVersion`] trait which wraps XCM only for known/stored XCM
+/// versions in the `VERSION_WRAPPER`.
+pub struct TestUsesOnlyStoredVersionWrapper;
+impl WrapVersion for TestUsesOnlyStoredVersionWrapper {
+	fn wrap_version<RuntimeCall>(
+		dest: &Location,
+		xcm: impl Into<VersionedXcm<RuntimeCall>>,
+	) -> Result<VersionedXcm<RuntimeCall>, ()> {
+		match VERSION_WRAPPER.with(|r| r.borrow().get(dest).map_or(None, |v| *v)) {
+			Some(v) => xcm.into().into_version(v),
+			None => return Err(()),
+		}
+	}
+}
+impl TestUsesOnlyStoredVersionWrapper {
+	pub fn set_version(location: Location, version: Option<XcmVersion>) {
+		VERSION_WRAPPER.with(|r| {
+			let _ = r.borrow_mut().entry(location).and_modify(|v| *v = version).or_insert(version);
+		});
+	}
 }
 
 impl crate::hrmp::Config for Test {
@@ -255,6 +285,8 @@ impl crate::hrmp::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type ChannelManager = frame_system::EnsureRoot<u64>;
 	type Currency = pallet_balances::Pallet<Test>;
+	type DefaultChannelSizeAndCapacityWithSystem = DefaultChannelSizeAndCapacityWithSystem;
+	type VersionWrapper = TestUsesOnlyStoredVersionWrapper;
 	type WeightInfo = crate::hrmp::TestWeightInfo;
 }
 
@@ -385,6 +417,7 @@ impl assigner_coretime::Config for Test {}
 
 parameter_types! {
 	pub const BrokerId: u32 = 10u32;
+	pub MaxXcmTransactWeight: Weight = Weight::from_parts(10_000_000, 10_000);
 }
 
 impl coretime::Config for Test {
@@ -394,6 +427,7 @@ impl coretime::Config for Test {
 	type BrokerId = BrokerId;
 	type WeightInfo = crate::coretime::TestWeightInfo;
 	type SendXcm = DummyXcmSender;
+	type MaxXcmTransactWeight = MaxXcmTransactWeight;
 }
 
 pub struct DummyXcmSender;

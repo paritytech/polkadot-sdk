@@ -23,7 +23,7 @@ to return the best known head of given parachain. When required, it must be able
 finality delivery transaction to the target node.
 
 The main entrypoint for the crate is the [`run` function](./src/parachains_loop.rs), which takes source and target
-clients and [`ParachainSyncParams`](./src/parachains_loop.rs) parameters. The most imporant parameter is the
+clients and [`ParachainSyncParams`](./src/parachains_loop.rs) parameters. The most important parameter is the
 `parachains` - it is the set of parachains, which relay tracks and updates. The other important parameter that
 may affect the relay operational costs is the `strategy`. If it is set to `Any`, then the finality delivery
 transaction is submitted if at least one of tracked parachain heads is updated. The other option is `All`. Then

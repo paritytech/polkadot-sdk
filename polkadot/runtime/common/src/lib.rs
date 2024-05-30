@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-//! Common runtime code for Polkadot and Kusama.
+//! Common runtime code for the Relay Chain, e.g. Rococo, Westend, Polkadot, Kusama ...
 
 #![cfg_attr(not(feature = "std"), no_std)]
 

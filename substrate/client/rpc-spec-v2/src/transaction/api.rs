@@ -33,8 +33,8 @@ pub trait TransactionApi<Hash: Clone> {
 	///
 	/// This method is unstable and subject to change in the future.
 	#[subscription(
-		name = "transactionWatch_unstable_submitAndWatch" => "transactionWatch_unstable_watchEvent",
-		unsubscribe = "transactionWatch_unstable_unwatch",
+		name = "transactionWatch_v1_submitAndWatch" => "transactionWatch_v1_watchEvent",
+		unsubscribe = "transactionWatch_v1_unwatch",
 		item = TransactionEvent<Hash>,
 	)]
 	fn submit_and_watch(&self, bytes: Bytes);
@@ -47,14 +47,15 @@ pub trait TransactionBroadcastApi {
 	/// # Unstable
 	///
 	/// This method is unstable and subject to change in the future.
-	#[method(name = "transaction_unstable_broadcast")]
-	fn broadcast(&self, bytes: Bytes) -> RpcResult<Option<String>>;
+
+	#[method(name = "transaction_v1_broadcast", raw_method)]
+	async fn broadcast(&self, bytes: Bytes) -> RpcResult<Option<String>>;
 
 	/// Broadcast an extrinsic to the chain.
 	///
 	/// # Unstable
 	///
 	/// This method is unstable and subject to change in the future.
-	#[method(name = "transaction_unstable_stop")]
-	fn stop_broadcast(&self, operation_id: String) -> Result<(), ErrorBroadcast>;
+	#[method(name = "transaction_v1_stop", raw_method)]
+	async fn stop_broadcast(&self, operation_id: String) -> Result<(), ErrorBroadcast>;
 }

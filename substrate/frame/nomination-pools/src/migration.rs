@@ -107,6 +107,137 @@ pub mod unversioned {
 			Ok(())
 		}
 	}
+
+	/// Migrate existing pools from [`adapter::StakeStrategyType::Transfer`] to
+	/// [`adapter::StakeStrategyType::Delegate`].
+	///
+	/// Note: This only migrates the pools, the members are not migrated. They can use the
+	/// permission-less [`Pallet::migrate_delegation()`] to migrate their funds.
+	///
+	/// This migration does not break any existing pool storage item, does not need to happen in any
+	/// sequence and hence can be applied unversioned on a production runtime.
+	///
+	/// Takes `MaxPools` as type parameter to limit the number of pools that should be migrated in a
+	/// single block. It should be set such that migration weight does not exceed the block weight
+	/// limit. If all pools can be safely migrated, it is good to keep this number a little higher
+	/// than the actual number of pools to handle any extra pools created while the migration is
+	/// proposed, and before it is executed.
+	///
+	/// If there are pools that fail to migrate or did not fit in the bounds, the remaining pools
+	/// can be migrated via the permission-less extrinsic [`Call::migrate_pool_to_delegate_stake`].
+	pub struct DelegationStakeMigration<T, MaxPools>(sp_std::marker::PhantomData<(T, MaxPools)>);
+
+	impl<T: Config, MaxPools: Get<u32>> OnRuntimeUpgrade for DelegationStakeMigration<T, MaxPools> {
+		fn on_runtime_upgrade() -> Weight {
+			let mut count: u32 = 0;
+
+			BondedPools::<T>::iter_keys().take(MaxPools::get() as usize).for_each(|id| {
+				let pool_acc = Pallet::<T>::generate_bonded_account(id);
+
+				// only migrate if the pool is in Transfer Strategy.
+				if T::StakeAdapter::pool_strategy(&pool_acc) == adapter::StakeStrategyType::Transfer
+				{
+					let _ = Pallet::<T>::migrate_to_delegate_stake(id).map_err(|err| {
+						log!(
+							warn,
+							"failed to migrate pool {:?} to delegate stake strategy with err: {:?}",
+							id,
+							err
+						)
+					});
+					count.saturating_inc();
+				}
+			});
+
+			log!(info, "migrated {:?} pools to delegate stake strategy", count);
+
+			// reads: (bonded pool key + current pool strategy) * MaxPools (worst case)
+			T::DbWeight::get()
+				.reads_writes(2, 0)
+				.saturating_mul(MaxPools::get() as u64)
+				// migration weight: `pool_migrate` weight * count
+				.saturating_add(T::WeightInfo::pool_migrate().saturating_mul(count.into()))
+		}
+
+		#[cfg(feature = "try-runtime")]
+		fn pre_upgrade() -> Result<Vec<u8>, TryRuntimeError> {
+			// ensure stake adapter is correct.
+			ensure!(
+				T::StakeAdapter::strategy_type() == adapter::StakeStrategyType::Delegate,
+				"Current strategy is not `Delegate"
+			);
+
+			if BondedPools::<T>::count() > MaxPools::get() {
+				// we log a warning if the number of pools exceeds the bound.
+				log!(
+					warn,
+					"Number of pools {} exceeds the maximum bound {}. This would leave some pools unmigrated.", BondedPools::<T>::count(), MaxPools::get()
+				);
+			}
+
+			let mut pool_balances: Vec<BalanceOf<T>> = Vec::new();
+			BondedPools::<T>::iter_keys().take(MaxPools::get() as usize).for_each(|id| {
+				let pool_account = Pallet::<T>::generate_bonded_account(id);
+				let current_strategy = T::StakeAdapter::pool_strategy(&pool_account);
+
+				// we ensure migration is idempotent.
+				let pool_balance = if current_strategy == adapter::StakeStrategyType::Transfer {
+					T::Currency::total_balance(&pool_account)
+				} else {
+					T::StakeAdapter::total_balance(&pool_account)
+				};
+
+				pool_balances.push(pool_balance);
+			});
+
+			Ok(pool_balances.encode())
+		}
+
+		#[cfg(feature = "try-runtime")]
+		fn post_upgrade(data: Vec<u8>) -> Result<(), TryRuntimeError> {
+			let expected_pool_balances: Vec<BalanceOf<T>> = Decode::decode(&mut &data[..]).unwrap();
+
+			for (index, id) in
+				BondedPools::<T>::iter_keys().take(MaxPools::get() as usize).enumerate()
+			{
+				let pool_account = Pallet::<T>::generate_bonded_account(id);
+				if T::StakeAdapter::pool_strategy(&pool_account) ==
+					adapter::StakeStrategyType::Transfer
+				{
+					log!(error, "Pool {} failed to migrate", id,);
+					return Err(TryRuntimeError::Other("Pool failed to migrate"));
+				}
+
+				let actual_balance = T::StakeAdapter::total_balance(&pool_account);
+				let expected_balance = expected_pool_balances.get(index).unwrap();
+
+				if actual_balance != *expected_balance {
+					log!(
+						error,
+						"Pool {} balance mismatch. Expected: {:?}, Actual: {:?}",
+						id,
+						expected_balance,
+						actual_balance
+					);
+					return Err(TryRuntimeError::Other("Pool balance mismatch"));
+				}
+
+				// account balance should be zero.
+				let pool_account_balance = T::Currency::total_balance(&pool_account);
+				if pool_account_balance != Zero::zero() {
+					log!(
+						error,
+						"Pool account balance was expected to be zero. Pool: {}, Balance: {:?}",
+						id,
+						pool_account_balance
+					);
+					return Err(TryRuntimeError::Other("Pool account balance not migrated"));
+				}
+			}
+
+			Ok(())
+		}
+	}
 }
 
 pub mod v8 {
@@ -201,7 +332,7 @@ pub(crate) mod v7 {
 	impl<T: Config> V7BondedPool<T> {
 		#[allow(dead_code)]
 		fn bonded_account(&self) -> T::AccountId {
-			Pallet::<T>::create_bonded_account(self.id)
+			Pallet::<T>::generate_bonded_account(self.id)
 		}
 	}
 
@@ -275,7 +406,7 @@ mod v6 {
 
 	impl<T: Config> MigrateToV6<T> {
 		fn freeze_ed(pool_id: PoolId) -> Result<(), ()> {
-			let reward_acc = Pallet::<T>::create_reward_account(pool_id);
+			let reward_acc = Pallet::<T>::generate_reward_account(pool_id);
 			Pallet::<T>::freeze_pool_deposit(&reward_acc).map_err(|e| {
 				log!(error, "Failed to freeze ED for pool {} with error: {:?}", pool_id, e);
 				()
@@ -760,7 +891,7 @@ pub mod v2 {
 					};
 
 					let accumulated_reward = RewardPool::<T>::current_balance(id);
-					let reward_account = Pallet::<T>::create_reward_account(id);
+					let reward_account = Pallet::<T>::generate_reward_account(id);
 					let mut sum_paid_out = BalanceOf::<T>::zero();
 
 					members
@@ -882,7 +1013,7 @@ pub mod v2 {
 			// all reward accounts must have more than ED.
 			RewardPools::<T>::iter().try_for_each(|(id, _)| -> Result<(), TryRuntimeError> {
 				ensure!(
-					<T::Currency as frame_support::traits::fungible::Inspect<T::AccountId>>::balance(&Pallet::<T>::create_reward_account(id)) >=
+					<T::Currency as frame_support::traits::fungible::Inspect<T::AccountId>>::balance(&Pallet::<T>::generate_reward_account(id)) >=
 						T::Currency::minimum_balance(),
 					"Reward accounts must have greater balance than ED."
 				);
@@ -1022,11 +1153,8 @@ mod helpers {
 	use super::*;
 
 	pub(crate) fn calculate_tvl_by_total_stake<T: Config>() -> BalanceOf<T> {
-		BondedPools::<T>::iter()
-			.map(|(id, inner)| {
-				T::Staking::total_stake(&BondedPool { id, inner: inner.clone() }.bonded_account())
-					.unwrap_or_default()
-			})
+		BondedPools::<T>::iter_keys()
+			.map(|id| T::StakeAdapter::total_stake(&Pallet::<T>::generate_bonded_account(id)))
 			.reduce(|acc, total_balance| acc + total_balance)
 			.unwrap_or_default()
 	}

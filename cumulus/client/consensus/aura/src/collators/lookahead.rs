@@ -67,7 +67,7 @@ use sp_inherents::CreateInherentDataProviders;
 use sp_keystore::KeystorePtr;
 use sp_runtime::traits::{Block as BlockT, Header as HeaderT, Member};
 use sp_timestamp::Timestamp;
-use std::{convert::TryFrom, sync::Arc, time::Duration};
+use std::{sync::Arc, time::Duration};
 
 use crate::collator::{self as collator_util, SlotClaim};
 
@@ -315,9 +315,10 @@ where
 			let mut parent_header = initial_parent.header;
 			let overseer_handle = &mut params.overseer_handle;
 
-			// We mainly call this to inform users at genesis if there is a mismatch with the
-			// on-chain data.
-			collator.collator_service().check_block_status(parent_hash, &parent_header);
+			// Do not try to build upon an unknown, pruned or bad block
+			if !collator.collator_service().check_block_status(parent_hash, &parent_header) {
+				continue
+			}
 
 			// This needs to change to support elastic scaling, but for continuously
 			// scheduled chains this ensures that the backlog will grow steadily.

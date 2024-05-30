@@ -16,6 +16,7 @@
 
 //! Traits and utilities to help with origin mutation and bridging.
 
+use crate::InspectMessageQueues;
 use frame_support::{ensure, traits::Get};
 use parity_scale_codec::{Decode, Encode};
 use sp_std::{convert::TryInto, marker::PhantomData, prelude::*};
@@ -187,7 +188,7 @@ pub fn forward_id_for(original_id: &XcmHash) -> XcmHash {
 /// end with the `SetTopic` instruction.
 ///
 /// In the case that the message ends with a `SetTopic(T)` (as should be the case if the top-level
-/// router is `EnsureUniqueTopic`), then the forwarding message (i.e. the one carrying the
+/// router is `WithUniqueTopic`), then the forwarding message (i.e. the one carrying the
 /// export instruction *to* the bridge in local consensus) will also end with a `SetTopic` whose
 /// inner is `forward_id_for(T)`. If this is not the case then the onward message will not be given
 /// the `SetTopic` afterword.
@@ -254,7 +255,7 @@ impl<Bridges: ExporterFor, Router: SendXcm, UniversalLocation: Get<InteriorLocat
 /// end with the `SetTopic` instruction.
 ///
 /// In the case that the message ends with a `SetTopic(T)` (as should be the case if the top-level
-/// router is `EnsureUniqueTopic`), then the forwarding message (i.e. the one carrying the
+/// router is `WithUniqueTopic`), then the forwarding message (i.e. the one carrying the
 /// export instruction *to* the bridge in local consensus) will also end with a `SetTopic` whose
 /// inner is `forward_id_for(T)`. If this is not the case then the onward message will not be given
 /// the `SetTopic` afterword.
@@ -332,6 +333,14 @@ impl<Bridges: ExporterFor, Router: SendXcm, UniversalLocation: Get<InteriorLocat
 
 	fn deliver(ticket: Router::Ticket) -> Result<XcmHash, SendError> {
 		Router::deliver(ticket)
+	}
+}
+
+impl<Bridges, Router: InspectMessageQueues, UniversalLocation> InspectMessageQueues
+	for SovereignPaidRemoteExporter<Bridges, Router, UniversalLocation>
+{
+	fn get_messages() -> Vec<(VersionedLocation, Vec<VersionedXcm<()>>)> {
+		Router::get_messages()
 	}
 }
 

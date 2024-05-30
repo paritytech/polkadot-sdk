@@ -19,7 +19,11 @@
 use super::MintLocation;
 use frame_support::traits::{
 	tokens::{
-		fungible, Fortitude::Polite, Precision::Exact, Preservation::Preserve, Provenance::Minted,
+		fungible,
+		Fortitude::Polite,
+		Precision::Exact,
+		Preservation::{Expendable, Preserve},
+		Provenance::Minted,
 	},
 	Get,
 };
@@ -100,7 +104,7 @@ impl<
 	}
 
 	fn reduce_checked(checking_account: AccountId, amount: Fungible::Balance) {
-		let ok = Fungible::burn_from(&checking_account, amount, Exact, Polite).is_ok();
+		let ok = Fungible::burn_from(&checking_account, amount, Expendable, Exact, Polite).is_ok();
 		debug_assert!(ok, "`can_reduce_checked` must have returned `true` immediately prior; qed");
 	}
 }
@@ -210,7 +214,7 @@ impl<
 		let amount = Matcher::matches_fungible(what).ok_or(MatchError::AssetNotHandled)?;
 		let who = AccountIdConverter::convert_location(who)
 			.ok_or(MatchError::AccountIdConversionFailed)?;
-		Fungible::burn_from(&who, amount, Exact, Polite)
+		Fungible::burn_from(&who, amount, Expendable, Exact, Polite)
 			.map_err(|error| XcmError::FailedToTransactAsset(error.into()))?;
 		Ok(what.clone().into())
 	}

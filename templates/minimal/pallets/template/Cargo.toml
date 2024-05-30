@@ -9,14 +9,11 @@ repository.workspace = true
 edition.workspace = true
 publish = false
 
-[lints]
-workspace = true
-
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.0.0", features = [
+codec = { package = "parity-scale-codec", version = "3.6.12", features = [
 	"derive",
 ], default-features = false }
 scale-info = { version = "2.11.1", default-features = false, features = [

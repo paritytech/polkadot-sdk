@@ -22,13 +22,13 @@ use super::*;
 use crate::{
 	mock::{
 		deregister_parachain, new_test_ext, register_parachain, register_parachain_with_balance,
-		Hrmp, MockGenesisConfig, Paras, ParasShared, RuntimeEvent as MockEvent, RuntimeOrigin,
-		System, Test,
+		Dmp, Hrmp, MockGenesisConfig, Paras, ParasShared, RuntimeEvent as MockEvent, RuntimeOrigin,
+		System, Test, TestUsesOnlyStoredVersionWrapper,
 	},
 	shared,
 };
-use frame_support::{assert_noop, assert_ok};
-use primitives::BlockNumber;
+use frame_support::{assert_noop, assert_ok, error::BadOrigin};
+use primitives::{BlockNumber, InboundDownwardMessage};
 use std::collections::BTreeMap;
 
 pub(crate) fn run_to_block(to: BlockNumber, new_session: Option<Vec<BlockNumber>>) {
@@ -933,5 +933,211 @@ fn watermark_maxed_out_at_relay_parent() {
 		assert!(Hrmp::check_hrmp_watermark(para_b, 7, 7).is_ok());
 		let _ = Hrmp::prune_hrmp(para_b, 7);
 		Hrmp::assert_storage_consistency_exhaustive();
+	});
+}
+
+#[test]
+fn establish_channel_with_system_works() {
+	let para_a = 2000.into();
+	let para_a_origin: crate::Origin = 2000.into();
+	let para_b = 3.into();
+
+	new_test_ext(GenesisConfigBuilder::default().build()).execute_with(|| {
+		// We need both A & B to be registered and live parachains.
+		register_parachain(para_a);
+		register_parachain(para_b);
+
+		run_to_block(5, Some(vec![4, 5]));
+		Hrmp::establish_channel_with_system(para_a_origin.into(), para_b).unwrap();
+		Hrmp::assert_storage_consistency_exhaustive();
+		assert!(System::events().iter().any(|record| record.event ==
+			MockEvent::Hrmp(Event::HrmpSystemChannelOpened {
+				sender: para_a,
+				recipient: para_b,
+				proposed_max_capacity: 1,
+				proposed_max_message_size: 4
+			})));
+
+		assert!(System::events().iter().any(|record| record.event ==
+			MockEvent::Hrmp(Event::HrmpSystemChannelOpened {
+				sender: para_b,
+				recipient: para_a,
+				proposed_max_capacity: 1,
+				proposed_max_message_size: 4
+			})));
+
+		// Advance to a block 6, but without session change. That means that the channel has
+		// not been created yet.
+		run_to_block(6, None);
+		assert!(!channel_exists(para_a, para_b));
+		assert!(!channel_exists(para_b, para_a));
+		Hrmp::assert_storage_consistency_exhaustive();
+
+		// Now let the session change happen and thus open the channel.
+		run_to_block(8, Some(vec![8]));
+		assert!(channel_exists(para_a, para_b));
+		assert!(channel_exists(para_b, para_a));
+		Hrmp::assert_storage_consistency_exhaustive();
+	});
+}
+
+#[test]
+fn establish_channel_with_system_with_invalid_args() {
+	let para_a = 2001.into();
+	let para_a_origin: crate::Origin = 2000.into();
+	let para_b = 2003.into();
+
+	new_test_ext(GenesisConfigBuilder::default().build()).execute_with(|| {
+		// We need both A & B to be registered and live parachains.
+		register_parachain(para_a);
+		register_parachain(para_b);
+
+		run_to_block(5, Some(vec![4, 5]));
+		assert_noop!(
+			Hrmp::establish_channel_with_system(RuntimeOrigin::signed(1), para_b),
+			BadOrigin
+		);
+		assert_noop!(
+			Hrmp::establish_channel_with_system(para_a_origin.into(), para_b),
+			Error::<Test>::ChannelCreationNotAuthorized
+		);
+		Hrmp::assert_storage_consistency_exhaustive();
+	});
+}
+
+#[test]
+fn hrmp_notifications_works() {
+	use xcm::{
+		opaque::{
+			latest::{prelude::*, Xcm},
+			VersionedXcm,
+		},
+		IntoVersion,
+	};
+
+	let para_a = 2001.into();
+	let para_a_origin: crate::Origin = 2001.into();
+	let para_b = 2003.into();
+	let para_b_origin: crate::Origin = 2003.into();
+
+	new_test_ext(GenesisConfigBuilder::default().build()).execute_with(|| {
+		// We need both A & B to be registered and alive parachains.
+		register_parachain(para_a);
+		register_parachain(para_b);
+		run_to_block(5, Some(vec![4, 5]));
+
+		// set XCM versions for wrapper
+
+		// for para_a -> `None`, means we will use latest.
+		TestUsesOnlyStoredVersionWrapper::set_version(
+			Location::new(0, [Junction::Parachain(para_a.into())]),
+			None,
+		);
+		// for para_b -> `Some(latest - 1)`, means we will use latest-1 XCM version.
+		let previous_version = XCM_VERSION - 1;
+		TestUsesOnlyStoredVersionWrapper::set_version(
+			Location::new(0, [Junction::Parachain(para_b.into())]),
+			Some(previous_version),
+		);
+
+		let assert_notification_for = |sent_at, para_id, expected| {
+			assert_eq!(
+				Dmp::dmq_contents(para_id),
+				vec![InboundDownwardMessage { sent_at, msg: expected }]
+			);
+		};
+
+		// init open channel requests
+		assert_ok!(Hrmp::hrmp_init_open_channel(para_a_origin.clone().into(), para_b, 2, 8));
+		assert_ok!(Hrmp::hrmp_init_open_channel(para_b_origin.clone().into(), para_a, 2, 8));
+		Hrmp::assert_storage_consistency_exhaustive();
+
+		// check dmp notications
+		assert_notification_for(
+			5,
+			para_b,
+			VersionedXcm::from(Xcm(vec![HrmpNewChannelOpenRequest {
+				sender: u32::from(para_a),
+				max_capacity: 2,
+				max_message_size: 8,
+			}]))
+			.into_version(previous_version)
+			.expect("compatible")
+			.encode(),
+		);
+		assert_notification_for(
+			5,
+			para_a,
+			VersionedXcm::from(Xcm(vec![HrmpNewChannelOpenRequest {
+				sender: u32::from(para_b),
+				max_capacity: 2,
+				max_message_size: 8,
+			}]))
+			.encode(),
+		);
+		let _ = Dmp::prune_dmq(para_a, 1000);
+		let _ = Dmp::prune_dmq(para_b, 1000);
+
+		// accept open channel requests
+		assert_ok!(Hrmp::hrmp_accept_open_channel(para_a_origin.clone().into(), para_b));
+		assert_ok!(Hrmp::hrmp_accept_open_channel(para_b_origin.clone().into(), para_a));
+		Hrmp::assert_storage_consistency_exhaustive();
+
+		// check dmp notications
+		assert_notification_for(
+			5,
+			para_b,
+			VersionedXcm::from(Xcm(vec![HrmpChannelAccepted { recipient: u32::from(para_a) }]))
+				.into_version(previous_version)
+				.expect("compatible")
+				.encode(),
+		);
+		assert_notification_for(
+			5,
+			para_a,
+			VersionedXcm::from(Xcm(vec![HrmpChannelAccepted { recipient: u32::from(para_b) }]))
+				.encode(),
+		);
+		let _ = Dmp::prune_dmq(para_a, 1000);
+		let _ = Dmp::prune_dmq(para_b, 1000);
+
+		// On Block 6: session change - creates channel.
+		run_to_block(6, Some(vec![6]));
+		assert!(channel_exists(para_a, para_b));
+
+		// close channel requests
+		assert_ok!(Hrmp::hrmp_close_channel(
+			para_a_origin.into(),
+			HrmpChannelId { sender: para_a, recipient: para_b }
+		));
+		assert_ok!(Hrmp::hrmp_close_channel(
+			para_b_origin.into(),
+			HrmpChannelId { sender: para_b, recipient: para_a }
+		));
+		Hrmp::assert_storage_consistency_exhaustive();
+
+		// check dmp notications
+		assert_notification_for(
+			6,
+			para_b,
+			VersionedXcm::from(Xcm(vec![HrmpChannelClosing {
+				initiator: u32::from(para_a),
+				sender: u32::from(para_a),
+				recipient: u32::from(para_b),
+			}]))
+			.into_version(previous_version)
+			.expect("compatible")
+			.encode(),
+		);
+		assert_notification_for(
+			6,
+			para_a,
+			VersionedXcm::from(Xcm(vec![HrmpChannelClosing {
+				initiator: u32::from(para_b),
+				sender: u32::from(para_b),
+				recipient: u32::from(para_a),
+			}]))
+			.encode(),
+		);
 	});
 }

@@ -35,12 +35,11 @@ pub use crate::{
 	types::ProtocolName,
 };
 
-pub use libp2p::{
-	build_multiaddr,
-	identity::{self, ed25519, Keypair},
-	multiaddr, Multiaddr,
+pub use sc_network_types::{build_multiaddr, ed25519};
+use sc_network_types::{
+	multiaddr::{self, Multiaddr},
+	PeerId,
 };
-use sc_network_types::PeerId;
 
 use crate::service::{ensure_addresses_consistent_with_transport, traits::NetworkBackend};
 use codec::Encode;
@@ -100,7 +99,7 @@ impl fmt::Debug for ProtocolId {
 /// # Example
 ///
 /// ```
-/// # use libp2p::{Multiaddr, PeerId};
+/// # use sc_network_types::{multiaddr::Multiaddr, PeerId};
 /// use sc_network::config::parse_str_addr;
 /// let (peer_id, addr) = parse_str_addr(
 /// 	"/ip4/198.51.100.19/tcp/30333/p2p/QmSk5HQbn6LhUwDiNMseVUjuRYhEtYj4aUZ6WfWoGURpdV"
@@ -131,7 +130,7 @@ pub fn parse_addr(mut addr: Multiaddr) -> Result<(PeerId, Multiaddr), ParseErr> 
 /// # Example
 ///
 /// ```
-/// # use libp2p::{Multiaddr, PeerId};
+/// # use sc_network_types::{multiaddr::Multiaddr, PeerId};
 /// use sc_network::config::MultiaddrWithPeerId;
 /// let addr: MultiaddrWithPeerId =
 /// 	"/ip4/198.51.100.19/tcp/30333/p2p/QmSk5HQbn6LhUwDiNMseVUjuRYhEtYj4aUZ6WfWoGURpdV".parse().unwrap();
@@ -187,7 +186,7 @@ impl TryFrom<String> for MultiaddrWithPeerId {
 #[derive(Debug)]
 pub enum ParseErr {
 	/// Error while parsing the multiaddress.
-	MultiaddrParse(multiaddr::Error),
+	MultiaddrParse(multiaddr::ParseError),
 	/// Multihash of the peer ID is invalid.
 	InvalidPeerId,
 	/// The peer ID is missing from the address.
@@ -214,8 +213,8 @@ impl std::error::Error for ParseErr {
 	}
 }
 
-impl From<multiaddr::Error> for ParseErr {
-	fn from(err: multiaddr::Error) -> ParseErr {
+impl From<multiaddr::ParseError> for ParseErr {
+	fn from(err: multiaddr::ParseError) -> ParseErr {
 		Self::MultiaddrParse(err)
 	}
 }
@@ -343,10 +342,10 @@ impl NodeKeyConfig {
 	///
 	///  * If the secret is configured to be new, it is generated and the corresponding keypair is
 	///    returned.
-	pub fn into_keypair(self) -> io::Result<Keypair> {
+	pub fn into_keypair(self) -> io::Result<ed25519::Keypair> {
 		use NodeKeyConfig::*;
 		match self {
-			Ed25519(Secret::New) => Ok(Keypair::generate_ed25519()),
+			Ed25519(Secret::New) => Ok(ed25519::Keypair::generate()),
 
 			Ed25519(Secret::Input(k)) => Ok(ed25519::Keypair::from(k).into()),
 
@@ -365,8 +364,7 @@ impl NodeKeyConfig {
 				ed25519::SecretKey::generate,
 				|b| b.as_ref().to_vec(),
 			)
-			.map(ed25519::Keypair::from)
-			.map(Keypair::from),
+			.map(ed25519::Keypair::from),
 		}
 	}
 }
@@ -887,7 +885,7 @@ impl<B: BlockT + 'static, H: ExHashT, N: NetworkBackend<B, H>> FullNetworkConfig
 				.find(|o| o.peer_id != bootnode.peer_id)
 			{
 				Err(crate::error::Error::DuplicateBootnode {
-					address: bootnode.multiaddr.clone(),
+					address: bootnode.multiaddr.clone().into(),
 					first_id: bootnode.peer_id.into(),
 					second_id: other.peer_id.into(),
 				})
@@ -947,14 +945,8 @@ mod tests {
 		tempfile::Builder::new().prefix(prefix).tempdir().unwrap()
 	}
 
-	fn secret_bytes(kp: Keypair) -> Vec<u8> {
-		kp.try_into_ed25519()
-			.expect("ed25519 keypair")
-			.secret()
-			.as_ref()
-			.iter()
-			.cloned()
-			.collect()
+	fn secret_bytes(kp: ed25519::Keypair) -> Vec<u8> {
+		kp.secret().to_bytes().into()
 	}
 
 	#[test]

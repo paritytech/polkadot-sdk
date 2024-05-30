@@ -641,7 +641,7 @@ pub mod pallet {
 		///
 		/// This is only used at genesis or by root.
 		///
-		/// TODO: Remove once coretime is the standard accross all chains.
+		/// TODO: Remove once coretime is the standard across all chains.
 		type AssignCoretime: AssignCoretime;
 	}
 

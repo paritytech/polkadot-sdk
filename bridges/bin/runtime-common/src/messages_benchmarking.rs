@@ -271,7 +271,7 @@ pub fn generate_xcm_builder_bridge_message_sample(
 	move |expected_message_size| -> MessagePayload {
 		// For XCM bridge hubs, it is the message that
 		// will be pushed further to some XCM queue (XCMP/UMP)
-		let location = xcm::VersionedInteriorLocation::V4(destination.clone());
+		let location = xcm::VersionedInteriorLocation::from(destination.clone());
 		let location_encoded_size = location.encoded_size();
 
 		// we don't need to be super-precise with `expected_size` here
@@ -294,16 +294,13 @@ pub fn generate_xcm_builder_bridge_message_sample(
 			expected_message_size, location_encoded_size, xcm_size, xcm_data_size,
 		);
 
-		let xcm = xcm::VersionedXcm::<()>::V4(
-			vec![Instruction::<()>::ExpectPallet {
-				index: 0,
-				name: vec![42; xcm_data_size],
-				module_name: vec![],
-				crate_major: 0,
-				min_crate_minor: 0,
-			}]
-			.into(),
-		);
+		let xcm = xcm::VersionedXcm::<()>::from(Xcm(vec![Instruction::<()>::ExpectPallet {
+			index: 0,
+			name: vec![42; xcm_data_size],
+			module_name: vec![],
+			crate_major: 0,
+			min_crate_minor: 0,
+		}]));
 
 		// this is the `BridgeMessage` from polkadot xcm builder, but it has no constructor
 		// or public fields, so just tuple

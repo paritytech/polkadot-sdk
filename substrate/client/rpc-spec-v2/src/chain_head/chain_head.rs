@@ -75,7 +75,7 @@ pub struct ChainHeadConfig {
 /// Maximum pinned blocks across all connections.
 /// This number is large enough to consider immediate blocks.
 /// Note: This should never exceed the `PINNING_CACHE_SIZE` from client/db.
-const MAX_PINNED_BLOCKS: usize = 512;
+pub(crate) const MAX_PINNED_BLOCKS: usize = 512;
 
 /// Any block of any subscription should not be pinned more than
 /// this constant. When a subscription contains a block older than this,

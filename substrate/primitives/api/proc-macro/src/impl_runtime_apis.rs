@@ -821,10 +821,7 @@ fn impl_runtime_apis_impl_inner(api_impls: &[ItemImpl]) -> Result<TokenStream> {
 	let wasm_interface = generate_wasm_interface(api_impls)?;
 	let api_impls_for_runtime_api = generate_api_impl_for_runtime_api(api_impls)?;
 
-	#[cfg(feature = "frame-metadata")]
 	let runtime_metadata = crate::runtime_metadata::generate_impl_runtime_metadata(api_impls)?;
-	#[cfg(not(feature = "frame-metadata"))]
-	let runtime_metadata = quote!();
 
 	let impl_ = quote!(
 		#base_runtime_api

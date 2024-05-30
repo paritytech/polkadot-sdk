@@ -97,6 +97,9 @@ pub fn new_full<OverseerGenerator: OverseerGen>(
 					overseer_message_channel_capacity_override: None,
 					malus_finality_delay: None,
 					hwbench: None,
+					execute_workers_max_num: None,
+					prepare_workers_hard_max_num: None,
+					prepare_workers_soft_max_num: None,
 				},
 			),
 		sc_network::config::NetworkBackendType::Litep2p =>
@@ -116,6 +119,9 @@ pub fn new_full<OverseerGenerator: OverseerGen>(
 					overseer_message_channel_capacity_override: None,
 					malus_finality_delay: None,
 					hwbench: None,
+					execute_workers_max_num: None,
+					prepare_workers_hard_max_num: None,
+					prepare_workers_soft_max_num: None,
 				},
 			),
 	}
@@ -210,6 +216,8 @@ pub fn node_config(
 		rpc_message_buffer_capacity: Default::default(),
 		rpc_batch_config: RpcBatchRequestConfig::Unlimited,
 		rpc_rate_limit: None,
+		rpc_rate_limit_whitelisted_ips: Default::default(),
+		rpc_rate_limit_trust_proxy_headers: Default::default(),
 		prometheus_config: None,
 		telemetry_endpoints: None,
 		default_heap_pages: None,

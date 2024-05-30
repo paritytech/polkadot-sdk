@@ -132,7 +132,6 @@ where
 			&concurrent_offenders,
 			&slash_perbill,
 			offence.session_index(),
-			offence.disable_strategy(),
 		);
 
 		// Deposit the event.

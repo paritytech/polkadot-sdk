@@ -46,6 +46,12 @@ pub trait Chain: ChainBase + Clone {
 	/// Keep in mind that this method is normally provided by the other chain, which is
 	/// bridged with this chain.
 	const BEST_FINALIZED_HEADER_ID_METHOD: &'static str;
+	/// Name of the runtime API method that is returning interval between source chain
+	/// headers that may be submitted for free to the target chain.
+	///
+	/// Keep in mind that this method is normally provided by the other chain, which is
+	/// bridged with this chain.
+	const FREE_HEADERS_INTERVAL_METHOD: &'static str;
 
 	/// Average block interval.
 	///
@@ -75,6 +81,9 @@ pub trait ChainWithRuntimeVersion: Chain {
 pub trait RelayChain: Chain {
 	/// Name of the `runtime_parachains::paras` pallet in the runtime of this chain.
 	const PARAS_PALLET_NAME: &'static str;
+	/// Name of the `pallet-bridge-parachains`, deployed at the **bridged** chain to sync
+	/// parachains of **this** chain.
+	const WITH_CHAIN_BRIDGE_PARACHAINS_PALLET_NAME: &'static str;
 }
 
 /// Substrate-based chain that is using direct GRANDPA finality from minimal relay-client point of

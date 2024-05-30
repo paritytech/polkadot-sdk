@@ -17,7 +17,10 @@ use crate::imports::*;
 
 #[test]
 fn swap_locally_on_chain_using_local_assets() {
-	let asset_native = Box::new(asset_hub_rococo_runtime::xcm_config::TokenLocationV3::get());
+	let asset_native = Box::new(
+		v3::Location::try_from(asset_hub_rococo_runtime::xcm_config::TokenLocation::get())
+			.expect("conversion works"),
+	);
 	let asset_one = Box::new(v3::Location::new(
 		0,
 		[
@@ -112,10 +115,9 @@ fn swap_locally_on_chain_using_local_assets() {
 
 #[test]
 fn swap_locally_on_chain_using_foreign_assets() {
-	let asset_native =
-		Box::new(v3::Location::try_from(RelayLocation::get()).expect("conversion works"));
+	let asset_native = Box::new(v3::Location::try_from(RelayLocation::get()).unwrap());
 	let asset_location_on_penpal =
-		v3::Location::try_from(PenpalLocalTeleportableToAssetHub::get()).expect("conversion works");
+		v3::Location::try_from(PenpalLocalTeleportableToAssetHub::get()).unwrap();
 	let foreign_asset_at_asset_hub_rococo =
 		v3::Location::new(1, [v3::Junction::Parachain(PenpalA::para_id().into())])
 			.appended_with(asset_location_on_penpal)
@@ -228,11 +230,9 @@ fn swap_locally_on_chain_using_foreign_assets() {
 
 #[test]
 fn cannot_create_pool_from_pool_assets() {
-	let asset_native = Box::new(asset_hub_rococo_runtime::xcm_config::TokenLocationV3::get());
-	let mut asset_one = asset_hub_rococo_runtime::xcm_config::PoolAssetsPalletLocationV3::get();
-	asset_one
-		.append_with(v3::Junction::GeneralIndex(ASSET_ID.into()))
-		.expect("pool assets");
+	let asset_native = asset_hub_rococo_runtime::xcm_config::TokenLocation::get();
+	let mut asset_one = asset_hub_rococo_runtime::xcm_config::PoolAssetsPalletLocation::get();
+	asset_one.append_with(GeneralIndex(ASSET_ID.into())).expect("pool assets");
 
 	AssetHubRococo::execute_with(|| {
 		let pool_owner_account_id = asset_hub_rococo_runtime::AssetConversionOrigin::get();
@@ -255,8 +255,8 @@ fn cannot_create_pool_from_pool_assets() {
 		assert_matches::assert_matches!(
 			<AssetHubRococo as AssetHubRococoPallet>::AssetConversion::create_pool(
 				<AssetHubRococo as Chain>::RuntimeOrigin::signed(AssetHubRococoSender::get()),
-				asset_native,
-				Box::new(asset_one),
+				Box::new(v3::Location::try_from(asset_native).expect("conversion works")),
+				Box::new(v3::Location::try_from(asset_one).expect("conversion works")),
 			),
 			Err(DispatchError::Module(ModuleError{index: _, error: _, message})) => assert_eq!(message, Some("Unknown"))
 		);
@@ -265,7 +265,9 @@ fn cannot_create_pool_from_pool_assets() {
 
 #[test]
 fn pay_xcm_fee_with_some_asset_swapped_for_native() {
-	let asset_native = asset_hub_rococo_runtime::xcm_config::TokenLocationV3::get();
+	let asset_native =
+		v3::Location::try_from(asset_hub_rococo_runtime::xcm_config::TokenLocation::get())
+			.expect("conversion works");
 	let asset_one = xcm::v3::Location {
 		parents: 0,
 		interior: [
@@ -370,10 +372,10 @@ fn pay_xcm_fee_with_some_asset_swapped_for_native() {
 			penpal.clone(),
 		);
 
-		assert_ok!(<PenpalA as PenpalAPallet>::PolkadotXcm::send_blob(
+		assert_ok!(<PenpalA as PenpalAPallet>::PolkadotXcm::send(
 			penpal_root,
 			bx!(asset_hub_location),
-			xcm.encode().try_into().unwrap(),
+			bx!(xcm),
 		));
 
 		PenpalA::assert_xcm_pallet_sent();

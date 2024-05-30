@@ -94,11 +94,10 @@ fn construct_and_apply_extrinsic(
 	r.unwrap()
 }
 
-fn construct_and_estimate_extrinsic_fee(batch: pallet_utility::Call<Runtime>) -> Balance {
-	let batch_call = RuntimeCall::Utility(batch);
-	let batch_info = batch_call.get_dispatch_info();
-	let xt = construct_extrinsic(Alice, batch_call);
-	TransactionPayment::compute_fee(xt.encoded_size() as _, &batch_info, 0)
+fn construct_and_estimate_extrinsic_fee(call: RuntimeCall) -> Balance {
+	let info = call.get_dispatch_info();
+	let xt = construct_extrinsic(Alice, call);
+	TransactionPayment::compute_fee(xt.encoded_size() as _, &info, 0)
 }
 
 fn collator_session_keys() -> bridge_hub_test_utils::CollatorSessionKeys<Runtime> {
@@ -272,22 +271,6 @@ fn relayed_incoming_message_works() {
 }
 
 #[test]
-pub fn complex_relay_extrinsic_works() {
-	from_parachain::complex_relay_extrinsic_works::<RuntimeTestsAdapter>(
-		collator_session_keys(),
-		slot_durations(),
-		bp_bridge_hub_westend::BRIDGE_HUB_WESTEND_PARACHAIN_ID,
-		bp_bridge_hub_rococo::BRIDGE_HUB_ROCOCO_PARACHAIN_ID,
-		SIBLING_PARACHAIN_ID,
-		BridgeHubRococoChainId::get(),
-		Westend,
-		XCM_LANE_FOR_ASSET_HUB_WESTEND_TO_ASSET_HUB_ROCOCO,
-		|| (),
-		construct_and_apply_extrinsic,
-	);
-}
-
-#[test]
 pub fn can_calculate_weight_for_paid_export_message_with_reserve_transfer() {
 	bridge_hub_test_utils::check_sane_fees_values(
 		"bp_bridge_hub_westend::BridgeHubWestendBaseXcmFeeInWnds",
@@ -309,12 +292,12 @@ pub fn can_calculate_weight_for_paid_export_message_with_reserve_transfer() {
 }
 
 #[test]
-pub fn can_calculate_fee_for_complex_message_delivery_transaction() {
+pub fn can_calculate_fee_for_standalone_message_delivery_transaction() {
 	bridge_hub_test_utils::check_sane_fees_values(
 		"bp_bridge_hub_westend::BridgeHubWestendBaseDeliveryFeeInWnds",
 		bp_bridge_hub_westend::BridgeHubWestendBaseDeliveryFeeInWnds::get(),
 		|| {
-			from_parachain::can_calculate_fee_for_complex_message_delivery_transaction::<
+			from_parachain::can_calculate_fee_for_standalone_message_delivery_transaction::<
 				RuntimeTestsAdapter,
 			>(collator_session_keys(), construct_and_estimate_extrinsic_fee)
 		},
@@ -328,12 +311,12 @@ pub fn can_calculate_fee_for_complex_message_delivery_transaction() {
 }
 
 #[test]
-pub fn can_calculate_fee_for_complex_message_confirmation_transaction() {
+pub fn can_calculate_fee_for_standalone_message_confirmation_transaction() {
 	bridge_hub_test_utils::check_sane_fees_values(
 		"bp_bridge_hub_westend::BridgeHubWestendBaseConfirmationFeeInWnds",
 		bp_bridge_hub_westend::BridgeHubWestendBaseConfirmationFeeInWnds::get(),
 		|| {
-			from_parachain::can_calculate_fee_for_complex_message_confirmation_transaction::<
+			from_parachain::can_calculate_fee_for_standalone_message_confirmation_transaction::<
 				RuntimeTestsAdapter,
 			>(collator_session_keys(), construct_and_estimate_extrinsic_fee)
 		},

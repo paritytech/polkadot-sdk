@@ -16,9 +16,9 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-array-bytes = { version = "6.1", default-features = false }
+array-bytes = { version = "6.2.2", default-features = false }
 serde = { features = ["alloc", "derive"], workspace = true }
-codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = [
+codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false, features = [
 	"derive",
 	"max-encoded-len",
 ] }
