@@ -29,7 +29,7 @@ docify = "0.2.8"
 # Polkadot SDK deps, typically all should only be in scope such that we can link to their doc item.
 node-cli = { package = "staging-node-cli", path = "../../substrate/bin/node/cli", version = "0.1.0" }
 kitchensink-runtime = { version = "0.1.0", path = "../../substrate/bin/node/runtime" }
-chain-spec-builder = { package = "staging-chain-spec-builder", path = "../../substrate/bin/utils/chain-spec-builder", version = "0.1.0" }
+chain-spec-builder = { package = "staging-chain-spec-builder", path = "../../substrate/bin/utils/chain-spec-builder", version = "1.12.0" }
 subkey = { version = "14.0.0", path = "../../substrate/bin/utils/subkey" }
 frame-system = { path = "../../substrate/frame/system", default-features = false, version = "33.0.0" }
 frame-support = { path = "../../substrate/frame/support", default-features = false, version = "33.0.0" }
