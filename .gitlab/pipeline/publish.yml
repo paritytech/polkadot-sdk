@@ -76,6 +76,8 @@ publish-subsystem-benchmarks:
       artifacts: true
     - job: subsystem-benchmark-approval-voting
       artifacts: true
+    - job: subsystem-benchmark-statement-distribution
+      artifacts: true
     - job: publish-rustdoc
       artifacts: false
   script:
@@ -119,6 +121,8 @@ trigger_workflow:
       artifacts: true
     - job: subsystem-benchmark-approval-voting
       artifacts: true
+    - job: subsystem-benchmark-statement-distribution
+      artifacts: true
   script:
     - echo "Triggering workflow"
     - >
@@ -129,7 +133,7 @@ trigger_workflow:
         curl -q -X POST \
               -H "Accept: application/vnd.github.v3+json" \
               -H "Authorization: token $GITHUB_TOKEN" \
-              https://api.github.com/repos/paritytech/${CI_PROJECT_NAME}/actions/workflows/subsystem-benchmarks.yml/dispatches \
+              https://api.github.com/repos/paritytech/${CI_PROJECT_NAME}/actions/workflows/publish-subsystem-benchmarks.yml/dispatches \
               -d "{\"ref\":\"refs/heads/master\",\"inputs\":{\"benchmark-data-dir-path\":\"$benchmark_dir\",\"output-file-path\":\"$benchmark_name\"}}";
         sleep 300;
       done

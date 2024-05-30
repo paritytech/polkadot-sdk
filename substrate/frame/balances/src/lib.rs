@@ -542,8 +542,8 @@ pub mod pallet {
 
 	#[pallet::hooks]
 	impl<T: Config<I>, I: 'static> Hooks<BlockNumberFor<T>> for Pallet<T, I> {
-		#[cfg(not(feature = "insecure_zero_ed"))]
 		fn integrity_test() {
+			#[cfg(not(feature = "insecure_zero_ed"))]
 			assert!(
 				!<T as Config<I>>::ExistentialDeposit::get().is_zero(),
 				"The existential deposit must be greater than zero!"
@@ -554,6 +554,29 @@ pub mod pallet {
 				"MaxFreezes should be greater than or equal to the number of freeze reasons: {} < {}",
 				T::MaxFreezes::get(), <T::RuntimeFreezeReason as VariantCount>::VARIANT_COUNT,
 			);
+		}
+
+		#[cfg(feature = "try-runtime")]
+		fn try_state(_n: BlockNumberFor<T>) -> Result<(), sp_runtime::TryRuntimeError> {
+			Holds::<T, I>::iter_keys().try_for_each(|k| {
+				if Holds::<T, I>::decode_len(k).unwrap_or(0) >
+					T::RuntimeHoldReason::VARIANT_COUNT as usize
+				{
+					Err("Found `Hold` with too many elements")
+				} else {
+					Ok(())
+				}
+			})?;
+
+			Freezes::<T, I>::iter_keys().try_for_each(|k| {
+				if Freezes::<T, I>::decode_len(k).unwrap_or(0) > T::MaxFreezes::get() as usize {
+					Err("Found `Freeze` with too many elements")
+				} else {
+					Ok(())
+				}
+			})?;
+
+			Ok(())
 		}
 	}
 
@@ -765,6 +788,32 @@ pub mod pallet {
 
 			Self::deposit_event(Event::<T, I>::TotalIssuanceForced { old, new });
 
+			Ok(())
+		}
+
+		/// Burn the specified liquid free balance from the origin account.
+		///
+		/// If the origin's account ends up below the existential deposit as a result
+		/// of the burn and `keep_alive` is false, the account will be reaped.
+		///
+		/// Unlike sending funds to a _burn_ address, which merely makes the funds inaccessible,
+		/// this `burn` operation will reduce total issuance by the amount _burned_.
+		#[pallet::call_index(10)]
+		#[pallet::weight(if *keep_alive {T::WeightInfo::burn_allow_death() } else {T::WeightInfo::burn_keep_alive()})]
+		pub fn burn(
+			origin: OriginFor<T>,
+			#[pallet::compact] value: T::Balance,
+			keep_alive: bool,
+		) -> DispatchResult {
+			let source = ensure_signed(origin)?;
+			let preservation = if keep_alive { Preserve } else { Expendable };
+			<Self as fungible::Mutate<_>>::burn_from(
+				&source,
+				value,
+				preservation,
+				Precision::Exact,
+				Polite,
+			)?;
 			Ok(())
 		}
 	}

@@ -18,9 +18,8 @@
 
 use crate::TelemetryPayload;
 use futures::{channel::mpsc, prelude::*};
-use libp2p::core::transport::Transport;
+use libp2p::{core::transport::Transport, Multiaddr};
 use rand::Rng as _;
-use sc_network::Multiaddr;
 use std::{
 	fmt, mem,
 	pin::Pin,

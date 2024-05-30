@@ -260,7 +260,7 @@ impl pallet_broker::Config for Runtime {
 	type WeightInfo = weights::pallet_broker::WeightInfo<Runtime>;
 	type PalletId = BrokerPalletId;
 	type AdminOrigin = EnsureRoot<AccountId>;
-	type PriceAdapter = pallet_broker::Linear;
 	type SovereignAccountOf = TaskSovereignAccount;
 	type MaxAutoRenewals = ConstU32<50>;
+	type PriceAdapter = pallet_broker::CenterTargetPrice<Balance>;
 }

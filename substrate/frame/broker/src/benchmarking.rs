@@ -218,8 +218,8 @@ mod benches {
 			Event::SaleInitialized {
 				sale_start: 2u32.into(),
 				leadin_length: 1u32.into(),
-				start_price: 20u32.into(),
-				regular_price: 10u32.into(),
+				start_price: 1000u32.into(),
+				end_price: 10u32.into(),
 				region_begin: latest_region_begin + config.region_length,
 				region_end: latest_region_begin + config.region_length * 2,
 				ideal_cores_sold: 0,
@@ -292,8 +292,8 @@ mod benches {
 		#[extrinsic_call]
 		_(RawOrigin::Signed(caller), region.core);
 
-		let id = AllowedRenewalId { core: region.core, when: region.begin + region_len * 2 };
-		assert!(AllowedRenewals::<T>::get(id).is_some());
+		let id = PotentialRenewalId { core: region.core, when: region.begin + region_len * 2 };
+		assert!(PotentialRenewals::<T>::get(id).is_some());
 
 		Ok(())
 	}
@@ -674,20 +674,20 @@ mod benches {
 			(T::TimeslicePeriod::get() * (region_len * 3).into()).try_into().ok().unwrap(),
 		);
 
-		let id = AllowedRenewalId { core, when };
-		let record = AllowedRenewalRecord {
+		let id = PotentialRenewalId { core, when };
+		let record = PotentialRenewalRecord {
 			price: 1u32.into(),
 			completion: CompletionStatus::Complete(new_schedule()),
 		};
-		AllowedRenewals::<T>::insert(id, record);
+		PotentialRenewals::<T>::insert(id, record);
 
 		let caller: T::AccountId = whitelisted_caller();
 
 		#[extrinsic_call]
 		_(RawOrigin::Signed(caller), core, when);
 
-		assert!(AllowedRenewals::<T>::get(id).is_none());
-		assert_last_event::<T>(Event::AllowedRenewalDropped { core, when }.into());
+		assert!(PotentialRenewals::<T>::get(id).is_none());
+		assert_last_event::<T>(Event::PotentialRenewalDropped { core, when }.into());
 
 		Ok(())
 	}
@@ -780,12 +780,12 @@ mod benches {
 		let config = new_config_record::<T>();
 
 		let now = frame_system::Pallet::<T>::block_number();
-		let price = 10u32.into();
+		let end_price = 10u32.into();
 		let commit_timeslice = Broker::<T>::latest_timeslice_ready_to_commit(&config);
 		let sale = SaleInfoRecordOf::<T> {
 			sale_start: now,
 			leadin_length: Zero::zero(),
-			price,
+			end_price,
 			sellout_price: None,
 			region_begin: commit_timeslice,
 			region_end: commit_timeslice.saturating_add(config.region_length),
@@ -840,8 +840,8 @@ mod benches {
 			Event::SaleInitialized {
 				sale_start: 2u32.into(),
 				leadin_length: 1u32.into(),
-				start_price: 20u32.into(),
-				regular_price: 10u32.into(),
+				start_price: 1000u32.into(),
+				end_price: 10u32.into(),
 				region_begin: sale.region_begin + config.region_length,
 				region_end: sale.region_end + config.region_length,
 				ideal_cores_sold: 0,

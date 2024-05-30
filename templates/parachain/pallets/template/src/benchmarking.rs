@@ -13,7 +13,7 @@ mod benchmarks {
 
 	#[benchmark]
 	fn do_something() {
-		let value = 100u32.into();
+		let value = 100u32;
 		let caller: T::AccountId = whitelisted_caller();
 		#[extrinsic_call]
 		do_something(RawOrigin::Signed(caller), value);

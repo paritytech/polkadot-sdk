@@ -12,9 +12,9 @@ workspace = true
 [dependencies]
 futures = "0.3.30"
 gum = { package = "tracing-gum", path = "../../gum" }
-parity-scale-codec = "3.6.4"
+parity-scale-codec = "3.6.12"
 thiserror = { workspace = true }
-fatality = "0.0.6"
+fatality = "0.1.1"
 bitvec = "1"
 
 polkadot-primitives = { path = "../../../primitives" }
@@ -23,7 +23,6 @@ polkadot-node-subsystem = { path = "../../subsystem" }
 polkadot-node-subsystem-util = { path = "../../subsystem-util" }
 
 [dev-dependencies]
-rstest = "0.18.2"
 assert_matches = "1"
 polkadot-node-subsystem-test-helpers = { path = "../../subsystem-test-helpers" }
 polkadot-node-subsystem-types = { path = "../../subsystem-types" }

@@ -154,8 +154,8 @@ impl<T: frame_system::Config> pallet_broker::WeightInfo for WeightInfo<T> {
 	/// Proof: `Broker::Status` (`max_values`: Some(1), `max_size`: Some(18), added: 513, mode: `MaxEncodedLen`)
 	/// Storage: `Broker::SaleInfo` (r:1 w:1)
 	/// Proof: `Broker::SaleInfo` (`max_values`: Some(1), `max_size`: Some(57), added: 552, mode: `MaxEncodedLen`)
-	/// Storage: `Broker::AllowedRenewals` (r:1 w:2)
-	/// Proof: `Broker::AllowedRenewals` (`max_values`: None, `max_size`: Some(1233), added: 3708, mode: `MaxEncodedLen`)
+	/// Storage: `Broker::PotentialRenewals` (r:1 w:2)
+	/// Proof: `Broker::PotentialRenewals` (`max_values`: None, `max_size`: Some(1233), added: 3708, mode: `MaxEncodedLen`)
 	/// Storage: `System::Account` (r:1 w:0)
 	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
 	/// Storage: `Broker::Workplan` (r:0 w:1)
@@ -337,8 +337,8 @@ impl<T: frame_system::Config> pallet_broker::WeightInfo for WeightInfo<T> {
 	}
 	/// Storage: `Broker::Status` (r:1 w:0)
 	/// Proof: `Broker::Status` (`max_values`: Some(1), `max_size`: Some(18), added: 513, mode: `MaxEncodedLen`)
-	/// Storage: `Broker::AllowedRenewals` (r:1 w:1)
-	/// Proof: `Broker::AllowedRenewals` (`max_values`: None, `max_size`: Some(1233), added: 3708, mode: `MaxEncodedLen`)
+	/// Storage: `Broker::PotentialRenewals` (r:1 w:1)
+	/// Proof: `Broker::PotentialRenewals` (`max_values`: None, `max_size`: Some(1233), added: 3708, mode: `MaxEncodedLen`)
 	fn drop_renewal() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `957`

@@ -177,7 +177,7 @@ fn send_message<M>(
 	// network used `Bytes` this would not be necessary.
 	//
 	// peer may have gotten disconnect by the time `send_message()` is called
-	// at which point the the sink is not available.
+	// at which point the sink is not available.
 	let last_peer = peers.pop();
 	peers.into_iter().for_each(|peer| {
 		if let Some(sink) = notification_sinks.get(&(peer_set, peer)) {

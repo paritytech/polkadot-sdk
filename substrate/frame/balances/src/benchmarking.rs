@@ -297,6 +297,44 @@ mod benchmarks {
 		assert_eq!(Balances::<T, I>::total_issuance(), ti + delta);
 	}
 
+	/// Benchmark `burn` extrinsic with the worst possible condition - burn kills the account.
+	#[benchmark]
+	fn burn_allow_death() {
+		let existential_deposit = T::ExistentialDeposit::get();
+		let caller = whitelisted_caller();
+
+		// Give some multiple of the existential deposit
+		let balance = existential_deposit.saturating_mul(ED_MULTIPLIER.into());
+		let _ = <Balances<T, I> as Currency<_>>::make_free_balance_be(&caller, balance);
+
+		// Burn enough to kill the account.
+		let burn_amount = balance - existential_deposit + 1u32.into();
+
+		#[extrinsic_call]
+		burn(RawOrigin::Signed(caller.clone()), burn_amount, false);
+
+		assert_eq!(Balances::<T, I>::free_balance(&caller), Zero::zero());
+	}
+
+	// Benchmark `burn` extrinsic with the case where account is kept alive.
+	#[benchmark]
+	fn burn_keep_alive() {
+		let existential_deposit = T::ExistentialDeposit::get();
+		let caller = whitelisted_caller();
+
+		// Give some multiple of the existential deposit
+		let balance = existential_deposit.saturating_mul(ED_MULTIPLIER.into());
+		let _ = <Balances<T, I> as Currency<_>>::make_free_balance_be(&caller, balance);
+
+		// Burn minimum possible amount which should not kill the account.
+		let burn_amount = 1u32.into();
+
+		#[extrinsic_call]
+		burn(RawOrigin::Signed(caller.clone()), burn_amount, true);
+
+		assert_eq!(Balances::<T, I>::free_balance(&caller), balance - burn_amount);
+	}
+
 	impl_benchmark_test_suite! {
 		Balances,
 		crate::tests::ExtBuilder::default().build(),

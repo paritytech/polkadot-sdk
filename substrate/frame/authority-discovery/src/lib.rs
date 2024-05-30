@@ -48,13 +48,11 @@ pub mod pallet {
 	}
 
 	#[pallet::storage]
-	#[pallet::getter(fn keys)]
 	/// Keys of the current authority set.
 	pub(super) type Keys<T: Config> =
 		StorageValue<_, WeakBoundedVec<AuthorityId, T::MaxAuthorities>, ValueQuery>;
 
 	#[pallet::storage]
-	#[pallet::getter(fn next_keys)]
 	/// Keys of the next authority set.
 	pub(super) type NextKeys<T: Config> =
 		StorageValue<_, WeakBoundedVec<AuthorityId, T::MaxAuthorities>, ValueQuery>;

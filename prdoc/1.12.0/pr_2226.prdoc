@@ -1,0 +1,35 @@
+title: Validator disabling strategy in runtime
+
+doc:
+  - audience: Node Operator
+    description: |
+      On each committed offence (no matter slashable or not) the offending validator will be
+      disabled for a whole era. Offenders are no longer chilled so the node operator should monitor
+      the behavior of their validators and act swiftly if they are raising disputes.
+  - audience: Runtime Dev
+    description: |
+      The disabling strategy in staking pallet is no longer hardcoded but abstracted away via
+      `DisablingStrategy` trait. The trait contains a single function (make_disabling_decision) which
+      is called for each offence. The function makes a decision if (and which) validators should be
+      disabled. A default implementation is provided - `UpToLimitDisablingStrategy`. It
+      will be used on Kusama and Polkadot. In nutshell `UpToLimitDisablingStrategy`
+      disables offenders up to the configured threshold. Offending validators are not disabled for
+      offences in previous eras. The threshold is controlled via `DISABLING_LIMIT_FACTOR` (a generic
+      parameter of `UpToLimitDisablingStrategy`). Also offending validators are no longer chilled
+      after an offence is committed. This change is made to protect the network in case of honest nodes being slashed.
+  - audience: RuntimeUser
+    description: |
+      Nominators should be aware that the validators are no longer chilled if they commit an offence.
+      This means that token holders should be extra careful, monitor closely the behavior of their
+      nominees and take measures if they commit an offence.
+
+migrations:
+  db: []
+  runtime:
+    - reference: pallet-staking
+      description: |
+        Renames `OffendingValidators` storage item to `DisabledValidators` and changes its type from
+        `Vec<(u32, bool)>` to `Vec<u32>`.
+
+crates:
+  - name: pallet-staking

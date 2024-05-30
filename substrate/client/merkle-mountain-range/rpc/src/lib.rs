@@ -36,7 +36,7 @@ use sp_core::{
 	offchain::{storage::OffchainDb, OffchainDbExt, OffchainStorage},
 	Bytes,
 };
-use sp_mmr_primitives::{Error as MmrError, Proof};
+use sp_mmr_primitives::{Error as MmrError, LeafProof};
 use sp_runtime::traits::{Block as BlockT, NumberFor};
 
 pub use sp_mmr_primitives::MmrApi as MmrRuntimeApi;
@@ -52,17 +52,17 @@ pub struct LeavesProof<BlockHash> {
 	pub block_hash: BlockHash,
 	/// SCALE-encoded vector of `LeafData`.
 	pub leaves: Bytes,
-	/// SCALE-encoded proof data. See [sp_mmr_primitives::Proof].
+	/// SCALE-encoded proof data. See [sp_mmr_primitives::LeafProof].
 	pub proof: Bytes,
 }
 
 impl<BlockHash> LeavesProof<BlockHash> {
 	/// Create new `LeavesProof` from a given vector of `Leaf` and a
-	/// [sp_mmr_primitives::Proof].
+	/// [sp_mmr_primitives::LeafProof].
 	pub fn new<Leaf, MmrHash>(
 		block_hash: BlockHash,
 		leaves: Vec<Leaf>,
-		proof: Proof<MmrHash>,
+		proof: LeafProof<MmrHash>,
 	) -> Self
 	where
 		Leaf: Encode,
@@ -258,7 +258,7 @@ mod tests {
 	fn should_serialize_leaf_proof() {
 		// given
 		let leaf = vec![1_u8, 2, 3, 4];
-		let proof = Proof {
+		let proof = LeafProof {
 			leaf_indices: vec![1],
 			leaf_count: 9,
 			items: vec![H256::repeat_byte(1), H256::repeat_byte(2)],
@@ -281,7 +281,7 @@ mod tests {
 		// given
 		let leaf_a = vec![1_u8, 2, 3, 4];
 		let leaf_b = vec![2_u8, 2, 3, 4];
-		let proof = Proof {
+		let proof = LeafProof {
 			leaf_indices: vec![1, 2],
 			leaf_count: 9,
 			items: vec![H256::repeat_byte(1), H256::repeat_byte(2)],
@@ -306,7 +306,7 @@ mod tests {
 			block_hash: H256::repeat_byte(0),
 			leaves: Bytes(vec![vec![1_u8, 2, 3, 4]].encode()),
 			proof: Bytes(
-				Proof {
+				LeafProof {
 					leaf_indices: vec![1],
 					leaf_count: 9,
 					items: vec![H256::repeat_byte(1), H256::repeat_byte(2)],
@@ -333,7 +333,7 @@ mod tests {
 			block_hash: H256::repeat_byte(0),
 			leaves: Bytes(vec![vec![1_u8, 2, 3, 4], vec![2_u8, 2, 3, 4]].encode()),
 			proof: Bytes(
-				Proof {
+				LeafProof {
 					leaf_indices: vec![1, 2],
 					leaf_count: 9,
 					items: vec![H256::repeat_byte(1), H256::repeat_byte(2)],

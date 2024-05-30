@@ -41,3 +41,7 @@ pub use runtime::{
 	prepare_runtime_artifact, Config, DeterministicStackLimit, InstantiationStrategy, Semantics,
 	WasmtimeRuntime,
 };
+pub use sc_executor_common::{
+	runtime_blob::RuntimeBlob,
+	wasm_runtime::{HeapAllocStrategy, WasmModule},
+};

@@ -1,0 +1,16 @@
+title: Burn extrinsic call and `fn burn_from` `Preservation` argument 
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      pallet-balances extrinsic calls has been expanded with `burn` call.
+      An argument flag is allowed to specify whether the account should be kept alive or not.
+      This in turn required a change to the fungible's `pub trait Mutate` `burn_from` function which now
+      also accepts `Preservation` as an argument.
+      In order to keep the behavior same as before, developers should simply specify `Preservation::Expandable`.
+
+crates:
+  - name: frame-support
+    bump: major
+  - name: pallet-balances
+    bump: minor

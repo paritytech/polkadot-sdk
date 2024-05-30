@@ -22,6 +22,8 @@
 // `construct_runtime!` does a lot of recursion and requires us to increase the limits.
 #![recursion_limit = "1024"]
 
+use polkadot_sdk::*;
+
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_election_provider_support::{
 	bounds::{ElectionBounds, ElectionBoundsBuilder},
@@ -911,7 +913,7 @@ impl pallet_nomination_pools::Config for Runtime {
 	type RewardCounter = FixedU128;
 	type BalanceToU256 = BalanceToU256;
 	type U256ToBalance = U256ToBalance;
-	type Staking = Staking;
+	type StakeAdapter = pallet_nomination_pools::adapter::TransferStake<Self, Staking>;
 	type PostUnbondingPoolsWindow = PostUnbondPoolsWindow;
 	type MaxMetadataLen = ConstU32<256>;
 	type MaxUnbonding = ConstU32<8>;
@@ -1342,6 +1344,9 @@ impl pallet_tips::Config for Runtime {
 }
 
 parameter_types! {
+	pub const DepositPerItem: Balance = deposit(1, 0);
+	pub const DepositPerByte: Balance = deposit(0, 1);
+	pub const DefaultDepositLimit: Balance = deposit(1024, 1024 * 1024);
 	pub Schedule: pallet_contracts::Schedule<Runtime> = Default::default();
 	pub CodeHashLockupDepositPercent: Perbill = Perbill::from_percent(30);
 }
@@ -1359,9 +1364,9 @@ impl pallet_contracts::Config for Runtime {
 	/// change because that would break already deployed contracts. The `Call` structure itself
 	/// is not allowed to change the indices of existing pallets, too.
 	type CallFilter = Nothing;
-	type DepositPerItem = dynamic_params::contracts::DepositPerItem;
-	type DepositPerByte = dynamic_params::contracts::DepositPerByte;
-	type DefaultDepositLimit = dynamic_params::contracts::DefaultDepositLimit;
+	type DepositPerItem = DepositPerItem;
+	type DepositPerByte = DepositPerByte;
+	type DefaultDepositLimit = DefaultDepositLimit;
 	type CallStack = [pallet_contracts::Frame<Self>; 5];
 	type WeightPrice = pallet_transaction_payment::Pallet<Self>;
 	type WeightInfo = pallet_contracts::weights::SubstrateWeight<Self>;
@@ -1435,6 +1440,7 @@ where
 					tip, None,
 				),
 			),
+			frame_metadata_hash_extension::CheckMetadataHash::new(false),
 		);
 		let raw_payload = SignedPayload::new(call, extra)
 			.map_err(|e| {
@@ -1870,6 +1876,7 @@ impl pallet_core_fellowship::Config for Runtime {
 	type ApproveOrigin = EnsureRootWithSuccess<AccountId, ConstU16<9>>;
 	type PromoteOrigin = EnsureRootWithSuccess<AccountId, ConstU16<9>>;
 	type EvidenceSize = ConstU32<16_384>;
+	type MaxRank = ConstU32<9>;
 }
 
 parameter_types! {
@@ -2165,9 +2172,9 @@ impl pallet_broker::Config for Runtime {
 	type WeightInfo = ();
 	type PalletId = BrokerPalletId;
 	type AdminOrigin = EnsureRoot<AccountId>;
-	type PriceAdapter = pallet_broker::Linear;
 	type SovereignAccountOf = TaskSovereignAccount;
 	type MaxAutoRenewals = ConstU32<5>;
+	type PriceAdapter = pallet_broker::CenterTargetPrice<Balance>;
 }
 
 parameter_types! {
@@ -2210,19 +2217,6 @@ pub mod dynamic_params {
 		#[codec(index = 1)]
 		pub static ByteDeposit: Balance = 1 * CENTS;
 	}
-
-	#[dynamic_pallet_params]
-	#[codec(index = 1)]
-	pub mod contracts {
-		#[codec(index = 0)]
-		pub static DepositPerItem: Balance = deposit(1, 0);
-
-		#[codec(index = 1)]
-		pub static DepositPerByte: Balance = deposit(0, 1);
-
-		#[codec(index = 2)]
-		pub static DefaultDepositLimit: Balance = deposit(1024, 1024 * 1024);
-	}
 }
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -2248,10 +2242,6 @@ impl EnsureOriginWithArg<RuntimeOrigin, RuntimeParametersKey> for DynamicParamet
 				frame_system::ensure_root(origin.clone()).map_err(|_| origin)?;
 				return Ok(())
 			},
-			RuntimeParametersKey::Contracts(_) => {
-				frame_system::ensure_root(origin.clone()).map_err(|_| origin)?;
-				return Ok(())
-			},
 		}
 	}
 
@@ -2270,6 +2260,8 @@ impl pallet_parameters::Config for Runtime {
 
 #[frame_support::runtime]
 mod runtime {
+	use super::*;
+
 	#[runtime::runtime]
 	#[runtime::derive(
 		RuntimeCall,
@@ -2556,6 +2548,7 @@ pub type SignedExtra = (
 		Runtime,
 		pallet_asset_conversion_tx_payment::ChargeAssetTxPayment<Runtime>,
 	>,
+	frame_metadata_hash_extension::CheckMetadataHash<Runtime>,
 );
 
 /// Unchecked extrinsic type as expected by this runtime.
@@ -2611,7 +2604,7 @@ impl pallet_beefy::Config for Runtime {
 
 /// MMR helper types.
 mod mmr {
-	use super::Runtime;
+	use super::*;
 	pub use pallet_mmr::primitives::*;
 
 	pub type Leaf = <<Runtime as pallet_mmr::Config>::LeafData as LeafDataProvider>::LeafData;
@@ -2621,7 +2614,7 @@ mod mmr {
 
 #[cfg(feature = "runtime-benchmarks")]
 mod benches {
-	frame_benchmarking::define_benchmarks!(
+	polkadot_sdk::frame_benchmarking::define_benchmarks!(
 		[frame_benchmarking, BaselineBench::<Runtime>]
 		[frame_benchmarking_pallet_pov, Pov]
 		[pallet_alliance, Alliance]
@@ -3123,7 +3116,7 @@ impl_runtime_apis! {
 		fn generate_proof(
 			block_numbers: Vec<BlockNumber>,
 			best_known_block_number: Option<BlockNumber>,
-		) -> Result<(Vec<mmr::EncodableOpaqueLeaf>, mmr::Proof<mmr::Hash>), mmr::Error> {
+		) -> Result<(Vec<mmr::EncodableOpaqueLeaf>, mmr::LeafProof<mmr::Hash>), mmr::Error> {
 			Mmr::generate_proof(block_numbers, best_known_block_number).map(
 				|(leaves, proof)| {
 					(
@@ -3137,7 +3130,7 @@ impl_runtime_apis! {
 			)
 		}
 
-		fn verify_proof(leaves: Vec<mmr::EncodableOpaqueLeaf>, proof: mmr::Proof<mmr::Hash>)
+		fn verify_proof(leaves: Vec<mmr::EncodableOpaqueLeaf>, proof: mmr::LeafProof<mmr::Hash>)
 			-> Result<(), mmr::Error>
 		{
 			let leaves = leaves.into_iter().map(|leaf|
@@ -3150,7 +3143,7 @@ impl_runtime_apis! {
 		fn verify_proof_stateless(
 			root: mmr::Hash,
 			leaves: Vec<mmr::EncodableOpaqueLeaf>,
-			proof: mmr::Proof<mmr::Hash>
+			proof: mmr::LeafProof<mmr::Hash>
 		) -> Result<(), mmr::Error> {
 			let nodes = leaves.into_iter().map(|leaf|mmr::DataOrHash::Data(leaf.into_opaque_leaf())).collect();
 			pallet_mmr::verify_leaves_proof::<mmr::Hashing, _>(root, nodes, proof)
