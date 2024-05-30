@@ -1,0 +1,20 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: [Identity] Remove double encoding username signature payload
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      The signature payload for setting a username for an account in `pallet-identity` is now just
+      the raw bytes of said username (still including the suffix), removing the need to first
+      encode these bytes before signing.
+  - audience: Runtime User
+    description: |
+      The signature payload for setting a username for an account in `pallet-identity` is now just
+      the raw bytes of said username (still including the suffix), removing the need to first
+      encode these bytes before signing.
+
+crates:
+  - name: pallet-identity
+    bump: minor
