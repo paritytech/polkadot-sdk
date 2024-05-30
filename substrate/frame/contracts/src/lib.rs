@@ -146,7 +146,7 @@ pub use crate::{
 	exec::Frame,
 	migration::{MigrateSequence, Migration, NoopMigration},
 	pallet::*,
-	schedule::{HostFnWeights, InstructionWeights, Limits, Schedule},
+	schedule::{InstructionWeights, Limits, Schedule},
 	wasm::Determinism,
 };
 pub use weights::WeightInfo;

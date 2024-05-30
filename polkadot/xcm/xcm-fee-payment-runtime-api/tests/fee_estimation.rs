@@ -52,13 +52,15 @@ fn fee_estimation_for_teleport() {
 		let runtime_api = client.runtime_api();
 		let extrinsic = TestXt::new(
 			RuntimeCall::XcmPallet(pallet_xcm::Call::transfer_assets {
-				dest: Box::new(VersionedLocation::V4((Parent, Parachain(1000)).into())),
-				beneficiary: Box::new(VersionedLocation::V4(
-					AccountId32 { id: [0u8; 32], network: None }.into(),
-				)),
-				assets: Box::new(VersionedAssets::V4(
-					vec![(Here, 100u128).into(), (Parent, 20u128).into()].into(),
-				)),
+				dest: Box::new(VersionedLocation::from((Parent, Parachain(1000)))),
+				beneficiary: Box::new(VersionedLocation::from(AccountId32 {
+					id: [0u8; 32],
+					network: None,
+				})),
+				assets: Box::new(VersionedAssets::from(vec![
+					(Here, 100u128).into(),
+					(Parent, 20u128).into(),
+				])),
 				fee_asset_item: 1, // Fees are paid with the RelayToken
 				weight_limit: Unlimited,
 			}),
@@ -69,7 +71,7 @@ fn fee_estimation_for_teleport() {
 
 		assert_eq!(
 			dry_run_effects.local_xcm,
-			Some(VersionedXcm::V4(
+			Some(VersionedXcm::from(
 				Xcm::builder_unsafe()
 					.withdraw_asset((Parent, 20u128))
 					.burn_asset((Parent, 20u128))
@@ -89,8 +91,8 @@ fn fee_estimation_for_teleport() {
 		assert_eq!(
 			dry_run_effects.forwarded_xcms,
 			vec![(
-				VersionedLocation::V4(send_destination.clone()),
-				vec![VersionedXcm::V4(send_message.clone())],
+				VersionedLocation::from(send_destination.clone()),
+				vec![VersionedXcm::from(send_message.clone())],
 			),],
 		);
 
@@ -153,7 +155,7 @@ fn fee_estimation_for_teleport() {
 			.query_weight_to_asset_fee(
 				H256::zero(),
 				weight,
-				VersionedAssetId::V4(HereLocation::get().into()),
+				VersionedAssetId::from(AssetId(HereLocation::get())),
 			)
 			.unwrap()
 			.unwrap();
@@ -168,7 +170,7 @@ fn fee_estimation_for_teleport() {
 			.query_delivery_fees(H256::zero(), destination.clone(), remote_message.clone())
 			.unwrap()
 			.unwrap();
-		assert_eq!(delivery_fees, VersionedAssets::V4((Here, 20u128).into()));
+		assert_eq!(delivery_fees, VersionedAssets::from((Here, 20u128)));
 
 		// This would have to be the runtime API of the destination,
 		// which we have the location for.
@@ -182,7 +184,7 @@ fn fee_estimation_for_teleport() {
 			.query_weight_to_asset_fee(
 				H256::zero(),
 				remote_execution_weight,
-				VersionedAssetId::V4(HereLocation::get().into()),
+				VersionedAssetId::from(AssetId(HereLocation::get())),
 			)
 			.unwrap()
 			.unwrap();
@@ -216,11 +218,12 @@ fn dry_run_reserve_asset_transfer() {
 		let runtime_api = client.runtime_api();
 		let extrinsic = TestXt::new(
 			RuntimeCall::XcmPallet(pallet_xcm::Call::transfer_assets {
-				dest: Box::new(VersionedLocation::V4((Parent, Parachain(1000)).into())),
-				beneficiary: Box::new(VersionedLocation::V4(
-					AccountId32 { id: [0u8; 32], network: None }.into(),
-				)),
-				assets: Box::new(VersionedAssets::V4((Parent, 100u128).into())),
+				dest: Box::new(VersionedLocation::from((Parent, Parachain(1000)))),
+				beneficiary: Box::new(VersionedLocation::from(AccountId32 {
+					id: [0u8; 32],
+					network: None,
+				})),
+				assets: Box::new(VersionedAssets::from((Parent, 100u128))),
 				fee_asset_item: 0,
 				weight_limit: Unlimited,
 			}),
@@ -231,7 +234,7 @@ fn dry_run_reserve_asset_transfer() {
 
 		assert_eq!(
 			dry_run_effects.local_xcm,
-			Some(VersionedXcm::V4(
+			Some(VersionedXcm::from(
 				Xcm::builder_unsafe()
 					.withdraw_asset((Parent, 100u128))
 					.burn_asset((Parent, 100u128))
@@ -251,8 +254,8 @@ fn dry_run_reserve_asset_transfer() {
 		assert_eq!(
 			dry_run_effects.forwarded_xcms,
 			vec![(
-				VersionedLocation::V4(send_destination.clone()),
-				vec![VersionedXcm::V4(send_message.clone())],
+				VersionedLocation::from(send_destination.clone()),
+				vec![VersionedXcm::from(send_message.clone())],
 			),],
 		);
 
@@ -310,11 +313,15 @@ fn dry_run_xcm() {
 	let client = TestClient;
 	let runtime_api = client.runtime_api();
 	let xcm_weight = runtime_api
-		.query_xcm_weight(H256::zero(), VersionedXcm::V4(xcm_to_weigh.clone().into()))
+		.query_xcm_weight(H256::zero(), VersionedXcm::from(xcm_to_weigh.clone().into()))
 		.unwrap()
 		.unwrap();
 	let execution_fees = runtime_api
-		.query_weight_to_asset_fee(H256::zero(), xcm_weight, VersionedAssetId::V4(Here.into()))
+		.query_weight_to_asset_fee(
+			H256::zero(),
+			xcm_weight,
+			VersionedAssetId::from(AssetId(Here.into())),
+		)
 		.unwrap()
 		.unwrap();
 	let xcm = Xcm::<RuntimeCall>::builder_unsafe()
@@ -331,16 +338,16 @@ fn dry_run_xcm() {
 		let dry_run_effects = runtime_api
 			.dry_run_xcm(
 				H256::zero(),
-				VersionedLocation::V4(AccountIndex64 { index: 1, network: None }.into()),
-				VersionedXcm::V4(xcm),
+				VersionedLocation::from([AccountIndex64 { index: 1, network: None }]),
+				VersionedXcm::from(xcm),
 			)
 			.unwrap()
 			.unwrap();
 		assert_eq!(
 			dry_run_effects.forwarded_xcms,
 			vec![(
-				VersionedLocation::V4((Parent, Parachain(2100)).into()),
-				vec![VersionedXcm::V4(
+				VersionedLocation::from((Parent, Parachain(2100))),
+				vec![VersionedXcm::from(
 					Xcm::<()>::builder_unsafe()
 						.reserve_asset_deposited((
 							(Parent, Parachain(2000)),

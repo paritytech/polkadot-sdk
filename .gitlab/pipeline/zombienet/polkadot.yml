@@ -183,6 +183,22 @@ zombienet-polkadot-functional-0012-spam-statement-distribution-requests:
       --local-dir="${LOCAL_DIR}/functional"
       --test="0012-spam-statement-distribution-requests.zndsl"
 
+zombienet-polkadot-functional-0013-systematic-chunk-recovery:
+  extends:
+    - .zombienet-polkadot-common
+  script:
+    - /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh
+      --local-dir="${LOCAL_DIR}/functional"
+      --test="0013-systematic-chunk-recovery.zndsl"
+
+zombienet-polkadot-functional-0014-chunk-fetching-network-compatibility:
+  extends:
+    - .zombienet-polkadot-common
+  script:
+    - /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh
+      --local-dir="${LOCAL_DIR}/functional"
+      --test="0014-chunk-fetching-network-compatibility.zndsl"
+
 zombienet-polkadot-smoke-0001-parachains-smoke-test:
   extends:
     - .zombienet-polkadot-common

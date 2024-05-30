@@ -142,9 +142,13 @@ where
 			parse_default_directive("libp2p_mdns::behaviour::iface=off")
 				.expect("provided directive is valid"),
 		)
+		// Disable annoying log messages from rustls
 		.add_directive(
 			parse_default_directive("rustls::common_state=off")
 				.expect("provided directive is valid"),
+		)
+		.add_directive(
+			parse_default_directive("rustls::conn=off").expect("provided directive is valid"),
 		);
 
 	if let Ok(lvl) = std::env::var("RUST_LOG") {
