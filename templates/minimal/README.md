@@ -74,9 +74,9 @@ available on [IPFS](https://dotapps.io/).
 
 A Polkadot SDK based project such as this one consists of:
 
-- 💿 [Node](./node/README.md) - the binary application.
-- 🧮 [Runtime](./runtime/README.md) - the core logic of the blockchain.
-- 🎨 [Pallets](./pallets/README.md) - from which the runtime is constructed.
+- 💿 a [Node](./node/README.md) - the binary application.
+- 🧮 the [Runtime](./runtime/README.md) - the core logic of the blockchain.
+- 🎨 the [Pallets](./pallets/README.md) - from which the runtime is constructed.
 
 ## Contributing
 
