@@ -1496,7 +1496,7 @@ fn enable_auto_renew_works() {
 
 		// Eligible for renewal after final assignment:
 		assert_ok!(Broker::do_assign(region_id, Some(1), 1001, Final));
-		assert!(AllowedRenewals::<Test>::get(AllowedRenewalId {
+		assert!(PotentialRenewals::<Test>::get(PotentialRenewalId {
 			core: region_id.core,
 			when: record.end
 		})
@@ -1543,7 +1543,7 @@ fn enable_auto_renewal_with_end_hint_works() {
 		assert_ok!(Broker::do_start_sales(100, 1));
 		advance_to(2);
 
-		let record = AllowedRenewalRecord {
+		let record = PotentialRenewalRecord {
 			price: 100,
 			completion: CompletionStatus::Complete(
 				vec![ScheduleItem { mask: CoreMask::complete(), assignment: Task(1001) }]
@@ -1553,7 +1553,7 @@ fn enable_auto_renewal_with_end_hint_works() {
 		};
 		// Each lease-holding task should be allowed to auto renew. Although the `when` field will
 		// likely be set to a later timeslice. For this reason renewals will only begin later.
-		AllowedRenewals::<Test>::insert(AllowedRenewalId { core: 0, when: 10 }, &record);
+		PotentialRenewals::<Test>::insert(PotentialRenewalId { core: 0, when: 10 }, &record);
 
 		endow(1001, 1000);
 
@@ -1627,8 +1627,11 @@ fn enable_auto_renew_renews() {
 			AutoRenewals::<Test>::get().to_vec(),
 			vec![AutoRenewalRecord { core: 0, task: 1001, begin: 10 }]
 		);
-		assert!(AllowedRenewals::<Test>::get(AllowedRenewalId { core: region_id.core, when: 10 })
-			.is_some());
+		assert!(PotentialRenewals::<Test>::get(PotentialRenewalId {
+			core: region_id.core,
+			when: 10
+		})
+		.is_some());
 
 		System::assert_has_event(
 			Event::<Test>::AutoRenewalEnabled { core: region_id.core, task: 1001 }.into(),

@@ -27,16 +27,18 @@
 // ./target/release/substrate-node
 // benchmark
 // pallet
+// --chain=dev
 // --steps=50
 // --repeat=20
+// --pallet=pallet_broker
+// --no-storage-info
+// --no-median-slopes
+// --no-min-squares
 // --extrinsic=*
 // --wasm-execution=compiled
 // --heap-pages=4096
-// --json-file=/builds/parity/mirrors/polkadot-sdk/.git/.artifacts/bench.json
-// --pallet=pallet_broker
-// --chain=dev
-// --header=./substrate/HEADER-APACHE2
 // --output=./substrate/frame/broker/src/weights.rs
+// --header=./substrate/HEADER-APACHE2
 // --template=./substrate/.maintain/frame-weight-template.hbs
 
 #![cfg_attr(rustfmt, rustfmt_skip)]
@@ -165,7 +167,6 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Proof: `System::Digest` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
 	/// Storage: `Broker::Regions` (r:0 w:1)
 	/// Proof: `Broker::Regions` (`max_values`: None, `max_size`: Some(86), added: 2561, mode: `MaxEncodedLen`)
-	/// Proof: `Broker::Regions` (`max_values`: None, `max_size`: Some(86), added: 2561, mode: `MaxEncodedLen`)
 	fn purchase() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `635`
@@ -191,7 +192,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Proof: `Broker::Workplan` (`max_values`: None, `max_size`: Some(1216), added: 3691, mode: `MaxEncodedLen`)
 	fn renew() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `769`
+		//  Measured:  `753`
 		//  Estimated: `4698`
 		// Minimum execution time: 43_492_000 picoseconds.
 		Weight::from_parts(44_284_000, 4698)
@@ -199,7 +200,6 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().writes(4_u64))
 	}
 	/// Storage: `Broker::Regions` (r:1 w:1)
-	/// Proof: `Broker::Regions` (`max_values`: None, `max_size`: Some(86), added: 2561, mode: `MaxEncodedLen`)
 	/// Proof: `Broker::Regions` (`max_values`: None, `max_size`: Some(86), added: 2561, mode: `MaxEncodedLen`)
 	fn transfer() -> Weight {
 		// Proof Size summary in bytes:
@@ -212,7 +212,6 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	}
 	/// Storage: `Broker::Regions` (r:1 w:2)
 	/// Proof: `Broker::Regions` (`max_values`: None, `max_size`: Some(86), added: 2561, mode: `MaxEncodedLen`)
-	/// Proof: `Broker::Regions` (`max_values`: None, `max_size`: Some(86), added: 2561, mode: `MaxEncodedLen`)
 	fn partition() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `496`
@@ -223,7 +222,6 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().writes(2_u64))
 	}
 	/// Storage: `Broker::Regions` (r:1 w:3)
-	/// Proof: `Broker::Regions` (`max_values`: None, `max_size`: Some(86), added: 2561, mode: `MaxEncodedLen`)
 	/// Proof: `Broker::Regions` (`max_values`: None, `max_size`: Some(86), added: 2561, mode: `MaxEncodedLen`)
 	fn interlace() -> Weight {
 		// Proof Size summary in bytes:
@@ -240,12 +238,10 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Proof: `Broker::Status` (`max_values`: Some(1), `max_size`: Some(18), added: 513, mode: `MaxEncodedLen`)
 	/// Storage: `Broker::Regions` (r:1 w:1)
 	/// Proof: `Broker::Regions` (`max_values`: None, `max_size`: Some(86), added: 2561, mode: `MaxEncodedLen`)
-	/// Proof: `Broker::Regions` (`max_values`: None, `max_size`: Some(86), added: 2561, mode: `MaxEncodedLen`)
 	/// Storage: `Broker::Workplan` (r:1 w:1)
 	/// Proof: `Broker::Workplan` (`max_values`: None, `max_size`: Some(1216), added: 3691, mode: `MaxEncodedLen`)
 	fn assign() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `741`
 		//  Measured:  `741`
 		//  Estimated: `4681`
 		// Minimum execution time: 22_142_000 picoseconds.
@@ -257,7 +253,6 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Proof: `Broker::Status` (`max_values`: Some(1), `max_size`: Some(18), added: 513, mode: `MaxEncodedLen`)
 	/// Storage: `Broker::Regions` (r:1 w:1)
 	/// Proof: `Broker::Regions` (`max_values`: None, `max_size`: Some(86), added: 2561, mode: `MaxEncodedLen`)
-	/// Proof: `Broker::Regions` (`max_values`: None, `max_size`: Some(86), added: 2561, mode: `MaxEncodedLen`)
 	/// Storage: `Broker::Workplan` (r:1 w:1)
 	/// Proof: `Broker::Workplan` (`max_values`: None, `max_size`: Some(1216), added: 3691, mode: `MaxEncodedLen`)
 	/// Storage: `Broker::InstaPoolIo` (r:2 w:2)
@@ -266,7 +261,6 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Proof: `Broker::InstaPoolContribution` (`max_values`: None, `max_size`: Some(68), added: 2543, mode: `MaxEncodedLen`)
 	fn pool() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `776`
 		//  Measured:  `776`
 		//  Estimated: `5996`
 		// Minimum execution time: 26_320_000 picoseconds.
@@ -308,7 +302,6 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Storage: `Broker::Status` (r:1 w:0)
 	/// Proof: `Broker::Status` (`max_values`: Some(1), `max_size`: Some(18), added: 513, mode: `MaxEncodedLen`)
 	/// Storage: `Broker::Regions` (r:1 w:1)
-	/// Proof: `Broker::Regions` (`max_values`: None, `max_size`: Some(86), added: 2561, mode: `MaxEncodedLen`)
 	/// Proof: `Broker::Regions` (`max_values`: None, `max_size`: Some(86), added: 2561, mode: `MaxEncodedLen`)
 	fn drop_region() -> Weight {
 		// Proof Size summary in bytes:
@@ -378,7 +371,6 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Proof: `Broker::CoreCountInbox` (`max_values`: Some(1), `max_size`: Some(2), added: 497, mode: `MaxEncodedLen`)
 	/// The range of component `n` is `[0, 1000]`.
 	fn process_core_count(_n: u32, ) -> Weight {
-	fn process_core_count(_n: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `404`
 		//  Estimated: `1487`
@@ -407,7 +399,6 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().writes(3_u64))
 	}
 	/// The range of component `n` is `[0, 1000]`.
-	fn rotate_sale(_n: u32, ) -> Weight {
 	fn rotate_sale(_n: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
@@ -488,8 +479,8 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	}
 	/// Storage: `Broker::SaleInfo` (r:1 w:1)
 	/// Proof: `Broker::SaleInfo` (`max_values`: Some(1), `max_size`: Some(57), added: 552, mode: `MaxEncodedLen`)
-	/// Storage: `Broker::AllowedRenewals` (r:1 w:2)
-	/// Proof: `Broker::AllowedRenewals` (`max_values`: None, `max_size`: Some(1233), added: 3708, mode: `MaxEncodedLen`)
+	/// Storage: `Broker::PotentialRenewals` (r:1 w:2)
+	/// Proof: `Broker::PotentialRenewals` (`max_values`: None, `max_size`: Some(1233), added: 3708, mode: `MaxEncodedLen`)
 	/// Storage: `Broker::Configuration` (r:1 w:0)
 	/// Proof: `Broker::Configuration` (`max_values`: Some(1), `max_size`: Some(31), added: 526, mode: `MaxEncodedLen`)
 	/// Storage: `Broker::Status` (r:1 w:0)
@@ -609,7 +600,6 @@ impl WeightInfo for () {
 	/// Proof: `System::Digest` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
 	/// Storage: `Broker::Regions` (r:0 w:1)
 	/// Proof: `Broker::Regions` (`max_values`: None, `max_size`: Some(86), added: 2561, mode: `MaxEncodedLen`)
-	/// Proof: `Broker::Regions` (`max_values`: None, `max_size`: Some(86), added: 2561, mode: `MaxEncodedLen`)
 	fn purchase() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `635`
@@ -635,7 +625,7 @@ impl WeightInfo for () {
 	/// Proof: `Broker::Workplan` (`max_values`: None, `max_size`: Some(1216), added: 3691, mode: `MaxEncodedLen`)
 	fn renew() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `769`
+		//  Measured:  `753`
 		//  Estimated: `4698`
 		// Minimum execution time: 43_492_000 picoseconds.
 		Weight::from_parts(44_284_000, 4698)
@@ -643,7 +633,6 @@ impl WeightInfo for () {
 			.saturating_add(RocksDbWeight::get().writes(4_u64))
 	}
 	/// Storage: `Broker::Regions` (r:1 w:1)
-	/// Proof: `Broker::Regions` (`max_values`: None, `max_size`: Some(86), added: 2561, mode: `MaxEncodedLen`)
 	/// Proof: `Broker::Regions` (`max_values`: None, `max_size`: Some(86), added: 2561, mode: `MaxEncodedLen`)
 	fn transfer() -> Weight {
 		// Proof Size summary in bytes:
@@ -656,7 +645,6 @@ impl WeightInfo for () {
 	}
 	/// Storage: `Broker::Regions` (r:1 w:2)
 	/// Proof: `Broker::Regions` (`max_values`: None, `max_size`: Some(86), added: 2561, mode: `MaxEncodedLen`)
-	/// Proof: `Broker::Regions` (`max_values`: None, `max_size`: Some(86), added: 2561, mode: `MaxEncodedLen`)
 	fn partition() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `496`
@@ -667,7 +655,6 @@ impl WeightInfo for () {
 			.saturating_add(RocksDbWeight::get().writes(2_u64))
 	}
 	/// Storage: `Broker::Regions` (r:1 w:3)
-	/// Proof: `Broker::Regions` (`max_values`: None, `max_size`: Some(86), added: 2561, mode: `MaxEncodedLen`)
 	/// Proof: `Broker::Regions` (`max_values`: None, `max_size`: Some(86), added: 2561, mode: `MaxEncodedLen`)
 	fn interlace() -> Weight {
 		// Proof Size summary in bytes:
@@ -684,12 +671,10 @@ impl WeightInfo for () {
 	/// Proof: `Broker::Status` (`max_values`: Some(1), `max_size`: Some(18), added: 513, mode: `MaxEncodedLen`)
 	/// Storage: `Broker::Regions` (r:1 w:1)
 	/// Proof: `Broker::Regions` (`max_values`: None, `max_size`: Some(86), added: 2561, mode: `MaxEncodedLen`)
-	/// Proof: `Broker::Regions` (`max_values`: None, `max_size`: Some(86), added: 2561, mode: `MaxEncodedLen`)
 	/// Storage: `Broker::Workplan` (r:1 w:1)
 	/// Proof: `Broker::Workplan` (`max_values`: None, `max_size`: Some(1216), added: 3691, mode: `MaxEncodedLen`)
 	fn assign() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `741`
 		//  Measured:  `741`
 		//  Estimated: `4681`
 		// Minimum execution time: 22_142_000 picoseconds.
@@ -701,7 +686,6 @@ impl WeightInfo for () {
 	/// Proof: `Broker::Status` (`max_values`: Some(1), `max_size`: Some(18), added: 513, mode: `MaxEncodedLen`)
 	/// Storage: `Broker::Regions` (r:1 w:1)
 	/// Proof: `Broker::Regions` (`max_values`: None, `max_size`: Some(86), added: 2561, mode: `MaxEncodedLen`)
-	/// Proof: `Broker::Regions` (`max_values`: None, `max_size`: Some(86), added: 2561, mode: `MaxEncodedLen`)
 	/// Storage: `Broker::Workplan` (r:1 w:1)
 	/// Proof: `Broker::Workplan` (`max_values`: None, `max_size`: Some(1216), added: 3691, mode: `MaxEncodedLen`)
 	/// Storage: `Broker::InstaPoolIo` (r:2 w:2)
@@ -710,7 +694,6 @@ impl WeightInfo for () {
 	/// Proof: `Broker::InstaPoolContribution` (`max_values`: None, `max_size`: Some(68), added: 2543, mode: `MaxEncodedLen`)
 	fn pool() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `776`
 		//  Measured:  `776`
 		//  Estimated: `5996`
 		// Minimum execution time: 26_320_000 picoseconds.
@@ -752,7 +735,6 @@ impl WeightInfo for () {
 	/// Storage: `Broker::Status` (r:1 w:0)
 	/// Proof: `Broker::Status` (`max_values`: Some(1), `max_size`: Some(18), added: 513, mode: `MaxEncodedLen`)
 	/// Storage: `Broker::Regions` (r:1 w:1)
-	/// Proof: `Broker::Regions` (`max_values`: None, `max_size`: Some(86), added: 2561, mode: `MaxEncodedLen`)
 	/// Proof: `Broker::Regions` (`max_values`: None, `max_size`: Some(86), added: 2561, mode: `MaxEncodedLen`)
 	fn drop_region() -> Weight {
 		// Proof Size summary in bytes:
@@ -822,7 +804,6 @@ impl WeightInfo for () {
 	/// Proof: `Broker::CoreCountInbox` (`max_values`: Some(1), `max_size`: Some(2), added: 497, mode: `MaxEncodedLen`)
 	/// The range of component `n` is `[0, 1000]`.
 	fn process_core_count(_n: u32, ) -> Weight {
-	fn process_core_count(_n: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `404`
 		//  Estimated: `1487`
@@ -851,7 +832,6 @@ impl WeightInfo for () {
 			.saturating_add(RocksDbWeight::get().writes(3_u64))
 	}
 	/// The range of component `n` is `[0, 1000]`.
-	fn rotate_sale(_n: u32, ) -> Weight {
 	fn rotate_sale(_n: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
@@ -932,8 +912,8 @@ impl WeightInfo for () {
 	}
 	/// Storage: `Broker::SaleInfo` (r:1 w:1)
 	/// Proof: `Broker::SaleInfo` (`max_values`: Some(1), `max_size`: Some(57), added: 552, mode: `MaxEncodedLen`)
-	/// Storage: `Broker::AllowedRenewals` (r:1 w:2)
-	/// Proof: `Broker::AllowedRenewals` (`max_values`: None, `max_size`: Some(1233), added: 3708, mode: `MaxEncodedLen`)
+	/// Storage: `Broker::PotentialRenewals` (r:1 w:2)
+	/// Proof: `Broker::PotentialRenewals` (`max_values`: None, `max_size`: Some(1233), added: 3708, mode: `MaxEncodedLen`)
 	/// Storage: `Broker::Configuration` (r:1 w:0)
 	/// Proof: `Broker::Configuration` (`max_values`: Some(1), `max_size`: Some(31), added: 526, mode: `MaxEncodedLen`)
 	/// Storage: `Broker::Status` (r:1 w:0)

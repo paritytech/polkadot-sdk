@@ -525,8 +525,8 @@ impl<T: frame_system::Config> pallet_broker::WeightInfo for WeightInfo<T> {
 	}
 	/// Storage: `Broker::SaleInfo` (r:1 w:1)
 	/// Proof: `Broker::SaleInfo` (`max_values`: Some(1), `max_size`: Some(57), added: 552, mode: `MaxEncodedLen`)
-	/// Storage: `Broker::AllowedRenewals` (r:1 w:2)
-	/// Proof: `Broker::AllowedRenewals` (`max_values`: None, `max_size`: Some(1233), added: 3708, mode: `MaxEncodedLen`)
+	/// Storage: `Broker::PotentialRenewals` (r:1 w:2)
+	/// Proof: `Broker::PotentialRenewals` (`max_values`: None, `max_size`: Some(1233), added: 3708, mode: `MaxEncodedLen`)
 	/// Storage: `Broker::Configuration` (r:1 w:0)
 	/// Proof: `Broker::Configuration` (`max_values`: Some(1), `max_size`: Some(31), added: 526, mode: `MaxEncodedLen`)
 	/// Storage: `Broker::Status` (r:1 w:0)

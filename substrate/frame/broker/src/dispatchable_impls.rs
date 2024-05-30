@@ -487,12 +487,12 @@ impl<T: Config> Pallet<T> {
 		};
 
 		let record = if let Some(workload_end) = workload_end_hint {
-			AllowedRenewals::<T>::get(AllowedRenewalId { core, when: workload_end })
+			PotentialRenewals::<T>::get(PotentialRenewalId { core, when: workload_end })
 				.ok_or(Error::<T>::NotAllowed)?
 		} else {
 			// If the core hasn't been renewed yet we will renew it now.
 			if let Some(record) =
-				AllowedRenewals::<T>::get(AllowedRenewalId { core, when: sale.region_begin })
+				PotentialRenewals::<T>::get(PotentialRenewalId { core, when: sale.region_begin })
 			{
 				Self::do_renew(sovereign_account.clone(), core)?;
 				record
@@ -501,7 +501,7 @@ impl<T: Config> Pallet<T> {
 				// be able to find it for the upcoming bulk period.
 				//
 				// If not the core is not eligable for renewal.
-				AllowedRenewals::<T>::get(AllowedRenewalId { core, when: sale.region_end })
+				PotentialRenewals::<T>::get(PotentialRenewalId { core, when: sale.region_end })
 					.ok_or(Error::<T>::NotAllowed)?
 			}
 		};

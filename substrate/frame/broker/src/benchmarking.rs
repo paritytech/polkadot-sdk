@@ -1016,7 +1016,7 @@ mod benches {
 
 		assert_last_event::<T>(Event::AutoRenewalEnabled { core: region.core, task: 2001 }.into());
 		// Make sure we indeed renewed:
-		assert!(AllowedRenewals::<T>::get(AllowedRenewalId {
+		assert!(PotentialRenewals::<T>::get(PotentialRenewalId {
 			core: region.core,
 			when: 10 // region end after renewal
 		})

@@ -85,7 +85,7 @@ mod v2 {
 	};
 
 	#[storage_alias]
-	pub type AllowedRenewals<T: Config> = StorageMap<
+	pub type PotentialRenewals<T: Config> = StorageMap<
 		Pallet<T>,
 		Twox64Concat,
 		PotentialRenewalId,
@@ -98,7 +98,7 @@ mod v2 {
 	impl<T: Config> UncheckedOnRuntimeUpgrade for MigrateToV2Impl<T> {
 		fn on_runtime_upgrade() -> frame_support::weights::Weight {
 			let mut count = 0;
-			for (renewal_id, renewal) in AllowedRenewals::<T>::drain() {
+			for (renewal_id, renewal) in PotentialRenewals::<T>::drain() {
 				PotentialRenewals::<T>::insert(renewal_id, renewal);
 				count += 1;
 			}
@@ -114,7 +114,7 @@ mod v2 {
 
 		#[cfg(feature = "try-runtime")]
 		fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::TryRuntimeError> {
-			Ok((AllowedRenewals::<T>::iter_keys().count() as u32).encode())
+			Ok((PotentialRenewals::<T>::iter_keys().count() as u32).encode())
 		}
 
 		#[cfg(feature = "try-runtime")]
