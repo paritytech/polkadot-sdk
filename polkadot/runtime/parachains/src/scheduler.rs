@@ -350,6 +350,11 @@ impl<T: Config> Pallet<T> {
 	/// `AssignmentProvider`. A claim is considered expired if it's `ttl` field is lower than the
 	/// current block height.
 	fn drop_expired_claims_from_claimqueue() {
+		log::trace!(
+			target: LOG_TARGET,
+			"[drop_expired_claims_from_claimqueue] enter {:?}",
+			ClaimQueue::<T>::get(),
+		);
 		let now = frame_system::Pallet::<T>::block_number();
 		let availability_cores = AvailabilityCores::<T>::get();
 		let ttl = configuration::ActiveConfig::<T>::get().scheduler_params.ttl;
@@ -363,6 +368,12 @@ impl<T: Config> Pallet<T> {
 					while i < core_claimqueue.len() {
 						let maybe_dropped = if let Some(entry) = core_claimqueue.get(i) {
 							if entry.ttl < now {
+								log::trace!(
+									target: LOG_TARGET,
+									"[drop_expired_claims_from_claimqueue] Dropping expired claim from claimqueue; idx={} para_id={:?}",
+									i,
+									entry.para_id()
+								);
 								core_claimqueue.remove(i)
 							} else {
 								None
@@ -379,17 +390,40 @@ impl<T: Config> Pallet<T> {
 						}
 					}
 
+					log::trace!(
+						target: LOG_TARGET,
+						"[drop_expired_claims_from_claimqueue] After iterating the claimqueue for core_idx={:?}, num_dropped={:?}",
+						core_idx,
+						num_dropped
+					);
+
 					for _ in 0..num_dropped {
+						log::trace!(
+							target: LOG_TARGET,
+							"[drop_expired_claims_from_claimqueue] Attempting to pop a new entry for core_idx={:?}",
+							core_idx,
+						);
 						// For all claims dropped due to TTL, attempt to pop a new entry to
 						// the back of the claimqueue.
 						if let Some(assignment) =
 							T::AssignmentProvider::pop_assignment_for_core(core_idx)
 						{
+							log::trace!(
+								target: LOG_TARGET,
+								"[drop_expired_claims_from_claimqueue] Popped a new entry for core_idx={:?}",
+								core_idx,
+							);
 							core_claimqueue.push_back(ParasEntry::new(assignment, now + ttl));
 						}
 					}
 				}
 			}
+
+			log::trace!(
+				target: LOG_TARGET,
+				"[drop_expired_claims_from_claimqueue] before return {:?}",
+				ClaimQueue::<T>::get(),
+			);
 		});
 	}
 
@@ -537,6 +571,7 @@ impl<T: Config> Pallet<T> {
 
 	// on new session
 	fn push_claimqueue_items_to_assignment_provider() {
+		log::debug!(target: LOG_TARGET, "[push_claimqueue_items_to_assignment_provider] enter");
 		for (_, claim_queue) in ClaimQueue::<T>::take() {
 			// Push back in reverse order so that when we pop from the provider again,
 			// the entries in the claimqueue are in the same order as they are right now.
@@ -550,6 +585,7 @@ impl<T: Config> Pallet<T> {
 	/// timed out on availability before.
 	fn maybe_push_assignment(pe: ParasEntryType<T>) {
 		if pe.availability_timeouts == 0 {
+			log::debug!(target: LOG_TARGET, "[maybe_push_assignment] pushing {:?}", pe);
 			T::AssignmentProvider::push_back_assignment(pe.assignment);
 		}
 	}
@@ -566,6 +602,8 @@ impl<T: Config> Pallet<T> {
 		just_freed_cores: impl IntoIterator<Item = (CoreIndex, FreedReason)>,
 		now: BlockNumberFor<T>,
 	) {
+		log::debug!(target: LOG_TARGET, "[free_cores_and_fill_claimqueue] enter now: {:?}, cq: {:?}", now, ClaimQueue::<T>::get());
+
 		let (mut concluded_paras, mut timedout_paras) = Self::free_cores(just_freed_cores);
 
 		// This can only happen on new sessions at which we move all assignments back to the
@@ -586,6 +624,8 @@ impl<T: Config> Pallet<T> {
 
 			// add previously timedout paras back into the queue
 			if let Some(mut entry) = timedout_paras.remove(&core_idx) {
+				log::debug!(target: LOG_TARGET, "[free_cores_and_fill_claimqueue] timedout para: entry: {:?} core: {:?}", entry, core_idx);
+
 				if entry.availability_timeouts < max_availability_timeouts {
 					// Increment the timeout counter.
 					entry.availability_timeouts += 1;
@@ -594,6 +634,8 @@ impl<T: Config> Pallet<T> {
 					Self::add_to_claimqueue(core_idx, entry);
 					// The claim has been added back into the claimqueue.
 					// Do not pop another assignment for the core.
+					log::debug!(target: LOG_TARGET, "[free_cores_and_fill_claimqueue] claim has been added back into the claimqueue");
+
 					continue
 				} else {
 					// Consider timed out assignments for on demand parachains as concluded for
@@ -611,6 +653,8 @@ impl<T: Config> Pallet<T> {
 				if Self::is_core_occupied(core_idx) { 1 } else { 0 };
 			for _ in n_lookahead_used..n_lookahead {
 				if let Some(assignment) = T::AssignmentProvider::pop_assignment_for_core(core_idx) {
+					log::debug!(target: LOG_TARGET, "[free_cores_and_fill_claimqueue] will add to claim queue for core {:?}", core_idx);
+
 					Self::add_to_claimqueue(core_idx, ParasEntry::new(assignment, now + ttl));
 				}
 			}
@@ -618,6 +662,7 @@ impl<T: Config> Pallet<T> {
 
 		debug_assert!(timedout_paras.is_empty());
 		debug_assert!(concluded_paras.is_empty());
+		log::debug!(target: LOG_TARGET, "[free_cores_and_fill_claimqueue] before return now: {:?}, cq: {:?}", now, ClaimQueue::<T>::get());
 	}
 
 	fn is_core_occupied(core_idx: CoreIndex) -> bool {
@@ -628,6 +673,8 @@ impl<T: Config> Pallet<T> {
 	}
 
 	fn add_to_claimqueue(core_idx: CoreIndex, pe: ParasEntryType<T>) {
+		log::debug!(target: LOG_TARGET, "[add_to_claimqueue] core_idx {:?} pe {:?}", core_idx, pe);
+
 		ClaimQueue::<T>::mutate(|la| {
 			la.entry(core_idx).or_default().push_back(pe);
 		});
@@ -638,6 +685,7 @@ impl<T: Config> Pallet<T> {
 		core_idx: CoreIndex,
 		para_id: ParaId,
 	) -> Result<(PositionInClaimqueue, ParasEntryType<T>), &'static str> {
+		log::debug!(target: LOG_TARGET, "[remove_from_claimqueue] enter");
 		ClaimQueue::<T>::mutate(|cq| {
 			let core_claims = cq.get_mut(&core_idx).ok_or("core_idx not found in lookahead")?;
 
@@ -647,6 +695,8 @@ impl<T: Config> Pallet<T> {
 				.ok_or("para id not found at core_idx lookahead")?;
 
 			let pe = core_claims.remove(pos).ok_or("remove returned None")?;
+
+			log::debug!(target: LOG_TARGET, "[remove_from_claimqueue] removed pos {}", pos);
 
 			Ok((pos as u32, pe))
 		})

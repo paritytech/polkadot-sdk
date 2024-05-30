@@ -612,6 +612,9 @@ impl<T: Config> Pallet<T> {
 			scheduler::Pallet::<T>::group_validators,
 			core_index_enabled,
 		)?;
+
+		log::trace!(target: LOG_TARGET, "Processed candidates {:?}", candidate_receipt_with_backing_validator_indices.iter().map(|c| (c.0.descriptor.para_id, c.0.descriptor.relay_parent, c.0.descriptor.para_head)).collect::<Vec<_>>());
+
 		// Note which of the scheduled cores were actually occupied by a backed candidate.
 		scheduler::Pallet::<T>::occupied(occupied.into_iter().map(|e| (e.0, e.1)).collect());
 

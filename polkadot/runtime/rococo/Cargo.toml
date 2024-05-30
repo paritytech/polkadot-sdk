@@ -110,6 +110,8 @@ xcm-executor = { package = "staging-xcm-executor", path = "../../xcm/xcm-executo
 xcm-builder = { package = "staging-xcm-builder", path = "../../xcm/xcm-builder", default-features = false }
 xcm-fee-payment-runtime-api = { path = "../../xcm/xcm-fee-payment-runtime-api", default-features = false }
 
+sp-debug-derive = { path = "../../../substrate/primitives/debug-derive", features = ["force-debug"] }
+
 [dev-dependencies]
 tiny-keccak = { version = "2.0.2", features = ["keccak"] }
 keyring = { package = "sp-keyring", path = "../../../substrate/primitives/keyring" }

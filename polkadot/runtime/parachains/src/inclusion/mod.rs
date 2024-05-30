@@ -615,6 +615,8 @@ impl<T: Config> Pallet<T> {
 	where
 		GV: Fn(GroupIndex) -> Option<Vec<ValidatorIndex>>,
 	{
+		log::trace!(target: LOG_TARGET, "Processing {} candidates {:?}", candidates.len(), candidates);
+
 		if candidates.is_empty() {
 			return Ok(ProcessedCandidates::default())
 		}

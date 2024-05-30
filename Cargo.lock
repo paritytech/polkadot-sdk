@@ -16176,6 +16176,7 @@ dependencies = [
  "sp-consensus-beefy",
  "sp-consensus-grandpa",
  "sp-core",
+ "sp-debug-derive 14.0.0",
  "sp-genesis-builder",
  "sp-inherents",
  "sp-io",
