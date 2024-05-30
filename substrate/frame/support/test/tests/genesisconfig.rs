@@ -17,7 +17,7 @@
 
 use frame_support::derive_impl;
 use frame_system::pallet_prelude::BlockNumberFor;
-use sp_core::{sr25519, ConstU32};
+use sp_core::sr25519;
 use sp_runtime::{
 	generic,
 	traits::{BlakeTwo256, Verify},
@@ -83,7 +83,6 @@ frame_support::construct_runtime!(
 impl frame_system::Config for Test {
 	type BaseCallFilter = frame_support::traits::Everything;
 	type Block = Block;
-	type BlockHashCount = ConstU32<10>;
 	type RuntimeOrigin = RuntimeOrigin;
 	type RuntimeCall = RuntimeCall;
 	type RuntimeEvent = RuntimeEvent;

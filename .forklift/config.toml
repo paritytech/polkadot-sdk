@@ -10,6 +10,9 @@ jobsBlackList = []
 logLevel = "warn"
 threadsCount = 6
 
+[cache]
+extraEnv = ["RUNTIME_METADATA_HASH"]
+
 [metrics]
 enabled = true
 pushEndpoint = "placeholder"

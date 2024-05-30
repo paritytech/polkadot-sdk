@@ -19,7 +19,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 log = { workspace = true }
 rand_chacha = { version = "0.3.1", default-features = false }
 scale-info = { version = "2.11.1", default-features = false, features = ["derive"] }
-codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = ["derive"] }
+codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false, features = ["derive"] }
 
 sp-std = { path = "../../primitives/std", default-features = false }
 sp-io = { path = "../../primitives/io", default-features = false }

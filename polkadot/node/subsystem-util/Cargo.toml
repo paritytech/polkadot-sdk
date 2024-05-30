@@ -14,16 +14,17 @@ async-trait = "0.1.79"
 futures = "0.3.30"
 futures-channel = "0.3.23"
 itertools = "0.11"
-parity-scale-codec = { version = "3.6.1", default-features = false, features = ["derive"] }
+parity-scale-codec = { version = "3.6.12", default-features = false, features = ["derive"] }
 parking_lot = "0.12.1"
 pin-project = "1.0.9"
 rand = "0.8.5"
 thiserror = { workspace = true }
-fatality = "0.1.0"
+fatality = "0.1.1"
 gum = { package = "tracing-gum", path = "../gum" }
 derive_more = "0.99.17"
 schnellru = "0.2.1"
 
+erasure-coding = { package = "polkadot-erasure-coding", path = "../../erasure-coding" }
 polkadot-node-subsystem = { path = "../subsystem" }
 polkadot-node-subsystem-types = { path = "../subsystem-types" }
 polkadot-node-jaeger = { path = "../jaeger" }

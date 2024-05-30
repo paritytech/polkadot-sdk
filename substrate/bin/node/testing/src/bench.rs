@@ -571,6 +571,8 @@ impl BenchKeyring {
 					tx_version,
 					genesis_hash,
 					genesis_hash,
+					// metadata_hash
+					None::<()>,
 				);
 				let key = self.accounts.get(&signed).expect("Account id not found in keyring");
 				let signature = payload.using_encoded(|b| {

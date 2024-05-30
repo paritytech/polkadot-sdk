@@ -21,7 +21,7 @@ prost-build = "0.12.4"
 [dependencies]
 async-channel = "1.8.0"
 array-bytes = "6.2.2"
-codec = { package = "parity-scale-codec", version = "3.6.1", features = [
+codec = { package = "parity-scale-codec", version = "3.6.12", features = [
 	"derive",
 ] }
 futures = "0.3.30"

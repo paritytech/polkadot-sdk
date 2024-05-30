@@ -13,12 +13,13 @@ workspace = true
 polkadot-primitives = { path = "../primitives" }
 polkadot-node-primitives = { package = "polkadot-node-primitives", path = "../node/primitives" }
 novelpoly = { package = "reed-solomon-novelpoly", version = "2.0.0" }
-parity-scale-codec = { version = "3.6.1", default-features = false, features = ["derive", "std"] }
+parity-scale-codec = { version = "3.6.12", default-features = false, features = ["derive", "std"] }
 sp-core = { path = "../../substrate/primitives/core" }
 sp-trie = { path = "../../substrate/primitives/trie" }
 thiserror = { workspace = true }
 
 [dev-dependencies]
+quickcheck = { version = "1.0.3", default-features = false }
 criterion = { version = "0.5.1", default-features = false, features = ["cargo_bench_support"] }
 
 [[bench]]

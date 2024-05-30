@@ -222,7 +222,6 @@ mod tests {
 	);
 
 	parameter_types! {
-		pub const BlockHashCount: u64 = 250;
 		pub BlockLength: limits::BlockLength = limits::BlockLength::max(2 * 1024);
 		pub const AvailableBlockRatio: Perbill = Perbill::one();
 		pub const MaxReserves: u32 = 50;
@@ -240,7 +239,6 @@ mod tests {
 		type Lookup = IdentityLookup<Self::AccountId>;
 		type Block = Block;
 		type RuntimeEvent = RuntimeEvent;
-		type BlockHashCount = BlockHashCount;
 		type BlockLength = BlockLength;
 		type BlockWeights = ();
 		type DbWeight = ();

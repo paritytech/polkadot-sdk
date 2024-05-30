@@ -586,19 +586,6 @@ async fn handle_leaf_activation(
 		}
 	);
 
-	let mrp_response: Vec<(ParaId, BlockNumber)> = para_data
-		.iter()
-		.map(|(para_id, data)| (*para_id, data.min_relay_parent))
-		.collect();
-	assert_matches!(
-		virtual_overseer.recv().await,
-		AllMessages::ProspectiveParachains(
-			ProspectiveParachainsMessage::GetMinimumRelayParents(parent, tx)
-		) if parent == *hash => {
-			tx.send(mrp_response).unwrap();
-		}
-	);
-
 	let header = Header {
 		parent_hash: *parent_hash,
 		number: *number,
@@ -612,6 +599,19 @@ async fn handle_leaf_activation(
 			ChainApiMessage::BlockHeader(parent, tx)
 		) if parent == *hash => {
 			tx.send(Ok(Some(header))).unwrap();
+		}
+	);
+
+	let mrp_response: Vec<(ParaId, BlockNumber)> = para_data
+		.iter()
+		.map(|(para_id, data)| (*para_id, data.min_relay_parent))
+		.collect();
+	assert_matches!(
+		virtual_overseer.recv().await,
+		AllMessages::ProspectiveParachains(
+			ProspectiveParachainsMessage::GetMinimumRelayParents(parent, tx)
+		) if parent == *hash => {
+			tx.send(mrp_response).unwrap();
 		}
 	);
 

@@ -21,7 +21,7 @@ features = ["with-tracing"]
 targets = ["wasm32-unknown-unknown", "x86_64-unknown-linux-gnu"]
 
 [dependencies]
-codec = { version = "3.6.1", package = "parity-scale-codec", default-features = false, features = [
+codec = { version = "3.6.12", package = "parity-scale-codec", default-features = false, features = [
 	"derive",
 ] }
 tracing = { version = "0.1.29", default-features = false }

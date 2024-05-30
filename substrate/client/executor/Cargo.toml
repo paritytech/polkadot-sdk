@@ -21,7 +21,7 @@ parking_lot = "0.12.1"
 schnellru = "0.2.1"
 tracing = "0.1.29"
 
-codec = { package = "parity-scale-codec", version = "3.6.1" }
+codec = { package = "parity-scale-codec", version = "3.6.12" }
 sc-executor-common = { path = "common" }
 sc-executor-polkavm = { path = "polkavm" }
 sc-executor-wasmtime = { path = "wasmtime" }

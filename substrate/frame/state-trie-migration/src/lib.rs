@@ -1103,11 +1103,7 @@ mod benchmarks {
 mod mock {
 	use super::*;
 	use crate as pallet_state_trie_migration;
-	use frame_support::{
-		derive_impl, parameter_types,
-		traits::{ConstU32, Hooks},
-		weights::Weight,
-	};
+	use frame_support::{derive_impl, parameter_types, traits::Hooks, weights::Weight};
 	use frame_system::{EnsureRoot, EnsureSigned};
 	use sp_core::{
 		storage::{ChildInfo, StateVersion},
@@ -1134,7 +1130,6 @@ mod mock {
 	#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 	impl frame_system::Config for Test {
 		type Block = Block;
-		type BlockHashCount = ConstU32<250>;
 		type AccountData = pallet_balances::AccountData<u64>;
 	}
 
