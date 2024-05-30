@@ -20,7 +20,7 @@
 
 use super::*;
 use sp_staking::{
-	AgentAccount, DelegationInterface, DelegationMigrator, DelegatorAccount, OnStakingUpdate,
+	Agent, DelegationInterface, DelegationMigrator, Delegator, OnStakingUpdate,
 };
 
 impl<T: Config> DelegationInterface for Pallet<T> {
@@ -28,18 +28,18 @@ impl<T: Config> DelegationInterface for Pallet<T> {
 	type AccountId = T::AccountId;
 
 	/// Effective balance of the `Agent` account.
-	fn agent_balance(who: AgentAccount<Self::AccountId>) -> Option<Self::Balance> {
+	fn agent_balance(who: Agent<Self::AccountId>) -> Option<Self::Balance> {
 		AgentLedgerOuter::<T>::get(&who.0).map(|agent| agent.ledger.effective_balance()).ok()
 	}
 
-	fn delegator_balance(delegator: DelegatorAccount<Self::AccountId>) -> Option<Self::Balance> {
+	fn delegator_balance(delegator: Delegator<Self::AccountId>) -> Option<Self::Balance> {
 		Delegation::<T>::get(&delegator.0).map(|d| d.amount)
 	}
 
 	/// Delegate funds to an `Agent`.
 	fn delegate(
-		who: DelegatorAccount<Self::AccountId>,
-		agent: AgentAccount<Self::AccountId>,
+		who: Delegator<Self::AccountId>,
+		agent: Agent<Self::AccountId>,
 		reward_account: &Self::AccountId,
 		amount: Self::Balance,
 	) -> DispatchResult {
@@ -54,8 +54,8 @@ impl<T: Config> DelegationInterface for Pallet<T> {
 
 	/// Add more delegation to the `Agent` account.
 	fn delegate_extra(
-		who: DelegatorAccount<Self::AccountId>,
-		agent: AgentAccount<Self::AccountId>,
+		who: Delegator<Self::AccountId>,
+		agent: Agent<Self::AccountId>,
 		amount: Self::Balance,
 	) -> DispatchResult {
 		Pallet::<T>::delegate_to_agent(RawOrigin::Signed(who.0).into(), agent.0, amount)
@@ -66,8 +66,8 @@ impl<T: Config> DelegationInterface for Pallet<T> {
 	/// If there are funds in `Agent` account that can be withdrawn, then those funds would be
 	/// unlocked/released in the delegator's account.
 	fn withdraw_delegation(
-		delegator: DelegatorAccount<Self::AccountId>,
-		agent: AgentAccount<Self::AccountId>,
+		delegator: Delegator<Self::AccountId>,
+		agent: Agent<Self::AccountId>,
 		amount: Self::Balance,
 		num_slashing_spans: u32,
 	) -> DispatchResult {
@@ -80,13 +80,13 @@ impl<T: Config> DelegationInterface for Pallet<T> {
 	}
 
 	/// Returns pending slash of the `agent`.
-	fn pending_slash(agent: AgentAccount<Self::AccountId>) -> Option<Self::Balance> {
+	fn pending_slash(agent: Agent<Self::AccountId>) -> Option<Self::Balance> {
 		AgentLedgerOuter::<T>::get(&agent.0).map(|d| d.ledger.pending_slash).ok()
 	}
 
 	fn delegator_slash(
-		agent: AgentAccount<Self::AccountId>,
-		delegator: DelegatorAccount<Self::AccountId>,
+		agent: Agent<Self::AccountId>,
+		delegator: Delegator<Self::AccountId>,
 		value: Self::Balance,
 		maybe_reporter: Option<Self::AccountId>,
 	) -> sp_runtime::DispatchResult {
@@ -99,14 +99,14 @@ impl<T: Config> DelegationMigrator for Pallet<T> {
 	type AccountId = T::AccountId;
 
 	fn migrate_nominator_to_agent(
-		agent: AgentAccount<Self::AccountId>,
+		agent: Agent<Self::AccountId>,
 		reward_account: &Self::AccountId,
 	) -> DispatchResult {
 		Pallet::<T>::migrate_to_agent(RawOrigin::Signed(agent.0).into(), reward_account.clone())
 	}
 	fn migrate_delegation(
-		agent: AgentAccount<Self::AccountId>,
-		delegator: DelegatorAccount<Self::AccountId>,
+		agent: Agent<Self::AccountId>,
+		delegator: Delegator<Self::AccountId>,
 		value: Self::Balance,
 	) -> DispatchResult {
 		Pallet::<T>::migrate_delegation(RawOrigin::Signed(agent.0).into(), delegator.0, value)
@@ -114,7 +114,7 @@ impl<T: Config> DelegationMigrator for Pallet<T> {
 
 	/// Only used for testing.
 	#[cfg(feature = "runtime-benchmarks")]
-	fn drop_agent(agent: AgentAccount<Self::AccountId>) {
+	fn drop_agent(agent: Agent<Self::AccountId>) {
 		<Agents<T>>::remove(agent.0.clone());
 		<Delegators<T>>::iter()
 			.filter(|(_, delegation)| delegation.agent == agent.0)

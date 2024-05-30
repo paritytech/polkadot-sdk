@@ -16,7 +16,7 @@
 // limitations under the License.
 
 use crate::*;
-use sp_staking::{AgentAccount, DelegationInterface, DelegationMigrator, DelegatorAccount};
+use sp_staking::{Agent, DelegationInterface, DelegationMigrator, Delegator};
 
 /// Types of stake strategies.
 ///
@@ -32,21 +32,21 @@ pub enum StakeStrategyType {
 	Delegate,
 }
 
-/// Wrapper type for pool account. Maps to [`AgentAccount`].
+/// Wrapper type for pool account. Maps to [`Agent`].
 #[derive(Clone, Debug)]
 pub struct PoolAccount<AccountID>(pub AccountID);
-impl<T> Into<AgentAccount<T>> for PoolAccount<T> {
-	fn into(self) -> AgentAccount<T> {
-		AgentAccount(self.0)
+impl<T> Into<Agent<T>> for PoolAccount<T> {
+	fn into(self) -> Agent<T> {
+		Agent(self.0)
 	}
 }
 
-/// Wrapper type for Member account. Maps to [`DelegatorAccount`].
+/// Wrapper type for Member account. Maps to [`Delegator`].
 #[derive(Clone, Debug)]
 pub struct MemberAccount<AccountID>(pub AccountID);
-impl<T> Into<DelegatorAccount<T>> for MemberAccount<T> {
-	fn into(self) -> DelegatorAccount<T> {
-		DelegatorAccount(self.0)
+impl<T> Into<Delegator<T>> for MemberAccount<T> {
+	fn into(self) -> Delegator<T> {
+		Delegator(self.0)
 	}
 }
 

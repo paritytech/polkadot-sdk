@@ -463,25 +463,43 @@ pub struct PagedExposureMetadata<Balance: HasCompact + codec::MaxEncodedLen> {
 	pub page_count: Page,
 }
 
-/// Wrapper around `Agent` account that receives delegations from [`DelegatorAccount`]s.
+/// `Agent` newtype for accounts that receives delegated funds from [`Delegator`] accounts. It can
+/// then use these funds to participate in the staking system. It can never use its own funds to
+/// stake. They instead (virtually bond)[`StakingUnchecked::virtual_bond`] into the staking system
+/// and are also called `Virtual Stakers`.
+///
+/// The `Agent` is also responsible for managing rewards and slashing for all the `Delegators` that
+/// have delegated funds to it.
 #[derive(Clone, Debug)]
-pub struct AgentAccount<AccountId>(pub AccountId);
+pub struct Agent<AccountId>(pub AccountId);
+impl<T> Agent<T> {
+	pub fn from(acc: T) -> Self {
+		Agent(acc)
+	}
+	pub fn get(self) -> T {
+		self.0
+	}
+}
 
-/// Wrapper around `Delegator` account that delegates to an [`AgentAccount`].
+/// `Delegator` newtype for accounts that delegates funds to an `Agent`, allowing them to pool funds
+/// along with other delegators and participate in the staking system.
 #[derive(Clone, Debug)]
-pub struct DelegatorAccount<AccountId>(pub AccountId);
+pub struct Delegator<AccountId>(pub AccountId);
+impl<T> Delegator<T> {
+	pub fn from(acc: T) -> Self {
+		Delegator(acc)
+	}
+	pub fn get(self) -> T {
+		self.0
+	}
+}
+
 
 /// Trait to provide delegation functionality for stakers.
 ///
-/// Introduces two new terms to the staking system:
-/// - `Delegator`: An account that delegates funds to an `Agent`.
-/// - `Agent`: An account that receives delegated funds from `Delegators`. It can then use these
-/// funds to participate in the staking system. It can never use its own funds to stake. They
-/// (virtually bond)[`StakingUnchecked::virtual_bond`] into the staking system and can also be
-/// termed as `Virtual Nominators`.
-///
-/// The `Agent` is responsible for managing rewards and slashing for all the `Delegators` that
-/// have delegated funds to it.
+/// Introduces two new roles to the vanilla [`StakingInterface`]:
+/// - `Delegator`: See [`Delegator`].
+/// - `Agent`: See [`Agent`].
 pub trait DelegationInterface {
 	/// Balance type used by the staking system.
 	type Balance: Sub<Output = Self::Balance>
@@ -500,17 +518,17 @@ pub trait DelegationInterface {
 	/// Returns effective balance of the `Agent` account. `None` if not an `Agent`.
 	///
 	/// This takes into account any pending slashes to `Agent` against the delegated balance.
-	fn agent_balance(agent: AgentAccount<Self::AccountId>) -> Option<Self::Balance>;
+	fn agent_balance(agent: Agent<Self::AccountId>) -> Option<Self::Balance>;
 
 	/// Returns the total amount of funds delegated. `None` if not a `Delegator`.
-	fn delegator_balance(delegator: DelegatorAccount<Self::AccountId>) -> Option<Self::Balance>;
+	fn delegator_balance(delegator: Delegator<Self::AccountId>) -> Option<Self::Balance>;
 
 	/// Delegate funds to `Agent`.
 	///
 	/// Only used for the initial delegation. Use [`Self::delegate_extra`] to add more delegation.
 	fn delegate(
-		delegator: DelegatorAccount<Self::AccountId>,
-		agent: AgentAccount<Self::AccountId>,
+		delegator: Delegator<Self::AccountId>,
+		agent: Agent<Self::AccountId>,
 		reward_account: &Self::AccountId,
 		amount: Self::Balance,
 	) -> DispatchResult;
@@ -519,8 +537,8 @@ pub trait DelegationInterface {
 	///
 	/// If this is the first delegation, use [`Self::delegate`] instead.
 	fn delegate_extra(
-		delegator: DelegatorAccount<Self::AccountId>,
-		agent: AgentAccount<Self::AccountId>,
+		delegator: Delegator<Self::AccountId>,
+		agent: Agent<Self::AccountId>,
 		amount: Self::Balance,
 	) -> DispatchResult;
 
@@ -529,8 +547,8 @@ pub trait DelegationInterface {
 	/// If there are `Agent` funds upto `amount` available to withdraw, then those funds would
 	/// be released to the `delegator`
 	fn withdraw_delegation(
-		delegator: DelegatorAccount<Self::AccountId>,
-		agent: AgentAccount<Self::AccountId>,
+		delegator: Delegator<Self::AccountId>,
+		agent: Agent<Self::AccountId>,
 		amount: Self::Balance,
 		num_slashing_spans: u32,
 	) -> DispatchResult;
@@ -539,15 +557,15 @@ pub trait DelegationInterface {
 	///
 	/// Slashes to `Agent` account are not immediate and are applied lazily. Since `Agent`
 	/// has an unbounded number of delegators, immediate slashing is not possible.
-	fn pending_slash(agent: AgentAccount<Self::AccountId>) -> Option<Self::Balance>;
+	fn pending_slash(agent: Agent<Self::AccountId>) -> Option<Self::Balance>;
 
 	/// Apply a pending slash to an `Agent` by slashing `value` from `delegator`.
 	///
 	/// A reporter may be provided (if one exists) in order for the implementor to reward them,
 	/// if applicable.
 	fn delegator_slash(
-		agent: AgentAccount<Self::AccountId>,
-		delegator: DelegatorAccount<Self::AccountId>,
+		agent: Agent<Self::AccountId>,
+		delegator: Delegator<Self::AccountId>,
 		value: Self::Balance,
 		maybe_reporter: Option<Self::AccountId>,
 	) -> DispatchResult;
@@ -575,7 +593,7 @@ pub trait DelegationMigrator {
 	/// The implementation should ensure the `Nominator` account funds are moved to an escrow
 	/// from which `Agents` can later release funds to its `Delegators`.
 	fn migrate_nominator_to_agent(
-		agent: AgentAccount<Self::AccountId>,
+		agent: Agent<Self::AccountId>,
 		reward_account: &Self::AccountId,
 	) -> DispatchResult;
 
@@ -584,8 +602,8 @@ pub trait DelegationMigrator {
 	/// When a direct `Nominator` migrates to `Agent`, the funds are kept in escrow. This function
 	/// allows the `Agent` to release the funds to the `delegator`.
 	fn migrate_delegation(
-		agent: AgentAccount<Self::AccountId>,
-		delegator: DelegatorAccount<Self::AccountId>,
+		agent: Agent<Self::AccountId>,
+		delegator: Delegator<Self::AccountId>,
 		value: Self::Balance,
 	) -> DispatchResult;
 
@@ -593,7 +611,7 @@ pub trait DelegationMigrator {
 	///
 	/// Also removed from [`StakingUnchecked`] as a Virtual Staker. Useful for testing.
 	#[cfg(feature = "runtime-benchmarks")]
-	fn drop_agent(agent: AgentAccount<Self::AccountId>);
+	fn drop_agent(agent: Agent<Self::AccountId>);
 }
 
 sp_core::generate_feature_enabled_macro!(runtime_benchmarks_enabled, feature = "runtime-benchmarks", $);

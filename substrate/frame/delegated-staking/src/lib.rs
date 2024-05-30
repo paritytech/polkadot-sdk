@@ -153,7 +153,7 @@ use sp_runtime::{
 	traits::{AccountIdConversion, CheckedAdd, CheckedSub, Zero},
 	ArithmeticError, DispatchResult, Perbill, RuntimeDebug, Saturating,
 };
-use sp_staking::{AgentAccount, DelegatorAccount, EraIndex, StakingInterface, StakingUnchecked};
+use sp_staking::{Agent, Delegator, EraIndex, StakingInterface, StakingUnchecked};
 use sp_std::{convert::TryInto, prelude::*};
 
 pub type BalanceOf<T> =
@@ -346,8 +346,8 @@ pub mod pallet {
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			Self::do_release(
-				AgentAccount(who),
-				DelegatorAccount(delegator),
+				Agent(who),
+				Delegator(delegator),
 				amount,
 				num_slashing_spans,
 			)
@@ -381,11 +381,11 @@ pub mod pallet {
 			ensure!(Self::is_agent(&agent), Error::<T>::NotAgent);
 
 			// and has enough delegated balance to migrate.
-			let proxy_delegator = Self::generate_proxy_delegator(AgentAccount(agent));
+			let proxy_delegator = Self::generate_proxy_delegator(Agent(agent));
 			let balance_remaining = Self::held_balance_of(proxy_delegator.clone());
 			ensure!(balance_remaining >= amount, Error::<T>::NotEnoughFunds);
 
-			Self::do_migrate_delegation(proxy_delegator, DelegatorAccount(delegator), amount)
+			Self::do_migrate_delegation(proxy_delegator, Delegator(delegator), amount)
 		}
 
 		/// Delegate given `amount` of tokens to an `Agent` account.
@@ -416,13 +416,13 @@ pub mod pallet {
 
 			// add to delegation.
 			Self::do_delegate(
-				DelegatorAccount(delegator.clone()),
-				AgentAccount(agent.clone()),
+				Delegator(delegator.clone()),
+				Agent(agent.clone()),
 				amount,
 			)?;
 
 			// bond the newly delegated amount to `CoreStaking`.
-			Self::do_bond(AgentAccount(agent), amount)
+			Self::do_bond(Agent(agent), amount)
 		}
 	}
 
@@ -439,9 +439,9 @@ impl<T: Config> Pallet<T> {
 	/// Derive an account from the migrating agent account where the unclaimed delegation funds
 	/// are held.
 	pub fn generate_proxy_delegator(
-		agent: AgentAccount<T::AccountId>,
-	) -> DelegatorAccount<T::AccountId> {
-		DelegatorAccount(Self::sub_account(AccountType::ProxyDelegator, agent.0))
+		agent: Agent<T::AccountId>,
+	) -> Delegator<T::AccountId> {
+		Delegator(Self::sub_account(AccountType::ProxyDelegator, agent.0))
 	}
 
 	/// Derive a (keyless) pot account from the given agent account and account type.
@@ -450,7 +450,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Held balance of a delegator.
-	pub(crate) fn held_balance_of(who: DelegatorAccount<T::AccountId>) -> BalanceOf<T> {
+	pub(crate) fn held_balance_of(who: Delegator<T::AccountId>) -> BalanceOf<T> {
 		T::Currency::balance_on_hold(&HoldReason::StakingDelegation.into(), &who.0)
 	}
 
@@ -486,7 +486,7 @@ impl<T: Config> Pallet<T> {
 
 		// We create a proxy delegator that will keep all the delegation funds until funds are
 		// transferred to actual delegator.
-		let proxy_delegator = Self::generate_proxy_delegator(AgentAccount(who.clone()));
+		let proxy_delegator = Self::generate_proxy_delegator(Agent(who.clone()));
 
 		// Keep proxy delegator alive until all funds are migrated.
 		frame_system::Pallet::<T>::inc_providers(&proxy_delegator.0);
@@ -511,7 +511,7 @@ impl<T: Config> Pallet<T> {
 
 		T::CoreStaking::update_payee(who, reward_account)?;
 		// delegate all transferred funds back to agent.
-		Self::do_delegate(proxy_delegator, AgentAccount(who.clone()), amount_to_transfer)?;
+		Self::do_delegate(proxy_delegator, Agent(who.clone()), amount_to_transfer)?;
 
 		// if the transferred/delegated amount was greater than the stake, mark the extra as
 		// unclaimed withdrawal.
@@ -532,7 +532,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Bond `amount` to `agent_acc` in [`Config::CoreStaking`].
-	fn do_bond(agent_acc: AgentAccount<T::AccountId>, amount: BalanceOf<T>) -> DispatchResult {
+	fn do_bond(agent_acc: Agent<T::AccountId>, amount: BalanceOf<T>) -> DispatchResult {
 		let agent = AgentLedgerOuter::<T>::get(&agent_acc.0)?;
 
 		let available_to_bond = agent.available_to_bond();
@@ -547,8 +547,8 @@ impl<T: Config> Pallet<T> {
 
 	/// Delegate `amount` from `delegator` to `agent`.
 	fn do_delegate(
-		delegator: DelegatorAccount<T::AccountId>,
-		agent: AgentAccount<T::AccountId>,
+		delegator: Delegator<T::AccountId>,
+		agent: Agent<T::AccountId>,
 		amount: BalanceOf<T>,
 	) -> DispatchResult {
 		let mut ledger = AgentLedger::<T>::get(&agent.0).ok_or(Error::<T>::NotAgent)?;
@@ -582,8 +582,8 @@ impl<T: Config> Pallet<T> {
 
 	/// Release `amount` of delegated funds from `agent` to `delegator`.
 	fn do_release(
-		who: AgentAccount<T::AccountId>,
-		delegator: DelegatorAccount<T::AccountId>,
+		who: Agent<T::AccountId>,
+		delegator: Delegator<T::AccountId>,
 		amount: BalanceOf<T>,
 		num_slashing_spans: u32,
 	) -> DispatchResult {
@@ -656,8 +656,8 @@ impl<T: Config> Pallet<T> {
 
 	/// Migrates delegation of `amount` from `source` account to `destination` account.
 	fn do_migrate_delegation(
-		source_delegator: DelegatorAccount<T::AccountId>,
-		destination_delegator: DelegatorAccount<T::AccountId>,
+		source_delegator: Delegator<T::AccountId>,
+		destination_delegator: Delegator<T::AccountId>,
 		amount: BalanceOf<T>,
 	) -> DispatchResult {
 		let mut source_delegation =
@@ -719,8 +719,8 @@ impl<T: Config> Pallet<T> {
 
 	/// Take slash `amount` from agent's `pending_slash`counter and apply it to `delegator` account.
 	pub fn do_slash(
-		agent_acc: AgentAccount<T::AccountId>,
-		delegator: DelegatorAccount<T::AccountId>,
+		agent_acc: Agent<T::AccountId>,
+		delegator: Delegator<T::AccountId>,
 		amount: BalanceOf<T>,
 		maybe_reporter: Option<T::AccountId>,
 	) -> DispatchResult {
@@ -770,7 +770,7 @@ impl<T: Config> Pallet<T> {
 
 	/// Total balance that is available for stake. Includes already staked amount.
 	#[cfg(test)]
-	pub(crate) fn stakeable_balance(who: AgentAccount<T::AccountId>) -> BalanceOf<T> {
+	pub(crate) fn stakeable_balance(who: Agent<T::AccountId>) -> BalanceOf<T> {
 		AgentLedgerOuter::<T>::get(&who.0)
 			.map(|agent| agent.ledger.stakeable_balance())
 			.unwrap_or_default()
