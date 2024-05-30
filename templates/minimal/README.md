@@ -13,22 +13,22 @@
 
 ## Getting Started
 
-Depending on your operating system and Rust version, there might be additional
+🛠️ Depending on your operating system and Rust version, there might be additional
 packages required to compile this template.
 
-Check the
+👉 Check the
 [Substrate Install](https://docs.substrate.io/install/) instructions for your platform for
 the most common dependencies.
 
 ### Build
 
-Use the following command to build the node without launching it:
+🔨 Use the following command to build the node without launching it:
 
 ```sh
 cargo build --release
 ```
 
-Alternatively, build the docker image:
+🐳 Alternatively, build the docker image:
 
 ```sh
 docker build . -t polkadot-sdk-minimal-template
@@ -36,8 +36,7 @@ docker build . -t polkadot-sdk-minimal-template
 
 ### Single-Node Development Chain
 
-The following command starts a single-node development chain that doesn't
-persist state:
+👤 The following command starts a single-node development chain:
 
 ```sh
 ./target/release/minimal-template-node --dev
@@ -48,33 +47,36 @@ docker run --rm polkadot-sdk-minimal-template --dev
 
 Development chains:
 
-- Maintain state in a `tmp` folder while the node is running.
+- Maintain state in a `tmp` folder while the node is running - it is not persistent.
 - Are preconfigured with a genesis state (see [`chain_spec.rs`](./node/src/chain_spec.rs)) that
   includes several prefunded development accounts.
 - Development accounts are used as default validator authorities and a `sudo` account.
 
 ### Multi-Node Local Testnet
 
-If you want to see the multi-node consensus algorithm in action, see [Simulate a
+👥 If you want to see the multi-node consensus algorithm in action, see [Simulate a
 network](https://docs.substrate.io/tutorials/build-a-blockchain/simulate-network/).
 
 ### Connect with the Polkadot-JS Apps Front-End
 
-After you start the node template locally, you can interact with it using the
+🌐 After you start the node template locally, you can interact with it using the
 hosted version of the [Polkadot/Substrate
 Portal](https://polkadot.js.org/apps/#/explorer?rpc=ws://localhost:9944)
-front-end by connecting to the local node endpoint. A hosted version is also
-available on [IPFS](https://dotapps.io/). You can
-also find the source code and instructions for hosting your own instance in the
+front-end by connecting to the local node endpoint.
+
+🪐 A hosted version is also
+available on [IPFS](https://dotapps.io/).
+
+🧑‍🔧 You can also find the source code and instructions for hosting your own instance in the
 [`polkadot-js/apps`](https://github.com/polkadot-js/apps) repository.
 
 ## Template Structure
 
 A Polkadot SDK based project such as this one consists of:
 
-- a [Node](./node/README.md) - the binary application.
-- the [Runtime](./runtime/README.md) - the core logic of the blockchain.
-- the [Pallets](./pallets/README.md) - from which the runtime is constructed.
+- 💿 [Node](./node/README.md) - the binary application.
+- 🧮 [Runtime](./runtime/README.md) - the core logic of the blockchain.
+- 🎨 [Pallets](./pallets/README.md) - from which the runtime is constructed.
 
 ## Contributing
 
