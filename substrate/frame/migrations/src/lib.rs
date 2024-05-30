@@ -721,7 +721,9 @@ impl<T: Config> Pallet<T> {
 		// If this is the first time running this migration, exec the pre-upgrade hook.
 		#[cfg(feature = "try-runtime")]
 		if !PreUpgradeBytes::<T>::contains_key(&bounded_id) {
-			let bytes = T::Migrations::nth_pre_upgrade(cursor.index).expect("Pre-upgrade failed");
+			let bytes = T::Migrations::nth_pre_upgrade(cursor.index)
+				.expect("Invalid cursor.index")
+				.expect("Pre-upgrade failed");
 			PreUpgradeBytes::<T>::insert(&bounded_id, PreUpgradeBytesWrapper(bytes));
 		}
 
@@ -766,6 +768,7 @@ impl<T: Config> Pallet<T> {
 					cursor.index,
 					PreUpgradeBytes::<T>::get(&bounded_id).0,
 				)
+				.expect("Invalid cursor.index.")
 				.expect("Post-upgrade failed.");
 
 				Self::deposit_event(Event::MigrationCompleted { index: cursor.index, took });

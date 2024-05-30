@@ -124,25 +124,28 @@ impl SteppedMigrations for MockedMigrations {
 	}
 
 	#[cfg(feature = "try-runtime")]
-	fn nth_pre_upgrade(n: u32) -> Result<Vec<u8>, sp_runtime::TryRuntimeError> {
+	fn nth_pre_upgrade(n: u32) -> Option<Result<Vec<u8>, sp_runtime::TryRuntimeError>> {
 		let (kind, _) = MIGRATIONS::get()[n as usize];
 
 		if let PreUpgradeFail = kind {
-			return Err("Some pre-upgrade error".into())
+			return Some(Err("Some pre-upgrade error".into()))
 		}
 
-		Ok(vec![])
+		Some(Ok(vec![]))
 	}
 
 	#[cfg(feature = "try-runtime")]
-	fn nth_post_upgrade(n: u32, _state: Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
+	fn nth_post_upgrade(
+		n: u32,
+		_state: Vec<u8>,
+	) -> Option<Result<(), sp_runtime::TryRuntimeError>> {
 		let (kind, _) = MIGRATIONS::get()[n as usize];
 
 		if let PostUpgradeFail = kind {
-			return Err("Some post-upgrade error".into())
+			return Some(Err("Some post-upgrade error".into()))
 		}
 
-		Ok(())
+		Some(Ok(()))
 	}
 
 	fn cursor_max_encoded_len() -> usize {

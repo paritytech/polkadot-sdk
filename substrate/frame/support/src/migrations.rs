@@ -605,11 +605,16 @@ pub trait SteppedMigrations {
 
 	#[cfg(feature = "try-runtime")]
 	/// Call the pre-upgrade hooks of the `n`th migration.
-	fn nth_pre_upgrade(n: u32) -> Result<Vec<u8>, sp_runtime::TryRuntimeError>;
+	///
+	/// Returns `None` if the index is out of bounds.
+	fn nth_pre_upgrade(n: u32) -> Option<Result<Vec<u8>, sp_runtime::TryRuntimeError>>;
 
 	#[cfg(feature = "try-runtime")]
 	/// Call the post-upgrade hooks of the `n`th migration.
-	fn nth_post_upgrade(n: u32, _state: Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError>;
+	///
+	/// Returns `None` if the index is out of bounds.
+	fn nth_post_upgrade(n: u32, _state: Vec<u8>)
+		-> Option<Result<(), sp_runtime::TryRuntimeError>>;
 
 	/// The maximal encoded length across all cursors.
 	fn cursor_max_encoded_len() -> usize;
@@ -675,13 +680,16 @@ impl SteppedMigrations for () {
 	}
 
 	#[cfg(feature = "try-runtime")]
-	fn nth_pre_upgrade(_n: u32) -> Result<Vec<u8>, sp_runtime::TryRuntimeError> {
-		Ok(Vec::new())
+	fn nth_pre_upgrade(_n: u32) -> Option<Result<Vec<u8>, sp_runtime::TryRuntimeError>> {
+		Some(Ok(Vec::new()))
 	}
 
 	#[cfg(feature = "try-runtime")]
-	fn nth_post_upgrade(_n: u32, _state: Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
-		Ok(())
+	fn nth_post_upgrade(
+		_n: u32,
+		_state: Vec<u8>,
+	) -> Option<Result<(), sp_runtime::TryRuntimeError>> {
+		Some(Ok(()))
 	}
 
 	fn cursor_max_encoded_len() -> usize {
@@ -711,11 +719,11 @@ impl<T: SteppedMigration> SteppedMigrations for T {
 	}
 
 	fn nth_step(
-		_n: u32,
+		n: u32,
 		cursor: Option<Vec<u8>>,
 		meter: &mut WeightMeter,
 	) -> Option<Result<Option<Vec<u8>>, SteppedMigrationError>> {
-		if !_n.is_zero() {
+		if !n.is_zero() {
 			defensive!("nth_step should only be called with n==0");
 			return None
 		}
@@ -755,20 +763,20 @@ impl<T: SteppedMigration> SteppedMigrations for T {
 	}
 
 	#[cfg(feature = "try-runtime")]
-	fn nth_pre_upgrade(n: u32) -> Result<Vec<u8>, sp_runtime::TryRuntimeError> {
+	fn nth_pre_upgrade(n: u32) -> Option<Result<Vec<u8>, sp_runtime::TryRuntimeError>> {
 		if n != 0 {
-			defensive!("nth_transactional_step should only be called with n==0");
+			defensive!("nth_pre_upgrade should only be called with n==0");
 		}
 
-		T::pre_upgrade()
+		Some(T::pre_upgrade())
 	}
 
 	#[cfg(feature = "try-runtime")]
-	fn nth_post_upgrade(n: u32, state: Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
+	fn nth_post_upgrade(n: u32, state: Vec<u8>) -> Option<Result<(), sp_runtime::TryRuntimeError>> {
 		if n != 0 {
-			defensive!("nth_transactional_step should only be called with n==0");
+			defensive!("nth_post_upgrade should only be called with n==0");
 		}
-		T::post_upgrade(state)
+		Some(T::post_upgrade(state))
 	}
 
 	fn cursor_max_encoded_len() -> usize {
@@ -837,7 +845,7 @@ impl SteppedMigrations for Tuple {
 	}
 
 	#[cfg(feature = "try-runtime")]
-	fn nth_pre_upgrade(n: u32) -> Result<Vec<u8>, sp_runtime::TryRuntimeError> {
+	fn nth_pre_upgrade(n: u32) -> Option<Result<Vec<u8>, sp_runtime::TryRuntimeError>> {
 		let mut i = 0;
 
 		for_tuples! ( #(
@@ -848,22 +856,22 @@ impl SteppedMigrations for Tuple {
 			i += Tuple::len();
 		)* );
 
-		panic!("n greater than number of migrations")
+		None
 	}
 
 	#[cfg(feature = "try-runtime")]
-	fn nth_post_upgrade(n: u32, _state: Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
+	fn nth_post_upgrade(n: u32, state: Vec<u8>) -> Option<Result<(), sp_runtime::TryRuntimeError>> {
 		let mut i = 0;
 
 		for_tuples! ( #(
 			if (i + Tuple::len()) > n {
-				return Tuple::nth_post_upgrade(n - i, _state)
+				return Tuple::nth_post_upgrade(n - i, state)
 			}
 
 			i += Tuple::len();
 		)* );
 
-		panic!("n greater than number of migrations")
+		None
 	}
 
 	fn nth_max_steps(n: u32) -> Option<Option<u32>> {
