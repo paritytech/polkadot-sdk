@@ -1,0 +1,58 @@
+[settings]
+timeout = 1000
+
+[relaychain.genesis.runtimeGenesis.patch.configuration.config.async_backing_params]
+  max_candidate_depth = 6
+  allowed_ancestry_len = 3
+
+[relaychain.genesis.runtimeGenesis.patch.configuration.config.scheduler_params]
+  max_validators_per_core = 1
+  scheduling_lookahead = 2
+  num_cores = 4
+
+[relaychain.genesis.runtimeGenesis.patch.configuration.config.approval_voting_params]
+  needed_approvals = 3
+  max_approval_coalesce_count = 5
+
+[relaychain]
+default_image = "{{ZOMBIENET_INTEGRATION_TEST_IMAGE}}"
+chain = "rococo-local"
+command = "polkadot"
+
+  [[relaychain.nodes]]
+  name = "alice"
+  args = ["" ]
+
+  [[relaychain.node_groups]]
+  name = "validator"
+  args = ["-lruntime=debug,parachain=trace,runtime::parachains::scheduler=trace,runtime::inclusion-inherent=trace,runtime::inclusion=trace" ]
+  count = 8
+
+# Slot based authoring with 3 cores and 2s slot duration
+[[parachains]]
+id = 2100
+chain = "elastic-scaling"
+add_to_genesis = true
+# add_to_genesis = false
+# register_para = false
+# onboard_as_parachain = false
+
+  [[parachains.collators]]
+  name = "collator-elastic"
+  image = "{{CUMULUS_IMAGE}}"
+  command = "test-parachain"
+  args = ["-laura=trace,runtime=info,cumulus-consensus=trace,consensus::common=trace,parachain::collation-generation=trace,parachain::collator-protocol=trace,parachain=debug", "--force-authoring", "--use-slot-authoring"]
+
+# Slot based authoring with 1 core and 6s slot duration
+[[parachains]]
+id = 2000
+add_to_genesis = true
+# add_to_genesis = false
+# register_para = false
+# onboard_as_parachain = false
+
+  [[parachains.collators]]
+  name = "collator-single-core"
+  image = "{{CUMULUS_IMAGE}}"
+  command = "test-parachain"
+  args = ["-laura=trace,runtime=info,cumulus-consensus=trace,consensus::common=trace,parachain::collation-generation=trace,parachain::collator-protocol=trace,parachain=debug", "--force-authoring", "--use-slot-authoring"]

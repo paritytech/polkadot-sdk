@@ -1,0 +1,22 @@
+Description: CT shared core test
+Network: ./0009-ct-shared-core.toml
+Creds: config
+
+alice: is up
+collator-elastic: is up
+collator-single-core: is up
+
+
+# configure relay chain
+alice: js-script ./assign-core-parts.js with "2100,0,57600" return is 0 within 600 seconds
+alice: js-script ./assign-core-parts.js with "2000,1,57600" return is 0 within 600 seconds
+
+collator-single-core: reports block height is at least 20 within 225 seconds
+collator-elastic: reports block height is at least 40 within 225 seconds
+
+#collator-elastic: restart after 30 seconds
+#sleep 10 seconds
+#collator-single-core: restart after 30 seconds
+
+#collator-single-core: reports block height is at least 40 within 225 seconds
+#collator-elastic: reports block height is at least 80 within 225 seconds
