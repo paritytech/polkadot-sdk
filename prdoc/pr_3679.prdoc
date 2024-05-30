@@ -5,8 +5,9 @@ doc:
     description: |
       - Bump wasmi to 0.32
       - Turn on lazy and unchecked compilation when calling a contract.
-      See https://docs.rs/wasmi/0.32.0-beta.17/wasmi/enum.CompilationMode.html#variant.Lazy
-      See https://docs.rs/wasmi/0.32.0-beta.17/wasmi/struct.Module.html#method.new_unchecked
+      See https://docs.rs/wasmi/0.32.0/wasmi/enum.CompilationMode.html#variant.Lazy
+      See https://docs.rs/wasmi/0.32.0/wasmi/struct.Module.html#method.new_unchecked
+      See https://wasmi-labs.github.io/blog/posts/wasmi-v0.32 for more details, on the wasmi update.
 
 crates:
   - name: pallet-contracts
