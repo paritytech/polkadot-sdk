@@ -342,6 +342,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#191" id="191">191</a>
 <a href="#192" id="192">192</a>
 <a href="#193" id="193">193</a>
+<a href="#194" id="194">194</a>
+<a href="#195" id="195">195</a>
+<a href="#196" id="196">196</a>
+<a href="#197" id="197">197</a>
+<a href="#198" id="198">198</a>
+<a href="#199" id="199">199</a>
+<a href="#200" id="200">200</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -366,7 +373,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">use </span>sp_api::ProvideRuntimeApi;
 <span class="kw">use </span>sp_consensus::Error <span class="kw">as </span>ConsensusError;
-<span class="kw">use </span>sp_consensus_beefy::{ecdsa_crypto::AuthorityId, BeefyApi, BEEFY_ENGINE_ID};
+<span class="kw">use </span>sp_consensus_beefy::{AuthorityIdBound, BeefyApi, BEEFY_ENGINE_ID};
 <span class="kw">use </span>sp_runtime::{
 	traits::{Block <span class="kw">as </span>BlockT, Header <span class="kw">as </span>HeaderT, NumberFor},
 	EncodedJustification,
@@ -389,15 +396,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// Wraps a `inner: BlockImport` and ultimately defers to it.
 ///
 /// When using BEEFY, the block import worker should be using this block import object.
-</span><span class="kw">pub struct </span>BeefyBlockImport&lt;Block: BlockT, Backend, RuntimeApi, I&gt; {
+</span><span class="kw">pub struct </span>BeefyBlockImport&lt;Block: BlockT, Backend, RuntimeApi, I, AuthorityId: AuthorityIdBound&gt; {
 	backend: Arc&lt;Backend&gt;,
 	runtime: Arc&lt;RuntimeApi&gt;,
 	inner: I,
-	justification_sender: BeefyVersionedFinalityProofSender&lt;Block&gt;,
+	justification_sender: BeefyVersionedFinalityProofSender&lt;Block, AuthorityId&gt;,
 	metrics: <span class="prelude-ty">Option</span>&lt;BlockImportMetrics&gt;,
 }
 
-<span class="kw">impl</span>&lt;Block: BlockT, BE, Runtime, I: Clone&gt; Clone <span class="kw">for </span>BeefyBlockImport&lt;Block, BE, Runtime, I&gt; {
+<span class="kw">impl</span>&lt;Block: BlockT, BE, Runtime, I: Clone, AuthorityId: AuthorityIdBound&gt; Clone
+	<span class="kw">for </span>BeefyBlockImport&lt;Block, BE, Runtime, I, AuthorityId&gt;
+{
 	<span class="kw">fn </span>clone(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="self">Self </span>{
 		BeefyBlockImport {
 			backend: <span class="self">self</span>.backend.clone(),
@@ -409,32 +418,35 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="kw">impl</span>&lt;Block: BlockT, BE, Runtime, I&gt; BeefyBlockImport&lt;Block, BE, Runtime, I&gt; {
+<span class="kw">impl</span>&lt;Block: BlockT, BE, Runtime, I, AuthorityId: AuthorityIdBound&gt;
+	BeefyBlockImport&lt;Block, BE, Runtime, I, AuthorityId&gt;
+{
 	<span class="doccomment">/// Create a new BeefyBlockImport.
 	</span><span class="kw">pub fn </span>new(
 		backend: Arc&lt;BE&gt;,
 		runtime: Arc&lt;Runtime&gt;,
 		inner: I,
-		justification_sender: BeefyVersionedFinalityProofSender&lt;Block&gt;,
+		justification_sender: BeefyVersionedFinalityProofSender&lt;Block, AuthorityId&gt;,
 		metrics: <span class="prelude-ty">Option</span>&lt;BlockImportMetrics&gt;,
-	) -&gt; BeefyBlockImport&lt;Block, BE, Runtime, I&gt; {
+	) -&gt; BeefyBlockImport&lt;Block, BE, Runtime, I, AuthorityId&gt; {
 		BeefyBlockImport { backend, runtime, inner, justification_sender, metrics }
 	}
 }
 
-<span class="kw">impl</span>&lt;Block, BE, Runtime, I&gt; BeefyBlockImport&lt;Block, BE, Runtime, I&gt;
+<span class="kw">impl</span>&lt;Block, BE, Runtime, I, AuthorityId&gt; BeefyBlockImport&lt;Block, BE, Runtime, I, AuthorityId&gt;
 <span class="kw">where
 	</span>Block: BlockT,
 	BE: Backend&lt;Block&gt;,
 	Runtime: ProvideRuntimeApi&lt;Block&gt;,
 	Runtime::Api: BeefyApi&lt;Block, AuthorityId&gt; + Send,
+	AuthorityId: AuthorityIdBound,
 {
 	<span class="kw">fn </span>decode_and_verify(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		encoded: <span class="kw-2">&amp;</span>EncodedJustification,
 		number: NumberFor&lt;Block&gt;,
 		hash: &lt;Block <span class="kw">as </span>BlockT&gt;::Hash,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;BeefyVersionedFinalityProof&lt;Block&gt;, ConsensusError&gt; {
+	) -&gt; <span class="prelude-ty">Result</span>&lt;BeefyVersionedFinalityProof&lt;Block, AuthorityId&gt;, ConsensusError&gt; {
 		<span class="kw">use </span>ConsensusError::ClientImport <span class="kw">as </span>ImportError;
 		<span class="kw">let </span>beefy_genesis = <span class="self">self
 			</span>.runtime
@@ -443,7 +455,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.map_err(|e| ImportError(e.to_string()))<span class="question-mark">?
 			</span>.ok_or_else(|| ImportError(<span class="string">"Unknown BEEFY genesis"</span>.to_string()))<span class="question-mark">?</span>;
 		<span class="kw">if </span>number &lt; beefy_genesis {
-			<span class="kw">return </span><span class="prelude-val">Err</span>(ImportError(<span class="string">"BEEFY genesis is set for future block"</span>.to_string()))
+			<span class="kw">return </span><span class="prelude-val">Err</span>(ImportError(<span class="string">"BEEFY genesis is set for future block"</span>.to_string()));
 		}
 		<span class="kw">let </span>validator_set = <span class="self">self
 			</span>.runtime
@@ -452,19 +464,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.map_err(|e| ImportError(e.to_string()))<span class="question-mark">?
 			</span>.ok_or_else(|| ImportError(<span class="string">"Unknown validator set"</span>.to_string()))<span class="question-mark">?</span>;
 
-		decode_and_verify_finality_proof::&lt;Block&gt;(<span class="kw-2">&amp;</span>encoded[..], number, <span class="kw-2">&amp;</span>validator_set)
+		decode_and_verify_finality_proof::&lt;Block, AuthorityId&gt;(<span class="kw-2">&amp;</span>encoded[..], number, <span class="kw-2">&amp;</span>validator_set)
 			.map_err(|(err, <span class="kw">_</span>)| err)
 	}
 }
 
 <span class="attr">#[async_trait::async_trait]
-</span><span class="kw">impl</span>&lt;Block, BE, Runtime, I&gt; BlockImport&lt;Block&gt; <span class="kw">for </span>BeefyBlockImport&lt;Block, BE, Runtime, I&gt;
+</span><span class="kw">impl</span>&lt;Block, BE, Runtime, I, AuthorityId&gt; BlockImport&lt;Block&gt;
+	<span class="kw">for </span>BeefyBlockImport&lt;Block, BE, Runtime, I, AuthorityId&gt;
 <span class="kw">where
 	</span>Block: BlockT,
 	BE: Backend&lt;Block&gt;,
 	I: BlockImport&lt;Block, Error = ConsensusError&gt; + Send + Sync,
 	Runtime: ProvideRuntimeApi&lt;Block&gt; + Send + Sync,
 	Runtime::Api: BeefyApi&lt;Block, AuthorityId&gt;,
+	AuthorityId: AuthorityIdBound,
 {
 	<span class="kw">type </span>Error = ConsensusError;
 
@@ -492,7 +506,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="comment">// The block is imported as part of some chain sync.
 				// The voter doesn't need to process it now.
 				// It will be detected and processed as part of the voter state init.
-				</span><span class="kw">return </span><span class="prelude-val">Ok</span>(inner_import_result)
+				</span><span class="kw">return </span><span class="prelude-val">Ok</span>(inner_import_result);
 			},
 		}
 

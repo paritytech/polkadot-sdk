@@ -1034,6 +1034,38 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#883" id="883">883</a>
 <a href="#884" id="884">884</a>
 <a href="#885" id="885">885</a>
+<a href="#886" id="886">886</a>
+<a href="#887" id="887">887</a>
+<a href="#888" id="888">888</a>
+<a href="#889" id="889">889</a>
+<a href="#890" id="890">890</a>
+<a href="#891" id="891">891</a>
+<a href="#892" id="892">892</a>
+<a href="#893" id="893">893</a>
+<a href="#894" id="894">894</a>
+<a href="#895" id="895">895</a>
+<a href="#896" id="896">896</a>
+<a href="#897" id="897">897</a>
+<a href="#898" id="898">898</a>
+<a href="#899" id="899">899</a>
+<a href="#900" id="900">900</a>
+<a href="#901" id="901">901</a>
+<a href="#902" id="902">902</a>
+<a href="#903" id="903">903</a>
+<a href="#904" id="904">904</a>
+<a href="#905" id="905">905</a>
+<a href="#906" id="906">906</a>
+<a href="#907" id="907">907</a>
+<a href="#908" id="908">908</a>
+<a href="#909" id="909">909</a>
+<a href="#910" id="910">910</a>
+<a href="#911" id="911">911</a>
+<a href="#912" id="912">912</a>
+<a href="#913" id="913">913</a>
+<a href="#914" id="914">914</a>
+<a href="#915" id="915">915</a>
+<a href="#916" id="916">916</a>
+<a href="#917" id="917">917</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1072,10 +1104,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	keystore::BeefyKeystore,
 	LOG_TARGET,
 };
-<span class="kw">use </span>sp_consensus_beefy::{
-	ecdsa_crypto::{AuthorityId, Signature},
-	ValidatorSet, ValidatorSetId, VoteMessage,
-};
+<span class="kw">use </span>sp_application_crypto::RuntimeAppPublic;
+<span class="kw">use </span>sp_consensus_beefy::{AuthorityIdBound, ValidatorSet, ValidatorSetId, VoteMessage};
 
 <span class="comment">// Timeout for rebroadcasting messages.
 </span><span class="attr">#[cfg(not(test))]
@@ -1108,16 +1138,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// BEEFY gossip message type that gets encoded and sent on the network.
 </span><span class="attr">#[derive(Debug, Encode, Decode)]
-</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">enum </span>GossipMessage&lt;B: Block&gt; {
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">enum </span>GossipMessage&lt;B: Block, AuthorityId: AuthorityIdBound&gt; {
 	<span class="doccomment">/// BEEFY message with commitment and single signature.
-	</span>Vote(VoteMessage&lt;NumberFor&lt;B&gt;, AuthorityId, Signature&gt;),
+	</span>Vote(VoteMessage&lt;NumberFor&lt;B&gt;, AuthorityId, &lt;AuthorityId <span class="kw">as </span>RuntimeAppPublic&gt;::Signature&gt;),
 	<span class="doccomment">/// BEEFY justification with commitment and signatures.
-	</span>FinalityProof(BeefyVersionedFinalityProof&lt;B&gt;),
+	</span>FinalityProof(BeefyVersionedFinalityProof&lt;B, AuthorityId&gt;),
 }
 
-<span class="kw">impl</span>&lt;B: Block&gt; GossipMessage&lt;B&gt; {
+<span class="kw">impl</span>&lt;B: Block, AuthorityId: AuthorityIdBound&gt; GossipMessage&lt;B, AuthorityId&gt; {
 	<span class="doccomment">/// Return inner vote if this message is a Vote.
-	</span><span class="kw">pub fn </span>unwrap_vote(<span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;VoteMessage&lt;NumberFor&lt;B&gt;, AuthorityId, Signature&gt;&gt; {
+	</span><span class="kw">pub fn </span>unwrap_vote(
+		<span class="self">self</span>,
+	) -&gt; <span class="prelude-ty">Option</span>&lt;VoteMessage&lt;NumberFor&lt;B&gt;, AuthorityId, &lt;AuthorityId <span class="kw">as </span>RuntimeAppPublic&gt;::Signature&gt;&gt;
+	{
 		<span class="kw">match </span><span class="self">self </span>{
 			GossipMessage::Vote(vote) =&gt; <span class="prelude-val">Some</span>(vote),
 			GossipMessage::FinalityProof(<span class="kw">_</span>) =&gt; <span class="prelude-val">None</span>,
@@ -1125,7 +1158,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="doccomment">/// Return inner finality proof if this message is a FinalityProof.
-	</span><span class="kw">pub fn </span>unwrap_finality_proof(<span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;BeefyVersionedFinalityProof&lt;B&gt;&gt; {
+	</span><span class="kw">pub fn </span>unwrap_finality_proof(<span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;BeefyVersionedFinalityProof&lt;B, AuthorityId&gt;&gt; {
 		<span class="kw">match </span><span class="self">self </span>{
 			GossipMessage::Vote(<span class="kw">_</span>) =&gt; <span class="prelude-val">None</span>,
 			GossipMessage::FinalityProof(proof) =&gt; <span class="prelude-val">Some</span>(proof),
@@ -1150,33 +1183,33 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="attr">#[derive(Clone, Debug)]
-</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>GossipFilterCfg&lt;<span class="lifetime">'a</span>, B: Block&gt; {
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>GossipFilterCfg&lt;<span class="lifetime">'a</span>, B: Block, AuthorityId: AuthorityIdBound&gt; {
 	<span class="kw">pub </span>start: NumberFor&lt;B&gt;,
 	<span class="kw">pub </span>end: NumberFor&lt;B&gt;,
 	<span class="kw">pub </span>validator_set: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>ValidatorSet&lt;AuthorityId&gt;,
 }
 
 <span class="attr">#[derive(Clone, Debug)]
-</span><span class="kw">struct </span>FilterInner&lt;B: Block&gt; {
+</span><span class="kw">struct </span>FilterInner&lt;B: Block, AuthorityId: AuthorityIdBound&gt; {
 	<span class="kw">pub </span>start: NumberFor&lt;B&gt;,
 	<span class="kw">pub </span>end: NumberFor&lt;B&gt;,
 	<span class="kw">pub </span>validator_set: ValidatorSet&lt;AuthorityId&gt;,
 }
 
-<span class="kw">struct </span>Filter&lt;B: Block&gt; {
+<span class="kw">struct </span>Filter&lt;B: Block, AuthorityId: AuthorityIdBound&gt; {
 	<span class="comment">// specifies live rounds
-	</span>inner: <span class="prelude-ty">Option</span>&lt;FilterInner&lt;B&gt;&gt;,
+	</span>inner: <span class="prelude-ty">Option</span>&lt;FilterInner&lt;B, AuthorityId&gt;&gt;,
 	<span class="comment">// cache of seen valid justifications in active rounds
 	</span>rounds_with_valid_proofs: BTreeSet&lt;NumberFor&lt;B&gt;&gt;,
 }
 
-<span class="kw">impl</span>&lt;B: Block&gt; Filter&lt;B&gt; {
+<span class="kw">impl</span>&lt;B: Block, AuthorityId: AuthorityIdBound&gt; Filter&lt;B, AuthorityId&gt; {
 	<span class="kw">pub fn </span>new() -&gt; <span class="self">Self </span>{
 		<span class="self">Self </span>{ inner: <span class="prelude-val">None</span>, rounds_with_valid_proofs: BTreeSet::new() }
 	}
 
 	<span class="doccomment">/// Update filter to new `start` and `set_id`.
-	</span><span class="kw">fn </span>update(<span class="kw-2">&amp;mut </span><span class="self">self</span>, cfg: GossipFilterCfg&lt;B&gt;) {
+	</span><span class="kw">fn </span>update(<span class="kw-2">&amp;mut </span><span class="self">self</span>, cfg: GossipFilterCfg&lt;B, AuthorityId&gt;) {
 		<span class="self">self</span>.rounds_with_valid_proofs
 			.retain(|<span class="kw-2">&amp;</span>round| round &gt;= cfg.start &amp;&amp; round &lt;= cfg.end);
 		<span class="comment">// only clone+overwrite big validator_set if set_id changed
@@ -1256,21 +1289,22 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// rejected/expired.
 ///
 ///All messaging is handled in a single BEEFY global topic.
-</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>GossipValidator&lt;B, N&gt;
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>GossipValidator&lt;B, N, AuthorityId: AuthorityIdBound&gt;
 <span class="kw">where
 	</span>B: Block,
 {
 	votes_topic: B::Hash,
 	justifs_topic: B::Hash,
-	gossip_filter: RwLock&lt;Filter&lt;B&gt;&gt;,
+	gossip_filter: RwLock&lt;Filter&lt;B, AuthorityId&gt;&gt;,
 	next_rebroadcast: Mutex&lt;Instant&gt;,
 	known_peers: Arc&lt;Mutex&lt;KnownPeers&lt;B&gt;&gt;&gt;,
 	network: Arc&lt;N&gt;,
 }
 
-<span class="kw">impl</span>&lt;B, N&gt; GossipValidator&lt;B, N&gt;
+<span class="kw">impl</span>&lt;B, N, AuthorityId&gt; GossipValidator&lt;B, N, AuthorityId&gt;
 <span class="kw">where
 	</span>B: Block,
+	AuthorityId: AuthorityIdBound,
 {
 	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>new(known_peers: Arc&lt;Mutex&lt;KnownPeers&lt;B&gt;&gt;&gt;, network: Arc&lt;N&gt;) -&gt; <span class="self">Self </span>{
 		<span class="self">Self </span>{
@@ -1286,7 +1320,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Update gossip validator filter.
 	///
 	/// Only votes for `set_id` and rounds `start &lt;= round &lt;= end` will be accepted.
-	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>update_filter(<span class="kw-2">&amp;</span><span class="self">self</span>, filter: GossipFilterCfg&lt;B&gt;) {
+	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>update_filter(<span class="kw-2">&amp;</span><span class="self">self</span>, filter: GossipFilterCfg&lt;B, AuthorityId&gt;) {
 		<span class="macro">debug!</span>(
 			target: LOG_TARGET,
 			<span class="string">"🥩 New gossip filter: start {:?}, end {:?}, validator set id {:?}"</span>,
@@ -1296,10 +1330,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="kw">impl</span>&lt;B, N&gt; GossipValidator&lt;B, N&gt;
+<span class="kw">impl</span>&lt;B, N, AuthorityId&gt; GossipValidator&lt;B, N, AuthorityId&gt;
 <span class="kw">where
 	</span>B: Block,
 	N: NetworkPeers,
+	AuthorityId: AuthorityIdBound,
 {
 	<span class="kw">fn </span>report(<span class="kw-2">&amp;</span><span class="self">self</span>, who: PeerId, cost_benefit: ReputationChange) {
 		<span class="self">self</span>.network.report_peer(who, cost_benefit);
@@ -1307,7 +1342,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">fn </span>validate_vote(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
-		vote: VoteMessage&lt;NumberFor&lt;B&gt;, AuthorityId, Signature&gt;,
+		vote: VoteMessage&lt;NumberFor&lt;B&gt;, AuthorityId, &lt;AuthorityId <span class="kw">as </span>RuntimeAppPublic&gt;::Signature&gt;,
 		sender: <span class="kw-2">&amp;</span>PeerId,
 	) -&gt; Action&lt;B::Hash&gt; {
 		<span class="kw">let </span>round = vote.commitment.block_number;
@@ -1335,7 +1370,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				.unwrap_or(<span class="bool-val">false</span>)
 			{
 				<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">"Message from voter not in validator set: {}"</span>, vote.id);
-				<span class="kw">return </span>Action::Discard(cost::UNKNOWN_VOTER)
+				<span class="kw">return </span>Action::Discard(cost::UNKNOWN_VOTER);
 			}
 		}
 
@@ -1352,10 +1387,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">fn </span>validate_finality_proof(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
-		proof: BeefyVersionedFinalityProof&lt;B&gt;,
+		proof: BeefyVersionedFinalityProof&lt;B, AuthorityId&gt;,
 		sender: <span class="kw-2">&amp;</span>PeerId,
 	) -&gt; Action&lt;B::Hash&gt; {
-		<span class="kw">let </span>(round, set_id) = proof_block_num_and_set_id::&lt;B&gt;(<span class="kw-2">&amp;</span>proof);
+		<span class="kw">let </span>(round, set_id) = proof_block_num_and_set_id::&lt;B, AuthorityId&gt;(<span class="kw-2">&amp;</span>proof);
 		<span class="self">self</span>.known_peers.lock().note_vote_for(<span class="kw-2">*</span>sender, round);
 
 		<span class="kw">let </span>action = {
@@ -1372,7 +1407,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			}
 
 			<span class="kw">if </span>guard.is_already_proven(round) {
-				<span class="kw">return </span>Action::Discard(benefit::NOT_INTERESTED)
+				<span class="kw">return </span>Action::Discard(benefit::NOT_INTERESTED);
 			}
 
 			<span class="comment">// Verify justification signatures.
@@ -1380,7 +1415,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				.validator_set()
 				.map(|validator_set| {
 					<span class="kw">if let </span><span class="prelude-val">Err</span>((<span class="kw">_</span>, signatures_checked)) =
-						verify_with_validator_set::&lt;B&gt;(round, validator_set, <span class="kw-2">&amp;</span>proof)
+						verify_with_validator_set::&lt;B, AuthorityId&gt;(round, validator_set, <span class="kw-2">&amp;</span>proof)
 					{
 						<span class="macro">debug!</span>(
 							target: LOG_TARGET,
@@ -1405,9 +1440,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="kw">impl</span>&lt;B, N&gt; Validator&lt;B&gt; <span class="kw">for </span>GossipValidator&lt;B, N&gt;
+<span class="kw">impl</span>&lt;B, N, AuthorityId&gt; Validator&lt;B&gt; <span class="kw">for </span>GossipValidator&lt;B, N, AuthorityId&gt;
 <span class="kw">where
 	</span>B: Block,
+	AuthorityId: AuthorityIdBound,
 	N: NetworkPeers + Send + Sync,
 {
 	<span class="kw">fn </span>peer_disconnected(<span class="kw-2">&amp;</span><span class="self">self</span>, _context: <span class="kw-2">&amp;mut </span><span class="kw">dyn </span>ValidatorContext&lt;B&gt;, who: <span class="kw-2">&amp;</span>PeerId) {
@@ -1421,7 +1457,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw-2">mut </span>data: <span class="kw-2">&amp;</span>[u8],
 	) -&gt; ValidationResult&lt;B::Hash&gt; {
 		<span class="kw">let </span>raw = data;
-		<span class="kw">let </span>action = <span class="kw">match </span>GossipMessage::&lt;B&gt;::decode_all(<span class="kw-2">&amp;mut </span>data) {
+		<span class="kw">let </span>action = <span class="kw">match </span>GossipMessage::&lt;B, AuthorityId&gt;::decode_all(<span class="kw-2">&amp;mut </span>data) {
 			<span class="prelude-val">Ok</span>(GossipMessage::Vote(msg)) =&gt; <span class="self">self</span>.validate_vote(msg, sender),
 			<span class="prelude-val">Ok</span>(GossipMessage::FinalityProof(proof)) =&gt; <span class="self">self</span>.validate_finality_proof(proof, sender),
 			<span class="prelude-val">Err</span>(e) =&gt; {
@@ -1450,26 +1486,28 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">fn </span>message_expired&lt;<span class="lifetime">'a</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="self">self</span>) -&gt; Box&lt;<span class="kw">dyn </span>FnMut(B::Hash, <span class="kw-2">&amp;</span>[u8]) -&gt; bool + <span class="lifetime">'a</span>&gt; {
 		<span class="kw">let </span>filter = <span class="self">self</span>.gossip_filter.read();
-		Box::new(<span class="kw">move </span>|_topic, <span class="kw-2">mut </span>data| <span class="kw">match </span>GossipMessage::&lt;B&gt;::decode_all(<span class="kw-2">&amp;mut </span>data) {
-			<span class="prelude-val">Ok</span>(GossipMessage::Vote(msg)) =&gt; {
-				<span class="kw">let </span>round = msg.commitment.block_number;
-				<span class="kw">let </span>set_id = msg.commitment.validator_set_id;
-				<span class="kw">let </span>expired = filter.consider_vote(round, set_id) != Consider::Accept;
-				<span class="macro">trace!</span>(target: LOG_TARGET, <span class="string">"🥩 Vote for round #{} expired: {}"</span>, round, expired);
-				expired
-			},
-			<span class="prelude-val">Ok</span>(GossipMessage::FinalityProof(proof)) =&gt; {
-				<span class="kw">let </span>(round, set_id) = proof_block_num_and_set_id::&lt;B&gt;(<span class="kw-2">&amp;</span>proof);
-				<span class="kw">let </span>expired = filter.consider_finality_proof(round, set_id) != Consider::Accept;
-				<span class="macro">trace!</span>(
-					target: LOG_TARGET,
-					<span class="string">"🥩 Finality proof for round #{} expired: {}"</span>,
-					round,
+		Box::new(<span class="kw">move </span>|_topic, <span class="kw-2">mut </span>data| {
+			<span class="kw">match </span>GossipMessage::&lt;B, AuthorityId&gt;::decode_all(<span class="kw-2">&amp;mut </span>data) {
+				<span class="prelude-val">Ok</span>(GossipMessage::Vote(msg)) =&gt; {
+					<span class="kw">let </span>round = msg.commitment.block_number;
+					<span class="kw">let </span>set_id = msg.commitment.validator_set_id;
+					<span class="kw">let </span>expired = filter.consider_vote(round, set_id) != Consider::Accept;
+					<span class="macro">trace!</span>(target: LOG_TARGET, <span class="string">"🥩 Vote for round #{} expired: {}"</span>, round, expired);
 					expired
-				);
-				expired
-			},
-			<span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; <span class="bool-val">true</span>,
+				},
+				<span class="prelude-val">Ok</span>(GossipMessage::FinalityProof(proof)) =&gt; {
+					<span class="kw">let </span>(round, set_id) = proof_block_num_and_set_id::&lt;B, AuthorityId&gt;(<span class="kw-2">&amp;</span>proof);
+					<span class="kw">let </span>expired = filter.consider_finality_proof(round, set_id) != Consider::Accept;
+					<span class="macro">trace!</span>(
+						target: LOG_TARGET,
+						<span class="string">"🥩 Finality proof for round #{} expired: {}"</span>,
+						round,
+						expired
+					);
+					expired
+				},
+				<span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; <span class="bool-val">true</span>,
+			}
 		})
 	}
 
@@ -1491,10 +1529,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>filter = <span class="self">self</span>.gossip_filter.read();
 		Box::new(<span class="kw">move </span>|_who, intent, _topic, <span class="kw-2">mut </span>data| {
 			<span class="kw">if let </span>MessageIntent::PeriodicRebroadcast = intent {
-				<span class="kw">return </span>do_rebroadcast
+				<span class="kw">return </span>do_rebroadcast;
 			}
 
-			<span class="kw">match </span>GossipMessage::&lt;B&gt;::decode_all(<span class="kw-2">&amp;mut </span>data) {
+			<span class="kw">match </span>GossipMessage::&lt;B, AuthorityId&gt;::decode_all(<span class="kw-2">&amp;mut </span>data) {
 				<span class="prelude-val">Ok</span>(GossipMessage::Vote(msg)) =&gt; {
 					<span class="kw">let </span>round = msg.commitment.block_number;
 					<span class="kw">let </span>set_id = msg.commitment.validator_set_id;
@@ -1503,7 +1541,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					allowed
 				},
 				<span class="prelude-val">Ok</span>(GossipMessage::FinalityProof(proof)) =&gt; {
-					<span class="kw">let </span>(round, set_id) = proof_block_num_and_set_id::&lt;B&gt;(<span class="kw-2">&amp;</span>proof);
+					<span class="kw">let </span>(round, set_id) = proof_block_num_and_set_id::&lt;B, AuthorityId&gt;(<span class="kw-2">&amp;</span>proof);
 					<span class="kw">let </span>allowed = filter.consider_finality_proof(round, set_id) == Consider::Accept;
 					<span class="macro">trace!</span>(
 						target: LOG_TARGET,
@@ -1526,8 +1564,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">use </span>sc_network_test::Block;
 	<span class="kw">use </span>sp_application_crypto::key_types::BEEFY <span class="kw">as </span>BEEFY_KEY_TYPE;
 	<span class="kw">use </span>sp_consensus_beefy::{
-		ecdsa_crypto::Signature, known_payloads, test_utils::Keyring, Commitment, MmrRootHash,
-		Payload, SignedCommitment, VoteMessage,
+		ecdsa_crypto, known_payloads, test_utils::Keyring, Commitment, MmrRootHash, Payload,
+		SignedCommitment, VoteMessage,
 	};
 	<span class="kw">use </span>sp_keystore::{testing::MemoryKeystore, Keystore};
 
@@ -1643,16 +1681,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="kw">pub fn </span>sign_commitment&lt;BN: Encode&gt;(
-		who: <span class="kw-2">&amp;</span>Keyring&lt;AuthorityId&gt;,
+		who: <span class="kw-2">&amp;</span>Keyring&lt;ecdsa_crypto::AuthorityId&gt;,
 		commitment: <span class="kw-2">&amp;</span>Commitment&lt;BN&gt;,
-	) -&gt; Signature {
+	) -&gt; ecdsa_crypto::Signature {
 		<span class="kw">let </span>store = MemoryKeystore::new();
 		store.ecdsa_generate_new(BEEFY_KEY_TYPE, <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>who.to_seed())).unwrap();
-		<span class="kw">let </span>beefy_keystore: BeefyKeystore&lt;AuthorityId&gt; = <span class="prelude-val">Some</span>(store.into()).into();
+		<span class="kw">let </span>beefy_keystore: BeefyKeystore&lt;ecdsa_crypto::AuthorityId&gt; = <span class="prelude-val">Some</span>(store.into()).into();
 		beefy_keystore.sign(<span class="kw-2">&amp;</span>who.public(), <span class="kw-2">&amp;</span>commitment.encode()).unwrap()
 	}
 
-	<span class="kw">fn </span>dummy_vote(block_number: u64) -&gt; VoteMessage&lt;u64, AuthorityId, Signature&gt; {
+	<span class="kw">fn </span>dummy_vote(
+		block_number: u64,
+	) -&gt; VoteMessage&lt;u64, ecdsa_crypto::AuthorityId, ecdsa_crypto::Signature&gt; {
 		<span class="kw">let </span>payload = Payload::from_single_entry(
 			known_payloads::MMR_ROOT_ID,
 			MmrRootHash::default().encode(),
@@ -1665,8 +1705,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">pub fn </span>dummy_proof(
 		block_number: u64,
-		validator_set: <span class="kw-2">&amp;</span>ValidatorSet&lt;AuthorityId&gt;,
-	) -&gt; BeefyVersionedFinalityProof&lt;Block&gt; {
+		validator_set: <span class="kw-2">&amp;</span>ValidatorSet&lt;ecdsa_crypto::AuthorityId&gt;,
+	) -&gt; BeefyVersionedFinalityProof&lt;Block, ecdsa_crypto::AuthorityId&gt; {
 		<span class="kw">let </span>payload = Payload::from_single_entry(
 			known_payloads::MMR_ROOT_ID,
 			MmrRootHash::default().encode(),
@@ -1675,25 +1715,29 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>signatures = validator_set
 			.validators()
 			.iter()
-			.map(|validator: <span class="kw-2">&amp;</span>AuthorityId| {
+			.map(|validator: <span class="kw-2">&amp;</span>ecdsa_crypto::AuthorityId| {
 				<span class="prelude-val">Some</span>(sign_commitment(
-					<span class="kw-2">&amp;</span>Keyring::&lt;AuthorityId&gt;::from_public(validator).unwrap(),
+					<span class="kw-2">&amp;</span>Keyring::&lt;ecdsa_crypto::AuthorityId&gt;::from_public(validator).unwrap(),
 					<span class="kw-2">&amp;</span>commitment,
 				))
 			})
 			.collect();
 
-		BeefyVersionedFinalityProof::&lt;Block&gt;::V1(SignedCommitment { commitment, signatures })
+		BeefyVersionedFinalityProof::&lt;Block, ecdsa_crypto::AuthorityId&gt;::V1(SignedCommitment {
+			commitment,
+			signatures,
+		})
 	}
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>should_validate_messages() {
-		<span class="kw">let </span>keys = <span class="macro">vec!</span>[Keyring::&lt;AuthorityId&gt;::Alice.public()];
-		<span class="kw">let </span>validator_set = ValidatorSet::&lt;AuthorityId&gt;::new(keys.clone(), <span class="number">0</span>).unwrap();
+		<span class="kw">let </span>keys = <span class="macro">vec!</span>[Keyring::&lt;ecdsa_crypto::AuthorityId&gt;::Alice.public()];
+		<span class="kw">let </span>validator_set =
+			ValidatorSet::&lt;ecdsa_crypto::AuthorityId&gt;::new(keys.clone(), <span class="number">0</span>).unwrap();
 
 		<span class="kw">let </span>(network, <span class="kw-2">mut </span>report_stream) = TestNetwork::new();
 
-		<span class="kw">let </span>gv = GossipValidator::&lt;Block, <span class="kw">_</span>&gt;::new(
+		<span class="kw">let </span>gv = GossipValidator::&lt;Block, <span class="kw">_</span>, ecdsa_crypto::AuthorityId&gt;::new(
 			Arc::new(Mutex::new(KnownPeers::new())),
 			Arc::new(network),
 		);
@@ -1714,7 +1758,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="comment">// verify votes validation
 
 		</span><span class="kw">let </span>vote = dummy_vote(<span class="number">3</span>);
-		<span class="kw">let </span>encoded = GossipMessage::&lt;Block&gt;::Vote(vote.clone()).encode();
+		<span class="kw">let </span>encoded =
+			GossipMessage::&lt;Block, ecdsa_crypto::AuthorityId&gt;::Vote(vote.clone()).encode();
 
 		<span class="comment">// filter not initialized
 		</span><span class="kw">let </span>res = gv.validate(<span class="kw-2">&amp;mut </span>context, <span class="kw-2">&amp;</span>sender, <span class="kw-2">&amp;</span>encoded);
@@ -1732,7 +1777,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="comment">// reject vote, voter not in validator set
 		</span><span class="kw">let </span><span class="kw-2">mut </span>bad_vote = vote.clone();
 		bad_vote.id = Keyring::Bob.public();
-		<span class="kw">let </span>bad_vote = GossipMessage::&lt;Block&gt;::Vote(bad_vote).encode();
+		<span class="kw">let </span>bad_vote = GossipMessage::&lt;Block, ecdsa_crypto::AuthorityId&gt;::Vote(bad_vote).encode();
 		<span class="kw">let </span>res = gv.validate(<span class="kw-2">&amp;mut </span>context, <span class="kw-2">&amp;</span>sender, <span class="kw-2">&amp;</span>bad_vote);
 		<span class="macro">assert!</span>(<span class="macro">matches!</span>(res, ValidationResult::Discard));
 		expected_report.cost_benefit = cost::UNKNOWN_VOTER;
@@ -1762,7 +1807,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		// reject old proof
 		</span><span class="kw">let </span>proof = dummy_proof(<span class="number">5</span>, <span class="kw-2">&amp;</span>validator_set);
-		<span class="kw">let </span>encoded_proof = GossipMessage::&lt;Block&gt;::FinalityProof(proof).encode();
+		<span class="kw">let </span>encoded_proof =
+			GossipMessage::&lt;Block, ecdsa_crypto::AuthorityId&gt;::FinalityProof(proof).encode();
 		<span class="kw">let </span>res = gv.validate(<span class="kw-2">&amp;mut </span>context, <span class="kw-2">&amp;</span>sender, <span class="kw-2">&amp;</span>encoded_proof);
 		<span class="macro">assert!</span>(<span class="macro">matches!</span>(res, ValidationResult::Discard));
 		expected_report.cost_benefit = cost::OUTDATED_MESSAGE;
@@ -1770,7 +1816,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="comment">// accept next proof with good set_id
 		</span><span class="kw">let </span>proof = dummy_proof(<span class="number">7</span>, <span class="kw-2">&amp;</span>validator_set);
-		<span class="kw">let </span>encoded_proof = GossipMessage::&lt;Block&gt;::FinalityProof(proof).encode();
+		<span class="kw">let </span>encoded_proof =
+			GossipMessage::&lt;Block, ecdsa_crypto::AuthorityId&gt;::FinalityProof(proof).encode();
 		<span class="kw">let </span>res = gv.validate(<span class="kw-2">&amp;mut </span>context, <span class="kw-2">&amp;</span>sender, <span class="kw-2">&amp;</span>encoded_proof);
 		<span class="macro">assert!</span>(<span class="macro">matches!</span>(res, ValidationResult::ProcessAndKeep(<span class="kw">_</span>)));
 		expected_report.cost_benefit = benefit::VALIDATED_PROOF;
@@ -1778,16 +1825,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="comment">// accept future proof with good set_id
 		</span><span class="kw">let </span>proof = dummy_proof(<span class="number">20</span>, <span class="kw-2">&amp;</span>validator_set);
-		<span class="kw">let </span>encoded_proof = GossipMessage::&lt;Block&gt;::FinalityProof(proof).encode();
+		<span class="kw">let </span>encoded_proof =
+			GossipMessage::&lt;Block, ecdsa_crypto::AuthorityId&gt;::FinalityProof(proof).encode();
 		<span class="kw">let </span>res = gv.validate(<span class="kw-2">&amp;mut </span>context, <span class="kw-2">&amp;</span>sender, <span class="kw-2">&amp;</span>encoded_proof);
 		<span class="macro">assert!</span>(<span class="macro">matches!</span>(res, ValidationResult::ProcessAndKeep(<span class="kw">_</span>)));
 		expected_report.cost_benefit = benefit::VALIDATED_PROOF;
 		<span class="macro">assert_eq!</span>(report_stream.try_next().unwrap().unwrap(), expected_report);
 
 		<span class="comment">// reject proof, future set_id
-		</span><span class="kw">let </span>bad_validator_set = ValidatorSet::&lt;AuthorityId&gt;::new(keys, <span class="number">1</span>).unwrap();
+		</span><span class="kw">let </span>bad_validator_set = ValidatorSet::&lt;ecdsa_crypto::AuthorityId&gt;::new(keys, <span class="number">1</span>).unwrap();
 		<span class="kw">let </span>proof = dummy_proof(<span class="number">20</span>, <span class="kw-2">&amp;</span>bad_validator_set);
-		<span class="kw">let </span>encoded_proof = GossipMessage::&lt;Block&gt;::FinalityProof(proof).encode();
+		<span class="kw">let </span>encoded_proof =
+			GossipMessage::&lt;Block, ecdsa_crypto::AuthorityId&gt;::FinalityProof(proof).encode();
 		<span class="kw">let </span>res = gv.validate(<span class="kw-2">&amp;mut </span>context, <span class="kw-2">&amp;</span>sender, <span class="kw-2">&amp;</span>encoded_proof);
 		<span class="macro">assert!</span>(<span class="macro">matches!</span>(res, ValidationResult::Discard));
 		expected_report.cost_benefit = cost::FUTURE_MESSAGE;
@@ -1795,9 +1844,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="comment">// reject proof, bad signatures (Bob instead of Alice)
 		</span><span class="kw">let </span>bad_validator_set =
-			ValidatorSet::&lt;AuthorityId&gt;::new(<span class="macro">vec!</span>[Keyring::Bob.public()], <span class="number">0</span>).unwrap();
+			ValidatorSet::&lt;ecdsa_crypto::AuthorityId&gt;::new(<span class="macro">vec!</span>[Keyring::Bob.public()], <span class="number">0</span>).unwrap();
 		<span class="kw">let </span>proof = dummy_proof(<span class="number">21</span>, <span class="kw-2">&amp;</span>bad_validator_set);
-		<span class="kw">let </span>encoded_proof = GossipMessage::&lt;Block&gt;::FinalityProof(proof).encode();
+		<span class="kw">let </span>encoded_proof =
+			GossipMessage::&lt;Block, ecdsa_crypto::AuthorityId&gt;::FinalityProof(proof).encode();
 		<span class="kw">let </span>res = gv.validate(<span class="kw-2">&amp;mut </span>context, <span class="kw-2">&amp;</span>sender, <span class="kw-2">&amp;</span>encoded_proof);
 		<span class="macro">assert!</span>(<span class="macro">matches!</span>(res, ValidationResult::Discard));
 		expected_report.cost_benefit = cost::INVALID_PROOF;
@@ -1808,8 +1858,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>messages_allowed_and_expired() {
 		<span class="kw">let </span>keys = <span class="macro">vec!</span>[Keyring::Alice.public()];
-		<span class="kw">let </span>validator_set = ValidatorSet::&lt;AuthorityId&gt;::new(keys.clone(), <span class="number">0</span>).unwrap();
-		<span class="kw">let </span>gv = GossipValidator::&lt;Block, <span class="kw">_</span>&gt;::new(
+		<span class="kw">let </span>validator_set =
+			ValidatorSet::&lt;ecdsa_crypto::AuthorityId&gt;::new(keys.clone(), <span class="number">0</span>).unwrap();
+		<span class="kw">let </span>gv = GossipValidator::&lt;Block, <span class="kw">_</span>, ecdsa_crypto::AuthorityId&gt;::new(
 			Arc::new(Mutex::new(KnownPeers::new())),
 			Arc::new(TestNetwork::new().<span class="number">0</span>),
 		);
@@ -1829,58 +1880,70 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="comment">// inactive round 1 -&gt; expired
 		</span><span class="kw">let </span>vote = dummy_vote(<span class="number">1</span>);
-		<span class="kw">let </span><span class="kw-2">mut </span>encoded_vote = GossipMessage::&lt;Block&gt;::Vote(vote).encode();
+		<span class="kw">let </span><span class="kw-2">mut </span>encoded_vote =
+			GossipMessage::&lt;Block, ecdsa_crypto::AuthorityId&gt;::Vote(vote).encode();
 		<span class="macro">assert!</span>(!allowed(<span class="kw-2">&amp;</span>sender, intent, <span class="kw-2">&amp;</span>topic, <span class="kw-2">&amp;mut </span>encoded_vote));
 		<span class="macro">assert!</span>(expired(topic, <span class="kw-2">&amp;mut </span>encoded_vote));
 		<span class="kw">let </span>proof = dummy_proof(<span class="number">1</span>, <span class="kw-2">&amp;</span>validator_set);
-		<span class="kw">let </span><span class="kw-2">mut </span>encoded_proof = GossipMessage::&lt;Block&gt;::FinalityProof(proof).encode();
+		<span class="kw">let </span><span class="kw-2">mut </span>encoded_proof =
+			GossipMessage::&lt;Block, ecdsa_crypto::AuthorityId&gt;::FinalityProof(proof).encode();
 		<span class="macro">assert!</span>(!allowed(<span class="kw-2">&amp;</span>sender, intent, <span class="kw-2">&amp;</span>topic, <span class="kw-2">&amp;mut </span>encoded_proof));
 		<span class="macro">assert!</span>(expired(topic, <span class="kw-2">&amp;mut </span>encoded_proof));
 
 		<span class="comment">// active round 2 -&gt; !expired - concluded but still gossiped
 		</span><span class="kw">let </span>vote = dummy_vote(<span class="number">2</span>);
-		<span class="kw">let </span><span class="kw-2">mut </span>encoded_vote = GossipMessage::&lt;Block&gt;::Vote(vote).encode();
+		<span class="kw">let </span><span class="kw-2">mut </span>encoded_vote =
+			GossipMessage::&lt;Block, ecdsa_crypto::AuthorityId&gt;::Vote(vote).encode();
 		<span class="macro">assert!</span>(allowed(<span class="kw-2">&amp;</span>sender, intent, <span class="kw-2">&amp;</span>topic, <span class="kw-2">&amp;mut </span>encoded_vote));
 		<span class="macro">assert!</span>(!expired(topic, <span class="kw-2">&amp;mut </span>encoded_vote));
 		<span class="kw">let </span>proof = dummy_proof(<span class="number">2</span>, <span class="kw-2">&amp;</span>validator_set);
-		<span class="kw">let </span><span class="kw-2">mut </span>encoded_proof = GossipMessage::&lt;Block&gt;::FinalityProof(proof).encode();
+		<span class="kw">let </span><span class="kw-2">mut </span>encoded_proof =
+			GossipMessage::&lt;Block, ecdsa_crypto::AuthorityId&gt;::FinalityProof(proof).encode();
 		<span class="macro">assert!</span>(allowed(<span class="kw-2">&amp;</span>sender, intent, <span class="kw-2">&amp;</span>topic, <span class="kw-2">&amp;mut </span>encoded_proof));
 		<span class="macro">assert!</span>(!expired(topic, <span class="kw-2">&amp;mut </span>encoded_proof));
 		<span class="comment">// using wrong set_id -&gt; !allowed, expired
-		</span><span class="kw">let </span>bad_validator_set = ValidatorSet::&lt;AuthorityId&gt;::new(keys.clone(), <span class="number">1</span>).unwrap();
+		</span><span class="kw">let </span>bad_validator_set =
+			ValidatorSet::&lt;ecdsa_crypto::AuthorityId&gt;::new(keys.clone(), <span class="number">1</span>).unwrap();
 		<span class="kw">let </span>proof = dummy_proof(<span class="number">2</span>, <span class="kw-2">&amp;</span>bad_validator_set);
-		<span class="kw">let </span><span class="kw-2">mut </span>encoded_proof = GossipMessage::&lt;Block&gt;::FinalityProof(proof).encode();
+		<span class="kw">let </span><span class="kw-2">mut </span>encoded_proof =
+			GossipMessage::&lt;Block, ecdsa_crypto::AuthorityId&gt;::FinalityProof(proof).encode();
 		<span class="macro">assert!</span>(!allowed(<span class="kw-2">&amp;</span>sender, intent, <span class="kw-2">&amp;</span>topic, <span class="kw-2">&amp;mut </span>encoded_proof));
 		<span class="macro">assert!</span>(expired(topic, <span class="kw-2">&amp;mut </span>encoded_proof));
 
 		<span class="comment">// in progress round 3 -&gt; !expired
 		</span><span class="kw">let </span>vote = dummy_vote(<span class="number">3</span>);
-		<span class="kw">let </span><span class="kw-2">mut </span>encoded_vote = GossipMessage::&lt;Block&gt;::Vote(vote).encode();
+		<span class="kw">let </span><span class="kw-2">mut </span>encoded_vote =
+			GossipMessage::&lt;Block, ecdsa_crypto::AuthorityId&gt;::Vote(vote).encode();
 		<span class="macro">assert!</span>(allowed(<span class="kw-2">&amp;</span>sender, intent, <span class="kw-2">&amp;</span>topic, <span class="kw-2">&amp;mut </span>encoded_vote));
 		<span class="macro">assert!</span>(!expired(topic, <span class="kw-2">&amp;mut </span>encoded_vote));
 		<span class="kw">let </span>proof = dummy_proof(<span class="number">3</span>, <span class="kw-2">&amp;</span>validator_set);
-		<span class="kw">let </span><span class="kw-2">mut </span>encoded_proof = GossipMessage::&lt;Block&gt;::FinalityProof(proof).encode();
+		<span class="kw">let </span><span class="kw-2">mut </span>encoded_proof =
+			GossipMessage::&lt;Block, ecdsa_crypto::AuthorityId&gt;::FinalityProof(proof).encode();
 		<span class="macro">assert!</span>(allowed(<span class="kw-2">&amp;</span>sender, intent, <span class="kw-2">&amp;</span>topic, <span class="kw-2">&amp;mut </span>encoded_proof));
 		<span class="macro">assert!</span>(!expired(topic, <span class="kw-2">&amp;mut </span>encoded_proof));
 
 		<span class="comment">// unseen round 4 -&gt; !expired
 		</span><span class="kw">let </span>vote = dummy_vote(<span class="number">4</span>);
-		<span class="kw">let </span><span class="kw-2">mut </span>encoded_vote = GossipMessage::&lt;Block&gt;::Vote(vote).encode();
+		<span class="kw">let </span><span class="kw-2">mut </span>encoded_vote =
+			GossipMessage::&lt;Block, ecdsa_crypto::AuthorityId&gt;::Vote(vote).encode();
 		<span class="macro">assert!</span>(allowed(<span class="kw-2">&amp;</span>sender, intent, <span class="kw-2">&amp;</span>topic, <span class="kw-2">&amp;mut </span>encoded_vote));
 		<span class="macro">assert!</span>(!expired(topic, <span class="kw-2">&amp;mut </span>encoded_vote));
 		<span class="kw">let </span>proof = dummy_proof(<span class="number">4</span>, <span class="kw-2">&amp;</span>validator_set);
-		<span class="kw">let </span><span class="kw-2">mut </span>encoded_proof = GossipMessage::&lt;Block&gt;::FinalityProof(proof).encode();
+		<span class="kw">let </span><span class="kw-2">mut </span>encoded_proof =
+			GossipMessage::&lt;Block, ecdsa_crypto::AuthorityId&gt;::FinalityProof(proof).encode();
 		<span class="macro">assert!</span>(allowed(<span class="kw-2">&amp;</span>sender, intent, <span class="kw-2">&amp;</span>topic, <span class="kw-2">&amp;mut </span>encoded_proof));
 		<span class="macro">assert!</span>(!expired(topic, <span class="kw-2">&amp;mut </span>encoded_proof));
 
 		<span class="comment">// future round 11 -&gt; expired
 		</span><span class="kw">let </span>vote = dummy_vote(<span class="number">11</span>);
-		<span class="kw">let </span><span class="kw-2">mut </span>encoded_vote = GossipMessage::&lt;Block&gt;::Vote(vote).encode();
+		<span class="kw">let </span><span class="kw-2">mut </span>encoded_vote =
+			GossipMessage::&lt;Block, ecdsa_crypto::AuthorityId&gt;::Vote(vote).encode();
 		<span class="macro">assert!</span>(!allowed(<span class="kw-2">&amp;</span>sender, intent, <span class="kw-2">&amp;</span>topic, <span class="kw-2">&amp;mut </span>encoded_vote));
 		<span class="macro">assert!</span>(expired(topic, <span class="kw-2">&amp;mut </span>encoded_vote));
 		<span class="comment">// future proofs allowed while same set_id -&gt; allowed
 		</span><span class="kw">let </span>proof = dummy_proof(<span class="number">11</span>, <span class="kw-2">&amp;</span>validator_set);
-		<span class="kw">let </span><span class="kw-2">mut </span>encoded_proof = GossipMessage::&lt;Block&gt;::FinalityProof(proof).encode();
+		<span class="kw">let </span><span class="kw-2">mut </span>encoded_proof =
+			GossipMessage::&lt;Block, ecdsa_crypto::AuthorityId&gt;::FinalityProof(proof).encode();
 		<span class="macro">assert!</span>(allowed(<span class="kw-2">&amp;</span>sender, intent, <span class="kw-2">&amp;</span>topic, <span class="kw-2">&amp;mut </span>encoded_proof));
 		<span class="macro">assert!</span>(!expired(topic, <span class="kw-2">&amp;mut </span>encoded_proof));
 	}
@@ -1888,8 +1951,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>messages_rebroadcast() {
 		<span class="kw">let </span>keys = <span class="macro">vec!</span>[Keyring::Alice.public()];
-		<span class="kw">let </span>validator_set = ValidatorSet::&lt;AuthorityId&gt;::new(keys.clone(), <span class="number">0</span>).unwrap();
-		<span class="kw">let </span>gv = GossipValidator::&lt;Block, <span class="kw">_</span>&gt;::new(
+		<span class="kw">let </span>validator_set =
+			ValidatorSet::&lt;ecdsa_crypto::AuthorityId&gt;::new(keys.clone(), <span class="number">0</span>).unwrap();
+		<span class="kw">let </span>gv = GossipValidator::&lt;Block, <span class="kw">_</span>, ecdsa_crypto::AuthorityId&gt;::new(
 			Arc::new(Mutex::new(KnownPeers::new())),
 			Arc::new(TestNetwork::new().<span class="number">0</span>),
 		);

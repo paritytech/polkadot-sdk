@@ -335,6 +335,43 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#184" id="184">184</a>
 <a href="#185" id="185">185</a>
 <a href="#186" id="186">186</a>
+<a href="#187" id="187">187</a>
+<a href="#188" id="188">188</a>
+<a href="#189" id="189">189</a>
+<a href="#190" id="190">190</a>
+<a href="#191" id="191">191</a>
+<a href="#192" id="192">192</a>
+<a href="#193" id="193">193</a>
+<a href="#194" id="194">194</a>
+<a href="#195" id="195">195</a>
+<a href="#196" id="196">196</a>
+<a href="#197" id="197">197</a>
+<a href="#198" id="198">198</a>
+<a href="#199" id="199">199</a>
+<a href="#200" id="200">200</a>
+<a href="#201" id="201">201</a>
+<a href="#202" id="202">202</a>
+<a href="#203" id="203">203</a>
+<a href="#204" id="204">204</a>
+<a href="#205" id="205">205</a>
+<a href="#206" id="206">206</a>
+<a href="#207" id="207">207</a>
+<a href="#208" id="208">208</a>
+<a href="#209" id="209">209</a>
+<a href="#210" id="210">210</a>
+<a href="#211" id="211">211</a>
+<a href="#212" id="212">212</a>
+<a href="#213" id="213">213</a>
+<a href="#214" id="214">214</a>
+<a href="#215" id="215">215</a>
+<a href="#216" id="216">216</a>
+<a href="#217" id="217">217</a>
+<a href="#218" id="218">218</a>
+<a href="#219" id="219">219</a>
+<a href="#220" id="220">220</a>
+<a href="#221" id="221">221</a>
+<a href="#222" id="222">222</a>
+<a href="#223" id="223">223</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -354,18 +391,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // along with this program. If not, see &lt;https://www.gnu.org/licenses/&gt;.
 
 </span><span class="kw">use </span>codec::DecodeAll;
+<span class="kw">use </span>sp_application_crypto::RuntimeAppPublic;
 <span class="kw">use </span>sp_consensus::Error <span class="kw">as </span>ConsensusError;
 <span class="kw">use </span>sp_consensus_beefy::{
-	ecdsa_crypto::{AuthorityId, Signature},
-	BeefySignatureHasher, KnownSignature, ValidatorSet, ValidatorSetId, VersionedFinalityProof,
+	AuthorityIdBound, BeefySignatureHasher, KnownSignature, ValidatorSet, ValidatorSetId,
+	VersionedFinalityProof,
 };
 <span class="kw">use </span>sp_runtime::traits::{Block <span class="kw">as </span>BlockT, NumberFor};
 
 <span class="doccomment">/// A finality proof with matching BEEFY authorities' signatures.
-</span><span class="kw">pub type </span>BeefyVersionedFinalityProof&lt;Block&gt; = VersionedFinalityProof&lt;NumberFor&lt;Block&gt;, Signature&gt;;
+</span><span class="kw">pub type </span>BeefyVersionedFinalityProof&lt;Block, AuthorityId&gt; =
+	VersionedFinalityProof&lt;NumberFor&lt;Block&gt;, &lt;AuthorityId <span class="kw">as </span>RuntimeAppPublic&gt;::Signature&gt;;
 
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>proof_block_num_and_set_id&lt;Block: BlockT&gt;(
-	proof: <span class="kw-2">&amp;</span>BeefyVersionedFinalityProof&lt;Block&gt;,
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>proof_block_num_and_set_id&lt;Block: BlockT, AuthorityId: AuthorityIdBound&gt;(
+	proof: <span class="kw-2">&amp;</span>BeefyVersionedFinalityProof&lt;Block, AuthorityId&gt;,
 ) -&gt; (NumberFor&lt;Block&gt;, ValidatorSetId) {
 	<span class="kw">match </span>proof {
 		VersionedFinalityProof::V1(sc) =&gt;
@@ -374,23 +413,26 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// Decode and verify a Beefy FinalityProof.
-</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>decode_and_verify_finality_proof&lt;Block: BlockT&gt;(
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>decode_and_verify_finality_proof&lt;Block: BlockT, AuthorityId: AuthorityIdBound&gt;(
 	encoded: <span class="kw-2">&amp;</span>[u8],
 	target_number: NumberFor&lt;Block&gt;,
 	validator_set: <span class="kw-2">&amp;</span>ValidatorSet&lt;AuthorityId&gt;,
-) -&gt; <span class="prelude-ty">Result</span>&lt;BeefyVersionedFinalityProof&lt;Block&gt;, (ConsensusError, u32)&gt; {
-	<span class="kw">let </span>proof = &lt;BeefyVersionedFinalityProof&lt;Block&gt;&gt;::decode_all(<span class="kw-2">&amp;mut &amp;*</span>encoded)
+) -&gt; <span class="prelude-ty">Result</span>&lt;BeefyVersionedFinalityProof&lt;Block, AuthorityId&gt;, (ConsensusError, u32)&gt; {
+	<span class="kw">let </span>proof = &lt;BeefyVersionedFinalityProof&lt;Block, AuthorityId&gt;&gt;::decode_all(<span class="kw-2">&amp;mut &amp;*</span>encoded)
 		.map_err(|<span class="kw">_</span>| (ConsensusError::InvalidJustification, <span class="number">0</span>))<span class="question-mark">?</span>;
-	verify_with_validator_set::&lt;Block&gt;(target_number, validator_set, <span class="kw-2">&amp;</span>proof)<span class="question-mark">?</span>;
+	verify_with_validator_set::&lt;Block, AuthorityId&gt;(target_number, validator_set, <span class="kw-2">&amp;</span>proof)<span class="question-mark">?</span>;
 	<span class="prelude-val">Ok</span>(proof)
 }
 
 <span class="doccomment">/// Verify the Beefy finality proof against the validator set at the block it was generated.
-</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>verify_with_validator_set&lt;<span class="lifetime">'a</span>, Block: BlockT&gt;(
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>verify_with_validator_set&lt;<span class="lifetime">'a</span>, Block: BlockT, AuthorityId: AuthorityIdBound&gt;(
 	target_number: NumberFor&lt;Block&gt;,
 	validator_set: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>ValidatorSet&lt;AuthorityId&gt;,
-	proof: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>BeefyVersionedFinalityProof&lt;Block&gt;,
-) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;KnownSignature&lt;<span class="kw-2">&amp;</span><span class="lifetime">'a </span>AuthorityId, <span class="kw-2">&amp;</span><span class="lifetime">'a </span>Signature&gt;&gt;, (ConsensusError, u32)&gt; {
+	proof: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>BeefyVersionedFinalityProof&lt;Block, AuthorityId&gt;,
+) -&gt; <span class="prelude-ty">Result</span>&lt;
+	Vec&lt;KnownSignature&lt;<span class="kw-2">&amp;</span><span class="lifetime">'a </span>AuthorityId, <span class="kw-2">&amp;</span><span class="lifetime">'a </span>&lt;AuthorityId <span class="kw">as </span>RuntimeAppPublic&gt;::Signature&gt;&gt;,
+	(ConsensusError, u32),
+&gt; {
 	<span class="kw">match </span>proof {
 		VersionedFinalityProof::V1(signed_commitment) =&gt; {
 			<span class="kw">let </span>signatories = signed_commitment
@@ -415,7 +457,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">mod </span>tests {
 	<span class="kw">use </span>codec::Encode;
 	<span class="kw">use </span>sp_consensus_beefy::{
-		known_payloads, test_utils::Keyring, Commitment, Payload, SignedCommitment,
+		ecdsa_crypto, known_payloads, test_utils::Keyring, Commitment, Payload, SignedCommitment,
 		VersionedFinalityProof,
 	};
 	<span class="kw">use </span>substrate_test_runtime_client::runtime::Block;
@@ -425,9 +467,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>new_finality_proof(
 		block_num: NumberFor&lt;Block&gt;,
-		validator_set: <span class="kw-2">&amp;</span>ValidatorSet&lt;AuthorityId&gt;,
-		keys: <span class="kw-2">&amp;</span>[Keyring&lt;AuthorityId&gt;],
-	) -&gt; BeefyVersionedFinalityProof&lt;Block&gt; {
+		validator_set: <span class="kw-2">&amp;</span>ValidatorSet&lt;ecdsa_crypto::AuthorityId&gt;,
+		keys: <span class="kw-2">&amp;</span>[Keyring&lt;ecdsa_crypto::AuthorityId&gt;],
+	) -&gt; BeefyVersionedFinalityProof&lt;Block, ecdsa_crypto::AuthorityId&gt; {
 		<span class="kw">let </span>commitment = Commitment {
 			payload: Payload::from_single_entry(known_payloads::MMR_ROOT_ID, <span class="macro">vec!</span>[]),
 			block_number: block_num,
@@ -449,11 +491,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">let </span>good_proof = proof.clone().into();
 		<span class="comment">// should verify successfully
-		</span>verify_with_validator_set::&lt;Block&gt;(block_num, <span class="kw-2">&amp;</span>validator_set, <span class="kw-2">&amp;</span>good_proof).unwrap();
+		</span>verify_with_validator_set::&lt;Block, ecdsa_crypto::AuthorityId&gt;(
+			block_num,
+			<span class="kw-2">&amp;</span>validator_set,
+			<span class="kw-2">&amp;</span>good_proof,
+		)
+		.unwrap();
 
 		<span class="comment">// wrong block number -&gt; should fail verification
 		</span><span class="kw">let </span>good_proof = proof.clone().into();
-		<span class="kw">match </span>verify_with_validator_set::&lt;Block&gt;(block_num + <span class="number">1</span>, <span class="kw-2">&amp;</span>validator_set, <span class="kw-2">&amp;</span>good_proof) {
+		<span class="kw">match </span>verify_with_validator_set::&lt;Block, ecdsa_crypto::AuthorityId&gt;(
+			block_num + <span class="number">1</span>,
+			<span class="kw-2">&amp;</span>validator_set,
+			<span class="kw-2">&amp;</span>good_proof,
+		) {
 			<span class="prelude-val">Err</span>((ConsensusError::InvalidJustification, <span class="number">0</span>)) =&gt; (),
 			e =&gt; <span class="macro">assert!</span>(<span class="bool-val">false</span>, <span class="string">"Got unexpected {:?}"</span>, e),
 		};
@@ -461,7 +512,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="comment">// wrong validator set id -&gt; should fail verification
 		</span><span class="kw">let </span>good_proof = proof.clone().into();
 		<span class="kw">let </span>other = ValidatorSet::new(make_beefy_ids(keys), <span class="number">1</span>).unwrap();
-		<span class="kw">match </span>verify_with_validator_set::&lt;Block&gt;(block_num, <span class="kw-2">&amp;</span>other, <span class="kw-2">&amp;</span>good_proof) {
+		<span class="kw">match </span>verify_with_validator_set::&lt;Block, ecdsa_crypto::AuthorityId&gt;(
+			block_num,
+			<span class="kw-2">&amp;</span>other,
+			<span class="kw-2">&amp;</span>good_proof,
+		) {
 			<span class="prelude-val">Err</span>((ConsensusError::InvalidJustification, <span class="number">0</span>)) =&gt; (),
 			e =&gt; <span class="macro">assert!</span>(<span class="bool-val">false</span>, <span class="string">"Got unexpected {:?}"</span>, e),
 		};
@@ -473,7 +528,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			VersionedFinalityProof::V1(<span class="kw-2">ref mut </span>sc) =&gt; sc,
 		};
 		bad_signed_commitment.signatures.pop().flatten().unwrap();
-		<span class="kw">match </span>verify_with_validator_set::&lt;Block&gt;(block_num + <span class="number">1</span>, <span class="kw-2">&amp;</span>validator_set, <span class="kw-2">&amp;</span>bad_proof.into()) {
+		<span class="kw">match </span>verify_with_validator_set::&lt;Block, ecdsa_crypto::AuthorityId&gt;(
+			block_num + <span class="number">1</span>,
+			<span class="kw-2">&amp;</span>validator_set,
+			<span class="kw-2">&amp;</span>bad_proof.into(),
+		) {
 			<span class="prelude-val">Err</span>((ConsensusError::InvalidJustification, <span class="number">0</span>)) =&gt; (),
 			e =&gt; <span class="macro">assert!</span>(<span class="bool-val">false</span>, <span class="string">"Got unexpected {:?}"</span>, e),
 		};
@@ -485,7 +544,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		};
 		<span class="comment">// remove a signature (but same length)
 		</span><span class="kw-2">*</span>bad_signed_commitment.signatures.first_mut().unwrap() = <span class="prelude-val">None</span>;
-		<span class="kw">match </span>verify_with_validator_set::&lt;Block&gt;(block_num, <span class="kw-2">&amp;</span>validator_set, <span class="kw-2">&amp;</span>bad_proof.into()) {
+		<span class="kw">match </span>verify_with_validator_set::&lt;Block, ecdsa_crypto::AuthorityId&gt;(
+			block_num,
+			<span class="kw-2">&amp;</span>validator_set,
+			<span class="kw-2">&amp;</span>bad_proof.into(),
+		) {
 			<span class="prelude-val">Err</span>((ConsensusError::InvalidJustification, <span class="number">2</span>)) =&gt; (),
 			e =&gt; <span class="macro">assert!</span>(<span class="bool-val">false</span>, <span class="string">"Got unexpected {:?}"</span>, e),
 		};
@@ -496,9 +559,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			VersionedFinalityProof::V1(<span class="kw-2">ref mut </span>sc) =&gt; sc,
 		};
 		<span class="comment">// change a signature to a different key
-		</span><span class="kw-2">*</span>bad_signed_commitment.signatures.first_mut().unwrap() =
-			<span class="prelude-val">Some</span>(Keyring::&lt;AuthorityId&gt;::Dave.sign(<span class="kw-2">&amp;</span>bad_signed_commitment.commitment.encode()));
-		<span class="kw">match </span>verify_with_validator_set::&lt;Block&gt;(block_num, <span class="kw-2">&amp;</span>validator_set, <span class="kw-2">&amp;</span>bad_proof.into()) {
+		</span><span class="kw-2">*</span>bad_signed_commitment.signatures.first_mut().unwrap() = <span class="prelude-val">Some</span>(
+			Keyring::&lt;ecdsa_crypto::AuthorityId&gt;::Dave
+				.sign(<span class="kw-2">&amp;</span>bad_signed_commitment.commitment.encode()),
+		);
+		<span class="kw">match </span>verify_with_validator_set::&lt;Block, ecdsa_crypto::AuthorityId&gt;(
+			block_num,
+			<span class="kw-2">&amp;</span>validator_set,
+			<span class="kw-2">&amp;</span>bad_proof.into(),
+		) {
 			<span class="prelude-val">Err</span>((ConsensusError::InvalidJustification, <span class="number">3</span>)) =&gt; (),
 			e =&gt; <span class="macro">assert!</span>(<span class="bool-val">false</span>, <span class="string">"Got unexpected {:?}"</span>, e),
 		};
@@ -512,12 +581,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="comment">// build valid justification
 		</span><span class="kw">let </span>proof = new_finality_proof(block_num, <span class="kw-2">&amp;</span>validator_set, keys);
-		<span class="kw">let </span>versioned_proof: BeefyVersionedFinalityProof&lt;Block&gt; = proof.into();
+		<span class="kw">let </span>versioned_proof: BeefyVersionedFinalityProof&lt;Block, ecdsa_crypto::AuthorityId&gt; =
+			proof.into();
 		<span class="kw">let </span>encoded = versioned_proof.encode();
 
 		<span class="comment">// should successfully decode and verify
-		</span><span class="kw">let </span>verified =
-			decode_and_verify_finality_proof::&lt;Block&gt;(<span class="kw-2">&amp;</span>encoded, block_num, <span class="kw-2">&amp;</span>validator_set).unwrap();
+		</span><span class="kw">let </span>verified = decode_and_verify_finality_proof::&lt;Block, ecdsa_crypto::AuthorityId&gt;(
+			<span class="kw-2">&amp;</span>encoded,
+			block_num,
+			<span class="kw-2">&amp;</span>validator_set,
+		)
+		.unwrap();
 		<span class="macro">assert_eq!</span>(verified, versioned_proof);
 	}
 }

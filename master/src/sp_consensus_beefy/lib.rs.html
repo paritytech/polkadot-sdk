@@ -697,6 +697,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#546" id="546">546</a>
 <a href="#547" id="547">547</a>
 <a href="#548" id="548">548</a>
+<a href="#549" id="549">549</a>
+<a href="#550" id="550">550</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -749,7 +751,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>codec::{Codec, Decode, Encode};
 <span class="kw">use </span>core::fmt::{Debug, Display};
 <span class="kw">use </span>scale_info::TypeInfo;
-<span class="kw">use </span>sp_application_crypto::{AppCrypto, AppPublic, ByteArray, RuntimeAppPublic};
+<span class="kw">use </span>sp_application_crypto::{AppPublic, RuntimeAppPublic};
 <span class="kw">use </span>sp_core::H256;
 <span class="kw">use </span>sp_runtime::{
 	traits::{Hash, Keccak256, NumberFor},
@@ -775,17 +777,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// A trait bound which lists all traits which are required to be implemented by
 /// a BEEFY AuthorityId type in order to be able to be used in BEEFY Keystore
 </span><span class="kw">pub trait </span>AuthorityIdBound:
-	Codec
-	+ Debug
-	+ Clone
-	+ AsRef&lt;[u8]&gt;
-	+ ByteArray
+	Ord
 	+ AppPublic
-	+ AppCrypto
-	+ RuntimeAppPublic
 	+ Display
-	+ BeefyAuthorityId&lt;BeefySignatureHasher&gt;
+	+ BeefyAuthorityId&lt;BeefySignatureHasher, Signature = <span class="self">Self</span>::BoundedSignature&gt;
 {
+	<span class="doccomment">/// Necessary bounds on the Signature associated with the AuthorityId
+	</span><span class="kw">type </span>BoundedSignature: Debug + Eq + PartialEq + Clone + TypeInfo + Codec + Send + Sync;
 }
 
 <span class="doccomment">/// BEEFY cryptographic types for ECDSA crypto
@@ -826,7 +824,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			}
 		}
 	}
-	<span class="kw">impl </span>AuthorityIdBound <span class="kw">for </span>AuthorityId {}
+	<span class="kw">impl </span>AuthorityIdBound <span class="kw">for </span>AuthorityId {
+		<span class="kw">type </span>BoundedSignature = Signature;
+	}
 }
 
 <span class="doccomment">/// BEEFY cryptographic types for BLS crypto
@@ -867,7 +867,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span>BlsPair::verify(signature.as_inner_ref(), msg, <span class="self">self</span>.as_inner_ref())
 		}
 	}
-	<span class="kw">impl </span>AuthorityIdBound <span class="kw">for </span>AuthorityId {}
+	<span class="kw">impl </span>AuthorityIdBound <span class="kw">for </span>AuthorityId {
+		<span class="kw">type </span>BoundedSignature = Signature;
+	}
 }
 
 <span class="doccomment">/// BEEFY cryptographic types for (ECDSA,BLS) crypto pair
@@ -915,7 +917,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 	}
 
-	<span class="kw">impl </span>AuthorityIdBound <span class="kw">for </span>AuthorityId {}
+	<span class="kw">impl </span>AuthorityIdBound <span class="kw">for </span>AuthorityId {
+		<span class="kw">type </span>BoundedSignature = Signature;
+	}
 }
 
 <span class="doccomment">/// The `ConsensusEngineId` of BEEFY.

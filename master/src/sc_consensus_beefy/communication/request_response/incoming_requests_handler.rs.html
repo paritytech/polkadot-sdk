@@ -461,9 +461,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					sent_feedback: <span class="prelude-val">None</span>,
 				};
 				<span class="kw">if let </span><span class="prelude-val">Err</span>(<span class="kw">_</span>) = pending_response.send(response) {
-					<span class="kw">return </span><span class="prelude-val">Err</span>(Error::DecodingErrorNoReputationChange(peer, err))
+					<span class="kw">return </span><span class="prelude-val">Err</span>(Error::DecodingErrorNoReputationChange(peer, err));
 				}
-				<span class="kw">return </span><span class="prelude-val">Err</span>(Error::DecodingError(peer, err))
+				<span class="kw">return </span><span class="prelude-val">Err</span>(Error::DecodingError(peer, err));
 			},
 		};
 		<span class="prelude-val">Ok</span>(<span class="self">Self</span>::new(peer, payload, pending_response))

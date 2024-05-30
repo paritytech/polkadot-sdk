@@ -255,6 +255,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#104" id="104">104</a>
 <a href="#105" id="105">105</a>
 <a href="#106" id="106">106</a>
+<a href="#107" id="107">107</a>
+<a href="#108" id="108">108</a>
+<a href="#109" id="109">109</a>
+<a href="#110" id="110">110</a>
+<a href="#111" id="111">111</a>
+<a href="#112" id="112">112</a>
+<a href="#113" id="113">113</a>
+<a href="#114" id="114">114</a>
+<a href="#115" id="115">115</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -277,8 +286,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="kw">use crate</span>::{error::Error, worker::PersistedState, LOG_TARGET};
 <span class="kw">use </span>codec::{Decode, Encode};
-<span class="kw">use </span>log::{debug, trace};
+<span class="kw">use </span>log::{debug, trace, warn};
 <span class="kw">use </span>sc_client_api::{backend::AuxStore, Backend};
+<span class="kw">use </span>sp_blockchain::{Error <span class="kw">as </span>ClientError, <span class="prelude-ty">Result </span><span class="kw">as </span>ClientResult};
+<span class="kw">use </span>sp_consensus_beefy::AuthorityIdBound;
 <span class="kw">use </span>sp_runtime::traits::Block <span class="kw">as </span>BlockT;
 
 <span class="kw">const </span>VERSION_KEY: <span class="kw-2">&amp;</span>[u8] = <span class="string">b"beefy_auxschema_version"</span>;
@@ -293,26 +304,27 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// Write voter state.
-</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>write_voter_state&lt;B: BlockT, BE: AuxStore&gt;(
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>write_voter_state&lt;B: BlockT, BE: AuxStore, AuthorityId: AuthorityIdBound&gt;(
 	backend: <span class="kw-2">&amp;</span>BE,
-	state: <span class="kw-2">&amp;</span>PersistedState&lt;B&gt;,
-) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
+	state: <span class="kw-2">&amp;</span>PersistedState&lt;B, AuthorityId&gt;,
+) -&gt; ClientResult&lt;()&gt; {
 	<span class="macro">trace!</span>(target: LOG_TARGET, <span class="string">"🥩 persisting {:?}"</span>, state);
 	AuxStore::insert_aux(backend, <span class="kw-2">&amp;</span>[(WORKER_STATE_KEY, state.encode().as_slice())], <span class="kw-2">&amp;</span>[])
-		.map_err(|e| Error::Backend(e.to_string()))
 }
 
-<span class="kw">fn </span>load_decode&lt;BE: AuxStore, T: Decode&gt;(backend: <span class="kw-2">&amp;</span>BE, key: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;T&gt;, Error&gt; {
-	<span class="kw">match </span>backend.get_aux(key).map_err(|e| Error::Backend(e.to_string()))<span class="question-mark">? </span>{
+<span class="kw">fn </span>load_decode&lt;BE: AuxStore, T: Decode&gt;(backend: <span class="kw-2">&amp;</span>BE, key: <span class="kw-2">&amp;</span>[u8]) -&gt; ClientResult&lt;<span class="prelude-ty">Option</span>&lt;T&gt;&gt; {
+	<span class="kw">match </span>backend.get_aux(key)<span class="question-mark">? </span>{
 		<span class="prelude-val">None </span>=&gt; <span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>),
 		<span class="prelude-val">Some</span>(t) =&gt; T::decode(<span class="kw-2">&amp;mut &amp;</span>t[..])
-			.map_err(|e| Error::Backend(<span class="macro">format!</span>(<span class="string">"BEEFY DB is corrupted: {}"</span>, e)))
+			.map_err(|e| ClientError::Backend(<span class="macro">format!</span>(<span class="string">"BEEFY DB is corrupted: {}"</span>, e)))
 			.map(<span class="prelude-val">Some</span>),
 	}
 }
 
 <span class="doccomment">/// Load or initialize persistent data from backend.
-</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>load_persistent&lt;B, BE&gt;(backend: <span class="kw-2">&amp;</span>BE) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;PersistedState&lt;B&gt;&gt;, Error&gt;
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>load_persistent&lt;B, BE, AuthorityId: AuthorityIdBound&gt;(
+	backend: <span class="kw-2">&amp;</span>BE,
+) -&gt; ClientResult&lt;<span class="prelude-ty">Option</span>&lt;PersistedState&lt;B, AuthorityId&gt;&gt;&gt;
 <span class="kw">where
 	</span>B: BlockT,
 	BE: Backend&lt;B&gt;,
@@ -321,9 +333,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">match </span>version {
 		<span class="prelude-val">None </span>=&gt; (),
-		<span class="prelude-val">Some</span>(<span class="number">1</span>) | <span class="prelude-val">Some</span>(<span class="number">2</span>) | <span class="prelude-val">Some</span>(<span class="number">3</span>) =&gt; (), <span class="comment">// versions 1, 2 &amp; 3 are obsolete and should be ignored
-		</span><span class="prelude-val">Some</span>(<span class="number">4</span>) =&gt; <span class="kw">return </span>load_decode::&lt;<span class="kw">_</span>, PersistedState&lt;B&gt;&gt;(backend, WORKER_STATE_KEY),
-		other =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(Error::Backend(<span class="macro">format!</span>(<span class="string">"Unsupported BEEFY DB version: {:?}"</span>, other))),
+
+		<span class="prelude-val">Some</span>(v) <span class="kw">if </span><span class="number">1 </span>&lt;= v &amp;&amp; v &lt;= <span class="number">3 </span>=&gt;
+		<span class="comment">// versions 1, 2 &amp; 3 are obsolete and should be ignored
+			</span><span class="macro">warn!</span>(target: LOG_TARGET,  <span class="string">"🥩 backend contains a BEEFY state of an obsolete version {v}. ignoring..."</span>),
+		<span class="prelude-val">Some</span>(<span class="number">4</span>) =&gt;
+			<span class="kw">return </span>load_decode::&lt;<span class="kw">_</span>, PersistedState&lt;B, AuthorityId&gt;&gt;(backend, WORKER_STATE_KEY),
+		other =&gt;
+			<span class="kw">return </span><span class="prelude-val">Err</span>(ClientError::Backend(<span class="macro">format!</span>(<span class="string">"Unsupported BEEFY DB version: {:?}"</span>, other))),
 	}
 
 	<span class="comment">// No persistent state found in DB.
@@ -335,6 +352,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
 	<span class="kw">use </span><span class="kw">crate</span>::tests::BeefyTestNet;
 	<span class="kw">use </span>sc_network_test::TestNetFactory;
+	<span class="kw">use </span>sp_consensus_beefy::ecdsa_crypto;
 
 	<span class="comment">// also used in tests.rs
 	</span><span class="kw">pub fn </span>verify_persisted_version&lt;B: BlockT, BE: Backend&lt;B&gt;&gt;(backend: <span class="kw-2">&amp;</span>BE) -&gt; bool {
@@ -348,7 +366,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>backend = net.peer(<span class="number">0</span>).client().as_backend();
 
 		<span class="comment">// version not available in db -&gt; None
-		</span><span class="macro">assert_eq!</span>(load_persistent(<span class="kw-2">&amp;*</span>backend).unwrap(), <span class="prelude-val">None</span>);
+		</span><span class="macro">assert_eq!</span>(load_persistent::&lt;<span class="kw">_</span>, <span class="kw">_</span>, ecdsa_crypto::AuthorityId&gt;(<span class="kw-2">&amp;*</span>backend).unwrap(), <span class="prelude-val">None</span>);
 
 		<span class="comment">// populate version in db
 		</span>write_current_version(<span class="kw-2">&amp;*</span>backend).unwrap();
@@ -356,7 +374,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="macro">assert_eq!</span>(load_decode(<span class="kw-2">&amp;*</span>backend, VERSION_KEY).unwrap(), <span class="prelude-val">Some</span>(CURRENT_VERSION));
 
 		<span class="comment">// version is available in db but state isn't -&gt; None
-		</span><span class="macro">assert_eq!</span>(load_persistent(<span class="kw-2">&amp;*</span>backend).unwrap(), <span class="prelude-val">None</span>);
+		</span><span class="macro">assert_eq!</span>(load_persistent::&lt;<span class="kw">_</span>, <span class="kw">_</span>, ecdsa_crypto::AuthorityId&gt;(<span class="kw-2">&amp;*</span>backend).unwrap(), <span class="prelude-val">None</span>);
 
 		<span class="comment">// full `PersistedState` load is tested in `tests.rs`.
 	</span>}

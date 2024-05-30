@@ -311,6 +311,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#160" id="160">160</a>
 <a href="#161" id="161">161</a>
 <a href="#162" id="162">162</a>
+<a href="#163" id="163">163</a>
+<a href="#164" id="164">164</a>
+<a href="#165" id="165">165</a>
+<a href="#166" id="166">166</a>
+<a href="#167" id="167">167</a>
+<a href="#168" id="168">168</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -333,11 +339,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>log::{debug, error, warn};
 <span class="kw">use </span>sc_client_api::Backend;
 <span class="kw">use </span>sp_api::ProvideRuntimeApi;
+<span class="kw">use </span>sp_application_crypto::RuntimeAppPublic;
 <span class="kw">use </span>sp_blockchain::HeaderBackend;
 <span class="kw">use </span>sp_consensus_beefy::{
-	check_equivocation_proof,
-	ecdsa_crypto::{AuthorityId, Signature},
-	BeefyApi, BeefySignatureHasher, DoubleVotingProof, OpaqueKeyOwnershipProof, ValidatorSetId,
+	check_equivocation_proof, AuthorityIdBound, BeefyApi, BeefySignatureHasher, DoubleVotingProof,
+	OpaqueKeyOwnershipProof, ValidatorSetId,
 };
 <span class="kw">use </span>sp_runtime::{
 	generic::BlockId,
@@ -346,13 +352,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>std::{marker::PhantomData, sync::Arc};
 
 <span class="doccomment">/// Helper struct containing the id and the key ownership proof for a validator.
-</span><span class="kw">pub struct </span>ProvedValidator&lt;<span class="lifetime">'a</span>&gt; {
+</span><span class="kw">pub struct </span>ProvedValidator&lt;<span class="lifetime">'a</span>, AuthorityId: AuthorityIdBound&gt; {
 	<span class="kw">pub </span>id: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>AuthorityId,
 	<span class="kw">pub </span>key_owner_proof: OpaqueKeyOwnershipProof,
 }
 
 <span class="doccomment">/// Helper used to check and report equivocations.
-</span><span class="kw">pub struct </span>Fisherman&lt;B, BE, RuntimeApi&gt; {
+</span><span class="kw">pub struct </span>Fisherman&lt;B, BE, RuntimeApi, AuthorityId: AuthorityIdBound&gt; {
 	backend: Arc&lt;BE&gt;,
 	runtime: Arc&lt;RuntimeApi&gt;,
 	key_store: Arc&lt;BeefyKeystore&lt;AuthorityId&gt;&gt;,
@@ -360,9 +366,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	_phantom: PhantomData&lt;B&gt;,
 }
 
-<span class="kw">impl</span>&lt;B: Block, BE: Backend&lt;B&gt;, RuntimeApi: ProvideRuntimeApi&lt;B&gt;&gt; Fisherman&lt;B, BE, RuntimeApi&gt;
+<span class="kw">impl</span>&lt;B: Block, BE: Backend&lt;B&gt;, RuntimeApi: ProvideRuntimeApi&lt;B&gt;, AuthorityId&gt;
+	Fisherman&lt;B, BE, RuntimeApi, AuthorityId&gt;
 <span class="kw">where
 	</span>RuntimeApi::Api: BeefyApi&lt;B, AuthorityId&gt;,
+	AuthorityId: AuthorityIdBound,
 {
 	<span class="kw">pub fn </span>new(
 		backend: Arc&lt;BE&gt;,
@@ -377,7 +385,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		at: BlockId&lt;B&gt;,
 		offender_ids: <span class="kw">impl </span>Iterator&lt;Item = <span class="kw-2">&amp;</span><span class="lifetime">'a </span>AuthorityId&gt;,
 		validator_set_id: ValidatorSetId,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;ProvedValidator&lt;<span class="lifetime">'a</span>&gt;&gt;, Error&gt; {
+	) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;ProvedValidator&lt;<span class="lifetime">'a</span>, AuthorityId&gt;&gt;, Error&gt; {
 		<span class="kw">let </span>hash = <span class="kw">match </span>at {
 			BlockId::Hash(hash) =&gt; hash,
 			BlockId::Number(number) =&gt; <span class="self">self
@@ -432,8 +440,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// isn't necessarily the best block if there are pending authority set changes.
 	</span><span class="kw">pub fn </span>report_double_voting(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
-		proof: DoubleVotingProof&lt;NumberFor&lt;B&gt;, AuthorityId, Signature&gt;,
-		active_rounds: <span class="kw-2">&amp;</span>Rounds&lt;B&gt;,
+		proof: DoubleVotingProof&lt;
+			NumberFor&lt;B&gt;,
+			AuthorityId,
+			&lt;AuthorityId <span class="kw">as </span>RuntimeAppPublic&gt;::Signature,
+		&gt;,
+		active_rounds: <span class="kw-2">&amp;</span>Rounds&lt;B, AuthorityId&gt;,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
 		<span class="kw">let </span>(validators, validator_set_id) =
 			(active_rounds.validators(), active_rounds.validator_set_id());
@@ -441,13 +453,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">if </span>!check_equivocation_proof::&lt;<span class="kw">_</span>, <span class="kw">_</span>, BeefySignatureHasher&gt;(<span class="kw-2">&amp;</span>proof) {
 			<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">"🥩 Skipping report for bad equivocation {:?}"</span>, proof);
-			<span class="kw">return </span><span class="prelude-val">Ok</span>(())
+			<span class="kw">return </span><span class="prelude-val">Ok</span>(());
 		}
 
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(local_id) = <span class="self">self</span>.key_store.authority_id(validators) {
 			<span class="kw">if </span>offender_id == <span class="kw-2">&amp;</span>local_id {
 				<span class="macro">warn!</span>(target: LOG_TARGET, <span class="string">"🥩 Skipping report for own equivocation"</span>);
-				<span class="kw">return </span><span class="prelude-val">Ok</span>(())
+				<span class="kw">return </span><span class="prelude-val">Ok</span>(());
 			}
 		}
 

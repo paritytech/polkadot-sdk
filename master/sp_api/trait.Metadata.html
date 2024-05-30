@@ -153,12 +153,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
     fn <a href="#method.metadata" class="fn">metadata</a>(
         &amp;self,
         __runtime_api_at_param__: &lt;Block as BlockT&gt;::Hash
-    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="../sp_core/struct.OpaqueMetadata.html" title="struct sp_core::OpaqueMetadata">OpaqueMetadata</a>, <a class="enum" href="enum.ApiError.html" title="enum sp_api::ApiError">ApiError</a>&gt; { ... }
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;OpaqueMetadata, <a class="enum" href="enum.ApiError.html" title="enum sp_api::ApiError">ApiError</a>&gt; { ... }
 <span class="item-spacer"></span>    fn <a href="#method.metadata_at_version" class="fn">metadata_at_version</a>(
         &amp;self,
         __runtime_api_at_param__: &lt;Block as BlockT&gt;::Hash,
         version: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>
-    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/1.77.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="../sp_core/struct.OpaqueMetadata.html" title="struct sp_core::OpaqueMetadata">OpaqueMetadata</a>&gt;, <a class="enum" href="enum.ApiError.html" title="enum sp_api::ApiError">ApiError</a>&gt; { ... }
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/1.77.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;OpaqueMetadata&gt;, <a class="enum" href="enum.ApiError.html" title="enum sp_api::ApiError">ApiError</a>&gt; { ... }
 <span class="item-spacer"></span>    fn <a href="#method.metadata_versions" class="fn">metadata_versions</a>(
         &amp;self,
         __runtime_api_at_param__: &lt;Block as BlockT&gt;::Hash
@@ -167,12 +167,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </div></details><h2 id="provided-methods" class="section-header">Provided Methods<a href="#provided-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="method.metadata" class="method"><a class="src rightside" href="../src/sp_api/lib.rs.html#803-837">source</a><h4 class="code-header">fn <a href="#method.metadata" class="fn">metadata</a>(
     &amp;self,
     __runtime_api_at_param__: &lt;Block as BlockT&gt;::Hash
-) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="../sp_core/struct.OpaqueMetadata.html" title="struct sp_core::OpaqueMetadata">OpaqueMetadata</a>, <a class="enum" href="enum.ApiError.html" title="enum sp_api::ApiError">ApiError</a>&gt;</h4></section></summary><div class="docblock"><p>Returns the metadata of a runtime.</p>
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;OpaqueMetadata, <a class="enum" href="enum.ApiError.html" title="enum sp_api::ApiError">ApiError</a>&gt;</h4></section></summary><div class="docblock"><p>Returns the metadata of a runtime.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.metadata_at_version" class="method"><a class="src rightside" href="../src/sp_api/lib.rs.html#803-837">source</a><h4 class="code-header">fn <a href="#method.metadata_at_version" class="fn">metadata_at_version</a>(
     &amp;self,
     __runtime_api_at_param__: &lt;Block as BlockT&gt;::Hash,
     version: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>
-) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/1.77.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="../sp_core/struct.OpaqueMetadata.html" title="struct sp_core::OpaqueMetadata">OpaqueMetadata</a>&gt;, <a class="enum" href="enum.ApiError.html" title="enum sp_api::ApiError">ApiError</a>&gt;</h4></section></summary><div class="docblock"><p>Returns the metadata at a given version.</p>
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/1.77.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;OpaqueMetadata&gt;, <a class="enum" href="enum.ApiError.html" title="enum sp_api::ApiError">ApiError</a>&gt;</h4></section></summary><div class="docblock"><p>Returns the metadata at a given version.</p>
 <p>If the given <code>version</code> isn’t supported, this will return <code>None</code>.
 Use <a href="trait.Metadata.html#method.metadata_versions"><code>Self::metadata_versions</code></a> to find out about supported metadata version of the runtime.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.metadata_versions" class="method"><a class="src rightside" href="../src/sp_api/lib.rs.html#803-837">source</a><h4 class="code-header">fn <a href="#method.metadata_versions" class="fn">metadata_versions</a>(

@@ -453,7 +453,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	NetworkRequest, ProtocolName,
 };
 <span class="kw">use </span>sc_network_types::PeerId;
-<span class="kw">use </span>sp_consensus_beefy::{ecdsa_crypto::AuthorityId, ValidatorSet};
+<span class="kw">use </span>sp_consensus_beefy::{AuthorityIdBound, ValidatorSet};
 <span class="kw">use </span>sp_runtime::traits::{Block, NumberFor};
 <span class="kw">use </span>std::{collections::VecDeque, result::Result, sync::Arc};
 
@@ -475,38 +475,38 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">type </span>ResponseReceiver = oneshot::Receiver&lt;Response&gt;;
 
 <span class="attr">#[derive(Clone, Debug)]
-</span><span class="kw">struct </span>RequestInfo&lt;B: Block&gt; {
+</span><span class="kw">struct </span>RequestInfo&lt;B: Block, AuthorityId: AuthorityIdBound&gt; {
 	block: NumberFor&lt;B&gt;,
 	active_set: ValidatorSet&lt;AuthorityId&gt;,
 }
 
-<span class="kw">enum </span>State&lt;B: Block&gt; {
+<span class="kw">enum </span>State&lt;B: Block, AuthorityId: AuthorityIdBound&gt; {
 	Idle,
-	AwaitingResponse(PeerId, RequestInfo&lt;B&gt;, ResponseReceiver),
+	AwaitingResponse(PeerId, RequestInfo&lt;B, AuthorityId&gt;, ResponseReceiver),
 }
 
 <span class="doccomment">/// Possible engine responses.
-</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">enum </span>ResponseInfo&lt;B: Block&gt; {
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">enum </span>ResponseInfo&lt;B: Block, AuthorityId: AuthorityIdBound&gt; {
 	<span class="doccomment">/// No peer response available yet.
 	</span>Pending,
 	<span class="doccomment">/// Valid justification provided alongside peer reputation changes.
-	</span>ValidProof(BeefyVersionedFinalityProof&lt;B&gt;, PeerReport),
+	</span>ValidProof(BeefyVersionedFinalityProof&lt;B, AuthorityId&gt;, PeerReport),
 	<span class="doccomment">/// No justification yet, only peer reputation changes.
 	</span>PeerReport(PeerReport),
 }
 
-<span class="kw">pub struct </span>OnDemandJustificationsEngine&lt;B: Block&gt; {
+<span class="kw">pub struct </span>OnDemandJustificationsEngine&lt;B: Block, AuthorityId: AuthorityIdBound&gt; {
 	network: Arc&lt;<span class="kw">dyn </span>NetworkRequest + Send + Sync&gt;,
 	protocol_name: ProtocolName,
 
 	live_peers: Arc&lt;Mutex&lt;KnownPeers&lt;B&gt;&gt;&gt;,
 	peers_cache: VecDeque&lt;PeerId&gt;,
 
-	state: State&lt;B&gt;,
+	state: State&lt;B, AuthorityId&gt;,
 	metrics: <span class="prelude-ty">Option</span>&lt;OnDemandOutgoingRequestsMetrics&gt;,
 }
 
-<span class="kw">impl</span>&lt;B: Block&gt; OnDemandJustificationsEngine&lt;B&gt; {
+<span class="kw">impl</span>&lt;B: Block, AuthorityId: AuthorityIdBound&gt; OnDemandJustificationsEngine&lt;B, AuthorityId&gt; {
 	<span class="kw">pub fn </span>new(
 		network: Arc&lt;<span class="kw">dyn </span>NetworkRequest + Send + Sync&gt;,
 		protocol_name: ProtocolName,
@@ -532,13 +532,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>live = <span class="self">self</span>.live_peers.lock();
 		<span class="kw">while let </span><span class="prelude-val">Some</span>(peer) = <span class="self">self</span>.peers_cache.pop_front() {
 			<span class="kw">if </span>live.contains(<span class="kw-2">&amp;</span>peer) {
-				<span class="kw">return </span><span class="prelude-val">Some</span>(peer)
+				<span class="kw">return </span><span class="prelude-val">Some</span>(peer);
 			}
 		}
 		<span class="prelude-val">None
 	</span>}
 
-	<span class="kw">fn </span>request_from_peer(<span class="kw-2">&amp;mut </span><span class="self">self</span>, peer: PeerId, req_info: RequestInfo&lt;B&gt;) {
+	<span class="kw">fn </span>request_from_peer(<span class="kw-2">&amp;mut </span><span class="self">self</span>, peer: PeerId, req_info: RequestInfo&lt;B, AuthorityId&gt;) {
 		<span class="macro">debug!</span>(
 			target: BEEFY_SYNC_LOG_TARGET,
 			<span class="string">"🥩 requesting justif #{:?} from peer {:?}"</span>, req_info.block, peer,
@@ -566,8 +566,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub fn </span>request(<span class="kw-2">&amp;mut </span><span class="self">self</span>, block: NumberFor&lt;B&gt;, active_set: ValidatorSet&lt;AuthorityId&gt;) {
 		<span class="comment">// ignore new requests while there's already one pending
 		</span><span class="kw">if </span><span class="macro">matches!</span>(<span class="self">self</span>.state, State::AwaitingResponse(<span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>)) {
-			<span class="kw">return
-		</span>}
+			<span class="kw">return</span>;
+		}
 		<span class="self">self</span>.reset_peers_cache_for_block(block);
 
 		<span class="comment">// Start the requests engine - each unsuccessful received response will automatically
@@ -600,9 +600,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">fn </span>process_response(
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
 		peer: <span class="kw-2">&amp;</span>PeerId,
-		req_info: <span class="kw-2">&amp;</span>RequestInfo&lt;B&gt;,
+		req_info: <span class="kw-2">&amp;</span>RequestInfo&lt;B, AuthorityId&gt;,
 		response: <span class="prelude-ty">Result</span>&lt;Response, Canceled&gt;,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;BeefyVersionedFinalityProof&lt;B&gt;, Error&gt; {
+	) -&gt; <span class="prelude-ty">Result</span>&lt;BeefyVersionedFinalityProof&lt;B, AuthorityId&gt;, Error&gt; {
 		response
 			.map_err(|e| {
 				<span class="macro">debug!</span>(
@@ -633,7 +633,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				}
 			})
 			.and_then(|(encoded, <span class="kw">_</span>)| {
-				decode_and_verify_finality_proof::&lt;B&gt;(
+				decode_and_verify_finality_proof::&lt;B, AuthorityId&gt;(
 					<span class="kw-2">&amp;</span>encoded[..],
 					req_info.block,
 					<span class="kw-2">&amp;</span>req_info.active_set,
@@ -653,11 +653,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			})
 	}
 
-	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>next(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; ResponseInfo&lt;B&gt; {
+	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>next(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; ResponseInfo&lt;B, AuthorityId&gt; {
 		<span class="kw">let </span>(peer, req_info, resp) = <span class="kw">match </span><span class="kw-2">&amp;mut </span><span class="self">self</span>.state {
 			State::Idle =&gt; {
 				futures::future::pending::&lt;()&gt;().<span class="kw">await</span>;
-				<span class="kw">return </span>ResponseInfo::Pending
+				<span class="kw">return </span>ResponseInfo::Pending;
 			},
 			State::AwaitingResponse(peer, req_info, receiver) =&gt; {
 				<span class="kw">let </span>resp = receiver.<span class="kw">await</span>;

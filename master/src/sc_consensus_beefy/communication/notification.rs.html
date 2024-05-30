@@ -204,6 +204,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#53" id="53">53</a>
 <a href="#54" id="54">54</a>
 <a href="#55" id="55">55</a>
+<a href="#56" id="56">56</a>
+<a href="#57" id="57">57</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -238,13 +240,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// The sending half of the notifications channel(s) used to send notifications
 /// about versioned finality proof generated at the end of a BEEFY round.
-</span><span class="kw">pub type </span>BeefyVersionedFinalityProofSender&lt;Block&gt; =
-	NotificationSender&lt;BeefyVersionedFinalityProof&lt;Block&gt;&gt;;
+</span><span class="kw">pub type </span>BeefyVersionedFinalityProofSender&lt;Block, AuthorityId&gt; =
+	NotificationSender&lt;BeefyVersionedFinalityProof&lt;Block, AuthorityId&gt;&gt;;
 
 <span class="doccomment">/// The receiving half of a notifications channel used to receive notifications
 /// about versioned finality proof generated at the end of a BEEFY round.
-</span><span class="kw">pub type </span>BeefyVersionedFinalityProofStream&lt;Block&gt; =
-	NotificationStream&lt;BeefyVersionedFinalityProof&lt;Block&gt;, BeefyVersionedFinalityProofTracingKey&gt;;
+</span><span class="kw">pub type </span>BeefyVersionedFinalityProofStream&lt;Block, AuthorityId&gt; = NotificationStream&lt;
+	BeefyVersionedFinalityProof&lt;Block, AuthorityId&gt;,
+	BeefyVersionedFinalityProofTracingKey,
+&gt;;
 
 <span class="doccomment">/// Provides tracing key for BEEFY best block stream.
 </span><span class="attr">#[derive(Clone)]

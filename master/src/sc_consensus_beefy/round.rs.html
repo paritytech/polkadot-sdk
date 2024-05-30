@@ -657,6 +657,26 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#506" id="506">506</a>
 <a href="#507" id="507">507</a>
 <a href="#508" id="508">508</a>
+<a href="#509" id="509">509</a>
+<a href="#510" id="510">510</a>
+<a href="#511" id="511">511</a>
+<a href="#512" id="512">512</a>
+<a href="#513" id="513">513</a>
+<a href="#514" id="514">514</a>
+<a href="#515" id="515">515</a>
+<a href="#516" id="516">516</a>
+<a href="#517" id="517">517</a>
+<a href="#518" id="518">518</a>
+<a href="#519" id="519">519</a>
+<a href="#520" id="520">520</a>
+<a href="#521" id="521">521</a>
+<a href="#522" id="522">522</a>
+<a href="#523" id="523">523</a>
+<a href="#524" id="524">524</a>
+<a href="#525" id="525">525</a>
+<a href="#526" id="526">526</a>
+<a href="#527" id="527">527</a>
+<a href="#528" id="528">528</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -679,9 +699,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">use </span>codec::{Decode, Encode};
 <span class="kw">use </span>log::{debug, info};
+<span class="kw">use </span>sp_application_crypto::RuntimeAppPublic;
 <span class="kw">use </span>sp_consensus_beefy::{
-	ecdsa_crypto::{AuthorityId, Signature},
-	Commitment, DoubleVotingProof, SignedCommitment, ValidatorSet, ValidatorSetId, VoteMessage,
+	AuthorityIdBound, Commitment, DoubleVotingProof, SignedCommitment, ValidatorSet,
+	ValidatorSetId, VoteMessage,
 };
 <span class="kw">use </span>sp_runtime::traits::{Block, NumberFor};
 <span class="kw">use </span>std::collections::BTreeMap;
@@ -690,16 +711,25 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// whether the local `self` validator has voted/signed.
 ///
 /// Does not do any validation on votes or signatures, layers above need to handle that (gossip).
-</span><span class="attr">#[derive(Debug, Decode, Default, Encode, PartialEq)]
-</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>RoundTracker {
-	votes: BTreeMap&lt;AuthorityId, Signature&gt;,
+</span><span class="attr">#[derive(Debug, Decode, Encode, PartialEq)]
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>RoundTracker&lt;AuthorityId: AuthorityIdBound&gt; {
+	votes: BTreeMap&lt;AuthorityId, &lt;AuthorityId <span class="kw">as </span>RuntimeAppPublic&gt;::Signature&gt;,
 }
 
-<span class="kw">impl </span>RoundTracker {
-	<span class="kw">fn </span>add_vote(<span class="kw-2">&amp;mut </span><span class="self">self</span>, vote: (AuthorityId, Signature)) -&gt; bool {
+<span class="kw">impl</span>&lt;AuthorityId: AuthorityIdBound&gt; Default <span class="kw">for </span>RoundTracker&lt;AuthorityId&gt; {
+	<span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
+		<span class="self">Self </span>{ votes: Default::default() }
+	}
+}
+
+<span class="kw">impl</span>&lt;AuthorityId: AuthorityIdBound&gt; RoundTracker&lt;AuthorityId&gt; {
+	<span class="kw">fn </span>add_vote(
+		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
+		vote: (AuthorityId, &lt;AuthorityId <span class="kw">as </span>RuntimeAppPublic&gt;::Signature),
+	) -&gt; bool {
 		<span class="kw">if </span><span class="self">self</span>.votes.contains_key(<span class="kw-2">&amp;</span>vote.<span class="number">0</span>) {
-			<span class="kw">return </span><span class="bool-val">false
-		</span>}
+			<span class="kw">return </span><span class="bool-val">false</span>;
+		}
 
 		<span class="self">self</span>.votes.insert(vote.<span class="number">0</span>, vote.<span class="number">1</span>);
 		<span class="bool-val">true
@@ -717,10 +747,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="attr">#[derive(Debug, PartialEq)]
-</span><span class="kw">pub enum </span>VoteImportResult&lt;B: Block&gt; {
+</span><span class="kw">pub enum </span>VoteImportResult&lt;B: Block, AuthorityId: AuthorityIdBound&gt; {
 	<span class="prelude-val">Ok</span>,
-	RoundConcluded(SignedCommitment&lt;NumberFor&lt;B&gt;, Signature&gt;),
-	DoubleVoting(DoubleVotingProof&lt;NumberFor&lt;B&gt;, AuthorityId, Signature&gt;),
+	RoundConcluded(SignedCommitment&lt;NumberFor&lt;B&gt;, &lt;AuthorityId <span class="kw">as </span>RuntimeAppPublic&gt;::Signature&gt;),
+	DoubleVoting(
+		DoubleVotingProof&lt;NumberFor&lt;B&gt;, AuthorityId, &lt;AuthorityId <span class="kw">as </span>RuntimeAppPublic&gt;::Signature&gt;,
+	),
 	Invalid,
 	Stale,
 }
@@ -730,19 +762,22 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ///
 /// Does not do any validation on votes or signatures, layers above need to handle that (gossip).
 </span><span class="attr">#[derive(Debug, Decode, Encode, PartialEq)]
-</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>Rounds&lt;B: Block&gt; {
-	rounds: BTreeMap&lt;Commitment&lt;NumberFor&lt;B&gt;&gt;, RoundTracker&gt;,
-	previous_votes:
-		BTreeMap&lt;(AuthorityId, NumberFor&lt;B&gt;), VoteMessage&lt;NumberFor&lt;B&gt;, AuthorityId, Signature&gt;&gt;,
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>Rounds&lt;B: Block, AuthorityId: AuthorityIdBound&gt; {
+	rounds: BTreeMap&lt;Commitment&lt;NumberFor&lt;B&gt;&gt;, RoundTracker&lt;AuthorityId&gt;&gt;,
+	previous_votes: BTreeMap&lt;
+		(AuthorityId, NumberFor&lt;B&gt;),
+		VoteMessage&lt;NumberFor&lt;B&gt;, AuthorityId, &lt;AuthorityId <span class="kw">as </span>RuntimeAppPublic&gt;::Signature&gt;,
+	&gt;,
 	session_start: NumberFor&lt;B&gt;,
 	validator_set: ValidatorSet&lt;AuthorityId&gt;,
 	mandatory_done: bool,
 	best_done: <span class="prelude-ty">Option</span>&lt;NumberFor&lt;B&gt;&gt;,
 }
 
-<span class="kw">impl</span>&lt;B&gt; Rounds&lt;B&gt;
+<span class="kw">impl</span>&lt;B, AuthorityId&gt; Rounds&lt;B, AuthorityId&gt;
 <span class="kw">where
 	</span>B: Block,
+	AuthorityId: AuthorityIdBound,
 {
 	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>new(
 		session_start: NumberFor&lt;B&gt;,
@@ -780,14 +815,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>add_vote(
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
-		vote: VoteMessage&lt;NumberFor&lt;B&gt;, AuthorityId, Signature&gt;,
-	) -&gt; VoteImportResult&lt;B&gt; {
+		vote: VoteMessage&lt;NumberFor&lt;B&gt;, AuthorityId, &lt;AuthorityId <span class="kw">as </span>RuntimeAppPublic&gt;::Signature&gt;,
+	) -&gt; VoteImportResult&lt;B, AuthorityId&gt; {
 		<span class="kw">let </span>num = vote.commitment.block_number;
 		<span class="kw">let </span>vote_key = (vote.id.clone(), num);
 
 		<span class="kw">if </span>num &lt; <span class="self">self</span>.session_start || <span class="prelude-val">Some</span>(num) &lt;= <span class="self">self</span>.best_done {
 			<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">"🥩 received vote for old stale round {:?}, ignoring"</span>, num);
-			<span class="kw">return </span>VoteImportResult::Stale
+			<span class="kw">return </span>VoteImportResult::Stale;
 		} <span class="kw">else if </span>vote.commitment.validator_set_id != <span class="self">self</span>.validator_set_id() {
 			<span class="macro">debug!</span>(
 				target: LOG_TARGET,
@@ -795,14 +830,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="self">self</span>.validator_set_id(),
 				vote,
 			);
-			<span class="kw">return </span>VoteImportResult::Invalid
+			<span class="kw">return </span>VoteImportResult::Invalid;
 		} <span class="kw">else if </span>!<span class="self">self</span>.validators().iter().any(|id| <span class="kw-2">&amp;</span>vote.id == id) {
 			<span class="macro">debug!</span>(
 				target: LOG_TARGET,
 				<span class="string">"🥩 received vote {:?} from validator that is not in the validator set, ignoring"</span>,
 				vote
 			);
-			<span class="kw">return </span>VoteImportResult::Invalid
+			<span class="kw">return </span>VoteImportResult::Invalid;
 		}
 
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(previous_vote) = <span class="self">self</span>.previous_votes.get(<span class="kw-2">&amp;</span>vote_key) {
@@ -815,7 +850,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw">return </span>VoteImportResult::DoubleVoting(DoubleVotingProof {
 					first: previous_vote.clone(),
 					second: vote,
-				})
+				});
 			}
 		} <span class="kw">else </span>{
 			<span class="comment">// this is the first vote sent by `id` for `num`, all good
@@ -828,7 +863,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			round.is_done(threshold(<span class="self">self</span>.validator_set.len()))
 		{
 			<span class="kw">if let </span><span class="prelude-val">Some</span>(round) = <span class="self">self</span>.rounds.remove_entry(<span class="kw-2">&amp;</span>vote.commitment) {
-				<span class="kw">return </span>VoteImportResult::RoundConcluded(<span class="self">self</span>.signed_commitment(round))
+				<span class="kw">return </span>VoteImportResult::RoundConcluded(<span class="self">self</span>.signed_commitment(round));
 			}
 		}
 		VoteImportResult::Ok
@@ -836,8 +871,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">fn </span>signed_commitment(
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
-		round: (Commitment&lt;NumberFor&lt;B&gt;&gt;, RoundTracker),
-	) -&gt; SignedCommitment&lt;NumberFor&lt;B&gt;, Signature&gt; {
+		round: (Commitment&lt;NumberFor&lt;B&gt;&gt;, RoundTracker&lt;AuthorityId&gt;),
+	) -&gt; SignedCommitment&lt;NumberFor&lt;B&gt;, &lt;AuthorityId <span class="kw">as </span>RuntimeAppPublic&gt;::Signature&gt; {
 		<span class="kw">let </span>votes = round.<span class="number">1</span>.votes;
 		<span class="kw">let </span>signatures = <span class="self">self
 			</span>.validators()
@@ -866,14 +901,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">use </span>sc_network_test::Block;
 
 	<span class="kw">use </span>sp_consensus_beefy::{
-		known_payloads::MMR_ROOT_ID, test_utils::Keyring, Commitment, DoubleVotingProof, Payload,
-		SignedCommitment, ValidatorSet, VoteMessage,
+		ecdsa_crypto, known_payloads::MMR_ROOT_ID, test_utils::Keyring, Commitment,
+		DoubleVotingProof, Payload, SignedCommitment, ValidatorSet, VoteMessage,
 	};
 
-	<span class="kw">use super</span>::{threshold, AuthorityId, Block <span class="kw">as </span>BlockT, RoundTracker, Rounds};
+	<span class="kw">use super</span>::{threshold, Block <span class="kw">as </span>BlockT, RoundTracker, Rounds};
 	<span class="kw">use </span><span class="kw">crate</span>::round::VoteImportResult;
 
-	<span class="kw">impl</span>&lt;B&gt; Rounds&lt;B&gt;
+	<span class="kw">impl</span>&lt;B&gt; Rounds&lt;B, ecdsa_crypto::AuthorityId&gt;
 	<span class="kw">where
 		</span>B: BlockT,
 	{
@@ -884,8 +919,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>round_tracker() {
-		<span class="kw">let </span><span class="kw-2">mut </span>rt = RoundTracker::default();
-		<span class="kw">let </span>bob_vote = (Keyring::Bob.public(), Keyring::&lt;AuthorityId&gt;::Bob.sign(<span class="string">b"I am committed"</span>));
+		<span class="kw">let </span><span class="kw-2">mut </span>rt = RoundTracker::&lt;ecdsa_crypto::AuthorityId&gt;::default();
+		<span class="kw">let </span>bob_vote = (
+			Keyring::&lt;ecdsa_crypto::AuthorityId&gt;::Bob.public(),
+			Keyring::&lt;ecdsa_crypto::AuthorityId&gt;::Bob.sign(<span class="string">b"I am committed"</span>),
+		);
 		<span class="kw">let </span>threshold = <span class="number">2</span>;
 
 		<span class="comment">// adding new vote allowed
@@ -896,8 +934,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="comment">// vote is not done
 		</span><span class="macro">assert!</span>(!rt.is_done(threshold));
 
-		<span class="kw">let </span>alice_vote =
-			(Keyring::Alice.public(), Keyring::&lt;AuthorityId&gt;::Alice.sign(<span class="string">b"I am committed"</span>));
+		<span class="kw">let </span>alice_vote = (
+			Keyring::&lt;ecdsa_crypto::AuthorityId&gt;::Alice.public(),
+			Keyring::&lt;ecdsa_crypto::AuthorityId&gt;::Alice.sign(<span class="string">b"I am committed"</span>),
+		);
 		<span class="comment">// adding new vote (self vote this time) allowed
 		</span><span class="macro">assert!</span>(rt.add_vote(alice_vote));
 
@@ -919,22 +959,22 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>new_rounds() {
 		sp_tracing::try_init_simple();
 
-		<span class="kw">let </span>validators = ValidatorSet::&lt;AuthorityId&gt;::new(
+		<span class="kw">let </span>validators = ValidatorSet::&lt;ecdsa_crypto::AuthorityId&gt;::new(
 			<span class="macro">vec!</span>[Keyring::Alice.public(), Keyring::Bob.public(), Keyring::Charlie.public()],
 			<span class="number">42</span>,
 		)
 		.unwrap();
 
 		<span class="kw">let </span>session_start = <span class="number">1u64</span>.into();
-		<span class="kw">let </span>rounds = Rounds::&lt;Block&gt;::new(session_start, validators);
+		<span class="kw">let </span>rounds = Rounds::&lt;Block, ecdsa_crypto::AuthorityId&gt;::new(session_start, validators);
 
 		<span class="macro">assert_eq!</span>(<span class="number">42</span>, rounds.validator_set_id());
 		<span class="macro">assert_eq!</span>(<span class="number">1</span>, rounds.session_start());
 		<span class="macro">assert_eq!</span>(
 			<span class="kw-2">&amp;</span><span class="macro">vec!</span>[
-				Keyring::&lt;AuthorityId&gt;::Alice.public(),
-				Keyring::&lt;AuthorityId&gt;::Bob.public(),
-				Keyring::&lt;AuthorityId&gt;::Charlie.public()
+				Keyring::&lt;ecdsa_crypto::AuthorityId&gt;::Alice.public(),
+				Keyring::&lt;ecdsa_crypto::AuthorityId&gt;::Bob.public(),
+				Keyring::&lt;ecdsa_crypto::AuthorityId&gt;::Charlie.public()
 			],
 			rounds.validators()
 		);
@@ -944,7 +984,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>add_and_conclude_votes() {
 		sp_tracing::try_init_simple();
 
-		<span class="kw">let </span>validators = ValidatorSet::&lt;AuthorityId&gt;::new(
+		<span class="kw">let </span>validators = ValidatorSet::&lt;ecdsa_crypto::AuthorityId&gt;::new(
 			<span class="macro">vec!</span>[
 				Keyring::Alice.public(),
 				Keyring::Bob.public(),
@@ -957,7 +997,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>validator_set_id = validators.id();
 
 		<span class="kw">let </span>session_start = <span class="number">1u64</span>.into();
-		<span class="kw">let </span><span class="kw-2">mut </span>rounds = Rounds::&lt;Block&gt;::new(session_start, validators);
+		<span class="kw">let </span><span class="kw-2">mut </span>rounds = Rounds::&lt;Block, ecdsa_crypto::AuthorityId&gt;::new(session_start, validators);
 
 		<span class="kw">let </span>payload = Payload::from_single_entry(MMR_ROOT_ID, <span class="macro">vec!</span>[]);
 		<span class="kw">let </span>block_number = <span class="number">1</span>;
@@ -965,7 +1005,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span><span class="kw-2">mut </span>vote = VoteMessage {
 			id: Keyring::Alice.public(),
 			commitment: commitment.clone(),
-			signature: Keyring::&lt;AuthorityId&gt;::Alice.sign(<span class="string">b"I am committed"</span>),
+			signature: Keyring::&lt;ecdsa_crypto::AuthorityId&gt;::Alice.sign(<span class="string">b"I am committed"</span>),
 		};
 		<span class="comment">// add 1st good vote
 		</span><span class="macro">assert_eq!</span>(rounds.add_vote(vote.clone()), VoteImportResult::Ok);
@@ -974,26 +1014,26 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="macro">assert_eq!</span>(rounds.add_vote(vote.clone()), VoteImportResult::Ok);
 
 		vote.id = Keyring::Dave.public();
-		vote.signature = Keyring::&lt;AuthorityId&gt;::Dave.sign(<span class="string">b"I am committed"</span>);
+		vote.signature = Keyring::&lt;ecdsa_crypto::AuthorityId&gt;::Dave.sign(<span class="string">b"I am committed"</span>);
 		<span class="comment">// invalid vote (Dave is not a validator)
 		</span><span class="macro">assert_eq!</span>(rounds.add_vote(vote.clone()), VoteImportResult::Invalid);
 
 		vote.id = Keyring::Bob.public();
-		vote.signature = Keyring::&lt;AuthorityId&gt;::Bob.sign(<span class="string">b"I am committed"</span>);
+		vote.signature = Keyring::&lt;ecdsa_crypto::AuthorityId&gt;::Bob.sign(<span class="string">b"I am committed"</span>);
 		<span class="comment">// add 2nd good vote
 		</span><span class="macro">assert_eq!</span>(rounds.add_vote(vote.clone()), VoteImportResult::Ok);
 
 		vote.id = Keyring::Charlie.public();
-		vote.signature = Keyring::&lt;AuthorityId&gt;::Charlie.sign(<span class="string">b"I am committed"</span>);
+		vote.signature = Keyring::&lt;ecdsa_crypto::AuthorityId&gt;::Charlie.sign(<span class="string">b"I am committed"</span>);
 		<span class="comment">// add 3rd good vote -&gt; round concluded -&gt; signatures present
 		</span><span class="macro">assert_eq!</span>(
 			rounds.add_vote(vote.clone()),
 			VoteImportResult::RoundConcluded(SignedCommitment {
 				commitment,
 				signatures: <span class="macro">vec!</span>[
-					<span class="prelude-val">Some</span>(Keyring::&lt;AuthorityId&gt;::Alice.sign(<span class="string">b"I am committed"</span>)),
-					<span class="prelude-val">Some</span>(Keyring::&lt;AuthorityId&gt;::Bob.sign(<span class="string">b"I am committed"</span>)),
-					<span class="prelude-val">Some</span>(Keyring::&lt;AuthorityId&gt;::Charlie.sign(<span class="string">b"I am committed"</span>)),
+					<span class="prelude-val">Some</span>(Keyring::&lt;ecdsa_crypto::AuthorityId&gt;::Alice.sign(<span class="string">b"I am committed"</span>)),
+					<span class="prelude-val">Some</span>(Keyring::&lt;ecdsa_crypto::AuthorityId&gt;::Bob.sign(<span class="string">b"I am committed"</span>)),
+					<span class="prelude-val">Some</span>(Keyring::&lt;ecdsa_crypto::AuthorityId&gt;::Charlie.sign(<span class="string">b"I am committed"</span>)),
 					<span class="prelude-val">None</span>,
 				]
 			})
@@ -1001,7 +1041,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		rounds.conclude(block_number);
 
 		vote.id = Keyring::Eve.public();
-		vote.signature = Keyring::&lt;AuthorityId&gt;::Eve.sign(<span class="string">b"I am committed"</span>);
+		vote.signature = Keyring::&lt;ecdsa_crypto::AuthorityId&gt;::Eve.sign(<span class="string">b"I am committed"</span>);
 		<span class="comment">// Eve is a validator, but round was concluded, adding vote disallowed
 		</span><span class="macro">assert_eq!</span>(rounds.add_vote(vote), VoteImportResult::Stale);
 	}
@@ -1010,7 +1050,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>old_rounds_not_accepted() {
 		sp_tracing::try_init_simple();
 
-		<span class="kw">let </span>validators = ValidatorSet::&lt;AuthorityId&gt;::new(
+		<span class="kw">let </span>validators = ValidatorSet::&lt;ecdsa_crypto::AuthorityId&gt;::new(
 			<span class="macro">vec!</span>[Keyring::Alice.public(), Keyring::Bob.public(), Keyring::Charlie.public()],
 			<span class="number">42</span>,
 		)
@@ -1019,7 +1059,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="comment">// active rounds starts at block 10
 		</span><span class="kw">let </span>session_start = <span class="number">10u64</span>.into();
-		<span class="kw">let </span><span class="kw-2">mut </span>rounds = Rounds::&lt;Block&gt;::new(session_start, validators);
+		<span class="kw">let </span><span class="kw-2">mut </span>rounds = Rounds::&lt;Block, ecdsa_crypto::AuthorityId&gt;::new(session_start, validators);
 
 		<span class="comment">// vote on round 9
 		</span><span class="kw">let </span>block_number = <span class="number">9</span>;
@@ -1028,7 +1068,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span><span class="kw-2">mut </span>vote = VoteMessage {
 			id: Keyring::Alice.public(),
 			commitment,
-			signature: Keyring::&lt;AuthorityId&gt;::Alice.sign(<span class="string">b"I am committed"</span>),
+			signature: Keyring::&lt;ecdsa_crypto::AuthorityId&gt;::Alice.sign(<span class="string">b"I am committed"</span>),
 		};
 		<span class="comment">// add vote for previous session, should fail
 		</span><span class="macro">assert_eq!</span>(rounds.add_vote(vote.clone()), VoteImportResult::Stale);
@@ -1056,7 +1096,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>multiple_rounds() {
 		sp_tracing::try_init_simple();
 
-		<span class="kw">let </span>validators = ValidatorSet::&lt;AuthorityId&gt;::new(
+		<span class="kw">let </span>validators = ValidatorSet::&lt;ecdsa_crypto::AuthorityId&gt;::new(
 			<span class="macro">vec!</span>[Keyring::Alice.public(), Keyring::Bob.public(), Keyring::Charlie.public()],
 			Default::default(),
 		)
@@ -1064,29 +1104,29 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>validator_set_id = validators.id();
 
 		<span class="kw">let </span>session_start = <span class="number">1u64</span>.into();
-		<span class="kw">let </span><span class="kw-2">mut </span>rounds = Rounds::&lt;Block&gt;::new(session_start, validators);
+		<span class="kw">let </span><span class="kw-2">mut </span>rounds = Rounds::&lt;Block, ecdsa_crypto::AuthorityId&gt;::new(session_start, validators);
 
 		<span class="kw">let </span>payload = Payload::from_single_entry(MMR_ROOT_ID, <span class="macro">vec!</span>[]);
 		<span class="kw">let </span>commitment = Commitment { block_number: <span class="number">1</span>, payload, validator_set_id };
 		<span class="kw">let </span><span class="kw-2">mut </span>alice_vote = VoteMessage {
 			id: Keyring::Alice.public(),
 			commitment: commitment.clone(),
-			signature: Keyring::&lt;AuthorityId&gt;::Alice.sign(<span class="string">b"I am committed"</span>),
+			signature: Keyring::&lt;ecdsa_crypto::AuthorityId&gt;::Alice.sign(<span class="string">b"I am committed"</span>),
 		};
 		<span class="kw">let </span><span class="kw-2">mut </span>bob_vote = VoteMessage {
 			id: Keyring::Bob.public(),
 			commitment: commitment.clone(),
-			signature: Keyring::&lt;AuthorityId&gt;::Bob.sign(<span class="string">b"I am committed"</span>),
+			signature: Keyring::&lt;ecdsa_crypto::AuthorityId&gt;::Bob.sign(<span class="string">b"I am committed"</span>),
 		};
 		<span class="kw">let </span><span class="kw-2">mut </span>charlie_vote = VoteMessage {
 			id: Keyring::Charlie.public(),
 			commitment,
-			signature: Keyring::&lt;AuthorityId&gt;::Charlie.sign(<span class="string">b"I am committed"</span>),
+			signature: Keyring::&lt;ecdsa_crypto::AuthorityId&gt;::Charlie.sign(<span class="string">b"I am committed"</span>),
 		};
 		<span class="kw">let </span>expected_signatures = <span class="macro">vec!</span>[
-			<span class="prelude-val">Some</span>(Keyring::&lt;AuthorityId&gt;::Alice.sign(<span class="string">b"I am committed"</span>)),
-			<span class="prelude-val">Some</span>(Keyring::&lt;AuthorityId&gt;::Bob.sign(<span class="string">b"I am committed"</span>)),
-			<span class="prelude-val">Some</span>(Keyring::&lt;AuthorityId&gt;::Charlie.sign(<span class="string">b"I am committed"</span>)),
+			<span class="prelude-val">Some</span>(Keyring::&lt;ecdsa_crypto::AuthorityId&gt;::Alice.sign(<span class="string">b"I am committed"</span>)),
+			<span class="prelude-val">Some</span>(Keyring::&lt;ecdsa_crypto::AuthorityId&gt;::Bob.sign(<span class="string">b"I am committed"</span>)),
+			<span class="prelude-val">Some</span>(Keyring::&lt;ecdsa_crypto::AuthorityId&gt;::Charlie.sign(<span class="string">b"I am committed"</span>)),
 		];
 
 		<span class="comment">// round 1 - only 2 out of 3 vote
@@ -1131,14 +1171,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>should_provide_equivocation_proof() {
 		sp_tracing::try_init_simple();
 
-		<span class="kw">let </span>validators = ValidatorSet::&lt;AuthorityId&gt;::new(
+		<span class="kw">let </span>validators = ValidatorSet::&lt;ecdsa_crypto::AuthorityId&gt;::new(
 			<span class="macro">vec!</span>[Keyring::Alice.public(), Keyring::Bob.public()],
 			Default::default(),
 		)
 		.unwrap();
 		<span class="kw">let </span>validator_set_id = validators.id();
 		<span class="kw">let </span>session_start = <span class="number">1u64</span>.into();
-		<span class="kw">let </span><span class="kw-2">mut </span>rounds = Rounds::&lt;Block&gt;::new(session_start, validators);
+		<span class="kw">let </span><span class="kw-2">mut </span>rounds = Rounds::&lt;Block, ecdsa_crypto::AuthorityId&gt;::new(session_start, validators);
 
 		<span class="kw">let </span>payload1 = Payload::from_single_entry(MMR_ROOT_ID, <span class="macro">vec!</span>[<span class="number">1</span>, <span class="number">1</span>, <span class="number">1</span>, <span class="number">1</span>]);
 		<span class="kw">let </span>payload2 = Payload::from_single_entry(MMR_ROOT_ID, <span class="macro">vec!</span>[<span class="number">2</span>, <span class="number">2</span>, <span class="number">2</span>, <span class="number">2</span>]);
@@ -1148,7 +1188,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>alice_vote1 = VoteMessage {
 			id: Keyring::Alice.public(),
 			commitment: commitment1,
-			signature: Keyring::&lt;AuthorityId&gt;::Alice.sign(<span class="string">b"I am committed"</span>),
+			signature: Keyring::&lt;ecdsa_crypto::AuthorityId&gt;::Alice.sign(<span class="string">b"I am committed"</span>),
 		};
 		<span class="kw">let </span><span class="kw-2">mut </span>alice_vote2 = alice_vote1.clone();
 		alice_vote2.commitment = commitment2;

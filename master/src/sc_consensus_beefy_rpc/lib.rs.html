@@ -437,6 +437,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#286" id="286">286</a>
 <a href="#287" id="287">287</a>
 <a href="#288" id="288">288</a>
+<a href="#289" id="289">289</a>
+<a href="#290" id="290">290</a>
+<a href="#291" id="291">291</a>
+<a href="#292" id="292">292</a>
+<a href="#293" id="293">293</a>
+<a href="#294" id="294">294</a>
+<a href="#295" id="295">295</a>
+<a href="#296" id="296">296</a>
+<a href="#297" id="297">297</a>
+<a href="#298" id="298">298</a>
+<a href="#299" id="299">299</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -460,9 +471,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="attr">#![warn(missing_docs)]
 
 </span><span class="kw">use </span>parking_lot::RwLock;
+<span class="kw">use </span>sp_consensus_beefy::AuthorityIdBound;
 <span class="kw">use </span>std::sync::Arc;
 
 <span class="kw">use </span>sc_rpc::{utils::pipe_from_stream, SubscriptionTaskExecutor};
+<span class="kw">use </span>sp_application_crypto::RuntimeAppPublic;
 <span class="kw">use </span>sp_runtime::traits::Block <span class="kw">as </span>BlockT;
 
 <span class="kw">use </span>futures::{task::SpawnError, FutureExt, StreamExt};
@@ -537,19 +550,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// Implements the BeefyApi RPC trait for interacting with BEEFY.
-</span><span class="kw">pub struct </span>Beefy&lt;Block: BlockT&gt; {
-	finality_proof_stream: BeefyVersionedFinalityProofStream&lt;Block&gt;,
+</span><span class="kw">pub struct </span>Beefy&lt;Block: BlockT, AuthorityId: AuthorityIdBound&gt; {
+	finality_proof_stream: BeefyVersionedFinalityProofStream&lt;Block, AuthorityId&gt;,
 	beefy_best_block: Arc&lt;RwLock&lt;<span class="prelude-ty">Option</span>&lt;Block::Hash&gt;&gt;&gt;,
 	executor: SubscriptionTaskExecutor,
 }
 
-<span class="kw">impl</span>&lt;Block&gt; Beefy&lt;Block&gt;
+<span class="kw">impl</span>&lt;Block, AuthorityId&gt; Beefy&lt;Block, AuthorityId&gt;
 <span class="kw">where
 	</span>Block: BlockT,
+	AuthorityId: AuthorityIdBound,
 {
 	<span class="doccomment">/// Creates a new Beefy Rpc handler instance.
 	</span><span class="kw">pub fn </span>new(
-		finality_proof_stream: BeefyVersionedFinalityProofStream&lt;Block&gt;,
+		finality_proof_stream: BeefyVersionedFinalityProofStream&lt;Block, AuthorityId&gt;,
 		best_block_stream: BeefyBestBlockStream&lt;Block&gt;,
 		executor: SubscriptionTaskExecutor,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, Error&gt; {
@@ -568,16 +582,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="attr">#[async_trait]
-</span><span class="kw">impl</span>&lt;Block&gt; BeefyApiServer&lt;notification::EncodedVersionedFinalityProof, Block::Hash&gt;
-	<span class="kw">for </span>Beefy&lt;Block&gt;
+</span><span class="kw">impl</span>&lt;Block, AuthorityId&gt; BeefyApiServer&lt;notification::EncodedVersionedFinalityProof, Block::Hash&gt;
+	<span class="kw">for </span>Beefy&lt;Block, AuthorityId&gt;
 <span class="kw">where
 	</span>Block: BlockT,
+	AuthorityId: AuthorityIdBound,
+	&lt;AuthorityId <span class="kw">as </span>RuntimeAppPublic&gt;::Signature: Send + Sync,
 {
 	<span class="kw">fn </span>subscribe_justifications(<span class="kw-2">&amp;</span><span class="self">self</span>, pending: PendingSubscriptionSink) {
 		<span class="kw">let </span>stream = <span class="self">self
 			</span>.finality_proof_stream
 			.subscribe(<span class="number">100_000</span>)
-			.map(|vfp| notification::EncodedVersionedFinalityProof::new::&lt;Block&gt;(vfp));
+			.map(|vfp| notification::EncodedVersionedFinalityProof::new::&lt;Block, AuthorityId&gt;(vfp));
 
 		sc_rpc::utils::spawn_subscription_task(<span class="kw-2">&amp;</span><span class="self">self</span>.executor, pipe_from_stream(pending, stream));
 	}
@@ -597,20 +613,26 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		communication::notification::BeefyVersionedFinalityProofSender,
 		justification::BeefyVersionedFinalityProof,
 	};
-	<span class="kw">use </span>sp_consensus_beefy::{known_payloads, Payload, SignedCommitment};
+	<span class="kw">use </span>sp_consensus_beefy::{ecdsa_crypto, known_payloads, Payload, SignedCommitment};
 	<span class="kw">use </span>sp_runtime::traits::{BlakeTwo256, Hash};
 	<span class="kw">use </span>substrate_test_runtime_client::runtime::Block;
 
-	<span class="kw">fn </span>setup_io_handler() -&gt; (RpcModule&lt;Beefy&lt;Block&gt;&gt;, BeefyVersionedFinalityProofSender&lt;Block&gt;) {
+	<span class="kw">fn </span>setup_io_handler() -&gt; (
+		RpcModule&lt;Beefy&lt;Block, ecdsa_crypto::AuthorityId&gt;&gt;,
+		BeefyVersionedFinalityProofSender&lt;Block, ecdsa_crypto::AuthorityId&gt;,
+	) {
 		<span class="kw">let </span>(<span class="kw">_</span>, stream) = BeefyBestBlockStream::&lt;Block&gt;::channel();
 		setup_io_handler_with_best_block_stream(stream)
 	}
 
 	<span class="kw">fn </span>setup_io_handler_with_best_block_stream(
 		best_block_stream: BeefyBestBlockStream&lt;Block&gt;,
-	) -&gt; (RpcModule&lt;Beefy&lt;Block&gt;&gt;, BeefyVersionedFinalityProofSender&lt;Block&gt;) {
+	) -&gt; (
+		RpcModule&lt;Beefy&lt;Block, ecdsa_crypto::AuthorityId&gt;&gt;,
+		BeefyVersionedFinalityProofSender&lt;Block, ecdsa_crypto::AuthorityId&gt;,
+	) {
 		<span class="kw">let </span>(finality_proof_sender, finality_proof_stream) =
-			BeefyVersionedFinalityProofStream::&lt;Block&gt;::channel();
+			BeefyVersionedFinalityProofStream::&lt;Block, ecdsa_crypto::AuthorityId&gt;::channel();
 
 		<span class="kw">let </span>handler =
 			Beefy::new(finality_proof_stream, best_block_stream, sc_rpc::testing::test_executor())
@@ -689,10 +711,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="macro">assert_eq!</span>(response, expected);
 	}
 
-	<span class="kw">fn </span>create_finality_proof() -&gt; BeefyVersionedFinalityProof&lt;Block&gt; {
+	<span class="kw">fn </span>create_finality_proof() -&gt; BeefyVersionedFinalityProof&lt;Block, ecdsa_crypto::AuthorityId&gt; {
 		<span class="kw">let </span>payload =
 			Payload::from_single_entry(known_payloads::MMR_ROOT_ID, <span class="string">"Hello World!"</span>.encode());
-		BeefyVersionedFinalityProof::&lt;Block&gt;::V1(SignedCommitment {
+		BeefyVersionedFinalityProof::&lt;Block, ecdsa_crypto::AuthorityId&gt;::V1(SignedCommitment {
 			commitment: sp_consensus_beefy::Commitment {
 				payload,
 				block_number: <span class="number">5</span>,
@@ -719,7 +741,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="comment">// Inspect what we received
 		</span><span class="kw">let </span>(bytes, recv_sub_id) = sub.next::&lt;sp_core::Bytes&gt;().<span class="kw">await</span>.unwrap().unwrap();
-		<span class="kw">let </span>recv_finality_proof: BeefyVersionedFinalityProof&lt;Block&gt; =
+		<span class="kw">let </span>recv_finality_proof: BeefyVersionedFinalityProof&lt;Block, ecdsa_crypto::AuthorityId&gt; =
 			Decode::decode(<span class="kw-2">&amp;mut &amp;</span>bytes[..]).unwrap();
 		<span class="macro">assert_eq!</span>(<span class="kw-2">&amp;</span>recv_sub_id, sub.subscription_id());
 		<span class="macro">assert_eq!</span>(recv_finality_proof, finality_proof);

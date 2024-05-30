@@ -384,6 +384,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#233" id="233">233</a>
 <a href="#234" id="234">234</a>
 <a href="#235" id="235">235</a>
+<a href="#236" id="236">236</a>
+<a href="#237" id="237">237</a>
+<a href="#238" id="238">238</a>
+<a href="#239" id="239">239</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -433,10 +437,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">pub use </span>sc_rpc_api::DenyUnsafe;
 <span class="kw">use </span>sc_transaction_pool_api::TransactionPool;
 <span class="kw">use </span>sp_api::ProvideRuntimeApi;
+<span class="kw">use </span>sp_application_crypto::RuntimeAppPublic;
 <span class="kw">use </span>sp_block_builder::BlockBuilder;
 <span class="kw">use </span>sp_blockchain::{Error <span class="kw">as </span>BlockChainError, HeaderBackend, HeaderMetadata};
 <span class="kw">use </span>sp_consensus::SelectChain;
 <span class="kw">use </span>sp_consensus_babe::BabeApi;
+<span class="kw">use </span>sp_consensus_beefy::AuthorityIdBound;
 <span class="kw">use </span>sp_keystore::KeystorePtr;
 
 <span class="doccomment">/// Extra dependencies for BABE.
@@ -462,9 +468,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// Dependencies for BEEFY
-</span><span class="kw">pub struct </span>BeefyDeps {
+</span><span class="kw">pub struct </span>BeefyDeps&lt;AuthorityId: AuthorityIdBound&gt; {
 	<span class="doccomment">/// Receives notifications about finality proof events from BEEFY.
-	</span><span class="kw">pub </span>beefy_finality_proof_stream: BeefyVersionedFinalityProofStream&lt;Block&gt;,
+	</span><span class="kw">pub </span>beefy_finality_proof_stream: BeefyVersionedFinalityProofStream&lt;Block, AuthorityId&gt;,
 	<span class="doccomment">/// Receives notifications about best block events from BEEFY.
 	</span><span class="kw">pub </span>beefy_best_block_stream: BeefyBestBlockStream&lt;Block&gt;,
 	<span class="doccomment">/// Executor to drive the subscription manager in the BEEFY RPC handler.
@@ -472,7 +478,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// Full client dependencies.
-</span><span class="kw">pub struct </span>FullDeps&lt;C, P, SC, B&gt; {
+</span><span class="kw">pub struct </span>FullDeps&lt;C, P, SC, B, AuthorityId: AuthorityIdBound&gt; {
 	<span class="doccomment">/// The client instance to use.
 	</span><span class="kw">pub </span>client: Arc&lt;C&gt;,
 	<span class="doccomment">/// Transaction pool instance.
@@ -488,7 +494,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// GRANDPA specific dependencies.
 	</span><span class="kw">pub </span>grandpa: GrandpaDeps&lt;B&gt;,
 	<span class="doccomment">/// BEEFY specific dependencies.
-	</span><span class="kw">pub </span>beefy: BeefyDeps,
+	</span><span class="kw">pub </span>beefy: BeefyDeps&lt;AuthorityId&gt;,
 	<span class="doccomment">/// Shared statement store reference.
 	</span><span class="kw">pub </span>statement_store: Arc&lt;<span class="kw">dyn </span>sp_statement_store::StatementStore&gt;,
 	<span class="doccomment">/// The backend used by the node.
@@ -498,7 +504,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// Instantiate all Full RPC extensions.
-</span><span class="kw">pub fn </span>create_full&lt;C, P, SC, B&gt;(
+</span><span class="kw">pub fn </span>create_full&lt;C, P, SC, B, AuthorityId&gt;(
 	FullDeps {
 		client,
 		pool,
@@ -511,7 +517,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		statement_store,
 		backend,
 		mixnet_api,
-	}: FullDeps&lt;C, P, SC, B&gt;,
+	}: FullDeps&lt;C, P, SC, B, AuthorityId&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;RpcModule&lt;()&gt;, Box&lt;<span class="kw">dyn </span>std::error::Error + Send + Sync&gt;&gt;
 <span class="kw">where
 	</span>C: ProvideRuntimeApi&lt;Block&gt;
@@ -531,6 +537,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	SC: SelectChain&lt;Block&gt; + <span class="lifetime">'static</span>,
 	B: sc_client_api::Backend&lt;Block&gt; + Send + Sync + <span class="lifetime">'static</span>,
 	B::State: sc_client_api::backend::StateBackend&lt;sp_runtime::traits::HashingFor&lt;Block&gt;&gt;,
+	AuthorityId: AuthorityIdBound,
+	&lt;AuthorityId <span class="kw">as </span>RuntimeAppPublic&gt;::Signature: Send + Sync,
 {
 	<span class="kw">use </span>mmr_rpc::{Mmr, MmrApiServer};
 	<span class="kw">use </span>pallet_transaction_payment_rpc::{TransactionPayment, TransactionPaymentApiServer};
@@ -609,7 +617,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	io.merge(
-		Beefy::&lt;Block&gt;::new(
+		Beefy::&lt;Block, AuthorityId&gt;::new(
 			beefy.beefy_finality_proof_stream,
 			beefy.beefy_best_block_stream,
 			beefy.subscription_executor,

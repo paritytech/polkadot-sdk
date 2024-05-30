@@ -891,6 +891,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#740" id="740">740</a>
 <a href="#741" id="741">741</a>
 <a href="#742" id="742">742</a>
+<a href="#743" id="743">743</a>
+<a href="#744" id="744">744</a>
+<a href="#745" id="745">745</a>
+<a href="#746" id="746">746</a>
+<a href="#747" id="747">747</a>
+<a href="#748" id="748">748</a>
+<a href="#749" id="749">749</a>
+<a href="#750" id="750">750</a>
+<a href="#751" id="751">751</a>
+<a href="#752" id="752">752</a>
+<a href="#753" id="753">753</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -936,8 +947,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>sp_blockchain::{Backend <span class="kw">as </span>BlockchainBackend, HeaderBackend};
 <span class="kw">use </span>sp_consensus::{Error <span class="kw">as </span>ConsensusError, SyncOracle};
 <span class="kw">use </span>sp_consensus_beefy::{
-	ecdsa_crypto::AuthorityId, BeefyApi, ConsensusLog, PayloadProvider, ValidatorSet,
-	BEEFY_ENGINE_ID,
+	AuthorityIdBound, BeefyApi, ConsensusLog, PayloadProvider, ValidatorSet, BEEFY_ENGINE_ID,
 };
 <span class="kw">use </span>sp_keystore::KeystorePtr;
 <span class="kw">use </span>sp_runtime::traits::{Block, Header <span class="kw">as </span>HeaderT, NumberFor, Zero};
@@ -1011,50 +1021,55 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Links between the block importer, the background voter and the RPC layer,
 /// to be used by the voter.
 </span><span class="attr">#[derive(Clone)]
-</span><span class="kw">pub struct </span>BeefyVoterLinks&lt;B: Block&gt; {
+</span><span class="kw">pub struct </span>BeefyVoterLinks&lt;B: Block, AuthorityId: AuthorityIdBound&gt; {
 	<span class="comment">// BlockImport -&gt; Voter links
 	</span><span class="doccomment">/// Stream of BEEFY signed commitments from block import to voter.
-	</span><span class="kw">pub </span>from_block_import_justif_stream: BeefyVersionedFinalityProofStream&lt;B&gt;,
+	</span><span class="kw">pub </span>from_block_import_justif_stream: BeefyVersionedFinalityProofStream&lt;B, AuthorityId&gt;,
 
 	<span class="comment">// Voter -&gt; RPC links
 	</span><span class="doccomment">/// Sends BEEFY signed commitments from voter to RPC.
-	</span><span class="kw">pub </span>to_rpc_justif_sender: BeefyVersionedFinalityProofSender&lt;B&gt;,
+	</span><span class="kw">pub </span>to_rpc_justif_sender: BeefyVersionedFinalityProofSender&lt;B, AuthorityId&gt;,
 	<span class="doccomment">/// Sends BEEFY best block hashes from voter to RPC.
 	</span><span class="kw">pub </span>to_rpc_best_block_sender: BeefyBestBlockSender&lt;B&gt;,
 }
 
 <span class="doccomment">/// Links used by the BEEFY RPC layer, from the BEEFY background voter.
 </span><span class="attr">#[derive(Clone)]
-</span><span class="kw">pub struct </span>BeefyRPCLinks&lt;B: Block&gt; {
+</span><span class="kw">pub struct </span>BeefyRPCLinks&lt;B: Block, AuthorityId: AuthorityIdBound&gt; {
 	<span class="doccomment">/// Stream of signed commitments coming from the voter.
-	</span><span class="kw">pub </span>from_voter_justif_stream: BeefyVersionedFinalityProofStream&lt;B&gt;,
+	</span><span class="kw">pub </span>from_voter_justif_stream: BeefyVersionedFinalityProofStream&lt;B, AuthorityId&gt;,
 	<span class="doccomment">/// Stream of BEEFY best block hashes coming from the voter.
 	</span><span class="kw">pub </span>from_voter_best_beefy_stream: BeefyBestBlockStream&lt;B&gt;,
 }
 
 <span class="doccomment">/// Make block importer and link half necessary to tie the background voter to it.
-</span><span class="kw">pub fn </span>beefy_block_import_and_links&lt;B, BE, RuntimeApi, I&gt;(
+</span><span class="kw">pub fn </span>beefy_block_import_and_links&lt;B, BE, RuntimeApi, I, AuthorityId: AuthorityIdBound&gt;(
 	wrapped_block_import: I,
 	backend: Arc&lt;BE&gt;,
 	runtime: Arc&lt;RuntimeApi&gt;,
 	prometheus_registry: <span class="prelude-ty">Option</span>&lt;Registry&gt;,
-) -&gt; (BeefyBlockImport&lt;B, BE, RuntimeApi, I&gt;, BeefyVoterLinks&lt;B&gt;, BeefyRPCLinks&lt;B&gt;)
+) -&gt; (
+	BeefyBlockImport&lt;B, BE, RuntimeApi, I, AuthorityId&gt;,
+	BeefyVoterLinks&lt;B, AuthorityId&gt;,
+	BeefyRPCLinks&lt;B, AuthorityId&gt;,
+)
 <span class="kw">where
 	</span>B: Block,
 	BE: Backend&lt;B&gt;,
 	I: BlockImport&lt;B, Error = ConsensusError&gt; + Send + Sync,
 	RuntimeApi: ProvideRuntimeApi&lt;B&gt; + Send + Sync,
 	RuntimeApi::Api: BeefyApi&lt;B, AuthorityId&gt;,
+	AuthorityId: AuthorityIdBound,
 {
 	<span class="comment">// Voter -&gt; RPC links
 	</span><span class="kw">let </span>(to_rpc_justif_sender, from_voter_justif_stream) =
-		BeefyVersionedFinalityProofStream::&lt;B&gt;::channel();
+		BeefyVersionedFinalityProofStream::&lt;B, AuthorityId&gt;::channel();
 	<span class="kw">let </span>(to_rpc_best_block_sender, from_voter_best_beefy_stream) =
 		BeefyBestBlockStream::&lt;B&gt;::channel();
 
 	<span class="comment">// BlockImport -&gt; Voter links
 	</span><span class="kw">let </span>(to_voter_justif_sender, from_block_import_justif_stream) =
-		BeefyVersionedFinalityProofStream::&lt;B&gt;::channel();
+		BeefyVersionedFinalityProofStream::&lt;B, AuthorityId&gt;::channel();
 	<span class="kw">let </span>metrics = register_metrics(prometheus_registry);
 
 	<span class="comment">// BlockImport
@@ -1094,7 +1109,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// BEEFY gadget initialization parameters.
-</span><span class="kw">pub struct </span>BeefyParams&lt;B: Block, BE, C, N, P, R, S&gt; {
+</span><span class="kw">pub struct </span>BeefyParams&lt;B: Block, BE, C, N, P, R, S, AuthorityId: AuthorityIdBound&gt; {
 	<span class="doccomment">/// BEEFY client
 	</span><span class="kw">pub </span>client: Arc&lt;C&gt;,
 	<span class="doccomment">/// Client Backend
@@ -1112,7 +1127,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Prometheus metric registry
 	</span><span class="kw">pub </span>prometheus_registry: <span class="prelude-ty">Option</span>&lt;Registry&gt;,
 	<span class="doccomment">/// Links between the block importer, the background voter and the RPC layer.
-	</span><span class="kw">pub </span>links: BeefyVoterLinks&lt;B&gt;,
+	</span><span class="kw">pub </span>links: BeefyVoterLinks&lt;B, AuthorityId&gt;,
 	<span class="doccomment">/// Handler for incoming BEEFY justifications requests from a remote peer.
 	</span><span class="kw">pub </span>on_demand_justifications_handler: BeefyJustifsRequestHandler&lt;B, C&gt;,
 	<span class="doccomment">/// Whether running under "Authority" role.
@@ -1121,10 +1136,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Helper object holding BEEFY worker communication/gossip components.
 ///
 /// These are created once, but will be reused if worker is restarted/reinitialized.
-</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>BeefyComms&lt;B: Block, N&gt; {
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>BeefyComms&lt;B: Block, N, AuthorityId: AuthorityIdBound&gt; {
 	<span class="kw">pub </span>gossip_engine: GossipEngine&lt;B&gt;,
-	<span class="kw">pub </span>gossip_validator: Arc&lt;GossipValidator&lt;B, N&gt;&gt;,
-	<span class="kw">pub </span>on_demand_justifications: OnDemandJustificationsEngine&lt;B&gt;,
+	<span class="kw">pub </span>gossip_validator: Arc&lt;GossipValidator&lt;B, N, AuthorityId&gt;&gt;,
+	<span class="kw">pub </span>on_demand_justifications: OnDemandJustificationsEngine&lt;B, AuthorityId&gt;,
 }
 
 <span class="doccomment">/// Helper builder object for building [worker::BeefyWorker].
@@ -1133,22 +1148,23 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// for certain chain and backend conditions, and while sleeping we still need to pump the
 /// GossipEngine. Once initialization is done, the GossipEngine (and other pieces) are added to get
 /// the complete [worker::BeefyWorker] object.
-</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>BeefyWorkerBuilder&lt;B: Block, BE, RuntimeApi&gt; {
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>BeefyWorkerBuilder&lt;B: Block, BE, RuntimeApi, AuthorityId: AuthorityIdBound&gt; {
 	<span class="comment">// utilities
 	</span>backend: Arc&lt;BE&gt;,
 	runtime: Arc&lt;RuntimeApi&gt;,
 	key_store: BeefyKeystore&lt;AuthorityId&gt;,
 	<span class="comment">// voter metrics
 	</span>metrics: <span class="prelude-ty">Option</span>&lt;VoterMetrics&gt;,
-	persisted_state: PersistedState&lt;B&gt;,
+	persisted_state: PersistedState&lt;B, AuthorityId&gt;,
 }
 
-<span class="kw">impl</span>&lt;B, BE, R&gt; BeefyWorkerBuilder&lt;B, BE, R&gt;
+<span class="kw">impl</span>&lt;B, BE, R, AuthorityId&gt; BeefyWorkerBuilder&lt;B, BE, R, AuthorityId&gt;
 <span class="kw">where
 	</span>B: Block + codec::Codec,
 	BE: Backend&lt;B&gt;,
 	R: ProvideRuntimeApi&lt;B&gt;,
 	R::Api: BeefyApi&lt;B, AuthorityId&gt;,
+	AuthorityId: AuthorityIdBound,
 {
 	<span class="doccomment">/// This will wait for the chain to enable BEEFY (if not yet enabled) and also wait for the
 	/// backend to sync all headers required by the voter to build a contiguous chain of mandatory
@@ -1162,7 +1178,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		key_store: BeefyKeystore&lt;AuthorityId&gt;,
 		metrics: <span class="prelude-ty">Option</span>&lt;VoterMetrics&gt;,
 		min_block_delta: u32,
-		gossip_validator: Arc&lt;GossipValidator&lt;B, N&gt;&gt;,
+		gossip_validator: Arc&lt;GossipValidator&lt;B, N, AuthorityId&gt;&gt;,
 		finality_notifications: <span class="kw-2">&amp;mut </span>Fuse&lt;FinalityNotifications&lt;B&gt;&gt;,
 		is_authority: bool,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, Error&gt; {
@@ -1194,11 +1210,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="self">self</span>,
 		payload_provider: P,
 		sync: Arc&lt;S&gt;,
-		comms: BeefyComms&lt;B, N&gt;,
-		links: BeefyVoterLinks&lt;B&gt;,
-		pending_justifications: BTreeMap&lt;NumberFor&lt;B&gt;, BeefyVersionedFinalityProof&lt;B&gt;&gt;,
+		comms: BeefyComms&lt;B, N, AuthorityId&gt;,
+		links: BeefyVoterLinks&lt;B, AuthorityId&gt;,
+		pending_justifications: BTreeMap&lt;NumberFor&lt;B&gt;, BeefyVersionedFinalityProof&lt;B, AuthorityId&gt;&gt;,
 		is_authority: bool,
-	) -&gt; BeefyWorker&lt;B, BE, P, R, S, N&gt; {
+	) -&gt; BeefyWorker&lt;B, BE, P, R, S, N, AuthorityId&gt; {
 		<span class="kw">let </span>key_store = Arc::new(<span class="self">self</span>.key_store);
 		BeefyWorker {
 			backend: <span class="self">self</span>.backend.clone(),
@@ -1227,7 +1243,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		min_block_delta: u32,
 		backend: Arc&lt;BE&gt;,
 		runtime: Arc&lt;R&gt;,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;PersistedState&lt;B&gt;, Error&gt; {
+	) -&gt; <span class="prelude-ty">Result</span>&lt;PersistedState&lt;B, AuthorityId&gt;, Error&gt; {
 		<span class="kw">let </span>blockchain = backend.blockchain();
 
 		<span class="kw">let </span>beefy_genesis = runtime
@@ -1271,7 +1287,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					beefy_genesis,
 				)
 				.ok_or_else(|| Error::Backend(<span class="string">"Invalid BEEFY chain"</span>.into()))<span class="question-mark">?</span>;
-				<span class="kw">break </span>state
+				<span class="kw">break </span>state;
 			}
 
 			<span class="kw">if </span><span class="kw-2">*</span>header.number() == beefy_genesis {
@@ -1294,10 +1310,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					min_block_delta,
 					beefy_genesis,
 				)
-				.ok_or_else(|| Error::Backend(<span class="string">"Invalid BEEFY chain"</span>.into()))<span class="question-mark">?
-			</span>}
+				.ok_or_else(|| Error::Backend(<span class="string">"Invalid BEEFY chain"</span>.into()))<span class="question-mark">?</span>;
+			}
 
-			<span class="kw">if let </span><span class="prelude-val">Some</span>(active) = find_authorities_change::&lt;B&gt;(<span class="kw-2">&amp;</span>header) {
+			<span class="kw">if let </span><span class="prelude-val">Some</span>(active) = find_authorities_change::&lt;B, AuthorityId&gt;(<span class="kw-2">&amp;</span>header) {
 				<span class="macro">debug!</span>(
 					target: LOG_TARGET,
 					<span class="string">"🥩 Marking block {:?} as BEEFY Mandatory."</span>,
@@ -1324,7 +1340,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		key_store: <span class="kw-2">&amp;</span>BeefyKeystore&lt;AuthorityId&gt;,
 		metrics: <span class="kw-2">&amp;</span><span class="prelude-ty">Option</span>&lt;VoterMetrics&gt;,
 		is_authority: bool,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;PersistedState&lt;B&gt;, Error&gt; {
+	) -&gt; <span class="prelude-ty">Result</span>&lt;PersistedState&lt;B, AuthorityId&gt;, Error&gt; {
 		<span class="comment">// Initialize voter state from AUX DB if compatible.
 		</span><span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">mut </span>state) = <span class="kw">crate</span>::aux_schema::load_persistent(backend.as_ref())<span class="question-mark">?
 			</span><span class="comment">// Verify state pallet genesis matches runtime.
@@ -1341,7 +1357,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span><span class="kw-2">mut </span>header = best_grandpa.clone();
 			<span class="kw">while </span><span class="kw-2">*</span>header.number() &gt; state.best_beefy() {
 				<span class="kw">if </span>state.voting_oracle().can_add_session(<span class="kw-2">*</span>header.number()) {
-					<span class="kw">if let </span><span class="prelude-val">Some</span>(active) = find_authorities_change::&lt;B&gt;(<span class="kw-2">&amp;</span>header) {
+					<span class="kw">if let </span><span class="prelude-val">Some</span>(active) = find_authorities_change::&lt;B, AuthorityId&gt;(<span class="kw-2">&amp;</span>header) {
 						new_sessions.push((active, <span class="kw-2">*</span>header.number()));
 					}
 				}
@@ -1364,7 +1380,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					is_authority,
 				);
 			}
-			<span class="kw">return </span><span class="prelude-val">Ok</span>(state)
+			<span class="kw">return </span><span class="prelude-val">Ok</span>(state);
 		}
 
 		<span class="comment">// No valid voter-state persisted, re-initialize from pallet genesis.
@@ -1375,8 +1391,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Start the BEEFY gadget.
 ///
 /// This is a thin shim around running and awaiting a BEEFY worker.
-</span><span class="kw">pub async fn </span>start_beefy_gadget&lt;B, BE, C, N, P, R, S&gt;(
-	beefy_params: BeefyParams&lt;B, BE, C, N, P, R, S&gt;,
+</span><span class="kw">pub async fn </span>start_beefy_gadget&lt;B, BE, C, N, P, R, S, AuthorityId&gt;(
+	beefy_params: BeefyParams&lt;B, BE, C, N, P, R, S, AuthorityId&gt;,
 ) <span class="kw">where
 	</span>B: Block,
 	BE: Backend&lt;B&gt;,
@@ -1386,6 +1402,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	R::Api: BeefyApi&lt;B, AuthorityId&gt;,
 	N: GossipNetwork&lt;B&gt; + NetworkRequest + Send + Sync + <span class="lifetime">'static</span>,
 	S: GossipSyncing&lt;B&gt; + SyncOracle + <span class="lifetime">'static</span>,
+	AuthorityId: AuthorityIdBound,
 {
 	<span class="kw">let </span>BeefyParams {
 		client,
@@ -1491,16 +1508,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span>futures::future::Either::Left(((error::Error::ConsensusReset, reuse_comms), <span class="kw">_</span>)) =&gt; {
 				<span class="macro">error!</span>(target: LOG_TARGET, <span class="string">"🥩 Error: {:?}. Restarting voter."</span>, error::Error::ConsensusReset);
 				beefy_comms = reuse_comms;
-				<span class="kw">continue
-			</span>},
+				<span class="kw">continue</span>;
+			},
 			<span class="comment">// On other errors, bring down / finish the task.
-			</span>futures::future::Either::Left(((worker_err, <span class="kw">_</span>), <span class="kw">_</span>)) =&gt;
-				<span class="macro">error!</span>(target: LOG_TARGET, <span class="string">"🥩 Error: {:?}. Terminating."</span>, worker_err),
-			futures::future::Either::Right((odj_handler_err, <span class="kw">_</span>)) =&gt;
-				<span class="macro">error!</span>(target: LOG_TARGET, <span class="string">"🥩 Error: {:?}. Terminating."</span>, odj_handler_err),
+			</span>futures::future::Either::Left(((worker_err, <span class="kw">_</span>), <span class="kw">_</span>)) =&gt; {
+				<span class="macro">error!</span>(target: LOG_TARGET, <span class="string">"🥩 Error: {:?}. Terminating."</span>, worker_err)
+			},
+			futures::future::Either::Right((odj_handler_err, <span class="kw">_</span>)) =&gt; {
+				<span class="macro">error!</span>(target: LOG_TARGET, <span class="string">"🥩 Error: {:?}. Terminating."</span>, odj_handler_err)
+			},
 		};
-		<span class="kw">return
-	</span>}
+		<span class="kw">return</span>;
+	}
 }
 
 <span class="doccomment">/// Waits until the parent header of `current` is available and returns it.
@@ -1544,7 +1563,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Wait for BEEFY runtime pallet to be available, return active validator set.
 /// Should be called only once during worker initialization.
-</span><span class="kw">async fn </span>wait_for_runtime_pallet&lt;B, R&gt;(
+</span><span class="kw">async fn </span>wait_for_runtime_pallet&lt;B, R, AuthorityId: AuthorityIdBound&gt;(
 	runtime: <span class="kw-2">&amp;</span>R,
 	finality: <span class="kw-2">&amp;mut </span>Fuse&lt;FinalityNotifications&lt;B&gt;&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;(NumberFor&lt;B&gt;, &lt;B <span class="kw">as </span>Block&gt;::Header), Error&gt;
@@ -1569,7 +1588,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="string">"🥩 BEEFY pallet available: block {:?} beefy genesis {:?}"</span>,
 					notif.header.number(), start
 				);
-				<span class="kw">return </span><span class="prelude-val">Ok</span>((start, notif.header))
+				<span class="kw">return </span><span class="prelude-val">Ok</span>((start, notif.header));
 			}
 		}
 	}
@@ -1580,7 +1599,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ///
 /// Note: function will `async::sleep()` when walking back the chain if some needed header hasn't
 /// been synced yet (as it happens when warp syncing when headers are synced in the background).
-</span><span class="kw">async fn </span>expect_validator_set&lt;B, BE, R&gt;(
+</span><span class="kw">async fn </span>expect_validator_set&lt;B, BE, R, AuthorityId: AuthorityIdBound&gt;(
 	runtime: <span class="kw-2">&amp;</span>R,
 	backend: <span class="kw-2">&amp;</span>BE,
 	at_header: <span class="kw-2">&amp;</span>B::Header,
@@ -1604,9 +1623,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">loop </span>{
 		<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">"🥩 Looking for auth set change at block number: {:?}"</span>, <span class="kw-2">*</span>header.number());
 		<span class="kw">if let </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(active)) = runtime.runtime_api().validator_set(header.hash()) {
-			<span class="kw">return </span><span class="prelude-val">Ok</span>(active)
+			<span class="kw">return </span><span class="prelude-val">Ok</span>(active);
 		} <span class="kw">else </span>{
-			<span class="kw">match </span>find_authorities_change::&lt;B&gt;(<span class="kw-2">&amp;</span>header) {
+			<span class="kw">match </span>find_authorities_change::&lt;B, AuthorityId&gt;(<span class="kw-2">&amp;</span>header) {
 				<span class="prelude-val">Some</span>(active) =&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(active),
 				<span class="comment">// Move up the chain. Ultimately we'll get it from chain genesis state, or error out
 				// there.
@@ -1621,9 +1640,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Scan the `header` digest log for a BEEFY validator set change. Return either the new
 /// validator set or `None` in case no validator set change has been signaled.
-</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>find_authorities_change&lt;B&gt;(header: <span class="kw-2">&amp;</span>B::Header) -&gt; <span class="prelude-ty">Option</span>&lt;ValidatorSet&lt;AuthorityId&gt;&gt;
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>find_authorities_change&lt;B, AuthorityId&gt;(
+	header: <span class="kw-2">&amp;</span>B::Header,
+) -&gt; <span class="prelude-ty">Option</span>&lt;ValidatorSet&lt;AuthorityId&gt;&gt;
 <span class="kw">where
 	</span>B: Block,
+	AuthorityId: AuthorityIdBound,
 {
 	<span class="kw">let </span>id = OpaqueDigestItemId::Consensus(<span class="kw-2">&amp;</span>BEEFY_ENGINE_ID);
 

@@ -1272,7 +1272,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>suri = <span class="string">"//Alice"</span>;
 		<span class="kw">let </span>pair = ecdsa_bls377::Pair::from_string(suri, <span class="prelude-val">None</span>).unwrap();
 
-		<span class="kw">let </span>msg = <span class="string">b"this should be a normal unhashed message not "</span>;
+		<span class="kw">let </span>msg = <span class="string">b"this should be a normal unhashed message not a hash of a message because bls scheme comes with its own hashing"</span>;
 
 		<span class="comment">// insert key, sign again
 		</span>store.insert(ECDSA_BLS377, suri, pair.public().as_ref()).unwrap();

@@ -1748,6 +1748,37 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1597" id="1597">1597</a>
 <a href="#1598" id="1598">1598</a>
 <a href="#1599" id="1599">1599</a>
+<a href="#1600" id="1600">1600</a>
+<a href="#1601" id="1601">1601</a>
+<a href="#1602" id="1602">1602</a>
+<a href="#1603" id="1603">1603</a>
+<a href="#1604" id="1604">1604</a>
+<a href="#1605" id="1605">1605</a>
+<a href="#1606" id="1606">1606</a>
+<a href="#1607" id="1607">1607</a>
+<a href="#1608" id="1608">1608</a>
+<a href="#1609" id="1609">1609</a>
+<a href="#1610" id="1610">1610</a>
+<a href="#1611" id="1611">1611</a>
+<a href="#1612" id="1612">1612</a>
+<a href="#1613" id="1613">1613</a>
+<a href="#1614" id="1614">1614</a>
+<a href="#1615" id="1615">1615</a>
+<a href="#1616" id="1616">1616</a>
+<a href="#1617" id="1617">1617</a>
+<a href="#1618" id="1618">1618</a>
+<a href="#1619" id="1619">1619</a>
+<a href="#1620" id="1620">1620</a>
+<a href="#1621" id="1621">1621</a>
+<a href="#1622" id="1622">1622</a>
+<a href="#1623" id="1623">1623</a>
+<a href="#1624" id="1624">1624</a>
+<a href="#1625" id="1625">1625</a>
+<a href="#1626" id="1626">1626</a>
+<a href="#1627" id="1627">1627</a>
+<a href="#1628" id="1628">1628</a>
+<a href="#1629" id="1629">1629</a>
+<a href="#1630" id="1630">1630</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1781,6 +1812,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	round::{Rounds, VoteImportResult},
 	BeefyComms, BeefyVoterLinks, LOG_TARGET,
 };
+<span class="kw">use </span>sp_application_crypto::RuntimeAppPublic;
+
 <span class="kw">use </span>codec::{Codec, Decode, DecodeAll, Encode};
 <span class="kw">use </span>futures::{stream::Fuse, FutureExt, StreamExt};
 <span class="kw">use </span>log::{debug, error, info, trace, warn};
@@ -1790,9 +1823,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>sp_arithmetic::traits::{AtLeast32Bit, Saturating};
 <span class="kw">use </span>sp_consensus::SyncOracle;
 <span class="kw">use </span>sp_consensus_beefy::{
-	ecdsa_crypto::{AuthorityId, Signature},
-	BeefyApi, Commitment, DoubleVotingProof, PayloadProvider, ValidatorSet, VersionedFinalityProof,
-	VoteMessage, BEEFY_ENGINE_ID,
+	AuthorityIdBound, BeefyApi, Commitment, DoubleVotingProof, PayloadProvider, ValidatorSet,
+	VersionedFinalityProof, VoteMessage, BEEFY_ENGINE_ID,
 };
 <span class="kw">use </span>sp_runtime::{
 	generic::BlockId,
@@ -1802,6 +1834,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>std::{
 	collections::{BTreeMap, VecDeque},
 	fmt::Debug,
+	marker::PhantomData,
 	sync::Arc,
 };
 
@@ -1822,7 +1855,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// Note: this is part of `PersistedState` so any changes here should also bump
 /// aux-db schema version.
 </span><span class="attr">#[derive(Debug, Decode, Encode, PartialEq)]
-</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>VoterOracle&lt;B: Block&gt; {
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>VoterOracle&lt;B: Block, AuthorityId: AuthorityIdBound&gt; {
 	<span class="doccomment">/// Queue of known sessions. Keeps track of voting rounds (block numbers) within each session.
 	///
 	/// There are three voter states corresponding to three queue states:
@@ -1832,19 +1865,23 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// 3. lagging behind GRANDPA: queue has [1, N] elements, where all `mandatory_done == false`.
 	///    In this state, every time a session gets its mandatory block BEEFY finalized, it's
 	///    popped off the queue, eventually getting to state `2. up-to-date`.
-	</span>sessions: VecDeque&lt;Rounds&lt;B&gt;&gt;,
+	</span>sessions: VecDeque&lt;Rounds&lt;B, AuthorityId&gt;&gt;,
 	<span class="doccomment">/// Min delta in block numbers between two blocks, BEEFY should vote on.
 	</span>min_block_delta: u32,
 	<span class="doccomment">/// Best block we received a GRANDPA finality for.
 	</span>best_grandpa_block_header: &lt;B <span class="kw">as </span>Block&gt;::Header,
 	<span class="doccomment">/// Best block a BEEFY voting round has been concluded for.
 	</span>best_beefy_block: NumberFor&lt;B&gt;,
+	_phantom: PhantomData&lt;<span class="kw">fn</span>() -&gt; AuthorityId&gt;,
 }
 
-<span class="kw">impl</span>&lt;B: Block&gt; VoterOracle&lt;B&gt; {
+<span class="kw">impl</span>&lt;B: Block, AuthorityId&gt; VoterOracle&lt;B, AuthorityId&gt;
+<span class="kw">where
+	</span>AuthorityId: AuthorityIdBound,
+{
 	<span class="doccomment">/// Verify provided `sessions` satisfies requirements, then build `VoterOracle`.
 	</span><span class="kw">pub fn </span>checked_new(
-		sessions: VecDeque&lt;Rounds&lt;B&gt;&gt;,
+		sessions: VecDeque&lt;Rounds&lt;B, AuthorityId&gt;&gt;,
 		min_block_delta: u32,
 		grandpa_header: &lt;B <span class="kw">as </span>Block&gt;::Header,
 		best_beefy: NumberFor&lt;B&gt;,
@@ -1855,25 +1892,25 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="kw">let </span><span class="kw-2">mut </span>validate = || -&gt; bool {
 			<span class="kw">let </span>best_grandpa = <span class="kw-2">*</span>grandpa_header.number();
 			<span class="kw">if </span>sessions.is_empty() || best_beefy &gt; best_grandpa {
-				<span class="kw">return </span><span class="bool-val">false
-			</span>}
+				<span class="kw">return </span><span class="bool-val">false</span>;
+			}
 			<span class="kw">for </span>(idx, session) <span class="kw">in </span>sessions.iter().enumerate() {
 				<span class="kw">let </span>start = session.session_start();
 				<span class="kw">if </span>session.validators().is_empty() {
-					<span class="kw">return </span><span class="bool-val">false
-				</span>}
+					<span class="kw">return </span><span class="bool-val">false</span>;
+				}
 				<span class="kw">if </span>start &gt; best_grandpa || start &lt;= prev_start {
-					<span class="kw">return </span><span class="bool-val">false
-				</span>}
+					<span class="kw">return </span><span class="bool-val">false</span>;
+				}
 				<span class="attr">#[cfg(not(test))]
 				</span><span class="kw">if let </span><span class="prelude-val">Some</span>(prev_id) = prev_validator_id {
 					<span class="kw">if </span>session.validator_set_id() &lt;= prev_id {
-						<span class="kw">return </span><span class="bool-val">false
-					</span>}
+						<span class="kw">return </span><span class="bool-val">false</span>;
+					}
 				}
 				<span class="kw">if </span>idx != <span class="number">0 </span>&amp;&amp; session.mandatory_done() {
-					<span class="kw">return </span><span class="bool-val">false
-				</span>}
+					<span class="kw">return </span><span class="bool-val">false</span>;
+				}
 				prev_start = session.session_start();
 				prev_validator_id = <span class="prelude-val">Some</span>(session.validator_set_id());
 			}
@@ -1886,6 +1923,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				</span>min_block_delta: min_block_delta.max(<span class="number">1</span>),
 				best_grandpa_block_header: grandpa_header,
 				best_beefy_block: best_beefy,
+				_phantom: PhantomData,
 			})
 		} <span class="kw">else </span>{
 			<span class="macro">error!</span>(
@@ -1901,13 +1939,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="comment">// Return reference to rounds pertaining to first session in the queue.
 	// Voting will always happen at the head of the queue.
-	</span><span class="kw">fn </span>active_rounds(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="kw-2">&amp;</span>Rounds&lt;B&gt;, Error&gt; {
+	</span><span class="kw">fn </span>active_rounds(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="kw-2">&amp;</span>Rounds&lt;B, AuthorityId&gt;, Error&gt; {
 		<span class="self">self</span>.sessions.front().ok_or(Error::UninitSession)
 	}
 
 	<span class="comment">// Return mutable reference to rounds pertaining to first session in the queue.
 	// Voting will always happen at the head of the queue.
-	</span><span class="kw">fn </span>active_rounds_mut(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="kw-2">&amp;mut </span>Rounds&lt;B&gt;, Error&gt; {
+	</span><span class="kw">fn </span>active_rounds_mut(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="kw-2">&amp;mut </span>Rounds&lt;B, AuthorityId&gt;, Error&gt; {
 		<span class="self">self</span>.sessions.front_mut().ok_or(Error::UninitSession)
 	}
 
@@ -1933,7 +1971,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="doccomment">/// Add new observed session to the Oracle.
-	</span><span class="kw">pub fn </span>add_session(<span class="kw-2">&amp;mut </span><span class="self">self</span>, rounds: Rounds&lt;B&gt;) {
+	</span><span class="kw">pub fn </span>add_session(<span class="kw-2">&amp;mut </span><span class="self">self</span>, rounds: Rounds&lt;B, AuthorityId&gt;) {
 		<span class="self">self</span>.sessions.push_back(rounds);
 		<span class="comment">// Once we add a new session we can drop/prune previous session if it's been finalized.
 		</span><span class="self">self</span>.try_prune();
@@ -2017,21 +2055,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ///
 /// Note: Any changes here should also bump aux-db schema version.
 </span><span class="attr">#[derive(Debug, Decode, Encode, PartialEq)]
-</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>PersistedState&lt;B: Block&gt; {
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>PersistedState&lt;B: Block, AuthorityId: AuthorityIdBound&gt; {
 	<span class="doccomment">/// Best block we voted on.
 	</span>best_voted: NumberFor&lt;B&gt;,
 	<span class="doccomment">/// Chooses which incoming votes to accept and which votes to generate.
 	/// Keeps track of voting seen for current and future rounds.
-	</span>voting_oracle: VoterOracle&lt;B&gt;,
+	</span>voting_oracle: VoterOracle&lt;B, AuthorityId&gt;,
 	<span class="doccomment">/// Pallet-beefy genesis block - block number when BEEFY consensus started for this chain.
 	</span>pallet_genesis: NumberFor&lt;B&gt;,
 }
 
-<span class="kw">impl</span>&lt;B: Block&gt; PersistedState&lt;B&gt; {
+<span class="kw">impl</span>&lt;B: Block, AuthorityId: AuthorityIdBound&gt; PersistedState&lt;B, AuthorityId&gt; {
 	<span class="kw">pub fn </span>checked_new(
 		grandpa_header: &lt;B <span class="kw">as </span>Block&gt;::Header,
 		best_beefy: NumberFor&lt;B&gt;,
-		sessions: VecDeque&lt;Rounds&lt;B&gt;&gt;,
+		sessions: VecDeque&lt;Rounds&lt;B, AuthorityId&gt;&gt;,
 		min_block_delta: u32,
 		pallet_genesis: NumberFor&lt;B&gt;,
 	) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>&gt; {
@@ -2064,11 +2102,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="self">self</span>.voting_oracle.best_grandpa_block_header = best_grandpa;
 	}
 
-	<span class="kw">pub fn </span>voting_oracle(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>VoterOracle&lt;B&gt; {
+	<span class="kw">pub fn </span>voting_oracle(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>VoterOracle&lt;B, AuthorityId&gt; {
 		<span class="kw-2">&amp;</span><span class="self">self</span>.voting_oracle
 	}
 
-	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>gossip_filter_config(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;GossipFilterCfg&lt;B&gt;, Error&gt; {
+	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>gossip_filter_config(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;GossipFilterCfg&lt;B, AuthorityId&gt;, Error&gt; {
 		<span class="kw">let </span>(start, end) = <span class="self">self</span>.voting_oracle.accepted_interval()<span class="question-mark">?</span>;
 		<span class="kw">let </span>validator_set = <span class="self">self</span>.voting_oracle.current_validator_set()<span class="question-mark">?</span>;
 		<span class="prelude-val">Ok</span>(GossipFilterCfg { start, end, validator_set })
@@ -2123,34 +2161,34 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// A BEEFY worker/voter that follows the BEEFY protocol
-</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>BeefyWorker&lt;B: Block, BE, P, RuntimeApi, S, N&gt; {
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>BeefyWorker&lt;B: Block, BE, P, RuntimeApi, S, N, AuthorityId: AuthorityIdBound&gt; {
 	<span class="comment">// utilities
 	</span><span class="kw">pub </span>backend: Arc&lt;BE&gt;,
 	<span class="kw">pub </span>runtime: Arc&lt;RuntimeApi&gt;,
 	<span class="kw">pub </span>key_store: Arc&lt;BeefyKeystore&lt;AuthorityId&gt;&gt;,
 	<span class="kw">pub </span>payload_provider: P,
 	<span class="kw">pub </span>sync: Arc&lt;S&gt;,
-	<span class="kw">pub </span>fisherman: Arc&lt;Fisherman&lt;B, BE, RuntimeApi&gt;&gt;,
+	<span class="kw">pub </span>fisherman: Arc&lt;Fisherman&lt;B, BE, RuntimeApi, AuthorityId&gt;&gt;,
 
 	<span class="comment">// communication (created once, but returned and reused if worker is restarted/reinitialized)
-	</span><span class="kw">pub </span>comms: BeefyComms&lt;B, N&gt;,
+	</span><span class="kw">pub </span>comms: BeefyComms&lt;B, N, AuthorityId&gt;,
 
 	<span class="comment">// channels
 	</span><span class="doccomment">/// Links between the block importer, the background voter and the RPC layer.
-	</span><span class="kw">pub </span>links: BeefyVoterLinks&lt;B&gt;,
+	</span><span class="kw">pub </span>links: BeefyVoterLinks&lt;B, AuthorityId&gt;,
 
 	<span class="comment">// voter state
 	</span><span class="doccomment">/// Buffer holding justifications for future processing.
-	</span><span class="kw">pub </span>pending_justifications: BTreeMap&lt;NumberFor&lt;B&gt;, BeefyVersionedFinalityProof&lt;B&gt;&gt;,
+	</span><span class="kw">pub </span>pending_justifications: BTreeMap&lt;NumberFor&lt;B&gt;, BeefyVersionedFinalityProof&lt;B, AuthorityId&gt;&gt;,
 	<span class="doccomment">/// Persisted voter state.
-	</span><span class="kw">pub </span>persisted_state: PersistedState&lt;B&gt;,
+	</span><span class="kw">pub </span>persisted_state: PersistedState&lt;B, AuthorityId&gt;,
 	<span class="doccomment">/// BEEFY voter metrics
 	</span><span class="kw">pub </span>metrics: <span class="prelude-ty">Option</span>&lt;VoterMetrics&gt;,
 	<span class="doccomment">/// Node runs under "Authority" role.
 	</span><span class="kw">pub </span>is_authority: bool,
 }
 
-<span class="kw">impl</span>&lt;B, BE, P, R, S, N&gt; BeefyWorker&lt;B, BE, P, R, S, N&gt;
+<span class="kw">impl</span>&lt;B, BE, P, R, S, N, AuthorityId&gt; BeefyWorker&lt;B, BE, P, R, S, N, AuthorityId&gt;
 <span class="kw">where
 	</span>B: Block + Codec,
 	BE: Backend&lt;B&gt;,
@@ -2158,17 +2196,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	S: SyncOracle,
 	R: ProvideRuntimeApi&lt;B&gt;,
 	R::Api: BeefyApi&lt;B, AuthorityId&gt;,
+	AuthorityId: AuthorityIdBound,
 {
 	<span class="kw">fn </span>best_grandpa_block(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; NumberFor&lt;B&gt; {
 		<span class="kw-2">*</span><span class="self">self</span>.persisted_state.voting_oracle.best_grandpa_block_header.number()
 	}
 
-	<span class="kw">fn </span>voting_oracle(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>VoterOracle&lt;B&gt; {
+	<span class="kw">fn </span>voting_oracle(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>VoterOracle&lt;B, AuthorityId&gt; {
 		<span class="kw-2">&amp;</span><span class="self">self</span>.persisted_state.voting_oracle
 	}
 
 	<span class="attr">#[cfg(test)]
-	</span><span class="kw">fn </span>active_rounds(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="kw-2">&amp;</span>Rounds&lt;B&gt;, Error&gt; {
+	</span><span class="kw">fn </span>active_rounds(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="kw-2">&amp;</span>Rounds&lt;B, AuthorityId&gt;, Error&gt; {
 		<span class="self">self</span>.persisted_state.voting_oracle.active_rounds()
 	}
 
@@ -2226,7 +2265,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				})
 				.chain(std::iter::once(header.clone()))
 			{
-				<span class="kw">if let </span><span class="prelude-val">Some</span>(new_validator_set) = find_authorities_change::&lt;B&gt;(<span class="kw-2">&amp;</span>header) {
+				<span class="kw">if let </span><span class="prelude-val">Some</span>(new_validator_set) = find_authorities_change::&lt;B, AuthorityId&gt;(<span class="kw-2">&amp;</span>header)
+				{
 					<span class="self">self</span>.init_session_at(new_validator_set, <span class="kw-2">*</span>header.number());
 					new_session_added = <span class="bool-val">true</span>;
 				}
@@ -2253,13 +2293,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Based on [VoterOracle] this vote is either processed here or discarded.
 	</span><span class="kw">fn </span>triage_incoming_vote(
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
-		vote: VoteMessage&lt;NumberFor&lt;B&gt;, AuthorityId, Signature&gt;,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
+		vote: VoteMessage&lt;NumberFor&lt;B&gt;, AuthorityId, &lt;AuthorityId <span class="kw">as </span>RuntimeAppPublic&gt;::Signature&gt;,
+	) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt;
+	<span class="kw">where
+		</span>&lt;AuthorityId <span class="kw">as </span>RuntimeAppPublic&gt;::Signature: Encode + Decode,
+	{
 		<span class="kw">let </span>block_num = vote.commitment.block_number;
 		<span class="kw">match </span><span class="self">self</span>.voting_oracle().triage_round(block_num)<span class="question-mark">? </span>{
 			RoundAction::Process =&gt;
 				<span class="kw">if let </span><span class="prelude-val">Some</span>(finality_proof) = <span class="self">self</span>.handle_vote(vote)<span class="question-mark">? </span>{
-					<span class="kw">let </span>gossip_proof = GossipMessage::&lt;B&gt;::FinalityProof(finality_proof);
+					<span class="kw">let </span>gossip_proof =
+						GossipMessage::&lt;B, AuthorityId&gt;::FinalityProof(finality_proof);
 					<span class="kw">let </span>encoded_proof = gossip_proof.encode();
 					<span class="self">self</span>.comms.gossip_engine.gossip_message(
 						proofs_topic::&lt;B&gt;(),
@@ -2278,7 +2322,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// Expects `justification` to be valid.
 	</span><span class="kw">fn </span>triage_incoming_justif(
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
-		justification: BeefyVersionedFinalityProof&lt;B&gt;,
+		justification: BeefyVersionedFinalityProof&lt;B, AuthorityId&gt;,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
 		<span class="kw">let </span>signed_commitment = <span class="kw">match </span>justification {
 			VersionedFinalityProof::V1(<span class="kw-2">ref </span>sc) =&gt; sc,
@@ -2310,8 +2354,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">fn </span>handle_vote(
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
-		vote: VoteMessage&lt;NumberFor&lt;B&gt;, AuthorityId, Signature&gt;,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;BeefyVersionedFinalityProof&lt;B&gt;&gt;, Error&gt; {
+		vote: VoteMessage&lt;NumberFor&lt;B&gt;, AuthorityId, &lt;AuthorityId <span class="kw">as </span>RuntimeAppPublic&gt;::Signature&gt;,
+	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;BeefyVersionedFinalityProof&lt;B, AuthorityId&gt;&gt;, Error&gt; {
 		<span class="kw">let </span>rounds = <span class="self">self</span>.persisted_state.voting_oracle.active_rounds_mut()<span class="question-mark">?</span>;
 
 		<span class="kw">let </span>block_number = vote.commitment.block_number;
@@ -2326,7 +2370,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				// New state is persisted after finalization.
 				</span><span class="self">self</span>.finalize(finality_proof.clone())<span class="question-mark">?</span>;
 				<span class="macro">metric_inc!</span>(<span class="self">self</span>.metrics, beefy_good_votes_processed);
-				<span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(finality_proof))
+				<span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(finality_proof));
 			},
 			VoteImportResult::Ok =&gt; {
 				<span class="comment">// Persist state after handling mandatory block vote.
@@ -2358,14 +2402,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// 4. Send best block hash and `finality_proof` to RPC worker.
 	///
 	/// Expects `finality proof` to be valid and for a block &gt; current-best-beefy.
-	</span><span class="kw">fn </span>finalize(<span class="kw-2">&amp;mut </span><span class="self">self</span>, finality_proof: BeefyVersionedFinalityProof&lt;B&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
+	</span><span class="kw">fn </span>finalize(
+		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
+		finality_proof: BeefyVersionedFinalityProof&lt;B, AuthorityId&gt;,
+	) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
 		<span class="kw">let </span>block_num = <span class="kw">match </span>finality_proof {
 			VersionedFinalityProof::V1(<span class="kw-2">ref </span>sc) =&gt; sc.commitment.block_number,
 		};
 
 		<span class="kw">if </span>block_num &lt;= <span class="self">self</span>.persisted_state.voting_oracle.best_beefy_block {
 			<span class="comment">// we've already finalized this round before, short-circuit.
-			</span><span class="kw">return </span><span class="prelude-val">Ok</span>(())
+			</span><span class="kw">return </span><span class="prelude-val">Ok</span>(());
 		}
 
 		<span class="comment">// Finalize inner round and update voting_oracle state.
@@ -2490,7 +2537,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			hash
 		} <span class="kw">else </span>{
 			<span class="macro">warn!</span>(target: LOG_TARGET, <span class="string">"🥩 No MMR root digest found for: {:?}"</span>, target_hash);
-			<span class="kw">return </span><span class="prelude-val">Ok</span>(())
+			<span class="kw">return </span><span class="prelude-val">Ok</span>(());
 		};
 
 		<span class="kw">let </span>rounds = <span class="self">self</span>.persisted_state.voting_oracle.active_rounds_mut()<span class="question-mark">?</span>;
@@ -2504,7 +2551,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				target: LOG_TARGET,
 				<span class="string">"🥩 Missing validator id - can't vote for: {:?}"</span>, target_hash
 			);
-			<span class="kw">return </span><span class="prelude-val">Ok</span>(())
+			<span class="kw">return </span><span class="prelude-val">Ok</span>(());
 		};
 
 		<span class="kw">let </span>commitment = Commitment { payload, block_number: target_number, validator_set_id };
@@ -2514,7 +2561,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="prelude-val">Ok</span>(sig) =&gt; sig,
 			<span class="prelude-val">Err</span>(err) =&gt; {
 				<span class="macro">warn!</span>(target: LOG_TARGET, <span class="string">"🥩 Error signing commitment: {:?}"</span>, err);
-				<span class="kw">return </span><span class="prelude-val">Ok</span>(())
+				<span class="kw">return </span><span class="prelude-val">Ok</span>(());
 			},
 		};
 
@@ -2530,14 +2577,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="macro">error!</span>(target: LOG_TARGET, <span class="string">"🥩 Error handling self vote: {}"</span>, err);
 			err
 		})<span class="question-mark">? </span>{
-			<span class="kw">let </span>encoded_proof = GossipMessage::&lt;B&gt;::FinalityProof(finality_proof).encode();
+			<span class="kw">let </span>encoded_proof =
+				GossipMessage::&lt;B, AuthorityId&gt;::FinalityProof(finality_proof).encode();
 			<span class="self">self</span>.comms
 				.gossip_engine
 				.gossip_message(proofs_topic::&lt;B&gt;(), encoded_proof, <span class="bool-val">true</span>);
 		} <span class="kw">else </span>{
 			<span class="macro">metric_inc!</span>(<span class="self">self</span>.metrics, beefy_votes_sent);
 			<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">"🥩 Sent vote message: {:?}"</span>, vote);
-			<span class="kw">let </span>encoded_vote = GossipMessage::&lt;B&gt;::Vote(vote).encode();
+			<span class="kw">let </span>encoded_vote = GossipMessage::&lt;B, AuthorityId&gt;::Vote(vote).encode();
 			<span class="self">self</span>.comms.gossip_engine.gossip_message(votes_topic::&lt;B&gt;(), encoded_vote, <span class="bool-val">false</span>);
 		}
 
@@ -2575,9 +2623,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// Should never end, returns `Error` otherwise.
 	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>run(
 		<span class="kw-2">mut </span><span class="self">self</span>,
-		block_import_justif: <span class="kw-2">&amp;mut </span>Fuse&lt;NotificationReceiver&lt;BeefyVersionedFinalityProof&lt;B&gt;&gt;&gt;,
+		block_import_justif: <span class="kw-2">&amp;mut </span>Fuse&lt;
+			NotificationReceiver&lt;BeefyVersionedFinalityProof&lt;B, AuthorityId&gt;&gt;,
+		&gt;,
 		finality_notifications: <span class="kw-2">&amp;mut </span>Fuse&lt;FinalityNotifications&lt;B&gt;&gt;,
-	) -&gt; (Error, BeefyComms&lt;B, N&gt;) {
+	) -&gt; (Error, BeefyComms&lt;B, N, AuthorityId&gt;) {
 		<span class="macro">info!</span>(
 			target: LOG_TARGET,
 			<span class="string">"🥩 run BEEFY worker, best grandpa: #{:?}."</span>,
@@ -2589,9 +2639,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				.gossip_engine
 				.messages_for(votes_topic::&lt;B&gt;())
 				.filter_map(|notification| <span class="kw">async move </span>{
-					<span class="kw">let </span>vote = GossipMessage::&lt;B&gt;::decode_all(<span class="kw-2">&amp;mut &amp;</span>notification.message[..])
-						.ok()
-						.and_then(|message| message.unwrap_vote());
+					<span class="kw">let </span>vote =
+						GossipMessage::&lt;B, AuthorityId&gt;::decode_all(<span class="kw-2">&amp;mut &amp;</span>notification.message[..])
+							.ok()
+							.and_then(|message| message.unwrap_vote());
 					<span class="macro">trace!</span>(target: LOG_TARGET, <span class="string">"🥩 Got vote message: {:?}"</span>, vote);
 					vote
 				})
@@ -2602,9 +2653,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				.gossip_engine
 				.messages_for(proofs_topic::&lt;B&gt;())
 				.filter_map(|notification| <span class="kw">async move </span>{
-					<span class="kw">let </span>proof = GossipMessage::&lt;B&gt;::decode_all(<span class="kw-2">&amp;mut &amp;</span>notification.message[..])
-						.ok()
-						.and_then(|message| message.unwrap_finality_proof());
+					<span class="kw">let </span>proof =
+						GossipMessage::&lt;B, AuthorityId&gt;::decode_all(<span class="kw-2">&amp;mut &amp;</span>notification.message[..])
+							.ok()
+							.and_then(|message| message.unwrap_finality_proof());
 					<span class="macro">trace!</span>(target: LOG_TARGET, <span class="string">"🥩 Got gossip proof message: {:?}"</span>, proof);
 					proof
 				})
@@ -2695,7 +2747,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Report the given equivocation to the BEEFY runtime module.
 	</span><span class="kw">fn </span>report_double_voting(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
-		proof: DoubleVotingProof&lt;NumberFor&lt;B&gt;, AuthorityId, Signature&gt;,
+		proof: DoubleVotingProof&lt;
+			NumberFor&lt;B&gt;,
+			AuthorityId,
+			&lt;AuthorityId <span class="kw">as </span>RuntimeAppPublic&gt;::Signature,
+		&gt;,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
 		<span class="kw">let </span>rounds = <span class="self">self</span>.persisted_state.voting_oracle.active_rounds()<span class="question-mark">?</span>;
 		<span class="self">self</span>.fisherman.report_double_voting(proof, rounds)
@@ -2761,7 +2817,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">use </span>sc_network_test::TestNetFactory;
 	<span class="kw">use </span>sp_blockchain::Backend <span class="kw">as </span>BlockchainBackendT;
 	<span class="kw">use </span>sp_consensus_beefy::{
-		known_payloads,
+		ecdsa_crypto, known_payloads,
 		known_payloads::MMR_ROOT_ID,
 		mmr::MmrRootProvider,
 		test_utils::{generate_equivocation_proof, Keyring},
@@ -2773,8 +2829,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		Backend,
 	};
 
-	<span class="kw">impl</span>&lt;B: <span class="kw">super</span>::Block&gt; PersistedState&lt;B&gt; {
-		<span class="kw">pub fn </span>active_round(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="kw-2">&amp;</span>Rounds&lt;B&gt;, Error&gt; {
+	<span class="kw">impl</span>&lt;B: <span class="kw">super</span>::Block, AuthorityId: AuthorityIdBound&gt; PersistedState&lt;B, AuthorityId&gt; {
+		<span class="kw">pub fn </span>active_round(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="kw-2">&amp;</span>Rounds&lt;B, AuthorityId&gt;, Error&gt; {
 			<span class="self">self</span>.voting_oracle.active_rounds()
 		}
 
@@ -2783,17 +2839,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 	}
 
-	<span class="kw">impl</span>&lt;B: <span class="kw">super</span>::Block&gt; VoterOracle&lt;B&gt; {
-		<span class="kw">pub fn </span>sessions(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>VecDeque&lt;Rounds&lt;B&gt;&gt; {
+	<span class="kw">impl</span>&lt;B: <span class="kw">super</span>::Block&gt; VoterOracle&lt;B, ecdsa_crypto::AuthorityId&gt; {
+		<span class="kw">pub fn </span>sessions(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>VecDeque&lt;Rounds&lt;B, ecdsa_crypto::AuthorityId&gt;&gt; {
 			<span class="kw-2">&amp;</span><span class="self">self</span>.sessions
 		}
 	}
 
 	<span class="kw">fn </span>create_beefy_worker(
 		peer: <span class="kw-2">&amp;mut </span>BeefyPeer,
-		key: <span class="kw-2">&amp;</span>Keyring&lt;AuthorityId&gt;,
+		key: <span class="kw-2">&amp;</span>Keyring&lt;ecdsa_crypto::AuthorityId&gt;,
 		min_block_delta: u32,
-		genesis_validator_set: ValidatorSet&lt;AuthorityId&gt;,
+		genesis_validator_set: ValidatorSet&lt;ecdsa_crypto::AuthorityId&gt;,
 	) -&gt; BeefyWorker&lt;
 		Block,
 		Backend,
@@ -2801,15 +2857,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		TestApi,
 		Arc&lt;SyncingService&lt;Block&gt;&gt;,
 		TestNetwork,
+		ecdsa_crypto::AuthorityId,
 	&gt; {
 		<span class="kw">let </span>keystore = create_beefy_keystore(key);
 
 		<span class="kw">let </span>(to_rpc_justif_sender, from_voter_justif_stream) =
-			BeefyVersionedFinalityProofStream::&lt;Block&gt;::channel();
+			BeefyVersionedFinalityProofStream::&lt;Block, ecdsa_crypto::AuthorityId&gt;::channel();
 		<span class="kw">let </span>(to_rpc_best_block_sender, from_voter_best_beefy_stream) =
 			BeefyBestBlockStream::&lt;Block&gt;::channel();
 		<span class="kw">let </span>(<span class="kw">_</span>, from_block_import_justif_stream) =
-			BeefyVersionedFinalityProofStream::&lt;Block&gt;::channel();
+			BeefyVersionedFinalityProofStream::&lt;Block, ecdsa_crypto::AuthorityId&gt;::channel();
 
 		<span class="kw">let </span>beefy_rpc_links =
 			BeefyRPCLinks { from_voter_justif_stream, from_voter_best_beefy_stream };
@@ -2865,7 +2922,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		.unwrap();
 		<span class="kw">let </span>payload_provider = MmrRootProvider::new(api.clone());
 		<span class="kw">let </span>comms = BeefyComms { gossip_engine, gossip_validator, on_demand_justifications };
-		<span class="kw">let </span>key_store: Arc&lt;BeefyKeystore&lt;AuthorityId&gt;&gt; = Arc::new(<span class="prelude-val">Some</span>(keystore).into());
+		<span class="kw">let </span>key_store: Arc&lt;BeefyKeystore&lt;ecdsa_crypto::AuthorityId&gt;&gt; =
+			Arc::new(<span class="prelude-val">Some</span>(keystore).into());
 		BeefyWorker {
 			backend: backend.clone(),
 			runtime: api.clone(),
@@ -2983,13 +3041,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			Default::default(),
 			Digest::default(),
 		);
-		<span class="kw">let </span><span class="kw-2">mut </span>oracle = VoterOracle::&lt;Block&gt; {
+		<span class="kw">let </span><span class="kw-2">mut </span>oracle = VoterOracle::&lt;Block, ecdsa_crypto::AuthorityId&gt; {
 			best_beefy_block: <span class="number">0</span>,
 			best_grandpa_block_header: header,
 			min_block_delta: <span class="number">1</span>,
 			sessions: VecDeque::new(),
+			_phantom: PhantomData,
 		};
-		<span class="kw">let </span>voting_target_with = |oracle: <span class="kw-2">&amp;mut </span>VoterOracle&lt;Block&gt;,
+		<span class="kw">let </span>voting_target_with = |oracle: <span class="kw-2">&amp;mut </span>VoterOracle&lt;Block, ecdsa_crypto::AuthorityId&gt;,
 		                          best_beefy: NumberFor&lt;Block&gt;,
 		                          best_grandpa: NumberFor&lt;Block&gt;|
 		 -&gt; <span class="prelude-ty">Option</span>&lt;NumberFor&lt;Block&gt;&gt; {
@@ -3045,18 +3104,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			Default::default(),
 			Digest::default(),
 		);
-		<span class="kw">let </span><span class="kw-2">mut </span>oracle = VoterOracle::&lt;Block&gt; {
+		<span class="kw">let </span><span class="kw-2">mut </span>oracle = VoterOracle::&lt;Block, ecdsa_crypto::AuthorityId&gt; {
 			best_beefy_block: <span class="number">0</span>,
 			best_grandpa_block_header: header,
 			min_block_delta: <span class="number">1</span>,
 			sessions: VecDeque::new(),
+			_phantom: PhantomData,
 		};
-		<span class="kw">let </span>accepted_interval_with = |oracle: <span class="kw-2">&amp;mut </span>VoterOracle&lt;Block&gt;,
-		                              best_grandpa: NumberFor&lt;Block&gt;|
-		 -&gt; <span class="prelude-ty">Result</span>&lt;(NumberFor&lt;Block&gt;, NumberFor&lt;Block&gt;), Error&gt; {
-			oracle.best_grandpa_block_header.number = best_grandpa;
-			oracle.accepted_interval()
-		};
+		<span class="kw">let </span>accepted_interval_with =
+			|oracle: <span class="kw-2">&amp;mut </span>VoterOracle&lt;Block, ecdsa_crypto::AuthorityId&gt;,
+			 best_grandpa: NumberFor&lt;Block&gt;|
+			 -&gt; <span class="prelude-ty">Result</span>&lt;(NumberFor&lt;Block&gt;, NumberFor&lt;Block&gt;), Error&gt; {
+				oracle.best_grandpa_block_header.number = best_grandpa;
+				oracle.accepted_interval()
+			};
 
 		<span class="comment">// rounds not initialized -&gt; should accept votes: `None`
 		</span><span class="macro">assert!</span>(accepted_interval_with(<span class="kw-2">&amp;mut </span>oracle, <span class="number">1</span>).is_err());
@@ -3127,18 +3188,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		);
 
 		<span class="comment">// verify empty digest shows nothing
-		</span><span class="macro">assert!</span>(find_authorities_change::&lt;Block&gt;(<span class="kw-2">&amp;</span>header).is_none());
+		</span><span class="macro">assert!</span>(find_authorities_change::&lt;Block, ecdsa_crypto::AuthorityId&gt;(<span class="kw-2">&amp;</span>header).is_none());
 
 		<span class="kw">let </span>peers = <span class="kw-2">&amp;</span>[Keyring::One, Keyring::Two];
 		<span class="kw">let </span>id = <span class="number">42</span>;
 		<span class="kw">let </span>validator_set = ValidatorSet::new(make_beefy_ids(peers), id).unwrap();
 		header.digest_mut().push(DigestItem::Consensus(
 			BEEFY_ENGINE_ID,
-			ConsensusLog::&lt;AuthorityId&gt;::AuthoritiesChange(validator_set.clone()).encode(),
+			ConsensusLog::&lt;ecdsa_crypto::AuthorityId&gt;::AuthoritiesChange(validator_set.clone())
+				.encode(),
 		));
 
 		<span class="comment">// verify validator set is correctly extracted from digest
-		</span><span class="kw">let </span>extracted = find_authorities_change::&lt;Block&gt;(<span class="kw-2">&amp;</span>header);
+		</span><span class="kw">let </span>extracted = find_authorities_change::&lt;Block, ecdsa_crypto::AuthorityId&gt;(<span class="kw-2">&amp;</span>header);
 		<span class="macro">assert_eq!</span>(extracted, <span class="prelude-val">Some</span>(validator_set));
 	}
 

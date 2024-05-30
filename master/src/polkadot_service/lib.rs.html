@@ -1672,6 +1672,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1521" id="1521">1521</a>
 <a href="#1522" id="1522">1522</a>
 <a href="#1523" id="1523">1523</a>
+<a href="#1524" id="1524">1524</a>
+<a href="#1525" id="1525">1525</a>
+<a href="#1526" id="1526">1526</a>
+<a href="#1527" id="1527">1527</a>
+<a href="#1528" id="1528">1528</a>
+<a href="#1529" id="1529">1529</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1762,6 +1768,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="attr">#[cfg(feature = <span class="string">"full-node"</span>)]
 </span><span class="kw">use </span>telemetry::{Telemetry, TelemetryWorkerHandle};
 
+<span class="kw">use </span>beefy_primitives::ecdsa_crypto;
 <span class="kw">pub use </span>chain_spec::{GenericChainSpec, RococoChainSpec, WestendChainSpec};
 <span class="kw">pub use </span>consensus_common::{Proposal, SelectChain};
 <span class="kw">use </span>frame_benchmarking_cli::SUBSTRATE_REFERENCE_HARDWARE;
@@ -2068,8 +2075,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">type </span>FullGrandpaBlockImport&lt;ChainSelection = FullSelectChain&gt; =
 	grandpa::GrandpaBlockImport&lt;FullBackend, Block, FullClient, ChainSelection&gt;;
 <span class="attr">#[cfg(feature = <span class="string">"full-node"</span>)]
-</span><span class="kw">type </span>FullBeefyBlockImport&lt;InnerBlockImport&gt; =
-	beefy::import::BeefyBlockImport&lt;Block, FullBackend, FullClient, InnerBlockImport&gt;;
+</span><span class="kw">type </span>FullBeefyBlockImport&lt;InnerBlockImport, AuthorityId&gt; =
+	beefy::import::BeefyBlockImport&lt;Block, FullBackend, FullClient, InnerBlockImport, AuthorityId&gt;;
 
 <span class="attr">#[cfg(feature = <span class="string">"full-node"</span>)]
 </span><span class="kw">struct </span>Basics {
@@ -2160,11 +2167,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				babe::BabeBlockImport&lt;
 					Block,
 					FullClient,
-					FullBeefyBlockImport&lt;FullGrandpaBlockImport&lt;ChainSelection&gt;&gt;,
+					FullBeefyBlockImport&lt;
+						FullGrandpaBlockImport&lt;ChainSelection&gt;,
+						ecdsa_crypto::AuthorityId,
+					&gt;,
 				&gt;,
 				grandpa::LinkHalf&lt;Block, FullClient, ChainSelection&gt;,
 				babe::BabeLink&lt;Block&gt;,
-				beefy::BeefyVoterLinks&lt;Block&gt;,
+				beefy::BeefyVoterLinks&lt;Block, ecdsa_crypto::AuthorityId&gt;,
 			),
 			grandpa::SharedVoterState,
 			sp_consensus_babe::SlotDuration,
@@ -2275,7 +2285,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					subscription_executor: subscription_executor.clone(),
 					finality_provider: finality_proof_provider.clone(),
 				},
-				beefy: polkadot_rpc::BeefyDeps {
+				beefy: polkadot_rpc::BeefyDeps::&lt;ecdsa_crypto::AuthorityId&gt; {
 					beefy_finality_proof_stream: beefy_rpc_links.from_voter_justif_stream.clone(),
 					beefy_best_block_stream: beefy_rpc_links.from_voter_best_beefy_stream.clone(),
 					subscription_executor,
@@ -2967,7 +2977,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			is_authority: role.is_authority(),
 		};
 
-		<span class="kw">let </span>gadget = beefy::start_beefy_gadget::&lt;<span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>&gt;(beefy_params);
+		<span class="kw">let </span>gadget = beefy::start_beefy_gadget::&lt;<span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, ecdsa_crypto::AuthorityId&gt;(
+			beefy_params,
+		);
 
 		<span class="comment">// BEEFY is part of consensus, if it fails we'll bring the node down with it to make sure it
 		// is noticed.
