@@ -3294,15 +3294,10 @@ pub(crate) fn answer_request(state: &mut State, message: ResponderMessage) {
 
 	// Transform mask with 'OR' semantics into one with 'AND' semantics for the API used
 	// below.
-	let mut and_mask = StatementFilter {
+	let and_mask = StatementFilter {
 		seconded_in_group: !mask.seconded_in_group.clone(),
 		validated_in_group: !mask.validated_in_group.clone(),
 	};
-
-	// Ignore disabled validators when sending the response.
-	let disabled_mask = relay_parent_state.disabled_bitmask(group);
-	and_mask.mask_seconded(&disabled_mask);
-	and_mask.mask_valid(&disabled_mask);
 
 	let local_validator = match relay_parent_state.local_validator.as_mut() {
 		None => return,
