@@ -141,16 +141,7 @@ impl<PoolApi> View<PoolApi>
 where
 	PoolApi: graph::ChainApi,
 {
-	fn new(api: Arc<PoolApi>, at: HashAndNumber<PoolApi::Block>) -> Self {
-		//todo!!
-		use crate::graph::base_pool::Limit;
-		let options = graph::Options {
-			ready: Limit { count: 100000, total_bytes: 200 * 1024 * 1024 },
-			future: Limit { count: 100000, total_bytes: 200 * 1024 * 1024 },
-			reject_future_transactions: false,
-			ban_time: core::time::Duration::from_secs(60 * 30),
-		};
-
+	fn new(api: Arc<PoolApi>, at: HashAndNumber<PoolApi::Block>, options: graph::Options) -> Self {
 		Self { pool: graph::Pool::new(options, true.into(), api), at }
 	}
 
@@ -712,7 +703,7 @@ where
 		MultiViewImportNotificationSink<Block::Hash, graph::ExtrinsicHash<PoolApi>>,
 	// todo: this are coming from ValidatedPool, some of them maybe needed here
 	// is_validator: IsValidator,
-	// options: Options,
+	options: Options,
 	// rotator: PoolRotator<ExtrinsicHash<B>>,
 }
 
@@ -745,6 +736,7 @@ where
 				revalidation_queue: Arc::from(view_revalidation::RevalidationQueue::new()),
 				most_recent_view: RwLock::from(None),
 				import_notification_sink,
+				options: graph::Options::default(),
 			},
 			import_notification_sink_task,
 		)
@@ -790,6 +782,7 @@ where
 			revalidation_queue: Arc::from(revalidation_queue),
 			most_recent_view: RwLock::from(None),
 			import_notification_sink,
+			options,
 		}
 	}
 
@@ -1314,7 +1307,7 @@ where
 
 		log::info!(target: LOG_TARGET, "create_new_view_at: {at:?}");
 
-		let mut view = View::new(self.api.clone(), at.clone());
+		let mut view = View::new(self.api.clone(), at.clone(), self.options.clone());
 
 		//we need to capture all import notifiication from the very beginning
 		self.import_notification_sink
