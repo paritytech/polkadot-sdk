@@ -330,7 +330,7 @@ impl<T: Config> Pallet<T> {
 		let Ok(auto_renewals) = renewals
 			.into_iter()
 			.flat_map(|record| {
-				if sale.region_begin < record.begin {
+				if sale.region_begin < record.next_renewal {
 					// We skip the renewal for this core.
 					return Some(record)
 				}
@@ -347,7 +347,7 @@ impl<T: Config> Pallet<T> {
 					Some(AutoRenewalRecord {
 						core: new_core_index,
 						task: record.task,
-						begin: sale.region_end,
+						next_renewal: sale.region_end,
 					})
 				} else {
 					Self::deposit_event(Event::<T>::AutoRenewalFailed {

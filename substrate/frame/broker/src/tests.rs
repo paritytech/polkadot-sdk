@@ -1512,7 +1512,7 @@ fn enable_auto_renew_works() {
 		assert_ok!(Broker::do_enable_auto_renew(1001, region_id.core, 1001, None));
 		assert_eq!(
 			AutoRenewals::<Test>::get().to_vec(),
-			vec![AutoRenewalRecord { core: 0, task: 1001, begin: 7 }]
+			vec![AutoRenewalRecord { core: 0, task: 1001, next_renewal: 7 }]
 		);
 		System::assert_has_event(
 			Event::<Test>::AutoRenewalEnabled { core: region_id.core, task: 1001 }.into(),
@@ -1529,9 +1529,9 @@ fn enable_auto_renew_works() {
 		assert_eq!(
 			AutoRenewals::<Test>::get().to_vec(),
 			vec![
-				AutoRenewalRecord { core: 0, task: 1001, begin: 7 },
-				AutoRenewalRecord { core: 1, task: 1002, begin: 7 },
-				AutoRenewalRecord { core: 2, task: 1003, begin: 7 },
+				AutoRenewalRecord { core: 0, task: 1001, next_renewal: 7 },
+				AutoRenewalRecord { core: 1, task: 1002, next_renewal: 7 },
+				AutoRenewalRecord { core: 2, task: 1003, next_renewal: 7 },
 			]
 		);
 	});
@@ -1551,8 +1551,8 @@ fn enable_auto_renewal_with_end_hint_works() {
 					.unwrap(),
 			),
 		};
-		// Each lease-holding task should be allowed to auto renew. Although the `when` field will
-		// likely be set to a later timeslice. For this reason renewals will only begin later.
+		// For lease holding tasks, the renewal record is set for when the lease expires, which is
+		// likely further in the future than the start of the next sale.
 		PotentialRenewals::<Test>::insert(PotentialRenewalId { core: 0, when: 10 }, &record);
 
 		endow(1001, 1000);
@@ -1564,7 +1564,7 @@ fn enable_auto_renewal_with_end_hint_works() {
 		assert_ok!(Broker::do_enable_auto_renew(1001, 0, 1001, Some(10)));
 		assert_eq!(
 			AutoRenewals::<Test>::get().to_vec(),
-			vec![AutoRenewalRecord { core: 0, task: 1001, begin: 10 },]
+			vec![AutoRenewalRecord { core: 0, task: 1001, next_renewal: 10 },]
 		);
 		System::assert_has_event(Event::<Test>::AutoRenewalEnabled { core: 0, task: 1001 }.into());
 
@@ -1625,7 +1625,7 @@ fn enable_auto_renew_renews() {
 		assert_ok!(Broker::do_enable_auto_renew(1001, region_id.core, 1001, None));
 		assert_eq!(
 			AutoRenewals::<Test>::get().to_vec(),
-			vec![AutoRenewalRecord { core: 0, task: 1001, begin: 10 }]
+			vec![AutoRenewalRecord { core: 0, task: 1001, next_renewal: 10 }]
 		);
 		assert!(PotentialRenewals::<Test>::get(PotentialRenewalId {
 			core: region_id.core,
@@ -1658,9 +1658,9 @@ fn auto_renewal_works() {
 		assert_eq!(
 			AutoRenewals::<Test>::get().to_vec(),
 			vec![
-				AutoRenewalRecord { core: 0, task: 1001, begin: 7 },
-				AutoRenewalRecord { core: 1, task: 1002, begin: 7 },
-				AutoRenewalRecord { core: 2, task: 1003, begin: 7 },
+				AutoRenewalRecord { core: 0, task: 1001, next_renewal: 7 },
+				AutoRenewalRecord { core: 1, task: 1002, next_renewal: 7 },
+				AutoRenewalRecord { core: 2, task: 1003, next_renewal: 7 },
 			]
 		);
 
@@ -1711,8 +1711,8 @@ fn auto_renewal_works() {
 		assert_eq!(
 			AutoRenewals::<Test>::get().to_vec(),
 			vec![
-				AutoRenewalRecord { core: 0, task: 1001, begin: 10 },
-				AutoRenewalRecord { core: 1, task: 1003, begin: 10 },
+				AutoRenewalRecord { core: 0, task: 1001, next_renewal: 10 },
+				AutoRenewalRecord { core: 1, task: 1003, next_renewal: 10 },
 			]
 		);
 	});
@@ -1737,7 +1737,7 @@ fn disable_auto_renew_works() {
 		assert_ok!(Broker::do_enable_auto_renew(1001, region_id.core, 1001, None));
 		assert_eq!(
 			AutoRenewals::<Test>::get().to_vec(),
-			vec![AutoRenewalRecord { core: 0, task: 1001, begin: 7 }]
+			vec![AutoRenewalRecord { core: 0, task: 1001, next_renewal: 7 }]
 		);
 
 		// Only the sovereign account can disable:

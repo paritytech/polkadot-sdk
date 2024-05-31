@@ -305,7 +305,7 @@ pub struct AutoRenewalRecord {
 	/// The task assigned to the core. We keep track of it so we don't have to look it up when
 	/// performing auto-renewal.
 	pub task: TaskId,
-	/// Lease-holding parachains can also enable auto-renewal. They will start renewing only at the
-	/// end of the lease. This specifies the beginning timeslice from which we auto-renew.
-	pub begin: Timeslice,
+	/// Specifies when the upcoming renewal should be performed. This is used for lease holding
+	/// tasks to ensure that the renewal process does not begin until the lease expires.
+	pub next_renewal: Timeslice,
 }
