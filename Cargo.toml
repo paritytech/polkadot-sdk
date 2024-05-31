@@ -131,6 +131,7 @@ members = [
 	"cumulus/parachains/runtimes/testing/penpal",
 	"cumulus/parachains/runtimes/testing/rococo-parachain",
 	"cumulus/polkadot-parachain",
+	"cumulus/polkadot-parachain/common",
 	"cumulus/primitives/aura",
 	"cumulus/primitives/core",
 	"cumulus/primitives/parachain-inherent",

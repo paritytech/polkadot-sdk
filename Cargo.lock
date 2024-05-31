@@ -13699,6 +13699,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "polkadot-parachain-common"
+version = "0.1.0"
+
+[[package]]
 name = "polkadot-parachain-primitives"
 version = "6.0.0"
 dependencies = [
