@@ -202,7 +202,15 @@ pub mod pallet {
 		fn on_initialize(_now: BlockNumberFor<T>) -> Weight {
 			// Update revenue information storage.
 			Revenue::<T>::mutate(|revenue| {
-				revenue.force_insert_keep_left(0, 0u32.into()).defensive_ok();
+				if let Some(overdue) =
+					revenue.force_insert_keep_left(0, 0u32.into()).defensive_unwrap_or(None)
+				{
+					// We have some overdue revenue not claimed by the parachain, let's accumulate
+					// it at the oldest stored block
+					if let Some(last) = revenue.last_mut() {
+						*last = last.saturating_add(overdue);
+					}
+				}
 			});
 
 			let config = configuration::ActiveConfig::<T>::get();

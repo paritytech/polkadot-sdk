@@ -767,7 +767,7 @@ fn revenue_information_fetching_works() {
 
 		run_to_block(14, |n| if n == 14 { Some(Default::default()) } else { None });
 
-		let revenue = OnDemandAssigner::revenue_until(14);
+		let revenue = OnDemandAssigner::revenue_until(15);
 
 		// All 3 orders should be accounted for.
 		assert_eq!(revenue, 30_000);
@@ -779,5 +779,17 @@ fn revenue_information_fetching_works() {
 
 		// Order is not in range of  the revenue_until call
 		assert_eq!(revenue, 0);
+
+		run_to_block(20, |n| if n == 20 { Some(Default::default()) } else { None });
+		let revenue = OnDemandAssigner::revenue_until(21);
+		assert_eq!(revenue, 10_000);
+
+		// Make sure overdue revenue is accumulated
+		for i in 21..=35 {
+			run_to_block(i, |n| if n % 10 == 0 { Some(Default::default()) } else { None });
+			place_order(para_a);
+		}
+		let revenue = OnDemandAssigner::revenue_until(36);
+		assert_eq!(revenue, 150_000);
 	});
 }
