@@ -30,7 +30,7 @@ use parity_scale_codec::{Decode, Encode, Error as CodecError, Input};
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
 use polkadot_primitives::{
-	BlakeTwo256, BlockNumber, CandidateCommitments, CandidateHash, ChunkIndex, CollatorPair,
+	BlakeTwo256, BlockNumber, CandidateCommitments, CandidateHash, ChunkIndex,
 	CommittedCandidateReceipt, CompactStatement, CoreIndex, EncodeAs, Hash, HashT, HeadData,
 	Id as ParaId, PersistedValidationData, SessionIndex, Signed, UncheckedSigned, ValidationCode,
 	ValidationCodeHash, MAX_CODE_SIZE, MAX_POV_SIZE,
@@ -490,8 +490,6 @@ pub type CollatorFn = Box<
 /// Configuration for the collation generator
 #[cfg(not(target_os = "unknown"))]
 pub struct CollationGenerationConfig {
-	/// Collator's authentication key, so it can sign things.
-	pub key: CollatorPair,
 	/// Collation function. See [`CollatorFn`] for more details.
 	///
 	/// If this is `None`, it implies that collations are intended to be submitted

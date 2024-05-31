@@ -199,7 +199,6 @@ pub mod relay_chain_driven {
 
 		let (stream_tx, stream_rx) = mpsc::channel(0);
 		let config = CollationGenerationConfig {
-			key,
 			para_id,
 			collator: Some(Box::new(move |relay_parent, validation_data| {
 				// Cloning the channel on each usage effectively makes the channel
@@ -240,11 +239,10 @@ pub mod relay_chain_driven {
 /// For callback-driven collators, use the [`relay_chain_driven`] module.
 pub async fn initialize_collator_subsystems(
 	overseer_handle: &mut OverseerHandle,
-	key: CollatorPair,
 	para_id: ParaId,
 	reinitialize: bool,
 ) {
-	let config = CollationGenerationConfig { key, para_id, collator: None };
+	let config = CollationGenerationConfig { para_id, collator: None };
 
 	if reinitialize {
 		overseer_handle
