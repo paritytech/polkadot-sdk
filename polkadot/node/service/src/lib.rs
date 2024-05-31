@@ -452,8 +452,8 @@ fn new_partial_basics(
 	let telemetry = telemetry.map(|(worker, telemetry)| {
 		if let Some(worker) = worker {
 			task_manager.spawn_handle().spawn(
-				"sc_telemetry",
-				Some("sc_telemetry"),
+				"telemetry",
+				Some("telemetry"),
 				Box::pin(worker.run()),
 			);
 		}

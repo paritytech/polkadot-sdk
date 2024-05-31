@@ -35,7 +35,7 @@ use sp_runtime::{
 };
 
 /// The log target to be used by client code.
-pub const CLIENT_LOG_TARGET: &str = "finality_grandpa";
+pub const CLIENT_LOG_TARGET: &str = "grandpa";
 /// The log target to be used by runtime code.
 pub const RUNTIME_LOG_TARGET: &str = "runtime::grandpa";
 

@@ -27,5 +27,5 @@ polkavm-derive = { workspace = true }
 default-target = ["wasm32-unknown-unknown"]
 
 [features]
-default = ["codec"]
-codec = ["dep:codec", "scale-info"]
+default = ["scale"]
+scale = ["dep:codec", "scale-info"]
