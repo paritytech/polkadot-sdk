@@ -62,7 +62,7 @@ sc-executor-common = { path = "../../../substrate/client/executor/common" }
 
 # Polkadot
 polkadot-primitives = { path = "../../../polkadot/primitives" }
-polkadot-service = { path = "../../../polkadot/node/service", features = ["elastic-scaling-experimental"] }
+polkadot-service = { path = "../../../polkadot/node/service" }
 polkadot-test-service = { path = "../../../polkadot/node/test/service" }
 polkadot-cli = { path = "../../../polkadot/cli" }
 polkadot-node-subsystem = { path = "../../../polkadot/node/subsystem" }
