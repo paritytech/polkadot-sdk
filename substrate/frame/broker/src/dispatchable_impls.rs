@@ -484,23 +484,28 @@ impl<T: Config> Pallet<T> {
 	) -> DispatchResult {
 		let sale = SaleInfo::<T>::get().ok_or(Error::<T>::NoSales)?;
 
-		let _renewal_record = if let Some(workload_end) = workload_end_hint {
-			PotentialRenewals::<T>::get(PotentialRenewalId { core, when: workload_end })
-				.ok_or(Error::<T>::NotAllowed)?
+		if let Some(workload_end) = workload_end_hint {
+			ensure!(
+				PotentialRenewals::<T>::get(PotentialRenewalId { core, when: workload_end })
+					.is_some(),
+				Error::<T>::NotAllowed
+			);
 		} else {
 			// If the core hasn't been renewed yet we will renew it now.
-			if let Some(record) =
-				PotentialRenewals::<T>::get(PotentialRenewalId { core, when: sale.region_begin })
+			if PotentialRenewals::<T>::get(PotentialRenewalId { core, when: sale.region_begin })
+				.is_some()
 			{
 				Self::do_renew(sovereign_account.clone(), core)?;
-				record
 			} else {
 				// If we couldn't find the renewal record for the current bulk period we should
 				// be able to find it for the upcoming bulk period.
 				//
 				// If not the core is not eligible for renewal.
-				PotentialRenewals::<T>::get(PotentialRenewalId { core, when: sale.region_end })
-					.ok_or(Error::<T>::NotAllowed)?
+				ensure!(
+					PotentialRenewals::<T>::get(PotentialRenewalId { core, when: sale.region_end })
+						.is_some(),
+					Error::<T>::NotAllowed
+				);
 			}
 		};
 

@@ -221,8 +221,6 @@ impl CoretimeInterface for CoretimeAllocator {
 	}
 }
 
-impl origin::Config for Runtime {}
-
 pub struct SovereignAccountOf;
 impl MaybeConvert<TaskId, AccountId> for SovereignAccountOf {
 	fn maybe_convert(id: TaskId) -> Option<AccountId> {
