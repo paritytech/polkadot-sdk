@@ -73,8 +73,6 @@ parameter_types! {
 impl frame_system::Config for Runtime {
 	type BlockWeights = BlockWeights;
 	type Nonce = u64;
-	type AccountId = u64;
-	type Lookup = IdentityLookup<Self::AccountId>;
 	type Block = Block;
 	type PalletInfo = PalletInfo;
 	type AccountData = pallet_balances::AccountData<Self::AccountId>;

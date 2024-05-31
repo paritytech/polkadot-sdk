@@ -43,7 +43,6 @@ impl frame_system::Config for Test {
 	type Lookup = Indices;
 	type Block = Block;
 	type AccountData = pallet_balances::AccountData<u64>;
-	type MaxConsumers = ConstU32<16>;
 }
 
 impl pallet_balances::Config for Test {

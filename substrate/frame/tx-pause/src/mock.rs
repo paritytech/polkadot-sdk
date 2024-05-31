@@ -36,8 +36,6 @@ use sp_runtime::{
 impl frame_system::Config for Test {
 	type BaseCallFilter = InsideBoth<Everything, TxPause>;
 	type Nonce = u64;
-	type AccountId = u64;
-	type Lookup = IdentityLookup<Self::AccountId>;
 	type Block = Block;
 	type AccountData = pallet_balances::AccountData<u64>;
 }

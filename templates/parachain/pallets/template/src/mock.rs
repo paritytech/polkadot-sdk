@@ -23,8 +23,6 @@ parameter_types! {
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl system::Config for Test {
 	type Nonce = u64;
-	type AccountId = u64;
-	type Lookup = IdentityLookup<Self::AccountId>;
 	type Block = Block;
 }
 
