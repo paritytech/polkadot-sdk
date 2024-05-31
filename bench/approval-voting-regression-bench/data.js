@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1717067617261,
+  "lastUpdate": 1717126619773,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -5733,6 +5733,53 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting",
             "value": 9.960458793990032,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "gupnik",
+            "username": "gupnik",
+            "email": "nikhilgupta.iitk@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "78c24ec9e24ea04b2f8513b53a8d1246ff6b35ed",
+          "message": "Adds ability to specify chain type in chain-spec-builder (#4542)\n\nCurrently, `chain-spec-builder` only creates a spec with `Live` chain\ntype. This PR adds the ability to specify it while keeping the same\ndefault.\n\n---------\n\nCo-authored-by: Kian Paimani <5588131+kianenigma@users.noreply.github.com>",
+          "timestamp": "2024-05-31T02:09:12Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/78c24ec9e24ea04b2f8513b53a8d1246ff6b35ed"
+        },
+        "date": 1717126591136,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52941.59999999999,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63548.3,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 2.959758548790157,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 9.208205212680014,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 6.904960204020003,
             "unit": "seconds"
           }
         ]
