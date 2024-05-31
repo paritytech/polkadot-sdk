@@ -903,6 +903,21 @@ mod benches {
 	}
 
 	#[benchmark]
+	fn notify_revenue() -> Result<(), BenchmarkError> {
+		let admin_origin =
+			T::AdminOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
+
+		#[extrinsic_call]
+		_(
+			admin_origin as T::RuntimeOrigin,
+			OnDemandRevenueRecord { until: 100u32.into(), amount: 100u32.into() },
+		);
+
+		assert!(RevenueInbox::<T>::take().is_some());
+		Ok(())
+	}
+
+	#[benchmark]
 	fn do_tick_base() -> Result<(), BenchmarkError> {
 		setup_and_start_sale::<T>()?;
 
