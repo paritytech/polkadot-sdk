@@ -20,16 +20,38 @@ use proc_macro2::{Ident, Span, TokenStream as TokenStream2};
 
 /// Expands implementation of runtime level `DispatchQuery`.
 pub fn expand_outer_query(
-	runtime_name: &Ident,
+	_runtime_name: &Ident,
 	pallet_decls: &[Pallet],
 	scrate: &TokenStream2,
 ) -> TokenStream2 {
 	let runtime_query = syn::Ident::new("RuntimeQuery", Span::call_site());
 
+	let query_id_prefix_impls = pallet_decls.iter().map(|pallet| {
+		let pallet_path = &pallet.path;
+		let pallet_name = &pallet.name;
+
+		let mut output = [0u8; 16];
+		let pallet_signature = format!(
+			"{path}::{pallet}",
+			path = quote::quote!(#pallet_path).to_string(),
+			pallet = quote::quote!(#pallet_name).to_string()
+		);
+		let hash = sp_crypto_hashing::blake2_128(pallet_signature.as_bytes());
+		output.copy_from_slice(&hash);
+		let query_id_prefix_bytes =
+			output.map(|byte| syn::LitInt::new(&format!("0x{:X}_u8", byte), Span::call_site()));
+
+		quote::quote! {
+			impl #scrate::traits::QueryIdPrefix for #scrate::traits::PalletQueryId<#pallet_name> {
+				const PREFIX: [::core::primitive::u8; 16usize] = [ #( #query_id_prefix_bytes ),* ];
+			}
+		}
+	});
+
 	let query_match_arms = pallet_decls.iter().map(|pallet| {
 		let pallet_name = &pallet.name;
 		quote::quote! {
-			< #pallet_name as #scrate::traits::QueryIdPrefix>::PREFIX => {
+			< #scrate::traits::PalletQueryId<#pallet_name> as #scrate::traits::QueryIdPrefix>::PREFIX => {
 				< #pallet_name as #scrate::traits::DispatchQuery>::dispatch_query(id, input, output)
 			}
 		}
@@ -47,8 +69,9 @@ pub fn expand_outer_query(
 		pub enum #runtime_query {}
 
 		const _: () = {
-			impl #scrate::traits::DispatchQuery for #runtime_query
-			{
+			#( #query_id_prefix_impls )*
+
+			impl #scrate::traits::DispatchQuery for #runtime_query {
 				#[deny(unreachable_patterns)] // todo: [AJ] should error if identical prefixes
 				fn dispatch_query<O: #scrate::__private::codec::Output>(
 					id: & #scrate::traits::QueryId,
