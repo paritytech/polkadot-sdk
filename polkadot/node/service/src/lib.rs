@@ -396,7 +396,13 @@ type FullGrandpaBlockImport<ChainSelection = FullSelectChain> =
 	sc_consensus_grandpa::GrandpaBlockImport<FullBackend, Block, FullClient, ChainSelection>;
 #[cfg(feature = "full-node")]
 type FullBeefyBlockImport<InnerBlockImport, AuthorityId> =
-	sc_consensus_beefy::import::BeefyBlockImport<Block, FullBackend, FullClient, InnerBlockImport, AuthorityId>;
+	sc_consensus_beefy::import::BeefyBlockImport<
+		Block,
+		FullBackend,
+		FullClient,
+		InnerBlockImport,
+		AuthorityId,
+	>;
 
 #[cfg(feature = "full-node")]
 struct Basics {
@@ -1298,9 +1304,16 @@ pub fn new_full<
 			is_authority: role.is_authority(),
 		};
 
-		let gadget = sc_consensus_beefy::start_beefy_gadget::<_, _, _, _, _, _, _, ecdsa_crypto::AuthorityId>(
-			beefy_params,
-		);
+		let gadget = sc_consensus_beefy::start_beefy_gadget::<
+			_,
+			_,
+			_,
+			_,
+			_,
+			_,
+			_,
+			ecdsa_crypto::AuthorityId,
+		>(beefy_params);
 
 		// BEEFY is part of consensus, if it fails we'll bring the node down with it to make sure it
 		// is noticed.
