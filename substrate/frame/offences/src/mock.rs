@@ -27,10 +27,7 @@ use frame_support::{
 	traits::ConstU32,
 	weights::{constants::RocksDbWeight, Weight},
 };
-use sp_runtime::{
-	traits::{IdentityLookup},
-	BuildStorage, Perbill,
-};
+use sp_runtime::{traits::IdentityLookup, BuildStorage, Perbill};
 use sp_staking::{
 	offence::{self, Kind, OffenceDetails},
 	SessionIndex,

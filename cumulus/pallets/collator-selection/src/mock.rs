@@ -22,11 +22,7 @@ use frame_support::{
 };
 use frame_system as system;
 use frame_system::EnsureSignedBy;
-use sp_runtime::{
-	testing::UintAuthorityId,
-	traits::{OpaqueKeys},
-	BuildStorage, RuntimeAppPublic,
-};
+use sp_runtime::{testing::UintAuthorityId, traits::OpaqueKeys, BuildStorage, RuntimeAppPublic};
 
 type Block = frame_system::mocking::MockBlock<Test>;
 

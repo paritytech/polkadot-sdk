@@ -1,8 +1,6 @@
 use frame_support::{derive_impl, parameter_types};
 use frame_system as system;
-use sp_runtime::{
-	BuildStorage,
-};
+use sp_runtime::BuildStorage;
 
 type Block = frame_system::mocking::MockBlock<Test>;
 

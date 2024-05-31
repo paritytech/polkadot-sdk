@@ -27,10 +27,7 @@ use frame_support::{
 	traits::{ConstU64, Everything, InsideBoth, InstanceFilter},
 };
 use frame_system::EnsureSignedBy;
-use sp_runtime::{
-	traits::{BlakeTwo256},
-	BuildStorage,
-};
+use sp_runtime::{traits::BlakeTwo256, BuildStorage};
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {

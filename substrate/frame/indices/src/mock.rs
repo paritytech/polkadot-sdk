@@ -20,10 +20,7 @@
 #![cfg(test)]
 
 use crate::{self as pallet_indices, Config};
-use frame_support::{
-	derive_impl,
-	traits::{ConstU64},
-};
+use frame_support::{derive_impl, traits::ConstU64};
 use sp_runtime::BuildStorage;
 
 type Block = frame_system::mocking::MockBlock<Test>;

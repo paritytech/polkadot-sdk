@@ -2,11 +2,7 @@
 // SPDX-FileCopyrightText: 2023 Snowfork <hello@snowfork.com>
 use super::*;
 
-use frame_support::{
-	derive_impl, parameter_types,
-	traits::{ConstU32},
-	weights::IdentityFee,
-};
+use frame_support::{derive_impl, parameter_types, traits::ConstU32, weights::IdentityFee};
 use hex_literal::hex;
 use snowbridge_beacon_primitives::{
 	types::deneb, BeaconHeader, ExecutionProof, Fork, ForkVersions, VersionedExecutionPayloadHeader,
