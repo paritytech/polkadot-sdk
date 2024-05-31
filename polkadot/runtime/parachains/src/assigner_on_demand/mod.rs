@@ -404,8 +404,11 @@ where
 				if let Some(current_block) = bounded_revenue.get_mut(0) {
 					*current_block = current_block.saturating_add(spot_price);
 				} else {
-					// The value's been inserted in `on_initialize` so this should never happen
-					defensive!("Cannot update current block's revenue info");
+					// Revenue has already been claimed in the same block, including the block
+					// itself. It shouldn't normally happen as the parachain part checks not to
+					// claim revenue in the future, but relay-chain-only implementations (e.g. mocks
+					// or some future implementations) may still do that.
+					bounded_revenue.try_push(spot_price).defensive_ok();
 				}
 			});
 
@@ -630,24 +633,14 @@ where
 		let now = <frame_system::Pallet<T>>::block_number();
 		let mut amount: BalanceOf<T> = BalanceOf::<T>::zero();
 		Revenue::<T>::mutate(|revenue| {
-			//
-			// TODO: Proposed implementation, decide which is better
-			//
-			// while !revenue.is_empty() {
-			// 	let index = (revenue.len() - 1) as u32;
-			// 	if when > now.saturating_sub(index.into()) {
-			// 		amount = amount.saturating_add(revenue.pop().defensive_unwrap_or(0));
-			// 	} else {
-			// 		break
-			// 	}
-			// }
-
-			revenue.into_iter().enumerate().for_each(|(index, block_revenue)| {
-				if when > now.saturating_sub((index as u32).into()) {
-					amount = amount.saturating_add(*block_revenue);
-					*block_revenue = BalanceOf::<T>::zero();
+			while !revenue.is_empty() {
+				let index = (revenue.len() - 1) as u32;
+				if when > now.saturating_sub(index.into()) {
+					amount = amount.saturating_add(revenue.pop().defensive_unwrap_or(0u32.into()));
+				} else {
+					break
 				}
-			})
+			}
 		});
 
 		let imbalance = T::Currency::burn(amount);
