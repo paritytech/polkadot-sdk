@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1717127219598,
+  "lastUpdate": 1717137247178,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
@@ -9911,6 +9911,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.1825572453,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Kian Paimani",
+            "username": "kianenigma",
+            "email": "5588131+kianenigma@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "71f4f5a80bb9ef00d651c62a58c6e8192d4d9707",
+          "message": "Update `runtime_type` ref doc with the new \"Associated Type Bounds\" (#4624)\n\nCo-authored-by: Bastian Köcher <git@kchr.de>",
+          "timestamp": "2024-05-31T04:58:05Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/71f4f5a80bb9ef00d651c62a58c6e8192d4d9707"
+        },
+        "date": 1717137218760,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.1926279451666667,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 12.940070551666668,
             "unit": "seconds"
           }
         ]
