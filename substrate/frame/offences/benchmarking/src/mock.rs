@@ -29,12 +29,10 @@ use frame_system as system;
 use pallet_session::historical as pallet_session_historical;
 use sp_runtime::{
 	testing::{Header, UintAuthorityId},
-	traits::IdentityLookup,
 	BuildStorage, Perbill,
 };
 
 type AccountId = u64;
-type Nonce = u32;
 type Balance = u64;
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
