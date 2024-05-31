@@ -138,7 +138,7 @@ jobs:
         if: ${{ inputs.binary == 'polkadot-parachain' || inputs.binary == 'polkadot' }}
         working-directory: release-artifacts
         run: |
-          . ../../.github/scripts/common/lib.sh
+          . ../.github/scripts/common/lib.sh
 
           echo "Checking binary $BINARY"
           check_sha256 $BINARY && echo "OK" || echo "ERR"
@@ -147,7 +147,7 @@ jobs:
         if: ${{ inputs.binary == 'polkadot-parachain' || inputs.binary == 'polkadot' }}
         working-directory: release-artifacts
         run: |
-          . ../../.github/scripts/common/lib.sh
+          . ../.github/scripts/common/lib.sh
           import_gpg_keys
           check_gpg $BINARY
 
