@@ -80,7 +80,7 @@ fn run_to_block(
 		Paras::initializer_initialize(b + 1);
 		Scheduler::initializer_initialize(b + 1);
 
-		// Update the spot traffic on every block.
+		// Update the spot traffic and revenue on every block.
 		OnDemandAssigner::on_initialize(b + 1);
 
 		// In the real runtime this is expected to be called by the `InclusionInherent` pallet.
