@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1717142807945,
+  "lastUpdate": 1717156328542,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -5874,6 +5874,53 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 3.1723129015200624,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Przemek Rzad",
+            "username": "rzadp",
+            "email": "przemek@parity.io"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "8d8c0e13a7dc8d067367ac55fb142b12ac8a6d13",
+          "message": "Use Unlicense for templates (#4628)\n\nAddresses\n[this](https://github.com/paritytech/polkadot-sdk/issues/3155#issuecomment-2134411391).",
+          "timestamp": "2024-05-31T10:15:48Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/8d8c0e13a7dc8d067367ac55fb142b12ac8a6d13"
+        },
+        "date": 1717156299614,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52942.2,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63548.08999999999,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 8.038045056569993,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 10.348325275789893,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 3.844264029350183,
             "unit": "seconds"
           }
         ]
