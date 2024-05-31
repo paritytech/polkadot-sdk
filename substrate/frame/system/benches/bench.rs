@@ -60,7 +60,6 @@ frame_support::parameter_types! {
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Runtime {
 	type Nonce = u64;
-	type RuntimeCall = RuntimeCall;
 	type AccountId = u64;
 	type Lookup = IdentityLookup<Self::AccountId>;
 	type Block = Block;
