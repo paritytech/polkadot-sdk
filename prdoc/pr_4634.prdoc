@@ -30,3 +30,5 @@ crates:
     bump: minor
   - name: people-westend-runtime
     bump: minor
+  - name: penpal-runtime
+    bump: minor
