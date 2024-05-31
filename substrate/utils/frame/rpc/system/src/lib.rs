@@ -37,6 +37,7 @@ use sp_runtime::{legacy, traits};
 pub use frame_system_rpc_runtime_api::AccountNonceApi;
 
 /// System RPC methods.
+#[docify::export]
 #[rpc(client, server)]
 pub trait SystemApi<BlockHash, AccountId, Nonce> {
 	/// Returns the next valid index (aka nonce) for given account.
