@@ -330,8 +330,9 @@ impl<T: Config> Pallet<T> {
 		let Ok(auto_renewals) = renewals
 			.into_iter()
 			.flat_map(|record| {
+				// Check if the next renewal is scheduled further in the future than the start of
+				// the next region beginning. If so, we skip the renewal for this core.
 				if sale.region_begin < record.next_renewal {
-					// We skip the renewal for this core.
 					return Some(record)
 				}
 
