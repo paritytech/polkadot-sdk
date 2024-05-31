@@ -1,6 +1,6 @@
 # Node
 
-ℹ️ A node -  in the Polkadot SDK nomenclature - is a normal binary executable, whose primary purpose is to execute the given [runtime](../runtime/README.md).
+ℹ️ A node -  in Polkadot - is a binary executable, whose primary purpose is to execute the [runtime](../runtime/README.md).
 
 🔗 It communicated with other nodes in the network, and aims for [consensus](https://wiki.polkadot.network/docs/learn-consensus) among them.
 
