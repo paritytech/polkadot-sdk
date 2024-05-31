@@ -147,7 +147,7 @@ where
 			.expect("never fails in tests; qed.")
 			.map(|key_value| key_value.expect("never fails in tests; qed."))
 			.map(|(k, v)| (k, Some(v)))
-			.chain(self.overlay.changes().map(|(k, v)| (k.clone(), v.value().cloned())))
+			.chain(self.overlay.changes_mut().map(|(k, v)| (k.clone(), v.value().cloned())))
 			.collect::<HashMap<_, _>>()
 			.into_iter()
 			.filter_map(|(k, maybe_val)| maybe_val.map(|val| (k, val)))

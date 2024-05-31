@@ -534,23 +534,44 @@ impl<H: Hasher> OverlayedChanges<H> {
 
 	/// Get an iterator over all child changes as seen by the current transaction.
 	pub fn children(
+		&self,
+	) -> impl Iterator<Item = (impl Iterator<Item = (&StorageKey, &OverlayedValue)>, &ChildInfo)>
+	{
+		self.children.values().map(|v| (v.0.changes(), &v.1))
+	}
+
+	/// Get an iterator over all child changes as seen by the current transaction.
+	pub fn children_mut(
 		&mut self,
 	) -> impl Iterator<Item = (impl Iterator<Item = (&StorageKey, &mut OverlayedValue)>, &ChildInfo)>
 	{
-		self.children.values_mut().map(|v| (v.0.changes(), &v.1))
+		self.children.values_mut().map(|v| (v.0.changes_mut(), &v.1))
 	}
 
 	/// Get an iterator over all top changes as been by the current transaction.
-	pub fn changes(&mut self) -> impl Iterator<Item = (&StorageKey, &mut OverlayedValue)> {
+	pub fn changes(&self) -> impl Iterator<Item = (&StorageKey, &OverlayedValue)> {
 		self.top.changes()
+	}
+
+	/// Get an iterator over all top changes as been by the current transaction.
+	pub fn changes_mut(&mut self) -> impl Iterator<Item = (&StorageKey, &mut OverlayedValue)> {
+		self.top.changes_mut()
 	}
 
 	/// Get an optional iterator over all child changes stored under the supplied key.
 	pub fn child_changes(
+		&self,
+		key: &[u8],
+	) -> Option<(impl Iterator<Item = (&StorageKey, &OverlayedValue)>, &ChildInfo)> {
+		self.children.get(key).map(|(overlay, info)| (overlay.changes(), &*info))
+	}
+
+	/// Get an optional iterator over all child changes stored under the supplied key.
+	pub fn child_changes_mut(
 		&mut self,
 		key: &[u8],
 	) -> Option<(impl Iterator<Item = (&StorageKey, &mut OverlayedValue)>, &ChildInfo)> {
-		self.children.get_mut(key).map(|(overlay, info)| (overlay.changes(), &*info))
+		self.children.get_mut(key).map(|(overlay, info)| (overlay.changes_mut(), &*info))
 	}
 
 	/// Get an list of all index operations.
@@ -640,12 +661,12 @@ impl<H: Hasher> OverlayedChanges<H> {
 			return (cache.transaction_storage_root, true)
 		}
 
-		let delta = self.top.changes().map(|(k, v)| (&k[..], v.value().map(|v| &v[..])));
+		let delta = self.top.changes_mut().map(|(k, v)| (&k[..], v.value().map(|v| &v[..])));
 
 		let child_delta = self
 			.children
 			.values_mut()
-			.map(|v| (&v.1, v.0.changes().map(|(k, v)| (&k[..], v.value().map(|v| &v[..])))));
+			.map(|v| (&v.1, v.0.changes_mut().map(|(k, v)| (&k[..], v.value().map(|v| &v[..])))));
 
 		let (root, transaction) = backend.full_storage_root(delta, child_delta, state_version);
 
@@ -685,7 +706,7 @@ impl<H: Hasher> OverlayedChanges<H> {
 			return Ok((root, true))
 		}
 
-		let root = if let Some((changes, info)) = self.child_changes(storage_key) {
+		let root = if let Some((changes, info)) = self.child_changes_mut(storage_key) {
 			let delta = changes.map(|(k, v)| (k.as_ref(), v.value().map(AsRef::as_ref)));
 			Some(backend.child_storage_root(info, delta, state_version))
 		} else {

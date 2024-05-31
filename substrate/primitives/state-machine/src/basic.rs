@@ -64,12 +64,12 @@ impl BasicExternalities {
 		Storage {
 			top: self
 				.overlay
-				.changes()
+				.changes_mut()
 				.filter_map(|(k, v)| v.value().map(|v| (k.to_vec(), v.to_vec())))
 				.collect(),
 			children_default: self
 				.overlay
-				.children()
+				.children_mut()
 				.map(|(iter, i)| {
 					(
 						i.storage_key().to_vec(),
@@ -120,23 +120,37 @@ impl BasicExternalities {
 	}
 }
 
-impl BasicExternalities {
-	/// Same as `Eq` trait but on mutable references.
-	/// This will reduce all append values to their single value representation
-	/// as any read does.
-	#[cfg(test)]
-	pub fn flatten_and_eq(&mut self, other: &mut BasicExternalities) -> bool {
-		self.overlay.changes().map(|(k, v)| (k, v.value())).collect::<BTreeMap<_, _>>() ==
-			other.overlay.changes().map(|(k, v)| (k, v.value())).collect::<BTreeMap<_, _>>() &&
+#[cfg(test)]
+impl PartialEq for BasicExternalities {
+	fn eq(&self, other: &Self) -> bool {
+		self.overlay
+			.changes()
+			.map(|(k, v)| (k, v.value_ref().materialize()))
+			.collect::<BTreeMap<_, _>>() ==
+			other
+				.overlay
+				.changes()
+				.map(|(k, v)| (k, v.value_ref().materialize()))
+				.collect::<BTreeMap<_, _>>() &&
 			self.overlay
 				.children()
-				.map(|(iter, i)| (i, iter.map(|(k, v)| (k, v.value())).collect::<BTreeMap<_, _>>()))
+				.map(|(iter, i)| {
+					(
+						i,
+						iter.map(|(k, v)| (k, v.value_ref().materialize()))
+							.collect::<BTreeMap<_, _>>(),
+					)
+				})
 				.collect::<BTreeMap<_, _>>() ==
 				other
 					.overlay
 					.children()
 					.map(|(iter, i)| {
-						(i, iter.map(|(k, v)| (k, v.value())).collect::<BTreeMap<_, _>>())
+						(
+							i,
+							iter.map(|(k, v)| (k, v.value_ref().materialize()))
+								.collect::<BTreeMap<_, _>>(),
+						)
 					})
 					.collect::<BTreeMap<_, _>>()
 	}
@@ -256,7 +270,7 @@ impl Externalities for BasicExternalities {
 	fn storage_root(&mut self, state_version: StateVersion) -> Vec<u8> {
 		let mut top = self
 			.overlay
-			.changes()
+			.changes_mut()
 			.filter_map(|(k, v)| v.value().map(|v| (k.clone(), v.clone())))
 			.collect::<BTreeMap<_, _>>();
 		// Single child trie implementation currently allows using the same child
@@ -283,7 +297,7 @@ impl Externalities for BasicExternalities {
 		child_info: &ChildInfo,
 		state_version: StateVersion,
 	) -> Vec<u8> {
-		if let Some((data, child_info)) = self.overlay.child_changes(child_info.storage_key()) {
+		if let Some((data, child_info)) = self.overlay.child_changes_mut(child_info.storage_key()) {
 			let delta =
 				data.into_iter().map(|(k, v)| (k.as_ref(), v.value().map(|v| v.as_slice())));
 			crate::in_memory_backend::new_in_mem::<Blake2Hasher>()

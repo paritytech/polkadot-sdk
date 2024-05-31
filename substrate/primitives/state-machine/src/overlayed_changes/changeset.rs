@@ -26,6 +26,7 @@ use std::collections::HashSet as Set;
 
 use crate::{ext::StorageAppend, warn};
 use alloc::{
+	borrow::Cow,
 	collections::{btree_map::BTreeMap, btree_set::BTreeSet},
 	vec::Vec,
 };
@@ -126,25 +127,6 @@ pub enum StorageEntry {
 	},
 }
 
-/// Data with append is passed around transaction items,
-/// latest consecutive append always contains the data and
-/// previous one the size of data at the transaction end.
-#[derive(Debug, Clone)]
-#[cfg_attr(test, derive(PartialEq))]
-pub enum AppendData {
-	/// The value is in next transaction, we keep
-	/// trace of the total size of data size in this layer.
-	///
-	/// The size does not include the size of the compact 32 encoded number of appends.
-	/// This can be deduces from `materialized` of `StorageEntry`, but is not really
-	/// needed: we can restore to the size of the current data and only rebuild it
-	/// see `restore_append_to_parent`.
-	MovedSize(usize),
-	/// Current value representation, possibly with a materialized size,
-	/// see `materialized` of `StorageEntry`.
-	Data(StorageValue),
-}
-
 impl StorageEntry {
 	pub(super) fn to_option(mut self) -> Option<StorageValue> {
 		self.render_append();
@@ -157,11 +139,30 @@ impl StorageEntry {
 	fn render_append(&mut self) {
 		if let StorageEntry::Append { data, materialized, current_length, .. } = self {
 			let current_length = *current_length;
-			if &Some(current_length) == materialized {
+			if materialized.map_or(false, |m| m == current_length) {
 				return
 			}
 			StorageAppend::new(data).replace_current_length(*materialized, current_length);
 			*materialized = Some(current_length);
+		}
+	}
+
+	pub(crate) fn materialize(&self) -> Option<Cow<[u8]>> {
+		match self {
+			StorageEntry::Append { data, materialized, current_length, .. } => {
+				let current_length = *current_length;
+				if materialized.map_or(false, |m| m == current_length) {
+					Some(Cow::Borrowed(data.as_ref()))
+				} else {
+					let mut data = data.clone();
+					StorageAppend::new(&mut data)
+						.replace_current_length(*materialized, current_length);
+
+					Some(data.into())
+				}
+			},
+			StorageEntry::None => None,
+			StorageEntry::Some(e) => Some(Cow::Borrowed(e.as_ref())),
 		}
 	}
 }
@@ -515,7 +516,12 @@ impl<K: Ord + Hash + Clone, V> OverlayedMap<K, V> {
 	}
 
 	/// Get a list of all changes as seen by current transaction.
-	pub fn changes(&mut self) -> impl Iterator<Item = (&K, &mut OverlayedEntry<V>)> {
+	pub fn changes(&self) -> impl Iterator<Item = (&K, &OverlayedEntry<V>)> {
+		self.changes.iter()
+	}
+
+	/// Get a list of all changes as seen by current transaction.
+	pub fn changes_mut(&mut self) -> impl Iterator<Item = (&K, &mut OverlayedEntry<V>)> {
 		self.changes.iter_mut()
 	}
 
@@ -881,7 +887,7 @@ mod test {
 
 	fn assert_changes(is: &mut OverlayedChangeSet, expected: &Changes) {
 		let is: Changes = is
-			.changes()
+			.changes_mut()
 			.map(|(k, v)| {
 				let extrinsics = v.extrinsics().into_iter().collect();
 				(k.as_ref(), (v.value().map(AsRef::as_ref), extrinsics))

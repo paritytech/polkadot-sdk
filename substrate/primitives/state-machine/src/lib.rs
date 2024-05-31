@@ -1275,7 +1275,7 @@ mod tests {
 
 		assert_eq!(
 			overlay
-				.changes()
+				.changes_mut()
 				.map(|(k, v)| (k.clone(), v.value().cloned()))
 				.collect::<HashMap<_, _>>(),
 			map![
@@ -1301,7 +1301,7 @@ mod tests {
 
 		assert_eq!(
 			overlay
-				.changes()
+				.changes_mut()
 				.map(|(k, v)| (k.clone(), v.value().cloned()))
 				.collect::<HashMap<_, _>>(),
 			map![
@@ -1342,7 +1342,7 @@ mod tests {
 
 		assert_eq!(
 			overlay
-				.children()
+				.children_mut()
 				.flat_map(|(iter, _child_info)| iter)
 				.map(|(k, v)| (k.clone(), v.value()))
 				.collect::<BTreeMap<_, _>>(),
