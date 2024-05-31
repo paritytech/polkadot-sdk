@@ -112,12 +112,8 @@ impl<T: Config> Pallet<T> {
 		let price = Self::sale_price(&sale, now);
 		ensure!(price_limit >= price, Error::<T>::Overpriced);
 
-		Self::charge(&who, price)?;
-		let core = sale.first_core.saturating_add(sale.cores_sold);
-		sale.cores_sold.saturating_inc();
-		if sale.cores_sold <= sale.ideal_cores_sold || sale.sellout_price.is_none() {
-			sale.sellout_price = Some(price);
-		}
+		let core = Self::purchase_core(&who, price, &mut sale)?;
+
 		SaleInfo::<T>::put(&sale);
 		let id = Self::issue(core, sale.region_begin, sale.region_end, who.clone(), Some(price));
 		let duration = sale.region_end.saturating_sub(sale.region_begin);
@@ -140,8 +136,9 @@ impl<T: Config> Pallet<T> {
 			record.completion.drain_complete().ok_or(Error::<T>::IncompleteAssignment)?;
 
 		let old_core = core;
-		let core = sale.first_core.saturating_add(sale.cores_sold);
-		Self::charge(&who, record.price)?;
+
+		let core = Self::purchase_core(&who, record.price, &mut sale)?;
+
 		Self::deposit_event(Event::Renewed {
 			who,
 			old_core,
@@ -152,19 +149,24 @@ impl<T: Config> Pallet<T> {
 			workload: workload.clone(),
 		});
 
-		sale.cores_sold.saturating_inc();
-
 		Workplan::<T>::insert((sale.region_begin, core), &workload);
 
 		let begin = sale.region_end;
 		let price_cap = record.price + config.renewal_bump * record.price;
 		let now = frame_system::Pallet::<T>::block_number();
 		let price = Self::sale_price(&sale, now).min(price_cap);
+		log::debug!(
+			"Renew with: sale price: {:?}, price cap: {:?}, old price: {:?}",
+			price,
+			price_cap,
+			record.price
+		);
 		let new_record = AllowedRenewalRecord { price, completion: Complete(workload) };
 		AllowedRenewals::<T>::remove(renewal_id);
 		AllowedRenewals::<T>::insert(AllowedRenewalId { core, when: begin }, &new_record);
 		SaleInfo::<T>::put(&sale);
 		if let Some(workload) = new_record.completion.drain_complete() {
+			log::debug!("Recording renewable price for next run: {:?}", price);
 			Self::deposit_event(Event::Renewable { core, price, begin, workload });
 		}
 		Ok(core)
@@ -282,6 +284,8 @@ impl<T: Config> Pallet<T> {
 					let workload =
 						if assigned.is_complete() { Complete(workplan) } else { Partial(assigned) };
 					let record = AllowedRenewalRecord { price, completion: workload };
+					// Note: This entry alone does not yet actually allow renewals (the completion
+					// status has to be complete for `do_renew` to accept it).
 					AllowedRenewals::<T>::insert(&renewal_id, &record);
 					if let Some(workload) = record.completion.drain_complete() {
 						Self::deposit_event(Event::Renewable {
