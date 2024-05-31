@@ -1,38 +1,12 @@
 # Node
 
-A blockchain node is an application that allows users to participate in a
-blockchain network. Substrate-based blockchain nodes expose a number of
-capabilities:
+ℹ️ A node -  in the Polkadot SDK nomenclature - is a normal binary executable, whose primary purpose is to execute the given [runtime](../runtime/README.md).
 
-- Networking: Substrate nodes use the [`libp2p`](https://libp2p.io/) networking
-  stack to allow the nodes in the network to communicate with one another.
-- Consensus: Blockchains must have a way to come to
-  [consensus](https://docs.substrate.io/fundamentals/consensus/) on the state of
-  the network. Substrate makes it possible to supply custom consensus engines
-  and also ships with several consensus mechanisms that have been built on top
-  of [Web3 Foundation
-  research](https://research.web3.foundation/Polkadot/protocols/NPoS).
-- RPC Server: A remote procedure call (RPC) server is used to interact with
-  Substrate nodes.
+🔗 It communicated with other nodes in the network, and aims for [consensus](https://wiki.polkadot.network/docs/learn-consensus) among them.
 
-There are several files in the `node` directory. Take special note of the
-following:
+⚙️ It acts as a remote procedure call (RPC) server, allowing interaction with the blockchain.
 
-- [`chain_spec.rs`](./src/chain_spec.rs): A [chain
-  specification](https://docs.substrate.io/build/chain-spec/) is a source code
-  file that defines a Substrate chain's initial (genesis) state. Chain
-  specifications are useful for development and testing, and critical when
-  architecting the launch of a production chain. Take note of the
-  `development_config` and `testnet_genesis` functions. These functions are
-  used to define the genesis state for the local development chain
-  configuration. These functions identify some [well-known
-  accounts](https://docs.substrate.io/reference/command-line-tools/subkey/) and
-  use them to configure the blockchain's initial state.
-- [`service.rs`](./src/service.rs): This file defines the node
-  implementation. Take note of the libraries that this file imports and the
-  names of the functions it invokes. In particular, there are references to
-  consensus-related topics, such as the [block finalization and
-  forks](https://docs.substrate.io/fundamentals/consensus/#finalization-and-forks)
-  and other [consensus
-  mechanisms](https://docs.substrate.io/fundamentals/consensus/#default-consensus-models)
-  such as Aura for block authoring and GRANDPA for finality.
+👇 Here are the most important files in this node template:
+
+- [`chain_spec.rs`](./src/chain_spec.rs): A chain specification is a source code file that defines the chain's initial (genesis) state.
+- [`service.rs`](./src/service.rs): This file defines the node implementation. It's a place to configure consensus-related topics.
