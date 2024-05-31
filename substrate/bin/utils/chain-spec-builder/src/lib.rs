@@ -120,7 +120,7 @@
 use std::{fs, path::PathBuf};
 
 use clap::{Parser, Subcommand};
-use sc_chain_spec::{GenericChainSpec, GenesisConfigBuilderRuntimeCaller};
+use sc_chain_spec::{ChainType, GenericChainSpec, GenesisConfigBuilderRuntimeCaller};
 use serde_json::Value;
 
 /// A utility to easily create a chain spec definition.
@@ -154,6 +154,9 @@ pub struct CreateCmd {
 	/// The chain id.
 	#[arg(long, short = 'i', default_value = "custom")]
 	chain_id: String,
+	/// The chain type.
+	#[arg(value_enum, short = 't', default_value = "live")]
+	chain_type: ChainType,
 	/// The path to runtime wasm blob.
 	#[arg(long, short)]
 	runtime_wasm_path: PathBuf,
@@ -261,10 +264,12 @@ pub fn generate_chain_spec_for_runtime(cmd: &CreateCmd) -> Result<String, String
 	let code = fs::read(cmd.runtime_wasm_path.as_path())
 		.map_err(|e| format!("wasm blob shall be readable {e}"))?;
 
+	let chain_type = &cmd.chain_type;
+
 	let builder = GenericChainSpec::<()>::builder(&code[..], Default::default())
 		.with_name(&cmd.chain_name[..])
 		.with_id(&cmd.chain_id[..])
-		.with_chain_type(sc_chain_spec::ChainType::Live);
+		.with_chain_type(chain_type.clone());
 
 	let builder = match cmd.action {
 		GenesisBuildAction::NamedPreset(NamedPresetCmd { ref preset_name }) =>
