@@ -114,11 +114,11 @@ jobs:
           . ./.github/scripts/common/lib.sh
           RELEASE_ID=$(check_release_id "${{ inputs.release_id }}")
           fetch_release_artifacts
-          ls -la
 
       - name: Upload artifacts
         uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3 # v4.3.1
         with:
+          name: release-artifacts
           path: release-artifacts/${{ env.BINARY }}/**/*
 
       # - name: Cache the artifacts
@@ -151,7 +151,7 @@ jobs:
 
       - name: Check sha256 ${{ env.BINARY }}
         if: ${{ inputs.binary == 'polkadot-parachain' || inputs.binary == 'polkadot' }}
-        working-directory: ./release-artifacts/${{ env.BINARY }}
+        working-directory: release-artifacts/${{ env.BINARY }}
         run: |
           . ../../.github/scripts/common/lib.sh
 
@@ -160,7 +160,7 @@ jobs:
 
       - name: Check GPG ${{ env.BINARY }}
         if: ${{ inputs.binary == 'polkadot-parachain' || inputs.binary == 'polkadot' }}
-        working-directory: ./release-artifacts/${{ env.BINARY }}
+        working-directory: release-artifacts/${{ env.BINARY }}
         run: |
           . ../../.github/scripts/common/lib.sh
           import_gpg_keys
@@ -184,7 +184,7 @@ jobs:
           echo "No tag, doing without"
 
       - name: Fetch release tags
-        working-directory: ./release-artifacts/${{ env.BINARY }}
+        working-directory: release-artifacts/${{ env.BINARY }}
         if: ${{ env.IMAGE_TYPE == 'release'}}
         id: fetch_release_refs
         run: |
@@ -198,7 +198,7 @@ jobs:
       - name: Build Injected Container image for polkadot rc or chain-spec-builder
         if: ${{ env.BINARY == 'polkadot' || env.BINARY == 'chain-spec-builder' }}
         env:
-          ARTIFACTS_FOLDER: ./release-artifacts
+          ARTIFACTS_FOLDER: release-artifacts
           IMAGE_NAME: ${{ env.BINARY }}
           OWNER: ${{ env.DOCKER_OWNER }}
           TAGS: ${{ join(steps.fetch_rc_refs.outputs.*, ',') || join(steps.fetch_release_refs.outputs.*, ',') }}
@@ -210,7 +210,7 @@ jobs:
       - name: Build Injected Container image for polkadot-parachain
         if: ${{ env.BINARY == 'polkadot-parachain' }}
         env:
-          ARTIFACTS_FOLDER: ./release-artifacts
+          ARTIFACTS_FOLDER: release-artifacts
           IMAGE_NAME: ${{ env.BINARY }}
           OWNER: ${{ env.DOCKER_OWNER }}
           DOCKERFILE: docker/dockerfiles/polkadot-parachain/polkadot-parachain_injected.Dockerfile
