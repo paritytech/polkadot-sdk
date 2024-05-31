@@ -472,10 +472,10 @@ fn sends_distribute_collation_message(#[case] runtime_version: u32) {
 	let expect_validation_code_hash = ValidationCode(vec![1, 2, 3]).hash();
 
 	let expect_descriptor = CandidateDescriptor {
-		signature: CollatorSignature::from_slice(&vec![0u8; 64]).expect("64 bytes; qed"),
+		signature: dummy_collator_signature(),
 		para_id: config.para_id,
 		relay_parent: expect_relay_parent,
-		collator: CollatorId::from_slice(&vec![0u8; 32]).expect("32 bytes; qed"),
+		collator: dummy_collator(),
 		persisted_validation_data_hash: expect_validation_data_hash,
 		pov_hash: expect_pov_hash,
 		erasure_root: dummy_hash(), // this isn't something we're checking right now
