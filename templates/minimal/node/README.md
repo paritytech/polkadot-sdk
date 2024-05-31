@@ -6,6 +6,8 @@
 
 ⚙️ It acts as a remote procedure call (RPC) server, allowing interaction with the blockchain.
 
+👉 Learn more about the architecture, and a difference between a node and a runtime [here](https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/reference_docs/wasm_meta_protocol/index.html).
+
 👇 Here are the most important files in this node template:
 
 - [`chain_spec.rs`](./src/chain_spec.rs): A chain specification is a source code file that defines the chain's initial (genesis) state.
