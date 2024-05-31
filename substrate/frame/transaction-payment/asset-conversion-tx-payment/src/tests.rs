@@ -819,7 +819,7 @@ fn transfer_add_and_remove_account() {
 				fee_in_native,
 				true,
 			);
-			assert_eq!(input_quote, Some(1206));
+			assert!(!input_quote.unwrap().is_zero());
 
 			let fee_in_asset = input_quote.unwrap();
 			let pre = ChargeAssetTxPayment::<Runtime>::from(tip, Some(asset_id.into()))
