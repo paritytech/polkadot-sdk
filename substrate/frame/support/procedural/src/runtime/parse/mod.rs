@@ -216,7 +216,9 @@ impl Def {
 						let pallet = Pallet::try_from(
 							item.span(),
 							&pallet_item,
-							pallet_index.expect("Pallet item is present only for valid pallet index").into(),
+							pallet_index
+								.expect("Pallet item is present only for valid pallet index")
+								.into(),
 							disable_call,
 							disable_unsigned,
 							&bounds,
