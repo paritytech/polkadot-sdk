@@ -30,7 +30,7 @@
 use codec::{Decode, Encode};
 use cumulus_primitives_core::{
 	relay_chain, AbridgedHostConfiguration, ChannelInfo, ChannelStatus, CollationInfo,
-	GetChannelInfo, InboundDownwardMessage, InboundHrmpMessage, MessageSendError,
+	GetChannelInfo, InboundDownwardMessage, InboundHrmpMessage, ListChannelInfos, MessageSendError,
 	OutboundHrmpMessage, ParaId, PersistedValidationData, UpwardMessage, UpwardMessageSender,
 	XcmpMessageHandler, XcmpMessageSource,
 };
@@ -55,7 +55,8 @@ use sp_runtime::{
 	BoundedSlice, FixedU128, RuntimeDebug, Saturating,
 };
 use sp_std::{cmp, collections::btree_map::BTreeMap, prelude::*};
-use xcm::latest::XcmHash;
+use xcm::{latest::XcmHash, VersionedLocation, VersionedXcm};
+use xcm_builder::InspectMessageQueues;
 
 mod benchmarking;
 pub mod migration;
@@ -244,10 +245,6 @@ pub mod pallet {
 		/// [`consensus_hook::ExpectParentIncluded`] here. This is only necessary in the case
 		/// that collators aren't expected to have node versions that supply the included block
 		/// in the relay-chain state proof.
-		///
-		/// This config type is only available when the `parameterized-consensus-hook` crate feature
-		/// is activated.
-		#[cfg(feature = "parameterized-consensus-hook")]
 		type ConsensusHook: ConsensusHook;
 	}
 
@@ -555,10 +552,8 @@ pub mod pallet {
 			.expect("Invalid relay chain state proof");
 
 			// Update the desired maximum capacity according to the consensus hook.
-			#[cfg(feature = "parameterized-consensus-hook")]
-			let (consensus_hook_weight, capacity) = T::ConsensusHook::on_state_proof(&relay_state_proof);
-			#[cfg(not(feature = "parameterized-consensus-hook"))]
-			let (consensus_hook_weight, capacity) = ExpectParentIncluded::on_state_proof(&relay_state_proof);
+			let (consensus_hook_weight, capacity) =
+				T::ConsensusHook::on_state_proof(&relay_state_proof);
 			total_weight += consensus_hook_weight;
 			total_weight += Self::maybe_drop_included_ancestors(&relay_state_proof, capacity);
 			// Deposit a log indicating the relay-parent storage root.
@@ -1018,6 +1013,13 @@ impl<T: Config> FeeTracker for Pallet<T> {
 				UpwardInitialDeliveryFeeFactor::get().max(*f / ump_constants::EXPONENTIAL_FEE_BASE);
 			*f
 		})
+	}
+}
+
+impl<T: Config> ListChannelInfos for Pallet<T> {
+	fn outgoing_channels() -> Vec<ParaId> {
+		let Some(state) = RelevantMessagingState::<T>::get() else { return Vec::new() };
+		state.egress_channels.into_iter().map(|(id, _)| id).collect()
 	}
 }
 
@@ -1608,6 +1610,19 @@ impl<T: Config> UpwardMessageSender for Pallet<T> {
 	}
 }
 
+impl<T: Config> InspectMessageQueues for Pallet<T> {
+	fn get_messages() -> Vec<(VersionedLocation, Vec<VersionedXcm<()>>)> {
+		use xcm::prelude::*;
+
+		let messages: Vec<VersionedXcm<()>> = PendingUpwardMessages::<T>::get()
+			.iter()
+			.map(|encoded_message| VersionedXcm::<()>::decode(&mut &encoded_message[..]).unwrap())
+			.collect();
+
+		vec![(VersionedLocation::V4(Parent.into()), messages)]
+	}
+}
+
 #[cfg(feature = "runtime-benchmarks")]
 impl<T: Config> polkadot_runtime_common::xcm_sender::EnsureForParachain for Pallet<T> {
 	fn ensure(para_id: ParaId) {
@@ -1618,10 +1633,8 @@ impl<T: Config> polkadot_runtime_common::xcm_sender::EnsureForParachain for Pall
 }
 
 /// Something that can check the inherents of a block.
-#[cfg_attr(
-	feature = "parameterized-consensus-hook",
-	deprecated = "consider switching to `cumulus-pallet-parachain-system::ConsensusHook`"
-)]
+#[deprecated(note = "This trait is deprecated and will be removed by September 2024. \
+		Consider switching to `cumulus-pallet-parachain-system::ConsensusHook`")]
 pub trait CheckInherents<Block: BlockT> {
 	/// Check all inherents of the block.
 	///

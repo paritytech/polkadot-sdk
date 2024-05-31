@@ -12,8 +12,8 @@ homepage = "https://substrate.io"
 workspace = true
 
 [dependencies]
-array-bytes = { version = "6.1", optional = true }
-codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = ["derive"] }
+array-bytes = { version = "6.2.2", optional = true }
+codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false, features = ["derive"] }
 log = { workspace = true }
 scale-info = { version = "2.11.1", default-features = false, features = ["derive"] }
 serde = { optional = true, workspace = true, default-features = true }
@@ -32,7 +32,7 @@ sp-api = { path = "../../primitives/api", default-features = false }
 sp-state-machine = { path = "../../primitives/state-machine", default-features = false }
 
 [dev-dependencies]
-array-bytes = "6.1"
+array-bytes = "6.2.2"
 sp-staking = { path = "../../primitives/staking" }
 
 [features]

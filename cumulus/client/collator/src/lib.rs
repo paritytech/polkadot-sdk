@@ -381,13 +381,11 @@ mod tests {
 			sproof.included_para_head = Some(HeadData(parent.encode()));
 			sproof.para_id = cumulus_test_runtime::PARACHAIN_ID.into();
 
-			let builder = self.client.init_block_builder_at(
-				parent.hash(),
-				Some(validation_data.clone()),
-				sproof,
-			);
+			let cumulus_test_client::BlockBuilderAndSupportData { block_builder, .. } = self
+				.client
+				.init_block_builder_at(parent.hash(), Some(validation_data.clone()), sproof);
 
-			let (block, _, proof) = builder.build().expect("Creates block").into_inner();
+			let (block, _, proof) = block_builder.build().expect("Creates block").into_inner();
 
 			self.client
 				.import(BlockOrigin::Own, block.clone())

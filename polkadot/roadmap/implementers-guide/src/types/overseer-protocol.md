@@ -238,6 +238,9 @@ enum AvailabilityRecoveryMessage {
         CandidateReceipt,
         SessionIndex,
         Option<GroupIndex>, // Backing validator group to request the data directly from.
+        Option<CoreIndex>, /* A `CoreIndex` needs to be specified for the recovery process to
+		                    * prefer systematic chunk recovery. This is the core that the candidate
+                            * was occupying while pending availability. */
         ResponseChannel<Result<AvailableData, RecoveryError>>,
     ),
 }

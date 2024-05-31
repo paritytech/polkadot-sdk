@@ -45,8 +45,9 @@ use polkadot_node_subsystem::{
 use polkadot_node_subsystem_test_helpers as test_helpers;
 use polkadot_node_subsystem_util::{reputation::add_reputation, TimeoutExt};
 use polkadot_primitives::{
-	AuthorityDiscoveryId, CollatorPair, ExecutorParams, GroupIndex, GroupRotationInfo, IndexedVec,
-	NodeFeatures, ScheduledCore, SessionIndex, SessionInfo, ValidatorId, ValidatorIndex,
+	AuthorityDiscoveryId, Block, CollatorPair, ExecutorParams, GroupIndex, GroupRotationInfo,
+	IndexedVec, NodeFeatures, ScheduledCore, SessionIndex, SessionInfo, ValidatorId,
+	ValidatorIndex,
 };
 use polkadot_primitives_test_helpers::TestCandidateBuilder;
 use test_helpers::mock::new_leaf;
@@ -143,7 +144,6 @@ impl Default for TestState {
 impl TestState {
 	/// Adds a few more scheduled cores to the state for the same para id
 	/// compared to the default.
-	#[cfg(feature = "elastic-scaling-experimental")]
 	pub fn with_elastic_scaling() -> Self {
 		let mut state = Self::default();
 		let para_id = state.para_id;
@@ -249,10 +249,14 @@ fn test_harness<T: Future<Output = TestHarness>>(
 	let genesis_hash = Hash::repeat_byte(0xff);
 	let req_protocol_names = ReqProtocolNames::new(&genesis_hash, None);
 
-	let (collation_req_receiver, req_v1_cfg) =
-		IncomingRequest::get_config_receiver(&req_protocol_names);
-	let (collation_req_v2_receiver, req_v2_cfg) =
-		IncomingRequest::get_config_receiver(&req_protocol_names);
+	let (collation_req_receiver, req_v1_cfg) = IncomingRequest::get_config_receiver::<
+		Block,
+		sc_network::NetworkWorker<Block, Hash>,
+	>(&req_protocol_names);
+	let (collation_req_v2_receiver, req_v2_cfg) = IncomingRequest::get_config_receiver::<
+		Block,
+		sc_network::NetworkWorker<Block, Hash>,
+	>(&req_protocol_names);
 	let subsystem = async {
 		run_inner(
 			context,

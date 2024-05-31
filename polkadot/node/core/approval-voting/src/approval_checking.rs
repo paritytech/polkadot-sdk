@@ -1148,7 +1148,7 @@ mod tests {
 			}
 			.into();
 
-			// Populate the requested tranches. The assignemnts aren't inspected in
+			// Populate the requested tranches. The assignments aren't inspected in
 			// this test.
 			for &t in &test_tranche {
 				approval_entry.import_assignment(t, ValidatorIndex(0), 0)

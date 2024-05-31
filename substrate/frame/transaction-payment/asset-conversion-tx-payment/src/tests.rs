@@ -201,6 +201,8 @@ fn transaction_payment_in_asset_possible() {
 		.base_weight(Weight::from_parts(base_weight, 0))
 		.build()
 		.execute_with(|| {
+			System::set_block_number(1);
+
 			// create the asset
 			let asset_id = 1;
 			let min_balance = 2;
@@ -245,6 +247,12 @@ fn transaction_payment_in_asset_possible() {
 
 			// check that fee was charged in the given asset
 			assert_eq!(Assets::balance(asset_id, caller), balance - fee_in_asset);
+
+			System::assert_has_event(RuntimeEvent::Assets(pallet_assets::Event::Withdrawn {
+				asset_id,
+				who: caller,
+				amount: fee_in_asset,
+			}));
 
 			assert_ok!(ChargeAssetTxPayment::<Runtime>::post_dispatch(
 				Some(pre),
@@ -385,6 +393,8 @@ fn asset_transaction_payment_with_tip_and_refund() {
 		.base_weight(Weight::from_parts(base_weight, 0))
 		.build()
 		.execute_with(|| {
+			System::set_block_number(1);
+
 			// create the asset
 			let asset_id = 1;
 			let min_balance = 2;
@@ -434,6 +444,12 @@ fn asset_transaction_payment_with_tip_and_refund() {
 			)
 			.unwrap();
 
+			System::assert_has_event(RuntimeEvent::Assets(pallet_assets::Event::Withdrawn {
+				asset_id,
+				who: caller,
+				amount: fee_in_asset,
+			}));
+
 			assert_ok!(ChargeAssetTxPayment::<Runtime>::post_dispatch(
 				Some(pre),
 				&info_from_weight(WEIGHT_100),
@@ -451,6 +467,12 @@ fn asset_transaction_payment_with_tip_and_refund() {
 				balance - fee_in_asset + expected_token_refund
 			);
 			assert_eq!(Balances::free_balance(caller), 20 * balance_factor);
+
+			System::assert_has_event(RuntimeEvent::Assets(pallet_assets::Event::Deposited {
+				asset_id,
+				who: caller,
+				amount: expected_token_refund,
+			}));
 		});
 }
 

@@ -19,8 +19,7 @@ use crate::{
 	configuration::HostConfiguration,
 	initializer::SessionChangeNotification,
 	mock::{
-		new_test_ext, Configuration, MockGenesisConfig, ParaInclusion, Paras, ParasShared,
-		Scheduler, System, Test,
+		new_test_ext, MockGenesisConfig, ParaInclusion, Paras, ParasShared, Scheduler, System, Test,
 	},
 	paras::{ParaGenesisArgs, ParaKind},
 	paras_inherent::DisputedBitfield,
@@ -125,7 +124,7 @@ pub(crate) fn back_candidate(
 	let mut validator_indices = bitvec::bitvec![u8, BitOrderLsb0; 0; group.len()];
 	let threshold = effective_minimum_backing_votes(
 		group.len(),
-		configuration::Pallet::<Test>::config().minimum_backing_votes,
+		configuration::ActiveConfig::<Test>::get().minimum_backing_votes,
 	);
 
 	let signing = match kind {
@@ -182,9 +181,9 @@ pub(crate) fn back_candidate(
 pub(crate) fn run_to_block_default_notifications(to: BlockNumber, new_session: Vec<BlockNumber>) {
 	run_to_block(to, |b| {
 		new_session.contains(&b).then_some(SessionChangeNotification {
-			prev_config: Configuration::config(),
-			new_config: Configuration::config(),
-			session_index: ParasShared::session_index() + 1,
+			prev_config: configuration::ActiveConfig::<Test>::get(),
+			new_config: configuration::ActiveConfig::<Test>::get(),
+			session_index: shared::CurrentSessionIndex::<Test>::get() + 1,
 			..Default::default()
 		})
 	});
@@ -224,7 +223,8 @@ pub(crate) fn run_to_block(
 }
 
 pub(crate) fn expected_bits() -> usize {
-	Paras::parachains().len() + Configuration::config().scheduler_params.num_cores as usize
+	paras::Parachains::<Test>::get().len() +
+		configuration::ActiveConfig::<Test>::get().scheduler_params.num_cores as usize
 }
 
 fn default_bitfield() -> AvailabilityBitfield {
@@ -232,11 +232,11 @@ fn default_bitfield() -> AvailabilityBitfield {
 }
 
 fn default_availability_votes() -> BitVec<u8, BitOrderLsb0> {
-	bitvec::bitvec![u8, BitOrderLsb0; 0; ParasShared::active_validator_keys().len()]
+	bitvec::bitvec![u8, BitOrderLsb0; 0; shared::ActiveValidatorKeys::<Test>::get().len()]
 }
 
 fn default_backing_bitfield() -> BitVec<u8, BitOrderLsb0> {
-	bitvec::bitvec![u8, BitOrderLsb0; 0; ParasShared::active_validator_keys().len()]
+	bitvec::bitvec![u8, BitOrderLsb0; 0; shared::ActiveValidatorKeys::<Test>::get().len()]
 }
 
 fn backing_bitfield(v: &[usize]) -> BitVec<u8, BitOrderLsb0> {
@@ -323,7 +323,7 @@ impl TestCandidateBuilder {
 }
 
 pub(crate) fn make_vdata_hash(para_id: ParaId) -> Option<Hash> {
-	let relay_parent_number = <frame_system::Pallet<Test>>::block_number() - 1;
+	let relay_parent_number = frame_system::Pallet::<Test>::block_number() - 1;
 	make_vdata_hash_with_block_number(para_id, relay_parent_number)
 }
 
@@ -346,8 +346,8 @@ fn simple_sanitize_bitfields(
 	expected_bits: usize,
 ) -> SignedAvailabilityBitfields {
 	let parent_hash = frame_system::Pallet::<Test>::parent_hash();
-	let session_index = shared::Pallet::<Test>::session_index();
-	let validators = shared::Pallet::<Test>::active_validator_keys();
+	let session_index = shared::CurrentSessionIndex::<Test>::get();
+	let validators = shared::ActiveValidatorKeys::<Test>::get();
 
 	crate::paras_inherent::sanitize_bitfields::<Test>(
 		unchecked_bitfields,
@@ -362,7 +362,7 @@ fn simple_sanitize_bitfields(
 pub(crate) fn process_bitfields(
 	signed_bitfields: SignedAvailabilityBitfields,
 ) -> Vec<(CoreIndex, CandidateHash)> {
-	let validators = shared::Pallet::<Test>::active_validator_keys();
+	let validators = shared::ActiveValidatorKeys::<Test>::get();
 
 	ParaInclusion::update_pending_availability_and_get_freed_cores(
 		&validators[..],
@@ -412,12 +412,12 @@ fn free_timedout() {
 			}
 		};
 
-		<PendingAvailability<Test>>::insert(
+		PendingAvailability::<Test>::insert(
 			chain_a,
 			[make_candidate(0, true)].into_iter().collect::<VecDeque<_>>(),
 		);
 
-		<PendingAvailability<Test>>::insert(
+		PendingAvailability::<Test>::insert(
 			&chain_b,
 			[make_candidate(1, false)].into_iter().collect::<VecDeque<_>>(),
 		);
@@ -427,14 +427,14 @@ fn free_timedout() {
 		c_candidates.push_back(make_candidate(2, true));
 		c_candidates.push_back(make_candidate(3, false));
 
-		<PendingAvailability<Test>>::insert(&chain_c, c_candidates);
+		PendingAvailability::<Test>::insert(&chain_c, c_candidates);
 
 		// 2 chained candidates. All are timed out.
 		let mut d_candidates = VecDeque::new();
 		d_candidates.push_back(make_candidate(4, true));
 		d_candidates.push_back(make_candidate(5, true));
 
-		<PendingAvailability<Test>>::insert(&chain_d, d_candidates);
+		PendingAvailability::<Test>::insert(&chain_d, d_candidates);
 
 		// 3 chained candidates. The second one is timed out. The first one will remain in place.
 		// With the current time out predicate this scenario is impossible. But this is not a
@@ -444,7 +444,7 @@ fn free_timedout() {
 		e_candidates.push_back(make_candidate(7, true));
 		e_candidates.push_back(make_candidate(8, false));
 
-		<PendingAvailability<Test>>::insert(&chain_e, e_candidates);
+		PendingAvailability::<Test>::insert(&chain_e, e_candidates);
 
 		// 3 chained candidates, none are timed out.
 		let mut f_candidates = VecDeque::new();
@@ -452,16 +452,16 @@ fn free_timedout() {
 		f_candidates.push_back(make_candidate(10, false));
 		f_candidates.push_back(make_candidate(11, false));
 
-		<PendingAvailability<Test>>::insert(&chain_f, f_candidates);
+		PendingAvailability::<Test>::insert(&chain_f, f_candidates);
 
 		run_to_block(5, |_| None);
 
-		assert_eq!(<PendingAvailability<Test>>::get(&chain_a).unwrap().len(), 1);
-		assert_eq!(<PendingAvailability<Test>>::get(&chain_b).unwrap().len(), 1);
-		assert_eq!(<PendingAvailability<Test>>::get(&chain_c).unwrap().len(), 2);
-		assert_eq!(<PendingAvailability<Test>>::get(&chain_d).unwrap().len(), 2);
-		assert_eq!(<PendingAvailability<Test>>::get(&chain_e).unwrap().len(), 3);
-		assert_eq!(<PendingAvailability<Test>>::get(&chain_f).unwrap().len(), 3);
+		assert_eq!(PendingAvailability::<Test>::get(&chain_a).unwrap().len(), 1);
+		assert_eq!(PendingAvailability::<Test>::get(&chain_b).unwrap().len(), 1);
+		assert_eq!(PendingAvailability::<Test>::get(&chain_c).unwrap().len(), 2);
+		assert_eq!(PendingAvailability::<Test>::get(&chain_d).unwrap().len(), 2);
+		assert_eq!(PendingAvailability::<Test>::get(&chain_e).unwrap().len(), 3);
+		assert_eq!(PendingAvailability::<Test>::get(&chain_f).unwrap().len(), 3);
 
 		let timed_out_cores = ParaInclusion::free_timedout();
 
@@ -478,12 +478,12 @@ fn free_timedout() {
 			]
 		);
 
-		assert!(<PendingAvailability<Test>>::get(&chain_a).unwrap().is_empty());
-		assert_eq!(<PendingAvailability<Test>>::get(&chain_b).unwrap().len(), 1);
-		assert!(<PendingAvailability<Test>>::get(&chain_c).unwrap().is_empty());
-		assert!(<PendingAvailability<Test>>::get(&chain_d).unwrap().is_empty());
+		assert!(PendingAvailability::<Test>::get(&chain_a).unwrap().is_empty());
+		assert_eq!(PendingAvailability::<Test>::get(&chain_b).unwrap().len(), 1);
+		assert!(PendingAvailability::<Test>::get(&chain_c).unwrap().is_empty());
+		assert!(PendingAvailability::<Test>::get(&chain_d).unwrap().is_empty());
 		assert_eq!(
-			<PendingAvailability<Test>>::get(&chain_e)
+			PendingAvailability::<Test>::get(&chain_e)
 				.unwrap()
 				.into_iter()
 				.map(|c| c.core)
@@ -491,7 +491,7 @@ fn free_timedout() {
 			vec![CoreIndex(6)]
 		);
 		assert_eq!(
-			<PendingAvailability<Test>>::get(&chain_f)
+			PendingAvailability::<Test>::get(&chain_f)
 				.unwrap()
 				.into_iter()
 				.map(|c| c.core)
@@ -548,13 +548,13 @@ fn free_disputed() {
 		};
 
 		// Disputed
-		<PendingAvailability<Test>>::insert(
+		PendingAvailability::<Test>::insert(
 			chain_a,
 			[make_candidate(0)].into_iter().collect::<VecDeque<_>>(),
 		);
 
 		// Not disputed.
-		<PendingAvailability<Test>>::insert(
+		PendingAvailability::<Test>::insert(
 			&chain_b,
 			[make_candidate(1)].into_iter().collect::<VecDeque<_>>(),
 		);
@@ -564,14 +564,14 @@ fn free_disputed() {
 		c_candidates.push_back(make_candidate(2));
 		c_candidates.push_back(make_candidate(3));
 
-		<PendingAvailability<Test>>::insert(&chain_c, c_candidates);
+		PendingAvailability::<Test>::insert(&chain_c, c_candidates);
 
 		// 2 chained candidates. All are disputed.
 		let mut d_candidates = VecDeque::new();
 		d_candidates.push_back(make_candidate(4));
 		d_candidates.push_back(make_candidate(5));
 
-		<PendingAvailability<Test>>::insert(&chain_d, d_candidates);
+		PendingAvailability::<Test>::insert(&chain_d, d_candidates);
 
 		// 3 chained candidates. The second one is disputed. The first one will remain in place.
 		let mut e_candidates = VecDeque::new();
@@ -579,7 +579,7 @@ fn free_disputed() {
 		e_candidates.push_back(make_candidate(7));
 		e_candidates.push_back(make_candidate(8));
 
-		<PendingAvailability<Test>>::insert(&chain_e, e_candidates);
+		PendingAvailability::<Test>::insert(&chain_e, e_candidates);
 
 		// 3 chained candidates, none are disputed.
 		let mut f_candidates = VecDeque::new();
@@ -587,16 +587,16 @@ fn free_disputed() {
 		f_candidates.push_back(make_candidate(10));
 		f_candidates.push_back(make_candidate(11));
 
-		<PendingAvailability<Test>>::insert(&chain_f, f_candidates);
+		PendingAvailability::<Test>::insert(&chain_f, f_candidates);
 
 		run_to_block(5, |_| None);
 
-		assert_eq!(<PendingAvailability<Test>>::get(&chain_a).unwrap().len(), 1);
-		assert_eq!(<PendingAvailability<Test>>::get(&chain_b).unwrap().len(), 1);
-		assert_eq!(<PendingAvailability<Test>>::get(&chain_c).unwrap().len(), 2);
-		assert_eq!(<PendingAvailability<Test>>::get(&chain_d).unwrap().len(), 2);
-		assert_eq!(<PendingAvailability<Test>>::get(&chain_e).unwrap().len(), 3);
-		assert_eq!(<PendingAvailability<Test>>::get(&chain_f).unwrap().len(), 3);
+		assert_eq!(PendingAvailability::<Test>::get(&chain_a).unwrap().len(), 1);
+		assert_eq!(PendingAvailability::<Test>::get(&chain_b).unwrap().len(), 1);
+		assert_eq!(PendingAvailability::<Test>::get(&chain_c).unwrap().len(), 2);
+		assert_eq!(PendingAvailability::<Test>::get(&chain_d).unwrap().len(), 2);
+		assert_eq!(PendingAvailability::<Test>::get(&chain_e).unwrap().len(), 3);
+		assert_eq!(PendingAvailability::<Test>::get(&chain_f).unwrap().len(), 3);
 
 		let disputed_candidates = [
 			CandidateHash(Hash::from_low_u64_be(0)),
@@ -622,12 +622,12 @@ fn free_disputed() {
 			]
 		);
 
-		assert!(<PendingAvailability<Test>>::get(&chain_a).unwrap().is_empty());
-		assert_eq!(<PendingAvailability<Test>>::get(&chain_b).unwrap().len(), 1);
-		assert!(<PendingAvailability<Test>>::get(&chain_c).unwrap().is_empty());
-		assert!(<PendingAvailability<Test>>::get(&chain_d).unwrap().is_empty());
+		assert!(PendingAvailability::<Test>::get(&chain_a).unwrap().is_empty());
+		assert_eq!(PendingAvailability::<Test>::get(&chain_b).unwrap().len(), 1);
+		assert!(PendingAvailability::<Test>::get(&chain_c).unwrap().is_empty());
+		assert!(PendingAvailability::<Test>::get(&chain_d).unwrap().is_empty());
 		assert_eq!(
-			<PendingAvailability<Test>>::get(&chain_e)
+			PendingAvailability::<Test>::get(&chain_e)
 				.unwrap()
 				.into_iter()
 				.map(|c| c.core)
@@ -635,7 +635,7 @@ fn free_disputed() {
 			vec![CoreIndex(6)]
 		);
 		assert_eq!(
-			<PendingAvailability<Test>>::get(&chain_f)
+			PendingAvailability::<Test>::get(&chain_f)
 				.unwrap()
 				.into_iter()
 				.map(|c| c.core)
@@ -779,7 +779,7 @@ fn bitfield_checks() {
 			let mut bare_bitfield = default_bitfield();
 
 			let default_candidate = TestCandidateBuilder::default().build();
-			<PendingAvailability<Test>>::insert(
+			PendingAvailability::<Test>::insert(
 				chain_a,
 				[CandidatePendingAvailability {
 					core: CoreIndex::from(0),
@@ -815,7 +815,7 @@ fn bitfield_checks() {
 			let x = process_bitfields(checked_bitfields);
 			assert!(x.is_empty(), "No core should be freed.");
 
-			<PendingAvailability<Test>>::remove(chain_a);
+			PendingAvailability::<Test>::remove(chain_a);
 		}
 	});
 }
@@ -877,7 +877,7 @@ fn supermajority_bitfields_trigger_availability() {
 		}
 		.build();
 
-		<PendingAvailability<Test>>::insert(
+		PendingAvailability::<Test>::insert(
 			chain_a,
 			[CandidatePendingAvailability {
 				core: CoreIndex::from(0),
@@ -902,7 +902,7 @@ fn supermajority_bitfields_trigger_availability() {
 		}
 		.build();
 
-		<PendingAvailability<Test>>::insert(
+		PendingAvailability::<Test>::insert(
 			chain_b,
 			[CandidatePendingAvailability {
 				core: CoreIndex::from(1),
@@ -975,7 +975,7 @@ fn supermajority_bitfields_trigger_availability() {
 			commitments: candidate_c_3.commitments.clone(),
 		});
 
-		<PendingAvailability<Test>>::insert(chain_c, c_candidates);
+		PendingAvailability::<Test>::insert(chain_c, c_candidates);
 
 		// this bitfield signals that a and b are available.
 		let all_available = {
@@ -1048,24 +1048,24 @@ fn supermajority_bitfields_trigger_availability() {
 			votes
 		};
 
-		assert!(<PendingAvailability<Test>>::get(&chain_a).unwrap().is_empty());
+		assert!(PendingAvailability::<Test>::get(&chain_a).unwrap().is_empty());
 		assert_eq!(
-			<PendingAvailability<Test>>::get(&chain_b)
+			PendingAvailability::<Test>::get(&chain_b)
 				.unwrap()
 				.pop_front()
 				.unwrap()
 				.availability_votes,
 			votes(&[0, 1, 2, 3])
 		);
-		let mut pending_c = <PendingAvailability<Test>>::get(&chain_c).unwrap();
+		let mut pending_c = PendingAvailability::<Test>::get(&chain_c).unwrap();
 		assert_eq!(pending_c.pop_front().unwrap().availability_votes, votes(&[0, 1, 2, 3]));
 		assert_eq!(pending_c.pop_front().unwrap().availability_votes, votes(&[0, 1, 2, 3, 4]));
 		assert!(pending_c.is_empty());
 
 		// and check that chain heads.
-		assert_eq!(Paras::para_head(&chain_a), Some(vec![1, 2, 3, 4].into()));
-		assert_ne!(Paras::para_head(&chain_b), Some(vec![5, 6, 7, 8].into()));
-		assert_eq!(Paras::para_head(&chain_c), Some(vec![7, 8].into()));
+		assert_eq!(paras::Heads::<Test>::get(&chain_a), Some(vec![1, 2, 3, 4].into()));
+		assert_ne!(paras::Heads::<Test>::get(&chain_b), Some(vec![5, 6, 7, 8].into()));
+		assert_eq!(paras::Heads::<Test>::get(&chain_c), Some(vec![7, 8].into()));
 
 		// Check that rewards are applied.
 		{
@@ -1117,21 +1117,21 @@ fn supermajority_bitfields_trigger_availability() {
 			v
 		);
 
-		assert!(<PendingAvailability<Test>>::get(&chain_a).unwrap().is_empty());
+		assert!(PendingAvailability::<Test>::get(&chain_a).unwrap().is_empty());
 		assert_eq!(
-			<PendingAvailability<Test>>::get(&chain_b)
+			PendingAvailability::<Test>::get(&chain_b)
 				.unwrap()
 				.pop_front()
 				.unwrap()
 				.availability_votes,
 			votes(&[0, 1, 2, 3])
 		);
-		assert!(<PendingAvailability<Test>>::get(&chain_c).unwrap().is_empty());
+		assert!(PendingAvailability::<Test>::get(&chain_c).unwrap().is_empty());
 
 		// and check that chain heads.
-		assert_eq!(Paras::para_head(&chain_a), Some(vec![1, 2, 3, 4].into()));
-		assert_ne!(Paras::para_head(&chain_b), Some(vec![5, 6, 7, 8].into()));
-		assert_eq!(Paras::para_head(&chain_c), Some(vec![11, 12].into()));
+		assert_eq!(paras::Heads::<Test>::get(&chain_a), Some(vec![1, 2, 3, 4].into()));
+		assert_ne!(paras::Heads::<Test>::get(&chain_b), Some(vec![5, 6, 7, 8].into()));
+		assert_eq!(paras::Heads::<Test>::get(&chain_c), Some(vec![11, 12].into()));
 
 		// Check that rewards are applied.
 		{
@@ -1582,7 +1582,7 @@ fn candidate_checks() {
 			);
 
 			{
-				let cfg = Configuration::config();
+				let cfg = configuration::ActiveConfig::<Test>::get();
 				let expected_at = 10 + cfg.validation_upgrade_delay;
 				assert_eq!(expected_at, 12);
 				Paras::schedule_code_upgrade(
@@ -1951,12 +1951,12 @@ fn backing_works() {
 		let backers = {
 			let num_backers = effective_minimum_backing_votes(
 				group_validators(GroupIndex(0)).unwrap().len(),
-				configuration::Pallet::<Test>::config().minimum_backing_votes,
+				configuration::ActiveConfig::<Test>::get().minimum_backing_votes,
 			);
 			backing_bitfield(&(0..num_backers).collect::<Vec<_>>())
 		};
 		assert_eq!(
-			<PendingAvailability<Test>>::get(&chain_a),
+			PendingAvailability::<Test>::get(&chain_a),
 			Some(
 				[CandidatePendingAvailability {
 					core: CoreIndex::from(0),
@@ -1977,12 +1977,12 @@ fn backing_works() {
 		let backers = {
 			let num_backers = effective_minimum_backing_votes(
 				group_validators(GroupIndex(0)).unwrap().len(),
-				configuration::Pallet::<Test>::config().minimum_backing_votes,
+				configuration::ActiveConfig::<Test>::get().minimum_backing_votes,
 			);
 			backing_bitfield(&(0..num_backers).map(|v| v + 2).collect::<Vec<_>>())
 		};
 		assert_eq!(
-			<PendingAvailability<Test>>::get(&chain_b),
+			PendingAvailability::<Test>::get(&chain_b),
 			Some(
 				[CandidatePendingAvailability {
 					core: CoreIndex::from(1),
@@ -2001,7 +2001,7 @@ fn backing_works() {
 		);
 
 		assert_eq!(
-			<PendingAvailability<Test>>::get(&thread_a),
+			PendingAvailability::<Test>::get(&thread_a),
 			Some(
 				[CandidatePendingAvailability {
 					core: CoreIndex::from(2),
@@ -2244,12 +2244,12 @@ fn backing_works_with_elastic_scaling_mvp() {
 		let backers = {
 			let num_backers = effective_minimum_backing_votes(
 				group_validators(GroupIndex(0)).unwrap().len(),
-				configuration::Pallet::<Test>::config().minimum_backing_votes,
+				configuration::ActiveConfig::<Test>::get().minimum_backing_votes,
 			);
 			backing_bitfield(&(0..num_backers).collect::<Vec<_>>())
 		};
 		assert_eq!(
-			<PendingAvailability<Test>>::get(&chain_a),
+			PendingAvailability::<Test>::get(&chain_a),
 			Some(
 				[CandidatePendingAvailability {
 					core: CoreIndex::from(0),
@@ -2269,7 +2269,7 @@ fn backing_works_with_elastic_scaling_mvp() {
 
 		// Both candidates of b will be recorded on chain.
 		assert_eq!(
-			<PendingAvailability<Test>>::get(&chain_b),
+			PendingAvailability::<Test>::get(&chain_b),
 			Some(
 				[
 					CandidatePendingAvailability {
@@ -2395,12 +2395,12 @@ fn can_include_candidate_with_ok_code_upgrade() {
 		let backers = {
 			let num_backers = effective_minimum_backing_votes(
 				group_validators(GroupIndex(0)).unwrap().len(),
-				configuration::Pallet::<Test>::config().minimum_backing_votes,
+				configuration::ActiveConfig::<Test>::get().minimum_backing_votes,
 			);
 			backing_bitfield(&(0..num_backers).collect::<Vec<_>>())
 		};
 		assert_eq!(
-			<PendingAvailability<Test>>::get(&chain_a),
+			PendingAvailability::<Test>::get(&chain_a),
 			Some(
 				[CandidatePendingAvailability {
 					core: CoreIndex::from(0),
@@ -2654,7 +2654,7 @@ fn session_change_wipes() {
 		run_to_block(10, |_| None);
 
 		let candidate = TestCandidateBuilder::default().build();
-		<PendingAvailability<Test>>::insert(
+		PendingAvailability::<Test>::insert(
 			&chain_a,
 			[CandidatePendingAvailability {
 				core: CoreIndex::from(0),
@@ -2671,7 +2671,7 @@ fn session_change_wipes() {
 			.collect::<VecDeque<_>>(),
 		);
 
-		<PendingAvailability<Test>>::insert(
+		PendingAvailability::<Test>::insert(
 			&chain_b,
 			[CandidatePendingAvailability {
 				core: CoreIndex::from(1),
@@ -2690,10 +2690,10 @@ fn session_change_wipes() {
 
 		run_to_block(11, |_| None);
 
-		assert_eq!(shared::Pallet::<Test>::session_index(), 5);
+		assert_eq!(shared::CurrentSessionIndex::<Test>::get(), 5);
 
-		assert!(<PendingAvailability<Test>>::get(&chain_a).is_some());
-		assert!(<PendingAvailability<Test>>::get(&chain_b).is_some());
+		assert!(PendingAvailability::<Test>::get(&chain_a).is_some());
+		assert!(PendingAvailability::<Test>::get(&chain_b).is_some());
 
 		run_to_block(12, |n| match n {
 			12 => Some(SessionChangeNotification {
@@ -2707,9 +2707,9 @@ fn session_change_wipes() {
 			_ => None,
 		});
 
-		assert_eq!(shared::Pallet::<Test>::session_index(), 6);
+		assert_eq!(shared::CurrentSessionIndex::<Test>::get(), 6);
 
-		assert!(<PendingAvailability<Test>>::iter().collect::<Vec<_>>().is_empty());
+		assert!(PendingAvailability::<Test>::iter().collect::<Vec<_>>().is_empty());
 	});
 }
 
@@ -2849,7 +2849,7 @@ fn para_upgrade_delay_scheduled_from_inclusion() {
 		let v = process_bitfields(checked_bitfields);
 		assert_eq!(vec![(CoreIndex(0), candidate_a.hash())], v);
 
-		assert!(<PendingAvailability<Test>>::get(&chain_a).unwrap().is_empty());
+		assert!(PendingAvailability::<Test>::get(&chain_a).unwrap().is_empty());
 
 		let active_vote_state = paras::Pallet::<Test>::active_vote_state(&new_validation_code_hash)
 			.expect("prechecking must be initiated");

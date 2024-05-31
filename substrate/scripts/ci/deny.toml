@@ -69,7 +69,6 @@ exceptions = [
 	{ allow = ["GPL-3.0 WITH Classpath-exception-2.0"], name = "sc-keystore" },
 	{ allow = ["GPL-3.0 WITH Classpath-exception-2.0"], name = "sc-mixnet" },
 	{ allow = ["GPL-3.0 WITH Classpath-exception-2.0"], name = "sc-network" },
-	{ allow = ["GPL-3.0 WITH Classpath-exception-2.0"], name = "sc-network-bitswap" },
 	{ allow = ["GPL-3.0 WITH Classpath-exception-2.0"], name = "sc-network-common" },
 	{ allow = ["GPL-3.0 WITH Classpath-exception-2.0"], name = "sc-network-gossip" },
 	{ allow = ["GPL-3.0 WITH Classpath-exception-2.0"], name = "sc-network-light" },

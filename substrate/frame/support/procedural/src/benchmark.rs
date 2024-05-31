@@ -303,6 +303,24 @@ fn ensure_valid_return_type(item_fn: &ItemFn) -> Result<()> {
 	Ok(())
 }
 
+/// Ensure that the passed statements do not contain any forbidden variable names
+fn ensure_no_forbidden_variable_names(stmts: &[Stmt]) -> Result<()> {
+	const FORBIDDEN_VAR_NAMES: [&str; 2] = ["recording", "verify"];
+	for stmt in stmts {
+		let Stmt::Local(l) = stmt else { continue };
+		let Pat::Ident(ident) = &l.pat else { continue };
+		if FORBIDDEN_VAR_NAMES.contains(&ident.ident.to_string().as_str()) {
+			return Err(Error::new(
+				ident.span(),
+				format!(
+					"Variables {FORBIDDEN_VAR_NAMES:?} are reserved for benchmarking internals.",
+				),
+			));
+		}
+	}
+	Ok(())
+}
+
 /// Parses params such as `x: Linear<0, 1>`
 fn parse_params(item_fn: &ItemFn) -> Result<Vec<ParamDef>> {
 	let mut params: Vec<ParamDef> = Vec::new();
@@ -436,9 +454,12 @@ impl BenchmarkDef {
 			},
 		};
 
+		let setup_stmts = Vec::from(&item_fn.block.stmts[0..i]);
+		ensure_no_forbidden_variable_names(&setup_stmts)?;
+
 		Ok(BenchmarkDef {
 			params,
-			setup_stmts: Vec::from(&item_fn.block.stmts[0..i]),
+			setup_stmts,
 			call_def,
 			verify_stmts,
 			last_stmt,
@@ -633,18 +654,16 @@ pub fn benchmarks(
 
 				fn instance(
 					&self,
+					recording: &mut impl #krate::Recording,
 					components: &[(#krate::BenchmarkParameter, u32)],
 					verify: bool,
-				) -> Result<
-					#krate::__private::Box<dyn FnOnce() -> Result<(), #krate::BenchmarkError>>,
-					#krate::BenchmarkError,
-				> {
+				) -> Result<(), #krate::BenchmarkError> {
 					match self {
 						#(
 							Self::#benchmark_names => {
 								<#benchmark_names as #krate::BenchmarkingSetup<
 									#type_use_generics
-								>>::instance(&#benchmark_names, components, verify)
+								>>::instance(&#benchmark_names, recording, components, verify)
 							}
 						)
 						*
@@ -735,17 +754,7 @@ pub fn benchmarks(
 					#krate::benchmarking::set_whitelist(whitelist.clone());
 					let mut results: #krate::__private::Vec<#krate::BenchmarkResult> = #krate::__private::Vec::new();
 
-					// Always do at least one internal repeat...
-					for _ in 0 .. internal_repeats.max(1) {
-						// Always reset the state after the benchmark.
-						#krate::__private::defer!(#krate::benchmarking::wipe_db());
-
-						// Set up the externalities environment for the setup we want to
-						// benchmark.
-						let closure_to_benchmark = <
-							SelectedBenchmark as #krate::BenchmarkingSetup<#type_use_generics>
-						>::instance(&selected_benchmark, c, verify)?;
-
+					let on_before_start = || {
 						// Set the block number to at least 1 so events are deposited.
 						if #krate::__private::Zero::is_zero(&#frame_system::Pallet::<T>::block_number()) {
 							#frame_system::Pallet::<T>::set_block_number(1u32.into());
@@ -763,6 +772,12 @@ pub fn benchmarks(
 
 						// Reset the read/write counter so we don't count operations in the setup process.
 						#krate::benchmarking::reset_read_write_count();
+					};
+
+					// Always do at least one internal repeat...
+					for _ in 0 .. internal_repeats.max(1) {
+						// Always reset the state after the benchmark.
+						#krate::__private::defer!(#krate::benchmarking::wipe_db());
 
 						// Time the extrinsic logic.
 						#krate::__private::log::trace!(
@@ -772,20 +787,12 @@ pub fn benchmarks(
 							c
 						);
 
-						let start_pov = #krate::benchmarking::proof_size();
-						let start_extrinsic = #krate::benchmarking::current_time();
-
-						closure_to_benchmark()?;
-
-						let finish_extrinsic = #krate::benchmarking::current_time();
-						let end_pov = #krate::benchmarking::proof_size();
+						let mut recording = #krate::BenchmarkRecording::new(&on_before_start);
+						<SelectedBenchmark as #krate::BenchmarkingSetup<#type_use_generics>>::instance(&selected_benchmark, &mut recording, c, verify)?;
 
 						// Calculate the diff caused by the benchmark.
-						let elapsed_extrinsic = finish_extrinsic.saturating_sub(start_extrinsic);
-						let diff_pov = match (start_pov, end_pov) {
-							(Some(start), Some(end)) => end.saturating_sub(start),
-							_ => Default::default(),
-						};
+						let elapsed_extrinsic = recording.elapsed_extrinsic().expect("elapsed time should be recorded");
+						let diff_pov = recording.diff_pov().unwrap_or_default();
 
 						// Commit the changes to get proper write count
 						#krate::benchmarking::commit_db();
@@ -1086,9 +1093,10 @@ fn expand_benchmark(
 
 			fn instance(
 				&self,
+				recording: &mut impl #krate::Recording,
 				components: &[(#krate::BenchmarkParameter, u32)],
 				verify: bool
-			) -> Result<#krate::__private::Box<dyn FnOnce() -> Result<(), #krate::BenchmarkError>>, #krate::BenchmarkError> {
+			) -> Result<(), #krate::BenchmarkError> {
 				#(
 					// prepare instance #param_names
 					let #param_names = components.iter()
@@ -1102,15 +1110,15 @@ fn expand_benchmark(
 					#setup_stmts
 				)*
 				#pre_call
-				Ok(#krate::__private::Box::new(move || -> Result<(), #krate::BenchmarkError> {
-					#post_call
-					if verify {
-						#(
-							#verify_stmts
-						)*
-					}
-					#impl_last_stmt
-				}))
+				recording.start();
+				#post_call
+				recording.stop();
+				if verify {
+					#(
+						#verify_stmts
+					)*
+				}
+				#impl_last_stmt
 			}
 		}
 
@@ -1128,18 +1136,15 @@ fn expand_benchmark(
 					// Always reset the state after the benchmark.
 					#krate::__private::defer!(#krate::benchmarking::wipe_db());
 
-					// Set up the benchmark, return execution + verification function.
-					let closure_to_verify = <
-						SelectedBenchmark as #krate::BenchmarkingSetup<T, _>
-					>::instance(&selected_benchmark, &c, true)?;
-
-					// Set the block number to at least 1 so events are deposited.
-					if #krate::__private::Zero::is_zero(&#frame_system::Pallet::<T>::block_number()) {
-						#frame_system::Pallet::<T>::set_block_number(1u32.into());
-					}
+					let on_before_start = || {
+						// Set the block number to at least 1 so events are deposited.
+						if #krate::__private::Zero::is_zero(&#frame_system::Pallet::<T>::block_number()) {
+							#frame_system::Pallet::<T>::set_block_number(1u32.into());
+						}
+					};
 
 					// Run execution + verification
-					closure_to_verify()
+					<SelectedBenchmark as #krate::BenchmarkingSetup<T, _>>::test_instance(&selected_benchmark,  &c, &on_before_start)
 				};
 
 				if components.is_empty() {

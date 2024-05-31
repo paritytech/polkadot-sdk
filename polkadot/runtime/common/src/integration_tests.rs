@@ -39,7 +39,7 @@ use primitives::{
 	MAX_CODE_SIZE,
 };
 use runtime_parachains::{
-	configuration, origin, paras, shared, Origin as ParaOrigin, ParaLifecycle,
+	configuration, dmp, origin, paras, shared, Origin as ParaOrigin, ParaLifecycle,
 };
 use sp_core::H256;
 use sp_io::TestExternalities;
@@ -84,6 +84,7 @@ frame_support::construct_runtime!(
 		Paras: paras,
 		ParasShared: shared,
 		ParachainsOrigin: origin,
+		Dmp: dmp,
 
 		// Para Onboarding Pallets
 		Registrar: paras_registrar,
@@ -108,7 +109,6 @@ where
 use crate::{auctions::Error as AuctionsError, crowdloan::Error as CrowdloanError};
 
 parameter_types! {
-	pub const BlockHashCount: u32 = 250;
 	pub BlockWeights: frame_system::limits::BlockWeights =
 		frame_system::limits::BlockWeights::simple_max(
 			Weight::from_parts(4 * 1024 * 1024, u64::MAX),
@@ -130,7 +130,6 @@ impl frame_system::Config for Test {
 	type Lookup = IdentityLookup<AccountId>;
 	type Block = Block;
 	type RuntimeEvent = RuntimeEvent;
-	type BlockHashCount = BlockHashCount;
 	type Version = ();
 	type PalletInfo = PalletInfo;
 	type AccountData = pallet_balances::AccountData<Balance>;
@@ -200,6 +199,8 @@ impl configuration::Config for Test {
 impl shared::Config for Test {
 	type DisabledValidators = ();
 }
+
+impl dmp::Config for Test {}
 
 impl origin::Config for Test {}
 
@@ -348,7 +349,7 @@ const VALIDATORS: &[Sr25519Keyring] = &[
 
 fn maybe_new_session(n: u32) {
 	if n % BLOCKS_PER_SESSION == 0 {
-		let session_index = shared::Pallet::<Test>::session_index() + 1;
+		let session_index = shared::CurrentSessionIndex::<Test>::get() + 1;
 		let validators_pub_keys = validators_public_keys(VALIDATORS);
 
 		shared::Pallet::<Test>::set_session_index(session_index);
@@ -464,7 +465,7 @@ fn basic_end_to_end_works() {
 				200 + offset,                 // Block End
 				None,
 			));
-			let fund_2 = Crowdloan::funds(ParaId::from(para_2)).unwrap();
+			let fund_2 = crowdloan::Funds::<Test>::get(ParaId::from(para_2)).unwrap();
 			let crowdloan_account = Crowdloan::fund_account_id(fund_2.fund_index);
 
 			// Auction ending begins on block 100 + offset, so we make a bid before then.
@@ -826,7 +827,7 @@ fn competing_bids() {
 		run_to_block(starting_block + 110);
 
 		// Appropriate Paras should have won slots
-		let fund_1 = Crowdloan::funds(ParaId::from(2000)).unwrap();
+		let fund_1 = crowdloan::Funds::<Test>::get(ParaId::from(2000)).unwrap();
 		let crowdloan_1 = Crowdloan::fund_account_id(fund_1.fund_index);
 		assert_eq!(
 			slots::Leases::<Test>::get(ParaId::from(2000)),
@@ -912,7 +913,7 @@ fn basic_swap_works() {
 			200,                          // Block End
 			None,
 		));
-		let fund = Crowdloan::funds(ParaId::from(2000)).unwrap();
+		let fund = crowdloan::Funds::<Test>::get(ParaId::from(2000)).unwrap();
 		let crowdloan_account = Crowdloan::fund_account_id(fund.fund_index);
 
 		// Bunch of contributions
@@ -932,7 +933,7 @@ fn basic_swap_works() {
 		// ----------------------------------------- para deposit --- crowdloan
 		let crowdloan_deposit = 100;
 		let para_id_deposit = <Test as paras_registrar::Config>::ParaDeposit::get();
-		let code_deposit = configuration::Pallet::<Test>::config().max_code_size *
+		let code_deposit = configuration::ActiveConfig::<Test>::get().max_code_size *
 			<Test as paras_registrar::Config>::DataDepositPerByte::get();
 
 		// Para 2000 has a genesis head size of 10.
@@ -944,16 +945,16 @@ fn basic_swap_works() {
 		assert_eq!(Balances::reserved_balance(&account_id(2)), para_id_deposit + code_deposit + 20);
 		assert_eq!(Balances::reserved_balance(&crowdloan_account), total);
 		// Crowdloan is appropriately set
-		assert!(Crowdloan::funds(ParaId::from(2000)).is_some());
-		assert!(Crowdloan::funds(ParaId::from(2001)).is_none());
+		assert!(crowdloan::Funds::<Test>::get(ParaId::from(2000)).is_some());
+		assert!(crowdloan::Funds::<Test>::get(ParaId::from(2001)).is_none());
 
 		// New leases will start on block 400
 		let lease_start_block = 400;
 		run_to_block(lease_start_block);
 
 		// Slots are won by Para 1
-		assert!(!Slots::lease(ParaId::from(2000)).is_empty());
-		assert!(Slots::lease(ParaId::from(2001)).is_empty());
+		assert!(!slots::Leases::<Test>::get(ParaId::from(2000)).is_empty());
+		assert!(slots::Leases::<Test>::get(ParaId::from(2001)).is_empty());
 
 		// 2 sessions later it is a parachain
 		run_to_block(lease_start_block + 20);
@@ -986,11 +987,11 @@ fn basic_swap_works() {
 		assert_eq!(Balances::reserved_balance(&account_id(1)), crowdloan_deposit);
 		assert_eq!(Balances::reserved_balance(&account_id(2)), para_id_deposit + code_deposit + 20);
 		// Crowdloan ownership is swapped
-		assert!(Crowdloan::funds(ParaId::from(2000)).is_none());
-		assert!(Crowdloan::funds(ParaId::from(2001)).is_some());
+		assert!(crowdloan::Funds::<Test>::get(ParaId::from(2000)).is_none());
+		assert!(crowdloan::Funds::<Test>::get(ParaId::from(2001)).is_some());
 		// Slot is swapped
-		assert!(Slots::lease(ParaId::from(2000)).is_empty());
-		assert!(!Slots::lease(ParaId::from(2001)).is_empty());
+		assert!(slots::Leases::<Test>::get(ParaId::from(2000)).is_empty());
+		assert!(!slots::Leases::<Test>::get(ParaId::from(2001)).is_empty());
 
 		// Cant dissolve
 		assert_noop!(
@@ -1061,7 +1062,9 @@ fn parachain_swap_works() {
 		assert_eq!(Paras::lifecycle(ParaId::from(2001)), Some(ParaLifecycle::Onboarding));
 
 		assert_eq!(
-			Balances::total_balance(&Crowdloan::fund_account_id(Crowdloan::next_fund_index())),
+			Balances::total_balance(&Crowdloan::fund_account_id(
+				crowdloan::NextFundIndex::<Test>::get()
+			)),
 			0
 		);
 
@@ -1090,7 +1093,7 @@ fn parachain_swap_works() {
 				end,                          // Block End
 				None,
 			));
-			let winner_fund = Crowdloan::funds(ParaId::from(winner)).unwrap();
+			let winner_fund = crowdloan::Funds::<Test>::get(ParaId::from(winner)).unwrap();
 			let crowdloan_account = Crowdloan::fund_account_id(winner_fund.fund_index);
 
 			// Bunch of contributions
@@ -1107,7 +1110,7 @@ fn parachain_swap_works() {
 			run_to_block(end);
 
 			// Crowdloan is appropriately set
-			assert!(Crowdloan::funds(ParaId::from(winner)).is_some());
+			assert!(crowdloan::Funds::<Test>::get(ParaId::from(winner)).is_some());
 
 			// New leases will start on block lease period index * 100
 			let lease_start_block = lease_period_index_start * 100;
@@ -1116,8 +1119,8 @@ fn parachain_swap_works() {
 
 		start_auction(4u32, 2000, 200);
 		// Slots are won by Para 1
-		assert!(!Slots::lease(ParaId::from(2000)).is_empty());
-		assert!(Slots::lease(ParaId::from(2001)).is_empty());
+		assert!(!slots::Leases::<Test>::get(ParaId::from(2000)).is_empty());
+		assert!(slots::Leases::<Test>::get(ParaId::from(2001)).is_empty());
 
 		// 2 sessions later it is a parachain
 		run_to_block(4 * 100 + 20);
@@ -1127,8 +1130,8 @@ fn parachain_swap_works() {
 		// Let's repeat the process now for another parachain.
 		start_auction(6u32, 2001, 500);
 		// Slots are won by Para 1
-		assert!(!Slots::lease(ParaId::from(2000)).is_empty());
-		assert!(!Slots::lease(ParaId::from(2001)).is_empty());
+		assert!(!slots::Leases::<Test>::get(ParaId::from(2000)).is_empty());
+		assert!(!slots::Leases::<Test>::get(ParaId::from(2001)).is_empty());
 
 		// 2 sessions later it is a parachain
 		run_to_block(6 * 100 + 20);
@@ -1145,22 +1148,22 @@ fn parachain_swap_works() {
 		assert_eq!(slots::Leases::<Test>::get(ParaId::from(2000)).len(), 6);
 		assert_eq!(slots::Leases::<Test>::get(ParaId::from(2001)).len(), 8);
 
-		let fund_2000 = Crowdloan::funds(ParaId::from(2000)).unwrap();
+		let fund_2000 = crowdloan::Funds::<Test>::get(ParaId::from(2000)).unwrap();
 		assert_eq!(fund_2000.fund_index, 0);
 		assert_eq!(
 			Balances::reserved_balance(&Crowdloan::fund_account_id(fund_2000.fund_index)),
 			fund_2000.raised
 		);
 
-		let fund_2001 = Crowdloan::funds(ParaId::from(2001)).unwrap();
+		let fund_2001 = crowdloan::Funds::<Test>::get(ParaId::from(2001)).unwrap();
 		assert_eq!(fund_2001.fund_index, 1);
 		assert_eq!(
 			Balances::reserved_balance(&Crowdloan::fund_account_id(fund_2001.fund_index)),
 			fund_2001.raised
 		);
 
-		assert_eq!(Slots::lease(ParaId::from(2000)).len(), 6);
-		assert_eq!(Slots::lease(ParaId::from(2001)).len(), 8);
+		assert_eq!(slots::Leases::<Test>::get(ParaId::from(2000)).len(), 6);
+		assert_eq!(slots::Leases::<Test>::get(ParaId::from(2001)).len(), 8);
 
 		// Now we swap them.
 		assert_ok!(Registrar::swap(
@@ -1182,14 +1185,14 @@ fn parachain_swap_works() {
 		));
 
 		// Crowdloan Swapped
-		let fund_2000 = Crowdloan::funds(ParaId::from(2000)).unwrap();
+		let fund_2000 = crowdloan::Funds::<Test>::get(ParaId::from(2000)).unwrap();
 		assert_eq!(fund_2000.fund_index, 1);
 		assert_eq!(
 			Balances::reserved_balance(&Crowdloan::fund_account_id(fund_2000.fund_index)),
 			fund_2000.raised
 		);
 
-		let fund_2001 = Crowdloan::funds(ParaId::from(2001)).unwrap();
+		let fund_2001 = crowdloan::Funds::<Test>::get(ParaId::from(2001)).unwrap();
 		assert_eq!(fund_2001.fund_index, 0);
 		assert_eq!(
 			Balances::reserved_balance(&Crowdloan::fund_account_id(fund_2001.fund_index)),
@@ -1197,8 +1200,8 @@ fn parachain_swap_works() {
 		);
 
 		// Slots Swapped
-		assert_eq!(Slots::lease(ParaId::from(2000)).len(), 8);
-		assert_eq!(Slots::lease(ParaId::from(2001)).len(), 6);
+		assert_eq!(slots::Leases::<Test>::get(ParaId::from(2000)).len(), 8);
+		assert_eq!(slots::Leases::<Test>::get(ParaId::from(2001)).len(), 6);
 	})
 }
 
@@ -1263,7 +1266,7 @@ fn crowdloan_ending_period_bid() {
 			200,                          // Block End
 			None,
 		));
-		let fund = Crowdloan::funds(ParaId::from(2000)).unwrap();
+		let fund = crowdloan::Funds::<Test>::get(ParaId::from(2000)).unwrap();
 		let crowdloan_account = Crowdloan::fund_account_id(fund.fund_index);
 
 		// Bunch of contributions
@@ -1297,7 +1300,7 @@ fn crowdloan_ending_period_bid() {
 		winning[SlotRange::ZeroThree as u8 as usize] =
 			Some((crowdloan_account.clone(), ParaId::from(2000), total));
 
-		assert_eq!(Auctions::winning(0), Some(winning));
+		assert_eq!(auctions::Winning::<Test>::get(0), Some(winning));
 
 		run_to_block(ends_at + 1);
 
@@ -1310,7 +1313,7 @@ fn crowdloan_ending_period_bid() {
 		winning[SlotRange::ZeroOne as u8 as usize] = Some((account_id(2), ParaId::from(2001), 900));
 		winning[SlotRange::ZeroThree as u8 as usize] =
 			Some((crowdloan_account.clone(), ParaId::from(2000), total + 900));
-		assert_eq!(Auctions::winning(2), Some(winning));
+		assert_eq!(auctions::Winning::<Test>::get(2), Some(winning));
 	})
 }
 
@@ -1615,7 +1618,7 @@ fn cant_bid_on_existing_lease_periods() {
 			400,                          // Long block end
 			None,
 		));
-		let fund = Crowdloan::funds(ParaId::from(2000)).unwrap();
+		let fund = crowdloan::Funds::<Test>::get(ParaId::from(2000)).unwrap();
 		let crowdloan_account = Crowdloan::fund_account_id(fund.fund_index);
 
 		// Bunch of contributions
@@ -1656,7 +1659,7 @@ fn cant_bid_on_existing_lease_periods() {
 
 		// Poke the crowdloan into `NewRaise`
 		assert_ok!(Crowdloan::poke(signed(1), ParaId::from(2000)));
-		assert_eq!(Crowdloan::new_raise(), vec![ParaId::from(2000)]);
+		assert_eq!(crowdloan::NewRaise::<Test>::get(), vec![ParaId::from(2000)]);
 
 		// Beginning of ending block.
 		run_to_block(starting_block + 100);

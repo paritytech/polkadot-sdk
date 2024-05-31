@@ -10,16 +10,20 @@ license.workspace = true
 workspace = true
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.6.1" }
+codec = { package = "parity-scale-codec", version = "3.6.12" }
+scale-info = { version = "2.6.0", default-features = false }
 paste = "1.0.7"
 
 frame-support = { path = "../../../substrate/frame/support" }
+frame-system = { path = "../../../substrate/frame/system" }
 sp-io = { path = "../../../substrate/primitives/io" }
 sp-std = { path = "../../../substrate/primitives/std" }
+sp-runtime = { path = "../../../substrate/primitives/runtime" }
 
 xcm = { package = "staging-xcm", path = ".." }
 xcm-executor = { package = "staging-xcm-executor", path = "../xcm-executor" }
 xcm-builder = { package = "staging-xcm-builder", path = "../xcm-builder" }
+polkadot-primitives = { path = "../../primitives" }
 polkadot-core-primitives = { path = "../../core-primitives" }
 polkadot-parachain-primitives = { path = "../../parachain" }
 polkadot-runtime-parachains = { path = "../../runtime/parachains" }

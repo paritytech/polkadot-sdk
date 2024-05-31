@@ -25,6 +25,7 @@ mod imports {
 		prelude::{AccountId32 as AccountId32Junction, *},
 		v3::{self, NetworkId::Westend as WestendId},
 	};
+	pub use xcm_executor::traits::TransferType;
 
 	// Cumulus
 	pub use emulated_integration_tests_common::{
@@ -46,7 +47,7 @@ mod imports {
 		bridge_hub_rococo_emulated_chain::{
 			genesis::ED as BRIDGE_HUB_ROCOCO_ED, BridgeHubRococoParaPallet as BridgeHubRococoPallet,
 		},
-		penpal_emulated_chain::PenpalAParaPallet as PenpalAPallet,
+		penpal_emulated_chain::{PenpalAParaPallet as PenpalAPallet, PenpalAssetOwner},
 		rococo_emulated_chain::{genesis::ED as ROCOCO_ED, RococoRelayPallet as RococoPallet},
 		AssetHubRococoPara as AssetHubRococo, AssetHubRococoParaReceiver as AssetHubRococoReceiver,
 		AssetHubRococoParaSender as AssetHubRococoSender, AssetHubWestendPara as AssetHubWestend,

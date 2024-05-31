@@ -49,7 +49,9 @@ use polkadot_node_subsystem::messages::{
 	CollationGenerationMessage, RuntimeApiMessage, RuntimeApiRequest,
 };
 use polkadot_overseer::Handle as OverseerHandle;
-use polkadot_primitives::{CollatorPair, CoreIndex, Id as ParaId, OccupiedCoreAssumption};
+use polkadot_primitives::{
+	AsyncBackingParams, CollatorPair, CoreIndex, CoreState, Id as ParaId, OccupiedCoreAssumption,
+};
 
 use futures::{channel::oneshot, prelude::*};
 use sc_client_api::{backend::AuxStore, BlockBackend, BlockOf};
@@ -65,7 +67,7 @@ use sp_inherents::CreateInherentDataProviders;
 use sp_keystore::KeystorePtr;
 use sp_runtime::traits::{Block as BlockT, Header as HeaderT, Member};
 use sp_timestamp::Timestamp;
-use std::{convert::TryFrom, sync::Arc, time::Duration};
+use std::{sync::Arc, time::Duration};
 
 use crate::collator::{self as collator_util, SlotClaim};
 
@@ -186,10 +188,14 @@ where
 
 			// TODO: Currently we use just the first core here, but for elastic scaling
 			// we iterate and build on all of the cores returned.
-			let core_index = if let Some(core_index) =
-				cores_scheduled_for_para(relay_parent, params.para_id, &mut params.overseer_handle)
-					.await
-					.get(0)
+			let core_index = if let Some(core_index) = cores_scheduled_for_para(
+				relay_parent,
+				params.para_id,
+				&mut params.overseer_handle,
+				&mut params.relay_client,
+			)
+			.await
+			.get(0)
 			{
 				*core_index
 			} else {
@@ -223,7 +229,10 @@ where
 			let parent_search_params = ParentSearchParams {
 				relay_parent,
 				para_id: params.para_id,
-				ancestry_lookback: max_ancestry_lookback(relay_parent, &params.relay_client).await,
+				ancestry_lookback: async_backing_params(relay_parent, &params.relay_client)
+					.await
+					.map(|c| c.allowed_ancestry_len as usize)
+					.unwrap_or(0),
 				max_depth: PARENT_SEARCH_DEPTH,
 				ignore_alternative_branches: true,
 			};
@@ -306,9 +315,10 @@ where
 			let mut parent_header = initial_parent.header;
 			let overseer_handle = &mut params.overseer_handle;
 
-			// We mainly call this to inform users at genesis if there is a mismatch with the
-			// on-chain data.
-			collator.collator_service().check_block_status(parent_hash, &parent_header);
+			// Do not try to build upon an unknown, pruned or bad block
+			if !collator.collator_service().check_block_status(parent_hash, &parent_header) {
+				continue
+			}
 
 			// This needs to change to support elastic scaling, but for continuously
 			// scheduled chains this ensures that the backlog will grow steadily.
@@ -461,21 +471,19 @@ where
 	Some(SlotClaim::unchecked::<P>(author_pub, slot, timestamp))
 }
 
-/// Reads allowed ancestry length parameter from the relay chain storage at the given relay parent.
-///
-/// Falls back to 0 in case of an error.
-async fn max_ancestry_lookback(
+/// Reads async backing parameters from the relay chain storage at the given relay parent.
+async fn async_backing_params(
 	relay_parent: PHash,
 	relay_client: &impl RelayChainInterface,
-) -> usize {
+) -> Option<AsyncBackingParams> {
 	match load_abridged_host_configuration(relay_parent, relay_client).await {
-		Ok(Some(config)) => config.async_backing_params.allowed_ancestry_len as usize,
+		Ok(Some(config)) => Some(config.async_backing_params),
 		Ok(None) => {
 			tracing::error!(
 				target: crate::LOG_TARGET,
 				"Active config is missing in relay chain storage",
 			);
-			0
+			None
 		},
 		Err(err) => {
 			tracing::error!(
@@ -484,7 +492,7 @@ async fn max_ancestry_lookback(
 				?relay_parent,
 				"Failed to read active config from relay chain client",
 			);
-			0
+			None
 		},
 	}
 }
@@ -494,7 +502,9 @@ async fn cores_scheduled_for_para(
 	relay_parent: PHash,
 	para_id: ParaId,
 	overseer_handle: &mut OverseerHandle,
+	relay_client: &impl RelayChainInterface,
 ) -> Vec<CoreIndex> {
+	// Get `AvailabilityCores` from runtime
 	let (tx, rx) = oneshot::channel();
 	let request = RuntimeApiRequest::AvailabilityCores(tx);
 	overseer_handle
@@ -522,11 +532,25 @@ async fn cores_scheduled_for_para(
 		},
 	};
 
+	let max_candidate_depth = async_backing_params(relay_parent, relay_client)
+		.await
+		.map(|c| c.max_candidate_depth)
+		.unwrap_or(0);
+
 	cores
 		.iter()
 		.enumerate()
 		.filter_map(|(index, core)| {
-			if core.para_id() == Some(para_id) {
+			let core_para_id = match core {
+				CoreState::Scheduled(scheduled_core) => Some(scheduled_core.para_id),
+				CoreState::Occupied(occupied_core) if max_candidate_depth >= 1 => occupied_core
+					.next_up_on_available
+					.as_ref()
+					.map(|scheduled_core| scheduled_core.para_id),
+				CoreState::Free | CoreState::Occupied(_) => None,
+			};
+
+			if core_para_id == Some(para_id) {
 				Some(CoreIndex(index as u32))
 			} else {
 				None

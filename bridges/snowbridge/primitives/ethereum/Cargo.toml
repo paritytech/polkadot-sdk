@@ -14,18 +14,16 @@ workspace = true
 [dependencies]
 serde = { optional = true, features = ["derive"], workspace = true, default-features = true }
 serde-big-array = { optional = true, features = ["const-generics"], workspace = true }
-codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = ["derive"] }
+codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false, features = ["derive"] }
 scale-info = { version = "2.9.0", default-features = false, features = ["derive"] }
 ethbloom = { version = "0.13.0", default-features = false }
 ethereum-types = { version = "0.14.1", default-features = false, features = ["codec", "rlp", "serialize"] }
-hex = { package = "rustc-hex", version = "2.1.0", default-features = false }
 hex-literal = { version = "0.4.1", default-features = false }
 parity-bytes = { version = "0.1.2", default-features = false }
 rlp = { version = "0.5.2", default-features = false }
 
 sp-io = { path = "../../../../substrate/primitives/io", default-features = false }
 sp-std = { path = "../../../../substrate/primitives/std", default-features = false }
-sp-core = { path = "../../../../substrate/primitives/core", default-features = false }
 sp-runtime = { path = "../../../../substrate/primitives/runtime", default-features = false }
 
 ethabi = { package = "ethabi-decode", version = "1.0.0", default-features = false }
@@ -43,13 +41,11 @@ std = [
 	"ethabi/std",
 	"ethbloom/std",
 	"ethereum-types/std",
-	"hex/std",
 	"parity-bytes/std",
 	"rlp/std",
 	"scale-info/std",
 	"serde",
 	"serde-big-array",
-	"sp-core/std",
 	"sp-io/std",
 	"sp-runtime/std",
 	"sp-std/std",

@@ -17,7 +17,7 @@
 use super::*;
 use crate::{
 	configuration::ActiveConfig,
-	mock::{new_test_ext, Configuration, Dmp, MockGenesisConfig, Paras, System, Test},
+	mock::{new_test_ext, Dmp, MockGenesisConfig, Paras, System, Test},
 };
 use frame_support::assert_ok;
 use hex_literal::hex;
@@ -58,7 +58,7 @@ fn queue_downward_message(
 	para_id: ParaId,
 	msg: DownwardMessage,
 ) -> Result<(), QueueDownwardMessageError> {
-	Dmp::queue_downward_message(&Configuration::config(), para_id, msg)
+	Dmp::queue_downward_message(&configuration::ActiveConfig::<Test>::get(), para_id, msg)
 }
 
 #[test]

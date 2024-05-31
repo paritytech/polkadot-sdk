@@ -14,22 +14,28 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::configuration::{TestAuthorities, TestConfiguration};
+use crate::{
+	configuration::{TestAuthorities, TestConfiguration},
+	environment::GENESIS_HASH,
+	mock::runtime_api::node_features_with_chunk_mapping_enabled,
+};
 use bitvec::bitvec;
 use colored::Colorize;
 use itertools::Itertools;
 use parity_scale_codec::Encode;
 use polkadot_node_network_protocol::{
-	request_response::v1::ChunkFetchingRequest, Versioned, VersionedValidationProtocol,
+	request_response::{v2::ChunkFetchingRequest, ReqProtocolNames},
+	Versioned, VersionedValidationProtocol,
 };
 use polkadot_node_primitives::{AvailableData, BlockData, ErasureChunk, PoV};
 use polkadot_node_subsystem_test_helpers::{
 	derive_erasure_chunks_with_proofs_and_root, mock::new_block_import_info,
 };
+use polkadot_node_subsystem_util::availability_chunks::availability_chunk_indices;
 use polkadot_overseer::BlockInfo;
 use polkadot_primitives::{
-	AvailabilityBitfield, BlockNumber, CandidateHash, CandidateReceipt, Hash, HeadData, Header,
-	PersistedValidationData, Signed, SigningContext, ValidatorIndex,
+	AvailabilityBitfield, BlockNumber, CandidateHash, CandidateReceipt, ChunkIndex, CoreIndex,
+	Hash, HeadData, Header, PersistedValidationData, Signed, SigningContext, ValidatorIndex,
 };
 use polkadot_primitives_test_helpers::{dummy_candidate_receipt, dummy_hash};
 use sp_core::H256;
@@ -49,14 +55,20 @@ pub struct TestState {
 	pub pov_size_to_candidate: HashMap<usize, usize>,
 	// Map from generated candidate hashes to candidate index in `available_data` and `chunks`.
 	pub candidate_hashes: HashMap<CandidateHash, usize>,
+	// Map from candidate hash to occupied core index.
+	pub candidate_hash_to_core_index: HashMap<CandidateHash, CoreIndex>,
 	// Per candidate index receipts.
 	pub candidate_receipt_templates: Vec<CandidateReceipt>,
 	// Per candidate index `AvailableData`
 	pub available_data: Vec<AvailableData>,
-	// Per candiadte index chunks
+	// Per candidate index chunks
 	pub chunks: Vec<Vec<ErasureChunk>>,
+	// Per-core ValidatorIndex -> ChunkIndex mapping
+	pub chunk_indices: Vec<Vec<ChunkIndex>>,
 	// Per relay chain block - candidate backed by our backing group
 	pub backed_candidates: Vec<CandidateReceipt>,
+	// Request protcol names
+	pub req_protocol_names: ReqProtocolNames,
 	// Relay chain block infos
 	pub block_infos: Vec<BlockInfo>,
 	// Chung fetching requests for backed candidates
@@ -89,6 +101,9 @@ impl TestState {
 			candidate_receipts: Default::default(),
 			block_headers: Default::default(),
 			test_authorities: config.generate_authorities(),
+			req_protocol_names: ReqProtocolNames::new(GENESIS_HASH, None),
+			chunk_indices: Default::default(),
+			candidate_hash_to_core_index: Default::default(),
 		};
 
 		// we use it for all candidates.
@@ -98,6 +113,17 @@ impl TestState {
 			max_pov_size: 1024,
 			relay_parent_storage_root: Default::default(),
 		};
+
+		test_state.chunk_indices = (0..config.n_cores)
+			.map(|core_index| {
+				availability_chunk_indices(
+					Some(&node_features_with_chunk_mapping_enabled()),
+					config.n_validators,
+					CoreIndex(core_index as u32),
+				)
+				.unwrap()
+			})
+			.collect();
 
 		// For each unique pov we create a candidate receipt.
 		for (index, pov_size) in config.pov_sizes().iter().cloned().unique().enumerate() {
@@ -166,6 +192,11 @@ impl TestState {
 				candidate_receipt.descriptor.relay_parent = Hash::from_low_u64_be(index as u64);
 				// Store the new candidate in the state
 				test_state.candidate_hashes.insert(candidate_receipt.hash(), candidate_index);
+
+				let core_index = (index % config.n_cores) as u32;
+				test_state
+					.candidate_hash_to_core_index
+					.insert(candidate_receipt.hash(), core_index.into());
 
 				gum::debug!(target: LOG_TARGET, candidate_hash = ?candidate_receipt.hash(), "new candidate");
 

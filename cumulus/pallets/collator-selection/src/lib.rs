@@ -121,7 +121,7 @@ pub mod pallet {
 	use sp_std::vec::Vec;
 
 	/// The in-code storage version.
-	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(2);
 
 	type BalanceOf<T> =
 		<<T as Config>::Currency as Currency<<T as SystemConfig>::AccountId>>::Balance;
@@ -984,7 +984,7 @@ pub mod pallet {
 	}
 }
 
-/// [`TypedGet`] implementaion to get the AccountId of the StakingPot.
+/// [`TypedGet`] implementation to get the AccountId of the StakingPot.
 pub struct StakingPotAccountId<R>(PhantomData<R>);
 impl<R> TypedGet for StakingPotAccountId<R>
 where

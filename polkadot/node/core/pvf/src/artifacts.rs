@@ -58,7 +58,7 @@ use crate::{host::PrecheckResultSender, worker_interface::WORKER_DIR_PREFIX};
 use always_assert::always;
 use polkadot_node_core_pvf_common::{error::PrepareError, prepare::PrepareStats, pvf::PvfPrepData};
 use polkadot_parachain_primitives::primitives::ValidationCodeHash;
-use polkadot_primitives::ExecutorParamsHash;
+use polkadot_primitives::ExecutorParamsPrepHash;
 use std::{
 	collections::HashMap,
 	fs,
@@ -85,22 +85,27 @@ pub fn generate_artifact_path(cache_path: &Path) -> PathBuf {
 	artifact_path
 }
 
-/// Identifier of an artifact. Encodes a code hash of the PVF and a hash of executor parameter set.
+/// Identifier of an artifact. Encodes a code hash of the PVF and a hash of preparation-related
+///  executor parameter set.
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct ArtifactId {
 	pub(crate) code_hash: ValidationCodeHash,
-	pub(crate) executor_params_hash: ExecutorParamsHash,
+	pub(crate) executor_params_prep_hash: ExecutorParamsPrepHash,
 }
 
 impl ArtifactId {
 	/// Creates a new artifact ID with the given hash.
-	pub fn new(code_hash: ValidationCodeHash, executor_params_hash: ExecutorParamsHash) -> Self {
-		Self { code_hash, executor_params_hash }
+	pub fn new(
+		code_hash: ValidationCodeHash,
+		executor_params_prep_hash: ExecutorParamsPrepHash,
+	) -> Self {
+		Self { code_hash, executor_params_prep_hash }
 	}
 
-	/// Returns an artifact ID that corresponds to the PVF with given executor params.
+	/// Returns an artifact ID that corresponds to the PVF with given preparation-related
+	/// executor parameters.
 	pub fn from_pvf_prep_data(pvf: &PvfPrepData) -> Self {
-		Self::new(pvf.code_hash(), pvf.executor_params().hash())
+		Self::new(pvf.code_hash(), pvf.executor_params().prep_hash())
 	}
 }
 

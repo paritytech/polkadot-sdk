@@ -20,7 +20,7 @@ use network::ProtocolName;
 use parity_scale_codec::{Decode, Encode, Error as DecodingError};
 
 use sc_network as network;
-use sc_network::PeerId;
+use sc_network_types::PeerId;
 
 use polkadot_primitives::AuthorityDiscoveryId;
 
@@ -30,7 +30,7 @@ use super::{v1, v2, IsRequest, Protocol};
 #[derive(Debug)]
 pub enum Requests {
 	/// Request an availability chunk from a node.
-	ChunkFetchingV1(OutgoingRequest<v1::ChunkFetchingRequest>),
+	ChunkFetching(OutgoingRequest<v2::ChunkFetchingRequest, v1::ChunkFetchingRequest>),
 	/// Fetch a collation from a collator which previously announced it.
 	CollationFetchingV1(OutgoingRequest<v1::CollationFetchingRequest>),
 	/// Fetch a PoV from a validator which previously sent out a seconded statement.
@@ -59,7 +59,7 @@ impl Requests {
 	/// contained in the `enum`.
 	pub fn encode_request(self) -> (Protocol, OutgoingRequest<Vec<u8>>) {
 		match self {
-			Self::ChunkFetchingV1(r) => r.encode_request(),
+			Self::ChunkFetching(r) => r.encode_request(),
 			Self::CollationFetchingV1(r) => r.encode_request(),
 			Self::CollationFetchingV2(r) => r.encode_request(),
 			Self::PoVFetchingV1(r) => r.encode_request(),
@@ -164,24 +164,20 @@ where
 	///
 	/// Returns a raw `Vec<u8>` response over the channel. Use the associated `ProtocolName` to know
 	/// which request was the successful one and appropriately decode the response.
-	// WARNING: This is commented for now because it's not used yet.
-	// If you need it, make sure to test it. You may need to enable the V1 substream upgrade
-	// protocol, unless libp2p was in the meantime updated to a version that fixes the problem
-	// described in https://github.com/libp2p/rust-libp2p/issues/5074
-	// pub fn new_with_fallback(
-	// 	peer: Recipient,
-	// 	payload: Req,
-	// 	fallback_request: FallbackReq,
-	// ) -> (Self, impl Future<Output = OutgoingResult<(Vec<u8>, ProtocolName)>>) {
-	// 	let (tx, rx) = oneshot::channel();
-	// 	let r = Self {
-	// 		peer,
-	// 		payload,
-	// 		pending_response: tx,
-	// 		fallback_request: Some((fallback_request, FallbackReq::PROTOCOL)),
-	// 	};
-	// 	(r, async { Ok(rx.await??) })
-	// }
+	pub fn new_with_fallback(
+		peer: Recipient,
+		payload: Req,
+		fallback_request: FallbackReq,
+	) -> (Self, impl Future<Output = OutgoingResult<(Vec<u8>, ProtocolName)>>) {
+		let (tx, rx) = oneshot::channel();
+		let r = Self {
+			peer,
+			payload,
+			pending_response: tx,
+			fallback_request: Some((fallback_request, FallbackReq::PROTOCOL)),
+		};
+		(r, async { Ok(rx.await??) })
+	}
 
 	/// Encode a request into a `Vec<u8>`.
 	///

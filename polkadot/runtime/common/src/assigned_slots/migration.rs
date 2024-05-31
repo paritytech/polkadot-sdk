@@ -39,8 +39,8 @@ pub mod v1 {
 				const MAX_PERMANENT_SLOTS: u32 = 100;
 				const MAX_TEMPORARY_SLOTS: u32 = 100;
 
-				<MaxPermanentSlots<T>>::put(MAX_PERMANENT_SLOTS);
-				<MaxTemporarySlots<T>>::put(MAX_TEMPORARY_SLOTS);
+				MaxPermanentSlots::<T>::put(MAX_PERMANENT_SLOTS);
+				MaxTemporarySlots::<T>::put(MAX_TEMPORARY_SLOTS);
 				// Return the weight consumed by the migration.
 				T::DbWeight::get().reads_writes(1, 3)
 			} else {
@@ -53,8 +53,8 @@ pub mod v1 {
 		fn post_upgrade(_state: Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
 			let on_chain_version = Pallet::<T>::on_chain_storage_version();
 			ensure!(on_chain_version == 1, "assigned_slots::MigrateToV1 needs to be run");
-			assert_eq!(<MaxPermanentSlots<T>>::get(), 100);
-			assert_eq!(<MaxTemporarySlots<T>>::get(), 100);
+			assert_eq!(MaxPermanentSlots::<T>::get(), 100);
+			assert_eq!(MaxTemporarySlots::<T>::get(), 100);
 			Ok(())
 		}
 	}

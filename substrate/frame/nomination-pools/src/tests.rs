@@ -19,7 +19,11 @@ use super::*;
 use crate::{mock::*, Event};
 use frame_support::{assert_err, assert_noop, assert_ok, assert_storage_noop};
 use pallet_balances::Event as BEvent;
-use sp_runtime::{bounded_btree_map, traits::Dispatchable, FixedU128};
+use sp_runtime::{
+	bounded_btree_map,
+	traits::{BadOrigin, Dispatchable},
+	FixedU128,
+};
 
 macro_rules! unbonding_pools_with_era {
 	($($k:expr => $v:expr),* $(,)?) => {{
@@ -91,8 +95,8 @@ fn test_setup_works() {
 			PoolMember::<Runtime> { pool_id: last_pool, points: 10, ..Default::default() }
 		);
 
-		let bonded_account = Pools::create_bonded_account(last_pool);
-		let reward_account = Pools::create_reward_account(last_pool);
+		let bonded_account = Pools::generate_bonded_account(last_pool);
+		let reward_account = Pools::generate_reward_account(last_pool);
 
 		// the bonded_account should be bonded by the depositor's funds.
 		assert_eq!(StakingMock::active_stake(&bonded_account).unwrap(), 10);
@@ -724,7 +728,7 @@ mod join {
 			);
 
 			// Force the pools bonded balance to 0, simulating a 100% slash
-			StakingMock::set_bonded_balance(Pools::create_bonded_account(1), 0);
+			StakingMock::set_bonded_balance(Pools::generate_bonded_account(1), 0);
 			assert_noop!(
 				Pools::join(RuntimeOrigin::signed(11), 420, 1),
 				Error::<Runtime>::OverflowRisk
@@ -751,7 +755,7 @@ mod join {
 				<<Runtime as Config>::MaxPointsToBalance as Get<u8>>::get().into();
 
 			StakingMock::set_bonded_balance(
-				Pools::create_bonded_account(123),
+				Pools::generate_bonded_account(123),
 				max_points_to_balance,
 			);
 			assert_noop!(
@@ -760,7 +764,7 @@ mod join {
 			);
 
 			StakingMock::set_bonded_balance(
-				Pools::create_bonded_account(123),
+				Pools::generate_bonded_account(123),
 				Balance::MAX / max_points_to_balance,
 			);
 			// Balance needs to be gt Balance::MAX / `MaxPointsToBalance`
@@ -769,7 +773,10 @@ mod join {
 				TokenError::FundsUnavailable,
 			);
 
-			StakingMock::set_bonded_balance(Pools::create_bonded_account(1), max_points_to_balance);
+			StakingMock::set_bonded_balance(
+				Pools::generate_bonded_account(1),
+				max_points_to_balance,
+			);
 
 			// Cannot join a pool that isn't open
 			unsafe_set_state(123, PoolState::Blocked);
@@ -800,7 +807,7 @@ mod join {
 	#[cfg_attr(not(debug_assertions), should_panic)]
 	fn join_panics_when_reward_pool_not_found() {
 		ExtBuilder::default().build_and_execute(|| {
-			StakingMock::set_bonded_balance(Pools::create_bonded_account(123), 100);
+			StakingMock::set_bonded_balance(Pools::generate_bonded_account(123), 100);
 			BondedPool::<Runtime> {
 				id: 123,
 				inner: BondedPoolInner {
@@ -1975,7 +1982,7 @@ mod claim_payout {
 			assert_eq!(member_20.last_recorded_reward_counter, 0.into());
 
 			// pre-fund the reward account of pool id 3 with some funds.
-			Currency::set_balance(&Pools::create_reward_account(3), 10);
+			Currency::set_balance(&Pools::generate_reward_account(3), 10);
 
 			// create pool 3
 			Currency::set_balance(&30, 100);
@@ -1984,7 +1991,7 @@ mod claim_payout {
 			// reward counter is still the same.
 			let (member_30, _, reward_pool_30) = Pools::get_member_with_pools(&30).unwrap();
 			assert_eq!(
-				Currency::free_balance(&Pools::create_reward_account(3)),
+				Currency::free_balance(&Pools::generate_reward_account(3)),
 				10 + Currency::minimum_balance()
 			);
 
@@ -4590,6 +4597,92 @@ mod withdraw_unbonded {
 			assert_eq!(ClaimPermissions::<Runtime>::contains_key(20), false);
 		});
 	}
+
+	#[test]
+	fn destroy_works_without_erroneous_extra_consumer() {
+		ExtBuilder::default().ed(1).build_and_execute(|| {
+			// 10 is the depositor for pool 1, with min join bond 10.
+			// set pool to destroying.
+			unsafe_set_state(1, PoolState::Destroying);
+
+			// set current era
+			CurrentEra::set(1);
+			assert_ok!(Pools::unbond(RuntimeOrigin::signed(10), 10, 10));
+
+			assert_eq!(
+				pool_events_since_last_call(),
+				vec![
+					Event::Created { depositor: 10, pool_id: 1 },
+					Event::Bonded { member: 10, pool_id: 1, bonded: 10, joined: true },
+					Event::Unbonded { member: 10, pool_id: 1, balance: 10, points: 10, era: 4 },
+				]
+			);
+
+			// move to era when unbonded funds can be withdrawn.
+			CurrentEra::set(4);
+			assert_ok!(Pools::withdraw_unbonded(RuntimeOrigin::signed(10), 10, 0));
+
+			assert_eq!(
+				pool_events_since_last_call(),
+				vec![
+					Event::Withdrawn { member: 10, pool_id: 1, points: 10, balance: 10 },
+					Event::MemberRemoved { pool_id: 1, member: 10 },
+					Event::Destroyed { pool_id: 1 },
+				]
+			);
+
+			// pool is destroyed.
+			assert!(!Metadata::<T>::contains_key(1));
+			// ensure the pool account is reaped.
+			assert!(!frame_system::Account::<T>::contains_key(&Pools::generate_bonded_account(1)));
+		})
+	}
+
+	#[test]
+	fn destroy_works_with_erroneous_extra_consumer() {
+		ExtBuilder::default().ed(1).build_and_execute(|| {
+			// 10 is the depositor for pool 1, with min join bond 10.
+			let pool_one = Pools::generate_bonded_account(1);
+
+			// set pool to destroying.
+			unsafe_set_state(1, PoolState::Destroying);
+
+			// set current era
+			CurrentEra::set(1);
+			assert_ok!(Pools::unbond(RuntimeOrigin::signed(10), 10, 10));
+
+			assert_eq!(
+				pool_events_since_last_call(),
+				vec![
+					Event::Created { depositor: 10, pool_id: 1 },
+					Event::Bonded { member: 10, pool_id: 1, bonded: 10, joined: true },
+					Event::Unbonded { member: 10, pool_id: 1, balance: 10, points: 10, era: 4 },
+				]
+			);
+
+			// move to era when unbonded funds can be withdrawn.
+			CurrentEra::set(4);
+
+			// increment consumer by 1 reproducing the erroneous consumer bug.
+			// refer https://github.com/paritytech/polkadot-sdk/issues/4440.
+			assert_ok!(frame_system::Pallet::<T>::inc_consumers(&pool_one));
+			assert_ok!(Pools::withdraw_unbonded(RuntimeOrigin::signed(10), 10, 0));
+
+			assert_eq!(
+				pool_events_since_last_call(),
+				vec![
+					Event::Withdrawn { member: 10, pool_id: 1, points: 10, balance: 10 },
+					Event::MemberRemoved { pool_id: 1, member: 10 },
+					Event::Destroyed { pool_id: 1 },
+				]
+			);
+
+			// pool is destroyed.
+			assert!(!Metadata::<T>::contains_key(1));
+			// ensure the pool account is reaped.
+			assert!(!frame_system::Account::<T>::contains_key(&pool_one));
+		})
+	}
 }
 
 mod create {
@@ -4600,7 +4693,7 @@ mod create {
 	fn create_works() {
 		ExtBuilder::default().build_and_execute(|| {
 			// next pool id is 2.
-			let next_pool_stash = Pools::create_bonded_account(2);
+			let next_pool_stash = Pools::generate_bonded_account(2);
 			let ed = Currency::minimum_balance();
 
 			assert_eq!(TotalValueLocked::<T>::get(), 10);
@@ -4921,6 +5014,13 @@ mod set_state {
 			// surpassed. Making this pool destroyable by anyone.
 			StakingMock::slash_by(1, 10);
 
+			// in mock we are using transfer stake which implies slash is greedy. Extrinsic to
+			// apply pending slash should fail.
+			assert_noop!(
+				Pools::apply_slash(RuntimeOrigin::signed(11), 10),
+				Error::<Runtime>::NotSupported
+			);
+
 			// When
 			assert_ok!(Pools::set_state(RuntimeOrigin::signed(11), 1, PoolState::Destroying));
 			// Then
@@ -4996,9 +5096,23 @@ mod set_configs {
 	#[test]
 	fn set_configs_works() {
 		ExtBuilder::default().build_and_execute(|| {
-			// Setting works
+			// only admin origin can set configs
+			assert_noop!(
+				Pools::set_configs(
+					RuntimeOrigin::signed(20),
+					ConfigOp::Set(1 as Balance),
+					ConfigOp::Set(2 as Balance),
+					ConfigOp::Set(3u32),
+					ConfigOp::Set(4u32),
+					ConfigOp::Set(5u32),
+					ConfigOp::Set(Perbill::from_percent(6))
+				),
+				BadOrigin
+			);
+
+			// Setting works by Admin (42)
 			assert_ok!(Pools::set_configs(
-				RuntimeOrigin::root(),
+				RuntimeOrigin::signed(42),
 				ConfigOp::Set(1 as Balance),
 				ConfigOp::Set(2 as Balance),
 				ConfigOp::Set(3u32),
@@ -5015,7 +5129,7 @@ mod set_configs {
 
 			// Noop does nothing
 			assert_storage_noop!(assert_ok!(Pools::set_configs(
-				RuntimeOrigin::root(),
+				RuntimeOrigin::signed(42),
 				ConfigOp::Noop,
 				ConfigOp::Noop,
 				ConfigOp::Noop,
@@ -5026,7 +5140,7 @@ mod set_configs {
 
 			// Removing works
 			assert_ok!(Pools::set_configs(
-				RuntimeOrigin::root(),
+				RuntimeOrigin::signed(42),
 				ConfigOp::Remove,
 				ConfigOp::Remove,
 				ConfigOp::Remove,
@@ -7367,5 +7481,63 @@ mod chill {
 			// any account can chill
 			assert_ok!(Pools::chill(RuntimeOrigin::signed(10), 1));
 		})
+	}
+}
+
+// the test mock is using `TransferStake` and so `DelegateStake` is not tested here. Extrinsics
+// meant for `DelegateStake` should be gated.
+//
+// `DelegateStake` tests are in `pallet-nomination-pools-test-delegate-stake`. Since we support both
+// strategies currently, we keep these tests as it is but in future we may remove `TransferStake`
+// completely.
+mod delegate_stake {
+	use super::*;
+	#[test]
+	fn delegation_specific_calls_are_gated() {
+		ExtBuilder::default().with_check(0).build_and_execute(|| {
+			// Given
+			Currency::set_balance(&11, ExistentialDeposit::get() + 2);
+			assert!(!PoolMembers::<Runtime>::contains_key(11));
+
+			// When
+			assert_ok!(Pools::join(RuntimeOrigin::signed(11), 2, 1));
+
+			// Then
+			assert_eq!(
+				pool_events_since_last_call(),
+				vec![
+					Event::Created { depositor: 10, pool_id: 1 },
+					Event::Bonded { member: 10, pool_id: 1, bonded: 10, joined: true },
+					Event::Bonded { member: 11, pool_id: 1, bonded: 2, joined: true },
+				]
+			);
+
+			assert_eq!(
+				PoolMembers::<Runtime>::get(11).unwrap(),
+				PoolMember::<Runtime> { pool_id: 1, points: 2, ..Default::default() }
+			);
+
+			// ensure pool 1 cannot be migrated.
+			assert_noop!(
+				Pools::migrate_pool_to_delegate_stake(RuntimeOrigin::signed(10), 1),
+				Error::<Runtime>::NotSupported
+			);
+
+			// members cannot be migrated either.
+			assert_noop!(
+				Pools::migrate_delegation(RuntimeOrigin::signed(10), 11),
+				Error::<Runtime>::NotSupported
+			);
+
+			// Given
+			// The bonded balance is slashed in half
+			StakingMock::slash_by(1, 6);
+
+			// since slash is greedy with `TransferStake`, `apply_slash` should not work either.
+			assert_noop!(
+				Pools::apply_slash(RuntimeOrigin::signed(10), 11),
+				Error::<Runtime>::NotSupported
+			);
+		});
 	}
 }

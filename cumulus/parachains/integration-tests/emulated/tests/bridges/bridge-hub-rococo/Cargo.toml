@@ -11,7 +11,7 @@ publish = false
 workspace = true
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.4.0", default-features = false }
+codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false }
 scale-info = { version = "2.11.1", default-features = false, features = ["derive"] }
 hex-literal = "0.4.1"
 
@@ -31,7 +31,6 @@ xcm-executor = { package = "staging-xcm-executor", path = "../../../../../../../
 
 # Bridges
 pallet-bridge-messages = { path = "../../../../../../../bridges/modules/messages", default-features = false }
-bp-messages = { path = "../../../../../../../bridges/primitives/messages", default-features = false }
 
 # Cumulus
 parachains-common = { path = "../../../../../common" }
@@ -48,5 +47,4 @@ snowbridge-core = { path = "../../../../../../../bridges/snowbridge/primitives/c
 snowbridge-router-primitives = { path = "../../../../../../../bridges/snowbridge/primitives/router", default-features = false }
 snowbridge-pallet-system = { path = "../../../../../../../bridges/snowbridge/pallets/system", default-features = false }
 snowbridge-pallet-outbound-queue = { path = "../../../../../../../bridges/snowbridge/pallets/outbound-queue", default-features = false }
-snowbridge-pallet-inbound-queue = { path = "../../../../../../../bridges/snowbridge/pallets/inbound-queue", default-features = false }
 snowbridge-pallet-inbound-queue-fixtures = { path = "../../../../../../../bridges/snowbridge/pallets/inbound-queue/fixtures" }

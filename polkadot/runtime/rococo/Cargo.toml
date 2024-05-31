@@ -11,7 +11,7 @@ license.workspace = true
 workspace = true
 
 [dependencies]
-parity-scale-codec = { version = "3.6.1", default-features = false, features = ["derive", "max-encoded-len"] }
+parity-scale-codec = { version = "3.6.12", default-features = false, features = ["derive", "max-encoded-len"] }
 scale-info = { version = "2.11.1", default-features = false, features = ["derive"] }
 log = { workspace = true }
 serde = { workspace = true }
@@ -70,6 +70,7 @@ pallet-mmr = { path = "../../../substrate/frame/merkle-mountain-range", default-
 pallet-multisig = { path = "../../../substrate/frame/multisig", default-features = false }
 pallet-nis = { path = "../../../substrate/frame/nis", default-features = false }
 pallet-offences = { path = "../../../substrate/frame/offences", default-features = false }
+pallet-parameters = { path = "../../../substrate/frame/parameters", default-features = false }
 pallet-preimage = { path = "../../../substrate/frame/preimage", default-features = false }
 pallet-proxy = { path = "../../../substrate/frame/proxy", default-features = false }
 pallet-ranked-collective = { path = "../../../substrate/frame/ranked-collective", default-features = false }
@@ -94,6 +95,7 @@ pallet-xcm-benchmarks = { path = "../../xcm/pallet-xcm-benchmarks", default-feat
 pallet-root-testing = { path = "../../../substrate/frame/root-testing", default-features = false }
 
 frame-benchmarking = { path = "../../../substrate/frame/benchmarking", default-features = false, optional = true }
+frame-metadata-hash-extension = { path = "../../../substrate/frame/metadata-hash-extension", default-features = false }
 frame-try-runtime = { path = "../../../substrate/frame/try-runtime", default-features = false, optional = true }
 frame-system-benchmarking = { path = "../../../substrate/frame/system/benchmarking", default-features = false, optional = true }
 hex-literal = { version = "0.4.1" }
@@ -133,6 +135,7 @@ std = [
 	"block-builder-api/std",
 	"frame-benchmarking?/std",
 	"frame-executive/std",
+	"frame-metadata-hash-extension/std",
 	"frame-support/std",
 	"frame-system-benchmarking?/std",
 	"frame-system-rpc-runtime-api/std",
@@ -164,6 +167,7 @@ std = [
 	"pallet-multisig/std",
 	"pallet-nis/std",
 	"pallet-offences/std",
+	"pallet-parameters/std",
 	"pallet-preimage/std",
 	"pallet-proxy/std",
 	"pallet-ranked-collective/std",
@@ -239,6 +243,7 @@ runtime-benchmarks = [
 	"pallet-multisig/runtime-benchmarks",
 	"pallet-nis/runtime-benchmarks",
 	"pallet-offences/runtime-benchmarks",
+	"pallet-parameters/runtime-benchmarks",
 	"pallet-preimage/runtime-benchmarks",
 	"pallet-proxy/runtime-benchmarks",
 	"pallet-ranked-collective/runtime-benchmarks",
@@ -265,6 +270,7 @@ runtime-benchmarks = [
 	"sp-staking/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",
+	"xcm-fee-payment-runtime-api/runtime-benchmarks",
 ]
 try-runtime = [
 	"frame-executive/try-runtime",
@@ -294,6 +300,7 @@ try-runtime = [
 	"pallet-multisig/try-runtime",
 	"pallet-nis/try-runtime",
 	"pallet-offences/try-runtime",
+	"pallet-parameters/try-runtime",
 	"pallet-preimage/try-runtime",
 	"pallet-proxy/try-runtime",
 	"pallet-ranked-collective/try-runtime",
@@ -319,6 +326,9 @@ try-runtime = [
 	"sp-runtime/try-runtime",
 ]
 
+# Enable the metadata hash generation in the wasm builder.
+metadata-hash = ["substrate-wasm-builder/metadata-hash"]
+
 # Set timing constants (e.g. session period) to faster versions to speed up testing.
 fast-runtime = ["rococo-runtime-constants/fast-runtime"]
 
@@ -327,4 +337,4 @@ runtime-metrics = ["runtime-parachains/runtime-metrics", "sp-io/with-tracing"]
 # A feature that should be enabled when the runtime should be built for on-chain
 # deployment. This will disable stuff that shouldn't be part of the on-chain wasm
 # to make it smaller, like logging for example.
-on-chain-release-build = ["sp-api/disable-logging"]
+on-chain-release-build = ["metadata-hash", "sp-api/disable-logging"]

@@ -58,33 +58,35 @@ type ChildKeyValues = Vec<(ChildInfo, Vec<KeyValue>)>;
 type SnapshotVersion = Compact<u16>;
 
 const LOG_TARGET: &str = "remote-ext";
-const DEFAULT_HTTP_ENDPOINT: &str = "https://rpc.polkadot.io:443";
-const SNAPSHOT_VERSION: SnapshotVersion = Compact(3);
+const DEFAULT_HTTP_ENDPOINT: &str = "https://polkadot-try-runtime-node.parity-chains.parity.io:443";
+const SNAPSHOT_VERSION: SnapshotVersion = Compact(4);
 
 /// The snapshot that we store on disk.
 #[derive(Decode, Encode)]
 struct Snapshot<B: BlockT> {
 	snapshot_version: SnapshotVersion,
 	state_version: StateVersion,
-	block_hash: B::Hash,
 	// <Vec<Key, (Value, MemoryDbRefCount)>>
 	raw_storage: Vec<(Vec<u8>, (Vec<u8>, i32))>,
+	// The storage root of the state. This may vary from the storage root in the header, if not the
+	// entire state was fetched.
 	storage_root: B::Hash,
+	header: B::Header,
 }
 
 impl<B: BlockT> Snapshot<B> {
 	pub fn new(
 		state_version: StateVersion,
-		block_hash: B::Hash,
 		raw_storage: Vec<(Vec<u8>, (Vec<u8>, i32))>,
 		storage_root: B::Hash,
+		header: B::Header,
 	) -> Self {
 		Self {
 			snapshot_version: SNAPSHOT_VERSION,
 			state_version,
-			block_hash,
 			raw_storage,
 			storage_root,
+			header,
 		}
 	}
 
@@ -108,8 +110,8 @@ impl<B: BlockT> Snapshot<B> {
 pub struct RemoteExternalities<B: BlockT> {
 	/// The inner externalities.
 	pub inner_ext: TestExternalities<HashingFor<B>>,
-	/// The block hash it which we created this externality env.
-	pub block_hash: B::Hash,
+	/// The block header which we created this externality env.
+	pub header: B::Header,
 }
 
 impl<B: BlockT> Deref for RemoteExternalities<B> {
@@ -127,16 +129,16 @@ impl<B: BlockT> DerefMut for RemoteExternalities<B> {
 
 /// The execution mode.
 #[derive(Clone)]
-pub enum Mode<B: BlockT> {
+pub enum Mode<H> {
 	/// Online. Potentially writes to a snapshot file.
-	Online(OnlineConfig<B>),
+	Online(OnlineConfig<H>),
 	/// Offline. Uses a state snapshot file and needs not any client config.
 	Offline(OfflineConfig),
 	/// Prefer using a snapshot file if it exists, else use a remote server.
-	OfflineOrElseOnline(OfflineConfig, OnlineConfig<B>),
+	OfflineOrElseOnline(OfflineConfig, OnlineConfig<H>),
 }
 
-impl<B: BlockT> Default for Mode<B> {
+impl<H> Default for Mode<H> {
 	fn default() -> Self {
 		Mode::Online(OnlineConfig::default())
 	}
@@ -221,10 +223,10 @@ impl From<HttpClient> for Transport {
 ///
 /// A state snapshot config may be present and will be written to in that case.
 #[derive(Clone)]
-pub struct OnlineConfig<B: BlockT> {
+pub struct OnlineConfig<H> {
 	/// The block hash at which to get the runtime state. Will be latest finalized head if not
 	/// provided.
-	pub at: Option<B::Hash>,
+	pub at: Option<H>,
 	/// An optional state snapshot file to WRITE to, not for reading. Not written if set to `None`.
 	pub state_snapshot: Option<SnapshotConfig>,
 	/// The pallets to scrape. These values are hashed and added to `hashed_prefix`.
@@ -240,7 +242,7 @@ pub struct OnlineConfig<B: BlockT> {
 	pub hashed_keys: Vec<Vec<u8>>,
 }
 
-impl<B: BlockT> OnlineConfig<B> {
+impl<H: Clone> OnlineConfig<H> {
 	/// Return rpc (http) client reference.
 	fn rpc_client(&self) -> &HttpClient {
 		self.transport
@@ -248,12 +250,12 @@ impl<B: BlockT> OnlineConfig<B> {
 			.expect("http client must have been initialized by now; qed.")
 	}
 
-	fn at_expected(&self) -> B::Hash {
-		self.at.expect("block at must be initialized; qed")
+	fn at_expected(&self) -> H {
+		self.at.clone().expect("block at must be initialized; qed")
 	}
 }
 
-impl<B: BlockT> Default for OnlineConfig<B> {
+impl<H> Default for OnlineConfig<H> {
 	fn default() -> Self {
 		Self {
 			transport: Transport::from(DEFAULT_HTTP_ENDPOINT.to_owned()),
@@ -267,7 +269,7 @@ impl<B: BlockT> Default for OnlineConfig<B> {
 	}
 }
 
-impl<B: BlockT> From<String> for OnlineConfig<B> {
+impl<H> From<String> for OnlineConfig<H> {
 	fn from(t: String) -> Self {
 		Self { transport: t.into(), ..Default::default() }
 	}
@@ -307,7 +309,7 @@ pub struct Builder<B: BlockT> {
 	/// The keys that will be excluded from the final externality. The *hashed* key must be given.
 	hashed_blacklist: Vec<Vec<u8>>,
 	/// Connectivity mode, online or offline.
-	mode: Mode<B>,
+	mode: Mode<B::Hash>,
 	/// If provided, overwrite the state version with this. Otherwise, the state_version of the
 	/// remote node is used. All cache files also store their state version.
 	///
@@ -328,7 +330,7 @@ impl<B: BlockT> Default for Builder<B> {
 
 // Mode methods
 impl<B: BlockT> Builder<B> {
-	fn as_online(&self) -> &OnlineConfig<B> {
+	fn as_online(&self) -> &OnlineConfig<B::Hash> {
 		match &self.mode {
 			Mode::Online(config) => config,
 			Mode::OfflineOrElseOnline(_, config) => config,
@@ -336,7 +338,7 @@ impl<B: BlockT> Builder<B> {
 		}
 	}
 
-	fn as_online_mut(&mut self) -> &mut OnlineConfig<B> {
+	fn as_online_mut(&mut self) -> &mut OnlineConfig<B::Hash> {
 		match &mut self.mode {
 			Mode::Online(config) => config,
 			Mode::OfflineOrElseOnline(_, config) => config,
@@ -830,33 +832,57 @@ where
 		child_prefix: StorageKey,
 		at: B::Hash,
 	) -> Result<Vec<StorageKey>, &'static str> {
-		// This is deprecated and will generate a warning which causes the CI to fail.
-		#[allow(warnings)]
-		let child_keys = substrate_rpc_client::ChildStateApi::storage_keys(
-			client,
-			PrefixedStorageKey::new(prefixed_top_key.as_ref().to_vec()),
-			child_prefix,
-			Some(at),
-		)
-		.await
-		.map_err(|e| {
-			error!(target: LOG_TARGET, "Error = {:?}", e);
-			"rpc child_get_keys failed."
-		})?;
+		let retry_strategy =
+			FixedInterval::new(Self::KEYS_PAGE_RETRY_INTERVAL).take(Self::MAX_RETRIES);
+		let mut all_child_keys = Vec::new();
+		let mut start_key = None;
+
+		loop {
+			let get_child_keys_closure = || {
+				let top_key = PrefixedStorageKey::new(prefixed_top_key.0.clone());
+				substrate_rpc_client::ChildStateApi::storage_keys_paged(
+					client,
+					top_key,
+					Some(child_prefix.clone()),
+					Self::DEFAULT_KEY_DOWNLOAD_PAGE,
+					start_key.clone(),
+					Some(at),
+				)
+			};
+
+			let child_keys = Retry::spawn(retry_strategy.clone(), get_child_keys_closure)
+				.await
+				.map_err(|e| {
+					error!(target: LOG_TARGET, "Error = {:?}", e);
+					"rpc child_get_keys failed."
+				})?;
+
+			let keys_count = child_keys.len();
+			if keys_count == 0 {
+				break;
+			}
+
+			start_key = child_keys.last().cloned();
+			all_child_keys.extend(child_keys);
+
+			if keys_count < Self::DEFAULT_KEY_DOWNLOAD_PAGE as usize {
+				break;
+			}
+		}
 
 		debug!(
 			target: LOG_TARGET,
 			"[thread = {:?}] scraped {} child-keys of the child-bearing top key: {}",
 			std::thread::current().id(),
-			child_keys.len(),
+			all_child_keys.len(),
 			HexDisplay::from(prefixed_top_key)
 		);
 
-		Ok(child_keys)
+		Ok(all_child_keys)
 	}
 }
 
-impl<B: BlockT + DeserializeOwned> Builder<B>
+impl<B: BlockT> Builder<B>
 where
 	B::Hash: DeserializeOwned,
 	B::Header: DeserializeOwned,
@@ -1027,6 +1053,21 @@ where
 		Ok(())
 	}
 
+	async fn load_header(&self) -> Result<B::Header, &'static str> {
+		let retry_strategy =
+			FixedInterval::new(Self::KEYS_PAGE_RETRY_INTERVAL).take(Self::MAX_RETRIES);
+		let get_header_closure = || {
+			ChainApi::<(), _, B::Header, ()>::header(
+				self.as_online().rpc_client(),
+				Some(self.as_online().at_expected()),
+			)
+		};
+		Retry::spawn(retry_strategy, get_header_closure)
+			.await
+			.map_err(|_| "Failed to fetch header for block from network")?
+			.ok_or("Network returned None block header")
+	}
+
 	/// Load the data from a remote server. The main code path is calling into `load_top_remote` and
 	/// `load_child_remote`.
 	///
@@ -1057,11 +1098,9 @@ where
 			let (raw_storage, storage_root) = pending_ext.into_raw_snapshot();
 			let snapshot = Snapshot::<B>::new(
 				state_version,
-				self.as_online()
-					.at
-					.expect("set to `Some` in `init_remote_client`; must be called before; qed"),
 				raw_storage.clone(),
 				storage_root,
+				self.load_header().await?,
 			);
 			let encoded = snapshot.encode();
 			log::info!(
@@ -1085,9 +1124,8 @@ where
 
 	async fn do_load_remote(&mut self) -> Result<RemoteExternalities<B>, &'static str> {
 		self.init_remote_client().await?;
-		let block_hash = self.as_online().at_expected();
 		let inner_ext = self.load_remote_and_maybe_save().await?;
-		Ok(RemoteExternalities { block_hash, inner_ext })
+		Ok(RemoteExternalities { header: self.load_header().await?, inner_ext })
 	}
 
 	fn do_load_offline(
@@ -1097,7 +1135,7 @@ where
 		let mut sp = Spinner::with_timer(Spinners::Dots, "Loading snapshot...".into());
 		let start = Instant::now();
 		info!(target: LOG_TARGET, "Loading snapshot from {:?}", &config.state_snapshot.path);
-		let Snapshot { snapshot_version: _, block_hash, state_version, raw_storage, storage_root } =
+		let Snapshot { snapshot_version: _, header, state_version, raw_storage, storage_root } =
 			Snapshot::<B>::load(&config.state_snapshot.path)?;
 
 		let inner_ext = TestExternalities::from_raw_snapshot(
@@ -1107,7 +1145,7 @@ where
 		);
 		sp.stop_with_message(format!("✅ Loaded snapshot ({:.2}s)", start.elapsed().as_secs_f32()));
 
-		Ok(RemoteExternalities { inner_ext, block_hash })
+		Ok(RemoteExternalities { inner_ext, header })
 	}
 
 	pub(crate) async fn pre_build(mut self) -> Result<RemoteExternalities<B>, &'static str> {
@@ -1149,7 +1187,7 @@ where
 }
 
 // Public methods
-impl<B: BlockT + DeserializeOwned> Builder<B>
+impl<B: BlockT> Builder<B>
 where
 	B::Hash: DeserializeOwned,
 	B::Header: DeserializeOwned,
@@ -1175,7 +1213,7 @@ where
 	}
 
 	/// Configure a state snapshot to be used.
-	pub fn mode(mut self, mode: Mode<B>) -> Self {
+	pub fn mode(mut self, mode: Mode<B::Hash>) -> Self {
 		self.mode = mode;
 		self
 	}
@@ -1221,7 +1259,7 @@ mod tests {
 		init_logger();
 		Builder::<Block>::new()
 			.mode(Mode::Offline(OfflineConfig {
-				state_snapshot: SnapshotConfig::new("test_data/proxy_test"),
+				state_snapshot: SnapshotConfig::new("test_data/test.snap"),
 			}))
 			.build()
 			.await
@@ -1236,7 +1274,7 @@ mod tests {
 		// get the first key from the snapshot file.
 		let some_key = Builder::<Block>::new()
 			.mode(Mode::Offline(OfflineConfig {
-				state_snapshot: SnapshotConfig::new("test_data/proxy_test"),
+				state_snapshot: SnapshotConfig::new("test_data/test.snap"),
 			}))
 			.build()
 			.await
@@ -1250,7 +1288,7 @@ mod tests {
 
 		Builder::<Block>::new()
 			.mode(Mode::Offline(OfflineConfig {
-				state_snapshot: SnapshotConfig::new("test_data/proxy_test"),
+				state_snapshot: SnapshotConfig::new("test_data/test.snap"),
 			}))
 			.blacklist_hashed_key(&some_key)
 			.build()
@@ -1336,7 +1374,7 @@ mod remote_tests {
 			.await
 			.unwrap();
 
-		assert_eq!(ext.block_hash, cached_ext.block_hash);
+		assert_eq!(ext.header.hash(), cached_ext.header.hash());
 	}
 
 	#[tokio::test]

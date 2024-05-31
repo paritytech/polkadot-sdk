@@ -104,7 +104,7 @@ parameter_types! {
 	pub const TokenLocation: Location = Here.into_location();
 	pub const ThisNetwork: NetworkId = NetworkId::ByGenesis([0; 32]);
 	pub const AnyNetwork: Option<NetworkId> = None;
-	pub const UniversalLocation: InteriorLocation = Here;
+	pub UniversalLocation: InteriorLocation = ThisNetwork::get().into();
 }
 
 pub type SovereignAccountOf =
@@ -160,6 +160,7 @@ impl Config for XcmConfig {
 	type HrmpNewChannelOpenRequestHandler = ();
 	type HrmpChannelAcceptedHandler = ();
 	type HrmpChannelClosingHandler = ();
+	type XcmRecorder = ();
 }
 
 pub type LocalOriginToLocation = SignedToAccountId32<RuntimeOrigin, AccountId, ThisNetwork>;
@@ -189,10 +190,6 @@ impl pallet_xcm::Config for Runtime {
 	type RemoteLockConsumerIdentifier = ();
 	type WeightInfo = pallet_xcm::TestWeightInfo;
 	type AdminOrigin = EnsureRoot<AccountId>;
-}
-
-parameter_types! {
-	pub const FirstMessageFactorPercent: u64 = 100;
 }
 
 impl origin::Config for Runtime {}

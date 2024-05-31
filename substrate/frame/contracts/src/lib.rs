@@ -101,6 +101,7 @@ mod wasm;
 pub mod chain_extension;
 pub mod debug;
 pub mod migration;
+pub mod test_utils;
 pub mod weights;
 
 #[cfg(test)]
@@ -123,7 +124,7 @@ use frame_support::{
 		fungible::{Inspect, Mutate, MutateHold},
 		ConstU32, Contains, Get, Randomness, Time,
 	},
-	weights::Weight,
+	weights::{Weight, WeightMeter},
 	BoundedVec, DefaultNoBound, RuntimeDebugNoBound,
 };
 use frame_system::{
@@ -134,7 +135,7 @@ use frame_system::{
 use scale_info::TypeInfo;
 use smallvec::Array;
 use sp_runtime::{
-	traits::{Convert, Dispatchable, Hash, Saturating, StaticLookup, Zero},
+	traits::{Convert, Dispatchable, Saturating, StaticLookup, Zero},
 	DispatchError, RuntimeDebug,
 };
 use sp_std::{fmt::Debug, prelude::*};
@@ -145,7 +146,7 @@ pub use crate::{
 	exec::Frame,
 	migration::{MigrateSequence, Migration, NoopMigration},
 	pallet::*,
-	schedule::{HostFnWeights, InstructionWeights, Limits, Schedule},
+	schedule::{InstructionWeights, Limits, Schedule},
 	wasm::Determinism,
 };
 pub use weights::WeightInfo;
@@ -222,14 +223,14 @@ pub struct Environment<T: Config> {
 pub struct ApiVersion(u16);
 impl Default for ApiVersion {
 	fn default() -> Self {
-		Self(2)
+		Self(3)
 	}
 }
 
 #[test]
 fn api_version_is_up_to_date() {
 	assert_eq!(
-		109,
+		111,
 		crate::wasm::STABLE_API_COUNT,
 		"Stable API count has changed. Bump the returned value of ApiVersion::default() and update the test."
 	);
@@ -244,13 +245,13 @@ pub mod pallet {
 	use sp_runtime::Perbill;
 
 	/// The in-code storage version.
-	pub(crate) const STORAGE_VERSION: StorageVersion = StorageVersion::new(15);
+	pub(crate) const STORAGE_VERSION: StorageVersion = StorageVersion::new(16);
 
 	#[pallet::pallet]
 	#[pallet::storage_version(STORAGE_VERSION)]
 	pub struct Pallet<T>(_);
 
-	#[pallet::config]
+	#[pallet::config(with_default)]
 	pub trait Config: frame_system::Config {
 		/// The time implementation used to supply timestamps to contracts through `seal_now`.
 		type Time: Time;
@@ -263,21 +264,29 @@ pub mod pallet {
 		/// be instantiated from existing codes that use this deprecated functionality. It will
 		/// be removed eventually. Hence for new `pallet-contracts` deployments it is okay
 		/// to supply a dummy implementation for this type (because it is never used).
+		#[pallet::no_default_bounds]
 		type Randomness: Randomness<Self::Hash, BlockNumberFor<Self>>;
 
 		/// The fungible in which fees are paid and contract balances are held.
+		#[pallet::no_default]
 		type Currency: Inspect<Self::AccountId>
 			+ Mutate<Self::AccountId>
 			+ MutateHold<Self::AccountId, Reason = Self::RuntimeHoldReason>;
 
 		/// The overarching event type.
+		#[pallet::no_default_bounds]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		/// The overarching call type.
+		#[pallet::no_default_bounds]
 		type RuntimeCall: Dispatchable<RuntimeOrigin = Self::RuntimeOrigin, PostInfo = PostDispatchInfo>
 			+ GetDispatchInfo
 			+ codec::Decode
 			+ IsType<<Self as frame_system::Config>::RuntimeCall>;
+
+		/// Overarching hold reason.
+		#[pallet::no_default_bounds]
+		type RuntimeHoldReason: From<HoldReason>;
 
 		/// Filter that is applied to calls dispatched by contracts.
 		///
@@ -301,10 +310,12 @@ pub mod pallet {
 		///
 		/// This filter does not apply to XCM transact calls. To impose restrictions on XCM transact
 		/// calls, you must configure them separately within the XCM pallet itself.
+		#[pallet::no_default_bounds]
 		type CallFilter: Contains<<Self as frame_system::Config>::RuntimeCall>;
 
 		/// Used to answer contracts' queries regarding the current weight price. This is **not**
 		/// used to calculate the actual fee and is only for informational purposes.
+		#[pallet::no_default_bounds]
 		type WeightPrice: Convert<Weight, BalanceOf<Self>>;
 
 		/// Describes the weights of the dispatchables of this module and is also used to
@@ -312,10 +323,12 @@ pub mod pallet {
 		type WeightInfo: WeightInfo;
 
 		/// Type that allows the runtime authors to add new host functions for a contract to call.
+		#[pallet::no_default_bounds]
 		type ChainExtension: chain_extension::ChainExtension<Self> + Default;
 
 		/// Cost schedule and limits.
 		#[pallet::constant]
+		#[pallet::no_default]
 		type Schedule: Get<Schedule<Self>>;
 
 		/// The type of the call stack determines the maximum nesting depth of contract calls.
@@ -326,6 +339,7 @@ pub mod pallet {
 		///
 		/// This setting along with [`MaxCodeLen`](#associatedtype.MaxCodeLen) directly affects
 		/// memory usage of your runtime.
+		#[pallet::no_default]
 		type CallStack: Array<Item = Frame<Self>>;
 
 		/// The amount of balance a caller has to pay for each byte of storage.
@@ -334,10 +348,12 @@ pub mod pallet {
 		///
 		/// Changing this value for an existing chain might need a storage migration.
 		#[pallet::constant]
+		#[pallet::no_default_bounds]
 		type DepositPerByte: Get<BalanceOf<Self>>;
 
 		/// Fallback value to limit the storage deposit if it's not being set by the caller.
 		#[pallet::constant]
+		#[pallet::no_default_bounds]
 		type DefaultDepositLimit: Get<BalanceOf<Self>>;
 
 		/// The amount of balance a caller has to pay for each storage item.
@@ -346,6 +362,7 @@ pub mod pallet {
 		///
 		/// Changing this value for an existing chain might need a storage migration.
 		#[pallet::constant]
+		#[pallet::no_default_bounds]
 		type DepositPerItem: Get<BalanceOf<Self>>;
 
 		/// The percentage of the storage deposit that should be held for using a code hash.
@@ -356,6 +373,7 @@ pub mod pallet {
 		type CodeHashLockupDepositPercent: Get<Perbill>;
 
 		/// The address generator used to generate the addresses of contracts.
+		#[pallet::no_default_bounds]
 		type AddressGenerator: AddressGenerator<Self>;
 
 		/// The maximum length of a contract code in bytes.
@@ -395,6 +413,7 @@ pub mod pallet {
 		///
 		/// By default, it is safe to set this to `EnsureSigned`, allowing anyone to upload contract
 		/// code.
+		#[pallet::no_default_bounds]
 		type UploadOrigin: EnsureOrigin<Self::RuntimeOrigin, Success = Self::AccountId>;
 
 		/// Origin allowed to instantiate code.
@@ -407,10 +426,8 @@ pub mod pallet {
 		///
 		/// By default, it is safe to set this to `EnsureSigned`, allowing anyone to instantiate
 		/// contract code.
+		#[pallet::no_default_bounds]
 		type InstantiateOrigin: EnsureOrigin<Self::RuntimeOrigin, Success = Self::AccountId>;
-
-		/// Overarching hold reason.
-		type RuntimeHoldReason: From<HoldReason>;
 
 		/// The sequence of migration steps that will be applied during a migration.
 		///
@@ -435,6 +452,7 @@ pub mod pallet {
 		/// For most production chains, it's recommended to use the `()` implementation of this
 		/// trait. This implementation offers additional logging when the log target
 		/// "runtime::contracts" is set to trace.
+		#[pallet::no_default_bounds]
 		type Debug: Debugger<Self>;
 
 		/// Type that bundles together all the runtime configurable interface types.
@@ -442,16 +460,19 @@ pub mod pallet {
 		/// This is not a real config. We just mention the type here as constant so that
 		/// its type appears in the metadata. Only valid value is `()`.
 		#[pallet::constant]
+		#[pallet::no_default_bounds]
 		type Environment: Get<Environment<Self>>;
 
 		/// The version of the HostFn APIs that are available in the runtime.
 		///
 		/// Only valid value is `()`.
 		#[pallet::constant]
+		#[pallet::no_default_bounds]
 		type ApiVersion: Get<ApiVersion>;
 
 		/// A type that exposes XCM APIs, allowing contracts to interact with other parachains, and
 		/// execute XCM programs.
+		#[pallet::no_default_bounds]
 		type Xcm: xcm_builder::Controller<
 			OriginFor<Self>,
 			<Self as frame_system::Config>::RuntimeCall,
@@ -459,19 +480,106 @@ pub mod pallet {
 		>;
 	}
 
+	/// Container for different types that implement [`DefaultConfig`]` of this pallet.
+	pub mod config_preludes {
+		use super::*;
+		use frame_support::{
+			derive_impl,
+			traits::{ConstBool, ConstU32},
+		};
+		use frame_system::EnsureSigned;
+		use sp_core::parameter_types;
+
+		type AccountId = sp_runtime::AccountId32;
+		type Balance = u64;
+		const UNITS: Balance = 10_000_000_000;
+		const CENTS: Balance = UNITS / 100;
+
+		const fn deposit(items: u32, bytes: u32) -> Balance {
+			items as Balance * 1 * CENTS + (bytes as Balance) * 1 * CENTS
+		}
+
+		parameter_types! {
+			pub const DepositPerItem: Balance = deposit(1, 0);
+			pub const DepositPerByte: Balance = deposit(0, 1);
+			pub const DefaultDepositLimit: Balance = deposit(1024, 1024 * 1024);
+			pub const CodeHashLockupDepositPercent: Perbill = Perbill::from_percent(0);
+			pub const MaxDelegateDependencies: u32 = 32;
+		}
+
+		/// A type providing default configurations for this pallet in testing environment.
+		pub struct TestDefaultConfig;
+
+		impl<Output, BlockNumber> Randomness<Output, BlockNumber> for TestDefaultConfig {
+			fn random(_subject: &[u8]) -> (Output, BlockNumber) {
+				unimplemented!("No default `random` implementation in `TestDefaultConfig`, provide a custom `T::Randomness` type.")
+			}
+		}
+
+		impl Time for TestDefaultConfig {
+			type Moment = u64;
+			fn now() -> Self::Moment {
+				unimplemented!("No default `now` implementation in `TestDefaultConfig` provide a custom `T::Time` type.")
+			}
+		}
+
+		impl<T: From<u64>> Convert<Weight, T> for TestDefaultConfig {
+			fn convert(w: Weight) -> T {
+				w.ref_time().into()
+			}
+		}
+
+		#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig, no_aggregated_types)]
+		impl frame_system::DefaultConfig for TestDefaultConfig {}
+
+		#[frame_support::register_default_impl(TestDefaultConfig)]
+		impl DefaultConfig for TestDefaultConfig {
+			#[inject_runtime_type]
+			type RuntimeEvent = ();
+
+			#[inject_runtime_type]
+			type RuntimeHoldReason = ();
+
+			#[inject_runtime_type]
+			type RuntimeCall = ();
+
+			type AddressGenerator = DefaultAddressGenerator;
+			type CallFilter = ();
+			type ChainExtension = ();
+			type CodeHashLockupDepositPercent = CodeHashLockupDepositPercent;
+			type DefaultDepositLimit = DefaultDepositLimit;
+			type DepositPerByte = DepositPerByte;
+			type DepositPerItem = DepositPerItem;
+			type MaxCodeLen = ConstU32<{ 123 * 1024 }>;
+			type MaxDebugBufferLen = ConstU32<{ 2 * 1024 * 1024 }>;
+			type MaxDelegateDependencies = MaxDelegateDependencies;
+			type MaxStorageKeyLen = ConstU32<128>;
+			type Migrations = ();
+			type Time = Self;
+			type Randomness = Self;
+			type UnsafeUnstableInterface = ConstBool<true>;
+			type UploadOrigin = EnsureSigned<AccountId>;
+			type InstantiateOrigin = EnsureSigned<AccountId>;
+			type WeightInfo = ();
+			type WeightPrice = Self;
+			type Debug = ();
+			type Environment = ();
+			type ApiVersion = ();
+			type Xcm = ();
+		}
+	}
+
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-		fn on_idle(_block: BlockNumberFor<T>, mut remaining_weight: Weight) -> Weight {
+		fn on_idle(_block: BlockNumberFor<T>, limit: Weight) -> Weight {
 			use migration::MigrateResult::*;
+			let mut meter = WeightMeter::with_limit(limit);
 
 			loop {
-				let (result, weight) = Migration::<T>::migrate(remaining_weight);
-				remaining_weight.saturating_reduce(weight);
-
-				match result {
-					// There is not enough weight to perform a migration, or make any progress, we
-					// just return the remaining weight.
-					NoMigrationPerformed | InProgress { steps_done: 0 } => return remaining_weight,
+				match Migration::<T>::migrate(&mut meter) {
+					// There is not enough weight to perform a migration.
+					// We can't do anything more, so we return the used weight.
+					NoMigrationPerformed | InProgress { steps_done: 0 } => return meter.consumed(),
 					// Migration is still in progress, we can start the next step.
 					InProgress { .. } => continue,
 					// Either no migration is in progress, or we are done with all migrations, we
@@ -480,8 +588,8 @@ pub mod pallet {
 				}
 			}
 
-			ContractInfo::<T>::process_deletion_queue_batch(remaining_weight)
-				.saturating_add(T::WeightInfo::on_process_deletion_queue_batch())
+			ContractInfo::<T>::process_deletion_queue_batch(&mut meter);
+			meter.consumed()
 		}
 
 		fn integrity_test() {
@@ -725,14 +833,11 @@ pub mod pallet {
 				};
 				<ExecStack<T, WasmBlob<T>>>::increment_refcount(code_hash)?;
 				<ExecStack<T, WasmBlob<T>>>::decrement_refcount(contract.code_hash);
-				Self::deposit_event(
-					vec![T::Hashing::hash_of(&dest), code_hash, contract.code_hash],
-					Event::ContractCodeUpdated {
-						contract: dest.clone(),
-						new_code_hash: code_hash,
-						old_code_hash: contract.code_hash,
-					},
-				);
+				Self::deposit_event(Event::ContractCodeUpdated {
+					contract: dest.clone(),
+					new_code_hash: code_hash,
+					old_code_hash: contract.code_hash,
+				});
 				contract.code_hash = code_hash;
 				Ok(())
 			})
@@ -924,18 +1029,25 @@ pub mod pallet {
 			ensure_signed(origin)?;
 
 			let weight_limit = weight_limit.saturating_add(T::WeightInfo::migrate());
-			let (result, weight) = Migration::<T>::migrate(weight_limit);
+			let mut meter = WeightMeter::with_limit(weight_limit);
+			let result = Migration::<T>::migrate(&mut meter);
 
 			match result {
-				Completed =>
-					Ok(PostDispatchInfo { actual_weight: Some(weight), pays_fee: Pays::No }),
-				InProgress { steps_done, .. } if steps_done > 0 =>
-					Ok(PostDispatchInfo { actual_weight: Some(weight), pays_fee: Pays::No }),
-				InProgress { .. } =>
-					Ok(PostDispatchInfo { actual_weight: Some(weight), pays_fee: Pays::Yes }),
+				Completed => Ok(PostDispatchInfo {
+					actual_weight: Some(meter.consumed()),
+					pays_fee: Pays::No,
+				}),
+				InProgress { steps_done, .. } if steps_done > 0 => Ok(PostDispatchInfo {
+					actual_weight: Some(meter.consumed()),
+					pays_fee: Pays::No,
+				}),
+				InProgress { .. } => Ok(PostDispatchInfo {
+					actual_weight: Some(meter.consumed()),
+					pays_fee: Pays::Yes,
+				}),
 				NoMigrationInProgress | NoMigrationPerformed => {
 					let err: DispatchError = <Error<T>>::NoMigrationPerformed.into();
-					Err(err.with_weight(T::WeightInfo::migrate()))
+					Err(err.with_weight(meter.consumed()))
 				},
 			}
 		}
@@ -1712,8 +1824,13 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
-	/// Deposit a pallet contracts event. Handles the conversion to the overarching event type.
-	fn deposit_event(topics: Vec<T::Hash>, event: Event<T>) {
+	/// Deposit a pallet contracts event.
+	fn deposit_event(event: Event<T>) {
+		<frame_system::Pallet<T>>::deposit_event(<T as Config>::RuntimeEvent::from(event))
+	}
+
+	/// Deposit a pallet contracts indexed event.
+	fn deposit_indexed_event(topics: Vec<T::Hash>, event: Event<T>) {
 		<frame_system::Pallet<T>>::deposit_event_indexed(
 			&topics,
 			<T as Config>::RuntimeEvent::from(event).into(),

@@ -16,14 +16,12 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 serde = { optional = true, workspace = true, default-features = true }
-codec = { version = "3.6.1", package = "parity-scale-codec", default-features = false, features = ["derive"] }
+codec = { version = "3.6.12", package = "parity-scale-codec", default-features = false, features = ["derive"] }
 scale-info = { version = "2.9.0", default-features = false, features = ["derive"] }
 hex-literal = { version = "0.4.1", optional = true }
 log = { workspace = true }
 alloy-primitives = { version = "0.4.2", default-features = false, features = ["rlp"] }
 alloy-sol-types = { version = "0.4.2", default-features = false }
-alloy-rlp = { version = "0.3.3", default-features = false, features = ["derive"] }
-num-traits = { version = "0.2.16", default-features = false }
 
 frame-benchmarking = { path = "../../../../substrate/frame/benchmarking", default-features = false, optional = true }
 frame-support = { path = "../../../../substrate/frame/support", default-features = false }
@@ -35,11 +33,9 @@ sp-io = { path = "../../../../substrate/primitives/io", default-features = false
 sp-runtime = { path = "../../../../substrate/primitives/runtime", default-features = false }
 
 xcm = { package = "staging-xcm", path = "../../../../polkadot/xcm", default-features = false }
-xcm-builder = { package = "staging-xcm-builder", path = "../../../../polkadot/xcm/xcm-builder", default-features = false }
 xcm-executor = { package = "staging-xcm-executor", path = "../../../../polkadot/xcm/xcm-executor", default-features = false }
 
 snowbridge-core = { path = "../../primitives/core", default-features = false }
-snowbridge-ethereum = { path = "../../primitives/ethereum", default-features = false }
 snowbridge-router-primitives = { path = "../../primitives/router", default-features = false }
 snowbridge-beacon-primitives = { path = "../../primitives/beacon", default-features = false }
 snowbridge-pallet-inbound-queue-fixtures = { path = "fixtures", default-features = false, optional = true }
@@ -54,27 +50,23 @@ hex-literal = { version = "0.4.1" }
 default = ["std"]
 std = [
 	"alloy-primitives/std",
-	"alloy-rlp/std",
 	"alloy-sol-types/std",
 	"codec/std",
 	"frame-benchmarking/std",
 	"frame-support/std",
 	"frame-system/std",
 	"log/std",
-	"num-traits/std",
 	"pallet-balances/std",
 	"scale-info/std",
 	"serde",
 	"snowbridge-beacon-primitives/std",
 	"snowbridge-core/std",
-	"snowbridge-ethereum/std",
 	"snowbridge-pallet-inbound-queue-fixtures?/std",
 	"snowbridge-router-primitives/std",
 	"sp-core/std",
 	"sp-io/std",
 	"sp-runtime/std",
 	"sp-std/std",
-	"xcm-builder/std",
 	"xcm-executor/std",
 	"xcm/std",
 ]
@@ -90,7 +82,6 @@ runtime-benchmarks = [
 	"snowbridge-pallet-inbound-queue-fixtures/runtime-benchmarks",
 	"snowbridge-router-primitives/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
-	"xcm-builder/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",
 ]
 try-runtime = [

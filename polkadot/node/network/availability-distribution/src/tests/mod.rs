@@ -17,9 +17,12 @@
 use std::collections::HashSet;
 
 use futures::{executor, future, Future};
+use rstest::rstest;
 
-use polkadot_node_network_protocol::request_response::{IncomingRequest, ReqProtocolNames};
-use polkadot_primitives::{CoreState, Hash};
+use polkadot_node_network_protocol::request_response::{
+	IncomingRequest, Protocol, ReqProtocolNames,
+};
+use polkadot_primitives::{node_features, Block, CoreState, Hash, NodeFeatures};
 use sp_keystore::KeystorePtr;
 
 use polkadot_node_subsystem_test_helpers as test_helpers;
@@ -35,62 +38,129 @@ pub(crate) mod mock;
 
 fn test_harness<T: Future<Output = ()>>(
 	keystore: KeystorePtr,
+	req_protocol_names: ReqProtocolNames,
 	test_fx: impl FnOnce(TestHarness) -> T,
-) {
-	sp_tracing::try_init_simple();
+) -> std::result::Result<(), FatalError> {
+	sp_tracing::init_for_tests();
 
 	let pool = sp_core::testing::TaskExecutor::new();
 	let (context, virtual_overseer) = test_helpers::make_subsystem_context(pool.clone());
-	let genesis_hash = Hash::repeat_byte(0xff);
-	let req_protocol_names = ReqProtocolNames::new(&genesis_hash, None);
 
-	let (pov_req_receiver, pov_req_cfg) = IncomingRequest::get_config_receiver(&req_protocol_names);
-	let (chunk_req_receiver, chunk_req_cfg) =
-		IncomingRequest::get_config_receiver(&req_protocol_names);
+	let (pov_req_receiver, pov_req_cfg) = IncomingRequest::get_config_receiver::<
+		Block,
+		sc_network::NetworkWorker<Block, Hash>,
+	>(&req_protocol_names);
+	let (chunk_req_v1_receiver, chunk_req_v1_cfg) = IncomingRequest::get_config_receiver::<
+		Block,
+		sc_network::NetworkWorker<Block, Hash>,
+	>(&req_protocol_names);
+	let (chunk_req_v2_receiver, chunk_req_v2_cfg) = IncomingRequest::get_config_receiver::<
+		Block,
+		sc_network::NetworkWorker<Block, Hash>,
+	>(&req_protocol_names);
 	let subsystem = AvailabilityDistributionSubsystem::new(
 		keystore,
-		IncomingRequestReceivers { pov_req_receiver, chunk_req_receiver },
+		IncomingRequestReceivers { pov_req_receiver, chunk_req_v1_receiver, chunk_req_v2_receiver },
+		req_protocol_names,
 		Default::default(),
 	);
 	let subsystem = subsystem.run(context);
 
-	let test_fut = test_fx(TestHarness { virtual_overseer, pov_req_cfg, chunk_req_cfg, pool });
+	let test_fut = test_fx(TestHarness {
+		virtual_overseer,
+		pov_req_cfg,
+		chunk_req_v1_cfg,
+		chunk_req_v2_cfg,
+		pool,
+	});
 
 	futures::pin_mut!(test_fut);
 	futures::pin_mut!(subsystem);
 
-	executor::block_on(future::join(test_fut, subsystem)).1.unwrap();
+	executor::block_on(future::join(test_fut, subsystem)).1
+}
+
+pub fn node_features_with_mapping_enabled() -> NodeFeatures {
+	let mut node_features = NodeFeatures::new();
+	node_features.resize(node_features::FeatureIndex::AvailabilityChunkMapping as usize + 1, false);
+	node_features.set(node_features::FeatureIndex::AvailabilityChunkMapping as u8 as usize, true);
+	node_features
 }
 
 /// Simple basic check, whether the subsystem works as expected.
 ///
 /// Exceptional cases are tested as unit tests in `fetch_task`.
-#[test]
-fn check_basic() {
-	let state = TestState::default();
-	test_harness(state.keystore.clone(), move |harness| state.run(harness));
+#[rstest]
+#[case(NodeFeatures::EMPTY, Protocol::ChunkFetchingV1)]
+#[case(NodeFeatures::EMPTY, Protocol::ChunkFetchingV2)]
+#[case(node_features_with_mapping_enabled(), Protocol::ChunkFetchingV1)]
+#[case(node_features_with_mapping_enabled(), Protocol::ChunkFetchingV2)]
+fn check_basic(#[case] node_features: NodeFeatures, #[case] chunk_resp_protocol: Protocol) {
+	let req_protocol_names = ReqProtocolNames::new(&Hash::repeat_byte(0xff), None);
+	let state =
+		TestState::new(node_features.clone(), req_protocol_names.clone(), chunk_resp_protocol);
+
+	if node_features == node_features_with_mapping_enabled() &&
+		chunk_resp_protocol == Protocol::ChunkFetchingV1
+	{
+		// For this specific case, chunk fetching is not possible, because the ValidatorIndex is not
+		// equal to the ChunkIndex and the peer does not send back the actual ChunkIndex.
+		let _ = test_harness(state.keystore.clone(), req_protocol_names, move |harness| {
+			state.run_assert_timeout(harness)
+		});
+	} else {
+		test_harness(state.keystore.clone(), req_protocol_names, move |harness| state.run(harness))
+			.unwrap();
+	}
 }
 
 /// Check whether requester tries all validators in group.
-#[test]
-fn check_fetch_tries_all() {
-	let mut state = TestState::default();
+#[rstest]
+#[case(NodeFeatures::EMPTY, Protocol::ChunkFetchingV1)]
+#[case(NodeFeatures::EMPTY, Protocol::ChunkFetchingV2)]
+#[case(node_features_with_mapping_enabled(), Protocol::ChunkFetchingV1)]
+#[case(node_features_with_mapping_enabled(), Protocol::ChunkFetchingV2)]
+fn check_fetch_tries_all(
+	#[case] node_features: NodeFeatures,
+	#[case] chunk_resp_protocol: Protocol,
+) {
+	let req_protocol_names = ReqProtocolNames::new(&Hash::repeat_byte(0xff), None);
+	let mut state =
+		TestState::new(node_features.clone(), req_protocol_names.clone(), chunk_resp_protocol);
 	for (_, v) in state.chunks.iter_mut() {
 		// 4 validators in group, so this should still succeed:
 		v.push(None);
 		v.push(None);
 		v.push(None);
 	}
-	test_harness(state.keystore.clone(), move |harness| state.run(harness));
+
+	if node_features == node_features_with_mapping_enabled() &&
+		chunk_resp_protocol == Protocol::ChunkFetchingV1
+	{
+		// For this specific case, chunk fetching is not possible, because the ValidatorIndex is not
+		// equal to the ChunkIndex and the peer does not send back the actual ChunkIndex.
+		let _ = test_harness(state.keystore.clone(), req_protocol_names, move |harness| {
+			state.run_assert_timeout(harness)
+		});
+	} else {
+		test_harness(state.keystore.clone(), req_protocol_names, move |harness| state.run(harness))
+			.unwrap();
+	}
 }
 
 /// Check whether requester tries all validators in group
 ///
 /// Check that requester will retry the fetch on error on the next block still pending
 /// availability.
-#[test]
-fn check_fetch_retry() {
-	let mut state = TestState::default();
+#[rstest]
+#[case(NodeFeatures::EMPTY, Protocol::ChunkFetchingV1)]
+#[case(NodeFeatures::EMPTY, Protocol::ChunkFetchingV2)]
+#[case(node_features_with_mapping_enabled(), Protocol::ChunkFetchingV1)]
+#[case(node_features_with_mapping_enabled(), Protocol::ChunkFetchingV2)]
+fn check_fetch_retry(#[case] node_features: NodeFeatures, #[case] chunk_resp_protocol: Protocol) {
+	let req_protocol_names = ReqProtocolNames::new(&Hash::repeat_byte(0xff), None);
+	let mut state =
+		TestState::new(node_features.clone(), req_protocol_names.clone(), chunk_resp_protocol);
 	state
 		.cores
 		.insert(state.relay_chain[2], state.cores.get(&state.relay_chain[1]).unwrap().clone());
@@ -121,5 +191,17 @@ fn check_fetch_retry() {
 		v.push(None);
 		v.push(None);
 	}
-	test_harness(state.keystore.clone(), move |harness| state.run(harness));
+
+	if node_features == node_features_with_mapping_enabled() &&
+		chunk_resp_protocol == Protocol::ChunkFetchingV1
+	{
+		// For this specific case, chunk fetching is not possible, because the ValidatorIndex is not
+		// equal to the ChunkIndex and the peer does not send back the actual ChunkIndex.
+		let _ = test_harness(state.keystore.clone(), req_protocol_names, move |harness| {
+			state.run_assert_timeout(harness)
+		});
+	} else {
+		test_harness(state.keystore.clone(), req_protocol_names, move |harness| state.run(harness))
+			.unwrap();
+	}
 }

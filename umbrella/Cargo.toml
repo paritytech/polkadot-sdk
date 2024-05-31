@@ -1,0 +1,2449 @@
+[package]
+name = "polkadot-sdk"
+version = "0.1.0"
+description = "Polkadot SDK umbrella crate."
+license = "Apache-2.0"
+
+[features]
+default = ["std"]
+std = [
+	"asset-test-utils?/std",
+	"assets-common?/std",
+	"binary-merkle-tree?/std",
+	"bp-asset-hub-rococo?/std",
+	"bp-asset-hub-westend?/std",
+	"bp-bridge-hub-cumulus?/std",
+	"bp-bridge-hub-kusama?/std",
+	"bp-bridge-hub-polkadot?/std",
+	"bp-bridge-hub-rococo?/std",
+	"bp-bridge-hub-westend?/std",
+	"bp-header-chain?/std",
+	"bp-kusama?/std",
+	"bp-messages?/std",
+	"bp-parachains?/std",
+	"bp-polkadot-bulletin?/std",
+	"bp-polkadot-core?/std",
+	"bp-polkadot?/std",
+	"bp-relayers?/std",
+	"bp-rococo?/std",
+	"bp-runtime?/std",
+	"bp-test-utils?/std",
+	"bp-westend?/std",
+	"bp-xcm-bridge-hub-router?/std",
+	"bp-xcm-bridge-hub?/std",
+	"bridge-hub-common?/std",
+	"bridge-hub-test-utils?/std",
+	"bridge-runtime-common?/std",
+	"cumulus-pallet-aura-ext?/std",
+	"cumulus-pallet-dmp-queue?/std",
+	"cumulus-pallet-parachain-system-proc-macro?/std",
+	"cumulus-pallet-parachain-system?/std",
+	"cumulus-pallet-session-benchmarking?/std",
+	"cumulus-pallet-solo-to-para?/std",
+	"cumulus-pallet-xcm?/std",
+	"cumulus-pallet-xcmp-queue?/std",
+	"cumulus-ping?/std",
+	"cumulus-primitives-aura?/std",
+	"cumulus-primitives-core?/std",
+	"cumulus-primitives-parachain-inherent?/std",
+	"cumulus-primitives-proof-size-hostfunction?/std",
+	"cumulus-primitives-storage-weight-reclaim?/std",
+	"cumulus-primitives-timestamp?/std",
+	"cumulus-primitives-utility?/std",
+	"cumulus-test-relay-sproof-builder?/std",
+	"frame-benchmarking-pallet-pov?/std",
+	"frame-benchmarking?/std",
+	"frame-election-provider-support?/std",
+	"frame-executive?/std",
+	"frame-metadata-hash-extension?/std",
+	"frame-support-procedural?/std",
+	"frame-support?/std",
+	"frame-system-benchmarking?/std",
+	"frame-system-rpc-runtime-api?/std",
+	"frame-system?/std",
+	"frame-try-runtime?/std",
+	"pallet-alliance?/std",
+	"pallet-asset-conversion-ops?/std",
+	"pallet-asset-conversion-tx-payment?/std",
+	"pallet-asset-conversion?/std",
+	"pallet-asset-rate?/std",
+	"pallet-asset-tx-payment?/std",
+	"pallet-assets?/std",
+	"pallet-atomic-swap?/std",
+	"pallet-aura?/std",
+	"pallet-authority-discovery?/std",
+	"pallet-authorship?/std",
+	"pallet-babe?/std",
+	"pallet-bags-list?/std",
+	"pallet-balances?/std",
+	"pallet-beefy-mmr?/std",
+	"pallet-beefy?/std",
+	"pallet-bounties?/std",
+	"pallet-bridge-grandpa?/std",
+	"pallet-bridge-messages?/std",
+	"pallet-bridge-parachains?/std",
+	"pallet-bridge-relayers?/std",
+	"pallet-broker?/std",
+	"pallet-child-bounties?/std",
+	"pallet-collator-selection?/std",
+	"pallet-collective-content?/std",
+	"pallet-collective?/std",
+	"pallet-contracts-mock-network?/std",
+	"pallet-contracts?/std",
+	"pallet-conviction-voting?/std",
+	"pallet-core-fellowship?/std",
+	"pallet-delegated-staking?/std",
+	"pallet-democracy?/std",
+	"pallet-dev-mode?/std",
+	"pallet-election-provider-multi-phase?/std",
+	"pallet-election-provider-support-benchmarking?/std",
+	"pallet-elections-phragmen?/std",
+	"pallet-fast-unstake?/std",
+	"pallet-glutton?/std",
+	"pallet-grandpa?/std",
+	"pallet-identity?/std",
+	"pallet-im-online?/std",
+	"pallet-indices?/std",
+	"pallet-insecure-randomness-collective-flip?/std",
+	"pallet-lottery?/std",
+	"pallet-membership?/std",
+	"pallet-message-queue?/std",
+	"pallet-migrations?/std",
+	"pallet-mixnet?/std",
+	"pallet-mmr?/std",
+	"pallet-multisig?/std",
+	"pallet-nft-fractionalization?/std",
+	"pallet-nfts-runtime-api?/std",
+	"pallet-nfts?/std",
+	"pallet-nis?/std",
+	"pallet-node-authorization?/std",
+	"pallet-nomination-pools-benchmarking?/std",
+	"pallet-nomination-pools-runtime-api?/std",
+	"pallet-nomination-pools?/std",
+	"pallet-offences-benchmarking?/std",
+	"pallet-offences?/std",
+	"pallet-paged-list?/std",
+	"pallet-parameters?/std",
+	"pallet-preimage?/std",
+	"pallet-proxy?/std",
+	"pallet-ranked-collective?/std",
+	"pallet-recovery?/std",
+	"pallet-referenda?/std",
+	"pallet-remark?/std",
+	"pallet-root-offences?/std",
+	"pallet-root-testing?/std",
+	"pallet-safe-mode?/std",
+	"pallet-salary?/std",
+	"pallet-scheduler?/std",
+	"pallet-scored-pool?/std",
+	"pallet-session-benchmarking?/std",
+	"pallet-session?/std",
+	"pallet-skip-feeless-payment?/std",
+	"pallet-society?/std",
+	"pallet-staking-reward-fn?/std",
+	"pallet-staking-runtime-api?/std",
+	"pallet-staking?/std",
+	"pallet-state-trie-migration?/std",
+	"pallet-statement?/std",
+	"pallet-sudo?/std",
+	"pallet-timestamp?/std",
+	"pallet-tips?/std",
+	"pallet-transaction-payment-rpc-runtime-api?/std",
+	"pallet-transaction-payment?/std",
+	"pallet-transaction-storage?/std",
+	"pallet-treasury?/std",
+	"pallet-tx-pause?/std",
+	"pallet-uniques?/std",
+	"pallet-utility?/std",
+	"pallet-vesting?/std",
+	"pallet-whitelist?/std",
+	"pallet-xcm-benchmarks?/std",
+	"pallet-xcm-bridge-hub-router?/std",
+	"pallet-xcm-bridge-hub?/std",
+	"pallet-xcm?/std",
+	"parachains-common?/std",
+	"parachains-runtimes-test-utils?/std",
+	"polkadot-core-primitives?/std",
+	"polkadot-parachain-primitives?/std",
+	"polkadot-primitives?/std",
+	"polkadot-runtime-common?/std",
+	"polkadot-runtime-metrics?/std",
+	"polkadot-runtime-parachains?/std",
+	"polkadot-sdk-frame?/std",
+	"rococo-runtime-constants?/std",
+	"sc-executor?/std",
+	"slot-range-helper?/std",
+	"snowbridge-beacon-primitives?/std",
+	"snowbridge-core?/std",
+	"snowbridge-ethereum?/std",
+	"snowbridge-outbound-queue-merkle-tree?/std",
+	"snowbridge-outbound-queue-runtime-api?/std",
+	"snowbridge-pallet-ethereum-client-fixtures?/std",
+	"snowbridge-pallet-ethereum-client?/std",
+	"snowbridge-pallet-inbound-queue-fixtures?/std",
+	"snowbridge-pallet-inbound-queue?/std",
+	"snowbridge-pallet-outbound-queue?/std",
+	"snowbridge-pallet-system?/std",
+	"snowbridge-router-primitives?/std",
+	"snowbridge-runtime-common?/std",
+	"snowbridge-runtime-test-common?/std",
+	"snowbridge-system-runtime-api?/std",
+	"sp-api-proc-macro?/std",
+	"sp-api?/std",
+	"sp-application-crypto?/std",
+	"sp-arithmetic?/std",
+	"sp-authority-discovery?/std",
+	"sp-block-builder?/std",
+	"sp-consensus-aura?/std",
+	"sp-consensus-babe?/std",
+	"sp-consensus-beefy?/std",
+	"sp-consensus-grandpa?/std",
+	"sp-consensus-pow?/std",
+	"sp-consensus-slots?/std",
+	"sp-core-hashing?/std",
+	"sp-core?/std",
+	"sp-crypto-ec-utils?/std",
+	"sp-crypto-hashing?/std",
+	"sp-debug-derive?/std",
+	"sp-externalities?/std",
+	"sp-genesis-builder?/std",
+	"sp-inherents?/std",
+	"sp-io?/std",
+	"sp-keyring?/std",
+	"sp-keystore?/std",
+	"sp-metadata-ir?/std",
+	"sp-mixnet?/std",
+	"sp-mmr-primitives?/std",
+	"sp-npos-elections?/std",
+	"sp-offchain?/std",
+	"sp-runtime-interface?/std",
+	"sp-runtime?/std",
+	"sp-session?/std",
+	"sp-staking?/std",
+	"sp-state-machine?/std",
+	"sp-statement-store?/std",
+	"sp-std?/std",
+	"sp-storage?/std",
+	"sp-timestamp?/std",
+	"sp-tracing?/std",
+	"sp-transaction-pool?/std",
+	"sp-transaction-storage-proof?/std",
+	"sp-trie?/std",
+	"sp-version?/std",
+	"sp-wasm-interface?/std",
+	"sp-weights?/std",
+	"staging-parachain-info?/std",
+	"staging-xcm-builder?/std",
+	"staging-xcm-executor?/std",
+	"staging-xcm?/std",
+	"substrate-bip39?/std",
+	"testnet-parachains-constants?/std",
+	"westend-runtime-constants?/std",
+	"xcm-fee-payment-runtime-api?/std",
+]
+runtime-benchmarks = [
+	"assets-common?/runtime-benchmarks",
+	"bridge-hub-common?/runtime-benchmarks",
+	"bridge-runtime-common?/runtime-benchmarks",
+	"cumulus-pallet-dmp-queue?/runtime-benchmarks",
+	"cumulus-pallet-parachain-system?/runtime-benchmarks",
+	"cumulus-pallet-session-benchmarking?/runtime-benchmarks",
+	"cumulus-pallet-xcmp-queue?/runtime-benchmarks",
+	"cumulus-primitives-core?/runtime-benchmarks",
+	"cumulus-primitives-utility?/runtime-benchmarks",
+	"frame-benchmarking-cli?/runtime-benchmarks",
+	"frame-benchmarking-pallet-pov?/runtime-benchmarks",
+	"frame-benchmarking/runtime-benchmarks",
+	"frame-election-provider-support?/runtime-benchmarks",
+	"frame-support?/runtime-benchmarks",
+	"frame-system-benchmarking?/runtime-benchmarks",
+	"frame-system?/runtime-benchmarks",
+	"pallet-alliance?/runtime-benchmarks",
+	"pallet-asset-conversion-ops?/runtime-benchmarks",
+	"pallet-asset-conversion?/runtime-benchmarks",
+	"pallet-asset-rate?/runtime-benchmarks",
+	"pallet-asset-tx-payment?/runtime-benchmarks",
+	"pallet-assets?/runtime-benchmarks",
+	"pallet-babe?/runtime-benchmarks",
+	"pallet-bags-list?/runtime-benchmarks",
+	"pallet-balances?/runtime-benchmarks",
+	"pallet-bounties?/runtime-benchmarks",
+	"pallet-bridge-grandpa?/runtime-benchmarks",
+	"pallet-bridge-messages?/runtime-benchmarks",
+	"pallet-bridge-parachains?/runtime-benchmarks",
+	"pallet-bridge-relayers?/runtime-benchmarks",
+	"pallet-broker?/runtime-benchmarks",
+	"pallet-child-bounties?/runtime-benchmarks",
+	"pallet-collator-selection?/runtime-benchmarks",
+	"pallet-collective-content?/runtime-benchmarks",
+	"pallet-collective?/runtime-benchmarks",
+	"pallet-contracts-mock-network?/runtime-benchmarks",
+	"pallet-contracts?/runtime-benchmarks",
+	"pallet-conviction-voting?/runtime-benchmarks",
+	"pallet-core-fellowship?/runtime-benchmarks",
+	"pallet-delegated-staking?/runtime-benchmarks",
+	"pallet-democracy?/runtime-benchmarks",
+	"pallet-election-provider-multi-phase?/runtime-benchmarks",
+	"pallet-election-provider-support-benchmarking?/runtime-benchmarks",
+	"pallet-elections-phragmen?/runtime-benchmarks",
+	"pallet-fast-unstake?/runtime-benchmarks",
+	"pallet-glutton?/runtime-benchmarks",
+	"pallet-grandpa?/runtime-benchmarks",
+	"pallet-identity?/runtime-benchmarks",
+	"pallet-im-online?/runtime-benchmarks",
+	"pallet-indices?/runtime-benchmarks",
+	"pallet-lottery?/runtime-benchmarks",
+	"pallet-membership?/runtime-benchmarks",
+	"pallet-message-queue?/runtime-benchmarks",
+	"pallet-migrations?/runtime-benchmarks",
+	"pallet-mixnet?/runtime-benchmarks",
+	"pallet-mmr?/runtime-benchmarks",
+	"pallet-multisig?/runtime-benchmarks",
+	"pallet-nft-fractionalization?/runtime-benchmarks",
+	"pallet-nfts?/runtime-benchmarks",
+	"pallet-nis?/runtime-benchmarks",
+	"pallet-nomination-pools-benchmarking?/runtime-benchmarks",
+	"pallet-nomination-pools?/runtime-benchmarks",
+	"pallet-offences-benchmarking?/runtime-benchmarks",
+	"pallet-offences?/runtime-benchmarks",
+	"pallet-paged-list?/runtime-benchmarks",
+	"pallet-parameters?/runtime-benchmarks",
+	"pallet-preimage?/runtime-benchmarks",
+	"pallet-proxy?/runtime-benchmarks",
+	"pallet-ranked-collective?/runtime-benchmarks",
+	"pallet-recovery?/runtime-benchmarks",
+	"pallet-referenda?/runtime-benchmarks",
+	"pallet-remark?/runtime-benchmarks",
+	"pallet-root-offences?/runtime-benchmarks",
+	"pallet-safe-mode?/runtime-benchmarks",
+	"pallet-salary?/runtime-benchmarks",
+	"pallet-scheduler?/runtime-benchmarks",
+	"pallet-session-benchmarking?/runtime-benchmarks",
+	"pallet-skip-feeless-payment?/runtime-benchmarks",
+	"pallet-society?/runtime-benchmarks",
+	"pallet-staking?/runtime-benchmarks",
+	"pallet-state-trie-migration?/runtime-benchmarks",
+	"pallet-sudo?/runtime-benchmarks",
+	"pallet-timestamp?/runtime-benchmarks",
+	"pallet-tips?/runtime-benchmarks",
+	"pallet-transaction-storage?/runtime-benchmarks",
+	"pallet-treasury?/runtime-benchmarks",
+	"pallet-tx-pause?/runtime-benchmarks",
+	"pallet-uniques?/runtime-benchmarks",
+	"pallet-utility?/runtime-benchmarks",
+	"pallet-vesting?/runtime-benchmarks",
+	"pallet-whitelist?/runtime-benchmarks",
+	"pallet-xcm-benchmarks?/runtime-benchmarks",
+	"pallet-xcm-bridge-hub-router?/runtime-benchmarks",
+	"pallet-xcm-bridge-hub?/runtime-benchmarks",
+	"pallet-xcm?/runtime-benchmarks",
+	"parachains-common?/runtime-benchmarks",
+	"polkadot-cli?/runtime-benchmarks",
+	"polkadot-node-metrics?/runtime-benchmarks",
+	"polkadot-parachain-primitives?/runtime-benchmarks",
+	"polkadot-primitives?/runtime-benchmarks",
+	"polkadot-runtime-common?/runtime-benchmarks",
+	"polkadot-runtime-parachains?/runtime-benchmarks",
+	"polkadot-sdk-frame?/runtime-benchmarks",
+	"polkadot-service?/runtime-benchmarks",
+	"sc-client-db?/runtime-benchmarks",
+	"sc-service?/runtime-benchmarks",
+	"snowbridge-core?/runtime-benchmarks",
+	"snowbridge-pallet-ethereum-client-fixtures?/runtime-benchmarks",
+	"snowbridge-pallet-ethereum-client?/runtime-benchmarks",
+	"snowbridge-pallet-inbound-queue-fixtures?/runtime-benchmarks",
+	"snowbridge-pallet-inbound-queue?/runtime-benchmarks",
+	"snowbridge-pallet-outbound-queue?/runtime-benchmarks",
+	"snowbridge-pallet-system?/runtime-benchmarks",
+	"snowbridge-router-primitives?/runtime-benchmarks",
+	"snowbridge-runtime-common?/runtime-benchmarks",
+	"snowbridge-runtime-test-common?/runtime-benchmarks",
+	"sp-runtime?/runtime-benchmarks",
+	"sp-staking?/runtime-benchmarks",
+	"staging-node-inspect?/runtime-benchmarks",
+	"staging-xcm-builder?/runtime-benchmarks",
+	"staging-xcm-executor?/runtime-benchmarks",
+	"xcm-fee-payment-runtime-api?/runtime-benchmarks",
+]
+try-runtime = [
+	"cumulus-pallet-aura-ext?/try-runtime",
+	"cumulus-pallet-dmp-queue?/try-runtime",
+	"cumulus-pallet-parachain-system?/try-runtime",
+	"cumulus-pallet-solo-to-para?/try-runtime",
+	"cumulus-pallet-xcm?/try-runtime",
+	"cumulus-pallet-xcmp-queue?/try-runtime",
+	"cumulus-ping?/try-runtime",
+	"frame-benchmarking-pallet-pov?/try-runtime",
+	"frame-election-provider-support?/try-runtime",
+	"frame-executive?/try-runtime",
+	"frame-support?/try-runtime",
+	"frame-system?/try-runtime",
+	"frame-try-runtime/try-runtime",
+	"pallet-alliance?/try-runtime",
+	"pallet-asset-conversion-ops?/try-runtime",
+	"pallet-asset-conversion-tx-payment?/try-runtime",
+	"pallet-asset-conversion?/try-runtime",
+	"pallet-asset-rate?/try-runtime",
+	"pallet-asset-tx-payment?/try-runtime",
+	"pallet-assets?/try-runtime",
+	"pallet-atomic-swap?/try-runtime",
+	"pallet-aura?/try-runtime",
+	"pallet-authority-discovery?/try-runtime",
+	"pallet-authorship?/try-runtime",
+	"pallet-babe?/try-runtime",
+	"pallet-bags-list?/try-runtime",
+	"pallet-balances?/try-runtime",
+	"pallet-beefy-mmr?/try-runtime",
+	"pallet-beefy?/try-runtime",
+	"pallet-bounties?/try-runtime",
+	"pallet-bridge-grandpa?/try-runtime",
+	"pallet-bridge-messages?/try-runtime",
+	"pallet-bridge-parachains?/try-runtime",
+	"pallet-bridge-relayers?/try-runtime",
+	"pallet-broker?/try-runtime",
+	"pallet-child-bounties?/try-runtime",
+	"pallet-collator-selection?/try-runtime",
+	"pallet-collective-content?/try-runtime",
+	"pallet-collective?/try-runtime",
+	"pallet-contracts?/try-runtime",
+	"pallet-conviction-voting?/try-runtime",
+	"pallet-core-fellowship?/try-runtime",
+	"pallet-delegated-staking?/try-runtime",
+	"pallet-democracy?/try-runtime",
+	"pallet-dev-mode?/try-runtime",
+	"pallet-election-provider-multi-phase?/try-runtime",
+	"pallet-elections-phragmen?/try-runtime",
+	"pallet-fast-unstake?/try-runtime",
+	"pallet-glutton?/try-runtime",
+	"pallet-grandpa?/try-runtime",
+	"pallet-identity?/try-runtime",
+	"pallet-im-online?/try-runtime",
+	"pallet-indices?/try-runtime",
+	"pallet-insecure-randomness-collective-flip?/try-runtime",
+	"pallet-lottery?/try-runtime",
+	"pallet-membership?/try-runtime",
+	"pallet-message-queue?/try-runtime",
+	"pallet-migrations?/try-runtime",
+	"pallet-mixnet?/try-runtime",
+	"pallet-mmr?/try-runtime",
+	"pallet-multisig?/try-runtime",
+	"pallet-nft-fractionalization?/try-runtime",
+	"pallet-nfts?/try-runtime",
+	"pallet-nis?/try-runtime",
+	"pallet-node-authorization?/try-runtime",
+	"pallet-nomination-pools?/try-runtime",
+	"pallet-offences?/try-runtime",
+	"pallet-paged-list?/try-runtime",
+	"pallet-parameters?/try-runtime",
+	"pallet-preimage?/try-runtime",
+	"pallet-proxy?/try-runtime",
+	"pallet-ranked-collective?/try-runtime",
+	"pallet-recovery?/try-runtime",
+	"pallet-referenda?/try-runtime",
+	"pallet-remark?/try-runtime",
+	"pallet-root-offences?/try-runtime",
+	"pallet-root-testing?/try-runtime",
+	"pallet-safe-mode?/try-runtime",
+	"pallet-salary?/try-runtime",
+	"pallet-scheduler?/try-runtime",
+	"pallet-scored-pool?/try-runtime",
+	"pallet-session?/try-runtime",
+	"pallet-skip-feeless-payment?/try-runtime",
+	"pallet-society?/try-runtime",
+	"pallet-staking?/try-runtime",
+	"pallet-state-trie-migration?/try-runtime",
+	"pallet-statement?/try-runtime",
+	"pallet-sudo?/try-runtime",
+	"pallet-timestamp?/try-runtime",
+	"pallet-tips?/try-runtime",
+	"pallet-transaction-payment?/try-runtime",
+	"pallet-transaction-storage?/try-runtime",
+	"pallet-treasury?/try-runtime",
+	"pallet-tx-pause?/try-runtime",
+	"pallet-uniques?/try-runtime",
+	"pallet-utility?/try-runtime",
+	"pallet-vesting?/try-runtime",
+	"pallet-whitelist?/try-runtime",
+	"pallet-xcm-bridge-hub-router?/try-runtime",
+	"pallet-xcm-bridge-hub?/try-runtime",
+	"pallet-xcm?/try-runtime",
+	"polkadot-cli?/try-runtime",
+	"polkadot-runtime-common?/try-runtime",
+	"polkadot-runtime-parachains?/try-runtime",
+	"polkadot-sdk-frame?/try-runtime",
+	"polkadot-service?/try-runtime",
+	"snowbridge-pallet-ethereum-client?/try-runtime",
+	"snowbridge-pallet-inbound-queue?/try-runtime",
+	"snowbridge-pallet-outbound-queue?/try-runtime",
+	"snowbridge-pallet-system?/try-runtime",
+	"sp-runtime?/try-runtime",
+	"staging-parachain-info?/try-runtime",
+]
+serde = [
+	"bp-polkadot-core?/serde",
+	"frame-benchmarking?/serde",
+	"pallet-asset-tx-payment?/serde",
+	"pallet-beefy-mmr?/serde",
+	"pallet-beefy?/serde",
+	"pallet-contracts?/serde",
+	"pallet-conviction-voting?/serde",
+	"pallet-democracy?/serde",
+	"pallet-message-queue?/serde",
+	"pallet-offences?/serde",
+	"pallet-parameters?/serde",
+	"pallet-referenda?/serde",
+	"pallet-remark?/serde",
+	"pallet-state-trie-migration?/serde",
+	"pallet-tips?/serde",
+	"pallet-transaction-payment?/serde",
+	"pallet-transaction-storage?/serde",
+	"pallet-treasury?/serde",
+	"pallet-xcm?/serde",
+	"snowbridge-beacon-primitives?/serde",
+	"snowbridge-core?/serde",
+	"snowbridge-ethereum?/serde",
+	"snowbridge-pallet-ethereum-client?/serde",
+	"snowbridge-pallet-inbound-queue?/serde",
+	"sp-application-crypto?/serde",
+	"sp-arithmetic?/serde",
+	"sp-authority-discovery?/serde",
+	"sp-consensus-aura?/serde",
+	"sp-consensus-babe?/serde",
+	"sp-consensus-beefy?/serde",
+	"sp-consensus-grandpa?/serde",
+	"sp-consensus-slots?/serde",
+	"sp-core?/serde",
+	"sp-mmr-primitives?/serde",
+	"sp-npos-elections?/serde",
+	"sp-runtime?/serde",
+	"sp-staking?/serde",
+	"sp-statement-store?/serde",
+	"sp-storage?/serde",
+	"sp-version?/serde",
+	"sp-weights?/serde",
+]
+experimental = [
+	"frame-support-procedural?/experimental",
+	"frame-support?/experimental",
+	"frame-system?/experimental",
+	"polkadot-sdk-frame?/experimental",
+]
+with-tracing = [
+	"frame-executive?/with-tracing",
+	"frame-executive?/with-tracing",
+	"sp-io?/with-tracing",
+	"sp-io?/with-tracing",
+	"sp-tracing?/with-tracing",
+	"sp-tracing?/with-tracing",
+]
+runtime = ["assets-common", "binary-merkle-tree", "bp-asset-hub-rococo", "bp-asset-hub-westend", "bp-bridge-hub-cumulus", "bp-bridge-hub-kusama", "bp-bridge-hub-polkadot", "bp-bridge-hub-rococo", "bp-bridge-hub-westend", "bp-header-chain", "bp-kusama", "bp-messages", "bp-parachains", "bp-polkadot", "bp-polkadot-bulletin", "bp-polkadot-core", "bp-relayers", "bp-rococo", "bp-runtime", "bp-test-utils", "bp-westend", "bp-xcm-bridge-hub", "bp-xcm-bridge-hub-router", "bridge-hub-common", "bridge-runtime-common", "cumulus-pallet-aura-ext", "cumulus-pallet-dmp-queue", "cumulus-pallet-parachain-system", "cumulus-pallet-parachain-system-proc-macro", "cumulus-pallet-session-benchmarking", "cumulus-pallet-solo-to-para", "cumulus-pallet-xcm", "cumulus-pallet-xcmp-queue", "cumulus-ping", "cumulus-primitives-aura", "cumulus-primitives-core", "cumulus-primitives-parachain-inherent", "cumulus-primitives-proof-size-hostfunction", "cumulus-primitives-storage-weight-reclaim", "cumulus-primitives-timestamp", "cumulus-primitives-utility", "frame-benchmarking", "frame-benchmarking-pallet-pov", "frame-election-provider-solution-type", "frame-election-provider-support", "frame-executive", "frame-metadata-hash-extension", "frame-support", "frame-support-procedural", "frame-support-procedural-tools-derive", "frame-system", "frame-system-benchmarking", "frame-system-rpc-runtime-api", "frame-try-runtime", "pallet-alliance", "pallet-asset-conversion", "pallet-asset-conversion-ops", "pallet-asset-conversion-tx-payment", "pallet-asset-rate", "pallet-asset-tx-payment", "pallet-assets", "pallet-atomic-swap", "pallet-aura", "pallet-authority-discovery", "pallet-authorship", "pallet-babe", "pallet-bags-list", "pallet-balances", "pallet-beefy", "pallet-beefy-mmr", "pallet-bounties", "pallet-bridge-grandpa", "pallet-bridge-messages", "pallet-bridge-parachains", "pallet-bridge-relayers", "pallet-broker", "pallet-child-bounties", "pallet-collator-selection", "pallet-collective", "pallet-collective-content", "pallet-contracts", "pallet-contracts-proc-macro", "pallet-contracts-uapi", "pallet-conviction-voting", "pallet-core-fellowship", "pallet-delegated-staking", "pallet-democracy", "pallet-dev-mode", "pallet-election-provider-multi-phase", "pallet-election-provider-support-benchmarking", "pallet-elections-phragmen", "pallet-fast-unstake", "pallet-glutton", "pallet-grandpa", "pallet-identity", "pallet-im-online", "pallet-indices", "pallet-insecure-randomness-collective-flip", "pallet-lottery", "pallet-membership", "pallet-message-queue", "pallet-migrations", "pallet-mixnet", "pallet-mmr", "pallet-multisig", "pallet-nft-fractionalization", "pallet-nfts", "pallet-nfts-runtime-api", "pallet-nis", "pallet-node-authorization", "pallet-nomination-pools", "pallet-nomination-pools-benchmarking", "pallet-nomination-pools-runtime-api", "pallet-offences", "pallet-offences-benchmarking", "pallet-paged-list", "pallet-parameters", "pallet-preimage", "pallet-proxy", "pallet-ranked-collective", "pallet-recovery", "pallet-referenda", "pallet-remark", "pallet-root-offences", "pallet-root-testing", "pallet-safe-mode", "pallet-salary", "pallet-scheduler", "pallet-scored-pool", "pallet-session", "pallet-session-benchmarking", "pallet-skip-feeless-payment", "pallet-society", "pallet-staking", "pallet-staking-reward-curve", "pallet-staking-reward-fn", "pallet-staking-runtime-api", "pallet-state-trie-migration", "pallet-statement", "pallet-sudo", "pallet-timestamp", "pallet-tips", "pallet-transaction-payment", "pallet-transaction-payment-rpc-runtime-api", "pallet-transaction-storage", "pallet-treasury", "pallet-tx-pause", "pallet-uniques", "pallet-utility", "pallet-vesting", "pallet-whitelist", "pallet-xcm", "pallet-xcm-benchmarks", "pallet-xcm-bridge-hub", "pallet-xcm-bridge-hub-router", "parachains-common", "polkadot-core-primitives", "polkadot-parachain-primitives", "polkadot-primitives", "polkadot-runtime-common", "polkadot-runtime-metrics", "polkadot-runtime-parachains", "polkadot-sdk-frame", "rococo-runtime-constants", "sc-chain-spec-derive", "sc-tracing-proc-macro", "slot-range-helper", "snowbridge-beacon-primitives", "snowbridge-core", "snowbridge-ethereum", "snowbridge-outbound-queue-merkle-tree", "snowbridge-outbound-queue-runtime-api", "snowbridge-pallet-ethereum-client", "snowbridge-pallet-ethereum-client-fixtures", "snowbridge-pallet-inbound-queue", "snowbridge-pallet-inbound-queue-fixtures", "snowbridge-pallet-outbound-queue", "snowbridge-pallet-system", "snowbridge-router-primitives", "snowbridge-runtime-common", "snowbridge-system-runtime-api", "sp-api", "sp-api-proc-macro", "sp-application-crypto", "sp-arithmetic", "sp-authority-discovery", "sp-block-builder", "sp-consensus-aura", "sp-consensus-babe", "sp-consensus-beefy", "sp-consensus-grandpa", "sp-consensus-pow", "sp-consensus-slots", "sp-core", "sp-crypto-ec-utils", "sp-crypto-hashing", "sp-crypto-hashing-proc-macro", "sp-debug-derive", "sp-externalities", "sp-genesis-builder", "sp-inherents", "sp-io", "sp-keyring", "sp-keystore", "sp-metadata-ir", "sp-mixnet", "sp-mmr-primitives", "sp-npos-elections", "sp-offchain", "sp-runtime", "sp-runtime-interface", "sp-runtime-interface-proc-macro", "sp-session", "sp-staking", "sp-state-machine", "sp-statement-store", "sp-std", "sp-storage", "sp-timestamp", "sp-tracing", "sp-transaction-pool", "sp-transaction-storage-proof", "sp-trie", "sp-version", "sp-version-proc-macro", "sp-wasm-interface", "sp-weights", "staging-parachain-info", "staging-xcm", "staging-xcm-builder", "staging-xcm-executor", "substrate-bip39", "testnet-parachains-constants", "tracing-gum-proc-macro", "westend-runtime-constants", "xcm-fee-payment-runtime-api", "xcm-procedural"]
+node = ["asset-test-utils", "bridge-hub-test-utils", "cumulus-client-cli", "cumulus-client-collator", "cumulus-client-consensus-aura", "cumulus-client-consensus-common", "cumulus-client-consensus-proposer", "cumulus-client-consensus-relay-chain", "cumulus-client-network", "cumulus-client-parachain-inherent", "cumulus-client-pov-recovery", "cumulus-client-service", "cumulus-relay-chain-inprocess-interface", "cumulus-relay-chain-interface", "cumulus-relay-chain-minimal-node", "cumulus-relay-chain-rpc-interface", "cumulus-test-relay-sproof-builder", "emulated-integration-tests-common", "fork-tree", "frame-benchmarking-cli", "frame-remote-externalities", "frame-support-procedural-tools", "generate-bags", "mmr-gadget", "mmr-rpc", "pallet-contracts-mock-network", "pallet-transaction-payment-rpc", "parachains-runtimes-test-utils", "polkadot-approval-distribution", "polkadot-availability-bitfield-distribution", "polkadot-availability-distribution", "polkadot-availability-recovery", "polkadot-cli", "polkadot-collator-protocol", "polkadot-dispute-distribution", "polkadot-erasure-coding", "polkadot-gossip-support", "polkadot-network-bridge", "polkadot-node-collation-generation", "polkadot-node-core-approval-voting", "polkadot-node-core-av-store", "polkadot-node-core-backing", "polkadot-node-core-bitfield-signing", "polkadot-node-core-candidate-validation", "polkadot-node-core-chain-api", "polkadot-node-core-chain-selection", "polkadot-node-core-dispute-coordinator", "polkadot-node-core-parachains-inherent", "polkadot-node-core-prospective-parachains", "polkadot-node-core-provisioner", "polkadot-node-core-pvf", "polkadot-node-core-pvf-checker", "polkadot-node-core-pvf-common", "polkadot-node-core-pvf-execute-worker", "polkadot-node-core-pvf-prepare-worker", "polkadot-node-core-runtime-api", "polkadot-node-jaeger", "polkadot-node-metrics", "polkadot-node-network-protocol", "polkadot-node-primitives", "polkadot-node-subsystem", "polkadot-node-subsystem-types", "polkadot-node-subsystem-util", "polkadot-overseer", "polkadot-rpc", "polkadot-service", "polkadot-statement-distribution", "polkadot-statement-table", "sc-allocator", "sc-authority-discovery", "sc-basic-authorship", "sc-block-builder", "sc-chain-spec", "sc-cli", "sc-client-api", "sc-client-db", "sc-consensus", "sc-consensus-aura", "sc-consensus-babe", "sc-consensus-babe-rpc", "sc-consensus-beefy", "sc-consensus-beefy-rpc", "sc-consensus-epochs", "sc-consensus-grandpa", "sc-consensus-grandpa-rpc", "sc-consensus-manual-seal", "sc-consensus-pow", "sc-consensus-slots", "sc-executor", "sc-executor-common", "sc-executor-polkavm", "sc-executor-wasmtime", "sc-informant", "sc-keystore", "sc-mixnet", "sc-network", "sc-network-common", "sc-network-gossip", "sc-network-light", "sc-network-statement", "sc-network-sync", "sc-network-transactions", "sc-network-types", "sc-offchain", "sc-proposer-metrics", "sc-rpc", "sc-rpc-api", "sc-rpc-server", "sc-rpc-spec-v2", "sc-service", "sc-state-db", "sc-statement-store", "sc-storage-monitor", "sc-sync-state-rpc", "sc-sysinfo", "sc-telemetry", "sc-tracing", "sc-transaction-pool", "sc-transaction-pool-api", "sc-utils", "snowbridge-runtime-test-common", "sp-blockchain", "sp-consensus", "sp-core-hashing", "sp-core-hashing-proc-macro", "sp-database", "sp-maybe-compressed-blob", "sp-panic-handler", "sp-rpc", "staging-node-inspect", "staging-tracking-allocator", "std", "subkey", "substrate-build-script-utils", "substrate-frame-rpc-support", "substrate-frame-rpc-system", "substrate-prometheus-endpoint", "substrate-rpc-client", "substrate-state-trie-migration-rpc", "substrate-wasm-builder", "tracing-gum", "xcm-emulator", "xcm-simulator"]
+tuples-96 = [
+	"frame-support-procedural?/tuples-96",
+	"frame-support?/tuples-96",
+]
+
+[package.edition]
+workspace = true
+
+[package.authors]
+workspace = true
+
+[dependencies.assets-common]
+path = "../cumulus/parachains/runtimes/assets/common"
+default-features = false
+optional = true
+
+[dependencies.binary-merkle-tree]
+path = "../substrate/utils/binary-merkle-tree"
+default-features = false
+optional = true
+
+[dependencies.bp-asset-hub-rococo]
+path = "../bridges/chains/chain-asset-hub-rococo"
+default-features = false
+optional = true
+
+[dependencies.bp-asset-hub-westend]
+path = "../bridges/chains/chain-asset-hub-westend"
+default-features = false
+optional = true
+
+[dependencies.bp-bridge-hub-cumulus]
+path = "../bridges/chains/chain-bridge-hub-cumulus"
+default-features = false
+optional = true
+
+[dependencies.bp-bridge-hub-kusama]
+path = "../bridges/chains/chain-bridge-hub-kusama"
+default-features = false
+optional = true
+
+[dependencies.bp-bridge-hub-polkadot]
+path = "../bridges/chains/chain-bridge-hub-polkadot"
+default-features = false
+optional = true
+
+[dependencies.bp-bridge-hub-rococo]
+path = "../bridges/chains/chain-bridge-hub-rococo"
+default-features = false
+optional = true
+
+[dependencies.bp-bridge-hub-westend]
+path = "../bridges/chains/chain-bridge-hub-westend"
+default-features = false
+optional = true
+
+[dependencies.bp-header-chain]
+path = "../bridges/primitives/header-chain"
+default-features = false
+optional = true
+
+[dependencies.bp-kusama]
+path = "../bridges/chains/chain-kusama"
+default-features = false
+optional = true
+
+[dependencies.bp-messages]
+path = "../bridges/primitives/messages"
+default-features = false
+optional = true
+
+[dependencies.bp-parachains]
+path = "../bridges/primitives/parachains"
+default-features = false
+optional = true
+
+[dependencies.bp-polkadot]
+path = "../bridges/chains/chain-polkadot"
+default-features = false
+optional = true
+
+[dependencies.bp-polkadot-bulletin]
+path = "../bridges/chains/chain-polkadot-bulletin"
+default-features = false
+optional = true
+
+[dependencies.bp-polkadot-core]
+path = "../bridges/primitives/polkadot-core"
+default-features = false
+optional = true
+
+[dependencies.bp-relayers]
+path = "../bridges/primitives/relayers"
+default-features = false
+optional = true
+
+[dependencies.bp-rococo]
+path = "../bridges/chains/chain-rococo"
+default-features = false
+optional = true
+
+[dependencies.bp-runtime]
+path = "../bridges/primitives/runtime"
+default-features = false
+optional = true
+
+[dependencies.bp-test-utils]
+path = "../bridges/primitives/test-utils"
+default-features = false
+optional = true
+
+[dependencies.bp-westend]
+path = "../bridges/chains/chain-westend"
+default-features = false
+optional = true
+
+[dependencies.bp-xcm-bridge-hub]
+path = "../bridges/primitives/xcm-bridge-hub"
+default-features = false
+optional = true
+
+[dependencies.bp-xcm-bridge-hub-router]
+path = "../bridges/primitives/xcm-bridge-hub-router"
+default-features = false
+optional = true
+
+[dependencies.bridge-hub-common]
+path = "../cumulus/parachains/runtimes/bridge-hubs/common"
+default-features = false
+optional = true
+
+[dependencies.bridge-runtime-common]
+path = "../bridges/bin/runtime-common"
+default-features = false
+optional = true
+
+[dependencies.cumulus-pallet-aura-ext]
+path = "../cumulus/pallets/aura-ext"
+default-features = false
+optional = true
+
+[dependencies.cumulus-pallet-dmp-queue]
+path = "../cumulus/pallets/dmp-queue"
+default-features = false
+optional = true
+
+[dependencies.cumulus-pallet-parachain-system]
+path = "../cumulus/pallets/parachain-system"
+default-features = false
+optional = true
+
+[dependencies.cumulus-pallet-parachain-system-proc-macro]
+path = "../cumulus/pallets/parachain-system/proc-macro"
+default-features = false
+optional = true
+
+[dependencies.cumulus-pallet-session-benchmarking]
+path = "../cumulus/pallets/session-benchmarking"
+default-features = false
+optional = true
+
+[dependencies.cumulus-pallet-solo-to-para]
+path = "../cumulus/pallets/solo-to-para"
+default-features = false
+optional = true
+
+[dependencies.cumulus-pallet-xcm]
+path = "../cumulus/pallets/xcm"
+default-features = false
+optional = true
+
+[dependencies.cumulus-pallet-xcmp-queue]
+path = "../cumulus/pallets/xcmp-queue"
+default-features = false
+optional = true
+
+[dependencies.cumulus-ping]
+path = "../cumulus/parachains/pallets/ping"
+default-features = false
+optional = true
+
+[dependencies.cumulus-primitives-aura]
+path = "../cumulus/primitives/aura"
+default-features = false
+optional = true
+
+[dependencies.cumulus-primitives-core]
+path = "../cumulus/primitives/core"
+default-features = false
+optional = true
+
+[dependencies.cumulus-primitives-parachain-inherent]
+path = "../cumulus/primitives/parachain-inherent"
+default-features = false
+optional = true
+
+[dependencies.cumulus-primitives-proof-size-hostfunction]
+path = "../cumulus/primitives/proof-size-hostfunction"
+default-features = false
+optional = true
+
+[dependencies.cumulus-primitives-storage-weight-reclaim]
+path = "../cumulus/primitives/storage-weight-reclaim"
+default-features = false
+optional = true
+
+[dependencies.cumulus-primitives-timestamp]
+path = "../cumulus/primitives/timestamp"
+default-features = false
+optional = true
+
+[dependencies.cumulus-primitives-utility]
+path = "../cumulus/primitives/utility"
+default-features = false
+optional = true
+
+[dependencies.frame-benchmarking]
+path = "../substrate/frame/benchmarking"
+default-features = false
+optional = true
+
+[dependencies.frame-benchmarking-pallet-pov]
+path = "../substrate/frame/benchmarking/pov"
+default-features = false
+optional = true
+
+[dependencies.frame-election-provider-solution-type]
+path = "../substrate/frame/election-provider-support/solution-type"
+default-features = false
+optional = true
+
+[dependencies.frame-election-provider-support]
+path = "../substrate/frame/election-provider-support"
+default-features = false
+optional = true
+
+[dependencies.frame-executive]
+path = "../substrate/frame/executive"
+default-features = false
+optional = true
+
+[dependencies.frame-metadata-hash-extension]
+path = "../substrate/frame/metadata-hash-extension"
+default-features = false
+optional = true
+
+[dependencies.frame-support]
+path = "../substrate/frame/support"
+default-features = false
+optional = true
+
+[dependencies.frame-support-procedural]
+path = "../substrate/frame/support/procedural"
+default-features = false
+optional = true
+
+[dependencies.frame-support-procedural-tools-derive]
+path = "../substrate/frame/support/procedural/tools/derive"
+default-features = false
+optional = true
+
+[dependencies.frame-system]
+path = "../substrate/frame/system"
+default-features = false
+optional = true
+
+[dependencies.frame-system-benchmarking]
+path = "../substrate/frame/system/benchmarking"
+default-features = false
+optional = true
+
+[dependencies.frame-system-rpc-runtime-api]
+path = "../substrate/frame/system/rpc/runtime-api"
+default-features = false
+optional = true
+
+[dependencies.frame-try-runtime]
+path = "../substrate/frame/try-runtime"
+default-features = false
+optional = true
+
+[dependencies.pallet-alliance]
+path = "../substrate/frame/alliance"
+default-features = false
+optional = true
+
+[dependencies.pallet-asset-conversion]
+path = "../substrate/frame/asset-conversion"
+default-features = false
+optional = true
+
+[dependencies.pallet-asset-conversion-ops]
+path = "../substrate/frame/asset-conversion/ops"
+default-features = false
+optional = true
+
+[dependencies.pallet-asset-conversion-tx-payment]
+path = "../substrate/frame/transaction-payment/asset-conversion-tx-payment"
+default-features = false
+optional = true
+
+[dependencies.pallet-asset-rate]
+path = "../substrate/frame/asset-rate"
+default-features = false
+optional = true
+
+[dependencies.pallet-asset-tx-payment]
+path = "../substrate/frame/transaction-payment/asset-tx-payment"
+default-features = false
+optional = true
+
+[dependencies.pallet-assets]
+path = "../substrate/frame/assets"
+default-features = false
+optional = true
+
+[dependencies.pallet-atomic-swap]
+path = "../substrate/frame/atomic-swap"
+default-features = false
+optional = true
+
+[dependencies.pallet-aura]
+path = "../substrate/frame/aura"
+default-features = false
+optional = true
+
+[dependencies.pallet-authority-discovery]
+path = "../substrate/frame/authority-discovery"
+default-features = false
+optional = true
+
+[dependencies.pallet-authorship]
+path = "../substrate/frame/authorship"
+default-features = false
+optional = true
+
+[dependencies.pallet-babe]
+path = "../substrate/frame/babe"
+default-features = false
+optional = true
+
+[dependencies.pallet-bags-list]
+path = "../substrate/frame/bags-list"
+default-features = false
+optional = true
+
+[dependencies.pallet-balances]
+path = "../substrate/frame/balances"
+default-features = false
+optional = true
+
+[dependencies.pallet-beefy]
+path = "../substrate/frame/beefy"
+default-features = false
+optional = true
+
+[dependencies.pallet-beefy-mmr]
+path = "../substrate/frame/beefy-mmr"
+default-features = false
+optional = true
+
+[dependencies.pallet-bounties]
+path = "../substrate/frame/bounties"
+default-features = false
+optional = true
+
+[dependencies.pallet-bridge-grandpa]
+path = "../bridges/modules/grandpa"
+default-features = false
+optional = true
+
+[dependencies.pallet-bridge-messages]
+path = "../bridges/modules/messages"
+default-features = false
+optional = true
+
+[dependencies.pallet-bridge-parachains]
+path = "../bridges/modules/parachains"
+default-features = false
+optional = true
+
+[dependencies.pallet-bridge-relayers]
+path = "../bridges/modules/relayers"
+default-features = false
+optional = true
+
+[dependencies.pallet-broker]
+path = "../substrate/frame/broker"
+default-features = false
+optional = true
+
+[dependencies.pallet-child-bounties]
+path = "../substrate/frame/child-bounties"
+default-features = false
+optional = true
+
+[dependencies.pallet-collator-selection]
+path = "../cumulus/pallets/collator-selection"
+default-features = false
+optional = true
+
+[dependencies.pallet-collective]
+path = "../substrate/frame/collective"
+default-features = false
+optional = true
+
+[dependencies.pallet-collective-content]
+path = "../cumulus/parachains/pallets/collective-content"
+default-features = false
+optional = true
+
+[dependencies.pallet-contracts]
+path = "../substrate/frame/contracts"
+default-features = false
+optional = true
+
+[dependencies.pallet-contracts-proc-macro]
+path = "../substrate/frame/contracts/proc-macro"
+default-features = false
+optional = true
+
+[dependencies.pallet-contracts-uapi]
+path = "../substrate/frame/contracts/uapi"
+default-features = false
+optional = true
+
+[dependencies.pallet-conviction-voting]
+path = "../substrate/frame/conviction-voting"
+default-features = false
+optional = true
+
+[dependencies.pallet-core-fellowship]
+path = "../substrate/frame/core-fellowship"
+default-features = false
+optional = true
+
+[dependencies.pallet-delegated-staking]
+path = "../substrate/frame/delegated-staking"
+default-features = false
+optional = true
+
+[dependencies.pallet-democracy]
+path = "../substrate/frame/democracy"
+default-features = false
+optional = true
+
+[dependencies.pallet-dev-mode]
+path = "../substrate/frame/examples/dev-mode"
+default-features = false
+optional = true
+
+[dependencies.pallet-election-provider-multi-phase]
+path = "../substrate/frame/election-provider-multi-phase"
+default-features = false
+optional = true
+
+[dependencies.pallet-election-provider-support-benchmarking]
+path = "../substrate/frame/election-provider-support/benchmarking"
+default-features = false
+optional = true
+
+[dependencies.pallet-elections-phragmen]
+path = "../substrate/frame/elections-phragmen"
+default-features = false
+optional = true
+
+[dependencies.pallet-fast-unstake]
+path = "../substrate/frame/fast-unstake"
+default-features = false
+optional = true
+
+[dependencies.pallet-glutton]
+path = "../substrate/frame/glutton"
+default-features = false
+optional = true
+
+[dependencies.pallet-grandpa]
+path = "../substrate/frame/grandpa"
+default-features = false
+optional = true
+
+[dependencies.pallet-identity]
+path = "../substrate/frame/identity"
+default-features = false
+optional = true
+
+[dependencies.pallet-im-online]
+path = "../substrate/frame/im-online"
+default-features = false
+optional = true
+
+[dependencies.pallet-indices]
+path = "../substrate/frame/indices"
+default-features = false
+optional = true
+
+[dependencies.pallet-insecure-randomness-collective-flip]
+path = "../substrate/frame/insecure-randomness-collective-flip"
+default-features = false
+optional = true
+
+[dependencies.pallet-lottery]
+path = "../substrate/frame/lottery"
+default-features = false
+optional = true
+
+[dependencies.pallet-membership]
+path = "../substrate/frame/membership"
+default-features = false
+optional = true
+
+[dependencies.pallet-message-queue]
+path = "../substrate/frame/message-queue"
+default-features = false
+optional = true
+
+[dependencies.pallet-migrations]
+path = "../substrate/frame/migrations"
+default-features = false
+optional = true
+
+[dependencies.pallet-mixnet]
+path = "../substrate/frame/mixnet"
+default-features = false
+optional = true
+
+[dependencies.pallet-mmr]
+path = "../substrate/frame/merkle-mountain-range"
+default-features = false
+optional = true
+
+[dependencies.pallet-multisig]
+path = "../substrate/frame/multisig"
+default-features = false
+optional = true
+
+[dependencies.pallet-nft-fractionalization]
+path = "../substrate/frame/nft-fractionalization"
+default-features = false
+optional = true
+
+[dependencies.pallet-nfts]
+path = "../substrate/frame/nfts"
+default-features = false
+optional = true
+
+[dependencies.pallet-nfts-runtime-api]
+path = "../substrate/frame/nfts/runtime-api"
+default-features = false
+optional = true
+
+[dependencies.pallet-nis]
+path = "../substrate/frame/nis"
+default-features = false
+optional = true
+
+[dependencies.pallet-node-authorization]
+path = "../substrate/frame/node-authorization"
+default-features = false
+optional = true
+
+[dependencies.pallet-nomination-pools]
+path = "../substrate/frame/nomination-pools"
+default-features = false
+optional = true
+
+[dependencies.pallet-nomination-pools-benchmarking]
+path = "../substrate/frame/nomination-pools/benchmarking"
+default-features = false
+optional = true
+
+[dependencies.pallet-nomination-pools-runtime-api]
+path = "../substrate/frame/nomination-pools/runtime-api"
+default-features = false
+optional = true
+
+[dependencies.pallet-offences]
+path = "../substrate/frame/offences"
+default-features = false
+optional = true
+
+[dependencies.pallet-offences-benchmarking]
+path = "../substrate/frame/offences/benchmarking"
+default-features = false
+optional = true
+
+[dependencies.pallet-paged-list]
+path = "../substrate/frame/paged-list"
+default-features = false
+optional = true
+
+[dependencies.pallet-parameters]
+path = "../substrate/frame/parameters"
+default-features = false
+optional = true
+
+[dependencies.pallet-preimage]
+path = "../substrate/frame/preimage"
+default-features = false
+optional = true
+
+[dependencies.pallet-proxy]
+path = "../substrate/frame/proxy"
+default-features = false
+optional = true
+
+[dependencies.pallet-ranked-collective]
+path = "../substrate/frame/ranked-collective"
+default-features = false
+optional = true
+
+[dependencies.pallet-recovery]
+path = "../substrate/frame/recovery"
+default-features = false
+optional = true
+
+[dependencies.pallet-referenda]
+path = "../substrate/frame/referenda"
+default-features = false
+optional = true
+
+[dependencies.pallet-remark]
+path = "../substrate/frame/remark"
+default-features = false
+optional = true
+
+[dependencies.pallet-root-offences]
+path = "../substrate/frame/root-offences"
+default-features = false
+optional = true
+
+[dependencies.pallet-root-testing]
+path = "../substrate/frame/root-testing"
+default-features = false
+optional = true
+
+[dependencies.pallet-safe-mode]
+path = "../substrate/frame/safe-mode"
+default-features = false
+optional = true
+
+[dependencies.pallet-salary]
+path = "../substrate/frame/salary"
+default-features = false
+optional = true
+
+[dependencies.pallet-scheduler]
+path = "../substrate/frame/scheduler"
+default-features = false
+optional = true
+
+[dependencies.pallet-scored-pool]
+path = "../substrate/frame/scored-pool"
+default-features = false
+optional = true
+
+[dependencies.pallet-session]
+path = "../substrate/frame/session"
+default-features = false
+optional = true
+
+[dependencies.pallet-session-benchmarking]
+path = "../substrate/frame/session/benchmarking"
+default-features = false
+optional = true
+
+[dependencies.pallet-skip-feeless-payment]
+path = "../substrate/frame/transaction-payment/skip-feeless-payment"
+default-features = false
+optional = true
+
+[dependencies.pallet-society]
+path = "../substrate/frame/society"
+default-features = false
+optional = true
+
+[dependencies.pallet-staking]
+path = "../substrate/frame/staking"
+default-features = false
+optional = true
+
+[dependencies.pallet-staking-reward-curve]
+path = "../substrate/frame/staking/reward-curve"
+default-features = false
+optional = true
+
+[dependencies.pallet-staking-reward-fn]
+path = "../substrate/frame/staking/reward-fn"
+default-features = false
+optional = true
+
+[dependencies.pallet-staking-runtime-api]
+path = "../substrate/frame/staking/runtime-api"
+default-features = false
+optional = true
+
+[dependencies.pallet-state-trie-migration]
+path = "../substrate/frame/state-trie-migration"
+default-features = false
+optional = true
+
+[dependencies.pallet-statement]
+path = "../substrate/frame/statement"
+default-features = false
+optional = true
+
+[dependencies.pallet-sudo]
+path = "../substrate/frame/sudo"
+default-features = false
+optional = true
+
+[dependencies.pallet-timestamp]
+path = "../substrate/frame/timestamp"
+default-features = false
+optional = true
+
+[dependencies.pallet-tips]
+path = "../substrate/frame/tips"
+default-features = false
+optional = true
+
+[dependencies.pallet-transaction-payment]
+path = "../substrate/frame/transaction-payment"
+default-features = false
+optional = true
+
+[dependencies.pallet-transaction-payment-rpc-runtime-api]
+path = "../substrate/frame/transaction-payment/rpc/runtime-api"
+default-features = false
+optional = true
+
+[dependencies.pallet-transaction-storage]
+path = "../substrate/frame/transaction-storage"
+default-features = false
+optional = true
+
+[dependencies.pallet-treasury]
+path = "../substrate/frame/treasury"
+default-features = false
+optional = true
+
+[dependencies.pallet-tx-pause]
+path = "../substrate/frame/tx-pause"
+default-features = false
+optional = true
+
+[dependencies.pallet-uniques]
+path = "../substrate/frame/uniques"
+default-features = false
+optional = true
+
+[dependencies.pallet-utility]
+path = "../substrate/frame/utility"
+default-features = false
+optional = true
+
+[dependencies.pallet-vesting]
+path = "../substrate/frame/vesting"
+default-features = false
+optional = true
+
+[dependencies.pallet-whitelist]
+path = "../substrate/frame/whitelist"
+default-features = false
+optional = true
+
+[dependencies.pallet-xcm]
+path = "../polkadot/xcm/pallet-xcm"
+default-features = false
+optional = true
+
+[dependencies.pallet-xcm-benchmarks]
+path = "../polkadot/xcm/pallet-xcm-benchmarks"
+default-features = false
+optional = true
+
+[dependencies.pallet-xcm-bridge-hub]
+path = "../bridges/modules/xcm-bridge-hub"
+default-features = false
+optional = true
+
+[dependencies.pallet-xcm-bridge-hub-router]
+path = "../bridges/modules/xcm-bridge-hub-router"
+default-features = false
+optional = true
+
+[dependencies.parachains-common]
+path = "../cumulus/parachains/common"
+default-features = false
+optional = true
+
+[dependencies.polkadot-core-primitives]
+path = "../polkadot/core-primitives"
+default-features = false
+optional = true
+
+[dependencies.polkadot-parachain-primitives]
+path = "../polkadot/parachain"
+default-features = false
+optional = true
+
+[dependencies.polkadot-primitives]
+path = "../polkadot/primitives"
+default-features = false
+optional = true
+
+[dependencies.polkadot-runtime-common]
+path = "../polkadot/runtime/common"
+default-features = false
+optional = true
+
+[dependencies.polkadot-runtime-metrics]
+path = "../polkadot/runtime/metrics"
+default-features = false
+optional = true
+
+[dependencies.polkadot-runtime-parachains]
+path = "../polkadot/runtime/parachains"
+default-features = false
+optional = true
+
+[dependencies.polkadot-sdk-frame]
+path = "../substrate/frame"
+default-features = false
+optional = true
+
+[dependencies.rococo-runtime-constants]
+path = "../polkadot/runtime/rococo/constants"
+default-features = false
+optional = true
+
+[dependencies.sc-chain-spec-derive]
+path = "../substrate/client/chain-spec/derive"
+default-features = false
+optional = true
+
+[dependencies.sc-tracing-proc-macro]
+path = "../substrate/client/tracing/proc-macro"
+default-features = false
+optional = true
+
+[dependencies.slot-range-helper]
+path = "../polkadot/runtime/common/slot_range_helper"
+default-features = false
+optional = true
+
+[dependencies.snowbridge-beacon-primitives]
+path = "../bridges/snowbridge/primitives/beacon"
+default-features = false
+optional = true
+
+[dependencies.snowbridge-core]
+path = "../bridges/snowbridge/primitives/core"
+default-features = false
+optional = true
+
+[dependencies.snowbridge-ethereum]
+path = "../bridges/snowbridge/primitives/ethereum"
+default-features = false
+optional = true
+
+[dependencies.snowbridge-outbound-queue-merkle-tree]
+path = "../bridges/snowbridge/pallets/outbound-queue/merkle-tree"
+default-features = false
+optional = true
+
+[dependencies.snowbridge-outbound-queue-runtime-api]
+path = "../bridges/snowbridge/pallets/outbound-queue/runtime-api"
+default-features = false
+optional = true
+
+[dependencies.snowbridge-pallet-ethereum-client]
+path = "../bridges/snowbridge/pallets/ethereum-client"
+default-features = false
+optional = true
+
+[dependencies.snowbridge-pallet-ethereum-client-fixtures]
+path = "../bridges/snowbridge/pallets/ethereum-client/fixtures"
+default-features = false
+optional = true
+
+[dependencies.snowbridge-pallet-inbound-queue]
+path = "../bridges/snowbridge/pallets/inbound-queue"
+default-features = false
+optional = true
+
+[dependencies.snowbridge-pallet-inbound-queue-fixtures]
+path = "../bridges/snowbridge/pallets/inbound-queue/fixtures"
+default-features = false
+optional = true
+
+[dependencies.snowbridge-pallet-outbound-queue]
+path = "../bridges/snowbridge/pallets/outbound-queue"
+default-features = false
+optional = true
+
+[dependencies.snowbridge-pallet-system]
+path = "../bridges/snowbridge/pallets/system"
+default-features = false
+optional = true
+
+[dependencies.snowbridge-router-primitives]
+path = "../bridges/snowbridge/primitives/router"
+default-features = false
+optional = true
+
+[dependencies.snowbridge-runtime-common]
+path = "../bridges/snowbridge/runtime/runtime-common"
+default-features = false
+optional = true
+
+[dependencies.snowbridge-system-runtime-api]
+path = "../bridges/snowbridge/pallets/system/runtime-api"
+default-features = false
+optional = true
+
+[dependencies.sp-api]
+path = "../substrate/primitives/api"
+default-features = false
+optional = true
+
+[dependencies.sp-api-proc-macro]
+path = "../substrate/primitives/api/proc-macro"
+default-features = false
+optional = true
+
+[dependencies.sp-application-crypto]
+path = "../substrate/primitives/application-crypto"
+default-features = false
+optional = true
+
+[dependencies.sp-arithmetic]
+path = "../substrate/primitives/arithmetic"
+default-features = false
+optional = true
+
+[dependencies.sp-authority-discovery]
+path = "../substrate/primitives/authority-discovery"
+default-features = false
+optional = true
+
+[dependencies.sp-block-builder]
+path = "../substrate/primitives/block-builder"
+default-features = false
+optional = true
+
+[dependencies.sp-consensus-aura]
+path = "../substrate/primitives/consensus/aura"
+default-features = false
+optional = true
+
+[dependencies.sp-consensus-babe]
+path = "../substrate/primitives/consensus/babe"
+default-features = false
+optional = true
+
+[dependencies.sp-consensus-beefy]
+path = "../substrate/primitives/consensus/beefy"
+default-features = false
+optional = true
+
+[dependencies.sp-consensus-grandpa]
+path = "../substrate/primitives/consensus/grandpa"
+default-features = false
+optional = true
+
+[dependencies.sp-consensus-pow]
+path = "../substrate/primitives/consensus/pow"
+default-features = false
+optional = true
+
+[dependencies.sp-consensus-slots]
+path = "../substrate/primitives/consensus/slots"
+default-features = false
+optional = true
+
+[dependencies.sp-core]
+path = "../substrate/primitives/core"
+default-features = false
+optional = true
+
+[dependencies.sp-crypto-ec-utils]
+path = "../substrate/primitives/crypto/ec-utils"
+default-features = false
+optional = true
+
+[dependencies.sp-crypto-hashing]
+path = "../substrate/primitives/crypto/hashing"
+default-features = false
+optional = true
+
+[dependencies.sp-crypto-hashing-proc-macro]
+path = "../substrate/primitives/crypto/hashing/proc-macro"
+default-features = false
+optional = true
+
+[dependencies.sp-debug-derive]
+path = "../substrate/primitives/debug-derive"
+default-features = false
+optional = true
+
+[dependencies.sp-externalities]
+path = "../substrate/primitives/externalities"
+default-features = false
+optional = true
+
+[dependencies.sp-genesis-builder]
+path = "../substrate/primitives/genesis-builder"
+default-features = false
+optional = true
+
+[dependencies.sp-inherents]
+path = "../substrate/primitives/inherents"
+default-features = false
+optional = true
+
+[dependencies.sp-io]
+path = "../substrate/primitives/io"
+default-features = false
+optional = true
+
+[dependencies.sp-keyring]
+path = "../substrate/primitives/keyring"
+default-features = false
+optional = true
+
+[dependencies.sp-keystore]
+path = "../substrate/primitives/keystore"
+default-features = false
+optional = true
+
+[dependencies.sp-metadata-ir]
+path = "../substrate/primitives/metadata-ir"
+default-features = false
+optional = true
+
+[dependencies.sp-mixnet]
+path = "../substrate/primitives/mixnet"
+default-features = false
+optional = true
+
+[dependencies.sp-mmr-primitives]
+path = "../substrate/primitives/merkle-mountain-range"
+default-features = false
+optional = true
+
+[dependencies.sp-npos-elections]
+path = "../substrate/primitives/npos-elections"
+default-features = false
+optional = true
+
+[dependencies.sp-offchain]
+path = "../substrate/primitives/offchain"
+default-features = false
+optional = true
+
+[dependencies.sp-runtime]
+path = "../substrate/primitives/runtime"
+default-features = false
+optional = true
+
+[dependencies.sp-runtime-interface]
+path = "../substrate/primitives/runtime-interface"
+default-features = false
+optional = true
+
+[dependencies.sp-runtime-interface-proc-macro]
+path = "../substrate/primitives/runtime-interface/proc-macro"
+default-features = false
+optional = true
+
+[dependencies.sp-session]
+path = "../substrate/primitives/session"
+default-features = false
+optional = true
+
+[dependencies.sp-staking]
+path = "../substrate/primitives/staking"
+default-features = false
+optional = true
+
+[dependencies.sp-state-machine]
+path = "../substrate/primitives/state-machine"
+default-features = false
+optional = true
+
+[dependencies.sp-statement-store]
+path = "../substrate/primitives/statement-store"
+default-features = false
+optional = true
+
+[dependencies.sp-std]
+path = "../substrate/primitives/std"
+default-features = false
+optional = true
+
+[dependencies.sp-storage]
+path = "../substrate/primitives/storage"
+default-features = false
+optional = true
+
+[dependencies.sp-timestamp]
+path = "../substrate/primitives/timestamp"
+default-features = false
+optional = true
+
+[dependencies.sp-tracing]
+path = "../substrate/primitives/tracing"
+default-features = false
+optional = true
+
+[dependencies.sp-transaction-pool]
+path = "../substrate/primitives/transaction-pool"
+default-features = false
+optional = true
+
+[dependencies.sp-transaction-storage-proof]
+path = "../substrate/primitives/transaction-storage-proof"
+default-features = false
+optional = true
+
+[dependencies.sp-trie]
+path = "../substrate/primitives/trie"
+default-features = false
+optional = true
+
+[dependencies.sp-version]
+path = "../substrate/primitives/version"
+default-features = false
+optional = true
+
+[dependencies.sp-version-proc-macro]
+path = "../substrate/primitives/version/proc-macro"
+default-features = false
+optional = true
+
+[dependencies.sp-wasm-interface]
+path = "../substrate/primitives/wasm-interface"
+default-features = false
+optional = true
+
+[dependencies.sp-weights]
+path = "../substrate/primitives/weights"
+default-features = false
+optional = true
+
+[dependencies.staging-parachain-info]
+path = "../cumulus/parachains/pallets/parachain-info"
+default-features = false
+optional = true
+
+[dependencies.staging-xcm]
+path = "../polkadot/xcm"
+default-features = false
+optional = true
+
+[dependencies.staging-xcm-builder]
+path = "../polkadot/xcm/xcm-builder"
+default-features = false
+optional = true
+
+[dependencies.staging-xcm-executor]
+path = "../polkadot/xcm/xcm-executor"
+default-features = false
+optional = true
+
+[dependencies.substrate-bip39]
+path = "../substrate/utils/substrate-bip39"
+default-features = false
+optional = true
+
+[dependencies.testnet-parachains-constants]
+path = "../cumulus/parachains/runtimes/constants"
+default-features = false
+optional = true
+
+[dependencies.tracing-gum-proc-macro]
+path = "../polkadot/node/gum/proc-macro"
+default-features = false
+optional = true
+
+[dependencies.westend-runtime-constants]
+path = "../polkadot/runtime/westend/constants"
+default-features = false
+optional = true
+
+[dependencies.xcm-fee-payment-runtime-api]
+path = "../polkadot/xcm/xcm-fee-payment-runtime-api"
+default-features = false
+optional = true
+
+[dependencies.xcm-procedural]
+path = "../polkadot/xcm/procedural"
+default-features = false
+optional = true
+
+[dependencies.asset-test-utils]
+path = "../cumulus/parachains/runtimes/assets/test-utils"
+default-features = false
+optional = true
+
+[dependencies.bridge-hub-test-utils]
+path = "../cumulus/parachains/runtimes/bridge-hubs/test-utils"
+default-features = false
+optional = true
+
+[dependencies.cumulus-client-cli]
+path = "../cumulus/client/cli"
+default-features = false
+optional = true
+
+[dependencies.cumulus-client-collator]
+path = "../cumulus/client/collator"
+default-features = false
+optional = true
+
+[dependencies.cumulus-client-consensus-aura]
+path = "../cumulus/client/consensus/aura"
+default-features = false
+optional = true
+
+[dependencies.cumulus-client-consensus-common]
+path = "../cumulus/client/consensus/common"
+default-features = false
+optional = true
+
+[dependencies.cumulus-client-consensus-proposer]
+path = "../cumulus/client/consensus/proposer"
+default-features = false
+optional = true
+
+[dependencies.cumulus-client-consensus-relay-chain]
+path = "../cumulus/client/consensus/relay-chain"
+default-features = false
+optional = true
+
+[dependencies.cumulus-client-network]
+path = "../cumulus/client/network"
+default-features = false
+optional = true
+
+[dependencies.cumulus-client-parachain-inherent]
+path = "../cumulus/client/parachain-inherent"
+default-features = false
+optional = true
+
+[dependencies.cumulus-client-pov-recovery]
+path = "../cumulus/client/pov-recovery"
+default-features = false
+optional = true
+
+[dependencies.cumulus-client-service]
+path = "../cumulus/client/service"
+default-features = false
+optional = true
+
+[dependencies.cumulus-relay-chain-inprocess-interface]
+path = "../cumulus/client/relay-chain-inprocess-interface"
+default-features = false
+optional = true
+
+[dependencies.cumulus-relay-chain-interface]
+path = "../cumulus/client/relay-chain-interface"
+default-features = false
+optional = true
+
+[dependencies.cumulus-relay-chain-minimal-node]
+path = "../cumulus/client/relay-chain-minimal-node"
+default-features = false
+optional = true
+
+[dependencies.cumulus-relay-chain-rpc-interface]
+path = "../cumulus/client/relay-chain-rpc-interface"
+default-features = false
+optional = true
+
+[dependencies.cumulus-test-relay-sproof-builder]
+path = "../cumulus/test/relay-sproof-builder"
+default-features = false
+optional = true
+
+[dependencies.emulated-integration-tests-common]
+path = "../cumulus/parachains/integration-tests/emulated/common"
+default-features = false
+optional = true
+
+[dependencies.fork-tree]
+path = "../substrate/utils/fork-tree"
+default-features = false
+optional = true
+
+[dependencies.frame-benchmarking-cli]
+path = "../substrate/utils/frame/benchmarking-cli"
+default-features = false
+optional = true
+
+[dependencies.frame-remote-externalities]
+path = "../substrate/utils/frame/remote-externalities"
+default-features = false
+optional = true
+
+[dependencies.frame-support-procedural-tools]
+path = "../substrate/frame/support/procedural/tools"
+default-features = false
+optional = true
+
+[dependencies.generate-bags]
+path = "../substrate/utils/frame/generate-bags"
+default-features = false
+optional = true
+
+[dependencies.mmr-gadget]
+path = "../substrate/client/merkle-mountain-range"
+default-features = false
+optional = true
+
+[dependencies.mmr-rpc]
+path = "../substrate/client/merkle-mountain-range/rpc"
+default-features = false
+optional = true
+
+[dependencies.pallet-contracts-mock-network]
+path = "../substrate/frame/contracts/mock-network"
+default-features = false
+optional = true
+
+[dependencies.pallet-transaction-payment-rpc]
+path = "../substrate/frame/transaction-payment/rpc"
+default-features = false
+optional = true
+
+[dependencies.parachains-runtimes-test-utils]
+path = "../cumulus/parachains/runtimes/test-utils"
+default-features = false
+optional = true
+
+[dependencies.polkadot-approval-distribution]
+path = "../polkadot/node/network/approval-distribution"
+default-features = false
+optional = true
+
+[dependencies.polkadot-availability-bitfield-distribution]
+path = "../polkadot/node/network/bitfield-distribution"
+default-features = false
+optional = true
+
+[dependencies.polkadot-availability-distribution]
+path = "../polkadot/node/network/availability-distribution"
+default-features = false
+optional = true
+
+[dependencies.polkadot-availability-recovery]
+path = "../polkadot/node/network/availability-recovery"
+default-features = false
+optional = true
+
+[dependencies.polkadot-cli]
+path = "../polkadot/cli"
+default-features = false
+optional = true
+
+[dependencies.polkadot-collator-protocol]
+path = "../polkadot/node/network/collator-protocol"
+default-features = false
+optional = true
+
+[dependencies.polkadot-dispute-distribution]
+path = "../polkadot/node/network/dispute-distribution"
+default-features = false
+optional = true
+
+[dependencies.polkadot-erasure-coding]
+path = "../polkadot/erasure-coding"
+default-features = false
+optional = true
+
+[dependencies.polkadot-gossip-support]
+path = "../polkadot/node/network/gossip-support"
+default-features = false
+optional = true
+
+[dependencies.polkadot-network-bridge]
+path = "../polkadot/node/network/bridge"
+default-features = false
+optional = true
+
+[dependencies.polkadot-node-collation-generation]
+path = "../polkadot/node/collation-generation"
+default-features = false
+optional = true
+
+[dependencies.polkadot-node-core-approval-voting]
+path = "../polkadot/node/core/approval-voting"
+default-features = false
+optional = true
+
+[dependencies.polkadot-node-core-av-store]
+path = "../polkadot/node/core/av-store"
+default-features = false
+optional = true
+
+[dependencies.polkadot-node-core-backing]
+path = "../polkadot/node/core/backing"
+default-features = false
+optional = true
+
+[dependencies.polkadot-node-core-bitfield-signing]
+path = "../polkadot/node/core/bitfield-signing"
+default-features = false
+optional = true
+
+[dependencies.polkadot-node-core-candidate-validation]
+path = "../polkadot/node/core/candidate-validation"
+default-features = false
+optional = true
+
+[dependencies.polkadot-node-core-chain-api]
+path = "../polkadot/node/core/chain-api"
+default-features = false
+optional = true
+
+[dependencies.polkadot-node-core-chain-selection]
+path = "../polkadot/node/core/chain-selection"
+default-features = false
+optional = true
+
+[dependencies.polkadot-node-core-dispute-coordinator]
+path = "../polkadot/node/core/dispute-coordinator"
+default-features = false
+optional = true
+
+[dependencies.polkadot-node-core-parachains-inherent]
+path = "../polkadot/node/core/parachains-inherent"
+default-features = false
+optional = true
+
+[dependencies.polkadot-node-core-prospective-parachains]
+path = "../polkadot/node/core/prospective-parachains"
+default-features = false
+optional = true
+
+[dependencies.polkadot-node-core-provisioner]
+path = "../polkadot/node/core/provisioner"
+default-features = false
+optional = true
+
+[dependencies.polkadot-node-core-pvf]
+path = "../polkadot/node/core/pvf"
+default-features = false
+optional = true
+
+[dependencies.polkadot-node-core-pvf-checker]
+path = "../polkadot/node/core/pvf-checker"
+default-features = false
+optional = true
+
+[dependencies.polkadot-node-core-pvf-common]
+path = "../polkadot/node/core/pvf/common"
+default-features = false
+optional = true
+
+[dependencies.polkadot-node-core-pvf-execute-worker]
+path = "../polkadot/node/core/pvf/execute-worker"
+default-features = false
+optional = true
+
+[dependencies.polkadot-node-core-pvf-prepare-worker]
+path = "../polkadot/node/core/pvf/prepare-worker"
+default-features = false
+optional = true
+
+[dependencies.polkadot-node-core-runtime-api]
+path = "../polkadot/node/core/runtime-api"
+default-features = false
+optional = true
+
+[dependencies.polkadot-node-jaeger]
+path = "../polkadot/node/jaeger"
+default-features = false
+optional = true
+
+[dependencies.polkadot-node-metrics]
+path = "../polkadot/node/metrics"
+default-features = false
+optional = true
+
+[dependencies.polkadot-node-network-protocol]
+path = "../polkadot/node/network/protocol"
+default-features = false
+optional = true
+
+[dependencies.polkadot-node-primitives]
+path = "../polkadot/node/primitives"
+default-features = false
+optional = true
+
+[dependencies.polkadot-node-subsystem]
+path = "../polkadot/node/subsystem"
+default-features = false
+optional = true
+
+[dependencies.polkadot-node-subsystem-types]
+path = "../polkadot/node/subsystem-types"
+default-features = false
+optional = true
+
+[dependencies.polkadot-node-subsystem-util]
+path = "../polkadot/node/subsystem-util"
+default-features = false
+optional = true
+
+[dependencies.polkadot-overseer]
+path = "../polkadot/node/overseer"
+default-features = false
+optional = true
+
+[dependencies.polkadot-rpc]
+path = "../polkadot/rpc"
+default-features = false
+optional = true
+
+[dependencies.polkadot-service]
+path = "../polkadot/node/service"
+default-features = false
+optional = true
+
+[dependencies.polkadot-statement-distribution]
+path = "../polkadot/node/network/statement-distribution"
+default-features = false
+optional = true
+
+[dependencies.polkadot-statement-table]
+path = "../polkadot/statement-table"
+default-features = false
+optional = true
+
+[dependencies.sc-allocator]
+path = "../substrate/client/allocator"
+default-features = false
+optional = true
+
+[dependencies.sc-authority-discovery]
+path = "../substrate/client/authority-discovery"
+default-features = false
+optional = true
+
+[dependencies.sc-basic-authorship]
+path = "../substrate/client/basic-authorship"
+default-features = false
+optional = true
+
+[dependencies.sc-block-builder]
+path = "../substrate/client/block-builder"
+default-features = false
+optional = true
+
+[dependencies.sc-chain-spec]
+path = "../substrate/client/chain-spec"
+default-features = false
+optional = true
+
+[dependencies.sc-cli]
+path = "../substrate/client/cli"
+default-features = false
+optional = true
+
+[dependencies.sc-client-api]
+path = "../substrate/client/api"
+default-features = false
+optional = true
+
+[dependencies.sc-client-db]
+path = "../substrate/client/db"
+default-features = false
+optional = true
+
+[dependencies.sc-consensus]
+path = "../substrate/client/consensus/common"
+default-features = false
+optional = true
+
+[dependencies.sc-consensus-aura]
+path = "../substrate/client/consensus/aura"
+default-features = false
+optional = true
+
+[dependencies.sc-consensus-babe]
+path = "../substrate/client/consensus/babe"
+default-features = false
+optional = true
+
+[dependencies.sc-consensus-babe-rpc]
+path = "../substrate/client/consensus/babe/rpc"
+default-features = false
+optional = true
+
+[dependencies.sc-consensus-beefy]
+path = "../substrate/client/consensus/beefy"
+default-features = false
+optional = true
+
+[dependencies.sc-consensus-beefy-rpc]
+path = "../substrate/client/consensus/beefy/rpc"
+default-features = false
+optional = true
+
+[dependencies.sc-consensus-epochs]
+path = "../substrate/client/consensus/epochs"
+default-features = false
+optional = true
+
+[dependencies.sc-consensus-grandpa]
+path = "../substrate/client/consensus/grandpa"
+default-features = false
+optional = true
+
+[dependencies.sc-consensus-grandpa-rpc]
+path = "../substrate/client/consensus/grandpa/rpc"
+default-features = false
+optional = true
+
+[dependencies.sc-consensus-manual-seal]
+path = "../substrate/client/consensus/manual-seal"
+default-features = false
+optional = true
+
+[dependencies.sc-consensus-pow]
+path = "../substrate/client/consensus/pow"
+default-features = false
+optional = true
+
+[dependencies.sc-consensus-slots]
+path = "../substrate/client/consensus/slots"
+default-features = false
+optional = true
+
+[dependencies.sc-executor]
+path = "../substrate/client/executor"
+default-features = false
+optional = true
+
+[dependencies.sc-executor-common]
+path = "../substrate/client/executor/common"
+default-features = false
+optional = true
+
+[dependencies.sc-executor-polkavm]
+path = "../substrate/client/executor/polkavm"
+default-features = false
+optional = true
+
+[dependencies.sc-executor-wasmtime]
+path = "../substrate/client/executor/wasmtime"
+default-features = false
+optional = true
+
+[dependencies.sc-informant]
+path = "../substrate/client/informant"
+default-features = false
+optional = true
+
+[dependencies.sc-keystore]
+path = "../substrate/client/keystore"
+default-features = false
+optional = true
+
+[dependencies.sc-mixnet]
+path = "../substrate/client/mixnet"
+default-features = false
+optional = true
+
+[dependencies.sc-network]
+path = "../substrate/client/network"
+default-features = false
+optional = true
+
+[dependencies.sc-network-common]
+path = "../substrate/client/network/common"
+default-features = false
+optional = true
+
+[dependencies.sc-network-gossip]
+path = "../substrate/client/network-gossip"
+default-features = false
+optional = true
+
+[dependencies.sc-network-light]
+path = "../substrate/client/network/light"
+default-features = false
+optional = true
+
+[dependencies.sc-network-statement]
+path = "../substrate/client/network/statement"
+default-features = false
+optional = true
+
+[dependencies.sc-network-sync]
+path = "../substrate/client/network/sync"
+default-features = false
+optional = true
+
+[dependencies.sc-network-transactions]
+path = "../substrate/client/network/transactions"
+default-features = false
+optional = true
+
+[dependencies.sc-network-types]
+path = "../substrate/client/network/types"
+default-features = false
+optional = true
+
+[dependencies.sc-offchain]
+path = "../substrate/client/offchain"
+default-features = false
+optional = true
+
+[dependencies.sc-proposer-metrics]
+path = "../substrate/client/proposer-metrics"
+default-features = false
+optional = true
+
+[dependencies.sc-rpc]
+path = "../substrate/client/rpc"
+default-features = false
+optional = true
+
+[dependencies.sc-rpc-api]
+path = "../substrate/client/rpc-api"
+default-features = false
+optional = true
+
+[dependencies.sc-rpc-server]
+path = "../substrate/client/rpc-servers"
+default-features = false
+optional = true
+
+[dependencies.sc-rpc-spec-v2]
+path = "../substrate/client/rpc-spec-v2"
+default-features = false
+optional = true
+
+[dependencies.sc-service]
+path = "../substrate/client/service"
+default-features = false
+optional = true
+
+[dependencies.sc-state-db]
+path = "../substrate/client/state-db"
+default-features = false
+optional = true
+
+[dependencies.sc-statement-store]
+path = "../substrate/client/statement-store"
+default-features = false
+optional = true
+
+[dependencies.sc-storage-monitor]
+path = "../substrate/client/storage-monitor"
+default-features = false
+optional = true
+
+[dependencies.sc-sync-state-rpc]
+path = "../substrate/client/sync-state-rpc"
+default-features = false
+optional = true
+
+[dependencies.sc-sysinfo]
+path = "../substrate/client/sysinfo"
+default-features = false
+optional = true
+
+[dependencies.sc-telemetry]
+path = "../substrate/client/telemetry"
+default-features = false
+optional = true
+
+[dependencies.sc-tracing]
+path = "../substrate/client/tracing"
+default-features = false
+optional = true
+
+[dependencies.sc-transaction-pool]
+path = "../substrate/client/transaction-pool"
+default-features = false
+optional = true
+
+[dependencies.sc-transaction-pool-api]
+path = "../substrate/client/transaction-pool/api"
+default-features = false
+optional = true
+
+[dependencies.sc-utils]
+path = "../substrate/client/utils"
+default-features = false
+optional = true
+
+[dependencies.snowbridge-runtime-test-common]
+path = "../bridges/snowbridge/runtime/test-common"
+default-features = false
+optional = true
+
+[dependencies.sp-blockchain]
+path = "../substrate/primitives/blockchain"
+default-features = false
+optional = true
+
+[dependencies.sp-consensus]
+path = "../substrate/primitives/consensus/common"
+default-features = false
+optional = true
+
+[dependencies.sp-core-hashing]
+path = "../substrate/deprecated/hashing"
+default-features = false
+optional = true
+
+[dependencies.sp-core-hashing-proc-macro]
+path = "../substrate/deprecated/hashing/proc-macro"
+default-features = false
+optional = true
+
+[dependencies.sp-database]
+path = "../substrate/primitives/database"
+default-features = false
+optional = true
+
+[dependencies.sp-maybe-compressed-blob]
+path = "../substrate/primitives/maybe-compressed-blob"
+default-features = false
+optional = true
+
+[dependencies.sp-panic-handler]
+path = "../substrate/primitives/panic-handler"
+default-features = false
+optional = true
+
+[dependencies.sp-rpc]
+path = "../substrate/primitives/rpc"
+default-features = false
+optional = true
+
+[dependencies.staging-node-inspect]
+path = "../substrate/bin/node/inspect"
+default-features = false
+optional = true
+
+[dependencies.staging-tracking-allocator]
+path = "../polkadot/node/tracking-allocator"
+default-features = false
+optional = true
+
+[dependencies.subkey]
+path = "../substrate/bin/utils/subkey"
+default-features = false
+optional = true
+
+[dependencies.substrate-build-script-utils]
+path = "../substrate/utils/build-script-utils"
+default-features = false
+optional = true
+
+[dependencies.substrate-frame-rpc-support]
+path = "../substrate/utils/frame/rpc/support"
+default-features = false
+optional = true
+
+[dependencies.substrate-frame-rpc-system]
+path = "../substrate/utils/frame/rpc/system"
+default-features = false
+optional = true
+
+[dependencies.substrate-prometheus-endpoint]
+path = "../substrate/utils/prometheus"
+default-features = false
+optional = true
+
+[dependencies.substrate-rpc-client]
+path = "../substrate/utils/frame/rpc/client"
+default-features = false
+optional = true
+
+[dependencies.substrate-state-trie-migration-rpc]
+path = "../substrate/utils/frame/rpc/state-trie-migration-rpc"
+default-features = false
+optional = true
+
+[dependencies.substrate-wasm-builder]
+path = "../substrate/utils/wasm-builder"
+default-features = false
+optional = true
+
+[dependencies.tracing-gum]
+path = "../polkadot/node/gum"
+default-features = false
+optional = true
+
+[dependencies.xcm-emulator]
+path = "../cumulus/xcm/xcm-emulator"
+default-features = false
+optional = true
+
+[dependencies.xcm-simulator]
+path = "../polkadot/xcm/xcm-simulator"
+default-features = false
+optional = true
+
+[package.metadata.docs.rs]
+features = ["node", "runtime"]
+targets = ["x86_64-unknown-linux-gnu"]

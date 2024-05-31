@@ -64,7 +64,7 @@ use sp_runtime::{
 	KeyTypeId, Perbill,
 };
 use sp_session::{GetSessionNumber, GetValidatorCount};
-use sp_staking::offence::{DisableStrategy, Kind, Offence, OffenceError, ReportOffence};
+use sp_staking::offence::{Kind, Offence, OffenceError, ReportOffence};
 use sp_std::{
 	collections::{btree_map::Entry, btree_set::BTreeSet},
 	prelude::*,
@@ -134,15 +134,6 @@ where
 		self.time_slot.clone()
 	}
 
-	fn disable_strategy(&self) -> DisableStrategy {
-		match self.kind {
-			SlashingOffenceKind::ForInvalid => DisableStrategy::Always,
-			// in the future we might change it based on number of disputes initiated:
-			// <https://github.com/paritytech/polkadot/issues/5946>
-			SlashingOffenceKind::AgainstValid => DisableStrategy::Never,
-		}
-	}
-
 	fn slash_fraction(&self, _offenders: u32) -> Perbill {
 		self.slash_fraction
 	}
@@ -187,13 +178,13 @@ where
 		validators: impl IntoIterator<Item = ValidatorIndex>,
 	) -> Option<Vec<IdentificationTuple<T>>> {
 		// We use `ValidatorSet::session_index` and not
-		// `shared::Pallet<T>::session_index()` because at the first block of a new era,
+		// `shared::CurrentSessionIndex::<T>::get()` because at the first block of a new era,
 		// the `IdentificationOf` of a validator in the previous session might be
 		// missing, while `shared` pallet would return the same session index as being
 		// updated at the end of the block.
 		let current_session = T::ValidatorSet::session_index();
 		if session_index == current_session {
-			let account_keys = crate::session_info::Pallet::<T>::account_keys(session_index);
+			let account_keys = crate::session_info::AccountKeys::<T>::get(session_index);
 			let account_ids = account_keys.defensive_unwrap_or_default();
 
 			let fully_identified = validators
@@ -232,7 +223,7 @@ where
 			return
 		}
 
-		let session_info = crate::session_info::Pallet::<T>::session_info(session_index);
+		let session_info = crate::session_info::Sessions::<T>::get(session_index);
 		let session_info = match session_info.defensive_proof(DEFENSIVE_PROOF) {
 			Some(info) => info,
 			None => return,
@@ -544,7 +535,7 @@ impl<T: Config> Pallet<T> {
 		// fine.
 		const REMOVE_LIMIT: u32 = u32::MAX;
 
-		let config = <crate::configuration::Pallet<T>>::config();
+		let config = crate::configuration::ActiveConfig::<T>::get();
 		if session_index <= config.dispute_period + 1 {
 			return
 		}
