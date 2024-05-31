@@ -302,7 +302,7 @@ where
 pub struct AutoRenewalRecord {
 	/// The core for which auto renewal is enabled.
 	pub core: CoreIndex,
-	/// The task is assigned to the core. We keep track of it so we don't have to look it up when
+	/// The task assigned to the core. We keep track of it so we don't have to look it up when
 	/// performing auto-renewal.
 	pub task: TaskId,
 	/// Lease-holding parachains can also enable auto-renewal. They will start renewing only at the
