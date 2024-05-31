@@ -12,7 +12,7 @@ workspace = true
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.6.12" }
-honggfuzz = "0.5.55"
+honggfuzz = "0.5.56"
 arbitrary = "1.3.2"
 scale-info = { version = "2.11.1", features = ["derive"] }
 
