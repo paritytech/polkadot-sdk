@@ -21,7 +21,7 @@
 
 use codec::Encode;
 use frame_support::derive_impl;
-use sp_runtime::{BuildStorage};
+use sp_runtime::BuildStorage;
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
