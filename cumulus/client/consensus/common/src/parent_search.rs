@@ -149,7 +149,7 @@ pub async fn find_potential_parents<B: BlockT>(
 		}
 	};
 
-	let maybe_route = maybe_pending
+	let maybe_route_to_last_pending = maybe_pending
 		.as_ref()
 		.map(|(_, pending)| {
 			sp_blockchain::tree_route(backend.blockchain(), included_hash, *pending)
@@ -162,7 +162,7 @@ pub async fn find_potential_parents<B: BlockT>(
 	let (frontier, potential_parents) = match (
 		&maybe_pending,
 		params.ignore_alternative_branches,
-		&maybe_route,
+		&maybe_route_to_last_pending,
 	) {
 		(Some((pending_header, pending_hash)), true, Some(ref route_to_pending)) => {
 			let mut potential_parents = only_included;
@@ -216,7 +216,7 @@ pub async fn find_potential_parents<B: BlockT>(
 
 	Ok(search_child_branches_for_parents(
 		frontier,
-		maybe_route,
+		maybe_route_to_last_pending,
 		included_header,
 		maybe_pending.map(|(_, hash)| hash),
 		backend,
@@ -314,7 +314,7 @@ async fn build_relay_parent_ancestry(
 /// Start search for child blocks that can be used as parents.
 pub fn search_child_branches_for_parents<Block: BlockT>(
 	mut frontier: Vec<PotentialParent<Block>>,
-	maybe_route_to_pending: Option<TreeRoute<Block>>,
+	maybe_route_to_last_pending: Option<TreeRoute<Block>>,
 	included_header: Block::Header,
 	pending_hash: Option<Block::Hash>,
 	backend: &impl Backend<Block>,
@@ -329,19 +329,17 @@ pub fn search_child_branches_for_parents<Block: BlockT>(
 
 	// The distance between pending and included block. Is later used to check if a child
 	// is aligned with pending when it is between pending and included block.
-	let pending_distance = maybe_route_to_pending.as_ref().map(|route| route.enacted().len());
+	let pending_distance = maybe_route_to_last_pending.as_ref().map(|route| route.enacted().len());
 
 	// If a block is on the path included -> pending, we consider it `aligned_with_pending`.
-	let is_child_in_path_to_pending = |hash| {
-		maybe_route_to_pending
+	let is_child_pending = |hash| {
+		maybe_route_to_last_pending
 			.as_ref()
 			.map_or(true, |route| route.enacted().iter().any(|x| x.hash == hash))
 	};
 
 	tracing::trace!(target: PARENT_SEARCH_LOG_TARGET, ?included_hash, included_num = ?included_header.number(), ?pending_hash , ?rp_ancestry, "Searching relay chain ancestry.");
 	while let Some(entry) = frontier.pop() {
-		// TODO Adjust once we can fetch multiple pending blocks.
-		// https://github.com/paritytech/polkadot-sdk/issues/3967
 		let is_pending = pending_hash.as_ref().map_or(false, |h| &entry.hash == h);
 		let is_included = included_hash == entry.hash;
 
@@ -380,7 +378,7 @@ pub fn search_child_branches_for_parents<Block: BlockT>(
 			let aligned_with_pending = parent_aligned_with_pending &&
 				(pending_distance.map_or(true, |dist| child_depth > dist) ||
 					pending_hash.as_ref().map_or(true, |h| &child == h) ||
-					is_child_in_path_to_pending(child));
+					is_child_pending(child));
 
 			if ignore_alternative_branches && !aligned_with_pending {
 				tracing::trace!(target: PARENT_SEARCH_LOG_TARGET, ?child, "Child is not aligned with pending block.");

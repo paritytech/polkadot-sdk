@@ -23,7 +23,10 @@ use cumulus_primitives_aura::AuraUnincludedSegmentApi;
 use cumulus_primitives_core::{CollectCollationInfo, PersistedValidationData};
 use cumulus_relay_chain_interface::RelayChainInterface;
 
-use polkadot_primitives::{BlockId, Id as ParaId, OccupiedCoreAssumption};
+use polkadot_primitives::{
+	BlockId, CoreIndex, Hash as RelayHash, Header as RelayHeader, Id as ParaId,
+	OccupiedCoreAssumption,
+};
 
 use sc_client_api::{backend::AuxStore, BlockBackend, BlockOf, UsageProvider};
 use sc_consensus::BlockImport;
@@ -224,6 +227,8 @@ pub async fn run_block_builder<
 		collator_util::Collator::<Block, P, _, _, _, _, _>::new(params)
 	};
 
+	let mut relay_chain_fetcher = RelayChainCachingFetcher::new(relay_client.clone(), para_id);
+
 	loop {
 		// We wait here until the next slot arrives.
 		let Ok(para_slot) = slot_timer.wait_until_next_slot().await else {
@@ -236,12 +241,16 @@ pub async fn run_block_builder<
 			return
 		};
 
-		let Ok(relay_parent) = relay_client.best_block_hash().await else {
-			tracing::warn!("Unable to fetch latest relay chain block hash, skipping slot.");
-			continue
+		let Ok(RelayChainData {
+			relay_parent_header,
+			max_pov_size,
+			relay_parent_hash: relay_parent,
+			scheduled_cores,
+		}) = relay_chain_fetcher.get_relay_chain_data().await
+		else {
+			continue;
 		};
 
-		let scheduled_cores = cores_scheduled_for_para(relay_parent, para_id, &relay_client).await;
 		if scheduled_cores.is_empty() {
 			tracing::debug!(target: LOG_TARGET, "Parachain not scheduled, skipping slot.");
 			continue;
@@ -251,24 +260,6 @@ pub async fn run_block_builder<
 		let Some(core_index) = scheduled_cores.get(core_index_in_scheduled as usize) else {
 			tracing::debug!(target: LOG_TARGET, core_index_in_scheduled, core_len = scheduled_cores.len(), "Para is scheduled, but not enough cores available.");
 			continue;
-		};
-
-		let Ok(Some(relay_parent_header)) = relay_client.header(BlockId::Hash(relay_parent)).await
-		else {
-			tracing::warn!("Unable to fetch latest relay chain block header.");
-			continue;
-		};
-
-		let max_pov_size = match relay_client
-			.persisted_validation_data(relay_parent, para_id, OccupiedCoreAssumption::Included)
-			.await
-		{
-			Ok(None) => continue,
-			Ok(Some(pvd)) => pvd.max_pov_size,
-			Err(err) => {
-				tracing::error!(target: crate::LOG_TARGET, ?err, "Failed to gather information from relay-client");
-				continue
-			},
 		};
 
 		let (included_block, parent) = match crate::collators::find_parent(
@@ -410,4 +401,80 @@ fn expected_core_count(
 	u64::try_from(relay_chain_slot_duration.as_millis() / slot_duration.as_duration().as_millis())
 		.map_err(|e| tracing::error!("Unable to calculate expected parachain core count: {e}"))
 		.map(|expected_core_count| expected_core_count.max(1))
+}
+
+#[derive(Clone)]
+struct RelayChainData {
+	pub relay_parent_header: RelayHeader,
+	pub scheduled_cores: Vec<CoreIndex>,
+	pub max_pov_size: u32,
+	pub relay_parent_hash: RelayHash,
+}
+
+struct RelayChainCachingFetcher<RI> {
+	relay_client: RI,
+	para_id: ParaId,
+	last_seen_hash: Option<RelayHash>,
+	last_data: Option<RelayChainData>,
+}
+
+impl<RI> RelayChainCachingFetcher<RI>
+where
+	RI: RelayChainInterface + Clone + 'static,
+{
+	pub fn new(relay_client: RI, para_id: ParaId) -> Self {
+		Self { relay_client, para_id, last_seen_hash: None, last_data: None }
+	}
+
+	pub async fn get_relay_chain_data(&mut self) -> Result<RelayChainData, ()> {
+		let Ok(relay_parent) = self.relay_client.best_block_hash().await else {
+			tracing::warn!(target: crate::LOG_TARGET, "Unable to fetch latest relay chain block hash.");
+			return Err(())
+		};
+
+		if self.last_seen_hash.is_some_and(|h| h == relay_parent) {
+			if let Some(data) = self.last_data.as_ref() {
+				tracing::trace!(target: crate::LOG_TARGET, %relay_parent, "Using cached data for relay parent.");
+
+				return Ok(data.clone())
+			}
+		}
+
+		tracing::trace!(target: crate::LOG_TARGET, %relay_parent, "Relay chain best block changed, fetching new data from relay chain.");
+		let data = self.update_for_relay_parent(relay_parent).await?;
+		self.last_seen_hash = Some(relay_parent);
+		self.last_data = Some(data.clone());
+		Ok(data)
+	}
+
+	async fn update_for_relay_parent(&self, relay_parent: RelayHash) -> Result<RelayChainData, ()> {
+		let scheduled_cores =
+			cores_scheduled_for_para(relay_parent, self.para_id, &self.relay_client).await;
+		let Ok(Some(relay_parent_header)) =
+			self.relay_client.header(BlockId::Hash(relay_parent)).await
+		else {
+			tracing::warn!(target: crate::LOG_TARGET, "Unable to fetch latest relay chain block header.");
+			return Err(())
+		};
+
+		let max_pov_size = match self
+			.relay_client
+			.persisted_validation_data(relay_parent, self.para_id, OccupiedCoreAssumption::Included)
+			.await
+		{
+			Ok(None) => return Err(()),
+			Ok(Some(pvd)) => pvd.max_pov_size,
+			Err(err) => {
+				tracing::error!(target: crate::LOG_TARGET, ?err, "Failed to gather information from relay-client");
+				return Err(())
+			},
+		};
+
+		Ok(RelayChainData {
+			relay_parent_hash: relay_parent,
+			relay_parent_header,
+			scheduled_cores,
+			max_pov_size,
+		})
+	}
 }

@@ -20,8 +20,6 @@
 //! included parachain block, as well as the [`lookahead`] collator, which prospectively
 //! builds on parachain blocks which have not yet been included in the relay chain.
 
-use std::collections::VecDeque;
-
 use crate::collator::SlotClaim;
 use codec::Codec;
 use cumulus_client_consensus_common::{
@@ -127,7 +125,7 @@ async fn cores_scheduled_for_para(
 	relay_parent: RelayHash,
 	para_id: ParaId,
 	relay_client: &impl RelayChainInterface,
-) -> VecDeque<CoreIndex> {
+) -> Vec<CoreIndex> {
 	// Get `AvailabilityCores` from runtime
 	let cores = match relay_client.availability_cores(relay_parent).await {
 		Ok(cores) => cores,
@@ -138,7 +136,7 @@ async fn cores_scheduled_for_para(
 				?relay_parent,
 				"Failed to query availability cores runtime API",
 			);
-			return VecDeque::new()
+			return Vec::new()
 		},
 	};
 
