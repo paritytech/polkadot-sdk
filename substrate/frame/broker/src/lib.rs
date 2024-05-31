@@ -861,7 +861,7 @@ pub mod pallet {
 		/// will be charged at the start of every bulk period for renewing core time.
 		///
 		/// - `origin`: Must be the sovereign account of the task
-		/// - `core`: The core for which we want to enable auto renewal.
+		/// - `core`: The core to which the task to be renewed is currently assigned.
 		/// - `task`: The task for which we want to enable auto renewal.
 		/// - `workload_end_hint` parameter should be used when enabling auto-renewal for
 		/// the core which holds a legacy lease, as it would be inefficient to look it up otherwise.
