@@ -98,7 +98,7 @@ use xcm::latest::prelude::{
 };
 use xcm::{
 	latest::prelude::{AssetId, BodyId},
-	IntoVersion, VersionedAssetId, VersionedAssets, VersionedLocation, VersionedXcm,
+	VersionedAssetId, VersionedAssets, VersionedLocation, VersionedXcm,
 };
 use xcm_fee_payment_runtime_api::{
 	dry_run::{CallDryRunEffects, Error as XcmDryRunApiError, XcmDryRunEffects},
