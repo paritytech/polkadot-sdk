@@ -34,7 +34,7 @@ sc-consensus-epochs = { version = "0.34.0", path = "../epochs" }
 sc-consensus-slots = { version = "0.34.0", path = "../slots" }
 sc-telemetry = { version = "16.0.0", path = "../../telemetry" }
 sc-transaction-pool-api = { version = "29.0.0", path = "../../transaction-pool/api" }
-sp-api = { version = "27.0.0", path = "../../../primitives/api" }
+sp-api = { version = "27.0.1", path = "../../../primitives/api" }
 sp-application-crypto = { version = "31.0.0", path = "../../../primitives/application-crypto" }
 sp-block-builder = { version = "27.0.0", path = "../../../primitives/block-builder" }
 sp-blockchain = { version = "29.0.0", path = "../../../primitives/blockchain" }

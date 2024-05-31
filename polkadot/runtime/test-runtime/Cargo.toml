@@ -24,7 +24,7 @@ smallvec = "1.8.0"
 authority-discovery-primitives = { package = "sp-authority-discovery", path = "../../../substrate/primitives/authority-discovery", default-features = false, version = "27.0.0" }
 babe-primitives = { package = "sp-consensus-babe", path = "../../../substrate/primitives/consensus/babe", default-features = false, version = "0.33.0" }
 beefy-primitives = { package = "sp-consensus-beefy", path = "../../../substrate/primitives/consensus/beefy", default-features = false, version = "14.0.0" }
-sp-api = { path = "../../../substrate/primitives/api", default-features = false, version = "27.0.0" }
+sp-api = { path = "../../../substrate/primitives/api", default-features = false, version = "27.0.1" }
 inherents = { package = "sp-inherents", path = "../../../substrate/primitives/inherents", default-features = false, version = "27.0.0" }
 offchain-primitives = { package = "sp-offchain", path = "../../../substrate/primitives/offchain", default-features = false, version = "27.0.0" }
 sp-std = { path = "../../../substrate/primitives/std", default-features = false, version = "14.0.0" }

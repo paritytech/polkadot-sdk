@@ -22,7 +22,7 @@ parity-db = "0.4.12"
 tokio = { version = "1.22.0", features = ["time"] }
 sp-statement-store = { version = "11.0.0", path = "../../primitives/statement-store" }
 prometheus-endpoint = { package = "substrate-prometheus-endpoint", path = "../../utils/prometheus", version = "0.17.0" }
-sp-api = { version = "27.0.0", path = "../../primitives/api" }
+sp-api = { version = "27.0.1", path = "../../primitives/api" }
 sp-blockchain = { version = "29.0.0", path = "../../primitives/blockchain" }
 sp-core = { version = "29.0.0", path = "../../primitives/core" }
 sp-runtime = { version = "32.0.0", path = "../../primitives/runtime" }

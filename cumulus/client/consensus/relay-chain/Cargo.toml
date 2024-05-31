@@ -15,7 +15,7 @@ futures = "0.3.28"
 parking_lot = "0.12.1"
 tracing = "0.1.37"
 sc-consensus = { version = "0.34.0", path = "../../../../substrate/client/consensus/common" }
-sp-api = { version = "27.0.0", path = "../../../../substrate/primitives/api" }
+sp-api = { version = "27.0.1", path = "../../../../substrate/primitives/api" }
 sp-block-builder = { version = "27.0.0", path = "../../../../substrate/primitives/block-builder" }
 sp-blockchain = { version = "29.0.0", path = "../../../../substrate/primitives/blockchain" }
 sp-consensus = { version = "0.33.0", path = "../../../../substrate/primitives/consensus/common" }

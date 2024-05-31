@@ -42,7 +42,7 @@ beefy-primitives = { package = "sp-consensus-beefy", path = "../../../substrate/
 grandpa_primitives = { package = "sp-consensus-grandpa", path = "../../../substrate/primitives/consensus/grandpa", version = "14.0.0" }
 sp-inherents = { version = "27.0.0", path = "../../../substrate/primitives/inherents" }
 sp-keyring = { version = "32.0.0", path = "../../../substrate/primitives/keyring" }
-sp-api = { version = "27.0.0", path = "../../../substrate/primitives/api" }
+sp-api = { version = "27.0.1", path = "../../../substrate/primitives/api" }
 sp-block-builder = { version = "27.0.0", path = "../../../substrate/primitives/block-builder" }
 sp-blockchain = { version = "29.0.0", path = "../../../substrate/primitives/blockchain" }
 sp-core = { version = "29.0.0", path = "../../../substrate/primitives/core" }

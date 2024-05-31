@@ -19,7 +19,7 @@ sc-executor-common = { version = "0.30.0", path = "../../../substrate/client/exe
 substrate-test-client = { version = "0.1.0", path = "../../../substrate/test-utils/client" }
 sp-runtime = { version = "32.0.0", path = "../../../substrate/primitives/runtime" }
 sp-core = { version = "29.0.0", path = "../../../substrate/primitives/core" }
-sp-api = { version = "27.0.0", path = "../../../substrate/primitives/api" }
+sp-api = { version = "27.0.1", path = "../../../substrate/primitives/api" }
 sp-keyring = { version = "32.0.0", path = "../../../substrate/primitives/keyring" }
 sp-blockchain = { version = "29.0.0", path = "../../../substrate/primitives/blockchain" }
 sp-inherents = { version = "27.0.0", path = "../../../substrate/primitives/inherents" }

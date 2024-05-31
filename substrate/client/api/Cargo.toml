@@ -28,7 +28,7 @@ prometheus-endpoint = { package = "substrate-prometheus-endpoint", path = "../..
 sc-executor = { version = "0.33.0", path = "../executor" }
 sc-transaction-pool-api = { version = "29.0.0", path = "../transaction-pool/api" }
 sc-utils = { version = "15.0.0", path = "../utils" }
-sp-api = { version = "27.0.0", path = "../../primitives/api" }
+sp-api = { version = "27.0.1", path = "../../primitives/api" }
 sp-blockchain = { version = "29.0.0", path = "../../primitives/blockchain" }
 sp-consensus = { version = "0.33.0", path = "../../primitives/consensus/common" }
 sp-core = { path = "../../primitives/core", default-features = false, version = "29.0.0" }

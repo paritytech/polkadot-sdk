@@ -30,7 +30,7 @@ sc-client-api = { version = "29.0.0", path = "../../../substrate/client/api" }
 substrate-prometheus-endpoint = { version = "0.17.0", path = "../../../substrate/utils/prometheus" }
 sc-tracing = { version = "29.0.0", path = "../../../substrate/client/tracing" }
 sc-utils = { version = "15.0.0", path = "../../../substrate/client/utils" }
-sp-api = { version = "27.0.0", path = "../../../substrate/primitives/api" }
+sp-api = { version = "27.0.1", path = "../../../substrate/primitives/api" }
 sp-consensus-babe = { version = "0.33.0", path = "../../../substrate/primitives/consensus/babe" }
 sp-consensus = { version = "0.33.0", path = "../../../substrate/primitives/consensus/common" }
 sp-runtime = { version = "32.0.0", path = "../../../substrate/primitives/runtime" }

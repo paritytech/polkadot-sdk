@@ -31,7 +31,7 @@ polkadot-parachain-primitives = { version = "7.0.0", path = "../../../../polkado
 polkadot-primitives = { version = "8.0.1", path = "../../../../polkadot/primitives" }
 polkadot-runtime-parachains = { version = "8.0.3", path = "../../../../polkadot/runtime/parachains" }
 scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
-sp-api = { path = "../../../primitives/api", default-features = false, version = "27.0.0" }
+sp-api = { path = "../../../primitives/api", default-features = false, version = "27.0.1" }
 sp-core = { path = "../../../primitives/core", default-features = false, version = "29.0.0" }
 sp-io = { path = "../../../primitives/io", default-features = false, version = "31.0.0" }
 sp-keystore = { version = "0.35.0", path = "../../../primitives/keystore" }

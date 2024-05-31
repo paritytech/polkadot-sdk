@@ -45,7 +45,7 @@ frame-system = { path = "../system", default-features = false, version = "29.0.0
 pallet-balances = { path = "../balances", default-features = false, optional = true, version = "29.0.2" }
 pallet-contracts-uapi = { version = "6.0.0", path = "uapi" }
 pallet-contracts-proc-macro = { version = "19.0.0", path = "proc-macro" }
-sp-api = { path = "../../primitives/api", default-features = false, version = "27.0.0" }
+sp-api = { path = "../../primitives/api", default-features = false, version = "27.0.1" }
 sp-core = { path = "../../primitives/core", default-features = false, version = "29.0.0" }
 sp-io = { path = "../../primitives/io", default-features = false, version = "31.0.0" }
 sp-runtime = { path = "../../primitives/runtime", default-features = false, version = "32.0.0" }

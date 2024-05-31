@@ -44,7 +44,7 @@ sp-arithmetic = { version = "24.0.0", path = "../../../substrate/primitives/arit
 sp-blockchain = { version = "29.0.0", path = "../../../substrate/primitives/blockchain" }
 sp-core = { version = "29.0.0", path = "../../../substrate/primitives/core" }
 sp-io = { version = "31.0.0", path = "../../../substrate/primitives/io" }
-sp-api = { version = "27.0.0", path = "../../../substrate/primitives/api" }
+sp-api = { version = "27.0.1", path = "../../../substrate/primitives/api" }
 sp-keyring = { version = "32.0.0", path = "../../../substrate/primitives/keyring" }
 sp-runtime = { path = "../../../substrate/primitives/runtime", default-features = false, version = "32.0.0" }
 sp-state-machine = { version = "0.36.0", path = "../../../substrate/primitives/state-machine" }

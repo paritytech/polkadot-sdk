@@ -17912,7 +17912,7 @@ dependencies = [
 
 [[package]]
 name = "sp-api"
-version = "27.0.0"
+version = "27.0.1"
 dependencies = [
  "hash-db",
  "log",
@@ -17933,7 +17933,7 @@ dependencies = [
 
 [[package]]
 name = "sp-api-proc-macro"
-version = "15.0.0"
+version = "15.0.1"
 dependencies = [
  "Inflector",
  "assert_matches",

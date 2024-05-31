@@ -27,7 +27,7 @@ sc-client-api = { version = "29.0.0", path = "../../api" }
 sc-consensus = { version = "0.34.0", path = "../common" }
 sc-consensus-slots = { version = "0.34.0", path = "../slots" }
 sc-telemetry = { version = "16.0.0", path = "../../telemetry" }
-sp-api = { version = "27.0.0", path = "../../../primitives/api" }
+sp-api = { version = "27.0.1", path = "../../../primitives/api" }
 sp-application-crypto = { version = "31.0.0", path = "../../../primitives/application-crypto" }
 sp-block-builder = { version = "27.0.0", path = "../../../primitives/block-builder" }
 sp-blockchain = { version = "29.0.0", path = "../../../primitives/blockchain" }

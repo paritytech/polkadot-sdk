@@ -13,7 +13,7 @@ workspace = true
 polkadot-overseer = { version = "8.0.0", path = "../../../polkadot/node/overseer" }
 cumulus-primitives-core = { version = "0.8.0", path = "../../primitives/core" }
 cumulus-relay-chain-interface = { version = "0.8.0", path = "../relay-chain-interface" }
-sp-api = { version = "27.0.0", path = "../../../substrate/primitives/api" }
+sp-api = { version = "27.0.1", path = "../../../substrate/primitives/api" }
 sp-core = { version = "29.0.0", path = "../../../substrate/primitives/core" }
 sp-consensus-babe = { version = "0.33.0", path = "../../../substrate/primitives/consensus/babe" }
 sp-authority-discovery = { version = "27.0.0", path = "../../../substrate/primitives/authority-discovery" }

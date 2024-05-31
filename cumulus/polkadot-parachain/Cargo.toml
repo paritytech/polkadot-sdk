@@ -76,7 +76,7 @@ pallet-transaction-payment = { version = "29.0.1", path = "../../substrate/frame
 pallet-transaction-payment-rpc-runtime-api = { version = "29.0.0", path = "../../substrate/frame/transaction-payment/rpc/runtime-api" }
 sp-std = { version = "14.0.0", path = "../../substrate/primitives/std" }
 sp-inherents = { version = "27.0.0", path = "../../substrate/primitives/inherents" }
-sp-api = { version = "27.0.0", path = "../../substrate/primitives/api" }
+sp-api = { version = "27.0.1", path = "../../substrate/primitives/api" }
 sp-consensus-aura = { version = "0.33.0", path = "../../substrate/primitives/consensus/aura" }
 sc-sysinfo = { version = "28.0.0", path = "../../substrate/client/sysinfo" }
 substrate-prometheus-endpoint = { version = "0.17.0", path = "../../substrate/utils/prometheus" }

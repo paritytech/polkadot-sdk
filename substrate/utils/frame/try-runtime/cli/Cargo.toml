@@ -32,7 +32,7 @@ sp-timestamp = { version = "27.0.0", path = "../../../../primitives/timestamp" }
 sp-transaction-storage-proof = { version = "27.0.0", path = "../../../../primitives/transaction-storage-proof" }
 sp-version = { version = "30.0.0", path = "../../../../primitives/version" }
 sp-debug-derive = { version = "14.0.0", path = "../../../../primitives/debug-derive" }
-sp-api = { version = "27.0.0", path = "../../../../primitives/api" }
+sp-api = { version = "27.0.1", path = "../../../../primitives/api" }
 sp-weights = { version = "28.0.0", path = "../../../../primitives/weights" }
 frame-try-runtime = { path = "../../../../frame/try-runtime", optional = true, version = "0.35.0" }
 substrate-rpc-client = { version = "0.34.0", path = "../../rpc/client" }

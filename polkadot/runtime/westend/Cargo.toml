@@ -26,7 +26,7 @@ beefy-primitives = { package = "sp-consensus-beefy", path = "../../../substrate/
 binary-merkle-tree = { path = "../../../substrate/utils/binary-merkle-tree", default-features = false, version = "14.0.0" }
 inherents = { package = "sp-inherents", path = "../../../substrate/primitives/inherents", default-features = false, version = "27.0.0" }
 offchain-primitives = { package = "sp-offchain", path = "../../../substrate/primitives/offchain", default-features = false, version = "27.0.0" }
-sp-api = { path = "../../../substrate/primitives/api", default-features = false, version = "27.0.0" }
+sp-api = { path = "../../../substrate/primitives/api", default-features = false, version = "27.0.1" }
 sp-application-crypto = { path = "../../../substrate/primitives/application-crypto", default-features = false, version = "31.0.0" }
 sp-arithmetic = { path = "../../../substrate/primitives/arithmetic", default-features = false, version = "24.0.0" }
 sp-std = { package = "sp-std", path = "../../../substrate/primitives/std", default-features = false, version = "14.0.0" }

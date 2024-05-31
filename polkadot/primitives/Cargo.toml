@@ -21,7 +21,7 @@ application-crypto = { package = "sp-application-crypto", path = "../../substrat
 inherents = { package = "sp-inherents", path = "../../substrate/primitives/inherents", default-features = false, version = "27.0.0" }
 primitives = { package = "sp-core", path = "../../substrate/primitives/core", default-features = false, version = "29.0.0" }
 runtime_primitives = { package = "sp-runtime", path = "../../substrate/primitives/runtime", default-features = false, version = "32.0.0" }
-sp-api = { path = "../../substrate/primitives/api", default-features = false, version = "27.0.0" }
+sp-api = { path = "../../substrate/primitives/api", default-features = false, version = "27.0.1" }
 sp-arithmetic = { path = "../../substrate/primitives/arithmetic", default-features = false, features = ["serde"], version = "24.0.0" }
 sp-authority-discovery = { path = "../../substrate/primitives/authority-discovery", default-features = false, features = ["serde"], version = "27.0.0" }
 sp-consensus-slots = { path = "../../substrate/primitives/consensus/slots", default-features = false, features = ["serde"], version = "0.33.0" }

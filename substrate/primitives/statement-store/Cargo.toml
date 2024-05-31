@@ -22,7 +22,7 @@ sp-core = { path = "../core", default-features = false, version = "29.0.0" }
 sp-crypto-hashing = { path = "../crypto/hashing", default-features = false, version = "0.1.0" }
 sp-runtime = { path = "../runtime", default-features = false, version = "32.0.0" }
 sp-std = { path = "../std", default-features = false, version = "14.0.0" }
-sp-api = { path = "../api", default-features = false, version = "27.0.0" }
+sp-api = { path = "../api", default-features = false, version = "27.0.1" }
 sp-application-crypto = { path = "../application-crypto", default-features = false, version = "31.0.0" }
 sp-runtime-interface = { path = "../runtime-interface", default-features = false, version = "25.0.0" }
 sp-externalities = { path = "../externalities", default-features = false, version = "0.26.0" }

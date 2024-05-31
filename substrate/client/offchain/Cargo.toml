@@ -36,7 +36,7 @@ sc-network = { version = "0.35.0", path = "../network" }
 sc-network-common = { version = "0.34.0", path = "../network/common" }
 sc-transaction-pool-api = { version = "29.0.0", path = "../transaction-pool/api" }
 sc-utils = { version = "15.0.0", path = "../utils" }
-sp-api = { version = "27.0.0", path = "../../primitives/api" }
+sp-api = { version = "27.0.1", path = "../../primitives/api" }
 sp-core = { version = "29.0.0", path = "../../primitives/core" }
 sp-offchain = { version = "27.0.0", path = "../../primitives/offchain" }
 sp-runtime = { version = "32.0.0", path = "../../primitives/runtime" }

@@ -37,7 +37,7 @@ sc-client-db = { path = "../../../client/db", features = ["rocksdb"], version = 
 sc-consensus = { version = "0.34.0", path = "../../../client/consensus/common" }
 sc-executor = { version = "0.33.0", path = "../../../client/executor" }
 sc-service = { path = "../../../client/service", features = ["rocksdb", "test-helpers"], version = "0.36.0" }
-sp-api = { version = "27.0.0", path = "../../../primitives/api" }
+sp-api = { version = "27.0.1", path = "../../../primitives/api" }
 sp-block-builder = { version = "27.0.0", path = "../../../primitives/block-builder" }
 sp-blockchain = { version = "29.0.0", path = "../../../primitives/blockchain" }
 sp-consensus = { version = "0.33.0", path = "../../../primitives/consensus/common" }

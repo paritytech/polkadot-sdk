@@ -48,7 +48,7 @@ pallet-transaction-payment = { path = "../../../frame/transaction-payment", defa
 
 # These dependencies are used for the node template's RPCs
 jsonrpsee = { version = "0.20.3", features = ["server"] }
-sp-api = { version = "27.0.0", path = "../../../primitives/api" }
+sp-api = { version = "27.0.1", path = "../../../primitives/api" }
 sc-rpc-api = { version = "0.34.0", path = "../../../client/rpc-api" }
 sp-blockchain = { version = "29.0.0", path = "../../../primitives/blockchain" }
 sp-block-builder = { version = "27.0.0", path = "../../../primitives/block-builder" }

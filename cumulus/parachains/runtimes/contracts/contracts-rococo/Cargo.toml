@@ -22,7 +22,7 @@ log = { version = "0.4.20", default-features = false }
 scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
 
 # Substrate
-sp-api = { path = "../../../../../substrate/primitives/api", default-features = false, version = "27.0.0" }
+sp-api = { path = "../../../../../substrate/primitives/api", default-features = false, version = "27.0.1" }
 sp-block-builder = { path = "../../../../../substrate/primitives/block-builder", default-features = false, version = "27.0.0" }
 sp-consensus-aura = { path = "../../../../../substrate/primitives/consensus/aura", default-features = false, version = "0.33.0" }
 sp-core = { path = "../../../../../substrate/primitives/core", default-features = false, version = "29.0.0" }

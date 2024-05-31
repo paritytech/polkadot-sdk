@@ -11,7 +11,7 @@ workspace = true
 
 [dependencies]
 client = { package = "sc-client-api", path = "../../../substrate/client/api", version = "29.0.0" }
-sp-api = { version = "27.0.0", path = "../../../substrate/primitives/api" }
+sp-api = { version = "27.0.1", path = "../../../substrate/primitives/api" }
 futures = "0.3.21"
 futures-timer = "3.0.2"
 parking_lot = "0.12.1"

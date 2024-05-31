@@ -41,7 +41,7 @@ sc-telemetry = { version = "16.0.0", path = "../../../substrate/client/telemetry
 sc-tracing = { version = "29.0.0", path = "../../../substrate/client/tracing" }
 sc-transaction-pool = { version = "29.0.0", path = "../../../substrate/client/transaction-pool" }
 sc-transaction-pool-api = { version = "29.0.0", path = "../../../substrate/client/transaction-pool/api" }
-sp-api = { version = "27.0.0", path = "../../../substrate/primitives/api" }
+sp-api = { version = "27.0.1", path = "../../../substrate/primitives/api" }
 sp-block-builder = { version = "27.0.0", path = "../../../substrate/primitives/block-builder" }
 sp-blockchain = { version = "29.0.0", path = "../../../substrate/primitives/blockchain" }
 sp-consensus-aura = { version = "0.33.0", path = "../../../substrate/primitives/consensus/aura" }

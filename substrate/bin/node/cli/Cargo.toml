@@ -52,7 +52,7 @@ sp-authority-discovery = { version = "27.0.0", path = "../../../primitives/autho
 sp-consensus-babe = { version = "0.33.0", path = "../../../primitives/consensus/babe" }
 beefy-primitives = { package = "sp-consensus-beefy", path = "../../../primitives/consensus/beefy", version = "14.0.0" }
 grandpa-primitives = { package = "sp-consensus-grandpa", path = "../../../primitives/consensus/grandpa", version = "14.0.0" }
-sp-api = { version = "27.0.0", path = "../../../primitives/api" }
+sp-api = { version = "27.0.1", path = "../../../primitives/api" }
 sp-core = { version = "29.0.0", path = "../../../primitives/core" }
 sp-runtime = { version = "32.0.0", path = "../../../primitives/runtime" }
 sp-timestamp = { version = "27.0.0", path = "../../../primitives/timestamp" }

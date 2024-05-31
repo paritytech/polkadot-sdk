@@ -17,7 +17,7 @@ impl-trait-for-tuples = "0.2.2"
 
 # Substrate
 frame-support = { path = "../../../../../substrate/frame/support", default-features = false, version = "29.0.2" }
-sp-api = { path = "../../../../../substrate/primitives/api", default-features = false, version = "27.0.0" }
+sp-api = { path = "../../../../../substrate/primitives/api", default-features = false, version = "27.0.1" }
 sp-std = { path = "../../../../../substrate/primitives/std", default-features = false, version = "14.0.0" }
 sp-runtime = { path = "../../../../../substrate/primitives/runtime", default-features = false, version = "32.0.0" }
 pallet-asset-conversion = { path = "../../../../../substrate/frame/asset-conversion", default-features = false, version = "11.0.0" }

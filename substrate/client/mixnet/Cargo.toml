@@ -31,7 +31,7 @@ parking_lot = "0.12.1"
 sc-client-api = { version = "29.0.0", path = "../api" }
 sc-network = { version = "0.35.0", path = "../network" }
 sc-transaction-pool-api = { version = "29.0.0", path = "../transaction-pool/api" }
-sp-api = { version = "27.0.0", path = "../../primitives/api" }
+sp-api = { version = "27.0.1", path = "../../primitives/api" }
 sp-consensus = { version = "0.33.0", path = "../../primitives/consensus/common" }
 sp-core = { version = "29.0.0", path = "../../primitives/core" }
 sp-keystore = { version = "0.35.0", path = "../../primitives/keystore" }

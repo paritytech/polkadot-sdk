@@ -40,7 +40,7 @@ sc-offchain = { version = "30.0.0", path = "../../../client/offchain" }
 sc-client-api = { version = "29.0.0", path = "../../../client/api" }
 sp-timestamp = { version = "27.0.0", path = "../../../primitives/timestamp" }
 sp-keyring = { version = "32.0.0", path = "../../../primitives/keyring" }
-sp-api = { version = "27.0.0", path = "../../../primitives/api" }
+sp-api = { version = "27.0.1", path = "../../../primitives/api" }
 sp-blockchain = { version = "29.0.0", path = "../../../primitives/blockchain" }
 sp-block-builder = { version = "27.0.0", path = "../../../primitives/block-builder" }
 sp-io = { version = "31.0.0", path = "../../../primitives/io" }

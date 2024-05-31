@@ -35,7 +35,7 @@ frame-system = { default-features = false, path = "system", version = "29.0.0" }
 
 # primitive types used for developing FRAME runtimes.
 sp-version = { default-features = false, path = "../primitives/version", optional = true, version = "30.0.0" }
-sp-api = { default-features = false, path = "../primitives/api", optional = true, version = "27.0.0" }
+sp-api = { default-features = false, path = "../primitives/api", optional = true, version = "27.0.1" }
 sp-block-builder = { default-features = false, path = "../primitives/block-builder", optional = true, version = "27.0.0" }
 sp-transaction-pool = { default-features = false, path = "../primitives/transaction-pool", optional = true, version = "27.0.0" }
 sp-offchain = { default-features = false, path = "../primitives/offchain", optional = true, version = "27.0.0" }

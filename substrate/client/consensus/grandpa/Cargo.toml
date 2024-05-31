@@ -43,7 +43,7 @@ sc-network-common = { version = "0.34.0", path = "../../network/common" }
 sc-network-sync = { version = "0.34.0", path = "../../network/sync" }
 sc-telemetry = { version = "16.0.0", path = "../../telemetry" }
 sc-utils = { version = "15.0.0", path = "../../utils" }
-sp-api = { version = "27.0.0", path = "../../../primitives/api" }
+sp-api = { version = "27.0.1", path = "../../../primitives/api" }
 sp-application-crypto = { version = "31.0.0", path = "../../../primitives/application-crypto" }
 sp-arithmetic = { version = "24.0.0", path = "../../../primitives/arithmetic" }
 sp-blockchain = { version = "29.0.0", path = "../../../primitives/blockchain" }
