@@ -21,7 +21,7 @@ futures = "0.3.30"
 futures-timer = "3.0.2"
 log = { workspace = true, default-features = true }
 
-adder = { package = "test-parachain-adder", path = ".." }
+test-parachain-adder = { path = ".." }
 polkadot-primitives = { path = "../../../../primitives" }
 polkadot-cli = { path = "../../../../cli" }
 polkadot-service = { path = "../../../../node/service", features = ["elastic-scaling-experimental", "rococo-native"] }

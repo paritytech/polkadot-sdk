@@ -14,12 +14,12 @@ workspace = true
 tiny-keccak = { version = "2.0.2", features = ["keccak"] }
 codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false, features = ["derive"] }
 
-adder = { package = "test-parachain-adder", path = "adder" }
-halt = { package = "test-parachain-halt", path = "halt" }
+test-parachain-adder = { path = "adder" }
+test-parachain-halt = { path = "halt" }
 
 [dev-dependencies]
 sp-core = { path = "../../../substrate/primitives/core" }
 
 [features]
 default = ["std"]
-std = ["adder/std", "codec/std", "halt/std"]
+std = ["test-parachain-adder/std", "codec/std", "test-parachain-halt/std"]
