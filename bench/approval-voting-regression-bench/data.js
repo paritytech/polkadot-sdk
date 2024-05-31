@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1717137125044,
+  "lastUpdate": 1717142807945,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -5827,6 +5827,53 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 2.99362123320011,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Andrei Sandu",
+            "username": "sandreim",
+            "email": "54316454+sandreim@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "0ae721970909efc3b2a049632c9c904d9fa4fed1",
+          "message": "collator-protocol: remove `elastic-scaling-experimental` feature (#4595)\n\nValidators already have been upgraded so they could already receive the\nnew `CollationWithParentHeadData` response when fetching collation.\nHowever this is only sent by collators when the parachain has more than\n1 core is assigned.\n\nTODO:\n- [x] PRDoc\n\n---------\n\nSigned-off-by: Andrei Sandu <andrei-mihail@parity.io>\nCo-authored-by: Bastian Köcher <git@kchr.de>",
+          "timestamp": "2024-05-31T06:34:43Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/0ae721970909efc3b2a049632c9c904d9fa4fed1"
+        },
+        "date": 1717142779539,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52941.3,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63547.7,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting",
+            "value": 9.679317829949907,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 7.192351853430073,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 3.1723129015200624,
             "unit": "seconds"
           }
         ]
