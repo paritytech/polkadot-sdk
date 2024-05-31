@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1717067908070,
+  "lastUpdate": 1717126915240,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -12323,6 +12323,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-distribution",
             "value": 0.012542482113333331,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "gupnik",
+            "username": "gupnik",
+            "email": "nikhilgupta.iitk@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "78c24ec9e24ea04b2f8513b53a8d1246ff6b35ed",
+          "message": "Adds ability to specify chain type in chain-spec-builder (#4542)\n\nCurrently, `chain-spec-builder` only creates a spec with `Live` chain\ntype. This PR adds the ability to specify it while keeping the same\ndefault.\n\n---------\n\nCo-authored-by: Kian Paimani <5588131+kianenigma@users.noreply.github.com>",
+          "timestamp": "2024-05-31T02:09:12Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/78c24ec9e24ea04b2f8513b53a8d1246ff6b35ed"
+        },
+        "date": 1717126887152,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.021996113813333332,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.01203680621333333,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.16938363376,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010439332846666672,
             "unit": "seconds"
           }
         ]
