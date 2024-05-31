@@ -21,7 +21,7 @@
 //! [`ValidationHost`], that allows communication with that event-loop.
 
 use crate::{
-	artifacts::{ArtifactId, ArtifactPathId, ArtifactState, Artifacts},
+	artifacts::{ArtifactId, ArtifactPathId, ArtifactState, Artifacts, CleanupBy},
 	execute::{self, PendingExecutionRequest},
 	metrics::Metrics,
 	prepare, Priority, SecurityStatus, ValidationError, LOG_TARGET,
@@ -293,7 +293,7 @@ pub async fn start(
 	let run_host = async move {
 		run(Inner {
 			cleanup_pulse_interval: Duration::from_secs(3600),
-			artifact_ttl: Duration::from_secs(3600 * 24),
+			cleanup_by: CleanupBy::Time(Duration::from_secs(3600 * 24)),
 			artifacts,
 			to_host_rx,
 			to_prepare_queue_tx,
@@ -337,7 +337,7 @@ impl AwaitingPrepare {
 
 struct Inner {
 	cleanup_pulse_interval: Duration,
-	artifact_ttl: Duration,
+	cleanup_by: CleanupBy,
 	artifacts: Artifacts,
 
 	to_host_rx: mpsc::Receiver<ToHost>,
@@ -359,7 +359,7 @@ struct Fatal;
 async fn run(
 	Inner {
 		cleanup_pulse_interval,
-		artifact_ttl,
+		cleanup_by,
 		mut artifacts,
 		to_host_rx,
 		from_prepare_queue_rx,
@@ -415,7 +415,7 @@ async fn run(
 				break_if_fatal!(handle_cleanup_pulse(
 					&mut to_sweeper_tx,
 					&mut artifacts,
-					artifact_ttl,
+					&cleanup_by,
 				).await);
 			},
 			to_host = to_host_rx.next() => {
@@ -859,9 +859,9 @@ async fn enqueue_prepare_for_execute(
 async fn handle_cleanup_pulse(
 	sweeper_tx: &mut mpsc::Sender<PathBuf>,
 	artifacts: &mut Artifacts,
-	artifact_ttl: Duration,
+	cleanup_by: &CleanupBy,
 ) -> Result<(), Fatal> {
-	let to_remove = artifacts.prune(artifact_ttl);
+	let to_remove = artifacts.prune(cleanup_by);
 	gum::debug!(
 		target: LOG_TARGET,
 		"PVF pruning: {} artifacts reached their end of life",
@@ -1032,7 +1032,7 @@ pub(crate) mod tests {
 
 			let run = run(Inner {
 				cleanup_pulse_interval,
-				artifact_ttl,
+				cleanup_by: CleanupBy::Time(artifact_ttl),
 				artifacts,
 				to_host_rx,
 				to_prepare_queue_tx,

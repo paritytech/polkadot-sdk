@@ -169,6 +169,15 @@ pub struct Artifacts {
 	inner: HashMap<ArtifactId, ArtifactState>,
 }
 
+/// A condition which we use to cleanup artifacts
+#[derive(Debug)]
+pub enum CleanupBy {
+	// Inactive time after which artefact is deleted
+	Time(Duration),
+	// Max size in bytes. Reaching it older artefacts are deleted
+	Size(u64),
+}
+
 impl Artifacts {
 	#[cfg(test)]
 	pub(crate) fn empty() -> Self {
@@ -251,21 +260,47 @@ impl Artifacts {
 		})
 	}
 
-	/// Remove artifacts older than the given TTL and return id and path of the removed ones.
-	pub fn prune(&mut self, artifact_ttl: Duration) -> Vec<(ArtifactId, PathBuf)> {
-		let now = SystemTime::now();
-
+	/// Remove artifacts older than the given TTL or the total artifacts size limit and return id
+	/// and path of the removed ones.
+	pub fn prune(&mut self, cleanup_by: &CleanupBy) -> Vec<(ArtifactId, PathBuf)> {
 		let mut to_remove = vec![];
-		for (k, v) in self.inner.iter() {
-			if let ArtifactState::Prepared { last_time_needed, ref path, .. } = *v {
-				if now
-					.duration_since(last_time_needed)
-					.map(|age| age > artifact_ttl)
-					.unwrap_or(false)
-				{
-					to_remove.push((k.clone(), path.clone()));
+
+		match cleanup_by {
+			CleanupBy::Time(artifact_ttl) => {
+				let now = SystemTime::now();
+				for (k, v) in self.inner.iter() {
+					if let ArtifactState::Prepared { last_time_needed, ref path, .. } = *v {
+						if now
+							.duration_since(last_time_needed)
+							.map(|age| age > *artifact_ttl)
+							.unwrap_or(false)
+						{
+							to_remove.push((k.clone(), path.clone()));
+						}
+					}
 				}
-			}
+			},
+			CleanupBy::Size(size_limit) => {
+				let mut total_size = 0;
+				let mut artifact_sizes = vec![];
+
+				for (k, v) in self.inner.iter() {
+					if let ArtifactState::Prepared { ref path, last_time_needed, .. } = *v {
+						if let Ok(metadata) = fs::metadata(path) {
+							let size = metadata.len();
+							total_size += size;
+							artifact_sizes.push((k.clone(), path.clone(), size, last_time_needed));
+						}
+					}
+				}
+				artifact_sizes.sort_by_key(|&(_, _, _, last_time_needed)| last_time_needed);
+
+				while total_size > *size_limit {
+					let Some((artifact_id, path, size, _)) = artifact_sizes.pop() else { break };
+					to_remove.push((artifact_id, path));
+					total_size -= size;
+				}
+			},
 		}
 
 		for artifact in &to_remove {
