@@ -1016,7 +1016,7 @@ pub trait RequestExt {
 impl RequestExt for Requests {
 	fn authority_id(&self) -> Option<&AuthorityDiscoveryId> {
 		match self {
-			Requests::ChunkFetchingV1(request) => {
+			Requests::ChunkFetching(request) => {
 				if let Recipient::Authority(authority_id) = &request.peer {
 					Some(authority_id)
 				} else {
@@ -1052,7 +1052,7 @@ impl RequestExt for Requests {
 
 	fn into_response_sender(self) -> ResponseSender {
 		match self {
-			Requests::ChunkFetchingV1(outgoing_request) => outgoing_request.pending_response,
+			Requests::ChunkFetching(outgoing_request) => outgoing_request.pending_response,
 			Requests::AvailableDataFetchingV1(outgoing_request) =>
 				outgoing_request.pending_response,
 			_ => unimplemented!("unsupported request type"),
@@ -1062,7 +1062,7 @@ impl RequestExt for Requests {
 	/// Swaps the `ResponseSender` and returns the previous value.
 	fn swap_response_sender(&mut self, new_sender: ResponseSender) -> ResponseSender {
 		match self {
-			Requests::ChunkFetchingV1(outgoing_request) =>
+			Requests::ChunkFetching(outgoing_request) =>
 				std::mem::replace(&mut outgoing_request.pending_response, new_sender),
 			Requests::AvailableDataFetchingV1(outgoing_request) =>
 				std::mem::replace(&mut outgoing_request.pending_response, new_sender),
@@ -1075,7 +1075,7 @@ impl RequestExt for Requests {
 	/// Returns the size in bytes of the request payload.
 	fn size(&self) -> usize {
 		match self {
-			Requests::ChunkFetchingV1(outgoing_request) => outgoing_request.payload.encoded_size(),
+			Requests::ChunkFetching(outgoing_request) => outgoing_request.payload.encoded_size(),
 			Requests::AvailableDataFetchingV1(outgoing_request) =>
 				outgoing_request.payload.encoded_size(),
 			Requests::AttestedCandidateV2(outgoing_request) =>

@@ -145,11 +145,8 @@ impl BenchCli {
 						availability::TestDataAvailability::Read(opts),
 						true,
 					);
-					env.runtime().block_on(availability::benchmark_availability_read(
-						&benchmark_name,
-						&mut env,
-						&state,
-					))
+					env.runtime()
+						.block_on(availability::benchmark_availability_read(&mut env, &state))
 				},
 				TestObjective::DataAvailabilityWrite => {
 					let state = availability::TestState::new(&test_config);
@@ -158,32 +155,22 @@ impl BenchCli {
 						availability::TestDataAvailability::Write,
 						true,
 					);
-					env.runtime().block_on(availability::benchmark_availability_write(
-						&benchmark_name,
-						&mut env,
-						&state,
-					))
+					env.runtime()
+						.block_on(availability::benchmark_availability_write(&mut env, &state))
 				},
 				TestObjective::ApprovalVoting(ref options) => {
 					let (mut env, state) =
 						approval::prepare_test(test_config.clone(), options.clone(), true);
-					env.runtime().block_on(approval::bench_approvals(
-						&benchmark_name,
-						&mut env,
-						state,
-					))
+					env.runtime().block_on(approval::bench_approvals(&mut env, state))
 				},
 				TestObjective::StatementDistribution => {
 					let state = statement::TestState::new(&test_config);
 					let (mut env, _protocol_config) = statement::prepare_test(&state, true);
-					env.runtime().block_on(statement::benchmark_statement_distribution(
-						&benchmark_name,
-						&mut env,
-						&state,
-					))
+					env.runtime()
+						.block_on(statement::benchmark_statement_distribution(&mut env, &state))
 				},
 			};
-			println!("{}", usage);
+			println!("\n{}\n{}", benchmark_name.purple(), usage);
 		}
 
 		if let Some(agent_running) = agent_running {

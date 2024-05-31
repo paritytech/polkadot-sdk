@@ -37,7 +37,7 @@ use sc_network::{request_responses::ProtocolConfig, RequestFailure};
 
 const LOG_TARGET: &str = "subsystem-bench::network-bridge";
 const ALLOWED_PROTOCOLS: &[&str] = &[
-	"/ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff/req_chunk/1",
+	"/ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff/req_chunk/2",
 	"/ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff/req_attested_candidate/2",
 ];
 

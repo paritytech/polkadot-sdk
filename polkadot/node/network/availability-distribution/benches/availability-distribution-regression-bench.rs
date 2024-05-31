@@ -53,11 +53,7 @@ fn main() -> Result<(), String> {
 				polkadot_subsystem_bench::availability::TestDataAvailability::Write,
 				false,
 			);
-			env.runtime().block_on(benchmark_availability_write(
-				"data_availability_write",
-				&mut env,
-				&state,
-			))
+			env.runtime().block_on(benchmark_availability_write(&mut env, &state))
 		})
 		.collect();
 	println!("\rDone!{}", " ".repeat(BENCH_COUNT));
