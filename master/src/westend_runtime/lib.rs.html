@@ -2820,16 +2820,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#2669" id="2669">2669</a>
 <a href="#2670" id="2670">2670</a>
 <a href="#2671" id="2671">2671</a>
-<a href="#2672" id="2672">2672</a>
-<a href="#2673" id="2673">2673</a>
-<a href="#2674" id="2674">2674</a>
-<a href="#2675" id="2675">2675</a>
-<a href="#2676" id="2676">2676</a>
-<a href="#2677" id="2677">2677</a>
-<a href="#2678" id="2678">2678</a>
-<a href="#2679" id="2679">2679</a>
-<a href="#2680" id="2680">2680</a>
-<a href="#2681" id="2681">2681</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -2934,10 +2924,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="attr">#[cfg(any(feature = <span class="string">"std"</span>, test))]
 </span><span class="kw">use </span>sp_version::NativeVersion;
 <span class="kw">use </span>sp_version::RuntimeVersion;
-<span class="kw">use </span>xcm::{
-	latest::prelude::<span class="kw-2">*</span>, IntoVersion, VersionedAssetId, VersionedAssets, VersionedLocation,
-	VersionedXcm,
-};
+<span class="kw">use </span>xcm::{latest::prelude::<span class="kw-2">*</span>, VersionedAssetId, VersionedAssets, VersionedLocation, VersionedXcm};
 <span class="kw">use </span>xcm_builder::PayOverXcm;
 
 <span class="kw">use </span>xcm_fee_payment_runtime_api::{
@@ -5066,15 +5053,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">impl </span>xcm_fee_payment_runtime_api::fees::XcmPaymentApi&lt;Block&gt; <span class="kw">for </span>Runtime {
 		<span class="kw">fn </span>query_acceptable_payment_assets(xcm_version: xcm::Version) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;VersionedAssetId&gt;, XcmPaymentApiError&gt; {
-			<span class="kw">let </span>acceptable = <span class="macro">vec!</span>[
-				<span class="comment">// native token
-				</span>VersionedAssetId::from(AssetId(xcm_config::TokenLocation::get()))
-			];
-
-			<span class="prelude-val">Ok</span>(acceptable
-				.into_iter()
-				.filter_map(|asset| asset.into_version(xcm_version).ok())
-				.collect())
+			<span class="kw">let </span>acceptable_assets = <span class="macro">vec!</span>[AssetId(xcm_config::TokenLocation::get())];
+			XcmPallet::query_acceptable_payment_assets(xcm_version, acceptable_assets)
 		}
 
 		<span class="kw">fn </span>query_weight_to_asset_fee(weight: Weight, asset: VersionedAssetId) -&gt; <span class="prelude-ty">Result</span>&lt;u128, XcmPaymentApiError&gt; {

@@ -1289,6 +1289,52 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1138" id="1138">1138</a>
 <a href="#1139" id="1139">1139</a>
 <a href="#1140" id="1140">1140</a>
+<a href="#1141" id="1141">1141</a>
+<a href="#1142" id="1142">1142</a>
+<a href="#1143" id="1143">1143</a>
+<a href="#1144" id="1144">1144</a>
+<a href="#1145" id="1145">1145</a>
+<a href="#1146" id="1146">1146</a>
+<a href="#1147" id="1147">1147</a>
+<a href="#1148" id="1148">1148</a>
+<a href="#1149" id="1149">1149</a>
+<a href="#1150" id="1150">1150</a>
+<a href="#1151" id="1151">1151</a>
+<a href="#1152" id="1152">1152</a>
+<a href="#1153" id="1153">1153</a>
+<a href="#1154" id="1154">1154</a>
+<a href="#1155" id="1155">1155</a>
+<a href="#1156" id="1156">1156</a>
+<a href="#1157" id="1157">1157</a>
+<a href="#1158" id="1158">1158</a>
+<a href="#1159" id="1159">1159</a>
+<a href="#1160" id="1160">1160</a>
+<a href="#1161" id="1161">1161</a>
+<a href="#1162" id="1162">1162</a>
+<a href="#1163" id="1163">1163</a>
+<a href="#1164" id="1164">1164</a>
+<a href="#1165" id="1165">1165</a>
+<a href="#1166" id="1166">1166</a>
+<a href="#1167" id="1167">1167</a>
+<a href="#1168" id="1168">1168</a>
+<a href="#1169" id="1169">1169</a>
+<a href="#1170" id="1170">1170</a>
+<a href="#1171" id="1171">1171</a>
+<a href="#1172" id="1172">1172</a>
+<a href="#1173" id="1173">1173</a>
+<a href="#1174" id="1174">1174</a>
+<a href="#1175" id="1175">1175</a>
+<a href="#1176" id="1176">1176</a>
+<a href="#1177" id="1177">1177</a>
+<a href="#1178" id="1178">1178</a>
+<a href="#1179" id="1179">1179</a>
+<a href="#1180" id="1180">1180</a>
+<a href="#1181" id="1181">1181</a>
+<a href="#1182" id="1182">1182</a>
+<a href="#1183" id="1183">1183</a>
+<a href="#1184" id="1184">1184</a>
+<a href="#1185" id="1185">1185</a>
+<a href="#1186" id="1186">1186</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -1364,7 +1410,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		fungible::HoldConsideration, ConstBool, ConstU16, ConstU32, ConstU64, ConstU8,
 		EitherOfDiverse, InstanceFilter, LinearStoragePrice, TransformOrigin,
 	},
-	weights::{ConstantMultiplier, Weight},
+	weights::{ConstantMultiplier, Weight, WeightToFee <span class="kw">as _</span>},
 	PalletId,
 };
 <span class="kw">use </span>frame_system::{
@@ -1394,7 +1440,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>polkadot_runtime_common::{
 	impls::VersionedLocatableAsset, BlockHashCount, SlowAdjustingFeeUpdate,
 };
-<span class="kw">use </span>xcm::latest::{prelude::<span class="kw-2">*</span>, BodyId};
+<span class="kw">use </span>xcm::prelude::<span class="kw-2">*</span>;
+<span class="kw">use </span>xcm_fee_payment_runtime_api::{
+	dry_run::{CallDryRunEffects, Error <span class="kw">as </span>XcmDryRunApiError, XcmDryRunEffects},
+	fees::Error <span class="kw">as </span>XcmPaymentApiError,
+};
 
 <span class="kw">use </span>weights::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight};
 
@@ -2224,6 +2274,48 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 		<span class="kw">fn </span>query_length_to_fee(length: u32) -&gt; Balance {
 			TransactionPayment::length_to_fee(length)
+		}
+	}
+
+	<span class="kw">impl </span>xcm_fee_payment_runtime_api::fees::XcmPaymentApi&lt;Block&gt; <span class="kw">for </span>Runtime {
+		<span class="kw">fn </span>query_acceptable_payment_assets(xcm_version: xcm::Version) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;VersionedAssetId&gt;, XcmPaymentApiError&gt; {
+			<span class="kw">let </span>acceptable_assets = <span class="macro">vec!</span>[AssetId(xcm_config::WndLocation::get())];
+			PolkadotXcm::query_acceptable_payment_assets(xcm_version, acceptable_assets)
+		}
+
+		<span class="kw">fn </span>query_weight_to_asset_fee(weight: Weight, asset: VersionedAssetId) -&gt; <span class="prelude-ty">Result</span>&lt;u128, XcmPaymentApiError&gt; {
+			<span class="kw">match </span>asset.try_as::&lt;AssetId&gt;() {
+				<span class="prelude-val">Ok</span>(asset_id) <span class="kw">if </span>asset_id.<span class="number">0 </span>== xcm_config::WndLocation::get() =&gt; {
+					<span class="comment">// for native token
+					</span><span class="prelude-val">Ok</span>(WeightToFee::weight_to_fee(<span class="kw-2">&amp;</span>weight))
+				},
+				<span class="prelude-val">Ok</span>(asset_id) =&gt; {
+					<span class="macro">log::trace!</span>(target: <span class="string">"xcm::xcm_fee_payment_runtime_api"</span>, <span class="string">"query_weight_to_asset_fee - unhandled asset_id: {asset_id:?}!"</span>);
+					<span class="prelude-val">Err</span>(XcmPaymentApiError::AssetNotFound)
+				},
+				<span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; {
+					<span class="macro">log::trace!</span>(target: <span class="string">"xcm::xcm_fee_payment_runtime_api"</span>, <span class="string">"query_weight_to_asset_fee - failed to convert asset: {asset:?}!"</span>);
+					<span class="prelude-val">Err</span>(XcmPaymentApiError::VersionedConversionFailed)
+				}
+			}
+		}
+
+		<span class="kw">fn </span>query_xcm_weight(message: VersionedXcm&lt;()&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;Weight, XcmPaymentApiError&gt; {
+			PolkadotXcm::query_xcm_weight(message)
+		}
+
+		<span class="kw">fn </span>query_delivery_fees(destination: VersionedLocation, message: VersionedXcm&lt;()&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;VersionedAssets, XcmPaymentApiError&gt; {
+			PolkadotXcm::query_delivery_fees(destination, message)
+		}
+	}
+
+	<span class="kw">impl </span>xcm_fee_payment_runtime_api::dry_run::DryRunApi&lt;Block, RuntimeCall, RuntimeEvent, OriginCaller&gt; <span class="kw">for </span>Runtime {
+		<span class="kw">fn </span>dry_run_call(origin: OriginCaller, call: RuntimeCall) -&gt; <span class="prelude-ty">Result</span>&lt;CallDryRunEffects&lt;RuntimeEvent&gt;, XcmDryRunApiError&gt; {
+			PolkadotXcm::dry_run_call::&lt;Runtime, xcm_config::XcmRouter, OriginCaller, RuntimeCall&gt;(origin, call)
+		}
+
+		<span class="kw">fn </span>dry_run_xcm(origin_location: VersionedLocation, xcm: VersionedXcm&lt;RuntimeCall&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;XcmDryRunEffects&lt;RuntimeEvent&gt;, XcmDryRunApiError&gt; {
+			PolkadotXcm::dry_run_xcm::&lt;Runtime, xcm_config::XcmRouter, RuntimeCall, xcm_config::XcmConfig&gt;(origin_location, xcm)
 		}
 	}
 

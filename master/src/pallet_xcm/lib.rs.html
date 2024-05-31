@@ -3503,6 +3503,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#3352" id="3352">3352</a>
 <a href="#3353" id="3353">3353</a>
 <a href="#3354" id="3354">3354</a>
+<a href="#3355" id="3355">3355</a>
+<a href="#3356" id="3356">3356</a>
+<a href="#3357" id="3357">3357</a>
+<a href="#3358" id="3358">3358</a>
+<a href="#3359" id="3359">3359</a>
+<a href="#3360" id="3360">3360</a>
+<a href="#3361" id="3361">3361</a>
+<a href="#3362" id="3362">3362</a>
+<a href="#3363" id="3363">3363</a>
+<a href="#3364" id="3364">3364</a>
+<a href="#3365" id="3365">3365</a>
+<a href="#3366" id="3366">3366</a>
+<a href="#3367" id="3367">3367</a>
+<a href="#3368" id="3368">3368</a>
+<a href="#3369" id="3369">3369</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -6020,6 +6035,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				.map(|record| record.event.clone())
 				.collect();
 		<span class="prelude-val">Ok</span>(XcmDryRunEffects { forwarded_xcms, emitted_events: events, execution_result: result })
+	}
+
+	<span class="doccomment">/// Given a list of asset ids, returns the correct API response for
+	/// `XcmPaymentApi::query_acceptable_payment_assets`.
+	///
+	/// The assets passed in have to be supported for fee payment.
+	</span><span class="kw">pub fn </span>query_acceptable_payment_assets(
+		version: xcm::Version,
+		asset_ids: Vec&lt;AssetId&gt;,
+	) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;VersionedAssetId&gt;, XcmPaymentApiError&gt; {
+		<span class="prelude-val">Ok</span>(asset_ids
+			.into_iter()
+			.map(|asset_id| VersionedAssetId::from(asset_id))
+			.filter_map(|asset_id| asset_id.into_version(version).ok())
+			.collect())
 	}
 
 	<span class="kw">pub fn </span>query_xcm_weight(message: VersionedXcm&lt;()&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;Weight, XcmPaymentApiError&gt; {

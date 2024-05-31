@@ -1098,6 +1098,52 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#947" id="947">947</a>
 <a href="#948" id="948">948</a>
 <a href="#949" id="949">949</a>
+<a href="#950" id="950">950</a>
+<a href="#951" id="951">951</a>
+<a href="#952" id="952">952</a>
+<a href="#953" id="953">953</a>
+<a href="#954" id="954">954</a>
+<a href="#955" id="955">955</a>
+<a href="#956" id="956">956</a>
+<a href="#957" id="957">957</a>
+<a href="#958" id="958">958</a>
+<a href="#959" id="959">959</a>
+<a href="#960" id="960">960</a>
+<a href="#961" id="961">961</a>
+<a href="#962" id="962">962</a>
+<a href="#963" id="963">963</a>
+<a href="#964" id="964">964</a>
+<a href="#965" id="965">965</a>
+<a href="#966" id="966">966</a>
+<a href="#967" id="967">967</a>
+<a href="#968" id="968">968</a>
+<a href="#969" id="969">969</a>
+<a href="#970" id="970">970</a>
+<a href="#971" id="971">971</a>
+<a href="#972" id="972">972</a>
+<a href="#973" id="973">973</a>
+<a href="#974" id="974">974</a>
+<a href="#975" id="975">975</a>
+<a href="#976" id="976">976</a>
+<a href="#977" id="977">977</a>
+<a href="#978" id="978">978</a>
+<a href="#979" id="979">979</a>
+<a href="#980" id="980">980</a>
+<a href="#981" id="981">981</a>
+<a href="#982" id="982">982</a>
+<a href="#983" id="983">983</a>
+<a href="#984" id="984">984</a>
+<a href="#985" id="985">985</a>
+<a href="#986" id="986">986</a>
+<a href="#987" id="987">987</a>
+<a href="#988" id="988">988</a>
+<a href="#989" id="989">989</a>
+<a href="#990" id="990">990</a>
+<a href="#991" id="991">991</a>
+<a href="#992" id="992">992</a>
+<a href="#993" id="993">993</a>
+<a href="#994" id="994">994</a>
+<a href="#995" id="995">995</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -1141,7 +1187,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	genesis_builder_helper::{build_state, get_preset},
 	parameter_types,
 	traits::{ConstBool, ConstU32, ConstU64, ConstU8, EitherOfDiverse, TransformOrigin},
-	weights::{ConstantMultiplier, Weight},
+	weights::{ConstantMultiplier, Weight, WeightToFee <span class="kw">as _</span>},
 	PalletId,
 };
 <span class="kw">use </span>frame_system::{
@@ -1172,9 +1218,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>sp_version::RuntimeVersion;
 <span class="kw">use </span>testnet_parachains_constants::rococo::{consensus::<span class="kw-2">*</span>, currency::<span class="kw-2">*</span>, fee::WeightToFee, time::<span class="kw-2">*</span>};
 <span class="kw">use </span>weights::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight};
-<span class="kw">use </span>xcm::latest::prelude::<span class="kw-2">*</span>;
+<span class="kw">use </span>xcm::prelude::<span class="kw-2">*</span>;
 <span class="kw">use </span>xcm_config::{
 	FellowshipLocation, GovernanceLocation, RocRelayLocation, XcmOriginToTransactDispatchOrigin,
+};
+<span class="kw">use </span>xcm_fee_payment_runtime_api::{
+	dry_run::{CallDryRunEffects, Error <span class="kw">as </span>XcmDryRunApiError, XcmDryRunEffects},
+	fees::Error <span class="kw">as </span>XcmPaymentApiError,
 };
 
 <span class="doccomment">/// The address format for describing accounts.
@@ -1753,6 +1803,48 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 		<span class="kw">fn </span>query_length_to_fee(length: u32) -&gt; Balance {
 			TransactionPayment::length_to_fee(length)
+		}
+	}
+
+	<span class="kw">impl </span>xcm_fee_payment_runtime_api::fees::XcmPaymentApi&lt;Block&gt; <span class="kw">for </span>Runtime {
+		<span class="kw">fn </span>query_acceptable_payment_assets(xcm_version: xcm::Version) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;VersionedAssetId&gt;, XcmPaymentApiError&gt; {
+			<span class="kw">let </span>acceptable_assets = <span class="macro">vec!</span>[AssetId(xcm_config::RocRelayLocation::get())];
+			PolkadotXcm::query_acceptable_payment_assets(xcm_version, acceptable_assets)
+		}
+
+		<span class="kw">fn </span>query_weight_to_asset_fee(weight: Weight, asset: VersionedAssetId) -&gt; <span class="prelude-ty">Result</span>&lt;u128, XcmPaymentApiError&gt; {
+			<span class="kw">match </span>asset.try_as::&lt;AssetId&gt;() {
+				<span class="prelude-val">Ok</span>(asset_id) <span class="kw">if </span>asset_id.<span class="number">0 </span>== xcm_config::RocRelayLocation::get() =&gt; {
+					<span class="comment">// for native token
+					</span><span class="prelude-val">Ok</span>(WeightToFee::weight_to_fee(<span class="kw-2">&amp;</span>weight))
+				},
+				<span class="prelude-val">Ok</span>(asset_id) =&gt; {
+					<span class="macro">log::trace!</span>(target: <span class="string">"xcm::xcm_fee_payment_runtime_api"</span>, <span class="string">"query_weight_to_asset_fee - unhandled asset_id: {asset_id:?}!"</span>);
+					<span class="prelude-val">Err</span>(XcmPaymentApiError::AssetNotFound)
+				},
+				<span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; {
+					<span class="macro">log::trace!</span>(target: <span class="string">"xcm::xcm_fee_payment_runtime_api"</span>, <span class="string">"query_weight_to_asset_fee - failed to convert asset: {asset:?}!"</span>);
+					<span class="prelude-val">Err</span>(XcmPaymentApiError::VersionedConversionFailed)
+				}
+			}
+		}
+
+		<span class="kw">fn </span>query_xcm_weight(message: VersionedXcm&lt;()&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;Weight, XcmPaymentApiError&gt; {
+			PolkadotXcm::query_xcm_weight(message)
+		}
+
+		<span class="kw">fn </span>query_delivery_fees(destination: VersionedLocation, message: VersionedXcm&lt;()&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;VersionedAssets, XcmPaymentApiError&gt; {
+			PolkadotXcm::query_delivery_fees(destination, message)
+		}
+	}
+
+	<span class="kw">impl </span>xcm_fee_payment_runtime_api::dry_run::DryRunApi&lt;Block, RuntimeCall, RuntimeEvent, OriginCaller&gt; <span class="kw">for </span>Runtime {
+		<span class="kw">fn </span>dry_run_call(origin: OriginCaller, call: RuntimeCall) -&gt; <span class="prelude-ty">Result</span>&lt;CallDryRunEffects&lt;RuntimeEvent&gt;, XcmDryRunApiError&gt; {
+			PolkadotXcm::dry_run_call::&lt;Runtime, xcm_config::XcmRouter, OriginCaller, RuntimeCall&gt;(origin, call)
+		}
+
+		<span class="kw">fn </span>dry_run_xcm(origin_location: VersionedLocation, xcm: VersionedXcm&lt;RuntimeCall&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;XcmDryRunEffects&lt;RuntimeEvent&gt;, XcmDryRunApiError&gt; {
+			PolkadotXcm::dry_run_xcm::&lt;Runtime, xcm_config::XcmRouter, RuntimeCall, xcm_config::XcmConfig&gt;(origin_location, xcm)
 		}
 	}
 

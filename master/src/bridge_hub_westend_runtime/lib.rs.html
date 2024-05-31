@@ -1370,6 +1370,53 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1219" id="1219">1219</a>
 <a href="#1220" id="1220">1220</a>
 <a href="#1221" id="1221">1221</a>
+<a href="#1222" id="1222">1222</a>
+<a href="#1223" id="1223">1223</a>
+<a href="#1224" id="1224">1224</a>
+<a href="#1225" id="1225">1225</a>
+<a href="#1226" id="1226">1226</a>
+<a href="#1227" id="1227">1227</a>
+<a href="#1228" id="1228">1228</a>
+<a href="#1229" id="1229">1229</a>
+<a href="#1230" id="1230">1230</a>
+<a href="#1231" id="1231">1231</a>
+<a href="#1232" id="1232">1232</a>
+<a href="#1233" id="1233">1233</a>
+<a href="#1234" id="1234">1234</a>
+<a href="#1235" id="1235">1235</a>
+<a href="#1236" id="1236">1236</a>
+<a href="#1237" id="1237">1237</a>
+<a href="#1238" id="1238">1238</a>
+<a href="#1239" id="1239">1239</a>
+<a href="#1240" id="1240">1240</a>
+<a href="#1241" id="1241">1241</a>
+<a href="#1242" id="1242">1242</a>
+<a href="#1243" id="1243">1243</a>
+<a href="#1244" id="1244">1244</a>
+<a href="#1245" id="1245">1245</a>
+<a href="#1246" id="1246">1246</a>
+<a href="#1247" id="1247">1247</a>
+<a href="#1248" id="1248">1248</a>
+<a href="#1249" id="1249">1249</a>
+<a href="#1250" id="1250">1250</a>
+<a href="#1251" id="1251">1251</a>
+<a href="#1252" id="1252">1252</a>
+<a href="#1253" id="1253">1253</a>
+<a href="#1254" id="1254">1254</a>
+<a href="#1255" id="1255">1255</a>
+<a href="#1256" id="1256">1256</a>
+<a href="#1257" id="1257">1257</a>
+<a href="#1258" id="1258">1258</a>
+<a href="#1259" id="1259">1259</a>
+<a href="#1260" id="1260">1260</a>
+<a href="#1261" id="1261">1261</a>
+<a href="#1262" id="1262">1262</a>
+<a href="#1263" id="1263">1263</a>
+<a href="#1264" id="1264">1264</a>
+<a href="#1265" id="1265">1265</a>
+<a href="#1266" id="1266">1266</a>
+<a href="#1267" id="1267">1267</a>
+<a href="#1268" id="1268">1268</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -1436,7 +1483,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	genesis_builder_helper::{build_state, get_preset},
 	parameter_types,
 	traits::{ConstBool, ConstU32, ConstU64, ConstU8, Get, TransformOrigin},
-	weights::{ConstantMultiplier, Weight},
+	weights::{ConstantMultiplier, Weight, WeightToFee <span class="kw">as _</span>},
 	PalletId,
 };
 <span class="kw">use </span>frame_system::{
@@ -1447,13 +1494,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">pub use </span>sp_runtime::{MultiAddress, Perbill, Permill};
 <span class="kw">use </span>xcm_config::{XcmOriginToTransactDispatchOrigin, XcmRouter};
 
+<span class="kw">use </span>xcm_fee_payment_runtime_api::{
+	dry_run::{CallDryRunEffects, Error <span class="kw">as </span>XcmDryRunApiError, XcmDryRunEffects},
+	fees::Error <span class="kw">as </span>XcmPaymentApiError,
+};
+
 <span class="kw">use </span>bp_runtime::HeaderId;
 
 <span class="attr">#[cfg(any(feature = <span class="string">"std"</span>, test))]
 </span><span class="kw">pub use </span>sp_runtime::BuildStorage;
 
 <span class="kw">use </span>polkadot_runtime_common::{BlockHashCount, SlowAdjustingFeeUpdate};
-<span class="kw">use </span>xcm::latest::prelude::<span class="kw-2">*</span>;
+<span class="kw">use </span>xcm::prelude::<span class="kw-2">*</span>;
 
 <span class="kw">use </span>weights::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight};
 
@@ -2080,6 +2132,48 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 		<span class="kw">fn </span>query_length_to_fee(length: u32) -&gt; Balance {
 			TransactionPayment::length_to_fee(length)
+		}
+	}
+
+	<span class="kw">impl </span>xcm_fee_payment_runtime_api::fees::XcmPaymentApi&lt;Block&gt; <span class="kw">for </span>Runtime {
+		<span class="kw">fn </span>query_acceptable_payment_assets(xcm_version: xcm::Version) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;VersionedAssetId&gt;, XcmPaymentApiError&gt; {
+			<span class="kw">let </span>acceptable_assets = <span class="macro">vec!</span>[AssetId(xcm_config::WestendLocation::get())];
+			PolkadotXcm::query_acceptable_payment_assets(xcm_version, acceptable_assets)
+		}
+
+		<span class="kw">fn </span>query_weight_to_asset_fee(weight: Weight, asset: VersionedAssetId) -&gt; <span class="prelude-ty">Result</span>&lt;u128, XcmPaymentApiError&gt; {
+			<span class="kw">match </span>asset.try_as::&lt;AssetId&gt;() {
+				<span class="prelude-val">Ok</span>(asset_id) <span class="kw">if </span>asset_id.<span class="number">0 </span>== xcm_config::WestendLocation::get() =&gt; {
+					<span class="comment">// for native token
+					</span><span class="prelude-val">Ok</span>(WeightToFee::weight_to_fee(<span class="kw-2">&amp;</span>weight))
+				},
+				<span class="prelude-val">Ok</span>(asset_id) =&gt; {
+					<span class="macro">log::trace!</span>(target: <span class="string">"xcm::xcm_fee_payment_runtime_api"</span>, <span class="string">"query_weight_to_asset_fee - unhandled asset_id: {asset_id:?}!"</span>);
+					<span class="prelude-val">Err</span>(XcmPaymentApiError::AssetNotFound)
+				},
+				<span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; {
+					<span class="macro">log::trace!</span>(target: <span class="string">"xcm::xcm_fee_payment_runtime_api"</span>, <span class="string">"query_weight_to_asset_fee - failed to convert asset: {asset:?}!"</span>);
+					<span class="prelude-val">Err</span>(XcmPaymentApiError::VersionedConversionFailed)
+				}
+			}
+		}
+
+		<span class="kw">fn </span>query_xcm_weight(message: VersionedXcm&lt;()&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;Weight, XcmPaymentApiError&gt; {
+			PolkadotXcm::query_xcm_weight(message)
+		}
+
+		<span class="kw">fn </span>query_delivery_fees(destination: VersionedLocation, message: VersionedXcm&lt;()&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;VersionedAssets, XcmPaymentApiError&gt; {
+			PolkadotXcm::query_delivery_fees(destination, message)
+		}
+	}
+
+	<span class="kw">impl </span>xcm_fee_payment_runtime_api::dry_run::DryRunApi&lt;Block, RuntimeCall, RuntimeEvent, OriginCaller&gt; <span class="kw">for </span>Runtime {
+		<span class="kw">fn </span>dry_run_call(origin: OriginCaller, call: RuntimeCall) -&gt; <span class="prelude-ty">Result</span>&lt;CallDryRunEffects&lt;RuntimeEvent&gt;, XcmDryRunApiError&gt; {
+			PolkadotXcm::dry_run_call::&lt;Runtime, xcm_config::XcmRouter, OriginCaller, RuntimeCall&gt;(origin, call)
+		}
+
+		<span class="kw">fn </span>dry_run_xcm(origin_location: VersionedLocation, xcm: VersionedXcm&lt;RuntimeCall&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;XcmDryRunEffects&lt;RuntimeEvent&gt;, XcmDryRunApiError&gt; {
+			PolkadotXcm::dry_run_xcm::&lt;Runtime, xcm_config::XcmRouter, RuntimeCall, xcm_config::XcmConfig&gt;(origin_location, xcm)
 		}
 	}
 
