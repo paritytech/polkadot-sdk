@@ -1168,7 +1168,7 @@ pub mod env {
 		}
 	}
 
- 	/// Set the value at the given key in the contract transient storage.
+	/// Set the value at the given key in the contract transient storage.
 	#[prefixed_alias]
 	#[unstable]
 	fn set_transient_storage(
@@ -1185,7 +1185,12 @@ pub mod env {
 	/// Clear the value at the given key in the contract storage.
 	#[prefixed_alias]
 	#[unstable]
-	fn clear_transient_storage(ctx: _, memory: _, key_ptr: u32, key_len: u32) -> Result<u32, TrapReason> {
+	fn clear_transient_storage(
+		ctx: _,
+		memory: _,
+		key_ptr: u32,
+		key_len: u32,
+	) -> Result<u32, TrapReason> {
 		ctx.clear_transient_storage(memory, KeyType::Var(key_len), key_ptr)
 	}
 
@@ -1205,7 +1210,12 @@ pub mod env {
 	/// Checks whether there is a value stored under the given key in transient storage.
 	#[prefixed_alias]
 	#[unstable]
-	fn contains_transient_storage(ctx: _, memory: _, key_ptr: u32, key_len: u32) -> Result<u32, TrapReason> {
+	fn contains_transient_storage(
+		ctx: _,
+		memory: _,
+		key_ptr: u32,
+		key_len: u32,
+	) -> Result<u32, TrapReason> {
 		ctx.contains_transient_storage(memory, KeyType::Var(key_len), key_ptr)
 	}
 

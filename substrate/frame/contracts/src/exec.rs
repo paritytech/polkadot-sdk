@@ -1367,7 +1367,7 @@ where
 				.charge_deposit(account_id.clone(), StorageDeposit::Refund(*deposit));
 		}
 
-		self.transient_storage.terminate(&account_id)?;
+		self.transient_storage.remove(&account_id);
 		Contracts::<T>::deposit_event(Event::Terminated {
 			contract: account_id,
 			beneficiary: beneficiary.clone(),
