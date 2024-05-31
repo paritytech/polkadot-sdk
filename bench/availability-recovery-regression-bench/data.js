@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1717068211380,
+  "lastUpdate": 1717127219598,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
@@ -9869,6 +9869,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.19988337846666665,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "gupnik",
+            "username": "gupnik",
+            "email": "nikhilgupta.iitk@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "78c24ec9e24ea04b2f8513b53a8d1246ff6b35ed",
+          "message": "Adds ability to specify chain type in chain-spec-builder (#4542)\n\nCurrently, `chain-spec-builder` only creates a spec with `Live` chain\ntype. This PR adds the ability to specify it while keeping the same\ndefault.\n\n---------\n\nCo-authored-by: Kian Paimani <5588131+kianenigma@users.noreply.github.com>",
+          "timestamp": "2024-05-31T02:09:12Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/78c24ec9e24ea04b2f8513b53a8d1246ff6b35ed"
+        },
+        "date": 1717127191040,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 12.842454155466669,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.1825572453,
             "unit": "seconds"
           }
         ]
