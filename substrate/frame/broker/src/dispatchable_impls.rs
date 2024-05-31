@@ -498,7 +498,7 @@ impl<T: Config> Pallet<T> {
 				// If we couldn't find the renewal record for the current bulk period we should
 				// be able to find it for the upcoming bulk period.
 				//
-				// If not the core is not eligable for renewal.
+				// If not the core is not eligible for renewal.
 				PotentialRenewals::<T>::get(PotentialRenewalId { core, when: sale.region_end })
 					.ok_or(Error::<T>::NotAllowed)?
 			}
