@@ -11,14 +11,17 @@
 
 </div>
 
+ℹ️ This template is a minimal (in terms of complexity and the number of components) template for building a blockchain node.
+
 ## Getting Started
 
-🛠️ Depending on your operating system and Rust version, there might be additional
-packages required to compile this template.
+🦀 The template is using the Rust language.
 
 👉 Check the
-[Substrate Install](https://docs.substrate.io/install/) instructions for your platform for
-the most common dependencies.
+[Rust installation instructions](https://www.rust-lang.org/tools/install) for your system.
+
+🛠️ Depending on your operating system and Rust version, there might be additional
+packages required to compile this template - please take note of the Rust compiler output.
 
 ### Build
 
@@ -50,11 +53,6 @@ Development chains:
 - 🧹 Do not persist the state.
 - 💰 Are preconfigured with a genesis state that includes several prefunded development accounts.
 - 🧑‍⚖️ Development accounts are used as default validator authorities and a `sudo` account.
-
-### Multi-Node Local Testnet
-
-👥 If you want to see the multi-node consensus algorithm in action, see [Simulate a
-network](https://docs.substrate.io/tutorials/build-a-blockchain/simulate-network/).
 
 ### Connect with the Polkadot-JS Apps Front-End
 
