@@ -144,7 +144,6 @@ impl Default for TestState {
 impl TestState {
 	/// Adds a few more scheduled cores to the state for the same para id
 	/// compared to the default.
-	#[cfg(feature = "elastic-scaling-experimental")]
 	pub fn with_elastic_scaling() -> Self {
 		let mut state = Self::default();
 		let para_id = state.para_id;
