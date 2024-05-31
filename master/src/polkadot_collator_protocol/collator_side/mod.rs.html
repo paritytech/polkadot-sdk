@@ -1753,14 +1753,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1602" id="1602">1602</a>
 <a href="#1603" id="1603">1603</a>
 <a href="#1604" id="1604">1604</a>
-<a href="#1605" id="1605">1605</a>
-<a href="#1606" id="1606">1606</a>
-<a href="#1607" id="1607">1607</a>
-<a href="#1608" id="1608">1608</a>
-<a href="#1609" id="1609">1609</a>
-<a href="#1610" id="1610">1610</a>
-<a href="#1611" id="1611">1611</a>
-<a href="#1612" id="1612">1612</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -2687,8 +2679,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">let </span>peer_id = request.peer_id();
 	<span class="kw">let </span>candidate_hash = receipt.hash();
 
-	<span class="attr">#[cfg(feature = <span class="string">"elastic-scaling-experimental"</span>)]
-	</span><span class="kw">let </span>result = <span class="kw">match </span>parent_head_data {
+	<span class="kw">let </span>result = <span class="kw">match </span>parent_head_data {
 		ParentHeadData::WithData { head_data, .. } =&gt;
 			<span class="prelude-val">Ok</span>(request_v2::CollationFetchingResponse::CollationWithParentHeadData {
 				receipt,
@@ -2697,13 +2688,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			}),
 		ParentHeadData::OnlyHash(<span class="kw">_</span>) =&gt;
 			<span class="prelude-val">Ok</span>(request_v1::CollationFetchingResponse::Collation(receipt, pov)),
-	};
-	<span class="attr">#[cfg(not(feature = <span class="string">"elastic-scaling-experimental"</span>))]
-	</span><span class="kw">let </span>result = {
-		<span class="comment">// suppress unused warning
-		</span><span class="kw">let </span>_parent_head_data = parent_head_data;
-
-		<span class="prelude-val">Ok</span>(request_v1::CollationFetchingResponse::Collation(receipt, pov))
 	};
 
 	<span class="kw">let </span>response =
