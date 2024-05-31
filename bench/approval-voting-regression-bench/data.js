@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1717126619773,
+  "lastUpdate": 1717137125044,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -5780,6 +5780,53 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-distribution",
             "value": 6.904960204020003,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Kian Paimani",
+            "username": "kianenigma",
+            "email": "5588131+kianenigma@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "71f4f5a80bb9ef00d651c62a58c6e8192d4d9707",
+          "message": "Update `runtime_type` ref doc with the new \"Associated Type Bounds\" (#4624)\n\nCo-authored-by: Bastian Köcher <git@kchr.de>",
+          "timestamp": "2024-05-31T04:58:05Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/71f4f5a80bb9ef00d651c62a58c6e8192d4d9707"
+        },
+        "date": 1717137096257,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63551.29,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52943.2,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 6.922651667429987,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 9.283268073970016,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 2.99362123320011,
             "unit": "seconds"
           }
         ]
