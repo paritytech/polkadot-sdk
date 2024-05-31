@@ -16,19 +16,17 @@
 
 //! Tests for using both the XCM fee payment API and the dry-run API.
 
-use frame_support::{
-	dispatch::DispatchInfo,
-	pallet_prelude::{DispatchClass, Pays},
-};
+use frame_system::RawOrigin;
 use sp_api::ProvideRuntimeApi;
 use sp_runtime::testing::H256;
 use xcm::prelude::*;
-use xcm_fee_payment_runtime_api::{dry_run::XcmDryRunApi, fees::XcmPaymentApi};
+use xcm_fee_payment_runtime_api::{dry_run::DryRunApi, fees::XcmPaymentApi};
 
 mod mock;
 use mock::{
-	extra, fake_message_hash, new_test_ext_with_balances, new_test_ext_with_balances_and_assets,
-	DeliveryFees, ExistentialDeposit, HereLocation, RuntimeCall, RuntimeEvent, TestClient, TestXt,
+	fake_message_hash, new_test_ext_with_balances, new_test_ext_with_balances_and_assets,
+	DeliveryFees, ExistentialDeposit, HereLocation, OriginCaller, RuntimeCall, RuntimeEvent,
+	TestClient,
 };
 
 // Scenario: User `1` in the local chain (id 2000) wants to transfer assets to account `[0u8; 32]`
@@ -50,24 +48,22 @@ fn fee_estimation_for_teleport() {
 	new_test_ext_with_balances_and_assets(balances, assets).execute_with(|| {
 		let client = TestClient;
 		let runtime_api = client.runtime_api();
-		let extrinsic = TestXt::new(
-			RuntimeCall::XcmPallet(pallet_xcm::Call::transfer_assets {
-				dest: Box::new(VersionedLocation::from((Parent, Parachain(1000)))),
-				beneficiary: Box::new(VersionedLocation::from(AccountId32 {
-					id: [0u8; 32],
-					network: None,
-				})),
-				assets: Box::new(VersionedAssets::from(vec![
-					(Here, 100u128).into(),
-					(Parent, 20u128).into(),
-				])),
-				fee_asset_item: 1, // Fees are paid with the RelayToken
-				weight_limit: Unlimited,
-			}),
-			Some((who, extra())),
-		);
+		let call = RuntimeCall::XcmPallet(pallet_xcm::Call::transfer_assets {
+			dest: Box::new(VersionedLocation::from((Parent, Parachain(1000)))),
+			beneficiary: Box::new(VersionedLocation::from(AccountId32 {
+				id: [0u8; 32],
+				network: None,
+			})),
+			assets: Box::new(VersionedAssets::from(vec![
+				(Here, 100u128).into(),
+				(Parent, 20u128).into(),
+			])),
+			fee_asset_item: 1, // Fees are paid with the RelayToken
+			weight_limit: Unlimited,
+		});
+		let origin = OriginCaller::system(RawOrigin::Signed(who));
 		let dry_run_effects =
-			runtime_api.dry_run_extrinsic(H256::zero(), extrinsic).unwrap().unwrap();
+			runtime_api.dry_run_call(H256::zero(), origin, call).unwrap().unwrap();
 
 		assert_eq!(
 			dry_run_effects.local_xcm,
@@ -129,14 +125,6 @@ fn fee_estimation_for_teleport() {
 					destination: (Parent, Parachain(1000)).into(),
 					message: send_message.clone(),
 					message_id: fake_message_hash(&send_message),
-				}),
-				RuntimeEvent::System(frame_system::Event::ExtrinsicSuccess {
-					dispatch_info: DispatchInfo {
-						weight: Weight::from_parts(107074070, 0), /* Will break if weights get
-						                                           * updated. */
-						class: DispatchClass::Normal,
-						pays_fee: Pays::Yes,
-					}
 				}),
 			]
 		);
@@ -216,21 +204,19 @@ fn dry_run_reserve_asset_transfer() {
 	new_test_ext_with_balances_and_assets(balances, assets).execute_with(|| {
 		let client = TestClient;
 		let runtime_api = client.runtime_api();
-		let extrinsic = TestXt::new(
-			RuntimeCall::XcmPallet(pallet_xcm::Call::transfer_assets {
-				dest: Box::new(VersionedLocation::from((Parent, Parachain(1000)))),
-				beneficiary: Box::new(VersionedLocation::from(AccountId32 {
-					id: [0u8; 32],
-					network: None,
-				})),
-				assets: Box::new(VersionedAssets::from((Parent, 100u128))),
-				fee_asset_item: 0,
-				weight_limit: Unlimited,
-			}),
-			Some((who, extra())),
-		);
+		let call = RuntimeCall::XcmPallet(pallet_xcm::Call::transfer_assets {
+			dest: Box::new(VersionedLocation::from((Parent, Parachain(1000)))),
+			beneficiary: Box::new(VersionedLocation::from(AccountId32 {
+				id: [0u8; 32],
+				network: None,
+			})),
+			assets: Box::new(VersionedAssets::from((Parent, 100u128))),
+			fee_asset_item: 0,
+			weight_limit: Unlimited,
+		});
+		let origin = OriginCaller::system(RawOrigin::Signed(who));
 		let dry_run_effects =
-			runtime_api.dry_run_extrinsic(H256::zero(), extrinsic).unwrap().unwrap();
+			runtime_api.dry_run_call(H256::zero(), origin, call).unwrap().unwrap();
 
 		assert_eq!(
 			dry_run_effects.local_xcm,
@@ -280,14 +266,6 @@ fn dry_run_reserve_asset_transfer() {
 					destination: send_destination.clone(),
 					message: send_message.clone(),
 					message_id: fake_message_hash(&send_message),
-				}),
-				RuntimeEvent::System(frame_system::Event::ExtrinsicSuccess {
-					dispatch_info: DispatchInfo {
-						weight: Weight::from_parts(107074066, 0), /* Will break if weights get
-						                                           * updated. */
-						class: DispatchClass::Normal,
-						pays_fee: Pays::Yes,
-					}
 				}),
 			]
 		);

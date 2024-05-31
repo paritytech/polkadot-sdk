@@ -2,7 +2,7 @@
 name = "pallet-minimal-template"
 description = "A minimal pallet built with FRAME, part of Polkadot Sdk."
 version = "0.0.0"
-license = "MIT-0"
+license = "Unlicense"
 authors.workspace = true
 homepage.workspace = true
 repository.workspace = true
