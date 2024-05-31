@@ -114,11 +114,12 @@ jobs:
           . ./.github/scripts/common/lib.sh
           RELEASE_ID=$(check_release_id "${{ inputs.release_id }}")
           fetch_release_artifacts
+          ls -la
 
       - name: Upload artifacts
         uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3 # v4.3.1
         with:
-          path: ./release-artifacts/${{ env.BINARY }}/**/*
+          path: release-artifacts/${{ env.BINARY }}/**/*
 
       # - name: Cache the artifacts
       #   uses: actions/cache@e12d46a63a90f2fae62d114769bbf2a179198b5c # v3.3.3
