@@ -29,8 +29,8 @@ pub fn expand_outer_query(
 	let query_match_arms = pallet_decls.iter().map(|pallet| {
 		let pallet_name = &pallet.name;
 		quote::quote! {
-			< #pallet_name< #runtime_name > as #scrate::traits::QueryIdPrefix>::PREFIX => {
-				< #pallet_name< #runtime_name > as #scrate::traits::DispatchQuery>::dispatch_query(id, input, output)
+			< #pallet_name as #scrate::traits::QueryIdPrefix>::PREFIX => {
+				< #pallet_name as #scrate::traits::DispatchQuery>::dispatch_query(id, input, output)
 			}
 		}
 	});

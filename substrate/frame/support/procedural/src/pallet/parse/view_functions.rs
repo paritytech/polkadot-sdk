@@ -75,6 +75,7 @@ impl ViewFunctionsImplDef {
 	}
 }
 
+#[derive(Clone)]
 pub struct ViewFunctionDef {
 	pub name: syn::Ident,
 	pub docs: Vec<syn::Expr>,

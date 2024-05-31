@@ -15,22 +15,24 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::pallet::{
-	parse::view_functions::{ViewFunctionDef, ViewFunctionsImplDef},
-	Def,
-};
-use proc_macro2::TokenStream;
+use crate::pallet::{parse::view_functions::ViewFunctionDef, Def};
+use proc_macro2::{Span, TokenStream};
+use syn::spanned::Spanned;
 
 pub fn expand_view_functions(def: &Def) -> TokenStream {
-	let Some(view_fns_def) = def.view_functions.as_ref() else {
-		return TokenStream::new();
+	let (span, where_clause, view_fns) = match def.view_functions.as_ref() {
+		Some(view_fns) => (
+			view_fns.attr_span.clone(),
+			view_fns.where_clause.clone(),
+			view_fns.view_functions.clone(),
+		),
+		None => (def.item.span(), def.config.where_clause.clone(), Vec::new()),
 	};
 
-	let view_fn_impls = view_fns_def
-		.view_functions
+	let view_fn_impls = view_fns
 		.iter()
-		.map(|view_fn| expand_view_function(def, &view_fns_def, view_fn));
-	let impl_dispatch_query = impl_dispatch_query(def, view_fns_def);
+		.map(|view_fn| expand_view_function(def, span, where_clause.as_ref(), view_fn));
+	let impl_dispatch_query = impl_dispatch_query(def, span, where_clause.as_ref(), &view_fns);
 
 	quote::quote! {
 		#( #view_fn_impls )*
@@ -40,10 +42,10 @@ pub fn expand_view_functions(def: &Def) -> TokenStream {
 
 fn expand_view_function(
 	def: &Def,
-	view_fns_impl: &ViewFunctionsImplDef,
+	span: Span,
+	where_clause: Option<&syn::WhereClause>,
 	view_fn: &ViewFunctionDef,
 ) -> TokenStream {
-	let span = view_fns_impl.attr_span;
 	let frame_support = &def.frame_support;
 	let frame_system = &def.frame_system;
 	let pallet_ident = &def.pallet_struct.pallet;
@@ -52,7 +54,6 @@ fn expand_view_function(
 	let type_use_gen = &def.type_use_generics(span);
 	let trait_use_gen = &def.trait_use_generics(span);
 	let capture_docs = if cfg!(feature = "no-metadata-docs") { "never" } else { "always" };
-	let where_clause = &view_fns_impl.where_clause;
 
 	let query_struct_ident = view_fn.query_struct_ident();
 	let view_fn_name = &view_fn.name;
@@ -115,15 +116,18 @@ fn expand_view_function(
 	}
 }
 
-fn impl_dispatch_query(def: &Def, view_fns_impl: &ViewFunctionsImplDef) -> TokenStream {
-	let span = view_fns_impl.attr_span;
+fn impl_dispatch_query(
+	def: &Def,
+	span: Span,
+	where_clause: Option<&syn::WhereClause>,
+	view_fns: &[ViewFunctionDef],
+) -> TokenStream {
 	let frame_support = &def.frame_support;
 	let pallet_ident = &def.pallet_struct.pallet;
 	let type_impl_gen = &def.type_impl_generics(span);
 	let type_use_gen = &def.type_use_generics(span);
-	let where_clause = &view_fns_impl.where_clause;
 
-	let query_match_arms = view_fns_impl.view_functions.iter().map(|view_fn| {
+	let query_match_arms = view_fns.iter().map(|view_fn| {
 		let query_struct_ident = view_fn.query_struct_ident();
 		quote::quote! {
 			<#query_struct_ident<#type_use_gen> as #frame_support::traits::QueryIdSuffix>::SUFFIX => {
