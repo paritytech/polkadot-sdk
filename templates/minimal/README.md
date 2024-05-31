@@ -11,7 +11,19 @@
 
 </div>
 
-ℹ️ This template is a minimal (in terms of complexity and the number of components) template for building a blockchain node.
+🤏 This template is a minimal (in terms of complexity and the number of components) template for building a blockchain node.
+
+🔧 It's runtime is configured of a single custom pallet as a staring point, and a handful of ready-made pallets such as a [Balances pallet](https://paritytech.github.io/polkadot-sdk/master/pallet_balances/index.html).
+
+👤 The template has no consensus configured - it is best for experimenting with a single node network.
+
+## Template Structure
+
+A Polkadot SDK based project such as this one consists of:
+
+- 💿 a [Node](./node/README.md) - the binary application.
+- 🧮 the [Runtime](./runtime/README.md) - the core logic of the blockchain.
+- 🎨 the [Pallets](./pallets/README.md) - from which the runtime is constructed.
 
 ## Getting Started
 
@@ -65,14 +77,6 @@ available on [IPFS](https://dotapps.io/).
 
 🧑‍🔧 You can also find the source code and instructions for hosting your own instance in the
 [`polkadot-js/apps`](https://github.com/polkadot-js/apps) repository.
-
-## Template Structure
-
-A Polkadot SDK based project such as this one consists of:
-
-- 💿 a [Node](./node/README.md) - the binary application.
-- 🧮 the [Runtime](./runtime/README.md) - the core logic of the blockchain.
-- 🎨 the [Pallets](./pallets/README.md) - from which the runtime is constructed.
 
 ## Contributing
 
