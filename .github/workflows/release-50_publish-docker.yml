@@ -115,12 +115,12 @@ jobs:
           RELEASE_ID=$(check_release_id "${{ inputs.release_id }}")
           fetch_release_artifacts
 
-      - name: Cache the artifacts
-        uses: actions/cache@e12d46a63a90f2fae62d114769bbf2a179198b5c # v3.3.3
-        with:
-          key: artifacts-${{ env.BINARY }}-${{ github.sha }}
-          path: |
-            ./release-artifacts/${{ env.BINARY }}/**/*
+      # - name: Cache the artifacts
+      #   uses: actions/cache@e12d46a63a90f2fae62d114769bbf2a179198b5c # v3.3.3
+      #   with:
+      #     key: artifacts-${{ env.BINARY }}-${{ github.sha }}
+      #     path: |
+      #       ./release-artifacts/${{ env.BINARY }}/**/*
 
   build-container: # this job will be triggered for the polkadot-parachain rc and release or polkadot rc image build
     if: ${{ inputs.binary == 'polkadot-parachain' || inputs.binary == 'chain-spec-builder' || inputs.image_type == 'rc' }}
@@ -132,13 +132,13 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
 
-      - name: Get artifacts from cache
-        uses: actions/cache@e12d46a63a90f2fae62d114769bbf2a179198b5c # v3.3.3
-        with:
-          key: artifacts-${{ env.BINARY }}-${{ github.sha }}
-          fail-on-cache-miss: true
-          path: |
-            ./release-artifacts/${{ env.BINARY }}/**/*
+      # - name: Get artifacts from cache
+      #   uses: actions/cache@e12d46a63a90f2fae62d114769bbf2a179198b5c # v3.3.3
+      #   with:
+      #     key: artifacts-${{ env.BINARY }}-${{ github.sha }}
+      #     fail-on-cache-miss: true
+      #     path: |
+      #       ./release-artifacts/${{ env.BINARY }}/**/*
 
       - name: Check sha256 ${{ env.BINARY }}
         if: ${{ inputs.binary == 'polkadot-parachain' || inputs.binary == 'polkadot' }}
