@@ -70,7 +70,6 @@ parameter_types! {
 	pub static CoretimeWorkplan: BTreeMap<(u32, CoreIndex), Vec<(CoreAssignment, PartsOf57600)>> = Default::default();
 	pub static CoretimeUsage: BTreeMap<CoreIndex, Vec<(CoreAssignment, PartsOf57600)>> = Default::default();
 	pub static CoretimeInPool: CoreMaskBitCount = 0;
-	pub static NotifyRevenueInfo: Vec<(u32, u64)> = Default::default();
 }
 
 pub struct TestCoretimeProvider;
@@ -90,11 +89,10 @@ impl CoretimeInterface for TestCoretimeProvider {
 			);
 		}
 
-		let when = when as u32;
 		let mut total = 0;
 		CoretimeSpending::mutate(|s| {
 			s.retain(|(n, a)| {
-				if *n < when {
+				if *n < when as u32 {
 					total += a;
 					false
 				} else {
@@ -102,7 +100,7 @@ impl CoretimeInterface for TestCoretimeProvider {
 				}
 			})
 		});
-		NotifyRevenueInfo::mutate(|s| s.insert(0, (when, total)));
+		RevenueInbox::<Test>::set(Some(OnDemandRevenueRecord { until: when, amount: total }));
 	}
 	fn credit_account(who: Self::AccountId, amount: Self::Balance) {
 		CoretimeCredit::mutate(|c| c.entry(who).or_default().saturating_accrue(amount));
