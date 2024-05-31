@@ -102,10 +102,7 @@ use sp_std::{
 #[cfg(any(feature = "std", test))]
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
-use xcm::{
-	latest::prelude::*, VersionedAssetId, VersionedAssets, VersionedLocation,
-	VersionedXcm,
-};
+use xcm::{latest::prelude::*, VersionedAssetId, VersionedAssets, VersionedLocation, VersionedXcm};
 use xcm_builder::PayOverXcm;
 
 use xcm_fee_payment_runtime_api::{

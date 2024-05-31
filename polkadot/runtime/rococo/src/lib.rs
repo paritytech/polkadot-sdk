@@ -106,10 +106,7 @@ use sp_staking::SessionIndex;
 #[cfg(any(feature = "std", test))]
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
-use xcm::{
-	latest::prelude::*, VersionedAssetId, VersionedAssets, VersionedLocation,
-	VersionedXcm,
-};
+use xcm::{latest::prelude::*, VersionedAssetId, VersionedAssets, VersionedLocation, VersionedXcm};
 use xcm_builder::PayOverXcm;
 
 pub use frame_system::Call as SystemCall;
