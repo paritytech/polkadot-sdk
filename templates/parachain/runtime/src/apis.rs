@@ -47,10 +47,26 @@ use super::{
 	SLOT_DURATION, VERSION,
 };
 
+// we move some impls outside so we can easily use them with `docify`.
+impl Runtime {
+	#[docify::export]
+	fn impl_slot_duration() -> sp_consensus_aura::SlotDuration {
+		sp_consensus_aura::SlotDuration::from_millis(SLOT_DURATION)
+	}
+
+	#[docify::export]
+	fn impl_can_build_upon(
+		included_hash: <Block as BlockT>::Hash,
+		slot: cumulus_primitives_aura::Slot,
+	) -> bool {
+		ConsensusHook::can_build_upon(included_hash, slot)
+	}
+}
+
 impl_runtime_apis! {
 	impl sp_consensus_aura::AuraApi<Block, AuraId> for Runtime {
 		fn slot_duration() -> sp_consensus_aura::SlotDuration {
-			sp_consensus_aura::SlotDuration::from_millis(SLOT_DURATION)
+			Runtime::impl_slot_duration()
 		}
 
 		fn authorities() -> Vec<AuraId> {
@@ -63,7 +79,7 @@ impl_runtime_apis! {
 			included_hash: <Block as BlockT>::Hash,
 			slot: cumulus_primitives_aura::Slot,
 		) -> bool {
-			ConsensusHook::can_build_upon(included_hash, slot)
+			Runtime::impl_can_build_upon()
 		}
 	}
 
