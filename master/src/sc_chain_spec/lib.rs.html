@@ -568,6 +568,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#417" id="417">417</a>
 <a href="#418" id="418">418</a>
 <a href="#419" id="419">419</a>
+<a href="#420" id="420">420</a>
+<a href="#421" id="421">421</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -922,6 +924,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// This can be used by tools to determine the type of a chain for displaying
 /// additional information or enabling additional features.
 </span><span class="attr">#[derive(serde::Serialize, serde::Deserialize, Debug, PartialEq, Clone)]
+#[cfg_attr(feature = <span class="string">"clap"</span>, derive(clap::ValueEnum))]
 </span><span class="kw">pub enum </span>ChainType {
 	<span class="doccomment">/// A development chain that runs mainly on one node.
 	</span>Development,
@@ -930,6 +933,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// A live chain.
 	</span>Live,
 	<span class="doccomment">/// Some custom chain type.
+	</span><span class="attr">#[cfg_attr(feature = <span class="string">"clap"</span>, clap(skip))]
 	</span>Custom(String),
 }
 

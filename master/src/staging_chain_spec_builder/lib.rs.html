@@ -456,6 +456,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#305" id="305">305</a>
 <a href="#306" id="306">306</a>
 <a href="#307" id="307">307</a>
+<a href="#308" id="308">308</a>
+<a href="#309" id="309">309</a>
+<a href="#310" id="310">310</a>
+<a href="#311" id="311">311</a>
+<a href="#312" id="312">312</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -578,7 +583,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">use </span>std::{fs, path::PathBuf};
 
 <span class="kw">use </span>clap::{Parser, Subcommand};
-<span class="kw">use </span>sc_chain_spec::{GenericChainSpec, GenesisConfigBuilderRuntimeCaller};
+<span class="kw">use </span>sc_chain_spec::{ChainType, GenericChainSpec, GenesisConfigBuilderRuntimeCaller};
 <span class="kw">use </span>serde_json::Value;
 
 <span class="doccomment">/// A utility to easily create a chain spec definition.
@@ -612,6 +617,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// The chain id.
 	</span><span class="attr">#[arg(long, short = <span class="string">'i'</span>, default_value = <span class="string">"custom"</span>)]
 	</span>chain_id: String,
+	<span class="doccomment">/// The chain type.
+	</span><span class="attr">#[arg(value_enum, short = <span class="string">'t'</span>, default_value = <span class="string">"live"</span>)]
+	</span>chain_type: ChainType,
 	<span class="doccomment">/// The path to runtime wasm blob.
 	</span><span class="attr">#[arg(long, short)]
 	</span>runtime_wasm_path: PathBuf,
@@ -719,10 +727,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">let </span>code = fs::read(cmd.runtime_wasm_path.as_path())
 		.map_err(|e| <span class="macro">format!</span>(<span class="string">"wasm blob shall be readable {e}"</span>))<span class="question-mark">?</span>;
 
+	<span class="kw">let </span>chain_type = <span class="kw-2">&amp;</span>cmd.chain_type;
+
 	<span class="kw">let </span>builder = GenericChainSpec::&lt;()&gt;::builder(<span class="kw-2">&amp;</span>code[..], Default::default())
 		.with_name(<span class="kw-2">&amp;</span>cmd.chain_name[..])
 		.with_id(<span class="kw-2">&amp;</span>cmd.chain_id[..])
-		.with_chain_type(sc_chain_spec::ChainType::Live);
+		.with_chain_type(chain_type.clone());
 
 	<span class="kw">let </span>builder = <span class="kw">match </span>cmd.action {
 		GenesisBuildAction::NamedPreset(NamedPresetCmd { <span class="kw-2">ref </span>preset_name }) =&gt;
