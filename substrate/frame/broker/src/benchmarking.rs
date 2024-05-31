@@ -31,7 +31,10 @@ use frame_support::{
 use frame_system::{Pallet as System, RawOrigin};
 use sp_arithmetic::{traits::Zero, Perbill};
 use sp_core::Get;
-use sp_runtime::{traits::BlockNumberProvider, SaturatedConversion, Saturating};
+use sp_runtime::{
+	traits::{BlockNumberProvider, MaybeConvert},
+	SaturatedConversion, Saturating,
+};
 use sp_std::{vec, vec::Vec};
 
 const SEED: u32 = 0;
@@ -812,7 +815,7 @@ mod benches {
 		// Assume max auto renewals for worst case.
 		(0..T::MaxAutoRenewals::get()).try_for_each(|indx| -> Result<(), BenchmarkError> {
 			let task = 1000 + indx;
-			let caller: T::AccountId = T::SovereignAccountOf::sovereign_account(task)
+			let caller: T::AccountId = T::SovereignAccountOf::maybe_convert(task)
 				.expect("Failed to get sovereign account");
 			T::Currency::set_balance(
 				&caller.clone(),
@@ -825,7 +828,7 @@ mod benches {
 			Broker::<T>::do_assign(region, None, task, Final)
 				.map_err(|_| BenchmarkError::Weightless)?;
 
-			Broker::<T>::do_enable_auto_renew(task, region.core, None)?;
+			Broker::<T>::do_enable_auto_renew(caller, region.core, task, None)?;
 
 			Ok(())
 		})?;
@@ -857,7 +860,7 @@ mod benches {
 		// Make sure all cores got renewed:
 		(0..T::MaxAutoRenewals::get()).for_each(|indx| {
 			let task = 1000 + indx;
-			let who = T::SovereignAccountOf::sovereign_account(task)
+			let who = T::SovereignAccountOf::maybe_convert(task)
 				.expect("Failed to get sovereign account");
 			assert_has_event::<T>(
 				Event::Renewed {
@@ -994,8 +997,8 @@ mod benches {
 
 		advance_to::<T>(2);
 
-		let caller: T::AccountId = T::SovereignAccountOf::sovereign_account(2001)
-			.expect("Failed to get sovereign account");
+		let caller: T::AccountId =
+			T::SovereignAccountOf::maybe_convert(2001).expect("Failed to get sovereign account");
 		T::Currency::set_balance(
 			&caller.clone(),
 			T::Currency::minimum_balance().saturating_add(100u32.into()),
@@ -1012,7 +1015,7 @@ mod benches {
 		// The most 'intensive' path is when we renew the core upon enabling auto-renewal.
 
 		#[extrinsic_call]
-		_(RawOrigin::Signed(caller), region.core, None);
+		_(RawOrigin::Signed(caller), region.core, 2001, None);
 
 		assert_last_event::<T>(Event::AutoRenewalEnabled { core: region.core, task: 2001 }.into());
 		// Make sure we indeed renewed:
@@ -1031,8 +1034,8 @@ mod benches {
 
 		advance_to::<T>(2);
 
-		let caller: T::AccountId = T::SovereignAccountOf::sovereign_account(2001)
-			.expect("Failed to get sovereign account");
+		let caller: T::AccountId =
+			T::SovereignAccountOf::maybe_convert(2001).expect("Failed to get sovereign account");
 		T::Currency::set_balance(
 			&caller.clone(),
 			T::Currency::minimum_balance().saturating_add(100u32.into()),
@@ -1044,10 +1047,10 @@ mod benches {
 		Broker::<T>::do_assign(region, None, 2001, Final)
 			.map_err(|_| BenchmarkError::Weightless)?;
 
-		Broker::<T>::do_enable_auto_renew(2001, region.core, None)?;
+		Broker::<T>::do_enable_auto_renew(caller.clone(), region.core, 2001, None)?;
 
 		#[extrinsic_call]
-		_(RawOrigin::Signed(caller), region.core);
+		_(RawOrigin::Signed(caller), region.core, 2001);
 
 		assert_last_event::<T>(Event::AutoRenewalDisabled { core: region.core, task: 2001 }.into());
 
