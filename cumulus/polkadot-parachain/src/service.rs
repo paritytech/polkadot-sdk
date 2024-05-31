@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
-use codec::{Codec, Decode};
+use codec::Decode;
 use cumulus_client_cli::CollatorOptions;
 use cumulus_client_collator::service::CollatorService;
 use cumulus_client_consensus_aura::collators::lookahead::{self as aura, Params as AuraParams};
@@ -29,7 +29,6 @@ use cumulus_client_service::{
 use cumulus_primitives_core::{relay_chain::ValidationCode, ParaId};
 use cumulus_relay_chain_interface::{OverseerHandle, RelayChainInterface};
 use sc_rpc::DenyUnsafe;
-use sp_core::Pair;
 
 use jsonrpsee::RpcModule;
 
@@ -48,8 +47,7 @@ use sc_network::{config::FullNetworkConfiguration, service::traits::NetworkBacke
 use sc_network_sync::SyncingService;
 use sc_service::{Configuration, PartialComponents, TFullBackend, TFullClient, TaskManager};
 use sc_telemetry::{Telemetry, TelemetryHandle, TelemetryWorker, TelemetryWorkerHandle};
-use sp_api::{ApiExt, ConstructRuntimeApi, ProvideRuntimeApi};
-use sp_consensus_aura::AuraApi;
+use sp_api::{ConstructRuntimeApi, ProvideRuntimeApi};
 use sp_core::traits::SpawnEssentialNamed;
 use sp_keystore::KeystorePtr;
 use sp_runtime::{
@@ -58,6 +56,10 @@ use sp_runtime::{
 };
 use std::{marker::PhantomData, sync::Arc, time::Duration};
 
+use polkadot_parachain_common::{
+	aura::{AuraIdT, AuraRuntimeApi},
+	ConstructNodeRuntimeApi,
+};
 use polkadot_primitives::CollatorPair;
 
 #[cfg(not(feature = "runtime-benchmarks"))]
@@ -95,13 +97,7 @@ pub fn new_partial<RuntimeApi, BIQ>(
 	build_import_queue: BIQ,
 ) -> Result<Service<RuntimeApi>, sc_service::Error>
 where
-	RuntimeApi: ConstructRuntimeApi<Block, ParachainClient<RuntimeApi>> + Send + Sync + 'static,
-	RuntimeApi::RuntimeApi: sp_transaction_pool::runtime_api::TaggedTransactionQueue<Block>
-		+ sp_api::Metadata<Block>
-		+ sp_session::SessionKeys<Block>
-		+ sp_api::ApiExt<Block>
-		+ sp_offchain::OffchainWorkerApi<Block>
-		+ sp_block_builder::BlockBuilder<Block>,
+	RuntimeApi: ConstructNodeRuntimeApi<Block, ParachainClient<RuntimeApi>>,
 	BIQ: FnOnce(
 		Arc<ParachainClient<RuntimeApi>>,
 		ParachainBlockImport<RuntimeApi>,
@@ -195,16 +191,7 @@ async fn start_node_impl<RuntimeApi, RB, BIQ, SC, Net>(
 	hwbench: Option<sc_sysinfo::HwBench>,
 ) -> sc_service::error::Result<(TaskManager, Arc<ParachainClient<RuntimeApi>>)>
 where
-	RuntimeApi: ConstructRuntimeApi<Block, ParachainClient<RuntimeApi>> + Send + Sync + 'static,
-	RuntimeApi::RuntimeApi: sp_transaction_pool::runtime_api::TaggedTransactionQueue<Block>
-		+ sp_api::Metadata<Block>
-		+ sp_session::SessionKeys<Block>
-		+ sp_api::ApiExt<Block>
-		+ sp_offchain::OffchainWorkerApi<Block>
-		+ sp_block_builder::BlockBuilder<Block>
-		+ cumulus_primitives_core::CollectCollationInfo<Block>
-		+ pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block, Balance>
-		+ substrate_frame_rpc_system::AccountNonceApi<Block, AccountId, Nonce>,
+	RuntimeApi: ConstructNodeRuntimeApi<Block, ParachainClient<RuntimeApi>>,
 	RB: Fn(
 			DenyUnsafe,
 			Arc<ParachainClient<RuntimeApi>>,
@@ -532,22 +519,16 @@ struct Verifier<Client, AuraId> {
 }
 
 #[async_trait::async_trait]
-impl<Client, AuraId> VerifierT<Block> for Verifier<Client, AuraId>
+impl<Client, AuraId: AuraIdT> VerifierT<Block> for Verifier<Client, AuraId>
 where
 	Client: sp_api::ProvideRuntimeApi<Block> + Send + Sync,
-	Client::Api: AuraApi<Block, AuraId>,
-	AuraId: Send + Sync + Codec,
+	Client::Api: AuraRuntimeApi<Block, AuraId>,
 {
 	async fn verify(
 		&mut self,
 		block_import: BlockImportParams<Block>,
 	) -> Result<BlockImportParams<Block>, String> {
-		if self
-			.client
-			.runtime_api()
-			.has_api::<dyn AuraApi<Block, AuraId>>(*block_import.header.parent_hash())
-			.unwrap_or(false)
-		{
+		if self.client.runtime_api().has_aura_api(*block_import.header.parent_hash()) {
 			self.aura_verifier.get_mut().verify(block_import).await
 		} else {
 			self.relay_chain_verifier.verify(block_import).await
@@ -557,7 +538,7 @@ where
 
 /// Build the import queue for parachain runtimes that started with relay chain consensus and
 /// switched to aura.
-pub fn build_relay_to_aura_import_queue<RuntimeApi, AuraId: AppCrypto>(
+pub fn build_relay_to_aura_import_queue<RuntimeApi, AuraId: AuraIdT>(
 	client: Arc<ParachainClient<RuntimeApi>>,
 	block_import: ParachainBlockImport<RuntimeApi>,
 	config: &Configuration,
@@ -565,16 +546,8 @@ pub fn build_relay_to_aura_import_queue<RuntimeApi, AuraId: AppCrypto>(
 	task_manager: &TaskManager,
 ) -> Result<sc_consensus::DefaultImportQueue<Block>, sc_service::Error>
 where
-	RuntimeApi: ConstructRuntimeApi<Block, ParachainClient<RuntimeApi>> + Send + Sync + 'static,
-	RuntimeApi::RuntimeApi: sp_transaction_pool::runtime_api::TaggedTransactionQueue<Block>
-		+ sp_api::Metadata<Block>
-		+ sp_session::SessionKeys<Block>
-		+ sp_api::ApiExt<Block>
-		+ sp_offchain::OffchainWorkerApi<Block>
-		+ sp_block_builder::BlockBuilder<Block>
-		+ sp_consensus_aura::AuraApi<Block, <<AuraId as AppCrypto>::Pair as Pair>::Public>,
-	<<AuraId as AppCrypto>::Pair as Pair>::Signature:
-		TryFrom<Vec<u8>> + std::hash::Hash + sp_runtime::traits::Member + Codec,
+	RuntimeApi: ConstructNodeRuntimeApi<Block, ParachainClient<RuntimeApi>>,
+	RuntimeApi::RuntimeApi: AuraRuntimeApi<Block, AuraId>,
 {
 	let verifier_client = client.clone();
 
@@ -654,11 +627,7 @@ pub async fn start_generic_aura_lookahead_node<Net: NetworkBackend<Block, Hash>>
 ///
 /// Uses the lookahead collator to support async backing.
 #[sc_tracing::logging::prefix_logs_with("Parachain")]
-pub async fn start_asset_hub_lookahead_node<
-	RuntimeApi,
-	AuraId: AppCrypto + Send + Codec + Sync,
-	Net,
->(
+pub async fn start_asset_hub_lookahead_node<RuntimeApi, AuraId: AuraIdT, Net>(
 	parachain_config: Configuration,
 	polkadot_config: Configuration,
 	collator_options: CollatorOptions,
@@ -666,20 +635,10 @@ pub async fn start_asset_hub_lookahead_node<
 	hwbench: Option<sc_sysinfo::HwBench>,
 ) -> sc_service::error::Result<(TaskManager, Arc<ParachainClient<RuntimeApi>>)>
 where
-	RuntimeApi: ConstructRuntimeApi<Block, ParachainClient<RuntimeApi>> + Send + Sync + 'static,
-	RuntimeApi::RuntimeApi: sp_transaction_pool::runtime_api::TaggedTransactionQueue<Block>
-		+ sp_api::Metadata<Block>
-		+ sp_session::SessionKeys<Block>
-		+ sp_api::ApiExt<Block>
-		+ sp_offchain::OffchainWorkerApi<Block>
-		+ sp_block_builder::BlockBuilder<Block>
-		+ cumulus_primitives_core::CollectCollationInfo<Block>
-		+ sp_consensus_aura::AuraApi<Block, <<AuraId as AppCrypto>::Pair as Pair>::Public>
+	RuntimeApi: ConstructNodeRuntimeApi<Block, ParachainClient<RuntimeApi>>,
+	RuntimeApi::RuntimeApi: AuraRuntimeApi<Block, AuraId>
 		+ pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block, Balance>
-		+ substrate_frame_rpc_system::AccountNonceApi<Block, AccountId, Nonce>
-		+ cumulus_primitives_aura::AuraUnincludedSegmentApi<Block>,
-	<<AuraId as AppCrypto>::Pair as Pair>::Signature:
-		TryFrom<Vec<u8>> + std::hash::Hash + sp_runtime::traits::Member + Codec,
+		+ substrate_frame_rpc_system::AccountNonceApi<Block, AccountId, Nonce>,
 	Net: NetworkBackend<Block, Hash>,
 {
 	start_node_impl::<RuntimeApi, _, _, _, Net>(
@@ -747,11 +706,7 @@ where
 
 					// Check if we have upgraded to an Aura compatible runtime and transition if
 					// necessary.
-					if client
-						.runtime_api()
-						.has_api::<dyn AuraApi<Block, AuraId>>(last_head_hash)
-						.unwrap_or(false)
-					{
+					if client.runtime_api().has_aura_api(last_head_hash) {
 						// Respond to this request before transitioning to Aura.
 						request.complete(None);
 						break

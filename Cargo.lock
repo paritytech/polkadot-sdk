@@ -13648,6 +13648,7 @@ dependencies = [
  "people-rococo-runtime",
  "people-westend-runtime",
  "polkadot-cli",
+ "polkadot-parachain-common",
  "polkadot-primitives",
  "polkadot-service",
  "rococo-parachain-runtime",
@@ -13701,6 +13702,17 @@ dependencies = [
 [[package]]
 name = "polkadot-parachain-common"
 version = "0.1.0"
+dependencies = [
+ "cumulus-primitives-aura",
+ "cumulus-primitives-core",
+ "parity-scale-codec",
+ "sp-api",
+ "sp-block-builder",
+ "sp-consensus-aura",
+ "sp-runtime",
+ "sp-session",
+ "sp-transaction-pool",
+]
 
 [[package]]
 name = "polkadot-parachain-primitives"

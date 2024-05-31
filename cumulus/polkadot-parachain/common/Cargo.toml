@@ -8,3 +8,18 @@ license = "Apache-2.0"
 
 [lints]
 workspace = true
+
+[dependencies]
+codec = { package = "parity-scale-codec", version = "3.6.12" }
+
+# Substrate
+sp-api = { path = "../../../substrate/primitives/api" }
+sp-block-builder = { path = "../../../substrate/primitives/block-builder" }
+sp-consensus-aura = { path = "../../../substrate/primitives/consensus/aura" }
+sp-runtime = { path = "../../../substrate/primitives/runtime", default-features = false }
+sp-session = { path = "../../../substrate/primitives/session" }
+sp-transaction-pool = { path = "../../../substrate/primitives/transaction-pool" }
+
+# Cumulus
+cumulus-primitives-aura = { path = "../../primitives/aura" }
+cumulus-primitives-core = { path = "../../primitives/core" }
