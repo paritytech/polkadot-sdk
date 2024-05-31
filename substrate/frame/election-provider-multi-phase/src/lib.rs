@@ -99,7 +99,7 @@
 //! solution was accepted or not processed. The deposit will be slashed if the submission is not
 //! valid. The amount to deposit per submission *may* depend on multiple factors, namely the size of
 //! the submission (in bytes and weight), the deposit base, if the submitters have submitted a
-//! successult solution (and therefore are whitelisted) and, potentially, on the size of the
+//! successful solution (and therefore are whitelisted) and, potentially, on the size of the
 //! submission queue.
 //!
 //! The base deposit of a submission is calculated based on whether a submitter is whitelisted. Up
