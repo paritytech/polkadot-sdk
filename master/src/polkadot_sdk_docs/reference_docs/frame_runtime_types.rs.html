@@ -455,6 +455,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#304" id="304">304</a>
 <a href="#305" id="305">305</a>
 <a href="#306" id="306">306</a>
+<a href="#307" id="307">307</a>
+<a href="#308" id="308">308</a>
+<a href="#309" id="309">309</a>
+<a href="#310" id="310">310</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! # FRAME Runtime Types
 //!
 //! This reference document briefly explores the idea around types generated at the runtime level by
@@ -559,6 +563,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! bounds, such as being [`frame::traits::IsSubType`]:
 </span><span class="attr">#![doc = <span class="macro">docify::embed!</span>(<span class="string">"./src/reference_docs/frame_runtime_types.rs"</span>, custom_runtime_call_usages)]
 </span><span class="doccomment">//!
+//! &gt; Once Rust's "_Associated Type Bounds RFC_" is usable, this syntax can be used to
+//! &gt; simplify the above scenario. See [this](https://github.com/paritytech/polkadot-sdk/issues/3743)
+//! &gt; issue for more information.
+//!
 //! ### Asserting Equality of Multiple Runtime Composite Enums
 //!
 //! Recall that in the above example, `&lt;T as Config&gt;::RuntimeCall` and `&lt;T as
