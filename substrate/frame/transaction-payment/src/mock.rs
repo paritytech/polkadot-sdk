@@ -17,9 +17,6 @@
 
 use super::*;
 use crate as pallet_transaction_payment;
-
-use sp_runtime::traits::{IdentityLookup};
-
 use frame_support::{
 	derive_impl,
 	dispatch::DispatchClass,
@@ -72,9 +69,7 @@ parameter_types! {
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Runtime {
 	type BlockWeights = BlockWeights;
-	type Nonce = u64;
 	type Block = Block;
-	type PalletInfo = PalletInfo;
 	type AccountData = pallet_balances::AccountData<Self::AccountId>;
 }
 

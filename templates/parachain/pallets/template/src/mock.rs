@@ -1,7 +1,6 @@
 use frame_support::{derive_impl, parameter_types};
 use frame_system as system;
 use sp_runtime::{
-	traits::{IdentityLookup},
 	BuildStorage,
 };
 
@@ -22,7 +21,6 @@ parameter_types! {
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl system::Config for Test {
-	type Nonce = u64;
 	type Block = Block;
 }
 

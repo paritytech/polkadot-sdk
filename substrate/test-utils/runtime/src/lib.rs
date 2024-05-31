@@ -360,7 +360,6 @@ impl frame_system::pallet::Config for Runtime {
 	type AccountId = AccountId;
 	type Lookup = sp_runtime::traits::IdentityLookup<Self::AccountId>;
 	type Block = Block;
-	type BlockHashCount = ConstU64<2400>;
 	type AccountData = pallet_balances::AccountData<Balance>;
 }
 

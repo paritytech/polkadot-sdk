@@ -4,7 +4,7 @@ use super::*;
 
 use frame_support::{
 	derive_impl, parameter_types,
-	traits::{ConstU32, Everything},
+	traits::{ConstU32},
 	weights::IdentityFee,
 };
 use hex_literal::hex;
@@ -19,7 +19,7 @@ use snowbridge_core::{
 use snowbridge_router_primitives::inbound::MessageToXcm;
 use sp_core::{H160, H256};
 use sp_runtime::{
-	traits::{BlakeTwo256, IdentifyAccount, IdentityLookup, Verify},
+	traits::{IdentifyAccount, IdentityLookup, Verify},
 	BuildStorage, FixedU128, MultiSignature,
 };
 use sp_std::{convert::From, default::Default};
@@ -47,18 +47,9 @@ type Balance = u128;
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
-	type BaseCallFilter = Everything;
-	type RuntimeOrigin = RuntimeOrigin;
-	type RuntimeCall = RuntimeCall;
-	type RuntimeTask = RuntimeTask;
-	type Hash = H256;
-	type Hashing = BlakeTwo256;
 	type AccountId = AccountId;
 	type Lookup = IdentityLookup<Self::AccountId>;
-	type RuntimeEvent = RuntimeEvent;
-	type PalletInfo = PalletInfo;
 	type AccountData = pallet_balances::AccountData<u128>;
-	type Nonce = u64;
 	type Block = Block;
 }
 

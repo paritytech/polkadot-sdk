@@ -29,7 +29,7 @@ use frame_support::{
 use frame_system as system;
 use frame_system::EnsureRoot;
 use pallet_transaction_payment::FungibleAdapter;
-use sp_runtime::traits::{ConvertInto, IdentityLookup, SaturatedConversion};
+use sp_runtime::traits::{ConvertInto, SaturatedConversion};
 
 type Block = frame_system::mocking::MockBlock<Runtime>;
 type Balance = u64;
@@ -73,7 +73,6 @@ parameter_types! {
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Runtime {
 	type BlockWeights = BlockWeights;
-	type Nonce = u64;
 	type Block = Block;
 	type AccountData = pallet_balances::AccountData<u64>;
 }

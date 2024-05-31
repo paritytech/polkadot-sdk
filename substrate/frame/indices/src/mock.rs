@@ -22,7 +22,7 @@
 use crate::{self as pallet_indices, Config};
 use frame_support::{
 	derive_impl,
-	traits::{ConstU32, ConstU64},
+	traits::{ConstU64},
 };
 use sp_runtime::BuildStorage;
 

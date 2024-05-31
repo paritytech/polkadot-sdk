@@ -23,9 +23,6 @@ use codec::Encode;
 use frame_support::derive_impl;
 use sp_runtime::{traits::IdentityLookup, BuildStorage};
 
-type AccountId = u64;
-type Nonce = u32;
-
 type Block = frame_system::mocking::MockBlock<Test>;
 
 frame_support::construct_runtime!(
@@ -37,7 +34,6 @@ frame_support::construct_runtime!(
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
-	type Nonce = Nonce;
 	type Block = Block;
 }
 

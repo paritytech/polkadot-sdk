@@ -28,14 +28,13 @@ use frame_support::{
 };
 use frame_system::EnsureSignedBy;
 use sp_runtime::{
-	traits::{BlakeTwo256, IdentityLookup},
+	traits::{BlakeTwo256},
 	BuildStorage,
 };
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
 	type BaseCallFilter = InsideBoth<Everything, TxPause>;
-	type Nonce = u64;
 	type Block = Block;
 	type AccountData = pallet_balances::AccountData<u64>;
 }

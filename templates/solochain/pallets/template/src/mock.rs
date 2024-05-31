@@ -1,7 +1,6 @@
 use crate as pallet_template;
 use frame_support::{derive_impl};
 use sp_runtime::{
-	traits::{IdentityLookup},
 	BuildStorage,
 };
 
@@ -18,7 +17,6 @@ frame_support::construct_runtime!(
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
-	type Nonce = u64;
 	type Block = Block;
 }
 

@@ -29,7 +29,6 @@ use sp_runtime::{
 };
 
 type AccountId = u128;
-type Nonce = u32;
 type BlockNumber = u64;
 type Balance = u128;
 
