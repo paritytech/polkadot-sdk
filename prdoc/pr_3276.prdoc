@@ -3,7 +3,7 @@ title: Adding `try-state` hook to core-fellowship pallet
 doc:
   - audience: Runtime User
     description: |
-        Ranked members wiith zero demotion periods should not submit an evidence with a wish to retain, subsequently no promotion available for T::MaxRank members.
+        Ranked members with zero demotion periods should not submit an evidence with a wish to retain, subsequently no promotion available for T::MaxRank members.
         Candidate evidence should only be submitted with a Wish:Promotion.
 
 crates:
