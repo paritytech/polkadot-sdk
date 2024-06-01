@@ -38,6 +38,7 @@ pub use parachains_common::{AccountId, AuraId, Balance, Block, Hash, Nonce};
 use cumulus_client_consensus_relay_chain::Verifier as RelayChainVerifier;
 use futures::prelude::*;
 use prometheus_endpoint::Registry;
+use sc_client_api::Backend as ClientApiBackend;
 use sc_consensus::{
 	import_queue::{BasicQueue, Verifier as VerifierT},
 	BlockImportParams, ImportQueue,
@@ -48,6 +49,7 @@ use sc_network_sync::SyncingService;
 use sc_service::{Configuration, PartialComponents, TFullBackend, TFullClient, TaskManager};
 use sc_telemetry::{Telemetry, TelemetryHandle, TelemetryWorker, TelemetryWorkerHandle};
 use sp_api::{ConstructRuntimeApi, ProvideRuntimeApi};
+use sp_blockchain::HeaderBackend;
 use sp_core::traits::SpawnEssentialNamed;
 use sp_keystore::KeystorePtr;
 use sp_runtime::{
@@ -825,14 +827,14 @@ fn start_relay_chain_consensus(
 }
 
 /// Start consensus using the lookahead aura collator.
-fn start_lookahead_aura_consensus(
-	client: Arc<ParachainClient<FakeRuntimeApi>>,
-	block_import: ParachainBlockImport<FakeRuntimeApi>,
+fn start_lookahead_aura_consensus<RuntimeApi>(
+	client: Arc<ParachainClient<RuntimeApi>>,
+	block_import: ParachainBlockImport<RuntimeApi>,
 	prometheus_registry: Option<&Registry>,
 	telemetry: Option<TelemetryHandle>,
 	task_manager: &TaskManager,
 	relay_chain_interface: Arc<dyn RelayChainInterface>,
-	transaction_pool: Arc<sc_transaction_pool::FullPool<Block, ParachainClient<FakeRuntimeApi>>>,
+	transaction_pool: Arc<sc_transaction_pool::FullPool<Block, ParachainClient<RuntimeApi>>>,
 	sync_oracle: Arc<SyncingService<Block>>,
 	keystore: KeystorePtr,
 	relay_chain_slot_duration: Duration,
@@ -841,7 +843,16 @@ fn start_lookahead_aura_consensus(
 	overseer_handle: OverseerHandle,
 	announce_block: Arc<dyn Fn(Hash, Option<Vec<u8>>) + Send + Sync>,
 	backend: Arc<ParachainBackend>,
-) -> Result<(), sc_service::Error> {
+) -> Result<(), sc_service::Error>
+where
+	RuntimeApi: ConstructNodeRuntimeApi<Block, ParachainClient<RuntimeApi>>,
+	RuntimeApi::RuntimeApi: AuraRuntimeApi<Block, AuraId>,
+{
+	let info = backend.blockchain().info();
+	if !client.runtime_api().has_aura_api(info.finalized_hash) {
+		return Err(sc_service::error::Error::Other("Missing aura runtime APIs".to_string()));
+	}
+
 	let proposer_factory = sc_basic_authorship::ProposerFactory::with_proof_recording(
 		task_manager.spawn_handle(),
 		client.clone(),
