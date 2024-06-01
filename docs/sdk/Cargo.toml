@@ -102,3 +102,7 @@ sp-version = { path = "../../substrate/primitives/version" }
 # XCM
 xcm = { package = "staging-xcm", path = "../../polkadot/xcm" }
 xcm-docs = { path = "../../polkadot/xcm/docs" }
+
+# runtime guides
+chain-spec-guide-runtime = { path = "./src/reference_docs/chain_spec_runtime" }
+
