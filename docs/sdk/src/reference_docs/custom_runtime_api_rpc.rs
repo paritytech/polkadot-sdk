@@ -1,7 +1,5 @@
 //! # Custom RPC do's and don'ts
 //!
-//! > Authors: @xlc, @kianenigma
-//!
 //! **TLDR:** don't create new custom RPCs. Instead, rely on custom Runtime APIs, combined with
 //! `state_call`
 //!
