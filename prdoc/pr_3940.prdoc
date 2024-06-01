@@ -1,0 +1,19 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: RFC-5: Add request revenue info
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Parially implemented RFC-5 in terms of revenue requests and notifications
+
+crates:
+  - name: polkadot-runtime-parachains
+    bump: major
+  - name: rococo-runtime
+    bump: major
+  - name: westend-runtime
+    bump: major
+  - name: pallet-broker
+    bump: minor
