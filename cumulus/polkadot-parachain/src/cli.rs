@@ -58,22 +58,13 @@ pub enum Subcommand {
 	Benchmark(frame_benchmarking_cli::BenchmarkCmd),
 }
 
-const AFTER_HELP_EXAMPLE: &str = color_print::cstr!(
-	r#"<bold><underline>Examples:</></>
-   <bold>polkadot-parachain --chain asset-hub-polkadot --sync warp -- --chain polkadot --sync warp</>
-           Launch a warp-syncing full node of the <italic>Asset Hub</> parachain on the <italic>Polkadot</> Relay Chain.
-   <bold>polkadot-parachain --chain asset-hub-polkadot --sync warp --relay-chain-rpc-url ws://rpc.example.com -- --chain polkadot</>
-           Launch a warp-syncing full node of the <italic>Asset Hub</> parachain on the <italic>Polkadot</> Relay Chain.
-           Uses <italic>ws://rpc.example.com</> as remote relay chain node.
- "#
-);
 #[derive(Debug, clap::Parser)]
 #[command(
 	propagate_version = true,
 	args_conflicts_with_subcommands = true,
 	subcommand_negates_reqs = true
 )]
-#[clap(after_help = AFTER_HELP_EXAMPLE)]
+#[clap(after_help = crate::EXAMPLES)]
 pub struct Cli {
 	#[command(subcommand)]
 	pub subcommand: Option<Subcommand>,
