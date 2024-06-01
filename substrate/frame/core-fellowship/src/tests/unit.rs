@@ -166,7 +166,8 @@ fn next_demotion(who: u64) -> u64 {
 	member.last_proof + demotion_period[TestClub::rank_of(&who).unwrap() as usize - 1]
 }
 
-fn evidence(e: u32) -> Evidence<Test, ()> {
+/// Generate mocked evidence from some seed.
+fn evidence(seed: u32) -> Evidence<Test, ()> {
 	e.encode()
 		.into_iter()
 		.cycle()
