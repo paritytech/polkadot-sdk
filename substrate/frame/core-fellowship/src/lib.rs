@@ -727,15 +727,15 @@ impl<T: Config<I>, I: 'static> RankedMembersSwapHandler<T::AccountId, u16> for P
 	fn swapped(old: &T::AccountId, new: &T::AccountId, _rank: u16) {
 		if old == new {
 			defensive!("Should not try to swap with self");
-			return;
+			return
 		}
 		if !Member::<T, I>::contains_key(old) {
 			defensive!("Should not try to swap non-member");
-			return;
+			return
 		}
 		if Member::<T, I>::contains_key(new) {
 			defensive!("Should not try to overwrite existing member");
-			return;
+			return
 		}
 
 		if let Some(member) = Member::<T, I>::take(old) {
