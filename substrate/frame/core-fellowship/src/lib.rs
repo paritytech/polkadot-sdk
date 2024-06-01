@@ -613,16 +613,18 @@ pub mod pallet {
 						T::Members::rank_of(&who).ok_or("Member not found in rank registry")?;
 
 					if rank > T::Members::min_rank() {
-						Self::ranked_member(rank, &who, params.clone())?;
+						Self::check_ranked_member(rank, &who, params.clone())?;
 					} else {
-						Self::unranked_member(&who)?;
+						Self::check_unranked_member(&who)?;
 					}
+				} else {
+					return Err(TryRuntimeError::Other("Member should exist, inconsistent mapping"));
 				}
 			}
 			Ok(())
 		}
 		#[cfg(any(feature = "try-runtime", test))]
-		fn ranked_member(
+		fn check_ranked_member(
 			rank: RankOf<T, I>,
 			who: &T::AccountId,
 			params: ParamsOf<T, I>,
@@ -656,7 +658,7 @@ pub mod pallet {
 		}
 
 		#[cfg(any(feature = "try-runtime", test))]
-		fn unranked_member(who: &T::AccountId) -> Result<(), TryRuntimeError> {
+		fn check_unranked_member(who: &T::AccountId) -> Result<(), TryRuntimeError> {
 			if let Some((wish, _evidence)) = MemberEvidence::<T, I>::get(&who) {
 				if wish == Wish::Retention {
 					return Err(TryRuntimeError::Other("Rentention disallowed for Rank < 1"));
@@ -725,15 +727,15 @@ impl<T: Config<I>, I: 'static> RankedMembersSwapHandler<T::AccountId, u16> for P
 	fn swapped(old: &T::AccountId, new: &T::AccountId, _rank: u16) {
 		if old == new {
 			defensive!("Should not try to swap with self");
-			return
+			return;
 		}
 		if !Member::<T, I>::contains_key(old) {
 			defensive!("Should not try to swap non-member");
-			return
+			return;
 		}
 		if Member::<T, I>::contains_key(new) {
 			defensive!("Should not try to overwrite existing member");
-			return
+			return;
 		}
 
 		if let Some(member) = Member::<T, I>::take(old) {

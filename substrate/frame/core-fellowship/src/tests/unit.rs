@@ -168,7 +168,7 @@ fn next_demotion(who: u64) -> u64 {
 
 /// Generate mocked evidence from some seed.
 fn evidence(seed: u32) -> Evidence<Test, ()> {
-	e.encode()
+	seed.encode()
 		.into_iter()
 		.cycle()
 		.take(1024)
