@@ -45,4 +45,3 @@ polkadot-primitives-test-helpers = { path = "../../../primitives/test-helpers" }
 
 [features]
 default = []
-elastic-scaling-experimental = []
