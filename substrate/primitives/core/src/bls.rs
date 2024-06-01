@@ -68,6 +68,9 @@ pub mod bls381 {
 	/// An identifier used to match public keys against BLS12-381 keys
 	pub const CRYPTO_ID: CryptoTypeId = CryptoTypeId(*b"bls8");
 
+	#[doc(hidden)]
+	pub type Bls381Tag = TinyBLS381;
+
 	/// BLS12-381 key pair.
 	pub type Pair = super::Pair<TinyBLS381>;
 	/// BLS12-381 public key.
