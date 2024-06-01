@@ -1,0 +1,14 @@
+title: Restore disable_runtime_api logic to test nodes
+
+doc: 
+    - audience: Runtime Dev
+      description: |
+        There should be an option for runtime dev to choose whether to expose apis. This feature existed but was mistakenly removed.
+
+crates:
+    - name: polkadot-runtime-rococo
+      bump: patch
+
+    - name: polkadot-runtime-westend
+      bump: patch
+
