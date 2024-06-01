@@ -5169,7 +5169,7 @@ mod sorted_list_provider_integration {
 
 	#[test]
 	fn nominator_bond_unbond_chill_works() {
-		ExtBuilder::default().build_and_execute(|| {
+		ExtBuilder::default().set_voter_list_strict().build_and_execute(|| {
 			Balances::make_free_balance_be(&42, 100);
 
 			// initial stakers.
@@ -5237,7 +5237,7 @@ mod sorted_list_provider_integration {
 
 	#[test]
 	fn validator_validate_chill_works() {
-		ExtBuilder::default().build_and_execute(|| {
+		ExtBuilder::default().set_voter_list_strict().build_and_execute(|| {
 			Balances::make_free_balance_be(&42, 100);
 
 			// initial targets.

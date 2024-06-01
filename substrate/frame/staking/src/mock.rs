@@ -363,7 +363,7 @@ impl OnStakingUpdate<AccountId, Balance> for EventTracker {
 }
 
 parameter_types! {
-	pub static VoterUpdateMode: pallet_stake_tracker::VoterUpdateMode = pallet_stake_tracker::VoterUpdateMode::Strict;
+	pub static VoterUpdateMode: pallet_stake_tracker::VoterUpdateMode = pallet_stake_tracker::VoterUpdateMode::Lazy;
 }
 
 impl pallet_stake_tracker::Config for Test {
@@ -565,8 +565,8 @@ impl ExtBuilder {
 		SkipTryStateCheck::set(!enable);
 		self
 	}
-	pub fn set_voter_list_lazy(self) -> Self {
-		VoterUpdateMode::set(pallet_stake_tracker::VoterUpdateMode::Lazy);
+	pub fn set_voter_list_strict(self) -> Self {
+		VoterUpdateMode::set(pallet_stake_tracker::VoterUpdateMode::Strict);
 		self
 	}
 	pub fn max_winners(self, max: u32) -> Self {

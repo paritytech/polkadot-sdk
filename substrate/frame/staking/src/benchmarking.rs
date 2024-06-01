@@ -1214,7 +1214,7 @@ mod benchmarks {
 
 	impl_benchmark_test_suite!(
 		Staking,
-		crate::mock::ExtBuilder::default().has_stakers(true).set_voter_list_lazy(),
+		crate::mock::ExtBuilder::default().has_stakers(true),
 		crate::mock::Test,
 		exec_name = build_and_execute
 	);
