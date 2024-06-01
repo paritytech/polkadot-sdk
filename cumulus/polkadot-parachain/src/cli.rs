@@ -90,6 +90,12 @@ pub struct Cli {
 	#[arg(long)]
 	pub no_hardware_benchmarks: bool,
 
+	/// Set the consensus algorithm. This is only used when this is being used if the runtime
+	/// (specified by `--chain` -- [`sc_cli::SharedParams::chain`]) is set to a non-system-chain
+	/// chain-spec file's path.
+	#[arg(long, value_name = "CONSENSUS", default = "aura")]
+	pub consensus: crate::command::Consensus,
+
 	/// Relay chain arguments
 	#[arg(raw = true)]
 	pub relaychain_args: Vec<String>,

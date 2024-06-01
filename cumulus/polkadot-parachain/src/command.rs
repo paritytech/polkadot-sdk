@@ -36,13 +36,23 @@ use sc_service::config::{BasePath, PrometheusConfig};
 use sp_runtime::traits::AccountIdConversion;
 use std::{net::SocketAddr, path::PathBuf};
 
+/// The choice of consensus for the parachain omni-node.
+#[derive(PartialEq, Eq, Debug, Default)]
+pub enum Consensus {
+	/// Aura consensus.
+	#[default]
+	Aura,
+	/// Use the relay chain consensus.
+	Relay,
+}
+
 /// Helper enum that is used for better distinction of different parachain/runtime configuration
 /// (it is based/calculated on ChainSpec's ID attribute)
-#[derive(Debug, PartialEq, Default)]
+#[derive(Debug, PartialEq)]
 enum Runtime {
-	/// This is the default runtime (actually based on rococo)
-	#[default]
-	Default,
+	/// None of the system-chain runtimes, rather the node will act agnostic to the runtime ie. be
+	/// an omni-node, and simply run a node with the given consensus algorithm.
+	Omni(Consensus),
 	Shell,
 	Seedling,
 	AssetHubPolkadot,
@@ -127,8 +137,8 @@ fn runtime(id: &str) -> Runtime {
 	} else if id.starts_with(chain_spec::people::PeopleRuntimeType::ID_PREFIX) {
 		Runtime::People(id.parse::<chain_spec::people::PeopleRuntimeType>().expect("Invalid value"))
 	} else {
-		log::warn!("No specific runtime was recognized for ChainSpec's id: '{}', so Runtime::default() will be used", id);
-		Runtime::default()
+		log::warn!("No specific runtime was recognized for ChainSpec's id: '{}', so Runtime::Omno(Consensus::Aura) will be used", id);
+		Runtime::Omni(Consensus::Aura)
 	}
 }
 
@@ -322,7 +332,7 @@ fn extract_parachain_id(id: &str) -> (&str, &str, Option<ParaId>) {
 
 impl SubstrateCli for Cli {
 	fn impl_name() -> String {
-		"Polkadot parachain".into()
+		"Polkadot Parachain Omni-Node".into()
 	}
 
 	fn impl_version() -> String {
@@ -424,12 +434,28 @@ macro_rules! construct_partials {
 				)?;
 				$code
 			},
-			Runtime::ContractsRococo | Runtime::Penpal(_) | Runtime::Default => {
+			Runtime::ContractsRococo | Runtime::Penpal(_) => {
 				let $partials = new_partial::<RuntimeApi, _>(
 					&$config,
 					crate::service::build_aura_import_queue,
 				)?;
 				$code
+			},
+			Runtime::Omni(consensus) => match consensus {
+				Consensus::Aura => {
+					let $partials = new_partial::<RuntimeApi, _>(
+						&$config,
+						crate::service::build_aura_import_queue,
+					)?;
+					$code
+				},
+				Consensus::RelayC => {
+					let $partials = new_partial::<RuntimeApi, _>(
+						&$config,
+						crate::service::build_shell_import_queue,
+					)?;
+					$code
+				},
 			},
 		}
 	};
@@ -479,7 +505,7 @@ macro_rules! construct_async_run {
 					{ $( $code )* }.map(|v| (v, task_manager))
 				})
 			}
-			Runtime::ContractsRococo | Runtime::Penpal(_) | Runtime::Default => {
+			Runtime::ContractsRococo | Runtime::Penpal(_) => {
 				runner.async_run(|$config| {
 					let $components = new_partial::<
 						RuntimeApi,
@@ -492,6 +518,34 @@ macro_rules! construct_async_run {
 					{ $( $code )* }.map(|v| (v, task_manager))
 				})
 			},
+			Runtime::Omni(consensus) => match consensus {
+				Consensus::Aura => {
+					runner.async_run(|$config| {
+						let $components = new_partial::<
+							RuntimeApi,
+							_,
+						>(
+							&$config,
+							crate::service::build_aura_import_queue,
+						)?;
+						let task_manager = $components.task_manager;
+						{ $( $code )* }.map(|v| (v, task_manager))
+					})
+				},
+				Consensus::RelayC => {
+					runner.async_run(|$config| {
+						let $components = new_partial::<
+							RuntimeApi,
+							_,
+						>(
+							&$config,
+							crate::service::build_shell_import_queue,
+						)?;
+						let task_manager = $components.task_manager;
+						{ $( $code )* }.map(|v| (v, task_manager))
+					})
+				},
+			}
 		}
 	}}
 }
@@ -801,17 +855,16 @@ async fn start_node<Network: sc_network::NetworkBackend<Block, Hash>>(
 		}
 		.map_err(Into::into),
 
-		Runtime::Penpal(_) | Runtime::Default =>
-			crate::service::start_rococo_parachain_node::<Network>(
-				config,
-				polkadot_config,
-				collator_options,
-				id,
-				hwbench,
-			)
-			.await
-			.map(|r| r.0)
-			.map_err(Into::into),
+		Runtime::Penpal(_) => crate::service::start_rococo_parachain_node::<Network>(
+			config,
+			polkadot_config,
+			collator_options,
+			id,
+			hwbench,
+		)
+		.await
+		.map(|r| r.0)
+		.map_err(Into::into),
 
 		Runtime::Glutton | Runtime::GluttonWestend =>
 			crate::service::start_basic_lookahead_node::<Network>(
@@ -847,6 +900,30 @@ async fn start_node<Network: sc_network::NetworkBackend<Block, Hash>>(
 				.map(|r| r.0),
 		}
 		.map_err(Into::into),
+		Runtime::Omni(consensus) => match consensus {
+			// rococo actually uses aura import and consensus, unlike most system chains that use
+			// relay to aura.
+			Consensus::Aura => crate::service::start_rococo_parachain_node::<Network>(
+				config,
+				polkadot_config,
+				collator_options,
+				id,
+				hwbench,
+			)
+			.await
+			.map(|r| r.0)
+			.map_err(Into::into),
+			Consensus::Relay => crate::service::start_shell_node::<Network>(
+				config,
+				polkadot_config,
+				collator_options,
+				id,
+				hwbench,
+			)
+			.await
+			.map(|r| r.0)
+			.map_err(Into::into),
+		},
 	}
 }
 
@@ -1069,7 +1146,6 @@ mod tests {
 			&temp_dir,
 			Box::new(crate::chain_spec::rococo_parachain::rococo_parachain_local_config()),
 		);
-		assert_eq!(Runtime::Default, path.runtime().unwrap());
 
 		let path = store_configuration(
 			&temp_dir,

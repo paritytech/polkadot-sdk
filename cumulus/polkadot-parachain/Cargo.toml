@@ -1,5 +1,5 @@
 [package]
-name = "polkadot-parachain-bin"
+name = "polkadot-parachain-omni-node"
 version = "4.0.0"
 authors.workspace = true
 build = "build.rs"
