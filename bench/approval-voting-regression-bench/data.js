@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1717175511924,
+  "lastUpdate": 1717360616181,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -5968,6 +5968,53 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting",
             "value": 10.606826697999894,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "gupnik",
+            "username": "gupnik",
+            "email": "nikhilgupta.iitk@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "f81751e0ce56b0ef50b3a0b5aa0ff4fb16c9ea37",
+          "message": "Better error for missing index in CRV2 (#4643)\n\nFixes https://github.com/paritytech/polkadot-sdk/issues/4552\n\n---------\n\nCo-authored-by: command-bot <>\nCo-authored-by: Bastian Köcher <info@kchr.de>",
+          "timestamp": "2024-06-02T18:39:47Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/f81751e0ce56b0ef50b3a0b5aa0ff4fb16c9ea37"
+        },
+        "date": 1717360587146,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63541.61,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52939.7,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 3.876313380980187,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 10.809050838639948,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 8.337600516870129,
             "unit": "seconds"
           }
         ]
