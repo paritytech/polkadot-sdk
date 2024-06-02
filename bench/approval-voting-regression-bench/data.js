@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1717360616181,
+  "lastUpdate": 1717364636475,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -6015,6 +6015,53 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-distribution",
             "value": 8.337600516870129,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "tugy",
+            "username": "tugytur",
+            "email": "33746108+tugytur@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "5779ec5b775f86fb86be02783ab5c02efbf307ca",
+          "message": "update amforc westend and its parachain bootnodes (#4641)\n\nTested each bootnode with `--reserved-only --reserved-nodes`",
+          "timestamp": "2024-06-02T20:11:23Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/5779ec5b775f86fb86be02783ab5c02efbf307ca"
+        },
+        "date": 1717364608470,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52939.40000000001,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63547.04,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 7.934420523650077,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 10.191018483569914,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 3.6323600010301353,
             "unit": "seconds"
           }
         ]
