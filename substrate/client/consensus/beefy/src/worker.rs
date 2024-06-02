@@ -1036,7 +1036,7 @@ pub(crate) mod tests {
 	use sc_network_test::TestNetFactory;
 	use sp_blockchain::Backend as BlockchainBackendT;
 	use sp_consensus_beefy::{
-		ecdsa_crypto, known_payloads,
+		ecdsa_bls_crypto, known_payloads,
 		known_payloads::MMR_ROOT_ID,
 		mmr::MmrRootProvider,
 		test_utils::{generate_equivocation_proof, Keyring},
@@ -1058,17 +1058,17 @@ pub(crate) mod tests {
 		}
 	}
 
-	impl<B: super::Block> VoterOracle<B, ecdsa_crypto::AuthorityId> {
-		pub fn sessions(&self) -> &VecDeque<Rounds<B, ecdsa_crypto::AuthorityId>> {
+	impl<B: super::Block> VoterOracle<B, ecdsa_bls_crypto::AuthorityId> {
+		pub fn sessions(&self) -> &VecDeque<Rounds<B, ecdsa_bls_crypto::AuthorityId>> {
 			&self.sessions
 		}
 	}
 
 	fn create_beefy_worker(
 		peer: &mut BeefyPeer,
-		key: &Keyring<ecdsa_crypto::AuthorityId>,
+		key: &Keyring<ecdsa_bls_crypto::AuthorityId>,
 		min_block_delta: u32,
-		genesis_validator_set: ValidatorSet<ecdsa_crypto::AuthorityId>,
+		genesis_validator_set: ValidatorSet<ecdsa_bls_crypto::AuthorityId>,
 	) -> BeefyWorker<
 		Block,
 		Backend,
@@ -1076,16 +1076,16 @@ pub(crate) mod tests {
 		TestApi,
 		Arc<SyncingService<Block>>,
 		TestNetwork,
-		ecdsa_crypto::AuthorityId,
+		ecdsa_bls_crypto::AuthorityId,
 	> {
 		let keystore = create_beefy_keystore(key);
 
 		let (to_rpc_justif_sender, from_voter_justif_stream) =
-			BeefyVersionedFinalityProofStream::<Block, ecdsa_crypto::AuthorityId>::channel();
+			BeefyVersionedFinalityProofStream::<Block, ecdsa_bls_crypto::AuthorityId>::channel();
 		let (to_rpc_best_block_sender, from_voter_best_beefy_stream) =
 			BeefyBestBlockStream::<Block>::channel();
 		let (_, from_block_import_justif_stream) =
-			BeefyVersionedFinalityProofStream::<Block, ecdsa_crypto::AuthorityId>::channel();
+			BeefyVersionedFinalityProofStream::<Block, ecdsa_bls_crypto::AuthorityId>::channel();
 
 		let beefy_rpc_links =
 			BeefyRPCLinks { from_voter_justif_stream, from_voter_best_beefy_stream };
@@ -1141,7 +1141,7 @@ pub(crate) mod tests {
 		.unwrap();
 		let payload_provider = MmrRootProvider::new(api.clone());
 		let comms = BeefyComms { gossip_engine, gossip_validator, on_demand_justifications };
-		let key_store: Arc<BeefyKeystore<ecdsa_crypto::AuthorityId>> =
+		let key_store: Arc<BeefyKeystore<ecdsa_bls_crypto::AuthorityId>> =
 			Arc::new(Some(keystore).into());
 		BeefyWorker {
 			backend: backend.clone(),
@@ -1260,14 +1260,14 @@ pub(crate) mod tests {
 			Default::default(),
 			Digest::default(),
 		);
-		let mut oracle = VoterOracle::<Block, ecdsa_crypto::AuthorityId> {
+		let mut oracle = VoterOracle::<Block, ecdsa_bls_crypto::AuthorityId> {
 			best_beefy_block: 0,
 			best_grandpa_block_header: header,
 			min_block_delta: 1,
 			sessions: VecDeque::new(),
 			_phantom: PhantomData,
 		};
-		let voting_target_with = |oracle: &mut VoterOracle<Block, ecdsa_crypto::AuthorityId>,
+		let voting_target_with = |oracle: &mut VoterOracle<Block, ecdsa_bls_crypto::AuthorityId>,
 		                          best_beefy: NumberFor<Block>,
 		                          best_grandpa: NumberFor<Block>|
 		 -> Option<NumberFor<Block>> {
@@ -1323,7 +1323,7 @@ pub(crate) mod tests {
 			Default::default(),
 			Digest::default(),
 		);
-		let mut oracle = VoterOracle::<Block, ecdsa_crypto::AuthorityId> {
+		let mut oracle = VoterOracle::<Block, ecdsa_bls_crypto::AuthorityId> {
 			best_beefy_block: 0,
 			best_grandpa_block_header: header,
 			min_block_delta: 1,
@@ -1331,7 +1331,7 @@ pub(crate) mod tests {
 			_phantom: PhantomData,
 		};
 		let accepted_interval_with =
-			|oracle: &mut VoterOracle<Block, ecdsa_crypto::AuthorityId>,
+			|oracle: &mut VoterOracle<Block, ecdsa_bls_crypto::AuthorityId>,
 			 best_grandpa: NumberFor<Block>|
 			 -> Result<(NumberFor<Block>, NumberFor<Block>), Error> {
 				oracle.best_grandpa_block_header.number = best_grandpa;
@@ -1407,19 +1407,19 @@ pub(crate) mod tests {
 		);
 
 		// verify empty digest shows nothing
-		assert!(find_authorities_change::<Block, ecdsa_crypto::AuthorityId>(&header).is_none());
+		assert!(find_authorities_change::<Block, ecdsa_bls_crypto::AuthorityId>(&header).is_none());
 
 		let peers = &[Keyring::One, Keyring::Two];
 		let id = 42;
 		let validator_set = ValidatorSet::new(make_beefy_ids(peers), id).unwrap();
 		header.digest_mut().push(DigestItem::Consensus(
 			BEEFY_ENGINE_ID,
-			ConsensusLog::<ecdsa_crypto::AuthorityId>::AuthoritiesChange(validator_set.clone())
+			ConsensusLog::<ecdsa_bls_crypto::AuthorityId>::AuthoritiesChange(validator_set.clone())
 				.encode(),
 		));
 
 		// verify validator set is correctly extracted from digest
-		let extracted = find_authorities_change::<Block, ecdsa_crypto::AuthorityId>(&header);
+		let extracted = find_authorities_change::<Block, ecdsa_bls_crypto::AuthorityId>(&header);
 		assert_eq!(extracted, Some(validator_set));
 	}
 

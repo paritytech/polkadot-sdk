@@ -83,7 +83,7 @@ pub(crate) fn verify_with_validator_set<'a, Block: BlockT, AuthorityId: Authorit
 pub(crate) mod tests {
 	use codec::Encode;
 	use sp_consensus_beefy::{
-		ecdsa_crypto, known_payloads, test_utils::Keyring, Commitment, Payload, SignedCommitment,
+		ecdsa_bls_crypto, known_payloads, test_utils::Keyring, Commitment, Payload, SignedCommitment,
 		VersionedFinalityProof,
 	};
 	use substrate_test_runtime_client::runtime::Block;
@@ -93,9 +93,9 @@ pub(crate) mod tests {
 
 	pub(crate) fn new_finality_proof(
 		block_num: NumberFor<Block>,
-		validator_set: &ValidatorSet<ecdsa_crypto::AuthorityId>,
-		keys: &[Keyring<ecdsa_crypto::AuthorityId>],
-	) -> BeefyVersionedFinalityProof<Block, ecdsa_crypto::AuthorityId> {
+		validator_set: &ValidatorSet<ecdsa_bls_crypto::AuthorityId>,
+		keys: &[Keyring<ecdsa_bls_crypto::AuthorityId>],
+	) -> BeefyVersionedFinalityProof<Block, ecdsa_bls_crypto::AuthorityId> {
 		let commitment = Commitment {
 			payload: Payload::from_single_entry(known_payloads::MMR_ROOT_ID, vec![]),
 			block_number: block_num,
@@ -117,7 +117,7 @@ pub(crate) mod tests {
 
 		let good_proof = proof.clone().into();
 		// should verify successfully
-		verify_with_validator_set::<Block, ecdsa_crypto::AuthorityId>(
+		verify_with_validator_set::<Block, ecdsa_bls_crypto::AuthorityId>(
 			block_num,
 			&validator_set,
 			&good_proof,
@@ -126,7 +126,7 @@ pub(crate) mod tests {
 
 		// wrong block number -> should fail verification
 		let good_proof = proof.clone().into();
-		match verify_with_validator_set::<Block, ecdsa_crypto::AuthorityId>(
+		match verify_with_validator_set::<Block, ecdsa_bls_crypto::AuthorityId>(
 			block_num + 1,
 			&validator_set,
 			&good_proof,
@@ -138,7 +138,7 @@ pub(crate) mod tests {
 		// wrong validator set id -> should fail verification
 		let good_proof = proof.clone().into();
 		let other = ValidatorSet::new(make_beefy_ids(keys), 1).unwrap();
-		match verify_with_validator_set::<Block, ecdsa_crypto::AuthorityId>(
+		match verify_with_validator_set::<Block, ecdsa_bls_crypto::AuthorityId>(
 			block_num,
 			&other,
 			&good_proof,
@@ -154,7 +154,7 @@ pub(crate) mod tests {
 			VersionedFinalityProof::V1(ref mut sc) => sc,
 		};
 		bad_signed_commitment.signatures.pop().flatten().unwrap();
-		match verify_with_validator_set::<Block, ecdsa_crypto::AuthorityId>(
+		match verify_with_validator_set::<Block, ecdsa_bls_crypto::AuthorityId>(
 			block_num + 1,
 			&validator_set,
 			&bad_proof.into(),
@@ -170,7 +170,7 @@ pub(crate) mod tests {
 		};
 		// remove a signature (but same length)
 		*bad_signed_commitment.signatures.first_mut().unwrap() = None;
-		match verify_with_validator_set::<Block, ecdsa_crypto::AuthorityId>(
+		match verify_with_validator_set::<Block, ecdsa_bls_crypto::AuthorityId>(
 			block_num,
 			&validator_set,
 			&bad_proof.into(),
@@ -186,10 +186,10 @@ pub(crate) mod tests {
 		};
 		// change a signature to a different key
 		*bad_signed_commitment.signatures.first_mut().unwrap() = Some(
-			Keyring::<ecdsa_crypto::AuthorityId>::Dave
+			Keyring::<ecdsa_bls_crypto::AuthorityId>::Dave
 				.sign(&bad_signed_commitment.commitment.encode()),
 		);
-		match verify_with_validator_set::<Block, ecdsa_crypto::AuthorityId>(
+		match verify_with_validator_set::<Block, ecdsa_bls_crypto::AuthorityId>(
 			block_num,
 			&validator_set,
 			&bad_proof.into(),
@@ -207,12 +207,12 @@ pub(crate) mod tests {
 
 		// build valid justification
 		let proof = new_finality_proof(block_num, &validator_set, keys);
-		let versioned_proof: BeefyVersionedFinalityProof<Block, ecdsa_crypto::AuthorityId> =
+		let versioned_proof: BeefyVersionedFinalityProof<Block, ecdsa_bls_crypto::AuthorityId> =
 			proof.into();
 		let encoded = versioned_proof.encode();
 
 		// should successfully decode and verify
-		let verified = decode_and_verify_finality_proof::<Block, ecdsa_crypto::AuthorityId>(
+		let verified = decode_and_verify_finality_proof::<Block, ecdsa_bls_crypto::AuthorityId>(
 			&encoded,
 			block_num,
 			&validator_set,

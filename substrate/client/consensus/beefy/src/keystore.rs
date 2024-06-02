@@ -174,6 +174,8 @@ impl<AuthorityId: AuthorityIdBound> BeefyKeystore<AuthorityId> {
 	) -> bool {
 		BeefyAuthorityId::<BeefySignatureHasher>::verify(public, sig, message)
 	}
+
+    
 }
 
 impl<AuthorityId: AuthorityIdBound> From<Option<KeystorePtr>> for BeefyKeystore<AuthorityId> {
@@ -181,7 +183,7 @@ impl<AuthorityId: AuthorityIdBound> From<Option<KeystorePtr>> for BeefyKeystore<
 		BeefyKeystore(store, PhantomData)
 	}
 }
-
+ 
 #[cfg(test)]
 pub mod tests {
 	#[cfg(feature = "bls-experimental")]

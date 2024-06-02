@@ -86,7 +86,7 @@ pub(crate) mod tests {
 	use super::*;
 	use crate::tests::BeefyTestNet;
 	use sc_network_test::TestNetFactory;
-	use sp_consensus_beefy::ecdsa_crypto;
+	use sp_consensus_beefy::ecdsa_bls_crypto;
 
 	// also used in tests.rs
 	pub fn verify_persisted_version<B: BlockT, BE: Backend<B>>(backend: &BE) -> bool {
@@ -100,7 +100,7 @@ pub(crate) mod tests {
 		let backend = net.peer(0).client().as_backend();
 
 		// version not available in db -> None
-		assert_eq!(load_persistent::<_, _, ecdsa_crypto::AuthorityId>(&*backend).unwrap(), None);
+		assert_eq!(load_persistent::<_, _, ecdsa_bls_crypto::AuthorityId>(&*backend).unwrap(), None);
 
 		// populate version in db
 		write_current_version(&*backend).unwrap();
@@ -108,7 +108,7 @@ pub(crate) mod tests {
 		assert_eq!(load_decode(&*backend, VERSION_KEY).unwrap(), Some(CURRENT_VERSION));
 
 		// version is available in db but state isn't -> None
-		assert_eq!(load_persistent::<_, _, ecdsa_crypto::AuthorityId>(&*backend).unwrap(), None);
+		assert_eq!(load_persistent::<_, _, ecdsa_bls_crypto::AuthorityId>(&*backend).unwrap(), None);
 
 		// full `PersistedState` load is tested in `tests.rs`.
 	}

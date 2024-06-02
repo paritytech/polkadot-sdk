@@ -496,7 +496,7 @@ pub(crate) mod tests {
 	use sc_network_test::Block;
 	use sp_application_crypto::key_types::BEEFY as BEEFY_KEY_TYPE;
 	use sp_consensus_beefy::{
-		ecdsa_crypto, known_payloads, test_utils::Keyring, Commitment, MmrRootHash, Payload,
+		ecdsa_bls_crypto, known_payloads, test_utils::Keyring, Commitment, MmrRootHash, Payload,
 		SignedCommitment, VoteMessage,
 	};
 	use sp_keystore::{testing::MemoryKeystore, Keystore};
@@ -613,18 +613,18 @@ pub(crate) mod tests {
 	}
 
 	pub fn sign_commitment<BN: Encode>(
-		who: &Keyring<ecdsa_crypto::AuthorityId>,
+		who: &Keyring<ecdsa_bls_crypto::AuthorityId>,
 		commitment: &Commitment<BN>,
-	) -> ecdsa_crypto::Signature {
+	) -> ecdsa_bls_crypto::Signature {
 		let store = MemoryKeystore::new();
-		store.ecdsa_generate_new(BEEFY_KEY_TYPE, Some(&who.to_seed())).unwrap();
-		let beefy_keystore: BeefyKeystore<ecdsa_crypto::AuthorityId> = Some(store.into()).into();
+		store.ecdsa_bls381_generate_new(BEEFY_KEY_TYPE, Some(&who.to_seed())).unwrap();
+		let beefy_keystore: BeefyKeystore<ecdsa_bls_crypto::AuthorityId> = Some(store.into()).into();
 		beefy_keystore.sign(&who.public(), &commitment.encode()).unwrap()
 	}
 
 	fn dummy_vote(
 		block_number: u64,
-	) -> VoteMessage<u64, ecdsa_crypto::AuthorityId, ecdsa_crypto::Signature> {
+	) -> VoteMessage<u64, ecdsa_bls_crypto::AuthorityId, ecdsa_bls_crypto::Signature> {
 		let payload = Payload::from_single_entry(
 			known_payloads::MMR_ROOT_ID,
 			MmrRootHash::default().encode(),
@@ -637,8 +637,8 @@ pub(crate) mod tests {
 
 	pub fn dummy_proof(
 		block_number: u64,
-		validator_set: &ValidatorSet<ecdsa_crypto::AuthorityId>,
-	) -> BeefyVersionedFinalityProof<Block, ecdsa_crypto::AuthorityId> {
+		validator_set: &ValidatorSet<ecdsa_bls_crypto::AuthorityId>,
+	) -> BeefyVersionedFinalityProof<Block, ecdsa_bls_crypto::AuthorityId> {
 		let payload = Payload::from_single_entry(
 			known_payloads::MMR_ROOT_ID,
 			MmrRootHash::default().encode(),
@@ -647,15 +647,15 @@ pub(crate) mod tests {
 		let signatures = validator_set
 			.validators()
 			.iter()
-			.map(|validator: &ecdsa_crypto::AuthorityId| {
+			.map(|validator: &ecdsa_bls_crypto::AuthorityId| {
 				Some(sign_commitment(
-					&Keyring::<ecdsa_crypto::AuthorityId>::from_public(validator).unwrap(),
+					&Keyring::<ecdsa_bls_crypto::AuthorityId>::from_public(validator).unwrap(),
 					&commitment,
 				))
 			})
 			.collect();
 
-		BeefyVersionedFinalityProof::<Block, ecdsa_crypto::AuthorityId>::V1(SignedCommitment {
+		BeefyVersionedFinalityProof::<Block, ecdsa_bls_crypto::AuthorityId>::V1(SignedCommitment {
 			commitment,
 			signatures,
 		})
@@ -663,13 +663,13 @@ pub(crate) mod tests {
 
 	#[test]
 	fn should_validate_messages() {
-		let keys = vec![Keyring::<ecdsa_crypto::AuthorityId>::Alice.public()];
+		let keys = vec![Keyring::<ecdsa_bls_crypto::AuthorityId>::Alice.public()];
 		let validator_set =
-			ValidatorSet::<ecdsa_crypto::AuthorityId>::new(keys.clone(), 0).unwrap();
+			ValidatorSet::<ecdsa_bls_crypto::AuthorityId>::new(keys.clone(), 0).unwrap();
 
 		let (network, mut report_stream) = TestNetwork::new();
 
-		let gv = GossipValidator::<Block, _, ecdsa_crypto::AuthorityId>::new(
+		let gv = GossipValidator::<Block, _, ecdsa_bls_crypto::AuthorityId>::new(
 			Arc::new(Mutex::new(KnownPeers::new())),
 			Arc::new(network),
 		);
@@ -691,7 +691,7 @@ pub(crate) mod tests {
 
 		let vote = dummy_vote(3);
 		let encoded =
-			GossipMessage::<Block, ecdsa_crypto::AuthorityId>::Vote(vote.clone()).encode();
+			GossipMessage::<Block, ecdsa_bls_crypto::AuthorityId>::Vote(vote.clone()).encode();
 
 		// filter not initialized
 		let res = gv.validate(&mut context, &sender, &encoded);
@@ -709,7 +709,7 @@ pub(crate) mod tests {
 		// reject vote, voter not in validator set
 		let mut bad_vote = vote.clone();
 		bad_vote.id = Keyring::Bob.public();
-		let bad_vote = GossipMessage::<Block, ecdsa_crypto::AuthorityId>::Vote(bad_vote).encode();
+		let bad_vote = GossipMessage::<Block, ecdsa_bls_crypto::AuthorityId>::Vote(bad_vote).encode();
 		let res = gv.validate(&mut context, &sender, &bad_vote);
 		assert!(matches!(res, ValidationResult::Discard));
 		expected_report.cost_benefit = cost::UNKNOWN_VOTER;
@@ -740,7 +740,7 @@ pub(crate) mod tests {
 		// reject old proof
 		let proof = dummy_proof(5, &validator_set);
 		let encoded_proof =
-			GossipMessage::<Block, ecdsa_crypto::AuthorityId>::FinalityProof(proof).encode();
+			GossipMessage::<Block, ecdsa_bls_crypto::AuthorityId>::FinalityProof(proof).encode();
 		let res = gv.validate(&mut context, &sender, &encoded_proof);
 		assert!(matches!(res, ValidationResult::Discard));
 		expected_report.cost_benefit = cost::OUTDATED_MESSAGE;
@@ -749,7 +749,7 @@ pub(crate) mod tests {
 		// accept next proof with good set_id
 		let proof = dummy_proof(7, &validator_set);
 		let encoded_proof =
-			GossipMessage::<Block, ecdsa_crypto::AuthorityId>::FinalityProof(proof).encode();
+			GossipMessage::<Block, ecdsa_bls_crypto::AuthorityId>::FinalityProof(proof).encode();
 		let res = gv.validate(&mut context, &sender, &encoded_proof);
 		assert!(matches!(res, ValidationResult::ProcessAndKeep(_)));
 		expected_report.cost_benefit = benefit::VALIDATED_PROOF;
@@ -758,17 +758,17 @@ pub(crate) mod tests {
 		// accept future proof with good set_id
 		let proof = dummy_proof(20, &validator_set);
 		let encoded_proof =
-			GossipMessage::<Block, ecdsa_crypto::AuthorityId>::FinalityProof(proof).encode();
+			GossipMessage::<Block, ecdsa_bls_crypto::AuthorityId>::FinalityProof(proof).encode();
 		let res = gv.validate(&mut context, &sender, &encoded_proof);
 		assert!(matches!(res, ValidationResult::ProcessAndKeep(_)));
 		expected_report.cost_benefit = benefit::VALIDATED_PROOF;
 		assert_eq!(report_stream.try_next().unwrap().unwrap(), expected_report);
 
 		// reject proof, future set_id
-		let bad_validator_set = ValidatorSet::<ecdsa_crypto::AuthorityId>::new(keys, 1).unwrap();
+		let bad_validator_set = ValidatorSet::<ecdsa_bls_crypto::AuthorityId>::new(keys, 1).unwrap();
 		let proof = dummy_proof(20, &bad_validator_set);
 		let encoded_proof =
-			GossipMessage::<Block, ecdsa_crypto::AuthorityId>::FinalityProof(proof).encode();
+			GossipMessage::<Block, ecdsa_bls_crypto::AuthorityId>::FinalityProof(proof).encode();
 		let res = gv.validate(&mut context, &sender, &encoded_proof);
 		assert!(matches!(res, ValidationResult::Discard));
 		expected_report.cost_benefit = cost::FUTURE_MESSAGE;
@@ -776,10 +776,10 @@ pub(crate) mod tests {
 
 		// reject proof, bad signatures (Bob instead of Alice)
 		let bad_validator_set =
-			ValidatorSet::<ecdsa_crypto::AuthorityId>::new(vec![Keyring::Bob.public()], 0).unwrap();
+			ValidatorSet::<ecdsa_bls_crypto::AuthorityId>::new(vec![Keyring::Bob.public()], 0).unwrap();
 		let proof = dummy_proof(21, &bad_validator_set);
 		let encoded_proof =
-			GossipMessage::<Block, ecdsa_crypto::AuthorityId>::FinalityProof(proof).encode();
+			GossipMessage::<Block, ecdsa_bls_crypto::AuthorityId>::FinalityProof(proof).encode();
 		let res = gv.validate(&mut context, &sender, &encoded_proof);
 		assert!(matches!(res, ValidationResult::Discard));
 		expected_report.cost_benefit = cost::INVALID_PROOF;
@@ -791,8 +791,8 @@ pub(crate) mod tests {
 	fn messages_allowed_and_expired() {
 		let keys = vec![Keyring::Alice.public()];
 		let validator_set =
-			ValidatorSet::<ecdsa_crypto::AuthorityId>::new(keys.clone(), 0).unwrap();
-		let gv = GossipValidator::<Block, _, ecdsa_crypto::AuthorityId>::new(
+			ValidatorSet::<ecdsa_bls_crypto::AuthorityId>::new(keys.clone(), 0).unwrap();
+		let gv = GossipValidator::<Block, _, ecdsa_bls_crypto::AuthorityId>::new(
 			Arc::new(Mutex::new(KnownPeers::new())),
 			Arc::new(TestNetwork::new().0),
 		);
@@ -813,69 +813,69 @@ pub(crate) mod tests {
 		// inactive round 1 -> expired
 		let vote = dummy_vote(1);
 		let mut encoded_vote =
-			GossipMessage::<Block, ecdsa_crypto::AuthorityId>::Vote(vote).encode();
+			GossipMessage::<Block, ecdsa_bls_crypto::AuthorityId>::Vote(vote).encode();
 		assert!(!allowed(&sender, intent, &topic, &mut encoded_vote));
 		assert!(expired(topic, &mut encoded_vote));
 		let proof = dummy_proof(1, &validator_set);
 		let mut encoded_proof =
-			GossipMessage::<Block, ecdsa_crypto::AuthorityId>::FinalityProof(proof).encode();
+			GossipMessage::<Block, ecdsa_bls_crypto::AuthorityId>::FinalityProof(proof).encode();
 		assert!(!allowed(&sender, intent, &topic, &mut encoded_proof));
 		assert!(expired(topic, &mut encoded_proof));
 
 		// active round 2 -> !expired - concluded but still gossiped
 		let vote = dummy_vote(2);
 		let mut encoded_vote =
-			GossipMessage::<Block, ecdsa_crypto::AuthorityId>::Vote(vote).encode();
+			GossipMessage::<Block, ecdsa_bls_crypto::AuthorityId>::Vote(vote).encode();
 		assert!(allowed(&sender, intent, &topic, &mut encoded_vote));
 		assert!(!expired(topic, &mut encoded_vote));
 		let proof = dummy_proof(2, &validator_set);
 		let mut encoded_proof =
-			GossipMessage::<Block, ecdsa_crypto::AuthorityId>::FinalityProof(proof).encode();
+			GossipMessage::<Block, ecdsa_bls_crypto::AuthorityId>::FinalityProof(proof).encode();
 		assert!(allowed(&sender, intent, &topic, &mut encoded_proof));
 		assert!(!expired(topic, &mut encoded_proof));
 		// using wrong set_id -> !allowed, expired
 		let bad_validator_set =
-			ValidatorSet::<ecdsa_crypto::AuthorityId>::new(keys.clone(), 1).unwrap();
+			ValidatorSet::<ecdsa_bls_crypto::AuthorityId>::new(keys.clone(), 1).unwrap();
 		let proof = dummy_proof(2, &bad_validator_set);
 		let mut encoded_proof =
-			GossipMessage::<Block, ecdsa_crypto::AuthorityId>::FinalityProof(proof).encode();
+			GossipMessage::<Block, ecdsa_bls_crypto::AuthorityId>::FinalityProof(proof).encode();
 		assert!(!allowed(&sender, intent, &topic, &mut encoded_proof));
 		assert!(expired(topic, &mut encoded_proof));
 
 		// in progress round 3 -> !expired
 		let vote = dummy_vote(3);
 		let mut encoded_vote =
-			GossipMessage::<Block, ecdsa_crypto::AuthorityId>::Vote(vote).encode();
+			GossipMessage::<Block, ecdsa_bls_crypto::AuthorityId>::Vote(vote).encode();
 		assert!(allowed(&sender, intent, &topic, &mut encoded_vote));
 		assert!(!expired(topic, &mut encoded_vote));
 		let proof = dummy_proof(3, &validator_set);
 		let mut encoded_proof =
-			GossipMessage::<Block, ecdsa_crypto::AuthorityId>::FinalityProof(proof).encode();
+			GossipMessage::<Block, ecdsa_bls_crypto::AuthorityId>::FinalityProof(proof).encode();
 		assert!(allowed(&sender, intent, &topic, &mut encoded_proof));
 		assert!(!expired(topic, &mut encoded_proof));
 
 		// unseen round 4 -> !expired
 		let vote = dummy_vote(4);
 		let mut encoded_vote =
-			GossipMessage::<Block, ecdsa_crypto::AuthorityId>::Vote(vote).encode();
+			GossipMessage::<Block, ecdsa_bls_crypto::AuthorityId>::Vote(vote).encode();
 		assert!(allowed(&sender, intent, &topic, &mut encoded_vote));
 		assert!(!expired(topic, &mut encoded_vote));
 		let proof = dummy_proof(4, &validator_set);
 		let mut encoded_proof =
-			GossipMessage::<Block, ecdsa_crypto::AuthorityId>::FinalityProof(proof).encode();
+			GossipMessage::<Block, ecdsa_bls_crypto::AuthorityId>::FinalityProof(proof).encode();
 		assert!(allowed(&sender, intent, &topic, &mut encoded_proof));
 		assert!(!expired(topic, &mut encoded_proof));
 
 		// future round 11 -> expired
 		let vote = dummy_vote(11);
 		let mut encoded_vote =
-			GossipMessage::<Block, ecdsa_crypto::AuthorityId>::Vote(vote).encode();
+			GossipMessage::<Block, ecdsa_bls_crypto::AuthorityId>::Vote(vote).encode();
 		assert!(!allowed(&sender, intent, &topic, &mut encoded_vote));
 		assert!(expired(topic, &mut encoded_vote));
 		// future proofs allowed while same set_id -> allowed
 		let proof = dummy_proof(11, &validator_set);
 		let mut encoded_proof =
-			GossipMessage::<Block, ecdsa_crypto::AuthorityId>::FinalityProof(proof).encode();
+			GossipMessage::<Block, ecdsa_bls_crypto::AuthorityId>::FinalityProof(proof).encode();
 		assert!(allowed(&sender, intent, &topic, &mut encoded_proof));
 		assert!(!expired(topic, &mut encoded_proof));
 	}
@@ -884,8 +884,8 @@ pub(crate) mod tests {
 	fn messages_rebroadcast() {
 		let keys = vec![Keyring::Alice.public()];
 		let validator_set =
-			ValidatorSet::<ecdsa_crypto::AuthorityId>::new(keys.clone(), 0).unwrap();
-		let gv = GossipValidator::<Block, _, ecdsa_crypto::AuthorityId>::new(
+			ValidatorSet::<ecdsa_bls_crypto::AuthorityId>::new(keys.clone(), 0).unwrap();
+		let gv = GossipValidator::<Block, _, ecdsa_bls_crypto::AuthorityId>::new(
 			Arc::new(Mutex::new(KnownPeers::new())),
 			Arc::new(TestNetwork::new().0),
 		);

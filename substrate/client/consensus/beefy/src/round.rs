@@ -19,14 +19,50 @@
 use crate::LOG_TARGET;
 
 use codec::{Decode, Encode};
-use log::{debug, info};
+use log::{debug, info, error, warn};
 use sp_application_crypto::RuntimeAppPublic;
 use sp_consensus_beefy::{
 	AuthorityIdBound, Commitment, DoubleVotingProof, SignedCommitment, ValidatorSet,
-	ValidatorSetId, VoteMessage,
+	ValidatorSetId, VoteMessage, 
 };
 use sp_runtime::traits::{Block, NumberFor};
 use std::collections::BTreeMap;
+
+//use reqwest::blocking::Client;
+use reqwest::Client;
+use serde::{Deserialize, Serialize};
+use serde_json::Value;
+
+
+#[derive(Serialize)]
+struct JsonRpcRequest<'a, T> {
+    jsonrpc: &'a str,
+    method: &'a str,
+    params: T,
+    id: u64,
+}
+
+#[derive(Deserialize)]
+struct JsonRpcResponse<T> {
+    jsonrpc: String,
+    result: T,
+    id: u64,
+}
+
+use jsonrpc::Client as JsonRpcClient;
+use jsonrpc::simple_http::{self, SimpleHttpTransport};
+
+const chain_id :u32 =  44787;
+const RPC_NODE :&str = "https://alfajores-forno.celo-testnet.org";
+const RPC_USER : &str = "";
+
+fn client(url: &str, user: &str, pass: Option<&str>) -> Result<JsonRpcClient, simple_http::Error> {
+    let t = SimpleHttpTransport::builder()
+        .url(url)?
+        .build();
+
+    Ok(JsonRpcClient::with_transport(t))
+}
 
 /// Tracks for each round which validators have voted/signed and
 /// whether the local `self` validator has voted/signed.
@@ -134,6 +170,80 @@ where
 		self.mandatory_done
 	}
 
+    ///Aggregate iterator of signatures and return a witness commitment
+    pub fn aggregate_round_votes(
+	msg: &[u8],
+	round: &RoundTracker<AuthorityId> ,
+	sigs: &[<AuthorityId as RuntimeAppPublic>::Signature],
+    ) -> Vec<u8> 
+    {
+	let pubkeys : Vec<AuthorityId> = round.votes.keys().map(|p|{p.clone()}).collect();
+	AuthorityId::aggregate_pubkeys_and_sigs(msg, pubkeys.as_slice(), sigs)
+    }
+
+	pub fn  submit_aggregate_votes(aggregated_vote: Vec<u8>) {
+	    info!(target: LOG_TARGET, "🥩 submitting aggregated signature {:x?},", aggregated_vote.clone());
+
+	    // // Define the request payload
+	    // let request = JsonRpcRequest {
+	    // 	    jsonrpc: "2.0",
+	    // 	    method: "verify_sig",
+	    // 	    params: ("sig", array_bytes::bytes2hex("0x", aggregated_vote.clone())),
+	    // 	    id: 1,
+	    // 	};
+
+	    info!(target: LOG_TARGET, "🥩 json RPC request to submit aggregated signature {},", array_bytes::bytes2hex("0x", aggregated_vote.clone())); 
+		// Create an HTTP client
+		//let client = Client::new();
+
+		// // Send the request
+		// let response = match client.post(RPC_NODE)
+		//     .json(&request)
+		//     .send().await
+		//  {
+		//     Ok(response) => response,
+		//     _ => {
+		// 	warn!(target: LOG_TARGET, "🥩 failed to send_request to target network");
+		// 	return;
+		//     }
+		// };
+		    
+
+		// Parse the response
+		//let json: JsonRpcResponse<Value> = response.json().await?;
+
+		// Handle the response
+		//println!("Response: {:?}", json);
+
+
+	    let raw_aggregated_vote= jsonrpc::serde_json::value::to_raw_value(&array_bytes::bytes2hex("0x", aggregated_vote.clone())).unwrap();
+
+	    let client = match client(RPC_NODE, RPC_USER, None) {
+		Ok(client) => client,
+		_ => {
+		    warn!(target: LOG_TARGET, "🥩 unable to connect to the target network,");
+		    return;
+		},
+	    };
+
+	    let raw_aggregated_vote = Some(raw_aggregated_vote.clone());
+            let derefed_aggregated_vote = raw_aggregated_vote.as_deref();
+	    let request = client.build_request("verify_signature", derefed_aggregated_vote);
+	    let response = match(client.send_request(request)) {
+		Ok(response) => response,
+		Err(response) => {		    
+		    warn!(target: LOG_TARGET, "🥩 failed to send_request to target network {}", response);
+		    return;
+		},
+	    };
+	    
+	    // For other commands this would be a struct matching the returned json.
+	    // let result: u64 = response.result().expect("response is an error, use check_error");
+	    // info!(target: LOG_TARGET, "🥩 polkadot state relayed to ethereum {:x?},", aggregated_vote.c);
+	
+	}
+
+
 	pub(crate) fn add_vote(
 		&mut self,
 		vote: VoteMessage<NumberFor<B>, AuthorityId, <AuthorityId as RuntimeAppPublic>::Signature>,
@@ -182,9 +292,19 @@ where
 		let round = self.rounds.entry(vote.commitment.clone()).or_default();
 		if round.add_vote((vote.id, vote.signature)) &&
 			round.is_done(threshold(self.validator_set.len()))
-		{
+	    {
+		//aggregate and submit the votes
+		let signatures : Vec<<AuthorityId as RuntimeAppPublic>::Signature> = 
+		        round.votes.iter().map(|(authority_id, sig)|{sig.clone()})
+			.collect();
+
+		//let signed_commitment_for_this_round = self.signed_commitment((vote.commitment, round.clone()));
+		
+		let aggregated_signature  = Rounds::<B, AuthorityId>::aggregate_round_votes(vote.commitment.encode().as_slice(), round, signatures.as_slice());
+		Rounds::<B, AuthorityId>::submit_aggregate_votes(aggregated_signature);
+		
 			if let Some(round) = self.rounds.remove_entry(&vote.commitment) {
-				return VoteImportResult::RoundConcluded(self.signed_commitment(round));
+			    return VoteImportResult::RoundConcluded(self.signed_commitment(round));
 			}
 		}
 		VoteImportResult::Ok
@@ -222,14 +342,14 @@ mod tests {
 	use sc_network_test::Block;
 
 	use sp_consensus_beefy::{
-		ecdsa_crypto, known_payloads::MMR_ROOT_ID, test_utils::Keyring, Commitment,
+		ecdsa_bls_crypto, known_payloads::MMR_ROOT_ID, test_utils::Keyring, Commitment,
 		DoubleVotingProof, Payload, SignedCommitment, ValidatorSet, VoteMessage,
 	};
 
 	use super::{threshold, Block as BlockT, RoundTracker, Rounds};
 	use crate::round::VoteImportResult;
 
-	impl<B> Rounds<B, ecdsa_crypto::AuthorityId>
+	impl<B> Rounds<B, ecdsa_bls_crypto::AuthorityId>
 	where
 		B: BlockT,
 	{
@@ -240,10 +360,10 @@ mod tests {
 
 	#[test]
 	fn round_tracker() {
-		let mut rt = RoundTracker::<ecdsa_crypto::AuthorityId>::default();
+		let mut rt = RoundTracker::<ecdsa_bls_crypto::AuthorityId>::default();
 		let bob_vote = (
-			Keyring::<ecdsa_crypto::AuthorityId>::Bob.public(),
-			Keyring::<ecdsa_crypto::AuthorityId>::Bob.sign(b"I am committed"),
+			Keyring::<ecdsa_bls_crypto::AuthorityId>::Bob.public(),
+			Keyring::<ecdsa_bls_crypto::AuthorityId>::Bob.sign(b"I am committed"),
 		);
 		let threshold = 2;
 
@@ -256,8 +376,8 @@ mod tests {
 		assert!(!rt.is_done(threshold));
 
 		let alice_vote = (
-			Keyring::<ecdsa_crypto::AuthorityId>::Alice.public(),
-			Keyring::<ecdsa_crypto::AuthorityId>::Alice.sign(b"I am committed"),
+			Keyring::<ecdsa_bls_crypto::AuthorityId>::Alice.public(),
+			Keyring::<ecdsa_bls_crypto::AuthorityId>::Alice.sign(b"I am committed"),
 		);
 		// adding new vote (self vote this time) allowed
 		assert!(rt.add_vote(alice_vote));
@@ -280,22 +400,22 @@ mod tests {
 	fn new_rounds() {
 		sp_tracing::try_init_simple();
 
-		let validators = ValidatorSet::<ecdsa_crypto::AuthorityId>::new(
+		let validators = ValidatorSet::<ecdsa_bls_crypto::AuthorityId>::new(
 			vec![Keyring::Alice.public(), Keyring::Bob.public(), Keyring::Charlie.public()],
 			42,
 		)
 		.unwrap();
 
 		let session_start = 1u64.into();
-		let rounds = Rounds::<Block, ecdsa_crypto::AuthorityId>::new(session_start, validators);
+		let rounds = Rounds::<Block, ecdsa_bls_crypto::AuthorityId>::new(session_start, validators);
 
 		assert_eq!(42, rounds.validator_set_id());
 		assert_eq!(1, rounds.session_start());
 		assert_eq!(
 			&vec![
-				Keyring::<ecdsa_crypto::AuthorityId>::Alice.public(),
-				Keyring::<ecdsa_crypto::AuthorityId>::Bob.public(),
-				Keyring::<ecdsa_crypto::AuthorityId>::Charlie.public()
+				Keyring::<ecdsa_bls_crypto::AuthorityId>::Alice.public(),
+				Keyring::<ecdsa_bls_crypto::AuthorityId>::Bob.public(),
+				Keyring::<ecdsa_bls_crypto::AuthorityId>::Charlie.public()
 			],
 			rounds.validators()
 		);
@@ -305,7 +425,7 @@ mod tests {
 	fn add_and_conclude_votes() {
 		sp_tracing::try_init_simple();
 
-		let validators = ValidatorSet::<ecdsa_crypto::AuthorityId>::new(
+		let validators = ValidatorSet::<ecdsa_bls_crypto::AuthorityId>::new(
 			vec![
 				Keyring::Alice.public(),
 				Keyring::Bob.public(),
@@ -318,7 +438,7 @@ mod tests {
 		let validator_set_id = validators.id();
 
 		let session_start = 1u64.into();
-		let mut rounds = Rounds::<Block, ecdsa_crypto::AuthorityId>::new(session_start, validators);
+		let mut rounds = Rounds::<Block, ecdsa_bls_crypto::AuthorityId>::new(session_start, validators);
 
 		let payload = Payload::from_single_entry(MMR_ROOT_ID, vec![]);
 		let block_number = 1;
@@ -326,7 +446,7 @@ mod tests {
 		let mut vote = VoteMessage {
 			id: Keyring::Alice.public(),
 			commitment: commitment.clone(),
-			signature: Keyring::<ecdsa_crypto::AuthorityId>::Alice.sign(b"I am committed"),
+			signature: Keyring::<ecdsa_bls_crypto::AuthorityId>::Alice.sign(b"I am committed"),
 		};
 		// add 1st good vote
 		assert_eq!(rounds.add_vote(vote.clone()), VoteImportResult::Ok);
@@ -335,26 +455,26 @@ mod tests {
 		assert_eq!(rounds.add_vote(vote.clone()), VoteImportResult::Ok);
 
 		vote.id = Keyring::Dave.public();
-		vote.signature = Keyring::<ecdsa_crypto::AuthorityId>::Dave.sign(b"I am committed");
+		vote.signature = Keyring::<ecdsa_bls_crypto::AuthorityId>::Dave.sign(b"I am committed");
 		// invalid vote (Dave is not a validator)
 		assert_eq!(rounds.add_vote(vote.clone()), VoteImportResult::Invalid);
 
 		vote.id = Keyring::Bob.public();
-		vote.signature = Keyring::<ecdsa_crypto::AuthorityId>::Bob.sign(b"I am committed");
+		vote.signature = Keyring::<ecdsa_bls_crypto::AuthorityId>::Bob.sign(b"I am committed");
 		// add 2nd good vote
 		assert_eq!(rounds.add_vote(vote.clone()), VoteImportResult::Ok);
 
 		vote.id = Keyring::Charlie.public();
-		vote.signature = Keyring::<ecdsa_crypto::AuthorityId>::Charlie.sign(b"I am committed");
+		vote.signature = Keyring::<ecdsa_bls_crypto::AuthorityId>::Charlie.sign(b"I am committed");
 		// add 3rd good vote -> round concluded -> signatures present
 		assert_eq!(
 			rounds.add_vote(vote.clone()),
 			VoteImportResult::RoundConcluded(SignedCommitment {
 				commitment,
 				signatures: vec![
-					Some(Keyring::<ecdsa_crypto::AuthorityId>::Alice.sign(b"I am committed")),
-					Some(Keyring::<ecdsa_crypto::AuthorityId>::Bob.sign(b"I am committed")),
-					Some(Keyring::<ecdsa_crypto::AuthorityId>::Charlie.sign(b"I am committed")),
+					Some(Keyring::<ecdsa_bls_crypto::AuthorityId>::Alice.sign(b"I am committed")),
+					Some(Keyring::<ecdsa_bls_crypto::AuthorityId>::Bob.sign(b"I am committed")),
+					Some(Keyring::<ecdsa_bls_crypto::AuthorityId>::Charlie.sign(b"I am committed")),
 					None,
 				]
 			})
@@ -362,7 +482,7 @@ mod tests {
 		rounds.conclude(block_number);
 
 		vote.id = Keyring::Eve.public();
-		vote.signature = Keyring::<ecdsa_crypto::AuthorityId>::Eve.sign(b"I am committed");
+		vote.signature = Keyring::<ecdsa_bls_crypto::AuthorityId>::Eve.sign(b"I am committed");
 		// Eve is a validator, but round was concluded, adding vote disallowed
 		assert_eq!(rounds.add_vote(vote), VoteImportResult::Stale);
 	}
@@ -371,7 +491,7 @@ mod tests {
 	fn old_rounds_not_accepted() {
 		sp_tracing::try_init_simple();
 
-		let validators = ValidatorSet::<ecdsa_crypto::AuthorityId>::new(
+		let validators = ValidatorSet::<ecdsa_bls_crypto::AuthorityId>::new(
 			vec![Keyring::Alice.public(), Keyring::Bob.public(), Keyring::Charlie.public()],
 			42,
 		)
@@ -380,7 +500,7 @@ mod tests {
 
 		// active rounds starts at block 10
 		let session_start = 10u64.into();
-		let mut rounds = Rounds::<Block, ecdsa_crypto::AuthorityId>::new(session_start, validators);
+		let mut rounds = Rounds::<Block, ecdsa_bls_crypto::AuthorityId>::new(session_start, validators);
 
 		// vote on round 9
 		let block_number = 9;
@@ -389,7 +509,7 @@ mod tests {
 		let mut vote = VoteMessage {
 			id: Keyring::Alice.public(),
 			commitment,
-			signature: Keyring::<ecdsa_crypto::AuthorityId>::Alice.sign(b"I am committed"),
+			signature: Keyring::<ecdsa_bls_crypto::AuthorityId>::Alice.sign(b"I am committed"),
 		};
 		// add vote for previous session, should fail
 		assert_eq!(rounds.add_vote(vote.clone()), VoteImportResult::Stale);
@@ -417,7 +537,7 @@ mod tests {
 	fn multiple_rounds() {
 		sp_tracing::try_init_simple();
 
-		let validators = ValidatorSet::<ecdsa_crypto::AuthorityId>::new(
+		let validators = ValidatorSet::<ecdsa_bls_crypto::AuthorityId>::new(
 			vec![Keyring::Alice.public(), Keyring::Bob.public(), Keyring::Charlie.public()],
 			Default::default(),
 		)
@@ -425,29 +545,29 @@ mod tests {
 		let validator_set_id = validators.id();
 
 		let session_start = 1u64.into();
-		let mut rounds = Rounds::<Block, ecdsa_crypto::AuthorityId>::new(session_start, validators);
+		let mut rounds = Rounds::<Block, ecdsa_bls_crypto::AuthorityId>::new(session_start, validators);
 
 		let payload = Payload::from_single_entry(MMR_ROOT_ID, vec![]);
 		let commitment = Commitment { block_number: 1, payload, validator_set_id };
 		let mut alice_vote = VoteMessage {
 			id: Keyring::Alice.public(),
 			commitment: commitment.clone(),
-			signature: Keyring::<ecdsa_crypto::AuthorityId>::Alice.sign(b"I am committed"),
+			signature: Keyring::<ecdsa_bls_crypto::AuthorityId>::Alice.sign(b"I am committed"),
 		};
 		let mut bob_vote = VoteMessage {
 			id: Keyring::Bob.public(),
 			commitment: commitment.clone(),
-			signature: Keyring::<ecdsa_crypto::AuthorityId>::Bob.sign(b"I am committed"),
+			signature: Keyring::<ecdsa_bls_crypto::AuthorityId>::Bob.sign(b"I am committed"),
 		};
 		let mut charlie_vote = VoteMessage {
 			id: Keyring::Charlie.public(),
 			commitment,
-			signature: Keyring::<ecdsa_crypto::AuthorityId>::Charlie.sign(b"I am committed"),
+			signature: Keyring::<ecdsa_bls_crypto::AuthorityId>::Charlie.sign(b"I am committed"),
 		};
 		let expected_signatures = vec![
-			Some(Keyring::<ecdsa_crypto::AuthorityId>::Alice.sign(b"I am committed")),
-			Some(Keyring::<ecdsa_crypto::AuthorityId>::Bob.sign(b"I am committed")),
-			Some(Keyring::<ecdsa_crypto::AuthorityId>::Charlie.sign(b"I am committed")),
+			Some(Keyring::<ecdsa_bls_crypto::AuthorityId>::Alice.sign(b"I am committed")),
+			Some(Keyring::<ecdsa_bls_crypto::AuthorityId>::Bob.sign(b"I am committed")),
+			Some(Keyring::<ecdsa_bls_crypto::AuthorityId>::Charlie.sign(b"I am committed")),
 		];
 
 		// round 1 - only 2 out of 3 vote
@@ -492,14 +612,14 @@ mod tests {
 	fn should_provide_equivocation_proof() {
 		sp_tracing::try_init_simple();
 
-		let validators = ValidatorSet::<ecdsa_crypto::AuthorityId>::new(
+		let validators = ValidatorSet::<ecdsa_bls_crypto::AuthorityId>::new(
 			vec![Keyring::Alice.public(), Keyring::Bob.public()],
 			Default::default(),
 		)
 		.unwrap();
 		let validator_set_id = validators.id();
 		let session_start = 1u64.into();
-		let mut rounds = Rounds::<Block, ecdsa_crypto::AuthorityId>::new(session_start, validators);
+		let mut rounds = Rounds::<Block, ecdsa_bls_crypto::AuthorityId>::new(session_start, validators);
 
 		let payload1 = Payload::from_single_entry(MMR_ROOT_ID, vec![1, 1, 1, 1]);
 		let payload2 = Payload::from_single_entry(MMR_ROOT_ID, vec![2, 2, 2, 2]);
@@ -509,7 +629,7 @@ mod tests {
 		let alice_vote1 = VoteMessage {
 			id: Keyring::Alice.public(),
 			commitment: commitment1,
-			signature: Keyring::<ecdsa_crypto::AuthorityId>::Alice.sign(b"I am committed"),
+			signature: Keyring::<ecdsa_bls_crypto::AuthorityId>::Alice.sign(b"I am committed"),
 		};
 		let mut alice_vote2 = alice_vote1.clone();
 		alice_vote2.commitment = commitment2;
@@ -525,4 +645,10 @@ mod tests {
 		// vote on _another_ commitment/payload -> expected equivocation proof
 		assert_eq!(rounds.add_vote(alice_vote2), expected_result);
 	}
+}
+
+/// this must be singleton
+#[cfg(test)]
+pub fn env_logger_init() {
+    let _ = env_logger::builder().is_test(true).try_init();
 }

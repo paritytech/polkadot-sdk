@@ -41,6 +41,10 @@ sp-crypto-hashing = { path = "../../../primitives/crypto/hashing" }
 sp-keystore = { path = "../../../primitives/keystore" }
 sp-runtime = { path = "../../../primitives/runtime" }
 tokio = "1.37"
+jsonrpc = "*"
+reqwest = {version = "*" , features = ["blocking", "json"]}
+serde = { workspace = true, default-features = true }
+serde_json = "*"
 
 [dev-dependencies]
 serde = { workspace = true, default-features = true }
@@ -52,6 +56,7 @@ sp-keyring = { path = "../../../primitives/keyring" }
 sp-mmr-primitives = { path = "../../../primitives/merkle-mountain-range" }
 sp-tracing = { path = "../../../primitives/tracing" }
 substrate-test-runtime-client = { path = "../../../test-utils/runtime/client" }
+env_logger = "*"
 
 [features]
 # This feature adds BLS crypto primitives. It should not be used in production since

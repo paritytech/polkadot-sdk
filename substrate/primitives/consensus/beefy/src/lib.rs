@@ -64,10 +64,15 @@ pub const KEY_TYPE: sp_core::crypto::KeyTypeId = sp_application_crypto::key_type
 ///
 /// Accepts custom hashing fn for the message and custom convertor fn for the signer.
 pub trait BeefyAuthorityId<MsgHash: Hash>: RuntimeAppPublic {
-	/// Verify a signature.
-	///
-	/// Return `true` if signature over `msg` is valid for this id.
-	fn verify(&self, signature: &<Self as RuntimeAppPublic>::Signature, msg: &[u8]) -> bool;
+
+    /// Verify a signature.
+    ///
+    /// Return `true` if signature over `msg` is valid for this id.
+    fn verify(&self, signature: &<Self as RuntimeAppPublic>::Signature, msg: &[u8]) -> bool;
+
+    ///Aggregate Signatures
+    fn aggregate_pubkeys_and_sigs(msg: &[u8], pubkeys : &[Self], sigs: &[<Self as RuntimeAppPublic>::Signature]) -> Vec<u8>;
+
 }
 
 /// Hasher used for BEEFY signatures.
@@ -111,7 +116,7 @@ pub mod ecdsa_crypto {
 	impl<MsgHash: Hash> BeefyAuthorityId<MsgHash> for AuthorityId
 	where
 		<MsgHash as Hash>::Output: Into<[u8; 32]>,
-	{
+    {
 		fn verify(&self, signature: &<Self as RuntimeAppPublic>::Signature, msg: &[u8]) -> bool {
 			let msg_hash = <MsgHash as Hash>::hash(msg).into();
 			match sp_io::crypto::secp256k1_ecdsa_recover_compressed(
@@ -122,6 +127,14 @@ pub mod ecdsa_crypto {
 				_ => false,
 			}
 		}
+
+
+	    fn aggregate_pubkeys_and_sigs(msg: &[u8], pubkeys : &[Self], sigs: &[Signature]) -> Vec<u8> {
+		vec![]
+	    }
+
+
+	    
 	}
 	impl AuthorityIdBound for AuthorityId {
 		type BoundedSignature = Signature;
@@ -155,8 +168,10 @@ pub mod bls_crypto {
 
 	impl<MsgHash: Hash> BeefyAuthorityId<MsgHash> for AuthorityId
 	where
-		<MsgHash as Hash>::Output: Into<[u8; 32]>,
-	{
+	<MsgHash as Hash>::Output: Into<[u8; 32]>,
+    
+    {
+
 		fn verify(&self, signature: &<Self as RuntimeAppPublic>::Signature, msg: &[u8]) -> bool {
 			// `w3f-bls` library uses IETF hashing standard and as such does not expose
 			// a choice of hash-to-field function.
@@ -165,6 +180,12 @@ pub mod bls_crypto {
 
 			BlsPair::verify(signature.as_inner_ref(), msg, self.as_inner_ref())
 		}
+	    	    
+	    fn aggregate_pubkeys_and_sigs(msg: &[u8], pubkeys : &[Self], sigs: &[Signature]) -> Vec<u8> {
+		vec![]
+	    }
+
+
 	}
 	impl AuthorityIdBound for AuthorityId {
 		type BoundedSignature = Signature;
@@ -185,7 +206,13 @@ pub mod bls_crypto {
 pub mod ecdsa_bls_crypto {
 	use super::{AuthorityIdBound, BeefyAuthorityId, Hash, RuntimeAppPublic, KEY_TYPE};
 	use sp_application_crypto::{app_crypto, ecdsa_bls381};
-	use sp_core::{crypto::Wraps, ecdsa_bls381::Pair as EcdsaBlsPair};
+	use sp_core::{crypto::{Wraps, ByteArray}, ecdsa_bls381::Pair as EcdsaBlsPair};
+
+    	use w3f_bls::{
+	    single_pop_aggregator::SignatureAggregatorAssumingPoP, Message, SerializableToBytes,
+		Signed, TinyBLS381,
+	};
+    use ark_serialize::CanonicalSerialize;
 
 	app_crypto!(ecdsa_bls381, KEY_TYPE);
 
@@ -199,7 +226,7 @@ pub mod ecdsa_bls_crypto {
 	where
 		H: Hash,
 		H::Output: Into<[u8; 32]>,
-	{
+    {
 		fn verify(&self, signature: &<Self as RuntimeAppPublic>::Signature, msg: &[u8]) -> bool {
 			// We can not simply call
 			// `EcdsaBlsPair::verify(signature.as_inner_ref(), msg, self.as_inner_ref())`
@@ -214,7 +241,47 @@ pub mod ecdsa_bls_crypto {
 				self.as_inner_ref(),
 			)
 		}
+
+	    	    
+	    fn aggregate_pubkeys_and_sigs(msg: &[u8], pubkeys : &[Self], sigs: &[Signature]) -> Vec<u8>	{			// we are going to aggregate the signatures here
+		let message = Message::new(b"", msg);
+		let mut aggregatedsigs: SignatureAggregatorAssumingPoP<TinyBLS381> =
+					SignatureAggregatorAssumingPoP::new(message.clone());
+
+		for (pubkey, sig) in pubkeys.iter().zip(sigs) {
+		    let vec_sig = (*sig.as_slice()).to_vec();
+		    let vec_pubkey = (*pubkey.as_slice()).to_vec();
+		    let serialized_sig  = vec_sig.get(65..65+48).unwrap(); //ecdsa + bls + schnorr
+		    let serialized_pubkey = vec_pubkey.get(33+48..33+48+96).unwrap(); //ecdsa + blsg1 + blsg2
+		    aggregatedsigs.add_signature(
+			&w3f_bls::Signature::<TinyBLS381>::from_bytes(
+			    serialized_sig
+			).unwrap());
+			    
+			aggregatedsigs.add_publickey(
+			    &w3f_bls::PublicKey::<TinyBLS381>::from_bytes(
+				serialized_pubkey
+			    ).unwrap());
+		}
+	    
+		let message_point = message.hash_to_signature_curve::<TinyBLS381>();
+		let sig_agr = (&aggregatedsigs).signature();
+		let pub_agr = aggregatedsigs.aggregated_publickey();
+		let mut serialized_message: Vec<u8> = vec![0; 48*2];
+		let mut serialized_signature: Vec<u8> = vec![0; 48*2];
+		let mut serialized_pub_key: Vec<u8> = vec![0; 96*2];
+	    
+
+		message_point.serialize_uncompressed(&mut serialized_message[..])
+		    .unwrap();
+		sig_agr.serialize_uncompressed(&mut serialized_signature[..])
+		    .unwrap();
+		pub_agr.serialize_uncompressed(&mut serialized_pub_key[..])
+		    .unwrap();
+		[serialized_message, serialized_signature, serialized_pub_key].concat()
+	    }
 	}
+
 
 	impl AuthorityIdBound for AuthorityId {
 		type BoundedSignature = Signature;
