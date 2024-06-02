@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1717175811858,
+  "lastUpdate": 1717359860947,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -12583,6 +12583,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.01059747712666667,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "gupnik",
+            "username": "gupnik",
+            "email": "nikhilgupta.iitk@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "f81751e0ce56b0ef50b3a0b5aa0ff4fb16c9ea37",
+          "message": "Better error for missing index in CRV2 (#4643)\n\nFixes https://github.com/paritytech/polkadot-sdk/issues/4552\n\n---------\n\nCo-authored-by: command-bot <>\nCo-authored-by: Bastian Köcher <info@kchr.de>",
+          "timestamp": "2024-06-02T18:39:47Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/f81751e0ce56b0ef50b3a0b5aa0ff4fb16c9ea37"
+        },
+        "date": 1717359833434,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.022249599799999995,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010825272700000001,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.012938773953333333,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.17485906398666667,
             "unit": "seconds"
           }
         ]
