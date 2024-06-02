@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1717359860947,
+  "lastUpdate": 1717364917431,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -12635,6 +12635,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-store",
             "value": 0.17485906398666667,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "tugy",
+            "username": "tugytur",
+            "email": "33746108+tugytur@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "5779ec5b775f86fb86be02783ab5c02efbf307ca",
+          "message": "update amforc westend and its parachain bootnodes (#4641)\n\nTested each bootnode with `--reserved-only --reserved-nodes`",
+          "timestamp": "2024-06-02T20:11:23Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/5779ec5b775f86fb86be02783ab5c02efbf307ca"
+        },
+        "date": 1717364889761,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02270552628,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.17809745770666668,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.011410045960000002,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.013464688780000005,
             "unit": "seconds"
           }
         ]
