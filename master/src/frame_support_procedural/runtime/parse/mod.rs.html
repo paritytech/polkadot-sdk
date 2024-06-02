@@ -415,6 +415,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#264" id="264">264</a>
 <a href="#265" id="265">265</a>
 <a href="#266" id="266">266</a>
+<a href="#267" id="267">267</a>
+<a href="#268" id="268">268</a>
+<a href="#269" id="269">269</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -569,8 +572,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span><span class="kw-2">mut </span>pallets = <span class="macro">vec!</span>[];
 
 		<span class="kw">for </span>item <span class="kw">in </span>items.iter_mut() {
-			<span class="kw">let </span><span class="kw-2">mut </span>pallet_item = <span class="prelude-val">None</span>;
-			<span class="kw">let </span><span class="kw-2">mut </span>pallet_index = <span class="number">0</span>;
+			<span class="kw">let </span><span class="kw-2">mut </span>pallet_index_and_item = <span class="prelude-val">None</span>;
 
 			<span class="kw">let </span><span class="kw-2">mut </span>disable_call = <span class="bool-val">false</span>;
 			<span class="kw">let </span><span class="kw-2">mut </span>disable_unsigned = <span class="bool-val">false</span>;
@@ -587,9 +589,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						runtime_types = <span class="prelude-val">Some</span>(types);
 					},
 					RuntimeAttr::PalletIndex(span, index) =&gt; {
-						pallet_index = index;
-						pallet_item = <span class="kw">if let </span>syn::Item::Type(item) = item {
-							<span class="prelude-val">Some</span>(item.clone())
+						pallet_index_and_item = <span class="kw">if let </span>syn::Item::Type(item) = item {
+							<span class="prelude-val">Some</span>((index, item.clone()))
 						} <span class="kw">else </span>{
 							<span class="kw">let </span>msg = <span class="string">"Invalid runtime::pallet_index, expected type definition"</span>;
 							<span class="kw">return </span><span class="prelude-val">Err</span>(syn::Error::new(span, msg))
@@ -604,7 +605,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				}
 			}
 
-			<span class="kw">if let </span><span class="prelude-val">Some</span>(pallet_item) = pallet_item {
+			<span class="kw">if let </span><span class="prelude-val">Some</span>((pallet_index, pallet_item)) = pallet_index_and_item {
 				<span class="kw">match </span><span class="kw-2">*</span>pallet_item.ty.clone() {
 					syn::Type::Path(<span class="kw-2">ref </span>path) =&gt; {
 						<span class="kw">let </span>pallet_decl =
@@ -646,6 +647,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						pallets.push(pallet);
 					},
 					<span class="kw">_ </span>=&gt; <span class="kw">continue</span>,
+				}
+			} <span class="kw">else </span>{
+				<span class="kw">if let </span>syn::Item::Type(item) = item {
+					<span class="kw">let </span>msg = <span class="string">"Missing pallet index for pallet declaration. Please add `#[runtime::pallet_index(...)]`"</span>;
+					<span class="kw">return </span><span class="prelude-val">Err</span>(syn::Error::new(item.span(), <span class="kw-2">&amp;</span>msg))
 				}
 			}
 		}
