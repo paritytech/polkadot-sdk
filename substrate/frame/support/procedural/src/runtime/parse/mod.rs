@@ -152,8 +152,7 @@ impl Def {
 		let mut pallets = vec![];
 
 		for item in items.iter_mut() {
-			let mut pallet_item = None;
-			let mut pallet_index = None;
+			let mut pallet_index_and_item = None;
 
 			let mut disable_call = false;
 			let mut disable_unsigned = false;
@@ -170,9 +169,8 @@ impl Def {
 						runtime_types = Some(types);
 					},
 					RuntimeAttr::PalletIndex(span, index) => {
-						pallet_index = Some(index);
-						pallet_item = if let syn::Item::Type(item) = item {
-							Some(item.clone())
+						pallet_index_and_item = if let syn::Item::Type(item) = item {
+							Some((index, item.clone()))
 						} else {
 							let msg = "Invalid runtime::pallet_index, expected type definition";
 							return Err(syn::Error::new(span, msg))
@@ -187,14 +185,7 @@ impl Def {
 				}
 			}
 
-			if pallet_index.is_none() {
-				if let syn::Item::Type(item) = item {
-					let msg = "Missing pallet index for pallet declaration. Please add `#[runtime::pallet_index(...)]`";
-					return Err(syn::Error::new(item.span(), &msg))
-				}
-			}
-
-			if let Some(pallet_item) = pallet_item {
+			if let Some((pallet_index, pallet_item)) = pallet_index_and_item {
 				match *pallet_item.ty.clone() {
 					syn::Type::Path(ref path) => {
 						let pallet_decl =
@@ -216,9 +207,7 @@ impl Def {
 						let pallet = Pallet::try_from(
 							item.span(),
 							&pallet_item,
-							pallet_index
-								.expect("Pallet item is present only for valid pallet index")
-								.into(),
+							pallet_index,
 							disable_call,
 							disable_unsigned,
 							&bounds,
@@ -238,6 +227,11 @@ impl Def {
 						pallets.push(pallet);
 					},
 					_ => continue,
+				}
+			} else {
+				if let syn::Item::Type(item) = item {
+					let msg = "Missing pallet index for pallet declaration. Please add `#[runtime::pallet_index(...)]`";
+					return Err(syn::Error::new(item.span(), &msg))
 				}
 			}
 		}
