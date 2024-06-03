@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! This pallet demonstrates the use of the `pallet::task` api for service work.
+//! This pallet demonstrates the use of the `pallet::view_functions` api for service work.
 #![cfg_attr(not(feature = "std"), no_std)]
 
 pub mod mock;

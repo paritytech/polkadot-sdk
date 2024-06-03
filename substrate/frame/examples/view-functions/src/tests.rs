@@ -15,12 +15,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Tests for `pallet-example-tasks`.
+//! Tests for `pallet-example-view-functions`.
 #![cfg(test)]
 
 use crate::{
 	mock::*,
 	pallet::{self, Pallet},
+	pallet2,
 };
 use codec::{Decode, Encode};
 use frame_support::traits::{DispatchQuery, Query};
@@ -74,4 +75,45 @@ fn pallet_get_value_with_arg_query() {
 
 		assert_eq!(some_value, query_result,);
 	});
+}
+
+#[test]
+fn pallet_instances() {
+	use pallet2::Instance1;
+
+	new_test_ext().execute_with(|| {
+		let instance_value = Some(123);
+		let instance1_value = Some(456);
+
+		pallet2::SomeValue::<Runtime>::set(instance_value);
+		pallet2::SomeValue::<Runtime, Instance1>::set(instance1_value);
+
+		let query = pallet2::GetValueQuery::<Runtime>::new();
+		test_dispatch_query::<<Runtime as frame_system::Config>::RuntimeQuery, _, _>(
+			query,
+			instance_value,
+		);
+
+		let query_instance1 = pallet2::GetValueQuery::<Runtime, Instance1>::new();
+		test_dispatch_query::<<Runtime as frame_system::Config>::RuntimeQuery, _, _>(
+			query_instance1,
+			instance1_value,
+		);
+	});
+}
+
+fn test_dispatch_query<D, Q, V>(query: Q, expected: V)
+where
+	D: DispatchQuery,
+	Q: Query + Encode,
+	V: Decode + Eq + PartialEq + std::fmt::Debug,
+{
+	let input = query.encode();
+	let mut output = Vec::new();
+
+	D::dispatch_query::<Vec<u8>>(&Q::id(), &mut &input[..], &mut output).unwrap();
+
+	let query_result = V::decode(&mut &output[..]).unwrap();
+
+	assert_eq!(expected, query_result,);
 }

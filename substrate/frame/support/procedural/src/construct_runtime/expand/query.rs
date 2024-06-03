@@ -54,7 +54,6 @@ pub fn expand_outer_query(
 					output: &mut O
 				) -> Result<(), #scrate::__private::codec::Error>
 				{
-					println!("dispatch_query {id:?}");
 					#( #prefix_conditionals )*
 					Err(#scrate::__private::codec::Error::from("todo: no prefix"))
 				}

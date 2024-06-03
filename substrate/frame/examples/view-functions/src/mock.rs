@@ -31,7 +31,7 @@ frame_support::construct_runtime!(
 		System: frame_system,
 		ViewFunctionsExample: pallet,
 		ViewFunctionsInstance: pallet2,
-		// ViewFunctionsInstance: pallet2::<Instance1>,
+		ViewFunctionsInstance1: pallet2::<Instance1>,
 	}
 );
 
