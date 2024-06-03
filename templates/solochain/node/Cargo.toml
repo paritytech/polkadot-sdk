@@ -2,7 +2,7 @@
 name = "solochain-template-node"
 description = "A solochain node template built with Substrate, part of Polkadot Sdk."
 version = "0.0.0"
-license = "MIT-0"
+license = "Unlicense"
 authors.workspace = true
 homepage.workspace = true
 repository.workspace = true
@@ -10,9 +10,6 @@ edition.workspace = true
 publish = false
 
 build = "build.rs"
-
-[lints]
-workspace = true
 
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]

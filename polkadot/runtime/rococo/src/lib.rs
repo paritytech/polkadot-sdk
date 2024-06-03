@@ -106,10 +106,7 @@ use sp_staking::SessionIndex;
 #[cfg(any(feature = "std", test))]
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
-use xcm::{
-	latest::prelude::*, IntoVersion, VersionedAssetId, VersionedAssets, VersionedLocation,
-	VersionedXcm,
-};
+use xcm::{latest::prelude::*, VersionedAssetId, VersionedAssets, VersionedLocation, VersionedXcm};
 use xcm_builder::PayOverXcm;
 
 pub use frame_system::Call as SystemCall;
@@ -135,7 +132,7 @@ use governance::{
 	TreasurySpender,
 };
 use xcm_fee_payment_runtime_api::{
-	dry_run::{Error as XcmDryRunApiError, ExtrinsicDryRunEffects, XcmDryRunEffects},
+	dry_run::{CallDryRunEffects, Error as XcmDryRunApiError, XcmDryRunEffects},
 	fees::Error as XcmPaymentApiError,
 };
 
@@ -1766,15 +1763,8 @@ sp_api::impl_runtime_apis! {
 
 	impl xcm_fee_payment_runtime_api::fees::XcmPaymentApi<Block> for Runtime {
 		fn query_acceptable_payment_assets(xcm_version: xcm::Version) -> Result<Vec<VersionedAssetId>, XcmPaymentApiError> {
-			let acceptable = vec![
-				// native token
-				VersionedAssetId::from(AssetId(xcm_config::TokenLocation::get()))
-			];
-
-			Ok(acceptable
-				.into_iter()
-				.filter_map(|asset| asset.into_version(xcm_version).ok())
-				.collect())
+			let acceptable_assets = vec![AssetId(xcm_config::TokenLocation::get())];
+			XcmPallet::query_acceptable_payment_assets(xcm_version, acceptable_assets)
 		}
 
 		fn query_weight_to_asset_fee(weight: Weight, asset: VersionedAssetId) -> Result<u128, XcmPaymentApiError> {
@@ -1803,63 +1793,13 @@ sp_api::impl_runtime_apis! {
 		}
 	}
 
-	impl xcm_fee_payment_runtime_api::dry_run::XcmDryRunApi<Block, RuntimeCall, RuntimeEvent> for Runtime {
-		fn dry_run_extrinsic(extrinsic: <Block as BlockT>::Extrinsic) -> Result<ExtrinsicDryRunEffects<RuntimeEvent>, XcmDryRunApiError> {
-			use xcm_builder::InspectMessageQueues;
-			use xcm_executor::RecordXcm;
-			pallet_xcm::Pallet::<Runtime>::set_record_xcm(true);
-			let result = Executive::apply_extrinsic(extrinsic).map_err(|error| {
-				log::error!(
-					target: "xcm::XcmDryRunApi::dry_run_extrinsic",
-					"Applying extrinsic failed with error {:?}",
-					error,
-				);
-				XcmDryRunApiError::InvalidExtrinsic
-			})?;
-			let local_xcm = pallet_xcm::Pallet::<Runtime>::recorded_xcm();
-			let forwarded_xcms = xcm_config::XcmRouter::get_messages();
-			let events: Vec<RuntimeEvent> = System::read_events_no_consensus().map(|record| record.event.clone()).collect();
-			Ok(ExtrinsicDryRunEffects {
-				local_xcm: local_xcm.map(VersionedXcm::<()>::from),
-				forwarded_xcms,
-				emitted_events: events,
-				execution_result: result,
-			})
+	impl xcm_fee_payment_runtime_api::dry_run::DryRunApi<Block, RuntimeCall, RuntimeEvent, OriginCaller> for Runtime {
+		fn dry_run_call(origin: OriginCaller, call: RuntimeCall) -> Result<CallDryRunEffects<RuntimeEvent>, XcmDryRunApiError> {
+			XcmPallet::dry_run_call::<Runtime, xcm_config::XcmRouter, OriginCaller, RuntimeCall>(origin, call)
 		}
 
 		fn dry_run_xcm(origin_location: VersionedLocation, xcm: VersionedXcm<RuntimeCall>) -> Result<XcmDryRunEffects<RuntimeEvent>, XcmDryRunApiError> {
-			use xcm_builder::InspectMessageQueues;
-			let origin_location: Location = origin_location.try_into().map_err(|error| {
-				log::error!(
-					target: "xcm::XcmDryRunApi::dry_run_xcm",
-					"Location version conversion failed with error: {:?}",
-					error,
-				);
-				XcmDryRunApiError::VersionedConversionFailed
-			})?;
-			let xcm: Xcm<RuntimeCall> = xcm.try_into().map_err(|error| {
-				log::error!(
-					target: "xcm::XcmDryRunApi::dry_run_xcm",
-					"Xcm version conversion failed with error {:?}",
-					error,
-				);
-				XcmDryRunApiError::VersionedConversionFailed
-			})?;
-			let mut hash = xcm.using_encoded(sp_io::hashing::blake2_256);
-			let result = xcm_executor::XcmExecutor::<xcm_config::XcmConfig>::prepare_and_execute(
-				origin_location,
-				xcm,
-				&mut hash,
-				Weight::MAX, // Max limit available for execution.
-				Weight::zero(),
-			);
-			let forwarded_xcms = xcm_config::XcmRouter::get_messages();
-			let events: Vec<RuntimeEvent> = System::read_events_no_consensus().map(|record| record.event.clone()).collect();
-			Ok(XcmDryRunEffects {
-				forwarded_xcms,
-				emitted_events: events,
-				execution_result: result,
-			})
+			XcmPallet::dry_run_xcm::<Runtime, xcm_config::XcmRouter, RuntimeCall, xcm_config::XcmConfig>(origin_location, xcm)
 		}
 	}
 
