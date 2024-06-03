@@ -730,17 +730,18 @@ impl<'a> StorageAppend<'a> {
 		Self(storage)
 	}
 
-	/// Extract current length if defined.
-	pub fn extract_current_length(&self) -> Option<u32> {
-		let len = u32::from(Compact::<u32>::decode(&mut &self.0[..]).ok()?);
-		Some(len)
+	/// Extract the length of the list like data structure.
+	pub fn extract_length(&self) -> Option<u32> {
+		Compact::<u32>::decode(&mut &self.0[..]).map(|c| c.0).ok()
 	}
 
-	/// Replace current length if defined.
-	pub fn replace_current_length(&mut self, old_length: Option<u32>, new_length: u32) {
-		let encoded_len = old_length.map(|l| Compact::<u32>::compact_len(&l)).unwrap_or(0);
-		let encoded_new = Compact::<u32>(new_length).encode();
-		let _ = self.0.splice(0..encoded_len, encoded_new);
+	/// Replace the length in the encoded data.
+	///
+	/// If `old_length` is `None`, the previous length will be assumed to be `0`.
+	pub fn replace_length(&mut self, old_length: Option<u32>, new_length: u32) {
+		let old_len_encoded_len = old_length.map(|l| Compact::<u32>::compact_len(&l)).unwrap_or(0);
+		let new_len_encoded = Compact::<u32>(new_length).encode();
+		self.0.splice(0..old_len_encoded_len, new_len_encoded);
 	}
 
 	/// Append the given `value` to the storage item.
@@ -768,12 +769,13 @@ impl<'a> StorageAppend<'a> {
 		result
 	}
 
-	/// Append to current buffer, do not touch the prefixed size.
+	/// Append to current buffer, do not touch the prefixed length.
 	pub fn append_raw(&mut self, mut value: Vec<u8>) {
 		self.0.append(&mut value)
 	}
 
 	/// Compare two size, return difference of encoding length.
+	///
 	/// Bool indicate if first size is bigger than second (unusual case
 	/// where append does reduce materialized size: this can happen
 	/// under certain access and transaction conditions).

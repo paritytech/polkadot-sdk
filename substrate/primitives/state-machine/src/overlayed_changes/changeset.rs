@@ -142,7 +142,7 @@ impl StorageEntry {
 			if materialized.map_or(false, |m| m == current_length) {
 				return
 			}
-			StorageAppend::new(data).replace_current_length(*materialized, current_length);
+			StorageAppend::new(data).replace_length(*materialized, current_length);
 			*materialized = Some(current_length);
 		}
 	}
@@ -155,8 +155,7 @@ impl StorageEntry {
 					Some(Cow::Borrowed(data.as_ref()))
 				} else {
 					let mut data = data.clone();
-					StorageAppend::new(&mut data)
-						.replace_current_length(*materialized, current_length);
+					StorageAppend::new(&mut data).replace_length(*materialized, current_length);
 
 					Some(data.into())
 				}
@@ -400,8 +399,7 @@ impl OverlayedEntry<StorageEntry> {
 				StorageEntry::Some(prev) => {
 					// For compatibility: append if there is a encoded length, overwrite
 					// with value otherwhise.
-					if let Some(current_length) = StorageAppend::new(prev).extract_current_length()
-					{
+					if let Some(current_length) = StorageAppend::new(prev).extract_length() {
 						// append on to of a simple storage should be avoided by any sane runtime,
 						// allowing a clone here.
 						// We clone existing data here, we could also change the existing value
@@ -434,7 +432,7 @@ impl OverlayedEntry<StorageEntry> {
 					let mut append = StorageAppend::new(data);
 					// For compatibility: append if there is a encoded length, overwrite
 					// with value otherwhise.
-					if let Some(current_length) = append.extract_current_length() {
+					if let Some(current_length) = append.extract_length() {
 						append.append_raw(value);
 						Some((core::mem::take(data), current_length + 1, Some(current_length)))
 					} else {
