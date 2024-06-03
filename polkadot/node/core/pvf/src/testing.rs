@@ -21,9 +21,8 @@ pub use crate::{
 	worker_interface::{spawn_with_program_path, SpawnErr},
 };
 
-use crate::{artifacts::ArtifactId, get_worker_version};
+use crate::get_worker_version;
 use is_executable::IsExecutable;
-use polkadot_node_core_pvf_common::pvf::PvfPrepData;
 use polkadot_node_primitives::NODE_VERSION;
 use polkadot_primitives::ExecutorParams;
 use std::{
