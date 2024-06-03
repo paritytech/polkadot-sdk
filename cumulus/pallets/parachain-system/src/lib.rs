@@ -743,8 +743,7 @@ pub mod pallet {
 	/// The segment length is limited by the capacity returned from the [`ConsensusHook`] configured
 	/// in the pallet.
 	#[pallet::storage]
-	pub type UnincludedSegment<T: Config> =
-		StorageValue<_, Vec<Ancestor<T::Hash>>, ValueQuery>;
+	pub type UnincludedSegment<T: Config> = StorageValue<_, Vec<Ancestor<T::Hash>>, ValueQuery>;
 
 	/// Storage field that keeps track of bandwidth used by the unincluded segment along with the
 	/// latest HRMP watermark. Used for limiting the acceptance of new blocks with
@@ -861,8 +860,7 @@ pub mod pallet {
 	///
 	/// This will be cleared in `on_initialize` of each new block.
 	#[pallet::storage]
-	pub type HrmpWatermark<T: Config> =
-		StorageValue<_, relay_chain::BlockNumber, ValueQuery>;
+	pub type HrmpWatermark<T: Config> = StorageValue<_, relay_chain::BlockNumber, ValueQuery>;
 
 	/// HRMP messages that were sent in a block.
 	///
@@ -879,8 +877,7 @@ pub mod pallet {
 
 	/// Upward messages that are still pending and not yet send to the relay chain.
 	#[pallet::storage]
-	pub type PendingUpwardMessages<T: Config> =
-		StorageValue<_, Vec<UpwardMessage>, ValueQuery>;
+	pub type PendingUpwardMessages<T: Config> = StorageValue<_, Vec<UpwardMessage>, ValueQuery>;
 
 	/// Initialization value for the delivery fee factor for UMP.
 	#[pallet::type_value]
