@@ -141,7 +141,7 @@ jobs:
             cat <<EOF
           👋 Hello developer! Apparently you added a new crate that is not part of the umbrella crate?
 
-          You can just apply the patch (`git apply PATCH_NAME`) that was printed above to make this CI check succeed.
+          You can just apply the patch (git apply PATCH_NAME) that was printed above to make this CI check succeed.
 
           Otherwise feel free to ask in the Merge Request or in Matrix chat.
           EOF
