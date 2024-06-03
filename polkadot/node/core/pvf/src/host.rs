@@ -963,7 +963,7 @@ fn pulse_every(interval: std::time::Duration) -> impl futures::Stream<Item = ()>
 #[cfg(test)]
 pub(crate) mod tests {
 	use super::*;
-	use crate::{artifacts::generate_artifact_path, PossiblyInvalidError};
+	use crate::{artifacts::generate_artifact_path, testing::artifact_id, PossiblyInvalidError};
 	use assert_matches::assert_matches;
 	use futures::future::BoxFuture;
 	use polkadot_node_core_pvf_common::prepare::PrepareStats;
@@ -983,11 +983,6 @@ pub(crate) mod tests {
 			let el = start.elapsed().as_millis();
 			assert!(el > 50 && el < 150, "pulse duration: {}", el);
 		}
-	}
-
-	/// Creates a new PVF which artifact id can be uniquely identified by the given number.
-	fn artifact_id(discriminator: u32) -> ArtifactId {
-		ArtifactId::from_pvf_prep_data(&PvfPrepData::from_discriminator(discriminator))
 	}
 
 	struct Builder {

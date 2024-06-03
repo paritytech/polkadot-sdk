@@ -191,6 +191,11 @@ impl Artifacts {
 		self.inner.len()
 	}
 
+	#[cfg(test)]
+	fn artifact_ids(&self) -> Vec<ArtifactId> {
+		self.inner.keys().cloned().collect()
+	}
+
 	/// Create an empty table and the cache directory on-disk if it doesn't exist.
 	pub async fn new(cache_path: &Path) -> Self {
 		// Make sure that the cache path directory and all its parents are created.
@@ -296,7 +301,9 @@ impl Artifacts {
 						artifact_sizes.push((k.clone(), path.clone(), size, last_time_needed));
 					}
 				}
-				artifact_sizes.sort_by_key(|&(_, _, _, last_time_needed)| last_time_needed);
+				artifact_sizes.sort_by_key(|&(_, _, _, last_time_needed)| {
+					std::cmp::Reverse(last_time_needed)
+				});
 
 				while total_size > *size_limit {
 					let Some((artifact_id, path, size, _)) = artifact_sizes.pop() else { break };
@@ -316,6 +323,8 @@ impl Artifacts {
 
 #[cfg(test)]
 mod tests {
+	use crate::testing::artifact_id;
+
 	use super::*;
 
 	#[tokio::test]
@@ -344,5 +353,99 @@ mod tests {
 		assert!(entries.contains(&String::from("polkadot_...")));
 		assert!(entries.contains(&String::from("worker-prepare-test")));
 		assert_eq!(artifacts.len(), 0);
+	}
+
+	#[tokio::test]
+	async fn test_pruning_by_time() {
+		let mock_now = SystemTime::now();
+		let tempdir = tempfile::tempdir().unwrap();
+		let cache_path = tempdir.path();
+
+		let path1 = generate_artifact_path(cache_path);
+		let path2 = generate_artifact_path(cache_path);
+		let path3 = generate_artifact_path(cache_path);
+		let artifact_id1 = artifact_id(1);
+		let artifact_id2 = artifact_id(2);
+		let artifact_id3 = artifact_id(3);
+
+		let mut artifacts = Artifacts::new(cache_path).await;
+
+		artifacts.insert_prepared(
+			artifact_id1.clone(),
+			path1.clone(),
+			mock_now - Duration::from_secs(5),
+			1024,
+			PrepareStats::default(),
+		);
+		artifacts.insert_prepared(
+			artifact_id2.clone(),
+			path2.clone(),
+			mock_now - Duration::from_secs(10),
+			1024,
+			PrepareStats::default(),
+		);
+		artifacts.insert_prepared(
+			artifact_id3.clone(),
+			path3.clone(),
+			mock_now - Duration::from_secs(15),
+			1024,
+			PrepareStats::default(),
+		);
+
+		let pruned = artifacts.prune(&CleanupBy::Time(Duration::from_secs(9)));
+
+		assert!(artifacts.artifact_ids().contains(&artifact_id1));
+		assert!(!pruned.contains(&(artifact_id1, path1)));
+		assert!(!artifacts.artifact_ids().contains(&artifact_id2));
+		assert!(pruned.contains(&(artifact_id2, path2)));
+		assert!(!artifacts.artifact_ids().contains(&artifact_id3));
+		assert!(pruned.contains(&(artifact_id3, path3)));
+	}
+
+	#[tokio::test]
+	async fn test_pruning_by_size() {
+		let mock_now = SystemTime::now();
+		let tempdir = tempfile::tempdir().unwrap();
+		let cache_path = tempdir.path();
+
+		let path1 = generate_artifact_path(cache_path);
+		let path2 = generate_artifact_path(cache_path);
+		let path3 = generate_artifact_path(cache_path);
+		let artifact_id1 = artifact_id(1);
+		let artifact_id2 = artifact_id(2);
+		let artifact_id3 = artifact_id(3);
+
+		let mut artifacts = Artifacts::new(cache_path).await;
+
+		artifacts.insert_prepared(
+			artifact_id1.clone(),
+			path1.clone(),
+			mock_now - Duration::from_secs(5),
+			1024,
+			PrepareStats::default(),
+		);
+		artifacts.insert_prepared(
+			artifact_id2.clone(),
+			path2.clone(),
+			mock_now - Duration::from_secs(10),
+			1024,
+			PrepareStats::default(),
+		);
+		artifacts.insert_prepared(
+			artifact_id3.clone(),
+			path3.clone(),
+			mock_now - Duration::from_secs(15),
+			1024,
+			PrepareStats::default(),
+		);
+
+		let pruned = artifacts.prune(&CleanupBy::Size(1500));
+
+		assert!(artifacts.artifact_ids().contains(&artifact_id1));
+		assert!(!pruned.contains(&(artifact_id1, path1)));
+		assert!(!artifacts.artifact_ids().contains(&artifact_id2));
+		assert!(pruned.contains(&(artifact_id2, path2)));
+		assert!(!artifacts.artifact_ids().contains(&artifact_id3));
+		assert!(pruned.contains(&(artifact_id3, path3)));
 	}
 }
