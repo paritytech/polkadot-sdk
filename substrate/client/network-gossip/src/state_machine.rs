@@ -543,11 +543,11 @@ impl Metrics {
 mod tests {
 	use super::*;
 	use futures::prelude::*;
-	use multiaddr::Multiaddr;
 	use sc_network::{
 		config::MultiaddrWithPeerId, event::Event, service::traits::NotificationEvent, MessageSink,
 		NetworkBlock, NetworkEventStream, NetworkPeers, ReputationChange,
 	};
+	use sc_network_types::multiaddr::Multiaddr;
 	use sp_runtime::{
 		testing::{Block as RawBlock, ExtrinsicWrapper, H256},
 		traits::NumberFor,

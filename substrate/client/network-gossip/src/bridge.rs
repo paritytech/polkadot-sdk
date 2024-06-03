@@ -355,7 +355,6 @@ mod tests {
 		executor::{block_on, block_on_stream},
 		future::poll_fn,
 	};
-	use multiaddr::Multiaddr;
 	use quickcheck::{Arbitrary, Gen, QuickCheck};
 	use sc_network::{
 		config::MultiaddrWithPeerId,
@@ -364,6 +363,7 @@ mod tests {
 	};
 	use sc_network_common::role::ObservedRole;
 	use sc_network_sync::SyncEventStream;
+	use sc_network_types::multiaddr::Multiaddr;
 	use sp_runtime::{
 		testing::H256,
 		traits::{Block as BlockT, NumberFor},
