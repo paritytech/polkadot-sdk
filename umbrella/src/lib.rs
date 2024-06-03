@@ -673,6 +673,10 @@ pub use pallet_staking_reward_fn;
 #[cfg(feature = "pallet-staking-runtime-api")]
 pub use pallet_staking_runtime_api;
 
+/// Keeps track of the staking target's approval stakes.
+#[cfg(feature = "pallet-stake-tracker")]
+pub use pallet_stake_tracker;
+
 /// FRAME pallet migration of trie.
 #[cfg(feature = "pallet-state-trie-migration")]
 pub use pallet_state_trie_migration;
