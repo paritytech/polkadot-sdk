@@ -587,7 +587,7 @@ async fn determine_cores(
 				if relay_parent_mode.is_enabled() {
 					// With async backing we don't care about the core state,
 					// it is only needed for figuring our validators group.
-					Some(occupied.candidate_descriptor.para_id)
+					occupied.next_up_on_available.as_ref().map(|c| c.para_id)
 				} else {
 					None
 				},
