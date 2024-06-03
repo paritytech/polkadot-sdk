@@ -964,7 +964,7 @@ where
 		publisher: Option<sc_network_types::PeerId>,
 		expires: Option<Instant>,
 	) {
-		let _ = self.to_worker.unbounded_send(ServiceToWorkerMsg::StoreValue(
+		let _ = self.to_worker.unbounded_send(ServiceToWorkerMsg::StoreRecord(
 			key,
 			value,
 			publisher.map(Into::into),
@@ -1325,7 +1325,7 @@ impl<'a> NotificationSenderReadyT for NotificationSenderReady<'a> {
 enum ServiceToWorkerMsg {
 	GetValue(KademliaKey),
 	PutValue(KademliaKey, Vec<u8>),
-	StoreValue(KademliaKey, Vec<u8>, Option<PeerId>, Option<Instant>),
+	StoreRecord(KademliaKey, Vec<u8>, Option<PeerId>, Option<Instant>),
 	AddKnownAddress(PeerId, Multiaddr),
 	EventStream(out_events::Sender),
 	Request {
@@ -1453,7 +1453,7 @@ where
 				self.network_service.behaviour_mut().get_value(key),
 			ServiceToWorkerMsg::PutValue(key, value) =>
 				self.network_service.behaviour_mut().put_value(key, value),
-			ServiceToWorkerMsg::StoreValue(key, value, publisher, expires) => self
+			ServiceToWorkerMsg::StoreRecord(key, value, publisher, expires) => self
 				.network_service
 				.behaviour_mut()
 				.store_record(key, value, publisher, expires),

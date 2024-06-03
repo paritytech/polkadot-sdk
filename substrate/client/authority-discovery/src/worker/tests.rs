@@ -119,7 +119,7 @@ sp_api::mock_impl_runtime_apis! {
 pub enum TestNetworkEvent {
 	GetCalled(KademliaKey),
 	PutCalled(KademliaKey, Vec<u8>),
-	StoreValueCalled(KademliaKey, Vec<u8>, Option<sc_network_types::PeerId>, Option<Instant>),
+	StoreRecordCalled(KademliaKey, Vec<u8>, Option<sc_network_types::PeerId>, Option<Instant>),
 }
 
 pub struct TestNetwork {
@@ -215,7 +215,7 @@ impl NetworkDHTProvider for TestNetwork {
 		));
 		self.event_sender
 			.clone()
-			.unbounded_send(TestNetworkEvent::StoreValueCalled(key, value, publisher, expires))
+			.unbounded_send(TestNetworkEvent::StoreRecordCalled(key, value, publisher, expires))
 			.unwrap();
 	}
 }

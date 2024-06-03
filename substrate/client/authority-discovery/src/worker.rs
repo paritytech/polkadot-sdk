@@ -619,10 +619,11 @@ where
 		publisher: Option<PeerId>,
 		expires: Option<std::time::Instant>,
 	) -> Result<()> {
+		let publisher = publisher.ok_or(Error::MissingPublisher)?;
+
 		// Make sure we don't ever work with an outdated set of authorities
 		// and that we do not update known_authorithies too often.
 		let best_hash = self.client.best_hash().await?;
-
 		if !self.known_authorities.contains_key(&record_key) &&
 			self.authorities_queried_at
 				.map(|authorities_queried_at| authorities_queried_at != best_hash)
@@ -651,10 +652,10 @@ where
 		self.check_record_signed_with_network_key(
 			&signed_record.record,
 			signed_record.peer_signature,
-			publisher.ok_or(Error::MissingPublisher)?.into(),
+			publisher,
 			authority_id,
 		)?;
-		self.network.store_record(record_key, record_value, publisher, expires);
+		self.network.store_record(record_key, record_value, Some(publisher), expires);
 		Ok(())
 	}
 
