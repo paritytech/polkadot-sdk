@@ -2522,6 +2522,7 @@ dependencies = [
  "parity-scale-codec",
  "polkadot-sdk-frame",
  "scale-info",
+ "serde",
  "serde_json",
  "sp-application-crypto",
  "sp-core",

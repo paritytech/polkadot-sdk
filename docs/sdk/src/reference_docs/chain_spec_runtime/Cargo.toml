@@ -13,7 +13,8 @@ publish = false
 docify = "0.2.8"
 parity-scale-codec = { version = "3.6.12", default-features = false }
 scale-info = { version = "2.6.0", default-features = false }
-serde_json.workspace = true
+serde = { workspace = true, default-features = false }
+serde_json = { workspace = true }
 
 # this is a frame-based runtime, thus importing `frame` with runtime feature enabled.
 frame = { package = "polkadot-sdk-frame", path = "../../../../../substrate/frame", default-features = false, features = [

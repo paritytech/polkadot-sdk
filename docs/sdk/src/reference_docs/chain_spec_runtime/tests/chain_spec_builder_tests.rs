@@ -7,7 +7,7 @@ const WASM_FILE_PATH: &str =
 const CHAIN_SPEC_BUILDER_PATH: &str = "../../../../../target/release/chain-spec-builder";
 
 fn get_chain_spec_builder_path() -> &'static str {
-	// dev-dependencies do not build binary. So let's do shitty work-around here:
+	// dev-dependencies do not build binary. So let's do the naive work-around here:
 	let _ = std::process::Command::new("cargo")
 		.arg("build")
 		.arg("--release")
