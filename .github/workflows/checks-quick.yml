@@ -121,9 +121,9 @@ jobs:
   check-umbrella:
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    # needs: [set-image]
-    # container:
-    #   image: ${{ needs.set-image.outputs.IMAGE }}
+    needs: [set-image]
+    container:
+      image: ${{ needs.set-image.outputs.IMAGE }}
     steps:
       - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.0 (22. Sep 2023)
       - name: install python deps
