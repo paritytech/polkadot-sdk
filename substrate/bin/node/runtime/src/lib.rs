@@ -706,7 +706,7 @@ impl pallet_staking::Config for Runtime {
 }
 
 parameter_types! {
-	pub const VoterUpdateMode: pallet_stake_tracker::VoterUpdateMode = pallet_stake_tracker::VoterUpdateMode::Lazy;
+	pub const VoterUpdateMode: pallet_stake_tracker::VoterUpdateMode = pallet_stake_tracker::VoterUpdateMode::Strict;
 }
 
 impl pallet_stake_tracker::Config for Runtime {

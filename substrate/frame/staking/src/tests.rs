@@ -7830,6 +7830,23 @@ mod stake_tracker {
 	// keep tests clean;
 	type A = AccountId;
 
+	// TODO: REMOVE
+	#[test]
+	fn tmp_limits() {
+		let max_extrinsic = Weight::from_parts(1_479_873_955_000, 13_650_590_614_545_068_195);
+
+		let page_size = 512;
+		let result =
+			<Test as pallet::pallet::Config>::WeightInfo::payout_stakers_alive_staked(page_size);
+
+		println!("--> {:?}", result);
+		println!("max_extrinsic {:?}", max_extrinsic);
+
+		println!("Result all_lte? {:?}", result.all_lte(max_extrinsic));
+
+		assert!(false);
+	}
+
 	#[test]
 	fn duplicate_nominations_dedup_approvals_works() {
 		ExtBuilder::default()
