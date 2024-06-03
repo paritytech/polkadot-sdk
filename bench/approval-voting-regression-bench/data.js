@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1717418726361,
+  "lastUpdate": 1717427761893,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -6156,6 +6156,53 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 3.291119199760076,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Alexander Samusev",
+            "username": "alvicsam",
+            "email": "41779041+alvicsam@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "cbe45121c9a7bb956101bf28e6bb23f0efd3cbbf",
+          "message": "[ci] Increase timeout for check-runtime-migration workflow (#4674)\n\n`[check-runtime-migration` now takes more than 30 minutes. Quick fix\nwith increased timeout.",
+          "timestamp": "2024-06-03T13:42:55Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/cbe45121c9a7bb956101bf28e6bb23f0efd3cbbf"
+        },
+        "date": 1717427732838,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52941.8,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63548.15,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 7.362536065780023,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 9.74139156273,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 3.309956572010175,
             "unit": "seconds"
           }
         ]
