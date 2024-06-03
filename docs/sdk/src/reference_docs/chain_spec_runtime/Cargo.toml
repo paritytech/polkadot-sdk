@@ -18,8 +18,8 @@ serde_json = { workspace = true }
 
 # this is a frame-based runtime, thus importing `frame` with runtime feature enabled.
 frame = { package = "polkadot-sdk-frame", path = "../../../../../substrate/frame", default-features = false, features = [
-  "experimental",
-  "runtime",
+	"experimental",
+	"runtime",
 ] }
 
 # pallets that we want to use
@@ -31,11 +31,11 @@ pallet-transaction-payment-rpc-runtime-api = { path = "../../../../../substrate/
 
 # genesis builder that allows us to interact with runtime genesis config
 sp-genesis-builder = { path = "../../../../../substrate/primitives/genesis-builder", default-features = false }
-sp-runtime = { path = "../../../../../substrate/primitives/runtime", default-features = false, features = [ "serde" ] }
+sp-runtime = { path = "../../../../../substrate/primitives/runtime", default-features = false, features = ["serde"] }
 sp-core = { path = "../../../../../substrate/primitives/core", default-features = false }
 sp-std = { path = "../../../../../substrate/primitives/std", default-features = false }
 sp-keyring = { path = "../../../../../substrate/primitives/keyring", default-features = false }
-sp-application-crypto = { path = "../../../../../substrate/primitives/application-crypto", default-features = false, features = [ "serde" ] }
+sp-application-crypto = { path = "../../../../../substrate/primitives/application-crypto", default-features = false, features = ["serde"] }
 
 [build-dependencies]
 substrate-wasm-builder = { path = "../../../../../substrate/utils/wasm-builder", optional = true }
@@ -46,23 +46,25 @@ chain-spec-builder = { package = "staging-chain-spec-builder", path = "../../../
 [features]
 default = ["std"]
 std = [
-  "parity-scale-codec/std",
-  "scale-info/std",
+	"parity-scale-codec/std",
+	"scale-info/std",
 
-  "frame/std",
+	"frame/std",
 
-  "pallet-balances/std",
-  "pallet-sudo/std",
-  "pallet-timestamp/std",
-  "pallet-transaction-payment-rpc-runtime-api/std",
-  "pallet-transaction-payment/std",
+	"pallet-balances/std",
+	"pallet-sudo/std",
+	"pallet-timestamp/std",
+	"pallet-transaction-payment-rpc-runtime-api/std",
+	"pallet-transaction-payment/std",
 
-  "sp-genesis-builder/std",
-  "sp-runtime/std",
-  "sp-core/std",
-  "sp-std/std",
-  "sp-keyring/std",
-  "sp-application-crypto/std",
+	"sp-application-crypto/std",
+	"sp-core/std",
+	"sp-genesis-builder/std",
+	"sp-keyring/std",
+	"sp-runtime/std",
+	"sp-std/std",
 
-  "substrate-wasm-builder",
+	"serde/std",
+	"serde_json/std",
+	"substrate-wasm-builder",
 ]
