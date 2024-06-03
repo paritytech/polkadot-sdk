@@ -1,5 +1,5 @@
 use frame_support::{derive_impl, weights::constants::RocksDbWeight};
-use frame_system::{GenesisConfig, mocking::MockBlock};
+use frame_system::{mocking::MockBlock, GenesisConfig};
 use sp_runtime::{traits::ConstU64, BuildStorage};
 
 // Configure a mock runtime to test the pallet.
