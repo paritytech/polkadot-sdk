@@ -90,7 +90,6 @@ pub(crate) type Moment = u32;
 impl frame_system::Config for Runtime {
 	type Block = Block;
 	type AccountData = pallet_balances::AccountData<Balance>;
-	type BlockHashCount = ConstU32<10>;
 }
 
 const NORMAL_DISPATCH_RATIO: Perbill = Perbill::from_percent(75);
