@@ -327,25 +327,17 @@ impl<H: Hasher> OverlayedChanges<H> {
 		self.top.set(key, val, extrinsic_index);
 	}
 
-	/// Append a value to encoded storage.
-	pub fn append_storage(&mut self, key: StorageKey, val: StorageValue) {
-		let extrinsic_index = self.extrinsic_index();
-		let size_write = val.len() as u64;
-		self.stats.tally_write_overlay(size_write);
-		self.top.append_storage(key, val, extrinsic_index);
-	}
-
-	/// Append a value to storage, init with existing value if first write.
-	pub fn append_storage_init(
+	/// Append a element to storage, init with existing value if first write.
+	pub fn append_storage(
 		&mut self,
 		key: StorageKey,
-		val: StorageValue,
+		element: StorageValue,
 		init: impl Fn() -> StorageValue,
 	) {
 		let extrinsic_index = self.extrinsic_index();
-		let size_write = val.len() as u64;
+		let size_write = element.len() as u64;
 		self.stats.tally_write_overlay(size_write);
-		self.top.append_storage_init(key, val, init, extrinsic_index);
+		self.top.append_storage(key, element, init, extrinsic_index);
 	}
 
 	/// Set a new value for the specified key and child.
@@ -535,8 +527,7 @@ impl<H: Hasher> OverlayedChanges<H> {
 	/// Get an iterator over all child changes as seen by the current transaction.
 	pub fn children(
 		&self,
-	) -> impl Iterator<Item = (impl Iterator<Item = (&StorageKey, &OverlayedValue)>, &ChildInfo)>
-	{
+	) -> impl Iterator<Item = (impl Iterator<Item = (&StorageKey, &OverlayedValue)>, &ChildInfo)> {
 		self.children.values().map(|v| (v.0.changes(), &v.1))
 	}
 
@@ -571,7 +562,9 @@ impl<H: Hasher> OverlayedChanges<H> {
 		&mut self,
 		key: &[u8],
 	) -> Option<(impl Iterator<Item = (&StorageKey, &mut OverlayedValue)>, &ChildInfo)> {
-		self.children.get_mut(key).map(|(overlay, info)| (overlay.changes_mut(), &*info))
+		self.children
+			.get_mut(key)
+			.map(|(overlay, info)| (overlay.changes_mut(), &*info))
 	}
 
 	/// Get an list of all index operations.

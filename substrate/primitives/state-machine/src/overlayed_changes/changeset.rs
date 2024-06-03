@@ -96,34 +96,29 @@ pub type OverlayedValue = OverlayedEntry<StorageEntry>;
 #[derive(Debug, Clone, Default)]
 #[cfg_attr(test, derive(PartialEq))]
 pub enum StorageEntry {
-	/// A `set` operation was performed, overwrite previous
-	/// on commit or restore parent entry on rollback.
-	Some(StorageValue),
-	/// A `set` operation did remove value from the overlay.
+	/// The storage entry should be set to the stored value.
+	Set(StorageValue),
+	/// The storage entry should be removed.
 	#[default]
-	None,
-	/// Contains the current appended value, number of item at start of transaction and offset at
-	/// start of transaction. A `append` operation did push content to the value, use previous
-	/// append info on commit or rollback by truncating to previous offset.
-	/// If a `set` operation occurs, store these to parent: overite on commit and restored on
-	/// rollback.
+	Remove,
+	/// The storage entry was appended to.
+	///
+	/// This assumes that the storage entry is encoded as a SCALE list. This means that it is
+	/// prefixed with a `Compact<u32>` that reprensents the length, followed by all the encoded
+	/// elements.
 	Append {
-		/// current buffer of appended data.
+		/// The value of the storage entry.
+		///
+		/// This may or may not be prefixed by the length, depending on the materialized length.
 		data: StorageValue,
-		/// Current number of appended elements.
-		/// This is use to rewrite materialized size when needed.
+		/// Current number of elements stored in data.
 		current_length: u32,
-		/// When define, contains the number of elements written in data as prefix.
-		/// If undefine, `data` do not contain the number of elements.
-		/// This number is updated on access only, it may differs from the actual `current_length`.
-		materialized: Option<u32>,
-		/// False when this append is obtain from no value or a value in a same overlay.
-		/// This avoid case where we rollback to incorrect data due to delete then append
-		/// in an overlay.
-		/// Note that this cannot be deduced from transaction depth n minus one because we can have
-		/// a break in transaction sequence in a same transaction.
-		/// (remove or set value during a transaction).
-		from_parent: Option<usize>,
+		/// The number of elements as stored in the prefixed length in `data`.
+		///
+		/// If `None`, than `data` is not yet prefixed with the length.
+		materialized_length: Option<u32>,
+		/// The original size of `data` in the parent transactional layer.
+		original_parent_size: Option<usize>,
 	},
 }
 
@@ -131,13 +126,19 @@ impl StorageEntry {
 	pub(super) fn to_option(mut self) -> Option<StorageValue> {
 		self.render_append();
 		match self {
-			StorageEntry::Append { data, .. } | StorageEntry::Some(data) => Some(data),
-			StorageEntry::None => None,
+			StorageEntry::Append { data, .. } | StorageEntry::Set(data) => Some(data),
+			StorageEntry::Remove => None,
 		}
 	}
 
 	fn render_append(&mut self) {
-		if let StorageEntry::Append { data, materialized, current_length, .. } = self {
+		if let StorageEntry::Append {
+			data,
+			materialized_length: materialized,
+			current_length,
+			..
+		} = self
+		{
 			let current_length = *current_length;
 			if materialized.map_or(false, |m| m == current_length) {
 				return
@@ -149,7 +150,12 @@ impl StorageEntry {
 
 	pub(crate) fn materialize(&self) -> Option<Cow<[u8]>> {
 		match self {
-			StorageEntry::Append { data, materialized, current_length, .. } => {
+			StorageEntry::Append {
+				data,
+				materialized_length: materialized,
+				current_length,
+				..
+			} => {
 				let current_length = *current_length;
 				if materialized.map_or(false, |m| m == current_length) {
 					Some(Cow::Borrowed(data.as_ref()))
@@ -160,8 +166,8 @@ impl StorageEntry {
 					Some(data.into())
 				}
 			},
-			StorageEntry::None => None,
-			StorageEntry::Some(e) => Some(Cow::Borrowed(e.as_ref())),
+			StorageEntry::Remove => None,
+			StorageEntry::Set(e) => Some(Cow::Borrowed(e.as_ref())),
 		}
 	}
 }
@@ -208,7 +214,7 @@ impl From<sp_core::storage::StorageMap> for OverlayedMap<StorageKey, StorageEntr
 						k,
 						OverlayedEntry {
 							transactions: SmallVec::from_iter([InnerValue {
-								value: StorageEntry::Some(v),
+								value: StorageEntry::Set(v),
 								extrinsics: Default::default(),
 							}]),
 						},
@@ -292,8 +298,8 @@ fn restore_append_to_parent(
 		StorageEntry::Append {
 			data: parent_data,
 			current_length: _,
-			materialized: parent_materialized,
-			from_parent: _,
+			materialized_length: parent_materialized,
+			original_parent_size: _,
 		} => {
 			// use materialized size from next layer to avoid changing it at this point.
 			let (delta, decrease) =
@@ -326,7 +332,7 @@ impl OverlayedEntry<StorageEntry> {
 		first_write_in_tx: bool,
 		at_extrinsic: Option<u32>,
 	) {
-		let value = value.map_or_else(Default::default, StorageEntry::Some);
+		let value = value.map_or_else(Default::default, StorageEntry::Set);
 
 		if first_write_in_tx || self.transactions.is_empty() {
 			self.transactions.push(InnerValue { value, extrinsics: Default::default() });
@@ -336,8 +342,8 @@ impl OverlayedEntry<StorageEntry> {
 			let set_prev = if let StorageEntry::Append {
 				data,
 				current_length: _,
-				materialized,
-				from_parent,
+				materialized_length: materialized,
+				original_parent_size: from_parent,
 			} = &mut old_value
 			{
 				let result = core::mem::take(data);
@@ -375,28 +381,51 @@ impl OverlayedEntry<StorageEntry> {
 	/// This makes sure that the old version is not overwritten and can be properly
 	/// rolled back when required.
 	/// This avoid copying value from previous transaction.
-	fn append(&mut self, value: StorageValue, first_write_in_tx: bool, at_extrinsic: Option<u32>) {
+	fn append(
+		&mut self,
+		element: StorageValue,
+		first_write_in_tx: bool,
+		init: impl Fn() -> StorageValue,
+		at_extrinsic: Option<u32>,
+	) {
 		if self.transactions.is_empty() {
+			let mut init_value = init();
+
+			let mut append = StorageAppend::new(&mut init_value);
+
+			let (data, len, materialized_length) = if let Some(len) = append.extract_length() {
+				append.append_raw(element);
+
+				(init_value, len + 1, Some(len))
+			} else {
+				(element, 1, None)
+			};
+
 			self.transactions.push(InnerValue {
 				value: StorageEntry::Append {
-					data: value,
-					current_length: 1,
-					materialized: None,
-					from_parent: None,
+					data,
+					current_length: len,
+					materialized_length,
+					original_parent_size: None,
 				},
 				extrinsics: Default::default(),
 			});
 		} else if first_write_in_tx {
 			let parent = self.value_mut();
 			let (data, current_length, materialized, from_parent) = match parent {
-				StorageEntry::None => (value, 1, None, None),
-				StorageEntry::Append { data, current_length, materialized, from_parent: _ } => {
+				StorageEntry::Remove => (element, 1, None, None),
+				StorageEntry::Append {
+					data,
+					current_length,
+					materialized_length: materialized,
+					original_parent_size: _,
+				} => {
 					let parent_len = data.len();
 					let mut data_buf = core::mem::take(data);
-					StorageAppend::new(&mut data_buf).append_raw(value);
+					StorageAppend::new(&mut data_buf).append_raw(element);
 					(data_buf, *current_length + 1, *materialized, Some(parent_len))
 				},
-				StorageEntry::Some(prev) => {
+				StorageEntry::Set(prev) => {
 					// For compatibility: append if there is a encoded length, overwrite
 					// with value otherwhise.
 					if let Some(current_length) = StorageAppend::new(prev).extract_length() {
@@ -407,47 +436,58 @@ impl OverlayedEntry<StorageEntry> {
 						// happen in well written runtime (mixing set and append operation), the
 						// optimisation is not done here.
 						let mut data = prev.clone();
-						StorageAppend::new(&mut data).append_raw(value);
+						StorageAppend::new(&mut data).append_raw(element);
 						(data, current_length + 1, Some(current_length), None)
 					} else {
 						// overwrite, same as empty case.
-						(value, 1, None, None)
+						(element, 1, None, None)
 					}
 				},
 			};
 
 			self.transactions.push(InnerValue {
-				value: StorageEntry::Append { data, current_length, materialized, from_parent },
+				value: StorageEntry::Append {
+					data,
+					current_length,
+					materialized_length: materialized,
+					original_parent_size: from_parent,
+				},
 				extrinsics: Default::default(),
 			});
 		} else {
 			// not first transaction write
 			let old_value = self.value_mut();
 			let replace = match old_value {
-				StorageEntry::None => Some((value, 1, None)),
-				StorageEntry::Some(data) => {
+				StorageEntry::Remove => Some((element, 1, None)),
+				StorageEntry::Set(data) => {
 					// Note that when the data here is not initialized with append,
 					// and still starts with a valid compact u32 we can have totally broken
 					// encoding.
 					let mut append = StorageAppend::new(data);
+
 					// For compatibility: append if there is a encoded length, overwrite
 					// with value otherwhise.
 					if let Some(current_length) = append.extract_length() {
-						append.append_raw(value);
+						append.append_raw(element);
 						Some((core::mem::take(data), current_length + 1, Some(current_length)))
 					} else {
-						Some((value, 1, None))
+						Some((element, 1, None))
 					}
 				},
 				StorageEntry::Append { data, current_length, .. } => {
-					StorageAppend::new(data).append_raw(value);
+					StorageAppend::new(data).append_raw(element);
 					*current_length += 1;
 					None
 				},
 			};
-			if let Some((data, current_length, materialized)) = replace {
-				*old_value =
-					StorageEntry::Append { data, current_length, materialized, from_parent: None };
+
+			if let Some((data, current_length, materialized_length)) = replace {
+				*old_value = StorageEntry::Append {
+					data,
+					current_length,
+					materialized_length,
+					original_parent_size: None,
+				};
 			}
 		}
 
@@ -462,8 +502,8 @@ impl OverlayedEntry<StorageEntry> {
 		value.render_append();
 		let value = self.value_ref();
 		match value {
-			StorageEntry::Some(data) | StorageEntry::Append { data, .. } => Some(data),
-			StorageEntry::None => None,
+			StorageEntry::Set(data) | StorageEntry::Append { data, .. } => Some(data),
+			StorageEntry::Remove => None,
 		}
 	}
 }
@@ -700,8 +740,8 @@ impl OverlayedChangeSet {
 					StorageEntry::Append {
 						data,
 						current_length: _,
-						materialized: materialized_current,
-						from_parent: Some(parent_size),
+						materialized_length: materialized_current,
+						original_parent_size: Some(parent_size),
 					} => {
 						debug_assert!(!overlayed.transactions.is_empty());
 						restore_append_to_parent(
@@ -736,10 +776,14 @@ impl OverlayedChangeSet {
 					let mut committed_tx = overlayed.pop_transaction();
 					let mut merge_appends = false;
 					// consecutive appends need to keep past `from_parent` value.
-					if let StorageEntry::Append { from_parent, .. } = &mut committed_tx.value {
+					if let StorageEntry::Append { original_parent_size: from_parent, .. } =
+						&mut committed_tx.value
+					{
 						if from_parent.is_some() {
 							let parent = overlayed.value_mut();
-							if let StorageEntry::Append { from_parent: keep_me, .. } = parent {
+							if let StorageEntry::Append { original_parent_size: keep_me, .. } =
+								parent
+							{
 								merge_appends = true;
 								*from_parent = *keep_me;
 							}
@@ -750,9 +794,9 @@ impl OverlayedChangeSet {
 					} else {
 						let removed = core::mem::replace(overlayed.value_mut(), committed_tx.value);
 						if let StorageEntry::Append {
-							from_parent,
+							original_parent_size: from_parent,
 							data,
-							materialized: current_materialized,
+							materialized_length: current_materialized,
 							..
 						} = removed
 						{
@@ -820,29 +864,12 @@ impl OverlayedChangeSet {
 		&mut self,
 		key: StorageKey,
 		value: StorageValue,
-		at_extrinsic: Option<u32>,
-	) {
-		let overlayed = self.changes.entry(key.clone()).or_default();
-		overlayed.append(value, insert_dirty(&mut self.dirty_keys, key), at_extrinsic);
-	}
-
-	/// Append bytes to an existing content.
-	pub fn append_storage_init(
-		&mut self,
-		key: StorageKey,
-		value: StorageValue,
 		init: impl Fn() -> StorageValue,
 		at_extrinsic: Option<u32>,
 	) {
 		let overlayed = self.changes.entry(key.clone()).or_default();
 		let first_write_in_tx = insert_dirty(&mut self.dirty_keys, key);
-		if overlayed.transactions.is_empty() {
-			let init_value = init();
-			overlayed.set(Some(init_value), first_write_in_tx, at_extrinsic);
-			overlayed.append(value, false, at_extrinsic);
-		} else {
-			overlayed.append(value, first_write_in_tx, at_extrinsic);
-		}
+		overlayed.append(value, first_write_in_tx, init, at_extrinsic);
 	}
 
 	/// Set all values to deleted which are matched by the predicate.
@@ -856,8 +883,8 @@ impl OverlayedChangeSet {
 		let mut count = 0;
 		for (key, val) in self.changes.iter_mut().filter(|(k, v)| predicate(k, v)) {
 			match val.value_ref() {
-				StorageEntry::Some(..) | StorageEntry::Append { .. } => count += 1,
-				StorageEntry::None => (),
+				StorageEntry::Set(..) | StorageEntry::Append { .. } => count += 1,
+				StorageEntry::Remove => (),
 			}
 			val.set(None, insert_dirty(&mut self.dirty_keys, key.clone()), at_extrinsic);
 		}
@@ -1065,12 +1092,7 @@ mod test {
 			vec![(b"key0", (Some(val0.as_slice()), vec![0])), (b"key1", (None, vec![1]))];
 
 		assert_changes(&mut changeset, &all_changes);
-		changeset.append_storage_init(
-			b"key3".to_vec(),
-			b"-modified".to_vec().encode(),
-			init,
-			Some(3),
-		);
+		changeset.append_storage(b"key3".to_vec(), b"-modified".to_vec().encode(), init, Some(3));
 		let val3 = vec![b"valinit".to_vec(), b"-modified".to_vec()].encode();
 		let all_changes: Changes = vec![
 			(b"key0", (Some(val0.as_slice()), vec![0])),
@@ -1085,30 +1107,15 @@ mod test {
 		assert_eq!(changeset.transaction_depth(), 2);
 
 		// non existing value -> init value should be returned
-		changeset.append_storage_init(
-			b"key3".to_vec(),
-			b"-twice".to_vec().encode(),
-			init,
-			Some(15),
-		);
+		changeset.append_storage(b"key3".to_vec(), b"-twice".to_vec().encode(), init, Some(15));
 
 		// non existing value -> init value should be returned
-		changeset.append_storage_init(
-			b"key2".to_vec(),
-			b"-modified".to_vec().encode(),
-			init,
-			Some(2),
-		);
+		changeset.append_storage(b"key2".to_vec(), b"-modified".to_vec().encode(), init, Some(2));
 		// existing value should be reuse on append
-		changeset.append_storage_init(
-			b"key0".to_vec(),
-			b"-modified".to_vec().encode(),
-			init,
-			Some(10),
-		);
+		changeset.append_storage(b"key0".to_vec(), b"-modified".to_vec().encode(), init, Some(10));
 
 		// should work for deleted keys
-		changeset.append_storage_init(
+		changeset.append_storage(
 			b"key1".to_vec(),
 			b"deleted-modified".to_vec().encode(),
 			init,
@@ -1129,7 +1136,7 @@ mod test {
 		let val3_3 =
 			vec![b"valinit".to_vec(), b"-modified".to_vec(), b"-twice".to_vec(), b"-2".to_vec()]
 				.encode();
-		changeset.append_storage_init(b"key3".to_vec(), b"-2".to_vec().encode(), init, Some(21));
+		changeset.append_storage(b"key3".to_vec(), b"-2".to_vec().encode(), init, Some(21));
 		let all_changes2: Changes = vec![
 			(b"key0", (Some(val0_2.as_slice()), vec![0, 10])),
 			(b"key1", (Some(val1.as_slice()), vec![1, 20])),
@@ -1148,12 +1155,7 @@ mod test {
 			b"-thrice".to_vec(),
 		]
 		.encode();
-		changeset.append_storage_init(
-			b"key3".to_vec(),
-			b"-thrice".to_vec().encode(),
-			init,
-			Some(25),
-		);
+		changeset.append_storage(b"key3".to_vec(), b"-thrice".to_vec().encode(), init, Some(25));
 		let all_changes: Changes = vec![
 			(b"key0", (Some(val0_2.as_slice()), vec![0, 10])),
 			(b"key1", (Some(val1.as_slice()), vec![1, 20])),
@@ -1355,9 +1357,8 @@ mod test {
 
 		let from = 50; // 1 byte len
 		let to = 100; // 2 byte len
-			  //
 		for i in 0..from {
-			changeset.append_storage(key.clone(), vec![i], None);
+			changeset.append_storage(key.clone(), vec![i], Default::default, None);
 		}
 
 		// materialized
@@ -1370,7 +1371,7 @@ mod test {
 		changeset.start_transaction();
 
 		for i in from..to {
-			changeset.append_storage(key.clone(), vec![i], None);
+			changeset.append_storage(key.clone(), vec![i], Default::default, None);
 		}
 
 		// materialized
@@ -1383,5 +1384,36 @@ mod test {
 
 		let encoded = changeset.get(&key).unwrap().value().unwrap();
 		assert_eq!(&encoded_from, encoded);
+	}
+
+	/// First we have some `Set` operation with a valid SCALE list. Then we append data and rollback
+	/// afterwards.
+	#[test]
+	fn restore_initial_set_after_append_to_parent() {
+		use codec::{Compact, Encode};
+		let mut changeset = OverlayedChangeSet::default();
+		let key: Vec<u8> = b"akey".into();
+
+		let initial_data = vec![1u8; 50].encode();
+
+		changeset.set(key.clone(), Some(initial_data.clone()), None);
+
+		changeset.start_transaction();
+
+		// Append until we require 2 bytes for the length prefix.
+		for i in 0..50 {
+			changeset.append_storage(key.clone(), vec![i], Default::default, None);
+		}
+
+		// Materialize the value.
+		let encoded = changeset.get(&key).unwrap().value().unwrap();
+		let encoded_to_len = Compact(100u32).encode();
+		assert_eq!(encoded_to_len.len(), 2);
+		assert!(encoded.starts_with(&encoded_to_len[..]));
+
+		changeset.rollback_transaction().unwrap();
+
+		let encoded = changeset.get(&key).unwrap().value().unwrap();
+		assert_eq!(&initial_data, encoded);
 	}
 }

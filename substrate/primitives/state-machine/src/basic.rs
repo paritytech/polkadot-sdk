@@ -263,8 +263,8 @@ impl Externalities for BasicExternalities {
 		MultiRemovalResults { maybe_cursor: None, backend: count, unique: count, loops: count }
 	}
 
-	fn storage_append(&mut self, key: Vec<u8>, value: Vec<u8>) {
-		self.overlay.append_storage(key, value);
+	fn storage_append(&mut self, key: Vec<u8>, element: Vec<u8>) {
+		self.overlay.append_storage(key, element, Default::default);
 	}
 
 	fn storage_root(&mut self, state_version: StateVersion) -> Vec<u8> {

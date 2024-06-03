@@ -501,7 +501,7 @@ where
 		let _guard = guard();
 
 		let backend = &mut self.backend;
-		self.overlay.append_storage_init(key.clone(), value, || {
+		self.overlay.append_storage(key.clone(), value, || {
 			backend.storage(&key).expect(EXT_NOT_ALLOWED_TO_FAIL).unwrap_or_default()
 		});
 	}
