@@ -18,6 +18,7 @@
 //! Traits for querying pallet view functions.
 
 use codec::{Decode, Encode, Output};
+use sp_runtime::RuntimeDebug;
 
 /// implemented by the runtime dispatching by prefix and then the pallet dispatching by suffix
 pub trait DispatchQuery {
@@ -38,19 +39,19 @@ impl DispatchQuery for () {
 	}
 }
 
-impl QueryIdPrefix for () {
-	const PREFIX: [u8; 16] = [0u8; 16];
-}
+// impl QueryIdPrefix for () {
+// 	const PREFIX: [u8; 16] = [0u8; 16];
+// }
 
 pub trait QueryIdPrefix {
-	const PREFIX: [u8; 16]; // same as `PalletInfo::name_hash` twox_128
+	fn prefix() -> [u8; 16];
 }
 
 pub trait QueryIdSuffix {
 	const SUFFIX: [u8; 16];
 }
 
-#[derive(Encode, Decode)]
+#[derive(Encode, Decode, RuntimeDebug)]
 pub struct QueryId {
 	pub prefix: [u8; 16],
 	pub suffix: [u8; 16],
@@ -58,7 +59,7 @@ pub struct QueryId {
 
 /// implemented for each pallet view function method
 pub trait Query {
-	const ID: QueryId;
+	fn id() -> QueryId;
 	type ReturnType: codec::Codec;
 
 	fn query(self) -> Self::ReturnType;

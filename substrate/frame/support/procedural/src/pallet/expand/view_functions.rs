@@ -29,14 +29,41 @@ pub fn expand_view_functions(def: &Def) -> TokenStream {
 		None => (def.item.span(), def.config.where_clause.clone(), Vec::new()),
 	};
 
+	let query_prefix_impl = expand_query_prefix_impl(def, span, where_clause.as_ref());
+
 	let view_fn_impls = view_fns
 		.iter()
 		.map(|view_fn| expand_view_function(def, span, where_clause.as_ref(), view_fn));
 	let impl_dispatch_query = impl_dispatch_query(def, span, where_clause.as_ref(), &view_fns);
 
 	quote::quote! {
+		#query_prefix_impl
 		#( #view_fn_impls )*
 		#impl_dispatch_query
+	}
+}
+
+fn expand_query_prefix_impl(
+	def: &Def,
+	span: Span,
+	where_clause: Option<&syn::WhereClause>,
+) -> TokenStream {
+	let pallet_ident = &def.pallet_struct.pallet;
+	let frame_support = &def.frame_support;
+	let frame_system = &def.frame_system;
+	let type_impl_gen = &def.type_impl_generics(span);
+	let type_use_gen = &def.type_use_generics(span);
+
+	quote::quote! {
+		impl<#type_impl_gen> #frame_support::traits::QueryIdPrefix for #pallet_ident<#type_use_gen> #where_clause {
+			fn prefix() -> [::core::primitive::u8; 16usize] {
+				<
+					<T as #frame_system::Config>::PalletInfo
+					as #frame_support::traits::PalletInfo
+				>::name_hash::<Pallet<#type_use_gen>>()
+					.expect("No name_hash found for the pallet in the runtime! This usually means that the pallet wasn't added to `construct_runtime!`.")
+			}
+		}
 	}
 }
 
@@ -47,12 +74,10 @@ fn expand_view_function(
 	view_fn: &ViewFunctionDef,
 ) -> TokenStream {
 	let frame_support = &def.frame_support;
-	let frame_system = &def.frame_system;
 	let pallet_ident = &def.pallet_struct.pallet;
 	let type_impl_gen = &def.type_impl_generics(span);
 	let type_decl_bounded_gen = &def.type_decl_bounded_generics(span);
 	let type_use_gen = &def.type_use_generics(span);
-	let trait_use_gen = &def.trait_use_generics(span);
 	let capture_docs = if cfg!(feature = "no-metadata-docs") { "never" } else { "always" };
 
 	let query_struct_ident = view_fn.query_struct_ident();
@@ -102,10 +127,13 @@ fn expand_view_function(
 		}
 
 		impl<#type_impl_gen> #frame_support::traits::Query for #query_struct_ident<#type_use_gen> #where_clause {
-			const ID: #frame_support::traits::QueryId = #frame_support::traits::QueryId {
-				prefix: <<T as #frame_system::Config #trait_use_gen>::RuntimeQuery as #frame_support::traits::QueryIdPrefix>::PREFIX,
-				suffix: <Self as #frame_support::traits::QueryIdSuffix>::SUFFIX, // todo: [AJ] handle instantiatable pallet suffix
-			};
+			fn id() -> #frame_support::traits::QueryId {
+				#frame_support::traits::QueryId {
+					prefix: <#pallet_ident<#type_use_gen> as #frame_support::traits::QueryIdPrefix>::prefix(),
+					suffix: <Self as #frame_support::traits::QueryIdSuffix>::SUFFIX,
+				}
+			}
+
 			type ReturnType = #return_type;
 
 			fn query(self) -> Self::ReturnType {

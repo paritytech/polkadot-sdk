@@ -26,33 +26,16 @@ pub fn expand_outer_query(
 ) -> TokenStream2 {
 	let runtime_query = syn::Ident::new("RuntimeQuery", Span::call_site());
 
-	let query_id_prefix_impls = pallet_decls.iter().map(|pallet| {
-		let pallet_path = &pallet.path;
+	let prefix_conditionals = pallet_decls.iter().map(|pallet| {
 		let pallet_name = &pallet.name;
-
-		let mut output = [0u8; 16];
-		let pallet_signature = format!(
-			"{path}::{pallet}",
-			path = quote::quote!(#pallet_path).to_string(),
-			pallet = quote::quote!(#pallet_name).to_string()
-		);
-		let hash = sp_crypto_hashing::blake2_128(pallet_signature.as_bytes());
-		output.copy_from_slice(&hash);
-		let query_id_prefix_bytes =
-			output.map(|byte| syn::LitInt::new(&format!("0x{:X}_u8", byte), Span::call_site()));
-
+		// let instance = pallet.instance.as_ref().into_iter();
+		// let path = &pallet.path;
+		// let pallet_concrete = quote::quote! {
+		// 	#pallet_name::<#runtime_name #(, #path::#instance)*>
+		// };
 		quote::quote! {
-			impl #scrate::traits::QueryIdPrefix for #scrate::traits::PalletQueryId<#pallet_name> {
-				const PREFIX: [::core::primitive::u8; 16usize] = [ #( #query_id_prefix_bytes ),* ];
-			}
-		}
-	});
-
-	let query_match_arms = pallet_decls.iter().map(|pallet| {
-		let pallet_name = &pallet.name;
-		quote::quote! {
-			< #scrate::traits::PalletQueryId<#pallet_name> as #scrate::traits::QueryIdPrefix>::PREFIX => {
-				< #pallet_name as #scrate::traits::DispatchQuery>::dispatch_query(id, input, output)
+			if id.prefix == <#pallet_name as #scrate::traits::QueryIdPrefix>::prefix() {
+				return <#pallet_name as #scrate::traits::DispatchQuery>::dispatch_query(id, input, output)
 			}
 		}
 	});
@@ -69,21 +52,15 @@ pub fn expand_outer_query(
 		pub enum #runtime_query {}
 
 		const _: () = {
-			#( #query_id_prefix_impls )*
-
 			impl #scrate::traits::DispatchQuery for #runtime_query {
-				#[deny(unreachable_patterns)] // todo: [AJ] should error if identical prefixes
 				fn dispatch_query<O: #scrate::__private::codec::Output>(
 					id: & #scrate::traits::QueryId,
 					input: &mut &[u8],
 					output: &mut O
 				) -> Result<(), #scrate::__private::codec::Error>
 				{
-					// let y = 1; // todo: [AJ] why is unused variable error not triggered here - unused functions?
-					match id.suffix {
-						#( #query_match_arms )*
-						_ => Err(#scrate::__private::codec::Error::from("DispatchQuery not implemented")), // todo: [AJ]
-					}
+					#( #prefix_conditionals )*
+					Err(#scrate::__private::codec::Error::from("todo: no prefix"))
 				}
 			}
 		};
