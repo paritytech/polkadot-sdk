@@ -11,7 +11,7 @@ workspace = true
 
 [dependencies]
 async-trait = { version = "0.1.79", optional = true }
-codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
+codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false, features = ["derive"] }
 scale-info = { version = "2.11.1", default-features = false, features = ["derive"] }
 
 # Substrate

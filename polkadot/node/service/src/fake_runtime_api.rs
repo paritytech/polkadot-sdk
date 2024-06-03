@@ -272,11 +272,11 @@ sp_api::impl_runtime_apis! {
 		fn generate_proof(
 			_: Vec<BlockNumber>,
 			_: Option<BlockNumber>,
-		) -> Result<(Vec<sp_mmr_primitives::EncodableOpaqueLeaf>, sp_mmr_primitives::Proof<Hash>), sp_mmr_primitives::Error> {
+		) -> Result<(Vec<sp_mmr_primitives::EncodableOpaqueLeaf>, sp_mmr_primitives::LeafProof<Hash>), sp_mmr_primitives::Error> {
 			unimplemented!()
 		}
 
-		fn verify_proof(_: Vec<sp_mmr_primitives::EncodableOpaqueLeaf>, _: sp_mmr_primitives::Proof<Hash>)
+		fn verify_proof(_: Vec<sp_mmr_primitives::EncodableOpaqueLeaf>, _: sp_mmr_primitives::LeafProof<Hash>)
 			-> Result<(), sp_mmr_primitives::Error>
 		{
 			unimplemented!()
@@ -285,7 +285,7 @@ sp_api::impl_runtime_apis! {
 		fn verify_proof_stateless(
 			_: Hash,
 			_: Vec<sp_mmr_primitives::EncodableOpaqueLeaf>,
-			_: sp_mmr_primitives::Proof<Hash>
+			_: sp_mmr_primitives::LeafProof<Hash>
 		) -> Result<(), sp_mmr_primitives::Error> {
 			unimplemented!()
 		}
@@ -416,8 +416,8 @@ sp_api::impl_runtime_apis! {
 		}
 	}
 
-	impl xcm_fee_payment_runtime_api::dry_run::XcmDryRunApi<Block, (), ()> for Runtime {
-		fn dry_run_extrinsic(_: <Block as BlockT>::Extrinsic) -> Result<xcm_fee_payment_runtime_api::dry_run::ExtrinsicDryRunEffects<()>, xcm_fee_payment_runtime_api::dry_run::Error> {
+	impl xcm_fee_payment_runtime_api::dry_run::DryRunApi<Block, (), (), ()> for Runtime {
+		fn dry_run_call(_: (), _: ()) -> Result<xcm_fee_payment_runtime_api::dry_run::CallDryRunEffects<()>, xcm_fee_payment_runtime_api::dry_run::Error> {
 			unimplemented!()
 		}
 
