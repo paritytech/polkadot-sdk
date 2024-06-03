@@ -652,10 +652,10 @@ impl<K: Ord + Hash + Clone, V> OverlayedMap<K, V> {
 
 	fn close_transaction_offchain(&mut self, rollback: bool) -> Result<(), NoOpenTransaction> {
 		// runtime is not allowed to close transactions started by the client
-		if let ExecutionMode::Runtime = self.execution_mode {
-			if !self.has_open_runtime_transactions() {
-				return Err(NoOpenTransaction)
-			}
+		if matches!(self.execution_mode, ExecutionMode::Runtime) &&
+			!self.has_open_runtime_transactions()
+		{
+			return Err(NoOpenTransaction)
 		}
 
 		for key in self.dirty_keys.pop().ok_or(NoOpenTransaction)? {
