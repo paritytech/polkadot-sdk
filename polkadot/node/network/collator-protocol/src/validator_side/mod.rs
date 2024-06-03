@@ -491,51 +491,6 @@ where
 		.await
 		.map_err(Error::CancelledAvailabilityCores)??;
 
-	let claim_queue = polkadot_node_subsystem_util::request_claim_queue(relay_parent, sender)
-		.await
-		.await
-		.map_err(Error::CancelledClaimQueue)??;
-
-	let paras_now = match polkadot_node_subsystem_util::signing_key_and_index(&validators, keystore)
-		.and_then(|(_, index)| polkadot_node_subsystem_util::find_validator_group(&groups, index))
-	{
-		Some(group) => {
-			let core_now = rotation_info.core_for_group(group, cores.len());
-
-			// todo: `if relay_parent_mode.is_enabled()` ???
-			// is clone necessary?
-			claim_queue.get(&core_now).map(|paras| paras.clone())
-		},
-		None => {
-			gum::trace!(target: LOG_TARGET, ?relay_parent, "Not a validator");
-
-			return Ok(())
-		},
-	};
-
-	// This code won't work well, if at all for on-demand parachains. For on-demand we'll
-	// have to be aware of which core the on-demand claim is going to be multiplexed
-	// onto. The on-demand claim will also have a known collator, and we should always
-	// allow an incoming connection from that collator. If not even connecting to them
-	// directly.
-	//
-	// However, this'll work fine for parachains, as each parachain gets a dedicated
-	// core.
-	if let Some(paras) = paras_now.as_ref() {
-		for para_id in paras {
-			let entry = current_assignments.entry(*para_id).or_default();
-			*entry += 1;
-			if *entry == 1 {
-				gum::debug!(
-					target: LOG_TARGET,
-					?relay_parent,
-					para_id = ?para_id,
-					"Assigned to a parachain",
-				);
-			}
-		}
-	}
-
 	let para_now = match polkadot_node_subsystem_util::signing_key_and_index(&validators, keystore)
 		.and_then(|(_, index)| polkadot_node_subsystem_util::find_validator_group(&groups, index))
 	{
@@ -555,6 +510,27 @@ where
 			return Ok(())
 		},
 	};
+
+	// This code won't work well, if at all for on-demand parachains. For on-demand we'll
+	// have to be aware of which core the on-demand claim is going to be multiplexed
+	// onto. The on-demand claim will also have a known collator, and we should always
+	// allow an incoming connection from that collator. If not even connecting to them
+	// directly.
+	//
+	// However, this'll work fine for parachains, as each parachain gets a dedicated
+	// core.
+	if let Some(para_id) = para_now.as_ref() {
+		let entry = current_assignments.entry(*para_id).or_default();
+		*entry += 1;
+		if *entry == 1 {
+			gum::debug!(
+				target: LOG_TARGET,
+				?relay_parent,
+				para_id = ?para_id,
+				"Assigned to a parachain",
+			);
+		}
+	}
 
 	*group_assignment = GroupAssignments { current: para_now };
 
