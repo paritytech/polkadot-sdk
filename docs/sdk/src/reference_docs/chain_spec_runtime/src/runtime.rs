@@ -107,7 +107,8 @@ impl_runtime_apis! {
 			vec![
 				PresetId::from(PRESET_1),
 				PresetId::from(PRESET_2),
-				PresetId::from(PRESET_3)
+				PresetId::from(PRESET_3),
+				PresetId::from(PRESET_4)
 			]
 		}
 	}

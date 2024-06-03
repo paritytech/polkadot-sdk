@@ -14,7 +14,7 @@ docify = "0.2.8"
 parity-scale-codec = { version = "3.6.12", default-features = false }
 scale-info = { version = "2.6.0", default-features = false }
 serde = { workspace = true, default-features = false, feature = ["derive"] }
-serde_json = { workspace = true }
+serde_json.workspace = true
 
 # this is a frame-based runtime, thus importing `frame` with runtime feature enabled.
 frame = { package = "polkadot-sdk-frame", path = "../../../../../substrate/frame", default-features = false, features = [
@@ -36,6 +36,7 @@ sp-core = { path = "../../../../../substrate/primitives/core", default-features 
 sp-std = { path = "../../../../../substrate/primitives/std", default-features = false }
 sp-keyring = { path = "../../../../../substrate/primitives/keyring", default-features = false }
 sp-application-crypto = { path = "../../../../../substrate/primitives/application-crypto", default-features = false, features = ["serde"] }
+indoc = "2.0.5"
 
 [build-dependencies]
 substrate-wasm-builder = { path = "../../../../../substrate/utils/wasm-builder", optional = true }

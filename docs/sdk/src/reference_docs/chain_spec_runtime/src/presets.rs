@@ -26,10 +26,11 @@ use sp_std::vec;
 pub const PRESET_1: &str = "preset_1";
 pub const PRESET_2: &str = "preset_2";
 pub const PRESET_3: &str = "preset_3";
+pub const PRESET_4: &str = "preset_4";
 
 #[docify::export]
 fn preset_1() -> Value {
-	serde_json::json!({
+	json!({
 		"bar": {
 			"initialAccount": "5CiPPseXPECbkjWCa6MnjNokrgYjMqmKndv2rSnekmSK2DjL",
 		},
@@ -46,7 +47,7 @@ fn preset_1() -> Value {
 
 #[docify::export]
 fn preset_2() -> Value {
-	serde_json::json!({
+	json!({
 		"bar": {
 			"initialAccount": AccountKeyring::Ferdie.public().to_ss58check(),
 		},
@@ -75,6 +76,19 @@ fn preset_3() -> Value {
 	})
 }
 
+#[docify::export]
+fn preset_4() -> Value {
+	json!({
+		"foo": {
+			"someEnum": {
+				"Data2": {
+					"v": "0x0c0f"
+				}
+			},
+		},
+	})
+}
+
 /// Provides a json representation of preset identified by given `id`.
 ///
 /// If no preset with given `id` exits `None` is returned.
@@ -84,6 +98,7 @@ pub fn get_builtin_preset(id: &sp_genesis_builder::PresetId) -> Option<sp_std::v
 		Ok(PRESET_1) => preset_1(),
 		Ok(PRESET_2) => preset_2(),
 		Ok(PRESET_3) => preset_3(),
+		Ok(PRESET_4) => preset_4(),
 		_ => return None,
 	};
 

@@ -39,8 +39,8 @@ pub mod pallet_bar {
 	}
 
 	#[pallet::genesis_build]
+	#[docify::export(pallet_bar_build)]
 	impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
-		#[docify::export(pallet_bar_build)]
 		fn build(&self) {
 			InitialAccount::<T>::set(self.initial_account.clone());
 		}
@@ -94,8 +94,8 @@ pub mod pallet_foo {
 	}
 
 	#[pallet::genesis_build]
+	#[docify::export(pallet_foo_build)]
 	impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
-		#[docify::export(pallet_foo_build)]
 		fn build(&self) {
 			let v: u64 = match &self.some_enum {
 				FooEnum::Data0 => 0,
