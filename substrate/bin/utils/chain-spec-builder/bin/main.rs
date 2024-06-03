@@ -18,18 +18,17 @@
 
 use chain_spec_builder::{
 	generate_chain_spec_for_runtime, AddCodeSubstituteCmd, ChainSpecBuilder, ChainSpecBuilderCmd,
-	ConvertToRawCmd, DisplayPresetCmd, ListPresetsCmd, UpdateCodeCmd, VerifyCmd,
+	ConvertToRawCmd, DisplayPresetCmd, ListPresetsCmd, OptionalParaFieldsExtension, UpdateCodeCmd,
+	VerifyCmd,
 };
 use clap::Parser;
-use cumulus_client_chain_spec_extension::Extensions;
 use sc_chain_spec::{
 	set_code_substitute_in_json_chain_spec, update_code_in_json_chain_spec, GenericChainSpec,
 	GenesisConfigBuilderRuntimeCaller,
 };
 use staging_chain_spec_builder as chain_spec_builder;
 use std::fs;
-
-type ChainSpec = GenericChainSpec<Extensions, ()>;
+type ChainSpec = GenericChainSpec<OptionalParaFieldsExtension, ()>;
 
 //avoid error message escaping
 fn main() {

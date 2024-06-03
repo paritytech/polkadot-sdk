@@ -120,7 +120,11 @@
 use std::{fs, path::PathBuf};
 
 use clap::{Parser, Subcommand};
-use sc_chain_spec::{ChainType, GenericChainSpec, GenesisConfigBuilderRuntimeCaller};
+use sc_chain_spec::{
+	ChainSpecExtension, ChainSpecGroup, ChainType, GenericChainSpec,
+	GenesisConfigBuilderRuntimeCaller,
+};
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 /// A utility to easily create a chain spec definition.
@@ -323,5 +327,23 @@ pub fn generate_chain_spec_for_runtime(cmd: &CreateCmd) -> Result<String, String
 			chain_spec.as_json(false)
 		},
 		(false, false) => chain_spec.as_json(false),
+	}
+}
+
+/// Chain-spec extension that provides access to optional `relay_chain` and `para_id` fields.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ChainSpecGroup, ChainSpecExtension)]
+pub struct OptionalParaFieldsExtension {
+	/// The relay chain of the Parachain.
+	#[serde(alias = "relayChain", alias = "RelayChain")]
+	pub relay_chain: Option<String>,
+	/// The id of the Parachain.
+	#[serde(alias = "paraId", alias = "ParaId")]
+	pub para_id: Option<u32>,
+}
+
+impl OptionalParaFieldsExtension {
+	/// Try to get the extension from the given `ChainSpec`.
+	pub fn try_get(chain_spec: &dyn sc_chain_spec::ChainSpec) -> Option<&Self> {
+		sc_chain_spec::get_extension(chain_spec.extensions())
 	}
 }
