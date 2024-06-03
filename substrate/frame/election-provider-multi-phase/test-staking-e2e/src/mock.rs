@@ -263,7 +263,7 @@ impl pallet_bags_list::Config<TargetBagsListInstance> for Runtime {
 }
 
 parameter_types! {
-	pub static UpdateMode: VoterUpdateMode = VoterUpdateMode::Strict;
+	pub static UpdateMode: VoterUpdateMode = VoterUpdateMode::Lazy;
 }
 
 impl pallet_stake_tracker::Config for Runtime {
