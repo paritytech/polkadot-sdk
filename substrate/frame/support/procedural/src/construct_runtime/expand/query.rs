@@ -28,11 +28,6 @@ pub fn expand_outer_query(
 
 	let prefix_conditionals = pallet_decls.iter().map(|pallet| {
 		let pallet_name = &pallet.name;
-		// let instance = pallet.instance.as_ref().into_iter();
-		// let path = &pallet.path;
-		// let pallet_concrete = quote::quote! {
-		// 	#pallet_name::<#runtime_name #(, #path::#instance)*>
-		// };
 		quote::quote! {
 			if id.prefix == <#pallet_name as #scrate::traits::QueryIdPrefix>::prefix() {
 				return <#pallet_name as #scrate::traits::DispatchQuery>::dispatch_query(id, input, output)
@@ -59,6 +54,7 @@ pub fn expand_outer_query(
 					output: &mut O
 				) -> Result<(), #scrate::__private::codec::Error>
 				{
+					println!("dispatch_query {id:?}");
 					#( #prefix_conditionals )*
 					Err(#scrate::__private::codec::Error::from("todo: no prefix"))
 				}

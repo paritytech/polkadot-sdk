@@ -311,6 +311,7 @@ pub mod pallet {
 			type PalletInfo = ();
 			#[inject_runtime_type]
 			type RuntimeTask = ();
+			#[inject_runtime_type]
 			type RuntimeQuery = ();
 			type BaseCallFilter = frame_support::traits::Everything;
 			type BlockHashCount = TestBlockHashCount<frame_support::traits::ConstU32<10>>;
