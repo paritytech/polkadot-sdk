@@ -13,7 +13,7 @@
 
 🤏 This template is a minimal (in terms of complexity and the number of components) template for building a blockchain node.
 
-🔧 It's runtime is configured of a single custom pallet as a starting point, and a handful of ready-made pallets such as a [Balances pallet](https://paritytech.github.io/polkadot-sdk/master/pallet_balances/index.html).
+🔧 Its runtime is configured of a single custom pallet as a starting point, and a handful of ready-made pallets such as a [Balances pallet](https://paritytech.github.io/polkadot-sdk/master/pallet_balances/index.html).
 
 👤 The template has no consensus configured - it is best for experimenting with a single node network.
 
