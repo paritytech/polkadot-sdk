@@ -9966,7 +9966,7 @@ dependencies = [
  "staging-xcm",
  "staging-xcm-builder",
  "wasm-instrument",
- "wasmi 0.32.0",
+ "wasmi 0.32.1",
  "wat",
 ]
 
@@ -22814,9 +22814,9 @@ dependencies = [
 
 [[package]]
 name = "wasmi"
-version = "0.32.0"
+version = "0.32.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8b999b72f65d17f23f83d2053bcc5e856f8da27217fc0a8cef582aa3046e2476"
+checksum = "783f7c86b5a65d9cf77219b3a5d21362f407b32185ef003d1ece81a705955e7a"
 dependencies = [
  "arrayvec 0.7.4",
  "multi-stash",
@@ -22825,7 +22825,7 @@ dependencies = [
  "smallvec",
  "spin 0.9.8",
  "wasmi_collections",
- "wasmi_core 0.32.0",
+ "wasmi_core 0.32.1",
  "wasmparser-nostd",
 ]
 
@@ -22837,9 +22837,9 @@ checksum = "104a7f73be44570cac297b3035d76b169d6599637631cf37a1703326a0727073"
 
 [[package]]
 name = "wasmi_collections"
-version = "0.32.0"
+version = "0.32.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a06649ca4a0d3f72248eace0d13bf89c0c728a91930bbcd12703fed93568fcae"
+checksum = "6611b7c98190ed1f221497695062e92ca9a139f603bd4bff012b8d99c6eff8a5"
 dependencies = [
  "ahash 0.8.11",
  "hashbrown 0.14.3",
@@ -22860,9 +22860,9 @@ dependencies = [
 
 [[package]]
 name = "wasmi_core"
-version = "0.32.0"
+version = "0.32.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "21cca4ef23937f162309d48bbbe94c8de110edd170dd3b09928587181a24b0a5"
+checksum = "d55b2061ab1d9928a93da896ce501074056685fad7b0030c96ff8adafc85d7bb"
 dependencies = [
  "downcast-rs",
  "libm",
