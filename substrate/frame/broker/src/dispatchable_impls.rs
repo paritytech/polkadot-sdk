@@ -496,17 +496,8 @@ impl<T: Config> Pallet<T> {
 				Error::<T>::NotAllowed
 			);
 		} else {
-			// If the user didn't provide a valid workload end hint and we couldn't find the renewal
-			// record for the current bulk period we should be able to find it for the upcoming bulk
-			// period.
-			//
-			// If not the core is not eligible for auto-renewal.
-			ensure!(
-				PotentialRenewals::<T>::get(PotentialRenewalId { core, when: sale.region_end })
-					.is_some(),
-				Error::<T>::NotAllowed
-			);
-		};
+			return Err(Error::<T>::NotAllowed.into())
+		}
 
 		// We are keeping the auto-renewals sorted by `CoreIndex`.
 		AutoRenewals::<T>::try_mutate(|renewals| {

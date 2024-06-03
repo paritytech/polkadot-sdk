@@ -1047,6 +1047,7 @@ mod benches {
 		Broker::<T>::do_assign(region, None, 2001, Final)
 			.map_err(|_| BenchmarkError::Weightless)?;
 
+		advance_to::<T>(6);
 		Broker::<T>::do_enable_auto_renew(caller.clone(), region.core, 2001, None)?;
 
 		#[extrinsic_call]
