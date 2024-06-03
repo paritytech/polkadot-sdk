@@ -395,6 +395,14 @@ pub mod pallet {
 		}
 
 		/// Approve a member to continue at their rank.
+		///
+		/// This resets `last_proof` to the current block, thereby delaying any automatic demotion.
+		///
+		/// `who` must already be tracked by this pallet for this to have an effect.
+		///
+		/// - `origin`: An origin which satisfies `ApproveOrigin` or root.
+		/// - `who`: A member (i.e. of non-zero rank).
+		/// - `at_rank`: The rank of member.
 		#[pallet::weight(T::WeightInfo::approve())]
 		#[pallet::call_index(3)]
 		pub fn approve(
