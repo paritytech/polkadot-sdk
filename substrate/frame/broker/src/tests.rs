@@ -25,7 +25,7 @@ use frame_support::{
 };
 use frame_system::RawOrigin::Root;
 use pretty_assertions::assert_eq;
-use sp_runtime::{traits::Get, TokenError};
+use sp_runtime::{traits::Get, Perbill, TokenError};
 use CoreAssignment::*;
 use CoretimeTraceItem::*;
 use Finality::*;
@@ -1137,7 +1137,7 @@ fn config_works() {
 /// Ensure that a lease that ended before `start_sales` was called can be renewed.
 #[test]
 fn renewal_works_leases_ended_before_start_sales() {
-	TestExt::new().endow(1, 1000).execute_with(|| {
+	TestExt::new().endow(1, 100_000).execute_with(|| {
 		let config = Configuration::<Test>::get().unwrap();
 
 		// This lease is ended before `start_stales` was called.
@@ -1167,7 +1167,7 @@ fn renewal_works_leases_ended_before_start_sales() {
 		let new_core = Broker::do_renew(1, 0).unwrap();
 		// Renewing the active lease doesn't work.
 		assert_noop!(Broker::do_renew(1, 1), Error::<Test>::SoldOut);
-		assert_eq!(balance(1), 900);
+		assert_eq!(balance(1), 99000);
 
 		// This intializes the third sale and the period 2.
 		advance_sale_period();
@@ -1175,7 +1175,7 @@ fn renewal_works_leases_ended_before_start_sales() {
 
 		// Renewing the active lease doesn't work.
 		assert_noop!(Broker::do_renew(1, 0), Error::<Test>::SoldOut);
-		assert_eq!(balance(1), 800);
+		assert_eq!(balance(1), 98900);
 
 		// All leases should have ended
 		assert!(Leases::<Test>::get().is_empty());
@@ -1187,7 +1187,7 @@ fn renewal_works_leases_ended_before_start_sales() {
 		assert_eq!(0, Broker::do_renew(1, new_core).unwrap());
 		// Renew the task 2.
 		assert_eq!(1, Broker::do_renew(1, 0).unwrap());
-		assert_eq!(balance(1), 600);
+		assert_eq!(balance(1), 98790);
 
 		// This intializes the fifth sale and the period 4.
 		advance_sale_period();
