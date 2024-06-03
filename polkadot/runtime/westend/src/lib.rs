@@ -2668,64 +2668,6 @@ mod remote_tests {
 			.unwrap();
 		ext.execute_with(|| Runtime::on_runtime_upgrade(UpgradeCheckSelect::PreAndPost));
 	}
-
-	#[tokio::test]
-	async fn try_stake_tracker_migrate() {
-		use frame_support::migrations::SteppedMigration;
-		sp_tracing::try_init_simple();
-		let transport: Transport = var("WS")
-			.unwrap_or(
-				// "wss://kusama-rpc.polkadot.io:443"
-				"ws://127.0.0.1:9900".to_string(),
-			)
-			.into();
-
-		let maybe_state_snapshot: Option<SnapshotConfig> = var("SNAP").map(|s| s.into()).ok();
-
-		let mut ext = Builder::<Block>::default()
-			.mode(if let Some(state_snapshot) = maybe_state_snapshot {
-				Mode::OfflineOrElseOnline(
-					OfflineConfig { state_snapshot: state_snapshot.clone() },
-					OnlineConfig {
-						transport,
-						state_snapshot: Some(state_snapshot),
-						pallets: vec!["staking".into(), "stake-tracker".into()],
-						..Default::default()
-					},
-				)
-			} else {
-				Mode::Online(OnlineConfig { transport, ..Default::default() })
-			})
-			.build()
-			.await
-			.unwrap();
-
-		ext.execute_with(|| {
-			//let mut meter = WeightMeter::with_limit(Weight::from_parts(100_779_206_000,
-			// 10477090));
-			let mut meter = WeightMeter::new();
-			let mut cursor = None;
-			loop {
-				cursor = pallet_staking::migrations::v13_stake_tracker::MigrationV13::<
-					Runtime,
-					weights::pallet_staking::WeightInfo<Runtime>,
-				>::step(cursor, &mut meter)
-				.unwrap();
-
-				if cursor.is_none() {
-					// run the try-state at the end.
-					Staking::do_try_state(frame_system::Pallet::<Runtime>::block_number())
-						.map_err(|err| {
-							log::error!(" 🕵️‍♂️ try_state failure: {:?}", err);
-							err
-						})
-						.unwrap();
-
-					break;
-				}
-			}
-		});
-	}
 }
 
 mod clean_state_migration {
