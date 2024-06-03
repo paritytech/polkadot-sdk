@@ -77,8 +77,9 @@
 #![doc = docify::embed!("./src/reference_docs/chain_spec_runtime/src/presets.rs", preset_3)]
 //! It is worth noting that preset does not have to be the full `RuntimeGenesisConfig`, in that
 //! sense that it does not have to contain all the keys of the struct. The preset is acutally a json
-//! patch that will be merged with default value of `RuntimeGenesisConfig`. Following example
-//! illustrates runtime genesis config patch:
+//! patch that will be merged with default value of `RuntimeGenesisConfig`. This approach should
+//! simplify maintanance of builtin presets. Following example illustrates runtime genesis config
+//! patch:
 #![doc = docify::embed!("./src/reference_docs/chain_spec_runtime/src/presets.rs", preset_4)]
 
 //! # Interacting with the tool
@@ -87,7 +88,7 @@
 //! presets and build the chain specification file. It is possible to use the tool with the
 //! [_demonstration runtime_][`chain_spec_guide_runtime`]. To build required packages just run the
 //! following command:
-//! ```
+//! ```no_run
 //! cargo build -p staging-chain-spec-builder -p chain-spec-guide-runtime --release
 //! ```
 //! Here are some examples in the form of rust tests:
