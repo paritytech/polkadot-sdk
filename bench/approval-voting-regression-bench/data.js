@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1717364636475,
+  "lastUpdate": 1717409299805,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -6062,6 +6062,53 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 3.6323600010301353,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Egor_P",
+            "username": "EgorPopelyaev",
+            "email": "egor@parity.io"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "f66e693a6befef0956a3129254fbe568247c9c57",
+          "message": "Add chain-spec-builder docker image (#4655)\n\nThis PR adds possibility to publish container images for the\n`chain-spec-builder` binary on the regular basis.\nRelated to: https://github.com/paritytech/release-engineering/issues/190",
+          "timestamp": "2024-06-03T08:30:36Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/f66e693a6befef0956a3129254fbe568247c9c57"
+        },
+        "date": 1717409271306,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52942,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63554.17999999999,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 2.9018704276302065,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 6.854449073079984,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 9.247959443749998,
             "unit": "seconds"
           }
         ]
