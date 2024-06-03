@@ -88,7 +88,6 @@ use sc_telemetry::TelemetryWorker;
 #[cfg(feature = "full-node")]
 use sc_telemetry::{Telemetry, TelemetryWorkerHandle};
 
-use beefy_primitives::ecdsa_crypto;
 pub use chain_spec::{GenericChainSpec, RococoChainSpec, WestendChainSpec};
 use frame_benchmarking_cli::SUBSTRATE_REFERENCE_HARDWARE;
 use mmr_gadget::MmrGadget;
@@ -105,6 +104,7 @@ pub use sc_service::{
 };
 pub use sp_api::{ApiRef, ConstructRuntimeApi, Core as CoreApi, ProvideRuntimeApi};
 pub use sp_consensus::{Proposal, SelectChain};
+use sp_consensus_beefy::ecdsa_crypto;
 pub use sp_runtime::{
 	generic,
 	traits::{self as runtime_traits, BlakeTwo256, Block as BlockT, Header as HeaderT, NumberFor},
