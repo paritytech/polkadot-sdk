@@ -657,6 +657,10 @@ pub use pallet_skip_feeless_payment;
 #[cfg(feature = "pallet-society")]
 pub use pallet_society;
 
+/// FRAME stake tracker pallet.
+#[cfg(feature = "pallet-stake-tracker")]
+pub use pallet_stake_tracker;
+
 /// FRAME pallet staking.
 #[cfg(feature = "pallet-staking")]
 pub use pallet_staking;
@@ -672,10 +676,6 @@ pub use pallet_staking_reward_fn;
 /// RPC runtime API for transaction payment FRAME pallet.
 #[cfg(feature = "pallet-staking-runtime-api")]
 pub use pallet_staking_runtime_api;
-
-/// Keeps track of the staking target's approval stakes.
-#[cfg(feature = "pallet-stake-tracker")]
-pub use pallet_stake_tracker;
 
 /// FRAME pallet migration of trie.
 #[cfg(feature = "pallet-state-trie-migration")]
