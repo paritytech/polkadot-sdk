@@ -1920,9 +1920,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1769" id="1769">1769</a>
 <a href="#1770" id="1770">1770</a>
 <a href="#1771" id="1771">1771</a>
-<a href="#1772" id="1772">1772</a>
-<a href="#1773" id="1773">1773</a>
-<a href="#1774" id="1774">1774</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -2668,14 +2665,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// The segment length is limited by the capacity returned from the [`ConsensusHook`] configured
 	/// in the pallet.
 	</span><span class="attr">#[pallet::storage]
-	</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">type </span>UnincludedSegment&lt;T: Config&gt; =
-		StorageValue&lt;<span class="kw">_</span>, Vec&lt;Ancestor&lt;T::Hash&gt;&gt;, ValueQuery&gt;;
+	</span><span class="kw">pub type </span>UnincludedSegment&lt;T: Config&gt; = StorageValue&lt;<span class="kw">_</span>, Vec&lt;Ancestor&lt;T::Hash&gt;&gt;, ValueQuery&gt;;
 
 	<span class="doccomment">/// Storage field that keeps track of bandwidth used by the unincluded segment along with the
 	/// latest HRMP watermark. Used for limiting the acceptance of new blocks with
 	/// respect to relay chain constraints.
 	</span><span class="attr">#[pallet::storage]
-	</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">type </span>AggregatedUnincludedSegment&lt;T: Config&gt; =
+	</span><span class="kw">pub type </span>AggregatedUnincludedSegment&lt;T: Config&gt; =
 		StorageValue&lt;<span class="kw">_</span>, SegmentTracker&lt;T::Hash&gt;, OptionQuery&gt;;
 
 	<span class="doccomment">/// In case of a scheduled upgrade, this storage field contains the validation code to be
@@ -2685,7 +2681,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// [`:code`][sp_core::storage::well_known_keys::CODE] which will result the next block process
 	/// with the new validation code. This concludes the upgrade process.
 	</span><span class="attr">#[pallet::storage]
-	</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">type </span>PendingValidationCode&lt;T: Config&gt; = StorageValue&lt;<span class="kw">_</span>, Vec&lt;u8&gt;, ValueQuery&gt;;
+	</span><span class="kw">pub type </span>PendingValidationCode&lt;T: Config&gt; = StorageValue&lt;<span class="kw">_</span>, Vec&lt;u8&gt;, ValueQuery&gt;;
 
 	<span class="doccomment">/// Validation code that is set by the parachain and is to be communicated to collator and
 	/// consequently the relay-chain.
@@ -2693,23 +2689,23 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// This will be cleared in `on_initialize` of each new block if no other pallet already set
 	/// the value.
 	</span><span class="attr">#[pallet::storage]
-	</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">type </span>NewValidationCode&lt;T: Config&gt; = StorageValue&lt;<span class="kw">_</span>, Vec&lt;u8&gt;, OptionQuery&gt;;
+	</span><span class="kw">pub type </span>NewValidationCode&lt;T: Config&gt; = StorageValue&lt;<span class="kw">_</span>, Vec&lt;u8&gt;, OptionQuery&gt;;
 
 	<span class="doccomment">/// The [`PersistedValidationData`] set for this block.
 	/// This value is expected to be set only once per block and it's never stored
 	/// in the trie.
 	</span><span class="attr">#[pallet::storage]
-	</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">type </span>ValidationData&lt;T: Config&gt; = StorageValue&lt;<span class="kw">_</span>, PersistedValidationData&gt;;
+	</span><span class="kw">pub type </span>ValidationData&lt;T: Config&gt; = StorageValue&lt;<span class="kw">_</span>, PersistedValidationData&gt;;
 
 	<span class="doccomment">/// Were the validation data set to notify the relay chain?
 	</span><span class="attr">#[pallet::storage]
-	</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">type </span>DidSetValidationCode&lt;T: Config&gt; = StorageValue&lt;<span class="kw">_</span>, bool, ValueQuery&gt;;
+	</span><span class="kw">pub type </span>DidSetValidationCode&lt;T: Config&gt; = StorageValue&lt;<span class="kw">_</span>, bool, ValueQuery&gt;;
 
 	<span class="doccomment">/// The relay chain block number associated with the last parachain block.
 	///
 	/// This is updated in `on_finalize`.
 	</span><span class="attr">#[pallet::storage]
-	</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">type </span>LastRelayChainBlockNumber&lt;T: Config&gt; =
+	</span><span class="kw">pub type </span>LastRelayChainBlockNumber&lt;T: Config&gt; =
 		StorageValue&lt;<span class="kw">_</span>, RelayChainBlockNumber, ValueQuery&gt;;
 
 	<span class="doccomment">/// An option which indicates if the relay-chain restricts signalling a validation code upgrade.
@@ -2720,7 +2716,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// relay-chain. This value is ephemeral which means it doesn't hit the storage. This value is
 	/// set after the inherent.
 	</span><span class="attr">#[pallet::storage]
-	</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">type </span>UpgradeRestrictionSignal&lt;T: Config&gt; =
+	</span><span class="kw">pub type </span>UpgradeRestrictionSignal&lt;T: Config&gt; =
 		StorageValue&lt;<span class="kw">_</span>, <span class="prelude-ty">Option</span>&lt;relay_chain::UpgradeRestriction&gt;, ValueQuery&gt;;
 
 	<span class="doccomment">/// Optional upgrade go-ahead signal from the relay-chain.
@@ -2729,7 +2725,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// relay-chain. This value is ephemeral which means it doesn't hit the storage. This value is
 	/// set after the inherent.
 	</span><span class="attr">#[pallet::storage]
-	</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">type </span>UpgradeGoAhead&lt;T: Config&gt; =
+	</span><span class="kw">pub type </span>UpgradeGoAhead&lt;T: Config&gt; =
 		StorageValue&lt;<span class="kw">_</span>, <span class="prelude-ty">Option</span>&lt;relay_chain::UpgradeGoAhead&gt;, ValueQuery&gt;;
 
 	<span class="doccomment">/// The state proof for the last relay parent block.
@@ -2739,7 +2735,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// This data is also absent from the genesis.
 	</span><span class="attr">#[pallet::storage]
-	</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">type </span>RelayStateProof&lt;T: Config&gt; = StorageValue&lt;<span class="kw">_</span>, sp_trie::StorageProof&gt;;
+	</span><span class="kw">pub type </span>RelayStateProof&lt;T: Config&gt; = StorageValue&lt;<span class="kw">_</span>, sp_trie::StorageProof&gt;;
 
 	<span class="doccomment">/// The snapshot of some state related to messaging relevant to the current parachain as per
 	/// the relay parent.
@@ -2749,7 +2745,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// This data is also absent from the genesis.
 	</span><span class="attr">#[pallet::storage]
-	</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">type </span>RelevantMessagingState&lt;T: Config&gt; = StorageValue&lt;<span class="kw">_</span>, MessagingStateSnapshot&gt;;
+	</span><span class="kw">pub type </span>RelevantMessagingState&lt;T: Config&gt; = StorageValue&lt;<span class="kw">_</span>, MessagingStateSnapshot&gt;;
 
 	<span class="doccomment">/// The parachain host configuration that was obtained from the relay parent.
 	///
@@ -2759,53 +2755,51 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// This data is also absent from the genesis.
 	</span><span class="attr">#[pallet::storage]
 	#[pallet::disable_try_decode_storage]
-	</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">type </span>HostConfiguration&lt;T: Config&gt; = StorageValue&lt;<span class="kw">_</span>, AbridgedHostConfiguration&gt;;
+	</span><span class="kw">pub type </span>HostConfiguration&lt;T: Config&gt; = StorageValue&lt;<span class="kw">_</span>, AbridgedHostConfiguration&gt;;
 
 	<span class="doccomment">/// The last downward message queue chain head we have observed.
 	///
 	/// This value is loaded before and saved after processing inbound downward messages carried
 	/// by the system inherent.
 	</span><span class="attr">#[pallet::storage]
-	</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">type </span>LastDmqMqcHead&lt;T: Config&gt; = StorageValue&lt;<span class="kw">_</span>, MessageQueueChain, ValueQuery&gt;;
+	</span><span class="kw">pub type </span>LastDmqMqcHead&lt;T: Config&gt; = StorageValue&lt;<span class="kw">_</span>, MessageQueueChain, ValueQuery&gt;;
 
 	<span class="doccomment">/// The message queue chain heads we have observed per each channel incoming channel.
 	///
 	/// This value is loaded before and saved after processing inbound downward messages carried
 	/// by the system inherent.
 	</span><span class="attr">#[pallet::storage]
-	</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">type </span>LastHrmpMqcHeads&lt;T: Config&gt; =
+	</span><span class="kw">pub type </span>LastHrmpMqcHeads&lt;T: Config&gt; =
 		StorageValue&lt;<span class="kw">_</span>, BTreeMap&lt;ParaId, MessageQueueChain&gt;, ValueQuery&gt;;
 
 	<span class="doccomment">/// Number of downward messages processed in a block.
 	///
 	/// This will be cleared in `on_initialize` of each new block.
 	</span><span class="attr">#[pallet::storage]
-	</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">type </span>ProcessedDownwardMessages&lt;T: Config&gt; = StorageValue&lt;<span class="kw">_</span>, u32, ValueQuery&gt;;
+	</span><span class="kw">pub type </span>ProcessedDownwardMessages&lt;T: Config&gt; = StorageValue&lt;<span class="kw">_</span>, u32, ValueQuery&gt;;
 
 	<span class="doccomment">/// HRMP watermark that was set in a block.
 	///
 	/// This will be cleared in `on_initialize` of each new block.
 	</span><span class="attr">#[pallet::storage]
-	</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">type </span>HrmpWatermark&lt;T: Config&gt; =
-		StorageValue&lt;<span class="kw">_</span>, relay_chain::BlockNumber, ValueQuery&gt;;
+	</span><span class="kw">pub type </span>HrmpWatermark&lt;T: Config&gt; = StorageValue&lt;<span class="kw">_</span>, relay_chain::BlockNumber, ValueQuery&gt;;
 
 	<span class="doccomment">/// HRMP messages that were sent in a block.
 	///
 	/// This will be cleared in `on_initialize` of each new block.
 	</span><span class="attr">#[pallet::storage]
-	</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">type </span>HrmpOutboundMessages&lt;T: Config&gt; =
+	</span><span class="kw">pub type </span>HrmpOutboundMessages&lt;T: Config&gt; =
 		StorageValue&lt;<span class="kw">_</span>, Vec&lt;OutboundHrmpMessage&gt;, ValueQuery&gt;;
 
 	<span class="doccomment">/// Upward messages that were sent in a block.
 	///
 	/// This will be cleared in `on_initialize` of each new block.
 	</span><span class="attr">#[pallet::storage]
-	</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">type </span>UpwardMessages&lt;T: Config&gt; = StorageValue&lt;<span class="kw">_</span>, Vec&lt;UpwardMessage&gt;, ValueQuery&gt;;
+	</span><span class="kw">pub type </span>UpwardMessages&lt;T: Config&gt; = StorageValue&lt;<span class="kw">_</span>, Vec&lt;UpwardMessage&gt;, ValueQuery&gt;;
 
 	<span class="doccomment">/// Upward messages that are still pending and not yet send to the relay chain.
 	</span><span class="attr">#[pallet::storage]
-	</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">type </span>PendingUpwardMessages&lt;T: Config&gt; =
-		StorageValue&lt;<span class="kw">_</span>, Vec&lt;UpwardMessage&gt;, ValueQuery&gt;;
+	</span><span class="kw">pub type </span>PendingUpwardMessages&lt;T: Config&gt; = StorageValue&lt;<span class="kw">_</span>, Vec&lt;UpwardMessage&gt;, ValueQuery&gt;;
 
 	<span class="doccomment">/// Initialization value for the delivery fee factor for UMP.
 	</span><span class="attr">#[pallet::type_value]
@@ -2815,29 +2809,29 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// The factor to multiply the base delivery fee by for UMP.
 	</span><span class="attr">#[pallet::storage]
-	</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">type </span>UpwardDeliveryFeeFactor&lt;T: Config&gt; =
+	</span><span class="kw">pub type </span>UpwardDeliveryFeeFactor&lt;T: Config&gt; =
 		StorageValue&lt;<span class="kw">_</span>, FixedU128, ValueQuery, UpwardInitialDeliveryFeeFactor&gt;;
 
 	<span class="doccomment">/// The number of HRMP messages we observed in `on_initialize` and thus used that number for
 	/// announcing the weight of `on_initialize` and `on_finalize`.
 	</span><span class="attr">#[pallet::storage]
-	</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">type </span>AnnouncedHrmpMessagesPerCandidate&lt;T: Config&gt; = StorageValue&lt;<span class="kw">_</span>, u32, ValueQuery&gt;;
+	</span><span class="kw">pub type </span>AnnouncedHrmpMessagesPerCandidate&lt;T: Config&gt; = StorageValue&lt;<span class="kw">_</span>, u32, ValueQuery&gt;;
 
 	<span class="doccomment">/// The weight we reserve at the beginning of the block for processing XCMP messages. This
 	/// overrides the amount set in the Config trait.
 	</span><span class="attr">#[pallet::storage]
-	</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">type </span>ReservedXcmpWeightOverride&lt;T: Config&gt; = StorageValue&lt;<span class="kw">_</span>, Weight&gt;;
+	</span><span class="kw">pub type </span>ReservedXcmpWeightOverride&lt;T: Config&gt; = StorageValue&lt;<span class="kw">_</span>, Weight&gt;;
 
 	<span class="doccomment">/// The weight we reserve at the beginning of the block for processing DMP messages. This
 	/// overrides the amount set in the Config trait.
 	</span><span class="attr">#[pallet::storage]
-	</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">type </span>ReservedDmpWeightOverride&lt;T: Config&gt; = StorageValue&lt;<span class="kw">_</span>, Weight&gt;;
+	</span><span class="kw">pub type </span>ReservedDmpWeightOverride&lt;T: Config&gt; = StorageValue&lt;<span class="kw">_</span>, Weight&gt;;
 
 	<span class="doccomment">/// A custom head data that should be returned as result of `validate_block`.
 	///
 	/// See `Pallet::set_custom_validation_head_data` for more information.
 	</span><span class="attr">#[pallet::storage]
-	</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">type </span>CustomValidationHeadData&lt;T: Config&gt; = StorageValue&lt;<span class="kw">_</span>, Vec&lt;u8&gt;, OptionQuery&gt;;
+	</span><span class="kw">pub type </span>CustomValidationHeadData&lt;T: Config&gt; = StorageValue&lt;<span class="kw">_</span>, Vec&lt;u8&gt;, OptionQuery&gt;;
 
 	<span class="attr">#[pallet::inherent]
 	</span><span class="kw">impl</span>&lt;T: Config&gt; ProvideInherent <span class="kw">for </span>Pallet&lt;T&gt; {
