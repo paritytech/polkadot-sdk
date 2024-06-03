@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1717409535390,
+  "lastUpdate": 1717419020017,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -12739,6 +12739,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-store",
             "value": 0.1858494746866668,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Egor_P",
+            "username": "EgorPopelyaev",
+            "email": "egor@parity.io"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "6f228e7d220bb14c113dcc27c931590737f9d0ab",
+          "message": " [ci] Delete unused flow (#4676)",
+          "timestamp": "2024-06-03T12:22:06Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/6f228e7d220bb14c113dcc27c931590737f9d0ab"
+        },
+        "date": 1717418991173,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.012242382073333334,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.17187499171333342,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.01035866230666667,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02237513773333334,
             "unit": "seconds"
           }
         ]
