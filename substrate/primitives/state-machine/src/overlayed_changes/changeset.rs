@@ -27,7 +27,6 @@ use std::collections::HashSet as Set;
 
 use crate::{ext::StorageAppend, warn};
 use alloc::{
-	borrow::Cow,
 	collections::{btree_map::BTreeMap, btree_set::BTreeSet},
 	vec::Vec,
 };
@@ -124,45 +123,48 @@ pub enum StorageEntry {
 }
 
 impl StorageEntry {
+	/// Convert to an [`Option<StorageValue>`].
 	pub(super) fn to_option(mut self) -> Option<StorageValue> {
-		self.render_append();
+		self.materialize_in_place();
 		match self {
 			StorageEntry::Append { data, .. } | StorageEntry::Set(data) => Some(data),
 			StorageEntry::Remove => None,
 		}
 	}
 
-	fn render_append(&mut self) {
-		if let StorageEntry::Append {
-			data,
-			materialized_length: materialized,
-			current_length,
-			..
-		} = self
-		{
-			let current_length = *current_length;
-			if materialized.map_or(false, |m| m == current_length) {
-				return
-			}
-			StorageAppend::new(data).replace_length(*materialized, current_length);
-			*materialized = Some(current_length);
+	/// Return as an [`Option<StorageValue>`].
+	fn as_option(&mut self) -> Option<&StorageValue> {
+		self.materialize_in_place();
+		match self {
+			StorageEntry::Append { data, .. } | StorageEntry::Set(data) => Some(data),
+			StorageEntry::Remove => None,
 		}
 	}
 
-	pub(crate) fn materialize(&self) -> Option<Cow<[u8]>> {
+	/// Materialize the internal state and cache the resulting materialized value.
+	fn materialize_in_place(&mut self) {
+		if let StorageEntry::Append { data, materialized_length, current_length, .. } = self {
+			let current_length = *current_length;
+			if materialized_length.map_or(false, |m| m == current_length) {
+				return
+			}
+			StorageAppend::new(data).replace_length(*materialized_length, current_length);
+			*materialized_length = Some(current_length);
+		}
+	}
+
+	/// Materialize the internal state.
+	#[cfg(test)]
+	pub(crate) fn materialize(&self) -> Option<alloc::borrow::Cow<[u8]>> {
 		match self {
-			StorageEntry::Append {
-				data,
-				materialized_length: materialized,
-				current_length,
-				..
-			} => {
+			StorageEntry::Append { data, materialized_length, current_length, .. } => {
 				let current_length = *current_length;
-				if materialized.map_or(false, |m| m == current_length) {
+				if materialized_length.map_or(false, |m| m == current_length) {
 					Some(Cow::Borrowed(data.as_ref()))
 				} else {
 					let mut data = data.clone();
-					StorageAppend::new(&mut data).replace_length(*materialized, current_length);
+					StorageAppend::new(&mut data)
+						.replace_length(*materialized_length, current_length);
 
 					Some(data.into())
 				}
@@ -503,13 +505,7 @@ impl OverlayedEntry<StorageEntry> {
 
 	/// The value as seen by the current transaction.
 	pub fn value(&mut self) -> Option<&StorageValue> {
-		let value = self.value_mut();
-		value.render_append();
-		let value = self.value_ref();
-		match value {
-			StorageEntry::Set(data) | StorageEntry::Append { data, .. } => Some(data),
-			StorageEntry::Remove => None,
-		}
+		self.value_mut().as_option()
 	}
 }
 
