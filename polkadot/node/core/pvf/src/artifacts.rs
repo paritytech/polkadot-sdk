@@ -177,6 +177,7 @@ pub enum CleanupBy {
 	// Inactive time after which artefact is deleted
 	Time(Duration),
 	// Max size in bytes. Reaching it the least used artefacts are deleted
+	#[allow(dead_code)]
 	Size(u64),
 }
 
