@@ -410,6 +410,10 @@ pub mod pallet {
 		#[pallet::constant]
 		type MaxDebugBufferLen: Get<u32>;
 
+		/// The maximum length of the transient storage in bytes.
+		#[pallet::constant]
+		type MaxTransientStorageLen: Get<u32>;
+
 		/// Origin allowed to upload code.
 		///
 		/// By default, it is safe to set this to `EnsureSigned`, allowing anyone to upload contract
@@ -555,6 +559,7 @@ pub mod pallet {
 			type MaxDebugBufferLen = ConstU32<{ 2 * 1024 * 1024 }>;
 			type MaxDelegateDependencies = MaxDelegateDependencies;
 			type MaxStorageKeyLen = ConstU32<128>;
+			type MaxTransientStorageLen = ConstU32<256>;
 			type Migrations = ();
 			type Time = Self;
 			type Randomness = Self;
@@ -606,7 +611,11 @@ pub mod pallet {
 			// Max call depth is CallStack::size() + 1
 			let max_call_depth = u32::try_from(T::CallStack::size().saturating_add(1))
 				.expect("CallStack size is too big");
-			let max_transient_storage_size = T::Schedule::get().limits.transient_storage;
+			// Transient storage uses a BTreeMap, which has overhead compared to the raw size of
+			// key-value data. To ensure safety, a margin of 2x the raw key-value size is used.
+			let max_transient_storage_len = T::MaxTransientStorageLen::get()
+				.checked_mul(2)
+				.unwrap_or_else(|| panic!("MaxTransientStorageLen to big"));
 			// Check that given configured `MaxCodeLen`, runtime heap memory limit can't be broken.
 			//
 			// In worst case, the decoded Wasm contract code would be `x16` times larger than the
@@ -616,7 +625,7 @@ pub mod pallet {
 			// Next, the pallet keeps the Wasm blob for each
 			// contract, hence we add up `MaxCodeLen` to the safety margin.
 			//
-			// Finally, the inefficiencies of the freeing-bump allocator
+			// The inefficiencies of the freeing-bump allocator
 			// being used in the client for the runtime memory allocations, could lead to possible
 			// memory allocations for contract code grow up to `x4` times in some extreme cases,
 			// which gives us total multiplier of `17*4` for `MaxCodeLen`.
@@ -624,6 +633,8 @@ pub mod pallet {
 			// That being said, for every contract executed in runtime, at least `MaxCodeLen*17*4`
 			// memory should be available. Note that maximum allowed heap memory and stack size per
 			// each contract (stack frame) should also be counted.
+			//
+			// The pallet holds transient storage with a size up to `max_transient_storage_size`.
 			//
 			// Finally, we allow 50% of the runtime memory to be utilized by the contracts call
 			// stack, keeping the rest for other facilities, such as PoV, etc.
@@ -636,7 +647,7 @@ pub mod pallet {
 			// Hence the upper limit for the `MaxCodeLen` can be defined as follows:
 			let code_len_limit = max_runtime_mem
 				.saturating_div(2)
-				.saturating_sub(max_transient_storage_size)
+				.saturating_sub(max_transient_storage_len)
 				.saturating_div(max_call_depth)
 				.saturating_sub(max_heap_size)
 				.saturating_sub(MAX_STACK_SIZE)

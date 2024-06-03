@@ -82,9 +82,6 @@ pub struct Limits {
 	/// The maximum node runtime memory. This is for integrity checks only and does not affect the
 	/// real setting.
 	pub runtime_memory: u32,
-
-	// The maximum size of data that can be kept in transient storage.
-	pub transient_storage: u32,
 }
 
 impl Limits {
@@ -117,7 +114,6 @@ impl Default for Limits {
 			subject_len: 32,
 			payload_len: 16 * 1024,
 			runtime_memory: 1024 * 1024 * 128,
-			transient_storage: 736 * 1024,
 		}
 	}
 }

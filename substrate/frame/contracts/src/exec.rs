@@ -807,6 +807,7 @@ where
 			determinism,
 		)?;
 
+		let transient_storage_limit = T::MaxTransientStorageLen::get();
 		let stack = Self {
 			origin,
 			schedule,
@@ -819,10 +820,11 @@ where
 			frames: Default::default(),
 			debug_message,
 			determinism,
-			//transient_storage: TransientStorage::new(T::Schedule::get().limits.transient_storage,
-			// 256),
-			transient_storage: TransientStorage::new(728, 256),
-
+			transient_storage: TransientStorage::new(
+				transient_storage_limit,
+				transient_storage_limit
+					.saturating_div((T::CallStack::size() as u32).saturating_add(1)),
+			),
 			_phantom: Default::default(),
 		};
 
