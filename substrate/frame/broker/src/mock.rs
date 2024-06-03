@@ -29,7 +29,7 @@ use frame_support::{
 };
 use frame_system::{EnsureRoot, EnsureSignedBy};
 use sp_arithmetic::Perbill;
-use sp_core::{ConstU32, ConstU64};
+use sp_core::{ConstU32, ConstU64, Get};
 use sp_runtime::{
 	traits::{BlockNumberProvider, Identity},
 	BuildStorage, Saturating,
@@ -208,6 +208,15 @@ pub fn advance_to(b: u64) {
 		TestCoretimeProvider::bump();
 		Broker::on_initialize(System::block_number());
 	}
+}
+
+pub fn advance_sale_period() {
+	let sale = SaleInfo::<Test>::get().unwrap();
+
+	let target_block_number =
+		sale.region_begin as u64 * <<Test as crate::Config>::TimeslicePeriod as Get<u64>>::get();
+
+	advance_to(target_block_number)
 }
 
 pub fn pot() -> u64 {

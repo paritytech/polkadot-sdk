@@ -24,6 +24,7 @@ use frame_support::{
 	BoundedVec,
 };
 use frame_system::RawOrigin::Root;
+use pretty_assertions::assert_eq;
 use sp_runtime::{traits::Get, TokenError};
 use CoreAssignment::*;
 use CoretimeTraceItem::*;
@@ -1062,5 +1063,143 @@ fn config_works() {
 		// Bad config is a noop:
 		cfg.leadin_length = 0;
 		assert_noop!(Broker::configure(Root.into(), cfg), Error::<Test>::InvalidConfig);
+	});
+}
+
+/// Ensure that a lease that ended before `start_sales` was called can be renewed.
+#[test]
+fn renewal_works_leases_ended_before_start_sales() {
+	TestExt::new().endow(1, 1000).execute_with(|| {
+		let config = Configuration::<Test>::get().unwrap();
+
+		// This lease is ended before `start_stales` was called.
+		assert_ok!(Broker::do_set_lease(1, 1));
+
+		// Go to some block to ensure that the lease of task 1 already ended.
+		advance_to(5);
+
+		// This lease will end three sale periods in.
+		assert_ok!(Broker::do_set_lease(
+			2,
+			Broker::latest_timeslice_ready_to_commit(&config) + config.region_length * 3
+		));
+
+		// This intializes the first sale and the period 0.
+		assert_ok!(Broker::do_start_sales(100, 2));
+		assert_noop!(Broker::do_renew(1, 1), Error::<Test>::Unavailable);
+		assert_noop!(Broker::do_renew(1, 0), Error::<Test>::Unavailable);
+
+		// Lease for task 1 should have been dropped.
+		assert!(Leases::<Test>::get().iter().any(|l| l.task == 2));
+
+		// This intializes the second and the period 1.
+		advance_sale_period();
+
+		// Now we can finally renew the core 0 of task 1.
+		let new_core = Broker::do_renew(1, 0).unwrap();
+		// Renewing the active lease doesn't work.
+		assert_noop!(Broker::do_renew(1, 1), Error::<Test>::SoldOut);
+		assert_eq!(balance(1), 900);
+
+		// This intializes the third sale and the period 2.
+		advance_sale_period();
+		let new_core = Broker::do_renew(1, new_core).unwrap();
+
+		// Renewing the active lease doesn't work.
+		assert_noop!(Broker::do_renew(1, 0), Error::<Test>::SoldOut);
+		assert_eq!(balance(1), 800);
+
+		// All leases should have ended
+		assert!(Leases::<Test>::get().is_empty());
+
+		// This intializes the fourth sale and the period 3.
+		advance_sale_period();
+
+		// Renew again
+		assert_eq!(0, Broker::do_renew(1, new_core).unwrap());
+		// Renew the task 2.
+		assert_eq!(1, Broker::do_renew(1, 0).unwrap());
+		assert_eq!(balance(1), 600);
+
+		// This intializes the fifth sale and the period 4.
+		advance_sale_period();
+
+		assert_eq!(
+			CoretimeTrace::get(),
+			vec![
+				(
+					10,
+					AssignCore {
+						core: 0,
+						begin: 12,
+						assignment: vec![(Task(1), 57600)],
+						end_hint: None
+					}
+				),
+				(
+					10,
+					AssignCore {
+						core: 1,
+						begin: 12,
+						assignment: vec![(Task(2), 57600)],
+						end_hint: None
+					}
+				),
+				(
+					16,
+					AssignCore {
+						core: 0,
+						begin: 18,
+						assignment: vec![(Task(2), 57600)],
+						end_hint: None
+					}
+				),
+				(
+					16,
+					AssignCore {
+						core: 1,
+						begin: 18,
+						assignment: vec![(Task(1), 57600)],
+						end_hint: None
+					}
+				),
+				(
+					22,
+					AssignCore {
+						core: 0,
+						begin: 24,
+						assignment: vec![(Task(2), 57600)],
+						end_hint: None,
+					},
+				),
+				(
+					22,
+					AssignCore {
+						core: 1,
+						begin: 24,
+						assignment: vec![(Task(1), 57600)],
+						end_hint: None,
+					},
+				),
+				(
+					28,
+					AssignCore {
+						core: 0,
+						begin: 30,
+						assignment: vec![(Task(1), 57600)],
+						end_hint: None,
+					},
+				),
+				(
+					28,
+					AssignCore {
+						core: 1,
+						begin: 30,
+						assignment: vec![(Task(2), 57600)],
+						end_hint: None,
+					},
+				),
+			]
+		);
 	});
 }
