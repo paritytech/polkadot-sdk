@@ -1,19 +1,13 @@
-# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
-# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+title: Optimize storage append operation
 
-title: Append overlay optimization.
-
-author: cheme
 doc:
-  - audience: Node Dev
+  - audience: [Node Dev, Runtime Dev]
     description: |
-      Optimize change overlay to avoid cloning full value when appending
-      content to a change.
-      Different append operation can be stored in the overlay.
-      Only when reading the appending value do we need to merge these operation.
-      For value with append only operation, this makes it possible to avoid any
-      major cost related to transaction (before this pr the full value was cloned
-      on every append in a new transaction).
+      This pull request optimizes the storage append operation in the `OverlayedChanges`.
+      Before the internal buffer was cloned every time a new transaction was created. Cloning
+      the internal buffer is now only done when there is no other possibility. This should
+      improve the performance in situations like when depositing events from batched calls.
 
 crates:
   - name: sp-state-machine
+    bump: major
