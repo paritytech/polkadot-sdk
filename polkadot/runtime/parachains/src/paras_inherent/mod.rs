@@ -402,14 +402,12 @@ impl<T: Config> Pallet<T> {
 
 		// Limit the disputes first, since the following statements depend on the votes include
 		// here.
-		log::debug!(target: LOG_TARGET, "Disputes before sanitization: {}", disputes.len());
 		let (checked_disputes_sets, checked_disputes_sets_consumed_weight) =
 			limit_and_sanitize_disputes::<T, _>(
 				disputes,
 				dispute_statement_set_valid,
 				max_block_weight,
 			);
-		log::debug!(target: LOG_TARGET, "Disputes after sanitization: {}", checked_disputes_sets.len());
 
 		let all_weight_after = if context == ProcessInherentDataContext::ProvideInherent {
 			// Assure the maximum block weight is adhered, by limiting bitfields and backed

@@ -44,7 +44,7 @@ pub(crate) const SESSION_DELAY: SessionIndex = 2;
 mod tests;
 
 /// Information about past relay-parents.
-#[derive(Encode, Decode, Default, TypeInfo, Debug)]
+#[derive(Encode, Decode, Default, TypeInfo)]
 pub struct AllowedRelayParentsTracker<Hash, BlockNumber> {
 	// The past relay parents, paired with state roots, that are viable to build upon.
 	//
@@ -269,10 +269,5 @@ impl<T: Config> Pallet<T> {
 		AllowedRelayParents::<T>::mutate(|tracker| {
 			tracker.update(relay_parent, state_root, number, max_ancestry_len)
 		})
-	}
-
-	#[cfg(test)]
-	pub(crate) fn clear_allowed_relay_parents() {
-		AllowedRelayParents::<T>::kill();
 	}
 }

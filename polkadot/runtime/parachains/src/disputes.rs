@@ -702,7 +702,6 @@ impl<BlockNumber: Clone> DisputeStateImporter<BlockNumber> {
 		let mut undo =
 			ImportUndo { validator_index: validator, vote_kind: kind, new_participant: false };
 
-		log::debug!(target: LOG_TARGET, "Setting dispute bit: {}", validator.0);
 		bits.set(validator.0 as usize, true);
 		if kind.is_backing() {
 			let is_new = self.backers.insert(validator);
@@ -992,7 +991,6 @@ impl<T: Config> Pallet<T> {
 
 		let backers =
 			BackersOnDisputes::<T>::get(&set.session, &set.candidate_hash).unwrap_or_default();
-		log::debug!(target: LOG_TARGET, "Dispute import with {} backers", backers.len());
 
 		// Check and import all votes.
 		let summary = {
@@ -1010,7 +1008,6 @@ impl<T: Config> Pallet<T> {
 				};
 
 				let kind = VoteKind::from(statement);
-				log::debug!(target: LOG_TARGET, "Importing {:?} vote from {}", kind, validator_index.0);
 
 				let undo = match importer.import(*validator_index, kind) {
 					Ok(u) => u,

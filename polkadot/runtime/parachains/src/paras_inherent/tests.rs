@@ -3319,11 +3319,7 @@ mod sanitizers {
 					3,
 					10,
 				);
-				let allowed_parents = shared::AllowedRelayParents::<Test>::get();
-				println!("before enter: {allowed_parents:?}");
 				let _ = Pallet::<Test>::enter(frame_system::RawOrigin::None.into(), data).unwrap();
-				let allowed_parents = shared::AllowedRelayParents::<Test>::get();
-				println!("right after: {allowed_parents:?}");
 
 				assert_matches!(pallet::OnChainVotes::<Test>::get(), Some(ScrapedOnChainVotes {
 					disputes,
@@ -3341,14 +3337,6 @@ mod sanitizers {
 					parent_header.hash(), // `parent_hash`,
 					Default::default(),   // digest,
 				);
-				// let data = ParachainsInherentData {
-				// 	disputes: Vec::new(),
-				// 	parent_header: parent_header.clone(),
-				// 	bitfields: Vec::new(),
-				// 	backed_candidates: Vec::new(),
-				// };
-				// let _ = Pallet::<Test>::enter(frame_system::RawOrigin::None.into(),
-				// data).unwrap();
 
 				frame_system::Pallet::<Test>::reset_events();
 				frame_system::Pallet::<Test>::initialize(
@@ -3363,17 +3351,6 @@ mod sanitizers {
 					bitfields: Vec::new(),
 					backed_candidates,
 				};
-
-				// shared::Pallet::<Test>::clear_allowed_relay_parents();
-				// let header = default_header();
-				// shared::Pallet::<Test>::add_allowed_relay_parent(
-				// 	header.hash(),
-				// 	*header.state_root(),
-				// 	3,
-				// 	10,
-				// );
-				let allowed_parents = shared::AllowedRelayParents::<Test>::get();
-				println!("{allowed_parents:?}");
 
 				let _ = Pallet::<Test>::enter(frame_system::RawOrigin::None.into(), data).unwrap();
 				assert_eq!(
