@@ -61,16 +61,15 @@ use crate::{
 use codec::DecodeAll;
 use either::Either;
 use futures::{channel::oneshot, prelude::*};
-use libp2p::identity::ed25519;
 #[allow(deprecated)]
 use libp2p::swarm::{SwarmBuilder, THandlerErr};
 use libp2p::{
 	connection_limits::{ConnectionLimits, Exceeded},
 	core::{upgrade, ConnectedPoint, Endpoint},
 	identify::Info as IdentifyInfo,
+	identity::ed25519,
 	kad::record::Key as KademliaKey,
 	multiaddr::{self, Multiaddr},
-	ping::Failure as PingFailure,
 	swarm::{
 		ConnectionError, ConnectionId, DialError, Executor, ListenError, NetworkBehaviour, Swarm,
 		SwarmEvent,
@@ -591,13 +590,6 @@ where
 				)
 			};
 			let builder = builder
-				.connection_limits(
-					ConnectionLimits::default()
-						.with_max_established_per_peer(Some(crate::MAX_CONNECTIONS_PER_PEER as u32))
-						.with_max_established_incoming(Some(
-							crate::MAX_CONNECTIONS_ESTABLISHED_INCOMING,
-						)),
-				)
 				.substream_upgrade_protocol_override(upgrade::Version::V1)
 				.notify_handler_buffer_size(NonZeroUsize::new(32).expect("32 != 0; qed"))
 				// NOTE: 24 is somewhat arbitrary and should be tuned in the future if necessary.
@@ -630,7 +622,7 @@ where
 
 		// Add external addresses.
 		for addr in &network_config.public_addresses {
-			Swarm::<Behaviour<B>>::add_external_address(&mut swarm, addr.clone());
+			Swarm::<Behaviour<B>>::add_external_address(&mut swarm, addr.clone().into());
 		}
 
 		let listen_addresses_set = Arc::new(Mutex::new(HashSet::new()));

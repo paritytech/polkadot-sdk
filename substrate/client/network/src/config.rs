@@ -114,12 +114,13 @@ pub fn parse_str_addr(addr_str: &str) -> Result<(PeerId, Multiaddr), ParseErr> {
 
 /// Splits a Multiaddress into a Multiaddress and PeerId.
 pub fn parse_addr(mut addr: Multiaddr) -> Result<(PeerId, Multiaddr), ParseErr> {
-	let who = match addr.pop() {
-		Some(multiaddr::Protocol::P2p(peer_id)) => peer_id,
+	let multihash = match addr.pop() {
+		Some(multiaddr::Protocol::P2p(multihash)) => multihash,
 		_ => return Err(ParseErr::PeerIdMissing),
 	};
+	let peer_id = PeerId::from_multihash(multihash).map_err(|_| ParseErr::InvalidPeerId)?;
 
-	Ok((who, addr))
+	Ok((peer_id, addr))
 }
 
 /// Address of a node, including its identity.
@@ -148,7 +149,7 @@ pub struct MultiaddrWithPeerId {
 impl MultiaddrWithPeerId {
 	/// Concatenates the multiaddress and peer ID into one multiaddress containing both.
 	pub fn concat(&self) -> Multiaddr {
-		let proto = multiaddr::Protocol::P2p(self.peer_id);
+		let proto = multiaddr::Protocol::P2p(*self.peer_id.as_ref());
 		self.multiaddr.clone().with(proto)
 	}
 }
@@ -197,6 +198,7 @@ impl fmt::Display for ParseErr {
 		match self {
 			Self::MultiaddrParse(err) => write!(f, "{}", err),
 			Self::PeerIdMissing => write!(f, "Peer id is missing from the address"),
+			Self::InvalidPeerId => write!(f, "Multihash in the addres is not valid peer id"),
 		}
 	}
 }
@@ -206,6 +208,7 @@ impl std::error::Error for ParseErr {
 		match self {
 			Self::MultiaddrParse(err) => Some(err),
 			Self::PeerIdMissing => None,
+			Self::InvalidPeerId => None,
 		}
 	}
 }
