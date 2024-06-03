@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1717410131690,
+  "lastUpdate": 1717419618583,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
@@ -923,6 +923,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.04609666627400002,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Egor_P",
+            "username": "EgorPopelyaev",
+            "email": "egor@parity.io"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "6f228e7d220bb14c113dcc27c931590737f9d0ab",
+          "message": " [ci] Delete unused flow (#4676)",
+          "timestamp": "2024-06-03T12:22:06Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/6f228e7d220bb14c113dcc27c931590737f9d0ab"
+        },
+        "date": 1717419589840,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 127.91599999999995,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 106.40399999999998,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.037198549799999966,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.04727594728000002,
             "unit": "seconds"
           }
         ]
