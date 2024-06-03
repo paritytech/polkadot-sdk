@@ -2102,6 +2102,7 @@ dependencies = [
  "substrate-wasm-builder",
  "testnet-parachains-constants",
  "tuplex",
+ "xcm-fee-payment-runtime-api",
 ]
 
 [[package]]
@@ -2262,6 +2263,7 @@ dependencies = [
  "testnet-parachains-constants",
  "tuplex",
  "westend-runtime-constants",
+ "xcm-fee-payment-runtime-api",
 ]
 
 [[package]]
@@ -2871,6 +2873,7 @@ dependencies = [
  "substrate-wasm-builder",
  "testnet-parachains-constants",
  "westend-runtime-constants",
+ "xcm-fee-payment-runtime-api",
 ]
 
 [[package]]
@@ -3126,6 +3129,7 @@ dependencies = [
  "staging-xcm-executor",
  "substrate-wasm-builder",
  "testnet-parachains-constants",
+ "xcm-fee-payment-runtime-api",
 ]
 
 [[package]]
@@ -3222,6 +3226,7 @@ dependencies = [
  "staging-xcm-executor",
  "substrate-wasm-builder",
  "testnet-parachains-constants",
+ "xcm-fee-payment-runtime-api",
 ]
 
 [[package]]
@@ -3286,6 +3291,7 @@ dependencies = [
  "substrate-wasm-builder",
  "testnet-parachains-constants",
  "westend-runtime-constants",
+ "xcm-fee-payment-runtime-api",
 ]
 
 [[package]]
@@ -12295,6 +12301,7 @@ dependencies = [
  "staging-xcm-executor",
  "substrate-wasm-builder",
  "testnet-parachains-constants",
+ "xcm-fee-payment-runtime-api",
 ]
 
 [[package]]
@@ -12395,6 +12402,7 @@ dependencies = [
  "substrate-wasm-builder",
  "testnet-parachains-constants",
  "westend-runtime-constants",
+ "xcm-fee-payment-runtime-api",
 ]
 
 [[package]]
@@ -14220,6 +14228,7 @@ dependencies = [
  "sp-version-proc-macro",
  "sp-wasm-interface 20.0.0",
  "sp-weights",
+ "staging-chain-spec-builder",
  "staging-node-inspect",
  "staging-parachain-info",
  "staging-tracking-allocator",
@@ -16723,6 +16732,7 @@ name = "sc-chain-spec"
 version = "28.0.0"
 dependencies = [
  "array-bytes",
+ "clap 4.5.3",
  "docify",
  "log",
  "memmap2 0.9.3",
