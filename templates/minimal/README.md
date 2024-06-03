@@ -64,7 +64,7 @@ Development chains:
 
 - 🧹 Do not persist the state.
 - 💰 Are preconfigured with a genesis state that includes several prefunded development accounts.
-- 🧑‍⚖️ Development accounts are used as default validator authorities and a `sudo` account.
+- 🧑‍⚖️ Development accounts are used as `sudo` accounts.
 
 ### Connect with the Polkadot-JS Apps Front-End
 
