@@ -21,6 +21,7 @@
 
 // TODO: help in the relay chian args should also imply this
 // TODO: ensure execution is not set to native anywhere
+// TODO: ensure aura-api is available.
 
 pub(crate) const EXAMPLES: &str = color_print::cstr!(
 	r#"<bold><underline>Examples:</></>
