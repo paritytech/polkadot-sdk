@@ -27,13 +27,10 @@
 #![allow(unused_variables)]
 #![allow(dead_code)]
 
-// todo: remove:
-// This is cleaned copy of src/lib.rs.
-
-use crate::graph;
-pub use crate::{
+use crate::{
 	api::FullChainApi,
 	enactment_state::{EnactmentAction, EnactmentState},
+	graph,
 	graph::{
 		base_pool::Limit as PoolLimit, watcher::Watcher, ChainApi, Options, Pool, Transaction,
 		ValidatedTransaction, ValidatedTransactionFor,
@@ -82,13 +79,11 @@ use super::{
 };
 use crate::{
 	fork_aware_txpool::{view_revalidation, view_revalidation::RevalidationQueue},
-	PolledIterator, ReadyIteratorFor,
+	PolledIterator, ReadyIteratorFor, LOG_TARGET,
 };
 use prometheus_endpoint::Registry as PrometheusRegistry;
 use sp_blockchain::{HashAndNumber, TreeRoute};
 use sp_runtime::transaction_validity::TransactionValidityError;
-
-pub(crate) const LOG_TARGET: &str = "txpool";
 
 pub type FullPool<Block, Client> = ForkAwareTxPool<FullChainApi<Client, Block>, Block>;
 
@@ -132,7 +127,7 @@ where
 	}
 }
 
-pub struct View<PoolApi: graph::ChainApi> {
+struct View<PoolApi: graph::ChainApi> {
 	pool: graph::Pool<PoolApi>,
 	at: HashAndNumber<PoolApi::Block>,
 }
@@ -154,7 +149,7 @@ where
 		let _ = self.pool.validated_pool().on_block_finalized(finalized).await;
 	}
 
-	pub async fn submit_many(
+	async fn submit_many(
 		&self,
 		source: TransactionSource,
 		xts: impl IntoIterator<Item = ExtrinsicFor<PoolApi>>,
@@ -163,7 +158,7 @@ where
 	}
 
 	/// Imports one unverified extrinsic to the pool
-	pub async fn submit_one(
+	async fn submit_one(
 		&self,
 		source: TransactionSource,
 		xt: ExtrinsicFor<PoolApi>,
@@ -172,7 +167,7 @@ where
 	}
 
 	/// Import a single extrinsic and starts to watch its progress in the pool.
-	pub async fn submit_and_watch(
+	async fn submit_and_watch(
 		&self,
 		source: TransactionSource,
 		xt: ExtrinsicFor<PoolApi>,
@@ -180,11 +175,11 @@ where
 		self.pool.submit_and_watch(&self.at, source, xt).await
 	}
 
-	pub fn status(&self) -> PoolStatus {
+	fn status(&self) -> PoolStatus {
 		self.pool.validated_pool().status()
 	}
 
-	pub fn create_watcher(
+	fn create_watcher(
 		&self,
 		tx_hash: ExtrinsicHash<PoolApi>,
 	) -> Watcher<ExtrinsicHash<PoolApi>, ExtrinsicHash<PoolApi>> {
@@ -192,8 +187,7 @@ where
 	}
 }
 
-//todo: better name: ViewStore?
-pub struct ViewStore<PoolApi, Block>
+struct ViewStore<PoolApi, Block>
 where
 	Block: BlockT,
 	PoolApi: graph::ChainApi<Block = Block>,
@@ -214,7 +208,7 @@ where
 	}
 
 	/// Imports a bunch of unverified extrinsics to every view
-	pub async fn submit_at(
+	async fn submit_at(
 		&self,
 		source: TransactionSource,
 		xts: impl IntoIterator<Item = Block::Extrinsic> + Clone,
@@ -245,7 +239,7 @@ where
 	}
 
 	/// Imports one unverified extrinsic to every view
-	pub async fn submit_one(
+	async fn submit_one(
 		&self,
 		source: TransactionSource,
 		xt: Block::Extrinsic,
@@ -264,7 +258,7 @@ where
 	}
 
 	/// Import a single extrinsic and starts to watch its progress in the pool.
-	pub async fn submit_and_watch(
+	async fn submit_and_watch(
 		&self,
 		at: Block::Hash,
 		source: TransactionSource,
@@ -317,11 +311,11 @@ where
 		Ok(external_watcher.unwrap())
 	}
 
-	pub fn status(&self) -> HashMap<Block::Hash, PoolStatus> {
+	fn status(&self) -> HashMap<Block::Hash, PoolStatus> {
 		self.views.read().iter().map(|(h, v)| (*h, v.status())).collect()
 	}
 
-	pub fn is_empty(&self) -> bool {
+	fn is_empty(&self) -> bool {
 		self.views.read().is_empty()
 	}
 
@@ -823,7 +817,6 @@ where
 	}
 }
 
-//todo: naming + better doc!
 /// Converts the input view-to-statuses map into the output vector of statuses.
 ///
 /// The result of importing a bunch of transactions into a single view is the vector of statuses.
@@ -1079,14 +1072,9 @@ where
 		let views = self.view_store.clone();
 		self.mempool.push_unwatched(xt.clone());
 
+		// assume that transaction may be valid, will be validated later.
 		if views.is_empty() {
-			//todo: error or ok if no views?
 			return future::ready(Ok(self.api.hash_and_length(&xt).0)).boxed()
-			// return future::ready(Err(TxPoolError::UnknownTransaction(
-			// 	UnknownTransaction::CannotLookup,
-			// )
-			// .into()))
-			// .boxed()
 		}
 
 		let tx_hash = self.hash_of(&xt);
@@ -1125,17 +1113,7 @@ where
 		// todo:
 		// self.metrics.report(|metrics| metrics.submitted_transactions.inc());
 
-		async move {
-			let result = view_store.submit_and_watch(at, source, xt).await;
-			match result {
-				Ok(watcher) => Ok(watcher),
-				Err(err) => Err(err),
-			}
-			// let watcher = result?;
-			// let watcher = views.submit_and_watch(at, source, xt).await?;
-			// watcher
-		}
-		.boxed()
+		async move { view_store.submit_and_watch(at, source, xt).await }.boxed()
 	}
 
 	// todo: api change? we need block hash here (assuming we need it at all).
@@ -1294,7 +1272,7 @@ where
 		}
 	}
 
-	pub async fn create_new_view_at(
+	async fn create_new_view_at(
 		&self,
 		at: &HashAndNumber<Block>,
 		tree_route: &TreeRoute<Block>,
