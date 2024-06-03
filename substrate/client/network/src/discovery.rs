@@ -217,7 +217,7 @@ impl DiscoveryConfig {
 			kademlia_replication_factor,
 		} = self;
 
-		let kademlia = if let Some(kademlia_protocol) = kademlia_protocol {
+		let kademlia = if let Some(ref kademlia_protocol) = kademlia_protocol {
 			let mut config = KademliaConfig::default();
 
 			config.set_replication_factor(kademlia_replication_factor);
@@ -405,8 +405,9 @@ impl DiscoveryBehaviour {
 			// when all nodes are upgraded to genesis hash and fork ID-based Kademlia:
 			// https://github.com/paritytech/polkadot-sdk/issues/504.
 			if !supported_protocols.iter().any(|p| {
-				*p == self
+				p == self
 					.kademlia_protocol
+					.as_ref()
 					.expect("kademlia protocol was checked above to be anabled; qed")
 			}) {
 				trace!(

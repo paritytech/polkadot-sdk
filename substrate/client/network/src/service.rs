@@ -275,10 +275,6 @@ where
 		let local_identity: ed25519::Keypair = local_identity.into();
 		let local_public: ed25519::PublicKey = local_public.into();
 		let local_peer_id: PeerId = local_peer_id.into();
-		let listen_addresses: Vec<Multiaddr> =
-			network_config.listen_addresses.iter().cloned().map(Into::into).collect();
-		let public_addresses: Vec<Multiaddr> =
-			network_config.public_addresses.iter().cloned().map(Into::into).collect();
 
 		network_config.boot_nodes = network_config
 			.boot_nodes
@@ -614,8 +610,8 @@ where
 		};
 
 		// Listen on multiaddresses.
-		for addr in &listen_addresses {
-			if let Err(err) = Swarm::<Behaviour<B>>::listen_on(&mut swarm, addr.clone()) {
+		for addr in &network_config.listen_addresses {
+			if let Err(err) = Swarm::<Behaviour<B>>::listen_on(&mut swarm, addr.clone().into()) {
 				warn!(target: "sub-libp2p", "Can't listen on {} because: {:?}", addr, err)
 			}
 		}
