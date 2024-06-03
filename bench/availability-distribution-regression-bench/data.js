@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1717364917431,
+  "lastUpdate": 1717409535390,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -12687,6 +12687,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-distribution",
             "value": 0.013464688780000005,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Egor_P",
+            "username": "EgorPopelyaev",
+            "email": "egor@parity.io"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "f66e693a6befef0956a3129254fbe568247c9c57",
+          "message": "Add chain-spec-builder docker image (#4655)\n\nThis PR adds possibility to publish container images for the\n`chain-spec-builder` binary on the regular basis.\nRelated to: https://github.com/paritytech/release-engineering/issues/190",
+          "timestamp": "2024-06-03T08:30:36Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/f66e693a6befef0956a3129254fbe568247c9c57"
+        },
+        "date": 1717409507782,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02311875960666666,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.012950364693333338,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.015075998179999996,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.1858494746866668,
             "unit": "seconds"
           }
         ]
