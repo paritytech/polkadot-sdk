@@ -223,7 +223,7 @@ pub struct Environment<T: Config> {
 pub struct ApiVersion(u16);
 impl Default for ApiVersion {
 	fn default() -> Self {
-		Self(3)
+		Self(4)
 	}
 }
 
