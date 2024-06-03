@@ -22,6 +22,7 @@ use litep2p::types::multiaddr::Protocol as LiteP2pProtocol;
 use multiaddr::Protocol as LibP2pProtocol;
 use std::{
 	borrow::Cow,
+	fmt::{self, Debug, Display},
 	net::{Ipv4Addr, Ipv6Addr},
 };
 
@@ -63,6 +64,13 @@ pub enum Protocol<'a> {
 	Utp,
 	Ws(Cow<'a, str>),
 	Wss(Cow<'a, str>),
+}
+
+impl<'a> Display for Protocol<'a> {
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		let protocol = LiteP2pProtocol::from(self.clone());
+		Display::fmt(&protocol, f)
+	}
 }
 
 impl<'a> From<LiteP2pProtocol<'a>> for Protocol<'a> {
