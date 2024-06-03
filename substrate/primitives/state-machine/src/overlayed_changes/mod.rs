@@ -554,7 +554,7 @@ impl<H: Hasher> OverlayedChanges<H> {
 		&self,
 		key: &[u8],
 	) -> Option<(impl Iterator<Item = (&StorageKey, &OverlayedValue)>, &ChildInfo)> {
-		self.children.get(key).map(|(overlay, info)| (overlay.changes(), &*info))
+		self.children.get(key).map(|(overlay, info)| (overlay.changes(), info))
 	}
 
 	/// Get an optional iterator over all child changes stored under the supplied key.

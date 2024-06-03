@@ -156,6 +156,8 @@ impl StorageEntry {
 	/// Materialize the internal state.
 	#[cfg(test)]
 	pub(crate) fn materialize(&self) -> Option<alloc::borrow::Cow<[u8]>> {
+		use alloc::borrow::Cow;
+
 		match self {
 			StorageEntry::Append { data, materialized_length, current_length, .. } => {
 				let current_length = *current_length;
@@ -721,10 +723,10 @@ impl OverlayedChangeSet {
 
 	fn close_transaction(&mut self, rollback: bool) -> Result<(), NoOpenTransaction> {
 		// runtime is not allowed to close transactions started by the client
-		if let ExecutionMode::Runtime = self.execution_mode {
-			if !self.has_open_runtime_transactions() {
-				return Err(NoOpenTransaction)
-			}
+		if matches!(self.execution_mode, ExecutionMode::Runtime) &&
+			!self.has_open_runtime_transactions()
+		{
+			return Err(NoOpenTransaction)
 		}
 
 		for key in self.dirty_keys.pop().ok_or(NoOpenTransaction)? {
@@ -830,9 +832,10 @@ impl OverlayedChangeSet {
 	/// This commits all dangling transaction left open by the runtime.
 	/// Calling this while already outside the runtime will return an error.
 	pub fn exit_runtime(&mut self) -> Result<(), NotInRuntime> {
-		if let ExecutionMode::Client = self.execution_mode {
+		if matches!(self.execution_mode, ExecutionMode::Client) {
 			return Err(NotInRuntime)
 		}
+
 		self.execution_mode = ExecutionMode::Client;
 		if self.has_open_runtime_transactions() {
 			warn!(
@@ -844,6 +847,7 @@ impl OverlayedChangeSet {
 			self.rollback_transaction()
 				.expect("The loop condition checks that the transaction depth is > 0; qed");
 		}
+
 		Ok(())
 	}
 
@@ -878,9 +882,8 @@ impl OverlayedChangeSet {
 	) -> u32 {
 		let mut count = 0;
 		for (key, val) in self.changes.iter_mut().filter(|(k, v)| predicate(k, v)) {
-			match val.value_ref() {
-				StorageEntry::Set(..) | StorageEntry::Append { .. } => count += 1,
-				StorageEntry::Remove => (),
+			if matches!(val.value_ref(), StorageEntry::Set(..) | StorageEntry::Append { .. }) {
+				count += 1;
 			}
 			val.set(None, insert_dirty(&mut self.dirty_keys, key.clone()), at_extrinsic);
 		}
