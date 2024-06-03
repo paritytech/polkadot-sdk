@@ -210,8 +210,11 @@ where
 	/// In contrast to [`commit_all`](Self::commit_all) this will not panic if there are open
 	/// transactions.
 	pub fn as_backend(&mut self) -> InMemoryBackend<H> {
-		let top: Vec<_> =
-			self.overlay.changes_mut().map(|(k, v)| (k.clone(), v.value().cloned())).collect();
+		let top: Vec<_> = self
+			.overlay
+			.changes_mut()
+			.map(|(k, v)| (k.clone(), v.value().cloned()))
+			.collect();
 		let mut transaction = vec![(None, top)];
 
 		for (child_changes, child_info) in self.overlay.children_mut() {
