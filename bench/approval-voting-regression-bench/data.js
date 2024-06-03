@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1717409299805,
+  "lastUpdate": 1717418726361,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -6109,6 +6109,53 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting",
             "value": 9.247959443749998,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Bastian Köcher",
+            "username": "bkchr",
+            "email": "git@kchr.de"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "73ac7375a5421bbc142bef232ab23d221ead64c2",
+          "message": "Fix umbrella CI check and fix the C&P message (#4670)",
+          "timestamp": "2024-06-03T11:04:29Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/73ac7375a5421bbc142bef232ab23d221ead64c2"
+        },
+        "date": 1717418697715,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52940.7,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63549.219999999994,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting",
+            "value": 9.822866798620051,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 7.351183175950036,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 3.291119199760076,
             "unit": "seconds"
           }
         ]
