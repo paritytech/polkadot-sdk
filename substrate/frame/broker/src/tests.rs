@@ -339,22 +339,90 @@ fn migration_works() {
 
 #[test]
 fn renewal_works() {
-	TestExt::new().endow(1, 1000).execute_with(|| {
+	let b = 100_000;
+	TestExt::new().endow(1, b).execute_with(move || {
 		assert_ok!(Broker::do_start_sales(100, 1));
 		advance_to(2);
 		let region = Broker::do_purchase(1, u64::max_value()).unwrap();
-		assert_eq!(balance(1), 900);
+		assert_eq!(balance(1), 99_900);
 		assert_ok!(Broker::do_assign(region, None, 1001, Final));
 		// Should now be renewable.
 		advance_to(6);
 		assert_noop!(Broker::do_purchase(1, u64::max_value()), Error::<Test>::TooEarly);
 		let core = Broker::do_renew(1, region.core).unwrap();
-		assert_eq!(balance(1), 800);
+		assert_eq!(balance(1), 99_800);
 		advance_to(8);
 		assert_noop!(Broker::do_purchase(1, u64::max_value()), Error::<Test>::SoldOut);
 		advance_to(12);
 		assert_ok!(Broker::do_renew(1, core));
-		assert_eq!(balance(1), 690);
+		assert_eq!(balance(1), 99_690);
+	});
+}
+
+#[test]
+/// Renewals have to affect price as well. Otherwise a market where everything is a renewal would
+/// not work. Renewals happening in the leadin or after are effectively competing with the open
+/// market and it makes sense to adjust the price to what was paid here. Assuming all renewals were
+/// done in the interlude and only normal sales happen in the leadin, renewals will have no effect
+/// on price. If there are no cores left for sale on the open markent, renewals will affect price
+/// even in the interlude, making sure renewal prices stay in the range of the open market.
+fn renewals_affect_price() {
+	let b = 100_000;
+	let config = ConfigRecord {
+		advance_notice: 2,
+		interlude_length: 10,
+		leadin_length: 20,
+		ideal_bulk_proportion: Perbill::from_percent(100),
+		limit_cores_offered: None,
+		// Region length is in time slices (2 blocks):
+		region_length: 20,
+		renewal_bump: Perbill::from_percent(10),
+		contribution_timeout: 5,
+	};
+	TestExt::new_with_config(config).endow(1, b).execute_with(|| {
+		let price = 910;
+		assert_ok!(Broker::do_start_sales(10, 1));
+		advance_to(11);
+		let region = Broker::do_purchase(1, u64::max_value()).unwrap();
+		// Price is lower, because already one block in:
+		let b = b - price;
+		assert_eq!(balance(1), b);
+		assert_ok!(Broker::do_assign(region, None, 1001, Final));
+		advance_to(40);
+		assert_noop!(Broker::do_purchase(1, u64::max_value()), Error::<Test>::TooEarly);
+		let core = Broker::do_renew(1, region.core).unwrap();
+		// First renewal has same price as initial purchase.
+		let b = b - price;
+		assert_eq!(balance(1), b);
+		advance_to(51);
+		assert_noop!(Broker::do_purchase(1, u64::max_value()), Error::<Test>::SoldOut);
+		advance_to(81);
+		assert_ok!(Broker::do_renew(1, core));
+		// Renewal bump in effect
+		let price = price + Perbill::from_percent(10) * price;
+		let b = b - price;
+		assert_eq!(balance(1), b);
+
+		// Move after interlude and leadin - should reduce price.
+		advance_to(159);
+		Broker::do_renew(1, region.core).unwrap();
+		let price = price + Perbill::from_percent(10) * price;
+		let b = b - price;
+		assert_eq!(balance(1), b);
+
+		advance_to(161);
+		// Should have the reduced price now:
+		Broker::do_renew(1, region.core).unwrap();
+		let price = 100;
+		let b = b - price;
+		assert_eq!(balance(1), b);
+
+		// Price should be bumped normally again:
+		advance_to(201);
+		Broker::do_renew(1, region.core).unwrap();
+		let price = 110;
+		let b = b - price;
+		assert_eq!(balance(1), b);
 	});
 }
 

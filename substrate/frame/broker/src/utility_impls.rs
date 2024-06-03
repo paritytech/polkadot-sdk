@@ -72,7 +72,26 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
-	pub(crate) fn issue(
+	/// Buy a core at the specified price (price is to be determined by the caller).
+	///
+	/// Note: It is the responsibility of the caller to write back the changed `SaleInfoRecordOf` to
+	/// storage.
+	pub(crate) fn purchase_core(
+		who: &T::AccountId,
+		price: BalanceOf<T>,
+		sale: &mut SaleInfoRecordOf<T>,
+	) -> Result<CoreIndex, DispatchError> {
+		Self::charge(who, price)?;
+		log::debug!("Purchased core at: {:?}", price);
+		let core = sale.first_core.saturating_add(sale.cores_sold);
+		sale.cores_sold.saturating_inc();
+		if sale.cores_sold <= sale.ideal_cores_sold || sale.sellout_price.is_none() {
+			sale.sellout_price = Some(price);
+		}
+		Ok(core)
+	}
+
+	pub fn issue(
 		core: CoreIndex,
 		begin: Timeslice,
 		end: Timeslice,
