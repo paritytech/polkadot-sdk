@@ -55,8 +55,6 @@ use xcm_builder::{AliasesIntoAccountId32, PayOverXcm};
 
 #[cfg(feature = "runtime-benchmarks")]
 use crate::impls::benchmarks::{OpenHrmpChannel, PayWithEnsure};
-#[cfg(feature = "runtime-benchmarks")]
-use testnet_parachains_constants::westend::currency::DOLLARS;
 
 /// The Fellowship members' ranks.
 pub mod ranks {
