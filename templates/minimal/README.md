@@ -13,7 +13,7 @@
 
 🤏 This template is a minimal (in terms of complexity and the number of components) template for building a blockchain node.
 
-🔧 It's runtime is configured of a single custom pallet as a staring point, and a handful of ready-made pallets 
+🔧 It's runtime is configured of a single custom pallet as a staring point, and a handful of ready-made pallets
 such as a [Balances pallet](https://paritytech.github.io/polkadot-sdk/master/pallet_balances/index.html).
 
 👤 The template has no consensus configured - it is best for experimenting with a single node network.
@@ -22,9 +22,9 @@ such as a [Balances pallet](https://paritytech.github.io/polkadot-sdk/master/pal
 
 A Polkadot SDK based project such as this one consists of:
 
-- 💿 a [Node](./node/README.md) - the binary application.
-- 🧮 the [Runtime](./runtime/README.md) - the core logic of the blockchain.
-- 🎨 the [Pallets](./pallets/README.md) - from which the runtime is constructed.
+* 💿 a [Node](./node/README.md) - the binary application.
+* 🧮 the [Runtime](./runtime/README.md) - the core logic of the blockchain.
+* 🎨 the [Pallets](./pallets/README.md) - from which the runtime is constructed.
 
 ## Getting Started
 
@@ -63,9 +63,9 @@ docker run --rm polkadot-sdk-minimal-template --dev
 
 Development chains:
 
-- 🧹 Do not persist the state.
-- 💰 Are preconfigured with a genesis state that includes several prefunded development accounts.
-- 🧑‍⚖️ Development accounts are used as `sudo` accounts.
+* 🧹 Do not persist the state.
+* 💰 Are preconfigured with a genesis state that includes several prefunded development accounts.
+* 🧑‍⚖️ Development accounts are used as `sudo` accounts.
 
 ### Connect with the Polkadot-JS Apps Front-End
 
@@ -85,7 +85,7 @@ available on [IPFS](https://dotapps.io/).
 
 ➡️ Any pull requests should be directed to this [source](https://github.com/paritytech/polkadot-sdk/tree/master/templates/minimal).
 
-😇 Please refer to the monorepo's 
+😇 Please refer to the monorepo's
 [contribution guidelines](https://github.com/paritytech/polkadot-sdk/blob/master/docs/contributor/CONTRIBUTING.md) and
 [Code of Conduct](https://github.com/paritytech/polkadot-sdk/blob/master/docs/contributor/CODE_OF_CONDUCT.md).
 
@@ -93,8 +93,8 @@ available on [IPFS](https://dotapps.io/).
 
 🧑‍🏫 To learn about Polkadot in general, [Polkadot.network](https://polkadot.network/) website is a good starting point.
 
-🧑‍🔧 For technical introduction, [here](https://github.com/paritytech/polkadot-sdk#-documentation) are 
+🧑‍🔧 For technical introduction, [here](https://github.com/paritytech/polkadot-sdk#-documentation) are
 the Polkadot SDK documentation resources.
 
-👥 Additionally, there are [GitHub issues](https://github.com/paritytech/polkadot-sdk/issues) and 
+👥 Additionally, there are [GitHub issues](https://github.com/paritytech/polkadot-sdk/issues) and
 [Substrate StackExchange](https://substrate.stackexchange.com/).
