@@ -160,8 +160,8 @@ impl AddrCache {
 
 fn peer_id_from_multiaddr(addr: &Multiaddr) -> Option<PeerId> {
 	addr.iter().last().and_then(|protocol| {
-		if let Protocol::P2p(peer_id) = protocol {
-			Some(peer_id)
+		if let Protocol::P2p(multihash) = protocol {
+			PeerId::from_multihash(multihash).ok()
 		} else {
 			None
 		}
@@ -177,7 +177,7 @@ mod tests {
 	use super::*;
 
 	use quickcheck::{Arbitrary, Gen, QuickCheck, TestResult};
-	use sc_network_types::multihash::Multihash;
+	use sc_network_types::multihash::{Code, Multihash};
 
 	use sp_authority_discovery::{AuthorityId, AuthorityPair};
 	use sp_core::crypto::Pair;
@@ -204,7 +204,7 @@ mod tests {
 			let multiaddr = "/ip6/2001:db8:0:0:0:0:0:2/tcp/30333"
 				.parse::<Multiaddr>()
 				.unwrap()
-				.with(Protocol::P2p(peer_id));
+				.with(Protocol::P2p(peer_id.into()));
 
 			TestMultiaddr(multiaddr)
 		}
@@ -363,7 +363,7 @@ mod tests {
 		let mut addr_cache = AddrCache::new();
 
 		let peer_id = PeerId::random();
-		let addr = Multiaddr::empty().with(Protocol::P2p(peer_id));
+		let addr = Multiaddr::empty().with(Protocol::P2p(peer_id.into()));
 
 		let authority_id0 = AuthorityPair::generate().0.public();
 		let authority_id1 = AuthorityPair::generate().0.public();
