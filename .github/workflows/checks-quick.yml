@@ -134,13 +134,14 @@ jobs:
         run: |
           python3 scripts/generate-umbrella.py --sdk . --version 0.1.0
           cargo +nightly fmt --all
-          if [ -n "$(git status --porcelain)" ]; then
-            cat <<EOF
-          👋 Hello developer! The SemVer information that you declared in the prdoc file did not match what the CI detected.
 
-          Please check the output above and see the following links for more help:
-          - https://github.com/paritytech/polkadot-sdk/blob/master/docs/contributor/prdoc.md#record-semver-changes
-          - https://forum.polkadot.network/t/psa-polkadot-sdk-to-use-semver
+          git status --porcelain
+
+          if [ -n "$?" ]; then
+            cat <<EOF
+          👋 Hello developer! Apparently you added a new crate that is not part of the umbrella crate?
+
+          You can just apply the patch (`git apply PATCH_NAME`) that was printed above to make this CI check succeed.
 
           Otherwise feel free to ask in the Merge Request or in Matrix chat.
           EOF
