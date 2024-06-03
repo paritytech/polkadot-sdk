@@ -487,16 +487,30 @@ impl<T: Config> Pallet<T> {
 
 		// Contains the disputes that are concluded in the current session only,
 		// since these are the only ones that are relevant for the occupied cores
-		// and lightens the load on `free_disputed` significantly.
-		let mut current_concluded_invalid_disputes =
-			<T>::DisputesHandler::disputes_concluded_invalid(current_session);
+		// and lightens the load on
+		// Cores can't be occupied with candidates of the previous sessions, and only
+		// things with new votes can have just concluded. We only need to collect
+		// cores with disputes that conclude just now, because disputes that
+		// concluded longer ago have already had any corresponding cores cleaned up.
+		let current_concluded_invalid_disputes = checked_disputes_sets
+			.iter()
+			.map(AsRef::as_ref)
+			.filter(|dss| dss.session == current_session)
+			.map(|dss| (dss.session, dss.candidate_hash))
+			.filter(|(session, candidate)| {
+				<T>::DisputesHandler::concluded_invalid(*session, *candidate)
+			})
+			.map(|(_session, candidate)| candidate)
+			.collect::<BTreeSet<CandidateHash>>();
+		// let mut current_concluded_invalid_disputes =
+		// 	<T>::DisputesHandler::disputes_concluded_invalid(current_session);
 
 		// Get the cores freed as a result of concluded invalid candidates.
 		let (freed_disputed, concluded_invalid_hashes): (Vec<CoreIndex>, BTreeSet<CandidateHash>) =
 			inclusion::Pallet::<T>::free_disputed(&current_concluded_invalid_disputes)
 				.into_iter()
 				.unzip();
-		current_concluded_invalid_disputes.extend(concluded_invalid_hashes);
+		// current_concluded_invalid_disputes.extend(concluded_invalid_hashes);
 
 		// Create a bit index from the set of core indices where each index corresponds to
 		// a core index that was freed due to a dispute.
@@ -569,7 +583,8 @@ impl<T: Config> Pallet<T> {
 		let backed_candidates_with_core = sanitize_backed_candidates::<T>(
 			backed_candidates,
 			&allowed_relay_parents,
-			current_concluded_invalid_disputes,
+			concluded_invalid_hashes,
+			// current_concluded_invalid_disputes,
 			scheduled,
 			core_index_enabled,
 		);

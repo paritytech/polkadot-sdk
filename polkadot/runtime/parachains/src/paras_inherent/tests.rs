@@ -3224,30 +3224,48 @@ mod sanitizers {
 			use assert_matches::assert_matches;
 
 			new_test_ext(default_config()).execute_with(|| {
+				const RELAY_PARENT_NUMBER: u32 = 1;
+
 				let mut hc = configuration::ActiveConfig::<Test>::get();
 				hc.minimum_backing_votes = 1;
+				// hc.max_validators = Some(5);
 				hc.scheduler_params.group_rotation_frequency = 20;
 				hc.async_backing_params.allowed_ancestry_len = 10;
 				hc.async_backing_params.max_candidate_depth = 10;
 				configuration::Pallet::<Test>::force_set_active_config(hc);
 
-				let TestData { backed_candidates, validators, .. } =
-					get_test_data_one_core_per_para(false);
+				let header = default_header();
+				let relay_parent = header.hash();
+				// let TestData { backed_candidates, validators, .. } =
+				// 	get_test_data_one_core_per_para(false);
 
 				let session = SessionIndex::from(0_u32);
-				let validators: Vec<_> = validators
-					.into_iter()
-					.enumerate()
-					.map(|(i, v)| (ValidatorIndex::from(i as u32), v))
-					.collect();
-				let validators_keyrings: HashMap<ValidatorId, Sr25519Keyring> =
-					validators.into_iter().map(|(_, v)| (v.public().into(), v)).collect();
-				let validators_keys: Vec<_> = shared::ActiveValidatorKeys::<Test>::get()
-					.into_iter()
+				let keystore = LocalKeystore::in_memory();
+				let keystore = Arc::new(keystore) as KeystorePtr;
+
+				let validators_keyrings = vec![
+					keyring::Sr25519Keyring::Alice,
+					keyring::Sr25519Keyring::Bob,
+					keyring::Sr25519Keyring::Charlie,
+					keyring::Sr25519Keyring::Dave,
+					keyring::Sr25519Keyring::Eve,
+				];
+				for keyring in validators_keyrings.iter() {
+					Keystore::sr25519_generate_new(
+						&*keystore,
+						PARACHAIN_KEY_TYPE_ID,
+						Some(&keyring.to_seed()),
+					)
+					.unwrap();
+				}
+				let validators_to_keyrings: HashMap<ValidatorId, Sr25519Keyring> =
+					validators_keyrings.iter().map(|v| (v.public().into(), v.clone())).collect();
+				let validators_keys: Vec<(_, ValidatorId)> = validators_keyrings
+					.iter()
 					.enumerate()
 					.map(|(i, v)| {
 						let acc: AccountId = account("validator", i as u32, i as u32);
-						(acc, v)
+						(acc, v.public().into())
 					})
 					.collect();
 				initializer::Pallet::<Test>::test_trigger_on_new_session(
@@ -3268,6 +3286,69 @@ mod sanitizers {
 					.enumerate()
 					.map(|(i, g)| (ParaId::from(i as u32 + 1), g))
 					.collect();
+				let shuffled_indices = shared::ActiveValidatorIndices::<Test>::get();
+				let validators_keyrings =
+					crate::util::take_active_subset(&shuffled_indices, &validators_keyrings);
+
+				// Set the on-chain included head data for paras.
+				paras::Pallet::<Test>::set_current_head(ParaId::from(1), HeadData(vec![1]));
+				paras::Pallet::<Test>::set_current_head(ParaId::from(2), HeadData(vec![2]));
+
+				// Set the current_code_hash
+				paras::Pallet::<Test>::force_set_current_code(
+					RuntimeOrigin::root(),
+					ParaId::from(1),
+					ValidationCode(vec![1]),
+				)
+				.unwrap();
+				paras::Pallet::<Test>::force_set_current_code(
+					RuntimeOrigin::root(),
+					ParaId::from(2),
+					ValidationCode(vec![2]),
+				)
+				.unwrap();
+
+				let backed_candidates = (0_usize..2)
+					.into_iter()
+					.map(|idx0| {
+						let idx1 = idx0 + 1;
+						let para_id = ParaId::from(idx1);
+						let mut candidate = TestCandidateBuilder {
+							para_id,
+							relay_parent,
+							pov_hash: Hash::repeat_byte(idx1 as u8),
+							persisted_validation_data_hash: make_persisted_validation_data::<Test>(
+								para_id,
+								RELAY_PARENT_NUMBER,
+								Default::default(),
+							)
+							.unwrap()
+							.hash(),
+							hrmp_watermark: RELAY_PARENT_NUMBER,
+							validation_code: ValidationCode(vec![idx1 as u8]),
+							..Default::default()
+						}
+						.build();
+
+						collator_sign_candidate(Sr25519Keyring::One, &mut candidate);
+
+						let signing_context =
+							SigningContext { parent_hash: relay_parent, session_index: session };
+						let group = para_id_to_group[&para_id].as_ref();
+						let backed = back_candidate(
+							candidate,
+							&validators_keyrings, // TODO: shuffle
+							group,
+							&keystore,
+							&signing_context,
+							BackingKind::Threshold,
+							None,
+							// Some(CoreIndex(idx0 as u32)),
+						);
+						backed
+					})
+					.collect::<Vec<_>>();
+
 				let disputes: MultiDisputeStatementSet = backed_candidates
 					.iter()
 					.map(|c| {
@@ -3278,14 +3359,14 @@ mod sanitizers {
 						validators.swap(0, backer.0 as _);
 						let keyrings: Vec<_> = validators
 							.iter()
-							.map(|(i, v)| (i.clone(), validators_keyrings[v].clone()))
+							.map(|(i, v)| (i.clone(), validators_to_keyrings[v].clone()))
 							.collect();
 
 						make_dispute_concluding_against(c.hash(), session, &keyrings)
 					})
 					.collect();
 
-				let parent_block_number = 3;
+				let parent_block_number = RELAY_PARENT_NUMBER;
 				let parent_header = HeaderFor::<Test>::new(
 					parent_block_number,     // `block_number`,
 					Default::default(),      // `extrinsics_root`,
@@ -3316,9 +3397,27 @@ mod sanitizers {
 				shared::Pallet::<Test>::add_allowed_relay_parent(
 					header.hash(),
 					*header.state_root(),
-					3,
+					RELAY_PARENT_NUMBER,
 					10,
 				);
+				// Update scheduler's claimqueue with the parachains
+				let ttl = RELAY_PARENT_NUMBER + 10;
+				scheduler::Pallet::<Test>::set_claimqueue(BTreeMap::from([
+					(
+						CoreIndex::from(0),
+						VecDeque::from([ParasEntry::new(
+							Assignment::Pool { para_id: 1.into(), core_index: CoreIndex(0) },
+							ttl,
+						)]),
+					),
+					(
+						CoreIndex::from(1),
+						VecDeque::from([ParasEntry::new(
+							Assignment::Pool { para_id: 2.into(), core_index: CoreIndex(1) },
+							ttl,
+						)]),
+					),
+				]));
 				let _ = Pallet::<Test>::enter(frame_system::RawOrigin::None.into(), data).unwrap();
 
 				assert_matches!(pallet::OnChainVotes::<Test>::get(), Some(ScrapedOnChainVotes {
@@ -3328,7 +3427,7 @@ mod sanitizers {
 					assert_eq!(disputes.len(), n_disputes);
 				});
 
-				let parent_block_number = 5;
+				let parent_block_number = RELAY_PARENT_NUMBER + 2;
 				run_to_block(parent_block_number, |_| None);
 				let parent_header = HeaderFor::<Test>::new(
 					parent_block_number,  // `block_number`,
