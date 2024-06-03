@@ -262,7 +262,8 @@ pub async fn build_system_rpc_future<
 			},
 			sc_rpc::system::Request::LocalListenAddresses(sender) => {
 				let peer_id = network_service.local_peer_id();
-				let p2p_proto_suffix = sc_network::multiaddr::Protocol::P2p(peer_id);
+				let p2p_proto_suffix =
+					sc_network_types::multiaddr::Protocol::P2p(*peer_id.as_ref());
 				let addresses = network_service
 					.listen_addresses()
 					.iter()
