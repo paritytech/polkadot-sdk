@@ -16,6 +16,7 @@
 
 #![allow(missing_docs)]
 
+use cumulus_client_chain_spec_extension::Extensions;
 use cumulus_primitives_core::ParaId;
 use cumulus_test_runtime::{AccountId, Signature};
 use parachains_common::AuraId;
@@ -56,7 +57,7 @@ pub fn get_chain_spec_with_extra_endowed(
 		cumulus_test_runtime::WASM_BINARY.expect("WASM binary was not built, please build it!"),
 		Extensions {
 			para_id: id.unwrap_or(cumulus_test_runtime::PARACHAIN_ID.into()).into(),
-			..Default::default()
+			relay_chain: "rococo-local",
 		},
 	)
 	.with_name("Local Testnet")
