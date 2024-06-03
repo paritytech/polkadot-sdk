@@ -83,7 +83,7 @@ pub mod pallet {
 		type Coretime: CoretimeInterface;
 
 		/// The algorithm to determine the next price on the basis of market performance.
-		type PriceAdapter: AdaptPrice;
+		type PriceAdapter: AdaptPrice<BalanceOf<Self>>;
 
 		/// Reversible conversion from local balance to Relay-chain balance. This will typically be
 		/// the `Identity`, but provided just in case the chains use different representations.
@@ -128,6 +128,8 @@ pub mod pallet {
 	pub type SaleInfo<T> = StorageValue<_, SaleInfoRecordOf<T>, OptionQuery>;
 
 	/// Records of allowed renewals.
+	///
+	/// Renewals will only actually be allowed if `CompletionStatus` is actually `Complete`.
 	#[pallet::storage]
 	pub type AllowedRenewals<T> =
 		StorageMap<_, Twox64Concat, AllowedRenewalId, AllowedRenewalRecordOf<T>, OptionQuery>;
@@ -287,8 +289,7 @@ pub mod pallet {
 			/// The timeslice on which the Regions which are being sold in the sale terminate.
 			/// (i.e. One after the last timeslice which the Regions control.)
 			region_end: Timeslice,
-			/// The number of cores we want to sell, ideally. Selling this amount would result in
-			/// no change to the price for the next sale.
+			/// The number of cores we want to sell, ideally.
 			ideal_cores_sold: CoreIndex,
 			/// Number of cores which are/have been offered for sale.
 			cores_offered: CoreIndex,
