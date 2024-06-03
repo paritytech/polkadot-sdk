@@ -3228,7 +3228,6 @@ mod sanitizers {
 
 				let mut hc = configuration::ActiveConfig::<Test>::get();
 				hc.minimum_backing_votes = 1;
-				// hc.max_validators = Some(5);
 				hc.scheduler_params.group_rotation_frequency = 20;
 				hc.async_backing_params.allowed_ancestry_len = 10;
 				hc.async_backing_params.max_candidate_depth = 10;
@@ -3451,13 +3450,8 @@ mod sanitizers {
 					backed_candidates,
 				};
 
-				let _ = Pallet::<Test>::enter(frame_system::RawOrigin::None.into(), data).unwrap();
-				assert_eq!(
-					// The length of this vec is equal to the number of candidates, so we know
-					// all of our candidates got filtered out
-					OnChainVotes::<Test>::get().unwrap().backing_validators_per_candidate.len(),
-					0,
-				);
+				let _ =
+					Pallet::<Test>::enter(frame_system::RawOrigin::None.into(), data).unwrap_err();
 			});
 		}
 
