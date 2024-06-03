@@ -773,17 +773,6 @@ impl<'a> StorageAppend<'a> {
 	pub fn append_raw(&mut self, mut value: Vec<u8>) {
 		self.0.append(&mut value)
 	}
-
-	/// Compare two size, return difference of encoding length.
-	///
-	/// Bool indicate if first size is bigger than second (unusual case
-	/// where append does reduce materialized size: this can happen
-	/// under certain access and transaction conditions).
-	pub fn diff_materialized(previous: Option<u32>, new: Option<u32>) -> (usize, bool) {
-		let prev = previous.map(|l| Compact::<u32>::compact_len(&l)).unwrap_or(0);
-		let new = new.map(|l| Compact::<u32>::compact_len(&l)).unwrap_or(0);
-		(new.abs_diff(prev), prev >= new)
-	}
 }
 
 #[cfg(not(feature = "std"))]

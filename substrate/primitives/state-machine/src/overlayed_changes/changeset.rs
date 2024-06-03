@@ -21,6 +21,7 @@ use super::{Extrinsics, StorageKey, StorageValue};
 
 #[cfg(not(feature = "std"))]
 use alloc::collections::btree_set::BTreeSet as Set;
+use codec::{Compact, CompactLen};
 #[cfg(feature = "std")]
 use std::collections::HashSet as Set;
 
@@ -286,8 +287,15 @@ impl<V> OverlayedEntry<V> {
 	}
 }
 
-/// When a transaction layer is dropped, pass the current data buffer to the
-/// parent layer (will be new current).
+/// Restore the `current_data` from an [`StorageEntry::Append`] back to the parent.
+///
+/// When creating a new transaction layer from an appended entry, the `data` will be moved to
+/// prevent extra allocations. So, we need to move back the `data` to the parent layer when there is
+/// a roll back or the entry is set to some different value. This functions puts back the data to
+/// the `parent` and truncates any extra elements that got added in the current layer.
+///
+/// The current and the `parent` layer need to be [`StorageEntry::Append`] or otherwise the function
+/// is a no-op.
 fn restore_append_to_parent(
 	parent: &mut StorageEntry,
 	mut current_data: Vec<u8>,
@@ -297,21 +305,24 @@ fn restore_append_to_parent(
 	match parent {
 		StorageEntry::Append {
 			data: parent_data,
-			current_length: _,
 			materialized_length: parent_materialized,
-			parent_size: _,
+			..
 		} => {
-			// use materialized size from next layer to avoid changing it at this point.
-			let (delta, decrease) =
-				StorageAppend::diff_materialized(*parent_materialized, current_materialized);
-			if decrease {
+			// Forward the materialized length to the parent with the data. Next time when
+			// materializing the value, the length will be corrected. This prevents doing a
+			// potential allocation here.
+
+			let prev = parent_materialized.map(|l| Compact::<u32>::compact_len(&l)).unwrap_or(0);
+			let new = current_materialized.map(|l| Compact::<u32>::compact_len(&l)).unwrap_or(0);
+			let delta = new.abs_diff(prev);
+			if prev >= new {
 				target_parent_size -= delta;
 			} else {
 				target_parent_size += delta;
 			}
 			*parent_materialized = current_materialized;
 
-			// actually truncate the data.
+			// Truncate the data to remove any extra elements
 			current_data.truncate(target_parent_size);
 			*parent_data = current_data;
 		},
@@ -393,18 +404,21 @@ impl OverlayedEntry<StorageEntry> {
 
 			let mut append = StorageAppend::new(&mut init_value);
 
-			let (data, len, materialized_length) = if let Some(len) = append.extract_length() {
-				append.append_raw(element);
+			// Either the init value is a SCALE list like value to that the `element` gets appended
+			// or the value is reset to `[element]`.
+			let (data, current_length, materialized_length) =
+				if let Some(len) = append.extract_length() {
+					append.append_raw(element);
 
-				(init_value, len + 1, Some(len))
-			} else {
-				(element, 1, None)
-			};
+					(init_value, len + 1, Some(len))
+				} else {
+					(element, 1, None)
+				};
 
 			self.transactions.push(InnerValue {
 				value: StorageEntry::Append {
 					data,
-					current_length: len,
+					current_length,
 					materialized_length,
 					parent_size: None,
 				},
@@ -414,27 +428,18 @@ impl OverlayedEntry<StorageEntry> {
 			let parent = self.value_mut();
 			let (data, current_length, materialized_length, parent_size) = match parent {
 				StorageEntry::Remove => (element, 1, None, None),
-				StorageEntry::Append {
-					data,
-					current_length,
-					materialized_length: materialized,
-					..
-				} => {
+				StorageEntry::Append { data, current_length, materialized_length, .. } => {
 					let parent_len = data.len();
 					let mut data_buf = core::mem::take(data);
 					StorageAppend::new(&mut data_buf).append_raw(element);
-					(data_buf, *current_length + 1, *materialized, Some(parent_len))
+					(data_buf, *current_length + 1, *materialized_length, Some(parent_len))
 				},
 				StorageEntry::Set(prev) => {
 					// For compatibility: append if there is a encoded length, overwrite
 					// with value otherwhise.
 					if let Some(current_length) = StorageAppend::new(prev).extract_length() {
-						// append on to of a simple storage should be avoided by any sane runtime,
-						// allowing a clone here.
-						// We clone existing data here, we could also change the existing value
-						// to an append variant to avoid this clone, but since this is should not
-						// happen in well written runtime (mixing set and append operation), the
-						// optimisation is not done here.
+						// The `prev` is cloned here, but it could be optimized to not do the clone
+						// here as it is done for `Append` above.
 						let mut data = prev.clone();
 						StorageAppend::new(&mut data).append_raw(element);
 						(data, current_length + 1, Some(current_length), None)
