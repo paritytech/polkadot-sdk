@@ -2,12 +2,12 @@
 timeout = 1000
 
 [relaychain.genesis.runtimeGenesis.patch.configuration.config.async_backing_params]
-  max_candidate_depth = 6
-  allowed_ancestry_len = 3
+  max_candidate_depth = 2
+  allowed_ancestry_len = 2
 
 [relaychain.genesis.runtimeGenesis.patch.configuration.config.scheduler_params]
   max_validators_per_core = 1
-  scheduling_lookahead = 2
+  lookahead = 2
   num_cores = 4
 
 [relaychain.genesis.runtimeGenesis.patch.configuration.config.approval_voting_params]
@@ -28,24 +28,21 @@ command = "polkadot"
   args = ["-lruntime=debug,parachain=trace,runtime::parachains::scheduler=trace,runtime::inclusion-inherent=trace,runtime::inclusion=trace" ]
   count = 8
 
+{% for id in range(2000,2002) %}
 [[parachains]]
-id = 2000
-add_to_genesis = true
+id = {{id}}
+addToGenesis = true
+cumulus_based = true
+chain = "glutton-westend-local-{{id}}"
+    [parachains.genesis.runtimeGenesis.patch.glutton]
+    compute = "50000000"
+    storage = "2500000000"
+    trashDataCount = 5120
 
-  [[parachains.collators]]
-  name = "collator-2000"
-  image = "{{CUMULUS_IMAGE}}"
-  command = "test-parachain"
-  args = ["-laura=trace,runtime=info,cumulus-consensus=trace,consensus::common=trace,parachain::collation-generation=trace,parachain::collator-protocol=trace,parachain=debug", "--force-authoring"]
+    [parachains.collator]
+    name = "collator"
+    image = "{{CUMULUS_IMAGE}}"
+    command = "polkadot-parachain"
+    args = ["-lparachain=debug"]
 
-
-[[parachains]]
-id = 2100
-add_to_genesis = true
-
-  [[parachains.collators]]
-  name = "collator-2100"
-  image = "{{CUMULUS_IMAGE}}"
-  command = "test-parachain"
-  args = ["-laura=trace,runtime=info,cumulus-consensus=trace,consensus::common=trace,parachain::collation-generation=trace,parachain::collator-protocol=trace,parachain=debug", "--force-authoring"]
-
+{% endfor %}
