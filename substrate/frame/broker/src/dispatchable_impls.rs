@@ -484,29 +484,28 @@ impl<T: Config> Pallet<T> {
 	) -> DispatchResult {
 		let sale = SaleInfo::<T>::get().ok_or(Error::<T>::NoSales)?;
 
-		if let Some(workload_end) = workload_end_hint {
+		if PotentialRenewals::<T>::get(PotentialRenewalId { core, when: sale.region_begin })
+			.is_some()
+		{
+			// If the core expires in the upcoming bulk period we will renew it now.
+			Self::do_renew(sovereign_account.clone(), core)?;
+		} else if let Some(workload_end) = workload_end_hint {
 			ensure!(
 				PotentialRenewals::<T>::get(PotentialRenewalId { core, when: workload_end })
 					.is_some(),
 				Error::<T>::NotAllowed
 			);
 		} else {
-			// If the core hasn't been renewed yet we will renew it now.
-			if PotentialRenewals::<T>::get(PotentialRenewalId { core, when: sale.region_begin })
-				.is_some()
-			{
-				Self::do_renew(sovereign_account.clone(), core)?;
-			} else {
-				// If we couldn't find the renewal record for the current bulk period we should
-				// be able to find it for the upcoming bulk period.
-				//
-				// If not the core is not eligible for renewal.
-				ensure!(
-					PotentialRenewals::<T>::get(PotentialRenewalId { core, when: sale.region_end })
-						.is_some(),
-					Error::<T>::NotAllowed
-				);
-			}
+			// If the user didn't provide a valid workload end hint and we couldn't find the renewal
+			// record for the current bulk period we should be able to find it for the upcoming bulk
+			// period.
+			//
+			// If not the core is not eligible for auto-renewal.
+			ensure!(
+				PotentialRenewals::<T>::get(PotentialRenewalId { core, when: sale.region_end })
+					.is_some(),
+				Error::<T>::NotAllowed
+			);
 		};
 
 		// We are keeping the auto-renewals sorted by `CoreIndex`.
