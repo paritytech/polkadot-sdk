@@ -491,17 +491,20 @@ where
 		.await
 		.map_err(Error::CancelledAvailabilityCores)??;
 
-	let para_now = match polkadot_node_subsystem_util::signing_key_and_index(&validators, keystore)
+	let claim_queue = polkadot_node_subsystem_util::request_claim_queue(relay_parent, sender)
+		.await
+		.await
+		.map_err(Error::CancelledClaimQueue)??;
+
+	let paras_now = match polkadot_node_subsystem_util::signing_key_and_index(&validators, keystore)
 		.and_then(|(_, index)| polkadot_node_subsystem_util::find_validator_group(&groups, index))
 	{
 		Some(group) => {
 			let core_now = rotation_info.core_for_group(group, cores.len());
 
-			cores.get(core_now.0 as usize).and_then(|c| match c {
-				CoreState::Occupied(core) if relay_parent_mode.is_enabled() => Some(core.para_id()),
-				CoreState::Scheduled(core) => Some(core.para_id),
-				CoreState::Occupied(_) | CoreState::Free => None,
-			})
+			// todo: `if relay_parent_mode.is_enabled()` ???
+			// is clone necessary?
+			claim_queue.get(&core_now).map(|paras| paras.clone())
 		},
 		None => {
 			gum::trace!(target: LOG_TARGET, ?relay_parent, "Not a validator");
@@ -518,18 +521,40 @@ where
 	//
 	// However, this'll work fine for parachains, as each parachain gets a dedicated
 	// core.
-	if let Some(para_id) = para_now.as_ref() {
-		let entry = current_assignments.entry(*para_id).or_default();
-		*entry += 1;
-		if *entry == 1 {
-			gum::debug!(
-				target: LOG_TARGET,
-				?relay_parent,
-				para_id = ?para_id,
-				"Assigned to a parachain",
-			);
+	if let Some(paras) = paras_now.as_ref() {
+		for para_id in paras {
+			let entry = current_assignments.entry(*para_id).or_default();
+			*entry += 1;
+			if *entry == 1 {
+				gum::debug!(
+					target: LOG_TARGET,
+					?relay_parent,
+					para_id = ?para_id,
+					"Assigned to a parachain",
+				);
+			}
 		}
 	}
+
+	let para_now = match polkadot_node_subsystem_util::signing_key_and_index(&validators, keystore)
+		.and_then(|(_, index)| polkadot_node_subsystem_util::find_validator_group(&groups, index))
+	{
+		Some(group) => {
+			let core_now = rotation_info.core_for_group(group, cores.len());
+
+			cores.get(core_now.0 as usize).and_then(|c| match c {
+				CoreState::Occupied(core) if relay_parent_mode.is_enabled() =>
+					core.next_up_on_available.as_ref().map(|c| c.para_id),
+				CoreState::Scheduled(core) => Some(core.para_id),
+				CoreState::Occupied(_) | CoreState::Free => None,
+			})
+		},
+		None => {
+			gum::trace!(target: LOG_TARGET, ?relay_parent, "Not a validator");
+
+			return Ok(())
+		},
+	};
 
 	*group_assignment = GroupAssignments { current: para_now };
 
