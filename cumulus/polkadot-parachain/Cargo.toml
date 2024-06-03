@@ -10,10 +10,6 @@ license = "Apache-2.0"
 [lints]
 workspace = true
 
-[[bin]]
-name = "polkadot-parachain"
-path = "src/main.rs"
-
 [dependencies]
 async-trait = "0.1.79"
 clap = { version = "4.5.3", features = ["derive"] }

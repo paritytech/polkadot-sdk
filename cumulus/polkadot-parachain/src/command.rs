@@ -43,6 +43,10 @@ pub enum Consensus {
 	#[default]
 	Aura,
 	/// Use the relay chain consensus.
+	// TOOD: atm this is just a demonstration, not really reach-able. We can add it to the CLI,
+	// evn, or the chain spec. Or, just don't, and when we properly refactor this mess we will
+	// re-introduce it.
+	#[allow(unused)]
 	Relay,
 }
 
@@ -332,7 +336,7 @@ fn extract_parachain_id(id: &str) -> (&str, &str, Option<ParaId>) {
 
 impl SubstrateCli for Cli {
 	fn impl_name() -> String {
-		"Polkadot Parachain Omni-Node".into()
+		"polkadot-parachain-omni-node".into()
 	}
 
 	fn impl_version() -> String {
@@ -341,10 +345,14 @@ impl SubstrateCli for Cli {
 
 	fn description() -> String {
 		format!(
-			"Polkadot parachain\n\nThe command-line arguments provided first will be \
-		passed to the parachain node, while the arguments provided after -- will be passed \
-		to the relaychain node.\n\n\
-		{} [parachain-args] -- [relaychain-args]",
+			"{}
+The command-line arguments provided first will be passed to the parachain node, and
+the arguments provided after -- will be passed to the relay chain node.
+
+Example:
+
+{} [parachain-args] -- [relay_chain-args]",
+			crate::BANNER,
 			Self::executable_name()
 		)
 	}
@@ -368,33 +376,27 @@ impl SubstrateCli for Cli {
 
 impl SubstrateCli for RelayChainCli {
 	fn impl_name() -> String {
-		"Polkadot parachain".into()
+		Cli::impl_name()
 	}
 
 	fn impl_version() -> String {
-		env!("SUBSTRATE_CLI_IMPL_VERSION").into()
+		Cli::impl_version()
 	}
 
 	fn description() -> String {
-		format!(
-			"Polkadot parachain\n\nThe command-line arguments provided first will be \
-		passed to the parachain node, while the arguments provided after -- will be passed \
-		to the relay chain node.\n\n\
-		{} [parachain-args] -- [relay_chain-args]",
-			Self::executable_name()
-		)
+		Cli::description()
 	}
 
 	fn author() -> String {
-		env!("CARGO_PKG_AUTHORS").into()
+		Cli::author()
 	}
 
 	fn support_url() -> String {
-		"https://github.com/paritytech/polkadot-sdk/issues/new".into()
+		Cli::support_url()
 	}
 
 	fn copyright_start_year() -> i32 {
-		2017
+		Cli::copyright_start_year()
 	}
 
 	fn load_spec(&self, id: &str) -> std::result::Result<Box<dyn ChainSpec>, String> {
@@ -449,7 +451,7 @@ macro_rules! construct_partials {
 					)?;
 					$code
 				},
-				Consensus::RelayC => {
+				Consensus::Relay => {
 					let $partials = new_partial::<RuntimeApi, _>(
 						&$config,
 						crate::service::build_shell_import_queue,
@@ -532,7 +534,8 @@ macro_rules! construct_async_run {
 						{ $( $code )* }.map(|v| (v, task_manager))
 					})
 				},
-				Consensus::RelayC => {
+				Consensus::Relay
+				 => {
 					runner.async_run(|$config| {
 						let $components = new_partial::<
 							RuntimeApi,
@@ -717,9 +720,9 @@ pub fn run() -> Result<()> {
 					SubstrateCli::create_configuration(&polkadot_cli, &polkadot_cli, tokio_handle)
 						.map_err(|err| format!("Relay chain argument error: {}", err))?;
 
-				info!("Parachain id: {:?}", id);
-				info!("Parachain Account: {}", parachain_account);
-				info!("Is collating: {}", if config.role.is_authority() { "yes" } else { "no" });
+				info!("🪪 Parachain id: {:?}", id);
+				info!("🧾 Parachain Account: {}", parachain_account);
+				info!("✍️ Is collating: {}", if config.role.is_authority() { "yes" } else { "no" });
 
 				match polkadot_config.network.network_backend {
 					sc_network::config::NetworkBackendType::Libp2p =>
