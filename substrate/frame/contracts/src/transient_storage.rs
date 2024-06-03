@@ -187,10 +187,11 @@ impl Storage {
 	}
 
 	/// Get the storage keys for the account.
-	pub fn keys<'a>(&'a self, account: &'a [u8]) -> impl DoubleEndedIterator<Item = Vec<u8>> + 'a {
+	pub fn keys<'a>(&'a self, account: &'a [u8]) -> impl Iterator<Item = Vec<u8>> + 'a {
 		self.0
 			.range((Included(account.to_vec()), Unbounded))
-			.map(move |(key, _)| key[account.len()..].to_vec())
+			.take_while(|(key, _)| key.starts_with(account))
+			.map(|(key, _)| key[account.len()..].to_vec())
 	}
 
 	fn storage_key(account: &[u8], key: &[u8]) -> Vec<u8> {
@@ -246,17 +247,25 @@ impl<T: Config> TransientStorage<T> {
 		if prev_value != value {
 			let key = key.hash();
 			let account = account.encode();
-			let value_len = value.clone().map(|v| v.len()).unwrap_or_default();
-			let key_len = account.len().saturating_add(key.len());
-			if value_len > 0 {
-				// Charge the key, value and journal entry.
-				let mut amount = value_len
-					.saturating_add(key_len)
+
+			// Calculate the allocation size.
+			if let Some(value) = &value {
+				// Charge the keys, value and journal entry.
+				// If a new value is written, a new journal entry is created. The previous value is
+				// moved to the journal along with its keys, and the new value is written to
+				// storage.
+				let keys_len = account.len().saturating_add(key.len());
+				let mut amount = value
+					.len()
+					.saturating_add(keys_len)
 					.saturating_add(mem::size_of::<JournalEntry>());
 				if prev_value.is_none() {
 					// Charge a new storage entry.
+					// If there was no previous value, a new entry is added to storage (BTreeMap)
+					// containing a Vec for the key and a Vec for the value. The value was already
+					// included in the amount.
 					amount = amount
-						.saturating_add(key_len)
+						.saturating_add(keys_len)
 						.saturating_add(mem::size_of::<Vec<u8>>().saturating_mul(2));
 				}
 				self.meter.charge(amount as _)?;
@@ -378,13 +387,13 @@ mod tests {
 			Ok(WriteOutcome::New)
 		);
 		assert_eq!(
-			storage.write(&BOB, &Key::Fix([3; 32]), Some(vec![3]), false),
+			storage.write(&BOB, &Key::Fix([1; 32]), Some(vec![3]), false),
 			Ok(WriteOutcome::New)
 		);
 		storage.remove(&ALICE);
 		assert_eq!(storage.read(&ALICE, &Key::Fix([1; 32])), None);
 		assert_eq!(storage.read(&ALICE, &Key::Fix([2; 32])), None);
-		assert_eq!(storage.read(&BOB, &Key::Fix([3; 32])), Some(vec![3]));
+		assert_eq!(storage.read(&BOB, &Key::Fix([1; 32])), Some(vec![3]));
 	}
 
 	#[test]
