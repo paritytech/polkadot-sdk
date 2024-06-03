@@ -9430,6 +9430,7 @@ dependencies = [
  "frame-system",
  "log",
  "parity-scale-codec",
+ "pretty_assertions",
  "scale-info",
  "sp-arithmetic",
  "sp-core",
