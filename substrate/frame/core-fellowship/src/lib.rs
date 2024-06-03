@@ -222,8 +222,11 @@ pub mod pallet {
 
 	pub type ParamsOf<T, I> =
 		ParamsType<<T as Config<I>>::Balance, BlockNumberFor<T>, <T as Config<I>>::MaxRank>;
-	pub type PartialParamsOf<T, I> =
-		ParamsType<Option<<T as Config<I>>::Balance>, Option<BlockNumberFor<T>>, RANK_COUNT>;
+	pub type PartialParamsOf<T, I> = ParamsType<
+		Option<<T as Config<I>>::Balance>,
+		Option<BlockNumberFor<T>>,
+		<T as Config<I>>::MaxRank,
+	>;
 	pub type MemberStatusOf<T> = MemberStatus<BlockNumberFor<T>>;
 	pub type RankOf<T, I> = <<T as Config<I>>::Members as RankedMembers>::Rank;
 
@@ -392,14 +395,6 @@ pub mod pallet {
 		}
 
 		/// Approve a member to continue at their rank.
-		///
-		/// This resets `last_proof` to the current block, thereby delaying any automatic demotion.
-		///
-		/// `who` must already be tracked by this pallet for this to have an effect.
-		///
-		/// - `origin`: An origin which satisfies `ApproveOrigin` or root.
-		/// - `who`: A member (i.e. of non-zero rank).
-		/// - `at_rank`: The rank of member.
 		#[pallet::weight(T::WeightInfo::approve())]
 		#[pallet::call_index(3)]
 		pub fn approve(
@@ -604,8 +599,8 @@ pub mod pallet {
 		///
 		/// Only elements in the base slice which has a new value in the new slice will be updated.
 		pub(crate) fn set_partial_params_slice<S>(
-			base_slice: &mut [S; RANK_COUNT],
-			new_slice: [Option<S>; RANK_COUNT],
+			base_slice: &mut BoundedVec<S, <T as Config<I>>::MaxRank>,
+			new_slice: BoundedVec<Option<S>, <T as Config<I>>::MaxRank>,
 		) {
 			for (base_element, new_element) in base_slice.iter_mut().zip(new_slice) {
 				if let Some(element) = new_element {

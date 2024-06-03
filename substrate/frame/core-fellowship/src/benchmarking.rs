@@ -88,10 +88,10 @@ mod benchmarks {
 	#[benchmark]
 	fn set_partial_params() -> Result<(), BenchmarkError> {
 		let params_payload = ParamsType {
-			active_salary: [Some(100u32.into()); 9],
-			passive_salary: [Some(10u32.into()); 9],
-			demotion_period: [Some(100u32.into()); 9],
-			min_promotion_period: [Some(100u32.into()); 9],
+			active_salary: BoundedVec::try_from(vec![Some(100u32.into()); 9]).unwrap(),
+			passive_salary: BoundedVec::try_from(vec![Some(10u32.into()); 9]).unwrap(),
+			demotion_period: BoundedVec::try_from(vec![Some(100u32.into()); 9]).unwrap(),
+			min_promotion_period: BoundedVec::try_from(vec![Some(100u32.into()); 9]).unwrap(),
 			offboard_timeout: Some(1u32.into()),
 		};
 
@@ -99,10 +99,10 @@ mod benchmarks {
 		_(RawOrigin::Root, Box::new(params_payload.clone()));
 
 		let updated_params = ParamsType {
-			active_salary: [100u32.into(); 9],
-			passive_salary: [10u32.into(); 9],
-			demotion_period: [100u32.into(); 9],
-			min_promotion_period: [100u32.into(); 9],
+			active_salary: BoundedVec::try_from(vec![100u32.into(); 9]).unwrap(),
+			passive_salary: BoundedVec::try_from(vec![10u32.into(); 9]).unwrap(),
+			demotion_period: BoundedVec::try_from(vec![100u32.into(); 9]).unwrap(),
+			min_promotion_period: BoundedVec::try_from(vec![100u32.into(); 9]).unwrap(),
 			offboard_timeout: 1u32.into(),
 		};
 
