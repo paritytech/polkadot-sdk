@@ -39,10 +39,6 @@ impl DispatchQuery for () {
 	}
 }
 
-// impl QueryIdPrefix for () {
-// 	const PREFIX: [u8; 16] = [0u8; 16];
-// }
-
 pub trait QueryIdPrefix {
 	fn prefix() -> [u8; 16];
 }
