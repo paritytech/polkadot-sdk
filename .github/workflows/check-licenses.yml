@@ -9,7 +9,7 @@ permissions:
 
 jobs:
   check-licenses:
-    runs-on: arc-runners-polkadot-sdk
+    runs-on: ubuntu-latest
     timeout-minutes: 10
     env:
       LICENSES: "'Apache-2.0' 'GPL-3.0-only' 'GPL-3.0-or-later WITH Classpath-exception-2.0'"

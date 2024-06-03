@@ -43,7 +43,7 @@ tikv-jemallocator = { version = "0.5.0", features = ["unprefixed_malloc_on_suppo
 
 [dev-dependencies]
 assert_cmd = "2.0.4"
-nix = { version = "0.27.1", features = ["signal"] }
+nix = { version = "0.28.0", features = ["signal"] }
 tempfile = "3.2.0"
 tokio = "1.37"
 substrate-rpc-client = { path = "../substrate/utils/frame/rpc/client" }

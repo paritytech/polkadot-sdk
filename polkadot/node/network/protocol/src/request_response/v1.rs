@@ -33,7 +33,8 @@ use super::{IsRequest, Protocol};
 pub struct ChunkFetchingRequest {
 	/// Hash of candidate we want a chunk for.
 	pub candidate_hash: CandidateHash,
-	/// The index of the chunk to fetch.
+	/// The validator index we are requesting from. This must be identical to the index of the
+	/// chunk we'll receive. For v2, this may not be the case.
 	pub index: ValidatorIndex,
 }
 
@@ -53,6 +54,15 @@ impl From<Option<ChunkResponse>> for ChunkFetchingResponse {
 		match x {
 			Some(c) => ChunkFetchingResponse::Chunk(c),
 			None => ChunkFetchingResponse::NoSuchChunk,
+		}
+	}
+}
+
+impl From<ChunkFetchingResponse> for Option<ChunkResponse> {
+	fn from(x: ChunkFetchingResponse) -> Self {
+		match x {
+			ChunkFetchingResponse::Chunk(c) => Some(c),
+			ChunkFetchingResponse::NoSuchChunk => None,
 		}
 	}
 }
@@ -80,7 +90,7 @@ impl From<ErasureChunk> for ChunkResponse {
 impl ChunkResponse {
 	/// Re-build an `ErasureChunk` from response and request.
 	pub fn recombine_into_chunk(self, req: &ChunkFetchingRequest) -> ErasureChunk {
-		ErasureChunk { chunk: self.chunk, proof: self.proof, index: req.index }
+		ErasureChunk { chunk: self.chunk, proof: self.proof, index: req.index.into() }
 	}
 }
 

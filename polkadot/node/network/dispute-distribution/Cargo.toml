@@ -14,7 +14,7 @@ futures = "0.3.30"
 futures-timer = "3.0.2"
 gum = { package = "tracing-gum", path = "../../gum" }
 derive_more = "0.99.17"
-parity-scale-codec = { version = "3.6.1", features = ["std"] }
+parity-scale-codec = { version = "3.6.12", features = ["std"] }
 polkadot-primitives = { path = "../../../primitives" }
 polkadot-erasure-coding = { path = "../../../erasure-coding" }
 polkadot-node-subsystem = { path = "../../subsystem" }
@@ -25,7 +25,7 @@ sc-network = { path = "../../../../substrate/client/network" }
 sp-application-crypto = { path = "../../../../substrate/primitives/application-crypto" }
 sp-keystore = { path = "../../../../substrate/primitives/keystore" }
 thiserror = { workspace = true }
-fatality = "0.1.0"
+fatality = "0.1.1"
 schnellru = "0.2.1"
 indexmap = "2.0.0"
 

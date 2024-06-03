@@ -218,6 +218,7 @@ members = [
 	"polkadot/utils/generate-bags",
 	"polkadot/utils/remote-ext-tests/bags-list",
 	"polkadot/xcm",
+	"polkadot/xcm/docs",
 	"polkadot/xcm/pallet-xcm",
 	"polkadot/xcm/pallet-xcm-benchmarks",
 	"polkadot/xcm/procedural",
@@ -328,6 +329,7 @@ members = [
 	"substrate/frame/contracts/uapi",
 	"substrate/frame/conviction-voting",
 	"substrate/frame/core-fellowship",
+	"substrate/frame/delegated-staking",
 	"substrate/frame/democracy",
 	"substrate/frame/election-provider-multi-phase",
 	"substrate/frame/election-provider-multi-phase/test-staking-e2e",
@@ -359,6 +361,7 @@ members = [
 	"substrate/frame/membership",
 	"substrate/frame/merkle-mountain-range",
 	"substrate/frame/message-queue",
+	"substrate/frame/metadata-hash-extension",
 	"substrate/frame/migrations",
 	"substrate/frame/mixnet",
 	"substrate/frame/multisig",
@@ -371,7 +374,8 @@ members = [
 	"substrate/frame/nomination-pools/benchmarking",
 	"substrate/frame/nomination-pools/fuzzer",
 	"substrate/frame/nomination-pools/runtime-api",
-	"substrate/frame/nomination-pools/test-staking",
+	"substrate/frame/nomination-pools/test-delegate-stake",
+	"substrate/frame/nomination-pools/test-transfer-stake",
 	"substrate/frame/offences",
 	"substrate/frame/offences/benchmarking",
 	"substrate/frame/paged-list",
@@ -511,21 +515,23 @@ members = [
 	"substrate/utils/prometheus",
 	"substrate/utils/substrate-bip39",
 	"substrate/utils/wasm-builder",
-
 	"templates/minimal",
 	"templates/minimal/node",
 	"templates/minimal/pallets/template",
 	"templates/minimal/runtime",
-
-	"templates/solochain/node",
-	"templates/solochain/pallets/template",
-	"templates/solochain/runtime",
-
 	"templates/parachain/node",
 	"templates/parachain/pallets/template",
 	"templates/parachain/runtime",
+	"templates/solochain/node",
+	"templates/solochain/pallets/template",
+	"templates/solochain/runtime",
+	"umbrella",
 ]
-default-members = ["polkadot", "substrate/bin/node/cli"]
+
+default-members = [
+	"polkadot",
+	"substrate/bin/node/cli",
+]
 
 [workspace.lints.rust]
 suspicious_double_ref_op = { level = "allow", priority = 2 }

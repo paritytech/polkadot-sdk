@@ -14,9 +14,10 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::parachain::MsgQueue;
+use crate::parachain::Runtime;
 use frame_support::parameter_types;
 use xcm::latest::prelude::*;
+use xcm_simulator::mock_message_queue::ParachainId;
 
 parameter_types! {
 	pub KsmPerSecondPerByte: (AssetId, u128, u128) = (AssetId(Parent.into()), 1, 1);
@@ -26,5 +27,5 @@ parameter_types! {
 parameter_types! {
 	pub const KsmLocation: Location = Location::parent();
 	pub const RelayNetwork: NetworkId = NetworkId::Kusama;
-	pub UniversalLocation: InteriorLocation = [GlobalConsensus(RelayNetwork::get()), Parachain(MsgQueue::parachain_id().into())].into();
+	pub UniversalLocation: InteriorLocation = [GlobalConsensus(RelayNetwork::get()), Parachain(ParachainId::<Runtime>::get().into())].into();
 }
