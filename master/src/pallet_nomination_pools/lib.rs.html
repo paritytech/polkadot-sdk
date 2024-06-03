@@ -4008,6 +4008,97 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#3857" id="3857">3857</a>
 <a href="#3858" id="3858">3858</a>
 <a href="#3859" id="3859">3859</a>
+<a href="#3860" id="3860">3860</a>
+<a href="#3861" id="3861">3861</a>
+<a href="#3862" id="3862">3862</a>
+<a href="#3863" id="3863">3863</a>
+<a href="#3864" id="3864">3864</a>
+<a href="#3865" id="3865">3865</a>
+<a href="#3866" id="3866">3866</a>
+<a href="#3867" id="3867">3867</a>
+<a href="#3868" id="3868">3868</a>
+<a href="#3869" id="3869">3869</a>
+<a href="#3870" id="3870">3870</a>
+<a href="#3871" id="3871">3871</a>
+<a href="#3872" id="3872">3872</a>
+<a href="#3873" id="3873">3873</a>
+<a href="#3874" id="3874">3874</a>
+<a href="#3875" id="3875">3875</a>
+<a href="#3876" id="3876">3876</a>
+<a href="#3877" id="3877">3877</a>
+<a href="#3878" id="3878">3878</a>
+<a href="#3879" id="3879">3879</a>
+<a href="#3880" id="3880">3880</a>
+<a href="#3881" id="3881">3881</a>
+<a href="#3882" id="3882">3882</a>
+<a href="#3883" id="3883">3883</a>
+<a href="#3884" id="3884">3884</a>
+<a href="#3885" id="3885">3885</a>
+<a href="#3886" id="3886">3886</a>
+<a href="#3887" id="3887">3887</a>
+<a href="#3888" id="3888">3888</a>
+<a href="#3889" id="3889">3889</a>
+<a href="#3890" id="3890">3890</a>
+<a href="#3891" id="3891">3891</a>
+<a href="#3892" id="3892">3892</a>
+<a href="#3893" id="3893">3893</a>
+<a href="#3894" id="3894">3894</a>
+<a href="#3895" id="3895">3895</a>
+<a href="#3896" id="3896">3896</a>
+<a href="#3897" id="3897">3897</a>
+<a href="#3898" id="3898">3898</a>
+<a href="#3899" id="3899">3899</a>
+<a href="#3900" id="3900">3900</a>
+<a href="#3901" id="3901">3901</a>
+<a href="#3902" id="3902">3902</a>
+<a href="#3903" id="3903">3903</a>
+<a href="#3904" id="3904">3904</a>
+<a href="#3905" id="3905">3905</a>
+<a href="#3906" id="3906">3906</a>
+<a href="#3907" id="3907">3907</a>
+<a href="#3908" id="3908">3908</a>
+<a href="#3909" id="3909">3909</a>
+<a href="#3910" id="3910">3910</a>
+<a href="#3911" id="3911">3911</a>
+<a href="#3912" id="3912">3912</a>
+<a href="#3913" id="3913">3913</a>
+<a href="#3914" id="3914">3914</a>
+<a href="#3915" id="3915">3915</a>
+<a href="#3916" id="3916">3916</a>
+<a href="#3917" id="3917">3917</a>
+<a href="#3918" id="3918">3918</a>
+<a href="#3919" id="3919">3919</a>
+<a href="#3920" id="3920">3920</a>
+<a href="#3921" id="3921">3921</a>
+<a href="#3922" id="3922">3922</a>
+<a href="#3923" id="3923">3923</a>
+<a href="#3924" id="3924">3924</a>
+<a href="#3925" id="3925">3925</a>
+<a href="#3926" id="3926">3926</a>
+<a href="#3927" id="3927">3927</a>
+<a href="#3928" id="3928">3928</a>
+<a href="#3929" id="3929">3929</a>
+<a href="#3930" id="3930">3930</a>
+<a href="#3931" id="3931">3931</a>
+<a href="#3932" id="3932">3932</a>
+<a href="#3933" id="3933">3933</a>
+<a href="#3934" id="3934">3934</a>
+<a href="#3935" id="3935">3935</a>
+<a href="#3936" id="3936">3936</a>
+<a href="#3937" id="3937">3937</a>
+<a href="#3938" id="3938">3938</a>
+<a href="#3939" id="3939">3939</a>
+<a href="#3940" id="3940">3940</a>
+<a href="#3941" id="3941">3941</a>
+<a href="#3942" id="3942">3942</a>
+<a href="#3943" id="3943">3943</a>
+<a href="#3944" id="3944">3944</a>
+<a href="#3945" id="3945">3945</a>
+<a href="#3946" id="3946">3946</a>
+<a href="#3947" id="3947">3947</a>
+<a href="#3948" id="3948">3948</a>
+<a href="#3949" id="3949">3949</a>
+<a href="#3950" id="3950">3950</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -4361,7 +4452,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="attr">#![cfg_attr(not(feature = <span class="string">"std"</span>), no_std)]
 
-</span><span class="kw">use </span>adapter::StakeStrategy;
+</span><span class="kw">use </span>adapter::{Member, Pool, StakeStrategy};
 <span class="kw">use </span>codec::Codec;
 <span class="kw">use </span>frame_support::{
 	defensive, defensive_assert, ensure,
@@ -5017,7 +5108,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// This is often used for bonding and issuing new funds into the pool.
 	</span><span class="kw">fn </span>balance_to_point(<span class="kw-2">&amp;</span><span class="self">self</span>, new_funds: BalanceOf&lt;T&gt;) -&gt; BalanceOf&lt;T&gt; {
-		<span class="kw">let </span>bonded_balance = T::StakeAdapter::active_stake(<span class="kw-2">&amp;</span><span class="self">self</span>.bonded_account());
+		<span class="kw">let </span>bonded_balance = T::StakeAdapter::active_stake(Pool::from(<span class="self">self</span>.bonded_account()));
 		Pallet::&lt;T&gt;::balance_to_point(bonded_balance, <span class="self">self</span>.points, new_funds)
 	}
 
@@ -5025,7 +5116,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// This is often used for unbonding.
 	</span><span class="kw">fn </span>points_to_balance(<span class="kw-2">&amp;</span><span class="self">self</span>, points: BalanceOf&lt;T&gt;) -&gt; BalanceOf&lt;T&gt; {
-		<span class="kw">let </span>bonded_balance = T::StakeAdapter::active_stake(<span class="kw-2">&amp;</span><span class="self">self</span>.bonded_account());
+		<span class="kw">let </span>bonded_balance = T::StakeAdapter::active_stake(Pool::from(<span class="self">self</span>.bonded_account()));
 		Pallet::&lt;T&gt;::point_to_balance(bonded_balance, <span class="self">self</span>.points, points)
 	}
 
@@ -5135,7 +5226,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>ok_to_be_open(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), DispatchError&gt; {
 		<span class="macro">ensure!</span>(!<span class="self">self</span>.is_destroying(), Error::&lt;T&gt;::CanNotChangeState);
 
-		<span class="kw">let </span>bonded_balance = T::StakeAdapter::active_stake(<span class="kw-2">&amp;</span><span class="self">self</span>.bonded_account());
+		<span class="kw">let </span>bonded_balance = T::StakeAdapter::active_stake(Pool::from(<span class="self">self</span>.bonded_account()));
 		<span class="macro">ensure!</span>(!bonded_balance.is_zero(), Error::&lt;T&gt;::OverflowRisk);
 
 		<span class="kw">let </span>points_to_balance_ratio_floor = <span class="self">self
@@ -5269,8 +5360,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="kw">let </span>points_issued = <span class="self">self</span>.issue(amount);
 
 		T::StakeAdapter::pledge_bond(
-			who,
-			<span class="kw-2">&amp;</span><span class="self">self</span>.bonded_account(),
+			Member::from(who.clone()),
+			Pool::from(<span class="self">self</span>.bonded_account()),
 			<span class="kw-2">&amp;</span><span class="self">self</span>.reward_account(),
 			amount,
 			ty,
@@ -5950,12 +6041,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span>NothingToAdjust,
 		<span class="doccomment">/// No slash pending that can be applied to the member.
 		</span>NothingToSlash,
-		<span class="doccomment">/// No delegation to migrate.
-		</span>NoDelegationToMigrate,
-		<span class="doccomment">/// The pool has already migrated to enable delegation.
-		</span>PoolAlreadyMigrated,
-		<span class="doccomment">/// The pool has not migrated yet to enable delegation.
-		</span>PoolNotMigrated,
+		<span class="doccomment">/// The pool or member delegation has already migrated to delegate stake.
+		</span>AlreadyMigrated,
+		<span class="doccomment">/// The pool or member delegation has not migrated yet to delegate stake.
+		</span>NotMigrated,
 		<span class="doccomment">/// This call is not allowed in the current state of the pallet.
 		</span>NotSupported,
 	}
@@ -6158,7 +6247,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="comment">// Unbond in the actual underlying nominator.
 			</span><span class="kw">let </span>unbonding_balance = bonded_pool.dissolve(unbonding_points);
-			T::StakeAdapter::unbond(<span class="kw-2">&amp;</span>bonded_pool.bonded_account(), unbonding_balance)<span class="question-mark">?</span>;
+			T::StakeAdapter::unbond(Pool::from(bonded_pool.bonded_account()), unbonding_balance)<span class="question-mark">?</span>;
 
 			<span class="comment">// Note that we lazily create the unbonding pools here if they don't already exist
 			</span><span class="kw">let </span><span class="kw-2">mut </span>sub_pools = SubPoolsStorage::&lt;T&gt;::get(member.pool_id)
@@ -6221,7 +6310,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="comment">// For now we only allow a pool to withdraw unbonded if its not destroying. If the pool
 			// is destroying then `withdraw_unbonded` can be used.
 			</span><span class="macro">ensure!</span>(pool.state != PoolState::Destroying, Error::&lt;T&gt;::NotDestroying);
-			T::StakeAdapter::withdraw_unbonded(<span class="kw-2">&amp;</span>pool.bonded_account(), num_slashing_spans)<span class="question-mark">?</span>;
+			T::StakeAdapter::withdraw_unbonded(
+				Pool::from(pool.bonded_account()),
+				num_slashing_spans,
+			)<span class="question-mark">?</span>;
 
 			<span class="prelude-val">Ok</span>(())
 		}
@@ -6295,7 +6387,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="comment">// Before calculating the `balance_to_unbond`, we call withdraw unbonded to ensure the
 			// `transferable_balance` is correct.
 			</span><span class="kw">let </span>stash_killed = T::StakeAdapter::withdraw_unbonded(
-				<span class="kw-2">&amp;</span>bonded_pool.bonded_account(),
+				Pool::from(bonded_pool.bonded_account()),
 				num_slashing_spans,
 			)<span class="question-mark">?</span>;
 
@@ -6344,13 +6436,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				// don't exist. This check is also defensive in cases where the unbond pool does not
 				// update its balance (e.g. a bug in the slashing hook.) We gracefully proceed in
 				// order to ensure members can leave the pool and it can be destroyed.
-				</span>.min(T::StakeAdapter::transferable_balance(<span class="kw-2">&amp;</span>bonded_pool.bonded_account()));
+				</span>.min(T::StakeAdapter::transferable_balance(Pool::from(
+					bonded_pool.bonded_account(),
+				)));
 
 			<span class="comment">// this can fail if the pool uses `DelegateStake` strategy and the member delegation
 			// is not claimed yet. See `Call::migrate_delegation()`.
 			</span>T::StakeAdapter::member_withdraw(
-				<span class="kw-2">&amp;</span>member_account,
-				<span class="kw-2">&amp;</span>bonded_pool.bonded_account(),
+				Member::from(member_account.clone()),
+				Pool::from(bonded_pool.bonded_account()),
 				balance_to_unbond,
 				num_slashing_spans,
 			)<span class="question-mark">?</span>;
@@ -6483,7 +6577,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				Error::&lt;T&gt;::MinimumBondNotMet
 			);
 
-			T::StakeAdapter::nominate(<span class="kw-2">&amp;</span>bonded_pool.bonded_account(), validators)
+			T::StakeAdapter::nominate(Pool::from(bonded_pool.bonded_account()), validators)
 		}
 
 		<span class="doccomment">/// Set a new state for the pool.
@@ -6676,7 +6770,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="macro">ensure!</span>(bonded_pool.can_nominate(<span class="kw-2">&amp;</span>who), Error::&lt;T&gt;::NotNominator);
 			}
 
-			T::StakeAdapter::chill(<span class="kw-2">&amp;</span>bonded_pool.bonded_account())
+			T::StakeAdapter::chill(Pool::from(bonded_pool.bonded_account()))
 		}
 
 		<span class="doccomment">/// `origin` bonds funds from `extra` for some pool member `member` into their respective
@@ -6928,25 +7022,26 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="comment">// ensure pool is migrated.
 			</span><span class="macro">ensure!</span>(
-				T::StakeAdapter::pool_strategy(<span class="kw-2">&amp;</span><span class="self">Self</span>::generate_bonded_account(member.pool_id)) ==
-					adapter::StakeStrategyType::Delegate,
-				Error::&lt;T&gt;::PoolNotMigrated
+				T::StakeAdapter::pool_strategy(Pool::from(<span class="self">Self</span>::generate_bonded_account(
+					member.pool_id
+				))) == adapter::StakeStrategyType::Delegate,
+				Error::&lt;T&gt;::NotMigrated
 			);
 
 			<span class="kw">let </span>pool_contribution = member.total_balance();
 			<span class="macro">ensure!</span>(pool_contribution &gt;= MinJoinBond::&lt;T&gt;::get(), Error::&lt;T&gt;::MinimumBondNotMet);
 			<span class="comment">// the member must have some contribution to be migrated.
-			</span><span class="macro">ensure!</span>(pool_contribution &gt; Zero::zero(), Error::&lt;T&gt;::NoDelegationToMigrate);
+			</span><span class="macro">ensure!</span>(pool_contribution &gt; Zero::zero(), Error::&lt;T&gt;::AlreadyMigrated);
 
-			<span class="kw">let </span>delegation = T::StakeAdapter::member_delegation_balance(<span class="kw-2">&amp;</span>member_account);
-			<span class="comment">// delegation can be claimed only once.
-			</span><span class="macro">ensure!</span>(delegation == Zero::zero(), Error::&lt;T&gt;::NoDelegationToMigrate);
+			<span class="kw">let </span>delegation =
+				T::StakeAdapter::member_delegation_balance(Member::from(member_account.clone()));
+			<span class="comment">// delegation should not exist.
+			</span><span class="macro">ensure!</span>(delegation.is_none(), Error::&lt;T&gt;::AlreadyMigrated);
 
-			<span class="kw">let </span>diff = pool_contribution.defensive_saturating_sub(delegation);
 			T::StakeAdapter::migrate_delegation(
-				<span class="kw-2">&amp;</span>Pallet::&lt;T&gt;::generate_bonded_account(member.pool_id),
-				<span class="kw-2">&amp;</span>member_account,
-				diff,
+				Pool::from(Pallet::&lt;T&gt;::generate_bonded_account(member.pool_id)),
+				Member::from(member_account),
+				pool_contribution,
 			)<span class="question-mark">?</span>;
 
 			<span class="comment">// if successful, we refund the fee.
@@ -6978,9 +7073,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="comment">// ensure pool exists.
 			</span><span class="kw">let </span>bonded_pool = BondedPool::&lt;T&gt;::get(pool_id).ok_or(Error::&lt;T&gt;::PoolNotFound)<span class="question-mark">?</span>;
 			<span class="macro">ensure!</span>(
-				T::StakeAdapter::pool_strategy(<span class="kw-2">&amp;</span>bonded_pool.bonded_account()) ==
+				T::StakeAdapter::pool_strategy(Pool::from(bonded_pool.bonded_account())) ==
 					adapter::StakeStrategyType::Transfer,
-				Error::&lt;T&gt;::PoolAlreadyMigrated
+				Error::&lt;T&gt;::AlreadyMigrated
 			);
 
 			<span class="self">Self</span>::migrate_to_delegate_stake(pool_id)<span class="question-mark">?</span>;
@@ -7055,7 +7150,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="string">"bonded account of dissolving pool should have no consumers"
 		</span>);
 		<span class="macro">defensive_assert!</span>(
-			T::StakeAdapter::total_stake(<span class="kw-2">&amp;</span>bonded_pool.bonded_account()) == Zero::zero(),
+			T::StakeAdapter::total_stake(Pool::from(bonded_pool.bonded_account())) == Zero::zero(),
 			<span class="string">"dissolving pool should not have any stake in the staking pallet"
 		</span>);
 
@@ -7078,12 +7173,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="string">"could not transfer all amount to depositor while dissolving pool"
 		</span>);
 		<span class="macro">defensive_assert!</span>(
-			T::StakeAdapter::total_balance(<span class="kw-2">&amp;</span>bonded_pool.bonded_account()) == Zero::zero(),
+			T::StakeAdapter::total_balance(Pool::from(bonded_pool.bonded_account()))
+				.unwrap_or_default() ==
+				Zero::zero(),
 			<span class="string">"dissolving pool should not have any balance"
 		</span>);
 		<span class="comment">// NOTE: Defensively force set balance to zero.
 		</span>T::Currency::set_balance(<span class="kw-2">&amp;</span>reward_account, Zero::zero());
-		<span class="comment">// With `DelegateStake` strategy, this won't do anything.
+		<span class="comment">// NOTE: With `DelegateStake` strategy, this won't do anything.
 		</span>T::Currency::set_balance(<span class="kw-2">&amp;</span>bonded_pool.bonded_account(), Zero::zero());
 
 		<span class="self">Self</span>::deposit_event(Event::&lt;T&gt;::Destroyed { pool_id: bonded_pool.id });
@@ -7100,7 +7197,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">fn </span>migrate_to_delegate_stake(id: PoolId) -&gt; DispatchResult {
 		T::StakeAdapter::migrate_nominator_to_agent(
-			<span class="kw-2">&amp;</span><span class="self">Self</span>::generate_bonded_account(id),
+			Pool::from(<span class="self">Self</span>::generate_bonded_account(id)),
 			<span class="kw-2">&amp;</span><span class="self">Self</span>::generate_reward_account(id),
 		)
 	}
@@ -7478,29 +7575,57 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		member_account: <span class="kw-2">&amp;</span>T::AccountId,
 		reporter: <span class="prelude-ty">Option</span>&lt;T::AccountId&gt;,
 	) -&gt; DispatchResult {
-		<span class="comment">// calculate points to be slashed.
-		</span><span class="kw">let </span>member =
-			PoolMembers::&lt;T&gt;::get(<span class="kw-2">&amp;</span>member_account).ok_or(Error::&lt;T&gt;::PoolMemberNotFound)<span class="question-mark">?</span>;
+		<span class="kw">let </span>member = PoolMembers::&lt;T&gt;::get(member_account).ok_or(Error::&lt;T&gt;::PoolMemberNotFound)<span class="question-mark">?</span>;
 
-		<span class="kw">let </span>pool_account = Pallet::&lt;T&gt;::generate_bonded_account(member.pool_id);
-		<span class="macro">ensure!</span>(T::StakeAdapter::has_pending_slash(<span class="kw-2">&amp;</span>pool_account), Error::&lt;T&gt;::NothingToSlash);
-
-		<span class="kw">let </span>unslashed_balance = T::StakeAdapter::member_delegation_balance(<span class="kw-2">&amp;</span>member_account);
-		<span class="kw">let </span>slashed_balance = member.total_balance();
-		<span class="macro">defensive_assert!</span>(
-			unslashed_balance &gt;= slashed_balance,
-			<span class="string">"unslashed balance should always be greater or equal to the slashed"
-		</span>);
+		<span class="kw">let </span>pending_slash =
+			<span class="self">Self</span>::member_pending_slash(Member::from(member_account.clone()), member.clone())<span class="question-mark">?</span>;
 
 		<span class="comment">// if nothing to slash, return error.
-		</span><span class="macro">ensure!</span>(unslashed_balance &gt; slashed_balance, Error::&lt;T&gt;::NothingToSlash);
+		</span><span class="macro">ensure!</span>(!pending_slash.is_zero(), Error::&lt;T&gt;::NothingToSlash);
 
 		T::StakeAdapter::member_slash(
-			<span class="kw-2">&amp;</span>member_account,
-			<span class="kw-2">&amp;</span>pool_account,
-			unslashed_balance.defensive_saturating_sub(slashed_balance),
+			Member::from(member_account.clone()),
+			Pool::from(Pallet::&lt;T&gt;::generate_bonded_account(member.pool_id)),
+			pending_slash,
 			reporter,
 		)
+	}
+
+	<span class="doccomment">/// Pending slash for a member.
+	///
+	/// Takes the pool_member object corresponding to the `member_account`.
+	</span><span class="kw">fn </span>member_pending_slash(
+		member_account: Member&lt;T::AccountId&gt;,
+		pool_member: PoolMember&lt;T&gt;,
+	) -&gt; <span class="prelude-ty">Result</span>&lt;BalanceOf&lt;T&gt;, DispatchError&gt; {
+		<span class="comment">// only executed in tests: ensure the member account is correct.
+		</span><span class="macro">debug_assert!</span>(
+			PoolMembers::&lt;T&gt;::get(member_account.clone().get()).expect(<span class="string">"member must exist"</span>) ==
+				pool_member
+		);
+
+		<span class="kw">let </span>pool_account = Pallet::&lt;T&gt;::generate_bonded_account(pool_member.pool_id);
+		<span class="comment">// if the pool doesn't have any pending slash, it implies the member also does not have any
+		// pending slash.
+		</span><span class="kw">if </span>T::StakeAdapter::pending_slash(Pool::from(pool_account.clone())).is_zero() {
+			<span class="kw">return </span><span class="prelude-val">Ok</span>(Zero::zero())
+		}
+
+		<span class="comment">// this is their actual held balance that may or may not have been slashed.
+		</span><span class="kw">let </span>actual_balance = T::StakeAdapter::member_delegation_balance(member_account)
+			<span class="comment">// no delegation implies the member delegation is not migrated yet to `DelegateStake`.
+			</span>.ok_or(Error::&lt;T&gt;::NotMigrated)<span class="question-mark">?</span>;
+
+		<span class="comment">// this is their balance in the pool
+		</span><span class="kw">let </span>expected_balance = pool_member.total_balance();
+
+		<span class="macro">defensive_assert!</span>(
+			actual_balance &gt;= expected_balance,
+			<span class="string">"actual balance should always be greater or equal to the expected"
+		</span>);
+
+		<span class="comment">// return the amount to be slashed.
+		</span><span class="prelude-val">Ok</span>(actual_balance.defensive_saturating_sub(expected_balance))
 	}
 
 	<span class="doccomment">/// Apply freeze on reward account to restrict it from going below ED.
@@ -7666,7 +7791,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				pool is being destroyed and the depositor is the last member"</span>,
 			);
 
-			expected_tvl += T::StakeAdapter::total_stake(<span class="kw-2">&amp;</span>bonded_pool.bonded_account());
+			expected_tvl += T::StakeAdapter::total_stake(Pool::from(bonded_pool.bonded_account()));
 
 			<span class="prelude-val">Ok</span>(())
 		})<span class="question-mark">?</span>;
@@ -7695,24 +7820,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>subs = SubPoolsStorage::&lt;T&gt;::get(pool_id).unwrap_or_default();
 
 			<span class="kw">let </span>sum_unbonding_balance = subs.sum_unbonding_balance();
-			<span class="kw">let </span>bonded_balance = T::StakeAdapter::active_stake(<span class="kw-2">&amp;</span>pool_account);
-			<span class="kw">let </span>total_balance = T::StakeAdapter::total_balance(<span class="kw-2">&amp;</span>pool_account);
-
-			<span class="comment">// At the time when StakeAdapter is changed but migration is not yet done, the new
-			// adapter would return zero balance (as it is not an agent yet). We handle that by
-			// falling back to reading actual balance of the pool account.
-			</span><span class="kw">let </span>pool_balance = <span class="kw">if </span>total_balance.is_zero() {
-				T::Currency::total_balance(<span class="kw-2">&amp;</span>pool_account)
-			} <span class="kw">else </span>{
-				total_balance
-			};
+			<span class="kw">let </span>bonded_balance = T::StakeAdapter::active_stake(Pool::from(pool_account.clone()));
+			<span class="kw">let </span>total_balance = T::StakeAdapter::total_balance(Pool::from(pool_account.clone()))
+				<span class="comment">// At the time when StakeAdapter is changed to `DelegateStake` but pool is not yet
+				// migrated, the total balance would be none.
+				</span>.unwrap_or(T::Currency::total_balance(<span class="kw-2">&amp;</span>pool_account));
 
 			<span class="macro">assert!</span>(
-				pool_balance &gt;= bonded_balance + sum_unbonding_balance,
-				<span class="string">"faulty pool: {:?} / {:?}, pool_balance {:?} &gt;= bonded_balance {:?} + sum_unbonding_balance {:?}"</span>,
+				total_balance &gt;= bonded_balance + sum_unbonding_balance,
+				<span class="string">"faulty pool: {:?} / {:?}, total_balance {:?} &gt;= bonded_balance {:?} + sum_unbonding_balance {:?}"</span>,
 				pool_id,
 				_pool,
-				pool_balance,
+				total_balance,
 				bonded_balance,
 				sum_unbonding_balance
 			);
@@ -7809,11 +7928,74 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub fn </span>api_balance_to_points(pool_id: PoolId, new_funds: BalanceOf&lt;T&gt;) -&gt; BalanceOf&lt;T&gt; {
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(pool) = BondedPool::&lt;T&gt;::get(pool_id) {
 			<span class="kw">let </span>bonded_balance =
-				T::StakeAdapter::active_stake(<span class="kw-2">&amp;</span><span class="self">Self</span>::generate_bonded_account(pool_id));
+				T::StakeAdapter::active_stake(Pool::from(<span class="self">Self</span>::generate_bonded_account(pool_id)));
 			Pallet::&lt;T&gt;::balance_to_point(bonded_balance, pool.points, new_funds)
 		} <span class="kw">else </span>{
 			Zero::zero()
 		}
+	}
+
+	<span class="doccomment">/// Returns the unapplied slash of the pool.
+	///
+	/// Pending slash is only applicable with [`adapter::DelegateStake`] strategy.
+	</span><span class="kw">pub fn </span>api_pool_pending_slash(pool_id: PoolId) -&gt; BalanceOf&lt;T&gt; {
+		T::StakeAdapter::pending_slash(Pool::from(<span class="self">Self</span>::generate_bonded_account(pool_id)))
+	}
+
+	<span class="doccomment">/// Returns the unapplied slash of a member.
+	///
+	/// Pending slash is only applicable with [`adapter::DelegateStake`] strategy.
+	</span><span class="kw">pub fn </span>api_member_pending_slash(who: T::AccountId) -&gt; BalanceOf&lt;T&gt; {
+		PoolMembers::&lt;T&gt;::get(who.clone())
+			.map(|pool_member| {
+				<span class="self">Self</span>::member_pending_slash(Member::from(who), pool_member).unwrap_or_default()
+			})
+			.unwrap_or_default()
+	}
+
+	<span class="doccomment">/// Checks whether pool needs to be migrated to [`adapter::StakeStrategyType::Delegate`]. Only
+	/// applicable when the [`Config::StakeAdapter`] is [`adapter::DelegateStake`].
+	///
+	/// Useful to check this before calling [`Call::migrate_pool_to_delegate_stake`].
+	</span><span class="kw">pub fn </span>api_pool_needs_delegate_migration(pool_id: PoolId) -&gt; bool {
+		<span class="comment">// if the `Delegate` strategy is not used in the pallet, then no migration required.
+		</span><span class="kw">if </span>T::StakeAdapter::strategy_type() != adapter::StakeStrategyType::Delegate {
+			<span class="kw">return </span><span class="bool-val">false
+		</span>}
+
+		<span class="kw">let </span>pool_account = <span class="self">Self</span>::generate_bonded_account(pool_id);
+		<span class="comment">// true if pool is still not migrated to `DelegateStake`.
+		</span>T::StakeAdapter::pool_strategy(Pool::from(pool_account)) !=
+			adapter::StakeStrategyType::Delegate
+	}
+
+	<span class="doccomment">/// Checks whether member delegation needs to be migrated to
+	/// [`adapter::StakeStrategyType::Delegate`]. Only applicable when the [`Config::StakeAdapter`]
+	/// is [`adapter::DelegateStake`].
+	///
+	/// Useful to check this before calling [`Call::migrate_delegation`].
+	</span><span class="kw">pub fn </span>api_member_needs_delegate_migration(who: T::AccountId) -&gt; bool {
+		<span class="comment">// if the `Delegate` strategy is not used in the pallet, then no migration required.
+		</span><span class="kw">if </span>T::StakeAdapter::strategy_type() != adapter::StakeStrategyType::Delegate {
+			<span class="kw">return </span><span class="bool-val">false
+		</span>}
+
+		PoolMembers::&lt;T&gt;::get(who.clone())
+			.map(|pool_member| {
+				<span class="kw">if </span><span class="self">Self</span>::api_pool_needs_delegate_migration(pool_member.pool_id) {
+					<span class="comment">// the pool needs to be migrated before members can be migrated.
+					</span><span class="kw">return </span><span class="bool-val">false
+				</span>}
+
+				<span class="kw">let </span>member_balance = pool_member.total_balance();
+				<span class="kw">let </span>delegated_balance =
+					T::StakeAdapter::member_delegation_balance(Member::from(who.clone()));
+
+				<span class="comment">// if the member has no delegation but has some balance in the pool, then it needs
+				// to be migrated.
+				</span>delegated_balance.is_none() &amp;&amp; !member_balance.is_zero()
+			})
+			.unwrap_or_default()
 	}
 }
 

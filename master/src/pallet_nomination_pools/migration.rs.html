@@ -1310,6 +1310,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1159" id="1159">1159</a>
 <a href="#1160" id="1160">1160</a>
 <a href="#1161" id="1161">1161</a>
+<a href="#1162" id="1162">1162</a>
+<a href="#1163" id="1163">1163</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1447,7 +1449,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw">let </span>pool_acc = Pallet::&lt;T&gt;::generate_bonded_account(id);
 
 				<span class="comment">// only migrate if the pool is in Transfer Strategy.
-				</span><span class="kw">if </span>T::StakeAdapter::pool_strategy(<span class="kw-2">&amp;</span>pool_acc) == adapter::StakeStrategyType::Transfer
+				</span><span class="kw">if </span>T::StakeAdapter::pool_strategy(Pool::from(pool_acc)) ==
+					adapter::StakeStrategyType::Transfer
 				{
 					<span class="kw">let _ </span>= Pallet::&lt;T&gt;::migrate_to_delegate_stake(id).map_err(|err| {
 						<span class="macro">log!</span>(
@@ -1490,14 +1493,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span><span class="kw-2">mut </span>pool_balances: Vec&lt;BalanceOf&lt;T&gt;&gt; = Vec::new();
 			BondedPools::&lt;T&gt;::iter_keys().take(MaxPools::get() <span class="kw">as </span>usize).for_each(|id| {
 				<span class="kw">let </span>pool_account = Pallet::&lt;T&gt;::generate_bonded_account(id);
-				<span class="kw">let </span>current_strategy = T::StakeAdapter::pool_strategy(<span class="kw-2">&amp;</span>pool_account);
 
 				<span class="comment">// we ensure migration is idempotent.
-				</span><span class="kw">let </span>pool_balance = <span class="kw">if </span>current_strategy == adapter::StakeStrategyType::Transfer {
-					T::Currency::total_balance(<span class="kw-2">&amp;</span>pool_account)
-				} <span class="kw">else </span>{
-					T::StakeAdapter::total_balance(<span class="kw-2">&amp;</span>pool_account)
-				};
+				</span><span class="kw">let </span>pool_balance = T::StakeAdapter::total_balance(Pool::from(pool_account.clone()))
+					<span class="comment">// we check actual account balance if pool has not migrated yet.
+					</span>.unwrap_or(T::Currency::total_balance(<span class="kw-2">&amp;</span>pool_account));
 
 				pool_balances.push(pool_balance);
 			});
@@ -1513,14 +1513,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				</span>BondedPools::&lt;T&gt;::iter_keys().take(MaxPools::get() <span class="kw">as </span>usize).enumerate()
 			{
 				<span class="kw">let </span>pool_account = Pallet::&lt;T&gt;::generate_bonded_account(id);
-				<span class="kw">if </span>T::StakeAdapter::pool_strategy(<span class="kw-2">&amp;</span>pool_account) ==
+				<span class="kw">if </span>T::StakeAdapter::pool_strategy(Pool::from(pool_account.clone())) ==
 					adapter::StakeStrategyType::Transfer
 				{
 					<span class="macro">log!</span>(error, <span class="string">"Pool {} failed to migrate"</span>, id,);
 					<span class="kw">return </span><span class="prelude-val">Err</span>(TryRuntimeError::Other(<span class="string">"Pool failed to migrate"</span>));
 				}
 
-				<span class="kw">let </span>actual_balance = T::StakeAdapter::total_balance(<span class="kw-2">&amp;</span>pool_account);
+				<span class="kw">let </span>actual_balance =
+					T::StakeAdapter::total_balance(Pool::from(pool_account.clone()))
+						.expect(<span class="string">"after migration, this should return a value"</span>);
 				<span class="kw">let </span>expected_balance = expected_pool_balances.get(index).unwrap();
 
 				<span class="kw">if </span>actual_balance != <span class="kw-2">*</span>expected_balance {
@@ -2466,7 +2468,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>calculate_tvl_by_total_stake&lt;T: Config&gt;() -&gt; BalanceOf&lt;T&gt; {
 		BondedPools::&lt;T&gt;::iter_keys()
-			.map(|id| T::StakeAdapter::total_stake(<span class="kw-2">&amp;</span>Pallet::&lt;T&gt;::generate_bonded_account(id)))
+			.map(|id| {
+				T::StakeAdapter::total_stake(Pool::from(Pallet::&lt;T&gt;::generate_bonded_account(id)))
+			})
 			.reduce(|acc, total_balance| acc + total_balance)
 			.unwrap_or_default()
 	}

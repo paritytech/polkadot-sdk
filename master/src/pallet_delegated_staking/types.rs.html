@@ -440,6 +440,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#289" id="289">289</a>
 <a href="#290" id="290">290</a>
 <a href="#291" id="291">291</a>
+<a href="#292" id="292">292</a>
+<a href="#293" id="293">293</a>
+<a href="#294" id="294">294</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -585,18 +588,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Wrapper around `AgentLedger` to provide some helper functions to mutate the ledger.
 </span><span class="attr">#[derive(Clone)]
-</span><span class="kw">pub struct </span>Agent&lt;T: Config&gt; {
+</span><span class="kw">pub struct </span>AgentLedgerOuter&lt;T: Config&gt; {
 	<span class="doccomment">/// storage key
 	</span><span class="kw">pub </span>key: T::AccountId,
 	<span class="doccomment">/// storage value
 	</span><span class="kw">pub </span>ledger: AgentLedger&lt;T&gt;,
 }
 
-<span class="kw">impl</span>&lt;T: Config&gt; Agent&lt;T&gt; {
+<span class="kw">impl</span>&lt;T: Config&gt; AgentLedgerOuter&lt;T&gt; {
 	<span class="doccomment">/// Get `Agent` from storage if it exists or return an error.
-	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>get(agent: <span class="kw-2">&amp;</span>T::AccountId) -&gt; <span class="prelude-ty">Result</span>&lt;Agent&lt;T&gt;, DispatchError&gt; {
+	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>get(agent: <span class="kw-2">&amp;</span>T::AccountId) -&gt; <span class="prelude-ty">Result</span>&lt;AgentLedgerOuter&lt;T&gt;, DispatchError&gt; {
 		<span class="kw">let </span>ledger = AgentLedger::&lt;T&gt;::get(agent).ok_or(Error::&lt;T&gt;::NotAgent)<span class="question-mark">?</span>;
-		<span class="prelude-val">Ok</span>(Agent { key: agent.clone(), ledger })
+		<span class="prelude-val">Ok</span>(AgentLedgerOuter { key: agent.clone(), ledger })
 	}
 
 	<span class="doccomment">/// Remove funds that are withdrawn from [Config::CoreStaking] but not claimed by a delegator.
@@ -618,7 +621,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.checked_sub(<span class="kw-2">&amp;</span>amount)
 			.defensive_ok_or(ArithmeticError::Overflow)<span class="question-mark">?</span>;
 
-		<span class="prelude-val">Ok</span>(Agent {
+		<span class="prelude-val">Ok</span>(AgentLedgerOuter {
 			ledger: AgentLedger {
 				total_delegated: new_total_delegated,
 				unclaimed_withdrawals: new_unclaimed_withdrawals,
@@ -639,7 +642,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.checked_add(<span class="kw-2">&amp;</span>amount)
 			.defensive_ok_or(ArithmeticError::Overflow)<span class="question-mark">?</span>;
 
-		<span class="prelude-val">Ok</span>(Agent {
+		<span class="prelude-val">Ok</span>(AgentLedgerOuter {
 			ledger: AgentLedger { unclaimed_withdrawals: new_unclaimed_withdrawals, ..<span class="self">self</span>.ledger },
 			..<span class="self">self
 		</span>})
@@ -666,7 +669,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>pending_slash = <span class="self">self</span>.ledger.pending_slash.defensive_saturating_sub(amount);
 		<span class="kw">let </span>total_delegated = <span class="self">self</span>.ledger.total_delegated.defensive_saturating_sub(amount);
 
-		Agent { ledger: AgentLedger { pending_slash, total_delegated, ..<span class="self">self</span>.ledger }, ..<span class="self">self </span>}
+		AgentLedgerOuter {
+			ledger: AgentLedger { pending_slash, total_delegated, ..<span class="self">self</span>.ledger },
+			..<span class="self">self
+		</span>}
 	}
 
 	<span class="doccomment">/// Get the total stake of agent bonded in [`Config::CoreStaking`].
@@ -712,7 +718,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="doccomment">/// Reloads self from storage.
-	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>refresh(<span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Agent&lt;T&gt;, DispatchError&gt; {
+	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>reload(<span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;AgentLedgerOuter&lt;T&gt;, DispatchError&gt; {
 		<span class="self">Self</span>::get(<span class="kw-2">&amp;</span><span class="self">self</span>.key)
 	}
 

@@ -538,6 +538,55 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#387" id="387">387</a>
 <a href="#388" id="388">388</a>
 <a href="#389" id="389">389</a>
+<a href="#390" id="390">390</a>
+<a href="#391" id="391">391</a>
+<a href="#392" id="392">392</a>
+<a href="#393" id="393">393</a>
+<a href="#394" id="394">394</a>
+<a href="#395" id="395">395</a>
+<a href="#396" id="396">396</a>
+<a href="#397" id="397">397</a>
+<a href="#398" id="398">398</a>
+<a href="#399" id="399">399</a>
+<a href="#400" id="400">400</a>
+<a href="#401" id="401">401</a>
+<a href="#402" id="402">402</a>
+<a href="#403" id="403">403</a>
+<a href="#404" id="404">404</a>
+<a href="#405" id="405">405</a>
+<a href="#406" id="406">406</a>
+<a href="#407" id="407">407</a>
+<a href="#408" id="408">408</a>
+<a href="#409" id="409">409</a>
+<a href="#410" id="410">410</a>
+<a href="#411" id="411">411</a>
+<a href="#412" id="412">412</a>
+<a href="#413" id="413">413</a>
+<a href="#414" id="414">414</a>
+<a href="#415" id="415">415</a>
+<a href="#416" id="416">416</a>
+<a href="#417" id="417">417</a>
+<a href="#418" id="418">418</a>
+<a href="#419" id="419">419</a>
+<a href="#420" id="420">420</a>
+<a href="#421" id="421">421</a>
+<a href="#422" id="422">422</a>
+<a href="#423" id="423">423</a>
+<a href="#424" id="424">424</a>
+<a href="#425" id="425">425</a>
+<a href="#426" id="426">426</a>
+<a href="#427" id="427">427</a>
+<a href="#428" id="428">428</a>
+<a href="#429" id="429">429</a>
+<a href="#430" id="430">430</a>
+<a href="#431" id="431">431</a>
+<a href="#432" id="432">432</a>
+<a href="#433" id="433">433</a>
+<a href="#434" id="434">434</a>
+<a href="#435" id="435">435</a>
+<a href="#436" id="436">436</a>
+<a href="#437" id="437">437</a>
+<a href="#438" id="438">438</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -556,7 +605,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // limitations under the License.
 
 </span><span class="kw">use crate</span>::<span class="kw-2">*</span>;
-<span class="kw">use </span>sp_staking::{DelegationInterface, DelegationMigrator};
+<span class="kw">use </span>sp_staking::{Agent, DelegationInterface, DelegationMigrator, Delegator};
 
 <span class="doccomment">/// Types of stake strategies.
 ///
@@ -570,6 +619,50 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>Transfer,
 	<span class="doccomment">/// Member funds are delegated to pool account and staked.
 	</span>Delegate,
+}
+
+<span class="doccomment">/// A type that only belongs in context of a pool.
+///
+/// Maps directly [`Agent`] account.
+</span><span class="attr">#[derive(Clone, Debug)]
+</span><span class="kw">pub struct </span>Pool&lt;T&gt;(T);
+<span class="kw">impl</span>&lt;AccountID&gt; Into&lt;Agent&lt;AccountID&gt;&gt; <span class="kw">for </span>Pool&lt;AccountID&gt; {
+	<span class="kw">fn </span>into(<span class="self">self</span>) -&gt; Agent&lt;AccountID&gt; {
+		Agent::from(<span class="self">self</span>.<span class="number">0</span>)
+	}
+}
+<span class="kw">impl</span>&lt;T&gt; From&lt;T&gt; <span class="kw">for </span>Pool&lt;T&gt; {
+	<span class="kw">fn </span>from(acc: T) -&gt; <span class="self">Self </span>{
+		Pool(acc)
+	}
+}
+
+<span class="kw">impl</span>&lt;T&gt; Pool&lt;T&gt; {
+	<span class="kw">pub fn </span>get(<span class="self">self</span>) -&gt; T {
+		<span class="self">self</span>.<span class="number">0
+	</span>}
+}
+
+<span class="doccomment">/// A type that only belongs in context of a pool member.
+///
+/// Maps directly [`Delegator`] account.
+</span><span class="attr">#[derive(Clone, Debug)]
+</span><span class="kw">pub struct </span>Member&lt;T&gt;(T);
+<span class="kw">impl</span>&lt;AccountID&gt; Into&lt;Delegator&lt;AccountID&gt;&gt; <span class="kw">for </span>Member&lt;AccountID&gt; {
+	<span class="kw">fn </span>into(<span class="self">self</span>) -&gt; Delegator&lt;AccountID&gt; {
+		Delegator::from(<span class="self">self</span>.<span class="number">0</span>)
+	}
+}
+<span class="kw">impl</span>&lt;T&gt; From&lt;T&gt; <span class="kw">for </span>Member&lt;T&gt; {
+	<span class="kw">fn </span>from(acc: T) -&gt; <span class="self">Self </span>{
+		Member(acc)
+	}
+}
+
+<span class="kw">impl</span>&lt;T&gt; Member&lt;T&gt; {
+	<span class="kw">pub fn </span>get(<span class="self">self</span>) -&gt; T {
+		<span class="self">self</span>.<span class="number">0
+	</span>}
 }
 
 <span class="doccomment">/// An adapter trait that can support multiple staking strategies.
@@ -604,30 +697,30 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// This is part of the pool balance that is not actively staked. That is, tokens that are
 	/// in unbonding period or unbonded.
-	</span><span class="kw">fn </span>transferable_balance(pool_account: <span class="kw-2">&amp;</span><span class="self">Self</span>::AccountId) -&gt; <span class="self">Self</span>::Balance;
+	</span><span class="kw">fn </span>transferable_balance(pool_account: Pool&lt;<span class="self">Self</span>::AccountId&gt;) -&gt; <span class="self">Self</span>::Balance;
 
 	<span class="doccomment">/// Total balance of the pool including amount that is actively staked.
-	</span><span class="kw">fn </span>total_balance(pool_account: <span class="kw-2">&amp;</span><span class="self">Self</span>::AccountId) -&gt; <span class="self">Self</span>::Balance;
+	</span><span class="kw">fn </span>total_balance(pool_account: Pool&lt;<span class="self">Self</span>::AccountId&gt;) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>::Balance&gt;;
 
 	<span class="doccomment">/// Amount of tokens delegated by the member.
-	</span><span class="kw">fn </span>member_delegation_balance(member_account: <span class="kw-2">&amp;</span><span class="self">Self</span>::AccountId) -&gt; <span class="self">Self</span>::Balance;
+	</span><span class="kw">fn </span>member_delegation_balance(member_account: Member&lt;<span class="self">Self</span>::AccountId&gt;) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>::Balance&gt;;
 
 	<span class="doccomment">/// See [`StakingInterface::active_stake`].
-	</span><span class="kw">fn </span>active_stake(pool_account: <span class="kw-2">&amp;</span><span class="self">Self</span>::AccountId) -&gt; <span class="self">Self</span>::Balance {
-		<span class="self">Self</span>::CoreStaking::active_stake(pool_account).unwrap_or_default()
+	</span><span class="kw">fn </span>active_stake(pool_account: Pool&lt;<span class="self">Self</span>::AccountId&gt;) -&gt; <span class="self">Self</span>::Balance {
+		<span class="self">Self</span>::CoreStaking::active_stake(<span class="kw-2">&amp;</span>pool_account.<span class="number">0</span>).unwrap_or_default()
 	}
 
 	<span class="doccomment">/// See [`StakingInterface::total_stake`].
-	</span><span class="kw">fn </span>total_stake(pool_account: <span class="kw-2">&amp;</span><span class="self">Self</span>::AccountId) -&gt; <span class="self">Self</span>::Balance {
-		<span class="self">Self</span>::CoreStaking::total_stake(pool_account).unwrap_or_default()
+	</span><span class="kw">fn </span>total_stake(pool_account: Pool&lt;<span class="self">Self</span>::AccountId&gt;) -&gt; <span class="self">Self</span>::Balance {
+		<span class="self">Self</span>::CoreStaking::total_stake(<span class="kw-2">&amp;</span>pool_account.<span class="number">0</span>).unwrap_or_default()
 	}
 
 	<span class="doccomment">/// Which strategy the pool account is using.
 	///
 	/// This can be different from the [`Self::strategy_type`] of the adapter if the pool has not
 	/// migrated to the new strategy yet.
-	</span><span class="kw">fn </span>pool_strategy(pool_account: <span class="kw-2">&amp;</span><span class="self">Self</span>::AccountId) -&gt; StakeStrategyType {
-		<span class="kw">match </span><span class="self">Self</span>::CoreStaking::is_virtual_staker(pool_account) {
+	</span><span class="kw">fn </span>pool_strategy(pool_account: Pool&lt;<span class="self">Self</span>::AccountId&gt;) -&gt; StakeStrategyType {
+		<span class="kw">match </span><span class="self">Self</span>::CoreStaking::is_virtual_staker(<span class="kw-2">&amp;</span>pool_account.<span class="number">0</span>) {
 			<span class="bool-val">true </span>=&gt; StakeStrategyType::Delegate,
 			<span class="bool-val">false </span>=&gt; StakeStrategyType::Transfer,
 		}
@@ -635,55 +728,55 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// See [`StakingInterface::nominate`].
 	</span><span class="kw">fn </span>nominate(
-		pool_account: <span class="kw-2">&amp;</span><span class="self">Self</span>::AccountId,
+		pool_account: Pool&lt;<span class="self">Self</span>::AccountId&gt;,
 		validators: Vec&lt;<span class="self">Self</span>::AccountId&gt;,
 	) -&gt; DispatchResult {
-		<span class="self">Self</span>::CoreStaking::nominate(pool_account, validators)
+		<span class="self">Self</span>::CoreStaking::nominate(<span class="kw-2">&amp;</span>pool_account.<span class="number">0</span>, validators)
 	}
 
 	<span class="doccomment">/// See [`StakingInterface::chill`].
-	</span><span class="kw">fn </span>chill(pool_account: <span class="kw-2">&amp;</span><span class="self">Self</span>::AccountId) -&gt; DispatchResult {
-		<span class="self">Self</span>::CoreStaking::chill(pool_account)
+	</span><span class="kw">fn </span>chill(pool_account: Pool&lt;<span class="self">Self</span>::AccountId&gt;) -&gt; DispatchResult {
+		<span class="self">Self</span>::CoreStaking::chill(<span class="kw-2">&amp;</span>pool_account.<span class="number">0</span>)
 	}
 
 	<span class="doccomment">/// Pledge `amount` towards `pool_account` and update the pool bond. Also see
 	/// [`StakingInterface::bond`].
 	</span><span class="kw">fn </span>pledge_bond(
-		who: <span class="kw-2">&amp;</span><span class="self">Self</span>::AccountId,
-		pool_account: <span class="kw-2">&amp;</span><span class="self">Self</span>::AccountId,
+		who: Member&lt;<span class="self">Self</span>::AccountId&gt;,
+		pool_account: Pool&lt;<span class="self">Self</span>::AccountId&gt;,
 		reward_account: <span class="kw-2">&amp;</span><span class="self">Self</span>::AccountId,
 		amount: <span class="self">Self</span>::Balance,
 		bond_type: BondType,
 	) -&gt; DispatchResult;
 
 	<span class="doccomment">/// See [`StakingInterface::unbond`].
-	</span><span class="kw">fn </span>unbond(pool_account: <span class="kw-2">&amp;</span><span class="self">Self</span>::AccountId, amount: <span class="self">Self</span>::Balance) -&gt; DispatchResult {
-		<span class="self">Self</span>::CoreStaking::unbond(pool_account, amount)
+	</span><span class="kw">fn </span>unbond(pool_account: Pool&lt;<span class="self">Self</span>::AccountId&gt;, amount: <span class="self">Self</span>::Balance) -&gt; DispatchResult {
+		<span class="self">Self</span>::CoreStaking::unbond(<span class="kw-2">&amp;</span>pool_account.<span class="number">0</span>, amount)
 	}
 
 	<span class="doccomment">/// See [`StakingInterface::withdraw_unbonded`].
 	</span><span class="kw">fn </span>withdraw_unbonded(
-		pool_account: <span class="kw-2">&amp;</span><span class="self">Self</span>::AccountId,
+		pool_account: Pool&lt;<span class="self">Self</span>::AccountId&gt;,
 		num_slashing_spans: u32,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;bool, DispatchError&gt; {
-		<span class="self">Self</span>::CoreStaking::withdraw_unbonded(pool_account.clone(), num_slashing_spans)
+		<span class="self">Self</span>::CoreStaking::withdraw_unbonded(pool_account.<span class="number">0</span>, num_slashing_spans)
 	}
 
 	<span class="doccomment">/// Withdraw funds from pool account to member account.
 	</span><span class="kw">fn </span>member_withdraw(
-		who: <span class="kw-2">&amp;</span><span class="self">Self</span>::AccountId,
-		pool_account: <span class="kw-2">&amp;</span><span class="self">Self</span>::AccountId,
+		who: Member&lt;<span class="self">Self</span>::AccountId&gt;,
+		pool_account: Pool&lt;<span class="self">Self</span>::AccountId&gt;,
 		amount: <span class="self">Self</span>::Balance,
 		num_slashing_spans: u32,
 	) -&gt; DispatchResult;
 
 	<span class="doccomment">/// Check if there is any pending slash for the pool.
-	</span><span class="kw">fn </span>has_pending_slash(pool_account: <span class="kw-2">&amp;</span><span class="self">Self</span>::AccountId) -&gt; bool;
+	</span><span class="kw">fn </span>pending_slash(pool_account: Pool&lt;<span class="self">Self</span>::AccountId&gt;) -&gt; <span class="self">Self</span>::Balance;
 
 	<span class="doccomment">/// Slash the member account with `amount` against pending slashes for the pool.
 	</span><span class="kw">fn </span>member_slash(
-		who: <span class="kw-2">&amp;</span><span class="self">Self</span>::AccountId,
-		pool_account: <span class="kw-2">&amp;</span><span class="self">Self</span>::AccountId,
+		who: Member&lt;<span class="self">Self</span>::AccountId&gt;,
+		pool_account: Pool&lt;<span class="self">Self</span>::AccountId&gt;,
 		amount: <span class="self">Self</span>::Balance,
 		maybe_reporter: <span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>::AccountId&gt;,
 	) -&gt; DispatchResult;
@@ -693,7 +786,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// This is useful for migrating a pool account from [`StakeStrategyType::Transfer`] to
 	/// [`StakeStrategyType::Delegate`].
 	</span><span class="kw">fn </span>migrate_nominator_to_agent(
-		pool_account: <span class="kw-2">&amp;</span><span class="self">Self</span>::AccountId,
+		pool_account: Pool&lt;<span class="self">Self</span>::AccountId&gt;,
 		reward_account: <span class="kw-2">&amp;</span><span class="self">Self</span>::AccountId,
 	) -&gt; DispatchResult;
 
@@ -706,15 +799,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// Internally, the member funds that are locked in the pool account are transferred back and
 	/// locked in the member account.
 	</span><span class="kw">fn </span>migrate_delegation(
-		pool: <span class="kw-2">&amp;</span><span class="self">Self</span>::AccountId,
-		delegator: <span class="kw-2">&amp;</span><span class="self">Self</span>::AccountId,
+		pool: Pool&lt;<span class="self">Self</span>::AccountId&gt;,
+		delegator: Member&lt;<span class="self">Self</span>::AccountId&gt;,
 		value: <span class="self">Self</span>::Balance,
 	) -&gt; DispatchResult;
 
 	<span class="doccomment">/// List of validators nominated by the pool account.
 	</span><span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
-	</span><span class="kw">fn </span>nominations(pool_account: <span class="kw-2">&amp;</span><span class="self">Self</span>::AccountId) -&gt; <span class="prelude-ty">Option</span>&lt;Vec&lt;<span class="self">Self</span>::AccountId&gt;&gt; {
-		<span class="self">Self</span>::CoreStaking::nominations(pool_account)
+	</span><span class="kw">fn </span>nominations(pool_account: Pool&lt;<span class="self">Self</span>::AccountId&gt;) -&gt; <span class="prelude-ty">Option</span>&lt;Vec&lt;<span class="self">Self</span>::AccountId&gt;&gt; {
+		<span class="self">Self</span>::CoreStaking::nominations(<span class="kw-2">&amp;</span>pool_account.<span class="number">0</span>)
 	}
 
 	<span class="doccomment">/// Remove the pool account as agent.
@@ -722,7 +815,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// Useful for migrating pool account from a delegated agent to a direct nominator. Only used
 	/// in tests and benchmarks.
 	</span><span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
-	</span><span class="kw">fn </span>remove_as_agent(_pool: <span class="kw-2">&amp;</span><span class="self">Self</span>::AccountId) {
+	</span><span class="kw">fn </span>remove_as_agent(_pool: Pool&lt;<span class="self">Self</span>::AccountId&gt;) {
 		<span class="comment">// noop by default
 	</span>}
 }
@@ -749,22 +842,24 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		StakeStrategyType::Transfer
 	}
 
-	<span class="kw">fn </span>transferable_balance(pool_account: <span class="kw-2">&amp;</span><span class="self">Self</span>::AccountId) -&gt; BalanceOf&lt;T&gt; {
-		T::Currency::balance(pool_account).saturating_sub(<span class="self">Self</span>::active_stake(pool_account))
+	<span class="kw">fn </span>transferable_balance(pool_account: Pool&lt;<span class="self">Self</span>::AccountId&gt;) -&gt; BalanceOf&lt;T&gt; {
+		T::Currency::balance(<span class="kw-2">&amp;</span>pool_account.<span class="number">0</span>).saturating_sub(<span class="self">Self</span>::active_stake(pool_account))
 	}
 
-	<span class="kw">fn </span>total_balance(pool_account: <span class="kw-2">&amp;</span><span class="self">Self</span>::AccountId) -&gt; BalanceOf&lt;T&gt; {
-		T::Currency::total_balance(pool_account)
+	<span class="kw">fn </span>total_balance(pool_account: Pool&lt;<span class="self">Self</span>::AccountId&gt;) -&gt; <span class="prelude-ty">Option</span>&lt;BalanceOf&lt;T&gt;&gt; {
+		<span class="prelude-val">Some</span>(T::Currency::total_balance(<span class="kw-2">&amp;</span>pool_account.<span class="number">0</span>))
 	}
 
-	<span class="kw">fn </span>member_delegation_balance(_member_account: <span class="kw-2">&amp;</span>T::AccountId) -&gt; Staking::Balance {
-		<span class="comment">// for transfer stake, delegation balance is always zero.
-		</span>Zero::zero()
-	}
+	<span class="kw">fn </span>member_delegation_balance(
+		_member_account: Member&lt;T::AccountId&gt;,
+	) -&gt; <span class="prelude-ty">Option</span>&lt;Staking::Balance&gt; {
+		<span class="comment">// for transfer stake, no delegation exists.
+		</span><span class="prelude-val">None
+	</span>}
 
 	<span class="kw">fn </span>pledge_bond(
-		who: <span class="kw-2">&amp;</span>T::AccountId,
-		pool_account: <span class="kw-2">&amp;</span><span class="self">Self</span>::AccountId,
+		who: Member&lt;T::AccountId&gt;,
+		pool_account: Pool&lt;<span class="self">Self</span>::AccountId&gt;,
 		reward_account: <span class="kw-2">&amp;</span><span class="self">Self</span>::AccountId,
 		amount: BalanceOf&lt;T&gt;,
 		bond_type: BondType,
@@ -772,36 +867,36 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">match </span>bond_type {
 			BondType::Create =&gt; {
 				<span class="comment">// first bond
-				</span>T::Currency::transfer(who, pool_account, amount, Preservation::Expendable)<span class="question-mark">?</span>;
-				Staking::bond(pool_account, amount, <span class="kw-2">&amp;</span>reward_account)
+				</span>T::Currency::transfer(<span class="kw-2">&amp;</span>who.<span class="number">0</span>, <span class="kw-2">&amp;</span>pool_account.<span class="number">0</span>, amount, Preservation::Expendable)<span class="question-mark">?</span>;
+				Staking::bond(<span class="kw-2">&amp;</span>pool_account.<span class="number">0</span>, amount, <span class="kw-2">&amp;</span>reward_account)
 			},
 			BondType::Extra =&gt; {
 				<span class="comment">// additional bond
-				</span>T::Currency::transfer(who, pool_account, amount, Preservation::Preserve)<span class="question-mark">?</span>;
-				Staking::bond_extra(pool_account, amount)
+				</span>T::Currency::transfer(<span class="kw-2">&amp;</span>who.<span class="number">0</span>, <span class="kw-2">&amp;</span>pool_account.<span class="number">0</span>, amount, Preservation::Preserve)<span class="question-mark">?</span>;
+				Staking::bond_extra(<span class="kw-2">&amp;</span>pool_account.<span class="number">0</span>, amount)
 			},
 		}
 	}
 
 	<span class="kw">fn </span>member_withdraw(
-		who: <span class="kw-2">&amp;</span>T::AccountId,
-		pool_account: <span class="kw-2">&amp;</span><span class="self">Self</span>::AccountId,
+		who: Member&lt;<span class="self">Self</span>::AccountId&gt;,
+		pool_account: Pool&lt;<span class="self">Self</span>::AccountId&gt;,
 		amount: BalanceOf&lt;T&gt;,
 		_num_slashing_spans: u32,
 	) -&gt; DispatchResult {
-		T::Currency::transfer(pool_account, <span class="kw-2">&amp;</span>who, amount, Preservation::Expendable)<span class="question-mark">?</span>;
+		T::Currency::transfer(<span class="kw-2">&amp;</span>pool_account.<span class="number">0</span>, <span class="kw-2">&amp;</span>who.<span class="number">0</span>, amount, Preservation::Expendable)<span class="question-mark">?</span>;
 
 		<span class="prelude-val">Ok</span>(())
 	}
 
-	<span class="kw">fn </span>has_pending_slash(<span class="kw">_</span>: <span class="kw-2">&amp;</span><span class="self">Self</span>::AccountId) -&gt; bool {
+	<span class="kw">fn </span>pending_slash(<span class="kw">_</span>: Pool&lt;<span class="self">Self</span>::AccountId&gt;) -&gt; <span class="self">Self</span>::Balance {
 		<span class="comment">// for transfer stake strategy, slashing is greedy and never deferred.
-		</span><span class="bool-val">false
-	</span>}
+		</span>Zero::zero()
+	}
 
 	<span class="kw">fn </span>member_slash(
-		_who: <span class="kw-2">&amp;</span>T::AccountId,
-		_pool: <span class="kw-2">&amp;</span><span class="self">Self</span>::AccountId,
+		_who: Member&lt;<span class="self">Self</span>::AccountId&gt;,
+		_pool: Pool&lt;<span class="self">Self</span>::AccountId&gt;,
 		_amount: Staking::Balance,
 		_maybe_reporter: <span class="prelude-ty">Option</span>&lt;T::AccountId&gt;,
 	) -&gt; DispatchResult {
@@ -809,15 +904,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="kw">fn </span>migrate_nominator_to_agent(
-		_pool: <span class="kw-2">&amp;</span><span class="self">Self</span>::AccountId,
+		_pool: Pool&lt;<span class="self">Self</span>::AccountId&gt;,
 		_reward_account: <span class="kw-2">&amp;</span><span class="self">Self</span>::AccountId,
 	) -&gt; DispatchResult {
 		<span class="prelude-val">Err</span>(Error::&lt;T&gt;::Defensive(DefensiveError::DelegationUnsupported).into())
 	}
 
 	<span class="kw">fn </span>migrate_delegation(
-		_pool: <span class="kw-2">&amp;</span><span class="self">Self</span>::AccountId,
-		_delegator: <span class="kw-2">&amp;</span><span class="self">Self</span>::AccountId,
+		_pool: Pool&lt;<span class="self">Self</span>::AccountId&gt;,
+		_delegator: Member&lt;<span class="self">Self</span>::AccountId&gt;,
 		_value: <span class="self">Self</span>::Balance,
 	) -&gt; DispatchResult {
 		<span class="prelude-val">Err</span>(Error::&lt;T&gt;::Defensive(DefensiveError::DelegationUnsupported).into())
@@ -854,21 +949,24 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		StakeStrategyType::Delegate
 	}
 
-	<span class="kw">fn </span>transferable_balance(pool_account: <span class="kw-2">&amp;</span><span class="self">Self</span>::AccountId) -&gt; BalanceOf&lt;T&gt; {
-		Delegation::agent_balance(pool_account).saturating_sub(<span class="self">Self</span>::active_stake(pool_account))
+	<span class="kw">fn </span>transferable_balance(pool_account: Pool&lt;<span class="self">Self</span>::AccountId&gt;) -&gt; BalanceOf&lt;T&gt; {
+		Delegation::agent_balance(pool_account.clone().into())
+			<span class="comment">// pool should always be an agent.
+			</span>.defensive_unwrap_or_default()
+			.saturating_sub(<span class="self">Self</span>::active_stake(pool_account))
 	}
 
-	<span class="kw">fn </span>total_balance(pool_account: <span class="kw-2">&amp;</span><span class="self">Self</span>::AccountId) -&gt; BalanceOf&lt;T&gt; {
-		Delegation::agent_balance(pool_account)
+	<span class="kw">fn </span>total_balance(pool_account: Pool&lt;<span class="self">Self</span>::AccountId&gt;) -&gt; <span class="prelude-ty">Option</span>&lt;BalanceOf&lt;T&gt;&gt; {
+		Delegation::agent_balance(pool_account.into())
 	}
 
-	<span class="kw">fn </span>member_delegation_balance(member_account: <span class="kw-2">&amp;</span>T::AccountId) -&gt; BalanceOf&lt;T&gt; {
-		Delegation::delegator_balance(member_account)
+	<span class="kw">fn </span>member_delegation_balance(member_account: Member&lt;T::AccountId&gt;) -&gt; <span class="prelude-ty">Option</span>&lt;BalanceOf&lt;T&gt;&gt; {
+		Delegation::delegator_balance(member_account.into())
 	}
 
 	<span class="kw">fn </span>pledge_bond(
-		who: <span class="kw-2">&amp;</span>T::AccountId,
-		pool_account: <span class="kw-2">&amp;</span><span class="self">Self</span>::AccountId,
+		who: Member&lt;T::AccountId&gt;,
+		pool_account: Pool&lt;<span class="self">Self</span>::AccountId&gt;,
 		reward_account: <span class="kw-2">&amp;</span><span class="self">Self</span>::AccountId,
 		amount: BalanceOf&lt;T&gt;,
 		bond_type: BondType,
@@ -876,55 +974,55 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">match </span>bond_type {
 			BondType::Create =&gt; {
 				<span class="comment">// first delegation
-				</span>Delegation::delegate(who, pool_account, reward_account, amount)
+				</span>Delegation::delegate(who.into(), pool_account.into(), reward_account, amount)
 			},
 			BondType::Extra =&gt; {
 				<span class="comment">// additional delegation
-				</span>Delegation::delegate_extra(who, pool_account, amount)
+				</span>Delegation::delegate_extra(who.into(), pool_account.into(), amount)
 			},
 		}
 	}
 
 	<span class="kw">fn </span>member_withdraw(
-		who: <span class="kw-2">&amp;</span>T::AccountId,
-		pool_account: <span class="kw-2">&amp;</span><span class="self">Self</span>::AccountId,
+		who: Member&lt;<span class="self">Self</span>::AccountId&gt;,
+		pool_account: Pool&lt;<span class="self">Self</span>::AccountId&gt;,
 		amount: BalanceOf&lt;T&gt;,
 		num_slashing_spans: u32,
 	) -&gt; DispatchResult {
-		Delegation::withdraw_delegation(<span class="kw-2">&amp;</span>who, pool_account, amount, num_slashing_spans)
+		Delegation::withdraw_delegation(who.into(), pool_account.into(), amount, num_slashing_spans)
 	}
 
-	<span class="kw">fn </span>has_pending_slash(pool_account: <span class="kw-2">&amp;</span><span class="self">Self</span>::AccountId) -&gt; bool {
-		Delegation::has_pending_slash(pool_account)
+	<span class="kw">fn </span>pending_slash(pool_account: Pool&lt;<span class="self">Self</span>::AccountId&gt;) -&gt; <span class="self">Self</span>::Balance {
+		Delegation::pending_slash(pool_account.into()).defensive_unwrap_or_default()
 	}
 
 	<span class="kw">fn </span>member_slash(
-		who: <span class="kw-2">&amp;</span>T::AccountId,
-		pool_account: <span class="kw-2">&amp;</span><span class="self">Self</span>::AccountId,
+		who: Member&lt;<span class="self">Self</span>::AccountId&gt;,
+		pool_account: Pool&lt;<span class="self">Self</span>::AccountId&gt;,
 		amount: BalanceOf&lt;T&gt;,
 		maybe_reporter: <span class="prelude-ty">Option</span>&lt;T::AccountId&gt;,
 	) -&gt; DispatchResult {
-		Delegation::delegator_slash(pool_account, who, amount, maybe_reporter)
+		Delegation::delegator_slash(pool_account.into(), who.into(), amount, maybe_reporter)
 	}
 
 	<span class="kw">fn </span>migrate_nominator_to_agent(
-		pool: <span class="kw-2">&amp;</span><span class="self">Self</span>::AccountId,
+		pool: Pool&lt;<span class="self">Self</span>::AccountId&gt;,
 		reward_account: <span class="kw-2">&amp;</span><span class="self">Self</span>::AccountId,
 	) -&gt; DispatchResult {
-		Delegation::migrate_nominator_to_agent(pool, reward_account)
+		Delegation::migrate_nominator_to_agent(pool.into(), reward_account)
 	}
 
 	<span class="kw">fn </span>migrate_delegation(
-		pool: <span class="kw-2">&amp;</span><span class="self">Self</span>::AccountId,
-		delegator: <span class="kw-2">&amp;</span><span class="self">Self</span>::AccountId,
+		pool: Pool&lt;<span class="self">Self</span>::AccountId&gt;,
+		delegator: Member&lt;<span class="self">Self</span>::AccountId&gt;,
 		value: <span class="self">Self</span>::Balance,
 	) -&gt; DispatchResult {
-		Delegation::migrate_delegation(pool, delegator, value)
+		Delegation::migrate_delegation(pool.into(), delegator.into(), value)
 	}
 
 	<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
-	</span><span class="kw">fn </span>remove_as_agent(pool: <span class="kw-2">&amp;</span><span class="self">Self</span>::AccountId) {
-		Delegation::drop_agent(pool)
+	</span><span class="kw">fn </span>remove_as_agent(pool: Pool&lt;<span class="self">Self</span>::AccountId&gt;) {
+		Delegation::drop_agent(pool.into())
 	}
 }
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>

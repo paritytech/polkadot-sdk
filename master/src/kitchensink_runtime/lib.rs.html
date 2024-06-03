@@ -3446,6 +3446,22 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#3295" id="3295">3295</a>
 <a href="#3296" id="3296">3296</a>
 <a href="#3297" id="3297">3297</a>
+<a href="#3298" id="3298">3298</a>
+<a href="#3299" id="3299">3299</a>
+<a href="#3300" id="3300">3300</a>
+<a href="#3301" id="3301">3301</a>
+<a href="#3302" id="3302">3302</a>
+<a href="#3303" id="3303">3303</a>
+<a href="#3304" id="3304">3304</a>
+<a href="#3305" id="3305">3305</a>
+<a href="#3306" id="3306">3306</a>
+<a href="#3307" id="3307">3307</a>
+<a href="#3308" id="3308">3308</a>
+<a href="#3309" id="3309">3309</a>
+<a href="#3310" id="3310">3310</a>
+<a href="#3311" id="3311">3311</a>
+<a href="#3312" id="3312">3312</a>
+<a href="#3313" id="3313">3313</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -6221,6 +6237,22 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">fn </span>balance_to_points(pool_id: pallet_nomination_pools::PoolId, new_funds: Balance) -&gt; Balance {
 			NominationPools::api_balance_to_points(pool_id, new_funds)
+		}
+
+		<span class="kw">fn </span>pool_pending_slash(pool_id: pallet_nomination_pools::PoolId) -&gt; Balance {
+			NominationPools::api_pool_pending_slash(pool_id)
+		}
+
+		<span class="kw">fn </span>member_pending_slash(member: AccountId) -&gt; Balance {
+			NominationPools::api_member_pending_slash(member)
+		}
+
+		<span class="kw">fn </span>pool_needs_delegate_migration(pool_id: pallet_nomination_pools::PoolId) -&gt; bool {
+			NominationPools::api_pool_needs_delegate_migration(pool_id)
+		}
+
+		<span class="kw">fn </span>member_needs_delegate_migration(member: AccountId) -&gt; bool {
+			NominationPools::api_member_needs_delegate_migration(member)
 		}
 	}
 

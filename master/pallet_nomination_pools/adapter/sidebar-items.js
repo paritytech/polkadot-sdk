@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["StakeStrategyType"],"struct":["DelegateStake","TransferStake"],"trait":["StakeStrategy"]};
+window.SIDEBAR_ITEMS = {"enum":["StakeStrategyType"],"struct":["DelegateStake","Member","Pool","TransferStake"],"trait":["StakeStrategy"]};

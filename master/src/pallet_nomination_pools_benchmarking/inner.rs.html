@@ -1174,6 +1174,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1023" id="1023">1023</a>
 <a href="#1024" id="1024">1024</a>
 <a href="#1025" id="1025">1025</a>
+<a href="#1026" id="1026">1026</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1205,7 +1206,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 };
 <span class="kw">use </span>frame_system::RawOrigin <span class="kw">as </span>RuntimeOrigin;
 <span class="kw">use </span>pallet_nomination_pools::{
-	adapter::{StakeStrategy, StakeStrategyType},
+	adapter::{Member, Pool, StakeStrategy, StakeStrategyType},
 	BalanceOf, BondExtra, BondedPoolInner, BondedPools, ClaimPermission, ClaimPermissions,
 	Commission, CommissionChangeRate, CommissionClaimPermission, ConfigOp, GlobalMaxCommission,
 	MaxPoolMembers, MaxPoolMembersPerPool, MaxPools, Metadata, MinCreateBond, MinJoinBond,
@@ -1292,7 +1293,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 	<span class="kw">let </span>pool_acc = Pools::&lt;T&gt;::generate_bonded_account(pool_id);
 	<span class="comment">// drop the agent and its associated delegators .
-	</span>T::StakeAdapter::remove_as_agent(<span class="kw-2">&amp;</span>pool_acc);
+	</span>T::StakeAdapter::remove_as_agent(Pool::from(pool_acc.clone()));
 
 	<span class="comment">// tranfer funds from all members to the pool account.
 	</span>PoolMembers::&lt;T&gt;::iter()
@@ -1315,8 +1316,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	vote.try_into().map_err(|<span class="kw">_</span>| <span class="string">"could not convert u64 to Balance"</span>)
 }
 
-<span class="kw">fn </span>is_transfer_stake_strategy&lt;T: pallet_nomination_pools::Config&gt;() -&gt; bool {
-	T::StakeAdapter::strategy_type() == StakeStrategyType::Transfer
+<span class="doccomment">/// `assertion` should strictly be true if the adapter is using `Delegate` strategy and strictly
+/// false if the adapter is not using `Delegate` strategy.
+</span><span class="kw">fn </span>assert_if_delegate&lt;T: pallet_nomination_pools::Config&gt;(assertion: bool) {
+	<span class="kw">let </span>legacy_adapter_used = T::StakeAdapter::strategy_type() != StakeStrategyType::Delegate;
+	<span class="comment">// one and only one of the two should be true.
+	</span><span class="macro">assert!</span>(assertion ^ legacy_adapter_used);
 }
 
 <span class="attr">#[allow(unused)]
@@ -1358,7 +1363,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			create_pool_account::&lt;T&gt;(USER_SEED + <span class="number">1</span>, origin_weight, <span class="prelude-val">Some</span>(Perbill::from_percent(<span class="number">50</span>)));
 
 		T::StakeAdapter::nominate(
-			<span class="kw-2">&amp;</span>pool_origin1,
+			Pool::from(pool_origin1.clone()),
 			<span class="comment">// NOTE: these don't really need to be validators.
 			</span><span class="macro">vec!</span>[account(<span class="string">"random_validator"</span>, <span class="number">0</span>, USER_SEED)],
 		)<span class="question-mark">?</span>;
@@ -1367,7 +1372,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			create_pool_account::&lt;T&gt;(USER_SEED + <span class="number">2</span>, origin_weight, <span class="prelude-val">Some</span>(Perbill::from_percent(<span class="number">50</span>)));
 
 		T::StakeAdapter::nominate(
-			<span class="kw-2">&amp;</span>pool_origin2,
+			Pool::from(pool_origin2.clone()),
 			<span class="macro">vec!</span>[account(<span class="string">"random_validator"</span>, <span class="number">0</span>, USER_SEED)].clone(),
 		)<span class="question-mark">?</span>;
 
@@ -1384,7 +1389,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="kw">let </span>(<span class="kw">_</span>, pool_dest1) =
 			create_pool_account::&lt;T&gt;(USER_SEED + <span class="number">3</span>, dest_weight, <span class="prelude-val">Some</span>(Perbill::from_percent(<span class="number">50</span>)));
 
-		T::StakeAdapter::nominate(<span class="kw-2">&amp;</span>pool_dest1, <span class="macro">vec!</span>[account(<span class="string">"random_validator"</span>, <span class="number">0</span>, USER_SEED)])<span class="question-mark">?</span>;
+		T::StakeAdapter::nominate(
+			Pool::from(pool_dest1.clone()),
+			<span class="macro">vec!</span>[account(<span class="string">"random_validator"</span>, <span class="number">0</span>, USER_SEED)],
+		)<span class="question-mark">?</span>;
 
 		<span class="kw">let </span>weight_of = pallet_staking::Pallet::&lt;T&gt;::weight_of_fn();
 		<span class="macro">assert_eq!</span>(vote_to_balance::&lt;T&gt;(weight_of(<span class="kw-2">&amp;</span>pool_origin1)).unwrap(), origin_weight);
@@ -1410,11 +1418,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="self">self</span>.origin1_member = <span class="prelude-val">Some</span>(joiner.clone());
 		CurrencyOf::&lt;T&gt;::set_balance(<span class="kw-2">&amp;</span>joiner, amount * <span class="number">2u32</span>.into());
 
-		<span class="kw">let </span>original_bonded = T::StakeAdapter::active_stake(<span class="kw-2">&amp;</span><span class="self">self</span>.origin1);
+		<span class="kw">let </span>original_bonded = T::StakeAdapter::active_stake(Pool::from(<span class="self">self</span>.origin1.clone()));
 
 		<span class="comment">// Unbond `amount` from the underlying pool account so when the member joins
 		// we will maintain `current_bonded`.
-		</span>T::StakeAdapter::unbond(<span class="kw-2">&amp;</span><span class="self">self</span>.origin1, amount)
+		</span>T::StakeAdapter::unbond(Pool::from(<span class="self">self</span>.origin1.clone()), amount)
 			.expect(<span class="string">"the pool was created in `Self::new`."</span>);
 
 		<span class="comment">// Account pool points for the unbonded balance.
@@ -1451,7 +1459,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="comment">// setup the worst case list scenario.
 		</span><span class="kw">let </span>scenario = ListScenario::&lt;T&gt;::new(origin_weight, <span class="bool-val">true</span>)<span class="question-mark">?</span>;
 		<span class="macro">assert_eq!</span>(
-			T::StakeAdapter::active_stake(<span class="kw-2">&amp;</span>scenario.origin1),
+			T::StakeAdapter::active_stake(Pool::from(scenario.origin1.clone())),
 			origin_weight
 		);
 
@@ -1466,7 +1474,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	verify {
 		<span class="macro">assert_eq!</span>(CurrencyOf::&lt;T&gt;::balance(<span class="kw-2">&amp;</span>joiner), joiner_free - max_additional);
 		<span class="macro">assert_eq!</span>(
-			T::StakeAdapter::active_stake(<span class="kw-2">&amp;</span>scenario.origin1),
+			T::StakeAdapter::active_stake(Pool::from(scenario.origin1)),
 			scenario.dest_weight
 		);
 	}
@@ -1481,7 +1489,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>}: bond_extra(RuntimeOrigin::Signed(scenario.creator1.clone()), BondExtra::FreeBalance(extra))
 	verify {
 		<span class="macro">assert!</span>(
-			T::StakeAdapter::active_stake(<span class="kw-2">&amp;</span>scenario.origin1) &gt;=
+			T::StakeAdapter::active_stake(Pool::from(scenario.origin1)) &gt;=
 			scenario.dest_weight
 		);
 	}
@@ -1505,7 +1513,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	verify {
 		 <span class="comment">// commission of 50% deducted here.
 		</span><span class="macro">assert!</span>(
-			T::StakeAdapter::active_stake(<span class="kw-2">&amp;</span>scenario.origin1) &gt;=
+			T::StakeAdapter::active_stake(Pool::from(scenario.origin1)) &gt;=
 			scenario.dest_weight / <span class="number">2u32</span>.into()
 		);
 	}
@@ -1559,7 +1567,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="macro">whitelist_account!</span>(member_id);
 	}: <span class="kw">_</span>(RuntimeOrigin::Signed(member_id.clone()), member_id_lookup, all_points)
 	verify {
-		<span class="kw">let </span>bonded_after = T::StakeAdapter::active_stake(<span class="kw-2">&amp;</span>scenario.origin1);
+		<span class="kw">let </span>bonded_after = T::StakeAdapter::active_stake(Pool::from(scenario.origin1));
 		<span class="comment">// We at least went down to the destination bag
 		</span><span class="macro">assert!</span>(bonded_after &lt;= scenario.dest_weight);
 		<span class="kw">let </span>member = PoolMembers::&lt;T&gt;::get(
@@ -1590,7 +1598,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="comment">// Sanity check join worked
 		</span><span class="macro">assert_eq!</span>(
-			T::StakeAdapter::active_stake(<span class="kw-2">&amp;</span>pool_account),
+			T::StakeAdapter::active_stake(Pool::from(pool_account.clone())),
 			min_create_bond + min_join_bond
 		);
 		<span class="macro">assert_eq!</span>(CurrencyOf::&lt;T&gt;::balance(<span class="kw-2">&amp;</span>joiner), min_join_bond);
@@ -1600,7 +1608,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="comment">// Sanity check that unbond worked
 		</span><span class="macro">assert_eq!</span>(
-			T::StakeAdapter::active_stake(<span class="kw-2">&amp;</span>pool_account),
+			T::StakeAdapter::active_stake(Pool::from(pool_account.clone())),
 			min_create_bond
 		);
 		<span class="macro">assert_eq!</span>(pallet_staking::Ledger::&lt;T&gt;::get(<span class="kw-2">&amp;</span>pool_account).unwrap().unlocking.len(), <span class="number">1</span>);
@@ -1633,7 +1641,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="comment">// Sanity check join worked
 		</span><span class="macro">assert_eq!</span>(
-			T::StakeAdapter::active_stake(<span class="kw-2">&amp;</span>pool_account),
+			T::StakeAdapter::active_stake(Pool::from(pool_account.clone())),
 			min_create_bond + min_join_bond
 		);
 		<span class="macro">assert_eq!</span>(CurrencyOf::&lt;T&gt;::balance(<span class="kw-2">&amp;</span>joiner), min_join_bond);
@@ -1644,7 +1652,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="comment">// Sanity check that unbond worked
 		</span><span class="macro">assert_eq!</span>(
-			T::StakeAdapter::active_stake(<span class="kw-2">&amp;</span>pool_account),
+			T::StakeAdapter::active_stake(Pool::from(pool_account.clone())),
 			min_create_bond
 		);
 		<span class="macro">assert_eq!</span>(pallet_staking::Ledger::&lt;T&gt;::get(<span class="kw-2">&amp;</span>pool_account).unwrap().unlocking.len(), <span class="number">1</span>);
@@ -1690,12 +1698,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="comment">// Sanity check that unbond worked
 		</span><span class="macro">assert_eq!</span>(
-			T::StakeAdapter::active_stake(<span class="kw-2">&amp;</span>pool_account),
+			T::StakeAdapter::active_stake(Pool::from(pool_account.clone())),
 			Zero::zero()
 		);
 		<span class="macro">assert_eq!</span>(
-			T::StakeAdapter::total_balance(<span class="kw-2">&amp;</span>pool_account),
-			min_create_bond
+			T::StakeAdapter::total_balance(Pool::from(pool_account.clone())),
+			<span class="prelude-val">Some</span>(min_create_bond)
 		);
 		<span class="macro">assert_eq!</span>(pallet_staking::Ledger::&lt;T&gt;::get(<span class="kw-2">&amp;</span>pool_account).unwrap().unlocking.len(), <span class="number">1</span>);
 
@@ -1770,7 +1778,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			}
 		);
 		<span class="macro">assert_eq!</span>(
-			T::StakeAdapter::active_stake(<span class="kw-2">&amp;</span>Pools::&lt;T&gt;::generate_bonded_account(<span class="number">1</span>)),
+			T::StakeAdapter::active_stake(Pool::from(Pools::&lt;T&gt;::generate_bonded_account(<span class="number">1</span>))),
 			min_create_bond
 		);
 	}
@@ -1810,7 +1818,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			}
 		);
 		<span class="macro">assert_eq!</span>(
-			T::StakeAdapter::active_stake(<span class="kw-2">&amp;</span>Pools::&lt;T&gt;::generate_bonded_account(<span class="number">1</span>)),
+			T::StakeAdapter::active_stake(Pool::from(Pools::&lt;T&gt;::generate_bonded_account(<span class="number">1</span>))),
 			min_create_bond
 		);
 	}
@@ -1895,13 +1903,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.map(|i| account(<span class="string">"stash"</span>, USER_SEED, i))
 			.collect();
 
-		<span class="macro">assert_ok!</span>(T::StakeAdapter::nominate(<span class="kw-2">&amp;</span>pool_account, validators));
-		<span class="macro">assert!</span>(T::StakeAdapter::nominations(<span class="kw-2">&amp;</span>Pools::&lt;T&gt;::generate_bonded_account(<span class="number">1</span>)).is_some());
+		<span class="macro">assert_ok!</span>(T::StakeAdapter::nominate(Pool::from(pool_account.clone()), validators));
+		<span class="macro">assert!</span>(T::StakeAdapter::nominations(Pool::from(pool_account.clone())).is_some());
 
 		<span class="macro">whitelist_account!</span>(depositor);
 	}:<span class="kw">_</span>(RuntimeOrigin::Signed(depositor.clone()), <span class="number">1</span>)
 	verify {
-		<span class="macro">assert!</span>(T::StakeAdapter::nominations(<span class="kw-2">&amp;</span>Pools::&lt;T&gt;::generate_bonded_account(<span class="number">1</span>)).is_none());
+		<span class="macro">assert!</span>(T::StakeAdapter::nominations(Pool::from(pool_account.clone())).is_none());
 	}
 
 	set_commission {
@@ -2000,7 +2008,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="comment">// Sanity check join worked
 		</span><span class="macro">assert_eq!</span>(
-			T::StakeAdapter::active_stake(<span class="kw-2">&amp;</span>pool_account),
+			T::StakeAdapter::active_stake(Pool::from(pool_account.clone())),
 			min_create_bond + min_join_bond
 		);
 	}:<span class="kw">_</span>(RuntimeOrigin::Signed(joiner.clone()), ClaimPermission::Permissioned)
@@ -2064,7 +2072,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="comment">// verify user balance in the pool.
 		</span><span class="macro">assert_eq!</span>(PoolMembers::&lt;T&gt;::get(<span class="kw-2">&amp;</span>depositor).unwrap().total_balance(), deposit_amount);
 		<span class="comment">// verify delegated balance.
-		</span><span class="macro">assert!</span>(is_transfer_stake_strategy::&lt;T&gt;() || T::StakeAdapter::member_delegation_balance(<span class="kw-2">&amp;</span>depositor) == deposit_amount);
+		</span>assert_if_delegate::&lt;T&gt;(T::StakeAdapter::member_delegation_balance(Member::from(depositor.clone())) == <span class="prelude-val">Some</span>(deposit_amount));
 
 		<span class="comment">// ugly type conversion between balances of pallet staking and pools (which really are same
 		// type). Maybe there is a better way?
@@ -2082,7 +2090,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="comment">// verify user balance is slashed in the pool.
 		</span><span class="macro">assert_eq!</span>(PoolMembers::&lt;T&gt;::get(<span class="kw-2">&amp;</span>depositor).unwrap().total_balance(), deposit_amount/<span class="number">2u32</span>.into());
 		<span class="comment">// verify delegated balance are not yet slashed.
-		</span><span class="macro">assert!</span>(is_transfer_stake_strategy::&lt;T&gt;() || T::StakeAdapter::member_delegation_balance(<span class="kw-2">&amp;</span>depositor) == deposit_amount);
+		</span>assert_if_delegate::&lt;T&gt;(T::StakeAdapter::member_delegation_balance(Member::from(depositor.clone())) == <span class="prelude-val">Some</span>(deposit_amount));
 
 		<span class="comment">// Fill member's sub pools for the worst case.
 		</span><span class="kw">for </span>i <span class="kw">in </span><span class="number">1</span>..(T::MaxUnbonding::get() + <span class="number">1</span>) {
@@ -2096,14 +2104,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="macro">whitelist_account!</span>(depositor);
 	}:
 	{
-		<span class="kw">let </span>res = Pools::&lt;T&gt;::apply_slash(RuntimeOrigin::Signed(slash_reporter.clone()).into(), depositor_lookup.clone());
-		<span class="comment">// for transfer stake strategy, apply slash would error, otherwise success.
-		</span><span class="macro">assert!</span>(is_transfer_stake_strategy::&lt;T&gt;() ^ res.is_ok());
+		assert_if_delegate::&lt;T&gt;(Pools::&lt;T&gt;::apply_slash(RuntimeOrigin::Signed(slash_reporter.clone()).into(), depositor_lookup.clone()).is_ok());
 	}
 	verify {
 		<span class="comment">// verify balances are correct and slash applied.
 		</span><span class="macro">assert_eq!</span>(PoolMembers::&lt;T&gt;::get(<span class="kw-2">&amp;</span>depositor).unwrap().total_balance(), deposit_amount/<span class="number">2u32</span>.into());
-		<span class="macro">assert!</span>(is_transfer_stake_strategy::&lt;T&gt;() || T::StakeAdapter::member_delegation_balance(<span class="kw-2">&amp;</span>depositor) == deposit_amount/<span class="number">2u32</span>.into());
+		assert_if_delegate::&lt;T&gt;(T::StakeAdapter::member_delegation_balance(Member::from(depositor.clone())) == <span class="prelude-val">Some</span>(deposit_amount/<span class="number">2u32</span>.into()));
 	}
 
 	apply_slash_fail {
@@ -2155,13 +2161,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="comment">// migrate pool to transfer stake.
 		</span><span class="kw">let _ </span>= migrate_to_transfer_stake::&lt;T&gt;(<span class="number">1</span>);
 	}: {
-		<span class="comment">// Try migrate to `DelegateStake`. Would succeed only if `DelegateStake` strategy is used.
-		</span><span class="kw">let </span>res = Pools::&lt;T&gt;::migrate_pool_to_delegate_stake(RuntimeOrigin::Signed(depositor.clone()).into(), <span class="number">1u32</span>.into());
-		<span class="macro">assert!</span>(is_transfer_stake_strategy::&lt;T&gt;() ^ res.is_ok());
+		assert_if_delegate::&lt;T&gt;(Pools::&lt;T&gt;::migrate_pool_to_delegate_stake(RuntimeOrigin::Signed(depositor.clone()).into(), <span class="number">1u32</span>.into()).is_ok());
 	}
 	verify {
 		<span class="comment">// this queries agent balance if `DelegateStake` strategy.
-		</span><span class="macro">assert!</span>(T::StakeAdapter::total_balance(<span class="kw-2">&amp;</span>pool_account) == deposit_amount);
+		</span><span class="macro">assert!</span>(T::StakeAdapter::total_balance(Pool::from(pool_account.clone())) == <span class="prelude-val">Some</span>(deposit_amount));
 	}
 
 	migrate_delegation {
@@ -2174,22 +2178,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="kw">let _ </span>= migrate_to_transfer_stake::&lt;T&gt;(<span class="number">1</span>);
 
 		<span class="comment">// Now migrate pool to delegate stake keeping delegators unmigrated.
-		</span><span class="kw">let </span>migration_res = Pools::&lt;T&gt;::migrate_pool_to_delegate_stake(RuntimeOrigin::Signed(depositor.clone()).into(), <span class="number">1u32</span>.into());
-		<span class="macro">assert!</span>(is_transfer_stake_strategy::&lt;T&gt;() ^ migration_res.is_ok());
+		</span>assert_if_delegate::&lt;T&gt;(Pools::&lt;T&gt;::migrate_pool_to_delegate_stake(RuntimeOrigin::Signed(depositor.clone()).into(), <span class="number">1u32</span>.into()).is_ok());
 
-		<span class="comment">// verify balances that we will check again later.
-		</span><span class="macro">assert!</span>(T::StakeAdapter::member_delegation_balance(<span class="kw-2">&amp;</span>depositor) == Zero::zero());
-		<span class="macro">assert_eq!</span>(PoolMembers::&lt;T&gt;::get(<span class="kw-2">&amp;</span>depositor).unwrap().total_balance(), deposit_amount);
+		<span class="comment">// delegation does not exist.
+		</span><span class="macro">assert!</span>(T::StakeAdapter::member_delegation_balance(Member::from(depositor.clone())).is_none());
+		<span class="comment">// contribution exists in the pool.
+		</span><span class="macro">assert_eq!</span>(PoolMembers::&lt;T&gt;::get(<span class="kw-2">&amp;</span>depositor).unwrap().total_balance(), deposit_amount);
 
 		<span class="macro">whitelist_account!</span>(depositor);
 	}: {
-		<span class="kw">let </span>res = Pools::&lt;T&gt;::migrate_delegation(RuntimeOrigin::Signed(depositor.clone()).into(), depositor_lookup.clone());
-		<span class="comment">// for transfer stake strategy, apply slash would error, otherwise success.
-		</span><span class="macro">assert!</span>(is_transfer_stake_strategy::&lt;T&gt;() ^ res.is_ok());
+		assert_if_delegate::&lt;T&gt;(Pools::&lt;T&gt;::migrate_delegation(RuntimeOrigin::Signed(depositor.clone()).into(), depositor_lookup.clone()).is_ok());
 	}
 	verify {
 		<span class="comment">// verify balances once more.
-		</span><span class="macro">assert!</span>(is_transfer_stake_strategy::&lt;T&gt;() || T::StakeAdapter::member_delegation_balance(<span class="kw-2">&amp;</span>depositor) == deposit_amount);
+		</span>assert_if_delegate::&lt;T&gt;(T::StakeAdapter::member_delegation_balance(Member::from(depositor.clone())) == <span class="prelude-val">Some</span>(deposit_amount));
 		<span class="macro">assert_eq!</span>(PoolMembers::&lt;T&gt;::get(<span class="kw-2">&amp;</span>depositor).unwrap().total_balance(), deposit_amount);
 	}
 
