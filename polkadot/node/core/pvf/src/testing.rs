@@ -129,7 +129,6 @@ pub fn build_workers_and_get_paths() -> (PathBuf, PathBuf) {
 }
 
 /// Creates a new PVF which artifact id can be uniquely identified by the given number.
-#[cfg(test)]
-pub(crate) fn artifact_id(discriminator: u32) -> ArtifactId {
+pub fn artifact_id(discriminator: u32) -> ArtifactId {
 	ArtifactId::from_pvf_prep_data(&PvfPrepData::from_discriminator(discriminator))
 }
