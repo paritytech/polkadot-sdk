@@ -29,7 +29,7 @@ use sc_chain_spec::{
 use staging_chain_spec_builder as chain_spec_builder;
 use std::fs;
 
-type ChainSpec = GenericChainSpec<(), Extensions>;
+type ChainSpec = GenericChainSpec<Extensions, ()>;
 
 //avoid error message escaping
 fn main() {

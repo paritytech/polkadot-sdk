@@ -21,6 +21,7 @@ codec = { package = "parity-scale-codec", version = "3.6.12" }
 futures = "0.3.28"
 hex-literal = "0.4.1"
 log = { workspace = true, default-features = true }
+serde = { features = ["derive"], workspace = true, default-features = true }
 serde_json = { workspace = true, default-features = true }
 
 # Local

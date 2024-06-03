@@ -20,9 +20,7 @@ use cumulus_client_chain_spec_extension::Extensions;
 use cumulus_primitives_core::ParaId;
 use cumulus_test_runtime::{AccountId, Signature};
 use parachains_common::AuraId;
-use sc_chain_spec::{ChainSpecExtension, ChainSpecGroup};
 use sc_service::ChainType;
-use serde::{Deserialize, Serialize};
 use sp_core::{sr25519, Pair, Public};
 use sp_runtime::traits::{IdentifyAccount, Verify};
 
@@ -57,7 +55,7 @@ pub fn get_chain_spec_with_extra_endowed(
 		cumulus_test_runtime::WASM_BINARY.expect("WASM binary was not built, please build it!"),
 		Extensions {
 			para_id: id.unwrap_or(cumulus_test_runtime::PARACHAIN_ID.into()).into(),
-			relay_chain: "rococo-local",
+			relay_chain: "rococo-local".to_string(),
 		},
 	)
 	.with_name("Local Testnet")
