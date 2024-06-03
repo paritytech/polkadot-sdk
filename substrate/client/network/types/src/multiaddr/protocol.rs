@@ -169,7 +169,7 @@ impl<'a> From<LibP2pProtocol<'a>> for Protocol<'a> {
 			LibP2pProtocol::Memory(port) => Protocol::Memory(port),
 			LibP2pProtocol::Onion(str, port) => Protocol::Onion(str, port),
 			LibP2pProtocol::Onion3(addr) => Protocol::Onion3(Cow::Owned(*addr.hash()), addr.port()),
-			LibP2pProtocol::P2p(peer_id) => Protocol::P2p(peer_id.as_ref().clone().into()),
+			LibP2pProtocol::P2p(peer_id) => Protocol::P2p((*peer_id.as_ref()).into()),
 			LibP2pProtocol::P2pCircuit => Protocol::P2pCircuit,
 			LibP2pProtocol::Quic => Protocol::Quic,
 			LibP2pProtocol::QuicV1 => Protocol::QuicV1,
