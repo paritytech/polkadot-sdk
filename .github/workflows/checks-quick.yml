@@ -119,16 +119,16 @@ jobs:
           echo "Checking markdown formatting. More info: docs/contributor/markdown_linting.md"
           markdownlint --config "$CONFIG" --ignore target .
   check-umbrella:
-    runs-on: arc-runners-polkadot-sdk
+    runs-on: ubuntu-latest
     timeout-minutes: 10
-    needs: [set-image]
-    container:
-      image: ${{ needs.set-image.outputs.IMAGE }}
+    # needs: [set-image]
+    # container:
+    #   image: ${{ needs.set-image.outputs.IMAGE }}
     steps:
       - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.0 (22. Sep 2023)
       - name: install python deps
         run: |
-          sudo apt-get update && sudo apt-get install -y python3-pip python3
+          # sudo apt-get update && sudo apt-get install -y python3-pip python3
           pip3 install "cargo-workspace>=1.2.4" toml
       - name: check umbrella correctness
         run: |
