@@ -3,6 +3,7 @@ use std::path::PathBuf;
 use cumulus_client_chain_spec_extension::Extensions;
 
 /// Sub-commands supported by the collator.
+#[allow(clippy::large_enum_variant)]
 #[derive(Debug, clap::Subcommand)]
 pub enum Subcommand {
 	/// Build a chain specification.
