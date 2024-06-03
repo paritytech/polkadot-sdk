@@ -1713,6 +1713,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1562" id="1562">1562</a>
 <a href="#1563" id="1563">1563</a>
 <a href="#1564" id="1564">1564</a>
+<a href="#1565" id="1565">1565</a>
+<a href="#1566" id="1566">1566</a>
+<a href="#1567" id="1567">1567</a>
+<a href="#1568" id="1568">1568</a>
+<a href="#1569" id="1569">1569</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -3183,6 +3188,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Types and traits for interfacing between the host and the wasm runtime.
 </span><span class="attr">#[cfg(feature = <span class="string">"sp-weights"</span>)]
 </span><span class="kw">pub use </span>sp_weights;
+
+<span class="doccomment">/// Utility for building chain-specification files for Substrate-based runtimes based on
+/// `sp-genesis-builder`.
+</span><span class="attr">#[cfg(feature = <span class="string">"staging-chain-spec-builder"</span>)]
+</span><span class="kw">pub use </span>staging_chain_spec_builder;
 
 <span class="doccomment">/// Substrate node block inspection tool.
 </span><span class="attr">#[cfg(feature = <span class="string">"staging-node-inspect"</span>)]
