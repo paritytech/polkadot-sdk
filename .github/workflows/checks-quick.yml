@@ -130,6 +130,7 @@ jobs:
         run: pip3 install "cargo-workspace>=1.2.4" toml
       - name: check umbrella correctness
         run: |
+          # Fixes "detected dubious ownership" error in the ci
           git config --global --add safe.directory '*'
           python3 scripts/generate-umbrella.py --sdk . --version 0.1.0
           cargo +nightly fmt --all
