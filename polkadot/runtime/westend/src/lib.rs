@@ -1712,7 +1712,7 @@ pub mod migrations {
 			Runtime,
 			MaxPoolsToMigrate,
 		>,
-		pallet_staking::migrations::v15::MigrateV14ToV15<Runtime>,
+		pallet_staking::migrations::single_block::v15::MigrateV14ToV15<Runtime>,
 	);
 }
 
