@@ -24,9 +24,6 @@ pub mod tests;
 use frame_support::Parameter;
 use scale_info::TypeInfo;
 
-// Re-export pallet items so that they can be accessed from the crate namespace.
-pub use pallet::*;
-
 pub struct SomeType1;
 impl From<SomeType1> for u64 {
 	fn from(_t: SomeType1) -> Self {
@@ -74,6 +71,44 @@ pub mod pallet {
 		/// Query value with args.
 		pub fn get_value_with_arg(key: u32) -> Option<u32> {
 			SomeMap::<T>::get(key)
+		}
+	}
+}
+
+#[frame_support::pallet]
+pub mod pallet2 {
+	use super::*;
+	use frame_support::pallet_prelude::*;
+
+	#[pallet::error]
+	pub enum Error<T, I = ()> {}
+
+	#[pallet::config]
+	pub trait Config<I: 'static = ()>: frame_system::Config {}
+
+	#[pallet::pallet]
+	pub struct Pallet<T, I = ()>(PhantomData<(T, I)>);
+
+	#[pallet::storage]
+	pub type SomeValue<T: Config<I>, I: 'static = ()> = StorageValue<_, u32>;
+
+	#[pallet::storage]
+	pub type SomeMap<T: Config<I>, I: 'static = ()> =
+		StorageMap<_, Twox64Concat, u32, u32, OptionQuery>;
+
+	#[pallet::view_functions]
+	impl<T: Config<I>, I: 'static> Pallet<T, I>
+	where
+		T::AccountId: From<SomeType1> + SomeAssociation1,
+	{
+		/// Query value no args.
+		pub fn get_value() -> Option<u32> {
+			SomeValue::<T, I>::get()
+		}
+
+		/// Query value with args.
+		pub fn get_value_with_arg(key: u32) -> Option<u32> {
+			SomeMap::<T, I>::get(key)
 		}
 	}
 }

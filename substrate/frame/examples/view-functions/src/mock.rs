@@ -18,7 +18,7 @@
 //! Mock runtime for `view-functions-example` tests.
 #![cfg(test)]
 
-use crate::{self as view_functions_example};
+use crate::{pallet, pallet2};
 use frame_support::derive_impl;
 use sp_runtime::testing::TestXt;
 
@@ -29,7 +29,9 @@ type Block = frame_system::mocking::MockBlock<Runtime>;
 frame_support::construct_runtime!(
 	pub enum Runtime {
 		System: frame_system,
-		ViewFunctionsExample: view_functions_example,
+		ViewFunctionsExample: pallet,
+		ViewFunctionsInstance: pallet2,
+		// ViewFunctionsInstance: pallet2::<Instance1>,
 	}
 );
 
@@ -40,7 +42,10 @@ impl frame_system::Config for Runtime {
 	type Block = Block;
 }
 
-impl view_functions_example::Config for Runtime {}
+impl pallet::Config for Runtime {}
+impl pallet2::Config<pallet2::Instance1> for Runtime {}
+
+impl pallet2::Config for Runtime {}
 
 pub fn new_test_ext() -> sp_io::TestExternalities {
 	use sp_runtime::BuildStorage;

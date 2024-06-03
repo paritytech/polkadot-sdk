@@ -37,13 +37,6 @@ fn pallet_get_value_query() {
 		let mut output = Vec::new();
 
 		let id = <pallet::GetValueQuery<Runtime> as Query>::id();
-		println!("{id:?}");
-
-		// let _ = <Pallet<Runtime> as DispatchQuery>::dispatch_query::<Vec<u8>>(
-		// 	&id,
-		// 	&mut &input[..],
-		// 	&mut output,
-		// ).unwrap();
 
 		let _ = <Runtime as frame_system::Config>::RuntimeQuery::dispatch_query::<Vec<u8>>(
 			&id,
