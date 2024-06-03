@@ -34,21 +34,7 @@ fn pallet_get_value_query() {
 		assert_eq!(some_value, Pallet::<Runtime>::get_value());
 
 		let query = pallet::GetValueQuery::<Runtime>::new();
-		let input = query.encode();
-		let mut output = Vec::new();
-
-		let id = <pallet::GetValueQuery<Runtime> as Query>::id();
-
-		let _ = <Runtime as frame_system::Config>::RuntimeQuery::dispatch_query::<Vec<u8>>(
-			&id,
-			&mut &input[..],
-			&mut output,
-		)
-		.unwrap();
-
-		let query_result = <Option<u32>>::decode(&mut &output[..]).unwrap();
-
-		assert_eq!(some_value, query_result,);
+		test_dispatch_query(&query, some_value);
 	});
 }
 
@@ -61,24 +47,12 @@ fn pallet_get_value_with_arg_query() {
 		assert_eq!(some_value, Pallet::<Runtime>::get_value_with_arg(some_key));
 
 		let query = pallet::GetValueWithArgQuery::<Runtime>::new(some_key);
-		let input = query.encode();
-		let mut output = Vec::new();
-
-		let _ = <Pallet<Runtime> as DispatchQuery>::dispatch_query::<Vec<u8>>(
-			&<pallet::GetValueWithArgQuery<Runtime> as Query>::id(),
-			&mut &input[..],
-			&mut output,
-		)
-		.unwrap();
-
-		let query_result = <Option<u32>>::decode(&mut &output[..]).unwrap();
-
-		assert_eq!(some_value, query_result,);
+		test_dispatch_query(&query, some_value);
 	});
 }
 
 #[test]
-fn pallet_instances() {
+fn pallet_multiple_instances() {
 	use pallet2::Instance1;
 
 	new_test_ext().execute_with(|| {
@@ -89,29 +63,27 @@ fn pallet_instances() {
 		pallet2::SomeValue::<Runtime, Instance1>::set(instance1_value);
 
 		let query = pallet2::GetValueQuery::<Runtime>::new();
-		test_dispatch_query::<<Runtime as frame_system::Config>::RuntimeQuery, _, _>(
-			query,
-			instance_value,
-		);
+		test_dispatch_query(&query, instance_value);
 
 		let query_instance1 = pallet2::GetValueQuery::<Runtime, Instance1>::new();
-		test_dispatch_query::<<Runtime as frame_system::Config>::RuntimeQuery, _, _>(
-			query_instance1,
-			instance1_value,
-		);
+		test_dispatch_query(&query_instance1, instance1_value);
 	});
 }
 
-fn test_dispatch_query<D, Q, V>(query: Q, expected: V)
+fn test_dispatch_query<Q, V>(query: &Q, expected: V)
 where
-	D: DispatchQuery,
 	Q: Query + Encode,
 	V: Decode + Eq + PartialEq + std::fmt::Debug,
 {
 	let input = query.encode();
 	let mut output = Vec::new();
 
-	D::dispatch_query::<Vec<u8>>(&Q::id(), &mut &input[..], &mut output).unwrap();
+	<Runtime as frame_system::Config>::RuntimeQuery::dispatch_query::<Vec<u8>>(
+		&Q::id(),
+		&mut &input[..],
+		&mut output,
+	)
+	.unwrap();
 
 	let query_result = V::decode(&mut &output[..]).unwrap();
 
