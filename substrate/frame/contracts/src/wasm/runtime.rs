@@ -209,9 +209,7 @@ pub enum RuntimeCosts {
 	/// Weight per byte that is cloned by supplying the `CLONE_INPUT` flag.
 	CallInputCloned(u32),
 	/// Weight of calling `seal_instantiate` for the given input length and salt.
-	InstantiateBase { input_data_len: u32, salt_len: u32 },
-	/// Weight of the transfer performed during an instantiate.
-	InstantiateTransferSurcharge,
+	Instantiate { input_data_len: u32, salt_len: u32 },
 	/// Weight of calling `seal_hash_sha_256` for the given input size.
 	HashSha256(u32),
 	/// Weight of calling `seal_hash_keccak_256` for the given input size.
@@ -302,9 +300,8 @@ impl<T: Config> Token<T> for RuntimeCosts {
 			DelegateCallBase => T::WeightInfo::seal_delegate_call(),
 			CallTransferSurcharge => cost_args!(seal_call, 1, 0),
 			CallInputCloned(len) => cost_args!(seal_call, 0, len),
-			InstantiateBase { input_data_len, salt_len } =>
-				T::WeightInfo::seal_instantiate(0, input_data_len, salt_len),
-			InstantiateTransferSurcharge => cost_args!(seal_instantiate, 1, 0, 0),
+			Instantiate { input_data_len, salt_len } =>
+				T::WeightInfo::seal_instantiate(input_data_len, salt_len),
 			HashSha256(len) => T::WeightInfo::seal_hash_sha2_256(len),
 			HashKeccak256(len) => T::WeightInfo::seal_hash_keccak_256(len),
 			HashBlake256(len) => T::WeightInfo::seal_hash_blake2_256(len),
@@ -893,16 +890,13 @@ impl<'a, E: Ext + 'a> Runtime<'a, E> {
 		salt_ptr: u32,
 		salt_len: u32,
 	) -> Result<ReturnErrorCode, TrapReason> {
-		self.charge_gas(RuntimeCosts::InstantiateBase { input_data_len, salt_len })?;
+		self.charge_gas(RuntimeCosts::Instantiate { input_data_len, salt_len })?;
 		let deposit_limit: BalanceOf<<E as Ext>::T> = if deposit_ptr == SENTINEL {
 			BalanceOf::<<E as Ext>::T>::zero()
 		} else {
 			self.read_sandbox_memory_as(memory, deposit_ptr)?
 		};
 		let value: BalanceOf<<E as Ext>::T> = self.read_sandbox_memory_as(memory, value_ptr)?;
-		if value > 0u32.into() {
-			self.charge_gas(RuntimeCosts::InstantiateTransferSurcharge)?;
-		}
 		let code_hash: CodeHash<<E as Ext>::T> =
 			self.read_sandbox_memory_as(memory, code_hash_ptr)?;
 		let input_data = self.read_sandbox_memory(memory, input_data_ptr, input_data_len)?;
