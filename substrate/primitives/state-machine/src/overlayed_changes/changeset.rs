@@ -117,8 +117,8 @@ pub enum StorageEntry {
 		///
 		/// If `None`, than `data` is not yet prefixed with the length.
 		materialized_length: Option<u32>,
-		/// The original size of `data` in the parent transactional layer.
-		original_parent_size: Option<usize>,
+		/// The size of `data` in the parent transactional layer.
+		parent_size: Option<usize>,
 	},
 }
 
@@ -299,7 +299,7 @@ fn restore_append_to_parent(
 			data: parent_data,
 			current_length: _,
 			materialized_length: parent_materialized,
-			original_parent_size: _,
+			parent_size: _,
 		} => {
 			// use materialized size from next layer to avoid changing it at this point.
 			let (delta, decrease) =
@@ -342,19 +342,19 @@ impl OverlayedEntry<StorageEntry> {
 			let set_prev = if let StorageEntry::Append {
 				data,
 				current_length: _,
-				materialized_length: materialized,
-				original_parent_size: from_parent,
+				materialized_length,
+				parent_size,
 			} = &mut old_value
 			{
-				let result = core::mem::take(data);
-				from_parent.map(|from_parent| (result, *materialized, from_parent))
+				parent_size
+					.map(|parent_size| (core::mem::take(data), *materialized_length, parent_size))
 			} else {
 				None
 			};
 
 			*old_value = value;
 
-			if let Some((data, current_materialized, from_parent)) = set_prev {
+			if let Some((data, current_materialized, parent_size)) = set_prev {
 				let transactions = self.transactions.len();
 
 				debug_assert!(transactions >= 2);
@@ -366,7 +366,7 @@ impl OverlayedEntry<StorageEntry> {
 					&mut parent.value,
 					data,
 					current_materialized,
-					from_parent,
+					parent_size,
 				);
 			}
 		}
@@ -406,19 +406,19 @@ impl OverlayedEntry<StorageEntry> {
 					data,
 					current_length: len,
 					materialized_length,
-					original_parent_size: None,
+					parent_size: None,
 				},
 				extrinsics: Default::default(),
 			});
 		} else if first_write_in_tx {
 			let parent = self.value_mut();
-			let (data, current_length, materialized, from_parent) = match parent {
+			let (data, current_length, materialized_length, parent_size) = match parent {
 				StorageEntry::Remove => (element, 1, None, None),
 				StorageEntry::Append {
 					data,
 					current_length,
 					materialized_length: materialized,
-					original_parent_size: _,
+					..
 				} => {
 					let parent_len = data.len();
 					let mut data_buf = core::mem::take(data);
@@ -449,8 +449,8 @@ impl OverlayedEntry<StorageEntry> {
 				value: StorageEntry::Append {
 					data,
 					current_length,
-					materialized_length: materialized,
-					original_parent_size: from_parent,
+					materialized_length,
+					parent_size,
 				},
 				extrinsics: Default::default(),
 			});
@@ -486,7 +486,7 @@ impl OverlayedEntry<StorageEntry> {
 					data,
 					current_length,
 					materialized_length,
-					original_parent_size: None,
+					parent_size: None,
 				};
 			}
 		}
@@ -739,15 +739,15 @@ impl OverlayedChangeSet {
 				match overlayed.pop_transaction().value {
 					StorageEntry::Append {
 						data,
-						current_length: _,
-						materialized_length: materialized_current,
-						original_parent_size: Some(parent_size),
+						materialized_length,
+						parent_size: Some(parent_size),
+						..
 					} => {
 						debug_assert!(!overlayed.transactions.is_empty());
 						restore_append_to_parent(
 							overlayed.value_mut(),
 							data,
-							materialized_current,
+							materialized_length,
 							parent_size,
 						);
 					},
@@ -775,36 +775,31 @@ impl OverlayedChangeSet {
 				if has_predecessor {
 					let mut committed_tx = overlayed.pop_transaction();
 					let mut merge_appends = false;
-					// consecutive appends need to keep past `from_parent` value.
-					if let StorageEntry::Append { original_parent_size: from_parent, .. } =
-						&mut committed_tx.value
-					{
-						if from_parent.is_some() {
+
+					// consecutive appends need to keep past `parent_size` value.
+					if let StorageEntry::Append { parent_size, .. } = &mut committed_tx.value {
+						if parent_size.is_some() {
 							let parent = overlayed.value_mut();
-							if let StorageEntry::Append { original_parent_size: keep_me, .. } =
-								parent
-							{
+							if let StorageEntry::Append { parent_size: keep_me, .. } = parent {
 								merge_appends = true;
-								*from_parent = *keep_me;
+								*parent_size = *keep_me;
 							}
 						}
 					}
+
 					if merge_appends {
 						*overlayed.value_mut() = committed_tx.value;
 					} else {
 						let removed = core::mem::replace(overlayed.value_mut(), committed_tx.value);
 						if let StorageEntry::Append {
-							original_parent_size: from_parent,
-							data,
-							materialized_length: current_materialized,
-							..
+							parent_size, data, materialized_length, ..
 						} = removed
 						{
-							if let Some(parent_size) = from_parent {
+							if let Some(parent_size) = parent_size {
 								let transactions = overlayed.transactions.len();
 
 								// info from replaced head so len is at least one
-								// and from_parent implies a parent transaction
+								// and parent_size implies a parent transaction
 								// so length is at least two.
 								debug_assert!(transactions >= 2);
 								if let Some(parent) =
@@ -813,7 +808,7 @@ impl OverlayedChangeSet {
 									restore_append_to_parent(
 										&mut parent.value,
 										data,
-										current_materialized,
+										materialized_length,
 										parent_size,
 									)
 								}
