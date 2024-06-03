@@ -411,6 +411,44 @@ impl<T: Config> Pallet<T> {
 		}
 	}
 
+	/// Removes dangling nominations from a nominator.
+	///
+	/// If `maybe_target` is `None`, search for *all* dangling nominations and drop them. Otherwise
+	/// drop only one dangling target.
+	///
+	/// IMPORTANT NOTE: if `maybe_target` is set, it is assumed that the target is indeed dangling.
+	/// No further checks are performed in this method.
+	pub(crate) fn do_drop_dangling_nominations(
+		nominator: &T::AccountId,
+		target: Option<&T::AccountId>,
+	) -> Result<BoundedVec<T::AccountId, MaxNominationsOf<T>>, DispatchError> {
+		let nominations_after = match (target, Self::status(&nominator)) {
+			(None, Ok(StakerStatus::Nominator(nominations))) => {
+				// target not set, filter out all non-validator nominations.
+				nominations
+					.into_iter()
+					.filter(|n| Self::status(n) == Ok(StakerStatus::Validator))
+					.collect::<Vec<_>>()
+			},
+			(Some(target), Ok(StakerStatus::Nominator(nominations))) => {
+				debug_assert!(Self::status(&target).is_err() && T::TargetList::contains(&target),);
+
+				nominations.iter().cloned().filter(|n| n != target).collect::<Vec<_>>()
+			},
+			// not a nominator, return earlier.
+			(_, _) => return Err(Error::<T>::NotNominator.into()),
+		};
+
+		// no dangling nominations, return earlier.
+		if nominations_after.len().is_zero() {
+			return Err(Error::<T>::NotDanglingTarget.into());
+		}
+
+		<Self as StakingInterface>::nominate(nominator, nominations_after.clone())?; // TODO remove clone?
+
+		Ok(BoundedVec::truncate_from(nominations_after))
+	}
+
 	/// Actually make a payment to a staker. This uses the currency's reward function
 	/// to pay the right payee for the given staker account.
 	fn make_payout(
@@ -2064,7 +2102,7 @@ impl<T: Config> sp_staking::StakingUnchecked for Pallet<T> {
 
 #[cfg(any(test, feature = "try-runtime"))]
 impl<T: Config> Pallet<T> {
-	pub(crate) fn do_try_state(_: BlockNumberFor<T>) -> Result<(), TryRuntimeError> {
+	pub fn do_try_state(_: BlockNumberFor<T>) -> Result<(), TryRuntimeError> {
 		ensure!(
 			T::VoterList::iter().all(|x| <Nominators<T>>::contains_key(&x) ||
 				<Validators<T>>::contains_key(&x) ||
@@ -2079,7 +2117,9 @@ impl<T: Config> Pallet<T> {
 		Self::check_exposures()?;
 		Self::check_paged_exposures()?;
 		Self::check_count()?;
-		Self::ensure_disabled_validators_sorted()
+		Self::ensure_disabled_validators_sorted()?;
+		Self::do_try_state_approvals()?;
+		Self::do_try_state_target_sorting()
 	}
 
 	/// Invariants:
@@ -2402,6 +2442,149 @@ impl<T: Config> Pallet<T> {
 			DisabledValidators::<T>::get().windows(2).all(|pair| pair[0] <= pair[1]),
 			"DisabledValidators is not sorted"
 		);
+		Ok(())
+	}
+
+	/// Stake-tracker: checks if the approvals stake of the targets in the target list are correct.
+	///
+	/// These try-state checks generate a map with approval stake of all the targets based on
+	/// the staking state of stakers in the voter and target lists. In doing so, we are able to
+	/// verify that the current voter and target lists and scores are in sync with the staking
+	/// data and perform other sanity checks as the approvals map is calculated.
+	///
+	/// NOTE: this is an expensive state check since it iterates over all the nodes in the
+	/// target and voter list providers.
+	///
+	/// Invariants:
+	///
+	/// * Target List:
+	///   * The sum of the calculated approvals stake is the same as the current approvals in
+	///   the target list per target.
+	///   * The target score of an active validator is the sum of all of its nominators' stake
+	///   and the self-stake;
+	///   * The target score of an idle validator (i.e. chilled) is the sum of its nominator's
+	///   stake. An idle target may not be part of the target list, if it has no nominations.
+	///   * The target score of a "dangling" target (ie. idle AND unbonded validator) must
+	///   always be > 0. We expect the stake-tracker to have cleaned up dangling targets with 0
+	///   score.
+	///   * The number of target nodes in the target list matches the number of
+	///   (active_validators + idle_validators + dangling_targets_score_with_score).
+	pub fn do_try_state_approvals() -> Result<(), sp_runtime::TryRuntimeError> {
+		use sp_std::collections::{btree_map::BTreeMap, btree_set::BTreeSet};
+		let mut approvals_map: BTreeMap<T::AccountId, T::CurrencyBalance> = BTreeMap::new();
+
+		// build map of approvals stakes from the `Nominators` storage map POV.
+		for (voter, nominations) in Nominators::<T>::iter() {
+			let vote = Self::weight_of(&voter);
+			let nominations = nominations.targets;
+
+			// fail if nominator has duplicate nominations, unexpected in the context of
+			// keeping track of the stake approvals.
+			let count_before = nominations.len();
+			let dedup_noms: Vec<T::AccountId> = nominations
+				.clone()
+				.drain(..)
+				.collect::<BTreeSet<_>>()
+				.into_iter()
+				.collect::<Vec<_>>();
+
+			ensure!(
+				count_before == dedup_noms.len(),
+				"nominator has duplicate nominations, unexpected."
+			);
+
+			for target in nominations.into_iter() {
+				if let Some(approvals) = approvals_map.get_mut(&target) {
+					*approvals += vote.into();
+				} else {
+					// new addition to the map. add self-stake if validator is active.
+					let _ = match Self::status(&target) {
+						Ok(StakerStatus::Validator) => {
+							let self_stake = Pallet::<T>::weight_of(&target);
+							approvals_map.insert(target, vote.saturating_add(self_stake).into())
+						},
+						_ => approvals_map.insert(target, vote.into()),
+					};
+				}
+			}
+		}
+
+		// add active validators without any nominations.
+		for (validator, _) in Validators::<T>::iter() {
+			// do not add validator if it is not in a good state.
+			match Self::inspect_bond_state(&validator) {
+				Ok(LedgerIntegrityState::Ok) | Err(_) => (),
+				_ => continue,
+			}
+
+			if !approvals_map.contains_key(&validator) {
+				// skip if for some reason there is a nominator being nominated.
+				match Self::status(&validator) {
+					Ok(StakerStatus::Nominator(_)) => {
+						log!(
+							warn,
+							"nominated staker {:?} is a nominator, not a validator.",
+							validator
+						);
+					},
+					_ => {
+						let self_stake = Pallet::<T>::weight_of(&validator);
+						approvals_map.insert(validator, self_stake.into());
+					},
+				}
+			}
+		}
+
+		let mut mismatch_approvals = 0;
+
+		// compare calculated approvals per target with target list state.
+		for (target, calculated_stake) in approvals_map.iter() {
+			let stake_in_list = T::TargetList::get_score(target).unwrap();
+
+			if *calculated_stake != stake_in_list {
+				mismatch_approvals += 1;
+
+				log!(
+					error,
+					"try-runtime: score of {:?} in `TargetList` list: {:?}, calculated sum of all stake: {:?} -- weight self-stake: {:?}",
+					target,
+					stake_in_list,
+					calculated_stake,
+					Pallet::<T>::weight_of(&target),
+				);
+			}
+		}
+
+		frame_support::ensure!(
+			approvals_map.keys().count() == T::TargetList::iter().count(),
+			"calculated approvals count is different from total of target list.",
+		);
+
+		if !mismatch_approvals.is_zero() {
+			log!(error, "{} targets with unexpected score in list", mismatch_approvals);
+			return Err("final calculated approvals != target list scores".into());
+		}
+
+		Ok(())
+	}
+
+	/// Try-state: checks if targets in the target list are sorted by score.
+	///
+	/// Invariant
+	///  * All targets in the target list are sorted by their score (approvals).
+	///
+	///  NOTE: unfortunatelly, it is not trivial to check if the sort correctness of the list if
+	///  the `SortedListProvider` is implemented by bags list due to score bucketing. Thus, we
+	///  leverage the [`SortedListProvider::in_position`] to verify if the target is in the
+	/// correct  position in the list (bag or otherwise), given its score.
+	pub fn do_try_state_target_sorting() -> Result<(), sp_runtime::TryRuntimeError> {
+		for t in T::TargetList::iter() {
+			frame_support::ensure!(
+				T::TargetList::in_position(&t).expect("target exists"),
+				"target list is not sorted"
+			);
+		}
+
 		Ok(())
 	}
 }

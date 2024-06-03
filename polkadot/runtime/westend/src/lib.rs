@@ -583,7 +583,7 @@ parameter_types! {
 	pub const VoterBagThresholds: &'static [u64] = &bag_thresholds::VOTER_THRESHOLDS;
 	pub const TargetBagThresholds: &'static [u128] = &bag_thresholds::TARGET_THRESHOLDS;
 
-	pub const VoterUpdateMode: pallet_stake_tracker::VoterUpdateMode = pallet_stake_tracker::VoterUpdateMode::Strict;
+	pub const VoterUpdateMode: pallet_stake_tracker::VoterUpdateMode = pallet_stake_tracker::VoterUpdateMode::Lazy;
 }
 
 type VoterBagsListInstance = pallet_bags_list::Instance1;
@@ -1685,8 +1685,7 @@ pub mod migrations {
 	}
 
 	/// Unreleased migrations. Add new ones here:
-	pub type Unreleased =
-		(pallet_staking::migrations::single_block::v15::MigrateV14ToV15<Runtime>,);
+	pub type Unreleased = ();
 }
 
 /// Unchecked extrinsic type as expected by this runtime.

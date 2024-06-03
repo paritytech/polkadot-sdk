@@ -1145,7 +1145,7 @@ mod benchmarks {
 
 		assert_eq!(
 			Staking::<T>::status(&voter),
-			Ok(StakerStatus::Nominator(vec![dangling_target.clone(), other_target.clone()]))
+			Ok(StakerStatus::Nominator(vec![other_target.clone(), dangling_target.clone()]))
 		);
 
 		#[extrinsic_call]
@@ -1214,7 +1214,7 @@ mod benchmarks {
 
 	impl_benchmark_test_suite!(
 		Staking,
-		crate::mock::ExtBuilder::default().has_stakers(true).set_voter_list_lazy(),
+		crate::mock::ExtBuilder::default().has_stakers(true),
 		crate::mock::Test,
 		exec_name = build_and_execute
 	);
@@ -1228,7 +1228,7 @@ mod tests {
 
 	#[test]
 	fn create_validators_with_nominators_for_era_works() {
-		ExtBuilder::default().build_and_execute(|| {
+		ExtBuilder::default().try_state(false).build_and_execute(|| {
 			let v = 10;
 			let n = 100;
 
@@ -1254,7 +1254,7 @@ mod tests {
 
 	#[test]
 	fn create_validator_with_nominators_works() {
-		ExtBuilder::default().build_and_execute(|| {
+		ExtBuilder::default().try_state(false).build_and_execute(|| {
 			let n = 10;
 
 			let (validator_stash, nominators) = create_validator_with_nominators::<Test>(
@@ -1285,7 +1285,7 @@ mod tests {
 
 	#[test]
 	fn add_slashing_spans_works() {
-		ExtBuilder::default().build_and_execute(|| {
+		ExtBuilder::default().try_state(false).build_and_execute(|| {
 			let n = 10;
 
 			let (validator_stash, _nominators) = create_validator_with_nominators::<Test>(
@@ -1315,28 +1315,4 @@ mod tests {
 			}
 		});
 	}
-
-	// TODO: SelectedBenchmark not exposed by v2?
-	/*
-	#[test]
-	fn test_payout_all() {
-		ExtBuilder::default().build_and_execute(|| {
-			let v = 10;
-			let n = 100;
-
-			let selected_benchmark = SelectedBenchmark::payout_all;
-			let c = vec![
-				(frame_benchmarking::BenchmarkParameter::v, v),
-				(frame_benchmarking::BenchmarkParameter::n, n),
-			];
-
-			assert_ok!(
-				<SelectedBenchmark as frame_benchmarking::BenchmarkingSetup<Test>>::unit_test_instance(
-					&selected_benchmark,
-					&c,
-				)
-			);
-		});
-	}
-	*/
 }

@@ -31,6 +31,7 @@ pallet-session = { path = "../session", default-features = false, features = [
 	"historical",
 ] }
 pallet-authorship = { path = "../authorship", default-features = false }
+pallet-stake-tracker = { path = "./stake-tracker", default-features = false }
 sp-application-crypto = { path = "../../primitives/application-crypto", default-features = false, features = ["serde"] }
 frame-election-provider-support = { path = "../election-provider-support", default-features = false }
 log = { workspace = true }
@@ -45,9 +46,8 @@ sp-tracing = { path = "../../primitives/tracing" }
 sp-core = { path = "../../primitives/core" }
 sp-npos-elections = { path = "../../primitives/npos-elections" }
 pallet-timestamp = { path = "../timestamp" }
-pallet-stake-tracker = { path = "./stake-tracker" }
 pallet-staking-reward-curve = { path = "reward-curve" }
-pallet-bags-list = { path = "../bags-list" }
+pallet-bags-list = { path = "../bags-list", default-features = false, features = ["try-runtime"] }
 pallet-migrations = { path = "../migrations" }
 substrate-test-utils = { path = "../../test-utils" }
 frame-benchmarking = { path = "../benchmarking" }

@@ -37,11 +37,11 @@ use sp_runtime::{
 };
 
 use sp_staking::{
-	EraIndex, OnStakingUpdate, Page, SessionIndex, StakerStatus,
+	EraIndex, OnStakingUpdate, Page, SessionIndex,
 	StakingAccount::{self, Controller, Stash},
 	StakingInterface,
 };
-use sp_std::prelude::*;
+use sp_std::{collections::btree_set::BTreeSet, prelude::*};
 
 mod impls;
 
@@ -51,7 +51,7 @@ use crate::{
 	slashing, weights::WeightInfo, AccountIdLookupOf, ActiveEraInfo, BalanceOf, DisablingStrategy,
 	EraPayout, EraRewardPoints, Exposure, ExposurePage, Forcing, LedgerIntegrityState,
 	MaxNominationsOf, NegativeImbalanceOf, Nominations, NominationsQuota, PositiveImbalanceOf,
-	RewardDestination, SessionInterface, StakingLedger, UnappliedSlash, UnlockChunk,
+	RewardDestination, SessionInterface, StakerStatus, StakingLedger, UnappliedSlash, UnlockChunk,
 	ValidatorPrefs,
 };
 
@@ -795,8 +795,8 @@ pub mod pallet {
 		ForceEra { mode: Forcing },
 		/// Report of a controller batch deprecation.
 		ControllerBatchDeprecated { failures: u32 },
-		/// A dangling nomination has been successfully dropped.
-		DanglingNominationDropped { nominator: T::AccountId, target: T::AccountId },
+		/// A set of dangling nominations have been successfully dropped.
+		DanglingNominationsDropped { nominator: T::AccountId, count: u32 },
 	}
 
 	#[pallet::error]
@@ -1231,9 +1231,15 @@ pub mod pallet {
 				.map(|t| T::Lookup::lookup(t).map_err(DispatchError::from))
 				.map(|n| {
 					n.and_then(|n| {
-						// a good target nomination must be a valiator (active or idle). The
-						// validator must not be blocked.
-						if Self::status(&n).is_ok() &&
+						// a good target nomination must be an active validator or a Idle staker.
+						// The validator must not be blocked.
+						let validator_or_idle = Self::status(&n)
+							.map(|status| {
+								status == StakerStatus::Validator || status == StakerStatus::Idle
+							})
+							.unwrap_or(false);
+
+						if validator_or_idle &&
 							(old.contains(&n) || !Validators::<T>::get(&n).blocked)
 						{
 							Ok(n)
@@ -1243,6 +1249,11 @@ pub mod pallet {
 					})
 				})
 				.collect::<Result<Vec<_>, _>>()?
+				// remove duplicate nominations.
+				.drain(..)
+				.collect::<BTreeSet<_>>()
+				.into_iter()
+				.collect::<Vec<_>>()
 				.try_into()
 				.map_err(|_| Error::<T>::TooManyNominators)?;
 
@@ -2096,7 +2107,7 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// Removes nomination from a chilled and unbonded target.
+		/// Removes nomination of a non-active validator.
 		///
 		/// In the case that an unboded target still has nominations lingering, the approvals stake
 		/// for the "dangling" target needs to remain in the target list. This extrinsic allows
@@ -2121,28 +2132,16 @@ pub mod pallet {
 				Error::<T>::NotDanglingTarget
 			);
 
-			match Self::status(&nominator) {
-				Ok(StakerStatus::Nominator(nominations)) => {
-					let count_before = nominations.len();
+			Self::do_drop_dangling_nominations(&nominator, Some(&target))
+				.map(|_| {
+					Self::deposit_event(Event::<T>::DanglingNominationsDropped {
+						nominator,
+						count: 1,
+					});
 
-					let nominations_after =
-						nominations.into_iter().filter(|n| *n != target).collect::<Vec<_>>();
-
-					if nominations_after.len() != count_before {
-						<Self as StakingInterface>::nominate(&nominator, nominations_after)?;
-
-						Self::deposit_event(Event::<T>::DanglingNominationDropped {
-							nominator,
-							target,
-						});
-
-						Ok(Pays::No.into())
-					} else {
-						Ok(Pays::Yes.into())
-					}
-				},
-				_ => Err(Error::<T>::NotNominator.into()),
-			}
+					Pays::No.into()
+				})
+				.map_err(|err| err.into())
 		}
 	}
 }
