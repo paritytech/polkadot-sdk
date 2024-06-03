@@ -46,7 +46,7 @@ use sp_core::{
 };
 use sp_io::{crypto::secp256k1_ecdsa_recover_compressed, hashing::blake2_256};
 use sp_runtime::{
-	traits::{Convert, Dispatchable, Hash, Zero},
+	traits::{Convert, Dispatchable, Zero},
 	DispatchError,
 };
 use sp_std::{fmt::Debug, marker::PhantomData, mem, prelude::*, vec::Vec};
@@ -303,7 +303,7 @@ pub trait Ext: sealing::Sealed {
 	fn ecdsa_to_eth_address(&self, pk: &[u8; 33]) -> Result<[u8; 20], ()>;
 
 	/// Tests sometimes need to modify and inspect the contract info directly.
-	#[cfg(test)]
+	#[cfg(any(test, feature = "runtime-benchmarks"))]
 	fn contract_info(&mut self) -> &mut ContractInfo<Self::T>;
 
 	/// Sets new code hash for existing contract.
@@ -365,6 +365,11 @@ pub trait Ext: sealing::Sealed {
 		&mut self,
 		code_hash: &CodeHash<Self::T>,
 	) -> Result<(), DispatchError>;
+
+	/// Returns the number of locked delegate dependencies.
+	///
+	/// Note: Requires &mut self to access the contract info.
+	fn locked_delegate_dependencies_count(&mut self) -> usize;
 }
 
 /// Describes the different functions that can be exported by an [`Executable`].
@@ -983,16 +988,16 @@ where
 					let caller = self.caller().account_id()?.clone();
 
 					// Deposit an instantiation event.
-					Contracts::<T>::deposit_event(
-						vec![T::Hashing::hash_of(&caller), T::Hashing::hash_of(account_id)],
-						Event::Instantiated { deployer: caller, contract: account_id.clone() },
-					);
+					Contracts::<T>::deposit_event(Event::Instantiated {
+						deployer: caller,
+						contract: account_id.clone(),
+					});
 				},
 				(ExportedFunction::Call, Some(code_hash)) => {
-					Contracts::<T>::deposit_event(
-						vec![T::Hashing::hash_of(account_id), T::Hashing::hash_of(&code_hash)],
-						Event::DelegateCalled { contract: account_id.clone(), code_hash },
-					);
+					Contracts::<T>::deposit_event(Event::DelegateCalled {
+						contract: account_id.clone(),
+						code_hash,
+					});
 				},
 				(ExportedFunction::Call, None) => {
 					// If a special limit was set for the sub-call, we enforce it here.
@@ -1002,10 +1007,10 @@ where
 					frame.nested_storage.enforce_subcall_limit(contract)?;
 
 					let caller = self.caller();
-					Contracts::<T>::deposit_event(
-						vec![T::Hashing::hash_of(&caller), T::Hashing::hash_of(&account_id)],
-						Event::Called { caller: caller.clone(), contract: account_id.clone() },
-					);
+					Contracts::<T>::deposit_event(Event::Called {
+						caller: caller.clone(),
+						contract: account_id.clone(),
+					});
 				},
 			}
 
@@ -1324,13 +1329,10 @@ where
 				.charge_deposit(frame.account_id.clone(), StorageDeposit::Refund(*deposit));
 		}
 
-		Contracts::<T>::deposit_event(
-			vec![T::Hashing::hash_of(&frame.account_id), T::Hashing::hash_of(&beneficiary)],
-			Event::Terminated {
-				contract: frame.account_id.clone(),
-				beneficiary: beneficiary.clone(),
-			},
-		);
+		Contracts::<T>::deposit_event(Event::Terminated {
+			contract: frame.account_id.clone(),
+			beneficiary: beneficiary.clone(),
+		});
 		Ok(())
 	}
 
@@ -1422,7 +1424,7 @@ where
 	}
 
 	fn deposit_event(&mut self, topics: Vec<T::Hash>, data: Vec<u8>) {
-		Contracts::<Self::T>::deposit_event(
+		Contracts::<Self::T>::deposit_indexed_event(
 			topics,
 			Event::ContractEmitted { contract: self.top_frame().account_id.clone(), data },
 		);
@@ -1500,7 +1502,7 @@ where
 		ECDSAPublic::from(*pk).to_eth_address()
 	}
 
-	#[cfg(test)]
+	#[cfg(any(test, feature = "runtime-benchmarks"))]
 	fn contract_info(&mut self) -> &mut ContractInfo<Self::T> {
 		self.top_frame_mut().contract_info()
 	}
@@ -1527,14 +1529,11 @@ where
 
 		Self::increment_refcount(hash)?;
 		Self::decrement_refcount(prev_hash);
-		Contracts::<Self::T>::deposit_event(
-			vec![T::Hashing::hash_of(&frame.account_id), hash, prev_hash],
-			Event::ContractCodeUpdated {
-				contract: frame.account_id.clone(),
-				new_code_hash: hash,
-				old_code_hash: prev_hash,
-			},
-		);
+		Contracts::<Self::T>::deposit_event(Event::ContractCodeUpdated {
+			contract: frame.account_id.clone(),
+			new_code_hash: hash,
+			old_code_hash: prev_hash,
+		});
 		Ok(())
 	}
 
@@ -1611,6 +1610,10 @@ where
 			.charge_deposit(frame.account_id.clone(), StorageDeposit::Refund(deposit));
 		Ok(())
 	}
+
+	fn locked_delegate_dependencies_count(&mut self) -> usize {
+		self.top_frame_mut().contract_info().delegate_dependencies_count()
+	}
 }
 
 mod sealing {
@@ -1639,7 +1642,7 @@ mod tests {
 		exec::ExportedFunction::*,
 		gas::GasMeter,
 		tests::{
-			test_utils::{get_balance, hash, place_contract, set_balance},
+			test_utils::{get_balance, place_contract, set_balance},
 			ExtBuilder, RuntimeCall, RuntimeEvent as MetaEvent, Test, TestFilter, ALICE, BOB,
 			CHARLIE, GAS_LIMIT,
 		},
@@ -3164,7 +3167,7 @@ mod tests {
 							caller: Origin::from_account_id(ALICE),
 							contract: BOB,
 						}),
-						topics: vec![hash(&Origin::<Test>::from_account_id(ALICE)), hash(&BOB)],
+						topics: vec![],
 					},
 				]
 			);
@@ -3264,7 +3267,7 @@ mod tests {
 							caller: Origin::from_account_id(ALICE),
 							contract: BOB,
 						}),
-						topics: vec![hash(&Origin::<Test>::from_account_id(ALICE)), hash(&BOB)],
+						topics: vec![],
 					},
 				]
 			);

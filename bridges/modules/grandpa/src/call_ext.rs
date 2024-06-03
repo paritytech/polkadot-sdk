@@ -18,12 +18,8 @@ use crate::{
 	weights::WeightInfo, BestFinalized, BridgedBlockNumber, BridgedHeader, Config,
 	CurrentAuthoritySet, Error, FreeHeadersRemaining, Pallet,
 };
-use bp_header_chain::{
-	justification::GrandpaJustification, max_expected_submit_finality_proof_arguments_size,
-	ChainWithGrandpa, GrandpaConsensusLogReader,
-};
+use bp_header_chain::{justification::GrandpaJustification, submit_finality_proof_limits_extras};
 use bp_runtime::{BlockNumberOf, Chain, OwnedBridgeModule};
-use codec::Encode;
 use frame_support::{
 	dispatch::CallableCallFor,
 	traits::{Get, IsSubType},
@@ -303,53 +299,31 @@ pub(crate) fn submit_finality_proof_info_from_args<T: Config<I>, I: 'static>(
 	current_set_id: Option<SetId>,
 	is_free_execution_expected: bool,
 ) -> SubmitFinalityProofInfo<BridgedBlockNumber<T, I>> {
-	let block_number = *finality_target.number();
-
-	// the `submit_finality_proof` call will reject justifications with invalid, duplicate,
-	// unknown and extra signatures. It'll also reject justifications with less than necessary
-	// signatures. So we do not care about extra weight because of additional signatures here.
-	let precommits_len = justification.commit.precommits.len().saturated_into();
-	let required_precommits = precommits_len;
+	// check if call exceeds limits. In other words - whether some size or weight is included
+	// in the call
+	let extras =
+		submit_finality_proof_limits_extras::<T::BridgedChain>(finality_target, justification);
 
 	// We do care about extra weight because of more-than-expected headers in the votes
 	// ancestries. But we have problems computing extra weight for additional headers (weight of
 	// additional header is too small, so that our benchmarks aren't detecting that). So if there
 	// are more than expected headers in votes ancestries, we will treat the whole call weight
 	// as an extra weight.
-	let votes_ancestries_len = justification.votes_ancestries.len().saturated_into();
-	let extra_weight =
-		if votes_ancestries_len > T::BridgedChain::REASONABLE_HEADERS_IN_JUSTIFICATION_ANCESTRY {
-			T::WeightInfo::submit_finality_proof(precommits_len, votes_ancestries_len)
-		} else {
-			Weight::zero()
-		};
-
-	// check if the `finality_target` is a mandatory header. If so, we are ready to refund larger
-	// size
-	let is_mandatory_finality_target =
-		GrandpaConsensusLogReader::<BridgedBlockNumber<T, I>>::find_scheduled_change(
-			finality_target.digest(),
-		)
-		.is_some();
-
-	// we can estimate extra call size easily, without any additional significant overhead
-	let actual_call_size: u32 = finality_target
-		.encoded_size()
-		.saturating_add(justification.encoded_size())
-		.saturated_into();
-	let max_expected_call_size = max_expected_submit_finality_proof_arguments_size::<T::BridgedChain>(
-		is_mandatory_finality_target,
-		required_precommits,
-	);
-	let extra_size = actual_call_size.saturating_sub(max_expected_call_size);
+	let extra_weight = if extras.is_weight_limit_exceeded {
+		let precommits_len = justification.commit.precommits.len().saturated_into();
+		let votes_ancestries_len = justification.votes_ancestries.len().saturated_into();
+		T::WeightInfo::submit_finality_proof(precommits_len, votes_ancestries_len)
+	} else {
+		Weight::zero()
+	};
 
 	SubmitFinalityProofInfo {
-		block_number,
+		block_number: *finality_target.number(),
 		current_set_id,
-		is_mandatory: is_mandatory_finality_target,
+		is_mandatory: extras.is_mandatory_finality_target,
 		is_free_execution_expected,
 		extra_weight,
-		extra_size,
+		extra_size: extras.extra_size,
 	}
 }
 
