@@ -2,18 +2,15 @@
 name = "minimal-template-runtime"
 description = "A solochain runtime template built with Substrate, part of Polkadot Sdk."
 version = "0.0.0"
-license = "MIT-0"
+license = "Unlicense"
 authors.workspace = true
 homepage.workspace = true
 repository.workspace = true
 edition.workspace = true
 publish = false
 
-[lints]
-workspace = true
-
 [dependencies]
-parity-scale-codec = { version = "3.0.0", default-features = false }
+parity-scale-codec = { version = "3.6.12", default-features = false }
 scale-info = { version = "2.6.0", default-features = false }
 
 # this is a frame-based runtime, thus importing `frame` with runtime feature enabled.

@@ -132,6 +132,7 @@ struct HostFn {
 	alias_to: Option<String>,
 	/// Formulating the predicate inverted makes the expression using it simpler.
 	not_deprecated: bool,
+	cfg: Option<syn::Attribute>,
 }
 
 enum HostFnReturn {
@@ -163,13 +164,13 @@ impl ToTokens for HostFn {
 impl HostFn {
 	pub fn try_from(mut item: syn::ItemFn) -> syn::Result<Self> {
 		let err = |span, msg| {
-			let msg = format!("Invalid host function definition. {}", msg);
+			let msg = format!("Invalid host function definition.\n{}", msg);
 			syn::Error::new(span, msg)
 		};
 
 		// process attributes
 		let msg =
-			"only #[version(<u8>)], #[unstable], #[prefixed_alias] and #[deprecated] attributes are allowed.";
+			"Only #[version(<u8>)], #[unstable], #[prefixed_alias], #[cfg] and #[deprecated] attributes are allowed.";
 		let span = item.span();
 		let mut attrs = item.attrs.clone();
 		attrs.retain(|a| !a.path().is_ident("doc"));
@@ -177,6 +178,7 @@ impl HostFn {
 		let mut is_stable = true;
 		let mut alias_to = None;
 		let mut not_deprecated = true;
+		let mut cfg = None;
 		while let Some(attr) = attrs.pop() {
 			let ident = attr.path().get_ident().ok_or(err(span, msg))?.to_string();
 			match ident.as_str() {
@@ -206,7 +208,13 @@ impl HostFn {
 					}
 					not_deprecated = false;
 				},
-				_ => return Err(err(span, msg)),
+				"cfg" => {
+					if cfg.is_some() {
+						return Err(err(span, "#[cfg] can only be specified once"))
+					}
+					cfg = Some(attr);
+				},
+				id => return Err(err(span, &format!("Unsupported attribute \"{id}\". {msg}"))),
 			}
 		}
 		let name = item.sig.ident.to_string();
@@ -311,6 +319,7 @@ impl HostFn {
 							is_stable,
 							alias_to,
 							not_deprecated,
+							cfg,
 						})
 					},
 					_ => Err(err(span, &msg)),
@@ -528,8 +537,9 @@ fn expand_env(def: &EnvDef, docs: bool) -> TokenStream2 {
 ///   - real implementation, to register it in the contract execution environment;
 ///   - dummy implementation, to be used as mocks for contract validation step.
 fn expand_impls(def: &EnvDef) -> TokenStream2 {
-	let impls = expand_functions(def, true, quote! { crate::wasm::Runtime<E> });
-	let dummy_impls = expand_functions(def, false, quote! { () });
+	let impls = expand_functions(def, ExpandMode::Impl);
+	let dummy_impls = expand_functions(def, ExpandMode::MockImpl);
+	let bench_impls = expand_functions(def, ExpandMode::BenchImpl);
 
 	quote! {
 		impl<'a, E: Ext> crate::wasm::Environment<crate::wasm::runtime::Runtime<'a, E>> for Env
@@ -543,6 +553,14 @@ fn expand_impls(def: &EnvDef) -> TokenStream2 {
 				#impls
 				Ok(())
 			}
+		}
+
+		#[cfg(feature = "runtime-benchmarks")]
+		pub struct BenchEnv<E>(::core::marker::PhantomData<E>);
+
+		#[cfg(feature = "runtime-benchmarks")]
+		impl<E: Ext> BenchEnv<E> {
+			#bench_impls
 		}
 
 		impl crate::wasm::Environment<()> for Env
@@ -560,18 +578,38 @@ fn expand_impls(def: &EnvDef) -> TokenStream2 {
 	}
 }
 
-fn expand_functions(def: &EnvDef, expand_blocks: bool, host_state: TokenStream2) -> TokenStream2 {
+enum ExpandMode {
+	Impl,
+	BenchImpl,
+	MockImpl,
+}
+
+impl ExpandMode {
+	fn expand_blocks(&self) -> bool {
+		match *self {
+			ExpandMode::Impl | ExpandMode::BenchImpl => true,
+			ExpandMode::MockImpl => false,
+		}
+	}
+
+	fn host_state(&self) -> TokenStream2 {
+		match *self {
+			ExpandMode::Impl | ExpandMode::BenchImpl => quote! { crate::wasm::runtime::Runtime<E> },
+			ExpandMode::MockImpl => quote! { () },
+		}
+	}
+}
+
+fn expand_functions(def: &EnvDef, expand_mode: ExpandMode) -> TokenStream2 {
 	let impls = def.host_funcs.iter().map(|f| {
 		// skip the context and memory argument
 		let params = f.item.sig.inputs.iter().skip(2);
-
-		let (module, name, body, wasm_output, output) = (
-			f.module(),
-			&f.name,
-			&f.item.block,
-			f.returns.to_wasm_sig(),
-			&f.item.sig.output
-		);
+		let module = f.module();
+		let cfg = &f.cfg;
+		let name = &f.name;
+		let body = &f.item.block;
+		let wasm_output = f.returns.to_wasm_sig();
+		let output = &f.item.sig.output;
 		let is_stable = f.is_stable;
 		let not_deprecated = f.not_deprecated;
 
@@ -608,23 +646,34 @@ fn expand_functions(def: &EnvDef, expand_blocks: bool, host_state: TokenStream2)
 		// - We replace any code by unreachable!
 		// - Allow unused variables as the code that uses is not expanded
 		// - We don't need to map the error as we simply panic if they code would ever be executed
-		let inner = if expand_blocks {
-			quote! { || #output {
-				let (memory, ctx) = __caller__
-					.data()
-					.memory()
-					.expect("Memory must be set when setting up host data; qed")
-					.data_and_store_mut(&mut __caller__);
-				#wrapped_body_with_trace
-			} }
-		} else {
-			quote! { || -> #wasm_output {
-				// This is part of the implementation for `Environment<()>` which is not
-				// meant to be actually executed. It is only for validation which will
-				// never call host functions.
-				::core::unreachable!()
-			} }
+		let expand_blocks = expand_mode.expand_blocks();
+		let inner = match expand_mode {
+			ExpandMode::Impl => {
+				quote! { || #output {
+					let (memory, ctx) = __caller__
+						.data()
+						.memory()
+						.expect("Memory must be set when setting up host data; qed")
+						.data_and_store_mut(&mut __caller__);
+					#wrapped_body_with_trace
+				} }
+			},
+			ExpandMode::BenchImpl => {
+				let body = &body.stmts;
+				quote!{
+					#(#body)*
+				}
+			},
+			ExpandMode::MockImpl => {
+				quote! { || -> #wasm_output {
+					// This is part of the implementation for `Environment<()>` which is not
+					// meant to be actually executed. It is only for validation which will
+					// never call host functions.
+					::core::unreachable!()
+				} }
+			},
 		};
+
 		let into_host = if expand_blocks {
 			quote! {
 				|reason| {
@@ -655,6 +704,11 @@ fn expand_functions(def: &EnvDef, expand_blocks: bool, host_state: TokenStream2)
 						.map_err(TrapReason::from)
 						.map_err(#into_host)?
 				};
+
+				// Charge gas for host function execution.
+				__caller__.data_mut().charge_gas(crate::wasm::RuntimeCosts::HostFn)
+						.map_err(TrapReason::from)
+						.map_err(#into_host)?;
 			}
 		} else {
 			quote! { }
@@ -676,29 +730,51 @@ fn expand_functions(def: &EnvDef, expand_blocks: bool, host_state: TokenStream2)
 			quote! { }
 		};
 
-		quote! {
-			// We need to allow all interfaces when runtime benchmarks are performed because
-			// we generate the weights even when those interfaces are not enabled. This
-			// is necessary as the decision whether we allow unstable or deprecated functions
-			// is a decision made at runtime. Generation of the weights happens statically.
-			if ::core::cfg!(feature = "runtime-benchmarks") ||
-				((#is_stable || __allow_unstable__) && (#not_deprecated || __allow_deprecated__))
-			{
-				#allow_unused
-				linker.define(#module, #name, ::wasmi::Func::wrap(&mut*store, |mut __caller__: ::wasmi::Caller<#host_state>, #( #params, )*| -> #wasm_output {
- 					#sync_gas_before
-					let mut func = #inner;
-					let result = func().map_err(#into_host).map(::core::convert::Into::into);
-					#sync_gas_after
-					result
-				}))?;
-			}
+		match expand_mode {
+			ExpandMode::BenchImpl => {
+				let name = Ident::new(&format!("{module}_{name}"), Span::call_site());
+				quote! {
+					pub fn #name(ctx: &mut crate::wasm::Runtime<E>, memory: &mut [u8], #(#params),*) #output {
+						#inner
+					}
+				}
+			},
+			_ => {
+				let host_state = expand_mode.host_state();
+				quote! {
+					// We need to allow all interfaces when runtime benchmarks are performed because
+					// we generate the weights even when those interfaces are not enabled. This
+					// is necessary as the decision whether we allow unstable or deprecated functions
+					// is a decision made at runtime. Generation of the weights happens statically.
+					#cfg
+					if ::core::cfg!(feature = "runtime-benchmarks") ||
+						((#is_stable || __allow_unstable__) && (#not_deprecated || __allow_deprecated__))
+					{
+						#allow_unused
+						linker.define(#module, #name, ::wasmi::Func::wrap(&mut*store, |mut __caller__: ::wasmi::Caller<#host_state>, #( #params, )*| -> #wasm_output {
+							#sync_gas_before
+							let mut func = #inner;
+							let result = func().map_err(#into_host).map(::core::convert::Into::into);
+							#sync_gas_after
+							result
+						}))?;
+					}
+				}
+			},
 		}
 	});
-	quote! {
-		let __allow_unstable__ = matches!(allow_unstable, AllowUnstableInterface::Yes);
-		let __allow_deprecated__ = matches!(allow_deprecated, AllowDeprecatedInterface::Yes);
-		#( #impls )*
+
+	match expand_mode {
+		ExpandMode::BenchImpl => {
+			quote! {
+			 #( #impls )*
+			}
+		},
+		_ => quote! {
+			let __allow_unstable__ = matches!(allow_unstable, AllowUnstableInterface::Yes);
+			let __allow_deprecated__ = matches!(allow_deprecated, AllowDeprecatedInterface::Yes);
+			#( #impls )*
+		},
 	}
 }
 

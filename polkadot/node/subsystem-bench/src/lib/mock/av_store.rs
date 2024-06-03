@@ -20,7 +20,7 @@ use crate::network::{HandleNetworkMessage, NetworkMessage};
 use futures::{channel::oneshot, FutureExt};
 use parity_scale_codec::Encode;
 use polkadot_node_network_protocol::request_response::{
-	v1::{AvailableDataFetchingResponse, ChunkFetchingResponse, ChunkResponse},
+	v1::AvailableDataFetchingResponse, v2::ChunkFetchingResponse, Protocol, ReqProtocolNames,
 	Requests,
 };
 use polkadot_node_primitives::{AvailableData, ErasureChunk};
@@ -28,13 +28,14 @@ use polkadot_node_subsystem::{
 	messages::AvailabilityStoreMessage, overseer, SpawnedSubsystem, SubsystemError,
 };
 use polkadot_node_subsystem_types::OverseerSignal;
-use polkadot_primitives::CandidateHash;
-use sc_network::ProtocolName;
+use polkadot_primitives::{CandidateHash, ChunkIndex, CoreIndex, ValidatorIndex};
 use std::collections::HashMap;
 
 pub struct AvailabilityStoreState {
 	candidate_hashes: HashMap<CandidateHash, usize>,
 	chunks: Vec<Vec<ErasureChunk>>,
+	chunk_indices: Vec<Vec<ChunkIndex>>,
+	candidate_hash_to_core_index: HashMap<CandidateHash, CoreIndex>,
 }
 
 const LOG_TARGET: &str = "subsystem-bench::av-store-mock";
@@ -43,21 +44,25 @@ const LOG_TARGET: &str = "subsystem-bench::av-store-mock";
 /// used in a test.
 #[derive(Clone)]
 pub struct NetworkAvailabilityState {
+	pub req_protocol_names: ReqProtocolNames,
 	pub candidate_hashes: HashMap<CandidateHash, usize>,
 	pub available_data: Vec<AvailableData>,
 	pub chunks: Vec<Vec<ErasureChunk>>,
+	pub chunk_indices: Vec<Vec<ChunkIndex>>,
+	pub candidate_hash_to_core_index: HashMap<CandidateHash, CoreIndex>,
 }
 
 // Implement access to the state.
+#[async_trait::async_trait]
 impl HandleNetworkMessage for NetworkAvailabilityState {
-	fn handle(
+	async fn handle(
 		&self,
 		message: NetworkMessage,
 		_node_sender: &mut futures::channel::mpsc::UnboundedSender<NetworkMessage>,
 	) -> Option<NetworkMessage> {
 		match message {
 			NetworkMessage::RequestFromNode(peer, request) => match request {
-				Requests::ChunkFetchingV1(outgoing_request) => {
+				Requests::ChunkFetching(outgoing_request) => {
 					gum::debug!(target: LOG_TARGET, request = ?outgoing_request, "Received `RequestFromNode`");
 					let validator_index: usize = outgoing_request.payload.index.0 as usize;
 					let candidate_hash = outgoing_request.payload.candidate_hash;
@@ -68,11 +73,22 @@ impl HandleNetworkMessage for NetworkAvailabilityState {
 						.expect("candidate was generated previously; qed");
 					gum::warn!(target: LOG_TARGET, ?candidate_hash, candidate_index, "Candidate mapped to index");
 
-					let chunk: ChunkResponse =
-						self.chunks.get(*candidate_index).unwrap()[validator_index].clone().into();
+					let candidate_chunks = self.chunks.get(*candidate_index).unwrap();
+					let chunk_indices = self
+						.chunk_indices
+						.get(
+							self.candidate_hash_to_core_index.get(&candidate_hash).unwrap().0
+								as usize,
+						)
+						.unwrap();
+
+					let chunk = candidate_chunks
+						.get(chunk_indices.get(validator_index).unwrap().0 as usize)
+						.unwrap();
+
 					let response = Ok((
-						ChunkFetchingResponse::from(Some(chunk)).encode(),
-						ProtocolName::Static("dummy"),
+						ChunkFetchingResponse::from(Some(chunk.clone())).encode(),
+						self.req_protocol_names.get_name(Protocol::ChunkFetchingV2),
 					));
 
 					if let Err(err) = outgoing_request.pending_response.send(response) {
@@ -93,7 +109,7 @@ impl HandleNetworkMessage for NetworkAvailabilityState {
 
 					let response = Ok((
 						AvailableDataFetchingResponse::from(Some(available_data)).encode(),
-						ProtocolName::Static("dummy"),
+						self.req_protocol_names.get_name(Protocol::AvailableDataFetchingV1),
 					));
 					outgoing_request
 						.pending_response
@@ -118,16 +134,25 @@ pub struct MockAvailabilityStore {
 impl MockAvailabilityStore {
 	pub fn new(
 		chunks: Vec<Vec<ErasureChunk>>,
+		chunk_indices: Vec<Vec<ChunkIndex>>,
 		candidate_hashes: HashMap<CandidateHash, usize>,
+		candidate_hash_to_core_index: HashMap<CandidateHash, CoreIndex>,
 	) -> MockAvailabilityStore {
-		Self { state: AvailabilityStoreState { chunks, candidate_hashes } }
+		Self {
+			state: AvailabilityStoreState {
+				chunks,
+				candidate_hashes,
+				chunk_indices,
+				candidate_hash_to_core_index,
+			},
+		}
 	}
 
 	async fn respond_to_query_all_request(
 		&self,
 		candidate_hash: CandidateHash,
-		send_chunk: impl Fn(usize) -> bool,
-		tx: oneshot::Sender<Vec<ErasureChunk>>,
+		send_chunk: impl Fn(ValidatorIndex) -> bool,
+		tx: oneshot::Sender<Vec<(ValidatorIndex, ErasureChunk)>>,
 	) {
 		let candidate_index = self
 			.state
@@ -136,15 +161,27 @@ impl MockAvailabilityStore {
 			.expect("candidate was generated previously; qed");
 		gum::debug!(target: LOG_TARGET, ?candidate_hash, candidate_index, "Candidate mapped to index");
 
-		let v = self
-			.state
-			.chunks
-			.get(*candidate_index)
-			.unwrap()
-			.iter()
-			.filter(|c| send_chunk(c.index.0 as usize))
-			.cloned()
-			.collect();
+		let n_validators = self.state.chunks[0].len();
+		let candidate_chunks = self.state.chunks.get(*candidate_index).unwrap();
+		let core_index = self.state.candidate_hash_to_core_index.get(&candidate_hash).unwrap();
+		// We'll likely only send our chunk, so use capacity 1.
+		let mut v = Vec::with_capacity(1);
+
+		for validator_index in 0..n_validators {
+			if !send_chunk(ValidatorIndex(validator_index as u32)) {
+				continue;
+			}
+			let chunk_index = self
+				.state
+				.chunk_indices
+				.get(core_index.0 as usize)
+				.unwrap()
+				.get(validator_index)
+				.unwrap();
+
+			let chunk = candidate_chunks.get(chunk_index.0 as usize).unwrap().clone();
+			v.push((ValidatorIndex(validator_index as u32), chunk.clone()));
+		}
 
 		let _ = tx.send(v);
 	}
@@ -181,8 +218,12 @@ impl MockAvailabilityStore {
 					AvailabilityStoreMessage::QueryAllChunks(candidate_hash, tx) => {
 						// We always have our own chunk.
 						gum::debug!(target: LOG_TARGET, candidate_hash = ?candidate_hash, "Responding to QueryAllChunks");
-						self.respond_to_query_all_request(candidate_hash, |index| index == 0, tx)
-							.await;
+						self.respond_to_query_all_request(
+							candidate_hash,
+							|index| index == 0.into(),
+							tx,
+						)
+						.await;
 					},
 					AvailabilityStoreMessage::QueryChunkSize(candidate_hash, tx) => {
 						gum::debug!(target: LOG_TARGET, candidate_hash = ?candidate_hash, "Responding to QueryChunkSize");
@@ -194,12 +235,29 @@ impl MockAvailabilityStore {
 							.expect("candidate was generated previously; qed");
 						gum::debug!(target: LOG_TARGET, ?candidate_hash, candidate_index, "Candidate mapped to index");
 
-						let chunk_size =
-							self.state.chunks.get(*candidate_index).unwrap()[0].encoded_size();
+						let chunk_size = self
+							.state
+							.chunks
+							.get(*candidate_index)
+							.unwrap()
+							.first()
+							.unwrap()
+							.encoded_size();
 						let _ = tx.send(Some(chunk_size));
 					},
-					AvailabilityStoreMessage::StoreChunk { candidate_hash, chunk, tx } => {
-						gum::debug!(target: LOG_TARGET, chunk_index = ?chunk.index ,candidate_hash = ?candidate_hash, "Responding to StoreChunk");
+					AvailabilityStoreMessage::StoreChunk {
+						candidate_hash,
+						chunk,
+						tx,
+						validator_index,
+					} => {
+						gum::debug!(
+							target: LOG_TARGET,
+							chunk_index = ?chunk.index,
+							validator_index = ?validator_index,
+							candidate_hash = ?candidate_hash,
+							"Responding to StoreChunk"
+						);
 						let _ = tx.send(Ok(()));
 					},
 					_ => {

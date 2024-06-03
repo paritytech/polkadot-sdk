@@ -362,13 +362,14 @@ fn submit_update_with_sync_committee_in_current_period() {
 }
 
 #[test]
-fn submit_update_in_next_period() {
+fn reject_submit_update_in_next_period() {
 	let checkpoint = Box::new(load_checkpoint_update_fixture());
 	let sync_committee_update = Box::new(load_sync_committee_update_fixture());
 	let update = Box::new(load_next_finalized_header_update_fixture());
 	let sync_committee_period = compute_period(sync_committee_update.finalized_header.slot);
 	let next_sync_committee_period = compute_period(update.finalized_header.slot);
 	assert_eq!(sync_committee_period + 1, next_sync_committee_period);
+	let next_sync_committee_update = Box::new(load_next_sync_committee_update_fixture());
 
 	new_tester().execute_with(|| {
 		assert_ok!(EthereumBeaconClient::process_checkpoint_update(&checkpoint));
@@ -376,6 +377,17 @@ fn submit_update_in_next_period() {
 			RuntimeOrigin::signed(1),
 			sync_committee_update.clone()
 		));
+		// check an update in the next period is rejected
+		assert_err!(
+			EthereumBeaconClient::submit(RuntimeOrigin::signed(1), update.clone()),
+			Error::<Test>::SyncCommitteeUpdateRequired
+		);
+		// submit update with next sync committee
+		assert_ok!(EthereumBeaconClient::submit(
+			RuntimeOrigin::signed(1),
+			next_sync_committee_update
+		));
+		// check same header in the next period can now be submitted successfully
 		assert_ok!(EthereumBeaconClient::submit(RuntimeOrigin::signed(1), update.clone()));
 		let block_root: H256 = update.finalized_header.clone().hash_tree_root().unwrap();
 		assert!(<FinalizedBeaconState<Test>>::contains_key(block_root));

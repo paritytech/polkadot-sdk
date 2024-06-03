@@ -55,24 +55,26 @@ use crate::{
 	},
 	transport,
 	types::ProtocolName,
-	Multiaddr, NotificationService, PeerId, ReputationChange,
+	NotificationService, ReputationChange,
 };
 
 use codec::DecodeAll;
 use either::Either;
 use futures::{channel::oneshot, prelude::*};
+use libp2p::identity::ed25519;
 #[allow(deprecated)]
 use libp2p::{
 	connection_limits::Exceeded,
 	core::{upgrade, ConnectedPoint, Endpoint},
 	identify::Info as IdentifyInfo,
 	kad::record::Key as KademliaKey,
-	multiaddr,
+	multiaddr::{self, Multiaddr},
 	ping::Failure as PingFailure,
 	swarm::{
 		AddressScore, ConnectionError, ConnectionId, ConnectionLimits, DialError, Executor,
 		ListenError, NetworkBehaviour, Swarm, SwarmBuilder, SwarmEvent, THandlerErr,
 	},
+	PeerId,
 };
 use log::{debug, error, info, trace, warn};
 use metrics::{Histogram, MetricSources, Metrics};
@@ -269,6 +271,15 @@ where
 		let local_public = local_identity.public();
 		let local_peer_id = local_public.to_peer_id();
 
+		// Convert to libp2p types.
+		let local_identity: ed25519::Keypair = local_identity.into();
+		let local_public: ed25519::PublicKey = local_public.into();
+		let local_peer_id: PeerId = local_peer_id.into();
+		let listen_addresses: Vec<Multiaddr> =
+			network_config.listen_addresses.iter().cloned().map(Into::into).collect();
+		let public_addresses: Vec<Multiaddr> =
+			network_config.public_addresses.iter().cloned().map(Into::into).collect();
+
 		network_config.boot_nodes = network_config
 			.boot_nodes
 			.into_iter()
@@ -370,7 +381,7 @@ where
 			};
 
 			transport::build_transport(
-				local_identity.clone(),
+				local_identity.clone().into(),
 				config_mem,
 				network_config.yamux_window_size,
 				yamux_maximum_buffer_size,
@@ -462,7 +473,7 @@ where
 				.find(|o| o.peer_id != bootnode.peer_id)
 			{
 				Err(Error::DuplicateBootnode {
-					address: bootnode.multiaddr.clone(),
+					address: bootnode.multiaddr.clone().into(),
 					first_id: bootnode.peer_id.into(),
 					second_id: other.peer_id.into(),
 				})
@@ -478,7 +489,7 @@ where
 			boot_node_ids
 				.entry(bootnode.peer_id.into())
 				.or_default()
-				.push(bootnode.multiaddr.clone());
+				.push(bootnode.multiaddr.clone().into());
 		}
 
 		let boot_node_ids = Arc::new(boot_node_ids);
@@ -502,11 +513,11 @@ where
 				format!("{} ({})", network_config.client_version, network_config.node_name);
 
 			let discovery_config = {
-				let mut config = DiscoveryConfig::new(local_public.to_peer_id());
+				let mut config = DiscoveryConfig::new(local_peer_id);
 				config.with_permanent_addresses(
 					known_addresses
 						.iter()
-						.map(|(peer, address)| (peer.into(), address.clone()))
+						.map(|(peer, address)| (peer.into(), address.clone().into()))
 						.collect::<Vec<_>>(),
 				);
 				config.discovery_limit(u64::from(network_config.default_peers_set.out_peers) + 15);
@@ -544,7 +555,7 @@ where
 				let result = Behaviour::new(
 					protocol,
 					user_agent,
-					local_public,
+					local_public.into(),
 					discovery_config,
 					request_response_protocols,
 					Arc::clone(&peer_store_handle),
@@ -581,7 +592,7 @@ where
 							crate::MAX_CONNECTIONS_ESTABLISHED_INCOMING,
 						)),
 				)
-				.substream_upgrade_protocol_override(upgrade::Version::V1Lazy)
+				.substream_upgrade_protocol_override(upgrade::Version::V1)
 				.notify_handler_buffer_size(NonZeroUsize::new(32).expect("32 != 0; qed"))
 				// NOTE: 24 is somewhat arbitrary and should be tuned in the future if necessary.
 				// See <https://github.com/paritytech/substrate/pull/6080>
@@ -604,14 +615,14 @@ where
 		};
 
 		// Listen on multiaddresses.
-		for addr in &network_config.listen_addresses {
+		for addr in &listen_addresses {
 			if let Err(err) = Swarm::<Behaviour<B>>::listen_on(&mut swarm, addr.clone()) {
 				warn!(target: "sub-libp2p", "Can't listen on {} because: {:?}", addr, err)
 			}
 		}
 
 		// Add external addresses.
-		for addr in &network_config.public_addresses {
+		for addr in &public_addresses {
 			Swarm::<Behaviour<B>>::add_external_address(
 				&mut swarm,
 				addr.clone(),
@@ -619,15 +630,15 @@ where
 			);
 		}
 
-		let listen_addresses = Arc::new(Mutex::new(HashSet::new()));
+		let listen_addresses_set = Arc::new(Mutex::new(HashSet::new()));
 
 		let service = Arc::new(NetworkService {
 			bandwidth,
 			external_addresses,
-			listen_addresses: listen_addresses.clone(),
+			listen_addresses: listen_addresses_set.clone(),
 			num_connected: num_connected.clone(),
 			local_peer_id,
-			local_identity,
+			local_identity: local_identity.into(),
 			to_worker,
 			notification_protocol_ids,
 			protocol_handles,
@@ -638,7 +649,7 @@ where
 		});
 
 		Ok(NetworkWorker {
-			listen_addresses,
+			listen_addresses: listen_addresses_set,
 			num_connected,
 			network_service: swarm,
 			service,
@@ -880,13 +891,13 @@ where
 	H: ExHashT,
 {
 	/// Returns the local external addresses.
-	fn external_addresses(&self) -> Vec<Multiaddr> {
-		self.external_addresses.lock().iter().cloned().collect()
+	fn external_addresses(&self) -> Vec<sc_network_types::multiaddr::Multiaddr> {
+		self.external_addresses.lock().iter().cloned().map(Into::into).collect()
 	}
 
 	/// Returns the listener addresses (without trailing `/p2p/` with our `PeerId`).
-	fn listen_addresses(&self) -> Vec<Multiaddr> {
-		self.listen_addresses.lock().iter().cloned().collect()
+	fn listen_addresses(&self) -> Vec<sc_network_types::multiaddr::Multiaddr> {
+		self.listen_addresses.lock().iter().cloned().map(Into::into).collect()
 	}
 
 	/// Returns the local Peer ID.
@@ -998,10 +1009,14 @@ where
 		self.sync_protocol_handle.set_reserved_only(reserved_only);
 	}
 
-	fn add_known_address(&self, peer_id: sc_network_types::PeerId, addr: Multiaddr) {
+	fn add_known_address(
+		&self,
+		peer_id: sc_network_types::PeerId,
+		addr: sc_network_types::multiaddr::Multiaddr,
+	) {
 		let _ = self
 			.to_worker
-			.unbounded_send(ServiceToWorkerMsg::AddKnownAddress(peer_id.into(), addr));
+			.unbounded_send(ServiceToWorkerMsg::AddKnownAddress(peer_id.into(), addr.into()));
 	}
 
 	fn report_peer(&self, peer_id: sc_network_types::PeerId, cost_benefit: ReputationChange) {
@@ -1034,7 +1049,7 @@ where
 
 		let _ = self.to_worker.unbounded_send(ServiceToWorkerMsg::AddKnownAddress(
 			peer.peer_id.into(),
-			peer.multiaddr,
+			peer.multiaddr.into(),
 		));
 		self.sync_protocol_handle.add_reserved_peer(peer.peer_id.into());
 
@@ -1048,16 +1063,16 @@ where
 	fn set_reserved_peers(
 		&self,
 		protocol: ProtocolName,
-		peers: HashSet<Multiaddr>,
+		peers: HashSet<sc_network_types::multiaddr::Multiaddr>,
 	) -> Result<(), String> {
 		let Some(set_id) = self.notification_protocol_ids.get(&protocol) else {
 			return Err(format!("Cannot set reserved peers for unknown protocol: {}", protocol))
 		};
 
+		let peers: HashSet<Multiaddr> = peers.into_iter().map(Into::into).collect();
 		let peers_addrs = self.split_multiaddr_and_peer_id(peers)?;
 
-		let mut peers: HashSet<sc_network_types::PeerId> =
-			HashSet::with_capacity(peers_addrs.len());
+		let mut peers: HashSet<PeerId> = HashSet::with_capacity(peers_addrs.len());
 
 		for (peer_id, addr) in peers_addrs.into_iter() {
 			// Make sure the local peer ID is never added to the PSM.
@@ -1074,8 +1089,7 @@ where
 			}
 		}
 
-		self.protocol_handles[usize::from(*set_id)]
-			.set_reserved_peers(peers.iter().map(|peer| (*peer).into()).collect());
+		self.protocol_handles[usize::from(*set_id)].set_reserved_peers(peers);
 
 		Ok(())
 	}
@@ -1083,7 +1097,7 @@ where
 	fn add_peers_to_reserved_set(
 		&self,
 		protocol: ProtocolName,
-		peers: HashSet<Multiaddr>,
+		peers: HashSet<sc_network_types::multiaddr::Multiaddr>,
 	) -> Result<(), String> {
 		let Some(set_id) = self.notification_protocol_ids.get(&protocol) else {
 			return Err(format!(
@@ -1092,6 +1106,7 @@ where
 			))
 		};
 
+		let peers: HashSet<Multiaddr> = peers.into_iter().map(Into::into).collect();
 		let peers = self.split_multiaddr_and_peer_id(peers)?;
 
 		for (peer_id, addr) in peers.into_iter() {
@@ -1723,8 +1738,8 @@ where
 					{
 						if let DialError::WrongPeerId { obtained, endpoint } = &error {
 							if let ConnectedPoint::Dialer { address, role_override: _ } = endpoint {
-								let address_without_peer_id = parse_addr(address.clone())
-									.map_or_else(|_| address.clone(), |r| r.1);
+								let address_without_peer_id = parse_addr(address.clone().into())
+									.map_or_else(|_| address.clone(), |r| r.1.into());
 
 								// Only report for address of boot node that was added at startup of
 								// the node and not for any address that the node learned of the
@@ -1860,14 +1875,14 @@ where
 }
 
 pub(crate) fn ensure_addresses_consistent_with_transport<'a>(
-	addresses: impl Iterator<Item = &'a Multiaddr>,
+	addresses: impl Iterator<Item = &'a sc_network_types::multiaddr::Multiaddr>,
 	transport: &TransportConfig,
 ) -> Result<(), Error> {
+	use sc_network_types::multiaddr::Protocol;
+
 	if matches!(transport, TransportConfig::MemoryOnly) {
 		let addresses: Vec<_> = addresses
-			.filter(|x| {
-				x.iter().any(|y| !matches!(y, libp2p::core::multiaddr::Protocol::Memory(_)))
-			})
+			.filter(|x| x.iter().any(|y| !matches!(y, Protocol::Memory(_))))
 			.cloned()
 			.collect();
 
@@ -1879,7 +1894,7 @@ pub(crate) fn ensure_addresses_consistent_with_transport<'a>(
 		}
 	} else {
 		let addresses: Vec<_> = addresses
-			.filter(|x| x.iter().any(|y| matches!(y, libp2p::core::multiaddr::Protocol::Memory(_))))
+			.filter(|x| x.iter().any(|y| matches!(y, Protocol::Memory(_))))
 			.cloned()
 			.collect();
 
