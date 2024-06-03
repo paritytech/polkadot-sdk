@@ -88,7 +88,7 @@
 //! presets and build the chain specification file. It is possible to use the tool with the
 //! [_demonstration runtime_][`chain_spec_guide_runtime`]. To build required packages just run the
 //! following command:
-//! ```no_run
+//! ```ignore
 //! cargo build -p staging-chain-spec-builder -p chain-spec-guide-runtime --release
 //! ```
 //! Here are some examples in the form of rust tests:
