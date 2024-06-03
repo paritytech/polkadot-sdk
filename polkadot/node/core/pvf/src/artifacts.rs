@@ -142,6 +142,8 @@ pub enum ArtifactState {
 		/// This is updated when we get the heads up for this artifact or when we just discover
 		/// this file.
 		last_time_needed: SystemTime,
+		/// Size in bytes
+		size: u64,
 		/// Stats produced by successful preparation.
 		prepare_stats: PrepareStats,
 	},
@@ -174,7 +176,7 @@ pub struct Artifacts {
 pub enum CleanupBy {
 	// Inactive time after which artefact is deleted
 	Time(Duration),
-	// Max size in bytes. Reaching it older artefacts are deleted
+	// Max size in bytes. Reaching it the least used artefacts are deleted
 	Size(u64),
 }
 
@@ -243,12 +245,16 @@ impl Artifacts {
 		artifact_id: ArtifactId,
 		path: PathBuf,
 		last_time_needed: SystemTime,
+		size: u64,
 		prepare_stats: PrepareStats,
 	) {
 		// See the precondition.
 		always!(self
 			.inner
-			.insert(artifact_id, ArtifactState::Prepared { path, last_time_needed, prepare_stats })
+			.insert(
+				artifact_id,
+				ArtifactState::Prepared { path, last_time_needed, size, prepare_stats }
+			)
 			.is_none());
 	}
 

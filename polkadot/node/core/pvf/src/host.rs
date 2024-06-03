@@ -803,8 +803,12 @@ async fn handle_prepare_done(
 	}
 
 	*state = match result {
-		Ok(PrepareSuccess { path, stats: prepare_stats }) =>
-			ArtifactState::Prepared { path, last_time_needed: SystemTime::now(), prepare_stats },
+		Ok(PrepareSuccess { path, stats: prepare_stats, size }) => ArtifactState::Prepared {
+			path,
+			last_time_needed: SystemTime::now(),
+			size,
+			prepare_stats,
+		},
 		Err(error) => {
 			let last_time_failed = SystemTime::now();
 			let num_failures = *num_failures + 1;
@@ -1190,12 +1194,14 @@ pub(crate) mod tests {
 			artifact_id(1),
 			path1.clone(),
 			mock_now,
+			0,
 			PrepareStats::default(),
 		);
 		builder.artifacts.insert_prepared(
 			artifact_id(2),
 			path2.clone(),
 			mock_now,
+			0,
 			PrepareStats::default(),
 		);
 		let mut test = builder.build();
