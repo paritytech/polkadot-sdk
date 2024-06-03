@@ -250,6 +250,10 @@ impl StakingInterface for StakingMock {
 		unreachable!();
 	}
 
+	fn is_virtual_staker(_stash: &Self::AccountId) -> bool {
+		unreachable!();
+	}
+
 	#[cfg(feature = "runtime-benchmarks")]
 	fn add_era_stakers(
 		_current_era: &sp_staking::EraIndex,

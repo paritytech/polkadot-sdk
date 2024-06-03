@@ -28,6 +28,7 @@ polkadot-primitives = { path = "../../primitives" }
 polkadot-node-network-protocol = { path = "../network/protocol" }
 polkadot-availability-recovery = { path = "../network/availability-recovery", features = ["subsystem-benchmarks"] }
 polkadot-availability-distribution = { path = "../network/availability-distribution" }
+polkadot-statement-distribution = { path = "../network/statement-distribution" }
 polkadot-node-core-av-store = { path = "../core/av-store" }
 polkadot-node-core-chain-api = { path = "../core/chain-api" }
 polkadot-availability-bitfield-distribution = { path = "../network/bitfield-distribution" }
@@ -55,7 +56,7 @@ rand_distr = "0.4.3"
 bitvec = "1.0.1"
 kvdb-memorydb = "0.13.0"
 
-parity-scale-codec = { version = "3.6.1", features = ["derive", "std"] }
+parity-scale-codec = { version = "3.6.12", features = ["derive", "std"] }
 tokio = { version = "1.24.2", features = ["parking_lot", "rt-multi-thread"] }
 clap-num = "1.0.2"
 polkadot-node-subsystem-test-helpers = { path = "../subsystem-test-helpers" }
@@ -88,6 +89,7 @@ paste = "1.0.14"
 orchestra = { version = "0.3.5", default-features = false, features = ["futures_channel"] }
 pyroscope = "0.5.7"
 pyroscope_pprofrs = "0.2.7"
+strum = { version = "0.24", features = ["derive"] }
 
 [features]
 default = []
