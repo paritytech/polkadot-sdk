@@ -121,9 +121,8 @@ use std::{fs, path::PathBuf};
 
 use clap::{Parser, Subcommand};
 use sc_chain_spec::{
-	ChainSpecExtension, ChainSpecGroup, GenericChainSpec, GenesisConfigBuilderRuntimeCaller,
+	GenericChainSpec, GenesisConfigBuilderRuntimeCaller,
 };
-use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 /// A utility to easily create a chain spec definition.
@@ -258,29 +257,6 @@ pub struct DisplayPresetCmd {
 	pub preset_name: Option<String>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ChainSpecGroup, ChainSpecExtension)]
-pub struct Extensions {
-	/// The relay chain of the Parachain.
-	#[serde(alias = "relayChain", alias = "RelayChain")]
-	pub relay_chain: String,
-	/// The id of the Parachain.
-	#[serde(alias = "paraId", alias = "ParaId")]
-	pub para_id: u32,
-}
-
-impl Extensions {
-	/// Try to get the extension from the given `ChainSpec`.
-	pub fn try_get(chain_spec: &dyn sc_service::ChainSpec) -> Option<&Self> {
-		sc_chain_spec::get_extension(chain_spec.extensions())
-	}
-}
-
-impl sp_runtime::BuildStorage for Extensions {
-	/// Assimilate the storage for this module into pre-existing overlays.
-	fn assimilate_storage(&self, storage: &mut sp_core::storage::Storage) -> Result<(), String> {
-		unimplemented!();
-	}
-}
 /// Verifies the provided input chain spec.
 ///
 /// Silently checks if given input chain spec can be converted to raw. It allows to check if all

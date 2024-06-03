@@ -18,15 +18,18 @@
 
 use chain_spec_builder::{
 	generate_chain_spec_for_runtime, AddCodeSubstituteCmd, ChainSpecBuilder, ChainSpecBuilderCmd,
-	ConvertToRawCmd, DisplayPresetCmd, Extensions, ListPresetsCmd, UpdateCodeCmd, VerifyCmd,
+	ConvertToRawCmd, DisplayPresetCmd, ListPresetsCmd, UpdateCodeCmd, VerifyCmd,
 };
 use clap::Parser;
+use cumulus_client_chain_spec_extension::Extensions;
 use sc_chain_spec::{
 	set_code_substitute_in_json_chain_spec, update_code_in_json_chain_spec, GenericChainSpec,
 	GenesisConfigBuilderRuntimeCaller,
 };
 use staging_chain_spec_builder as chain_spec_builder;
 use std::fs;
+
+type ChainSpec = GenericChainSpec<(), Extensions>;
 
 //avoid error message escaping
 fn main() {
@@ -51,8 +54,7 @@ fn inner_main() -> Result<(), String> {
 			ref input_chain_spec,
 			ref runtime_wasm_path,
 		}) => {
-			let chain_spec =
-				GenericChainSpec::<(), Extensions>::from_json_file(input_chain_spec.clone())?;
+			let chain_spec = ChainSpec::from_json_file(input_chain_spec.clone())?;
 
 			let mut chain_spec_json =
 				serde_json::from_str::<serde_json::Value>(&chain_spec.as_json(false)?)
@@ -72,8 +74,7 @@ fn inner_main() -> Result<(), String> {
 			ref runtime_wasm_path,
 			block_height,
 		}) => {
-			let chain_spec =
-				GenericChainSpec::<(), Extensions>::from_json_file(input_chain_spec.clone())?;
+			let chain_spec = ChainSpec::from_json_file(input_chain_spec.clone())?;
 
 			let mut chain_spec_json =
 				serde_json::from_str::<serde_json::Value>(&chain_spec.as_json(false)?)
@@ -90,8 +91,7 @@ fn inner_main() -> Result<(), String> {
 			fs::write(chain_spec_path, chain_spec_json).map_err(|err| err.to_string())?;
 		},
 		ChainSpecBuilderCmd::ConvertToRaw(ConvertToRawCmd { ref input_chain_spec }) => {
-			let chain_spec =
-				GenericChainSpec::<(), Extensions>::from_json_file(input_chain_spec.clone())?;
+			let chain_spec = ChainSpec::from_json_file(input_chain_spec.clone())?;
 
 			let chain_spec_json =
 				serde_json::from_str::<serde_json::Value>(&chain_spec.as_json(true)?)
@@ -102,8 +102,7 @@ fn inner_main() -> Result<(), String> {
 			fs::write(chain_spec_path, chain_spec_json).map_err(|err| err.to_string())?;
 		},
 		ChainSpecBuilderCmd::Verify(VerifyCmd { ref input_chain_spec }) => {
-			let chain_spec =
-				GenericChainSpec::<(), Extensions>::from_json_file(input_chain_spec.clone())?;
+			let chain_spec = ChainSpec::from_json_file(input_chain_spec.clone())?;
 			let _ = serde_json::from_str::<serde_json::Value>(&chain_spec.as_json(true)?)
 				.map_err(|e| format!("Conversion to json failed: {e}"))?;
 		},

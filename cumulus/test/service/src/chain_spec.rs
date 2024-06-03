@@ -35,21 +35,6 @@ pub fn get_from_seed<TPublic: Public>(seed: &str) -> <TPublic::Pair as Pair>::Pu
 		.public()
 }
 
-/// The extensions for the [`ChainSpec`].
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ChainSpecGroup, ChainSpecExtension)]
-#[serde(deny_unknown_fields)]
-pub struct Extensions {
-	/// The id of the Parachain.
-	pub para_id: u32,
-}
-
-impl Extensions {
-	/// Try to get the extension from the given `ChainSpec`.
-	pub fn try_get(chain_spec: &dyn sc_service::ChainSpec) -> Option<&Self> {
-		sc_chain_spec::get_extension(chain_spec.extensions())
-	}
-}
-
 type AccountPublic = <Signature as Verify>::Signer;
 
 /// Helper function to generate an account ID from seed.
@@ -69,7 +54,10 @@ pub fn get_chain_spec_with_extra_endowed(
 ) -> ChainSpec {
 	ChainSpec::builder(
 		cumulus_test_runtime::WASM_BINARY.expect("WASM binary was not built, please build it!"),
-		Extensions { para_id: id.unwrap_or(cumulus_test_runtime::PARACHAIN_ID.into()).into() },
+		Extensions {
+			para_id: id.unwrap_or(cumulus_test_runtime::PARACHAIN_ID.into()).into(),
+			..Default::default()
+		},
 	)
 	.with_name("Local Testnet")
 	.with_id("local_testnet")

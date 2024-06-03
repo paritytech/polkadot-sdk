@@ -77,9 +77,10 @@ fn main() -> Result<(), sc_cli::Error> {
 				SubstrateCli::create_configuration(&polkadot_cli, &polkadot_cli, tokio_handle)
 					.map_err(|err| format!("Relay chain argument error: {}", err))?;
 
-			let parachain_id = chain_spec::Extensions::try_get(&*config.chain_spec)
-				.map(|e| e.para_id)
-				.ok_or("Could not find parachain extension in chain-spec.")?;
+			let parachain_id =
+				cumulus_client_chain_spec_extension::Extensions::try_get(&*config.chain_spec)
+					.map(|e| e.para_id)
+					.ok_or("Could not find parachain extension in chain-spec.")?;
 
 			tracing::info!("Parachain id: {:?}", parachain_id);
 			tracing::info!(

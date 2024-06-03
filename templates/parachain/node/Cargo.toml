@@ -20,7 +20,6 @@ workspace = true
 clap = { version = "4.5.3", features = ["derive"] }
 log = { workspace = true, default-features = true }
 codec = { package = "parity-scale-codec", version = "3.6.12" }
-serde = { features = ["derive"], workspace = true, default-features = true }
 jsonrpsee = { version = "0.22", features = ["server"] }
 futures = "0.3.28"
 serde_json = { workspace = true, default-features = true }
@@ -77,6 +76,7 @@ cumulus-primitives-core = { path = "../../../cumulus/primitives/core" }
 cumulus-primitives-parachain-inherent = { path = "../../../cumulus/primitives/parachain-inherent" }
 cumulus-relay-chain-interface = { path = "../../../cumulus/client/relay-chain-interface" }
 color-print = "0.3.4"
+cumulus-client-chain-spec-extension = { path = "../../../cumulus/client/chain-spec-extension" }
 
 [build-dependencies]
 substrate-build-script-utils = { path = "../../../substrate/utils/build-script-utils" }

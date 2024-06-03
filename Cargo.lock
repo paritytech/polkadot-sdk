@@ -3584,6 +3584,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "cumulus-client-chain-spec-extension"
+version = "0.1.0"
+dependencies = [
+ "sc-chain-spec",
+ "serde",
+]
+
+[[package]]
 name = "cumulus-client-cli"
 version = "0.7.0"
 dependencies = [
@@ -4367,6 +4375,7 @@ dependencies = [
  "async-trait",
  "clap 4.5.3",
  "criterion",
+ "cumulus-client-chain-spec-extension",
  "cumulus-client-cli",
  "cumulus-client-collator",
  "cumulus-client-consensus-aura",
@@ -11706,6 +11715,7 @@ version = "0.0.0"
 dependencies = [
  "clap 4.5.3",
  "color-print",
+ "cumulus-client-chain-spec-extension",
  "cumulus-client-cli",
  "cumulus-client-collator",
  "cumulus-client-consensus-aura",
@@ -11742,7 +11752,6 @@ dependencies = [
  "sc-tracing",
  "sc-transaction-pool",
  "sc-transaction-pool-api",
- "serde",
  "serde_json",
  "sp-api",
  "sp-block-builder",
@@ -13541,6 +13550,7 @@ dependencies = [
  "contracts-rococo-runtime",
  "coretime-rococo-runtime",
  "coretime-westend-runtime",
+ "cumulus-client-chain-spec-extension",
  "cumulus-client-cli",
  "cumulus-client-collator",
  "cumulus-client-consensus-aura",
@@ -13591,7 +13601,6 @@ dependencies = [
  "sc-transaction-pool",
  "sc-transaction-pool-api",
  "seedling-runtime",
- "serde",
  "serde_json",
  "shell-runtime",
  "sp-api",
@@ -20523,6 +20532,7 @@ name = "staging-chain-spec-builder"
 version = "3.0.0"
 dependencies = [
  "clap 4.5.3",
+ "cumulus-client-chain-spec-extension",
  "log",
  "sc-chain-spec",
  "sc-service",

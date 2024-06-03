@@ -32,3 +32,4 @@ serde = { features = ["derive"], workspace = true, default-features = true }
 sp-runtime = { path = "../../../primitives/runtime" }
 sp-core = { path = "../../../primitives/core" }
 sc-service = { path = "../../../client/service", default-features = false }
+cumulus-client-chain-spec-extension = { path = "../../../../cumulus/client/chain-spec-extension" }
