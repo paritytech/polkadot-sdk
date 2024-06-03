@@ -32,7 +32,6 @@ use futures::{
 	channel::mpsc::{channel, Receiver, Sender},
 	prelude::*,
 };
-use libp2p_identity::PeerId;
 use log::trace;
 use prometheus_endpoint::Registry;
 use sc_network_types::PeerId;
