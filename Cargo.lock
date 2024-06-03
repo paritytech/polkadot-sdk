@@ -2514,7 +2514,6 @@ name = "chain-spec-guide-runtime"
 version = "0.0.0"
 dependencies = [
  "docify",
- "indoc",
  "pallet-balances",
  "pallet-sudo",
  "pallet-timestamp",
@@ -2523,7 +2522,6 @@ dependencies = [
  "parity-scale-codec",
  "polkadot-sdk-frame",
  "scale-info",
- "serde",
  "serde_json",
  "sp-application-crypto",
  "sp-core",
@@ -2531,6 +2529,7 @@ dependencies = [
  "sp-keyring",
  "sp-runtime",
  "sp-std 14.0.0",
+ "staging-chain-spec-builder",
  "substrate-wasm-builder",
 ]
 
@@ -6910,12 +6909,6 @@ dependencies = [
  "portable-atomic",
  "unicode-width",
 ]
-
-[[package]]
-name = "indoc"
-version = "2.0.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b248f5224d1d606005e02c97f5aa4e88eeb230488bcc03bc9ca4d7991399f2b5"
 
 [[package]]
 name = "inout"

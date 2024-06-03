@@ -13,7 +13,6 @@ publish = false
 docify = "0.2.8"
 parity-scale-codec = { version = "3.6.12", default-features = false }
 scale-info = { version = "2.6.0", default-features = false }
-serde = { workspace = true, default-features = false, feature = ["derive"] }
 serde_json.workspace = true
 
 # this is a frame-based runtime, thus importing `frame` with runtime feature enabled.
@@ -31,19 +30,17 @@ pallet-transaction-payment-rpc-runtime-api = { path = "../../../../../substrate/
 
 # genesis builder that allows us to interact with runtime genesis config
 sp-genesis-builder = { path = "../../../../../substrate/primitives/genesis-builder", default-features = false }
-sp-runtime = { path = "../../../../../substrate/primitives/runtime", default-features = false, features = [
-  "serde",
-] }
+sp-runtime = { path = "../../../../../substrate/primitives/runtime", default-features = false, features = [ "serde" ] }
 sp-core = { path = "../../../../../substrate/primitives/core", default-features = false }
 sp-std = { path = "../../../../../substrate/primitives/std", default-features = false }
 sp-keyring = { path = "../../../../../substrate/primitives/keyring", default-features = false }
-sp-application-crypto = { path = "../../../../../substrate/primitives/application-crypto", default-features = false, features = [
-  "serde",
-] }
-indoc = "2.0.5"
+sp-application-crypto = { path = "../../../../../substrate/primitives/application-crypto", default-features = false, features = [ "serde" ] }
 
 [build-dependencies]
 substrate-wasm-builder = { path = "../../../../../substrate/utils/wasm-builder", optional = true }
+
+[dev-dependencies]
+chain-spec-builder = { package = "staging-chain-spec-builder", path = "../../../../../substrate/bin/utils/chain-spec-builder" }
 
 [features]
 default = ["std"]

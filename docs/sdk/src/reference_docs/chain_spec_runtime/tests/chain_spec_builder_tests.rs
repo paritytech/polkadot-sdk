@@ -6,10 +6,24 @@ const WASM_FILE_PATH: &str =
 
 const CHAIN_SPEC_BUILDER_PATH: &str = "../../../../../target/release/chain-spec-builder";
 
+fn get_chain_spec_builder_path() -> &'static str {
+	// dev-dependencies do not build binary. So let's do shitty work-around here:
+	let _ = std::process::Command::new("cargo")
+		.arg("build")
+		.arg("--release")
+		.arg("-p")
+		.arg("staging-chain-spec-builder")
+		.arg("--bin")
+		.arg("chain-spec-builder")
+		.status()
+		.expect("Failed to execute command");
+	CHAIN_SPEC_BUILDER_PATH
+}
+
 #[test]
 #[docify::export]
 fn list_presets() {
-	let output = Command::new(CHAIN_SPEC_BUILDER_PATH)
+	let output = Command::new(get_chain_spec_builder_path())
 		.arg("list-presets")
 		.arg("-r")
 		.arg(WASM_FILE_PATH)
@@ -32,7 +46,7 @@ fn list_presets() {
 #[test]
 #[docify::export]
 fn get_preset() {
-	let output = Command::new(CHAIN_SPEC_BUILDER_PATH)
+	let output = Command::new(get_chain_spec_builder_path())
 		.arg("display-preset")
 		.arg("-r")
 		.arg(WASM_FILE_PATH)
@@ -63,7 +77,7 @@ fn get_preset() {
 #[test]
 #[docify::export]
 fn generate_chain_spec() {
-	let output = Command::new(CHAIN_SPEC_BUILDER_PATH)
+	let output = Command::new(get_chain_spec_builder_path())
 		.arg("-c")
 		.arg("/dev/stdout")
 		.arg("create")
