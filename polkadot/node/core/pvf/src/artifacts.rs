@@ -291,12 +291,9 @@ impl Artifacts {
 				let mut artifact_sizes = vec![];
 
 				for (k, v) in self.inner.iter() {
-					if let ArtifactState::Prepared { ref path, last_time_needed, .. } = *v {
-						if let Ok(metadata) = fs::metadata(path) {
-							let size = metadata.len();
-							total_size += size;
-							artifact_sizes.push((k.clone(), path.clone(), size, last_time_needed));
-						}
+					if let ArtifactState::Prepared { ref path, last_time_needed, size, .. } = *v {
+						total_size += size;
+						artifact_sizes.push((k.clone(), path.clone(), size, last_time_needed));
 					}
 				}
 				artifact_sizes.sort_by_key(|&(_, _, _, last_time_needed)| last_time_needed);
