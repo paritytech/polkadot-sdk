@@ -20560,7 +20560,6 @@ dependencies = [
  "log",
  "sc-chain-spec",
  "sc-service",
- "serde",
  "serde_json",
  "sp-core",
  "sp-runtime",
