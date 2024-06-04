@@ -133,6 +133,7 @@ impl frame_system::Config for Runtime {
 	type Version = Version;
 	// Use the account data from the balances pallet
 	type AccountData = pallet_balances::AccountData<<Runtime as pallet_balances::Config>::Balance>;
+	type Lookup = sp_runtime::traits::AccountIdLookup<Self::AccountId, ()>;
 }
 
 // Implements the types required for the balances pallet.
