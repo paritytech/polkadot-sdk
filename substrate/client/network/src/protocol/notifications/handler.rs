@@ -882,10 +882,24 @@ impl ConnectionHandler for NotifsHandler {
 #[cfg(test)]
 pub mod tests {
 	use super::*;
-	// use crate::protocol::notifications::{
+	// TODO: Uncomment & update tests when/if `libp2p::Stream::new()` is made public.
+	//       See issue /TBD/.
+	//       Uncomment the following imports when enabling the tests below.
+	// use crate::protocol::notifications::upgrade::{
 	// 	NotificationsInOpen, NotificationsInSubstreamHandshake, NotificationsOutOpen,
 	// };
-	use std::collections::HashMap;
+	// use asynchronous_codec::Framed;
+	// use libp2p::{
+	// 	core::muxing::SubstreamBox,
+	// 	swarm::{handler, ConnectionHandlerUpgrErr},
+	// 	Multiaddr, Stream,
+	// };
+	// use multistream_select::{dialer_select_proto, listener_select_proto, Negotiated, Version};
+	// use unsigned_varint::codec::UviBytes;
+	use std::{
+		collections::HashMap,
+		io::{Error, IoSlice, IoSliceMut},
+	};
 	use tokio::sync::mpsc;
 
 	struct OpenSubstream {
@@ -972,9 +986,9 @@ pub mod tests {
 
 	#[allow(unused)]
 	struct MockSubstream {
-		pub _rx: mpsc::Receiver<Vec<u8>>,
-		pub _tx: mpsc::Sender<Vec<u8>>,
-		_rx_buffer: BytesMut,
+		pub rx: mpsc::Receiver<Vec<u8>>,
+		pub tx: mpsc::Sender<Vec<u8>>,
+		rx_buffer: BytesMut,
 	}
 
 	impl MockSubstream {
@@ -984,88 +998,88 @@ pub mod tests {
 			let (tx2, rx2) = mpsc::channel(32);
 
 			(
-				Self { _rx: rx1, _tx: tx2, _rx_buffer: BytesMut::with_capacity(512) },
-				Self { _rx: rx2, _tx: tx1, _rx_buffer: BytesMut::with_capacity(512) },
+				Self { rx: rx1, tx: tx2, rx_buffer: BytesMut::with_capacity(512) },
+				Self { rx: rx2, tx: tx1, rx_buffer: BytesMut::with_capacity(512) },
 			)
 		}
 
 		// /// Create new negotiated substream pair.
-		// pub async fn negotiated() -> (Negotiated<SubstreamBox>, Negotiated<SubstreamBox>) {
+		// pub async fn negotiated() -> (Stream, Stream) {
 		// 	let (socket1, socket2) = Self::new();
 		// 	let socket1 = SubstreamBox::new(socket1);
 		// 	let socket2 = SubstreamBox::new(socket2);
 
-		// 	let protos = vec![b"/echo/1.0.0", b"/echo/2.5.0"];
+		// 	let protos = vec!["/echo/1.0.0", "/echo/2.5.0"];
 		// 	let (res1, res2) = tokio::join!(
 		// 		dialer_select_proto(socket1, protos.clone(), Version::V1),
 		// 		listener_select_proto(socket2, protos),
 		// 	);
 
-		// 	(res1.unwrap().1, res2.unwrap().1)
+		// 	(Stream::new(res1.unwrap().1), Stream::new(res2.unwrap().1))
 		// }
 	}
 
-	// impl AsyncWrite for MockSubstream {
-	// 	fn poll_write<'a>(
-	// 		self: Pin<&mut Self>,
-	// 		_cx: &mut Context<'a>,
-	// 		buf: &[u8],
-	// 	) -> Poll<Result<usize, Error>> {
-	// 		match self.tx.try_send(buf.to_vec()) {
-	// 			Ok(_) => Poll::Ready(Ok(buf.len())),
-	// 			Err(_) => Poll::Ready(Err(std::io::ErrorKind::UnexpectedEof.into())),
-	// 		}
-	// 	}
+	impl AsyncWrite for MockSubstream {
+		fn poll_write<'a>(
+			self: Pin<&mut Self>,
+			_cx: &mut Context<'a>,
+			buf: &[u8],
+		) -> Poll<Result<usize, Error>> {
+			match self.tx.try_send(buf.to_vec()) {
+				Ok(_) => Poll::Ready(Ok(buf.len())),
+				Err(_) => Poll::Ready(Err(std::io::ErrorKind::UnexpectedEof.into())),
+			}
+		}
 
-	// 	fn poll_flush<'a>(self: Pin<&mut Self>, _cx: &mut Context<'a>) -> Poll<Result<(), Error>> {
-	// 		Poll::Ready(Ok(()))
-	// 	}
+		fn poll_flush<'a>(self: Pin<&mut Self>, _cx: &mut Context<'a>) -> Poll<Result<(), Error>> {
+			Poll::Ready(Ok(()))
+		}
 
-	// 	fn poll_close<'a>(self: Pin<&mut Self>, _cx: &mut Context<'a>) -> Poll<Result<(), Error>> {
-	// 		Poll::Ready(Ok(()))
-	// 	}
+		fn poll_close<'a>(self: Pin<&mut Self>, _cx: &mut Context<'a>) -> Poll<Result<(), Error>> {
+			Poll::Ready(Ok(()))
+		}
 
-	// 	fn poll_write_vectored<'a, 'b>(
-	// 		self: Pin<&mut Self>,
-	// 		_cx: &mut Context<'a>,
-	// 		_bufs: &[IoSlice<'b>],
-	// 	) -> Poll<Result<usize, Error>> {
-	// 		unimplemented!();
-	// 	}
-	// }
+		fn poll_write_vectored<'a, 'b>(
+			self: Pin<&mut Self>,
+			_cx: &mut Context<'a>,
+			_bufs: &[IoSlice<'b>],
+		) -> Poll<Result<usize, Error>> {
+			unimplemented!();
+		}
+	}
 
-	// impl AsyncRead for MockSubstream {
-	// 	fn poll_read<'a>(
-	// 		mut self: Pin<&mut Self>,
-	// 		cx: &mut Context<'a>,
-	// 		buf: &mut [u8],
-	// 	) -> Poll<Result<usize, Error>> {
-	// 		match self.rx.poll_recv(cx) {
-	// 			Poll::Ready(Some(data)) => self.rx_buffer.extend_from_slice(&data),
-	// 			Poll::Ready(None) =>
-	// 				return Poll::Ready(Err(std::io::ErrorKind::UnexpectedEof.into())),
-	// 			_ => {},
-	// 		}
+	impl AsyncRead for MockSubstream {
+		fn poll_read<'a>(
+			mut self: Pin<&mut Self>,
+			cx: &mut Context<'a>,
+			buf: &mut [u8],
+		) -> Poll<Result<usize, Error>> {
+			match self.rx.poll_recv(cx) {
+				Poll::Ready(Some(data)) => self.rx_buffer.extend_from_slice(&data),
+				Poll::Ready(None) =>
+					return Poll::Ready(Err(std::io::ErrorKind::UnexpectedEof.into())),
+				_ => {},
+			}
 
-	// 		let nsize = std::cmp::min(self.rx_buffer.len(), buf.len());
-	// 		let data = self.rx_buffer.split_to(nsize);
-	// 		buf[..nsize].copy_from_slice(&data[..]);
+			let nsize = std::cmp::min(self.rx_buffer.len(), buf.len());
+			let data = self.rx_buffer.split_to(nsize);
+			buf[..nsize].copy_from_slice(&data[..]);
 
-	// 		if nsize > 0 {
-	// 			return Poll::Ready(Ok(nsize))
-	// 		}
+			if nsize > 0 {
+				return Poll::Ready(Ok(nsize))
+			}
 
-	// 		Poll::Pending
-	// 	}
+			Poll::Pending
+		}
 
-	// 	fn poll_read_vectored<'a, 'b>(
-	// 		self: Pin<&mut Self>,
-	// 		_cx: &mut Context<'a>,
-	// 		_bufs: &mut [IoSliceMut<'b>],
-	// 	) -> Poll<Result<usize, Error>> {
-	// 		unimplemented!();
-	// 	}
-	// }
+		fn poll_read_vectored<'a, 'b>(
+			self: Pin<&mut Self>,
+			_cx: &mut Context<'a>,
+			_bufs: &mut [IoSliceMut<'b>],
+		) -> Poll<Result<usize, Error>> {
+			unimplemented!();
+		}
+	}
 
 	// /// Create new [`NotifsHandler`].
 	// fn notifs_handler() -> NotifsHandler {

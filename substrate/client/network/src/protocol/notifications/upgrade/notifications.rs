@@ -195,6 +195,15 @@ impl<TSubstream> NotificationsInSubstream<TSubstream>
 where
 	TSubstream: AsyncRead + AsyncWrite + Unpin,
 {
+	// TODO: uncomment when enabling tests in `handler.rs`.
+	// #[cfg(test)]
+	// pub fn new(
+	// 	socket: Framed<TSubstream, UviBytes<io::Cursor<Vec<u8>>>>,
+	// 	handshake: NotificationsInSubstreamHandshake,
+	// ) -> Self {
+	// 	Self { socket, handshake }
+	// }
+
 	/// Sends the handshake in order to inform the remote that we accept the substream.
 	pub fn send_handshake(&mut self, message: impl Into<Vec<u8>>) {
 		if !matches!(self.handshake, NotificationsInSubstreamHandshake::NotSent) {
