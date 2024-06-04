@@ -149,8 +149,6 @@ pub fn native_version() -> NativeVersion {
 
 parameter_types! {
 	pub const Version: RuntimeVersion = VERSION;
-	pub RuntimeBlockLength: BlockLength =
-		BlockLength::max_with_normal_ratio(5 * 1024 * 1024, NORMAL_DISPATCH_RATIO);
 	pub RuntimeBlockWeights: BlockWeights = BlockWeights::builder()
 		.base_block(BlockExecutionWeight::get())
 		.for_class(DispatchClass::all(), |weights| {
@@ -173,34 +171,20 @@ parameter_types! {
 }
 
 // Configure FRAME pallets to include in runtime.
-#[derive_impl(frame_system::config_preludes::ParaChainDefaultConfig)]
+#[derive_impl(testnet_parachains_constants::default_configs::SystemParachainDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Runtime {
-	/// The identifier used to distinguish between accounts.
-	type AccountId = AccountId;
-	/// The nonce type for storing how many extrinsics an account has signed.
-	type Nonce = Nonce;
-	/// The type for hashing blocks and tries.
-	type Hash = Hash;
 	/// The block type.
 	type Block = Block;
-	/// Maximum number of block number to block hash mappings to keep (oldest pruned first).
-	type BlockHashCount = BlockHashCount;
 	/// Runtime version.
 	type Version = Version;
-	/// The data to be stored in an account.
-	type AccountData = pallet_balances::AccountData<Balance>;
-	/// The weight of database operations that the runtime can invoke.
-	type DbWeight = RocksDbWeight;
+	// The designated SS58 prefix of this chain.
+	type SS58Prefix = SS58Prefix;
 	/// Weight information for the extrinsics of this pallet.
 	type SystemWeightInfo = weights::frame_system::WeightInfo<Runtime>;
 	/// Block & extrinsics weights: base values and limits.
 	type BlockWeights = RuntimeBlockWeights;
-	/// The maximum length of a block (in bytes).
-	type BlockLength = RuntimeBlockLength;
-	type SS58Prefix = SS58Prefix;
-	/// The action to take on a Runtime Upgrade
+	/// The action to take on a Runtime Upgrade.
 	type OnSetCode = cumulus_pallet_parachain_system::ParachainSetCode<Self>;
-	type MaxConsumers = ConstU32<16>;
 }
 
 impl pallet_timestamp::Config for Runtime {
