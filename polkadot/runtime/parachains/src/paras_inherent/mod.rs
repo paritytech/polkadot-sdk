@@ -572,7 +572,6 @@ impl<T: Config> Pallet<T> {
 		let backed_candidates_with_core = sanitize_backed_candidates::<T>(
 			backed_candidates,
 			&allowed_relay_parents,
-			// concluded_invalid_hashes,
 			current_concluded_invalid_disputes,
 			scheduled,
 			core_index_enabled,
