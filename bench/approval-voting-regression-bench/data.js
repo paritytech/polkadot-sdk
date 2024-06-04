@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1717427761893,
+  "lastUpdate": 1717488792555,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -6203,6 +6203,53 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 3.309956572010175,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Bastian Köcher",
+            "username": "bkchr",
+            "email": "git@kchr.de"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "09de7f157e30f3b9fa2880d298144cb251dd5958",
+          "message": "Format the README.md files (#4688)\n\nCo-authored-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>",
+          "timestamp": "2024-06-04T07:45:53Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/09de7f157e30f3b9fa2880d298144cb251dd5958"
+        },
+        "date": 1717488763949,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52941.3,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63543.08,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting",
+            "value": 9.531541389369995,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 3.1140137705500814,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 7.062571443189954,
             "unit": "seconds"
           }
         ]
