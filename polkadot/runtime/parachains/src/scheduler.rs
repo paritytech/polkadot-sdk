@@ -38,14 +38,17 @@
 
 use crate::{configuration, initializer::SessionChangeNotification, paras};
 use frame_support::{pallet_prelude::*, traits::Defensive};
-use frame_system::{pallet_prelude::BlockNumberFor};
+use frame_system::pallet_prelude::BlockNumberFor;
 pub use polkadot_core_primitives::v2::BlockNumber;
 use primitives::{
 	CoreIndex, GroupIndex, GroupRotationInfo, Id as ParaId, ScheduledCore, ValidatorIndex,
 };
 use sp_runtime::traits::One;
 use sp_std::{
-	collections::{btree_map::{BTreeMap, self}, vec_deque::VecDeque},
+	collections::{
+		btree_map::{self, BTreeMap},
+		vec_deque::VecDeque,
+	},
 	prelude::*,
 };
 
@@ -332,10 +335,7 @@ impl<T: Config> Pallet<T> {
 				Some(val)
 			}
 		}
-		return ClaimQueueIterator::<T> {
-			next_idx: 0,
-			queue: queues.into_iter(),
-		}
+		return ClaimQueueIterator::<T> { next_idx: 0, queue: queues.into_iter() }
 	}
 
 	/// Note that the given cores have become occupied. Update the claimqueue accordingly.
@@ -685,16 +685,15 @@ impl<T: Config> Pallet<T> {
 	pub(crate) fn eligible_paras() -> impl Iterator<Item = (CoreIndex, ParaId)> {
 		let availability_cores = AvailabilityCores::<T>::get();
 
-		Self::claim_queue_iterator()
-			.zip(availability_cores.into_iter())
-			.filter_map(|((core_idx, queue), core)| {
+		Self::claim_queue_iterator().zip(availability_cores.into_iter()).filter_map(
+			|((core_idx, queue), core)| {
 				if core != CoreOccupied::Free {
 					return None
 				}
 				let next_scheduled = queue.front()?;
 				Some((core_idx, next_scheduled.assignment.para_id()))
-			}
-			)
+			},
+		)
 	}
 
 	#[cfg(any(feature = "try-runtime", test))]

@@ -16,7 +16,7 @@
 
 //! Put implementations of functions from staging APIs here.
 
-use crate::{inclusion, initializer, scheduler, configuration};
+use crate::{configuration, inclusion, initializer, scheduler};
 use primitives::{CommittedCandidateReceipt, CoreIndex, Id as ParaId};
 use sp_runtime::traits::One;
 use sp_std::{
@@ -40,8 +40,12 @@ pub fn claim_queue<T: scheduler::Config>() -> BTreeMap<CoreIndex, VecDeque<ParaI
 	scheduler::ClaimQueue::<T>::get()
 		.into_iter()
 		.map(|(core_index, entries)| {
-			// on cores timing out internal claim queue size may be temporarily longer than it should be:
-			(core_index, entries.into_iter().map(|e| e.para_id()).take(n_lookahead as usize).collect())
+			// on cores timing out internal claim queue size may be temporarily longer than it
+			// should be:
+			(
+				core_index,
+				entries.into_iter().map(|e| e.para_id()).take(n_lookahead as usize).collect(),
+			)
 		})
 		.collect()
 }
