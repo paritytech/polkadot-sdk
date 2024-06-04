@@ -71,6 +71,7 @@ pub trait WeightInfo {
 	fn cancel_deferred_slash(s: u32, ) -> Weight;
 	fn payout_stakers_alive_staked(n: u32, ) -> Weight;
 	fn payout_stakers_alive_staked_lazy(n: u32, ) -> Weight;
+	fn payout_stakers_alive_staked_current(n: u32, ) -> Weight;
 	fn rebond(l: u32, ) -> Weight;
 	fn reap_stash(s: u32, ) -> Weight;
 	fn new_era(v: u32, n: u32, ) -> Weight;
@@ -625,6 +626,10 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().writes(12))
 			.saturating_add(T::DbWeight::get().writes((3_u64).saturating_mul(n.into())))
 			.saturating_add(Weight::from_parts(0, 3774).saturating_mul(n.into()))
+    }
+
+    fn payout_stakers_alive_staked_current(_n: u32) -> Weight {
+        Weight::default()
     }
 
 	/// Storage: `Staking::Ledger` (r:1 w:1)
@@ -1535,6 +1540,12 @@ impl WeightInfo for () {
 			.saturating_add(RocksDbWeight::get().writes((3_u64).saturating_mul(n.into())))
 			.saturating_add(Weight::from_parts(0, 3774).saturating_mul(n.into()))
     }
+
+    fn payout_stakers_alive_staked_current(_n: u32) -> Weight {
+        Weight::default()
+    }
+
+
 	/// Storage: `Staking::Ledger` (r:1 w:1)
 	/// Proof: `Staking::Ledger` (`max_values`: None, `max_size`: Some(1091), added: 3566, mode: `MaxEncodedLen`)
 	/// Storage: `Staking::Bonded` (r:1 w:0)
