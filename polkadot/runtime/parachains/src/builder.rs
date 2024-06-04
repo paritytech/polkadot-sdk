@@ -92,11 +92,17 @@ pub(crate) struct BenchBuilder<T: paras_inherent::Config> {
 	/// will correspond to core index 3. There must be one entry for each core with a dispute
 	/// statement set.
 	dispute_sessions: Vec<u32>,
+	/// Paras here will both be backed in the inherent data and already occupying a core (which is
+	/// freed via bitfields).
+	///
 	/// Map from para id to number of validity votes. Core indices are generated based on
 	/// `elastic_paras` configuration. Each para id in `elastic_paras` gets the
 	/// specified amount of consecutive cores assigned to it. If a para id is not present
 	/// in `elastic_paras` it get assigned to a single core.
 	backed_and_concluding_paras: BTreeMap<u32, u32>,
+
+	/// Paras which don't yet occupy a core, but will after the inherent has been processed.
+	backed_in_inherent_paras: BTreeMap<u32, u32>,
 	/// Map from para id (seed) to number of chained candidates.
 	elastic_paras: BTreeMap<u32, u8>,
 	/// Make every candidate include a code upgrade by setting this to `Some` where the interior
@@ -132,6 +138,7 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 			dispute_statements: BTreeMap::new(),
 			dispute_sessions: Default::default(),
 			backed_and_concluding_paras: Default::default(),
+			backed_in_inherent_paras: Default::default(),
 			elastic_paras: Default::default(),
 			code_upgrade: None,
 			fill_claimqueue: true,
@@ -164,6 +171,12 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 		backed_and_concluding_paras: BTreeMap<u32, u32>,
 	) -> Self {
 		self.backed_and_concluding_paras = backed_and_concluding_paras;
+		self
+	}
+
+	/// Set a map from para id seed to number of validity votes for votes in inherent data.
+	pub(crate) fn set_backed_in_inherent_paras(mut self, backed: BTreeMap<u32, u32>) -> Self {
+		self.backed_in_inherent_paras = backed;
 		self
 	}
 
@@ -753,8 +766,8 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 	///
 	/// Note that this API only allows building scenarios where the `backed_and_concluding_paras`
 	/// are mutually exclusive with the cores for disputes. So
-	/// `backed_and_concluding_paras.len() + dispute_sessions.len()` must be less than the max
-	/// number of cores.
+	/// `backed_and_concluding_paras.len() + dispute_sessions.len() + backed_in_inherent_paras` must
+	/// be less than the max number of cores.
 	pub(crate) fn build(self) -> Bench<T> {
 		// Make sure relevant storage is cleared. This is just to get the asserts to work when
 		// running tests because it seems the storage is not cleared in between.
@@ -771,8 +784,10 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 			.sum::<usize>()
 			.saturating_sub(self.elastic_paras.len() as usize);
 
-		let used_cores =
-			self.dispute_sessions.len() + self.backed_and_concluding_paras.len() + extra_cores;
+		let used_cores = self.dispute_sessions.len() +
+			self.backed_and_concluding_paras.len() +
+			self.backed_in_inherent_paras.len() +
+			extra_cores;
 
 		assert!(used_cores <= max_cores);
 		let fill_claimqueue = self.fill_claimqueue;
@@ -793,8 +808,12 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 			&builder.elastic_paras,
 			used_cores,
 		);
+
+		let mut backed_in_inherent = BTreeMap::new();
+		backed_in_inherent.append(&mut builder.backed_and_concluding_paras.clone());
+		backed_in_inherent.append(&mut builder.backed_in_inherent_paras.clone());
 		let backed_candidates = builder.create_backed_candidates(
-			&builder.backed_and_concluding_paras,
+			&backed_in_inherent,
 			&builder.elastic_paras,
 			builder.code_upgrade,
 		);
@@ -845,6 +864,10 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 		scheduler::AvailabilityCores::<T>::set(cores);
 
 		core_idx = 0u32;
+
+		// We need entries in the claim queue for those:
+		all_cores.append(&mut builder.backed_in_inherent_paras.clone());
+
 		if fill_claimqueue {
 			let cores = all_cores
 				.keys()
