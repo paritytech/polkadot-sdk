@@ -31,6 +31,9 @@ pub use {
 	tests::MockExt,
 };
 
+#[cfg(feature = "runtime-benchmarks")]
+pub use crate::wasm::runtime::{BenchEnv, ReturnData, TrapReason};
+
 pub use crate::wasm::{
 	prepare::{LoadedModule, LoadingMode},
 	runtime::{
@@ -542,6 +545,7 @@ mod tests {
 		value: u64,
 		data: Vec<u8>,
 		allows_reentry: bool,
+		read_only: bool,
 	}
 
 	#[derive(Debug, PartialEq, Eq)]
@@ -609,8 +613,9 @@ mod tests {
 			value: u64,
 			data: Vec<u8>,
 			allows_reentry: bool,
+			read_only: bool,
 		) -> Result<ExecReturnValue, ExecError> {
-			self.calls.push(CallEntry { to, value, data, allows_reentry });
+			self.calls.push(CallEntry { to, value, data, allows_reentry, read_only });
 			Ok(ExecReturnValue { flags: ReturnFlags::empty(), data: call_return_data() })
 		}
 		fn delegate_call(
@@ -642,15 +647,15 @@ mod tests {
 				ExecReturnValue { flags: ReturnFlags::empty(), data: Vec::new() },
 			))
 		}
-		fn set_code_hash(&mut self, hash: CodeHash<Self::T>) -> Result<(), DispatchError> {
+		fn set_code_hash(&mut self, hash: CodeHash<Self::T>) -> DispatchResult {
 			self.code_hashes.push(hash);
 			Ok(())
 		}
-		fn transfer(&mut self, to: &AccountIdOf<Self::T>, value: u64) -> Result<(), DispatchError> {
+		fn transfer(&mut self, to: &AccountIdOf<Self::T>, value: u64) -> DispatchResult {
 			self.transfers.push(TransferEntry { to: to.clone(), value });
 			Ok(())
 		}
-		fn terminate(&mut self, beneficiary: &AccountIdOf<Self::T>) -> Result<(), DispatchError> {
+		fn terminate(&mut self, beneficiary: &AccountIdOf<Self::T>) -> DispatchResult {
 			self.terminations.push(TerminationEntry { beneficiary: beneficiary.clone() });
 			Ok(())
 		}
@@ -784,23 +789,25 @@ mod tests {
 		fn nonce(&mut self) -> u64 {
 			995
 		}
-		fn increment_refcount(_code_hash: CodeHash<Self::T>) -> Result<(), DispatchError> {
+		fn increment_refcount(_code_hash: CodeHash<Self::T>) -> DispatchResult {
 			Ok(())
 		}
 		fn decrement_refcount(_code_hash: CodeHash<Self::T>) {}
-		fn lock_delegate_dependency(
-			&mut self,
-			code: CodeHash<Self::T>,
-		) -> Result<(), DispatchError> {
+		fn lock_delegate_dependency(&mut self, code: CodeHash<Self::T>) -> DispatchResult {
 			self.delegate_dependencies.borrow_mut().insert(code);
 			Ok(())
 		}
-		fn unlock_delegate_dependency(
-			&mut self,
-			code: &CodeHash<Self::T>,
-		) -> Result<(), DispatchError> {
+		fn unlock_delegate_dependency(&mut self, code: &CodeHash<Self::T>) -> DispatchResult {
 			self.delegate_dependencies.borrow_mut().remove(code);
 			Ok(())
+		}
+
+		fn locked_delegate_dependencies_count(&mut self) -> usize {
+			self.delegate_dependencies.borrow().len()
+		}
+
+		fn is_read_only(&self) -> bool {
+			false
 		}
 	}
 
@@ -983,7 +990,13 @@ mod tests {
 
 		assert_eq!(
 			&mock_ext.calls,
-			&[CallEntry { to: ALICE, value: 6, data: vec![1, 2, 3, 4], allows_reentry: true }]
+			&[CallEntry {
+				to: ALICE,
+				value: 6,
+				data: vec![1, 2, 3, 4],
+				allows_reentry: true,
+				read_only: false
+			}]
 		);
 	}
 
@@ -1080,7 +1093,13 @@ mod tests {
 
 		assert_eq!(
 			&mock_ext.calls,
-			&[CallEntry { to: ALICE, value: 0x2a, data: input, allows_reentry: false }]
+			&[CallEntry {
+				to: ALICE,
+				value: 0x2a,
+				data: input,
+				allows_reentry: false,
+				read_only: false
+			}]
 		);
 	}
 
@@ -1135,7 +1154,13 @@ mod tests {
 		assert_eq!(result.data, input);
 		assert_eq!(
 			&mock_ext.calls,
-			&[CallEntry { to: ALICE, value: 0x2a, data: input, allows_reentry: true }]
+			&[CallEntry {
+				to: ALICE,
+				value: 0x2a,
+				data: input,
+				allows_reentry: true,
+				read_only: false
+			}]
 		);
 	}
 
@@ -1182,7 +1207,13 @@ mod tests {
 		assert_eq!(result.data, call_return_data());
 		assert_eq!(
 			&mock_ext.calls,
-			&[CallEntry { to: ALICE, value: 0x2a, data: input, allows_reentry: false }]
+			&[CallEntry {
+				to: ALICE,
+				value: 0x2a,
+				data: input,
+				allows_reentry: false,
+				read_only: false
+			}]
 		);
 	}
 
@@ -1423,7 +1454,13 @@ mod tests {
 
 		assert_eq!(
 			&mock_ext.calls,
-			&[CallEntry { to: ALICE, value: 6, data: vec![1, 2, 3, 4], allows_reentry: true }]
+			&[CallEntry {
+				to: ALICE,
+				value: 6,
+				data: vec![1, 2, 3, 4],
+				allows_reentry: true,
+				read_only: false
+			}]
 		);
 	}
 

@@ -106,3 +106,6 @@ pub mod frame_offchain_workers;
 /// Learn about the different ways through which multiple [`frame`] pallets can be combined to work
 /// together.
 pub mod frame_pallet_coupling;
+
+/// Learn about the Polkadot Umbrella crate that re-exports all other crates.
+pub mod umbrella_crate;

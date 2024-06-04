@@ -30,6 +30,7 @@ simple-mermaid = "0.1.1"
 docify = "0.2.8"
 
 # Polkadot SDK deps, typically all should only be in scope such that we can link to their doc item.
+polkadot-sdk = { path = "../../umbrella", features = ["runtime"] }
 node-cli = { package = "staging-node-cli", path = "../../substrate/bin/node/cli" }
 kitchensink-runtime = { path = "../../substrate/bin/node/runtime" }
 chain-spec-builder = { package = "staging-chain-spec-builder", path = "../../substrate/bin/utils/chain-spec-builder" }
@@ -100,3 +101,4 @@ sp-version = { path = "../../substrate/primitives/version" }
 
 # XCM
 xcm = { package = "staging-xcm", path = "../../polkadot/xcm" }
+xcm-docs = { path = "../../polkadot/xcm/docs" }

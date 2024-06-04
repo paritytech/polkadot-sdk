@@ -55,7 +55,6 @@ frame_support::construct_runtime!(
 );
 
 parameter_types! {
-	pub const BlockHashCount: u64 = 250;
 	pub Version: RuntimeVersion = RuntimeVersion {
 		spec_name: sp_version::create_runtime_str!("test"),
 		impl_name: sp_version::create_runtime_str!("system-test"),
@@ -74,7 +73,6 @@ parameter_types! {
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
 	type Block = Block;
-	type BlockHashCount = BlockHashCount;
 	type Version = Version;
 	type OnSetCode = ParachainSetCode<Self>;
 }
