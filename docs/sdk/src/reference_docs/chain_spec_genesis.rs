@@ -35,13 +35,13 @@
 //! block:
 #![doc = docify::embed!("./src/reference_docs/chain_spec_runtime/src/pallets.rs", pallet_bar_build)]
 //!
-//! `GenesisConfig` may also contain more complicated types, including nested structs or enums, as in
-//! the example for `pallet_foo`:
+//! `GenesisConfig` may also contain more complicated types, including nested structs or enums, as
+//! in the example for `pallet_foo`:
 #![doc = docify::embed!("./src/reference_docs/chain_spec_runtime/src/pallets.rs", pallet_foo_GenesisConfig)]
 //!
 //! Note that [`serde`] attributes can be used to control how the data
-//! structures are being stored into JSON. In the following example [`sp_core::bytes`] function is used to serialize the
-//! `values` field.
+//! structures are being stored into JSON. In the following example [`sp_core::bytes`] function is
+//! used to serialize the `values` field.
 #![doc = docify::embed!("./src/reference_docs/chain_spec_runtime/src/pallets.rs", SomeFooData2)]
 //!
 //! Please note that fields of `GenesisConfig` may not be directly mapped to storage items. In the
@@ -57,24 +57,25 @@
 //! sneak peaked here: [`RuntimeGenesisConfig`]. For further reading on generated runtime
 //! types refer to [`frame_runtime_types`].
 //!
-//! The macro automatically adds an attribute that renames all the fields to [`camelCase`]. It is a good practice to add
-//! it to nested structures too, to have the naming of the JSON keys consistent across the chain-spec file.
+//! The macro automatically adds an attribute that renames all the fields to [`camelCase`]. It is a
+//! good practice to add it to nested structures too, to have the naming of the JSON keys consistent
+//! across the chain-spec file.
 //!
 //! ## `Default` for `GenesisConfig`
 //!
 //! `GenesisConfig` of all pallets must implement `Defualt` trait. Those are aggregated into
 //! runtime's `RuntimeGenesisConfig`'s `Default`.
 //!
-//! Default value of `RuntimeGenesisConfig` can be queried by [`GenesisBuilder::get_preset`] function provided by
-//! runtime with `id:None`.
+//! Default value of `RuntimeGenesisConfig` can be queried by [`GenesisBuilder::get_preset`]
+//! function provided by runtime with `id:None`.
 //!
 //! A default value for RuntimeGenesisConfig usually is not operational. This is because for some
 //! pallets it is not possible to define good defaults (e.g. an initial set of authorities).
 //!
-//! A default value is a base upon which a patch for `GenesisConfig` is applied. A good description of how it exactly
-//! works is provided in [`get_storage_for_patch`] (and also in [`GenesisBuilder::get_preset`]). A patch can be provided
-//! as a external file (manually created) or as builtin runtime preset. More info on presets are in the material to
-//! follow.
+//! A default value is a base upon which a patch for `GenesisConfig` is applied. A good description
+//! of how it exactly works is provided in [`get_storage_for_patch`] (and also in
+//! [`GenesisBuilder::get_preset`]). A patch can be provided as a external file (manually created)
+//! or as builtin runtime preset. More info on presets are in the material to follow.
 //!
 //! ## Implementing `GenesisBuilder` for runtime
 //!
@@ -86,8 +87,8 @@
 #![doc = docify::embed!("./src/reference_docs/chain_spec_runtime/src/runtime.rs", runtime_impl)]
 //!
 //! Please note that two functions are customized: `preset_names` and `get_preset`. The first one
-//! just provides a `Vec` of the names of supported presets, while the latter one delegates the call to
-//! a function that maps the name to an actual preset:
+//! just provides a `Vec` of the names of supported presets, while the latter one delegates the call
+//! to a function that maps the name to an actual preset:
 //! [`chain_spec_guide_runtime::presets::get_builtin_preset`]
 #![doc = docify::embed!("./src/reference_docs/chain_spec_runtime/src/presets.rs", get_builtin_preset)]
 //!
@@ -113,31 +114,35 @@
 //!
 //! ## Note on the importance of testing presets
 //!
-//! It is recommended to always test presets by adding the tests that convert the preset into the raw storage.
-//! Converting to raw storage involves the deserialization of the provided JSON blob, what enforces the verification of
-//! the preset. The following code shows one of the approaches that can be taken for testing:
+//! It is recommended to always test presets by adding the tests that convert the preset into the
+//! raw storage. Converting to raw storage involves the deserialization of the provided JSON blob,
+//! what enforces the verification of the preset. The following code shows one of the approaches
+//! that can be taken for testing:
 #![doc = docify::embed!("./src/reference_docs/chain_spec_runtime/src/presets.rs", check_presets)]
 //!
 //! ## Note on tne importance of using `deny_unknown_fields` attribute
 //!
-//! It is worth noting that it is easy to make a hard to spot mistake as in the following example ([`FooStruct`] does
-//! not contain `fieldC`):
+//! It is worth noting that it is easy to make a hard to spot mistake as in the following example
+//! ([`FooStruct`] does not contain `fieldC`):
 #![doc = docify::embed!("./src/reference_docs/chain_spec_runtime/src/presets.rs", preset_invalid)]
-//! Even though `preset_invalid` contains a key that does not exist, the deserialization of the JSON blob does not fail.
-//! The mispelling is silently ignored due to lack of [`deny_unknown_fields`] attribute on the [`FooStruct`] struct, which is
-//! internally used in `GenesisConfig`.
+//! Even though `preset_invalid` contains a key that does not exist, the deserialization of the JSON
+//! blob does not fail. The mispelling is silently ignored due to lack of [`deny_unknown_fields`]
+//! attribute on the [`FooStruct`] struct, which is internally used in `GenesisConfig`.
 #![doc = docify::embed!("./src/reference_docs/chain_spec_runtime/src/presets.rs", invalid_preset_works)]
 //!
 //! ## Runtime `GenesisConfig` raw format
 //!
-//! A raw format of genesis config cotains just state's keys and values as they are stored in the storage. This format
-//! is used to directly initialize the genesis storage. This format is useful for long-term running chains, where the
-//! `GenesisConfig` stucture for pallets may be evolving over the time. The JSON representation created at some point in
-//! time may no longer be deserializable in future, making a chain specification useless. The raw format is recommended
+//! A raw format of genesis config cotains just state's keys and values as they are stored in the
+//! storage. This format is used to directly initialize the genesis storage. This format is useful
+//! for long-term running chains, where the `GenesisConfig` stucture for pallets may be evolving
+//! over the time. The JSON representation created at some point in time may no longer be
+//! deserializable in future, making a chain specification useless. The raw format is recommended
 //! for the production chains.
 //!
-//! For detailed description on how raw format is built please refer to [_chain-spec-raw-genesis_][`sc_chain_spec#from-initial-state-to-raw-genesis`].
-//! A plain and corresponding raw examples of chain-spec are given in [_chain-spec-examples_][`sc_chain_spec#json-chain-specification-example`].
+//! For detailed description on how raw format is built please refer to
+//! [_chain-spec-raw-genesis_][`sc_chain_spec#from-initial-state-to-raw-genesis`]. A plain and
+//! corresponding raw examples of chain-spec are given in
+//! [_chain-spec-examples_][`sc_chain_spec#json-chain-specification-example`].
 //! The [`chain_spec_builder`] util supports building the raw storage.
 //!
 //! # Interacting with the tool
