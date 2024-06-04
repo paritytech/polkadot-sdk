@@ -456,6 +456,9 @@ impl<T: Config> Pallet<T> {
 		// Note that `process_checked_multi_dispute_data` will iterate and import each
 		// dispute; so the input here must be reasonably bounded,
 		// which is guaranteed by the checks and weight limitation above.
+		// We don't care about fresh or not disputes
+		// this writes them to storage, so let's query it via those means
+		// if this fails for whatever reason, that's ok.
 		if let Err(e) =
 			T::DisputesHandler::process_checked_multi_dispute_data(&checked_disputes_sets)
 		{
