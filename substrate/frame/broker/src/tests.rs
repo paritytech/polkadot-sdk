@@ -449,6 +449,18 @@ fn renewals_affect_price() {
 	});
 }
 
+// In the following payouts tests, assertions of the pot balances currently account for the fact
+// that the pot is topped up twice: first, when the credits are purchased, the value is transferred
+// from the buyer's account to the pot (and currently that doesn't really result in any credits
+// being acquired on the relay chain as the credit system is not implemented yet), and second,
+// when the revenue is teleported from the relay chain to the parachain, thus minting the revenue
+// value into the pot. Thus, current pot assertions are not correct and should be fixed back when
+// the credit system is implemented.
+//
+// The other way to handle that wold be burning the balance transferred from the buyer's account to
+// the pot in `do_purchase_credit()`, but, as it would affect the code that will go into
+// production, it's more error prone, so handling incorrect pot balance is the lesser evil.
+
 #[test]
 fn instapool_payouts_work() {
 	TestExt::new().endow(1, 1000).execute_with(|| {
@@ -462,7 +474,7 @@ fn instapool_payouts_work() {
 		advance_to(8);
 		assert_ok!(TestCoretimeProvider::spend_instantaneous(1, 10));
 		advance_to(11);
-		assert_eq!(pot(), 14);
+		assert_eq!(pot(), 24);
 		assert_eq!(revenue(), 106);
 
 		// Cannot claim for 0 timeslices.
@@ -470,7 +482,7 @@ fn instapool_payouts_work() {
 
 		// Revenue can be claimed.
 		assert_ok!(Broker::do_claim_revenue(region, 100));
-		assert_eq!(pot(), 10);
+		assert_eq!(pot(), 20);
 		assert_eq!(balance(2), 4);
 	});
 }
@@ -496,7 +508,7 @@ fn instapool_partial_core_payouts_work() {
 		assert_eq!(revenue(), 120);
 		assert_eq!(balance(2), 5);
 		assert_eq!(balance(3), 15);
-		assert_eq!(pot(), 0);
+		assert_eq!(pot(), 40);
 	});
 }
 
@@ -518,17 +530,17 @@ fn instapool_core_payouts_work_with_partitioned_region() {
 		advance_to(8);
 		assert_ok!(TestCoretimeProvider::spend_instantaneous(1, 10));
 		advance_to(11);
-		assert_eq!(pot(), 20);
+		assert_eq!(pot(), 30);
 		assert_eq!(revenue(), 100);
 		assert_ok!(Broker::do_claim_revenue(region1, 100));
-		assert_eq!(pot(), 10);
+		assert_eq!(pot(), 20);
 		assert_eq!(balance(2), 10);
 		advance_to(12);
 		assert_ok!(TestCoretimeProvider::spend_instantaneous(1, 10));
 		advance_to(15);
-		assert_eq!(pot(), 10);
+		assert_eq!(pot(), 30);
 		assert_ok!(Broker::do_claim_revenue(region2, 100));
-		assert_eq!(pot(), 0);
+		assert_eq!(pot(), 20);
 		// The balance of account `2` remains unchanged.
 		assert_eq!(balance(2), 10);
 		assert_eq!(balance(3), 10);
