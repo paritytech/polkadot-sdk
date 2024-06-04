@@ -16,6 +16,13 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
+// TODO: uncomment when tests in `handler.rs` are enabled again.
+//       See issue [#4692](https://github.com/paritytech/polkadot-sdk/issues/4692).
+// #[cfg(test)]
+// pub(crate) use self::notifications::{
+// 	NotificationsInOpen, NotificationsInSubstreamHandshake, NotificationsOutOpen,
+// };
+
 pub use self::{
 	collec::UpgradeCollec,
 	notifications::{

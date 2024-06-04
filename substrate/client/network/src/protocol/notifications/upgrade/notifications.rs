@@ -195,6 +195,16 @@ impl<TSubstream> NotificationsInSubstream<TSubstream>
 where
 	TSubstream: AsyncRead + AsyncWrite + Unpin,
 {
+	// TODO: uncomment when enabling the tests in `handler.rs`.
+	//       See issue [#4692](https://github.com/paritytech/polkadot-sdk/issues/4692).
+	// #[cfg(test)]
+	// pub fn new(
+	// 	socket: Framed<TSubstream, UviBytes<io::Cursor<Vec<u8>>>>,
+	// 	handshake: NotificationsInSubstreamHandshake,
+	// ) -> Self {
+	// 	Self { socket, handshake }
+	// }
+
 	/// Sends the handshake in order to inform the remote that we accept the substream.
 	pub fn send_handshake(&mut self, message: impl Into<Vec<u8>>) {
 		if !matches!(self.handshake, NotificationsInSubstreamHandshake::NotSent) {
@@ -498,15 +508,15 @@ pub enum NotificationsOutError {
 
 #[cfg(test)]
 mod tests {
+	use crate::ProtocolName;
+
 	use super::{
-		NotificationsIn, NotificationsInOpen, NotificationsOut, NotificationsOutError,
-		NotificationsOutOpen,
-		NotificationsHandshakeError,
-		NotificationsInSubstream,
+		NotificationsHandshakeError, NotificationsIn, NotificationsInOpen,
+		NotificationsInSubstream, NotificationsOut, NotificationsOutError, NotificationsOutOpen,
 		NotificationsOutSubstream,
 	};
-	use libp2p::core::{upgrade, InboundUpgrade, OutboundUpgrade, UpgradeInfo};
 	use futures::{channel::oneshot, future, prelude::*, SinkExt, StreamExt};
+	use libp2p::core::{upgrade, InboundUpgrade, OutboundUpgrade, UpgradeInfo};
 	use std::{pin::Pin, task::Poll};
 	use tokio::net::{TcpListener, TcpStream};
 	use tokio_util::compat::TokioAsyncReadCompatExt;
@@ -689,10 +699,10 @@ mod tests {
 
 		let client = tokio::spawn(async move {
 			let socket = TcpStream::connect(listener_addr_rx.await.unwrap()).await.unwrap();
-			let NotificationsOutOpen { handshake, .. } = upgrade::apply_outbound(
-				socket.compat(),
+			let NotificationsOutOpen { handshake, .. } = OutboundUpgrade::upgrade_outbound(
 				NotificationsOut::new(PROTO_NAME, Vec::new(), &b"initial message"[..], 1024 * 1024),
-				upgrade::Version::V1,
+				socket.compat(),
+				ProtocolName::Static(PROTO_NAME),
 			)
 			.await
 			.unwrap();
@@ -704,9 +714,10 @@ mod tests {
 		listener_addr_tx.send(listener.local_addr().unwrap()).unwrap();
 
 		let (socket, _) = listener.accept().await.unwrap();
-		let NotificationsInOpen { handshake, mut substream, .. } = upgrade::apply_inbound(
-			socket.compat(),
+		let NotificationsInOpen { handshake, mut substream, .. } = InboundUpgrade::upgrade_inbound(
 			NotificationsIn::new(PROTO_NAME, Vec::new(), 1024 * 1024),
+			socket.compat(),
+			ProtocolName::Static(PROTO_NAME),
 		)
 		.await
 		.unwrap();
@@ -727,13 +738,19 @@ mod tests {
 
 		let client = tokio::spawn(async move {
 			let socket = TcpStream::connect(listener_addr_rx.await.unwrap()).await.unwrap();
-			let NotificationsOutOpen { handshake, mut substream, .. } = upgrade::apply_outbound(
-				socket.compat(),
-				NotificationsOut::new(PROTO_NAME, Vec::new(), &b"initial message"[..], 1024 * 1024),
-				upgrade::Version::V1,
-			)
-			.await
-			.unwrap();
+			let NotificationsOutOpen { handshake, mut substream, .. } =
+				OutboundUpgrade::upgrade_outbound(
+					NotificationsOut::new(
+						PROTO_NAME,
+						Vec::new(),
+						&b"initial message"[..],
+						1024 * 1024,
+					),
+					socket.compat(),
+					ProtocolName::Static(PROTO_NAME),
+				)
+				.await
+				.unwrap();
 
 			assert_eq!(handshake, b"hello world");
 
@@ -755,9 +772,10 @@ mod tests {
 		listener_addr_tx.send(listener.local_addr().unwrap()).unwrap();
 
 		let (socket, _) = listener.accept().await.unwrap();
-		let NotificationsInOpen { handshake, mut substream, .. } = upgrade::apply_inbound(
-			socket.compat(),
+		let NotificationsInOpen { handshake, mut substream, .. } = InboundUpgrade::upgrade_inbound(
 			NotificationsIn::new(PROTO_NAME, Vec::new(), 1024 * 1024),
+			socket.compat(),
+			ProtocolName::Static(PROTO_NAME),
 		)
 		.await
 		.unwrap();

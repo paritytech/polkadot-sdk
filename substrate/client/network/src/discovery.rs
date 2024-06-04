@@ -109,8 +109,8 @@ pub struct DiscoveryConfig {
 	discovery_only_if_under_num: u64,
 	enable_mdns: bool,
 	kademlia_disjoint_query_paths: bool,
-	kademlia_protocol: Vec<u8>,
-	kademlia_legacy_protocol: Vec<u8>,
+	kademlia_protocol: Option<StreamProtocol>,
+	kademlia_legacy_protocol: Option<StreamProtocol>,
 	kademlia_replication_factor: NonZeroUsize,
 }
 
@@ -126,8 +126,8 @@ impl DiscoveryConfig {
 			discovery_only_if_under_num: std::u64::MAX,
 			enable_mdns: false,
 			kademlia_disjoint_query_paths: false,
-			kademlia_protocol: Vec::new(),
-			kademlia_legacy_protocol: Vec::new(),
+			kademlia_protocol: None,
+			kademlia_legacy_protocol: None,
 			kademlia_replication_factor: NonZeroUsize::new(DEFAULT_KADEMLIA_REPLICATION_FACTOR)
 				.expect("value is a constant; constant is non-zero; qed."),
 		}
@@ -183,8 +183,8 @@ impl DiscoveryConfig {
 		fork_id: Option<&str>,
 		protocol_id: &ProtocolId,
 	) -> &mut Self {
-		self.kademlia_protocol = kademlia_protocol_name(genesis_hash, fork_id);
-		self.kademlia_legacy_protocol = legacy_kademlia_protocol_name(protocol_id);
+		self.kademlia_protocol = Some(kademlia_protocol_name(genesis_hash, fork_id));
+		self.kademlia_legacy_protocol = Some(legacy_kademlia_protocol_name(protocol_id));
 		self
 	}
 
@@ -217,14 +217,18 @@ impl DiscoveryConfig {
 			kademlia_replication_factor,
 		} = self;
 
-		let kademlia = if !kademlia_protocol.is_empty() {
+		let kademlia = if let Some(ref kademlia_protocol) = kademlia_protocol {
 			let mut config = KademliaConfig::default();
 
 			config.set_replication_factor(kademlia_replication_factor);
 			// Populate kad with both the legacy and the new protocol names.
 			// Remove the legacy protocol:
 			// https://github.com/paritytech/polkadot-sdk/issues/504
-			let kademlia_protocols = [kademlia_protocol.clone(), kademlia_legacy_protocol];
+			let kademlia_protocols = if let Some(legacy_protocol) = kademlia_legacy_protocol {
+				vec![kademlia_protocol.clone(), legacy_protocol]
+			} else {
+				vec![kademlia_protocol.clone()]
+			};
 			config.set_protocol_names(kademlia_protocols.into_iter().map(Into::into).collect());
 			// By default Kademlia attempts to insert all peers into its routing table once a
 			// dialing attempt succeeds. In order to control which peer is added, disable the
@@ -328,7 +332,7 @@ pub struct DiscoveryBehaviour {
 	///
 	/// Remove when all nodes are upgraded to genesis hash and fork ID-based Kademlia:
 	/// <https://github.com/paritytech/polkadot-sdk/issues/504>.
-	kademlia_protocol: Vec<u8>,
+	kademlia_protocol: Option<StreamProtocol>,
 }
 
 impl DiscoveryBehaviour {
@@ -383,7 +387,7 @@ impl DiscoveryBehaviour {
 	pub fn add_self_reported_address(
 		&mut self,
 		peer_id: &PeerId,
-		supported_protocols: &[impl AsRef<str>],
+		supported_protocols: &[StreamProtocol],
 		addr: Multiaddr,
 	) {
 		if let Some(kademlia) = self.kademlia.as_mut() {
@@ -400,10 +404,12 @@ impl DiscoveryBehaviour {
 			// Extract the chain-based Kademlia protocol from `kademlia.protocol_name()`
 			// when all nodes are upgraded to genesis hash and fork ID-based Kademlia:
 			// https://github.com/paritytech/polkadot-sdk/issues/504.
-			if !supported_protocols
-				.iter()
-				.any(|p| p.as_ref() == self.kademlia_protocol.as_slice())
-			{
+			if !supported_protocols.iter().any(|p| {
+				p == self
+					.kademlia_protocol
+					.as_ref()
+					.expect("kademlia protocol was checked above to be anabled; qed")
+			}) {
 				trace!(
 					target: "sub-libp2p",
 					"Ignoring self-reported address {} from {} as remote node is not part of the \

@@ -32,7 +32,7 @@ use crate::{
 use futures::channel::oneshot;
 use libp2p::{
 	connection_limits::ConnectionLimits, core::Multiaddr, identify::Info as IdentifyInfo,
-	identity::PublicKey, kad::RecordKey, swarm::NetworkBehaviour, PeerId,
+	identity::PublicKey, kad::RecordKey, swarm::NetworkBehaviour, PeerId, StreamProtocol,
 };
 
 use parking_lot::Mutex;
@@ -266,7 +266,7 @@ impl<B: BlockT> Behaviour<B> {
 	pub fn add_self_reported_address_to_dht(
 		&mut self,
 		peer_id: &PeerId,
-		supported_protocols: &[impl AsRef<str>],
+		supported_protocols: &[StreamProtocol],
 		addr: Multiaddr,
 	) {
 		self.discovery.add_self_reported_address(peer_id, supported_protocols, addr);

@@ -45,10 +45,7 @@ use sc_network::{
 	event::DhtEvent, multiaddr, KademliaKey, Multiaddr, NetworkDHTProvider, NetworkSigner,
 	NetworkStateInfo,
 };
-use sc_network_types::{
-	multihash::{Code, Multihash},
-	PeerId,
-};
+use sc_network_types::{multihash::Code, PeerId};
 use sp_api::{ApiError, ProvideRuntimeApi};
 use sp_authority_discovery::{
 	AuthorityDiscoveryApi, AuthorityId, AuthorityPair, AuthoritySignature,
@@ -247,7 +244,7 @@ where
 				.into_iter()
 				.map(|mut address| {
 					if let Some(multiaddr::Protocol::P2p(peer_id)) = address.iter().last() {
-						if peer_id != local_peer_id {
+						if peer_id != *local_peer_id.as_ref() {
 							error!(
 								target: LOG_TARGET,
 								"Discarding invalid local peer ID in public address {address}.",
@@ -353,7 +350,7 @@ where
 			.chain(self.network.external_addresses().into_iter().filter_map(|mut address| {
 				// Make sure the reported external address does not contain `/p2p/...` protocol.
 				if let Some(multiaddr::Protocol::P2p(peer_id)) = address.iter().last() {
-					if peer_id != local_peer_id {
+					if peer_id != *local_peer_id.as_ref() {
 						error!(
 							target: LOG_TARGET,
 							"Network returned external address '{address}' with peer id \
@@ -394,7 +391,7 @@ where
 		// The address must include the local peer id.
 		addresses
 			.into_iter()
-			.map(move |a| a.with(multiaddr::Protocol::P2p(local_peer_id)))
+			.map(move |a| a.with(multiaddr::Protocol::P2p(*local_peer_id.as_ref())))
 	}
 
 	/// Publish own public addresses.
@@ -619,7 +616,7 @@ where
 					.map_err(Error::ParsingMultiaddress)?;
 
 				let get_peer_id = |a: &Multiaddr| match a.iter().last() {
-					Some(multiaddr::Protocol::P2p(peer_id)) => Some(peer_id),
+					Some(multiaddr::Protocol::P2p(key)) => PeerId::from_multihash(key).ok(),
 					_ => None,
 				};
 

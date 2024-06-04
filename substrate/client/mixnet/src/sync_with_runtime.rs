@@ -26,7 +26,7 @@ use mixnet::core::{
 	SessionPhase as CoreSessionPhase, SessionStatus as CoreSessionStatus,
 };
 use sc_network_types::{
-	multiaddr::{multiaddr, Multiaddr, Protocol},
+	multiaddr::{Multiaddr, Protocol},
 	PeerId,
 };
 use sp_api::{ApiError, ApiRef};
@@ -93,7 +93,7 @@ fn fixup_external_addresses(external_addresses: &mut Vec<Multiaddr>, peer_id: &P
 	// Ensure the final component of each address matches peer_id
 	external_addresses.retain_mut(|addr| {
 		match addr.iter().find(|protocol| std::matches!(protocol, Protocol::P2p(_))) {
-			Some(Protocol::P2p(addr_peer_id)) if addr_peer_id == *peer_id => true,
+			Some(Protocol::P2p(addr_peer_id)) if addr_peer_id == *peer_id.as_ref() => true,
 			Some(protocol) => {
 				debug!(
 					target: LOG_TARGET,
@@ -105,7 +105,7 @@ fn fixup_external_addresses(external_addresses: &mut Vec<Multiaddr>, peer_id: &P
 				false
 			},
 			None => {
-				addr.push(Protocol::P2p(*peer_id));
+				addr.push(Protocol::P2p(*peer_id.as_ref()));
 				true
 			},
 		}
@@ -113,7 +113,7 @@ fn fixup_external_addresses(external_addresses: &mut Vec<Multiaddr>, peer_id: &P
 
 	// If there are no addresses, insert one consisting of just the peer ID
 	if external_addresses.is_empty() {
-		external_addresses.push(Multiaddr::empty().with(Protocol::P2p(*peer_id)));
+		external_addresses.push(Multiaddr::empty().with(Protocol::P2p(*peer_id.as_ref())));
 	}
 }
 
@@ -193,6 +193,7 @@ where
 #[cfg(test)]
 mod tests {
 	use super::*;
+	use sc_network_types::multiaddr::multiaddr;
 
 	#[test]
 	fn fixup_empty_external_addresses() {

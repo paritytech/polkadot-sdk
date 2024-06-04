@@ -61,16 +61,15 @@ use crate::{
 use codec::DecodeAll;
 use either::Either;
 use futures::{channel::oneshot, prelude::*};
-use libp2p::identity::ed25519;
 #[allow(deprecated)]
 use libp2p::swarm::{SwarmBuilder, THandlerErr};
 use libp2p::{
 	connection_limits::{ConnectionLimits, Exceeded},
 	core::{upgrade, ConnectedPoint, Endpoint},
 	identify::Info as IdentifyInfo,
+	identity::ed25519,
 	kad::record::Key as KademliaKey,
 	multiaddr::{self, Multiaddr},
-	ping::Failure as PingFailure,
 	swarm::{
 		ConnectionError, ConnectionId, DialError, Executor, ListenError, NetworkBehaviour, Swarm,
 		SwarmEvent,
@@ -276,10 +275,6 @@ where
 		let local_identity: ed25519::Keypair = local_identity.into();
 		let local_public: ed25519::PublicKey = local_public.into();
 		let local_peer_id: PeerId = local_peer_id.into();
-		let listen_addresses: Vec<Multiaddr> =
-			network_config.listen_addresses.iter().cloned().map(Into::into).collect();
-		let public_addresses: Vec<Multiaddr> =
-			network_config.public_addresses.iter().cloned().map(Into::into).collect();
 
 		network_config.boot_nodes = network_config
 			.boot_nodes
@@ -591,13 +586,6 @@ where
 				)
 			};
 			let builder = builder
-				.connection_limits(
-					ConnectionLimits::default()
-						.with_max_established_per_peer(Some(crate::MAX_CONNECTIONS_PER_PEER as u32))
-						.with_max_established_incoming(Some(
-							crate::MAX_CONNECTIONS_ESTABLISHED_INCOMING,
-						)),
-				)
 				.substream_upgrade_protocol_override(upgrade::Version::V1)
 				.notify_handler_buffer_size(NonZeroUsize::new(32).expect("32 != 0; qed"))
 				// NOTE: 24 is somewhat arbitrary and should be tuned in the future if necessary.
@@ -622,15 +610,15 @@ where
 		};
 
 		// Listen on multiaddresses.
-		for addr in &listen_addresses {
-			if let Err(err) = Swarm::<Behaviour<B>>::listen_on(&mut swarm, addr.clone()) {
+		for addr in &network_config.listen_addresses {
+			if let Err(err) = Swarm::<Behaviour<B>>::listen_on(&mut swarm, addr.clone().into()) {
 				warn!(target: "sub-libp2p", "Can't listen on {} because: {:?}", addr, err)
 			}
 		}
 
 		// Add external addresses.
 		for addr in &network_config.public_addresses {
-			Swarm::<Behaviour<B>>::add_external_address(&mut swarm, addr.clone());
+			Swarm::<Behaviour<B>>::add_external_address(&mut swarm, addr.clone().into());
 		}
 
 		let listen_addresses_set = Arc::new(Mutex::new(HashSet::new()));
