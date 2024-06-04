@@ -499,13 +499,23 @@ pub enum NotificationsOutError {
 #[cfg(test)]
 mod tests {
 	use super::{
-		NotificationsHandshakeError, NotificationsIn, NotificationsInOpen,
-		NotificationsInSubstream, NotificationsOut, NotificationsOutError, NotificationsOutOpen,
+		NotificationsHandshakeError,
+		NotificationsIn,
+		NotificationsInOpen,
+		NotificationsInSubstream,
+		NotificationsOut,
+		// NotificationsOutError,
+		NotificationsOutOpen,
 		NotificationsOutSubstream,
 	};
-	use futures::{channel::oneshot, future, prelude::*, SinkExt, StreamExt};
+	use futures::{
+		channel::oneshot,
+		// future, prelude::*,
+		SinkExt,
+		StreamExt,
+	};
 	use libp2p::core::{upgrade, InboundUpgrade, OutboundUpgrade, UpgradeInfo};
-	use std::{pin::Pin, task::Poll};
+	// use std::{pin::Pin, task::Poll};
 	use tokio::net::{TcpListener, TcpStream};
 	use tokio_util::compat::TokioAsyncReadCompatExt;
 
