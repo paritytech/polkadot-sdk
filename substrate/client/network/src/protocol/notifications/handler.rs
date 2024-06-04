@@ -882,9 +882,10 @@ impl ConnectionHandler for NotifsHandler {
 #[cfg(test)]
 pub mod tests {
 	use super::*;
-	// TODO: uncomment & update tests when/if `libp2p::Stream::new()` is made public.
+	// TODO: uncomment & update the tests below when/if `libp2p::Stream::new()` is made public.
 	//       See issue [#4692](https://github.com/paritytech/polkadot-sdk/issues/4692).
-	//       Uncomment the following imports when enabling the tests below.
+	//       Uncomment the following imports when enabling the tests.
+
 	// use crate::protocol::notifications::upgrade::{
 	// 	NotificationsInOpen, NotificationsInSubstreamHandshake, NotificationsOutOpen,
 	// };
@@ -1003,6 +1004,9 @@ pub mod tests {
 			)
 		}
 
+		// TODO: uncomment when enabling the tests below.
+		//       See issue [#4692](https://github.com/paritytech/polkadot-sdk/issues/4692).
+
 		// /// Create new negotiated substream pair.
 		// pub async fn negotiated() -> (Stream, Stream) {
 		// 	let (socket1, socket2) = Self::new();
@@ -1080,6 +1084,9 @@ pub mod tests {
 			unimplemented!();
 		}
 	}
+
+	// TODO: uncomment & update the tests when/if `libp2p::Stream::new()` is made public.
+	//       See issue [#4692](https://github.com/paritytech/polkadot-sdk/issues/4692).
 
 	// /// Create new [`NotifsHandler`].
 	// fn notifs_handler() -> NotifsHandler {
