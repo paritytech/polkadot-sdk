@@ -80,7 +80,7 @@ impl frame_system::DefaultConfig for SystemParachainDefaultConfig {
 	/// Maximum number of block number to block hash mappings to keep (oldest pruned first).
 	type BlockHashCount = BlockHashCount;
 	/// The set code logic, just the default since we're not a parachain.
-	type OnSetCode = cumulus_pallet_parachain_system::ParachainSetCode<Self>;
+	type OnSetCode = ();
 	type SingleBlockMigrations = ();
 	type MultiBlockMigrator = ();
 	type PreInherents = ();
