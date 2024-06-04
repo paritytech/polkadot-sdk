@@ -31,7 +31,7 @@ pallet-aura = { path = "../../../../../substrate/frame/aura", default-features =
 pallet-authorship = { path = "../../../../../substrate/frame/authorship", default-features = false, version = "29.0.0" }
 pallet-balances = { path = "../../../../../substrate/frame/balances", default-features = false, version = "29.0.2" }
 pallet-message-queue = { path = "../../../../../substrate/frame/message-queue", default-features = false, version = "32.0.0" }
-pallet-broker = { path = "../../../../../substrate/frame/broker", default-features = false, version = "0.7.1" }
+pallet-broker = { path = "../../../../../substrate/frame/broker", default-features = false, version = "0.7.2" }
 pallet-multisig = { path = "../../../../../substrate/frame/multisig", default-features = false, version = "29.0.0" }
 pallet-session = { path = "../../../../../substrate/frame/session", default-features = false, version = "29.0.0" }
 pallet-sudo = { path = "../../../../../substrate/frame/sudo", default-features = false, version = "29.0.0" }
