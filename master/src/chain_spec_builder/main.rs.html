@@ -366,7 +366,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					)
 				})
 				.collect();
-			<span class="macro">println!</span>(<span class="string">"{presets:#?}"</span>);
+			<span class="macro">println!</span>(<span class="string">"{}"</span>, <span class="macro">serde_json::json!</span>({<span class="string">"presets"</span>:presets}).to_string());
 		},
 		ChainSpecBuilderCmd::DisplayPreset(DisplayPresetCmd { runtime_wasm_path, preset_name }) =&gt; {
 			<span class="kw">let </span>code = fs::read(runtime_wasm_path.as_path())
