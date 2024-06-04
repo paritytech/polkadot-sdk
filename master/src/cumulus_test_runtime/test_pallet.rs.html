@@ -240,10 +240,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#89" id="89">89</a>
 <a href="#90" id="90">90</a>
 <a href="#91" id="91">91</a>
-<a href="#92" id="92">92</a>
-<a href="#93" id="93">93</a>
-<a href="#94" id="94">94</a>
-<a href="#95" id="95">95</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -324,7 +320,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[derive(frame_support::DefaultNoBound)]
 	#[pallet::genesis_config]
 	</span><span class="kw">pub struct </span>GenesisConfig&lt;T: Config&gt; {
-		<span class="kw">pub </span>self_para_id: <span class="prelude-ty">Option</span>&lt;cumulus_primitives_core::ParaId&gt;,
 		<span class="attr">#[serde(skip)]
 		</span><span class="kw">pub </span>_config: sp_std::marker::PhantomData&lt;T&gt;,
 	}
@@ -333,9 +328,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">impl</span>&lt;T: Config&gt; BuildGenesisConfig <span class="kw">for </span>GenesisConfig&lt;T&gt; {
 		<span class="kw">fn </span>build(<span class="kw-2">&amp;</span><span class="self">self</span>) {
 			sp_io::storage::set(TEST_RUNTIME_UPGRADE_KEY, <span class="kw-2">&amp;</span>[<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>, <span class="number">4</span>]);
-			<span class="self">self</span>.self_para_id.map(|para_id| {
-				<span class="kw">crate</span>::ParachainId::set(<span class="kw-2">&amp;</span>para_id);
-			});
 		}
 	}
 }

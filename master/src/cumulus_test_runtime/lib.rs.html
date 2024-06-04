@@ -679,8 +679,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#528" id="528">528</a>
 <a href="#529" id="529">529</a>
 <a href="#530" id="530">530</a>
-<a href="#531" id="531">531</a>
-<a href="#532" id="532">532</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -963,7 +961,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 &gt;;
 <span class="kw">impl </span>cumulus_pallet_parachain_system::Config <span class="kw">for </span>Runtime {
 	<span class="kw">type </span>WeightInfo = ();
-	<span class="kw">type </span>SelfParaId = ParachainId;
+	<span class="kw">type </span>SelfParaId = parachain_info::Pallet&lt;Runtime&gt;;
 	<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
 	<span class="kw">type </span>OnSystemEvent = ();
 	<span class="kw">type </span>OutboundXcmpMessageSource = ();
@@ -977,17 +975,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">type </span>ConsensusHook = ConsensusHook;
 }
 
+<span class="kw">impl </span>parachain_info::Config <span class="kw">for </span>Runtime {}
+
 <span class="kw">impl </span>pallet_aura::Config <span class="kw">for </span>Runtime {
 	<span class="kw">type </span>AuthorityId = AuraId;
 	<span class="kw">type </span>DisabledValidators = ();
 	<span class="kw">type </span>MaxAuthorities = ConstU32&lt;<span class="number">32</span>&gt;;
 	<span class="kw">type </span>AllowMultipleBlocksPerSlot = ConstBool&lt;<span class="bool-val">true</span>&gt;;
 	<span class="kw">type </span>SlotDuration = ConstU64&lt;SLOT_DURATION&gt;;
-}
-
-<span class="macro">parameter_types! </span>{
-	<span class="comment">// will be set by test_pallet during genesis init
-	</span><span class="kw">pub </span>storage ParachainId: cumulus_primitives_core::ParaId = PARACHAIN_ID.into();
 }
 
 <span class="kw">impl </span>test_pallet::Config <span class="kw">for </span>Runtime {}
@@ -998,6 +993,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		System: frame_system,
 		ParachainSystem: cumulus_pallet_parachain_system,
 		Timestamp: pallet_timestamp,
+		ParachainInfo: parachain_info,
 		Balances: pallet_balances,
 		Sudo: pallet_sudo,
 		TransactionPayment: pallet_transaction_payment,

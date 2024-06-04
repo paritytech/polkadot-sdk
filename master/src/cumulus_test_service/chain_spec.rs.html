@@ -297,6 +297,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#146" id="146">146</a>
 <a href="#147" id="147">147</a>
 <a href="#148" id="148">148</a>
+<a href="#149" id="149">149</a>
+<a href="#150" id="150">150</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -441,7 +443,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			balances: endowed_accounts.iter().cloned().map(|k| (k, <span class="number">1 </span>&lt;&lt; <span class="number">60</span>)).collect(),
 		},
 		<span class="string">"sudo"</span>: cumulus_test_runtime::SudoConfig { key: <span class="prelude-val">Some</span>(root_key) },
-		<span class="string">"testPallet"</span>: cumulus_test_runtime::TestPalletConfig { self_para_id: <span class="prelude-val">Some</span>(self_para_id), ..Default::default() },
+		<span class="string">"parachainInfo"</span>: {
+			<span class="string">"parachainId"</span>: self_para_id,
+		},
 		<span class="string">"aura"</span>: cumulus_test_runtime::AuraConfig { authorities: invulnerables }
 	})
 }
