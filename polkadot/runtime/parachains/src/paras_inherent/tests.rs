@@ -61,18 +61,18 @@ mod enter {
 	use sp_runtime::Perbill;
 	use sp_std::collections::btree_map::BTreeMap;
 
-	pub struct TestConfig {
-		pub dispute_statements: BTreeMap<u32, u32>,
-		pub dispute_sessions: Vec<u32>,
-		pub backed_and_concluding: BTreeMap<u32, u32>,
-		pub num_validators_per_core: u32,
-		pub code_upgrade: Option<u32>,
-		pub fill_claimqueue: bool,
-		pub elastic_paras: BTreeMap<u32, u8>,
-		pub unavailable_cores: Vec<u32>,
+	struct TestConfig {
+		dispute_statements: BTreeMap<u32, u32>,
+		dispute_sessions: Vec<u32>,
+		backed_and_concluding: BTreeMap<u32, u32>,
+		num_validators_per_core: u32,
+		code_upgrade: Option<u32>,
+		fill_claimqueue: bool,
+		elastic_paras: BTreeMap<u32, u8>,
+		unavailable_cores: Vec<u32>,
 	}
 
-	pub fn make_inherent_data(
+	fn make_inherent_data(
 		TestConfig {
 			dispute_statements,
 			dispute_sessions,
