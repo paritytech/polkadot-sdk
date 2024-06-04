@@ -398,9 +398,10 @@ fn expected_core_count(
 	relay_chain_slot_duration: Duration,
 	slot_duration: SlotDuration,
 ) -> Result<u64, ()> {
-	u64::try_from(relay_chain_slot_duration.as_millis() / slot_duration.as_duration().as_millis())
+	let slot_duration_millis = slot_duration.as_millis();
+	u64::try_from(relay_chain_slot_duration.as_millis())
 		.map_err(|e| tracing::error!("Unable to calculate expected parachain core count: {e}"))
-		.map(|expected_core_count| expected_core_count.max(1))
+		.map(|relay_slot_duration| (relay_slot_duration / slot_duration_millis).max(1))
 }
 
 /// Contains relay chain data necessary for parachain block building.
