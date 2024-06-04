@@ -129,6 +129,7 @@ parameter_types! {
 /// Implements the types required for the system pallet.
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Runtime {
+	type AccountId = sp_runtime::AccountId32;
 	type Block = Block;
 	type Version = Version;
 	// Use the account data from the balances pallet
