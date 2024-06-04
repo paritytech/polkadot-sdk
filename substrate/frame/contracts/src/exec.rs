@@ -1374,7 +1374,6 @@ where
 			contract: account_id,
 			beneficiary: beneficiary.clone(),
 		});
-
 		Ok(())
 	}
 

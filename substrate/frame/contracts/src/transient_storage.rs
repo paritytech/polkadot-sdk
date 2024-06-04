@@ -72,13 +72,13 @@ impl<T: Config> StorageMeter<T> {
 
 	/// Charge the allocated amount of transaction storage from the meter.
 	pub fn charge(&mut self, amount: u32) -> DispatchResult {
-		let current = self.top_meter().current.saturating_add(amount);
-		if amount.saturating_add(self.current_amount()) > self.transaction_limit ||
+		let current_amount = self.current_amount().saturating_add(amount);
+		if current_amount > self.transaction_limit ||
 			amount.saturating_add(self.total_amount()) > self.total_limit
 		{
 			return Err(Error::<T>::OutOfStorage.into());
 		}
-		self.top_meter_mut().current = current;
+		self.top_meter_mut().current = current_amount;
 		Ok(())
 	}
 
