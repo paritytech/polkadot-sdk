@@ -4,7 +4,7 @@ name = "sc-mixnet"
 version = "0.4.0"
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 authors = ["Parity Technologies <admin@parity.io>"]
-edition = "2021"
+edition.workspace = true
 homepage = "https://substrate.io"
 repository = "https://github.com/paritytech/substrate/"
 readme = "README.md"
@@ -16,11 +16,11 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-array-bytes = "4.1"
+array-bytes = "6.2.2"
 arrayvec = "0.7.2"
 blake2 = "0.10.4"
 bytes = "1"
-codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = ["derive"] }
+codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false, features = ["derive"] }
 futures = "0.3.30"
 futures-timer = "3.0.2"
 log = { workspace = true, default-features = true }

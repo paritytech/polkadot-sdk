@@ -43,11 +43,9 @@ use sp_api::ProvideRuntimeApi;
 use sp_blockchain::{Backend as BlockchainBackend, HeaderBackend};
 use sp_consensus::{Error as ConsensusError, SyncOracle};
 use sp_consensus_beefy::{
-	ecdsa_crypto::AuthorityId, BeefyApi, ConsensusLog, MmrRootHash, PayloadProvider, ValidatorSet,
-	BEEFY_ENGINE_ID,
+	AuthorityIdBound, BeefyApi, ConsensusLog, PayloadProvider, ValidatorSet, BEEFY_ENGINE_ID,
 };
 use sp_keystore::KeystorePtr;
-use sp_mmr_primitives::MmrApi;
 use sp_runtime::traits::{Block, Header as HeaderT, NumberFor, Zero};
 use std::{
 	collections::{BTreeMap, VecDeque},
@@ -69,6 +67,7 @@ pub mod justification;
 
 use crate::{
 	communication::gossip::GossipValidator,
+	fisherman::Fisherman,
 	justification::BeefyVersionedFinalityProof,
 	keystore::BeefyKeystore,
 	metrics::VoterMetrics,
@@ -80,6 +79,7 @@ pub use communication::beefy_protocol_name::{
 };
 use sp_runtime::generic::OpaqueDigestItemId;
 
+mod fisherman;
 #[cfg(test)]
 mod tests;
 
@@ -117,50 +117,55 @@ where
 /// Links between the block importer, the background voter and the RPC layer,
 /// to be used by the voter.
 #[derive(Clone)]
-pub struct BeefyVoterLinks<B: Block> {
+pub struct BeefyVoterLinks<B: Block, AuthorityId: AuthorityIdBound> {
 	// BlockImport -> Voter links
 	/// Stream of BEEFY signed commitments from block import to voter.
-	pub from_block_import_justif_stream: BeefyVersionedFinalityProofStream<B>,
+	pub from_block_import_justif_stream: BeefyVersionedFinalityProofStream<B, AuthorityId>,
 
 	// Voter -> RPC links
 	/// Sends BEEFY signed commitments from voter to RPC.
-	pub to_rpc_justif_sender: BeefyVersionedFinalityProofSender<B>,
+	pub to_rpc_justif_sender: BeefyVersionedFinalityProofSender<B, AuthorityId>,
 	/// Sends BEEFY best block hashes from voter to RPC.
 	pub to_rpc_best_block_sender: BeefyBestBlockSender<B>,
 }
 
 /// Links used by the BEEFY RPC layer, from the BEEFY background voter.
 #[derive(Clone)]
-pub struct BeefyRPCLinks<B: Block> {
+pub struct BeefyRPCLinks<B: Block, AuthorityId: AuthorityIdBound> {
 	/// Stream of signed commitments coming from the voter.
-	pub from_voter_justif_stream: BeefyVersionedFinalityProofStream<B>,
+	pub from_voter_justif_stream: BeefyVersionedFinalityProofStream<B, AuthorityId>,
 	/// Stream of BEEFY best block hashes coming from the voter.
 	pub from_voter_best_beefy_stream: BeefyBestBlockStream<B>,
 }
 
 /// Make block importer and link half necessary to tie the background voter to it.
-pub fn beefy_block_import_and_links<B, BE, RuntimeApi, I>(
+pub fn beefy_block_import_and_links<B, BE, RuntimeApi, I, AuthorityId: AuthorityIdBound>(
 	wrapped_block_import: I,
 	backend: Arc<BE>,
 	runtime: Arc<RuntimeApi>,
 	prometheus_registry: Option<Registry>,
-) -> (BeefyBlockImport<B, BE, RuntimeApi, I>, BeefyVoterLinks<B>, BeefyRPCLinks<B>)
+) -> (
+	BeefyBlockImport<B, BE, RuntimeApi, I, AuthorityId>,
+	BeefyVoterLinks<B, AuthorityId>,
+	BeefyRPCLinks<B, AuthorityId>,
+)
 where
 	B: Block,
 	BE: Backend<B>,
 	I: BlockImport<B, Error = ConsensusError> + Send + Sync,
 	RuntimeApi: ProvideRuntimeApi<B> + Send + Sync,
 	RuntimeApi::Api: BeefyApi<B, AuthorityId>,
+	AuthorityId: AuthorityIdBound,
 {
 	// Voter -> RPC links
 	let (to_rpc_justif_sender, from_voter_justif_stream) =
-		BeefyVersionedFinalityProofStream::<B>::channel();
+		BeefyVersionedFinalityProofStream::<B, AuthorityId>::channel();
 	let (to_rpc_best_block_sender, from_voter_best_beefy_stream) =
 		BeefyBestBlockStream::<B>::channel();
 
 	// BlockImport -> Voter links
 	let (to_voter_justif_sender, from_block_import_justif_stream) =
-		BeefyVersionedFinalityProofStream::<B>::channel();
+		BeefyVersionedFinalityProofStream::<B, AuthorityId>::channel();
 	let metrics = register_metrics(prometheus_registry);
 
 	// BlockImport
@@ -200,7 +205,7 @@ pub struct BeefyNetworkParams<B: Block, N, S> {
 }
 
 /// BEEFY gadget initialization parameters.
-pub struct BeefyParams<B: Block, BE, C, N, P, R, S> {
+pub struct BeefyParams<B: Block, BE, C, N, P, R, S, AuthorityId: AuthorityIdBound> {
 	/// BEEFY client
 	pub client: Arc<C>,
 	/// Client Backend
@@ -218,7 +223,7 @@ pub struct BeefyParams<B: Block, BE, C, N, P, R, S> {
 	/// Prometheus metric registry
 	pub prometheus_registry: Option<Registry>,
 	/// Links between the block importer, the background voter and the RPC layer.
-	pub links: BeefyVoterLinks<B>,
+	pub links: BeefyVoterLinks<B, AuthorityId>,
 	/// Handler for incoming BEEFY justifications requests from a remote peer.
 	pub on_demand_justifications_handler: BeefyJustifsRequestHandler<B, C>,
 	/// Whether running under "Authority" role.
@@ -227,10 +232,10 @@ pub struct BeefyParams<B: Block, BE, C, N, P, R, S> {
 /// Helper object holding BEEFY worker communication/gossip components.
 ///
 /// These are created once, but will be reused if worker is restarted/reinitialized.
-pub(crate) struct BeefyComms<B: Block, N> {
+pub(crate) struct BeefyComms<B: Block, N, AuthorityId: AuthorityIdBound> {
 	pub gossip_engine: GossipEngine<B>,
-	pub gossip_validator: Arc<GossipValidator<B, N>>,
-	pub on_demand_justifications: OnDemandJustificationsEngine<B>,
+	pub gossip_validator: Arc<GossipValidator<B, N, AuthorityId>>,
+	pub on_demand_justifications: OnDemandJustificationsEngine<B, AuthorityId>,
 }
 
 /// Helper builder object for building [worker::BeefyWorker].
@@ -239,22 +244,23 @@ pub(crate) struct BeefyComms<B: Block, N> {
 /// for certain chain and backend conditions, and while sleeping we still need to pump the
 /// GossipEngine. Once initialization is done, the GossipEngine (and other pieces) are added to get
 /// the complete [worker::BeefyWorker] object.
-pub(crate) struct BeefyWorkerBuilder<B: Block, BE, RuntimeApi> {
+pub(crate) struct BeefyWorkerBuilder<B: Block, BE, RuntimeApi, AuthorityId: AuthorityIdBound> {
 	// utilities
 	backend: Arc<BE>,
 	runtime: Arc<RuntimeApi>,
 	key_store: BeefyKeystore<AuthorityId>,
 	// voter metrics
 	metrics: Option<VoterMetrics>,
-	persisted_state: PersistedState<B>,
+	persisted_state: PersistedState<B, AuthorityId>,
 }
 
-impl<B, BE, R> BeefyWorkerBuilder<B, BE, R>
+impl<B, BE, R, AuthorityId> BeefyWorkerBuilder<B, BE, R, AuthorityId>
 where
 	B: Block + codec::Codec,
 	BE: Backend<B>,
 	R: ProvideRuntimeApi<B>,
 	R::Api: BeefyApi<B, AuthorityId>,
+	AuthorityId: AuthorityIdBound,
 {
 	/// This will wait for the chain to enable BEEFY (if not yet enabled) and also wait for the
 	/// backend to sync all headers required by the voter to build a contiguous chain of mandatory
@@ -268,7 +274,7 @@ where
 		key_store: BeefyKeystore<AuthorityId>,
 		metrics: Option<VoterMetrics>,
 		min_block_delta: u32,
-		gossip_validator: Arc<GossipValidator<B, N>>,
+		gossip_validator: Arc<GossipValidator<B, N, AuthorityId>>,
 		finality_notifications: &mut Fuse<FinalityNotifications<B>>,
 		is_authority: bool,
 	) -> Result<Self, Error> {
@@ -300,19 +306,21 @@ where
 		self,
 		payload_provider: P,
 		sync: Arc<S>,
-		comms: BeefyComms<B, N>,
-		links: BeefyVoterLinks<B>,
-		pending_justifications: BTreeMap<NumberFor<B>, BeefyVersionedFinalityProof<B>>,
+		comms: BeefyComms<B, N, AuthorityId>,
+		links: BeefyVoterLinks<B, AuthorityId>,
+		pending_justifications: BTreeMap<NumberFor<B>, BeefyVersionedFinalityProof<B, AuthorityId>>,
 		is_authority: bool,
-	) -> BeefyWorker<B, BE, P, R, S, N> {
+	) -> BeefyWorker<B, BE, P, R, S, N, AuthorityId> {
+		let key_store = Arc::new(self.key_store);
 		BeefyWorker {
-			backend: self.backend,
-			runtime: self.runtime,
-			key_store: self.key_store,
-			metrics: self.metrics,
-			persisted_state: self.persisted_state,
+			backend: self.backend.clone(),
+			runtime: self.runtime.clone(),
+			key_store: key_store.clone(),
 			payload_provider,
 			sync,
+			fisherman: Arc::new(Fisherman::new(self.backend, self.runtime, key_store)),
+			metrics: self.metrics,
+			persisted_state: self.persisted_state,
 			comms,
 			links,
 			pending_justifications,
@@ -331,7 +339,7 @@ where
 		min_block_delta: u32,
 		backend: Arc<BE>,
 		runtime: Arc<R>,
-	) -> Result<PersistedState<B>, Error> {
+	) -> Result<PersistedState<B, AuthorityId>, Error> {
 		let blockchain = backend.blockchain();
 
 		let beefy_genesis = runtime
@@ -375,7 +383,7 @@ where
 					beefy_genesis,
 				)
 				.ok_or_else(|| Error::Backend("Invalid BEEFY chain".into()))?;
-				break state
+				break state;
 			}
 
 			if *header.number() == beefy_genesis {
@@ -398,10 +406,10 @@ where
 					min_block_delta,
 					beefy_genesis,
 				)
-				.ok_or_else(|| Error::Backend("Invalid BEEFY chain".into()))?
+				.ok_or_else(|| Error::Backend("Invalid BEEFY chain".into()))?;
 			}
 
-			if let Some(active) = find_authorities_change::<B>(&header) {
+			if let Some(active) = find_authorities_change::<B, AuthorityId>(&header) {
 				debug!(
 					target: LOG_TARGET,
 					"🥩 Marking block {:?} as BEEFY Mandatory.",
@@ -428,7 +436,7 @@ where
 		key_store: &BeefyKeystore<AuthorityId>,
 		metrics: &Option<VoterMetrics>,
 		is_authority: bool,
-	) -> Result<PersistedState<B>, Error> {
+	) -> Result<PersistedState<B, AuthorityId>, Error> {
 		// Initialize voter state from AUX DB if compatible.
 		if let Some(mut state) = crate::aux_schema::load_persistent(backend.as_ref())?
 			// Verify state pallet genesis matches runtime.
@@ -445,7 +453,7 @@ where
 			let mut header = best_grandpa.clone();
 			while *header.number() > state.best_beefy() {
 				if state.voting_oracle().can_add_session(*header.number()) {
-					if let Some(active) = find_authorities_change::<B>(&header) {
+					if let Some(active) = find_authorities_change::<B, AuthorityId>(&header) {
 						new_sessions.push((active, *header.number()));
 					}
 				}
@@ -468,7 +476,7 @@ where
 					is_authority,
 				);
 			}
-			return Ok(state)
+			return Ok(state);
 		}
 
 		// No valid voter-state persisted, re-initialize from pallet genesis.
@@ -479,17 +487,18 @@ where
 /// Start the BEEFY gadget.
 ///
 /// This is a thin shim around running and awaiting a BEEFY worker.
-pub async fn start_beefy_gadget<B, BE, C, N, P, R, S>(
-	beefy_params: BeefyParams<B, BE, C, N, P, R, S>,
+pub async fn start_beefy_gadget<B, BE, C, N, P, R, S, AuthorityId>(
+	beefy_params: BeefyParams<B, BE, C, N, P, R, S, AuthorityId>,
 ) where
 	B: Block,
 	BE: Backend<B>,
 	C: Client<B, BE> + BlockBackend<B>,
 	P: PayloadProvider<B> + Clone,
 	R: ProvideRuntimeApi<B>,
-	R::Api: BeefyApi<B, AuthorityId> + MmrApi<B, MmrRootHash, NumberFor<B>>,
+	R::Api: BeefyApi<B, AuthorityId>,
 	N: GossipNetwork<B> + NetworkRequest + Send + Sync + 'static,
 	S: GossipSyncing<B> + SyncOracle + 'static,
+	AuthorityId: AuthorityIdBound,
 {
 	let BeefyParams {
 		client,
@@ -595,15 +604,17 @@ pub async fn start_beefy_gadget<B, BE, C, N, P, R, S>(
 			futures::future::Either::Left(((error::Error::ConsensusReset, reuse_comms), _)) => {
 				error!(target: LOG_TARGET, "🥩 Error: {:?}. Restarting voter.", error::Error::ConsensusReset);
 				beefy_comms = reuse_comms;
-				continue
+				continue;
 			},
 			// On other errors, bring down / finish the task.
-			futures::future::Either::Left(((worker_err, _), _)) =>
-				error!(target: LOG_TARGET, "🥩 Error: {:?}. Terminating.", worker_err),
-			futures::future::Either::Right((odj_handler_err, _)) =>
-				error!(target: LOG_TARGET, "🥩 Error: {:?}. Terminating.", odj_handler_err),
+			futures::future::Either::Left(((worker_err, _), _)) => {
+				error!(target: LOG_TARGET, "🥩 Error: {:?}. Terminating.", worker_err)
+			},
+			futures::future::Either::Right((odj_handler_err, _)) => {
+				error!(target: LOG_TARGET, "🥩 Error: {:?}. Terminating.", odj_handler_err)
+			},
 		};
-		return
+		return;
 	}
 }
 
@@ -648,7 +659,7 @@ where
 
 /// Wait for BEEFY runtime pallet to be available, return active validator set.
 /// Should be called only once during worker initialization.
-async fn wait_for_runtime_pallet<B, R>(
+async fn wait_for_runtime_pallet<B, R, AuthorityId: AuthorityIdBound>(
 	runtime: &R,
 	finality: &mut Fuse<FinalityNotifications<B>>,
 ) -> Result<(NumberFor<B>, <B as Block>::Header), Error>
@@ -673,7 +684,7 @@ where
 					"🥩 BEEFY pallet available: block {:?} beefy genesis {:?}",
 					notif.header.number(), start
 				);
-				return Ok((start, notif.header))
+				return Ok((start, notif.header));
 			}
 		}
 	}
@@ -684,7 +695,7 @@ where
 ///
 /// Note: function will `async::sleep()` when walking back the chain if some needed header hasn't
 /// been synced yet (as it happens when warp syncing when headers are synced in the background).
-async fn expect_validator_set<B, BE, R>(
+async fn expect_validator_set<B, BE, R, AuthorityId: AuthorityIdBound>(
 	runtime: &R,
 	backend: &BE,
 	at_header: &B::Header,
@@ -708,9 +719,9 @@ where
 	loop {
 		debug!(target: LOG_TARGET, "🥩 Looking for auth set change at block number: {:?}", *header.number());
 		if let Ok(Some(active)) = runtime.runtime_api().validator_set(header.hash()) {
-			return Ok(active)
+			return Ok(active);
 		} else {
-			match find_authorities_change::<B>(&header) {
+			match find_authorities_change::<B, AuthorityId>(&header) {
 				Some(active) => return Ok(active),
 				// Move up the chain. Ultimately we'll get it from chain genesis state, or error out
 				// there.
@@ -725,9 +736,12 @@ where
 
 /// Scan the `header` digest log for a BEEFY validator set change. Return either the new
 /// validator set or `None` in case no validator set change has been signaled.
-pub(crate) fn find_authorities_change<B>(header: &B::Header) -> Option<ValidatorSet<AuthorityId>>
+pub(crate) fn find_authorities_change<B, AuthorityId>(
+	header: &B::Header,
+) -> Option<ValidatorSet<AuthorityId>>
 where
 	B: Block,
+	AuthorityId: AuthorityIdBound,
 {
 	let id = OpaqueDigestItemId::Consensus(&BEEFY_ENGINE_ID);
 

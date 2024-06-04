@@ -25,7 +25,7 @@ use crate::{
 
 use codec::{Decode, Encode};
 use frame_support::{
-	assert_noop, assert_ok, derive_impl, parameter_types,
+	assert_err, assert_noop, assert_ok, derive_impl, parameter_types,
 	traits::{ConstU32, ConstU64, Get, OnFinalize, OnInitialize},
 	BoundedVec,
 };
@@ -1487,6 +1487,76 @@ fn setting_primary_should_work() {
 		assert_eq!(
 			AccountOfUsername::<Test>::get::<&Username<Test>>(&second_to_sign),
 			Some(who_account)
+		);
+	});
+}
+
+#[test]
+fn must_own_primary() {
+	new_test_ext().execute_with(|| {
+		// set up authority
+		let [authority, _] = unfunded_accounts();
+		let suffix: Vec<u8> = b"test".to_vec();
+		let allocation: u32 = 10;
+		assert_ok!(Identity::add_username_authority(
+			RuntimeOrigin::root(),
+			authority.clone(),
+			suffix.clone(),
+			allocation
+		));
+
+		// Set up first user ("pi") and a username.
+		let pi_public = sr25519_generate(0.into(), None);
+		let pi_account: AccountIdOf<Test> = MultiSigner::Sr25519(pi_public).into_account().into();
+		let (pi_username, pi_to_sign) =
+			test_username_of(b"username314159".to_vec(), suffix.clone());
+		let encoded_pi_username = Encode::encode(&pi_to_sign.to_vec());
+		let pi_signature = MultiSignature::Sr25519(
+			sr25519_sign(0.into(), &pi_public, &encoded_pi_username).unwrap(),
+		);
+		assert_ok!(Identity::set_username_for(
+			RuntimeOrigin::signed(authority.clone()),
+			pi_account.clone(),
+			pi_username.clone(),
+			Some(pi_signature)
+		));
+
+		// Set up second user ("e") and a username.
+		let e_public = sr25519_generate(1.into(), None);
+		let e_account: AccountIdOf<Test> = MultiSigner::Sr25519(e_public).into_account().into();
+		let (e_username, e_to_sign) = test_username_of(b"username271828".to_vec(), suffix.clone());
+		let encoded_e_username = Encode::encode(&e_to_sign.to_vec());
+		let e_signature = MultiSignature::Sr25519(
+			sr25519_sign(1.into(), &e_public, &encoded_e_username).unwrap(),
+		);
+		assert_ok!(Identity::set_username_for(
+			RuntimeOrigin::signed(authority.clone()),
+			e_account.clone(),
+			e_username.clone(),
+			Some(e_signature)
+		));
+
+		// Ensure that both users have their usernames.
+		assert_eq!(
+			AccountOfUsername::<Test>::get::<&Username<Test>>(&pi_to_sign),
+			Some(pi_account.clone())
+		);
+		assert_eq!(
+			AccountOfUsername::<Test>::get::<&Username<Test>>(&e_to_sign),
+			Some(e_account.clone())
+		);
+
+		// Cannot set primary to a username that does not exist.
+		let (_, c_username) = test_username_of(b"speedoflight".to_vec(), suffix.clone());
+		assert_err!(
+			Identity::set_primary_username(RuntimeOrigin::signed(pi_account.clone()), c_username,),
+			Error::<Test>::NoUsername
+		);
+
+		// Cannot take someone else's username as your primary.
+		assert_err!(
+			Identity::set_primary_username(RuntimeOrigin::signed(pi_account.clone()), e_to_sign,),
+			Error::<Test>::InvalidUsername
 		);
 	});
 }

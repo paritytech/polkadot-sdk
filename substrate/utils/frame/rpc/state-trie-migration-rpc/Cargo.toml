@@ -16,15 +16,15 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false }
+codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false }
 serde = { features = ["derive"], workspace = true, default-features = true }
 
 sp-core = { path = "../../../../primitives/core" }
 sp-state-machine = { path = "../../../../primitives/state-machine" }
 sp-trie = { path = "../../../../primitives/trie" }
-trie-db = "0.28.0"
+trie-db = "0.29.0"
 
-jsonrpsee = { version = "0.22", features = ["client-core", "macros", "server"] }
+jsonrpsee = { version = "0.22.5", features = ["client-core", "macros", "server-core"] }
 
 # Substrate Dependencies
 sc-client-api = { path = "../../../../client/api" }

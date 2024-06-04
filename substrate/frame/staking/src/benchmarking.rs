@@ -1077,15 +1077,13 @@ mod tests {
 				(frame_benchmarking::BenchmarkParameter::v, v),
 				(frame_benchmarking::BenchmarkParameter::n, n),
 			];
-			let closure_to_benchmark =
-				<SelectedBenchmark as frame_benchmarking::BenchmarkingSetup<Test>>::instance(
+
+			assert_ok!(
+				<SelectedBenchmark as frame_benchmarking::BenchmarkingSetup<Test>>::unit_test_instance(
 					&selected_benchmark,
 					&c,
-					true,
 				)
-				.unwrap();
-
-			assert_ok!(closure_to_benchmark());
+			);
 		});
 	}
 }

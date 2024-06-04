@@ -31,7 +31,7 @@ use crate::{
 		Scheduler, System, Test,
 	},
 	paras::{ParaGenesisArgs, ParaKind},
-	scheduler::{common::Assignment, ClaimQueue},
+	scheduler::{self, common::Assignment, ClaimQueue},
 };
 
 fn schedule_blank_para(id: ParaId) {
@@ -222,7 +222,7 @@ fn claimqueue_ttl_drop_fn_works() {
 		Scheduler::add_to_claimqueue(core_idx, paras_entry_non_expired.clone());
 		Scheduler::add_to_claimqueue(core_idx, paras_entry_expired.clone());
 		Scheduler::add_to_claimqueue(core_idx, paras_entry_non_expired.clone());
-		let cq = Scheduler::claimqueue();
+		let cq = scheduler::ClaimQueue::<Test>::get();
 		assert_eq!(cq.get(&core_idx).unwrap().len(), 3);
 
 		// Add a claim to the test assignment provider.
@@ -233,7 +233,7 @@ fn claimqueue_ttl_drop_fn_works() {
 		// Drop expired claim.
 		Scheduler::drop_expired_claims_from_claimqueue();
 
-		let cq = Scheduler::claimqueue();
+		let cq = scheduler::ClaimQueue::<Test>::get();
 		let cqc = cq.get(&core_idx).unwrap();
 		// Same number of claims, because a new claim is popped from `MockAssigner` instead of the
 		// expired one
@@ -392,7 +392,7 @@ fn fill_claimqueue_fills() {
 			);
 			// Sits on the same core as `para_a`
 			assert_eq!(
-				Scheduler::claimqueue().get(&CoreIndex(0)).unwrap()[1],
+				scheduler::ClaimQueue::<Test>::get().get(&CoreIndex(0)).unwrap()[1],
 				ParasEntry {
 					assignment: assignment_b.clone(),
 					availability_timeouts: 0,
@@ -483,7 +483,7 @@ fn schedule_schedules_including_just_freed() {
 			assert!(Scheduler::scheduled_paras().collect::<Vec<_>>().is_empty());
 
 			// All `core_queue`s should be empty
-			Scheduler::claimqueue()
+			scheduler::ClaimQueue::<Test>::get()
 				.iter()
 				.for_each(|(_core_idx, core_queue)| assert_eq!(core_queue.len(), 0))
 		}
@@ -603,7 +603,7 @@ fn schedule_clears_availability_cores() {
 
 		run_to_block(2, |_| None);
 
-		assert_eq!(Scheduler::claimqueue().len(), 3);
+		assert_eq!(scheduler::ClaimQueue::<Test>::get().len(), 3);
 
 		// cores 0, 1, and 2 should be occupied. mark them as such.
 		Scheduler::occupied(
@@ -620,7 +620,7 @@ fn schedule_clears_availability_cores() {
 			assert_eq!(cores[2].is_free(), false);
 
 			// All `core_queue`s should be empty
-			Scheduler::claimqueue()
+			scheduler::ClaimQueue::<Test>::get()
 				.iter()
 				.for_each(|(_core_idx, core_queue)| assert!(core_queue.len() == 0))
 		}
@@ -699,7 +699,7 @@ fn schedule_rotates_groups() {
 			_ => None,
 		});
 
-		let session_start_block = Scheduler::session_start_block();
+		let session_start_block = scheduler::SessionStartBlock::<Test>::get();
 		assert_eq!(session_start_block, 1);
 
 		MockAssigner::add_test_assignment(assignment_a.clone());
@@ -783,7 +783,7 @@ fn on_demand_claims_are_pruned_after_timing_out() {
 		// #2
 		now += 1;
 		run_to_block(now, |_| None);
-		assert_eq!(Scheduler::claimqueue().len(), 1);
+		assert_eq!(scheduler::ClaimQueue::<Test>::get().len(), 1);
 		// ParaId a is in the claimqueue.
 		assert!(claimqueue_contains_para_ids::<Test>(vec![para_a]));
 
@@ -949,13 +949,13 @@ fn next_up_on_available_uses_next_scheduled_or_none() {
 
 		{
 			assert_eq!(Scheduler::claimqueue_len(), 1);
-			assert_eq!(Scheduler::availability_cores().len(), 1);
+			assert_eq!(scheduler::AvailabilityCores::<Test>::get().len(), 1);
 
 			let mut map = BTreeMap::new();
 			map.insert(CoreIndex(0), para_a);
 			Scheduler::occupied(map);
 
-			let cores = Scheduler::availability_cores();
+			let cores = scheduler::AvailabilityCores::<Test>::get();
 			match &cores[0] {
 				CoreOccupied::Paras(entry) => assert_eq!(entry, &entry_a),
 				_ => panic!("There should only be one test assigner core"),
@@ -1006,14 +1006,14 @@ fn next_up_on_time_out_reuses_claim_if_nothing_queued() {
 		run_to_block(2, |_| None);
 
 		{
-			assert_eq!(Scheduler::claimqueue().len(), 1);
-			assert_eq!(Scheduler::availability_cores().len(), 1);
+			assert_eq!(scheduler::ClaimQueue::<Test>::get().len(), 1);
+			assert_eq!(scheduler::AvailabilityCores::<Test>::get().len(), 1);
 
 			let mut map = BTreeMap::new();
 			map.insert(CoreIndex(0), para_a);
 			Scheduler::occupied(map);
 
-			let cores = Scheduler::availability_cores();
+			let cores = scheduler::AvailabilityCores::<Test>::get();
 			match cores.get(0).unwrap() {
 				CoreOccupied::Paras(entry) => {
 					assert_eq!(entry.assignment, assignment_a.clone());
@@ -1058,7 +1058,7 @@ fn session_change_requires_reschedule_dropping_removed_paras() {
 	new_test_ext(genesis_config).execute_with(|| {
 		// Setting explicit core count
 		MockAssigner::set_core_count(5);
-		let coretime_ttl = <configuration::Pallet<Test>>::config().scheduler_params.ttl;
+		let coretime_ttl = configuration::ActiveConfig::<Test>::get().scheduler_params.ttl;
 
 		schedule_blank_para(para_a);
 		schedule_blank_para(para_b);
@@ -1085,7 +1085,7 @@ fn session_change_requires_reschedule_dropping_removed_paras() {
 			_ => None,
 		});
 
-		assert_eq!(Scheduler::claimqueue().len(), 2);
+		assert_eq!(scheduler::ClaimQueue::<Test>::get().len(), 2);
 
 		let groups = ValidatorGroups::<Test>::get();
 		assert_eq!(groups.len(), 5);
@@ -1116,7 +1116,7 @@ fn session_change_requires_reschedule_dropping_removed_paras() {
 		Scheduler::free_cores_and_fill_claimqueue(BTreeMap::new(), 3);
 
 		assert_eq!(
-			Scheduler::claimqueue(),
+			scheduler::ClaimQueue::<Test>::get(),
 			vec![(
 				CoreIndex(0),
 				vec![ParasEntry::new(
@@ -1156,7 +1156,7 @@ fn session_change_requires_reschedule_dropping_removed_paras() {
 			_ => None,
 		});
 
-		assert_eq!(Scheduler::claimqueue().len(), 2);
+		assert_eq!(scheduler::ClaimQueue::<Test>::get().len(), 2);
 
 		let groups = ValidatorGroups::<Test>::get();
 		assert_eq!(groups.len(), 5);
@@ -1164,7 +1164,7 @@ fn session_change_requires_reschedule_dropping_removed_paras() {
 		Scheduler::free_cores_and_fill_claimqueue(BTreeMap::new(), 4);
 
 		assert_eq!(
-			Scheduler::claimqueue(),
+			scheduler::ClaimQueue::<Test>::get(),
 			vec![
 				(
 					CoreIndex(0),

@@ -59,6 +59,7 @@ impl Chain for BridgeHubPolkadot {
 
 impl Parachain for BridgeHubPolkadot {
 	const PARACHAIN_ID: u32 = BRIDGE_HUB_POLKADOT_PARACHAIN_ID;
+	const MAX_HEADER_SIZE: u32 = MAX_BRIDGE_HUB_HEADER_SIZE;
 }
 
 impl ChainWithMessages for BridgeHubPolkadot {

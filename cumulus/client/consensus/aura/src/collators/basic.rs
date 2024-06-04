@@ -48,7 +48,7 @@ use sp_inherents::CreateInherentDataProviders;
 use sp_keystore::KeystorePtr;
 use sp_runtime::traits::{Block as BlockT, Header as HeaderT, Member};
 use sp_state_machine::Backend as _;
-use std::{convert::TryFrom, sync::Arc, time::Duration};
+use std::{sync::Arc, time::Duration};
 
 use crate::collator as collator_util;
 

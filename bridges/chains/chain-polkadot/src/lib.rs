@@ -69,6 +69,8 @@ pub const PARAS_PALLET_NAME: &str = "Paras";
 
 /// Name of the With-Polkadot GRANDPA pallet instance that is deployed at bridged chains.
 pub const WITH_POLKADOT_GRANDPA_PALLET_NAME: &str = "BridgePolkadotGrandpa";
+/// Name of the With-Polkadot parachains pallet instance that is deployed at bridged chains.
+pub const WITH_POLKADOT_BRIDGE_PARACHAINS_PALLET_NAME: &str = "BridgePolkadotParachains";
 
 /// Maximal size of encoded `bp_parachains::ParaStoredHeaderData` structure among all Polkadot
 /// parachains.

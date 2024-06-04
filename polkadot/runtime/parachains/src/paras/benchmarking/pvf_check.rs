@@ -133,7 +133,7 @@ where
 		.collect::<Vec<_>>();
 
 	// 1. Make sure PVF pre-checking is enabled in the config.
-	let config = configuration::Pallet::<T>::config();
+	let config = configuration::ActiveConfig::<T>::get();
 	configuration::Pallet::<T>::force_set_active_config(config.clone());
 
 	// 2. initialize a new session with deterministic validator set.
@@ -176,7 +176,7 @@ where
 				id,
 				validation_code,
 				/* relay_parent_number */ 1u32.into(),
-				&configuration::Pallet::<T>::config(),
+				&configuration::ActiveConfig::<T>::get(),
 				UpgradeStrategy::SetGoAheadSignal,
 			);
 		} else {
@@ -202,7 +202,7 @@ fn generate_statements<T>(
 where
 	T: Config + shared::Config,
 {
-	let validators = ParasShared::<T>::active_validator_keys();
+	let validators = shared::ActiveValidatorKeys::<T>::get();
 
 	let accept_threshold = primitives::supermajority_threshold(validators.len());
 	let required_votes = match vote_outcome {

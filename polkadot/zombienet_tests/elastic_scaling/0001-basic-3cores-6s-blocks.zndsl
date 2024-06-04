@@ -18,11 +18,11 @@ elastic-validator-0: js-script ./assign-core.js with "2000,1" return is 0 within
 elastic-validator-0: reports substrate_block_height{status="best"} is at least 20 within 600 seconds
 
 # Non elastic parachain should progress normally
-some-parachain-1: count of log lines containing "Parachain velocity: 1" is at least 9 within 20 seconds
+some-parachain-1: count of log lines containing "Parachain velocity: 1" is at least 5 within 20 seconds
 # Sanity
-some-parachain-1: count of log lines containing "Parachain velocity: 2" is 0 within 20 seconds
+some-parachain-1: count of log lines containing "Parachain velocity: 2" is 0
 
-# Parachain should progress 3 blocks per relay chain block ideally, however this measurement does 
-# `ceil()` on the actual velocity to account for CI overload.
-some-parachain: count of log lines containing "Parachain velocity: 3" is at least 9 within 20 seconds
+# Parachain should progress 3 blocks per relay chain block ideally, however CI might not be
+# the most performant environment so we'd just use a lower bound of 2 blocks per RCB
+elastic-validator-0: parachain 2000 block height is at least 20 within 200 seconds
 

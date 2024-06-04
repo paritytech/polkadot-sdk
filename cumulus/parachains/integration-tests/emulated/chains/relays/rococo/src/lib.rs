@@ -39,6 +39,8 @@ decl_test_relay_chains! {
 			Hrmp: rococo_runtime::Hrmp,
 			Identity: rococo_runtime::Identity,
 			IdentityMigrator: rococo_runtime::IdentityMigrator,
+			Treasury: rococo_runtime::Treasury,
+			AssetRate: rococo_runtime::AssetRate,
 		}
 	},
 }

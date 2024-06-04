@@ -1,0 +1,62 @@
+[package]
+name = "substrate-relay-helper"
+version = "0.1.0"
+authors.workspace = true
+edition.workspace = true
+license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
+repository.workspace = true
+publish = false
+
+[lints]
+workspace = true
+
+[dependencies]
+anyhow = "1.0"
+async-std = "1.9.0"
+async-trait = "0.1.79"
+codec = { package = "parity-scale-codec", version = "3.6.12" }
+futures = "0.3.30"
+hex = "0.4"
+log = { workspace = true }
+num-traits = "0.2"
+rbtag = "0.3"
+structopt = "0.3"
+strum = { version = "0.26.2", features = ["derive"] }
+thiserror = { workspace = true }
+
+# Bridge dependencies
+
+bp-header-chain = { path = "../../primitives/header-chain" }
+bp-parachains = { path = "../../primitives/parachains" }
+bp-polkadot-core = { path = "../../primitives/polkadot-core" }
+bp-relayers = { path = "../../primitives/relayers" }
+bridge-runtime-common = { path = "../../bin/runtime-common" }
+
+equivocation-detector = { path = "../equivocation" }
+finality-grandpa = { version = "0.16.2" }
+finality-relay = { path = "../finality" }
+parachains-relay = { path = "../parachains" }
+relay-utils = { path = "../utils" }
+messages-relay = { path = "../messages" }
+relay-substrate-client = { path = "../client-substrate" }
+
+pallet-bridge-grandpa = { path = "../../modules/grandpa" }
+pallet-bridge-messages = { path = "../../modules/messages" }
+pallet-bridge-parachains = { path = "../../modules/parachains" }
+
+bp-runtime = { path = "../../primitives/runtime" }
+bp-messages = { path = "../../primitives/messages" }
+
+# Substrate Dependencies
+
+frame-support = { path = "../../../substrate/frame/support" }
+frame-system = { path = "../../../substrate/frame/system" }
+pallet-balances = { path = "../../../substrate/frame/balances" }
+pallet-grandpa = { path = "../../../substrate/frame/grandpa" }
+sp-core = { path = "../../../substrate/primitives/core" }
+sp-consensus-grandpa = { path = "../../../substrate/primitives/consensus/grandpa" }
+sp-runtime = { path = "../../../substrate/primitives/runtime" }
+
+[dev-dependencies]
+pallet-transaction-payment = { path = "../../../substrate/frame/transaction-payment" }
+relay-substrate-client = { path = "../client-substrate", features = ["test-helpers"] }

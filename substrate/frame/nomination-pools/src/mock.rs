@@ -36,12 +36,12 @@ pub type Currency = <T as Config>::Currency;
 
 // Ext builder creates a pool with id 1.
 pub fn default_bonded_account() -> AccountId {
-	Pools::create_bonded_account(1)
+	Pools::generate_bonded_account(1)
 }
 
 // Ext builder creates a pool with id 1.
 pub fn default_reward_account() -> AccountId {
-	Pools::create_reward_account(1)
+	Pools::generate_reward_account(1)
 }
 
 parameter_types! {
@@ -71,7 +71,7 @@ impl StakingMock {
 	/// Does not modify any [`SubPools`] of the pool as [`Default::default`] is passed for
 	/// `slashed_unlocking`.
 	pub fn slash_by(pool_id: PoolId, amount: Balance) {
-		let acc = Pools::create_bonded_account(pool_id);
+		let acc = Pools::generate_bonded_account(pool_id);
 		let bonded = BondedBalanceMap::get();
 		let pre_total = bonded.get(&acc).unwrap();
 		Self::set_bonded_balance(acc, pre_total - amount);
@@ -111,6 +111,10 @@ impl sp_staking::StakingInterface for StakingMock {
 			.ok_or(DispatchError::Other("NotStash"))
 	}
 
+	fn is_virtual_staker(_who: &Self::AccountId) -> bool {
+		false
+	}
+
 	fn bond_extra(who: &Self::AccountId, extra: Self::Balance) -> DispatchResult {
 		let mut x = BondedBalanceMap::get();
 		x.get_mut(who).map(|v| *v += extra);
@@ -129,6 +133,10 @@ impl sp_staking::StakingInterface for StakingMock {
 		y.entry(*who).or_insert(Default::default()).push((unlocking_at, amount));
 		UnbondingBalanceMap::set(&y);
 		Ok(())
+	}
+
+	fn update_payee(_stash: &Self::AccountId, _reward_acc: &Self::AccountId) -> DispatchResult {
+		unimplemented!("method currently not used in testing")
 	}
 
 	fn chill(_: &Self::AccountId) -> sp_runtime::DispatchResult {
@@ -156,7 +164,8 @@ impl sp_staking::StakingInterface for StakingMock {
 		Pools::on_withdraw(&who, unlocking_before.saturating_sub(unlocking(&staker_map)));
 
 		UnbondingBalanceMap::set(&unbonding_map);
-		Ok(UnbondingBalanceMap::get().is_empty() && BondedBalanceMap::get().is_empty())
+		Ok(UnbondingBalanceMap::get().get(&who).unwrap().is_empty() &&
+			BondedBalanceMap::get().get(&who).unwrap().is_zero())
 	}
 
 	fn bond(stash: &Self::AccountId, value: Self::Balance, _: &Self::AccountId) -> DispatchResult {
@@ -221,6 +230,10 @@ impl sp_staking::StakingInterface for StakingMock {
 
 	#[cfg(feature = "runtime-benchmarks")]
 	fn max_exposure_page_size() -> sp_staking::Page {
+		unimplemented!("method currently not used in testing")
+	}
+
+	fn slash_reward_fraction() -> Perbill {
 		unimplemented!("method currently not used in testing")
 	}
 }
@@ -305,7 +318,7 @@ impl pools::Config for Runtime {
 	type RewardCounter = RewardCounter;
 	type BalanceToU256 = BalanceToU256;
 	type U256ToBalance = U256ToBalance;
-	type Staking = StakingMock;
+	type StakeAdapter = adapter::TransferStake<Self, StakingMock>;
 	type PostUnbondingPoolsWindow = PostUnbondingPoolsWindow;
 	type PalletId = PoolsPalletId;
 	type MaxMetadataLen = MaxMetadataLen;

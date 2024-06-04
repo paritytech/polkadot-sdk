@@ -66,6 +66,15 @@ impl<A, B, CP: ContainsPair<A, B>> Contains<(A, B)> for FromContainsPair<CP> {
 	}
 }
 
+/// A [`ContainsPair`] implementation that has a `Contains` implementation for each member of the
+/// pair.
+pub struct FromContains<CA, CB>(PhantomData<(CA, CB)>);
+impl<A, B, CA: Contains<A>, CB: Contains<B>> ContainsPair<A, B> for FromContains<CA, CB> {
+	fn contains(a: &A, b: &B) -> bool {
+		CA::contains(a) && CB::contains(b)
+	}
+}
+
 /// A [`Contains`] implementation that contains every value.
 pub enum Everything {}
 impl<T> Contains<T> for Everything {

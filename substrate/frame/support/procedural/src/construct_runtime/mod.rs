@@ -533,6 +533,7 @@ pub(crate) fn decl_all_pallets<'a>(
 	for pallet_declaration in pallet_declarations {
 		let type_name = &pallet_declaration.name;
 		let pallet = &pallet_declaration.path;
+		let docs = &pallet_declaration.docs;
 		let mut generics = vec![quote!(#runtime)];
 		generics.extend(pallet_declaration.instance.iter().map(|name| quote!(#pallet::#name)));
 		let mut attrs = Vec::new();
@@ -541,6 +542,7 @@ pub(crate) fn decl_all_pallets<'a>(
 			attrs.extend(TokenStream2::from_str(&feat).expect("was parsed successfully; qed"));
 		}
 		let type_decl = quote!(
+			#( #[doc = #docs] )*
 			#(#attrs)*
 			pub type #type_name = #pallet::Pallet <#(#generics),*>;
 		);

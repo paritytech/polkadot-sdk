@@ -32,10 +32,10 @@ pub fn make_persisted_validation_data<T: paras::Config + hrmp::Config>(
 	relay_parent_number: BlockNumberFor<T>,
 	relay_parent_storage_root: T::Hash,
 ) -> Option<PersistedValidationData<T::Hash, BlockNumberFor<T>>> {
-	let config = <configuration::Pallet<T>>::config();
+	let config = configuration::ActiveConfig::<T>::get();
 
 	Some(PersistedValidationData {
-		parent_head: <paras::Pallet<T>>::para_head(&para_id)?,
+		parent_head: paras::Heads::<T>::get(&para_id)?,
 		relay_parent_number,
 		relay_parent_storage_root,
 		max_pov_size: config.max_pov_size,
@@ -49,7 +49,7 @@ pub fn make_persisted_validation_data_with_parent<T: configuration::Config>(
 	relay_parent_storage_root: T::Hash,
 	parent_head: HeadData,
 ) -> PersistedValidationData<T::Hash, BlockNumberFor<T>> {
-	let config = <configuration::Pallet<T>>::config();
+	let config = configuration::ActiveConfig::<T>::get();
 
 	PersistedValidationData {
 		parent_head,

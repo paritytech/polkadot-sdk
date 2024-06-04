@@ -101,7 +101,7 @@ parameter_types! {
 parameter_types! {
 	pub const KsmLocation: Location = Location::parent();
 	pub const RelayNetwork: NetworkId = NetworkId::Kusama;
-	pub UniversalLocation: InteriorLocation = Parachain(MsgQueue::parachain_id().into()).into();
+	pub UniversalLocation: InteriorLocation = [GlobalConsensus(RelayNetwork::get()), Parachain(MsgQueue::parachain_id().into())].into();
 }
 
 pub type LocationToAccountId = (
@@ -159,6 +159,7 @@ impl Config for XcmConfig {
 	type HrmpNewChannelOpenRequestHandler = ();
 	type HrmpChannelAcceptedHandler = ();
 	type HrmpChannelClosingHandler = ();
+	type XcmRecorder = ();
 }
 
 #[frame_support::pallet]

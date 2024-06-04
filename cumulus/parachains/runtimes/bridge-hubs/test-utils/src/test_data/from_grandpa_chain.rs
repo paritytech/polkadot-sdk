@@ -121,6 +121,60 @@ where
 	}
 }
 
+/// Prepare a call with message proof.
+pub fn make_standalone_relayer_delivery_call<Runtime, GPI, MPI>(
+	message_proof: FromBridgedChainMessagesProof<HashOf<BridgedChain<Runtime, GPI>>>,
+	relayer_id_at_bridged_chain: AccountIdOf<BridgedChain<Runtime, GPI>>,
+) -> Runtime::RuntimeCall
+where
+	Runtime: pallet_bridge_grandpa::Config<GPI>
+		+ pallet_bridge_messages::Config<
+			MPI,
+			InboundPayload = XcmAsPlainPayload,
+			InboundRelayer = AccountIdOf<BridgedChain<Runtime, GPI>>,
+		>,
+	MPI: 'static,
+	<Runtime as pallet_bridge_messages::Config<MPI>>::SourceHeaderChain: SourceHeaderChain<
+		MessagesProof = FromBridgedChainMessagesProof<HashOf<BridgedChain<Runtime, GPI>>>,
+	>,
+	Runtime::RuntimeCall: From<pallet_bridge_messages::Call<Runtime, MPI>>,
+{
+	pallet_bridge_messages::Call::<Runtime, MPI>::receive_messages_proof {
+		relayer_id_at_bridged_chain,
+		proof: message_proof,
+		messages_count: 1,
+		dispatch_weight: Weight::from_parts(1000000000, 0),
+	}
+	.into()
+}
+
+/// Prepare a call with message delivery proof.
+pub fn make_standalone_relayer_confirmation_call<Runtime, GPI, MPI>(
+	message_delivery_proof: FromBridgedChainMessagesDeliveryProof<
+		HashOf<BridgedChain<Runtime, GPI>>,
+	>,
+	relayers_state: UnrewardedRelayersState,
+) -> Runtime::RuntimeCall
+where
+	Runtime: pallet_bridge_grandpa::Config<GPI>
+		+ pallet_bridge_messages::Config<MPI, OutboundPayload = XcmAsPlainPayload>,
+	MPI: 'static,
+	<Runtime as pallet_bridge_messages::Config<MPI>>::TargetHeaderChain: TargetHeaderChain<
+		XcmAsPlainPayload,
+		Runtime::AccountId,
+		MessagesDeliveryProof = FromBridgedChainMessagesDeliveryProof<
+			HashOf<BridgedChain<Runtime, GPI>>,
+		>,
+	>,
+	Runtime::RuntimeCall: From<pallet_bridge_messages::Call<Runtime, MPI>>,
+{
+	pallet_bridge_messages::Call::<Runtime, MPI>::receive_messages_delivery_proof {
+		proof: message_delivery_proof,
+		relayers_state,
+	}
+	.into()
+}
+
 /// Prepare storage proofs of messages, stored at the (bridged) source GRANDPA chain.
 pub fn make_complex_relayer_delivery_proofs<MB, InnerXcmRuntimeCall>(
 	lane_id: LaneId,
@@ -128,6 +182,7 @@ pub fn make_complex_relayer_delivery_proofs<MB, InnerXcmRuntimeCall>(
 	message_nonce: MessageNonce,
 	message_destination: Junctions,
 	header_number: BlockNumberOf<MessageBridgedChain<MB>>,
+	is_minimal_call: bool,
 ) -> (
 	HeaderOf<MessageBridgedChain<MB>>,
 	GrandpaJustification<HeaderOf<MessageBridgedChain<MB>>>,
@@ -153,7 +208,7 @@ where
 
 	let (header, justification) = make_complex_bridged_grandpa_header_proof::<
 		MessageBridgedChain<MB>,
-	>(state_root, header_number);
+	>(state_root, header_number, is_minimal_call);
 
 	let message_proof = FromBridgedChainMessagesProof {
 		bridged_header_hash: header.hash(),
@@ -200,8 +255,11 @@ where
 		StorageProofSize::Minimal(0),
 	);
 
-	let (header, justification) =
-		make_complex_bridged_grandpa_header_proof::<MB::BridgedChain>(state_root, header_number);
+	let (header, justification) = make_complex_bridged_grandpa_header_proof::<MB::BridgedChain>(
+		state_root,
+		header_number,
+		false,
+	);
 
 	let message_delivery_proof = FromBridgedChainMessagesDeliveryProof {
 		bridged_header_hash: header.hash(),
@@ -216,6 +274,7 @@ where
 pub fn make_complex_bridged_grandpa_header_proof<BridgedChain>(
 	state_root: HashOf<BridgedChain>,
 	header_number: BlockNumberOf<BridgedChain>,
+	is_minimal_call: bool,
 ) -> (HeaderOf<BridgedChain>, GrandpaJustification<HeaderOf<BridgedChain>>)
 where
 	BridgedChain: ChainWithGrandpa,
@@ -229,7 +288,9 @@ where
 	// `submit_finality_proof` call size would be close to maximal expected (and refundable)
 	let extra_bytes_required = maximal_expected_submit_finality_proof_call_size::<BridgedChain>()
 		.saturating_sub(header.encoded_size());
-	header.digest_mut().push(DigestItem::Other(vec![42; extra_bytes_required]));
+	if !is_minimal_call {
+		header.digest_mut().push(DigestItem::Other(vec![42; extra_bytes_required]));
+	}
 
 	let justification = make_default_justification(&header);
 	(header, justification)

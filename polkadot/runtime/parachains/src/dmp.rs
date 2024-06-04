@@ -119,7 +119,7 @@ pub mod pallet {
 
 	/// The downward messages addressed for a certain para.
 	#[pallet::storage]
-	pub(crate) type DownwardMessageQueues<T: Config> = StorageMap<
+	pub type DownwardMessageQueues<T: Config> = StorageMap<
 		_,
 		Twox64Concat,
 		ParaId,
@@ -226,7 +226,7 @@ impl<T: Config> Pallet<T> {
 		}
 
 		let inbound =
-			InboundDownwardMessage { msg, sent_at: <frame_system::Pallet<T>>::block_number() };
+			InboundDownwardMessage { msg, sent_at: frame_system::Pallet::<T>::block_number() };
 
 		// obtain the new link in the MQC and update the head.
 		DownwardMessageQueueHeads::<T>::mutate(para, |head| {
@@ -346,14 +346,14 @@ impl<T: Config> FeeTracker for Pallet<T> {
 	}
 
 	fn increase_fee_factor(id: Self::Id, message_size_factor: FixedU128) -> FixedU128 {
-		<DeliveryFeeFactor<T>>::mutate(id, |f| {
+		DeliveryFeeFactor::<T>::mutate(id, |f| {
 			*f = f.saturating_mul(EXPONENTIAL_FEE_BASE.saturating_add(message_size_factor));
 			*f
 		})
 	}
 
 	fn decrease_fee_factor(id: Self::Id) -> FixedU128 {
-		<DeliveryFeeFactor<T>>::mutate(id, |f| {
+		DeliveryFeeFactor::<T>::mutate(id, |f| {
 			*f = InitialFactor::get().max(*f / EXPONENTIAL_FEE_BASE);
 			*f
 		})

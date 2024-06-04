@@ -16,16 +16,36 @@
 
 //! Put implementations of functions from staging APIs here.
 
-use crate::scheduler;
-use primitives::{CoreIndex, Id as ParaId};
-use sp_std::collections::{btree_map::BTreeMap, vec_deque::VecDeque};
+use crate::{inclusion, initializer, scheduler};
+use primitives::{CommittedCandidateReceipt, CoreIndex, Id as ParaId};
+use sp_runtime::traits::One;
+use sp_std::{
+	collections::{btree_map::BTreeMap, vec_deque::VecDeque},
+	vec::Vec,
+};
 
 /// Returns the claimqueue from the scheduler
 pub fn claim_queue<T: scheduler::Config>() -> BTreeMap<CoreIndex, VecDeque<ParaId>> {
-	<scheduler::Pallet<T>>::claimqueue()
+	let now = <frame_system::Pallet<T>>::block_number() + One::one();
+
+	// This explicit update is only strictly required for session boundaries:
+	//
+	// At the end of a session we clear the claim queues: Without this update call, nothing would be
+	// scheduled to the client.
+	<scheduler::Pallet<T>>::free_cores_and_fill_claimqueue(Vec::new(), now);
+
+	scheduler::ClaimQueue::<T>::get()
 		.into_iter()
 		.map(|(core_index, entries)| {
 			(core_index, entries.into_iter().map(|e| e.para_id()).collect())
 		})
 		.collect()
+}
+
+/// Returns all the candidates that are pending availability for a given `ParaId`.
+/// Deprecates `candidate_pending_availability` in favor of supporting elastic scaling.
+pub fn candidates_pending_availability<T: initializer::Config>(
+	para_id: ParaId,
+) -> Vec<CommittedCandidateReceipt<T::Hash>> {
+	<inclusion::Pallet<T>>::candidates_pending_availability(para_id)
 }

@@ -88,6 +88,7 @@ use telemetry::TelemetryWorker;
 #[cfg(feature = "full-node")]
 use telemetry::{Telemetry, TelemetryWorkerHandle};
 
+use beefy_primitives::ecdsa_crypto;
 pub use chain_spec::{GenericChainSpec, RococoChainSpec, WestendChainSpec};
 pub use consensus_common::{Proposal, SelectChain};
 use frame_benchmarking_cli::SUBSTRATE_REFERENCE_HARDWARE;
@@ -100,8 +101,8 @@ pub use sc_executor::NativeExecutionDispatch;
 use sc_executor::{HeapAllocStrategy, WasmExecutor, DEFAULT_HEAP_ALLOC_STRATEGY};
 pub use service::{
 	config::{DatabaseSource, PrometheusConfig},
-	ChainSpec, Configuration, Error as SubstrateServiceError, PruningMode, Role, RuntimeGenesis,
-	TFullBackend, TFullCallExecutor, TFullClient, TaskManager, TransactionPoolOptions,
+	ChainSpec, Configuration, Error as SubstrateServiceError, PruningMode, Role, TFullBackend,
+	TFullCallExecutor, TFullClient, TaskManager, TransactionPoolOptions,
 };
 pub use sp_api::{ApiRef, ConstructRuntimeApi, Core as CoreApi, ProvideRuntimeApi};
 pub use sp_runtime::{
@@ -394,8 +395,8 @@ type FullSelectChain = relay_chain_selection::SelectRelayChain<FullBackend>;
 type FullGrandpaBlockImport<ChainSelection = FullSelectChain> =
 	grandpa::GrandpaBlockImport<FullBackend, Block, FullClient, ChainSelection>;
 #[cfg(feature = "full-node")]
-type FullBeefyBlockImport<InnerBlockImport> =
-	beefy::import::BeefyBlockImport<Block, FullBackend, FullClient, InnerBlockImport>;
+type FullBeefyBlockImport<InnerBlockImport, AuthorityId> =
+	beefy::import::BeefyBlockImport<Block, FullBackend, FullClient, InnerBlockImport, AuthorityId>;
 
 #[cfg(feature = "full-node")]
 struct Basics {
@@ -486,11 +487,14 @@ fn new_partial<ChainSelection>(
 				babe::BabeBlockImport<
 					Block,
 					FullClient,
-					FullBeefyBlockImport<FullGrandpaBlockImport<ChainSelection>>,
+					FullBeefyBlockImport<
+						FullGrandpaBlockImport<ChainSelection>,
+						ecdsa_crypto::AuthorityId,
+					>,
 				>,
 				grandpa::LinkHalf<Block, FullClient, ChainSelection>,
 				babe::BabeLink<Block>,
-				beefy::BeefyVoterLinks<Block>,
+				beefy::BeefyVoterLinks<Block, ecdsa_crypto::AuthorityId>,
 			),
 			grandpa::SharedVoterState,
 			sp_consensus_babe::SlotDuration,
@@ -601,7 +605,7 @@ where
 					subscription_executor: subscription_executor.clone(),
 					finality_provider: finality_proof_provider.clone(),
 				},
-				beefy: polkadot_rpc::BeefyDeps {
+				beefy: polkadot_rpc::BeefyDeps::<ecdsa_crypto::AuthorityId> {
 					beefy_finality_proof_stream: beefy_rpc_links.from_voter_justif_stream.clone(),
 					beefy_best_block_stream: beefy_rpc_links.from_voter_best_beefy_stream.clone(),
 					subscription_executor,
@@ -643,6 +647,13 @@ pub struct NewFullParams<OverseerGenerator: OverseerGen> {
 	pub workers_path: Option<std::path::PathBuf>,
 	/// Optional custom names for the prepare and execute workers.
 	pub workers_names: Option<(String, String)>,
+	/// An optional number of the maximum number of pvf execute workers.
+	pub execute_workers_max_num: Option<usize>,
+	/// An optional maximum number of pvf workers that can be spawned in the pvf prepare pool for
+	/// tasks with the priority below critical.
+	pub prepare_workers_soft_max_num: Option<usize>,
+	/// An optional absolute number of pvf workers that can be spawned in the pvf prepare pool.
+	pub prepare_workers_hard_max_num: Option<usize>,
 	pub overseer_gen: OverseerGenerator,
 	pub overseer_message_channel_capacity_override: Option<usize>,
 	#[allow(dead_code)]
@@ -738,8 +749,12 @@ pub fn new_full<
 		overseer_message_channel_capacity_override,
 		malus_finality_delay: _malus_finality_delay,
 		hwbench,
+		execute_workers_max_num,
+		prepare_workers_soft_max_num,
+		prepare_workers_hard_max_num,
 	}: NewFullParams<OverseerGenerator>,
 ) -> Result<NewFull, Error> {
+	use polkadot_availability_recovery::FETCH_CHUNKS_THRESHOLD;
 	use polkadot_node_network_protocol::request_response::IncomingRequest;
 	use sc_network_sync::WarpSyncParams;
 
@@ -904,7 +919,10 @@ pub fn new_full<
 	let (pov_req_receiver, cfg) =
 		IncomingRequest::get_config_receiver::<_, Network>(&req_protocol_names);
 	net_config.add_request_response_protocol(cfg);
-	let (chunk_req_receiver, cfg) =
+	let (chunk_req_v1_receiver, cfg) =
+		IncomingRequest::get_config_receiver::<_, Network>(&req_protocol_names);
+	net_config.add_request_response_protocol(cfg);
+	let (chunk_req_v2_receiver, cfg) =
 		IncomingRequest::get_config_receiver::<_, Network>(&req_protocol_names);
 	net_config.add_request_response_protocol(cfg);
 
@@ -943,6 +961,16 @@ pub fn new_full<
 				secure_validator_mode,
 				prep_worker_path,
 				exec_worker_path,
+				pvf_execute_workers_max_num: execute_workers_max_num.unwrap_or_else(
+					|| match config.chain_spec.identify_chain() {
+						// The intention is to use this logic for gradual increasing from 2 to 4
+						// of this configuration chain by chain until it reaches production chain.
+						Chain::Polkadot | Chain::Kusama => 2,
+						Chain::Rococo | Chain::Westend | Chain::Unknown => 4,
+					},
+				),
+				pvf_prepare_workers_soft_max_num: prepare_workers_soft_max_num.unwrap_or(1),
+				pvf_prepare_workers_hard_max_num: prepare_workers_hard_max_num.unwrap_or(2),
 			})
 		} else {
 			None
@@ -968,19 +996,26 @@ pub fn new_full<
 			stagnant_check_interval: Default::default(),
 			stagnant_check_mode: chain_selection_subsystem::StagnantCheckMode::PruneOnly,
 		};
+
+		// Kusama + testnets get a higher threshold, we are conservative on Polkadot for now.
+		let fetch_chunks_threshold =
+			if config.chain_spec.is_polkadot() { None } else { Some(FETCH_CHUNKS_THRESHOLD) };
+
 		Some(ExtendedOverseerGenArgs {
 			keystore,
 			parachains_db,
 			candidate_validation_config,
 			availability_config: AVAILABILITY_CONFIG,
 			pov_req_receiver,
-			chunk_req_receiver,
+			chunk_req_v1_receiver,
+			chunk_req_v2_receiver,
 			statement_req_receiver,
 			candidate_req_v2_receiver,
 			approval_voting_config,
 			dispute_req_receiver,
 			dispute_coordinator_config,
 			chain_selection_config,
+			fetch_chunks_threshold,
 		})
 	};
 
@@ -1262,7 +1297,9 @@ pub fn new_full<
 			is_authority: role.is_authority(),
 		};
 
-		let gadget = beefy::start_beefy_gadget::<_, _, _, _, _, _, _>(beefy_params);
+		let gadget = beefy::start_beefy_gadget::<_, _, _, _, _, _, _, ecdsa_crypto::AuthorityId>(
+			beefy_params,
+		);
 
 		// BEEFY is part of consensus, if it fails we'll bring the node down with it to make sure it
 		// is noticed.

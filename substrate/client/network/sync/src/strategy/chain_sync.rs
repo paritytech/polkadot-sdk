@@ -1063,7 +1063,7 @@ where
 		let peer = if let Some(peer) = self.peers.get_mut(&peer_id) {
 			peer
 		} else {
-			error!(target: LOG_TARGET, "💔 Called `on_validated_block_announce` with a bad peer ID");
+			error!(target: LOG_TARGET, "💔 Called `on_validated_block_announce` with a bad peer ID {peer_id}");
 			return Some((hash, number))
 		};
 

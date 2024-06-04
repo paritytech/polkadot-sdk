@@ -30,7 +30,7 @@ use primitives::{
 	NodeFeatures, SessionIndex, LEGACY_MIN_BACKING_VOTES, MAX_CODE_SIZE, MAX_HEAD_DATA_SIZE,
 	MAX_POV_SIZE, ON_DEMAND_MAX_QUEUE_MAX_SIZE,
 };
-use sp_runtime::{traits::Zero, Perbill};
+use sp_runtime::{traits::Zero, Perbill, Percent};
 use sp_std::prelude::*;
 
 #[cfg(test)]
@@ -540,8 +540,7 @@ pub mod pallet {
 	/// The active configuration for the current session.
 	#[pallet::storage]
 	#[pallet::whitelist_storage]
-	#[pallet::getter(fn config)]
-	pub(crate) type ActiveConfig<T: Config> =
+	pub type ActiveConfig<T: Config> =
 		StorageValue<_, HostConfiguration<BlockNumberFor<T>>, ValueQuery>;
 
 	/// Pending configuration changes.
@@ -1311,7 +1310,7 @@ impl<T: Config> Pallet<T> {
 	pub(crate) fn initializer_on_new_session(
 		session_index: &SessionIndex,
 	) -> SessionChangeOutcome<BlockNumberFor<T>> {
-		let pending_configs = <PendingConfigs<T>>::get();
+		let pending_configs = PendingConfigs::<T>::get();
 		let prev_config = ActiveConfig::<T>::get();
 
 		// No pending configuration changes, so we're done.
@@ -1338,7 +1337,7 @@ impl<T: Config> Pallet<T> {
 			ActiveConfig::<T>::put(new_config);
 		}
 
-		<PendingConfigs<T>>::put(future);
+		PendingConfigs::<T>::put(future);
 
 		SessionChangeOutcome { prev_config, new_config }
 	}
@@ -1373,7 +1372,7 @@ impl<T: Config> Pallet<T> {
 	pub(crate) fn schedule_config_update(
 		updater: impl FnOnce(&mut HostConfiguration<BlockNumberFor<T>>),
 	) -> DispatchResult {
-		let mut pending_configs = <PendingConfigs<T>>::get();
+		let mut pending_configs = PendingConfigs::<T>::get();
 
 		// 1. pending_configs = [] No pending configuration changes.
 		//
@@ -1404,7 +1403,7 @@ impl<T: Config> Pallet<T> {
 		let mut base_config = pending_configs
 			.last()
 			.map(|(_, config)| config.clone())
-			.unwrap_or_else(Self::config);
+			.unwrap_or_else(ActiveConfig::<T>::get);
 		let base_config_consistent = base_config.check_consistency().is_ok();
 
 		// Now, we need to decide what the new configuration should be.
@@ -1456,8 +1455,21 @@ impl<T: Config> Pallet<T> {
 			pending_configs.push((scheduled_session, new_config));
 		}
 
-		<PendingConfigs<T>>::put(pending_configs);
+		PendingConfigs::<T>::put(pending_configs);
 
 		Ok(())
+	}
+}
+
+/// The implementation of `Get<(u32, u32)>` which reads `ActiveConfig` and returns `P` percent of
+/// `hrmp_channel_max_message_size` / `hrmp_channel_max_capacity`.
+pub struct ActiveConfigHrmpChannelSizeAndCapacityRatio<T, P>(sp_std::marker::PhantomData<(T, P)>);
+impl<T: crate::hrmp::pallet::Config, P: Get<Percent>> Get<(u32, u32)>
+	for ActiveConfigHrmpChannelSizeAndCapacityRatio<T, P>
+{
+	fn get() -> (u32, u32) {
+		let config = ActiveConfig::<T>::get();
+		let percent = P::get();
+		(percent * config.hrmp_channel_max_message_size, percent * config.hrmp_channel_max_capacity)
 	}
 }

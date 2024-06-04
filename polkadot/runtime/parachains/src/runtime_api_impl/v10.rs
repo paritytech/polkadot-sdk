@@ -41,7 +41,7 @@ use sp_std::{collections::btree_map::BTreeMap, prelude::*};
 
 /// Implementation for the `validators` function of the runtime API.
 pub fn validators<T: initializer::Config>() -> Vec<ValidatorId> {
-	<shared::Pallet<T>>::active_validator_keys()
+	shared::ActiveValidatorKeys::<T>::get()
 }
 
 /// Implementation for the `validator_groups` function of the runtime API.
@@ -49,29 +49,29 @@ pub fn validator_groups<T: initializer::Config>(
 ) -> (Vec<Vec<ValidatorIndex>>, GroupRotationInfo<BlockNumberFor<T>>) {
 	// This formula needs to be the same as the one we use
 	// when populating group_responsible in `availability_cores`
-	let now = <frame_system::Pallet<T>>::block_number() + One::one();
+	let now = frame_system::Pallet::<T>::block_number() + One::one();
 
-	let groups = <scheduler::Pallet<T>>::validator_groups();
-	let rotation_info = <scheduler::Pallet<T>>::group_rotation_info(now);
+	let groups = scheduler::ValidatorGroups::<T>::get();
+	let rotation_info = scheduler::Pallet::<T>::group_rotation_info(now);
 
 	(groups, rotation_info)
 }
 
 /// Implementation for the `availability_cores` function of the runtime API.
 pub fn availability_cores<T: initializer::Config>() -> Vec<CoreState<T::Hash, BlockNumberFor<T>>> {
-	let cores = <scheduler::Pallet<T>>::availability_cores();
-	let now = <frame_system::Pallet<T>>::block_number() + One::one();
+	let cores = scheduler::AvailabilityCores::<T>::get();
+	let now = frame_system::Pallet::<T>::block_number() + One::one();
 
 	// This explicit update is only strictly required for session boundaries:
 	//
 	// At the end of a session we clear the claim queues: Without this update call, nothing would be
 	// scheduled to the client.
-	<scheduler::Pallet<T>>::free_cores_and_fill_claimqueue(Vec::new(), now);
+	scheduler::Pallet::<T>::free_cores_and_fill_claimqueue(Vec::new(), now);
 
-	let time_out_for = <scheduler::Pallet<T>>::availability_timeout_predicate();
+	let time_out_for = scheduler::Pallet::<T>::availability_timeout_predicate();
 
 	let group_responsible_for =
-		|backed_in_number, core_index| match <scheduler::Pallet<T>>::group_assigned_to_core(
+		|backed_in_number, core_index| match scheduler::Pallet::<T>::group_assigned_to_core(
 			core_index,
 			backed_in_number,
 		) {
@@ -87,7 +87,7 @@ pub fn availability_cores<T: initializer::Config>() -> Vec<CoreState<T::Hash, Bl
 			},
 		};
 
-	let scheduled: BTreeMap<_, _> = <scheduler::Pallet<T>>::scheduled_paras().collect();
+	let scheduled: BTreeMap<_, _> = scheduler::Pallet::<T>::scheduled_paras().collect();
 
 	cores
 		.into_iter()
@@ -98,13 +98,13 @@ pub fn availability_cores<T: initializer::Config>() -> Vec<CoreState<T::Hash, Bl
 				// this runtime API to panic. We explicitly handle the storage for version 0 to
 				// prevent that. When removing the inclusion v0 -> v1 migration, this bit of code
 				// can also be removed.
-				let pending_availability = if <inclusion::Pallet<T>>::on_chain_storage_version() ==
+				let pending_availability = if inclusion::Pallet::<T>::on_chain_storage_version() ==
 					StorageVersion::new(0)
 				{
 					inclusion::migration::v0::PendingAvailability::<T>::get(entry.para_id())
 						.expect("Occupied core always has pending availability; qed")
 				} else {
-					let candidate = <inclusion::Pallet<T>>::pending_availability_with_core(
+					let candidate = inclusion::Pallet::<T>::pending_availability_with_core(
 						entry.para_id(),
 						CoreIndex(i as u32),
 					)
@@ -130,12 +130,12 @@ pub fn availability_cores<T: initializer::Config>() -> Vec<CoreState<T::Hash, Bl
 				let backing_group_allocation_time =
 					pending_availability.relay_parent_number + One::one();
 				CoreState::Occupied(OccupiedCore {
-					next_up_on_available: <scheduler::Pallet<T>>::next_up_on_available(CoreIndex(
+					next_up_on_available: scheduler::Pallet::<T>::next_up_on_available(CoreIndex(
 						i as u32,
 					)),
 					occupied_since: backed_in_number,
 					time_out_at: time_out_for(backed_in_number).live_until,
-					next_up_on_time_out: <scheduler::Pallet<T>>::next_up_on_time_out(CoreIndex(
+					next_up_on_time_out: scheduler::Pallet::<T>::next_up_on_time_out(CoreIndex(
 						i as u32,
 					)),
 					availability: pending_availability.availability_votes.clone(),
@@ -162,8 +162,8 @@ pub fn availability_cores<T: initializer::Config>() -> Vec<CoreState<T::Hash, Bl
 fn current_relay_parent<T: frame_system::Config>(
 ) -> (BlockNumberFor<T>, <T as frame_system::Config>::Hash) {
 	use parity_scale_codec::Decode as _;
-	let state_version = <frame_system::Pallet<T>>::runtime_version().state_version();
-	let relay_parent_number = <frame_system::Pallet<T>>::block_number();
+	let state_version = frame_system::Pallet::<T>::runtime_version().state_version();
+	let relay_parent_number = frame_system::Pallet::<T>::block_number();
 	let relay_parent_storage_root = T::Hash::decode(&mut &sp_io::storage::root(state_version)[..])
 		.expect("storage root must decode to the Hash type; qed");
 	(relay_parent_number, relay_parent_storage_root)
@@ -229,13 +229,13 @@ pub fn assumed_validation_data<T: initializer::Config>(
 	let persisted_validation_data = make_validation_data().or_else(|| {
 		// Try again with force enacting the pending candidates. This check only makes sense if
 		// there are any pending candidates.
-		<inclusion::Pallet<T>>::pending_availability(para_id).and_then(|_| {
-			<inclusion::Pallet<T>>::force_enact(para_id);
+		inclusion::Pallet::<T>::pending_availability(para_id).and_then(|_| {
+			inclusion::Pallet::<T>::force_enact(para_id);
 			make_validation_data()
 		})
 	});
 	// If we were successful, also query current validation code hash.
-	persisted_validation_data.zip(<paras::Pallet<T>>::current_code_hash(&para_id))
+	persisted_validation_data.zip(paras::CurrentCodeHash::<T>::get(&para_id))
 }
 
 /// Implementation for the `check_validation_outputs` function of the runtime API.
@@ -243,8 +243,8 @@ pub fn check_validation_outputs<T: initializer::Config>(
 	para_id: ParaId,
 	outputs: primitives::CandidateCommitments,
 ) -> bool {
-	let relay_parent_number = <frame_system::Pallet<T>>::block_number();
-	<inclusion::Pallet<T>>::check_validation_outputs_for_runtime_api(
+	let relay_parent_number = frame_system::Pallet::<T>::block_number();
+	inclusion::Pallet::<T>::check_validation_outputs_for_runtime_api(
 		para_id,
 		relay_parent_number,
 		outputs,
@@ -260,7 +260,7 @@ pub fn session_index_for_child<T: initializer::Config>() -> SessionIndex {
 	//
 	// Incidentally, this is also the rationale for why it is OK to query validators or
 	// occupied cores or etc. and expect the correct response "for child".
-	<shared::Pallet<T>>::session_index()
+	shared::CurrentSessionIndex::<T>::get()
 }
 
 /// Implementation for the `AuthorityDiscoveryApi::authorities()` function of the runtime API.
@@ -269,18 +269,18 @@ pub fn session_index_for_child<T: initializer::Config>() -> SessionIndex {
 pub fn relevant_authority_ids<T: initializer::Config + pallet_authority_discovery::Config>(
 ) -> Vec<AuthorityDiscoveryId> {
 	let current_session_index = session_index_for_child::<T>();
-	let earliest_stored_session = <session_info::Pallet<T>>::earliest_stored_session();
+	let earliest_stored_session = session_info::EarliestStoredSession::<T>::get();
 
 	// Due to `max_validators`, the `SessionInfo` stores only the validators who are actively
 	// selected to participate in parachain consensus. We'd like all authorities for the current
 	// and next sessions to be used in authority-discovery. The two sets likely have large overlap.
-	let mut authority_ids = <pallet_authority_discovery::Pallet<T>>::current_authorities().to_vec();
-	authority_ids.extend(<pallet_authority_discovery::Pallet<T>>::next_authorities().to_vec());
+	let mut authority_ids = pallet_authority_discovery::Pallet::<T>::current_authorities().to_vec();
+	authority_ids.extend(pallet_authority_discovery::Pallet::<T>::next_authorities().to_vec());
 
 	// Due to disputes, we'd like to remain connected to authorities of the previous few sessions.
 	// For this, we don't need anyone other than the validators actively participating in consensus.
 	for session_index in earliest_stored_session..current_session_index {
-		let info = <session_info::Pallet<T>>::session_info(session_index);
+		let info = session_info::Sessions::<T>::get(session_index);
 		if let Some(mut info) = info {
 			authority_ids.append(&mut info.discovery_keys);
 		}
@@ -297,14 +297,18 @@ pub fn validation_code<T: initializer::Config>(
 	para_id: ParaId,
 	assumption: OccupiedCoreAssumption,
 ) -> Option<ValidationCode> {
-	with_assumption::<T, _, _>(para_id, assumption, || <paras::Pallet<T>>::current_code(&para_id))
+	with_assumption::<T, _, _>(para_id, assumption, || paras::Pallet::<T>::current_code(&para_id))
 }
 
 /// Implementation for the `candidate_pending_availability` function of the runtime API.
+#[deprecated(
+	note = "`candidate_pending_availability` will be removed. Use `candidates_pending_availability` to query 
+	all candidates pending availability"
+)]
 pub fn candidate_pending_availability<T: initializer::Config>(
 	para_id: ParaId,
 ) -> Option<CommittedCandidateReceipt<T::Hash>> {
-	<inclusion::Pallet<T>>::candidate_pending_availability(para_id)
+	inclusion::Pallet::<T>::candidate_pending_availability(para_id)
 }
 
 /// Implementation for the `candidate_events` function of the runtime API.
@@ -317,7 +321,7 @@ where
 {
 	use inclusion::Event as RawEvent;
 
-	<frame_system::Pallet<T>>::read_events_no_consensus()
+	frame_system::Pallet::<T>::read_events_no_consensus()
 		.into_iter()
 		.filter_map(|record| extract_event(record.event))
 		.filter_map(|event| {
@@ -338,33 +342,33 @@ where
 
 /// Get the session info for the given session, if stored.
 pub fn session_info<T: session_info::Config>(index: SessionIndex) -> Option<SessionInfo> {
-	<session_info::Pallet<T>>::session_info(index)
+	session_info::Sessions::<T>::get(index)
 }
 
 /// Implementation for the `dmq_contents` function of the runtime API.
 pub fn dmq_contents<T: dmp::Config>(
 	recipient: ParaId,
 ) -> Vec<InboundDownwardMessage<BlockNumberFor<T>>> {
-	<dmp::Pallet<T>>::dmq_contents(recipient)
+	dmp::Pallet::<T>::dmq_contents(recipient)
 }
 
 /// Implementation for the `inbound_hrmp_channels_contents` function of the runtime API.
 pub fn inbound_hrmp_channels_contents<T: hrmp::Config>(
 	recipient: ParaId,
 ) -> BTreeMap<ParaId, Vec<InboundHrmpMessage<BlockNumberFor<T>>>> {
-	<hrmp::Pallet<T>>::inbound_hrmp_channels_contents(recipient)
+	hrmp::Pallet::<T>::inbound_hrmp_channels_contents(recipient)
 }
 
 /// Implementation for the `validation_code_by_hash` function of the runtime API.
 pub fn validation_code_by_hash<T: paras::Config>(
 	hash: ValidationCodeHash,
 ) -> Option<ValidationCode> {
-	<paras::Pallet<T>>::code_by_hash(hash)
+	paras::CodeByHash::<T>::get(hash)
 }
 
 /// Disputes imported via means of on-chain imports.
 pub fn on_chain_votes<T: paras_inherent::Config>() -> Option<ScrapedOnChainVotes<T::Hash>> {
-	<paras_inherent::Pallet<T>>::on_chain_votes()
+	paras_inherent::OnChainVotes::<T>::get()
 }
 
 /// Submits an PVF pre-checking vote.
@@ -372,12 +376,12 @@ pub fn submit_pvf_check_statement<T: paras::Config>(
 	stmt: PvfCheckStatement,
 	signature: ValidatorSignature,
 ) {
-	<paras::Pallet<T>>::submit_pvf_check_statement(stmt, signature)
+	paras::Pallet::<T>::submit_pvf_check_statement(stmt, signature)
 }
 
 /// Returns the list of all PVF code hashes that require pre-checking.
 pub fn pvfs_require_precheck<T: paras::Config>() -> Vec<ValidationCodeHash> {
-	<paras::Pallet<T>>::pvfs_require_precheck()
+	paras::Pallet::<T>::pvfs_require_precheck()
 }
 
 /// Returns the validation code hash for the given parachain making the given
@@ -389,28 +393,26 @@ pub fn validation_code_hash<T>(
 where
 	T: inclusion::Config,
 {
-	with_assumption::<T, _, _>(para_id, assumption, || {
-		<paras::Pallet<T>>::current_code_hash(&para_id)
-	})
+	with_assumption::<T, _, _>(para_id, assumption, || paras::CurrentCodeHash::<T>::get(&para_id))
 }
 
 /// Implementation for `get_session_disputes` function from the runtime API
 pub fn get_session_disputes<T: disputes::Config>(
 ) -> Vec<(SessionIndex, CandidateHash, DisputeState<BlockNumberFor<T>>)> {
-	<disputes::Pallet<T>>::disputes()
+	disputes::Pallet::<T>::disputes()
 }
 
 /// Get session executor parameter set
 pub fn session_executor_params<T: session_info::Config>(
 	session_index: SessionIndex,
 ) -> Option<ExecutorParams> {
-	<session_info::Pallet<T>>::session_executor_params(session_index)
+	session_info::SessionExecutorParams::<T>::get(session_index)
 }
 
 /// Implementation of `unapplied_slashes` runtime API
 pub fn unapplied_slashes<T: disputes::slashing::Config>(
 ) -> Vec<(SessionIndex, CandidateHash, slashing::PendingSlashes)> {
-	<disputes::slashing::Pallet<T>>::unapplied_slashes()
+	disputes::slashing::Pallet::<T>::unapplied_slashes()
 }
 
 /// Implementation of `submit_report_dispute_lost` runtime API
@@ -420,7 +422,7 @@ pub fn submit_unsigned_slashing_report<T: disputes::slashing::Config>(
 ) -> Option<()> {
 	let key_ownership_proof = key_ownership_proof.decode()?;
 
-	<disputes::slashing::Pallet<T>>::submit_unsigned_slashing_report(
+	disputes::slashing::Pallet::<T>::submit_unsigned_slashing_report(
 		dispute_proof,
 		key_ownership_proof,
 	)
@@ -428,46 +430,46 @@ pub fn submit_unsigned_slashing_report<T: disputes::slashing::Config>(
 
 /// Return the min backing votes threshold from the configuration.
 pub fn minimum_backing_votes<T: initializer::Config>() -> u32 {
-	<configuration::Pallet<T>>::config().minimum_backing_votes
+	configuration::ActiveConfig::<T>::get().minimum_backing_votes
 }
 
 /// Implementation for `ParaBackingState` function from the runtime API
 pub fn backing_state<T: initializer::Config>(
 	para_id: ParaId,
 ) -> Option<BackingState<T::Hash, BlockNumberFor<T>>> {
-	let config = <configuration::Pallet<T>>::config();
+	let config = configuration::ActiveConfig::<T>::get();
 	// Async backing is only expected to be enabled with a tracker capacity of 1.
 	// Subsequent configuration update gets applied on new session, which always
 	// clears the buffer.
 	//
 	// Thus, minimum relay parent is ensured to have asynchronous backing enabled.
-	let now = <frame_system::Pallet<T>>::block_number();
-	let min_relay_parent_number = <shared::Pallet<T>>::allowed_relay_parents()
+	let now = frame_system::Pallet::<T>::block_number();
+	let min_relay_parent_number = shared::AllowedRelayParents::<T>::get()
 		.hypothetical_earliest_block_number(now, config.async_backing_params.allowed_ancestry_len);
 
-	let required_parent = <paras::Pallet<T>>::para_head(para_id)?;
-	let validation_code_hash = <paras::Pallet<T>>::current_code_hash(para_id)?;
+	let required_parent = paras::Heads::<T>::get(para_id)?;
+	let validation_code_hash = paras::CurrentCodeHash::<T>::get(para_id)?;
 
-	let upgrade_restriction = <paras::Pallet<T>>::upgrade_restriction_signal(para_id);
+	let upgrade_restriction = paras::UpgradeRestrictionSignal::<T>::get(para_id);
 	let future_validation_code =
-		<paras::Pallet<T>>::future_code_upgrade_at(para_id).and_then(|block_num| {
+		paras::FutureCodeUpgrades::<T>::get(para_id).and_then(|block_num| {
 			// Only read the storage if there's a pending upgrade.
-			Some(block_num).zip(<paras::Pallet<T>>::future_code_hash(para_id))
+			Some(block_num).zip(paras::FutureCodeHash::<T>::get(para_id))
 		});
 
 	let (ump_msg_count, ump_total_bytes) =
-		<inclusion::Pallet<T>>::relay_dispatch_queue_size(para_id);
+		inclusion::Pallet::<T>::relay_dispatch_queue_size(para_id);
 	let ump_remaining = config.max_upward_queue_count - ump_msg_count;
 	let ump_remaining_bytes = config.max_upward_queue_size - ump_total_bytes;
 
-	let dmp_remaining_messages = <dmp::Pallet<T>>::dmq_contents(para_id)
+	let dmp_remaining_messages = dmp::Pallet::<T>::dmq_contents(para_id)
 		.into_iter()
 		.map(|msg| msg.sent_at)
 		.collect();
 
-	let valid_watermarks = <hrmp::Pallet<T>>::valid_watermarks(para_id);
+	let valid_watermarks = hrmp::Pallet::<T>::valid_watermarks(para_id);
 	let hrmp_inbound = InboundHrmpLimitations { valid_watermarks };
-	let hrmp_channels_out = <hrmp::Pallet<T>>::outbound_remaining_capacity(para_id)
+	let hrmp_channels_out = hrmp::Pallet::<T>::outbound_remaining_capacity(para_id)
 		.into_iter()
 		.map(|(para, (messages_remaining, bytes_remaining))| {
 			(para, OutboundHrmpChannelLimitations { messages_remaining, bytes_remaining })
@@ -516,7 +518,7 @@ pub fn backing_state<T: initializer::Config>(
 
 /// Implementation for `AsyncBackingParams` function from the runtime API
 pub fn async_backing_params<T: configuration::Config>() -> AsyncBackingParams {
-	<configuration::Pallet<T>>::config().async_backing_params
+	configuration::ActiveConfig::<T>::get().async_backing_params
 }
 
 /// Implementation for `DisabledValidators`
@@ -531,11 +533,10 @@ where
 
 /// Returns the current state of the node features.
 pub fn node_features<T: initializer::Config>() -> NodeFeatures {
-	<configuration::Pallet<T>>::config().node_features
+	configuration::ActiveConfig::<T>::get().node_features
 }
 
 /// Approval voting subsystem configuration parameters
 pub fn approval_voting_params<T: initializer::Config>() -> ApprovalVotingParams {
-	let config = <configuration::Pallet<T>>::config();
-	config.approval_voting_params
+	configuration::ActiveConfig::<T>::get().approval_voting_params
 }
