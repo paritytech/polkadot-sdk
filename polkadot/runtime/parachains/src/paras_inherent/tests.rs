@@ -3243,7 +3243,7 @@ mod sanitizers {
 					.unwrap();
 				}
 				let validators_to_keyrings: HashMap<ValidatorId, Sr25519Keyring> =
-					validators_keyrings.iter().map(|v| (v.public().into(), v.clone())).collect();
+					validators_keyrings.iter().map(|v| (v.public().into(), *v)).collect();
 				let validators_keys: Vec<(_, ValidatorId)> = validators_keyrings
 					.iter()
 					.enumerate()
@@ -3343,7 +3343,7 @@ mod sanitizers {
 						validators.swap(0, backer.0 as _);
 						let keyrings: Vec<_> = validators
 							.iter()
-							.map(|(i, v)| (i.clone(), validators_to_keyrings[v].clone()))
+							.map(|(i, v)| (*i, validators_to_keyrings[v]))
 							.collect();
 
 						make_dispute_concluding_against(c.hash(), session, &keyrings)
