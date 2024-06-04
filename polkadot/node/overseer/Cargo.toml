@@ -20,14 +20,14 @@ polkadot-node-primitives = { path = "../primitives" }
 polkadot-node-subsystem-types = { path = "../subsystem-types" }
 polkadot-node-metrics = { path = "../metrics" }
 polkadot-primitives = { path = "../../primitives" }
-orchestra = { version = "0.3.5", default-features = false, features = ["futures_channel"] }
+orchestra = { version = "0.3.5", default-features = false, features = ["async_channel"] }
 gum = { package = "tracing-gum", path = "../gum" }
 sp-core = { path = "../../../substrate/primitives/core" }
 async-trait = "0.1.79"
 tikv-jemalloc-ctl = { version = "0.5.0", optional = true }
 
 [dev-dependencies]
-metered = { package = "prioritized-metered-channel", version = "0.6.1", default-features = false, features = ["futures_channel"] }
+metered = { package = "prioritized-metered-channel", version = "0.6.1", default-features = false, features = ["async_channel"] }
 sp-core = { path = "../../../substrate/primitives/core" }
 futures = { version = "0.3.30", features = ["thread-pool"] }
 femme = "2.2.1"
@@ -39,7 +39,7 @@ node-test-helpers = { package = "polkadot-node-subsystem-test-helpers", path = "
 tikv-jemalloc-ctl = "0.5.0"
 
 [features]
-default = ["futures_channel"]
+default = ["async_channel"]
 expand = ["orchestra/expand"]
-futures_channel = ["metered/futures_channel", "orchestra/futures_channel"]
+async_channel = ["metered/async_channel", "orchestra/async_channel"]
 jemalloc-allocator = ["dep:tikv-jemalloc-ctl"]
