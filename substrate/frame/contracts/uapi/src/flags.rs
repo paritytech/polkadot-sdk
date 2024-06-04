@@ -69,5 +69,13 @@ bitflags! {
 		/// For `seal_delegate_call` should be always unset, otherwise
 		/// [`Error::InvalidCallFlags`] is returned.
 		const ALLOW_REENTRY = 0b0000_1000;
+		/// Indicates that the callee is restricted from modifying the state during call execution,
+		/// equivalent to Ethereum's STATICCALL.
+		///
+		/// # Note
+		///
+		/// For `seal_delegate_call` should be always unset, otherwise
+		/// [`Error::InvalidCallFlags`] is returned.
+		const READ_ONLY = 0b0001_0000;
 	}
 }
