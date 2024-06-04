@@ -679,9 +679,4 @@ impl<T: Config> Pallet<T> {
 	pub(crate) fn set_claimqueue(claimqueue: BTreeMap<CoreIndex, VecDeque<ParasEntryType<T>>>) {
 		ClaimQueue::<T>::set(claimqueue);
 	}
-
-	#[cfg(test)]
-	pub(crate) fn set_availability_cores(cores: Vec<CoreOccupiedType<T>>) {
-		AvailabilityCores::<T>::set(cores);
-	}
 }

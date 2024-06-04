@@ -1743,7 +1743,7 @@ mod sanitizers {
 
 		use crate::{
 			mock::{set_disabled_validators, RuntimeOrigin},
-			scheduler::{common::Assignment, CoreOccupiedType, ParasEntry},
+			scheduler::{common::Assignment, ParasEntry},
 			util::{make_persisted_validation_data, make_persisted_validation_data_with_parent},
 		};
 		use primitives::ValidationCode;
@@ -1758,7 +1758,6 @@ mod sanitizers {
 			expected_backed_candidates_with_core:
 				BTreeMap<ParaId, Vec<(BackedCandidate, CoreIndex)>>,
 			scheduled_paras: BTreeMap<primitives::Id, BTreeSet<CoreIndex>>,
-			validators: Vec<Sr25519Keyring>,
 		}
 
 		// Generate test data for the candidates and assert that the environment is set as expected
@@ -1819,12 +1818,6 @@ mod sanitizers {
 			scheduler::Pallet::<Test>::set_validator_groups(vec![
 				vec![ValidatorIndex(0), ValidatorIndex(1)],
 				vec![ValidatorIndex(2), ValidatorIndex(3)],
-			]);
-
-			// Set the availability of the cores
-			scheduler::Pallet::<Test>::set_availability_cores(vec![
-				CoreOccupiedType::<Test>::Free,
-				CoreOccupiedType::<Test>::Free,
 			]);
 
 			// Update scheduler's claimqueue with the parachains
@@ -1941,7 +1934,6 @@ mod sanitizers {
 				backed_candidates,
 				scheduled_paras: scheduled,
 				expected_backed_candidates_with_core,
-				validators,
 			}
 		}
 
@@ -2485,7 +2477,6 @@ mod sanitizers {
 				backed_candidates,
 				scheduled_paras: scheduled,
 				expected_backed_candidates_with_core,
-				validators,
 			}
 		}
 
@@ -2989,7 +2980,6 @@ mod sanitizers {
 				backed_candidates,
 				scheduled_paras: scheduled,
 				expected_backed_candidates_with_core,
-				validators,
 			}
 		}
 
@@ -3227,16 +3217,11 @@ mod sanitizers {
 				const RELAY_PARENT_NUMBER: u32 = 1;
 
 				let mut hc = configuration::ActiveConfig::<Test>::get();
-				hc.minimum_backing_votes = 1;
-				hc.scheduler_params.group_rotation_frequency = 20;
 				hc.async_backing_params.allowed_ancestry_len = 10;
-				hc.async_backing_params.max_candidate_depth = 10;
 				configuration::Pallet::<Test>::force_set_active_config(hc);
 
 				let header = default_header();
 				let relay_parent = header.hash();
-				// let TestData { backed_candidates, validators, .. } =
-				// 	get_test_data_one_core_per_para(false);
 
 				let session = SessionIndex::from(0_u32);
 				let keystore = LocalKeystore::in_memory();
@@ -3286,6 +3271,7 @@ mod sanitizers {
 					.map(|(i, g)| (ParaId::from(i as u32 + 1), g))
 					.collect();
 				let shuffled_indices = shared::ActiveValidatorIndices::<Test>::get();
+				// shuffle the keyrings in the same way as the validators
 				let validators_keyrings =
 					crate::util::take_active_subset(&shuffled_indices, &validators_keyrings);
 
@@ -3336,13 +3322,12 @@ mod sanitizers {
 						let group = para_id_to_group[&para_id].as_ref();
 						let backed = back_candidate(
 							candidate,
-							&validators_keyrings, // TODO: shuffle
+							&validators_keyrings,
 							group,
 							&keystore,
 							&signing_context,
 							BackingKind::Threshold,
 							None,
-							// Some(CoreIndex(idx0 as u32)),
 						);
 						backed
 					})

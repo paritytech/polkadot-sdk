@@ -496,6 +496,7 @@ impl<T: Config> Pallet<T> {
 			inclusion::Pallet::<T>::free_disputed(&current_concluded_invalid_disputes)
 				.into_iter()
 				.unzip();
+		// Also include descendants of the concluded invalid candidates.
 		current_concluded_invalid_disputes.extend(concluded_invalid_hashes);
 
 		// Create a bit index from the set of core indices where each index corresponds to
