@@ -19,7 +19,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use super::*;
-use frame_support::{derive_impl, pallet_prelude::*};
+use frame_support::pallet_prelude::*;
 use parachains_common::{AccountId, Balance, Hash, Nonce};
 use polkadot_runtime_common::BlockHashCount;
 
@@ -54,7 +54,7 @@ impl frame_system::DefaultConfig for SystemParachainDefaultConfig {
 	/// Version of the runtime.
 	type Version = ();
 	/// Block & extrinsics weights: base values and limits.
-	type BlockWeights = RuntimeBlockWeights;
+	type BlockWeights = ();
 	/// The maximum length of a block (in bytes).
 	type BlockLength = RuntimeBlockLength;
 	/// The weight of database operations that the runtime can invoke.
