@@ -83,7 +83,7 @@ use polkadot_runtime_common::{BlockHashCount, SlowAdjustingFeeUpdate};
 use weights::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight};
 use xcm::{
 	latest::prelude::{AssetId as AssetLocationId, BodyId},
-	IntoVersion, VersionedAssetId, VersionedAssets, VersionedLocation, VersionedXcm,
+	VersionedAssetId, VersionedAssets, VersionedLocation, VersionedXcm,
 };
 use xcm_fee_payment_runtime_api::{
 	dry_run::{CallDryRunEffects, Error as XcmDryRunApiError, XcmDryRunEffects},
@@ -849,15 +849,8 @@ impl_runtime_apis! {
 
 	impl xcm_fee_payment_runtime_api::fees::XcmPaymentApi<Block> for Runtime {
 		fn query_acceptable_payment_assets(xcm_version: xcm::Version) -> Result<Vec<VersionedAssetId>, XcmPaymentApiError> {
-			let acceptable = vec![
-				// native token
-				VersionedAssetId::from(AssetLocationId(xcm_config::RelayLocation::get()))
-			];
-
-			Ok(acceptable
-				.into_iter()
-				.filter_map(|asset| asset.into_version(xcm_version).ok())
-				.collect())
+			let acceptable_assets = vec![AssetLocationId(xcm_config::RelayLocation::get())];
+			PolkadotXcm::query_acceptable_payment_assets(xcm_version, acceptable_assets)
 		}
 
 		fn query_weight_to_asset_fee(weight: Weight, asset: VersionedAssetId) -> Result<u128, XcmPaymentApiError> {
