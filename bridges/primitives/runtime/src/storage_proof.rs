@@ -24,8 +24,9 @@ use scale_info::TypeInfo;
 use sp_std::{boxed::Box, vec::Vec};
 pub use sp_trie::RawStorageProof;
 use sp_trie::{
-	read_trie_value, recorder_ext::RecorderExt, LayoutV1, MemoryDB, Recorder, StorageProof, Trie,
-	TrieConfiguration, TrieDBBuilder, TrieError, TrieHash,
+	read_trie_value,
+	recorder_ext::{Error as RecorderExtError, RecorderExt, RedundantNodesChecker},
+	LayoutV1, MemoryDB, Recorder, Trie, TrieConfiguration, TrieDBBuilder, TrieError, TrieHash,
 };
 
 /// Storage proof size requirements.
@@ -49,10 +50,9 @@ pub struct StorageProofChecker<H>
 where
 	H: Hasher,
 {
-	proof_nodes_count: usize,
 	root: H::Out,
 	db: MemoryDB<H>,
-	recorder: Recorder<LayoutV1<H>>,
+	redundant_nodes_checker: RedundantNodesChecker<LayoutV1<H>>,
 }
 
 impl<H> StorageProofChecker<H>
@@ -63,43 +63,38 @@ where
 	///
 	/// This returns an error if the given proof is invalid with respect to the given root.
 	pub fn new(root: H::Out, proof: RawStorageProof) -> Result<Self, Error> {
-		// 1. we don't want extra items in the storage proof
-		// 2. `StorageProof` is storing all trie nodes in the `BTreeSet`
-		//
-		// => someone could simply add duplicate items to the proof and we won't be
-		// able to detect that by just using `StorageProof`
-		//
-		// => let's check it when we are converting our "raw proof" into `StorageProof`
-		let proof_nodes_count = proof.len();
-		let proof = StorageProof::new(proof);
-		if proof_nodes_count != proof.iter_nodes().count() {
-			return Err(Error::DuplicateNodesInProof)
-		}
+		let (recorder, proof) =
+			RedundantNodesChecker::new(proof).map_err(|e| Error::RecorderExt(e.into()))?;
 
 		let db = proof.into_memory_db();
 		if !db.contains(&root, EMPTY_PREFIX) {
 			return Err(Error::StorageRootMismatch)
 		}
 
-		let recorder = Recorder::default();
-		let checker = StorageProofChecker { proof_nodes_count, root, db, recorder };
+		let checker = StorageProofChecker { root, db, redundant_nodes_checker: recorder };
 		Ok(checker)
 	}
 
 	/// Returns error if the proof has some nodes that are left intact by previous `read_value`
 	/// calls.
 	pub fn ensure_no_unused_nodes(self) -> Result<(), Error> {
-		self.recorder
-			.ensure_node_count(self.proof_nodes_count)
-			.map_err(|_| Error::UnusedNodesInTheProof)
+		self.redundant_nodes_checker
+			.ensure_no_unused_nodes()
+			.map_err(|e| Error::RecorderExt(e.into()))
 	}
 
 	/// Reads a value from the available subset of storage. If the value cannot be read due to an
 	/// incomplete or otherwise invalid proof, this function returns an error.
 	pub fn read_value(&mut self, key: &[u8]) -> Result<Option<Vec<u8>>, Error> {
 		// LayoutV1 or LayoutV0 is identical for proof that only read values.
-		read_trie_value::<LayoutV1<H>, _>(&self.db, &self.root, key, Some(&mut self.recorder), None)
-			.map_err(|_| Error::StorageValueUnavailable)
+		read_trie_value::<LayoutV1<H>, _>(
+			&self.db,
+			&self.root,
+			key,
+			Some(&mut self.redundant_nodes_checker),
+			None,
+		)
+		.map_err(|_| Error::StorageValueUnavailable)
 	}
 
 	/// Reads and decodes a value from the available subset of storage. If the value cannot be read
@@ -134,10 +129,8 @@ where
 /// Storage proof related errors.
 #[derive(Encode, Decode, Clone, Eq, PartialEq, PalletError, Debug, TypeInfo)]
 pub enum Error {
-	/// Duplicate trie nodes are found in the proof.
-	DuplicateNodesInProof,
-	/// Unused trie nodes are found in the proof.
-	UnusedNodesInTheProof,
+	/// Error originating in the `recorder_ext` module.
+	RecorderExt(StrippableError<RecorderExtError>),
 	/// Expected storage root is missing from the proof.
 	StorageRootMismatch,
 	/// Unable to reach expected storage value using provided trie nodes.
@@ -231,7 +224,7 @@ pub mod tests {
 
 		assert_eq!(
 			StorageProofChecker::<sp_core::Blake2Hasher>::new(root, proof).map(drop),
-			Err(Error::DuplicateNodesInProof),
+			Err(Error::RecorderExt(RecorderExtError::DuplicateNodes.into())),
 		);
 	}
 
@@ -248,6 +241,9 @@ pub mod tests {
 		assert_eq!(checker.ensure_no_unused_nodes(), Ok(()));
 
 		let checker = StorageProofChecker::<sp_core::Blake2Hasher>::new(root, proof).unwrap();
-		assert_eq!(checker.ensure_no_unused_nodes(), Err(Error::UnusedNodesInTheProof));
+		assert_eq!(
+			checker.ensure_no_unused_nodes(),
+			Err(Error::RecorderExt(RecorderExtError::UnusedNodes.into()))
+		);
 	}
 }

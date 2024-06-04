@@ -40,7 +40,7 @@ use sp_staking::SessionIndex;
 use sp_std::prelude::*;
 use sp_trie::{
 	trie_types::{TrieDBBuilder, TrieDBMutBuilderV0},
-	LayoutV0, MemoryDB, Recorder, StorageProof, Trie, TrieMut, TrieRecorder,
+	LayoutV0, LayoutV1, MemoryDB, Recorder, StorageProof, Trie, TrieMut, TrieRecorder,
 };
 
 use frame_support::{
@@ -52,7 +52,7 @@ use frame_support::{
 use crate::{self as pallet_session, Pallet as Session};
 
 pub use pallet::*;
-use sp_trie::recorder_ext::RecorderExt;
+use sp_trie::recorder_ext::{RecorderExt, RedundantNodesChecker};
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -265,8 +265,7 @@ impl<T: Config> ProvingTrie<T> {
 		Ok(ProvingTrie { db, root })
 	}
 
-	fn from_nodes(root: T::Hash, nodes: Vec<Vec<u8>>) -> Self {
-		let proof = StorageProof::new(nodes);
+	fn from_proof(root: T::Hash, proof: StorageProof) -> Self {
 		ProvingTrie { db: proof.into_memory_db(), root }
 	}
 
@@ -336,29 +335,18 @@ impl<T: Config, D: AsRef<[u8]>> KeyOwnerProofSystem<(KeyTypeId, D)> for Pallet<T
 
 	fn check_proof(key: (KeyTypeId, D), proof: Self::Proof) -> Option<IdentificationTuple<T>> {
 		let (id, data) = key;
+		let (root, count) = <HistoricalSessions<T>>::get(&proof.session)?;
 
-		if proof.session == <Session<T>>::current_index() {
-			<Session<T>>::key_owner(id, data.as_ref()).and_then(|owner| {
-				T::FullIdentificationOf::convert(owner.clone()).and_then(move |id| {
-					let count = <Session<T>>::validators().len() as ValidatorCount;
-
-					if count != proof.validator_count {
-						return None
-					}
-
-					Some((owner, id))
-				})
-			})
-		} else {
-			let (root, count) = <HistoricalSessions<T>>::get(&proof.session)?;
-
-			if count != proof.validator_count {
-				return None
-			}
-
-			let trie = ProvingTrie::<T>::from_nodes(root, proof.trie_nodes);
-			trie.query(id, data.as_ref(), None)
+		if count != proof.validator_count {
+			return None
 		}
+
+		let (mut redundant_nodes_checker, proof) =
+			RedundantNodesChecker::<LayoutV1<T::Hashing>>::new(proof.trie_nodes).ok()?;
+		let trie = ProvingTrie::<T>::from_proof(root, proof);
+		let res = trie.query(id, data.as_ref(), Some(&mut redundant_nodes_checker))?;
+		redundant_nodes_checker.ensure_no_unused_nodes().ok()?;
+		Some(res)
 	}
 }
 
