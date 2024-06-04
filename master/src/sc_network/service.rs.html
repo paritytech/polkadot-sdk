@@ -2059,6 +2059,29 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1908" id="1908">1908</a>
 <a href="#1909" id="1909">1909</a>
 <a href="#1910" id="1910">1910</a>
+<a href="#1911" id="1911">1911</a>
+<a href="#1912" id="1912">1912</a>
+<a href="#1913" id="1913">1913</a>
+<a href="#1914" id="1914">1914</a>
+<a href="#1915" id="1915">1915</a>
+<a href="#1916" id="1916">1916</a>
+<a href="#1917" id="1917">1917</a>
+<a href="#1918" id="1918">1918</a>
+<a href="#1919" id="1919">1919</a>
+<a href="#1920" id="1920">1920</a>
+<a href="#1921" id="1921">1921</a>
+<a href="#1922" id="1922">1922</a>
+<a href="#1923" id="1923">1923</a>
+<a href="#1924" id="1924">1924</a>
+<a href="#1925" id="1925">1925</a>
+<a href="#1926" id="1926">1926</a>
+<a href="#1927" id="1927">1927</a>
+<a href="#1928" id="1928">1928</a>
+<a href="#1929" id="1929">1929</a>
+<a href="#1930" id="1930">1930</a>
+<a href="#1931" id="1931">1931</a>
+<a href="#1932" id="1932">1932</a>
+<a href="#1933" id="1933">1933</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2150,6 +2173,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>sc_utils::mpsc::{tracing_unbounded, TracingUnboundedReceiver, TracingUnboundedSender};
 <span class="kw">use </span>sp_runtime::traits::Block <span class="kw">as </span>BlockT;
 
+<span class="kw">pub use </span>behaviour::{InboundFailure, OutboundFailure, ResponseFailure};
+<span class="kw">pub use </span>libp2p::identity::{DecodingError, Keypair, PublicKey};
+<span class="kw">pub use </span>metrics::NotificationMetrics;
+<span class="kw">pub use </span>protocol::NotificationsSink;
 <span class="kw">use </span>std::{
 	cmp,
 	collections::{HashMap, HashSet},
@@ -2162,13 +2189,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		atomic::{AtomicUsize, Ordering},
 		Arc,
 	},
-	time::Duration,
+	time::{Duration, Instant},
 };
-
-<span class="kw">pub use </span>behaviour::{InboundFailure, OutboundFailure, ResponseFailure};
-<span class="kw">pub use </span>libp2p::identity::{DecodingError, Keypair, PublicKey};
-<span class="kw">pub use </span>metrics::NotificationMetrics;
-<span class="kw">pub use </span>protocol::NotificationsSink;
 
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">mod </span>metrics;
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">mod </span>out_events;
@@ -3018,6 +3040,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>put_value(<span class="kw-2">&amp;</span><span class="self">self</span>, key: KademliaKey, value: Vec&lt;u8&gt;) {
 		<span class="kw">let _ </span>= <span class="self">self</span>.to_worker.unbounded_send(ServiceToWorkerMsg::PutValue(key, value));
 	}
+
+	<span class="kw">fn </span>store_record(
+		<span class="kw-2">&amp;</span><span class="self">self</span>,
+		key: KademliaKey,
+		value: Vec&lt;u8&gt;,
+		publisher: <span class="prelude-ty">Option</span>&lt;sc_network_types::PeerId&gt;,
+		expires: <span class="prelude-ty">Option</span>&lt;Instant&gt;,
+	) {
+		<span class="kw">let _ </span>= <span class="self">self</span>.to_worker.unbounded_send(ServiceToWorkerMsg::StoreRecord(
+			key,
+			value,
+			publisher.map(Into::into),
+			expires,
+		));
+	}
 }
 
 <span class="attr">#[async_trait::async_trait]
@@ -3372,6 +3409,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">enum </span>ServiceToWorkerMsg {
 	GetValue(KademliaKey),
 	PutValue(KademliaKey, Vec&lt;u8&gt;),
+	StoreRecord(KademliaKey, Vec&lt;u8&gt;, <span class="prelude-ty">Option</span>&lt;PeerId&gt;, <span class="prelude-ty">Option</span>&lt;Instant&gt;),
 	AddKnownAddress(PeerId, Multiaddr),
 	EventStream(out_events::Sender),
 	Request {
@@ -3499,6 +3537,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="self">self</span>.network_service.behaviour_mut().get_value(key),
 			ServiceToWorkerMsg::PutValue(key, value) =&gt;
 				<span class="self">self</span>.network_service.behaviour_mut().put_value(key, value),
+			ServiceToWorkerMsg::StoreRecord(key, value, publisher, expires) =&gt; <span class="self">self
+				</span>.network_service
+				.behaviour_mut()
+				.store_record(key, value, publisher, expires),
 			ServiceToWorkerMsg::AddKnownAddress(peer_id, addr) =&gt;
 				<span class="self">self</span>.network_service.behaviour_mut().add_known_address(peer_id, addr),
 			ServiceToWorkerMsg::EventStream(sender) =&gt; <span class="self">self</span>.event_streams.push(sender),
@@ -3700,17 +3742,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					.report_notification_received(remote, notification);
 			},
 			SwarmEvent::Behaviour(BehaviourOut::Dht(event, duration)) =&gt; {
-				<span class="kw">if let </span><span class="prelude-val">Some</span>(metrics) = <span class="self">self</span>.metrics.as_ref() {
-					<span class="kw">let </span>query_type = <span class="kw">match </span>event {
-						DhtEvent::ValueFound(<span class="kw">_</span>) =&gt; <span class="string">"value-found"</span>,
-						DhtEvent::ValueNotFound(<span class="kw">_</span>) =&gt; <span class="string">"value-not-found"</span>,
-						DhtEvent::ValuePut(<span class="kw">_</span>) =&gt; <span class="string">"value-put"</span>,
-						DhtEvent::ValuePutFailed(<span class="kw">_</span>) =&gt; <span class="string">"value-put-failed"</span>,
-					};
-					metrics
-						.kademlia_query_duration
-						.with_label_values(<span class="kw-2">&amp;</span>[query_type])
-						.observe(duration.as_secs_f64());
+				<span class="kw">match </span>(<span class="self">self</span>.metrics.as_ref(), duration) {
+					(<span class="prelude-val">Some</span>(metrics), <span class="prelude-val">Some</span>(duration)) =&gt; {
+						<span class="kw">let </span>query_type = <span class="kw">match </span>event {
+							DhtEvent::ValueFound(<span class="kw">_</span>) =&gt; <span class="string">"value-found"</span>,
+							DhtEvent::ValueNotFound(<span class="kw">_</span>) =&gt; <span class="string">"value-not-found"</span>,
+							DhtEvent::ValuePut(<span class="kw">_</span>) =&gt; <span class="string">"value-put"</span>,
+							DhtEvent::ValuePutFailed(<span class="kw">_</span>) =&gt; <span class="string">"value-put-failed"</span>,
+							DhtEvent::PutRecordRequest(<span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>) =&gt; <span class="string">"put-record-request"</span>,
+						};
+						metrics
+							.kademlia_query_duration
+							.with_label_values(<span class="kw-2">&amp;</span>[query_type])
+							.observe(duration.as_secs_f64());
+					},
+					<span class="kw">_ </span>=&gt; {},
 				}
 
 				<span class="self">self</span>.event_streams.send(Event::Dht(event));

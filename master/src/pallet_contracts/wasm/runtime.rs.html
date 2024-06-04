@@ -2434,6 +2434,32 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#2283" id="2283">2283</a>
 <a href="#2284" id="2284">2284</a>
 <a href="#2285" id="2285">2285</a>
+<a href="#2286" id="2286">2286</a>
+<a href="#2287" id="2287">2287</a>
+<a href="#2288" id="2288">2288</a>
+<a href="#2289" id="2289">2289</a>
+<a href="#2290" id="2290">2290</a>
+<a href="#2291" id="2291">2291</a>
+<a href="#2292" id="2292">2292</a>
+<a href="#2293" id="2293">2293</a>
+<a href="#2294" id="2294">2294</a>
+<a href="#2295" id="2295">2295</a>
+<a href="#2296" id="2296">2296</a>
+<a href="#2297" id="2297">2297</a>
+<a href="#2298" id="2298">2298</a>
+<a href="#2299" id="2299">2299</a>
+<a href="#2300" id="2300">2300</a>
+<a href="#2301" id="2301">2301</a>
+<a href="#2302" id="2302">2302</a>
+<a href="#2303" id="2303">2303</a>
+<a href="#2304" id="2304">2304</a>
+<a href="#2305" id="2305">2305</a>
+<a href="#2306" id="2306">2306</a>
+<a href="#2307" id="2307">2307</a>
+<a href="#2308" id="2308">2308</a>
+<a href="#2309" id="2309">2309</a>
+<a href="#2310" id="2310">2310</a>
+<a href="#2311" id="2311">2311</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -3260,9 +3286,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				} <span class="kw">else </span>{
 					<span class="self">self</span>.read_sandbox_memory_as(memory, deposit_ptr)<span class="question-mark">?
 				</span>};
+				<span class="kw">let </span>read_only = flags.contains(CallFlags::READ_ONLY);
 				<span class="kw">let </span>value: BalanceOf&lt;&lt;E <span class="kw">as </span>Ext&gt;::T&gt; =
 					<span class="self">self</span>.read_sandbox_memory_as(memory, value_ptr)<span class="question-mark">?</span>;
 				<span class="kw">if </span>value &gt; <span class="number">0u32</span>.into() {
+					<span class="comment">// If the call value is non-zero and state change is not allowed, issue an
+					// error.
+					</span><span class="kw">if </span>read_only || <span class="self">self</span>.ext.is_read_only() {
+						<span class="kw">return </span><span class="prelude-val">Err</span>(Error::&lt;E::T&gt;::StateChangeDenied.into());
+					}
 					<span class="self">self</span>.charge_gas(RuntimeCosts::CallTransferSurcharge)<span class="question-mark">?</span>;
 				}
 				<span class="self">self</span>.ext.call(
@@ -3272,10 +3304,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					value,
 					input_data,
 					flags.contains(CallFlags::ALLOW_REENTRY),
+					read_only,
 				)
 			},
 			CallType::DelegateCall { code_hash_ptr } =&gt; {
-				<span class="kw">if </span>flags.contains(CallFlags::ALLOW_REENTRY) {
+				<span class="kw">if </span>flags.intersects(CallFlags::ALLOW_REENTRY | CallFlags::READ_ONLY) {
 					<span class="kw">return </span><span class="prelude-val">Err</span>(Error::&lt;E::T&gt;::InvalidCallFlags.into())
 				}
 				<span class="kw">let </span>code_hash = <span class="self">self</span>.read_sandbox_memory_as(memory, code_hash_ptr)<span class="question-mark">?</span>;
@@ -3393,6 +3426,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Set the value at the given key in the contract storage.
 	/// See [`pallet_contracts_uapi::HostFn::set_storage`]
 	</span><span class="attr">#[prefixed_alias]
+	#[mutating]
 	</span><span class="kw">fn </span>set_storage(
 		ctx: <span class="kw">_</span>,
 		memory: <span class="kw">_</span>,
@@ -3407,6 +3441,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// See [`pallet_contracts_uapi::HostFn::set_storage_v1`]
 	</span><span class="attr">#[version(<span class="number">1</span>)]
 	#[prefixed_alias]
+	#[mutating]
 	</span><span class="kw">fn </span>set_storage(
 		ctx: <span class="kw">_</span>,
 		memory: <span class="kw">_</span>,
@@ -3421,6 +3456,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// See [`pallet_contracts_uapi::HostFn::set_storage_v2`]
 	</span><span class="attr">#[version(<span class="number">2</span>)]
 	#[prefixed_alias]
+	#[mutating]
 	</span><span class="kw">fn </span>set_storage(
 		ctx: <span class="kw">_</span>,
 		memory: <span class="kw">_</span>,
@@ -3435,6 +3471,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Clear the value at the given key in the contract storage.
 	/// See [`pallet_contracts_uapi::HostFn::clear_storage`]
 	</span><span class="attr">#[prefixed_alias]
+	#[mutating]
 	</span><span class="kw">fn </span>clear_storage(ctx: <span class="kw">_</span>, memory: <span class="kw">_</span>, key_ptr: u32) -&gt; <span class="prelude-ty">Result</span>&lt;(), TrapReason&gt; {
 		ctx.clear_storage(memory, KeyType::Fix, key_ptr).map(|<span class="kw">_</span>| ())
 	}
@@ -3443,6 +3480,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// See [`pallet_contracts_uapi::HostFn::clear_storage_v1`]
 	</span><span class="attr">#[version(<span class="number">1</span>)]
 	#[prefixed_alias]
+	#[mutating]
 	</span><span class="kw">fn </span>clear_storage(ctx: <span class="kw">_</span>, memory: <span class="kw">_</span>, key_ptr: u32, key_len: u32) -&gt; <span class="prelude-ty">Result</span>&lt;u32, TrapReason&gt; {
 		ctx.clear_storage(memory, KeyType::Var(key_len), key_ptr)
 	}
@@ -3493,6 +3531,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Retrieve and remove the value under the given key from storage.
 	/// See [`pallet_contracts_uapi::HostFn::take_storage`]
 	</span><span class="attr">#[prefixed_alias]
+	#[mutating]
 	</span><span class="kw">fn </span>take_storage(
 		ctx: <span class="kw">_</span>,
 		memory: <span class="kw">_</span>,
@@ -3524,6 +3563,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Transfer some value to another account.
 	/// See [`pallet_contracts_uapi::HostFn::transfer`].
 	</span><span class="attr">#[prefixed_alias]
+	#[mutating]
 	</span><span class="kw">fn </span>transfer(
 		ctx: <span class="kw">_</span>,
 		memory: <span class="kw">_</span>,
@@ -3681,6 +3721,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// of those types are fixed through [`codec::MaxEncodedLen`]. The fields exist
 	/// for backwards compatibility. Consider switching to the newest version of this function.
 	</span><span class="attr">#[prefixed_alias]
+	#[mutating]
 	</span><span class="kw">fn </span>instantiate(
 		ctx: <span class="kw">_</span>,
 		memory: <span class="kw">_</span>,
@@ -3719,6 +3760,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// See [`pallet_contracts_uapi::HostFn::instantiate_v1`].
 	</span><span class="attr">#[version(<span class="number">1</span>)]
 	#[prefixed_alias]
+	#[mutating]
 	</span><span class="kw">fn </span>instantiate(
 		ctx: <span class="kw">_</span>,
 		memory: <span class="kw">_</span>,
@@ -3754,6 +3796,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Instantiate a contract with the specified code hash.
 	/// See [`pallet_contracts_uapi::HostFn::instantiate_v2`].
 	</span><span class="attr">#[version(<span class="number">2</span>)]
+	#[mutating]
 	</span><span class="kw">fn </span>instantiate(
 		ctx: <span class="kw">_</span>,
 		memory: <span class="kw">_</span>,
@@ -3797,6 +3840,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// this type is fixed through `[`MaxEncodedLen`]. The field exist for backwards
 	/// compatibility. Consider switching to the newest version of this function.
 	</span><span class="attr">#[prefixed_alias]
+	#[mutating]
 	</span><span class="kw">fn </span>terminate(
 		ctx: <span class="kw">_</span>,
 		memory: <span class="kw">_</span>,
@@ -3810,6 +3854,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// See [`pallet_contracts_uapi::HostFn::terminate_v1`].
 	</span><span class="attr">#[version(<span class="number">1</span>)]
 	#[prefixed_alias]
+	#[mutating]
 	</span><span class="kw">fn </span>terminate(ctx: <span class="kw">_</span>, memory: <span class="kw">_</span>, beneficiary_ptr: u32) -&gt; <span class="prelude-ty">Result</span>&lt;(), TrapReason&gt; {
 		ctx.terminate(memory, beneficiary_ptr)
 	}
@@ -4307,6 +4352,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Deposit a contract event with the data buffer and optional list of topics.
 	/// See [pallet_contracts_uapi::HostFn::deposit_event]
 	</span><span class="attr">#[prefixed_alias]
+	#[mutating]
 	</span><span class="kw">fn </span>deposit_event(
 		ctx: <span class="kw">_</span>,
 		memory: <span class="kw">_</span>,
@@ -4487,6 +4533,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Call some dispatchable of the runtime.
 	/// See [`frame_support::traits::call_runtime`].
+	</span><span class="attr">#[mutating]
 	</span><span class="kw">fn </span>call_runtime(
 		ctx: <span class="kw">_</span>,
 		memory: <span class="kw">_</span>,
@@ -4506,6 +4553,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Execute an XCM program locally, using the contract's address as the origin.
 	/// See [`pallet_contracts_uapi::HostFn::execute_xcm`].
+	</span><span class="attr">#[mutating]
 	</span><span class="kw">fn </span>xcm_execute(
 		ctx: <span class="kw">_</span>,
 		memory: <span class="kw">_</span>,
@@ -4543,6 +4591,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Send an XCM program from the contract to the specified destination.
 	/// See [`pallet_contracts_uapi::HostFn::send_xcm`].
+	</span><span class="attr">#[mutating]
 	</span><span class="kw">fn </span>xcm_send(
 		ctx: <span class="kw">_</span>,
 		memory: <span class="kw">_</span>,
@@ -4639,6 +4688,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Replace the contract code at the specified address with new code.
 	/// See [`pallet_contracts_uapi::HostFn::set_code_hash`].
 	</span><span class="attr">#[prefixed_alias]
+	#[mutating]
 	</span><span class="kw">fn </span>set_code_hash(ctx: <span class="kw">_</span>, memory: <span class="kw">_</span>, code_hash_ptr: u32) -&gt; <span class="prelude-ty">Result</span>&lt;ReturnErrorCode, TrapReason&gt; {
 		ctx.charge_gas(RuntimeCosts::SetCodeHash)<span class="question-mark">?</span>;
 		<span class="kw">let </span>code_hash: CodeHash&lt;&lt;E <span class="kw">as </span>Ext&gt;::T&gt; =
@@ -4703,6 +4753,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Adds a new delegate dependency to the contract.
 	/// See [`pallet_contracts_uapi::HostFn::lock_delegate_dependency`].
+	</span><span class="attr">#[mutating]
 	</span><span class="kw">fn </span>lock_delegate_dependency(ctx: <span class="kw">_</span>, memory: <span class="kw">_</span>, code_hash_ptr: u32) -&gt; <span class="prelude-ty">Result</span>&lt;(), TrapReason&gt; {
 		ctx.charge_gas(RuntimeCosts::LockDelegateDependency)<span class="question-mark">?</span>;
 		<span class="kw">let </span>code_hash = ctx.read_sandbox_memory_as(memory, code_hash_ptr)<span class="question-mark">?</span>;
@@ -4712,6 +4763,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Removes the delegate dependency from the contract.
 	/// see [`pallet_contracts_uapi::HostFn::unlock_delegate_dependency`].
+	</span><span class="attr">#[mutating]
 	</span><span class="kw">fn </span>unlock_delegate_dependency(ctx: <span class="kw">_</span>, memory: <span class="kw">_</span>, code_hash_ptr: u32) -&gt; <span class="prelude-ty">Result</span>&lt;(), TrapReason&gt; {
 		ctx.charge_gas(RuntimeCosts::UnlockDelegateDependency)<span class="question-mark">?</span>;
 		<span class="kw">let </span>code_hash = ctx.read_sandbox_memory_as(memory, code_hash_ptr)<span class="question-mark">?</span>;

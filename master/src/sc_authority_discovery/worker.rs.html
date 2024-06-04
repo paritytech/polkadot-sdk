@@ -1026,6 +1026,105 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#875" id="875">875</a>
 <a href="#876" id="876">876</a>
 <a href="#877" id="877">877</a>
+<a href="#878" id="878">878</a>
+<a href="#879" id="879">879</a>
+<a href="#880" id="880">880</a>
+<a href="#881" id="881">881</a>
+<a href="#882" id="882">882</a>
+<a href="#883" id="883">883</a>
+<a href="#884" id="884">884</a>
+<a href="#885" id="885">885</a>
+<a href="#886" id="886">886</a>
+<a href="#887" id="887">887</a>
+<a href="#888" id="888">888</a>
+<a href="#889" id="889">889</a>
+<a href="#890" id="890">890</a>
+<a href="#891" id="891">891</a>
+<a href="#892" id="892">892</a>
+<a href="#893" id="893">893</a>
+<a href="#894" id="894">894</a>
+<a href="#895" id="895">895</a>
+<a href="#896" id="896">896</a>
+<a href="#897" id="897">897</a>
+<a href="#898" id="898">898</a>
+<a href="#899" id="899">899</a>
+<a href="#900" id="900">900</a>
+<a href="#901" id="901">901</a>
+<a href="#902" id="902">902</a>
+<a href="#903" id="903">903</a>
+<a href="#904" id="904">904</a>
+<a href="#905" id="905">905</a>
+<a href="#906" id="906">906</a>
+<a href="#907" id="907">907</a>
+<a href="#908" id="908">908</a>
+<a href="#909" id="909">909</a>
+<a href="#910" id="910">910</a>
+<a href="#911" id="911">911</a>
+<a href="#912" id="912">912</a>
+<a href="#913" id="913">913</a>
+<a href="#914" id="914">914</a>
+<a href="#915" id="915">915</a>
+<a href="#916" id="916">916</a>
+<a href="#917" id="917">917</a>
+<a href="#918" id="918">918</a>
+<a href="#919" id="919">919</a>
+<a href="#920" id="920">920</a>
+<a href="#921" id="921">921</a>
+<a href="#922" id="922">922</a>
+<a href="#923" id="923">923</a>
+<a href="#924" id="924">924</a>
+<a href="#925" id="925">925</a>
+<a href="#926" id="926">926</a>
+<a href="#927" id="927">927</a>
+<a href="#928" id="928">928</a>
+<a href="#929" id="929">929</a>
+<a href="#930" id="930">930</a>
+<a href="#931" id="931">931</a>
+<a href="#932" id="932">932</a>
+<a href="#933" id="933">933</a>
+<a href="#934" id="934">934</a>
+<a href="#935" id="935">935</a>
+<a href="#936" id="936">936</a>
+<a href="#937" id="937">937</a>
+<a href="#938" id="938">938</a>
+<a href="#939" id="939">939</a>
+<a href="#940" id="940">940</a>
+<a href="#941" id="941">941</a>
+<a href="#942" id="942">942</a>
+<a href="#943" id="943">943</a>
+<a href="#944" id="944">944</a>
+<a href="#945" id="945">945</a>
+<a href="#946" id="946">946</a>
+<a href="#947" id="947">947</a>
+<a href="#948" id="948">948</a>
+<a href="#949" id="949">949</a>
+<a href="#950" id="950">950</a>
+<a href="#951" id="951">951</a>
+<a href="#952" id="952">952</a>
+<a href="#953" id="953">953</a>
+<a href="#954" id="954">954</a>
+<a href="#955" id="955">955</a>
+<a href="#956" id="956">956</a>
+<a href="#957" id="957">957</a>
+<a href="#958" id="958">958</a>
+<a href="#959" id="959">959</a>
+<a href="#960" id="960">960</a>
+<a href="#961" id="961">961</a>
+<a href="#962" id="962">962</a>
+<a href="#963" id="963">963</a>
+<a href="#964" id="964">964</a>
+<a href="#965" id="965">965</a>
+<a href="#966" id="966">966</a>
+<a href="#967" id="967">967</a>
+<a href="#968" id="968">968</a>
+<a href="#969" id="969">969</a>
+<a href="#970" id="970">970</a>
+<a href="#971" id="971">971</a>
+<a href="#972" id="972">972</a>
+<a href="#973" id="973">973</a>
+<a href="#974" id="974">974</a>
+<a href="#975" id="975">975</a>
+<a href="#976" id="976">976</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1077,6 +1176,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	multihash::{Code, Multihash},
 	PeerId,
 };
+<span class="kw">use </span>schema::PeerSignature;
 <span class="kw">use </span>sp_api::{ApiError, ProvideRuntimeApi};
 <span class="kw">use </span>sp_authority_discovery::{
 	AuthorityDiscoveryApi, AuthorityId, AuthorityPair, AuthoritySignature,
@@ -1139,7 +1239,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ///    network peerset.
 ///
 ///    5. Allow querying of the collected addresses via the [`crate::Service`].
-</span><span class="kw">pub struct </span>Worker&lt;Client, Block, DhtEventStream&gt; {
+</span><span class="kw">pub struct </span>Worker&lt;Client, Block: BlockT, DhtEventStream&gt; {
 	<span class="doccomment">/// Channel receiver for messages send by a [`crate::Service`].
 	</span>from_service: Fuse&lt;mpsc::Receiver&lt;ServicetoWorkerMsg&gt;&gt;,
 
@@ -1179,6 +1279,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Queue of throttled lookups pending to be passed to the network.
 	</span>pending_lookups: Vec&lt;AuthorityId&gt;,
+
+	<span class="doccomment">/// The list of all known authorities.
+	</span>known_authorities: HashMap&lt;KademliaKey, AuthorityId&gt;,
+
+	<span class="doccomment">/// The last time we requested the list of authorities.
+	</span>authorities_queried_at: <span class="prelude-ty">Option</span>&lt;Block::Hash&gt;,
 
 	<span class="doccomment">/// Set of in-flight lookups.
 	</span>in_flight_lookups: HashMap&lt;KademliaKey, AuthorityId&gt;,
@@ -1296,6 +1402,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			network,
 			dht_event_rx,
 			publish_interval,
+			known_authorities: Default::default(),
+			authorities_queried_at: <span class="prelude-val">None</span>,
 			publish_if_changed_interval,
 			latest_published_keys: HashSet::new(),
 			latest_published_kad_keys: HashSet::new(),
@@ -1510,6 +1618,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.filter(|id| !local_keys.contains(id.as_ref()))
 			.collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
 
+		<span class="self">self</span>.known_authorities = authorities
+			.clone()
+			.into_iter()
+			.map(|authority| (hash_authority_id(authority.as_ref()), authority))
+			.collect::&lt;HashMap&lt;<span class="kw">_</span>, <span class="kw">_</span>&gt;&gt;();
+		<span class="self">self</span>.authorities_queried_at = <span class="prelude-val">Some</span>(best_hash);
+
 		<span class="self">self</span>.addr_cache.retain_ids(<span class="kw-2">&amp;</span>authorities);
 
 		authorities.shuffle(<span class="kw-2">&amp;mut </span>thread_rng());
@@ -1609,7 +1724,112 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 				<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">"Failed to put hash '{:?}' on Dht."</span>, hash)
 			},
+			DhtEvent::PutRecordRequest(record_key, record_value, publisher, expires) =&gt; {
+				<span class="kw">if let </span><span class="prelude-val">Err</span>(e) = <span class="self">self
+					</span>.handle_put_record_requested(record_key, record_value, publisher, expires)
+					.<span class="kw">await
+				</span>{
+					<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">"Failed to handle put record request: {}"</span>, e)
+				}
+
+				<span class="kw">if let </span><span class="prelude-val">Some</span>(metrics) = <span class="kw-2">&amp;</span><span class="self">self</span>.metrics {
+					metrics.dht_event_received.with_label_values(<span class="kw-2">&amp;</span>[<span class="string">"put_record_req"</span>]).inc();
+				}
+			},
 		}
+	}
+
+	<span class="kw">async fn </span>handle_put_record_requested(
+		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
+		record_key: KademliaKey,
+		record_value: Vec&lt;u8&gt;,
+		publisher: <span class="prelude-ty">Option</span>&lt;PeerId&gt;,
+		expires: <span class="prelude-ty">Option</span>&lt;std::time::Instant&gt;,
+	) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+		<span class="kw">let </span>publisher = publisher.ok_or(Error::MissingPublisher)<span class="question-mark">?</span>;
+
+		<span class="comment">// Make sure we don't ever work with an outdated set of authorities
+		// and that we do not update known_authorithies too often.
+		</span><span class="kw">let </span>best_hash = <span class="self">self</span>.client.best_hash().<span class="kw">await</span><span class="question-mark">?</span>;
+		<span class="kw">if </span>!<span class="self">self</span>.known_authorities.contains_key(<span class="kw-2">&amp;</span>record_key) &amp;&amp;
+			<span class="self">self</span>.authorities_queried_at
+				.map(|authorities_queried_at| authorities_queried_at != best_hash)
+				.unwrap_or(<span class="bool-val">true</span>)
+		{
+			<span class="kw">let </span>authorities = <span class="self">self
+				</span>.client
+				.authorities(best_hash)
+				.<span class="kw">await
+				</span>.map_err(|e| Error::CallingRuntime(e.into()))<span class="question-mark">?
+				</span>.into_iter()
+				.collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
+
+			<span class="self">self</span>.known_authorities = authorities
+				.into_iter()
+				.map(|authority| (hash_authority_id(authority.as_ref()), authority))
+				.collect::&lt;HashMap&lt;<span class="kw">_</span>, <span class="kw">_</span>&gt;&gt;();
+
+			<span class="self">self</span>.authorities_queried_at = <span class="prelude-val">Some</span>(best_hash);
+		}
+
+		<span class="kw">let </span>authority_id =
+			<span class="self">self</span>.known_authorities.get(<span class="kw-2">&amp;</span>record_key).ok_or(Error::UnknownAuthority)<span class="question-mark">?</span>;
+		<span class="kw">let </span>signed_record =
+			<span class="self">Self</span>::check_record_signed_with_authority_id(record_value.as_slice(), authority_id)<span class="question-mark">?</span>;
+		<span class="self">self</span>.check_record_signed_with_network_key(
+			<span class="kw-2">&amp;</span>signed_record.record,
+			signed_record.peer_signature,
+			publisher,
+			authority_id,
+		)<span class="question-mark">?</span>;
+		<span class="self">self</span>.network.store_record(record_key, record_value, <span class="prelude-val">Some</span>(publisher), expires);
+		<span class="prelude-val">Ok</span>(())
+	}
+
+	<span class="kw">fn </span>check_record_signed_with_authority_id(
+		record: <span class="kw-2">&amp;</span>[u8],
+		authority_id: <span class="kw-2">&amp;</span>AuthorityId,
+	) -&gt; <span class="prelude-ty">Result</span>&lt;schema::SignedAuthorityRecord&gt; {
+		<span class="kw">let </span>signed_record: schema::SignedAuthorityRecord =
+			schema::SignedAuthorityRecord::decode(record).map_err(Error::DecodingProto)<span class="question-mark">?</span>;
+
+		<span class="kw">let </span>auth_signature = AuthoritySignature::decode(<span class="kw-2">&amp;mut &amp;</span>signed_record.auth_signature[..])
+			.map_err(Error::EncodingDecodingScale)<span class="question-mark">?</span>;
+
+		<span class="kw">if </span>!AuthorityPair::verify(<span class="kw-2">&amp;</span>auth_signature, <span class="kw-2">&amp;</span>signed_record.record, <span class="kw-2">&amp;</span>authority_id) {
+			<span class="kw">return </span><span class="prelude-val">Err</span>(Error::VerifyingDhtPayload)
+		}
+
+		<span class="prelude-val">Ok</span>(signed_record)
+	}
+
+	<span class="kw">fn </span>check_record_signed_with_network_key(
+		<span class="kw-2">&amp;</span><span class="self">self</span>,
+		record: <span class="kw-2">&amp;</span>Vec&lt;u8&gt;,
+		peer_signature: <span class="prelude-ty">Option</span>&lt;PeerSignature&gt;,
+		remote_peer_id: PeerId,
+		authority_id: <span class="kw-2">&amp;</span>AuthorityId,
+	) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+		<span class="kw">if let </span><span class="prelude-val">Some</span>(peer_signature) = peer_signature {
+			<span class="kw">match </span><span class="self">self</span>.network.verify(
+				remote_peer_id.into(),
+				<span class="kw-2">&amp;</span>peer_signature.public_key,
+				<span class="kw-2">&amp;</span>peer_signature.signature,
+				record,
+			) {
+				<span class="prelude-val">Ok</span>(<span class="bool-val">true</span>) =&gt; {},
+				<span class="prelude-val">Ok</span>(<span class="bool-val">false</span>) =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(Error::VerifyingDhtPayload),
+				<span class="prelude-val">Err</span>(error) =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(Error::ParsingLibp2pIdentity(error)),
+			}
+		} <span class="kw">else if </span><span class="self">self</span>.strict_record_validation {
+			<span class="kw">return </span><span class="prelude-val">Err</span>(Error::MissingPeerIdSignature)
+		} <span class="kw">else </span>{
+			<span class="macro">debug!</span>(
+				target: LOG_TARGET,
+				<span class="string">"Received unsigned authority discovery record from {}"</span>, authority_id
+			);
+		}
+		<span class="prelude-val">Ok</span>(())
 	}
 
 	<span class="kw">fn </span>handle_dht_value_found_event(<span class="kw-2">&amp;mut </span><span class="self">self</span>, values: Vec&lt;(KademliaKey, Vec&lt;u8&gt;)&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
@@ -1628,16 +1848,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>remote_addresses: Vec&lt;Multiaddr&gt; = values
 			.into_iter()
 			.map(|(_k, v)| {
-				<span class="kw">let </span>schema::SignedAuthorityRecord { record, auth_signature, peer_signature } =
-					schema::SignedAuthorityRecord::decode(v.as_slice())
-						.map_err(Error::DecodingProto)<span class="question-mark">?</span>;
-
-				<span class="kw">let </span>auth_signature = AuthoritySignature::decode(<span class="kw-2">&amp;mut &amp;</span>auth_signature[..])
-					.map_err(Error::EncodingDecodingScale)<span class="question-mark">?</span>;
-
-				<span class="kw">if </span>!AuthorityPair::verify(<span class="kw-2">&amp;</span>auth_signature, <span class="kw-2">&amp;</span>record, <span class="kw-2">&amp;</span>authority_id) {
-					<span class="kw">return </span><span class="prelude-val">Err</span>(Error::VerifyingDhtPayload)
-				}
+				<span class="kw">let </span>schema::SignedAuthorityRecord { record, peer_signature, .. } =
+					<span class="self">Self</span>::check_record_signed_with_authority_id(<span class="kw-2">&amp;</span>v, <span class="kw-2">&amp;</span>authority_id)<span class="question-mark">?</span>;
 
 				<span class="kw">let </span>addresses: Vec&lt;Multiaddr&gt; = schema::AuthorityRecord::decode(record.as_slice())
 					.map(|a| a.addresses)
@@ -1666,26 +1878,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				// At this point we know all the valid multiaddresses from the record, know that
 				// each of them belong to the same PeerId, we just need to check if the record is
 				// properly signed by the owner of the PeerId
-
-				</span><span class="kw">if let </span><span class="prelude-val">Some</span>(peer_signature) = peer_signature {
-					<span class="kw">match </span><span class="self">self</span>.network.verify(
-						remote_peer_id.into(),
-						<span class="kw-2">&amp;</span>peer_signature.public_key,
-						<span class="kw-2">&amp;</span>peer_signature.signature,
-						<span class="kw-2">&amp;</span>record,
-					) {
-						<span class="prelude-val">Ok</span>(<span class="bool-val">true</span>) =&gt; {},
-						<span class="prelude-val">Ok</span>(<span class="bool-val">false</span>) =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(Error::VerifyingDhtPayload),
-						<span class="prelude-val">Err</span>(error) =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(Error::ParsingLibp2pIdentity(error)),
-					}
-				} <span class="kw">else if </span><span class="self">self</span>.strict_record_validation {
-					<span class="kw">return </span><span class="prelude-val">Err</span>(Error::MissingPeerIdSignature)
-				} <span class="kw">else </span>{
-					<span class="macro">debug!</span>(
-						target: LOG_TARGET,
-						<span class="string">"Received unsigned authority discovery record from {}"</span>, authority_id
-					);
-				}
+				</span><span class="self">self</span>.check_record_signed_with_network_key(
+					<span class="kw-2">&amp;</span>record,
+					peer_signature,
+					remote_peer_id,
+					<span class="kw-2">&amp;</span>authority_id,
+				)<span class="question-mark">?</span>;
 				<span class="prelude-val">Ok</span>(addresses)
 			})
 			.collect::&lt;<span class="prelude-ty">Result</span>&lt;Vec&lt;Vec&lt;Multiaddr&gt;&gt;&gt;&gt;()<span class="question-mark">?
@@ -1898,7 +2096,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="comment">// Helper functions for unit testing.
 </span><span class="attr">#[cfg(test)]
-</span><span class="kw">impl</span>&lt;Block, Client, DhtEventStream&gt; Worker&lt;Client, Block, DhtEventStream&gt; {
+</span><span class="kw">impl</span>&lt;Block: BlockT, Client, DhtEventStream&gt; Worker&lt;Client, Block, DhtEventStream&gt; {
 	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>inject_addresses(<span class="kw-2">&amp;mut </span><span class="self">self</span>, authority: AuthorityId, addresses: Vec&lt;Multiaddr&gt;) {
 		<span class="self">self</span>.addr_cache.insert(authority, addresses);
 	}

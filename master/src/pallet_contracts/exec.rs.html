@@ -4064,6 +4064,55 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#3913" id="3913">3913</a>
 <a href="#3914" id="3914">3914</a>
 <a href="#3915" id="3915">3915</a>
+<a href="#3916" id="3916">3916</a>
+<a href="#3917" id="3917">3917</a>
+<a href="#3918" id="3918">3918</a>
+<a href="#3919" id="3919">3919</a>
+<a href="#3920" id="3920">3920</a>
+<a href="#3921" id="3921">3921</a>
+<a href="#3922" id="3922">3922</a>
+<a href="#3923" id="3923">3923</a>
+<a href="#3924" id="3924">3924</a>
+<a href="#3925" id="3925">3925</a>
+<a href="#3926" id="3926">3926</a>
+<a href="#3927" id="3927">3927</a>
+<a href="#3928" id="3928">3928</a>
+<a href="#3929" id="3929">3929</a>
+<a href="#3930" id="3930">3930</a>
+<a href="#3931" id="3931">3931</a>
+<a href="#3932" id="3932">3932</a>
+<a href="#3933" id="3933">3933</a>
+<a href="#3934" id="3934">3934</a>
+<a href="#3935" id="3935">3935</a>
+<a href="#3936" id="3936">3936</a>
+<a href="#3937" id="3937">3937</a>
+<a href="#3938" id="3938">3938</a>
+<a href="#3939" id="3939">3939</a>
+<a href="#3940" id="3940">3940</a>
+<a href="#3941" id="3941">3941</a>
+<a href="#3942" id="3942">3942</a>
+<a href="#3943" id="3943">3943</a>
+<a href="#3944" id="3944">3944</a>
+<a href="#3945" id="3945">3945</a>
+<a href="#3946" id="3946">3946</a>
+<a href="#3947" id="3947">3947</a>
+<a href="#3948" id="3948">3948</a>
+<a href="#3949" id="3949">3949</a>
+<a href="#3950" id="3950">3950</a>
+<a href="#3951" id="3951">3951</a>
+<a href="#3952" id="3952">3952</a>
+<a href="#3953" id="3953">3953</a>
+<a href="#3954" id="3954">3954</a>
+<a href="#3955" id="3955">3955</a>
+<a href="#3956" id="3956">3956</a>
+<a href="#3957" id="3957">3957</a>
+<a href="#3958" id="3958">3958</a>
+<a href="#3959" id="3959">3959</a>
+<a href="#3960" id="3960">3960</a>
+<a href="#3961" id="3961">3961</a>
+<a href="#3962" id="3962">3962</a>
+<a href="#3963" id="3963">3963</a>
+<a href="#3964" id="3964">3964</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -4215,6 +4264,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		value: BalanceOf&lt;<span class="self">Self</span>::T&gt;,
 		input_data: Vec&lt;u8&gt;,
 		allows_reentry: bool,
+		read_only: bool,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;ExecReturnValue, ExecError&gt;;
 
 	<span class="doccomment">/// Execute code in the current frame.
@@ -4248,7 +4298,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// This function will fail if the same contract is present on the contract
 	/// call stack.
-	</span><span class="kw">fn </span>terminate(<span class="kw-2">&amp;mut </span><span class="self">self</span>, beneficiary: <span class="kw-2">&amp;</span>AccountIdOf&lt;<span class="self">Self</span>::T&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), DispatchError&gt;;
+	</span><span class="kw">fn </span>terminate(<span class="kw-2">&amp;mut </span><span class="self">self</span>, beneficiary: <span class="kw-2">&amp;</span>AccountIdOf&lt;<span class="self">Self</span>::T&gt;) -&gt; DispatchResult;
 
 	<span class="doccomment">/// Transfer some amount of funds into the specified account.
 	</span><span class="kw">fn </span>transfer(<span class="kw-2">&amp;mut </span><span class="self">self</span>, to: <span class="kw-2">&amp;</span>AccountIdOf&lt;<span class="self">Self</span>::T&gt;, value: BalanceOf&lt;<span class="self">Self</span>::T&gt;) -&gt; DispatchResult;
@@ -4373,7 +4423,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>contract_info(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;mut </span>ContractInfo&lt;<span class="self">Self</span>::T&gt;;
 
 	<span class="doccomment">/// Sets new code hash for existing contract.
-	</span><span class="kw">fn </span>set_code_hash(<span class="kw-2">&amp;mut </span><span class="self">self</span>, hash: CodeHash&lt;<span class="self">Self</span>::T&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), DispatchError&gt;;
+	</span><span class="kw">fn </span>set_code_hash(<span class="kw-2">&amp;mut </span><span class="self">self</span>, hash: CodeHash&lt;<span class="self">Self</span>::T&gt;) -&gt; DispatchResult;
 
 	<span class="doccomment">/// Returns the number of times the currently executing contract exists on the call stack in
 	/// addition to the calling instance. A value of 0 means no reentrancy.
@@ -4393,7 +4443,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// [`Error::CodeNotFound`] is returned if no stored code found having the specified
 	/// `code_hash`.
-	</span><span class="kw">fn </span>increment_refcount(code_hash: CodeHash&lt;<span class="self">Self</span>::T&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), DispatchError&gt;;
+	</span><span class="kw">fn </span>increment_refcount(code_hash: CodeHash&lt;<span class="self">Self</span>::T&gt;) -&gt; DispatchResult;
 
 	<span class="doccomment">/// Decrement the reference count of a stored code by one.
 	///
@@ -4411,13 +4461,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// # Errors
 	///
-	/// - [`Error::&lt;T&gt;::MaxDelegateDependenciesReached`]
-	/// - [`Error::&lt;T&gt;::CannotAddSelfAsDelegateDependency`]
-	/// - [`Error::&lt;T&gt;::DelegateDependencyAlreadyExists`]
-	</span><span class="kw">fn </span>lock_delegate_dependency(
-		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
-		code_hash: CodeHash&lt;<span class="self">Self</span>::T&gt;,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;(), DispatchError&gt;;
+	/// - [`Error::MaxDelegateDependenciesReached`]
+	/// - [`Error::CannotAddSelfAsDelegateDependency`]
+	/// - [`Error::DelegateDependencyAlreadyExists`]
+	</span><span class="kw">fn </span>lock_delegate_dependency(<span class="kw-2">&amp;mut </span><span class="self">self</span>, code_hash: CodeHash&lt;<span class="self">Self</span>::T&gt;) -&gt; DispatchResult;
 
 	<span class="doccomment">/// Removes a delegate dependency from [`ContractInfo`]'s `delegate_dependencies` field.
 	///
@@ -4426,16 +4473,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// # Errors
 	///
-	/// - [`Error::&lt;T&gt;::DelegateDependencyNotFound`]
-	</span><span class="kw">fn </span>unlock_delegate_dependency(
-		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
-		code_hash: <span class="kw-2">&amp;</span>CodeHash&lt;<span class="self">Self</span>::T&gt;,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;(), DispatchError&gt;;
+	/// - [`Error::DelegateDependencyNotFound`]
+	</span><span class="kw">fn </span>unlock_delegate_dependency(<span class="kw-2">&amp;mut </span><span class="self">self</span>, code_hash: <span class="kw-2">&amp;</span>CodeHash&lt;<span class="self">Self</span>::T&gt;) -&gt; DispatchResult;
 
 	<span class="doccomment">/// Returns the number of locked delegate dependencies.
 	///
 	/// Note: Requires &amp;mut self to access the contract info.
 	</span><span class="kw">fn </span>locked_delegate_dependencies_count(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; usize;
+
+	<span class="doccomment">/// Check if running in read-only context.
+	</span><span class="kw">fn </span>is_read_only(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool;
 }
 
 <span class="doccomment">/// Describes the different functions that can be exported by an [`Executable`].
@@ -4569,6 +4616,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>nested_storage: storage::meter::NestedMeter&lt;T&gt;,
 	<span class="doccomment">/// If `false` the contract enabled its defense against reentrance attacks.
 	</span>allows_reentry: bool,
+	<span class="doccomment">/// If `true` subsequent calls cannot modify storage.
+	</span>read_only: bool,
 	<span class="doccomment">/// The caller of the currently executing frame which was spawned by `delegate_call`.
 	</span>delegate_caller: <span class="prelude-ty">Option</span>&lt;Origin&lt;T&gt;&gt;,
 }
@@ -4847,6 +4896,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			storage_meter,
 			BalanceOf::&lt;T&gt;::zero(),
 			determinism,
+			<span class="bool-val">false</span>,
 		)<span class="question-mark">?</span>;
 
 		<span class="kw">let </span>stack = <span class="self">Self </span>{
@@ -4879,6 +4929,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		storage_meter: <span class="kw-2">&amp;mut </span>storage::meter::GenericMeter&lt;T, S&gt;,
 		deposit_limit: BalanceOf&lt;T&gt;,
 		determinism: Determinism,
+		read_only: bool,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;(Frame&lt;T&gt;, E, <span class="prelude-ty">Option</span>&lt;u64&gt;), ExecError&gt; {
 		<span class="kw">let </span>(account_id, contract_info, executable, delegate_caller, entry_point, nonce) =
 			<span class="kw">match </span>frame_args {
@@ -4935,6 +4986,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			nested_gas: gas_meter.nested(gas_limit),
 			nested_storage: storage_meter.nested(deposit_limit),
 			allows_reentry: <span class="bool-val">true</span>,
+			read_only,
 		};
 
 		<span class="prelude-val">Ok</span>((frame, executable, nonce))
@@ -4947,6 +4999,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		value_transferred: BalanceOf&lt;T&gt;,
 		gas_limit: Weight,
 		deposit_limit: BalanceOf&lt;T&gt;,
+		read_only: bool,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;E, ExecError&gt; {
 		<span class="kw">if </span><span class="self">self</span>.frames.len() == T::CallStack::size() {
 			<span class="kw">return </span><span class="prelude-val">Err</span>(Error::&lt;T&gt;::MaxCallDepthReached.into())
@@ -4974,6 +5027,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			nested_storage,
 			deposit_limit,
 			<span class="self">self</span>.determinism,
+			read_only,
 		)<span class="question-mark">?</span>;
 		<span class="self">self</span>.frames.push(frame);
 		<span class="prelude-val">Ok</span>(executable)
@@ -5288,6 +5342,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		value: BalanceOf&lt;T&gt;,
 		input_data: Vec&lt;u8&gt;,
 		allows_reentry: bool,
+		read_only: bool,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;ExecReturnValue, ExecError&gt; {
 		<span class="comment">// Before pushing the new frame: Protect the caller contract against reentrancy attacks.
 		// It is important to do this before calling `allows_reentry` so that a direct recursion
@@ -5298,6 +5353,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">if </span>!<span class="self">self</span>.allows_reentry(<span class="kw-2">&amp;</span>to) {
 				<span class="kw">return </span><span class="prelude-val">Err</span>(&lt;Error&lt;T&gt;&gt;::ReentranceDenied.into())
 			}
+
 			<span class="comment">// We ignore instantiate frames in our search for a cached contract.
 			// Otherwise it would be possible to recursively call a contract from its own
 			// constructor: We disallow calling not fully constructed contracts.
@@ -5313,6 +5369,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				value,
 				gas_limit,
 				deposit_limit,
+				<span class="comment">// Enable read-only access if requested; cannot disable it if already set.
+				</span>read_only || <span class="self">self</span>.is_read_only(),
 			)<span class="question-mark">?</span>;
 			<span class="self">self</span>.run(executable, input_data)
 		};
@@ -5345,6 +5403,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			value,
 			Weight::zero(),
 			BalanceOf::&lt;T&gt;::zero(),
+			<span class="self">self</span>.is_read_only(),
 		)<span class="question-mark">?</span>;
 		<span class="self">self</span>.run(executable, input_data)
 	}
@@ -5371,12 +5430,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			value,
 			gas_limit,
 			deposit_limit,
+			<span class="self">self</span>.is_read_only(),
 		)<span class="question-mark">?</span>;
 		<span class="kw">let </span>account_id = <span class="self">self</span>.top_frame().account_id.clone();
 		<span class="self">self</span>.run(executable, input_data).map(|ret| (account_id, ret))
 	}
 
-	<span class="kw">fn </span>terminate(<span class="kw-2">&amp;mut </span><span class="self">self</span>, beneficiary: <span class="kw-2">&amp;</span>AccountIdOf&lt;<span class="self">Self</span>::T&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), DispatchError&gt; {
+	<span class="kw">fn </span>terminate(<span class="kw-2">&amp;mut </span><span class="self">self</span>, beneficiary: <span class="kw-2">&amp;</span>AccountIdOf&lt;<span class="self">Self</span>::T&gt;) -&gt; DispatchResult {
 		<span class="kw">if </span><span class="self">self</span>.is_recursive() {
 			<span class="kw">return </span><span class="prelude-val">Err</span>(Error::&lt;T&gt;::TerminatedWhileReentrant.into())
 		}
@@ -5573,7 +5633,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="self">self</span>.top_frame_mut().contract_info()
 	}
 
-	<span class="kw">fn </span>set_code_hash(<span class="kw-2">&amp;mut </span><span class="self">self</span>, hash: CodeHash&lt;<span class="self">Self</span>::T&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), DispatchError&gt; {
+	<span class="kw">fn </span>set_code_hash(<span class="kw-2">&amp;mut </span><span class="self">self</span>, hash: CodeHash&lt;<span class="self">Self</span>::T&gt;) -&gt; DispatchResult {
 		<span class="kw">let </span>frame = <span class="macro">top_frame_mut!</span>(<span class="self">self</span>);
 		<span class="kw">if </span>!E::from_storage(hash, <span class="kw-2">&amp;mut </span>frame.nested_gas)<span class="question-mark">?</span>.is_deterministic() {
 			<span class="kw">return </span><span class="prelude-val">Err</span>(&lt;Error&lt;T&gt;&gt;::Indeterministic.into())
@@ -5624,7 +5684,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 	}
 
-	<span class="kw">fn </span>increment_refcount(code_hash: CodeHash&lt;<span class="self">Self</span>::T&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), DispatchError&gt; {
+	<span class="kw">fn </span>increment_refcount(code_hash: CodeHash&lt;<span class="self">Self</span>::T&gt;) -&gt; DispatchResult {
 		&lt;CodeInfoOf&lt;<span class="self">Self</span>::T&gt;&gt;::mutate(code_hash, |existing| -&gt; <span class="prelude-ty">Result</span>&lt;(), DispatchError&gt; {
 			<span class="kw">if let </span><span class="prelude-val">Some</span>(info) = existing {
 				<span class="kw-2">*</span>info.refcount_mut() = info.refcount().saturating_add(<span class="number">1</span>);
@@ -5643,10 +5703,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		});
 	}
 
-	<span class="kw">fn </span>lock_delegate_dependency(
-		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
-		code_hash: CodeHash&lt;<span class="self">Self</span>::T&gt;,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;(), DispatchError&gt; {
+	<span class="kw">fn </span>lock_delegate_dependency(<span class="kw-2">&amp;mut </span><span class="self">self</span>, code_hash: CodeHash&lt;<span class="self">Self</span>::T&gt;) -&gt; DispatchResult {
 		<span class="kw">let </span>frame = <span class="self">self</span>.top_frame_mut();
 		<span class="kw">let </span>info = frame.contract_info.get(<span class="kw-2">&amp;</span>frame.account_id);
 		<span class="macro">ensure!</span>(code_hash != info.code_hash, Error::&lt;T&gt;::CannotAddSelfAsDelegateDependency);
@@ -5662,10 +5719,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="prelude-val">Ok</span>(())
 	}
 
-	<span class="kw">fn </span>unlock_delegate_dependency(
-		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
-		code_hash: <span class="kw-2">&amp;</span>CodeHash&lt;<span class="self">Self</span>::T&gt;,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;(), DispatchError&gt; {
+	<span class="kw">fn </span>unlock_delegate_dependency(<span class="kw-2">&amp;mut </span><span class="self">self</span>, code_hash: <span class="kw-2">&amp;</span>CodeHash&lt;<span class="self">Self</span>::T&gt;) -&gt; DispatchResult {
 		<span class="kw">let </span>frame = <span class="self">self</span>.top_frame_mut();
 		<span class="kw">let </span>info = frame.contract_info.get(<span class="kw-2">&amp;</span>frame.account_id);
 
@@ -5679,6 +5733,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">fn </span>locked_delegate_dependencies_count(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; usize {
 		<span class="self">self</span>.top_frame_mut().contract_info().delegate_dependencies_count()
+	}
+
+	<span class="kw">fn </span>is_read_only(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+		<span class="self">self</span>.top_frame().read_only
 	}
 }
 
@@ -6191,7 +6249,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>value = Default::default();
 		<span class="kw">let </span>recurse_ch = MockLoader::insert(Call, |ctx, <span class="kw">_</span>| {
 			<span class="comment">// Try to call into yourself.
-			</span><span class="kw">let </span>r = ctx.ext.call(Weight::zero(), BalanceOf::&lt;Test&gt;::zero(), BOB, <span class="number">0</span>, <span class="macro">vec!</span>[], <span class="bool-val">true</span>);
+			</span><span class="kw">let </span>r = ctx.ext.call(
+				Weight::zero(),
+				BalanceOf::&lt;Test&gt;::zero(),
+				BOB,
+				<span class="number">0</span>,
+				<span class="macro">vec!</span>[],
+				<span class="bool-val">true</span>,
+				<span class="bool-val">false</span>,
+			);
 
 			ReachedBottom::mutate(|reached_bottom| {
 				<span class="kw">if </span>!<span class="kw-2">*</span>reached_bottom {
@@ -6250,8 +6316,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="comment">// Call into CHARLIE contract.
 			</span><span class="macro">assert_matches!</span>(
-				ctx.ext
-					.call(Weight::zero(), BalanceOf::&lt;Test&gt;::zero(), CHARLIE, <span class="number">0</span>, <span class="macro">vec!</span>[], <span class="bool-val">true</span>),
+				ctx.ext.call(
+					Weight::zero(),
+					BalanceOf::&lt;Test&gt;::zero(),
+					CHARLIE,
+					<span class="number">0</span>,
+					<span class="macro">vec!</span>[],
+					<span class="bool-val">true</span>,
+					<span class="bool-val">false
+				</span>),
 				<span class="prelude-val">Ok</span>(<span class="kw">_</span>)
 			);
 			exec_success()
@@ -6398,7 +6471,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span><span class="macro">assert!</span>(ctx.ext.caller_is_origin());
 			<span class="comment">// BOB calls CHARLIE
 			</span>ctx.ext
-				.call(Weight::zero(), BalanceOf::&lt;Test&gt;::zero(), CHARLIE, <span class="number">0</span>, <span class="macro">vec!</span>[], <span class="bool-val">true</span>)
+				.call(Weight::zero(), BalanceOf::&lt;Test&gt;::zero(), CHARLIE, <span class="number">0</span>, <span class="macro">vec!</span>[], <span class="bool-val">true</span>, <span class="bool-val">false</span>)
 		});
 
 		ExtBuilder::default().build().execute_with(|| {
@@ -6497,7 +6570,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span><span class="macro">assert!</span>(ctx.ext.caller_is_root());
 			<span class="comment">// BOB calls CHARLIE.
 			</span>ctx.ext
-				.call(Weight::zero(), BalanceOf::&lt;Test&gt;::zero(), CHARLIE, <span class="number">0</span>, <span class="macro">vec!</span>[], <span class="bool-val">true</span>)
+				.call(Weight::zero(), BalanceOf::&lt;Test&gt;::zero(), CHARLIE, <span class="number">0</span>, <span class="macro">vec!</span>[], <span class="bool-val">true</span>, <span class="bool-val">false</span>)
 		});
 
 		ExtBuilder::default().build().execute_with(|| {
@@ -6531,8 +6604,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="comment">// Call into charlie contract.
 			</span><span class="macro">assert_matches!</span>(
-				ctx.ext
-					.call(Weight::zero(), BalanceOf::&lt;Test&gt;::zero(), CHARLIE, <span class="number">0</span>, <span class="macro">vec!</span>[], <span class="bool-val">true</span>),
+				ctx.ext.call(
+					Weight::zero(),
+					BalanceOf::&lt;Test&gt;::zero(),
+					CHARLIE,
+					<span class="number">0</span>,
+					<span class="macro">vec!</span>[],
+					<span class="bool-val">true</span>,
+					<span class="bool-val">false
+				</span>),
 				<span class="prelude-val">Ok</span>(<span class="kw">_</span>)
 			);
 			exec_success()
@@ -6900,7 +6980,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						CHARLIE,
 						<span class="number">0</span>,
 						<span class="macro">vec!</span>[],
-						<span class="bool-val">true
+						<span class="bool-val">true</span>,
+						<span class="bool-val">false
 					</span>),
 					exec_trapped()
 				);
@@ -6911,7 +6992,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>code_charlie = MockLoader::insert(Call, |ctx, <span class="kw">_</span>| {
 			<span class="macro">assert!</span>(ctx
 				.ext
-				.call(Weight::zero(), BalanceOf::&lt;Test&gt;::zero(), BOB, <span class="number">0</span>, <span class="macro">vec!</span>[<span class="number">99</span>], <span class="bool-val">true</span>)
+				.call(Weight::zero(), BalanceOf::&lt;Test&gt;::zero(), BOB, <span class="number">0</span>, <span class="macro">vec!</span>[<span class="number">99</span>], <span class="bool-val">true</span>, <span class="bool-val">false</span>)
 				.is_ok());
 			exec_trapped()
 		});
@@ -6944,7 +7025,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>recursive_call_during_constructor_fails() {
 		<span class="kw">let </span>code = MockLoader::insert(Constructor, |ctx, <span class="kw">_</span>| {
 			<span class="macro">assert_matches!</span>(
-				ctx.ext.call(Weight::zero(), BalanceOf::&lt;Test&gt;::zero(), ctx.ext.address().clone(), <span class="number">0</span>, <span class="macro">vec!</span>[], <span class="bool-val">true</span>),
+				ctx.ext.call(Weight::zero(), BalanceOf::&lt;Test&gt;::zero(), ctx.ext.address().clone(), <span class="number">0</span>, <span class="macro">vec!</span>[], <span class="bool-val">true</span>, <span class="bool-val">false</span>),
 				<span class="prelude-val">Err</span>(ExecError{error, ..}) <span class="kw">if </span>error == &lt;Error&lt;Test&gt;&gt;::ContractNotFound.into()
 			);
 			exec_success()
@@ -7094,7 +7175,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="comment">// call the contract passed as input with disabled reentry
 		</span><span class="kw">let </span>code_bob = MockLoader::insert(Call, |ctx, <span class="kw">_</span>| {
 			<span class="kw">let </span>dest = Decode::decode(<span class="kw-2">&amp;mut </span>ctx.input_data.as_ref()).unwrap();
-			ctx.ext.call(Weight::zero(), BalanceOf::&lt;Test&gt;::zero(), dest, <span class="number">0</span>, <span class="macro">vec!</span>[], <span class="bool-val">false</span>)
+			ctx.ext
+				.call(Weight::zero(), BalanceOf::&lt;Test&gt;::zero(), dest, <span class="number">0</span>, <span class="macro">vec!</span>[], <span class="bool-val">false</span>, <span class="bool-val">false</span>)
 		});
 
 		<span class="kw">let </span>code_charlie = MockLoader::insert(Call, |<span class="kw">_</span>, <span class="kw">_</span>| exec_success());
@@ -7143,8 +7225,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>call_deny_reentry() {
 		<span class="kw">let </span>code_bob = MockLoader::insert(Call, |ctx, <span class="kw">_</span>| {
 			<span class="kw">if </span>ctx.input_data[<span class="number">0</span>] == <span class="number">0 </span>{
-				ctx.ext
-					.call(Weight::zero(), BalanceOf::&lt;Test&gt;::zero(), CHARLIE, <span class="number">0</span>, <span class="macro">vec!</span>[], <span class="bool-val">false</span>)
+				ctx.ext.call(
+					Weight::zero(),
+					BalanceOf::&lt;Test&gt;::zero(),
+					CHARLIE,
+					<span class="number">0</span>,
+					<span class="macro">vec!</span>[],
+					<span class="bool-val">false</span>,
+					<span class="bool-val">false</span>,
+				)
 			} <span class="kw">else </span>{
 				exec_success()
 			}
@@ -7152,7 +7241,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="comment">// call BOB with input set to '1'
 		</span><span class="kw">let </span>code_charlie = MockLoader::insert(Call, |ctx, <span class="kw">_</span>| {
-			ctx.ext.call(Weight::zero(), BalanceOf::&lt;Test&gt;::zero(), BOB, <span class="number">0</span>, <span class="macro">vec!</span>[<span class="number">1</span>], <span class="bool-val">true</span>)
+			ctx.ext
+				.call(Weight::zero(), BalanceOf::&lt;Test&gt;::zero(), BOB, <span class="number">0</span>, <span class="macro">vec!</span>[<span class="number">1</span>], <span class="bool-val">true</span>, <span class="bool-val">false</span>)
 		});
 
 		ExtBuilder::default().build().execute_with(|| {
@@ -7372,7 +7462,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="comment">// a plain call should not influence the account counter
 			</span>ctx.ext
-				.call(Weight::zero(), BalanceOf::&lt;Test&gt;::zero(), account_id, <span class="number">0</span>, <span class="macro">vec!</span>[], <span class="bool-val">false</span>)
+				.call(
+					Weight::zero(),
+					BalanceOf::&lt;Test&gt;::zero(),
+					account_id,
+					<span class="number">0</span>,
+					<span class="macro">vec!</span>[],
+					<span class="bool-val">false</span>,
+					<span class="bool-val">false</span>,
+				)
 				.unwrap();
 
 			exec_success()

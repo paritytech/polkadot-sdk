@@ -1052,6 +1052,23 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#901" id="901">901</a>
 <a href="#902" id="902">902</a>
 <a href="#903" id="903">903</a>
+<a href="#904" id="904">904</a>
+<a href="#905" id="905">905</a>
+<a href="#906" id="906">906</a>
+<a href="#907" id="907">907</a>
+<a href="#908" id="908">908</a>
+<a href="#909" id="909">909</a>
+<a href="#910" id="910">910</a>
+<a href="#911" id="911">911</a>
+<a href="#912" id="912">912</a>
+<a href="#913" id="913">913</a>
+<a href="#914" id="914">914</a>
+<a href="#915" id="915">915</a>
+<a href="#916" id="916">916</a>
+<a href="#917" id="917">917</a>
+<a href="#918" id="918">918</a>
+<a href="#919" id="919">919</a>
+<a href="#920" id="920">920</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1224,7 +1241,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="comment">// process attributes
 		</span><span class="kw">let </span>msg =
-			<span class="string">"Only #[version(&lt;u8&gt;)], #[unstable], #[prefixed_alias], #[cfg] and #[deprecated] attributes are allowed."</span>;
+			<span class="string">"Only #[version(&lt;u8&gt;)], #[unstable], #[prefixed_alias], #[cfg], #[mutating] and #[deprecated] attributes are allowed."</span>;
 		<span class="kw">let </span>span = item.span();
 		<span class="kw">let </span><span class="kw-2">mut </span>attrs = item.attrs.clone();
 		attrs.retain(|a| !a.path().is_ident(<span class="string">"doc"</span>));
@@ -1232,6 +1249,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span><span class="kw-2">mut </span>is_stable = <span class="bool-val">true</span>;
 		<span class="kw">let </span><span class="kw-2">mut </span>alias_to = <span class="prelude-val">None</span>;
 		<span class="kw">let </span><span class="kw-2">mut </span>not_deprecated = <span class="bool-val">true</span>;
+		<span class="kw">let </span><span class="kw-2">mut </span>mutating = <span class="bool-val">false</span>;
 		<span class="kw">let </span><span class="kw-2">mut </span>cfg = <span class="prelude-val">None</span>;
 		<span class="kw">while let </span><span class="prelude-val">Some</span>(attr) = attrs.pop() {
 			<span class="kw">let </span>ident = attr.path().get_ident().ok_or(err(span, msg))<span class="question-mark">?</span>.to_string();
@@ -1262,6 +1280,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					}
 					not_deprecated = <span class="bool-val">false</span>;
 				},
+				<span class="string">"mutating" </span>=&gt; {
+					<span class="kw">if </span>mutating {
+						<span class="kw">return </span><span class="prelude-val">Err</span>(err(span, <span class="string">"#[mutating] can only be specified once"</span>))
+					}
+					mutating = <span class="bool-val">true</span>;
+				},
 				<span class="string">"cfg" </span>=&gt; {
 					<span class="kw">if </span>cfg.is_some() {
 						<span class="kw">return </span><span class="prelude-val">Err</span>(err(span, <span class="string">"#[cfg] can only be specified once"</span>))
@@ -1271,6 +1295,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				id =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(err(span, <span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"Unsupported attribute \"{id}\". {msg}"</span>))),
 			}
 		}
+
+		<span class="kw">if </span>mutating {
+			<span class="kw">let </span>stmt = <span class="macro">syn::parse_quote! </span>{
+				<span class="kw">if </span>ctx.ext().is_read_only() {
+					<span class="kw">return </span><span class="prelude-val">Err</span>(Error::&lt;E::T&gt;::StateChangeDenied.into());
+				}
+			};
+			item.block.stmts.insert(<span class="number">0</span>, stmt);
+		}
+
 		<span class="kw">let </span>name = item.sig.ident.to_string();
 
 		<span class="kw">if </span>!(is_stable || not_deprecated) {

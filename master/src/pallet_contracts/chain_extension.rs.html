@@ -637,6 +637,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#486" id="486">486</a>
 <a href="#487" id="487">487</a>
 <a href="#488" id="488">488</a>
+<a href="#489" id="489">489</a>
+<a href="#490" id="490">490</a>
+<a href="#491" id="491">491</a>
+<a href="#492" id="492">492</a>
+<a href="#493" id="493">493</a>
+<a href="#494" id="494">494</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -751,6 +757,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// In case of `Err` the contract execution is immediately suspended and the passed error
 	/// is returned to the caller. Otherwise the value of [`RetVal`] determines the exit
 	/// behaviour.
+	///
+	/// # Note
+	///
+	/// The [`Self::call`] can be invoked within a read-only context, where any state-changing calls
+	/// are disallowed. This information can be obtained using `env.ext().is_read_only()`. It is
+	/// crucial for the implementer to handle this scenario appropriately.
 	</span><span class="kw">fn </span>call&lt;E: Ext&lt;T = C&gt;&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, env: Environment&lt;E, InitState&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;RetVal&gt;;
 
 	<span class="doccomment">/// Determines whether chain extensions are enabled for this chain.

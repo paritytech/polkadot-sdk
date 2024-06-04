@@ -1423,6 +1423,52 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1272" id="1272">1272</a>
 <a href="#1273" id="1273">1273</a>
 <a href="#1274" id="1274">1274</a>
+<a href="#1275" id="1275">1275</a>
+<a href="#1276" id="1276">1276</a>
+<a href="#1277" id="1277">1277</a>
+<a href="#1278" id="1278">1278</a>
+<a href="#1279" id="1279">1279</a>
+<a href="#1280" id="1280">1280</a>
+<a href="#1281" id="1281">1281</a>
+<a href="#1282" id="1282">1282</a>
+<a href="#1283" id="1283">1283</a>
+<a href="#1284" id="1284">1284</a>
+<a href="#1285" id="1285">1285</a>
+<a href="#1286" id="1286">1286</a>
+<a href="#1287" id="1287">1287</a>
+<a href="#1288" id="1288">1288</a>
+<a href="#1289" id="1289">1289</a>
+<a href="#1290" id="1290">1290</a>
+<a href="#1291" id="1291">1291</a>
+<a href="#1292" id="1292">1292</a>
+<a href="#1293" id="1293">1293</a>
+<a href="#1294" id="1294">1294</a>
+<a href="#1295" id="1295">1295</a>
+<a href="#1296" id="1296">1296</a>
+<a href="#1297" id="1297">1297</a>
+<a href="#1298" id="1298">1298</a>
+<a href="#1299" id="1299">1299</a>
+<a href="#1300" id="1300">1300</a>
+<a href="#1301" id="1301">1301</a>
+<a href="#1302" id="1302">1302</a>
+<a href="#1303" id="1303">1303</a>
+<a href="#1304" id="1304">1304</a>
+<a href="#1305" id="1305">1305</a>
+<a href="#1306" id="1306">1306</a>
+<a href="#1307" id="1307">1307</a>
+<a href="#1308" id="1308">1308</a>
+<a href="#1309" id="1309">1309</a>
+<a href="#1310" id="1310">1310</a>
+<a href="#1311" id="1311">1311</a>
+<a href="#1312" id="1312">1312</a>
+<a href="#1313" id="1313">1313</a>
+<a href="#1314" id="1314">1314</a>
+<a href="#1315" id="1315">1315</a>
+<a href="#1316" id="1316">1316</a>
+<a href="#1317" id="1317">1317</a>
+<a href="#1318" id="1318">1318</a>
+<a href="#1319" id="1319">1319</a>
+<a href="#1320" id="1320">1320</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1505,7 +1551,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	collections::{hash_map::Entry, HashMap, HashSet, VecDeque},
 	num::NonZeroUsize,
 	task::{Context, Poll},
-	time::Duration,
+	time::{Duration, Instant},
 };
 
 <span class="doccomment">/// Maximum number of known external addresses that we will cache.
@@ -1647,6 +1693,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			// https://github.com/paritytech/polkadot-sdk/issues/504
 			</span><span class="kw">let </span>kademlia_protocols = [kademlia_protocol.clone(), kademlia_legacy_protocol];
 			config.set_protocol_names(kademlia_protocols.into_iter().map(Into::into).collect());
+
+			config.set_record_filtering(libp2p::kad::KademliaStoreInserts::FilterBoth);
+
 			<span class="comment">// By default Kademlia attempts to insert all peers into its routing table once a
 			// dialing attempt succeeds. In order to control which peer is added, disable the
 			// auto-insertion and instead add peers manually.
@@ -1852,6 +1901,30 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 	}
 
+	<span class="doccomment">/// Store a record in the Kademlia record store.
+	</span><span class="kw">pub fn </span>store_record(
+		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
+		record_key: RecordKey,
+		record_value: Vec&lt;u8&gt;,
+		publisher: <span class="prelude-ty">Option</span>&lt;PeerId&gt;,
+		expires: <span class="prelude-ty">Option</span>&lt;Instant&gt;,
+	) {
+		<span class="kw">if let </span><span class="prelude-val">Some</span>(k) = <span class="self">self</span>.kademlia.as_mut() {
+			<span class="kw">if let </span><span class="prelude-val">Err</span>(err) = k.store_mut().put(Record {
+				key: record_key,
+				value: record_value,
+				publisher: publisher.map(|publisher| publisher.into()),
+				expires,
+			}) {
+				<span class="macro">debug!</span>(
+					target: <span class="string">"sub-libp2p"</span>,
+					<span class="string">"Failed to store record with key: {:?}"</span>,
+					err
+				);
+			}
+		}
+	}
+
 	<span class="doccomment">/// Returns the number of nodes in each Kademlia kbucket for each Kademlia instance.
 	///
 	/// Identifies Kademlia instances by their [`ProtocolId`] and kbuckets by the base 2 logarithm
@@ -1919,6 +1992,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// Returning the result grouped in (key, value) pairs as well as the request duration.
 	</span>ValueFound(Vec&lt;(RecordKey, Vec&lt;u8&gt;)&gt;, Duration),
+
+	<span class="doccomment">/// The DHT received a put record request.
+	</span>PutRecordRequest(
+		RecordKey,
+		Vec&lt;u8&gt;,
+		<span class="prelude-ty">Option</span>&lt;sc_network_types::PeerId&gt;,
+		<span class="prelude-ty">Option</span>&lt;std::time::Instant&gt;,
+	),
 
 	<span class="doccomment">/// The record requested was not found in the DHT.
 	///
@@ -2189,10 +2270,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						<span class="kw">let </span>ev = DiscoveryOut::Discovered(peer);
 						<span class="kw">return </span>Poll::Ready(ToSwarm::GenerateEvent(ev))
 					},
-					KademliaEvent::PendingRoutablePeer { .. } |
-					KademliaEvent::InboundRequest { .. } =&gt; {
+					KademliaEvent::PendingRoutablePeer { .. } =&gt; {
 						<span class="comment">// We are not interested in this event at the moment.
 					</span>},
+					KademliaEvent::InboundRequest { request } =&gt; <span class="kw">match </span>request {
+						libp2p::kad::InboundRequest::PutRecord { record: <span class="prelude-val">Some</span>(record), .. } =&gt;
+							<span class="kw">return </span>Poll::Ready(ToSwarm::GenerateEvent(
+								DiscoveryOut::PutRecordRequest(
+									record.key,
+									record.value,
+									record.publisher.map(Into::into),
+									record.expires,
+								),
+							)),
+						<span class="kw">_ </span>=&gt; {},
+					},
 					KademliaEvent::OutboundQueryProgressed {
 						result: QueryResult::GetClosestPeers(res),
 						..

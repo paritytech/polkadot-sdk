@@ -3675,6 +3675,37 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#3524" id="3524">3524</a>
 <a href="#3525" id="3525">3525</a>
 <a href="#3526" id="3526">3526</a>
+<a href="#3527" id="3527">3527</a>
+<a href="#3528" id="3528">3528</a>
+<a href="#3529" id="3529">3529</a>
+<a href="#3530" id="3530">3530</a>
+<a href="#3531" id="3531">3531</a>
+<a href="#3532" id="3532">3532</a>
+<a href="#3533" id="3533">3533</a>
+<a href="#3534" id="3534">3534</a>
+<a href="#3535" id="3535">3535</a>
+<a href="#3536" id="3536">3536</a>
+<a href="#3537" id="3537">3537</a>
+<a href="#3538" id="3538">3538</a>
+<a href="#3539" id="3539">3539</a>
+<a href="#3540" id="3540">3540</a>
+<a href="#3541" id="3541">3541</a>
+<a href="#3542" id="3542">3542</a>
+<a href="#3543" id="3543">3543</a>
+<a href="#3544" id="3544">3544</a>
+<a href="#3545" id="3545">3545</a>
+<a href="#3546" id="3546">3546</a>
+<a href="#3547" id="3547">3547</a>
+<a href="#3548" id="3548">3548</a>
+<a href="#3549" id="3549">3549</a>
+<a href="#3550" id="3550">3550</a>
+<a href="#3551" id="3551">3551</a>
+<a href="#3552" id="3552">3552</a>
+<a href="#3553" id="3553">3553</a>
+<a href="#3554" id="3554">3554</a>
+<a href="#3555" id="3555">3555</a>
+<a href="#3556" id="3556">3556</a>
+<a href="#3557" id="3557">3557</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -4222,6 +4253,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		value: u64,
 		data: Vec&lt;u8&gt;,
 		allows_reentry: bool,
+		read_only: bool,
 	}
 
 	<span class="attr">#[derive(Debug, PartialEq, Eq)]
@@ -4289,8 +4321,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			value: u64,
 			data: Vec&lt;u8&gt;,
 			allows_reentry: bool,
+			read_only: bool,
 		) -&gt; <span class="prelude-ty">Result</span>&lt;ExecReturnValue, ExecError&gt; {
-			<span class="self">self</span>.calls.push(CallEntry { to, value, data, allows_reentry });
+			<span class="self">self</span>.calls.push(CallEntry { to, value, data, allows_reentry, read_only });
 			<span class="prelude-val">Ok</span>(ExecReturnValue { flags: ReturnFlags::empty(), data: call_return_data() })
 		}
 		<span class="kw">fn </span>delegate_call(
@@ -4322,15 +4355,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				ExecReturnValue { flags: ReturnFlags::empty(), data: Vec::new() },
 			))
 		}
-		<span class="kw">fn </span>set_code_hash(<span class="kw-2">&amp;mut </span><span class="self">self</span>, hash: CodeHash&lt;<span class="self">Self</span>::T&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), DispatchError&gt; {
+		<span class="kw">fn </span>set_code_hash(<span class="kw-2">&amp;mut </span><span class="self">self</span>, hash: CodeHash&lt;<span class="self">Self</span>::T&gt;) -&gt; DispatchResult {
 			<span class="self">self</span>.code_hashes.push(hash);
 			<span class="prelude-val">Ok</span>(())
 		}
-		<span class="kw">fn </span>transfer(<span class="kw-2">&amp;mut </span><span class="self">self</span>, to: <span class="kw-2">&amp;</span>AccountIdOf&lt;<span class="self">Self</span>::T&gt;, value: u64) -&gt; <span class="prelude-ty">Result</span>&lt;(), DispatchError&gt; {
+		<span class="kw">fn </span>transfer(<span class="kw-2">&amp;mut </span><span class="self">self</span>, to: <span class="kw-2">&amp;</span>AccountIdOf&lt;<span class="self">Self</span>::T&gt;, value: u64) -&gt; DispatchResult {
 			<span class="self">self</span>.transfers.push(TransferEntry { to: to.clone(), value });
 			<span class="prelude-val">Ok</span>(())
 		}
-		<span class="kw">fn </span>terminate(<span class="kw-2">&amp;mut </span><span class="self">self</span>, beneficiary: <span class="kw-2">&amp;</span>AccountIdOf&lt;<span class="self">Self</span>::T&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), DispatchError&gt; {
+		<span class="kw">fn </span>terminate(<span class="kw-2">&amp;mut </span><span class="self">self</span>, beneficiary: <span class="kw-2">&amp;</span>AccountIdOf&lt;<span class="self">Self</span>::T&gt;) -&gt; DispatchResult {
 			<span class="self">self</span>.terminations.push(TerminationEntry { beneficiary: beneficiary.clone() });
 			<span class="prelude-val">Ok</span>(())
 		}
@@ -4464,27 +4497,26 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">fn </span>nonce(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; u64 {
 			<span class="number">995
 		</span>}
-		<span class="kw">fn </span>increment_refcount(_code_hash: CodeHash&lt;<span class="self">Self</span>::T&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), DispatchError&gt; {
+		<span class="kw">fn </span>increment_refcount(_code_hash: CodeHash&lt;<span class="self">Self</span>::T&gt;) -&gt; DispatchResult {
 			<span class="prelude-val">Ok</span>(())
 		}
 		<span class="kw">fn </span>decrement_refcount(_code_hash: CodeHash&lt;<span class="self">Self</span>::T&gt;) {}
-		<span class="kw">fn </span>lock_delegate_dependency(
-			<span class="kw-2">&amp;mut </span><span class="self">self</span>,
-			code: CodeHash&lt;<span class="self">Self</span>::T&gt;,
-		) -&gt; <span class="prelude-ty">Result</span>&lt;(), DispatchError&gt; {
+		<span class="kw">fn </span>lock_delegate_dependency(<span class="kw-2">&amp;mut </span><span class="self">self</span>, code: CodeHash&lt;<span class="self">Self</span>::T&gt;) -&gt; DispatchResult {
 			<span class="self">self</span>.delegate_dependencies.borrow_mut().insert(code);
 			<span class="prelude-val">Ok</span>(())
 		}
-		<span class="kw">fn </span>unlock_delegate_dependency(
-			<span class="kw-2">&amp;mut </span><span class="self">self</span>,
-			code: <span class="kw-2">&amp;</span>CodeHash&lt;<span class="self">Self</span>::T&gt;,
-		) -&gt; <span class="prelude-ty">Result</span>&lt;(), DispatchError&gt; {
+		<span class="kw">fn </span>unlock_delegate_dependency(<span class="kw-2">&amp;mut </span><span class="self">self</span>, code: <span class="kw-2">&amp;</span>CodeHash&lt;<span class="self">Self</span>::T&gt;) -&gt; DispatchResult {
 			<span class="self">self</span>.delegate_dependencies.borrow_mut().remove(code);
 			<span class="prelude-val">Ok</span>(())
 		}
+
 		<span class="kw">fn </span>locked_delegate_dependencies_count(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; usize {
 			<span class="self">self</span>.delegate_dependencies.borrow().len()
 		}
+
+		<span class="kw">fn </span>is_read_only(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+			<span class="bool-val">false
+		</span>}
 	}
 
 	<span class="doccomment">/// Execute the supplied code.
@@ -4666,7 +4698,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="macro">assert_eq!</span>(
 			<span class="kw-2">&amp;</span>mock_ext.calls,
-			<span class="kw-2">&amp;</span>[CallEntry { to: ALICE, value: <span class="number">6</span>, data: <span class="macro">vec!</span>[<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>, <span class="number">4</span>], allows_reentry: <span class="bool-val">true </span>}]
+			<span class="kw-2">&amp;</span>[CallEntry {
+				to: ALICE,
+				value: <span class="number">6</span>,
+				data: <span class="macro">vec!</span>[<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>, <span class="number">4</span>],
+				allows_reentry: <span class="bool-val">true</span>,
+				read_only: <span class="bool-val">false
+			</span>}]
 		);
 	}
 
@@ -4763,7 +4801,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="macro">assert_eq!</span>(
 			<span class="kw-2">&amp;</span>mock_ext.calls,
-			<span class="kw-2">&amp;</span>[CallEntry { to: ALICE, value: <span class="number">0x2a</span>, data: input, allows_reentry: <span class="bool-val">false </span>}]
+			<span class="kw-2">&amp;</span>[CallEntry {
+				to: ALICE,
+				value: <span class="number">0x2a</span>,
+				data: input,
+				allows_reentry: <span class="bool-val">false</span>,
+				read_only: <span class="bool-val">false
+			</span>}]
 		);
 	}
 
@@ -4818,7 +4862,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="macro">assert_eq!</span>(result.data, input);
 		<span class="macro">assert_eq!</span>(
 			<span class="kw-2">&amp;</span>mock_ext.calls,
-			<span class="kw-2">&amp;</span>[CallEntry { to: ALICE, value: <span class="number">0x2a</span>, data: input, allows_reentry: <span class="bool-val">true </span>}]
+			<span class="kw-2">&amp;</span>[CallEntry {
+				to: ALICE,
+				value: <span class="number">0x2a</span>,
+				data: input,
+				allows_reentry: <span class="bool-val">true</span>,
+				read_only: <span class="bool-val">false
+			</span>}]
 		);
 	}
 
@@ -4865,7 +4915,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="macro">assert_eq!</span>(result.data, call_return_data());
 		<span class="macro">assert_eq!</span>(
 			<span class="kw-2">&amp;</span>mock_ext.calls,
-			<span class="kw-2">&amp;</span>[CallEntry { to: ALICE, value: <span class="number">0x2a</span>, data: input, allows_reentry: <span class="bool-val">false </span>}]
+			<span class="kw-2">&amp;</span>[CallEntry {
+				to: ALICE,
+				value: <span class="number">0x2a</span>,
+				data: input,
+				allows_reentry: <span class="bool-val">false</span>,
+				read_only: <span class="bool-val">false
+			</span>}]
 		);
 	}
 
@@ -5106,7 +5162,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="macro">assert_eq!</span>(
 			<span class="kw-2">&amp;</span>mock_ext.calls,
-			<span class="kw-2">&amp;</span>[CallEntry { to: ALICE, value: <span class="number">6</span>, data: <span class="macro">vec!</span>[<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>, <span class="number">4</span>], allows_reentry: <span class="bool-val">true </span>}]
+			<span class="kw-2">&amp;</span>[CallEntry {
+				to: ALICE,
+				value: <span class="number">6</span>,
+				data: <span class="macro">vec!</span>[<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>, <span class="number">4</span>],
+				allows_reentry: <span class="bool-val">true</span>,
+				read_only: <span class="bool-val">false
+			</span>}]
 		);
 	}
 

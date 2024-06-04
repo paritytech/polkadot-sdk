@@ -2058,6 +2058,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1907" id="1907">1907</a>
 <a href="#1908" id="1908">1908</a>
 <a href="#1909" id="1909">1909</a>
+<a href="#1910" id="1910">1910</a>
+<a href="#1911" id="1911">1911</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2283,7 +2285,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub struct </span>ApiVersion(u16);
 <span class="kw">impl </span>Default <span class="kw">for </span>ApiVersion {
 	<span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
-		<span class="self">Self</span>(<span class="number">3</span>)
+		<span class="self">Self</span>(<span class="number">4</span>)
 	}
 }
 
@@ -3259,6 +3261,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		/// into `pallet-contracts`. This would make the whole pallet reentrant with regard to
 		/// contract code execution which is not supported.
 		</span>ReentranceDenied,
+		<span class="doccomment">/// A contract attempted to invoke a state modifying API while being in read-only mode.
+		</span>StateChangeDenied,
 		<span class="doccomment">/// Origin doesn't have enough balance to pay the required storage deposits.
 		</span>StorageDepositNotEnoughFunds,
 		<span class="doccomment">/// More storage was created than allowed by the storage deposit limit.
