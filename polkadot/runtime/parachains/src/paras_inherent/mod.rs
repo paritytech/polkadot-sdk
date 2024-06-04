@@ -560,7 +560,7 @@ impl<T: Config> Pallet<T> {
 			.chain(freed_disputed.into_iter().map(|core| (core, FreedReason::Concluded)))
 			.chain(freed_timeout.into_iter().map(|c| (c, FreedReason::TimedOut)))
 			.collect::<BTreeMap<CoreIndex, FreedReason>>();
-		scheduler::Pallet::<T>::free_cores_and_fill_claimqueue(freed, now);
+		scheduler::Pallet::<T>::free_cores_and_fill_claim_queue(freed, now);
 
 		METRICS.on_candidates_processed_total(backed_candidates.len() as u64);
 

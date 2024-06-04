@@ -166,7 +166,7 @@ mod enter {
 				.unwrap();
 
 			// The current schedule is empty prior to calling `create_inherent_enter`.
-			assert!(scheduler::Pallet::<Test>::claimqueue_is_empty());
+			assert!(scheduler::Pallet::<Test>::claim_queue_is_empty());
 
 			// Nothing is filtered out (including the backed candidates.)
 			assert_eq!(
@@ -257,7 +257,7 @@ mod enter {
 				.unwrap();
 
 			// The current schedule is empty prior to calling `create_inherent_enter`.
-			assert!(scheduler::Pallet::<Test>::claimqueue_is_empty());
+			assert!(scheduler::Pallet::<Test>::claim_queue_is_empty());
 
 			assert!(pallet::OnChainVotes::<Test>::get().is_none());
 
@@ -372,7 +372,7 @@ mod enter {
 			let mut inherent_data = InherentData::new();
 			inherent_data.put_data(PARACHAINS_INHERENT_IDENTIFIER, &scenario.data).unwrap();
 
-			assert!(!scheduler::Pallet::<Test>::claimqueue_is_empty());
+			assert!(!scheduler::Pallet::<Test>::claim_queue_is_empty());
 
 			// The right candidates have been filtered out (the ones for cores 0,4,5)
 			assert_eq!(
@@ -618,7 +618,7 @@ mod enter {
 				.unwrap();
 
 			// The current schedule is empty prior to calling `create_inherent_enter`.
-			assert!(scheduler::Pallet::<Test>::claimqueue_is_empty());
+			assert!(scheduler::Pallet::<Test>::claim_queue_is_empty());
 
 			let multi_dispute_inherent_data =
 				Pallet::<Test>::create_inherent_inner(&inherent_data.clone()).unwrap();
@@ -690,7 +690,7 @@ mod enter {
 				.unwrap();
 
 			// The current schedule is empty prior to calling `create_inherent_enter`.
-			assert!(scheduler::Pallet::<Test>::claimqueue_is_empty());
+			assert!(scheduler::Pallet::<Test>::claim_queue_is_empty());
 
 			let limit_inherent_data =
 				Pallet::<Test>::create_inherent_inner(&inherent_data.clone()).unwrap();
@@ -762,7 +762,7 @@ mod enter {
 				.unwrap();
 
 			// The current schedule is empty prior to calling `create_inherent_enter`.
-			assert!(scheduler::Pallet::<Test>::claimqueue_is_empty());
+			assert!(scheduler::Pallet::<Test>::claim_queue_is_empty());
 
 			// Nothing is filtered out (including the backed candidates.)
 			let limit_inherent_data =
@@ -849,7 +849,7 @@ mod enter {
 				.unwrap();
 
 			// The current schedule is empty prior to calling `create_inherent_enter`.
-			assert!(scheduler::Pallet::<Test>::claimqueue_is_empty());
+			assert!(scheduler::Pallet::<Test>::claim_queue_is_empty());
 
 			// Nothing is filtered out (including the backed candidates.)
 			let limit_inherent_data =
@@ -1818,7 +1818,7 @@ mod sanitizers {
 			]);
 
 			// Update scheduler's claimqueue with the parachains
-			scheduler::Pallet::<Test>::set_claimqueue(BTreeMap::from([
+			scheduler::Pallet::<Test>::set_claim_queue(BTreeMap::from([
 				(
 					CoreIndex::from(0),
 					VecDeque::from([ParasEntry::new(
@@ -2001,7 +2001,7 @@ mod sanitizers {
 			]);
 
 			// Update scheduler's claimqueue with the parachains
-			scheduler::Pallet::<Test>::set_claimqueue(BTreeMap::from([
+			scheduler::Pallet::<Test>::set_claim_queue(BTreeMap::from([
 				(
 					CoreIndex::from(0),
 					VecDeque::from([ParasEntry::new(
@@ -2542,7 +2542,7 @@ mod sanitizers {
 			]);
 
 			// Update scheduler's claimqueue with the parachains
-			scheduler::Pallet::<Test>::set_claimqueue(BTreeMap::from([
+			scheduler::Pallet::<Test>::set_claim_queue(BTreeMap::from([
 				(
 					CoreIndex::from(0),
 					VecDeque::from([ParasEntry::new(

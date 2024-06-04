@@ -248,7 +248,7 @@ mod v1 {
 				.count();
 
 			ensure!(
-				Pallet::<T>::claimqueue_len() as u32 + availability_cores_waiting as u32 ==
+				Pallet::<T>::claim_queue_len() as u32 + availability_cores_waiting as u32 ==
 					expected_len,
 				"ClaimQueue and AvailabilityCores should have the correct length",
 			);

@@ -206,7 +206,7 @@ impl<T: Config> Pallet<T> {
 
 	/// Called before the initializer notifies of a new session.
 	pub(crate) fn pre_new_session() {
-		Self::push_claimqueue_items_to_assignment_provider();
+		Self::push_claim_queue_items_to_assignment_provider();
 		Self::push_occupied_cores_to_assignment_provider();
 	}
 
@@ -338,7 +338,7 @@ impl<T: Config> Pallet<T> {
 		return ClaimQueueIterator::<T> { next_idx: 0, queue: queues.into_iter() }
 	}
 
-	/// Note that the given cores have become occupied. Update the claimqueue accordingly.
+	/// Note that the given cores have become occupied. Update the claim queue accordingly.
 	pub(crate) fn occupied(
 		now_occupied: BTreeMap<CoreIndex, ParaId>,
 	) -> BTreeMap<CoreIndex, PositionInClaimQueue> {
@@ -349,26 +349,26 @@ impl<T: Config> Pallet<T> {
 		let pos_mapping: BTreeMap<CoreIndex, PositionInClaimQueue> = now_occupied
 			.iter()
 			.flat_map(|(core_idx, para_id)| {
-				match Self::remove_from_claimqueue(*core_idx, *para_id) {
+				match Self::remove_from_claim_queue(*core_idx, *para_id) {
 					Err(e) => {
 						log::debug!(
 							target: LOG_TARGET,
-							"[occupied] error on remove_from_claimqueue {}",
+							"[occupied] error on remove_from_claim queue {}",
 							e
 						);
 						None
 					},
-					Ok((pos_in_claimqueue, pe)) => {
+					Ok((pos_in_claim_queue, pe)) => {
 						availability_cores[core_idx.0 as usize] = CoreOccupied::Paras(pe);
 
-						Some((*core_idx, pos_in_claimqueue))
+						Some((*core_idx, pos_in_claim_queue))
 					},
 				}
 			})
 			.collect();
 
 		// Drop expired claims after processing now_occupied.
-		Self::drop_expired_claims_from_claimqueue();
+		Self::drop_expired_claims_from_claim_queue();
 
 		AvailabilityCores::<T>::set(availability_cores);
 
@@ -378,7 +378,7 @@ impl<T: Config> Pallet<T> {
 	/// Iterates through every element in all claim queues and tries to add new assignments from the
 	/// `AssignmentProvider`. A claim is considered expired if it's `ttl` field is lower than the
 	/// current block height.
-	fn drop_expired_claims_from_claimqueue() {
+	fn drop_expired_claims_from_claim_queue() {
 		let now = frame_system::Pallet::<T>::block_number();
 		let availability_cores = AvailabilityCores::<T>::get();
 		let ttl = configuration::ActiveConfig::<T>::get().scheduler_params.ttl;
@@ -386,13 +386,13 @@ impl<T: Config> Pallet<T> {
 		ClaimQueue::<T>::mutate(|cq| {
 			for (idx, _) in (0u32..).zip(availability_cores) {
 				let core_idx = CoreIndex(idx);
-				if let Some(core_claimqueue) = cq.get_mut(&core_idx) {
+				if let Some(core_claim_queue) = cq.get_mut(&core_idx) {
 					let mut i = 0;
 					let mut num_dropped = 0;
-					while i < core_claimqueue.len() {
-						let maybe_dropped = if let Some(entry) = core_claimqueue.get(i) {
+					while i < core_claim_queue.len() {
+						let maybe_dropped = if let Some(entry) = core_claim_queue.get(i) {
 							if entry.ttl < now {
-								core_claimqueue.remove(i)
+								core_claim_queue.remove(i)
 							} else {
 								None
 							}
@@ -410,11 +410,11 @@ impl<T: Config> Pallet<T> {
 
 					for _ in 0..num_dropped {
 						// For all claims dropped due to TTL, attempt to pop a new entry to
-						// the back of the claimqueue.
+						// the back of the claim queue.
 						if let Some(assignment) =
 							T::AssignmentProvider::pop_assignment_for_core(core_idx)
 						{
-							core_claimqueue.push_back(ParasEntry::new(assignment, now + ttl));
+							core_claim_queue.push_back(ParasEntry::new(assignment, now + ttl));
 						}
 					}
 				}
@@ -565,10 +565,10 @@ impl<T: Config> Pallet<T> {
 	}
 
 	// on new session
-	fn push_claimqueue_items_to_assignment_provider() {
+	fn push_claim_queue_items_to_assignment_provider() {
 		for (_, claim_queue) in ClaimQueue::<T>::take() {
 			// Push back in reverse order so that when we pop from the provider again,
-			// the entries in the claimqueue are in the same order as they are right now.
+			// the entries in the claim queue are in the same order as they are right now.
 			for para_entry in claim_queue.into_iter().rev() {
 				Self::maybe_push_assignment(para_entry);
 			}
@@ -583,8 +583,8 @@ impl<T: Config> Pallet<T> {
 		}
 	}
 
-	/// Frees cores and fills the free claimqueue spots by popping from the `AssignmentProvider`.
-	pub fn free_cores_and_fill_claimqueue(
+	/// Frees cores and fills the free claim queue spots by popping from the `AssignmentProvider`.
+	pub fn free_cores_and_fill_claim_queue(
 		just_freed_cores: impl IntoIterator<Item = (CoreIndex, FreedReason)>,
 		now: BlockNumberFor<T>,
 	) {
@@ -619,8 +619,8 @@ impl<T: Config> Pallet<T> {
 						// Over max capacity, we need to bump ttl:
 						entry.ttl = now + ttl + One::one();
 					}
-					Self::add_to_claimqueue(core_idx, entry);
-					// The claim has been added back into the claimqueue.
+					Self::add_to_claim_queue(core_idx, entry);
+					// The claim has been added back into the claim queue.
 					// Do not pop another assignment for the core.
 					continue
 				} else {
@@ -636,7 +636,7 @@ impl<T: Config> Pallet<T> {
 			}
 			for _ in n_lookahead_used..n_lookahead {
 				if let Some(assignment) = T::AssignmentProvider::pop_assignment_for_core(core_idx) {
-					Self::add_to_claimqueue(core_idx, ParasEntry::new(assignment, now + ttl));
+					Self::add_to_claim_queue(core_idx, ParasEntry::new(assignment, now + ttl));
 				}
 			}
 		}
@@ -645,14 +645,14 @@ impl<T: Config> Pallet<T> {
 		debug_assert!(concluded_paras.is_empty());
 	}
 
-	fn add_to_claimqueue(core_idx: CoreIndex, pe: ParasEntryType<T>) {
+	fn add_to_claim_queue(core_idx: CoreIndex, pe: ParasEntryType<T>) {
 		ClaimQueue::<T>::mutate(|la| {
 			la.entry(core_idx).or_default().push_back(pe);
 		});
 	}
 
 	/// Returns `ParasEntry` with `para_id` at `core_idx` if found.
-	fn remove_from_claimqueue(
+	fn remove_from_claim_queue(
 		core_idx: CoreIndex,
 		para_id: ParaId,
 	) -> Result<(PositionInClaimQueue, ParasEntryType<T>), &'static str> {
@@ -672,8 +672,8 @@ impl<T: Config> Pallet<T> {
 
 	/// Paras scheduled next in the claim queue.
 	pub(crate) fn scheduled_paras() -> impl Iterator<Item = (CoreIndex, ParaId)> {
-		let claimqueue = ClaimQueue::<T>::get();
-		claimqueue
+		let claim_queue = ClaimQueue::<T>::get();
+		claim_queue
 			.into_iter()
 			.filter_map(|(core_idx, v)| v.front().map(|e| (core_idx, e.assignment.para_id())))
 	}
@@ -697,13 +697,13 @@ impl<T: Config> Pallet<T> {
 	}
 
 	#[cfg(any(feature = "try-runtime", test))]
-	fn claimqueue_len() -> usize {
+	fn claim_queue_len() -> usize {
 		ClaimQueue::<T>::get().iter().map(|la_vec| la_vec.1.len()).sum()
 	}
 
 	#[cfg(all(not(feature = "runtime-benchmarks"), test))]
-	pub(crate) fn claimqueue_is_empty() -> bool {
-		Self::claimqueue_len() == 0
+	pub(crate) fn claim_queue_is_empty() -> bool {
+		Self::claim_queue_len() == 0
 	}
 
 	#[cfg(test)]
@@ -712,7 +712,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	#[cfg(test)]
-	pub(crate) fn set_claimqueue(claimqueue: BTreeMap<CoreIndex, VecDeque<ParasEntryType<T>>>) {
-		ClaimQueue::<T>::set(claimqueue);
+	pub(crate) fn set_claim_queue(claim_queue: BTreeMap<CoreIndex, VecDeque<ParasEntryType<T>>>) {
+		ClaimQueue::<T>::set(claim_queue);
 	}
 }
