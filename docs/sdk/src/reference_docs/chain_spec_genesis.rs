@@ -115,6 +115,11 @@
 //! ```ignore
 //! cargo build -p staging-chain-spec-builder -p chain-spec-guide-runtime --release
 //! ```
+//! The `chain-spec-builder` util can also be installed with `cargo install`:
+//! ```ignore
+//! cargo install staging-chain-spec-builder
+//! cargo build -p chain-spec-guide-runtime --release
+//! ```
 //! Here are some examples in the form of rust tests:
 //! ### Listing available presets names:
 #![doc = docify::embed!("./src/reference_docs/chain_spec_runtime/tests/chain_spec_builder_tests.rs", list_presets)]
