@@ -597,4 +597,30 @@ mod tests {
 		);
 		storage.commit_transaction();
 	}
+
+	#[test]
+	fn metering_with_rollback_works() {
+		let mut storage = TransientStorage::<Test>::new(1024, 256);
+
+		storage.start_transaction();
+		assert_eq!(
+			storage.write(&ALICE, &Key::Fix([1; 32]), Some(vec![1]), false),
+			Ok(WriteOutcome::New)
+		);
+		let amount = storage.meter.total_amount();
+		storage.start_transaction();
+		assert_eq!(
+			storage.write(&ALICE, &Key::Fix([2; 32]), Some(vec![2]), false),
+			Ok(WriteOutcome::New)
+		);
+		storage.start_transaction();
+		assert_eq!(
+			storage.write(&BOB, &Key::Fix([1; 32]), Some(vec![3]), false),
+			Ok(WriteOutcome::New)
+		);
+		storage.commit_transaction();
+		storage.rollback_transaction();
+		storage.commit_transaction();
+		assert_eq!(amount, storage.meter.total_amount());
+	}
 }

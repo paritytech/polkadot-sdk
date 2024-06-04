@@ -3903,7 +3903,8 @@ mod tests {
 						CHARLIE,
 						0,
 						vec![],
-						true
+						true,
+						false,
 					),
 					exec_success()
 				);
@@ -3924,7 +3925,7 @@ mod tests {
 		let code_charlie = MockLoader::insert(Call, |ctx, _| {
 			assert!(ctx
 				.ext
-				.call(Weight::zero(), BalanceOf::<Test>::zero(), BOB, 0, vec![99], true)
+				.call(Weight::zero(), BalanceOf::<Test>::zero(), BOB, 0, vec![99], true, false)
 				.is_ok());
 			// CHARLIE can not read BOB`s storage.
 			assert_eq!(ctx.ext.get_transient_storage(storage_key_1), None);
@@ -3972,7 +3973,8 @@ mod tests {
 						CHARLIE,
 						0,
 						vec![],
-						true
+						true,
+						false
 					),
 					exec_trapped()
 				);
@@ -3990,7 +3992,7 @@ mod tests {
 		let code_charlie = MockLoader::insert(Call, |ctx, _| {
 			assert!(ctx
 				.ext
-				.call(Weight::zero(), BalanceOf::<Test>::zero(), BOB, 0, vec![99], true)
+				.call(Weight::zero(), BalanceOf::<Test>::zero(), BOB, 0, vec![99], true, false)
 				.is_ok());
 			exec_trapped()
 		});
