@@ -226,7 +226,7 @@ impl xcm_executor::Config for XcmConfig {
 	>;
 	type Trader = UsingComponents<
 		WeightToFee,
-		TokenRelayLocation,
+		WndRelayLocation,
 		AccountId,
 		Balances,
 		ResolveTo<StakingPotAccountId<Runtime>, Balances>,
