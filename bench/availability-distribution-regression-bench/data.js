@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1717428063953,
+  "lastUpdate": 1717489093100,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -12843,6 +12843,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-store",
             "value": 0.1714648097733334,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Bastian Köcher",
+            "username": "bkchr",
+            "email": "git@kchr.de"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "09de7f157e30f3b9fa2880d298144cb251dd5958",
+          "message": "Format the README.md files (#4688)\n\nCo-authored-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>",
+          "timestamp": "2024-06-04T07:45:53Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/09de7f157e30f3b9fa2880d298144cb251dd5958"
+        },
+        "date": 1717489064355,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.012246259213333333,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.01026080887333334,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.022170304213333335,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.16901256932000003,
             "unit": "seconds"
           }
         ]
