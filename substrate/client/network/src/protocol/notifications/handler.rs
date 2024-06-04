@@ -882,8 +882,8 @@ impl ConnectionHandler for NotifsHandler {
 #[cfg(test)]
 pub mod tests {
 	use super::*;
-	// TODO: Uncomment & update tests when/if `libp2p::Stream::new()` is made public.
-	//       See issue /TBD/.
+	// TODO: uncomment & update tests when/if `libp2p::Stream::new()` is made public.
+	//       See issue [#4692](https://github.com/paritytech/polkadot-sdk/issues/4692).
 	//       Uncomment the following imports when enabling the tests below.
 	// use crate::protocol::notifications::upgrade::{
 	// 	NotificationsInOpen, NotificationsInSubstreamHandshake, NotificationsOutOpen,

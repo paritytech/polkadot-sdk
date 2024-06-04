@@ -195,7 +195,8 @@ impl<TSubstream> NotificationsInSubstream<TSubstream>
 where
 	TSubstream: AsyncRead + AsyncWrite + Unpin,
 {
-	// TODO: uncomment when enabling tests in `handler.rs`.
+	// TODO: uncomment when enabling the tests in `handler.rs`.
+	//       See issue [#4692](https://github.com/paritytech/polkadot-sdk/issues/4692).
 	// #[cfg(test)]
 	// pub fn new(
 	// 	socket: Framed<TSubstream, UviBytes<io::Cursor<Vec<u8>>>>,
