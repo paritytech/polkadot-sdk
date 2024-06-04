@@ -7848,6 +7848,48 @@ mod stake_tracker {
 	}
 
 	#[test]
+	fn block_limits() {
+		let max_extrinsic = Weight::from_parts(1_479_873_955_000, 13_650_590_614_545_068_195);
+
+		let step = 32;
+		let mut page_size = 512;
+
+		loop {
+			let ext_weight =
+				<Test as pallet::pallet::Config>::WeightInfo::payout_stakers_alive_staked(
+					page_size,
+				);
+			if ext_weight.all_lte(max_extrinsic) {
+				println!(
+					" == Strict voter mode\n - page_size: {:?} \n - {:?}",
+					page_size, ext_weight
+				);
+				break;
+			}
+			page_size -= step;
+		}
+
+		let mut page_size = 512;
+		loop {
+			let ext_weight =
+				<Test as pallet::pallet::Config>::WeightInfo::payout_stakers_alive_staked_lazy(
+					page_size,
+				);
+			if ext_weight.all_lte(max_extrinsic) {
+				println!(
+					" == Lazy voter mode\n - page_size: {:?} \n - {:?}",
+					page_size, ext_weight
+				);
+				break;
+			}
+			page_size -= step;
+		}
+
+		// err for printout.
+		assert!(false);
+	}
+
+	#[test]
 	fn duplicate_nominations_dedup_approvals_works() {
 		ExtBuilder::default()
 			.add_staker(100, 100, 1_000, StakerStatus::Nominator(vec![11]))

@@ -23,6 +23,44 @@ use frame_support::traits::WhitelistedStorageKeys;
 use sp_core::hexdisplay::HexDisplay;
 
 #[test]
+fn payout_block_limit() {
+	use pallet_staking::WeightInfo;
+
+	let step = 32;
+	let max_extrinsic = BlockWeights::get().get(DispatchClass::Normal).max_extrinsic.unwrap();
+
+	let mut page_size = 2048;
+
+	println!("{:?}", max_extrinsic);
+
+	loop {
+		let ext_weight =
+			<Runtime as pallet_staking::Config>::WeightInfo::payout_stakers_alive_staked(page_size);
+		if ext_weight.all_lt(max_extrinsic) {
+			println!(" == Strict voter mode\n - page_size: {:?} \n - {:?}", page_size, ext_weight);
+			break;
+		}
+		page_size -= step;
+	}
+
+	let mut page_size = 2048;
+
+	loop {
+		let ext_weight =
+			<Runtime as pallet_staking::Config>::WeightInfo::payout_stakers_alive_staked_lazy(
+				page_size,
+			);
+		if ext_weight.all_lt(max_extrinsic) {
+			println!(" == Lazy voter mode\n - page_size: {:?} \n - {:?}", page_size, ext_weight);
+			break;
+		}
+		page_size -= step;
+	}
+
+	assert!(false);
+}
+
+#[test]
 fn remove_keys_weight_is_sensible() {
 	use runtime_common::crowdloan::WeightInfo;
 	let max_weight = <Runtime as crowdloan::Config>::WeightInfo::refund(RemoveKeysLimit::get());

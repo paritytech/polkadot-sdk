@@ -596,6 +596,64 @@ impl<T: frame_system::Config> pallet_staking::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().writes((3_u64).saturating_mul(n.into())))
 			.saturating_add(Weight::from_parts(0, 3774).saturating_mul(n.into()))
 	}
+
+	// -- from https://github.com/paritytech/polkadot-sdk/pull/1933/files#diff-3cc81e200445313205a23ce4453156c3a3b92bdd6a007160ea0e82ea6f4c8182R584
+	//
+	/// Storage: `Staking::Bonded` (r:65 w:0)
+	/// Proof: `Staking::Bonded` (`max_values`: None, `max_size`: Some(72), added: 2547, mode: `MaxEncodedLen`)
+	/// Storage: `Staking::Ledger` (r:65 w:65)
+	/// Proof: `Staking::Ledger` (`max_values`: None, `max_size`: Some(1091), added: 3566, mode: `MaxEncodedLen`)
+	/// Storage: `Staking::ErasStakersClipped` (r:1 w:0)
+	/// Proof: `Staking::ErasStakersClipped` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `Staking::ErasStakersOverview` (r:1 w:0)
+	/// Proof: `Staking::ErasStakersOverview` (`max_values`: None, `max_size`: Some(92), added: 2567, mode: `MaxEncodedLen`)
+	/// Storage: `Staking::ClaimedRewards` (r:1 w:1)
+	/// Proof: `Staking::ClaimedRewards` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `Staking::CurrentEra` (r:1 w:0)
+	/// Proof: `Staking::CurrentEra` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
+	/// Storage: `Staking::ErasValidatorReward` (r:1 w:0)
+	/// Proof: `Staking::ErasValidatorReward` (`max_values`: None, `max_size`: Some(28), added: 2503, mode: `MaxEncodedLen`)
+	/// Storage: `Staking::ErasStakersPaged` (r:1 w:0)
+	/// Proof: `Staking::ErasStakersPaged` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `Staking::VirtualStakers` (r:65 w:0)
+	/// Proof: `Staking::VirtualStakers` (`max_values`: None, `max_size`: Some(40), added: 2515, mode: `MaxEncodedLen`)
+	/// Storage: `Balances::Locks` (r:65 w:65)
+	/// Proof: `Balances::Locks` (`max_values`: None, `max_size`: Some(1299), added: 3774, mode: `MaxEncodedLen`)
+	/// Storage: `Balances::Freezes` (r:65 w:0)
+	/// Proof: `Balances::Freezes` (`max_values`: None, `max_size`: Some(67), added: 2542, mode: `MaxEncodedLen`)
+	/// Storage: `System::Account` (r:65 w:65)
+	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
+	/// Storage: `Staking::ErasRewardPoints` (r:1 w:0)
+	/// Proof: `Staking::ErasRewardPoints` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `Staking::ErasValidatorPrefs` (r:1 w:0)
+	/// Proof: `Staking::ErasValidatorPrefs` (`max_values`: None, `max_size`: Some(57), added: 2532, mode: `MaxEncodedLen`)
+	/// Storage: `Staking::Payee` (r:65 w:0)
+	/// Proof: `Staking::Payee` (`max_values`: None, `max_size`: Some(73), added: 2548, mode: `MaxEncodedLen`)
+	/// Storage: `Staking::Validators` (r:65 w:0)
+	/// Proof: `Staking::Validators` (`max_values`: None, `max_size`: Some(45), added: 2520, mode: `MaxEncodedLen`)
+	/// Storage: `Staking::Nominators` (r:65 w:0)
+	/// Proof: `Staking::Nominators` (`max_values`: None, `max_size`: Some(558), added: 3033, mode: `MaxEncodedLen`)
+	/// Storage: `TargetList::ListNodes` (r:1 w:1)
+	/// Proof: `TargetList::ListNodes` (`max_values`: None, `max_size`: Some(170), added: 2645, mode: `MaxEncodedLen`)
+	/// Storage: `TargetList::ListBags` (r:8 w:8)
+	/// Proof: `TargetList::ListBags` (`max_values`: None, `max_size`: Some(90), added: 2565, mode: `MaxEncodedLen`)
+	/// The range of component `n` is `[0, 64]`.
+	fn payout_stakers_alive_staked_lazy(n: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `8725 + n * (482 ±0)`
+		//  Estimated: `17769 + n * (3774 ±0)`
+		// Minimum execution time: 184_524_000 picoseconds.
+		Weight::from_parts(244_791_126, 0)
+			.saturating_add(Weight::from_parts(0, 17769))
+			// Standard Error: 46_100
+			.saturating_add(Weight::from_parts(62_744_799, 0).saturating_mul(n.into()))
+			.saturating_add(T::DbWeight::get().reads(25))
+			.saturating_add(T::DbWeight::get().reads((9_u64).saturating_mul(n.into())))
+			.saturating_add(T::DbWeight::get().writes(12))
+			.saturating_add(T::DbWeight::get().writes((3_u64).saturating_mul(n.into())))
+			.saturating_add(Weight::from_parts(0, 3774).saturating_mul(n.into()))
+	}
+
 	/// Storage: `Staking::Ledger` (r:1 w:1)
 	/// Proof: `Staking::Ledger` (`max_values`: None, `max_size`: Some(1091), added: 3566, mode: `MaxEncodedLen`)
 	/// Storage: `Staking::Bonded` (r:1 w:0)
