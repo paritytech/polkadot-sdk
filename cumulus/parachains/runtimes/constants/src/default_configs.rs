@@ -58,7 +58,7 @@ impl frame_system::DefaultConfig for SystemParachainDefaultConfig {
 	/// The maximum length of a block (in bytes).
 	type BlockLength = RuntimeBlockLength;
 	/// The weight of database operations that the runtime can invoke.
-	type DbWeight = ();
+	type DbWeight = RocksDbWeight;
 	/// The ubiquitous event type injected by `construct_runtime!`.
 	#[inject_runtime_type]
 	type RuntimeEvent = ();
@@ -80,7 +80,7 @@ impl frame_system::DefaultConfig for SystemParachainDefaultConfig {
 	/// Maximum number of block number to block hash mappings to keep (oldest pruned first).
 	type BlockHashCount = BlockHashCount;
 	/// The set code logic, just the default since we're not a parachain.
-	type OnSetCode = ();
+	type OnSetCode = cumulus_pallet_parachain_system::ParachainSetCode<Self>;
 	type SingleBlockMigrations = ();
 	type MultiBlockMigrator = ();
 	type PreInherents = ();
