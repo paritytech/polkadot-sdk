@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Presets for demo runtime.
+//! Presets for the chain-spec demo runtime.
 
 use crate::pallets::{FooEnum, SomeFooData1, SomeFooData2};
 use serde_json::{json, to_string, Value};
@@ -23,12 +23,20 @@ use sp_application_crypto::Ss58Codec;
 use sp_keyring::AccountKeyring;
 use sp_std::vec;
 
+/// A demo preset with strings only.
 pub const PRESET_1: &str = "preset_1";
+/// A demo preset with real types.
 pub const PRESET_2: &str = "preset_2";
+/// Another demo preset with real types.
 pub const PRESET_3: &str = "preset_3";
+/// A single value patch preset.
 pub const PRESET_4: &str = "preset_4";
+/// A single value patch preset.
+pub const PRESET_INVALID: &str = "preset_invalid";
 
 #[docify::export]
+/// Function provides a preset demonstrating how use string representation of preset's internal
+/// values.
 fn preset_1() -> Value {
 	json!({
 		"bar": {
@@ -40,12 +48,17 @@ fn preset_1() -> Value {
 					"values": "0x0c0f"
 				}
 			},
+			"someStruct" : {
+				"fieldA": 10,
+				"fieldB": 20
+			},
 			"someInteger": 100
 		},
 	})
 }
 
 #[docify::export]
+/// Function provides a preset demonstrating how use the actual types to create a preset.
 fn preset_2() -> Value {
 	json!({
 		"bar": {
@@ -59,6 +72,7 @@ fn preset_2() -> Value {
 }
 
 #[docify::export]
+/// Function provides a preset demonstrating how use the actual types to create a preset.
 fn preset_3() -> Value {
 	json!({
 		"bar": {
@@ -77,6 +91,8 @@ fn preset_3() -> Value {
 }
 
 #[docify::export]
+/// Function provides a minimal preset demonstrating how to patch single key in
+/// `RuntimeGenesisConfig`.
 fn preset_4() -> Value {
 	json!({
 		"foo": {
@@ -89,7 +105,20 @@ fn preset_4() -> Value {
 	})
 }
 
-/// Provides a json representation of preset identified by given `id`.
+#[docify::export]
+/// Function provides an invalid preset demonstrating how important is use of
+/// [`deny_unknown_fields`] in data structures used in `GenesisConfig`.
+fn preset_invalid() -> Value {
+	json!({
+		"foo": {
+			"someStruct": {
+				"fieldC": 5
+			},
+		},
+	})
+}
+
+/// Provides a JSON representation of preset identified by given `id`.
 ///
 /// If no preset with given `id` exits `None` is returned.
 #[docify::export]
@@ -99,6 +128,7 @@ pub fn get_builtin_preset(id: &sp_genesis_builder::PresetId) -> Option<sp_std::v
 		Ok(PRESET_2) => preset_2(),
 		Ok(PRESET_3) => preset_3(),
 		Ok(PRESET_4) => preset_4(),
+		Ok(PRESET_INVALID) => preset_invalid(),
 		_ => return None,
 	};
 
@@ -107,4 +137,30 @@ pub fn get_builtin_preset(id: &sp_genesis_builder::PresetId) -> Option<sp_std::v
 			.expect("serialization to json is expected to work. qed.")
 			.into_bytes(),
 	)
+}
+
+#[test]
+#[docify::export]
+fn check_presets() {
+	let builder = sc_chain_spec::GenesisConfigBuilderRuntimeCaller::<()>::new(
+		crate::WASM_BINARY.expect("wasm binary shall exists"),
+	);
+	assert!(builder.get_storage_for_named_preset(Some(&PRESET_1.to_string())).is_ok());
+	assert!(builder.get_storage_for_named_preset(Some(&PRESET_2.to_string())).is_ok());
+	assert!(builder.get_storage_for_named_preset(Some(&PRESET_3.to_string())).is_ok());
+	assert!(builder.get_storage_for_named_preset(Some(&PRESET_4.to_string())).is_ok());
+}
+
+#[test]
+#[docify::export]
+fn invalid_preset_works() {
+	let builder = sc_chain_spec::GenesisConfigBuilderRuntimeCaller::<()>::new(
+		crate::WASM_BINARY.expect("wasm binary shall exists"),
+	);
+	// Even though a preset contains invalid_key, conversion to raw storage does not fail. This is
+	// because the [`FooStruct`] structure is not annotated with `deny_unknown_fields` [`serde`]
+	// attribute.
+	// This may lead to hard to debug problems, that's why using ['deny_unknown_fields'] is
+	// recommended.
+	assert!(builder.get_storage_for_named_preset(Some(&PRESET_INVALID.to_string())).is_ok());
 }

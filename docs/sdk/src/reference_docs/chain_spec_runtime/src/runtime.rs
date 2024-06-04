@@ -108,7 +108,8 @@ impl_runtime_apis! {
 				PresetId::from(PRESET_1),
 				PresetId::from(PRESET_2),
 				PresetId::from(PRESET_3),
-				PresetId::from(PRESET_4)
+				PresetId::from(PRESET_4),
+				PresetId::from(PRESET_INVALID)
 			]
 		}
 	}

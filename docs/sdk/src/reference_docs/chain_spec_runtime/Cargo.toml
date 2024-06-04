@@ -42,6 +42,7 @@ substrate-wasm-builder = { path = "../../../../../substrate/utils/wasm-builder",
 
 [dev-dependencies]
 chain-spec-builder = { package = "staging-chain-spec-builder", path = "../../../../../substrate/bin/utils/chain-spec-builder" }
+sc-chain-spec = { path = "../../../../../substrate/client/chain-spec" }
 
 [features]
 default = ["std"]

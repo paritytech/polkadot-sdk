@@ -37,7 +37,8 @@ fn list_presets() {
 			"preset_1",
 			"preset_2",
 			"preset_3",
-			"preset_4"
+			"preset_4",
+			"preset_invalid"
 		]
 	});
 	assert_eq!(output, expected_output, "Output did not match expected");
@@ -51,7 +52,7 @@ fn get_preset() {
 		.arg("-r")
 		.arg(WASM_FILE_PATH)
 		.arg("-p")
-		.arg("preset_1")
+		.arg("preset_2")
 		.output()
 		.expect("Failed to execute command");
 
@@ -65,10 +66,10 @@ fn get_preset() {
 		"foo": {
 			"someEnum": {
 				"Data2": {
-					"values": "0x0c0f"
+					"values": "0x0c10"
 				}
 			},
-			"someInteger": 100
+			"someInteger": 200
 		},
 	});
 	assert_eq!(output, expected_output, "Output did not match expected");
@@ -84,7 +85,7 @@ fn generate_chain_spec() {
 		.arg("-r")
 		.arg(WASM_FILE_PATH)
 		.arg("named-preset")
-		.arg("preset_1")
+		.arg("preset_2")
 		.output()
 		.expect("Failed to execute command");
 
@@ -115,10 +116,10 @@ fn generate_chain_spec() {
 			"foo": {
 			  "someEnum": {
 				"Data2": {
-				  "values": "0x0c0f"
+				  "values": "0x0c10"
 				}
 			  },
-			  "someInteger": 100
+			  "someInteger": 200
 			}
 		  }
 		}
