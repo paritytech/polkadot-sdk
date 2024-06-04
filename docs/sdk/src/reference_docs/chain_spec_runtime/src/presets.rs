@@ -37,7 +37,7 @@ fn preset_1() -> Value {
 		"foo": {
 			"someEnum": {
 				"Data2": {
-					"v": "0x0c0f"
+					"values": "0x0c0f"
 				}
 			},
 			"someInteger": 100
@@ -52,7 +52,7 @@ fn preset_2() -> Value {
 			"initialAccount": AccountKeyring::Ferdie.public().to_ss58check(),
 		},
 		"foo": {
-			"someEnum": FooEnum::Data2(SomeFooData2 { v: vec![12,16] }),
+			"someEnum": FooEnum::Data2(SomeFooData2 { values: vec![12,16] }),
 			"someInteger": 200
 		},
 	})
@@ -82,7 +82,7 @@ fn preset_4() -> Value {
 		"foo": {
 			"someEnum": {
 				"Data2": {
-					"v": "0x0c0f"
+					"values": "0x0c0f"
 				}
 			},
 		},

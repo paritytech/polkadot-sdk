@@ -54,9 +54,10 @@ pub struct SomeFooData1 {
 }
 
 #[derive(Default, serde::Serialize, serde::Deserialize)]
+#[docify::export]
 pub struct SomeFooData2 {
 	#[serde(default, with = "sp_core::bytes")]
-	pub v: Vec<u8>,
+	pub values: Vec<u8>,
 }
 
 #[derive(Default, serde::Serialize, serde::Deserialize)]
@@ -97,12 +98,12 @@ pub mod pallet_foo {
 	#[docify::export(pallet_foo_build)]
 	impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
 		fn build(&self) {
-			let v: u64 = match &self.some_enum {
+			let processed_value: u64 = match &self.some_enum {
 				FooEnum::Data0 => 0,
 				FooEnum::Data1(v) => (v.a + v.b).into(),
-				FooEnum::Data2(v) => v.v.iter().map(|v| *v as u64).sum(),
+				FooEnum::Data2(v) => v.values.iter().map(|v| *v as u64).sum(),
 			};
-			ProcessedEnumValue::<T>::set(Some(v));
+			ProcessedEnumValue::<T>::set(Some(processed_value));
 			SomeInteger::<T>::set(Some(self.some_integer));
 		}
 	}

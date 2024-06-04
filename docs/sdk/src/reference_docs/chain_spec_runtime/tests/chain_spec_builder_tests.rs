@@ -65,7 +65,7 @@ fn get_preset() {
 		"foo": {
 			"someEnum": {
 				"Data2": {
-					"v": "0x0c0f"
+					"values": "0x0c0f"
 				}
 			},
 			"someInteger": 100
@@ -115,7 +115,7 @@ fn generate_chain_spec() {
 			"foo": {
 			  "someEnum": {
 				"Data2": {
-				  "v": "0x0c0f"
+				  "values": "0x0c0f"
 				}
 			  },
 			  "someInteger": 100
