@@ -14215,6 +14215,7 @@ dependencies = [
  "sp-version-proc-macro",
  "sp-wasm-interface 20.0.0",
  "sp-weights",
+ "staging-chain-spec-builder",
  "staging-node-inspect",
  "staging-parachain-info",
  "staging-tracking-allocator",
