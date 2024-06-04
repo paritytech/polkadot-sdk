@@ -1234,12 +1234,6 @@ impl<T: Config> Pallet<T> {
 		let revert_to = included_in - One::one();
 
 		Included::<T>::insert(&session, &candidate_hash, revert_to);
-
-		if let Some(state) = Disputes::<T>::get(&session, candidate_hash) {
-			if has_supermajority_against(&state) {
-				Self::revert_and_freeze(revert_to);
-			}
-		}
 	}
 
 	pub(crate) fn disputes_concluded_invalid(session: SessionIndex) -> BTreeSet<CandidateHash> {
