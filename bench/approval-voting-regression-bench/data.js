@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1717500955467,
+  "lastUpdate": 1717513253402,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -6297,6 +6297,53 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 3.031371674170141,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Sebastian Kunert",
+            "username": "skunert",
+            "email": "skunert49@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "9b76492302f7184ff00bd6141c9b4163611e9d45",
+          "message": "Use `parachain_info` in cumulus-test-runtime (#4672)\n\nThis allows to use custom para_ids with cumulus-test-runtime. \n\nZombienet is patching the genesis entries for `ParachainInfo`. This did\nnot work with `test-parachain` because it was using the `test_pallet`\nfor historic reasons I guess.",
+          "timestamp": "2024-06-04T13:32:27Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/9b76492302f7184ff00bd6141c9b4163611e9d45"
+        },
+        "date": 1717513226398,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52941.90000000001,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63544.479999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 7.218046809720012,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 9.707519350640036,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 3.2672337660501554,
             "unit": "seconds"
           }
         ]
