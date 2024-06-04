@@ -678,10 +678,10 @@ impl<T: Config> Pallet<T> {
 			.filter_map(|(core_idx, v)| v.front().map(|e| (core_idx, e.assignment.para_id())))
 	}
 
-	/// Paras that can be backed.
+	/// Paras that may get backed on cores.
 	///
-	/// 1. Must be scheduled on core.
-	/// 2. Core must not be occupied.
+	/// 1. The para must be scheduled on core.
+	/// 2. Core needs to be free, otherwise backing is not possible.
 	pub(crate) fn eligible_paras() -> impl Iterator<Item = (CoreIndex, ParaId)> {
 		let availability_cores = AvailabilityCores::<T>::get();
 
