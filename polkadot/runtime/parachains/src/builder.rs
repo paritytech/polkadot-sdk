@@ -850,7 +850,7 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 				.keys()
 				.flat_map(|para_id| {
 					(0..elastic_paras.get(&para_id).cloned().unwrap_or(1))
-						.filter_map(|_para_local_core_idx| {
+						.map(|_para_local_core_idx| {
 							let ttl = configuration::ActiveConfig::<T>::get().scheduler_params.ttl;
 							// Load an assignment into provider so that one is present to pop
 							let assignment =
@@ -859,17 +859,11 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 									ParaId::from(*para_id),
 								);
 
-							let entry = (
-								CoreIndex(core_idx),
-								[ParasEntry::new(assignment, now + ttl)].into(),
-							);
-							let res = if builder.unavailable_cores.contains(&core_idx) {
-								None
-							} else {
-								Some(entry)
-							};
 							core_idx += 1;
-							res
+							(
+								CoreIndex(core_idx - 1),
+								[ParasEntry::new(assignment, now + ttl)].into(),
+							)
 						})
 						.collect::<Vec<(CoreIndex, VecDeque<ParasEntry<_>>)>>()
 				})

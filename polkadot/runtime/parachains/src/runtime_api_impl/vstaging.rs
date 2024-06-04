@@ -16,7 +16,7 @@
 
 //! Put implementations of functions from staging APIs here.
 
-use crate::{inclusion, initializer, scheduler};
+use crate::{inclusion, initializer, scheduler, configuration};
 use primitives::{CommittedCandidateReceipt, CoreIndex, Id as ParaId};
 use sp_runtime::traits::One;
 use sp_std::{
@@ -33,11 +33,15 @@ pub fn claim_queue<T: scheduler::Config>() -> BTreeMap<CoreIndex, VecDeque<ParaI
 	// At the end of a session we clear the claim queues: Without this update call, nothing would be
 	// scheduled to the client.
 	<scheduler::Pallet<T>>::free_cores_and_fill_claimqueue(Vec::new(), now);
+	let config = configuration::ActiveConfig::<T>::get();
+	// Extra sanity, config should already never be smaller than 1:
+	let n_lookahead = config.scheduler_params.lookahead.max(1);
 
 	scheduler::ClaimQueue::<T>::get()
 		.into_iter()
 		.map(|(core_index, entries)| {
-			(core_index, entries.into_iter().map(|e| e.para_id()).collect())
+			// on cores timing out internal claim queue size may be temporarily longer than it should be:
+			(core_index, entries.into_iter().map(|e| e.para_id()).take(n_lookahead as usize).collect())
 		})
 		.collect()
 }

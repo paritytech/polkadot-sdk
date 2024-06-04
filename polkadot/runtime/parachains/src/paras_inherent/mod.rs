@@ -570,12 +570,12 @@ impl<T: Config> Pallet<T> {
 			.map(|b| *b)
 			.unwrap_or(false);
 
-		let mut scheduled: BTreeMap<ParaId, BTreeSet<CoreIndex>> = BTreeMap::new();
-		let mut total_scheduled_cores = 0;
+		let mut eligible: BTreeMap<ParaId, BTreeSet<CoreIndex>> = BTreeMap::new();
+		let mut total_eligible_cores = 0;
 
-		for (core_idx, para_id) in scheduler::Pallet::<T>::scheduled_paras() {
-			total_scheduled_cores += 1;
-			scheduled.entry(para_id).or_default().insert(core_idx);
+		for (core_idx, para_id) in scheduler::Pallet::<T>::eligible_paras() {
+			total_eligible_cores += 1;
+			eligible.entry(para_id).or_default().insert(core_idx);
 		}
 
 		let initial_candidate_count = backed_candidates.len();
@@ -583,12 +583,12 @@ impl<T: Config> Pallet<T> {
 			backed_candidates,
 			&allowed_relay_parents,
 			concluded_invalid_hashes,
-			scheduled,
+			eligible,
 			core_index_enabled,
 		);
 		let count = count_backed_candidates(&backed_candidates_with_core);
 
-		ensure!(count <= total_scheduled_cores, Error::<T>::UnscheduledCandidate);
+		ensure!(count <= total_eligible_cores, Error::<T>::UnscheduledCandidate);
 
 		METRICS.on_candidates_sanitized(count as u64);
 

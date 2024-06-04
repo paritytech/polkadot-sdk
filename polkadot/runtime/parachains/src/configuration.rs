@@ -335,6 +335,8 @@ pub enum InconsistentError<BlockNumber> {
 	InconsistentExecutorParams { inner: ExecutorParamError },
 	/// TTL should be bigger than lookahead
 	LookaheadExceedsTTL,
+	/// Lookahead is zero, while it must be at least 1 for parachains to work.
+	LookaheadZero,
 	/// Passed in queue size for on-demand was too large.
 	OnDemandQueueSizeTooLarge,
 	/// Number of delay tranches cannot be 0.
@@ -430,6 +432,10 @@ where
 
 		if self.scheduler_params.ttl < self.scheduler_params.lookahead.into() {
 			return Err(LookaheadExceedsTTL)
+		}
+
+		if self.scheduler_params.lookahead == 0 {
+			return Err(LookaheadZero)
 		}
 
 		if self.scheduler_params.on_demand_queue_max_size > ON_DEMAND_MAX_QUEUE_MAX_SIZE {

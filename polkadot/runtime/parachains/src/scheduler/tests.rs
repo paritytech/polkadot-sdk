@@ -488,9 +488,8 @@ fn schedule_schedules_including_just_freed() {
 				.for_each(|(_core_idx, core_queue)| assert_eq!(core_queue.len(), 0))
 		}
 
-		// add a couple more para claims - the claim on `b` will go to the 3rd core
-		// (2) and the claim on `d` will go back to the 1st para core (0). The claim on `e`
-		// then will go for core `1`.
+		MockAssigner::add_test_assignment(assignment_a.clone());
+		MockAssigner::add_test_assignment(assignment_c.clone());
 		MockAssigner::add_test_assignment(assignment_b.clone());
 		MockAssigner::add_test_assignment(assignment_d.clone());
 		MockAssigner::add_test_assignment(assignment_e.clone());
@@ -500,8 +499,7 @@ fn schedule_schedules_including_just_freed() {
 		{
 			let scheduled: BTreeMap<_, _> = scheduled_entries().collect();
 
-			// cores 0 and 1 are occupied by claims. core 2 was free.
-			assert_eq!(scheduled.len(), 1);
+			assert_eq!(scheduled.len(), 3);
 			assert_eq!(
 				scheduled.get(&CoreIndex(2)).unwrap(),
 				&ParasEntry {
@@ -529,17 +527,28 @@ fn schedule_schedules_including_just_freed() {
 			assert_eq!(
 				scheduled.get(&CoreIndex(0)).unwrap(),
 				&ParasEntry {
-					assignment: Assignment::Bulk(para_d),
+					// Next entry in queue is `a` again:
+					assignment: Assignment::Bulk(para_a),
 					availability_timeouts: 0,
 					ttl: 8
 				},
 			);
 			// Although C was descheduled, the core `2` was occupied so C goes back to the queue.
 			assert_eq!(
+				scheduler::ClaimQueue::<Test>::get()[&CoreIndex(1)][1],
+				ParasEntry {
+					assignment: Assignment::Bulk(para_c),
+					// End of the queue should be the pushed back entry:
+					availability_timeouts: 1,
+					// ttl 1 higher:
+					ttl: 9
+				},
+			);
+			assert_eq!(
 				scheduled.get(&CoreIndex(1)).unwrap(),
 				&ParasEntry {
 					assignment: Assignment::Bulk(para_c),
-					availability_timeouts: 1,
+					availability_timeouts: 0,
 					ttl: 8
 				},
 			);
@@ -552,8 +561,6 @@ fn schedule_schedules_including_just_freed() {
 				},
 			);
 
-			// Para A claim should have been wiped, but para C claim should remain.
-			assert!(!claimqueue_contains_para_ids::<Test>(vec![para_a]));
 			assert!(claimqueue_contains_para_ids::<Test>(vec![para_c]));
 			assert!(!availability_cores_contains_para_ids::<Test>(vec![para_a, para_c]));
 		}
@@ -627,6 +634,7 @@ fn schedule_clears_availability_cores() {
 
 		// Add more assignments
 		MockAssigner::add_test_assignment(assignment_a.clone());
+		MockAssigner::add_test_assignment(assignment_b.clone());
 		MockAssigner::add_test_assignment(assignment_c.clone());
 
 		run_to_block(3, |_| None);
