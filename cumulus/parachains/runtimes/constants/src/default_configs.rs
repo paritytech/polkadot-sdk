@@ -27,25 +27,63 @@ use polkadot_runtime_common::BlockHashCount;
 pub struct SystemParachainDefaultConfig;
 
 /// [`frame_system::DefaultConfig`] for system parachains.
-#[derive_impl(frame_system::config_preludes::ParaChainDefaultConfig, no_aggregated_types)]
 #[frame_support::register_default_impl(SystemParachainDefaultConfig)]
 impl frame_system::DefaultConfig for SystemParachainDefaultConfig {
 	/// The default type for storing how many extrinsics an account has signed.
 	type Nonce = Nonce;
 	/// The default type for hashing blocks and tries.
 	type Hash = Hash;
+	/// The default hashing algorithm used.
+	type Hashing = sp_runtime::traits::BlakeTwo256;
 	/// The default identifier used to distinguish between accounts.
 	type AccountId = AccountId;
 	/// The lookup mechanism to get account ID from whatever is passed in dispatchers.
-	type Lookup = sp_runtime::traits::AccountIdLookup<AccountId, ()>;
+	type Lookup = sp_runtime::traits::AccountIdLookup<Self::AccountId, ()>;
 	/// The maximum number of consumers allowed on a single account.
 	type MaxConsumers = frame_support::traits::ConstU32<16>;
 	/// The default data to be stored in an account.
 	type AccountData = pallet_balances::AccountData<Balance>;
+	/// What to do if a new account is created.
+	type OnNewAccount = ();
+	/// What to do if an account is fully reaped from the system.
+	type OnKilledAccount = ();
+	/// Weight information for the extrinsics of this pallet.
+	type SystemWeightInfo = ();
+	/// This is used as an identifier of the chain.
+	type SS58Prefix = ();
+	/// Version of the runtime.
+	type Version = ();
 	/// Block & extrinsics weights: base values and limits.
 	type BlockWeights = RuntimeBlockWeights;
 	/// The maximum length of a block (in bytes).
 	type BlockLength = RuntimeBlockLength;
+	/// The weight of database operations that the runtime can invoke.
+	type DbWeight = ();
+	/// The ubiquitous event type injected by `construct_runtime!`.
+	#[inject_runtime_type]
+	type RuntimeEvent = ();
+	/// The ubiquitous origin type injected by `construct_runtime!`.
+	#[inject_runtime_type]
+	type RuntimeOrigin = ();
+	/// The aggregated dispatch type available for extrinsics, injected by
+	/// `construct_runtime!`.
+	#[inject_runtime_type]
+	type RuntimeCall = ();
+	/// The aggregated Task type, injected by `construct_runtime!`.
+	#[inject_runtime_type]
+	type RuntimeTask = ();
+	/// Converts a module to the index of the module, injected by `construct_runtime!`.
+	#[inject_runtime_type]
+	type PalletInfo = ();
+	/// The basic call filter to use in dispatchable. Supports everything as the default.
+	type BaseCallFilter = frame_support::traits::Everything;
 	/// Maximum number of block number to block hash mappings to keep (oldest pruned first).
 	type BlockHashCount = BlockHashCount;
+	/// The set code logic, just the default since we're not a parachain.
+	type OnSetCode = ();
+	type SingleBlockMigrations = ();
+	type MultiBlockMigrator = ();
+	type PreInherents = ();
+	type PostInherents = ();
+	type PostTransactions = ();
 }
