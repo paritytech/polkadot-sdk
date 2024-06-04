@@ -23,7 +23,7 @@ clap = { version = "4.5.3", features = ["derive"], optional = true }
 log = { workspace = true, default-features = true }
 thiserror = { workspace = true }
 futures = "0.3.30"
-pyro = { package = "pyroscope", version = "0.5.3", optional = true }
+pyroscope = { version = "0.5.3", optional = true }
 pyroscope_pprofrs = { version = "0.2", optional = true }
 
 polkadot-service = { path = "../node/service", default-features = false, optional = true }
@@ -71,7 +71,7 @@ try-runtime = [
 	"sp-runtime/try-runtime",
 ]
 fast-runtime = ["polkadot-service/fast-runtime"]
-pyroscope = ["pyro", "pyroscope_pprofrs"]
+pyroscope = ["dep:pyroscope", "pyroscope_pprofrs"]
 
 # Configure the native runtimes to use.
 westend-native = ["polkadot-service/westend-native"]
