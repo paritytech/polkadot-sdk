@@ -460,7 +460,6 @@ impl<T: Config> Pallet<T> {
 			T::DisputesHandler::process_checked_multi_dispute_data(&checked_disputes_sets)
 		{
 			log::warn!(target: LOG_TARGET, "MultiDisputesData failed to update: {:?}", e);
-			// return Err(e.into())
 		};
 		METRICS.on_disputes_imported(checked_disputes_sets.len() as u64);
 
