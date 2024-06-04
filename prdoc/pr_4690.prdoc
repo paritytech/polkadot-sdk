@@ -1,0 +1,11 @@
+title: Relay chain runtime filtering changes for backing votes
+
+doc:
+  - audience: Node Dev
+    description: |
+      This change is only relevant for the relay chain runtime. It changes the way that backing votes are filtered in the runtime.
+      This change is necessary to ensure that the backing votes are correctly filtered in the runtime for an extra layer of protection again bugs in the code.
+
+crates:
+  - name: polkadot-runtime-parachains
+    bump: major
