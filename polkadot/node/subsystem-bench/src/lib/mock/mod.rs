@@ -19,9 +19,11 @@ use polkadot_node_subsystem_types::Hash;
 use sp_consensus::SyncOracle;
 
 pub mod av_store;
+pub mod candidate_backing;
 pub mod chain_api;
 pub mod dummy;
 pub mod network_bridge;
+pub mod prospective_parachains;
 pub mod runtime_api;
 
 pub struct AlwaysSupportsParachains {}
