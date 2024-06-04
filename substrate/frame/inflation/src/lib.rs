@@ -368,13 +368,13 @@ pub mod pallet {
 				);
 				match &payout {
 					Action::Pay(who) => {
-						T::Currency::mint_into(who, amount).defensive();
+						let _ = T::Currency::mint_into(who, amount).defensive();
 						max_payout -= amount;
 					},
 					Action::SplitEqual(whos) => {
 						let amount_split = amount / (whos.len() as u32).into();
 						for who in whos {
-							T::Currency::mint_into(&who, amount_split).defensive();
+							let _ = T::Currency::mint_into(&who, amount_split).defensive();
 							max_payout -= amount_split;
 						}
 					},

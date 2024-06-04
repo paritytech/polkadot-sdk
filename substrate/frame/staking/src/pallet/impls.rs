@@ -28,7 +28,7 @@ use frame_support::{
 	pallet_prelude::*,
 	traits::{
 		Currency, Defensive, DefensiveSaturating, EstimateNextNewSession, Get, Imbalance,
-		InspectLockableCurrency, Len, LockableCurrency, OnUnbalanced, TryCollect, UnixTime,
+		InspectLockableCurrency, Len, LockableCurrency, OnUnbalanced, TryCollect,
 	},
 	weights::Weight,
 };
@@ -36,10 +36,10 @@ use frame_system::{pallet_prelude::BlockNumberFor, RawOrigin};
 use pallet_session::historical;
 use sp_runtime::{
 	traits::{
-		AccountIdConversion, Bounded, CheckedAdd, CheckedSub, Convert, One, SaturatedConversion,
+		AccountIdConversion, Bounded, CheckedAdd, CheckedSub, Convert, One,
 		Saturating, StaticLookup, Zero,
 	},
-	ArithmeticError, Perbill, Percent,
+	ArithmeticError, Perbill,
 };
 use sp_staking::{
 	currency_to_vote::CurrencyToVote,

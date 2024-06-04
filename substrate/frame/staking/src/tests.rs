@@ -4990,7 +4990,6 @@ fn do_not_die_when_active_is_ed() {
 mod election_data_provider {
 	use super::*;
 	use frame_election_provider_support::ElectionDataProvider;
-	use sp_npos_elections::VoteWeight;
 
 	#[test]
 	fn targets_2sec_block() {
