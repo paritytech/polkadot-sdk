@@ -52,6 +52,7 @@ use frame_support::{
 use crate::{self as pallet_session, Pallet as Session};
 
 pub use pallet::*;
+use sp_trie::recorder_ext::RecorderExt;
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -274,7 +275,7 @@ impl<T: Config> ProvingTrie<T> {
 		let mut recorder = Recorder::<LayoutV0<T::Hashing>>::new();
 		self.query(key_id, key_data, Some(&mut recorder));
 
-		Some(recorder.drain().into_iter().map(|r| r.data).collect())
+		Some(recorder.into_optimized_raw_storage_proof())
 	}
 
 	/// Access the underlying trie root.

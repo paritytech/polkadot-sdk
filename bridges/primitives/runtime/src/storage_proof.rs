@@ -21,14 +21,12 @@ use codec::{Decode, Encode};
 use frame_support::PalletError;
 use hash_db::{HashDB, Hasher, EMPTY_PREFIX};
 use scale_info::TypeInfo;
-use sp_std::{boxed::Box, collections::btree_set::BTreeSet, vec::Vec};
+use sp_std::{boxed::Box, vec::Vec};
+pub use sp_trie::RawStorageProof;
 use sp_trie::{
-	read_trie_value, LayoutV1, MemoryDB, Recorder, StorageProof, Trie, TrieConfiguration,
-	TrieDBBuilder, TrieError, TrieHash,
+	read_trie_value, recorder_ext::RecorderExt, LayoutV1, MemoryDB, Recorder, StorageProof, Trie,
+	TrieConfiguration, TrieDBBuilder, TrieError, TrieHash,
 };
-
-/// Raw storage proof type (just raw trie nodes).
-pub type RawStorageProof = Vec<Vec<u8>>;
 
 /// Storage proof size requirements.
 ///
@@ -90,19 +88,10 @@ where
 
 	/// Returns error if the proof has some nodes that are left intact by previous `read_value`
 	/// calls.
-	pub fn ensure_no_unused_nodes(mut self) -> Result<(), Error> {
-		let visited_nodes = self
-			.recorder
-			.drain()
-			.into_iter()
-			.map(|record| record.data)
-			.collect::<BTreeSet<_>>();
-		let visited_nodes_count = visited_nodes.len();
-		if self.proof_nodes_count == visited_nodes_count {
-			Ok(())
-		} else {
-			Err(Error::UnusedNodesInTheProof)
-		}
+	pub fn ensure_no_unused_nodes(self) -> Result<(), Error> {
+		self.recorder
+			.ensure_node_count(self.proof_nodes_count)
+			.map_err(|_| Error::UnusedNodesInTheProof)
 	}
 
 	/// Reads a value from the available subset of storage. If the value cannot be read due to an
@@ -202,15 +191,7 @@ where
 		trie.get(&key)?;
 	}
 
-	// recorder may record the same trie node multiple times and we don't want duplicate nodes
-	// in our proofs => let's deduplicate it by collecting to the BTreeSet first
-	Ok(recorder
-		.drain()
-		.into_iter()
-		.map(|n| n.data.to_vec())
-		.collect::<BTreeSet<_>>()
-		.into_iter()
-		.collect())
+	Ok(recorder.into_optimized_raw_storage_proof())
 }
 
 #[cfg(test)]

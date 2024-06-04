@@ -28,6 +28,7 @@ mod node_codec;
 mod node_header;
 #[cfg(feature = "std")]
 pub mod recorder;
+pub mod recorder_ext;
 mod storage_proof;
 mod trie_codec;
 mod trie_stream;
@@ -63,6 +64,9 @@ pub use trie_db::{
 pub use trie_db::{proof::VerifyError, MerkleValue};
 /// The Substrate format implementation of `TrieStream`.
 pub use trie_stream::TrieStream;
+
+/// Raw storage proof type (just raw trie nodes).
+pub type RawStorageProof = Vec<Vec<u8>>;
 
 /// substrate trie layout
 pub struct LayoutV0<H>(PhantomData<H>);

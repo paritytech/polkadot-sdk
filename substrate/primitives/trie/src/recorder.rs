@@ -145,7 +145,7 @@ impl<H: Hasher> Recorder<H> {
 
 	/// Convert the recording to a [`StorageProof`].
 	///
-	/// In contrast to [`Self::drain_storage_proof`] this doesn't consumes and doesn't clears the
+	/// In contrast to [`Self::drain_storage_proof`] this doesn't consume and doesn't clears the
 	/// recordings.
 	///
 	/// Returns the [`StorageProof`].
