@@ -1,0 +1,16 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Chain-spec-builder supports parachain chain-specs and `codeSubstitutes`.
+
+doc:
+  - audience: Node Operator
+    description: |
+      Chain-spec-builder now supports parachain chain-specs. Parachain chain-specs have the `relay_chain` and `para_id` fields.
+      Before this change, the fields would get silently removed when using the chain-spec-builder.
+      In addition, a new subcommand `add-code-substitute` is available. It allows users to provide a runtime that should be used from a given
+      block onwards.
+
+crates:
+  - name: staging-chain-spec-builder
+    bump: major
