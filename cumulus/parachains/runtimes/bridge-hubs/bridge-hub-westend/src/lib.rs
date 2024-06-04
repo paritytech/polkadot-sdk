@@ -59,7 +59,7 @@ use bridge_hub_common::{
 	AggregateMessageOrigin,
 };
 use frame_support::{
-	construct_runtime, derive_impl,
+	construct_runtime,
 	dispatch::DispatchClass,
 	genesis_builder_helper::{build_state, get_preset},
 	parameter_types,
@@ -223,8 +223,6 @@ parameter_types! {
 }
 
 // Configure FRAME pallets to include in runtime.
-
-#[derive_impl(frame_system::config_preludes::ParaChainDefaultConfig)]
 impl frame_system::Config for Runtime {
 	/// The identifier used to distinguish between accounts.
 	type AccountId = AccountId;
@@ -253,6 +251,21 @@ impl frame_system::Config for Runtime {
 	/// The action to take on a Runtime Upgrade
 	type OnSetCode = cumulus_pallet_parachain_system::ParachainSetCode<Self>;
 	type MaxConsumers = frame_support::traits::ConstU32<16>;
+	type RuntimeEvent = RuntimeEvent;
+	type RuntimeOrigin = RuntimeOrigin;
+    type RuntimeCall = RuntimeCall;
+    type RuntimeTask = RuntimeTask;
+	type PalletInfo = PalletInfo;
+	type SingleBlockMigrations = ();
+	type MultiBlockMigrator = ();
+	type PreInherents = ();
+	type PostInherents = ();
+	type PostTransactions = ();
+	type Hashing = sp_runtime::traits::BlakeTwo256;
+	type Lookup = sp_runtime::traits::AccountIdLookup<Self::AccountId, ()>;
+	type OnNewAccount = ();
+	type OnKilledAccount = ();
+	type BaseCallFilter = frame_support::traits::Everything;
 }
 
 impl pallet_timestamp::Config for Runtime {
