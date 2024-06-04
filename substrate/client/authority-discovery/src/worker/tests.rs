@@ -956,7 +956,7 @@ fn test_handle_put_record_request() {
 			for authority in remote_public_keys.iter() {
 				let key = hash_authority_id(authority.as_ref());
 				assert!(matches!(
-					worker.handle_put_record_requested(key, vec![0x0], None, None).await,
+					worker.handle_put_record_requested(key, vec![0x0], Some(peer_id), None).await,
 					Err(Error::DecodingProto(_))
 				));
 			}
@@ -966,7 +966,7 @@ fn test_handle_put_record_request() {
 			for authority in remote_non_authorithy_keys.iter() {
 				let key = hash_authority_id(authority.as_ref());
 				assert!(matches!(
-					worker.handle_put_record_requested(key, vec![0x0], None, None).await,
+					worker.handle_put_record_requested(key, vec![0x0], Some(peer_id), None).await,
 					Err(Error::UnknownAuthority)
 				));
 				assert!(prev_requested_authorithies == worker.authorities_queried_at);
