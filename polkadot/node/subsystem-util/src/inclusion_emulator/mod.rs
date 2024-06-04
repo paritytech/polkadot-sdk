@@ -117,9 +117,8 @@
 /// That means a few blocks of execution time lost, which is not a big deal for code upgrades
 /// in practice at most once every few weeks.
 use polkadot_primitives::{
-	async_backing::Constraints as PrimitiveConstraints, BlockNumber, CandidateCommitments,
-	CollatorId, CollatorSignature, Hash, HeadData, Id as ParaId, PersistedValidationData,
-	UpgradeRestriction, ValidationCodeHash,
+	async_backing::Constraints as PrimitiveConstraints, BlockNumber, CandidateCommitments, Hash,
+	HeadData, Id as ParaId, PersistedValidationData, UpgradeRestriction, ValidationCodeHash,
 };
 use std::{collections::HashMap, sync::Arc};
 
@@ -529,10 +528,6 @@ impl ConstraintModifications {
 pub struct ProspectiveCandidate {
 	/// The commitments to the output of the execution.
 	pub commitments: CandidateCommitments,
-	/// The collator that created the candidate.
-	pub collator: CollatorId,
-	/// The signature of the collator on the payload.
-	pub collator_signature: CollatorSignature,
 	/// The persisted validation data used to create the candidate.
 	pub persisted_validation_data: PersistedValidationData,
 	/// The hash of the PoV.
@@ -1177,7 +1172,6 @@ mod tests {
 				hrmp_watermark: relay_parent.number,
 			},
 			collator,
-			collator_signature: sig,
 			persisted_validation_data: PersistedValidationData {
 				parent_head: constraints.required_parent.clone(),
 				relay_parent_number: relay_parent.number,

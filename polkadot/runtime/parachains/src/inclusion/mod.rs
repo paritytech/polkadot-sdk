@@ -337,8 +337,6 @@ pub mod pallet {
 		InsufficientBacking,
 		/// Invalid (bad signature, unknown validator, etc.) backing.
 		InvalidBacking,
-		/// Collator did not sign PoV.
-		NotCollatorSigned,
 		/// The validation data hash does not match expected.
 		ValidationDataHashMismatch,
 		/// The downward message queue is not processed correctly.
@@ -1257,11 +1255,6 @@ impl<T: Config> CandidateCheckContext<T> {
 				Error::<T>::ValidationDataHashMismatch,
 			);
 		}
-
-		ensure!(
-			backed_candidate_receipt.descriptor().check_collator_signature().is_ok(),
-			Error::<T>::NotCollatorSigned,
-		);
 
 		let validation_code_hash = paras::CurrentCodeHash::<T>::get(para_id)
 			// A candidate for a parachain without current validation code is not scheduled.

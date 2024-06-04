@@ -48,11 +48,11 @@ use polkadot_node_subsystem_util::{
 	request_validators, vstaging::fetch_claim_queue,
 };
 use polkadot_primitives::{
-	collator_signature_payload, CandidateCommitments, CandidateDescriptor, CandidateReceipt,
-	CollatorPair, CoreIndex, CoreState, Hash, Id as ParaId, OccupiedCoreAssumption,
-	PersistedValidationData, ScheduledCore, ValidationCodeHash,
+	CandidateCommitments, CandidateDescriptor, CandidateReceipt, CollatorId, CollatorSignature,
+	CoreIndex, CoreState, Hash, Id as ParaId, OccupiedCoreAssumption, PersistedValidationData,
+	ScheduledCore, ValidationCodeHash,
 };
-use sp_core::crypto::Pair;
+use sp_core::ByteArray;
 use std::sync::Arc;
 
 mod error;
@@ -424,7 +424,6 @@ async fn handle_new_activations<Context>(
 							n_validators,
 							core_index,
 						},
-						task_config.key.clone(),
 						&mut task_sender,
 						result_sender,
 						&metrics,
@@ -497,14 +496,7 @@ async fn handle_submit_collation<Context>(
 		core_index,
 	};
 
-	construct_and_distribute_receipt(
-		collation,
-		config.key.clone(),
-		ctx.sender(),
-		result_sender,
-		metrics,
-	)
-	.await;
+	construct_and_distribute_receipt(collation, ctx.sender(), result_sender, metrics).await;
 
 	Ok(())
 }
@@ -523,7 +515,6 @@ struct PreparedCollation {
 /// which is distributed to validators.
 async fn construct_and_distribute_receipt(
 	collation: PreparedCollation,
-	key: CollatorPair,
 	sender: &mut impl overseer::CollationGenerationSenderTrait,
 	result_sender: Option<oneshot::Sender<CollationSecondedSignal>>,
 	metrics: &Metrics,
@@ -569,14 +560,6 @@ async fn construct_and_distribute_receipt(
 
 	let pov_hash = pov.hash();
 
-	let signature_payload = collator_signature_payload(
-		&relay_parent,
-		&para_id,
-		&persisted_validation_data_hash,
-		&pov_hash,
-		&validation_code_hash,
-	);
-
 	let erasure_root = match erasure_root(n_validators, validation_data, pov.clone()) {
 		Ok(erasure_root) => erasure_root,
 		Err(err) => {
@@ -602,10 +585,10 @@ async fn construct_and_distribute_receipt(
 	let ccr = CandidateReceipt {
 		commitments_hash: commitments.hash(),
 		descriptor: CandidateDescriptor {
-			signature: key.sign(&signature_payload),
+			signature: CollatorSignature::from_slice(&vec![0u8; 64]).expect("64 bytes; qed"),
 			para_id,
 			relay_parent,
-			collator: key.public(),
+			collator: CollatorId::from_slice(&vec![0u8; 32]).expect("32 bytes; qed"),
 			persisted_validation_data_hash,
 			pov_hash,
 			erasure_root,
