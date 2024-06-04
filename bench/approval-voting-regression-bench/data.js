@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1717488792555,
+  "lastUpdate": 1717500955467,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -6250,6 +6250,53 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-distribution",
             "value": 7.062571443189954,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Alexandru Gheorghe",
+            "username": "alexggh",
+            "email": "49718502+alexggh@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "a09ec64d149b400de16f144ca02f0fa958d2bb13",
+          "message": "Forward put_record requests to authorithy-discovery (#4683)\n\nSigned-off-by: Alexandru Gheorghe <alexandru.gheorghe@parity.io>",
+          "timestamp": "2024-06-04T10:05:34Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/a09ec64d149b400de16f144ca02f0fa958d2bb13"
+        },
+        "date": 1717500927755,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52941.90000000001,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63543.71000000001,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting",
+            "value": 9.417209189649824,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 6.973542470919945,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 3.031371674170141,
             "unit": "seconds"
           }
         ]
