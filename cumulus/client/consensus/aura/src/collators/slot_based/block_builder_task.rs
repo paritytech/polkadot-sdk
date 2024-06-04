@@ -403,14 +403,21 @@ fn expected_core_count(
 		.map(|expected_core_count| expected_core_count.max(1))
 }
 
+/// Contains relay chain data necessary for parachain block building.
 #[derive(Clone)]
 struct RelayChainData {
+	/// Current relay chain parent header.
 	pub relay_parent_header: RelayHeader,
+	/// The cores this para is scheduled on in the context of the relay parent.
 	pub scheduled_cores: Vec<CoreIndex>,
+	/// Maximum configured PoV size on the relay chain.
 	pub max_pov_size: u32,
+	/// Current relay chain parent header.
 	pub relay_parent_hash: RelayHash,
 }
 
+/// Simple helper to fetch relay chain data and cache it based on the current relay chain best block
+/// hash.
 struct RelayChainCachingFetcher<RI> {
 	relay_client: RI,
 	para_id: ParaId,
@@ -426,6 +433,9 @@ where
 		Self { relay_client, para_id, last_seen_hash: None, last_data: None }
 	}
 
+	/// Fetch required [`RelayChainData`] from the relay chain.
+	/// If this data has been fetched in the past for the incoming hash, it will reuse
+	/// cached data.
 	pub async fn get_relay_chain_data(&mut self) -> Result<RelayChainData, ()> {
 		let Ok(relay_parent) = self.relay_client.best_block_hash().await else {
 			tracing::warn!(target: crate::LOG_TARGET, "Unable to fetch latest relay chain block hash.");
@@ -447,6 +457,7 @@ where
 		Ok(data)
 	}
 
+	/// Fetch fresh data from the relay chain for the given relay parent hash.
 	async fn update_for_relay_parent(&self, relay_parent: RelayHash) -> Result<RelayChainData, ()> {
 		let scheduled_cores =
 			cores_scheduled_for_para(relay_parent, self.para_id, &self.relay_client).await;
