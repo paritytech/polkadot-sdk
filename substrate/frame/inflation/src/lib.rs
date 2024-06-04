@@ -416,16 +416,33 @@ pub mod pallet {
 			Falloff: Get<Perquintill>,
 			StakingPayoutAccount: Get<T::AccountId>,
 		>(
-			max_inflation: BalanceOf<T>,
+			max_payout: BalanceOf<T>,
 			staked_ratio: Perquintill,
 		) -> (BalanceOf<T>, Action<T::AccountId>) {
+			// TODO: this should be runtime parameters.
+			let min_payout_part = Perquintill::from_rational(25u64, 100u64);
 			let ideal_stake = IdealStakingRate::get();
 			let falloff = Falloff::get();
 
 			// TODO: notion of min-inflation is now gone, will this be an issue?
 			let adjustment =
 				pallet_staking_reward_fn::compute_inflation(staked_ratio, ideal_stake, falloff);
-			let staking_income = adjustment * max_inflation;
+			let staking_inflation =
+				min_payout_part.saturating_add(Perquintill::one().saturating_sub(min_payout_part) * adjustment);
+			let staking_income = staking_inflation * max_payout;
+
+			crate::log!(
+					info,
+					"ideal_stake {:?}; falloff {:?}; staked_ratio: {:?}, adjustment {:?}, max_payout {:?}, staking_income {:?}",
+					ideal_stake,
+					falloff,
+					staked_ratio,
+					adjustment,
+					max_payout,
+					staking_income,
+				);
+
+			crate::log!(info, "calculated staking inflation is {:?}", staking_inflation);
 			(staking_income, Action::Pay(StakingPayoutAccount::get()))
 		}
 
