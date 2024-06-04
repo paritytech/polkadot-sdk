@@ -424,11 +424,11 @@ impl<T: Config> Pallet<T> {
 
 			METRICS.on_after_filter(all_weight_after.ref_time());
 			log::debug!(
-			target: LOG_TARGET,
-			"[process_inherent_data] after filter: bitfields.len(): {}, backed_candidates.len(): {}, checked_disputes_sets.len() {}",
-			bitfields.len(),
-			backed_candidates.len(),
-			checked_disputes_sets.len()
+				target: LOG_TARGET,
+				"[process_inherent_data] after filter: bitfields.len(): {}, backed_candidates.len(): {}, checked_disputes_sets.len() {}",
+				bitfields.len(),
+				backed_candidates.len(),
+				checked_disputes_sets.len()
 			);
 			log::debug!(target: LOG_TARGET, "Size after filter: {}, candidates + bitfields: {}, disputes: {}", all_weight_after.proof_size(), non_disputes_weight.proof_size(), checked_disputes_sets_consumed_weight.proof_size());
 			log::debug!(target: LOG_TARGET, "Time weight after filter: {}, candidates + bitfields: {}, disputes: {}", all_weight_after.ref_time(), non_disputes_weight.ref_time(), checked_disputes_sets_consumed_weight.ref_time());
