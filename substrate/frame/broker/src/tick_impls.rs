@@ -16,7 +16,11 @@
 // limitations under the License.
 
 use super::*;
-use frame_support::{pallet_prelude::*, weights::WeightMeter};
+use frame_support::{
+	pallet_prelude::*,
+	traits::{fungible::Balanced, DefensiveResult},
+	weights::WeightMeter,
+};
 use sp_arithmetic::traits::{One, SaturatedConversion, Saturating, Zero};
 use sp_runtime::traits::ConvertBack;
 use sp_std::{vec, vec::Vec};
@@ -104,6 +108,11 @@ impl<T: Config> Pallet<T> {
 			InstaPoolHistory::<T>::remove(when);
 			return true
 		}
+
+		// Mint revenue amount on our end of the teleport
+		let revenue_imbalance = T::Currency::issue(revenue);
+		T::Currency::resolve(&Self::account_id(), revenue_imbalance).defensive_ok();
+
 		let mut r = InstaPoolHistory::<T>::get(when).unwrap_or_default();
 		if r.maybe_payout.is_some() {
 			Self::deposit_event(Event::<T>::HistoryIgnored { when, revenue });
