@@ -13,4 +13,4 @@ doc:
 
 crates:
   - name: staging-chain-spec-builder
-    bump: major
+    bump: minor
