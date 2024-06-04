@@ -134,7 +134,7 @@ pub use tasks::Task;
 mod try_runtime;
 
 mod query;
-pub use query::{DispatchQuery, Query, QueryId, QueryIdPrefix, QueryIdSuffix};
+pub use query::{DispatchQuery, Query, QueryDispatchError, QueryId, QueryIdPrefix, QueryIdSuffix};
 
 #[cfg(feature = "try-runtime")]
 pub use try_runtime::{

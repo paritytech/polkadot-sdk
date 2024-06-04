@@ -173,12 +173,12 @@ fn impl_dispatch_query(
 				fn dispatch_query<
 					O: #frame_support::__private::codec::Output,
 				>
-					(id: & #frame_support::traits::QueryId, input: &mut &[u8], output: &mut O) -> Result<(), #frame_support::__private::codec::Error>
+					(id: & #frame_support::traits::QueryId, input: &mut &[u8], output: &mut O) -> Result<(), #frame_support::traits::QueryDispatchError>
 				{
 					// let y = 1; // todo: [AJ] why is unused variable error not triggered here - unused functions?
 					match id.suffix {
 						#( #query_match_arms )*
-						_ => Err(#frame_support::__private::codec::Error::from("DispatchQuery not implemented")), // todo: [AJ]
+						_ => Err(#frame_support::traits::QueryDispatchError::NotFound(id.clone())),
 					}
 				}
 			}

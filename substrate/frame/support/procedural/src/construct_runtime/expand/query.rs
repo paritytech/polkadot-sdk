@@ -52,10 +52,10 @@ pub fn expand_outer_query(
 					id: & #scrate::traits::QueryId,
 					input: &mut &[u8],
 					output: &mut O
-				) -> Result<(), #scrate::__private::codec::Error>
+				) -> Result<(), #scrate::traits::QueryDispatchError>
 				{
 					#( #prefix_conditionals )*
-					Err(#scrate::__private::codec::Error::from("todo: no prefix"))
+					Err(#scrate::traits::QueryDispatchError::NotFound(id.clone()))
 				}
 			}
 		};

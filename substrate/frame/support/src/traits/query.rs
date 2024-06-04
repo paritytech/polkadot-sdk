@@ -26,7 +26,7 @@ pub trait DispatchQuery {
 		id: &QueryId,
 		input: &mut &[u8],
 		output: &mut O,
-	) -> Result<(), codec::Error>;
+	) -> Result<(), QueryDispatchError>;
 }
 
 impl DispatchQuery for () {
@@ -34,8 +34,8 @@ impl DispatchQuery for () {
 		_id: &QueryId,
 		_input: &mut &[u8],
 		_output: &mut O,
-	) -> Result<(), codec::Error> {
-		Err(codec::Error::from("DispatchQuery not implemented")) // todo: return "query not found" error?
+	) -> Result<(), QueryDispatchError> {
+		Err(QueryDispatchError::NotImplemented)
 	}
 }
 
@@ -47,10 +47,24 @@ pub trait QueryIdSuffix {
 	const SUFFIX: [u8; 16];
 }
 
-#[derive(Encode, Decode, RuntimeDebug)]
+#[derive(Clone, Encode, Decode, RuntimeDebug)]
 pub struct QueryId {
 	pub prefix: [u8; 16],
 	pub suffix: [u8; 16],
+}
+
+#[derive(Encode, Decode, RuntimeDebug)]
+
+pub enum QueryDispatchError {
+	NotImplemented,
+	NotFound(QueryId),
+	Codec(String),
+}
+
+impl From<codec::Error> for QueryDispatchError {
+	fn from(e: codec::Error) -> Self {
+		QueryDispatchError::Codec(codec::Error::to_string(&e))
+	}
 }
 
 /// implemented for each pallet view function method
@@ -60,7 +74,7 @@ pub trait Query: DecodeAll {
 
 	fn query(self) -> Self::ReturnType;
 
-	fn execute<O: Output>(input: &mut &[u8], output: &mut O) -> Result<(), codec::Error> {
+	fn execute<O: Output>(input: &mut &[u8], output: &mut O) -> Result<(), QueryDispatchError> {
 		let query = Self::decode_all(input)?;
 		let result = query.query();
 		Encode::encode_to(&result, output);
