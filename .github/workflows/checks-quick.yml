@@ -117,6 +117,7 @@ jobs:
           CONFIG: .github/.markdownlint.yaml
         run: |
           echo "Checking markdown formatting. More info: docs/contributor/markdown_linting.md"
+          echo "To fix potential erros, you can run 'markdownlint --config .github/.markdownlint.yaml -f --ignore target .' locally."
           markdownlint --config "$CONFIG" --ignore target .
   check-umbrella:
     runs-on: ubuntu-latest
