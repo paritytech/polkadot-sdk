@@ -87,26 +87,29 @@ mod benchmarks {
 
 	#[benchmark]
 	fn set_partial_params() -> Result<(), BenchmarkError> {
+		let max_rank = T::MaxRank::get().try_into().unwrap();
+		let default_params = Params::<T, I>::get();
+		let expected_params = ParamsType {
+			active_salary: default_params.active_salary,
+			passive_salary: BoundedVec::try_from(vec![10u32.into(); max_rank]).unwrap(),
+			demotion_period: default_params.demotion_period,
+			min_promotion_period: BoundedVec::try_from(vec![100u32.into(); max_rank]).unwrap(),
+			offboard_timeout: 1u32.into(),
+		};
+
 		let params_payload = ParamsType {
-			active_salary: BoundedVec::try_from(vec![Some(100u32.into()); 9]).unwrap(),
-			passive_salary: BoundedVec::try_from(vec![Some(10u32.into()); 9]).unwrap(),
-			demotion_period: BoundedVec::try_from(vec![Some(100u32.into()); 9]).unwrap(),
-			min_promotion_period: BoundedVec::try_from(vec![Some(100u32.into()); 9]).unwrap(),
-			offboard_timeout: Some(1u32.into()),
+			active_salary: BoundedVec::try_from(vec![None; max_rank]).unwrap(),
+			passive_salary: BoundedVec::try_from(vec![Some(10u32.into()); max_rank]).unwrap(),
+			demotion_period: BoundedVec::try_from(vec![None; max_rank]).unwrap(),
+			min_promotion_period: BoundedVec::try_from(vec![Some(100u32.into()); max_rank])
+				.unwrap(),
+			offboard_timeout: None,
 		};
 
 		#[extrinsic_call]
 		_(RawOrigin::Root, Box::new(params_payload.clone()));
 
-		let updated_params = ParamsType {
-			active_salary: BoundedVec::try_from(vec![100u32.into(); 9]).unwrap(),
-			passive_salary: BoundedVec::try_from(vec![10u32.into(); 9]).unwrap(),
-			demotion_period: BoundedVec::try_from(vec![100u32.into(); 9]).unwrap(),
-			min_promotion_period: BoundedVec::try_from(vec![100u32.into(); 9]).unwrap(),
-			offboard_timeout: 1u32.into(),
-		};
-
-		assert_eq!(Params::<T, I>::get(), updated_params);
+		assert_eq!(Params::<T, I>::get(), expected_params);
 		Ok(())
 	}
 
