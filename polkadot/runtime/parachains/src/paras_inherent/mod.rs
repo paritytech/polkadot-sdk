@@ -489,7 +489,7 @@ impl<T: Config> Pallet<T> {
 
 		// Contains the disputes that are concluded in the current session only,
 		// since these are the only ones that are relevant for the occupied cores
-		// and lightens the load on
+		// and lightens the load on `free_disputed` significantly.
 		let mut current_concluded_invalid_disputes =
 			<T>::DisputesHandler::disputes_concluded_invalid(current_session);
 
