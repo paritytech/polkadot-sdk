@@ -17,7 +17,7 @@
 
 //! Traits for querying pallet view functions.
 
-use codec::{Decode, Encode, Output};
+use codec::{Decode, DecodeAll, Encode, Output};
 use sp_runtime::RuntimeDebug;
 
 /// implemented by the runtime dispatching by prefix and then the pallet dispatching by suffix
@@ -54,9 +54,16 @@ pub struct QueryId {
 }
 
 /// implemented for each pallet view function method
-pub trait Query {
+pub trait Query: DecodeAll {
 	fn id() -> QueryId;
-	type ReturnType: codec::Codec;
+	type ReturnType: Encode;
 
 	fn query(self) -> Self::ReturnType;
+
+	fn execute<O: Output>(input: &mut &[u8], output: &mut O) -> Result<(), codec::Error> {
+		let query = Self::decode_all(input)?;
+		let result = query.query();
+		Encode::encode_to(&result, output);
+		Ok(())
+	}
 }

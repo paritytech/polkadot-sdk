@@ -159,10 +159,7 @@ fn impl_dispatch_query(
 		let query_struct_ident = view_fn.query_struct_ident();
 		quote::quote! {
 			<#query_struct_ident<#type_use_gen> as #frame_support::traits::QueryIdSuffix>::SUFFIX => {
-				let query = <#query_struct_ident<#type_use_gen> as #frame_support::__private::codec::DecodeAll>::decode_all(input)?;
-				let result = <#query_struct_ident<#type_use_gen> as #frame_support::traits::Query>::query(query);
-				let output = #frame_support::__private::codec::Encode::encode_to(&result, output);
-				::core::result::Result::Ok(output)
+				<#query_struct_ident<#type_use_gen> as #frame_support::traits::Query>::execute(input, output)
 			}
 		}
 	});
