@@ -314,7 +314,7 @@ impl Artifacts {
 			if now
 				.duration_since(last_time_needed)
 				.map(|stale_time| stale_time < cleanup_config.min_stale_time)
-				.unwrap_or(false)
+				.unwrap_or(true)
 			{
 				break;
 			}
