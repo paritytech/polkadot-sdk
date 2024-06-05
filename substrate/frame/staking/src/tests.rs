@@ -2242,10 +2242,12 @@ fn reward_validator_slashing_validator_does_not_overflow() {
 			individual: vec![(11, 1)].into_iter().collect(),
 		};
 
-		// Check reward
+		// Setup reward
 		ErasRewardPoints::<Test>::insert(0, reward);
 		EraInfo::<Test>::set_exposure(0, &11, exposure);
-		ErasValidatorReward::<Test>::insert(0, stake);
+		set_era_validator_reward(0, stake);
+
+		// Check reward
 		assert_ok!(Staking::payout_stakers_by_page(RuntimeOrigin::signed(1337), 11, 0, 0));
 		assert_eq!(Balances::total_balance(&11), stake * 2);
 
@@ -6798,6 +6800,9 @@ fn test_runtime_api_pending_rewards() {
 			},
 		);
 
+		// end era 0.
+		mock::start_active_era(1);
+
 		// SCENARIO ONE: rewards already marked claimed in legacy storage.
 		// runtime api should return false for pending rewards for validator_one.
 		assert!(!EraInfo::<Test>::pending_rewards(0, &validator_one));
@@ -8214,5 +8219,17 @@ mod byzantine_threshold_disabling_strategy {
 
 			assert_eq!(disable_offender, Some(OFFENDER_VALIDATOR_IDX));
 		});
+	}
+}
+
+#[test]
+fn staking_accounts_are_unique() {
+	let mut accounts = Vec::new();
+	accounts.push(Staking::pending_payout_account());
+
+	for i in 0..15 {
+		let era_acc = Staking::era_payout_account(i);
+		assert!(!accounts.contains(&era_acc));
+		accounts.push(era_acc);
 	}
 }

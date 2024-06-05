@@ -34,7 +34,11 @@ use frame_support::{
 };
 use frame_system::{EnsureRoot, EnsureSignedBy};
 use sp_io;
-use sp_runtime::{testing::UintAuthorityId, traits::{IdentityLookup, Zero}, BuildStorage};
+use sp_runtime::{
+	testing::UintAuthorityId,
+	traits::{IdentityLookup, Zero},
+	BuildStorage,
+};
 use sp_staking::{
 	offence::{OffenceDetails, OnOffenceHandler},
 	OnStakingUpdate,
@@ -936,6 +940,14 @@ pub(crate) fn setup_double_bonded_ledgers() {
 	assert_eq!(Bonded::<Test>::get(555), Some(777));
 	assert_eq!(StakingLedger::<Test>::paired_account(StakingAccount::Stash(555)), Some(777));
 	assert_eq!(Ledger::<Test>::get(777).unwrap().stash, 555);
+}
+
+/// Force set the era reward balance for validators.
+pub(crate) fn set_era_validator_reward(era: EraIndex, balance: Balance) {
+	let era_account = Staking::era_payout_account(era);
+	// TODO(ank4n): add minimum balance since `Staking::era_payout()` does not take into account
+	// the minimum balance. Not sure why this is needed.
+	let _ = Balances::make_free_balance_be(&era_account, balance + Balances::minimum_balance());
 }
 
 #[macro_export]

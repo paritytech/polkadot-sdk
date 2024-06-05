@@ -409,8 +409,6 @@ pub mod pallet {
 		pub fn set_last_inflated(now: u64) {
 			LastInflated::<T>::put(now);
 		}
-
-
 	}
 
 	/// A set of inflation functions provided by this pallet.
@@ -434,8 +432,8 @@ pub mod pallet {
 			// TODO: notion of min-inflation is now gone, will this be an issue?
 			let adjustment =
 				pallet_staking_reward_fn::compute_inflation(staked_ratio, ideal_stake, falloff);
-			let staking_inflation =
-				min_payout_part.saturating_add(Perquintill::one().saturating_sub(min_payout_part) * adjustment);
+			let staking_inflation = min_payout_part
+				.saturating_add(Perquintill::one().saturating_sub(min_payout_part) * adjustment);
 			let staking_income = staking_inflation * max_payout;
 
 			crate::log!(

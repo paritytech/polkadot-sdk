@@ -36,8 +36,8 @@ use frame_system::{pallet_prelude::BlockNumberFor, RawOrigin};
 use pallet_session::historical;
 use sp_runtime::{
 	traits::{
-		AccountIdConversion, Bounded, CheckedAdd, CheckedSub, Convert, One,
-		Saturating, StaticLookup, Zero,
+		AccountIdConversion, Bounded, CheckedAdd, CheckedSub, Convert, One, Saturating,
+		StaticLookup, Zero,
 	},
 	ArithmeticError, Perbill,
 };
@@ -573,11 +573,11 @@ impl<T: Config> Pallet<T> {
 	}
 
 	pub fn pending_payout_account() -> T::AccountId {
-		T::PalletId::get().into_sub_account_truncating(())
+		T::PalletId::get().into_sub_account_truncating(b"pending_payout")
 	}
 
 	pub fn era_payout_account(era_index: EraIndex) -> T::AccountId {
-		T::PalletId::get().into_sub_account_truncating(era_index)
+		T::PalletId::get().into_sub_account_truncating((era_index, "era_payout"))
 	}
 
 	pub(crate) fn era_payout(era_index: EraIndex) -> BalanceOf<T> {
