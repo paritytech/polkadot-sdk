@@ -1249,7 +1249,7 @@ pub mod pallet {
 		/// Can not add a delegate dependency to the code hash of the contract itself.
 		CannotAddSelfAsDelegateDependency,
 		/// Can not add more data to transient storage.
-		OutOfStorage,
+		OutOfTransientStorage,
 	}
 
 	/// A reason for the pallet contracts placing a hold on funds.

@@ -33,8 +33,6 @@ use sp_std::{
 	ops::Bound::{Included, Unbounded},
 	vec::Vec,
 };
-type MeterEntries = Vec<MeterEntry>;
-type Checkpoints = Vec<usize>;
 
 /// Meter entry tracks transaction allocations.
 #[derive(Default, Debug)]
@@ -60,7 +58,7 @@ impl MeterEntry {
 struct StorageMeter<T: Config> {
 	total_limit: u32,
 	transaction_limit: u32,
-	nested: MeterEntries,
+	nested: Vec<MeterEntry>,
 	root: MeterEntry,
 	_phantom: PhantomData<T>,
 }
@@ -76,7 +74,7 @@ impl<T: Config> StorageMeter<T> {
 		if current_amount > self.transaction_limit ||
 			amount.saturating_add(self.total_amount()) > self.total_limit
 		{
-			return Err(Error::<T>::OutOfStorage.into());
+			return Err(Error::<T>::OutOfTransientStorage.into());
 		}
 		self.top_meter_mut().current = current_amount;
 		Ok(())
@@ -216,7 +214,7 @@ pub struct TransientStorage<T: Config> {
 	// The size of the StorageMeter is limited by the stack depth.
 	meter: StorageMeter<T>,
 	// The size of the checkpoints is limited by the stack depth.
-	checkpoints: Checkpoints,
+	checkpoints:  Vec<usize>,
 }
 
 impl<T: Config> TransientStorage<T> {
@@ -556,7 +554,7 @@ mod tests {
 		storage.start_transaction();
 		assert_eq!(
 			storage.write(&ALICE, &Key::Fix([1; 32]), Some(vec![1]), false),
-			Err(Error::<Test>::OutOfStorage.into())
+			Err(Error::<Test>::OutOfTransientStorage.into())
 		);
 		storage.commit_transaction();
 		assert_eq!(storage.read(&ALICE, &Key::Fix([1; 32])), None);
@@ -574,7 +572,7 @@ mod tests {
 		storage.start_transaction();
 		assert_eq!(
 			storage.write(&ALICE, &Key::Fix([2; 32]), Some(vec![1]), false),
-			Err(Error::<Test>::OutOfStorage.into())
+			Err(Error::<Test>::OutOfTransientStorage.into())
 		);
 		storage.commit_transaction();
 		storage.commit_transaction();
