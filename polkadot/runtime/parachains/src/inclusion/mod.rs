@@ -508,7 +508,7 @@ impl<T: Config> Pallet<T> {
 	pub(crate) fn update_pending_availability_and_get_freed_cores(
 		validators: &[ValidatorId],
 		signed_bitfields: SignedAvailabilityBitfields,
-	) -> Vec<(CoreIndex, CandidateHash)> {
+	) -> (Weight, Vec<(CoreIndex, CandidateHash)>) {
 		let threshold = availability_threshold(validators.len());
 
 		let mut votes_per_core: BTreeMap<CoreIndex, BTreeSet<ValidatorIndex>> = BTreeMap::new();
@@ -529,6 +529,7 @@ impl<T: Config> Pallet<T> {
 		}
 
 		let mut freed_cores = vec![];
+		let mut weight = Weight::zero();
 
 		let pending_paraids: Vec<_> = PendingAvailability::<T>::iter_keys().collect();
 		for paraid in pending_paraids {
@@ -582,7 +583,7 @@ impl<T: Config> Pallet<T> {
 								descriptor: candidate.descriptor,
 								commitments: candidate.commitments,
 							};
-							let _weight = Self::enact_candidate(
+							let enact_weight = Self::enact_candidate(
 								candidate.relay_parent_number,
 								receipt,
 								candidate.backers,
@@ -590,13 +591,14 @@ impl<T: Config> Pallet<T> {
 								candidate.core,
 								candidate.backing_group,
 							);
+							weight.saturating_accrue(enact_weight);
 						}
 					}
 				}
 			});
 		}
 
-		freed_cores
+		(weight, freed_cores)
 	}
 
 	/// Process candidates that have been backed. Provide a set of
@@ -1102,7 +1104,7 @@ impl<T: Config> Pallet<T> {
 						commitments: candidate.commitments,
 					};
 
-					Self::enact_candidate(
+					let _weight = Self::enact_candidate(
 						candidate.relay_parent_number,
 						receipt,
 						candidate.backers,

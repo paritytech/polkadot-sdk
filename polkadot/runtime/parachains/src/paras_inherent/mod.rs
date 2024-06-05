@@ -409,7 +409,7 @@ impl<T: Config> Pallet<T> {
 				max_block_weight,
 			);
 
-		let all_weight_after = if context == ProcessInherentDataContext::ProvideInherent {
+		let mut all_weight_after = if context == ProcessInherentDataContext::ProvideInherent {
 			// Assure the maximum block weight is adhered, by limiting bitfields and backed
 			// candidates. Dispute statement sets were already limited before.
 			let non_disputes_weight = apply_weight_limit::<T>(
@@ -424,11 +424,11 @@ impl<T: Config> Pallet<T> {
 
 			METRICS.on_after_filter(all_weight_after.ref_time());
 			log::debug!(
-			target: LOG_TARGET,
-			"[process_inherent_data] after filter: bitfields.len(): {}, backed_candidates.len(): {}, checked_disputes_sets.len() {}",
-			bitfields.len(),
-			backed_candidates.len(),
-			checked_disputes_sets.len()
+				target: LOG_TARGET,
+				"[process_inherent_data] after filter: bitfields.len(): {}, backed_candidates.len(): {}, checked_disputes_sets.len() {}",
+				bitfields.len(),
+				backed_candidates.len(),
+				checked_disputes_sets.len()
 			);
 			log::debug!(target: LOG_TARGET, "Size after filter: {}, candidates + bitfields: {}, disputes: {}", all_weight_after.proof_size(), non_disputes_weight.proof_size(), checked_disputes_sets_consumed_weight.proof_size());
 			log::debug!(target: LOG_TARGET, "Time weight after filter: {}, candidates + bitfields: {}, disputes: {}", all_weight_after.ref_time(), non_disputes_weight.ref_time(), checked_disputes_sets_consumed_weight.ref_time());
@@ -529,11 +529,24 @@ impl<T: Config> Pallet<T> {
 
 		// Process new availability bitfields, yielding any availability cores whose
 		// work has now concluded.
-		let freed_concluded =
+		let (enact_weight, freed_concluded) =
 			inclusion::Pallet::<T>::update_pending_availability_and_get_freed_cores(
 				&validator_public[..],
 				bitfields.clone(),
 			);
+		all_weight_after.saturating_accrue(enact_weight);
+		// It's possible that that after the enacting the candidates, the total weight
+		// goes over the limit, however, we can't do anything about it at this point.
+		// By using the `Mandatory` weight, we ensure the block is still accepted,
+		// but no other (user) transactions can be included.
+		if all_weight_after.any_gt(max_block_weight) {
+			log::warn!(
+				"Overweight para inherent data after enacting the candidates {:?}: {} > {}",
+				parent_hash,
+				all_weight_after,
+				max_block_weight,
+			);
+		}
 
 		// Inform the disputes module of all included candidates.
 		for (_, candidate_hash) in &freed_concluded {
