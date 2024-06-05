@@ -575,6 +575,7 @@ impl<T: Config> Pallet<T> {
 
 		for (core_idx, para_id) in scheduler::Pallet::<T>::eligible_paras() {
 			total_eligible_cores += 1;
+			log::trace!(target: LOG_TARGET, "Found eligible para {:?} on core {:?}", para_id, core_idx);
 			eligible.entry(para_id).or_default().insert(core_idx);
 		}
 
@@ -1422,7 +1423,7 @@ fn map_candidates_to_cores<T: configuration::Config + scheduler::Config + inclus
 		} else {
 			log::debug!(
 				target: LOG_TARGET,
-				"Paraid: {:?} has no scheduled cores but {} candidates were supplied.",
+				"Paraid: {:?} has no entry in scheduled cores but {} candidates were supplied.",
 				para_id,
 				backed_candidates.len()
 			);

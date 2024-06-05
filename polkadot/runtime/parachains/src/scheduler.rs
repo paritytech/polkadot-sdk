@@ -36,6 +36,8 @@
 //! number of groups as availability cores. Validator groups will be assigned to different
 //! availability cores over time.
 
+use core::iter::Peekable;
+
 use crate::{configuration, initializer::SessionChangeNotification, paras};
 use frame_support::{pallet_prelude::*, traits::Defensive};
 use frame_system::pallet_prelude::BlockNumberFor;
@@ -319,23 +321,25 @@ impl<T: Config> Pallet<T> {
 		let queues = ClaimQueue::<T>::get();
 		struct ClaimQueueIterator<T: Config> {
 			next_idx: u32,
-			queue: btree_map::IntoIter<CoreIndex, VecDeque<ParasEntryType<T>>>,
+			queue: Peekable<btree_map::IntoIter<CoreIndex, VecDeque<ParasEntryType<T>>>>,
 		}
 		impl<T: Config> Iterator for ClaimQueueIterator<T> {
 			type Item = (CoreIndex, VecDeque<ParasEntryType<T>>);
 
 			fn next(&mut self) -> Option<Self::Item> {
-				let (idx, q) = self.queue.next()?;
-				let val = if idx != CoreIndex(self.next_idx) {
+				let (idx, _) = self.queue.peek()?;
+				let val = if idx != &CoreIndex(self.next_idx) {
+					log::trace!(target: LOG_TARGET, "idx did not match claim queue idx: {:?} vs {:?}", idx, self.next_idx);
 					(CoreIndex(self.next_idx), VecDeque::new())
 				} else {
+					let (idx, q) = self.queue.next()?;
 					(idx, q)
 				};
 				self.next_idx += 1;
 				Some(val)
 			}
 		}
-		return ClaimQueueIterator::<T> { next_idx: 0, queue: queues.into_iter() }
+		return ClaimQueueIterator::<T> { next_idx: 0, queue: queues.into_iter().peekable() }
 	}
 
 	/// Note that the given cores have become occupied. Update the claim queue accordingly.
@@ -688,9 +692,13 @@ impl<T: Config> Pallet<T> {
 		Self::claim_queue_iterator().zip(availability_cores.into_iter()).filter_map(
 			|((core_idx, queue), core)| {
 				if core != CoreOccupied::Free {
+					log::trace!(target: LOG_TARGET, "Found free core core: {:?}", core_idx);
 					return None
+				} else {
+					log::trace!(target: LOG_TARGET, "Filtered occupied core: {:?}", core_idx);
 				}
 				let next_scheduled = queue.front()?;
+				log::trace!(target: LOG_TARGET, "Found scheduled para on that core: {:?}", next_scheduled.assignment.para_id());
 				Some((core_idx, next_scheduled.assignment.para_id()))
 			},
 		)
