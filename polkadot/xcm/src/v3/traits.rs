@@ -23,6 +23,11 @@ use scale_info::TypeInfo;
 
 pub use sp_weights::Weight;
 
+// A simple trait to get the weight of some object.
+pub trait GetWeight<W> {
+	fn weight(&self) -> sp_weights::Weight;
+}
+
 use super::*;
 
 /// Error codes used in XCM. The first errors codes have explicit indices and are part of the XCM
