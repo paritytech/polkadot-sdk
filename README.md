@@ -23,7 +23,7 @@ forks](https://img.shields.io/github/forks/paritytech/polkadot-sdk)
 
 ## 📚 Documentation
 
-* [🦀 rust-docs]([paritytech.github.io/](https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/index.html))
+* [🦀 rust-docs](https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/index.html)
  * [Introduction](https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/polkadot_sdk/index.html)
    to each component of the Polkadot SDK: Substrate, FRAME, Cumulus, and XCM
 * Other Resources:
