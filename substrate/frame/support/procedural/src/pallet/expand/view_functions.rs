@@ -43,7 +43,7 @@ pub fn expand_view_functions(def: &Def) -> TokenStream {
 		#query_prefix_impl
 		#( #view_fn_impls )*
 		#impl_dispatch_query
-		// #impl_query_metadata
+		#impl_query_metadata
 	}
 }
 
@@ -209,7 +209,7 @@ fn impl_query_metadata(
 
 		quote::quote! {
 			#frame_support::__private::metadata_ir::QueryMetadataIR {
-				name: #name,
+				name: ::core::stringify!(#name),
 				id: <#query_struct_ident<#type_use_gen> as #frame_support::traits::Query>::id().into(),
 				args: #frame_support::__private::sp_std::vec![ #( #args ),* ],
 				output: #frame_support::__private::scale_info::meta_type::<

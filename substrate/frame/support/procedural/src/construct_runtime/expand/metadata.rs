@@ -153,8 +153,7 @@ pub fn expand_runtime_metadata(
 						event_enum_ty: #scrate::__private::scale_info::meta_type::<RuntimeEvent>(),
 						error_enum_ty: #scrate::__private::scale_info::meta_type::<RuntimeError>(),
 					},
-					queries: #scrate::__private::sp_std::vec![],
-					// queries: #scrate::__private::sp_std::vec![ #(#queries),* ],
+					queries: #scrate::__private::sp_std::vec![ #(#queries),* ],
 				}
 			}
 
