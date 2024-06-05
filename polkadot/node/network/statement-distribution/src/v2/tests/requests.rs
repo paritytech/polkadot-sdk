@@ -17,7 +17,7 @@
 use super::*;
 
 use bitvec::order::Lsb0;
-use parity_scale_codec::{Decode, Encode};
+use codec::{Decode, Encode};
 use polkadot_node_network_protocol::{
 	request_response::v2 as request_v2, v2::BackedCandidateManifest,
 };
