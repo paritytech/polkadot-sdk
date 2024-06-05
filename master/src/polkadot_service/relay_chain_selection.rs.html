@@ -775,7 +775,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="attr">#![cfg(feature = <span class="string">"full-node"</span>)]
 
 </span><span class="kw">use super</span>::{HeaderProvider, HeaderProviderProvider};
-<span class="kw">use </span>consensus_common::{Error <span class="kw">as </span>ConsensusError, SelectChain};
 <span class="kw">use </span>futures::channel::oneshot;
 <span class="kw">use </span>polkadot_node_primitives::MAX_FINALITY_LAG <span class="kw">as </span>PRIMITIVES_MAX_FINALITY_LAG;
 <span class="kw">use </span>polkadot_node_subsystem::messages::{
@@ -785,9 +784,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>polkadot_node_subsystem_util::metrics::{<span class="self">self</span>, prometheus};
 <span class="kw">use </span>polkadot_overseer::{AllMessages, Handle};
 <span class="kw">use </span>polkadot_primitives::{Block <span class="kw">as </span>PolkadotBlock, BlockNumber, Hash, Header <span class="kw">as </span>PolkadotHeader};
+<span class="kw">use </span>sp_consensus::{Error <span class="kw">as </span>ConsensusError, SelectChain};
 <span class="kw">use </span>std::sync::Arc;
 
-<span class="kw">pub use </span>service::SpawnTaskHandle;
+<span class="kw">pub use </span>sc_service::SpawnTaskHandle;
 
 <span class="doccomment">/// The maximum amount of unfinalized blocks we are willing to allow due to approval checking
 /// or disputes.

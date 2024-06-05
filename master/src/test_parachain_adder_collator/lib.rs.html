@@ -549,9 +549,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="doccomment">//! Collator for the adder test parachain.
 
-</span><span class="kw">use </span>futures::channel::oneshot;
+</span><span class="kw">use </span>codec::{Decode, Encode};
+<span class="kw">use </span>futures::channel::oneshot;
 <span class="kw">use </span>futures_timer::Delay;
-<span class="kw">use </span>parity_scale_codec::{Decode, Encode};
 <span class="kw">use </span>polkadot_node_primitives::{
 	Collation, CollationResult, CollationSecondedSignal, CollatorFn, MaybeCompressedPoV, PoV,
 	Statement,

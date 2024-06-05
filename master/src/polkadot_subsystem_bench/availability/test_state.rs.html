@@ -470,9 +470,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	mock::runtime_api::node_features_with_chunk_mapping_enabled,
 };
 <span class="kw">use </span>bitvec::bitvec;
+<span class="kw">use </span>codec::Encode;
 <span class="kw">use </span>colored::Colorize;
 <span class="kw">use </span>itertools::Itertools;
-<span class="kw">use </span>parity_scale_codec::Encode;
 <span class="kw">use </span>polkadot_node_network_protocol::{
 	request_response::{v2::ChunkFetchingRequest, ReqProtocolNames},
 	Versioned, VersionedValidationProtocol,

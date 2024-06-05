@@ -434,8 +434,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 };
 
 <span class="kw">use </span>async_trait::async_trait;
+<span class="kw">use </span>prometheus_endpoint::{init_prometheus, Registry};
 <span class="kw">use </span>std::{fmt::Debug, future::Future, net::SocketAddr, time::Duration};
-<span class="kw">use </span>substrate_prometheus_endpoint::{init_prometheus, Registry};
 
 <span class="doccomment">/// Default pause between reconnect attempts.
 </span><span class="kw">pub const </span>RECONNECT_DELAY: Duration = Duration::from_secs(<span class="number">10</span>);

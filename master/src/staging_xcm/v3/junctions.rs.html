@@ -908,8 +908,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="doccomment">//! XCM `Junctions`/`InteriorMultiLocation` datatype.
 
 </span><span class="kw">use super</span>::{Junction, MultiLocation, NetworkId};
+<span class="kw">use </span>codec::{Decode, Encode, MaxEncodedLen};
 <span class="kw">use </span>core::{mem, result};
-<span class="kw">use </span>parity_scale_codec::{Decode, Encode, MaxEncodedLen};
 <span class="kw">use </span>scale_info::TypeInfo;
 
 <span class="doccomment">/// Maximum number of `Junction`s that a `Junctions` can contain.

@@ -2870,8 +2870,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! We only send polite messages to peers,
 
 </span><span class="kw">use </span>ahash::{AHashMap, AHashSet};
+<span class="kw">use </span>codec::{Decode, DecodeAll, Encode};
 <span class="kw">use </span>log::{debug, trace};
-<span class="kw">use </span>parity_scale_codec::{Decode, DecodeAll, Encode};
 <span class="kw">use </span>prometheus_endpoint::{register, CounterVec, Opts, PrometheusError, Registry, U64};
 <span class="kw">use </span>rand::seq::SliceRandom;
 <span class="kw">use </span>sc_network::ReputationChange;

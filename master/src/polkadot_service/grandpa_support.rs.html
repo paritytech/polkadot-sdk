@@ -380,7 +380,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// w3f validators and randomly selected validators from the latest session (at
 /// #1500988).
 </span><span class="attr">#[cfg(feature = <span class="string">"full-node"</span>)]
-</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>kusama_hard_forks() -&gt; Vec&lt;grandpa::AuthoritySetHardFork&lt;Block&gt;&gt; {
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>kusama_hard_forks() -&gt; Vec&lt;sc_consensus_grandpa::AuthoritySetHardFork&lt;Block&gt;&gt; {
 	<span class="kw">use </span>sp_core::crypto::Ss58Codec;
 	<span class="kw">use </span>std::str::FromStr;
 
@@ -457,7 +457,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		.into_iter()
 		.map(|address| {
 			(
-				grandpa_primitives::AuthorityId::from_ss58check(address)
+				sp_consensus_grandpa::AuthorityId::from_ss58check(address)
 					.expect(<span class="string">"hard fork authority addresses are static and they should be carefully defined; qed."</span>),
 				<span class="number">1</span>,
 			)
@@ -470,7 +470,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>hash = Hash::from_str(hash)
 				.expect(<span class="string">"hard fork hashes are static and they should be carefully defined; qed."</span>);
 
-			grandpa::AuthoritySetHardFork {
+			sc_consensus_grandpa::AuthoritySetHardFork {
 				set_id,
 				block: (hash, number),
 				authorities: authorities.clone(),

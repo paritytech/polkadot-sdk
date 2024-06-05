@@ -230,7 +230,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="attr">#[derive(thiserror::Error, Debug)]
 </span><span class="kw">pub enum </span>Error {
 	<span class="attr">#[error(transparent)]
-	</span>PolkadotService(<span class="attr">#[from] </span>service::Error),
+	</span>PolkadotService(<span class="attr">#[from] </span>polkadot_service::Error),
 
 	<span class="attr">#[error(transparent)]
 	</span>SubstrateCli(<span class="attr">#[from] </span>sc_cli::Error),
@@ -247,7 +247,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[cfg(feature = <span class="string">"pyroscope"</span>)]
 	#[error(<span class="string">"Failed to connect to pyroscope agent"</span>)]
-	</span>PyroscopeError(<span class="attr">#[from] </span>pyro::error::PyroscopeError),
+	</span>PyroscopeError(<span class="attr">#[from] </span>pyroscope::error::PyroscopeError),
 
 	<span class="attr">#[error(<span class="string">"Failed to resolve provided URL"</span>)]
 	</span>AddressResolutionFailure(<span class="attr">#[from] </span>std::io::Error),

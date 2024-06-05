@@ -643,6 +643,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#492" id="492">492</a>
 <a href="#493" id="493">493</a>
 <a href="#494" id="494">494</a>
+<a href="#495" id="495">495</a>
+<a href="#496" id="496">496</a>
+<a href="#497" id="497">497</a>
+<a href="#498" id="498">498</a>
+<a href="#499" id="499">499</a>
+<a href="#500" id="500">500</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -663,17 +669,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>frame_benchmarking_cli::{BenchmarkCmd, ExtrinsicFactory, SUBSTRATE_REFERENCE_HARDWARE};
 <span class="kw">use </span>futures::future::TryFutureExt;
 <span class="kw">use </span>log::info;
-<span class="kw">use </span>sc_cli::SubstrateCli;
-<span class="kw">use </span>service::{
+<span class="kw">use </span>polkadot_service::{
 	<span class="self">self</span>,
 	benchmarking::{benchmark_inherent_data, RemarkBuilder, TransferKeepAliveBuilder},
 	HeaderBackend, IdentifyVariant,
 };
+<span class="kw">use </span>sc_cli::SubstrateCli;
 <span class="kw">use </span>sp_core::crypto::Ss58AddressFormatRegistry;
 <span class="kw">use </span>sp_keyring::Sr25519Keyring;
 <span class="kw">use </span>std::net::ToSocketAddrs;
 
-<span class="kw">pub use crate</span>::{error::Error, service::BlockId};
+<span class="kw">pub use </span><span class="kw">crate</span>::error::Error;
 <span class="attr">#[cfg(feature = <span class="string">"hostperfcheck"</span>)]
 </span><span class="kw">pub use </span>polkadot_performance_test::PerfCheckError;
 <span class="attr">#[cfg(feature = <span class="string">"pyroscope"</span>)]
@@ -730,55 +736,55 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			id
 		};
 		<span class="prelude-val">Ok</span>(<span class="kw">match </span>id {
-			<span class="string">"kusama" </span>=&gt; Box::new(service::chain_spec::kusama_config()<span class="question-mark">?</span>),
+			<span class="string">"kusama" </span>=&gt; Box::new(polkadot_service::chain_spec::kusama_config()<span class="question-mark">?</span>),
 			name <span class="kw">if </span>name.starts_with(<span class="string">"kusama-"</span>) &amp;&amp; !name.ends_with(<span class="string">".json"</span>) =&gt;
 				<span class="prelude-val">Err</span>(<span class="macro">format!</span>(<span class="string">"`{name}` is not supported anymore as the kusama native runtime no longer part of the node."</span>))<span class="question-mark">?</span>,
-			<span class="string">"polkadot" </span>=&gt; Box::new(service::chain_spec::polkadot_config()<span class="question-mark">?</span>),
+			<span class="string">"polkadot" </span>=&gt; Box::new(polkadot_service::chain_spec::polkadot_config()<span class="question-mark">?</span>),
 			name <span class="kw">if </span>name.starts_with(<span class="string">"polkadot-"</span>) &amp;&amp; !name.ends_with(<span class="string">".json"</span>) =&gt;
 				<span class="prelude-val">Err</span>(<span class="macro">format!</span>(<span class="string">"`{name}` is not supported anymore as the polkadot native runtime no longer part of the node."</span>))<span class="question-mark">?</span>,
-			<span class="string">"paseo" </span>=&gt; Box::new(service::chain_spec::paseo_config()<span class="question-mark">?</span>),
-			<span class="string">"rococo" </span>=&gt; Box::new(service::chain_spec::rococo_config()<span class="question-mark">?</span>),
+			<span class="string">"paseo" </span>=&gt; Box::new(polkadot_service::chain_spec::paseo_config()<span class="question-mark">?</span>),
+			<span class="string">"rococo" </span>=&gt; Box::new(polkadot_service::chain_spec::rococo_config()<span class="question-mark">?</span>),
 			<span class="attr">#[cfg(feature = <span class="string">"rococo-native"</span>)]
-			</span><span class="string">"dev" </span>| <span class="string">"rococo-dev" </span>=&gt; Box::new(service::chain_spec::rococo_development_config()<span class="question-mark">?</span>),
+			</span><span class="string">"dev" </span>| <span class="string">"rococo-dev" </span>=&gt; Box::new(polkadot_service::chain_spec::rococo_development_config()<span class="question-mark">?</span>),
 			<span class="attr">#[cfg(feature = <span class="string">"rococo-native"</span>)]
-			</span><span class="string">"rococo-local" </span>=&gt; Box::new(service::chain_spec::rococo_local_testnet_config()<span class="question-mark">?</span>),
+			</span><span class="string">"rococo-local" </span>=&gt; Box::new(polkadot_service::chain_spec::rococo_local_testnet_config()<span class="question-mark">?</span>),
 			<span class="attr">#[cfg(feature = <span class="string">"rococo-native"</span>)]
-			</span><span class="string">"rococo-staging" </span>=&gt; Box::new(service::chain_spec::rococo_staging_testnet_config()<span class="question-mark">?</span>),
+			</span><span class="string">"rococo-staging" </span>=&gt; Box::new(polkadot_service::chain_spec::rococo_staging_testnet_config()<span class="question-mark">?</span>),
 			<span class="attr">#[cfg(not(feature = <span class="string">"rococo-native"</span>))]
 			</span>name <span class="kw">if </span>name.starts_with(<span class="string">"rococo-"</span>) &amp;&amp; !name.ends_with(<span class="string">".json"</span>) || name == <span class="string">"dev" </span>=&gt;
 				<span class="prelude-val">Err</span>(<span class="macro">format!</span>(<span class="string">"`{}` only supported with `rococo-native` feature enabled."</span>, name))<span class="question-mark">?</span>,
-			<span class="string">"westend" </span>=&gt; Box::new(service::chain_spec::westend_config()<span class="question-mark">?</span>),
+			<span class="string">"westend" </span>=&gt; Box::new(polkadot_service::chain_spec::westend_config()<span class="question-mark">?</span>),
 			<span class="attr">#[cfg(feature = <span class="string">"westend-native"</span>)]
-			</span><span class="string">"westend-dev" </span>=&gt; Box::new(service::chain_spec::westend_development_config()<span class="question-mark">?</span>),
+			</span><span class="string">"westend-dev" </span>=&gt; Box::new(polkadot_service::chain_spec::westend_development_config()<span class="question-mark">?</span>),
 			<span class="attr">#[cfg(feature = <span class="string">"westend-native"</span>)]
-			</span><span class="string">"westend-local" </span>=&gt; Box::new(service::chain_spec::westend_local_testnet_config()<span class="question-mark">?</span>),
+			</span><span class="string">"westend-local" </span>=&gt; Box::new(polkadot_service::chain_spec::westend_local_testnet_config()<span class="question-mark">?</span>),
 			<span class="attr">#[cfg(feature = <span class="string">"westend-native"</span>)]
-			</span><span class="string">"westend-staging" </span>=&gt; Box::new(service::chain_spec::westend_staging_testnet_config()<span class="question-mark">?</span>),
+			</span><span class="string">"westend-staging" </span>=&gt; Box::new(polkadot_service::chain_spec::westend_staging_testnet_config()<span class="question-mark">?</span>),
 			<span class="attr">#[cfg(not(feature = <span class="string">"westend-native"</span>))]
 			</span>name <span class="kw">if </span>name.starts_with(<span class="string">"westend-"</span>) &amp;&amp; !name.ends_with(<span class="string">".json"</span>) =&gt;
 				<span class="prelude-val">Err</span>(<span class="macro">format!</span>(<span class="string">"`{}` only supported with `westend-native` feature enabled."</span>, name))<span class="question-mark">?</span>,
-			<span class="string">"wococo" </span>=&gt; Box::new(service::chain_spec::wococo_config()<span class="question-mark">?</span>),
+			<span class="string">"wococo" </span>=&gt; Box::new(polkadot_service::chain_spec::wococo_config()<span class="question-mark">?</span>),
 			<span class="attr">#[cfg(feature = <span class="string">"rococo-native"</span>)]
-			</span><span class="string">"wococo-dev" </span>=&gt; Box::new(service::chain_spec::wococo_development_config()<span class="question-mark">?</span>),
+			</span><span class="string">"wococo-dev" </span>=&gt; Box::new(polkadot_service::chain_spec::wococo_development_config()<span class="question-mark">?</span>),
 			<span class="attr">#[cfg(feature = <span class="string">"rococo-native"</span>)]
-			</span><span class="string">"wococo-local" </span>=&gt; Box::new(service::chain_spec::wococo_local_testnet_config()<span class="question-mark">?</span>),
+			</span><span class="string">"wococo-local" </span>=&gt; Box::new(polkadot_service::chain_spec::wococo_local_testnet_config()<span class="question-mark">?</span>),
 			<span class="attr">#[cfg(not(feature = <span class="string">"rococo-native"</span>))]
 			</span>name <span class="kw">if </span>name.starts_with(<span class="string">"wococo-"</span>) =&gt;
 				<span class="prelude-val">Err</span>(<span class="macro">format!</span>(<span class="string">"`{}` only supported with `rococo-native` feature enabled."</span>, name))<span class="question-mark">?</span>,
 			<span class="attr">#[cfg(feature = <span class="string">"rococo-native"</span>)]
-			</span><span class="string">"versi-dev" </span>=&gt; Box::new(service::chain_spec::versi_development_config()<span class="question-mark">?</span>),
+			</span><span class="string">"versi-dev" </span>=&gt; Box::new(polkadot_service::chain_spec::versi_development_config()<span class="question-mark">?</span>),
 			<span class="attr">#[cfg(feature = <span class="string">"rococo-native"</span>)]
-			</span><span class="string">"versi-local" </span>=&gt; Box::new(service::chain_spec::versi_local_testnet_config()<span class="question-mark">?</span>),
+			</span><span class="string">"versi-local" </span>=&gt; Box::new(polkadot_service::chain_spec::versi_local_testnet_config()<span class="question-mark">?</span>),
 			<span class="attr">#[cfg(feature = <span class="string">"rococo-native"</span>)]
-			</span><span class="string">"versi-staging" </span>=&gt; Box::new(service::chain_spec::versi_staging_testnet_config()<span class="question-mark">?</span>),
+			</span><span class="string">"versi-staging" </span>=&gt; Box::new(polkadot_service::chain_spec::versi_staging_testnet_config()<span class="question-mark">?</span>),
 			<span class="attr">#[cfg(not(feature = <span class="string">"rococo-native"</span>))]
 			</span>name <span class="kw">if </span>name.starts_with(<span class="string">"versi-"</span>) =&gt;
 				<span class="prelude-val">Err</span>(<span class="macro">format!</span>(<span class="string">"`{}` only supported with `rococo-native` feature enabled."</span>, name))<span class="question-mark">?</span>,
 			path =&gt; {
 				<span class="kw">let </span>path = std::path::PathBuf::from(path);
 
-				<span class="kw">let </span>chain_spec = Box::new(service::GenericChainSpec::from_json_file(path.clone())<span class="question-mark">?</span>)
-					<span class="kw">as </span>Box&lt;<span class="kw">dyn </span>service::ChainSpec&gt;;
+				<span class="kw">let </span>chain_spec = Box::new(polkadot_service::GenericChainSpec::from_json_file(path.clone())<span class="question-mark">?</span>)
+					<span class="kw">as </span>Box&lt;<span class="kw">dyn </span>polkadot_service::ChainSpec&gt;;
 
 				<span class="comment">// When `force_*` is given or the file name starts with the name of one of the known
 				// chains, we use the chain spec for the specific chain.
@@ -787,11 +793,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					chain_spec.is_wococo() ||
 					chain_spec.is_versi()
 				{
-					Box::new(service::RococoChainSpec::from_json_file(path)<span class="question-mark">?</span>)
+					Box::new(polkadot_service::RococoChainSpec::from_json_file(path)<span class="question-mark">?</span>)
 				} <span class="kw">else if </span><span class="self">self</span>.run.force_kusama || chain_spec.is_kusama() {
-					Box::new(service::GenericChainSpec::from_json_file(path)<span class="question-mark">?</span>)
+					Box::new(polkadot_service::GenericChainSpec::from_json_file(path)<span class="question-mark">?</span>)
 				} <span class="kw">else if </span><span class="self">self</span>.run.force_westend || chain_spec.is_westend() {
-					Box::new(service::WestendChainSpec::from_json_file(path)<span class="question-mark">?</span>)
+					Box::new(polkadot_service::WestendChainSpec::from_json_file(path)<span class="question-mark">?</span>)
 				} <span class="kw">else </span>{
 					chain_spec
 				}
@@ -800,7 +806,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="kw">fn </span>set_default_ss58_version(spec: <span class="kw-2">&amp;</span>Box&lt;<span class="kw">dyn </span>service::ChainSpec&gt;) {
+<span class="kw">fn </span>set_default_ss58_version(spec: <span class="kw-2">&amp;</span>Box&lt;<span class="kw">dyn </span>polkadot_service::ChainSpec&gt;) {
 	<span class="kw">let </span>ss58_version = <span class="kw">if </span>spec.is_kusama() {
 		Ss58AddressFormatRegistry::KusamaAccount
 	} <span class="kw">else if </span>spec.is_westend() {
@@ -821,7 +827,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="attr">#[cfg(feature = <span class="string">"malus"</span>)]
 </span><span class="kw">pub fn </span>run_node(
 	run: Cli,
-	overseer_gen: <span class="kw">impl </span>service::OverseerGen,
+	overseer_gen: <span class="kw">impl </span>polkadot_service::OverseerGen,
 	malus_finality_delay: <span class="prelude-ty">Option</span>&lt;u32&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
 	run_node_inner(run, overseer_gen, malus_finality_delay, |_logger_builder, _config| {})
@@ -829,7 +835,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">fn </span>run_node_inner&lt;F&gt;(
 	cli: Cli,
-	overseer_gen: <span class="kw">impl </span>service::OverseerGen,
+	overseer_gen: <span class="kw">impl </span>polkadot_service::OverseerGen,
 	maybe_malus_finality_delay: <span class="prelude-ty">Option</span>&lt;u32&gt;,
 	logger_hook: F,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt;
@@ -880,10 +886,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.flatten();
 
 		<span class="kw">let </span>database_source = config.database.clone();
-		<span class="kw">let </span>task_manager = service::build_full(
+		<span class="kw">let </span>task_manager = polkadot_service::build_full(
 			config,
-			service::NewFullParams {
-				is_parachain_node: service::IsParachainNode::No,
+			polkadot_service::NewFullParams {
+				is_parachain_node: polkadot_service::IsParachainNode::No,
 				enable_beefy,
 				force_authoring_backoff: cli.run.force_authoring_backoff,
 				jaeger_agent,
@@ -929,7 +935,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span>.next()
 			.ok_or_else(|| Error::AddressResolutionMissing)<span class="question-mark">?</span>;
 		<span class="comment">// The pyroscope agent requires a `http://` prefix, so we just do that.
-		</span><span class="kw">let </span>agent = pyro::PyroscopeAgent::builder(
+		</span><span class="kw">let </span>agent = pyroscope::PyroscopeAgent::builder(
 			<span class="string">"http://"</span>.to_owned() + address.to_string().as_str(),
 			<span class="string">"polkadot"</span>.to_owned(),
 		)
@@ -948,7 +954,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">match </span><span class="kw-2">&amp;</span>cli.subcommand {
 		<span class="prelude-val">None </span>=&gt; run_node_inner(
 			cli,
-			service::ValidatorOverseerGen,
+			polkadot_service::ValidatorOverseerGen,
 			<span class="prelude-val">None</span>,
 			polkadot_node_metrics::logger_hook(),
 		),
@@ -964,7 +970,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			runner.async_run(|<span class="kw-2">mut </span>config| {
 				<span class="kw">let </span>(client, <span class="kw">_</span>, import_queue, task_manager) =
-					service::new_chain_ops(<span class="kw-2">&amp;mut </span>config, <span class="prelude-val">None</span>)<span class="question-mark">?</span>;
+					polkadot_service::new_chain_ops(<span class="kw-2">&amp;mut </span>config, <span class="prelude-val">None</span>)<span class="question-mark">?</span>;
 				<span class="prelude-val">Ok</span>((cmd.run(client, import_queue).map_err(Error::SubstrateCli), task_manager))
 			})
 		},
@@ -976,7 +982,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="prelude-val">Ok</span>(runner.async_run(|<span class="kw-2">mut </span>config| {
 				<span class="kw">let </span>(client, <span class="kw">_</span>, <span class="kw">_</span>, task_manager) =
-					service::new_chain_ops(<span class="kw-2">&amp;mut </span>config, <span class="prelude-val">None</span>).map_err(Error::PolkadotService)<span class="question-mark">?</span>;
+					polkadot_service::new_chain_ops(<span class="kw-2">&amp;mut </span>config, <span class="prelude-val">None</span>)
+						.map_err(Error::PolkadotService)<span class="question-mark">?</span>;
 				<span class="prelude-val">Ok</span>((cmd.run(client, config.database).map_err(Error::SubstrateCli), task_manager))
 			})<span class="question-mark">?</span>)
 		},
@@ -987,7 +994,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			set_default_ss58_version(chain_spec);
 
 			<span class="prelude-val">Ok</span>(runner.async_run(|<span class="kw-2">mut </span>config| {
-				<span class="kw">let </span>(client, <span class="kw">_</span>, <span class="kw">_</span>, task_manager) = service::new_chain_ops(<span class="kw-2">&amp;mut </span>config, <span class="prelude-val">None</span>)<span class="question-mark">?</span>;
+				<span class="kw">let </span>(client, <span class="kw">_</span>, <span class="kw">_</span>, task_manager) =
+					polkadot_service::new_chain_ops(<span class="kw-2">&amp;mut </span>config, <span class="prelude-val">None</span>)<span class="question-mark">?</span>;
 				<span class="prelude-val">Ok</span>((cmd.run(client, config.chain_spec).map_err(Error::SubstrateCli), task_manager))
 			})<span class="question-mark">?</span>)
 		},
@@ -999,7 +1007,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="prelude-val">Ok</span>(runner.async_run(|<span class="kw-2">mut </span>config| {
 				<span class="kw">let </span>(client, <span class="kw">_</span>, import_queue, task_manager) =
-					service::new_chain_ops(<span class="kw-2">&amp;mut </span>config, <span class="prelude-val">None</span>)<span class="question-mark">?</span>;
+					polkadot_service::new_chain_ops(<span class="kw-2">&amp;mut </span>config, <span class="prelude-val">None</span>)<span class="question-mark">?</span>;
 				<span class="prelude-val">Ok</span>((cmd.run(client, import_queue).map_err(Error::SubstrateCli), task_manager))
 			})<span class="question-mark">?</span>)
 		},
@@ -1014,15 +1022,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			set_default_ss58_version(chain_spec);
 
 			<span class="prelude-val">Ok</span>(runner.async_run(|<span class="kw-2">mut </span>config| {
-				<span class="kw">let </span>(client, backend, <span class="kw">_</span>, task_manager) = service::new_chain_ops(<span class="kw-2">&amp;mut </span>config, <span class="prelude-val">None</span>)<span class="question-mark">?</span>;
+				<span class="kw">let </span>(client, backend, <span class="kw">_</span>, task_manager) =
+					polkadot_service::new_chain_ops(<span class="kw-2">&amp;mut </span>config, <span class="prelude-val">None</span>)<span class="question-mark">?</span>;
 				<span class="kw">let </span>aux_revert = Box::new(|client, backend, blocks| {
-					service::revert_backend(client, backend, blocks, config).map_err(|err| {
-						<span class="kw">match </span>err {
-							service::Error::Blockchain(err) =&gt; err.into(),
-							<span class="comment">// Generic application-specific error.
-							</span>err =&gt; sc_cli::Error::Application(err.into()),
-						}
-					})
+					polkadot_service::revert_backend(client, backend, blocks, config).map_err(
+						|err| {
+							<span class="kw">match </span>err {
+								polkadot_service::Error::Blockchain(err) =&gt; err.into(),
+								<span class="comment">// Generic application-specific error.
+								</span>err =&gt; sc_cli::Error::Application(err.into()),
+							}
+						},
+					)
 				});
 				<span class="prelude-val">Ok</span>((
 					cmd.run(client, backend, <span class="prelude-val">Some</span>(aux_revert)).map_err(Error::SubstrateCli),
@@ -1045,21 +1056,22 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					.into()),
 				<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 				</span>BenchmarkCmd::Storage(cmd) =&gt; runner.sync_run(|<span class="kw-2">mut </span>config| {
-					<span class="kw">let </span>(client, backend, <span class="kw">_</span>, <span class="kw">_</span>) = service::new_chain_ops(<span class="kw-2">&amp;mut </span>config, <span class="prelude-val">None</span>)<span class="question-mark">?</span>;
+					<span class="kw">let </span>(client, backend, <span class="kw">_</span>, <span class="kw">_</span>) =
+						polkadot_service::new_chain_ops(<span class="kw-2">&amp;mut </span>config, <span class="prelude-val">None</span>)<span class="question-mark">?</span>;
 					<span class="kw">let </span>db = backend.expose_db();
 					<span class="kw">let </span>storage = backend.expose_storage();
 
 					cmd.run(config, client.clone(), db, storage).map_err(Error::SubstrateCli)
 				}),
 				BenchmarkCmd::Block(cmd) =&gt; runner.sync_run(|<span class="kw-2">mut </span>config| {
-					<span class="kw">let </span>(client, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>) = service::new_chain_ops(<span class="kw-2">&amp;mut </span>config, <span class="prelude-val">None</span>)<span class="question-mark">?</span>;
+					<span class="kw">let </span>(client, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>) = polkadot_service::new_chain_ops(<span class="kw-2">&amp;mut </span>config, <span class="prelude-val">None</span>)<span class="question-mark">?</span>;
 
 					cmd.run(client.clone()).map_err(Error::SubstrateCli)
 				}),
 				<span class="comment">// These commands are very similar and can be handled in nearly the same way.
 				</span>BenchmarkCmd::Extrinsic(<span class="kw">_</span>) | BenchmarkCmd::Overhead(<span class="kw">_</span>) =&gt;
 					runner.sync_run(|<span class="kw-2">mut </span>config| {
-						<span class="kw">let </span>(client, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>) = service::new_chain_ops(<span class="kw-2">&amp;mut </span>config, <span class="prelude-val">None</span>)<span class="question-mark">?</span>;
+						<span class="kw">let </span>(client, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>) = polkadot_service::new_chain_ops(<span class="kw-2">&amp;mut </span>config, <span class="prelude-val">None</span>)<span class="question-mark">?</span>;
 						<span class="kw">let </span>header = client.header(client.info().genesis_hash).unwrap().unwrap();
 						<span class="kw">let </span>inherent_data = benchmark_inherent_data(header)
 							.map_err(|e| <span class="macro">format!</span>(<span class="string">"generating inherent data: {:?}"</span>, e))<span class="question-mark">?</span>;
@@ -1099,7 +1111,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 					<span class="kw">if </span><span class="macro">cfg!</span>(feature = <span class="string">"runtime-benchmarks"</span>) {
 						runner.sync_run(|config| {
-							cmd.run_with_spec::&lt;sp_runtime::traits::HashingFor&lt;service::Block&gt;, ()&gt;(
+							cmd.run_with_spec::&lt;sp_runtime::traits::HashingFor&lt;polkadot_service::Block&gt;, ()&gt;(
 								<span class="prelude-val">Some</span>(config.chain_spec),
 							)
 							.map_err(|e| Error::SubstrateCli(e))
@@ -1126,7 +1138,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="prelude-val">Some</span>(Subcommand::Key(cmd)) =&gt; <span class="prelude-val">Ok</span>(cmd.run(<span class="kw-2">&amp;</span>cli)<span class="question-mark">?</span>),
 		<span class="prelude-val">Some</span>(Subcommand::ChainInfo(cmd)) =&gt; {
 			<span class="kw">let </span>runner = cli.create_runner(cmd)<span class="question-mark">?</span>;
-			<span class="prelude-val">Ok</span>(runner.sync_run(|config| cmd.run::&lt;service::Block&gt;(<span class="kw-2">&amp;</span>config))<span class="question-mark">?</span>)
+			<span class="prelude-val">Ok</span>(runner.sync_run(|config| cmd.run::&lt;polkadot_service::Block&gt;(<span class="kw-2">&amp;</span>config))<span class="question-mark">?</span>)
 		},
 	}<span class="question-mark">?</span>;
 

@@ -293,6 +293,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="kw">use </span>codec::Codec;
 <span class="kw">use </span>cumulus_client_consensus_common::ParachainBlockImportMarker;
+<span class="kw">use </span>prometheus_endpoint::Registry;
 <span class="kw">use </span>sc_client_api::{backend::AuxStore, BlockOf, UsageProvider};
 <span class="kw">use </span>sc_consensus::{import_queue::DefaultImportQueue, BlockImport};
 <span class="kw">use </span>sc_consensus_aura::{AuraVerifier, CompatibilityMode};
@@ -307,7 +308,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>sp_inherents::CreateInherentDataProviders;
 <span class="kw">use </span>sp_runtime::traits::Block <span class="kw">as </span>BlockT;
 <span class="kw">use </span>std::{fmt::Debug, sync::Arc};
-<span class="kw">use </span>substrate_prometheus_endpoint::Registry;
 
 <span class="doccomment">/// Parameters for [`import_queue`].
 </span><span class="kw">pub struct </span>ImportQueueParams&lt;<span class="lifetime">'a</span>, I, C, CIDP, S&gt; {

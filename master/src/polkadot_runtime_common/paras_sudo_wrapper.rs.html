@@ -350,12 +350,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="doccomment">//! A simple wrapper allowing `Sudo` to call into `paras` routines.
 
-</span><span class="kw">use </span>frame_support::pallet_prelude::<span class="kw-2">*</span>;
+</span><span class="kw">use </span>codec::Encode;
+<span class="kw">use </span>frame_support::pallet_prelude::<span class="kw-2">*</span>;
 <span class="kw">use </span>frame_system::pallet_prelude::<span class="kw-2">*</span>;
 <span class="kw">pub use </span>pallet::<span class="kw-2">*</span>;
-<span class="kw">use </span>parity_scale_codec::Encode;
-<span class="kw">use </span>primitives::Id <span class="kw">as </span>ParaId;
-<span class="kw">use </span>runtime_parachains::{
+<span class="kw">use </span>polkadot_primitives::Id <span class="kw">as </span>ParaId;
+<span class="kw">use </span>polkadot_runtime_parachains::{
 	configuration, dmp, hrmp,
 	paras::{<span class="self">self</span>, AssignCoretime, ParaGenesisArgs},
 	ParaLifecycle,
@@ -414,7 +414,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			genesis: ParaGenesisArgs,
 		) -&gt; DispatchResult {
 			ensure_root(origin)<span class="question-mark">?</span>;
-			runtime_parachains::schedule_para_initialize::&lt;T&gt;(id, genesis)
+			polkadot_runtime_parachains::schedule_para_initialize::&lt;T&gt;(id, genesis)
 				.map_err(|<span class="kw">_</span>| Error::&lt;T&gt;::ParaAlreadyExists)<span class="question-mark">?</span>;
 
 			T::AssignCoretime::assign_coretime(id)<span class="question-mark">?</span>;
@@ -427,7 +427,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		#[pallet::weight((<span class="number">1_000</span>, DispatchClass::Operational))]
 		</span><span class="kw">pub fn </span>sudo_schedule_para_cleanup(origin: OriginFor&lt;T&gt;, id: ParaId) -&gt; DispatchResult {
 			ensure_root(origin)<span class="question-mark">?</span>;
-			runtime_parachains::schedule_para_cleanup::&lt;T&gt;(id)
+			polkadot_runtime_parachains::schedule_para_cleanup::&lt;T&gt;(id)
 				.map_err(|<span class="kw">_</span>| Error::&lt;T&gt;::CouldntCleanup)<span class="question-mark">?</span>;
 			<span class="prelude-val">Ok</span>(())
 		}
@@ -445,7 +445,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				paras::Pallet::&lt;T&gt;::lifecycle(id) == <span class="prelude-val">Some</span>(ParaLifecycle::Parathread),
 				Error::&lt;T&gt;::NotParathread,
 			);
-			runtime_parachains::schedule_parathread_upgrade::&lt;T&gt;(id)
+			polkadot_runtime_parachains::schedule_parathread_upgrade::&lt;T&gt;(id)
 				.map_err(|<span class="kw">_</span>| Error::&lt;T&gt;::CannotUpgrade)<span class="question-mark">?</span>;
 			<span class="prelude-val">Ok</span>(())
 		}
@@ -463,7 +463,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				paras::Pallet::&lt;T&gt;::lifecycle(id) == <span class="prelude-val">Some</span>(ParaLifecycle::Parachain),
 				Error::&lt;T&gt;::NotParachain,
 			);
-			runtime_parachains::schedule_parachain_downgrade::&lt;T&gt;(id)
+			polkadot_runtime_parachains::schedule_parachain_downgrade::&lt;T&gt;(id)
 				.map_err(|<span class="kw">_</span>| Error::&lt;T&gt;::CannotDowngrade)<span class="question-mark">?</span>;
 			<span class="prelude-val">Ok</span>(())
 		}

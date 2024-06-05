@@ -359,8 +359,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	weights::Weight,
 };
 <span class="kw">use </span>frame_system::EnsureRoot;
+<span class="kw">use </span>polkadot_runtime_common::xcm_sender::{ChildParachainRouter, PriceForMessageDelivery};
 <span class="kw">use </span>polkadot_runtime_parachains::FeeTracker;
-<span class="kw">use </span>runtime_common::xcm_sender::{ChildParachainRouter, PriceForMessageDelivery};
 <span class="kw">use </span>xcm::latest::prelude::<span class="kw-2">*</span>;
 <span class="kw">use </span>xcm_builder::{
 	AllowUnpaidExecutionFrom, EnsureXcmOrigin, FixedWeightBounds, FrameTransactionalProcessor,

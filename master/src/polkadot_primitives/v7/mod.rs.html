@@ -2371,8 +2371,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#2220" id="2220">2220</a>
 <a href="#2221" id="2221">2221</a>
 <a href="#2222" id="2222">2222</a>
-<a href="#2223" id="2223">2223</a>
-<a href="#2224" id="2224">2224</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -2392,7 +2390,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="doccomment">//! `V7` Primitives.
 
 </span><span class="kw">use </span>bitvec::{field::BitField, slice::BitSlice, vec::BitVec};
-<span class="kw">use </span>parity_scale_codec::{Decode, Encode};
+<span class="kw">use </span>codec::{Decode, Encode};
 <span class="kw">use </span>scale_info::TypeInfo;
 <span class="kw">use </span>sp_std::{
 	marker::PhantomData,
@@ -2401,13 +2399,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	vec::IntoIter,
 };
 
-<span class="kw">use </span>application_crypto::KeyTypeId;
-<span class="kw">use </span>inherents::InherentIdentifier;
-<span class="kw">use </span>primitives::RuntimeDebug;
-<span class="kw">use </span>runtime_primitives::traits::{AppVerify, Header <span class="kw">as </span>HeaderT};
+<span class="kw">use </span>sp_application_crypto::KeyTypeId;
 <span class="kw">use </span>sp_arithmetic::traits::{BaseArithmetic, Saturating};
+<span class="kw">use </span>sp_core::RuntimeDebug;
+<span class="kw">use </span>sp_inherents::InherentIdentifier;
+<span class="kw">use </span>sp_runtime::traits::{AppVerify, Header <span class="kw">as </span>HeaderT};
 
-<span class="kw">pub use </span>runtime_primitives::traits::{BlakeTwo256, Hash <span class="kw">as </span>HashT};
+<span class="kw">pub use </span>sp_runtime::traits::{BlakeTwo256, Hash <span class="kw">as </span>HashT};
 
 <span class="comment">// Export some core primitives.
 </span><span class="kw">pub use </span>polkadot_core_primitives::v2::{
@@ -2452,7 +2450,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">"runtime::primitives"</span>;
 
 <span class="kw">mod </span>collator_app {
-	<span class="kw">use </span>application_crypto::{app_crypto, sr25519};
+	<span class="kw">use </span>sp_application_crypto::{app_crypto, sr25519};
 	<span class="macro">app_crypto!</span>(sr25519, <span class="kw">super</span>::COLLATOR_KEY_TYPE_ID);
 }
 
@@ -2470,7 +2468,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub const </span>PARACHAIN_KEY_TYPE_ID: KeyTypeId = KeyTypeId(<span class="kw-2">*</span><span class="string">b"para"</span>);
 
 <span class="kw">mod </span>validator_app {
-	<span class="kw">use </span>application_crypto::{app_crypto, sr25519};
+	<span class="kw">use </span>sp_application_crypto::{app_crypto, sr25519};
 	<span class="macro">app_crypto!</span>(sr25519, <span class="kw">super</span>::PARACHAIN_KEY_TYPE_ID);
 }
 
@@ -2533,7 +2531,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="macro">application_crypto::with_pair! </span>{
+<span class="macro">sp_application_crypto::with_pair! </span>{
 	<span class="doccomment">/// A Parachain validator keypair.
 	</span><span class="kw">pub type </span>ValidatorPair = validator_app::Pair;
 }
@@ -2547,8 +2545,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// A declarations of storage keys where an external observer can find some interesting data.
 </span><span class="kw">pub mod </span>well_known_keys {
 	<span class="kw">use super</span>::{HrmpChannelId, Id, WellKnownKey};
+	<span class="kw">use </span>codec::Encode <span class="kw">as _</span>;
 	<span class="kw">use </span>hex_literal::hex;
-	<span class="kw">use </span>parity_scale_codec::Encode <span class="kw">as _</span>;
 	<span class="kw">use </span>sp_io::hashing::twox_64;
 	<span class="kw">use </span>sp_std::prelude::<span class="kw-2">*</span>;
 
@@ -2818,7 +2816,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="comment">// The public key of a keypair used by a validator for determining assignments
 </span><span class="doccomment">/// to approve included parachain candidates.
 </span><span class="kw">mod </span>assignment_app {
-	<span class="kw">use </span>application_crypto::{app_crypto, sr25519};
+	<span class="kw">use </span>sp_application_crypto::{app_crypto, sr25519};
 	<span class="macro">app_crypto!</span>(sr25519, <span class="kw">super</span>::ASSIGNMENT_KEY_TYPE_ID);
 }
 
@@ -2826,7 +2824,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// to approve included parachain candidates.
 </span><span class="kw">pub type </span>AssignmentId = assignment_app::Public;
 
-<span class="macro">application_crypto::with_pair! </span>{
+<span class="macro">sp_application_crypto::with_pair! </span>{
 	<span class="doccomment">/// The full keypair used by a validator for determining assignments to approve included
 	/// parachain candidates.
 	</span><span class="kw">pub type </span>AssignmentPair = assignment_app::Pair;
@@ -3736,7 +3734,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// Consensus engine id for polkadot v1 consensus engine.
-</span><span class="kw">pub const </span>POLKADOT_ENGINE_ID: runtime_primitives::ConsensusEngineId = <span class="kw-2">*</span><span class="string">b"POL1"</span>;
+</span><span class="kw">pub const </span>POLKADOT_ENGINE_ID: sp_runtime::ConsensusEngineId = <span class="kw-2">*</span><span class="string">b"POL1"</span>;
 
 <span class="doccomment">/// A consensus log item for polkadot validation. To be used with [`POLKADOT_ENGINE_ID`].
 </span><span class="attr">#[derive(Decode, Encode, Clone, PartialEq, Eq)]
@@ -3766,18 +3764,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">impl </span>ConsensusLog {
 	<span class="doccomment">/// Attempt to convert a reference to a generic digest item into a consensus log.
 	</span><span class="kw">pub fn </span>from_digest_item(
-		digest_item: <span class="kw-2">&amp;</span>runtime_primitives::DigestItem,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>&gt;, parity_scale_codec::Error&gt; {
+		digest_item: <span class="kw-2">&amp;</span>sp_runtime::DigestItem,
+	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>&gt;, codec::Error&gt; {
 		<span class="kw">match </span>digest_item {
-			runtime_primitives::DigestItem::Consensus(id, encoded) <span class="kw">if </span>id == <span class="kw-2">&amp;</span>POLKADOT_ENGINE_ID =&gt;
+			sp_runtime::DigestItem::Consensus(id, encoded) <span class="kw">if </span>id == <span class="kw-2">&amp;</span>POLKADOT_ENGINE_ID =&gt;
 				<span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(<span class="self">Self</span>::decode(<span class="kw-2">&amp;mut &amp;</span>encoded[..])<span class="question-mark">?</span>)),
 			<span class="kw">_ </span>=&gt; <span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>),
 		}
 	}
 }
 
-<span class="kw">impl </span>From&lt;ConsensusLog&gt; <span class="kw">for </span>runtime_primitives::DigestItem {
-	<span class="kw">fn </span>from(c: ConsensusLog) -&gt; runtime_primitives::DigestItem {
+<span class="kw">impl </span>From&lt;ConsensusLog&gt; <span class="kw">for </span>sp_runtime::DigestItem {
+	<span class="kw">fn </span>from(c: ConsensusLog) -&gt; sp_runtime::DigestItem {
 		<span class="self">Self</span>::Consensus(POLKADOT_ENGINE_ID, c.encode())
 	}
 }
@@ -4127,25 +4125,23 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="kw">impl </span>parity_scale_codec::Encode <span class="kw">for </span>CompactStatement {
+<span class="kw">impl </span>codec::Encode <span class="kw">for </span>CompactStatement {
 	<span class="kw">fn </span>size_hint(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
 		<span class="comment">// magic + discriminant + payload
 		</span><span class="number">4 </span>+ <span class="number">1 </span>+ <span class="number">32
 	</span>}
 
-	<span class="kw">fn </span>encode_to&lt;T: parity_scale_codec::Output + <span class="question-mark">?</span>Sized&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, dest: <span class="kw-2">&amp;mut </span>T) {
+	<span class="kw">fn </span>encode_to&lt;T: codec::Output + <span class="question-mark">?</span>Sized&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, dest: <span class="kw-2">&amp;mut </span>T) {
 		dest.write(<span class="kw-2">&amp;</span>BACKING_STATEMENT_MAGIC);
 		CompactStatementInner::from(<span class="self">self</span>.clone()).encode_to(dest)
 	}
 }
 
-<span class="kw">impl </span>parity_scale_codec::Decode <span class="kw">for </span>CompactStatement {
-	<span class="kw">fn </span>decode&lt;I: parity_scale_codec::Input&gt;(
-		input: <span class="kw-2">&amp;mut </span>I,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, parity_scale_codec::Error&gt; {
+<span class="kw">impl </span>codec::Decode <span class="kw">for </span>CompactStatement {
+	<span class="kw">fn </span>decode&lt;I: codec::Input&gt;(input: <span class="kw-2">&amp;mut </span>I) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, codec::Error&gt; {
 		<span class="kw">let </span>maybe_magic = &lt;[u8; <span class="number">4</span>]&gt;::decode(input)<span class="question-mark">?</span>;
 		<span class="kw">if </span>maybe_magic != BACKING_STATEMENT_MAGIC {
-			<span class="kw">return </span><span class="prelude-val">Err</span>(parity_scale_codec::Error::from(<span class="string">"invalid magic string"</span>))
+			<span class="kw">return </span><span class="prelude-val">Err</span>(codec::Error::from(<span class="string">"invalid magic string"</span>))
 		}
 
 		<span class="prelude-val">Ok</span>(<span class="kw">match </span>CompactStatementInner::decode(input)<span class="question-mark">? </span>{
@@ -4362,7 +4358,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Gets the value or `None` if it does not exist or decoding failed.
 	</span><span class="kw">pub fn </span>get(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;T&gt; {
 		sp_io::storage::get(<span class="kw-2">&amp;</span><span class="self">self</span>.key)
-			.and_then(|raw| parity_scale_codec::DecodeAll::decode_all(<span class="kw-2">&amp;mut </span>raw.as_ref()).ok())
+			.and_then(|raw| codec::DecodeAll::decode_all(<span class="kw-2">&amp;mut </span>raw.as_ref()).ok())
 	}
 }
 
@@ -4426,7 +4422,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">mod </span>tests {
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
 	<span class="kw">use </span>bitvec::bitvec;
-	<span class="kw">use </span>primitives::sr25519;
+	<span class="kw">use </span>sp_core::sr25519;
 
 	<span class="kw">pub fn </span>dummy_committed_candidate_receipt() -&gt; CommittedCandidateReceipt {
 		<span class="kw">let </span>zeros = Hash::zero();

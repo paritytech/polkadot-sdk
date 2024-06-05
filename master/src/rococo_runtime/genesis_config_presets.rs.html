@@ -693,6 +693,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#542" id="542">542</a>
 <a href="#543" id="543">543</a>
 <a href="#544" id="544">544</a>
+<a href="#545" id="545">545</a>
+<a href="#546" id="546">546</a>
+<a href="#547" id="547">547</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -712,12 +715,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="doccomment">//! Genesis configs presets for the Rococo runtime
 
 </span><span class="kw">use crate</span>::{SessionKeys, BABE_GENESIS_EPOCH_CONFIG};
-<span class="kw">use </span>authority_discovery_primitives::AuthorityId <span class="kw">as </span>AuthorityDiscoveryId;
-<span class="kw">use </span>babe_primitives::AuthorityId <span class="kw">as </span>BabeId;
-<span class="kw">use </span>beefy_primitives::ecdsa_crypto::AuthorityId <span class="kw">as </span>BeefyId;
-<span class="kw">use </span>grandpa_primitives::AuthorityId <span class="kw">as </span>GrandpaId;
-<span class="kw">use </span>primitives::{vstaging::SchedulerParams, AccountId, AccountPublic, AssignmentId, ValidatorId};
+<span class="kw">use </span>polkadot_primitives::{
+	vstaging::SchedulerParams, AccountId, AccountPublic, AssignmentId, ValidatorId,
+};
 <span class="kw">use </span>rococo_runtime_constants::currency::UNITS <span class="kw">as </span>ROC;
+<span class="kw">use </span>sp_authority_discovery::AuthorityId <span class="kw">as </span>AuthorityDiscoveryId;
+<span class="kw">use </span>sp_consensus_babe::AuthorityId <span class="kw">as </span>BabeId;
+<span class="kw">use </span>sp_consensus_beefy::ecdsa_crypto::AuthorityId <span class="kw">as </span>BeefyId;
+<span class="kw">use </span>sp_consensus_grandpa::AuthorityId <span class="kw">as </span>GrandpaId;
 <span class="kw">use </span>sp_core::{sr25519, Pair, Public};
 <span class="kw">use </span>sp_runtime::traits::IdentifyAccount;
 <span class="attr">#[cfg(not(feature = <span class="string">"std"</span>))]
@@ -800,12 +805,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="kw">fn </span>default_parachains_host_configuration(
-) -&gt; runtime_parachains::configuration::HostConfiguration&lt;primitives::BlockNumber&gt; {
-	<span class="kw">use </span>primitives::{
+) -&gt; polkadot_runtime_parachains::configuration::HostConfiguration&lt;polkadot_primitives::BlockNumber&gt;
+{
+	<span class="kw">use </span>polkadot_primitives::{
 		node_features::FeatureIndex, AsyncBackingParams, MAX_CODE_SIZE, MAX_POV_SIZE,
 	};
 
-	runtime_parachains::configuration::HostConfiguration {
+	polkadot_runtime_parachains::configuration::HostConfiguration {
 		validation_upgrade_cooldown: <span class="number">2u32</span>,
 		validation_upgrade_delay: <span class="number">2</span>,
 		code_retention_period: <span class="number">1200</span>,
@@ -900,7 +906,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		},
 		<span class="string">"sudo"</span>: { <span class="string">"key"</span>: <span class="prelude-val">Some</span>(root_key.clone()) },
 		<span class="string">"configuration"</span>: {
-			<span class="string">"config"</span>: runtime_parachains::configuration::HostConfiguration {
+			<span class="string">"config"</span>: polkadot_runtime_parachains::configuration::HostConfiguration {
 				scheduler_params: SchedulerParams {
 					max_validators_per_core: <span class="prelude-val">Some</span>(<span class="number">1</span>),
 					..default_parachains_host_configuration().scheduler_params
@@ -909,7 +915,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			},
 		},
 		<span class="string">"registrar"</span>: {
-			<span class="string">"nextFreeParaId"</span>: primitives::LOWEST_PUBLIC_ID,
+			<span class="string">"nextFreeParaId"</span>: polkadot_primitives::LOWEST_PUBLIC_ID,
 		}
 	})
 }
@@ -1168,7 +1174,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="string">"config"</span>: default_parachains_host_configuration(),
 		},
 		<span class="string">"registrar"</span>: {
-			<span class="string">"nextFreeParaId"</span>: primitives::LOWEST_PUBLIC_ID,
+			<span class="string">"nextFreeParaId"</span>: polkadot_primitives::LOWEST_PUBLIC_ID,
 		},
 	})
 }

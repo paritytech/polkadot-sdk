@@ -839,8 +839,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">use </span>std::pin::Pin;
 
 <span class="kw">use </span>bounded_vec::BoundedVec;
+<span class="kw">use </span>codec::{Decode, Encode, Error <span class="kw">as </span>CodecError, Input};
 <span class="kw">use </span>futures::Future;
-<span class="kw">use </span>parity_scale_codec::{Decode, Encode, Error <span class="kw">as </span>CodecError, Input};
 <span class="kw">use </span>serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
 <span class="kw">use </span>polkadot_primitives::{

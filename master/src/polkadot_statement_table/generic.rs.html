@@ -1169,12 +1169,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	hash::Hash,
 };
 
-<span class="kw">use </span>primitives::{
+<span class="kw">use </span>polkadot_primitives::{
 	effective_minimum_backing_votes, ValidatorSignature,
 	ValidityAttestation <span class="kw">as </span>PrimitiveValidityAttestation,
 };
 
-<span class="kw">use </span>parity_scale_codec::{Decode, Encode};
+<span class="kw">use </span>codec::{Decode, Encode};
 <span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">"parachain::statement-table"</span>;
 
 <span class="doccomment">/// Context for the statement table.

@@ -392,7 +392,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see &lt;http://www.gnu.org/licenses/&gt;.
 
-</span><span class="kw">use </span>erasure_coding::systematic_recovery_threshold;
+</span><span class="kw">use </span>polkadot_erasure_coding::systematic_recovery_threshold;
 <span class="kw">use </span>polkadot_primitives::{node_features, ChunkIndex, CoreIndex, NodeFeatures, ValidatorIndex};
 
 <span class="doccomment">/// Compute the per-validator availability chunk index.
@@ -404,7 +404,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	n_validators: usize,
 	core_index: CoreIndex,
 	validator_index: ValidatorIndex,
-) -&gt; <span class="prelude-ty">Result</span>&lt;ChunkIndex, erasure_coding::Error&gt; {
+) -&gt; <span class="prelude-ty">Result</span>&lt;ChunkIndex, polkadot_erasure_coding::Error&gt; {
 	<span class="kw">if let </span><span class="prelude-val">Some</span>(features) = maybe_node_features {
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span><span class="bool-val">true</span>) = features
 			.get(usize::from(node_features::FeatureIndex::AvailabilityChunkMapping <span class="kw">as </span>u8))
@@ -429,7 +429,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	maybe_node_features: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>NodeFeatures&gt;,
 	n_validators: usize,
 	core_index: CoreIndex,
-) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;ChunkIndex&gt;, erasure_coding::Error&gt; {
+) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;ChunkIndex&gt;, polkadot_erasure_coding::Error&gt; {
 	<span class="kw">let </span>identity = (<span class="number">0</span>..n_validators).map(|index| ChunkIndex(index <span class="kw">as </span>u32));
 	<span class="kw">if let </span><span class="prelude-val">Some</span>(features) = maybe_node_features {
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span><span class="bool-val">true</span>) = features

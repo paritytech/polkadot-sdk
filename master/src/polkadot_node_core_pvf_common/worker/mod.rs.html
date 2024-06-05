@@ -1010,10 +1010,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use crate</span>::{
 	framed_recv_blocking, framed_send_blocking, SecurityStatus, WorkerHandshake, LOG_TARGET,
 };
+<span class="kw">use </span>codec::{Decode, Encode};
 <span class="kw">use </span>cpu_time::ProcessTime;
 <span class="kw">use </span>futures::never::Never;
 <span class="kw">use </span>nix::{errno::Errno, sys::resource::Usage};
-<span class="kw">use </span>parity_scale_codec::{Decode, Encode};
 <span class="kw">use </span>std::{
 	any::Any,
 	fmt::{<span class="self">self</span>},

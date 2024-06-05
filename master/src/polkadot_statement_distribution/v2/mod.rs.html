@@ -3600,45 +3600,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#3449" id="3449">3449</a>
 <a href="#3450" id="3450">3450</a>
 <a href="#3451" id="3451">3451</a>
-<a href="#3452" id="3452">3452</a>
-<a href="#3453" id="3453">3453</a>
-<a href="#3454" id="3454">3454</a>
-<a href="#3455" id="3455">3455</a>
-<a href="#3456" id="3456">3456</a>
-<a href="#3457" id="3457">3457</a>
-<a href="#3458" id="3458">3458</a>
-<a href="#3459" id="3459">3459</a>
-<a href="#3460" id="3460">3460</a>
-<a href="#3461" id="3461">3461</a>
-<a href="#3462" id="3462">3462</a>
-<a href="#3463" id="3463">3463</a>
-<a href="#3464" id="3464">3464</a>
-<a href="#3465" id="3465">3465</a>
-<a href="#3466" id="3466">3466</a>
-<a href="#3467" id="3467">3467</a>
-<a href="#3468" id="3468">3468</a>
-<a href="#3469" id="3469">3469</a>
-<a href="#3470" id="3470">3470</a>
-<a href="#3471" id="3471">3471</a>
-<a href="#3472" id="3472">3472</a>
-<a href="#3473" id="3473">3473</a>
-<a href="#3474" id="3474">3474</a>
-<a href="#3475" id="3475">3475</a>
-<a href="#3476" id="3476">3476</a>
-<a href="#3477" id="3477">3477</a>
-<a href="#3478" id="3478">3478</a>
-<a href="#3479" id="3479">3479</a>
-<a href="#3480" id="3480">3480</a>
-<a href="#3481" id="3481">3481</a>
-<a href="#3482" id="3482">3482</a>
-<a href="#3483" id="3483">3483</a>
-<a href="#3484" id="3484">3484</a>
-<a href="#3485" id="3485">3485</a>
-<a href="#3486" id="3486">3486</a>
-<a href="#3487" id="3487">3487</a>
-<a href="#3488" id="3488">3488</a>
-<a href="#3489" id="3489">3489</a>
-<a href="#3490" id="3490">3490</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -3709,7 +3670,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>std::{
 	collections::{
 		hash_map::{Entry, HashMap},
-		BTreeSet, HashSet,
+		HashSet,
 	},
 	time::{Duration, Instant},
 };
@@ -3797,6 +3758,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	seconding_limit: usize,
 	session: SessionIndex,
 	groups_per_para: HashMap&lt;ParaId, Vec&lt;GroupIndex&gt;&gt;,
+	disabled_validators: HashSet&lt;ValidatorIndex&gt;,
 }
 
 <span class="kw">impl </span>PerRelayParentState {
@@ -3806,6 +3768,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">fn </span>active_validator_state_mut(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;mut </span>ActiveValidatorState&gt; {
 		<span class="self">self</span>.local_validator.as_mut().and_then(|local| local.active.as_mut())
+	}
+
+	<span class="doccomment">/// Returns `true` if the given validator is disabled in the context of the relay parent.
+	</span><span class="kw">pub fn </span>is_disabled(<span class="kw-2">&amp;</span><span class="self">self</span>, validator_index: <span class="kw-2">&amp;</span>ValidatorIndex) -&gt; bool {
+		<span class="self">self</span>.disabled_validators.contains(validator_index)
+	}
+
+	<span class="doccomment">/// A convenience function to generate a disabled bitmask for the given backing group.
+	/// The output bits are set to `true` for validators that are disabled.
+	</span><span class="kw">pub fn </span>disabled_bitmask(<span class="kw-2">&amp;</span><span class="self">self</span>, group: <span class="kw-2">&amp;</span>[ValidatorIndex]) -&gt; BitVec&lt;u8, Lsb0&gt; {
+		BitVec::from_iter(group.iter().map(|v| <span class="self">self</span>.is_disabled(v)))
 	}
 }
 
@@ -3847,8 +3820,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	// getting the topology from the gossip-support subsystem
 	</span>grid_view: <span class="prelude-ty">Option</span>&lt;grid::SessionTopologyView&gt;,
 	local_validator: <span class="prelude-ty">Option</span>&lt;LocalValidatorIndex&gt;,
-	<span class="comment">// We store the latest state here based on union of leaves.
-	</span>disabled_validators: BTreeSet&lt;ValidatorIndex&gt;,
 }
 
 <span class="kw">impl </span>PerSessionState {
@@ -3865,16 +3836,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		)
 		.map(|(<span class="kw">_</span>, index)| LocalValidatorIndex::Active(index));
 
-		<span class="kw">let </span>disabled_validators = BTreeSet::new();
-
-		PerSessionState {
-			session_info,
-			groups,
-			authority_lookup,
-			grid_view: <span class="prelude-val">None</span>,
-			local_validator,
-			disabled_validators,
-		}
+		PerSessionState { session_info, groups, authority_lookup, grid_view: <span class="prelude-val">None</span>, local_validator }
 	}
 
 	<span class="kw">fn </span>supply_topology(
@@ -3909,33 +3871,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// `false` is also returned if session topology is not known yet.
 	</span><span class="kw">fn </span>is_not_validator(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
 		<span class="self">self</span>.grid_view.is_some() &amp;&amp; <span class="self">self</span>.local_validator.is_none()
-	}
-
-	<span class="doccomment">/// A convenience function to generate a disabled bitmask for the given backing group.
-	/// The output bits are set to `true` for validators that are disabled.
-	/// Returns `None` if the group index is out of bounds.
-	</span><span class="kw">pub fn </span>disabled_bitmask(<span class="kw-2">&amp;</span><span class="self">self</span>, group: GroupIndex) -&gt; <span class="prelude-ty">Option</span>&lt;BitVec&lt;u8, Lsb0&gt;&gt; {
-		<span class="kw">let </span>group = <span class="self">self</span>.groups.get(group)<span class="question-mark">?</span>;
-		<span class="kw">let </span>mask = BitVec::from_iter(group.iter().map(|v| <span class="self">self</span>.is_disabled(v)));
-		<span class="prelude-val">Some</span>(mask)
-	}
-
-	<span class="doccomment">/// Returns `true` if the given validator is disabled in the current session.
-	</span><span class="kw">pub fn </span>is_disabled(<span class="kw-2">&amp;</span><span class="self">self</span>, validator_index: <span class="kw-2">&amp;</span>ValidatorIndex) -&gt; bool {
-		<span class="self">self</span>.disabled_validators.contains(validator_index)
-	}
-
-	<span class="doccomment">/// Extend the list of disabled validators.
-	</span><span class="kw">pub fn </span>extend_disabled_validators(
-		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
-		disabled: <span class="kw">impl </span>IntoIterator&lt;Item = ValidatorIndex&gt;,
-	) {
-		<span class="self">self</span>.disabled_validators.extend(disabled);
-	}
-
-	<span class="doccomment">/// Clear the list of disabled validators.
-	</span><span class="kw">pub fn </span>clear_disabled_validators(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
-		<span class="self">self</span>.disabled_validators.clear();
 	}
 }
 
@@ -4223,19 +4158,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">let </span>new_relay_parents =
 		state.implicit_view.all_allowed_relay_parents().cloned().collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
 
-	<span class="comment">// We clear the list of disabled validators to reset it properly based on union of leaves.
-	</span><span class="kw">let </span><span class="kw-2">mut </span>cleared_disabled_validators: BTreeSet&lt;SessionIndex&gt; = BTreeSet::new();
-
 	<span class="kw">for </span>new_relay_parent <span class="kw">in </span>new_relay_parents.iter().cloned() {
-		<span class="comment">// Even if we processed this relay parent before, we need to fetch the list of disabled
-		// validators based on union of active leaves.
-		</span><span class="kw">let </span>disabled_validators =
+		<span class="kw">let </span>disabled_validators: HashSet&lt;<span class="kw">_</span>&gt; =
 			polkadot_node_subsystem_util::vstaging::get_disabled_validators_with_fallback(
 				ctx.sender(),
 				new_relay_parent,
 			)
 			.<span class="kw">await
-			</span>.map_err(JfyiError::FetchDisabledValidators)<span class="question-mark">?</span>;
+			</span>.map_err(JfyiError::FetchDisabledValidators)<span class="question-mark">?
+			</span>.into_iter()
+			.collect();
 
 		<span class="kw">let </span>session_index = polkadot_node_subsystem_util::request_session_index_for_child(
 			new_relay_parent,
@@ -4285,10 +4217,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.get_mut(<span class="kw-2">&amp;</span>session_index)
 			.expect(<span class="string">"either existed or just inserted; qed"</span>);
 
-		<span class="kw">if </span>cleared_disabled_validators.insert(session_index) {
-			per_session.clear_disabled_validators();
-		}
-
 		<span class="kw">if </span>!disabled_validators.is_empty() {
 			<span class="macro">gum::debug!</span>(
 				target: LOG_TARGET,
@@ -4297,8 +4225,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="question-mark">?</span>disabled_validators,
 				<span class="string">"Disabled validators detected"
 			</span>);
-
-			per_session.extend_disabled_validators(disabled_validators);
 		}
 
 		<span class="kw">if </span>state.per_relay_parent.contains_key(<span class="kw-2">&amp;</span>new_relay_parent) {
@@ -4364,6 +4290,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				seconding_limit,
 				session: session_index,
 				groups_per_para,
+				disabled_validators,
 			},
 		);
 	}
@@ -5222,6 +5149,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	};
 	<span class="kw">let </span>session_info = <span class="kw-2">&amp;</span>per_session.session_info;
 
+	<span class="kw">if </span>per_relay_parent.is_disabled(<span class="kw-2">&amp;</span>statement.unchecked_validator_index()) {
+		<span class="macro">gum::debug!</span>(
+			target: LOG_TARGET,
+			<span class="question-mark">?</span>relay_parent,
+			validator_index = <span class="question-mark">?</span>statement.unchecked_validator_index(),
+			<span class="string">"Ignoring a statement from disabled validator."
+		</span>);
+		modify_reputation(reputation, ctx.sender(), peer, COST_DISABLED_VALIDATOR).<span class="kw">await</span>;
+		<span class="kw">return
+	</span>}
+
 	<span class="kw">let </span>local_validator = <span class="kw">match </span>per_relay_parent.local_validator.as_mut() {
 		<span class="prelude-val">None </span>=&gt; {
 			<span class="comment">// we shouldn't be receiving statements unless we're a validator
@@ -5254,17 +5192,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw">return
 			</span>},
 		};
-
-	<span class="kw">if </span>per_session.is_disabled(<span class="kw-2">&amp;</span>statement.unchecked_validator_index()) {
-		<span class="macro">gum::debug!</span>(
-			target: LOG_TARGET,
-			<span class="question-mark">?</span>relay_parent,
-			validator_index = <span class="question-mark">?</span>statement.unchecked_validator_index(),
-			<span class="string">"Ignoring a statement from disabled validator."
-		</span>);
-		modify_reputation(reputation, ctx.sender(), peer, COST_DISABLED_VALIDATOR).<span class="kw">await</span>;
-		<span class="kw">return
-	</span>}
 
 	<span class="kw">let </span>(active, cluster_sender_index) = {
 		<span class="comment">// This block of code only returns `Some` when both the originator and
@@ -6020,21 +5947,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="prelude-val">Some</span>(s) =&gt; s,
 	};
 
-	<span class="kw">let </span>local_validator = <span class="kw">match </span>relay_parent_state.local_validator.as_mut() {
-		<span class="prelude-val">None </span>=&gt; {
-			<span class="kw">if </span>per_session.is_not_validator() {
-				modify_reputation(
-					reputation,
-					ctx.sender(),
-					peer,
-					COST_UNEXPECTED_MANIFEST_MISSING_KNOWLEDGE,
-				)
-				.<span class="kw">await</span>;
-			}
-			<span class="kw">return </span><span class="prelude-val">None
-		</span>},
-		<span class="prelude-val">Some</span>(x) =&gt; x,
-	};
+	<span class="kw">if </span>relay_parent_state.local_validator.is_none() {
+		<span class="kw">if </span>per_session.is_not_validator() {
+			modify_reputation(
+				reputation,
+				ctx.sender(),
+				peer,
+				COST_UNEXPECTED_MANIFEST_MISSING_KNOWLEDGE,
+			)
+			.<span class="kw">await</span>;
+		}
+		<span class="kw">return </span><span class="prelude-val">None
+	</span>}
 
 	<span class="kw">let </span><span class="prelude-val">Some</span>(expected_groups) = relay_parent_state.groups_per_para.get(<span class="kw-2">&amp;</span>para_id) <span class="kw">else </span>{
 		modify_reputation(reputation, ctx.sender(), peer, COST_MALFORMED_MANIFEST).<span class="kw">await</span>;
@@ -6077,9 +6001,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">let </span>claimed_parent_hash = manifest_summary.claimed_parent_hash;
 
 	<span class="comment">// Ignore votes from disabled validators when counting towards the threshold.
-	</span><span class="kw">let </span>disabled_mask = per_session.disabled_bitmask(group_index).unwrap_or_default();
+	</span><span class="kw">let </span>group = per_session.groups.get(group_index).unwrap_or(<span class="kw-2">&amp;</span>[]);
+	<span class="kw">let </span>disabled_mask = relay_parent_state.disabled_bitmask(group);
 	manifest_summary.statement_knowledge.mask_seconded(<span class="kw-2">&amp;</span>disabled_mask);
 	manifest_summary.statement_knowledge.mask_valid(<span class="kw-2">&amp;</span>disabled_mask);
+
+	<span class="kw">let </span>local_validator = relay_parent_state.local_validator.as_mut().expect(<span class="string">"checked above; qed"</span>);
 
 	<span class="kw">let </span>acknowledge = <span class="kw">match </span>local_validator.grid_tracker.import_manifest(
 		grid_topology,
@@ -6659,9 +6586,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 
 		<span class="comment">// Add disabled validators to the unwanted mask.
-		</span><span class="kw">let </span>disabled_mask = per_session
-			.disabled_bitmask(group_index)
-			.expect(<span class="string">"group existence checked above; qed"</span>);
+		</span><span class="kw">let </span>disabled_mask = relay_parent_state.disabled_bitmask(group);
 		unwanted_mask.seconded_in_group |= <span class="kw-2">&amp;</span>disabled_mask;
 		unwanted_mask.validated_in_group |= <span class="kw-2">&amp;</span>disabled_mask;
 
@@ -6752,9 +6677,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="prelude-val">Some</span>(g) =&gt; g,
 		};
 
-		<span class="kw">let </span>disabled_mask = per_session
-			.disabled_bitmask(group_index)
-			.expect(<span class="string">"group_index checked above; qed"</span>);
+		<span class="kw">let </span>disabled_mask = relay_parent_state.disabled_bitmask(group);
 
 		<span class="kw">let </span>res = response.validate_response(
 			<span class="kw-2">&amp;mut </span>state.request_manager,
@@ -6899,7 +6822,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="prelude-val">Some</span>(s) =&gt; s,
 	};
 
-	<span class="kw">let </span>local_validator = <span class="kw">match </span>relay_parent_state.local_validator.as_mut() {
+	<span class="kw">let </span>local_validator = <span class="kw">match </span>relay_parent_state.local_validator.as_ref() {
 		<span class="prelude-val">None </span>=&gt; <span class="kw">return</span>,
 		<span class="prelude-val">Some</span>(s) =&gt; s,
 	};
@@ -6973,16 +6896,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="comment">// Transform mask with 'OR' semantics into one with 'AND' semantics for the API used
 	// below.
-	</span><span class="kw">let </span><span class="kw-2">mut </span>and_mask = StatementFilter {
+	</span><span class="kw">let </span>and_mask = StatementFilter {
 		seconded_in_group: !mask.seconded_in_group.clone(),
 		validated_in_group: !mask.validated_in_group.clone(),
 	};
 
-	<span class="comment">// Ignore disabled validators from the latest state when sending the response.
-	</span><span class="kw">let </span>disabled_mask =
-		per_session.disabled_bitmask(group_index).expect(<span class="string">"group existence checked; qed"</span>);
-	and_mask.mask_seconded(<span class="kw-2">&amp;</span>disabled_mask);
-	and_mask.mask_valid(<span class="kw-2">&amp;</span>disabled_mask);
+	<span class="kw">let </span>local_validator = <span class="kw">match </span>relay_parent_state.local_validator.as_mut() {
+		<span class="prelude-val">None </span>=&gt; <span class="kw">return</span>,
+		<span class="prelude-val">Some</span>(s) =&gt; s,
+	};
 
 	<span class="kw">let </span><span class="kw-2">mut </span>sent_filter = StatementFilter::blank(group_size);
 	<span class="kw">let </span>statements: Vec&lt;<span class="kw">_</span>&gt; = relay_parent_state

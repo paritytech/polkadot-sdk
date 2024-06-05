@@ -531,8 +531,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="doccomment">//! Cross-Consensus Message format data structures.
 
 </span><span class="kw">use </span><span class="kw">crate</span>::v3::Error <span class="kw">as </span>NewError;
+<span class="kw">use </span>codec::{Decode, Encode};
 <span class="kw">use </span>core::result;
-<span class="kw">use </span>parity_scale_codec::{Decode, Encode};
 <span class="kw">use </span>scale_info::TypeInfo;
 
 <span class="kw">use super</span>::<span class="kw-2">*</span>;
@@ -796,7 +796,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// # Example
 /// ```rust
 /// # use staging_xcm::v2::prelude::*;
-/// # use parity_scale_codec::Encode;
+/// # use codec::Encode;
 ///
 /// /// A sender that only passes the message through and does nothing.
 /// struct Sender1;

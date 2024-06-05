@@ -1176,8 +1176,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // along with Polkadot.  If not, see &lt;http://www.gnu.org/licenses/&gt;.
 
 </span><span class="kw">use </span><span class="kw">crate</span>::universal_exports::ensure_is_remote;
+<span class="kw">use </span>codec::{Compact, Decode, Encode};
 <span class="kw">use </span>frame_support::traits::Get;
-<span class="kw">use </span>parity_scale_codec::{Compact, Decode, Encode};
 <span class="kw">use </span>sp_io::hashing::blake2_256;
 <span class="kw">use </span>sp_runtime::traits::{AccountIdConversion, TrailingZeroInput, TryConvert};
 <span class="kw">use </span>sp_std::{marker::PhantomData, prelude::<span class="kw-2">*</span>};
@@ -1621,7 +1621,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>tests {
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
-	<span class="kw">use </span>primitives::AccountId;
+	<span class="kw">use </span>polkadot_primitives::AccountId;
 	<span class="kw">pub type </span>ForeignChainAliasAccount&lt;AccountId&gt; =
 		HashedDescription&lt;AccountId, LegacyDescribeForeignChainAccount&gt;;
 

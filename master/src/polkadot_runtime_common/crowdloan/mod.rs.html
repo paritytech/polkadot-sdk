@@ -2469,6 +2469,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	slot_range::SlotRange,
 	traits::{Auctioneer, Registrar},
 };
+<span class="kw">use </span>codec::{Decode, Encode};
 <span class="kw">use </span>frame_support::{
 	ensure,
 	pallet_prelude::{DispatchResult, Weight},
@@ -2482,8 +2483,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 };
 <span class="kw">use </span>frame_system::pallet_prelude::BlockNumberFor;
 <span class="kw">pub use </span>pallet::<span class="kw-2">*</span>;
-<span class="kw">use </span>parity_scale_codec::{Decode, Encode};
-<span class="kw">use </span>primitives::Id <span class="kw">as </span>ParaId;
+<span class="kw">use </span>polkadot_primitives::Id <span class="kw">as </span>ParaId;
 <span class="kw">use </span>scale_info::TypeInfo;
 <span class="kw">use </span>sp_runtime::{
 	traits::{
@@ -3276,7 +3276,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		assert_noop, assert_ok, derive_impl, parameter_types,
 		traits::{ConstU32, OnFinalize, OnInitialize},
 	};
-	<span class="kw">use </span>primitives::Id <span class="kw">as </span>ParaId;
+	<span class="kw">use </span>polkadot_primitives::Id <span class="kw">as </span>ParaId;
 	<span class="kw">use </span>sp_core::H256;
 	<span class="kw">use </span>std::{cell::RefCell, collections::BTreeMap, sync::Arc};
 	<span class="comment">// The testing primitives are very useful for avoiding having to work with signatures
@@ -3286,7 +3286,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		mock::TestRegistrar,
 		traits::{AuctionStatus, OnSwap},
 	};
-	<span class="kw">use </span>::test_helpers::{dummy_head_data, dummy_validation_code};
+	<span class="kw">use </span>polkadot_primitives_test_helpers::{dummy_head_data, dummy_validation_code};
 	<span class="kw">use </span>sp_keystore::{testing::MemoryKeystore, KeystoreExt};
 	<span class="kw">use </span>sp_runtime::{
 		traits::{BlakeTwo256, IdentityLookup, TrailingZeroInput},
@@ -4393,7 +4393,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">use super</span>::{Pallet <span class="kw">as </span>Crowdloan, <span class="kw-2">*</span>};
 	<span class="kw">use </span>frame_support::{assert_ok, traits::OnInitialize};
 	<span class="kw">use </span>frame_system::RawOrigin;
-	<span class="kw">use </span>runtime_parachains::paras;
+	<span class="kw">use </span>polkadot_runtime_parachains::paras;
 	<span class="kw">use </span>sp_core::crypto::UncheckedFrom;
 	<span class="kw">use </span>sp_runtime::traits::{Bounded, CheckedSub};
 	<span class="kw">use </span>sp_std::prelude::<span class="kw-2">*</span>;

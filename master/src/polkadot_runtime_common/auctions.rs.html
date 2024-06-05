@@ -2120,6 +2120,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	slot_range::SlotRange,
 	traits::{AuctionStatus, Auctioneer, LeaseError, Leaser, Registrar},
 };
+<span class="kw">use </span>codec::Decode;
 <span class="kw">use </span>frame_support::{
 	dispatch::DispatchResult,
 	ensure,
@@ -2128,8 +2129,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 };
 <span class="kw">use </span>frame_system::pallet_prelude::BlockNumberFor;
 <span class="kw">pub use </span>pallet::<span class="kw-2">*</span>;
-<span class="kw">use </span>parity_scale_codec::Decode;
-<span class="kw">use </span>primitives::Id <span class="kw">as </span>ParaId;
+<span class="kw">use </span>polkadot_primitives::Id <span class="kw">as </span>ParaId;
 <span class="kw">use </span>sp_runtime::traits::{CheckedSub, One, Saturating, Zero};
 <span class="kw">use </span>sp_std::{mem::swap, prelude::<span class="kw-2">*</span>};
 
@@ -2769,7 +2769,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">mod </span>tests {
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
 	<span class="kw">use crate</span>::{auctions, mock::TestRegistrar};
-	<span class="kw">use </span>::test_helpers::{dummy_hash, dummy_head_data, dummy_validation_code};
 	<span class="kw">use </span>frame_support::{
 		assert_noop, assert_ok, assert_storage_noop, derive_impl, ord_parameter_types,
 		parameter_types,
@@ -2777,7 +2776,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	};
 	<span class="kw">use </span>frame_system::{EnsureRoot, EnsureSignedBy};
 	<span class="kw">use </span>pallet_balances;
-	<span class="kw">use </span>primitives::{BlockNumber, Id <span class="kw">as </span>ParaId};
+	<span class="kw">use </span>polkadot_primitives::{BlockNumber, Id <span class="kw">as </span>ParaId};
+	<span class="kw">use </span>polkadot_primitives_test_helpers::{dummy_hash, dummy_head_data, dummy_validation_code};
 	<span class="kw">use </span>sp_core::H256;
 	<span class="kw">use </span>sp_runtime::{
 		traits::{BlakeTwo256, IdentityLookup},
@@ -3826,7 +3826,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		traits::{EnsureOrigin, OnInitialize},
 	};
 	<span class="kw">use </span>frame_system::RawOrigin;
-	<span class="kw">use </span>runtime_parachains::paras;
+	<span class="kw">use </span>polkadot_runtime_parachains::paras;
 	<span class="kw">use </span>sp_runtime::{traits::Bounded, SaturatedConversion};
 
 	<span class="kw">use </span>frame_benchmarking::{account, benchmarks, whitelisted_caller, BenchmarkError};

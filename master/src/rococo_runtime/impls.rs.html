@@ -344,12 +344,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // along with Polkadot.  If not, see &lt;http://www.gnu.org/licenses/&gt;.
 
 </span><span class="kw">use </span><span class="kw">crate</span>::xcm_config;
+<span class="kw">use </span>codec::{Decode, Encode};
 <span class="kw">use </span>frame_support::pallet_prelude::DispatchResult;
 <span class="kw">use </span>frame_system::RawOrigin;
-<span class="kw">use </span>parity_scale_codec::{Decode, Encode};
-<span class="kw">use </span>primitives::Balance;
+<span class="kw">use </span>polkadot_primitives::Balance;
+<span class="kw">use </span>polkadot_runtime_common::identity_migrator::{OnReapIdentity, WeightInfo};
 <span class="kw">use </span>rococo_runtime_constants::currency::<span class="kw-2">*</span>;
-<span class="kw">use </span>runtime_common::identity_migrator::{OnReapIdentity, WeightInfo};
 <span class="kw">use </span>sp_std::{marker::PhantomData, prelude::<span class="kw-2">*</span>};
 <span class="kw">use </span>xcm::{latest::prelude::<span class="kw-2">*</span>, VersionedLocation, VersionedXcm};
 <span class="kw">use </span>xcm_executor::traits::TransactAsset;

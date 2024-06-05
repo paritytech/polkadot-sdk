@@ -1347,7 +1347,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 };
 <span class="kw">use </span>frame_system::pallet_prelude::<span class="kw-2">*</span>;
 <span class="kw">pub use </span>pallet::<span class="kw-2">*</span>;
-<span class="kw">use </span>primitives::Id <span class="kw">as </span>ParaId;
+<span class="kw">use </span>polkadot_primitives::Id <span class="kw">as </span>ParaId;
 <span class="kw">use </span>sp_runtime::traits::{CheckedConversion, CheckedSub, Saturating, Zero};
 <span class="kw">use </span>sp_std::prelude::<span class="kw-2">*</span>;
 
@@ -1818,11 +1818,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
 
 	<span class="kw">use crate</span>::{mock::TestRegistrar, slots};
-	<span class="kw">use </span>::test_helpers::{dummy_head_data, dummy_validation_code};
 	<span class="kw">use </span>frame_support::{assert_noop, assert_ok, derive_impl, parameter_types};
 	<span class="kw">use </span>frame_system::EnsureRoot;
 	<span class="kw">use </span>pallet_balances;
-	<span class="kw">use </span>primitives::BlockNumber;
+	<span class="kw">use </span>polkadot_primitives::BlockNumber;
+	<span class="kw">use </span>polkadot_primitives_test_helpers::{dummy_head_data, dummy_validation_code};
 	<span class="kw">use </span>sp_core::H256;
 	<span class="kw">use </span>sp_runtime::{
 		traits::{BlakeTwo256, IdentityLookup},
@@ -2300,7 +2300,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
 	<span class="kw">use </span>frame_support::assert_ok;
 	<span class="kw">use </span>frame_system::RawOrigin;
-	<span class="kw">use </span>runtime_parachains::paras;
+	<span class="kw">use </span>polkadot_runtime_parachains::paras;
 	<span class="kw">use </span>sp_runtime::traits::{Bounded, One};
 
 	<span class="kw">use </span>frame_benchmarking::{account, benchmarks, whitelisted_caller, BenchmarkError};

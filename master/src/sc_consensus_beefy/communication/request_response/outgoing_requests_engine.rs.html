@@ -511,7 +511,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		network: Arc&lt;<span class="kw">dyn </span>NetworkRequest + Send + Sync&gt;,
 		protocol_name: ProtocolName,
 		live_peers: Arc&lt;Mutex&lt;KnownPeers&lt;B&gt;&gt;&gt;,
-		prometheus_registry: <span class="prelude-ty">Option</span>&lt;prometheus::Registry&gt;,
+		prometheus_registry: <span class="prelude-ty">Option</span>&lt;prometheus_endpoint::Registry&gt;,
 	) -&gt; <span class="self">Self </span>{
 		<span class="kw">let </span>metrics = register_metrics(prometheus_registry);
 		<span class="self">Self </span>{

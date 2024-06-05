@@ -270,7 +270,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // along with this program. If not, see &lt;https://www.gnu.org/licenses/&gt;.
 
 </span><span class="kw">use crate</span>::{CliConfiguration, DatabaseParams, PruningParams, <span class="prelude-ty">Result </span><span class="kw">as </span>CliResult, SharedParams};
-<span class="kw">use </span>parity_scale_codec::{Decode, Encode};
+<span class="kw">use </span>codec::{Decode, Encode};
 <span class="kw">use </span>sc_client_api::{backend::Backend <span class="kw">as </span>BackendT, blockchain::HeaderBackend};
 <span class="kw">use </span>sp_blockchain::Info;
 <span class="kw">use </span>sp_runtime::traits::{Block <span class="kw">as </span>BlockT, Header <span class="kw">as </span>HeaderT};

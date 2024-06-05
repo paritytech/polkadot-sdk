@@ -518,7 +518,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		genesis_hash: Hash,
 		fork_id: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>str&gt;,
 		client: Arc&lt;Client&gt;,
-		prometheus_registry: <span class="prelude-ty">Option</span>&lt;prometheus::Registry&gt;,
+		prometheus_registry: <span class="prelude-ty">Option</span>&lt;prometheus_endpoint::Registry&gt;,
 	) -&gt; (<span class="self">Self</span>, Network::RequestResponseProtocolConfig) {
 		<span class="kw">let </span>(request_receiver, config): (<span class="kw">_</span>, Network::RequestResponseProtocolConfig) =
 			on_demand_justifications_protocol_config::&lt;<span class="kw">_</span>, <span class="kw">_</span>, Network&gt;(genesis_hash, fork_id);

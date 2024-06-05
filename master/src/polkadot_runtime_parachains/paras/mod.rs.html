@@ -2511,8 +2511,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#2360" id="2360">2360</a>
 <a href="#2361" id="2361">2361</a>
 <a href="#2362" id="2362">2362</a>
-<a href="#2363" id="2363">2363</a>
-<a href="#2364" id="2364">2364</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -2629,10 +2627,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	shared,
 };
 <span class="kw">use </span>bitvec::{order::Lsb0 <span class="kw">as </span>BitOrderLsb0, vec::BitVec};
+<span class="kw">use </span>codec::{Decode, Encode};
 <span class="kw">use </span>frame_support::{pallet_prelude::<span class="kw-2">*</span>, traits::EstimateNextSessionRotation, DefaultNoBound};
 <span class="kw">use </span>frame_system::pallet_prelude::<span class="kw-2">*</span>;
-<span class="kw">use </span>parity_scale_codec::{Decode, Encode};
-<span class="kw">use </span>primitives::{
+<span class="kw">use </span>polkadot_primitives::{
 	ConsensusLog, HeadData, Id <span class="kw">as </span>ParaId, PvfCheckStatement, SessionIndex, UpgradeGoAhead,
 	UpgradeRestriction, ValidationCode, ValidationCodeHash, ValidatorSignature, MIN_CODE_SIZE,
 };
@@ -2863,9 +2861,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="kw">impl </span>Decode <span class="kw">for </span>ParaKind {
-	<span class="kw">fn </span>decode&lt;I: parity_scale_codec::Input&gt;(
-		input: <span class="kw-2">&amp;mut </span>I,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, parity_scale_codec::Error&gt; {
+	<span class="kw">fn </span>decode&lt;I: codec::Input&gt;(input: <span class="kw-2">&amp;mut </span>I) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, codec::Error&gt; {
 		<span class="kw">match </span>bool::decode(input) {
 			<span class="prelude-val">Ok</span>(<span class="bool-val">true</span>) =&gt; <span class="prelude-val">Ok</span>(ParaKind::Parachain),
 			<span class="prelude-val">Ok</span>(<span class="bool-val">false</span>) =&gt; <span class="prelude-val">Ok</span>(ParaKind::Parathread),
@@ -3002,7 +2998,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Returns `None` if the quorum is not reached, or the direction of the decision.
 	</span><span class="kw">fn </span>quorum(<span class="kw-2">&amp;</span><span class="self">self</span>, n_validators: usize) -&gt; <span class="prelude-ty">Option</span>&lt;PvfCheckOutcome&gt; {
-		<span class="kw">let </span>accept_threshold = primitives::supermajority_threshold(n_validators);
+		<span class="kw">let </span>accept_threshold = polkadot_primitives::supermajority_threshold(n_validators);
 		<span class="comment">// At this threshold, a supermajority is no longer possible, so we reject.
 		</span><span class="kw">let </span>reject_threshold = n_validators - accept_threshold;
 

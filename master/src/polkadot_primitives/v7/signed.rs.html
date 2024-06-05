@@ -532,17 +532,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see &lt;http://www.gnu.org/licenses/&gt;.
 
-</span><span class="kw">use </span>parity_scale_codec::{Decode, Encode};
+</span><span class="kw">use </span>codec::{Decode, Encode};
 <span class="kw">use </span>scale_info::TypeInfo;
 
 <span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
-</span><span class="kw">use </span>application_crypto::AppCrypto;
+</span><span class="kw">use </span>sp_application_crypto::AppCrypto;
 <span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">use </span>sp_keystore::{Error <span class="kw">as </span>KeystoreError, KeystorePtr};
 <span class="kw">use </span>sp_std::prelude::Vec;
 
-<span class="kw">use </span>primitives::RuntimeDebug;
-<span class="kw">use </span>runtime_primitives::traits::AppVerify;
+<span class="kw">use </span>sp_core::RuntimeDebug;
+<span class="kw">use </span>sp_runtime::traits::AppVerify;
 
 <span class="kw">use super</span>::{SigningContext, ValidatorId, ValidatorIndex, ValidatorSignature};
 
@@ -830,7 +830,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		context: <span class="kw-2">&amp;</span>SigningContext&lt;H&gt;,
 		validator_index: ValidatorIndex,
 	) -&gt; <span class="self">Self </span>{
-		<span class="kw">use </span>application_crypto::RuntimeAppPublic;
+		<span class="kw">use </span>sp_application_crypto::RuntimeAppPublic;
 		<span class="kw">let </span>data = <span class="self">Self</span>::payload_data(<span class="kw-2">&amp;</span>payload, context);
 		<span class="kw">let </span>signature = public.sign(<span class="kw-2">&amp;</span>data).unwrap();
 
@@ -861,7 +861,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// This helper trait ensures that we can encode `Statement` as `CompactStatement`,
 /// and anything as itself.
 ///
-/// This resembles `parity_scale_codec::EncodeLike`, but it's distinct:
+/// This resembles `codec::EncodeLike`, but it's distinct:
 /// `EncodeLike` is a marker trait which asserts at the typesystem level that
 /// one type's encoding is a valid encoding for another type. It doesn't
 /// perform any type conversion when encoding.

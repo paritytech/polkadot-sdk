@@ -882,13 +882,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="doccomment">//! Polkadot chain configurations.
 
-</span><span class="kw">use </span>beefy_primitives::ecdsa_crypto::AuthorityId <span class="kw">as </span>BeefyId;
-<span class="kw">use </span>grandpa::AuthorityId <span class="kw">as </span>GrandpaId;
-<span class="attr">#[cfg(feature = <span class="string">"westend-native"</span>)]
+</span><span class="attr">#[cfg(feature = <span class="string">"westend-native"</span>)]
 </span><span class="kw">use </span>pallet_staking::Forcing;
 <span class="kw">use </span>polkadot_primitives::{AccountId, AccountPublic, AssignmentId, ValidatorId};
+<span class="kw">use </span>sc_consensus_grandpa::AuthorityId <span class="kw">as </span>GrandpaId;
 <span class="kw">use </span>sp_authority_discovery::AuthorityId <span class="kw">as </span>AuthorityDiscoveryId;
 <span class="kw">use </span>sp_consensus_babe::AuthorityId <span class="kw">as </span>BabeId;
+<span class="kw">use </span>sp_consensus_beefy::ecdsa_crypto::AuthorityId <span class="kw">as </span>BeefyId;
 
 <span class="attr">#[cfg(feature = <span class="string">"westend-native"</span>)]
 </span><span class="kw">use </span>polkadot_primitives::vstaging::SchedulerParams;
@@ -897,13 +897,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>sc_chain_spec::ChainSpecExtension;
 <span class="attr">#[cfg(any(feature = <span class="string">"westend-native"</span>, feature = <span class="string">"rococo-native"</span>))]
 </span><span class="kw">use </span>sc_chain_spec::ChainType;
+<span class="attr">#[cfg(any(feature = <span class="string">"westend-native"</span>, feature = <span class="string">"rococo-native"</span>))]
+</span><span class="kw">use </span>sc_telemetry::TelemetryEndpoints;
 <span class="kw">use </span>serde::{Deserialize, Serialize};
 <span class="kw">use </span>sp_core::{sr25519, Pair, Public};
 <span class="kw">use </span>sp_runtime::traits::IdentifyAccount;
 <span class="attr">#[cfg(feature = <span class="string">"westend-native"</span>)]
 </span><span class="kw">use </span>sp_runtime::Perbill;
-<span class="attr">#[cfg(any(feature = <span class="string">"westend-native"</span>, feature = <span class="string">"rococo-native"</span>))]
-</span><span class="kw">use </span>telemetry::TelemetryEndpoints;
 <span class="attr">#[cfg(feature = <span class="string">"westend-native"</span>)]
 </span><span class="kw">use </span>westend_runtime <span class="kw">as </span>westend;
 <span class="attr">#[cfg(feature = <span class="string">"westend-native"</span>)]
@@ -936,11 +936,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="comment">// Generic chain spec, in case when we don't have the native runtime.
-</span><span class="kw">pub type </span>GenericChainSpec = service::GenericChainSpec&lt;Extensions&gt;;
+</span><span class="kw">pub type </span>GenericChainSpec = sc_service::GenericChainSpec&lt;Extensions&gt;;
 
 <span class="doccomment">/// The `ChainSpec` parameterized for the westend runtime.
 </span><span class="attr">#[cfg(feature = <span class="string">"westend-native"</span>)]
-</span><span class="kw">pub type </span>WestendChainSpec = service::GenericChainSpec&lt;Extensions&gt;;
+</span><span class="kw">pub type </span>WestendChainSpec = sc_service::GenericChainSpec&lt;Extensions&gt;;
 
 <span class="doccomment">/// The `ChainSpec` parameterized for the westend runtime.
 </span><span class="comment">// Dummy chain spec, but that is fine when we don't have the native runtime.
@@ -949,7 +949,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// The `ChainSpec` parameterized for the rococo runtime.
 </span><span class="attr">#[cfg(feature = <span class="string">"rococo-native"</span>)]
-</span><span class="kw">pub type </span>RococoChainSpec = service::GenericChainSpec&lt;Extensions&gt;;
+</span><span class="kw">pub type </span>RococoChainSpec = sc_service::GenericChainSpec&lt;Extensions&gt;;
 
 <span class="doccomment">/// The `ChainSpec` parameterized for the rococo runtime.
 </span><span class="comment">// Dummy chain spec, but that is fine when we don't have the native runtime.

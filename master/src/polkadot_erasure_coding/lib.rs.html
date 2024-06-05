@@ -626,7 +626,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! f is the maximum number of faulty validators in the system.
 //! The data is coded so any f+1 chunks can be used to reconstruct the full data.
 
-</span><span class="kw">use </span>parity_scale_codec::{Decode, Encode};
+</span><span class="kw">use </span>codec::{Decode, Encode};
 <span class="kw">use </span>polkadot_node_primitives::{AvailableData, Proof};
 <span class="kw">use </span>polkadot_primitives::{BlakeTwo256, Hash <span class="kw">as </span>H256, HashT};
 <span class="kw">use </span>sp_core::Blake2Hasher;
@@ -673,7 +673,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>BadPayload,
 	<span class="doccomment">/// Unable to decode reconstructed bytes.
 	</span><span class="attr">#[error(<span class="string">"Unable to decode reconstructed payload: {0}"</span>)]
-	</span>Decode(<span class="attr">#[source] </span>parity_scale_codec::Error),
+	</span>Decode(<span class="attr">#[source] </span>codec::Error),
 	<span class="doccomment">/// Invalid branch proof.
 	</span><span class="attr">#[error(<span class="string">"Invalid branch proof"</span>)]
 	</span>InvalidBranchProof,

@@ -567,6 +567,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#416" id="416">416</a>
 <a href="#417" id="417">417</a>
 <a href="#418" id="418">418</a>
+<a href="#419" id="419">419</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -592,7 +593,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	weights::Weight,
 };
 <span class="kw">use </span>frame_system::pallet_prelude::BlockNumberFor;
-<span class="kw">use </span>primitives::{
+<span class="kw">use </span>polkadot_primitives::{
 	AsyncBackingParams, Balance, ExecutorParams, SessionIndex, ON_DEMAND_DEFAULT_QUEUE_MAX_SIZE,
 };
 <span class="kw">use </span>sp_runtime::Perbill;
@@ -873,7 +874,8 @@ on_demand_ttl                            : <span class="number">5u32</span>.into
 	</span>];
 
 		<span class="kw">let </span>v8 =
-			V8HostConfiguration::&lt;primitives::BlockNumber&gt;::decode(<span class="kw-2">&amp;mut &amp;</span>raw_config[..]).unwrap();
+			V8HostConfiguration::&lt;polkadot_primitives::BlockNumber&gt;::decode(<span class="kw-2">&amp;mut &amp;</span>raw_config[..])
+				.unwrap();
 
 		<span class="comment">// We check only a sample of the values here. If we missed any fields or messed up data
 		// types that would skew all the fields coming after.
@@ -898,7 +900,7 @@ on_demand_ttl                            : <span class="number">5u32</span>.into
 		// We specify only the picked fields and the rest should be provided by the `Default`
 		// implementation. That implementation is copied over between the two types and should work
 		// fine.
-		</span><span class="kw">let </span>v7 = V7HostConfiguration::&lt;primitives::BlockNumber&gt; {
+		</span><span class="kw">let </span>v7 = V7HostConfiguration::&lt;polkadot_primitives::BlockNumber&gt; {
 			needed_approvals: <span class="number">69</span>,
 			thread_availability_period: <span class="number">55</span>,
 			hrmp_recipient_deposit: <span class="number">1337</span>,
@@ -972,7 +974,7 @@ on_demand_ttl                            : <span class="number">5u32</span>.into
 	// pallet's storage.
 	</span><span class="attr">#[test]
 	</span><span class="kw">fn </span>test_migrate_to_v8_no_pending() {
-		<span class="kw">let </span>v7 = V7HostConfiguration::&lt;primitives::BlockNumber&gt;::default();
+		<span class="kw">let </span>v7 = V7HostConfiguration::&lt;polkadot_primitives::BlockNumber&gt;::default();
 
 		new_test_ext(Default::default()).execute_with(|| {
 			<span class="comment">// Implant the v6 version in the state.

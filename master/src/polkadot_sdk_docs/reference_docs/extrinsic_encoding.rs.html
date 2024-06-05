@@ -619,7 +619,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 #[docify::export]
 </span><span class="kw">pub mod </span>call_data {
-	<span class="kw">use </span>parity_scale_codec::{Decode, Encode};
+	<span class="kw">use </span>codec::{Decode, Encode};
 
 	<span class="comment">// The outer enum composes calls within
 	// different pallets together. We have two
@@ -652,7 +652,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub mod </span>encoding_example {
 	<span class="kw">use </span><span class="kw">super</span>::call_data::{Call, PalletACall};
 	<span class="kw">use </span><span class="kw">crate</span>::reference_docs::signed_extensions::signed_extensions_example;
-	<span class="kw">use </span>parity_scale_codec::Encode;
+	<span class="kw">use </span>codec::Encode;
 	<span class="kw">use </span>sp_core::crypto::AccountId32;
 	<span class="kw">use </span>sp_keyring::sr25519::Keyring;
 	<span class="kw">use </span>sp_runtime::{

@@ -966,8 +966,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use crate</span>::{
 	v2::MultiLocation <span class="kw">as </span>OldMultiLocation, v4::Location <span class="kw">as </span>NewMultiLocation, VersionedLocation,
 };
+<span class="kw">use </span>codec::{Decode, Encode, MaxEncodedLen};
 <span class="kw">use </span>core::result;
-<span class="kw">use </span>parity_scale_codec::{Decode, Encode, MaxEncodedLen};
 <span class="kw">use </span>scale_info::TypeInfo;
 
 <span class="doccomment">/// A relative path between state-bearing consensus systems.
@@ -1477,7 +1477,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>tests {
 	<span class="kw">use </span><span class="kw">crate</span>::v3::prelude::<span class="kw-2">*</span>;
-	<span class="kw">use </span>parity_scale_codec::{Decode, Encode};
+	<span class="kw">use </span>codec::{Decode, Encode};
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>conversion_works() {

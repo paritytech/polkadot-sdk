@@ -620,14 +620,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="doccomment">//! Auxiliary `struct`/`enum`s for polkadot runtime.
 
-</span><span class="kw">use </span>frame_support::traits::{
+</span><span class="kw">use </span>codec::{Decode, Encode, MaxEncodedLen};
+<span class="kw">use </span>frame_support::traits::{
 	fungible::{Balanced, Credit},
 	tokens::imbalance::ResolveTo,
 	Contains, ContainsPair, Imbalance, OnUnbalanced,
 };
 <span class="kw">use </span>pallet_treasury::TreasuryAccountId;
-<span class="kw">use </span>parity_scale_codec::{Decode, Encode, MaxEncodedLen};
-<span class="kw">use </span>primitives::Balance;
+<span class="kw">use </span>polkadot_primitives::Balance;
 <span class="kw">use </span>sp_runtime::{traits::TryConvert, Perquintill, RuntimeDebug};
 <span class="kw">use </span>xcm::VersionedLocation;
 
@@ -636,8 +636,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">impl</span>&lt;R&gt; OnUnbalanced&lt;Credit&lt;R::AccountId, pallet_balances::Pallet&lt;R&gt;&gt;&gt; <span class="kw">for </span>ToAuthor&lt;R&gt;
 <span class="kw">where
 	</span>R: pallet_balances::Config + pallet_authorship::Config,
-	&lt;R <span class="kw">as </span>frame_system::Config&gt;::AccountId: From&lt;primitives::AccountId&gt;,
-	&lt;R <span class="kw">as </span>frame_system::Config&gt;::AccountId: Into&lt;primitives::AccountId&gt;,
+	&lt;R <span class="kw">as </span>frame_system::Config&gt;::AccountId: From&lt;polkadot_primitives::AccountId&gt;,
+	&lt;R <span class="kw">as </span>frame_system::Config&gt;::AccountId: Into&lt;polkadot_primitives::AccountId&gt;,
 {
 	<span class="kw">fn </span>on_nonzero_unbalanced(
 		amount: Credit&lt;&lt;R <span class="kw">as </span>frame_system::Config&gt;::AccountId, pallet_balances::Pallet&lt;R&gt;&gt;,
@@ -652,8 +652,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">impl</span>&lt;R&gt; OnUnbalanced&lt;Credit&lt;R::AccountId, pallet_balances::Pallet&lt;R&gt;&gt;&gt; <span class="kw">for </span>DealWithFees&lt;R&gt;
 <span class="kw">where
 	</span>R: pallet_balances::Config + pallet_authorship::Config + pallet_treasury::Config,
-	&lt;R <span class="kw">as </span>frame_system::Config&gt;::AccountId: From&lt;primitives::AccountId&gt;,
-	&lt;R <span class="kw">as </span>frame_system::Config&gt;::AccountId: Into&lt;primitives::AccountId&gt;,
+	&lt;R <span class="kw">as </span>frame_system::Config&gt;::AccountId: From&lt;polkadot_primitives::AccountId&gt;,
+	&lt;R <span class="kw">as </span>frame_system::Config&gt;::AccountId: Into&lt;polkadot_primitives::AccountId&gt;,
 {
 	<span class="kw">fn </span>on_unbalanceds&lt;B&gt;(
 		<span class="kw-2">mut </span>fees_then_tips: <span class="kw">impl </span>Iterator&lt;Item = Credit&lt;R::AccountId, pallet_balances::Pallet&lt;R&gt;&gt;&gt;,
@@ -859,7 +859,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		PalletId,
 	};
 	<span class="kw">use </span>frame_system::limits;
-	<span class="kw">use </span>primitives::AccountId;
+	<span class="kw">use </span>polkadot_primitives::AccountId;
 	<span class="kw">use </span>sp_core::{ConstU64, H256};
 	<span class="kw">use </span>sp_runtime::{
 		traits::{BlakeTwo256, IdentityLookup},

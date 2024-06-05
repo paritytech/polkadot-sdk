@@ -1419,12 +1419,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="attr">#![cfg_attr(not(feature = <span class="string">"std"</span>), no_std)]
 
-</span><span class="kw">use </span>frame_support::{
+</span><span class="kw">use </span>codec::{Decode, Encode};
+<span class="kw">use </span>frame_support::{
 	dispatch::GetDispatchInfo,
 	ensure,
 	traits::{Contains, ContainsPair, Defensive, Get, PalletsInfoAccess},
 };
-<span class="kw">use </span>parity_scale_codec::{Decode, Encode};
 <span class="kw">use </span>sp_core::defer;
 <span class="kw">use </span>sp_io::hashing::blake2_128;
 <span class="kw">use </span>sp_std::{fmt::Debug, marker::PhantomData, prelude::<span class="kw-2">*</span>};

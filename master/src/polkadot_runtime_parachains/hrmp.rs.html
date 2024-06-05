@@ -2082,11 +2082,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	configuration::{<span class="self">self</span>, HostConfiguration},
 	dmp, ensure_parachain, initializer, paras,
 };
+<span class="kw">use </span>codec::{Decode, Encode};
 <span class="kw">use </span>frame_support::{pallet_prelude::<span class="kw-2">*</span>, traits::ReservableCurrency, DefaultNoBound};
 <span class="kw">use </span>frame_system::pallet_prelude::<span class="kw-2">*</span>;
-<span class="kw">use </span>parity_scale_codec::{Decode, Encode};
 <span class="kw">use </span>polkadot_parachain_primitives::primitives::{HorizontalMessages, IsSystem};
-<span class="kw">use </span>primitives::{
+<span class="kw">use </span>polkadot_primitives::{
 	Balance, Hash, HrmpChannelId, Id <span class="kw">as </span>ParaId, InboundHrmpMessage, OutboundHrmpMessage,
 	SessionIndex,
 };
@@ -3928,7 +3928,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// If the XCM version is unknown, the latest XCM version is used as a best effort.
 	</span><span class="kw">fn </span>wrap_notification(
 		<span class="kw-2">mut </span>notification: <span class="kw">impl </span>FnMut() -&gt; xcm::opaque::latest::opaque::Xcm,
-	) -&gt; <span class="kw">impl </span>FnOnce(ParaId) -&gt; primitives::DownwardMessage {
+	) -&gt; <span class="kw">impl </span>FnOnce(ParaId) -&gt; polkadot_primitives::DownwardMessage {
 		<span class="kw">use </span>xcm::{
 			opaque::VersionedXcm,
 			prelude::{Junction, Location},
@@ -3956,7 +3956,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		log_label: <span class="kw-2">&amp;</span>str,
 		config: <span class="kw-2">&amp;</span>HostConfiguration&lt;BlockNumberFor&lt;T&gt;&gt;,
 		dest: ParaId,
-		notification_bytes_for: <span class="kw">impl </span>FnOnce(ParaId) -&gt; primitives::DownwardMessage,
+		notification_bytes_for: <span class="kw">impl </span>FnOnce(ParaId) -&gt; polkadot_primitives::DownwardMessage,
 	) {
 		<span class="comment">// prepare notification
 		</span><span class="kw">let </span>notification_bytes = notification_bytes_for(dest);

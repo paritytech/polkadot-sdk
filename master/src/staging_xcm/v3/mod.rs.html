@@ -1818,12 +1818,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span><span class="kw">crate</span>::DoubleEncoded;
 <span class="kw">use </span>alloc::{vec, vec::Vec};
 <span class="kw">use </span>bounded_collections::{parameter_types, BoundedVec};
-<span class="kw">use </span>core::{fmt::Debug, result};
-<span class="kw">use </span>derivative::Derivative;
-<span class="kw">use </span>parity_scale_codec::{
+<span class="kw">use </span>codec::{
 	<span class="self">self</span>, decode_vec_with_len, Compact, Decode, Encode, Error <span class="kw">as </span>CodecError, Input <span class="kw">as </span>CodecInput,
 	MaxEncodedLen,
 };
+<span class="kw">use </span>core::{fmt::Debug, result};
+<span class="kw">use </span>derivative::Derivative;
 <span class="kw">use </span>scale_info::TypeInfo;
 
 <span class="kw">mod </span>junction;

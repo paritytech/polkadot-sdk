@@ -155,7 +155,7 @@ format with custom data that can be checked by the runtime.</p>
 <p>Defining a couple of very simple signed extensions looks like the following:</p>
 
 <div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">pub mod </span>signed_extensions_example {
-	<span class="kw">use </span>parity_scale_codec::{Decode, Encode};
+	<span class="kw">use </span>codec::{Decode, Encode};
 	<span class="kw">use </span>scale_info::TypeInfo;
 	<span class="kw">use </span>sp_runtime::traits::SignedExtension;
 

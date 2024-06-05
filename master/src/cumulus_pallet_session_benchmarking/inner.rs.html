@@ -210,10 +210,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="kw">use </span>sp_std::{prelude::<span class="kw-2">*</span>, vec};
 
+<span class="kw">use </span>codec::Decode;
 <span class="kw">use </span>frame_benchmarking::{benchmarks, whitelisted_caller};
 <span class="kw">use </span>frame_system::RawOrigin;
 <span class="kw">use </span>pallet_session::<span class="kw-2">*</span>;
-<span class="kw">use </span>parity_scale_codec::Decode;
 <span class="kw">pub struct </span>Pallet&lt;T: Config&gt;(pallet_session::Pallet&lt;T&gt;);
 <span class="kw">pub trait </span>Config: pallet_session::Config {}
 

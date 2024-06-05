@@ -187,14 +187,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>snowbridge_core::RingBufferMapImpl;
 
 <span class="comment">// Specialize types based on configured sync committee size
-</span><span class="kw">pub type </span>SyncCommittee = primitives::SyncCommittee&lt;SC_SIZE&gt;;
-<span class="kw">pub type </span>SyncCommitteePrepared = primitives::SyncCommitteePrepared&lt;SC_SIZE&gt;;
-<span class="kw">pub type </span>SyncAggregate = primitives::SyncAggregate&lt;SC_SIZE, SC_BITS_SIZE&gt;;
-<span class="kw">pub type </span>CheckpointUpdate = primitives::CheckpointUpdate&lt;SC_SIZE&gt;;
-<span class="kw">pub type </span>Update = primitives::Update&lt;SC_SIZE, SC_BITS_SIZE&gt;;
-<span class="kw">pub type </span>NextSyncCommitteeUpdate = primitives::NextSyncCommitteeUpdate&lt;SC_SIZE&gt;;
+</span><span class="kw">pub type </span>SyncCommittee = snowbridge_beacon_primitives::SyncCommittee&lt;SC_SIZE&gt;;
+<span class="kw">pub type </span>SyncCommitteePrepared = snowbridge_beacon_primitives::SyncCommitteePrepared&lt;SC_SIZE&gt;;
+<span class="kw">pub type </span>SyncAggregate = snowbridge_beacon_primitives::SyncAggregate&lt;SC_SIZE, SC_BITS_SIZE&gt;;
+<span class="kw">pub type </span>CheckpointUpdate = snowbridge_beacon_primitives::CheckpointUpdate&lt;SC_SIZE&gt;;
+<span class="kw">pub type </span>Update = snowbridge_beacon_primitives::Update&lt;SC_SIZE, SC_BITS_SIZE&gt;;
+<span class="kw">pub type </span>NextSyncCommitteeUpdate = snowbridge_beacon_primitives::NextSyncCommitteeUpdate&lt;SC_SIZE&gt;;
 
-<span class="kw">pub use </span>primitives::{AncestryProof, ExecutionProof};
+<span class="kw">pub use </span>snowbridge_beacon_primitives::{AncestryProof, ExecutionProof};
 
 <span class="doccomment">/// FinalizedState ring buffer implementation
 </span><span class="kw">pub type </span>FinalizedBeaconStateBuffer&lt;T&gt; = RingBufferMapImpl&lt;

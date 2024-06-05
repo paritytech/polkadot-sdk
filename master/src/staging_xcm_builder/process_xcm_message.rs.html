@@ -411,8 +411,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="doccomment">//! Implementation of `ProcessMessage` for an `ExecuteXcm` implementation.
 
-</span><span class="kw">use </span>frame_support::traits::{ProcessMessage, ProcessMessageError};
-<span class="kw">use </span>parity_scale_codec::{Decode, FullCodec, MaxEncodedLen};
+</span><span class="kw">use </span>codec::{Decode, FullCodec, MaxEncodedLen};
+<span class="kw">use </span>frame_support::traits::{ProcessMessage, ProcessMessageError};
 <span class="kw">use </span>scale_info::TypeInfo;
 <span class="kw">use </span>sp_std::{fmt::Debug, marker::PhantomData};
 <span class="kw">use </span>sp_weights::{Weight, WeightMeter};
@@ -513,11 +513,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>tests {
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
+	<span class="kw">use </span>codec::Encode;
 	<span class="kw">use </span>frame_support::{
 		assert_err, assert_ok,
 		traits::{ProcessMessageError, ProcessMessageError::<span class="kw-2">*</span>},
 	};
-	<span class="kw">use </span>parity_scale_codec::Encode;
 	<span class="kw">use </span>polkadot_test_runtime::<span class="kw-2">*</span>;
 	<span class="kw">use </span>xcm::{v3, v4, VersionedXcm};
 

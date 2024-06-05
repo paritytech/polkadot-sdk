@@ -1596,6 +1596,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	time::{Duration, SystemTime, SystemTimeError, UNIX_EPOCH},
 };
 
+<span class="kw">use </span>codec::{Decode, Encode, Error <span class="kw">as </span>CodecError, Input};
 <span class="kw">use </span>futures::{
 	channel::{
 		mpsc::{channel, Receiver <span class="kw">as </span>MpscReceiver, Sender <span class="kw">as </span>MpscSender},
@@ -1604,7 +1605,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	future, select, FutureExt, SinkExt, StreamExt,
 };
 <span class="kw">use </span>futures_timer::Delay;
-<span class="kw">use </span>parity_scale_codec::{Decode, Encode, Error <span class="kw">as </span>CodecError, Input};
 <span class="kw">use </span>polkadot_node_subsystem_util::database::{DBTransaction, Database};
 <span class="kw">use </span>sp_consensus::SyncOracle;
 
@@ -1924,7 +1924,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>ChainApi(<span class="attr">#[from] </span>ChainApiError),
 
 	<span class="attr">#[error(transparent)]
-	</span>Erasure(<span class="attr">#[from] </span>erasure::Error),
+	</span>Erasure(<span class="attr">#[from] </span>polkadot_erasure_coding::Error),
 
 	<span class="attr">#[error(transparent)]
 	</span>Io(<span class="attr">#[from] </span>io::Error),
@@ -2891,8 +2891,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="comment">// Important note: This check below is critical for consensus and the `backing` subsystem relies
 	// on it to ensure candidate validity.
-	</span><span class="kw">let </span>chunks = erasure::obtain_chunks_v1(n_validators, <span class="kw-2">&amp;</span>available_data)<span class="question-mark">?</span>;
-	<span class="kw">let </span>branches = erasure::branches(chunks.as_ref());
+	</span><span class="kw">let </span>chunks = polkadot_erasure_coding::obtain_chunks_v1(n_validators, <span class="kw-2">&amp;</span>available_data)<span class="question-mark">?</span>;
+	<span class="kw">let </span>branches = polkadot_erasure_coding::branches(chunks.as_ref());
 
 	<span class="kw">if </span>branches.root() != expected_erasure_root {
 		<span class="kw">return </span><span class="prelude-val">Err</span>(Error::InvalidErasureRoot)

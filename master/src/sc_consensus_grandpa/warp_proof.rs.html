@@ -616,7 +616,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="doccomment">//! Utilities for generating and verifying GRANDPA warp sync proofs.
 
-</span><span class="kw">use </span>parity_scale_codec::{Decode, DecodeAll, Encode};
+</span><span class="kw">use </span>codec::{Decode, DecodeAll, Encode};
 
 <span class="kw">use crate</span>::{
 	best_justification, find_scheduled_change, AuthoritySetChanges, AuthoritySetHardFork,
@@ -638,7 +638,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub enum </span>Error {
 	<span class="doccomment">/// Decoding error.
 	</span><span class="attr">#[error(<span class="string">"Failed to decode block hash: {0}."</span>)]
-	</span>DecodeScale(<span class="attr">#[from] </span>parity_scale_codec::Error),
+	</span>DecodeScale(<span class="attr">#[from] </span>codec::Error),
 	<span class="doccomment">/// Client backend error.
 	</span><span class="attr">#[error(<span class="string">"{0}"</span>)]
 	</span>Client(<span class="attr">#[from] </span>sp_blockchain::Error),
@@ -920,7 +920,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">mod </span>tests {
 	<span class="kw">use </span><span class="kw">super</span>::WarpSyncProof;
 	<span class="kw">use crate</span>::{AuthoritySetChanges, GrandpaJustification};
-	<span class="kw">use </span>parity_scale_codec::Encode;
+	<span class="kw">use </span>codec::Encode;
 	<span class="kw">use </span>rand::prelude::<span class="kw-2">*</span>;
 	<span class="kw">use </span>sc_block_builder::BlockBuilderBuilder;
 	<span class="kw">use </span>sp_blockchain::HeaderBackend;

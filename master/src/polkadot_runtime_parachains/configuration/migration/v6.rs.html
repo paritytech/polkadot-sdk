@@ -309,11 +309,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>frame_system::pallet_prelude::BlockNumberFor;
 <span class="kw">use </span>sp_std::vec::Vec;
 
-<span class="kw">use </span>primitives::{AsyncBackingParams, Balance, ExecutorParams, SessionIndex};
+<span class="kw">use </span>polkadot_primitives::{AsyncBackingParams, Balance, ExecutorParams, SessionIndex};
 <span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
 </span><span class="kw">use </span>sp_std::prelude::<span class="kw-2">*</span>;
 
-<span class="attr">#[derive(parity_scale_codec::Encode, parity_scale_codec::Decode, Debug, Clone)]
+<span class="attr">#[derive(codec::Encode, codec::Decode, Debug, Clone)]
 </span><span class="kw">pub struct </span>V6HostConfiguration&lt;BlockNumber&gt; {
 	<span class="kw">pub </span>max_code_size: u32,
 	<span class="kw">pub </span>max_head_data_size: u32,

@@ -366,6 +366,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 };
 <span class="kw">use </span>sc_consensus_grandpa::FinalityProofProvider;
 <span class="kw">pub use </span>sc_rpc::{DenyUnsafe, SubscriptionTaskExecutor};
+<span class="kw">use </span>sc_transaction_pool_api::TransactionPool;
 <span class="kw">use </span>sp_api::ProvideRuntimeApi;
 <span class="kw">use </span>sp_application_crypto::RuntimeAppPublic;
 <span class="kw">use </span>sp_block_builder::BlockBuilder;
@@ -374,7 +375,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>sp_consensus_babe::BabeApi;
 <span class="kw">use </span>sp_consensus_beefy::AuthorityIdBound;
 <span class="kw">use </span>sp_keystore::KeystorePtr;
-<span class="kw">use </span>txpool_api::TransactionPool;
 
 <span class="doccomment">/// A type representing all RPC extensions.
 </span><span class="kw">pub type </span>RpcExtension = RpcModule&lt;()&gt;;
@@ -445,7 +445,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		+ Send
 		+ Sync
 		+ <span class="lifetime">'static</span>,
-	C::Api: frame_rpc_system::AccountNonceApi&lt;Block, AccountId, Nonce&gt;,
+	C::Api: substrate_frame_rpc_system::AccountNonceApi&lt;Block, AccountId, Nonce&gt;,
 	C::Api: mmr_rpc::MmrRuntimeApi&lt;Block, &lt;Block <span class="kw">as </span>sp_runtime::traits::Block&gt;::Hash, BlockNumber&gt;,
 	C::Api: pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi&lt;Block, Balance&gt;,
 	C::Api: BabeApi&lt;Block&gt;,
@@ -457,7 +457,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	AuthorityId: AuthorityIdBound,
 	&lt;AuthorityId <span class="kw">as </span>RuntimeAppPublic&gt;::Signature: Send + Sync,
 {
-	<span class="kw">use </span>frame_rpc_system::{System, SystemApiServer};
 	<span class="kw">use </span>mmr_rpc::{Mmr, MmrApiServer};
 	<span class="kw">use </span>pallet_transaction_payment_rpc::{TransactionPayment, TransactionPaymentApiServer};
 	<span class="kw">use </span>sc_consensus_babe_rpc::{Babe, BabeApiServer};
@@ -465,6 +464,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">use </span>sc_consensus_grandpa_rpc::{Grandpa, GrandpaApiServer};
 	<span class="kw">use </span>sc_rpc_spec_v2::chain_spec::{ChainSpec, ChainSpecApiServer};
 	<span class="kw">use </span>sc_sync_state_rpc::{SyncState, SyncStateApiServer};
+	<span class="kw">use </span>substrate_frame_rpc_system::{System, SystemApiServer};
 	<span class="kw">use </span>substrate_state_trie_migration_rpc::{StateMigration, StateMigrationApiServer};
 
 	<span class="kw">let </span><span class="kw-2">mut </span>io = RpcModule::new(());

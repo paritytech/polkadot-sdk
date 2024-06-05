@@ -516,7 +516,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="kw">use </span><span class="kw">crate</span>::LOG_TARGET;
 <span class="kw">use </span>log::{debug, error};
-<span class="kw">use </span>prometheus::{register, Counter, Gauge, PrometheusError, Registry, U64};
+<span class="kw">use </span>prometheus_endpoint::{register, Counter, Gauge, PrometheusError, Registry, U64};
 
 <span class="doccomment">/// Helper trait for registering BEEFY metrics to Prometheus registry.
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">trait </span>PrometheusRegister&lt;T: Sized = <span class="self">Self</span>&gt;: Sized {
@@ -778,7 +778,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>register_metrics&lt;T: PrometheusRegister&gt;(
-	prometheus_registry: <span class="prelude-ty">Option</span>&lt;prometheus::Registry&gt;,
+	prometheus_registry: <span class="prelude-ty">Option</span>&lt;prometheus_endpoint::Registry&gt;,
 ) -&gt; <span class="prelude-ty">Option</span>&lt;T&gt; {
 	prometheus_registry.as_ref().map(T::register).and_then(|result| <span class="kw">match </span>result {
 		<span class="prelude-val">Ok</span>(metrics) =&gt; {

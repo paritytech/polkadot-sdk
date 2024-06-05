@@ -428,7 +428,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see &lt;http://www.gnu.org/licenses/&gt;.
 
-</span><span class="kw">use </span>frame_support::{
+</span><span class="kw">use </span>codec::Decode;
+<span class="kw">use </span>frame_support::{
 	dispatch::GetDispatchInfo,
 	traits::{
 		fungible::{Balanced, Credit, Inspect},
@@ -439,7 +440,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		WeightToFee <span class="kw">as </span>WeightToFeeT,
 	},
 };
-<span class="kw">use </span>parity_scale_codec::Decode;
 <span class="kw">use </span>sp_runtime::traits::{SaturatedConversion, Saturating, Zero};
 <span class="kw">use </span>sp_std::{marker::PhantomData, result::Result};
 <span class="kw">use </span>xcm::latest::{prelude::<span class="kw-2">*</span>, GetWeight, Weight};

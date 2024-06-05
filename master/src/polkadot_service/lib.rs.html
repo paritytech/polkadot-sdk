@@ -1678,6 +1678,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1527" id="1527">1527</a>
 <a href="#1528" id="1528">1528</a>
 <a href="#1529" id="1529">1529</a>
+<a href="#1530" id="1530">1530</a>
+<a href="#1531" id="1531">1531</a>
+<a href="#1532" id="1532">1532</a>
+<a href="#1533" id="1533">1533</a>
+<a href="#1534" id="1534">1534</a>
+<a href="#1535" id="1535">1535</a>
+<a href="#1536" id="1536">1536</a>
+<a href="#1537" id="1537">1537</a>
+<a href="#1538" id="1538">1538</a>
+<a href="#1539" id="1539">1539</a>
+<a href="#1540" id="1540">1540</a>
+<a href="#1541" id="1541">1541</a>
+<a href="#1542" id="1542">1542</a>
+<a href="#1543" id="1543">1543</a>
+<a href="#1544" id="1544">1544</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1721,7 +1736,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="attr">#[cfg(feature = <span class="string">"full-node"</span>)]
 </span><span class="kw">use </span>{
-	grandpa::{<span class="self">self</span>, FinalityProofProvider <span class="kw">as </span>GrandpaFinalityProofProvider},
 	gum::info,
 	polkadot_node_core_approval_voting::{
 		<span class="self">self </span><span class="kw">as </span>approval_voting_subsystem, Config <span class="kw">as </span>ApprovalVotingConfig,
@@ -1738,6 +1752,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		request_response::ReqProtocolNames,
 	},
 	sc_client_api::BlockBackend,
+	sc_consensus_grandpa::{<span class="self">self</span>, FinalityProofProvider <span class="kw">as </span>GrandpaFinalityProofProvider},
 	sc_transaction_pool_api::OffchainTransactionPoolFactory,
 	sp_core::traits::SpawnNamed,
 };
@@ -1762,15 +1777,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">use </span>prometheus_endpoint::Registry;
 <span class="attr">#[cfg(feature = <span class="string">"full-node"</span>)]
-</span><span class="kw">use </span>service::KeystoreContainer;
-<span class="kw">use </span>service::RpcHandlers;
-<span class="kw">use </span>telemetry::TelemetryWorker;
+</span><span class="kw">use </span>sc_service::KeystoreContainer;
+<span class="kw">use </span>sc_service::RpcHandlers;
+<span class="kw">use </span>sc_telemetry::TelemetryWorker;
 <span class="attr">#[cfg(feature = <span class="string">"full-node"</span>)]
-</span><span class="kw">use </span>telemetry::{Telemetry, TelemetryWorkerHandle};
+</span><span class="kw">use </span>sc_telemetry::{Telemetry, TelemetryWorkerHandle};
 
-<span class="kw">use </span>beefy_primitives::ecdsa_crypto;
 <span class="kw">pub use </span>chain_spec::{GenericChainSpec, RococoChainSpec, WestendChainSpec};
-<span class="kw">pub use </span>consensus_common::{Proposal, SelectChain};
 <span class="kw">use </span>frame_benchmarking_cli::SUBSTRATE_REFERENCE_HARDWARE;
 <span class="kw">use </span>mmr_gadget::MmrGadget;
 <span class="kw">use </span>polkadot_node_subsystem_types::DefaultSubsystemClient;
@@ -1779,12 +1792,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">pub use </span>sc_consensus::{BlockImport, LongestChain};
 <span class="kw">pub use </span>sc_executor::NativeExecutionDispatch;
 <span class="kw">use </span>sc_executor::{HeapAllocStrategy, WasmExecutor, DEFAULT_HEAP_ALLOC_STRATEGY};
-<span class="kw">pub use </span>service::{
+<span class="kw">pub use </span>sc_service::{
 	config::{DatabaseSource, PrometheusConfig},
 	ChainSpec, Configuration, Error <span class="kw">as </span>SubstrateServiceError, PruningMode, Role, TFullBackend,
 	TFullCallExecutor, TFullClient, TaskManager, TransactionPoolOptions,
 };
 <span class="kw">pub use </span>sp_api::{ApiRef, ConstructRuntimeApi, Core <span class="kw">as </span>CoreApi, ProvideRuntimeApi};
+<span class="kw">pub use </span>sp_consensus::{Proposal, SelectChain};
+<span class="kw">use </span>sp_consensus_beefy::ecdsa_crypto;
 <span class="kw">pub use </span>sp_runtime::{
 	generic,
 	traits::{<span class="self">self </span><span class="kw">as </span>runtime_traits, BlakeTwo256, Block <span class="kw">as </span>BlockT, Header <span class="kw">as </span>HeaderT, NumberFor},
@@ -1798,10 +1813,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">pub use </span>fake_runtime_api::{GetLastTimestamp, RuntimeApi};
 
 <span class="attr">#[cfg(feature = <span class="string">"full-node"</span>)]
-</span><span class="kw">pub type </span>FullBackend = service::TFullBackend&lt;Block&gt;;
+</span><span class="kw">pub type </span>FullBackend = sc_service::TFullBackend&lt;Block&gt;;
 
 <span class="attr">#[cfg(feature = <span class="string">"full-node"</span>)]
-</span><span class="kw">pub type </span>FullClient = service::TFullClient&lt;
+</span><span class="kw">pub type </span>FullClient = sc_service::TFullClient&lt;
 	Block,
 	RuntimeApi,
 	WasmExecutor&lt;(sp_io::SubstrateHostFunctions, frame_benchmarking::benchmarking::HostFunctions)&gt;,
@@ -1890,7 +1905,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>Blockchain(<span class="attr">#[from] </span>sp_blockchain::Error),
 
 	<span class="attr">#[error(transparent)]
-	</span>Consensus(<span class="attr">#[from] </span>consensus_common::Error),
+	</span>Consensus(<span class="attr">#[from] </span>sp_consensus::Error),
 
 	<span class="attr">#[error(<span class="string">"Failed to create an overseer"</span>)]
 	</span>Overseer(<span class="attr">#[from] </span>polkadot_overseer::SubsystemError),
@@ -1899,7 +1914,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>Prometheus(<span class="attr">#[from] </span>prometheus_endpoint::PrometheusError),
 
 	<span class="attr">#[error(transparent)]
-	</span>Telemetry(<span class="attr">#[from] </span>telemetry::Error),
+	</span>Telemetry(<span class="attr">#[from] </span>sc_telemetry::Error),
 
 	<span class="attr">#[error(transparent)]
 	</span>Jaeger(<span class="attr">#[from] </span>polkadot_node_subsystem::jaeger::JaegerError),
@@ -2073,10 +2088,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">type </span>FullSelectChain = relay_chain_selection::SelectRelayChain&lt;FullBackend&gt;;
 <span class="attr">#[cfg(feature = <span class="string">"full-node"</span>)]
 </span><span class="kw">type </span>FullGrandpaBlockImport&lt;ChainSelection = FullSelectChain&gt; =
-	grandpa::GrandpaBlockImport&lt;FullBackend, Block, FullClient, ChainSelection&gt;;
+	sc_consensus_grandpa::GrandpaBlockImport&lt;FullBackend, Block, FullClient, ChainSelection&gt;;
 <span class="attr">#[cfg(feature = <span class="string">"full-node"</span>)]
 </span><span class="kw">type </span>FullBeefyBlockImport&lt;InnerBlockImport, AuthorityId&gt; =
-	beefy::import::BeefyBlockImport&lt;Block, FullBackend, FullClient, InnerBlockImport, AuthorityId&gt;;
+	sc_consensus_beefy::import::BeefyBlockImport&lt;
+		Block,
+		FullBackend,
+		FullClient,
+		InnerBlockImport,
+		AuthorityId,
+	&gt;;
 
 <span class="attr">#[cfg(feature = <span class="string">"full-node"</span>)]
 </span><span class="kw">struct </span>Basics {
@@ -2097,7 +2118,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		.telemetry_endpoints
 		.clone()
 		.filter(|x| !x.is_empty())
-		.map(<span class="kw">move </span>|endpoints| -&gt; <span class="prelude-ty">Result</span>&lt;<span class="kw">_</span>, telemetry::Error&gt; {
+		.map(<span class="kw">move </span>|endpoints| -&gt; <span class="prelude-ty">Result</span>&lt;<span class="kw">_</span>, sc_telemetry::Error&gt; {
 			<span class="kw">let </span>(worker, <span class="kw-2">mut </span>worker_handle) = <span class="kw">if let </span><span class="prelude-val">Some</span>(worker_handle) = telemetry_worker_handle {
 				(<span class="prelude-val">None</span>, worker_handle)
 			} <span class="kw">else </span>{
@@ -2123,7 +2144,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		.build();
 
 	<span class="kw">let </span>(client, backend, keystore_container, task_manager) =
-		service::new_full_parts::&lt;Block, RuntimeApi, <span class="kw">_</span>&gt;(
+		sc_service::new_full_parts::&lt;Block, RuntimeApi, <span class="kw">_</span>&gt;(
 			<span class="kw-2">&amp;</span>config,
 			telemetry.as_ref().map(|(<span class="kw">_</span>, telemetry)| telemetry.handle()),
 			executor,
@@ -2152,7 +2173,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	Basics { task_manager, backend, client, keystore_container, telemetry }: Basics,
 	select_chain: ChainSelection,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;
-	service::PartialComponents&lt;
+	sc_service::PartialComponents&lt;
 		FullClient,
 		FullBackend,
 		ChainSelection,
@@ -2164,7 +2185,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				polkadot_rpc::SubscriptionTaskExecutor,
 			) -&gt; <span class="prelude-ty">Result</span>&lt;polkadot_rpc::RpcExtension, SubstrateServiceError&gt;,
 			(
-				babe::BabeBlockImport&lt;
+				sc_consensus_babe::BabeBlockImport&lt;
 					Block,
 					FullClient,
 					FullBeefyBlockImport&lt;
@@ -2172,11 +2193,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						ecdsa_crypto::AuthorityId,
 					&gt;,
 				&gt;,
-				grandpa::LinkHalf&lt;Block, FullClient, ChainSelection&gt;,
-				babe::BabeLink&lt;Block&gt;,
-				beefy::BeefyVoterLinks&lt;Block, ecdsa_crypto::AuthorityId&gt;,
+				sc_consensus_grandpa::LinkHalf&lt;Block, FullClient, ChainSelection&gt;,
+				sc_consensus_babe::BabeLink&lt;Block&gt;,
+				sc_consensus_beefy::BeefyVoterLinks&lt;Block, ecdsa_crypto::AuthorityId&gt;,
 			),
-			grandpa::SharedVoterState,
+			sc_consensus_grandpa::SharedVoterState,
 			sp_consensus_babe::SlotDuration,
 			<span class="prelude-ty">Option</span>&lt;Telemetry&gt;,
 		),
@@ -2200,55 +2221,57 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		Vec::new()
 	};
 
-	<span class="kw">let </span>(grandpa_block_import, grandpa_link) = grandpa::block_import_with_authority_set_hard_forks(
-		client.clone(),
-		GRANDPA_JUSTIFICATION_PERIOD,
-		<span class="kw-2">&amp;</span>(client.clone() <span class="kw">as </span>Arc&lt;<span class="kw">_</span>&gt;),
-		select_chain.clone(),
-		grandpa_hard_forks,
-		telemetry.as_ref().map(|x| x.handle()),
-	)<span class="question-mark">?</span>;
+	<span class="kw">let </span>(grandpa_block_import, grandpa_link) =
+		sc_consensus_grandpa::block_import_with_authority_set_hard_forks(
+			client.clone(),
+			GRANDPA_JUSTIFICATION_PERIOD,
+			<span class="kw-2">&amp;</span>(client.clone() <span class="kw">as </span>Arc&lt;<span class="kw">_</span>&gt;),
+			select_chain.clone(),
+			grandpa_hard_forks,
+			telemetry.as_ref().map(|x| x.handle()),
+		)<span class="question-mark">?</span>;
 	<span class="kw">let </span>justification_import = grandpa_block_import.clone();
 
 	<span class="kw">let </span>(beefy_block_import, beefy_voter_links, beefy_rpc_links) =
-		beefy::beefy_block_import_and_links(
+		sc_consensus_beefy::beefy_block_import_and_links(
 			grandpa_block_import,
 			backend.clone(),
 			client.clone(),
 			config.prometheus_registry().cloned(),
 		);
 
-	<span class="kw">let </span>babe_config = babe::configuration(<span class="kw-2">&amp;*</span>client)<span class="question-mark">?</span>;
+	<span class="kw">let </span>babe_config = sc_consensus_babe::configuration(<span class="kw-2">&amp;*</span>client)<span class="question-mark">?</span>;
 	<span class="kw">let </span>(block_import, babe_link) =
-		babe::block_import(babe_config.clone(), beefy_block_import, client.clone())<span class="question-mark">?</span>;
+		sc_consensus_babe::block_import(babe_config.clone(), beefy_block_import, client.clone())<span class="question-mark">?</span>;
 
 	<span class="kw">let </span>slot_duration = babe_link.config().slot_duration();
-	<span class="kw">let </span>(import_queue, babe_worker_handle) = babe::import_queue(babe::ImportQueueParams {
-		link: babe_link.clone(),
-		block_import: block_import.clone(),
-		justification_import: <span class="prelude-val">Some</span>(Box::new(justification_import)),
-		client: client.clone(),
-		select_chain: select_chain.clone(),
-		create_inherent_data_providers: <span class="kw">move </span>|<span class="kw">_</span>, ()| <span class="kw">async move </span>{
-			<span class="kw">let </span>timestamp = sp_timestamp::InherentDataProvider::from_system_time();
+	<span class="kw">let </span>(import_queue, babe_worker_handle) =
+		sc_consensus_babe::import_queue(sc_consensus_babe::ImportQueueParams {
+			link: babe_link.clone(),
+			block_import: block_import.clone(),
+			justification_import: <span class="prelude-val">Some</span>(Box::new(justification_import)),
+			client: client.clone(),
+			select_chain: select_chain.clone(),
+			create_inherent_data_providers: <span class="kw">move </span>|<span class="kw">_</span>, ()| <span class="kw">async move </span>{
+				<span class="kw">let </span>timestamp = sp_timestamp::InherentDataProvider::from_system_time();
 
-			<span class="kw">let </span>slot =
+				<span class="kw">let </span>slot =
 				sp_consensus_babe::inherents::InherentDataProvider::from_timestamp_and_slot_duration(
 					<span class="kw-2">*</span>timestamp,
 					slot_duration,
 				);
 
-			<span class="prelude-val">Ok</span>((slot, timestamp))
-		},
-		spawner: <span class="kw-2">&amp;</span>task_manager.spawn_essential_handle(),
-		registry: config.prometheus_registry(),
-		telemetry: telemetry.as_ref().map(|x| x.handle()),
-		offchain_tx_pool_factory: OffchainTransactionPoolFactory::new(transaction_pool.clone()),
-	})<span class="question-mark">?</span>;
+				<span class="prelude-val">Ok</span>((slot, timestamp))
+			},
+			spawner: <span class="kw-2">&amp;</span>task_manager.spawn_essential_handle(),
+			registry: config.prometheus_registry(),
+			telemetry: telemetry.as_ref().map(|x| x.handle()),
+			offchain_tx_pool_factory: OffchainTransactionPoolFactory::new(transaction_pool.clone()),
+		})<span class="question-mark">?</span>;
 
 	<span class="kw">let </span>justification_stream = grandpa_link.justification_stream();
 	<span class="kw">let </span>shared_authority_set = grandpa_link.shared_authority_set().clone();
-	<span class="kw">let </span>shared_voter_state = grandpa::SharedVoterState::empty();
+	<span class="kw">let </span>shared_voter_state = sc_consensus_grandpa::SharedVoterState::empty();
 	<span class="kw">let </span>finality_proof_provider = GrandpaFinalityProofProvider::new_for_service(
 		backend.clone(),
 		<span class="prelude-val">Some</span>(shared_authority_set.clone()),
@@ -2267,7 +2290,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">move </span>|deny_unsafe,
 		      subscription_executor: polkadot_rpc::SubscriptionTaskExecutor|
-		      -&gt; <span class="prelude-ty">Result</span>&lt;polkadot_rpc::RpcExtension, service::Error&gt; {
+		      -&gt; <span class="prelude-ty">Result</span>&lt;polkadot_rpc::RpcExtension, sc_service::Error&gt; {
 			<span class="kw">let </span>deps = polkadot_rpc::FullDeps {
 				client: client.clone(),
 				pool: transaction_pool.clone(),
@@ -2297,7 +2320,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 	};
 
-	<span class="prelude-val">Ok</span>(service::PartialComponents {
+	<span class="prelude-val">Ok</span>(sc_service::PartialComponents {
 		client,
 		backend,
 		task_manager,
@@ -2492,7 +2515,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		SelectRelayChain::new_longest_chain(basics.backend.clone())
 	};
 
-	<span class="kw">let </span>service::PartialComponents::&lt;<span class="kw">_</span>, <span class="kw">_</span>, SelectRelayChain&lt;<span class="kw">_</span>&gt;, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>&gt; {
+	<span class="kw">let </span>sc_service::PartialComponents::&lt;<span class="kw">_</span>, <span class="kw">_</span>, SelectRelayChain&lt;<span class="kw">_</span>&gt;, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>&gt; {
 		client,
 		backend,
 		<span class="kw-2">mut </span>task_manager,
@@ -2519,9 +2542,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="comment">// Note: GrandPa is pushed before the Polkadot-specific protocols. This doesn't change
 	// anything in terms of behaviour, but makes the logs more consistent with the other
 	// Substrate nodes.
-	</span><span class="kw">let </span>grandpa_protocol_name = grandpa::protocol_standard_name(<span class="kw-2">&amp;</span>genesis_hash, <span class="kw-2">&amp;</span>config.chain_spec);
+	</span><span class="kw">let </span>grandpa_protocol_name =
+		sc_consensus_grandpa::protocol_standard_name(<span class="kw-2">&amp;</span>genesis_hash, <span class="kw-2">&amp;</span>config.chain_spec);
 	<span class="kw">let </span>(grandpa_protocol_config, grandpa_notification_service) =
-		grandpa::grandpa_peers_set_config::&lt;<span class="kw">_</span>, Network&gt;(
+		sc_consensus_grandpa::grandpa_peers_set_config::&lt;<span class="kw">_</span>, Network&gt;(
 			grandpa_protocol_name.clone(),
 			metrics.clone(),
 			Arc::clone(<span class="kw-2">&amp;</span>peer_store_handle),
@@ -2529,21 +2553,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	net_config.add_notification_protocol(grandpa_protocol_config);
 
 	<span class="kw">let </span>beefy_gossip_proto_name =
-		beefy::gossip_protocol_name(<span class="kw-2">&amp;</span>genesis_hash, config.chain_spec.fork_id());
+		sc_consensus_beefy::gossip_protocol_name(<span class="kw-2">&amp;</span>genesis_hash, config.chain_spec.fork_id());
 	<span class="comment">// `beefy_on_demand_justifications_handler` is given to `beefy-gadget` task to be run,
 	// while `beefy_req_resp_cfg` is added to `config.network.request_response_protocols`.
 	</span><span class="kw">let </span>(beefy_on_demand_justifications_handler, beefy_req_resp_cfg) =
-		beefy::communication::request_response::BeefyJustifsRequestHandler::new::&lt;<span class="kw">_</span>, Network&gt;(
-			<span class="kw-2">&amp;</span>genesis_hash,
-			config.chain_spec.fork_id(),
-			client.clone(),
-			prometheus_registry.clone(),
-		);
+		sc_consensus_beefy::communication::request_response::BeefyJustifsRequestHandler::new::&lt;
+			<span class="kw">_</span>,
+			Network,
+		&gt;(<span class="kw-2">&amp;</span>genesis_hash, config.chain_spec.fork_id(), client.clone(), prometheus_registry.clone());
 	<span class="kw">let </span>beefy_notification_service = <span class="kw">match </span>enable_beefy {
 		<span class="bool-val">false </span>=&gt; <span class="prelude-val">None</span>,
 		<span class="bool-val">true </span>=&gt; {
 			<span class="kw">let </span>(beefy_notification_config, beefy_notification_service) =
-				beefy::communication::beefy_peers_set_config::&lt;<span class="kw">_</span>, Network&gt;(
+				sc_consensus_beefy::communication::beefy_peers_set_config::&lt;<span class="kw">_</span>, Network&gt;(
 					beefy_gossip_proto_name.clone(),
 					metrics.clone(),
 					Arc::clone(<span class="kw-2">&amp;</span>peer_store_handle),
@@ -2612,7 +2634,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		Vec::new()
 	};
 
-	<span class="kw">let </span>warp_sync = Arc::new(grandpa::warp_proof::NetworkProvider::new(
+	<span class="kw">let </span>warp_sync = Arc::new(sc_consensus_grandpa::warp_proof::NetworkProvider::new(
 		backend.clone(),
 		import_setup.<span class="number">1</span>.shared_authority_set().clone(),
 		grandpa_hard_forks,
@@ -2700,7 +2722,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	};
 
 	<span class="kw">let </span>(network, system_rpc_tx, tx_handler_controller, network_starter, sync_service) =
-		service::build_network(service::BuildNetworkParams {
+		sc_service::build_network(sc_service::BuildNetworkParams {
 			config: <span class="kw-2">&amp;</span>config,
 			net_config,
 			client: client.clone(),
@@ -2736,7 +2758,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		);
 	}
 
-	<span class="kw">let </span>rpc_handlers = service::spawn_tasks(service::SpawnTasksParams {
+	<span class="kw">let </span>rpc_handlers = sc_service::spawn_tasks(sc_service::SpawnTasksParams {
 		config,
 		backend: backend.clone(),
 		client: client.clone(),
@@ -2832,7 +2854,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">let </span>overseer_handle = <span class="kw">if let </span><span class="prelude-val">Some</span>(authority_discovery_service) = authority_discovery_service {
 		<span class="kw">let </span>(overseer, overseer_handle) = overseer_gen
-			.generate::&lt;service::SpawnTaskHandle, DefaultSubsystemClient&lt;FullClient&gt;&gt;(
+			.generate::&lt;sc_service::SpawnTaskHandle, DefaultSubsystemClient&lt;FullClient&gt;&gt;(
 				overseer_connector,
 				OverseerGenArgs {
 					runtime_client,
@@ -2904,7 +2926,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>overseer_handle =
 			overseer_handle.as_ref().ok_or(Error::AuthoritiesRequireRealOverseer)<span class="question-mark">?</span>.clone();
 		<span class="kw">let </span>slot_duration = babe_link.config().slot_duration();
-		<span class="kw">let </span>babe_config = babe::BabeParams {
+		<span class="kw">let </span>babe_config = sc_consensus_babe::BabeParams {
 			keystore: keystore_container.keystore(),
 			client: client.clone(),
 			select_chain,
@@ -2938,12 +2960,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			force_authoring,
 			backoff_authoring_blocks,
 			babe_link,
-			block_proposal_slot_portion: babe::SlotProportion::new(<span class="number">2f32 </span>/ <span class="number">3f32</span>),
+			block_proposal_slot_portion: sc_consensus_babe::SlotProportion::new(<span class="number">2f32 </span>/ <span class="number">3f32</span>),
 			max_block_proposal_slot_portion: <span class="prelude-val">None</span>,
 			telemetry: telemetry.as_ref().map(|x| x.handle()),
 		};
 
-		<span class="kw">let </span>babe = babe::start_babe(babe_config)<span class="question-mark">?</span>;
+		<span class="kw">let </span>babe = sc_consensus_babe::start_babe(babe_config)<span class="question-mark">?</span>;
 		task_manager.spawn_essential_handle().spawn_blocking(<span class="string">"babe"</span>, <span class="prelude-val">None</span>, babe);
 	}
 
@@ -2954,7 +2976,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="comment">// beefy is enabled if its notification service exists
 	</span><span class="kw">if let </span><span class="prelude-val">Some</span>(notification_service) = beefy_notification_service {
 		<span class="kw">let </span>justifications_protocol_name = beefy_on_demand_justifications_handler.protocol_name();
-		<span class="kw">let </span>network_params = beefy::BeefyNetworkParams {
+		<span class="kw">let </span>network_params = sc_consensus_beefy::BeefyNetworkParams {
 			network: Arc::new(network.clone()),
 			sync: sync_service.clone(),
 			gossip_protocol_name: beefy_gossip_proto_name,
@@ -2962,8 +2984,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			notification_service,
 			_phantom: core::marker::PhantomData::&lt;Block&gt;,
 		};
-		<span class="kw">let </span>payload_provider = beefy_primitives::mmr::MmrRootProvider::new(client.clone());
-		<span class="kw">let </span>beefy_params = beefy::BeefyParams {
+		<span class="kw">let </span>payload_provider = sp_consensus_beefy::mmr::MmrRootProvider::new(client.clone());
+		<span class="kw">let </span>beefy_params = sc_consensus_beefy::BeefyParams {
 			client: client.clone(),
 			backend: backend.clone(),
 			payload_provider,
@@ -2977,9 +2999,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			is_authority: role.is_authority(),
 		};
 
-		<span class="kw">let </span>gadget = beefy::start_beefy_gadget::&lt;<span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, ecdsa_crypto::AuthorityId&gt;(
-			beefy_params,
-		);
+		<span class="kw">let </span>gadget = sc_consensus_beefy::start_beefy_gadget::&lt;
+			<span class="kw">_</span>,
+			<span class="kw">_</span>,
+			<span class="kw">_</span>,
+			<span class="kw">_</span>,
+			<span class="kw">_</span>,
+			<span class="kw">_</span>,
+			<span class="kw">_</span>,
+			ecdsa_crypto::AuthorityId,
+		&gt;(beefy_params);
 
 		<span class="comment">// BEEFY is part of consensus, if it fails we'll bring the node down with it to make sure it
 		// is noticed.
@@ -3000,7 +3029,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		);
 	}
 
-	<span class="kw">let </span>config = grandpa::Config {
+	<span class="kw">let </span>config = sc_consensus_grandpa::Config {
 		<span class="comment">// FIXME substrate#1578 make this available through chainspec
 		// Grandpa performance can be improved a bit by tuning this parameter, see:
 		// https://github.com/paritytech/polkadot/issues/5464
@@ -3023,17 +3052,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		// provide better guarantees of block and vote data availability than
 		// the observer.
 
-		</span><span class="kw">let </span><span class="kw-2">mut </span>voting_rules_builder = grandpa::VotingRulesBuilder::default();
+		</span><span class="kw">let </span><span class="kw-2">mut </span>voting_rules_builder = sc_consensus_grandpa::VotingRulesBuilder::default();
 
 		<span class="attr">#[cfg(not(feature = <span class="string">"malus"</span>))]
 		</span><span class="kw">let </span>_malus_finality_delay = <span class="prelude-val">None</span>;
 
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(delay) = _malus_finality_delay {
 			<span class="macro">info!</span>(<span class="question-mark">?</span>delay, <span class="string">"Enabling malus finality delay"</span>,);
-			voting_rules_builder = voting_rules_builder.add(grandpa::BeforeBestBlockBy(delay));
+			voting_rules_builder =
+				voting_rules_builder.add(sc_consensus_grandpa::BeforeBestBlockBy(delay));
 		};
 
-		<span class="kw">let </span>grandpa_config = grandpa::GrandpaParams {
+		<span class="kw">let </span>grandpa_config = sc_consensus_grandpa::GrandpaParams {
 			config,
 			link: link_half,
 			network: network.clone(),
@@ -3049,7 +3079,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		task_manager.spawn_essential_handle().spawn_blocking(
 			<span class="string">"grandpa-voter"</span>,
 			<span class="prelude-val">None</span>,
-			grandpa::run_grandpa_voter(grandpa_config)<span class="question-mark">?</span>,
+			sc_consensus_grandpa::run_grandpa_voter(grandpa_config)<span class="question-mark">?</span>,
 		);
 	}
 
@@ -3078,7 +3108,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="comment">// use the longest chain selection, since there is no overseer available
 		</span><span class="kw">let </span>chain_selection = LongestChain::new(basics.backend.clone());
 
-		<span class="kw">let </span>service::PartialComponents { client, backend, import_queue, task_manager, .. } =
+		<span class="kw">let </span>sc_service::PartialComponents { client, backend, import_queue, task_manager, .. } =
 			new_partial::&lt;LongestChain&lt;<span class="kw">_</span>, Block&gt;&gt;(<span class="kw-2">&amp;mut </span>config, basics, chain_selection)<span class="question-mark">?</span>;
 		<span class="prelude-val">Ok</span>((client, backend, import_queue, task_manager))
 	}};
@@ -3091,7 +3121,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	jaeger_agent: <span class="prelude-ty">Option</span>&lt;std::net::SocketAddr&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;(Arc&lt;FullClient&gt;, Arc&lt;FullBackend&gt;, sc_consensus::BasicQueue&lt;Block&gt;, TaskManager), Error&gt;
 {
-	config.keystore = service::config::KeystoreConfig::InMemory;
+	config.keystore = sc_service::config::KeystoreConfig::InMemory;
 
 	<span class="kw">if </span>config.chain_spec.is_rococo() ||
 		config.chain_spec.is_wococo() ||
@@ -3169,8 +3199,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	revert_approval_voting(parachains_db.clone(), hash)<span class="question-mark">?</span>;
 	revert_chain_selection(parachains_db, hash)<span class="question-mark">?</span>;
 	<span class="comment">// Revert Substrate consensus related components
-	</span>babe::revert(client.clone(), backend, blocks)<span class="question-mark">?</span>;
-	grandpa::revert(client, blocks)<span class="question-mark">?</span>;
+	</span>sc_consensus_babe::revert(client.clone(), backend, blocks)<span class="question-mark">?</span>;
+	sc_consensus_grandpa::revert(client, blocks)<span class="question-mark">?</span>;
 
 	<span class="prelude-val">Ok</span>(())
 }
@@ -3199,7 +3229,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		config,
 		db,
 		Arc::new(sc_keystore::LocalKeystore::in_memory()),
-		Box::new(consensus_common::NoNetwork),
+		Box::new(sp_consensus::NoNetwork),
 		approval_voting_subsystem::Metrics::default(),
 	);
 

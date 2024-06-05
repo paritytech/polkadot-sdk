@@ -498,6 +498,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#347" id="347">347</a>
 <a href="#348" id="348">348</a>
 <a href="#349" id="349">349</a>
+<a href="#350" id="350">350</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -523,7 +524,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	traits::{Defensive, UncheckedOnRuntimeUpgrade},
 };
 <span class="kw">use </span>frame_system::pallet_prelude::BlockNumberFor;
-<span class="kw">use </span>primitives::vstaging::SchedulerParams;
+<span class="kw">use </span>polkadot_primitives::vstaging::SchedulerParams;
 <span class="kw">use </span>sp_core::Get;
 <span class="kw">use </span>sp_staking::SessionIndex;
 <span class="kw">use </span>sp_std::vec::Vec;
@@ -681,7 +682,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>tests {
-	<span class="kw">use </span>primitives::LEGACY_MIN_BACKING_VOTES;
+	<span class="kw">use </span>polkadot_primitives::LEGACY_MIN_BACKING_VOTES;
 	<span class="kw">use </span>sp_arithmetic::Perbill;
 
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
@@ -714,7 +715,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>];
 
 		<span class="kw">let </span>v12 =
-			V12HostConfiguration::&lt;primitives::BlockNumber&gt;::decode(<span class="kw-2">&amp;mut &amp;</span>raw_config[..]).unwrap();
+			V12HostConfiguration::&lt;polkadot_primitives::BlockNumber&gt;::decode(<span class="kw-2">&amp;mut &amp;</span>raw_config[..])
+				.unwrap();
 
 		<span class="comment">// We check only a sample of the values here. If we missed any fields or messed up data
 		// types that would skew all the fields coming after.
@@ -751,7 +753,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		// We specify only the picked fields and the rest should be provided by the `Default`
 		// implementation. That implementation is copied over between the two types and should work
 		// fine.
-		</span><span class="kw">let </span>v11 = V11HostConfiguration::&lt;primitives::BlockNumber&gt; {
+		</span><span class="kw">let </span>v11 = V11HostConfiguration::&lt;polkadot_primitives::BlockNumber&gt; {
 			needed_approvals: <span class="number">69</span>,
 			paras_availability_period: <span class="number">55</span>,
 			hrmp_recipient_deposit: <span class="number">1337</span>,
@@ -834,7 +836,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	// pallet's storage.
 	</span><span class="attr">#[test]
 	</span><span class="kw">fn </span>test_migrate_to_v12_no_pending() {
-		<span class="kw">let </span>v11 = V11HostConfiguration::&lt;primitives::BlockNumber&gt;::default();
+		<span class="kw">let </span>v11 = V11HostConfiguration::&lt;polkadot_primitives::BlockNumber&gt;::default();
 
 		new_test_ext(Default::default()).execute_with(|| {
 			<span class="comment">// Implant the v10 version in the state.

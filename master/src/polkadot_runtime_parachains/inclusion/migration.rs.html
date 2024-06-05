@@ -466,6 +466,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#315" id="315">315</a>
 <a href="#316" id="316">316</a>
 <a href="#317" id="317">317</a>
+<a href="#318" id="318">318</a>
+<a href="#319" id="319">319</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -484,10 +486,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">pub mod </span>v0 {
 	<span class="kw">use </span><span class="kw">crate</span>::inclusion::{Config, Pallet};
 	<span class="kw">use </span>bitvec::{order::Lsb0 <span class="kw">as </span>BitOrderLsb0, vec::BitVec};
+	<span class="kw">use </span>codec::{Decode, Encode};
 	<span class="kw">use </span>frame_support::{storage_alias, Twox64Concat};
 	<span class="kw">use </span>frame_system::pallet_prelude::BlockNumberFor;
-	<span class="kw">use </span>parity_scale_codec::{Decode, Encode};
-	<span class="kw">use </span>primitives::{
+	<span class="kw">use </span>polkadot_primitives::{
 		AvailabilityBitfield, CandidateCommitments, CandidateDescriptor, CandidateHash, CoreIndex,
 		GroupIndex, Id <span class="kw">as </span>ParaId, ValidatorIndex,
 	};
@@ -546,12 +548,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">use </span>sp_std::{collections::vec_deque::VecDeque, vec::Vec};
 
 	<span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
+	</span><span class="kw">use </span>codec::{Decode, Encode};
+	<span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
 	</span><span class="kw">use </span>frame_support::{
 		ensure,
 		traits::{GetStorageVersion, StorageVersion},
 	};
-	<span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
-	</span><span class="kw">use </span>parity_scale_codec::{Decode, Encode};
 
 	<span class="kw">pub struct </span>VersionUncheckedMigrateToV1&lt;T&gt;(sp_std::marker::PhantomData&lt;T&gt;);
 
@@ -685,8 +687,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		mock::{new_test_ext, MockGenesisConfig, Test},
 	};
 	<span class="kw">use </span>frame_support::traits::UncheckedOnRuntimeUpgrade;
-	<span class="kw">use </span>primitives::{AvailabilityBitfield, Id <span class="kw">as </span>ParaId};
-	<span class="kw">use </span>test_helpers::{dummy_candidate_commitments, dummy_candidate_descriptor, dummy_hash};
+	<span class="kw">use </span>polkadot_primitives::{AvailabilityBitfield, Id <span class="kw">as </span>ParaId};
+	<span class="kw">use </span>polkadot_primitives_test_helpers::{
+		dummy_candidate_commitments, dummy_candidate_descriptor, dummy_hash,
+	};
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>migrate_to_v1() {

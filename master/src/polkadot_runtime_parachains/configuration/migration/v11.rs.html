@@ -588,6 +588,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#437" id="437">437</a>
 <a href="#438" id="438">438</a>
 <a href="#439" id="439">439</a>
+<a href="#440" id="440">440</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -614,7 +615,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	weights::Weight,
 };
 <span class="kw">use </span>frame_system::pallet_prelude::BlockNumberFor;
-<span class="kw">use </span>primitives::{
+<span class="kw">use </span>polkadot_primitives::{
 	ApprovalVotingParams, AsyncBackingParams, ExecutorParams, NodeFeatures, SessionIndex,
 	LEGACY_MIN_BACKING_VOTES, ON_DEMAND_DEFAULT_QUEUE_MAX_SIZE,
 };
@@ -879,7 +880,7 @@ approval_voting_params                   : ApprovalVotingParams {
 
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>tests {
-	<span class="kw">use </span>primitives::LEGACY_MIN_BACKING_VOTES;
+	<span class="kw">use </span>polkadot_primitives::LEGACY_MIN_BACKING_VOTES;
 
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
 	<span class="kw">use </span><span class="kw">crate</span>::mock::{new_test_ext, Test};
@@ -911,7 +912,8 @@ approval_voting_params                   : ApprovalVotingParams {
 	</span>];
 
 		<span class="kw">let </span>v11 =
-			V11HostConfiguration::&lt;primitives::BlockNumber&gt;::decode(<span class="kw-2">&amp;mut &amp;</span>raw_config[..]).unwrap();
+			V11HostConfiguration::&lt;polkadot_primitives::BlockNumber&gt;::decode(<span class="kw-2">&amp;mut &amp;</span>raw_config[..])
+				.unwrap();
 
 		<span class="comment">// We check only a sample of the values here. If we missed any fields or messed up data
 		// types that would skew all the fields coming after.
@@ -938,7 +940,7 @@ approval_voting_params                   : ApprovalVotingParams {
 		// We specify only the picked fields and the rest should be provided by the `Default`
 		// implementation. That implementation is copied over between the two types and should work
 		// fine.
-		</span><span class="kw">let </span>v10 = V10HostConfiguration::&lt;primitives::BlockNumber&gt; {
+		</span><span class="kw">let </span>v10 = V10HostConfiguration::&lt;polkadot_primitives::BlockNumber&gt; {
 			needed_approvals: <span class="number">69</span>,
 			paras_availability_period: <span class="number">55</span>,
 			hrmp_recipient_deposit: <span class="number">1337</span>,
@@ -1014,7 +1016,7 @@ approval_voting_params                   : ApprovalVotingParams {
 	// pallet's storage.
 	</span><span class="attr">#[test]
 	</span><span class="kw">fn </span>test_migrate_to_v11_no_pending() {
-		<span class="kw">let </span>v10 = V10HostConfiguration::&lt;primitives::BlockNumber&gt;::default();
+		<span class="kw">let </span>v10 = V10HostConfiguration::&lt;polkadot_primitives::BlockNumber&gt;::default();
 
 		new_test_ext(Default::default()).execute_with(|| {
 			<span class="comment">// Implant the v10 version in the state.

@@ -977,8 +977,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="kw">extern crate </span>alloc;
 
+<span class="kw">use </span>codec::{Decode, DecodeLimit, Encode, Error <span class="kw">as </span>CodecError, Input, MaxEncodedLen};
 <span class="kw">use </span>derivative::Derivative;
-<span class="kw">use </span>parity_scale_codec::{Decode, DecodeLimit, Encode, Error <span class="kw">as </span>CodecError, Input, MaxEncodedLen};
 <span class="kw">use </span>scale_info::TypeInfo;
 
 <span class="attr">#[deprecated(

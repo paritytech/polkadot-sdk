@@ -601,9 +601,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="doccomment">//! Common logic for implementation of worker processes.
 
 </span><span class="kw">use </span><span class="kw">crate</span>::LOG_TARGET;
+<span class="kw">use </span>codec::Encode;
 <span class="kw">use </span>futures::FutureExt <span class="kw">as _</span>;
 <span class="kw">use </span>futures_timer::Delay;
-<span class="kw">use </span>parity_scale_codec::Encode;
 <span class="kw">use </span>pin_project::pin_project;
 <span class="kw">use </span>polkadot_node_core_pvf_common::{SecurityStatus, WorkerHandshake};
 <span class="kw">use </span>rand::Rng;

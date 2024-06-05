@@ -271,13 +271,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#120" id="120">120</a>
 <a href="#121" id="121">121</a>
 <a href="#122" id="122">122</a>
+<a href="#123" id="123">123</a>
+<a href="#124" id="124">124</a>
+<a href="#125" id="125">125</a>
+<a href="#126" id="126">126</a>
+<a href="#127" id="127">127</a>
+<a href="#128" id="128">128</a>
+<a href="#129" id="129">129</a>
+<a href="#130" id="130">130</a>
 </pre></div><pre class="rust"><code><span class="comment">// SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2023 Snowfork &lt;hello@snowfork.com&gt;
 </span><span class="kw">use crate as </span>ethereum_beacon_client;
 <span class="kw">use </span><span class="kw">crate</span>::config;
 <span class="kw">use </span>frame_support::{derive_impl, dispatch::DispatchResult, parameter_types};
 <span class="kw">use </span>pallet_timestamp;
-<span class="kw">use </span>primitives::{Fork, ForkVersions};
+<span class="kw">use </span>snowbridge_beacon_primitives::{Fork, ForkVersions};
 <span class="kw">use </span>snowbridge_core::inbound::{Log, Proof};
 <span class="kw">use </span>sp_std::default::Default;
 <span class="kw">use </span>std::{fs::File, path::PathBuf};
@@ -294,32 +302,40 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	serde_json::from_reader(File::open(filepath).unwrap())
 }
 
-<span class="kw">pub fn </span>load_execution_proof_fixture() -&gt; primitives::ExecutionProof {
+<span class="kw">pub fn </span>load_execution_proof_fixture() -&gt; snowbridge_beacon_primitives::ExecutionProof {
 	load_fixture(<span class="string">"execution-proof.json"</span>.to_string()).unwrap()
 }
 
 <span class="kw">pub fn </span>load_checkpoint_update_fixture(
-) -&gt; primitives::CheckpointUpdate&lt;{ config::SYNC_COMMITTEE_SIZE }&gt; {
+) -&gt; snowbridge_beacon_primitives::CheckpointUpdate&lt;{ config::SYNC_COMMITTEE_SIZE }&gt; {
 	load_fixture(<span class="string">"initial-checkpoint.json"</span>.to_string()).unwrap()
 }
 
-<span class="kw">pub fn </span>load_sync_committee_update_fixture(
-) -&gt; primitives::Update&lt;{ config::SYNC_COMMITTEE_SIZE }, { config::SYNC_COMMITTEE_BITS_SIZE }&gt; {
+<span class="kw">pub fn </span>load_sync_committee_update_fixture() -&gt; snowbridge_beacon_primitives::Update&lt;
+	{ config::SYNC_COMMITTEE_SIZE },
+	{ config::SYNC_COMMITTEE_BITS_SIZE },
+&gt; {
 	load_fixture(<span class="string">"sync-committee-update.json"</span>.to_string()).unwrap()
 }
 
-<span class="kw">pub fn </span>load_finalized_header_update_fixture(
-) -&gt; primitives::Update&lt;{ config::SYNC_COMMITTEE_SIZE }, { config::SYNC_COMMITTEE_BITS_SIZE }&gt; {
+<span class="kw">pub fn </span>load_finalized_header_update_fixture() -&gt; snowbridge_beacon_primitives::Update&lt;
+	{ config::SYNC_COMMITTEE_SIZE },
+	{ config::SYNC_COMMITTEE_BITS_SIZE },
+&gt; {
 	load_fixture(<span class="string">"finalized-header-update.json"</span>.to_string()).unwrap()
 }
 
-<span class="kw">pub fn </span>load_next_sync_committee_update_fixture(
-) -&gt; primitives::Update&lt;{ config::SYNC_COMMITTEE_SIZE }, { config::SYNC_COMMITTEE_BITS_SIZE }&gt; {
+<span class="kw">pub fn </span>load_next_sync_committee_update_fixture() -&gt; snowbridge_beacon_primitives::Update&lt;
+	{ config::SYNC_COMMITTEE_SIZE },
+	{ config::SYNC_COMMITTEE_BITS_SIZE },
+&gt; {
 	load_fixture(<span class="string">"next-sync-committee-update.json"</span>.to_string()).unwrap()
 }
 
-<span class="kw">pub fn </span>load_next_finalized_header_update_fixture(
-) -&gt; primitives::Update&lt;{ config::SYNC_COMMITTEE_SIZE }, { config::SYNC_COMMITTEE_BITS_SIZE }&gt; {
+<span class="kw">pub fn </span>load_next_finalized_header_update_fixture() -&gt; snowbridge_beacon_primitives::Update&lt;
+	{ config::SYNC_COMMITTEE_SIZE },
+	{ config::SYNC_COMMITTEE_BITS_SIZE },
+&gt; {
 	load_fixture(<span class="string">"next-finalized-header-update.json"</span>.to_string()).unwrap()
 }
 

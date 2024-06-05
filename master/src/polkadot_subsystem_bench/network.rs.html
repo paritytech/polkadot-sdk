@@ -1311,6 +1311,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	environment::TestEnvironmentDependencies,
 	NODE_UNDER_TEST,
 };
+<span class="kw">use </span>codec::Encode;
 <span class="kw">use </span>colored::Colorize;
 <span class="kw">use </span>futures::{
 	channel::{
@@ -1328,7 +1329,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	request_response::{Recipient, Requests, ResponseSender},
 	ObservedRole, VersionedValidationProtocol, View,
 };
-<span class="kw">use </span>parity_scale_codec::Encode;
 <span class="kw">use </span>polkadot_node_network_protocol::{<span class="self">self </span><span class="kw">as </span>net_protocol, Versioned};
 <span class="kw">use </span>polkadot_node_subsystem::messages::StatementDistributionMessage;
 <span class="kw">use </span>polkadot_node_subsystem_types::messages::NetworkBridgeEvent;

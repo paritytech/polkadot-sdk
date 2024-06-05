@@ -272,10 +272,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">use </span><span class="kw">crate</span>::v7::<span class="kw-2">*</span>;
 <span class="kw">use </span>sp_std::prelude::<span class="kw-2">*</span>;
 
-<span class="kw">use </span>parity_scale_codec::{Decode, Encode};
-<span class="kw">use </span>primitives::RuntimeDebug;
+<span class="kw">use </span>codec::{Decode, Encode};
 <span class="kw">use </span>scale_info::TypeInfo;
 <span class="kw">use </span>sp_arithmetic::Perbill;
+<span class="kw">use </span>sp_core::RuntimeDebug;
 
 <span class="doccomment">/// Scheduler configuration parameters. All coretime/ondemand parameters are here.
 </span><span class="attr">#[derive(

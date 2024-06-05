@@ -1544,6 +1544,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	util::make_persisted_validation_data_with_parent,
 };
 <span class="kw">use </span>bitvec::{order::Lsb0 <span class="kw">as </span>BitOrderLsb0, vec::BitVec};
+<span class="kw">use </span>codec::{Decode, Encode};
 <span class="kw">use </span>frame_support::{
 	defensive,
 	pallet_prelude::<span class="kw-2">*</span>,
@@ -1552,8 +1553,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 };
 <span class="kw">use </span>frame_system::pallet_prelude::<span class="kw-2">*</span>;
 <span class="kw">use </span>pallet_message_queue::OnQueueChanged;
-<span class="kw">use </span>parity_scale_codec::{Decode, Encode};
-<span class="kw">use </span>primitives::{
+<span class="kw">use </span>polkadot_primitives::{
 	effective_minimum_backing_votes, supermajority_threshold, well_known_keys, BackedCandidate,
 	CandidateCommitments, CandidateDescriptor, CandidateHash, CandidateReceipt,
 	CommittedCandidateReceipt, CoreIndex, GroupIndex, Hash, HeadData, Id <span class="kw">as </span>ParaId,
@@ -2262,7 +2262,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			backed_candidate.validator_indices_and_core_index(core_index_enabled);
 
 		<span class="comment">// check the signatures in the backing and that it is a majority.
-		</span><span class="kw">let </span>maybe_amount_validated = primitives::check_candidate_backing(
+		</span><span class="kw">let </span>maybe_amount_validated = polkadot_primitives::check_candidate_backing(
 			backed_candidate.candidate().hash(),
 			backed_candidate.validity_votes(),
 			validator_indices,
@@ -2311,7 +2311,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>check_validation_outputs_for_runtime_api(
 		para_id: ParaId,
 		relay_parent_number: BlockNumberFor&lt;T&gt;,
-		validation_outputs: primitives::CandidateCommitments,
+		validation_outputs: polkadot_primitives::CandidateCommitments,
 	) -&gt; bool {
 		<span class="kw">let </span>prev_context = paras::MostRecentContext::&lt;T&gt;::get(para_id);
 		<span class="kw">let </span>check_ctx = CandidateCheckContext::&lt;T&gt;::new(prev_context);
@@ -2835,11 +2835,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		para_id: ParaId,
 		relay_parent_number: BlockNumberFor&lt;T&gt;,
 		head_data: <span class="kw-2">&amp;</span>HeadData,
-		new_validation_code: <span class="kw-2">&amp;</span><span class="prelude-ty">Option</span>&lt;primitives::ValidationCode&gt;,
+		new_validation_code: <span class="kw-2">&amp;</span><span class="prelude-ty">Option</span>&lt;polkadot_primitives::ValidationCode&gt;,
 		processed_downward_messages: u32,
-		upward_messages: <span class="kw-2">&amp;</span>[primitives::UpwardMessage],
+		upward_messages: <span class="kw-2">&amp;</span>[polkadot_primitives::UpwardMessage],
 		hrmp_watermark: BlockNumberFor&lt;T&gt;,
-		horizontal_messages: <span class="kw-2">&amp;</span>[primitives::OutboundHrmpMessage&lt;ParaId&gt;],
+		horizontal_messages: <span class="kw-2">&amp;</span>[polkadot_primitives::OutboundHrmpMessage&lt;ParaId&gt;],
 	) -&gt; <span class="prelude-ty">Result</span>&lt;(), AcceptanceCheckErr&gt; {
 		<span class="macro">ensure!</span>(
 			head_data.<span class="number">0</span>.len() &lt;= <span class="self">self</span>.config.max_head_data_size <span class="kw">as _</span>,

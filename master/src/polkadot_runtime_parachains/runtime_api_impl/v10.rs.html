@@ -691,6 +691,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#540" id="540">540</a>
 <a href="#541" id="541">541</a>
 <a href="#542" id="542">542</a>
+<a href="#543" id="543">543</a>
+<a href="#544" id="544">544</a>
+<a href="#545" id="545">545</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -717,7 +720,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 };
 <span class="kw">use </span>frame_support::traits::{GetStorageVersion, StorageVersion};
 <span class="kw">use </span>frame_system::pallet_prelude::<span class="kw-2">*</span>;
-<span class="kw">use </span>primitives::{
+<span class="kw">use </span>polkadot_primitives::{
 	async_backing::{
 		AsyncBackingParams, BackingState, CandidatePendingAvailability, Constraints,
 		InboundHrmpLimitations, OutboundHrmpChannelLimitations,
@@ -842,7 +845,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			},
 			CoreOccupied::Free =&gt; {
 				<span class="kw">if let </span><span class="prelude-val">Some</span>(para_id) = scheduled.get(<span class="kw-2">&amp;</span>CoreIndex(i <span class="kw">as _</span>)).cloned() {
-					CoreState::Scheduled(primitives::ScheduledCore { para_id, collator: <span class="prelude-val">None </span>})
+					CoreState::Scheduled(polkadot_primitives::ScheduledCore {
+						para_id,
+						collator: <span class="prelude-val">None</span>,
+					})
 				} <span class="kw">else </span>{
 					CoreState::Free
 				}
@@ -854,7 +860,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Returns current block number being processed and the corresponding root hash.
 </span><span class="kw">fn </span>current_relay_parent&lt;T: frame_system::Config&gt;(
 ) -&gt; (BlockNumberFor&lt;T&gt;, &lt;T <span class="kw">as </span>frame_system::Config&gt;::Hash) {
-	<span class="kw">use </span>parity_scale_codec::Decode <span class="kw">as _</span>;
+	<span class="kw">use </span>codec::Decode <span class="kw">as _</span>;
 	<span class="kw">let </span>state_version = frame_system::Pallet::&lt;T&gt;::runtime_version().state_version();
 	<span class="kw">let </span>relay_parent_number = frame_system::Pallet::&lt;T&gt;::block_number();
 	<span class="kw">let </span>relay_parent_storage_root = T::Hash::decode(<span class="kw-2">&amp;mut &amp;</span>sp_io::storage::root(state_version)[..])
@@ -934,7 +940,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Implementation for the `check_validation_outputs` function of the runtime API.
 </span><span class="kw">pub fn </span>check_validation_outputs&lt;T: initializer::Config&gt;(
 	para_id: ParaId,
-	outputs: primitives::CandidateCommitments,
+	outputs: polkadot_primitives::CandidateCommitments,
 ) -&gt; bool {
 	<span class="kw">let </span>relay_parent_number = frame_system::Pallet::&lt;T&gt;::block_number();
 	inclusion::Pallet::&lt;T&gt;::check_validation_outputs_for_runtime_api(

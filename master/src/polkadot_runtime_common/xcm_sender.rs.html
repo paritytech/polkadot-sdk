@@ -526,11 +526,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="doccomment">//! XCM sender for relay chain.
 
-</span><span class="kw">use </span>frame_support::traits::Get;
+</span><span class="kw">use </span>codec::{Decode, Encode};
+<span class="kw">use </span>frame_support::traits::Get;
 <span class="kw">use </span>frame_system::pallet_prelude::BlockNumberFor;
-<span class="kw">use </span>parity_scale_codec::{Decode, Encode};
-<span class="kw">use </span>primitives::Id <span class="kw">as </span>ParaId;
-<span class="kw">use </span>runtime_parachains::{
+<span class="kw">use </span>polkadot_primitives::Id <span class="kw">as </span>ParaId;
+<span class="kw">use </span>polkadot_runtime_parachains::{
 	configuration::{<span class="self">self</span>, HostConfiguration},
 	dmp, FeeTracker,
 };
@@ -769,7 +769,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
 	<span class="kw">use </span><span class="kw">crate</span>::integration_tests::new_test_ext;
 	<span class="kw">use </span>frame_support::{assert_ok, parameter_types};
-	<span class="kw">use </span>runtime_parachains::FeeTracker;
+	<span class="kw">use </span>polkadot_runtime_parachains::FeeTracker;
 	<span class="kw">use </span>sp_runtime::FixedU128;
 	<span class="kw">use </span>xcm::MAX_XCM_DECODE_DEPTH;
 

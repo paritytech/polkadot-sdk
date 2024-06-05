@@ -471,6 +471,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		paras,
 	};
 	<span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
+	</span><span class="kw">use </span>codec::Decode;
+	<span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
+	</span><span class="kw">use </span>codec::Encode;
+	<span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
 	</span><span class="kw">use </span>frame_support::ensure;
 	<span class="kw">use </span>frame_support::{
 		traits::{OnRuntimeUpgrade, PalletInfoAccess, StorageVersion},
@@ -478,12 +482,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	};
 	<span class="kw">use </span>frame_system::pallet_prelude::BlockNumberFor;
 	<span class="kw">use </span>pallet_broker::{CoreAssignment, CoreMask, ScheduleItem};
-	<span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
-	</span><span class="kw">use </span>parity_scale_codec::Decode;
-	<span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
-	</span><span class="kw">use </span>parity_scale_codec::Encode;
 	<span class="kw">use </span>polkadot_parachain_primitives::primitives::IsSystem;
-	<span class="kw">use </span>primitives::{CoreIndex, Id <span class="kw">as </span>ParaId};
+	<span class="kw">use </span>polkadot_primitives::{CoreIndex, Id <span class="kw">as </span>ParaId};
 	<span class="kw">use </span>sp_arithmetic::traits::SaturatedConversion;
 	<span class="kw">use </span>sp_core::Get;
 	<span class="kw">use </span>sp_runtime::BoundedVec;

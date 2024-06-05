@@ -270,10 +270,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // limitations under the License.
 
 // Substrate
-</span><span class="kw">use </span>beefy_primitives::ecdsa_crypto::AuthorityId <span class="kw">as </span>BeefyId;
-<span class="kw">use </span>grandpa::AuthorityId <span class="kw">as </span>GrandpaId;
+</span><span class="kw">use </span>sc_consensus_grandpa::AuthorityId <span class="kw">as </span>GrandpaId;
 <span class="kw">use </span>sp_authority_discovery::AuthorityId <span class="kw">as </span>AuthorityDiscoveryId;
 <span class="kw">use </span>sp_consensus_babe::AuthorityId <span class="kw">as </span>BabeId;
+<span class="kw">use </span>sp_consensus_beefy::ecdsa_crypto::AuthorityId <span class="kw">as </span>BeefyId;
 <span class="kw">use </span>sp_core::storage::Storage;
 <span class="kw">use </span>sp_runtime::Perbill;
 

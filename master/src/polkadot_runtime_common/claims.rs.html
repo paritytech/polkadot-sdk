@@ -1839,15 +1839,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="doccomment">//! Pallet to process claims from Ethereum addresses.
 
-</span><span class="kw">use </span>frame_support::{
+</span><span class="kw">use </span>codec::{Decode, Encode};
+<span class="kw">use </span>frame_support::{
 	ensure,
 	traits::{Currency, Get, IsSubType, VestingSchedule},
 	weights::Weight,
 	DefaultNoBound,
 };
 <span class="kw">pub use </span>pallet::<span class="kw-2">*</span>;
-<span class="kw">use </span>parity_scale_codec::{Decode, Encode};
-<span class="kw">use </span>primitives::ValidityError;
+<span class="kw">use </span>polkadot_primitives::ValidityError;
 <span class="kw">use </span>scale_info::TypeInfo;
 <span class="kw">use </span>serde::{<span class="self">self</span>, Deserialize, Deserializer, Serialize, Serializer};
 <span class="kw">use </span>sp_io::{crypto::secp256k1_ecdsa_recover, hashing::keccak_256};
@@ -2522,7 +2522,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">use </span>hex_literal::hex;
 	<span class="kw">use </span>secp_utils::<span class="kw-2">*</span>;
 
-	<span class="kw">use </span>parity_scale_codec::Encode;
+	<span class="kw">use </span>codec::Encode;
 	<span class="comment">// The testing primitives are very useful for avoiding having to work with signatures
 	// or public keys. `u64` is used as the `AccountId` and no `Signature`s are required.
 	</span><span class="kw">use </span><span class="kw">crate</span>::claims;

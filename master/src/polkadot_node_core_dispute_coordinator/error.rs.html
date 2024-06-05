@@ -304,7 +304,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>polkadot_node_subsystem_util::runtime;
 
 <span class="kw">use crate</span>::{db, participation, LOG_TARGET};
-<span class="kw">use </span>parity_scale_codec::Error <span class="kw">as </span>CodecError;
+<span class="kw">use </span>codec::Error <span class="kw">as </span>CodecError;
 
 <span class="kw">pub type </span><span class="prelude-ty">Result</span>&lt;T&gt; = std::result::Result&lt;T, Error&gt;;
 <span class="kw">pub type </span>FatalResult&lt;T&gt; = std::result::Result&lt;T, FatalError&gt;;

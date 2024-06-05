@@ -331,12 +331,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">use super</span>::<span class="kw-2">*</span>;
 
 <span class="kw">use crate</span>::{disputes::SlashingHandler, initializer, shared};
+<span class="kw">use </span>codec::Decode;
 <span class="kw">use </span>frame_benchmarking::{benchmarks, whitelist_account};
 <span class="kw">use </span>frame_support::traits::{OnFinalize, OnInitialize};
 <span class="kw">use </span>frame_system::{pallet_prelude::BlockNumberFor, RawOrigin};
 <span class="kw">use </span>pallet_staking::testing_utils::create_validators;
-<span class="kw">use </span>parity_scale_codec::Decode;
-<span class="kw">use </span>primitives::{Hash, PARACHAIN_KEY_TYPE_ID};
+<span class="kw">use </span>polkadot_primitives::{Hash, PARACHAIN_KEY_TYPE_ID};
 <span class="kw">use </span>sp_runtime::traits::{One, OpaqueKeys, StaticLookup};
 <span class="kw">use </span>sp_session::MembershipProof;
 

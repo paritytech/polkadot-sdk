@@ -329,9 +329,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! values in the test specifications, through a bidirectional message passing
 //! implemented as a `backchannel`.
 
-</span><span class="kw">use </span>futures_util::{SinkExt, StreamExt};
+</span><span class="kw">use </span>codec;
+<span class="kw">use </span>futures_util::{SinkExt, StreamExt};
 <span class="kw">use </span>lazy_static::lazy_static;
-<span class="kw">use </span>parity_scale_codec <span class="kw">as </span>codec;
 <span class="kw">use </span>serde::{Deserialize, Serialize};
 <span class="kw">use </span>std::{env, sync::Mutex};
 <span class="kw">use </span>tokio::sync::broadcast;

@@ -2276,7 +2276,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		approval_db::common::{load_block_entry, DbBackend},
 		RuntimeInfo, RuntimeInfoConfig, MAX_BLOCKS_WITH_ASSIGNMENT_TIMESTAMPS,
 	};
-	<span class="kw">use </span>::test_helpers::{dummy_candidate_receipt, dummy_hash};
 	<span class="kw">use </span>assert_matches::assert_matches;
 	<span class="kw">use </span>polkadot_node_primitives::{
 		approval::v1::{VrfSignature, VrfTranscript},
@@ -2289,6 +2288,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		node_features::FeatureIndex, ExecutorParams, Id <span class="kw">as </span>ParaId, IndexedVec, NodeFeatures,
 		SessionInfo, ValidatorId, ValidatorIndex,
 	};
+	<span class="kw">use </span>polkadot_primitives_test_helpers::{dummy_candidate_receipt, dummy_hash};
 	<span class="kw">use </span>schnellru::{ByLength, LruMap};
 	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">use </span>sp_consensus_babe::{
 		digests::{CompatibleDigestItem, PreDigest, SecondaryVRFPreDigest},

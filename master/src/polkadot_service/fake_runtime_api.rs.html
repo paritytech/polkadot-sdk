@@ -598,9 +598,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! These are used to provide a type that implements these runtime APIs without requiring to import
 //! the native runtimes.
 
-</span><span class="kw">use </span>beefy_primitives::ecdsa_crypto::{AuthorityId <span class="kw">as </span>BeefyId, Signature <span class="kw">as </span>BeefySignature};
-<span class="kw">use </span>grandpa_primitives::AuthorityId <span class="kw">as </span>GrandpaId;
-<span class="kw">use </span>pallet_transaction_payment::{FeeDetails, RuntimeDispatchInfo};
+</span><span class="kw">use </span>pallet_transaction_payment::{FeeDetails, RuntimeDispatchInfo};
 <span class="kw">use </span>polkadot_primitives::{
 	runtime_api, slashing, AccountId, AuthorityDiscoveryId, Balance, Block, BlockNumber,
 	CandidateCommitments, CandidateEvent, CandidateHash, CommittedCandidateReceipt, CoreState,
@@ -609,6 +607,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	ScrapedOnChainVotes, SessionIndex, SessionInfo, ValidationCode, ValidationCodeHash,
 	ValidatorId, ValidatorIndex, ValidatorSignature,
 };
+<span class="kw">use </span>sp_consensus_beefy::ecdsa_crypto::{AuthorityId <span class="kw">as </span>BeefyId, Signature <span class="kw">as </span>BeefySignature};
+<span class="kw">use </span>sp_consensus_grandpa::AuthorityId <span class="kw">as </span>GrandpaId;
 
 <span class="kw">use </span>sp_core::OpaqueMetadata;
 <span class="kw">use </span>sp_runtime::{
@@ -811,30 +811,30 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 	}
 
-	<span class="kw">impl </span>beefy_primitives::BeefyApi&lt;Block, BeefyId&gt; <span class="kw">for </span>Runtime {
+	<span class="kw">impl </span>sp_consensus_beefy::BeefyApi&lt;Block, BeefyId&gt; <span class="kw">for </span>Runtime {
 		<span class="kw">fn </span>beefy_genesis() -&gt; <span class="prelude-ty">Option</span>&lt;BlockNumber&gt; {
 			<span class="macro">unimplemented!</span>()
 		}
 
-		<span class="kw">fn </span>validator_set() -&gt; <span class="prelude-ty">Option</span>&lt;beefy_primitives::ValidatorSet&lt;BeefyId&gt;&gt; {
+		<span class="kw">fn </span>validator_set() -&gt; <span class="prelude-ty">Option</span>&lt;sp_consensus_beefy::ValidatorSet&lt;BeefyId&gt;&gt; {
 			<span class="macro">unimplemented!</span>()
 		}
 
 		<span class="kw">fn </span>submit_report_equivocation_unsigned_extrinsic(
-			<span class="kw">_</span>: beefy_primitives::DoubleVotingProof&lt;
+			<span class="kw">_</span>: sp_consensus_beefy::DoubleVotingProof&lt;
 				BlockNumber,
 				BeefyId,
 				BeefySignature,
 			&gt;,
-			<span class="kw">_</span>: beefy_primitives::OpaqueKeyOwnershipProof,
+			<span class="kw">_</span>: sp_consensus_beefy::OpaqueKeyOwnershipProof,
 		) -&gt; <span class="prelude-ty">Option</span>&lt;()&gt; {
 			<span class="macro">unimplemented!</span>()
 		}
 
 		<span class="kw">fn </span>generate_key_ownership_proof(
-			<span class="kw">_</span>: beefy_primitives::ValidatorSetId,
+			<span class="kw">_</span>: sp_consensus_beefy::ValidatorSetId,
 			<span class="kw">_</span>: BeefyId,
-		) -&gt; <span class="prelude-ty">Option</span>&lt;beefy_primitives::OpaqueKeyOwnershipProof&gt; {
+		) -&gt; <span class="prelude-ty">Option</span>&lt;sp_consensus_beefy::OpaqueKeyOwnershipProof&gt; {
 			<span class="macro">unimplemented!</span>()
 		}
 	}
@@ -870,29 +870,29 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 	}
 
-	<span class="kw">impl </span>grandpa_primitives::GrandpaApi&lt;Block&gt; <span class="kw">for </span>Runtime {
+	<span class="kw">impl </span>sp_consensus_grandpa::GrandpaApi&lt;Block&gt; <span class="kw">for </span>Runtime {
 		<span class="kw">fn </span>grandpa_authorities() -&gt; Vec&lt;(GrandpaId, u64)&gt; {
 			<span class="macro">unimplemented!</span>()
 		}
 
-		<span class="kw">fn </span>current_set_id() -&gt; grandpa_primitives::SetId {
+		<span class="kw">fn </span>current_set_id() -&gt; sp_consensus_grandpa::SetId {
 			<span class="macro">unimplemented!</span>()
 		}
 
 		<span class="kw">fn </span>submit_report_equivocation_unsigned_extrinsic(
-			<span class="kw">_</span>: grandpa_primitives::EquivocationProof&lt;
+			<span class="kw">_</span>: sp_consensus_grandpa::EquivocationProof&lt;
 				&lt;Block <span class="kw">as </span>BlockT&gt;::Hash,
 				sp_runtime::traits::NumberFor&lt;Block&gt;,
 			&gt;,
-			<span class="kw">_</span>: grandpa_primitives::OpaqueKeyOwnershipProof,
+			<span class="kw">_</span>: sp_consensus_grandpa::OpaqueKeyOwnershipProof,
 		) -&gt; <span class="prelude-ty">Option</span>&lt;()&gt; {
 			<span class="macro">unimplemented!</span>()
 		}
 
 		<span class="kw">fn </span>generate_key_ownership_proof(
-			<span class="kw">_</span>: grandpa_primitives::SetId,
-			<span class="kw">_</span>: grandpa_primitives::AuthorityId,
-		) -&gt; <span class="prelude-ty">Option</span>&lt;grandpa_primitives::OpaqueKeyOwnershipProof&gt; {
+			<span class="kw">_</span>: sp_consensus_grandpa::SetId,
+			<span class="kw">_</span>: sp_consensus_grandpa::AuthorityId,
+		) -&gt; <span class="prelude-ty">Option</span>&lt;sp_consensus_grandpa::OpaqueKeyOwnershipProof&gt; {
 			<span class="macro">unimplemented!</span>()
 		}
 	}

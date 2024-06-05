@@ -345,8 +345,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! the relay chain, but we do care about the size of the block, by putting the tx in the
 //! proof_size we can use the already existing weight limiting code to limit the used size as well.
 
-</span><span class="kw">use </span>parity_scale_codec::{Encode, WrapperTypeEncode};
-<span class="kw">use </span>primitives::{
+</span><span class="kw">use </span>codec::{Encode, WrapperTypeEncode};
+<span class="kw">use </span>polkadot_primitives::{
 	CheckedMultiDisputeStatementSet, MultiDisputeStatementSet, UncheckedSignedAvailabilityBitfield,
 	UncheckedSignedAvailabilityBitfields,
 };

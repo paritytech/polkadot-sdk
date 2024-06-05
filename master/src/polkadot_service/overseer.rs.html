@@ -791,7 +791,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Underlying network service implementation.
 	</span><span class="kw">pub </span>network_service: Arc&lt;<span class="kw">dyn </span>sc_network::service::traits::NetworkService&gt;,
 	<span class="doccomment">/// Underlying syncing service implementation.
-	</span><span class="kw">pub </span>sync_service: Arc&lt;<span class="kw">dyn </span>consensus_common::SyncOracle + Send + Sync&gt;,
+	</span><span class="kw">pub </span>sync_service: Arc&lt;<span class="kw">dyn </span>sp_consensus::SyncOracle + Send + Sync&gt;,
 	<span class="doccomment">/// Underlying authority discovery service.
 	</span><span class="kw">pub </span>authority_discovery_service: AuthorityDiscoveryService,
 	<span class="doccomment">/// Collations request receiver for network protocol v1.

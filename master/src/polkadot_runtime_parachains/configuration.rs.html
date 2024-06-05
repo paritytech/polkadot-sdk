@@ -1645,13 +1645,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! Configuration can change only at session boundaries and is buffered until then.
 
 </span><span class="kw">use crate</span>::{inclusion::MAX_UPWARD_MESSAGE_SIZE_BOUND, shared};
+<span class="kw">use </span>codec::{Decode, Encode};
 <span class="kw">use </span>frame_support::{pallet_prelude::<span class="kw-2">*</span>, DefaultNoBound};
 <span class="kw">use </span>frame_system::pallet_prelude::<span class="kw-2">*</span>;
-<span class="kw">use </span>parity_scale_codec::{Decode, Encode};
 <span class="kw">use </span>polkadot_parachain_primitives::primitives::{
 	MAX_HORIZONTAL_MESSAGE_NUM, MAX_UPWARD_MESSAGE_NUM,
 };
-<span class="kw">use </span>primitives::{
+<span class="kw">use </span>polkadot_primitives::{
 	ApprovalVotingParams, AsyncBackingParams, Balance, ExecutorParamError, ExecutorParams,
 	NodeFeatures, SessionIndex, LEGACY_MIN_BACKING_VOTES, MAX_CODE_SIZE, MAX_HEAD_DATA_SIZE,
 	MAX_POV_SIZE, ON_DEMAND_MAX_QUEUE_MAX_SIZE,
@@ -1668,7 +1668,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">pub mod </span>migration;
 
 <span class="kw">pub use </span>pallet::<span class="kw-2">*</span>;
-<span class="kw">use </span>primitives::vstaging::SchedulerParams;
+<span class="kw">use </span>polkadot_primitives::vstaging::SchedulerParams;
 
 <span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">"runtime::configuration"</span>;
 
@@ -2902,7 +2902,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">fn </span>integrity_test() {
 			<span class="macro">assert_eq!</span>(
 				<span class="kw-2">&amp;</span>ActiveConfig::&lt;T&gt;::hashed_key(),
-				primitives::well_known_keys::ACTIVE_CONFIG,
+				polkadot_primitives::well_known_keys::ACTIVE_CONFIG,
 				<span class="string">"`well_known_keys::ACTIVE_CONFIG` doesn't match key of `ActiveConfig`! Make sure that the name of the\
 				 configuration pallet is `Configuration` in the runtime!"</span>,
 			);

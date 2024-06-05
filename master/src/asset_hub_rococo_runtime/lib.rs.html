@@ -1944,6 +1944,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1793" id="1793">1793</a>
 <a href="#1794" id="1794">1794</a>
 <a href="#1795" id="1795">1795</a>
+<a href="#1796" id="1796">1796</a>
+<a href="#1797" id="1797">1797</a>
+<a href="#1798" id="1798">1798</a>
+<a href="#1799" id="1799">1799</a>
+<a href="#1800" id="1800">1800</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -2938,9 +2943,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>cumulus_pallet_xcmp_queue::migration::v4::MigrationToV4&lt;Runtime&gt;,
 	cumulus_pallet_xcmp_queue::migration::v5::MigrateV4ToV5&lt;Runtime&gt;,
 	pallet_collator_selection::migration::v2::MigrationToV2&lt;Runtime&gt;,
+	frame_support::migrations::RemovePallet&lt;StateTrieMigrationName, RocksDbWeight&gt;,
 	<span class="comment">// permanent
 	</span>pallet_xcm::migration::MigrateToLatestXcmVersion&lt;Runtime&gt;,
 );
+
+<span class="macro">parameter_types! </span>{
+	<span class="kw">pub const </span>StateTrieMigrationName: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str = <span class="string">"StateTrieMigration"</span>;
+}
 
 <span class="doccomment">/// Migration to initialize storage versions for pallets added after genesis.
 ///

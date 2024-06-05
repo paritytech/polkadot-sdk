@@ -374,6 +374,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#223" id="223">223</a>
 <a href="#224" id="224">224</a>
 <a href="#225" id="225">225</a>
+<a href="#226" id="226">226</a>
+<a href="#227" id="227">227</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -405,7 +407,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	traits::{OneSessionHandler, ValidatorSet, ValidatorSetWithIdentification},
 };
 <span class="kw">use </span>frame_system::pallet_prelude::BlockNumberFor;
-<span class="kw">use </span>primitives::{AssignmentId, AuthorityDiscoveryId, ExecutorParams, SessionIndex, SessionInfo};
+<span class="kw">use </span>polkadot_primitives::{
+	AssignmentId, AuthorityDiscoveryId, ExecutorParams, SessionIndex, SessionInfo,
+};
 <span class="kw">use </span>sp_std::vec::Vec;
 
 <span class="kw">pub use </span>pallet::<span class="kw-2">*</span>;

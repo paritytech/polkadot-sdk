@@ -572,6 +572,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#421" id="421">421</a>
 <a href="#422" id="422">422</a>
 <a href="#423" id="423">423</a>
+<a href="#424" id="424">424</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -597,7 +598,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	weights::Weight,
 };
 <span class="kw">use </span>frame_system::pallet_prelude::BlockNumberFor;
-<span class="kw">use </span>primitives::{
+<span class="kw">use </span>polkadot_primitives::{
 	AsyncBackingParams, Balance, ExecutorParams, SessionIndex, LEGACY_MIN_BACKING_VOTES,
 	ON_DEMAND_DEFAULT_QUEUE_MAX_SIZE,
 };
@@ -882,7 +883,8 @@ minimum_backing_votes                    : LEGACY_MIN_BACKING_VOTES
 	</span>];
 
 		<span class="kw">let </span>v9 =
-			V9HostConfiguration::&lt;primitives::BlockNumber&gt;::decode(<span class="kw-2">&amp;mut &amp;</span>raw_config[..]).unwrap();
+			V9HostConfiguration::&lt;polkadot_primitives::BlockNumber&gt;::decode(<span class="kw-2">&amp;mut &amp;</span>raw_config[..])
+				.unwrap();
 
 		<span class="comment">// We check only a sample of the values here. If we missed any fields or messed up data
 		// types that would skew all the fields coming after.
@@ -908,7 +910,7 @@ minimum_backing_votes                    : LEGACY_MIN_BACKING_VOTES
 		// We specify only the picked fields and the rest should be provided by the `Default`
 		// implementation. That implementation is copied over between the two types and should work
 		// fine.
-		</span><span class="kw">let </span>v8 = V8HostConfiguration::&lt;primitives::BlockNumber&gt; {
+		</span><span class="kw">let </span>v8 = V8HostConfiguration::&lt;polkadot_primitives::BlockNumber&gt; {
 			needed_approvals: <span class="number">69</span>,
 			paras_availability_period: <span class="number">55</span>,
 			hrmp_recipient_deposit: <span class="number">1337</span>,
@@ -982,7 +984,7 @@ minimum_backing_votes                    : LEGACY_MIN_BACKING_VOTES
 	// pallet's storage.
 	</span><span class="attr">#[test]
 	</span><span class="kw">fn </span>test_migrate_to_v9_no_pending() {
-		<span class="kw">let </span>v8 = V8HostConfiguration::&lt;primitives::BlockNumber&gt;::default();
+		<span class="kw">let </span>v8 = V8HostConfiguration::&lt;polkadot_primitives::BlockNumber&gt;::default();
 
 		new_test_ext(Default::default()).execute_with(|| {
 			<span class="comment">// Implant the v8 version in the state.

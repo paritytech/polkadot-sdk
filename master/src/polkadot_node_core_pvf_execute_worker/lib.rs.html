@@ -820,6 +820,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //       separate spawned processes. Run with e.g. `RUST_LOG=parachain::pvf-execute-worker=trace`.
 </span><span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">"parachain::pvf-execute-worker"</span>;
 
+<span class="kw">use </span>codec::{Decode, Encode};
 <span class="kw">use </span>cpu_time::ProcessTime;
 <span class="kw">use </span>nix::{
 	errno::Errno,
@@ -829,7 +830,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	},
 	unistd::{ForkResult, Pid},
 };
-<span class="kw">use </span>parity_scale_codec::{Decode, Encode};
 <span class="kw">use </span>polkadot_node_core_pvf_common::{
 	error::InternalValidationError,
 	execute::{Handshake, JobError, JobResponse, JobResult, WorkerError, WorkerResponse},

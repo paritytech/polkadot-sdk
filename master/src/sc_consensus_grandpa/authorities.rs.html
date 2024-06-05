@@ -1899,8 +1899,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1748" id="1748">1748</a>
 <a href="#1749" id="1749">1749</a>
 <a href="#1750" id="1750">1750</a>
-<a href="#1751" id="1751">1751</a>
-<a href="#1752" id="1752">1752</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1923,10 +1921,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="kw">use </span>std::{cmp::Ord, fmt::Debug, ops::Add};
 
+<span class="kw">use </span>codec::{Decode, Encode};
 <span class="kw">use </span>finality_grandpa::voter_set::VoterSet;
 <span class="kw">use </span>fork_tree::{FilterAction, ForkTree};
 <span class="kw">use </span>log::debug;
-<span class="kw">use </span>parity_scale_codec::{Decode, Encode};
 <span class="kw">use </span>parking_lot::MappedMutexGuard;
 <span class="kw">use </span>sc_consensus::shared_data::{SharedData, SharedDataLocked};
 <span class="kw">use </span>sc_telemetry::{telemetry, TelemetryHandle, CONSENSUS_INFO};
@@ -2565,9 +2563,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="kw">impl</span>&lt;H: Decode, N: Decode&gt; Decode <span class="kw">for </span>PendingChange&lt;H, N&gt; {
-	<span class="kw">fn </span>decode&lt;I: parity_scale_codec::Input&gt;(
-		value: <span class="kw-2">&amp;mut </span>I,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, parity_scale_codec::Error&gt; {
+	<span class="kw">fn </span>decode&lt;I: codec::Input&gt;(value: <span class="kw-2">&amp;mut </span>I) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, codec::Error&gt; {
 		<span class="kw">let </span>next_authorities = Decode::decode(value)<span class="question-mark">?</span>;
 		<span class="kw">let </span>delay = Decode::decode(value)<span class="question-mark">?</span>;
 		<span class="kw">let </span>canon_height = Decode::decode(value)<span class="question-mark">?</span>;

@@ -1372,9 +1372,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 };
 <span class="kw">use </span>alloc::{vec, vec::Vec};
 <span class="kw">use </span>bounded_collections::{ConstU32, WeakBoundedVec};
+<span class="kw">use </span>codec::{<span class="self">self</span>, Decode, Encode, MaxEncodedLen};
 <span class="kw">use </span>core::{fmt::Debug, result};
 <span class="kw">use </span>derivative::Derivative;
-<span class="kw">use </span>parity_scale_codec::{<span class="self">self</span>, Decode, Encode, MaxEncodedLen};
 <span class="kw">use </span>scale_info::TypeInfo;
 
 <span class="kw">mod </span>junction;

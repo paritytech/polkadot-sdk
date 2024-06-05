@@ -481,7 +481,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	weights::{constants::WEIGHT_REF_TIME_PER_SECOND, Weight},
 };
 <span class="kw">use </span>frame_system::limits;
-<span class="kw">use </span>primitives::{AssignmentId, Balance, BlockNumber, ValidatorId};
+<span class="kw">use </span>polkadot_primitives::{AssignmentId, Balance, BlockNumber, ValidatorId};
 <span class="kw">use </span>sp_runtime::{FixedPointNumber, Perbill, Perquintill};
 <span class="kw">use </span>static_assertions::const_assert;
 
@@ -557,7 +557,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">use </span>frame_support::{dispatch::DispatchClass, weights::Weight};
 		<span class="kw">use </span>frame_system::limits;
 		<span class="kw">use </span>pallet_transaction_payment::{Multiplier, TargetedFeeAdjustment};
-		<span class="kw">pub use </span>runtime_common::{
+		<span class="kw">pub use </span>polkadot_runtime_common::{
 			impl_elections_weights, AVERAGE_ON_INITIALIZE_RATIO, MAXIMUM_BLOCK_WEIGHT,
 			NORMAL_DISPATCH_RATIO,
 		};
@@ -599,7 +599,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ///
 /// This must only be used as long as the balance type is `u128`.
 </span><span class="kw">pub type </span>CurrencyToVote = sp_staking::currency_to_vote::U128CurrencyToVote;
-<span class="macro">static_assertions::assert_eq_size!</span>(primitives::Balance, u128);
+<span class="macro">static_assertions::assert_eq_size!</span>(polkadot_primitives::Balance, u128);
 
 <span class="doccomment">/// A placeholder since there is currently no provided session key handler for parachain validator
 /// keys.

@@ -1297,12 +1297,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	time::Duration,
 };
 
+<span class="kw">use </span>codec::{Decode, DecodeAll, Encode};
 <span class="kw">use </span>finality_grandpa::{
 	voter,
 	voter_set::VoterSet,
 	Message::{Precommit, Prevote, PrimaryPropose},
 };
-<span class="kw">use </span>parity_scale_codec::{Decode, DecodeAll, Encode};
 <span class="kw">use </span>sc_network::{NetworkBlock, NetworkSyncForkRequest, NotificationService, ReputationChange};
 <span class="kw">use </span>sc_network_gossip::{GossipEngine, Network <span class="kw">as </span>GossipNetwork};
 <span class="kw">use </span>sc_telemetry::{telemetry, TelemetryHandle, CONSENSUS_DEBUG, CONSENSUS_INFO};

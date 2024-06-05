@@ -591,6 +591,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="comment">// Substrate Imports
 </span><span class="kw">use </span>frame_benchmarking_cli::SUBSTRATE_REFERENCE_HARDWARE;
+<span class="kw">use </span>prometheus_endpoint::Registry;
 <span class="kw">use </span>sc_client_api::Backend;
 <span class="kw">use </span>sc_consensus::ImportQueue;
 <span class="kw">use </span>sc_executor::{HeapAllocStrategy, WasmExecutor, DEFAULT_HEAP_ALLOC_STRATEGY};
@@ -600,7 +601,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>sc_telemetry::{Telemetry, TelemetryHandle, TelemetryWorker, TelemetryWorkerHandle};
 <span class="kw">use </span>sc_transaction_pool_api::OffchainTransactionPoolFactory;
 <span class="kw">use </span>sp_keystore::KeystorePtr;
-<span class="kw">use </span>substrate_prometheus_endpoint::Registry;
 
 <span class="attr">#[docify::export(wasm_executor)]
 </span><span class="kw">type </span>ParachainExecutor = WasmExecutor&lt;ParachainHostFunctions&gt;;

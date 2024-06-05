@@ -1615,6 +1615,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1464" id="1464">1464</a>
 <a href="#1465" id="1465">1465</a>
 <a href="#1466" id="1466">1466</a>
+<a href="#1467" id="1467">1467</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1647,12 +1648,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	slots::{<span class="self">self</span>, Pallet <span class="kw">as </span>Slots, WeightInfo <span class="kw">as </span>SlotsWeightInfo},
 	traits::{LeaseError, Leaser, Registrar},
 };
+<span class="kw">use </span>codec::{Decode, Encode, MaxEncodedLen};
 <span class="kw">use </span>frame_support::{pallet_prelude::<span class="kw-2">*</span>, traits::Currency};
 <span class="kw">use </span>frame_system::pallet_prelude::<span class="kw-2">*</span>;
 <span class="kw">pub use </span>pallet::<span class="kw-2">*</span>;
-<span class="kw">use </span>parity_scale_codec::{Decode, Encode, MaxEncodedLen};
-<span class="kw">use </span>primitives::Id <span class="kw">as </span>ParaId;
-<span class="kw">use </span>runtime_parachains::{
+<span class="kw">use </span>polkadot_primitives::Id <span class="kw">as </span>ParaId;
+<span class="kw">use </span>polkadot_runtime_parachains::{
 	configuration,
 	paras::{<span class="self">self</span>},
 };
@@ -2045,7 +2046,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="comment">// Force downgrade to on-demand parachain (if needed) before end of lease period
 			</span><span class="kw">if </span>is_parachain {
-				<span class="kw">if let </span><span class="prelude-val">Err</span>(err) = runtime_parachains::schedule_parachain_downgrade::&lt;T&gt;(id) {
+				<span class="kw">if let </span><span class="prelude-val">Err</span>(err) = polkadot_runtime_parachains::schedule_parachain_downgrade::&lt;T&gt;(id)
+				{
 					<span class="comment">// Treat failed downgrade as warning .. slot lease has been cleared,
 					// so the parachain will be downgraded anyway by the slots pallet
 					// at the end of the lease period .
@@ -2247,12 +2249,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
 
 	<span class="kw">use crate</span>::{assigned_slots, mock::TestRegistrar, slots};
-	<span class="kw">use </span>::test_helpers::{dummy_head_data, dummy_validation_code};
 	<span class="kw">use </span>frame_support::{assert_noop, assert_ok, derive_impl, parameter_types};
 	<span class="kw">use </span>frame_system::EnsureRoot;
 	<span class="kw">use </span>pallet_balances;
-	<span class="kw">use </span>primitives::BlockNumber;
-	<span class="kw">use </span>runtime_parachains::{
+	<span class="kw">use </span>polkadot_primitives::BlockNumber;
+	<span class="kw">use </span>polkadot_primitives_test_helpers::{dummy_head_data, dummy_validation_code};
+	<span class="kw">use </span>polkadot_runtime_parachains::{
 		configuration <span class="kw">as </span>parachains_configuration, paras <span class="kw">as </span>parachains_paras,
 		shared <span class="kw">as </span>parachains_shared,
 	};

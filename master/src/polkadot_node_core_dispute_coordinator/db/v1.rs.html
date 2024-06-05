@@ -869,7 +869,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">use </span>std::sync::Arc;
 
-<span class="kw">use </span>parity_scale_codec::{Decode, Encode};
+<span class="kw">use </span>codec::{Decode, Encode};
 
 <span class="kw">use crate</span>::{
 	backend::{Backend, BackendWriteOp, OverlayedBackend},
@@ -1096,7 +1096,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[error(transparent)]
 	</span>Io(<span class="attr">#[from] </span>std::io::Error),
 	<span class="attr">#[error(transparent)]
-	</span>Codec(<span class="attr">#[from] </span>parity_scale_codec::Error),
+	</span>Codec(<span class="attr">#[from] </span>codec::Error),
 }
 
 <span class="kw">impl </span>From&lt;Error&gt; <span class="kw">for </span><span class="kw">crate</span>::error::Error {
@@ -1213,9 +1213,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">mod </span>tests {
 
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
-	<span class="kw">use </span>::test_helpers::{dummy_candidate_receipt, dummy_hash};
 	<span class="kw">use </span>polkadot_node_primitives::DISPUTE_WINDOW;
 	<span class="kw">use </span>polkadot_primitives::{Hash, Id <span class="kw">as </span>ParaId};
+	<span class="kw">use </span>polkadot_primitives_test_helpers::{dummy_candidate_receipt, dummy_hash};
 
 	<span class="kw">fn </span>make_db() -&gt; DbBackend {
 		<span class="kw">let </span>db = kvdb_memorydb::create(<span class="number">1</span>);

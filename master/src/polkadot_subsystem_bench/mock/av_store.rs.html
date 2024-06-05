@@ -438,8 +438,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="doccomment">//! A generic av store subsystem mockup suitable to be used in benchmarks.
 
 </span><span class="kw">use </span><span class="kw">crate</span>::network::{HandleNetworkMessage, NetworkMessage};
+<span class="kw">use </span>codec::Encode;
 <span class="kw">use </span>futures::{channel::oneshot, FutureExt};
-<span class="kw">use </span>parity_scale_codec::Encode;
 <span class="kw">use </span>polkadot_node_network_protocol::request_response::{
 	v1::AvailableDataFetchingResponse, v2::ChunkFetchingResponse, Protocol, ReqProtocolNames,
 	Requests,

@@ -275,25 +275,9 @@ backable and part of the hypothetical frontier.</li>
 accept statements from it. Filtering out of statements from disabled validators
 on the node side is purely an optimization, as it will be done in the runtime
 as well.</p>
-<p>Because we use the state of the active leaves to
-check whether a validator is disabled instead of the relay parent, the notion
-of being disabled is inherently racy:</p>
-<ul>
-<li>the responder has learned about the disabled validator before the requester</li>
-<li>the receiver has witnessed the disabled validator after sending the request</li>
-</ul>
-<p>We could have sent a manifest to a peer, then received information about
-disabling, and then receive a request. This can break an invariant of the grid
-mode:</p>
-<ul>
-<li>the response is required to indicate quorum</li>
-</ul>
-<p>Due to the above, there should be no response at all for grid requests when
-the backing threshold is no longer met as a result of disabled validators.
-In addition to that, we add disabled validators to the request's unwanted
-mask. This ensures that the sender will not send statements from disabled
-validators (at least from the perspective of the receiver at the moment of the
-request). This doesn't fully avoid race conditions, but tries to minimize them.</p>
+<p>We use the state of the relay parent to check whether a validator is disabled
+to avoid race conditions and ensure that disabling works well in the presense
+of re-enabling.</p>
 <h2 id="messages-1"><a class="header" href="#messages-1">Messages</a></h2>
 <h3 id="incoming"><a class="header" href="#incoming">Incoming</a></h3>
 <ul>
@@ -635,7 +619,7 @@ various parachains at those leaves.</li>
 </ul>
 </li>
 </ul>
-<footer id="last-change">Last change: 2024-05-13, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/d36da12e3c">d36da12e3c</a></footer>
+<footer id="last-change">Last change: 2024-06-05, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/0d661eac46">0d661eac46</a></footer>
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">

@@ -338,7 +338,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Money matters.
 </span><span class="kw">pub mod </span>currency {
-	<span class="kw">use </span>primitives::Balance;
+	<span class="kw">use </span>polkadot_primitives::Balance;
 
 	<span class="doccomment">/// The existential deposit.
 	</span><span class="kw">pub const </span>EXISTENTIAL_DEPOSIT: Balance = <span class="number">1 </span>* CENTS;
@@ -355,8 +355,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Time and blocks.
 </span><span class="kw">pub mod </span>time {
-	<span class="kw">use </span>primitives::{BlockNumber, Moment};
-	<span class="kw">use </span>runtime_common::prod_or_fast;
+	<span class="kw">use </span>polkadot_primitives::{BlockNumber, Moment};
+	<span class="kw">use </span>polkadot_runtime_common::prod_or_fast;
 
 	<span class="kw">pub const </span>MILLISECS_PER_BLOCK: Moment = <span class="number">6000</span>;
 	<span class="kw">pub const </span>SLOT_DURATION: Moment = MILLISECS_PER_BLOCK;
@@ -380,7 +380,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">use </span>frame_support::weights::{
 		WeightToFeeCoefficient, WeightToFeeCoefficients, WeightToFeePolynomial,
 	};
-	<span class="kw">use </span>primitives::Balance;
+	<span class="kw">use </span>polkadot_primitives::Balance;
 	<span class="kw">use </span>smallvec::smallvec;
 	<span class="kw">pub use </span>sp_runtime::Perbill;
 
@@ -416,7 +416,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// System Parachains.
 </span><span class="kw">pub mod </span>system_parachain {
-	<span class="kw">use </span>primitives::Id;
+	<span class="kw">use </span>polkadot_primitives::Id;
 	<span class="kw">use </span>xcm_builder::IsChildSystemParachain;
 
 	<span class="doccomment">/// Network's Asset Hub parachain ID.
@@ -462,7 +462,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	};
 	<span class="kw">use </span><span class="kw">crate</span>::weights::ExtrinsicBaseWeight;
 	<span class="kw">use </span>frame_support::weights::WeightToFee <span class="kw">as </span>WeightToFeeT;
-	<span class="kw">use </span>runtime_common::MAXIMUM_BLOCK_WEIGHT;
+	<span class="kw">use </span>polkadot_runtime_common::MAXIMUM_BLOCK_WEIGHT;
 
 	<span class="attr">#[test]
 	</span><span class="comment">// Test that the fee for `MAXIMUM_BLOCK_WEIGHT` of weight has sane bounds.

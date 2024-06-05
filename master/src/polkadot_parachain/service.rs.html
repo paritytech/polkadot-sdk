@@ -1243,6 +1243,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">use </span>cumulus_client_consensus_relay_chain::Verifier <span class="kw">as </span>RelayChainVerifier;
 <span class="kw">use </span>futures::{lock::Mutex, prelude::<span class="kw-2">*</span>};
+<span class="kw">use </span>prometheus_endpoint::Registry;
 <span class="kw">use </span>sc_consensus::{
 	import_queue::{BasicQueue, Verifier <span class="kw">as </span>VerifierT},
 	BlockImportParams, ImportQueue,
@@ -1261,7 +1262,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	traits::{Block <span class="kw">as </span>BlockT, Header <span class="kw">as </span>HeaderT},
 };
 <span class="kw">use </span>std::{marker::PhantomData, sync::Arc, time::Duration};
-<span class="kw">use </span>substrate_prometheus_endpoint::Registry;
 
 <span class="kw">use </span>polkadot_primitives::CollatorPair;
 
@@ -1409,7 +1409,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		+ sp_block_builder::BlockBuilder&lt;Block&gt;
 		+ cumulus_primitives_core::CollectCollationInfo&lt;Block&gt;
 		+ pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi&lt;Block, Balance&gt;
-		+ frame_rpc_system::AccountNonceApi&lt;Block, AccountId, Nonce&gt;,
+		+ substrate_frame_rpc_system::AccountNonceApi&lt;Block, AccountId, Nonce&gt;,
 	RB: Fn(
 			DenyUnsafe,
 			Arc&lt;ParachainClient&lt;RuntimeApi&gt;&gt;,
@@ -1671,7 +1671,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	RuntimeApi::RuntimeApi: sp_transaction_pool::runtime_api::TaggedTransactionQueue&lt;Block&gt;
 		+ sp_block_builder::BlockBuilder&lt;Block&gt;
 		+ pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi&lt;Block, Balance&gt;
-		+ frame_rpc_system::AccountNonceApi&lt;Block, AccountId, Nonce&gt;,
+		+ substrate_frame_rpc_system::AccountNonceApi&lt;Block, AccountId, Nonce&gt;,
 {
 	<span class="kw">let </span>deps = rpc::FullDeps { client, pool, deny_unsafe };
 
@@ -1936,7 +1936,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		+ cumulus_primitives_core::CollectCollationInfo&lt;Block&gt;
 		+ sp_consensus_aura::AuraApi&lt;Block, &lt;&lt;AuraId <span class="kw">as </span>AppCrypto&gt;::Pair <span class="kw">as </span>Pair&gt;::Public&gt;
 		+ pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi&lt;Block, Balance&gt;
-		+ frame_rpc_system::AccountNonceApi&lt;Block, AccountId, Nonce&gt;
+		+ substrate_frame_rpc_system::AccountNonceApi&lt;Block, AccountId, Nonce&gt;
 		+ cumulus_primitives_aura::AuraUnincludedSegmentApi&lt;Block&gt;,
 	&lt;&lt;AuraId <span class="kw">as </span>AppCrypto&gt;::Pair <span class="kw">as </span>Pair&gt;::Signature:
 		TryFrom&lt;Vec&lt;u8&gt;&gt; + std::hash::Hash + sp_runtime::traits::Member + Codec,

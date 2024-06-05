@@ -678,13 +678,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 					<span class="kw">let </span>pov_hash = pov.hash();
 					<span class="kw">let </span>erasure_root = {
-						<span class="kw">let </span>chunks = erasure::obtain_chunks_v1(
+						<span class="kw">let </span>chunks = polkadot_erasure_coding::obtain_chunks_v1(
 							n_validators <span class="kw">as </span>usize,
 							<span class="kw-2">&amp;</span>malicious_available_data,
 						)
 						.unwrap();
 
-						<span class="kw">let </span>branches = erasure::branches(chunks.as_ref());
+						<span class="kw">let </span>branches = polkadot_erasure_coding::branches(chunks.as_ref());
 						branches.root()
 					};
 

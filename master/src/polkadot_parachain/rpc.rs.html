@@ -313,15 +313,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		+ Send
 		+ Sync
 		+ <span class="lifetime">'static</span>,
-	C::Api: frame_rpc_system::AccountNonceApi&lt;Block, AccountId, Nonce&gt;,
+	C::Api: substrate_frame_rpc_system::AccountNonceApi&lt;Block, AccountId, Nonce&gt;,
 	C::Api: pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi&lt;Block, Balance&gt;,
 	C::Api: BlockBuilder&lt;Block&gt;,
 	P: TransactionPool + Sync + Send + <span class="lifetime">'static</span>,
 	B: sc_client_api::Backend&lt;Block&gt; + Send + Sync + <span class="lifetime">'static</span>,
 	B::State: sc_client_api::backend::StateBackend&lt;sp_runtime::traits::HashingFor&lt;Block&gt;&gt;,
 {
-	<span class="kw">use </span>frame_rpc_system::{System, SystemApiServer};
 	<span class="kw">use </span>pallet_transaction_payment_rpc::{TransactionPayment, TransactionPaymentApiServer};
+	<span class="kw">use </span>substrate_frame_rpc_system::{System, SystemApiServer};
 	<span class="kw">use </span>substrate_state_trie_migration_rpc::{StateMigration, StateMigrationApiServer};
 
 	<span class="kw">let </span><span class="kw-2">mut </span>module = RpcExtension::new(());
@@ -347,14 +347,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		+ Send
 		+ Sync
 		+ <span class="lifetime">'static</span>,
-	C::Api: frame_rpc_system::AccountNonceApi&lt;Block, AccountId, Nonce&gt;,
+	C::Api: substrate_frame_rpc_system::AccountNonceApi&lt;Block, AccountId, Nonce&gt;,
 	C::Api: pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi&lt;Block, Balance&gt;,
 	C::Api: BlockBuilder&lt;Block&gt;,
 	P: TransactionPool + Sync + Send + <span class="lifetime">'static</span>,
 {
-	<span class="kw">use </span>frame_rpc_system::{System, SystemApiServer};
 	<span class="kw">use </span>pallet_transaction_payment_rpc::{TransactionPayment, TransactionPaymentApiServer};
 	<span class="kw">use </span>sc_rpc::dev::{Dev, DevApiServer};
+	<span class="kw">use </span>substrate_frame_rpc_system::{System, SystemApiServer};
 
 	<span class="kw">let </span><span class="kw-2">mut </span>module = RpcExtension::new(());
 	<span class="kw">let </span>FullDeps { client, pool, deny_unsafe } = deps;

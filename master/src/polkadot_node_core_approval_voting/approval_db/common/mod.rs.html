@@ -461,7 +461,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="doccomment">//! Common helper functions for all versions of approval-voting database.
 </span><span class="kw">use </span>std::sync::Arc;
 
-<span class="kw">use </span>parity_scale_codec::{Decode, Encode};
+<span class="kw">use </span>codec::{Decode, Encode};
 <span class="kw">use </span>polkadot_node_subsystem::{SubsystemError, SubsystemResult};
 <span class="kw">use </span>polkadot_node_subsystem_util::database::{DBTransaction, Database};
 <span class="kw">use </span>polkadot_primitives::{BlockNumber, CandidateHash, CandidateIndex, Hash};
@@ -508,7 +508,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="attr">#[derive(Debug, derive_more::From, derive_more::Display)]
 </span><span class="kw">pub enum </span>Error {
 	Io(std::io::Error),
-	InvalidDecoding(parity_scale_codec::Error),
+	InvalidDecoding(codec::Error),
 	InternalError(SubsystemError),
 }
 

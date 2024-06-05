@@ -180,6 +180,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#29" id="29">29</a>
 <a href="#30" id="30">30</a>
 <a href="#31" id="31">31</a>
+<a href="#32" id="32">32</a>
 </pre></div><pre class="rust"><code><span class="comment">// SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2023 Snowfork &lt;hello@snowfork.com&gt;
 </span><span class="kw">use </span><span class="kw">crate</span>::config::{
@@ -192,9 +193,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub fn </span>decompress_sync_committee_bits(
 	input: [u8; SYNC_COMMITTEE_BITS_SIZE],
 ) -&gt; [u8; SYNC_COMMITTEE_SIZE] {
-	primitives::decompress_sync_committee_bits::&lt;SYNC_COMMITTEE_SIZE, SYNC_COMMITTEE_BITS_SIZE&gt;(
-		input,
-	)
+	snowbridge_beacon_primitives::decompress_sync_committee_bits::&lt;
+		SYNC_COMMITTEE_SIZE,
+		SYNC_COMMITTEE_BITS_SIZE,
+	&gt;(input)
 }
 
 <span class="doccomment">/// Compute the sync committee period in which a slot is contained.

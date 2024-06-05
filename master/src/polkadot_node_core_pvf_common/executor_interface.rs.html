@@ -904,7 +904,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.map_err(|e| <span class="macro">format!</span>(<span class="string">"Failed to read the static section from the PVF blob: {:?}"</span>, e))<span class="question-mark">?
 		</span>{
 			<span class="prelude-val">Some</span>(version) =&gt; {
-				<span class="kw">use </span>parity_scale_codec::Encode;
+				<span class="kw">use </span>codec::Encode;
 				<span class="prelude-val">Ok</span>(version.encode())
 			},
 			<span class="prelude-val">None </span>=&gt; <span class="prelude-val">Err</span>(<span class="string">"runtime version section is not found"</span>.to_string()),

@@ -687,8 +687,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
 	<span class="kw">use </span>std::{collections::HashSet, sync::Arc};
 
+	<span class="kw">use </span>codec::{Decode, Encode};
 	<span class="kw">use </span>jsonrpsee::{core::EmptyServerParams <span class="kw">as </span>EmptyParams, types::SubscriptionId, RpcModule};
-	<span class="kw">use </span>parity_scale_codec::{Decode, Encode};
 	<span class="kw">use </span>sc_block_builder::BlockBuilderBuilder;
 	<span class="kw">use </span>sc_consensus_grandpa::{
 		report, AuthorityId, FinalityProof, GrandpaJustification, GrandpaJustificationSender,

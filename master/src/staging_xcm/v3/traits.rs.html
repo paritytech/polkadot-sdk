@@ -726,8 +726,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="doccomment">//! Cross-Consensus Message format data structures.
 
 </span><span class="kw">use </span><span class="kw">crate</span>::v2::Error <span class="kw">as </span>OldError;
+<span class="kw">use </span>codec::{Decode, Encode, MaxEncodedLen};
 <span class="kw">use </span>core::result;
-<span class="kw">use </span>parity_scale_codec::{Decode, Encode, MaxEncodedLen};
 <span class="kw">use </span>scale_info::TypeInfo;
 
 <span class="kw">pub use </span>sp_weights::Weight;
@@ -1116,7 +1116,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ///
 /// # Example
 /// ```rust
-/// # use parity_scale_codec::Encode;
+/// # use codec::Encode;
 /// # use staging_xcm::v3::{prelude::*, Weight};
 /// # use staging_xcm::VersionedXcm;
 /// # use std::convert::Infallible;

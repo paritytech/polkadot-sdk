@@ -671,6 +671,32 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#520" id="520">520</a>
 <a href="#521" id="521">521</a>
 <a href="#522" id="522">522</a>
+<a href="#523" id="523">523</a>
+<a href="#524" id="524">524</a>
+<a href="#525" id="525">525</a>
+<a href="#526" id="526">526</a>
+<a href="#527" id="527">527</a>
+<a href="#528" id="528">528</a>
+<a href="#529" id="529">529</a>
+<a href="#530" id="530">530</a>
+<a href="#531" id="531">531</a>
+<a href="#532" id="532">532</a>
+<a href="#533" id="533">533</a>
+<a href="#534" id="534">534</a>
+<a href="#535" id="535">535</a>
+<a href="#536" id="536">536</a>
+<a href="#537" id="537">537</a>
+<a href="#538" id="538">538</a>
+<a href="#539" id="539">539</a>
+<a href="#540" id="540">540</a>
+<a href="#541" id="541">541</a>
+<a href="#542" id="542">542</a>
+<a href="#543" id="543">543</a>
+<a href="#544" id="544">544</a>
+<a href="#545" id="545">545</a>
+<a href="#546" id="546">546</a>
+<a href="#547" id="547">547</a>
+<a href="#548" id="548">548</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -750,10 +776,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub type </span>AuthorityList = Vec&lt;(AuthorityId, AuthorityWeight)&gt;;
 
 <span class="doccomment">/// A GRANDPA message for a substrate chain.
-</span><span class="kw">pub type </span>Message&lt;Header&gt; = grandpa::Message&lt;&lt;Header <span class="kw">as </span>HeaderT&gt;::Hash, &lt;Header <span class="kw">as </span>HeaderT&gt;::Number&gt;;
+</span><span class="kw">pub type </span>Message&lt;Header&gt; =
+	finality_grandpa::Message&lt;&lt;Header <span class="kw">as </span>HeaderT&gt;::Hash, &lt;Header <span class="kw">as </span>HeaderT&gt;::Number&gt;;
 
 <span class="doccomment">/// A signed message.
-</span><span class="kw">pub type </span>SignedMessage&lt;Header&gt; = grandpa::SignedMessage&lt;
+</span><span class="kw">pub type </span>SignedMessage&lt;Header&gt; = finality_grandpa::SignedMessage&lt;
 	&lt;Header <span class="kw">as </span>HeaderT&gt;::Hash,
 	&lt;Header <span class="kw">as </span>HeaderT&gt;::Number,
 	AuthoritySignature,
@@ -762,21 +789,22 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// A primary propose message for this chain's block type.
 </span><span class="kw">pub type </span>PrimaryPropose&lt;Header&gt; =
-	grandpa::PrimaryPropose&lt;&lt;Header <span class="kw">as </span>HeaderT&gt;::Hash, &lt;Header <span class="kw">as </span>HeaderT&gt;::Number&gt;;
+	finality_grandpa::PrimaryPropose&lt;&lt;Header <span class="kw">as </span>HeaderT&gt;::Hash, &lt;Header <span class="kw">as </span>HeaderT&gt;::Number&gt;;
 <span class="doccomment">/// A prevote message for this chain's block type.
-</span><span class="kw">pub type </span>Prevote&lt;Header&gt; = grandpa::Prevote&lt;&lt;Header <span class="kw">as </span>HeaderT&gt;::Hash, &lt;Header <span class="kw">as </span>HeaderT&gt;::Number&gt;;
+</span><span class="kw">pub type </span>Prevote&lt;Header&gt; =
+	finality_grandpa::Prevote&lt;&lt;Header <span class="kw">as </span>HeaderT&gt;::Hash, &lt;Header <span class="kw">as </span>HeaderT&gt;::Number&gt;;
 <span class="doccomment">/// A precommit message for this chain's block type.
 </span><span class="kw">pub type </span>Precommit&lt;Header&gt; =
-	grandpa::Precommit&lt;&lt;Header <span class="kw">as </span>HeaderT&gt;::Hash, &lt;Header <span class="kw">as </span>HeaderT&gt;::Number&gt;;
+	finality_grandpa::Precommit&lt;&lt;Header <span class="kw">as </span>HeaderT&gt;::Hash, &lt;Header <span class="kw">as </span>HeaderT&gt;::Number&gt;;
 <span class="doccomment">/// A catch up message for this chain's block type.
-</span><span class="kw">pub type </span>CatchUp&lt;Header&gt; = grandpa::CatchUp&lt;
+</span><span class="kw">pub type </span>CatchUp&lt;Header&gt; = finality_grandpa::CatchUp&lt;
 	&lt;Header <span class="kw">as </span>HeaderT&gt;::Hash,
 	&lt;Header <span class="kw">as </span>HeaderT&gt;::Number,
 	AuthoritySignature,
 	AuthorityId,
 &gt;;
 <span class="doccomment">/// A commit message for this chain's block type.
-</span><span class="kw">pub type </span>Commit&lt;Header&gt; = grandpa::Commit&lt;
+</span><span class="kw">pub type </span>Commit&lt;Header&gt; = finality_grandpa::Commit&lt;
 	&lt;Header <span class="kw">as </span>HeaderT&gt;::Hash,
 	&lt;Header <span class="kw">as </span>HeaderT&gt;::Number,
 	AuthoritySignature,
@@ -784,7 +812,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 &gt;;
 
 <span class="doccomment">/// A compact commit message for this chain's block type.
-</span><span class="kw">pub type </span>CompactCommit&lt;Header&gt; = grandpa::CompactCommit&lt;
+</span><span class="kw">pub type </span>CompactCommit&lt;Header&gt; = finality_grandpa::CompactCommit&lt;
 	&lt;Header <span class="kw">as </span>HeaderT&gt;::Hash,
 	&lt;Header <span class="kw">as </span>HeaderT&gt;::Number,
 	AuthoritySignature,
@@ -939,18 +967,36 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="attr">#[derive(Clone, Debug, Decode, Encode, PartialEq, Eq, TypeInfo)]
 </span><span class="kw">pub enum </span>Equivocation&lt;H, N&gt; {
 	<span class="doccomment">/// Proof of equivocation at prevote stage.
-	</span>Prevote(grandpa::Equivocation&lt;AuthorityId, grandpa::Prevote&lt;H, N&gt;, AuthoritySignature&gt;),
+	</span>Prevote(
+		finality_grandpa::Equivocation&lt;
+			AuthorityId,
+			finality_grandpa::Prevote&lt;H, N&gt;,
+			AuthoritySignature,
+		&gt;,
+	),
 	<span class="doccomment">/// Proof of equivocation at precommit stage.
-	</span>Precommit(grandpa::Equivocation&lt;AuthorityId, grandpa::Precommit&lt;H, N&gt;, AuthoritySignature&gt;),
+	</span>Precommit(
+		finality_grandpa::Equivocation&lt;
+			AuthorityId,
+			finality_grandpa::Precommit&lt;H, N&gt;,
+			AuthoritySignature,
+		&gt;,
+	),
 }
 
-<span class="kw">impl</span>&lt;H, N&gt; From&lt;grandpa::Equivocation&lt;AuthorityId, grandpa::Prevote&lt;H, N&gt;, AuthoritySignature&gt;&gt;
-	<span class="kw">for </span>Equivocation&lt;H, N&gt;
+<span class="kw">impl</span>&lt;H, N&gt;
+	From&lt;
+		finality_grandpa::Equivocation&lt;
+			AuthorityId,
+			finality_grandpa::Prevote&lt;H, N&gt;,
+			AuthoritySignature,
+		&gt;,
+	&gt; <span class="kw">for </span>Equivocation&lt;H, N&gt;
 {
 	<span class="kw">fn </span>from(
-		equivocation: grandpa::Equivocation&lt;
+		equivocation: finality_grandpa::Equivocation&lt;
 			AuthorityId,
-			grandpa::Prevote&lt;H, N&gt;,
+			finality_grandpa::Prevote&lt;H, N&gt;,
 			AuthoritySignature,
 		&gt;,
 	) -&gt; <span class="self">Self </span>{
@@ -958,13 +1004,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="kw">impl</span>&lt;H, N&gt; From&lt;grandpa::Equivocation&lt;AuthorityId, grandpa::Precommit&lt;H, N&gt;, AuthoritySignature&gt;&gt;
-	<span class="kw">for </span>Equivocation&lt;H, N&gt;
+<span class="kw">impl</span>&lt;H, N&gt;
+	From&lt;
+		finality_grandpa::Equivocation&lt;
+			AuthorityId,
+			finality_grandpa::Precommit&lt;H, N&gt;,
+			AuthoritySignature,
+		&gt;,
+	&gt; <span class="kw">for </span>Equivocation&lt;H, N&gt;
 {
 	<span class="kw">fn </span>from(
-		equivocation: grandpa::Equivocation&lt;
+		equivocation: finality_grandpa::Equivocation&lt;
 			AuthorityId,
-			grandpa::Precommit&lt;H, N&gt;,
+			finality_grandpa::Precommit&lt;H, N&gt;,
 			AuthoritySignature,
 		&gt;,
 	) -&gt; <span class="self">Self </span>{
@@ -1031,10 +1083,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">match </span>report.equivocation {
 		Equivocation::Prevote(equivocation) =&gt; {
-			<span class="macro">check!</span>(equivocation, grandpa::Message::Prevote);
+			<span class="macro">check!</span>(equivocation, finality_grandpa::Message::Prevote);
 		},
 		Equivocation::Precommit(equivocation) =&gt; {
-			<span class="macro">check!</span>(equivocation, grandpa::Message::Precommit);
+			<span class="macro">check!</span>(equivocation, finality_grandpa::Message::Precommit);
 		},
 	}
 }
@@ -1062,7 +1114,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Check a message signature by encoding the message as a localized payload and
 /// verifying the provided signature using the expected authority id.
 </span><span class="kw">pub fn </span>check_message_signature&lt;H, N&gt;(
-	message: <span class="kw-2">&amp;</span>grandpa::Message&lt;H, N&gt;,
+	message: <span class="kw-2">&amp;</span>finality_grandpa::Message&lt;H, N&gt;,
 	id: <span class="kw-2">&amp;</span>AuthorityId,
 	signature: <span class="kw-2">&amp;</span>AuthoritySignature,
 	round: RoundNumber,
@@ -1080,7 +1132,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// The encoding necessary to verify the signature will be done using the given
 /// buffer, the original content of the buffer will be cleared.
 </span><span class="kw">pub fn </span>check_message_signature_with_buffer&lt;H, N&gt;(
-	message: <span class="kw-2">&amp;</span>grandpa::Message&lt;H, N&gt;,
+	message: <span class="kw-2">&amp;</span>finality_grandpa::Message&lt;H, N&gt;,
 	id: <span class="kw-2">&amp;</span>AuthorityId,
 	signature: <span class="kw-2">&amp;</span>AuthoritySignature,
 	round: RoundNumber,
@@ -1110,11 +1162,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">pub fn </span>sign_message&lt;H, N&gt;(
 	keystore: KeystorePtr,
-	message: grandpa::Message&lt;H, N&gt;,
+	message: finality_grandpa::Message&lt;H, N&gt;,
 	public: AuthorityId,
 	round: RoundNumber,
 	set_id: SetId,
-) -&gt; <span class="prelude-ty">Option</span>&lt;grandpa::SignedMessage&lt;H, N, AuthoritySignature, AuthorityId&gt;&gt;
+) -&gt; <span class="prelude-ty">Option</span>&lt;finality_grandpa::SignedMessage&lt;H, N, AuthoritySignature, AuthorityId&gt;&gt;
 <span class="kw">where
 	</span>H: Encode,
 	N: Encode,
@@ -1129,7 +1181,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span>.try_into()
 		.ok()<span class="question-mark">?</span>;
 
-	<span class="prelude-val">Some</span>(grandpa::SignedMessage { message, signature, id: public })
+	<span class="prelude-val">Some</span>(finality_grandpa::SignedMessage { message, signature, id: public })
 }
 
 <span class="doccomment">/// An opaque type used to represent the key ownership proof at the runtime API

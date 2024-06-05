@@ -858,8 +858,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="attr">#![deny(missing_docs)]
 
-</span><span class="kw">use </span>futures::{channel::oneshot, future::FutureExt, join, select};
-<span class="kw">use </span>parity_scale_codec::Encode;
+</span><span class="kw">use </span>codec::Encode;
+<span class="kw">use </span>futures::{channel::oneshot, future::FutureExt, join, select};
 <span class="kw">use </span>polkadot_node_primitives::{
 	AvailableData, Collation, CollationGenerationConfig, CollationSecondedSignal, PoV,
 	SubmitCollationParams,

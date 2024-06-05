@@ -1104,7 +1104,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="attr">#![deny(unused_crate_dependencies)]
 #![warn(missing_docs)]
 
-</span><span class="kw">use </span>parity_scale_codec::{Decode, Encode};
+</span><span class="kw">use </span>codec::{Decode, Encode};
 <span class="kw">use </span>polkadot_primitives::{BlockNumber, Hash};
 <span class="kw">use </span>std::{collections::HashMap, fmt};
 
@@ -1547,7 +1547,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// v1 notification protocol types.
 </span><span class="kw">pub mod </span>v1 {
-	<span class="kw">use </span>parity_scale_codec::{Decode, Encode};
+	<span class="kw">use </span>codec::{Decode, Encode};
 
 	<span class="kw">use </span>polkadot_primitives::{
 		CandidateHash, CandidateIndex, CollatorId, CollatorSignature, CompactStatement, Hash,
@@ -1706,7 +1706,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// v2 network protocol types.
 </span><span class="kw">pub mod </span>v2 {
 	<span class="kw">use </span>bitvec::{order::Lsb0, slice::BitSlice, vec::BitVec};
-	<span class="kw">use </span>parity_scale_codec::{Decode, Encode};
+	<span class="kw">use </span>codec::{Decode, Encode};
 
 	<span class="kw">use </span>polkadot_primitives::{
 		CandidateHash, CandidateIndex, CollatorId, CollatorSignature, GroupIndex, Hash,
@@ -1960,7 +1960,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// Purpose is for changing ApprovalDistributionMessage to
 /// include more than one assignment and approval in a message.
 </span><span class="kw">pub mod </span>v3 {
-	<span class="kw">use </span>parity_scale_codec::{Decode, Encode};
+	<span class="kw">use </span>codec::{Decode, Encode};
 
 	<span class="kw">use </span>polkadot_node_primitives::approval::v2::{
 		CandidateBitfield, IndirectAssignmentCertV2, IndirectSignedApprovalVoteV2,

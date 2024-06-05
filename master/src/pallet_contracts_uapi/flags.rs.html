@@ -251,7 +251,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="macro">bitflags! </span>{
 	<span class="doccomment">/// Flags used by a contract to customize exit behaviour.
-	</span><span class="attr">#[cfg_attr(feature = <span class="string">"scale"</span>, derive(scale::Encode, scale::Decode, scale_info::TypeInfo))]
+	</span><span class="attr">#[cfg_attr(feature = <span class="string">"scale"</span>, derive(codec::Encode, codec::Decode, scale_info::TypeInfo))]
 	</span><span class="kw">pub struct </span>ReturnFlags: u32 {
 		<span class="doccomment">/// If this bit is set all changes made by the contract execution are rolled back.
 		</span><span class="kw">const </span>REVERT = <span class="number">0x0000_0001</span>;

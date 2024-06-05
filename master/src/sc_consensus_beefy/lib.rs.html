@@ -938,7 +938,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>futures::{stream::Fuse, FutureExt, StreamExt};
 <span class="kw">use </span>log::{debug, error, info, warn};
 <span class="kw">use </span>parking_lot::Mutex;
-<span class="kw">use </span>prometheus::Registry;
+<span class="kw">use </span>prometheus_endpoint::Registry;
 <span class="kw">use </span>sc_client_api::{Backend, BlockBackend, BlockchainEvents, FinalityNotifications, Finalizer};
 <span class="kw">use </span>sc_consensus::BlockImport;
 <span class="kw">use </span>sc_network::{NetworkRequest, NotificationService, ProtocolName};

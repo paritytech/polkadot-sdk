@@ -480,8 +480,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	sync::Arc,
 };
 
+<span class="kw">use </span>codec::{Decode, DecodeAll, Encode};
 <span class="kw">use </span>finality_grandpa::{voter_set::VoterSet, Error <span class="kw">as </span>GrandpaError};
-<span class="kw">use </span>parity_scale_codec::{Decode, DecodeAll, Encode};
 <span class="kw">use </span>sp_blockchain::{Error <span class="kw">as </span>ClientError, HeaderBackend};
 <span class="kw">use </span>sp_consensus_grandpa::AuthorityId;
 <span class="kw">use </span>sp_runtime::traits::{Block <span class="kw">as </span>BlockT, Header <span class="kw">as </span>HeaderT, NumberFor};

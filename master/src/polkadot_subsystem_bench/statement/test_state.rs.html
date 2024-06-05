@@ -608,9 +608,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	NODE_UNDER_TEST,
 };
 <span class="kw">use </span>bitvec::vec::BitVec;
+<span class="kw">use </span>codec::{Decode, Encode};
 <span class="kw">use </span>futures::channel::oneshot;
 <span class="kw">use </span>itertools::Itertools;
-<span class="kw">use </span>parity_scale_codec::{Decode, Encode};
 <span class="kw">use </span>polkadot_node_network_protocol::{
 	request_response::{
 		v2::{AttestedCandidateRequest, AttestedCandidateResponse},

@@ -629,10 +629,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 #[benchmarks]
 </span><span class="kw">mod </span>benchmarks {
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
+	<span class="kw">use </span>codec::Encode;
 	<span class="kw">use </span>frame_support::traits::EnsureOrigin;
 	<span class="kw">use </span>frame_system::RawOrigin;
 	<span class="kw">use </span>pallet_identity::{Data, IdentityInformationProvider, Judgement, Pallet <span class="kw">as </span>Identity};
-	<span class="kw">use </span>parity_scale_codec::Encode;
 	<span class="kw">use </span>sp_runtime::{
 		traits::{Bounded, Hash, StaticLookup},
 		Saturating,

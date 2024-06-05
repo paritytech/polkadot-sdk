@@ -1690,8 +1690,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1539" id="1539">1539</a>
 <a href="#1540" id="1540">1540</a>
 <a href="#1541" id="1541">1541</a>
-<a href="#1542" id="1542">1542</a>
-<a href="#1543" id="1543">1543</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1718,13 +1716,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	time::Duration,
 };
 
+<span class="kw">use </span>codec::{Decode, Encode};
 <span class="kw">use </span>finality_grandpa::{
 	round::State <span class="kw">as </span>RoundState, voter, voter_set::VoterSet, BlockNumberOps, Error <span class="kw">as </span>GrandpaError,
 };
 <span class="kw">use </span>futures::prelude::<span class="kw-2">*</span>;
 <span class="kw">use </span>futures_timer::Delay;
 <span class="kw">use </span>log::{debug, warn};
-<span class="kw">use </span>parity_scale_codec::{Decode, Encode};
 <span class="kw">use </span>parking_lot::RwLock;
 <span class="kw">use </span>prometheus_endpoint::{register, Counter, Gauge, PrometheusError, U64};
 
@@ -1798,12 +1796,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="kw">impl</span>&lt;Block: BlockT&gt; parity_scale_codec::EncodeLike <span class="kw">for </span>CompletedRounds&lt;Block&gt; {}
+<span class="kw">impl</span>&lt;Block: BlockT&gt; codec::EncodeLike <span class="kw">for </span>CompletedRounds&lt;Block&gt; {}
 
 <span class="kw">impl</span>&lt;Block: BlockT&gt; Decode <span class="kw">for </span>CompletedRounds&lt;Block&gt; {
-	<span class="kw">fn </span>decode&lt;I: parity_scale_codec::Input&gt;(
-		value: <span class="kw-2">&amp;mut </span>I,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, parity_scale_codec::Error&gt; {
+	<span class="kw">fn </span>decode&lt;I: codec::Input&gt;(value: <span class="kw-2">&amp;mut </span>I) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, codec::Error&gt; {
 		&lt;(Vec&lt;CompletedRound&lt;Block&gt;&gt;, SetId, Vec&lt;AuthorityId&gt;)&gt;::decode(value)
 			.map(|(rounds, set_id, voters)| CompletedRounds { rounds, set_id, voters })
 	}

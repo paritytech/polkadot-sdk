@@ -475,8 +475,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">use </span>futures::{channel::oneshot, select, FutureExt};
 
+<span class="kw">use </span>codec::{Decode, Encode};
 <span class="kw">use </span>fatality::Nested;
-<span class="kw">use </span>parity_scale_codec::{Decode, Encode};
 <span class="kw">use </span>polkadot_node_network_protocol::{
 	request_response::{v1, v2, IncomingRequest, IncomingRequestReceiver, IsRequest},
 	UnifiedReputationChange <span class="kw">as </span>Rep,

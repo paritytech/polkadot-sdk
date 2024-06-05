@@ -243,7 +243,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">mod </span>tests;
 
 <span class="kw">use </span>frame_system::pallet_prelude::BlockNumberFor;
-<span class="kw">use </span>primitives::CoreIndex;
+<span class="kw">use </span>polkadot_primitives::CoreIndex;
 
 <span class="kw">use crate</span>::{
 	configuration, paras,
@@ -279,7 +279,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>push_back_assignment(<span class="kw">_</span>: Assignment) {}
 
 	<span class="attr">#[cfg(any(feature = <span class="string">"runtime-benchmarks"</span>, test))]
-	</span><span class="kw">fn </span>get_mock_assignment(<span class="kw">_</span>: CoreIndex, para_id: primitives::Id) -&gt; Assignment {
+	</span><span class="kw">fn </span>get_mock_assignment(<span class="kw">_</span>: CoreIndex, para_id: polkadot_primitives::Id) -&gt; Assignment {
 		Assignment::Bulk(para_id)
 	}
 

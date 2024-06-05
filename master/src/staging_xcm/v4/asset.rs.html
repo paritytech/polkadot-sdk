@@ -1305,8 +1305,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 };
 <span class="kw">use </span>alloc::{vec, vec::Vec};
 <span class="kw">use </span>bounded_collections::{BoundedVec, ConstU32};
+<span class="kw">use </span>codec::{<span class="self">self </span><span class="kw">as </span>codec, Decode, Encode, MaxEncodedLen};
 <span class="kw">use </span>core::cmp::Ordering;
-<span class="kw">use </span>parity_scale_codec::{<span class="self">self </span><span class="kw">as </span>codec, Decode, Encode, MaxEncodedLen};
 <span class="kw">use </span>scale_info::TypeInfo;
 
 <span class="doccomment">/// A general identifier for an instance of a non-fungible asset class.
@@ -1545,7 +1545,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="kw">impl </span>Decode <span class="kw">for </span>Fungibility {
-	<span class="kw">fn </span>decode&lt;I: codec::Input&gt;(input: <span class="kw-2">&amp;mut </span>I) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, parity_scale_codec::Error&gt; {
+	<span class="kw">fn </span>decode&lt;I: codec::Input&gt;(input: <span class="kw-2">&amp;mut </span>I) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, codec::Error&gt; {
 		<span class="kw">match </span>UncheckedFungibility::decode(input)<span class="question-mark">? </span>{
 			UncheckedFungibility::Fungible(a) <span class="kw">if </span>a != <span class="number">0 </span>=&gt; <span class="prelude-val">Ok</span>(<span class="self">Self</span>::Fungible(a)),
 			UncheckedFungibility::NonFungible(i) =&gt; <span class="prelude-val">Ok</span>(<span class="self">Self</span>::NonFungible(i)),
@@ -1830,7 +1830,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="kw">impl </span>Decode <span class="kw">for </span>Assets {
-	<span class="kw">fn </span>decode&lt;I: codec::Input&gt;(input: <span class="kw-2">&amp;mut </span>I) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, parity_scale_codec::Error&gt; {
+	<span class="kw">fn </span>decode&lt;I: codec::Input&gt;(input: <span class="kw-2">&amp;mut </span>I) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, codec::Error&gt; {
 		<span class="kw">let </span>bounded_instructions =
 			BoundedVec::&lt;Asset, ConstU32&lt;{ MAX_ITEMS_IN_ASSETS <span class="kw">as </span>u32 }&gt;&gt;::decode(input)<span class="question-mark">?</span>;
 		<span class="self">Self</span>::from_sorted_and_deduplicated(bounded_instructions.into_inner())

@@ -1274,8 +1274,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="kw">use </span><span class="kw">super</span>::Junction;
 <span class="kw">use </span><span class="kw">crate</span>::v3::MultiLocation <span class="kw">as </span>NewMultiLocation;
+<span class="kw">use </span>codec::{Decode, Encode, MaxEncodedLen};
 <span class="kw">use </span>core::{mem, result};
-<span class="kw">use </span>parity_scale_codec::{Decode, Encode, MaxEncodedLen};
 <span class="kw">use </span>scale_info::TypeInfo;
 
 <span class="doccomment">/// A relative path between state-bearing consensus systems.
@@ -2139,7 +2139,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">mod </span>tests {
 	<span class="kw">use super</span>::{Ancestor, AncestorThen, Junctions::<span class="kw-2">*</span>, MultiLocation, Parent, ParentThen};
 	<span class="kw">use </span><span class="kw">crate</span>::opaque::v2::{Junction::<span class="kw-2">*</span>, NetworkId::<span class="kw-2">*</span>};
-	<span class="kw">use </span>parity_scale_codec::{Decode, Encode};
+	<span class="kw">use </span>codec::{Decode, Encode};
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>inverted_works() {

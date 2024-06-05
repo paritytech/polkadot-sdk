@@ -1827,6 +1827,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1676" id="1676">1676</a>
 <a href="#1677" id="1677">1677</a>
 <a href="#1678" id="1678">1678</a>
+<a href="#1679" id="1679">1679</a>
+<a href="#1680" id="1680">1680</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1855,8 +1857,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	traits::{Currency, Get, ReservableCurrency},
 };
 <span class="kw">use </span>frame_system::{<span class="self">self</span>, ensure_root, ensure_signed};
-<span class="kw">use </span>primitives::{HeadData, Id <span class="kw">as </span>ParaId, ValidationCode, LOWEST_PUBLIC_ID, MIN_CODE_SIZE};
-<span class="kw">use </span>runtime_parachains::{
+<span class="kw">use </span>polkadot_primitives::{
+	HeadData, Id <span class="kw">as </span>ParaId, ValidationCode, LOWEST_PUBLIC_ID, MIN_CODE_SIZE,
+};
+<span class="kw">use </span>polkadot_runtime_parachains::{
 	configuration, ensure_parachain,
 	paras::{<span class="self">self</span>, ParaGenesisArgs, UpgradeStrategy},
 	Origin, ParaLifecycle,
@@ -1864,9 +1868,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>sp_std::{prelude::<span class="kw-2">*</span>, result};
 
 <span class="kw">use </span><span class="kw">crate</span>::traits::{OnSwap, Registrar};
+<span class="kw">use </span>codec::{Decode, Encode};
 <span class="kw">pub use </span>pallet::<span class="kw-2">*</span>;
-<span class="kw">use </span>parity_scale_codec::{Decode, Encode};
-<span class="kw">use </span>runtime_parachains::paras::{OnNewHead, ParaKind};
+<span class="kw">use </span>polkadot_runtime_parachains::paras::{OnNewHead, ParaKind};
 <span class="kw">use </span>scale_info::TypeInfo;
 <span class="kw">use </span>sp_runtime::{
 	traits::{CheckedSub, Saturating},
@@ -2254,7 +2258,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			new_code: ValidationCode,
 		) -&gt; DispatchResult {
 			<span class="self">Self</span>::ensure_root_para_or_owner(origin, para)<span class="question-mark">?</span>;
-			runtime_parachains::schedule_code_upgrade::&lt;T&gt;(
+			polkadot_runtime_parachains::schedule_code_upgrade::&lt;T&gt;(
 				para,
 				new_code,
 				UpgradeStrategy::ApplyAtExpectedBlock,
@@ -2274,7 +2278,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			new_head: HeadData,
 		) -&gt; DispatchResult {
 			<span class="self">Self</span>::ensure_root_para_or_owner(origin, para)<span class="question-mark">?</span>;
-			runtime_parachains::set_current_head::&lt;T&gt;(para, new_head);
+			polkadot_runtime_parachains::set_current_head::&lt;T&gt;(para, new_head);
 			<span class="prelude-val">Ok</span>(())
 		}
 	}
@@ -2339,7 +2343,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			paras::Pallet::&lt;T&gt;::lifecycle(id) == <span class="prelude-val">Some</span>(ParaLifecycle::Parathread),
 			Error::&lt;T&gt;::NotParathread
 		);
-		runtime_parachains::schedule_parathread_upgrade::&lt;T&gt;(id)
+		polkadot_runtime_parachains::schedule_parathread_upgrade::&lt;T&gt;(id)
 			.map_err(|<span class="kw">_</span>| Error::&lt;T&gt;::CannotUpgrade)<span class="question-mark">?</span>;
 
 		<span class="prelude-val">Ok</span>(())
@@ -2352,7 +2356,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			paras::Pallet::&lt;T&gt;::lifecycle(id) == <span class="prelude-val">Some</span>(ParaLifecycle::Parachain),
 			Error::&lt;T&gt;::NotParachain
 		);
-		runtime_parachains::schedule_parachain_downgrade::&lt;T&gt;(id)
+		polkadot_runtime_parachains::schedule_parachain_downgrade::&lt;T&gt;(id)
 			.map_err(|<span class="kw">_</span>| Error::&lt;T&gt;::CannotDowngrade)<span class="question-mark">?</span>;
 		<span class="prelude-val">Ok</span>(())
 	}
@@ -2374,7 +2378,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[cfg(any(feature = <span class="string">"runtime-benchmarks"</span>, test))]
 	</span><span class="kw">fn </span>execute_pending_transitions() {
-		<span class="kw">use </span>runtime_parachains::shared;
+		<span class="kw">use </span>polkadot_runtime_parachains::shared;
 		shared::Pallet::&lt;T&gt;::set_session_index(shared::Pallet::&lt;T&gt;::scheduled_session());
 		paras::Pallet::&lt;T&gt;::test_on_new_session();
 	}
@@ -2463,7 +2467,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		Paras::&lt;T&gt;::insert(id, info);
 		<span class="comment">// We check above that para has no lifecycle, so this should not fail.
-		</span><span class="kw">let </span>res = runtime_parachains::schedule_para_initialize::&lt;T&gt;(id, genesis);
+		</span><span class="kw">let </span>res = polkadot_runtime_parachains::schedule_para_initialize::&lt;T&gt;(id, genesis);
 		<span class="macro">debug_assert!</span>(res.is_ok());
 		<span class="self">Self</span>::deposit_event(Event::&lt;T&gt;::Registered { para_id: id, manager: who });
 		<span class="prelude-val">Ok</span>(())
@@ -2476,7 +2480,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span><span class="prelude-val">Some</span>(ParaLifecycle::Parathread) | <span class="prelude-val">None </span>=&gt; {},
 			<span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(Error::&lt;T&gt;::NotParathread.into()),
 		}
-		runtime_parachains::schedule_para_cleanup::&lt;T&gt;(id)
+		polkadot_runtime_parachains::schedule_para_cleanup::&lt;T&gt;(id)
 			.map_err(|<span class="kw">_</span>| Error::&lt;T&gt;::CannotDeregister)<span class="question-mark">?</span>;
 
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(info) = Paras::&lt;T&gt;::take(<span class="kw-2">&amp;</span>id) {
@@ -2515,9 +2519,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Swap a lease holding parachain and parathread (on-demand parachain), which involves
 	/// scheduling an appropriate lifecycle update.
 	</span><span class="kw">fn </span>do_thread_and_chain_swap(to_downgrade: ParaId, to_upgrade: ParaId) {
-		<span class="kw">let </span>res1 = runtime_parachains::schedule_parachain_downgrade::&lt;T&gt;(to_downgrade);
+		<span class="kw">let </span>res1 = polkadot_runtime_parachains::schedule_parachain_downgrade::&lt;T&gt;(to_downgrade);
 		<span class="macro">debug_assert!</span>(res1.is_ok());
-		<span class="kw">let </span>res2 = runtime_parachains::schedule_parathread_upgrade::&lt;T&gt;(to_upgrade);
+		<span class="kw">let </span>res2 = polkadot_runtime_parachains::schedule_parathread_upgrade::&lt;T&gt;(to_upgrade);
 		<span class="macro">debug_assert!</span>(res2.is_ok());
 		T::OnSwap::on_swap(to_upgrade, to_downgrade);
 	}
@@ -2552,8 +2556,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	};
 	<span class="kw">use </span>frame_system::limits;
 	<span class="kw">use </span>pallet_balances::Error <span class="kw">as </span>BalancesError;
-	<span class="kw">use </span>primitives::{Balance, BlockNumber, SessionIndex, MAX_CODE_SIZE};
-	<span class="kw">use </span>runtime_parachains::{configuration, origin, shared};
+	<span class="kw">use </span>polkadot_primitives::{Balance, BlockNumber, SessionIndex, MAX_CODE_SIZE};
+	<span class="kw">use </span>polkadot_runtime_parachains::{configuration, origin, shared};
 	<span class="kw">use </span>sp_core::H256;
 	<span class="kw">use </span>sp_io::TestExternalities;
 	<span class="kw">use </span>sp_keyring::Sr25519Keyring;
@@ -2770,7 +2774,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="kw">fn </span>para_origin(id: ParaId) -&gt; RuntimeOrigin {
-		runtime_parachains::Origin::Parachain(id).into()
+		polkadot_runtime_parachains::Origin::Parachain(id).into()
 	}
 
 	<span class="kw">fn </span>max_code_size() -&gt; u32 {
@@ -3356,8 +3360,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">use </span><span class="kw">crate</span>::traits::Registrar <span class="kw">as </span>RegistrarT;
 	<span class="kw">use </span>frame_support::assert_ok;
 	<span class="kw">use </span>frame_system::RawOrigin;
-	<span class="kw">use </span>primitives::{MAX_CODE_SIZE, MAX_HEAD_DATA_SIZE, MIN_CODE_SIZE};
-	<span class="kw">use </span>runtime_parachains::{paras, shared, Origin <span class="kw">as </span>ParaOrigin};
+	<span class="kw">use </span>polkadot_primitives::{MAX_CODE_SIZE, MAX_HEAD_DATA_SIZE, MIN_CODE_SIZE};
+	<span class="kw">use </span>polkadot_runtime_parachains::{paras, shared, Origin <span class="kw">as </span>ParaOrigin};
 	<span class="kw">use </span>sp_runtime::traits::Bounded;
 
 	<span class="kw">use </span>frame_benchmarking::{account, benchmarks, whitelisted_caller};
@@ -3383,7 +3387,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			genesis_head,
 			validation_code.clone()
 		));
-		<span class="macro">assert_ok!</span>(runtime_parachains::paras::Pallet::&lt;T&gt;::add_trusted_validation_code(
+		<span class="macro">assert_ok!</span>(polkadot_runtime_parachains::paras::Pallet::&lt;T&gt;::add_trusted_validation_code(
 			frame_system::Origin::&lt;T&gt;::Root.into(),
 			validation_code,
 		));
@@ -3424,7 +3428,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		verify {
 			assert_last_event::&lt;T&gt;(Event::&lt;T&gt;::Registered{ para_id: para, manager: caller }.into());
 			<span class="macro">assert_eq!</span>(paras::Pallet::&lt;T&gt;::lifecycle(para), <span class="prelude-val">Some</span>(ParaLifecycle::Onboarding));
-			<span class="macro">assert_ok!</span>(runtime_parachains::paras::Pallet::&lt;T&gt;::add_trusted_validation_code(
+			<span class="macro">assert_ok!</span>(polkadot_runtime_parachains::paras::Pallet::&lt;T&gt;::add_trusted_validation_code(
 				frame_system::Origin::&lt;T&gt;::Root.into(),
 				validation_code,
 			));
@@ -3442,7 +3446,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		verify {
 			assert_last_event::&lt;T&gt;(Event::&lt;T&gt;::Registered { para_id: para, manager }.into());
 			<span class="macro">assert_eq!</span>(paras::Pallet::&lt;T&gt;::lifecycle(para), <span class="prelude-val">Some</span>(ParaLifecycle::Onboarding));
-			<span class="macro">assert_ok!</span>(runtime_parachains::paras::Pallet::&lt;T&gt;::add_trusted_validation_code(
+			<span class="macro">assert_ok!</span>(polkadot_runtime_parachains::paras::Pallet::&lt;T&gt;::add_trusted_validation_code(
 				frame_system::Origin::&lt;T&gt;::Root.into(),
 				validation_code,
 			));

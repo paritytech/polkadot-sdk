@@ -307,7 +307,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! Version 3 modifies the `our_approval` format of `ApprovalEntry`
 //! and adds a new field `pending_signatures` for `BlockEntry`
 
-</span><span class="kw">use </span>parity_scale_codec::{Decode, Encode};
+</span><span class="kw">use </span>codec::{Decode, Encode};
 <span class="kw">use </span>polkadot_node_primitives::approval::v2::CandidateBitfield;
 <span class="kw">use </span>polkadot_node_subsystem::SubsystemResult;
 <span class="kw">use </span>polkadot_node_subsystem_util::database::{DBTransaction, Database};

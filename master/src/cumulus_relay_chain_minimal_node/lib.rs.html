@@ -633,7 +633,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		task_manager.spawn_handle().spawn(
 			<span class="string">"prometheus-endpoint"</span>,
 			<span class="prelude-val">None</span>,
-			substrate_prometheus_endpoint::init_prometheus(port, registry).map(drop),
+			prometheus_endpoint::init_prometheus(port, registry).map(drop),
 		);
 	}
 

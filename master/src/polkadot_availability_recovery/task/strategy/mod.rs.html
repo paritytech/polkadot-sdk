@@ -1738,8 +1738,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	futures_undead::FuturesUndead, ErasureTask, PostRecoveryCheck, RecoveryParams, LOG_TARGET,
 };
 
+<span class="kw">use </span>codec::Decode;
 <span class="kw">use </span>futures::{channel::oneshot, SinkExt};
-<span class="kw">use </span>parity_scale_codec::Decode;
 <span class="kw">use </span>polkadot_erasure_coding::branch_hash;
 <span class="attr">#[cfg(not(test))]
 </span><span class="kw">use </span>polkadot_node_network_protocol::request_response::CHUNK_REQUEST_TIMEOUT;
@@ -2345,11 +2345,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
 	<span class="kw">use crate</span>::{tests::<span class="kw-2">*</span>, Metrics, RecoveryStrategy, RecoveryTask};
 	<span class="kw">use </span>assert_matches::assert_matches;
+	<span class="kw">use </span>codec::Error <span class="kw">as </span>DecodingError;
 	<span class="kw">use </span>futures::{
 		channel::mpsc::{<span class="self">self</span>, UnboundedReceiver},
 		executor, future, Future, FutureExt, StreamExt,
 	};
-	<span class="kw">use </span>parity_scale_codec::Error <span class="kw">as </span>DecodingError;
 	<span class="kw">use </span>polkadot_erasure_coding::{recovery_threshold, systematic_recovery_threshold};
 	<span class="kw">use </span>polkadot_node_network_protocol::request_response::Protocol;
 	<span class="kw">use </span>polkadot_node_primitives::{BlockData, PoV};

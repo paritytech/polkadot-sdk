@@ -811,8 +811,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	WildMultiAsset <span class="kw">as </span>NewWildMultiAsset,
 };
 <span class="kw">use </span>alloc::{vec, vec::Vec};
+<span class="kw">use </span>codec::{<span class="self">self </span><span class="kw">as </span>codec, Decode, Encode};
 <span class="kw">use </span>core::cmp::Ordering;
-<span class="kw">use </span>parity_scale_codec::{<span class="self">self </span><span class="kw">as </span>codec, Decode, Encode};
 <span class="kw">use </span>scale_info::TypeInfo;
 
 <span class="doccomment">/// A general identifier for an instance of a non-fungible asset class.
@@ -1094,7 +1094,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub struct </span>MultiAssets(Vec&lt;MultiAsset&gt;);
 
 <span class="kw">impl </span>Decode <span class="kw">for </span>MultiAssets {
-	<span class="kw">fn </span>decode&lt;I: codec::Input&gt;(input: <span class="kw-2">&amp;mut </span>I) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, parity_scale_codec::Error&gt; {
+	<span class="kw">fn </span>decode&lt;I: codec::Input&gt;(input: <span class="kw-2">&amp;mut </span>I) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, codec::Error&gt; {
 		<span class="self">Self</span>::from_sorted_and_deduplicated(Vec::&lt;MultiAsset&gt;::decode(input)<span class="question-mark">?</span>)
 			.map_err(|()| <span class="string">"Out of order"</span>.into())
 	}

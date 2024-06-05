@@ -354,6 +354,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#203" id="203">203</a>
 <a href="#204" id="204">204</a>
 <a href="#205" id="205">205</a>
+<a href="#206" id="206">206</a>
+<a href="#207" id="207">207</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -374,7 +376,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span><span class="kw">crate</span>::configuration::HostConfiguration;
 <span class="kw">use </span>frame_benchmarking::benchmarks;
 <span class="kw">use </span>frame_system::{pallet_prelude::BlockNumberFor, RawOrigin};
-<span class="kw">use </span>primitives::{HeadData, Id <span class="kw">as </span>ParaId, ValidationCode, MAX_CODE_SIZE, MAX_HEAD_DATA_SIZE};
+<span class="kw">use </span>polkadot_primitives::{
+	HeadData, Id <span class="kw">as </span>ParaId, ValidationCode, MAX_CODE_SIZE, MAX_HEAD_DATA_SIZE,
+};
 <span class="kw">use </span>sp_runtime::traits::{One, Saturating};
 
 <span class="kw">mod </span>pvf_check;

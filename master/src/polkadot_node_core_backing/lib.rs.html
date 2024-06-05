@@ -2477,8 +2477,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	PvfExecKind, SessionIndex, SigningContext, ValidationCode, ValidatorId, ValidatorIndex,
 	ValidatorSignature, ValidityAttestation,
 };
-<span class="kw">use </span>sp_keystore::KeystorePtr;
-<span class="kw">use </span>statement_table::{
+<span class="kw">use </span>polkadot_statement_table::{
 	generic::AttestedCandidate <span class="kw">as </span>TableAttestedCandidate,
 	v2::{
 		SignedStatement <span class="kw">as </span>TableSignedStatement, Statement <span class="kw">as </span>TableStatement,
@@ -2486,6 +2485,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	},
 	Config <span class="kw">as </span>TableConfig, Context <span class="kw">as </span>TableContextTrait, Table,
 };
+<span class="kw">use </span>sp_keystore::KeystorePtr;
 <span class="kw">use </span>util::{runtime::request_node_features, vstaging::get_disabled_validators_with_fallback};
 
 <span class="kw">mod </span>error;

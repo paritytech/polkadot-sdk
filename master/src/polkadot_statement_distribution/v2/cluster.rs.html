@@ -1375,13 +1375,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1224" id="1224">1224</a>
 <a href="#1225" id="1225">1225</a>
 <a href="#1226" id="1226">1226</a>
-<a href="#1227" id="1227">1227</a>
-<a href="#1228" id="1228">1228</a>
-<a href="#1229" id="1229">1229</a>
-<a href="#1230" id="1230">1230</a>
-<a href="#1231" id="1231">1231</a>
-<a href="#1232" id="1232">1232</a>
-<a href="#1233" id="1233">1233</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1443,13 +1436,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">use </span><span class="kw">crate</span>::LOG_TARGET;
 <span class="kw">use </span>std::collections::{HashMap, HashSet};
-
-<span class="attr">#[derive(Hash, PartialEq, Eq)]
-</span><span class="kw">struct </span>ValidStatementManifest {
-	remote: ValidatorIndex,
-	originator: ValidatorIndex,
-	candidate_hash: CandidateHash,
-}
 
 <span class="comment">// A piece of knowledge about a candidate
 </span><span class="attr">#[derive(Hash, Clone, PartialEq, Eq)]

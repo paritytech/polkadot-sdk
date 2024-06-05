@@ -153,7 +153,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
     fn <a href="#tymethod.encode_as" class="fn">encode_as</a>(&amp;self) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.77.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>&gt; <a href="#" class="tooltip" data-notable-ty="Vec&lt;u8&gt;">ⓘ</a>;
 }</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>This helper trait ensures that we can encode <code>Statement</code> as <code>CompactStatement</code>,
 and anything as itself.</p>
-<p>This resembles <code>parity_scale_codec::EncodeLike</code>, but it’s distinct:
+<p>This resembles <code>codec::EncodeLike</code>, but it’s distinct:
 <code>EncodeLike</code> is a marker trait which asserts at the typesystem level that
 one type’s encoding is a valid encoding for another type. It doesn’t
 perform any type conversion when encoding.</p>

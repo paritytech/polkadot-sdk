@@ -2858,11 +2858,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="comment">// `#[frame_support::runtime]!` does a lot of recursion and requires us to increase the limit.
 </span><span class="attr">#![recursion_limit = <span class="string">"512"</span>]
 
-</span><span class="kw">use </span>authority_discovery_primitives::AuthorityId <span class="kw">as </span>AuthorityDiscoveryId;
-<span class="kw">use </span>beefy_primitives::{
-	ecdsa_crypto::{AuthorityId <span class="kw">as </span>BeefyId, Signature <span class="kw">as </span>BeefySignature},
-	mmr::{BeefyDataProvider, MmrLeafVersion},
-};
+</span><span class="kw">use </span>codec::{Decode, Encode, MaxEncodedLen};
 <span class="kw">use </span>frame_election_provider_support::{bounds::ElectionBoundsBuilder, onchain, SequentialPhragmen};
 <span class="kw">use </span>frame_support::{
 	derive_impl,
@@ -2881,8 +2877,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>pallet_identity::legacy::IdentityInfo;
 <span class="kw">use </span>pallet_session::historical <span class="kw">as </span>session_historical;
 <span class="kw">use </span>pallet_transaction_payment::{FeeDetails, FungibleAdapter, RuntimeDispatchInfo};
-<span class="kw">use </span>parity_scale_codec::{Decode, Encode, MaxEncodedLen};
-<span class="kw">use </span>primitives::{
+<span class="kw">use </span>polkadot_primitives::{
 	slashing, AccountId, AccountIndex, ApprovalVotingParams, Balance, BlockNumber, CandidateEvent,
 	CandidateHash, CommittedCandidateReceipt, CoreIndex, CoreState, DisputeState, ExecutorParams,
 	GroupRotationInfo, Hash, Id <span class="kw">as </span>ParaId, InboundDownwardMessage, InboundHrmpMessage, Moment,
@@ -2890,7 +2885,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	ScrapedOnChainVotes, SessionInfo, Signature, ValidationCode, ValidationCodeHash, ValidatorId,
 	ValidatorIndex, ValidatorSignature, PARACHAIN_KEY_TYPE_ID,
 };
-<span class="kw">use </span>runtime_common::{
+<span class="kw">use </span>polkadot_runtime_common::{
 	assigned_slots, auctions, crowdloan,
 	elections::OnChainAccuracy,
 	identity_migrator, impl_runtime_weights,
@@ -2903,7 +2898,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	BalanceToU256, BlockHashCount, BlockLength, CurrencyToVote, SlowAdjustingFeeUpdate,
 	U256ToBalance,
 };
-<span class="kw">use </span>runtime_parachains::{
+<span class="kw">use </span>polkadot_runtime_parachains::{
 	assigner_coretime <span class="kw">as </span>parachains_assigner_coretime,
 	assigner_on_demand <span class="kw">as </span>parachains_assigner_on_demand, configuration <span class="kw">as </span>parachains_configuration,
 	configuration::ActiveConfigHrmpChannelSizeAndCapacityRatio,
@@ -2920,6 +2915,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	shared <span class="kw">as </span>parachains_shared,
 };
 <span class="kw">use </span>scale_info::TypeInfo;
+<span class="kw">use </span>sp_authority_discovery::AuthorityId <span class="kw">as </span>AuthorityDiscoveryId;
+<span class="kw">use </span>sp_consensus_beefy::{
+	ecdsa_crypto::{AuthorityId <span class="kw">as </span>BeefyId, Signature <span class="kw">as </span>BeefySignature},
+	mmr::{BeefyDataProvider, MmrLeafVersion},
+};
 <span class="kw">use </span>sp_core::{ConstU8, OpaqueMetadata, RuntimeDebug, H256};
 <span class="kw">use </span>sp_runtime::{
 	create_runtime_str,
@@ -3000,10 +3000,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 };
 
 <span class="doccomment">/// The BABE epoch configuration at genesis.
-</span><span class="kw">pub const </span>BABE_GENESIS_EPOCH_CONFIG: babe_primitives::BabeEpochConfiguration =
-	babe_primitives::BabeEpochConfiguration {
+</span><span class="kw">pub const </span>BABE_GENESIS_EPOCH_CONFIG: sp_consensus_babe::BabeEpochConfiguration =
+	sp_consensus_babe::BabeEpochConfiguration {
 		c: PRIMARY_PROBABILITY,
-		allowed_slots: babe_primitives::AllowedSlots::PrimaryAndSecondaryVRFSlots,
+		allowed_slots: sp_consensus_babe::AllowedSlots::PrimaryAndSecondaryVRFSlots,
 	};
 
 <span class="doccomment">/// Native version.
@@ -3408,7 +3408,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		pallet_election_provider_multi_phase::SolutionAccuracyOf&lt;<span class="self">Self</span>&gt;,
 		(),
 	&gt;;
-	<span class="kw">type </span>BenchmarkingConfig = runtime_common::elections::BenchmarkConfig;
+	<span class="kw">type </span>BenchmarkingConfig = polkadot_runtime_common::elections::BenchmarkConfig;
 	<span class="kw">type </span>ForceOrigin = EnsureRoot&lt;AccountId&gt;;
 	<span class="kw">type </span>WeightInfo = weights::pallet_election_provider_multi_phase::WeightInfo&lt;<span class="self">Self</span>&gt;;
 	<span class="kw">type </span>MaxWinners = MaxActiveValidators;
@@ -3481,7 +3481,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">type </span>MaxUnlockingChunks = frame_support::traits::ConstU32&lt;<span class="number">32</span>&gt;;
 	<span class="kw">type </span>HistoryDepth = frame_support::traits::ConstU32&lt;<span class="number">84</span>&gt;;
 	<span class="kw">type </span>MaxControllersInDeprecationBatch = MaxControllersInDeprecationBatch;
-	<span class="kw">type </span>BenchmarkingConfig = runtime_common::StakingBenchmarkingConfig;
+	<span class="kw">type </span>BenchmarkingConfig = polkadot_runtime_common::StakingBenchmarkingConfig;
 	<span class="kw">type </span>EventListeners = (NominationPools, DelegatedStaking);
 	<span class="kw">type </span>WeightInfo = weights::pallet_staking::WeightInfo&lt;Runtime&gt;;
 	<span class="kw">type </span>DisablingStrategy = pallet_staking::UpToLimitDisablingStrategy;
@@ -3562,7 +3562,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	&gt;;
 	<span class="kw">type </span>PayoutPeriod = PayoutSpendPeriod;
 	<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
-	</span><span class="kw">type </span>BenchmarkHelper = runtime_common::impls::benchmarks::TreasuryArguments;
+	</span><span class="kw">type </span>BenchmarkHelper = polkadot_runtime_common::impls::benchmarks::TreasuryArguments;
 }
 
 <span class="kw">impl </span>pallet_offences::Config <span class="kw">for </span>Runtime {
@@ -4241,7 +4241,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">type </span>Currency = Balances;
 	<span class="kw">type </span>AssetKind = &lt;Runtime <span class="kw">as </span>pallet_treasury::Config&gt;::AssetKind;
 	<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
-	</span><span class="kw">type </span>BenchmarkHelper = runtime_common::impls::benchmarks::AssetRateArguments;
+	</span><span class="kw">type </span>BenchmarkHelper = polkadot_runtime_common::impls::benchmarks::AssetRateArguments;
 }
 
 <span class="comment">// Notify `coretime` pallet when a lease swap occurs
@@ -4546,22 +4546,22 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="comment">// Polkadot
 		// NOTE: Make sure to prefix these with `runtime_common::` so
 		// the that path resolves correctly in the generated file.
-		</span>[runtime_common::assigned_slots, AssignedSlots]
-		[runtime_common::auctions, Auctions]
-		[runtime_common::crowdloan, Crowdloan]
-		[runtime_common::identity_migrator, IdentityMigrator]
-		[runtime_common::paras_registrar, Registrar]
-		[runtime_common::slots, Slots]
-		[runtime_parachains::configuration, Configuration]
-		[runtime_parachains::disputes, ParasDisputes]
-		[runtime_parachains::disputes::slashing, ParasSlashing]
-		[runtime_parachains::hrmp, Hrmp]
-		[runtime_parachains::inclusion, ParaInclusion]
-		[runtime_parachains::initializer, Initializer]
-		[runtime_parachains::paras, Paras]
-		[runtime_parachains::paras_inherent, ParaInherent]
-		[runtime_parachains::assigner_on_demand, OnDemandAssignmentProvider]
-		[runtime_parachains::coretime, Coretime]
+		</span>[polkadot_runtime_common::assigned_slots, AssignedSlots]
+		[polkadot_runtime_common::auctions, Auctions]
+		[polkadot_runtime_common::crowdloan, Crowdloan]
+		[polkadot_runtime_common::identity_migrator, IdentityMigrator]
+		[polkadot_runtime_common::paras_registrar, Registrar]
+		[polkadot_runtime_common::slots, Slots]
+		[polkadot_runtime_parachains::configuration, Configuration]
+		[polkadot_runtime_parachains::disputes, ParasDisputes]
+		[polkadot_runtime_parachains::disputes::slashing, ParasSlashing]
+		[polkadot_runtime_parachains::hrmp, Hrmp]
+		[polkadot_runtime_parachains::inclusion, ParaInclusion]
+		[polkadot_runtime_parachains::initializer, Initializer]
+		[polkadot_runtime_parachains::paras, Paras]
+		[polkadot_runtime_parachains::paras_inherent, ParaInherent]
+		[polkadot_runtime_parachains::assigner_on_demand, OnDemandAssignmentProvider]
+		[polkadot_runtime_parachains::coretime, Coretime]
 		<span class="comment">// Substrate
 		</span>[pallet_bags_list, VoterList]
 		[pallet_balances, Balances]
@@ -4627,7 +4627,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 	}
 
-	<span class="kw">impl </span>block_builder_api::BlockBuilder&lt;Block&gt; <span class="kw">for </span>Runtime {
+	<span class="kw">impl </span>sp_block_builder::BlockBuilder&lt;Block&gt; <span class="kw">for </span>Runtime {
 		<span class="kw">fn </span>apply_extrinsic(extrinsic: &lt;Block <span class="kw">as </span>BlockT&gt;::Extrinsic) -&gt; ApplyExtrinsicResult {
 			Executive::apply_extrinsic(extrinsic)
 		}
@@ -4636,19 +4636,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			Executive::finalize_block()
 		}
 
-		<span class="kw">fn </span>inherent_extrinsics(data: inherents::InherentData) -&gt; Vec&lt;&lt;Block <span class="kw">as </span>BlockT&gt;::Extrinsic&gt; {
+		<span class="kw">fn </span>inherent_extrinsics(data: sp_inherents::InherentData) -&gt; Vec&lt;&lt;Block <span class="kw">as </span>BlockT&gt;::Extrinsic&gt; {
 			data.create_extrinsics()
 		}
 
 		<span class="kw">fn </span>check_inherents(
 			block: Block,
-			data: inherents::InherentData,
-		) -&gt; inherents::CheckInherentsResult {
+			data: sp_inherents::InherentData,
+		) -&gt; sp_inherents::CheckInherentsResult {
 			data.check_extrinsics(<span class="kw-2">&amp;</span>block)
 		}
 	}
 
-	<span class="kw">impl </span>tx_pool_api::runtime_api::TaggedTransactionQueue&lt;Block&gt; <span class="kw">for </span>Runtime {
+	<span class="kw">impl </span>sp_transaction_pool::runtime_api::TaggedTransactionQueue&lt;Block&gt; <span class="kw">for </span>Runtime {
 		<span class="kw">fn </span>validate_transaction(
 			source: TransactionSource,
 			tx: &lt;Block <span class="kw">as </span>BlockT&gt;::Extrinsic,
@@ -4658,14 +4658,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 	}
 
-	<span class="kw">impl </span>offchain_primitives::OffchainWorkerApi&lt;Block&gt; <span class="kw">for </span>Runtime {
+	<span class="kw">impl </span>sp_offchain::OffchainWorkerApi&lt;Block&gt; <span class="kw">for </span>Runtime {
 		<span class="kw">fn </span>offchain_worker(header: <span class="kw-2">&amp;</span>&lt;Block <span class="kw">as </span>BlockT&gt;::Header) {
 			Executive::offchain_worker(header)
 		}
 	}
 
 	<span class="attr">#[api_version(<span class="number">11</span>)]
-	</span><span class="kw">impl </span>primitives::runtime_api::ParachainHost&lt;Block&gt; <span class="kw">for </span>Runtime {
+	</span><span class="kw">impl </span>polkadot_primitives::runtime_api::ParachainHost&lt;Block&gt; <span class="kw">for </span>Runtime {
 		<span class="kw">fn </span>validators() -&gt; Vec&lt;ValidatorId&gt; {
 			parachains_runtime_api_impl::validators::&lt;Runtime&gt;()
 		}
@@ -4695,7 +4695,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">fn </span>check_validation_outputs(
 			para_id: ParaId,
-			outputs: primitives::CandidateCommitments,
+			outputs: polkadot_primitives::CandidateCommitments,
 		) -&gt; bool {
 			parachains_runtime_api_impl::check_validation_outputs::&lt;Runtime&gt;(para_id, outputs)
 		}
@@ -4780,7 +4780,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">fn </span>key_ownership_proof(
 			validator_id: ValidatorId,
 		) -&gt; <span class="prelude-ty">Option</span>&lt;slashing::OpaqueKeyOwnershipProof&gt; {
-			<span class="kw">use </span>parity_scale_codec::Encode;
+			<span class="kw">use </span>codec::Encode;
 
 			Historical::prove((PARACHAIN_KEY_TYPE_ID, validator_id))
 				.map(|p| p.encode())
@@ -4801,11 +4801,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			parachains_runtime_api_impl::minimum_backing_votes::&lt;Runtime&gt;()
 		}
 
-		<span class="kw">fn </span>para_backing_state(para_id: ParaId) -&gt; <span class="prelude-ty">Option</span>&lt;primitives::async_backing::BackingState&gt; {
+		<span class="kw">fn </span>para_backing_state(para_id: ParaId) -&gt; <span class="prelude-ty">Option</span>&lt;polkadot_primitives::async_backing::BackingState&gt; {
 			parachains_runtime_api_impl::backing_state::&lt;Runtime&gt;(para_id)
 		}
 
-		<span class="kw">fn </span>async_backing_params() -&gt; primitives::AsyncBackingParams {
+		<span class="kw">fn </span>async_backing_params() -&gt; polkadot_primitives::AsyncBackingParams {
 			parachains_runtime_api_impl::async_backing_params::&lt;Runtime&gt;()
 		}
 
@@ -4830,22 +4830,22 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 	}
 
-	<span class="kw">impl </span>beefy_primitives::BeefyApi&lt;Block, BeefyId&gt; <span class="kw">for </span>Runtime {
+	<span class="kw">impl </span>sp_consensus_beefy::BeefyApi&lt;Block, BeefyId&gt; <span class="kw">for </span>Runtime {
 		<span class="kw">fn </span>beefy_genesis() -&gt; <span class="prelude-ty">Option</span>&lt;BlockNumber&gt; {
 			pallet_beefy::GenesisBlock::&lt;Runtime&gt;::get()
 		}
 
-		<span class="kw">fn </span>validator_set() -&gt; <span class="prelude-ty">Option</span>&lt;beefy_primitives::ValidatorSet&lt;BeefyId&gt;&gt; {
+		<span class="kw">fn </span>validator_set() -&gt; <span class="prelude-ty">Option</span>&lt;sp_consensus_beefy::ValidatorSet&lt;BeefyId&gt;&gt; {
 			Beefy::validator_set()
 		}
 
 		<span class="kw">fn </span>submit_report_equivocation_unsigned_extrinsic(
-			equivocation_proof: beefy_primitives::DoubleVotingProof&lt;
+			equivocation_proof: sp_consensus_beefy::DoubleVotingProof&lt;
 				BlockNumber,
 				BeefyId,
 				BeefySignature,
 			&gt;,
-			key_owner_proof: beefy_primitives::OpaqueKeyOwnershipProof,
+			key_owner_proof: sp_consensus_beefy::OpaqueKeyOwnershipProof,
 		) -&gt; <span class="prelude-ty">Option</span>&lt;()&gt; {
 			<span class="kw">let </span>key_owner_proof = key_owner_proof.decode()<span class="question-mark">?</span>;
 
@@ -4856,14 +4856,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 
 		<span class="kw">fn </span>generate_key_ownership_proof(
-			_set_id: beefy_primitives::ValidatorSetId,
+			_set_id: sp_consensus_beefy::ValidatorSetId,
 			authority_id: BeefyId,
-		) -&gt; <span class="prelude-ty">Option</span>&lt;beefy_primitives::OpaqueKeyOwnershipProof&gt; {
-			<span class="kw">use </span>parity_scale_codec::Encode;
+		) -&gt; <span class="prelude-ty">Option</span>&lt;sp_consensus_beefy::OpaqueKeyOwnershipProof&gt; {
+			<span class="kw">use </span>codec::Encode;
 
-			Historical::prove((beefy_primitives::KEY_TYPE, authority_id))
+			Historical::prove((sp_consensus_beefy::KEY_TYPE, authority_id))
 				.map(|p| p.encode())
-				.map(beefy_primitives::OpaqueKeyOwnershipProof::new)
+				.map(sp_consensus_beefy::OpaqueKeyOwnershipProof::new)
 		}
 	}
 
@@ -4914,11 +4914,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="kw">impl </span>pallet_beefy_mmr::BeefyMmrApi&lt;Block, Hash&gt; <span class="kw">for </span>RuntimeApi {
-		<span class="kw">fn </span>authority_set_proof() -&gt; beefy_primitives::mmr::BeefyAuthoritySet&lt;Hash&gt; {
+		<span class="kw">fn </span>authority_set_proof() -&gt; sp_consensus_beefy::mmr::BeefyAuthoritySet&lt;Hash&gt; {
 			BeefyMmrLeaf::authority_set_proof()
 		}
 
-		<span class="kw">fn </span>next_authority_set_proof() -&gt; beefy_primitives::mmr::BeefyNextAuthoritySet&lt;Hash&gt; {
+		<span class="kw">fn </span>next_authority_set_proof() -&gt; sp_consensus_beefy::mmr::BeefyNextAuthoritySet&lt;Hash&gt; {
 			BeefyMmrLeaf::next_authority_set_proof()
 		}
 	}
@@ -4951,7 +4951,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			_set_id: fg_primitives::SetId,
 			authority_id: fg_primitives::AuthorityId,
 		) -&gt; <span class="prelude-ty">Option</span>&lt;fg_primitives::OpaqueKeyOwnershipProof&gt; {
-			<span class="kw">use </span>parity_scale_codec::Encode;
+			<span class="kw">use </span>codec::Encode;
 
 			Historical::prove((fg_primitives::KEY_TYPE, authority_id))
 				.map(|p| p.encode())
@@ -4959,10 +4959,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 	}
 
-	<span class="kw">impl </span>babe_primitives::BabeApi&lt;Block&gt; <span class="kw">for </span>Runtime {
-		<span class="kw">fn </span>configuration() -&gt; babe_primitives::BabeConfiguration {
+	<span class="kw">impl </span>sp_consensus_babe::BabeApi&lt;Block&gt; <span class="kw">for </span>Runtime {
+		<span class="kw">fn </span>configuration() -&gt; sp_consensus_babe::BabeConfiguration {
 			<span class="kw">let </span>epoch_config = Babe::epoch_config().unwrap_or(BABE_GENESIS_EPOCH_CONFIG);
-			babe_primitives::BabeConfiguration {
+			sp_consensus_babe::BabeConfiguration {
 				slot_duration: Babe::slot_duration(),
 				epoch_length: EpochDuration::get(),
 				c: epoch_config.c,
@@ -4972,32 +4972,32 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			}
 		}
 
-		<span class="kw">fn </span>current_epoch_start() -&gt; babe_primitives::Slot {
+		<span class="kw">fn </span>current_epoch_start() -&gt; sp_consensus_babe::Slot {
 			Babe::current_epoch_start()
 		}
 
-		<span class="kw">fn </span>current_epoch() -&gt; babe_primitives::Epoch {
+		<span class="kw">fn </span>current_epoch() -&gt; sp_consensus_babe::Epoch {
 			Babe::current_epoch()
 		}
 
-		<span class="kw">fn </span>next_epoch() -&gt; babe_primitives::Epoch {
+		<span class="kw">fn </span>next_epoch() -&gt; sp_consensus_babe::Epoch {
 			Babe::next_epoch()
 		}
 
 		<span class="kw">fn </span>generate_key_ownership_proof(
-			_slot: babe_primitives::Slot,
-			authority_id: babe_primitives::AuthorityId,
-		) -&gt; <span class="prelude-ty">Option</span>&lt;babe_primitives::OpaqueKeyOwnershipProof&gt; {
-			<span class="kw">use </span>parity_scale_codec::Encode;
+			_slot: sp_consensus_babe::Slot,
+			authority_id: sp_consensus_babe::AuthorityId,
+		) -&gt; <span class="prelude-ty">Option</span>&lt;sp_consensus_babe::OpaqueKeyOwnershipProof&gt; {
+			<span class="kw">use </span>codec::Encode;
 
-			Historical::prove((babe_primitives::KEY_TYPE, authority_id))
+			Historical::prove((sp_consensus_babe::KEY_TYPE, authority_id))
 				.map(|p| p.encode())
-				.map(babe_primitives::OpaqueKeyOwnershipProof::new)
+				.map(sp_consensus_babe::OpaqueKeyOwnershipProof::new)
 		}
 
 		<span class="kw">fn </span>submit_report_equivocation_unsigned_extrinsic(
-			equivocation_proof: babe_primitives::EquivocationProof&lt;&lt;Block <span class="kw">as </span>BlockT&gt;::Header&gt;,
-			key_owner_proof: babe_primitives::OpaqueKeyOwnershipProof,
+			equivocation_proof: sp_consensus_babe::EquivocationProof&lt;&lt;Block <span class="kw">as </span>BlockT&gt;::Header&gt;,
+			key_owner_proof: sp_consensus_babe::OpaqueKeyOwnershipProof,
 		) -&gt; <span class="prelude-ty">Option</span>&lt;()&gt; {
 			<span class="kw">let </span>key_owner_proof = key_owner_proof.decode()<span class="question-mark">?</span>;
 
@@ -5008,7 +5008,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 	}
 
-	<span class="kw">impl </span>authority_discovery_primitives::AuthorityDiscoveryApi&lt;Block&gt; <span class="kw">for </span>Runtime {
+	<span class="kw">impl </span>sp_authority_discovery::AuthorityDiscoveryApi&lt;Block&gt; <span class="kw">for </span>Runtime {
 		<span class="kw">fn </span>authorities() -&gt; Vec&lt;AuthorityDiscoveryId&gt; {
 			parachains_runtime_api_impl::relevant_authority_ids::&lt;Runtime&gt;()
 		}
@@ -5238,14 +5238,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="kw">impl </span>pallet_xcm::benchmarking::Config <span class="kw">for </span>Runtime {
 				<span class="kw">type </span>DeliveryHelper = (
-					runtime_common::xcm_sender::ToParachainDeliveryHelper&lt;
+					polkadot_runtime_common::xcm_sender::ToParachainDeliveryHelper&lt;
 						xcm_config::XcmConfig,
 						ExistentialDepositAsset,
 						xcm_config::PriceForChildParachainDelivery,
 						AssetHubParaId,
 						(),
 					&gt;,
-					runtime_common::xcm_sender::ToParachainDeliveryHelper&lt;
+					polkadot_runtime_common::xcm_sender::ToParachainDeliveryHelper&lt;
 						xcm_config::XcmConfig,
 						ExistentialDepositAsset,
 						xcm_config::PriceForChildParachainDelivery,
@@ -5301,7 +5301,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			}
 			<span class="kw">impl </span>frame_system_benchmarking::Config <span class="kw">for </span>Runtime {}
 			<span class="kw">impl </span>pallet_nomination_pools_benchmarking::Config <span class="kw">for </span>Runtime {}
-			<span class="kw">impl </span>runtime_parachains::disputes::slashing::benchmarking::Config <span class="kw">for </span>Runtime {}
+			<span class="kw">impl </span>polkadot_runtime_parachains::disputes::slashing::benchmarking::Config <span class="kw">for </span>Runtime {}
 
 			<span class="kw">use </span>xcm::latest::{
 				AssetId, Fungibility::<span class="kw-2">*</span>, InteriorLocation, Junction, Junctions::<span class="kw-2">*</span>,
@@ -5311,7 +5311,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">impl </span>pallet_xcm_benchmarks::Config <span class="kw">for </span>Runtime {
 				<span class="kw">type </span>XcmConfig = xcm_config::XcmConfig;
 				<span class="kw">type </span>AccountIdConverter = xcm_config::LocationConverter;
-				<span class="kw">type </span>DeliveryHelper = runtime_common::xcm_sender::ToParachainDeliveryHelper&lt;
+				<span class="kw">type </span>DeliveryHelper = polkadot_runtime_common::xcm_sender::ToParachainDeliveryHelper&lt;
 					xcm_config::XcmConfig,
 					ExistentialDepositAsset,
 					xcm_config::PriceForChildParachainDelivery,

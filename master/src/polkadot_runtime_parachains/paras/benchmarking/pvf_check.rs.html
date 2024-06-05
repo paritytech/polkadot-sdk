@@ -394,7 +394,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">use crate</span>::{configuration, paras::<span class="kw-2">*</span>, shared::Pallet <span class="kw">as </span>ParasShared};
 <span class="kw">use </span>frame_support::assert_ok;
 <span class="kw">use </span>frame_system::RawOrigin;
-<span class="kw">use </span>primitives::{HeadData, Id <span class="kw">as </span>ParaId, ValidationCode, ValidatorId, ValidatorIndex};
+<span class="kw">use </span>polkadot_primitives::{HeadData, Id <span class="kw">as </span>ParaId, ValidationCode, ValidatorId, ValidatorIndex};
 <span class="kw">use </span>sp_application_crypto::RuntimeAppPublic;
 
 <span class="comment">// Constants for the benchmarking
@@ -579,7 +579,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 {
 	<span class="kw">let </span>validators = shared::ActiveValidatorKeys::&lt;T&gt;::get();
 
-	<span class="kw">let </span>accept_threshold = primitives::supermajority_threshold(validators.len());
+	<span class="kw">let </span>accept_threshold = polkadot_primitives::supermajority_threshold(validators.len());
 	<span class="kw">let </span>required_votes = <span class="kw">match </span>vote_outcome {
 		VoteOutcome::Accept =&gt; accept_threshold,
 		VoteOutcome::Reject =&gt; validators.len() - accept_threshold,
