@@ -562,7 +562,7 @@ fn proxy_propagate_error_works() {
 		}));
 		assert_noop!(
 			RuntimeCall::Proxy(Call::new_call_variant_proxy(1, None, call.clone()))
-			.dispatch(RuntimeOrigin::signed(2)),
+				.dispatch(RuntimeOrigin::signed(2)),
 			SystemError::CallFiltered
 		);
 

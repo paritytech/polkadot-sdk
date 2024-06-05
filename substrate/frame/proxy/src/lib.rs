@@ -208,7 +208,8 @@ pub mod pallet {
 			let def = Self::find_proxy(&real, &who, force_proxy_type)?;
 			ensure!(def.delay.is_zero(), Error::<T>::Unannounced);
 
-			Self::do_proxy_with_event(def, real, *call);
+			// The return value of the proxied call is ignored.
+			let _ = Self::do_proxy(def, real, *call);
 
 			Ok(())
 		}
@@ -510,7 +511,8 @@ pub mod pallet {
 			})
 			.map_err(|_| Error::<T>::Unannounced)?;
 
-			Self::do_proxy_with_event(def, real, *call);
+			// The return value of the proxied call is ignored.
+			let _ = Self::do_proxy(def, real, *call);
 
 			Ok(())
 		}
@@ -547,10 +549,7 @@ pub mod pallet {
 			let def = Self::find_proxy(&real, &who, force_proxy_type)?;
 			ensure!(def.delay.is_zero(), Error::<T>::Unannounced);
 
-			Self::do_proxy(def, real, *call)?;
-			Self::deposit_event(Event::ProxyExecuted { result: Ok(()) });
-
-			Ok(().into())
+			Self::do_proxy(def, real, *call)
 		}
 	}
 
@@ -835,17 +834,11 @@ impl<T: Config> Pallet<T> {
 				_ => def.proxy_type.filter(c),
 			}
 		});
-		call.dispatch(origin)
-	}
-
-	fn do_proxy_with_event(
-		def: ProxyDefinition<T::AccountId, T::ProxyType, BlockNumberFor<T>>,
-		real: T::AccountId,
-		call: <T as Config>::RuntimeCall,
-	) {
-		let e = Self::do_proxy(def, real, call);
+		let e = call.dispatch(origin);
 
 		Self::deposit_event(Event::ProxyExecuted { result: e.map(|_| ()).map_err(|e| e.error) });
+
+		e
 	}
 
 	/// Removes all proxy delegates for a given delegator.
