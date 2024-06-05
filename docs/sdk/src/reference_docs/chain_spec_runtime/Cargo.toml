@@ -11,7 +11,7 @@ publish = false
 
 [dependencies]
 docify = "0.2.8"
-parity-scale-codec = { version = "3.6.12", default-features = false }
+codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false }
 scale-info = { version = "2.6.0", default-features = false }
 serde = { workspace = true, default-features = false }
 serde_json = { workspace = true }
@@ -47,7 +47,7 @@ sc-chain-spec = { path = "../../../../../substrate/client/chain-spec" }
 [features]
 default = ["std"]
 std = [
-	"parity-scale-codec/std",
+	"codec/std",
 	"scale-info/std",
 
 	"frame/std",

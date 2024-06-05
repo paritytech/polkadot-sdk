@@ -23,7 +23,7 @@
 #![warn(missing_docs)]
 
 use jsonrpsee::RpcModule;
-use runtime::interface::{AccountId, Nonce, OpaqueBlock};
+use minimal_template_runtime::interface::{AccountId, Nonce, OpaqueBlock};
 use sc_transaction_pool_api::TransactionPool;
 use sp_blockchain::{Error as BlockChainError, HeaderBackend, HeaderMetadata};
 use std::sync::Arc;

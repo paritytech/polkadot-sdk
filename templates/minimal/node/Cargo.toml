@@ -50,7 +50,7 @@ frame = { package = "polkadot-sdk-frame", path = "../../../substrate/frame", fea
 	"experimental",
 	"runtime",
 ] }
-runtime = { package = "minimal-template-runtime", path = "../runtime" }
+minimal-template-runtime = { path = "../runtime" }
 
 [build-dependencies]
 substrate-build-script-utils = { path = "../../../substrate/utils/build-script-utils" }
