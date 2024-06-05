@@ -47,7 +47,7 @@ use core::marker::PhantomData;
 
 /// Weight functions for `runtime_common::coretime`.
 pub struct WeightInfo<T>(PhantomData<T>);
-impl<T: frame_system::Config> runtime_parachains::coretime::WeightInfo for WeightInfo<T> {
+impl<T: frame_system::Config> polkadot_runtime_parachains::coretime::WeightInfo for WeightInfo<T> {
 	/// Storage: `OnDemandAssignmentProvider::Revenue` (r:1 w:1)
 	/// Proof: `OnDemandAssignmentProvider::Revenue` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
 	/// Storage: `System::Account` (r:1 w:0)

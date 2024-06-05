@@ -32,7 +32,7 @@ use sp_arithmetic::Perbill;
 use sp_core::{ConstU32, ConstU64, Get};
 use sp_runtime::{
 	traits::{BlockNumberProvider, Identity},
-	BuildStorage, Saturating,
+	BuildStorage,
 };
 use sp_std::collections::btree_map::BTreeMap;
 
@@ -65,7 +65,8 @@ use CoretimeTraceItem::*;
 
 parameter_types! {
 	pub static CoretimeTrace: Vec<(u32, CoretimeTraceItem)> = Default::default();
-	pub static CoretimeCredit: BTreeMap<u64, u64> = Default::default();
+	// We don't have credits yet
+	// pub static CoretimeCredit: BTreeMap<u64, u64> = Default::default();
 	pub static CoretimeSpending: Vec<(u32, u64)> = Default::default();
 	pub static CoretimeWorkplan: BTreeMap<(u32, CoreIndex), Vec<(CoreAssignment, PartsOf57600)>> = Default::default();
 	pub static CoretimeUsage: BTreeMap<CoreIndex, Vec<(CoreAssignment, PartsOf57600)>> = Default::default();
@@ -102,8 +103,9 @@ impl CoretimeInterface for TestCoretimeProvider {
 		});
 		RevenueInbox::<Test>::set(Some(OnDemandRevenueRecord { until: when, amount: total }));
 	}
-	fn credit_account(who: Self::AccountId, amount: Self::Balance) {
-		CoretimeCredit::mutate(|c| c.entry(who).or_default().saturating_accrue(amount));
+	fn credit_account(_who: Self::AccountId, _amount: Self::Balance) {
+		// We don't have credits yet
+		// CoretimeCredit::mutate(|c| c.entry(who).or_default().saturating_accrue(amount));
 	}
 	fn assign_core(
 		core: CoreIndex,
@@ -126,11 +128,12 @@ impl CoretimeInterface for TestCoretimeProvider {
 }
 
 impl TestCoretimeProvider {
-	pub fn spend_instantaneous(who: u64, price: u64) -> Result<(), ()> {
-		let mut c = CoretimeCredit::get();
+	pub fn spend_instantaneous(_who: u64, price: u64) -> Result<(), ()> {
+		// We don't have credits yet
+		// let mut c = CoretimeCredit::get();
 		ensure!(CoretimeInPool::get() > 0, ());
-		c.insert(who, c.get(&who).ok_or(())?.checked_sub(price).ok_or(())?);
-		CoretimeCredit::set(c);
+		// c.insert(who, c.get(&who).ok_or(())?.checked_sub(price).ok_or(())?);
+		// CoretimeCredit::set(c);
 		CoretimeSpending::mutate(|v| {
 			v.push((RCBlockNumberProviderOf::<Self>::current_block_number() as u32, price))
 		});

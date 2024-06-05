@@ -31,7 +31,9 @@ use crate::{
 };
 use frame_support::{assert_noop, assert_ok, error::BadOrigin};
 use pallet_balances::Error as BalancesError;
-use primitives::{BlockNumber, SessionIndex, ValidationCode, ON_DEMAND_MAX_QUEUE_MAX_SIZE};
+use polkadot_primitives::{
+	BlockNumber, SessionIndex, ValidationCode, ON_DEMAND_MAX_QUEUE_MAX_SIZE,
+};
 use sp_std::{
 	cmp::{Ord, Ordering},
 	collections::btree_map::BTreeMap,

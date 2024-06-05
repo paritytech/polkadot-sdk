@@ -22,7 +22,7 @@ use frame_support::{
 	pallet_prelude::{Decode, Encode, RuntimeDebug, TypeInfo},
 	traits::Currency,
 };
-use primitives::{CoreIndex, Id as ParaId, ON_DEMAND_MAX_QUEUE_MAX_SIZE};
+use polkadot_primitives::{CoreIndex, Id as ParaId, ON_DEMAND_MAX_QUEUE_MAX_SIZE};
 use sp_runtime::FixedU128;
 use sp_std::{
 	cmp::{Ord, Ordering, PartialOrd},
