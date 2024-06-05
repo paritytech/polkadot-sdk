@@ -20,25 +20,10 @@ use proc_macro::TokenStream;
 use syn::{parse_macro_input, DeriveInput};
 
 mod builder_pattern;
-mod v2;
 mod v3;
 mod v4;
 mod v5;
 mod weight_info;
-
-#[proc_macro]
-pub fn impl_conversion_functions_for_multilocation_v2(input: TokenStream) -> TokenStream {
-	v2::multilocation::generate_conversion_functions(input)
-		.unwrap_or_else(syn::Error::into_compile_error)
-		.into()
-}
-
-#[proc_macro]
-pub fn impl_conversion_functions_for_junctions_v2(input: TokenStream) -> TokenStream {
-	v2::junctions::generate_conversion_functions(input)
-		.unwrap_or_else(syn::Error::into_compile_error)
-		.into()
-}
 
 #[proc_macro_derive(XcmWeightInfoTrait)]
 pub fn derive_xcm_weight_info(item: TokenStream) -> TokenStream {
