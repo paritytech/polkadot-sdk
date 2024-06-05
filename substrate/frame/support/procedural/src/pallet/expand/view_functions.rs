@@ -20,13 +20,14 @@ use proc_macro2::{Span, TokenStream};
 use syn::spanned::Spanned;
 
 pub fn expand_view_functions(def: &Def) -> TokenStream {
-	let (span, where_clause, view_fns) = match def.view_functions.as_ref() {
+	let (span, where_clause, view_fns, docs) = match def.view_functions.as_ref() {
 		Some(view_fns) => (
 			view_fns.attr_span.clone(),
 			view_fns.where_clause.clone(),
 			view_fns.view_functions.clone(),
+			view_fns.docs.clone(),
 		),
-		None => (def.item.span(), def.config.where_clause.clone(), Vec::new()),
+		None => (def.item.span(), def.config.where_clause.clone(), Vec::new(), Vec::new()),
 	};
 
 	let query_prefix_impl = expand_query_prefix_impl(def, span, where_clause.as_ref());
@@ -35,11 +36,14 @@ pub fn expand_view_functions(def: &Def) -> TokenStream {
 		.iter()
 		.map(|view_fn| expand_view_function(def, span, where_clause.as_ref(), view_fn));
 	let impl_dispatch_query = impl_dispatch_query(def, span, where_clause.as_ref(), &view_fns);
+	let impl_query_metadata =
+		impl_query_metadata(def, span, where_clause.as_ref(), &view_fns, &docs);
 
 	quote::quote! {
 		#query_prefix_impl
 		#( #view_fn_impls )*
 		#impl_dispatch_query
+		// #impl_query_metadata
 	}
 }
 
@@ -165,23 +169,72 @@ fn impl_dispatch_query(
 	});
 
 	quote::quote! {
-		const _: () = {
-			impl<#type_impl_gen> #frame_support::traits::DispatchQuery
-				for #pallet_ident<#type_use_gen> #where_clause
+		impl<#type_impl_gen> #frame_support::traits::DispatchQuery
+			for #pallet_ident<#type_use_gen> #where_clause
+		{
+			#[deny(unreachable_patterns)]
+			fn dispatch_query<
+				O: #frame_support::__private::codec::Output,
+			>
+				(id: & #frame_support::traits::QueryId, input: &mut &[u8], output: &mut O) -> Result<(), #frame_support::traits::QueryDispatchError>
 			{
-				#[deny(unreachable_patterns)] // todo: [AJ] should error if identical suffixes, does not atm
-				fn dispatch_query<
-					O: #frame_support::__private::codec::Output,
-				>
-					(id: & #frame_support::traits::QueryId, input: &mut &[u8], output: &mut O) -> Result<(), #frame_support::traits::QueryDispatchError>
-				{
-					// let y = 1; // todo: [AJ] why is unused variable error not triggered here - unused functions?
-					match id.suffix {
-						#( #query_match_arms )*
-						_ => Err(#frame_support::traits::QueryDispatchError::NotFound(id.clone())),
-					}
+				match id.suffix {
+					#( #query_match_arms )*
+					_ => Err(#frame_support::traits::QueryDispatchError::NotFound(id.clone())),
 				}
 			}
-		};
+		}
+	}
+}
+
+fn impl_query_metadata(
+	def: &Def,
+	span: Span,
+	where_clause: Option<&syn::WhereClause>,
+	view_fns: &[ViewFunctionDef],
+	docs: &[syn::Expr],
+) -> TokenStream {
+	let frame_support = &def.frame_support;
+	let pallet_ident = &def.pallet_struct.pallet;
+	let type_impl_gen = &def.type_impl_generics(span);
+	let type_use_gen = &def.type_use_generics(span);
+
+	let queries = view_fns.iter().map(|view_fn| {
+		let query_struct_ident = view_fn.query_struct_ident();
+		let name = &view_fn.name;
+		let args: Vec<TokenStream> = vec![]; // todo
+
+		let no_docs = vec![];
+		let doc = if cfg!(feature = "no-metadata-docs") { &no_docs } else { &view_fn.docs };
+
+		quote::quote! {
+			#frame_support::__private::metadata_ir::QueryMetadataIR {
+				name: #name,
+				id: <#query_struct_ident<#type_use_gen> as #frame_support::traits::Query>::id().into(),
+				args: #frame_support::__private::sp_std::vec![ #( #args ),* ],
+				output: #frame_support::__private::scale_info::meta_type::<
+					<#query_struct_ident<#type_use_gen> as #frame_support::traits::Query>::ReturnType
+				>(),
+				docs: #frame_support::__private::sp_std::vec![ #( #doc ),* ],
+			}
+		}
+	});
+
+	let no_docs = vec![];
+	let doc = if cfg!(feature = "no-metadata-docs") { &no_docs } else { docs };
+
+	quote::quote! {
+		impl<#type_impl_gen> #pallet_ident<#type_use_gen> #where_clause {
+			#[doc(hidden)]
+			pub fn pallet_queries_metadata(name: &'static ::core::primitive::str)
+				-> #frame_support::__private::metadata_ir::QueryInterfaceIR
+			{
+				#frame_support::__private::metadata_ir::QueryInterfaceIR {
+					name,
+					queries: #frame_support::__private::sp_std::vec![ #( #queries ),* ],
+					docs: #frame_support::__private::sp_std::vec![ #( #doc ),* ],
+				}
+			}
+		}
 	}
 }

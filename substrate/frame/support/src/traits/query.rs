@@ -53,6 +53,15 @@ pub struct QueryId {
 	pub suffix: [u8; 16],
 }
 
+impl From<QueryId> for [u8; 32] {
+	fn from(value: QueryId) -> Self {
+		let mut output = [0u8; 32];
+		output[..16].copy_from_slice(&value.prefix);
+		output[16..].copy_from_slice(&value.suffix);
+		output
+	}
+}
+
 #[derive(Encode, Decode, RuntimeDebug)]
 
 pub enum QueryDispatchError {

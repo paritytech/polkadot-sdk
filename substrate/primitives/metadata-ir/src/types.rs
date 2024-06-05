@@ -41,6 +41,8 @@ pub struct MetadataIR<T: Form = MetaForm> {
 	pub apis: Vec<RuntimeApiMetadataIR<T>>,
 	/// The outer enums types as found in the runtime.
 	pub outer_enums: OuterEnumsIR<T>,
+	/// Metadata of view function queries
+	pub queries: Vec<QueryInterfaceIR<T>>,
 }
 
 /// Metadata of a runtime trait.
@@ -106,6 +108,78 @@ impl IntoPortable for RuntimeApiMethodParamMetadataIR {
 
 	fn into_portable(self, registry: &mut Registry) -> Self::Output {
 		RuntimeApiMethodParamMetadataIR {
+			name: self.name.into_portable(registry),
+			ty: registry.register_type(&self.ty),
+		}
+	}
+}
+
+/// Metadata of a runtime query interface.
+#[derive(Clone, PartialEq, Eq, Encode, Debug)]
+pub struct QueryInterfaceIR<T: Form = MetaForm> {
+	/// Name of the query interface.
+	pub name: T::String,
+	/// Queries belonging to the query interface.
+	pub queries: Vec<QueryMetadataIR<T>>,
+	/// Query interface documentation.
+	pub docs: Vec<T::String>,
+}
+
+impl IntoPortable for QueryInterfaceIR {
+	type Output = QueryInterfaceIR<PortableForm>;
+
+	fn into_portable(self, registry: &mut Registry) -> Self::Output {
+		QueryInterfaceIR {
+			name: self.name.into_portable(registry),
+			queries: registry.map_into_portable(self.queries),
+			docs: registry.map_into_portable(self.docs),
+		}
+	}
+}
+
+/// Metadata of a runtime method.
+#[derive(Clone, PartialEq, Eq, Encode, Debug)]
+pub struct QueryMetadataIR<T: Form = MetaForm> {
+	/// Query name.
+	pub name: T::String,
+	/// Query id.
+	pub id: [u8; 32],
+	/// Query args.
+	pub args: Vec<QueryArgMetadataIR<T>>,
+	/// Query output.
+	pub output: T::Type,
+	/// Query documentation.
+	pub docs: Vec<T::String>,
+}
+
+impl IntoPortable for QueryMetadataIR {
+	type Output = QueryMetadataIR<PortableForm>;
+
+	fn into_portable(self, registry: &mut Registry) -> Self::Output {
+		QueryMetadataIR {
+			name: self.name.into_portable(registry),
+			id: self.id,
+			args: registry.map_into_portable(self.args),
+			output: registry.register_type(&self.output),
+			docs: registry.map_into_portable(self.docs),
+		}
+	}
+}
+
+/// Metadata of a runtime method argument.
+#[derive(Clone, PartialEq, Eq, Encode, Debug)]
+pub struct QueryArgMetadataIR<T: Form = MetaForm> {
+	/// Query argument name.
+	pub name: T::String,
+	/// Query argument type.
+	pub ty: T::Type,
+}
+
+impl IntoPortable for QueryArgMetadataIR {
+	type Output = QueryArgMetadataIR<PortableForm>;
+
+	fn into_portable(self, registry: &mut Registry) -> Self::Output {
+		QueryArgMetadataIR {
 			name: self.name.into_portable(registry),
 			ty: registry.register_type(&self.ty),
 		}

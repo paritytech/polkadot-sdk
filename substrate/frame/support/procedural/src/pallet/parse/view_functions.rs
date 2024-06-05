@@ -12,29 +12,22 @@
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
+// See the License for the specific language governsing permissions and
 // limitations under the License.
 
 use frame_support_procedural_tools::get_doc_literals;
 use inflector::Inflector;
 use syn::spanned::Spanned;
 
-/// Definition of dispatchables typically `impl<T: Config> Pallet<T> { ... }`
+/// todo: docs
 pub struct ViewFunctionsImplDef {
 	/// The where_clause used.
 	pub where_clause: Option<syn::WhereClause>,
-	// /// A set of usage of instance, must be check for consistency with trait.
-	// pub instances: Vec<helper::InstanceUsage>,
-	// /// The index of call item in pallet module.
-	// pub index: usize,
-	// /// Information on methods (used for expansion).
-	// pub methods: Vec<CallVariantDef>,
 	/// The span of the pallet::view_functions attribute.
 	pub attr_span: proc_macro2::Span,
-	// /// Docs, specified on the impl Block.
-	// pub docs: Vec<syn::Expr>,
-	// /// The optional `weight` attribute on the `pallet::call`.
-	// pub inherited_call_weight: Option<InheritedCallWeightAttr>,
+	/// Docs, specified on the impl Block.
+	pub docs: Vec<syn::Expr>,
+	/// The view function query definitions.
 	pub view_functions: Vec<ViewFunctionDef>,
 }
 
@@ -71,6 +64,7 @@ impl ViewFunctionsImplDef {
 			view_functions,
 			attr_span,
 			where_clause: item_impl.generics.where_clause.clone(),
+			docs: get_doc_literals(&item_impl.attrs),
 		})
 	}
 }
