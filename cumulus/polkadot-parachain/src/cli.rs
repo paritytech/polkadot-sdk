@@ -90,6 +90,13 @@ pub struct Cli {
 	#[arg(long)]
 	pub no_hardware_benchmarks: bool,
 
+	/// Export all `PoVs` build by this collator to the given folder.
+	///
+	/// This is useful for debugging issues that are occurring while validating these `PoVs` on the
+	/// relay chain.
+	#[arg(long)]
+	pub export_pov_to_path: Option<PathBuf>,
+
 	/// Relay chain arguments
 	#[arg(raw = true)]
 	pub relaychain_args: Vec<String>,

@@ -60,7 +60,7 @@ use sp_runtime::{
 	app_crypto::AppCrypto,
 	traits::{Block as BlockT, Header as HeaderT},
 };
-use std::{marker::PhantomData, sync::Arc, time::Duration};
+use std::{marker::PhantomData, path::PathBuf, sync::Arc, time::Duration};
 use substrate_prometheus_endpoint::Registry;
 
 use polkadot_primitives::CollatorPair;
@@ -90,6 +90,18 @@ pub type Service<RuntimeApi> = PartialComponents<
 	sc_transaction_pool::FullPool<Block, ParachainClient<RuntimeApi>>,
 	(ParachainBlockImport<RuntimeApi>, Option<Telemetry>, Option<TelemetryWorkerHandle>),
 >;
+
+/// Extra options for setting up a node.
+pub struct Options {
+	/// The parachain id of the parachain.
+	pub para_id: ParaId,
+
+	/// Optional hardware bench.
+	pub hwbench: Option<sc_sysinfo::HwBench>,
+
+	/// If set, each `PoV` build by the node will be exported to this folder.
+	pub export_pov: Option<PathBuf>,
+}
 
 /// Starts a `ServiceBuilder` for a full service.
 ///
@@ -193,11 +205,10 @@ async fn start_node_impl<RuntimeApi, RB, BIQ, SC, Net>(
 	polkadot_config: Configuration,
 	collator_options: CollatorOptions,
 	sybil_resistance_level: CollatorSybilResistance,
-	para_id: ParaId,
+	options: Options,
 	rpc_ext_builder: RB,
 	build_import_queue: BIQ,
 	start_consensus: SC,
-	hwbench: Option<sc_sysinfo::HwBench>,
 ) -> sc_service::error::Result<(TaskManager, Arc<ParachainClient<RuntimeApi>>)>
 where
 	RuntimeApi: ConstructRuntimeApi<Block, ParachainClient<RuntimeApi>> + Send + Sync + 'static,
@@ -235,7 +246,7 @@ where
 		Arc<SyncingService<Block>>,
 		KeystorePtr,
 		Duration,
-		ParaId,
+		&Options,
 		CollatorPair,
 		OverseerHandle,
 		Arc<dyn Fn(Hash, Option<Vec<u8>>) + Send + Sync>,
@@ -258,7 +269,7 @@ where
 		telemetry_worker_handle,
 		&mut task_manager,
 		collator_options.clone(),
-		hwbench.clone(),
+		options.hwbench.clone(),
 	)
 	.await
 	.map_err(|e| sc_service::Error::Application(Box::new(e) as Box<_>))?;
@@ -275,7 +286,7 @@ where
 			net_config,
 			client: client.clone(),
 			transaction_pool: transaction_pool.clone(),
-			para_id,
+			para_id: options.para_id,
 			spawn_handle: task_manager.spawn_handle(),
 			relay_chain_interface: relay_chain_interface.clone(),
 			import_queue: params.import_queue,
@@ -313,10 +324,10 @@ where
 		telemetry: telemetry.as_mut(),
 	})?;
 
-	if let Some(hwbench) = hwbench {
-		sc_sysinfo::print_hwbench(&hwbench);
+	if let Some(ref hwbench) = options.hwbench {
+		sc_sysinfo::print_hwbench(hwbench);
 		if validator {
-			warn_if_slow_hardware(&hwbench);
+			warn_if_slow_hardware(hwbench);
 		}
 
 		if let Some(ref mut telemetry) = telemetry {
@@ -324,7 +335,7 @@ where
 			task_manager.spawn_handle().spawn(
 				"telemetry_hwbench",
 				None,
-				sc_sysinfo::initialize_hwbench_telemetry(telemetry_handle, hwbench),
+				sc_sysinfo::initialize_hwbench_telemetry(telemetry_handle, hwbench.clone()),
 			);
 		}
 	}
@@ -343,7 +354,7 @@ where
 	start_relay_chain_tasks(StartRelayChainTasksParams {
 		client: client.clone(),
 		announce_block: announce_block.clone(),
-		para_id,
+		para_id: options.para_id,
 		relay_chain_interface: relay_chain_interface.clone(),
 		task_manager: &mut task_manager,
 		da_recovery_profile: if validator {
@@ -369,7 +380,7 @@ where
 			sync_service.clone(),
 			params.keystore_container.keystore(),
 			relay_chain_slot_duration,
-			para_id,
+			&options,
 			collator_key.expect("Command line arguments do not allow this. qed"),
 			overseer_handle,
 			announce_block,
@@ -390,8 +401,6 @@ pub fn build_aura_import_queue(
 	telemetry: Option<TelemetryHandle>,
 	task_manager: &TaskManager,
 ) -> Result<sc_consensus::DefaultImportQueue<Block>, sc_service::Error> {
-	let slot_duration = cumulus_client_consensus_aura::slot_duration(&*client)?;
-
 	cumulus_client_consensus_aura::import_queue::<
 		sp_consensus_aura::sr25519::AuthorityPair,
 		_,
@@ -401,17 +410,23 @@ pub fn build_aura_import_queue(
 		_,
 	>(cumulus_client_consensus_aura::ImportQueueParams {
 		block_import,
-		client,
-		create_inherent_data_providers: move |_, _| async move {
-			let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
+		client: client.clone(),
+		create_inherent_data_providers: move |_, _| {
+			let client = client.clone();
 
-			let slot =
+			async move {
+				let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
+
+				let slot_duration = cumulus_client_consensus_aura::slot_duration(&*client)?;
+
+				let slot =
 				sp_consensus_aura::inherents::InherentDataProvider::from_timestamp_and_slot_duration(
 					*timestamp,
 					slot_duration,
 				);
 
-			Ok((slot, timestamp))
+				Ok((slot, timestamp))
+			}
 		},
 		registry: config.prometheus_registry(),
 		spawner: &task_manager.spawn_essential_handle(),
@@ -425,19 +440,17 @@ pub async fn start_rococo_parachain_node<Net: NetworkBackend<Block, Hash>>(
 	parachain_config: Configuration,
 	polkadot_config: Configuration,
 	collator_options: CollatorOptions,
-	para_id: ParaId,
-	hwbench: Option<sc_sysinfo::HwBench>,
+	options: Options,
 ) -> sc_service::error::Result<(TaskManager, Arc<ParachainClient<FakeRuntimeApi>>)> {
 	start_node_impl::<FakeRuntimeApi, _, _, _, Net>(
 		parachain_config,
 		polkadot_config,
 		collator_options,
 		CollatorSybilResistance::Resistant, // Aura
-		para_id,
+		options,
 		build_parachain_rpc_extensions::<FakeRuntimeApi>,
 		build_aura_import_queue,
 		start_lookahead_aura_consensus,
-		hwbench,
 	)
 	.await
 }
@@ -494,19 +507,17 @@ pub async fn start_shell_node<Net: NetworkBackend<Block, Hash>>(
 	parachain_config: Configuration,
 	polkadot_config: Configuration,
 	collator_options: CollatorOptions,
-	para_id: ParaId,
-	hwbench: Option<sc_sysinfo::HwBench>,
+	options: Options,
 ) -> sc_service::error::Result<(TaskManager, Arc<ParachainClient<FakeRuntimeApi>>)> {
 	start_node_impl::<FakeRuntimeApi, _, _, _, Net>(
 		parachain_config,
 		polkadot_config,
 		collator_options,
 		CollatorSybilResistance::Unresistant, // free-for-all consensus
-		para_id,
+		options,
 		|_, _, _, _| Ok(RpcModule::new(())),
 		build_shell_import_queue,
 		start_relay_chain_consensus,
-		hwbench,
 	)
 	.await
 }
@@ -691,19 +702,17 @@ pub async fn start_generic_aura_lookahead_node<Net: NetworkBackend<Block, Hash>>
 	parachain_config: Configuration,
 	polkadot_config: Configuration,
 	collator_options: CollatorOptions,
-	para_id: ParaId,
-	hwbench: Option<sc_sysinfo::HwBench>,
+	options: Options,
 ) -> sc_service::error::Result<(TaskManager, Arc<ParachainClient<FakeRuntimeApi>>)> {
 	start_node_impl::<FakeRuntimeApi, _, _, _, Net>(
 		parachain_config,
 		polkadot_config,
 		collator_options,
 		CollatorSybilResistance::Resistant, // Aura
-		para_id,
+		options,
 		build_parachain_rpc_extensions::<FakeRuntimeApi>,
 		build_relay_to_aura_import_queue::<_, AuraId>,
 		start_lookahead_aura_consensus,
-		hwbench,
 	)
 	.await
 }
@@ -722,8 +731,7 @@ pub async fn start_asset_hub_lookahead_node<
 	parachain_config: Configuration,
 	polkadot_config: Configuration,
 	collator_options: CollatorOptions,
-	para_id: ParaId,
-	hwbench: Option<sc_sysinfo::HwBench>,
+	options: Options,
 ) -> sc_service::error::Result<(TaskManager, Arc<ParachainClient<RuntimeApi>>)>
 where
 	RuntimeApi: ConstructRuntimeApi<Block, ParachainClient<RuntimeApi>> + Send + Sync + 'static,
@@ -747,7 +755,7 @@ where
 		polkadot_config,
 		collator_options,
 		CollatorSybilResistance::Resistant, // Aura
-		para_id,
+		options,
 		build_parachain_rpc_extensions::<RuntimeApi>,
 		build_relay_to_aura_import_queue::<_, AuraId>,
 		|client,
@@ -760,7 +768,7 @@ where
 		 sync_oracle,
 		 keystore,
 		 relay_chain_slot_duration,
-		 para_id,
+		 options,
 		 collator_key,
 		 overseer_handle,
 		 announce_block,
@@ -783,6 +791,9 @@ where
 				prometheus_registry,
 				telemetry.clone(),
 			);
+
+			let export_pov = options.export_pov.clone();
+			let para_id = options.para_id;
 
 			let collation_future = Box::pin(async move {
 				// Start collating with the `shell` runtime while waiting for an upgrade to an Aura
@@ -843,7 +854,7 @@ where
 					                     * to aura */
 				};
 
-				aura::run::<Block, <AuraId as AppCrypto>::Pair, _, _, _, _, _, _, _, _, _>(params)
+				aura::run_with_export::<Block, <AuraId as AppCrypto>::Pair, _, _, _, _, _, _, _, _, _>(aura::ParamsWithExport { params, export_pov })
 					.await
 			});
 
@@ -852,7 +863,6 @@ where
 
 			Ok(())
 		},
-		hwbench,
 	)
 	.await
 }
@@ -870,7 +880,7 @@ fn start_relay_chain_consensus(
 	_sync_oracle: Arc<SyncingService<Block>>,
 	_keystore: KeystorePtr,
 	_relay_chain_slot_duration: Duration,
-	para_id: ParaId,
+	options: &Options,
 	collator_key: CollatorPair,
 	overseer_handle: OverseerHandle,
 	announce_block: Arc<dyn Fn(Hash, Option<Vec<u8>>) + Send + Sync>,
@@ -884,9 +894,11 @@ fn start_relay_chain_consensus(
 		telemetry,
 	);
 
+	let para_id = options.para_id;
+
 	let free_for_all = cumulus_client_consensus_relay_chain::build_relay_chain_consensus(
 		cumulus_client_consensus_relay_chain::BuildRelayChainConsensusParams {
-			para_id,
+			para_id: options.para_id,
 			proposer_factory,
 			block_import,
 			relay_chain_interface: relay_chain_interface.clone(),
@@ -916,7 +928,7 @@ fn start_relay_chain_consensus(
 	// Required for free-for-all consensus
 	#[allow(deprecated)]
 	old_consensus::start_collator_sync(old_consensus::StartCollatorParams {
-		para_id,
+		para_id: options.para_id,
 		block_status: client.clone(),
 		announce_block,
 		overseer_handle,
@@ -941,7 +953,7 @@ fn start_lookahead_aura_consensus(
 	sync_oracle: Arc<SyncingService<Block>>,
 	keystore: KeystorePtr,
 	relay_chain_slot_duration: Duration,
-	para_id: ParaId,
+	options: &Options,
 	collator_key: CollatorPair,
 	overseer_handle: OverseerHandle,
 	announce_block: Arc<dyn Fn(Hash, Option<Vec<u8>>) + Send + Sync>,
@@ -974,7 +986,7 @@ fn start_lookahead_aura_consensus(
 		sync_oracle,
 		keystore,
 		collator_key,
-		para_id,
+		para_id: options.para_id,
 		overseer_handle,
 		relay_chain_slot_duration,
 		proposer: Proposer::new(proposer_factory),
@@ -983,7 +995,9 @@ fn start_lookahead_aura_consensus(
 		reinitialize: false,
 	};
 
-	let fut = aura::run::<Block, <AuraId as AppCrypto>::Pair, _, _, _, _, _, _, _, _, _>(params);
+	let fut = aura::run_with_export::<Block, <AuraId as AppCrypto>::Pair, _, _, _, _, _, _, _, _, _>(
+		aura::ParamsWithExport { params, export_pov: options.export_pov.clone() },
+	);
 	task_manager.spawn_essential_handle().spawn("aura", None, fut);
 
 	Ok(())
@@ -996,19 +1010,17 @@ pub async fn start_basic_lookahead_node<Net: NetworkBackend<Block, Hash>>(
 	parachain_config: Configuration,
 	polkadot_config: Configuration,
 	collator_options: CollatorOptions,
-	para_id: ParaId,
-	hwbench: Option<sc_sysinfo::HwBench>,
+	options: Options,
 ) -> sc_service::error::Result<(TaskManager, Arc<ParachainClient<FakeRuntimeApi>>)> {
 	start_node_impl::<FakeRuntimeApi, _, _, _, Net>(
 		parachain_config,
 		polkadot_config,
 		collator_options,
 		CollatorSybilResistance::Resistant, // Aura
-		para_id,
+		options,
 		|_, _, _, _| Ok(RpcModule::new(())),
 		build_relay_to_aura_import_queue::<_, AuraId>,
 		start_lookahead_aura_consensus,
-		hwbench,
 	)
 	.await
 }
@@ -1018,19 +1030,17 @@ pub async fn start_contracts_rococo_node<Net: NetworkBackend<Block, Hash>>(
 	parachain_config: Configuration,
 	polkadot_config: Configuration,
 	collator_options: CollatorOptions,
-	para_id: ParaId,
-	hwbench: Option<sc_sysinfo::HwBench>,
+	options: Options,
 ) -> sc_service::error::Result<(TaskManager, Arc<ParachainClient<FakeRuntimeApi>>)> {
 	start_node_impl::<FakeRuntimeApi, _, _, _, Net>(
 		parachain_config,
 		polkadot_config,
 		collator_options,
 		CollatorSybilResistance::Resistant, // Aura
-		para_id,
+		options,
 		build_contracts_rpc_extensions,
 		build_aura_import_queue,
 		start_lookahead_aura_consensus,
-		hwbench,
 	)
 	.await
 }
