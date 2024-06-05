@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use parity_scale_codec::{Decode, Encode};
+use codec::{Decode, Encode};
 use std::path::PathBuf;
 
 /// Result from prepare worker if successful.
