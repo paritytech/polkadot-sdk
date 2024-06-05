@@ -75,8 +75,7 @@ impl Default for Processing {
 ///
 /// When migrating a nominator, we need to ensure that the nominator is not nominating duplicate
 /// targets. In addition, this migration also "cleans" the nominations by dropping all nominations
-/// of targets that are not active validators. This logic is implemented by
-/// [`MigrationV13::clean_nominations`]. In sum, the followinf invariants hold true after
+/// of targets that are not active validators. In sum, the following invariants hold true after
 /// processing each nominator:
 ///
 /// 1. A nominator has no duplicate nominations;

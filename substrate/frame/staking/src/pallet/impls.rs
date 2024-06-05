@@ -444,7 +444,7 @@ impl<T: Config> Pallet<T> {
 			return Err(Error::<T>::NotDanglingTarget.into());
 		}
 
-		<Self as StakingInterface>::nominate(nominator, nominations_after.clone())?; // TODO remove clone?
+		<Self as StakingInterface>::nominate(nominator, nominations_after.clone())?;
 
 		Ok(BoundedVec::truncate_from(nominations_after))
 	}

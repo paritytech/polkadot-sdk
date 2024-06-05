@@ -24,8 +24,8 @@
 //!
 //! The stake-tracker pallet listens to staking events through implementing the [`OnStakingUpdate`]
 //! trait. Based on the emitted events, the goal of this pallet is to maintain a **strictly**
-//! sorted list of targets by approval voting. This pallet may also update a voter list, based on
-//! the configurations.
+//! sorted list of targets by approval voting. This pallet may also update a voter list and their
+//! scores, based on the [`crate::VoterUpdateMode`] configuration.
 //!
 //! For the voter list, the [`crate::VoterUpdateMode`] defines the type of sortition of the list,
 //! namely:
@@ -33,15 +33,12 @@
 //! - [`crate::VoterUpdateMode::Lazy`]: will skip the score update in the voter list.
 //! - [`crate::VoterUpdateMode::Strict`]: will ensure that the score updates are kept sorted
 //! for the corresponding list. In this case, the [`Config::VoterList`] is *strictly*
-//! sorted* by [`SortedListProvider::Score`] (note: from the time the sorting mode is strict).
+//! sorted by [`SortedListProvider::Score`] (note: from the time the sorting mode is strict).
 //!
 //! Note that insertions and removals of voter nodes will be executed regardless of the sorting
 //! mode.
 //!
 //! ## Goals
-//!
-//! Note: these goals are assuming the both target list and sorted lists have
-//! [`crate::VoterUpdateMode::Strict`] set.
 //!
 //! The [`OnStakingUpdate`] implementation (in strict mode) aims to achieve the following goals:
 //!
@@ -62,15 +59,11 @@
 //!
 //! ## Staker status and list invariants
 //!
-//! Note: these goals are assuming the both target list and sorted lists have
-//! [`crate::VoterUpdateMode::Strict`] set.
-//!
 //! * A [`sp_staking::StakerStatus::Nominator`] is part of the voter list and its self-stake is the
 //! voter list's score. In addition, if the `VoterList` is in strict mode, the voters' scores are up
-//! to date with the current stake returned by [`T::Staking::stake`].
+//! to date with the current stake returned by [`sp_staking::StakingInterface`].
 //! * A [`sp_staking::StakerStatus::Validator`] is part of both voter and target list. In addition,
-//! if the `TargetList` is in strict mode, its
-//! approvals score (nominations + self-stake) is kept up to date as the target list's score.
+//! its approvals score (nominations + self-stake) is kept up to date as the target list's score.
 //! * A [`sp_staking::StakerStatus::Idle`] may have a target list's score while other stakers
 //!   nominate the idle validator.
 //! * A "dangling" target, which is not an active staker anymore (i.e. not bonded), may still have
@@ -79,11 +72,18 @@
 //!   be removed onced all the voters stop nominating the unbonded account (i.e. the target's score
 //!   drops to 0).
 //!
-//! ## Event emitter ordering and staking ledger state updates
+//! ## Expectations
 //!
-//! It is important to ensure that the events are emitted from staking (i.e. the calls into
+//! For the goals and invariants to be respected, this pallet expects the following:
+//!
+//! - **Event emitting order**: It is important to ensure that the events are emitted from staking
+//!   (i.e. the calls into
 //! [`OnStakingUpdate`]) *after* the staking ledger has been updated by the caller, since the new
 //! state will be fetched and used to update the sorted lists accordingly.
+//! - **Deduplicate nominations**: The nominations should be deduplicate. This pallet handles
+//! nominations of voters from the underlying staking system. The nominations may be retrieved
+//! through the [`sp_staking::StakingInterface`] and/or through the [`sp_staking::OnStakingUpdate`]
+//! methods. This pallet expects that there are no duplicate nominations for each voter.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -190,6 +190,8 @@ pub mod pallet {
 			stake: Stake<BalanceOf<T>>,
 			nominations: Vec<T::AccountId>,
 		) {
+			debug_assert!(!Self::has_duplicate_nominations(nominations.clone()));
+
 			let voter_weight = Self::to_vote(stake.active);
 
 			// if voter list is in strict sorting mode, update the voter score too.
@@ -204,11 +206,6 @@ pub mod pallet {
 				prev_stake.map_or(Default::default(), |s| Self::to_vote(s.active).into()),
 				voter_weight.into(),
 			);
-
-			// note: this dedup can be removed once the staking pallet ensures no duplicate
-			// nominations are allowed <https://github.com/paritytech/polkadot-sdk/issues/4419>.
-			// TODO: replace the dedup by a debug_assert once #4419 is resolved.
-			let nominations = Self::ensure_dedup(nominations);
 
 			// updates vote weight of nominated targets accordingly. Note: this will
 			// update the score of up to `T::MaxNominations` validators.
@@ -298,17 +295,16 @@ pub mod pallet {
 			Self::to_vote(active)
 		}
 
-		/// Returns a dedup list of accounts.
+		/// Returns whether a nomination vec has duplicate targets.
 		///
-		/// Note: this dedup can be removed once (and if) the staking pallet ensures no duplicate
-		/// nominations are allowed <https://github.com/paritytech/polkadot-sdk/issues/4419>.
-		///
-		/// TODO: replace this helper method by a debug_assert if #4419 ever prevents the nomination
-		/// of duplicated target.
-		pub fn ensure_dedup(mut v: Vec<T::AccountId>) -> Vec<T::AccountId> {
+		/// Used for debug assertions only, since this pallet expects the nominations to be
+		/// deduplicated.
+		pub fn has_duplicate_nominations(mut v: Vec<T::AccountId>) -> bool {
 			use sp_std::collections::btree_set::BTreeSet;
+			let size_before = v.len();
+			let dedup = v.drain(..).collect::<BTreeSet<_>>().into_iter().collect::<Vec<_>>();
 
-			v.drain(..).collect::<BTreeSet<_>>().into_iter().collect::<Vec<_>>()
+			size_before != dedup.len()
 		}
 	}
 }
@@ -415,8 +411,9 @@ impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
 	/// Note: it is assumed that `who`'s ledger staking state is updated *before* this method is
 	/// called.
 	fn on_nominator_add(who: &T::AccountId, nominations: Vec<AccountIdOf<T>>) {
+		debug_assert!(!Self::has_duplicate_nominations(nominations.clone()));
+
 		let nominator_vote = Self::vote_of(who);
-		let nominations = Self::ensure_dedup(nominations);
 
 		// the new voter node will be added even if the voter is in lazy mode. In lazy mode, we
 		// ensure that the nodes exist in the voter list, even though they may not have the updated
@@ -453,8 +450,9 @@ impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
 	/// Note: the number of nodes that are updated is bounded by the maximum number of
 	/// nominators, which is defined in the staking pallet.
 	fn on_nominator_remove(who: &T::AccountId, nominations: Vec<T::AccountId>) {
+		debug_assert!(!Self::has_duplicate_nominations(nominations.clone()));
+
 		let nominator_vote = Self::vote_of(who);
-		let nominations = Self::ensure_dedup(nominations);
 
 		// updates the nominated target's score.
 		for t in nominations.iter() {
@@ -477,10 +475,10 @@ impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
 		prev_nominations: Vec<T::AccountId>,
 		nominations: Vec<T::AccountId>,
 	) {
-		let nominator_vote = Self::vote_of(who);
+		debug_assert!(!Self::has_duplicate_nominations(prev_nominations.clone()));
+		debug_assert!(!Self::has_duplicate_nominations(nominations.clone()));
 
-		let nominations = Self::ensure_dedup(nominations);
-		let prev_nominations = Self::ensure_dedup(prev_nominations);
+		let nominator_vote = Self::vote_of(who);
 
 		// new nominations.
 		for target in nominations.iter() {

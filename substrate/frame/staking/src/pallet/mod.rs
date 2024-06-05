@@ -2113,11 +2113,9 @@ pub mod pallet {
 		/// for the "dangling" target needs to remain in the target list. This extrinsic allows
 		/// nominations of dangling targets to be removed.
 		///
-		/// A danling nomination may be removed IFF:
+		/// A dangling nomination may be removed IFF:
 		///  * The `target` is unbonded and it exists in the target list.
 		///  * The `voter` is nominating `target`.
-		///
-		/// Emits [`Event::DanglingNominationDropped`].
 		#[pallet::call_index(30)]
 		#[pallet::weight(T::WeightInfo::drop_dangling_nomination())]
 		pub fn drop_dangling_nomination(
