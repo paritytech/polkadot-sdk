@@ -18,9 +18,9 @@ jobs:
       volumes:
         - my_docker_volume:/volume_mount
     steps:
-      - name: Check branch name
-        if: startsWith(github.ref, 'master/')
-        run: echo "::error ::'master' is an invalid branch. Select your PR's branch"
+      # - name: Check branch name
+      #   if: startsWith(github.ref, 'master/')
+      #   run: echo "::error ::'master' is an invalid branch. Select your PR's branch"
       - name: Install gh cli
         run: |
           (type -p wget >/dev/null || (apt update && apt-get install wget -y)) \
