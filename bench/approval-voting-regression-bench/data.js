@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1717604009407,
+  "lastUpdate": 1717617173556,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -6579,6 +6579,53 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 3.342014902300138,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Adrian Catangiu",
+            "username": "acatangiu",
+            "email": "adrian@parity.io"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "2460cddf57660a88844d201f769eb17a7accce5a",
+          "message": "fix build on MacOS: bump secp256k1 and secp256k1-sys to patched versions (#4709)\n\n`secp256k1 v0.28.0` and `secp256k1-sys v0.9.0` were yanked because\nbuilding them fails for `aarch64-apple-darwin` targets.\n\nUse the `secp256k1 v0.28.2` and `secp256k1-sys v0.9.2` patched versions\nthat build fine on ARM chipset MacOS.",
+          "timestamp": "2024-06-05T18:14:16Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/2460cddf57660a88844d201f769eb17a7accce5a"
+        },
+        "date": 1717617146560,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63549.17,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52943.8,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 3.1586879473401157,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 7.161637523669978,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 9.717921984570115,
             "unit": "seconds"
           }
         ]
