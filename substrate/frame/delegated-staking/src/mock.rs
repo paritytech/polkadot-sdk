@@ -208,6 +208,11 @@ impl ExtBuilder {
 
 		let _ = pallet_balances::GenesisConfig::<T> {
 			balances: vec![
+				(18, 200),
+				(19, 200),
+				(20, 200),
+				(21, 200),
+				(22, 200),
 				(GENESIS_VALIDATOR, 10000),
 				(GENESIS_NOMINATOR_ONE, 1000),
 				(GENESIS_NOMINATOR_TWO, 2000),
@@ -216,6 +221,11 @@ impl ExtBuilder {
 		.assimilate_storage(&mut storage);
 
 		let stakers = vec![
+			(18, 18, 100, sp_staking::StakerStatus::Validator),
+			(19, 19, 100, sp_staking::StakerStatus::Validator),
+			(20, 20, 100, sp_staking::StakerStatus::Validator),
+			(21, 21, 100, sp_staking::StakerStatus::Validator),
+			(22, 22, 100, sp_staking::StakerStatus::Validator),
 			(
 				GENESIS_VALIDATOR,
 				GENESIS_VALIDATOR,

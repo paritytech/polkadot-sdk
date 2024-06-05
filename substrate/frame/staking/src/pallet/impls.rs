@@ -1182,11 +1182,11 @@ impl<T: Config> Pallet<T> {
 			},
 		}
 
-		#[cfg(not(test))]
 		debug_assert_eq!(
 			Nominators::<T>::count() + Validators::<T>::count(),
 			T::VoterList::iter()
 				.filter(|v| Self::status(&v) != Ok(StakerStatus::Idle))
+				.filter(|v| !Self::status(&v).is_err())
 				.count() as u32,
 		);
 	}
@@ -1218,6 +1218,7 @@ impl<T: Config> Pallet<T> {
 			Nominators::<T>::count() + Validators::<T>::count(),
 			T::VoterList::iter()
 				.filter(|v| Self::status(&v) != Ok(StakerStatus::Idle))
+				.filter(|v| !Self::status(&v).is_err())
 				.count() as u32,
 		);
 
@@ -1245,6 +1246,7 @@ impl<T: Config> Pallet<T> {
 			Nominators::<T>::count() + Validators::<T>::count(),
 			T::VoterList::iter()
 				.filter(|v| Self::status(&v) != Ok(StakerStatus::Idle))
+				.filter(|v| !Self::status(&v).is_err())
 				.count() as u32,
 		);
 	}
@@ -1279,6 +1281,7 @@ impl<T: Config> Pallet<T> {
 			Nominators::<T>::count() + Validators::<T>::count(),
 			T::VoterList::iter()
 				.filter(|v| Self::status(&v) != Ok(StakerStatus::Idle))
+				.filter(|v| !Self::status(&v).is_err())
 				.count() as u32,
 		);
 

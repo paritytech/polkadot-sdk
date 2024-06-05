@@ -134,10 +134,22 @@ impl pallet_staking::Config for Runtime {
 	type MaxUnlockingChunks = ConstU32<32>;
 	type MaxControllersInDeprecationBatch = ConstU32<100>;
 	type HistoryDepth = ConstU32<84>;
-	type EventListeners = Pools;
+	type EventListeners = (StakeTracker, Pools);
 	type BenchmarkingConfig = pallet_staking::TestBenchmarkingConfig;
 	type WeightInfo = ();
 	type DisablingStrategy = pallet_staking::UpToLimitDisablingStrategy;
+}
+
+parameter_types! {
+	pub static VoterUpdateMode: pallet_stake_tracker::VoterUpdateMode = pallet_stake_tracker::VoterUpdateMode::Lazy;
+}
+
+impl pallet_stake_tracker::Config for Runtime {
+	type Currency = Balances;
+	type Staking = Staking;
+	type VoterList = VoterList;
+	type TargetList = pallet_staking::UseValidatorsMap<Self>;
+	type VoterUpdateMode = VoterUpdateMode;
 }
 
 parameter_types! {
@@ -198,6 +210,7 @@ frame_support::construct_runtime!(
 		Balances: pallet_balances,
 		Staking: pallet_staking,
 		VoterList: pallet_bags_list::<Instance1>,
+		StakeTracker: pallet_stake_tracker,
 		Pools: pallet_nomination_pools,
 	}
 );
@@ -217,7 +230,18 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 	.unwrap();
 
 	let _ = pallet_balances::GenesisConfig::<Runtime> {
-		balances: vec![(10, 100), (20, 100), (21, 100), (22, 100)],
+		balances: vec![(1, 200), (2, 200), (3, 200), (10, 100), (20, 100), (21, 100), (22, 100)],
+	}
+	.assimilate_storage(&mut storage)
+	.unwrap();
+
+	let _ = pallet_staking::GenesisConfig::<Runtime> {
+		stakers: vec![
+			(1, 1, 100, pallet_staking::StakerStatus::Validator),
+			(2, 2, 100, pallet_staking::StakerStatus::Validator),
+			(3, 3, 100, pallet_staking::StakerStatus::Validator),
+		],
+		..Default::default()
 	}
 	.assimilate_storage(&mut storage)
 	.unwrap();
