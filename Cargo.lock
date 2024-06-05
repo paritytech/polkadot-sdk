@@ -2099,6 +2099,7 @@ dependencies = [
  "substrate-wasm-builder",
  "testnet-parachains-constants",
  "tuplex",
+ "xcm-fee-payment-runtime-api",
 ]
 
 [[package]]
@@ -2259,6 +2260,7 @@ dependencies = [
  "testnet-parachains-constants",
  "tuplex",
  "westend-runtime-constants",
+ "xcm-fee-payment-runtime-api",
 ]
 
 [[package]]
@@ -2507,6 +2509,32 @@ dependencies = [
  "cipher 0.4.4",
  "poly1305",
  "zeroize",
+]
+
+[[package]]
+name = "chain-spec-guide-runtime"
+version = "0.0.0"
+dependencies = [
+ "docify",
+ "pallet-balances",
+ "pallet-sudo",
+ "pallet-timestamp",
+ "pallet-transaction-payment",
+ "pallet-transaction-payment-rpc-runtime-api",
+ "parity-scale-codec",
+ "polkadot-sdk-frame",
+ "sc-chain-spec",
+ "scale-info",
+ "serde",
+ "serde_json",
+ "sp-application-crypto",
+ "sp-core",
+ "sp-genesis-builder",
+ "sp-keyring",
+ "sp-runtime",
+ "sp-std 14.0.0",
+ "staging-chain-spec-builder",
+ "substrate-wasm-builder",
 ]
 
 [[package]]
@@ -2868,6 +2896,7 @@ dependencies = [
  "substrate-wasm-builder",
  "testnet-parachains-constants",
  "westend-runtime-constants",
+ "xcm-fee-payment-runtime-api",
 ]
 
 [[package]]
@@ -3123,6 +3152,7 @@ dependencies = [
  "staging-xcm-executor",
  "substrate-wasm-builder",
  "testnet-parachains-constants",
+ "xcm-fee-payment-runtime-api",
 ]
 
 [[package]]
@@ -3219,6 +3249,7 @@ dependencies = [
  "staging-xcm-executor",
  "substrate-wasm-builder",
  "testnet-parachains-constants",
+ "xcm-fee-payment-runtime-api",
 ]
 
 [[package]]
@@ -3283,6 +3314,7 @@ dependencies = [
  "substrate-wasm-builder",
  "testnet-parachains-constants",
  "westend-runtime-constants",
+ "xcm-fee-payment-runtime-api",
 ]
 
 [[package]]
@@ -4357,6 +4389,7 @@ dependencies = [
  "sp-std 14.0.0",
  "sp-transaction-pool",
  "sp-version",
+ "staging-parachain-info",
  "substrate-wasm-builder",
 ]
 
@@ -10436,7 +10469,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-identity"
-version = "28.0.0"
+version = "29.0.0"
 dependencies = [
  "enumflags2",
  "frame-benchmarking",
@@ -12281,6 +12314,7 @@ dependencies = [
  "staging-xcm-executor",
  "substrate-wasm-builder",
  "testnet-parachains-constants",
+ "xcm-fee-payment-runtime-api",
 ]
 
 [[package]]
@@ -12381,6 +12415,7 @@ dependencies = [
  "substrate-wasm-builder",
  "testnet-parachains-constants",
  "westend-runtime-constants",
+ "xcm-fee-payment-runtime-api",
 ]
 
 [[package]]
@@ -14206,6 +14241,7 @@ dependencies = [
  "sp-version-proc-macro",
  "sp-wasm-interface 20.0.0",
  "sp-weights",
+ "staging-chain-spec-builder",
  "staging-node-inspect",
  "staging-parachain-info",
  "staging-tracking-allocator",
@@ -14235,6 +14271,7 @@ dependencies = [
 name = "polkadot-sdk-docs"
 version = "0.0.1"
 dependencies = [
+ "chain-spec-guide-runtime",
  "cumulus-client-service",
  "cumulus-pallet-aura-ext",
  "cumulus-pallet-parachain-system",
@@ -14271,6 +14308,7 @@ dependencies = [
  "parity-scale-codec",
  "polkadot-sdk",
  "polkadot-sdk-frame",
+ "sc-chain-spec",
  "sc-cli",
  "sc-client-db",
  "sc-consensus-aura",
@@ -14289,6 +14327,7 @@ dependencies = [
  "sp-api",
  "sp-arithmetic",
  "sp-core",
+ "sp-genesis-builder",
  "sp-io",
  "sp-keyring",
  "sp-offchain",
@@ -16709,6 +16748,7 @@ name = "sc-chain-spec"
 version = "28.0.0"
 dependencies = [
  "array-bytes",
+ "clap 4.5.3",
  "docify",
  "log",
  "memmap2 0.9.3",
@@ -20535,7 +20575,7 @@ checksum = "a8f112729512f8e442d81f95a8a7ddf2b7c6b8a1a6f509a95864142b30cab2d3"
 
 [[package]]
 name = "staging-chain-spec-builder"
-version = "1.6.0"
+version = "1.6.1"
 dependencies = [
  "clap 4.5.3",
  "log",
