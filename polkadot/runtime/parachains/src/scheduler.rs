@@ -197,6 +197,28 @@ pub mod pallet {
 
 type PositionInClaimQueue = u32;
 
+struct ClaimQueueIterator<E> {
+	next_idx: u32,
+	queue: Peekable<btree_map::IntoIter<CoreIndex, VecDeque<E>>>,
+}
+
+impl<E> Iterator for ClaimQueueIterator<E> {
+	type Item = (CoreIndex, VecDeque<E>);
+
+	fn next(&mut self) -> Option<Self::Item> {
+		let (idx, _) = self.queue.peek()?;
+		let val = if idx != &CoreIndex(self.next_idx) {
+			log::trace!(target: LOG_TARGET, "idx did not match claim queue idx: {:?} vs {:?}", idx, self.next_idx);
+			(CoreIndex(self.next_idx), VecDeque::new())
+		} else {
+			let (idx, q) = self.queue.next()?;
+			(idx, q)
+		};
+		self.next_idx += 1;
+		Some(val)
+	}
+}
+
 impl<T: Config> Pallet<T> {
 	/// Called by the initializer to initialize the scheduler pallet.
 	pub(crate) fn initializer_initialize(_now: BlockNumberFor<T>) -> Weight {
@@ -319,27 +341,10 @@ impl<T: Config> Pallet<T> {
 	/// This iterator will have an item for each and every core index (no holes).
 	fn claim_queue_iterator() -> impl Iterator<Item = (CoreIndex, VecDeque<ParasEntryType<T>>)> {
 		let queues = ClaimQueue::<T>::get();
-		struct ClaimQueueIterator<T: Config> {
-			next_idx: u32,
-			queue: Peekable<btree_map::IntoIter<CoreIndex, VecDeque<ParasEntryType<T>>>>,
+		return ClaimQueueIterator::<ParasEntryType<T>> {
+			next_idx: 0,
+			queue: queues.into_iter().peekable(),
 		}
-		impl<T: Config> Iterator for ClaimQueueIterator<T> {
-			type Item = (CoreIndex, VecDeque<ParasEntryType<T>>);
-
-			fn next(&mut self) -> Option<Self::Item> {
-				let (idx, _) = self.queue.peek()?;
-				let val = if idx != &CoreIndex(self.next_idx) {
-					log::trace!(target: LOG_TARGET, "idx did not match claim queue idx: {:?} vs {:?}", idx, self.next_idx);
-					(CoreIndex(self.next_idx), VecDeque::new())
-				} else {
-					let (idx, q) = self.queue.next()?;
-					(idx, q)
-				};
-				self.next_idx += 1;
-				Some(val)
-			}
-		}
-		return ClaimQueueIterator::<T> { next_idx: 0, queue: queues.into_iter().peekable() }
 	}
 
 	/// Note that the given cores have become occupied. Update the claim queue accordingly.
