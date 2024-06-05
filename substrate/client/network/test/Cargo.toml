@@ -20,7 +20,7 @@ tokio = "1.37"
 async-trait = "0.1.79"
 futures = "0.3.30"
 futures-timer = "3.0.1"
-libp2p = "0.52.3"
+libp2p = "0.52.4"
 log = { workspace = true, default-features = true }
 parking_lot = "0.12.1"
 rand = "0.8.5"

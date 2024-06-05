@@ -11,8 +11,8 @@ documentation = "https://docs.rs/sc-network-types"
 
 [dependencies]
 bs58 = "0.5.0"
-ed25519-dalek = "2.1"
-libp2p-identity = { version = "0.2.3", features = ["ed25519", "peerid"] }
+ed25519-dalek = { version = "2.1", features = ["rand_core"] }
+libp2p-identity = { version = "0.2.3", features = ["ed25519", "peerid", "rand"] }
 litep2p = "0.5.0"
 log = { workspace = true, default-features = true }
 multiaddr = "0.18.1"

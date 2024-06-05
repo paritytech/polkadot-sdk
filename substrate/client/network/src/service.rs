@@ -62,7 +62,7 @@ use codec::DecodeAll;
 use either::Either;
 use futures::{channel::oneshot, prelude::*};
 #[allow(deprecated)]
-use libp2p::swarm::{SwarmBuilder, THandlerErr};
+use libp2p::swarm::THandlerErr;
 use libp2p::{
 	connection_limits::{ConnectionLimits, Exceeded},
 	core::{upgrade, ConnectedPoint, Endpoint},
@@ -71,8 +71,8 @@ use libp2p::{
 	kad::record::Key as KademliaKey,
 	multiaddr::{self, Multiaddr},
 	swarm::{
-		ConnectionError, ConnectionId, DialError, Executor, ListenError, NetworkBehaviour, Swarm,
-		SwarmEvent,
+		Config as SwarmConfig, ConnectionError, ConnectionId, DialError, Executor, ListenError,
+		NetworkBehaviour, Swarm, SwarmEvent,
 	},
 	PeerId,
 };
@@ -569,31 +569,27 @@ where
 				}
 			};
 
-			let builder = {
+			let swarm = {
 				struct SpawnImpl<F>(F);
 				impl<F: Fn(Pin<Box<dyn Future<Output = ()> + Send>>)> Executor for SpawnImpl<F> {
 					fn exec(&self, f: Pin<Box<dyn Future<Output = ()> + Send>>) {
 						(self.0)(f)
 					}
 				}
-				#[allow(deprecated)]
-				SwarmBuilder::with_executor(
-					transport,
-					behaviour,
-					local_peer_id,
-					SpawnImpl(params.executor),
-				)
-			};
-			let builder = builder
-				.substream_upgrade_protocol_override(upgrade::Version::V1)
-				.notify_handler_buffer_size(NonZeroUsize::new(32).expect("32 != 0; qed"))
-				// NOTE: 24 is somewhat arbitrary and should be tuned in the future if necessary.
-				// See <https://github.com/paritytech/substrate/pull/6080>
-				.per_connection_event_buffer_size(24)
-				.max_negotiating_inbound_streams(2048)
-				.idle_connection_timeout(Duration::from_secs(10));
 
-			(builder.build(), Arc::new(Libp2pBandwidthSink { sink: bandwidth }))
+				let config = SwarmConfig::with_executor(SpawnImpl(params.executor))
+					.with_substream_upgrade_protocol_override(upgrade::Version::V1)
+					.with_notify_handler_buffer_size(NonZeroUsize::new(32).expect("32 != 0; qed"))
+					// NOTE: 24 is somewhat arbitrary and should be tuned in the future if
+					// necessary. See <https://github.com/paritytech/substrate/pull/6080>
+					.with_per_connection_event_buffer_size(24)
+					.with_max_negotiating_inbound_streams(2048)
+					.with_idle_connection_timeout(Duration::from_secs(10));
+
+				Swarm::new(transport, behaviour, local_peer_id, config)
+			};
+
+			(swarm, Arc::new(Libp2pBandwidthSink { sink: bandwidth }))
 		};
 
 		// Initialize the metrics.
