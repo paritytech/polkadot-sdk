@@ -102,12 +102,17 @@ impl<T: Config> Pallet<T> {
 		};
 		let when: Timeslice =
 			(until / T::TimeslicePeriod::get()).saturating_sub(One::one()).saturated_into();
-		let mut revenue = T::ConvertBalance::convert_back(amount);
+		let mut revenue = T::ConvertBalance::convert_back(amount.clone());
 		if revenue.is_zero() {
 			Self::deposit_event(Event::<T>::HistoryDropped { when, revenue });
 			InstaPoolHistory::<T>::remove(when);
 			return true
 		}
+
+		log::debug!(
+			target: "pallet_broker::process_revenue",
+			"Received {amount:?} from RC, converted into {revenue:?} revenue",
+		);
 
 		// Mint revenue amount on our end of the teleport
 		let revenue_imbalance = T::Currency::issue(revenue);
@@ -130,6 +135,11 @@ impl<T: Config> Pallet<T> {
 		} else {
 			Zero::zero()
 		};
+
+		log::debug!(
+			target: "pallet_broker::process_revenue",
+			"Charged {system_payout:?} for system payouts, {revenue:?} remaining for private contributions",
+		);
 
 		if !revenue.is_zero() && r.private_contributions > 0 {
 			r.maybe_payout = Some(revenue);
