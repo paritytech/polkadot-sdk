@@ -119,6 +119,16 @@ impl<T: Config> Pallet<T> {
 			}
 		})
 	}
+
+	fn full_id_validators() -> Vec<(T::ValidatorId, T::FullIdentification)> {
+		<Session<T>>::validators()
+			.into_iter()
+			.filter_map(|validator| {
+				T::FullIdentificationOf::convert(validator.clone())
+					.map(|full_id| (validator, full_id))
+			})
+			.collect::<Vec<_>>()
+	}
 }
 
 impl<T: Config> ValidatorSet<T::AccountId> for Pallet<T> {
@@ -311,13 +321,7 @@ impl<T: Config, D: AsRef<[u8]>> KeyOwnerProofSystem<(KeyTypeId, D)> for Pallet<T
 
 	fn prove(key: (KeyTypeId, D)) -> Option<Self::Proof> {
 		let session = <Session<T>>::current_index();
-		let validators = <Session<T>>::validators()
-			.into_iter()
-			.filter_map(|validator| {
-				T::FullIdentificationOf::convert(validator.clone())
-					.map(|full_id| (validator, full_id))
-			})
-			.collect::<Vec<_>>();
+		let validators = Self::full_id_validators();
 
 		let count = validators.len() as ValidatorCount;
 
@@ -340,7 +344,14 @@ impl<T: Config, D: AsRef<[u8]>> KeyOwnerProofSystem<(KeyTypeId, D)> for Pallet<T
 		}
 
 		let (id, data) = key;
-		let (root, count) = <HistoricalSessions<T>>::get(&proof.session)?;
+		let (root, count) = if proof.session == <Session<T>>::current_index() {
+			let validators = Self::full_id_validators();
+			let count = validators.len() as ValidatorCount;
+			let trie = ProvingTrie::<T>::generate_for(validators).ok()?;
+			(trie.root, count)
+		} else {
+			<HistoricalSessions<T>>::get(&proof.session)?
+		};
 
 		if count != proof.validator_count {
 			return None
