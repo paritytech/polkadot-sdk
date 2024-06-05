@@ -34,11 +34,7 @@ use frame_support::{
 };
 use frame_system::{EnsureRoot, EnsureSignedBy};
 use sp_io;
-use sp_runtime::{
-	testing::UintAuthorityId,
-	traits::{IdentityLookup, Zero},
-	BuildStorage,
-};
+use sp_runtime::{testing::UintAuthorityId, traits::{IdentityLookup, Zero}, BuildStorage};
 use sp_staking::{
 	offence::{OffenceDetails, OnOffenceHandler},
 	OnStakingUpdate,
@@ -650,6 +646,7 @@ impl ExtBuilder {
 				Session::on_initialize(1);
 				<Staking as Hooks<BlockNumber>>::on_initialize(1);
 				Timestamp::set_timestamp(INIT_TIMESTAMP);
+				PolkadotInflation::set_last_inflated(INIT_TIMESTAMP);
 			});
 		}
 
@@ -717,13 +714,16 @@ pub(crate) fn bond_virtual_nominator(
 /// in the function), and then finalize the block.
 pub(crate) fn run_to_block(n: BlockNumber) {
 	Staking::on_finalize(System::block_number());
+	// set timestamp for the next block after finalise.
+	Timestamp::set_timestamp(System::block_number() * BLOCK_TIME + INIT_TIMESTAMP);
 	for b in (System::block_number() + 1)..=n {
 		System::set_block_number(b);
 		Session::on_initialize(b);
 		<Staking as Hooks<BlockNumber>>::on_initialize(b);
-		Timestamp::set_timestamp(System::block_number() * BLOCK_TIME + INIT_TIMESTAMP);
 		if b != n {
 			Staking::on_finalize(System::block_number());
+			// set timestamp for the next block after finalise.
+			Timestamp::set_timestamp(System::block_number() * BLOCK_TIME + INIT_TIMESTAMP);
 		}
 	}
 }

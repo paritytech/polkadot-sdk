@@ -404,6 +404,13 @@ pub mod pallet {
 		pub(crate) fn last_known_stake_storage() -> Option<LastKnownStake<T>> {
 			LastKnownStakedStorage::<T>::get()
 		}
+
+		#[cfg(feature = "std")]
+		pub fn set_last_inflated(now: u64) {
+			LastInflated::<T>::put(now);
+		}
+
+
 	}
 
 	/// A set of inflation functions provided by this pallet.

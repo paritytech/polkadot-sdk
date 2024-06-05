@@ -3302,7 +3302,7 @@ fn slash_kicks_validators_not_nominators_and_disables_nominator_for_kicked_valid
 				staking_events_since_last_call(),
 				vec![
 					Event::StakersElected,
-					Event::EraPaid { era_index: 0, validator_payout: 11075 },
+					Event::EraPaid { era_index: 0, validator_payout: 11090 },
 					Event::SlashReported {
 						validator: 11,
 						fraction: Perbill::from_percent(10),
@@ -3374,7 +3374,7 @@ fn non_slashable_offence_disables_validator() {
 				staking_events_since_last_call(),
 				vec![
 					Event::StakersElected,
-					Event::EraPaid { era_index: 0, validator_payout: 11075 },
+					Event::EraPaid { era_index: 0, validator_payout: 11090 },
 					Event::SlashReported {
 						validator: 11,
 						fraction: Perbill::from_percent(0),
@@ -3436,7 +3436,7 @@ fn slashing_independent_of_disabling_validator() {
 				staking_events_since_last_call(),
 				vec![
 					Event::StakersElected,
-					Event::EraPaid { era_index: 0, validator_payout: 11075 },
+					Event::EraPaid { era_index: 0, validator_payout: 11090 },
 					Event::SlashReported {
 						validator: 11,
 						fraction: Perbill::from_percent(0),
