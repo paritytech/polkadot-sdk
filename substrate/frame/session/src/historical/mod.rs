@@ -37,16 +37,16 @@ use sp_runtime::{
 };
 use sp_session::{MembershipProof, ValidatorCount};
 use sp_staking::SessionIndex;
-use sp_std::prelude::*;
+use sp_std::{fmt::Debug, prelude::*};
 use sp_trie::{
 	trie_types::{TrieDBBuilder, TrieDBMutBuilderV0},
-	LayoutV0, LayoutV1, MemoryDB, Recorder, StorageProof, Trie, TrieMut, TrieRecorder,
+	LayoutV0, MemoryDB, Recorder, StorageProof, Trie, TrieMut, TrieRecorder,
 };
 
 use frame_support::{
 	print,
 	traits::{KeyOwnerProofSystem, ValidatorSet, ValidatorSetWithIdentification},
-	Parameter,
+	Parameter, LOG_TARGET,
 };
 
 use crate::{self as pallet_session, Pallet as Session};
@@ -274,7 +274,7 @@ impl<T: Config> ProvingTrie<T> {
 		let mut recorder = Recorder::<LayoutV0<T::Hashing>>::new();
 		self.query(key_id, key_data, Some(&mut recorder));
 
-		Some(recorder.into_optimized_raw_storage_proof())
+		Some(recorder.into_raw_storage_proof())
 	}
 
 	/// Access the underlying trie root.
@@ -282,18 +282,16 @@ impl<T: Config> ProvingTrie<T> {
 		&self.root
 	}
 
-	// Search for a key inside the proof.
+	/// Search for a key inside the proof.
 	fn query(
 		&self,
 		key_id: KeyTypeId,
 		key_data: &[u8],
-		maybe_recorder: Option<&mut dyn TrieRecorder<T::Hash>>,
+		recorder: Option<&mut dyn TrieRecorder<T::Hash>>,
 	) -> Option<IdentificationTuple<T>> {
-		let mut trie_builder = TrieDBBuilder::new(&self.db, &self.root);
-		if let Some(recorder) = maybe_recorder {
-			trie_builder = trie_builder.with_recorder(recorder);
-		}
-		let trie = trie_builder.build();
+		let trie = TrieDBBuilder::new(&self.db, &self.root)
+			.with_optional_recorder(recorder)
+			.build();
 
 		let val_idx = (key_id, key_data)
 			.using_encoded(|s| trie.get(s))
@@ -334,6 +332,13 @@ impl<T: Config, D: AsRef<[u8]>> KeyOwnerProofSystem<(KeyTypeId, D)> for Pallet<T
 	}
 
 	fn check_proof(key: (KeyTypeId, D), proof: Self::Proof) -> Option<IdentificationTuple<T>> {
+		fn print_error<E: Debug>(e: E) {
+			log::error!(
+				target: LOG_TARGET,
+				"Rejecting equivocation report because of key ownership proof error: {:?}", e
+			);
+		}
+
 		let (id, data) = key;
 		let (root, count) = <HistoricalSessions<T>>::get(&proof.session)?;
 
@@ -342,10 +347,12 @@ impl<T: Config, D: AsRef<[u8]>> KeyOwnerProofSystem<(KeyTypeId, D)> for Pallet<T
 		}
 
 		let (mut redundant_nodes_checker, proof) =
-			RedundantNodesChecker::<LayoutV1<T::Hashing>>::new(proof.trie_nodes).ok()?;
+			RedundantNodesChecker::<T::Hash>::new(proof.trie_nodes)
+				.map_err(print_error)
+				.ok()?;
 		let trie = ProvingTrie::<T>::from_proof(root, proof);
 		let res = trie.query(id, data.as_ref(), Some(&mut redundant_nodes_checker))?;
-		redundant_nodes_checker.ensure_no_unused_nodes().ok()?;
+		redundant_nodes_checker.ensure_no_unused_nodes().map_err(print_error).ok()?;
 		Some(res)
 	}
 }

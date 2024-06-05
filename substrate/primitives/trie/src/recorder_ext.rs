@@ -19,11 +19,13 @@
 
 use crate::{RawStorageProof, StorageProof};
 use alloc::{collections::BTreeSet, vec::Vec};
+use core::hash::Hash;
 use scale_info::TypeInfo;
 use sp_core::{Decode, Encode};
-use trie_db::{RecordedForKey, Recorder, TrieAccess, TrieHash, TrieLayout, TrieRecorder};
+use trie_db::{RecordedForKey, Recorder, TrieAccess, TrieLayout, TrieRecorder};
 
 #[derive(Encode, Decode, Clone, Eq, PartialEq, Debug, TypeInfo)]
+/// Error associated with the `recorder_ext` module.
 pub enum Error {
 	/// The proof contains duplicate nodes.
 	DuplicateNodes,
@@ -31,13 +33,18 @@ pub enum Error {
 	UnusedNodes,
 }
 
+/// Convenience extension for the `Recorder` struct.
+///
+/// Used to deduplicate some logic.
 pub trait RecorderExt<L: TrieLayout>
 where
 	Self: Sized,
 {
+	/// Convert the recorder into a `BTreeSet`.
 	fn into_set(self) -> BTreeSet<Vec<u8>>;
 
-	fn into_optimized_raw_storage_proof(self) -> RawStorageProof {
+	/// Convert the recorder into a `RawStorageProof`, avoiding duplicate nodes.
+	fn into_raw_storage_proof(self) -> RawStorageProof {
 		// The recorder may record the same trie node multiple times,
 		// and we don't want duplicate nodes in our proofs
 		// => let's deduplicate it by collecting to a BTreeSet first
@@ -51,12 +58,14 @@ impl<L: TrieLayout> RecorderExt<L> for Recorder<L> {
 	}
 }
 
-pub struct RedundantNodesChecker<L: TrieLayout> {
+/// Helper struct used to ensure that a storage proof doesn't contain duplicate or unused nodes.
+pub struct RedundantNodesChecker<H: Hash> {
 	proof_nodes_count: usize,
-	recorder: Recorder<L>,
+	recorder: BTreeSet<H>,
 }
 
-impl<L: TrieLayout> RedundantNodesChecker<L> {
+impl<H: Hash> RedundantNodesChecker<H> {
+	/// Create a new instance of `RedundantNodesChecker`, starting from a `RawStorageProof`.
 	pub fn new(raw_proof: RawStorageProof) -> Result<(Self, StorageProof), Error> {
 		// We don't want extra items in the storage proof.
 		// Let's check this when we are converting our "raw proof" into a `StorageProof` since
@@ -67,12 +76,12 @@ impl<L: TrieLayout> RedundantNodesChecker<L> {
 			return Err(Error::DuplicateNodes)
 		}
 
-		Ok((Self { proof_nodes_count, recorder: Recorder::new() }, proof))
+		Ok((Self { proof_nodes_count, recorder: BTreeSet::new() }, proof))
 	}
 
 	/// Ensure that all the nodes in the proof have been accessed.
 	pub fn ensure_no_unused_nodes(self) -> Result<(), Error> {
-		if self.proof_nodes_count != self.recorder.into_set().len() {
+		if self.proof_nodes_count != self.recorder.len() {
 			return Err(Error::UnusedNodes)
 		}
 
@@ -80,21 +89,30 @@ impl<L: TrieLayout> RedundantNodesChecker<L> {
 	}
 }
 
-impl<L: TrieLayout> TrieRecorder<TrieHash<L>> for RedundantNodesChecker<L> {
-	fn record(&mut self, access: TrieAccess<TrieHash<L>>) {
-		self.recorder.record(access)
+impl<H: Hash + Ord> TrieRecorder<H> for RedundantNodesChecker<H> {
+	fn record(&mut self, access: TrieAccess<H>) {
+		match access {
+			TrieAccess::NodeOwned { hash, .. } |
+			TrieAccess::EncodedNode { hash, .. } |
+			TrieAccess::Value { hash, .. } => {
+				self.recorder.insert(hash);
+			},
+			_ => {},
+		}
 	}
 
-	fn trie_nodes_recorded_for_key(&self, key: &[u8]) -> RecordedForKey {
-		self.recorder.trie_nodes_recorded_for_key(key)
+	fn trie_nodes_recorded_for_key(&self, _key: &[u8]) -> RecordedForKey {
+		RecordedForKey::None
 	}
 }
 
 #[cfg(test)]
 pub mod tests {
 	use super::*;
+	use hash_db::Hasher;
 	use trie_db::{TrieDBMutBuilder, TrieMut};
 
+	type Hash = <sp_core::Blake2Hasher as Hasher>::Out;
 	type MemoryDB = crate::MemoryDB<sp_core::Blake2Hasher>;
 	type Layout = crate::LayoutV1<sp_core::Blake2Hasher>;
 
@@ -129,7 +147,7 @@ pub mod tests {
 		raw_proof.push(raw_proof.first().unwrap().clone());
 
 		assert!(matches!(
-			RedundantNodesChecker::<Layout>::new(raw_proof),
+			RedundantNodesChecker::<Hash>::new(raw_proof),
 			Err(Error::DuplicateNodes)
 		));
 	}
@@ -139,7 +157,7 @@ pub mod tests {
 		let (mut root, raw_proof) = craft_valid_storage_proof();
 
 		let (mut redundant_nodes_checker, proof) =
-			RedundantNodesChecker::<Layout>::new(raw_proof.clone()).unwrap();
+			RedundantNodesChecker::<Hash>::new(raw_proof.clone()).unwrap();
 		{
 			let mut db = proof.into_memory_db();
 			let trie = TrieDBMutBuilder::<Layout>::new(&mut db, &mut root)
@@ -154,7 +172,7 @@ pub mod tests {
 		assert_eq!(redundant_nodes_checker.ensure_no_unused_nodes(), Ok(()));
 
 		let (redundant_nodes_checker, _proof) =
-			RedundantNodesChecker::<Layout>::new(raw_proof).unwrap();
+			RedundantNodesChecker::<Hash>::new(raw_proof).unwrap();
 		assert!(matches!(
 			redundant_nodes_checker.ensure_no_unused_nodes(),
 			Err(Error::UnusedNodes)

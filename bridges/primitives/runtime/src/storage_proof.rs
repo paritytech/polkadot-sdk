@@ -52,7 +52,7 @@ where
 {
 	root: H::Out,
 	db: MemoryDB<H>,
-	redundant_nodes_checker: RedundantNodesChecker<LayoutV1<H>>,
+	redundant_nodes_checker: RedundantNodesChecker<H::Out>,
 }
 
 impl<H> StorageProofChecker<H>
@@ -71,8 +71,7 @@ where
 			return Err(Error::StorageRootMismatch)
 		}
 
-		let checker = StorageProofChecker { root, db, redundant_nodes_checker: recorder };
-		Ok(checker)
+		Ok(StorageProofChecker { root, db, redundant_nodes_checker: recorder })
 	}
 
 	/// Returns error if the proof has some nodes that are left intact by previous `read_value`
@@ -184,7 +183,7 @@ where
 		trie.get(&key)?;
 	}
 
-	Ok(recorder.into_optimized_raw_storage_proof())
+	Ok(recorder.into_raw_storage_proof())
 }
 
 #[cfg(test)]
