@@ -41,6 +41,7 @@ use runtime_parachains::paras::{OnNewHead, ParaKind};
 use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{CheckedSub, Saturating},
+	DispatchError,
 	RuntimeDebug,
 };
 
@@ -100,6 +101,15 @@ impl WeightInfo for TestWeightInfo {
 	}
 }
 
+/// Helper enum to determine the origin type.
+#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug)]
+enum ParaOriginType {
+	Root,
+	Para,
+	Manager,
+	None,
+}
+
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
@@ -153,6 +163,7 @@ pub mod pallet {
 		Deregistered { para_id: ParaId },
 		Reserved { para_id: ParaId, who: T::AccountId },
 		Swapped { para_id: ParaId, other_id: ParaId },
+		Unlocked { para_id: ParaId },
 	}
 
 	#[pallet::error]
@@ -163,6 +174,8 @@ pub mod pallet {
 		AlreadyRegistered,
 		/// The caller is not the owner of this Id.
 		NotOwner,
+		/// The parachain caller is not the owner of this Id.
+		ParaNotOwner,
 		/// Invalid para code size.
 		CodeTooLarge,
 		/// Invalid para head data size.
@@ -191,6 +204,7 @@ pub mod pallet {
 
 	/// Pending swap operations.
 	#[pallet::storage]
+	#[pallet::getter(fn pending_swap)]
 	pub(super) type PendingSwap<T> = StorageMap<_, Twox64Concat, ParaId, ParaId>;
 
 	/// Amount held on deposit for each para and the original depositor.
@@ -198,11 +212,13 @@ pub mod pallet {
 	/// The given account ID is responsible for registering the code and initial head data, but may
 	/// only do so if it isn't yet registered. (After that, it's up to governance to do so.)
 	#[pallet::storage]
+	#[pallet::getter(fn paras)]
 	pub type Paras<T: Config> =
 		StorageMap<_, Twox64Concat, ParaId, ParaInfo<T::AccountId, BalanceOf<T>>>;
 
 	/// The next free `ParaId`.
 	#[pallet::storage]
+	#[pallet::getter(fn next_free_para_id)]
 	pub type NextFreeParaId<T> = StorageValue<_, ParaId, ValueQuery>;
 
 	#[pallet::genesis_config]
@@ -290,7 +306,7 @@ pub mod pallet {
 		#[pallet::call_index(2)]
 		#[pallet::weight(<T as Config>::WeightInfo::deregister())]
 		pub fn deregister(origin: OriginFor<T>, id: ParaId) -> DispatchResult {
-			Self::ensure_root_para_or_owner(origin, id)?;
+			Self::ensure_unlocked_root_para_or_owner(origin, id)?;
 			Self::do_deregister(id)
 		}
 
@@ -309,7 +325,7 @@ pub mod pallet {
 		#[pallet::call_index(3)]
 		#[pallet::weight(<T as Config>::WeightInfo::swap())]
 		pub fn swap(origin: OriginFor<T>, id: ParaId, other: ParaId) -> DispatchResult {
-			Self::ensure_root_para_or_owner(origin, id)?;
+			Self::ensure_unlocked_root_para_or_owner(origin, id)?;
 
 			// If `id` and `other` is the same id, we treat this as a "clear" function, and exit
 			// early, since swapping the same id would otherwise be a noop.
@@ -357,12 +373,29 @@ pub mod pallet {
 		/// Remove a manager lock from a para. This will allow the manager of a
 		/// previously locked para to deregister or swap a para without using governance.
 		///
-		/// Can only be called by the Root origin or the parachain.
+		/// Can be called by the Root origin or the parachain or exceptionally the manager if a parathread.
 		#[pallet::call_index(4)]
-		#[pallet::weight(T::DbWeight::get().reads_writes(1, 1))]
-		pub fn remove_lock(origin: OriginFor<T>, para: ParaId) -> DispatchResult {
-			Self::ensure_root_or_para(origin, para)?;
-			<Self as Registrar>::remove_lock(para);
+		#[pallet::weight(T::DbWeight::get().reads_writes(3, 1))]
+		pub fn remove_lock(origin: OriginFor<T>, id: ParaId) -> DispatchResult {
+			// Ensure that the extrinisic is executed by one of the three allowed origin types
+			match Self::ensure_root_or_para_or_owner(origin.clone(), id) {
+				Ok(ParaOriginType::Root) | Ok(ParaOriginType::Para) => {
+					// The origin is root or para, no action needed
+				}
+				Ok(ParaOriginType::Manager) => {
+					// The origin is the para manager, check if the chain is a parathread
+					let id_lifecycle = paras::Pallet::<T>::lifecycle(id).ok_or(Error::<T>::NotRegistered)?;
+					if id_lifecycle != ParaLifecycle::Parathread {
+						return Err(Error::<T>::NotParathread.into());
+					}
+				}
+				_ => {
+					// The origin is neither root, the para, nor the manager
+					return Err(Error::<T>::NotOwner.into());
+				}
+			}
+			<Self as Registrar>::remove_lock(id);
+			Self::deposit_event(Event::<T>::Unlocked { para_id: id });
 			Ok(())
 		}
 
@@ -401,7 +434,7 @@ pub mod pallet {
 		#[pallet::call_index(6)]
 		#[pallet::weight(T::DbWeight::get().reads_writes(1, 1))]
 		pub fn add_lock(origin: OriginFor<T>, para: ParaId) -> DispatchResult {
-			Self::ensure_root_para_or_owner(origin, para)?;
+			Self::ensure_unlocked_root_para_or_owner(origin, para)?;
 			<Self as Registrar>::apply_lock(para);
 			Ok(())
 		}
@@ -424,7 +457,7 @@ pub mod pallet {
 			para: ParaId,
 			new_code: ValidationCode,
 		) -> DispatchResult {
-			Self::ensure_root_para_or_owner(origin, para)?;
+			Self::ensure_unlocked_root_para_or_owner(origin, para)?;
 			runtime_parachains::schedule_code_upgrade::<T>(
 				para,
 				new_code,
@@ -444,7 +477,7 @@ pub mod pallet {
 			para: ParaId,
 			new_head: HeadData,
 		) -> DispatchResult {
-			Self::ensure_root_para_or_owner(origin, para)?;
+			Self::ensure_unlocked_root_para_or_owner(origin, para)?;
 			runtime_parachains::set_current_head::<T>(para, new_head);
 			Ok(())
 		}
@@ -554,7 +587,7 @@ impl<T: Config> Registrar for Pallet<T> {
 impl<T: Config> Pallet<T> {
 	/// Ensure the origin is one of Root, the `para` owner, or the `para` itself.
 	/// If the origin is the `para` owner, the `para` must be unlocked.
-	fn ensure_root_para_or_owner(
+	fn ensure_unlocked_root_para_or_owner(
 		origin: <T as frame_system::Config>::RuntimeOrigin,
 		id: ParaId,
 	) -> DispatchResult {
@@ -569,6 +602,36 @@ impl<T: Config> Pallet<T> {
 			.or_else(|_| -> DispatchResult { Self::ensure_root_or_para(origin, id) })
 	}
 
+	/// Ensure the origin is one of Root, the `para` owner, or the `para` itself and returns the origin type or error.
+	/// This is a basic authority check and does not check if the `para` is locked
+	fn ensure_root_or_para_or_owner(
+		origin: <T as frame_system::Config>::RuntimeOrigin,
+		id: ParaId,
+	) -> Result<ParaOriginType, DispatchError> {
+		// Try to ensure the origin is signed and is the manager of the para
+		let signed_and_owner = ensure_signed(origin.clone())
+			.map_err(|_| ())
+			.and_then(|who| -> Result<ParaOriginType, ()> {
+				let para_info = Paras::<T>::get(id).ok_or(())?;
+				(para_info.manager == who).then(|| ParaOriginType::Manager).ok_or(())
+			});
+	
+		// If the origin is not signed or is not the manager of the para, ensure it's root or the para
+		if let Err(_) = signed_and_owner {
+			if let Ok(caller_id) = ensure_parachain(<T as Config>::RuntimeOrigin::from(origin.clone())) {
+				// Check if matching para id...
+				ensure!(caller_id == id, Error::<T>::ParaNotOwner);
+				return Ok(ParaOriginType::Para);
+			} else {
+				// Check if root...
+				ensure_root(origin.clone())?;
+				return Ok(ParaOriginType::Root);
+			}
+		}
+	
+		signed_and_owner.map_err(|_| Error::<T>::NotOwner.into())
+	}
+
 	/// Ensure the origin is one of Root or the `para` itself.
 	fn ensure_root_or_para(
 		origin: <T as frame_system::Config>::RuntimeOrigin,
@@ -581,9 +644,9 @@ impl<T: Config> Pallet<T> {
 		} else {
 			// Check if root...
 			ensure_root(origin.clone())?;
-		}
+		}	
 		Ok(())
-	}
+	}	
 
 	fn do_reserve(
 		who: T::AccountId,
@@ -1356,38 +1419,96 @@ mod tests {
 	#[test]
 	fn para_lock_works() {
 		new_test_ext().execute_with(|| {
-			run_to_block(1);
+			const START_SESSION_INDEX: SessionIndex = 1;
+			run_to_session(START_SESSION_INDEX);
 
+			// Register first two parachains
+			let para_1 = LOWEST_PUBLIC_ID;
+			let para_2 = LOWEST_PUBLIC_ID + 1; // dummy para id
+			
+			let validation_code = test_validation_code(max_code_size() as usize);
 			assert_ok!(Registrar::reserve(RuntimeOrigin::signed(1)));
-			let para_id = LOWEST_PUBLIC_ID;
 			assert_ok!(Registrar::register(
 				RuntimeOrigin::signed(1),
-				para_id,
-				vec![1; 3].into(),
-				test_validation_code(32)
+				para_1,
+				test_genesis_head(max_head_size() as usize),
+				validation_code.clone(),
 			));
 
-			assert_noop!(Registrar::add_lock(RuntimeOrigin::signed(2), para_id), BadOrigin);
+			conclude_pvf_checking::<Test>(&validation_code, VALIDATORS, START_SESSION_INDEX);
 
-			// Once they produces new block, we lock them in.
-			Registrar::on_new_head(para_id, &Default::default());
+			run_to_session(START_SESSION_INDEX + 2);
+			
+			// Upgrade para 1 into a parachain
+			assert!(Parachains::is_parathread(para_1));
+			assert_ok!(Registrar::make_parachain(para_1));
+			
+			run_to_session(START_SESSION_INDEX + 4);
+			assert!(Parachains::is_parachain(para_1));
 
-			// Owner cannot pass origin check when checking lock
-			assert_noop!(
-				Registrar::ensure_root_para_or_owner(RuntimeOrigin::signed(1), para_id),
-				BadOrigin
-			);
-			// Owner cannot remove lock.
-			assert_noop!(Registrar::remove_lock(RuntimeOrigin::signed(1), para_id), BadOrigin);
-			// Para can.
-			assert_ok!(Registrar::remove_lock(para_origin(para_id), para_id));
-			// Owner can pass origin check again
-			assert_ok!(Registrar::ensure_root_para_or_owner(RuntimeOrigin::signed(1), para_id));
+			// Owner can pass origin check
+			assert_ok!(Registrar::ensure_root_or_para_or_owner(RuntimeOrigin::signed(1), para_1));
+			assert_ok!(Registrar::ensure_root_or_para_or_owner(para_origin(para_1), para_1));
+			assert_ok!(Registrar::ensure_root_or_para_or_owner(RuntimeOrigin::root(), para_1));
+			
+			// Other paras cannot pass origin check
+			assert_noop!(Registrar::ensure_root_or_para_or_owner(para_origin(para_2), para_1), Error::<Test>::ParaNotOwner);
+			
+			// Other ID cannot pass origin check
+			assert_noop!(Registrar::ensure_root_or_para_or_owner(RuntimeOrigin::signed(2), para_1), BadOrigin);
 
-			// Won't lock again after it is unlocked
-			Registrar::on_new_head(para_id, &Default::default());
+			// Attempt to lock with non-owner
+			assert_noop!(Registrar::add_lock(RuntimeOrigin::signed(2), para_1), BadOrigin);
 
-			assert_ok!(Registrar::ensure_root_para_or_owner(RuntimeOrigin::signed(1), para_id));
+			// Check that the lock has not been applied to para 1 (ie it is unlocked)
+			assert_eq!(Registrar::paras(para_1).unwrap().is_locked(), false);
+
+			// Once para produces new block, we lock it.
+			Registrar::on_new_head(para_1, &Default::default());
+			
+			// Check that the lock has been applied to para 1
+			assert_eq!(Registrar::paras(para_1).unwrap().is_locked(), true);
+
+			// Owner cannot remove lock when parachain.
+			assert_noop!(Registrar::remove_lock(RuntimeOrigin::signed(1), para_1), Error::<Test>::NotParathread);
+			
+			// Not plausible to unlock an unregistered parachain
+			assert_noop!(Registrar::remove_lock(RuntimeOrigin::signed(1), para_2), Error::<Test>::NotOwner);
+
+			// Para can remove lock.
+			assert_ok!(Registrar::remove_lock(para_origin(para_1), para_1));
+            
+			// Check that event was issued
+			System::assert_last_event(RuntimeEvent::Registrar(paras_registrar::Event::Unlocked {
+				para_id: para_1,
+			}));
+			
+			// Check the the lock has been removed
+			assert_eq!(Registrar::paras(para_1).unwrap().is_locked(), false);
+			
+			// Owner can lock again
+			assert_ok!(Registrar::add_lock(RuntimeOrigin::signed(1), para_1));
+			assert_eq!(Registrar::paras(para_1).unwrap().is_locked(), true);
+			
+			// Downgrade Para 1
+			assert_ok!(Registrar::make_parathread(para_1));
+			run_to_session(START_SESSION_INDEX + 6);
+			assert!(Parachains::is_parathread(para_1));
+			
+			// Para manager can remove lock from parathread.
+			assert_ok!(Registrar::remove_lock(RuntimeOrigin::signed(1), para_1));
+			assert_eq!(Registrar::paras(para_1).unwrap().is_locked(), false);
+			
+			// Owner can lock again
+			assert_ok!(Registrar::add_lock(RuntimeOrigin::signed(1), para_1));
+			assert_eq!(Registrar::paras(para_1).unwrap().is_locked(), true);
+			
+			// Root can remove lock from parathread.
+			assert_ok!(Registrar::remove_lock(RuntimeOrigin::root(), para_1));
+			assert_eq!(Registrar::paras(para_1).unwrap().is_locked(), false);
+
+			// No need to test if the parathread can unlock itself because it cannot due to lack of block production QED
+
 		});
 	}
 
