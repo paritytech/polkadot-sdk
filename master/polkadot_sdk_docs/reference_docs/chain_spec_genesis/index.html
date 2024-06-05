@@ -148,7 +148,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </style>
 
 <script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button><a class="logo-container" href="../../../polkadot_sdk_docs/index.html"><img src="https://europe1.discourse-cdn.com/standard21/uploads/polkadot2/original/1X/eb57081e2bb7c39e5fcb1a98b443e423fa4448ae.svg" alt=""></a></nav><nav class="sidebar"><div class="sidebar-crate"><a class="logo-container" href="../../../polkadot_sdk_docs/index.html"><img src="https://europe1.discourse-cdn.com/standard21/uploads/polkadot2/original/1X/eb57081e2bb7c39e5fcb1a98b443e423fa4448ae.svg" alt="logo"></a><h2><a href="../../../polkadot_sdk_docs/index.html">polkadot_sdk_docs</a><span class="version">0.0.1</span></h2></div><h2 class="location"><a href="#">Module chain_spec_genesis</a></h2><div class="sidebar-elems"><h2><a href="../index.html">In polkadot_sdk_docs::reference_docs</a></h2></div></nav><div class="sidebar-resizer"></div>
-    <main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../polkadot_sdk_docs/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Module <a href="../../index.html">polkadot_sdk_docs</a>::<wbr><a href="../index.html">reference_docs</a>::<wbr><a class="mod" href="#">chain_spec_genesis</a><button id="copy-path" title="Copy item path to clipboard"><img src="../../../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><a class="src" href="../../../src/polkadot_sdk_docs/reference_docs/chain_spec_genesis.rs.html#1-185">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Learn about chain specification file and the genesis state of the blockchain.</p>
+    <main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../polkadot_sdk_docs/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Module <a href="../../index.html">polkadot_sdk_docs</a>::<wbr><a href="../index.html">reference_docs</a>::<wbr><a class="mod" href="#">chain_spec_genesis</a><button id="copy-path" title="Copy item path to clipboard"><img src="../../../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><a class="src" href="../../../src/polkadot_sdk_docs/reference_docs/chain_spec_genesis.rs.html#1-186">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Learn about chain specification file and the genesis state of the blockchain.</p>
 <h2 id="what-is-chain-spec"><a class="doc-anchor" href="#what-is-chain-spec">§</a>What is chain-spec.</h2>
 <p>A chain specification file defines the set of properties that are required to run the node as
 part of the chain. The chain specification consists of two main parts:</p>
@@ -157,8 +157,8 @@ part of the chain. The chain specification consists of two main parts:</p>
 <li>network / logical properties of the chain, the most important property being the list of
 bootnodes.</li>
 </ul>
-<p>This document describes how initial state is handled in pallets and runtime, and how to interact
-with the runtime in order to build genesis state.</p>
+<p>This document describes how the initial state is handled in pallets and runtime, and how to
+interact with the runtime in order to build the genesis state.</p>
 <p>For more information on chain specification and its properties, refer to
 <a href="../../../sc_chain_spec/index.html#from-initial-state-to-raw-genesis" title="mod sc_chain_spec"><code>sc_chain_spec</code></a>.</p>
 <p>The initial genesis state can be provided in the following formats:</p>
@@ -170,7 +170,7 @@ with the runtime in order to build genesis state.</p>
 <p>Each of the formats is explained in <a href="../../../sc_chain_spec/index.html#chain-spec-formats" title="mod sc_chain_spec"><em>chain-spec-format</em></a>.</p>
 <h2 id="genesisconfig-for-pallet"><a class="doc-anchor" href="#genesisconfig-for-pallet">§</a><code>GenesisConfig</code> for <code>pallet</code></h2>
 <p>Every frame pallet may have its initial state which is defined by the <code>GenesisConfig</code> internal
-struct. It is a regular rust struct, annotated with <a href="../../../frame_support_procedural/attr.genesis_config.html" title="attr frame_support_procedural::genesis_config"><code>pallet::genesis_config</code></a> attribute.</p>
+struct. It is a regular Rust struct, annotated with the <a href="../../../frame_support_procedural/attr.genesis_config.html" title="attr frame_support_procedural::genesis_config"><code>pallet::genesis_config</code></a> attribute.</p>
 
 <div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="attr">#[pallet::genesis_config]
 #[derive(DefaultNoBound)]
@@ -209,7 +209,7 @@ struct. It is a regular rust struct, annotated with <a href="../../../frame_supp
 	}
 }</code></pre></div>
 <p>The initial state conveyed in  the <code>GenesisConfig</code> struct is transformed into state storage
-items by means of the <a href="../../../frame_support/traits/hooks/trait.BuildGenesisConfig.html" title="trait frame_support::traits::hooks::BuildGenesisConfig"><code>BuildGenesisConfig</code></a> trait which shall be implemented for the pallet’s
+items by means of the <a href="../../../frame_support/traits/hooks/trait.BuildGenesisConfig.html" title="trait frame_support::traits::hooks::BuildGenesisConfig"><code>BuildGenesisConfig</code></a> trait, which shall be implemented for the pallet’s
 <code>GenesisConfig</code> struct. The <a href="../../../frame_support_procedural/attr.genesis_build.html" title="attr frame_support_procedural::genesis_build"><code>pallet::genesis_build</code></a> attribute shall be attached to the <code>impl</code>
 block:</p>
 
@@ -234,7 +234,7 @@ in the example for <code>pallet_foo</code>:</p>
 	</span>_phantom: PhantomData&lt;T&gt;,
 }</code></pre></div>
 <p>Note that <a href="https://serde.rs/field-attrs.html"><code>serde</code></a> attributes can be used to control how the data
-structures are being stored into JSON. In the following example [<code>sp_core::bytes</code>] function is
+structures are stored into JSON. In the following example, the [<code>sp_core::bytes</code>] function is
 used to serialize the <code>values</code> field.</p>
 
 <div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="attr">#[derive(Default, serde::Serialize, serde::Deserialize)]
@@ -244,8 +244,8 @@ used to serialize the <code>values</code> field.</p>
 	</span><span class="kw">pub </span>values: Vec&lt;u8&gt;,
 }</code></pre></div>
 <p>Please note that fields of <code>GenesisConfig</code> may not be directly mapped to storage items. In the
-following example the initial struct fields are used to compute (sum) the value that will be
-stored in state as <code>ProcessedEnumValue</code>:</p>
+following example, the initial struct fields are used to compute (sum) the value that will be
+stored in the state as <code>ProcessedEnumValue</code>:</p>
 
 <div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="attr">#[pallet::genesis_build]
 </span><span class="kw">impl</span>&lt;T: Config&gt; BuildGenesisConfig <span class="kw">for </span>GenesisConfig&lt;T&gt; {
@@ -261,29 +261,29 @@ stored in state as <code>ProcessedEnumValue</code>:</p>
 	}
 }</code></pre></div>
 <h2 id="genesisconfig-for-runtimes"><a class="doc-anchor" href="#genesisconfig-for-runtimes">§</a><code>GenesisConfig</code> for <code>runtimes</code></h2>
-<p>The runtime genesis config struct consists of configs for every pallet. For <a href="../../../chain_spec_guide_runtime/index.html" title="mod chain_spec_guide_runtime"><em>demonstration
+<p>The runtime genesis config struct consists of configs for every pallet. For the <a href="../../../chain_spec_guide_runtime/index.html" title="mod chain_spec_guide_runtime"><em>demonstration
 runtime</em></a> used in this guide, it consists of <code>SystemConfig</code>,
-<code>BarConfig</code> and <code>FooConfig</code>. This structure was automatically generated by macro and it can be
-sneak peaked here: <a href="../../../chain_spec_guide_runtime/runtime/struct.RuntimeGenesisConfig.html" title="struct chain_spec_guide_runtime::runtime::RuntimeGenesisConfig"><code>RuntimeGenesisConfig</code></a>. For further reading on generated runtime
-types refer to <a href="../frame_runtime_types/index.html" title="mod polkadot_sdk_docs::reference_docs::frame_runtime_types"><code>frame_runtime_types</code></a>.</p>
+<code>BarConfig</code>, and <code>FooConfig</code>. This structure was automatically generated by a macro and it can
+be sneak-peeked here: <a href="../../../chain_spec_guide_runtime/runtime/struct.RuntimeGenesisConfig.html" title="struct chain_spec_guide_runtime::runtime::RuntimeGenesisConfig"><code>RuntimeGenesisConfig</code></a>. For further reading on generated runtime
+types, refer to <a href="../frame_runtime_types/index.html" title="mod polkadot_sdk_docs::reference_docs::frame_runtime_types"><code>frame_runtime_types</code></a>.</p>
 <p>The macro automatically adds an attribute that renames all the fields to <a href="https://serde.rs/container-attrs.html#rename_all"><code>camelCase</code></a>. It is a
 good practice to add it to nested structures too, to have the naming of the JSON keys consistent
 across the chain-spec file.</p>
 <h3 id="default-for-genesisconfig"><a class="doc-anchor" href="#default-for-genesisconfig">§</a><code>Default</code> for <code>GenesisConfig</code></h3>
-<p><code>GenesisConfig</code> of all pallets must implement <code>Defualt</code> trait. Those are aggregated into
-runtime’s <code>RuntimeGenesisConfig</code>’s <code>Default</code>.</p>
-<p>Default value of <code>RuntimeGenesisConfig</code> can be queried by <a href="../../../sp_genesis_builder/trait.GenesisBuilder.html#method.get_preset" title="method sp_genesis_builder::GenesisBuilder::get_preset"><code>GenesisBuilder::get_preset</code></a>
-function provided by runtime with <code>id:None</code>.</p>
-<p>A default value for RuntimeGenesisConfig usually is not operational. This is because for some
+<p><code>GenesisConfig</code> of all pallets must implement the <code>Default</code> trait. These are aggregated into
+the runtime’s <code>RuntimeGenesisConfig</code>’s <code>Default</code>.</p>
+<p>The default value of <code>RuntimeGenesisConfig</code> can be queried by the <a href="../../../sp_genesis_builder/trait.GenesisBuilder.html#method.get_preset" title="method sp_genesis_builder::GenesisBuilder::get_preset"><code>GenesisBuilder::get_preset</code></a>
+function provided by the runtime with <code>id:None</code>.</p>
+<p>A default value for <code>RuntimeGenesisConfig</code> usually is not operational. This is because for some
 pallets it is not possible to define good defaults (e.g. an initial set of authorities).</p>
 <p>A default value is a base upon which a patch for <code>GenesisConfig</code> is applied. A good description
 of how it exactly works is provided in <a href="../../../sc_chain_spec/genesis_config_builder/struct.GenesisConfigBuilderRuntimeCaller.html#method.get_storage_for_patch" title="method sc_chain_spec::genesis_config_builder::GenesisConfigBuilderRuntimeCaller::get_storage_for_patch"><code>get_storage_for_patch</code></a> (and also in
-<a href="../../../sp_genesis_builder/trait.GenesisBuilder.html#method.get_preset" title="method sp_genesis_builder::GenesisBuilder::get_preset"><code>GenesisBuilder::get_preset</code></a>). A patch can be provided as a external file (manually created)
-or as builtin runtime preset. More info on presets are in the material to follow.</p>
+<a href="../../../sp_genesis_builder/trait.GenesisBuilder.html#method.get_preset" title="method sp_genesis_builder::GenesisBuilder::get_preset"><code>GenesisBuilder::get_preset</code></a>). A patch can be provided as an external file (manually created)
+or as a built-in runtime preset. More info on presets is in the material to follow.</p>
 <h3 id="implementing-genesisbuilder-for-runtime"><a class="doc-anchor" href="#implementing-genesisbuilder-for-runtime">§</a>Implementing <code>GenesisBuilder</code> for runtime</h3>
 <p>The runtime exposes a dedicated runtime API for interacting with its genesis config:
 <a href="../../../sp_genesis_builder/trait.GenesisBuilder.html" title="trait sp_genesis_builder::GenesisBuilder"><code>sp_genesis_builder::GenesisBuilder</code></a>. The implementation shall be provided within
-<a href="../../../sp_api_proc_macro/macro.impl_runtime_apis.html" title="macro sp_api_proc_macro::impl_runtime_apis"><code>sp_api::impl_runtime_apis</code></a> macro, typically making use of some helpers provided:
+the <a href="../../../sp_api_proc_macro/macro.impl_runtime_apis.html" title="macro sp_api_proc_macro::impl_runtime_apis"><code>sp_api::impl_runtime_apis</code></a> macro, typically making use of some helpers provided:
 <a href="../../../frame_support/genesis_builder_helper/fn.build_state.html" title="fn frame_support::genesis_builder_helper::build_state"><code>build_state</code></a>, <a href="../../../frame_support/genesis_builder_helper/fn.get_preset.html" title="fn frame_support::genesis_builder_helper::get_preset"><code>get_preset</code></a>.
 A typical implementation of <a href="../../../sp_genesis_builder/trait.GenesisBuilder.html" title="trait sp_genesis_builder::GenesisBuilder"><code>sp_genesis_builder::GenesisBuilder</code></a> looks as follows:</p>
 
@@ -315,7 +315,7 @@ A typical implementation of <a href="../../../sp_genesis_builder/trait.GenesisBu
 	}
 }</code></pre></div>
 <p>Please note that two functions are customized: <code>preset_names</code> and <code>get_preset</code>. The first one
-just provides a <code>Vec</code> of the names of supported presets, while the latter one delegates the call
+just provides a <code>Vec</code> of the names of supported presets, while the latter delegates the call
 to a function that maps the name to an actual preset:
 <a href="../../../chain_spec_guide_runtime/presets/fn.get_builtin_preset.html" title="fn chain_spec_guide_runtime::presets::get_builtin_preset"><code>chain_spec_guide_runtime::presets::get_builtin_preset</code></a></p>
 
@@ -338,9 +338,9 @@ to a function that maps the name to an actual preset:
 <h3 id="genesis-state-presets-for-runtime"><a class="doc-anchor" href="#genesis-state-presets-for-runtime">§</a>Genesis state presets for runtime</h3>
 <p>The runtime may provide many flavors of initial genesis state. This may be useful for predefined
 testing networks, local development, or CI integration tests. Predefined genesis state may
-contain a list of pre-funded accounts, predefined authorities for consensus, sudo key and many
+contain a list of pre-funded accounts, predefined authorities for consensus, sudo key, and many
 others useful for testing.</p>
-<p>Internally presets can be provided in a number of ways:</p>
+<p>Internally, presets can be provided in a number of ways:</p>
 <ul>
 <li>JSON in string form:</li>
 </ul>
@@ -396,11 +396,11 @@ others useful for testing.</p>
 		</span>},
 	})
 }</code></pre></div>
-<p>It is worth noting that preset does not have to be the full <code>RuntimeGenesisConfig</code>, in that
+<p>It is worth noting that a preset does not have to be the full <code>RuntimeGenesisConfig</code>, in that
 sense that it does not have to contain all the keys of the struct. The preset is actually a JSON
-patch that will be merged with default value of <code>RuntimeGenesisConfig</code>. This approach should
-simplify maintanance of builtin presets. Following example illustrates runtime genesis config
-patch:</p>
+patch that will be merged with the default value of <code>RuntimeGenesisConfig</code>. This approach should
+simplify maintenance of built-in presets. The following example illustrates a runtime genesis
+config patch:</p>
 
 <div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">fn </span>preset_4() -&gt; Value {
 	<span class="macro">json!</span>({
@@ -414,9 +414,9 @@ patch:</p>
 	})
 }</code></pre></div>
 <h3 id="note-on-the-importance-of-testing-presets"><a class="doc-anchor" href="#note-on-the-importance-of-testing-presets">§</a>Note on the importance of testing presets</h3>
-<p>It is recommended to always test presets by adding the tests that convert the preset into the
+<p>It is recommended to always test presets by adding tests that convert the preset into the
 raw storage. Converting to raw storage involves the deserialization of the provided JSON blob,
-what enforces the verification of the preset. The following code shows one of the approaches
+which enforces the verification of the preset. The following code shows one of the approaches
 that can be taken for testing:</p>
 
 <div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="attr">#[test]
@@ -429,8 +429,8 @@ that can be taken for testing:</p>
 	<span class="macro">assert!</span>(builder.get_storage_for_named_preset(<span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>PRESET_3.to_string())).is_ok());
 	<span class="macro">assert!</span>(builder.get_storage_for_named_preset(<span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>PRESET_4.to_string())).is_ok());
 }</code></pre></div>
-<h3 id="note-on-tne-importance-of-using-deny_unknown_fields-attribute"><a class="doc-anchor" href="#note-on-tne-importance-of-using-deny_unknown_fields-attribute">§</a>Note on tne importance of using <code>deny_unknown_fields</code> attribute</h3>
-<p>It is worth noting that it is easy to make a hard to spot mistake as in the following example
+<h3 id="note-on-the-importance-of-using-the-deny_unknown_fields-attribute"><a class="doc-anchor" href="#note-on-the-importance-of-using-the-deny_unknown_fields-attribute">§</a>Note on the importance of using the <code>deny_unknown_fields</code> attribute</h3>
+<p>It is worth noting that it is easy to make a hard-to-spot mistake, as in the following example
 (<a href="../../../chain_spec_guide_runtime/pallets/struct.FooStruct.html" title="struct chain_spec_guide_runtime::pallets::FooStruct"><code>FooStruct</code></a> does not contain <code>fieldC</code>):</p>
 
 <div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">fn </span>preset_invalid() -&gt; Value {
@@ -443,8 +443,9 @@ that can be taken for testing:</p>
 	})
 }</code></pre></div>
 <p>Even though <code>preset_invalid</code> contains a key that does not exist, the deserialization of the JSON
-blob does not fail. The mispelling is silently ignored due to lack of <a href="https://serde.rs/container-attrs.html#deny_unknown_fields"><code>deny_unknown_fields</code></a>
-attribute on the <a href="../../../chain_spec_guide_runtime/pallets/struct.FooStruct.html" title="struct chain_spec_guide_runtime::pallets::FooStruct"><code>FooStruct</code></a> struct, which is internally used in <code>GenesisConfig</code>.</p>
+blob does not fail. The misspelling is silently ignored due to the lack of the
+<a href="https://serde.rs/container-attrs.html#deny_unknown_fields"><code>deny_unknown_fields</code></a> attribute on the <a href="../../../chain_spec_guide_runtime/pallets/struct.FooStruct.html" title="struct chain_spec_guide_runtime::pallets::FooStruct"><code>FooStruct</code></a> struct, which is internally used in
+<code>GenesisConfig</code>.</p>
 
 <div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="attr">#[test]
 </span><span class="kw">fn </span>invalid_preset_works() {
@@ -459,22 +460,22 @@ attribute on the <a href="../../../chain_spec_guide_runtime/pallets/struct.FooSt
 	</span><span class="macro">assert!</span>(builder.get_storage_for_named_preset(<span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>PRESET_INVALID.to_string())).is_ok());
 }</code></pre></div>
 <h3 id="runtime-genesisconfig-raw-format"><a class="doc-anchor" href="#runtime-genesisconfig-raw-format">§</a>Runtime <code>GenesisConfig</code> raw format</h3>
-<p>A raw format of genesis config cotains just state’s keys and values as they are stored in the
-storage. This format is used to directly initialize the genesis storage. This format is useful
-for long-term running chains, where the <code>GenesisConfig</code> stucture for pallets may be evolving
-over the time. The JSON representation created at some point in time may no longer be
-deserializable in future, making a chain specification useless. The raw format is recommended
-for the production chains.</p>
-<p>For detailed description on how raw format is built please refer to
-<a href="../../../sc_chain_spec/index.html#from-initial-state-to-raw-genesis" title="mod sc_chain_spec"><em>chain-spec-raw-genesis</em></a>. A plain and
+<p>A raw format of genesis config contains just the state’s keys and values as they are stored in
+the storage. This format is used to directly initialize the genesis storage. This format is
+useful for long-term running chains, where the <code>GenesisConfig</code> structure for pallets may be
+evolving over time. The JSON representation created at some point in time may no longer be
+deserializable in the future, making a chain specification useless. The raw format is
+recommended for production chains.</p>
+<p>For a detailed description of how the raw format is built, please refer to
+<a href="../../../sc_chain_spec/index.html#from-initial-state-to-raw-genesis" title="mod sc_chain_spec"><em>chain-spec-raw-genesis</em></a>. Plain and
 corresponding raw examples of chain-spec are given in
 <a href="../../../sc_chain_spec/index.html#json-chain-specification-example" title="mod sc_chain_spec"><em>chain-spec-examples</em></a>.
 The <a href="../../../staging_chain_spec_builder/index.html"><code>chain_spec_builder</code></a> util supports building the raw storage.</p>
 <h2 id="interacting-with-the-tool"><a class="doc-anchor" href="#interacting-with-the-tool">§</a>Interacting with the tool</h2>
-<p>The <a href="../../../staging_chain_spec_builder/index.html"><code>chain_spec_builder</code></a> util allows to interact with runtime in order to list or display
+<p>The <a href="../../../staging_chain_spec_builder/index.html"><code>chain_spec_builder</code></a> util allows interaction with the runtime in order to list or display
 presets and build the chain specification file. It is possible to use the tool with the
-<a href="../../../chain_spec_guide_runtime/index.html" title="mod chain_spec_guide_runtime"><em>demonstration runtime</em></a>. To build required packages just run the
-following command:</p>
+<a href="../../../chain_spec_guide_runtime/index.html" title="mod chain_spec_guide_runtime"><em>demonstration runtime</em></a>. To build the required packages, just run
+the following command:</p>
 
 <div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code>cargo build -p staging-chain-spec-builder -p chain-spec-guide-runtime --release</code></pre></div>
 <p>The <code>chain-spec-builder</code> util can also be installed with <code>cargo install</code>:</p>
@@ -482,7 +483,7 @@ following command:</p>
 <div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code>cargo install staging-chain-spec-builder
 cargo build -p chain-spec-guide-runtime --release</code></pre></div>
 <p>Here are some examples in the form of rust tests:</p>
-<h3 id="listing-available-presets-names"><a class="doc-anchor" href="#listing-available-presets-names">§</a>Listing available presets names:</h3>
+<h3 id="listing-available-preset-names"><a class="doc-anchor" href="#listing-available-preset-names">§</a>Listing available preset names:</h3>
 <div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="attr">#[test]
 </span><span class="kw">fn </span>list_presets() {
 	<span class="kw">let </span>output = Command::new(get_chain_spec_builder_path())
