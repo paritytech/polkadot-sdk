@@ -17,7 +17,7 @@
 //! Put implementations of functions from staging APIs here.
 
 use crate::{inclusion, initializer, scheduler};
-use primitives::{CommittedCandidateReceipt, CoreIndex, Id as ParaId};
+use polkadot_primitives::{CommittedCandidateReceipt, CoreIndex, Id as ParaId};
 use sp_runtime::traits::One;
 use sp_std::{
 	collections::{btree_map::BTreeMap, vec_deque::VecDeque},
