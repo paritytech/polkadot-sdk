@@ -576,6 +576,7 @@ where
 						(self.0)(f)
 					}
 				}
+				// TODO: update to new builder interface.
 				#[allow(deprecated)]
 				SwarmBuilder::with_executor(
 					transport,

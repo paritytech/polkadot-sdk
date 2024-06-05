@@ -33,9 +33,8 @@ use libp2p::{
 	core::{transport::MemoryTransport, upgrade, Endpoint},
 	identity, noise,
 	swarm::{
-		behaviour::FromSwarm, ConnectionDenied, ConnectionId, Executor, NetworkBehaviour,
-		PollParameters, Swarm, SwarmBuilder, SwarmEvent, THandler, THandlerInEvent,
-		THandlerOutEvent, ToSwarm,
+		self, behaviour::FromSwarm, ConnectionDenied, ConnectionId, Executor, NetworkBehaviour,
+		PollParameters, Swarm, SwarmEvent, THandler, THandlerInEvent, THandlerOutEvent, ToSwarm,
 	},
 	yamux, Multiaddr, PeerId, Transport,
 };
@@ -141,13 +140,12 @@ fn build_nodes() -> (Swarm<CustomProtoWithAddr>, Swarm<CustomProtoWithAddr>) {
 			}
 		});
 
-		let mut swarm = SwarmBuilder::with_executor(
+		let mut swarm = Swarm::new(
 			transport,
 			behaviour,
 			keypairs[index].public().to_peer_id(),
-			TokioExecutor(runtime),
-		)
-		.build();
+			swarm::Config::with_executor(TokioExecutor(runtime)),
+		);
 		swarm.listen_on(addrs[index].clone()).unwrap();
 		out.push(swarm);
 	}
