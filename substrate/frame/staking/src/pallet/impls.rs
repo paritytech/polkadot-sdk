@@ -27,8 +27,8 @@ use frame_support::{
 	dispatch::WithPostDispatchInfo,
 	pallet_prelude::*,
 	traits::{
-		Currency, Defensive, DefensiveSaturating, EstimateNextNewSession, Get, Imbalance,
-		InspectLockableCurrency, Len, LockableCurrency, OnUnbalanced, TryCollect,
+		Currency, Defensive, DefensiveSaturating, EstimateNextNewSession, Get,
+		InspectLockableCurrency, Len, LockableCurrency, TryCollect,
 	},
 	weights::Weight,
 };
@@ -53,14 +53,15 @@ use sp_std::prelude::*;
 use crate::{
 	election_size_tracker::StaticTracker, log, slashing, weights::WeightInfo, ActiveEraInfo,
 	BalanceOf, EraInfo, Exposure, ExposureOf, Forcing, IndividualExposure, LedgerIntegrityState,
-	MaxNominationsOf, MaxWinnersOf, Nominations, NominationsQuota, PositiveImbalanceOf,
-	RewardDestination, SessionInterface, StakingLedger, ValidatorPrefs,
+	MaxNominationsOf, MaxWinnersOf, Nominations, NominationsQuota, RewardDestination,
+	SessionInterface, StakingLedger, ValidatorPrefs,
 };
 
 use super::pallet::*;
 
 #[cfg(feature = "try-runtime")]
 use frame_support::ensure;
+use frame_support::traits::ExistenceRequirement::AllowDeath;
 #[cfg(any(test, feature = "try-runtime"))]
 use sp_runtime::TryRuntimeError;
 
@@ -353,13 +354,15 @@ impl<T: Config> Pallet<T> {
 			validator_stash: stash.clone(),
 		});
 
-		let mut total_imbalance = PositiveImbalanceOf::<T>::zero();
 		// We can now make total validator payout:
-		if let Some((imbalance, dest)) =
-			Self::make_payout(&stash, validator_staking_payout + validator_commission_payout)
-		{
-			Self::deposit_event(Event::<T>::Rewarded { stash, dest, amount: imbalance.peek() });
-			total_imbalance.subsume(imbalance);
+		let payer = Self::era_payout_account(era);
+		let validator_payout = validator_staking_payout + validator_commission_payout;
+		if let Some(dest) = Self::make_payout(
+			&payer,
+			&stash,
+			validator_staking_payout + validator_commission_payout,
+		) {
+			Self::deposit_event(Event::<T>::Rewarded { stash, dest, amount: validator_payout });
 		}
 
 		// Track the number of payout ops to nominators. Note:
@@ -375,20 +378,18 @@ impl<T: Config> Pallet<T> {
 			let nominator_reward: BalanceOf<T> =
 				nominator_exposure_part * validator_leftover_payout;
 			// We can now make nominator payout:
-			if let Some((imbalance, dest)) = Self::make_payout(&nominator.who, nominator_reward) {
+			if let Some(dest) = Self::make_payout(&payer, &nominator.who, nominator_reward) {
 				// Note: this logic does not count payouts for `RewardDestination::None`.
 				nominator_payout_count += 1;
 				let e = Event::<T>::Rewarded {
 					stash: nominator.who.clone(),
 					dest,
-					amount: imbalance.peek(),
+					amount: nominator_reward,
 				};
 				Self::deposit_event(e);
-				total_imbalance.subsume(imbalance);
 			}
 		}
 
-		T::Reward::on_unbalanced(total_imbalance);
 		debug_assert!(nominator_payout_count <= T::MaxExposurePageSize::get());
 
 		Ok(Some(T::WeightInfo::payout_stakers_alive_staked(nominator_payout_count)).into())
@@ -406,43 +407,43 @@ impl<T: Config> Pallet<T> {
 	/// Actually make a payment to a staker. This uses the currency's reward function
 	/// to pay the right payee for the given staker account.
 	fn make_payout(
+		payer: &T::AccountId,
 		stash: &T::AccountId,
 		amount: BalanceOf<T>,
-	) -> Option<(PositiveImbalanceOf<T>, RewardDestination<T::AccountId>)> {
+	) -> Option<RewardDestination<T::AccountId>> {
 		// noop if amount is zero
 		if amount.is_zero() {
 			return None
 		}
 		let dest = Self::payee(StakingAccount::Stash(stash.clone()))?;
 
-		let maybe_imbalance = match dest {
-			RewardDestination::Stash => T::Currency::deposit_into_existing(stash, amount).ok(),
-			RewardDestination::Staked => Self::ledger(Stash(stash.clone()))
-				.and_then(|mut ledger| {
-					ledger.active += amount;
-					ledger.total += amount;
-					let r = T::Currency::deposit_into_existing(stash, amount).ok();
-
-					let _ = ledger
-						.update()
-						.defensive_proof("ledger fetched from storage, so it exists; qed.");
-
-					Ok(r)
-				})
-				.unwrap_or_default(),
-			RewardDestination::Account(ref dest_account) =>
-				Some(T::Currency::deposit_creating(&dest_account, amount)),
+		match dest {
+			RewardDestination::Stash => {
+				let _ = T::Currency::transfer(payer, stash, amount, AllowDeath).defensive();
+				Some(dest)
+			},
+			RewardDestination::Staked => {
+				let mut ledger = Self::ledger(Stash(stash.clone())).ok()?;
+				ledger.active += amount;
+				ledger.total += amount;
+				let _ = ledger
+					.update()
+					.defensive_proof("ledger fetched from storage, so it exists; qed.");
+				let _ = T::Currency::transfer(payer, stash, amount, AllowDeath).defensive();
+				Some(dest)
+			},
+			RewardDestination::Account(ref dest_account) => {
+				let _ = T::Currency::transfer(payer, &dest_account, amount, AllowDeath).defensive();
+				Some(dest)
+			},
 			RewardDestination::None => None,
 			#[allow(deprecated)]
-			RewardDestination::Controller => Self::bonded(stash)
-					.map(|controller| {
-						defensive!("Paying out controller as reward destination which is deprecated and should be migrated.");
-						// This should never happen once payees with a `Controller` variant have been migrated.
-						// But if it does, just pay the controller account.
-						T::Currency::deposit_creating(&controller, amount)
-		}),
-		};
-		maybe_imbalance.map(|imbalance| (imbalance, dest))
+			RewardDestination::Controller => {
+				let controller = Self::bonded(stash)?;
+				let _ = T::Currency::transfer(payer, &controller, amount, AllowDeath).defensive();
+				Some(dest)
+			},
+		}
 	}
 
 	/// Plan a new session potentially trigger a new era.

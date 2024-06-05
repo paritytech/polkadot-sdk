@@ -4989,6 +4989,59 @@ fn do_not_die_when_active_is_ed() {
 		})
 }
 
+#[test]
+fn staking_accounts_are_unique() {
+	let mut accounts = Vec::new();
+	accounts.push(Staking::pending_payout_account());
+
+	for i in 0..15 {
+		let era_acc = Staking::era_payout_account(i);
+		assert!(!accounts.contains(&era_acc));
+		accounts.push(era_acc);
+	}
+}
+
+#[test]
+fn era_reward_distribution() {
+	ExtBuilder::default().validator_count(10).nominate(false).build_and_execute(|| {
+		// genesis validators are 11, 21, 31
+		let validators = Validators::<Test>::iter().collect::<Vec<_>>();
+		assert_eq_uvec!(
+			validators,
+			vec![
+				(11, ValidatorPrefs::default()),
+				(21, ValidatorPrefs::default()),
+				(31, ValidatorPrefs::default())
+			]
+		);
+
+		// create a bunch of validators and give them equal reward points.
+		for i in 500..510 {
+			Pallet::<Test>::reward_by_ids(vec![(i, 1)]);
+			bond_validator(i, 1000);
+		}
+
+		// create a bunch of nominators.
+		for i in 600..700 {
+			let target = 500 + (i % 10);
+			bond_nominator(i, 1000, vec![target]);
+		}
+
+		// start era 1
+		mock::start_active_era(1);
+		// total payout for era 0
+		assert_eq!(Staking::era_payout(0), 11090);
+
+		// start paying out validators.
+		for i in 500..510 {
+			assert_ok!(Staking::payout_stakers_by_page(RuntimeOrigin::signed(1337), i, 0, 0));
+		}
+
+		// era payout account is exhausted.
+		assert_eq!(Staking::era_payout(0), 0);
+	});
+}
+
 mod election_data_provider {
 	use super::*;
 	use frame_election_provider_support::ElectionDataProvider;
@@ -8219,17 +8272,5 @@ mod byzantine_threshold_disabling_strategy {
 
 			assert_eq!(disable_offender, Some(OFFENDER_VALIDATOR_IDX));
 		});
-	}
-}
-
-#[test]
-fn staking_accounts_are_unique() {
-	let mut accounts = Vec::new();
-	accounts.push(Staking::pending_payout_account());
-
-	for i in 0..15 {
-		let era_acc = Staking::era_payout_account(i);
-		assert!(!accounts.contains(&era_acc));
-		accounts.push(era_acc);
 	}
 }
