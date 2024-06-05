@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1717586873072,
+  "lastUpdate": 1717593861736,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -6485,6 +6485,53 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-distribution",
             "value": 7.279748065420044,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Michal Kucharczyk",
+            "username": "michalkucharczyk",
+            "email": "1728078+michalkucharczyk@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "f65beb7f7a66a79f4afd0a308bece2bd5c8ba780",
+          "message": "chain-spec-doc: some minor fixes (#4700)\n\nsome minor text fixes.",
+          "timestamp": "2024-06-05T11:52:02Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/f65beb7f7a66a79f4afd0a308bece2bd5c8ba780"
+        },
+        "date": 1717593833328,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63548.52,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52942.59999999999,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting",
+            "value": 9.252302674100088,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 6.952537704200036,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 3.0270463027301315,
             "unit": "seconds"
           }
         ]
