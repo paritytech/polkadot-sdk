@@ -53,7 +53,7 @@ docker build . -t polkadot-sdk-parachain-template
 
 ### Local Development Chain
 
-🧟 This project uses [Zombienet](https://github.com/paritytech/zombienet) to orchestrate the relaychain and parachain nodes. You can grab a [released binary](https://github.com/paritytech/zombienet/releases) or use an [npm version](https://www.npmjs.com/package/@zombienet/cli).
+🧟 This project uses [Zombienet](https://github.com/paritytech/zombienet) to orchestrate the relaychain and parachain nodes. You can grab a [released binary](https://github.com/paritytech/zombienet/releases/latest) or use an [npm version](https://www.npmjs.com/package/@zombienet/cli).
 
 This template produces a parachain node. You still need a relaychain node - you can download the `polkadot` (and the accompanying `polkadot-prepare-worker` and `polkadot-execute-worker`) binaries from [Polkadot SDK releases](https://github.com/paritytech/polkadot-sdk/releases/latest).
 
