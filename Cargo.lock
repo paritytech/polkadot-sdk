@@ -9924,7 +9924,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-identity"
-version = "30.0.0"
+version = "29.0.2"
 dependencies = [
  "enumflags2",
  "frame-benchmarking",
