@@ -11,5 +11,7 @@ doc:
       artifact is stale less than 24 hours we don't remove it.
 
 crates:
+  - name: polkadot-node-core-pvf-common
+    bump: patch
   - name: polkadot-node-core-pvf
     bump: patch
