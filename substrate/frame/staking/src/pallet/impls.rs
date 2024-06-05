@@ -2364,7 +2364,10 @@ impl<T: Config> Pallet<T> {
 
 	/// Invariants:
 	/// * Checks that each nominator has its entire stake correctly distributed.
+	/// * Nominations do not have duplicate targets.
 	fn check_nominators() -> Result<(), TryRuntimeError> {
+		use sp_std::collections::btree_set::BTreeSet;
+
 		// a check per nominator to ensure their entire stake is correctly distributed. Will only
 		// kick-in if the nomination was submitted before the current era.
 		let era = Self::active_era().unwrap().index;
@@ -2376,15 +2379,34 @@ impl<T: Config> Pallet<T> {
 			.collect::<Vec<_>>();
 
 		<Nominators<T>>::iter()
-			.filter_map(
-				|(nominator, nomination)| {
+			// fails if a nomination vec has duplicate targets.
+			.map(|nomination| -> Result<(T::AccountId, Nominations<T>), TryRuntimeError> {
+				let targets = nomination.clone().1.targets;
+
+				let count_before = targets.len();
+				let dedup_noms: Vec<T::AccountId> = targets
+					.clone()
+					.drain(..)
+					.collect::<BTreeSet<_>>()
+					.into_iter()
+					.collect::<Vec<_>>();
+
+				ensure!(
+					count_before == dedup_noms.len(),
+					"A nominator has duplicate nominations; unexpected."
+				);
+
+				Ok(nomination)
+			})
+			.filter_map(|n| match n {
+				Ok((nominator, nomination)) =>
 					if nomination.submitted_in < era {
 						Some(nominator)
 					} else {
 						None
-					}
-				},
-			)
+					},
+				Err(_) => None,
+			})
 			.map(|nominator| -> Result<(), TryRuntimeError> {
 				// must be bonded.
 				Self::ensure_is_stash(&nominator)?;

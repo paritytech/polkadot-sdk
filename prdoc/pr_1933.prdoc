@@ -4,7 +4,7 @@ doc:
   - audience: Runtime Dev
     description: |
       The (newly added) `stake-tracker` pallet implements the `OnStakingUpdate` trait to listen to
-      staking events and multiplexes those events to one or multiple types (e.g. pallets). The 
+      staking events and multiplex those events to one or multiple types (e.g. pallets). The 
       `stake-tracker` pallet is used as a degree of indirection to maintain an *always-sorted*
       target and a semi-sorted voter list for staking (implemented by the bags list pallet).
       Other notable changes in this PR are:
@@ -18,4 +18,5 @@ doc:
 
 crates:
   - name: pallet-staking
+    bump: minor
   - name: pallet-stake-tracker

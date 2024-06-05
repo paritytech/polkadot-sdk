@@ -749,6 +749,35 @@ fn nominating_and_rewards_should_work() {
 }
 
 #[test]
+fn nominate_filters_duplicate_targets() {
+	ExtBuilder::default().build_and_execute(|| {
+		assert_eq!(Staking::status(&101).unwrap(), StakerStatus::Nominator(vec![11, 21]));
+
+		// re-nominate with duplicates, which are filtered out.
+		assert_ok!(Staking::nominate(RuntimeOrigin::signed(101), vec![11, 11, 11, 21, 21, 21]));
+		assert_eq!(Staking::status(&101).unwrap(), StakerStatus::Nominator(vec![11, 21]));
+	})
+}
+
+#[test]
+#[should_panic = "called `Result::unwrap()` on an `Err` value: Other(\"nominator has duplicate nominations, unexpected.\")"]
+fn nominate_duplicate_targets_try_state_fails() {
+	ExtBuilder::default().build_and_execute(|| {
+		let nominations = Nominators::<Test>::get(&101).unwrap();
+		assert_eq!(nominations.targets, vec![11, 21]);
+
+		let dup_noms = Nominations {
+			targets: bounded_vec![11, 11, 21],
+			submitted_in: nominations.submitted_in,
+			suppressed: nominations.suppressed,
+		};
+		Nominators::<Test>::insert(&101, dup_noms);
+
+		assert_eq!(Staking::status(&101).unwrap(), StakerStatus::Nominator(vec![11, 11, 21]));
+	});
+}
+
+#[test]
 fn nominators_also_get_slashed_pro_rata() {
 	ExtBuilder::default()
 		.validator_count(4)
