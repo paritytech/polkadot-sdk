@@ -106,7 +106,7 @@ pub mod testing;
 
 pub use error::{InvalidCandidate, PossiblyInvalidError, ValidationError};
 pub use host::{
-	start, Config, ValidationHost, WorkersCleanup, EXECUTE_BINARY_NAME, HOST_MESSAGE_QUEUE_SIZE,
+	start, Config, ValidationHost, EXECUTE_BINARY_NAME, HOST_MESSAGE_QUEUE_SIZE,
 	PREPARE_BINARY_NAME,
 };
 pub use metrics::Metrics;

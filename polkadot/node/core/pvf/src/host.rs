@@ -21,7 +21,7 @@
 //! [`ValidationHost`], that allows communication with that event-loop.
 
 use crate::{
-	artifacts::{ArtifactId, ArtifactPathId, ArtifactState, Artifacts},
+	artifacts::{ArtifactId, ArtifactPathId, ArtifactState, Artifacts, CleanupBy},
 	execute::{self, PendingExecutionRequest},
 	metrics::Metrics,
 	prepare, Priority, SecurityStatus, ValidationError, LOG_TARGET,
@@ -178,8 +178,6 @@ pub struct Config {
 	pub execute_worker_spawn_timeout: Duration,
 	/// The maximum number of execute workers that can run at the same time.
 	pub execute_workers_max_num: usize,
-	/// The strategy we use to cleanup artifacts
-	pub workers_cleanup: WorkersCleanup,
 }
 
 impl Config {
@@ -193,7 +191,6 @@ impl Config {
 		execute_workers_max_num: usize,
 		prepare_workers_soft_max_num: usize,
 		prepare_workers_hard_max_num: usize,
-		workers_cleanup: WorkersCleanup,
 	) -> Self {
 		Self {
 			cache_path,
@@ -208,28 +205,7 @@ impl Config {
 			execute_worker_program_path,
 			execute_worker_spawn_timeout: Duration::from_secs(3),
 			execute_workers_max_num,
-			workers_cleanup,
 		}
-	}
-}
-
-/// A condition which we use to cleanup artifacts
-#[derive(Debug)]
-pub enum WorkersCleanup {
-	// Inactive time after which artefact is deleted
-	ByTime(Duration),
-	// Max size in bytes. Reaching it the least used artefacts are deleted
-	#[allow(dead_code)]
-	BySize(u64),
-}
-
-impl WorkersCleanup {
-	pub fn by_time() -> Self {
-		Self::ByTime(Duration::from_secs(24 * 60 * 60)) // 24 hours
-	}
-
-	pub fn by_size() -> Self {
-		Self::BySize(10 * 1024 * 1024 * 1024) // 10 GB
 	}
 }
 
@@ -317,7 +293,7 @@ pub async fn start(
 	let run_host = async move {
 		run(Inner {
 			cleanup_pulse_interval: Duration::from_secs(3600),
-			cleanup: WorkersCleanup::ByTime(Duration::from_secs(3600 * 24)),
+			cleanup_by: CleanupBy::Time(Duration::from_secs(3600 * 24)),
 			artifacts,
 			to_host_rx,
 			to_prepare_queue_tx,
@@ -361,7 +337,7 @@ impl AwaitingPrepare {
 
 struct Inner {
 	cleanup_pulse_interval: Duration,
-	cleanup: WorkersCleanup,
+	cleanup_by: CleanupBy,
 	artifacts: Artifacts,
 
 	to_host_rx: mpsc::Receiver<ToHost>,
@@ -383,7 +359,7 @@ struct Fatal;
 async fn run(
 	Inner {
 		cleanup_pulse_interval,
-		cleanup,
+		cleanup_by,
 		mut artifacts,
 		to_host_rx,
 		from_prepare_queue_rx,
@@ -439,7 +415,7 @@ async fn run(
 				break_if_fatal!(handle_cleanup_pulse(
 					&mut to_sweeper_tx,
 					&mut artifacts,
-					&cleanup,
+					&cleanup_by,
 				).await);
 			},
 			to_host = to_host_rx.next() => {
@@ -887,9 +863,9 @@ async fn enqueue_prepare_for_execute(
 async fn handle_cleanup_pulse(
 	sweeper_tx: &mut mpsc::Sender<PathBuf>,
 	artifacts: &mut Artifacts,
-	cleanup: &WorkersCleanup,
+	cleanup_by: &CleanupBy,
 ) -> Result<(), Fatal> {
-	let to_remove = artifacts.prune(cleanup);
+	let to_remove = artifacts.prune(cleanup_by);
 	gum::debug!(
 		target: LOG_TARGET,
 		"PVF pruning: {} artifacts reached their end of life",
@@ -1055,7 +1031,7 @@ pub(crate) mod tests {
 
 			let run = run(Inner {
 				cleanup_pulse_interval,
-				cleanup: WorkersCleanup::ByTime(artifact_ttl),
+				cleanup_by: CleanupBy::Time(artifact_ttl),
 				artifacts,
 				to_host_rx,
 				to_prepare_queue_tx,

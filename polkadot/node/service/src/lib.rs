@@ -66,7 +66,6 @@ use polkadot_node_subsystem_util::database::Database;
 
 #[cfg(feature = "full-node")]
 pub use {
-	polkadot_node_core_candidate_validation::WorkersCleanupMode,
 	polkadot_overseer::{Handle, Overseer, OverseerConnector, OverseerHandle},
 	polkadot_primitives::runtime_api::ParachainHost,
 	relay_chain_selection::SelectRelayChain,
@@ -655,8 +654,6 @@ pub struct NewFullParams<OverseerGenerator: OverseerGen> {
 	pub prepare_workers_soft_max_num: Option<usize>,
 	/// An optional absolute number of pvf workers that can be spawned in the pvf prepare pool.
 	pub prepare_workers_hard_max_num: Option<usize>,
-	/// The strategy we use to cleanup pvf workers artifacts
-	pub workers_cleanup: WorkersCleanupMode,
 	pub overseer_gen: OverseerGenerator,
 	pub overseer_message_channel_capacity_override: Option<usize>,
 	#[allow(dead_code)]
@@ -755,7 +752,6 @@ pub fn new_full<
 		execute_workers_max_num,
 		prepare_workers_soft_max_num,
 		prepare_workers_hard_max_num,
-		workers_cleanup,
 	}: NewFullParams<OverseerGenerator>,
 ) -> Result<NewFull, Error> {
 	use polkadot_availability_recovery::FETCH_CHUNKS_THRESHOLD;
@@ -975,7 +971,6 @@ pub fn new_full<
 				),
 				pvf_prepare_workers_soft_max_num: prepare_workers_soft_max_num.unwrap_or(1),
 				pvf_prepare_workers_hard_max_num: prepare_workers_hard_max_num.unwrap_or(2),
-				pvf_workers_cleanup_mode: workers_cleanup,
 			})
 		} else {
 			None

@@ -256,7 +256,6 @@ where
 				execute_workers_max_num: cli.run.execute_workers_max_num,
 				prepare_workers_hard_max_num: cli.run.prepare_workers_hard_max_num,
 				prepare_workers_soft_max_num: cli.run.prepare_workers_soft_max_num,
-				workers_cleanup: cli.run.workers_cleanup.into(),
 			},
 		)
 		.map(|full| full.task_manager)?;

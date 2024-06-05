@@ -23,7 +23,7 @@ use polkadot_node_core_pvf::SecurityStatus;
 use polkadot_node_core_pvf::{
 	start, testing::build_workers_and_get_paths, Config, InvalidCandidate, Metrics,
 	PossiblyInvalidError, PrepareError, PrepareJobKind, PvfPrepData, ValidationError,
-	ValidationHost, WorkersCleanup, JOB_TIMEOUT_WALL_CLOCK_FACTOR,
+	ValidationHost, JOB_TIMEOUT_WALL_CLOCK_FACTOR,
 };
 use polkadot_parachain_primitives::primitives::{BlockData, ValidationParams, ValidationResult};
 use polkadot_primitives::{ExecutorParam, ExecutorParams, PvfExecKind, PvfPrepKind};
@@ -66,7 +66,6 @@ impl TestHost {
 			2,
 			1,
 			2,
-			WorkersCleanup::by_size(),
 		);
 		f(&mut config);
 		let (host, task) = start(config, Metrics::default()).await.unwrap();

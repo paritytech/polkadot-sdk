@@ -25,7 +25,7 @@
 
 use polkadot_node_core_pvf::{
 	InternalValidationError, InvalidCandidate as WasmInvalidCandidate, PossiblyInvalidError,
-	PrepareError, PrepareJobKind, PvfPrepData, ValidationError, ValidationHost, WorkersCleanup,
+	PrepareError, PrepareJobKind, PvfPrepData, ValidationError, ValidationHost,
 };
 use polkadot_node_primitives::{
 	BlockData, InvalidCandidate, PoV, ValidationResult, POV_BOMB_LIMIT, VALIDATION_CODE_BOMB_LIMIT,
@@ -107,15 +107,6 @@ pub struct Config {
 	pub pvf_prepare_workers_soft_max_num: usize,
 	/// The absolute number of pvf workers that can be spawned in the pvf prepare pool.
 	pub pvf_prepare_workers_hard_max_num: usize,
-	/// The strategy we use to cleanup artifacts
-	pub pvf_workers_cleanup_mode: WorkersCleanupMode,
-}
-
-#[allow(missing_docs)]
-#[derive(Debug, Clone)]
-pub enum WorkersCleanupMode {
-	Time,
-	Size,
 }
 
 /// The candidate validation subsystem.
@@ -243,13 +234,8 @@ async fn run<Context>(
 		pvf_execute_workers_max_num,
 		pvf_prepare_workers_soft_max_num,
 		pvf_prepare_workers_hard_max_num,
-		pvf_workers_cleanup_mode,
 	}: Config,
 ) -> SubsystemResult<()> {
-	let workers_cleanup = match pvf_workers_cleanup_mode {
-		WorkersCleanupMode::Time => WorkersCleanup::by_time(),
-		WorkersCleanupMode::Size => WorkersCleanup::by_size(),
-	};
 	let (validation_host, task) = polkadot_node_core_pvf::start(
 		polkadot_node_core_pvf::Config::new(
 			artifacts_cache_path,
@@ -260,7 +246,6 @@ async fn run<Context>(
 			pvf_execute_workers_max_num,
 			pvf_prepare_workers_soft_max_num,
 			pvf_prepare_workers_hard_max_num,
-			workers_cleanup,
 		),
 		pvf_metrics,
 	)
