@@ -24,7 +24,7 @@ use crate::{
 use bitvec::{order::Lsb0 as BitOrderLsb0, vec::BitVec};
 use frame_support::pallet_prelude::*;
 use frame_system::pallet_prelude::*;
-use primitives::{
+use polkadot_primitives::{
 	collator_signature_payload, node_features::FeatureIndex, AvailabilityBitfield, BackedCandidate,
 	CandidateCommitments, CandidateDescriptor, CandidateHash, CollatorId, CollatorSignature,
 	CommittedCandidateReceipt, CompactStatement, CoreIndex, DisputeStatement, DisputeStatementSet,

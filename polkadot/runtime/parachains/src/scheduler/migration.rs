@@ -34,7 +34,7 @@ struct V0Assignment {
 /// Old scheduler with explicit parathreads and `Scheduled` storage instead of `ClaimQueue`.
 mod v0 {
 	use super::*;
-	use primitives::{CollatorId, Id};
+	use polkadot_primitives::{CollatorId, Id};
 
 	#[storage_alias]
 	pub(super) type Scheduled<T: Config> = StorageValue<Pallet<T>, Vec<CoreAssignment>, ValueQuery>;
