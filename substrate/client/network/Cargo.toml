@@ -32,7 +32,7 @@ fnv = "1.0.6"
 futures = "0.3.30"
 futures-timer = "3.0.2"
 ip_network = "0.4.1"
-libp2p = { version = "0.52.3", features = ["dns", "identify", "kad", "macros", "mdns", "noise", "ping", "request-response", "tcp", "tokio", "websocket", "yamux"] }
+libp2p = { version = "0.52.4", features = ["dns", "identify", "kad", "macros", "mdns", "noise", "ping", "request-response", "tcp", "tokio", "websocket", "yamux"] }
 linked_hash_set = "0.1.4"
 log = { workspace = true, default-features = true }
 mockall = "0.11.3"
