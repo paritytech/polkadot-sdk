@@ -900,9 +900,7 @@ fn page_not_modified_when_fragment_does_not_fit() {
 		ParachainSystem::open_outbound_hrmp_channel_for_benchmarks_or_tests(sibling);
 
 		let destination: Location = (Parent, Parachain(sibling.into())).into();
-		let other_sibling = ParaId::from(2002);
 		let message = Xcm(vec![ClearOrigin; 600]);
-		let s = message.encoded_size();
 
 		loop {
 			let old_page_zero = OutboundXcmpMessages::<Test>::get(sibling, 0);
