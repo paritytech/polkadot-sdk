@@ -21,7 +21,7 @@
 //! [`ValidationHost`], that allows communication with that event-loop.
 
 use crate::{
-	artifacts::{ArtifactId, ArtifactPathId, ArtifactState, Artifacts, CleanupBy},
+	artifacts::{ArtifactId, ArtifactPathId, ArtifactState, Artifacts, ArtifactsCleanupConfig},
 	execute::{self, PendingExecutionRequest},
 	metrics::Metrics,
 	prepare, Priority, SecurityStatus, ValidationError, LOG_TARGET,
@@ -293,7 +293,7 @@ pub async fn start(
 	let run_host = async move {
 		run(Inner {
 			cleanup_pulse_interval: Duration::from_secs(3600),
-			cleanup_by: CleanupBy::Time(Duration::from_secs(3600 * 24)),
+			cleanup_config: ArtifactsCleanupConfig::default(),
 			artifacts,
 			to_host_rx,
 			to_prepare_queue_tx,
@@ -337,7 +337,7 @@ impl AwaitingPrepare {
 
 struct Inner {
 	cleanup_pulse_interval: Duration,
-	cleanup_by: CleanupBy,
+	cleanup_config: ArtifactsCleanupConfig,
 	artifacts: Artifacts,
 
 	to_host_rx: mpsc::Receiver<ToHost>,
@@ -359,7 +359,7 @@ struct Fatal;
 async fn run(
 	Inner {
 		cleanup_pulse_interval,
-		cleanup_by,
+		cleanup_config,
 		mut artifacts,
 		to_host_rx,
 		from_prepare_queue_rx,
@@ -415,7 +415,7 @@ async fn run(
 				break_if_fatal!(handle_cleanup_pulse(
 					&mut to_sweeper_tx,
 					&mut artifacts,
-					&cleanup_by,
+					&cleanup_config,
 				).await);
 			},
 			to_host = to_host_rx.next() => {
@@ -863,9 +863,9 @@ async fn enqueue_prepare_for_execute(
 async fn handle_cleanup_pulse(
 	sweeper_tx: &mut mpsc::Sender<PathBuf>,
 	artifacts: &mut Artifacts,
-	cleanup_by: &CleanupBy,
+	cleanup_config: &ArtifactsCleanupConfig,
 ) -> Result<(), Fatal> {
-	let to_remove = artifacts.prune(cleanup_by);
+	let to_remove = artifacts.prune(cleanup_config);
 	gum::debug!(
 		target: LOG_TARGET,
 		"PVF pruning: {} artifacts reached their end of life",
@@ -987,7 +987,7 @@ pub(crate) mod tests {
 
 	struct Builder {
 		cleanup_pulse_interval: Duration,
-		artifact_ttl: Duration,
+		cleanup_config: ArtifactsCleanupConfig,
 		artifacts: Artifacts,
 	}
 
@@ -996,8 +996,7 @@ pub(crate) mod tests {
 			Self {
 				// these are selected high to not interfere in tests in which pruning is irrelevant.
 				cleanup_pulse_interval: Duration::from_secs(3600),
-				artifact_ttl: Duration::from_secs(3600),
-
+				cleanup_config: ArtifactsCleanupConfig::default(),
 				artifacts: Artifacts::empty(),
 			}
 		}
@@ -1021,7 +1020,7 @@ pub(crate) mod tests {
 	}
 
 	impl Test {
-		fn new(Builder { cleanup_pulse_interval, artifact_ttl, artifacts }: Builder) -> Self {
+		fn new(Builder { cleanup_pulse_interval, artifacts, cleanup_config }: Builder) -> Self {
 			let (to_host_tx, to_host_rx) = mpsc::channel(10);
 			let (to_prepare_queue_tx, to_prepare_queue_rx) = mpsc::channel(10);
 			let (from_prepare_queue_tx, from_prepare_queue_rx) = mpsc::unbounded();
@@ -1031,7 +1030,7 @@ pub(crate) mod tests {
 
 			let run = run(Inner {
 				cleanup_pulse_interval,
-				cleanup_by: CleanupBy::Time(artifact_ttl),
+				cleanup_config,
 				artifacts,
 				to_host_rx,
 				to_prepare_queue_tx,
@@ -1182,21 +1181,21 @@ pub(crate) mod tests {
 
 		let mut builder = Builder::default();
 		builder.cleanup_pulse_interval = Duration::from_millis(100);
-		builder.artifact_ttl = Duration::from_millis(500);
+		builder.cleanup_config = ArtifactsCleanupConfig::new(1024, Duration::from_secs(0));
 		let path1 = generate_artifact_path(cache_path);
 		let path2 = generate_artifact_path(cache_path);
 		builder.artifacts.insert_prepared(
 			artifact_id(1),
 			path1.clone(),
 			mock_now,
-			0,
+			1024,
 			PrepareStats::default(),
 		);
 		builder.artifacts.insert_prepared(
 			artifact_id(2),
 			path2.clone(),
 			mock_now,
-			0,
+			1024,
 			PrepareStats::default(),
 		);
 		let mut test = builder.build();

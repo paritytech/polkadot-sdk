@@ -171,14 +171,31 @@ pub struct Artifacts {
 	inner: HashMap<ArtifactId, ArtifactState>,
 }
 
-/// A condition which we use to cleanup artifacts
+/// Parameters we use to cleanup artifacts
+/// After we hit the cache limit we remove the least used artefacts
+/// but only if they are stale more than minimum stale time
 #[derive(Debug)]
-pub enum CleanupBy {
-	// Inactive time after which artefact is deleted
-	Time(Duration),
+pub struct ArtifactsCleanupConfig {
 	// Max size in bytes. Reaching it the least used artefacts are deleted
-	#[allow(dead_code)]
-	Size(u64),
+	cache_limit: u64,
+	// Inactive time after which artefact is allowed to be deleted
+	min_stale_time: Duration,
+}
+
+impl Default for ArtifactsCleanupConfig {
+	fn default() -> Self {
+		Self {
+			cache_limit: 10 * 1024 * 1024 * 1024,              // 1 GB
+			min_stale_time: Duration::from_secs(24 * 60 * 60), // 24 hours
+		}
+	}
+}
+
+#[cfg(test)]
+impl ArtifactsCleanupConfig {
+	pub fn new(cache_limit: u64, min_stale_time: Duration) -> Self {
+		Self { cache_limit, min_stale_time }
+	}
 }
 
 impl Artifacts {
@@ -274,44 +291,35 @@ impl Artifacts {
 
 	/// Remove artifacts older than the given TTL or the total artifacts size limit and return id
 	/// and path of the removed ones.
-	pub fn prune(&mut self, cleanup_by: &CleanupBy) -> Vec<(ArtifactId, PathBuf)> {
+	pub fn prune(&mut self, cleanup_config: &ArtifactsCleanupConfig) -> Vec<(ArtifactId, PathBuf)> {
 		let mut to_remove = vec![];
+		let now = SystemTime::now();
 
-		match cleanup_by {
-			CleanupBy::Time(artifact_ttl) => {
-				let now = SystemTime::now();
-				for (k, v) in self.inner.iter() {
-					if let ArtifactState::Prepared { last_time_needed, ref path, .. } = *v {
-						if now
-							.duration_since(last_time_needed)
-							.map(|age| age > *artifact_ttl)
-							.unwrap_or(false)
-						{
-							to_remove.push((k.clone(), path.clone()));
-						}
-					}
-				}
-			},
-			CleanupBy::Size(size_limit) => {
-				let mut total_size = 0;
-				let mut artifact_sizes = vec![];
+		let mut total_size = 0;
+		let mut artifact_sizes = vec![];
 
-				for (k, v) in self.inner.iter() {
-					if let ArtifactState::Prepared { ref path, last_time_needed, size, .. } = *v {
-						total_size += size;
-						artifact_sizes.push((k.clone(), path.clone(), size, last_time_needed));
-					}
-				}
-				artifact_sizes.sort_by_key(|&(_, _, _, last_time_needed)| {
-					std::cmp::Reverse(last_time_needed)
-				});
+		for (k, v) in self.inner.iter() {
+			if let ArtifactState::Prepared { ref path, last_time_needed, size, .. } = *v {
+				total_size += size;
+				artifact_sizes.push((k.clone(), path.clone(), size, last_time_needed));
+			}
+		}
+		artifact_sizes
+			.sort_by_key(|&(_, _, _, last_time_needed)| std::cmp::Reverse(last_time_needed));
 
-				while total_size > *size_limit {
-					let Some((artifact_id, path, size, _)) = artifact_sizes.pop() else { break };
-					to_remove.push((artifact_id, path));
-					total_size -= size;
-				}
-			},
+		while total_size > cleanup_config.cache_limit {
+			let Some((artifact_id, path, size, last_time_needed)) = artifact_sizes.pop() else {
+				break
+			};
+			if now
+				.duration_since(last_time_needed)
+				.map(|stale_time| stale_time < cleanup_config.min_stale_time)
+				.unwrap_or(false)
+			{
+				break;
+			}
+			to_remove.push((artifact_id, path));
+			total_size -= size;
 		}
 
 		for artifact in &to_remove {
@@ -357,7 +365,7 @@ mod tests {
 	}
 
 	#[tokio::test]
-	async fn test_pruning_by_time() {
+	async fn test_pruned_by_cache_size() {
 		let mock_now = SystemTime::now();
 		let tempdir = tempfile::tempdir().unwrap();
 		let cache_path = tempdir.path();
@@ -370,6 +378,7 @@ mod tests {
 		let artifact_id3 = artifact_id(3);
 
 		let mut artifacts = Artifacts::new(cache_path).await;
+		let cleanup_config = ArtifactsCleanupConfig::new(1500, Duration::from_secs(0));
 
 		artifacts.insert_prepared(
 			artifact_id1.clone(),
@@ -393,7 +402,7 @@ mod tests {
 			PrepareStats::default(),
 		);
 
-		let pruned = artifacts.prune(&CleanupBy::Time(Duration::from_secs(9)));
+		let pruned = artifacts.prune(&cleanup_config);
 
 		assert!(artifacts.artifact_ids().contains(&artifact_id1));
 		assert!(!pruned.contains(&(artifact_id1, path1)));
@@ -404,7 +413,7 @@ mod tests {
 	}
 
 	#[tokio::test]
-	async fn test_pruning_by_size() {
+	async fn test_did_not_prune_by_cache_size_because_of_stale_time() {
 		let mock_now = SystemTime::now();
 		let tempdir = tempfile::tempdir().unwrap();
 		let cache_path = tempdir.path();
@@ -417,6 +426,7 @@ mod tests {
 		let artifact_id3 = artifact_id(3);
 
 		let mut artifacts = Artifacts::new(cache_path).await;
+		let cleanup_config = ArtifactsCleanupConfig::new(1500, Duration::from_secs(12));
 
 		artifacts.insert_prepared(
 			artifact_id1.clone(),
@@ -440,12 +450,12 @@ mod tests {
 			PrepareStats::default(),
 		);
 
-		let pruned = artifacts.prune(&CleanupBy::Size(1500));
+		let pruned = artifacts.prune(&cleanup_config);
 
 		assert!(artifacts.artifact_ids().contains(&artifact_id1));
 		assert!(!pruned.contains(&(artifact_id1, path1)));
-		assert!(!artifacts.artifact_ids().contains(&artifact_id2));
-		assert!(pruned.contains(&(artifact_id2, path2)));
+		assert!(artifacts.artifact_ids().contains(&artifact_id2));
+		assert!(!pruned.contains(&(artifact_id2, path2)));
 		assert!(!artifacts.artifact_ids().contains(&artifact_id3));
 		assert!(pruned.contains(&(artifact_id3, path3)));
 	}
