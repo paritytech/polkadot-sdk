@@ -13570,7 +13570,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-parachain-bin"
-version = "4.0.0"
+version = "1.13.0"
 dependencies = [
  "assert_cmd",
  "asset-hub-rococo-runtime",
