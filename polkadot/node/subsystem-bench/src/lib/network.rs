@@ -186,13 +186,6 @@ impl NetworkMessage {
 			_ => None,
 		}
 	}
-
-	pub fn is_from_node(&self) -> bool {
-		matches!(
-			self,
-			NetworkMessage::MessageFromNode(_, _) | NetworkMessage::RequestFromNode(_, _)
-		)
-	}
 }
 
 /// A network interface of the node under test.
@@ -356,8 +349,20 @@ impl NetworkInterface {
 					task_tx_limiter.lock().await.reap(size).await;
 
 					match peer_message {
-						NetworkMessage::MessageFromNode(peer, message) =>
-							tx_network.send_message_to_peer(&peer, message),
+						NetworkMessage::MessageFromNode(peer, message) => {
+							let tx_network = tx_network.clone();
+							let send_task = async move {
+								let receiver = tx_network.peer(&peer);
+								let latency_ms = receiver.latency_ms();
+								if latency_ms > 0 && receiver.is_connected() {
+									emulate_latency(latency_ms).await;
+								}
+								tx_network.send_message_to_peer(&peer, message);
+							}
+							.boxed();
+
+							task_spawn_handle.spawn("message-proxy", "test-environment", send_task);
+						},
 						NetworkMessage::RequestFromNode(peer, request) => {
 							// Send request through a proxy so we can account and limit bandwidth
 							// usage for the node.
@@ -446,6 +451,7 @@ pub struct EmulatedPeerHandle {
 	actions_tx: UnboundedSender<NetworkMessage>,
 	peer_id: PeerId,
 	authority_id: AuthorityDiscoveryId,
+	latency_ms: usize,
 }
 
 impl EmulatedPeerHandle {
@@ -483,8 +489,9 @@ impl EmulatedPeer {
 	pub async fn send_message(&mut self, message: NetworkMessage) {
 		self.tx_limiter.reap(message.size()).await;
 
-		if self.has_latency() {
-			let latency = self.emulate_latency();
+		let latency_ms = self.latency_ms();
+		if latency_ms > 0 {
+			let latency = emulate_latency(latency_ms);
 			let to_node = self.to_node.clone();
 
 			// Emulate RTT latency
@@ -503,16 +510,16 @@ impl EmulatedPeer {
 		&mut self.rx_limiter
 	}
 
-	pub fn has_latency(&self) -> bool {
-		self.latency_ms > 0
+	pub fn latency_ms(&self) -> u64 {
+		self.latency_ms as u64
 	}
+}
 
-	pub fn emulate_latency(&self) -> tokio::time::Sleep {
-		// The latency is meant to be RTT
-		let latency_ms = self.latency_ms as u64 / 2;
-		let latency = std::time::Duration::from_millis(latency_ms);
-		tokio::time::sleep(latency)
-	}
+fn emulate_latency(latency_ms: u64) -> tokio::time::Sleep {
+	// The latency is meant to be RTT
+	let latency_ms = latency_ms / 2;
+	let latency = std::time::Duration::from_millis(latency_ms);
+	tokio::time::sleep(latency)
 }
 
 /// Interceptor pattern for handling messages.
@@ -565,10 +572,6 @@ async fn emulated_peer_loop(
 
 					emulated_peer.rx_limiter().reap(size).await;
 					stats.inc_received(size);
-
-					if peer_message.is_from_node() && emulated_peer.has_latency() {
-						emulated_peer.emulate_latency().await;
-					}
 
 					let mut message = Some(peer_message);
 
@@ -678,7 +681,7 @@ pub fn new_peer(
 		.boxed(),
 	);
 
-	EmulatedPeerHandle { messages_tx, actions_tx, peer_id, authority_id }
+	EmulatedPeerHandle { messages_tx, actions_tx, peer_id, authority_id, latency_ms }
 }
 
 /// Book keeping of sent and received bytes.
@@ -753,6 +756,12 @@ impl Peer {
 	pub fn peer_id(&self) -> PeerId {
 		match self {
 			Peer::Connected(handle) | Peer::Disconnected(handle) => handle.peer_id,
+		}
+	}
+
+	pub fn latency_ms(&self) -> u64 {
+		match self {
+			Peer::Connected(handle) | Peer::Disconnected(handle) => handle.latency_ms as u64,
 		}
 	}
 }
