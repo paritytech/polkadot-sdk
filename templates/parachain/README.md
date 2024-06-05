@@ -11,7 +11,7 @@
 
 </div>
 
-⏫ This template is provides a starting point to build a [parachain](https://wiki.polkadot.network/docs/learn-parachains).
+⏫ This template provides a starting point to build a [parachain](https://wiki.polkadot.network/docs/learn-parachains).
 
 ☁️ It is based on the [Cumulus](https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/polkadot_sdk/cumulus/index.html) framework.
 
