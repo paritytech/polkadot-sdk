@@ -532,7 +532,7 @@ pub mod pallet {
 		#[pallet::call_index(10)]
 		#[pallet::weight({
 			let di = call.get_dispatch_info();
-			(T::WeightInfo::proxy(T::MaxProxies::get())
+			(T::WeightInfo::proxy_propagate_error(T::MaxProxies::get())
 				// AccountData for inner call origin accountdata.
 				.saturating_add(T::DbWeight::get().reads_writes(1, 1))
 				.saturating_add(di.weight),
