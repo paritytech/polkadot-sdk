@@ -58,7 +58,7 @@ impl frame_system::DefaultConfig for SystemParachainDefaultConfig {
 	/// The maximum length of a block (in bytes).
 	type BlockLength = RuntimeBlockLength;
 	/// The weight of database operations that the runtime can invoke.
-	type DbWeight = RocksDbWeight;
+	type DbWeight = ();
 	/// The ubiquitous event type injected by `construct_runtime!`.
 	#[inject_runtime_type]
 	type RuntimeEvent = ();

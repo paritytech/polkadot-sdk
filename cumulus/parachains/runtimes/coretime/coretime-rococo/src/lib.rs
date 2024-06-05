@@ -44,18 +44,15 @@ use frame_support::{
 	weights::{ConstantMultiplier, Weight, WeightToFee as _},
 	PalletId,
 };
-use frame_system::{
-	limits::{BlockLength, BlockWeights},
-	EnsureRoot,
-};
+use frame_system::{limits::BlockWeights, EnsureRoot};
 use pallet_xcm::{EnsureXcm, IsVoiceOfBody};
 use parachains_common::{
 	impls::DealWithFees,
 	message_queue::{NarrowOriginToSibling, ParaIdToSibling},
-	AccountId, AuraId, Balance, BlockNumber, Hash, Header, Nonce, Signature,
-	AVERAGE_ON_INITIALIZE_RATIO, NORMAL_DISPATCH_RATIO,
+	AccountId, AuraId, Balance, BlockNumber, Header, Nonce, Signature, AVERAGE_ON_INITIALIZE_RATIO,
+	NORMAL_DISPATCH_RATIO,
 };
-use polkadot_runtime_common::{BlockHashCount, SlowAdjustingFeeUpdate};
+use polkadot_runtime_common::SlowAdjustingFeeUpdate;
 use sp_api::impl_runtime_apis;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
 #[cfg(any(feature = "std", test))]
@@ -189,6 +186,8 @@ impl frame_system::Config for Runtime {
 	type SS58Prefix = SS58Prefix;
 	/// Weight information for the extrinsics of this pallet.
 	type SystemWeightInfo = weights::frame_system::WeightInfo<Runtime>;
+	/// The weight of database operations that the runtime can invoke.
+	type DbWeight = RocksDbWeight;
 	/// Block & extrinsics weights: base values and limits.
 	type BlockWeights = RuntimeBlockWeights;
 	/// The action to take on a Runtime Upgrade.
