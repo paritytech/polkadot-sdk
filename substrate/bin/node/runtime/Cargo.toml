@@ -93,7 +93,7 @@ pallet-nis = { path = "../../../frame/nis", default-features = false, version = 
 pallet-grandpa = { path = "../../../frame/grandpa", default-features = false, version = "29.0.0" }
 pallet-im-online = { path = "../../../frame/im-online", default-features = false, version = "28.0.0" }
 pallet-indices = { path = "../../../frame/indices", default-features = false, version = "29.0.0" }
-pallet-identity = { path = "../../../frame/identity", default-features = false, version = "29.0.1" }
+pallet-identity = { path = "../../../frame/identity", default-features = false, version = "29.0.2" }
 pallet-lottery = { path = "../../../frame/lottery", default-features = false, version = "29.0.0" }
 pallet-membership = { path = "../../../frame/membership", default-features = false, version = "29.0.0" }
 pallet-message-queue = { path = "../../../frame/message-queue", default-features = false, version = "32.0.0" }

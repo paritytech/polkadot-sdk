@@ -32,7 +32,7 @@ frame-benchmarking = { path = "../benchmarking", default-features = false, optio
 frame-support = { path = "../support", default-features = false, version = "29.0.2" }
 frame-system = { path = "../system", default-features = false, version = "29.0.0" }
 
-pallet-identity = { path = "../identity", default-features = false, version = "29.0.1" }
+pallet-identity = { path = "../identity", default-features = false, version = "29.0.2" }
 pallet-collective = { path = "../collective", default-features = false, optional = true, version = "29.0.0" }
 
 [dev-dependencies]
