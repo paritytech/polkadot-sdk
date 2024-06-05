@@ -18,8 +18,9 @@ jobs:
       volumes:
         - my_docker_volume:/volume_mount
     steps:
-      - name: Install gh
-        run: apt-get update && apt-get install -yq --no-install-recommends bash ca-certificates git gh
+      - name: Check branch name
+        if: startsWith(github.ref, 'master/')
+        run: echo "::error ::'master' is an invalid branch. Select your PR's branch"
       - name: Download repo
         uses: actions/checkout@v4
       - run: gh pr checkout ${{ inputs.pr }}
