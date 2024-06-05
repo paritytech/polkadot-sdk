@@ -25,7 +25,7 @@ use crate::{
 	},
 	LOG_TARGET,
 };
-use parity_scale_codec::{Decode, Encode};
+use codec::{Decode, Encode};
 use polkadot_node_core_pvf_common::{
 	error::{PrepareError, PrepareResult, PrepareWorkerResult},
 	prepare::{PrepareStats, PrepareSuccess, PrepareWorkerSuccess},

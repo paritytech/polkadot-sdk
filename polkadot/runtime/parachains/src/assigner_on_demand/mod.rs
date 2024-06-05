@@ -55,7 +55,7 @@ use frame_support::{
 	PalletId,
 };
 use frame_system::pallet_prelude::*;
-use primitives::{CoreIndex, Id as ParaId};
+use polkadot_primitives::{CoreIndex, Id as ParaId};
 use sp_runtime::{
 	traits::{AccountIdConversion, One, SaturatedConversion, Zero},
 	FixedPointNumber, FixedPointOperand, FixedU128, Perbill, Saturating,
