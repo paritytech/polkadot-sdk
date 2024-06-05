@@ -17,10 +17,9 @@
 //! Support data structures for `Location`, primarily the `Junction` datatype.
 
 use super::Location;
-pub use crate::v3::{BodyId, BodyPart};
+pub use crate::v4::{BodyId, BodyPart};
 use crate::{
-	v3::{Junction as OldJunction, NetworkId as OldNetworkId},
-	v5::{Junction as NewJunction, NetworkId as NewNetworkId},
+	v4::{Junction as OldJunction, NetworkId as OldNetworkId},
 	VersionedLocation,
 };
 use bounded_collections::{BoundedSlice, BoundedVec, ConstU32};
@@ -102,31 +101,6 @@ pub enum Junction {
 	/// A global network capable of externalizing its own consensus. This is not generally
 	/// meaningful outside of the universal level.
 	GlobalConsensus(NetworkId),
-}
-
-impl From<NewNetworkId> for Option<NetworkId> {
-	fn from(new: NewNetworkId) -> Self {
-		Some(NetworkId::from(new))
-	}
-}
-
-impl From<NewNetworkId> for NetworkId {
-	fn from(new: NewNetworkId) -> Self {
-		use NewNetworkId::*;
-		match new {
-			ByGenesis(hash) => Self::ByGenesis(hash),
-			ByFork { block_number, block_hash } => Self::ByFork { block_number, block_hash },
-			Polkadot => Self::Polkadot,
-			Kusama => Self::Kusama,
-			Westend => Self::Westend,
-			Rococo => Self::Rococo,
-			Wococo => Self::Wococo,
-			Ethereum { chain_id } => Self::Ethereum { chain_id },
-			BitcoinCore => Self::BitcoinCore,
-			BitcoinCash => Self::BitcoinCash,
-			PolkadotBulletin => Self::PolkadotBulletin,
-		}
-	}
 }
 
 /// A global identifier of a data structure existing within consensus.
@@ -279,29 +253,6 @@ impl TryFrom<OldJunction> for Junction {
 	}
 }
 
-impl TryFrom<NewJunction> for Junction {
-	type Error = ();
-
-	fn try_from(value: NewJunction) -> Result<Self, Self::Error> {
-		use NewJunction::*;
-		Ok(match value {
-			Parachain(id) => Self::Parachain(id),
-			AccountId32 { network: maybe_network, id } =>
-				Self::AccountId32 { network: maybe_network.map(|network| network.into()), id },
-			AccountIndex64 { network: maybe_network, index } =>
-				Self::AccountIndex64 { network: maybe_network.map(|network| network.into()), index },
-			AccountKey20 { network: maybe_network, key } =>
-				Self::AccountKey20 { network: maybe_network.map(|network| network.into()), key },
-			PalletInstance(index) => Self::PalletInstance(index),
-			GeneralIndex(id) => Self::GeneralIndex(id),
-			GeneralKey { length, data } => Self::GeneralKey { length, data },
-			OnlyChild => Self::OnlyChild,
-			Plurality { id, part } => Self::Plurality { id, part },
-			GlobalConsensus(network) => Self::GlobalConsensus(network.into()),
-		})
-	}
-}
-
 impl Junction {
 	/// Convert `self` into a `Location` containing 0 parents.
 	///
@@ -363,3 +314,4 @@ mod tests {
 		assert_eq!(j, k);
 	}
 }
+

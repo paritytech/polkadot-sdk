@@ -31,6 +31,7 @@ use scale_info::TypeInfo;
 pub mod v2;
 pub mod v3;
 pub mod v4;
+pub mod v5;
 
 pub mod lts {
 	pub use super::v4::*;
@@ -82,6 +83,8 @@ macro_rules! versioned_type {
 		V3($v3:ty),
 		$(#[$index4:meta])+
 		V4($v4:ty),
+		$(#[$index5:meta])+
+		V5($v5:ty),
 	}) => {
 		#[derive(Derivative, Encode, Decode, TypeInfo)]
 		#[derivative(
@@ -99,6 +102,8 @@ macro_rules! versioned_type {
 			V3($v3),
 			$(#[$index4])*
 			V4($v4),
+			$(#[$index5])*
+			V5($v5),
 		}
 		impl $n {
 			pub fn try_as<T>(&self) -> Result<&T, ()> where Self: TryAs<T> {
@@ -121,11 +126,20 @@ macro_rules! versioned_type {
 				}
 			}
 		}
+		impl TryAs<$v5> for $n {
+			fn try_as(&self) -> Result<&$v5, ()> {
+				match &self {
+					Self::V5(ref x) => Ok(x),
+					_ => Err(()),
+				}
+			}
+		}
 		impl IntoVersion for $n {
 			fn into_version(self, n: Version) -> Result<Self, ()> {
 				Ok(match n {
 					3 => Self::V3(self.try_into()?),
 					4 => Self::V4(self.try_into()?),
+					5 => Self::V5(self.try_into()?),
 					_ => return Err(()),
 				})
 			}
@@ -140,6 +154,11 @@ macro_rules! versioned_type {
 				$n::V4(x.into())
 			}
 		}
+		impl From<$v5> for $n {
+			fn from(x: $v5) -> Self {
+				$n::V5(x.into())
+			}
+		}
 		impl TryFrom<$n> for $v3 {
 			type Error = ();
 			fn try_from(x: $n) -> Result<Self, ()> {
@@ -147,6 +166,10 @@ macro_rules! versioned_type {
 				match x {
 					V3(x) => Ok(x),
 					V4(x) => x.try_into(),
+					V5(x) => {
+						let v4: $v4 = x.try_into()?;
+						v4.try_into()
+					}
 				}
 			}
 		}
@@ -157,6 +180,21 @@ macro_rules! versioned_type {
 				match x {
 					V3(x) => x.try_into().map_err(|_| ()),
 					V4(x) => Ok(x),
+					V5(x) => x.try_into().map_err(|_| ()),
+				}
+			}
+		}
+		impl TryFrom<$n> for $v5 {
+			type Error = ();
+			fn try_from(x: $n) -> Result<Self, ()> {
+				use $n::*;
+				match x {
+					V3(x) => {
+						let v4: $v4 = x.try_into().map_err(|_| ())?;
+						v4.try_into()
+					},
+					V4(x) => x.try_into(),
+					V5(x) => Ok(x),
 				}
 			}
 		}
@@ -171,6 +209,7 @@ macro_rules! versioned_type {
 				match self {
 					V3(_) => v3::VERSION,
 					V4(_) => v4::VERSION,
+					V5(_) => v5::VERSION,
 				}
 			}
 		}
@@ -316,6 +355,8 @@ versioned_type! {
 		V3(v3::AssetId),
 		#[codec(index = 4)]
 		V4(v4::AssetId),
+		#[codec(index = 5)]
+		V5(v5::AssetId),
 	}
 }
 
@@ -430,6 +471,8 @@ pub enum VersionedXcm<RuntimeCall> {
 	V3(v3::Xcm<RuntimeCall>),
 	#[codec(index = 4)]
 	V4(v4::Xcm<RuntimeCall>),
+	#[codec(index = 5)]
+	V5(v5::Xcm<RuntimeCall>),
 }
 
 impl<C> IntoVersion for VersionedXcm<C> {
@@ -449,6 +492,7 @@ impl<C> IdentifyVersion for VersionedXcm<C> {
 			Self::V2(_) => v2::VERSION,
 			Self::V3(_) => v3::VERSION,
 			Self::V4(_) => v4::VERSION,
+			Self::V5(_) => v5::VERSION,
 		}
 	}
 }
@@ -499,6 +543,11 @@ impl<RuntimeCall> TryFrom<VersionedXcm<RuntimeCall>> for v2::Xcm<RuntimeCall> {
 				let v3: v3::Xcm<RuntimeCall> = x.try_into()?;
 				v3.try_into()
 			},
+			V5(x) => {
+				let v4: v4::Xcm<RuntimeCall> = x.try_into()?;
+				let v3: v3::Xcm<RuntimeCall> = v4.try_into()?;
+				v3.try_into().map_err(|_| ())
+			},
 		}
 	}
 }
@@ -511,6 +560,10 @@ impl<Call> TryFrom<VersionedXcm<Call>> for v3::Xcm<Call> {
 			V2(x) => x.try_into(),
 			V3(x) => Ok(x),
 			V4(x) => x.try_into(),
+			V5(x) => {
+				let v4: v4::Xcm<Call> = x.try_into()?;
+				v4.try_into()
+			}
 		}
 	}
 }
@@ -526,6 +579,7 @@ impl<Call> TryFrom<VersionedXcm<Call>> for v4::Xcm<Call> {
 			},
 			V3(x) => x.try_into(),
 			V4(x) => Ok(x),
+			V5(x) => x.try_into(),
 		}
 	}
 }

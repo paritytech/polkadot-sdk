@@ -23,6 +23,7 @@ mod builder_pattern;
 mod v2;
 mod v3;
 mod v4;
+mod v5;
 mod weight_info;
 
 #[proc_macro]
@@ -68,6 +69,20 @@ pub fn impl_conversion_functions_for_location_v4(input: TokenStream) -> TokenStr
 #[proc_macro]
 pub fn impl_conversion_functions_for_junctions_v4(input: TokenStream) -> TokenStream {
 	v4::junctions::generate_conversion_functions(input)
+		.unwrap_or_else(syn::Error::into_compile_error)
+		.into()
+}
+
+#[proc_macro]
+pub fn impl_conversion_functions_for_junctions_v5(input: TokenStream) -> TokenStream {
+	v5::junctions::generate_conversion_functions(input)
+		.unwrap_or_else(syn::Error::into_compile_error)
+		.into()
+}
+
+#[proc_macro]
+pub fn impl_conversion_functions_for_location_v5(input: TokenStream) -> TokenStream {
+	v5::location::generate_conversion_functions(input)
 		.unwrap_or_else(syn::Error::into_compile_error)
 		.into()
 }

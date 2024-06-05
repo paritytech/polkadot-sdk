@@ -17,7 +17,7 @@
 //! XCM `Location` datatype.
 
 use super::{traits::Reanchorable, Junction, Junctions};
-use crate::{v3::MultiLocation as OldLocation, v5::Location as NewLocation, VersionedLocation};
+use crate::{v4::Location as OldLocation, VersionedLocation};
 use core::result;
 use parity_scale_codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
@@ -88,7 +88,7 @@ impl Location {
 
 	/// Consume `self` and return the equivalent `VersionedLocation` value.
 	pub const fn into_versioned(self) -> VersionedLocation {
-		VersionedLocation::V4(self)
+		todo!()
 	}
 
 	/// Creates a new `Location` with 0 parents and a `Here` interior.
@@ -489,24 +489,6 @@ impl TryFrom<OldLocation> for Location {
 	}
 }
 
-impl TryFrom<NewLocation> for Option<Location> {
-	type Error = ();
-	fn try_from(new: NewLocation) -> result::Result<Self, Self::Error> {
-		Ok(Some(Location::try_from(new)?))
-	}
-}
-
-impl TryFrom<NewLocation> for Location {
-	type Error = ();
-	fn try_from(new: NewLocation) -> result::Result<Self, ()> {
-		Ok(Location {
-			parents: new.parent_count(),
-			interior: new.interior().clone().try_into()?,
-		})
-	}
-}
-
-
 /// A unit struct which can be converted into a `Location` of `parents` value 1.
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug)]
 pub struct Parent;
@@ -552,7 +534,7 @@ impl From<[u8; 32]> for Location {
 	}
 }
 
-xcm_procedural::impl_conversion_functions_for_location_v4!();
+xcm_procedural::impl_conversion_functions_for_location_v5!();
 
 #[cfg(test)]
 mod tests {
