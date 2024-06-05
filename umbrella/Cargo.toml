@@ -1217,6 +1217,11 @@ path = "../substrate/frame/society"
 default-features = false
 optional = true
 
+[dependencies.pallet-stake-tracker]
+path = "../substrate/frame/staking/stake-tracker"
+default-features = false
+optional = true
+
 [dependencies.pallet-staking]
 path = "../substrate/frame/staking"
 default-features = false
@@ -1234,11 +1239,6 @@ optional = true
 
 [dependencies.pallet-staking-runtime-api]
 path = "../substrate/frame/staking/runtime-api"
-default-features = false
-optional = true
-
-[dependencies.pallet-stake-tracker]
-path = "../substrate/frame/staking/stake-tracker"
 default-features = false
 optional = true
 
