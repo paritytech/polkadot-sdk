@@ -1607,7 +1607,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1456" id="1456">1456</a>
 <a href="#1457" id="1457">1457</a>
 <a href="#1458" id="1458">1458</a>
-<a href="#1459" id="1459">1459</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2726,8 +2725,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">if let </span><span class="prelude-val">Some</span>(s) = signature {
 				<span class="comment">// Account has pre-signed an authorization. Verify the signature provided and grant
 				// the username directly.
-				</span><span class="kw">let </span>encoded = Encode::encode(<span class="kw-2">&amp;</span>bounded_username.to_vec());
-				<span class="self">Self</span>::validate_signature(<span class="kw-2">&amp;</span>encoded, <span class="kw-2">&amp;</span>s, <span class="kw-2">&amp;</span>who)<span class="question-mark">?</span>;
+				</span><span class="self">Self</span>::validate_signature(<span class="kw-2">&amp;</span>bounded_username[..], <span class="kw-2">&amp;</span>s, <span class="kw-2">&amp;</span>who)<span class="question-mark">?</span>;
 				<span class="self">Self</span>::insert_username(<span class="kw-2">&amp;</span>who, bounded_username);
 			} <span class="kw">else </span>{
 				<span class="comment">// The user must accept the username, therefore, queue it.
@@ -2877,12 +2875,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Validate a signature. Supports signatures on raw `data` or `data` wrapped in HTML `&lt;Bytes&gt;`.
 	</span><span class="kw">pub fn </span>validate_signature(
-		data: <span class="kw-2">&amp;</span>Vec&lt;u8&gt;,
+		data: <span class="kw-2">&amp;</span>[u8],
 		signature: <span class="kw-2">&amp;</span>T::OffchainSignature,
 		signer: <span class="kw-2">&amp;</span>T::AccountId,
 	) -&gt; DispatchResult {
 		<span class="comment">// Happy path, user has signed the raw data.
-		</span><span class="kw">if </span>signature.verify(<span class="kw-2">&amp;</span>data[..], <span class="kw-2">&amp;</span>signer) {
+		</span><span class="kw">if </span>signature.verify(data, <span class="kw-2">&amp;</span>signer) {
 			<span class="kw">return </span><span class="prelude-val">Ok</span>(())
 		}
 		<span class="comment">// NOTE: for security reasons modern UIs implicitly wrap the data requested to sign into

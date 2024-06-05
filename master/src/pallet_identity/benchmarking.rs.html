@@ -876,7 +876,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#725" id="725">725</a>
 <a href="#726" id="726">726</a>
 <a href="#727" id="727">727</a>
-<a href="#728" id="728">728</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -901,7 +900,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">use super</span>::<span class="kw-2">*</span>;
 
 <span class="kw">use </span><span class="kw">crate</span>::Pallet <span class="kw">as </span>Identity;
-<span class="kw">use </span>codec::Encode;
 <span class="kw">use </span>frame_benchmarking::{account, v2::<span class="kw-2">*</span>, whitelisted_caller, BenchmarkError};
 <span class="kw">use </span>frame_support::{
 	assert_ok, ensure,
@@ -1502,17 +1500,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">let </span>username = bench_username();
 		<span class="kw">let </span>bounded_username = bounded_username::&lt;T&gt;(username.clone(), suffix.clone());
-		<span class="kw">let </span>encoded_username = Encode::encode(<span class="kw-2">&amp;</span>bounded_username.to_vec());
 
 		<span class="kw">let </span>public = sr25519_generate(<span class="number">0</span>.into(), <span class="prelude-val">None</span>);
 		<span class="kw">let </span>who_account: T::AccountId = MultiSigner::Sr25519(public).into_account().into();
 		<span class="kw">let </span>who_lookup = T::Lookup::unlookup(who_account.clone());
 
-		<span class="kw">let </span>signature =
-			MultiSignature::Sr25519(sr25519_sign(<span class="number">0</span>.into(), <span class="kw-2">&amp;</span>public, <span class="kw-2">&amp;</span>encoded_username).unwrap());
+		<span class="kw">let </span>signature = MultiSignature::Sr25519(
+			sr25519_sign(<span class="number">0</span>.into(), <span class="kw-2">&amp;</span>public, <span class="kw-2">&amp;</span>bounded_username[..]).unwrap(),
+		);
 
 		<span class="comment">// Verify signature here to avoid surprise errors at runtime
-		</span><span class="macro">assert!</span>(signature.verify(<span class="kw-2">&amp;</span>encoded_username[..], <span class="kw-2">&amp;</span>public.into()));
+		</span><span class="macro">assert!</span>(signature.verify(<span class="kw-2">&amp;</span>bounded_username[..], <span class="kw-2">&amp;</span>public.into()));
 
 		<span class="attr">#[extrinsic_call]
 		</span><span class="kw">_</span>(RawOrigin::Signed(authority.clone()), who_lookup, username, <span class="prelude-val">Some</span>(signature.into()));

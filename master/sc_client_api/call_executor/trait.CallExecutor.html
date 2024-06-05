@@ -159,7 +159,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
         at_hash: B::Hash,
         method: &amp;<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.str.html">str</a>,
         call_data: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>],
-        context: <a class="enum" href="../../sp_core/traits/enum.CallContext.html" title="enum sp_core::traits::CallContext">CallContext</a>
+        context: CallContext
     ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.77.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>&gt;, Error&gt;;
 <span class="item-spacer"></span>    fn <a href="#tymethod.contextual_call" class="fn">contextual_call</a>(
         &amp;self,
@@ -168,7 +168,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
         call_data: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>],
         changes: &amp;<a class="struct" href="https://doc.rust-lang.org/1.77.0/core/cell/struct.RefCell.html" title="struct core::cell::RefCell">RefCell</a>&lt;OverlayedChanges&lt;HashingFor&lt;B&gt;&gt;&gt;,
         proof_recorder: &amp;<a class="enum" href="https://doc.rust-lang.org/1.77.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;ProofRecorder&lt;B&gt;&gt;,
-        call_context: <a class="enum" href="../../sp_core/traits/enum.CallContext.html" title="enum sp_core::traits::CallContext">CallContext</a>,
+        call_context: CallContext,
         extensions: &amp;<a class="struct" href="https://doc.rust-lang.org/1.77.0/core/cell/struct.RefCell.html" title="struct core::cell::RefCell">RefCell</a>&lt;<a class="struct" href="../../sp_externalities/extensions/struct.Extensions.html" title="struct sp_externalities::extensions::Extensions">Extensions</a>&gt;
     ) -&gt; Result&lt;<a class="struct" href="https://doc.rust-lang.org/1.77.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>&gt;&gt;;
 <span class="item-spacer"></span>    fn <a href="#tymethod.runtime_version" class="fn">runtime_version</a>(&amp;self, at_hash: B::Hash) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;RuntimeVersion, Error&gt;;
@@ -187,7 +187,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
     at_hash: B::Hash,
     method: &amp;<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.str.html">str</a>,
     call_data: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>],
-    context: <a class="enum" href="../../sp_core/traits/enum.CallContext.html" title="enum sp_core::traits::CallContext">CallContext</a>
+    context: CallContext
 ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.77.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>&gt;, Error&gt;</h4></section></summary><div class="docblock"><p>Execute a call to a contract on top of state in a block of given hash.</p>
 <p>No changes are made.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="tymethod.contextual_call" class="method"><a class="src rightside" href="../../src/sc_client_api/call_executor.rs.html#70-79">source</a><h4 class="code-header">fn <a href="#tymethod.contextual_call" class="fn">contextual_call</a>(
@@ -197,7 +197,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
     call_data: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>],
     changes: &amp;<a class="struct" href="https://doc.rust-lang.org/1.77.0/core/cell/struct.RefCell.html" title="struct core::cell::RefCell">RefCell</a>&lt;OverlayedChanges&lt;HashingFor&lt;B&gt;&gt;&gt;,
     proof_recorder: &amp;<a class="enum" href="https://doc.rust-lang.org/1.77.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;ProofRecorder&lt;B&gt;&gt;,
-    call_context: <a class="enum" href="../../sp_core/traits/enum.CallContext.html" title="enum sp_core::traits::CallContext">CallContext</a>,
+    call_context: CallContext,
     extensions: &amp;<a class="struct" href="https://doc.rust-lang.org/1.77.0/core/cell/struct.RefCell.html" title="struct core::cell::RefCell">RefCell</a>&lt;<a class="struct" href="../../sp_externalities/extensions/struct.Extensions.html" title="struct sp_externalities::extensions::Extensions">Extensions</a>&gt;
 ) -&gt; Result&lt;<a class="struct" href="https://doc.rust-lang.org/1.77.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>&gt;&gt;</h4></section></summary><div class="docblock"><p>Execute a contextual call on top of state in a block of a given hash.</p>
 <p>No changes are made.
