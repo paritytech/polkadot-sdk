@@ -74,7 +74,6 @@ use libp2p::{
 };
 use linked_hash_set::LinkedHashSet;
 use log::{debug, info, trace, warn};
-use schnellru::{ByLength, LruMap};
 use sp_core::hexdisplay::HexDisplay;
 use std::{
 	cmp,
@@ -88,9 +87,6 @@ use std::{
 /// This only affects whether we will log whenever we (re-)discover
 /// a given address.
 const MAX_KNOWN_EXTERNAL_ADDRESSES: usize = 32;
-
-/// Maximum peers to remember in the auxiliary address store.
-const MAX_PEERS_TO_REMEMBER: u32 = 4096;
 
 /// Default value for Kademlia replication factor which  determines to how many closest peers a
 /// record is replicated to.
@@ -284,7 +280,6 @@ impl DiscoveryConfig {
 					.expect("value is a constant; constant is non-zero; qed."),
 			),
 			records_to_publish: Default::default(),
-			aux_address_store: LruMap::new(ByLength::new(MAX_PEERS_TO_REMEMBER)),
 			kademlia_protocol,
 		}
 	}
@@ -329,8 +324,6 @@ pub struct DiscoveryBehaviour {
 	/// did not return the record(in `FinishedWithNoAdditionalRecord`). We will then put the record
 	/// to these peers.
 	records_to_publish: HashMap<QueryId, Record>,
-	/// Auxiliary address store.
-	aux_address_store: LruMap<PeerId, HashSet<Multiaddr>>,
 	/// The chain based kademlia protocol name (including genesis hash and fork id).
 	///
 	/// Remove when all nodes are upgraded to genesis hash and fork ID-based Kademlia:
@@ -367,15 +360,6 @@ impl DiscoveryBehaviour {
 
 		if let Some(k) = self.kademlia.as_mut() {
 			k.add_address(&peer_id, addr.clone());
-		}
-
-		match self.aux_address_store.get(&peer_id) {
-			None => {
-				self.aux_address_store.insert(peer_id, HashSet::from_iter([addr.clone()]));
-			},
-			Some(addresses) => {
-				addresses.insert(addr.clone());
-			},
 		}
 
 		self.pending_events.push_back(DiscoveryOut::Discovered(peer_id));
@@ -427,15 +411,6 @@ impl DiscoveryBehaviour {
 				addr, peer_id
 			);
 			kademlia.add_address(peer_id, addr.clone());
-
-			match self.aux_address_store.get(peer_id) {
-				None => {
-					self.aux_address_store.insert(*peer_id, HashSet::from_iter([addr]));
-				},
-				Some(addresses) => {
-					addresses.insert(addr);
-				},
-			}
 		}
 	}
 
@@ -653,12 +628,6 @@ impl NetworkBehaviour for DiscoveryBehaviour {
 			});
 		}
 
-		if let Some(addresses) = self.aux_address_store.get(&peer_id) {
-			addresses.iter().for_each(|address| {
-				list.insert_if_absent(address.clone());
-			});
-		}
-
 		{
 			let mut list_to_filter = self.kademlia.handle_pending_outbound_connection(
 				connection_id,
@@ -712,12 +681,6 @@ impl NetworkBehaviour for DiscoveryBehaviour {
 							}
 							if entry.get().is_empty() {
 								entry.remove();
-							}
-
-							if let Some(addresses) = self.aux_address_store.get(&peer_id) {
-								for (addr, _error) in errors {
-									addresses.remove(&addr);
-								}
 							}
 						}
 					}
