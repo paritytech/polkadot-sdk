@@ -152,9 +152,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
     source_client: impl <a class="trait" href="trait.SourceClient.html" title="trait finality_relay::SourceClient">SourceClient</a>&lt;P&gt;,
     target_client: impl <a class="trait" href="trait.TargetClient.html" title="trait finality_relay::TargetClient">TargetClient</a>&lt;P&gt;,
     sync_params: <a class="struct" href="struct.FinalitySyncParams.html" title="struct finality_relay::FinalitySyncParams">FinalitySyncParams</a>,
-    metrics_params: MetricsParams,
+    metrics_params: <a class="struct" href="../relay_utils/metrics/struct.MetricsParams.html" title="struct relay_utils::metrics::MetricsParams">MetricsParams</a>,
     exit_signal: impl <a class="trait" href="https://doc.rust-lang.org/1.77.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.unit.html">()</a>&gt; + 'static + <a class="trait" href="https://doc.rust-lang.org/1.77.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a>
-) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.unit.html">()</a>, Error&gt;</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Run finality proofs synchronization loop.</p>
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.unit.html">()</a>, <a class="enum" href="../relay_utils/error/enum.Error.html" title="enum relay_utils::error::Error">Error</a>&gt;</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Run finality proofs synchronization loop.</p>
 </div></details></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 
