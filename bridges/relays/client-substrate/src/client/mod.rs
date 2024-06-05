@@ -26,14 +26,12 @@ use sp_version::RuntimeVersion;
 pub mod caching;
 pub mod rpc;
 
-// don't want to move all the trait code (200+ lines) here and there's no better name
-#[allow(clippy::module_inception)]
-mod client;
 mod rpc_api;
 mod subscription;
+mod traits;
 
-pub use client::Client;
 pub use subscription::{StreamDescription, Subscription, SubscriptionBroadcaster};
+pub use traits::Client;
 
 /// Type of RPC client with caching support.
 pub type RpcWithCachingClient<C> = CachingClient<C, RpcClient<C>>;
