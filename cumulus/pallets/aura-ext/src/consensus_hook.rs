@@ -76,7 +76,7 @@ where
 			);
 		}
 
-		if authored > velocity + 1 {
+		if authored > velocity {
 			panic!("authored blocks limit is reached for the slot")
 		}
 		let weight = T::DbWeight::get().reads(1);

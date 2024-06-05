@@ -16,6 +16,7 @@
 
 //! Traits and utilities to help with origin mutation and bridging.
 
+use crate::InspectMessageQueues;
 use frame_support::{ensure, traits::Get};
 use parity_scale_codec::{Decode, Encode};
 use sp_std::{convert::TryInto, marker::PhantomData, prelude::*};
@@ -332,6 +333,14 @@ impl<Bridges: ExporterFor, Router: SendXcm, UniversalLocation: Get<InteriorLocat
 
 	fn deliver(ticket: Router::Ticket) -> Result<XcmHash, SendError> {
 		Router::deliver(ticket)
+	}
+}
+
+impl<Bridges, Router: InspectMessageQueues, UniversalLocation> InspectMessageQueues
+	for SovereignPaidRemoteExporter<Bridges, Router, UniversalLocation>
+{
+	fn get_messages() -> Vec<(VersionedLocation, Vec<VersionedXcm<()>>)> {
+		Router::get_messages()
 	}
 }
 

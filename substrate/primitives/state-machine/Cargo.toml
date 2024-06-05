@@ -17,7 +17,7 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false }
+codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false }
 hash-db = { version = "0.16.0", default-features = false }
 log = { workspace = true }
 parking_lot = { version = "0.12.1", optional = true }
@@ -32,7 +32,7 @@ sp-trie = { path = "../trie", default-features = false }
 trie-db = { version = "0.29.0", default-features = false }
 
 [dev-dependencies]
-array-bytes = "6.1"
+array-bytes = "6.2.2"
 pretty_assertions = "1.2.1"
 rand = "0.8.5"
 sp-runtime = { path = "../runtime" }

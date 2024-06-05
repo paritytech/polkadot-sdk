@@ -109,7 +109,7 @@ async fn handle_collation_message<Block: BlockT>(
 
 	tracing::info!(
 		target: LOG_TARGET,
-		"PoV size {{ header: {}kb, extrinsics: {}kb, storage_proof: {}kb }}",
+		"PoV size {{ header: {:.2}kB, extrinsics: {:.2}kB, storage_proof: {:.2}kB }}",
 		block_data.header().encode().len() as f64 / 1024f64,
 		block_data.extrinsics().encode().len() as f64 / 1024f64,
 		block_data.storage_proof().encode().len() as f64 / 1024f64,

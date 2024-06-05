@@ -46,7 +46,7 @@ use sp_core::{
 };
 use sp_io::{crypto::secp256k1_ecdsa_recover_compressed, hashing::blake2_256};
 use sp_runtime::{
-	traits::{Convert, Dispatchable, Hash, Zero},
+	traits::{Convert, Dispatchable, Zero},
 	DispatchError,
 };
 use sp_std::{fmt::Debug, marker::PhantomData, mem, prelude::*, vec::Vec};
@@ -149,6 +149,7 @@ pub trait Ext: sealing::Sealed {
 		value: BalanceOf<Self::T>,
 		input_data: Vec<u8>,
 		allows_reentry: bool,
+		read_only: bool,
 	) -> Result<ExecReturnValue, ExecError>;
 
 	/// Execute code in the current frame.
@@ -182,7 +183,7 @@ pub trait Ext: sealing::Sealed {
 	///
 	/// This function will fail if the same contract is present on the contract
 	/// call stack.
-	fn terminate(&mut self, beneficiary: &AccountIdOf<Self::T>) -> Result<(), DispatchError>;
+	fn terminate(&mut self, beneficiary: &AccountIdOf<Self::T>) -> DispatchResult;
 
 	/// Transfer some amount of funds into the specified account.
 	fn transfer(&mut self, to: &AccountIdOf<Self::T>, value: BalanceOf<Self::T>) -> DispatchResult;
@@ -303,11 +304,11 @@ pub trait Ext: sealing::Sealed {
 	fn ecdsa_to_eth_address(&self, pk: &[u8; 33]) -> Result<[u8; 20], ()>;
 
 	/// Tests sometimes need to modify and inspect the contract info directly.
-	#[cfg(test)]
+	#[cfg(any(test, feature = "runtime-benchmarks"))]
 	fn contract_info(&mut self) -> &mut ContractInfo<Self::T>;
 
 	/// Sets new code hash for existing contract.
-	fn set_code_hash(&mut self, hash: CodeHash<Self::T>) -> Result<(), DispatchError>;
+	fn set_code_hash(&mut self, hash: CodeHash<Self::T>) -> DispatchResult;
 
 	/// Returns the number of times the currently executing contract exists on the call stack in
 	/// addition to the calling instance. A value of 0 means no reentrancy.
@@ -327,7 +328,7 @@ pub trait Ext: sealing::Sealed {
 	///
 	/// [`Error::CodeNotFound`] is returned if no stored code found having the specified
 	/// `code_hash`.
-	fn increment_refcount(code_hash: CodeHash<Self::T>) -> Result<(), DispatchError>;
+	fn increment_refcount(code_hash: CodeHash<Self::T>) -> DispatchResult;
 
 	/// Decrement the reference count of a stored code by one.
 	///
@@ -345,13 +346,10 @@ pub trait Ext: sealing::Sealed {
 	///
 	/// # Errors
 	///
-	/// - [`Error::<T>::MaxDelegateDependenciesReached`]
-	/// - [`Error::<T>::CannotAddSelfAsDelegateDependency`]
-	/// - [`Error::<T>::DelegateDependencyAlreadyExists`]
-	fn lock_delegate_dependency(
-		&mut self,
-		code_hash: CodeHash<Self::T>,
-	) -> Result<(), DispatchError>;
+	/// - [`Error::MaxDelegateDependenciesReached`]
+	/// - [`Error::CannotAddSelfAsDelegateDependency`]
+	/// - [`Error::DelegateDependencyAlreadyExists`]
+	fn lock_delegate_dependency(&mut self, code_hash: CodeHash<Self::T>) -> DispatchResult;
 
 	/// Removes a delegate dependency from [`ContractInfo`]'s `delegate_dependencies` field.
 	///
@@ -360,11 +358,16 @@ pub trait Ext: sealing::Sealed {
 	///
 	/// # Errors
 	///
-	/// - [`Error::<T>::DelegateDependencyNotFound`]
-	fn unlock_delegate_dependency(
-		&mut self,
-		code_hash: &CodeHash<Self::T>,
-	) -> Result<(), DispatchError>;
+	/// - [`Error::DelegateDependencyNotFound`]
+	fn unlock_delegate_dependency(&mut self, code_hash: &CodeHash<Self::T>) -> DispatchResult;
+
+	/// Returns the number of locked delegate dependencies.
+	///
+	/// Note: Requires &mut self to access the contract info.
+	fn locked_delegate_dependencies_count(&mut self) -> usize;
+
+	/// Check if running in read-only context.
+	fn is_read_only(&self) -> bool;
 }
 
 /// Describes the different functions that can be exported by an [`Executable`].
@@ -498,6 +501,8 @@ pub struct Frame<T: Config> {
 	nested_storage: storage::meter::NestedMeter<T>,
 	/// If `false` the contract enabled its defense against reentrance attacks.
 	allows_reentry: bool,
+	/// If `true` subsequent calls cannot modify storage.
+	read_only: bool,
 	/// The caller of the currently executing frame which was spawned by `delegate_call`.
 	delegate_caller: Option<Origin<T>>,
 }
@@ -776,6 +781,7 @@ where
 			storage_meter,
 			BalanceOf::<T>::zero(),
 			determinism,
+			false,
 		)?;
 
 		let stack = Self {
@@ -808,6 +814,7 @@ where
 		storage_meter: &mut storage::meter::GenericMeter<T, S>,
 		deposit_limit: BalanceOf<T>,
 		determinism: Determinism,
+		read_only: bool,
 	) -> Result<(Frame<T>, E, Option<u64>), ExecError> {
 		let (account_id, contract_info, executable, delegate_caller, entry_point, nonce) =
 			match frame_args {
@@ -864,6 +871,7 @@ where
 			nested_gas: gas_meter.nested(gas_limit),
 			nested_storage: storage_meter.nested(deposit_limit),
 			allows_reentry: true,
+			read_only,
 		};
 
 		Ok((frame, executable, nonce))
@@ -876,6 +884,7 @@ where
 		value_transferred: BalanceOf<T>,
 		gas_limit: Weight,
 		deposit_limit: BalanceOf<T>,
+		read_only: bool,
 	) -> Result<E, ExecError> {
 		if self.frames.len() == T::CallStack::size() {
 			return Err(Error::<T>::MaxCallDepthReached.into())
@@ -903,6 +912,7 @@ where
 			nested_storage,
 			deposit_limit,
 			self.determinism,
+			read_only,
 		)?;
 		self.frames.push(frame);
 		Ok(executable)
@@ -983,16 +993,16 @@ where
 					let caller = self.caller().account_id()?.clone();
 
 					// Deposit an instantiation event.
-					Contracts::<T>::deposit_event(
-						vec![T::Hashing::hash_of(&caller), T::Hashing::hash_of(account_id)],
-						Event::Instantiated { deployer: caller, contract: account_id.clone() },
-					);
+					Contracts::<T>::deposit_event(Event::Instantiated {
+						deployer: caller,
+						contract: account_id.clone(),
+					});
 				},
 				(ExportedFunction::Call, Some(code_hash)) => {
-					Contracts::<T>::deposit_event(
-						vec![T::Hashing::hash_of(account_id), T::Hashing::hash_of(&code_hash)],
-						Event::DelegateCalled { contract: account_id.clone(), code_hash },
-					);
+					Contracts::<T>::deposit_event(Event::DelegateCalled {
+						contract: account_id.clone(),
+						code_hash,
+					});
 				},
 				(ExportedFunction::Call, None) => {
 					// If a special limit was set for the sub-call, we enforce it here.
@@ -1002,10 +1012,10 @@ where
 					frame.nested_storage.enforce_subcall_limit(contract)?;
 
 					let caller = self.caller();
-					Contracts::<T>::deposit_event(
-						vec![T::Hashing::hash_of(&caller), T::Hashing::hash_of(&account_id)],
-						Event::Called { caller: caller.clone(), contract: account_id.clone() },
-					);
+					Contracts::<T>::deposit_event(Event::Called {
+						caller: caller.clone(),
+						contract: account_id.clone(),
+					});
 				},
 			}
 
@@ -1217,6 +1227,7 @@ where
 		value: BalanceOf<T>,
 		input_data: Vec<u8>,
 		allows_reentry: bool,
+		read_only: bool,
 	) -> Result<ExecReturnValue, ExecError> {
 		// Before pushing the new frame: Protect the caller contract against reentrancy attacks.
 		// It is important to do this before calling `allows_reentry` so that a direct recursion
@@ -1227,6 +1238,7 @@ where
 			if !self.allows_reentry(&to) {
 				return Err(<Error<T>>::ReentranceDenied.into())
 			}
+
 			// We ignore instantiate frames in our search for a cached contract.
 			// Otherwise it would be possible to recursively call a contract from its own
 			// constructor: We disallow calling not fully constructed contracts.
@@ -1242,6 +1254,8 @@ where
 				value,
 				gas_limit,
 				deposit_limit,
+				// Enable read-only access if requested; cannot disable it if already set.
+				read_only || self.is_read_only(),
 			)?;
 			self.run(executable, input_data)
 		};
@@ -1274,6 +1288,7 @@ where
 			value,
 			Weight::zero(),
 			BalanceOf::<T>::zero(),
+			self.is_read_only(),
 		)?;
 		self.run(executable, input_data)
 	}
@@ -1300,12 +1315,13 @@ where
 			value,
 			gas_limit,
 			deposit_limit,
+			self.is_read_only(),
 		)?;
 		let account_id = self.top_frame().account_id.clone();
 		self.run(executable, input_data).map(|ret| (account_id, ret))
 	}
 
-	fn terminate(&mut self, beneficiary: &AccountIdOf<Self::T>) -> Result<(), DispatchError> {
+	fn terminate(&mut self, beneficiary: &AccountIdOf<Self::T>) -> DispatchResult {
 		if self.is_recursive() {
 			return Err(Error::<T>::TerminatedWhileReentrant.into())
 		}
@@ -1324,13 +1340,10 @@ where
 				.charge_deposit(frame.account_id.clone(), StorageDeposit::Refund(*deposit));
 		}
 
-		Contracts::<T>::deposit_event(
-			vec![T::Hashing::hash_of(&frame.account_id), T::Hashing::hash_of(&beneficiary)],
-			Event::Terminated {
-				contract: frame.account_id.clone(),
-				beneficiary: beneficiary.clone(),
-			},
-		);
+		Contracts::<T>::deposit_event(Event::Terminated {
+			contract: frame.account_id.clone(),
+			beneficiary: beneficiary.clone(),
+		});
 		Ok(())
 	}
 
@@ -1422,7 +1435,7 @@ where
 	}
 
 	fn deposit_event(&mut self, topics: Vec<T::Hash>, data: Vec<u8>) {
-		Contracts::<Self::T>::deposit_event(
+		Contracts::<Self::T>::deposit_indexed_event(
 			topics,
 			Event::ContractEmitted { contract: self.top_frame().account_id.clone(), data },
 		);
@@ -1500,12 +1513,12 @@ where
 		ECDSAPublic::from(*pk).to_eth_address()
 	}
 
-	#[cfg(test)]
+	#[cfg(any(test, feature = "runtime-benchmarks"))]
 	fn contract_info(&mut self) -> &mut ContractInfo<Self::T> {
 		self.top_frame_mut().contract_info()
 	}
 
-	fn set_code_hash(&mut self, hash: CodeHash<Self::T>) -> Result<(), DispatchError> {
+	fn set_code_hash(&mut self, hash: CodeHash<Self::T>) -> DispatchResult {
 		let frame = top_frame_mut!(self);
 		if !E::from_storage(hash, &mut frame.nested_gas)?.is_deterministic() {
 			return Err(<Error<T>>::Indeterministic.into())
@@ -1527,14 +1540,11 @@ where
 
 		Self::increment_refcount(hash)?;
 		Self::decrement_refcount(prev_hash);
-		Contracts::<Self::T>::deposit_event(
-			vec![T::Hashing::hash_of(&frame.account_id), hash, prev_hash],
-			Event::ContractCodeUpdated {
-				contract: frame.account_id.clone(),
-				new_code_hash: hash,
-				old_code_hash: prev_hash,
-			},
-		);
+		Contracts::<Self::T>::deposit_event(Event::ContractCodeUpdated {
+			contract: frame.account_id.clone(),
+			new_code_hash: hash,
+			old_code_hash: prev_hash,
+		});
 		Ok(())
 	}
 
@@ -1559,7 +1569,7 @@ where
 		}
 	}
 
-	fn increment_refcount(code_hash: CodeHash<Self::T>) -> Result<(), DispatchError> {
+	fn increment_refcount(code_hash: CodeHash<Self::T>) -> DispatchResult {
 		<CodeInfoOf<Self::T>>::mutate(code_hash, |existing| -> Result<(), DispatchError> {
 			if let Some(info) = existing {
 				*info.refcount_mut() = info.refcount().saturating_add(1);
@@ -1578,10 +1588,7 @@ where
 		});
 	}
 
-	fn lock_delegate_dependency(
-		&mut self,
-		code_hash: CodeHash<Self::T>,
-	) -> Result<(), DispatchError> {
+	fn lock_delegate_dependency(&mut self, code_hash: CodeHash<Self::T>) -> DispatchResult {
 		let frame = self.top_frame_mut();
 		let info = frame.contract_info.get(&frame.account_id);
 		ensure!(code_hash != info.code_hash, Error::<T>::CannotAddSelfAsDelegateDependency);
@@ -1597,10 +1604,7 @@ where
 		Ok(())
 	}
 
-	fn unlock_delegate_dependency(
-		&mut self,
-		code_hash: &CodeHash<Self::T>,
-	) -> Result<(), DispatchError> {
+	fn unlock_delegate_dependency(&mut self, code_hash: &CodeHash<Self::T>) -> DispatchResult {
 		let frame = self.top_frame_mut();
 		let info = frame.contract_info.get(&frame.account_id);
 
@@ -1610,6 +1614,14 @@ where
 			.nested_storage
 			.charge_deposit(frame.account_id.clone(), StorageDeposit::Refund(deposit));
 		Ok(())
+	}
+
+	fn locked_delegate_dependencies_count(&mut self) -> usize {
+		self.top_frame_mut().contract_info().delegate_dependencies_count()
+	}
+
+	fn is_read_only(&self) -> bool {
+		self.top_frame().read_only
 	}
 }
 
@@ -1639,7 +1651,7 @@ mod tests {
 		exec::ExportedFunction::*,
 		gas::GasMeter,
 		tests::{
-			test_utils::{get_balance, hash, place_contract, set_balance},
+			test_utils::{get_balance, place_contract, set_balance},
 			ExtBuilder, RuntimeCall, RuntimeEvent as MetaEvent, Test, TestFilter, ALICE, BOB,
 			CHARLIE, GAS_LIMIT,
 		},
@@ -2122,7 +2134,15 @@ mod tests {
 		let value = Default::default();
 		let recurse_ch = MockLoader::insert(Call, |ctx, _| {
 			// Try to call into yourself.
-			let r = ctx.ext.call(Weight::zero(), BalanceOf::<Test>::zero(), BOB, 0, vec![], true);
+			let r = ctx.ext.call(
+				Weight::zero(),
+				BalanceOf::<Test>::zero(),
+				BOB,
+				0,
+				vec![],
+				true,
+				false,
+			);
 
 			ReachedBottom::mutate(|reached_bottom| {
 				if !*reached_bottom {
@@ -2181,8 +2201,15 @@ mod tests {
 
 			// Call into CHARLIE contract.
 			assert_matches!(
-				ctx.ext
-					.call(Weight::zero(), BalanceOf::<Test>::zero(), CHARLIE, 0, vec![], true),
+				ctx.ext.call(
+					Weight::zero(),
+					BalanceOf::<Test>::zero(),
+					CHARLIE,
+					0,
+					vec![],
+					true,
+					false
+				),
 				Ok(_)
 			);
 			exec_success()
@@ -2329,7 +2356,7 @@ mod tests {
 			assert!(ctx.ext.caller_is_origin());
 			// BOB calls CHARLIE
 			ctx.ext
-				.call(Weight::zero(), BalanceOf::<Test>::zero(), CHARLIE, 0, vec![], true)
+				.call(Weight::zero(), BalanceOf::<Test>::zero(), CHARLIE, 0, vec![], true, false)
 		});
 
 		ExtBuilder::default().build().execute_with(|| {
@@ -2428,7 +2455,7 @@ mod tests {
 			assert!(ctx.ext.caller_is_root());
 			// BOB calls CHARLIE.
 			ctx.ext
-				.call(Weight::zero(), BalanceOf::<Test>::zero(), CHARLIE, 0, vec![], true)
+				.call(Weight::zero(), BalanceOf::<Test>::zero(), CHARLIE, 0, vec![], true, false)
 		});
 
 		ExtBuilder::default().build().execute_with(|| {
@@ -2462,8 +2489,15 @@ mod tests {
 
 			// Call into charlie contract.
 			assert_matches!(
-				ctx.ext
-					.call(Weight::zero(), BalanceOf::<Test>::zero(), CHARLIE, 0, vec![], true),
+				ctx.ext.call(
+					Weight::zero(),
+					BalanceOf::<Test>::zero(),
+					CHARLIE,
+					0,
+					vec![],
+					true,
+					false
+				),
 				Ok(_)
 			);
 			exec_success()
@@ -2831,7 +2865,8 @@ mod tests {
 						CHARLIE,
 						0,
 						vec![],
-						true
+						true,
+						false
 					),
 					exec_trapped()
 				);
@@ -2842,7 +2877,7 @@ mod tests {
 		let code_charlie = MockLoader::insert(Call, |ctx, _| {
 			assert!(ctx
 				.ext
-				.call(Weight::zero(), BalanceOf::<Test>::zero(), BOB, 0, vec![99], true)
+				.call(Weight::zero(), BalanceOf::<Test>::zero(), BOB, 0, vec![99], true, false)
 				.is_ok());
 			exec_trapped()
 		});
@@ -2875,7 +2910,7 @@ mod tests {
 	fn recursive_call_during_constructor_fails() {
 		let code = MockLoader::insert(Constructor, |ctx, _| {
 			assert_matches!(
-				ctx.ext.call(Weight::zero(), BalanceOf::<Test>::zero(), ctx.ext.address().clone(), 0, vec![], true),
+				ctx.ext.call(Weight::zero(), BalanceOf::<Test>::zero(), ctx.ext.address().clone(), 0, vec![], true, false),
 				Err(ExecError{error, ..}) if error == <Error<Test>>::ContractNotFound.into()
 			);
 			exec_success()
@@ -3025,7 +3060,8 @@ mod tests {
 		// call the contract passed as input with disabled reentry
 		let code_bob = MockLoader::insert(Call, |ctx, _| {
 			let dest = Decode::decode(&mut ctx.input_data.as_ref()).unwrap();
-			ctx.ext.call(Weight::zero(), BalanceOf::<Test>::zero(), dest, 0, vec![], false)
+			ctx.ext
+				.call(Weight::zero(), BalanceOf::<Test>::zero(), dest, 0, vec![], false, false)
 		});
 
 		let code_charlie = MockLoader::insert(Call, |_, _| exec_success());
@@ -3074,8 +3110,15 @@ mod tests {
 	fn call_deny_reentry() {
 		let code_bob = MockLoader::insert(Call, |ctx, _| {
 			if ctx.input_data[0] == 0 {
-				ctx.ext
-					.call(Weight::zero(), BalanceOf::<Test>::zero(), CHARLIE, 0, vec![], false)
+				ctx.ext.call(
+					Weight::zero(),
+					BalanceOf::<Test>::zero(),
+					CHARLIE,
+					0,
+					vec![],
+					false,
+					false,
+				)
 			} else {
 				exec_success()
 			}
@@ -3083,7 +3126,8 @@ mod tests {
 
 		// call BOB with input set to '1'
 		let code_charlie = MockLoader::insert(Call, |ctx, _| {
-			ctx.ext.call(Weight::zero(), BalanceOf::<Test>::zero(), BOB, 0, vec![1], true)
+			ctx.ext
+				.call(Weight::zero(), BalanceOf::<Test>::zero(), BOB, 0, vec![1], true, false)
 		});
 
 		ExtBuilder::default().build().execute_with(|| {
@@ -3164,7 +3208,7 @@ mod tests {
 							caller: Origin::from_account_id(ALICE),
 							contract: BOB,
 						}),
-						topics: vec![hash(&Origin::<Test>::from_account_id(ALICE)), hash(&BOB)],
+						topics: vec![],
 					},
 				]
 			);
@@ -3264,7 +3308,7 @@ mod tests {
 							caller: Origin::from_account_id(ALICE),
 							contract: BOB,
 						}),
-						topics: vec![hash(&Origin::<Test>::from_account_id(ALICE)), hash(&BOB)],
+						topics: vec![],
 					},
 				]
 			);
@@ -3303,7 +3347,15 @@ mod tests {
 
 			// a plain call should not influence the account counter
 			ctx.ext
-				.call(Weight::zero(), BalanceOf::<Test>::zero(), account_id, 0, vec![], false)
+				.call(
+					Weight::zero(),
+					BalanceOf::<Test>::zero(),
+					account_id,
+					0,
+					vec![],
+					false,
+					false,
+				)
 				.unwrap();
 
 			exec_success()

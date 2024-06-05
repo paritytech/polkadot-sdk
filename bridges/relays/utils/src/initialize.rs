@@ -16,7 +16,12 @@
 
 //! Relayer initialization functions.
 
+use parking_lot::Mutex;
 use std::{cell::RefCell, fmt::Display, io::Write};
+
+/// Relayer version that is provided as metric. Must be set by a binary
+/// (get it with `option_env!("CARGO_PKG_VERSION")` from a binary package code).
+pub static RELAYER_VERSION: Mutex<Option<String>> = Mutex::new(None);
 
 async_std::task_local! {
 	pub(crate) static LOOP_NAME: RefCell<String> = RefCell::new(String::default());

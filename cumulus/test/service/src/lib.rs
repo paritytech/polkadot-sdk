@@ -155,7 +155,7 @@ impl RecoveryHandle for FailingRecoveryHandle {
 		message: AvailabilityRecoveryMessage,
 		origin: &'static str,
 	) {
-		let AvailabilityRecoveryMessage::RecoverAvailableData(ref receipt, _, _, _) = message;
+		let AvailabilityRecoveryMessage::RecoverAvailableData(ref receipt, _, _, _, _) = message;
 		let candidate_hash = receipt.hash();
 
 		// For every 3rd block we immediately signal unavailability to trigger
@@ -163,7 +163,8 @@ impl RecoveryHandle for FailingRecoveryHandle {
 		if self.counter % 3 == 0 && self.failed_hashes.insert(candidate_hash) {
 			tracing::info!(target: LOG_TARGET, ?candidate_hash, "Failing pov recovery.");
 
-			let AvailabilityRecoveryMessage::RecoverAvailableData(_, _, _, back_sender) = message;
+			let AvailabilityRecoveryMessage::RecoverAvailableData(_, _, _, _, back_sender) =
+				message;
 			back_sender
 				.send(Err(RecoveryError::Unavailable))
 				.expect("Return channel should work here.");
@@ -318,7 +319,6 @@ pub async fn start_node_impl<RB, Net: NetworkBackend<Block, Hash>>(
 	consensus: Consensus,
 	collator_options: CollatorOptions,
 	proof_recording_during_import: bool,
-	slot_based_authoring: bool,
 ) -> sc_service::error::Result<(
 	TaskManager,
 	Arc<Client>,
@@ -465,7 +465,7 @@ where
 
 			let client_for_aura = client.clone();
 
-			if slot_based_authoring {
+			if collator_options.use_slot_based {
 				tracing::info!(target: LOG_TARGET, "Starting block authoring with slot based authoring.");
 				let params = SlotBasedParams {
 					create_inherent_data_providers: move |_, ()| async move { Ok(()) },
@@ -487,6 +487,7 @@ where
 					collator_service,
 					authoring_duration: Duration::from_millis(2000),
 					reinitialize: false,
+					slot_drift: Duration::from_secs(1),
 				};
 
 				let (collation_future, block_builer_future) =
@@ -745,7 +746,8 @@ impl TestNodeBuilder {
 			false,
 		);
 
-		let collator_options = CollatorOptions { relay_chain_mode: self.relay_chain_mode };
+		let collator_options =
+			CollatorOptions { relay_chain_mode: self.relay_chain_mode, use_slot_based: false };
 
 		relay_chain_config.network.node_name =
 			format!("{} (relay chain)", relay_chain_config.network.node_name);
@@ -765,7 +767,6 @@ impl TestNodeBuilder {
 						self.consensus,
 						collator_options,
 						self.record_proof_during_import,
-						false,
 					)
 					.await
 					.expect("could not create Cumulus test service"),
@@ -781,7 +782,6 @@ impl TestNodeBuilder {
 						self.consensus,
 						collator_options,
 						self.record_proof_during_import,
-						false,
 					)
 					.await
 					.expect("could not create Cumulus test service"),
@@ -875,6 +875,8 @@ pub fn node_config(
 		rpc_message_buffer_capacity: Default::default(),
 		rpc_batch_config: RpcBatchRequestConfig::Unlimited,
 		rpc_rate_limit: None,
+		rpc_rate_limit_whitelisted_ips: Default::default(),
+		rpc_rate_limit_trust_proxy_headers: Default::default(),
 		prometheus_config: None,
 		telemetry_endpoints: None,
 		default_heap_pages: None,

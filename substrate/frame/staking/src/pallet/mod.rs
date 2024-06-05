@@ -39,6 +39,7 @@ use sp_runtime::{
 use sp_staking::{
 	EraIndex, Page, SessionIndex,
 	StakingAccount::{self, Controller, Stash},
+	StakingInterface,
 };
 use sp_std::prelude::*;
 
@@ -938,7 +939,8 @@ pub mod pallet {
 		/// - Three extra DB entries.
 		///
 		/// NOTE: Two of the storage writes (`Self::bonded`, `Self::payee`) are _never_ cleaned
-		/// unless the `origin` falls below _existential deposit_ and gets removed as dust.
+		/// unless the `origin` falls below _existential deposit_ (or equal to 0) and gets removed
+		/// as dust.
 		#[pallet::call_index(0)]
 		#[pallet::weight(T::WeightInfo::bond())]
 		pub fn bond(
@@ -1615,6 +1617,7 @@ pub mod pallet {
 		///
 		/// 1. the `total_balance` of the stash is below existential deposit.
 		/// 2. or, the `ledger.total` of the stash is below existential deposit.
+		/// 3. or, existential deposit is zero and either `total_balance` or `ledger.total` is zero.
 		///
 		/// The former can happen in cases like a slash; the latter when a fully unbonded account
 		/// is still receiving staking rewards in `RewardDestination::Staked`.
@@ -1640,8 +1643,13 @@ pub mod pallet {
 			ensure!(!Self::is_virtual_staker(&stash), Error::<T>::VirtualStakerNotAllowed);
 
 			let ed = T::Currency::minimum_balance();
-			let reapable = T::Currency::total_balance(&stash) < ed ||
-				Self::ledger(Stash(stash.clone())).map(|l| l.total).unwrap_or_default() < ed;
+			let origin_balance = T::Currency::total_balance(&stash);
+			let ledger_total =
+				Self::ledger(Stash(stash.clone())).map(|l| l.total).unwrap_or_default();
+			let reapable = origin_balance < ed ||
+				origin_balance.is_zero() ||
+				ledger_total < ed ||
+				ledger_total.is_zero();
 			ensure!(reapable, Error::<T>::FundedTarget);
 
 			// Remove all staking-related information and lock.

@@ -1,0 +1,14 @@
+title: "Make parachain template async backing ready"
+
+doc:
+  - audience: Node Dev
+    description: |
+      Promotes the parachain template (both node and runtime) to use async backing APIs so that
+      developers starting a new project from the template could get async backing integrated out
+      of the box.
+
+crates:
+  - name: parachain-template-node
+    bump: major
+  - name: parachain-template-runtime
+    bump: major

@@ -30,7 +30,7 @@ use crate::{
 	mock::{
 		chain_api::{ChainApiState, MockChainApi},
 		network_bridge::{MockNetworkBridgeRx, MockNetworkBridgeTx},
-		runtime_api::MockRuntimeApi,
+		runtime_api::{MockRuntimeApi, MockRuntimeApiCoreState},
 		AlwaysSupportsParachains, TestSyncOracle,
 	},
 	network::{
@@ -98,7 +98,7 @@ pub(crate) const TEST_CONFIG: ApprovalVotingConfig = ApprovalVotingConfig {
 const DATA_COL: u32 = 0;
 
 /// Start generating messages for a slot into the future, so that the
-/// generation nevers falls behind the current slot.
+/// generation never falls behind the current slot.
 const BUFFER_FOR_GENERATION_MILLIS: u64 = 30_000;
 
 /// Parameters specific to the approvals benchmark
@@ -465,8 +465,9 @@ impl ApprovalTestState {
 	}
 }
 
+#[async_trait::async_trait]
 impl HandleNetworkMessage for ApprovalTestState {
-	fn handle(
+	async fn handle(
 		&self,
 		_message: crate::network::NetworkMessage,
 		_node_sender: &mut futures::channel::mpsc::UnboundedSender<crate::network::NetworkMessage>,
@@ -807,6 +808,7 @@ fn build_overseer(
 		state.candidate_events_by_block(),
 		Some(state.babe_epoch.clone()),
 		1,
+		MockRuntimeApiCoreState::Occupied,
 	);
 	let mock_tx_bridge = MockNetworkBridgeTx::new(
 		network.clone(),
@@ -886,7 +888,6 @@ fn prepare_test_inner(
 }
 
 pub async fn bench_approvals(
-	benchmark_name: &str,
 	env: &mut TestEnvironment,
 	mut state: ApprovalTestState,
 ) -> BenchmarkUsage {
@@ -898,12 +899,11 @@ pub async fn bench_approvals(
 			env.registry().clone(),
 		)
 		.await;
-	bench_approvals_run(benchmark_name, env, state, producer_rx).await
+	bench_approvals_run(env, state, producer_rx).await
 }
 
 /// Runs the approval benchmark.
 pub async fn bench_approvals_run(
-	benchmark_name: &str,
 	env: &mut TestEnvironment,
 	state: ApprovalTestState,
 	producer_rx: oneshot::Receiver<()>,
@@ -915,7 +915,9 @@ pub async fn bench_approvals_run(
 
 	// First create the initialization messages that make sure that then node under
 	// tests receives notifications about the topology used and the connected peers.
-	let mut initialization_messages = env.network().generate_peer_connected();
+	let mut initialization_messages = env.network().generate_peer_connected(|e| {
+		AllMessages::ApprovalDistribution(ApprovalDistributionMessage::NetworkBridgeUpdate(e))
+	});
 	initialization_messages.extend(generate_new_session_topology(
 		&state.test_authorities,
 		ValidatorIndex(NODE_UNDER_TEST),
@@ -1068,5 +1070,5 @@ pub async fn bench_approvals_run(
 		state.total_unique_messages.load(std::sync::atomic::Ordering::SeqCst)
 	);
 
-	env.collect_resource_usage(benchmark_name, &["approval-distribution", "approval-voting"])
+	env.collect_resource_usage(&["approval-distribution", "approval-voting"])
 }

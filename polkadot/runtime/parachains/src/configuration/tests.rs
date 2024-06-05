@@ -17,7 +17,7 @@
 use super::*;
 use crate::{
 	configuration,
-	mock::{new_test_ext, Configuration, ParasShared, RuntimeOrigin, Test},
+	mock::{new_test_ext, Configuration, MockGenesisConfig, ParasShared, RuntimeOrigin, Test},
 };
 use bitvec::{bitvec, prelude::Lsb0};
 use frame_support::{assert_err, assert_noop, assert_ok};
@@ -546,4 +546,52 @@ fn verify_externally_accessible() {
 			},
 		);
 	});
+}
+
+#[test]
+fn active_config_hrmp_channel_size_and_capacity_ratio_works() {
+	frame_support::parameter_types! {
+		pub Ratio100: Percent = Percent::from_percent(100);
+		pub Ratio50: Percent = Percent::from_percent(50);
+	}
+
+	let mut genesis: MockGenesisConfig = Default::default();
+	genesis.configuration.config.hrmp_channel_max_message_size = 1024;
+	genesis.configuration.config.hrmp_channel_max_capacity = 100;
+
+	new_test_ext(genesis).execute_with(|| {
+		let active_config = configuration::ActiveConfig::<Test>::get();
+		assert_eq!(active_config.hrmp_channel_max_message_size, 1024);
+		assert_eq!(active_config.hrmp_channel_max_capacity, 100);
+
+		assert_eq!(
+			ActiveConfigHrmpChannelSizeAndCapacityRatio::<Test, Ratio100>::get(),
+			(1024, 100)
+		);
+		assert_eq!(ActiveConfigHrmpChannelSizeAndCapacityRatio::<Test, Ratio50>::get(), (512, 50));
+
+		// change ActiveConfig
+		assert_ok!(Configuration::set_hrmp_channel_max_message_size(
+			RuntimeOrigin::root(),
+			active_config.hrmp_channel_max_message_size * 4
+		));
+		assert_ok!(Configuration::set_hrmp_channel_max_capacity(
+			RuntimeOrigin::root(),
+			active_config.hrmp_channel_max_capacity * 4
+		));
+		on_new_session(1);
+		on_new_session(2);
+		let active_config = configuration::ActiveConfig::<Test>::get();
+		assert_eq!(active_config.hrmp_channel_max_message_size, 4096);
+		assert_eq!(active_config.hrmp_channel_max_capacity, 400);
+
+		assert_eq!(
+			ActiveConfigHrmpChannelSizeAndCapacityRatio::<Test, Ratio100>::get(),
+			(4096, 400)
+		);
+		assert_eq!(
+			ActiveConfigHrmpChannelSizeAndCapacityRatio::<Test, Ratio50>::get(),
+			(2048, 200)
+		);
+	})
 }

@@ -54,15 +54,17 @@ use sp_runtime::traits::{Block as BlockT, Header as HeaderT};
 
 pub use self::{
 	builder::{
-		build_network, new_client, new_db_backend, new_full_client, new_full_parts,
-		new_full_parts_record_import, new_full_parts_with_genesis_builder,
-		new_native_or_wasm_executor, new_wasm_executor, spawn_tasks, BuildNetworkParams,
+		build_network, gen_rpc_module, init_telemetry, new_client, new_db_backend, new_full_client,
+		new_full_parts, new_full_parts_record_import, new_full_parts_with_genesis_builder,
+		new_wasm_executor, propagate_transaction_notifications, spawn_tasks, BuildNetworkParams,
 		KeystoreContainer, NetworkStarter, SpawnTasksParams, TFullBackend, TFullCallExecutor,
 		TFullClient,
 	},
 	client::{ClientConfig, LocalCallExecutor},
 	error::Error,
 };
+#[allow(deprecated)]
+pub use builder::new_native_or_wasm_executor;
 
 pub use sc_chain_spec::{
 	construct_genesis_block, resolve_state_version_from_wasm, BuildGenesisBlock,
@@ -74,7 +76,7 @@ pub use config::{
 };
 pub use sc_chain_spec::{
 	ChainSpec, ChainType, Extension as ChainSpecExtension, GenericChainSpec, NoExtension,
-	Properties, RuntimeGenesis,
+	Properties,
 };
 
 pub use sc_consensus::ImportQueue;
@@ -406,6 +408,8 @@ where
 		cors: config.rpc_cors.as_ref(),
 		tokio_handle: config.tokio_handle.clone(),
 		rate_limit: config.rpc_rate_limit,
+		rate_limit_whitelisted_ips: config.rpc_rate_limit_whitelisted_ips.clone(),
+		rate_limit_trust_proxy_headers: config.rpc_rate_limit_trust_proxy_headers,
 	};
 
 	// TODO: https://github.com/paritytech/substrate/issues/13773

@@ -46,7 +46,7 @@ mod v_coretime {
 	#[cfg(feature = "try-runtime")]
 	use sp_std::vec::Vec;
 	use sp_std::{iter, prelude::*, result};
-	use xcm::v4::{send_xcm, Instruction, Junction, Location, SendError, WeightLimit, Xcm};
+	use xcm::prelude::{send_xcm, Instruction, Junction, Location, SendError, WeightLimit, Xcm};
 
 	/// Return information about a legacy lease of a parachain.
 	pub trait GetLegacyLease<N> {

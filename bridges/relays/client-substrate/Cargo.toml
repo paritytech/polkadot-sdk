@@ -13,7 +13,7 @@ workspace = true
 [dependencies]
 async-std = { version = "1.9.0", features = ["attributes"] }
 async-trait = "0.1.79"
-codec = { package = "parity-scale-codec", version = "3.6.1" }
+codec = { package = "parity-scale-codec", version = "3.6.12" }
 futures = "0.3.30"
 jsonrpsee = { version = "0.22", features = ["macros", "ws-client"] }
 log = { workspace = true }

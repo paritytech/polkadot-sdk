@@ -42,38 +42,18 @@ pub mod prelude {
 	};
 	// Client structs
 	pub use super::{
-		Backend, ExecutorDispatch, LocalExecutorDispatch, NativeElseWasmExecutor, TestClient,
-		TestClientBuilder, WasmExecutionMethod,
+		Backend, ExecutorDispatch, TestClient, TestClientBuilder, WasmExecutionMethod,
 	};
 	// Keyring
 	pub use super::{AccountKeyring, Sr25519Keyring};
-}
-
-/// A unit struct which implements `NativeExecutionDispatch` feeding in the
-/// hard-coded runtime.
-pub struct LocalExecutorDispatch;
-
-impl sc_executor::NativeExecutionDispatch for LocalExecutorDispatch {
-	type ExtendHostFunctions = ();
-
-	fn dispatch(method: &str, data: &[u8]) -> Option<Vec<u8>> {
-		substrate_test_runtime::api::dispatch(method, data)
-	}
-
-	fn native_version() -> sc_executor::NativeVersion {
-		substrate_test_runtime::native_version()
-	}
 }
 
 /// Test client database backend.
 pub type Backend = substrate_test_client::Backend<substrate_test_runtime::Block>;
 
 /// Test client executor.
-pub type ExecutorDispatch = client::LocalCallExecutor<
-	substrate_test_runtime::Block,
-	Backend,
-	NativeElseWasmExecutor<LocalExecutorDispatch>,
->;
+pub type ExecutorDispatch =
+	client::LocalCallExecutor<substrate_test_runtime::Block, Backend, WasmExecutor>;
 
 /// Parameters of test-client builder with test-runtime.
 #[derive(Default)]
@@ -113,14 +93,10 @@ pub type TestClientBuilder<E, B> = substrate_test_client::TestClientBuilder<
 	GenesisParameters,
 >;
 
-/// Test client type with `LocalExecutorDispatch` and generic Backend.
+/// Test client type with `WasmExecutor` and generic Backend.
 pub type Client<B> = client::Client<
 	B,
-	client::LocalCallExecutor<
-		substrate_test_runtime::Block,
-		B,
-		NativeElseWasmExecutor<LocalExecutorDispatch>,
-	>,
+	client::LocalCallExecutor<substrate_test_runtime::Block, B, WasmExecutor>,
 	substrate_test_runtime::Block,
 	substrate_test_runtime::RuntimeApi,
 >;
@@ -206,14 +182,8 @@ pub trait TestClientBuilderExt<B>: Sized {
 }
 
 impl<B> TestClientBuilderExt<B>
-	for TestClientBuilder<
-		client::LocalCallExecutor<
-			substrate_test_runtime::Block,
-			B,
-			NativeElseWasmExecutor<LocalExecutorDispatch>,
-		>,
-		B,
-	> where
+	for TestClientBuilder<client::LocalCallExecutor<substrate_test_runtime::Block, B, WasmExecutor>, B>
+where
 	B: sc_client_api::backend::Backend<substrate_test_runtime::Block> + 'static,
 {
 	fn genesis_init_mut(&mut self) -> &mut GenesisParameters {
@@ -238,6 +208,7 @@ pub fn new() -> Client<Backend> {
 }
 
 /// Create a new native executor.
-pub fn new_native_or_wasm_executor() -> NativeElseWasmExecutor<LocalExecutorDispatch> {
-	NativeElseWasmExecutor::new_with_wasm_executor(WasmExecutor::builder().build())
+#[deprecated(note = "Switch to `WasmExecutor:default()`.")]
+pub fn new_native_or_wasm_executor() -> WasmExecutor {
+	WasmExecutor::default()
 }

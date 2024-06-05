@@ -7,11 +7,9 @@ timeout = 1000
 
 [relaychain.genesis.runtimeGenesis.patch.configuration.config.scheduler_params]
   max_validators_per_core = 1
-  scheduling_lookahead = 2
   num_cores = 4
 
 [relaychain.genesis.runtimeGenesis.patch.configuration.config.approval_voting_params]
-  needed_approvals = 3
   max_approval_coalesce_count = 5
 
 [relaychain]
@@ -38,7 +36,7 @@ add_to_genesis = true
   name = "collator-elastic"
   image = "{{CUMULUS_IMAGE}}"
   command = "test-parachain"
-  args = ["-laura=trace,runtime=info,cumulus-consensus=trace,consensus::common=trace,parachain::collation-generation=trace,parachain::collator-protocol=trace,parachain=debug", "--force-authoring", "--use-slot-authoring"]
+  args = ["-laura=trace,runtime=info,cumulus-consensus=trace,consensus::common=trace,parachain::collation-generation=trace,parachain::collator-protocol=trace,parachain=debug", "--force-authoring", "--experimental-use-slot-based"]
 
 # Slot based authoring with 1 core and 6s slot duration
 [[parachains]]
@@ -49,4 +47,4 @@ add_to_genesis = true
   name = "collator-single-core"
   image = "{{CUMULUS_IMAGE}}"
   command = "test-parachain"
-  args = ["-laura=trace,runtime=info,cumulus-consensus=trace,consensus::common=trace,parachain::collation-generation=trace,parachain::collator-protocol=trace,parachain=debug", "--force-authoring", "--use-slot-authoring"]
+  args = ["-laura=trace,runtime=info,cumulus-consensus=trace,consensus::common=trace,parachain::collation-generation=trace,parachain::collator-protocol=trace,parachain=debug", "--force-authoring", "--experimental-use-slot-based"]

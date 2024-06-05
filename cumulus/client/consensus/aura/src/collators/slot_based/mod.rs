@@ -100,6 +100,9 @@ pub struct Params<BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS> {
 	pub authoring_duration: Duration,
 	/// Whether we should reinitialize the collator config (i.e. we are transitioning to aura).
 	pub reinitialize: bool,
+	/// Drift slots by a fixed duration. This can be used to create more preferrable authoring
+	/// timings.
+	pub slot_drift: Duration,
 }
 
 /// Run aura-based block building and collation task.
@@ -157,6 +160,7 @@ where
 		authoring_duration: params.authoring_duration,
 		collator_sender: tx,
 		relay_chain_slot_duration: params.relay_chain_slot_duration,
+		slot_drift: params.slot_drift,
 	};
 
 	let block_builder_fut =

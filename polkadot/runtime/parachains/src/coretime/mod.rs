@@ -26,7 +26,9 @@ pub use pallet::*;
 use pallet_broker::{CoreAssignment, CoreIndex as BrokerCoreIndex};
 use primitives::{CoreIndex, Id as ParaId};
 use sp_arithmetic::traits::SaturatedConversion;
-use xcm::v4::{send_xcm, Instruction, Junction, Location, OriginKind, SendXcm, WeightLimit, Xcm};
+use xcm::prelude::{
+	send_xcm, Instruction, Junction, Location, OriginKind, SendXcm, WeightLimit, Xcm,
+};
 
 use crate::{
 	assigner_coretime::{self, PartsOf57600},
@@ -104,7 +106,7 @@ pub mod pallet {
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		/// The runtime's definition of a Currency.
 		type Currency: Currency<Self::AccountId>;
-		/// The ParaId of the broker system parachain.
+		/// The ParaId of the coretime chain.
 		#[pallet::constant]
 		type BrokerId: Get<u32>;
 		/// Something that provides the weight of this pallet.
@@ -137,10 +139,16 @@ pub mod pallet {
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
+		/// Request the configuration to be updated with the specified number of cores. Warning:
+		/// Since this only schedules a configuration update, it takes two sessions to come into
+		/// effect.
+		///
+		/// - `origin`: Root or the Coretime Chain
+		/// - `count`: total number of cores
 		#[pallet::weight(<T as Config>::WeightInfo::request_core_count())]
 		#[pallet::call_index(1)]
 		pub fn request_core_count(origin: OriginFor<T>, count: u16) -> DispatchResult {
-			// Ignore requests not coming from the broker parachain or root.
+			// Ignore requests not coming from the coretime chain or root.
 			Self::ensure_root_or_para(origin, <T as Config>::BrokerId::get().into())?;
 
 			configuration::Pallet::<T>::set_coretime_cores_unchecked(u32::from(count))
@@ -153,7 +161,7 @@ pub mod pallet {
 		//	origin: OriginFor<T>,
 		//	_when: BlockNumberFor<T>,
 		//) -> DispatchResult {
-		//	// Ignore requests not coming from the broker parachain or root.
+		//	// Ignore requests not coming from the coretime chain or root.
 		//	Self::ensure_root_or_para(origin, <T as Config>::BrokerId::get().into())?;
 		//	Ok(())
 		//}
@@ -166,7 +174,7 @@ pub mod pallet {
 		//	_who: T::AccountId,
 		//	_amount: BalanceOf<T>,
 		//) -> DispatchResult {
-		//	// Ignore requests not coming from the broker parachain or root.
+		//	// Ignore requests not coming from the coretime chain or root.
 		//	Self::ensure_root_or_para(origin, <T as Config>::BrokerId::get().into())?;
 		//	Ok(())
 		//}
@@ -175,7 +183,7 @@ pub mod pallet {
 		/// to be used.
 		///
 		/// Parameters:
-		/// -`origin`: The `ExternalBrokerOrigin`, assumed to be the Broker system parachain.
+		/// -`origin`: The `ExternalBrokerOrigin`, assumed to be the coretime chain.
 		/// -`core`: The core that should be scheduled.
 		/// -`begin`: The starting blockheight of the instruction.
 		/// -`assignment`: How the blockspace should be utilised.
@@ -191,7 +199,7 @@ pub mod pallet {
 			assignment: Vec<(CoreAssignment, PartsOf57600)>,
 			end_hint: Option<BlockNumberFor<T>>,
 		) -> DispatchResult {
-			// Ignore requests not coming from the broker parachain or root.
+			// Ignore requests not coming from the coretime chain or root.
 			Self::ensure_root_or_para(origin, T::BrokerId::get().into())?;
 
 			let core = u32::from(core).into();
@@ -241,7 +249,7 @@ impl<T: Config> Pallet<T> {
 		}
 	}
 
-	// Handle legacy swaps in coretime. Notifies broker parachain that a lease swap has occurred via
+	// Handle legacy swaps in coretime. Notifies coretime chain that a lease swap has occurred via
 	// XCM message. This function is meant to be used in an implementation of `OnSwap` trait.
 	pub fn on_legacy_lease_swap(one: ParaId, other: ParaId) {
 		let message = Xcm(vec![

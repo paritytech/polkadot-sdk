@@ -18,7 +18,7 @@
 
 use frame_system::unique;
 use parity_scale_codec::Encode;
-use sp_std::{marker::PhantomData, result::Result};
+use sp_std::{marker::PhantomData, result::Result, vec::Vec};
 use xcm::prelude::*;
 use xcm_executor::{traits::FeeReason, FeesMode};
 
@@ -58,6 +58,11 @@ impl<Inner: SendXcm> SendXcm for WithUniqueTopic<Inner> {
 		let (ticket, unique_id) = ticket;
 		Inner::deliver(ticket)?;
 		Ok(unique_id)
+	}
+}
+impl<Inner: InspectMessageQueues> InspectMessageQueues for WithUniqueTopic<Inner> {
+	fn get_messages() -> Vec<(VersionedLocation, Vec<VersionedXcm<()>>)> {
+		Inner::get_messages()
 	}
 }
 
@@ -137,6 +142,26 @@ impl EnsureDelivery for Tuple {
 		)* );
 		// doing nothing
 		(None, None)
+	}
+}
+
+/// Inspects messages in queues.
+/// Meant to be used in runtime APIs, not in runtimes.
+pub trait InspectMessageQueues {
+	/// Get queued messages and their destinations.
+	fn get_messages() -> Vec<(VersionedLocation, Vec<VersionedXcm<()>>)>;
+}
+
+#[impl_trait_for_tuples::impl_for_tuples(30)]
+impl InspectMessageQueues for Tuple {
+	fn get_messages() -> Vec<(VersionedLocation, Vec<VersionedXcm<()>>)> {
+		let mut messages = Vec::new();
+
+		for_tuples!( #(
+			messages.append(&mut Tuple::get_messages());
+		)* );
+
+		messages
 	}
 }
 

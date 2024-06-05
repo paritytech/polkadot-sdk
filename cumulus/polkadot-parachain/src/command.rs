@@ -1017,7 +1017,7 @@ mod tests {
 		cfg_file_path
 	}
 
-	pub type DummyChainSpec<E> = sc_service::GenericChainSpec<(), E>;
+	pub type DummyChainSpec<E> = sc_service::GenericChainSpec<E>;
 
 	pub fn create_default_with_extensions<E: Extension>(
 		id: &str,

@@ -169,8 +169,6 @@ where
 		while let Some(relay_parent_header) = import_notifications.next().await {
 			let relay_parent = relay_parent_header.hash();
 
-			// TODO: Currently we use just the first core here, but for elastic scaling
-			// we iterate and build on all of the cores returned.
 			let core_index = if let Some(core_index) = super::cores_scheduled_for_para(
 				relay_parent,
 				params.para_id,
