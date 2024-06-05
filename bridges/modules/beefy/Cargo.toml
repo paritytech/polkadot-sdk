@@ -14,7 +14,7 @@ workspace = true
 [dependencies]
 codec = { workspace = true }
 log = { workspace = true }
-scale-info = { features = ["derive"] , workspace = true }
+scale-info = { features = ["derive"], workspace = true }
 serde = { optional = true, workspace = true }
 
 # Bridge Dependencies

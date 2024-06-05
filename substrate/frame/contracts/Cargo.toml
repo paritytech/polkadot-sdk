@@ -23,27 +23,27 @@ bitflags = { workspace = true }
 codec = { features = [
 	"derive",
 	"max-encoded-len",
-] , workspace = true }
-scale-info = { features = ["derive"] , workspace = true }
+], workspace = true }
+scale-info = { features = ["derive"], workspace = true }
 log = { workspace = true }
 serde = { optional = true, features = ["derive"], workspace = true, default-features = true }
 smallvec = { features = [
 	"const_generics",
-] , workspace = true }
+], workspace = true }
 wasmi = { workspace = true }
 impl-trait-for-tuples = { workspace = true }
 
 # Only used in benchmarking to generate contract code
 wasm-instrument = { optional = true, workspace = true }
 rand = { optional = true, workspace = true }
-rand_pcg = { optional = true , workspace = true }
+rand_pcg = { optional = true, workspace = true }
 
 # Substrate Dependencies
 environmental = { workspace = true }
-frame-benchmarking = { optional = true , workspace = true }
+frame-benchmarking = { optional = true, workspace = true }
 frame-support = { workspace = true }
 frame-system = { workspace = true }
-pallet-balances = { optional = true , workspace = true }
+pallet-balances = { optional = true, workspace = true }
 pallet-contracts-uapi = { workspace = true, default-features = true }
 pallet-contracts-proc-macro = { workspace = true, default-features = true }
 sp-api = { workspace = true }

@@ -18,4 +18,4 @@ parachains-common = { workspace = true, default-features = true }
 cumulus-primitives-core = { workspace = true }
 emulated-integration-tests-common = { workspace = true }
 people-westend-runtime = { workspace = true }
-testnet-parachains-constants = { features = ["westend"] , workspace = true, default-features = true }
+testnet-parachains-constants = { features = ["westend"], workspace = true, default-features = true }

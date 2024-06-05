@@ -21,21 +21,21 @@ serde = { features = ["alloc", "derive"], workspace = true }
 codec = { features = [
 	"derive",
 	"max-encoded-len",
-] , workspace = true }
+], workspace = true }
 scale-info = { features = [
 	"derive",
-] , workspace = true }
+], workspace = true }
 frame-metadata = { features = [
 	"current",
-] , workspace = true }
+], workspace = true }
 sp-api = { features = [
 	"frame-metadata",
-] , workspace = true }
+], workspace = true }
 sp-std = { workspace = true }
 sp-io = { workspace = true }
 sp-runtime = { features = [
 	"serde",
-] , workspace = true }
+], workspace = true }
 sp-tracing = { workspace = true }
 sp-core = { workspace = true }
 sp-arithmetic = { workspace = true }
@@ -48,13 +48,13 @@ tt-call = { workspace = true }
 macro_magic = { workspace = true }
 frame-support-procedural = { workspace = true }
 paste = { workspace = true, default-features = true }
-sp-state-machine = { optional = true , workspace = true }
+sp-state-machine = { optional = true, workspace = true }
 bitflags = { workspace = true }
 impl-trait-for-tuples = { workspace = true }
 smallvec = { workspace = true, default-features = true }
 log = { workspace = true }
 sp-crypto-hashing-proc-macro = { workspace = true, default-features = true }
-k256 = { features = ["ecdsa"] , workspace = true }
+k256 = { features = ["ecdsa"], workspace = true }
 environmental = { workspace = true }
 sp-genesis-builder = { workspace = true }
 serde_json = { features = ["alloc"], workspace = true }

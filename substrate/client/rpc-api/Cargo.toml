@@ -17,7 +17,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 codec = { workspace = true, default-features = true }
-scale-info = { features = ["derive"] , workspace = true }
+scale-info = { features = ["derive"], workspace = true }
 serde = { features = ["derive"], workspace = true, default-features = true }
 serde_json = { workspace = true, default-features = true }
 thiserror = { workspace = true }
@@ -28,4 +28,4 @@ sp-core = { workspace = true, default-features = true }
 sp-rpc = { workspace = true, default-features = true }
 sp-runtime = { workspace = true, default-features = true }
 sp-version = { workspace = true, default-features = true }
-jsonrpsee = { features = ["client-core", "macros", "server-core"] , workspace = true }
+jsonrpsee = { features = ["client-core", "macros", "server-core"], workspace = true }

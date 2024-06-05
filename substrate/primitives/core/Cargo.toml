@@ -16,41 +16,41 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-codec = { features = ["derive", "max-encoded-len"] , workspace = true }
-scale-info = { features = ["derive"] , workspace = true }
+codec = { features = ["derive", "max-encoded-len"], workspace = true }
+scale-info = { features = ["derive"], workspace = true }
 log = { workspace = true }
 serde = { optional = true, features = ["alloc", "derive"], workspace = true }
 bounded-collections = { workspace = true }
-primitive-types = { features = ["codec", "scale-info"] , workspace = true }
-impl-serde = { optional = true , workspace = true }
+primitive-types = { features = ["codec", "scale-info"], workspace = true }
+impl-serde = { optional = true, workspace = true }
 hash-db = { workspace = true }
 hash256-std-hasher = { workspace = true }
-bs58 = { optional = true , workspace = true }
-rand = { features = ["small_rng"], optional = true , workspace = true, default-features = true }
+bs58 = { optional = true, workspace = true }
+rand = { features = ["small_rng"], optional = true, workspace = true, default-features = true }
 substrate-bip39 = { workspace = true }
 # personal fork here as workaround for: https://github.com/rust-bitcoin/rust-bip39/pull/64
 bip39 = { package = "parity-bip39", version = "2.0.1", default-features = false, features = ["alloc"] }
 zeroize = { workspace = true }
-secrecy = { features = ["alloc"] , workspace = true }
-parking_lot = { optional = true , workspace = true, default-features = true }
+secrecy = { features = ["alloc"], workspace = true }
+parking_lot = { optional = true, workspace = true, default-features = true }
 ss58-registry = { workspace = true }
 sp-std = { workspace = true }
 sp-debug-derive = { workspace = true }
 sp-storage = { workspace = true }
 sp-externalities = { optional = true, workspace = true }
-futures = { optional = true , workspace = true }
-dyn-clonable = { optional = true , workspace = true }
+futures = { optional = true, workspace = true }
+dyn-clonable = { optional = true, workspace = true }
 thiserror = { optional = true, workspace = true }
-tracing = { optional = true , workspace = true, default-features = true }
+tracing = { optional = true, workspace = true, default-features = true }
 bitflags = { workspace = true }
 paste = { workspace = true, default-features = true }
-itertools = { optional = true , workspace = true }
+itertools = { optional = true, workspace = true }
 
 # full crypto
 array-bytes = { workspace = true, default-features = true }
 ed25519-zebra = { workspace = true }
-blake2 = { optional = true , workspace = true }
-libsecp256k1 = { features = ["static-context"] , workspace = true }
+blake2 = { optional = true, workspace = true }
+libsecp256k1 = { features = ["static-context"], workspace = true }
 schnorrkel = { features = ["preaudit_deprecated"], workspace = true }
 merlin = { workspace = true }
 sp-crypto-hashing = { workspace = true }
@@ -58,10 +58,10 @@ sp-runtime-interface = { workspace = true }
 # k256 crate, better portability, intended to be used in substrate-runtimes (no-std)
 k256 = { features = ["alloc", "ecdsa"], workspace = true }
 # secp256k1 crate, better performance, intended to be used on host side (std)
-secp256k1 = { features = ["alloc", "recovery"], optional = true , workspace = true }
+secp256k1 = { features = ["alloc", "recovery"], optional = true, workspace = true }
 
 # bls crypto
-w3f-bls = { optional = true , workspace = true }
+w3f-bls = { optional = true, workspace = true }
 # bandersnatch crypto
 bandersnatch_vrfs = { git = "https://github.com/w3f/ring-vrf", rev = "e9782f9", default-features = false, features = ["substrate-curves"], optional = true }
 

@@ -34,6 +34,6 @@ sp-runtime = { workspace = true, default-features = true }
 [dev-dependencies]
 tokio = { workspace = true, default-features = true }
 async-trait = { workspace = true }
-codec = { features = ["derive"] , workspace = true, default-features = true }
+codec = { features = ["derive"], workspace = true, default-features = true }
 quickcheck = { workspace = true }
 substrate-test-runtime-client = { workspace = true }

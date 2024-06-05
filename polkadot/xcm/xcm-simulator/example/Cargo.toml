@@ -11,7 +11,7 @@ workspace = true
 
 [dependencies]
 codec = { workspace = true, default-features = true }
-scale-info = { features = ["derive"] , workspace = true, default-features = true }
+scale-info = { features = ["derive"], workspace = true, default-features = true }
 log = { workspace = true }
 
 frame-system = { workspace = true, default-features = true }

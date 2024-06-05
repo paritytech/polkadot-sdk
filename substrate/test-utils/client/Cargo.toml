@@ -25,13 +25,13 @@ serde_json = { workspace = true, default-features = true }
 sc-client-api = { workspace = true, default-features = true }
 sc-client-db = { features = [
 	"test-helpers",
-] , workspace = true }
+], workspace = true }
 sc-consensus = { workspace = true, default-features = true }
 sc-executor = { workspace = true, default-features = true }
 sc-offchain = { workspace = true, default-features = true }
 sc-service = { features = [
 	"test-helpers",
-] , workspace = true }
+], workspace = true }
 sp-blockchain = { workspace = true, default-features = true }
 sp-consensus = { workspace = true, default-features = true }
 sp-core = { workspace = true, default-features = true }
@@ -39,4 +39,4 @@ sp-keyring = { workspace = true, default-features = true }
 sp-keystore = { workspace = true, default-features = true }
 sp-runtime = { workspace = true, default-features = true }
 sp-state-machine = { workspace = true, default-features = true }
-tokio = { features = ["sync"] , workspace = true, default-features = true }
+tokio = { features = ["sync"], workspace = true, default-features = true }

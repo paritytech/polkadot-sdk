@@ -11,9 +11,9 @@ license.workspace = true
 workspace = true
 
 [dependencies]
-codec = { features = ["derive"] , workspace = true }
+codec = { features = ["derive"], workspace = true }
 log = { workspace = true }
-scale-info = { features = ["derive"] , workspace = true }
+scale-info = { features = ["derive"], workspace = true }
 serde = { workspace = true }
 
 sp-authority-discovery = { workspace = true }
@@ -66,7 +66,7 @@ xcm = { workspace = true }
 
 [dev-dependencies]
 hex-literal = { workspace = true, default-features = true }
-tiny-keccak = { features = ["keccak"] , workspace = true }
+tiny-keccak = { features = ["keccak"], workspace = true }
 sp-keyring = { workspace = true, default-features = true }
 sp-trie = { workspace = true, default-features = true }
 serde_json = { workspace = true, default-features = true }

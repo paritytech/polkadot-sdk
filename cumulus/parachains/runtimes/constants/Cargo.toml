@@ -21,8 +21,8 @@ sp-runtime = { workspace = true }
 
 # Polkadot
 polkadot-core-primitives = { workspace = true }
-rococo-runtime-constants = { optional = true , workspace = true }
-westend-runtime-constants = { optional = true , workspace = true }
+rococo-runtime-constants = { optional = true, workspace = true }
+westend-runtime-constants = { optional = true, workspace = true }
 xcm = { workspace = true }
 
 # Cumulus

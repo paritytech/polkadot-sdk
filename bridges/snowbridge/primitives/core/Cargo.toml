@@ -14,7 +14,7 @@ workspace = true
 [dependencies]
 serde = { optional = true, features = ["alloc", "derive"], workspace = true }
 codec = { workspace = true }
-scale-info = { features = ["derive"] , workspace = true }
+scale-info = { features = ["derive"], workspace = true }
 hex-literal = { workspace = true, default-features = true }
 
 polkadot-parachain-primitives = { workspace = true }

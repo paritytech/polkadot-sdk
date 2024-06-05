@@ -23,7 +23,7 @@ log = { workspace = true, default-features = true }
 codec = { workspace = true, default-features = true }
 parking_lot = { workspace = true, default-features = true }
 tempfile = { workspace = true }
-tokio = { features = ["time"] , workspace = true, default-features = true }
+tokio = { features = ["time"], workspace = true, default-features = true }
 sc-block-builder = { workspace = true, default-features = true }
 sc-client-api = { workspace = true, default-features = true }
 sc-client-db = { workspace = true }
@@ -31,7 +31,7 @@ sc-consensus = { workspace = true, default-features = true }
 sc-executor = { workspace = true, default-features = true }
 sc-network = { workspace = true, default-features = true }
 sc-network-sync = { workspace = true, default-features = true }
-sc-service = { features = ["test-helpers"] , workspace = true, default-features = true }
+sc-service = { features = ["test-helpers"], workspace = true, default-features = true }
 sc-transaction-pool-api = { workspace = true, default-features = true }
 sp-api = { workspace = true, default-features = true }
 sp-blockchain = { workspace = true, default-features = true }

@@ -21,7 +21,7 @@ byteorder = { workspace = true }
 digest = { workspace = true }
 sha2 = { workspace = true }
 sha3 = { workspace = true }
-twox-hash = { features = ["digest_0_10"] , workspace = true }
+twox-hash = { features = ["digest_0_10"], workspace = true }
 
 [dev-dependencies]
 criterion = { workspace = true, default-features = true }

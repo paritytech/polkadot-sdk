@@ -17,9 +17,9 @@ targets = ["x86_64-unknown-linux-gnu"]
 [dependencies]
 codec = { features = [
 	"derive",
-] , workspace = true }
-scale-info = { features = ["derive"] , workspace = true }
-frame-benchmarking = { optional = true , workspace = true }
+], workspace = true }
+scale-info = { features = ["derive"], workspace = true }
+frame-benchmarking = { optional = true, workspace = true }
 frame-support = { workspace = true }
 frame-system = { workspace = true }
 log = { workspace = true }

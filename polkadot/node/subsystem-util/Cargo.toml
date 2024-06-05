@@ -14,7 +14,7 @@ async-trait = { workspace = true }
 futures = { workspace = true }
 futures-channel = { workspace = true }
 itertools = { workspace = true }
-codec = { features = ["derive"] , workspace = true }
+codec = { features = ["derive"], workspace = true }
 parking_lot = { workspace = true, default-features = true }
 pin-project = { workspace = true }
 rand = { workspace = true, default-features = true }
@@ -33,7 +33,7 @@ polkadot-node-network-protocol = { workspace = true, default-features = true }
 polkadot-primitives = { workspace = true, default-features = true }
 polkadot-node-primitives = { workspace = true, default-features = true }
 polkadot-overseer = { workspace = true, default-features = true }
-metered = { features = ["futures_channel"] , workspace = true }
+metered = { features = ["futures_channel"], workspace = true }
 
 sp-core = { workspace = true, default-features = true }
 sp-application-crypto = { workspace = true, default-features = true }
@@ -46,7 +46,7 @@ parity-db = { workspace = true }
 [dev-dependencies]
 assert_matches = { workspace = true }
 env_logger = { workspace = true }
-futures = { features = ["thread-pool"] , workspace = true }
+futures = { features = ["thread-pool"], workspace = true }
 log = { workspace = true, default-features = true }
 polkadot-node-subsystem-test-helpers = { workspace = true }
 lazy_static = { workspace = true }

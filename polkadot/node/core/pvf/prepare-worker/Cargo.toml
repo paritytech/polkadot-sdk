@@ -16,11 +16,11 @@ gum = { workspace = true, default-features = true }
 libc = { workspace = true }
 rayon = { workspace = true }
 tracking-allocator = { workspace = true, default-features = true }
-tikv-jemalloc-ctl = { optional = true , workspace = true }
-tikv-jemallocator = { optional = true , workspace = true }
-nix = { features = ["process", "resource", "sched"] , workspace = true }
+tikv-jemalloc-ctl = { optional = true, workspace = true }
+tikv-jemallocator = { optional = true, workspace = true }
+nix = { features = ["process", "resource", "sched"], workspace = true }
 
-codec = { features = ["derive"] , workspace = true }
+codec = { features = ["derive"], workspace = true }
 
 polkadot-node-core-pvf-common = { workspace = true, default-features = true }
 polkadot-primitives = { workspace = true, default-features = true }
@@ -41,7 +41,7 @@ jemalloc-allocator = [
 ]
 
 [dev-dependencies]
-criterion = { features = ["cargo_bench_support"] , workspace = true }
+criterion = { features = ["cargo_bench_support"], workspace = true }
 rococo-runtime = { workspace = true }
 sp-maybe-compressed-blob = { workspace = true, default-features = true }
 

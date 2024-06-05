@@ -20,5 +20,5 @@ syn = { workspace = true }
 Inflector = { workspace = true }
 
 [dev-dependencies]
-trybuild = { features = ["diff"] , workspace = true }
+trybuild = { features = ["diff"], workspace = true }
 xcm = { workspace = true, default-features = true }

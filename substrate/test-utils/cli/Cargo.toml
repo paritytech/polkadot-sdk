@@ -19,9 +19,9 @@ targets = ["x86_64-unknown-linux-gnu"]
 substrate-rpc-client = { workspace = true, default-features = true }
 sp-rpc = { workspace = true, default-features = true }
 assert_cmd = { workspace = true }
-nix = { features = ["signal"] , workspace = true }
+nix = { features = ["signal"], workspace = true }
 regex = { workspace = true }
-tokio = { features = ["full"] , workspace = true, default-features = true }
+tokio = { features = ["full"], workspace = true, default-features = true }
 node-primitives = { workspace = true, default-features = true }
 node-cli = { workspace = true }
 sc-cli = { workspace = true, default-features = true }

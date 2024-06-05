@@ -25,7 +25,7 @@ polkadot-node-primitives = { workspace = true, default-features = true }
 polkadot-node-subsystem = { workspace = true, default-features = true }
 polkadot-node-subsystem-util = { workspace = true, default-features = true }
 polkadot-node-network-protocol = { workspace = true, default-features = true }
-codec = { features = ["derive"] , workspace = true }
+codec = { features = ["derive"], workspace = true }
 sc-network = { workspace = true, default-features = true }
 
 [dev-dependencies]

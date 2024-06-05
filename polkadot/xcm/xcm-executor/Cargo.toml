@@ -12,8 +12,8 @@ workspace = true
 [dependencies]
 impl-trait-for-tuples = { workspace = true }
 environmental = { workspace = true }
-codec = { features = ["derive"] , workspace = true }
-scale-info = { features = ["derive", "serde"] , workspace = true }
+codec = { features = ["derive"], workspace = true }
+scale-info = { features = ["derive", "serde"], workspace = true }
 xcm = { workspace = true }
 sp-std = { workspace = true }
 sp-io = { workspace = true }
@@ -23,7 +23,7 @@ sp-runtime = { workspace = true }
 sp-weights = { workspace = true }
 frame-support = { workspace = true }
 log = { workspace = true }
-frame-benchmarking = { optional = true , workspace = true }
+frame-benchmarking = { optional = true, workspace = true }
 
 [features]
 default = ["std"]

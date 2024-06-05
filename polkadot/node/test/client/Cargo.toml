@@ -10,7 +10,7 @@ license.workspace = true
 workspace = true
 
 [dependencies]
-codec = { features = ["derive"] , workspace = true }
+codec = { features = ["derive"], workspace = true }
 
 # Polkadot dependencies
 polkadot-test-runtime = { workspace = true }

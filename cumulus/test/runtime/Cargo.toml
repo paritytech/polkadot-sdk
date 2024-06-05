@@ -9,8 +9,8 @@ publish = false
 workspace = true
 
 [dependencies]
-codec = { features = ["derive"] , workspace = true }
-scale-info = { features = ["derive"] , workspace = true }
+codec = { features = ["derive"], workspace = true }
+scale-info = { features = ["derive"], workspace = true }
 
 # Substrate
 frame-executive = { workspace = true }
@@ -50,7 +50,7 @@ cumulus-primitives-core = { workspace = true }
 cumulus-primitives-storage-weight-reclaim = { workspace = true }
 
 [build-dependencies]
-substrate-wasm-builder = { optional = true , workspace = true, default-features = true }
+substrate-wasm-builder = { optional = true, workspace = true, default-features = true }
 
 [features]
 default = ["std"]

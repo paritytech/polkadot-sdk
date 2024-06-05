@@ -11,15 +11,15 @@ workspace = true
 
 [dependencies]
 array-bytes = { workspace = true, default-features = true }
-bounded-collections = { features = ["serde"] , workspace = true }
-derivative = { features = ["use_core"] , workspace = true }
+bounded-collections = { features = ["serde"], workspace = true }
+derivative = { features = ["use_core"], workspace = true }
 impl-trait-for-tuples = { workspace = true }
 log = { workspace = true }
-codec = { features = ["derive", "max-encoded-len"] , workspace = true }
-scale-info = { features = ["derive", "serde"] , workspace = true }
-sp-weights = { features = ["serde"] , workspace = true }
+codec = { features = ["derive", "max-encoded-len"], workspace = true }
+scale-info = { features = ["derive", "serde"], workspace = true }
+sp-weights = { features = ["serde"], workspace = true }
 serde = { features = ["alloc", "derive", "rc"], workspace = true }
-schemars = { default-features = true, optional = true , workspace = true }
+schemars = { default-features = true, optional = true, workspace = true }
 xcm-procedural = { workspace = true, default-features = true }
 environmental = { workspace = true }
 

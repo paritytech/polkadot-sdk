@@ -12,8 +12,8 @@ publish = false
 workspace = true
 
 [dependencies]
-codec = { features = ["bit-vec", "derive"] , workspace = true }
-scale-info = { features = ["bit-vec", "derive"] , workspace = true }
+codec = { features = ["bit-vec", "derive"], workspace = true }
+scale-info = { features = ["bit-vec", "derive"], workspace = true }
 serde = { features = ["alloc", "derive"], workspace = true }
 
 # Bridge Dependencies

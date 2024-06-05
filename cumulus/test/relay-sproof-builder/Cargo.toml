@@ -10,7 +10,7 @@ description = "Mocked relay state proof builder for testing Cumulus."
 workspace = true
 
 [dependencies]
-codec = { features = ["derive"] , workspace = true }
+codec = { features = ["derive"], workspace = true }
 
 # Substrate
 sp-runtime = { workspace = true }

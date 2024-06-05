@@ -25,8 +25,8 @@ num-traits = { workspace = true, default-features = true }
 parking_lot = { workspace = true, default-features = true }
 serde_json = { workspace = true, default-features = true }
 sysinfo = { workspace = true }
-time = { features = ["formatting", "local-offset", "std"] , workspace = true }
-tokio = { features = ["rt"] , workspace = true, default-features = true }
+time = { features = ["formatting", "local-offset", "std"], workspace = true }
+tokio = { features = ["rt"], workspace = true, default-features = true }
 thiserror = { workspace = true }
 
 # Bridge dependencies

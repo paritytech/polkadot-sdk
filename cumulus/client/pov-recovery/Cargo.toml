@@ -10,7 +10,7 @@ license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 workspace = true
 
 [dependencies]
-codec = { features = ["derive"] , workspace = true, default-features = true }
+codec = { features = ["derive"], workspace = true, default-features = true }
 futures = { workspace = true }
 futures-timer = { workspace = true }
 rand = { workspace = true, default-features = true }
@@ -35,7 +35,7 @@ cumulus-relay-chain-interface = { workspace = true, default-features = true }
 async-trait = { workspace = true }
 
 [dev-dependencies]
-tokio = { features = ["macros"] , workspace = true, default-features = true }
+tokio = { features = ["macros"], workspace = true, default-features = true }
 portpicker = { workspace = true }
 
 # Cumulus

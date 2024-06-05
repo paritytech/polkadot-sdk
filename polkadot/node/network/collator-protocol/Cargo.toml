@@ -10,7 +10,7 @@ license.workspace = true
 workspace = true
 
 [dependencies]
-bitvec = { features = ["alloc"] , workspace = true }
+bitvec = { features = ["alloc"], workspace = true }
 futures = { workspace = true }
 futures-timer = { workspace = true }
 gum = { workspace = true, default-features = true }
@@ -34,11 +34,11 @@ env_logger = { workspace = true }
 assert_matches = { workspace = true }
 rstest = { workspace = true }
 
-sp-core = { features = ["std"] , workspace = true, default-features = true }
+sp-core = { features = ["std"], workspace = true, default-features = true }
 sp-keyring = { workspace = true, default-features = true }
 sc-keystore = { workspace = true, default-features = true }
 sc-network = { workspace = true, default-features = true }
-codec = { features = ["std"] , workspace = true, default-features = true }
+codec = { features = ["std"], workspace = true, default-features = true }
 
 polkadot-node-subsystem-test-helpers = { workspace = true }
 polkadot-primitives-test-helpers = { workspace = true }

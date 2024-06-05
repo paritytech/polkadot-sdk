@@ -11,7 +11,7 @@ categories = ["cryptography::cryptocurrencies"]
 workspace = true
 
 [dependencies]
-codec = { features = ["derive"] , workspace = true }
+codec = { features = ["derive"], workspace = true }
 
 # Substrate
 frame-support = { workspace = true }

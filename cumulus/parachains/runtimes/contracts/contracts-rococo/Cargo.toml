@@ -13,13 +13,13 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [build-dependencies]
-substrate-wasm-builder = { optional = true , workspace = true, default-features = true }
+substrate-wasm-builder = { optional = true, workspace = true, default-features = true }
 
 [dependencies]
-codec = { features = ["derive"] , workspace = true }
-hex-literal = { optional = true , workspace = true, default-features = true }
+codec = { features = ["derive"], workspace = true }
+hex-literal = { optional = true, workspace = true, default-features = true }
 log = { workspace = true }
-scale-info = { features = ["derive"] , workspace = true }
+scale-info = { features = ["derive"], workspace = true }
 
 # Substrate
 sp-api = { workspace = true }
@@ -35,12 +35,12 @@ sp-std = { workspace = true }
 sp-storage = { workspace = true }
 sp-transaction-pool = { workspace = true }
 sp-version = { workspace = true }
-frame-benchmarking = { optional = true , workspace = true }
-frame-try-runtime = { optional = true , workspace = true }
+frame-benchmarking = { optional = true, workspace = true }
+frame-try-runtime = { optional = true, workspace = true }
 frame-executive = { workspace = true }
 frame-support = { workspace = true }
 frame-system = { workspace = true }
-frame-system-benchmarking = { optional = true , workspace = true }
+frame-system-benchmarking = { optional = true, workspace = true }
 frame-system-rpc-runtime-api = { workspace = true }
 pallet-aura = { workspace = true }
 pallet-authorship = { workspace = true }
@@ -80,7 +80,7 @@ cumulus-primitives-storage-weight-reclaim = { workspace = true }
 pallet-collator-selection = { workspace = true }
 parachain-info = { workspace = true }
 parachains-common = { workspace = true }
-testnet-parachains-constants = { features = ["rococo"] , workspace = true }
+testnet-parachains-constants = { features = ["rococo"], workspace = true }
 
 [features]
 default = ["std"]

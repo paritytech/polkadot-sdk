@@ -19,25 +19,25 @@ targets = ["x86_64-unknown-linux-gnu"]
 serde = { features = ["alloc", "derive"], workspace = true }
 codec = { features = [
 	"derive",
-] , workspace = true }
-scale-info = { features = ["derive", "serde"] , workspace = true }
+], workspace = true }
+scale-info = { features = ["derive", "serde"], workspace = true }
 sp-io = { workspace = true }
-sp-runtime = { features = ["serde"] , workspace = true }
-sp-staking = { features = ["serde"] , workspace = true }
+sp-runtime = { features = ["serde"], workspace = true }
+sp-staking = { features = ["serde"], workspace = true }
 sp-std = { workspace = true }
 frame-support = { workspace = true }
 frame-system = { workspace = true }
 pallet-session = { features = [
 	"historical",
-] , workspace = true }
+], workspace = true }
 pallet-authorship = { workspace = true }
-sp-application-crypto = { features = ["serde"] , workspace = true }
+sp-application-crypto = { features = ["serde"], workspace = true }
 frame-election-provider-support = { workspace = true }
 log = { workspace = true }
 
 # Optional imports for benchmarking
-frame-benchmarking = { optional = true , workspace = true }
-rand_chacha = { optional = true , workspace = true }
+frame-benchmarking = { optional = true, workspace = true }
+rand_chacha = { optional = true, workspace = true }
 
 [dev-dependencies]
 pallet-balances = { workspace = true, default-features = true }

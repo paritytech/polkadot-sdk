@@ -63,7 +63,7 @@ substrate-test-client = { workspace = true }
 [dev-dependencies]
 pallet-balances = { workspace = true }
 substrate-test-utils = { workspace = true }
-tokio = { features = ["macros"] , workspace = true, default-features = true }
+tokio = { features = ["macros"], workspace = true, default-features = true }
 
 [features]
 runtime-metrics = ["polkadot-test-runtime/runtime-metrics"]

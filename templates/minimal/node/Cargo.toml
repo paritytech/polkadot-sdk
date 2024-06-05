@@ -14,10 +14,10 @@ build = "build.rs"
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-clap = { features = ["derive"] , workspace = true }
-futures = { features = ["thread-pool"] , workspace = true }
+clap = { features = ["derive"], workspace = true }
+futures = { features = ["thread-pool"], workspace = true }
 futures-timer = { workspace = true }
-jsonrpsee = { features = ["server"] , workspace = true }
+jsonrpsee = { features = ["server"], workspace = true }
 serde_json = { workspace = true, default-features = true }
 
 sc-cli = { workspace = true, default-features = true }
@@ -49,7 +49,7 @@ substrate-frame-rpc-system = { workspace = true, default-features = true }
 frame = { features = [
 	"experimental",
 	"runtime",
-] , workspace = true, default-features = true }
+], workspace = true, default-features = true }
 minimal-template-runtime = { workspace = true }
 
 [build-dependencies]

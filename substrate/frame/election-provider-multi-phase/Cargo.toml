@@ -17,10 +17,10 @@ targets = ["x86_64-unknown-linux-gnu"]
 [dependencies]
 codec = { features = [
 	"derive",
-] , workspace = true }
+], workspace = true }
 scale-info = { features = [
 	"derive",
-] , workspace = true }
+], workspace = true }
 log = { workspace = true }
 
 frame-support = { workspace = true }
@@ -35,10 +35,10 @@ sp-arithmetic = { workspace = true }
 frame-election-provider-support = { workspace = true }
 
 # Optional imports for benchmarking
-frame-benchmarking = { optional = true , workspace = true }
-pallet-election-provider-support-benchmarking = { optional = true , workspace = true }
-rand = { features = ["alloc", "small_rng"], optional = true , workspace = true }
-strum = { features = ["derive"], optional = true , workspace = true }
+frame-benchmarking = { optional = true, workspace = true }
+pallet-election-provider-support-benchmarking = { optional = true, workspace = true }
+rand = { features = ["alloc", "small_rng"], optional = true, workspace = true }
+strum = { features = ["derive"], optional = true, workspace = true }
 
 [dev-dependencies]
 parking_lot = { workspace = true, default-features = true }

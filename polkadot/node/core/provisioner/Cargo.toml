@@ -10,7 +10,7 @@ license.workspace = true
 workspace = true
 
 [dependencies]
-bitvec = { features = ["alloc"] , workspace = true }
+bitvec = { features = ["alloc"], workspace = true }
 futures = { workspace = true }
 gum = { workspace = true, default-features = true }
 thiserror = { workspace = true }

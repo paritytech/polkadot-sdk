@@ -34,7 +34,7 @@ westend-runtime-constants = { workspace = true, default-features = true }
 
 # Cumulus
 parachains-common = { workspace = true, default-features = true }
-testnet-parachains-constants = { features = ["westend"] , workspace = true, default-features = true }
+testnet-parachains-constants = { features = ["westend"], workspace = true, default-features = true }
 asset-hub-westend-runtime = { workspace = true }
 collectives-westend-runtime = { workspace = true }
 cumulus-pallet-xcmp-queue = { workspace = true }

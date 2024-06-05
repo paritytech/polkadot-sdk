@@ -12,14 +12,14 @@ publish = false
 workspace = true
 
 [dependencies]
-polkadot-parachain-primitives = { features = ["wasm-api"] , workspace = true }
-codec = { features = ["derive"] , workspace = true }
+polkadot-parachain-primitives = { features = ["wasm-api"], workspace = true }
+codec = { features = ["derive"], workspace = true }
 sp-std = { workspace = true }
-tiny-keccak = { features = ["keccak"] , workspace = true }
-dlmalloc = { features = ["global"] , workspace = true }
+tiny-keccak = { features = ["keccak"], workspace = true }
+dlmalloc = { features = ["global"], workspace = true }
 
 # We need to make sure the global allocator is disabled until we have support of full substrate externalities
-sp-io = { features = ["disable_allocator"] , workspace = true }
+sp-io = { features = ["disable_allocator"], workspace = true }
 
 [build-dependencies]
 substrate-wasm-builder = { workspace = true, default-features = true }

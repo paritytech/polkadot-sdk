@@ -21,7 +21,7 @@ log = { workspace = true }
 num-traits = { workspace = true, default-features = true }
 rbtag = { workspace = true }
 structopt = { workspace = true }
-strum = { features = ["derive"] , workspace = true, default-features = true }
+strum = { features = ["derive"], workspace = true, default-features = true }
 thiserror = { workspace = true }
 
 # Bridge dependencies
@@ -59,4 +59,4 @@ sp-runtime = { workspace = true, default-features = true }
 
 [dev-dependencies]
 pallet-transaction-payment = { workspace = true, default-features = true }
-relay-substrate-client = { features = ["test-helpers"] , workspace = true }
+relay-substrate-client = { features = ["test-helpers"], workspace = true }

@@ -20,10 +20,10 @@ targets = ["x86_64-unknown-linux-gnu"]
 codec = { features = [
 	"derive",
 	"max-encoded-len",
-] , workspace = true }
+], workspace = true }
 integer-sqrt = { workspace = true }
 num-traits = { workspace = true }
-scale-info = { features = ["derive"] , workspace = true }
+scale-info = { features = ["derive"], workspace = true }
 serde = { features = ["alloc", "derive"], optional = true, workspace = true }
 static_assertions = { workspace = true, default-features = true }
 sp-std = { workspace = true }

@@ -17,15 +17,15 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-codec = { features = ["derive"] , workspace = true }
-finality-grandpa = { features = ["derive-codec"] , workspace = true }
+codec = { features = ["derive"], workspace = true }
+finality-grandpa = { features = ["derive-codec"], workspace = true }
 log = { workspace = true }
-scale-info = { features = ["derive"] , workspace = true }
+scale-info = { features = ["derive"], workspace = true }
 serde = { features = ["alloc", "derive"], optional = true, workspace = true }
 sp-api = { workspace = true }
 sp-application-crypto = { workspace = true }
 sp-core = { workspace = true }
-sp-keystore = { optional = true , workspace = true }
+sp-keystore = { optional = true, workspace = true }
 sp-runtime = { workspace = true }
 
 [features]

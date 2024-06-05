@@ -20,7 +20,7 @@ array-bytes = { workspace = true, default-features = true }
 arrayvec = { workspace = true }
 blake2 = { workspace = true, default-features = true }
 bytes = { workspace = true, default-features = true }
-codec = { features = ["derive"] , workspace = true }
+codec = { features = ["derive"], workspace = true }
 futures = { workspace = true }
 futures-timer = { workspace = true }
 log = { workspace = true, default-features = true }

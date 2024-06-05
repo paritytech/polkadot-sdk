@@ -40,7 +40,7 @@ sp-consensus-babe = { workspace = true, default-features = true }
 sp-consensus = { workspace = true, default-features = true }
 sp-runtime = { workspace = true, default-features = true }
 sp-blockchain = { workspace = true, default-features = true }
-tokio = { features = ["macros"] , workspace = true, default-features = true }
+tokio = { features = ["macros"], workspace = true, default-features = true }
 
 # cumulus deps
 cumulus-relay-chain-interface = { workspace = true, default-features = true }

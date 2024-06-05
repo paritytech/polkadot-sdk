@@ -12,9 +12,9 @@ workspace = true
 [dependencies]
 futures = { workspace = true }
 futures-timer = { workspace = true }
-codec = { features = ["bit-vec", "derive"] , workspace = true }
+codec = { features = ["bit-vec", "derive"], workspace = true }
 gum = { workspace = true, default-features = true }
-bitvec = { features = ["alloc"] , workspace = true }
+bitvec = { features = ["alloc"], workspace = true }
 schnellru = { workspace = true }
 merlin = { workspace = true, default-features = true }
 schnorrkel = { workspace = true, default-features = true }
@@ -33,7 +33,7 @@ polkadot-node-jaeger = { workspace = true, default-features = true }
 sc-keystore = { workspace = true }
 sp-consensus = { workspace = true }
 sp-consensus-slots = { workspace = true }
-sp-application-crypto = { features = ["full_crypto"] , workspace = true }
+sp-application-crypto = { features = ["full_crypto"], workspace = true }
 sp-runtime = { workspace = true }
 # rand_core should match schnorrkel
 rand_core = { workspace = true }

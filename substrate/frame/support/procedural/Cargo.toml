@@ -26,7 +26,7 @@ proc-macro2 = { workspace = true }
 quote = { workspace = true }
 syn = { features = ["full", "visit-mut"], workspace = true }
 frame-support-procedural-tools = { workspace = true, default-features = true }
-macro_magic = { features = ["proc_support"] , workspace = true }
+macro_magic = { features = ["proc_support"], workspace = true }
 proc-macro-warning = { workspace = true }
 expander = { workspace = true }
 sp-crypto-hashing = { workspace = true }

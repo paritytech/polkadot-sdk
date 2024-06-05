@@ -26,7 +26,7 @@ codec = { workspace = true, default-features = true }
 sp-state-machine = { workspace = true, default-features = true }
 trybuild = { workspace = true }
 rustversion = { workspace = true }
-scale-info = { features = ["derive"] , workspace = true }
+scale-info = { features = ["derive"], workspace = true }
 
 [dev-dependencies]
 criterion = { workspace = true, default-features = true }

@@ -23,7 +23,7 @@ async-channel = { workspace = true }
 array-bytes = { workspace = true, default-features = true }
 codec = { features = [
 	"derive",
-] , workspace = true, default-features = true }
+], workspace = true, default-features = true }
 futures = { workspace = true }
 log = { workspace = true, default-features = true }
 prost = { workspace = true }

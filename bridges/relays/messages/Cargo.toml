@@ -11,7 +11,7 @@ publish = false
 workspace = true
 
 [dependencies]
-async-std = { features = ["attributes"] , workspace = true }
+async-std = { features = ["attributes"], workspace = true }
 async-trait = { workspace = true }
 env_logger = { workspace = true }
 futures = { workspace = true }

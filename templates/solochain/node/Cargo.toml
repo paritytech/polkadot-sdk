@@ -15,10 +15,10 @@ build = "build.rs"
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-clap = { features = ["derive"] , workspace = true }
-futures = { features = ["thread-pool"] , workspace = true }
+clap = { features = ["derive"], workspace = true }
+futures = { features = ["thread-pool"], workspace = true }
 serde_json = { workspace = true, default-features = true }
-jsonrpsee = { features = ["server"] , workspace = true }
+jsonrpsee = { features = ["server"], workspace = true }
 
 # substrate client
 sc-cli = { workspace = true, default-features = true }

@@ -13,14 +13,14 @@ workspace = true
 polkadot-primitives = { workspace = true, default-features = true }
 polkadot-node-primitives = { workspace = true, default-features = true }
 novelpoly = { workspace = true }
-codec = { features = ["derive", "std"] , workspace = true }
+codec = { features = ["derive", "std"], workspace = true }
 sp-core = { workspace = true, default-features = true }
 sp-trie = { workspace = true, default-features = true }
 thiserror = { workspace = true }
 
 [dev-dependencies]
 quickcheck = { workspace = true }
-criterion = { features = ["cargo_bench_support"] , workspace = true }
+criterion = { features = ["cargo_bench_support"], workspace = true }
 
 [[bench]]
 name = "scaling_with_validators"

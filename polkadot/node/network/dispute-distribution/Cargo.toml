@@ -14,7 +14,7 @@ futures = { workspace = true }
 futures-timer = { workspace = true }
 gum = { workspace = true, default-features = true }
 derive_more = { workspace = true, default-features = true }
-codec = { features = ["std"] , workspace = true, default-features = true }
+codec = { features = ["std"], workspace = true, default-features = true }
 polkadot-primitives = { workspace = true, default-features = true }
 polkadot-erasure-coding = { workspace = true, default-features = true }
 polkadot-node-subsystem = { workspace = true, default-features = true }

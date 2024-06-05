@@ -13,6 +13,6 @@ workspace = true
 sp-keyring = { workspace = true, default-features = true }
 sp-application-crypto = { workspace = true }
 sp-runtime = { workspace = true, default-features = true }
-sp-core = { features = ["std"] , workspace = true, default-features = true }
+sp-core = { features = ["std"], workspace = true, default-features = true }
 polkadot-primitives = { workspace = true, default-features = true }
 rand = { workspace = true, default-features = true }

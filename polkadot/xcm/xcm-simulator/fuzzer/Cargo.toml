@@ -14,7 +14,7 @@ workspace = true
 codec = { workspace = true, default-features = true }
 honggfuzz = { workspace = true }
 arbitrary = { workspace = true }
-scale-info = { features = ["derive"] , workspace = true, default-features = true }
+scale-info = { features = ["derive"], workspace = true, default-features = true }
 
 frame-system = { workspace = true, default-features = true }
 frame-support = { workspace = true, default-features = true }

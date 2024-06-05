@@ -16,7 +16,7 @@ workspace = true
 
 [dependencies]
 array-bytes = { workspace = true, default-features = true }
-clap = { features = ["derive"] , workspace = true }
+clap = { features = ["derive"], workspace = true }
 log = { workspace = true, default-features = true }
 node-primitives = { workspace = true, default-features = true }
 node-testing = { workspace = true }
@@ -26,7 +26,7 @@ sp-runtime = { workspace = true, default-features = true }
 sp-state-machine = { workspace = true, default-features = true }
 serde = { workspace = true, default-features = true }
 serde_json = { workspace = true, default-features = true }
-derive_more = { features = ["display"] , workspace = true }
+derive_more = { features = ["display"], workspace = true }
 kvdb = { workspace = true }
 kvdb-rocksdb = { workspace = true }
 sp-trie = { workspace = true, default-features = true }
@@ -39,9 +39,9 @@ sp-tracing = { workspace = true, default-features = true }
 hash-db = { workspace = true, default-features = true }
 tempfile = { workspace = true }
 fs_extra = { workspace = true }
-rand = { features = ["small_rng"] , workspace = true, default-features = true }
+rand = { features = ["small_rng"], workspace = true, default-features = true }
 lazy_static = { workspace = true }
 parity-db = { workspace = true }
 sc-transaction-pool = { workspace = true, default-features = true }
 sc-transaction-pool-api = { workspace = true, default-features = true }
-futures = { features = ["thread-pool"] , workspace = true }
+futures = { features = ["thread-pool"], workspace = true }

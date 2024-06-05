@@ -17,7 +17,7 @@ xcm-simulator = { workspace = true, default-features = true }
 pallet-xcm = { workspace = true, default-features = true }
 
 # For building FRAME runtimes
-frame = { features = ["experimental", "runtime"] , workspace = true, default-features = true }
+frame = { features = ["experimental", "runtime"], workspace = true, default-features = true }
 codec = { workspace = true, default-features = true }
 scale-info = { workspace = true }
 polkadot-parachain-primitives = { workspace = true, default-features = true }

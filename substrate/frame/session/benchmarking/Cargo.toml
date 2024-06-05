@@ -17,7 +17,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 codec = { workspace = true }
-rand = { features = ["std_rng"] , workspace = true }
+rand = { features = ["std_rng"], workspace = true }
 frame-benchmarking = { workspace = true }
 frame-support = { workspace = true }
 frame-system = { workspace = true }
@@ -28,7 +28,7 @@ sp-session = { workspace = true }
 sp-std = { workspace = true }
 
 [dev-dependencies]
-codec = { features = ["derive"] , workspace = true, default-features = true }
+codec = { features = ["derive"], workspace = true, default-features = true }
 scale-info = { workspace = true, default-features = true }
 frame-election-provider-support = { workspace = true, default-features = true }
 pallet-balances = { workspace = true, default-features = true }

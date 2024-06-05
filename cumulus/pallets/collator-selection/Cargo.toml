@@ -19,7 +19,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 log = { workspace = true }
 codec = { features = ["derive"], workspace = true }
 rand = { features = ["std_rng"], workspace = true }
-scale-info = { features = ["derive"] , workspace = true }
+scale-info = { features = ["derive"], workspace = true }
 
 sp-std = { workspace = true }
 sp-runtime = { workspace = true }
@@ -30,7 +30,7 @@ pallet-authorship = { workspace = true }
 pallet-balances = { workspace = true }
 pallet-session = { workspace = true }
 
-frame-benchmarking = { optional = true , workspace = true }
+frame-benchmarking = { optional = true, workspace = true }
 
 [dev-dependencies]
 sp-core = { workspace = true, default-features = true }

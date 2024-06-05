@@ -9,7 +9,7 @@ publish = false
 workspace = true
 
 [dependencies]
-codec = { features = ["derive"] , workspace = true }
+codec = { features = ["derive"], workspace = true }
 
 # Substrate
 sc-service = { workspace = true, default-features = true }

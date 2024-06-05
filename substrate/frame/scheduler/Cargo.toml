@@ -13,10 +13,10 @@ readme = "README.md"
 workspace = true
 
 [dependencies]
-codec = { features = ["derive"] , workspace = true }
+codec = { features = ["derive"], workspace = true }
 log = { workspace = true }
-scale-info = { features = ["derive"] , workspace = true }
-frame-benchmarking = { optional = true , workspace = true }
+scale-info = { features = ["derive"], workspace = true }
+frame-benchmarking = { optional = true, workspace = true }
 frame-support = { workspace = true }
 frame-system = { workspace = true }
 sp-io = { workspace = true }

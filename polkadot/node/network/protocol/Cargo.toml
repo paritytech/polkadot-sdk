@@ -16,12 +16,12 @@ hex = { workspace = true, default-features = true }
 polkadot-primitives = { workspace = true, default-features = true }
 polkadot-node-primitives = { workspace = true, default-features = true }
 polkadot-node-jaeger = { workspace = true, default-features = true }
-codec = { features = ["derive"] , workspace = true }
+codec = { features = ["derive"], workspace = true }
 sc-network = { workspace = true, default-features = true }
 sc-network-types = { workspace = true, default-features = true }
 sc-authority-discovery = { workspace = true, default-features = true }
 sp-runtime = { workspace = true, default-features = true }
-strum = { features = ["derive"] , workspace = true, default-features = true }
+strum = { features = ["derive"], workspace = true, default-features = true }
 futures = { workspace = true }
 thiserror = { workspace = true }
 fatality = { workspace = true }

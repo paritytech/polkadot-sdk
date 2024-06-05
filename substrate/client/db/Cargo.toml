@@ -18,11 +18,11 @@ targets = ["x86_64-unknown-linux-gnu"]
 [dependencies]
 codec = { features = [
 	"derive",
-] , workspace = true, default-features = true }
+], workspace = true, default-features = true }
 hash-db = { workspace = true, default-features = true }
 kvdb = { workspace = true }
 kvdb-memorydb = { workspace = true }
-kvdb-rocksdb = { optional = true , workspace = true }
+kvdb-rocksdb = { optional = true, workspace = true }
 linked-hash-map = { workspace = true }
 log = { workspace = true, default-features = true }
 parity-db = { workspace = true }

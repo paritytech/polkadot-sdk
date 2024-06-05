@@ -11,8 +11,8 @@ repository.workspace = true
 workspace = true
 
 [dependencies]
-codec = { features = ["bit-vec", "derive"] , workspace = true }
-scale-info = { features = ["bit-vec", "derive"] , workspace = true }
+codec = { features = ["bit-vec", "derive"], workspace = true }
+scale-info = { features = ["bit-vec", "derive"], workspace = true }
 
 # Bridge Dependencies
 

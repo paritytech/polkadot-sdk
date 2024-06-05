@@ -67,7 +67,7 @@ sp-version = { workspace = true, default-features = true }
 pallet-babe = { workspace = true, default-features = true }
 pallet-staking = { workspace = true, default-features = true }
 pallet-transaction-payment-rpc-runtime-api = { workspace = true, default-features = true }
-frame-metadata-hash-extension = { optional = true , workspace = true, default-features = true }
+frame-metadata-hash-extension = { optional = true, workspace = true, default-features = true }
 frame-system = { workspace = true, default-features = true }
 
 # Substrate Other
@@ -89,11 +89,11 @@ serde = { features = ["derive"], workspace = true, default-features = true }
 serde_json = { workspace = true, default-features = true }
 thiserror = { workspace = true }
 kvdb = { workspace = true }
-kvdb-rocksdb = { optional = true , workspace = true }
-parity-db = { optional = true , workspace = true }
+kvdb-rocksdb = { optional = true, workspace = true }
+parity-db = { optional = true, workspace = true }
 codec = { workspace = true, default-features = true }
 parking_lot = { workspace = true, default-features = true }
-bitvec = { optional = true , workspace = true, default-features = true }
+bitvec = { optional = true, workspace = true, default-features = true }
 
 # Polkadot
 polkadot-core-primitives = { workspace = true, default-features = true }
@@ -110,37 +110,37 @@ polkadot-runtime-parachains = { workspace = true, default-features = true }
 polkadot-node-network-protocol = { workspace = true, default-features = true }
 
 # Polkadot Runtime Constants
-rococo-runtime-constants = { optional = true , workspace = true, default-features = true }
-westend-runtime-constants = { optional = true , workspace = true, default-features = true }
+rococo-runtime-constants = { optional = true, workspace = true, default-features = true }
+westend-runtime-constants = { optional = true, workspace = true, default-features = true }
 
 # Polkadot Runtimes
-westend-runtime = { optional = true , workspace = true }
-rococo-runtime = { optional = true , workspace = true }
+westend-runtime = { optional = true, workspace = true }
+rococo-runtime = { optional = true, workspace = true }
 
 # Polkadot Subsystems
-polkadot-approval-distribution = { optional = true , workspace = true, default-features = true }
-polkadot-availability-bitfield-distribution = { optional = true , workspace = true, default-features = true }
-polkadot-availability-distribution = { optional = true , workspace = true, default-features = true }
-polkadot-availability-recovery = { optional = true , workspace = true, default-features = true }
-polkadot-collator-protocol = { optional = true , workspace = true, default-features = true }
-polkadot-dispute-distribution = { optional = true , workspace = true, default-features = true }
-polkadot-gossip-support = { optional = true , workspace = true, default-features = true }
-polkadot-network-bridge = { optional = true , workspace = true, default-features = true }
-polkadot-node-collation-generation = { optional = true , workspace = true, default-features = true }
-polkadot-node-core-approval-voting = { optional = true , workspace = true, default-features = true }
-polkadot-node-core-av-store = { optional = true , workspace = true, default-features = true }
-polkadot-node-core-backing = { optional = true , workspace = true, default-features = true }
-polkadot-node-core-bitfield-signing = { optional = true , workspace = true, default-features = true }
-polkadot-node-core-candidate-validation = { optional = true , workspace = true, default-features = true }
-polkadot-node-core-chain-api = { optional = true , workspace = true, default-features = true }
-polkadot-node-core-chain-selection = { optional = true , workspace = true, default-features = true }
-polkadot-node-core-dispute-coordinator = { optional = true , workspace = true, default-features = true }
-polkadot-node-core-prospective-parachains = { optional = true , workspace = true, default-features = true }
-polkadot-node-core-provisioner = { optional = true , workspace = true, default-features = true }
-polkadot-node-core-pvf = { optional = true , workspace = true, default-features = true }
-polkadot-node-core-pvf-checker = { optional = true , workspace = true, default-features = true }
-polkadot-node-core-runtime-api = { optional = true , workspace = true, default-features = true }
-polkadot-statement-distribution = { optional = true , workspace = true, default-features = true }
+polkadot-approval-distribution = { optional = true, workspace = true, default-features = true }
+polkadot-availability-bitfield-distribution = { optional = true, workspace = true, default-features = true }
+polkadot-availability-distribution = { optional = true, workspace = true, default-features = true }
+polkadot-availability-recovery = { optional = true, workspace = true, default-features = true }
+polkadot-collator-protocol = { optional = true, workspace = true, default-features = true }
+polkadot-dispute-distribution = { optional = true, workspace = true, default-features = true }
+polkadot-gossip-support = { optional = true, workspace = true, default-features = true }
+polkadot-network-bridge = { optional = true, workspace = true, default-features = true }
+polkadot-node-collation-generation = { optional = true, workspace = true, default-features = true }
+polkadot-node-core-approval-voting = { optional = true, workspace = true, default-features = true }
+polkadot-node-core-av-store = { optional = true, workspace = true, default-features = true }
+polkadot-node-core-backing = { optional = true, workspace = true, default-features = true }
+polkadot-node-core-bitfield-signing = { optional = true, workspace = true, default-features = true }
+polkadot-node-core-candidate-validation = { optional = true, workspace = true, default-features = true }
+polkadot-node-core-chain-api = { optional = true, workspace = true, default-features = true }
+polkadot-node-core-chain-selection = { optional = true, workspace = true, default-features = true }
+polkadot-node-core-dispute-coordinator = { optional = true, workspace = true, default-features = true }
+polkadot-node-core-prospective-parachains = { optional = true, workspace = true, default-features = true }
+polkadot-node-core-provisioner = { optional = true, workspace = true, default-features = true }
+polkadot-node-core-pvf = { optional = true, workspace = true, default-features = true }
+polkadot-node-core-pvf-checker = { optional = true, workspace = true, default-features = true }
+polkadot-node-core-runtime-api = { optional = true, workspace = true, default-features = true }
+polkadot-statement-distribution = { optional = true, workspace = true, default-features = true }
 
 xcm = { workspace = true, default-features = true }
 xcm-fee-payment-runtime-api = { workspace = true, default-features = true }

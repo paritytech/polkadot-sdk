@@ -10,7 +10,7 @@ license = "Apache-2.0"
 workspace = true
 
 [dependencies]
-codec = { features = ["derive", "max-encoded-len"] , workspace = true }
+codec = { features = ["derive", "max-encoded-len"], workspace = true }
 
 # Substrate
 frame-support = { workspace = true }

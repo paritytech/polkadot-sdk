@@ -18,11 +18,11 @@ codec = { features = [
 ], workspace = true }
 scale-info = { features = [
 	"derive",
-] , workspace = true }
+], workspace = true }
 frame = { features = [
 	"experimental",
 	"runtime",
-] , workspace = true }
+], workspace = true }
 
 
 [features]

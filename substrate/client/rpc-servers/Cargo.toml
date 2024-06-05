@@ -22,10 +22,10 @@ governor = { workspace = true }
 http = { workspace = true }
 hyper = { workspace = true, default-features = true }
 ip_network = { workspace = true }
-jsonrpsee = { features = ["server"] , workspace = true }
+jsonrpsee = { features = ["server"], workspace = true }
 log = { workspace = true, default-features = true }
 prometheus-endpoint = { workspace = true, default-features = true }
 serde_json = { workspace = true, default-features = true }
-tokio = { features = ["parking_lot"] , workspace = true, default-features = true }
-tower = { features = ["util"] , workspace = true }
-tower-http = { features = ["cors"] , workspace = true }
+tokio = { features = ["parking_lot"], workspace = true, default-features = true }
+tower = { features = ["util"], workspace = true }
+tower-http = { features = ["cors"], workspace = true }

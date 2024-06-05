@@ -10,7 +10,7 @@ license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 workspace = true
 
 [dependencies]
-clap = { features = ["derive"] , workspace = true }
+clap = { features = ["derive"], workspace = true }
 codec = { workspace = true, default-features = true }
 url = { workspace = true }
 

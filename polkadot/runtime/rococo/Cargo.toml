@@ -11,15 +11,15 @@ license.workspace = true
 workspace = true
 
 [dependencies]
-codec = { features = ["derive", "max-encoded-len"] , workspace = true }
-scale-info = { features = ["derive"] , workspace = true }
+codec = { features = ["derive", "max-encoded-len"], workspace = true }
+scale-info = { features = ["derive"], workspace = true }
 log = { workspace = true }
 serde = { workspace = true }
 serde_derive = { optional = true, workspace = true }
 serde_json = { features = ["alloc"], workspace = true }
 static_assertions = { workspace = true, default-features = true }
 smallvec = { workspace = true, default-features = true }
-bitvec = { features = ["alloc"] , workspace = true }
+bitvec = { features = ["alloc"], workspace = true }
 
 sp-authority-discovery = { workspace = true }
 sp-consensus-babe = { workspace = true }
@@ -80,7 +80,7 @@ pallet-scheduler = { workspace = true }
 pallet-session = { workspace = true }
 pallet-society = { workspace = true }
 pallet-sudo = { workspace = true }
-frame-support = { features = ["tuples-96"] , workspace = true }
+frame-support = { features = ["tuples-96"], workspace = true }
 pallet-staking = { workspace = true }
 frame-system = { workspace = true }
 frame-system-rpc-runtime-api = { workspace = true }
@@ -91,13 +91,13 @@ pallet-utility = { workspace = true }
 pallet-vesting = { workspace = true }
 pallet-whitelist = { workspace = true }
 pallet-xcm = { workspace = true }
-pallet-xcm-benchmarks = { optional = true , workspace = true }
+pallet-xcm-benchmarks = { optional = true, workspace = true }
 pallet-root-testing = { workspace = true }
 
-frame-benchmarking = { optional = true , workspace = true }
+frame-benchmarking = { optional = true, workspace = true }
 frame-metadata-hash-extension = { workspace = true }
-frame-try-runtime = { optional = true , workspace = true }
-frame-system-benchmarking = { optional = true , workspace = true }
+frame-try-runtime = { optional = true, workspace = true }
+frame-system-benchmarking = { optional = true, workspace = true }
 hex-literal = { workspace = true, default-features = true }
 
 polkadot-runtime-common = { workspace = true }
@@ -111,17 +111,17 @@ xcm-builder = { workspace = true }
 xcm-fee-payment-runtime-api = { workspace = true }
 
 [dev-dependencies]
-tiny-keccak = { features = ["keccak"] , workspace = true }
+tiny-keccak = { features = ["keccak"], workspace = true }
 sp-keyring = { workspace = true, default-features = true }
 remote-externalities = { workspace = true, default-features = true }
 sp-trie = { workspace = true, default-features = true }
 separator = { workspace = true }
 serde_json = { workspace = true, default-features = true }
 sp-tracing = { workspace = true }
-tokio = { features = ["macros"] , workspace = true, default-features = true }
+tokio = { features = ["macros"], workspace = true, default-features = true }
 
 [build-dependencies]
-substrate-wasm-builder = { optional = true , workspace = true, default-features = true }
+substrate-wasm-builder = { optional = true, workspace = true, default-features = true }
 
 [features]
 default = ["std"]

@@ -18,14 +18,14 @@ targets = ["x86_64-unknown-linux-gnu"]
 [dependencies]
 log = { workspace = true }
 rand_chacha = { workspace = true }
-scale-info = { features = ["derive"] , workspace = true }
-codec = { features = ["derive"] , workspace = true }
+scale-info = { features = ["derive"], workspace = true }
+codec = { features = ["derive"], workspace = true }
 
 sp-std = { workspace = true }
 sp-io = { workspace = true }
 sp-arithmetic = { workspace = true }
 sp-runtime = { workspace = true }
-frame-benchmarking = { optional = true , workspace = true }
+frame-benchmarking = { optional = true, workspace = true }
 frame-support = { workspace = true }
 frame-system = { workspace = true }
 

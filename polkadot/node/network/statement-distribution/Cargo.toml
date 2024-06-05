@@ -22,7 +22,7 @@ polkadot-node-subsystem-util = { workspace = true, default-features = true }
 polkadot-node-network-protocol = { workspace = true, default-features = true }
 arrayvec = { workspace = true }
 indexmap = { workspace = true }
-codec = { features = ["derive"] , workspace = true }
+codec = { features = ["derive"], workspace = true }
 thiserror = { workspace = true }
 fatality = { workspace = true }
 bitvec = { workspace = true, default-features = true }

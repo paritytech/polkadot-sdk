@@ -10,7 +10,7 @@ description = "Stores messages other authorities issue about candidates in Polka
 workspace = true
 
 [dependencies]
-codec = { features = ["derive"] , workspace = true }
+codec = { features = ["derive"], workspace = true }
 sp-core = { workspace = true, default-features = true }
 polkadot-primitives = { workspace = true, default-features = true }
 gum = { workspace = true, default-features = true }

@@ -13,7 +13,7 @@ workspace = true
 [dependencies]
 codec = { workspace = true }
 finality-grandpa = { workspace = true }
-scale-info = { features = ["derive"] , workspace = true }
+scale-info = { features = ["derive"], workspace = true }
 serde = { features = ["alloc", "derive"], workspace = true }
 
 # Bridge dependencies
@@ -23,9 +23,9 @@ bp-runtime = { workspace = true }
 # Substrate Dependencies
 
 frame-support = { workspace = true }
-sp-core = { features = ["serde"] , workspace = true }
-sp-consensus-grandpa = { features = ["serde"] , workspace = true }
-sp-runtime = { features = ["serde"] , workspace = true }
+sp-core = { features = ["serde"], workspace = true }
+sp-consensus-grandpa = { features = ["serde"], workspace = true }
+sp-runtime = { features = ["serde"], workspace = true }
 sp-std = { workspace = true }
 
 [dev-dependencies]

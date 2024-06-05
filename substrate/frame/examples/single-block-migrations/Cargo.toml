@@ -15,12 +15,12 @@ targets = ["x86_64-unknown-linux-gnu"]
 [dependencies]
 docify = { workspace = true }
 log = { workspace = true }
-codec = { features = ["derive"] , workspace = true }
-scale-info = { features = ["derive"] , workspace = true }
+codec = { features = ["derive"], workspace = true }
+scale-info = { features = ["derive"], workspace = true }
 frame-support = { workspace = true }
 frame-executive = { workspace = true }
 frame-system = { workspace = true }
-frame-try-runtime = { optional = true , workspace = true }
+frame-try-runtime = { optional = true, workspace = true }
 pallet-balances = { workspace = true }
 sp-std = { workspace = true }
 sp-runtime = { workspace = true }

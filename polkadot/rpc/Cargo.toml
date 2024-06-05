@@ -10,7 +10,7 @@ description = "Polkadot specific RPC functionality."
 workspace = true
 
 [dependencies]
-jsonrpsee = { features = ["server"] , workspace = true }
+jsonrpsee = { features = ["server"], workspace = true }
 polkadot-primitives = { workspace = true, default-features = true }
 sc-client-api = { workspace = true, default-features = true }
 sp-blockchain = { workspace = true, default-features = true }

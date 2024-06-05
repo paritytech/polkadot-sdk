@@ -18,7 +18,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 [dependencies]
 codec = { workspace = true, default-features = true }
 futures = { workspace = true }
-jsonrpsee = { features = ["server"] , workspace = true }
+jsonrpsee = { features = ["server"], workspace = true }
 log = { workspace = true, default-features = true }
 parking_lot = { workspace = true, default-features = true }
 serde_json = { workspace = true, default-features = true }
@@ -55,7 +55,7 @@ tokio = { workspace = true, default-features = true }
 sp-io = { workspace = true, default-features = true }
 substrate-test-runtime-client = { workspace = true }
 pretty_assertions = { workspace = true }
-tracing-subscriber = { features = ["env-filter"] , workspace = true }
+tracing-subscriber = { features = ["env-filter"], workspace = true }
 
 [features]
 test-helpers = []

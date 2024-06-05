@@ -12,7 +12,7 @@ workspace = true
 
 [dependencies]
 codec = { workspace = true }
-scale-info = { features = ["derive"] , workspace = true }
+scale-info = { features = ["derive"], workspace = true }
 hex-literal = { workspace = true, default-features = true }
 
 # Substrate
@@ -34,7 +34,7 @@ pallet-bridge-messages = { workspace = true }
 
 # Cumulus
 parachains-common = { workspace = true, default-features = true }
-testnet-parachains-constants = { features = ["rococo"] , workspace = true, default-features = true }
+testnet-parachains-constants = { features = ["rococo"], workspace = true, default-features = true }
 cumulus-pallet-xcmp-queue = { workspace = true }
 bridge-hub-rococo-runtime = { workspace = true }
 emulated-integration-tests-common = { workspace = true }

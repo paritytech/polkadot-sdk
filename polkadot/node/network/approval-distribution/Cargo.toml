@@ -23,11 +23,11 @@ itertools = { workspace = true }
 futures = { workspace = true }
 futures-timer = { workspace = true }
 gum = { workspace = true, default-features = true }
-bitvec = { features = ["alloc"] , workspace = true }
+bitvec = { features = ["alloc"], workspace = true }
 
 [dev-dependencies]
 sp-authority-discovery = { workspace = true, default-features = true }
-sp-core = { features = ["std"] , workspace = true, default-features = true }
+sp-core = { features = ["std"], workspace = true, default-features = true }
 
 polkadot-node-subsystem-test-helpers = { workspace = true }
 polkadot-primitives-test-helpers = { workspace = true }

@@ -17,7 +17,7 @@ codec = { workspace = true }
 pallet-migrations = { workspace = true }
 frame-support = { workspace = true }
 frame-system = { workspace = true }
-frame-benchmarking = { optional = true , workspace = true }
+frame-benchmarking = { optional = true, workspace = true }
 log = { workspace = true }
 scale-info = { workspace = true }
 sp-io = { workspace = true }

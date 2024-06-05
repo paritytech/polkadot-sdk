@@ -12,9 +12,9 @@ homepage = "https://substrate.io"
 workspace = true
 
 [dependencies]
-codec = { features = ["derive"] , workspace = true, default-features = true }
+codec = { features = ["derive"], workspace = true, default-features = true }
 futures = { workspace = true }
-jsonrpsee = { features = ["client-core", "macros", "server-core"] , workspace = true }
+jsonrpsee = { features = ["client-core", "macros", "server-core"], workspace = true }
 log = { workspace = true, default-features = true }
 parking_lot = { workspace = true, default-features = true }
 serde = { features = ["derive"], workspace = true, default-features = true }
@@ -28,6 +28,6 @@ sp-application-crypto = { workspace = true, default-features = true }
 
 [dev-dependencies]
 serde_json = { workspace = true, default-features = true }
-sc-rpc = { features = ["test-helpers"] , workspace = true, default-features = true }
+sc-rpc = { features = ["test-helpers"], workspace = true, default-features = true }
 substrate-test-runtime-client = { workspace = true }
-tokio = { features = ["macros"] , workspace = true, default-features = true }
+tokio = { features = ["macros"], workspace = true, default-features = true }

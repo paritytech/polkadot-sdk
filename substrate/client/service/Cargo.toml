@@ -28,7 +28,7 @@ runtime-benchmarks = [
 ]
 
 [dependencies]
-jsonrpsee = { features = ["server"] , workspace = true }
+jsonrpsee = { features = ["server"], workspace = true }
 thiserror = { workspace = true }
 futures = { workspace = true }
 rand = { workspace = true, default-features = true }
@@ -80,7 +80,7 @@ sc-sysinfo = { workspace = true, default-features = true }
 tracing = { workspace = true, default-features = true }
 tracing-futures = { workspace = true }
 async-trait = { workspace = true }
-tokio = { features = ["parking_lot", "rt-multi-thread", "time"] , workspace = true, default-features = true }
+tokio = { features = ["parking_lot", "rt-multi-thread", "time"], workspace = true, default-features = true }
 tempfile = { workspace = true }
 directories = { workspace = true }
 static_init = { workspace = true }

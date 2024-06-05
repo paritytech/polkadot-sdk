@@ -10,19 +10,19 @@ description = "Westend Collectives Parachain Runtime"
 workspace = true
 
 [dependencies]
-codec = { features = ["derive", "max-encoded-len"] , workspace = true }
+codec = { features = ["derive", "max-encoded-len"], workspace = true }
 hex-literal = { workspace = true, default-features = true }
 log = { workspace = true }
-scale-info = { features = ["derive"] , workspace = true }
+scale-info = { features = ["derive"], workspace = true }
 
 # Substrate
-frame-benchmarking = { optional = true , workspace = true }
+frame-benchmarking = { optional = true, workspace = true }
 frame-executive = { workspace = true }
 frame-support = { workspace = true }
 frame-system = { workspace = true }
-frame-system-benchmarking = { optional = true , workspace = true }
+frame-system-benchmarking = { optional = true, workspace = true }
 frame-system-rpc-runtime-api = { workspace = true }
-frame-try-runtime = { optional = true , workspace = true }
+frame-try-runtime = { optional = true, workspace = true }
 pallet-asset-rate = { workspace = true }
 pallet-alliance = { workspace = true }
 pallet-aura = { workspace = true }
@@ -85,13 +85,13 @@ pallet-collator-selection = { workspace = true }
 pallet-collective-content = { workspace = true }
 parachain-info = { workspace = true }
 parachains-common = { workspace = true }
-testnet-parachains-constants = { features = ["westend"] , workspace = true }
+testnet-parachains-constants = { features = ["westend"], workspace = true }
 
 [build-dependencies]
-substrate-wasm-builder = { optional = true , workspace = true, default-features = true }
+substrate-wasm-builder = { optional = true, workspace = true, default-features = true }
 
 [dev-dependencies]
-sp-io = { features = ["std"] , workspace = true, default-features = true }
+sp-io = { features = ["std"], workspace = true, default-features = true }
 
 [features]
 default = ["std"]

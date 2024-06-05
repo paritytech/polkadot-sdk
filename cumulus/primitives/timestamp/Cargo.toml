@@ -10,7 +10,7 @@ license = "Apache-2.0"
 workspace = true
 
 [dependencies]
-codec = { features = ["derive"] , workspace = true }
+codec = { features = ["derive"], workspace = true }
 futures = { workspace = true }
 
 # Substrate

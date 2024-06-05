@@ -13,7 +13,7 @@ workspace = true
 [dependencies]
 codec = { workspace = true }
 log = { workspace = true }
-scale-info = { features = ["derive"] , workspace = true }
+scale-info = { features = ["derive"], workspace = true }
 
 # Bridge Dependencies
 
@@ -25,7 +25,7 @@ pallet-bridge-grandpa = { workspace = true }
 
 # Substrate Dependencies
 
-frame-benchmarking = { optional = true , workspace = true }
+frame-benchmarking = { optional = true, workspace = true }
 frame-support = { workspace = true }
 frame-system = { workspace = true }
 sp-runtime = { workspace = true }

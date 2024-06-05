@@ -27,21 +27,21 @@ sc-client-api = { workspace = true, default-features = true }
 sc-rpc-api = { workspace = true, default-features = true }
 sc-service = { workspace = true, default-features = true }
 
-tokio = { features = ["sync"] , workspace = true, default-features = true }
-tokio-util = { features = ["compat"] , workspace = true }
+tokio = { features = ["sync"], workspace = true, default-features = true }
+tokio-util = { features = ["compat"], workspace = true }
 
 futures = { workspace = true }
 futures-timer = { workspace = true }
 codec = { workspace = true, default-features = true }
-jsonrpsee = { features = ["ws-client"] , workspace = true }
+jsonrpsee = { features = ["ws-client"], workspace = true }
 tracing = { workspace = true, default-features = true }
 async-trait = { workspace = true }
 url = { workspace = true }
 serde_json = { workspace = true, default-features = true }
 serde = { workspace = true, default-features = true }
 schnellru = { workspace = true }
-smoldot = { default_features = false, features = ["std"] , workspace = true }
-smoldot-light = { default_features = false, features = ["std"] , workspace = true }
+smoldot = { default_features = false, features = ["std"], workspace = true }
+smoldot-light = { default_features = false, features = ["std"], workspace = true }
 either = { workspace = true, default-features = true }
 thiserror = { workspace = true }
 rand = { workspace = true, default-features = true }

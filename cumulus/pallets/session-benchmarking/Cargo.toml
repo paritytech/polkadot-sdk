@@ -21,7 +21,7 @@ sp-std = { workspace = true }
 sp-runtime = { workspace = true }
 frame-support = { workspace = true }
 frame-system = { workspace = true }
-frame-benchmarking = { optional = true , workspace = true }
+frame-benchmarking = { optional = true, workspace = true }
 pallet-session = { workspace = true }
 
 [features]

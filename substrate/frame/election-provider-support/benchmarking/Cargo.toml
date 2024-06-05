@@ -17,8 +17,8 @@ targets = ["x86_64-unknown-linux-gnu"]
 [dependencies]
 codec = { features = [
 	"derive",
-] , workspace = true }
-frame-benchmarking = { optional = true , workspace = true }
+], workspace = true }
+frame-benchmarking = { optional = true, workspace = true }
 frame-election-provider-support = { workspace = true }
 frame-system = { workspace = true }
 sp-npos-elections = { workspace = true }

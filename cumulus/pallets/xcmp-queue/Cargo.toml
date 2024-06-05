@@ -12,7 +12,7 @@ workspace = true
 [dependencies]
 codec = { features = ["derive"], workspace = true }
 log = { workspace = true }
-scale-info = { features = ["derive"] , workspace = true }
+scale-info = { features = ["derive"], workspace = true }
 
 # Substrate
 frame-support = { workspace = true }
@@ -34,18 +34,18 @@ xcm-builder = { workspace = true }
 cumulus-primitives-core = { workspace = true }
 
 # Optional import for benchmarking
-frame-benchmarking = { optional = true , workspace = true }
+frame-benchmarking = { optional = true, workspace = true }
 bounded-collections = { workspace = true }
 
 # Bridges
-bp-xcm-bridge-hub-router = { optional = true , workspace = true }
+bp-xcm-bridge-hub-router = { optional = true, workspace = true }
 
 [dev-dependencies]
 
 # Substrate
 sp-core = { workspace = true, default-features = true }
 pallet-balances = { workspace = true, default-features = true }
-frame-support = { features = ["experimental"] , workspace = true, default-features = true }
+frame-support = { features = ["experimental"], workspace = true, default-features = true }
 
 # Cumulus
 cumulus-pallet-parachain-system = { workspace = true, default-features = true }

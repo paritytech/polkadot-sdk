@@ -16,24 +16,24 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-sp-application-crypto = { features = ["serde"] , workspace = true }
-sp-consensus-aura = { features = ["serde"] , workspace = true }
-sp-consensus-babe = { features = ["serde"] , workspace = true }
+sp-application-crypto = { features = ["serde"], workspace = true }
+sp-consensus-aura = { features = ["serde"], workspace = true }
+sp-consensus-babe = { features = ["serde"], workspace = true }
 sp-genesis-builder = { workspace = true }
 sp-block-builder = { workspace = true }
-codec = { features = ["derive"] , workspace = true }
-scale-info = { features = ["derive"] , workspace = true }
+codec = { features = ["derive"], workspace = true }
+scale-info = { features = ["derive"], workspace = true }
 sp-inherents = { workspace = true }
 sp-keyring = { workspace = true }
 sp-offchain = { workspace = true }
-sp-core = { features = ["serde"] , workspace = true }
+sp-core = { features = ["serde"], workspace = true }
 sp-crypto-hashing = { workspace = true }
 sp-io = { workspace = true }
 frame-support = { workspace = true }
 sp-version = { workspace = true }
 sp-session = { workspace = true }
 sp-api = { workspace = true }
-sp-runtime = { features = ["serde"] , workspace = true }
+sp-runtime = { features = ["serde"], workspace = true }
 pallet-babe = { workspace = true }
 pallet-balances = { workspace = true }
 frame-executive = { workspace = true }
@@ -41,16 +41,16 @@ frame-metadata-hash-extension = { workspace = true }
 frame-system = { workspace = true }
 frame-system-rpc-runtime-api = { workspace = true }
 pallet-timestamp = { workspace = true }
-sp-consensus-grandpa = { features = ["serde"] , workspace = true }
+sp-consensus-grandpa = { features = ["serde"], workspace = true }
 sp-trie = { workspace = true }
 sp-transaction-pool = { workspace = true }
 trie-db = { workspace = true }
-sc-service = { features = ["test-helpers"], optional = true , workspace = true }
+sc-service = { features = ["test-helpers"], optional = true, workspace = true }
 sp-state-machine = { workspace = true }
 sp-externalities = { workspace = true }
 
 # 3rd party
-array-bytes = { optional = true , workspace = true, default-features = true }
+array-bytes = { optional = true, workspace = true, default-features = true }
 serde_json = { workspace = true, features = ["alloc"] }
 log = { workspace = true }
 hex-literal = { workspace = true, default-features = true }
@@ -68,7 +68,7 @@ serde = { features = ["alloc", "derive"], workspace = true }
 serde_json = { features = ["alloc"], workspace = true }
 
 [build-dependencies]
-substrate-wasm-builder = { optional = true, features = ["metadata-hash"] , workspace = true, default-features = true }
+substrate-wasm-builder = { optional = true, features = ["metadata-hash"], workspace = true, default-features = true }
 
 [features]
 default = ["std"]

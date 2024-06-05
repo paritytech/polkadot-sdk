@@ -19,7 +19,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 codec = { workspace = true }
 lite-json = { workspace = true }
 log = { workspace = true }
-scale-info = { features = ["derive"] , workspace = true }
+scale-info = { features = ["derive"], workspace = true }
 frame-support = { workspace = true }
 frame-system = { workspace = true }
 sp-core = { workspace = true }

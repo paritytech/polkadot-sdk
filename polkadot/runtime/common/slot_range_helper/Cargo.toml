@@ -12,7 +12,7 @@ workspace = true
 [dependencies]
 paste = { workspace = true, default-features = true }
 enumn = { workspace = true }
-codec = { features = ["derive"] , workspace = true }
+codec = { features = ["derive"], workspace = true }
 sp-std = { workspace = true }
 sp-runtime = { workspace = true }
 

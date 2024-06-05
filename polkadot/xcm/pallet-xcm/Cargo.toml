@@ -11,8 +11,8 @@ workspace = true
 
 [dependencies]
 bounded-collections = { workspace = true }
-codec = { features = ["derive"] , workspace = true }
-scale-info = { features = ["derive"] , workspace = true }
+codec = { features = ["derive"], workspace = true }
+scale-info = { features = ["derive"], workspace = true }
 serde = { optional = true, features = ["derive"], workspace = true, default-features = true }
 log = { workspace = true }
 
@@ -29,8 +29,8 @@ xcm-builder = { workspace = true }
 xcm-fee-payment-runtime-api = { workspace = true }
 
 # marked optional, used in benchmarking
-frame-benchmarking = { optional = true , workspace = true }
-pallet-balances = { optional = true , workspace = true }
+frame-benchmarking = { optional = true, workspace = true }
+pallet-balances = { optional = true, workspace = true }
 
 [dev-dependencies]
 pallet-assets = { workspace = true, default-features = true }

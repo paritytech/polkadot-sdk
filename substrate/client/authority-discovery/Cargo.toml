@@ -24,8 +24,8 @@ codec = { workspace = true }
 futures = { workspace = true }
 futures-timer = { workspace = true }
 ip_network = { workspace = true }
-libp2p = { features = ["ed25519", "kad"] , workspace = true }
-multihash = { features = ["sha2", "std"] , workspace = true }
+libp2p = { features = ["ed25519", "kad"], workspace = true }
+multihash = { features = ["sha2", "std"], workspace = true }
 linked_hash_set = { workspace = true }
 log = { workspace = true, default-features = true }
 prost = { workspace = true }
@@ -46,7 +46,7 @@ multihash-codetable = { features = [
 	"digest",
 	"serde",
 	"sha2",
-] , workspace = true }
+], workspace = true }
 
 [dev-dependencies]
 quickcheck = { workspace = true }

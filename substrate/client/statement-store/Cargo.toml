@@ -19,7 +19,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 log = { workspace = true, default-features = true }
 parking_lot = { workspace = true, default-features = true }
 parity-db = { workspace = true }
-tokio = { features = ["time"] , workspace = true, default-features = true }
+tokio = { features = ["time"], workspace = true, default-features = true }
 sp-statement-store = { workspace = true, default-features = true }
 prometheus-endpoint = { workspace = true, default-features = true }
 sp-api = { workspace = true, default-features = true }

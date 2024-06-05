@@ -14,9 +14,9 @@ sp-std = { workspace = true }
 sp-tracing = { workspace = true }
 codec = { workspace = true }
 polkadot-primitives = { workspace = true }
-frame-benchmarking = { optional = true , workspace = true }
+frame-benchmarking = { optional = true, workspace = true }
 
-bs58 = { features = ["alloc"] , workspace = true }
+bs58 = { features = ["alloc"], workspace = true }
 
 [features]
 default = ["std"]

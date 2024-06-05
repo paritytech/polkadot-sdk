@@ -11,8 +11,8 @@ publish = false
 workspace = true
 
 [dependencies]
-tiny-keccak = { features = ["keccak"] , workspace = true }
-codec = { features = ["derive"] , workspace = true }
+tiny-keccak = { features = ["keccak"], workspace = true }
+codec = { features = ["derive"], workspace = true }
 
 test-parachain-adder = { workspace = true }
 test-parachain-halt = { workspace = true }

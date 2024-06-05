@@ -10,7 +10,7 @@ description = "Helper datatypes for Cumulus"
 workspace = true
 
 [dependencies]
-codec = { features = ["derive"] , workspace = true }
+codec = { features = ["derive"], workspace = true }
 log = { workspace = true }
 
 # Substrate

@@ -12,7 +12,7 @@ publish = false
 workspace = true
 
 [dependencies]
-async-std = { features = ["attributes"] , workspace = true }
+async-std = { features = ["attributes"], workspace = true }
 async-trait = { workspace = true }
 bp-header-chain = { workspace = true, default-features = true }
 finality-relay = { workspace = true }

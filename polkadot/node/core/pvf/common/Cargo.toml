@@ -14,12 +14,12 @@ cpu-time = { workspace = true }
 futures = { workspace = true }
 gum = { workspace = true, default-features = true }
 libc = { workspace = true }
-nix = { features = ["resource", "sched"] , workspace = true }
+nix = { features = ["resource", "sched"], workspace = true }
 thiserror = { workspace = true }
 
 codec = { features = [
 	"derive",
-] , workspace = true }
+], workspace = true }
 
 polkadot-parachain-primitives = { workspace = true, default-features = true }
 polkadot-primitives = { workspace = true, default-features = true }

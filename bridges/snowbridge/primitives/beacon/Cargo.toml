@@ -15,7 +15,7 @@ workspace = true
 serde = { optional = true, features = ["derive"], workspace = true, default-features = true }
 hex = { workspace = true }
 codec = { workspace = true }
-scale-info = { features = ["derive"] , workspace = true }
+scale-info = { features = ["derive"], workspace = true }
 rlp = { workspace = true }
 
 frame-support = { workspace = true }

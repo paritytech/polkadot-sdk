@@ -11,7 +11,7 @@ workspace = true
 
 [dependencies]
 async-trait = { workspace = true }
-codec = { features = ["derive"] , workspace = true, default-features = true }
+codec = { features = ["derive"], workspace = true, default-features = true }
 dyn-clone = { workspace = true }
 futures = { workspace = true }
 log = { workspace = true, default-features = true }

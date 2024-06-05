@@ -24,5 +24,5 @@ relay-substrate-client = { workspace = true }
 
 [dev-dependencies]
 codec = { workspace = true, default-features = true }
-relay-substrate-client = { features = ["test-helpers"] , workspace = true }
+relay-substrate-client = { features = ["test-helpers"], workspace = true }
 sp-core = { workspace = true, default-features = true }

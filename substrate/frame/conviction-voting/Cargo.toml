@@ -20,10 +20,10 @@ assert_matches = { workspace = true }
 codec = { features = [
 	"derive",
 	"max-encoded-len",
-] , workspace = true }
-scale-info = { features = ["derive"] , workspace = true }
+], workspace = true }
+scale-info = { features = ["derive"], workspace = true }
 serde = { features = ["derive"], optional = true, workspace = true, default-features = true }
-frame-benchmarking = { optional = true , workspace = true }
+frame-benchmarking = { optional = true, workspace = true }
 frame-support = { workspace = true }
 frame-system = { workspace = true }
 sp-io = { workspace = true }

@@ -14,14 +14,14 @@ path = "src/main.rs"
 
 [dependencies]
 async-trait = { workspace = true }
-clap = { features = ["derive"] , workspace = true }
+clap = { features = ["derive"], workspace = true }
 codec = { workspace = true, default-features = true }
-criterion = { features = ["async_tokio"] , workspace = true, default-features = true }
-jsonrpsee = { features = ["server"] , workspace = true }
+criterion = { features = ["async_tokio"], workspace = true, default-features = true }
+jsonrpsee = { features = ["server"], workspace = true }
 rand = { workspace = true, default-features = true }
 serde = { features = ["derive"], workspace = true, default-features = true }
 serde_json = { workspace = true, default-features = true }
-tokio = { features = ["macros"] , workspace = true, default-features = true }
+tokio = { features = ["macros"], workspace = true, default-features = true }
 tracing = { workspace = true, default-features = true }
 url = { workspace = true }
 tempfile = { workspace = true }

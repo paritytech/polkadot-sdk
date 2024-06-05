@@ -20,16 +20,16 @@ polkadot-node-primitives = { workspace = true, default-features = true }
 polkadot-node-subsystem-types = { workspace = true, default-features = true }
 polkadot-node-metrics = { workspace = true, default-features = true }
 polkadot-primitives = { workspace = true, default-features = true }
-orchestra = { features = ["futures_channel"] , workspace = true }
+orchestra = { features = ["futures_channel"], workspace = true }
 gum = { workspace = true, default-features = true }
 sp-core = { workspace = true, default-features = true }
 async-trait = { workspace = true }
-tikv-jemalloc-ctl = { optional = true , workspace = true }
+tikv-jemalloc-ctl = { optional = true, workspace = true }
 
 [dev-dependencies]
-metered = { features = ["futures_channel"] , workspace = true }
+metered = { features = ["futures_channel"], workspace = true }
 sp-core = { workspace = true, default-features = true }
-futures = { features = ["thread-pool"] , workspace = true }
+futures = { features = ["thread-pool"], workspace = true }
 femme = { workspace = true }
 assert_matches = { workspace = true }
 polkadot-primitives-test-helpers = { workspace = true }

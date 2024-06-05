@@ -13,7 +13,7 @@ workspace = true
 [dependencies]
 codec = { workspace = true }
 log = { workspace = true }
-scale-info = { features = ["bit-vec", "derive", "serde"] , workspace = true }
+scale-info = { features = ["bit-vec", "derive", "serde"], workspace = true }
 
 # Bridge dependencies
 
@@ -21,7 +21,7 @@ bp-xcm-bridge-hub-router = { workspace = true }
 
 # Substrate Dependencies
 
-frame-benchmarking = { optional = true , workspace = true }
+frame-benchmarking = { optional = true, workspace = true }
 frame-support = { workspace = true }
 frame-system = { workspace = true }
 sp-core = { workspace = true }

@@ -18,7 +18,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 [dependencies]
 codec = { workspace = true }
 log = { workspace = true }
-scale-info = { features = ["derive"] , workspace = true }
+scale-info = { features = ["derive"], workspace = true }
 sp-std = { workspace = true }
 # Needed for various traits. In our case, `OnFinalize`.
 sp-runtime = { workspace = true }
@@ -26,7 +26,7 @@ sp-runtime = { workspace = true }
 frame-support = { workspace = true }
 # `system` module provides us with all sorts of useful stuff and macros depend on it being around.
 frame-system = { workspace = true }
-frame-benchmarking = { optional = true , workspace = true }
+frame-benchmarking = { optional = true, workspace = true }
 sp-core = { workspace = true }
 
 [dev-dependencies]

@@ -10,10 +10,10 @@ license = "Apache-2.0"
 workspace = true
 
 [dependencies]
-codec = { features = ["derive", "max-encoded-len"] , workspace = true }
-scale-info = { features = ["derive"] , workspace = true }
+codec = { features = ["derive", "max-encoded-len"], workspace = true }
+scale-info = { features = ["derive"], workspace = true }
 
-frame-benchmarking = { optional = true , workspace = true }
+frame-benchmarking = { optional = true, workspace = true }
 frame-support = { workspace = true }
 frame-system = { workspace = true }
 

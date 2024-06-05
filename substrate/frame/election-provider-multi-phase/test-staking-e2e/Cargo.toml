@@ -17,8 +17,8 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dev-dependencies]
 parking_lot = { workspace = true, default-features = true }
-codec = { features = ["derive"] , workspace = true, default-features = true }
-scale-info = { features = ["derive"] , workspace = true, default-features = true }
+codec = { features = ["derive"], workspace = true, default-features = true }
+scale-info = { features = ["derive"], workspace = true, default-features = true }
 log = { workspace = true }
 
 sp-runtime = { workspace = true, default-features = true }

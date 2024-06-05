@@ -23,7 +23,7 @@ sp-std = { workspace = true }
 sp-tracing = { workspace = true }
 sp-runtime-interface-proc-macro = { workspace = true, default-features = true }
 sp-externalities = { workspace = true }
-codec = { features = ["bytes"] , workspace = true }
+codec = { features = ["bytes"], workspace = true }
 static_assertions = { workspace = true, default-features = true }
 primitive-types = { workspace = true }
 sp-storage = { workspace = true }

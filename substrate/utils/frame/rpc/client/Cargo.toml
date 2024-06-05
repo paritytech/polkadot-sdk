@@ -15,7 +15,7 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-jsonrpsee = { features = ["ws-client"] , workspace = true }
+jsonrpsee = { features = ["ws-client"], workspace = true }
 sc-rpc-api = { workspace = true, default-features = true }
 async-trait = { workspace = true }
 serde = { workspace = true, default-features = true }
@@ -23,5 +23,5 @@ sp-runtime = { workspace = true, default-features = true }
 log = { workspace = true, default-features = true }
 
 [dev-dependencies]
-tokio = { features = ["macros", "rt-multi-thread", "sync"] , workspace = true, default-features = true }
+tokio = { features = ["macros", "rt-multi-thread", "sync"], workspace = true, default-features = true }
 sp-core = { workspace = true, default-features = true }

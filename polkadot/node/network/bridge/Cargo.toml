@@ -15,7 +15,7 @@ async-trait = { workspace = true }
 futures = { workspace = true }
 gum = { workspace = true, default-features = true }
 polkadot-primitives = { workspace = true, default-features = true }
-codec = { features = ["derive"] , workspace = true }
+codec = { features = ["derive"], workspace = true }
 sc-network = { workspace = true, default-features = true }
 sp-consensus = { workspace = true, default-features = true }
 polkadot-node-metrics = { workspace = true, default-features = true }

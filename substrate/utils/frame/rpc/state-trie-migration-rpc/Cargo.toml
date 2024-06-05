@@ -24,7 +24,7 @@ sp-state-machine = { workspace = true, default-features = true }
 sp-trie = { workspace = true, default-features = true }
 trie-db = { workspace = true, default-features = true }
 
-jsonrpsee = { features = ["client-core", "macros", "server-core"] , workspace = true }
+jsonrpsee = { features = ["client-core", "macros", "server-core"], workspace = true }
 
 # Substrate Dependencies
 sc-client-api = { workspace = true, default-features = true }

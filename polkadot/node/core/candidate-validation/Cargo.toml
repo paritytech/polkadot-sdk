@@ -16,7 +16,7 @@ futures-timer = { workspace = true }
 gum = { workspace = true, default-features = true }
 
 sp-maybe-compressed-blob = { workspace = true, default-features = true }
-codec = { features = ["bit-vec", "derive"] , workspace = true }
+codec = { features = ["bit-vec", "derive"], workspace = true }
 
 polkadot-primitives = { workspace = true, default-features = true }
 polkadot-parachain-primitives = { workspace = true, default-features = true }
@@ -31,7 +31,7 @@ polkadot-node-core-pvf = { path = "../pvf" }
 
 [dev-dependencies]
 sp-keyring = { workspace = true, default-features = true }
-futures = { features = ["thread-pool"] , workspace = true }
+futures = { features = ["thread-pool"], workspace = true }
 assert_matches = { workspace = true }
 polkadot-node-subsystem-test-helpers = { workspace = true }
 sp-core = { workspace = true, default-features = true }

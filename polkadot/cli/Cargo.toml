@@ -19,25 +19,25 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 cfg-if = { workspace = true }
-clap = { features = ["derive"], optional = true , workspace = true }
+clap = { features = ["derive"], optional = true, workspace = true }
 log = { workspace = true, default-features = true }
 thiserror = { workspace = true }
 futures = { workspace = true }
-pyroscope = { optional = true , workspace = true }
-pyroscope_pprofrs = { optional = true , workspace = true }
+pyroscope = { optional = true, workspace = true }
+pyroscope_pprofrs = { optional = true, workspace = true }
 
-polkadot-service = { optional = true , workspace = true }
+polkadot-service = { optional = true, workspace = true }
 
 sp-core = { workspace = true, default-features = true }
 sp-io = { workspace = true, default-features = true }
 sp-keyring = { workspace = true, default-features = true }
 sp-maybe-compressed-blob = { workspace = true, default-features = true }
-frame-benchmarking-cli = { optional = true , workspace = true, default-features = true }
-sc-cli = { optional = true , workspace = true, default-features = true }
-sc-service = { optional = true , workspace = true, default-features = true }
+frame-benchmarking-cli = { optional = true, workspace = true, default-features = true }
+sc-cli = { optional = true, workspace = true, default-features = true }
+sc-service = { optional = true, workspace = true, default-features = true }
 polkadot-node-metrics = { workspace = true, default-features = true }
 polkadot-node-primitives = { workspace = true, default-features = true }
-sc-tracing = { optional = true , workspace = true, default-features = true }
+sc-tracing = { optional = true, workspace = true, default-features = true }
 sc-sysinfo = { workspace = true, default-features = true }
 sc-executor = { workspace = true, default-features = true }
 sc-storage-monitor = { workspace = true, default-features = true }

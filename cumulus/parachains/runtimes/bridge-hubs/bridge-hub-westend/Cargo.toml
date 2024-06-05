@@ -10,24 +10,24 @@ license = "Apache-2.0"
 workspace = true
 
 [build-dependencies]
-substrate-wasm-builder = { optional = true , workspace = true, default-features = true }
+substrate-wasm-builder = { optional = true, workspace = true, default-features = true }
 
 [dependencies]
-codec = { features = ["derive"] , workspace = true }
+codec = { features = ["derive"], workspace = true }
 hex-literal = { workspace = true, default-features = true }
 log = { workspace = true }
-scale-info = { features = ["derive"] , workspace = true }
+scale-info = { features = ["derive"], workspace = true }
 serde = { optional = true, features = ["derive"], workspace = true, default-features = true }
 tuplex = { workspace = true }
 
 # Substrate
-frame-benchmarking = { optional = true , workspace = true }
+frame-benchmarking = { optional = true, workspace = true }
 frame-executive = { workspace = true }
 frame-support = { workspace = true }
 frame-system = { workspace = true }
-frame-system-benchmarking = { optional = true , workspace = true }
+frame-system-benchmarking = { optional = true, workspace = true }
 frame-system-rpc-runtime-api = { workspace = true }
-frame-try-runtime = { optional = true , workspace = true }
+frame-try-runtime = { optional = true, workspace = true }
 pallet-aura = { workspace = true }
 pallet-authorship = { workspace = true }
 pallet-balances = { workspace = true }
@@ -56,7 +56,7 @@ sp-version = { workspace = true }
 # Polkadot
 westend-runtime-constants = { workspace = true }
 pallet-xcm = { workspace = true }
-pallet-xcm-benchmarks = { optional = true , workspace = true }
+pallet-xcm-benchmarks = { optional = true, workspace = true }
 polkadot-parachain-primitives = { workspace = true }
 polkadot-runtime-common = { workspace = true }
 xcm = { workspace = true }
@@ -69,7 +69,7 @@ cumulus-pallet-aura-ext = { workspace = true }
 cumulus-pallet-parachain-system = { workspace = true }
 cumulus-pallet-session-benchmarking = { workspace = true }
 cumulus-pallet-xcm = { workspace = true }
-cumulus-pallet-xcmp-queue = { features = ["bridging"] , workspace = true }
+cumulus-pallet-xcmp-queue = { features = ["bridging"], workspace = true }
 cumulus-primitives-aura = { workspace = true }
 cumulus-primitives-core = { workspace = true }
 cumulus-primitives-utility = { workspace = true }
@@ -78,7 +78,7 @@ cumulus-primitives-storage-weight-reclaim = { workspace = true }
 pallet-collator-selection = { workspace = true }
 parachain-info = { workspace = true }
 parachains-common = { workspace = true }
-testnet-parachains-constants = { features = ["westend"] , workspace = true }
+testnet-parachains-constants = { features = ["westend"], workspace = true }
 
 # Bridges
 bp-asset-hub-rococo = { workspace = true }
@@ -104,7 +104,7 @@ bridge-hub-common = { workspace = true }
 [dev-dependencies]
 static_assertions = { workspace = true, default-features = true }
 bridge-hub-test-utils = { workspace = true, default-features = true }
-bridge-runtime-common = { features = ["integrity-test"] , workspace = true, default-features = true }
+bridge-runtime-common = { features = ["integrity-test"], workspace = true, default-features = true }
 sp-keyring = { workspace = true, default-features = true }
 
 [features]

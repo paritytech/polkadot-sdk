@@ -11,8 +11,8 @@ workspace = true
 
 [dependencies]
 impl-trait-for-tuples = { workspace = true }
-codec = { features = ["derive"] , workspace = true }
-scale-info = { features = ["derive"] , workspace = true }
+codec = { features = ["derive"], workspace = true }
+scale-info = { features = ["derive"], workspace = true }
 xcm = { workspace = true }
 xcm-executor = { workspace = true }
 sp-std = { workspace = true }

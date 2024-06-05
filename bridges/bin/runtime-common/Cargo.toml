@@ -11,11 +11,11 @@ license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 workspace = true
 
 [dependencies]
-codec = { features = ["derive"] , workspace = true }
+codec = { features = ["derive"], workspace = true }
 hash-db = { workspace = true }
 log = { workspace = true }
-scale-info = { features = ["derive"] , workspace = true }
-static_assertions = { optional = true , workspace = true, default-features = true }
+scale-info = { features = ["derive"], workspace = true }
+static_assertions = { optional = true, workspace = true, default-features = true }
 tuplex = { workspace = true }
 
 # Bridge dependencies

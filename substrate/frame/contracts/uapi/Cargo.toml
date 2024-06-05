@@ -14,11 +14,11 @@ workspace = true
 [dependencies]
 paste = { workspace = true }
 bitflags = { workspace = true }
-scale-info = { features = ["derive"], optional = true , workspace = true }
+scale-info = { features = ["derive"], optional = true, workspace = true }
 codec = { features = [
 	"derive",
 	"max-encoded-len",
-], optional = true , workspace = true }
+], optional = true, workspace = true }
 
 [target.'cfg(target_arch = "riscv32")'.dependencies]
 polkavm-derive = { workspace = true }
