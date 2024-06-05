@@ -637,7 +637,7 @@ where
 	}
 
 	/// Collect the revenue from the `when` blockheight
-	pub fn revenue_until(when: BlockNumberFor<T>) -> BalanceOf<T> {
+	pub fn claim_revenue_until(when: BlockNumberFor<T>) -> BalanceOf<T> {
 		let now = <frame_system::Pallet<T>>::block_number();
 		let mut amount: BalanceOf<T> = BalanceOf::<T>::zero();
 		Revenue::<T>::mutate(|revenue| {
