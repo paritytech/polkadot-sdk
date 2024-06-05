@@ -692,13 +692,9 @@ impl<T: Config> Pallet<T> {
 		Self::claim_queue_iterator().zip(availability_cores.into_iter()).filter_map(
 			|((core_idx, queue), core)| {
 				if core != CoreOccupied::Free {
-					log::trace!(target: LOG_TARGET, "Found free core core: {:?}", core_idx);
 					return None
-				} else {
-					log::trace!(target: LOG_TARGET, "Filtered occupied core: {:?}", core_idx);
 				}
 				let next_scheduled = queue.front()?;
-				log::trace!(target: LOG_TARGET, "Found scheduled para on that core: {:?}", next_scheduled.assignment.para_id());
 				Some((core_idx, next_scheduled.assignment.para_id()))
 			},
 		)
