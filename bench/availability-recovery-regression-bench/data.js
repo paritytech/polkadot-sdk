@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1717579319894,
+  "lastUpdate": 1717587473298,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
@@ -10499,6 +10499,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 12.869214824133337,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Przemek Rzad",
+            "username": "rzadp",
+            "email": "przemek@parity.io"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "8ffe22903a37f4dab2aa1b15ec899f2c38439f60",
+          "message": "Update the `polkadot_builder` Dockerfile (#4638)\n\nThis Dockerfile seems outdated - it currently fails to build (on my\nmachine).\nI don't see it being built anywhere on CI.\n\nI did a couple of tweaks to make it build.\n\n---------\n\nCo-authored-by: Alexander Samusev <41779041+alvicsam@users.noreply.github.com>",
+          "timestamp": "2024-06-05T09:55:40Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/8ffe22903a37f4dab2aa1b15ec899f2c38439f60"
+        },
+        "date": 1717587445804,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 12.870008936166665,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.17141300943333332,
             "unit": "seconds"
           }
         ]
