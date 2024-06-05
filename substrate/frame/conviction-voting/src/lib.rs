@@ -27,14 +27,18 @@
 #![recursion_limit = "256"]
 #![cfg_attr(not(feature = "std"), no_std)]
 
+#[cfg(feature = "runtime-benchmarks")]
+use frame_support::traits::fungible::Mutate;
+
 use frame_support::{
 	dispatch::DispatchResult,
 	ensure,
 	traits::{
-		fungible, Currency, Get, LockIdentifier, LockableCurrency, PollStatus, Polling,
-		ReservableCurrency, WithdrawReasons,
+		fungible::{Inspect, InspectFreeze, MutateFreeze},
+		Get, PollStatus, Polling,
 	},
 };
+
 use frame_system::pallet_prelude::BlockNumberFor;
 use sp_runtime::{
 	traits::{AtLeast32BitUnsigned, Saturating, StaticLookup, Zero},
@@ -61,11 +65,9 @@ mod tests;
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
 
-const CONVICTION_VOTING_ID: LockIdentifier = *b"pyconvot";
-
 type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
 type BalanceOf<T, I = ()> =
-	<<T as Config<I>>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+	<<T as Config<I>>::Currency as Inspect<<T as frame_system::Config>::AccountId>>::Balance;
 type VotingOf<T, I = ()> = Voting<
 	BalanceOf<T, I>,
 	<T as frame_system::Config>::AccountId,
@@ -104,12 +106,19 @@ pub mod pallet {
 		// System level stuff.
 		type RuntimeEvent: From<Event<Self, I>>
 			+ IsType<<Self as frame_system::Config>::RuntimeEvent>;
+		/// The overarching freeze reason.
+		type RuntimeFreezeReason: From<FreezeReason>;
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
-		/// Currency type with which voting happens.
-		type Currency: ReservableCurrency<Self::AccountId>
-			+ LockableCurrency<Self::AccountId, Moment = BlockNumberFor<Self>>
-			+ fungible::Inspect<Self::AccountId>;
+
+		#[cfg(not(feature = "runtime-benchmarks"))]
+		type Currency: MutateFreeze<Self::AccountId, Id = Self::RuntimeFreezeReason>
+			+ InspectFreeze<Self::AccountId>;
+
+		#[cfg(feature = "runtime-benchmarks")]
+		type Currency: MutateFreeze<Self::AccountId, Id = Self::RuntimeFreezeReason>
+			+ InspectFreeze<Self::AccountId>
+			+ Mutate<Self::AccountId>;
 
 		/// The implementation of the logic which conducts polls.
 		type Polls: Polling<
@@ -199,6 +208,14 @@ pub mod pallet {
 		ClassNeeded,
 		/// The class ID supplied is invalid.
 		BadClass,
+	}
+
+	/// The reasons for the pallet placing locks on funds.
+	#[pallet::composite_enum]
+	pub enum FreezeReason {
+		/// The Pallet locks funds for voting reasons.
+		#[codec(index = 0)]
+		ConvictionVoting,
 	}
 
 	#[pallet::call]
@@ -309,7 +326,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			ensure_signed(origin)?;
 			let target = T::Lookup::lookup(target)?;
-			Self::update_lock(&class, &target);
+			Self::update_lock(&class, &target)?;
 			Ok(())
 		}
 
@@ -329,9 +346,9 @@ pub mod pallet {
 		/// - it finished corresponding to the vote of the account, and
 		/// - the account made a standard vote with conviction, and
 		/// - the lock period of the conviction is not over
-		/// ...then the lock will be aggregated into the overall account's lock, which may involve
-		/// *overlocking* (where the two locks are combined into a single lock that is the maximum
-		/// of both the amount locked and the time is it locked for).
+		/// ...then the lock will be aggregated into the overall account's lock for this pallets
+		/// reason, which may involve the two locks to be combined into a single lock that is the
+		/// maximum of both the amount locked and the time is it locked for).
 		///
 		/// The dispatch origin of this call must be _Signed_, and the signer must have a vote
 		/// registered for poll `index`.
@@ -426,7 +443,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				}
 				// Extend the lock to `balance` (rather than setting it) since we don't know what
 				// other votes are in place.
-				Self::extend_lock(who, &class, vote.balance());
+				Self::extend_freeze(who, &class, vote.balance())?;
 				Ok(())
 			})
 		})
@@ -583,7 +600,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 					Self::increase_upstream_delegation(&target, &class, conviction.votes(balance));
 				// Extend the lock to `balance` (rather than setting it) since we don't know what
 				// other votes are in place.
-				Self::extend_lock(&who, &class, balance);
+				Self::extend_freeze(&who, &class, balance)?;
 				Ok(votes)
 			})?;
 		Self::deposit_event(Event::<T, I>::Delegated(who, target));
@@ -629,7 +646,11 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		Ok(votes)
 	}
 
-	fn extend_lock(who: &T::AccountId, class: &ClassOf<T, I>, amount: BalanceOf<T, I>) {
+	fn extend_freeze(
+		who: &T::AccountId,
+		class: &ClassOf<T, I>,
+		amount: BalanceOf<T, I>,
+	) -> DispatchResult {
 		ClassLocksFor::<T, I>::mutate(who, |locks| {
 			match locks.iter().position(|x| &x.0 == class) {
 				Some(i) => locks[i].1 = locks[i].1.max(amount),
@@ -644,25 +665,21 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				},
 			}
 		});
-		T::Currency::extend_lock(
-			CONVICTION_VOTING_ID,
-			who,
-			amount,
-			WithdrawReasons::except(WithdrawReasons::RESERVE),
-		);
+		T::Currency::extend_freeze(&FreezeReason::ConvictionVoting.into(), who, amount)?;
+		Ok(())
 	}
 
 	/// Rejig the lock on an account. It will never get more stringent (since that would indicate
 	/// a security hole) but may be reduced from what they are currently.
-	fn update_lock(class: &ClassOf<T, I>, who: &T::AccountId) {
-		let class_lock_needed = VotingFor::<T, I>::mutate(who, class, |voting| {
+	fn update_lock(class: &ClassOf<T, I>, who: &T::AccountId) -> DispatchResult {
+		let class_freeze_needed = VotingFor::<T, I>::mutate(who, class, |voting| {
 			voting.rejig(frame_system::Pallet::<T>::block_number());
 			voting.locked_balance()
 		});
-		let lock_needed = ClassLocksFor::<T, I>::mutate(who, |locks| {
+		let freeze_needed = ClassLocksFor::<T, I>::mutate(who, |locks| {
 			locks.retain(|x| &x.0 != class);
-			if !class_lock_needed.is_zero() {
-				let ok = locks.try_push((class.clone(), class_lock_needed)).is_ok();
+			if !class_freeze_needed.is_zero() {
+				let ok = locks.try_push((class.clone(), class_freeze_needed)).is_ok();
 				debug_assert!(
 					ok,
 					"Vec bounded by number of classes; \
@@ -672,15 +689,11 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			}
 			locks.iter().map(|x| x.1).max().unwrap_or(Zero::zero())
 		});
-		if lock_needed.is_zero() {
-			T::Currency::remove_lock(CONVICTION_VOTING_ID, who);
+		if freeze_needed.is_zero() {
+			T::Currency::thaw(&FreezeReason::ConvictionVoting.into(), who)?;
 		} else {
-			T::Currency::set_lock(
-				CONVICTION_VOTING_ID,
-				who,
-				lock_needed,
-				WithdrawReasons::except(WithdrawReasons::RESERVE),
-			);
+			T::Currency::set_freeze(&FreezeReason::ConvictionVoting.into(), who, freeze_needed)?;
 		}
+		Ok(())
 	}
 }

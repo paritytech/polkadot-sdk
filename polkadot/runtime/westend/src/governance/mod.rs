@@ -38,9 +38,10 @@ parameter_types! {
 impl pallet_conviction_voting::Config for Runtime {
 	type WeightInfo = weights::pallet_conviction_voting::WeightInfo<Self>;
 	type RuntimeEvent = RuntimeEvent;
+	type RuntimeFreezeReason = RuntimeFreezeReason;
 	type Currency = Balances;
 	type VoteLockingPeriod = VoteLockingPeriod;
-	type MaxVotes = ConstU32<512>;
+	type MaxVotes = ConstU32<3>;
 	type MaxTurnout =
 		frame_support::traits::tokens::currency::ActiveIssuanceOf<Balances, Self::AccountId>;
 	type Polls = Referenda;
