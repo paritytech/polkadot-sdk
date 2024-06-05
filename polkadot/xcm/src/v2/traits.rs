@@ -282,7 +282,7 @@ pub type SendResult = result::Result<(), SendError>;
 /// # Example
 /// ```rust
 /// # use staging_xcm::v2::prelude::*;
-/// # use parity_scale_codec::Encode;
+/// # use codec::Encode;
 ///
 /// /// A sender that only passes the message through and does nothing.
 /// struct Sender1;

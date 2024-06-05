@@ -407,7 +407,7 @@ pub type SendResult<T> = result::Result<(T, MultiAssets), SendError>;
 ///
 /// # Example
 /// ```rust
-/// # use parity_scale_codec::Encode;
+/// # use codec::Encode;
 /// # use staging_xcm::v3::{prelude::*, Weight};
 /// # use staging_xcm::VersionedXcm;
 /// # use std::convert::Infallible;

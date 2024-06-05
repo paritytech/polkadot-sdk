@@ -511,12 +511,34 @@ where
 mod test_iterators {
 	use crate::{
 		hash::StorageHasher,
+		pallet_prelude::ValueQuery,
 		storage::{
 			generator::{tests::*, StorageDoubleMap},
 			unhashed,
 		},
 	};
 	use codec::Encode;
+
+	#[test]
+	fn mutate_return_none_still_modifies() {
+		sp_io::TestExternalities::default().execute_with(|| {
+			use crate::hash::Identity;
+			#[crate::storage_alias]
+			type MyDoubleMap =
+				StorageDoubleMap<MyModule, Identity, u64, Identity, u64, u64, ValueQuery>;
+
+			// Insert one value
+			MyDoubleMap::insert(1, 1, 2);
+
+			MyDoubleMap::try_mutate(1, 1, |v| {
+				assert_eq!(*v, 2);
+				*v = 3;
+				Err::<u64, ()>(())
+			});
+
+			assert_eq!(MyDoubleMap::get(1, 1), 2);
+		});
+	}
 
 	#[test]
 	fn double_map_iter_from() {

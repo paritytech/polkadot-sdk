@@ -343,7 +343,7 @@ impl<Payload, RealPayload> From<Signed<Payload, RealPayload>>
 /// This helper trait ensures that we can encode `Statement` as `CompactStatement`,
 /// and anything as itself.
 ///
-/// This resembles `parity_scale_codec::EncodeLike`, but it's distinct:
+/// This resembles `codec::EncodeLike`, but it's distinct:
 /// `EncodeLike` is a marker trait which asserts at the typesystem level that
 /// one type's encoding is a valid encoding for another type. It doesn't
 /// perform any type conversion when encoding.

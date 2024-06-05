@@ -161,7 +161,7 @@ pub type SendResult<T> = result::Result<(T, Assets), SendError>;
 ///
 /// # Example
 /// ```rust
-/// # use parity_scale_codec::Encode;
+/// # use codec::Encode;
 /// # use staging_xcm::v4::{prelude::*, Weight};
 /// # use staging_xcm::VersionedXcm;
 /// # use std::convert::Infallible;
