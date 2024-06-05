@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1717587473298,
+  "lastUpdate": 1717594469206,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
@@ -10541,6 +10541,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.17141300943333332,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Michal Kucharczyk",
+            "username": "michalkucharczyk",
+            "email": "1728078+michalkucharczyk@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "f65beb7f7a66a79f4afd0a308bece2bd5c8ba780",
+          "message": "chain-spec-doc: some minor fixes (#4700)\n\nsome minor text fixes.",
+          "timestamp": "2024-06-05T11:52:02Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/f65beb7f7a66a79f4afd0a308bece2bd5c8ba780"
+        },
+        "date": 1717594440793,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 12.756374216133334,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.15906308036666666,
             "unit": "seconds"
           }
         ]
