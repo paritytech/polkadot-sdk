@@ -16,7 +16,7 @@ hex = "0.4.3"
 polkadot-primitives = { path = "../../../primitives" }
 polkadot-node-primitives = { path = "../../primitives" }
 polkadot-node-jaeger = { path = "../../jaeger" }
-parity-scale-codec = { version = "3.6.1", default-features = false, features = ["derive"] }
+parity-scale-codec = { version = "3.6.12", default-features = false, features = ["derive"] }
 sc-network = { path = "../../../../substrate/client/network" }
 sc-network-types = { path = "../../../../substrate/client/network/types" }
 sc-authority-discovery = { path = "../../../../substrate/client/authority-discovery" }
@@ -24,7 +24,7 @@ sp-runtime = { path = "../../../../substrate/primitives/runtime" }
 strum = { version = "0.26.2", features = ["derive"] }
 futures = "0.3.30"
 thiserror = { workspace = true }
-fatality = "0.0.6"
+fatality = "0.1.1"
 rand = "0.8"
 derive_more = "0.99"
 gum = { package = "tracing-gum", path = "../../gum" }

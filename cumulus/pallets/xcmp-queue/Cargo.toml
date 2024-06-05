@@ -10,7 +10,7 @@ license = "Apache-2.0"
 workspace = true
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.0.0", features = ["derive"], default-features = false }
+codec = { package = "parity-scale-codec", version = "3.6.12", features = ["derive"], default-features = false }
 log = { workspace = true }
 scale-info = { version = "2.11.1", default-features = false, features = ["derive"] }
 
@@ -48,7 +48,7 @@ pallet-balances = { path = "../../../substrate/frame/balances" }
 frame-support = { path = "../../../substrate/frame/support", features = ["experimental"] }
 
 # Cumulus
-cumulus-pallet-parachain-system = { path = "../parachain-system", features = ["parameterized-consensus-hook"] }
+cumulus-pallet-parachain-system = { path = "../parachain-system" }
 
 [features]
 default = ["std"]

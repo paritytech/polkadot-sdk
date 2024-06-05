@@ -14,7 +14,7 @@
 // limitations under the License.
 
 use super::{
-	mock::{mk_page, v2_xcm, v3_xcm, EnqueuedMessages, HRMP_PARA_ID},
+	mock::{mk_page, versioned_xcm, EnqueuedMessages, HRMP_PARA_ID},
 	*,
 };
 use XcmpMessageFormat::*;
@@ -520,7 +520,7 @@ fn hrmp_signals_are_prioritized() {
 		});
 
 		// But a signal gets prioritized instead of the messages:
-		XcmpQueue::send_signal(sibling_para_id.into(), ChannelSignal::Suspend);
+		assert_ok!(XcmpQueue::send_signal(sibling_para_id.into(), ChannelSignal::Suspend));
 
 		let taken = XcmpQueue::take_outbound_messages(130);
 		assert_eq!(
@@ -536,8 +536,8 @@ fn hrmp_signals_are_prioritized() {
 #[test]
 fn maybe_double_encoded_versioned_xcm_works() {
 	// pre conditions
-	assert_eq!(VersionedXcm::<()>::V2(Default::default()).encode(), &[2, 0]);
 	assert_eq!(VersionedXcm::<()>::V3(Default::default()).encode(), &[3, 0]);
+	assert_eq!(VersionedXcm::<()>::V4(Default::default()).encode(), &[4, 0]);
 }
 
 // Now also testing a page instead of just concat messages.
@@ -545,15 +545,18 @@ fn maybe_double_encoded_versioned_xcm_works() {
 fn maybe_double_encoded_versioned_xcm_decode_page_works() {
 	let page = mk_page();
 
+	let newer_xcm_version = xcm::prelude::XCM_VERSION;
+	let older_xcm_version = newer_xcm_version - 1;
+
 	// Now try to decode the page.
 	let input = &mut &page[..];
 	for i in 0..100 {
 		match (i % 2, VersionedXcm::<()>::decode(input)) {
 			(0, Ok(xcm)) => {
-				assert_eq!(xcm, v2_xcm());
+				assert_eq!(xcm, versioned_xcm(older_xcm_version));
 			},
 			(1, Ok(xcm)) => {
-				assert_eq!(xcm, v3_xcm());
+				assert_eq!(xcm, versioned_xcm(newer_xcm_version));
 			},
 			unexpected => unreachable!("{:?}", unexpected),
 		}
@@ -568,14 +571,17 @@ fn take_first_concatenated_xcm_works() {
 	let page = mk_page();
 	let input = &mut &page[..];
 
+	let newer_xcm_version = xcm::prelude::XCM_VERSION;
+	let older_xcm_version = newer_xcm_version - 1;
+
 	for i in 0..100 {
 		let xcm = XcmpQueue::take_first_concatenated_xcm(input, &mut WeightMeter::new()).unwrap();
 		match (i % 2, xcm) {
 			(0, data) | (2, data) => {
-				assert_eq!(data, v2_xcm().encode());
+				assert_eq!(data, versioned_xcm(older_xcm_version).encode());
 			},
 			(1, data) | (3, data) => {
-				assert_eq!(data, v3_xcm().encode());
+				assert_eq!(data, versioned_xcm(newer_xcm_version).encode());
 			},
 			unexpected => unreachable!("{:?}", unexpected),
 		}
