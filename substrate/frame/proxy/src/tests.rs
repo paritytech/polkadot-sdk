@@ -543,7 +543,12 @@ fn proxy_propagate_error_works() {
 			Error::<Test>::NotProxy
 		);
 		assert_noop!(
-			Proxy::proxy_propagate_error(RuntimeOrigin::signed(2), 1, Some(ProxyType::Any), call.clone()),
+			Proxy::proxy_propagate_error(
+				RuntimeOrigin::signed(2),
+				1,
+				Some(ProxyType::Any),
+				call.clone()
+			),
 			Error::<Test>::NotProxy
 		);
 		assert_ok!(Proxy::proxy_propagate_error(RuntimeOrigin::signed(2), 1, None, call.clone()));
@@ -561,7 +566,7 @@ fn proxy_propagate_error_works() {
 			value: 1,
 		}));
 		assert_noop!(
-			RuntimeCall::Proxy(Call::new_call_variant_proxy(1, None, call.clone()))
+			RuntimeCall::Proxy(Call::new_call_variant_proxy_propagate_error(1, None, call.clone()))
 				.dispatch(RuntimeOrigin::signed(2)),
 			SystemError::CallFiltered
 		);
