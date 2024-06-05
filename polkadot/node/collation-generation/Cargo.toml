@@ -20,11 +20,11 @@ polkadot-primitives = { path = "../../primitives" }
 sp-core = { path = "../../../substrate/primitives/core" }
 sp-maybe-compressed-blob = { path = "../../../substrate/primitives/maybe-compressed-blob" }
 thiserror = { workspace = true }
-parity-scale-codec = { version = "3.6.12", default-features = false, features = ["bit-vec", "derive"] }
+codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false, features = ["bit-vec", "derive"] }
 
 [dev-dependencies]
 polkadot-node-subsystem-test-helpers = { path = "../subsystem-test-helpers" }
-test-helpers = { package = "polkadot-primitives-test-helpers", path = "../../primitives/test-helpers" }
+polkadot-primitives-test-helpers = { path = "../../primitives/test-helpers" }
 assert_matches = "1.4.0"
 rstest = "0.18.2"
 sp-keyring = { path = "../../../substrate/primitives/keyring" }
