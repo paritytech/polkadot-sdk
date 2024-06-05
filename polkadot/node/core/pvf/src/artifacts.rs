@@ -54,7 +54,10 @@
 //!    older by a predefined parameter. This process is run very rarely (say, once a day). Once the
 //!    artifact is expired it is removed from disk eagerly atomically.
 
-use crate::{host::PrecheckResultSender, worker_interface::WORKER_DIR_PREFIX};
+use crate::{
+	host::{PrecheckResultSender, WorkersCleanup},
+	worker_interface::WORKER_DIR_PREFIX,
+};
 use always_assert::always;
 use polkadot_node_core_pvf_common::{error::PrepareError, prepare::PrepareStats, pvf::PvfPrepData};
 use polkadot_parachain_primitives::primitives::ValidationCodeHash;
@@ -63,7 +66,7 @@ use std::{
 	collections::HashMap,
 	fs,
 	path::{Path, PathBuf},
-	time::{Duration, SystemTime},
+	time::SystemTime,
 };
 
 /// The extension to use for cached artifacts.
@@ -171,16 +174,6 @@ pub struct Artifacts {
 	inner: HashMap<ArtifactId, ArtifactState>,
 }
 
-/// A condition which we use to cleanup artifacts
-#[derive(Debug)]
-pub enum CleanupBy {
-	// Inactive time after which artefact is deleted
-	Time(Duration),
-	// Max size in bytes. Reaching it the least used artefacts are deleted
-	#[allow(dead_code)]
-	Size(u64),
-}
-
 impl Artifacts {
 	#[cfg(test)]
 	pub(crate) fn empty() -> Self {
@@ -274,11 +267,11 @@ impl Artifacts {
 
 	/// Remove artifacts older than the given TTL or the total artifacts size limit and return id
 	/// and path of the removed ones.
-	pub fn prune(&mut self, cleanup_by: &CleanupBy) -> Vec<(ArtifactId, PathBuf)> {
+	pub fn prune(&mut self, cleanup: &WorkersCleanup) -> Vec<(ArtifactId, PathBuf)> {
 		let mut to_remove = vec![];
 
-		match cleanup_by {
-			CleanupBy::Time(artifact_ttl) => {
+		match cleanup {
+			WorkersCleanup::ByTime(artifact_ttl) => {
 				let now = SystemTime::now();
 				for (k, v) in self.inner.iter() {
 					if let ArtifactState::Prepared { last_time_needed, ref path, .. } = *v {
@@ -292,7 +285,7 @@ impl Artifacts {
 					}
 				}
 			},
-			CleanupBy::Size(size_limit) => {
+			WorkersCleanup::BySize(size_limit) => {
 				let mut total_size = 0;
 				let mut artifact_sizes = vec![];
 
@@ -324,9 +317,9 @@ impl Artifacts {
 
 #[cfg(test)]
 mod tests {
-	use crate::testing::artifact_id;
-
 	use super::*;
+	use crate::testing::artifact_id;
+	use std::time::Duration;
 
 	#[tokio::test]
 	async fn cache_cleared_on_startup() {
@@ -393,7 +386,7 @@ mod tests {
 			PrepareStats::default(),
 		);
 
-		let pruned = artifacts.prune(&CleanupBy::Time(Duration::from_secs(9)));
+		let pruned = artifacts.prune(&WorkersCleanup::ByTime(Duration::from_secs(9)));
 
 		assert!(artifacts.artifact_ids().contains(&artifact_id1));
 		assert!(!pruned.contains(&(artifact_id1, path1)));
@@ -440,7 +433,7 @@ mod tests {
 			PrepareStats::default(),
 		);
 
-		let pruned = artifacts.prune(&CleanupBy::Size(1500));
+		let pruned = artifacts.prune(&WorkersCleanup::BySize(1500));
 
 		assert!(artifacts.artifact_ids().contains(&artifact_id1));
 		assert!(!pruned.contains(&(artifact_id1, path1)));

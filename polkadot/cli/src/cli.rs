@@ -18,7 +18,7 @@
 
 pub use polkadot_node_primitives::NODE_VERSION;
 
-use clap::Parser;
+use clap::{Parser, ValueEnum};
 use std::path::PathBuf;
 
 #[allow(missing_docs)]
@@ -136,21 +136,48 @@ pub struct RunCmd {
 	///  **Dangerous!** Do not touch unless explicitly advised to.
 	#[arg(long)]
 	pub execute_workers_max_num: Option<usize>,
+
 	/// Override the maximum number of pvf workers that can be spawned in the pvf prepare
 	/// pool for tasks with the priority below critical.
 	///
 	///  **Dangerous!** Do not touch unless explicitly advised to.
-
 	#[arg(long)]
 	pub prepare_workers_soft_max_num: Option<usize>,
+
 	/// Override the absolute number of pvf workers that can be spawned in the pvf prepare pool.
 	///
 	///  **Dangerous!** Do not touch unless explicitly advised to.
 	#[arg(long)]
 	pub prepare_workers_hard_max_num: Option<usize>,
+
+	/// The strategy we use to cleanup pvf workers artifacts
+	///
+	///  **Dangerous!** Do not touch unless explicitly advised to.
+	#[arg(long, value_name = "STRATEGY", value_enum, default_value_t = WorkersCleanupMode::Size)]
+	pub workers_cleanup: WorkersCleanupMode,
+
 	/// TESTING ONLY: disable the version check between nodes and workers.
 	#[arg(long, hide = true)]
 	pub disable_worker_version_check: bool,
+}
+
+/// How we cleanup pvf workers artefacts
+#[derive(Debug, Clone, ValueEnum)]
+#[value(rename_all = "kebab-case")]
+pub enum WorkersCleanupMode {
+	/// Invalidate least used artifact when cache size is more that 10 GB
+	Size,
+	/// Invalidate artifactes used more than 24 hours ago
+	Time,
+}
+
+impl From<WorkersCleanupMode> for service::WorkersCleanupMode {
+	fn from(cleanup: WorkersCleanupMode) -> Self {
+		match cleanup {
+			WorkersCleanupMode::Time => service::WorkersCleanupMode::Time,
+			WorkersCleanupMode::Size => service::WorkersCleanupMode::Size,
+		}
+	}
 }
 
 #[allow(missing_docs)]

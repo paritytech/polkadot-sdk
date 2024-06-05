@@ -19,6 +19,7 @@
 use criterion::{criterion_group, criterion_main, BatchSize, Criterion, SamplingMode};
 use polkadot_node_core_pvf::{
 	start, testing, Config, Metrics, PrepareError, PrepareJobKind, PvfPrepData, ValidationHost,
+	WorkersCleanup,
 };
 use polkadot_primitives::ExecutorParams;
 use rococo_runtime::WASM_BINARY;
@@ -51,6 +52,7 @@ impl TestHost {
 			2,
 			1,
 			2,
+			WorkersCleanup::by_size(),
 		);
 		f(&mut config);
 		let (host, task) = start(config, Metrics::default()).await.unwrap();
