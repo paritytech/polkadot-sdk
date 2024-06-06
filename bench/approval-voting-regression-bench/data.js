@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1717704718707,
+  "lastUpdate": 1717707298602,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -6720,6 +6720,53 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting",
             "value": 9.241718071089954,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "batman",
+            "username": "iammasterbrucewayne",
+            "email": "iammasterbrucewayne@protonmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "426956f87cc91f94ce71e2ed74ca34d88766e1d8",
+          "message": "Update the README to include a link to the Polkadot SDK Version Manager (#4718)\n\nAdds a link to the [Polkadot SDK Version\nManager](https://github.com/paritytech/psvm) since this tool is not well\nknown, but very useful for developers using the Polkadot SDK.\n\n---------\n\nCo-authored-by: Bastian Köcher <git@kchr.de>",
+          "timestamp": "2024-06-06T20:06:34Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/426956f87cc91f94ce71e2ed74ca34d88766e1d8"
+        },
+        "date": 1717707268105,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63544.83,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52940.09999999999,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 7.232204521820007,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 9.578427781110125,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 3.2468090918501202,
             "unit": "seconds"
           }
         ]
