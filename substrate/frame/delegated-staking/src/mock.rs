@@ -127,14 +127,40 @@ impl pallet_staking::Config for Runtime {
 	type ElectionProvider = onchain::OnChainExecution<OnChainSeqPhragmen>;
 	type GenesisElectionProvider = Self::ElectionProvider;
 	type VoterList = pallet_staking::UseNominatorsAndValidatorsMap<Self>;
-	type TargetList = pallet_staking::UseValidatorsMap<Self>;
+	type TargetList = TargetBagsList;
 	type NominationsQuota = pallet_staking::FixedNominationsQuota<16>;
 	type MaxUnlockingChunks = ConstU32<10>;
 	type MaxControllersInDeprecationBatch = ConstU32<100>;
-	type EventListeners = (Pools, DelegatedStaking);
+	type EventListeners = (StakeTracker, Pools, DelegatedStaking);
 	type BenchmarkingConfig = pallet_staking::TestBenchmarkingConfig;
 	type WeightInfo = ();
 	type DisablingStrategy = pallet_staking::UpToLimitDisablingStrategy;
+}
+
+const TARGET_THRESHOLDS: [Balance; 9] = [100, 200, 300, 400, 500, 600, 1_000, 2_000, 10_000];
+parameter_types! {
+	pub static TargetBagThresholds: &'static [Balance] = &TARGET_THRESHOLDS;
+}
+
+type TargetBagsListInstance = pallet_bags_list::Instance1;
+impl pallet_bags_list::Config<TargetBagsListInstance> for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type WeightInfo = ();
+	type ScoreProvider = pallet_bags_list::Pallet<Runtime, TargetBagsListInstance>;
+	type BagThresholds = TargetBagThresholds;
+	type Score = Balance;
+}
+
+parameter_types! {
+	pub static VoterUpdateMode: pallet_stake_tracker::VoterUpdateMode = pallet_stake_tracker::VoterUpdateMode::Lazy;
+}
+
+impl pallet_stake_tracker::Config for Runtime {
+	type Currency = Balances;
+	type Staking = Staking;
+	type VoterList = pallet_staking::UseNominatorsAndValidatorsMap<Self>;
+	type TargetList = TargetBagsList;
+	type VoterUpdateMode = VoterUpdateMode;
 }
 
 parameter_types! {
@@ -192,6 +218,8 @@ frame_support::construct_runtime!(
 		Timestamp: pallet_timestamp,
 		Balances: pallet_balances,
 		Staking: pallet_staking,
+		TargetBagsList: pallet_bags_list::<Instance1>,
+		StakeTracker: pallet_stake_tracker,
 		Pools: pallet_nomination_pools,
 		DelegatedStaking: delegated_staking,
 	}
@@ -236,13 +264,13 @@ impl ExtBuilder {
 				GENESIS_NOMINATOR_ONE,
 				GENESIS_NOMINATOR_ONE,
 				100,
-				sp_staking::StakerStatus::<AccountId>::Nominator(vec![1]),
+				sp_staking::StakerStatus::<AccountId>::Nominator(vec![GENESIS_VALIDATOR]),
 			),
 			(
 				GENESIS_NOMINATOR_TWO,
 				GENESIS_NOMINATOR_TWO,
 				200,
-				sp_staking::StakerStatus::<AccountId>::Nominator(vec![1]),
+				sp_staking::StakerStatus::<AccountId>::Nominator(vec![GENESIS_VALIDATOR]),
 			),
 		];
 

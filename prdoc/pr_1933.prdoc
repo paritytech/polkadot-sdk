@@ -27,13 +27,13 @@ crates:
     bump: none
   - name: polkadot-sdk
     bump: minor
-  - pallet-fast-unstake
+  - name: pallet-fast-unstake
     bump: none
-  - pallet-bags-list
+  - name: pallet-bags-list
     bump: minor
-  - westend-runtime
+  - name: westend-runtime
     bump: minor
-  - pallet-delegated-staking
+  - name: pallet-delegated-staking
     bump: none
-  - pallet-nomination-pools-benchmarking
-    bump: none
+  - name: pallet-nomination-pools-benchmarking
+    bump: minor
