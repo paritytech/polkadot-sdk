@@ -27,8 +27,10 @@ runs:
           && apt install gh -y
           git config --global --add safe.directory '*'
       - run: gh pr checkout ${{ inputs.pr }}
+        shell: bash
         env:
           GITHUB_TOKEN: ${{ inputs.GH_TOKEN }}
       - name: Export branch name
+        shell: bash
         run: echo "branch=$(git rev-parse --abbrev-ref HEAD)" >> "$GITHUB_OUTPUT"
         id: branch
