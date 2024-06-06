@@ -51,6 +51,7 @@ use polkadot_node_subsystem_util::{
 	backing_implicit_view::View as ImplicitView,
 	reputation::{ReputationAggregator, REPUTATION_CHANGE_INTERVAL},
 	runtime::{prospective_parachains_mode, ProspectiveParachainsMode},
+	vstaging::fetch_claim_queue,
 };
 use polkadot_primitives::{
 	CandidateHash, CollatorId, CoreState, Hash, HeadData, Id as ParaId, OccupiedCoreAssumption,
@@ -491,23 +492,38 @@ where
 		.await
 		.map_err(Error::CancelledAvailabilityCores)??;
 
-	let para_now = match polkadot_node_subsystem_util::signing_key_and_index(&validators, keystore)
-		.and_then(|(_, index)| polkadot_node_subsystem_util::find_validator_group(&groups, index))
-	{
-		Some(group) => {
-			let core_now = rotation_info.core_for_group(group, cores.len());
+	let core_now = if let Some(group) =
+		polkadot_node_subsystem_util::signing_key_and_index(&validators, keystore).and_then(
+			|(_, index)| polkadot_node_subsystem_util::find_validator_group(&groups, index),
+		) {
+		rotation_info.core_for_group(group, cores.len())
+	} else {
+		gum::trace!(target: LOG_TARGET, ?relay_parent, "Not a validator");
+		return Ok(())
+	};
 
+	let para_now = match fetch_claim_queue(sender, relay_parent).await.map_err(Error::Runtime)? {
+		Some(claim_queue) => {
+			// Runtime supports claim queue - use it
+			//
+			// `relay_parent_mode` is not examined here because if the runtime supports claim queue
+			// then it supports async backing params too (`ASYNC_BACKING_STATE_RUNTIME_REQUIREMENT`
+			// < `CLAIM_QUEUE_RUNTIME_REQUIREMENT`).
+			//
+			// Implementation note: here it might be better to fetch the whole claim queue for the
+			// core and use it as `paras_now`. Practical tests however showed that there is no
+			// benefit in doing this so to avoid unnecessary complexity we just only get the first
+			// claim from the queue.
+			claim_queue.get_claim_for(core_now, 0)
+		},
+		None => {
+			// Claim queue is not supported by the runtime - use availability cores instead.
 			cores.get(core_now.0 as usize).and_then(|c| match c {
 				CoreState::Occupied(core) if relay_parent_mode.is_enabled() =>
 					core.next_up_on_available.as_ref().map(|c| c.para_id),
 				CoreState::Scheduled(core) => Some(core.para_id),
 				CoreState::Occupied(_) | CoreState::Free => None,
 			})
-		},
-		None => {
-			gum::trace!(target: LOG_TARGET, ?relay_parent, "Not a validator");
-
-			return Ok(())
 		},
 	};
 
