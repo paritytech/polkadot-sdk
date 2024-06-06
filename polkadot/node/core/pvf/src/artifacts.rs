@@ -320,8 +320,8 @@ impl Artifacts {
 				break;
 			}
 
+			self.inner.remove(&artifact_id);
 			to_remove.push((artifact_id, path));
-			self.inner.remove(&artifact.0);
 			total_size -= size;
 		}
 
