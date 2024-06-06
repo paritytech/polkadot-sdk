@@ -51,6 +51,7 @@ use polkadot_node_subsystem_util::{
 		get_availability_cores, get_group_rotation_info, prospective_parachains_mode,
 		ProspectiveParachainsMode, RuntimeInfo,
 	},
+	vstaging::fetch_claim_queue,
 	TimeoutExt,
 };
 use polkadot_primitives::{
@@ -579,19 +580,26 @@ async fn determine_cores(
 	let cores = get_availability_cores(sender, relay_parent).await?;
 	let n_cores = cores.len();
 	let mut assigned_cores = Vec::new();
+	let maybe_claim_queue = fetch_claim_queue(sender, relay_parent).await?;
 
 	for (idx, core) in cores.iter().enumerate() {
-		let core_para_id = match core {
-			CoreState::Scheduled(scheduled) => Some(scheduled.para_id),
-			CoreState::Occupied(occupied) =>
-				if relay_parent_mode.is_enabled() {
-					// With async backing we don't care about the core state,
-					// it is only needed for figuring our validators group.
-					occupied.next_up_on_available.as_ref().map(|c| c.para_id)
-				} else {
-					None
-				},
-			CoreState::Free => None,
+		let core_para_id = match maybe_claim_queue {
+			Some(ref claim_queue) => {
+				//Runtime supports claim queue - use it
+				claim_queue.get_claim_for(CoreIndex::from(idx as u32), 0)
+			},
+			None => match core {
+				CoreState::Scheduled(scheduled) => Some(scheduled.para_id),
+				CoreState::Occupied(occupied) =>
+					if relay_parent_mode.is_enabled() {
+						// With async backing we don't care about the core state,
+						// it is only needed for figuring our validators group.
+						occupied.next_up_on_available.as_ref().map(|c| c.para_id)
+					} else {
+						None
+					},
+				CoreState::Free => None,
+			},
 		};
 
 		if core_para_id == Some(para_id) {
