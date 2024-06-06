@@ -131,8 +131,8 @@ fn expand_view_function(
 		}
 
 		impl<#type_impl_gen> #frame_support::traits::Query for #query_struct_ident<#type_use_gen> #where_clause {
-			fn id() -> #frame_support::traits::QueryId {
-				#frame_support::traits::QueryId {
+			fn id() -> #frame_support::__private::QueryId {
+				#frame_support::__private::QueryId {
 					prefix: <#pallet_ident<#type_use_gen> as #frame_support::traits::QueryIdPrefix>::prefix(),
 					suffix: <Self as #frame_support::traits::QueryIdSuffix>::SUFFIX,
 				}
@@ -176,11 +176,11 @@ fn impl_dispatch_query(
 			fn dispatch_query<
 				O: #frame_support::__private::codec::Output,
 			>
-				(id: & #frame_support::traits::QueryId, input: &mut &[u8], output: &mut O) -> Result<(), #frame_support::traits::QueryDispatchError>
+				(id: & #frame_support::__private::QueryId, input: &mut &[u8], output: &mut O) -> Result<(), #frame_support::__private::QueryDispatchError>
 			{
 				match id.suffix {
 					#( #query_match_arms )*
-					_ => Err(#frame_support::traits::QueryDispatchError::NotFound(id.clone())),
+					_ => Err(#frame_support::__private::QueryDispatchError::NotFound(id.clone())),
 				}
 			}
 		}

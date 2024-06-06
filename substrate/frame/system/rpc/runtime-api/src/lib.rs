@@ -32,15 +32,4 @@ sp_api::decl_runtime_apis! {
 		/// Get current account nonce of given `AccountId`.
 		fn account_nonce(account: AccountId) -> Nonce;
 	}
-
-	/// API for executing view function queries
-	pub trait ViewFunctionsApi<QueryId, Query, QueryResult, Error> where
-		QueryId: codec::Codec,
-		Query: codec::Codec,
-		QueryResult: codec::Codec,
-		Error: codec::Codec,
-	{
-		/// Execute a view function query.
-		fn execute_query(query_id: QueryId, query: Query) -> Result<QueryResult, Error>;
-	}
 }

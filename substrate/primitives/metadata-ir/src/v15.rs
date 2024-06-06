@@ -27,9 +27,7 @@ use frame_metadata::v15::{
 	RuntimeApiMetadata, RuntimeApiMethodMetadata, RuntimeApiMethodParamMetadata,
 	RuntimeMetadataV15, SignedExtensionMetadata,
 };
-use scale_info::{
-	IntoPortable, Registry
-};
+use scale_info::{IntoPortable, Registry};
 
 impl From<MetadataIR> for RuntimeMetadataV15 {
 	fn from(ir: MetadataIR) -> Self {

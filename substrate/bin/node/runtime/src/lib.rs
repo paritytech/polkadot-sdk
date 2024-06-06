@@ -86,7 +86,7 @@ use sp_consensus_beefy::{
 	mmr::MmrLeafVersion,
 };
 use sp_consensus_grandpa::AuthorityId as GrandpaId;
-use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
+use sp_core::{crypto::KeyTypeId, OpaqueMetadata, QueryDispatchError, QueryId};
 use sp_inherents::{CheckInherentsResult, InherentData};
 use sp_runtime::{
 	create_runtime_str,
@@ -2680,6 +2680,12 @@ impl_runtime_apis! {
 
 		fn metadata_versions() -> sp_std::vec::Vec<u32> {
 			Runtime::metadata_versions()
+		}
+	}
+
+	impl sp_api::RuntimeQuery<Block> for Runtime {
+		fn execute_query(query_id: QueryId, query: Vec<u8>) -> Result<Vec<u8>, QueryDispatchError> {
+			todo!()
 		}
 	}
 

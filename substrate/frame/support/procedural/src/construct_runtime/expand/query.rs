@@ -49,13 +49,13 @@ pub fn expand_outer_query(
 		const _: () = {
 			impl #scrate::traits::DispatchQuery for #runtime_query {
 				fn dispatch_query<O: #scrate::__private::codec::Output>(
-					id: & #scrate::traits::QueryId,
+					id: & #scrate::__private::QueryId,
 					input: &mut &[u8],
 					output: &mut O
-				) -> Result<(), #scrate::traits::QueryDispatchError>
+				) -> Result<(), #scrate::__private::QueryDispatchError>
 				{
 					#( #prefix_conditionals )*
-					Err(#scrate::traits::QueryDispatchError::NotFound(id.clone()))
+					Err(#scrate::__private::QueryDispatchError::NotFound(id.clone()))
 				}
 			}
 		};

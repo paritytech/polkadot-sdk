@@ -17,8 +17,8 @@
 
 //! Traits for querying pallet view functions.
 
-use codec::{Decode, DecodeAll, Encode, Output};
-use sp_runtime::RuntimeDebug;
+use codec::{DecodeAll, Encode, Output};
+use sp_core::{QueryDispatchError, QueryId};
 
 /// implemented by the runtime dispatching by prefix and then the pallet dispatching by suffix
 pub trait DispatchQuery {
@@ -45,35 +45,6 @@ pub trait QueryIdPrefix {
 
 pub trait QueryIdSuffix {
 	const SUFFIX: [u8; 16];
-}
-
-#[derive(Clone, Encode, Decode, RuntimeDebug)]
-pub struct QueryId {
-	pub prefix: [u8; 16],
-	pub suffix: [u8; 16],
-}
-
-impl From<QueryId> for [u8; 32] {
-	fn from(value: QueryId) -> Self {
-		let mut output = [0u8; 32];
-		output[..16].copy_from_slice(&value.prefix);
-		output[16..].copy_from_slice(&value.suffix);
-		output
-	}
-}
-
-#[derive(Encode, Decode, RuntimeDebug)]
-
-pub enum QueryDispatchError {
-	NotImplemented,
-	NotFound(QueryId),
-	Codec(String),
-}
-
-impl From<codec::Error> for QueryDispatchError {
-	fn from(e: codec::Error) -> Self {
-		QueryDispatchError::Codec(codec::Error::to_string(&e))
-	}
 }
 
 /// implemented for each pallet view function method
