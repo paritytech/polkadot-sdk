@@ -451,6 +451,8 @@ fn renewals_affect_price() {
 
 #[test]
 fn instapool_payouts_work() {
+	// Commented out code is from the reference test implementation and should be uncommented as
+	// soon as we have the credit system implemented
 	TestExt::new().endow(1, 1000).execute_with(|| {
 		let item = ScheduleItem { assignment: Pool, mask: CoreMask::complete() };
 		assert_ok!(Broker::do_reserve(Schedule::truncate_from(vec![item])));
@@ -479,6 +481,8 @@ fn instapool_payouts_work() {
 
 #[test]
 fn instapool_partial_core_payouts_work() {
+	// Commented out code is from the reference test implementation and should be uncommented as
+	// soon as we have the credit system implemented
 	TestExt::new().endow(1, 1000).execute_with(|| {
 		let item = ScheduleItem { assignment: Pool, mask: CoreMask::complete() };
 		assert_ok!(Broker::do_reserve(Schedule::truncate_from(vec![item])));
@@ -504,6 +508,8 @@ fn instapool_partial_core_payouts_work() {
 
 #[test]
 fn instapool_core_payouts_work_with_partitioned_region() {
+	// Commented out code is from the reference test implementation and should be uncommented as
+	// soon as we have the credit system implemented
 	TestExt::new().endow(1, 1000).execute_with(|| {
 		assert_ok!(Broker::do_start_sales(100, 1));
 		advance_to(2);

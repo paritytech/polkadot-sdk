@@ -64,8 +64,10 @@ pub enum CoretimeTraceItem {
 use CoretimeTraceItem::*;
 
 parameter_types! {
+	// Commented out code is from the reference mock implementation and should be uncommented as
+	// soon as we have the credit system implemented
+
 	pub static CoretimeTrace: Vec<(u32, CoretimeTraceItem)> = Default::default();
-	// We don't have credits yet
 	// pub static CoretimeCredit: BTreeMap<u64, u64> = Default::default();
 	pub static CoretimeSpending: Vec<(u32, u64)> = Default::default();
 	pub static CoretimeWorkplan: BTreeMap<(u32, CoreIndex), Vec<(CoreAssignment, PartsOf57600)>> = Default::default();
@@ -104,7 +106,9 @@ impl CoretimeInterface for TestCoretimeProvider {
 		RevenueInbox::<Test>::set(Some(OnDemandRevenueRecord { until: when, amount: total }));
 	}
 	fn credit_account(_who: Self::AccountId, _amount: Self::Balance) {
-		// We don't have credits yet
+		// Commented out code is from the reference mock implementation and should be uncommented as
+		// soon as we have the credit system implemented
+
 		// CoretimeCredit::mutate(|c| c.entry(who).or_default().saturating_accrue(amount));
 	}
 	fn assign_core(
@@ -129,7 +133,9 @@ impl CoretimeInterface for TestCoretimeProvider {
 
 impl TestCoretimeProvider {
 	pub fn spend_instantaneous(_who: u64, price: u64) -> Result<(), ()> {
-		// We don't have credits yet
+		// Commented out code is from the reference mock implementation and should be uncommented as
+		// soon as we have the credit system implemented
+
 		// let mut c = CoretimeCredit::get();
 		ensure!(CoretimeInPool::get() > 0, ());
 		// c.insert(who, c.get(&who).ok_or(())?.checked_sub(price).ok_or(())?);
