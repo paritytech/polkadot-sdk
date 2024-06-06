@@ -1710,6 +1710,7 @@ async fn run_inner<Context>(
 					target: LOG_TARGET,
 					?relay_parent,
 					?collator_id,
+					?maybe_candidate_hash,
 					"Timeout hit - already seconded?"
 				);
 				dequeue_next_collation_and_fetch(
