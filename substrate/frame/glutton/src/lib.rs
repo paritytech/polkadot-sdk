@@ -208,6 +208,51 @@ pub mod pallet {
 		}
 	}
 
+	/// Dummy error
+	#[derive(codec::Encode, sp_runtime::RuntimeDebug)]
+	#[cfg_attr(feature = "std", derive(codec::Decode))]
+	pub enum InherentError {
+		/// Fata error.
+		Fatal,
+	}
+
+	impl frame_support::inherent::IsFatalError for InherentError {
+		fn is_fatal_error(&self) -> bool {
+			matches!(self, InherentError::Fatal)
+		}
+	}
+
+	#[pallet::inherent]
+	impl<T: Config> ProvideInherent for Pallet<T> {
+		type Call = Call<T>;
+		type Error = InherentError;
+
+		const INHERENT_IDENTIFIER: InherentIdentifier = *b"bloated0";
+
+		fn create_inherent(_data: &InherentData) -> Option<Self::Call> {
+			let proof_size_limit = Storage::<T>::get()
+				.saturating_mul_int(T::BlockWeights::get().max_block.proof_size());
+
+			let garbage = vec![0u8; proof_size_limit as usize];
+			Some(Call::bloat { garbage })
+		}
+
+		fn is_inherent(call: &Self::Call) -> bool {
+			matches!(call, Call::bloat { .. })
+		}
+
+		fn check_inherent(call: &Self::Call, _: &InherentData) -> Result<(), Self::Error> {
+			match call {
+				Call::bloat { .. } => Ok(()),
+				_ => unreachable!("other calls are not inherents"),
+			}
+		}
+
+		fn is_inherent_required(_d: &InherentData) -> Result<Option<Self::Error>, Self::Error> {
+			Ok(Some(InherentError::Fatal))
+		}
+	}
+
 	#[pallet::call(weight = T::WeightInfo)]
 	impl<T: Config> Pallet<T> {
 		/// Initialize the pallet. Should be called once, if no genesis state was provided.
@@ -275,6 +320,13 @@ pub mod pallet {
 			Storage::<T>::set(storage);
 
 			Self::deposit_event(Event::StorageLimitSet { storage });
+			Ok(())
+		}
+
+		/// Bloat the block by including the garbage.
+		#[pallet::call_index(3)]
+		#[pallet::weight({1})]
+		pub fn bloat(_origin: OriginFor<T>, _garbage: Vec<u8>) -> DispatchResult {
 			Ok(())
 		}
 	}
