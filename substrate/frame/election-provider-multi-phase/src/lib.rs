@@ -96,19 +96,22 @@
 //! ### Signed submission deposits
 //!
 //! Each signed submission must hold a deposit that will be returned to the submitter if their
-//! solution was accepted or not processed. The deposit will be slashed if the submission is not
-//! valid. The amount to deposit per submission *may* depend on multiple factors, namely the size of
-//! the submission (in bytes and weight), the deposit base, if the submitters have submitted a
-//! successful solution (and therefore are whitelisted) and, potentially, on the size of the
-//! submission queue.
+//! solution was accepted or not processed. The deposit is slashed if the submission is processed
+//! and not valid. The amount to deposit per submission depends on multiple factors, namely:
+//! * the size of the submission (in bytes and weight);
+//! * the deposit base;
+//! * whether the submitter have submitted a successful solution "recently" (and therefore is
+//!   whitelisted);
+//! * and, potentially, on the size of the submission queue.
 //!
 //! The base deposit of a submission is calculated based on whether a submitter is whitelisted. Up
 //! to [`pallet::Config::SignedWhitelistMax`] can be whitelisted at a given time. Everytime a
 //! submitter's solution is verified, valid and thus accepted, the submitter is added to the
-//! whitelist. The whitelist is a bounded FIFO with the list of the last submitters (note: there may
-//! be duplicate submitters in the whitelist, in case their submissions were accepted in the last
-//! `SignedWhitelistMax` rounds where signed submissions were accepted). The base deposit for
-//! whitelisted submissions is [`pallet::Config::SignedDepositWhitelist`].
+//! whitelist. The whitelist is a bounded FIFO with the list of the last unique submitters. When a
+//! whitelisted acount submits again, it is moved to the head of the FIFO queue. If the submitter is
+//! not whitelisted and the queue is saturated, it is force inserted at the head of the queue,
+//! pushing out the oldest account from the whitelist.
+//! The base deposit for whitelisted submissions is [`pallet::Config::SignedDepositWhitelist`].
 //!
 //! For non-whitelisted submitters, the base deposit is calculated by
 //! [`pallet::Config::SignedDepositBase`], which calculates the deposit based on the size of the

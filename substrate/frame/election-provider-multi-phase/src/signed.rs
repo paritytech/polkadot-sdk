@@ -510,12 +510,16 @@ impl<T: Config> Pallet<T> {
 			T::Currency::deposit_creating(who, reward.saturating_add(call_fee));
 		T::RewardHandler::on_unbalanced(positive_imbalance);
 
-		// register submitter as whitelisted for the next round(s). It inserts the new account in
-		// the beginning of the whitelist, which may push out the account in the whitelist that has
-		// been there for longer if the whitelist is saturated (FIFO).
+		// `who` is force inserted at the top of the whitelist if it is not whitelisted yet,
+		// potentially pushing out older whitelisted accounts. If `who` is already part of the
+		// whitelist, move it to the head of the whitelist, while keeping the order of the remaining
+		// elements.
 		SignedWhitelist::<T>::mutate(|w| {
-			let _ = w.force_insert_keep_left(0, who.clone());
-		})
+			let _ = match w.iter().position(|a| a == who) {
+				Some(idx) => w.slide(idx, 0),
+				None => w.force_insert_keep_left(0, who.clone()).is_ok(),
+			};
+		});
 	}
 
 	/// Helper function for the case where a solution is accepted in the rejected phase.
@@ -908,6 +912,39 @@ mod tests {
 	}
 
 	#[test]
+	fn whitelist_new_works() {
+		ExtBuilder::default().signed_whitelist(3, 10).build_and_execute(|| {
+			let submit = |who: AccountId| {
+				SignedWhitelist::<Runtime>::mutate(|w| {
+					let _ = match w.iter().position(|a| *a == who) {
+						Some(idx) => w.slide(idx, 0),
+						None => w.force_insert_keep_left(0, who).is_ok(),
+					};
+				});
+			};
+
+			assert_eq!(SignedWhitelistMax::get(), 3);
+			assert_eq!(SignedWhitelist::<Runtime>::get(), vec![]);
+
+			submit(1);
+			submit(2);
+			submit(3);
+
+			assert_eq!(SignedWhitelist::<Runtime>::get(), vec![3, 2, 1]);
+
+			submit(2);
+
+			assert_eq!(SignedWhitelist::<Runtime>::get(), vec![2, 3, 1]);
+
+			submit(4);
+			assert_eq!(SignedWhitelist::<Runtime>::get(), vec![4, 2, 3]);
+
+			submit(4);
+			assert_eq!(SignedWhitelist::<Runtime>::get(), vec![4, 2, 3]);
+		})
+	}
+
+	#[test]
 	fn whitelisted_fifo_works() {
 		ExtBuilder::default().signed_whitelist(3, 10).build_and_execute(|| {
 			assert_eq!(SignedWhitelistMax::get(), 3);
@@ -957,16 +994,16 @@ mod tests {
 
 			assert_eq!(SignedWhitelist::<Runtime>::get(), vec![4, 3, 2]);
 
-			// duplicate whitelisted accounts are allowed and will push out submitters if the
-			// whitelist is saturated.
+			// 2 is part of the whitelist already, move it up the queue and leave the remaining
+			// element's order untouched.
 			Pallet::<Runtime>::finalize_signed_phase_accept_solution(
 				Default::default(),
-				&4,
+				&2,
 				Default::default(),
 				Default::default(),
 			);
 
-			assert_eq!(SignedWhitelist::<Runtime>::get(), vec![4, 4, 3]);
+			assert_eq!(SignedWhitelist::<Runtime>::get(), vec![2, 4, 3]);
 		})
 	}
 
