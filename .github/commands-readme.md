@@ -9,6 +9,7 @@ To run an action, you need to go to the [_actions tab_](https://github.com/parit
 The current available command actions are:
 
 - [Command FMT](https://github.com/paritytech/polkadot-sdk/actions/workflows/command-fmt.yml)
+- [Command Update UI](https://github.com/paritytech/polkadot-sdk/actions/workflows/command-update-ui.yml)
 
 **WIP**: Need more actions.
 
