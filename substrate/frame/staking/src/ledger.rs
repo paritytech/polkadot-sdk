@@ -193,10 +193,7 @@ impl<T: Config> StakingLedger<T> {
 			return Err(Error::<T>::NotStash)
 		}
 
-		let controller = &self.controller().ok_or_else(|| {
-			defensive!("update called on a ledger that was not contructed via `StakingLedger` impl. unexpected.");
-			Error::<T>::NotController
-        })?;
+		let controller = &self.controller().ok_or(Error::<T>::BadState)?;
 
 		// previous stake is the current stake in storage.
 		let prev_stake = Ledger::<T>::get(&controller).map(|ledger| ledger.stake());
