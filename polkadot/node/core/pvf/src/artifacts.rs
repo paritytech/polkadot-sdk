@@ -311,19 +311,18 @@ impl Artifacts {
 			let Some((artifact_id, path, size, last_time_needed)) = artifact_sizes.pop() else {
 				break
 			};
-			if now
+
+			let used_recently = now
 				.duration_since(last_time_needed)
 				.map(|stale_time| stale_time < cleanup_config.min_stale_time)
-				.unwrap_or(true)
-			{
+				.unwrap_or(true);
+			if used_recently {
 				break;
 			}
-			to_remove.push((artifact_id, path));
-			total_size -= size;
-		}
 
-		for artifact in &to_remove {
+			to_remove.push((artifact_id, path));
 			self.inner.remove(&artifact.0);
+			total_size -= size;
 		}
 
 		to_remove
