@@ -289,8 +289,8 @@ impl Artifacts {
 		})
 	}
 
-	/// Remove artifacts older than the given TTL or the total artifacts size limit and return id
-	/// and path of the removed ones.
+	/// Remove artifacts older than the given TTL when the total artifact size reaches the limit
+	/// and return id and path of the removed ones
 	pub fn prune(&mut self, cleanup_config: &ArtifactsCleanupConfig) -> Vec<(ArtifactId, PathBuf)> {
 		let mut to_remove = vec![];
 		let now = SystemTime::now();
