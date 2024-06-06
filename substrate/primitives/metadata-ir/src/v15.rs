@@ -40,7 +40,7 @@ impl From<MetadataIR> for RuntimeMetadataV15 {
 			registry.map_into_portable(ir.apis.into_iter().map(Into::<RuntimeApiMetadata>::into));
 		let outer_enums = Into::<OuterEnums>::into(ir.outer_enums).into_portable(&mut registry);
 
-		// todo: serialize queries into custom, add tests.
+		// todo: add tests.
 		let query_interfaces = registry.map_into_portable(ir.query.interfaces.into_iter());
 		let queries_custom_metadata = CustomValueMetadata {
 			ty: ir.query.ty,
@@ -52,16 +52,6 @@ impl From<MetadataIR> for RuntimeMetadataV15 {
 		let custom = CustomMetadata { map: custom_map };
 
 		Self { types: registry.into(), pallets, extrinsic, ty, apis, outer_enums, custom }
-		// RuntimeMetadataV15::new(
-		// 	ir.pallets.into_iter().map(Into::into).collect(),
-		// 	ir.extrinsic.into(),
-		// 	ir.ty,
-		// 	ir.apis.into_iter().map(Into::into).collect(),
-		// 	ir.outer_enums.into(),
-		// 	// Substrate does not collect yet the custom metadata fields.
-		// 	// This allows us to extend the V15 easily.
-		// 	CustomMetadata { map: Default::default() },
-		// )
 	}
 }
 
