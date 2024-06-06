@@ -53,7 +53,7 @@ use frame_support::{
 	},
 };
 use frame_system::pallet_prelude::*;
-use primitives::{CoreIndex, Id as ParaId, ON_DEMAND_MAX_QUEUE_MAX_SIZE};
+use polkadot_primitives::{CoreIndex, Id as ParaId, ON_DEMAND_MAX_QUEUE_MAX_SIZE};
 use sp_runtime::{
 	traits::{One, SaturatedConversion},
 	FixedPointNumber, FixedPointOperand, FixedU128, Perbill, Saturating,

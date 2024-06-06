@@ -36,7 +36,7 @@ use frame_support::{
 	dispatch::DispatchResult, pallet_prelude::OptionQuery, traits::Get, transactional,
 };
 use frame_system::ensure_signed;
-use primitives::{
+use snowbridge_beacon_primitives::{
 	fast_aggregate_verify, verify_merkle_branch, verify_receipt_proof, BeaconHeader, BlsError,
 	CompactBeaconState, ForkData, ForkVersion, ForkVersions, PublicKeyPrepared, SigningData,
 };

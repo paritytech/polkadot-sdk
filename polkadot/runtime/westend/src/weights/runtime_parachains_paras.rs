@@ -49,7 +49,7 @@ use core::marker::PhantomData;
 
 /// Weight functions for `runtime_parachains::paras`.
 pub struct WeightInfo<T>(PhantomData<T>);
-impl<T: frame_system::Config> runtime_parachains::paras::WeightInfo for WeightInfo<T> {
+impl<T: frame_system::Config> polkadot_runtime_parachains::paras::WeightInfo for WeightInfo<T> {
 	/// Storage: Paras CurrentCodeHash (r:1 w:1)
 	/// Proof Skipped: Paras CurrentCodeHash (max_values: None, max_size: None, mode: Measured)
 	/// Storage: Paras CodeByHashRefs (r:1 w:1)
