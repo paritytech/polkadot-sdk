@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1717618076713,
+  "lastUpdate": 1717692240937,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
@@ -1385,6 +1385,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.04872799223399998,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Oliver Tale-Yazdi",
+            "username": "ggwpez",
+            "email": "oliver.tale-yazdi@parity.io"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "5fb4c40a3ea24ae3ab2bdfefb3f3a40badc2a583",
+          "message": "[CI] Delete cargo-deny config (#4677)\n\nNobody seems to maintain this and the job is disabled since months. I\nthink unless the Security team wants to pick this up we delete it for\nnow.\n\nSigned-off-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>",
+          "timestamp": "2024-06-06T14:48:23Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/5fb4c40a3ea24ae3ab2bdfefb3f3a40badc2a583"
+        },
+        "date": 1717692213494,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.40199999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 127.92999999999995,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.04756312851199999,
+            "unit": "seconds"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.037765511577999976,
             "unit": "seconds"
           }
         ]
