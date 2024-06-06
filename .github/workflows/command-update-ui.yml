@@ -26,24 +26,14 @@ jobs:
     container:
       image: ${{ needs.set-image.outputs.IMAGE }}
     steps:
-      - name: Install gh cli
-        run: |
-          (type -p wget >/dev/null || (apt update && apt-get install wget -y)) \
-          && mkdir -p -m 755 /etc/apt/keyrings \
-          && wget -qO- https://cli.github.com/packages/githubcli-archive-keyring.gpg | tee /etc/apt/keyrings/githubcli-archive-keyring.gpg > /dev/null \
-          && chmod go+r /etc/apt/keyrings/githubcli-archive-keyring.gpg \
-          && echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | tee /etc/apt/sources.list.d/github-cli.list > /dev/null \
-          && apt update \
-          && apt install gh -y
-          git config --global --add safe.directory '*'
       - name: Download repo
         uses: actions/checkout@v4
-      - run: gh pr checkout ${{ inputs.pr }}
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-      - name: Export branch name
-        run: echo "branch=$(git rev-parse --abbrev-ref HEAD)" >> "$GITHUB_OUTPUT"
-        id: branch
+      - name: Install gh cli
+        id: gh
+        uses: ./.github/actions/set-up-gh
+        with:
+          pr-number: ${{ inputs.pr }}
+          GH_TOKEN: ${{ github.token }}
       - name: Run update-ui
         run: |
           "./scripts/update-ui-tests.sh" "${{ inputs.rust-version }}"
@@ -56,7 +46,7 @@ jobs:
       - uses: stefanzweifel/git-auto-commit-action@v5
         with:
           commit_message: cmd-action - ${{ github.workflow }}
-          branch: ${{ steps.branch.outputs.branch }}
+          branch: ${{ steps.gh.outputs.branch }}
       - name: Report succeed
         run: gh pr comment ${{ inputs.pr }} --body "## Action completed 🎉🎉\n\nRun by @${{ github.actor }} for <code>${{ github.workflow }}</code> completed 🎉. See logs <a href=\"$RUN\">here</a>."
         env:
