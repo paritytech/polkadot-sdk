@@ -599,6 +599,10 @@ impl<T: Config> Pallet<T> {
 		T::PalletId::get().into_sub_account_truncating((era_index, "era_payout"))
 	}
 
+	pub fn era_payout_balance(era_index: EraIndex) -> BalanceOf<T> {
+		T::Currency::total_balance(&Self::era_payout_account(era_index))
+	}
+
 	pub(crate) fn era_payout(era_index: EraIndex) -> BalanceOf<T> {
 		log!(
 			debug,

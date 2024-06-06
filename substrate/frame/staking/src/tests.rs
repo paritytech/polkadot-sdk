@@ -3584,9 +3584,13 @@ fn claim_reward_at_the_last_era_and_no_double_claim_and_invalid_claim() {
 
 		let init_balance_11 = Balances::total_balance(&11);
 		let init_balance_101 = Balances::total_balance(&101);
+		let exposure_11 = Staking::eras_stakers(active_era(), &11);
 
-		let part_for_11 = Perbill::from_rational::<u32>(1000, 1125);
-		let part_for_101 = Perbill::from_rational::<u32>(125, 1125);
+		let part_for_11 = Perbill::from_rational::<Balance>(exposure_11.own, exposure_11.total);
+		assert_eq!(exposure_11.others.len(), 1);
+		assert_eq!(exposure_11.others[0].who, 101);
+		let part_for_101 =
+			Perbill::from_rational::<Balance>(exposure_11.others[0].value, exposure_11.total);
 
 		// Check state
 		Payee::<Test>::insert(11, RewardDestination::Account(11));
@@ -3598,16 +3602,18 @@ fn claim_reward_at_the_last_era_and_no_double_claim_and_invalid_claim() {
 		mock::start_active_era(1);
 		let total_payout_0 = Staking::era_payout(0);
 
+		// add reward points for era 1.
 		Pallet::<Test>::reward_by_ids(vec![(11, 1)]);
+
 		// Increase total token issuance to affect the total payout.
 		let _ = Balances::deposit_creating(&999, 1_000_000_000);
 
 		// Compute total payout now for whole duration as other parameter won't change
-
 		mock::start_active_era(2);
 		let total_payout_1 = Staking::era_payout(1);
 		assert!(total_payout_1 != total_payout_0);
 
+		// add reward points for era 2.
 		Pallet::<Test>::reward_by_ids(vec![(11, 1)]);
 		// Increase total token issuance to affect the total payout.
 		let _ = Balances::deposit_creating(&999, 1_000_000_000);
@@ -3646,13 +3652,16 @@ fn claim_reward_at_the_last_era_and_no_double_claim_and_invalid_claim() {
 		// Era 0 can't be rewarded anymore and current era can't be rewarded yet
 		// only era 1 and 2 can be rewarded.
 
-		assert_eq!(
+		// allow for upto 1 token difference due to rounding.
+		assert_eq_error_rate!(
 			Balances::total_balance(&11),
 			init_balance_11 + part_for_11 * (total_payout_1 + total_payout_2),
+			1
 		);
-		assert_eq!(
+		assert_eq_error_rate!(
 			Balances::total_balance(&101),
 			init_balance_101 + part_for_101 * (total_payout_1 + total_payout_2),
+			1
 		);
 	});
 }
@@ -4073,6 +4082,8 @@ fn test_multi_page_payout_stakers_backward_compatible() {
 		// Since `MaxExposurePageSize = 64`, there are two pages of validator exposure.
 		assert_eq!(EraInfo::<Test>::get_page_count(1, &11), 2);
 
+		// reward pots are filled at end of era.
+		let pre_inflation_total_issuance = Balances::total_issuance();
 		// compute and ensure the reward amount is greater than zero.
 		mock::start_active_era(2);
 		let payout = Staking::era_payout(1);
@@ -4088,9 +4099,6 @@ fn test_multi_page_payout_stakers_backward_compatible() {
 		assert_eq!(actual_exposure_1.own(), 0);
 		assert_eq!(actual_exposure_1.others().len(), 100 - 64);
 
-		let pre_payout_total_issuance = Balances::total_issuance();
-		RewardOnUnbalanceWasCalled::set(false);
-
 		let controller_balance_before_p0_payout = Balances::free_balance(&11);
 		// Payout rewards for first exposure page
 		assert_ok!(Staking::payout_stakers(RuntimeOrigin::signed(1337), 11, 1));
@@ -4103,8 +4111,10 @@ fn test_multi_page_payout_stakers_backward_compatible() {
 		let controller_balance_after_p0_payout = Balances::free_balance(&11);
 
 		// verify rewards have been paid out but still some left
-		assert!(Balances::total_issuance() > pre_payout_total_issuance);
-		assert!(Balances::total_issuance() < pre_payout_total_issuance + payout);
+		assert!(Balances::total_balance(&Staking::era_payout_account(1)) > 1);
+		// ED is left in the era pot. TODO(ank4n): remove extra ED.
+		assert_eq!(Balances::total_issuance(), pre_inflation_total_issuance + payout + 1);
+		assert!(Balances::total_issuance() > pre_inflation_total_issuance);
 
 		// verify the validator has been rewarded
 		assert!(controller_balance_after_p0_payout > controller_balance_before_p0_payout);
@@ -4122,8 +4132,7 @@ fn test_multi_page_payout_stakers_backward_compatible() {
 		assert_eq!(Balances::free_balance(&11), controller_balance_after_p0_payout);
 
 		// verify all rewards have been paid out
-		assert_eq_error_rate!(Balances::total_issuance(), pre_payout_total_issuance + payout, 2);
-		assert!(RewardOnUnbalanceWasCalled::get());
+		assert_eq_error_rate!(Balances::total_issuance(), pre_inflation_total_issuance + payout, 2);
 
 		// verify all nominators of validator 11 are paid out, including the validator
 		// Validator payout goes to controller.
@@ -4162,19 +4171,19 @@ fn test_multi_page_payout_stakers_backward_compatible() {
 			Staking::reward_by_ids(vec![(11, 1)]);
 
 			// compute and ensure the reward amount is greater than zero.
-
+			let pre_inflation_total_issuance = Balances::total_issuance();
 			mock::start_active_era(i);
 			let payout = Staking::era_payout(i - 1);
-			let pre_payout_total_issuance = Balances::total_issuance();
+			assert_eq!(Balances::total_issuance(), pre_inflation_total_issuance + payout + 1);
 
-			RewardOnUnbalanceWasCalled::set(false);
 			mock::make_all_reward_payment(i - 1);
+			// allow for upto 1 token per active nominator difference due to rounding.
+			// TODO(ank4n): Optimise rounding error.
 			assert_eq_error_rate!(
-				Balances::total_issuance(),
-				pre_payout_total_issuance + payout,
-				2
+				Staking::era_payout_balance(i - 1),
+				1,
+				Nominators::<Test>::count() as Balance
 			);
-			assert!(RewardOnUnbalanceWasCalled::get());
 
 			// verify we track rewards for each era and page
 			for page in 0..EraInfo::<Test>::get_page_count(i - 1, &11) {
