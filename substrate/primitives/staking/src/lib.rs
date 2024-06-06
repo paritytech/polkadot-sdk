@@ -153,7 +153,7 @@ pub trait OnStakingUpdate<AccountId, Balance> {
 	/// Fired when someone sets their intention to validate.
 	///
 	/// Note validator preference changes are not communicated, but could be added if needed.
-	fn on_validator_add(_who: &AccountId, _self_stake: Option<Stake<Balance>>) {}
+	fn on_validator_add(_who: &AccountId, _self_stake: Stake<Balance>) {}
 
 	/// Fired when an existing validator updates their preferences.
 	///
@@ -223,7 +223,7 @@ pub enum OnStakingUpdateEvent<AccountId, Balance> {
 	},
 	ValidatorAdd {
 		who: AccountId,
-		self_stake: Option<Stake<Balance>>,
+		self_stake: Stake<Balance>,
 	},
 	ValidatorUpdate {
 		who: AccountId,

@@ -377,7 +377,7 @@ pub(crate) fn add_validator(who: AccountId, self_stake: Balance) {
 		v.insert(who, (stake, vec![]));
 	});
 
-	<StakeTracker as OnStakingUpdate<AccountId, Balance>>::on_validator_add(&who, Some(stake));
+	<StakeTracker as OnStakingUpdate<AccountId, Balance>>::on_validator_add(&who, stake);
 }
 
 pub(crate) fn update_stake(who: AccountId, new: Balance, prev_stake: Option<Stake<Balance>>) {

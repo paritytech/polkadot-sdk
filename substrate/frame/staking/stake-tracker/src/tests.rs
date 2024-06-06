@@ -357,7 +357,7 @@ fn on_validator_add_already_exists_works() {
 		// noop
 		<StakeTracker as OnStakingUpdate<A, B>>::on_validator_add(
 			&10,
-			Some(Stake { total: 300, active: 300 }),
+			Stake { total: 300, active: 300 },
 		);
 		assert!(TargetBagsList::contains(&10));
 		assert_eq!(TargetBagsList::count(), 2);

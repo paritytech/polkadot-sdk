@@ -7406,9 +7406,9 @@ mod on_staking_update_events {
 			bond_validator(12, 100);
 			ensure_on_staking_updates_emitted(vec![
 				StakeUpdate { who: 11, prev_stake: None, stake: Stake { total: 100, active: 100 } },
-				ValidatorAdd { who: 11, self_stake: Some(Stake { total: 100, active: 100 }) },
+				ValidatorAdd { who: 11, self_stake: Stake { total: 100, active: 100 } },
 				StakeUpdate { who: 12, prev_stake: None, stake: Stake { total: 100, active: 100 } },
-				ValidatorAdd { who: 12, self_stake: Some(Stake { total: 100, active: 100 }) },
+				ValidatorAdd { who: 12, self_stake: Stake { total: 100, active: 100 } },
 			]);
 
 			// bond staker 21.
@@ -7482,7 +7482,7 @@ mod on_staking_update_events {
 			bond_validator(42, 100);
 			ensure_on_staking_updates_emitted(vec![
 				StakeUpdate { who: 42, prev_stake: None, stake: Stake { total: 100, active: 100 } },
-				ValidatorAdd { who: 42, self_stake: Some(Stake { total: 100, active: 100 }) },
+				ValidatorAdd { who: 42, self_stake: Stake { total: 100, active: 100 } },
 			]);
 
 			// 42 bonds 50 extra.

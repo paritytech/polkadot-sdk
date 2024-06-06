@@ -339,8 +339,8 @@ impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
 	//
 	/// Note: it is assumed that `who`'s ledger staking state is updated *before* calling this
 	/// method.
-	fn on_validator_add(who: &T::AccountId, self_stake: Option<Stake<BalanceOf<T>>>) {
-		let self_stake = Self::to_vote(self_stake.unwrap_or_default().active).into();
+	fn on_validator_add(who: &T::AccountId, self_stake: Stake<BalanceOf<T>>) {
+		let self_stake = Self::to_vote(self_stake.active).into();
 
 		match T::TargetList::on_insert(who.clone(), self_stake) {
 			Ok(_) => (),

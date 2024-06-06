@@ -320,7 +320,7 @@ impl OnStakingUpdate<AccountId, Balance> for EventTracker {
 			v.push(OnStakingUpdateEvent::NominatorRemove { who: *who, nominations });
 		})
 	}
-	fn on_validator_add(who: &AccountId, self_stake: Option<Stake<Balance>>) {
+	fn on_validator_add(who: &AccountId, self_stake: Stake<Balance>) {
 		EventsEmitted::mutate(|v| {
 			v.push(OnStakingUpdateEvent::ValidatorAdd { who: *who, self_stake });
 		})
