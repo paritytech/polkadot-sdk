@@ -154,13 +154,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
     exec: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.reference.html">&amp;Exec</a>,
     method: &amp;<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.str.html">str</a>,
     call_data: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>],
-    runtime_code: &amp;RuntimeCode&lt;'_&gt;,
+    runtime_code: &amp;<a class="struct" href="../sp_core/traits/struct.RuntimeCode.html" title="struct sp_core::traits::RuntimeCode">RuntimeCode</a>&lt;'_&gt;,
     extensions: &amp;mut <a class="struct" href="../sp_externalities/extensions/struct.Extensions.html" title="struct sp_externalities::extensions::Extensions">Extensions</a>
 ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;(<a class="struct" href="https://doc.rust-lang.org/1.77.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>&gt;, <a class="struct" href="struct.StorageProof.html" title="struct sp_state_machine::StorageProof">StorageProof</a>), <a class="struct" href="https://doc.rust-lang.org/1.77.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="trait.Error.html" title="trait sp_state_machine::Error">Error</a>&gt;&gt;<div class="where">where
     S: <a class="trait" href="trait.TrieBackendStorage.html" title="trait sp_state_machine::TrieBackendStorage">TrieBackendStorage</a>&lt;H&gt;,
     H: Hasher,
     H::Out: <a class="trait" href="https://doc.rust-lang.org/1.77.0/core/cmp/trait.Ord.html" title="trait core::cmp::Ord">Ord</a> + 'static + Codec,
-    Exec: CodeExecutor + 'static + <a class="trait" href="https://doc.rust-lang.org/1.77.0/core/clone/trait.Clone.html" title="trait core::clone::Clone">Clone</a>,</div></code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Prove execution using the given trie backend, overlayed changes, and call executor.
+    Exec: <a class="trait" href="../sp_core/traits/trait.CodeExecutor.html" title="trait sp_core::traits::CodeExecutor">CodeExecutor</a> + 'static + <a class="trait" href="https://doc.rust-lang.org/1.77.0/core/clone/trait.Clone.html" title="trait core::clone::Clone">Clone</a>,</div></code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Prove execution using the given trie backend, overlayed changes, and call executor.
 Produces a state-backend-specific “transaction” which can be used to apply the changes
 to the backing store, such as the disk.
 Execution proof is the set of all ‘touched’ storage DBValues from the backend.</p>
