@@ -977,6 +977,7 @@ fn start_slot_based_consensus(
 		collator_service,
 		authoring_duration: Duration::from_millis(2000),
 		reinitialize: false,
+		slot_drift: Duration::from_secs(1),
 	};
 
 	let (collation_future, block_builer_future) =
