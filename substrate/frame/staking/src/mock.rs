@@ -948,6 +948,7 @@ pub(crate) fn set_era_validator_reward(era: EraIndex, balance: Balance) {
 	// TODO(ank4n): add minimum balance since `Staking::era_payout()` does not take into account
 	// the minimum balance. Not sure why this is needed.
 	let _ = Balances::make_free_balance_be(&era_account, balance + Balances::minimum_balance());
+	ErasValidatorReward::<Test>::insert(era, balance);
 }
 
 #[macro_export]

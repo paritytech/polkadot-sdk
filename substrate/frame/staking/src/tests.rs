@@ -6808,40 +6808,36 @@ fn test_runtime_api_pending_rewards() {
 
 		// Set staker
 		for v in validator_one..=validator_three {
-			let _ = Balances::make_free_balance_be(&v, stake);
-			assert_ok!(Staking::bond(RuntimeOrigin::signed(v), stake, RewardDestination::Staked));
+			bond_validator(v, stake);
 		}
-
-		// Add reward points
-		let reward = EraRewardPoints::<AccountId> {
-			total: 1,
-			individual: vec![(validator_one, 1), (validator_two, 1), (validator_three, 1)]
-				.into_iter()
-				.collect(),
-		};
-		ErasRewardPoints::<Test>::insert(0, reward);
 
 		// build exposure
-		let mut individual_exposures: Vec<IndividualExposure<AccountId, Balance>> = vec![];
-		for i in 0..=MaxExposurePageSize::get() {
-			individual_exposures.push(IndividualExposure { who: i.into(), value: stake });
+		for i in 0..MaxExposurePageSize::get() {
+			bond_nominator(
+				// start nominator id from 400
+				(i + 400).into(),
+				stake,
+				vec![validator_one, validator_two, validator_three],
+			);
 		}
-		let exposure = Exposure::<AccountId, Balance> {
-			total: stake * (MaxExposurePageSize::get() as Balance + 2),
-			own: stake,
-			others: individual_exposures,
-		};
 
-		// add non-paged exposure for one and two.
-		<ErasStakers<Test>>::insert(0, validator_one, exposure.clone());
-		<ErasStakers<Test>>::insert(0, validator_two, exposure.clone());
-		// add paged exposure for third validator
-		EraInfo::<Test>::set_exposure(0, &validator_three, exposure);
+		// this will add an extra page of exposure for validator_three.
+		for i in MaxExposurePageSize::get()..MaxExposurePageSize::get() + 10 {
+			bond_nominator((i + 400).into(), stake, vec![validator_three]);
+		}
 
-		// add some reward to be distributed
-		ErasValidatorReward::<Test>::insert(0, 1000);
+		// move to era 2 where above nominators are exposed
+		let era_to_claim: EraIndex = 2;
+		mock::start_active_era(era_to_claim);
+		// add rewards
+		Pallet::<Test>::reward_by_ids(vec![(validator_one, 1)]);
+		Pallet::<Test>::reward_by_ids(vec![(validator_two, 1)]);
+		Pallet::<Test>::reward_by_ids(vec![(validator_three, 1)]);
 
-		// mark rewards claimed for validator_one in legacy claimed rewards
+		// move ahead another era.
+		mock::start_active_era(3);
+
+		// mark rewards claimed for validator_one in legacy claimed rewards upto era 2.
 		<Ledger<Test>>::insert(
 			validator_one,
 			StakingLedgerInspect {
@@ -6849,56 +6845,65 @@ fn test_runtime_api_pending_rewards() {
 				total: stake,
 				active: stake,
 				unlocking: Default::default(),
-				legacy_claimed_rewards: bounded_vec![0],
+				legacy_claimed_rewards: bounded_vec![0, 1, 2],
 			},
 		);
 
-		// end era 0.
-		mock::start_active_era(1);
-
 		// SCENARIO ONE: rewards already marked claimed in legacy storage.
 		// runtime api should return false for pending rewards for validator_one.
-		assert!(!EraInfo::<Test>::pending_rewards(0, &validator_one));
+		assert!(!EraInfo::<Test>::pending_rewards(era_to_claim, &validator_one));
 		// and if we try to pay, we get an error.
 		assert_noop!(
-			Staking::payout_stakers(RuntimeOrigin::signed(1337), validator_one, 0),
+			Staking::payout_stakers(RuntimeOrigin::signed(1337), validator_one, era_to_claim),
 			Error::<Test>::AlreadyClaimed.with_weight(err_weight)
 		);
 
 		// SCENARIO TWO: non-paged exposure
 		// validator two has not claimed rewards, so pending rewards is true.
-		assert!(EraInfo::<Test>::pending_rewards(0, &validator_two));
+		assert!(EraInfo::<Test>::pending_rewards(era_to_claim, &validator_two));
 		// and payout works
-		assert_ok!(Staking::payout_stakers(RuntimeOrigin::signed(1337), validator_two, 0));
+		assert_ok!(Staking::payout_stakers(
+			RuntimeOrigin::signed(1337),
+			validator_two,
+			era_to_claim
+		));
 		// now pending rewards is false.
-		assert!(!EraInfo::<Test>::pending_rewards(0, &validator_two));
+		assert!(!EraInfo::<Test>::pending_rewards(era_to_claim, &validator_two));
 		// and payout fails
 		assert_noop!(
-			Staking::payout_stakers(RuntimeOrigin::signed(1337), validator_two, 0),
+			Staking::payout_stakers(RuntimeOrigin::signed(1337), validator_two, era_to_claim),
 			Error::<Test>::AlreadyClaimed.with_weight(err_weight)
 		);
 
 		// SCENARIO THREE: validator with paged exposure (two pages).
 		// validator three has not claimed rewards, so pending rewards is true.
-		assert!(EraInfo::<Test>::pending_rewards(0, &validator_three));
+		assert!(EraInfo::<Test>::pending_rewards(era_to_claim, &validator_three));
 		// and payout works
-		assert_ok!(Staking::payout_stakers(RuntimeOrigin::signed(1337), validator_three, 0));
+		assert_ok!(Staking::payout_stakers(
+			RuntimeOrigin::signed(1337),
+			validator_three,
+			era_to_claim
+		));
 		// validator three has two pages of exposure, so pending rewards is still true.
-		assert!(EraInfo::<Test>::pending_rewards(0, &validator_three));
+		assert!(EraInfo::<Test>::pending_rewards(era_to_claim, &validator_three));
 		// payout again
-		assert_ok!(Staking::payout_stakers(RuntimeOrigin::signed(1337), validator_three, 0));
+		assert_ok!(Staking::payout_stakers(
+			RuntimeOrigin::signed(1337),
+			validator_three,
+			era_to_claim
+		));
 		// now pending rewards is false.
-		assert!(!EraInfo::<Test>::pending_rewards(0, &validator_three));
+		assert!(!EraInfo::<Test>::pending_rewards(era_to_claim, &validator_three));
 		// and payout fails
 		assert_noop!(
-			Staking::payout_stakers(RuntimeOrigin::signed(1337), validator_three, 0),
+			Staking::payout_stakers(RuntimeOrigin::signed(1337), validator_three, era_to_claim),
 			Error::<Test>::AlreadyClaimed.with_weight(err_weight)
 		);
 
 		// for eras with no exposure, pending rewards is false.
-		assert!(!EraInfo::<Test>::pending_rewards(0, &validator_one));
-		assert!(!EraInfo::<Test>::pending_rewards(0, &validator_two));
-		assert!(!EraInfo::<Test>::pending_rewards(0, &validator_three));
+		assert!(!EraInfo::<Test>::pending_rewards(era_to_claim, &validator_one));
+		assert!(!EraInfo::<Test>::pending_rewards(era_to_claim, &validator_two));
+		assert!(!EraInfo::<Test>::pending_rewards(era_to_claim, &validator_three));
 	});
 }
 

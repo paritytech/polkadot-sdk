@@ -411,6 +411,15 @@ impl<T: Config> Pallet<T> {
 		stash: &T::AccountId,
 		amount: BalanceOf<T>,
 	) -> Option<RewardDestination<T::AccountId>> {
+		log!(
+			debug,
+			"Making payout from {:?} to {:?} of {:?}. The balance of payer is {:?}.",
+			payer,
+			stash,
+			amount,
+			T::Currency::total_balance(payer)
+		);
+
 		// noop if amount is zero
 		if amount.is_zero() {
 			return None
