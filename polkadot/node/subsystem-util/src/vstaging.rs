@@ -56,6 +56,11 @@ impl ClaimQueueSnapshot {
 			.iter()
 			.filter_map(move |(core_index, paras)| Some((*core_index, *paras.get(depth)?)))
 	}
+
+	/// Returns an iterator over the whole claim queue.
+	pub fn iter_all_claims(&self) -> impl Iterator<Item = (&CoreIndex, &VecDeque<ParaId>)> + '_ {
+		self.0.iter()
+	}
 }
 
 // TODO: https://github.com/paritytech/polkadot-sdk/issues/1940
