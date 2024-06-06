@@ -208,11 +208,11 @@ pub mod pallet {
 		}
 	}
 
-	/// Dummy error
+	/// Dummy error type.
 	#[derive(codec::Encode, sp_runtime::RuntimeDebug)]
 	#[cfg_attr(feature = "std", derive(codec::Decode))]
 	pub enum InherentError {
-		/// Fata error.
+		/// Fatal error.
 		Fatal,
 	}
 
