@@ -27,7 +27,9 @@ use frame_metadata::v15::{
 	RuntimeApiMetadata, RuntimeApiMethodMetadata, RuntimeApiMethodParamMetadata,
 	RuntimeMetadataV15, SignedExtensionMetadata,
 };
-use scale_info::{IntoPortable, Registry};
+use scale_info::{
+	IntoPortable, Registry
+};
 
 impl From<MetadataIR> for RuntimeMetadataV15 {
 	fn from(ir: MetadataIR) -> Self {
@@ -45,11 +47,10 @@ impl From<MetadataIR> for RuntimeMetadataV15 {
 		let queries_custom_metadata = CustomValueMetadata {
 			ty: ir.query.ty,
 			value: codec::Encode::encode(&query_interfaces),
-		}
-		.into_portable(&mut registry);
-		let mut custom_map = std::collections::BTreeMap::new();
-		custom_map.insert("queries".to_string(), queries_custom_metadata);
-		let custom = CustomMetadata { map: custom_map };
+		};
+		let mut custom_map = scale_info::prelude::collections::BTreeMap::new();
+		custom_map.insert("queries", queries_custom_metadata);
+		let custom = CustomMetadata { map: custom_map }.into_portable(&mut registry);
 
 		Self { types: registry.into(), pallets, extrinsic, ty, apis, outer_enums, custom }
 	}
