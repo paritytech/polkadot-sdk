@@ -185,7 +185,7 @@ pub struct ArtifactsCleanupConfig {
 impl Default for ArtifactsCleanupConfig {
 	fn default() -> Self {
 		Self {
-			cache_limit: 10 * 1024 * 1024 * 1024,              // 10 GB
+			cache_limit: 10 * 1024 * 1024 * 1024,              // 10 GiB
 			min_stale_time: Duration::from_secs(24 * 60 * 60), // 24 hours
 		}
 	}
