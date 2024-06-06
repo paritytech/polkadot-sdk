@@ -17,22 +17,28 @@
 
 //! Test utilities
 
+use core::marker::PhantomData;
+
 use crate::{self as pallet_staking, *};
 use frame_election_provider_support::{
 	bounds::{ElectionBounds, ElectionBoundsBuilder},
-	onchain, SequentialPhragmen, VoteWeight,
+	onchain, ElectionDataProvider, SequentialPhragmen, VoteWeight,
 };
 use frame_support::{
 	assert_ok, derive_impl, ord_parameter_types, parameter_types,
 	traits::{
-		ConstU64, Currency, EitherOfDiverse, FindAuthor, Get, Hooks, Imbalance, LockableCurrency,
+		ConstU64, Currency, EitherOfDiverse, FindAuthor, Get, Hooks, LockableCurrency,
 		OnUnbalanced, OneSessionHandler, WithdrawReasons,
 	},
 	weights::constants::RocksDbWeight,
 };
 use frame_system::{EnsureRoot, EnsureSignedBy};
 use sp_io;
-use sp_runtime::{curve::PiecewiseLinear, testing::UintAuthorityId, traits::Zero, BuildStorage};
+use sp_runtime::{
+	testing::UintAuthorityId,
+	traits::{IdentityLookup, Zero},
+	BuildStorage,
+};
 use sp_staking::{
 	offence::{OffenceDetails, OnOffenceHandler},
 	OnStakingUpdate,
@@ -41,8 +47,7 @@ use sp_staking::{
 pub const INIT_TIMESTAMP: u64 = 30_000;
 pub const BLOCK_TIME: u64 = 1000;
 
-/// The AccountId alias in this test module.
-pub(crate) type AccountId = u64;
+pub(crate) type AccountId = u128;
 pub(crate) type BlockNumber = u64;
 pub(crate) type Balance = u128;
 
@@ -85,12 +90,12 @@ pub fn is_disabled(controller: AccountId) -> bool {
 type Block = frame_system::mocking::MockBlock<Test>;
 
 frame_support::construct_runtime!(
-	pub enum Test
-	{
+	pub enum Test {
 		System: frame_system,
 		Authorship: pallet_authorship,
 		Timestamp: pallet_timestamp,
 		Balances: pallet_balances,
+		PolkadotInflation: pallet_inflation,
 		Staking: pallet_staking,
 		Session: pallet_session,
 		Historical: pallet_session::historical,
@@ -123,21 +128,15 @@ impl frame_system::Config for Test {
 	type DbWeight = RocksDbWeight;
 	type Block = Block;
 	type AccountData = pallet_balances::AccountData<Balance>;
+	type Lookup = IdentityLookup<Self::AccountId>;
+	type AccountId = AccountId;
 }
+
+#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Test {
-	type MaxLocks = frame_support::traits::ConstU32<1024>;
-	type MaxReserves = ();
-	type ReserveIdentifier = [u8; 8];
-	type Balance = Balance;
-	type RuntimeEvent = RuntimeEvent;
-	type DustRemoval = ();
 	type ExistentialDeposit = ExistentialDeposit;
 	type AccountStore = System;
-	type WeightInfo = ();
-	type FreezeIdentifier = ();
-	type MaxFreezes = ();
-	type RuntimeHoldReason = ();
-	type RuntimeFreezeReason = ();
+	type Balance = Balance;
 }
 
 sp_runtime::impl_opaque_keys! {
@@ -145,6 +144,7 @@ sp_runtime::impl_opaque_keys! {
 		pub other: OtherSessionHandler,
 	}
 }
+
 impl pallet_session::Config for Test {
 	type SessionManager = pallet_session::historical::NoteHistoricalRoot<Test, Staking>;
 	type Keys = SessionKeys;
@@ -161,6 +161,7 @@ impl pallet_session::historical::Config for Test {
 	type FullIdentification = crate::Exposure<AccountId, Balance>;
 	type FullIdentificationOf = crate::ExposureOf<Test>;
 }
+
 impl pallet_authorship::Config for Test {
 	type FindAuthor = Author11;
 	type EventHandler = Pallet<Test>;
@@ -173,34 +174,9 @@ impl pallet_timestamp::Config for Test {
 	type WeightInfo = ();
 }
 
-pallet_staking_reward_curve::build! {
-	const I_NPOS: PiecewiseLinear<'static> = curve!(
-		min_inflation: 0_025_000,
-		max_inflation: 0_100_000,
-		ideal_stake: 0_500_000,
-		falloff: 0_050_000,
-		max_piece_count: 40,
-		test_precision: 0_005_000,
-	);
-}
 parameter_types! {
 	pub const BondingDuration: EraIndex = 3;
-	pub const RewardCurve: &'static PiecewiseLinear<'static> = &I_NPOS;
-}
-
-parameter_types! {
-	pub static RewardRemainderUnbalanced: u128 = 0;
-}
-
-pub struct RewardRemainderMock;
-
-impl OnUnbalanced<NegativeImbalanceOf<Test>> for RewardRemainderMock {
-	fn on_nonzero_unbalanced(amount: NegativeImbalanceOf<Test>) {
-		RewardRemainderUnbalanced::mutate(|v| {
-			*v += amount.peek();
-		});
-		drop(amount);
-	}
+	pub const OffendingValidatorsThreshold: Perbill = Perbill::from_percent(75);
 }
 
 const THRESHOLDS: [sp_npos_elections::VoteWeight; 9] =
@@ -227,11 +203,74 @@ impl pallet_bags_list::Config<VoterBagsListInstance> for Test {
 	type Score = VoteWeight;
 }
 
+use frame_election_provider_support::{
+	data_provider::{self},
+	DataProviderBounds, VoterOf,
+};
+
+// This is all a massive hack to make sure `basic_setup_works` test works while we change the
+// internals of this pallet. This is a huge technical debt and the tests should be refactored to not
+// care about the order of genesis voters/targets, but sadly for now they do.
+pub struct SortedElectionDataProvider<EDP>(PhantomData<EDP>);
+impl<EDP: ElectionDataProvider> ElectionDataProvider for SortedElectionDataProvider<EDP>
+where
+	EDP::AccountId: Ord + Clone,
+{
+	type AccountId = EDP::AccountId;
+	type BlockNumber = EDP::BlockNumber;
+	type MaxVotesPerVoter = EDP::MaxVotesPerVoter;
+
+	fn desired_targets() -> data_provider::Result<u32> {
+		EDP::desired_targets()
+	}
+	fn electable_targets(
+		bounds: DataProviderBounds,
+	) -> data_provider::Result<Vec<Self::AccountId>> {
+		let mut targets = EDP::electable_targets(bounds)?;
+		targets.sort();
+		targets.reverse();
+		Ok(targets)
+	}
+	fn electing_voters(bounds: DataProviderBounds) -> data_provider::Result<Vec<VoterOf<Self>>> {
+		let mut voters = EDP::electing_voters(bounds)?;
+		voters.sort_by_key(|v| v.0.clone());
+		// voters.reverse();
+		Ok(voters)
+	}
+	fn next_election_prediction(now: Self::BlockNumber) -> Self::BlockNumber {
+		EDP::next_election_prediction(now)
+	}
+	#[cfg(feature = "runtime-benchmarks")]
+	fn put_snapshot(
+		_voters: Vec<frame_election_provider_support::VoterOf<Self>>,
+		_targets: Vec<Self::AccountId>,
+		_target_stake: Option<VoteWeight>,
+	) {
+		EDP::put_snapshot(_voters, _targets, _target_stake)
+	}
+	#[cfg(feature = "runtime-benchmarks")]
+	fn add_target(_target: Self::AccountId) {
+		EDP::add_target(_target)
+	}
+	#[cfg(feature = "runtime-benchmarks")]
+	fn add_voter(
+		_voter: Self::AccountId,
+		_weight: VoteWeight,
+		_targets: BoundedVec<Self::AccountId, Self::MaxVotesPerVoter>,
+	) {
+		EDP::add_voter(_voter, _weight, _targets)
+	}
+	#[cfg(feature = "runtime-benchmarks")]
+	fn clear() {
+		EDP::clear()
+	}
+}
+
 pub struct OnChainSeqPhragmen;
 impl onchain::Config for OnChainSeqPhragmen {
 	type System = Test;
 	type Solver = SequentialPhragmen<AccountId, Perbill>;
-	type DataProvider = Staking;
+	type DataProvider = SortedElectionDataProvider<Staking>;
 	type WeightInfo = ();
 	type MaxWinners = MaxWinners;
 	type Bounds = ElectionsBounds;
@@ -251,6 +290,42 @@ parameter_types! {
 	pub static SlashObserver: BTreeMap<AccountId, BalanceOf<Test>> = BTreeMap::new();
 }
 
+parameter_types! {
+	pub static MinInflation: Perquintill = Perquintill::from_rational(25u64, 1000);
+	pub static MaxInflation: Perquintill = Perquintill::from_rational(1u64, 10);
+	pub static IdealStakingRate: Perquintill = Perquintill::from_percent(50);
+	pub static Falloff: Perquintill = Perquintill::from_percent(5);
+	pub static StakingRecipient: AccountId = Staking::pending_payout_account();
+	pub static LeftoverRecipients: Vec<(AccountId, Perquintill)> = vec![]; // TODO: add tests
+	pub const StakingPalletId: frame_support::PalletId = frame_support::PalletId(*b"py/staki");
+}
+
+parameter_types! {
+	pub Distribution: Vec<pallet_inflation::DistributionStep<Test>> = vec![
+		Box::new(
+			pallet_inflation::inflation_step_prelude::polkadot_staking_income::<
+				Test,
+				IdealStakingRate,
+				Falloff,
+				StakingRecipient
+			>
+		),
+	];
+}
+
+use pallet_inflation;
+
+impl pallet_inflation::Config for Test {
+	type RuntimeEvent = RuntimeEvent;
+	type UnixTime = Timestamp;
+	type Currency = Balances;
+	type CurrencyBalance = Balance;
+
+	type InflationSource = pallet_inflation::FixedRatioAnnualInflation<Test, MaxInflation>;
+	type Distribution = Distribution;
+	type InflationOrigin = EnsureRoot<AccountId>;
+}
+
 pub struct EventListenerMock;
 impl OnStakingUpdate<AccountId, Balance> for EventListenerMock {
 	fn on_slash(
@@ -264,17 +339,24 @@ impl OnStakingUpdate<AccountId, Balance> for EventListenerMock {
 			map.insert(*pool_account, map.get(pool_account).unwrap_or(&0) + total_slashed)
 		});
 	}
+
+	fn on_before_era_end(era_index: EraIndex) {
+		let new_total_stake = Staking::eras_total_stake(era_index);
+		// Set the right last known staked amount,
+		<Test as pallet_inflation::Config>::update_total_stake(new_total_stake, None);
+		// Trigger an inflation, which will populate the pot.
+		PolkadotInflation::inflate().expect("inflation should not fail in test setup");
+	}
 }
 
 // Disabling threshold for `UpToLimitDisablingStrategy`
 pub(crate) const DISABLING_LIMIT_FACTOR: usize = 3;
 
 impl crate::pallet::pallet::Config for Test {
+	type PalletId = StakingPalletId;
 	type Currency = Balances;
 	type CurrencyBalance = <Self as pallet_balances::Config>::Balance;
-	type UnixTime = Timestamp;
 	type CurrencyToVote = ();
-	type RewardRemainder = RewardRemainderMock;
 	type RuntimeEvent = RuntimeEvent;
 	type Slash = ();
 	type Reward = MockReward;
@@ -283,7 +365,6 @@ impl crate::pallet::pallet::Config for Test {
 	type AdminOrigin = EnsureOneOrRoot;
 	type BondingDuration = BondingDuration;
 	type SessionInterface = Self;
-	type EraPayout = ConvertCurve<RewardCurve>;
 	type NextNewSession = Session;
 	type MaxExposurePageSize = MaxExposurePageSize;
 	type ElectionProvider = onchain::OnChainExecution<OnChainSeqPhragmen>;
@@ -541,18 +622,24 @@ impl ExtBuilder {
 				// set the keys for the first session.
 				stakers
 					.into_iter()
-					.map(|(id, ..)| (id, id, SessionKeys { other: id.into() }))
+					.map(|(id, ..)| {
+						(id, id, SessionKeys { other: UintAuthorityId::saturated_from(id) })
+					})
 					.collect()
 			} else {
 				// set some dummy validators in genesis.
-				(0..self.validator_count as u64)
-					.map(|id| (id, id, SessionKeys { other: id.into() }))
+				(0..self.validator_count as AccountId)
+					.map(|id| (id, id, SessionKeys { other: UintAuthorityId::saturated_from(id) }))
 					.collect()
 			},
 		}
 		.assimilate_storage(&mut storage);
 
 		let mut ext = sp_io::TestExternalities::from(storage);
+
+		ext.execute_with(|| {
+			pallet_inflation::LastInflated::<Test>::put(0);
+		});
 
 		if self.initialize_first_session {
 			// We consider all test to start after timestamp is initialized This must be ensured by
@@ -561,7 +648,7 @@ impl ExtBuilder {
 			ext.execute_with(|| {
 				System::set_block_number(1);
 				Session::on_initialize(1);
-				<Staking as Hooks<u64>>::on_initialize(1);
+				<Staking as Hooks<BlockNumber>>::on_initialize(1);
 				Timestamp::set_timestamp(INIT_TIMESTAMP);
 			});
 		}
@@ -598,7 +685,7 @@ pub(crate) fn bond_validator(who: AccountId, val: Balance) {
 	assert_ok!(Staking::validate(RuntimeOrigin::signed(who), ValidatorPrefs::default()));
 	assert_ok!(Session::set_keys(
 		RuntimeOrigin::signed(who),
-		SessionKeys { other: who.into() },
+		SessionKeys { other: UintAuthorityId::saturated_from(who) },
 		vec![]
 	));
 }
@@ -633,7 +720,7 @@ pub(crate) fn run_to_block(n: BlockNumber) {
 	for b in (System::block_number() + 1)..=n {
 		System::set_block_number(b);
 		Session::on_initialize(b);
-		<Staking as Hooks<u64>>::on_initialize(b);
+		<Staking as Hooks<BlockNumber>>::on_initialize(b);
 		Timestamp::set_timestamp(System::block_number() * BLOCK_TIME + INIT_TIMESTAMP);
 		if b != n {
 			Staking::on_finalize(System::block_number());
@@ -643,10 +730,10 @@ pub(crate) fn run_to_block(n: BlockNumber) {
 
 /// Progresses from the current block number (whatever that may be) to the `P * session_index + 1`.
 pub(crate) fn start_session(session_index: SessionIndex) {
-	let end: u64 = if Offset::get().is_zero() {
-		(session_index as u64) * Period::get()
+	let end: BlockNumber = if Offset::get().is_zero() {
+		(session_index as BlockNumber) * Period::get()
 	} else {
-		Offset::get() + (session_index.saturating_sub(1) as u64) * Period::get()
+		Offset::get() + (session_index.saturating_sub(1) as BlockNumber) * Period::get()
 	};
 	run_to_block(end);
 	// session must have progressed properly.
@@ -672,25 +759,6 @@ pub(crate) fn start_active_era(era_index: EraIndex) {
 	// One way or another, current_era must have changed before the active era, so they must match
 	// at this point.
 	assert_eq!(current_era(), active_era());
-}
-
-pub(crate) fn current_total_payout_for_duration(duration: u64) -> Balance {
-	let (payout, _rest) = <Test as Config>::EraPayout::era_payout(
-		Staking::eras_total_stake(active_era()),
-		Balances::total_issuance(),
-		duration,
-	);
-	assert!(payout > 0);
-	payout
-}
-
-pub(crate) fn maximum_payout_for_duration(duration: u64) -> Balance {
-	let (payout, rest) = <Test as Config>::EraPayout::era_payout(
-		Staking::eras_total_stake(active_era()),
-		Balances::total_issuance(),
-		duration,
-	);
-	payout + rest
 }
 
 /// Time it takes to finish a session.
@@ -922,11 +990,6 @@ pub(crate) fn staking_events() -> Vec<crate::Event<Test>> {
 parameter_types! {
 	static StakingEventsIndex: usize = 0;
 }
-ord_parameter_types! {
-	pub const One: u64 = 1;
-}
-
-type EnsureOneOrRoot = EitherOfDiverse<EnsureRoot<AccountId>, EnsureSignedBy<One, AccountId>>;
 
 pub(crate) fn staking_events_since_last_call() -> Vec<crate::Event<Test>> {
 	let all: Vec<_> = System::events()
@@ -941,3 +1004,9 @@ pub(crate) fn staking_events_since_last_call() -> Vec<crate::Event<Test>> {
 pub(crate) fn balances(who: &AccountId) -> (Balance, Balance) {
 	(Balances::free_balance(who), Balances::reserved_balance(who))
 }
+
+ord_parameter_types! {
+	pub const One: AccountId = 1;
+}
+
+type EnsureOneOrRoot = EitherOfDiverse<EnsureRoot<AccountId>, EnsureSignedBy<One, AccountId>>;

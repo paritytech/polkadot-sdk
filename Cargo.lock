@@ -10543,6 +10543,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-inflation"
+version = "28.0.0"
+dependencies = [
+ "docify",
+ "pallet-balances",
+ "pallet-staking-reward-fn",
+ "pallet-timestamp",
+ "parity-scale-codec",
+ "polkadot-sdk-frame",
+ "scale-info",
+ "sp-tracing 16.0.0",
+]
+
+[[package]]
 name = "pallet-insecure-randomness-collective-flip"
 version = "16.0.0"
 dependencies = [
@@ -11328,14 +11342,15 @@ dependencies = [
  "pallet-authorship",
  "pallet-bags-list",
  "pallet-balances",
+ "pallet-inflation",
  "pallet-session",
  "pallet-staking-reward-curve",
+ "pallet-staking-reward-fn",
  "pallet-timestamp",
  "parity-scale-codec",
  "rand_chacha 0.3.1",
  "scale-info",
  "serde",
- "sp-application-crypto",
  "sp-core",
  "sp-io",
  "sp-npos-elections",
@@ -14027,6 +14042,7 @@ dependencies = [
  "pallet-identity",
  "pallet-im-online",
  "pallet-indices",
+ "pallet-inflation",
  "pallet-insecure-randomness-collective-flip",
  "pallet-lottery",
  "pallet-membership",

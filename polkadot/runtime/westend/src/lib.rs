@@ -602,6 +602,7 @@ pallet_staking_reward_curve::build! {
 }
 
 parameter_types! {
+	pub StakingPalletId: PalletId = PalletId(*b"py/stake");
 	// Six sessions in an era (6 hours).
 	pub const SessionsPerEra: SessionIndex = prod_or_fast!(6, 1);
 	// 2 eras for unbonding (12 hours).
@@ -620,10 +621,9 @@ parameter_types! {
 
 impl pallet_staking::Config for Runtime {
 	type Currency = Balances;
+	type PalletId = StakingPalletId;
 	type CurrencyBalance = Balance;
-	type UnixTime = Timestamp;
 	type CurrencyToVote = CurrencyToVote;
-	type RewardRemainder = ();
 	type RuntimeEvent = RuntimeEvent;
 	type Slash = ();
 	type Reward = ();
@@ -632,7 +632,6 @@ impl pallet_staking::Config for Runtime {
 	type SlashDeferDuration = SlashDeferDuration;
 	type AdminOrigin = EitherOf<EnsureRoot<AccountId>, StakingAdmin>;
 	type SessionInterface = Self;
-	type EraPayout = pallet_staking::ConvertCurve<RewardCurve>;
 	type MaxExposurePageSize = MaxExposurePageSize;
 	type NextNewSession = Session;
 	type ElectionProvider = ElectionProviderMultiPhase;

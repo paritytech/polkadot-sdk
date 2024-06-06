@@ -20,20 +20,30 @@ serde = { features = ["alloc", "derive"], workspace = true }
 codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false, features = [
 	"derive",
 ] }
-scale-info = { version = "2.11.1", default-features = false, features = ["derive", "serde"] }
+scale-info = { version = "2.11.1", default-features = false, features = [
+	"derive",
+	"serde",
+] }
+log = { workspace = true }
+
 sp-io = { path = "../../primitives/io", default-features = false }
-sp-runtime = { path = "../../primitives/runtime", default-features = false, features = ["serde"] }
-sp-staking = { path = "../../primitives/staking", default-features = false, features = ["serde"] }
+sp-runtime = { path = "../../primitives/runtime", default-features = false, features = [
+	"serde",
+] }
+sp-staking = { path = "../../primitives/staking", default-features = false, features = [
+	"serde",
+] }
 sp-std = { path = "../../primitives/std", default-features = false }
+
 frame-support = { path = "../support", default-features = false }
 frame-system = { path = "../system", default-features = false }
+
 pallet-session = { path = "../session", default-features = false, features = [
 	"historical",
 ] }
 pallet-authorship = { path = "../authorship", default-features = false }
-sp-application-crypto = { path = "../../primitives/application-crypto", default-features = false, features = ["serde"] }
 frame-election-provider-support = { path = "../election-provider-support", default-features = false }
-log = { workspace = true }
+pallet-staking-reward-fn = { path = "reward-fn", default-features = false }
 
 # Optional imports for benchmarking
 frame-benchmarking = { path = "../benchmarking", default-features = false, optional = true }
@@ -47,28 +57,30 @@ sp-npos-elections = { path = "../../primitives/npos-elections" }
 pallet-timestamp = { path = "../timestamp" }
 pallet-staking-reward-curve = { path = "reward-curve" }
 pallet-bags-list = { path = "../bags-list" }
+pallet-inflation = { path = "../inflation" }
 substrate-test-utils = { path = "../../test-utils" }
 frame-benchmarking = { path = "../benchmarking" }
 frame-election-provider-support = { path = "../election-provider-support" }
 rand_chacha = { version = "0.3.1" }
 
+
 [features]
 default = ["std"]
 std = [
 	"codec/std",
+	"log/std",
 	"frame-benchmarking?/std",
 	"frame-election-provider-support/std",
 	"frame-support/std",
 	"frame-system/std",
-	"log/std",
 	"pallet-authorship/std",
 	"pallet-bags-list/std",
 	"pallet-balances/std",
 	"pallet-session/std",
 	"pallet-timestamp/std",
+	"pallet-staking-reward-fn/std",
 	"scale-info/std",
 	"serde/std",
-	"sp-application-crypto/std",
 	"sp-core/std",
 	"sp-io/std",
 	"sp-npos-elections/std",
@@ -88,6 +100,7 @@ runtime-benchmarks = [
 	"rand_chacha",
 	"sp-runtime/runtime-benchmarks",
 	"sp-staking/runtime-benchmarks",
+	"pallet-inflation/runtime-benchmarks",
 ]
 try-runtime = [
 	"frame-election-provider-support/try-runtime",
@@ -99,4 +112,5 @@ try-runtime = [
 	"pallet-session/try-runtime",
 	"pallet-timestamp/try-runtime",
 	"sp-runtime/try-runtime",
+	"pallet-inflation/try-runtime",
 ]

@@ -177,12 +177,13 @@ mod tests {
 	};
 	use frame_election_provider_support::bounds::ElectionBoundsBuilder;
 	use sp_core::bounded_vec;
+	use sp_npos_elections::VoteWeight;
 
 	type Voters = BoundedVec<AccountId, MaxNominationsOf<Test>>;
 
 	#[test]
 	pub fn election_size_tracker_works() {
-		let mut voters: Vec<(u64, u64, Voters)> = vec![];
+		let mut voters: Vec<(AccountId, VoteWeight, Voters)> = vec![];
 		let mut size_tracker = StaticTracker::<Staking>::default();
 		let voter_bounds = ElectionBoundsBuilder::default().voters_size(1_50.into()).build().voters;
 
@@ -219,7 +220,7 @@ mod tests {
 
 	#[test]
 	pub fn election_size_tracker_bounds_works() {
-		let mut voters: Vec<(u64, u64, Voters)> = vec![];
+		let mut voters: Vec<(AccountId, VoteWeight, Voters)> = vec![];
 		let mut size_tracker = StaticTracker::<Staking>::default();
 		let voter_bounds = ElectionBoundsBuilder::default().voters_size(1_00.into()).build().voters;
 

@@ -296,7 +296,6 @@ pub(crate) mod mock;
 mod tests;
 
 pub mod election_size_tracker;
-pub mod inflation;
 pub mod ledger;
 pub mod migrations;
 pub mod slashing;
@@ -372,11 +371,15 @@ type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup
 pub struct ActiveEraInfo {
 	/// Index of era.
 	pub index: EraIndex,
+	// TODO: for now we just stop setting this, but someday remove it.
 	/// Moment of start expressed as millisecond from `$UNIX_EPOCH`.
 	///
 	/// Start can be none if start hasn't been set for the era yet,
 	/// Start is set on the first on_finalize of the era to guarantee usage of `Time`.
-	pub start: Option<u64>,
+	#[deprecated(
+		note = "should not be used anywhere as pallet-staking does not set and use it anymore."
+	)]
+	start: Option<u64>,
 }
 
 /// Reward points of an era. Used to split era total payout between validators.
@@ -892,6 +895,7 @@ impl<AccountId> SessionInterface<AccountId> for () {
 }
 
 /// Handler for determining how much of a balance should be paid out on the current era.
+#[deprecated(note = "not used in pallet-staking anymore, and will be removed in Q4 2024")]
 pub trait EraPayout<Balance> {
 	/// Determine the payout for this era.
 	///
@@ -904,19 +908,12 @@ pub trait EraPayout<Balance> {
 	) -> (Balance, Balance);
 }
 
-impl<Balance: Default> EraPayout<Balance> for () {
-	fn era_payout(
-		_total_staked: Balance,
-		_total_issuance: Balance,
-		_era_duration_millis: u64,
-	) -> (Balance, Balance) {
-		(Default::default(), Default::default())
-	}
-}
-
 /// Adaptor to turn a `PiecewiseLinear` curve definition into an `EraPayout` impl, used for
 /// backwards compatibility.
+#[deprecated(note = "not used in pallet-staking anymore, and will be removed in Q4 2024")]
 pub struct ConvertCurve<T>(sp_std::marker::PhantomData<T>);
+
+#[allow(deprecated)]
 impl<Balance, T> EraPayout<Balance> for ConvertCurve<T>
 where
 	Balance: AtLeast32BitUnsigned + Clone + Copy,
@@ -927,15 +924,7 @@ where
 		total_issuance: Balance,
 		era_duration_millis: u64,
 	) -> (Balance, Balance) {
-		let (validator_payout, max_payout) = inflation::compute_total_payout(
-			T::get(),
-			total_staked,
-			total_issuance,
-			// Duration of era; more than u64::MAX is rewarded as u64::MAX.
-			era_duration_millis,
-		);
-		let rest = max_payout.saturating_sub(validator_payout);
-		(validator_payout, rest)
+		todo!()
 	}
 }
 

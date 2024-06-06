@@ -110,7 +110,10 @@ macro_rules! defensive_assert {
 
 /// Prelude module for all defensive traits to be imported at once.
 pub mod defensive_prelude {
-	pub use super::{Defensive, DefensiveOption, DefensiveResult};
+	pub use super::{
+		Defensive, DefensiveMax, DefensiveMin, DefensiveOption, DefensiveResult,
+		DefensiveSaturating, DefensiveTruncateFrom,
+	};
 }
 
 /// A trait to handle errors and options when you are really sure that a condition must hold, but

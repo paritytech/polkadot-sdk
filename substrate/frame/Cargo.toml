@@ -93,21 +93,30 @@ std = [
 	"frame-try-runtime?/std",
 	"log/std",
 	"scale-info/std",
-	"sp-api?/std",
+
+	"frame-support/std",
+	"frame-system/std",
+
 	"sp-arithmetic/std",
+	"sp-std/std",
+	"sp-runtime/std",
+	"sp-io/std",
+	"sp-core/std",
+
+	"sp-api?/std",
 	"sp-block-builder?/std",
 	"sp-consensus-aura?/std",
 	"sp-consensus-grandpa?/std",
-	"sp-core/std",
 	"sp-inherents?/std",
-	"sp-io/std",
 	"sp-offchain?/std",
-	"sp-runtime/std",
 	"sp-session?/std",
 	"sp-std/std",
 	"sp-storage/std",
 	"sp-transaction-pool?/std",
 	"sp-version?/std",
+
+	"frame-executive?/std",
+	"frame-system-rpc-runtime-api?/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",

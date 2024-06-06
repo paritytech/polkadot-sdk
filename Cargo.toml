@@ -356,6 +356,7 @@ members = [
 	"substrate/frame/grandpa",
 	"substrate/frame/identity",
 	"substrate/frame/im-online",
+	"substrate/frame/inflation",
 	"substrate/frame/indices",
 	"substrate/frame/insecure-randomness-collective-flip",
 	"substrate/frame/lottery",

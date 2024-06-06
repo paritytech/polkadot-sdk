@@ -659,6 +659,7 @@ parameter_types! {
 	pub const MaxControllersInDeprecationBatch: u32 = 5900;
 	pub OffchainRepeat: BlockNumber = 5;
 	pub HistoryDepth: u32 = 84;
+	pub StakingPalletId: PalletId = PalletId(*b"py/stake");
 }
 
 /// Upper limit on the number of NPOS nominations.
@@ -672,10 +673,9 @@ impl pallet_staking::BenchmarkingConfig for StakingBenchmarkingConfig {
 
 impl pallet_staking::Config for Runtime {
 	type Currency = Balances;
+	type PalletId = StakingPalletId;
 	type CurrencyBalance = Balance;
-	type UnixTime = Timestamp;
 	type CurrencyToVote = sp_staking::currency_to_vote::U128CurrencyToVote;
-	type RewardRemainder = Treasury;
 	type RuntimeEvent = RuntimeEvent;
 	type Slash = Treasury; // send the slashed funds to the treasury.
 	type Reward = (); // rewards are minted from the void
@@ -688,7 +688,6 @@ impl pallet_staking::Config for Runtime {
 		pallet_collective::EnsureProportionAtLeast<AccountId, CouncilCollective, 3, 4>,
 	>;
 	type SessionInterface = Self;
-	type EraPayout = pallet_staking::ConvertCurve<RewardCurve>;
 	type NextNewSession = Session;
 	type MaxExposurePageSize = ConstU32<256>;
 	type ElectionProvider = ElectionProviderMultiPhase;
@@ -2188,6 +2187,30 @@ pub mod dynamic_params {
 		#[codec(index = 1)]
 		pub static ByteDeposit: Balance = 1 * CENTS;
 	}
+
+	#[dynamic_pallet_params]
+	#[codec(index = 1)]
+	pub mod staking {
+		use sp_runtime::Perquintill;
+
+		use crate::DOLLARS;
+
+		#[codec(index = 0)]
+		pub static IdealStakingRate: Perquintill = Perquintill::from_percent(50);
+
+		#[codec(index = 1)]
+		pub static Falloff: Perquintill = Perquintill::from_percent(5);
+
+		#[codec(index = 2)]
+		pub static MaxInflation: Perquintill = Perquintill::from_percent(10);
+
+		#[codec(index = 3)]
+		pub static FixedTreasuryIncome: Perquintill = Perquintill::from_percent(10);
+
+		/// 1M minted every year. Dis-inflationary system.
+		#[codec(index = 3)]
+		pub static FixedAnnualInflation: Balance = 1_000_000 * DOLLARS;
+	}
 }
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -2213,6 +2236,10 @@ impl EnsureOriginWithArg<RuntimeOrigin, RuntimeParametersKey> for DynamicParamet
 				frame_system::ensure_root(origin.clone()).map_err(|_| origin)?;
 				return Ok(())
 			},
+			RuntimeParametersKey::Staking(_) => {
+				frame_system::ensure_root(origin.clone()).map_err(|_| origin)?;
+				return Ok(())
+			},
 		}
 	}
 
@@ -2227,6 +2254,49 @@ impl pallet_parameters::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type AdminOrigin = DynamicParametersManagerOrigin;
 	type WeightInfo = ();
+}
+
+use pallet_inflation::inflation_step_prelude::{burn, pay, polkadot_staking_income};
+parameter_types! {
+	pub All: Perquintill = Perquintill::from_percent(100);
+	pub StakingIncomeAccount: AccountId = Staking::pending_payout_account();
+
+	pub Distribution: Vec<pallet_inflation::DistributionStep<Runtime>> = vec![
+		// 2% goes to treasury, no questions asked.
+		Box::new(pay::<Runtime, TreasuryAccount, dynamic_params::staking::FixedTreasuryIncome>),
+		// from whatever is left, staking gets the staking rate.
+		Box::new(polkadot_staking_income::<
+			Runtime,
+			dynamic_params::staking::IdealStakingRate,
+			dynamic_params::staking::Falloff,
+			StakingIncomeAccount
+		>),
+		// Burn anything that is left.
+		Box::new(burn::<Runtime, All>),
+	];
+}
+
+impl pallet_inflation::Config for Runtime {
+	type Currency = Balances;
+	type CurrencyBalance = Balance;
+	type RuntimeEvent = RuntimeEvent;
+	type UnixTime = Timestamp;
+	type InflationOrigin = EnsureRoot<AccountId>;
+
+	/// Fixed 10% annual inflation.
+	type InflationSource =
+		pallet_inflation::FixedRatioAnnualInflation<Runtime, dynamic_params::staking::MaxInflation>;
+
+	/*
+	/// Fixed 10m annual inflation.
+	type InflationSource = pallet_inflation::FixedAnnualInflation<
+		Runtime,
+		dynamic_params::staking::FixedAnnualInflation,
+	>;
+	*/
+	/// List of distribution actions: 2% to treasury, rest given to staking with a penalty of 5%
+	/// falloff, the rest burnt.
+	type Distribution = Distribution;
 }
 
 #[frame_support::runtime]
@@ -2490,6 +2560,9 @@ mod runtime {
 
 	#[runtime::pallet_index(79)]
 	pub type AssetConversionMigration = pallet_asset_conversion_ops;
+
+	#[runtime::pallet_index(80)]
+	pub type Inflation = pallet_inflation;
 }
 
 /// The address format for describing accounts.
@@ -2651,6 +2724,7 @@ mod benches {
 		[pallet_safe_mode, SafeMode]
 		[pallet_example_mbm, PalletExampleMbms]
 		[pallet_asset_conversion_ops, AssetConversionMigration]
+		[pallet_inflation, Inflation]
 	);
 }
 

@@ -511,6 +511,10 @@ pub use pallet_im_online;
 #[cfg(feature = "pallet-indices")]
 pub use pallet_indices;
 
+/// FRAME inflation pallet.
+#[cfg(feature = "pallet-inflation")]
+pub use pallet_inflation;
+
 /// Insecure do not use in production: FRAME randomness collective flip pallet.
 #[cfg(feature = "pallet-insecure-randomness-collective-flip")]
 pub use pallet_insecure_randomness_collective_flip;

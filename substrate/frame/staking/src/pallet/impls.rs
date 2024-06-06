@@ -36,8 +36,8 @@ use frame_system::{pallet_prelude::BlockNumberFor, RawOrigin};
 use pallet_session::historical;
 use sp_runtime::{
 	traits::{
-		Bounded, CheckedAdd, CheckedSub, Convert, One, SaturatedConversion, Saturating,
-		StaticLookup, Zero,
+		AccountIdConversion, Bounded, CheckedAdd, CheckedSub, Convert, One, SaturatedConversion,
+		Saturating, StaticLookup, Zero,
 	},
 	ArithmeticError, Perbill, Percent,
 };
@@ -52,9 +52,9 @@ use sp_std::prelude::*;
 
 use crate::{
 	election_size_tracker::StaticTracker, log, slashing, weights::WeightInfo, ActiveEraInfo,
-	BalanceOf, EraInfo, EraPayout, Exposure, ExposureOf, Forcing, IndividualExposure,
-	LedgerIntegrityState, MaxNominationsOf, MaxWinnersOf, Nominations, NominationsQuota,
-	PositiveImbalanceOf, RewardDestination, SessionInterface, StakingLedger, ValidatorPrefs,
+	BalanceOf, EraInfo, Exposure, ExposureOf, Forcing, IndividualExposure, LedgerIntegrityState,
+	MaxNominationsOf, MaxWinnersOf, Nominations, NominationsQuota, PositiveImbalanceOf,
+	RewardDestination, SessionInterface, StakingLedger, ValidatorPrefs,
 };
 
 use super::pallet::*;
@@ -272,10 +272,12 @@ impl<T: Config> Pallet<T> {
 
 		// Note: if era has no reward to be claimed, era may be future. better not to update
 		// `ledger.legacy_claimed_rewards` in this case.
-		let era_payout = <ErasValidatorReward<T>>::get(&era).ok_or_else(|| {
+		let era_payout = Self::era_payout(era);
+		ensure!(
+			!era_payout.is_zero(),
 			Error::<T>::InvalidEraToReward
 				.with_weight(T::WeightInfo::payout_stakers_alive_staked(0))
-		})?;
+		);
 
 		let account = StakingAccount::Stash(validator_stash.clone());
 		let mut ledger = Self::ledger(account.clone()).or_else(|_| {
@@ -520,7 +522,10 @@ impl<T: Config> Pallet<T> {
 				Self::eras_start_session_index(active_era.index + 1)
 			{
 				if next_active_era_start_session_index == session_index + 1 {
+					let active_index = active_era.index;
+					T::EventListeners::on_before_era_end(active_index);
 					Self::end_era(active_era, session_index);
+					T::EventListeners::on_after_era_end(active_index);
 				}
 			}
 		}
@@ -567,41 +572,57 @@ impl<T: Config> Pallet<T> {
 		Self::apply_unapplied_slashes(active_era);
 	}
 
+	pub fn pending_payout_account() -> T::AccountId {
+		T::PalletId::get().into_sub_account_truncating(())
+	}
+
+	pub fn era_payout_account(era_index: EraIndex) -> T::AccountId {
+		T::PalletId::get().into_sub_account_truncating(era_index)
+	}
+
+	pub(crate) fn era_payout(era_index: EraIndex) -> BalanceOf<T> {
+		log!(
+			debug,
+			"era = {:?}, account = {:?}, balance = {:?}",
+			era_index,
+			Self::era_payout_account(era_index),
+			T::Currency::total_balance(&Self::era_payout_account(era_index))
+		);
+		T::Currency::total_balance(&Self::era_payout_account(era_index))
+			.saturating_sub(T::Currency::minimum_balance())
+	}
+
 	/// Compute payout for era.
 	fn end_era(active_era: ActiveEraInfo, _session_index: SessionIndex) {
+		use frame_support::traits::ExistenceRequirement;
 		// Note: active_era_start can be None if end era is called during genesis config.
-		if let Some(active_era_start) = active_era.start {
-			let now_as_millis_u64 = T::UnixTime::now().as_millis().saturated_into::<u64>();
+		let pending_payout_account = Self::pending_payout_account();
+		let pending_payout = T::Currency::total_balance(&pending_payout_account);
 
-			let era_duration = (now_as_millis_u64.defensive_saturating_sub(active_era_start))
-				.saturated_into::<u64>();
-			let staked = Self::eras_total_stake(&active_era.index);
-			let issuance = T::Currency::total_issuance();
+		let active_era_payouts = Self::era_payout_account(active_era.index);
+		log!(
+			info,
+			"ending era: {:?}, depositing {:?} from pending to account associated with this era",
+			active_era.index,
+			pending_payout
+		);
 
-			let (validator_payout, remainder) =
-				T::EraPayout::era_payout(staked, issuance, era_duration);
+		let _ = T::Currency::transfer(
+			&pending_payout_account,
+			&active_era_payouts,
+			// pending payout is guaranteed to have at least ED, so this will never fail.
+			pending_payout,
+			ExistenceRequirement::AllowDeath,
+		)
+		.defensive();
 
-			let total_payout = validator_payout.saturating_add(remainder);
-			let max_staked_rewards =
-				MaxStakedRewards::<T>::get().unwrap_or(Percent::from_percent(100));
+		Self::deposit_event(Event::<T>::EraPaid {
+			era_index: active_era.index,
+			validator_payout: pending_payout.saturating_sub(T::Currency::minimum_balance()),
+		});
 
-			// apply cap to validators payout and add difference to remainder.
-			let validator_payout = validator_payout.min(max_staked_rewards * total_payout);
-			let remainder = total_payout.saturating_sub(validator_payout);
-
-			Self::deposit_event(Event::<T>::EraPaid {
-				era_index: active_era.index,
-				validator_payout,
-				remainder,
-			});
-
-			// Set ending era reward.
-			<ErasValidatorReward<T>>::insert(&active_era.index, validator_payout);
-			T::RewardRemainder::on_unbalanced(T::Currency::issue(remainder));
-
-			// Clear disabled validators.
-			<DisabledValidators<T>>::kill();
-		}
+		// Clear disabled validators.
+		<DisabledValidators<T>>::kill();
 	}
 
 	/// Plan a new era.
@@ -819,7 +840,6 @@ impl<T: Config> Pallet<T> {
 		cursor = <ErasStakersOverview<T>>::clear_prefix(era_index, u32::MAX, None);
 		debug_assert!(cursor.maybe_cursor.is_none());
 
-		<ErasValidatorReward<T>>::remove(era_index);
 		<ErasRewardPoints<T>>::remove(era_index);
 		<ErasTotalStake<T>>::remove(era_index);
 		ErasStartSessionIndex::<T>::remove(era_index);
@@ -994,10 +1014,11 @@ impl<T: Config> Pallet<T> {
 
 		log!(
 			info,
-			"generated {} npos voters, {} from validators and {} nominators",
+			"generated {} npos voters, {} from validators and {} nominators, bounds: {:?}",
 			all_voters.len(),
 			validators_taken,
-			nominators_taken
+			nominators_taken,
+			bounds,
 		);
 
 		all_voters
@@ -1043,7 +1064,7 @@ impl<T: Config> Pallet<T> {
 		}
 
 		Self::register_weight(T::WeightInfo::get_npos_targets(all_targets.len() as u32));
-		log!(info, "generated {} npos targets", all_targets.len());
+		log!(info, "generated {} npos targets, bounds: {:?}", all_targets.len(), bounds);
 
 		all_targets
 	}

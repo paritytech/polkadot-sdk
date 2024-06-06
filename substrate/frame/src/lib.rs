@@ -129,7 +129,7 @@ pub mod testing_prelude {
 	/// Other helper macros from `frame_support` that help with asserting in tests.
 	pub use frame_support::{
 		assert_err, assert_err_ignore_postinfo, assert_error_encoded_size, assert_noop, assert_ok,
-		assert_storage_noop, storage_alias,
+		assert_storage_noop, hypothetically, hypothetically_ok, storage_alias,
 	};
 
 	pub use frame_system::{self, mocking::*};

@@ -156,6 +156,15 @@ pub trait OnStakingUpdate<AccountId, Balance> {
 
 	/// Fired when a portion of a staker's balance has been withdrawn.
 	fn on_withdraw(_stash: &AccountId, _amount: Balance) {}
+
+	/// Fired when `era_index` has ended.
+	///
+	/// This must be fired BEFORE any internal operation with regards to era change has happened.
+	fn on_before_era_end(_era_index: EraIndex) {}
+
+	/// Same as [`on_before_era_end`], but fired AFTER any internal operation with regards to era
+	/// change has happened.
+	fn on_after_era_end(_era_index: EraIndex) {}
 }
 
 /// A generic representation of a staking implementation.

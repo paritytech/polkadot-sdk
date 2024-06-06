@@ -25,14 +25,13 @@ use frame_support::{
 	pallet_prelude::*,
 	traits::{
 		Currency, Defensive, DefensiveSaturating, EnsureOrigin, EstimateNextNewSession, Get,
-		InspectLockableCurrency, LockableCurrency, OnUnbalanced, UnixTime, WithdrawReasons,
+		InspectLockableCurrency, LockableCurrency, OnUnbalanced, WithdrawReasons,
 	},
-	weights::Weight,
 	BoundedVec,
 };
 use frame_system::{ensure_root, ensure_signed, pallet_prelude::*};
 use sp_runtime::{
-	traits::{SaturatedConversion, StaticLookup, Zero},
+	traits::{CheckedSub, SaturatedConversion, StaticLookup, Zero},
 	ArithmeticError, Perbill, Percent,
 };
 
@@ -94,6 +93,7 @@ pub mod pallet {
 				Moment = BlockNumberFor<Self>,
 				Balance = Self::CurrencyBalance,
 			> + InspectLockableCurrency<Self::AccountId>;
+
 		/// Just the `Currency::Balance` type; we have this item to allow us to constrain it to
 		/// `From<u64>`.
 		type CurrencyBalance: sp_runtime::traits::AtLeast32BitUnsigned
@@ -105,11 +105,6 @@ pub mod pallet {
 			+ From<u64>
 			+ TypeInfo
 			+ MaxEncodedLen;
-		/// Time used for computing era duration.
-		///
-		/// It is guaranteed to start being called from the first `on_finalize`. Thus value at
-		/// genesis is not used.
-		type UnixTime: UnixTime;
 
 		/// Convert a balance into a number used for election calculation. This must fit into a
 		/// `u64` but is allowed to be sensibly lossy. The `u64` is used to communicate with the
@@ -120,17 +115,30 @@ pub mod pallet {
 		type CurrencyToVote: sp_staking::currency_to_vote::CurrencyToVote<BalanceOf<Self>>;
 
 		/// Something that provides the election functionality.
+		#[cfg(not(test))]
 		type ElectionProvider: ElectionProvider<
 			AccountId = Self::AccountId,
 			BlockNumber = BlockNumberFor<Self>,
 			// we only accept an election provider that has staking as data provider.
 			DataProvider = Pallet<Self>,
 		>;
+		#[cfg(test)]
+		type ElectionProvider: ElectionProvider<
+			AccountId = Self::AccountId,
+			BlockNumber = BlockNumberFor<Self>,
+		>;
+
 		/// Something that provides the election functionality at genesis.
+		#[cfg(not(test))]
 		type GenesisElectionProvider: ElectionProvider<
 			AccountId = Self::AccountId,
 			BlockNumber = BlockNumberFor<Self>,
 			DataProvider = Pallet<Self>,
+		>;
+		#[cfg(test)]
+		type GenesisElectionProvider: ElectionProvider<
+			AccountId = Self::AccountId,
+			BlockNumber = BlockNumberFor<Self>,
 		>;
 
 		/// Something that defines the maximum number of nominations per nominator.
@@ -158,10 +166,6 @@ pub mod pallet {
 		/// The test `reducing_history_depth_abrupt` shows this effect.
 		#[pallet::constant]
 		type HistoryDepth: Get<u32>;
-
-		/// Tokens have been minted and are unused for validator-reward.
-		/// See [Era payout](./index.html#era-payout).
-		type RewardRemainder: OnUnbalanced<NegativeImbalanceOf<Self>>;
 
 		/// The overarching event type.
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
@@ -197,9 +201,9 @@ pub mod pallet {
 		/// Interface for interacting with a session pallet.
 		type SessionInterface: SessionInterface<Self::AccountId>;
 
-		/// The payout for validators and the system for the current era.
-		/// See [Era payout](./index.html#era-payout).
-		type EraPayout: EraPayout<BalanceOf<Self>>;
+		/// The id of this pallet, used for static account generation.
+		#[pallet::constant]
+		type PalletId: Get<frame_support::PalletId>;
 
 		/// Something that can estimate the next session change, accurately or as a best effort
 		/// guess.
@@ -547,6 +551,7 @@ pub mod pallet {
 		ValueQuery,
 	>;
 
+	// TODO: remove.
 	/// The total validator era payout for the last [`Config::HistoryDepth`] eras.
 	///
 	/// Eras that haven't finished yet or has been removed doesn't have reward.
@@ -574,6 +579,7 @@ pub mod pallet {
 	#[pallet::getter(fn force_era)]
 	pub type ForceEra<T> = StorageValue<_, Forcing, ValueQuery>;
 
+	// TODO: remove
 	/// Maximum staked rewards, i.e. the percentage of the era inflation that
 	/// is used for stake rewards.
 	/// See [Era payout](./index.html#era-payout).
@@ -753,9 +759,8 @@ pub mod pallet {
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(crate) fn deposit_event)]
 	pub enum Event<T: Config> {
-		/// The era payout has been set; the first balance is the validator-payout; the second is
-		/// the remainder from the maximum amount of reward.
-		EraPaid { era_index: EraIndex, validator_payout: BalanceOf<T>, remainder: BalanceOf<T> },
+		/// The era payout has been set.
+		EraPaid { era_index: EraIndex, validator_payout: BalanceOf<T> },
 		/// The nominator has been rewarded by this amount to this destination.
 		Rewarded {
 			stash: T::AccountId,
@@ -875,25 +880,6 @@ pub mod pallet {
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-		fn on_initialize(_now: BlockNumberFor<T>) -> Weight {
-			// just return the weight of the on_finalize.
-			T::DbWeight::get().reads(1)
-		}
-
-		fn on_finalize(_n: BlockNumberFor<T>) {
-			// Set the start of the first era.
-			if let Some(mut active_era) = Self::active_era() {
-				if active_era.start.is_none() {
-					let now_as_millis_u64 = T::UnixTime::now().as_millis().saturated_into::<u64>();
-					active_era.start = Some(now_as_millis_u64);
-					// This write only ever happens once, we don't include it in the weight in
-					// general
-					ActiveEra::<T>::put(active_era);
-				}
-			}
-			// `on_finalize` weight is tracked in `on_initialize`
-		}
-
 		fn integrity_test() {
 			// ensure that we funnel the correct value to the `DataProvider::MaxVotesPerVoter`;
 			assert_eq!(

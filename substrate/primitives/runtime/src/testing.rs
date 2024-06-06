@@ -29,6 +29,7 @@ use crate::{
 	ApplyExtrinsicResultWithInfo, KeyTypeId,
 };
 use serde::{de::Error as DeError, Deserialize, Deserializer, Serialize, Serializer};
+use sp_arithmetic::traits::UniqueSaturatedInto;
 use sp_core::{
 	crypto::{key_types, ByteArray, CryptoType, Dummy},
 	U256,
@@ -81,6 +82,11 @@ impl UintAuthorityId {
 	pub fn to_public_key<T: ByteArray>(&self) -> T {
 		let bytes: [u8; 32] = U256::from(self.0).into();
 		T::from_slice(&bytes).unwrap()
+	}
+
+	/// Create a new `UintAuthorityId` from a `UniqueSaturatedInto<u64>` type.
+	pub fn saturated_from(i: impl UniqueSaturatedInto<u64>) -> Self {
+		UintAuthorityId(i.unique_saturated_into())
 	}
 }
 
