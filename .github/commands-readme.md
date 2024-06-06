@@ -24,7 +24,7 @@ GitHub's official documentation: [Manually running a workflow](https://docs.gith
 
 ### Number of the Pull Request
 
-The number of the pull request. Required so the action can fetch the repo.
+The number of the pull request. Required so the action can fetch the correct branch and comment if it fails.
 
 ## How to modify an action
 
