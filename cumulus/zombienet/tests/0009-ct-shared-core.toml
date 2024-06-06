@@ -21,14 +21,14 @@ command = "polkadot"
 
   [[relaychain.nodes]]
   name = "alice"
-  args = ["" ]
+  args = ["-lruntime=debug,parachain=trace,runtime::parachains::scheduler=trace,runtime::inclusion-inherent=trace,runtime::inclusion=trace,parachain::collator-protocol=trace" ]
 
   [[relaychain.node_groups]]
   name = "validator"
-  args = ["-lruntime=debug,parachain=trace,runtime::parachains::scheduler=trace,runtime::inclusion-inherent=trace,runtime::inclusion=trace" ]
-  count = 8
+  args = ["-lruntime=debug,parachain=trace,runtime::parachains::scheduler=trace,runtime::inclusion-inherent=trace,runtime::inclusion=trace,parachain::collator-protocol=trace" ]
+  count = 4
 
-{% for id in range(2000,2002) %}
+{% for id in range(2000,2003) %}
 [[parachains]]
 id = {{id}}
 addToGenesis = true
@@ -43,6 +43,6 @@ chain = "glutton-westend-local-{{id}}"
     name = "collator"
     image = "{{CUMULUS_IMAGE}}"
     command = "polkadot-parachain"
-    args = ["-lparachain=debug"]
+    args = ["-lparachain=debug,aura::cumulus=trace,parachain::collator-protocol=trace"]
 
 {% endfor %}

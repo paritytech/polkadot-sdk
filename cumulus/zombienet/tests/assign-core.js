@@ -34,7 +34,7 @@ async function run(nodeName, networkInfo, args) {
   // Wait for this transaction to be finalized in a block.
   await new Promise(async (resolve, reject) => {
     const unsub = await api.tx.sudo
-      .sudo(api.tx.coretime.assignCore(0, 0, [[{ task: 2000 }, 28800], [{ task: 2001 }, 28800]], null))
+      .sudo(api.tx.coretime.assignCore(0, 0, [[{ task: 2000 }, 19200], [{ task: 2001 }, 19200], [{ task: 2002 }, 19200]], null))
       .signAndSend(alice, ({ status, isError }) => {
         if (status.isInBlock) {
           console.log(
