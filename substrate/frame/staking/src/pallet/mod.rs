@@ -1184,7 +1184,9 @@ pub mod pallet {
 
 		/// Declare the desire to nominate `targets` for the origin controller.
 		///
-		/// Effects will be felt at the beginning of the next era.
+		///	The duplicate nominations will be implicitly removed. Only validators or idle stakers
+		///	are valid targets. If successful, the effects of this call will be felt at the beginning
+		/// of the next era.
 		///
 		/// The dispatch origin for this call must be _Signed_ by the controller, not the stash.
 		///
@@ -1218,7 +1220,7 @@ pub mod pallet {
 				}
 			}
 
-			ensure!(!targets.is_empty(), Error::<T>::EmptyTargets);
+			// Check if maximum nominations quota is respected.
 			ensure!(
 				targets.len() <= T::NominationsQuota::get_quota(ledger.active) as usize,
 				Error::<T>::TooManyTargets
@@ -1256,6 +1258,9 @@ pub mod pallet {
 				.collect::<Vec<_>>()
 				.try_into()
 				.map_err(|_| Error::<T>::TooManyNominators)?;
+
+			// Ensure final target vec is not empty.
+			ensure!(!targets.is_empty(), Error::<T>::EmptyTargets);
 
 			let nominations = Nominations {
 				targets,

@@ -167,8 +167,9 @@ pub mod pallet {
 		/// The staking interface.
 		type Staking: StakingInterface<AccountId = Self::AccountId>;
 
-		/// A sorted list provider for staking voters that is kept up to date by this pallet. The
-		/// sorting by score depends on the sorting mode set by [`Self::VoterUpdateMode`].
+		/// A sorted list provider for staking voters that is kept up to date by this pallet.
+		// [`Self::VoterUpdateMode`] defines whether this pallet will keep the voter list
+		// *strictly ordered* for every nominator stake updateor lazily ordered.
 		type VoterList: SortedListProvider<Self::AccountId, Score = VoteWeight>;
 
 		/// A sorted list provider for staking targets that is ketp *always* sorted by the target's
@@ -182,8 +183,8 @@ pub mod pallet {
 	impl<T: Config> Pallet<T> {
 		/// Updates the stake of a voter.
 		///
-		/// It must ensure that there are no duplicate nominations to prevent over-counting the
-		/// stake approval.
+		/// NOTE: This method expects `nominations` to be deduplicated, otherwise the approvals
+		/// stakes of the duplicated target may become higher than expected silently.
 		pub(crate) fn do_stake_update_voter(
 			who: &T::AccountId,
 			prev_stake: Option<Stake<BalanceOf<T>>>,
@@ -247,7 +248,7 @@ pub mod pallet {
 			// if target list does not contain target, add it and proceed.
 			if !T::TargetList::contains(who) {
 				T::TargetList::on_insert(who.clone(), Zero::zero())
-					.expect("staker does not exist in the list as per check above; qed.");
+					.expect("staker does not yet exist in the list as per check above; qed.");
 			}
 
 			// update target score.
@@ -298,7 +299,7 @@ pub mod pallet {
 		/// Returns whether a nomination vec has duplicate targets.
 		///
 		/// Used for debug assertions only, since this pallet expects the nominations to be
-		/// deduplicated.
+		/// deduplicated at all places.
 		pub fn has_duplicate_nominations(mut v: Vec<T::AccountId>) -> bool {
 			use sp_std::collections::btree_set::BTreeSet;
 			let size_before = v.len();
@@ -334,11 +335,13 @@ impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
 		}
 	}
 
-	/// A validator is also considered a voter with self-vote and should also be added to
+	/// Triggered when a new validator is added to the system.
+	///
+	/// Overview: If `who` is part of the target list, update its score. Otherwise, insert a new
+	/// node to the target list with self-stake as initial node score.
+	///
+	/// A validator is also considered a voter with self-vote and should be added to
 	/// [`Config::VoterList`].
-	//
-	/// Note: it is assumed that `who`'s ledger staking state is updated *before* calling this
-	/// method.
 	fn on_validator_add(who: &T::AccountId, self_stake: Stake<BalanceOf<T>>) {
 		let self_stake = Self::to_vote(self_stake.active).into();
 
@@ -360,10 +363,12 @@ impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
 		Self::on_nominator_add(who, vec![])
 	}
 
-	/// A validator has been chilled. The target node remains in the target list.
+	/// Triggered when a validator is chilled.
 	///
-	/// While idling, the target node is not removed from the target list but its score is
-	/// updated.
+	/// Overview: When chilled, the target node may not be removed from the target list. The
+	/// associated target list score is updated so that the self-stake is decreased from itself. If
+	/// the final target score drops to 0, the node is removed since we can guarantee that there are
+	/// no nominators voting for the chlled target.
 	fn on_validator_idle(who: &T::AccountId) {
 		let self_stake = Self::vote_of(who);
 		Self::update_target_score(who, StakeImbalance::Negative(self_stake.into()));
@@ -372,12 +377,14 @@ impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
 		Self::on_nominator_idle(who, vec![]);
 	}
 
-	/// A validator has been set as inactive/removed from the staking POV.
+	/// Triggered when a validator is set as inactive/removed by the staking system.
 	///
-	/// The target node is removed from the target list IFF its score is 0. Otherwise, its score
-	/// should be kept up to date as if the validator was active.
+	/// Overview: Updates the target list score so that `who`'s self-vote is decreased from itself.
+	/// The target node is removed from the target list IFF its score is 0 after update. Otherwise,
+	/// it means that there are "dangling" nominations to `who`, ie. there are nominators who are
+	/// nominating `who`. even though it is chilled/removed.
 	fn on_validator_remove(who: &T::AccountId) {
-		// validator must be idle before removing completely. Perform some sanity checks too.
+		// validator must be idle before removing completely.
 		match T::Staking::status(who) {
 			Ok(StakerStatus::Idle) => (), // proceed
 			Ok(StakerStatus::Validator) => Self::on_validator_idle(who),
@@ -404,12 +411,12 @@ impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
 		};
 	}
 
-	/// A nominator has been added to the system.
+	/// Triggered when a new nominator is added to the system.
 	///
-	/// Even in lazy mode, inserting voter list nodes on new nominator must be done.
+	/// Overview: Inserts a new node in the voter list with the score being `who`'s bonded stake.
+	/// The new node is inserted regardless of the [`Self::VoterUpdateMode`] set.
 	///
-	/// Note: it is assumed that `who`'s ledger staking state is updated *before* this method is
-	/// called.
+	/// Note: this method is also used locally when adding a new target (target is also a voter).
 	fn on_nominator_add(who: &T::AccountId, nominations: Vec<AccountIdOf<T>>) {
 		debug_assert!(!Self::has_duplicate_nominations(nominations.clone()));
 
@@ -433,19 +440,18 @@ impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
 		};
 	}
 
-	/// A nominator has been idle. From the `T::VotertList` PoV, chilling a nominator is the same as
-	/// removing it.
+	/// Triggered when a nominator is chilled.
 	///
-	/// Note: it is assumed that `who`'s staking ledger and `nominations` are up to date before
-	/// calling this method.
+	/// Overview: From this pallet POV, chilling a nominator is the same as removing it, since each
+	/// nominator only has self-stake as the voter list's node score.
 	fn on_nominator_idle(who: &T::AccountId, nominations: Vec<T::AccountId>) {
 		Self::on_nominator_remove(who, nominations);
 	}
 
-	/// Fired when someone removes their intention to nominate and is completely removed from
-	/// the staking state.
+	/// Triggered when a nominator is removed (or chilled).
 	///
-	/// Even in lazy mode, removing voter list nodes on nominator remove must be done.
+	/// Overview: for each of `who`'s nomination targets, decrease `who`'s self-stake from their
+	/// score. In addition, remove `who`'s node from the voter list.
 	///
 	/// Note: the number of nodes that are updated is bounded by the maximum number of
 	/// nominators, which is defined in the staking pallet.
@@ -464,12 +470,13 @@ impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
 		);
 	}
 
-	/// This is called when a nominator updates their nominations. The nominator's stake remains
-	/// the same (updates to the nominator's stake should emit [`Self::on_stake_update`]
-	/// instead). However, the score of the nominated targets must be updated accordingly.
+	/// Triggered when a nominator updates their nominations.
 	///
-	/// Note: it is assumed that `who`'s ledger staking state is updated *before* calling this
-	/// method.
+	/// Overview: The approval scores of the the targets affected by the nomination updates must be
+	/// updated accordingly.
+	///
+	/// Note that the nominator's stake remains the same (updates to the nominator's stake should
+	/// emit [`Self::on_stake_update`] instead).
 	fn on_nominator_update(
 		who: &T::AccountId,
 		prev_nominations: Vec<T::AccountId>,
@@ -494,11 +501,12 @@ impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
 		}
 	}
 
-	/// This is called when a staker is slashed.
+	/// Triggered when a staker (nominator/validator) is slashed.
 	///
-	/// From the stake-tracker POV, no direct changes should be made to the target or voter list in
+	/// From the stake-tracker POV, no direct updates should be made to the target or voter list in
 	/// this event handler, since the stake updates from a slash will be indirectly performed
-	/// through the call to `on_stake_update`.
+	/// through the call to `on_stake_update` resulting from the slash performed at a higher level
+	/// (i.e. by staking).
 	///
 	/// However, if a slash of a nominator results on its active stake becoming 0, the stake
 	/// tracker *requests* the staking interface to chill the nominator in order to ensure that

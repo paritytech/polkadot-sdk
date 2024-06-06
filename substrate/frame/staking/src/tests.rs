@@ -8687,6 +8687,40 @@ mod stake_tracker {
 			);
 		})
 	}
+
+	#[test]
+	fn drop_dangling_nominations_chills_works() {
+		ExtBuilder::default().try_state(false).build_and_execute(|| {
+			// setup.
+			bond_validator(42, 10);
+
+			assert_ok!(Staking::bond(RuntimeOrigin::signed(90), 500, RewardDestination::Staked));
+			assert_ok!(Staking::nominate(RuntimeOrigin::signed(90), vec![42]));
+
+			// 42 chills & unbonds completely.
+			assert_ok!(Staking::chill(RuntimeOrigin::signed(42)));
+			Ledger::<Test>::remove(42);
+			Bonded::<Test>::remove(42);
+
+			// 90 is now nominating 42.
+			assert_ok!(Staking::status(&90), StakerStatus::Nominator(vec![42]));
+			// 42 is unbonded ..
+			assert!(Staking::status(&42).is_err());
+			// .. and still part of the target list (thus dangling).
+			assert!(TargetBagsList::contains(&42));
+
+			// since 90 is *only* nominating a dangling target, it will be chilled after
+			// calling `drop_danlging_nomination`.
+			assert_ok!(Staking::drop_dangling_nomination(RuntimeOrigin::signed(1), 90, 42));
+			assert_ok!(Staking::status(&90), StakerStatus::Idle);
+			assert!(!TargetBagsList::contains(&42));
+
+			assert_eq!(
+				*mock::staking_events().last().unwrap(),
+				Event::<Test>::DanglingNominationsDropped { nominator: 90, count: 1 }.into(),
+			);
+		})
+	}
 }
 
 mod ledger {

@@ -414,7 +414,8 @@ impl<T: Config> Pallet<T> {
 	/// Removes dangling nominations from a nominator.
 	///
 	/// If `maybe_target` is `None`, search for *all* dangling nominations and drop them. Otherwise
-	/// drop only one dangling target.
+	/// drop only one dangling target. If the new set of nominations without the dangling targets
+	/// is empry, the `nominator` is chilled.
 	///
 	/// IMPORTANT NOTE: if `maybe_target` is set, it is assumed that the target is indeed dangling.
 	/// No further checks are performed in this method.
@@ -422,29 +423,41 @@ impl<T: Config> Pallet<T> {
 		nominator: &T::AccountId,
 		target: Option<&T::AccountId>,
 	) -> Result<BoundedVec<T::AccountId, MaxNominationsOf<T>>, DispatchError> {
-		let nominations_after = match (target, Self::status(&nominator)) {
+		let (size_before, nominations_after) = match (target, Self::status(&nominator)) {
 			(None, Ok(StakerStatus::Nominator(nominations))) => {
 				// target not set, filter out all non-validator nominations.
-				nominations
-					.into_iter()
-					.filter(|n| Self::status(n) == Ok(StakerStatus::Validator))
-					.collect::<Vec<_>>()
+				(
+					nominations.len(),
+					nominations
+						.into_iter()
+						.filter(|n| Self::status(n) == Ok(StakerStatus::Validator))
+						.collect::<Vec<_>>(),
+				)
 			},
 			(Some(target), Ok(StakerStatus::Nominator(nominations))) => {
 				debug_assert!(Self::status(&target).is_err() && T::TargetList::contains(&target),);
 
-				nominations.iter().cloned().filter(|n| n != target).collect::<Vec<_>>()
+				(
+					nominations.len(),
+					nominations.iter().cloned().filter(|n| n != target).collect::<Vec<_>>(),
+				)
 			},
 			// not a nominator, return earlier.
 			(_, _) => return Err(Error::<T>::NotNominator.into()),
 		};
 
-		// no dangling nominations, return earlier.
-		if nominations_after.len().is_zero() {
+		// no dangling targets after all.
+		if nominations_after.len() == size_before {
 			return Err(Error::<T>::NotDanglingTarget.into());
 		}
 
-		<Self as StakingInterface>::nominate(nominator, nominations_after.clone())?;
+		if nominations_after.len().is_zero() {
+			// no valid nominations left, chill nominator.
+			<Self as StakingInterface>::chill(nominator)?;
+		} else {
+			// update the nominations without the dangling(s) nominations.
+			<Self as StakingInterface>::nominate(nominator, nominations_after.clone())?;
+		}
 
 		Ok(BoundedVec::truncate_from(nominations_after))
 	}
