@@ -589,8 +589,10 @@ impl<T: Config> Pallet<T> {
 			Self::era_payout_account(era_index),
 			T::Currency::total_balance(&Self::era_payout_account(era_index))
 		);
-		T::Currency::total_balance(&Self::era_payout_account(era_index))
-			.saturating_sub(T::Currency::minimum_balance())
+
+		ErasValidatorReward::<T>::get(era_index).unwrap_or_default()
+		// T::Currency::total_balance(&Self::era_payout_account(era_index))
+		// 	.saturating_sub(T::Currency::minimum_balance())
 	}
 
 	/// Compute payout for era.
@@ -617,9 +619,14 @@ impl<T: Config> Pallet<T> {
 		)
 		.defensive();
 
+		let era_validator_payout = pending_payout.saturating_sub(T::Currency::minimum_balance());
+
+		// Update reward amount for the era.
+		ErasValidatorReward::<T>::insert(active_era.index, era_validator_payout);
+
 		Self::deposit_event(Event::<T>::EraPaid {
 			era_index: active_era.index,
-			validator_payout: pending_payout.saturating_sub(T::Currency::minimum_balance()),
+			validator_payout: era_validator_payout,
 		});
 
 		// Clear disabled validators.
@@ -2291,7 +2298,7 @@ impl<T: Config> Pallet<T> {
 
 				// We take total instead of active as the nominator might have requested to unbond
 				// some of their stake that is still exposed in the current era.
-				if sum <= Self::ledger(Stash(nominator.clone()))?.total {
+				if sum < Self::ledger(Stash(nominator.clone()))?.total {
 					// This can happen when there is a slash in the current era so we only warn.
 					log!(warn, "nominator stake exceeds what is bonded.");
 				}

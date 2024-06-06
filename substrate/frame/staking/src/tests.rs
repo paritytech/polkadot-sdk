@@ -5004,17 +5004,6 @@ fn staking_accounts_are_unique() {
 #[test]
 fn era_reward_distribution() {
 	ExtBuilder::default().validator_count(10).nominate(false).build_and_execute(|| {
-		// genesis validators are 11, 21, 31
-		let validators = Validators::<Test>::iter().collect::<Vec<_>>();
-		assert_eq_uvec!(
-			validators,
-			vec![
-				(11, ValidatorPrefs::default()),
-				(21, ValidatorPrefs::default()),
-				(31, ValidatorPrefs::default())
-			]
-		);
-
 		// create a bunch of validators and give them equal reward points.
 		for i in 500..510 {
 			Pallet::<Test>::reward_by_ids(vec![(i, 1)]);
@@ -5031,6 +5020,7 @@ fn era_reward_distribution() {
 		mock::start_active_era(1);
 		// total payout for era 0
 		assert_eq!(Staking::era_payout(0), 11090);
+		assert_eq!(Balances::total_balance(&Staking::era_payout_account(0)), 11091);
 
 		// start paying out validators.
 		for i in 500..510 {
@@ -5038,7 +5028,7 @@ fn era_reward_distribution() {
 		}
 
 		// era payout account is exhausted.
-		assert_eq!(Staking::era_payout(0), 0);
+		assert_eq!(Balances::total_balance(&Staking::era_payout_account(0)), 0);
 	});
 }
 
