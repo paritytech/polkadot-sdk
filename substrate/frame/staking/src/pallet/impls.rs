@@ -334,7 +334,7 @@ impl<T: Config> Pallet<T> {
 			Perbill::from_rational(validator_reward_points, total_reward_points);
 
 		// This is how much validator + nominators are entitled to.
-		let validator_total_payout = validator_total_reward_part * era_payout;
+		let validator_total_payout = validator_total_reward_part.mul_floor(era_payout);
 
 		let validator_commission = EraInfo::<T>::get_validator_commission(era, &ledger.stash);
 		// total commission validator takes across all nominator pages
@@ -357,6 +357,15 @@ impl<T: Config> Pallet<T> {
 		// We can now make total validator payout:
 		let payer = Self::era_payout_account(era);
 		let validator_payout = validator_staking_payout + validator_commission_payout;
+
+		log!(
+			debug,
+			"Payout started for validator {:?}. Total payout {:?} to be distributed among {:?} nominators.",
+			stash,
+			validator_total_payout,
+			exposure.others().len()
+		);
+
 		if let Some(dest) = Self::make_payout(
 			&payer,
 			&stash,
@@ -376,7 +385,7 @@ impl<T: Config> Pallet<T> {
 			let nominator_exposure_part = Perbill::from_rational(nominator.value, exposure.total());
 
 			let nominator_reward: BalanceOf<T> =
-				nominator_exposure_part * validator_leftover_payout;
+				nominator_exposure_part.mul_floor(validator_leftover_payout);
 			// We can now make nominator payout:
 			if let Some(dest) = Self::make_payout(&payer, &nominator.who, nominator_reward) {
 				// Note: this logic does not count payouts for `RewardDestination::None`.
