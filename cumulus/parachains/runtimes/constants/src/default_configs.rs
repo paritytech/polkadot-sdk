@@ -16,8 +16,6 @@
 // This builds on the DefaultConfigs for the various pallets to maximise the usefulness of
 // [`derive_impl`] for the system parachains runtimes for testnets.
 
-#![cfg_attr(not(feature = "std"), no_std)]
-
 use super::*;
 use frame_support::pallet_prelude::*;
 use parachains_common::{AccountId, Balance, Hash, Nonce};
