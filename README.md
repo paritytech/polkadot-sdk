@@ -38,6 +38,7 @@ forks](https://img.shields.io/github/forks/paritytech/polkadot-sdk)
 The Polkadot-SDK has two release channels: `stable` and `nightly`. Production software is advised to
 only use `stable`. `nightly` is meant for tinkerers to try out the latest features. The detailed
 release process is described in [RELEASE.md](docs/RELEASE.md).
+In case of dependency update, please use [Polkadot SDK Version Manager](https://github.com/paritytech/psvm).
 
 ### 😌 Stable
 
