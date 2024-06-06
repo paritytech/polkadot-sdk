@@ -277,6 +277,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#126" id="126">126</a>
 <a href="#127" id="127">127</a>
 <a href="#128" id="128">128</a>
+<a href="#129" id="129">129</a>
+<a href="#130" id="130">130</a>
+<a href="#131" id="131">131</a>
+<a href="#132" id="132">132</a>
+<a href="#133" id="133">133</a>
+<a href="#134" id="134">134</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -300,8 +306,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	worker_interface::{spawn_with_program_path, SpawnErr},
 };
 
-<span class="kw">use </span><span class="kw">crate</span>::get_worker_version;
+<span class="kw">use crate</span>::{artifacts::ArtifactId, get_worker_version};
 <span class="kw">use </span>is_executable::IsExecutable;
+<span class="kw">use </span>polkadot_node_core_pvf_common::pvf::PvfPrepData;
 <span class="kw">use </span>polkadot_node_primitives::NODE_VERSION;
 <span class="kw">use </span>polkadot_primitives::ExecutorParams;
 <span class="kw">use </span>std::{
@@ -404,6 +411,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">let </span>guard = mutex.lock().unwrap();
 	(guard.<span class="number">0</span>.clone(), guard.<span class="number">1</span>.clone())
+}
+
+<span class="doccomment">/// Creates a new PVF which artifact id can be uniquely identified by the given number.
+</span><span class="kw">pub fn </span>artifact_id(discriminator: u32) -&gt; ArtifactId {
+	ArtifactId::from_pvf_prep_data(<span class="kw-2">&amp;</span>PvfPrepData::from_discriminator(discriminator))
 }
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 

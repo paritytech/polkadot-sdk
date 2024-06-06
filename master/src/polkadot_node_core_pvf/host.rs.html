@@ -1959,7 +1959,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! [`ValidationHost`], that allows communication with that event-loop.
 
 </span><span class="kw">use crate</span>::{
-	artifacts::{ArtifactId, ArtifactPathId, ArtifactState, Artifacts},
+	artifacts::{ArtifactId, ArtifactPathId, ArtifactState, Artifacts, ArtifactsCleanupConfig},
 	execute::{<span class="self">self</span>, PendingExecutionRequest},
 	metrics::Metrics,
 	prepare, Priority, SecurityStatus, ValidationError, LOG_TARGET,
@@ -2231,7 +2231,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">let </span>run_host = <span class="kw">async move </span>{
 		run(Inner {
 			cleanup_pulse_interval: Duration::from_secs(<span class="number">3600</span>),
-			artifact_ttl: Duration::from_secs(<span class="number">3600 </span>* <span class="number">24</span>),
+			cleanup_config: ArtifactsCleanupConfig::default(),
 			artifacts,
 			to_host_rx,
 			to_prepare_queue_tx,
@@ -2275,7 +2275,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">struct </span>Inner {
 	cleanup_pulse_interval: Duration,
-	artifact_ttl: Duration,
+	cleanup_config: ArtifactsCleanupConfig,
 	artifacts: Artifacts,
 
 	to_host_rx: mpsc::Receiver&lt;ToHost&gt;,
@@ -2297,7 +2297,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">async fn </span>run(
 	Inner {
 		cleanup_pulse_interval,
-		artifact_ttl,
+		cleanup_config,
 		<span class="kw-2">mut </span>artifacts,
 		to_host_rx,
 		from_prepare_queue_rx,
@@ -2353,7 +2353,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				</span><span class="macro">break_if_fatal!</span>(handle_cleanup_pulse(
 					<span class="kw-2">&amp;mut </span>to_sweeper_tx,
 					<span class="kw-2">&amp;mut </span>artifacts,
-					artifact_ttl,
+					<span class="kw-2">&amp;</span>cleanup_config,
 				).<span class="kw">await</span>);
 			},
 			to_host = to_host_rx.next() =&gt; {
@@ -2741,8 +2741,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="kw-2">*</span>state = <span class="kw">match </span>result {
-		<span class="prelude-val">Ok</span>(PrepareSuccess { path, stats: prepare_stats }) =&gt;
-			ArtifactState::Prepared { path, last_time_needed: SystemTime::now(), prepare_stats },
+		<span class="prelude-val">Ok</span>(PrepareSuccess { path, stats: prepare_stats, size }) =&gt; ArtifactState::Prepared {
+			path,
+			last_time_needed: SystemTime::now(),
+			size,
+			prepare_stats,
+		},
 		<span class="prelude-val">Err</span>(error) =&gt; {
 			<span class="kw">let </span>last_time_failed = SystemTime::now();
 			<span class="kw">let </span>num_failures = <span class="kw-2">*</span>num_failures + <span class="number">1</span>;
@@ -2797,9 +2801,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">async fn </span>handle_cleanup_pulse(
 	sweeper_tx: <span class="kw-2">&amp;mut </span>mpsc::Sender&lt;PathBuf&gt;,
 	artifacts: <span class="kw-2">&amp;mut </span>Artifacts,
-	artifact_ttl: Duration,
+	cleanup_config: <span class="kw-2">&amp;</span>ArtifactsCleanupConfig,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;(), Fatal&gt; {
-	<span class="kw">let </span>to_remove = artifacts.prune(artifact_ttl);
+	<span class="kw">let </span>to_remove = artifacts.prune(cleanup_config);
 	<span class="macro">gum::debug!</span>(
 		target: LOG_TARGET,
 		<span class="string">"PVF pruning: {} artifacts reached their end of life"</span>,
@@ -2897,7 +2901,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="attr">#[cfg(test)]
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">mod </span>tests {
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
-	<span class="kw">use crate</span>::{artifacts::generate_artifact_path, PossiblyInvalidError};
+	<span class="kw">use crate</span>::{artifacts::generate_artifact_path, testing::artifact_id, PossiblyInvalidError};
 	<span class="kw">use </span>assert_matches::assert_matches;
 	<span class="kw">use </span>futures::future::BoxFuture;
 	<span class="kw">use </span>polkadot_node_core_pvf_common::prepare::PrepareStats;
@@ -2919,14 +2923,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 	}
 
-	<span class="doccomment">/// Creates a new PVF which artifact id can be uniquely identified by the given number.
-	</span><span class="kw">fn </span>artifact_id(discriminator: u32) -&gt; ArtifactId {
-		ArtifactId::from_pvf_prep_data(<span class="kw-2">&amp;</span>PvfPrepData::from_discriminator(discriminator))
-	}
-
 	<span class="kw">struct </span>Builder {
 		cleanup_pulse_interval: Duration,
-		artifact_ttl: Duration,
+		cleanup_config: ArtifactsCleanupConfig,
 		artifacts: Artifacts,
 	}
 
@@ -2935,8 +2934,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="self">Self </span>{
 				<span class="comment">// these are selected high to not interfere in tests in which pruning is irrelevant.
 				</span>cleanup_pulse_interval: Duration::from_secs(<span class="number">3600</span>),
-				artifact_ttl: Duration::from_secs(<span class="number">3600</span>),
-
+				cleanup_config: ArtifactsCleanupConfig::default(),
 				artifacts: Artifacts::empty(),
 			}
 		}
@@ -2960,7 +2958,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="kw">impl </span>Test {
-		<span class="kw">fn </span>new(Builder { cleanup_pulse_interval, artifact_ttl, artifacts }: Builder) -&gt; <span class="self">Self </span>{
+		<span class="kw">fn </span>new(Builder { cleanup_pulse_interval, artifacts, cleanup_config }: Builder) -&gt; <span class="self">Self </span>{
 			<span class="kw">let </span>(to_host_tx, to_host_rx) = mpsc::channel(<span class="number">10</span>);
 			<span class="kw">let </span>(to_prepare_queue_tx, to_prepare_queue_rx) = mpsc::channel(<span class="number">10</span>);
 			<span class="kw">let </span>(from_prepare_queue_tx, from_prepare_queue_rx) = mpsc::unbounded();
@@ -2970,7 +2968,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="kw">let </span>run = run(Inner {
 				cleanup_pulse_interval,
-				artifact_ttl,
+				cleanup_config,
 				artifacts,
 				to_host_rx,
 				to_prepare_queue_tx,
@@ -3121,19 +3119,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">let </span><span class="kw-2">mut </span>builder = Builder::default();
 		builder.cleanup_pulse_interval = Duration::from_millis(<span class="number">100</span>);
-		builder.artifact_ttl = Duration::from_millis(<span class="number">500</span>);
+		builder.cleanup_config = ArtifactsCleanupConfig::new(<span class="number">1024</span>, Duration::from_secs(<span class="number">0</span>));
 		<span class="kw">let </span>path1 = generate_artifact_path(cache_path);
 		<span class="kw">let </span>path2 = generate_artifact_path(cache_path);
 		builder.artifacts.insert_prepared(
 			artifact_id(<span class="number">1</span>),
 			path1.clone(),
 			mock_now,
+			<span class="number">1024</span>,
 			PrepareStats::default(),
 		);
 		builder.artifacts.insert_prepared(
 			artifact_id(<span class="number">2</span>),
 			path2.clone(),
 			mock_now,
+			<span class="number">1024</span>,
 			PrepareStats::default(),
 		);
 		<span class="kw">let </span><span class="kw-2">mut </span>test = builder.build();

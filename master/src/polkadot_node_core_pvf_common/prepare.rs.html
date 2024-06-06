@@ -227,6 +227,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#76" id="76">76</a>
 <a href="#77" id="77">77</a>
 <a href="#78" id="78">78</a>
+<a href="#79" id="79">79</a>
+<a href="#80" id="80">80</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -260,6 +262,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub struct </span>PrepareSuccess {
 	<span class="doccomment">/// Canonical path to the compiled artifact.
 	</span><span class="kw">pub </span>path: PathBuf,
+	<span class="doccomment">/// Size in bytes
+	</span><span class="kw">pub </span>size: u64,
 	<span class="doccomment">/// Stats of the current preparation run.
 	</span><span class="kw">pub </span>stats: PrepareStats,
 }

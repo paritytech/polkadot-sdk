@@ -506,6 +506,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#355" id="355">355</a>
 <a href="#356" id="356">356</a>
 <a href="#357" id="357">357</a>
+<a href="#358" id="358">358</a>
+<a href="#359" id="359">359</a>
+<a href="#360" id="360">360</a>
+<a href="#361" id="361">361</a>
+<a href="#362" id="362">362</a>
+<a href="#363" id="363">363</a>
+<a href="#364" id="364">364</a>
+<a href="#365" id="365">365</a>
+<a href="#366" id="366">366</a>
+<a href="#367" id="367">367</a>
+<a href="#368" id="368">368</a>
+<a href="#369" id="369">369</a>
+<a href="#370" id="370">370</a>
+<a href="#371" id="371">371</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -742,6 +756,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">return </span>Outcome::TimedOut
 	}
 
+	<span class="kw">let </span>size = <span class="kw">match </span>tokio::fs::metadata(cache_path).<span class="kw">await </span>{
+		<span class="prelude-val">Ok</span>(metadata) =&gt; metadata.len(),
+		<span class="prelude-val">Err</span>(err) =&gt; {
+			<span class="macro">gum::warn!</span>(
+				target: LOG_TARGET,
+				<span class="question-mark">?</span>cache_path,
+				<span class="string">"failed to read size of the artifact: {}"</span>,
+				err,
+			);
+			<span class="kw">return </span>Outcome::IoErr(err.to_string())
+		},
+	};
+
 	<span class="comment">// The file name should uniquely identify the artifact even across restarts. In case the cache
 	// for some reason is not cleared correctly, we cannot
 	// accidentally execute an artifact compiled under a different wasmtime version, host
@@ -761,6 +788,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			worker,
 			result: <span class="prelude-val">Ok</span>(PrepareSuccess {
 				path: artifact_path,
+				size,
 				stats: PrepareStats { cpu_time_elapsed, memory_stats: memory_stats.clone() },
 			}),
 		},
