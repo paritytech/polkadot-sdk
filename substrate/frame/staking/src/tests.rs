@@ -5021,14 +5021,24 @@ fn era_reward_distribution() {
 		// total payout for era 0
 		assert_eq!(Staking::era_payout(0), 11090);
 		assert_eq!(Balances::total_balance(&Staking::era_payout_account(0)), 11091);
+		System::reset_events();
 
 		// start paying out validators.
 		for i in 500..510 {
 			assert_ok!(Staking::payout_stakers_by_page(RuntimeOrigin::signed(1337), i, 0, 0));
+			assert_eq!(
+				staking_events_since_last_call(),
+				vec![
+					Event::PayoutStarted { era_index: 0, validator_stash: i },
+					Event::Rewarded { stash: i, dest: RewardDestination::Stash, amount: 1109 }
+				]
+			);
 		}
 
 		// era payout account is exhausted.
-		assert_eq!(Balances::total_balance(&Staking::era_payout_account(0)), 0);
+		// TODO(ank4n): why should we leave ED in the account? if we have to, should burn/transfer
+		// at end of 84 eras.
+		assert_eq!(Balances::total_balance(&Staking::era_payout_account(0)), 1);
 	});
 }
 
