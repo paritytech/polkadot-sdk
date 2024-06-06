@@ -31,6 +31,9 @@ jobs:
       - name: Install gh cli
         id: gh
         uses: ./.github/actions/set-up-gh
+        with:
+          pr-number: ${{ inputs.pr }}
+          GH_TOKEN: ${{ github.token }}
       - name: Run update-ui
         run: |
           "./scripts/update-ui-tests.sh" "${{ inputs.rust-version }}"
