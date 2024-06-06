@@ -16,7 +16,7 @@
 
 //! Version 4 of the Cross-Consensus Message format data structures.
 
-pub use super::v2::GetWeight;
+pub use super::v3::GetWeight;
 use super::v3::{
 	Instruction as OldInstruction, PalletInfo as OldPalletInfo,
 	QueryResponseInfo as OldQueryResponseInfo, Response as OldResponse, Xcm as OldXcm,
@@ -24,12 +24,12 @@ use super::v3::{
 use crate::DoubleEncoded;
 use alloc::{vec, vec::Vec};
 use bounded_collections::{parameter_types, BoundedVec};
-use core::{fmt::Debug, result};
-use derivative::Derivative;
-use parity_scale_codec::{
+use codec::{
 	self, decode_vec_with_len, Compact, Decode, Encode, Error as CodecError, Input as CodecInput,
 	MaxEncodedLen,
 };
+use core::{fmt::Debug, result};
+use derivative::Derivative;
 use scale_info::TypeInfo;
 
 mod asset;

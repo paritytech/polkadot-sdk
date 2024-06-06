@@ -16,7 +16,7 @@
 
 pub use float_json_value::FloatJsonValueMetric;
 pub use global::GlobalMetrics;
-pub use substrate_prometheus_endpoint::{
+pub use prometheus_endpoint::{
 	prometheus::core::{Atomic, Collector},
 	register, Counter, CounterVec, Gauge, GaugeVec, Opts, PrometheusError, Registry, F64, I64, U64,
 };

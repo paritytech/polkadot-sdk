@@ -316,11 +316,11 @@ pub mod primitives {
 ///
 /// This is already part of the [`prelude`].
 pub mod derive {
+	pub use codec::{Decode, Encode};
 	pub use frame_support::{
 		CloneNoBound, DebugNoBound, DefaultNoBound, EqNoBound, OrdNoBound, PartialEqNoBound,
 		PartialOrdNoBound, RuntimeDebugNoBound,
 	};
-	pub use parity_scale_codec::{Decode, Encode};
 	pub use scale_info::TypeInfo;
 	pub use sp_runtime::RuntimeDebug;
 	pub use sp_std::fmt::Debug;
@@ -345,7 +345,7 @@ pub mod deps {
 	pub use sp_runtime;
 	pub use sp_std;
 
-	pub use parity_scale_codec as codec;
+	pub use codec;
 	pub use scale_info;
 
 	#[cfg(feature = "runtime")]
@@ -363,5 +363,15 @@ pub mod deps {
 	#[cfg(feature = "runtime")]
 	pub use sp_offchain;
 	#[cfg(feature = "runtime")]
+	pub use sp_storage;
+	#[cfg(feature = "runtime")]
 	pub use sp_version;
+
+	#[cfg(feature = "runtime-benchmarks")]
+	pub use frame_benchmarking;
+	#[cfg(feature = "runtime-benchmarks")]
+	pub use frame_system_benchmarking;
+
+	#[cfg(feature = "frame-try-runtime")]
+	pub use frame_try_runtime;
 }

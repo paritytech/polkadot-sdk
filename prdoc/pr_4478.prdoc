@@ -1,0 +1,13 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Snowbridge - Ethereum Client - Reject finalized updates without a sync committee in next store period
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Bug fix in the Ethereum light client that stalls the light client when an update in the next sync committee period is received without receiving the next sync committee update in the next period.
+
+crates:
+  - name: snowbridge-pallet-ethereum-client
+    bump: patch
