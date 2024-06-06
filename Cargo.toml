@@ -406,6 +406,7 @@ members = [
 	"substrate/frame/statement",
 	"substrate/frame/sudo",
 	"substrate/frame/support",
+	"substrate/frame/support/fuzzer",
 	"substrate/frame/support/procedural",
 	"substrate/frame/support/procedural/tools",
 	"substrate/frame/support/procedural/tools/derive",
