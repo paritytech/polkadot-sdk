@@ -3855,6 +3855,7 @@ fn test_multi_page_payout_stakers_by_page() {
 		assert_eq!(EraInfo::<Test>::get_page_count(1, &11), 2);
 
 		// compute and ensure the reward amount is greater than zero.
+		let pre_era_end_total_issuance = Balances::total_issuance();
 		mock::start_active_era(2);
 		let payout = dbg!(Staking::era_payout(1));
 		dbg!(Staking::era_payout(0));
@@ -3870,7 +3871,6 @@ fn test_multi_page_payout_stakers_by_page() {
 		assert_eq!(actual_exposure_1.own(), 0);
 		assert_eq!(actual_exposure_1.others().len(), 100 - 64);
 
-		let pre_payout_total_issuance = Balances::total_issuance();
 		RewardOnUnbalanceWasCalled::set(false);
 		System::reset_events();
 
@@ -3892,8 +3892,8 @@ fn test_multi_page_payout_stakers_by_page() {
 		let controller_balance_after_p0_payout = Balances::free_balance(&11);
 
 		// verify rewards have been paid out but still some left
-		assert!(Balances::total_issuance() > pre_payout_total_issuance);
-		assert!(Balances::total_issuance() < pre_payout_total_issuance + payout);
+		assert!(Balances::total_issuance() > pre_era_end_total_issuance);
+		assert_eq!(Balances::total_issuance(), pre_era_end_total_issuance + payout + 1);
 
 		// verify the validator has been rewarded
 		assert!(controller_balance_after_p0_payout > controller_balance_before_p0_payout);
@@ -3916,8 +3916,10 @@ fn test_multi_page_payout_stakers_by_page() {
 		assert_eq!(Balances::free_balance(&11), controller_balance_after_p0_payout);
 
 		// verify all rewards have been paid out
-		assert_eq_error_rate!(Balances::total_issuance(), pre_payout_total_issuance + payout, 2);
-		assert!(RewardOnUnbalanceWasCalled::get());
+		assert_eq_error_rate!(Balances::total_issuance(), pre_era_end_total_issuance + payout, 2);
+		// with reward payout not minting tokens anymore, RewardOnUnbalanceWasCalled should not have
+		// been called. TODO(ank4n): `type Reward: OnUnbalanced` can be removed.
+		assert!(!RewardOnUnbalanceWasCalled::get());
 
 		// Top 64 nominators of validator 11 automatically paid out, including the validator
 		assert!(Balances::free_balance(&11) > balance);
@@ -3955,18 +3957,17 @@ fn test_multi_page_payout_stakers_by_page() {
 			Staking::reward_by_ids(vec![(11, 1)]);
 
 			// compute and ensure the reward amount is greater than zero.
-
+			let pre_era_end_total_issuance = Balances::total_issuance();
 			mock::start_active_era(i);
 			let payout = Staking::era_payout(i - 1);
-			let pre_payout_total_issuance = Balances::total_issuance();
 			RewardOnUnbalanceWasCalled::set(false);
 			mock::make_all_reward_payment(i - 1);
 			assert_eq_error_rate!(
 				Balances::total_issuance(),
-				pre_payout_total_issuance + payout,
+				pre_era_end_total_issuance + payout,
 				2
 			);
-			assert!(RewardOnUnbalanceWasCalled::get());
+			assert!(!RewardOnUnbalanceWasCalled::get());
 
 			// verify we track rewards for each era and page
 			for page in 0..EraInfo::<Test>::get_page_count(i - 1, &11) {
