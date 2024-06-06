@@ -26,7 +26,7 @@ runs:
           && apt update \
           && apt install gh -y
           git config --global --add safe.directory '*'
-      - run: gh pr checkout ${{ inputs.pr }}
+      - run: gh pr checkout ${{ inputs.pr-number }}
         shell: bash
         env:
           GITHUB_TOKEN: ${{ inputs.GH_TOKEN }}
