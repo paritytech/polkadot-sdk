@@ -20,7 +20,7 @@ jobs:
         uses: actions/checkout@v4
       - id: set_image
         run: cat .github/env >> $GITHUB_OUTPUT
-  cmd-fmt:
+  cmd-update-ui:
     needs: [set-image]
     runs-on: ubuntu-latest
     container:
@@ -49,7 +49,7 @@ jobs:
           "./scripts/update-ui-tests.sh" "${{ inputs.rust-version }}"
       - name: Report failure
         if: ${{ failure() }}
-        run: gh pr comment ${{ inputs.pr }} --body "Run for <code>fmt</code> failed. See logs <a href=\"$RUN\">here</a>."
+        run: gh pr comment ${{ inputs.pr }} --body "Run for <code>${{ github.action }}</code> failed. See logs <a href=\"$RUN\">here</a>."
         env:
           RUN: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           GH_TOKEN: ${{ github.token }}
