@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1717617173556,
+  "lastUpdate": 1717691341804,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -6626,6 +6626,53 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting",
             "value": 9.717921984570115,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Oliver Tale-Yazdi",
+            "username": "ggwpez",
+            "email": "oliver.tale-yazdi@parity.io"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "5fb4c40a3ea24ae3ab2bdfefb3f3a40badc2a583",
+          "message": "[CI] Delete cargo-deny config (#4677)\n\nNobody seems to maintain this and the job is disabled since months. I\nthink unless the Security team wants to pick this up we delete it for\nnow.\n\nSigned-off-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>",
+          "timestamp": "2024-06-06T14:48:23Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/5fb4c40a3ea24ae3ab2bdfefb3f3a40badc2a583"
+        },
+        "date": 1717691314609,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52939.40000000001,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63545.2,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 3.4988494454702446,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 7.548063181189974,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 9.890217099679903,
             "unit": "seconds"
           }
         ]
