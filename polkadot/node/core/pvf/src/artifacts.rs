@@ -172,7 +172,7 @@ pub struct Artifacts {
 }
 
 /// Parameters we use to cleanup artifacts
-/// After we hit the cache limit we remove the least used artefacts
+/// After we hit the cache limit we remove the least used artifacts
 /// but only if they are stale more than minimum stale time
 #[derive(Debug)]
 pub struct ArtifactsCleanupConfig {
