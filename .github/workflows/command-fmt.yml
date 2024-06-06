@@ -8,14 +8,20 @@ on:
         required: true
 
 jobs:
+  set-image:     
+    runs-on: ubuntu-latest
+    outputs:
+      IMAGE: ${{ steps.set_image.outputs.IMAGE }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - id: set_image
+        run: cat .github/env >> $GITHUB_OUTPUT
   cmd-fmt:
+    needs: [set-image]
     runs-on: ubuntu-latest
     container:
-      image: paritytech/ci-unified:bullseye-1.75.0-2024-01-22-v20240109
-      ports:
-        - 80
-      volumes:
-        - my_docker_volume:/volume_mount
+      image: ${{ needs.set-image.outputs.IMAGE }}
     steps:
       - name: Install gh cli
         run: |
