@@ -1430,7 +1430,7 @@ mod runtime {
 		RuntimeSlashReason,
 		RuntimeLockId,
 		RuntimeTask,
-		RuntimeQuery,
+		RuntimeQuery
 	)]
 	pub struct Runtime;
 
