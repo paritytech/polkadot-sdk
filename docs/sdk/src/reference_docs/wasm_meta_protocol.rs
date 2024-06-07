@@ -49,7 +49,7 @@
 //!
 //! A runtime must have a set of runtime APIs in order to have any meaningful blockchain
 //! functionality, but it can also expose more APIs. See
-//! [`crate::reference_docs::frame_rpc_runtime_apis`] as an example of how to add custom runtime
+//! [`crate::reference_docs::custom_runtime_api_rpc`] as an example of how to add custom runtime
 //! APIs to your FRAME-based runtime.
 //!
 //! Similarly, for a runtime to be "compatible" with a node, the node must implement the full set of
