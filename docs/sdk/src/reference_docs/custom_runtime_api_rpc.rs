@@ -75,5 +75,6 @@
 //!
 //! ## Future
 //!
-//! [XCQ](https://forum.polkadot.network/t/cross-consensus-query-language-xcq/7583) will be a good
+//! - [XCQ](https://forum.polkadot.network/t/cross-consensus-query-language-xcq/7583) will be a good
 //! solution for most of the query needs.
+//! - [New JSON-RPC Specification](https://github.com/paritytech/json-rpc-interface-spec)
