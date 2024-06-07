@@ -428,7 +428,6 @@ impl RelayChainInterface for Relaychain {
 
 fn make_candidate_chain(candidate_number_range: Range<u32>) -> Vec<CommittedCandidateReceipt> {
 	let collator = Sr25519Keyring::Ferdie;
-	let signature = collator.sign(&[0u8; 132]);
 	let mut latest_parent_hash = GENESIS_HASH;
 	let mut candidates = vec![];
 
@@ -451,7 +450,7 @@ fn make_candidate_chain(candidate_number_range: Range<u32>) -> Vec<CommittedCand
 				persisted_validation_data_hash: PHash::zero(),
 				pov_hash: PHash::zero(),
 				erasure_root: PHash::zero(),
-				signature: signature.clone().into(),
+				signature: collator.sign(&[0u8; 132]).into(),
 				para_head: PHash::zero(),
 				validation_code_hash: PHash::zero().into(),
 			},

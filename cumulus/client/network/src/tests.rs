@@ -131,8 +131,16 @@ impl RelayChainInterface for DummyRelayChainInterface {
 		_: PHash,
 		_: ParaId,
 	) -> RelayChainResult<Option<CommittedCandidateReceipt>> {
+		unimplemented!("Not needed for test")
+	}
+
+	async fn candidates_pending_availability(
+		&self,
+		_: PHash,
+		_: ParaId,
+	) -> RelayChainResult<Vec<CommittedCandidateReceipt>> {
 		if self.data.lock().has_pending_availability {
-			Ok(Some(CommittedCandidateReceipt {
+			Ok(vec![CommittedCandidateReceipt {
 				descriptor: CandidateDescriptor {
 					para_head: polkadot_parachain_primitives::primitives::HeadData(
 						default_header().encode(),
@@ -155,9 +163,9 @@ impl RelayChainInterface for DummyRelayChainInterface {
 					processed_downward_messages: 0,
 					hrmp_watermark: 0,
 				},
-			}))
+			}])
 		} else {
-			Ok(None)
+			Ok(vec![])
 		}
 	}
 
