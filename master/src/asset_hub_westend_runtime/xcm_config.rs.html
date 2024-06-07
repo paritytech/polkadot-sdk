@@ -803,7 +803,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#652" id="652">652</a>
 <a href="#653" id="653">653</a>
 <a href="#654" id="654">654</a>
-<a href="#655" id="655">655</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -1454,8 +1453,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						<span class="bool-val">false </span>=&gt; <span class="prelude-val">None</span>,
 					}
 				});
-			<span class="macro">assert!</span>(alias.is_some(), <span class="string">"we expect here BridgeHubWestend to Rococo mapping at least"</span>);
-			<span class="prelude-val">Some</span>(alias.unwrap())
+			<span class="prelude-val">Some</span>(alias.expect(<span class="string">"we expect here BridgeHubWestend to Rococo mapping at least"</span>))
 		}
 	}
 }

@@ -175,7 +175,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
         &amp;self,
         command: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.reference.html">&amp;T</a>,
         tokio_handle: Handle
-    ) -&gt; <a class="type" href="type.Result.html" title="type sc_cli::Result">Result</a>&lt;Configuration&gt; { ... }
+    ) -&gt; <a class="type" href="type.Result.html" title="type sc_cli::Result">Result</a>&lt;<a class="struct" href="../sc_service/config/struct.Configuration.html" title="struct sc_service::config::Configuration">Configuration</a>&gt; { ... }
 <span class="item-spacer"></span>    fn <a href="#method.create_runner" class="fn">create_runner</a>&lt;T: <a class="trait" href="trait.CliConfiguration.html" title="trait sc_cli::CliConfiguration">CliConfiguration</a>&lt;DVC&gt;, DVC: <a class="trait" href="trait.DefaultConfigurationValues.html" title="trait sc_cli::DefaultConfigurationValues">DefaultConfigurationValues</a>&gt;(
         &amp;self,
         command: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.reference.html">&amp;T</a>
@@ -185,7 +185,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
         command: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.reference.html">&amp;T</a>,
         logger_hook: F
     ) -&gt; <a class="type" href="type.Result.html" title="type sc_cli::Result">Result</a>&lt;<a class="struct" href="struct.Runner.html" title="struct sc_cli::Runner">Runner</a>&lt;Self&gt;&gt;
-       <span class="where">where F: <a class="trait" href="https://doc.rust-lang.org/1.77.0/core/ops/function/trait.FnOnce.html" title="trait core::ops::function::FnOnce">FnOnce</a>(&amp;mut <a class="struct" href="struct.LoggerBuilder.html" title="struct sc_cli::LoggerBuilder">LoggerBuilder</a>, &amp;Configuration)</span> { ... }
+       <span class="where">where F: <a class="trait" href="https://doc.rust-lang.org/1.77.0/core/ops/function/trait.FnOnce.html" title="trait core::ops::function::FnOnce">FnOnce</a>(&amp;mut <a class="struct" href="struct.LoggerBuilder.html" title="struct sc_cli::LoggerBuilder">LoggerBuilder</a>, &amp;<a class="struct" href="../sc_service/config/struct.Configuration.html" title="struct sc_service::config::Configuration">Configuration</a>)</span> { ... }
 </details>}</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Substrate client CLI</p>
 <p>This trait needs to be implemented on the root CLI struct of the application. It will provide
 the implementation <code>name</code>, <code>version</code>, <code>executable name</code>, <code>description</code>, <code>author</code>, <code>support_url</code>,
@@ -240,7 +240,7 @@ respectively. You must call [<code>clap::Error::exit</code>] or perform a <a hre
     &amp;self,
     command: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.reference.html">&amp;T</a>,
     tokio_handle: Handle
-) -&gt; <a class="type" href="type.Result.html" title="type sc_cli::Result">Result</a>&lt;Configuration&gt;</h4></section></summary><div class="docblock"><p>Only create a Configuration for the command provided in argument</p>
+) -&gt; <a class="type" href="type.Result.html" title="type sc_cli::Result">Result</a>&lt;<a class="struct" href="../sc_service/config/struct.Configuration.html" title="struct sc_service::config::Configuration">Configuration</a>&gt;</h4></section></summary><div class="docblock"><p>Only create a Configuration for the command provided in argument</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.create_runner" class="method"><a class="src rightside" href="../src/sc_cli/lib.rs.html#199-213">source</a><h4 class="code-header">fn <a href="#method.create_runner" class="fn">create_runner</a>&lt;T: <a class="trait" href="trait.CliConfiguration.html" title="trait sc_cli::CliConfiguration">CliConfiguration</a>&lt;DVC&gt;, DVC: <a class="trait" href="trait.DefaultConfigurationValues.html" title="trait sc_cli::DefaultConfigurationValues">DefaultConfigurationValues</a>&gt;(
     &amp;self,
     command: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.reference.html">&amp;T</a>
@@ -251,7 +251,7 @@ a tokio runtime</p>
     command: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.reference.html">&amp;T</a>,
     logger_hook: F
 ) -&gt; <a class="type" href="type.Result.html" title="type sc_cli::Result">Result</a>&lt;<a class="struct" href="struct.Runner.html" title="struct sc_cli::Runner">Runner</a>&lt;Self&gt;&gt;<div class="where">where
-    F: <a class="trait" href="https://doc.rust-lang.org/1.77.0/core/ops/function/trait.FnOnce.html" title="trait core::ops::function::FnOnce">FnOnce</a>(&amp;mut <a class="struct" href="struct.LoggerBuilder.html" title="struct sc_cli::LoggerBuilder">LoggerBuilder</a>, &amp;Configuration),</div></h4></section></summary><div class="docblock"><p>Create a runner for the command provided in argument. The <code>logger_hook</code> can be used to setup
+    F: <a class="trait" href="https://doc.rust-lang.org/1.77.0/core/ops/function/trait.FnOnce.html" title="trait core::ops::function::FnOnce">FnOnce</a>(&amp;mut <a class="struct" href="struct.LoggerBuilder.html" title="struct sc_cli::LoggerBuilder">LoggerBuilder</a>, &amp;<a class="struct" href="../sc_service/config/struct.Configuration.html" title="struct sc_service::config::Configuration">Configuration</a>),</div></h4></section></summary><div class="docblock"><p>Create a runner for the command provided in argument. The <code>logger_hook</code> can be used to setup
 a custom profiler or update the logger configuration before it is initialized.</p>
 <p>Example:</p>
 
