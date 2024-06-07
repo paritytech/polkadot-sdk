@@ -52,7 +52,6 @@
 //!
 //! For example, let's take a look a the process through which the account nonce can be queried
 //! through an RPC. First, a new runtime-api needs to be declared:
-//!
 #![doc = docify::embed!("../../substrate/frame/system/rpc/runtime-api/src/lib.rs", AccountNonceApi)]
 //!
 //! This API is implemented at the runtime level, always inside [`sp_api::impl_runtime_apis!`].
@@ -63,14 +62,12 @@
 //!
 //! Should you wish to implement the legacy approach of exposing this runtime-api as a custom
 //! RPC-api, then a custom RPC server has to be defined.
-//!
 #![doc = docify::embed!("../../substrate/utils/frame/rpc/system/src/lib.rs", SystemApi)]
 //!
 //! ## Add a new RPC to the node (Legacy)
 //!
 //! Finally, this custom RPC needs to be integrated into the node side. This is usually done in a
 //! `rpc.rs` in a typical template, as follows:
-//!
 #![doc = docify::embed!("../../templates/minimal/node/src/rpc.rs", create_full)]
 //!
 //! ## Future
