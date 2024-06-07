@@ -13,7 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#[cfg(feature = "std")]
+#[cfg(all(not(feature = "metadata-hash"), feature = "std"))]
 fn main() {
 	substrate_wasm_builder::WasmBuilder::new()
 		.with_current_project()
@@ -27,6 +27,13 @@ fn main() {
 		.enable_feature("fast-runtime")
 		.import_memory()
 		.export_heap_base()
+		.build();
+}
+
+#[cfg(all(feature = "metadata-hash", feature = "std"))]
+fn main() {
+	substrate_wasm_builder::WasmBuilder::init_with_defaults()
+		.enable_metadata_hash("ROC", 12)
 		.build();
 }
 
