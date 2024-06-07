@@ -255,7 +255,7 @@ where
 		follow_subscription: String,
 		hash: Block::Hash,
 	) -> ResponsePayload<'static, MethodResponse> {
-		let conn_id = ext.get::<ConnectionId>().expect("ConnectionId is always set by jsonrpsee");
+		let conn_id = ext.get::<ConnectionId>().copied().expect("ConnectionId is always set by jsonrpsee");
 
 		if !self.subscriptions.contains_subscription(conn_id, &follow_subscription) {
 			// The spec says to return `LimitReached` if the follow subscription is invalid or
@@ -338,7 +338,7 @@ where
 		follow_subscription: String,
 		hash: Block::Hash,
 	) -> Result<Option<String>, ChainHeadRpcError> {
-		let conn_id = ext.get::<ConnectionId>().expect("ConnectionId is always set by jsonrpsee");
+		let conn_id = ext.get::<ConnectionId>().copied().expect("ConnectionId is always set by jsonrpsee");
 
 		if !self.subscriptions.contains_subscription(conn_id, &follow_subscription) {
 			return Ok(None);
@@ -375,7 +375,7 @@ where
 		items: Vec<StorageQuery<String>>,
 		child_trie: Option<String>,
 	) -> ResponsePayload<'static, MethodResponse> {
-		let conn_id = ext.get::<ConnectionId>().expect("ConnectionId is always set by jsonrpsee");
+		let conn_id = ext.get::<ConnectionId>().copied().expect("ConnectionId is always set by jsonrpsee");
 
 		if !self.subscriptions.contains_subscription(conn_id, &follow_subscription) {
 			// The spec says to return `LimitReached` if the follow subscription is invalid or
@@ -460,7 +460,7 @@ where
 			Err(err) => return ResponsePayload::error(err),
 		};
 
-		let conn_id = ext.get::<ConnectionId>().expect("ConnectionId is always set by jsonrpsee");
+		let conn_id = ext.get::<ConnectionId>().copied().expect("ConnectionId is always set by jsonrpsee");
 
 		if !self.subscriptions.contains_subscription(conn_id, &follow_subscription) {
 			// The spec says to return `LimitReached` if the follow subscription is invalid or
@@ -530,7 +530,7 @@ where
 		follow_subscription: String,
 		hash_or_hashes: ListOrValue<Block::Hash>,
 	) -> Result<(), ChainHeadRpcError> {
-		let conn_id = ext.get::<ConnectionId>().expect("ConnectionId is always set by jsonrpsee");
+		let conn_id = ext.get::<ConnectionId>().copied().expect("ConnectionId is always set by jsonrpsee");
 
 		if !self.subscriptions.contains_subscription(conn_id, &follow_subscription) {
 			return Ok(());
@@ -565,7 +565,7 @@ where
 		follow_subscription: String,
 		operation_id: String,
 	) -> Result<(), ChainHeadRpcError> {
-		let conn_id = ext.get::<ConnectionId>().expect("ConnectionId is always set by jsonrpsee");
+		let conn_id = ext.get::<ConnectionId>().copied().expect("ConnectionId is always set by jsonrpsee");
 
 		if !self.subscriptions.contains_subscription(conn_id, &follow_subscription) {
 			return Ok(())
@@ -590,7 +590,7 @@ where
 		follow_subscription: String,
 		operation_id: String,
 	) -> Result<(), ChainHeadRpcError> {
-		let conn_id = ext.get::<ConnectionId>().expect("ConnectionId is always set by jsonrpsee");
+		let conn_id = ext.get::<ConnectionId>().copied().expect("ConnectionId is always set by jsonrpsee");
 
 		if !self.subscriptions.contains_subscription(conn_id, &follow_subscription) {
 			return Ok(())
