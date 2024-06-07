@@ -54,6 +54,8 @@ pub mod frame_system {
 			type PalletInfo = ();
 			#[inject_runtime_type]
 			type RuntimeTask = ();
+			#[inject_runtime_type]
+			type RuntimeQuery = ();
 			type DbWeight = ();
 		}
 	}
@@ -75,6 +77,8 @@ pub mod frame_system {
 		type RuntimeCall;
 		#[pallet::no_default_bounds]
 		type RuntimeTask: crate::traits::tasks::Task;
+		#[pallet::no_default_bounds]
+		type RuntimeQuery: crate::traits::DispatchQuery;
 		#[pallet::no_default_bounds]
 		type PalletInfo: crate::traits::PalletInfo;
 		type DbWeight: Get<crate::weights::RuntimeDbWeight>;
