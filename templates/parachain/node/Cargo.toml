@@ -56,7 +56,7 @@ sp-io = { path = "../../../substrate/primitives/io" }
 sp-runtime = { path = "../../../substrate/primitives/runtime" }
 sp-timestamp = { path = "../../../substrate/primitives/timestamp" }
 substrate-frame-rpc-system = { path = "../../../substrate/utils/frame/rpc/system" }
-substrate-prometheus-endpoint = { path = "../../../substrate/utils/prometheus" }
+prometheus-endpoint = { package = "substrate-prometheus-endpoint", path = "../../../substrate/utils/prometheus" }
 
 # Polkadot
 polkadot-cli = { path = "../../../polkadot/cli", features = ["rococo-native"] }
