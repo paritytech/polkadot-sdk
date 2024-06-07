@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1717709961151,
+  "lastUpdate": 1717759055017,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -6814,6 +6814,53 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 3.2073581635202695,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "eskimor",
+            "username": "eskimor",
+            "email": "eskimor@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "9dfe0fee74ce1e4b7f99c1a5122b635aa43a1e5f",
+          "message": "Fix occupied core handling (#4691)\n\nCo-authored-by: eskimor <eskimor@no-such-url.com>\nCo-authored-by: Andrei Sandu <54316454+sandreim@users.noreply.github.com>",
+          "timestamp": "2024-06-07T10:50:30Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/9dfe0fee74ce1e4b7f99c1a5122b635aa43a1e5f"
+        },
+        "date": 1717759026321,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52941.59999999999,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63545.45,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 3.5550583428701747,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 10.07676580231996,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 7.739985368550002,
             "unit": "seconds"
           }
         ]
