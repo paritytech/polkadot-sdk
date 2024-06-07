@@ -59,14 +59,14 @@
 //!
 //! As noted, this is already enough to make this API usable via `state_call`.
 //!
-//! ## Create a new custom RPC
+//! ## Create a new custom RPC (Legacy)
 //!
 //! Should you wish to implement the legacy approach of exposing this runtime-api as a custom
 //! RPC-api, then a custom RPC server has to be defined.
 //!
 #![doc = docify::embed!("../../substrate/utils/frame/rpc/system/src/lib.rs", SystemApi)]
 //!
-//! ## Add a new RPC to the node
+//! ## Add a new RPC to the node (Legacy)
 //!
 //! Finally, this custom RPC needs to be integrated into the node side. This is usually done in a
 //! `rpc.rs` in a typical template, as follows:
