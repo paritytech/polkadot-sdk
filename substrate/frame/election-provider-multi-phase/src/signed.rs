@@ -22,7 +22,7 @@ use core::marker::PhantomData;
 use crate::{
 	unsigned::MinerConfig, Config, ElectionCompute, Pallet, QueuedSolution, RawSolution,
 	ReadySolution, SignedSubmissionIndices, SignedSubmissionNextIndex, SignedSubmissionsMap,
-	SolutionOf, SolutionOrSnapshotSize, Weight, WeightInfo,
+	SignedWhitelist, SolutionOf, SolutionOrSnapshotSize, Weight, WeightInfo,
 };
 use codec::{Decode, Encode, HasCompact};
 use frame_election_provider_support::NposSolution;
@@ -509,6 +509,17 @@ impl<T: Config> Pallet<T> {
 		let positive_imbalance =
 			T::Currency::deposit_creating(who, reward.saturating_add(call_fee));
 		T::RewardHandler::on_unbalanced(positive_imbalance);
+
+		// `who` is force inserted at the top of the whitelist if it is not whitelisted yet,
+		// potentially pushing out older whitelisted accounts. If `who` is already part of the
+		// whitelist, move it to the head of the whitelist, while keeping the order of the remaining
+		// elements.
+		SignedWhitelist::<T>::mutate(|w| {
+			let _ = match w.iter().position(|a| a == who) {
+				Some(idx) => w.slide(idx, 0),
+				None => w.force_insert_keep_left(0, who.clone()).is_ok(),
+			};
+		});
 	}
 
 	/// Helper function for the case where a solution is accepted in the rejected phase.
@@ -543,7 +554,11 @@ impl<T: Config> Pallet<T> {
 	/// 1. base deposit, fixed for all submissions.
 	/// 2. a per-byte deposit, for renting the state usage.
 	/// 3. a per-weight deposit, for the potential weight usage in an upcoming on_initialize
-	pub fn deposit_for(
+	///
+	/// If `who` is whitelisted, the required deposit is independent of the number of solutions in
+	/// the queue.
+	pub(crate) fn deposit_for(
+		who: &T::AccountId,
 		raw_solution: &RawSolution<SolutionOf<T::MinerConfig>>,
 		size: SolutionOrSnapshotSize,
 	) -> BalanceOf<T> {
@@ -555,9 +570,13 @@ impl<T: Config> Pallet<T> {
 		let weight_deposit = T::SignedDepositWeight::get()
 			.saturating_mul(feasibility_weight.ref_time().saturated_into());
 
-		T::SignedDepositBase::convert(Self::signed_submissions().len())
-			.saturating_add(len_deposit)
-			.saturating_add(weight_deposit)
+		let base_deposit = if SignedWhitelist::<T>::get().contains(who) {
+			T::SignedDepositWhitelist::get()
+		} else {
+			T::SignedDepositBase::convert(Self::signed_submissions().len())
+		};
+
+		base_deposit.saturating_add(len_deposit).saturating_add(weight_deposit)
 	}
 }
 
@@ -890,6 +909,198 @@ mod tests {
 
 				check_progressive_base_fee(&progression_40);
 			});
+	}
+
+	#[test]
+	fn whitelist_new_works() {
+		ExtBuilder::default().signed_whitelist(3, 10).build_and_execute(|| {
+			let submit = |who: AccountId| {
+				SignedWhitelist::<Runtime>::mutate(|w| {
+					let _ = match w.iter().position(|a| *a == who) {
+						Some(idx) => w.slide(idx, 0),
+						None => w.force_insert_keep_left(0, who).is_ok(),
+					};
+				});
+			};
+
+			assert_eq!(SignedWhitelistMax::get(), 3);
+			assert_eq!(SignedWhitelist::<Runtime>::get(), vec![]);
+
+			submit(1);
+			submit(2);
+			submit(3);
+
+			assert_eq!(SignedWhitelist::<Runtime>::get(), vec![3, 2, 1]);
+
+			submit(2);
+
+			assert_eq!(SignedWhitelist::<Runtime>::get(), vec![2, 3, 1]);
+
+			submit(4);
+			assert_eq!(SignedWhitelist::<Runtime>::get(), vec![4, 2, 3]);
+
+			submit(4);
+			assert_eq!(SignedWhitelist::<Runtime>::get(), vec![4, 2, 3]);
+		})
+	}
+
+	#[test]
+	fn whitelisted_fifo_works() {
+		ExtBuilder::default().signed_whitelist(3, 10).build_and_execute(|| {
+			assert_eq!(SignedWhitelistMax::get(), 3);
+			assert_eq!(SignedWhitelist::<Runtime>::get(), vec![]);
+
+			Pallet::<Runtime>::finalize_signed_phase_accept_solution(
+				Default::default(),
+				&1,
+				Default::default(),
+				Default::default(),
+			);
+
+			// 1 is part of the whitelist.
+			assert_eq!(SignedWhitelist::<Runtime>::get(), vec![1]);
+
+			Pallet::<Runtime>::finalize_signed_phase_accept_solution(
+				Default::default(),
+				&2,
+				Default::default(),
+				Default::default(),
+			);
+
+			// 2 is also is part of the whitelist.
+			assert_eq!(SignedWhitelist::<Runtime>::get(), vec![2, 1]);
+
+			Pallet::<Runtime>::finalize_signed_phase_accept_solution(
+				Default::default(),
+				&3,
+				Default::default(),
+				Default::default(),
+			);
+
+			// 3 is also is part of the whitelist.
+			assert_eq!(SignedWhitelist::<Runtime>::get(), vec![3, 2, 1]);
+
+			// and now the whitelist is saturated.
+			assert_eq!(SignedWhitelist::<Runtime>::get().len(), SignedWhitelistMax::get() as usize);
+
+			// since the whitelist is saturated, the next submitter added to the whitelist will push
+			// out the first submitter (1) of the whitelist.
+			Pallet::<Runtime>::finalize_signed_phase_accept_solution(
+				Default::default(),
+				&4,
+				Default::default(),
+				Default::default(),
+			);
+
+			assert_eq!(SignedWhitelist::<Runtime>::get(), vec![4, 3, 2]);
+
+			// 2 is part of the whitelist already, move it up the queue and leave the remaining
+			// element's order untouched.
+			Pallet::<Runtime>::finalize_signed_phase_accept_solution(
+				Default::default(),
+				&2,
+				Default::default(),
+				Default::default(),
+			);
+
+			assert_eq!(SignedWhitelist::<Runtime>::get(), vec![2, 4, 3]);
+		})
+	}
+
+	#[test]
+	fn whitelisted_deposit_fee_works() {
+		ExtBuilder::default().signed_whitelist(2, 10).build_and_execute(|| {
+			assert_eq!(SignedWhitelistMax::get(), 2);
+
+			// 1 is not whitelisted, so pays the deposit calculated with `T::SignedDepositBase`
+			// qith queue length 0.
+			assert!(!is_whitelisted(&1));
+			assert_eq!(
+				Pallet::<Runtime>::deposit_for(&1, &Default::default(), Default::default()),
+				Runtime::convert(0),
+			);
+
+			// 1 is whitelisted now, so it pays the `T::SignedDepositWhitelist`.
+			whitelist(1);
+			assert!(is_whitelisted(&1));
+			assert_eq!(
+				Pallet::<Runtime>::deposit_for(&1, &Default::default(), Default::default()),
+				SignedDepositWhitelist::get(),
+			);
+		})
+	}
+
+	#[test]
+	fn whitelisted_deposit_fee_works_e2e() {
+		ExtBuilder::default()
+			.signed_whitelist(1, 3)
+			.signed_base_deposit(10, true, Percent::from_percent(10))
+			.build_and_execute(|| {
+				roll_to_signed();
+
+				// 1 slot for whitelisted submitters.
+				assert_eq!(SignedWhitelistMax::get(), 1);
+
+				// add 99 as whitelisted.
+				whitelist(99);
+
+				assert!(MultiPhase::current_phase().is_signed());
+
+				// 99, which is whitelisted, submits a bad solution.
+				let bad_solution = RawSolution {
+					score: ElectionScore {
+						minimal_stake: 10u128,
+						sum_stake: 10u128,
+						sum_stake_squared: 10u128,
+					},
+					..Default::default()
+				};
+				assert_ok!(MultiPhase::submit(
+					RuntimeOrigin::signed(99),
+					Box::new(bad_solution.clone())
+				));
+
+				// whitelisted submissions deposit 3.
+				assert!(is_whitelisted(&99));
+				assert_eq!(balances(&99), (97, 3));
+
+				// 999 computes a correct score.
+				let ok_solution = raw_solution();
+				assert_ok!(MultiPhase::submit(RuntimeOrigin::signed(999), Box::new(ok_solution)));
+
+				// 999 is not whitelisted, thus is deposits the "normal" amount.
+				assert!(!is_whitelisted(&999));
+				let (_, reserved_999) = balances(&999);
+
+				// deposit reserved for 999 is calculated based on the progressive deposit since it
+				// is not whitelisted.
+				assert_eq!(reserved_999, 11);
+
+				// 9999 submits a bad solution.
+				assert_ok!(MultiPhase::submit(RuntimeOrigin::signed(9999), Box::new(bad_solution)));
+
+				// 9999 is not whitelisted, thus is deposits the "normal" amount.
+				assert!(!is_whitelisted(&9999));
+				let (_, reserved_9999) = balances(&9999);
+
+				// deposit reserved for 999 is calculated based on the progressive deposit since it
+				// is not whitelisted.
+				assert_eq!(reserved_9999, 12);
+
+				// since 9999 deposit is higher than 999 because the submission queue was larger
+				// at the time of the submission.
+				assert!(reserved_9999 > reserved_999);
+
+				// round hasn't finished, so 99 is still whitelisted.
+				assert!(is_whitelisted(&99));
+
+				roll_to_unsigned();
+
+				// now 999 is whitelisted for the next round (last submitting a good solution).
+				assert!(is_whitelisted(&999));
+				// and 99 is not whitelisted anymore, since there is only 1 slot for whitelisted.
+				assert!(!is_whitelisted(&99));
+			})
 	}
 
 	#[test]

@@ -93,6 +93,36 @@
 //! Note that both of the bottom solutions end up being discarded and get their deposit back,
 //! despite one of them being *invalid*.
 //!
+//! ### Signed submission deposits
+//!
+//! Each signed submission must hold a deposit that will be returned to the submitter if their
+//! solution was accepted or not processed. The deposit is slashed if the submission is processed
+//! and not valid. The amount to deposit per submission depends on multiple factors, namely:
+//! * the size of the submission (in bytes and weight);
+//! * the deposit base;
+//! * whether the submitter have submitted a successful solution "recently" (and therefore is
+//!   whitelisted);
+//! * and, potentially, on the size of the submission queue.
+//!
+//! The base deposit of a submission is calculated based on whether a submitter is whitelisted. Up
+//! to [`pallet::Config::SignedWhitelistMax`] can be whitelisted at a given time. Everytime a
+//! submitter's solution is verified, valid and thus accepted, the submitter is added to the
+//! whitelist. The whitelist is a bounded FIFO with the list of the last unique submitters. When a
+//! whitelisted acount submits again, it is moved to the head of the FIFO queue. If the submitter is
+//! not whitelisted and the queue is saturated, it is force inserted at the head of the queue,
+//! pushing out the oldest account from the whitelist.
+//! The base deposit for whitelisted submissions is [`pallet::Config::SignedDepositWhitelist`].
+//!
+//! For non-whitelisted submitters, the base deposit is calculated by
+//! [`pallet::Config::SignedDepositBase`], which calculates the deposit based on the size of the
+//! submission queue at the time of the submission.
+//!
+//! Regardless of their whitelist status, all submission deposits will have a portion related to
+//! the solution size and weight, namely:
+//!
+//! - [`pallet::Config::SignedDepositByte`]: which define the per-byte deposit portion;
+//! - [`pallet::Config::SignedDepositWeight`]: which define the per-weight deposit portion;
+//!
 //! ## Unsigned Phase
 //!
 //! The unsigned phase will always follow the signed phase, with the specified duration. In this
@@ -616,6 +646,12 @@ pub mod pallet {
 			MaxWinners = Self::MaxWinners,
 		>;
 
+		/// Maximum number of whitelisted accounts that only deposit the base submission deposit.
+		///
+		/// The value returned by this getter should be lower or the same as `SignedMaxSubmissions`.
+		#[pallet::constant]
+		type SignedWhitelistMax: Get<u32>;
+
 		/// Maximum number of signed submissions that can be queued.
 		///
 		/// It is best to avoid adjusting this during an election, as it impacts downstream data
@@ -641,6 +677,10 @@ pub mod pallet {
 		/// Base reward for a signed solution
 		#[pallet::constant]
 		type SignedRewardBase: Get<BalanceOf<Self>>;
+
+		/// Fixed deposit for a signed solution.
+		#[pallet::constant]
+		type SignedDepositWhitelist: Get<BalanceOf<Self>>;
 
 		/// Per-byte deposit for a signed solution.
 		#[pallet::constant]
@@ -873,6 +913,9 @@ pub mod pallet {
 			// `SignedMaxSubmissions` is a red flag that the developer does not understand how to
 			// configure this pallet.
 			assert!(T::SignedMaxSubmissions::get() >= T::SignedMaxRefunds::get());
+
+			// idem.
+			assert!(T::SignedMaxSubmissions::get() >= T::SignedWhitelistMax::get());
 		}
 
 		#[cfg(feature = "try-runtime")]
@@ -1031,7 +1074,7 @@ pub mod pallet {
 			);
 
 			// create the submission
-			let deposit = Self::deposit_for(&raw_solution, size);
+			let deposit = Self::deposit_for(&who, &raw_solution, size);
 			let call_fee = {
 				let call = Call::submit { raw_solution: raw_solution.clone() };
 				T::EstimateCallFee::estimate_call_fee(&call, None::<Weight>.into())
@@ -1330,6 +1373,14 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type SignedSubmissionsMap<T: Config> =
 		StorageMap<_, Twox64Concat, u32, SignedSubmissionOf<T>, OptionQuery>;
+
+	/// Whitelisted accounts for signed submission.
+	///
+	/// List of accounts which submitted the last `T::SignedWhitelistCount`
+	/// *accepted* solutions.
+	#[pallet::storage]
+	pub type SignedWhitelist<T: Config> =
+		StorageValue<_, BoundedVec<T::AccountId, T::SignedWhitelistMax>, ValueQuery>;
 
 	// `SignedSubmissions` items end here.
 

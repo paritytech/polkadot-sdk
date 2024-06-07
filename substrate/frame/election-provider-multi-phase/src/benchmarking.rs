@@ -352,6 +352,7 @@ frame_benchmarking::benchmarks! {
 
 		let caller = frame_benchmarking::whitelisted_caller();
 		let deposit = MultiPhase::<T>::deposit_for(
+			&caller,
 			&solution,
 			MultiPhase::<T>::snapshot_metadata().unwrap_or_default(),
 		);
