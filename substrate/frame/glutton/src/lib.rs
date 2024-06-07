@@ -230,10 +230,10 @@ pub mod pallet {
 		const INHERENT_IDENTIFIER: InherentIdentifier = *b"bloated0";
 
 		fn create_inherent(_data: &InherentData) -> Option<Self::Call> {
-			let proof_size_limit = Storage::<T>::get()
-				.saturating_mul_int(T::BlockWeights::get().max_block.proof_size());
+			let max_block_length = *T::BlockLength::get().max.get(DispatchClass::Mandatory);
+			let bloat_size = Storage::<T>::get().saturating_mul_int(max_block_length);
 
-			let garbage = vec![0u8; proof_size_limit as usize];
+			let garbage = vec![0u8; bloat_size as usize];
 			Some(Call::bloat { garbage })
 		}
 
