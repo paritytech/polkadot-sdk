@@ -123,7 +123,10 @@ where
 {
 	async fn broadcast(&self, ext: &Extensions, bytes: Bytes) -> RpcResult<Option<String>> {
 		let pool = self.pool.clone();
-		let conn_id = ext.get::<ConnectionId>().copied().expect("ConnectionId is always set by jsonrpsee");
+		let conn_id = ext
+			.get::<ConnectionId>()
+			.copied()
+			.expect("ConnectionId is always set by jsonrpsee");
 
 		// The unique ID of this operation.
 		let id = self.generate_unique_id();
@@ -244,7 +247,10 @@ where
 		ext: &Extensions,
 		operation_id: String,
 	) -> Result<(), ErrorBroadcast> {
-		let conn_id = ext.get::<ConnectionId>().copied().expect("ConnectionId is always set by jsonrpsee");
+		let conn_id = ext
+			.get::<ConnectionId>()
+			.copied()
+			.expect("ConnectionId is always set by jsonrpsee");
 
 		// The operation ID must correlate to the same connection ID.
 		if !self.rpc_connections.contains_identifier(conn_id, &operation_id) {
