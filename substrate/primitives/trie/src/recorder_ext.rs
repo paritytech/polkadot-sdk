@@ -18,7 +18,7 @@
 //! Extension for the default recorder.
 
 use crate::RawStorageProof;
-use std::collections::BTreeSet;
+use alloc::{collections::BTreeSet, vec::Vec};
 use trie_db::{Recorder, TrieLayout};
 
 /// Convenience extension for the `Recorder` struct.
