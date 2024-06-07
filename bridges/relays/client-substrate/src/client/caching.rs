@@ -254,16 +254,6 @@ impl<C: Chain, B: Client<C>> std::fmt::Debug for CachingClient<C, B> {
 	}
 }
 
-// TODO (https://github.com/paritytech/parity-bridges-common/issues/2133): this must be implemented for T: Client<C>
-#[async_trait]
-impl<C: Chain, B: Client<C>> relay_utils::relay_loop::Client for CachingClient<C, B> {
-	type Error = Error;
-
-	async fn reconnect(&mut self) -> Result<()> {
-		<Self as Client<C>>::reconnect(self).await
-	}
-}
-
 #[async_trait]
 impl<C: Chain, B: Client<C>> Client<C> for CachingClient<C, B> {
 	async fn ensure_synced(&self) -> Result<()> {
