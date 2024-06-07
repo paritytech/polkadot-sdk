@@ -429,7 +429,9 @@ impl ClusterTracker {
 
 	pub fn warn_if_too_many_pending_statements(&self, parent_hash: Hash) {
 		if self.pending.iter().filter(|pending| !pending.1.is_empty()).count() >=
-			self.validators.len()
+			self.validators.len() &&
+			// No reason to warn if we are the only node in the cluster.
+			self.validators.len() > 1
 		{
 			gum::warn!(
 				target: LOG_TARGET,
