@@ -170,7 +170,7 @@ where
 					match res {
 						Ok(s) => s,
 						Err(e) => {
-							log::debug!("Failed to accept ipv4 connection: {:?}", e);
+							log::debug!(target: "rpc", "Failed to accept ipv4 connection: {:?}", e);
 							continue;
 						}
 					}

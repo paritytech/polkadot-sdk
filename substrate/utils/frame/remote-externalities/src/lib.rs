@@ -22,10 +22,7 @@
 
 use codec::{Compact, Decode, Encode};
 use indicatif::{ProgressBar, ProgressStyle};
-use jsonrpsee::{
-	core::params::ArrayParams,
-	http_client::HttpClient,
-};
+use jsonrpsee::{core::params::ArrayParams, http_client::HttpClient};
 use log::*;
 use serde::de::DeserializeOwned;
 use sp_core::{
