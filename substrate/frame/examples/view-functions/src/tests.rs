@@ -76,15 +76,7 @@ where
 	V: Decode + Eq + PartialEq + std::fmt::Debug,
 {
 	let input = query.encode();
-	let mut output = Vec::new();
-
-	<Runtime as frame_system::Config>::RuntimeQuery::dispatch_query::<Vec<u8>>(
-		&Q::id(),
-		&mut &input[..],
-		&mut output,
-	)
-	.unwrap();
-
+	let output = Runtime::execute_query(Q::id(), input).unwrap();
 	let query_result = V::decode(&mut &output[..]).unwrap();
 
 	assert_eq!(expected, query_result,);
