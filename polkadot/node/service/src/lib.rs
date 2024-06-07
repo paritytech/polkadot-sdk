@@ -88,6 +88,7 @@ use telemetry::TelemetryWorker;
 #[cfg(feature = "full-node")]
 use telemetry::{Telemetry, TelemetryWorkerHandle};
 
+use beefy_primitives::ecdsa_crypto;
 pub use chain_spec::{GenericChainSpec, RococoChainSpec, WestendChainSpec};
 pub use consensus_common::{Proposal, SelectChain};
 use frame_benchmarking_cli::SUBSTRATE_REFERENCE_HARDWARE;
@@ -394,8 +395,8 @@ type FullSelectChain = relay_chain_selection::SelectRelayChain<FullBackend>;
 type FullGrandpaBlockImport<ChainSelection = FullSelectChain> =
 	grandpa::GrandpaBlockImport<FullBackend, Block, FullClient, ChainSelection>;
 #[cfg(feature = "full-node")]
-type FullBeefyBlockImport<InnerBlockImport> =
-	beefy::import::BeefyBlockImport<Block, FullBackend, FullClient, InnerBlockImport>;
+type FullBeefyBlockImport<InnerBlockImport, AuthorityId> =
+	beefy::import::BeefyBlockImport<Block, FullBackend, FullClient, InnerBlockImport, AuthorityId>;
 
 #[cfg(feature = "full-node")]
 struct Basics {
@@ -486,11 +487,14 @@ fn new_partial<ChainSelection>(
 				babe::BabeBlockImport<
 					Block,
 					FullClient,
-					FullBeefyBlockImport<FullGrandpaBlockImport<ChainSelection>>,
+					FullBeefyBlockImport<
+						FullGrandpaBlockImport<ChainSelection>,
+						ecdsa_crypto::AuthorityId,
+					>,
 				>,
 				grandpa::LinkHalf<Block, FullClient, ChainSelection>,
 				babe::BabeLink<Block>,
-				beefy::BeefyVoterLinks<Block>,
+				beefy::BeefyVoterLinks<Block, ecdsa_crypto::AuthorityId>,
 			),
 			grandpa::SharedVoterState,
 			sp_consensus_babe::SlotDuration,
@@ -601,7 +605,7 @@ where
 					subscription_executor: subscription_executor.clone(),
 					finality_provider: finality_proof_provider.clone(),
 				},
-				beefy: polkadot_rpc::BeefyDeps {
+				beefy: polkadot_rpc::BeefyDeps::<ecdsa_crypto::AuthorityId> {
 					beefy_finality_proof_stream: beefy_rpc_links.from_voter_justif_stream.clone(),
 					beefy_best_block_stream: beefy_rpc_links.from_voter_best_beefy_stream.clone(),
 					subscription_executor,
@@ -1293,7 +1297,9 @@ pub fn new_full<
 			is_authority: role.is_authority(),
 		};
 
-		let gadget = beefy::start_beefy_gadget::<_, _, _, _, _, _, _>(beefy_params);
+		let gadget = beefy::start_beefy_gadget::<_, _, _, _, _, _, _, ecdsa_crypto::AuthorityId>(
+			beefy_params,
+		);
 
 		// BEEFY is part of consensus, if it fails we'll bring the node down with it to make sure it
 		// is noticed.

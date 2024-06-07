@@ -102,10 +102,7 @@ use sp_std::{
 #[cfg(any(feature = "std", test))]
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
-use xcm::{
-	latest::prelude::*, IntoVersion, VersionedAssetId, VersionedAssets, VersionedLocation,
-	VersionedXcm,
-};
+use xcm::{latest::prelude::*, VersionedAssetId, VersionedAssets, VersionedLocation, VersionedXcm};
 use xcm_builder::PayOverXcm;
 
 use xcm_fee_payment_runtime_api::{
@@ -2235,15 +2232,8 @@ sp_api::impl_runtime_apis! {
 
 	impl xcm_fee_payment_runtime_api::fees::XcmPaymentApi<Block> for Runtime {
 		fn query_acceptable_payment_assets(xcm_version: xcm::Version) -> Result<Vec<VersionedAssetId>, XcmPaymentApiError> {
-			let acceptable = vec![
-				// native token
-				VersionedAssetId::from(AssetId(xcm_config::TokenLocation::get()))
-			];
-
-			Ok(acceptable
-				.into_iter()
-				.filter_map(|asset| asset.into_version(xcm_version).ok())
-				.collect())
+			let acceptable_assets = vec![AssetId(xcm_config::TokenLocation::get())];
+			XcmPallet::query_acceptable_payment_assets(xcm_version, acceptable_assets)
 		}
 
 		fn query_weight_to_asset_fee(weight: Weight, asset: VersionedAssetId) -> Result<u128, XcmPaymentApiError> {
@@ -2297,6 +2287,22 @@ sp_api::impl_runtime_apis! {
 
 		fn balance_to_points(pool_id: pallet_nomination_pools::PoolId, new_funds: Balance) -> Balance {
 			NominationPools::api_balance_to_points(pool_id, new_funds)
+		}
+
+		fn pool_pending_slash(pool_id: pallet_nomination_pools::PoolId) -> Balance {
+			NominationPools::api_pool_pending_slash(pool_id)
+		}
+
+		fn member_pending_slash(member: AccountId) -> Balance {
+			NominationPools::api_member_pending_slash(member)
+		}
+
+		fn pool_needs_delegate_migration(pool_id: pallet_nomination_pools::PoolId) -> bool {
+			NominationPools::api_pool_needs_delegate_migration(pool_id)
+		}
+
+		fn member_needs_delegate_migration(member: AccountId) -> bool {
+			NominationPools::api_member_needs_delegate_migration(member)
 		}
 	}
 

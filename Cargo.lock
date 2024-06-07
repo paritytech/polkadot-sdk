@@ -2099,6 +2099,7 @@ dependencies = [
  "substrate-wasm-builder",
  "testnet-parachains-constants",
  "tuplex",
+ "xcm-fee-payment-runtime-api",
 ]
 
 [[package]]
@@ -2259,6 +2260,7 @@ dependencies = [
  "testnet-parachains-constants",
  "tuplex",
  "westend-runtime-constants",
+ "xcm-fee-payment-runtime-api",
 ]
 
 [[package]]
@@ -2868,6 +2870,7 @@ dependencies = [
  "substrate-wasm-builder",
  "testnet-parachains-constants",
  "westend-runtime-constants",
+ "xcm-fee-payment-runtime-api",
 ]
 
 [[package]]
@@ -3123,6 +3126,7 @@ dependencies = [
  "staging-xcm-executor",
  "substrate-wasm-builder",
  "testnet-parachains-constants",
+ "xcm-fee-payment-runtime-api",
 ]
 
 [[package]]
@@ -3219,6 +3223,7 @@ dependencies = [
  "staging-xcm-executor",
  "substrate-wasm-builder",
  "testnet-parachains-constants",
+ "xcm-fee-payment-runtime-api",
 ]
 
 [[package]]
@@ -3283,6 +3288,7 @@ dependencies = [
  "substrate-wasm-builder",
  "testnet-parachains-constants",
  "westend-runtime-constants",
+ "xcm-fee-payment-runtime-api",
 ]
 
 [[package]]
@@ -8912,10 +8918,12 @@ dependencies = [
  "sc-sync-state-rpc",
  "sc-transaction-pool-api",
  "sp-api",
+ "sp-application-crypto",
  "sp-block-builder",
  "sp-blockchain",
  "sp-consensus",
  "sp-consensus-babe",
+ "sp-consensus-beefy",
  "sp-keystore",
  "sp-runtime",
  "sp-statement-store",
@@ -9827,6 +9835,7 @@ dependencies = [
  "sp-io",
  "sp-runtime",
  "sp-std 14.0.0",
+ "sp-tracing 16.0.0",
 ]
 
 [[package]]
@@ -12295,6 +12304,7 @@ dependencies = [
  "staging-xcm-executor",
  "substrate-wasm-builder",
  "testnet-parachains-constants",
+ "xcm-fee-payment-runtime-api",
 ]
 
 [[package]]
@@ -12395,6 +12405,7 @@ dependencies = [
  "substrate-wasm-builder",
  "testnet-parachains-constants",
  "westend-runtime-constants",
+ "xcm-fee-payment-runtime-api",
 ]
 
 [[package]]
@@ -13720,10 +13731,12 @@ dependencies = [
  "sc-sync-state-rpc",
  "sc-transaction-pool-api",
  "sp-api",
+ "sp-application-crypto",
  "sp-block-builder",
  "sp-blockchain",
  "sp-consensus",
  "sp-consensus-babe",
+ "sp-consensus-beefy",
  "sp-keystore",
  "sp-runtime",
  "substrate-frame-rpc-system",
@@ -14218,6 +14231,7 @@ dependencies = [
  "sp-version-proc-macro",
  "sp-wasm-interface 20.0.0",
  "sp-weights",
+ "staging-chain-spec-builder",
  "staging-node-inspect",
  "staging-parachain-info",
  "staging-tracking-allocator",
@@ -16721,6 +16735,7 @@ name = "sc-chain-spec"
 version = "28.0.0"
 dependencies = [
  "array-bytes",
+ "clap 4.5.3",
  "docify",
  "log",
  "memmap2 0.9.3",
@@ -17052,6 +17067,7 @@ dependencies = [
  "sc-rpc",
  "serde",
  "serde_json",
+ "sp-application-crypto",
  "sp-consensus-beefy",
  "sp-core",
  "sp-runtime",
