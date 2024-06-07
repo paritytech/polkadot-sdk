@@ -1,0 +1,17 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Cleanup PVF artifact by cache limit and stale time
+
+doc:
+  - audience: Node Operator
+    description: |
+      Extend the PVF artifacts cleanup strategy. Previously, we pruned artifacts that were stale more than 24 hours.
+      After this change we attempt pruning artifacts only when they reach the 10 GB cache limit. If the least used
+      artifact is stale less than 24 hours we don't remove it.
+
+crates:
+  - name: polkadot-node-core-pvf-common
+    bump: patch
+  - name: polkadot-node-core-pvf
+    bump: patch
