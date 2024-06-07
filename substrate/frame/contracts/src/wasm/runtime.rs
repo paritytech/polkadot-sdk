@@ -827,9 +827,15 @@ impl<'a, E: Ext + 'a> Runtime<'a, E> {
 				} else {
 					self.read_sandbox_memory_as(memory, deposit_ptr)?
 				};
+				let read_only = flags.contains(CallFlags::READ_ONLY);
 				let value: BalanceOf<<E as Ext>::T> =
 					self.read_sandbox_memory_as(memory, value_ptr)?;
 				if value > 0u32.into() {
+					// If the call value is non-zero and state change is not allowed, issue an
+					// error.
+					if read_only || self.ext.is_read_only() {
+						return Err(Error::<E::T>::StateChangeDenied.into());
+					}
 					self.charge_gas(RuntimeCosts::CallTransferSurcharge)?;
 				}
 				self.ext.call(
@@ -839,10 +845,11 @@ impl<'a, E: Ext + 'a> Runtime<'a, E> {
 					value,
 					input_data,
 					flags.contains(CallFlags::ALLOW_REENTRY),
+					read_only,
 				)
 			},
 			CallType::DelegateCall { code_hash_ptr } => {
-				if flags.contains(CallFlags::ALLOW_REENTRY) {
+				if flags.intersects(CallFlags::ALLOW_REENTRY | CallFlags::READ_ONLY) {
 					return Err(Error::<E::T>::InvalidCallFlags.into())
 				}
 				let code_hash = self.read_sandbox_memory_as(memory, code_hash_ptr)?;
@@ -957,6 +964,7 @@ pub mod env {
 	/// Set the value at the given key in the contract storage.
 	/// See [`pallet_contracts_uapi::HostFn::set_storage`]
 	#[prefixed_alias]
+	#[mutating]
 	fn set_storage(
 		ctx: _,
 		memory: _,
@@ -971,6 +979,7 @@ pub mod env {
 	/// See [`pallet_contracts_uapi::HostFn::set_storage_v1`]
 	#[version(1)]
 	#[prefixed_alias]
+	#[mutating]
 	fn set_storage(
 		ctx: _,
 		memory: _,
@@ -985,6 +994,7 @@ pub mod env {
 	/// See [`pallet_contracts_uapi::HostFn::set_storage_v2`]
 	#[version(2)]
 	#[prefixed_alias]
+	#[mutating]
 	fn set_storage(
 		ctx: _,
 		memory: _,
@@ -999,6 +1009,7 @@ pub mod env {
 	/// Clear the value at the given key in the contract storage.
 	/// See [`pallet_contracts_uapi::HostFn::clear_storage`]
 	#[prefixed_alias]
+	#[mutating]
 	fn clear_storage(ctx: _, memory: _, key_ptr: u32) -> Result<(), TrapReason> {
 		ctx.clear_storage(memory, KeyType::Fix, key_ptr).map(|_| ())
 	}
@@ -1007,6 +1018,7 @@ pub mod env {
 	/// See [`pallet_contracts_uapi::HostFn::clear_storage_v1`]
 	#[version(1)]
 	#[prefixed_alias]
+	#[mutating]
 	fn clear_storage(ctx: _, memory: _, key_ptr: u32, key_len: u32) -> Result<u32, TrapReason> {
 		ctx.clear_storage(memory, KeyType::Var(key_len), key_ptr)
 	}
@@ -1057,6 +1069,7 @@ pub mod env {
 	/// Retrieve and remove the value under the given key from storage.
 	/// See [`pallet_contracts_uapi::HostFn::take_storage`]
 	#[prefixed_alias]
+	#[mutating]
 	fn take_storage(
 		ctx: _,
 		memory: _,
@@ -1088,6 +1101,7 @@ pub mod env {
 	/// Transfer some value to another account.
 	/// See [`pallet_contracts_uapi::HostFn::transfer`].
 	#[prefixed_alias]
+	#[mutating]
 	fn transfer(
 		ctx: _,
 		memory: _,
@@ -1245,6 +1259,7 @@ pub mod env {
 	/// of those types are fixed through [`codec::MaxEncodedLen`]. The fields exist
 	/// for backwards compatibility. Consider switching to the newest version of this function.
 	#[prefixed_alias]
+	#[mutating]
 	fn instantiate(
 		ctx: _,
 		memory: _,
@@ -1283,6 +1298,7 @@ pub mod env {
 	/// See [`pallet_contracts_uapi::HostFn::instantiate_v1`].
 	#[version(1)]
 	#[prefixed_alias]
+	#[mutating]
 	fn instantiate(
 		ctx: _,
 		memory: _,
@@ -1318,6 +1334,7 @@ pub mod env {
 	/// Instantiate a contract with the specified code hash.
 	/// See [`pallet_contracts_uapi::HostFn::instantiate_v2`].
 	#[version(2)]
+	#[mutating]
 	fn instantiate(
 		ctx: _,
 		memory: _,
@@ -1361,6 +1378,7 @@ pub mod env {
 	/// this type is fixed through `[`MaxEncodedLen`]. The field exist for backwards
 	/// compatibility. Consider switching to the newest version of this function.
 	#[prefixed_alias]
+	#[mutating]
 	fn terminate(
 		ctx: _,
 		memory: _,
@@ -1374,6 +1392,7 @@ pub mod env {
 	/// See [`pallet_contracts_uapi::HostFn::terminate_v1`].
 	#[version(1)]
 	#[prefixed_alias]
+	#[mutating]
 	fn terminate(ctx: _, memory: _, beneficiary_ptr: u32) -> Result<(), TrapReason> {
 		ctx.terminate(memory, beneficiary_ptr)
 	}
@@ -1871,6 +1890,7 @@ pub mod env {
 	/// Deposit a contract event with the data buffer and optional list of topics.
 	/// See [pallet_contracts_uapi::HostFn::deposit_event]
 	#[prefixed_alias]
+	#[mutating]
 	fn deposit_event(
 		ctx: _,
 		memory: _,
@@ -2051,6 +2071,7 @@ pub mod env {
 
 	/// Call some dispatchable of the runtime.
 	/// See [`frame_support::traits::call_runtime`].
+	#[mutating]
 	fn call_runtime(
 		ctx: _,
 		memory: _,
@@ -2070,6 +2091,7 @@ pub mod env {
 
 	/// Execute an XCM program locally, using the contract's address as the origin.
 	/// See [`pallet_contracts_uapi::HostFn::execute_xcm`].
+	#[mutating]
 	fn xcm_execute(
 		ctx: _,
 		memory: _,
@@ -2107,6 +2129,7 @@ pub mod env {
 
 	/// Send an XCM program from the contract to the specified destination.
 	/// See [`pallet_contracts_uapi::HostFn::send_xcm`].
+	#[mutating]
 	fn xcm_send(
 		ctx: _,
 		memory: _,
@@ -2203,6 +2226,7 @@ pub mod env {
 	/// Replace the contract code at the specified address with new code.
 	/// See [`pallet_contracts_uapi::HostFn::set_code_hash`].
 	#[prefixed_alias]
+	#[mutating]
 	fn set_code_hash(ctx: _, memory: _, code_hash_ptr: u32) -> Result<ReturnErrorCode, TrapReason> {
 		ctx.charge_gas(RuntimeCosts::SetCodeHash)?;
 		let code_hash: CodeHash<<E as Ext>::T> =
@@ -2267,6 +2291,7 @@ pub mod env {
 
 	/// Adds a new delegate dependency to the contract.
 	/// See [`pallet_contracts_uapi::HostFn::lock_delegate_dependency`].
+	#[mutating]
 	fn lock_delegate_dependency(ctx: _, memory: _, code_hash_ptr: u32) -> Result<(), TrapReason> {
 		ctx.charge_gas(RuntimeCosts::LockDelegateDependency)?;
 		let code_hash = ctx.read_sandbox_memory_as(memory, code_hash_ptr)?;
@@ -2276,6 +2301,7 @@ pub mod env {
 
 	/// Removes the delegate dependency from the contract.
 	/// see [`pallet_contracts_uapi::HostFn::unlock_delegate_dependency`].
+	#[mutating]
 	fn unlock_delegate_dependency(ctx: _, memory: _, code_hash_ptr: u32) -> Result<(), TrapReason> {
 		ctx.charge_gas(RuntimeCosts::UnlockDelegateDependency)?;
 		let code_hash = ctx.read_sandbox_memory_as(memory, code_hash_ptr)?;

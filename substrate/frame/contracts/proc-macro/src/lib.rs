@@ -170,7 +170,7 @@ impl HostFn {
 
 		// process attributes
 		let msg =
-			"Only #[version(<u8>)], #[unstable], #[prefixed_alias], #[cfg] and #[deprecated] attributes are allowed.";
+			"Only #[version(<u8>)], #[unstable], #[prefixed_alias], #[cfg], #[mutating] and #[deprecated] attributes are allowed.";
 		let span = item.span();
 		let mut attrs = item.attrs.clone();
 		attrs.retain(|a| !a.path().is_ident("doc"));
@@ -178,6 +178,7 @@ impl HostFn {
 		let mut is_stable = true;
 		let mut alias_to = None;
 		let mut not_deprecated = true;
+		let mut mutating = false;
 		let mut cfg = None;
 		while let Some(attr) = attrs.pop() {
 			let ident = attr.path().get_ident().ok_or(err(span, msg))?.to_string();
@@ -208,6 +209,12 @@ impl HostFn {
 					}
 					not_deprecated = false;
 				},
+				"mutating" => {
+					if mutating {
+						return Err(err(span, "#[mutating] can only be specified once"))
+					}
+					mutating = true;
+				},
 				"cfg" => {
 					if cfg.is_some() {
 						return Err(err(span, "#[cfg] can only be specified once"))
@@ -217,6 +224,16 @@ impl HostFn {
 				id => return Err(err(span, &format!("Unsupported attribute \"{id}\". {msg}"))),
 			}
 		}
+
+		if mutating {
+			let stmt = syn::parse_quote! {
+				if ctx.ext().is_read_only() {
+					return Err(Error::<E::T>::StateChangeDenied.into());
+				}
+			};
+			item.block.stmts.insert(0, stmt);
+		}
+
 		let name = item.sig.ident.to_string();
 
 		if !(is_stable || not_deprecated) {

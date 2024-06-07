@@ -1,6 +1,6 @@
 [package]
 name = "staging-chain-spec-builder"
-version = "1.6.0"
+version = "1.6.1"
 authors.workspace = true
 edition.workspace = true
 build = "build.rs"
