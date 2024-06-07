@@ -865,14 +865,16 @@ impl NoShowStats {
 			return
 		}
 
-		self.last_dumped_block_number = current_block_number;
-
 		gum::debug!(
 			target: LOG_TARGET,
-			"Validators with no_show {:?} and parachains with no_shows {:?}",
+			"Validators with no_show {:?} and parachains with no_shows {:?} since {:}",
 			self.per_validator_no_show,
 			self.per_parachain_no_show,
+			self.last_dumped_block_number
 		);
+
+		self.last_dumped_block_number = current_block_number;
+
 		self.per_validator_no_show.clear();
 		self.per_parachain_no_show.clear();
 	}

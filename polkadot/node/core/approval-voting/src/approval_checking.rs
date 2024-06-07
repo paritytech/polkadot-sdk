@@ -1211,7 +1211,7 @@ mod tests {
 			approvals.set(v_index, true);
 		}
 
-		let (no_shows, next_no_show) = count_no_shows(
+		let (no_shows, next_no_show, _) = count_no_shows(
 			&test.assignments,
 			&approvals,
 			test.clock_drift,
@@ -1415,6 +1415,7 @@ mod tests {
 			next_no_show: None,
 			last_assignment_tick: None,
 			total_observed_no_shows: 0,
+			no_show_validators: Default::default(),
 		};
 
 		assert_eq!(
@@ -1439,6 +1440,7 @@ mod tests {
 			next_no_show: None,
 			last_assignment_tick: None,
 			total_observed_no_shows: 0,
+			no_show_validators: Default::default(),
 		};
 
 		assert_eq!(
