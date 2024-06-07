@@ -5,7 +5,7 @@
 //!
 //! ## Background
 //!
-//! Polkadot-SDK offers the ability to query and subscribe storages directly. However what it did
+//! Polkadot-SDK offers the ability to query and subscribe storages directly. However what it does
 //! not have is [view functions](https://github.com/paritytech/polkadot-sdk/issues/216). This is an
 //! essential feature to avoid duplicated logic between runtime and the client SDK. Custom RPC was
 //! used as a solution. It allow the RPC node to expose new RPCs that clients can be used to query
