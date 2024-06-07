@@ -338,7 +338,10 @@ impl<T: Config> Pallet<T> {
 
 	/// Get an iterator into the claim queues.
 	///
-	/// This iterator will have an item for each and every core index (no holes).
+	/// This iterator will have an item for each and every core index up to the maximum core index
+	/// found in the claim queue. In other words there will be no holes/missing core indices,
+	/// between core 0 and the maximum, even if the claim queue was missing entries for particular
+	/// indices in between. (The iterator will return an empty `VecDeque` for those indices.
 	fn claim_queue_iterator() -> impl Iterator<Item = (CoreIndex, VecDeque<ParasEntryType<T>>)> {
 		let queues = ClaimQueue::<T>::get();
 		return ClaimQueueIterator::<ParasEntryType<T>> {
@@ -625,7 +628,8 @@ impl<T: Config> Pallet<T> {
 					if n_lookahead_used < n_lookahead {
 						entry.ttl = now + ttl;
 					} else {
-						// Over max capacity, we need to bump ttl:
+						// Over max capacity, we need to bump ttl (we exceeded the claim queue
+						// size, so otherwise the entry might get dropped before reaching the top):
 						entry.ttl = now + ttl + One::one();
 					}
 					Self::add_to_claim_queue(core_idx, entry);

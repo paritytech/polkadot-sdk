@@ -162,6 +162,7 @@ fn scheduled_entries() -> impl Iterator<Item = (CoreIndex, ParasEntry<BlockNumbe
 fn claim_queue_iterator_handles_holes_correctly() {
 	let mut queue = BTreeMap::new();
 	queue.insert(CoreIndex(1), ["abc"].into_iter().collect());
+	queue.insert(CoreIndex(4), ["cde"].into_iter().collect());
 	let queue = queue.into_iter().peekable();
 	let mut i = ClaimQueueIterator { next_idx: 0, queue };
 
@@ -171,6 +172,18 @@ fn claim_queue_iterator_handles_holes_correctly() {
 
 	let (idx, e) = i.next().unwrap();
 	assert_eq!(idx, CoreIndex(1));
+	assert!(e.len() == 1);
+
+	let (idx, e) = i.next().unwrap();
+	assert_eq!(idx, CoreIndex(2));
+	assert!(e.is_empty());
+
+	let (idx, e) = i.next().unwrap();
+	assert_eq!(idx, CoreIndex(3));
+	assert!(e.is_empty());
+
+	let (idx, e) = i.next().unwrap();
+	assert_eq!(idx, CoreIndex(4));
 	assert!(e.len() == 1);
 
 	assert!(i.next().is_none());

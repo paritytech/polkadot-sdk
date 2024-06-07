@@ -41,7 +41,8 @@ pub fn claim_queue<T: scheduler::Config>() -> BTreeMap<CoreIndex, VecDeque<ParaI
 		.into_iter()
 		.map(|(core_index, entries)| {
 			// on cores timing out internal claim queue size may be temporarily longer than it
-			// should be:
+			// should be as the timed out assignment might got pushed back to an already full claim
+			// queue:
 			(
 				core_index,
 				entries.into_iter().map(|e| e.para_id()).take(n_lookahead as usize).collect(),
