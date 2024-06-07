@@ -3706,6 +3706,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#3555" id="3555">3555</a>
 <a href="#3556" id="3556">3556</a>
 <a href="#3557" id="3557">3557</a>
+<a href="#3558" id="3558">3558</a>
+<a href="#3559" id="3559">3559</a>
+<a href="#3560" id="3560">3560</a>
+<a href="#3561" id="3561">3561</a>
+<a href="#3562" id="3562">3562</a>
+<a href="#3563" id="3563">3563</a>
+<a href="#3564" id="3564">3564</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -3765,7 +3772,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>sp_core::Get;
 <span class="kw">use </span>sp_runtime::{DispatchError, RuntimeDebug};
 <span class="kw">use </span>sp_std::prelude::<span class="kw-2">*</span>;
-<span class="kw">use </span>wasmi::{InstancePre, Linker, Memory, MemoryType, StackLimits, Store};
+<span class="kw">use </span>wasmi::{CompilationMode, InstancePre, Linker, Memory, MemoryType, StackLimits, Store};
 
 <span class="kw">const </span>BYTES_PER_PAGE: usize = <span class="number">64 </span>* <span class="number">1024</span>;
 
@@ -3850,12 +3857,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">impl</span>&lt;T: Config&gt; Token&lt;T&gt; <span class="kw">for </span>CodeLoadToken {
 	<span class="kw">fn </span>weight(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Weight {
-		<span class="comment">// When loading the contract, we already covered the general costs of
-		// calling the storage but still need to account for the actual size of the
-		// contract code. This is why we subtract `T::*::(0)`. We need to do this at this
-		// point because when charging the general weight for calling the contract we don't know the
-		// size of the contract.
-		</span>T::WeightInfo::call_with_code_per_byte(<span class="self">self</span>.<span class="number">0</span>)
+		T::WeightInfo::call_with_code_per_byte(<span class="self">self</span>.<span class="number">0</span>)
 			.saturating_sub(T::WeightInfo::call_with_code_per_byte(<span class="number">0</span>))
 	}
 }
@@ -4059,9 +4061,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw-2">mut </span>store: Store&lt;Runtime&lt;E&gt;&gt;,
 		result: <span class="prelude-ty">Result</span>&lt;(), wasmi::Error&gt;,
 	) -&gt; ExecResult {
-		<span class="kw">let </span>engine_consumed_total = store.fuel_consumed().expect(<span class="string">"Fuel metering is enabled; qed"</span>);
+		<span class="kw">let </span>engine_fuel = store.get_fuel().expect(<span class="string">"Fuel metering is enabled; qed"</span>);
 		<span class="kw">let </span>gas_meter = store.data_mut().ext().gas_meter_mut();
-		<span class="kw">let _ </span>= gas_meter.sync_from_executor(engine_consumed_total)<span class="question-mark">?</span>;
+		<span class="kw">let _ </span>= gas_meter.sync_from_executor(engine_fuel)<span class="question-mark">?</span>;
 		store.into_data().to_execution_result(result)
 	}
 
@@ -4072,8 +4074,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		input_data: Vec&lt;u8&gt;,
 	) -&gt; (Func, Store&lt;Runtime&lt;E&gt;&gt;) {
 		<span class="kw">use </span>InstanceOrExecReturn::<span class="kw-2">*</span>;
-		<span class="kw">match </span><span class="self">Self</span>::prepare_execute(<span class="self">self</span>, Runtime::new(ext, input_data), <span class="kw-2">&amp;</span>ExportedFunction::Call)
-			.expect(<span class="string">"Benchmark should provide valid module"</span>)
+		<span class="kw">match </span><span class="self">Self</span>::prepare_execute(
+			<span class="self">self</span>,
+			Runtime::new(ext, input_data),
+			<span class="kw-2">&amp;</span>ExportedFunction::Call,
+			CompilationMode::Eager,
+		)
+		.expect(<span class="string">"Benchmark should provide valid module"</span>)
 		{
 			Instance((func, store)) =&gt; (func, store),
 			ExecReturn(<span class="kw">_</span>) =&gt; <span class="macro">panic!</span>(<span class="string">"Expected Instance"</span>),
@@ -4084,6 +4091,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="self">self</span>,
 		runtime: Runtime&lt;<span class="lifetime">'a</span>, E&gt;,
 		function: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>ExportedFunction,
+		compilation_mode: CompilationMode,
 	) -&gt; PreExecResult&lt;<span class="lifetime">'a</span>, E&gt; {
 		<span class="kw">let </span>code = <span class="self">self</span>.code.as_slice();
 		<span class="comment">// Instantiate the Wasm module to the engine.
@@ -4094,6 +4102,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="self">self</span>.code_info.determinism,
 			<span class="prelude-val">Some</span>(StackLimits::default()),
 			LoadingMode::Unchecked,
+			compilation_mode,
 		)
 		.map_err(|err| {
 			<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">"failed to create wasmi module: {err:?}"</span>);
@@ -4123,10 +4132,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.gas_meter_mut()
 			.gas_left()
 			.ref_time()
-			.checked_div(T::Schedule::get().instruction_weights.base <span class="kw">as </span>u64)
+			.checked_div(T::Schedule::get().ref_time_by_fuel())
 			.ok_or(Error::&lt;T&gt;::InvalidSchedule)<span class="question-mark">?</span>;
 		store
-			.add_fuel(fuel_limit)
+			.set_fuel(fuel_limit)
 			.expect(<span class="string">"We've set up engine to fuel consuming mode; qed"</span>);
 
 		<span class="comment">// Start function should already see the correct refcount in case it will be ever inspected.
@@ -4172,7 +4181,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		input_data: Vec&lt;u8&gt;,
 	) -&gt; ExecResult {
 		<span class="kw">use </span>InstanceOrExecReturn::<span class="kw-2">*</span>;
-		<span class="kw">match </span><span class="self">Self</span>::prepare_execute(<span class="self">self</span>, Runtime::new(ext, input_data), function)<span class="question-mark">? </span>{
+		<span class="kw">match </span><span class="self">Self</span>::prepare_execute(
+			<span class="self">self</span>,
+			Runtime::new(ext, input_data),
+			function,
+			CompilationMode::Lazy,
+		)<span class="question-mark">? </span>{
 			Instance((func, <span class="kw-2">mut </span>store)) =&gt; {
 				<span class="kw">let </span>result = func.call(<span class="kw-2">&amp;mut </span>store, <span class="kw-2">&amp;</span>[], <span class="kw-2">&amp;mut </span>[]);
 				<span class="self">Self</span>::process_result(store, result)

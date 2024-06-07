@@ -523,6 +523,31 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#372" id="372">372</a>
 <a href="#373" id="373">373</a>
 <a href="#374" id="374">374</a>
+<a href="#375" id="375">375</a>
+<a href="#376" id="376">376</a>
+<a href="#377" id="377">377</a>
+<a href="#378" id="378">378</a>
+<a href="#379" id="379">379</a>
+<a href="#380" id="380">380</a>
+<a href="#381" id="381">381</a>
+<a href="#382" id="382">382</a>
+<a href="#383" id="383">383</a>
+<a href="#384" id="384">384</a>
+<a href="#385" id="385">385</a>
+<a href="#386" id="386">386</a>
+<a href="#387" id="387">387</a>
+<a href="#388" id="388">388</a>
+<a href="#389" id="389">389</a>
+<a href="#390" id="390">390</a>
+<a href="#391" id="391">391</a>
+<a href="#392" id="392">392</a>
+<a href="#393" id="393">393</a>
+<a href="#394" id="394">394</a>
+<a href="#395" id="395">395</a>
+<a href="#396" id="396">396</a>
+<a href="#397" id="397">397</a>
+<a href="#398" id="398">398</a>
+<a href="#399" id="399">399</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -548,7 +573,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	DefaultNoBound,
 };
 <span class="kw">use </span>sp_core::Get;
-<span class="kw">use </span>sp_runtime::{traits::Zero, DispatchError, Saturating};
+<span class="kw">use </span>sp_runtime::{traits::Zero, DispatchError};
 
 <span class="attr">#[cfg(test)]
 </span><span class="kw">use </span>std::{any::Any, fmt::Debug};
@@ -560,6 +585,45 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">pub fn </span>amount(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Weight {
 		<span class="self">self</span>.<span class="number">0
 	</span>}
+}
+
+<span class="doccomment">/// Meter for syncing the gas between the executor and the gas meter.
+</span><span class="attr">#[derive(DefaultNoBound)]
+</span><span class="kw">struct </span>EngineMeter&lt;T: Config&gt; {
+	fuel: u64,
+	_phantom: PhantomData&lt;T&gt;,
+}
+
+<span class="kw">impl</span>&lt;T: Config&gt; EngineMeter&lt;T&gt; {
+	<span class="doccomment">/// Create a meter with the given fuel limit.
+	</span><span class="kw">fn </span>new(limit: Weight) -&gt; <span class="self">Self </span>{
+		<span class="self">Self </span>{
+			fuel: limit.ref_time().saturating_div(T::Schedule::get().ref_time_by_fuel()),
+			_phantom: PhantomData,
+		}
+	}
+
+	<span class="doccomment">/// Set the fuel left to the given value.
+	/// Returns the amount of Weight consumed since the last update.
+	</span><span class="kw">fn </span>set_fuel(<span class="kw-2">&amp;mut </span><span class="self">self</span>, fuel: u64) -&gt; Weight {
+		<span class="kw">let </span>consumed = <span class="self">self
+			</span>.fuel
+			.saturating_sub(fuel)
+			.saturating_mul(T::Schedule::get().ref_time_by_fuel());
+		<span class="self">self</span>.fuel = fuel;
+		Weight::from_parts(consumed, <span class="number">0</span>)
+	}
+
+	<span class="doccomment">/// Charge the given amount of gas.
+	/// Returns the amount of fuel left.
+	</span><span class="kw">fn </span>charge_ref_time(<span class="kw-2">&amp;mut </span><span class="self">self</span>, ref_time: u64) -&gt; <span class="prelude-ty">Result</span>&lt;Syncable, DispatchError&gt; {
+		<span class="kw">let </span>amount = ref_time
+			.checked_div(T::Schedule::get().ref_time_by_fuel())
+			.ok_or(Error::&lt;T&gt;::InvalidSchedule)<span class="question-mark">?</span>;
+
+		<span class="self">self</span>.fuel.checked_sub(amount).ok_or_else(|| Error::&lt;T&gt;::OutOfGas)<span class="question-mark">?</span>;
+		<span class="prelude-val">Ok</span>(Syncable(<span class="self">self</span>.fuel))
+	}
 }
 
 <span class="doccomment">/// Used to capture the gas left before entering a host function.
@@ -628,12 +692,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Due to `adjust_gas` and `nested` the `gas_left` can temporarily dip below its final value.
 	</span>gas_left_lowest: Weight,
 	<span class="doccomment">/// The amount of resources that was consumed by the execution engine.
-	///
-	/// This should be equivalent to `self.gas_consumed().ref_time()` but expressed in whatever
-	/// unit the execution engine uses to track resource consumption. We have to track it
-	/// separately in order to avoid the loss of precision that happens when converting from
-	/// ref_time to the execution engine unit.
-	</span>executor_consumed: u64,
+	/// We have to track it separately in order to avoid the loss of precision that happens when
+	/// converting from ref_time to the execution engine unit.
+	</span>engine_meter: EngineMeter&lt;T&gt;,
 	_phantom: PhantomData&lt;T&gt;,
 	<span class="attr">#[cfg(test)]
 	</span>tokens: Vec&lt;ErasedToken&gt;,
@@ -645,7 +706,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			gas_limit,
 			gas_left: gas_limit,
 			gas_left_lowest: gas_limit,
-			executor_consumed: <span class="number">0</span>,
+			engine_meter: EngineMeter::new(gas_limit),
 			_phantom: PhantomData,
 			<span class="attr">#[cfg(test)]
 			</span>tokens: Vec::new(),
@@ -725,16 +786,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// Needs to be called when entering a host function to update this meter with the
 	/// gas that was tracked by the executor. It tracks the latest seen total value
 	/// in order to compute the delta that needs to be charged.
-	</span><span class="kw">pub fn </span>sync_from_executor(
-		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
-		executor_total: u64,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;RefTimeLeft, DispatchError&gt; {
-		<span class="kw">let </span>chargable_reftime = executor_total
-			.saturating_sub(<span class="self">self</span>.executor_consumed)
-			.saturating_mul(u64::from(T::Schedule::get().instruction_weights.base));
-		<span class="self">self</span>.executor_consumed = executor_total;
+	</span><span class="kw">pub fn </span>sync_from_executor(<span class="kw-2">&amp;mut </span><span class="self">self</span>, engine_fuel: u64) -&gt; <span class="prelude-ty">Result</span>&lt;RefTimeLeft, DispatchError&gt; {
+		<span class="kw">let </span>weight_consumed = <span class="self">self</span>.engine_meter.set_fuel(engine_fuel);
 		<span class="self">self</span>.gas_left
-			.checked_reduce(Weight::from_parts(chargable_reftime, <span class="number">0</span>))
+			.checked_reduce(weight_consumed)
 			.ok_or_else(|| Error::&lt;T&gt;::OutOfGas)<span class="question-mark">?</span>;
 		<span class="prelude-val">Ok</span>(RefTimeLeft(<span class="self">self</span>.gas_left.ref_time()))
 	}
@@ -748,13 +803,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// It is important that this does **not** actually sync with the executor. That has
 	/// to be done by the caller.
 	</span><span class="kw">pub fn </span>sync_to_executor(<span class="kw-2">&amp;mut </span><span class="self">self</span>, before: RefTimeLeft) -&gt; <span class="prelude-ty">Result</span>&lt;Syncable, DispatchError&gt; {
-		<span class="kw">let </span>chargable_executor_resource = before
-			.<span class="number">0
-			</span>.saturating_sub(<span class="self">self</span>.gas_left().ref_time())
-			.checked_div(u64::from(T::Schedule::get().instruction_weights.base))
-			.ok_or(Error::&lt;T&gt;::InvalidSchedule)<span class="question-mark">?</span>;
-		<span class="self">self</span>.executor_consumed.saturating_accrue(chargable_executor_resource);
-		<span class="prelude-val">Ok</span>(Syncable(chargable_executor_resource))
+		<span class="kw">let </span>ref_time_consumed = before.<span class="number">0</span>.saturating_sub(<span class="self">self</span>.gas_left().ref_time());
+		<span class="self">self</span>.engine_meter.charge_ref_time(ref_time_consumed)
 	}
 
 	<span class="doccomment">/// Returns the amount of gas that is required to run the same call.

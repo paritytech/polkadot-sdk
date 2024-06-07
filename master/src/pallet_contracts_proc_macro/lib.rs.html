@@ -1069,6 +1069,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#918" id="918">918</a>
 <a href="#919" id="919">919</a>
 <a href="#920" id="920">920</a>
+<a href="#921" id="921">921</a>
+<a href="#922" id="922">922</a>
+<a href="#923" id="923">923</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1221,7 +1224,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="self">Self</span>::U64 =&gt; <span class="macro">quote! </span>{ ::core::primitive::u64 },
 		};
 		<span class="macro">quote! </span>{
-			::core::result::Result&lt;#ok, ::wasmi::core::Trap&gt;
+			::core::result::Result&lt;#ok, ::wasmi::Error&gt;
 		}
 	}
 }
@@ -1765,7 +1768,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>into_host = <span class="kw">if </span>expand_blocks {
 			<span class="macro">quote! </span>{
 				|reason| {
-					::wasmi::core::Trap::from(reason)
+					::wasmi::Error::host(reason)
 				}
 			}
 		} <span class="kw">else </span>{
@@ -1782,13 +1785,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="macro">quote! </span>{
 				<span class="comment">// Write gas from wasmi into pallet-contracts before entering the host function.
 				</span><span class="kw">let </span>__gas_left_before__ = {
-					<span class="kw">let </span>executor_total =
-						__caller__.fuel_consumed().expect(<span class="string">"Fuel metering is enabled; qed"</span>);
+					<span class="kw">let </span>fuel =
+						__caller__.get_fuel().expect(<span class="string">"Fuel metering is enabled; qed"</span>);
 					__caller__
 						.data_mut()
 						.ext()
 						.gas_meter_mut()
-						.sync_from_executor(executor_total)
+						.sync_from_executor(fuel)
 						.map_err(TrapReason::from)
 						.map_err(#into_host)<span class="question-mark">?
 				</span>};
@@ -1804,15 +1807,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="comment">// Write gas from pallet-contracts into wasmi after leaving the host function.
 		</span><span class="kw">let </span>sync_gas_after = <span class="kw">if </span>expand_blocks {
 			<span class="macro">quote! </span>{
-				<span class="kw">let </span>fuel_consumed = __caller__
+				<span class="kw">let </span>fuel = __caller__
 					.data_mut()
 					.ext()
 					.gas_meter_mut()
 					.sync_to_executor(__gas_left_before__)
-					.map_err(TrapReason::from)<span class="question-mark">?</span>;
+					.map_err(|err| {
+						<span class="kw">let </span>err = TrapReason::from(err);
+						wasmi::Error::host(err)
+					})<span class="question-mark">?</span>;
 				 __caller__
-					 .consume_fuel(fuel_consumed.into())
-					 .map_err(|<span class="kw">_</span>| TrapReason::from(Error::&lt;E::T&gt;::OutOfGas))<span class="question-mark">?</span>;
+					 .set_fuel(fuel.into())
+					 .expect(<span class="string">"Fuel metering is enabled; qed"</span>);
 			}
 		} <span class="kw">else </span>{
 			<span class="macro">quote! </span>{ }

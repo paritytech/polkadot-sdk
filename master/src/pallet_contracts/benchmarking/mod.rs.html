@@ -3082,7 +3082,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	// s: size of salt in bytes
 	</span><span class="attr">#[benchmark(pov_mode = Measured)]
 	</span><span class="kw">fn </span>seal_instantiate(
-		t: Linear&lt;<span class="number">0</span>, <span class="number">1</span>&gt;,
 		i: Linear&lt;<span class="number">0</span>, { (code::max_pages::&lt;T&gt;() - <span class="number">1</span>) * <span class="number">64 </span>* <span class="number">1024 </span>}&gt;,
 		s: Linear&lt;<span class="number">0</span>, { (code::max_pages::&lt;T&gt;() - <span class="number">1</span>) * <span class="number">64 </span>* <span class="number">1024 </span>}&gt;,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;(), BenchmarkError&gt; {
@@ -3090,7 +3089,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>hash_bytes = hash.encode();
 		<span class="kw">let </span>hash_len = hash_bytes.len() <span class="kw">as </span>u32;
 
-		<span class="kw">let </span>value: BalanceOf&lt;T&gt; = t.into();
+		<span class="kw">let </span>value: BalanceOf&lt;T&gt; = <span class="number">1u32</span>.into();
 		<span class="kw">let </span>value_bytes = value.encode();
 		<span class="kw">let </span>value_len = value_bytes.len() <span class="kw">as </span>u32;
 
@@ -3145,6 +3144,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="macro">assert_ok!</span>(result);
 		<span class="macro">assert!</span>(ContractInfoOf::&lt;T&gt;::get(<span class="kw-2">&amp;</span>addr).is_some());
+		<span class="macro">assert_eq!</span>(T::Currency::balance(<span class="kw-2">&amp;</span>addr), Pallet::&lt;T&gt;::min_balance() + value);
 		<span class="prelude-val">Ok</span>(())
 	}
 
