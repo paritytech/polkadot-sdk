@@ -13,13 +13,13 @@ workspace = true
 smallvec = "1.8.0"
 
 frame-support = { path = "../../../../substrate/frame/support", default-features = false }
-primitives = { package = "polkadot-primitives", path = "../../../primitives", default-features = false }
+polkadot-primitives = { path = "../../../primitives", default-features = false }
 sp-runtime = { path = "../../../../substrate/primitives/runtime", default-features = false }
 
 [features]
 default = ["std"]
 std = [
 	"frame-support/std",
-	"primitives/std",
+	"polkadot-primitives/std",
 	"sp-runtime/std",
 ]
