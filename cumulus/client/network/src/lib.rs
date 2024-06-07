@@ -311,7 +311,7 @@ where
 
 		let head_hash = HeadData(header.encode()).hash();
 
-		if backed_blocks.find(|block_hash| block_hash == &head_hash).is_some() {
+		if backed_blocks.any(|block_hash| block_hash == head_hash) {
 			tracing::debug!(target: LOG_TARGET, "Announced block matches latest backed block.",);
 
 			Ok(Validation::Success { is_new_best: true })
