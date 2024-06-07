@@ -42,7 +42,7 @@ use frame_support::{
 };
 use frame_system::pallet_prelude::*;
 use pallet_babe::{self, ParentBlockRandomness};
-use primitives::{
+use polkadot_primitives::{
 	effective_minimum_backing_votes, node_features::FeatureIndex, BackedCandidate, CandidateHash,
 	CandidateReceipt, CheckedDisputeStatementSet, CheckedMultiDisputeStatementSet, CoreIndex,
 	DisputeStatementSet, HeadData, InherentData as ParachainsInherentData,
