@@ -6055,6 +6055,7 @@ dependencies = [
 name = "frame-system-rpc-runtime-api"
 version = "26.0.0"
 dependencies = [
+ "docify",
  "parity-scale-codec",
  "sp-api",
 ]
@@ -8372,6 +8373,7 @@ name = "minimal-template-node"
 version = "0.0.0"
 dependencies = [
  "clap 4.5.3",
+ "docify",
  "futures",
  "futures-timer",
  "jsonrpsee",
@@ -20961,6 +20963,7 @@ name = "substrate-frame-rpc-system"
 version = "28.0.0"
 dependencies = [
  "assert_matches",
+ "docify",
  "frame-system-rpc-runtime-api",
  "futures",
  "jsonrpsee",
