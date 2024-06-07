@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1717710336391,
+  "lastUpdate": 1717759310993,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -13519,6 +13519,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.010378550233333339,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "eskimor",
+            "username": "eskimor",
+            "email": "eskimor@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "9dfe0fee74ce1e4b7f99c1a5122b635aa43a1e5f",
+          "message": "Fix occupied core handling (#4691)\n\nCo-authored-by: eskimor <eskimor@no-such-url.com>\nCo-authored-by: Andrei Sandu <54316454+sandreim@users.noreply.github.com>",
+          "timestamp": "2024-06-07T10:50:30Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/9dfe0fee74ce1e4b7f99c1a5122b635aa43a1e5f"
+        },
+        "date": 1717759282424,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.015966050300000006,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.1909486309333333,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.013361873553333339,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02302539815333333,
             "unit": "seconds"
           }
         ]
