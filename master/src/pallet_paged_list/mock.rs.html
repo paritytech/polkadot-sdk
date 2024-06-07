@@ -222,27 +222,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#71" id="71">71</a>
 <a href="#72" id="72">72</a>
 <a href="#73" id="73">73</a>
-<a href="#74" id="74">74</a>
-<a href="#75" id="75">75</a>
-<a href="#76" id="76">76</a>
-<a href="#77" id="77">77</a>
-<a href="#78" id="78">78</a>
-<a href="#79" id="79">79</a>
-<a href="#80" id="80">80</a>
-<a href="#81" id="81">81</a>
-<a href="#82" id="82">82</a>
-<a href="#83" id="83">83</a>
-<a href="#84" id="84">84</a>
-<a href="#85" id="85">85</a>
-<a href="#86" id="86">86</a>
-<a href="#87" id="87">87</a>
-<a href="#88" id="88">88</a>
-<a href="#89" id="89">89</a>
-<a href="#90" id="90">90</a>
-<a href="#91" id="91">91</a>
-<a href="#92" id="92">92</a>
-<a href="#93" id="93">93</a>
-<a href="#94" id="94">94</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -265,12 +244,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="attr">#![cfg(feature = <span class="string">"std"</span>)]
 
 </span><span class="kw">use crate</span>::{paged_list::StoragePagedListMeta, Config, ListPrefix};
-<span class="kw">use </span>frame_support::{derive_impl, traits::ConstU16};
-<span class="kw">use </span>sp_core::H256;
-<span class="kw">use </span>sp_runtime::{
-	traits::{BlakeTwo256, IdentityLookup},
-	BuildStorage,
-};
+<span class="kw">use </span>frame_support::derive_impl;
+<span class="kw">use </span>sp_runtime::{traits::IdentityLookup, BuildStorage};
 
 <span class="kw">type </span>Block = frame_system::mocking::MockBlock&lt;Test&gt;;
 
@@ -285,28 +260,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="attr">#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 </span><span class="kw">impl </span>frame_system::Config <span class="kw">for </span>Test {
-	<span class="kw">type </span>BaseCallFilter = frame_support::traits::Everything;
-	<span class="kw">type </span>BlockWeights = ();
-	<span class="kw">type </span>BlockLength = ();
-	<span class="kw">type </span>DbWeight = ();
-	<span class="kw">type </span>RuntimeOrigin = RuntimeOrigin;
-	<span class="kw">type </span>RuntimeCall = RuntimeCall;
 	<span class="kw">type </span>Nonce = u64;
-	<span class="kw">type </span>Hash = H256;
-	<span class="kw">type </span>Hashing = BlakeTwo256;
 	<span class="kw">type </span>AccountId = u64;
 	<span class="kw">type </span>Lookup = IdentityLookup&lt;<span class="self">Self</span>::AccountId&gt;;
 	<span class="kw">type </span>Block = Block;
 	<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
-	<span class="kw">type </span>Version = ();
-	<span class="kw">type </span>PalletInfo = PalletInfo;
-	<span class="kw">type </span>AccountData = ();
-	<span class="kw">type </span>OnNewAccount = ();
-	<span class="kw">type </span>OnKilledAccount = ();
-	<span class="kw">type </span>SystemWeightInfo = ();
-	<span class="kw">type </span>SS58Prefix = ConstU16&lt;<span class="number">42</span>&gt;;
-	<span class="kw">type </span>OnSetCode = ();
-	<span class="kw">type </span>MaxConsumers = frame_support::traits::ConstU32&lt;<span class="number">16</span>&gt;;
 }
 
 <span class="macro">frame_support::parameter_types! </span>{

@@ -184,6 +184,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#33" id="33">33</a>
 <a href="#34" id="34">34</a>
 <a href="#35" id="35">35</a>
+<a href="#36" id="36">36</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -209,6 +210,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="attr">#![cfg_attr(not(feature = <span class="string">"std"</span>), no_std)]
 
+#[docify::export(AccountNonceApi)]
 </span><span class="macro">sp_api::decl_runtime_apis! </span>{
 	<span class="doccomment">/// The API to query account nonce.
 	</span><span class="kw">pub trait </span>AccountNonceApi&lt;AccountId, Nonce&gt; <span class="kw">where

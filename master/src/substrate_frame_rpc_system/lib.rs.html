@@ -485,6 +485,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#334" id="334">334</a>
 <a href="#335" id="335">335</a>
 <a href="#336" id="336">336</a>
+<a href="#337" id="337">337</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -524,7 +525,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">pub use </span>frame_system_rpc_runtime_api::AccountNonceApi;
 
 <span class="doccomment">/// System RPC methods.
-</span><span class="attr">#[rpc(client, server)]
+</span><span class="attr">#[docify::export]
+#[rpc(client, server)]
 </span><span class="kw">pub trait </span>SystemApi&lt;BlockHash, AccountId, Nonce&gt; {
 	<span class="doccomment">/// Returns the next valid index (aka nonce) for given account.
 	///
