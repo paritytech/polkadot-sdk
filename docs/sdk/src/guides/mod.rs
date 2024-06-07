@@ -3,10 +3,11 @@
 //! This crate contains a collection of guides that are foundational to the developers of Polkadot
 //! SDK. They are common user-journeys that are traversed in the Polkadot ecosystem.
 //!
-//! 1. [`your_first_pallet`] is your starting point with Polkadot SDK. It contains the basics of
+//! 1. [`crate::guides::your_first_pallet`] is your starting point with Polkadot SDK. It contains
+//!    the basics of
 //! building a simple crypto currency with FRAME.
-//! 2. [`your_first_runtime`] is the next step in your journey. It contains the basics of building a
-//!    runtime that contains this pallet, plus a few common pallets from FRAME.
+//! 2. [`crate::guides::your_first_runtime`] is the next step in your journey. It contains the
+//!    basics of building a runtime that contains this pallet, plus a few common pallets from FRAME.
 //!
 //!
 //! Other guides are related to other miscellaneous topics and are listed as modules below.

@@ -1,3 +1,3 @@
 //! # Your first Runtime
 //!
-//! 🚧 https://github.com/paritytech/polkadot-sdk/pull/3946
+//! 🚧 <https://github.com/paritytech/polkadot-sdk/pull/3946>
