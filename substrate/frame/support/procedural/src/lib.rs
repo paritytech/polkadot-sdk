@@ -1209,6 +1209,7 @@ pub fn import_section(attr: TokenStream, tokens: TokenStream) -> TokenStream {
 /// 	  RuntimeSlashReason,
 /// 	  RuntimeLockId,
 /// 	  RuntimeTask,
+/// 	  RuntimeQuery,
 ///   )]
 ///   pub struct Runtime;
 ///
