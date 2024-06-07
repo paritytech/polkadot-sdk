@@ -98,11 +98,7 @@ impl TryFrom<&syn::TraitItemType> for ConstMetadataDef {
 				let syn::TypeParamBound::Trait(trait_bound) = param_bound else { return None };
 
 				trait_bound.path.segments.last().and_then(|s| {
-					if s.ident == "Get" {
-						Some(s)
-					} else {
-						None
-					}
+					(s.ident == "Get").then(|| s)
 				})
 			})
 			.ok_or_else(|| err(trait_ty.span(), "`Get<T>` trait bound not found"))?;
