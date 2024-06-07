@@ -809,7 +809,7 @@ impl<T: Config> Pallet<T> {
 	///
 	/// When the `try-runtime` feature is enabled, this function will panic.
 	// Allow unreachable code so it can compile without warnings when `try-runtime` is enabled.
-	#[allow(unreachable_code)]
+	#[cfg_attr(feature = "try-runtime", allow(unreachable_code))]
 	fn upgrade_failed(migration: Option<u32>) {
 		use FailedMigrationHandling::*;
 		Self::deposit_event(Event::UpgradeFailed);
