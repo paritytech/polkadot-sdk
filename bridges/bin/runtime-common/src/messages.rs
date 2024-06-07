@@ -395,7 +395,7 @@ mod tests {
 	use codec::Encode;
 	use sp_core::H256;
 	use sp_runtime::traits::Header as _;
-	use sp_trie::recorder_ext::Error as RecorderExtError;
+	use sp_trie::accessed_nodes_tracker::Error as AccessedNodesTrackerError;
 
 	#[test]
 	fn verify_chain_message_rejects_message_with_too_large_declared_weight() {
@@ -542,7 +542,7 @@ mod tests {
 				target::verify_messages_proof::<OnThisChainBridge>(proof, 10)
 			},),
 			Err(VerificationError::HeaderChain(HeaderChainError::StorageProof(
-				StorageProofError::RecorderExt(RecorderExtError::DuplicateNodes.into())
+				StorageProofError::StorageProof(sp_trie::StorageProofError::DuplicateNodes.into())
 			))),
 		);
 	}
@@ -554,8 +554,8 @@ mod tests {
 				proof.storage_proof.push(vec![42]);
 				target::verify_messages_proof::<OnThisChainBridge>(proof, 10)
 			},),
-			Err(VerificationError::StorageProof(StorageProofError::RecorderExt(
-				RecorderExtError::UnusedNodes.into()
+			Err(VerificationError::StorageProof(StorageProofError::AccessedNodesTracker(
+				AccessedNodesTrackerError::UnusedNodes.into()
 			))),
 		);
 	}

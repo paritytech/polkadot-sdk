@@ -52,7 +52,7 @@ use frame_support::{
 use crate::{self as pallet_session, Pallet as Session};
 
 pub use pallet::*;
-use sp_trie::recorder_ext::{RecorderExt, RedundantNodesChecker};
+use sp_trie::{accessed_nodes_tracker::AccessedNodesTracker, recorder_ext::RecorderExt};
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -357,13 +357,13 @@ impl<T: Config, D: AsRef<[u8]>> KeyOwnerProofSystem<(KeyTypeId, D)> for Pallet<T
 			return None
 		}
 
-		let (mut redundant_nodes_checker, proof) =
-			RedundantNodesChecker::<T::Hash>::new(proof.trie_nodes)
-				.map_err(print_error)
-				.ok()?;
+		let proof = StorageProof::new_with_duplicate_nodes_check(proof.trie_nodes)
+			.map_err(print_error)
+			.ok()?;
+		let mut accessed_nodes_tracker = AccessedNodesTracker::<T::Hash>::new(proof.len());
 		let trie = ProvingTrie::<T>::from_proof(root, proof);
-		let res = trie.query(id, data.as_ref(), Some(&mut redundant_nodes_checker))?;
-		redundant_nodes_checker.ensure_no_unused_nodes().map_err(print_error).ok()?;
+		let res = trie.query(id, data.as_ref(), Some(&mut accessed_nodes_tracker))?;
+		accessed_nodes_tracker.ensure_no_unused_nodes().map_err(print_error).ok()?;
 		Some(res)
 	}
 }
