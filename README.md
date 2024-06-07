@@ -24,10 +24,12 @@ forks](https://img.shields.io/github/forks/paritytech/polkadot-sdk)
 ## 📚 Documentation
 
 * [🦀 rust-docs](https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/index.html)
- * [Introduction](https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/polkadot_sdk/index.html)
-   to each component of the Polkadot SDK: Substrate, FRAME, Cumulus, and XCM
- * [Guides](https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/guides/index.html), namely how to build your first FRAME pallet.
- * [Templates](https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/polkadot_sdk/templates/index.html) for starting a new project.
+  * [Introduction](https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/polkadot_sdk/index.html)
+	to each component of the Polkadot SDK: Substrate, FRAME, Cumulus, and XCM
+  * [Guides](https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/guides/index.html),
+	namely how to build your first FRAME pallet.
+  * [Templates](https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/polkadot_sdk/templates/index.html)
+    for starting a new project.
 * Other Resources:
   * [Polkadot Wiki -> Build](https://wiki.polkadot.network/docs/build-guide)
 
