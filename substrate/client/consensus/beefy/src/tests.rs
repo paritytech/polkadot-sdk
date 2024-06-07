@@ -55,6 +55,7 @@ use sp_api::{ApiRef, ProvideRuntimeApi};
 use sp_application_crypto::key_types::BEEFY as BEEFY_KEY_TYPE;
 use sp_consensus::BlockOrigin;
 use sp_consensus_beefy::{
+	ecdsa_crypto,
 	ecdsa_crypto::{AuthorityId, Signature},
 	known_payloads,
 	mmr::{find_mmr_root_digest, MmrRootProvider},
@@ -89,6 +90,7 @@ type BeefyBlockImport = crate::BeefyBlockImport<
 	substrate_test_runtime_client::Backend,
 	TestApi,
 	BlockImportAdapter<PeersClient>,
+	AuthorityId,
 >;
 
 pub(crate) type BeefyValidatorSet = ValidatorSet<AuthorityId>;
@@ -107,8 +109,8 @@ impl BuildStorage for Genesis {
 
 #[derive(Default)]
 pub(crate) struct PeerData {
-	pub(crate) beefy_rpc_links: Mutex<Option<BeefyRPCLinks<Block>>>,
-	pub(crate) beefy_voter_links: Mutex<Option<BeefyVoterLinks<Block>>>,
+	pub(crate) beefy_rpc_links: Mutex<Option<BeefyRPCLinks<Block, AuthorityId>>>,
+	pub(crate) beefy_voter_links: Mutex<Option<BeefyVoterLinks<Block, AuthorityId>>>,
 	pub(crate) beefy_justif_req_handler:
 		Mutex<Option<BeefyJustifsRequestHandler<Block, PeersFullClient>>>,
 }
@@ -371,7 +373,7 @@ async fn voter_init_setup(
 	net: &mut BeefyTestNet,
 	finality: &mut futures::stream::Fuse<FinalityNotifications<Block>>,
 	api: &TestApi,
-) -> Result<PersistedState<Block>, Error> {
+) -> Result<PersistedState<Block, ecdsa_crypto::AuthorityId>, Error> {
 	let backend = net.peer(0).client().as_backend();
 	let (beefy_genesis, best_grandpa) = wait_for_runtime_pallet(api, finality).await.unwrap();
 	let key_store = None.into();
@@ -446,7 +448,7 @@ where
 			on_demand_justifications_handler: on_demand_justif_handler,
 			is_authority: true,
 		};
-		let task = crate::start_beefy_gadget::<_, _, _, _, _, _, _>(beefy_params);
+		let task = crate::start_beefy_gadget::<_, _, _, _, _, _, _, _>(beefy_params);
 
 		fn assert_send<T: Send>(_: &T) {}
 		assert_send(&task);
@@ -472,8 +474,10 @@ pub(crate) fn get_beefy_streams(
 	net: &mut BeefyTestNet,
 	// peer index and key
 	peers: impl Iterator<Item = (usize, BeefyKeyring<AuthorityId>)>,
-) -> (Vec<NotificationReceiver<H256>>, Vec<NotificationReceiver<BeefyVersionedFinalityProof<Block>>>)
-{
+) -> (
+	Vec<NotificationReceiver<H256>>,
+	Vec<NotificationReceiver<BeefyVersionedFinalityProof<Block, AuthorityId>>>,
+) {
 	let mut best_block_streams = Vec::new();
 	let mut versioned_finality_proof_streams = Vec::new();
 	peers.for_each(|(index, _)| {
@@ -511,7 +515,7 @@ async fn wait_for_best_beefy_blocks(
 }
 
 async fn wait_for_beefy_signed_commitments(
-	streams: Vec<NotificationReceiver<BeefyVersionedFinalityProof<Block>>>,
+	streams: Vec<NotificationReceiver<BeefyVersionedFinalityProof<Block, AuthorityId>>>,
 	net: &Arc<Mutex<BeefyTestNet>>,
 	expected_commitment_block_nums: &[u64],
 ) {
@@ -1417,7 +1421,7 @@ async fn beefy_reports_equivocations() {
 	for wait_ms in [250, 500, 1250, 3000] {
 		run_for(Duration::from_millis(wait_ms), &net).await;
 		if !api_alice.reported_equivocations.as_ref().unwrap().lock().is_empty() {
-			break
+			break;
 		}
 	}
 
@@ -1457,7 +1461,7 @@ async fn gossipped_finality_proofs() {
 	// Charlie will run just the gossip engine and not the full voter.
 	let gossip_validator = GossipValidator::new(known_peers, Arc::new(TestNetwork::new().0));
 	let charlie_gossip_validator = Arc::new(gossip_validator);
-	charlie_gossip_validator.update_filter(GossipFilterCfg::<Block> {
+	charlie_gossip_validator.update_filter(GossipFilterCfg::<Block, ecdsa_crypto::AuthorityId> {
 		start: 1,
 		end: 10,
 		validator_set: &validator_set,
@@ -1501,7 +1505,7 @@ async fn gossipped_finality_proofs() {
 	let (best_blocks, versioned_finality_proof) = get_beefy_streams(&mut net.lock(), peers.clone());
 	// Charlie gossips finality proof for #1 -> Alice and Bob also finalize.
 	let proof = crate::communication::gossip::tests::dummy_proof(1, &validator_set);
-	let gossip_proof = GossipMessage::<Block>::FinalityProof(proof);
+	let gossip_proof = GossipMessage::<Block, ecdsa_crypto::AuthorityId>::FinalityProof(proof);
 	let encoded_proof = gossip_proof.encode();
 	charlie_gossip_engine.gossip_message(proofs_topic::<Block>(), encoded_proof, true);
 	// Expect #1 is finalized.
@@ -1526,7 +1530,8 @@ async fn gossipped_finality_proofs() {
 	let commitment = Commitment { payload, block_number, validator_set_id: validator_set.id() };
 	let signature = sign_commitment(&BeefyKeyring::Charlie, &commitment);
 	let vote_message = VoteMessage { commitment, id: BeefyKeyring::Charlie.public(), signature };
-	let encoded_vote = GossipMessage::<Block>::Vote(vote_message).encode();
+	let encoded_vote =
+		GossipMessage::<Block, ecdsa_crypto::AuthorityId>::Vote(vote_message).encode();
 	charlie_gossip_engine.gossip_message(votes_topic::<Block>(), encoded_vote, true);
 
 	// Expect #2 is finalized.
@@ -1538,12 +1543,15 @@ async fn gossipped_finality_proofs() {
 		charlie_gossip_engine
 			.messages_for(proofs_topic::<Block>())
 			.filter_map(|notification| async move {
-				GossipMessage::<Block>::decode(&mut &notification.message[..]).ok().and_then(
-					|message| match message {
-						GossipMessage::<Block>::Vote(_) => unreachable!(),
-						GossipMessage::<Block>::FinalityProof(proof) => Some(proof),
-					},
+				GossipMessage::<Block, ecdsa_crypto::AuthorityId>::decode(
+					&mut &notification.message[..],
 				)
+				.ok()
+				.and_then(|message| match message {
+					GossipMessage::<Block, ecdsa_crypto::AuthorityId>::Vote(_) => unreachable!(),
+					GossipMessage::<Block, ecdsa_crypto::AuthorityId>::FinalityProof(proof) =>
+						Some(proof),
+				})
 			})
 			.fuse(),
 	);
@@ -1561,7 +1569,7 @@ async fn gossipped_finality_proofs() {
 			// verify finality proof has been gossipped
 			proof = charlie_gossip_proofs.next() => {
 				let proof = proof.unwrap();
-				let (round, _) = proof_block_num_and_set_id::<Block>(&proof);
+				let (round, _) = proof_block_num_and_set_id::<Block, ecdsa_crypto::AuthorityId>(&proof);
 				match round {
 					1 => continue, // finality proof generated by Charlie in the previous round
 					2 => break,	// finality proof generated by Alice or Bob and gossiped to Charlie
