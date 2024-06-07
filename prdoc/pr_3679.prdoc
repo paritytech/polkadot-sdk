@@ -11,3 +11,4 @@ doc:
 
 crates:
   - name: pallet-contracts
+  - name: pallet-contracts-proc-macro
