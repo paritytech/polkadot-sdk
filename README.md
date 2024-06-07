@@ -53,8 +53,8 @@ changes. They have pre-release version numbers in the format `major.0.0-nightlyY
 ## 🛠️ Tooling
 
 [Polkadot SDK Version Manager](https://github.com/paritytech/psvm)
-- A simple tool to manage and update the Polkadot SDK dependencies in any Cargo.toml file.
-- It will automatically update the Polkadot SDK dependencies to their correct crates.io version.
+* A simple tool to manage and update the Polkadot SDK dependencies in any Cargo.toml file.
+* It will automatically update the Polkadot SDK dependencies to their correct crates.io version.
 
 ## 🔐 Security
 
