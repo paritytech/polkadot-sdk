@@ -21,8 +21,9 @@ pub use crate::{
 	worker_interface::{spawn_with_program_path, SpawnErr},
 };
 
-use crate::get_worker_version;
+use crate::{artifacts::ArtifactId, get_worker_version};
 use is_executable::IsExecutable;
+use polkadot_node_core_pvf_common::pvf::PvfPrepData;
 use polkadot_node_primitives::NODE_VERSION;
 use polkadot_primitives::ExecutorParams;
 use std::{
@@ -125,4 +126,9 @@ pub fn build_workers_and_get_paths() -> (PathBuf, PathBuf) {
 
 	let guard = mutex.lock().unwrap();
 	(guard.0.clone(), guard.1.clone())
+}
+
+/// Creates a new PVF which artifact id can be uniquely identified by the given number.
+pub fn artifact_id(discriminator: u32) -> ArtifactId {
+	ArtifactId::from_pvf_prep_data(&PvfPrepData::from_discriminator(discriminator))
 }
