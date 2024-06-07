@@ -190,7 +190,6 @@
 //! As noted above, the `T::AccountId` is now `u64`. Moreover, `Runtime` is replacing `<T: Config>`.
 //! This is why for example you see `Balances::<Runtime>::get(..)`. Finally, notice that the
 //! dispatchables are simply functions that can be called on top of the `Pallet` struct.
-// TODO: hard to explain exactly `RuntimeOrigin::signed(ALICE)` at this point.
 //!
 //! Congratulations! You have written your first pallet and tested it! Next, we learn a few optional
 //! steps to improve our pallet.
@@ -448,13 +447,9 @@ pub mod pallet {
 		#[docify::export(testing_prelude)]
 		use frame::testing_prelude::*;
 
-		#[docify::export_content]
-		mod accounts {
-			pub(crate) const ALICE: u64 = 1;
-			pub(crate) const BOB: u64 = 2;
-			pub(crate) const CHARLIE: u64 = 3;
-		}
-		pub(crate) use accounts::*;
+		pub(crate) const ALICE: u64 = 1;
+		pub(crate) const BOB: u64 = 2;
+		pub(crate) const CHARLIE: u64 = 3;
 
 		#[docify::export]
 		// This runtime is only used for testing, so it should be somewhere like `#[cfg(test)] mod
