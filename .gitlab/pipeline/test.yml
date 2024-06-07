@@ -176,6 +176,29 @@ test-linux-stable-runtime-benchmarks:
   script:
     - time cargo nextest run --workspace --features runtime-benchmarks benchmark --locked --cargo-profile testnet
 
+# some tests do not run with `try-runtime` feature enabled
+# https://github.com/paritytech/polkadot-sdk/pull/4251#discussion_r1624282143
+test-linux-stable-no-try-runtime:
+  stage: test
+  extends:
+    - .docker-env
+    - .common-refs
+    - .run-immediately
+    - .pipeline-stopper-artifacts
+  variables:
+    RUST_TOOLCHAIN: stable
+    # Enable debug assertions since we are running optimized builds for testing
+    # but still want to have debug assertions.
+    RUSTFLAGS: "-Cdebug-assertions=y -Dwarnings"
+  script:
+    - >
+      time cargo nextest run \
+        --workspace \
+        --locked \
+        --release \
+        --no-fail-fast \
+        --features experimental,riscv,ci-only-tests \
+
 # can be used to run all tests
 # test-linux-stable-all:
 #   stage: test
