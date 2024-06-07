@@ -6,9 +6,8 @@ title: Fix claim queue size
 doc:
   - audience: Runtime User
     description: |
-      The claim queue will no longer consider the occupied core as part of the
-      claim queue. Thus it will now have the expected size. Previously in case
-      of an occupied core it would have fallen short by one item.
+      Ensure claim queue size is always the number configured by ` scheduler_params.lookahead`. Previously the claim queue of a core was shortened by 1 if the core was occupied.
+
 
 crates:
   - name: polkadot-runtime-parachains
