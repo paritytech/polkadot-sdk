@@ -143,7 +143,7 @@ pub type MigrateV0ToV1<T> = VersionedMigration<
 mod tests {
 	use super::{v0, v1, UncheckedOnRuntimeUpgrade, Weight};
 	use crate::mock::{new_test_ext, MockGenesisConfig, OnDemandAssigner, Test};
-	use primitives::Id as ParaId;
+	use polkadot_primitives::Id as ParaId;
 
 	#[test]
 	fn migration_to_v1_preserves_queue_ordering() {

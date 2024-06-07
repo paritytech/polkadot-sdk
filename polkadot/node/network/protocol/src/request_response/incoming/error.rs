@@ -18,7 +18,7 @@
 
 use sc_network_types::PeerId;
 
-use parity_scale_codec::Error as DecodingError;
+use codec::Error as DecodingError;
 
 #[allow(missing_docs)]
 #[fatality::fatality(splitable)]
