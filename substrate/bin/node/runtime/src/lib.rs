@@ -2686,7 +2686,7 @@ impl_runtime_apis! {
 
 	impl sp_api::RuntimeQuery<Block> for Runtime {
 		fn execute_query(query_id: QueryId, query: Vec<u8>) -> Result<Vec<u8>, QueryDispatchError> {
-			todo!()
+			Runtime::execute_query(query_id, query)
 		}
 	}
 

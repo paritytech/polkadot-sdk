@@ -20,7 +20,7 @@ use proc_macro2::{Ident, Span, TokenStream as TokenStream2};
 
 /// Expands implementation of runtime level `DispatchQuery`.
 pub fn expand_outer_query(
-	_runtime_name: &Ident,
+	runtime_name: &Ident,
 	pallet_decls: &[Pallet],
 	scrate: &TokenStream2,
 ) -> TokenStream2 {
@@ -56,6 +56,19 @@ pub fn expand_outer_query(
 				{
 					#( #prefix_conditionals )*
 					Err(#scrate::__private::QueryDispatchError::NotFound(id.clone()))
+				}
+			}
+
+			impl #runtime_name {
+				/// Convenience function for query execution from the runtime API.
+				pub fn execute_query(
+					id: #scrate::__private::QueryId,
+					input: #scrate::__private::sp_std::vec::Vec<::core::primitive::u8>,
+				) -> Result<#scrate::__private::sp_std::vec::Vec<::core::primitive::u8>, #scrate::__private::QueryDispatchError>
+				{
+					let mut output = #scrate::__private::sp_std::vec![];
+					<#runtime_query as #scrate::traits::DispatchQuery>::dispatch_query(&id, &mut &input[..], &mut output)?;
+					Ok(output)
 				}
 			}
 		};
