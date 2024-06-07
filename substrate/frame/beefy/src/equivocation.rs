@@ -39,8 +39,8 @@ use frame_support::traits::{Get, KeyOwnerProofSystem};
 use frame_system::pallet_prelude::{BlockNumberFor, HeaderFor};
 use log::{error, info};
 use sp_consensus_beefy::{
-	check_commitment_signature, AncestryHelper, DoubleVotingProof, ForkVotingProof, ValidatorSetId,
-	KEY_TYPE as BEEFY_KEY_TYPE,
+	check_commitment_signature, AncestryHelper, DoubleVotingProof, ForkVotingProof,
+	FutureBlockVotingProof, ValidatorSetId, KEY_TYPE as BEEFY_KEY_TYPE,
 };
 use sp_runtime::{
 	transaction_validity::{
@@ -142,6 +142,7 @@ pub enum EquivocationEvidenceFor<T: Config> {
 		>,
 		T::KeyOwnerProof,
 	),
+	FutureBlockVotingProof(FutureBlockVotingProof<BlockNumberFor<T>, T::BeefyId>, T::KeyOwnerProof),
 }
 
 impl<T: Config> EquivocationEvidenceFor<T> {
@@ -151,6 +152,8 @@ impl<T: Config> EquivocationEvidenceFor<T> {
 			EquivocationEvidenceFor::DoubleVotingProof(equivocation_proof, _) =>
 				equivocation_proof.offender_id(),
 			EquivocationEvidenceFor::ForkVotingProof(equivocation_proof, _) =>
+				&equivocation_proof.vote.id,
+			EquivocationEvidenceFor::FutureBlockVotingProof(equivocation_proof, _) =>
 				&equivocation_proof.vote.id,
 		}
 	}
@@ -162,6 +165,8 @@ impl<T: Config> EquivocationEvidenceFor<T> {
 				equivocation_proof.round_number(),
 			EquivocationEvidenceFor::ForkVotingProof(equivocation_proof, _) =>
 				&equivocation_proof.vote.commitment.block_number,
+			EquivocationEvidenceFor::FutureBlockVotingProof(equivocation_proof, _) =>
+				&equivocation_proof.vote.commitment.block_number,
 		}
 	}
 
@@ -172,6 +177,8 @@ impl<T: Config> EquivocationEvidenceFor<T> {
 				equivocation_proof.set_id(),
 			EquivocationEvidenceFor::ForkVotingProof(equivocation_proof, _) =>
 				equivocation_proof.vote.commitment.validator_set_id,
+			EquivocationEvidenceFor::FutureBlockVotingProof(equivocation_proof, _) =>
+				equivocation_proof.vote.commitment.validator_set_id,
 		}
 	}
 
@@ -180,6 +187,7 @@ impl<T: Config> EquivocationEvidenceFor<T> {
 		match self {
 			EquivocationEvidenceFor::DoubleVotingProof(_, key_owner_proof) => key_owner_proof,
 			EquivocationEvidenceFor::ForkVotingProof(_, key_owner_proof) => key_owner_proof,
+			EquivocationEvidenceFor::FutureBlockVotingProof(_, key_owner_proof) => key_owner_proof,
 		}
 	}
 
@@ -222,6 +230,21 @@ impl<T: Config> EquivocationEvidenceFor<T> {
 					);
 				if !is_non_canonical {
 					return Err(Error::<T>::InvalidForkVotingProof);
+				}
+
+				let is_signature_valid =
+					check_commitment_signature(&vote.commitment, &vote.id, &vote.signature);
+				if !is_signature_valid {
+					return Err(Error::<T>::InvalidForkVotingProof);
+				}
+
+				Ok(())
+			},
+			EquivocationEvidenceFor::FutureBlockVotingProof(equivocation_proof, _) => {
+				let FutureBlockVotingProof { vote } = equivocation_proof;
+				// Check if the commitment actually targets a future block
+				if vote.commitment.block_number < frame_system::Pallet::<T>::block_number() {
+					return Err(Error::<T>::InvalidFutureBlockVotingProof);
 				}
 
 				let is_signature_valid =

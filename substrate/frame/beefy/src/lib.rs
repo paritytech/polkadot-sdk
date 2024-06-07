@@ -42,7 +42,8 @@ use sp_std::prelude::*;
 
 use sp_consensus_beefy::{
 	AncestryHelper, AuthorityIndex, BeefyAuthorityId, ConsensusLog, DoubleVotingProof,
-	ForkVotingProof, OnNewValidatorSet, ValidatorSet, BEEFY_ENGINE_ID, GENESIS_AUTHORITY_SET_ID,
+	ForkVotingProof, FutureBlockVotingProof, OnNewValidatorSet, ValidatorSet, BEEFY_ENGINE_ID,
+	GENESIS_AUTHORITY_SET_ID,
 };
 
 mod default_weights;
@@ -195,6 +196,8 @@ pub mod pallet {
 		InvalidDoubleVotingProof,
 		/// A fork voting proof provided as part of an equivocation report is invalid.
 		InvalidForkVotingProof,
+		/// A future block voting proof provided as part of an equivocation report is invalid.
+		InvalidFutureBlockVotingProof,
 		/// The session of the equivocation proof is invalid
 		InvalidEquivocationProofSession,
 		/// A given equivocation report is valid but already previously reported.
@@ -348,6 +351,63 @@ pub mod pallet {
 			// Waive the fee since the report is valid and beneficial
 			Ok(Pays::No.into())
 		}
+
+		/// Report future block voting equivocation. This method will verify the equivocation proof
+		/// and validate the given key ownership proof against the extracted offender.
+		/// If both are valid, the offence will be reported.
+		#[pallet::call_index(5)]
+		#[pallet::weight(T::WeightInfo::report_fork_voting(
+			key_owner_proof.validator_count(),
+			T::MaxNominators::get(),
+		))]
+		pub fn report_future_block_voting(
+			origin: OriginFor<T>,
+			equivocation_proof: Box<FutureBlockVotingProof<BlockNumberFor<T>, T::BeefyId>>,
+			key_owner_proof: T::KeyOwnerProof,
+		) -> DispatchResultWithPostInfo {
+			let reporter = ensure_signed(origin)?;
+
+			T::EquivocationReportSystem::process_evidence(
+				Some(reporter),
+				EquivocationEvidenceFor::FutureBlockVotingProof(
+					*equivocation_proof,
+					key_owner_proof,
+				),
+			)?;
+			// Waive the fee since the report is valid and beneficial
+			Ok(Pays::No.into())
+		}
+
+		/// Report future block voting equivocation. This method will verify the equivocation proof
+		/// and validate the given key ownership proof against the extracted offender.
+		/// If both are valid, the offence will be reported.
+		///
+		/// This extrinsic must be called unsigned and it is expected that only
+		/// block authors will call it (validated in `ValidateUnsigned`), as such
+		/// if the block author is defined it will be defined as the equivocation
+		/// reporter.
+		#[pallet::call_index(6)]
+		#[pallet::weight(T::WeightInfo::report_fork_voting(
+			key_owner_proof.validator_count(),
+			T::MaxNominators::get(),
+		))]
+		pub fn report_future_block_voting_unsigned(
+			origin: OriginFor<T>,
+			equivocation_proof: Box<FutureBlockVotingProof<BlockNumberFor<T>, T::BeefyId>>,
+			key_owner_proof: T::KeyOwnerProof,
+		) -> DispatchResultWithPostInfo {
+			ensure_none(origin)?;
+
+			T::EquivocationReportSystem::process_evidence(
+				None,
+				EquivocationEvidenceFor::FutureBlockVotingProof(
+					*equivocation_proof,
+					key_owner_proof,
+				),
+			)?;
+			// Waive the fee since the report is valid and beneficial
+			Ok(Pays::No.into())
+		}
 	}
 
 	#[pallet::hooks]
@@ -402,6 +462,13 @@ pub mod pallet {
 						equivocation_proof: Box::new(equivocation_proof),
 						key_owner_proof,
 					},
+				EquivocationEvidenceFor::FutureBlockVotingProof(
+					equivocation_proof,
+					key_owner_proof,
+				) => Call::report_future_block_voting_unsigned {
+					equivocation_proof: Box::new(equivocation_proof),
+					key_owner_proof,
+				},
 			}
 		}
 	}
@@ -635,7 +702,20 @@ impl<T: Config> IsMember<T::BeefyId> for Pallet<T> {
 }
 
 pub trait WeightInfo {
-	fn report_double_voting(validator_count: u32, max_nominators_per_validator: u32) -> Weight;
+	fn report_voting_equivocation(
+		votes_count: u32,
+		validator_count: u32,
+		max_nominators_per_validator: u32,
+	) -> Weight;
+	fn report_double_voting(validator_count: u32, max_nominators_per_validator: u32) -> Weight {
+		Self::report_voting_equivocation(2, validator_count, max_nominators_per_validator)
+	}
 	fn report_fork_voting(validator_count: u32, max_nominators_per_validator: u32) -> Weight;
+	fn report_future_block_voting(
+		validator_count: u32,
+		max_nominators_per_validator: u32,
+	) -> Weight {
+		Self::report_voting_equivocation(1, validator_count, max_nominators_per_validator)
+	}
 	fn set_new_genesis() -> Weight;
 }

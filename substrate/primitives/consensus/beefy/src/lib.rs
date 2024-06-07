@@ -347,6 +347,13 @@ pub struct ForkVotingProof<Header: HeaderT, Id: RuntimeAppPublic, AncestryProof>
 	pub header: Header,
 }
 
+/// Proof showing that an authority voted for a future block.
+#[derive(Clone, Debug, Decode, Encode, PartialEq, TypeInfo)]
+pub struct FutureBlockVotingProof<Number, Id: RuntimeAppPublic> {
+	/// The equivocated vote.
+	pub vote: VoteMessage<Number, Id, Id::Signature>,
+}
+
 /// Check a commitment signature by encoding the commitment and
 /// verifying the provided signature using the expected authority id.
 pub fn check_commitment_signature<Number, Id, MsgHash>(

@@ -19,7 +19,7 @@
 use crate::ecdsa_bls_crypto;
 use crate::{
 	ecdsa_crypto, AuthorityIdBound, BeefySignatureHasher, Commitment, DoubleVotingProof,
-	ForkVotingProof, Payload, ValidatorSetId, VoteMessage,
+	ForkVotingProof, FutureBlockVotingProof, Payload, ValidatorSetId, VoteMessage,
 };
 use sp_application_crypto::{AppCrypto, AppPair, RuntimeAppPublic, Wraps};
 use sp_core::{ecdsa, Pair};
@@ -137,7 +137,7 @@ impl From<Keyring<ecdsa_crypto::AuthorityId>> for ecdsa_crypto::Public {
 }
 
 /// Create a new `VoteMessage` from commitment primitives and keyring
-fn signed_vote<Number: BlockNumber>(
+pub fn signed_vote<Number: BlockNumber>(
 	block_number: Number,
 	payload: Payload,
 	validator_set_id: ValidatorSetId,
@@ -166,4 +166,12 @@ pub fn generate_fork_voting_proof<Header: HeaderT<Number = u64>, AncestryProof>(
 ) -> ForkVotingProof<Header, ecdsa_crypto::Public, AncestryProof> {
 	let signed_vote = signed_vote(vote.0, vote.1, vote.2, vote.3);
 	ForkVotingProof { vote: signed_vote, ancestry_proof, header }
+}
+
+/// Create a new `ForkVotingProof` based on vote & canonical header.
+pub fn generate_future_block_voting_proof(
+	vote: (u64, Payload, ValidatorSetId, &Keyring<ecdsa_crypto::AuthorityId>),
+) -> FutureBlockVotingProof<u64, ecdsa_crypto::Public> {
+	let signed_vote = signed_vote(vote.0, vote.1, vote.2, vote.3);
+	FutureBlockVotingProof { vote: signed_vote }
 }
