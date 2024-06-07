@@ -16,12 +16,8 @@
 // limitations under the License.
 
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use frame_support::{derive_impl, traits::ConstU32};
-use sp_core::H256;
-use sp_runtime::{
-	traits::{BlakeTwo256, IdentityLookup},
-	BuildStorage, Perbill,
-};
+use frame_support::derive_impl;
+use sp_runtime::{BuildStorage, Perbill};
 #[frame_support::pallet]
 mod module {
 	use frame_support::pallet_prelude::*;
