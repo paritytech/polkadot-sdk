@@ -251,6 +251,14 @@ impl RelayChainInterface for RelayChainInProcessInterface {
 				});
 		Ok(Box::pin(notifications_stream))
 	}
+
+	async fn candidates_pending_availability(
+		&self,
+		hash: PHash,
+		para_id: ParaId,
+	) -> RelayChainResult<Vec<CommittedCandidateReceipt>> {
+		Ok(self.full_client.runtime_api().candidates_pending_availability(hash, para_id)?)
+	}
 }
 
 pub enum BlockCheckStatus {

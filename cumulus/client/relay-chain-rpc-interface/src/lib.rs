@@ -237,4 +237,14 @@ impl RelayChainInterface for RelayChainRpcInterface {
 		let imported_headers_stream = self.rpc_client.get_best_heads_stream()?;
 		Ok(imported_headers_stream.boxed())
 	}
+
+	async fn candidates_pending_availability(
+		&self,
+		hash: RelayHash,
+		para_id: ParaId,
+	) -> RelayChainResult<Vec<CommittedCandidateReceipt>> {
+		self.rpc_client
+			.parachain_host_candidates_pending_availability(hash, para_id)
+			.await
+	}
 }

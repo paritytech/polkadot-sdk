@@ -75,6 +75,9 @@ use std::{
 	time::Duration,
 };
 
+#[cfg(test)]
+mod tests;
+
 mod active_candidate_recovery;
 use active_candidate_recovery::ActiveCandidateRecovery;
 
@@ -544,7 +547,7 @@ where
 		)
 		.await
 		{
-			Ok(pending_candidate_stream) => pending_candidate_stream.fuse(),
+			Ok(pending_candidates_stream) => pending_candidates_stream.fuse(),
 			Err(err) => {
 				tracing::error!(target: LOG_TARGET, error = ?err, "Unable to retrieve pending candidate stream.");
 				return
@@ -554,9 +557,11 @@ where
 		futures::pin_mut!(pending_candidates);
 		loop {
 			select! {
-				pending_candidate = pending_candidates.next() => {
-					if let Some((receipt, session_index)) = pending_candidate {
-						self.handle_pending_candidate(receipt, session_index);
+				next_pending_candidates = pending_candidates.next() => {
+					if let Some((candidates, session_index)) = next_pending_candidates {
+						for candidate in candidates {
+							self.handle_pending_candidate(candidate, session_index);
+						}
 					} else {
 						tracing::debug!(target: LOG_TARGET, "Pending candidates stream ended");
 						return;
@@ -615,7 +620,7 @@ async fn pending_candidates(
 	relay_chain_client: impl RelayChainInterface + Clone,
 	para_id: ParaId,
 	sync_service: Arc<dyn SyncOracle + Sync + Send>,
-) -> RelayChainResult<impl Stream<Item = (CommittedCandidateReceipt, SessionIndex)>> {
+) -> RelayChainResult<impl Stream<Item = (Vec<CommittedCandidateReceipt>, SessionIndex)>> {
 	let import_notification_stream = relay_chain_client.import_notification_stream().await?;
 
 	let filtered_stream = import_notification_stream.filter_map(move |n| {
@@ -633,7 +638,7 @@ async fn pending_candidates(
 			}
 
 			let pending_availability_result = client_for_closure
-				.candidate_pending_availability(hash, para_id)
+				.candidates_pending_availability(hash, para_id)
 				.await
 				.map_err(|e| {
 					tracing::error!(
@@ -651,8 +656,8 @@ async fn pending_candidates(
 					)
 				});
 
-			if let Ok(Some(candidate)) = pending_availability_result {
-				session_index_result.map(|session_index| (candidate, session_index)).ok()
+			if let Ok(candidates) = pending_availability_result {
+				session_index_result.map(|session_index| (candidates, session_index)).ok()
 			} else {
 				None
 			}

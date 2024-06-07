@@ -37,6 +37,11 @@ async-trait = "0.1.79"
 [dev-dependencies]
 tokio = { version = "1.32.0", features = ["macros"] }
 portpicker = "0.1.1"
+sp-blockchain = { path = "../../../substrate/primitives/blockchain" }
+cumulus-test-client = { path = "../../test/client" }
+sc-utils = { path = "../../../substrate/client/utils" }
+sp-tracing = { path = "../../../substrate/primitives/tracing" }
+assert_matches = "1.5"
 
 # Cumulus
 cumulus-test-service = { path = "../../test/service" }

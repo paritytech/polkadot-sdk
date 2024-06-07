@@ -266,18 +266,18 @@ where
 		Ok(para_head)
 	}
 
-	/// Get the backed block hash of the given parachain in the relay chain.
-	async fn backed_block_hash(
+	/// Get the backed block hashes of the given parachain in the relay chain.
+	async fn backed_block_hashes(
 		relay_chain_interface: &RCInterface,
 		hash: PHash,
 		para_id: ParaId,
-	) -> Result<Option<PHash>, BoxedError> {
-		let candidate_receipt = relay_chain_interface
-			.candidate_pending_availability(hash, para_id)
+	) -> Result<impl Iterator<Item = PHash>, BoxedError> {
+		let candidate_receipts = relay_chain_interface
+			.candidates_pending_availability(hash, para_id)
 			.await
 			.map_err(|e| Box::new(BlockAnnounceError(format!("{:?}", e))) as Box<_>)?;
 
-		Ok(candidate_receipt.map(|cr| cr.descriptor.para_head))
+		Ok(candidate_receipts.into_iter().map(|cr| cr.descriptor.para_head))
 	}
 
 	/// Handle a block announcement with empty data (no statement) attached to it.
@@ -298,15 +298,20 @@ where
 		let best_head =
 			Self::included_block(&relay_chain_interface, relay_chain_best_hash, para_id).await?;
 		let known_best_number = best_head.number();
-		let backed_block = || async {
-			Self::backed_block_hash(&relay_chain_interface, relay_chain_best_hash, para_id).await
-		};
 
 		if best_head == header {
 			tracing::debug!(target: LOG_TARGET, "Announced block matches best block.",);
 
-			Ok(Validation::Success { is_new_best: true })
-		} else if Some(HeadData(header.encode()).hash()) == backed_block().await? {
+			return Ok(Validation::Success { is_new_best: true })
+		}
+
+		let mut backed_blocks =
+			Self::backed_block_hashes(&relay_chain_interface, relay_chain_best_hash, para_id)
+				.await?;
+
+		let head_hash = HeadData(header.encode()).hash();
+
+		if backed_blocks.find(|block_hash| block_hash == &head_hash).is_some() {
 			tracing::debug!(target: LOG_TARGET, "Announced block matches latest backed block.",);
 
 			Ok(Validation::Success { is_new_best: true })

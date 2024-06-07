@@ -153,6 +153,14 @@ impl RelayChainInterface for Relaychain {
 		unimplemented!("Not needed for test")
 	}
 
+	async fn candidates_pending_availability(
+		&self,
+		_: PHash,
+		_: ParaId,
+	) -> RelayChainResult<Vec<CommittedCandidateReceipt>> {
+		unimplemented!("Not needed for test")
+	}
+
 	async fn session_index_for_child(&self, _: PHash) -> RelayChainResult<SessionIndex> {
 		Ok(0)
 	}
