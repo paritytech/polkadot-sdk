@@ -57,7 +57,7 @@ use frame_support::{
 use sp_core::Get;
 use sp_runtime::{DispatchError, RuntimeDebug};
 use sp_std::prelude::*;
-use wasmi::{InstancePre, Linker, Memory, MemoryType, StackLimits, Store};
+use wasmi::{CompilationMode, InstancePre, Linker, Memory, MemoryType, StackLimits, Store};
 
 const BYTES_PER_PAGE: usize = 64 * 1024;
 
@@ -142,11 +142,6 @@ struct CodeLoadToken(u32);
 
 impl<T: Config> Token<T> for CodeLoadToken {
 	fn weight(&self) -> Weight {
-		// When loading the contract, we already covered the general costs of
-		// calling the storage but still need to account for the actual size of the
-		// contract code. This is why we subtract `T::*::(0)`. We need to do this at this
-		// point because when charging the general weight for calling the contract we don't know the
-		// size of the contract.
 		T::WeightInfo::call_with_code_per_byte(self.0)
 			.saturating_sub(T::WeightInfo::call_with_code_per_byte(0))
 	}
@@ -351,9 +346,9 @@ impl<T: Config> WasmBlob<T> {
 		mut store: Store<Runtime<E>>,
 		result: Result<(), wasmi::Error>,
 	) -> ExecResult {
-		let engine_consumed_total = store.fuel_consumed().expect("Fuel metering is enabled; qed");
+		let engine_fuel = store.get_fuel().expect("Fuel metering is enabled; qed");
 		let gas_meter = store.data_mut().ext().gas_meter_mut();
-		let _ = gas_meter.sync_from_executor(engine_consumed_total)?;
+		let _ = gas_meter.sync_from_executor(engine_fuel)?;
 		store.into_data().to_execution_result(result)
 	}
 
@@ -364,8 +359,13 @@ impl<T: Config> WasmBlob<T> {
 		input_data: Vec<u8>,
 	) -> (Func, Store<Runtime<E>>) {
 		use InstanceOrExecReturn::*;
-		match Self::prepare_execute(self, Runtime::new(ext, input_data), &ExportedFunction::Call)
-			.expect("Benchmark should provide valid module")
+		match Self::prepare_execute(
+			self,
+			Runtime::new(ext, input_data),
+			&ExportedFunction::Call,
+			CompilationMode::Eager,
+		)
+		.expect("Benchmark should provide valid module")
 		{
 			Instance((func, store)) => (func, store),
 			ExecReturn(_) => panic!("Expected Instance"),
@@ -376,6 +376,7 @@ impl<T: Config> WasmBlob<T> {
 		self,
 		runtime: Runtime<'a, E>,
 		function: &'a ExportedFunction,
+		compilation_mode: CompilationMode,
 	) -> PreExecResult<'a, E> {
 		let code = self.code.as_slice();
 		// Instantiate the Wasm module to the engine.
@@ -386,6 +387,7 @@ impl<T: Config> WasmBlob<T> {
 			self.code_info.determinism,
 			Some(StackLimits::default()),
 			LoadingMode::Unchecked,
+			compilation_mode,
 		)
 		.map_err(|err| {
 			log::debug!(target: LOG_TARGET, "failed to create wasmi module: {err:?}");
@@ -415,10 +417,10 @@ impl<T: Config> WasmBlob<T> {
 			.gas_meter_mut()
 			.gas_left()
 			.ref_time()
-			.checked_div(T::Schedule::get().instruction_weights.base as u64)
+			.checked_div(T::Schedule::get().ref_time_by_fuel())
 			.ok_or(Error::<T>::InvalidSchedule)?;
 		store
-			.add_fuel(fuel_limit)
+			.set_fuel(fuel_limit)
 			.expect("We've set up engine to fuel consuming mode; qed");
 
 		// Start function should already see the correct refcount in case it will be ever inspected.
@@ -464,7 +466,12 @@ impl<T: Config> Executable<T> for WasmBlob<T> {
 		input_data: Vec<u8>,
 	) -> ExecResult {
 		use InstanceOrExecReturn::*;
-		match Self::prepare_execute(self, Runtime::new(ext, input_data), function)? {
+		match Self::prepare_execute(
+			self,
+			Runtime::new(ext, input_data),
+			function,
+			CompilationMode::Lazy,
+		)? {
 			Instance((func, mut store)) => {
 				let result = func.call(&mut store, &[], &mut []);
 				Self::process_result(store, result)
