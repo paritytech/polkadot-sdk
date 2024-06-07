@@ -658,7 +658,7 @@ pub(crate) fn balances(who: &AccountId) -> (Balance, Balance) {
 
 pub(crate) fn whitelist(who: AccountId) {
 	SignedWhitelist::<Runtime>::mutate(|w| {
-		w.force_push(who.clone());
+		w.force_push(who);
 	})
 }
 

@@ -12,3 +12,5 @@ doc:
 crates:
 - name: pallet-election-provider-multi-phase
   bump: minor
+- name: westend-runtime
+  bump: minor
