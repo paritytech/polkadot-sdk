@@ -1041,6 +1041,23 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#890" id="890">890</a>
 <a href="#891" id="891">891</a>
 <a href="#892" id="892">892</a>
+<a href="#893" id="893">893</a>
+<a href="#894" id="894">894</a>
+<a href="#895" id="895">895</a>
+<a href="#896" id="896">896</a>
+<a href="#897" id="897">897</a>
+<a href="#898" id="898">898</a>
+<a href="#899" id="899">899</a>
+<a href="#900" id="900">900</a>
+<a href="#901" id="901">901</a>
+<a href="#902" id="902">902</a>
+<a href="#903" id="903">903</a>
+<a href="#904" id="904">904</a>
+<a href="#905" id="905">905</a>
+<a href="#906" id="906">906</a>
+<a href="#907" id="907">907</a>
+<a href="#908" id="908">908</a>
+<a href="#909" id="909">909</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1135,11 +1152,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// will correspond to core index 3. There must be one entry for each core with a dispute
 	/// statement set.
 	</span>dispute_sessions: Vec&lt;u32&gt;,
-	<span class="doccomment">/// Map from para id to number of validity votes. Core indices are generated based on
+	<span class="doccomment">/// Paras here will both be backed in the inherent data and already occupying a core (which is
+	/// freed via bitfields).
+	///
+	/// Map from para id to number of validity votes. Core indices are generated based on
 	/// `elastic_paras` configuration. Each para id in `elastic_paras` gets the
 	/// specified amount of consecutive cores assigned to it. If a para id is not present
 	/// in `elastic_paras` it get assigned to a single core.
 	</span>backed_and_concluding_paras: BTreeMap&lt;u32, u32&gt;,
+
+	<span class="doccomment">/// Paras which don't yet occupy a core, but will after the inherent has been processed.
+	</span>backed_in_inherent_paras: BTreeMap&lt;u32, u32&gt;,
 	<span class="doccomment">/// Map from para id (seed) to number of chained candidates.
 	</span>elastic_paras: BTreeMap&lt;u32, u8&gt;,
 	<span class="doccomment">/// Make every candidate include a code upgrade by setting this to `Some` where the interior
@@ -1175,6 +1198,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			dispute_statements: BTreeMap::new(),
 			dispute_sessions: Default::default(),
 			backed_and_concluding_paras: Default::default(),
+			backed_in_inherent_paras: Default::default(),
 			elastic_paras: Default::default(),
 			code_upgrade: <span class="prelude-val">None</span>,
 			fill_claimqueue: <span class="bool-val">true</span>,
@@ -1207,6 +1231,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		backed_and_concluding_paras: BTreeMap&lt;u32, u32&gt;,
 	) -&gt; <span class="self">Self </span>{
 		<span class="self">self</span>.backed_and_concluding_paras = backed_and_concluding_paras;
+		<span class="self">self
+	</span>}
+
+	<span class="doccomment">/// Set a map from para id seed to number of validity votes for votes in inherent data.
+	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>set_backed_in_inherent_paras(<span class="kw-2">mut </span><span class="self">self</span>, backed: BTreeMap&lt;u32, u32&gt;) -&gt; <span class="self">Self </span>{
+		<span class="self">self</span>.backed_in_inherent_paras = backed;
 		<span class="self">self
 	</span>}
 
@@ -1796,8 +1826,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// Note that this API only allows building scenarios where the `backed_and_concluding_paras`
 	/// are mutually exclusive with the cores for disputes. So
-	/// `backed_and_concluding_paras.len() + dispute_sessions.len()` must be less than the max
-	/// number of cores.
+	/// `backed_and_concluding_paras.len() + dispute_sessions.len() + backed_in_inherent_paras` must
+	/// be less than the max number of cores.
 	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>build(<span class="self">self</span>) -&gt; Bench&lt;T&gt; {
 		<span class="comment">// Make sure relevant storage is cleared. This is just to get the asserts to work when
 		// running tests because it seems the storage is not cleared in between.
@@ -1814,8 +1844,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.sum::&lt;usize&gt;()
 			.saturating_sub(<span class="self">self</span>.elastic_paras.len() <span class="kw">as </span>usize);
 
-		<span class="kw">let </span>used_cores =
-			<span class="self">self</span>.dispute_sessions.len() + <span class="self">self</span>.backed_and_concluding_paras.len() + extra_cores;
+		<span class="kw">let </span>used_cores = <span class="self">self</span>.dispute_sessions.len() +
+			<span class="self">self</span>.backed_and_concluding_paras.len() +
+			<span class="self">self</span>.backed_in_inherent_paras.len() +
+			extra_cores;
 
 		<span class="macro">assert!</span>(used_cores &lt;= max_cores);
 		<span class="kw">let </span>fill_claimqueue = <span class="self">self</span>.fill_claimqueue;
@@ -1836,8 +1868,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw-2">&amp;</span>builder.elastic_paras,
 			used_cores,
 		);
+
+		<span class="kw">let </span><span class="kw-2">mut </span>backed_in_inherent = BTreeMap::new();
+		backed_in_inherent.append(<span class="kw-2">&amp;mut </span>builder.backed_and_concluding_paras.clone());
+		backed_in_inherent.append(<span class="kw-2">&amp;mut </span>builder.backed_in_inherent_paras.clone());
 		<span class="kw">let </span>backed_candidates = builder.create_backed_candidates(
-			<span class="kw-2">&amp;</span>builder.backed_and_concluding_paras,
+			<span class="kw-2">&amp;</span>backed_in_inherent,
 			<span class="kw-2">&amp;</span>builder.elastic_paras,
 			builder.code_upgrade,
 		);
@@ -1888,12 +1924,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		scheduler::AvailabilityCores::&lt;T&gt;::set(cores);
 
 		core_idx = <span class="number">0u32</span>;
+
+		<span class="comment">// We need entries in the claim queue for those:
+		</span>all_cores.append(<span class="kw-2">&amp;mut </span>builder.backed_in_inherent_paras.clone());
+
 		<span class="kw">if </span>fill_claimqueue {
 			<span class="kw">let </span>cores = all_cores
 				.keys()
 				.flat_map(|para_id| {
 					(<span class="number">0</span>..elastic_paras.get(<span class="kw-2">&amp;</span>para_id).cloned().unwrap_or(<span class="number">1</span>))
-						.filter_map(|_para_local_core_idx| {
+						.map(|_para_local_core_idx| {
 							<span class="kw">let </span>ttl = configuration::ActiveConfig::&lt;T&gt;::get().scheduler_params.ttl;
 							<span class="comment">// Load an assignment into provider so that one is present to pop
 							</span><span class="kw">let </span>assignment =
@@ -1902,17 +1942,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 									ParaId::from(<span class="kw-2">*</span>para_id),
 								);
 
-							<span class="kw">let </span>entry = (
-								CoreIndex(core_idx),
-								[ParasEntry::new(assignment, now + ttl)].into(),
-							);
-							<span class="kw">let </span>res = <span class="kw">if </span>builder.unavailable_cores.contains(<span class="kw-2">&amp;</span>core_idx) {
-								<span class="prelude-val">None
-							</span>} <span class="kw">else </span>{
-								<span class="prelude-val">Some</span>(entry)
-							};
 							core_idx += <span class="number">1</span>;
-							res
+							(
+								CoreIndex(core_idx - <span class="number">1</span>),
+								[ParasEntry::new(assignment, now + ttl)].into(),
+							)
 						})
 						.collect::&lt;Vec&lt;(CoreIndex, VecDeque&lt;ParasEntry&lt;<span class="kw">_</span>&gt;&gt;)&gt;&gt;()
 				})

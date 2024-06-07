@@ -1624,6 +1624,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1473" id="1473">1473</a>
 <a href="#1474" id="1474">1474</a>
 <a href="#1475" id="1475">1475</a>
+<a href="#1476" id="1476">1476</a>
+<a href="#1477" id="1477">1477</a>
+<a href="#1478" id="1478">1478</a>
+<a href="#1479" id="1479">1479</a>
+<a href="#1480" id="1480">1480</a>
+<a href="#1481" id="1481">1481</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1961,6 +1967,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>InconsistentExecutorParams { inner: ExecutorParamError },
 	<span class="doccomment">/// TTL should be bigger than lookahead
 	</span>LookaheadExceedsTTL,
+	<span class="doccomment">/// Lookahead is zero, while it must be at least 1 for parachains to work.
+	</span>LookaheadZero,
 	<span class="doccomment">/// Passed in queue size for on-demand was too large.
 	</span>OnDemandQueueSizeTooLarge,
 	<span class="doccomment">/// Number of delay tranches cannot be 0.
@@ -2056,6 +2064,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">if </span><span class="self">self</span>.scheduler_params.ttl &lt; <span class="self">self</span>.scheduler_params.lookahead.into() {
 			<span class="kw">return </span><span class="prelude-val">Err</span>(LookaheadExceedsTTL)
+		}
+
+		<span class="kw">if </span><span class="self">self</span>.scheduler_params.lookahead == <span class="number">0 </span>{
+			<span class="kw">return </span><span class="prelude-val">Err</span>(LookaheadZero)
 		}
 
 		<span class="kw">if </span><span class="self">self</span>.scheduler_params.on_demand_queue_max_size &gt; ON_DEMAND_MAX_QUEUE_MAX_SIZE {

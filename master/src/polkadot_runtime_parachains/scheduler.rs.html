@@ -831,6 +831,55 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#680" id="680">680</a>
 <a href="#681" id="681">681</a>
 <a href="#682" id="682">682</a>
+<a href="#683" id="683">683</a>
+<a href="#684" id="684">684</a>
+<a href="#685" id="685">685</a>
+<a href="#686" id="686">686</a>
+<a href="#687" id="687">687</a>
+<a href="#688" id="688">688</a>
+<a href="#689" id="689">689</a>
+<a href="#690" id="690">690</a>
+<a href="#691" id="691">691</a>
+<a href="#692" id="692">692</a>
+<a href="#693" id="693">693</a>
+<a href="#694" id="694">694</a>
+<a href="#695" id="695">695</a>
+<a href="#696" id="696">696</a>
+<a href="#697" id="697">697</a>
+<a href="#698" id="698">698</a>
+<a href="#699" id="699">699</a>
+<a href="#700" id="700">700</a>
+<a href="#701" id="701">701</a>
+<a href="#702" id="702">702</a>
+<a href="#703" id="703">703</a>
+<a href="#704" id="704">704</a>
+<a href="#705" id="705">705</a>
+<a href="#706" id="706">706</a>
+<a href="#707" id="707">707</a>
+<a href="#708" id="708">708</a>
+<a href="#709" id="709">709</a>
+<a href="#710" id="710">710</a>
+<a href="#711" id="711">711</a>
+<a href="#712" id="712">712</a>
+<a href="#713" id="713">713</a>
+<a href="#714" id="714">714</a>
+<a href="#715" id="715">715</a>
+<a href="#716" id="716">716</a>
+<a href="#717" id="717">717</a>
+<a href="#718" id="718">718</a>
+<a href="#719" id="719">719</a>
+<a href="#720" id="720">720</a>
+<a href="#721" id="721">721</a>
+<a href="#722" id="722">722</a>
+<a href="#723" id="723">723</a>
+<a href="#724" id="724">724</a>
+<a href="#725" id="725">725</a>
+<a href="#726" id="726">726</a>
+<a href="#727" id="727">727</a>
+<a href="#728" id="728">728</a>
+<a href="#729" id="729">729</a>
+<a href="#730" id="730">730</a>
+<a href="#731" id="731">731</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -869,7 +918,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! number of groups as availability cores. Validator groups will be assigned to different
 //! availability cores over time.
 
-</span><span class="kw">use crate</span>::{configuration, initializer::SessionChangeNotification, paras};
+</span><span class="kw">use </span>core::iter::Peekable;
+
+<span class="kw">use crate</span>::{configuration, initializer::SessionChangeNotification, paras};
 <span class="kw">use </span>frame_support::{pallet_prelude::<span class="kw-2">*</span>, traits::Defensive};
 <span class="kw">use </span>frame_system::pallet_prelude::BlockNumberFor;
 <span class="kw">pub use </span>polkadot_core_primitives::v2::BlockNumber;
@@ -878,7 +929,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 };
 <span class="kw">use </span>sp_runtime::traits::One;
 <span class="kw">use </span>sp_std::{
-	collections::{btree_map::BTreeMap, vec_deque::VecDeque},
+	collections::{
+		btree_map::{<span class="self">self</span>, BTreeMap},
+		vec_deque::VecDeque,
+	},
 	prelude::<span class="kw-2">*</span>,
 };
 
@@ -1023,7 +1077,29 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="kw">type </span>PositionInClaimqueue = u32;
+<span class="kw">type </span>PositionInClaimQueue = u32;
+
+<span class="kw">struct </span>ClaimQueueIterator&lt;E&gt; {
+	next_idx: u32,
+	queue: Peekable&lt;btree_map::IntoIter&lt;CoreIndex, VecDeque&lt;E&gt;&gt;&gt;,
+}
+
+<span class="kw">impl</span>&lt;E&gt; Iterator <span class="kw">for </span>ClaimQueueIterator&lt;E&gt; {
+	<span class="kw">type </span>Item = (CoreIndex, VecDeque&lt;E&gt;);
+
+	<span class="kw">fn </span>next(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>::Item&gt; {
+		<span class="kw">let </span>(idx, <span class="kw">_</span>) = <span class="self">self</span>.queue.peek()<span class="question-mark">?</span>;
+		<span class="kw">let </span>val = <span class="kw">if </span>idx != <span class="kw-2">&amp;</span>CoreIndex(<span class="self">self</span>.next_idx) {
+			<span class="macro">log::trace!</span>(target: LOG_TARGET, <span class="string">"idx did not match claim queue idx: {:?} vs {:?}"</span>, idx, <span class="self">self</span>.next_idx);
+			(CoreIndex(<span class="self">self</span>.next_idx), VecDeque::new())
+		} <span class="kw">else </span>{
+			<span class="kw">let </span>(idx, q) = <span class="self">self</span>.queue.next()<span class="question-mark">?</span>;
+			(idx, q)
+		};
+		<span class="self">self</span>.next_idx += <span class="number">1</span>;
+		<span class="prelude-val">Some</span>(val)
+	}
+}
 
 <span class="kw">impl</span>&lt;T: Config&gt; Pallet&lt;T&gt; {
 	<span class="doccomment">/// Called by the initializer to initialize the scheduler pallet.
@@ -1036,7 +1112,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Called before the initializer notifies of a new session.
 	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>pre_new_session() {
-		<span class="self">Self</span>::push_claimqueue_items_to_assignment_provider();
+		<span class="self">Self</span>::push_claim_queue_items_to_assignment_provider();
 		<span class="self">Self</span>::push_occupied_cores_to_assignment_provider();
 	}
 
@@ -1142,37 +1218,51 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		(concluded_paras, timedout_paras)
 	}
 
-	<span class="doccomment">/// Note that the given cores have become occupied. Update the claimqueue accordingly.
+	<span class="doccomment">/// Get an iterator into the claim queues.
+	///
+	/// This iterator will have an item for each and every core index up to the maximum core index
+	/// found in the claim queue. In other words there will be no holes/missing core indices,
+	/// between core 0 and the maximum, even if the claim queue was missing entries for particular
+	/// indices in between. (The iterator will return an empty `VecDeque` for those indices.
+	</span><span class="kw">fn </span>claim_queue_iterator() -&gt; <span class="kw">impl </span>Iterator&lt;Item = (CoreIndex, VecDeque&lt;ParasEntryType&lt;T&gt;&gt;)&gt; {
+		<span class="kw">let </span>queues = ClaimQueue::&lt;T&gt;::get();
+		<span class="kw">return </span>ClaimQueueIterator::&lt;ParasEntryType&lt;T&gt;&gt; {
+			next_idx: <span class="number">0</span>,
+			queue: queues.into_iter().peekable(),
+		}
+	}
+
+	<span class="doccomment">/// Note that the given cores have become occupied. Update the claim queue accordingly.
 	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>occupied(
 		now_occupied: BTreeMap&lt;CoreIndex, ParaId&gt;,
-	) -&gt; BTreeMap&lt;CoreIndex, PositionInClaimqueue&gt; {
+	) -&gt; BTreeMap&lt;CoreIndex, PositionInClaimQueue&gt; {
 		<span class="kw">let </span><span class="kw-2">mut </span>availability_cores = AvailabilityCores::&lt;T&gt;::get();
 
 		<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">"[occupied] now_occupied {:?}"</span>, now_occupied);
 
-		<span class="kw">let </span>pos_mapping: BTreeMap&lt;CoreIndex, PositionInClaimqueue&gt; = now_occupied
+		<span class="kw">let </span>pos_mapping: BTreeMap&lt;CoreIndex, PositionInClaimQueue&gt; = now_occupied
 			.iter()
 			.flat_map(|(core_idx, para_id)| {
-				<span class="kw">match </span><span class="self">Self</span>::remove_from_claimqueue(<span class="kw-2">*</span>core_idx, <span class="kw-2">*</span>para_id) {
+				<span class="kw">match </span><span class="self">Self</span>::remove_from_claim_queue(<span class="kw-2">*</span>core_idx, <span class="kw-2">*</span>para_id) {
 					<span class="prelude-val">Err</span>(e) =&gt; {
 						<span class="macro">log::debug!</span>(
 							target: LOG_TARGET,
-							<span class="string">"[occupied] error on remove_from_claimqueue {}"</span>,
+							<span class="string">"[occupied] error on remove_from_claim queue {}"</span>,
 							e
 						);
 						<span class="prelude-val">None
 					</span>},
-					<span class="prelude-val">Ok</span>((pos_in_claimqueue, pe)) =&gt; {
+					<span class="prelude-val">Ok</span>((pos_in_claim_queue, pe)) =&gt; {
 						availability_cores[core_idx.<span class="number">0 </span><span class="kw">as </span>usize] = CoreOccupied::Paras(pe);
 
-						<span class="prelude-val">Some</span>((<span class="kw-2">*</span>core_idx, pos_in_claimqueue))
+						<span class="prelude-val">Some</span>((<span class="kw-2">*</span>core_idx, pos_in_claim_queue))
 					},
 				}
 			})
 			.collect();
 
 		<span class="comment">// Drop expired claims after processing now_occupied.
-		</span><span class="self">Self</span>::drop_expired_claims_from_claimqueue();
+		</span><span class="self">Self</span>::drop_expired_claims_from_claim_queue();
 
 		AvailabilityCores::&lt;T&gt;::set(availability_cores);
 
@@ -1182,7 +1272,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Iterates through every element in all claim queues and tries to add new assignments from the
 	/// `AssignmentProvider`. A claim is considered expired if it's `ttl` field is lower than the
 	/// current block height.
-	</span><span class="kw">fn </span>drop_expired_claims_from_claimqueue() {
+	</span><span class="kw">fn </span>drop_expired_claims_from_claim_queue() {
 		<span class="kw">let </span>now = frame_system::Pallet::&lt;T&gt;::block_number();
 		<span class="kw">let </span>availability_cores = AvailabilityCores::&lt;T&gt;::get();
 		<span class="kw">let </span>ttl = configuration::ActiveConfig::&lt;T&gt;::get().scheduler_params.ttl;
@@ -1190,13 +1280,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		ClaimQueue::&lt;T&gt;::mutate(|cq| {
 			<span class="kw">for </span>(idx, <span class="kw">_</span>) <span class="kw">in </span>(<span class="number">0u32</span>..).zip(availability_cores) {
 				<span class="kw">let </span>core_idx = CoreIndex(idx);
-				<span class="kw">if let </span><span class="prelude-val">Some</span>(core_claimqueue) = cq.get_mut(<span class="kw-2">&amp;</span>core_idx) {
+				<span class="kw">if let </span><span class="prelude-val">Some</span>(core_claim_queue) = cq.get_mut(<span class="kw-2">&amp;</span>core_idx) {
 					<span class="kw">let </span><span class="kw-2">mut </span>i = <span class="number">0</span>;
 					<span class="kw">let </span><span class="kw-2">mut </span>num_dropped = <span class="number">0</span>;
-					<span class="kw">while </span>i &lt; core_claimqueue.len() {
-						<span class="kw">let </span>maybe_dropped = <span class="kw">if let </span><span class="prelude-val">Some</span>(entry) = core_claimqueue.get(i) {
+					<span class="kw">while </span>i &lt; core_claim_queue.len() {
+						<span class="kw">let </span>maybe_dropped = <span class="kw">if let </span><span class="prelude-val">Some</span>(entry) = core_claim_queue.get(i) {
 							<span class="kw">if </span>entry.ttl &lt; now {
-								core_claimqueue.remove(i)
+								core_claim_queue.remove(i)
 							} <span class="kw">else </span>{
 								<span class="prelude-val">None
 							</span>}
@@ -1214,11 +1304,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 					<span class="kw">for _ in </span><span class="number">0</span>..num_dropped {
 						<span class="comment">// For all claims dropped due to TTL, attempt to pop a new entry to
-						// the back of the claimqueue.
+						// the back of the claim queue.
 						</span><span class="kw">if let </span><span class="prelude-val">Some</span>(assignment) =
 							T::AssignmentProvider::pop_assignment_for_core(core_idx)
 						{
-							core_claimqueue.push_back(ParasEntry::new(assignment, now + ttl));
+							core_claim_queue.push_back(ParasEntry::new(assignment, now + ttl));
 						}
 					}
 				}
@@ -1369,10 +1459,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="comment">// on new session
-	</span><span class="kw">fn </span>push_claimqueue_items_to_assignment_provider() {
+	</span><span class="kw">fn </span>push_claim_queue_items_to_assignment_provider() {
 		<span class="kw">for </span>(<span class="kw">_</span>, claim_queue) <span class="kw">in </span>ClaimQueue::&lt;T&gt;::take() {
 			<span class="comment">// Push back in reverse order so that when we pop from the provider again,
-			// the entries in the claimqueue are in the same order as they are right now.
+			// the entries in the claim queue are in the same order as they are right now.
 			</span><span class="kw">for </span>para_entry <span class="kw">in </span>claim_queue.into_iter().rev() {
 				<span class="self">Self</span>::maybe_push_assignment(para_entry);
 			}
@@ -1387,15 +1477,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 	}
 
-	<span class="comment">//
-	//  ClaimQueue related functions
-	//
-	</span><span class="kw">fn </span>claimqueue_lookahead() -&gt; u32 {
-		configuration::ActiveConfig::&lt;T&gt;::get().scheduler_params.lookahead
-	}
-
-	<span class="doccomment">/// Frees cores and fills the free claimqueue spots by popping from the `AssignmentProvider`.
-	</span><span class="kw">pub fn </span>free_cores_and_fill_claimqueue(
+	<span class="doccomment">/// Frees cores and fills the free claim queue spots by popping from the `AssignmentProvider`.
+	</span><span class="kw">pub fn </span>free_cores_and_fill_claim_queue(
 		just_freed_cores: <span class="kw">impl </span>IntoIterator&lt;Item = (CoreIndex, FreedReason)&gt;,
 		now: BlockNumberFor&lt;T&gt;,
 	) {
@@ -1406,26 +1489,33 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="kw">if </span>ValidatorGroups::&lt;T&gt;::decode_len().map_or(<span class="bool-val">true</span>, |l| l == <span class="number">0</span>) {
 			<span class="kw">return
 		</span>}
-		<span class="comment">// If there exists a core, ensure we schedule at least one job onto it.
-		</span><span class="kw">let </span>n_lookahead = <span class="self">Self</span>::claimqueue_lookahead().max(<span class="number">1</span>);
 		<span class="kw">let </span>n_session_cores = T::AssignmentProvider::session_core_count();
 		<span class="kw">let </span>cq = ClaimQueue::&lt;T&gt;::get();
 		<span class="kw">let </span>config = configuration::ActiveConfig::&lt;T&gt;::get();
+		<span class="comment">// Extra sanity, config should already never be smaller than 1:
+		</span><span class="kw">let </span>n_lookahead = config.scheduler_params.lookahead.max(<span class="number">1</span>);
 		<span class="kw">let </span>max_availability_timeouts = config.scheduler_params.max_availability_timeouts;
 		<span class="kw">let </span>ttl = config.scheduler_params.ttl;
 
 		<span class="kw">for </span>core_idx <span class="kw">in </span><span class="number">0</span>..n_session_cores {
 			<span class="kw">let </span>core_idx = CoreIndex::from(core_idx);
 
+			<span class="kw">let </span>n_lookahead_used = cq.get(<span class="kw-2">&amp;</span>core_idx).map_or(<span class="number">0</span>, |v| v.len() <span class="kw">as </span>u32);
+
 			<span class="comment">// add previously timedout paras back into the queue
 			</span><span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">mut </span>entry) = timedout_paras.remove(<span class="kw-2">&amp;</span>core_idx) {
 				<span class="kw">if </span>entry.availability_timeouts &lt; max_availability_timeouts {
 					<span class="comment">// Increment the timeout counter.
 					</span>entry.availability_timeouts += <span class="number">1</span>;
-					<span class="comment">// Reset the ttl so that a timed out assignment.
-					</span>entry.ttl = now + ttl;
-					<span class="self">Self</span>::add_to_claimqueue(core_idx, entry);
-					<span class="comment">// The claim has been added back into the claimqueue.
+					<span class="kw">if </span>n_lookahead_used &lt; n_lookahead {
+						entry.ttl = now + ttl;
+					} <span class="kw">else </span>{
+						<span class="comment">// Over max capacity, we need to bump ttl (we exceeded the claim queue
+						// size, so otherwise the entry might get dropped before reaching the top):
+						</span>entry.ttl = now + ttl + One::one();
+					}
+					<span class="self">Self</span>::add_to_claim_queue(core_idx, entry);
+					<span class="comment">// The claim has been added back into the claim queue.
 					// Do not pop another assignment for the core.
 					</span><span class="kw">continue
 				</span>} <span class="kw">else </span>{
@@ -1439,12 +1529,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">if let </span><span class="prelude-val">Some</span>(concluded_para) = concluded_paras.remove(<span class="kw-2">&amp;</span>core_idx) {
 				T::AssignmentProvider::report_processed(concluded_para);
 			}
-			<span class="comment">// We consider occupied cores to be part of the claimqueue
-			</span><span class="kw">let </span>n_lookahead_used = cq.get(<span class="kw-2">&amp;</span>core_idx).map_or(<span class="number">0</span>, |v| v.len() <span class="kw">as </span>u32) +
-				<span class="kw">if </span><span class="self">Self</span>::is_core_occupied(core_idx) { <span class="number">1 </span>} <span class="kw">else </span>{ <span class="number">0 </span>};
 			<span class="kw">for _ in </span>n_lookahead_used..n_lookahead {
 				<span class="kw">if let </span><span class="prelude-val">Some</span>(assignment) = T::AssignmentProvider::pop_assignment_for_core(core_idx) {
-					<span class="self">Self</span>::add_to_claimqueue(core_idx, ParasEntry::new(assignment, now + ttl));
+					<span class="self">Self</span>::add_to_claim_queue(core_idx, ParasEntry::new(assignment, now + ttl));
 				}
 			}
 		}
@@ -1453,24 +1540,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="macro">debug_assert!</span>(concluded_paras.is_empty());
 	}
 
-	<span class="kw">fn </span>is_core_occupied(core_idx: CoreIndex) -&gt; bool {
-		<span class="kw">match </span>AvailabilityCores::&lt;T&gt;::get().get(core_idx.<span class="number">0 </span><span class="kw">as </span>usize) {
-			<span class="prelude-val">None </span>| <span class="prelude-val">Some</span>(CoreOccupied::Free) =&gt; <span class="bool-val">false</span>,
-			<span class="prelude-val">Some</span>(CoreOccupied::Paras(<span class="kw">_</span>)) =&gt; <span class="bool-val">true</span>,
-		}
-	}
-
-	<span class="kw">fn </span>add_to_claimqueue(core_idx: CoreIndex, pe: ParasEntryType&lt;T&gt;) {
+	<span class="kw">fn </span>add_to_claim_queue(core_idx: CoreIndex, pe: ParasEntryType&lt;T&gt;) {
 		ClaimQueue::&lt;T&gt;::mutate(|la| {
 			la.entry(core_idx).or_default().push_back(pe);
 		});
 	}
 
 	<span class="doccomment">/// Returns `ParasEntry` with `para_id` at `core_idx` if found.
-	</span><span class="kw">fn </span>remove_from_claimqueue(
+	</span><span class="kw">fn </span>remove_from_claim_queue(
 		core_idx: CoreIndex,
 		para_id: ParaId,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;(PositionInClaimqueue, ParasEntryType&lt;T&gt;), <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt; {
+	) -&gt; <span class="prelude-ty">Result</span>&lt;(PositionInClaimQueue, ParasEntryType&lt;T&gt;), <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt; {
 		ClaimQueue::&lt;T&gt;::mutate(|cq| {
 			<span class="kw">let </span>core_claims = cq.get_mut(<span class="kw-2">&amp;</span>core_idx).ok_or(<span class="string">"core_idx not found in lookahead"</span>)<span class="question-mark">?</span>;
 
@@ -1487,20 +1567,38 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Paras scheduled next in the claim queue.
 	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>scheduled_paras() -&gt; <span class="kw">impl </span>Iterator&lt;Item = (CoreIndex, ParaId)&gt; {
-		<span class="kw">let </span>claimqueue = ClaimQueue::&lt;T&gt;::get();
-		claimqueue
+		<span class="kw">let </span>claim_queue = ClaimQueue::&lt;T&gt;::get();
+		claim_queue
 			.into_iter()
 			.filter_map(|(core_idx, v)| v.front().map(|e| (core_idx, e.assignment.para_id())))
 	}
 
+	<span class="doccomment">/// Paras that may get backed on cores.
+	///
+	/// 1. The para must be scheduled on core.
+	/// 2. Core needs to be free, otherwise backing is not possible.
+	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>eligible_paras() -&gt; <span class="kw">impl </span>Iterator&lt;Item = (CoreIndex, ParaId)&gt; {
+		<span class="kw">let </span>availability_cores = AvailabilityCores::&lt;T&gt;::get();
+
+		<span class="self">Self</span>::claim_queue_iterator().zip(availability_cores.into_iter()).filter_map(
+			|((core_idx, queue), core)| {
+				<span class="kw">if </span>core != CoreOccupied::Free {
+					<span class="kw">return </span><span class="prelude-val">None
+				</span>}
+				<span class="kw">let </span>next_scheduled = queue.front()<span class="question-mark">?</span>;
+				<span class="prelude-val">Some</span>((core_idx, next_scheduled.assignment.para_id()))
+			},
+		)
+	}
+
 	<span class="attr">#[cfg(any(feature = <span class="string">"try-runtime"</span>, test))]
-	</span><span class="kw">fn </span>claimqueue_len() -&gt; usize {
+	</span><span class="kw">fn </span>claim_queue_len() -&gt; usize {
 		ClaimQueue::&lt;T&gt;::get().iter().map(|la_vec| la_vec.<span class="number">1</span>.len()).sum()
 	}
 
 	<span class="attr">#[cfg(all(not(feature = <span class="string">"runtime-benchmarks"</span>), test))]
-	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>claimqueue_is_empty() -&gt; bool {
-		<span class="self">Self</span>::claimqueue_len() == <span class="number">0
+	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>claim_queue_is_empty() -&gt; bool {
+		<span class="self">Self</span>::claim_queue_len() == <span class="number">0
 	</span>}
 
 	<span class="attr">#[cfg(test)]
@@ -1509,8 +1607,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="attr">#[cfg(test)]
-	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>set_claimqueue(claimqueue: BTreeMap&lt;CoreIndex, VecDeque&lt;ParasEntryType&lt;T&gt;&gt;&gt;) {
-		ClaimQueue::&lt;T&gt;::set(claimqueue);
+	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>set_claim_queue(claim_queue: BTreeMap&lt;CoreIndex, VecDeque&lt;ParasEntryType&lt;T&gt;&gt;&gt;) {
+		ClaimQueue::&lt;T&gt;::set(claim_queue);
 	}
 }
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>

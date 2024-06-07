@@ -1643,6 +1643,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1492" id="1492">1492</a>
 <a href="#1493" id="1493">1493</a>
 <a href="#1494" id="1494">1494</a>
+<a href="#1495" id="1495">1495</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -2205,7 +2206,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.chain(freed_disputed.into_iter().map(|core| (core, FreedReason::Concluded)))
 			.chain(freed_timeout.into_iter().map(|c| (c, FreedReason::TimedOut)))
 			.collect::&lt;BTreeMap&lt;CoreIndex, FreedReason&gt;&gt;();
-		scheduler::Pallet::&lt;T&gt;::free_cores_and_fill_claimqueue(freed, now);
+		scheduler::Pallet::&lt;T&gt;::free_cores_and_fill_claim_queue(freed, now);
 
 		METRICS.on_candidates_processed_total(backed_candidates.len() <span class="kw">as </span>u64);
 
@@ -2215,12 +2216,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.map(|b| <span class="kw-2">*</span>b)
 			.unwrap_or(<span class="bool-val">false</span>);
 
-		<span class="kw">let </span><span class="kw-2">mut </span>scheduled: BTreeMap&lt;ParaId, BTreeSet&lt;CoreIndex&gt;&gt; = BTreeMap::new();
-		<span class="kw">let </span><span class="kw-2">mut </span>total_scheduled_cores = <span class="number">0</span>;
+		<span class="kw">let </span><span class="kw-2">mut </span>eligible: BTreeMap&lt;ParaId, BTreeSet&lt;CoreIndex&gt;&gt; = BTreeMap::new();
+		<span class="kw">let </span><span class="kw-2">mut </span>total_eligible_cores = <span class="number">0</span>;
 
-		<span class="kw">for </span>(core_idx, para_id) <span class="kw">in </span>scheduler::Pallet::&lt;T&gt;::scheduled_paras() {
-			total_scheduled_cores += <span class="number">1</span>;
-			scheduled.entry(para_id).or_default().insert(core_idx);
+		<span class="kw">for </span>(core_idx, para_id) <span class="kw">in </span>scheduler::Pallet::&lt;T&gt;::eligible_paras() {
+			total_eligible_cores += <span class="number">1</span>;
+			<span class="macro">log::trace!</span>(target: LOG_TARGET, <span class="string">"Found eligible para {:?} on core {:?}"</span>, para_id, core_idx);
+			eligible.entry(para_id).or_default().insert(core_idx);
 		}
 
 		<span class="kw">let </span>initial_candidate_count = backed_candidates.len();
@@ -2228,12 +2230,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			backed_candidates,
 			<span class="kw-2">&amp;</span>allowed_relay_parents,
 			concluded_invalid_hashes,
-			scheduled,
+			eligible,
 			core_index_enabled,
 		);
 		<span class="kw">let </span>count = count_backed_candidates(<span class="kw-2">&amp;</span>backed_candidates_with_core);
 
-		<span class="macro">ensure!</span>(count &lt;= total_scheduled_cores, Error::&lt;T&gt;::UnscheduledCandidate);
+		<span class="macro">ensure!</span>(count &lt;= total_eligible_cores, Error::&lt;T&gt;::UnscheduledCandidate);
 
 		METRICS.on_candidates_sanitized(count <span class="kw">as </span>u64);
 
@@ -3067,7 +3069,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		} <span class="kw">else </span>{
 			<span class="macro">log::debug!</span>(
 				target: LOG_TARGET,
-				<span class="string">"Paraid: {:?} has no scheduled cores but {} candidates were supplied."</span>,
+				<span class="string">"Paraid: {:?} has no entry in scheduled cores but {} candidates were supplied."</span>,
 				para_id,
 				backed_candidates.len()
 			);

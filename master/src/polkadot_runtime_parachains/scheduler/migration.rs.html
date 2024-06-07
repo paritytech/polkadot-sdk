@@ -806,7 +806,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				.count();
 
 			<span class="macro">ensure!</span>(
-				Pallet::&lt;T&gt;::claimqueue_len() <span class="kw">as </span>u32 + availability_cores_waiting <span class="kw">as </span>u32 ==
+				Pallet::&lt;T&gt;::claim_queue_len() <span class="kw">as </span>u32 + availability_cores_waiting <span class="kw">as </span>u32 ==
 					expected_len,
 				<span class="string">"ClaimQueue and AvailabilityCores should have the correct length"</span>,
 			);

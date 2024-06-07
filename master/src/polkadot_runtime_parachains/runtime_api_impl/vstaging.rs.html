@@ -200,6 +200,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#49" id="49">49</a>
 <a href="#50" id="50">50</a>
 <a href="#51" id="51">51</a>
+<a href="#52" id="52">52</a>
+<a href="#53" id="53">53</a>
+<a href="#54" id="54">54</a>
+<a href="#55" id="55">55</a>
+<a href="#56" id="56">56</a>
+<a href="#57" id="57">57</a>
+<a href="#58" id="58">58</a>
+<a href="#59" id="59">59</a>
+<a href="#60" id="60">60</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -218,7 +227,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="doccomment">//! Put implementations of functions from staging APIs here.
 
-</span><span class="kw">use crate</span>::{inclusion, initializer, scheduler};
+</span><span class="kw">use crate</span>::{configuration, inclusion, initializer, scheduler};
 <span class="kw">use </span>polkadot_primitives::{CommittedCandidateReceipt, CoreIndex, Id <span class="kw">as </span>ParaId};
 <span class="kw">use </span>sp_runtime::traits::One;
 <span class="kw">use </span>sp_std::{
@@ -234,12 +243,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	//
 	// At the end of a session we clear the claim queues: Without this update call, nothing would be
 	// scheduled to the client.
-	</span>&lt;scheduler::Pallet&lt;T&gt;&gt;::free_cores_and_fill_claimqueue(Vec::new(), now);
+	</span>&lt;scheduler::Pallet&lt;T&gt;&gt;::free_cores_and_fill_claim_queue(Vec::new(), now);
+	<span class="kw">let </span>config = configuration::ActiveConfig::&lt;T&gt;::get();
+	<span class="comment">// Extra sanity, config should already never be smaller than 1:
+	</span><span class="kw">let </span>n_lookahead = config.scheduler_params.lookahead.max(<span class="number">1</span>);
 
 	scheduler::ClaimQueue::&lt;T&gt;::get()
 		.into_iter()
 		.map(|(core_index, entries)| {
-			(core_index, entries.into_iter().map(|e| e.para_id()).collect())
+			<span class="comment">// on cores timing out internal claim queue size may be temporarily longer than it
+			// should be as the timed out assignment might got pushed back to an already full claim
+			// queue:
+			</span>(
+				core_index,
+				entries.into_iter().map(|e| e.para_id()).take(n_lookahead <span class="kw">as </span>usize).collect(),
+			)
 		})
 		.collect()
 }

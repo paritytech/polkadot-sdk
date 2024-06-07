@@ -153,16 +153,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <p>This pallet allows runtimes that include it to skip payment of transaction fees for
 dispatchables marked by [<code>#[pallet::feeless_if]</code>](<code>macro@ frame_support::pallet_prelude::feeless_if</code>).</p>
 <h3 id="overview"><a class="doc-anchor" href="#overview">§</a>Overview</h3>
-<p>It does this by wrapping an existing [<code>SignedExtension</code>] implementation (e.g.
+<p>It does this by wrapping an existing <a href="../sp_runtime/traits/trait.SignedExtension.html" title="trait sp_runtime::traits::SignedExtension"><code>SignedExtension</code></a> implementation (e.g.
 [<code>pallet-transaction-payment</code>]) and checking if the dispatchable is feeless before applying the
 wrapped extension. If the dispatchable is indeed feeless, the extension is skipped and a custom
 event is emitted instead. Otherwise, the extension is applied as usual.</p>
 <h3 id="integration"><a class="doc-anchor" href="#integration">§</a>Integration</h3>
 <p>This pallet wraps an existing transaction payment pallet. This means you should both pallets
 in your <code>construct_runtime</code> macro and include this pallet’s
-[<code>SignedExtension</code>] (<a href="struct.SkipCheckIfFeeless.html" title="struct pallet_skip_feeless_payment::SkipCheckIfFeeless"><code>SkipCheckIfFeeless</code></a>) that would accept the existing one as an argument.</p>
+<a href="../sp_runtime/traits/trait.SignedExtension.html" title="trait sp_runtime::traits::SignedExtension"><code>SignedExtension</code></a> (<a href="struct.SkipCheckIfFeeless.html" title="struct pallet_skip_feeless_payment::SkipCheckIfFeeless"><code>SkipCheckIfFeeless</code></a>) that would accept the existing one as an argument.</p>
 </div></details><h2 id="reexports" class="section-header">Re-exports<a href="#reexports" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><code>pub use <a class="mod" href="pallet/index.html" title="mod pallet_skip_feeless_payment::pallet">pallet</a>::*;</code></div></li></ul><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="mod" href="pallet/index.html" title="mod pallet_skip_feeless_payment::pallet">pallet</a></div><div class="desc docblock-short">The <code>pallet</code> module in each FRAME pallet hosts the most important items needed
-to construct this pallet.</div></li></ul><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="struct" href="struct.SkipCheckIfFeeless.html" title="struct pallet_skip_feeless_payment::SkipCheckIfFeeless">SkipCheckIfFeeless</a></div><div class="desc docblock-short">A [<code>SignedExtension</code>] that skips the wrapped extension if the dispatchable is feeless.</div></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+to construct this pallet.</div></li></ul><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="struct" href="struct.SkipCheckIfFeeless.html" title="struct pallet_skip_feeless_payment::SkipCheckIfFeeless">SkipCheckIfFeeless</a></div><div class="desc docblock-short">A <a href="../sp_runtime/traits/trait.SignedExtension.html" title="trait sp_runtime::traits::SignedExtension"><code>SignedExtension</code></a> that skips the wrapped extension if the dispatchable is feeless.</div></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 
 </body></html>
