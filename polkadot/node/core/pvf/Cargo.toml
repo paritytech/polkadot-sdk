@@ -25,7 +25,7 @@ tempfile = "3.3.0"
 thiserror = { workspace = true }
 tokio = { version = "1.24.2", features = ["fs", "process"] }
 
-parity-scale-codec = { version = "3.6.12", default-features = false, features = [
+codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false, features = [
 	"derive",
 ] }
 
@@ -56,8 +56,8 @@ polkadot-node-core-pvf-common = { path = "common", features = ["test-utils"] }
 polkadot-node-core-pvf = { path = "", features = ["test-utils"] }
 rococo-runtime = { path = "../../../runtime/rococo" }
 
-adder = { package = "test-parachain-adder", path = "../../../parachain/test-parachains/adder" }
-halt = { package = "test-parachain-halt", path = "../../../parachain/test-parachains/halt" }
+test-parachain-adder = { path = "../../../parachain/test-parachains/adder" }
+test-parachain-halt = { path = "../../../parachain/test-parachains/halt" }
 
 [target.'cfg(target_os = "linux")'.dev-dependencies]
 libc = "0.2.153"
