@@ -31,8 +31,8 @@ use xcm::prelude::{
 
 use crate::{
 	assigner_coretime::{self, PartsOf57600},
-	assigner_on_demand,
 	initializer::{OnNewSession, SessionChangeNotification},
+	on_demand,
 	origin::{ensure_parachain, Origin},
 };
 
@@ -109,9 +109,7 @@ pub mod pallet {
 	pub struct Pallet<T>(_);
 
 	#[pallet::config]
-	pub trait Config:
-		frame_system::Config + assigner_coretime::Config + assigner_on_demand::Config
-	{
+	pub trait Config: frame_system::Config + assigner_coretime::Config + on_demand::Config {
 		type RuntimeOrigin: From<<Self as frame_system::Config>::RuntimeOrigin>
 			+ Into<result::Result<Origin, <Self as Config>::RuntimeOrigin>>;
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
@@ -283,7 +281,7 @@ impl<T: Config> Pallet<T> {
 		// When cannot be in the future.
 		ensure!(when_bnf <= now, Error::<T>::RequestedFutureRevenue);
 
-		let revenue = <assigner_on_demand::Pallet<T>>::claim_revenue_until(when_bnf);
+		let revenue = <on_demand::Pallet<T>>::claim_revenue_until(when_bnf);
 		log::debug!(target: LOG_TARGET, "Revenue info requested: {:?}", revenue);
 		match TryInto::<Balance>::try_into(revenue) {
 			Ok(raw_revenue) => {
