@@ -560,7 +560,7 @@ impl<T: Config> Pallet<T> {
 			.chain(freed_disputed.into_iter().map(|core| (core, FreedReason::Concluded)))
 			.chain(freed_timeout.into_iter().map(|c| (c, FreedReason::TimedOut)))
 			.collect::<BTreeMap<CoreIndex, FreedReason>>();
-		scheduler::Pallet::<T>::free_cores_and_fill_claimqueue(freed, now);
+		scheduler::Pallet::<T>::free_cores_and_fill_claim_queue(freed, now);
 
 		METRICS.on_candidates_processed_total(backed_candidates.len() as u64);
 
@@ -570,12 +570,13 @@ impl<T: Config> Pallet<T> {
 			.map(|b| *b)
 			.unwrap_or(false);
 
-		let mut scheduled: BTreeMap<ParaId, BTreeSet<CoreIndex>> = BTreeMap::new();
-		let mut total_scheduled_cores = 0;
+		let mut eligible: BTreeMap<ParaId, BTreeSet<CoreIndex>> = BTreeMap::new();
+		let mut total_eligible_cores = 0;
 
-		for (core_idx, para_id) in scheduler::Pallet::<T>::scheduled_paras() {
-			total_scheduled_cores += 1;
-			scheduled.entry(para_id).or_default().insert(core_idx);
+		for (core_idx, para_id) in scheduler::Pallet::<T>::eligible_paras() {
+			total_eligible_cores += 1;
+			log::trace!(target: LOG_TARGET, "Found eligible para {:?} on core {:?}", para_id, core_idx);
+			eligible.entry(para_id).or_default().insert(core_idx);
 		}
 
 		let initial_candidate_count = backed_candidates.len();
@@ -583,12 +584,12 @@ impl<T: Config> Pallet<T> {
 			backed_candidates,
 			&allowed_relay_parents,
 			concluded_invalid_hashes,
-			scheduled,
+			eligible,
 			core_index_enabled,
 		);
 		let count = count_backed_candidates(&backed_candidates_with_core);
 
-		ensure!(count <= total_scheduled_cores, Error::<T>::UnscheduledCandidate);
+		ensure!(count <= total_eligible_cores, Error::<T>::UnscheduledCandidate);
 
 		METRICS.on_candidates_sanitized(count as u64);
 
@@ -1422,7 +1423,7 @@ fn map_candidates_to_cores<T: configuration::Config + scheduler::Config + inclus
 		} else {
 			log::debug!(
 				target: LOG_TARGET,
-				"Paraid: {:?} has no scheduled cores but {} candidates were supplied.",
+				"Paraid: {:?} has no entry in scheduled cores but {} candidates were supplied.",
 				para_id,
 				backed_candidates.len()
 			);
