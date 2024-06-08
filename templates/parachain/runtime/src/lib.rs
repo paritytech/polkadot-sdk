@@ -8,6 +8,7 @@ include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
 pub mod apis;
 mod configs;
+mod genesis_config_presets;
 mod weights;
 
 use smallvec::smallvec;

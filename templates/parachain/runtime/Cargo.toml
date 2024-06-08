@@ -27,6 +27,7 @@ scale-info = { version = "2.11.1", default-features = false, features = [
 ] }
 smallvec = "1.11.0"
 docify = "0.2.8"
+serde_json = { workspace = true, default-features = false }
 
 # Local
 pallet-parachain-template = { path = "../pallets/template", default-features = false }
