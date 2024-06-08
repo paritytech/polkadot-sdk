@@ -759,12 +759,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#608" id="608">608</a>
 <a href="#609" id="609">609</a>
 <a href="#610" id="610">610</a>
-<a href="#611" id="611">611</a>
-<a href="#612" id="612">612</a>
-<a href="#613" id="613">613</a>
-<a href="#614" id="614">614</a>
-<a href="#615" id="615">615</a>
-<a href="#616" id="616">616</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -861,30 +855,26 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>bound = trait_ty
 			.bounds
 			.iter()
-			.find_map(|b| {
-				<span class="kw">if let </span>syn::TypeParamBound::Trait(tb) = b {
-					tb.path
-						.segments
-						.last()
-						.and_then(|s| <span class="kw">if </span>s.ident == <span class="string">"Get" </span>{ <span class="prelude-val">Some</span>(s) } <span class="kw">else </span>{ <span class="prelude-val">None </span>})
-				} <span class="kw">else </span>{
-					<span class="prelude-val">None
-				</span>}
+			.find_map(|param_bound| {
+				<span class="kw">let </span>syn::TypeParamBound::Trait(trait_bound) = param_bound <span class="kw">else </span>{ <span class="kw">return </span><span class="prelude-val">None </span>};
+
+				trait_bound.path.segments.last().and_then(|s| (s.ident == <span class="string">"Get"</span>).then(|| s))
 			})
 			.ok_or_else(|| err(trait_ty.span(), <span class="string">"`Get&lt;T&gt;` trait bound not found"</span>))<span class="question-mark">?</span>;
-		<span class="kw">let </span>type_arg = <span class="kw">if let </span>syn::PathArguments::AngleBracketed(<span class="kw-2">ref </span>ab) = bound.arguments {
-			<span class="kw">if </span>ab.args.len() == <span class="number">1 </span>{
-				<span class="kw">if let </span>syn::GenericArgument::Type(<span class="kw-2">ref </span>ty) = ab.args[<span class="number">0</span>] {
-					<span class="prelude-val">Ok</span>(ty)
-				} <span class="kw">else </span>{
-					<span class="prelude-val">Err</span>(err(ab.args[<span class="number">0</span>].span(), <span class="string">"Expected a type argument"</span>))
-				}
-			} <span class="kw">else </span>{
-				<span class="prelude-val">Err</span>(err(bound.span(), <span class="string">"Expected a single type argument"</span>))
-			}
-		} <span class="kw">else </span>{
-			<span class="prelude-val">Err</span>(err(bound.span(), <span class="string">"Expected trait generic args"</span>))
-		}<span class="question-mark">?</span>;
+
+		<span class="kw">let </span>syn::PathArguments::AngleBracketed(<span class="kw-2">ref </span>ab) = bound.arguments <span class="kw">else </span>{
+			<span class="kw">return </span><span class="prelude-val">Err</span>(err(bound.span(), <span class="string">"Expected trait generic args"</span>))
+		};
+
+		<span class="comment">// Only one type argument is expected.
+		</span><span class="kw">if </span>ab.args.len() != <span class="number">1 </span>{
+			<span class="kw">return </span><span class="prelude-val">Err</span>(err(bound.span(), <span class="string">"Expected a single type argument"</span>))
+		}
+
+		<span class="kw">let </span>syn::GenericArgument::Type(<span class="kw-2">ref </span>type_arg) = ab.args[<span class="number">0</span>] <span class="kw">else </span>{
+			<span class="kw">return </span><span class="prelude-val">Err</span>(err(ab.args[<span class="number">0</span>].span(), <span class="string">"Expected a type argument"</span>))
+		};
+
 		<span class="kw">let </span>type_ = syn::parse2::&lt;syn::Type&gt;(replace_self_by_t(type_arg.to_token_stream()))
 			.expect(<span class="string">"Internal error: replacing `Self` by `T` should result in valid type"</span>);
 
@@ -990,55 +980,55 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	trait_item: <span class="kw-2">&amp;</span>syn::TraitItem,
 	trait_has_instance: bool,
 ) -&gt; syn::Result&lt;bool&gt; {
-	<span class="kw">if let </span>syn::TraitItem::Type(type_) = trait_item {
-		<span class="kw">if </span>type_.ident == <span class="string">"RuntimeEvent" </span>{
-			<span class="comment">// Check event has no generics
-			</span><span class="kw">if </span>!type_.generics.params.is_empty() || type_.generics.where_clause.is_some() {
-				<span class="kw">let </span>msg = <span class="string">"Invalid `type RuntimeEvent`, associated type `RuntimeEvent` is reserved and must have\
+	<span class="kw">let </span>syn::TraitItem::Type(type_) = trait_item <span class="kw">else </span>{ <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="bool-val">false</span>) };
+
+	<span class="kw">if </span>type_.ident != <span class="string">"RuntimeEvent" </span>{
+		<span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="bool-val">false</span>)
+	}
+
+	<span class="comment">// Check event has no generics
+	</span><span class="kw">if </span>!type_.generics.params.is_empty() || type_.generics.where_clause.is_some() {
+		<span class="kw">let </span>msg =
+			<span class="string">"Invalid `type RuntimeEvent`, associated type `RuntimeEvent` is reserved and must have\
 					no generics nor where_clause"</span>;
-				<span class="kw">return </span><span class="prelude-val">Err</span>(syn::Error::new(trait_item.span(), msg))
-			}
+		<span class="kw">return </span><span class="prelude-val">Err</span>(syn::Error::new(trait_item.span(), msg))
+	}
 
-			<span class="comment">// Check bound contains IsType and From
-			</span><span class="kw">let </span>has_is_type_bound = type_.bounds.iter().any(|s| {
-				syn::parse2::&lt;IsTypeBoundEventParse&gt;(s.to_token_stream())
-					.map_or(<span class="bool-val">false</span>, |b| has_expected_system_config(b.<span class="number">0</span>, frame_system))
-			});
+	<span class="comment">// Check bound contains IsType and From
+	</span><span class="kw">let </span>has_is_type_bound = type_.bounds.iter().any(|s| {
+		syn::parse2::&lt;IsTypeBoundEventParse&gt;(s.to_token_stream())
+			.map_or(<span class="bool-val">false</span>, |b| has_expected_system_config(b.<span class="number">0</span>, frame_system))
+	});
 
-			<span class="kw">if </span>!has_is_type_bound {
-				<span class="kw">let </span>msg = <span class="string">"Invalid `type RuntimeEvent`, associated type `RuntimeEvent` is reserved and must \
-					bound: `IsType&lt;&lt;Self as frame_system::Config&gt;::RuntimeEvent&gt;`"</span>.to_string();
-				<span class="kw">return </span><span class="prelude-val">Err</span>(syn::Error::new(type_.span(), msg))
-			}
+	<span class="kw">if </span>!has_is_type_bound {
+		<span class="kw">let </span>msg =
+			<span class="string">"Invalid `type RuntimeEvent`, associated type `RuntimeEvent` is reserved and must \
+					bound: `IsType&lt;&lt;Self as frame_system::Config&gt;::RuntimeEvent&gt;`"
+				</span>.to_string();
+		<span class="kw">return </span><span class="prelude-val">Err</span>(syn::Error::new(type_.span(), msg))
+	}
 
-			<span class="kw">let </span>from_event_bound = type_
-				.bounds
-				.iter()
-				.find_map(|s| syn::parse2::&lt;FromEventParse&gt;(s.to_token_stream()).ok());
+	<span class="kw">let </span>from_event_bound = type_
+		.bounds
+		.iter()
+		.find_map(|s| syn::parse2::&lt;FromEventParse&gt;(s.to_token_stream()).ok());
 
-			<span class="kw">let </span>from_event_bound = <span class="kw">if let </span><span class="prelude-val">Some</span>(b) = from_event_bound {
-				b
-			} <span class="kw">else </span>{
-				<span class="kw">let </span>msg = <span class="string">"Invalid `type RuntimeEvent`, associated type `RuntimeEvent` is reserved and must \
-					bound: `From&lt;Event&gt;` or `From&lt;Event&lt;Self&gt;&gt;` or `From&lt;Event&lt;Self, I&gt;&gt;`"</span>;
-				<span class="kw">return </span><span class="prelude-val">Err</span>(syn::Error::new(type_.span(), msg))
-			};
+	<span class="kw">let </span><span class="prelude-val">Some</span>(from_event_bound) = from_event_bound <span class="kw">else </span>{
+		<span class="kw">let </span>msg =
+			<span class="string">"Invalid `type RuntimeEvent`, associated type `RuntimeEvent` is reserved and must \
+				bound: `From&lt;Event&gt;` or `From&lt;Event&lt;Self&gt;&gt;` or `From&lt;Event&lt;Self, I&gt;&gt;`"</span>;
+		<span class="kw">return </span><span class="prelude-val">Err</span>(syn::Error::new(type_.span(), msg))
+	};
 
-			<span class="kw">if </span>from_event_bound.is_generic &amp;&amp; (from_event_bound.has_instance != trait_has_instance)
-			{
-				<span class="kw">let </span>msg = <span class="string">"Invalid `type RuntimeEvent`, associated type `RuntimeEvent` bounds inconsistent \
+	<span class="kw">if </span>from_event_bound.is_generic &amp;&amp; (from_event_bound.has_instance != trait_has_instance) {
+		<span class="kw">let </span>msg =
+			<span class="string">"Invalid `type RuntimeEvent`, associated type `RuntimeEvent` bounds inconsistent \
 					`From&lt;Event..&gt;`. Config and generic Event must be both with instance or \
 					without instance"</span>;
-				<span class="kw">return </span><span class="prelude-val">Err</span>(syn::Error::new(type_.span(), msg))
-			}
-
-			<span class="prelude-val">Ok</span>(<span class="bool-val">true</span>)
-		} <span class="kw">else </span>{
-			<span class="prelude-val">Ok</span>(<span class="bool-val">false</span>)
-		}
-	} <span class="kw">else </span>{
-		<span class="prelude-val">Ok</span>(<span class="bool-val">false</span>)
+		<span class="kw">return </span><span class="prelude-val">Err</span>(syn::Error::new(type_.span(), msg))
 	}
+
+	<span class="prelude-val">Ok</span>(<span class="bool-val">true</span>)
 }
 
 <span class="doccomment">/// Check that the path to `frame_system::Config` is valid, this is that the path is just
@@ -1101,9 +1091,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		item: <span class="kw-2">&amp;mut </span>syn::Item,
 		enable_default: bool,
 	) -&gt; syn::Result&lt;<span class="self">Self</span>&gt; {
-		<span class="kw">let </span>item = <span class="kw">if let </span>syn::Item::Trait(item) = item {
-			item
-		} <span class="kw">else </span>{
+		<span class="kw">let </span>syn::Item::Trait(item) = item <span class="kw">else </span>{
 			<span class="kw">let </span>msg = <span class="string">"Invalid pallet::config, expected trait definition"</span>;
 			<span class="kw">return </span><span class="prelude-val">Err</span>(syn::Error::new(item.span(), msg))
 		};
