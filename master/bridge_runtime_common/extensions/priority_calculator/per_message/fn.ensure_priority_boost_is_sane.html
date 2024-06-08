@@ -153,8 +153,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 )<div class="where">where
     Runtime: Config + Config&lt;MessagesInstance&gt;,
     MessagesInstance: 'static,
-    PriorityBoostPerMessage: Get&lt;<a class="type" href="../../../../sp_runtime/transaction_validity/type.TransactionPriority.html" title="type sp_runtime::transaction_validity::TransactionPriority">TransactionPriority</a>&gt;,
-    Runtime::RuntimeCall: <a class="trait" href="../../../../sp_runtime/traits/trait.Dispatchable.html" title="trait sp_runtime::traits::Dispatchable">Dispatchable</a>&lt;Info = DispatchInfo, PostInfo = PostDispatchInfo&gt;,
+    PriorityBoostPerMessage: Get&lt;TransactionPriority&gt;,
+    Runtime::RuntimeCall: Dispatchable&lt;Info = DispatchInfo, PostInfo = PostDispatchInfo&gt;,
     &lt;&lt;Runtime as Config&gt;::OnChargeTransaction as OnChargeTransaction&lt;Runtime&gt;&gt;::Balance: <a class="trait" href="https://doc.rust-lang.org/1.77.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + <a class="trait" href="https://doc.rust-lang.org/1.77.0/core/marker/trait.Sync.html" title="trait core::marker::Sync">Sync</a> + <a class="trait" href="../../../../sp_arithmetic/fixed_point/trait.FixedPointOperand.html" title="trait sp_arithmetic::fixed_point::FixedPointOperand">FixedPointOperand</a>,</div></code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Ensures that the value of <code>PriorityBoostPerMessage</code> matches the value of
 <code>tip_boost_per_message</code>.</p>
 <p>We want two transactions, <code>TX1</code> with <code>N</code> messages and <code>TX2</code> with <code>N+1</code> messages, have
