@@ -15,6 +15,7 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+pub mod genesis_config_helpers;
 pub mod impls;
 pub mod message_queue;
 pub mod xcm_config;

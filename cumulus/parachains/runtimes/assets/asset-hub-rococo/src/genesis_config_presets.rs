@@ -20,49 +20,10 @@ use crate::vec;
 use crate::Vec;
 use cumulus_primitives_core::ParaId;
 use hex_literal::hex;
-use parachains_common::{AccountId, AuraId, Balance as AssetHubBalance};
+use parachains_common::{genesis_config_helpers::*, AccountId, AuraId, Balance as AssetHubBalance};
 use sp_core::{crypto::UncheckedInto, sr25519};
-#[cfg(not(feature = "std"))]
-use sp_std::alloc::format;
 
 const ASSET_HUB_ROCOCO_ED: AssetHubBalance = crate::ExistentialDeposit::get();
-
-//---------------------------------------------------------------
-// copied from: cumulus/polkadot-parachain/src/chain_spec/mod.rs
-
-use parachains_common::Signature;
-// use serde::{Deserialize, Serialize};
-use sp_core::{Pair, Public};
-use sp_runtime::traits::{IdentifyAccount, Verify};
-
-/// The default XCM version to set in genesis config.
-const SAFE_XCM_VERSION: u32 = xcm::prelude::XCM_VERSION;
-
-/// Helper function to generate a crypto pair from seed
-pub fn get_from_seed<TPublic: Public>(seed: &str) -> <TPublic::Pair as Pair>::Public {
-	TPublic::Pair::from_string(&format!("//{}", seed), None)
-		.expect("static values are valid; qed")
-		.public()
-}
-
-type AccountPublic = <Signature as Verify>::Signer;
-
-/// Helper function to generate an account ID from seed
-pub fn get_account_id_from_seed<TPublic: Public>(seed: &str) -> AccountId
-where
-	AccountPublic: From<<TPublic::Pair as Pair>::Public>,
-{
-	AccountPublic::from(get_from_seed::<TPublic>(seed)).into_account()
-}
-
-/// Generate collator keys from seed.
-///
-/// This function's return type must always match the session keys of the chain in tuple format.
-pub fn get_collator_keys_from_seed<AuraId: Public>(seed: &str) -> <AuraId::Pair as Pair>::Public {
-	get_from_seed::<AuraId>(seed)
-}
-
-//---------------------------------------------------------------
 
 /// Generate the session keys from individual elements.
 ///
@@ -113,9 +74,18 @@ fn asset_hub_rococo_genesis(
 	})
 }
 
+/// Encapsulates names of predefined presets.
+pub mod preset_names {
+	pub const PRESET_DEVELOPMENT: &str = "development";
+	pub const PRESET_LOCAL: &str = "local";
+	pub const PRESET_GENESIS: &str = "genesis";
+}
+
+/// Provides the JSON representation of predefined genesis config for given `id`.
 pub fn get_preset(id: &sp_genesis_builder::PresetId) -> Option<sp_std::vec::Vec<u8>> {
+	use preset_names::*;
 	let patch = match id.try_into() {
-		Ok("genesis") => asset_hub_rococo_genesis(
+		Ok(PRESET_GENESIS) => asset_hub_rococo_genesis(
 			// initial collators.
 			vec![
 				// E8XC6rTJRsioKCp6KMy6zd24ykj4gWsusZ3AkSeyavpVBAG
@@ -147,8 +117,7 @@ pub fn get_preset(id: &sp_genesis_builder::PresetId) -> Option<sp_std::vec::Vec<
 			ASSET_HUB_ROCOCO_ED * 524_288,
 			1000.into(),
 		),
-
-		Ok("local") => asset_hub_rococo_genesis(
+		Ok(PRESET_LOCAL) => asset_hub_rococo_genesis(
 			// initial collators.
 			vec![
 				(
@@ -177,7 +146,7 @@ pub fn get_preset(id: &sp_genesis_builder::PresetId) -> Option<sp_std::vec::Vec<
 			testnet_parachains_constants::rococo::currency::UNITS * 1_000_000,
 			1000.into(),
 		),
-		Ok("development") => asset_hub_rococo_genesis(
+		Ok(PRESET_DEVELOPMENT) => asset_hub_rococo_genesis(
 			// initial collators.
 			vec![(
 				get_account_id_from_seed::<sr25519::Public>("Alice"),
