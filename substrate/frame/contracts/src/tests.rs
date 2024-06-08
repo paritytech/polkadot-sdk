@@ -4236,3 +4236,99 @@ fn gas_consumed_is_linear_for_nested_calls() {
 		assert_eq!(gas_max, gas_0 + gas_per_recursion * max_call_depth as u64);
 	});
 }
+
+#[test]
+fn read_only_call_cannot_store() {
+	let (wasm_caller, _code_hash_caller) = compile_module::<Test>("read_only_call").unwrap();
+	let (wasm_callee, _code_hash_callee) = compile_module::<Test>("store_call").unwrap();
+	ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+
+		// Create both contracts: Constructors do nothing.
+		let addr_caller =
+			builder::bare_instantiate(Code::Upload(wasm_caller)).build_and_unwrap_account_id();
+		let addr_callee =
+			builder::bare_instantiate(Code::Upload(wasm_callee)).build_and_unwrap_account_id();
+
+		// Read-only call fails when modifying storage.
+		assert_err_ignore_postinfo!(
+			builder::call(addr_caller).data((&addr_callee, 100u32).encode()).build(),
+			<Error<Test>>::ContractTrapped
+		);
+	});
+}
+
+#[test]
+fn read_only_call_cannot_transfer() {
+	let (wasm_caller, _code_hash_caller) =
+		compile_module::<Test>("call_with_flags_and_value").unwrap();
+	let (wasm_callee, _code_hash_callee) = compile_module::<Test>("dummy").unwrap();
+	ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+
+		// Create both contracts: Constructors do nothing.
+		let addr_caller =
+			builder::bare_instantiate(Code::Upload(wasm_caller)).build_and_unwrap_account_id();
+		let addr_callee =
+			builder::bare_instantiate(Code::Upload(wasm_callee)).build_and_unwrap_account_id();
+
+		// Read-only call fails when a non-zero value is set.
+		assert_err_ignore_postinfo!(
+			builder::call(addr_caller)
+				.data(
+					(addr_callee, pallet_contracts_uapi::CallFlags::READ_ONLY.bits(), 100u64)
+						.encode()
+				)
+				.build(),
+			<Error<Test>>::StateChangeDenied
+		);
+	});
+}
+
+#[test]
+fn read_only_subsequent_call_cannot_store() {
+	let (wasm_read_only_caller, _code_hash_caller) =
+		compile_module::<Test>("read_only_call").unwrap();
+	let (wasm_caller, _code_hash_caller) =
+		compile_module::<Test>("call_with_flags_and_value").unwrap();
+	let (wasm_callee, _code_hash_callee) = compile_module::<Test>("store_call").unwrap();
+	ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+
+		// Create contracts: Constructors do nothing.
+		let addr_caller = builder::bare_instantiate(Code::Upload(wasm_read_only_caller))
+			.build_and_unwrap_account_id();
+		let addr_subsequent_caller =
+			builder::bare_instantiate(Code::Upload(wasm_caller)).build_and_unwrap_account_id();
+		let addr_callee =
+			builder::bare_instantiate(Code::Upload(wasm_callee)).build_and_unwrap_account_id();
+
+		// Subsequent call input.
+		let input = (&addr_callee, pallet_contracts_uapi::CallFlags::empty().bits(), 0u64, 100u32);
+
+		// Read-only call fails when modifying storage.
+		assert_err_ignore_postinfo!(
+			builder::call(addr_caller)
+				.data((&addr_subsequent_caller, input).encode())
+				.build(),
+			<Error<Test>>::ContractTrapped
+		);
+	});
+}
+
+#[test]
+fn read_only_call_works() {
+	let (wasm_caller, _code_hash_caller) = compile_module::<Test>("read_only_call").unwrap();
+	let (wasm_callee, _code_hash_callee) = compile_module::<Test>("dummy").unwrap();
+	ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+
+		// Create both contracts: Constructors do nothing.
+		let addr_caller =
+			builder::bare_instantiate(Code::Upload(wasm_caller)).build_and_unwrap_account_id();
+		let addr_callee =
+			builder::bare_instantiate(Code::Upload(wasm_callee)).build_and_unwrap_account_id();
+
+		assert_ok!(builder::call(addr_caller.clone()).data(addr_callee.encode()).build());
+	});
+}
