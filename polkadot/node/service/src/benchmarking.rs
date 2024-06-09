@@ -201,6 +201,7 @@ fn westend_sign_call(
 		frame_system::CheckNonce::<runtime::Runtime>::from(nonce),
 		frame_system::CheckWeight::<runtime::Runtime>::new(),
 		pallet_transaction_payment::ChargeTransactionPayment::<runtime::Runtime>::from(0),
+		frame_metadata_hash_extension::CheckMetadataHash::<runtime::Runtime>::new(false),
 	);
 
 	let payload = runtime::SignedPayload::from_raw(
@@ -215,6 +216,7 @@ fn westend_sign_call(
 			(),
 			(),
 			(),
+			None,
 		),
 	);
 
@@ -253,6 +255,7 @@ fn rococo_sign_call(
 		frame_system::CheckNonce::<runtime::Runtime>::from(nonce),
 		frame_system::CheckWeight::<runtime::Runtime>::new(),
 		pallet_transaction_payment::ChargeTransactionPayment::<runtime::Runtime>::from(0),
+		frame_metadata_hash_extension::CheckMetadataHash::<runtime::Runtime>::new(false),
 	);
 
 	let payload = runtime::SignedPayload::from_raw(
@@ -267,6 +270,7 @@ fn rococo_sign_call(
 			(),
 			(),
 			(),
+			None,
 		),
 	);
 

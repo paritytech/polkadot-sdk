@@ -121,19 +121,15 @@ impl PendingCollation {
 	}
 }
 
-/// v2 or v3 advertisement that was rejected by the backing
-/// subsystem. Validator may fetch it later if its fragment
-/// membership gets recognized before relay parent goes out of view.
-#[derive(Debug, Clone)]
-pub struct BlockedAdvertisement {
-	/// Peer that advertised the collation.
-	pub peer_id: PeerId,
-	/// Collator id.
-	pub collator_id: CollatorId,
-	/// The relay-parent of the candidate.
-	pub candidate_relay_parent: Hash,
-	/// Hash of the candidate.
-	pub candidate_hash: CandidateHash,
+/// An identifier for a fetched collation that was blocked from being seconded because we don't have
+/// access to the parent's HeadData. Can be retried once the candidate outputting this head data is
+/// seconded.
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+pub struct BlockedCollationId {
+	/// Para id.
+	pub para_id: ParaId,
+	/// Hash of the parent head data.
+	pub parent_head_data_hash: Hash,
 }
 
 /// Performs a sanity check between advertised and fetched collations.

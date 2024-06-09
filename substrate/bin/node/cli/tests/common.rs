@@ -18,6 +18,7 @@
 use codec::{Decode, Encode};
 use frame_support::Hashable;
 use frame_system::offchain::AppCrypto;
+use polkadot_sdk::*;
 use sc_executor::error::Result;
 use sp_consensus_babe::{
 	digests::{PreDigest, SecondaryPlainPreDigest},
@@ -48,7 +49,7 @@ pub const TEST_KEY_TYPE_ID: KeyTypeId = KeyTypeId(*b"test");
 pub mod sr25519 {
 	mod app_sr25519 {
 		use super::super::TEST_KEY_TYPE_ID;
-		use sp_application_crypto::{app_crypto, sr25519};
+		use polkadot_sdk::sp_application_crypto::{app_crypto, sr25519};
 		app_crypto!(sr25519, TEST_KEY_TYPE_ID);
 	}
 
@@ -83,7 +84,7 @@ pub const TRANSACTION_VERSION: u32 = kitchensink_runtime::VERSION.transaction_ve
 pub type TestExternalities<H> = CoreTestExternalities<H>;
 
 pub fn sign(xt: CheckedExtrinsic) -> UncheckedExtrinsic {
-	node_testing::keyring::sign(xt, SPEC_VERSION, TRANSACTION_VERSION, GENESIS_HASH)
+	node_testing::keyring::sign(xt, SPEC_VERSION, TRANSACTION_VERSION, GENESIS_HASH, None)
 }
 
 pub fn default_transfer_call() -> pallet_balances::Call<Runtime> {

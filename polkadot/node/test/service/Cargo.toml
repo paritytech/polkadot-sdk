@@ -34,13 +34,13 @@ polkadot-runtime-parachains = { path = "../../../runtime/parachains" }
 # Substrate dependencies
 sp-authority-discovery = { path = "../../../../substrate/primitives/authority-discovery" }
 sc-authority-discovery = { path = "../../../../substrate/client/authority-discovery" }
-babe = { package = "sc-consensus-babe", path = "../../../../substrate/client/consensus/babe" }
-babe-primitives = { package = "sp-consensus-babe", path = "../../../../substrate/primitives/consensus/babe" }
-consensus_common = { package = "sp-consensus", path = "../../../../substrate/primitives/consensus/common" }
+sc-consensus-babe = { path = "../../../../substrate/client/consensus/babe" }
+sp-consensus-babe = { path = "../../../../substrate/primitives/consensus/babe" }
+sp-consensus = { path = "../../../../substrate/primitives/consensus/common" }
 frame-system = { path = "../../../../substrate/frame/system" }
-grandpa = { package = "sc-consensus-grandpa", path = "../../../../substrate/client/consensus/grandpa" }
-grandpa_primitives = { package = "sp-consensus-grandpa", path = "../../../../substrate/primitives/consensus/grandpa" }
-inherents = { package = "sp-inherents", path = "../../../../substrate/primitives/inherents" }
+sc-consensus-grandpa = { path = "../../../../substrate/client/consensus/grandpa" }
+sp-consensus-grandpa = { path = "../../../../substrate/primitives/consensus/grandpa" }
+sp-inherents = { path = "../../../../substrate/primitives/inherents" }
 pallet-staking = { path = "../../../../substrate/frame/staking" }
 pallet-balances = { path = "../../../../substrate/frame/balances" }
 pallet-transaction-payment = { path = "../../../../substrate/frame/transaction-payment" }

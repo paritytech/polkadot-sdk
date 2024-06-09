@@ -10,7 +10,7 @@ license = "Apache-2.0"
 workspace = true
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive", "max-encoded-len"] }
+codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false, features = ["derive", "max-encoded-len"] }
 
 # Substrate
 frame-support = { path = "../../../../substrate/frame/support", default-features = false }
@@ -26,7 +26,7 @@ sp-tracing = { path = "../../../../substrate/primitives/tracing" }
 sp-core = { path = "../../../../substrate/primitives/core", default-features = false }
 
 # Cumulus
-cumulus-pallet-parachain-system = { path = "../../../pallets/parachain-system", default-features = false, features = ["parameterized-consensus-hook"] }
+cumulus-pallet-parachain-system = { path = "../../../pallets/parachain-system", default-features = false }
 cumulus-pallet-xcmp-queue = { path = "../../../pallets/xcmp-queue", default-features = false }
 pallet-collator-selection = { path = "../../../pallets/collator-selection", default-features = false }
 parachain-info = { package = "staging-parachain-info", path = "../../pallets/parachain-info", default-features = false }

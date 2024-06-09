@@ -16,10 +16,6 @@
 
 use self::test_helpers::mock::new_leaf;
 use super::*;
-use ::test_helpers::{
-	dummy_candidate_receipt_bad_sig, dummy_collator, dummy_collator_signature,
-	dummy_committed_candidate_receipt, dummy_hash, validator_pubkeys,
-};
 use assert_matches::assert_matches;
 use futures::{future, Future};
 use polkadot_node_primitives::{BlockData, InvalidCandidate, SignedFullStatement, Statement};
@@ -36,12 +32,16 @@ use polkadot_primitives::{
 	node_features, CandidateDescriptor, GroupRotationInfo, HeadData, PersistedValidationData,
 	PvfExecKind, ScheduledCore, SessionIndex, LEGACY_MIN_BACKING_VOTES,
 };
+use polkadot_primitives_test_helpers::{
+	dummy_candidate_receipt_bad_sig, dummy_collator, dummy_collator_signature,
+	dummy_committed_candidate_receipt, dummy_hash, validator_pubkeys,
+};
+use polkadot_statement_table::v2::Misbehavior;
 use rstest::rstest;
 use sp_application_crypto::AppCrypto;
 use sp_keyring::Sr25519Keyring;
 use sp_keystore::Keystore;
 use sp_tracing as _;
-use statement_table::v2::Misbehavior;
 use std::{collections::HashMap, time::Duration};
 
 mod prospective_parachains;
@@ -164,7 +164,8 @@ impl Default for TestState {
 	}
 }
 
-type VirtualOverseer = test_helpers::TestSubsystemContextHandle<CandidateBackingMessage>;
+type VirtualOverseer =
+	polkadot_node_subsystem_test_helpers::TestSubsystemContextHandle<CandidateBackingMessage>;
 
 fn test_harness<T: Future<Output = VirtualOverseer>>(
 	keystore: KeystorePtr,
@@ -172,7 +173,8 @@ fn test_harness<T: Future<Output = VirtualOverseer>>(
 ) {
 	let pool = sp_core::testing::TaskExecutor::new();
 
-	let (context, virtual_overseer) = test_helpers::make_subsystem_context(pool.clone());
+	let (context, virtual_overseer) =
+		polkadot_node_subsystem_test_helpers::make_subsystem_context(pool.clone());
 
 	let subsystem = async move {
 		if let Err(e) = super::run(context, keystore, Metrics(None)).await {
@@ -196,8 +198,9 @@ fn test_harness<T: Future<Output = VirtualOverseer>>(
 fn make_erasure_root(test: &TestState, pov: PoV, validation_data: PersistedValidationData) -> Hash {
 	let available_data = AvailableData { validation_data, pov: Arc::new(pov) };
 
-	let chunks = erasure_coding::obtain_chunks_v1(test.validators.len(), &available_data).unwrap();
-	erasure_coding::branches(&chunks).root()
+	let chunks =
+		polkadot_erasure_coding::obtain_chunks_v1(test.validators.len(), &available_data).unwrap();
+	polkadot_erasure_coding::branches(&chunks).root()
 }
 
 #[derive(Default, Clone)]
@@ -365,6 +368,15 @@ async fn assert_validation_requests(
 			RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionExecutorParams(sess_idx, tx))
 		) if sess_idx == 1 => {
 			tx.send(Ok(Some(ExecutorParams::default()))).unwrap();
+		}
+	);
+
+	assert_matches!(
+		virtual_overseer.recv().await,
+		AllMessages::RuntimeApi(
+			RuntimeApiMessage::Request(_, RuntimeApiRequest::NodeFeatures(sess_idx, tx))
+		) if sess_idx == 1 => {
+			tx.send(Ok(NodeFeatures::EMPTY)).unwrap();
 		}
 	);
 }
@@ -1946,7 +1958,7 @@ fn candidate_backing_reorders_votes() {
 		data[32..36].copy_from_slice(idx.encode().as_slice());
 
 		let sig = ValidatorSignature::try_from(data).unwrap();
-		statement_table::generic::ValidityAttestation::Implicit(sig)
+		polkadot_statement_table::generic::ValidityAttestation::Implicit(sig)
 	};
 
 	let attested = TableAttestedCandidate {
@@ -2084,7 +2096,7 @@ fn retry_works() {
 		virtual_overseer.send(FromOrchestra::Communication { msg: statement }).await;
 
 		// Not deterministic which message comes first:
-		for _ in 0u32..5 {
+		for _ in 0u32..6 {
 			match virtual_overseer.recv().await {
 				AllMessages::Provisioner(ProvisionerMessage::ProvisionableData(
 					_,
@@ -2114,6 +2126,12 @@ fn retry_works() {
 					RuntimeApiRequest::SessionExecutorParams(1, tx),
 				)) => {
 					tx.send(Ok(Some(ExecutorParams::default()))).unwrap();
+				},
+				AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+					_,
+					RuntimeApiRequest::NodeFeatures(1, tx),
+				)) => {
+					tx.send(Ok(NodeFeatures::EMPTY)).unwrap();
 				},
 				msg => {
 					assert!(false, "Unexpected message: {:?}", msg);
@@ -2662,32 +2680,7 @@ fn validator_ignores_statements_from_disabled_validators() {
 
 		virtual_overseer.send(FromOrchestra::Communication { msg: statement_3 }).await;
 
-		assert_matches!(
-			virtual_overseer.recv().await,
-			AllMessages::RuntimeApi(
-				RuntimeApiMessage::Request(_, RuntimeApiRequest::ValidationCodeByHash(hash, tx))
-			) if hash == validation_code.hash() => {
-				tx.send(Ok(Some(validation_code.clone()))).unwrap();
-			}
-		);
-
-		assert_matches!(
-			virtual_overseer.recv().await,
-			AllMessages::RuntimeApi(
-				RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionIndexForChild(tx))
-			) => {
-				tx.send(Ok(1u32.into())).unwrap();
-			}
-		);
-
-		assert_matches!(
-			virtual_overseer.recv().await,
-			AllMessages::RuntimeApi(
-				RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionExecutorParams(sess_idx, tx))
-			) if sess_idx == 1 => {
-				tx.send(Ok(Some(ExecutorParams::default()))).unwrap();
-			}
-		);
+		assert_validation_requests(&mut virtual_overseer, validation_code.clone()).await;
 
 		// Sending a `Statement::Seconded` for our assignment will start
 		// validation process. The first thing requested is the PoV.

@@ -23,6 +23,13 @@ use std::{
 
 use crate::RuntimeTarget;
 
+/// Extra information when generating the `metadata-hash`.
+#[cfg(feature = "metadata-hash")]
+pub(crate) struct MetadataExtraInfo {
+	pub decimals: u8,
+	pub token_symbol: String,
+}
+
 /// Returns the manifest dir from the `CARGO_MANIFEST_DIR` env.
 fn get_manifest_dir() -> PathBuf {
 	env::var("CARGO_MANIFEST_DIR")
@@ -53,6 +60,8 @@ impl WasmBuilderSelectProject {
 			disable_runtime_version_section_check: false,
 			export_heap_base: false,
 			import_memory: false,
+			#[cfg(feature = "metadata-hash")]
+			enable_metadata_hash: None,
 		}
 	}
 
@@ -71,6 +80,8 @@ impl WasmBuilderSelectProject {
 				disable_runtime_version_section_check: false,
 				export_heap_base: false,
 				import_memory: false,
+				#[cfg(feature = "metadata-hash")]
+				enable_metadata_hash: None,
 			})
 		} else {
 			Err("Project path must point to the `Cargo.toml` of the project")
@@ -108,6 +119,10 @@ pub struct WasmBuilder {
 	export_heap_base: bool,
 	/// Whether `--import-memory` should be added to the link args (WASM-only).
 	import_memory: bool,
+
+	/// Whether to enable the metadata hash generation.
+	#[cfg(feature = "metadata-hash")]
+	enable_metadata_hash: Option<MetadataExtraInfo>,
 }
 
 impl WasmBuilder {
@@ -191,6 +206,22 @@ impl WasmBuilder {
 		self
 	}
 
+	/// Enable generation of the metadata hash.
+	///
+	/// This will compile the runtime once, fetch the metadata, build the metadata hash and
+	/// then compile again with the env `RUNTIME_METADATA_HASH` set. For more information
+	/// about the metadata hash see [RFC78](https://polkadot-fellows.github.io/RFCs/approved/0078-merkleized-metadata.html).
+	///
+	/// - `token_symbol`: The symbol of the main native token of the chain.
+	/// - `decimals`: The number of decimals of the main native token.
+	#[cfg(feature = "metadata-hash")]
+	pub fn enable_metadata_hash(mut self, token_symbol: impl Into<String>, decimals: u8) -> Self {
+		self.enable_metadata_hash =
+			Some(MetadataExtraInfo { token_symbol: token_symbol.into(), decimals });
+
+		self
+	}
+
 	/// Disable the check for the `runtime_version` wasm section.
 	///
 	/// By default the `wasm-builder` will ensure that the `runtime_version` section will
@@ -237,6 +268,8 @@ impl WasmBuilder {
 			self.features_to_enable,
 			self.file_name,
 			!self.disable_runtime_version_section_check,
+			#[cfg(feature = "metadata-hash")]
+			self.enable_metadata_hash,
 		);
 
 		// As last step we need to generate our `rerun-if-changed` stuff. If a build fails, we don't
@@ -311,6 +344,7 @@ fn build_project(
 	features_to_enable: Vec<String>,
 	wasm_binary_name: Option<String>,
 	check_for_runtime_version_section: bool,
+	#[cfg(feature = "metadata-hash")] enable_metadata_hash: Option<MetadataExtraInfo>,
 ) {
 	let cargo_cmd = match crate::prerequisites::check(target) {
 		Ok(cmd) => cmd,
@@ -328,6 +362,8 @@ fn build_project(
 		features_to_enable,
 		wasm_binary_name,
 		check_for_runtime_version_section,
+		#[cfg(feature = "metadata-hash")]
+		enable_metadata_hash,
 	);
 
 	let (wasm_binary, wasm_binary_bloaty) = if let Some(wasm_binary) = wasm_binary {

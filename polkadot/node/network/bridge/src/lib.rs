@@ -21,8 +21,8 @@
 #![deny(unused_crate_dependencies)]
 #![warn(missing_docs)]
 
+use codec::{Decode, Encode};
 use futures::prelude::*;
-use parity_scale_codec::{Decode, Encode};
 use parking_lot::Mutex;
 
 use sp_consensus::SyncOracle;

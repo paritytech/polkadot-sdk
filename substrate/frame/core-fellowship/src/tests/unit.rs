@@ -27,7 +27,7 @@ use frame_support::{
 	traits::{tokens::GetSalary, ConstU32, IsInVec, TryMapSuccess},
 };
 use frame_system::EnsureSignedBy;
-use sp_runtime::{traits::TryMorphInto, BuildStorage, DispatchError, DispatchResult};
+use sp_runtime::{bounded_vec, traits::TryMorphInto, BuildStorage, DispatchError, DispatchResult};
 
 use crate as pallet_core_fellowship;
 use crate::*;
@@ -116,19 +116,22 @@ impl Config for Test {
 	type ApproveOrigin = TryMapSuccess<EnsureSignedBy<IsInVec<ZeroToNine>, u64>, TryMorphInto<u16>>;
 	type PromoteOrigin = TryMapSuccess<EnsureSignedBy<IsInVec<ZeroToNine>, u64>, TryMorphInto<u16>>;
 	type EvidenceSize = ConstU32<1024>;
+	type MaxRank = ConstU32<9>;
 }
 
 pub fn new_test_ext() -> sp_io::TestExternalities {
 	let t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 	let mut ext = sp_io::TestExternalities::new(t);
 	ext.execute_with(|| {
+		set_rank(100, 9);
 		let params = ParamsType {
-			active_salary: [10, 20, 30, 40, 50, 60, 70, 80, 90],
-			passive_salary: [1, 2, 3, 4, 5, 6, 7, 8, 9],
-			demotion_period: [2, 4, 6, 8, 10, 12, 14, 16, 18],
-			min_promotion_period: [3, 6, 9, 12, 15, 18, 21, 24, 27],
+			active_salary: bounded_vec![10, 20, 30, 40, 50, 60, 70, 80, 90],
+			passive_salary: bounded_vec![1, 2, 3, 4, 5, 6, 7, 8, 9],
+			demotion_period: bounded_vec![2, 4, 6, 8, 10, 12, 14, 16, 18],
+			min_promotion_period: bounded_vec![3, 6, 9, 12, 15, 18, 21, 24, 27],
 			offboard_timeout: 1,
 		};
+
 		assert_ok!(CoreFellowship::set_params(signed(1), Box::new(params)));
 		System::set_block_number(1);
 	});
@@ -170,10 +173,10 @@ fn basic_stuff() {
 fn set_params_works() {
 	new_test_ext().execute_with(|| {
 		let params = ParamsType {
-			active_salary: [10, 20, 30, 40, 50, 60, 70, 80, 90],
-			passive_salary: [1, 2, 3, 4, 5, 6, 7, 8, 9],
-			demotion_period: [1, 2, 3, 4, 5, 6, 7, 8, 9],
-			min_promotion_period: [1, 2, 3, 4, 5, 10, 15, 20, 30],
+			active_salary: bounded_vec![10, 20, 30, 40, 50, 60, 70, 80, 90],
+			passive_salary: bounded_vec![1, 2, 3, 4, 5, 6, 7, 8, 9],
+			demotion_period: bounded_vec![1, 2, 3, 4, 5, 6, 7, 8, 9],
+			min_promotion_period: bounded_vec![1, 2, 3, 4, 5, 10, 15, 20, 30],
 			offboard_timeout: 1,
 		};
 		assert_noop!(
@@ -284,10 +287,10 @@ fn offboard_works() {
 fn infinite_demotion_period_works() {
 	new_test_ext().execute_with(|| {
 		let params = ParamsType {
-			active_salary: [10; 9],
-			passive_salary: [10; 9],
-			min_promotion_period: [10; 9],
-			demotion_period: [0; 9],
+			active_salary: bounded_vec![10, 10, 10, 10, 10, 10, 10, 10, 10],
+			passive_salary: bounded_vec![10, 10, 10, 10, 10, 10, 10, 10, 10],
+			min_promotion_period: bounded_vec![10, 10, 10, 10, 10, 10, 10, 10, 10],
+			demotion_period: bounded_vec![0, 0, 0, 0, 0, 0, 0, 0, 0],
 			offboard_timeout: 0,
 		};
 		assert_ok!(CoreFellowship::set_params(signed(1), Box::new(params)));

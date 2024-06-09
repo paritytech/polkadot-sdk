@@ -15,7 +15,6 @@
     - echo "${COL_IMAGE}"
     - echo "${GH_DIR}"
     - echo "${LOCAL_DIR}"
-    - export DEBUG=zombie
     - export RELAY_IMAGE=${POLKADOT_IMAGE}
     - export COL_IMAGE=${COL_IMAGE}
 

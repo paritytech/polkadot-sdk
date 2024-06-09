@@ -25,7 +25,7 @@ use crate::{
 	paras::{ParaGenesisArgs, ParaKind},
 };
 
-use primitives::{Balance, HeadData, ValidationCode};
+use polkadot_primitives::{Balance, HeadData, ValidationCode};
 
 fn default_genesis_config() -> MockGenesisConfig {
 	MockGenesisConfig {

@@ -1,0 +1,9 @@
+flowchart
+	relay[Relaychain] --> paraA["Parachain(1000)"]
+	relay --> paraB["Parachain(2000)"]
+
+	paraA --> pallet[Pallet]
+	pallet --> indexA[Index 1]
+	pallet --> indexB[Index 2]
+
+	paraA --> account[Account]

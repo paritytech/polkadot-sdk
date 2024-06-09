@@ -10,7 +10,7 @@ description = "Mocked relay state proof builder for testing Cumulus."
 workspace = true
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
+codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false, features = ["derive"] }
 
 # Substrate
 sp-runtime = { path = "../../../substrate/primitives/runtime", default-features = false }

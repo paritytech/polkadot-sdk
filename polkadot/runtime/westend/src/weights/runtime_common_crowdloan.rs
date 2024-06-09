@@ -49,7 +49,7 @@ use core::marker::PhantomData;
 
 /// Weight functions for `runtime_common::crowdloan`.
 pub struct WeightInfo<T>(PhantomData<T>);
-impl<T: frame_system::Config> runtime_common::crowdloan::WeightInfo for WeightInfo<T> {
+impl<T: frame_system::Config> polkadot_runtime_common::crowdloan::WeightInfo for WeightInfo<T> {
 	/// Storage: Crowdloan Funds (r:1 w:1)
 	/// Proof Skipped: Crowdloan Funds (max_values: None, max_size: None, mode: Measured)
 	/// Storage: Registrar Paras (r:1 w:1)

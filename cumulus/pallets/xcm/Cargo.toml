@@ -10,7 +10,7 @@ description = "Pallet for stuff specific to parachains' usage of XCM"
 workspace = true
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
+codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false, features = ["derive"] }
 scale-info = { version = "2.11.1", default-features = false, features = ["derive"] }
 
 sp-std = { path = "../../../substrate/primitives/std", default-features = false }

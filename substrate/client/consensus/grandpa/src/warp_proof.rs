@@ -16,7 +16,7 @@
 
 //! Utilities for generating and verifying GRANDPA warp sync proofs.
 
-use parity_scale_codec::{Decode, DecodeAll, Encode};
+use codec::{Decode, DecodeAll, Encode};
 
 use crate::{
 	best_justification, find_scheduled_change, AuthoritySetChanges, AuthoritySetHardFork,
@@ -38,7 +38,7 @@ use std::{collections::HashMap, sync::Arc};
 pub enum Error {
 	/// Decoding error.
 	#[error("Failed to decode block hash: {0}.")]
-	DecodeScale(#[from] parity_scale_codec::Error),
+	DecodeScale(#[from] codec::Error),
 	/// Client backend error.
 	#[error("{0}")]
 	Client(#[from] sp_blockchain::Error),
@@ -320,7 +320,7 @@ where
 mod tests {
 	use super::WarpSyncProof;
 	use crate::{AuthoritySetChanges, GrandpaJustification};
-	use parity_scale_codec::Encode;
+	use codec::Encode;
 	use rand::prelude::*;
 	use sc_block_builder::BlockBuilderBuilder;
 	use sp_blockchain::HeaderBackend;

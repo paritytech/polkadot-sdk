@@ -17,16 +17,15 @@
 
 use crate::imports::*;
 
-use sp_keyring::AccountKeyring::Alice;
-use sp_runtime::{generic, MultiSignature};
+use frame_system::RawOrigin;
 use xcm_fee_payment_runtime_api::{
-	dry_run::runtime_decl_for_xcm_dry_run_api::XcmDryRunApiV1,
+	dry_run::runtime_decl_for_dry_run_api::DryRunApiV1,
 	fees::runtime_decl_for_xcm_payment_api::XcmPaymentApiV1,
 };
 
 /// We are able to dry-run and estimate the fees for a teleport between relay and system para.
 /// Scenario: Alice on Westend relay chain wants to teleport WND to Asset Hub.
-/// We want to know the fees using the `XcmDryRunApi` and `XcmPaymentApi`.
+/// We want to know the fees using the `DryRunApi` and `XcmPaymentApi`.
 #[test]
 fn teleport_relay_system_para_works() {
 	let destination: Location = Parachain(1000).into(); // Asset Hub.
@@ -42,6 +41,7 @@ fn teleport_relay_system_para_works() {
 	<Westend as TestExt>::new_ext().execute_with(|| {
 		type Runtime = <Westend as Chain>::Runtime;
 		type RuntimeCall = <Westend as Chain>::RuntimeCall;
+		type OriginCaller = <Westend as Chain>::OriginCaller;
 
 		let call = RuntimeCall::XcmPallet(pallet_xcm::Call::transfer_assets {
 			dest: Box::new(VersionedLocation::V4(destination.clone())),
@@ -50,9 +50,8 @@ fn teleport_relay_system_para_works() {
 			fee_asset_item: 0,
 			weight_limit: Unlimited,
 		});
-		let sender = Alice; // Is the same as `WestendSender`.
-		let extrinsic = construct_extrinsic_westend(sender, call);
-		let result = Runtime::dry_run_extrinsic(extrinsic).unwrap();
+		let origin = OriginCaller::system(RawOrigin::Signed(WestendSender::get()));
+		let result = Runtime::dry_run_call(origin, call).unwrap();
 		assert_eq!(result.forwarded_xcms.len(), 1);
 		let (destination_to_query, messages_to_query) = &result.forwarded_xcms[0];
 		assert_eq!(messages_to_query.len(), 1);
@@ -105,7 +104,7 @@ fn teleport_relay_system_para_works() {
 
 /// We are able to dry-run and estimate the fees for a multi-hop XCM journey.
 /// Scenario: Alice on PenpalA has some WND and wants to send them to PenpalB.
-/// We want to know the fees using the `XcmDryRunApi` and `XcmPaymentApi`.
+/// We want to know the fees using the `DryRunApi` and `XcmPaymentApi`.
 #[test]
 fn multi_hop_works() {
 	let destination = PenpalA::sibling_location_of(PenpalB::para_id());
@@ -142,6 +141,7 @@ fn multi_hop_works() {
 	<PenpalA as TestExt>::execute_with(|| {
 		type Runtime = <PenpalA as Chain>::Runtime;
 		type RuntimeCall = <PenpalA as Chain>::RuntimeCall;
+		type OriginCaller = <PenpalA as Chain>::OriginCaller;
 
 		let call = RuntimeCall::PolkadotXcm(pallet_xcm::Call::transfer_assets {
 			dest: Box::new(VersionedLocation::V4(destination.clone())),
@@ -150,9 +150,8 @@ fn multi_hop_works() {
 			fee_asset_item: 0,
 			weight_limit: Unlimited,
 		});
-		let sender = Alice; // Same as `PenpalASender`.
-		let extrinsic = construct_extrinsic_penpal(sender, call);
-		let result = Runtime::dry_run_extrinsic(extrinsic).unwrap();
+		let origin = OriginCaller::system(RawOrigin::Signed(PenpalASender::get()));
+		let result = Runtime::dry_run_call(origin, call).unwrap();
 		assert_eq!(result.forwarded_xcms.len(), 1);
 		let (destination_to_query, messages_to_query) = &result.forwarded_xcms[0];
 		assert_eq!(messages_to_query.len(), 1);
@@ -302,69 +301,5 @@ fn transfer_assets_para_to_para(test: ParaToParaThroughRelayTest) -> DispatchRes
 		bx!(test.args.assets.into()),
 		test.args.fee_asset_item,
 		test.args.weight_limit,
-	)
-}
-
-// Constructs the SignedExtra component of an extrinsic for the Westend runtime.
-fn construct_extrinsic_westend(
-	sender: sp_keyring::AccountKeyring,
-	call: westend_runtime::RuntimeCall,
-) -> westend_runtime::UncheckedExtrinsic {
-	type Runtime = <Westend as Chain>::Runtime;
-	let account_id = <Runtime as frame_system::Config>::AccountId::from(sender.public());
-	let tip = 0;
-	let extra: westend_runtime::SignedExtra = (
-		frame_system::CheckNonZeroSender::<Runtime>::new(),
-		frame_system::CheckSpecVersion::<Runtime>::new(),
-		frame_system::CheckTxVersion::<Runtime>::new(),
-		frame_system::CheckGenesis::<Runtime>::new(),
-		frame_system::CheckMortality::<Runtime>::from(sp_runtime::generic::Era::immortal()),
-		frame_system::CheckNonce::<Runtime>::from(
-			frame_system::Pallet::<Runtime>::account(&account_id).nonce,
-		),
-		frame_system::CheckWeight::<Runtime>::new(),
-		pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::from(tip),
-	);
-	let raw_payload = westend_runtime::SignedPayload::new(call, extra).unwrap();
-	let signature = raw_payload.using_encoded(|payload| sender.sign(payload));
-	let (call, extra, _) = raw_payload.deconstruct();
-	westend_runtime::UncheckedExtrinsic::new_signed(
-		call,
-		account_id.into(),
-		MultiSignature::Sr25519(signature),
-		extra,
-	)
-}
-
-// Constructs the SignedExtra component of an extrinsic for the Westend runtime.
-fn construct_extrinsic_penpal(
-	sender: sp_keyring::AccountKeyring,
-	call: penpal_runtime::RuntimeCall,
-) -> penpal_runtime::UncheckedExtrinsic {
-	type Runtime = <PenpalA as Chain>::Runtime;
-	let account_id = <Runtime as frame_system::Config>::AccountId::from(sender.public());
-	let tip = 0;
-	let extra: penpal_runtime::SignedExtra = (
-		frame_system::CheckNonZeroSender::<Runtime>::new(),
-		frame_system::CheckSpecVersion::<Runtime>::new(),
-		frame_system::CheckTxVersion::<Runtime>::new(),
-		frame_system::CheckGenesis::<Runtime>::new(),
-		frame_system::CheckEra::<Runtime>::from(generic::Era::immortal()),
-		frame_system::CheckNonce::<Runtime>::from(
-			frame_system::Pallet::<Runtime>::account(&account_id).nonce,
-		),
-		frame_system::CheckWeight::<Runtime>::new(),
-		pallet_asset_tx_payment::ChargeAssetTxPayment::<Runtime>::from(tip, None),
-	);
-	type SignedPayload =
-		generic::SignedPayload<penpal_runtime::RuntimeCall, penpal_runtime::SignedExtra>;
-	let raw_payload = SignedPayload::new(call, extra).unwrap();
-	let signature = raw_payload.using_encoded(|payload| sender.sign(payload));
-	let (call, extra, _) = raw_payload.deconstruct();
-	penpal_runtime::UncheckedExtrinsic::new_signed(
-		call,
-		account_id.into(),
-		MultiSignature::Sr25519(signature),
-		extra,
 	)
 }

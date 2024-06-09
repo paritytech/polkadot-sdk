@@ -17,8 +17,10 @@ sp-blockchain = { path = "../../substrate/primitives/blockchain" }
 sp-keystore = { path = "../../substrate/primitives/keystore" }
 sp-runtime = { path = "../../substrate/primitives/runtime" }
 sp-api = { path = "../../substrate/primitives/api" }
+sp-application-crypto = { path = "../../substrate/primitives/application-crypto" }
 sp-consensus = { path = "../../substrate/primitives/consensus/common" }
 sp-consensus-babe = { path = "../../substrate/primitives/consensus/babe" }
+sp-consensus-beefy = { path = "../../substrate/primitives/consensus/beefy" }
 sc-chain-spec = { path = "../../substrate/client/chain-spec" }
 sc-rpc = { path = "../../substrate/client/rpc" }
 sc-rpc-spec-v2 = { path = "../../substrate/client/rpc-spec-v2" }
@@ -30,8 +32,8 @@ sc-consensus-epochs = { path = "../../substrate/client/consensus/epochs" }
 sc-consensus-grandpa = { path = "../../substrate/client/consensus/grandpa" }
 sc-consensus-grandpa-rpc = { path = "../../substrate/client/consensus/grandpa/rpc" }
 sc-sync-state-rpc = { path = "../../substrate/client/sync-state-rpc" }
-txpool-api = { package = "sc-transaction-pool-api", path = "../../substrate/client/transaction-pool/api" }
-frame-rpc-system = { package = "substrate-frame-rpc-system", path = "../../substrate/utils/frame/rpc/system" }
+sc-transaction-pool-api = { path = "../../substrate/client/transaction-pool/api" }
+substrate-frame-rpc-system = { path = "../../substrate/utils/frame/rpc/system" }
 mmr-rpc = { path = "../../substrate/client/merkle-mountain-range/rpc" }
 pallet-transaction-payment-rpc = { path = "../../substrate/frame/transaction-payment/rpc" }
 sp-block-builder = { path = "../../substrate/primitives/block-builder" }

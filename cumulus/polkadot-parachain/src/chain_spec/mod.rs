@@ -37,11 +37,12 @@ const SAFE_XCM_VERSION: u32 = xcm::prelude::XCM_VERSION;
 
 /// Generic extensions for Parachain ChainSpecs.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ChainSpecGroup, ChainSpecExtension)]
-#[serde(deny_unknown_fields)]
 pub struct Extensions {
 	/// The relay chain of the Parachain.
+	#[serde(alias = "relayChain", alias = "RelayChain")]
 	pub relay_chain: String,
 	/// The id of the Parachain.
+	#[serde(alias = "paraId", alias = "ParaId")]
 	pub para_id: u32,
 }
 
@@ -53,7 +54,7 @@ impl Extensions {
 }
 
 /// Generic chain spec for all polkadot-parachain runtimes
-pub type GenericChainSpec = sc_service::GenericChainSpec<(), Extensions>;
+pub type GenericChainSpec = sc_service::GenericChainSpec<Extensions>;
 
 /// Helper function to generate a crypto pair from seed
 pub fn get_from_seed<TPublic: Public>(seed: &str) -> <TPublic::Pair as Pair>::Public {
@@ -77,4 +78,23 @@ where
 /// This function's return type must always match the session keys of the chain in tuple format.
 pub fn get_collator_keys_from_seed<AuraId: Public>(seed: &str) -> <AuraId::Pair as Pair>::Public {
 	get_from_seed::<AuraId>(seed)
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	#[test]
+	fn can_decode_extension_camel_and_snake_case() {
+		let camel_case = r#"{"relayChain":"relay","paraId":1}"#;
+		let snake_case = r#"{"relay_chain":"relay","para_id":1}"#;
+		let pascal_case = r#"{"RelayChain":"relay","ParaId":1}"#;
+
+		let camel_case_extension: Extensions = serde_json::from_str(camel_case).unwrap();
+		let snake_case_extension: Extensions = serde_json::from_str(snake_case).unwrap();
+		let pascal_case_extension: Extensions = serde_json::from_str(pascal_case).unwrap();
+
+		assert_eq!(camel_case_extension, snake_case_extension);
+		assert_eq!(snake_case_extension, pascal_case_extension);
+	}
 }

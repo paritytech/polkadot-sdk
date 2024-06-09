@@ -14,7 +14,7 @@ workspace = true
 anyhow = "1.0"
 async-std = "1.9.0"
 async-trait = "0.1.79"
-codec = { package = "parity-scale-codec", version = "3.6.1" }
+codec = { package = "parity-scale-codec", version = "3.6.12" }
 futures = "0.3.30"
 hex = "0.4"
 log = { workspace = true }

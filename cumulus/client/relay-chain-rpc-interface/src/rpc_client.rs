@@ -27,7 +27,7 @@ use serde_json::Value as JsonValue;
 use std::collections::VecDeque;
 use tokio::sync::mpsc::Sender as TokioSender;
 
-use parity_scale_codec::{Decode, Encode};
+use codec::{Decode, Encode};
 
 use cumulus_primitives_core::{
 	relay_chain::{

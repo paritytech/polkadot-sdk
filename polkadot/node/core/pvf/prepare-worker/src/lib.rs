@@ -39,7 +39,7 @@ use polkadot_node_core_pvf_common::{
 	worker::{pipe2_cloexec, PipeFd, WorkerInfo},
 };
 
-use parity_scale_codec::{Decode, Encode};
+use codec::{Decode, Encode};
 use polkadot_node_core_pvf_common::{
 	error::{PrepareError, PrepareWorkerResult},
 	executor_interface::create_runtime_from_artifact_bytes,

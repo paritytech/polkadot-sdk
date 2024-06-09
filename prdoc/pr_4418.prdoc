@@ -1,0 +1,19 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: "[pallet_contracts] Add `READ_ONLY` flag to contract `call` function"
+
+doc:
+  - audience: Runtime User
+    description: |
+      This PR implements the `READ_ONLY` flag to be used as a `Callflag` in the contract `call` function.
+      The flag indicates that the callee is restricted from modifying the state during call execution.
+      It is equivalent to Ethereum's [STATICCALL](https://eips.ethereum.org/EIPS/eip-214).
+
+crates:
+  - name: pallet-contracts
+    bump: minor
+  - name: pallet-contracts-uapi
+    bump: minor
+  - name: pallet-contracts-proc-macro
+    bump: minor

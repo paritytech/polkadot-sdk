@@ -351,13 +351,8 @@ impl TestEnvironment {
 		}
 	}
 
-	pub fn collect_resource_usage(
-		&self,
-		benchmark_name: &str,
-		subsystems_under_test: &[&str],
-	) -> BenchmarkUsage {
+	pub fn collect_resource_usage(&self, subsystems_under_test: &[&str]) -> BenchmarkUsage {
 		BenchmarkUsage {
-			benchmark_name: benchmark_name.to_string(),
 			network_usage: self.network_usage(),
 			cpu_usage: self.cpu_usage(subsystems_under_test),
 		}

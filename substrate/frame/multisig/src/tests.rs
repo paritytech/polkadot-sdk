@@ -41,7 +41,6 @@ frame_support::construct_runtime!(
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
 	type Block = Block;
-	type BlockHashCount = ConstU32<250>;
 	type AccountData = pallet_balances::AccountData<u64>;
 	// This pallet wishes to overwrite this.
 	type BaseCallFilter = TestBaseCallFilter;

@@ -1,0 +1,16 @@
+title: "Remove prospective-parachains subsystem from collator nodes"
+
+doc:
+  - audience: Node Dev
+    description: |
+      Removes the prospective-parachains subsystem from collators. The GetMinimumRelayParents of the implicit view
+      is replaced by direct ChainAPI and runtime calls. The subsystem was causing performance problems when collating
+      connected to an RPC node, due to the high number of runtime API calls, which were unneccessary for a collator.
+
+crates:
+  - name: polkadot-collator-protocol
+    bump: minor
+  - name: polkadot-service
+    bump: minor
+  - name: polkadot-node-subsystem-util
+    bump: minor

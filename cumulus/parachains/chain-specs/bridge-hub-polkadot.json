@@ -9,8 +9,10 @@
     "/dns/polkadot-bridge-hub-connect-a-1.polkadot.io/tcp/443/wss/p2p/12D3KooWG4ypDHLKGCv4BZ6PuaGUwQHKAH6p2D6arR2uQ1eiR1T3",
     "/dns/polkadot-bridge-hub-boot-ng.dwellir.com/tcp/30339/p2p/12D3KooWPZ38PL3PhRVcUVYDNn7nRcZF8MykmWWLBKeDV2yna1vV",
     "/dns/polkadot-bridge-hub-boot-ng.dwellir.com/tcp/443/wss/p2p/12D3KooWPZ38PL3PhRVcUVYDNn7nRcZF8MykmWWLBKeDV2yna1vV",
-    "/dns/boot-cr.gatotech.network/tcp/33130/p2p/12D3KooWCnFzfEdd7MwUNrrDv66FuS2DM5MGuiaB4y48XS7qNjF6",
-    "/dns/boot-cr.gatotech.network/tcp/35130/wss/p2p/12D3KooWCnFzfEdd7MwUNrrDv66FuS2DM5MGuiaB4y48XS7qNjF6",
+    "/dns/boot.gatotech.network/tcp/33130/p2p/12D3KooWCnFzfEdd7MwUNrrDv66FuS2DM5MGuiaB4y48XS7qNjF6",
+    "/dns/boot.gatotech.network/tcp/35130/wss/p2p/12D3KooWCnFzfEdd7MwUNrrDv66FuS2DM5MGuiaB4y48XS7qNjF6",
+    "/dns/boot.stake.plus/tcp/42333/p2p/12D3KooWEoTCu22Uab6prbfcD1FPpPZmfhkAVeMZQJ3fHnkCVmJz",
+    "/dns/boot.stake.plus/tcp/42334/wss/p2p/12D3KooWEoTCu22Uab6prbfcD1FPpPZmfhkAVeMZQJ3fHnkCVmJz",
     "/dns/bridge-hub-polkadot-bootnode.turboflakes.io/tcp/30610/p2p/12D3KooWNEgaQRQHJHvGDh8Rg4RyLmDCCz3yAf2gAdHZZJAUUD8Q",
     "/dns/bridge-hub-polkadot-bootnode.turboflakes.io/tcp/30710/wss/p2p/12D3KooWNEgaQRQHJHvGDh8Rg4RyLmDCCz3yAf2gAdHZZJAUUD8Q",
     "/dns/boot.metaspan.io/tcp/16032/p2p/12D3KooWQTfRnrK3FfbrotpSP5RVJbjBHVBSu8VSzhj9qcvjaqnZ",
@@ -24,7 +26,9 @@
     "/dns/pbr13.rotko.net/tcp/35543/wss/p2p/12D3KooWMxZY7tDc2Rh454VaJJ7RexKAXVS6xSBEvTnXSGCnuGDw",
     "/dns/bridge-hub-polkadot.bootnodes.polkadotters.com/tcp/30517/p2p/12D3KooWLUNE3LHPDa1WrrZaYT7ArK66CLM1bPv7kKz74UcLnQRB",
     "/dns/bridge-hub-polkadot.bootnodes.polkadotters.com/tcp/30519/wss/p2p/12D3KooWLUNE3LHPDa1WrrZaYT7ArK66CLM1bPv7kKz74UcLnQRB",
-    "/dns/boot-polkadot-bridgehub.luckyfriday.io/tcp/443/wss/p2p/12D3KooWKf3mBXHjLbwtPqv1BdbQuwbFNcQQYxASS7iQ25264AXH"
+    "/dns/boot-polkadot-bridgehub.luckyfriday.io/tcp/443/wss/p2p/12D3KooWKf3mBXHjLbwtPqv1BdbQuwbFNcQQYxASS7iQ25264AXH",
+    "/dns/bridge-hub-polkadot.bootnode.amforc.com/tcp/29999/wss/p2p/12D3KooWGT5E56rAHfT5dY1pMLTrpAgV72yfDtD1Y5tPCHaTsifp",
+    "/dns/bridge-hub-polkadot.bootnode.amforc.com/tcp/30010/p2p/12D3KooWGT5E56rAHfT5dY1pMLTrpAgV72yfDtD1Y5tPCHaTsifp"
   ],
   "telemetryEndpoints": null,
   "protocolId": null,

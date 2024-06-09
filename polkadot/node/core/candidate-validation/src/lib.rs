@@ -53,7 +53,7 @@ use polkadot_primitives::{
 	ValidationCodeHash,
 };
 
-use parity_scale_codec::Encode;
+use codec::Encode;
 
 use futures::{channel::oneshot, prelude::*, stream::FuturesUnordered};
 

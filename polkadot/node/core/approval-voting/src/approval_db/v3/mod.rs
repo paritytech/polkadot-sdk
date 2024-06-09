@@ -19,7 +19,7 @@
 //! Version 3 modifies the `our_approval` format of `ApprovalEntry`
 //! and adds a new field `pending_signatures` for `BlockEntry`
 
-use parity_scale_codec::{Decode, Encode};
+use codec::{Decode, Encode};
 use polkadot_node_primitives::approval::v2::CandidateBitfield;
 use polkadot_node_subsystem::SubsystemResult;
 use polkadot_node_subsystem_util::database::{DBTransaction, Database};

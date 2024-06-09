@@ -11,13 +11,14 @@ publish = false
 workspace = true
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.4.0", default-features = false }
+codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false }
 assert_matches = "1.5.0"
 
 # Substrate
 sp-runtime = { path = "../../../../../../../substrate/primitives/runtime", default-features = false }
 sp-keyring = { path = "../../../../../../../substrate/primitives/keyring", default-features = false }
 sp-core = { path = "../../../../../../../substrate/primitives/core", default-features = false }
+frame-metadata-hash-extension = { path = "../../../../../../../substrate/frame/metadata-hash-extension" }
 frame-support = { path = "../../../../../../../substrate/frame/support", default-features = false }
 frame-system = { path = "../../../../../../../substrate/frame/system", default-features = false }
 pallet-balances = { path = "../../../../../../../substrate/frame/balances", default-features = false }

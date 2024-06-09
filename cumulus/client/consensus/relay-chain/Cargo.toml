@@ -24,7 +24,7 @@ sp-consensus = { path = "../../../../substrate/primitives/consensus/common" }
 sp-core = { path = "../../../../substrate/primitives/core" }
 sp-inherents = { path = "../../../../substrate/primitives/inherents" }
 sp-runtime = { path = "../../../../substrate/primitives/runtime" }
-substrate-prometheus-endpoint = { path = "../../../../substrate/utils/prometheus" }
+prometheus-endpoint = { package = "substrate-prometheus-endpoint", path = "../../../../substrate/utils/prometheus" }
 
 # Cumulus
 cumulus-client-consensus-common = { path = "../common" }

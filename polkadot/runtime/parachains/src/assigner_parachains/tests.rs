@@ -24,7 +24,7 @@ use crate::{
 	paras::{ParaGenesisArgs, ParaKind},
 };
 use frame_support::{assert_ok, pallet_prelude::*};
-use primitives::{BlockNumber, Id as ParaId, SessionIndex, ValidationCode};
+use polkadot_primitives::{BlockNumber, Id as ParaId, SessionIndex, ValidationCode};
 use sp_std::collections::btree_map::BTreeMap;
 
 fn schedule_blank_para(id: ParaId, parakind: ParaKind) {
@@ -71,7 +71,7 @@ fn run_to_block(
 		Scheduler::initializer_initialize(b + 1);
 
 		// In the real runtime this is expected to be called by the `InclusionInherent` pallet.
-		Scheduler::free_cores_and_fill_claimqueue(BTreeMap::new(), b + 1);
+		Scheduler::free_cores_and_fill_claim_queue(BTreeMap::new(), b + 1);
 	}
 }
 

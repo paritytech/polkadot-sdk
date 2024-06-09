@@ -1,84 +1,108 @@
 # Availability Recovery
 
-This subsystem is the inverse of the [Availability Distribution](availability-distribution.md) subsystem: validators
-will serve the availability chunks kept in the availability store to nodes who connect to them. And the subsystem will
-also implement the other side: the logic for nodes to connect to validators, request availability pieces, and
-reconstruct the `AvailableData`.
+This subsystem is responsible for recovering the data made available via the
+[Availability Distribution](availability-distribution.md) subsystem, neccessary for candidate validation during the
+approval/disputes processes. Additionally, it is also being used by collators to recover PoVs in adversarial scenarios
+where the other collators of the para are censoring blocks.
 
-This version of the availability recovery subsystem is based off of direct connections to validators. In order to
-recover any given `AvailableData`, we must recover at least `f + 1` pieces from validators of the session. Thus, we will
-connect to and query randomly chosen validators until we have received `f + 1` pieces.
+According to the Polkadot protocol, in order to recover any given `AvailableData`, we generally must recover at least
+`f + 1` pieces from validators of the session. Thus, we should connect to and query randomly chosen validators until we
+have received `f + 1` pieces.
+
+In practice, there are various optimisations implemented in this subsystem which avoid querying all chunks from
+different validators and/or avoid doing the chunk reconstruction altogether.
 
 ## Protocol
 
-`PeerSet`: `Validation`
+This version of the availability recovery subsystem is based only on request-response network protocols.
 
 Input:
 
-* `NetworkBridgeUpdate(update)`
-* `AvailabilityRecoveryMessage::RecoverAvailableData(candidate, session, backing_group, response)`
+* `AvailabilityRecoveryMessage::RecoverAvailableData(candidate, session, backing_group, core_index, response)`
 
 Output:
 
-* `NetworkBridge::SendValidationMessage`
-* `NetworkBridge::ReportPeer`
-* `AvailabilityStore::QueryChunk`
+* `NetworkBridgeMessage::SendRequests`
+* `AvailabilityStoreMessage::QueryAllChunks`
+* `AvailabilityStoreMessage::QueryAvailableData`
+* `AvailabilityStoreMessage::QueryChunkSize`
+
 
 ## Functionality
 
-We hold a state which tracks the currently ongoing recovery tasks, as well as which request IDs correspond to which
-task. A recovery task is a structure encapsulating all recovery tasks with the network necessary to recover the
-available data in respect to one candidate.
+We hold a state which tracks the currently ongoing recovery tasks. A `RecoveryTask` is a structure encapsulating all
+network tasks needed in order to recover the available data in respect to a candidate.
+
+Each `RecoveryTask` has a collection of ordered recovery strategies to try.
 
 ```rust
+/// Subsystem state.
 struct State {
-    /// Each recovery is implemented as an independent async task, and the handles only supply information about the result.
-    ongoing_recoveries: FuturesUnordered<RecoveryHandle>,
-    /// A recent block hash for which state should be available.
-    live_block_hash: Hash,
-    // An LRU cache of recently recovered data.
-    availability_lru: LruMap<CandidateHash, Result<AvailableData, RecoveryError>>,
+  /// Each recovery task is implemented as its own async task,
+  /// and these handles are for communicating with them.
+  ongoing_recoveries: FuturesUnordered<RecoveryHandle>,
+  /// A recent block hash for which state should be available.
+  live_block: (BlockNumber, Hash),
+  /// An LRU cache of recently recovered data.
+  availability_lru: LruMap<CandidateHash, CachedRecovery>,
+  /// Cached runtime info.
+  runtime_info: RuntimeInfo,
 }
 
-/// This is a future, which concludes either when a response is received from the recovery tasks,
-/// or all the `awaiting` channels have closed.
-struct RecoveryHandle {
-    candidate_hash: CandidateHash,
-    interaction_response: RemoteHandle<Concluded>,
-    awaiting: Vec<ResponseChannel<Result<AvailableData, RecoveryError>>>,
+struct RecoveryParams {
+  /// Discovery ids of `validators`.
+  pub validator_authority_keys: Vec<AuthorityDiscoveryId>,
+  /// Number of validators.
+  pub n_validators: usize,
+  /// The number of regular chunks needed.
+  pub threshold: usize,
+  /// The number of systematic chunks needed.
+  pub systematic_threshold: usize,
+  /// A hash of the relevant candidate.
+  pub candidate_hash: CandidateHash,
+  /// The root of the erasure encoding of the candidate.
+  pub erasure_root: Hash,
+  /// Metrics to report.
+  pub metrics: Metrics,
+  /// Do not request data from availability-store. Useful for collators.
+  pub bypass_availability_store: bool,
+  /// The type of check to perform after available data was recovered.
+  pub post_recovery_check: PostRecoveryCheck,
+  /// The blake2-256 hash of the PoV.
+  pub pov_hash: Hash,
+  /// Protocol name for ChunkFetchingV1.
+  pub req_v1_protocol_name: ProtocolName,
+  /// Protocol name for ChunkFetchingV2.
+  pub req_v2_protocol_name: ProtocolName,
+  /// Whether or not chunk mapping is enabled.
+  pub chunk_mapping_enabled: bool,
+  /// Channel to the erasure task handler.
+	pub erasure_task_tx: mpsc::Sender<ErasureTask>,
 }
 
-struct Unavailable;
-struct Concluded(CandidateHash, Result<AvailableData, RecoveryError>);
-
-struct RecoveryTaskParams {
-    validator_authority_keys: Vec<AuthorityId>,
-    validators: Vec<ValidatorId>,
-    // The number of pieces needed.
-    threshold: usize,
-    candidate_hash: Hash,
-    erasure_root: Hash,
+pub struct RecoveryTask<Sender: overseer::AvailabilityRecoverySenderTrait> {
+	sender: Sender,
+	params: RecoveryParams,
+	strategies: VecDeque<Box<dyn RecoveryStrategy<Sender>>>,
+	state: task::State,
 }
 
-enum RecoveryTask {
-    RequestFromBackers {
-        // a random shuffling of the validators from the backing group which indicates the order
-        // in which we connect to them and request the chunk.
-        shuffled_backers: Vec<ValidatorIndex>,
-    }
-    RequestChunksFromValidators {
-        // a random shuffling of the validators which indicates the order in which we connect to the validators and
-        // request the chunk from them.
-        shuffling: Vec<ValidatorIndex>,
-        received_chunks: Map<ValidatorIndex, ErasureChunk>,
-        requesting_chunks: FuturesUnordered<Receiver<ErasureChunkRequestResponse>>,
-    }
-}
+#[async_trait::async_trait]
+/// Common trait for runnable recovery strategies.
+pub trait RecoveryStrategy<Sender: overseer::AvailabilityRecoverySenderTrait>: Send {
+	/// Main entry point of the strategy.
+	async fn run(
+		mut self: Box<Self>,
+		state: &mut task::State,
+		sender: &mut Sender,
+		common_params: &RecoveryParams,
+	) -> Result<AvailableData, RecoveryError>;
 
-struct RecoveryTask {
-    to_subsystems: SubsystemSender,
-    params: RecoveryTaskParams,
-    source: Source,
+	/// Return the name of the strategy for logging purposes.
+	fn display_name(&self) -> &'static str;
+
+	/// Return the strategy type for use as a metric label.
+	fn strategy_type(&self) -> &'static str;
 }
 ```
 
@@ -90,68 +114,71 @@ Ignore `BlockFinalized` signals.
 
 On `Conclude`, shut down the subsystem.
 
-#### `AvailabilityRecoveryMessage::RecoverAvailableData(receipt, session, Option<backing_group_index>, response)`
+#### `AvailabilityRecoveryMessage::RecoverAvailableData(...)`
 
-1. Check the `availability_lru` for the candidate and return the data if so.
-1. Check if there is already an recovery handle for the request. If so, add the response handle to it.
+1. Check the `availability_lru` for the candidate and return the data if present.
+1. Check if there is already a recovery handle for the request. If so, add the response handle to it.
 1. Otherwise, load the session info for the given session under the state of `live_block_hash`, and initiate a recovery
-   task with *`launch_recovery_task`*. Add a recovery handle to the state and add the response channel to it.
+   task with `launch_recovery_task`. Add a recovery handle to the state and add the response channel to it.
 1. If the session info is not available, return `RecoveryError::Unavailable` on the response channel.
 
 ### Recovery logic
 
-#### `launch_recovery_task(session_index, session_info, candidate_receipt, candidate_hash, Option<backing_group_index>)`
+#### `handle_recover(...) -> Result<()>`
 
-1. Compute the threshold from the session info. It should be `f + 1`, where `n = 3f + k`, where `k in {1, 2, 3}`, and
-   `n` is the number of validators.
-1. Set the various fields of `RecoveryParams` based on the validator lists in `session_info` and information about the
-   candidate.
-1. If the `backing_group_index` is `Some`, start in the `RequestFromBackers` phase with a shuffling of the backing group
-   validator indices and a `None` requesting value.
-1. Otherwise, start in the `RequestChunksFromValidators` source with `received_chunks`,`requesting_chunks`, and
-   `next_shuffling` all empty.
-1. Set the `to_subsystems` sender to be equal to a clone of the `SubsystemContext`'s sender.
-1. Initialize `received_chunks` to an empty set, as well as `requesting_chunks`.
+Instantiate the appropriate `RecoveryStrategy`es, based on the subsystem configuration, params and session info.
+Call `launch_recovery_task()`.
 
-Launch the source as a background task running `run(recovery_task)`.
+#### `launch_recovery_task(state, ctx, response_sender, recovery_strategies, params) -> Result<()>`
 
-#### `run(recovery_task) -> Result<AvailableData, RecoveryError>`
+Create the `RecoveryTask` and launch it as a background task running `recovery_task.run()`.
 
-```rust
-// How many parallel requests to have going at once.
-const N_PARALLEL: usize = 50;
-```
+#### `recovery_task.run(mut self) -> Result<AvailableData, RecoveryError>`
 
-* Request `AvailabilityStoreMessage::QueryAvailableData`. If it exists, return that.
-* If the task contains `RequestFromBackers`
-  * Loop:
-    * If the `requesting_pov` is `Some`, poll for updates on it. If it concludes, set `requesting_pov` to `None`.
-    * If the `requesting_pov` is `None`, take the next backer off the `shuffled_backers`.
-        * If the backer is `Some`, issue a `NetworkBridgeMessage::Requests` with a network request for the
-          `AvailableData` and wait for the response.
-        * If it concludes with a `None` result, return to beginning.
-        * If it concludes with available data, attempt a re-encoding.
-            * If it has the correct erasure-root, break and issue a `Ok(available_data)`.
-            * If it has an incorrect erasure-root, return to beginning.
-        * Send the result to each member of `awaiting`.
-        * If the backer is `None`, set the source to `RequestChunksFromValidators` with a random shuffling of validators
-          and empty `received_chunks`, and `requesting_chunks` and break the loop.
+* Loop:
+  * Pop a strategy from the queue. If none are left, return `RecoveryError::Unavailable`.
+  * Run the strategy.
+  * If the strategy returned successfully or returned `RecoveryError::Invalid`, break the loop.
 
-* If the task contains `RequestChunksFromValidators`:
-  * Request `AvailabilityStoreMessage::QueryAllChunks`. For each chunk that exists, add it to `received_chunks` and
-    remote the validator from `shuffling`.
-  * Loop:
-    * If `received_chunks + requesting_chunks + shuffling` lengths are less than the threshold, break and return
-      `Err(Unavailable)`.
-    * Poll for new updates from `requesting_chunks`. Check merkle proofs of any received chunks. If the request simply
-      fails due to network issues, insert into the front of `shuffling` to be retried.
-    * If `received_chunks` has more than `threshold` entries, attempt to recover the data.
-      * If that fails, return `Err(RecoveryError::Invalid)`
-      * If correct:
-        * If re-encoding produces an incorrect erasure-root, break and issue a `Err(RecoveryError::Invalid)`.
-        * break and issue `Ok(available_data)`
-    * Send the result to each member of `awaiting`.
-    * While there are fewer than `N_PARALLEL` entries in `requesting_chunks`,
-      * Pop the next item from `shuffling`. If it's empty and `requesting_chunks` is empty, return
-        `Err(RecoveryError::Unavailable)`.
-      * Issue a `NetworkBridgeMessage::Requests` and wait for the response in `requesting_chunks`.
+### Recovery strategies
+
+#### `FetchFull`
+
+This strategy tries requesting the full available data from the validators in the backing group to
+which the node is already connected. They are tried one by one in a random order.
+It is very performant if there's enough network bandwidth and the backing group is not overloaded.
+The costly reed-solomon reconstruction is not needed.
+
+#### `FetchSystematicChunks`
+
+Very similar to `FetchChunks` below but requests from the validators that hold the systematic chunks, so that we avoid
+reed-solomon reconstruction. Only possible if `node_features::FeatureIndex::AvailabilityChunkMapping` is enabled and
+the `core_index` is supplied (currently only for recoveries triggered by approval voting).
+
+More info in
+[RFC-47](https://github.com/polkadot-fellows/RFCs/blob/main/text/0047-assignment-of-availability-chunks.md).
+
+#### `FetchChunks`
+
+The least performant strategy but also the most comprehensive one. It's the only one that cannot fail under the
+byzantine threshold assumption, so it's always added as the last one in the `recovery_strategies` queue.
+
+Performs parallel chunk requests to validators. When enough chunks were received, do the reconstruction.
+In the worst case, all validators will be tried.
+
+### Default recovery strategy configuration
+
+#### For validators
+
+If the estimated available data size is smaller than a configured constant (currently 1Mib for Polkadot or 4Mib for
+other networks), try doing `FetchFull` first.
+Next, if the preconditions described in `FetchSystematicChunks` above are met, try systematic recovery.
+As a last resort, do `FetchChunks`.
+
+#### For collators
+
+Collators currently only use `FetchChunks`, as they only attempt recoveries in rare scenarios.
+
+Moreover, the recovery task is specially configured to not attempt requesting data from the local availability-store
+(because it doesn't exist) and to not reencode the data after a succcessful recovery (because it's an expensive check
+that is not needed; checking the pov_hash is enough for collators).

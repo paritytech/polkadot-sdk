@@ -1,0 +1,13 @@
+title: "[Contracts] Remove internal topic index"
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      This PR removes topics from internal events emitted by pallet_contracts. It does not touch the `deposit_event` host function used by 
+      smart contracts that can still include topics.
+      Event topics incurs significant Storage costs, and are only used by light clients to index events and avoid downloading the entire block.
+      They are not used by Dapp or Indexers that download the whole block anyway.
+
+crates:
+  - name: pallet-contracts
+    bump: patch

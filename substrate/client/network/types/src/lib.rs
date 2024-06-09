@@ -13,6 +13,12 @@
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 // GNU General Public License for more details.
 
-mod peer_id;
+// You should have received a copy of the GNU General Public License
+// along with this program. If not, see <https://www.gnu.org/licenses/>.
 
+pub mod ed25519;
+pub mod multiaddr;
+pub mod multihash;
+
+mod peer_id;
 pub use peer_id::PeerId;

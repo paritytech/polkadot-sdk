@@ -16,8 +16,8 @@ workspace = true
 sp-core = { path = "../../../../../../../substrate/primitives/core", default-features = false }
 sp-authority-discovery = { path = "../../../../../../../substrate/primitives/authority-discovery", default-features = false }
 sp-consensus-babe = { path = "../../../../../../../substrate/primitives/consensus/babe", default-features = false }
-beefy-primitives = { package = "sp-consensus-beefy", path = "../../../../../../../substrate/primitives/consensus/beefy" }
-grandpa = { package = "sc-consensus-grandpa", path = "../../../../../../../substrate/client/consensus/grandpa", default-features = false }
+sp-consensus-beefy = { path = "../../../../../../../substrate/primitives/consensus/beefy" }
+sc-consensus-grandpa = { path = "../../../../../../../substrate/client/consensus/grandpa", default-features = false }
 
 # Polkadot
 polkadot-primitives = { path = "../../../../../../../polkadot/primitives", default-features = false }

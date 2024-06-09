@@ -80,6 +80,7 @@ environmental::environmental!(recorder: trait ProofSizeProvider);
 /// ensuring that the final storage root matches the storage root in the header of the block. In the
 /// end we return back the [`ValidationResult`] with all the required information for the validator.
 #[doc(hidden)]
+#[allow(deprecated)]
 pub fn validate_block<
 	B: BlockT,
 	E: ExecuteBlock<B>,
@@ -186,6 +187,7 @@ where
 		)
 		.expect("Invalid relay chain state proof");
 
+		#[allow(deprecated)]
 		let res = CI::check_inherents(&block, &relay_chain_proof);
 
 		if !res.ok() {

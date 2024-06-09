@@ -19,7 +19,7 @@
 #![deny(unused_crate_dependencies)]
 #![warn(missing_docs)]
 
-use parity_scale_codec::{Decode, Encode};
+use codec::{Decode, Encode};
 use polkadot_primitives::{BlockNumber, Hash};
 use std::{collections::HashMap, fmt};
 
@@ -462,7 +462,7 @@ impl_versioned_try_from!(
 
 /// v1 notification protocol types.
 pub mod v1 {
-	use parity_scale_codec::{Decode, Encode};
+	use codec::{Decode, Encode};
 
 	use polkadot_primitives::{
 		CandidateHash, CandidateIndex, CollatorId, CollatorSignature, CompactStatement, Hash,
@@ -621,7 +621,7 @@ pub mod v1 {
 /// v2 network protocol types.
 pub mod v2 {
 	use bitvec::{order::Lsb0, slice::BitSlice, vec::BitVec};
-	use parity_scale_codec::{Decode, Encode};
+	use codec::{Decode, Encode};
 
 	use polkadot_primitives::{
 		CandidateHash, CandidateIndex, CollatorId, CollatorSignature, GroupIndex, Hash,
@@ -875,7 +875,7 @@ pub mod v2 {
 /// Purpose is for changing ApprovalDistributionMessage to
 /// include more than one assignment and approval in a message.
 pub mod v3 {
-	use parity_scale_codec::{Decode, Encode};
+	use codec::{Decode, Encode};
 
 	use polkadot_node_primitives::approval::v2::{
 		CandidateBitfield, IndirectAssignmentCertV2, IndirectSignedApprovalVoteV2,

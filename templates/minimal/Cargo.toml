@@ -2,15 +2,12 @@
 name = "minimal-template"
 description = "A minimal template built with Substrate, part of Polkadot Sdk."
 version = "0.0.0"
-license = "MIT-0"
+license = "Unlicense"
 authors.workspace = true
 homepage.workspace = true
 repository.workspace = true
 edition.workspace = true
 publish = false
-
-[lints]
-workspace = true
 
 [dependencies]
 minimal-template-node = { path = "./node" }

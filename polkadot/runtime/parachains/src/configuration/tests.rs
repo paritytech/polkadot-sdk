@@ -513,7 +513,7 @@ fn verify_externally_accessible() {
 	// This test verifies that the value can be accessed through the well known keys and the
 	// host configuration decodes into the abridged version.
 
-	use primitives::{well_known_keys, AbridgedHostConfiguration};
+	use polkadot_primitives::{well_known_keys, AbridgedHostConfiguration};
 
 	new_test_ext(Default::default()).execute_with(|| {
 		let mut ground_truth = HostConfiguration::default();
