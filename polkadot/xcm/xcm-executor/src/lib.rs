@@ -825,7 +825,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 				let old_holding = self.holding.clone();
 				let result = Config::TransactionalProcessor::process(|| {
 					let deposited = self.holding.saturating_take(assets);
-					Ok(self.deposit_assets_with_retry(deposited, beneficiary)?)
+					self.deposit_assets_with_retry(deposited, beneficiary)
 				});
 				if Config::TransactionalProcessor::IS_TRANSACTIONAL && result.is_err() {
 					self.holding = old_holding;
@@ -1241,26 +1241,23 @@ impl<Config: config::Config> XcmExecutor<Config> {
 		}
 	}
 
-	fn deposit_assets_with_retry(&mut self, deposited: AssetsInHolding, beneficiary: Location) -> Result<(), XcmError> {
+	fn deposit_assets_with_retry(
+		&mut self,
+		deposited: AssetsInHolding,
+		beneficiary: Location,
+	) -> Result<(), XcmError> {
 		let mut failed_deposits = Vec::with_capacity(deposited.len());
 
 		for asset in deposited.into_assets_iter() {
-			let asset_result = Config::AssetTransactor::deposit_asset(
-				&asset,
-				&beneficiary,
-				Some(&self.context),
-			);
+			let asset_result =
+				Config::AssetTransactor::deposit_asset(&asset, &beneficiary, Some(&self.context));
 			if asset_result.is_err() {
 				failed_deposits.push(asset);
 			}
 		}
 
 		for asset in failed_deposits {
-			Config::AssetTransactor::deposit_asset(
-				&asset,
-				&beneficiary,
-				Some(&self.context),
-			)?;
+			Config::AssetTransactor::deposit_asset(&asset, &beneficiary, Some(&self.context))?;
 		}
 		Ok(())
 	}
