@@ -17,7 +17,6 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use codec::{Decode, Encode};
-use std::result;
 use frame_support::{
 	dispatch::GetDispatchInfo,
 	ensure,
