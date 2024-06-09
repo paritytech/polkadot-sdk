@@ -76,6 +76,7 @@ pallet_staking_reward_curve::build! {
 parameter_types! {
 	pub const RewardCurve: &'static sp_runtime::curve::PiecewiseLinear<'static> = &I_NPOS;
 }
+#[derive_impl(pallet_staking::config_preludes::TestDefaultConfig)]
 impl pallet_staking::Config for Runtime {
 	type Currency = Balances;
 	type CurrencyBalance = Balance;

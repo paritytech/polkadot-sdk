@@ -104,6 +104,7 @@ impl frame_election_provider_support::ElectionProvider for MockElection {
 	}
 }
 
+#[derive_impl(pallet_staking::config_preludes::TestDefaultConfig)]
 impl pallet_staking::Config for Runtime {
 	type Currency = Balances;
 	type CurrencyBalance = Balance;
