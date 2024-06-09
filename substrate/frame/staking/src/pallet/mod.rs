@@ -206,7 +206,6 @@ pub mod pallet {
 		type AdminOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
 		/// Interface for interacting with a session pallet.
-		#[pallet::no_default]
 		type SessionInterface: SessionInterface<Self::AccountId>;
 
 		/// The payout for validators and the system for the current era.
@@ -332,6 +331,7 @@ pub mod pallet {
 			type SessionsPerEra = SessionsPerEra;
 			type BondingDuration = BondingDuration;
 			type SlashDeferDuration = ();
+			type SessionInterface = ();
 			type NextNewSession = ();
 			type MaxExposurePageSize = ConstU32<64>;
 			type MaxUnlockingChunks = ConstU32<32>;
