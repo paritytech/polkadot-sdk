@@ -859,36 +859,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 				let old_holding = self.holding.clone();
 				let result = Config::TransactionalProcessor::process(|| {
 					let deposited = self.holding.saturating_take(assets);
-					let mut all_failed = true;
-					let mut failed_deposits = Vec::new();
-					for asset in deposited.into_assets_iter() {
-						let asset_result = Config::AssetTransactor::deposit_asset(
-							&asset,
-							&beneficiary,
-							Some(&self.context),
-						);
-						match asset_result {
-							Ok(_) => {
-								all_failed = false;
-							}
-							Err(_err) => {
-								// check if is not enough ED
-							}
-						}
-					}
-
-					if all_failed {
-						return Err(XcmError::FailedToTransactAsset(""))
-					}
-
-					for asset in failed_deposits {
-						Config::AssetTransactor::deposit_asset(
-							&asset,
-							&beneficiary,
-							Some(&self.context),
-						)?;
-					}
-					Ok(())
+					Ok(self.deposit_assets_with_retry(deposited, beneficiary)?)
 				});
 				if Config::TransactionalProcessor::IS_TRANSACTIONAL && result.is_err() {
 					self.holding = old_holding;
@@ -913,9 +884,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 
 					// now take assets to deposit (excluding transport_fee)
 					let deposited = self.holding.saturating_take(assets);
-					for asset in deposited.assets_iter() {
-						Config::AssetTransactor::deposit_asset(&asset, &dest, Some(&self.context))?;
-					}
+					self.deposit_assets_with_retry(deposited.clone(), dest.clone())?;
 					// Note that we pass `None` as `maybe_failed_bin` and drop any assets which
 					// cannot be reanchored  because we have already called `deposit_asset` on all
 					// assets.
@@ -1304,5 +1273,29 @@ impl<Config: config::Config> XcmExecutor<Config> {
 					Config::HrmpChannelClosingHandler::handle(initiator, sender, recipient)
 				}),
 		}
+	}
+
+	fn deposit_assets_with_retry(&mut self, deposited: AssetsInHolding, beneficiary: Location) -> Result<(), XcmError> {
+		let mut failed_deposits = Vec::with_capacity(deposited.len());
+
+		for asset in deposited.into_assets_iter() {
+			let asset_result = Config::AssetTransactor::deposit_asset(
+				&asset,
+				&beneficiary,
+				Some(&self.context),
+			);
+			if asset_result.is_err() {
+				failed_deposits.push(asset);
+			}
+		}
+
+		for asset in failed_deposits {
+			Config::AssetTransactor::deposit_asset(
+				&asset,
+				&beneficiary,
+				Some(&self.context),
+			)?;
+		}
+		Ok(())
 	}
 }
