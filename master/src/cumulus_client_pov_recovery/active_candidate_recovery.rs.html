@@ -251,11 +251,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#100" id="100">100</a>
 <a href="#101" id="101">101</a>
 <a href="#102" id="102">102</a>
-<a href="#103" id="103">103</a>
-<a href="#104" id="104">104</a>
-<a href="#105" id="105">105</a>
-<a href="#106" id="106">106</a>
-<a href="#107" id="107">107</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -279,7 +274,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">use </span>futures::{channel::oneshot, stream::FuturesUnordered, Future, FutureExt, StreamExt};
 
-<span class="kw">use </span>std::{collections::HashSet, pin::Pin, sync::Arc};
+<span class="kw">use </span>std::{pin::Pin, sync::Arc};
 
 <span class="kw">use </span><span class="kw">crate</span>::RecoveryHandle;
 
@@ -290,14 +285,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// The recoveries that are currently being executed.
 	</span>recoveries:
 		FuturesUnordered&lt;Pin&lt;Box&lt;<span class="kw">dyn </span>Future&lt;Output = (Block::Hash, <span class="prelude-ty">Option</span>&lt;Arc&lt;PoV&gt;&gt;)&gt; + Send&gt;&gt;&gt;,
-	<span class="doccomment">/// The block hashes of the candidates currently being recovered.
-	</span>candidates: HashSet&lt;Block::Hash&gt;,
 	recovery_handle: Box&lt;<span class="kw">dyn </span>RecoveryHandle&gt;,
 }
 
 <span class="kw">impl</span>&lt;Block: BlockT&gt; ActiveCandidateRecovery&lt;Block&gt; {
 	<span class="kw">pub fn </span>new(recovery_handle: Box&lt;<span class="kw">dyn </span>RecoveryHandle&gt;) -&gt; <span class="self">Self </span>{
-		<span class="self">Self </span>{ recoveries: Default::default(), candidates: Default::default(), recovery_handle }
+		<span class="self">Self </span>{ recoveries: Default::default(), recovery_handle }
 	}
 
 	<span class="doccomment">/// Recover the given `candidate`.
@@ -320,8 +313,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="string">"ActiveCandidateRecovery"</span>,
 			)
 			.<span class="kw">await</span>;
-
-		<span class="self">self</span>.candidates.insert(block_hash);
 
 		<span class="self">self</span>.recoveries.push(
 			<span class="kw">async move </span>{
@@ -355,7 +346,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub async fn </span>wait_for_recovery(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; (Block::Hash, <span class="prelude-ty">Option</span>&lt;Arc&lt;PoV&gt;&gt;) {
 		<span class="kw">loop </span>{
 			<span class="kw">if let </span><span class="prelude-val">Some</span>(res) = <span class="self">self</span>.recoveries.next().<span class="kw">await </span>{
-				<span class="self">self</span>.candidates.remove(<span class="kw-2">&amp;</span>res.<span class="number">0</span>);
 				<span class="kw">return </span>res
 			} <span class="kw">else </span>{
 				<span class="macro">futures::pending!</span>()

@@ -515,16 +515,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#364" id="364">364</a>
 <a href="#365" id="365">365</a>
 <a href="#366" id="366">366</a>
-<a href="#367" id="367">367</a>
-<a href="#368" id="368">368</a>
-<a href="#369" id="369">369</a>
-<a href="#370" id="370">370</a>
-<a href="#371" id="371">371</a>
-<a href="#372" id="372">372</a>
-<a href="#373" id="373">373</a>
-<a href="#374" id="374">374</a>
-<a href="#375" id="375">375</a>
-<a href="#376" id="376">376</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -615,16 +605,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span>{
 			<span class="macro">gum::warn!</span>(target: LOG_TARGET, err = <span class="question-mark">?</span>e, <span class="string">"AuthorityDiscoveryService returned an invalid multiaddress"</span>);
 		}
-		<span class="comment">// the addresses are known to be valid
-		//
-		// for peer-set management, the main protocol name should be used regardless of
-		// the negotiated version.
-		</span><span class="kw">let _ </span>= network_service
-			.remove_from_peers_set(
-				<span class="self">self</span>.peerset_protocol_names.get_main_name(peer_set),
-				peers_to_remove,
-			)
-			.<span class="kw">await</span>;
 
 		network_service
 	}

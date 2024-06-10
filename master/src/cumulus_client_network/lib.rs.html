@@ -661,6 +661,36 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#510" id="510">510</a>
 <a href="#511" id="511">511</a>
 <a href="#512" id="512">512</a>
+<a href="#513" id="513">513</a>
+<a href="#514" id="514">514</a>
+<a href="#515" id="515">515</a>
+<a href="#516" id="516">516</a>
+<a href="#517" id="517">517</a>
+<a href="#518" id="518">518</a>
+<a href="#519" id="519">519</a>
+<a href="#520" id="520">520</a>
+<a href="#521" id="521">521</a>
+<a href="#522" id="522">522</a>
+<a href="#523" id="523">523</a>
+<a href="#524" id="524">524</a>
+<a href="#525" id="525">525</a>
+<a href="#526" id="526">526</a>
+<a href="#527" id="527">527</a>
+<a href="#528" id="528">528</a>
+<a href="#529" id="529">529</a>
+<a href="#530" id="530">530</a>
+<a href="#531" id="531">531</a>
+<a href="#532" id="532">532</a>
+<a href="#533" id="533">533</a>
+<a href="#534" id="534">534</a>
+<a href="#535" id="535">535</a>
+<a href="#536" id="536">536</a>
+<a href="#537" id="537">537</a>
+<a href="#538" id="538">538</a>
+<a href="#539" id="539">539</a>
+<a href="#540" id="540">540</a>
+<a href="#541" id="541">541</a>
+<a href="#542" id="542">542</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -683,7 +713,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! that use the relay chain provided consensus. See [`RequireSecondedInBlockAnnounce`]
 //! and [`WaitToAnnounce`] for more information about this implementation.
 
-</span><span class="kw">use </span>sp_consensus::block_validation::{
+</span><span class="kw">use </span>sp_api::RuntimeApiInfo;
+<span class="kw">use </span>sp_consensus::block_validation::{
 	BlockAnnounceValidator <span class="kw">as </span>BlockAnnounceValidatorT, Validation,
 };
 <span class="kw">use </span>sp_core::traits::SpawnNamed;
@@ -691,6 +722,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">use </span>cumulus_relay_chain_interface::RelayChainInterface;
 <span class="kw">use </span>polkadot_node_primitives::{CollationSecondedSignal, Statement};
+<span class="kw">use </span>polkadot_node_subsystem::messages::RuntimeApiRequest;
 <span class="kw">use </span>polkadot_parachain_primitives::primitives::HeadData;
 <span class="kw">use </span>polkadot_primitives::{
 	CandidateReceipt, CompactStatement, Hash <span class="kw">as </span>PHash, Id <span class="kw">as </span>ParaId, OccupiedCoreAssumption,
@@ -929,18 +961,41 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="prelude-val">Ok</span>(para_head)
 	}
 
-	<span class="doccomment">/// Get the backed block hash of the given parachain in the relay chain.
-	</span><span class="kw">async fn </span>backed_block_hash(
+	<span class="doccomment">/// Get the backed block hashes of the given parachain in the relay chain.
+	</span><span class="kw">async fn </span>backed_block_hashes(
 		relay_chain_interface: <span class="kw-2">&amp;</span>RCInterface,
 		hash: PHash,
 		para_id: ParaId,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;PHash&gt;, BoxedError&gt; {
-		<span class="kw">let </span>candidate_receipt = relay_chain_interface
-			.candidate_pending_availability(hash, para_id)
+	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="kw">impl </span>Iterator&lt;Item = PHash&gt;, BoxedError&gt; {
+		<span class="kw">let </span>runtime_api_version = relay_chain_interface
+			.version(hash)
 			.<span class="kw">await
 			</span>.map_err(|e| Box::new(BlockAnnounceError(<span class="macro">format!</span>(<span class="string">"{:?}"</span>, e))) <span class="kw">as </span>Box&lt;<span class="kw">_</span>&gt;)<span class="question-mark">?</span>;
+		<span class="kw">let </span>parachain_host_runtime_api_version =
+			runtime_api_version
+				.api_version(
+					<span class="kw-2">&amp;</span>&lt;<span class="kw">dyn </span>polkadot_primitives::runtime_api::ParachainHost&lt;
+						polkadot_primitives::Block,
+					&gt;&gt;::ID,
+				)
+				.unwrap_or_default();
 
-		<span class="prelude-val">Ok</span>(candidate_receipt.map(|cr| cr.descriptor.para_head))
+		<span class="comment">// If the relay chain runtime does not support the new runtime API, fallback to the
+		// deprecated one.
+		</span><span class="kw">let </span>candidate_receipts = <span class="kw">if </span>parachain_host_runtime_api_version &lt;
+			RuntimeApiRequest::CANDIDATES_PENDING_AVAILABILITY_RUNTIME_REQUIREMENT
+		{
+			<span class="attr">#[allow(deprecated)]
+			</span>relay_chain_interface
+				.candidate_pending_availability(hash, para_id)
+				.<span class="kw">await
+				</span>.map(|c| c.into_iter().collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;())
+		} <span class="kw">else </span>{
+			relay_chain_interface.candidates_pending_availability(hash, para_id).<span class="kw">await
+		</span>}
+		.map_err(|e| Box::new(BlockAnnounceError(<span class="macro">format!</span>(<span class="string">"{:?}"</span>, e))) <span class="kw">as </span>Box&lt;<span class="kw">_</span>&gt;)<span class="question-mark">?</span>;
+
+		<span class="prelude-val">Ok</span>(candidate_receipts.into_iter().map(|cr| cr.descriptor.para_head))
 	}
 
 	<span class="doccomment">/// Handle a block announcement with empty data (no statement) attached to it.
@@ -961,15 +1016,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>best_head =
 			<span class="self">Self</span>::included_block(<span class="kw-2">&amp;</span>relay_chain_interface, relay_chain_best_hash, para_id).<span class="kw">await</span><span class="question-mark">?</span>;
 		<span class="kw">let </span>known_best_number = best_head.number();
-		<span class="kw">let </span>backed_block = || <span class="kw">async </span>{
-			<span class="self">Self</span>::backed_block_hash(<span class="kw-2">&amp;</span>relay_chain_interface, relay_chain_best_hash, para_id).<span class="kw">await
-		</span>};
 
 		<span class="kw">if </span>best_head == header {
 			<span class="macro">tracing::debug!</span>(target: LOG_TARGET, <span class="string">"Announced block matches best block."</span>,);
 
-			<span class="prelude-val">Ok</span>(Validation::Success { is_new_best: <span class="bool-val">true </span>})
-		} <span class="kw">else if </span><span class="prelude-val">Some</span>(HeadData(header.encode()).hash()) == backed_block().<span class="kw">await</span><span class="question-mark">? </span>{
+			<span class="kw">return </span><span class="prelude-val">Ok</span>(Validation::Success { is_new_best: <span class="bool-val">true </span>})
+		}
+
+		<span class="kw">let </span><span class="kw-2">mut </span>backed_blocks =
+			<span class="self">Self</span>::backed_block_hashes(<span class="kw-2">&amp;</span>relay_chain_interface, relay_chain_best_hash, para_id)
+				.<span class="kw">await</span><span class="question-mark">?</span>;
+
+		<span class="kw">let </span>head_hash = HeadData(header.encode()).hash();
+
+		<span class="kw">if </span>backed_blocks.any(|block_hash| block_hash == head_hash) {
 			<span class="macro">tracing::debug!</span>(target: LOG_TARGET, <span class="string">"Announced block matches latest backed block."</span>,);
 
 			<span class="prelude-val">Ok</span>(Validation::Success { is_new_best: <span class="bool-val">true </span>})

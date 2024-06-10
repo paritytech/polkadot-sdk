@@ -783,7 +783,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// Client info
-</span><span class="attr">#[derive(Debug)]
+</span><span class="attr">#[derive(Debug, Clone)]
 </span><span class="kw">pub struct </span>ClientInfo&lt;Block: BlockT&gt; {
 	<span class="doccomment">/// Best block hash.
 	</span><span class="kw">pub </span>chain: Info&lt;Block&gt;,

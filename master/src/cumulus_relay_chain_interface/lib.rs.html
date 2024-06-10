@@ -473,6 +473,33 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#322" id="322">322</a>
 <a href="#323" id="323">323</a>
 <a href="#324" id="324">324</a>
+<a href="#325" id="325">325</a>
+<a href="#326" id="326">326</a>
+<a href="#327" id="327">327</a>
+<a href="#328" id="328">328</a>
+<a href="#329" id="329">329</a>
+<a href="#330" id="330">330</a>
+<a href="#331" id="331">331</a>
+<a href="#332" id="332">332</a>
+<a href="#333" id="333">333</a>
+<a href="#334" id="334">334</a>
+<a href="#335" id="335">335</a>
+<a href="#336" id="336">336</a>
+<a href="#337" id="337">337</a>
+<a href="#338" id="338">338</a>
+<a href="#339" id="339">339</a>
+<a href="#340" id="340">340</a>
+<a href="#341" id="341">341</a>
+<a href="#342" id="342">342</a>
+<a href="#343" id="343">343</a>
+<a href="#344" id="344">344</a>
+<a href="#345" id="345">345</a>
+<a href="#346" id="346">346</a>
+<a href="#347" id="347">347</a>
+<a href="#348" id="348">348</a>
+<a href="#349" id="349">349</a>
+<a href="#350" id="350">350</a>
+<a href="#351" id="351">351</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -491,10 +518,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="kw">use </span>std::{collections::BTreeMap, pin::Pin, sync::Arc};
 
+<span class="kw">use </span>futures::Stream;
 <span class="kw">use </span>polkadot_overseer::prometheus::PrometheusError;
 <span class="kw">use </span>sc_client_api::StorageProof;
-
-<span class="kw">use </span>futures::Stream;
+<span class="kw">use </span>sp_version::RuntimeVersion;
 
 <span class="kw">use </span>async_trait::async_trait;
 <span class="kw">use </span>codec::Error <span class="kw">as </span>CodecError;
@@ -624,8 +651,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">_</span>: OccupiedCoreAssumption,
 	) -&gt; RelayChainResult&lt;<span class="prelude-ty">Option</span>&lt;PersistedValidationData&gt;&gt;;
 
-	<span class="doccomment">/// Get the receipt of a candidate pending availability. This returns `Some` for any paras
-	/// assigned to occupied cores in `availability_cores` and `None` otherwise.
+	<span class="doccomment">/// Get the receipt of the first candidate pending availability of this para_id. This returns
+	/// `Some` for any paras assigned to occupied cores in `availability_cores` and `None`
+	/// otherwise.
+	</span><span class="attr">#[deprecated(
+		note = <span class="string">"`candidate_pending_availability` only returns one candidate and is deprecated. Use `candidates_pending_availability` instead."
+	</span>)]
 	</span><span class="kw">async fn </span>candidate_pending_availability(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		block_id: PHash,
@@ -678,6 +709,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		para_id: ParaId,
 		occupied_core_assumption: OccupiedCoreAssumption,
 	) -&gt; RelayChainResult&lt;<span class="prelude-ty">Option</span>&lt;ValidationCodeHash&gt;&gt;;
+
+	<span class="doccomment">/// Get the receipts of all candidates pending availability for this para_id.
+	</span><span class="kw">async fn </span>candidates_pending_availability(
+		<span class="kw-2">&amp;</span><span class="self">self</span>,
+		block_id: PHash,
+		para_id: ParaId,
+	) -&gt; RelayChainResult&lt;Vec&lt;CommittedCandidateReceipt&gt;&gt;;
+
+	<span class="doccomment">/// Get the runtime version of the relay chain.
+	</span><span class="kw">async fn </span>version(<span class="kw-2">&amp;</span><span class="self">self</span>, relay_parent: PHash) -&gt; RelayChainResult&lt;RuntimeVersion&gt;;
 }
 
 <span class="attr">#[async_trait]
@@ -712,7 +753,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.<span class="kw">await
 	</span>}
 
-	<span class="kw">async fn </span>candidate_pending_availability(
+	<span class="attr">#[allow(deprecated)]
+	</span><span class="kw">async fn </span>candidate_pending_availability(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		block_id: PHash,
 		para_id: ParaId,
@@ -795,6 +837,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		(<span class="kw-2">**</span><span class="self">self</span>)
 			.validation_code_hash(relay_parent, para_id, occupied_core_assumption)
 			.<span class="kw">await
+	</span>}
+
+	<span class="kw">async fn </span>candidates_pending_availability(
+		<span class="kw-2">&amp;</span><span class="self">self</span>,
+		block_id: PHash,
+		para_id: ParaId,
+	) -&gt; RelayChainResult&lt;Vec&lt;CommittedCandidateReceipt&gt;&gt; {
+		(<span class="kw-2">**</span><span class="self">self</span>).candidates_pending_availability(block_id, para_id).<span class="kw">await
+	</span>}
+
+	<span class="kw">async fn </span>version(<span class="kw-2">&amp;</span><span class="self">self</span>, relay_parent: PHash) -&gt; RelayChainResult&lt;RuntimeVersion&gt; {
+		(<span class="kw-2">**</span><span class="self">self</span>).version(relay_parent).<span class="kw">await
 	</span>}
 }
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
