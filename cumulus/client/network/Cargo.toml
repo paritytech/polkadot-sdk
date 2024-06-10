@@ -38,7 +38,7 @@ cumulus-relay-chain-interface = { workspace = true, default-features = true }
 
 [dev-dependencies]
 portpicker = { workspace = true }
-tokio = { features = ["macros"] , workspace = true, default-features = true }
+tokio = { features = ["macros"], workspace = true, default-features = true }
 url = { workspace = true }
 rstest = { workspace = true }
 

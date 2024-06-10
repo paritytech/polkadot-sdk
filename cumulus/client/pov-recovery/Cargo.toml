@@ -38,7 +38,7 @@ async-trait = { workspace = true }
 
 [dev-dependencies]
 rstest = { workspace = true }
-tokio = { features = ["macros"] , workspace = true, default-features = true }
+tokio = { features = ["macros"], workspace = true, default-features = true }
 portpicker = { workspace = true }
 sp-blockchain = { workspace = true, default-features = true }
 cumulus-test-client = { workspace = true }
