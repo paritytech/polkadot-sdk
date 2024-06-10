@@ -24,7 +24,7 @@ use crate::wasm::{
 	LoadingMode, WasmBlob,
 };
 use sp_core::Get;
-use wasmi::{errors::LinkerError, Func, Linker, StackLimits, Store};
+use wasmi::{errors::LinkerError, CompilationMode, Func, Linker, StackLimits, Store};
 
 /// Minimal execution environment without any imported functions.
 pub struct Sandbox {
@@ -48,6 +48,7 @@ impl<T: Config> From<&WasmModule<T>> for Sandbox {
 			Determinism::Relaxed,
 			Some(StackLimits::default()),
 			LoadingMode::Checked,
+			CompilationMode::Eager,
 		)
 		.expect("Failed to load Wasm module");
 
@@ -62,7 +63,7 @@ impl<T: Config> From<&WasmModule<T>> for Sandbox {
 
 		// Set fuel for wasmi execution.
 		store
-			.add_fuel(u64::MAX)
+			.set_fuel(u64::MAX)
 			.expect("We've set up engine to fuel consuming mode; qed");
 
 		let entry_point = instance
