@@ -18,11 +18,7 @@
     "/dns/people-kusama-boot-ng.dwellir.com/tcp/30359/p2p/12D3KooWM6T8MMibxLZhhpq6F612CZ4FgnfDSJSkWDMiVUDe1aGb",
     "/dns/people-kusama-boot-ng.dwellir.com/tcp/433/wss/p2p/12D3KooWM6T8MMibxLZhhpq6F612CZ4FgnfDSJSkWDMiVUDe1aGb",
     "/dns/people-kusama-bootnode.turboflakes.io/tcp/30645/p2p/12D3KooWCR2Q8J2NFFfuofDak4zSgWkuBq7orP96HFaxLgAoDUBV",
-    "/dns/people-kusama-bootnode.turboflakes.io/tcp/30745/wss/p2p/12D3KooWCR2Q8J2NFFfuofDak4zSgWkuBq7orP96HFaxLgAoDUBV",
-    "/dns/people-kusama-boot-ng.dwellir.com/tcp/30359/p2p/12D3KooWM6T8MMibxLZhhpq6F612CZ4FgnfDSJSkWDMiVUDe1aGb",
-    "/dns/people-kusama-boot-ng.dwellir.com/tcp/433/wss/p2p/12D3KooWM6T8MMibxLZhhpq6F612CZ4FgnfDSJSkWDMiVUDe1aGb",
-    "/dns/people-kusama.bootnode.amforc.com/tcp/29999/wss/p2p/12D3KooWPjzgKZe5jdG6TY4gwcFq8QxyyhqsYbQo6N29pwGePWLA",
-    "/dns/people-kusama.bootnode.amforc.com/tcp/30004/p2p/12D3KooWPjzgKZe5jdG6TY4gwcFq8QxyyhqsYbQo6N29pwGePWLA"
+    "/dns/people-kusama-bootnode.turboflakes.io/tcp/30745/wss/p2p/12D3KooWCR2Q8J2NFFfuofDak4zSgWkuBq7orP96HFaxLgAoDUBV"
   ],
   "telemetryEndpoints": null,
   "protocolId": null,
