@@ -235,8 +235,10 @@ pub trait Backend<Block: BlockT>:
 			return Ok(result)
 		}
 
-		let first_leaf = leaves[0];
-		let leaf_block_header = self.expect_header(first_leaf)?;
+		let first_leaf = leaves.first().ok_or(Error::Backend(
+			"Unable to find any leaves. This should not happen.".to_string(),
+		))?;
+		let leaf_block_header = self.expect_header(*first_leaf)?;
 
 		// If the distance between the leafs and the finalized block is large,  calculating
 		// tree routes can be very expensive. In that case, we will try to find the
@@ -250,7 +252,7 @@ pub trait Backend<Block: BlockT>:
 			.unwrap_or(0u32.into()) >
 			header_metadata::LRU_CACHE_SIZE.into()
 		{
-			if let Some(lca) = lowest_common_ancestor_multiblock(self, leaves)? {
+			if let Some(lca) = lowest_common_ancestor_multiblock(self, leaves.clone())? {
 				if lca.number > finalized_block_number {
 					return Ok(result)
 				} else {
@@ -260,7 +262,7 @@ pub trait Backend<Block: BlockT>:
 		}
 
 		// For each leaf determine whether it belongs to a non-canonical branch.
-		for leaf_hash in self.leaves()? {
+		for leaf_hash in leaves {
 			let leaf_block_header = self.expect_header(leaf_hash)?;
 			let leaf_number = *leaf_block_header.number();
 
