@@ -2373,8 +2373,6 @@ fn fatp_wtf_future_is_not_pruned() {
 	log::info!("xt1: {:#?}", api.hash_and_length(&xt1).0);
 	log::info!("xt2: {:#?}", api.hash_and_length(&xt2).0);
 	log::info!("xt2i: {:#?}", api.hash_and_length(&xt2i).0);
-	let xt3i_watcher =
-		block_on(pool.submit_and_watch(invalid_hash(), SOURCE, xt2i.clone())).unwrap();
 
 	assert_eq!(pool.mempool_len(), (0, 1));
 

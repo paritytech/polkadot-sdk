@@ -257,8 +257,7 @@ fn should_correctly_prune_transactions_providing_more_than_one_tag() {
 	// (API does not know about 155).
 	assert_eq!(pool.validated_pool().status().future, 1);
 
-	let pending: Vec<_> =
-		pool.validated_pool().futures().iter().map(|(hash, _)| hash.clone()).collect();
+	let pending: Vec<_> = pool.validated_pool().futures().iter().map(|(hash, _)| *hash).collect();
 	assert_eq!(pending[0], api.hash_and_length(&xt1).0);
 }
 
