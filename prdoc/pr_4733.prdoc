@@ -17,6 +17,8 @@ crates:
     bump: minor
   - name: cumulus-relay-chain-rpc-interface
     bump: minor
+  - name: cumulus-client-consensus-common
+    bump: none
   - name: sc-client-api
     bump: minor
   - name: sp-blockchain
