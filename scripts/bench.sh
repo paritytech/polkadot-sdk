@@ -11,6 +11,8 @@
 set -eu -o pipefail
 shopt -s inherit_errexit
 
+ARTIFACTS_DIR="$PWD/.git/.artifacts"
+
 # realpath allows to reuse the current
 BENCH_ROOT_DIR=$(realpath "$(dirname "${BASH_SOURCE[0]}")")
 
