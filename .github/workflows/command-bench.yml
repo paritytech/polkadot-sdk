@@ -63,6 +63,19 @@ on:
           - substrate
           - polkadot
           - cumulus
+      runtime_dir:
+        description: Runtime directory
+        type: choice
+        options:
+          - people
+          - collectives
+          - coretime
+          - bridge-hubs
+          - contracts
+          - glutton
+          - starters
+          - testing
+
 
 jobs:
   set-image:     
@@ -90,7 +103,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
       - name: Run bench
         run: |
-          "./scripts/bench.sh" "${{ inputs.benchmark }}" --runtime "${{ inputs.runtime }}" --pallet "${{ inputs.pallet }}" --target_dir "${{ inputs.target_dir }}" --subcommand "${{ inputs.subcommand }}"
+          "./scripts/bench.sh" "${{ inputs.benchmark }}" --runtime "${{ inputs.runtime }}" --pallet "${{ inputs.pallet }}" --target_dir "${{ inputs.target_dir }}" --subcommand "${{ inputs.subcommand }}" --runtime_dir "${{ inputs.runtime_dir }}"
       - name: Report failure
         if: ${{ failure() }}
         run: gh pr comment ${{ inputs.pr }} --body "<h2>Command failed ❌</h2> Run by @${{ github.actor }} for <code>${{ github.workflow }}</code> failed. See logs <a href=\"$RUN\">here</a>."
