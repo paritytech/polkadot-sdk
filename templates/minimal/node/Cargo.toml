@@ -14,10 +14,11 @@ build = "build.rs"
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-clap = { features = ["derive"], workspace = true }
-futures = { features = ["thread-pool"], workspace = true }
-futures-timer = { workspace = true }
-jsonrpsee = { features = ["server"], workspace = true }
+docify = "0.2.0"
+clap = { version = "4.5.3", features = ["derive"] }
+futures = { version = "0.3.30", features = ["thread-pool"] }
+futures-timer = "3.0.1"
+jsonrpsee = { version = "0.22", features = ["server"] }
 serde_json = { workspace = true, default-features = true }
 
 sc-cli = { workspace = true, default-features = true }
