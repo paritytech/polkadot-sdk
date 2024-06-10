@@ -23,7 +23,7 @@ jsonrpsee = { features = [
 	"client-core",
 	"macros",
 	"server-core",
-] , workspace = true }
+], workspace = true }
 log = { workspace = true, default-features = true }
 frame-system-rpc-runtime-api = { workspace = true, default-features = true }
 sc-rpc-api = { workspace = true, default-features = true }

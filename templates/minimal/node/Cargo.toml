@@ -15,10 +15,10 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 docify = { workspace = true }
-clap = { features = ["derive"] , workspace = true }
-futures = { features = ["thread-pool"] , workspace = true }
+clap = { features = ["derive"], workspace = true }
+futures = { features = ["thread-pool"], workspace = true }
 futures-timer = { workspace = true }
-jsonrpsee = { features = ["server"] , workspace = true }
+jsonrpsee = { features = ["server"], workspace = true }
 serde_json = { workspace = true, default-features = true }
 
 sc-cli = { workspace = true, default-features = true }
