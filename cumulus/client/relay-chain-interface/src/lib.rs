@@ -16,10 +16,10 @@
 
 use std::{collections::BTreeMap, pin::Pin, sync::Arc};
 
+use futures::Stream;
 use polkadot_overseer::prometheus::PrometheusError;
 use sc_client_api::StorageProof;
-
-use futures::Stream;
+use sp_version::RuntimeVersion;
 
 use async_trait::async_trait;
 use codec::Error as CodecError;
@@ -214,6 +214,9 @@ pub trait RelayChainInterface: Send + Sync {
 		block_id: PHash,
 		para_id: ParaId,
 	) -> RelayChainResult<Vec<CommittedCandidateReceipt>>;
+
+	/// Get the runtime version of the relay chain.
+	async fn version(&self, relay_parent: PHash) -> RelayChainResult<RuntimeVersion>;
 }
 
 #[async_trait]
@@ -340,5 +343,9 @@ where
 		para_id: ParaId,
 	) -> RelayChainResult<Vec<CommittedCandidateReceipt>> {
 		(**self).candidates_pending_availability(block_id, para_id).await
+	}
+
+	async fn version(&self, relay_parent: PHash) -> RelayChainResult<RuntimeVersion> {
+		(**self).version(relay_parent).await
 	}
 }

@@ -20,6 +20,7 @@
 //! that use the relay chain provided consensus. See [`RequireSecondedInBlockAnnounce`]
 //! and [`WaitToAnnounce`] for more information about this implementation.
 
+use sp_api::RuntimeApiInfo;
 use sp_consensus::block_validation::{
 	BlockAnnounceValidator as BlockAnnounceValidatorT, Validation,
 };
@@ -28,6 +29,7 @@ use sp_runtime::traits::{Block as BlockT, Header as HeaderT};
 
 use cumulus_relay_chain_interface::RelayChainInterface;
 use polkadot_node_primitives::{CollationSecondedSignal, Statement};
+use polkadot_node_subsystem::messages::RuntimeApiRequest;
 use polkadot_parachain_primitives::primitives::HeadData;
 use polkadot_primitives::{
 	CandidateReceipt, CompactStatement, Hash as PHash, Id as ParaId, OccupiedCoreAssumption,
@@ -272,10 +274,33 @@ where
 		hash: PHash,
 		para_id: ParaId,
 	) -> Result<impl Iterator<Item = PHash>, BoxedError> {
-		let candidate_receipts = relay_chain_interface
-			.candidates_pending_availability(hash, para_id)
+		let runtime_api_version = relay_chain_interface
+			.version(hash)
 			.await
 			.map_err(|e| Box::new(BlockAnnounceError(format!("{:?}", e))) as Box<_>)?;
+		let parachain_host_runtime_api_version =
+			runtime_api_version
+				.api_version(
+					&<dyn polkadot_primitives::runtime_api::ParachainHost<
+						polkadot_primitives::Block,
+					>>::ID,
+				)
+				.unwrap_or_default();
+
+		// If the relay chain runtime does not support the new runtime API, fallback to the
+		// deprecated one.
+		let candidate_receipts = if parachain_host_runtime_api_version <
+			RuntimeApiRequest::CANDIDATES_PENDING_AVAILABILITY_RUNTIME_REQUIREMENT
+		{
+			#[allow(deprecated)]
+			relay_chain_interface
+				.candidate_pending_availability(hash, para_id)
+				.await
+				.map(|c| c.into_iter().collect::<Vec<_>>())
+		} else {
+			relay_chain_interface.candidates_pending_availability(hash, para_id).await
+		}
+		.map_err(|e| Box::new(BlockAnnounceError(format!("{:?}", e))) as Box<_>)?;
 
 		Ok(candidate_receipts.into_iter().map(|cr| cr.descriptor.para_head))
 	}

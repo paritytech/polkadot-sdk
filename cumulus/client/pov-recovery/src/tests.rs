@@ -29,6 +29,7 @@ use cumulus_test_client::{
 use futures::{channel::mpsc, SinkExt};
 use polkadot_node_primitives::AvailableData;
 use polkadot_node_subsystem::{messages::AvailabilityRecoveryMessage, RecoveryError, TimeoutExt};
+use rstest::rstest;
 use sc_client_api::{
 	BlockImportNotification, ClientInfo, CompactProof, FinalityNotification, FinalityNotifications,
 	FinalizeSummary, ImportNotifications, StorageEventStream, StorageKey,
@@ -37,7 +38,9 @@ use sc_consensus::import_queue::RuntimeOrigin;
 use sc_utils::mpsc::{TracingUnboundedReceiver, TracingUnboundedSender};
 use sp_blockchain::Info;
 use sp_runtime::{generic::SignedBlock, Justifications};
+use sp_version::RuntimeVersion;
 use std::{
+	borrow::Cow,
 	collections::BTreeMap,
 	ops::Range,
 	sync::{Arc, Mutex},
@@ -272,6 +275,7 @@ impl SyncOracle for DummySyncOracle {
 
 #[derive(Clone)]
 struct RelaychainInner {
+	runtime_version: u32,
 	import_notifications: Vec<PHeader>,
 	candidates_pending_availability: HashMap<PHash, Vec<CommittedCandidateReceipt>>,
 }
@@ -291,13 +295,42 @@ impl Relaychain {
 			inner: Arc::new(Mutex::new(RelaychainInner {
 				import_notifications,
 				candidates_pending_availability,
+				// The version that introduced candidates_pending_availability
+				runtime_version:
+					RuntimeApiRequest::CANDIDATES_PENDING_AVAILABILITY_RUNTIME_REQUIREMENT,
 			})),
 		}
+	}
+
+	fn set_runtime_version(&self, version: u32) {
+		self.inner.lock().expect("Poisoned lock").runtime_version = version;
 	}
 }
 
 #[async_trait::async_trait]
 impl RelayChainInterface for Relaychain {
+	async fn version(&self, _: PHash) -> RelayChainResult<RuntimeVersion> {
+		let version = self.inner.lock().expect("Poisoned lock").runtime_version;
+
+		let apis = sp_version::create_apis_vec!([(
+			<dyn polkadot_primitives::runtime_api::ParachainHost<polkadot_primitives::Block>>::ID,
+			version
+		)])
+		.into_owned()
+		.to_vec();
+
+		Ok(RuntimeVersion {
+			spec_name: sp_version::create_runtime_str!("test"),
+			impl_name: sp_version::create_runtime_str!("test"),
+			authoring_version: 1,
+			spec_version: 1,
+			impl_version: 0,
+			apis: Cow::Owned(apis),
+			transaction_version: 5,
+			state_version: 1,
+		})
+	}
+
 	async fn validators(&self, _: PHash) -> RelayChainResult<Vec<ValidatorId>> {
 		unimplemented!("Not needed for test")
 	}
@@ -346,10 +379,25 @@ impl RelayChainInterface for Relaychain {
 
 	async fn candidate_pending_availability(
 		&self,
-		_: PHash,
+		hash: PHash,
 		_: ParaId,
 	) -> RelayChainResult<Option<CommittedCandidateReceipt>> {
-		unimplemented!("Not needed for test")
+		if self.inner.lock().expect("Poisoned lock").runtime_version >=
+			RuntimeApiRequest::CANDIDATES_PENDING_AVAILABILITY_RUNTIME_REQUIREMENT
+		{
+			panic!("Should have used candidates_pending_availability instead");
+		}
+
+		Ok(self
+			.inner
+			.lock()
+			.expect("Poisoned lock")
+			.candidates_pending_availability
+			.remove(&hash)
+			.map(|mut c| {
+				assert_eq!(c.len(), 1);
+				c.pop().unwrap()
+			}))
 	}
 
 	async fn candidates_pending_availability(
@@ -357,6 +405,12 @@ impl RelayChainInterface for Relaychain {
 		hash: PHash,
 		_: ParaId,
 	) -> RelayChainResult<Vec<CommittedCandidateReceipt>> {
+		if self.inner.lock().expect("Poisoned lock").runtime_version <
+			RuntimeApiRequest::CANDIDATES_PENDING_AVAILABILITY_RUNTIME_REQUIREMENT
+		{
+			panic!("Should have used candidate_pending_availability instead");
+		}
+
 		Ok(self
 			.inner
 			.lock()
@@ -546,8 +600,11 @@ async fn pending_candidate_height_lower_than_latest_finalized() {
 	}
 }
 
+#[rstest]
+#[case(RuntimeApiRequest::CANDIDATES_PENDING_AVAILABILITY_RUNTIME_REQUIREMENT)]
+#[case(10)]
 #[tokio::test]
-async fn single_pending_candidate_recovery_success() {
+async fn single_pending_candidate_recovery_success(#[case] runtime_version: u32) {
 	sp_tracing::init_for_tests();
 
 	let (recovery_subsystem_tx, mut recovery_subsystem_rx) =
@@ -569,6 +626,8 @@ async fn single_pending_candidate_recovery_success() {
 		},
 		candidates,
 	)]);
+	relay_chain_client.set_runtime_version(runtime_version);
+
 	let mut known_blocks = HashMap::new();
 	known_blocks.insert(GENESIS_HASH, BlockStatus::InChainWithState);
 	let (parachain_client, _import_notifications_tx, _finality_notifications_tx) =
