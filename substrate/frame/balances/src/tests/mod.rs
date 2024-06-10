@@ -107,6 +107,10 @@ impl pallet_transaction_payment::Config for Test {
 	type FeeMultiplierUpdate = ();
 }
 
+parameter_types! {
+	pub FooReason: TestId = TestId::Foo;
+}
+
 pub(crate) type Balance = u64;
 
 impl Config for Test {
@@ -120,7 +124,7 @@ impl Config for Test {
 	type ReserveIdentifier = TestId;
 	type WeightInfo = ();
 	type RuntimeHoldReason = TestId;
-	type RuntimeFreezeReason = RuntimeFreezeReason;
+	type RuntimeFreezeReason = TestId;
 	type FreezeIdentifier = TestId;
 	type MaxFreezes = ConstU32<2>;
 }
