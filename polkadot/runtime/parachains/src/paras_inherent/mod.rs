@@ -535,12 +535,20 @@ impl<T: Config> Pallet<T> {
 				bitfields.clone(),
 			);
 		all_weight_after.saturating_accrue(enact_weight);
+		log::debug!(
+			target: LOG_TARGET,
+			"Enacting weight: {}, all weight: {}",
+			enact_weight.ref_time(),
+			all_weight_after.ref_time(),
+		);
+
 		// It's possible that that after the enacting the candidates, the total weight
 		// goes over the limit, however, we can't do anything about it at this point.
 		// By using the `Mandatory` weight, we ensure the block is still accepted,
 		// but no other (user) transactions can be included.
 		if all_weight_after.any_gt(max_block_weight) {
 			log::warn!(
+				target: LOG_TARGET,
 				"Overweight para inherent data after enacting the candidates {:?}: {} > {}",
 				parent_hash,
 				all_weight_after,

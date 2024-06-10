@@ -587,6 +587,7 @@ impl<T: Config> Pallet<T> {
 								descriptor: candidate.descriptor,
 								commitments: candidate.commitments,
 							};
+
 							let enact_weight = Self::enact_candidate(
 								candidate.relay_parent_number,
 								receipt,
