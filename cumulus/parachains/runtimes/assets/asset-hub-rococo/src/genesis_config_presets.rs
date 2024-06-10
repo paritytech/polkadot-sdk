@@ -22,6 +22,7 @@ use cumulus_primitives_core::ParaId;
 use hex_literal::hex;
 use parachains_common::{genesis_config_helpers::*, AccountId, AuraId, Balance as AssetHubBalance};
 use sp_core::{crypto::UncheckedInto, sr25519};
+use testnet_parachains_constants::rococo::xcm_version::SAFE_XCM_VERSION;
 
 const ASSET_HUB_ROCOCO_ED: AssetHubBalance = crate::ExistentialDeposit::get();
 

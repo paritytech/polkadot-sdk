@@ -22,9 +22,6 @@ use sp_runtime::traits::{IdentifyAccount, Verify};
 #[cfg(not(feature = "std"))]
 use sp_std::alloc::format;
 
-/// The default XCM version to set in genesis config.
-pub const SAFE_XCM_VERSION: u32 = xcm::prelude::XCM_VERSION;
-
 /// Helper function to generate a crypto pair from seed
 pub fn get_from_seed<TPublic: Public>(seed: &str) -> <TPublic::Pair as Pair>::Public {
 	TPublic::Pair::from_string(&format!("//{}", seed), None)
