@@ -6,16 +6,18 @@
 <img height="70px" alt="Polkadot SDK Logo" src="https://github.com/paritytech/polkadot-sdk/raw/master/docs/images/Polkadot_Logo_Horizontal_Pink_Black.png#gh-light-mode-only"/>
 
 > This is a template for creating a [parachain](https://wiki.polkadot.network/docs/learn-parachains) based on Polkadot SDK.
-> 
+>
 > This template is automatically updated after releases in the main [Polkadot SDK monorepo](https://github.com/paritytech/polkadot-sdk).
 
 </div>
 
 ⏫ This template provides a starting point to build a [parachain](https://wiki.polkadot.network/docs/learn-parachains).
 
-☁️ It is based on the [Cumulus](https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/polkadot_sdk/cumulus/index.html) framework.
+☁️ It is based on the
+[Cumulus](https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/polkadot_sdk/cumulus/index.html) framework.
 
-🔧 Its runtime is configured of a single custom pallet as a starting point, and a handful of ready-made pallets such as a [Balances pallet](https://paritytech.github.io/polkadot-sdk/master/pallet_balances/index.html).
+🔧 Its runtime is configured of a single custom pallet as a starting point, and a handful of ready-made pallets
+such as a [Balances pallet](https://paritytech.github.io/polkadot-sdk/master/pallet_balances/index.html).
 
 👉 Learn more about parachains [here](https://wiki.polkadot.network/docs/learn-parachains)
 
@@ -23,9 +25,9 @@
 
 A Polkadot SDK based project such as this one consists of:
 
-- 💿 a [Node](./node/README.md) - the binary application.
-- 🧮 the [Runtime](./runtime/README.md) - the core logic of the parachain.
-- 🎨 the [Pallets](./pallets/README.md) - from which the runtime is constructed.
+* 💿 a [Node](./node/README.md) * the binary application.
+* 🧮 the [Runtime](./runtime/README.md) * the core logic of the parachain.
+* 🎨 the [Pallets](./pallets/README.md) * from which the runtime is constructed.
 
 ## Getting Started
 
@@ -53,7 +55,8 @@ docker build . -t polkadot-sdk-parachain-template
 
 ### Local Development Chain
 
-🧟 This project uses [Zombienet](https://github.com/paritytech/zombienet) to orchestrate the relaychain and parachain nodes. You can grab a [released binary](https://github.com/paritytech/zombienet/releases/latest) or use an [npm version](https://www.npmjs.com/package/@zombienet/cli).
+🧟 This project uses [Zombienet](https://github.com/paritytech/zombienet) to orchestrate the relaychain and parachain nodes.
+You can grab a [released binary](https://github.com/paritytech/zombienet/releases/latest) or use an [npm version](https://www.npmjs.com/package/@zombienet/cli).
 
 This template produces a parachain node. You still need a relaychain node - you can download the `polkadot` (and the accompanying `polkadot-prepare-worker` and `polkadot-execute-worker`) binaries from [Polkadot SDK releases](https://github.com/paritytech/polkadot-sdk/releases/latest).
 
@@ -76,9 +79,9 @@ npx --yes @zombienet/cli --provider native spawn ./zombienet.toml
 
 Development chains:
 
-- 🧹 Do not persist the state.
-- 💰 Are preconfigured with a genesis state that includes several prefunded development accounts.
-- 🧑‍⚖️ Development accounts are used as validators, collators, and `sudo` accounts.
+* 🧹 Do not persist the state.
+* 💰 Are preconfigured with a genesis state that includes several prefunded development accounts.
+* 🧑‍⚖️ Development accounts are used as validators, collators, and `sudo` accounts.
 
 ### Connect with the Polkadot-JS Apps Front-End
 
@@ -97,12 +100,16 @@ available on [IPFS](https://dotapps.io/).
 
 ➡️ Any pull requests should be directed to this [source](https://github.com/paritytech/polkadot-sdk/tree/master/templates/parachain).
 
-😇 Please refer to the monorepo's [contribution guidelines](https://github.com/paritytech/polkadot-sdk/blob/master/docs/contributor/CONTRIBUTING.md) and [Code of Conduct](https://github.com/paritytech/polkadot-sdk/blob/master/docs/contributor/CODE_OF_CONDUCT.md).
+😇 Please refer to the monorepo's
+[contribution guidelines](https://github.com/paritytech/polkadot-sdk/blob/master/docs/contributor/CONTRIBUTING.md) and
+[Code of Conduct](https://github.com/paritytech/polkadot-sdk/blob/master/docs/contributor/CODE_OF_CONDUCT.md).
 
 ## Getting Help
 
 🧑‍🏫 To learn about Polkadot in general, [Polkadot.network](https://polkadot.network/) website is a good starting point.
 
-🧑‍🔧 For technical introduction, [here](https://github.com/paritytech/polkadot-sdk#-documentation) are the Polkadot SDK documentation resources.
+🧑‍🔧 For technical introduction, [here](https://github.com/paritytech/polkadot-sdk#-documentation) are
+the Polkadot SDK documentation resources.
 
-👥 Additionally, there are [GitHub issues](https://github.com/paritytech/polkadot-sdk/issues) and [Substrate StackExchange](https://substrate.stackexchange.com/).
+👥 Additionally, there are [GitHub issues](https://github.com/paritytech/polkadot-sdk/issues) and
+[Substrate StackExchange](https://substrate.stackexchange.com/).
