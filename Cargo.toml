@@ -630,15 +630,15 @@ bp-asset-hub-rococo = { path = "bridges/chains/chain-asset-hub-rococo", default-
 bp-asset-hub-westend = { path = "bridges/chains/chain-asset-hub-westend", default-features = false }
 bp-beefy = { path = "bridges/primitives/beefy", default-features = false }
 bp-bridge-hub-cumulus = { path = "bridges/chains/chain-bridge-hub-cumulus", default-features = false }
-bp-bridge-hub-kusama = { version = "*", default-features = false }
+bp-bridge-hub-kusama = { default-features = false, path = "bridges/chains/chain-bridge-hub-kusama" }
 bp-bridge-hub-polkadot = { path = "bridges/chains/chain-bridge-hub-polkadot", default-features = false }
 bp-bridge-hub-rococo = { path = "bridges/chains/chain-bridge-hub-rococo", default-features = false }
 bp-bridge-hub-westend = { path = "bridges/chains/chain-bridge-hub-westend", default-features = false }
 bp-header-chain = { path = "bridges/primitives/header-chain", default-features = false }
-bp-kusama = { version = "*", default-features = false }
+bp-kusama = { default-features = false, path = "bridges/chains/chain-kusama" }
 bp-messages = { path = "bridges/primitives/messages", default-features = false }
 bp-parachains = { path = "bridges/primitives/parachains", default-features = false }
-bp-polkadot = { version = "*", default-features = false }
+bp-polkadot = { default-features = false, path = "bridges/chains/chain-polkadot" }
 bp-polkadot-bulletin = { path = "bridges/chains/chain-polkadot-bulletin", default-features = false }
 bp-polkadot-core = { path = "bridges/primitives/polkadot-core", default-features = false }
 bp-relayers = { path = "bridges/primitives/relayers", default-features = false }
@@ -694,7 +694,7 @@ cumulus-client-parachain-inherent = { path = "cumulus/client/parachain-inherent"
 cumulus-client-pov-recovery = { path = "cumulus/client/pov-recovery", default-features = false }
 cumulus-client-service = { path = "cumulus/client/service", default-features = false }
 cumulus-pallet-aura-ext = { path = "cumulus/pallets/aura-ext", default-features = false }
-cumulus-pallet-dmp-queue = { version = "*", default-features = false }
+cumulus-pallet-dmp-queue = { default-features = false, path = "cumulus/pallets/dmp-queue" }
 cumulus-pallet-parachain-system = { path = "cumulus/pallets/parachain-system", default-features = false }
 cumulus-pallet-parachain-system-proc-macro = { path = "cumulus/pallets/parachain-system/proc-macro", default-features = false }
 cumulus-pallet-session-benchmarking = { path = "cumulus/pallets/session-benchmarking", default-features = false }
@@ -754,7 +754,7 @@ forwarded-header-value = { version = "0.1.1" }
 fraction = { version = "0.13.1" }
 frame-benchmarking = { path = "substrate/frame/benchmarking", default-features = false }
 frame-benchmarking-cli = { path = "substrate/utils/frame/benchmarking-cli", default-features = false }
-frame-benchmarking-pallet-pov = { version = "*", default-features = false }
+frame-benchmarking-pallet-pov = { default-features = false, path = "substrate/frame/benchmarking/pov" }
 frame-election-provider-solution-type = { path = "substrate/frame/election-provider-support/solution-type", default-features = false }
 frame-election-provider-support = { path = "substrate/frame/election-provider-support", default-features = false }
 frame-executive = { path = "substrate/frame/executive", default-features = false }
@@ -862,7 +862,7 @@ pallet-asset-conversion-tx-payment = { path = "substrate/frame/transaction-payme
 pallet-asset-rate = { path = "substrate/frame/asset-rate", default-features = false }
 pallet-asset-tx-payment = { path = "substrate/frame/transaction-payment/asset-tx-payment", default-features = false }
 pallet-assets = { path = "substrate/frame/assets", default-features = false }
-pallet-atomic-swap = { version = "*", default-features = false }
+pallet-atomic-swap = { default-features = false, path = "substrate/frame/atomic-swap" }
 pallet-aura = { path = "substrate/frame/aura", default-features = false }
 pallet-authority-discovery = { path = "substrate/frame/authority-discovery", default-features = false }
 pallet-authorship = { path = "substrate/frame/authorship", default-features = false }
@@ -884,7 +884,7 @@ pallet-collective = { path = "substrate/frame/collective", default-features = fa
 pallet-collective-content = { path = "cumulus/parachains/pallets/collective-content", default-features = false }
 pallet-contracts = { path = "substrate/frame/contracts", default-features = false }
 pallet-contracts-fixtures = { path = "substrate/frame/contracts/fixtures" }
-pallet-contracts-mock-network = { version = "*", default-features = false }
+pallet-contracts-mock-network = { default-features = false, path = "substrate/frame/contracts/mock-network" }
 pallet-contracts-proc-macro = { path = "substrate/frame/contracts/proc-macro", default-features = false }
 pallet-contracts-uapi = { path = "substrate/frame/contracts/uapi", default-features = false }
 pallet-conviction-voting = { path = "substrate/frame/conviction-voting", default-features = false }
@@ -912,19 +912,19 @@ pallet-identity = { path = "substrate/frame/identity", default-features = false 
 pallet-im-online = { path = "substrate/frame/im-online", default-features = false }
 pallet-indices = { path = "substrate/frame/indices", default-features = false }
 pallet-insecure-randomness-collective-flip = { path = "substrate/frame/insecure-randomness-collective-flip", default-features = false }
-pallet-lottery = { version = "*", default-features = false }
+pallet-lottery = { default-features = false, path = "substrate/frame/lottery" }
 pallet-membership = { path = "substrate/frame/membership", default-features = false }
 pallet-message-queue = { path = "substrate/frame/message-queue", default-features = false }
 pallet-migrations = { path = "substrate/frame/migrations", default-features = false }
 pallet-minimal-template = { path = "templates/minimal/pallets/template", default-features = false }
-pallet-mixnet = { version = "*", default-features = false }
+pallet-mixnet = { default-features = false, path = "substrate/frame/mixnet" }
 pallet-mmr = { path = "substrate/frame/merkle-mountain-range", default-features = false }
 pallet-multisig = { path = "substrate/frame/multisig", default-features = false }
 pallet-nft-fractionalization = { path = "substrate/frame/nft-fractionalization", default-features = false }
 pallet-nfts = { path = "substrate/frame/nfts", default-features = false }
 pallet-nfts-runtime-api = { path = "substrate/frame/nfts/runtime-api", default-features = false }
 pallet-nis = { path = "substrate/frame/nis", default-features = false }
-pallet-node-authorization = { version = "*", default-features = false }
+pallet-node-authorization = { default-features = false, path = "substrate/frame/node-authorization" }
 pallet-nomination-pools = { path = "substrate/frame/nomination-pools", default-features = false }
 pallet-nomination-pools-benchmarking = { path = "substrate/frame/nomination-pools/benchmarking", default-features = false }
 pallet-nomination-pools-runtime-api = { path = "substrate/frame/nomination-pools/runtime-api", default-features = false }
@@ -938,13 +938,13 @@ pallet-proxy = { path = "substrate/frame/proxy", default-features = false }
 pallet-ranked-collective = { path = "substrate/frame/ranked-collective", default-features = false }
 pallet-recovery = { path = "substrate/frame/recovery", default-features = false }
 pallet-referenda = { path = "substrate/frame/referenda", default-features = false }
-pallet-remark = { version = "*", default-features = false }
-pallet-root-offences = { version = "*", default-features = false }
+pallet-remark = { default-features = false, path = "substrate/frame/remark" }
+pallet-root-offences = { default-features = false, path = "substrate/frame/root-offences" }
 pallet-root-testing = { path = "substrate/frame/root-testing", default-features = false }
-pallet-safe-mode = { version = "*", default-features = false }
+pallet-safe-mode = { default-features = false, path = "substrate/frame/safe-mode" }
 pallet-salary = { path = "substrate/frame/salary", default-features = false }
 pallet-scheduler = { path = "substrate/frame/scheduler", default-features = false }
-pallet-scored-pool = { version = "*", default-features = false }
+pallet-scored-pool = { default-features = false, path = "substrate/frame/scored-pool" }
 pallet-session = { path = "substrate/frame/session", default-features = false }
 pallet-session-benchmarking = { path = "substrate/frame/session/benchmarking", default-features = false }
 pallet-skip-feeless-payment = { path = "substrate/frame/transaction-payment/skip-feeless-payment", default-features = false }
@@ -954,7 +954,7 @@ pallet-staking-reward-curve = { path = "substrate/frame/staking/reward-curve", d
 pallet-staking-reward-fn = { path = "substrate/frame/staking/reward-fn", default-features = false }
 pallet-staking-runtime-api = { path = "substrate/frame/staking/runtime-api", default-features = false }
 pallet-state-trie-migration = { path = "substrate/frame/state-trie-migration", default-features = false }
-pallet-statement = { version = "*", default-features = false }
+pallet-statement = { default-features = false, path = "substrate/frame/statement" }
 pallet-sudo = { path = "substrate/frame/sudo", default-features = false }
 pallet-template = { path = "templates/solochain/pallets/template", default-features = false }
 pallet-timestamp = { path = "substrate/frame/timestamp", default-features = false }
@@ -962,9 +962,9 @@ pallet-tips = { path = "substrate/frame/tips", default-features = false }
 pallet-transaction-payment = { path = "substrate/frame/transaction-payment", default-features = false }
 pallet-transaction-payment-rpc = { path = "substrate/frame/transaction-payment/rpc", default-features = false }
 pallet-transaction-payment-rpc-runtime-api = { path = "substrate/frame/transaction-payment/rpc/runtime-api", default-features = false }
-pallet-transaction-storage = { version = "*", default-features = false }
+pallet-transaction-storage = { default-features = false, path = "substrate/frame/transaction-storage" }
 pallet-treasury = { path = "substrate/frame/treasury", default-features = false }
-pallet-tx-pause = { version = "*", default-features = false }
+pallet-tx-pause = { default-features = false, path = "substrate/frame/tx-pause" }
 pallet-uniques = { path = "substrate/frame/uniques", default-features = false }
 pallet-utility = { path = "substrate/frame/utility", default-features = false }
 pallet-vesting = { path = "substrate/frame/vesting", default-features = false }
@@ -1124,7 +1124,7 @@ sc-network = { path = "substrate/client/network", default-features = false }
 sc-network-common = { path = "substrate/client/network/common", default-features = false }
 sc-network-gossip = { path = "substrate/client/network-gossip", default-features = false }
 sc-network-light = { path = "substrate/client/network/light", default-features = false }
-sc-network-statement = { version = "*", default-features = false }
+sc-network-statement = { default-features = false, path = "substrate/client/network/statement" }
 sc-network-sync = { path = "substrate/client/network/sync", default-features = false }
 sc-network-test = { path = "substrate/client/network/test" }
 sc-network-transactions = { path = "substrate/client/network/transactions", default-features = false }
@@ -1139,7 +1139,7 @@ sc-runtime-test = { path = "substrate/client/executor/runtime-test" }
 sc-service = { path = "substrate/client/service", default-features = false }
 sc-service-test = { path = "substrate/client/service/test" }
 sc-state-db = { path = "substrate/client/state-db", default-features = false }
-sc-statement-store = { version = "*", default-features = false }
+sc-statement-store = { default-features = false, path = "substrate/client/statement-store" }
 sc-storage-monitor = { path = "substrate/client/storage-monitor", default-features = false }
 sc-sync-state-rpc = { path = "substrate/client/sync-state-rpc", default-features = false }
 sc-sysinfo = { path = "substrate/client/sysinfo", default-features = false }
@@ -1202,9 +1202,9 @@ sp-consensus-pow = { path = "substrate/primitives/consensus/pow", default-featur
 sp-consensus-sassafras = { path = "substrate/primitives/consensus/sassafras", default-features = false }
 sp-consensus-slots = { path = "substrate/primitives/consensus/slots", default-features = false }
 sp-core = { path = "substrate/primitives/core", default-features = false }
-sp-core-hashing = { version = "*", default-features = false }
-sp-core-hashing-proc-macro = { version = "*", default-features = false }
-sp-crypto-ec-utils = { version = "*", default-features = false }
+sp-core-hashing = { default-features = false, path = "substrate/deprecated/hashing" }
+sp-core-hashing-proc-macro = { default-features = false, path = "substrate/deprecated/hashing/proc-macro" }
+sp-crypto-ec-utils = { default-features = false, path = "substrate/primitives/crypto/ec-utils" }
 sp-crypto-hashing = { path = "substrate/primitives/crypto/hashing", default-features = false }
 sp-crypto-hashing-proc-macro = { path = "substrate/primitives/crypto/hashing/proc-macro", default-features = false }
 sp-database = { path = "substrate/primitives/database", default-features = false }
@@ -1264,7 +1264,7 @@ subkey = { path = "substrate/bin/utils/subkey", default-features = false }
 substrate-bip39 = { path = "substrate/utils/substrate-bip39", default-features = false }
 substrate-build-script-utils = { path = "substrate/utils/build-script-utils", default-features = false }
 substrate-cli-test-utils = { path = "substrate/test-utils/cli" }
-substrate-frame-rpc-support = { version = "*", default-features = false }
+substrate-frame-rpc-support = { default-features = false, path = "substrate/utils/frame/rpc/support" }
 substrate-frame-rpc-system = { path = "substrate/utils/frame/rpc/system", default-features = false }
 prometheus-endpoint = { path = "substrate/utils/prometheus", default-features = false, package = "substrate-prometheus-endpoint" }
 substrate-rpc-client = { path = "substrate/utils/frame/rpc/client", default-features = false }

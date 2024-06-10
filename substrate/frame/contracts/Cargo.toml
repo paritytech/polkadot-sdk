@@ -31,7 +31,7 @@ smallvec = { features = [
 	"const_generics",
 ] }
 wasmi = { version = "0.32.3", default-features = false }
-impl-trait-for-tuples = "0.2"
+impl-trait-for-tuples = { workspace = true }
 
 # Only used in benchmarking to generate contract code
 wasm-instrument = { optional = true, workspace = true }
