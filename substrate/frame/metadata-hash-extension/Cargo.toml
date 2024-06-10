@@ -1,0 +1,39 @@
+[package]
+name = "frame-metadata-hash-extension"
+version = "0.1.0"
+authors.workspace = true
+edition.workspace = true
+license = "Apache-2.0"
+homepage.workspace = true
+repository.workspace = true
+description = "FRAME signed extension for verifying the metadata hash"
+
+[dependencies]
+array-bytes = "6.2.2"
+codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = ["derive"] }
+scale-info = { version = "2.11.1", default-features = false, features = ["derive", "serde"] }
+sp-runtime = { path = "../../primitives/runtime", default-features = false, features = ["serde"] }
+frame-support = { path = "../support", default-features = false }
+frame-system = { path = "../system", default-features = false }
+log = { workspace = true, default-features = false }
+docify = "0.2.8"
+
+[dev-dependencies]
+substrate-wasm-builder = { path = "../../utils/wasm-builder", features = ["metadata-hash"] }
+substrate-test-runtime-client = { path = "../../test-utils/runtime/client" }
+sp-api = { path = "../../primitives/api" }
+sp-transaction-pool = { path = "../../primitives/transaction-pool" }
+merkleized-metadata = "0.1.0"
+frame-metadata = { version = "16.0.0", features = ["current"] }
+sp-tracing = { path = "../../primitives/tracing" }
+
+[features]
+default = ["std"]
+std = [
+	"codec/std",
+	"frame-support/std",
+	"frame-system/std",
+	"log/std",
+	"scale-info/std",
+	"sp-runtime/std",
+]

@@ -210,6 +210,7 @@ impl pallet_core_fellowship::Config<FellowshipCoreInstance> for Runtime {
 		EnsureCanPromoteTo,
 	>;
 	type EvidenceSize = ConstU32<65536>;
+	type MaxRank = ConstU32<9>;
 }
 
 pub type FellowshipSalaryInstance = pallet_salary::Instance1;

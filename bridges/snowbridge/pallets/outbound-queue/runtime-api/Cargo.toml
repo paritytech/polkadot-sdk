@@ -15,7 +15,7 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-codec = { version = "3.1.5", package = "parity-scale-codec", features = ["derive"], default-features = false }
+codec = { version = "3.6.12", package = "parity-scale-codec", features = ["derive"], default-features = false }
 sp-std = { path = "../../../../../substrate/primitives/std", default-features = false }
 sp-api = { path = "../../../../../substrate/primitives/api", default-features = false }
 frame-support = { path = "../../../../../substrate/frame/support", default-features = false }

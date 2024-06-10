@@ -18,7 +18,7 @@
 //! Primitives related to tickets.
 
 use crate::vrf::RingVrfSignature;
-use scale_codec::{Decode, Encode, MaxEncodedLen};
+use codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 use sp_core::{bounded::BoundedVec, ConstU32};
 
