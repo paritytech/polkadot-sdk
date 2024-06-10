@@ -1324,7 +1324,7 @@ wasm-bindgen-test = { version = "0.3.19" }
 wasm-instrument = { version = "0.4", default-features = false }
 wasm-opt = { version = "0.116" }
 wasm-timer = { version = "0.2.5" }
-wasmi = { version = "0.31", default-features = false }
+wasmi = { version = "0.32.3", default-features = false }
 wasmtime = { version = "8.0.1", default-features = false }
 wat = { version = "1.0.0" }
 westend-emulated-chain = { path = "cumulus/parachains/integration-tests/emulated/chains/relays/westend", default-features = false }

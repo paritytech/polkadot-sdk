@@ -30,7 +30,7 @@ serde = { optional = true, features = ["derive"], workspace = true, default-feat
 smallvec = { features = [
 	"const_generics",
 ] }
-wasmi = { version = "0.32.3", default-features = false }
+wasmi = { workspace = true }
 impl-trait-for-tuples = { workspace = true }
 
 # Only used in benchmarking to generate contract code
