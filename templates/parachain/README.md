@@ -58,9 +58,13 @@ docker build . -t polkadot-sdk-parachain-template
 🧟 This project uses [Zombienet](https://github.com/paritytech/zombienet) to orchestrate the relaychain and parachain nodes.
 You can grab a [released binary](https://github.com/paritytech/zombienet/releases/latest) or use an [npm version](https://www.npmjs.com/package/@zombienet/cli).
 
-This template produces a parachain node. You still need a relaychain node - you can download the `polkadot` (and the accompanying `polkadot-prepare-worker` and `polkadot-execute-worker`) binaries from [Polkadot SDK releases](https://github.com/paritytech/polkadot-sdk/releases/latest).
+This template produces a parachain node.
+You still need a relaychain node - you can download the `polkadot`
+(and the accompanying `polkadot-prepare-worker` and `polkadot-execute-worker`)
+binaries from [Polkadot SDK releases](https://github.com/paritytech/polkadot-sdk/releases/latest).
 
-Make sure to bring the parachain node - as well as `polkadot`, `polkadot-prepare-worker`, `polkadot-execute-worker`, and `zombienet` - into `PATH` like so:
+Make sure to bring the parachain node - as well as `polkadot`, `polkadot-prepare-worker`, `polkadot-execute-worker`,
+and `zombienet` - into `PATH` like so:
 
 ```sh
 export PATH="./target/release/:$PATH"
@@ -86,7 +90,9 @@ Development chains:
 ### Connect with the Polkadot-JS Apps Front-End
 
 🌐 You can interact with your local node using the
-hosted version of the Polkadot/Substrate Portal: [relay chain](https://polkadot.js.org/apps/#/explorer?rpc=ws://localhost:9944) and [parachain](https://polkadot.js.org/apps/#/explorer?rpc=ws://localhost:9988).
+hosted version of the Polkadot/Substrate Portal:
+[relay chain](https://polkadot.js.org/apps/#/explorer?rpc=ws://localhost:9944)
+and [parachain](https://polkadot.js.org/apps/#/explorer?rpc=ws://localhost:9988).
 
 🪐 A hosted version is also
 available on [IPFS](https://dotapps.io/).
