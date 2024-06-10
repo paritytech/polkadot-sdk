@@ -30,6 +30,7 @@ frame-benchmarking = { path = "../benchmarking", default-features = false, optio
 sp-core = { path = "../../primitives/core", default-features = false }
 
 [dev-dependencies]
+env_logger = "*"
 sp-std = { path = "../../primitives/std" }
 sp-io = { path = "../../primitives/io" }
 pallet-balances = { path = "../balances" }

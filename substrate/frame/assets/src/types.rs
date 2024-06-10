@@ -232,20 +232,15 @@ impl<AssetId, AccountId, Balance> FrozenBalance<AssetId, AccountId, Balance> for
 	fn died(_: AssetId, _: &AccountId) {}
 }
 
-/// Trait for specifying a balance that cannot be reduced or forcely reduced.
-/// This balance is then added to the minimum balance that must be met in conjunction
-/// with the frozen balance (if any), and the `minimum_balance` of the asset.
+/// Trait for specifying a balance that is distinct from the free balance.
+/// This balance is then summed up with the balance of the account, and the
+/// `minimum_balance` (and frozen balance, if any) of the asset to calculate
+/// the reducible balance.
 pub trait HeldBalance<AssetId, AccountId, Balance> {
 	/// Return the held balance.
 	///
-	/// Generally, the balance of every account must be at least the sum of this (if `Some`) and
-	/// the asset's `minimum_balance` (the latter since there may be complications to destroying an
-	/// asset's account completely).
-	///
-	/// Under normal circumstances, the account balance should not go below the sum of this (if
-	/// `Some`) and the asset's minimum balance.
-	///
-	/// In special cases (privileged intervention) the account balance may also go below the sum.
+	/// If `Some`, it means some balance is suspended, and it can be infallibly
+	/// slashed.
 	///
 	/// If `None` is returned, then nothing special is enforced.
 	fn held_balance(asset: AssetId, who: &AccountId) -> Option<Balance>;

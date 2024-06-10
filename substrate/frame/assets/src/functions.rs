@@ -221,20 +221,26 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		let account = Account::<T, I>::get(&id, who).ok_or(Error::<T, I>::NoAccount)?;
 		ensure!(!account.status.is_frozen(), Error::<T, I>::Frozen);
 
-		let amount = if let Some(frozen) = T::Freezer::frozen_balance(id, who) {
-			// Frozen balance: account CANNOT be deleted
-			let required =
-				frozen.checked_add(&details.min_balance).ok_or(ArithmeticError::Overflow)?;
-			account.balance.saturating_sub(required)
+		let frozen = T::Freezer::frozen_balance(id.clone(), who).unwrap_or_default();
+		let amount = if let Some(held) = T::Holder::held_balance(id, who) {
+			let untouchable = frozen
+				.saturating_sub(held)
+				.checked_add(&details.min_balance)
+				.ok_or(ArithmeticError::Overflow)?;
+			account.balance.saturating_sub(untouchable)
 		} else {
-			if keep_alive {
-				// We want to keep the account around.
-				account.balance.saturating_sub(details.min_balance)
+			let required = if frozen > Zero::zero() {
+				frozen.checked_add(&details.min_balance).ok_or(ArithmeticError::Overflow)?
 			} else {
-				// Don't care if the account dies
-				account.balance
-			}
+				if keep_alive {
+					details.min_balance
+				} else {
+					Zero::zero()
+				}
+			};
+			account.balance.saturating_sub(required)
 		};
+
 		Ok(amount.min(details.supply))
 	}
 

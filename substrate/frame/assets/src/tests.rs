@@ -1290,6 +1290,7 @@ fn finish_destroy_asset_destroys_asset() {
 
 #[test]
 fn freezer_should_work() {
+	let _ = env_logger::try_init();
 	new_test_ext().execute_with(|| {
 		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 0, 1, true, 10));
 		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), 0, 1, 100));
