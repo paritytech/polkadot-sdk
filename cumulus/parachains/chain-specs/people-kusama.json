@@ -18,7 +18,9 @@
     "/dns/people-kusama-boot-ng.dwellir.com/tcp/30359/p2p/12D3KooWM6T8MMibxLZhhpq6F612CZ4FgnfDSJSkWDMiVUDe1aGb",
     "/dns/people-kusama-boot-ng.dwellir.com/tcp/433/wss/p2p/12D3KooWM6T8MMibxLZhhpq6F612CZ4FgnfDSJSkWDMiVUDe1aGb",
     "/dns/people-kusama-bootnode.turboflakes.io/tcp/30645/p2p/12D3KooWCR2Q8J2NFFfuofDak4zSgWkuBq7orP96HFaxLgAoDUBV",
-    "/dns/people-kusama-bootnode.turboflakes.io/tcp/30745/wss/p2p/12D3KooWCR2Q8J2NFFfuofDak4zSgWkuBq7orP96HFaxLgAoDUBV"
+    "/dns/people-kusama-bootnode.turboflakes.io/tcp/30745/wss/p2p/12D3KooWCR2Q8J2NFFfuofDak4zSgWkuBq7orP96HFaxLgAoDUBV",
+    "/dns/boot-node.helikon.io/tcp/7510/p2p/12D3KooWM1X4setrMWjwnV8iDkAtYhqFHNkGozdWdq6sawWh5Yhv",
+    "/dns/boot-node.helikon.io/tcp/7512/wss/p2p/12D3KooWM1X4setrMWjwnV8iDkAtYhqFHNkGozdWdq6sawWh5Yhv"
   ],
   "telemetryEndpoints": null,
   "protocolId": null,
