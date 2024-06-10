@@ -224,14 +224,14 @@ fn run_input(xcm_messages: [XcmMessage; 5]) {
 			|execute_with| {
 				execute_with(|| {
 					#[cfg(feature = "try-runtime")]
-					parachain::AllPalletsWithSystem::try_state(Default::default()).unwrap();
+					parachain::AllPalletsWithSystem::try_state(Default::default(), All).unwrap();
 					parachain::AllPalletsWithSystem::integrity_test();
 				});
 			},
 		);
 		Relay::execute_with(|| {
 			#[cfg(feature = "try-runtime")]
-			relay_chain::AllPalletsWithSystem::try_state(Default::default()).unwrap();
+			relay_chain::AllPalletsWithSystem::try_state(Default::default(), All).unwrap();
 			relay_chain::AllPalletsWithSystem::integrity_test();
 		});
 	}
