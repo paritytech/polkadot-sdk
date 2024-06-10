@@ -2296,4 +2296,100 @@ fn import_sink_works3() {
 	assert_eq!(import_events, expected_import_events);
 }
 
+#[test]
+fn fatp_stuck_transaction() {
+	sp_tracing::try_init_simple();
+
+	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
+	let (pool, _) = create_basic_pool(api.clone());
+
+	let xt0 = uxt(Alice, 200);
+	let xt1 = uxt(Alice, 201);
+	let xt2 = uxt(Alice, 202);
+	let xt3 = uxt(Alice, 203);
+	let xt4 = uxt(Alice, 204);
+	let xt4i = uxt(Alice, 204);
+	log::info!("xt0: {:#?}", api.hash_and_length(&xt0).0);
+	log::info!("xt1: {:#?}", api.hash_and_length(&xt1).0);
+	log::info!("xt2: {:#?}", api.hash_and_length(&xt2).0);
+	log::info!("xt3: {:#?}", api.hash_and_length(&xt3).0);
+	log::info!("xt4: {:#?}", api.hash_and_length(&xt4).0);
+	log::info!("xt4i: {:#?}", api.hash_and_length(&xt4i).0);
+	let xt3i_watcher =
+		block_on(pool.submit_and_watch(invalid_hash(), SOURCE, xt4i.clone())).unwrap();
+
+	assert_eq!(pool.mempool_len(), (0, 1));
+
+	let header01 = api.push_block(1, vec![xt0], true);
+	api.set_nonce(header01.hash(), Alice.into(), 201);
+	let header02 = api.push_block(2, vec![xt1], true);
+	api.set_nonce(header02.hash(), Alice.into(), 202);
+	let header03 = api.push_block(3, vec![xt2], true);
+	api.set_nonce(header03.hash(), Alice.into(), 203);
+
+	let header04 = api.push_block(4, vec![], true);
+	api.set_nonce(header04.hash(), Alice.into(), 203);
+
+	let header05 = api.push_block(5, vec![], true);
+	api.set_nonce(header04.hash(), Alice.into(), 203);
+
+	let event = new_best_block_event(&pool, None, header05.hash());
+	block_on(pool.maintain(event));
+
+	let event = finalized_block_event(&pool, api.genesis_hash(), header03.hash());
+	block_on(pool.maintain(event));
+
+	assert_pool_status!(header05.hash(), &pool, 0, 1);
+
+	let header06 = api.push_block(6, vec![xt3, xt4], true);
+	api.set_nonce(header06.hash(), Alice.into(), 205);
+	let event = new_best_block_event(&pool, None, header06.hash());
+	block_on(pool.maintain(event));
+
+	// let header07 = api.push_block(7, vec![], true);
+	// api.set_nonce(header07.hash(), Alice.into(), 204);
+	// let event = new_best_block_event(&pool, None, header07.hash());
+	// block_on(pool.maintain(event));
+
+	assert_pool_status!(header06.hash(), &pool, 0, 0);
+	// let xt3i_events = futures::executor::block_on_stream(xt3_watcher).collect::<Vec<_>>();
+	// log::info!("xt0_events: {:#?}", xt3i_events);
+	// assert_eq!(xt3i_events, vec![TransactionStatus::Invalid]);
+	// assert_eq!(pool.mempool_len(), (0, 0));
+}
+
+#[test]
+fn fatp_wtf_future_is_not_pruned() {
+	sp_tracing::try_init_simple();
+
+	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
+	let (pool, _) = create_basic_pool(api.clone());
+
+	let xt0 = uxt(Alice, 200);
+	let xt1 = uxt(Alice, 201);
+	let xt2 = uxt(Alice, 202);
+	let xt2i = uxt(Alice, 202);
+	log::info!("xt0: {:#?}", api.hash_and_length(&xt0).0);
+	log::info!("xt1: {:#?}", api.hash_and_length(&xt1).0);
+	log::info!("xt2: {:#?}", api.hash_and_length(&xt2).0);
+	log::info!("xt2i: {:#?}", api.hash_and_length(&xt2i).0);
+	let xt3i_watcher =
+		block_on(pool.submit_and_watch(invalid_hash(), SOURCE, xt2i.clone())).unwrap();
+
+	assert_eq!(pool.mempool_len(), (0, 1));
+
+	let header01 = api.push_block(1, vec![], true);
+	let event = new_best_block_event(&pool, None, header01.hash());
+	block_on(pool.maintain(event));
+	assert_pool_status!(header01.hash(), &pool, 0, 1);
+
+	let header02 = api.push_block(2, vec![xt0, xt1, xt2], true);
+	api.set_nonce(header02.hash(), Alice.into(), 203);
+
+	let event = new_best_block_event(&pool, None, header02.hash());
+	block_on(pool.maintain(event));
+
+	assert_pool_status!(header02.hash(), &pool, 0, 0);
+}
+
 //todo: add test: check len of filter after finalization (!)
