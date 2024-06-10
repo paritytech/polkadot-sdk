@@ -1257,6 +1257,15 @@ where
 
 		let best_view = self.view_store.find_best_view(tree_route);
 		let new_view = self.build_new_view(best_view, hash_and_number, tree_route).await;
+
+		if let Some(view) = new_view {
+			if let Some(pending_revalidation_result) =
+				self.mempool.pending_revalidation_result.write().take()
+			{
+				log::debug!(target: LOG_TARGET, "resubmit pending revalidations: {:?}", pending_revalidation_result);
+				view.pool.resubmit(HashMap::from_iter(pending_revalidation_result.into_iter()));
+			}
+		}
 	}
 
 	async fn build_new_view(
@@ -1290,7 +1299,7 @@ where
 		log::info!(target: LOG_TARGET, "update_view_pool: at {at:?} took {duration:?}");
 
 		let start = Instant::now();
-		self.update_view_with_fork(&mut view, tree_route, at.clone()).await;
+		self.update_view_with_fork(&view, tree_route, at.clone()).await;
 		let duration = start.elapsed();
 		log::info!(target: LOG_TARGET, "update_view_fork: at {at:?} took {duration:?}");
 
