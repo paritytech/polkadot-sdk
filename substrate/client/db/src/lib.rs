@@ -3115,6 +3115,11 @@ pub(crate) mod tests {
 		let block0 = insert_header(&backend, 0, Default::default(), None, Default::default());
 
 		// fork from genesis: 3 prong.
+		// block 0 -> a1 -> a2 -> a3
+		//    |
+		//     -> b1 -> b2 -> c1 -> c2
+		//           |
+		//           -> d1 -> d2
 		let a1 = insert_header(&backend, 1, block0, None, Default::default());
 		let a2 = insert_header(&backend, 2, a1, None, Default::default());
 		let a3 = insert_header(&backend, 3, a2, None, Default::default());
@@ -3196,6 +3201,15 @@ pub(crate) mod tests {
 				.unwrap();
 
 			assert_eq!(lca.hash, a1);
+			assert_eq!(lca.number, 1);
+		}
+
+		{
+			let lca = lowest_common_ancestor_multiblock(blockchain, vec![b1, b2, d1])
+				.unwrap()
+				.unwrap();
+
+			assert_eq!(lca.hash, b1);
 			assert_eq!(lca.number, 1);
 		}
 
