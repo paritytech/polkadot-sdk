@@ -38,6 +38,7 @@ use polkadot_primitives::HeadData;
 use sc_client_api::{Backend as _, UsageProvider};
 use sc_consensus::{BlockImport, BlockImportParams, ForkChoiceStrategy};
 use sp_consensus::{BlockOrigin, BlockStatus};
+use sp_version::RuntimeVersion;
 use std::{
 	collections::{BTreeMap, HashMap},
 	pin::Pin,
@@ -254,6 +255,10 @@ impl RelayChainInterface for Relaychain {
 			state_root: PHash::zero(),
 			extrinsics_root: PHash::zero(),
 		}))
+	}
+
+	async fn version(&self, _: PHash) -> RelayChainResult<RuntimeVersion> {
+		unimplemented!("Not needed for test")
 	}
 }
 
