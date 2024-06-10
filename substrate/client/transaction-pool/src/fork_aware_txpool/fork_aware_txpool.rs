@@ -1256,88 +1256,28 @@ where
 		}
 
 		let best_view = self.view_store.find_best_view(tree_route);
-		let new_view = if let Some(best_view) = best_view {
-			self.build_cloned_view(best_view, hash_and_number, tree_route).await
-		} else {
-			self.create_new_view_at(hash_and_number, tree_route).await
-		};
-
-		if let Some(view) = new_view {
-			if let Some(pending_revalidation_result) =
-				self.mempool.pending_revalidation_result.write().take()
-			{
-				log::debug!(target: LOG_TARGET, "resubmit pending revalidations: {:?}", pending_revalidation_result);
-				view.pool.resubmit(HashMap::from_iter(pending_revalidation_result.into_iter()));
-			}
-		}
+		let new_view = self.build_new_view(best_view, hash_and_number, tree_route).await;
 	}
 
-	async fn create_new_view_at(
+	async fn build_new_view(
 		&self,
-		at: &HashAndNumber<Block>,
-		tree_route: &TreeRoute<Block>,
-	) -> Option<Arc<View<PoolApi>>> {
-		//todo: handle errors during creation (log?)
-
-		if self.view_store.views.read().contains_key(&at.hash) {
-			return None;
-		}
-
-		log::info!(target: LOG_TARGET, "create_new_view_at: {at:?}");
-
-		let mut view = View::new(self.api.clone(), at.clone(), self.options.clone());
-
-		//we need to capture all import notifiication from the very beginning
-		self.import_notification_sink
-			.add_view(view.at.hash, view.pool.validated_pool().import_notification_stream().boxed())
-			.await;
-
-		// we need to install listeners first
-		let start = Instant::now();
-		self.update_view(&mut view).await;
-		let duration = start.elapsed();
-		log::info!(target: LOG_TARGET, "update_view_pool: at {at:?} took {duration:?}");
-
-		let start = Instant::now();
-		self.update_view_with_fork(&mut view, tree_route, at.clone()).await;
-		let duration = start.elapsed();
-		log::info!(target: LOG_TARGET, "update_view_fork: at {at:?} took {duration:?}");
-
-		//todo: refactor this: maybe single object with one mutex?
-		let view = {
-			let view = Arc::new(view);
-			let mut most_recent_view_lock = self.most_recent_view.write();
-			self.view_store.views.write().insert(at.hash, view.clone());
-			most_recent_view_lock.replace(view.at.hash);
-			view
-		};
-
-		{
-			let view = view.clone();
-			self.ready_poll
-				.lock()
-				.trigger(at.hash, move || Box::from(view.pool.validated_pool().ready()));
-		}
-
-		Some(view)
-	}
-
-	//todo: unify with create_new_view_at
-	async fn build_cloned_view(
-		&self,
-		origin_view: Arc<View<PoolApi>>,
+		origin_view: Option<Arc<View<PoolApi>>>,
 		at: &HashAndNumber<Block>,
 		tree_route: &TreeRoute<Block>,
 	) -> Option<Arc<View<PoolApi>>> {
 		log::info!(
 			target: LOG_TARGET,
-			"build_cloned_view: for: {:?} from: {:?} tree_route: {:?}",
-			at.hash,
-			origin_view.at.hash,
+			"build_new_view: for: {:?} from: {:?} tree_route: {:?}",
+			at,
+			origin_view.as_ref().map(|v| v.at.clone()),
 			tree_route
 		);
 		let new_block_hash = at.hash;
-		let mut view = View::new_from_other(&origin_view, at);
+		let mut view = if let Some(origin_view) = origin_view {
+			View::new_from_other(&origin_view, at)
+		} else {
+			View::new(self.api.clone(), at.clone(), self.options.clone())
+		};
 
 		//we need to capture all import notifiication from the very beginning
 		self.import_notification_sink
@@ -1383,7 +1323,7 @@ where
 		Some(view)
 	}
 
-	async fn update_view(&self, view: &mut View<PoolApi>) {
+	async fn update_view(&self, view: &View<PoolApi>) {
 		log::debug!(
 			target: LOG_TARGET,
 			"update_view: {:?} xts:{:?} v:{}",
@@ -1501,7 +1441,7 @@ where
 	//todo: move to ViewManager
 	async fn update_view_with_fork(
 		&self,
-		view: &mut View<PoolApi>,
+		view: &View<PoolApi>,
 		tree_route: &TreeRoute<Block>,
 		hash_and_number: HashAndNumber<Block>,
 	) {
