@@ -303,7 +303,7 @@ impl<B: ChainApi> Pool<B> {
 							)
 							.await;
 
-						log::debug!(target: LOG_TARGET,"[{:?}] prune::revalidated", self.validated_pool.api().hash_and_length(&extrinsic.clone()).0);
+						log::debug!(target: LOG_TARGET,"[{:?}] prune::revalidated {:?}", self.validated_pool.api().hash_and_length(&extrinsic.clone()).0, validity);
 
 						if let Ok(Ok(validity)) = validity {
 							future_tags.extend(validity.provides);
