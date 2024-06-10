@@ -11,6 +11,7 @@ The current available command actions are:
 - [Command FMT](https://github.com/paritytech/polkadot-sdk/actions/workflows/command-fmt.yml)
 - [Command Update UI](https://github.com/paritytech/polkadot-sdk/actions/workflows/command-update-ui.yml)
 - [Command Sync](https://github.com/paritytech/polkadot-sdk/actions/workflows/command-sync.yml)
+- [Command Bench](https://github.com/paritytech/polkadot-sdk/actions/workflows/command-bench.yml)
 
 **WIP**: Need more actions.
 
