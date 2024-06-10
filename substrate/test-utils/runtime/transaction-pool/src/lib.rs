@@ -211,10 +211,10 @@ impl TestApi {
 			chain.nonces.insert(hash, prev_nonces);
 		}
 
-		log::debug!(
+		log::info!(
 			"add_block: {:?} {:?} {:?} nonces:{:#?}",
-			hash,
 			block_number,
+			hash,
 			block.header.parent_hash(),
 			chain.nonces
 		);
