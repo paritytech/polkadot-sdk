@@ -1665,6 +1665,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1514" id="1514">1514</a>
 <a href="#1515" id="1515">1515</a>
 <a href="#1516" id="1516">1516</a>
+<a href="#1517" id="1517">1517</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -2329,6 +2330,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			per_block_assignments_gathering_times: LruMap::new(ByLength::new(
 				MAX_BLOCKS_WITH_ASSIGNMENT_TIMESTAMPS,
 			)),
+			no_show_stats: Default::default(),
 		}
 	}
 

@@ -1578,6 +1578,33 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1427" id="1427">1427</a>
 <a href="#1428" id="1428">1428</a>
 <a href="#1429" id="1429">1429</a>
+<a href="#1430" id="1430">1430</a>
+<a href="#1431" id="1431">1431</a>
+<a href="#1432" id="1432">1432</a>
+<a href="#1433" id="1433">1433</a>
+<a href="#1434" id="1434">1434</a>
+<a href="#1435" id="1435">1435</a>
+<a href="#1436" id="1436">1436</a>
+<a href="#1437" id="1437">1437</a>
+<a href="#1438" id="1438">1438</a>
+<a href="#1439" id="1439">1439</a>
+<a href="#1440" id="1440">1440</a>
+<a href="#1441" id="1441">1441</a>
+<a href="#1442" id="1442">1442</a>
+<a href="#1443" id="1443">1443</a>
+<a href="#1444" id="1444">1444</a>
+<a href="#1445" id="1445">1445</a>
+<a href="#1446" id="1446">1446</a>
+<a href="#1447" id="1447">1447</a>
+<a href="#1448" id="1448">1448</a>
+<a href="#1449" id="1449">1449</a>
+<a href="#1450" id="1450">1450</a>
+<a href="#1451" id="1451">1451</a>
+<a href="#1452" id="1452">1452</a>
+<a href="#1453" id="1453">1453</a>
+<a href="#1454" id="1454">1454</a>
+<a href="#1455" id="1455">1455</a>
+<a href="#1456" id="1456">1456</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1603,6 +1630,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use crate</span>::{
 	persisted_entries::{ApprovalEntry, CandidateEntry, TrancheEntry},
 	time::Tick,
+	MAX_RECORDED_NO_SHOW_VALIDATORS_PER_CANDIDATE,
 };
 
 <span class="doccomment">/// Result of counting the necessary tranches needed for approving a block.
@@ -1612,6 +1640,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub </span>required_tranches: RequiredTranches,
 	<span class="doccomment">/// The total number of no_shows at the moment we are doing the counting.
 	</span><span class="kw">pub </span>total_observed_no_shows: usize,
+	<span class="kw">pub </span>no_show_validators: Vec&lt;ValidatorIndex&gt;,
 }
 
 <span class="doccomment">/// The required tranches of assignments needed to determine whether a candidate is approved.
@@ -1768,6 +1797,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// The last tick at which a considered assignment was received.
 	</span>last_assignment_tick: <span class="prelude-ty">Option</span>&lt;Tick&gt;,
 	total_observed_no_shows: usize,
+	<span class="comment">// The validator's index that are no-shows.
+	</span>no_show_validators: Vec&lt;ValidatorIndex&gt;,
 }
 
 <span class="kw">impl </span>State {
@@ -1783,6 +1814,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">return </span>TranchesToApproveResult {
 				required_tranches: RequiredTranches::All,
 				total_observed_no_shows: <span class="self">self</span>.total_observed_no_shows,
+				no_show_validators: <span class="self">self</span>.no_show_validators.clone(),
 			}
 		}
 
@@ -1797,6 +1829,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					last_assignment_tick: <span class="self">self</span>.last_assignment_tick,
 				},
 				total_observed_no_shows: <span class="self">self</span>.total_observed_no_shows,
+				no_show_validators: <span class="self">self</span>.no_show_validators.clone(),
 			}
 		}
 
@@ -1814,6 +1847,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					clock_drift,
 				},
 				total_observed_no_shows: <span class="self">self</span>.total_observed_no_shows,
+				no_show_validators: <span class="self">self</span>.no_show_validators.clone(),
 			}
 		} <span class="kw">else </span>{
 			TranchesToApproveResult {
@@ -1824,6 +1858,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					clock_drift,
 				},
 				total_observed_no_shows: <span class="self">self</span>.total_observed_no_shows,
+				no_show_validators: <span class="self">self</span>.no_show_validators.clone(),
 			}
 		}
 	}
@@ -1833,11 +1868,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="kw">fn </span>advance(
-		<span class="kw-2">&amp;</span><span class="self">self</span>,
+		<span class="kw-2">mut </span><span class="self">self</span>,
 		new_assignments: usize,
 		new_no_shows: usize,
 		next_no_show: <span class="prelude-ty">Option</span>&lt;Tick&gt;,
 		last_assignment_tick: <span class="prelude-ty">Option</span>&lt;Tick&gt;,
+		no_show_validators: Vec&lt;ValidatorIndex&gt;,
 	) -&gt; State {
 		<span class="kw">let </span>new_covered = <span class="kw">if </span><span class="self">self</span>.depth == <span class="number">0 </span>{
 			new_assignments
@@ -1870,6 +1906,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			(<span class="self">self</span>.depth, covering, uncovered)
 		};
 
+		<span class="comment">// Make sure we don't store too many no-show validators, since this metric
+		// is valuable if there are just a few of them to identify the problematic
+		// validators.
+		// If there are a lot then we've got bigger problems and no need to make this
+		// array unnecessarily large.
+		</span><span class="kw">if </span><span class="self">self</span>.no_show_validators.len() + no_show_validators.len() &lt;
+			MAX_RECORDED_NO_SHOW_VALIDATORS_PER_CANDIDATE
+		{
+			<span class="self">self</span>.no_show_validators.extend(no_show_validators);
+		}
+
 		State {
 			assignments,
 			depth,
@@ -1879,6 +1926,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			next_no_show,
 			last_assignment_tick,
 			total_observed_no_shows: <span class="self">self</span>.total_observed_no_shows + new_no_shows,
+			no_show_validators: <span class="self">self</span>.no_show_validators,
 		}
 	}
 }
@@ -1934,8 +1982,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	block_tick: Tick,
 	no_show_duration: Tick,
 	drifted_tick_now: Tick,
-) -&gt; (usize, <span class="prelude-ty">Option</span>&lt;u64&gt;) {
+) -&gt; (usize, <span class="prelude-ty">Option</span>&lt;u64&gt;, Vec&lt;ValidatorIndex&gt;) {
 	<span class="kw">let </span><span class="kw-2">mut </span>next_no_show = <span class="prelude-val">None</span>;
+	<span class="kw">let </span><span class="kw-2">mut </span>no_show_validators = Vec::new();
 	<span class="kw">let </span>no_shows = assignments
 		.iter()
 		.map(|(v_index, tick)| {
@@ -1959,12 +2008,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				// the clock drift will be removed again to do the comparison above.
 				</span>next_no_show = <span class="kw">super</span>::min_prefer_some(next_no_show, <span class="prelude-val">Some</span>(no_show_at + clock_drift));
 			}
-
+			<span class="kw">if </span>is_no_show {
+				no_show_validators.push(<span class="kw-2">*</span>v_index);
+			}
 			is_no_show
 		})
 		.count();
 
-	(no_shows, next_no_show)
+	(no_shows, next_no_show, no_show_validators)
 }
 
 <span class="doccomment">/// Determine the amount of tranches of assignments needed to determine approval of a candidate.
@@ -1988,6 +2039,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		next_no_show: <span class="prelude-val">None</span>,
 		last_assignment_tick: <span class="prelude-val">None</span>,
 		total_observed_no_shows: <span class="number">0</span>,
+		no_show_validators: Vec::new(),
 	};
 
 	<span class="comment">// The `ApprovalEntry` doesn't have any data for empty tranches. We still want to iterate over
@@ -2026,7 +2078,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			//
 			// While we count the no-shows, we also determine the next possible no-show we might
 			// see within this tranche.
-			</span><span class="kw">let </span>(no_shows, next_no_show) = count_no_shows(
+			</span><span class="kw">let </span>(no_shows, next_no_show, no_show_validators) = count_no_shows(
 				assignments,
 				approvals,
 				clock_drift,
@@ -2035,7 +2087,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				drifted_tick_now,
 			);
 
-			<span class="kw">let </span>s = s.advance(n_assignments, no_shows, next_no_show, last_assignment_tick);
+			<span class="kw">let </span>s = s.advance(n_assignments, no_shows, next_no_show, last_assignment_tick, no_show_validators);
 			<span class="kw">let </span>output = s.output(tranche, needed_approvals, n_validators, no_show_duration);
 
 			<span class="kw-2">*</span>state = <span class="kw">match </span>output.required_tranches {
@@ -2766,7 +2818,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			approvals.set(v_index, <span class="bool-val">true</span>);
 		}
 
-		<span class="kw">let </span>(no_shows, next_no_show) = count_no_shows(
+		<span class="kw">let </span>(no_shows, next_no_show, <span class="kw">_</span>) = count_no_shows(
 			<span class="kw-2">&amp;</span>test.assignments,
 			<span class="kw-2">&amp;</span>approvals,
 			test.clock_drift,
@@ -2970,6 +3022,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			next_no_show: <span class="prelude-val">None</span>,
 			last_assignment_tick: <span class="prelude-val">None</span>,
 			total_observed_no_shows: <span class="number">0</span>,
+			no_show_validators: Default::default(),
 		};
 
 		<span class="macro">assert_eq!</span>(
@@ -2994,6 +3047,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			next_no_show: <span class="prelude-val">None</span>,
 			last_assignment_tick: <span class="prelude-val">None</span>,
 			total_observed_no_shows: <span class="number">0</span>,
+			no_show_validators: Default::default(),
 		};
 
 		<span class="macro">assert_eq!</span>(

@@ -4035,6 +4035,82 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#3884" id="3884">3884</a>
 <a href="#3885" id="3885">3885</a>
 <a href="#3886" id="3886">3886</a>
+<a href="#3887" id="3887">3887</a>
+<a href="#3888" id="3888">3888</a>
+<a href="#3889" id="3889">3889</a>
+<a href="#3890" id="3890">3890</a>
+<a href="#3891" id="3891">3891</a>
+<a href="#3892" id="3892">3892</a>
+<a href="#3893" id="3893">3893</a>
+<a href="#3894" id="3894">3894</a>
+<a href="#3895" id="3895">3895</a>
+<a href="#3896" id="3896">3896</a>
+<a href="#3897" id="3897">3897</a>
+<a href="#3898" id="3898">3898</a>
+<a href="#3899" id="3899">3899</a>
+<a href="#3900" id="3900">3900</a>
+<a href="#3901" id="3901">3901</a>
+<a href="#3902" id="3902">3902</a>
+<a href="#3903" id="3903">3903</a>
+<a href="#3904" id="3904">3904</a>
+<a href="#3905" id="3905">3905</a>
+<a href="#3906" id="3906">3906</a>
+<a href="#3907" id="3907">3907</a>
+<a href="#3908" id="3908">3908</a>
+<a href="#3909" id="3909">3909</a>
+<a href="#3910" id="3910">3910</a>
+<a href="#3911" id="3911">3911</a>
+<a href="#3912" id="3912">3912</a>
+<a href="#3913" id="3913">3913</a>
+<a href="#3914" id="3914">3914</a>
+<a href="#3915" id="3915">3915</a>
+<a href="#3916" id="3916">3916</a>
+<a href="#3917" id="3917">3917</a>
+<a href="#3918" id="3918">3918</a>
+<a href="#3919" id="3919">3919</a>
+<a href="#3920" id="3920">3920</a>
+<a href="#3921" id="3921">3921</a>
+<a href="#3922" id="3922">3922</a>
+<a href="#3923" id="3923">3923</a>
+<a href="#3924" id="3924">3924</a>
+<a href="#3925" id="3925">3925</a>
+<a href="#3926" id="3926">3926</a>
+<a href="#3927" id="3927">3927</a>
+<a href="#3928" id="3928">3928</a>
+<a href="#3929" id="3929">3929</a>
+<a href="#3930" id="3930">3930</a>
+<a href="#3931" id="3931">3931</a>
+<a href="#3932" id="3932">3932</a>
+<a href="#3933" id="3933">3933</a>
+<a href="#3934" id="3934">3934</a>
+<a href="#3935" id="3935">3935</a>
+<a href="#3936" id="3936">3936</a>
+<a href="#3937" id="3937">3937</a>
+<a href="#3938" id="3938">3938</a>
+<a href="#3939" id="3939">3939</a>
+<a href="#3940" id="3940">3940</a>
+<a href="#3941" id="3941">3941</a>
+<a href="#3942" id="3942">3942</a>
+<a href="#3943" id="3943">3943</a>
+<a href="#3944" id="3944">3944</a>
+<a href="#3945" id="3945">3945</a>
+<a href="#3946" id="3946">3946</a>
+<a href="#3947" id="3947">3947</a>
+<a href="#3948" id="3948">3948</a>
+<a href="#3949" id="3949">3949</a>
+<a href="#3950" id="3950">3950</a>
+<a href="#3951" id="3951">3951</a>
+<a href="#3952" id="3952">3952</a>
+<a href="#3953" id="3953">3953</a>
+<a href="#3954" id="3954">3954</a>
+<a href="#3955" id="3955">3955</a>
+<a href="#3956" id="3956">3956</a>
+<a href="#3957" id="3957">3957</a>
+<a href="#3958" id="3958">3958</a>
+<a href="#3959" id="3959">3959</a>
+<a href="#3960" id="3960">3960</a>
+<a href="#3961" id="3961">3961</a>
+<a href="#3962" id="3962">3962</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -4728,6 +4804,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	tranche_now: DelayTranche,
 	block_tick: Tick,
 	last_no_shows: usize,
+	no_show_validators: Vec&lt;ValidatorIndex&gt;,
 }
 
 <span class="attr">#[derive(Copy, Clone)]
@@ -4869,6 +4946,51 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	// tranches we trigger and why.
 	</span>per_block_assignments_gathering_times:
 		LruMap&lt;BlockNumber, HashMap&lt;(Hash, CandidateHash), AssignmentGatheringRecord&gt;&gt;,
+	no_show_stats: NoShowStats,
+}
+
+<span class="comment">// Regularly dump the no-show stats at this block number frequency.
+</span><span class="kw">const </span>NO_SHOW_DUMP_FREQUENCY: BlockNumber = <span class="number">50</span>;
+<span class="comment">// The maximum number of validators we record no-shows for, per candidate.
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>MAX_RECORDED_NO_SHOW_VALIDATORS_PER_CANDIDATE: usize = <span class="number">20</span>;
+
+<span class="comment">// No show stats per validator and per parachain.
+// This is valuable information when we have to debug live network issue, because
+// it gives information if things are going wrong only for some validators or just
+// for some parachains.
+</span><span class="attr">#[derive(Debug, Clone, PartialEq, Eq, Default)]
+</span><span class="kw">struct </span>NoShowStats {
+	per_validator_no_show: HashMap&lt;SessionIndex, HashMap&lt;ValidatorIndex, usize&gt;&gt;,
+	per_parachain_no_show: HashMap&lt;u32, usize&gt;,
+	last_dumped_block_number: BlockNumber,
+}
+
+<span class="kw">impl </span>NoShowStats {
+	<span class="comment">// Print the no-show stats if NO_SHOW_DUMP_FREQUENCY blocks have passed since the last
+	// print.
+	</span><span class="kw">fn </span>maybe_print(<span class="kw-2">&amp;mut </span><span class="self">self</span>, current_block_number: BlockNumber) {
+		<span class="kw">if </span><span class="self">self</span>.last_dumped_block_number &gt; current_block_number ||
+			current_block_number - <span class="self">self</span>.last_dumped_block_number &lt; NO_SHOW_DUMP_FREQUENCY
+		{
+			<span class="kw">return
+		</span>}
+		<span class="kw">if </span><span class="self">self</span>.per_parachain_no_show.is_empty() &amp;&amp; <span class="self">self</span>.per_validator_no_show.is_empty() {
+			<span class="kw">return
+		</span>}
+
+		<span class="macro">gum::debug!</span>(
+			target: LOG_TARGET,
+			<span class="string">"Validators with no_show {:?} and parachains with no_shows {:?} since {:}"</span>,
+			<span class="self">self</span>.per_validator_no_show,
+			<span class="self">self</span>.per_parachain_no_show,
+			<span class="self">self</span>.last_dumped_block_number
+		);
+
+		<span class="self">self</span>.last_dumped_block_number = current_block_number;
+
+		<span class="self">self</span>.per_validator_no_show.clear();
+		<span class="self">self</span>.per_parachain_no_show.clear();
+	}
 }
 
 <span class="attr">#[derive(Debug, Clone, PartialEq, Eq)]
@@ -4924,21 +5046,25 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		);
 
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(approval_entry) = candidate_entry.approval_entry(<span class="kw-2">&amp;</span>block_hash) {
-			<span class="kw">let </span>TranchesToApproveResult { required_tranches, total_observed_no_shows } =
-				approval_checking::tranches_to_approve(
-					approval_entry,
-					candidate_entry.approvals(),
-					tranche_now,
-					block_tick,
-					no_show_duration,
-					session_info.needed_approvals <span class="kw">as _</span>,
-				);
+			<span class="kw">let </span>TranchesToApproveResult {
+				required_tranches,
+				total_observed_no_shows,
+				no_show_validators,
+			} = approval_checking::tranches_to_approve(
+				approval_entry,
+				candidate_entry.approvals(),
+				tranche_now,
+				block_tick,
+				no_show_duration,
+				session_info.needed_approvals <span class="kw">as _</span>,
+			);
 
 			<span class="kw">let </span>status = ApprovalStatus {
 				required_tranches,
 				block_tick,
 				tranche_now,
 				last_no_shows: total_observed_no_shows,
+				no_show_validators,
 			};
 
 			<span class="prelude-val">Some</span>((approval_entry, status))
@@ -5081,6 +5207,26 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			},
 		}
 	}
+
+	<span class="kw">fn </span>record_no_shows(
+		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
+		session_index: SessionIndex,
+		para_id: u32,
+		no_show_validators: <span class="kw-2">&amp;</span>Vec&lt;ValidatorIndex&gt;,
+	) {
+		<span class="kw">if </span>!no_show_validators.is_empty() {
+			<span class="kw-2">*</span><span class="self">self</span>.no_show_stats.per_parachain_no_show.entry(para_id.into()).or_default() += <span class="number">1</span>;
+		}
+		<span class="kw">for </span>validator_index <span class="kw">in </span>no_show_validators {
+			<span class="kw-2">*</span><span class="self">self
+				</span>.no_show_stats
+				.per_validator_no_show
+				.entry(session_index)
+				.or_default()
+				.entry(<span class="kw-2">*</span>validator_index)
+				.or_default() += <span class="number">1</span>;
+		}
+	}
 }
 
 <span class="attr">#[derive(Debug, Clone)]
@@ -5133,6 +5279,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		per_block_assignments_gathering_times: LruMap::new(ByLength::new(
 			MAX_BLOCKS_WITH_ASSIGNMENT_TIMESTAMPS,
 		)),
+		no_show_stats: NoShowStats::default(),
 	};
 
 	<span class="comment">// `None` on start-up. Gets initialized/updated on leaf update
@@ -5776,6 +5923,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 								num_candidates = block_batch.imported_candidates.len(),
 								<span class="string">"Imported new block."</span>,
 							);
+
+							state.no_show_stats.maybe_print(block_batch.block_number);
 
 							<span class="kw">for </span>(c_hash, c_entry) <span class="kw">in </span>block_batch.imported_candidates {
 								metrics.on_candidate_imported();
@@ -6941,7 +7090,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">let </span><span class="kw-2">mut </span>actions = Vec::new();
 	<span class="kw">let </span>block_hash = block_entry.block_hash();
 	<span class="kw">let </span>block_number = block_entry.block_number();
-
+	<span class="kw">let </span>session_index = block_entry.session();
+	<span class="kw">let </span>para_id = candidate_entry.candidate_receipt().descriptor().para_id;
 	<span class="kw">let </span>tick_now = state.clock.tick_now();
 
 	<span class="kw">let </span>(is_approved, status) = <span class="kw">if let </span><span class="prelude-val">Some</span>((approval_entry, status)) = state
@@ -7037,7 +7187,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">if </span>is_approved {
 			approval_entry.mark_approved();
 		}
-
+		<span class="kw">if </span>newly_approved {
+			state.record_no_shows(session_index, para_id.into(), <span class="kw-2">&amp;</span>status.no_show_validators);
+		}
 		actions.extend(schedule_wakeup_action(
 			<span class="kw-2">&amp;</span>approval_entry,
 			block_hash,
