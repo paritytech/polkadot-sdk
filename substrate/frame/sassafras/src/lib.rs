@@ -418,10 +418,10 @@ pub mod pallet {
 
 			// Compute tickets threshold
 			let ticket_threshold = sp_consensus_sassafras::ticket_id_threshold(
-				T::RedundancyFactor::get(),
 				epoch_length as u32,
-				T::AttemptsNumber::get(),
 				authorities.len() as u32,
+				T::AttemptsNumber::get(),
+				T::RedundancyFactor::get(),
 			);
 
 			let mut candidates = Vec::new();

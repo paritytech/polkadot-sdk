@@ -112,7 +112,7 @@ pub struct TicketEnvelope {
 /// For details about the formula and implications refer to
 /// [*probabilities an parameters*](https://research.web3.foundation/Polkadot/protocols/block-production/SASSAFRAS#probabilities-and-parameters)
 /// paragraph of the w3f introduction to the protocol.
-pub fn ticket_id_threshold(redundancy: u8, slots: u32, attempts: u8, validators: u32) -> TicketId {
+pub fn ticket_id_threshold(slots: u32, validators: u32, attempts: u8, redundancy: u8) -> TicketId {
 	let den = attempts as u64 * validators as u64;
 	let num = redundancy as u64 * slots as u64;
 	U256::MAX
@@ -150,7 +150,7 @@ mod tests {
 		let attempts = 100;
 		let validators = 500;
 
-		let threshold = ticket_id_threshold(redundancy, slots, attempts, validators);
+		let threshold = ticket_id_threshold(slots, validators, attempts, redundancy);
 		println!("{:?}", threshold);
 		let threshold = normalize_u256(threshold.0);
 		println!("{}", threshold);
