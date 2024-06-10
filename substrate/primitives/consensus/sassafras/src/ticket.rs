@@ -83,7 +83,7 @@ impl PartialOrd for TicketBody {
 /// Ticket ring vrf signature.
 pub type TicketSignature = RingVrfSignature;
 
-/// Ticket envelope used on during submission.
+/// Ticket envelope used during submission.
 #[derive(Debug, Clone, PartialEq, Eq, Encode, Decode, MaxEncodedLen, TypeInfo)]
 pub struct TicketEnvelope {
 	/// Attempt index.
