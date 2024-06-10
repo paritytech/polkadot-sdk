@@ -18,18 +18,18 @@ log = { workspace = true, default-features = true }
 tracing = { workspace = true, default-features = true }
 
 # Substrate
-sc-client-api = { path = "../../../../substrate/client/api" }
-sc-consensus = { path = "../../../../substrate/client/consensus/common" }
-sc-consensus-babe = { path = "../../../../substrate/client/consensus/babe" }
-sp-blockchain = { path = "../../../../substrate/primitives/blockchain" }
-sp-consensus = { path = "../../../../substrate/primitives/consensus/common" }
-sp-consensus-slots = { path = "../../../../substrate/primitives/consensus/slots" }
-sp-core = { path = "../../../../substrate/primitives/core" }
-sp-runtime = { path = "../../../../substrate/primitives/runtime" }
-sp-timestamp = { path = "../../../../substrate/primitives/timestamp" }
-sp-trie = { path = "../../../../substrate/primitives/trie" }
-sp-version = { path = "../../../../substrate/primitives/version" }
-prometheus-endpoint = { package = "substrate-prometheus-endpoint", path = "../../../../substrate/utils/prometheus" }
+sc-client-api = { workspace = true, default-features = true }
+sc-consensus = { workspace = true, default-features = true }
+sc-consensus-babe = { workspace = true, default-features = true }
+sp-blockchain = { workspace = true, default-features = true }
+sp-consensus = { workspace = true, default-features = true }
+sp-consensus-slots = { workspace = true, default-features = true }
+sp-core = { workspace = true, default-features = true }
+sp-runtime = { workspace = true, default-features = true }
+sp-timestamp = { workspace = true, default-features = true }
+sp-trie = { workspace = true, default-features = true }
+sp-version = { workspace = true, default-features = true }
+prometheus-endpoint = { workspace = true, default-features = true }
 
 # Polkadot
 polkadot-primitives = { workspace = true, default-features = true }

@@ -17,13 +17,13 @@ rand = { workspace = true, default-features = true }
 tracing = { workspace = true, default-features = true }
 
 # Substrate
-sc-client-api = { path = "../../../substrate/client/api" }
-sc-consensus = { path = "../../../substrate/client/consensus/common" }
-sp-consensus = { path = "../../../substrate/primitives/consensus/common" }
-sp-maybe-compressed-blob = { path = "../../../substrate/primitives/maybe-compressed-blob" }
-sp-runtime = { path = "../../../substrate/primitives/runtime" }
-sp-api = { path = "../../../substrate/primitives/api" }
-sp-version = { path = "../../../substrate/primitives/version" }
+sc-client-api = { workspace = true, default-features = true }
+sc-consensus = { workspace = true, default-features = true }
+sp-consensus = { workspace = true, default-features = true }
+sp-maybe-compressed-blob = { workspace = true, default-features = true }
+sp-runtime = { workspace = true, default-features = true }
+sp-api = { workspace = true, default-features = true }
+sp-version = { workspace = true, default-features = true }
 
 # Polkadot
 polkadot-node-primitives = { workspace = true, default-features = true }
@@ -37,14 +37,14 @@ cumulus-relay-chain-interface = { workspace = true, default-features = true }
 async-trait = { workspace = true }
 
 [dev-dependencies]
-rstest = "0.18.2"
-tokio = { version = "1.32.0", features = ["macros"] }
-portpicker = "0.1.1"
-sp-blockchain = { path = "../../../substrate/primitives/blockchain" }
-cumulus-test-client = { path = "../../test/client" }
-sc-utils = { path = "../../../substrate/client/utils" }
-sp-tracing = { path = "../../../substrate/primitives/tracing" }
-assert_matches = "1.5"
+rstest = { workspace = true }
+tokio = { features = ["macros"] , workspace = true, default-features = true }
+portpicker = { workspace = true }
+sp-blockchain = { workspace = true, default-features = true }
+cumulus-test-client = { workspace = true }
+sc-utils = { workspace = true, default-features = true }
+sp-tracing = { workspace = true, default-features = true }
+assert_matches = { workspace = true }
 
 # Cumulus
 cumulus-test-service = { workspace = true }
