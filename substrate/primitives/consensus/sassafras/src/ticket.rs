@@ -156,8 +156,8 @@ mod tests {
 		println!("{}", threshold);
 
 		// We expect that the total number of tickets allowed to be submitted is slots*redundancy
-		let avt = ((attempts * validators) as f64 * threshold) as u32;
-		assert_eq!(avt, slots * redundancy);
+		let avt = ((attempts as u32 * validators) as f64 * threshold) as u32;
+		assert_eq!(avt, slots * redundancy as u32);
 
 		println!("threshold: {}", threshold);
 		println!("avt = {}", avt);
