@@ -112,5 +112,6 @@ main() {
   # instead of using `cargo run --locked`, we allow the Cargo files to be updated
   # but avoid committing them. It is so `cmd_runner_apply_patches` can work
   git restore --staged Cargo.*
+}
 
 main "$@"
