@@ -106,8 +106,8 @@ where
 		let all_weight = Pallet::<T>::block_weight();
 		let maximum_weight = T::BlockWeights::get();
 		let next_weight =
-			calculate_consumed_weight::<T::RuntimeCall>(&maximum_weight, all_weight, info)?;
-		check_combined_proof_size::<T::RuntimeCall>(info, &maximum_weight, next_len, &next_weight)?;
+			calculate_consumed_weight::<T::RuntimeCall>(&maximum_weight, all_weight, info, len)?;
+		// check_combined_proof_size::<T::RuntimeCall>(info, &maximum_weight, next_len, &next_weight)?;
 		Self::check_extrinsic_weight(info)?;
 
 		crate::AllExtrinsicsLen::<T>::put(next_len);
@@ -142,7 +142,7 @@ where
 {
 	// This extra check ensures that the extrinsic length does not push the
 	// PoV over the limit.
-	let total_pov_size = next_weight.total().proof_size().saturating_add(next_len as u64);
+	let total_pov_size = next_weight.total().proof_size();
 	if total_pov_size > maximum_weight.max_block.proof_size() {
 		log::debug!(
 			target: LOG_TARGET,
@@ -167,12 +167,16 @@ pub fn calculate_consumed_weight<Call>(
 	maximum_weight: &BlockWeights,
 	mut all_weight: crate::ConsumedWeight,
 	info: &DispatchInfoOf<Call>,
+	len: usize,
 ) -> Result<crate::ConsumedWeight, TransactionValidityError>
 where
 	Call: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
 {
-	let extrinsic_weight =
-		info.weight.saturating_add(maximum_weight.get(info.class).base_extrinsic);
+	// Consider extrinsic length as proof weight.
+	let extrinsic_weight = info
+		.weight
+		.saturating_add(maximum_weight.get(info.class).base_extrinsic)
+		.saturating_add(Weight::from_parts(0, len as u64));
 	let limit_per_class = maximum_weight.get(info.class);
 
 	// add the weight. If class is unlimited, use saturating add instead of checked one.
@@ -772,12 +776,14 @@ mod tests {
 			&maximum_weight,
 			all_weight.clone(),
 			&mandatory1,
+			0
 		));
 		assert_err!(
 			calculate_consumed_weight::<<Test as Config>::RuntimeCall>(
 				&maximum_weight,
 				all_weight,
 				&mandatory2,
+				0
 			),
 			InvalidTransaction::ExhaustsResources
 		);
