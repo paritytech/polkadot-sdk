@@ -1,5 +1,5 @@
 name: 'install gh'
-description: 'Install the gh cli in a debian based distro.'
+description: 'Install the gh cli in a debian based distro and switches to the PR branch.'
 inputs:
   pr-number:
     description: "Number of the PR"
@@ -9,7 +9,7 @@ inputs:
     required: true
 outputs:
   branch:
-    description: 'Branch name'
+    description: 'Branch name for the PR'
     value: ${{ steps.branch.outputs.branch }}
 runs:
   using: "composite"
