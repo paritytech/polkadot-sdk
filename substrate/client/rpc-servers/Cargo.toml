@@ -24,7 +24,7 @@ http = "1.1"
 hyper = "1.3"
 hyper-util = { version = "0.1", features = ["tokio", "service", "tokio", "server-auto"] }
 ip_network = "0.4.1"
-jsonrpsee = { version = "0.23", features = ["server"] }
+jsonrpsee = { version = "0.23.1", features = ["server"] }
 log = { workspace = true, default-features = true }
 prometheus-endpoint = { package = "substrate-prometheus-endpoint", path = "../../utils/prometheus" }
 serde_json = { workspace = true, default-features = true }
