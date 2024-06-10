@@ -25,7 +25,7 @@ finality-grandpa = { version = "0.16.2", features = ["derive-codec"] }
 futures = "0.3.30"
 futures-timer = "3.0.1"
 log = { workspace = true, default-features = true }
-parity-scale-codec = { version = "3.6.12", features = ["derive"] }
+codec = { package = "parity-scale-codec", version = "3.6.12", features = ["derive"] }
 parking_lot = "0.12.1"
 rand = "0.8.5"
 serde_json = { workspace = true, default-features = true }
