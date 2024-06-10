@@ -21,7 +21,7 @@ use crate::{self as pallet_sassafras, EpochChangeInternalTrigger, *};
 
 use frame_support::{
 	derive_impl,
-	traits::{ConstU32, OnFinalize, OnInitialize},
+	traits::{ConstU32, ConstU8, OnFinalize, OnInitialize},
 };
 use sp_consensus_sassafras::{
 	digests::SlotClaim,
@@ -58,8 +58,8 @@ where
 impl pallet_sassafras::Config for Test {
 	type EpochLength = ConstU32<EPOCH_LENGTH>;
 	type MaxAuthorities = ConstU32<MAX_AUTHORITIES>;
-	type RedundancyFactor = ConstU32<32>;
-	type AttemptsNumber = ConstU32<2>;
+	type RedundancyFactor = ConstU8<32>;
+	type AttemptsNumber = ConstU8<2>;
 	type EpochChangeTrigger = EpochChangeInternalTrigger;
 	type WeightInfo = ();
 }
@@ -133,10 +133,10 @@ pub fn make_digest(authority_idx: AuthorityIndex, slot: Slot, pair: &AuthorityPa
 }
 
 /// Make a ticket which is claimable during the next epoch.
-pub fn make_ticket_body(attempt_idx: u32, pair: &AuthorityPair) -> (TicketId, TicketBody) {
+pub fn make_ticket_body(attempt: u8, pair: &AuthorityPair) -> TicketBody {
 	let randomness = Sassafras::next_randomness();
 
-	let ticket_id_input = vrf::ticket_id_input(&randomness, attempt_idx);
+	let ticket_id_input = vrf::ticket_id_input(&randomness, attempt);
 	let ticket_id_pre_output = pair.as_inner_ref().vrf_pre_output(&ticket_id_input);
 
 	let id = vrf::make_ticket_id(&ticket_id_input, &ticket_id_pre_output);
@@ -145,25 +145,19 @@ pub fn make_ticket_body(attempt_idx: u32, pair: &AuthorityPair) -> (TicketId, Ti
 	let mut extra = [pair.public().as_slice(), &id.0[..]].concat();
 	let extra = BoundedVec::truncate_from(extra);
 
-	let body = TicketBody { attempt_idx, extra };
-
-	(id, body)
+	TicketBody { id, attempt, extra }
 }
 
-pub fn make_dummy_ticket_body(attempt_idx: u32) -> (TicketId, TicketBody) {
-	let hash = sp_crypto_hashing::blake2_256(&attempt_idx.to_le_bytes());
+pub fn make_dummy_ticket_body(attempt: u8) -> TicketBody {
+	let hash = sp_crypto_hashing::blake2_256(&[attempt]);
 	let id = TicketId(hash);
 	let hash = sp_crypto_hashing::blake2_256(&hash);
 	let extra = BoundedVec::truncate_from(hash.to_vec());
-	let body = TicketBody { attempt_idx, extra };
-	(id, body)
+	TicketBody { id, attempt, extra }
 }
 
-pub fn make_ticket_bodies(
-	number: u32,
-	pair: Option<&AuthorityPair>,
-) -> Vec<(TicketId, TicketBody)> {
-	(0..number)
+pub fn make_ticket_bodies(attempts: u8, pair: Option<&AuthorityPair>) -> Vec<TicketBody> {
+	(0..attempts)
 		.into_iter()
 		.map(|i| match pair {
 			Some(pair) => make_ticket_body(i, pair),
@@ -218,7 +212,7 @@ pub fn progress_to_block(number: u64, pair: &AuthorityPair) -> Option<Digest> {
 }
 
 fn make_ticket_with_prover(
-	attempt: u32,
+	attempt: u8,
 	pair: &AuthorityPair,
 	prover: &RingProver,
 ) -> (TicketId, TicketEnvelope) {
@@ -228,16 +222,12 @@ fn make_ticket_with_prover(
 	let randomness = Sassafras::next_randomness();
 
 	let ticket_id_input = vrf::ticket_id_input(&randomness, attempt);
-
-	let body = TicketBody { attempt_idx: attempt, extra: Default::default() };
-	let sign_data = vrf::ticket_body_sign_data(&body, ticket_id_input.clone());
-
+	let sign_data = vrf::ticket_id_sign_data(ticket_id_input.clone(), &[]);
 	let signature = pair.as_ref().ring_vrf_sign(&sign_data, &prover);
-
 	let pre_output = &signature.pre_outputs[0];
 
 	let ticket_id = vrf::make_ticket_id(&ticket_id_input, pre_output);
-	let envelope = TicketEnvelope { body, signature };
+	let envelope = TicketEnvelope { attempt, extra: Default::default(), signature };
 
 	(ticket_id, envelope)
 }
@@ -269,7 +259,7 @@ pub fn make_prover(pair: &AuthorityPair) -> RingProver {
 /// Construct `attempts` tickets envelopes for the next epoch.
 ///
 /// E.g. by passing an optional threshold
-pub fn make_tickets(attempts: u32, pair: &AuthorityPair) -> Vec<(TicketId, TicketEnvelope)> {
+pub fn make_tickets(attempts: u8, pair: &AuthorityPair) -> Vec<(TicketId, TicketEnvelope)> {
 	let prover = make_prover(pair);
 	(0..attempts)
 		.into_iter()

@@ -57,14 +57,18 @@ fn shuffle<T>(vector: &mut Vec<T>, random_seed: u64) {
 	}
 }
 
-fn dummy_tickets(count: usize) -> Vec<(TicketId, TicketBody)> {
-	(0..count)
-		.map(|i| {
-			let mut id = [0xff; 32];
-			id[..8].copy_from_slice(&i.to_be_bytes()[..]);
-			(TicketId(id), TicketBody { attempt_idx: i as u32, extra: Default::default() })
-		})
-		.collect()
+// fn dummy_tickets(count: usize) -> Vec<TicketBody> {
+// 	(0..count)
+// 		.map(|i| {
+// 			let mut id = [0xff; 32];
+// 			id[..8].copy_from_slice(&i.to_be_bytes()[..]);
+// 			(TicketId(id), TicketBody { attempt_idx: i as u32, extra: Default::default() })
+// 		})
+// 		.collect()
+// }
+
+fn dummy_tickets(count: u8) -> Vec<TicketBody> {
+	make_ticket_bodies(count, None)
 }
 
 #[test]
@@ -78,12 +82,10 @@ fn assumptions_check() {
 		// Check that entries are stored sorted (bigger first)
 		tickets
 			.iter()
-			.for_each(|t| TicketsAccumulator::<Test>::insert(TicketKey::from(t.0), &t.1));
+			.for_each(|t| TicketsAccumulator::<Test>::insert(TicketKey::from(t.id), t));
 		assert_eq!(TicketsAccumulator::<Test>::count(), 100);
-		tickets.sort_unstable_by(|a, b| b.0.cmp(&a.0));
-		let accumulator: Vec<_> = TicketsAccumulator::<Test>::iter()
-			.map(|(k, b)| (TicketId::from(k), b))
-			.collect();
+		tickets.sort_unstable_by_key(|t| TicketKey::from(t.id));
+		let accumulator: Vec<_> = TicketsAccumulator::<Test>::iter_values().collect();
 		assert_eq!(tickets, accumulator);
 
 		// Check accumulator clear
@@ -100,67 +102,53 @@ fn deposit_tickets_works() {
 	new_test_ext(1).execute_with(|| {
 		// Try to append an unsorted chunk
 		let mut candidates = tickets[..5].to_vec();
-		let err = Sassafras::deposit_tickets(&candidates).unwrap_err();
+		let err = Sassafras::deposit_tickets(candidates).unwrap_err();
 		assert!(matches!(err, Error::TicketBadOrder));
 		let _ = TicketsAccumulator::<Test>::clear(u32::MAX, None);
 
 		// Correctly append the first sorted chunk
 		let mut candidates = tickets[..5].to_vec();
-		candidates.sort_unstable_by_key(|a| a.0);
-		Sassafras::deposit_tickets(&candidates).unwrap();
+		candidates.sort_unstable();
+		Sassafras::deposit_tickets(candidates).unwrap();
 		assert_eq!(TicketsAccumulator::<Test>::count(), 5);
 		// Note: internally the tickets are stored in reverse order (bigger first)
-		let stored: Vec<_> = TicketsAccumulator::<Test>::iter()
-			.map(|(k, b)| (TicketId::from(k), b))
-			.collect();
+		let stored: Vec<_> = TicketsAccumulator::<Test>::iter_values().collect();
 		let mut expected = tickets[..5].to_vec();
-		expected.sort_unstable_by(|a, b| b.0.cmp(&a.0));
+		expected.sort_unstable_by_key(|t| TicketKey::from(t.id));
 		assert_eq!(expected, stored);
-		TicketsAccumulator::<Test>::iter().for_each(|(key, body)| {
-			println!("{:?}, {:?}", TicketId::from(key), body);
-		});
 
 		// Try to append a chunk with a ticket already pushed
 		let mut candidates = tickets[4..10].to_vec();
-		candidates.sort_unstable_by_key(|a| a.0);
-		let err = Sassafras::deposit_tickets(&candidates).unwrap_err();
+		candidates.sort_unstable();
+		let err = Sassafras::deposit_tickets(candidates).unwrap_err();
 		assert!(matches!(err, Error::TicketDuplicate));
 		// Restore last correct state
 		let _ = TicketsAccumulator::<Test>::clear(u32::MAX, None);
 		let mut candidates = tickets[..5].to_vec();
-		candidates.sort_unstable_by_key(|a| a.0);
-		Sassafras::deposit_tickets(&candidates).unwrap();
-
-		println!("-------------");
+		candidates.sort_unstable();
+		Sassafras::deposit_tickets(candidates).unwrap();
 
 		// Correctly push the second sorted chunk
 		let mut candidates = tickets[5..10].to_vec();
-		candidates.sort_unstable_by_key(|a| a.0);
-		Sassafras::deposit_tickets(&candidates).unwrap();
+		candidates.sort_unstable();
+		Sassafras::deposit_tickets(candidates).unwrap();
 		assert_eq!(TicketsAccumulator::<Test>::count(), 10);
 		// Note: internally the tickets are stored in reverse order (bigger first)
-		let mut stored: Vec<_> = TicketsAccumulator::<Test>::iter()
-			.map(|(k, b)| (TicketId::from(k), b))
-			.collect();
+		let mut stored: Vec<_> = TicketsAccumulator::<Test>::iter_values().collect();
 		let mut expected = tickets[..10].to_vec();
-		expected.sort_unstable_by(|a, b| b.0.cmp(&a.0));
+		expected.sort_unstable_by_key(|t| TicketKey::from(t.id));
 		assert_eq!(expected, stored);
-		TicketsAccumulator::<Test>::iter().for_each(|(key, body)| {
-			println!("{:?}, {:?}", TicketId::from(key), body);
-		});
-
-		println!("-------------");
 
 		// Now the buffer is full, pick only the tickets that will eventually fit.
 		let mut candidates = tickets[10..].to_vec();
-		candidates.sort_unstable_by_key(|a| a.0);
+		candidates.sort_unstable();
 		let mut eligible = Vec::new();
 		for candidate in candidates {
 			if stored.is_empty() {
 				break
 			}
 			let bigger = stored.remove(0);
-			if bigger.0 <= candidate.0 {
+			if bigger.id <= candidate.id {
 				break
 			}
 			eligible.push(candidate);
@@ -168,17 +156,14 @@ fn deposit_tickets_works() {
 		candidates = eligible;
 
 		// Correctly push the last candidates chunk
-		Sassafras::deposit_tickets(&candidates).unwrap();
+		Sassafras::deposit_tickets(candidates).unwrap();
+
 		assert_eq!(TicketsAccumulator::<Test>::count(), 10);
 		// Note: internally the tickets are stored in reverse order (bigger first)
-		let mut stored: Vec<_> = TicketsAccumulator::<Test>::iter()
-			.map(|(k, b)| (TicketId::from(k), b))
-			.collect();
-		tickets.sort_unstable_by(|a, b| b.0.cmp(&a.0));
+		let mut stored: Vec<_> = TicketsAccumulator::<Test>::iter_values().collect();
+		tickets.sort_unstable_by_key(|t| TicketKey::from(t.id));
+
 		assert_eq!(tickets[5..], stored);
-		TicketsAccumulator::<Test>::iter().for_each(|(key, body)| {
-			println!("{:?}, {:?}", TicketId::from(key), body);
-		});
 	});
 }
 
@@ -202,7 +187,7 @@ fn post_genesis_randomness_initialization() {
 		prefix_eq!(randomness[2], h2b("3a4c0005"));
 		prefix_eq!(randomness[3], h2b("0dd43c54"));
 
-		let (id1, _) = make_ticket_body(0, pair);
+		let ticket1 = make_ticket_body(0, pair);
 
 		// Reset what is relevant
 		RandomnessBuf::<Test>::set(genesis_randomness);
@@ -217,10 +202,10 @@ fn post_genesis_randomness_initialization() {
 		prefix_eq!(randomness[2], h2b("632ac0d9"));
 		prefix_eq!(randomness[3], h2b("575088c3"));
 
-		let (id2, _) = make_ticket_body(0, pair);
+		let ticket2 = make_ticket_body(0, pair);
 
 		// Ticket ids should be different when next epoch randomness is different
-		assert_ne!(id1, id2);
+		assert_ne!(ticket1.id, ticket2.id);
 	});
 }
 
@@ -256,7 +241,7 @@ fn on_first_block() {
 
 		common_assertions(false);
 		let post_fini_randomness = Sassafras::randomness_buf();
-		prefix_eq!(post_fini_randomness[0], h2b("3e5bd6d3"));
+		prefix_eq!(post_fini_randomness[0], h2b("334d1a4c"));
 		prefix_eq!(post_fini_randomness[1], post_init_randomness[1]);
 		prefix_eq!(post_fini_randomness[2], post_init_randomness[2]);
 		prefix_eq!(post_fini_randomness[3], post_init_randomness[3]);
@@ -305,7 +290,7 @@ fn on_normal_block() {
 
 		common_assertions(true);
 		let post_init_randomness = Sassafras::randomness_buf();
-		prefix_eq!(post_init_randomness[0], h2b("3e5bd6d3"));
+		prefix_eq!(post_init_randomness[0], h2b("334d1a4c"));
 		prefix_eq!(post_init_randomness[1], h2b("4e8c71d2"));
 		prefix_eq!(post_init_randomness[2], h2b("3a4c0005"));
 		prefix_eq!(post_init_randomness[3], h2b("0dd43c54"));
@@ -316,7 +301,7 @@ fn on_normal_block() {
 
 		common_assertions(false);
 		let post_fini_randomness = Sassafras::randomness_buf();
-		prefix_eq!(post_fini_randomness[0], h2b("ecff3e90"));
+		prefix_eq!(post_fini_randomness[0], h2b("277138ab"));
 		prefix_eq!(post_fini_randomness[1], post_init_randomness[1]);
 		prefix_eq!(post_fini_randomness[2], post_init_randomness[2]);
 		prefix_eq!(post_fini_randomness[3], post_init_randomness[3]);
@@ -384,8 +369,8 @@ fn slot_ticket_id_outside_in_fetch() {
 	let tickets = dummy_tickets(curr_count + next_count);
 
 	// Current epoch tickets
-	let curr_tickets = tickets[..curr_count].to_vec();
-	let next_tickets = tickets[curr_count..].to_vec();
+	let curr_tickets = tickets[..curr_count as usize].to_vec();
+	let next_tickets = tickets[curr_count as usize..].to_vec();
 
 	new_test_ext(0).execute_with(|| {
 		curr_tickets
@@ -498,8 +483,8 @@ fn tickets_accumulator_works() {
 	let e1_count = 6;
 	let e2_count = 10;
 	let tickets = dummy_tickets(e1_count + e2_count);
-	let e1_tickets = tickets[..e1_count].to_vec();
-	let e2_tickets = tickets[e1_count..].to_vec();
+	let e1_tickets = tickets[..e1_count as usize].to_vec();
+	let e2_tickets = tickets[e1_count as usize..].to_vec();
 
 	let (pairs, mut ext) = new_test_ext_with_pairs(1, false);
 
@@ -515,7 +500,7 @@ fn tickets_accumulator_works() {
 		// Append some tickets to the accumulator
 		e1_tickets
 			.iter()
-			.for_each(|t| TicketsAccumulator::<Test>::insert(TicketKey::from(t.0), &t.1));
+			.for_each(|t| TicketsAccumulator::<Test>::insert(TicketKey::from(t.id), t));
 
 		// Progress to epoch's last block
 		let end_block = start_block + epoch_length - 2;
@@ -549,7 +534,7 @@ fn tickets_accumulator_works() {
 		// Append some tickets to the accumulator
 		e2_tickets
 			.iter()
-			.for_each(|t| TicketsAccumulator::<Test>::insert(TicketKey::from(t.0), &t.1));
+			.for_each(|t| TicketsAccumulator::<Test>::insert(TicketKey::from(t.id), t));
 
 		// Progress to epoch's last block
 		let end_block = end_block + epoch_length;
@@ -588,56 +573,43 @@ fn incremental_accumulator_drain() {
 	new_test_ext(0).execute_with(|| {
 		tickets
 			.iter()
-			.for_each(|t| TicketsAccumulator::<Test>::insert(TicketKey::from(t.0), &t.1));
+			.for_each(|t| TicketsAccumulator::<Test>::insert(TicketKey::from(t.id), t));
 
-		let accumulator: Vec<_> = TicketsAccumulator::<Test>::iter()
-			.map(|(k, b)| (TicketId::from(k), b))
-			.collect();
+		let accumulator: Vec<_> = TicketsAccumulator::<Test>::iter_values().collect();
 		// Assess accumulator expected order (bigger id first)
-		assert!(accumulator.windows(2).all(|chunk| chunk[0].0 > chunk[1].0));
+		assert!(accumulator.windows(2).all(|chunk| chunk[0].id > chunk[1].id));
+
+		let mut onchain_expected = accumulator.clone();
+		onchain_expected.sort_unstable();
 
 		Sassafras::consume_tickets_accumulator(5, 0);
 		let tickets_count = TicketsCount::<Test>::get();
 		assert_eq!(tickets_count[0], 5);
 		assert_eq!(tickets_count[1], 0);
-		tickets.iter().enumerate().skip(5).for_each(|(i, (id, _))| {
-			let (id2, _) = Tickets::<Test>::get((0, i as u32)).unwrap();
-			assert_eq!(id, &id2);
+
+		accumulator.iter().rev().enumerate().skip(5).for_each(|(i, t)| {
+			let t2 = Tickets::<Test>::get((0, i as u32)).unwrap();
+			assert_eq!(t.id, t2.id);
 		});
 
 		Sassafras::consume_tickets_accumulator(3, 0);
 		let tickets_count = TicketsCount::<Test>::get();
 		assert_eq!(tickets_count[0], 8);
 		assert_eq!(tickets_count[1], 0);
-		tickets.iter().enumerate().skip(2).for_each(|(i, (id, _))| {
-			let (id2, _) = Tickets::<Test>::get((0, i as u32)).unwrap();
-			assert_eq!(id, &id2);
+		accumulator.iter().rev().enumerate().skip(2).for_each(|(i, t)| {
+			let t2 = Tickets::<Test>::get((0, i as u32)).unwrap();
+			assert_eq!(t.id, t2.id);
 		});
 
 		Sassafras::consume_tickets_accumulator(5, 0);
 		let tickets_count = TicketsCount::<Test>::get();
 		assert_eq!(tickets_count[0], 10);
 		assert_eq!(tickets_count[1], 0);
-		tickets.iter().enumerate().for_each(|(i, (id, _))| {
-			let (id2, _) = Tickets::<Test>::get((0, i as u32)).unwrap();
-			assert_eq!(id, &id2);
+		accumulator.iter().rev().enumerate().for_each(|(i, t)| {
+			let t2 = Tickets::<Test>::get((0, i as u32)).unwrap();
+			assert_eq!(t.id, t2.id);
 		});
 	});
-}
-
-fn data_read<T: Decode>(filename: &str) -> T {
-	use std::{fs::File, io::Read};
-	let mut file = File::open(filename).unwrap();
-	let mut buf = Vec::new();
-	file.read_to_end(&mut buf).unwrap();
-	T::decode(&mut &buf[..]).unwrap()
-}
-
-fn data_write<T: Encode>(filename: &str, data: T) {
-	use std::{fs::File, io::Write};
-	let mut file = File::create(filename).unwrap();
-	let buf = data.encode();
-	file.write_all(&buf).unwrap();
 }
 
 #[test]
@@ -680,7 +652,7 @@ fn submit_tickets_with_ring_proof_check_works() {
 
 		// Submit an invalid candidate
 		let mut chunk = chunks[2].clone();
-		chunk[0].body.attempt_idx += 1;
+		chunk[0].attempt += 1;
 		let e = Sassafras::submit_tickets(RuntimeOrigin::none(), chunk).unwrap_err();
 		assert_eq!(e, DispatchError::from(Error::<Test>::TicketBadProof));
 		assert_eq!(TicketsAccumulator::<Test>::count(), 0);
@@ -710,13 +682,22 @@ fn submit_tickets_with_ring_proof_check_works() {
 		// Submit the smaller candidates chunks. This is accepted (4 old tickets removed).
 		Sassafras::submit_tickets(RuntimeOrigin::none(), chunks[0].clone()).unwrap();
 		assert_eq!(TicketsAccumulator::<Test>::count(), 10);
-
-		// NOTE (implementation detail): the accumulator internally saves bigger tickets first.
-		let tickets: Vec<_> = TicketsAccumulator::<Test>::iter_values().collect();
-		let expected: Vec<_> =
-			candidates.into_iter().take(10).rev().map(|candidate| candidate.body).collect();
-		assert_eq!(tickets, expected)
 	})
+}
+
+fn data_read<T: Decode>(filename: &str) -> T {
+	use std::{fs::File, io::Read};
+	let mut file = File::open(filename).unwrap();
+	let mut buf = Vec::new();
+	file.read_to_end(&mut buf).unwrap();
+	T::decode(&mut &buf[..]).unwrap()
+}
+
+fn data_write<T: Encode>(filename: &str, data: T) {
+	use std::{fs::File, io::Write};
+	let mut file = File::create(filename).unwrap();
+	let buf = data.encode();
+	file.write_all(&buf).unwrap();
 }
 
 #[test]

@@ -60,10 +60,24 @@ impl From<TicketId> for U256 {
 /// Ticket data persisted on-chain.
 #[derive(Debug, Clone, PartialEq, Eq, Encode, Decode, MaxEncodedLen, TypeInfo)]
 pub struct TicketBody {
+	/// Ticket identifier.
+	pub id: TicketId,
 	/// Attempt index.
-	pub attempt_idx: u32,
-	/// User opaque data.
+	pub attempt: u8,
+	/// User opaque extra data.
 	pub extra: BoundedVec<u8, ConstU32<TICKET_EXTRA_MAX_LEN>>,
+}
+
+impl Ord for TicketBody {
+	fn cmp(&self, other: &Self) -> core::cmp::Ordering {
+		self.id.cmp(&other.id)
+	}
+}
+
+impl PartialOrd for TicketBody {
+	fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {
+		Some(self.cmp(other))
+	}
 }
 
 /// Ticket ring vrf signature.
@@ -72,8 +86,10 @@ pub type TicketSignature = RingVrfSignature;
 /// Ticket envelope used on during submission.
 #[derive(Debug, Clone, PartialEq, Eq, Encode, Decode, MaxEncodedLen, TypeInfo)]
 pub struct TicketEnvelope {
-	/// Ticket body.
-	pub body: TicketBody,
+	/// Attempt index.
+	pub attempt: u8,
+	/// User opaque extra data.
+	pub extra: BoundedVec<u8, ConstU32<TICKET_EXTRA_MAX_LEN>>,
 	/// Ring signature.
 	pub signature: TicketSignature,
 }
@@ -96,12 +112,7 @@ pub struct TicketEnvelope {
 /// For details about the formula and implications refer to
 /// [*probabilities an parameters*](https://research.web3.foundation/Polkadot/protocols/block-production/SASSAFRAS#probabilities-and-parameters)
 /// paragraph of the w3f introduction to the protocol.
-pub fn ticket_id_threshold(
-	redundancy: u32,
-	slots: u32,
-	attempts: u32,
-	validators: u32,
-) -> TicketId {
+pub fn ticket_id_threshold(redundancy: u8, slots: u32, attempts: u8, validators: u32) -> TicketId {
 	let den = attempts as u64 * validators as u64;
 	let num = redundancy as u64 * slots as u64;
 	U256::MAX

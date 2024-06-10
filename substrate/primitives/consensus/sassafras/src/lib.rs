@@ -107,7 +107,7 @@ pub struct Configuration {
 	///
 	/// Expected ratio between epoch's slots and the cumulative number of tickets which can
 	/// be submitted by the set of epoch validators.
-	pub redundancy_factor: u32,
+	pub redundancy_factor: u8,
 	/// Tickets max attempts for each validator.
 	///
 	/// Influences the anonymity of block producers. As all published tickets have a public
@@ -116,7 +116,7 @@ pub struct Configuration {
 	/// we approach the epoch tail.
 	///
 	/// This anonymity loss already becomes small when `attempts_number = 64` or `128`.
-	pub attempts_number: u32,
+	pub attempts_number: u8,
 }
 
 /// Sassafras epoch information

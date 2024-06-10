@@ -17,10 +17,7 @@
 
 //! Utilities related to VRF input, pre-output and signatures.
 
-use crate::{Randomness, TicketBody, TicketId};
-#[cfg(not(feature = "std"))]
-use alloc::vec::Vec;
-use scale_codec::Encode;
+use crate::{Randomness, TicketId};
 use sp_consensus_slots::Slot;
 
 pub use sp_core::bandersnatch::{
@@ -31,26 +28,34 @@ pub use sp_core::bandersnatch::{
 /// Ring VRF domain size for Sassafras consensus.
 pub const RING_VRF_DOMAIN_SIZE: u32 = 2048;
 
+const TICKET_SEAL_CONTEXT: &[u8] = b"sassafras_ticket_seal";
+// const FALLBACK_SEAL_CONTEXT: &[u8] = b"sassafras_fallback_seal";
+const BLOCK_ENTROPY_CONTEXT: &[u8] = b"sassafras_entropy";
+
 /// Bandersnatch VRF [`RingContext`] specialization for Sassafras using [`RING_VRF_DOMAIN_SIZE`].
 pub type RingContext = sp_core::bandersnatch::ring_vrf::RingContext<RING_VRF_DOMAIN_SIZE>;
 
-fn vrf_input_from_data(
-	domain: &[u8],
-	data: impl IntoIterator<Item = impl AsRef<[u8]>>,
-) -> VrfInput {
-	let buf = data.into_iter().fold(Vec::new(), |mut buf, item| {
-		let bytes = item.as_ref();
-		buf.extend_from_slice(bytes);
-		let len = u8::try_from(bytes.len()).expect("private function with well known inputs; qed");
-		buf.push(len);
-		buf
-	});
-	VrfInput::new(domain, buf)
+/// VRF input to generate the ticket id.
+pub fn ticket_id_input(randomness: &Randomness, attempt: u8) -> VrfInput {
+	VrfInput::new(b"sassafras", [TICKET_SEAL_CONTEXT, randomness.as_slice(), &[attempt]].concat())
+}
+
+/// Data to be signed via ring-vrf.
+pub fn ticket_id_sign_data(ticket_id_input: VrfInput, extra_data: &[u8]) -> VrfSignData {
+	VrfSignData::new_unchecked(
+		b"sassafras-ticket-body-transcript",
+		Some(extra_data),
+		Some(ticket_id_input),
+	)
 }
 
 /// VRF input to produce randomness.
 pub fn block_randomness_input(randomness: &Randomness, slot: Slot) -> VrfInput {
-	vrf_input_from_data(b"sassafras-randomness", [randomness.as_slice(), &slot.to_le_bytes()])
+	// TODO: @davxy: implement as JAM
+	VrfInput::new(
+		b"sassafras",
+		[BLOCK_ENTROPY_CONTEXT, randomness.as_slice(), &slot.to_le_bytes()].concat(),
+	)
 }
 
 /// Signing-data to claim slot ownership during block production.
@@ -60,20 +65,6 @@ pub fn block_randomness_sign_data(randomness: &Randomness, slot: Slot) -> VrfSig
 		b"sassafras-randomness-transcript",
 		Option::<&[u8]>::None,
 		Some(input),
-	)
-}
-
-/// VRF input to generate the ticket id.
-pub fn ticket_id_input(randomness: &Randomness, attempt: u32) -> VrfInput {
-	vrf_input_from_data(b"sassafras-ticket-v1.0", [randomness.as_slice(), &attempt.to_le_bytes()])
-}
-
-/// Data to be signed via ring-vrf.
-pub fn ticket_body_sign_data(ticket_body: &TicketBody, ticket_id_input: VrfInput) -> VrfSignData {
-	VrfSignData::new_unchecked(
-		b"sassafras-ticket-body-transcript",
-		Some(ticket_body.encode().as_slice()),
-		Some(ticket_id_input),
 	)
 }
 

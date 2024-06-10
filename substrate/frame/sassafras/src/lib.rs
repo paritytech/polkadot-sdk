@@ -43,7 +43,7 @@
 //! validators for the target epoch".
 
 #![allow(unused)]
-#![deny(warnings)]
+// #![deny(warnings)]
 #![warn(unused_must_use, unsafe_code, unused_variables, unused_imports, missing_docs)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -132,18 +132,14 @@ pub struct EphemeralData {
 /// This strategy comes handy when we quickly need to check if a new ticket chunk has been
 /// completely absorbed by the accumulator, when this is already full and without loading
 /// the whole sequence in memory.
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Encode, Decode, MaxEncodedLen, TypeInfo)]
+#[derive(
+	Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Encode, Decode, MaxEncodedLen, TypeInfo,
+)]
 pub struct TicketKey([u8; 32]);
 
 impl From<TicketId> for TicketKey {
 	fn from(mut value: TicketId) -> Self {
 		TicketKey(value.0.map(|b| !b))
-	}
-}
-
-impl From<TicketKey> for TicketId {
-	fn from(mut value: TicketKey) -> Self {
-		TicketId(value.0.map(|b| !b))
 	}
 }
 
@@ -193,11 +189,11 @@ pub mod pallet {
 
 		/// Redundancy factor
 		#[pallet::constant]
-		type RedundancyFactor: Get<u32>;
+		type RedundancyFactor: Get<u8>;
 
 		/// Max attempts number
 		#[pallet::constant]
-		type AttemptsNumber: Get<u32>;
+		type AttemptsNumber: Get<u8>;
 
 		/// Epoch change trigger.
 		///
@@ -273,7 +269,7 @@ pub mod pallet {
 	/// of [`TicketsCount`].
 	#[pallet::storage]
 	#[pallet::getter(fn tickets)]
-	pub type Tickets<T> = StorageMap<_, Identity, (u8, u32), (TicketId, TicketBody)>;
+	pub type Tickets<T> = StorageMap<_, Identity, (u8, u32), TicketBody>;
 
 	/// Parameters used to construct the epoch's ring verifier.
 	///
@@ -396,13 +392,13 @@ pub mod pallet {
 		/// The number of tickets allowed to be submitted in one call is equal to the epoch length.
 		#[pallet::call_index(0)]
 		#[pallet::weight((
-			T::WeightInfo::submit_tickets(tickets.len() as u32),
+			T::WeightInfo::submit_tickets(envelopes.len() as u32),
 			DispatchClass::Mandatory
 		))]
-		pub fn submit_tickets(origin: OriginFor<T>, tickets: TicketsVec) -> DispatchResult {
+		pub fn submit_tickets(origin: OriginFor<T>, envelopes: TicketsVec) -> DispatchResult {
 			ensure_none(origin)?;
 
-			debug!(target: LOG_TARGET, "Received {} tickets", tickets.len());
+			debug!(target: LOG_TARGET, "Received {} tickets", envelopes.len());
 
 			let epoch_length = T::EpochLength::get();
 			let current_slot_idx = Self::current_slot_index();
@@ -429,12 +425,12 @@ pub mod pallet {
 			);
 
 			let mut candidates = Vec::new();
-			for ticket in tickets {
-				let Some(ticket_id_pre_output) = ticket.signature.pre_outputs.get(0) else {
+			for envelope in envelopes {
+				let Some(ticket_id_pre_output) = envelope.signature.pre_outputs.get(0) else {
 					debug!(target: LOG_TARGET, "Missing ticket VRF pre-output from ring signature");
 					return Err(Error::<T>::TicketInvalid.into())
 				};
-				let ticket_id_input = vrf::ticket_id_input(&randomness, ticket.body.attempt_idx);
+				let ticket_id_input = vrf::ticket_id_input(&randomness, envelope.attempt);
 
 				// Check threshold constraint
 				let ticket_id = vrf::make_ticket_id(&ticket_id_input, &ticket_id_pre_output);
@@ -446,16 +442,20 @@ pub mod pallet {
 				}
 
 				// Check ring signature
-				let sign_data = vrf::ticket_body_sign_data(&ticket.body, ticket_id_input);
-				if !ticket.signature.ring_vrf_verify(&sign_data, &verifier) {
+				let sign_data = vrf::ticket_id_sign_data(ticket_id_input, &envelope.extra);
+				if !envelope.signature.ring_vrf_verify(&sign_data, &verifier) {
 					debug!(target: LOG_TARGET, "Proof verification failure for ticket ({:?})", ticket_id);
 					return Err(Error::<T>::TicketBadProof.into())
 				}
 
-				candidates.push((ticket_id, ticket.body));
+				candidates.push(TicketBody {
+					id: ticket_id,
+					attempt: envelope.attempt,
+					extra: envelope.extra,
+				});
 			}
 
-			Self::deposit_tickets(&candidates)?;
+			Self::deposit_tickets(candidates)?;
 
 			Ok(())
 		}
@@ -468,13 +468,13 @@ pub mod pallet {
 		const INHERENT_IDENTIFIER: InherentIdentifier = INHERENT_IDENTIFIER;
 
 		fn create_inherent(data: &InherentData) -> Option<Self::Call> {
-			let tickets = data
+			let envelopes = data
 				.get_data::<InherentType>(&INHERENT_IDENTIFIER)
 				.expect("Sassafras inherent data not correctly encoded")
 				.expect("Sassafras inherent data must be provided");
 
-			let tickets = BoundedVec::truncate_from(tickets);
-			Some(Call::submit_tickets { tickets })
+			let envelopes = BoundedVec::truncate_from(envelopes);
+			Some(Call::submit_tickets { envelopes })
 		}
 
 		fn is_inherent(call: &Self::Call) -> bool {
@@ -569,15 +569,15 @@ impl<T: Config> Pallet<T> {
 		TicketsCount::<T>::set(tickets_count);
 	}
 
-	pub(crate) fn deposit_tickets(tickets: &[(TicketId, TicketBody)]) -> Result<(), Error<T>> {
+	pub(crate) fn deposit_tickets(tickets: Vec<TicketBody>) -> Result<(), Error<T>> {
 		let prev_count = TicketsAccumulator::<T>::count();
 		let mut prev_id = None;
-		for (id, body) in tickets.iter() {
-			if prev_id.map(|prev| id <= prev).unwrap_or_default() {
+		for ticket in &tickets {
+			if prev_id.map(|prev| ticket.id <= prev).unwrap_or_default() {
 				return Err(Error::TicketBadOrder)
 			}
-			TicketsAccumulator::<T>::insert(TicketKey::from(*id), body);
-			prev_id = Some(id);
+			prev_id = Some(ticket.id);
+			TicketsAccumulator::<T>::insert(TicketKey::from(ticket.id), ticket);
 		}
 		let count = TicketsAccumulator::<T>::count();
 		if count != prev_count + tickets.len() as u32 {
@@ -585,10 +585,11 @@ impl<T: Config> Pallet<T> {
 		}
 		let diff = count.saturating_sub(T::EpochLength::get());
 		if diff > 0 {
-			let keys: Vec<_> = TicketsAccumulator::<T>::iter_keys().take(diff as usize).collect();
-			for key in keys {
-				let ticket_id = TicketId::from(key);
-				if tickets.binary_search_by_key(&&ticket_id, |(id, _)| id).is_ok() {
+			let dropped_entries: Vec<_> =
+				TicketsAccumulator::<T>::iter().take(diff as usize).collect();
+			// Assess that no new ticket has been dropped
+			for (key, ticket) in dropped_entries {
+				if tickets.binary_search_by_key(&ticket.id, |t| t.id).is_ok() {
 					return Err(Error::TicketInvalid)
 				}
 				TicketsAccumulator::<T>::remove(key);
@@ -601,9 +602,9 @@ impl<T: Config> Pallet<T> {
 		let mut tickets_count = TicketsCount::<T>::get();
 		let mut accumulator_count = TicketsAccumulator::<T>::count();
 		let mut idx = accumulator_count;
-		for (key, body) in TicketsAccumulator::<T>::drain().take(max_items) {
+		for (_, ticket) in TicketsAccumulator::<T>::drain().take(max_items) {
 			idx -= 1;
-			Tickets::<T>::insert((epoch_tag, idx), (TicketId::from(key), body));
+			Tickets::<T>::insert((epoch_tag, idx), ticket);
 		}
 		tickets_count[epoch_tag as usize] += (accumulator_count - idx);
 		TicketsCount::<T>::set(tickets_count);
@@ -706,7 +707,7 @@ impl<T: Config> Pallet<T> {
 	/// relative index i > k) or if the slot falls beyond the next epoch.
 	///
 	/// Before importing the first block this returns `None`.
-	pub fn slot_ticket(slot: Slot) -> Option<(TicketId, TicketBody)> {
+	pub fn slot_ticket(slot: Slot) -> Option<TicketBody> {
 		if frame_system::Pallet::<T>::block_number().is_zero() {
 			return None
 		}
