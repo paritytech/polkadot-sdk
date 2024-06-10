@@ -14,10 +14,11 @@ polkadot-overseer = { workspace = true, default-features = true }
 
 cumulus-primitives-core = { workspace = true, default-features = true }
 
-sp-api = { workspace = true, default-features = true }
-sp-blockchain = { workspace = true, default-features = true }
-sp-state-machine = { workspace = true, default-features = true }
-sc-client-api = { workspace = true, default-features = true }
+sp-api = { path = "../../../substrate/primitives/api" }
+sp-blockchain = { path = "../../../substrate/primitives/blockchain" }
+sp-state-machine = { path = "../../../substrate/primitives/state-machine" }
+sc-client-api = { path = "../../../substrate/client/api" }
+sp-version = { path = "../../../substrate/primitives/version", default-features = false }
 
 futures = { workspace = true }
 async-trait = { workspace = true }
