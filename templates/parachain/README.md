@@ -11,15 +11,15 @@
 
 </div>
 
-⏫ This template provides a starting point to build a [parachain](https://wiki.polkadot.network/docs/learn-parachains).
+* ⏫ This template provides a starting point to build a [parachain](https://wiki.polkadot.network/docs/learn-parachains).
 
-☁️ It is based on the
+* ☁️ It is based on the
 [Cumulus](https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/polkadot_sdk/cumulus/index.html) framework.
 
-🔧 Its runtime is configured of a single custom pallet as a starting point, and a handful of ready-made pallets
+* 🔧 Its runtime is configured of a single custom pallet as a starting point, and a handful of ready-made pallets
 such as a [Balances pallet](https://paritytech.github.io/polkadot-sdk/master/pallet_balances/index.html).
 
-👉 Learn more about parachains [here](https://wiki.polkadot.network/docs/learn-parachains)
+* 👉 Learn more about parachains [here](https://wiki.polkadot.network/docs/learn-parachains)
 
 ## Template Structure
 
@@ -31,12 +31,12 @@ A Polkadot SDK based project such as this one consists of:
 
 ## Getting Started
 
-🦀 The template is using the Rust language.
+* 🦀 The template is using the Rust language.
 
-👉 Check the
+* 👉 Check the
 [Rust installation instructions](https://www.rust-lang.org/tools/install) for your system.
 
-🛠️ Depending on your operating system and Rust version, there might be additional
+* 🛠️ Depending on your operating system and Rust version, there might be additional
 packages required to compile this template - please take note of the Rust compiler output.
 
 ### Build
@@ -89,33 +89,33 @@ Development chains:
 
 ### Connect with the Polkadot-JS Apps Front-End
 
-🌐 You can interact with your local node using the
+* 🌐 You can interact with your local node using the
 hosted version of the Polkadot/Substrate Portal:
 [relay chain](https://polkadot.js.org/apps/#/explorer?rpc=ws://localhost:9944)
 and [parachain](https://polkadot.js.org/apps/#/explorer?rpc=ws://localhost:9988).
 
-🪐 A hosted version is also
+* 🪐 A hosted version is also
 available on [IPFS](https://dotapps.io/).
 
-🧑‍🔧 You can also find the source code and instructions for hosting your own instance in the
+* 🧑‍🔧 You can also find the source code and instructions for hosting your own instance in the
 [`polkadot-js/apps`](https://github.com/polkadot-js/apps) repository.
 
 ## Contributing
 
-🔄 This template is automatically updated after releases in the main [Polkadot SDK monorepo](https://github.com/paritytech/polkadot-sdk).
+* 🔄 This template is automatically updated after releases in the main [Polkadot SDK monorepo](https://github.com/paritytech/polkadot-sdk).
 
-➡️ Any pull requests should be directed to this [source](https://github.com/paritytech/polkadot-sdk/tree/master/templates/parachain).
+* ➡️ Any pull requests should be directed to this [source](https://github.com/paritytech/polkadot-sdk/tree/master/templates/parachain).
 
-😇 Please refer to the monorepo's
+* 😇 Please refer to the monorepo's
 [contribution guidelines](https://github.com/paritytech/polkadot-sdk/blob/master/docs/contributor/CONTRIBUTING.md) and
 [Code of Conduct](https://github.com/paritytech/polkadot-sdk/blob/master/docs/contributor/CODE_OF_CONDUCT.md).
 
 ## Getting Help
 
-🧑‍🏫 To learn about Polkadot in general, [Polkadot.network](https://polkadot.network/) website is a good starting point.
+* 🧑‍🏫 To learn about Polkadot in general, [Polkadot.network](https://polkadot.network/) website is a good starting point.
 
-🧑‍🔧 For technical introduction, [here](https://github.com/paritytech/polkadot-sdk#-documentation) are
+* 🧑‍🔧 For technical introduction, [here](https://github.com/paritytech/polkadot-sdk#-documentation) are
 the Polkadot SDK documentation resources.
 
-👥 Additionally, there are [GitHub issues](https://github.com/paritytech/polkadot-sdk/issues) and
+* 👥 Additionally, there are [GitHub issues](https://github.com/paritytech/polkadot-sdk/issues) and
 [Substrate StackExchange](https://substrate.stackexchange.com/).
