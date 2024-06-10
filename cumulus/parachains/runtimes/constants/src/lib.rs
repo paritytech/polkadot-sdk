@@ -26,27 +26,11 @@ pub mod westend;
 pub mod default_configs;
 
 pub mod constants {
-	use frame_support::{
-		parameter_types,
-		weights::{constants::WEIGHT_REF_TIME_PER_NANOS, RuntimeDbWeight},
-	};
+	use frame_support::parameter_types;
 	use frame_system::limits::BlockLength;
 	use parachains_common::NORMAL_DISPATCH_RATIO;
 
 	parameter_types! {
-		/// By default, Substrate uses `RocksDB`, so this will be the weight used throughout
-		/// the runtime.
-		pub const RocksDbWeight: RuntimeDbWeight = RuntimeDbWeight {
-			read: 25_000 * WEIGHT_REF_TIME_PER_NANOS,
-			write: 100_000 * WEIGHT_REF_TIME_PER_NANOS,
-		};
-		/// `ParityDB` can be enabled with a feature flag, but is still experimental. These weights
-		/// are available for brave runtime engineers who may want to try this out as default.
-		pub const ParityDbWeight: RuntimeDbWeight = RuntimeDbWeight {
-			read: 8_000 * WEIGHT_REF_TIME_PER_NANOS,
-			write: 50_000 * WEIGHT_REF_TIME_PER_NANOS,
-		};
-
 		/// The block length of a parachain runtime.
 		pub RuntimeBlockLength: BlockLength =
 			BlockLength::max_with_normal_ratio(5 * 1024 * 1024, NORMAL_DISPATCH_RATIO);
