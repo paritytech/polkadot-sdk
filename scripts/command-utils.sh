@@ -6,6 +6,8 @@ else
   export LOADED_UTILS_SH=true
 fi
 
+export ARTIFACTS_DIR="$PWD/.git/.artifacts"
+
 die() {
   if [ "${1:-}" ]; then
     >&2 echo "$1"
