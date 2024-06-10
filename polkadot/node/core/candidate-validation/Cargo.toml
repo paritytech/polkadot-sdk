@@ -27,7 +27,7 @@ polkadot-node-metrics = { workspace = true, default-features = true }
 polkadot-overseer = { workspace = true, default-features = true }
 
 [target.'cfg(not(any(target_os = "android", target_os = "unknown")))'.dependencies]
-polkadot-node-core-pvf = { path = "../pvf" }
+polkadot-node-core-pvf = { workspace = true, default-features = true }
 
 [dev-dependencies]
 sp-keyring = { workspace = true, default-features = true }
