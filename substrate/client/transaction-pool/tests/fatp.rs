@@ -2297,7 +2297,7 @@ fn import_sink_works3() {
 }
 
 #[test]
-fn fatp_stuck_transaction() {
+fn fatp_avoid_stuck_transaction() {
 	sp_tracing::try_init_simple();
 
 	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
@@ -2309,13 +2309,7 @@ fn fatp_stuck_transaction() {
 	let xt3 = uxt(Alice, 203);
 	let xt4 = uxt(Alice, 204);
 	let xt4i = uxt(Alice, 204);
-	log::info!("xt0: {:#?}", api.hash_and_length(&xt0).0);
-	log::info!("xt1: {:#?}", api.hash_and_length(&xt1).0);
-	log::info!("xt2: {:#?}", api.hash_and_length(&xt2).0);
-	log::info!("xt3: {:#?}", api.hash_and_length(&xt3).0);
-	log::info!("xt4: {:#?}", api.hash_and_length(&xt4).0);
-	log::info!("xt4i: {:#?}", api.hash_and_length(&xt4i).0);
-	let xt3i_watcher =
+	let xt4i_watcher =
 		block_on(pool.submit_and_watch(invalid_hash(), SOURCE, xt4i.clone())).unwrap();
 
 	assert_eq!(pool.mempool_len(), (0, 1));
@@ -2331,7 +2325,7 @@ fn fatp_stuck_transaction() {
 	api.set_nonce(header04.hash(), Alice.into(), 203);
 
 	let header05 = api.push_block(5, vec![], true);
-	api.set_nonce(header04.hash(), Alice.into(), 203);
+	api.set_nonce(header05.hash(), Alice.into(), 203);
 
 	let event = new_best_block_event(&pool, None, header05.hash());
 	block_on(pool.maintain(event));
@@ -2346,16 +2340,22 @@ fn fatp_stuck_transaction() {
 	let event = new_best_block_event(&pool, None, header06.hash());
 	block_on(pool.maintain(event));
 
-	// let header07 = api.push_block(7, vec![], true);
-	// api.set_nonce(header07.hash(), Alice.into(), 204);
-	// let event = new_best_block_event(&pool, None, header07.hash());
-	// block_on(pool.maintain(event));
-
 	assert_pool_status!(header06.hash(), &pool, 0, 0);
-	// let xt3i_events = futures::executor::block_on_stream(xt3_watcher).collect::<Vec<_>>();
-	// log::info!("xt0_events: {:#?}", xt3i_events);
-	// assert_eq!(xt3i_events, vec![TransactionStatus::Invalid]);
-	// assert_eq!(pool.mempool_len(), (0, 0));
+
+	// Import enough blocks to make xt4i revalidated
+	let mut prev_header = header03;
+	// 10 blocks for revalidation
+	for n in 7..=11 {
+		let header = api.push_block(n, vec![], true);
+		let event = finalized_block_event(&pool, prev_header.hash(), header.hash());
+		block_on(pool.maintain(event));
+		prev_header = header;
+	}
+
+	let xt4i_events = futures::executor::block_on_stream(xt4i_watcher).collect::<Vec<_>>();
+	log::info!("xt4i_events: {:#?}", xt4i_events);
+	assert_eq!(xt4i_events, vec![TransactionStatus::Future, TransactionStatus::Invalid]);
+	assert_eq!(pool.mempool_len(), (0, 0));
 }
 
 #[test]

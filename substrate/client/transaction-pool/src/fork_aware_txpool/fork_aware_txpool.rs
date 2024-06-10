@@ -451,6 +451,7 @@ where
 
 ////////////////////////////////////////////////////////////////////////////////
 
+#[derive(Debug)]
 pub struct TxInMemPool<Block>
 where
 	Block: BlockT,
@@ -585,7 +586,7 @@ where
 			//count ~~> 25% of block?
 			.filter(|xt| {
 				let finalized_block_number = finalized_block.number.into().as_u64();
-				xt.1.validated_at.load(atomic::Ordering::Relaxed) < finalized_block_number + 10
+				xt.1.validated_at.load(atomic::Ordering::Relaxed) + 10 < finalized_block_number
 			})
 			.take(1000);
 
