@@ -102,7 +102,7 @@ mod benchmarks {
 		(0..accumulated_tickets).for_each(|i| {
 			let mut id = TicketId([0xff; 32]);
 			id.0[..4].copy_from_slice(&i.to_be_bytes()[..]);
-			let body = TicketBody { attempt_idx: 0, extra: Default::default() };
+			let body = TicketBody { id, attempt: 0, extra: Default::default() };
 			TicketsAccumulator::<T>::insert(TicketKey::from(id), &body);
 		});
 
