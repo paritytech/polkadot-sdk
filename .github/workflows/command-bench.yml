@@ -93,7 +93,7 @@ jobs:
           "./scripts/bench.sh" "${{ inputs.benchmark }}" --runtime "${{ inputs.runtime }}" --pallet "${{ inputs.pallet }}" --target_dir "${{ inputs.target_dir }}" --subcommand "${{ inputs.subcommand }}"
       - name: Report failure
         if: ${{ failure() }}
-        run: gh pr comment ${{ inputs.pr }} --body "## Command failed ❌\n\nRun by @${{ github.actor }} for <code>${{ github.workflow }}</code> failed. See logs <a href=\"$RUN\">here</a>."
+        run: gh pr comment ${{ inputs.pr }} --body "<h2>Command failed ❌</h2> Run by @${{ github.actor }} for <code>${{ github.workflow }}</code> failed. See logs <a href=\"$RUN\">here</a>."
         env:
           RUN: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           GH_TOKEN: ${{ github.token }}
@@ -102,7 +102,7 @@ jobs:
           commit_message: cmd-action - ${{ github.workflow }}
           branch: ${{ steps.gh.outputs.branch }}
       - name: Report succeed
-        run: gh pr comment ${{ inputs.pr }} --body "## Action completed 🎉🎉\n\nRun by @${{ github.actor }} for <code>${{ github.workflow }}</code> completed 🎉. See logs <a href=\"$RUN\">here</a>."
+        run: gh pr comment ${{ inputs.pr }} --body "<h2>Action completed 🎉🎉</h2> Run by @${{ github.actor }} for <code>${{ github.workflow }}</code> completed 🎉. See logs <a href=\"$RUN\">here</a>."
         env:
           RUN: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           GH_TOKEN: ${{ github.token }}
