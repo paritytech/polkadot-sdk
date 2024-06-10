@@ -25,9 +25,9 @@ such as a [Balances pallet](https://paritytech.github.io/polkadot-sdk/master/pal
 
 A Polkadot SDK based project such as this one consists of:
 
-* 💿 a [Node](./node/README.md) * the binary application.
-* 🧮 the [Runtime](./runtime/README.md) * the core logic of the parachain.
-* 🎨 the [Pallets](./pallets/README.md) * from which the runtime is constructed.
+* 💿 a [Node](./node/README.md) - the binary application.
+* 🧮 the [Runtime](./runtime/README.md) - the core logic of the parachain.
+* 🎨 the [Pallets](./pallets/README.md) - from which the runtime is constructed.
 
 ## Getting Started
 
