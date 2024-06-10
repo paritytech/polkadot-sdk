@@ -102,16 +102,19 @@ pub fn lowest_common_ancestor_multiblock<Block: BlockT, T: HeaderMetadata<Block>
 	hashes: Vec<Block::Hash>,
 ) -> Result<Option<HashAndNumber<Block>>, T::Error> {
 	// Ensure the list of hashes is not empty
-	if hashes.is_empty() {
-		return Ok(None);
-	}
+	let mut hashes_iter = hashes.into_iter();
+
+	let first_hash = match hashes_iter.next() {
+		Some(hash) => hash,
+		None => return Ok(None),
+	};
 
 	// Start with the first hash as the initial LCA
-	let cached = backend.header_metadata(hashes[0])?;
-	let mut lca = HashAndNumber { number: cached.number, hash: cached.hash };
-	for hash in hashes.iter().skip(1) {
+	let first_cached = backend.header_metadata(first_hash)?;
+	let mut lca = HashAndNumber { number: first_cached.number, hash: first_cached.hash };
+	for hash in hashes_iter {
 		// Calculate the LCA of the current LCA and the next hash
-		lca = lowest_common_ancestor(backend, lca.hash, *hash)?;
+		lca = lowest_common_ancestor(backend, lca.hash, hash)?;
 	}
 
 	Ok(Some(lca))
