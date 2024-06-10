@@ -1302,7 +1302,8 @@ impl<T: Config> Pallet<T> {
 	/// Get a list of the first [`MAX_PARA_HEADS`] para heads sorted by para_id.
 	/// This method is likely to be removed in the future.
 	pub fn sorted_para_heads() -> Vec<(u32, Vec<u8>)> {
-		let mut heads: Vec<(u32, Vec<u8>)> = Heads::<T>::iter().map(|(id, head)| (id.into(), head.0)).collect();
+		let mut heads: Vec<(u32, Vec<u8>)> =
+			Heads::<T>::iter().map(|(id, head)| (id.into(), head.0)).collect();
 		heads.sort_by_key(|(id, _)| *id);
 		heads.truncate(MAX_PARA_HEADS);
 		heads

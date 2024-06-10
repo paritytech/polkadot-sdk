@@ -1301,7 +1301,8 @@ parameter_types! {
 pub struct ParaHeadsRootProvider;
 impl BeefyDataProvider<H256> for ParaHeadsRootProvider {
 	fn extra_data() -> H256 {
-		let para_heads: Vec<(u32, Vec<u8>)> = parachains_paras::Pallet::<Runtime>::sorted_para_heads();
+		let para_heads: Vec<(u32, Vec<u8>)> =
+			parachains_paras::Pallet::<Runtime>::sorted_para_heads();
 		binary_merkle_tree::merkle_root::<mmr::Hashing, _>(
 			para_heads.into_iter().map(|pair| pair.encode()),
 		)
