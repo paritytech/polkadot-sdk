@@ -42,6 +42,7 @@ jobs:
         env:
           RUN: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           GH_TOKEN: ${{ github.token }}
+      - run: git pull --rebase
       - uses: stefanzweifel/git-auto-commit-action@v5
         with:
           commit_message: cmd-action - ${{ github.workflow }}
