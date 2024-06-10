@@ -365,7 +365,7 @@ impl<
 
 		// Check if there are any forbidden non-inherents in the block.
 		if mode == ExtrinsicInclusionMode::OnlyInherents && extrinsics.len() > num_inherents {
-			return Err("Only inherents allowed".into());
+			return Err("Only inherents allowed".into())
 		}
 
 		let try_apply_extrinsic = |uxt: Block::Extrinsic| -> ApplyExtrinsicResult {
@@ -390,7 +390,7 @@ impl<
 			let r = Applyable::apply::<UnsignedValidator>(xt, &dispatch_info, encoded_len)?;
 
 			if r.is_err() && dispatch_info.class == DispatchClass::Mandatory {
-				return Err(InvalidTransaction::BadMandatory.into());
+				return Err(InvalidTransaction::BadMandatory.into())
 			}
 
 			<frame_system::Pallet<System>>::note_applied_extrinsic(&r, dispatch_info);
@@ -406,7 +406,7 @@ impl<
 					e,
 					err,
 				);
-				break;
+				break
 			}
 		}
 
@@ -776,7 +776,7 @@ impl<
 	/// ongoing MBMs.
 	fn on_idle_hook(block_number: NumberFor<Block>) {
 		if <System as frame_system::Config>::MultiBlockMigrator::ongoing() {
-			return;
+			return
 		}
 
 		let weight = <frame_system::Pallet<System>>::block_weight();
@@ -860,7 +860,7 @@ impl<
 		// The entire block should be discarded if an inherent fails to apply. Otherwise
 		// it may open an attack vector.
 		if r.is_err() && dispatch_info.class == DispatchClass::Mandatory {
-			return Err(InvalidTransaction::BadMandatory.into());
+			return Err(InvalidTransaction::BadMandatory.into())
 		}
 
 		<frame_system::Pallet<System>>::note_applied_extrinsic(&r, dispatch_info);
@@ -930,7 +930,7 @@ impl<
 		};
 
 		if dispatch_info.class == DispatchClass::Mandatory {
-			return Err(InvalidTransaction::MandatoryValidation.into());
+			return Err(InvalidTransaction::MandatoryValidation.into())
 		}
 
 		within_span! {

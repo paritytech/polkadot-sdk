@@ -248,7 +248,7 @@ where
 						"Detected errors while executing `try_state` checks. See logs for more \
 						info."
 							.into(),
-					);
+					)
 				}
 
 				Ok(())
