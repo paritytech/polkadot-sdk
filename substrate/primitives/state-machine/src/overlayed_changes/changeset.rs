@@ -349,7 +349,7 @@ impl OverlayedEntry<StorageEntry> {
 		first_write_in_tx: bool,
 		at_extrinsic: Option<u32>,
 	) {
-		let value = value.map_or_else(StorageEntry::Remove, StorageEntry::Set);
+		let value = value.map_or_else(|| StorageEntry::Remove, StorageEntry::Set);
 
 		if first_write_in_tx || self.transactions.is_empty() {
 			self.transactions.push(InnerValue { value, extrinsics: Default::default() });
