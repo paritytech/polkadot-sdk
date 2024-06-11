@@ -28,7 +28,7 @@ syn = { features = ["full", "visit-mut"], workspace = true }
 frame-support-procedural-tools = { path = "tools" }
 macro_magic = { version = "0.5.0", features = ["proc_support"] }
 proc-macro-warning = { version = "1.0.0", default-features = false }
-expander = "2.0.0"
+expander = "2.1.0"
 sp-crypto-hashing = { path = "../../../primitives/crypto/hashing", default-features = false }
 
 [dev-dependencies]

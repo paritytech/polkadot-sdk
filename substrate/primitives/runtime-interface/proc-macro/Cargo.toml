@@ -23,5 +23,5 @@ Inflector = "0.11.4"
 proc-macro-crate = "3.0.0"
 proc-macro2 = "1.0.56"
 quote = { workspace = true }
-expander = "2.0.0"
+expander = "2.1.0"
 syn = { features = ["extra-traits", "fold", "full", "visit"], workspace = true }

@@ -4191,7 +4191,7 @@ dependencies = [
  "polkadot-primitives",
  "polkadot-service",
  "polkadot-test-client",
- "prioritized-metered-channel",
+ "prioritized-metered-channel 0.6.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "sc-cli",
  "sc-client-api",
  "sc-sysinfo",
@@ -5328,12 +5328,13 @@ dependencies = [
 
 [[package]]
 name = "expander"
-version = "2.0.0"
+version = "2.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5f86a749cf851891866c10515ef6c299b5c69661465e9c3bbe7e07a2b77fb0f7"
+checksum = "00e83c02035136f1592a47964ea60c05a50e4ed8b5892cfac197063850898d4d"
 dependencies = [
  "blake2 0.10.6",
  "fs-err",
+ "prettier-please",
  "proc-macro2 1.0.82",
  "quote 1.0.35",
  "syn 2.0.61",
@@ -9326,9 +9327,8 @@ checksum = "04744f49eae99ab78e0d5c0b603ab218f515ea8cfe5a456d7629ad883a3b6e7d"
 
 [[package]]
 name = "orchestra"
-version = "0.3.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "92829eef0328a3d1cd22a02c0e51deb92a5362df3e7d21a4e9bdc38934694e66"
+version = "0.3.8"
+source = "git+https://github.com/paritytech/orchestra.git?branch=AndreiEres/fix-v0.3.7#b7fcc6c22f30081e02d310d0acf05bc67d8cfb9c"
 dependencies = [
  "async-trait",
  "dyn-clonable",
@@ -9336,16 +9336,15 @@ dependencies = [
  "futures-timer",
  "orchestra-proc-macro",
  "pin-project",
- "prioritized-metered-channel",
+ "prioritized-metered-channel 0.6.1 (git+https://github.com/paritytech/orchestra.git?branch=AndreiEres/fix-v0.3.7)",
  "thiserror",
  "tracing",
 ]
 
 [[package]]
 name = "orchestra-proc-macro"
-version = "0.3.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1344346d5af32c95bbddea91b18a88cc83eac394192d20ef2fc4c40a74332355"
+version = "0.3.8"
+source = "git+https://github.com/paritytech/orchestra.git?branch=AndreiEres/fix-v0.3.7#b7fcc6c22f30081e02d310d0acf05bc67d8cfb9c"
 dependencies = [
  "expander",
  "indexmap 2.2.3",
@@ -13396,7 +13395,7 @@ dependencies = [
  "parity-scale-codec",
  "polkadot-primitives",
  "polkadot-test-service",
- "prioritized-metered-channel",
+ "prioritized-metered-channel 0.6.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "prometheus-parse",
  "sc-cli",
  "sc-service",
@@ -13549,7 +13548,7 @@ dependencies = [
  "polkadot-overseer",
  "polkadot-primitives",
  "polkadot-primitives-test-helpers",
- "prioritized-metered-channel",
+ "prioritized-metered-channel 0.6.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "rand 0.8.5",
  "sc-client-api",
  "schnellru",
@@ -13579,7 +13578,7 @@ dependencies = [
  "polkadot-node-subsystem-types",
  "polkadot-primitives",
  "polkadot-primitives-test-helpers",
- "prioritized-metered-channel",
+ "prioritized-metered-channel 0.6.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "sc-client-api",
  "sp-api",
  "sp-core",
@@ -15028,6 +15027,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "prettier-please"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "22020dfcf177fcc7bf5deaf7440af371400c67c0de14c399938d8ed4fb4645d3"
+dependencies = [
+ "proc-macro2 1.0.82",
+ "syn 2.0.61",
+]
+
+[[package]]
 name = "pretty_assertions"
 version = "1.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -15039,9 +15048,9 @@ dependencies = [
 
 [[package]]
 name = "prettyplease"
-version = "0.1.25"
+version = "0.1.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6c8646e95016a7a6c4adea95bafa8a16baab64b583356217f2c85db4a39d9a86"
+checksum = "f28f53e8b192565862cf99343194579a022eb9c7dd3a8d03134734803c7b3125"
 dependencies = [
  "proc-macro2 1.0.82",
  "syn 1.0.109",
@@ -15077,6 +15086,21 @@ name = "prioritized-metered-channel"
 version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a172e6cc603231f2cf004232eabcecccc0da53ba576ab286ef7baa0cfc7927ad"
+dependencies = [
+ "coarsetime",
+ "crossbeam-queue",
+ "derive_more",
+ "futures",
+ "futures-timer",
+ "nanorand",
+ "thiserror",
+ "tracing",
+]
+
+[[package]]
+name = "prioritized-metered-channel"
+version = "0.6.1"
+source = "git+https://github.com/paritytech/orchestra.git?branch=AndreiEres/fix-v0.3.7#b7fcc6c22f30081e02d310d0acf05bc67d8cfb9c"
 dependencies = [
  "coarsetime",
  "crossbeam-queue",
@@ -15294,7 +15318,7 @@ dependencies = [
  "log",
  "multimap",
  "petgraph",
- "prettyplease 0.1.25",
+ "prettyplease 0.1.11",
  "prost 0.11.9",
  "prost-types 0.11.9",
  "regex",
