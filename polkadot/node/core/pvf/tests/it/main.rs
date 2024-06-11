@@ -17,7 +17,7 @@
 //! General PVF host integration tests checking the functionality of the PVF host itself.
 
 use assert_matches::assert_matches;
-use parity_scale_codec::Encode as _;
+use codec::Encode as _;
 #[cfg(all(feature = "ci-only-tests", target_os = "linux"))]
 use polkadot_node_core_pvf::SecurityStatus;
 use polkadot_node_core_pvf::{
@@ -163,7 +163,7 @@ async fn execute_job_terminates_on_timeout() {
 	let start = std::time::Instant::now();
 	let result = host
 		.validate_candidate(
-			halt::wasm_binary_unwrap(),
+			test_parachain_halt::wasm_binary_unwrap(),
 			ValidationParams {
 				block_data: BlockData(Vec::new()),
 				parent_head: Default::default(),
@@ -190,7 +190,7 @@ async fn ensure_parallel_execution() {
 	// Run some jobs that do not complete, thus timing out.
 	let host = TestHost::new().await;
 	let execute_pvf_future_1 = host.validate_candidate(
-		halt::wasm_binary_unwrap(),
+		test_parachain_halt::wasm_binary_unwrap(),
 		ValidationParams {
 			block_data: BlockData(Vec::new()),
 			parent_head: Default::default(),
@@ -200,7 +200,7 @@ async fn ensure_parallel_execution() {
 		Default::default(),
 	);
 	let execute_pvf_future_2 = host.validate_candidate(
-		halt::wasm_binary_unwrap(),
+		test_parachain_halt::wasm_binary_unwrap(),
 		ValidationParams {
 			block_data: BlockData(Vec::new()),
 			parent_head: Default::default(),
@@ -244,7 +244,7 @@ async fn execute_queue_doesnt_stall_if_workers_died() {
 	let start = std::time::Instant::now();
 	futures::future::join_all((0u8..=8).map(|_| {
 		host.validate_candidate(
-			halt::wasm_binary_unwrap(),
+			test_parachain_halt::wasm_binary_unwrap(),
 			ValidationParams {
 				block_data: BlockData(Vec::new()),
 				parent_head: Default::default(),
@@ -287,7 +287,7 @@ async fn execute_queue_doesnt_stall_with_varying_executor_params() {
 	let start = std::time::Instant::now();
 	futures::future::join_all((0u8..6).map(|i| {
 		host.validate_candidate(
-			halt::wasm_binary_unwrap(),
+			test_parachain_halt::wasm_binary_unwrap(),
 			ValidationParams {
 				block_data: BlockData(Vec::new()),
 				parent_head: Default::default(),
@@ -325,7 +325,10 @@ async fn deleting_prepared_artifact_does_not_dispute() {
 	let host = TestHost::new().await;
 	let cache_dir = host.cache_dir.path();
 
-	let _stats = host.precheck_pvf(halt::wasm_binary_unwrap(), Default::default()).await.unwrap();
+	let _stats = host
+		.precheck_pvf(test_parachain_halt::wasm_binary_unwrap(), Default::default())
+		.await
+		.unwrap();
 
 	// Manually delete the prepared artifact from disk. The in-memory artifacts table won't change.
 	{
@@ -345,7 +348,7 @@ async fn deleting_prepared_artifact_does_not_dispute() {
 	// Try to validate, artifact should get recreated.
 	let result = host
 		.validate_candidate(
-			halt::wasm_binary_unwrap(),
+			test_parachain_halt::wasm_binary_unwrap(),
 			ValidationParams {
 				block_data: BlockData(Vec::new()),
 				parent_head: Default::default(),
@@ -365,7 +368,10 @@ async fn corrupted_prepared_artifact_does_not_dispute() {
 	let host = TestHost::new().await;
 	let cache_dir = host.cache_dir.path();
 
-	let _stats = host.precheck_pvf(halt::wasm_binary_unwrap(), Default::default()).await.unwrap();
+	let _stats = host
+		.precheck_pvf(test_parachain_halt::wasm_binary_unwrap(), Default::default())
+		.await
+		.unwrap();
 
 	// Manually corrupting the prepared artifact from disk. The in-memory artifacts table won't
 	// change.
@@ -395,7 +401,7 @@ async fn corrupted_prepared_artifact_does_not_dispute() {
 	// Try to validate, artifact should get removed because of the corruption.
 	let result = host
 		.validate_candidate(
-			halt::wasm_binary_unwrap(),
+			test_parachain_halt::wasm_binary_unwrap(),
 			ValidationParams {
 				block_data: BlockData(Vec::new()),
 				parent_head: Default::default(),
@@ -412,7 +418,9 @@ async fn corrupted_prepared_artifact_does_not_dispute() {
 	);
 
 	// because of RuntimeConstruction we may retry
-	host.precheck_pvf(halt::wasm_binary_unwrap(), Default::default()).await.unwrap();
+	host.precheck_pvf(test_parachain_halt::wasm_binary_unwrap(), Default::default())
+		.await
+		.unwrap();
 
 	// The actual artifact removal is done concurrently
 	// with sending of the result of the execution
@@ -437,7 +445,10 @@ async fn cache_cleared_on_startup() {
 	// Don't drop this host, it owns the `TempDir` which gets cleared on drop.
 	let host = TestHost::new().await;
 
-	let _stats = host.precheck_pvf(halt::wasm_binary_unwrap(), Default::default()).await.unwrap();
+	let _stats = host
+		.precheck_pvf(test_parachain_halt::wasm_binary_unwrap(), Default::default())
+		.await
+		.unwrap();
 
 	// The cache dir should contain one artifact and one worker dir.
 	let cache_dir = host.cache_dir.path().to_owned();
@@ -461,7 +472,7 @@ async fn prechecking_within_memory_limits() {
 	let host = TestHost::new().await;
 	let result = host
 		.precheck_pvf(
-			::adder::wasm_binary_unwrap(),
+			::test_parachain_adder::wasm_binary_unwrap(),
 			ExecutorParams::from(&[ExecutorParam::PrecheckingMaxMemory(10 * 1024 * 1024)][..]),
 		)
 		.await;
@@ -480,7 +491,7 @@ async fn prechecking_out_of_memory() {
 	let host = TestHost::new().await;
 	let result = host
 		.precheck_pvf(
-			::adder::wasm_binary_unwrap(),
+			::test_parachain_adder::wasm_binary_unwrap(),
 			ExecutorParams::from(&[ExecutorParam::PrecheckingMaxMemory(512 * 1024)][..]),
 		)
 		.await;
@@ -497,12 +508,15 @@ async fn prepare_can_run_serially() {
 	.await;
 
 	let _stats = host
-		.precheck_pvf(::adder::wasm_binary_unwrap(), Default::default())
+		.precheck_pvf(::test_parachain_adder::wasm_binary_unwrap(), Default::default())
 		.await
 		.unwrap();
 
 	// Prepare a different wasm blob to prevent skipping work.
-	let _stats = host.precheck_pvf(halt::wasm_binary_unwrap(), Default::default()).await.unwrap();
+	let _stats = host
+		.precheck_pvf(test_parachain_halt::wasm_binary_unwrap(), Default::default())
+		.await
+		.unwrap();
 }
 
 // CI machines should be able to enable all the security features.
@@ -555,7 +569,7 @@ async fn nonexistent_cache_dir() {
 	assert!(host.security_status().await.can_unshare_user_namespace_and_change_root);
 
 	let _stats = host
-		.precheck_pvf(::adder::wasm_binary_unwrap(), Default::default())
+		.precheck_pvf(::test_parachain_adder::wasm_binary_unwrap(), Default::default())
 		.await
 		.unwrap();
 }
@@ -574,7 +588,10 @@ async fn artifact_does_not_reprepare_on_non_meaningful_exec_parameter_change() {
 	let set2 =
 		ExecutorParams::from(&[ExecutorParam::PvfExecTimeout(PvfExecKind::Backing, 2500)][..]);
 
-	let _stats = host.precheck_pvf(halt::wasm_binary_unwrap(), set1).await.unwrap();
+	let _stats = host
+		.precheck_pvf(test_parachain_halt::wasm_binary_unwrap(), set1)
+		.await
+		.unwrap();
 
 	let md1 = {
 		let mut cache_dir: Vec<_> = std::fs::read_dir(cache_dir).unwrap().collect();
@@ -590,7 +607,10 @@ async fn artifact_does_not_reprepare_on_non_meaningful_exec_parameter_change() {
 	// second attifact will be different
 	tokio::time::sleep(Duration::from_secs(2)).await;
 
-	let _stats = host.precheck_pvf(halt::wasm_binary_unwrap(), set2).await.unwrap();
+	let _stats = host
+		.precheck_pvf(test_parachain_halt::wasm_binary_unwrap(), set2)
+		.await
+		.unwrap();
 
 	let md2 = {
 		let mut cache_dir: Vec<_> = std::fs::read_dir(cache_dir).unwrap().collect();
@@ -619,12 +639,18 @@ async fn artifact_does_reprepare_on_meaningful_exec_parameter_change() {
 	let set2 =
 		ExecutorParams::from(&[ExecutorParam::PvfPrepTimeout(PvfPrepKind::Prepare, 60000)][..]);
 
-	let _stats = host.precheck_pvf(halt::wasm_binary_unwrap(), set1).await.unwrap();
+	let _stats = host
+		.precheck_pvf(test_parachain_halt::wasm_binary_unwrap(), set1)
+		.await
+		.unwrap();
 	let cache_dir_contents: Vec<_> = std::fs::read_dir(cache_dir).unwrap().collect();
 
 	assert_eq!(cache_dir_contents.len(), 2);
 
-	let _stats = host.precheck_pvf(halt::wasm_binary_unwrap(), set2).await.unwrap();
+	let _stats = host
+		.precheck_pvf(test_parachain_halt::wasm_binary_unwrap(), set2)
+		.await
+		.unwrap();
 	let cache_dir_contents: Vec<_> = std::fs::read_dir(cache_dir).unwrap().collect();
 
 	assert_eq!(cache_dir_contents.len(), 3); // new artifact has been added
