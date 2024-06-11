@@ -57,7 +57,7 @@ enum FuzzAppendItem {
 	CommitTransaction,
 	Read,
 	Remove,
-	// To go ever 256 items easily (different compact size then).
+	// To go over 256 items easily (different compact size then).
 	Append50(DataValue, DataLength),
 }
 
