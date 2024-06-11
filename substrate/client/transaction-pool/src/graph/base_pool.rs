@@ -23,7 +23,7 @@
 use std::{cmp::Ordering, collections::HashSet, fmt, hash, sync::Arc};
 
 use crate::LOG_TARGET;
-use log::{debug, trace, warn};
+use log::{debug, warn};
 use sc_transaction_pool_api::{error, InPoolTransaction, PoolStatus};
 use serde::Serialize;
 use sp_core::hexdisplay::HexDisplay;
@@ -272,11 +272,11 @@ impl<Hash: hash::Hash + Member + Serialize, Ex: std::fmt::Debug> BasePool<Hash, 
 		}
 
 		let tx = WaitingTransaction::new(tx, self.ready.provided_tags(), &self.recently_pruned);
-		trace!(target: LOG_TARGET, "[{:?}] {:?}", tx.transaction.hash, tx);
 		debug!(
 			target: LOG_TARGET,
-			"[{:?}] Importing to {}",
+			"[{:?}] Importing {:?} to {}",
 			tx.transaction.hash,
+			tx,
 			if tx.is_ready() { "ready" } else { "future" }
 		);
 

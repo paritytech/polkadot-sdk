@@ -18,9 +18,10 @@
 
 //! Multi view listener. Combines streams from many views into single transaction status stream.
 
-const LOG_TARGET: &str = "txpool::mvlistener";
-
-use crate::graph::{BlockHash, ChainApi, ExtrinsicHash as TxHash};
+use crate::{
+	graph::{BlockHash, ChainApi, ExtrinsicHash as TxHash},
+	LOG_TARGET,
+};
 use futures::{stream, StreamExt};
 use log::trace;
 use sc_transaction_pool_api::{TransactionStatus, TransactionStatusStream, TxIndex};
@@ -157,8 +158,9 @@ where
 		let keys =
 			HashSet::<BlockHash<PoolApi>>::from_iter(self.fused.get_ref().keys().map(Clone::clone));
 		trace!(
-		target: LOG_TARGET, "[{:?}] got invalidate_transaction: views:{:#?}", self.tx_hash,
-		self.fused.get_ref().keys().collect::<Vec<_>>()
+			target: LOG_TARGET,
+			"[{:?}] got invalidate_transaction: views:{:#?}", self.tx_hash,
+			self.fused.get_ref().keys().collect::<Vec<_>>()
 		);
 		if self.views_keeping_tx_valid.is_disjoint(&keys) {
 			self.terminate = true;
@@ -169,9 +171,8 @@ where
 	}
 
 	fn add_stream(&mut self, block_hash: BlockHash<PoolApi>, stream: TxStatusStream<PoolApi>) {
-		trace!(target: LOG_TARGET, "[{:?}] ViewAdded view: {:?} views:{:?}", self.tx_hash, block_hash, self.fused.get_ref().keys().collect::<Vec<_>>());
 		self.fused.get_mut().insert(block_hash, stream);
-		trace!(target: LOG_TARGET, "[{:?}] after: ViewAdded view: {:?} views:{:?}", self.tx_hash, block_hash, self.fused.get_ref().keys().collect::<Vec<_>>());
+		trace!(target: LOG_TARGET, "[{:?}] ViewAdded view: {:?} views:{:?}", self.tx_hash, block_hash, self.fused.get_ref().keys().collect::<Vec<_>>());
 	}
 }
 

@@ -18,10 +18,13 @@
 
 //! Substrate transaction pool implementation.
 
-use crate::common::enactment_state::{EnactmentAction, EnactmentState};
 pub use crate::{
 	api::FullChainApi,
 	graph::{ChainApi, ValidatedTransaction},
+};
+use crate::{
+	common::enactment_state::{EnactmentAction, EnactmentState},
+	log_xt_debug,
 };
 use async_trait::async_trait;
 use futures::{
@@ -570,8 +573,6 @@ pub async fn prune_known_txs_for_block<Block: BlockT, Api: graph::ChainApi<Block
 
 	let hashes = extrinsics.iter().map(|tx| pool.hash_of(tx)).collect::<Vec<_>>();
 
-	log::trace!(target: LOG_TARGET, "Pruning transactions: {:?}", hashes);
-
 	let header = match api.block_header(at.hash) {
 		Ok(Some(h)) => h,
 		Ok(None) => {
@@ -583,6 +584,8 @@ pub async fn prune_known_txs_for_block<Block: BlockT, Api: graph::ChainApi<Block
 			return hashes
 		},
 	};
+
+	log_xt_debug!(target: LOG_TARGET, &hashes, "[{:?}] Pruning transaction.");
 
 	pool.prune(at, *header.parent_hash(), &extrinsics).await;
 	hashes

@@ -21,6 +21,7 @@
 pub(crate) mod api;
 pub(crate) mod enactment_state;
 pub(crate) mod error;
+pub(crate) mod log_xt;
 pub(crate) mod metrics;
 #[cfg(test)]
 pub(crate) mod tests;

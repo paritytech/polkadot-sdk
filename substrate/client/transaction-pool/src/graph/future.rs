@@ -27,6 +27,7 @@ use sp_runtime::transaction_validity::TransactionTag as Tag;
 use std::time::Instant;
 
 use super::base_pool::Transaction;
+use crate::{log_xt_debug, LOG_TARGET};
 
 /// Transaction with partially satisfied dependencies.
 pub struct WaitingTransaction<Hash, Ex> {
@@ -184,6 +185,7 @@ impl<Hash: hash::Hash + Eq + Clone + std::fmt::Debug, Ex: std::fmt::Debug>
 			})
 			.collect::<Vec<_>>();
 
+		log_xt_debug!(target: LOG_TARGET, &pruned, "[{:?}] FutureTransactions: removed while pruning tags.");
 		self.remove(&pruned)
 	}
 
@@ -240,7 +242,7 @@ impl<Hash: hash::Hash + Eq + Clone + std::fmt::Debug, Ex: std::fmt::Debug>
 				removed.push(waiting_tx.transaction)
 			}
 		}
-		log::debug!(target:crate::LOG_TARGET, "Futures::remove(): waiting {:?}", self.waiting.values().collect::<Vec<_>>());
+
 		removed
 	}
 

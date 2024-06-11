@@ -35,6 +35,7 @@ use crate::{
 		base_pool::Limit as PoolLimit, watcher::Watcher, ChainApi, Options, Pool, Transaction,
 		ValidatedTransaction, ValidatedTransactionFor,
 	},
+	log_xt_debug,
 };
 use async_trait::async_trait;
 use futures::{
@@ -661,7 +662,7 @@ where
 
 	async fn purge_finalized_transactions(&self, finalized_xts: &Vec<ExtrinsicHash<PoolApi>>) {
 		log::info!(target: LOG_TARGET, "purge_finalized_transactions count:{:?}", finalized_xts.len());
-		log::debug!(target: LOG_TARGET, "purge_finalized_transactions count:{:?}", finalized_xts);
+		log_xt_debug!(target: LOG_TARGET, finalized_xts, "[{:?}] purged finalized transactions");
 		self.xts2.write().retain(|hash, _| !finalized_xts.contains(&hash));
 	}
 
@@ -1263,7 +1264,7 @@ where
 			if let Some(pending_revalidation_result) =
 				self.mempool.pending_revalidation_result.write().take()
 			{
-				log::debug!(target: LOG_TARGET, "resubmit pending revalidations: {:?}", pending_revalidation_result);
+				log_xt_debug!(data: tuple, target: LOG_TARGET, &pending_revalidation_result, "[{:?}]  resubmitted pending revalidation {:?}");
 				view.pool.resubmit(HashMap::from_iter(pending_revalidation_result.into_iter()));
 			}
 		}
