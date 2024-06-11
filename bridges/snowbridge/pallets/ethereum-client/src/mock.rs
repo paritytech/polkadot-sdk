@@ -2,10 +2,9 @@
 // SPDX-FileCopyrightText: 2023 Snowfork <hello@snowfork.com>
 use crate as ethereum_beacon_client;
 use crate::config;
-use frame_support::{
-	derive_impl, dispatch::DispatchResult, pallet_prelude::Weight, parameter_types,
-};
-use primitives::{Fork, ForkVersions};
+use frame_support::{derive_impl, dispatch::DispatchResult, pallet_prelude::Weight, parameter_types};
+use pallet_timestamp;
+use snowbridge_beacon_primitives::{Fork, ForkVersions};
 use snowbridge_core::inbound::{Log, Proof};
 use sp_std::default::Default;
 use std::{fs::File, path::PathBuf};
@@ -26,32 +25,40 @@ where
 	serde_json::from_reader(File::open(filepath).unwrap())
 }
 
-pub fn load_execution_proof_fixture() -> primitives::ExecutionProof {
+pub fn load_execution_proof_fixture() -> snowbridge_beacon_primitives::ExecutionProof {
 	load_fixture("execution-proof.json".to_string()).unwrap()
 }
 
 pub fn load_checkpoint_update_fixture(
-) -> primitives::CheckpointUpdate<{ config::SYNC_COMMITTEE_SIZE }> {
+) -> snowbridge_beacon_primitives::CheckpointUpdate<{ config::SYNC_COMMITTEE_SIZE }> {
 	load_fixture("initial-checkpoint.json".to_string()).unwrap()
 }
 
-pub fn load_sync_committee_update_fixture(
-) -> primitives::Update<{ config::SYNC_COMMITTEE_SIZE }, { config::SYNC_COMMITTEE_BITS_SIZE }> {
+pub fn load_sync_committee_update_fixture() -> snowbridge_beacon_primitives::Update<
+	{ config::SYNC_COMMITTEE_SIZE },
+	{ config::SYNC_COMMITTEE_BITS_SIZE },
+> {
 	load_fixture("sync-committee-update.json".to_string()).unwrap()
 }
 
-pub fn load_finalized_header_update_fixture(
-) -> primitives::Update<{ config::SYNC_COMMITTEE_SIZE }, { config::SYNC_COMMITTEE_BITS_SIZE }> {
+pub fn load_finalized_header_update_fixture() -> snowbridge_beacon_primitives::Update<
+	{ config::SYNC_COMMITTEE_SIZE },
+	{ config::SYNC_COMMITTEE_BITS_SIZE },
+> {
 	load_fixture("finalized-header-update.json".to_string()).unwrap()
 }
 
-pub fn load_next_sync_committee_update_fixture(
-) -> primitives::Update<{ config::SYNC_COMMITTEE_SIZE }, { config::SYNC_COMMITTEE_BITS_SIZE }> {
+pub fn load_next_sync_committee_update_fixture() -> snowbridge_beacon_primitives::Update<
+	{ config::SYNC_COMMITTEE_SIZE },
+	{ config::SYNC_COMMITTEE_BITS_SIZE },
+> {
 	load_fixture("next-sync-committee-update.json".to_string()).unwrap()
 }
 
-pub fn load_next_finalized_header_update_fixture(
-) -> primitives::Update<{ config::SYNC_COMMITTEE_SIZE }, { config::SYNC_COMMITTEE_BITS_SIZE }> {
+pub fn load_next_finalized_header_update_fixture() -> snowbridge_beacon_primitives::Update<
+	{ config::SYNC_COMMITTEE_SIZE },
+	{ config::SYNC_COMMITTEE_BITS_SIZE },
+> {
 	load_fixture("next-finalized-header-update.json".to_string()).unwrap()
 }
 

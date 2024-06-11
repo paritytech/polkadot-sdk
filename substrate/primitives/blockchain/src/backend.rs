@@ -284,7 +284,7 @@ impl<Block: BlockT> DisplacedLeavesAfterFinalization<Block> {
 }
 
 /// Blockchain info
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug, Eq, PartialEq, Clone)]
 pub struct Info<Block: BlockT> {
 	/// Best block hash.
 	pub best_hash: Block::Hash,

@@ -20,7 +20,7 @@ use hex_literal::hex;
 
 use snowbridge_pallet_ethereum_client_fixtures::*;
 
-use primitives::{
+use snowbridge_beacon_primitives::{
 	fast_aggregate_verify, prepare_aggregate_pubkey, prepare_aggregate_signature,
 	verify_merkle_branch,
 };
