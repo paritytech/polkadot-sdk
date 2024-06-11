@@ -118,6 +118,8 @@ pub enum StorageEntry {
 		/// If `None`, than `data` is not yet prefixed with the length.
 		materialized_length: Option<u32>,
 		/// The size of `data` in the parent transactional layer.
+		///
+		/// Only set when the parent layer is in  `Append` state.
 		parent_size: Option<usize>,
 	},
 }
