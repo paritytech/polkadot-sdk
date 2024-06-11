@@ -2,7 +2,7 @@
 name = "minimal-template-runtime"
 description = "A solochain runtime template built with Substrate, part of Polkadot Sdk."
 version = "0.0.0"
-license = "MIT-0"
+license = "Unlicense"
 authors.workspace = true
 homepage.workspace = true
 repository.workspace = true
@@ -10,7 +10,7 @@ edition.workspace = true
 publish = false
 
 [dependencies]
-parity-scale-codec = { version = "3.6.12", default-features = false }
+codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false }
 scale-info = { version = "2.6.0", default-features = false }
 
 # this is a frame-based runtime, thus importing `frame` with runtime feature enabled.
@@ -39,6 +39,9 @@ substrate-wasm-builder = { path = "../../../substrate/utils/wasm-builder", optio
 [features]
 default = ["std"]
 std = [
+	"codec/std",
+	"scale-info/std",
+
 	"frame/std",
 	"pallet-balances/std",
 	"pallet-minimal-template/std",
@@ -46,8 +49,6 @@ std = [
 	"pallet-timestamp/std",
 	"pallet-transaction-payment-rpc-runtime-api/std",
 	"pallet-transaction-payment/std",
-	"parity-scale-codec/std",
-	"scale-info/std",
 	"sp-genesis-builder/std",
 	"sp-runtime/std",
 	"substrate-wasm-builder",

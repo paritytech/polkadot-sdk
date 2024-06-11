@@ -49,8 +49,8 @@ use core::marker::PhantomData;
 
 /// Weight functions for `runtime_common::assigned_slots`.
 pub struct WeightInfo<T>(PhantomData<T>);
-impl<T: frame_system::Config> runtime_common::assigned_slots::WeightInfo for WeightInfo<T> {
-	/// Storage: `Registrar::Paras` (r:1 w:0)
+impl<T: frame_system::Config> polkadot_runtime_common::assigned_slots::WeightInfo for WeightInfo<T> {
+	/// Storage: `Registrar::Paras` (r:1 w:1)
 	/// Proof: `Registrar::Paras` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `Paras::ParaLifecycles` (r:1 w:1)
 	/// Proof: `Paras::ParaLifecycles` (`max_values`: None, `max_size`: None, mode: `Measured`)

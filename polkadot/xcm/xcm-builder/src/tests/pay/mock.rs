@@ -25,7 +25,7 @@ use frame_support::{
 	traits::{ConstU32, Everything},
 };
 use frame_system::{EnsureRoot, EnsureSigned};
-use primitives::{AccountIndex, BlakeTwo256, Signature};
+use polkadot_primitives::{AccountIndex, BlakeTwo256, Signature};
 use sp_runtime::{generic, traits::MaybeEquivalence, AccountId32, BuildStorage};
 use xcm_executor::{traits::ConvertLocation, XcmExecutor};
 
