@@ -23,7 +23,7 @@ forks](https://img.shields.io/github/forks/paritytech/polkadot-sdk)
 
 ## 📚 Documentation
 
-* [🦀 rust-docs]([paritytech.github.io/](https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/index.html))
+* [🦀 rust-docs](https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/index.html)
  * [Introduction](https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/polkadot_sdk/index.html)
    to each component of the Polkadot SDK: Substrate, FRAME, Cumulus, and XCM
 * Other Resources:
@@ -49,6 +49,12 @@ non-breaking features on a **two week** cadence.
 
 `nightly` releases are released every night from the `master` branch, potentially with breaking
 changes. They have pre-release version numbers in the format `major.0.0-nightlyYYMMDD`.
+
+## 🛠️ Tooling
+
+[Polkadot SDK Version Manager](https://github.com/paritytech/psvm):
+A simple tool to manage and update the Polkadot SDK dependencies in any Cargo.toml file.
+It will automatically update the Polkadot SDK dependencies to their correct crates.io version.
 
 ## 🔐 Security
 

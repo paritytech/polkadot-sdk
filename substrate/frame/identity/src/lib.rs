@@ -1116,8 +1116,7 @@ pub mod pallet {
 			if let Some(s) = signature {
 				// Account has pre-signed an authorization. Verify the signature provided and grant
 				// the username directly.
-				let encoded = Encode::encode(&bounded_username.to_vec());
-				Self::validate_signature(&encoded, &s, &who)?;
+				Self::validate_signature(&bounded_username[..], &s, &who)?;
 				Self::insert_username(&who, bounded_username);
 			} else {
 				// The user must accept the username, therefore, queue it.
@@ -1267,12 +1266,12 @@ impl<T: Config> Pallet<T> {
 
 	/// Validate a signature. Supports signatures on raw `data` or `data` wrapped in HTML `<Bytes>`.
 	pub fn validate_signature(
-		data: &Vec<u8>,
+		data: &[u8],
 		signature: &T::OffchainSignature,
 		signer: &T::AccountId,
 	) -> DispatchResult {
 		// Happy path, user has signed the raw data.
-		if signature.verify(&data[..], &signer) {
+		if signature.verify(data, &signer) {
 			return Ok(())
 		}
 		// NOTE: for security reasons modern UIs implicitly wrap the data requested to sign into

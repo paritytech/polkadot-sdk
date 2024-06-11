@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{self as delegated_staking, types::Agent};
+use crate::{self as delegated_staking, types::AgentLedgerOuter};
 use frame_support::{
 	assert_ok, derive_impl,
 	pallet_prelude::*,
@@ -34,7 +34,7 @@ use frame_support::dispatch::RawOrigin;
 use pallet_staking::{ActiveEra, ActiveEraInfo, CurrentEra};
 use sp_core::U256;
 use sp_runtime::traits::Convert;
-use sp_staking::{Stake, StakingInterface};
+use sp_staking::{Agent, Stake, StakingInterface};
 
 pub type T = Runtime;
 type Block = frame_system::mocking::MockBlock<Runtime>;
@@ -309,8 +309,8 @@ pub(crate) fn setup_delegation_stake(
 	}
 
 	// sanity checks
-	assert_eq!(DelegatedStaking::stakeable_balance(&agent), delegated_amount);
-	assert_eq!(Agent::<T>::get(&agent).unwrap().available_to_bond(), 0);
+	assert_eq!(DelegatedStaking::stakeable_balance(Agent::from(agent)), delegated_amount);
+	assert_eq!(AgentLedgerOuter::<T>::get(&agent).unwrap().available_to_bond(), 0);
 
 	delegated_amount
 }
@@ -322,11 +322,11 @@ pub(crate) fn start_era(era: sp_staking::EraIndex) {
 
 pub(crate) fn eq_stake(who: AccountId, total: Balance, active: Balance) -> bool {
 	Staking::stake(&who).unwrap() == Stake { total, active } &&
-		get_agent(&who).ledger.stakeable_balance() == total
+		get_agent_ledger(&who).ledger.stakeable_balance() == total
 }
 
-pub(crate) fn get_agent(agent: &AccountId) -> Agent<T> {
-	Agent::<T>::get(agent).expect("delegate should exist")
+pub(crate) fn get_agent_ledger(agent: &AccountId) -> AgentLedgerOuter<T> {
+	AgentLedgerOuter::<T>::get(agent).expect("delegate should exist")
 }
 
 parameter_types! {

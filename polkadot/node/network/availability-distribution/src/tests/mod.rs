@@ -25,8 +25,6 @@ use polkadot_node_network_protocol::request_response::{
 use polkadot_primitives::{node_features, Block, CoreState, Hash, NodeFeatures};
 use sp_keystore::KeystorePtr;
 
-use polkadot_node_subsystem_test_helpers as test_helpers;
-
 use super::*;
 
 mod state;
@@ -44,7 +42,8 @@ fn test_harness<T: Future<Output = ()>>(
 	sp_tracing::init_for_tests();
 
 	let pool = sp_core::testing::TaskExecutor::new();
-	let (context, virtual_overseer) = test_helpers::make_subsystem_context(pool.clone());
+	let (context, virtual_overseer) =
+		polkadot_node_subsystem_test_helpers::make_subsystem_context(pool.clone());
 
 	let (pov_req_receiver, pov_req_cfg) = IncomingRequest::get_config_receiver::<
 		Block,
