@@ -256,7 +256,7 @@ async fn handle_leaf_activation(
 			AllMessages::RuntimeApi(
 				RuntimeApiMessage::Request(parent, RuntimeApiRequest::AvailabilityCores(tx))
 			) if parent == *hash => {
-				tx.send(Ok(test_state.claim_queue.iter().map(|(_, paras)| CoreState::Scheduled(
+				tx.send(Ok(test_state.claim_queue.values().map(|paras| CoreState::Scheduled(
 					ScheduledCore {
 						para_id: *paras.front().unwrap(),
 						collator: None
@@ -321,8 +321,7 @@ async fn handle_leaf_activation(
 
 	for _ in 0..test_state
 		.claim_queue
-		.iter()
-		.map(|(_, paras)| paras)
+		.values()
 		.fold(HashSet::new(), |mut acc, paras| {
 			for para in paras {
 				acc.insert(*para);

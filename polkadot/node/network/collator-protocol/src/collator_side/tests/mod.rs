@@ -397,7 +397,7 @@ async fn distribute_collation_with_receipt(
 			RuntimeApiRequest::AvailabilityCores(tx)
 		)) => {
 			assert_eq!(relay_parent, _relay_parent);
-			tx.send(Ok(test_state.claim_queue.iter().map(|(_, paras)|
+			tx.send(Ok(test_state.claim_queue.values().map(|paras|
 				if let Some(para) = paras.front() {
 					CoreState::Scheduled(ScheduledCore { para_id: *para, collator: None })
 				} else {
