@@ -14,3 +14,5 @@ crates:
     bump: major
   - name: pallet-preimage
     bump: major
+  - name: pallet-balances
+    bump: patch
