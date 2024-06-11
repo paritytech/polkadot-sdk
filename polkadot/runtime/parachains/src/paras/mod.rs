@@ -1227,7 +1227,7 @@ const INVALID_TX_DOUBLE_VOTE: u8 = 3;
 /// It does not actually fix it, but makes the worst case better. Without that limit someone
 /// could completely DoS the relay chain by registering a ridiculously high amount of paras.
 /// With this limit the same attack could lead to some parachains ceasing to being able to
-/// communicate via snowbridge.
+/// communicate via offchain XCMP. Snowbridge will still work as it only cares about `BridgeHub`.
 pub const MAX_PARA_HEADS: usize = 1024;
 
 impl<T: Config> Pallet<T> {
