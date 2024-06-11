@@ -43,7 +43,7 @@ jobs:
   test-linux-stable-int:
     needs: [set-image, changes]
     if: ${{ needs.changes.outputs.rust }}
-    runs-on: arc-runners-polkadot-sdk-beefy
+    runs-on: arc-runners-beefy-stg
     timeout-minutes: 30
     container:
       image: ${{ needs.set-image.outputs.IMAGE }}
@@ -64,7 +64,7 @@ jobs:
   test-linux-stable-runtime-benchmarks:
     needs: [set-image, changes]
     if: ${{ needs.changes.outputs.rust }}
-    runs-on: arc-runners-polkadot-sdk-beefy
+    runs-on: arc-runners-beefy-stg
     timeout-minutes: 30
     container:
       image: ${{ needs.set-image.outputs.IMAGE }}
