@@ -449,6 +449,30 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#298" id="298">298</a>
 <a href="#299" id="299">299</a>
 <a href="#300" id="300">300</a>
+<a href="#301" id="301">301</a>
+<a href="#302" id="302">302</a>
+<a href="#303" id="303">303</a>
+<a href="#304" id="304">304</a>
+<a href="#305" id="305">305</a>
+<a href="#306" id="306">306</a>
+<a href="#307" id="307">307</a>
+<a href="#308" id="308">308</a>
+<a href="#309" id="309">309</a>
+<a href="#310" id="310">310</a>
+<a href="#311" id="311">311</a>
+<a href="#312" id="312">312</a>
+<a href="#313" id="313">313</a>
+<a href="#314" id="314">314</a>
+<a href="#315" id="315">315</a>
+<a href="#316" id="316">316</a>
+<a href="#317" id="317">317</a>
+<a href="#318" id="318">318</a>
+<a href="#319" id="319">319</a>
+<a href="#320" id="320">320</a>
+<a href="#321" id="321">321</a>
+<a href="#322" id="322">322</a>
+<a href="#323" id="323">323</a>
+<a href="#324" id="324">324</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -474,7 +498,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>sp_runtime::traits::{Block <span class="kw">as </span>BlockT, Header, NumberFor, One};
 
 <span class="doccomment">/// Set to the expected max difference between `best` and `finalized` blocks at sync.
-</span><span class="kw">const </span>LRU_CACHE_SIZE: u32 = <span class="number">5_000</span>;
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>LRU_CACHE_SIZE: u32 = <span class="number">5_000</span>;
 
 <span class="doccomment">/// Get lowest common ancestor between two blocks in the tree.
 ///
@@ -545,6 +569,30 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="prelude-val">Ok</span>(HashAndNumber { hash: header_one.hash, number: header_one.number })
+}
+
+<span class="doccomment">/// Get lowest common ancestor between multiple blocks.
+</span><span class="kw">pub fn </span>lowest_common_ancestor_multiblock&lt;Block: BlockT, T: HeaderMetadata&lt;Block&gt; + <span class="question-mark">?</span>Sized&gt;(
+	backend: <span class="kw-2">&amp;</span>T,
+	hashes: Vec&lt;Block::Hash&gt;,
+) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;HashAndNumber&lt;Block&gt;&gt;, T::Error&gt; {
+	<span class="comment">// Ensure the list of hashes is not empty
+	</span><span class="kw">let </span><span class="kw-2">mut </span>hashes_iter = hashes.into_iter();
+
+	<span class="kw">let </span>first_hash = <span class="kw">match </span>hashes_iter.next() {
+		<span class="prelude-val">Some</span>(hash) =&gt; hash,
+		<span class="prelude-val">None </span>=&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>),
+	};
+
+	<span class="comment">// Start with the first hash as the initial LCA
+	</span><span class="kw">let </span>first_cached = backend.header_metadata(first_hash)<span class="question-mark">?</span>;
+	<span class="kw">let </span><span class="kw-2">mut </span>lca = HashAndNumber { number: first_cached.number, hash: first_cached.hash };
+	<span class="kw">for </span>hash <span class="kw">in </span>hashes_iter {
+		<span class="comment">// Calculate the LCA of the current LCA and the next hash
+		</span>lca = lowest_common_ancestor(backend, lca.hash, hash)<span class="question-mark">?</span>;
+	}
+
+	<span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(lca))
 }
 
 <span class="doccomment">/// Compute a tree-route between two blocks. See tree-route docs for more details.
