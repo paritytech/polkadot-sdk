@@ -124,7 +124,7 @@ impl Config for Test {
 	type ReserveIdentifier = TestId;
 	type WeightInfo = ();
 	type RuntimeHoldReason = TestId;
-	type RuntimeFreezeReason = TestId;
+	type RuntimeFreezeReason = RuntimeFreezeReason;
 	type FreezeIdentifier = TestId;
 	type MaxFreezes = ConstU32<2>;
 }
