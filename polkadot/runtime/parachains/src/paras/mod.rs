@@ -1222,7 +1222,7 @@ const INVALID_TX_BAD_SUBJECT: u8 = 2;
 const INVALID_TX_DOUBLE_VOTE: u8 = 3;
 
 /// This is intermediate "fix" for this issue:
-/// https://github.com/orgs/paritytech/projects/119/views/20?pane=issue&itemId=66568838
+/// <https://github.com/orgs/paritytech/projects/119/views/20?pane=issue&itemId=66568838>
 ///
 /// It does not actually fix it, but makes the worst case better. Without that limit someone
 /// could completely DoS the relay chain by registering a ridiculously high amount of paras.
