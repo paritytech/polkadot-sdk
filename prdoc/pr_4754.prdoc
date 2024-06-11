@@ -1,0 +1,19 @@
+title: Snowbridge Updates - Ethereum header cleanup MBM, runtime config cleanup & minor refactoring
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Adds a MBM migration for deprecated Ethereum execution header cleanup. Refactors Rococo runtime config by moving all
+      Snowbridge config into a module. Minor changes like adding event fields.
+
+crates:
+  - name: snowbridge-pallet-ethereum-client
+    bump: minor
+  - name: snowbridge-pallet-inbound-queue
+    bump: patch
+  - name: snowbridge-pallet-outbound-queue
+    bump: patch
+  - name: snowbridge-router-primitives
+    bump: patch
+  - name: bridge-hub-rococo-integration-tests
+    bump: patch
