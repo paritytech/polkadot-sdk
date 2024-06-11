@@ -22,6 +22,26 @@ use log;
 #[cfg(feature = "try-runtime")]
 use sp_runtime::TryRuntimeError;
 
+pub mod next_asset_id {
+	use super::*;
+	use sp_core::Get;
+
+	/// Set [`NextAssetId`] to the value of `ID`.
+	pub struct SetNextAssetId<ID, T: Config<I>, I: 'static = ()>(
+		core::marker::PhantomData<(ID, T, I)>,
+	);
+	impl<ID, T: Config<I>, I: 'static> OnRuntimeUpgrade for SetNextAssetId<ID, T, I>
+	where
+		T::AssetId: Incrementable,
+		ID: Get<T::AssetId>,
+	{
+		fn on_runtime_upgrade() -> frame_support::weights::Weight {
+			NextAssetId::<T, I>::put(ID::get());
+			T::DbWeight::get().writes(1)
+		}
+	}
+}
+
 pub mod v1 {
 	use frame_support::{pallet_prelude::*, weights::Weight};
 

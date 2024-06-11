@@ -174,6 +174,7 @@ use sp_runtime::{
 };
 use sp_std::prelude::*;
 
+use core::marker::PhantomData;
 use frame_support::{
 	dispatch::DispatchResult,
 	ensure,
@@ -182,7 +183,7 @@ use frame_support::{
 	traits::{
 		tokens::{fungibles, DepositConsequence, WithdrawConsequence},
 		BalanceStatus::Reserved,
-		Currency, EnsureOriginWithArg, ReservableCurrency, StoredMap,
+		Currency, EnsureOriginWithArg, Incrementable, ReservableCurrency, StoredMap,
 	},
 };
 use frame_system::Config as SystemConfig;
@@ -206,8 +207,37 @@ pub trait AssetsCallback<AssetId, AccountId> {
 	}
 }
 
-/// Empty implementation in case no callbacks are required.
-impl<AssetId, AccountId> AssetsCallback<AssetId, AccountId> for () {}
+#[impl_trait_for_tuples::impl_for_tuples(10)]
+impl<AssetId, AccountId> AssetsCallback<AssetId, AccountId> for Tuple {
+	fn created(id: &AssetId, owner: &AccountId) -> Result<(), ()> {
+		for_tuples!( #( Tuple::created(id, owner)?; )* );
+		Ok(())
+	}
+
+	fn destroyed(id: &AssetId) -> Result<(), ()> {
+		for_tuples!( #( Tuple::destroyed(id)?; )* );
+		Ok(())
+	}
+}
+
+/// Auto-increment the [`NextAssetId`] when an asset is created.
+///
+/// This has not effect if the [`NextAssetId`] value is not present.
+pub struct AutoIncrAssetId<T, I = ()>(PhantomData<(T, I)>);
+impl<T: Config<I>, I> AssetsCallback<T::AssetId, T::AccountId> for AutoIncrAssetId<T, I>
+where
+	T::AssetId: Incrementable,
+{
+	fn created(_: &T::AssetId, _: &T::AccountId) -> Result<(), ()> {
+		let Some(next_id) = NextAssetId::<T, I>::get() else {
+			// Auto increment for the asset id is not enabled.
+			return Ok(());
+		};
+		let next_id = next_id.increment().ok_or(())?;
+		NextAssetId::<T, I>::put(next_id);
+		Ok(())
+	}
+}
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -361,6 +391,11 @@ pub mod pallet {
 		type Extra: Member + Parameter + Default + MaxEncodedLen;
 
 		/// Callback methods for asset state change (e.g. asset created or destroyed)
+		///
+		/// Types implementing the [`AssetsCallback`] can be chained when listed together as a
+		/// tuple.
+		/// The [`AutoIncrAssetId`] callback, in conjunction with the [`NextAssetId`], can be
+		/// used to set up auto-incrementing asset IDs for this collection.
 		type CallbackHandle: AssetsCallback<Self::AssetId, Self::AccountId>;
 
 		/// Weight information for extrinsics in this pallet.
@@ -414,6 +449,15 @@ pub mod pallet {
 		AssetMetadata<DepositBalanceOf<T, I>, BoundedVec<u8, T::StringLimit>>,
 		ValueQuery,
 	>;
+
+	/// The asset ID to be used for the next asset creation, if any present. Otherwise, it has no
+	/// effect.
+	///
+	/// The next asset ID can be set using the
+	/// [SetNextAssetId](`migration::next_asset_id::SetNextAssetId`) migration. For the auto-
+	/// incremented model, the [`crate::AutoIncrAssetId`] callback can be used.
+	#[pallet::storage]
+	pub type NextAssetId<T: Config<I>, I: 'static = ()> = StorageValue<_, T::AssetId, OptionQuery>;
 
 	#[pallet::genesis_config]
 	#[derive(frame_support::DefaultNoBound)]
@@ -622,6 +666,8 @@ pub mod pallet {
 		NotFrozen,
 		/// Callback action resulted in error
 		CallbackFailed,
+		/// The asset id must be equal to the [`NextAssetId`].
+		BadAssetId,
 	}
 
 	#[pallet::call(weight(<T as Config<I>>::WeightInfo))]
@@ -636,7 +682,7 @@ pub mod pallet {
 		///
 		/// Parameters:
 		/// - `id`: The identifier of the new asset. This must not be currently in use to identify
-		/// an existing asset.
+		/// an existing asset. If [`NextAssetId`] is set, then this must be equal to it.
 		/// - `admin`: The admin of this class of assets. The admin is the initial address of each
 		/// member of the asset class's admin team.
 		/// - `min_balance`: The minimum balance of this new asset that any single account must
@@ -658,6 +704,10 @@ pub mod pallet {
 
 			ensure!(!Asset::<T, I>::contains_key(&id), Error::<T, I>::InUse);
 			ensure!(!min_balance.is_zero(), Error::<T, I>::MinBalanceZero);
+
+			if let Some(next_id) = NextAssetId::<T, I>::get() {
+				ensure!(id == next_id, Error::<T, I>::BadAssetId);
+			}
 
 			let deposit = T::AssetDeposit::get();
 			T::Currency::reserve(&owner, deposit)?;
@@ -698,7 +748,7 @@ pub mod pallet {
 		/// Unlike `create`, no funds are reserved.
 		///
 		/// - `id`: The identifier of the new asset. This must not be currently in use to identify
-		/// an existing asset.
+		/// an existing asset. If [`NextAssetId`] is set, then this must be equal to it.
 		/// - `owner`: The owner of this class of assets. The owner has full superuser permissions
 		/// over this asset, but may later change and configure the permissions using
 		/// `transfer_ownership` and `set_team`.

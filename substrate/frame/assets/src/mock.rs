@@ -114,7 +114,7 @@ impl Config for Test {
 	type CreateOrigin = AsEnsureOriginWithArg<frame_system::EnsureSigned<u64>>;
 	type ForceOrigin = frame_system::EnsureRoot<u64>;
 	type Freezer = TestFreezer;
-	type CallbackHandle = AssetsCallbackHandle;
+	type CallbackHandle = (AssetsCallbackHandle, AutoIncrAssetId<Test>);
 }
 
 use std::collections::HashMap;
