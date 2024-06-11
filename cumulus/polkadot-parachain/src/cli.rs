@@ -14,7 +14,8 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
-use std::path::PathBuf;
+use clap::{CommandFactory, FromArgMatches};
+use sc_service::BasePath;
 
 /// Sub-commands supported by the collator.
 #[derive(Debug, clap::Subcommand)]
@@ -104,22 +105,22 @@ pub struct RelayChainCli {
 	pub chain_id: Option<String>,
 
 	/// The base path that should be used by the relay chain.
-	pub base_path: Option<PathBuf>,
+	pub base_path: Option<BasePath>,
 }
 
 impl RelayChainCli {
-	/// Parse the relay chain CLI parameters using the para chain `Configuration`.
+	/// Parse the relay chain CLI parameters using the parachain `Configuration`.
 	pub fn new<'a>(
 		para_config: &sc_service::Configuration,
 		relay_chain_args: impl Iterator<Item = &'a String>,
 	) -> Self {
+		let polkadot_cmd = polkadot_cli::RunCmd::command().no_binary_name(true);
+		let matches = polkadot_cmd.get_matches_from(relay_chain_args);
+		let base = FromArgMatches::from_arg_matches(&matches).unwrap_or_else(|e| e.exit());
+
 		let extension = crate::chain_spec::Extensions::try_get(&*para_config.chain_spec);
 		let chain_id = extension.map(|e| e.relay_chain.clone());
-		let base_path = para_config.base_path.path().join("polkadot");
-		Self {
-			base_path: Some(base_path),
-			chain_id,
-			base: clap::Parser::parse_from(relay_chain_args),
-		}
+
+		Self { base, chain_id, base_path: Some(para_config.base_path.clone()) }
 	}
 }

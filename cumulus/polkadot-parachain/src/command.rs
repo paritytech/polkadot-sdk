@@ -530,13 +530,9 @@ pub fn run() -> Result<()> {
 		}),
 		Some(Subcommand::PurgeChain(cmd)) => {
 			let runner = cli.create_runner(cmd)?;
+			let polkadot_cli = RelayChainCli::new(runner.config(), cli.relaychain_args.iter());
 
 			runner.sync_run(|config| {
-				let polkadot_cli = RelayChainCli::new(
-					&config,
-					[RelayChainCli::executable_name()].iter().chain(cli.relaychain_args.iter()),
-				);
-
 				let polkadot_config = SubstrateCli::create_configuration(
 					&polkadot_cli,
 					&polkadot_cli,
@@ -603,6 +599,7 @@ pub fn run() -> Result<()> {
 		Some(Subcommand::Key(cmd)) => Ok(cmd.run(&cli)?),
 		None => {
 			let runner = cli.create_runner(&cli.run.normalize())?;
+			let polkadot_cli = RelayChainCli::new(runner.config(), cli.relaychain_args.iter());
 			let collator_options = cli.run.collator_options();
 
 			runner.run_node_until_exit(|config| async move {
@@ -647,11 +644,6 @@ pub fn run() -> Result<()> {
 				let para_id = chain_spec::Extensions::try_get(&*config.chain_spec)
 					.map(|e| e.para_id)
 					.ok_or("Could not find parachain extension in chain-spec.")?;
-
-				let polkadot_cli = RelayChainCli::new(
-					&config,
-					[RelayChainCli::executable_name()].iter().chain(cli.relaychain_args.iter()),
-				);
 
 				let id = ParaId::from(para_id);
 
@@ -882,10 +874,7 @@ impl CliConfiguration<Self> for RelayChainCli {
 	}
 
 	fn base_path(&self) -> Result<Option<BasePath>> {
-		Ok(self
-			.shared_params()
-			.base_path()?
-			.or_else(|| self.base_path.clone().map(Into::into)))
+		Ok(self.shared_params().base_path()?.or_else(|| self.base_path.clone()))
 	}
 
 	fn rpc_addr(&self, default_listen_port: u16) -> Result<Option<SocketAddr>> {
