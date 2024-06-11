@@ -360,7 +360,7 @@ impl<B: ChainApi> Pool<B> {
 		let pruned_hashes = reverified_transactions.keys().map(Clone::clone).collect();
 
 		log::debug!(target: LOG_TARGET, "Pruning at {:?}. Resubmitting transactions: {}", &at, reverified_transactions.len());
-		log_xt_debug!(data: tuple, target: LOG_TARGET, &reverified_transactions, "[{:?}]  Resubmitting transaction: {:?}");
+		log_xt_debug!(data: tuple, target: LOG_TARGET, &reverified_transactions, "[{:?}] Resubmitting transaction: {:?}");
 
 		// And finally - submit reverified transactions back to the pool
 		self.validated_pool.resubmit_pruned(

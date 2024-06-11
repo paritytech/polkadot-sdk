@@ -646,10 +646,7 @@ where
 			.collect::<Vec<_>>();
 
 		let pending_revalidation_len = pending_revalidation_result.len();
-		log::info!(
-			target: LOG_TARGET,
-			"purge_transactions: {:#?} {:?}", pending_revalidation_result, pending_revalidation_len
-		);
+		log_xt_debug!(data: tuple, target: LOG_TARGET, &pending_revalidation_result,"[{:?}] purge_transactions, revalidated: {:?}");
 		*self.pending_revalidation_result.write() = Some(pending_revalidation_result);
 
 		log::info!(
@@ -1158,7 +1155,7 @@ where
 		// unimplemented!()
 	}
 
-	// todo: api change?
+	// todo: api change we should have at here?
 	fn ready_transaction(&self, tx_hash: &TxHash<Self>) -> Option<Arc<Self::InPoolTransaction>> {
 		// unimplemented!()
 		let result = self
@@ -1166,9 +1163,9 @@ where
 			.read()
 			.map(|block_hash| self.view_store.ready_transaction(block_hash, tx_hash))
 			.flatten();
-		log::debug!(
+		log::trace!(
 			target: LOG_TARGET,
-			"{tx_hash:?} ready_transaction: {} {:?}",
+			"[{tx_hash:?}] ready_transaction: {} {:?}",
 			result.is_some(),
 			self.most_recent_view.read()
 		);
