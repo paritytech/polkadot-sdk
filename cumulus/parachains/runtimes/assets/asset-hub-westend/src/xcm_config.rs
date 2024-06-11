@@ -45,14 +45,13 @@ use polkadot_runtime_common::xcm_sender::ExponentialPrice;
 use sp_runtime::traits::{AccountIdConversion, ConvertInto};
 use xcm::latest::prelude::*;
 use xcm_builder::{
-	unique_instances::RecreateableInstanceAdapter, AccountId32Aliases,
-	AllowExplicitUnpaidExecutionFrom, AllowHrmpNotificationsFromRelayChain,
-	AllowKnownQueryResponses, AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom,
-	DenyReserveTransferToRelayChain, DenyThenTry, DescribeFamily, DescribePalletTerminal,
-	EnsureXcmOrigin, FrameTransactionalProcessor, FungibleAdapter, FungiblesAdapter,
-	GlobalConsensusParachainConvertsFor, HashedDescription, InstancesOfClasses, IsConcrete,
-	LocalMint, NetworkExportTableItem, NoChecking, ParentAsSuperuser, ParentIsPreset,
-	RelayChainAsNative, SiblingParachainAsNative, SiblingParachainConvertsVia,
+	unique_instances::UniqueInstancesAdapter, AccountId32Aliases, AllowExplicitUnpaidExecutionFrom,
+	AllowHrmpNotificationsFromRelayChain, AllowKnownQueryResponses, AllowSubscriptionsFrom,
+	AllowTopLevelPaidExecutionFrom, DenyReserveTransferToRelayChain, DenyThenTry, DescribeFamily,
+	DescribePalletTerminal, EnsureXcmOrigin, FrameTransactionalProcessor, FungibleAdapter,
+	FungiblesAdapter, GlobalConsensusParachainConvertsFor, HashedDescription, IsConcrete,
+	LocalMint, MatchInClassInstances, NetworkExportTableItem, NoChecking, ParentAsSuperuser,
+	ParentIsPreset, RelayChainAsNative, SiblingParachainAsNative, SiblingParachainConvertsVia,
 	SignedAccountId32AsNative, SignedToAccountId32, SovereignSignedViaLocation, StartsWith,
 	StartsWithExplicitGlobalConsensus, TakeWeightCredit, TrailingSetTopicAsId, UsingComponents,
 	WeightInfoBounds, WithComputedOrigin, WithUniqueTopic, XcmFeeManagerFromComponents,
@@ -143,10 +142,10 @@ pub type UniquesConvertedConcreteId =
 	assets_common::UniquesConvertedConcreteId<UniquesPalletLocation>;
 
 /// Means for transacting unique assets.
-pub type UniquesTransactor = RecreateableInstanceAdapter<
+pub type UniquesTransactor = UniqueInstancesAdapter<
 	AccountId,
 	LocationToAccountId,
-	InstancesOfClasses<UniquesConvertedConcreteId>,
+	MatchInClassInstances<UniquesConvertedConcreteId>,
 	Uniques,
 >;
 

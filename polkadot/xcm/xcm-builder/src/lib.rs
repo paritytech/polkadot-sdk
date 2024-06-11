@@ -30,7 +30,7 @@ mod asset_conversion;
 #[allow(deprecated)]
 pub use asset_conversion::ConvertedConcreteAssetId;
 pub use asset_conversion::{
-	AsPrefixedGeneralIndex, ClasslessInstances, ConvertedConcreteId, InstancesOfClasses,
+	AsPrefixedGeneralIndex, ConvertedConcreteId, MatchClasslessInstances, MatchInClassInstances,
 	MatchedConvertedConcreteId,
 };
 

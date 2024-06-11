@@ -154,20 +154,20 @@ impl<
 	}
 }
 
-pub struct InstancesOfClasses<Matcher>(PhantomData<Matcher>);
+pub struct MatchInClassInstances<Matcher>(PhantomData<Matcher>);
 
 impl<ClassId, InstanceId, Matcher: MatchesNonFungibles<ClassId, InstanceId>>
-	MatchesInstance<(ClassId, InstanceId)> for InstancesOfClasses<Matcher>
+	MatchesInstance<(ClassId, InstanceId)> for MatchInClassInstances<Matcher>
 {
 	fn matches_instance(a: &Asset) -> result::Result<(ClassId, InstanceId), MatchError> {
 		Matcher::matches_nonfungibles(a)
 	}
 }
 
-pub struct ClasslessInstances<Matcher>(PhantomData<Matcher>);
+pub struct MatchClasslessInstances<Matcher>(PhantomData<Matcher>);
 
 impl<InstanceId, Matcher: MatchesNonFungible<InstanceId>> MatchesInstance<InstanceId>
-	for ClasslessInstances<Matcher>
+	for MatchClasslessInstances<Matcher>
 {
 	fn matches_instance(a: &Asset) -> result::Result<InstanceId, MatchError> {
 		Matcher::matches_nonfungible(a).ok_or(MatchError::AssetNotHandled)
