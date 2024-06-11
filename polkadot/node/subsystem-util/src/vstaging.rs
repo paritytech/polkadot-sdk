@@ -57,6 +57,14 @@ impl ClaimQueueSnapshot {
 			.filter_map(move |(core_index, paras)| Some((*core_index, *paras.get(depth)?)))
 	}
 
+	/// Returns an iterator over all claims on the given core.
+	pub fn iter_claims_for_core(
+		&self,
+		core_index: &CoreIndex,
+	) -> impl IntoIterator<Item = ParaId> + '_ {
+		self.0.get(core_index).map(|c| c.iter().copied()).into_iter().flatten()
+	}
+
 	/// Returns an iterator over the whole claim queue.
 	pub fn iter_all_claims(&self) -> impl Iterator<Item = (&CoreIndex, &VecDeque<ParaId>)> + '_ {
 		self.0.iter()
