@@ -2294,7 +2294,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="attr">#[runtime_interface]
 </span><span class="kw">pub trait </span>Storage {
 	<span class="doccomment">/// Returns the data for `key` in the storage or `None` if the key can not be found.
-	</span><span class="kw">fn </span>get(<span class="kw-2">&amp;</span><span class="self">self</span>, key: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Option</span>&lt;bytes::Bytes&gt; {
+	</span><span class="kw">fn </span>get(<span class="kw-2">&amp;mut </span><span class="self">self</span>, key: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Option</span>&lt;bytes::Bytes&gt; {
 		<span class="self">self</span>.storage(key).map(bytes::Bytes::from)
 	}
 
@@ -2303,7 +2303,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// doesn't exist at all.
 	/// If `value_out` length is smaller than the returned length, only `value_out` length bytes
 	/// are copied into `value_out`.
-	</span><span class="kw">fn </span>read(<span class="kw-2">&amp;</span><span class="self">self</span>, key: <span class="kw-2">&amp;</span>[u8], value_out: <span class="kw-2">&amp;mut </span>[u8], value_offset: u32) -&gt; <span class="prelude-ty">Option</span>&lt;u32&gt; {
+	</span><span class="kw">fn </span>read(<span class="kw-2">&amp;mut </span><span class="self">self</span>, key: <span class="kw-2">&amp;</span>[u8], value_out: <span class="kw-2">&amp;mut </span>[u8], value_offset: u32) -&gt; <span class="prelude-ty">Option</span>&lt;u32&gt; {
 		<span class="self">self</span>.storage(key).map(|value| {
 			<span class="kw">let </span>value_offset = value_offset <span class="kw">as </span>usize;
 			<span class="kw">let </span>data = <span class="kw-2">&amp;</span>value[value_offset.min(value.len())..];
@@ -2324,7 +2324,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="doccomment">/// Check whether the given `key` exists in storage.
-	</span><span class="kw">fn </span>exists(<span class="kw-2">&amp;</span><span class="self">self</span>, key: <span class="kw-2">&amp;</span>[u8]) -&gt; bool {
+	</span><span class="kw">fn </span>exists(<span class="kw-2">&amp;mut </span><span class="self">self</span>, key: <span class="kw-2">&amp;</span>[u8]) -&gt; bool {
 		<span class="self">self</span>.exists_storage(key)
 	}
 
@@ -2500,7 +2500,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// Parameter `storage_key` is the unprefixed location of the root of the child trie in the
 	/// parent trie. Result is `None` if the value for `key` in the child storage can not be found.
-	</span><span class="kw">fn </span>get(<span class="kw-2">&amp;</span><span class="self">self</span>, storage_key: <span class="kw-2">&amp;</span>[u8], key: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt; {
+	</span><span class="kw">fn </span>get(<span class="kw-2">&amp;mut </span><span class="self">self</span>, storage_key: <span class="kw-2">&amp;</span>[u8], key: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt; {
 		<span class="kw">let </span>child_info = ChildInfo::new_default(storage_key);
 		<span class="self">self</span>.child_storage(<span class="kw-2">&amp;</span>child_info, key).map(|s| s.to_vec())
 	}
@@ -2513,7 +2513,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// If `value_out` length is smaller than the returned length, only `value_out` length bytes
 	/// are copied into `value_out`.
 	</span><span class="kw">fn </span>read(
-		<span class="kw-2">&amp;</span><span class="self">self</span>,
+		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
 		storage_key: <span class="kw-2">&amp;</span>[u8],
 		key: <span class="kw-2">&amp;</span>[u8],
 		value_out: <span class="kw-2">&amp;mut </span>[u8],
@@ -2591,7 +2591,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Check a child storage key.
 	///
 	/// Check whether the given `key` exists in default child defined at `storage_key`.
-	</span><span class="kw">fn </span>exists(<span class="kw-2">&amp;</span><span class="self">self</span>, storage_key: <span class="kw-2">&amp;</span>[u8], key: <span class="kw-2">&amp;</span>[u8]) -&gt; bool {
+	</span><span class="kw">fn </span>exists(<span class="kw-2">&amp;mut </span><span class="self">self</span>, storage_key: <span class="kw-2">&amp;</span>[u8], key: <span class="kw-2">&amp;</span>[u8]) -&gt; bool {
 		<span class="kw">let </span>child_info = ChildInfo::new_default(storage_key);
 		<span class="self">self</span>.exists_child_storage(<span class="kw-2">&amp;</span>child_info, key)
 	}

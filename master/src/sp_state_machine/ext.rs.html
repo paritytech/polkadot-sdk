@@ -1205,6 +1205,29 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1054" id="1054">1054</a>
 <a href="#1055" id="1055">1055</a>
 <a href="#1056" id="1056">1056</a>
+<a href="#1057" id="1057">1057</a>
+<a href="#1058" id="1058">1058</a>
+<a href="#1059" id="1059">1059</a>
+<a href="#1060" id="1060">1060</a>
+<a href="#1061" id="1061">1061</a>
+<a href="#1062" id="1062">1062</a>
+<a href="#1063" id="1063">1063</a>
+<a href="#1064" id="1064">1064</a>
+<a href="#1065" id="1065">1065</a>
+<a href="#1066" id="1066">1066</a>
+<a href="#1067" id="1067">1067</a>
+<a href="#1068" id="1068">1068</a>
+<a href="#1069" id="1069">1069</a>
+<a href="#1070" id="1070">1070</a>
+<a href="#1071" id="1071">1071</a>
+<a href="#1072" id="1072">1072</a>
+<a href="#1073" id="1073">1073</a>
+<a href="#1074" id="1074">1074</a>
+<a href="#1075" id="1075">1075</a>
+<a href="#1076" id="1076">1076</a>
+<a href="#1077" id="1077">1077</a>
+<a href="#1078" id="1078">1078</a>
+<a href="#1079" id="1079">1079</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1229,7 +1252,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use crate</span>::{
 	backend::Backend, IndexOperation, IterArgs, OverlayedChanges, StorageKey, StorageValue,
 };
-<span class="kw">use </span>codec::{Encode, EncodeAppend};
+<span class="kw">use </span>codec::{Compact, CompactLen, Decode, Encode};
 <span class="kw">use </span>hash_db::Hasher;
 <span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">use </span>sp_core::hexdisplay::HexDisplay;
@@ -1238,8 +1261,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 };
 <span class="kw">use </span>sp_externalities::{Extension, ExtensionStore, Externalities, MultiRemovalResults};
 
-<span class="kw">use crate</span>::{log_error, trace, warn};
-<span class="kw">use </span>alloc::{boxed::Box, vec, vec::Vec};
+<span class="kw">use crate</span>::{trace, warn};
+<span class="kw">use </span>alloc::{boxed::Box, vec::Vec};
 <span class="kw">use </span>core::{
 	any::{Any, TypeId},
 	cmp::Ordering,
@@ -1346,7 +1369,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	H::Out: Ord + <span class="lifetime">'static</span>,
 	B: <span class="lifetime">'a </span>+ Backend&lt;H&gt;,
 {
-	<span class="kw">pub fn </span>storage_pairs(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Vec&lt;(StorageKey, StorageValue)&gt; {
+	<span class="kw">pub fn </span>storage_pairs(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; Vec&lt;(StorageKey, StorageValue)&gt; {
 		<span class="kw">use </span>std::collections::HashMap;
 
 		<span class="self">self</span>.backend
@@ -1354,7 +1377,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.expect(<span class="string">"never fails in tests; qed."</span>)
 			.map(|key_value| key_value.expect(<span class="string">"never fails in tests; qed."</span>))
 			.map(|(k, v)| (k, <span class="prelude-val">Some</span>(v)))
-			.chain(<span class="self">self</span>.overlay.changes().map(|(k, v)| (k.clone(), v.value().cloned())))
+			.chain(<span class="self">self</span>.overlay.changes_mut().map(|(k, v)| (k.clone(), v.value().cloned())))
 			.collect::&lt;HashMap&lt;<span class="kw">_</span>, <span class="kw">_</span>&gt;&gt;()
 			.into_iter()
 			.filter_map(|(k, maybe_val)| maybe_val.map(|val| (k, val)))
@@ -1372,7 +1395,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="self">self</span>.overlay.set_offchain_storage(key, value)
 	}
 
-	<span class="kw">fn </span>storage(<span class="kw-2">&amp;</span><span class="self">self</span>, key: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Option</span>&lt;StorageValue&gt; {
+	<span class="kw">fn </span>storage(<span class="kw-2">&amp;mut </span><span class="self">self</span>, key: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Option</span>&lt;StorageValue&gt; {
 		<span class="kw">let </span>_guard = guard();
 		<span class="kw">let </span>result = <span class="self">self
 			</span>.overlay
@@ -1398,7 +1421,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		result
 	}
 
-	<span class="kw">fn </span>storage_hash(<span class="kw-2">&amp;</span><span class="self">self</span>, key: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt; {
+	<span class="kw">fn </span>storage_hash(<span class="kw-2">&amp;mut </span><span class="self">self</span>, key: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt; {
 		<span class="kw">let </span>_guard = guard();
 		<span class="kw">let </span>result = <span class="self">self
 			</span>.overlay
@@ -1416,7 +1439,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		result.map(|r| r.encode())
 	}
 
-	<span class="kw">fn </span>child_storage(<span class="kw-2">&amp;</span><span class="self">self</span>, child_info: <span class="kw-2">&amp;</span>ChildInfo, key: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Option</span>&lt;StorageValue&gt; {
+	<span class="kw">fn </span>child_storage(<span class="kw-2">&amp;mut </span><span class="self">self</span>, child_info: <span class="kw-2">&amp;</span>ChildInfo, key: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Option</span>&lt;StorageValue&gt; {
 		<span class="kw">let </span>_guard = guard();
 		<span class="kw">let </span>result = <span class="self">self
 			</span>.overlay
@@ -1438,7 +1461,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		result
 	}
 
-	<span class="kw">fn </span>child_storage_hash(<span class="kw-2">&amp;</span><span class="self">self</span>, child_info: <span class="kw-2">&amp;</span>ChildInfo, key: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt; {
+	<span class="kw">fn </span>child_storage_hash(<span class="kw-2">&amp;mut </span><span class="self">self</span>, child_info: <span class="kw-2">&amp;</span>ChildInfo, key: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt; {
 		<span class="kw">let </span>_guard = guard();
 		<span class="kw">let </span>result = <span class="self">self
 			</span>.overlay
@@ -1460,7 +1483,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		result.map(|r| r.encode())
 	}
 
-	<span class="kw">fn </span>exists_storage(<span class="kw-2">&amp;</span><span class="self">self</span>, key: <span class="kw-2">&amp;</span>[u8]) -&gt; bool {
+	<span class="kw">fn </span>exists_storage(<span class="kw-2">&amp;mut </span><span class="self">self</span>, key: <span class="kw-2">&amp;</span>[u8]) -&gt; bool {
 		<span class="kw">let </span>_guard = guard();
 		<span class="kw">let </span>result = <span class="kw">match </span><span class="self">self</span>.overlay.storage(key) {
 			<span class="prelude-val">Some</span>(x) =&gt; x.is_some(),
@@ -1478,7 +1501,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		result
 	}
 
-	<span class="kw">fn </span>exists_child_storage(<span class="kw-2">&amp;</span><span class="self">self</span>, child_info: <span class="kw-2">&amp;</span>ChildInfo, key: <span class="kw-2">&amp;</span>[u8]) -&gt; bool {
+	<span class="kw">fn </span>exists_child_storage(<span class="kw-2">&amp;mut </span><span class="self">self</span>, child_info: <span class="kw-2">&amp;</span>ChildInfo, key: <span class="kw-2">&amp;</span>[u8]) -&gt; bool {
 		<span class="kw">let </span>_guard = guard();
 
 		<span class="kw">let </span>result = <span class="kw">match </span><span class="self">self</span>.overlay.child_storage(child_info, key) {
@@ -1500,7 +1523,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		result
 	}
 
-	<span class="kw">fn </span>next_storage_key(<span class="kw-2">&amp;</span><span class="self">self</span>, key: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Option</span>&lt;StorageKey&gt; {
+	<span class="kw">fn </span>next_storage_key(<span class="kw-2">&amp;mut </span><span class="self">self</span>, key: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Option</span>&lt;StorageKey&gt; {
 		<span class="kw">let </span><span class="kw-2">mut </span>next_backend_key =
 			<span class="self">self</span>.backend.next_storage_key(key).expect(EXT_NOT_ALLOWED_TO_FAIL);
 		<span class="kw">let </span><span class="kw-2">mut </span>overlay_changes = <span class="self">self</span>.overlay.iter_after(key).peekable();
@@ -1538,7 +1561,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 	}
 
-	<span class="kw">fn </span>next_child_storage_key(<span class="kw-2">&amp;</span><span class="self">self</span>, child_info: <span class="kw-2">&amp;</span>ChildInfo, key: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Option</span>&lt;StorageKey&gt; {
+	<span class="kw">fn </span>next_child_storage_key(<span class="kw-2">&amp;mut </span><span class="self">self</span>, child_info: <span class="kw-2">&amp;</span>ChildInfo, key: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Option</span>&lt;StorageKey&gt; {
 		<span class="kw">let </span><span class="kw-2">mut </span>next_backend_key = <span class="self">self
 			</span>.backend
 			.next_child_storage_key(child_info, key)
@@ -1708,10 +1731,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>_guard = guard();
 
 		<span class="kw">let </span>backend = <span class="kw-2">&amp;mut </span><span class="self">self</span>.backend;
-		<span class="kw">let </span>current_value = <span class="self">self</span>.overlay.value_mut_or_insert_with(<span class="kw-2">&amp;</span>key, || {
+		<span class="self">self</span>.overlay.append_storage(key.clone(), value, || {
 			backend.storage(<span class="kw-2">&amp;</span>key).expect(EXT_NOT_ALLOWED_TO_FAIL).unwrap_or_default()
 		});
-		StorageAppend::new(current_value).append(value);
 	}
 
 	<span class="kw">fn </span>storage_root(<span class="kw-2">&amp;mut </span><span class="self">self</span>, state_version: StateVersion) -&gt; Vec&lt;u8&gt; {
@@ -1938,10 +1960,27 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="self">Self</span>(storage)
 	}
 
+	<span class="doccomment">/// Extract the length of the list like data structure.
+	</span><span class="kw">pub fn </span>extract_length(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;u32&gt; {
+		Compact::&lt;u32&gt;::decode(<span class="kw-2">&amp;mut &amp;</span><span class="self">self</span>.<span class="number">0</span>[..]).map(|c| c.<span class="number">0</span>).ok()
+	}
+
+	<span class="doccomment">/// Replace the length in the encoded data.
+	///
+	/// If `old_length` is `None`, the previous length will be assumed to be `0`.
+	</span><span class="kw">pub fn </span>replace_length(<span class="kw-2">&amp;mut </span><span class="self">self</span>, old_length: <span class="prelude-ty">Option</span>&lt;u32&gt;, new_length: u32) {
+		<span class="kw">let </span>old_len_encoded_len = old_length.map(|l| Compact::&lt;u32&gt;::compact_len(<span class="kw-2">&amp;</span>l)).unwrap_or(<span class="number">0</span>);
+		<span class="kw">let </span>new_len_encoded = Compact::&lt;u32&gt;(new_length).encode();
+		<span class="self">self</span>.<span class="number">0</span>.splice(<span class="number">0</span>..old_len_encoded_len, new_len_encoded);
+	}
+
 	<span class="doccomment">/// Append the given `value` to the storage item.
 	///
-	/// If appending fails, `[value]` is stored in the storage item.
-	</span><span class="kw">pub fn </span>append(<span class="kw-2">&amp;mut </span><span class="self">self</span>, value: Vec&lt;u8&gt;) {
+	/// If appending fails, `[value]` is stored in the storage item and we return false.
+	</span><span class="attr">#[cfg(any(test, feature = <span class="string">"fuzzing"</span>))]
+	</span><span class="kw">pub fn </span>append(<span class="kw-2">&amp;mut </span><span class="self">self</span>, value: Vec&lt;u8&gt;) -&gt; bool {
+		<span class="kw">use </span>codec::EncodeAppend;
+		<span class="kw">let </span><span class="kw-2">mut </span>result = <span class="bool-val">true</span>;
 		<span class="kw">let </span>value = <span class="macro">vec!</span>[EncodeOpaqueValue(value)];
 
 		<span class="kw">let </span>item = core::mem::take(<span class="self">self</span>.<span class="number">0</span>);
@@ -1949,13 +1988,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw-2">*</span><span class="self">self</span>.<span class="number">0 </span>= <span class="kw">match </span>Vec::&lt;EncodeOpaqueValue&gt;::append_or_new(item, <span class="kw-2">&amp;</span>value) {
 			<span class="prelude-val">Ok</span>(item) =&gt; item,
 			<span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; {
-				<span class="macro">log_error!</span>(
+				result = <span class="bool-val">false</span>;
+				<span class="macro">crate::log_error!</span>(
 					target: <span class="string">"runtime"</span>,
 					<span class="string">"Failed to append value, resetting storage item to `[value]`."</span>,
 				);
 				value.encode()
 			},
 		};
+		result
+	}
+
+	<span class="doccomment">/// Append to current buffer, do not touch the prefixed length.
+	</span><span class="kw">pub fn </span>append_raw(<span class="kw-2">&amp;mut </span><span class="self">self</span>, <span class="kw-2">mut </span>value: Vec&lt;u8&gt;) {
+		<span class="self">self</span>.<span class="number">0</span>.append(<span class="kw-2">&amp;mut </span>value)
 	}
 }
 
@@ -2056,7 +2102,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		)
 			.into();
 
-		<span class="kw">let </span>ext = TestExt::new(<span class="kw-2">&amp;mut </span>overlay, <span class="kw-2">&amp;</span>backend, <span class="prelude-val">None</span>);
+		<span class="kw">let </span><span class="kw-2">mut </span>ext = TestExt::new(<span class="kw-2">&amp;mut </span>overlay, <span class="kw-2">&amp;</span>backend, <span class="prelude-val">None</span>);
 
 		<span class="comment">// next_backend &lt; next_overlay
 		</span><span class="macro">assert_eq!</span>(ext.next_storage_key(<span class="kw-2">&amp;</span>[<span class="number">5</span>]), <span class="prelude-val">Some</span>(<span class="macro">vec!</span>[<span class="number">10</span>]));
@@ -2072,7 +2118,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		drop(ext);
 		overlay.set_storage(<span class="macro">vec!</span>[<span class="number">50</span>], <span class="prelude-val">Some</span>(<span class="macro">vec!</span>[<span class="number">50</span>]));
-		<span class="kw">let </span>ext = TestExt::new(<span class="kw-2">&amp;mut </span>overlay, <span class="kw-2">&amp;</span>backend, <span class="prelude-val">None</span>);
+		<span class="kw">let </span><span class="kw-2">mut </span>ext = TestExt::new(<span class="kw-2">&amp;mut </span>overlay, <span class="kw-2">&amp;</span>backend, <span class="prelude-val">None</span>);
 
 		<span class="comment">// next_overlay exist but next_backend doesn't exist
 		</span><span class="macro">assert_eq!</span>(ext.next_storage_key(<span class="kw-2">&amp;</span>[<span class="number">40</span>]), <span class="prelude-val">Some</span>(<span class="macro">vec!</span>[<span class="number">50</span>]));
@@ -2102,7 +2148,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		)
 			.into();
 
-		<span class="kw">let </span>ext = TestExt::new(<span class="kw-2">&amp;mut </span>overlay, <span class="kw-2">&amp;</span>backend, <span class="prelude-val">None</span>);
+		<span class="kw">let </span><span class="kw-2">mut </span>ext = TestExt::new(<span class="kw-2">&amp;mut </span>overlay, <span class="kw-2">&amp;</span>backend, <span class="prelude-val">None</span>);
 
 		<span class="macro">assert_eq!</span>(ext.next_storage_key(<span class="kw-2">&amp;</span>[<span class="number">5</span>]), <span class="prelude-val">Some</span>(<span class="macro">vec!</span>[<span class="number">30</span>]));
 
@@ -2135,7 +2181,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		)
 			.into();
 
-		<span class="kw">let </span>ext = TestExt::new(<span class="kw-2">&amp;mut </span>overlay, <span class="kw-2">&amp;</span>backend, <span class="prelude-val">None</span>);
+		<span class="kw">let </span><span class="kw-2">mut </span>ext = TestExt::new(<span class="kw-2">&amp;mut </span>overlay, <span class="kw-2">&amp;</span>backend, <span class="prelude-val">None</span>);
 
 		<span class="comment">// next_backend &lt; next_overlay
 		</span><span class="macro">assert_eq!</span>(ext.next_child_storage_key(child_info, <span class="kw-2">&amp;</span>[<span class="number">5</span>]), <span class="prelude-val">Some</span>(<span class="macro">vec!</span>[<span class="number">10</span>]));
@@ -2151,7 +2197,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		drop(ext);
 		overlay.set_child_storage(child_info, <span class="macro">vec!</span>[<span class="number">50</span>], <span class="prelude-val">Some</span>(<span class="macro">vec!</span>[<span class="number">50</span>]));
-		<span class="kw">let </span>ext = TestExt::new(<span class="kw-2">&amp;mut </span>overlay, <span class="kw-2">&amp;</span>backend, <span class="prelude-val">None</span>);
+		<span class="kw">let </span><span class="kw-2">mut </span>ext = TestExt::new(<span class="kw-2">&amp;mut </span>overlay, <span class="kw-2">&amp;</span>backend, <span class="prelude-val">None</span>);
 
 		<span class="comment">// next_overlay exist but next_backend doesn't exist
 		</span><span class="macro">assert_eq!</span>(ext.next_child_storage_key(child_info, <span class="kw-2">&amp;</span>[<span class="number">40</span>]), <span class="prelude-val">Some</span>(<span class="macro">vec!</span>[<span class="number">50</span>]));
@@ -2182,7 +2228,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		)
 			.into();
 
-		<span class="kw">let </span>ext = TestExt::new(<span class="kw-2">&amp;mut </span>overlay, <span class="kw-2">&amp;</span>backend, <span class="prelude-val">None</span>);
+		<span class="kw">let </span><span class="kw-2">mut </span>ext = TestExt::new(<span class="kw-2">&amp;mut </span>overlay, <span class="kw-2">&amp;</span>backend, <span class="prelude-val">None</span>);
 
 		<span class="macro">assert_eq!</span>(ext.child_storage(child_info, <span class="kw-2">&amp;</span>[<span class="number">10</span>]), <span class="prelude-val">Some</span>(<span class="macro">vec!</span>[<span class="number">10</span>]));
 		<span class="macro">assert_eq!</span>(

@@ -467,7 +467,7 @@ var srcIndex = new Map(JSON.parse('[\
 ["sp_runtime_interface_test_wasm_deprecated",["",[],["lib.rs"]]],\
 ["sp_session",["",[],["lib.rs","runtime_api.rs"]]],\
 ["sp_staking",["",[],["currency_to_vote.rs","lib.rs","offence.rs"]]],\
-["sp_state_machine",["",[["overlayed_changes",[],["changeset.rs","mod.rs","offchain.rs"]]],["backend.rs","basic.rs","error.rs","ext.rs","in_memory_backend.rs","lib.rs","read_only.rs","stats.rs","testing.rs","trie_backend.rs","trie_backend_essence.rs"]]],\
+["sp_state_machine",["",[["overlayed_changes",[],["changeset.rs","mod.rs","offchain.rs"]]],["backend.rs","basic.rs","error.rs","ext.rs","fuzzing.rs","in_memory_backend.rs","lib.rs","read_only.rs","stats.rs","testing.rs","trie_backend.rs","trie_backend_essence.rs"]]],\
 ["sp_statement_store",["",[],["ecies.rs","lib.rs","runtime_api.rs","store_api.rs"]]],\
 ["sp_std",["",[],["lib.rs","with_std.rs"]]],\
 ["sp_storage",["",[],["lib.rs"]]],\

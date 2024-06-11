@@ -3149,7 +3149,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		init_logger();
 
 		<span class="comment">// create an ext with children keys
-		</span><span class="kw">let </span>child_ext = Builder::&lt;Block&gt;::new()
+		</span><span class="kw">let </span><span class="kw-2">mut </span>child_ext = Builder::&lt;Block&gt;::new()
 			.mode(Mode::Online(OnlineConfig {
 				transport: endpoint().clone().into(),
 				pallets: <span class="macro">vec!</span>[<span class="string">"Proxy"</span>.to_owned()],
@@ -3162,7 +3162,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span>.unwrap();
 
 		<span class="comment">// create an ext without children keys
-		</span><span class="kw">let </span>ext = Builder::&lt;Block&gt;::new()
+		</span><span class="kw">let </span><span class="kw-2">mut </span>ext = Builder::&lt;Block&gt;::new()
 			.mode(Mode::Online(OnlineConfig {
 				transport: endpoint().clone().into(),
 				pallets: <span class="macro">vec!</span>[<span class="string">"Proxy"</span>.to_owned()],

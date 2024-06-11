@@ -375,6 +375,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#224" id="224">224</a>
 <a href="#225" id="225">225</a>
 <a href="#226" id="226">226</a>
+<a href="#227" id="227">227</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -509,7 +510,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="kw">impl</span>&lt;H: Hasher&gt; From&lt;(Storage, StateVersion)&gt; <span class="kw">for </span>TrieBackend&lt;PrefixedMemoryDB&lt;H&gt;, H&gt;
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
+</span><span class="kw">impl</span>&lt;H: Hasher&gt; From&lt;(Storage, StateVersion)&gt; <span class="kw">for </span>TrieBackend&lt;PrefixedMemoryDB&lt;H&gt;, H&gt;
 <span class="kw">where
 	</span>H::Out: Codec + Ord,
 {

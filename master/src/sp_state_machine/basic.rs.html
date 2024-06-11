@@ -590,6 +590,25 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#439" id="439">439</a>
 <a href="#440" id="440">440</a>
 <a href="#441" id="441">441</a>
+<a href="#442" id="442">442</a>
+<a href="#443" id="443">443</a>
+<a href="#444" id="444">444</a>
+<a href="#445" id="445">445</a>
+<a href="#446" id="446">446</a>
+<a href="#447" id="447">447</a>
+<a href="#448" id="448">448</a>
+<a href="#449" id="449">449</a>
+<a href="#450" id="450">450</a>
+<a href="#451" id="451">451</a>
+<a href="#452" id="452">452</a>
+<a href="#453" id="453">453</a>
+<a href="#454" id="454">454</a>
+<a href="#455" id="455">455</a>
+<a href="#456" id="456">456</a>
+<a href="#457" id="457">457</a>
+<a href="#458" id="458">458</a>
+<a href="#459" id="459">459</a>
+<a href="#460" id="460">460</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -651,16 +670,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="doccomment">/// Consume self and returns inner storages
-	</span><span class="kw">pub fn </span>into_storages(<span class="self">self</span>) -&gt; Storage {
+	</span><span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
+	</span><span class="kw">pub fn </span>into_storages(<span class="kw-2">mut </span><span class="self">self</span>) -&gt; Storage {
 		Storage {
 			top: <span class="self">self
 				</span>.overlay
-				.changes()
+				.changes_mut()
 				.filter_map(|(k, v)| v.value().map(|v| (k.to_vec(), v.to_vec())))
 				.collect(),
 			children_default: <span class="self">self
 				</span>.overlay
-				.children()
+				.children_mut()
 				.map(|(iter, i)| {
 					(
 						i.storage_key().to_vec(),
@@ -679,6 +699,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Execute the given closure `f` with the externalities set and initialized with `storage`.
 	///
 	/// Returns the result of the closure and updates `storage` with all changes.
+	</span><span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 	</span><span class="kw">pub fn </span>execute_with_storage&lt;R&gt;(
 		storage: <span class="kw-2">&amp;mut </span>sp_core::storage::Storage,
 		f: <span class="kw">impl </span>FnOnce() -&gt; R,
@@ -710,19 +731,37 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="kw">impl </span>PartialEq <span class="kw">for </span>BasicExternalities {
-	<span class="kw">fn </span>eq(<span class="kw-2">&amp;</span><span class="self">self</span>, other: <span class="kw-2">&amp;</span>BasicExternalities) -&gt; bool {
-		<span class="self">self</span>.overlay.changes().map(|(k, v)| (k, v.value())).collect::&lt;BTreeMap&lt;<span class="kw">_</span>, <span class="kw">_</span>&gt;&gt;() ==
-			other.overlay.changes().map(|(k, v)| (k, v.value())).collect::&lt;BTreeMap&lt;<span class="kw">_</span>, <span class="kw">_</span>&gt;&gt;() &amp;&amp;
+<span class="attr">#[cfg(test)]
+</span><span class="kw">impl </span>PartialEq <span class="kw">for </span>BasicExternalities {
+	<span class="kw">fn </span>eq(<span class="kw-2">&amp;</span><span class="self">self</span>, other: <span class="kw-2">&amp;</span><span class="self">Self</span>) -&gt; bool {
+		<span class="self">self</span>.overlay
+			.changes()
+			.map(|(k, v)| (k, v.value_ref().materialize()))
+			.collect::&lt;BTreeMap&lt;<span class="kw">_</span>, <span class="kw">_</span>&gt;&gt;() ==
+			other
+				.overlay
+				.changes()
+				.map(|(k, v)| (k, v.value_ref().materialize()))
+				.collect::&lt;BTreeMap&lt;<span class="kw">_</span>, <span class="kw">_</span>&gt;&gt;() &amp;&amp;
 			<span class="self">self</span>.overlay
 				.children()
-				.map(|(iter, i)| (i, iter.map(|(k, v)| (k, v.value())).collect::&lt;BTreeMap&lt;<span class="kw">_</span>, <span class="kw">_</span>&gt;&gt;()))
+				.map(|(iter, i)| {
+					(
+						i,
+						iter.map(|(k, v)| (k, v.value_ref().materialize()))
+							.collect::&lt;BTreeMap&lt;<span class="kw">_</span>, <span class="kw">_</span>&gt;&gt;(),
+					)
+				})
 				.collect::&lt;BTreeMap&lt;<span class="kw">_</span>, <span class="kw">_</span>&gt;&gt;() ==
 				other
 					.overlay
 					.children()
 					.map(|(iter, i)| {
-						(i, iter.map(|(k, v)| (k, v.value())).collect::&lt;BTreeMap&lt;<span class="kw">_</span>, <span class="kw">_</span>&gt;&gt;())
+						(
+							i,
+							iter.map(|(k, v)| (k, v.value_ref().materialize()))
+								.collect::&lt;BTreeMap&lt;<span class="kw">_</span>, <span class="kw">_</span>&gt;&gt;(),
+						)
 					})
 					.collect::&lt;BTreeMap&lt;<span class="kw">_</span>, <span class="kw">_</span>&gt;&gt;()
 	}
@@ -751,27 +790,27 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">impl </span>Externalities <span class="kw">for </span>BasicExternalities {
 	<span class="kw">fn </span>set_offchain_storage(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _key: <span class="kw-2">&amp;</span>[u8], _value: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>[u8]&gt;) {}
 
-	<span class="kw">fn </span>storage(<span class="kw-2">&amp;</span><span class="self">self</span>, key: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Option</span>&lt;StorageValue&gt; {
+	<span class="kw">fn </span>storage(<span class="kw-2">&amp;mut </span><span class="self">self</span>, key: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Option</span>&lt;StorageValue&gt; {
 		<span class="self">self</span>.overlay.storage(key).and_then(|v| v.map(|v| v.to_vec()))
 	}
 
-	<span class="kw">fn </span>storage_hash(<span class="kw-2">&amp;</span><span class="self">self</span>, key: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt; {
+	<span class="kw">fn </span>storage_hash(<span class="kw-2">&amp;mut </span><span class="self">self</span>, key: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt; {
 		<span class="self">self</span>.storage(key).map(|v| Blake2Hasher::hash(<span class="kw-2">&amp;</span>v).encode())
 	}
 
-	<span class="kw">fn </span>child_storage(<span class="kw-2">&amp;</span><span class="self">self</span>, child_info: <span class="kw-2">&amp;</span>ChildInfo, key: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Option</span>&lt;StorageValue&gt; {
+	<span class="kw">fn </span>child_storage(<span class="kw-2">&amp;mut </span><span class="self">self</span>, child_info: <span class="kw-2">&amp;</span>ChildInfo, key: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Option</span>&lt;StorageValue&gt; {
 		<span class="self">self</span>.overlay.child_storage(child_info, key).and_then(|v| v.map(|v| v.to_vec()))
 	}
 
-	<span class="kw">fn </span>child_storage_hash(<span class="kw-2">&amp;</span><span class="self">self</span>, child_info: <span class="kw-2">&amp;</span>ChildInfo, key: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt; {
+	<span class="kw">fn </span>child_storage_hash(<span class="kw-2">&amp;mut </span><span class="self">self</span>, child_info: <span class="kw-2">&amp;</span>ChildInfo, key: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt; {
 		<span class="self">self</span>.child_storage(child_info, key).map(|v| Blake2Hasher::hash(<span class="kw-2">&amp;</span>v).encode())
 	}
 
-	<span class="kw">fn </span>next_storage_key(<span class="kw-2">&amp;</span><span class="self">self</span>, key: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Option</span>&lt;StorageKey&gt; {
+	<span class="kw">fn </span>next_storage_key(<span class="kw-2">&amp;mut </span><span class="self">self</span>, key: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Option</span>&lt;StorageKey&gt; {
 		<span class="self">self</span>.overlay.iter_after(key).find_map(|(k, v)| v.value().map(|<span class="kw">_</span>| k.to_vec()))
 	}
 
-	<span class="kw">fn </span>next_child_storage_key(<span class="kw-2">&amp;</span><span class="self">self</span>, child_info: <span class="kw-2">&amp;</span>ChildInfo, key: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Option</span>&lt;StorageKey&gt; {
+	<span class="kw">fn </span>next_child_storage_key(<span class="kw-2">&amp;mut </span><span class="self">self</span>, child_info: <span class="kw-2">&amp;</span>ChildInfo, key: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Option</span>&lt;StorageKey&gt; {
 		<span class="self">self</span>.overlay
 			.child_iter_after(child_info.storage_key(), key)
 			.find_map(|(k, v)| v.value().map(|<span class="kw">_</span>| k.to_vec()))
@@ -835,15 +874,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		MultiRemovalResults { maybe_cursor: <span class="prelude-val">None</span>, backend: count, unique: count, loops: count }
 	}
 
-	<span class="kw">fn </span>storage_append(<span class="kw-2">&amp;mut </span><span class="self">self</span>, key: Vec&lt;u8&gt;, value: Vec&lt;u8&gt;) {
-		<span class="kw">let </span>current_value = <span class="self">self</span>.overlay.value_mut_or_insert_with(<span class="kw-2">&amp;</span>key, || Default::default());
-		<span class="kw">crate</span>::ext::StorageAppend::new(current_value).append(value);
+	<span class="kw">fn </span>storage_append(<span class="kw-2">&amp;mut </span><span class="self">self</span>, key: Vec&lt;u8&gt;, element: Vec&lt;u8&gt;) {
+		<span class="self">self</span>.overlay.append_storage(key, element, Default::default);
 	}
 
 	<span class="kw">fn </span>storage_root(<span class="kw-2">&amp;mut </span><span class="self">self</span>, state_version: StateVersion) -&gt; Vec&lt;u8&gt; {
 		<span class="kw">let </span><span class="kw-2">mut </span>top = <span class="self">self
 			</span>.overlay
-			.changes()
+			.changes_mut()
 			.filter_map(|(k, v)| v.value().map(|v| (k.clone(), v.clone())))
 			.collect::&lt;BTreeMap&lt;<span class="kw">_</span>, <span class="kw">_</span>&gt;&gt;();
 		<span class="comment">// Single child trie implementation currently allows using the same child
@@ -870,7 +908,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		child_info: <span class="kw-2">&amp;</span>ChildInfo,
 		state_version: StateVersion,
 	) -&gt; Vec&lt;u8&gt; {
-		<span class="kw">if let </span><span class="prelude-val">Some</span>((data, child_info)) = <span class="self">self</span>.overlay.child_changes(child_info.storage_key()) {
+		<span class="kw">if let </span><span class="prelude-val">Some</span>((data, child_info)) = <span class="self">self</span>.overlay.child_changes_mut(child_info.storage_key()) {
 			<span class="kw">let </span>delta =
 				data.into_iter().map(|(k, v)| (k.as_ref(), v.value().map(|v| v.as_slice())));
 			<span class="kw">crate</span>::in_memory_backend::new_in_mem::&lt;Blake2Hasher&gt;()

@@ -280,6 +280,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#129" id="129">129</a>
 <a href="#130" id="130">130</a>
 <a href="#131" id="131">131</a>
+<a href="#132" id="132">132</a>
+<a href="#133" id="133">133</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -324,7 +326,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="doccomment">/// Iterate over all key value pairs by reference.
-	</span><span class="kw">pub fn </span>iter(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw">impl </span>Iterator&lt;Item = OffchainOverlayedChangesItem&gt; {
+	</span><span class="kw">pub fn </span>iter(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="kw">impl </span>Iterator&lt;Item = OffchainOverlayedChangesItem&gt; {
 		<span class="self">self</span>.<span class="number">0</span>.changes().map(|kv| (kv.<span class="number">0</span>, kv.<span class="number">1</span>.value_ref()))
 	}
 
@@ -335,14 +337,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Remove a key and its associated value from the offchain database.
 	</span><span class="kw">pub fn </span>remove(<span class="kw-2">&amp;mut </span><span class="self">self</span>, prefix: <span class="kw-2">&amp;</span>[u8], key: <span class="kw-2">&amp;</span>[u8]) {
-		<span class="kw">let _ </span>= <span class="self">self
-			</span>.<span class="number">0
-			</span>.set((prefix.to_vec(), key.to_vec()), OffchainOverlayedChange::Remove, <span class="prelude-val">None</span>);
+		<span class="kw">let _ </span>= <span class="self">self</span>.<span class="number">0</span>.set_offchain(
+			(prefix.to_vec(), key.to_vec()),
+			OffchainOverlayedChange::Remove,
+			<span class="prelude-val">None</span>,
+		);
 	}
 
 	<span class="doccomment">/// Set the value associated with a key under a prefix to the value provided.
 	</span><span class="kw">pub fn </span>set(<span class="kw-2">&amp;mut </span><span class="self">self</span>, prefix: <span class="kw-2">&amp;</span>[u8], key: <span class="kw-2">&amp;</span>[u8], value: <span class="kw-2">&amp;</span>[u8]) {
-		<span class="kw">let _ </span>= <span class="self">self</span>.<span class="number">0</span>.set(
+		<span class="kw">let _ </span>= <span class="self">self</span>.<span class="number">0</span>.set_offchain(
 			(prefix.to_vec(), key.to_vec()),
 			OffchainOverlayedChange::SetValue(value.to_vec()),
 			<span class="prelude-val">None</span>,
@@ -350,7 +354,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="doccomment">/// Obtain a associated value to the given key in storage with prefix.
-	</span><span class="kw">pub fn </span>get(<span class="kw-2">&amp;</span><span class="self">self</span>, prefix: <span class="kw-2">&amp;</span>[u8], key: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Option</span>&lt;OffchainOverlayedChange&gt; {
+	</span><span class="kw">pub fn </span>get(<span class="kw-2">&amp;mut </span><span class="self">self</span>, prefix: <span class="kw-2">&amp;</span>[u8], key: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Option</span>&lt;OffchainOverlayedChange&gt; {
 		<span class="kw">let </span>key = (prefix.to_vec(), key.to_vec());
 		<span class="self">self</span>.<span class="number">0</span>.get(<span class="kw-2">&amp;</span>key).map(|entry| entry.value_ref()).cloned()
 	}
