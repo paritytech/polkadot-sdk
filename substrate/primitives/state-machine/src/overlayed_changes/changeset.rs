@@ -794,6 +794,11 @@ impl OverlayedChangeSet {
 						*overlayed.value_mut() = committed_tx.value;
 					} else {
 						let removed = core::mem::replace(overlayed.value_mut(), committed_tx.value);
+						// The transaction being commited is not an append operation. However, the
+						// value being overwritten in the previous transaction might be an append
+						// that needs to be merged with its parent. We only need to handle `Append`
+						// here because `Set` and `Remove` can directly overwrite previous
+						// operations.
 						if let StorageEntry::Append {
 							parent_size, data, materialized_length, ..
 						} = removed
