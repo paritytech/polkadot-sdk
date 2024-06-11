@@ -390,6 +390,8 @@ fn reject_submit_update_in_next_period() {
 		));
 		// check same header in the next period can now be submitted successfully
 		assert_ok!(EthereumBeaconClient::submit(RuntimeOrigin::signed(1), update.clone()));
+		let block_root: H256 = update.finalized_header.clone().hash_tree_root().unwrap();
+		assert!(<FinalizedBeaconState<Test>>::contains_key(block_root));
 	});
 }
 
