@@ -777,7 +777,6 @@ fn fatp_fork_no_xts_ready_switch_to_future() {
 
 	let f03 = forks[0][3].hash();
 	let f12 = forks[1][2].hash();
-	let f13 = forks[1][3].hash();
 
 	let event = new_best_block_event(&pool, None, f03);
 	block_on(pool.maintain(event));
@@ -791,6 +790,8 @@ fn fatp_fork_no_xts_ready_switch_to_future() {
 	block_on(pool.maintain(event));
 
 	assert_pool_status!(f03, &pool, 1, 0);
+	// f12 was not updated - xt0 is still ready there
+	// (todo: can we do better? shall we revalidate all future xts?)
 	assert_pool_status!(f12, &pool, 1, 0);
 
 	//xt0 becomes future, and this may only happen after view revalidation (which happens on
@@ -798,14 +799,20 @@ fn fatp_fork_no_xts_ready_switch_to_future() {
 	let event = finalized_block_event(&pool, api.genesis_hash(), f12);
 	block_on(pool.maintain(event));
 
-	//xt0 becomes future, for newly create view:
-	//finalization). So trigger it.
-	let event = new_best_block_event(&pool, Some(f12), f13);
-	block_on(pool.maintain(event));
-
-	assert_pool_status!(f13, &pool, 0, 1);
 	// f03 still dangling
 	assert_eq!(pool.views_len(), 2);
+
+	// wait 10 blocks for revalidation and 1 extra for applying revalidation results
+	let mut prev_header = forks[1][2].clone();
+	log::info!("====> {:?}", prev_header);
+	for _ in 3..=12 {
+		let header = api.push_block_with_parent(prev_header.hash(), vec![], true);
+		let event = finalized_block_event(&pool, prev_header.hash(), header.hash());
+		block_on(pool.maintain(event));
+		prev_header = header;
+	}
+
+	assert_pool_status!(prev_header.hash(), &pool, 0, 1);
 }
 
 #[test]
@@ -1036,6 +1043,15 @@ fn fatp_watcher_invalid_single_revalidation() {
 	let event = finalized_block_event(&pool, header01.hash(), header02.hash());
 	block_on(pool.maintain(event));
 
+	// wait 10 blocks for revalidation
+	let mut prev_header = header02;
+	for n in 3..=11 {
+		let header = api.push_block(n, vec![], true);
+		let event = finalized_block_event(&pool, prev_header.hash(), header.hash());
+		block_on(pool.maintain(event));
+		prev_header = header;
+	}
+
 	let xt0_events = futures::executor::block_on_stream(xt0_watcher).collect::<Vec<_>>();
 	log::info!("xt0_events: {:#?}", xt0_events);
 	assert_eq!(xt0_events, vec![TransactionStatus::Ready, TransactionStatus::Invalid]);
@@ -1077,6 +1093,15 @@ fn fatp_watcher_invalid_single_revalidation3() {
 	let header01 = api.push_block(1, vec![], true);
 	let event = finalized_block_event(&pool, api.genesis_hash(), header01.hash());
 	block_on(pool.maintain(event));
+
+	// wait 10 blocks for revalidation
+	let mut prev_header = header01;
+	for n in 2..=11 {
+		let header = api.push_block(n, vec![], true);
+		let event = finalized_block_event(&pool, prev_header.hash(), header.hash());
+		block_on(pool.maintain(event));
+		prev_header = header;
+	}
 
 	let xt0_events = futures::executor::block_on_stream(xt0_watcher).collect::<Vec<_>>();
 	log::info!("xt0_events: {:#?}", xt0_events);
@@ -1983,6 +2008,15 @@ fn fatp_watcher_invalid_many_revalidation() {
 	let header03 = api.push_block(3, vec![xt0.clone(), xt1.clone(), xt2.clone()], true);
 	block_on(pool.maintain(finalized_block_event(&pool, header02.hash(), header03.hash())));
 
+	// wait 10 blocks for revalidation
+	let mut prev_header = header03.clone();
+	for n in 4..=11 {
+		let header = api.push_block(n, vec![], true);
+		let event = finalized_block_event(&pool, prev_header.hash(), header.hash());
+		block_on(pool.maintain(event));
+		prev_header = header;
+	}
+
 	let xt0_events = futures::executor::block_on_stream(xt0_watcher).collect::<Vec<_>>();
 	let xt1_events = futures::executor::block_on_stream(xt1_watcher).collect::<Vec<_>>();
 	let xt2_events = futures::executor::block_on_stream(xt2_watcher).collect::<Vec<_>>();
@@ -2044,6 +2078,15 @@ fn should_not_retain_invalid_hashes_from_retracted() {
 	let header02b = api.push_block_with_parent(header01.hash(), vec![], true);
 	block_on(pool.maintain(finalized_block_event(&pool, api.genesis_hash(), header02b.hash())));
 
+	// wait 10 blocks for revalidation
+	let mut prev_header = header02b.clone();
+	for _ in 3..=11 {
+		let header = api.push_block_with_parent(prev_header.hash(), vec![], true);
+		let event = finalized_block_event(&pool, prev_header.hash(), header.hash());
+		block_on(pool.maintain(event));
+		prev_header = header;
+	}
+
 	assert_eq!(
 		futures::executor::block_on_stream(watcher).collect::<Vec<_>>(),
 		vec![
@@ -2054,7 +2097,7 @@ fn should_not_retain_invalid_hashes_from_retracted() {
 	);
 
 	//todo: shall revalidation check finalized (fork's tip) view?
-	assert_eq!(pool.status_all()[&header02b.hash()].ready, 0);
+	assert_eq!(pool.status_all()[&prev_header.hash()].ready, 0);
 }
 
 #[test]
@@ -2080,6 +2123,15 @@ fn should_revalidate_during_maintenance() {
 
 	//todo: shall revalidation check finalized (fork's tip) view?
 	assert_eq!(pool.status_all()[&header02.hash()].ready, 1);
+
+	// wait 10 blocks for revalidation
+	let mut prev_header = header02.clone();
+	for _ in 3..=11 {
+		let header = api.push_block_with_parent(prev_header.hash(), vec![], true);
+		let event = finalized_block_event(&pool, prev_header.hash(), header.hash());
+		block_on(pool.maintain(event));
+		prev_header = header;
+	}
 
 	assert_eq!(
 		futures::executor::block_on_stream(watcher).collect::<Vec<_>>(),
@@ -2163,6 +2215,15 @@ fn fatp_transactions_purging_invalid_on_finalization_works() {
 	api.add_invalid(&xt2);
 	api.add_invalid(&xt3);
 	block_on(pool.maintain(finalized_block_event(&pool, header01.hash(), header02.hash())));
+
+	// wait 10 blocks for revalidation
+	let mut prev_header = header02;
+	for n in 3..=13 {
+		let header = api.push_block(n, vec![], true);
+		let event = finalized_block_event(&pool, prev_header.hash(), header.hash());
+		block_on(pool.maintain(event));
+		prev_header = header;
+	}
 
 	//todo: should it work at all? (it requires better revalidation: mempool keeping validated txs)
 	//additionally it also requires revalidation of finalized view.
@@ -2344,7 +2405,7 @@ fn fatp_avoid_stuck_transaction() {
 
 	// Import enough blocks to make xt4i revalidated
 	let mut prev_header = header03;
-	// 10 blocks for revalidation
+	// wait 10 blocks for revalidation
 	for n in 7..=11 {
 		let header = api.push_block(n, vec![], true);
 		let event = finalized_block_event(&pool, prev_header.hash(), header.hash());
@@ -2373,6 +2434,7 @@ fn fatp_wtf_future_is_not_pruned() {
 	log::info!("xt1: {:#?}", api.hash_and_length(&xt1).0);
 	log::info!("xt2: {:#?}", api.hash_and_length(&xt2).0);
 	log::info!("xt2i: {:#?}", api.hash_and_length(&xt2i).0);
+	let _ = block_on(pool.submit_and_watch(invalid_hash(), SOURCE, xt2i.clone())).unwrap();
 
 	assert_eq!(pool.mempool_len(), (0, 1));
 
