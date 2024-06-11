@@ -387,7 +387,7 @@ where
 						None,
 						(parachain_inherent_data, other_inherent_data),
 						params.authoring_duration,
-						validation_data.max_pov_size
+						validation_data.max_pov_size,
 					)
 					.await
 				{
