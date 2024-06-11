@@ -58,8 +58,8 @@ pub trait MetadataInspectStrategy {
 /// A trait representing the ability of a certain asset kind to **provide** its metadata
 /// information.
 ///
-/// This trait can be implemented multiple times using different [`inspect
-/// strategies`](MetadataInspectStrategy).
+/// This trait can be implemented multiple times using different
+/// [`inspect strategies`](MetadataInspectStrategy).
 ///
 /// An inspect strategy defines how the asset metadata is identified/retrieved
 /// and what [`Value`](MetadataInspectStrategy::Value) type is returned.
@@ -91,8 +91,8 @@ pub trait MetadataUpdateStrategy {
 
 /// A trait representing the ability of a certain asset kind to **update** its metadata information.
 ///
-/// This trait can be implemented multiple times using different [`update
-/// strategies`](MetadataUpdateStrategy).
+/// This trait can be implemented multiple times using different
+/// [`update strategies`](MetadataUpdateStrategy).
 ///
 /// An update strategy defines how the asset metadata is identified
 /// and what [`Update`](MetadataUpdateStrategy::Update) type is used.
@@ -125,23 +125,22 @@ pub trait CreateStrategy {
 ///
 /// The common ID assignments are:
 /// * [`AutoId`](common_strategies::AutoId)
-/// * [`PredefinedId`](common_strategies::PredefinedId)
-/// * [`DeriveIdFrom`](common_strategies::DeriveIdFrom)
+/// * [`AssignId`](common_strategies::AssignId)
+/// * [`DeriveAndReportId`](common_strategies::DeriveAndReportId)
 pub trait IdAssignment {
 	/// The reported ID type.
 	///
 	/// Examples:
 	/// * [`AutoId`](common_strategies::AutoId) returns ID of the newly created asset
-	/// * [`PredefinedId`](common_strategies::PredefinedId) returns `()` since the ID is already
-	///   defined
-	/// * [`DeriveIdFrom`](common_strategies::DeriveIdFrom) returns the derived ID
+	/// * [`AssignId`](common_strategies::AssignId) doesn't report an ID, i.e., returns `()`
+	/// * [`DeriveAndReportId`](common_strategies::DeriveAndReportId) returns the derived ID
 	type ReportedId;
 }
 
 /// A trait representing the ability of a certain asset kind to be created.
 ///
-/// This trait can be implemented multiple times using different [`"create"
-/// strategies`](CreateStrategy).
+/// This trait can be implemented multiple times using different
+/// [`"create" strategies`](CreateStrategy).
 ///
 /// A create strategy defines all aspects of asset creation including how an asset ID is assigned.
 pub trait Create<AssetKind, Strategy: CreateStrategy> {
@@ -152,14 +151,14 @@ pub trait Create<AssetKind, Strategy: CreateStrategy> {
 /// A strategy for use in the [`Transfer`] implementations.
 ///
 /// The common transfer strategies are:
-/// * [`JustTo`](common_strategies::JustTo)
+/// * [`JustDo`](common_strategies::JustDo)
 /// * [`FromTo`](common_strategies::FromTo)
 pub trait TransferStrategy {}
 
 /// A trait representing the ability of a certain asset kind to be transferred.
 ///
-/// This trait can be implemented multiple times using different [`transfer
-/// strategies`](TransferStrategy).
+/// This trait can be implemented multiple times using different
+/// [`transfer strategies`](TransferStrategy).
 ///
 /// A transfer strategy defines transfer parameters.
 pub trait Transfer<AssetKind, Strategy: TransferStrategy>: AssetDefinition<AssetKind> {
@@ -172,7 +171,7 @@ pub trait Transfer<AssetKind, Strategy: TransferStrategy>: AssetDefinition<Asset
 /// A strategy for use in the [`Destroy`] implementations.
 ///
 /// The common destroy strategies are:
-/// * [`JustDestroy`](common_strategies::JustDestroy)
+/// * [`JustDo`](common_strategies::JustDo)
 /// * [`IfOwnedBy`](common_strategies::IfOwnedBy)
 /// * [`WithWitness`](common_strategies::WithWitness)
 /// * [`IfOwnedByWithWitness`](common_strategies::IfOwnedByWithWitness)
@@ -184,8 +183,8 @@ pub trait DestroyStrategy {
 
 /// A trait representing the ability of a certain asset kind to be destroyed.
 ///
-/// This trait can be implemented multiple times using different [`destroy
-/// strategies`](DestroyStrategy).
+/// This trait can be implemented multiple times using different
+/// [`destroy strategies`](DestroyStrategy).
 ///
 /// A destroy strategy defines destroy parameters and the result value type.
 pub trait Destroy<AssetKind, Strategy: DestroyStrategy>: AssetDefinition<AssetKind> {
@@ -193,6 +192,45 @@ pub trait Destroy<AssetKind, Strategy: DestroyStrategy>: AssetDefinition<AssetKi
 	///
 	/// The ID type is retrieved from the [`AssetDefinition`].
 	fn destroy(id: &Self::Id, strategy: Strategy) -> Result<Strategy::Success, DispatchError>;
+}
+
+/// A strategy for use in the [`Stash`] implementations.
+///
+/// The common stash strategies are:
+/// * [`JustDo`](common_strategies::JustDo)
+/// * [`IfOwnedBy`](common_strategies::IfOwnedBy)
+pub trait StashStrategy {}
+
+/// A trait representing the ability of a certain asset kind to be stashed.
+///
+/// This trait can be implemented multiple times using different
+/// [`stash strategies`](StashStrategy).
+///
+/// A stash strategy defines stash parameters.
+pub trait Stash<AssetKind, Strategy: StashStrategy>: AssetDefinition<AssetKind> {
+	/// Stash the asset identified by the given `id` using the provided `strategy`.
+	///
+	/// The ID type is retrieved from the [`AssetDefinition`].
+	fn stash(id: &Self::Id, strategy: Strategy) -> DispatchResult;
+}
+
+/// A strategy for use in the [`Restore`] implementations.
+/// The common stash strategies are:
+/// * [`JustDo`](common_strategies::JustDo)
+/// * [`IfRestorable`](common_strategies::IfRestorable)
+pub trait RestoreStrategy {}
+
+/// A trait representing the ability of a certain asset kind to be restored.
+///
+/// This trait can be implemented multiple times using different
+/// [`restore strategies`](RestoreStrategy).
+///
+/// A restore strategy defines restore parameters.
+pub trait Restore<AssetKind, Strategy: RestoreStrategy>: AssetDefinition<AssetKind> {
+	/// Restore the asset identified by the given `id` using the provided `strategy`.
+	///
+	/// The ID type is retrieved from the [`AssetDefinition`].
+	fn restore(id: &Self::Id, strategy: Strategy) -> DispatchResult;
 }
 
 /// This modules contains the common asset kinds.
@@ -237,6 +275,31 @@ pub mod common_strategies {
 	impl<RuntimeOrigin, Inner: DestroyStrategy> DestroyStrategy for WithOrigin<RuntimeOrigin, Inner> {
 		type Success = Inner::Success;
 	}
+
+	/// The JustDo represents the simplest strategy,
+	/// which doesn't require additional checks to perform the operation.
+	///
+	/// It can be used as the following strategies:
+	/// * [`transfer strategy`](TransferStrategy)
+	/// * [`destroy strategy`](DestroyStrategy)
+	/// * [`stash strategy`](StashStrategy)
+	/// * [`restore strategy`](RestoreStrategy)
+	///
+	/// It accepts whatever parameters are set in its generic argument.
+	/// For instance, for an unchecked transfer,
+	/// this strategy may take a reference to a beneficiary account.
+	pub struct JustDo<'a, Params = ()>(pub &'a Params);
+	impl<'a> Default for JustDo<'a, ()> {
+		fn default() -> Self {
+			Self(&())
+		}
+	}
+	impl<'a, Owner> TransferStrategy for JustDo<'a, Owner> {}
+	impl<'a> DestroyStrategy for JustDo<'a> {
+		type Success = ();
+	}
+	impl<'a> StashStrategy for JustDo<'a> {}
+	impl<'a, Owner> RestoreStrategy for JustDo<'a, Owner> {}
 
 	/// The `Bytes` strategy represents raw metadata bytes.
 	/// It is both an [inspect](MetadataInspectStrategy) and [update](MetadataUpdateStrategy)
@@ -371,8 +434,8 @@ pub mod common_strategies {
 		type Update<'u> = bool;
 	}
 
-	/// The `AutoId` is an ID assignment approach intended to be used in [`"create"
-	/// strategies`](CreateStrategy).
+	/// The `AutoId` is an ID assignment approach intended to be used in
+	/// [`"create" strategies`](CreateStrategy).
 	///
 	/// It accepts the `Id` type of the asset.
 	/// The "create" strategy should report the value of type `Id` upon successful asset creation.
@@ -386,68 +449,68 @@ pub mod common_strategies {
 		type ReportedId = Id;
 	}
 
-	/// The `PredefinedId` is an ID assignment approach intended to be used in [`"create"
-	/// strategies`](CreateStrategy).
+	/// The `AssignId` is an ID assignment approach intended to be used in
+	/// [`"create" strategies`](CreateStrategy).
 	///
-	/// It accepts a value of the `Id` type.
-	/// The "create" strategy should use the provided ID value to create a new asset.
-	pub struct PredefinedId<'a, Id>(pub &'a Id);
-	impl<'a, Id> IdAssignment for PredefinedId<'a, Id> {
+	/// It accepts `Params` to assign an ID to the newly created asset.
+	/// This ID assignment approach doesn't report the ID upon the asset's creation.
+	pub struct AssignId<'a, Params>(pub &'a Params);
+	impl<'a, Params> IdAssignment for AssignId<'a, Params> {
 		type ReportedId = ();
 	}
 
-	/// The `DeriveIdFrom` is an ID assignment approach intended to be used in [`"create"
-	/// strategies`](CreateStrategy).
+	/// The `DeriveAndReportId` is an ID assignment approach intended to be used in
+	/// [`"create" strategies`](CreateStrategy).
 	///
-	/// It accepts the `ParentId` and the `ChildId`.
-	/// The `ChildId` value should be computed by the "create" strategy using the `ParentId` value.
+	/// It accepts the `Params` and the `Id`.
+	/// The `Id` value should be computed by the "create" strategy using the `Params` value.
 	///
-	/// The "create" strategy should report the `ChildId` value upon successful asset creation.
+	/// The "create" strategy should report the `Id` value upon successful asset creation.
 	///
 	/// An example of ID derivation is the creation of an NFT inside a collection using the
-	/// collection ID. The child ID in this case is the full ID of the NFT.
-	pub struct DeriveIdFrom<'a, ParentId, ChildId>(pub &'a ParentId, PhantomData<ChildId>);
-	impl<'a, ParentId, ChildId> DeriveIdFrom<'a, ParentId, ChildId> {
-		pub fn parent_id(primary_id: &'a ParentId) -> Self {
-			Self(primary_id, PhantomData)
+	/// collection ID as `Params`. The `Id` in this case is the full ID of the NFT.
+	pub struct DeriveAndReportId<'a, Params, Id>(pub &'a Params, pub PhantomData<Id>);
+	impl<'a, Params, Id> DeriveAndReportId<'a, Params, Id> {
+		pub fn from(params: &'a Params) -> Self {
+			Self(params, PhantomData)
 		}
 	}
-	impl<'a, ParentId, ChildId> IdAssignment for DeriveIdFrom<'a, ParentId, ChildId> {
-		type ReportedId = ChildId;
+	impl<'a, ParentId, Id> IdAssignment for DeriveAndReportId<'a, ParentId, Id> {
+		type ReportedId = Id;
 	}
 
 	/// The `Owned` is a [`"create" strategy`](CreateStrategy).
 	///
 	/// It accepts:
-	/// * The [ID assignment](IdAssignment) approach
 	/// * The `owner`
+	/// * The [ID assignment](IdAssignment) approach
 	/// * The optional `config`
 	/// * The optional creation `witness`
 	///
 	/// The [`Success`](CreateStrategy::Success) will contain
 	/// the [reported ID](IdAssignment::ReportedId) of the ID assignment approach.
-	pub struct Owned<'a, Assignment: IdAssignment, Owner, Config = (), Witness = ()> {
-		pub id_assignment: Assignment,
+	pub struct Owned<'a, Owner, Assignment: IdAssignment, Config = (), Witness = ()> {
 		pub owner: &'a Owner,
+		pub id_assignment: Assignment,
 		pub config: &'a Config,
 		pub witness: &'a Witness,
 	}
-	impl<'a, Assignment: IdAssignment, Owner> Owned<'a, Assignment, Owner, (), ()> {
-		pub fn new(id_assignment: Assignment, owner: &'a Owner) -> Self {
+	impl<'a, Owner, Assignment: IdAssignment> Owned<'a, Owner, Assignment, (), ()> {
+		pub fn new(owner: &'a Owner, id_assignment: Assignment) -> Self {
 			Self { id_assignment, owner, config: &(), witness: &() }
 		}
 	}
-	impl<'a, Assignment: IdAssignment, Owner, Config> Owned<'a, Assignment, Owner, Config, ()> {
+	impl<'a, Owner, Assignment: IdAssignment, Config> Owned<'a, Owner, Assignment, Config, ()> {
 		pub fn new_configured(
-			id_assignment: Assignment,
 			owner: &'a Owner,
+			id_assignment: Assignment,
 			config: &'a Config,
 		) -> Self {
 			Self { id_assignment, owner, config, witness: &() }
 		}
 	}
-	impl<'a, Assignment: IdAssignment, Owner, Config, Witness> CreateStrategy
-		for Owned<'a, Assignment, Owner, Config, Witness>
+	impl<'a, Owner, Assignment: IdAssignment, Config, Witness> CreateStrategy
+		for Owned<'a, Owner, Assignment, Config, Witness>
 	{
 		type Success = Assignment::ReportedId;
 	}
@@ -455,48 +518,41 @@ pub mod common_strategies {
 	/// The `Adminable` is a [`"create" strategy`](CreateStrategy).
 	///
 	/// It accepts:
-	/// * The [ID assignment](IdAssignment) approach
 	/// * The `owner`
 	/// * The `admin`
+	/// * The [ID assignment](IdAssignment) approach
 	/// * The optional `config`
 	/// * The optional creation `witness`
 	///
 	/// The [`Success`](CreateStrategy::Success) will contain
 	/// the [reported ID](IdAssignment::ReportedId) of the ID assignment approach.
-	pub struct Adminable<'a, Assignment: IdAssignment, Account, Config = (), Witness = ()> {
-		pub id_assignment: Assignment,
+	pub struct Adminable<'a, Account, Assignment: IdAssignment, Config = (), Witness = ()> {
 		pub owner: &'a Account,
 		pub admin: &'a Account,
+		pub id_assignment: Assignment,
 		pub config: &'a Config,
 		pub witness: &'a Witness,
 	}
-	impl<'a, Assignment: IdAssignment, Account> Adminable<'a, Assignment, Account, (), ()> {
+	impl<'a, Account, Assignment: IdAssignment> Adminable<'a, Account, Assignment, (), ()> {
 		pub fn new(id_assignment: Assignment, owner: &'a Account, admin: &'a Account) -> Self {
 			Self { id_assignment, owner, admin, config: &(), witness: &() }
 		}
 	}
-	impl<'a, Assignment: IdAssignment, Account, Config> Adminable<'a, Assignment, Account, Config, ()> {
+	impl<'a, Account, Assignment: IdAssignment, Config> Adminable<'a, Account, Assignment, Config, ()> {
 		pub fn new_configured(
-			id_assignment: Assignment,
 			owner: &'a Account,
 			admin: &'a Account,
+			id_assignment: Assignment,
 			config: &'a Config,
 		) -> Self {
 			Self { id_assignment, owner, admin, config, witness: &() }
 		}
 	}
-	impl<'a, Assignment: IdAssignment, Account, Config, Witness> CreateStrategy
-		for Adminable<'a, Assignment, Account, Config, Witness>
+	impl<'a, Account, Assignment: IdAssignment, Config, Witness> CreateStrategy
+		for Adminable<'a, Account, Assignment, Config, Witness>
 	{
 		type Success = Assignment::ReportedId;
 	}
-
-	/// The `JustTo` is a [`transfer strategy`](TransferStrategy).
-	///
-	/// It accepts the target of the transfer,
-	/// i.e., who will become the asset's owner after the transfer.
-	pub struct JustTo<'a, Owner>(pub &'a Owner);
-	impl<'a, Owner> TransferStrategy for JustTo<'a, Owner> {}
 
 	/// The `FromTo` is a [`transfer strategy`](TransferStrategy).
 	///
@@ -504,22 +560,25 @@ pub mod common_strategies {
 	pub struct FromTo<'a, Owner>(pub &'a Owner, pub &'a Owner);
 	impl<'a, Owner> TransferStrategy for FromTo<'a, Owner> {}
 
-	/// The `JustDestroy` is a [`destroy strategy`](DestroyStrategy).
-	///
-	/// It represents an "unchecked" destruction of the asset.
-	pub struct JustDestroy;
-	impl DestroyStrategy for JustDestroy {
-		type Success = ();
-	}
-
-	/// The `IfOwnedBy` is a [`destroy strategy`](DestroyStrategy).
+	/// The `IfOwnedBy` is both a [`destroy strategy`](DestroyStrategy)
+	/// and a [`stash strategy`](StashStrategy).
 	///
 	/// It accepts a possible owner of the asset.
-	/// If the provided entity owns the asset, it will be destroyed.
+	/// If the provided entity owns the asset, the corresponding operation will be performed.
 	pub struct IfOwnedBy<'a, Owner>(pub &'a Owner);
 	impl<'a, Owner> DestroyStrategy for IfOwnedBy<'a, Owner> {
 		type Success = ();
 	}
+	impl<'a, Owner> StashStrategy for IfOwnedBy<'a, Owner> {}
+
+	/// The `IfRestorable` is a [`restore strategy`](RestoreStrategy).
+	///
+	/// It accepts whatever parameters are set in its generic argument.
+	/// For instance, if an asset is restorable,
+	/// this strategy may reference a beneficiary account,
+	/// which should own the asset upon restoration.
+	pub struct IfRestorable<'a, Params>(pub &'a Params);
+	impl<'a, Params> RestoreStrategy for IfRestorable<'a, Params> {}
 
 	/// The `WithWitness` is a [`destroy strategy`](DestroyStrategy).
 	///

@@ -5,8 +5,7 @@ use frame_support::{
 	traits::tokens::asset_ops::{
 		common_asset_kinds::Instance,
 		common_strategies::{
-			Bytes, CanTransfer, FromTo, IfOwnedBy, JustDestroy, JustTo, Owned, Ownership,
-			PredefinedId, WithOrigin,
+			AssignId, Bytes, CanTransfer, FromTo, IfOwnedBy, JustDo, Owned, Ownership, WithOrigin,
 		},
 		AssetDefinition, Create, Destroy, InspectMetadata, Transfer,
 	},
@@ -71,13 +70,13 @@ impl<T: Config<I>, I: 'static> InspectMetadata<Instance, CanTransfer> for Pallet
 }
 
 impl<'a, T: Config<I>, I: 'static>
-	Create<Instance, Owned<'a, PredefinedId<'a, (T::CollectionId, T::ItemId)>, T::AccountId>>
+	Create<Instance, Owned<'a, T::AccountId, AssignId<'a, (T::CollectionId, T::ItemId)>>>
 	for Pallet<T, I>
 {
 	fn create(
-		strategy: Owned<PredefinedId<(T::CollectionId, T::ItemId)>, T::AccountId>,
+		strategy: Owned<T::AccountId, AssignId<(T::CollectionId, T::ItemId)>>,
 	) -> DispatchResult {
-		let Owned { id_assignment: PredefinedId((collection, item)), owner, .. } = strategy;
+		let Owned { owner, id_assignment: AssignId((collection, item)), .. } = strategy;
 
 		Self::do_mint(collection.clone(), *item, owner.clone(), |_| Ok(()))
 	}
@@ -88,20 +87,18 @@ impl<'a, T: Config<I>, I: 'static>
 		Instance,
 		WithOrigin<
 			T::RuntimeOrigin,
-			Owned<'a, PredefinedId<'a, (T::CollectionId, T::ItemId)>, T::AccountId>,
+			Owned<'a, T::AccountId, AssignId<'a, (T::CollectionId, T::ItemId)>>,
 		>,
 	> for Pallet<T, I>
 {
 	fn create(
 		strategy: WithOrigin<
 			T::RuntimeOrigin,
-			Owned<PredefinedId<(T::CollectionId, T::ItemId)>, T::AccountId>,
+			Owned<T::AccountId, AssignId<(T::CollectionId, T::ItemId)>>,
 		>,
 	) -> DispatchResult {
-		let WithOrigin(
-			origin,
-			Owned { id_assignment: PredefinedId((collection, item)), owner, .. },
-		) = strategy;
+		let WithOrigin(origin, Owned { owner, id_assignment: AssignId((collection, item)), .. }) =
+			strategy;
 
 		let signer = ensure_signed(origin)?;
 
@@ -112,22 +109,22 @@ impl<'a, T: Config<I>, I: 'static>
 	}
 }
 
-impl<'a, T: Config<I>, I: 'static> Transfer<Instance, JustTo<'a, T::AccountId>> for Pallet<T, I> {
-	fn transfer((collection, item): &Self::Id, strategy: JustTo<T::AccountId>) -> DispatchResult {
-		let JustTo(dest) = strategy;
+impl<'a, T: Config<I>, I: 'static> Transfer<Instance, JustDo<'a, T::AccountId>> for Pallet<T, I> {
+	fn transfer((collection, item): &Self::Id, strategy: JustDo<T::AccountId>) -> DispatchResult {
+		let JustDo(dest) = strategy;
 
 		Self::do_transfer(collection.clone(), *item, dest.clone(), |_, _| Ok(()))
 	}
 }
 
 impl<'a, T: Config<I>, I: 'static>
-	Transfer<Instance, WithOrigin<T::RuntimeOrigin, JustTo<'a, T::AccountId>>> for Pallet<T, I>
+	Transfer<Instance, WithOrigin<T::RuntimeOrigin, JustDo<'a, T::AccountId>>> for Pallet<T, I>
 {
 	fn transfer(
 		(collection, item): &Self::Id,
-		strategy: WithOrigin<T::RuntimeOrigin, JustTo<T::AccountId>>,
+		strategy: WithOrigin<T::RuntimeOrigin, JustDo<T::AccountId>>,
 	) -> DispatchResult {
-		let WithOrigin(origin, JustTo(dest)) = strategy;
+		let WithOrigin(origin, JustDo(dest)) = strategy;
 
 		let signer = ensure_signed(origin)?;
 
@@ -152,20 +149,20 @@ impl<'a, T: Config<I>, I: 'static> Transfer<Instance, FromTo<'a, T::AccountId>> 
 	}
 }
 
-impl<T: Config<I>, I: 'static> Destroy<Instance, JustDestroy> for Pallet<T, I> {
-	fn destroy((collection, item): &Self::Id, _strategy: JustDestroy) -> DispatchResult {
+impl<T: Config<I>, I: 'static> Destroy<Instance, JustDo<'_>> for Pallet<T, I> {
+	fn destroy((collection, item): &Self::Id, _strategy: JustDo) -> DispatchResult {
 		Self::do_burn(collection.clone(), *item, |_, _| Ok(()))
 	}
 }
 
-impl<'a, T: Config<I>, I: 'static> Destroy<Instance, WithOrigin<T::RuntimeOrigin, JustDestroy>>
+impl<'a, T: Config<I>, I: 'static> Destroy<Instance, WithOrigin<T::RuntimeOrigin, JustDo<'_>>>
 	for Pallet<T, I>
 {
 	fn destroy(
 		id @ (collection, item): &Self::Id,
-		strategy: WithOrigin<T::RuntimeOrigin, JustDestroy>,
+		strategy: WithOrigin<T::RuntimeOrigin, JustDo>,
 	) -> DispatchResult {
-		let WithOrigin(origin, JustDestroy) = strategy;
+		let WithOrigin(origin, _just_do) = strategy;
 		let details =
 			Item::<T, I>::get(collection, item).ok_or(Error::<T, I>::UnknownCollection)?;
 
