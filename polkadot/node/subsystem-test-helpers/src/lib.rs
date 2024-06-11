@@ -161,10 +161,24 @@ where
 	OutgoingMessage: Send + 'static,
 {
 	async fn send_message(&mut self, msg: OutgoingMessage) {
+		self.send_message_with_priority::<overseer::gen::NormalPriority>(msg).await;
+	}
+
+	async fn send_message_with_priority<P: overseer::gen::Priority>(
+		&mut self,
+		msg: OutgoingMessage,
+	) {
 		self.tx.send(msg.into()).await.expect("test overseer no longer live");
 	}
 
 	fn try_send_message(
+		&mut self,
+		msg: OutgoingMessage,
+	) -> Result<(), TrySendError<OutgoingMessage>> {
+		self.try_send_message_with_priority::<overseer::gen::NormalPriority>(msg)
+	}
+
+	fn try_send_message_with_priority<P: overseer::gen::Priority>(
 		&mut self,
 		msg: OutgoingMessage,
 	) -> Result<(), TrySendError<OutgoingMessage>> {
