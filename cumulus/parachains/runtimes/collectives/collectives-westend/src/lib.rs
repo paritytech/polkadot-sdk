@@ -36,6 +36,8 @@
 #[cfg(feature = "std")]
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
+pub mod secretary;
+
 pub mod ambassador;
 pub mod impls;
 mod weights;
@@ -709,6 +711,13 @@ construct_runtime!(
 		AmbassadorContent: pallet_collective_content::<Instance1> = 75,
 
 		StateTrieMigration: pallet_state_trie_migration = 80,
+
+		// Secretary Program
+		SecretaryCollective: pallet_ranked_collective::<Instance3> = 90,
+		SecretaryReferenda: pallet_referansa::<Instance3> = 91,
+		SecretaryOrigins: pallet_secretary_origins = 92,
+		SecretaryCore: pallet_core_fellowship = 93,
+		SecretarySalary: pallet_salary::<Instance3> = 94,
 	}
 );
 
@@ -788,6 +797,10 @@ mod benches {
 		[pallet_collective_content, AmbassadorContent]
 		[pallet_core_fellowship, AmbassadorCore]
 		[pallet_salary, AmbassadorSalary]
+		[pallet_referenda, SecretaryReferenda]
+		[pallet_ranked_collective, SecretaryCollective]
+		[pallet_core_fellowship, SecretaryCore]
+		[pallet_salary, SecretarySalary]
 		[pallet_treasury, FellowshipTreasury]
 		[pallet_asset_rate, AssetRate]
 	);
