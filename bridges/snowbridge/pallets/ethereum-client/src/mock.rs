@@ -2,14 +2,19 @@
 // SPDX-FileCopyrightText: 2023 Snowfork <hello@snowfork.com>
 use crate as ethereum_beacon_client;
 use crate::config;
-use frame_support::{derive_impl, dispatch::DispatchResult, parameter_types};
-use pallet_timestamp;
+use frame_support::{
+	derive_impl, dispatch::DispatchResult, pallet_prelude::Weight, parameter_types,
+};
 use primitives::{Fork, ForkVersions};
 use snowbridge_core::inbound::{Log, Proof};
 use sp_std::default::Default;
 use std::{fs::File, path::PathBuf};
 
 type Block = frame_system::mocking::MockBlock<Test>;
+use frame_support::{
+	migrations::MultiStepMigrator,
+	traits::{OnFinalize, OnInitialize},
+};
 use sp_runtime::BuildStorage;
 
 fn load_fixture<T>(basename: String) -> Result<T, serde_json::Error>
@@ -57,22 +62,16 @@ pub fn get_message_verification_payload() -> (Log, Proof) {
 
 frame_support::construct_runtime!(
 	pub enum Test {
-		System: frame_system::{Pallet, Call, Storage, Event<T>},
-		Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent},
-		EthereumBeaconClient: ethereum_beacon_client::{Pallet, Call, Storage, Event<T>},
+		System: frame_system,
+		EthereumBeaconClient: crate,
+		Migrator: pallet_migrations,
 	}
 );
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
 	type Block = Block;
-}
-
-impl pallet_timestamp::Config for Test {
-	type Moment = u64;
-	type OnTimestampSet = ();
-	type MinimumPeriod = ();
-	type WeightInfo = ();
+	type MultiBlockMigrator = Migrator;
 }
 
 parameter_types! {
@@ -106,6 +105,21 @@ impl ethereum_beacon_client::Config for Test {
 	type WeightInfo = ();
 }
 
+parameter_types! {
+	pub storage ExecutionHeaderCount: u32 = 100;
+	pub storage MigratorServiceWeight: Weight = Weight::from_parts(100, 100);
+}
+
+#[derive_impl(pallet_migrations::config_preludes::TestDefaultConfig)]
+impl pallet_migrations::Config for Test {
+	#[cfg(not(feature = "runtime-benchmarks"))]
+	type Migrations =
+		(crate::migration::EthereumExecutionHeaderCleanup<Test, (), ExecutionHeaderCount>,);
+	#[cfg(feature = "runtime-benchmarks")]
+	type Migrations = pallet_migrations::mock_helpers::MockedMigrations;
+	type MaxServiceWeight = MigratorServiceWeight;
+}
+
 // Build genesis storage according to the mock runtime.
 pub fn new_tester() -> sp_io::TestExternalities {
 	let t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
@@ -119,4 +133,16 @@ pub fn initialize_storage() -> DispatchResult {
 		inbound_fixture.finalized_header,
 		inbound_fixture.block_roots_root,
 	)
+}
+
+pub fn run_to_block_with_migrator(n: u64) {
+	assert!(System::block_number() < n);
+	while System::block_number() < n {
+		let b = System::block_number();
+		AllPalletsWithSystem::on_finalize(b);
+		// Done by Executive:
+		<Test as frame_system::Config>::MultiBlockMigrator::step();
+		System::set_block_number(b + 1);
+		AllPalletsWithSystem::on_initialize(b + 1);
+	}
 }
