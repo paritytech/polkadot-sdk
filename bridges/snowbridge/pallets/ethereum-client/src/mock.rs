@@ -2,7 +2,9 @@
 // SPDX-FileCopyrightText: 2023 Snowfork <hello@snowfork.com>
 use crate as ethereum_beacon_client;
 use crate::config;
-use frame_support::{derive_impl, dispatch::DispatchResult, pallet_prelude::Weight, parameter_types};
+use frame_support::{
+	derive_impl, dispatch::DispatchResult, pallet_prelude::Weight, parameter_types,
+};
 use pallet_timestamp;
 use snowbridge_beacon_primitives::{Fork, ForkVersions};
 use snowbridge_core::inbound::{Log, Proof};
