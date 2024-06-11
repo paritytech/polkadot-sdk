@@ -17,3 +17,5 @@ crates:
     bump: patch
   - name: bridge-hub-rococo-integration-tests
     bump: patch
+  - name: bridge-hub-rococo-runtime
+    bump: minor
