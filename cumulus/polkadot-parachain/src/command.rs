@@ -659,7 +659,7 @@ pub fn run() -> Result<()> {
 				info!("Parachain Account: {}", parachain_account);
 				info!("Is collating: {}", if config.role.is_authority() { "yes" } else { "no" });
 
-				match polkadot_config.network.network_backend {
+				match config.network.network_backend {
 					sc_network::config::NetworkBackendType::Libp2p =>
 						start_node::<sc_network::NetworkWorker<_, _>>(
 							config,
