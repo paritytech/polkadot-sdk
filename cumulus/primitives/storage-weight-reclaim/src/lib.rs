@@ -171,7 +171,7 @@ where
 		// Unspent weight according to the `actual_weight` from `PostDispatchInfo`
 		// This unspent weight will be refunded by the `CheckWeight` extension, so we need to
 		// account for that.
-		let unspent = post_info.calc_unspent(info).proof_size();
+		let unspent: u64 = post_info.calc_unspent(info).proof_size();
 		let storage_size_diff =
 			benchmarked_weight.saturating_sub(unspent).abs_diff(consumed_weight as u64);
 
@@ -201,7 +201,7 @@ mod tests {
 	use super::*;
 	use frame_support::{
 		assert_ok,
-		dispatch::DispatchClass,
+		dispatch::{DispatchClass, PerDispatchClass},
 		weights::{Weight, WeightMeter},
 	};
 	use frame_system::{BlockWeight, CheckWeight};
@@ -254,6 +254,10 @@ mod tests {
 		BlockWeight::<Test>::mutate(|current_weight| {
 			current_weight.set(Weight::from_parts(0, new_weight), DispatchClass::Normal);
 		});
+	}
+
+	fn get_current_storage_weight() -> PerDispatchClass<Weight> {
+		BlockWeight::<Test>::get()
 	}
 
 	#[test]
@@ -468,6 +472,50 @@ mod tests {
 			));
 
 			assert_eq!(BlockWeight::<Test>::get().total().proof_size(), 1150);
+		})
+	}
+
+	#[test]
+	fn test_block_len_weight_is_not_reclaimed() {
+		let mut test_ext = setup_test_externalities(&[100, 200]);
+
+		test_ext.execute_with(|| {
+			set_current_storage_weight(0);
+			// Benchmarked storage weight: 100
+			let info = DispatchInfo { weight: Weight::from_parts(100, 100), ..Default::default() };
+
+			// Actual proof size is 100
+			let post_info = PostDispatchInfo {
+				actual_weight: Some(Weight::from_parts(50, 100)),
+				pays_fee: Default::default(),
+			};
+
+			assert_ok!(CheckWeight::<Test>::do_pre_dispatch(&info, 200));
+			// Weight should go up by 200 len + 100 proof size weight
+			assert_eq!(get_current_storage_weight().total().proof_size(), 300);
+
+			let pre = StorageWeightReclaim::<Test>(PhantomData)
+				.pre_dispatch(&ALICE, CALL, &info, 200)
+				.unwrap();
+			// Should return `setup_test_externalities` proof recorder value: 100.
+			assert_eq!(pre, Some(100));
+
+			// The `CheckWeight` extension will refund `actual_weight` from `PostDispatchInfo`
+			// we always need to call `post_dispatch` to verify that they interoperate correctly.
+			assert_ok!(CheckWeight::<Test>::post_dispatch(None, &info, &post_info, 200, &Ok(())));
+			// `setup_test_externalities` proof recorder value: 200, so this means the extrinsic
+			// actually used 100 proof size.
+			assert_ok!(StorageWeightReclaim::<Test>::post_dispatch(
+				Some(pre),
+				&info,
+				&post_info,
+				200,
+				&Ok(())
+			));
+
+			// Check block len weight was not reclaimed:
+			// 100 weight + 200 extrinsic len == 300 proof size
+			assert_eq!(get_current_storage_weight().total().proof_size(), 300);
 		})
 	}
 
