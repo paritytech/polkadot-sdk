@@ -171,7 +171,7 @@ where
 		// Unspent weight according to the `actual_weight` from `PostDispatchInfo`
 		// This unspent weight will be refunded by the `CheckWeight` extension, so we need to
 		// account for that.
-		let unspent: u64 = post_info.calc_unspent(info).proof_size();
+		let unspent = post_info.calc_unspent(info).proof_size();
 		let storage_size_diff =
 			benchmarked_weight.saturating_sub(unspent).abs_diff(consumed_weight as u64);
 
