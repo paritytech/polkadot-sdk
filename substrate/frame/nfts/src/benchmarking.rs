@@ -799,7 +799,7 @@ benchmarks_instance_pallet! {
 
 	mint_pre_signed {
 		let n in 0 .. T::MaxAttributesPerCall::get() as u32;
-		let (caller_public, caller)= T::Helper::signer();
+		let (caller_public, caller) = T::Helper::signer();
 		T::Currency::make_free_balance_be(&caller, DepositBalanceOf::<T, I>::max_value());
 		let caller_lookup = T::Lookup::unlookup(caller.clone());
 
@@ -846,7 +846,7 @@ benchmarks_instance_pallet! {
 		let item_owner: T::AccountId = account("item_owner", 0, SEED);
 		let item_owner_lookup = T::Lookup::unlookup(item_owner.clone());
 
-		let (signer_public, signer)= T::Helper::signer();
+		let (signer_public, signer) = T::Helper::signer();
 
 		T::Currency::make_free_balance_be(&item_owner, DepositBalanceOf::<T, I>::max_value());
 
