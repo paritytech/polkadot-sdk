@@ -13648,7 +13648,6 @@ dependencies = [
  "people-rococo-runtime",
  "people-westend-runtime",
  "polkadot-cli",
- "polkadot-parachain-common",
  "polkadot-primitives",
  "polkadot-service",
  "rococo-parachain-runtime",
@@ -13697,21 +13696,6 @@ dependencies = [
  "testnet-parachains-constants",
  "tokio",
  "wait-timeout",
-]
-
-[[package]]
-name = "polkadot-parachain-common"
-version = "0.1.0"
-dependencies = [
- "cumulus-primitives-aura",
- "cumulus-primitives-core",
- "parity-scale-codec",
- "sp-api",
- "sp-block-builder",
- "sp-consensus-aura",
- "sp-runtime",
- "sp-session",
- "sp-transaction-pool",
 ]
 
 [[package]]
@@ -14155,7 +14139,6 @@ dependencies = [
  "polkadot-node-subsystem-types",
  "polkadot-node-subsystem-util",
  "polkadot-overseer",
- "polkadot-parachain-common",
  "polkadot-parachain-primitives",
  "polkadot-primitives",
  "polkadot-rpc",

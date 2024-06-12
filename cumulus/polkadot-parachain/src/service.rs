@@ -32,7 +32,14 @@ use sc_rpc::DenyUnsafe;
 
 use jsonrpsee::RpcModule;
 
-use crate::{fake_runtime_api::aura::RuntimeApi as FakeRuntimeApi, rpc};
+use crate::{
+	common::{
+		aura::{AuraIdT, AuraRuntimeApi},
+		ConstructNodeRuntimeApi,
+	},
+	fake_runtime_api::aura::RuntimeApi as FakeRuntimeApi,
+	rpc,
+};
 pub use parachains_common::{AccountId, AuraId, Balance, Block, Hash, Nonce};
 
 use cumulus_client_consensus_relay_chain::Verifier as RelayChainVerifier;
@@ -58,10 +65,6 @@ use sp_runtime::{
 };
 use std::{marker::PhantomData, sync::Arc, time::Duration};
 
-use polkadot_parachain_common::{
-	aura::{AuraIdT, AuraRuntimeApi},
-	ConstructNodeRuntimeApi,
-};
 use polkadot_primitives::CollatorPair;
 
 #[cfg(not(feature = "runtime-benchmarks"))]
