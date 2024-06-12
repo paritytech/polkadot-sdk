@@ -15,7 +15,7 @@
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
 use clap::{CommandFactory, FromArgMatches};
-use sc_service::BasePath;
+use std::path::PathBuf;
 
 /// Sub-commands supported by the collator.
 #[derive(Debug, clap::Subcommand)]
@@ -105,7 +105,7 @@ pub struct RelayChainCli {
 	pub chain_id: Option<String>,
 
 	/// The base path that should be used by the relay chain.
-	pub base_path: Option<BasePath>,
+	pub base_path: Option<PathBuf>,
 }
 
 impl RelayChainCli {
@@ -121,6 +121,7 @@ impl RelayChainCli {
 		let extension = crate::chain_spec::Extensions::try_get(&*para_config.chain_spec);
 		let chain_id = extension.map(|e| e.relay_chain.clone());
 
-		Self { base, chain_id, base_path: Some(para_config.base_path.clone()) }
+		let base_path = para_config.base_path.path().join("polkadot");
+		Self { base, chain_id, base_path: Some(base_path) }
 	}
 }
