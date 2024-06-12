@@ -26,6 +26,7 @@ pub mod utils;
 use std::{error::Error as StdError, net::SocketAddr, num::NonZeroU32, sync::Arc, time::Duration};
 
 use jsonrpsee::{
+	core::BoxError,
 	server::{
 		middleware::http::ProxyGetRequestLayer, serve_with_graceful_shutdown, stop_channel, ws,
 		PingConfig, StopHandle, TowerServiceBuilder,
@@ -244,7 +245,7 @@ where
 					// https://github.com/rust-lang/rust/issues/102211 the error type can't be inferred
 					// to be `Box<dyn std::error::Error + Send + Sync>` so we need to convert it to
 					// a concrete type as workaround.
-					svc.call(req).await.map_err(|e| anyhow::anyhow!("{:?}", e))
+					svc.call(req).await.map_err(|e| BoxError::from(e))
 				}
 			});
 
