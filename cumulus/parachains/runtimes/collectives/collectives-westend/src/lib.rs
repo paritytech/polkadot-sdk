@@ -37,6 +37,7 @@
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
 pub mod secretary;
+pub use secretary::pallet_secretary_origins;
 
 pub mod ambassador;
 pub mod impls;
@@ -300,6 +301,8 @@ pub enum ProxyType {
 	Fellowship,
 	/// Ambassador proxy. Allows calls related to the Ambassador Program.
 	Ambassador,
+	/// Secretary proxy. Allows calls related to the Secretary Program.
+	Secretary,
 }
 impl Default for ProxyType {
 	fn default() -> Self {
@@ -347,6 +350,15 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 					RuntimeCall::AmbassadorContent { .. } |
 					RuntimeCall::AmbassadorCore { .. } |
 					RuntimeCall::AmbassadorSalary { .. } |
+					RuntimeCall::Utility { .. } |
+					RuntimeCall::Multisig { .. }
+			),
+			ProxyType::Secretary => matches!(
+				c,
+				RuntimeCall::SecretaryCollective { .. } |
+					RuntimeCall::SecretaryReferenda { .. } |
+					RuntimeCall::SecretaryCore { .. } |
+					RuntimeCall::SecretarySalary { .. } |
 					RuntimeCall::Utility { .. } |
 					RuntimeCall::Multisig { .. }
 			),
@@ -714,9 +726,9 @@ construct_runtime!(
 
 		// Secretary Program
 		SecretaryCollective: pallet_ranked_collective::<Instance3> = 90,
-		SecretaryReferenda: pallet_referansa::<Instance3> = 91,
+		SecretaryReferenda: pallet_referenda::<Instance3> = 91,
 		SecretaryOrigins: pallet_secretary_origins = 92,
-		SecretaryCore: pallet_core_fellowship = 93,
+		SecretaryCore: pallet_core_fellowship::<Instance3> = 93,
 		SecretarySalary: pallet_salary::<Instance3> = 94,
 	}
 );
@@ -792,6 +804,7 @@ mod benches {
 		[pallet_ranked_collective, FellowshipCollective]
 		[pallet_core_fellowship, FellowshipCore]
 		[pallet_salary, FellowshipSalary]
+		[pallet_treasury, FellowshipTreasury]
 		[pallet_referenda, AmbassadorReferenda]
 		[pallet_ranked_collective, AmbassadorCollective]
 		[pallet_collective_content, AmbassadorContent]
@@ -801,7 +814,6 @@ mod benches {
 		[pallet_ranked_collective, SecretaryCollective]
 		[pallet_core_fellowship, SecretaryCore]
 		[pallet_salary, SecretarySalary]
-		[pallet_treasury, FellowshipTreasury]
 		[pallet_asset_rate, AssetRate]
 	);
 }
