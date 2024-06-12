@@ -18,7 +18,7 @@
 #![cfg(any(all(feature = "try-runtime", test), doc))]
 
 use crate::*;
-use frame_support::{derive_impl, traits::ConstU64, weights::constants::ParityDbWeight};
+use frame_support::{derive_impl, weights::constants::ParityDbWeight};
 
 // Re-export crate as its pallet name for construct_runtime.
 use crate as pallet_example_storage_migration;
