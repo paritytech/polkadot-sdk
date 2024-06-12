@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1718149662506,
+  "lastUpdate": 1718208551277,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -7237,6 +7237,53 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-distribution",
             "value": 7.138671873559974,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Branislav Kontur",
+            "username": "bkontur",
+            "email": "bkontur@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "c4aa2ab642419e6751400a6aabaf5df611a4ea37",
+          "message": "Hide `tuplex` dependency and re-export by macro (#4774)\n\nAddressing comment:\nhttps://github.com/paritytech/polkadot-sdk/pull/4102/files#r1635502496\n\n---------\n\nCo-authored-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>",
+          "timestamp": "2024-06-12T14:38:57Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/c4aa2ab642419e6751400a6aabaf5df611a4ea37"
+        },
+        "date": 1718208521720,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63546.65,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52941.90000000001,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 3.407019395190151,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 7.5192890061,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 10.176769134619965,
             "unit": "seconds"
           }
         ]
