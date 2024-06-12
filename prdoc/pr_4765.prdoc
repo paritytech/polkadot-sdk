@@ -9,5 +9,10 @@ doc:
 crates:
   - name: frame-system
     bump: patch
+  - name: frame-executive
+    bump: none
+  - name: cumulus-primitives-storage-weight-reclaim
+    bump: none
+
 
 
