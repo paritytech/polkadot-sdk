@@ -40,6 +40,7 @@ use sp_runtime::{
 #[doc(hidden)]
 pub mod __private {
 	pub use tuplex;
+}
 
 /// A duplication of the `FilterCall` trait.
 ///
@@ -318,7 +319,7 @@ macro_rules! generate_bridge_reject_obsolete_headers_and_messages {
 				info: &sp_runtime::traits::DispatchInfoOf<Self::Call>,
 				len: usize,
 			) -> Result<Self::Pre, sp_runtime::transaction_validity::TransactionValidityError> {
-				use $crate::extensions::check_obsolete_extension::tuplex::PushBack;
+				use $crate::extensions::check_obsolete_extension::__private::tuplex::PushBack;
 				let to_post_dispatch = ();
 				$(
 					let (from_validate, call_filter_validity) = <
@@ -341,7 +342,7 @@ macro_rules! generate_bridge_reject_obsolete_headers_and_messages {
 				len: usize,
 				result: &sp_runtime::DispatchResult,
 			) -> Result<(), sp_runtime::transaction_validity::TransactionValidityError> {
-				use $crate::extensions::check_obsolete_extension::tuplex::PopFront;
+				use $crate::extensions::check_obsolete_extension::__private::tuplex::PopFront;
 				let Some((relayer, to_post_dispatch)) = to_post_dispatch else { return Ok(()) };
 				let has_failed = result.is_err();
 				$(
