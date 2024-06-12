@@ -5924,7 +5924,6 @@ dependencies = [
  "macro_magic",
  "proc-macro-warning",
  "proc-macro2 1.0.82",
- "proc-utils",
  "quote 1.0.35",
  "regex",
  "sp-crypto-hashing",
@@ -15165,28 +15164,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8ad3d49ab951a01fbaafe34f2ec74122942fe18a3f9814c3268f1bb72042131b"
 dependencies = [
  "unicode-ident",
-]
-
-[[package]]
-name = "proc-util-macros"
-version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "45e6073edb3261de7793bbde3002e69e6a4baaa34f5e321e299dd30e3c7489ad"
-dependencies = [
- "syn 2.0.61",
-]
-
-[[package]]
-name = "proc-utils"
-version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "842fd9aaf81ebd6351f2419bd99dd4dae9d97ae2824243e82c69323df4fd1e6b"
-dependencies = [
- "prettyplease 0.2.12",
- "proc-macro2 1.0.82",
- "proc-util-macros",
- "quote 1.0.35",
- "syn 2.0.61",
 ]
 
 [[package]]
