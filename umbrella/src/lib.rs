@@ -922,6 +922,10 @@ pub use polkadot_node_subsystem_util;
 #[cfg(feature = "polkadot-overseer")]
 pub use polkadot_overseer;
 
+/// Primitives for building a polkadot parachain node.
+#[cfg(feature = "polkadot-parachain-common")]
+pub use polkadot_parachain_common;
+
 /// Types and utilities for creating and working with parachains.
 #[cfg(feature = "polkadot-parachain-primitives")]
 pub use polkadot_parachain_primitives;

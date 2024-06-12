@@ -14155,6 +14155,7 @@ dependencies = [
  "polkadot-node-subsystem-types",
  "polkadot-node-subsystem-util",
  "polkadot-overseer",
+ "polkadot-parachain-common",
  "polkadot-parachain-primitives",
  "polkadot-primitives",
  "polkadot-rpc",
