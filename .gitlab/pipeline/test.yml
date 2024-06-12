@@ -638,9 +638,9 @@ subsystem-benchmark-statement-distribution:
     - cargo bench -p polkadot-statement-distribution --bench statement-distribution-regression-bench --features subsystem-benchmarks
   allow_failure: true
 
-  subsystem-benchmark-estimate-capacity:
-    extends:
-      - .subsystem-benchmark-template
-    script:
-      - cargo run -p polkadot-subsystem-bench --release -- polkadot/node/subsystem-bench/examples/capacity.yaml
-    allow_failure: true
+subsystem-benchmark-estimate-capacity:
+  extends:
+    - .subsystem-benchmark-template
+  script:
+    - cargo run -p polkadot-subsystem-bench --release -- polkadot/node/subsystem-bench/examples/capacity.yaml
+  allow_failure: true
