@@ -20,7 +20,9 @@
     "/dns/people-kusama-bootnode.turboflakes.io/tcp/30645/p2p/12D3KooWCR2Q8J2NFFfuofDak4zSgWkuBq7orP96HFaxLgAoDUBV",
     "/dns/people-kusama-bootnode.turboflakes.io/tcp/30745/wss/p2p/12D3KooWCR2Q8J2NFFfuofDak4zSgWkuBq7orP96HFaxLgAoDUBV",
     "/dns/boot-node.helikon.io/tcp/7510/p2p/12D3KooWM1X4setrMWjwnV8iDkAtYhqFHNkGozdWdq6sawWh5Yhv",
-    "/dns/boot-node.helikon.io/tcp/7512/wss/p2p/12D3KooWM1X4setrMWjwnV8iDkAtYhqFHNkGozdWdq6sawWh5Yhv"
+    "/dns/boot-node.helikon.io/tcp/7512/wss/p2p/12D3KooWM1X4setrMWjwnV8iDkAtYhqFHNkGozdWdq6sawWh5Yhv",
+    "/dns/people-kusama.bootnodes.polkadotters.com/tcp/30377/p2p/12D3KooWHy7TAuK6EoVij2tfaeh3KkaEJxhTmumbEom3HfRnSEsp",
+    "/dns/people-kusama.bootnodes.polkadotters.com/tcp/30379/wss/p2p/12D3KooWHy7TAuK6EoVij2tfaeh3KkaEJxhTmumbEom3HfRnSEsp"
   ],
   "telemetryEndpoints": null,
   "protocolId": null,
