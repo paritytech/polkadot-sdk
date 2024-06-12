@@ -256,7 +256,7 @@ mod tests {
 		});
 	}
 
-	fn get_current_storage_weight() -> PerDispatchClass<Weight> {
+	fn get_storage_weight() -> PerDispatchClass<Weight> {
 		BlockWeight::<Test>::get()
 	}
 
@@ -287,7 +287,7 @@ mod tests {
 				&Ok(())
 			));
 
-			assert_eq!(BlockWeight::<Test>::get().total().proof_size(), 600);
+			assert_eq!(get_storage_weight().total().proof_size(), 600);
 		})
 	}
 
@@ -317,7 +317,7 @@ mod tests {
 				&Ok(())
 			));
 
-			assert_eq!(BlockWeight::<Test>::get().total().proof_size(), 1000);
+			assert_eq!(get_storage_weight().total().proof_size(), 1000);
 		})
 	}
 
@@ -346,7 +346,7 @@ mod tests {
 				&Ok(())
 			));
 
-			assert_eq!(BlockWeight::<Test>::get().total().proof_size(), 1100);
+			assert_eq!(get_storage_weight().total().proof_size(), 1100);
 		})
 	}
 
@@ -372,7 +372,7 @@ mod tests {
 				&Ok(())
 			));
 
-			assert_eq!(BlockWeight::<Test>::get().total().proof_size(), 0);
+			assert_eq!(get_storage_weight().total().proof_size(), 0);
 		});
 	}
 
@@ -400,7 +400,7 @@ mod tests {
 				&Ok(())
 			));
 
-			assert_eq!(BlockWeight::<Test>::get().total().proof_size(), 800);
+			assert_eq!(get_storage_weight().total().proof_size(), 800);
 		});
 	}
 
@@ -436,7 +436,7 @@ mod tests {
 				&Ok(())
 			));
 
-			assert_eq!(BlockWeight::<Test>::get().total().proof_size(), 900);
+			assert_eq!(get_storage_weight().total().proof_size(), 900);
 		})
 	}
 
@@ -471,7 +471,7 @@ mod tests {
 				&Ok(())
 			));
 
-			assert_eq!(BlockWeight::<Test>::get().total().proof_size(), 1150);
+			assert_eq!(get_storage_weight().total().proof_size(), 1150);
 		})
 	}
 
@@ -492,7 +492,7 @@ mod tests {
 
 			assert_ok!(CheckWeight::<Test>::do_pre_dispatch(&info, 200));
 			// Weight should go up by 200 len + 100 proof size weight
-			assert_eq!(get_current_storage_weight().total().proof_size(), 300);
+			assert_eq!(get_storage_weight().total().proof_size(), 300);
 
 			let pre = StorageWeightReclaim::<Test>(PhantomData)
 				.pre_dispatch(&ALICE, CALL, &info, 200)
@@ -515,7 +515,7 @@ mod tests {
 
 			// Check block len weight was not reclaimed:
 			// 100 weight + 200 extrinsic len == 300 proof size
-			assert_eq!(get_current_storage_weight().total().proof_size(), 300);
+			assert_eq!(get_storage_weight().total().proof_size(), 300);
 		})
 	}
 
@@ -552,7 +552,7 @@ mod tests {
 			// we always need to call `post_dispatch` to verify that they interoperate correctly.
 			assert_ok!(CheckWeight::<Test>::post_dispatch(None, &info, &post_info, 0, &Ok(())));
 
-			assert_eq!(BlockWeight::<Test>::get().total().proof_size(), 900);
+			assert_eq!(get_storage_weight().total().proof_size(), 900);
 		})
 	}
 
@@ -588,7 +588,7 @@ mod tests {
 			// we always need to call `post_dispatch` to verify that they interoperate correctly.
 			assert_ok!(CheckWeight::<Test>::post_dispatch(None, &info, &post_info, 0, &Ok(())));
 
-			assert_eq!(BlockWeight::<Test>::get().total().proof_size(), 1150);
+			assert_eq!(get_storage_weight().total().proof_size(), 1150);
 		})
 	}
 
@@ -692,7 +692,7 @@ mod tests {
 
 			// We reclaimed 3 bytes of storage size!
 			assert_eq!(reclaimed, Some(Weight::from_parts(0, 3)));
-			assert_eq!(BlockWeight::<Test>::get().total().proof_size(), 10);
+			assert_eq!(get_storage_weight().total().proof_size(), 10);
 			assert_eq!(remaining_weight_meter.remaining(), Weight::from_parts(10, 8));
 		}
 	}
