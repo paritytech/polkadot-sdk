@@ -23,8 +23,8 @@ use super::{
 	Round, SetId, VoterSet,
 };
 use crate::{communication::grandpa_protocol_name, environment::SharedVoterSetState};
+use codec::{DecodeAll, Encode};
 use futures::prelude::*;
-use parity_scale_codec::{DecodeAll, Encode};
 use sc_network::{
 	config::{MultiaddrWithPeerId, Role},
 	event::Event as NetworkEvent,

@@ -117,9 +117,10 @@ jobs:
           CONFIG: .github/.markdownlint.yaml
         run: |
           echo "Checking markdown formatting. More info: docs/contributor/markdown_linting.md"
+          echo "To fix potential erros, you can run 'markdownlint --config .github/.markdownlint.yaml -f --ignore target .' locally."
           markdownlint --config "$CONFIG" --ignore target .
   check-umbrella:
-    runs-on: arc-runners-polkadot-sdk
+    runs-on: ubuntu-latest
     timeout-minutes: 10
     needs: [set-image]
     container:
@@ -127,20 +128,19 @@ jobs:
     steps:
       - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.0 (22. Sep 2023)
       - name: install python deps
-        run: |
-          sudo apt-get update && sudo apt-get install -y python3-pip python3
-          pip3 install "cargo-workspace>=1.2.4" toml
+        run: pip3 install "cargo-workspace>=1.2.4" toml
       - name: check umbrella correctness
         run: |
+          # Fixes "detected dubious ownership" error in the ci
+          git config --global --add safe.directory '*'
           python3 scripts/generate-umbrella.py --sdk . --version 0.1.0
           cargo +nightly fmt --all
+
           if [ -n "$(git status --porcelain)" ]; then
             cat <<EOF
-          👋 Hello developer! The SemVer information that you declared in the prdoc file did not match what the CI detected.
+          👋 Hello developer! Apparently you added a new crate that is not part of the umbrella crate?
 
-          Please check the output above and see the following links for more help:
-          - https://github.com/paritytech/polkadot-sdk/blob/master/docs/contributor/prdoc.md#record-semver-changes
-          - https://forum.polkadot.network/t/psa-polkadot-sdk-to-use-semver
+          You can just apply the patch (git apply PATCH_NAME) that was printed to make this CI check succeed.
 
           Otherwise feel free to ask in the Merge Request or in Matrix chat.
           EOF
