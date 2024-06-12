@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
-use clap::{CommandFactory, FromArgMatches};
+use clap::{Command, CommandFactory, FromArgMatches};
 use std::path::PathBuf;
 
 /// Sub-commands supported by the collator.
@@ -62,9 +62,9 @@ pub enum Subcommand {
 #[command(
 	propagate_version = true,
 	args_conflicts_with_subcommands = true,
-	subcommand_negates_reqs = true
+	subcommand_negates_reqs = true,
+	after_help = crate::EXAMPLES
 )]
-#[clap(after_help = crate::EXAMPLES)]
 pub struct Cli {
 	#[command(subcommand)]
 	pub subcommand: Option<Subcommand>,
@@ -84,7 +84,7 @@ pub struct Cli {
 
 	/// Relay chain arguments
 	#[arg(raw = true)]
-	pub relaychain_args: Vec<String>,
+	pub relay_chain_args: Vec<String>,
 }
 
 #[derive(Debug)]
@@ -100,12 +100,25 @@ pub struct RelayChainCli {
 }
 
 impl RelayChainCli {
+	fn polkadot_cmd() -> Command {
+		let help_template = color_print::cformat!(
+			"The arguments that are passed to the relay chain node. \n\
+			\n\
+			<bold><underline>RELAY_CHAIN_ARGS:</></> \n\
+			{{options}}",
+		);
+
+		polkadot_cli::RunCmd::command()
+			.no_binary_name(true)
+			.help_template(help_template)
+	}
+
 	/// Parse the relay chain CLI parameters using the parachain `Configuration`.
 	pub fn new<'a>(
 		para_config: &sc_service::Configuration,
 		relay_chain_args: impl Iterator<Item = &'a String>,
 	) -> Self {
-		let polkadot_cmd = polkadot_cli::RunCmd::command().no_binary_name(true);
+		let polkadot_cmd = Self::polkadot_cmd();
 		let matches = polkadot_cmd.get_matches_from(relay_chain_args);
 		let base = FromArgMatches::from_arg_matches(&matches).unwrap_or_else(|e| e.exit());
 

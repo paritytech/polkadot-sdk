@@ -349,13 +349,13 @@ impl SubstrateCli for Cli {
 
 	fn description() -> String {
 		format!(
-			"{}
-The command-line arguments provided first will be passed to the parachain node, and
-the arguments provided after -- will be passed to the relay chain node.
-
-Example:
-
-{} [parachain-args] -- [relay_chain-args]",
+			"{} \n\
+			The command-line arguments provided first will be passed to the parachain node, \n\
+			and the arguments provided after -- will be passed to the relay chain node. \n\
+			\n\
+			Example: \n\
+			\n\
+			{} [parachain-args] -- [relay-chain-args]",
 			crate::BANNER,
 			Self::executable_name()
 		)
@@ -591,7 +591,7 @@ pub fn run() -> Result<()> {
 		}),
 		Some(Subcommand::PurgeChain(cmd)) => {
 			let runner = cli.create_runner(cmd)?;
-			let polkadot_cli = RelayChainCli::new(runner.config(), cli.relaychain_args.iter());
+			let polkadot_cli = RelayChainCli::new(runner.config(), cli.relay_chain_args.iter());
 
 			runner.sync_run(|config| {
 				let polkadot_config = SubstrateCli::create_configuration(
@@ -660,7 +660,7 @@ pub fn run() -> Result<()> {
 		Some(Subcommand::Key(cmd)) => Ok(cmd.run(&cli)?),
 		None => {
 			let runner = cli.create_runner(&cli.run.normalize())?;
-			let polkadot_cli = RelayChainCli::new(runner.config(), cli.relaychain_args.iter());
+			let polkadot_cli = RelayChainCli::new(runner.config(), cli.relay_chain_args.iter());
 			let collator_options = cli.run.collator_options();
 
 			runner.run_node_until_exit(|config| async move {

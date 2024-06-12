@@ -19,16 +19,15 @@
 #![warn(missing_docs)]
 #![warn(unused_extern_crates)]
 
-// TODO: help in the relay chian args should also imply this
 // TODO: ensure execution is not set to native anywhere
 
 pub(crate) const EXAMPLES: &str = color_print::cstr!(
 	r#"<bold><underline>Examples:</></>
 
    <bold>polkadot-parachain-omni-node --chain para.json --sync warp -- --chain relay.json --sync warp</>
-        Launch a warp-syncing full node of the a given para's chain-spec, and a given relay's chain-spec.
+        Launch a warp-syncing full node of a given para's chain-spec, and a given relay's chain-spec.
 
-	<green><italic>The above approach is the most flexible, and the most forward-compatible use to use the omni-node.</></>
+	<green><italic>The above approach is the most flexible, and the most forward-compatible used to spawn an omni-node.</></>
 
 	You can find the chain-spec of some networks in:
 
@@ -86,6 +85,5 @@ mod rpc;
 mod service;
 
 fn main() -> sc_cli::Result<()> {
-	println!("{}", BANNER);
 	command::run()
 }
