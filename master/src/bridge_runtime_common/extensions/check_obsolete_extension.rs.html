@@ -829,6 +829,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#678" id="678">678</a>
 <a href="#679" id="679">679</a>
 <a href="#680" id="680">680</a>
+<a href="#681" id="681">681</a>
+<a href="#682" id="682">682</a>
+<a href="#683" id="683">683</a>
+<a href="#684" id="684">684</a>
+<a href="#685" id="685">685</a>
+<a href="#686" id="686">686</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
@@ -866,6 +872,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	traits::{Get, PhantomData, UniqueSaturatedInto},
 	transaction_validity::{TransactionPriority, TransactionValidity, ValidTransactionBuilder},
 };
+
+<span class="comment">// Re-export to avoid include tuplex dependency everywhere.
+</span><span class="attr">#[doc(hidden)]
+</span><span class="kw">pub mod </span>__private {
+	<span class="kw">pub use </span>tuplex;
+}
 
 <span class="doccomment">/// A duplication of the `FilterCall` trait.
 ///
@@ -1144,7 +1156,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				info: <span class="kw-2">&amp;</span>sp_runtime::traits::DispatchInfoOf&lt;<span class="self">Self</span>::Call&gt;,
 				len: usize,
 			) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::Pre, sp_runtime::transaction_validity::TransactionValidityError&gt; {
-				<span class="kw">use </span>tuplex::PushBack;
+				<span class="kw">use </span><span class="macro-nonterminal">$crate::extensions::check_obsolete_extension::__private::tuplex::PushBack</span>;
 				<span class="kw">let </span>to_post_dispatch = ();
 				$(
 					<span class="kw">let </span>(from_validate, call_filter_validity) = &lt;
@@ -1167,7 +1179,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				len: usize,
 				result: <span class="kw-2">&amp;</span>sp_runtime::DispatchResult,
 			) -&gt; <span class="prelude-ty">Result</span>&lt;(), sp_runtime::transaction_validity::TransactionValidityError&gt; {
-				<span class="kw">use </span>tuplex::PopFront;
+				<span class="kw">use </span><span class="macro-nonterminal">$crate::extensions::check_obsolete_extension::__private::tuplex::PopFront</span>;
 				<span class="kw">let </span><span class="prelude-val">Some</span>((relayer, to_post_dispatch)) = to_post_dispatch <span class="kw">else </span>{ <span class="kw">return </span><span class="prelude-val">Ok</span>(()) };
 				<span class="kw">let </span>has_failed = result.is_err();
 				$(
