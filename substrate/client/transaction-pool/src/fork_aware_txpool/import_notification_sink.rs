@@ -18,8 +18,7 @@
 
 //! Multi view import notification sink. Combines streams from many views into single stream.
 
-const LOG_TARGET: &str = "txpool::mvimportnotif";
-
+use crate::LOG_TARGET;
 use futures::{
 	channel::mpsc::{channel, Receiver, Sender},
 	stream::{self, Fuse, StreamExt},
@@ -86,7 +85,7 @@ where
 					},
 
 					event = futures::StreamExt::select_next_some(&mut ctx.stream_map) => {
-						trace!(target: LOG_TARGET, "sm -> {:#?}", event);
+						trace!(target: LOG_TARGET, "select_next_some -> {:#?}", event);
 						return Some((event.1, ctx));
 					}
 				}
@@ -158,7 +157,6 @@ where
 mod tests {
 	use super::*;
 	use core::time::Duration;
-	use log::info;
 	use tokio::task::JoinHandle;
 
 	#[derive(Debug, Clone)]
@@ -193,7 +191,6 @@ mod tests {
 		}
 
 		fn play(&mut self) -> JoinHandle<()> {
-			info!("--> {:#?}", self.scenario);
 			let mut scenario = self.scenario.clone();
 			let sinks = self.sinks.clone();
 			tokio::spawn(async move {
@@ -241,7 +238,6 @@ mod tests {
 		ctrl.add_view(3000, o3).await;
 
 		let out = stream.take(4).collect::<Vec<_>>().await;
-		info!("{out:#?}");
 		assert!(out.iter().all(|v| vec![1, 2, 3, 6].contains(v)));
 		drop(ctrl);
 
@@ -283,7 +279,6 @@ mod tests {
 		};
 
 		let out = stream.take(6).collect::<Vec<_>>().await;
-		info!("{out:#?}");
 		assert_eq!(out, vec![1, 2, 3, 6, 1, 3]);
 		drop(ctrl);
 

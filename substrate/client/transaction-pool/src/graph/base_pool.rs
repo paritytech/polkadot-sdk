@@ -23,7 +23,7 @@
 use std::{cmp::Ordering, collections::HashSet, fmt, hash, sync::Arc};
 
 use crate::LOG_TARGET;
-use log::{debug, trace, warn};
+use log::{debug, warn};
 use sc_transaction_pool_api::{error, InPoolTransaction, PoolStatus};
 use serde::Serialize;
 use sp_core::hexdisplay::HexDisplay;
@@ -272,11 +272,11 @@ impl<Hash: hash::Hash + Member + Serialize, Ex: std::fmt::Debug> BasePool<Hash, 
 		}
 
 		let tx = WaitingTransaction::new(tx, self.ready.provided_tags(), &self.recently_pruned);
-		trace!(target: LOG_TARGET, "[{:?}] {:?}", tx.transaction.hash, tx);
 		debug!(
 			target: LOG_TARGET,
-			"[{:?}] Importing to {}",
+			"[{:?}] Importing {:?} to {}",
 			tx.transaction.hash,
+			tx,
 			if tx.is_ready() { "ready" } else { "future" }
 		);
 
@@ -463,8 +463,8 @@ impl<Hash: hash::Hash + Member + Serialize, Ex: std::fmt::Debug> BasePool<Hash, 
 
 	/// Prunes transactions that provide given list of tags.
 	///
-	/// This will cause all transactions that provide these tags to be removed from the pool,
-	/// but unlike `remove_subtree`, dependent transactions are not touched.
+	/// This will cause all transactions (both ready and future) that provide these tags to be
+	/// removed from the pool, but unlike `remove_subtree`, dependent transactions are not touched.
 	/// Additional transactions from future queue might be promoted to ready if you satisfy tags
 	/// that the pool didn't previously know about.
 	pub fn prune_tags(&mut self, tags: impl IntoIterator<Item = Tag>) -> PruneStatus<Hash, Ex> {
@@ -473,6 +473,9 @@ impl<Hash: hash::Hash + Member + Serialize, Ex: std::fmt::Debug> BasePool<Hash, 
 		let recently_pruned = &mut self.recently_pruned[self.recently_pruned_index];
 		self.recently_pruned_index = (self.recently_pruned_index + 1) % RECENTLY_PRUNED_TAGS;
 		recently_pruned.clear();
+
+		let tags = tags.into_iter().collect::<Vec<_>>();
+		let futures_removed = self.future.prune_tags(&tags);
 
 		for tag in tags {
 			// make sure to promote any future transactions that could be unlocked
@@ -485,6 +488,10 @@ impl<Hash: hash::Hash + Member + Serialize, Ex: std::fmt::Debug> BasePool<Hash, 
 
 		let mut promoted = vec![];
 		let mut failed = vec![];
+		for tx in futures_removed {
+			failed.push(tx.hash.clone());
+		}
+
 		for tx in to_import {
 			let hash = tx.transaction.hash.clone();
 			match self.import_to_ready(tx) {
@@ -550,6 +557,58 @@ mod tests {
 		propagate: true,
 		source: Source::External,
 	};
+
+	#[test]
+	fn prune_for_ready_works() {
+		// given
+		let mut pool = pool();
+
+		// when
+		pool.import(Transaction { data: vec![1u8], provides: vec![vec![2]], ..DEFAULT_TX.clone() })
+			.unwrap();
+
+		// then
+		assert_eq!(pool.ready().count(), 1);
+		assert_eq!(pool.ready.len(), 1);
+
+		let result = pool.prune_tags(vec![vec![2]]);
+		assert_eq!(pool.ready().count(), 0);
+		assert_eq!(pool.ready.len(), 0);
+		assert_eq!(result.pruned.len(), 1);
+		assert_eq!(result.failed.len(), 0);
+		assert_eq!(result.promoted.len(), 0);
+	}
+
+	#[test]
+	fn prune_for_future_works() {
+		// given
+		let mut pool = pool();
+
+		// when
+		pool.import(Transaction {
+			data: vec![1u8],
+			requires: vec![vec![1]],
+			provides: vec![vec![2]],
+			hash: 0xaa,
+			..DEFAULT_TX.clone()
+		})
+		.unwrap();
+
+		// then
+		assert_eq!(pool.futures().count(), 1);
+		assert_eq!(pool.future.len(), 1);
+
+		let result = pool.prune_tags(vec![vec![2]]);
+		assert_eq!(pool.ready().count(), 0);
+		assert_eq!(pool.ready.len(), 0);
+		assert_eq!(pool.futures().count(), 0);
+		assert_eq!(pool.future.len(), 0);
+
+		assert_eq!(result.pruned.len(), 0);
+		assert_eq!(result.failed.len(), 1);
+		assert_eq!(result.failed[0], 0xaa);
+		assert_eq!(result.promoted.len(), 0);
+	}
 
 	#[test]
 	fn should_import_transaction_to_ready() {

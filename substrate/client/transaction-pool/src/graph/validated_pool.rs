@@ -22,7 +22,7 @@ use std::{
 	sync::Arc,
 };
 
-use crate::LOG_TARGET;
+use crate::{log_xt_debug, LOG_TARGET};
 use futures::channel::mpsc::{channel, Sender};
 use parking_lot::{Mutex, RwLock};
 use sc_transaction_pool_api::{error, PoolStatus, ReadyTransactions};
@@ -119,7 +119,6 @@ fn xxxx_is_validator() -> bool {
 
 impl<B: ChainApi> Clone for ValidatedPool<B> {
 	fn clone(&self) -> Self {
-		log::info!("xxx: ValidatedPool::clone!!");
 		//todo: cleanup this
 		let pp: Box<dyn Fn() -> bool + Send + Sync> = Box::from(xxxx_is_validator);
 		Self {
@@ -211,16 +210,13 @@ impl<B: ChainApi> ValidatedPool<B> {
 	fn submit_one(&self, tx: ValidatedTransactionFor<B>) -> Result<ExtrinsicHash<B>, B::Error> {
 		match tx {
 			ValidatedTransaction::Valid(tx) => {
+				log::debug!(target: LOG_TARGET, "[{:?}] ValidatedPool::submit_at", tx.hash);
 				if !tx.propagate && !(self.is_validator.0)() {
 					return Err(error::Error::Unactionable.into())
 				}
 
-				let s = std::time::Instant::now();
-				let tx_hash = tx.hash;
 				let imported = self.pool.write().import(tx)?;
-				log::debug!("[{:?}] submit_one: vp::import: {:?}", tx_hash, s.elapsed());
 
-				let s = std::time::Instant::now();
 				if let base::Imported::Ready { ref hash, .. } = imported {
 					let sinks = &mut self.import_notification_sinks.lock();
 					sinks.retain_mut(|sink| match sink.try_send(*hash) {
@@ -238,19 +234,18 @@ impl<B: ChainApi> ValidatedPool<B> {
 							},
 					});
 				}
-				log::debug!("[{:?}] submit_one: vp::submit_one::sinks: {:?}", tx_hash, s.elapsed());
 
-				let s = std::time::Instant::now();
 				let mut listener = self.listener.write();
 				fire_events(&mut *listener, &imported);
-				log::debug!("[{:?}] submit_one: vp::submit_one::sinks: {:?}", tx_hash, s.elapsed());
 				Ok(*imported.hash())
 			},
 			ValidatedTransaction::Invalid(hash, err) => {
+				log::debug!(target: LOG_TARGET, "[{:?}] ValidatedPool::submit_at invalid", hash);
 				self.rotator.ban(&Instant::now(), std::iter::once(hash));
 				Err(err)
 			},
 			ValidatedTransaction::Unknown(hash, err) => {
+				log::debug!(target: LOG_TARGET, "[{:?}] ValidatedPool::submit_at unknown", hash);
 				self.listener.write().invalid(&hash);
 				Err(err)
 			},
@@ -262,7 +257,6 @@ impl<B: ChainApi> ValidatedPool<B> {
 		let ready_limit = &self.options.ready;
 		let future_limit = &self.options.future;
 
-		log::debug!(target: LOG_TARGET, "Pool Status: {:?}", status);
 		if ready_limit.is_exceeded(status.ready, status.ready_bytes) ||
 			future_limit.is_exceeded(status.future, status.future_bytes)
 		{
@@ -522,14 +516,6 @@ impl<B: ChainApi> ValidatedPool<B> {
 		pruned_xts: Vec<ValidatedTransactionFor<B>>,
 	) {
 		debug_assert_eq!(pruned_hashes.len(), pruned_xts.len());
-		let known_imported_hashes = known_imported_hashes.into_iter().collect::<Vec<_>>();
-		log::debug!(
-			"ValidatedPool::resubmit_pruned: known_imported_hashes: {:?}, pruned_hashes: {:?}, pruned_xts: {:?}",
-			known_imported_hashes.clone(),
-			pruned_hashes,
-			pruned_xts
-		);
-		let known_imported_hashes = known_imported_hashes.into_iter();
 
 		// Resubmit pruned transactions
 		let results = self.submit(pruned_xts);
@@ -545,9 +531,7 @@ impl<B: ChainApi> ValidatedPool<B> {
 		// Fire `pruned` notifications for collected hashes and make sure to include
 		// `known_imported_hashes` since they were just imported as part of the block.
 		let hashes = hashes.chain(known_imported_hashes.into_iter());
-		let v = hashes.collect::<Vec<_>>();
-		log::debug!("resubmit: {:#?}", v.clone());
-		self.fire_pruned(at, v.into_iter());
+		self.fire_pruned(at, hashes);
 
 		// perform regular cleanup of old transactions in the pool
 		// and update temporary bans.
@@ -641,14 +625,15 @@ impl<B: ChainApi> ValidatedPool<B> {
 			return vec![]
 		}
 
-		log::debug!(target: LOG_TARGET, "Removing invalid transactions: {:?}", hashes);
+		log::debug!(target: LOG_TARGET, "Removing invalid transactions: {:?}", hashes.len());
 
 		// temporarily ban invalid transactions
 		self.rotator.ban(&Instant::now(), hashes.iter().cloned());
 
 		let invalid = self.pool.write().remove_subtree(hashes);
 
-		log::debug!(target: LOG_TARGET, "Removed invalid transactions: {:?}", invalid);
+		log::debug!(target: LOG_TARGET, "Removed invalid transactions: {:?}", invalid.len());
+		log_xt_debug!(target: LOG_TARGET, invalid.iter().map(|t| t.hash), "{:?} Removed invalid transaction");
 
 		let mut listener = self.listener.write();
 		for tx in &invalid {

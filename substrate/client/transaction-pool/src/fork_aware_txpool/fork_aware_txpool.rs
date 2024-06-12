@@ -27,17 +27,15 @@
 #![allow(unused_variables)]
 #![allow(dead_code)]
 
-// todo: remove:
-// This is cleaned copy of src/lib.rs.
-
-use crate::graph;
-pub use crate::{
+use crate::{
 	api::FullChainApi,
 	enactment_state::{EnactmentAction, EnactmentState},
+	graph,
 	graph::{
 		base_pool::Limit as PoolLimit, watcher::Watcher, ChainApi, Options, Pool, Transaction,
 		ValidatedTransaction, ValidatedTransactionFor,
 	},
+	log_xt_debug,
 };
 use async_trait::async_trait;
 use futures::{
@@ -82,13 +80,11 @@ use super::{
 };
 use crate::{
 	fork_aware_txpool::{view_revalidation, view_revalidation::RevalidationQueue},
-	PolledIterator, ReadyIteratorFor,
+	PolledIterator, ReadyIteratorFor, LOG_TARGET,
 };
 use prometheus_endpoint::Registry as PrometheusRegistry;
 use sp_blockchain::{HashAndNumber, TreeRoute};
 use sp_runtime::transaction_validity::TransactionValidityError;
-
-pub(crate) const LOG_TARGET: &str = "txpool";
 
 pub type FullPool<Block, Client> = ForkAwareTxPool<FullChainApi<Client, Block>, Block>;
 
@@ -132,7 +128,7 @@ where
 	}
 }
 
-pub struct View<PoolApi: graph::ChainApi> {
+struct View<PoolApi: graph::ChainApi> {
 	pool: graph::Pool<PoolApi>,
 	at: HashAndNumber<PoolApi::Block>,
 }
@@ -141,16 +137,7 @@ impl<PoolApi> View<PoolApi>
 where
 	PoolApi: graph::ChainApi,
 {
-	fn new(api: Arc<PoolApi>, at: HashAndNumber<PoolApi::Block>) -> Self {
-		//todo!!
-		use crate::graph::base_pool::Limit;
-		let options = graph::Options {
-			ready: Limit { count: 100000, total_bytes: 200 * 1024 * 1024 },
-			future: Limit { count: 100000, total_bytes: 200 * 1024 * 1024 },
-			reject_future_transactions: false,
-			ban_time: core::time::Duration::from_secs(60 * 30),
-		};
-
+	fn new(api: Arc<PoolApi>, at: HashAndNumber<PoolApi::Block>, options: graph::Options) -> Self {
 		Self { pool: graph::Pool::new(options, true.into(), api), at }
 	}
 
@@ -163,7 +150,7 @@ where
 		let _ = self.pool.validated_pool().on_block_finalized(finalized).await;
 	}
 
-	pub async fn submit_many(
+	async fn submit_many(
 		&self,
 		source: TransactionSource,
 		xts: impl IntoIterator<Item = ExtrinsicFor<PoolApi>>,
@@ -172,7 +159,7 @@ where
 	}
 
 	/// Imports one unverified extrinsic to the pool
-	pub async fn submit_one(
+	async fn submit_one(
 		&self,
 		source: TransactionSource,
 		xt: ExtrinsicFor<PoolApi>,
@@ -181,7 +168,7 @@ where
 	}
 
 	/// Import a single extrinsic and starts to watch its progress in the pool.
-	pub async fn submit_and_watch(
+	async fn submit_and_watch(
 		&self,
 		source: TransactionSource,
 		xt: ExtrinsicFor<PoolApi>,
@@ -189,11 +176,11 @@ where
 		self.pool.submit_and_watch(&self.at, source, xt).await
 	}
 
-	pub fn status(&self) -> PoolStatus {
+	fn status(&self) -> PoolStatus {
 		self.pool.validated_pool().status()
 	}
 
-	pub fn create_watcher(
+	fn create_watcher(
 		&self,
 		tx_hash: ExtrinsicHash<PoolApi>,
 	) -> Watcher<ExtrinsicHash<PoolApi>, ExtrinsicHash<PoolApi>> {
@@ -201,8 +188,7 @@ where
 	}
 }
 
-//todo: better name: ViewStore?
-pub struct ViewStore<PoolApi, Block>
+struct ViewStore<PoolApi, Block>
 where
 	Block: BlockT,
 	PoolApi: graph::ChainApi<Block = Block>,
@@ -223,7 +209,7 @@ where
 	}
 
 	/// Imports a bunch of unverified extrinsics to every view
-	pub async fn submit_at(
+	async fn submit_at(
 		&self,
 		source: TransactionSource,
 		xts: impl IntoIterator<Item = Block::Extrinsic> + Clone,
@@ -254,7 +240,7 @@ where
 	}
 
 	/// Imports one unverified extrinsic to every view
-	pub async fn submit_one(
+	async fn submit_one(
 		&self,
 		source: TransactionSource,
 		xt: Block::Extrinsic,
@@ -273,7 +259,7 @@ where
 	}
 
 	/// Import a single extrinsic and starts to watch its progress in the pool.
-	pub async fn submit_and_watch(
+	async fn submit_and_watch(
 		&self,
 		at: Block::Hash,
 		source: TransactionSource,
@@ -326,11 +312,11 @@ where
 		Ok(external_watcher.unwrap())
 	}
 
-	pub fn status(&self) -> HashMap<Block::Hash, PoolStatus> {
+	fn status(&self) -> HashMap<Block::Hash, PoolStatus> {
 		self.views.read().iter().map(|(h, v)| (*h, v.status())).collect()
 	}
 
-	pub fn is_empty(&self) -> bool {
+	fn is_empty(&self) -> bool {
 		self.views.read().is_empty()
 	}
 
@@ -466,6 +452,7 @@ where
 
 ////////////////////////////////////////////////////////////////////////////////
 
+#[derive(Debug)]
 pub struct TxInMemPool<Block>
 where
 	Block: BlockT,
@@ -600,7 +587,7 @@ where
 			//count ~~> 25% of block?
 			.filter(|xt| {
 				let finalized_block_number = finalized_block.number.into().as_u64();
-				xt.1.validated_at.load(atomic::Ordering::Relaxed) < finalized_block_number + 10
+				xt.1.validated_at.load(atomic::Ordering::Relaxed) + 10 < finalized_block_number
 			})
 			.take(1000);
 
@@ -675,7 +662,7 @@ where
 
 	async fn purge_finalized_transactions(&self, finalized_xts: &Vec<ExtrinsicHash<PoolApi>>) {
 		log::info!(target: LOG_TARGET, "purge_finalized_transactions count:{:?}", finalized_xts.len());
-		log::debug!(target: LOG_TARGET, "purge_finalized_transactions count:{:?}", finalized_xts);
+		log_xt_debug!(target: LOG_TARGET, finalized_xts, "[{:?}] purged finalized transactions");
 		self.xts2.write().retain(|hash, _| !finalized_xts.contains(&hash));
 	}
 
@@ -712,7 +699,7 @@ where
 		MultiViewImportNotificationSink<Block::Hash, graph::ExtrinsicHash<PoolApi>>,
 	// todo: this are coming from ValidatedPool, some of them maybe needed here
 	// is_validator: IsValidator,
-	// options: Options,
+	options: Options,
 	// rotator: PoolRotator<ExtrinsicHash<B>>,
 }
 
@@ -745,6 +732,7 @@ where
 				revalidation_queue: Arc::from(view_revalidation::RevalidationQueue::new()),
 				most_recent_view: RwLock::from(None),
 				import_notification_sink,
+				options: graph::Options::default(),
 			},
 			import_notification_sink_task,
 		)
@@ -790,6 +778,7 @@ where
 			revalidation_queue: Arc::from(revalidation_queue),
 			most_recent_view: RwLock::from(None),
 			import_notification_sink,
+			options,
 		}
 	}
 
@@ -830,7 +819,6 @@ where
 	}
 }
 
-//todo: naming + better doc!
 /// Converts the input view-to-statuses map into the output vector of statuses.
 ///
 /// The result of importing a bunch of transactions into a single view is the vector of statuses.
@@ -1086,14 +1074,9 @@ where
 		let views = self.view_store.clone();
 		self.mempool.push_unwatched(xt.clone());
 
+		// assume that transaction may be valid, will be validated later.
 		if views.is_empty() {
-			//todo: error or ok if no views?
 			return future::ready(Ok(self.api.hash_and_length(&xt).0)).boxed()
-			// return future::ready(Err(TxPoolError::UnknownTransaction(
-			// 	UnknownTransaction::CannotLookup,
-			// )
-			// .into()))
-			// .boxed()
 		}
 
 		let tx_hash = self.hash_of(&xt);
@@ -1132,17 +1115,7 @@ where
 		// todo:
 		// self.metrics.report(|metrics| metrics.submitted_transactions.inc());
 
-		async move {
-			let result = view_store.submit_and_watch(at, source, xt).await;
-			match result {
-				Ok(watcher) => Ok(watcher),
-				Err(err) => Err(err),
-			}
-			// let watcher = result?;
-			// let watcher = views.submit_and_watch(at, source, xt).await?;
-			// watcher
-		}
-		.boxed()
+		async move { view_store.submit_and_watch(at, source, xt).await }.boxed()
 	}
 
 	// todo: api change? we need block hash here (assuming we need it at all).
@@ -1285,88 +1258,37 @@ where
 		}
 
 		let best_view = self.view_store.find_best_view(tree_route);
-		let new_view = if let Some(best_view) = best_view {
-			self.build_cloned_view(best_view, hash_and_number, tree_route).await
-		} else {
-			self.create_new_view_at(hash_and_number, tree_route).await
-		};
+		let new_view = self.build_new_view(best_view, hash_and_number, tree_route).await;
 
 		if let Some(view) = new_view {
 			if let Some(pending_revalidation_result) =
 				self.mempool.pending_revalidation_result.write().take()
 			{
-				log::debug!(target: LOG_TARGET, "resubmit pending revalidations: {:?}", pending_revalidation_result);
+				log_xt_debug!(data: tuple, target: LOG_TARGET, &pending_revalidation_result, "[{:?}]  resubmitted pending revalidation {:?}");
 				view.pool.resubmit(HashMap::from_iter(pending_revalidation_result.into_iter()));
 			}
 		}
 	}
 
-	pub async fn create_new_view_at(
+	async fn build_new_view(
 		&self,
-		at: &HashAndNumber<Block>,
-		tree_route: &TreeRoute<Block>,
-	) -> Option<Arc<View<PoolApi>>> {
-		//todo: handle errors during creation (log?)
-
-		if self.view_store.views.read().contains_key(&at.hash) {
-			return None;
-		}
-
-		log::info!(target: LOG_TARGET, "create_new_view_at: {at:?}");
-
-		let mut view = View::new(self.api.clone(), at.clone());
-
-		//we need to capture all import notifiication from the very beginning
-		self.import_notification_sink
-			.add_view(view.at.hash, view.pool.validated_pool().import_notification_stream().boxed())
-			.await;
-
-		// we need to install listeners first
-		let start = Instant::now();
-		self.update_view(&mut view).await;
-		let duration = start.elapsed();
-		log::info!(target: LOG_TARGET, "update_view_pool: at {at:?} took {duration:?}");
-
-		let start = Instant::now();
-		self.update_view_with_fork(&mut view, tree_route, at.clone()).await;
-		let duration = start.elapsed();
-		log::info!(target: LOG_TARGET, "update_view_fork: at {at:?} took {duration:?}");
-
-		//todo: refactor this: maybe single object with one mutex?
-		let view = {
-			let view = Arc::new(view);
-			let mut most_recent_view_lock = self.most_recent_view.write();
-			self.view_store.views.write().insert(at.hash, view.clone());
-			most_recent_view_lock.replace(view.at.hash);
-			view
-		};
-
-		{
-			let view = view.clone();
-			self.ready_poll
-				.lock()
-				.trigger(at.hash, move || Box::from(view.pool.validated_pool().ready()));
-		}
-
-		Some(view)
-	}
-
-	//todo: unify with create_new_view_at
-	async fn build_cloned_view(
-		&self,
-		origin_view: Arc<View<PoolApi>>,
+		origin_view: Option<Arc<View<PoolApi>>>,
 		at: &HashAndNumber<Block>,
 		tree_route: &TreeRoute<Block>,
 	) -> Option<Arc<View<PoolApi>>> {
 		log::info!(
 			target: LOG_TARGET,
-			"build_cloned_view: for: {:?} from: {:?} tree_route: {:?}",
-			at.hash,
-			origin_view.at.hash,
+			"build_new_view: for: {:?} from: {:?} tree_route: {:?}",
+			at,
+			origin_view.as_ref().map(|v| v.at.clone()),
 			tree_route
 		);
 		let new_block_hash = at.hash;
-		let mut view = View::new_from_other(&origin_view, at);
+		let mut view = if let Some(origin_view) = origin_view {
+			View::new_from_other(&origin_view, at)
+		} else {
+			View::new(self.api.clone(), at.clone(), self.options.clone())
+		};
 
 		//we need to capture all import notifiication from the very beginning
 		self.import_notification_sink
@@ -1379,7 +1301,7 @@ where
 		log::info!(target: LOG_TARGET, "update_view_pool: at {at:?} took {duration:?}");
 
 		let start = Instant::now();
-		self.update_view_with_fork(&mut view, tree_route, at.clone()).await;
+		self.update_view_with_fork(&view, tree_route, at.clone()).await;
 		let duration = start.elapsed();
 		log::info!(target: LOG_TARGET, "update_view_fork: at {at:?} took {duration:?}");
 
@@ -1412,7 +1334,7 @@ where
 		Some(view)
 	}
 
-	async fn update_view(&self, view: &mut View<PoolApi>) {
+	async fn update_view(&self, view: &View<PoolApi>) {
 		log::debug!(
 			target: LOG_TARGET,
 			"update_view: {:?} xts:{:?} v:{}",
@@ -1530,7 +1452,7 @@ where
 	//todo: move to ViewManager
 	async fn update_view_with_fork(
 		&self,
-		view: &mut View<PoolApi>,
+		view: &View<PoolApi>,
 		tree_route: &TreeRoute<Block>,
 		hash_and_number: HashAndNumber<Block>,
 	) {

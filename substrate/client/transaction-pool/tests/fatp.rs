@@ -213,41 +213,41 @@ mod test_chain_with_forks {
 // fn should_revalidate_across_many_blocks()
 //
 // fn prune_and_retract_tx_at_same_time() (w/o retracted event) |
-//      fap_watcher_fork_retract_and_finalize
+//      fatp_watcher_fork_retract_and_finalize
 //
-// fn resubmit_tx_of_fork_that_is_not_part_of_retracted() | fap_retract_all_forks()
-// fn resubmit_from_retracted_fork() | fap_fork_reorg
-// fn fork_aware_finalization() | fap_watcher_finalizing_forks()
+// fn resubmit_tx_of_fork_that_is_not_part_of_retracted() | fatp_retract_all_forks()
+// fn resubmit_from_retracted_fork() | fatp_fork_reorg
+// fn fork_aware_finalization() | fatp_watcher_finalizing_forks()
 //
 // fn ready_set_should_not_resolve_before_block_update() |
-// 		fap_ready_at_does_not_trigger_after_submit
-//		fap_ready_at_does_not_trigger
-// fn ready_set_should_resolve_after_block_update() | fap_ready_at_triggered_by_maintain
+// 		fatp_ready_at_does_not_trigger_after_submit
+//		fatp_ready_at_does_not_trigger
+// fn ready_set_should_resolve_after_block_update() | fatp_ready_at_triggered_by_maintain
 // fn ready_set_should_eventually_resolve_when_block_update_arrives() |
-// 		fap_ready_at_triggered_by_maintain2
+// 		fatp_ready_at_triggered_by_maintain2
 //
 // fn pruning_a_transaction_should_remove_it_from_best_transaction() |
-// 		fap_one_view_ready_gets_pruned
+// 		fatp_one_view_ready_gets_pruned
 //
-// fn stale_transactions_are_pruned() | fap_linear_old_ready_becoming_stale
+// fn stale_transactions_are_pruned() | fatp_linear_old_ready_becoming_stale
 //
-// fn finalized_only_handled_correctly() | fap_watcher_finalized (todo: no view?)
+// fn finalized_only_handled_correctly() | fatp_watcher_finalized (todo: no view?)
 //
-// fn best_block_after_finalized_handled_correctly() | fap_watcher_best_block_after_finalized
-// 		fap_watcher_best_block_after_finalized2 fn switching_fork_with_finalized_works()
+// fn best_block_after_finalized_handled_correctly() | fatp_watcher_best_block_after_finalized
+// 		fatp_watcher_best_block_after_finalized2 fn switching_fork_with_finalized_works()
 //
-// fn switching_fork_multiple_times_works() | fap_watcher_switching_fork_multiple_times_works
+// fn switching_fork_multiple_times_works() | fatp_watcher_switching_fork_multiple_times_works
 //
 // todo: double events?
-// fn two_blocks_delayed_finalization_works() | fap_watcher_two_blocks_delayed_finalization_works
+// fn two_blocks_delayed_finalization_works() | fatp_watcher_two_blocks_delayed_finalization_works
 //
-// fn delayed_finalization_does_not_retract() | fap_watcher_delayed_finalization_does_not_retract
+// fn delayed_finalization_does_not_retract() | fatp_watcher_delayed_finalization_does_not_retract
 //
 //
 // fn best_block_after_finalization_does_not_retract() |
-// 		fap_watcher_best_block_after_finalization_does_not_retract
+// 		fatp_watcher_best_block_after_finalization_does_not_retract
 //
-// fn should_push_watchers_during_maintenance() | fap_watcher_invalid_many_revalidation
+// fn should_push_watchers_during_maintenance() | fatp_watcher_invalid_many_revalidation
 //
 // fn should_not_retain_invalid_hashes_from_retracted() |
 // should_not_retain_invalid_hashes_from_retracted
@@ -265,7 +265,7 @@ mod test_chain_with_forks {
 // fn import_notification_to_pool_maintain_works()
 
 #[test]
-fn fap_no_view_future_and_ready_submit_one_works() {
+fn fatp_no_view_future_and_ready_submit_one_works() {
 	sp_tracing::try_init_simple();
 
 	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
@@ -287,7 +287,7 @@ fn fap_no_view_future_and_ready_submit_one_works() {
 }
 
 #[test]
-fn fap_no_view_future_and_ready_submit_works() {
+fn fatp_no_view_future_and_ready_submit_works() {
 	sp_tracing::try_init_simple();
 
 	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
@@ -311,7 +311,7 @@ fn fap_no_view_future_and_ready_submit_works() {
 }
 
 #[test]
-fn fap_one_view_future_and_ready_submit_one_works() {
+fn fatp_one_view_future_and_ready_submit_one_works() {
 	sp_tracing::try_init_simple();
 
 	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
@@ -337,7 +337,7 @@ fn fap_one_view_future_and_ready_submit_one_works() {
 }
 
 #[test]
-fn fap_one_view_future_and_ready_submit_many_works() {
+fn fatp_one_view_future_and_ready_submit_many_works() {
 	sp_tracing::try_init_simple();
 
 	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
@@ -365,7 +365,7 @@ fn fap_one_view_future_and_ready_submit_many_works() {
 }
 
 #[test]
-fn fap_one_view_stale_submit_one_fails() {
+fn fatp_one_view_stale_submit_one_fails() {
 	sp_tracing::try_init_simple();
 
 	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
@@ -390,7 +390,7 @@ fn fap_one_view_stale_submit_one_fails() {
 }
 
 #[test]
-fn fap_one_view_stale_submit_many_fails() {
+fn fatp_one_view_stale_submit_many_fails() {
 	sp_tracing::try_init_simple();
 
 	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
@@ -436,7 +436,7 @@ fn fap_one_view_stale_submit_many_fails() {
 }
 
 #[test]
-fn fap_one_view_future_turns_to_ready_works() {
+fn fatp_one_view_future_turns_to_ready_works() {
 	let (pool, api, _) = pool();
 
 	let header = api.push_block(1, vec![], true);
@@ -457,7 +457,7 @@ fn fap_one_view_future_turns_to_ready_works() {
 }
 
 #[test]
-fn fap_one_view_ready_gets_pruned() {
+fn fatp_one_view_ready_gets_pruned() {
 	let (pool, api, _) = pool();
 
 	let header = api.push_block(1, vec![], true);
@@ -480,7 +480,7 @@ fn fap_one_view_ready_gets_pruned() {
 }
 
 #[test]
-fn fap_one_view_ready_turns_to_stale_works() {
+fn fatp_one_view_ready_turns_to_stale_works() {
 	let (pool, api, _) = pool();
 
 	let header = api.push_block(1, vec![], true);
@@ -509,7 +509,7 @@ fn fap_one_view_ready_turns_to_stale_works() {
 }
 
 #[test]
-fn fap_two_views_future_and_ready_sumbit_one() {
+fn fatp_two_views_future_and_ready_sumbit_one() {
 	sp_tracing::try_init_simple();
 
 	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
@@ -542,7 +542,7 @@ fn fap_two_views_future_and_ready_sumbit_one() {
 }
 
 #[test]
-fn fap_two_views_future_and_ready_sumbit_many() {
+fn fatp_two_views_future_and_ready_sumbit_many() {
 	sp_tracing::try_init_simple();
 
 	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
@@ -578,7 +578,7 @@ fn fap_two_views_future_and_ready_sumbit_many() {
 }
 
 #[test]
-fn fap_linear_progress() {
+fn fatp_linear_progress() {
 	sp_tracing::try_init_simple();
 
 	let (api, forks) = test_chain_with_forks::chain(None);
@@ -605,7 +605,7 @@ fn fap_linear_progress() {
 }
 
 #[test]
-fn fap_linear_old_ready_becoming_stale() {
+fn fatp_linear_old_ready_becoming_stale() {
 	sp_tracing::try_init_simple();
 
 	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
@@ -643,7 +643,7 @@ fn fap_linear_old_ready_becoming_stale() {
 }
 
 #[test]
-fn fap_fork_reorg() {
+fn fatp_fork_reorg() {
 	sp_tracing::try_init_simple();
 
 	let (api, forks) = test_chain_with_forks::chain(None);
@@ -689,7 +689,7 @@ fn fap_fork_reorg() {
 }
 
 #[test]
-fn fap_fork_do_resubmit_same_tx() {
+fn fatp_fork_do_resubmit_same_tx() {
 	let xt = uxt(Alice, 200);
 
 	let (pool, api, _) = pool();
@@ -716,7 +716,7 @@ fn fap_fork_do_resubmit_same_tx() {
 }
 
 #[test]
-fn fap_fork_stale_switch_to_future() {
+fn fatp_fork_stale_switch_to_future() {
 	sp_tracing::try_init_simple();
 
 	// note: there are no xts in blocks on fork 0!
@@ -766,7 +766,7 @@ fn fap_fork_stale_switch_to_future() {
 }
 
 #[test]
-fn fap_fork_no_xts_ready_switch_to_future() {
+fn fatp_fork_no_xts_ready_switch_to_future() {
 	//this scenario w/o xts is not likely to happen, but similar thing (xt changing from ready to
 	//future) could occur e.g. when runtime was updated on fork1.
 	sp_tracing::try_init_simple();
@@ -777,7 +777,6 @@ fn fap_fork_no_xts_ready_switch_to_future() {
 
 	let f03 = forks[0][3].hash();
 	let f12 = forks[1][2].hash();
-	let f13 = forks[1][3].hash();
 
 	let event = new_best_block_event(&pool, None, f03);
 	block_on(pool.maintain(event));
@@ -791,6 +790,8 @@ fn fap_fork_no_xts_ready_switch_to_future() {
 	block_on(pool.maintain(event));
 
 	assert_pool_status!(f03, &pool, 1, 0);
+	// f12 was not updated - xt0 is still ready there
+	// (todo: can we do better? shall we revalidate all future xts?)
 	assert_pool_status!(f12, &pool, 1, 0);
 
 	//xt0 becomes future, and this may only happen after view revalidation (which happens on
@@ -798,18 +799,24 @@ fn fap_fork_no_xts_ready_switch_to_future() {
 	let event = finalized_block_event(&pool, api.genesis_hash(), f12);
 	block_on(pool.maintain(event));
 
-	//xt0 becomes future, for newly create view:
-	//finalization). So trigger it.
-	let event = new_best_block_event(&pool, Some(f12), f13);
-	block_on(pool.maintain(event));
-
-	assert_pool_status!(f13, &pool, 0, 1);
 	// f03 still dangling
 	assert_eq!(pool.views_len(), 2);
+
+	// wait 10 blocks for revalidation and 1 extra for applying revalidation results
+	let mut prev_header = forks[1][2].clone();
+	log::info!("====> {:?}", prev_header);
+	for _ in 3..=12 {
+		let header = api.push_block_with_parent(prev_header.hash(), vec![], true);
+		let event = finalized_block_event(&pool, prev_header.hash(), header.hash());
+		block_on(pool.maintain(event));
+		prev_header = header;
+	}
+
+	assert_pool_status!(prev_header.hash(), &pool, 0, 1);
 }
 
 #[test]
-fn fap_ready_at_does_not_trigger() {
+fn fatp_ready_at_does_not_trigger() {
 	//this scenario w/o xts is not likely to happen, but similar thing (xt changing from ready to
 	//future) could occur e.g. when runtime was updated on fork1.
 	sp_tracing::try_init_simple();
@@ -825,7 +832,7 @@ fn fap_ready_at_does_not_trigger() {
 }
 
 #[test]
-fn fap_ready_at_does_not_trigger_after_submit() {
+fn fatp_ready_at_does_not_trigger_after_submit() {
 	//this scenario w/o xts is not likely to happen, but similar thing (xt changing from ready to
 	//future) could occur e.g. when runtime was updated on fork1.
 	sp_tracing::try_init_simple();
@@ -844,7 +851,7 @@ fn fap_ready_at_does_not_trigger_after_submit() {
 }
 
 #[test]
-fn fap_ready_at_triggered_by_maintain() {
+fn fatp_ready_at_triggered_by_maintain() {
 	//this scenario w/o xts is not likely to happen, but similar thing (xt changing from ready to
 	//future) could occur e.g. when runtime was updated on fork1.
 	sp_tracing::try_init_simple();
@@ -874,7 +881,7 @@ fn fap_ready_at_triggered_by_maintain() {
 }
 
 #[test]
-fn fap_ready_at_triggered_by_maintain2() {
+fn fatp_ready_at_triggered_by_maintain2() {
 	sp_tracing::try_init_simple();
 
 	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
@@ -917,7 +924,7 @@ fn fap_ready_at_triggered_by_maintain2() {
 }
 
 #[test]
-fn fap_linear_progress_finalization() {
+fn fatp_linear_progress_finalization() {
 	sp_tracing::try_init_simple();
 
 	let (api, forks) = test_chain_with_forks::chain(None);
@@ -951,7 +958,7 @@ fn fap_linear_progress_finalization() {
 }
 
 #[test]
-fn fap_fork_finalization_removes_stale_views() {
+fn fatp_fork_finalization_removes_stale_views() {
 	sp_tracing::try_init_simple();
 
 	let (api, forks) = test_chain_with_forks::chain(None);
@@ -993,7 +1000,7 @@ fn fap_fork_finalization_removes_stale_views() {
 }
 
 #[test]
-fn fap_watcher_invalid_fails_on_submission() {
+fn fatp_watcher_invalid_fails_on_submission() {
 	sp_tracing::try_init_simple();
 
 	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
@@ -1017,7 +1024,7 @@ fn fap_watcher_invalid_fails_on_submission() {
 }
 
 #[test]
-fn fap_watcher_invalid_single_revalidation() {
+fn fatp_watcher_invalid_single_revalidation() {
 	sp_tracing::try_init_simple();
 
 	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
@@ -1036,13 +1043,22 @@ fn fap_watcher_invalid_single_revalidation() {
 	let event = finalized_block_event(&pool, header01.hash(), header02.hash());
 	block_on(pool.maintain(event));
 
+	// wait 10 blocks for revalidation
+	let mut prev_header = header02;
+	for n in 3..=11 {
+		let header = api.push_block(n, vec![], true);
+		let event = finalized_block_event(&pool, prev_header.hash(), header.hash());
+		block_on(pool.maintain(event));
+		prev_header = header;
+	}
+
 	let xt0_events = futures::executor::block_on_stream(xt0_watcher).collect::<Vec<_>>();
 	log::info!("xt0_events: {:#?}", xt0_events);
 	assert_eq!(xt0_events, vec![TransactionStatus::Ready, TransactionStatus::Invalid]);
 }
 
 #[test]
-fn fap_watcher_invalid_single_revalidation2() {
+fn fatp_watcher_invalid_single_revalidation2() {
 	sp_tracing::try_init_simple();
 
 	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
@@ -1064,7 +1080,7 @@ fn fap_watcher_invalid_single_revalidation2() {
 }
 
 #[test]
-fn fap_watcher_invalid_single_revalidation3() {
+fn fatp_watcher_invalid_single_revalidation3() {
 	sp_tracing::try_init_simple();
 
 	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
@@ -1078,6 +1094,15 @@ fn fap_watcher_invalid_single_revalidation3() {
 	let event = finalized_block_event(&pool, api.genesis_hash(), header01.hash());
 	block_on(pool.maintain(event));
 
+	// wait 10 blocks for revalidation
+	let mut prev_header = header01;
+	for n in 2..=11 {
+		let header = api.push_block(n, vec![], true);
+		let event = finalized_block_event(&pool, prev_header.hash(), header.hash());
+		block_on(pool.maintain(event));
+		prev_header = header;
+	}
+
 	let xt0_events = futures::executor::block_on_stream(xt0_watcher).collect::<Vec<_>>();
 	log::info!("xt0_events: {:#?}", xt0_events);
 	assert_eq!(xt0_events, vec![TransactionStatus::Invalid]);
@@ -1085,7 +1110,7 @@ fn fap_watcher_invalid_single_revalidation3() {
 }
 
 #[test]
-fn fap_watcher_future() {
+fn fatp_watcher_future() {
 	sp_tracing::try_init_simple();
 
 	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
@@ -1115,7 +1140,7 @@ fn fap_watcher_future() {
 }
 
 #[test]
-fn fap_watcher_ready() {
+fn fatp_watcher_ready() {
 	sp_tracing::try_init_simple();
 
 	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
@@ -1145,7 +1170,7 @@ fn fap_watcher_ready() {
 }
 
 #[test]
-fn fap_watcher_finalized() {
+fn fatp_watcher_finalized() {
 	sp_tracing::try_init_simple();
 
 	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
@@ -1183,7 +1208,7 @@ fn fap_watcher_finalized() {
 }
 
 #[test]
-fn fap_watcher_in_block() {
+fn fatp_watcher_in_block() {
 	sp_tracing::try_init_simple();
 
 	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
@@ -1211,7 +1236,7 @@ fn fap_watcher_in_block() {
 }
 
 #[test]
-fn fap_watcher_future_and_finalized() {
+fn fatp_watcher_future_and_finalized() {
 	sp_tracing::try_init_simple();
 
 	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
@@ -1260,7 +1285,7 @@ fn fap_watcher_future_and_finalized() {
 }
 
 #[test]
-fn fap_watcher_two_finalized_in_different_block() {
+fn fatp_watcher_two_finalized_in_different_block() {
 	sp_tracing::try_init_simple();
 
 	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
@@ -1337,7 +1362,7 @@ fn fap_watcher_two_finalized_in_different_block() {
 }
 
 #[test]
-fn fap_no_view_pool_watcher_two_finalized_in_different_block() {
+fn fatp_no_view_pool_watcher_two_finalized_in_different_block() {
 	sp_tracing::try_init_simple();
 
 	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
@@ -1411,7 +1436,7 @@ fn fap_no_view_pool_watcher_two_finalized_in_different_block() {
 }
 
 #[test]
-fn fap_watcher_in_block_across_many_blocks() {
+fn fatp_watcher_in_block_across_many_blocks() {
 	sp_tracing::try_init_simple();
 
 	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
@@ -1456,7 +1481,7 @@ fn fap_watcher_in_block_across_many_blocks() {
 }
 
 #[test]
-fn fap_watcher_dropping_listener_should_work() {
+fn fatp_watcher_dropping_listener_should_work() {
 	sp_tracing::try_init_simple();
 
 	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
@@ -1478,7 +1503,7 @@ fn fap_watcher_dropping_listener_should_work() {
 }
 
 #[test]
-fn fap_watcher_fork_retract_and_finalize() {
+fn fatp_watcher_fork_retract_and_finalize() {
 	sp_tracing::try_init_simple();
 
 	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
@@ -1522,7 +1547,7 @@ fn fap_watcher_fork_retract_and_finalize() {
 }
 
 #[test]
-fn fap_retract_all_forks() {
+fn fatp_retract_all_forks() {
 	sp_tracing::try_init_simple();
 
 	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
@@ -1551,7 +1576,7 @@ fn fap_retract_all_forks() {
 }
 
 #[test]
-fn fap_watcher_finalizing_forks() {
+fn fatp_watcher_finalizing_forks() {
 	sp_tracing::try_init_simple();
 
 	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
@@ -1656,7 +1681,7 @@ fn fap_watcher_finalizing_forks() {
 }
 
 #[test]
-fn fap_watcher_best_block_after_finalized() {
+fn fatp_watcher_best_block_after_finalized() {
 	sp_tracing::try_init_simple();
 
 	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
@@ -1690,7 +1715,7 @@ fn fap_watcher_best_block_after_finalized() {
 }
 
 #[test]
-fn fap_watcher_best_block_after_finalized2() {
+fn fatp_watcher_best_block_after_finalized2() {
 	sp_tracing::try_init_simple();
 
 	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
@@ -1719,7 +1744,7 @@ fn fap_watcher_best_block_after_finalized2() {
 }
 
 #[test]
-fn fap_watcher_switching_fork_multiple_times_works() {
+fn fatp_watcher_switching_fork_multiple_times_works() {
 	sp_tracing::try_init_simple();
 
 	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
@@ -1770,7 +1795,7 @@ fn fap_watcher_switching_fork_multiple_times_works() {
 }
 
 #[test]
-fn fap_watcher_two_blocks_delayed_finalization_works() {
+fn fatp_watcher_two_blocks_delayed_finalization_works() {
 	sp_tracing::try_init_simple();
 
 	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
@@ -1841,7 +1866,7 @@ fn fap_watcher_two_blocks_delayed_finalization_works() {
 }
 
 #[test]
-fn fap_watcher_delayed_finalization_does_not_retract() {
+fn fatp_watcher_delayed_finalization_does_not_retract() {
 	sp_tracing::try_init_simple();
 
 	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
@@ -1889,7 +1914,7 @@ fn fap_watcher_delayed_finalization_does_not_retract() {
 }
 
 #[test]
-fn fap_watcher_best_block_after_finalization_does_not_retract() {
+fn fatp_watcher_best_block_after_finalization_does_not_retract() {
 	sp_tracing::try_init_simple();
 
 	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
@@ -1938,7 +1963,7 @@ fn fap_watcher_best_block_after_finalization_does_not_retract() {
 }
 
 #[test]
-fn fap_watcher_invalid_many_revalidation() {
+fn fatp_watcher_invalid_many_revalidation() {
 	sp_tracing::try_init_simple();
 
 	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
@@ -1982,6 +2007,15 @@ fn fap_watcher_invalid_many_revalidation() {
 
 	let header03 = api.push_block(3, vec![xt0.clone(), xt1.clone(), xt2.clone()], true);
 	block_on(pool.maintain(finalized_block_event(&pool, header02.hash(), header03.hash())));
+
+	// wait 10 blocks for revalidation
+	let mut prev_header = header03.clone();
+	for n in 4..=11 {
+		let header = api.push_block(n, vec![], true);
+		let event = finalized_block_event(&pool, prev_header.hash(), header.hash());
+		block_on(pool.maintain(event));
+		prev_header = header;
+	}
 
 	let xt0_events = futures::executor::block_on_stream(xt0_watcher).collect::<Vec<_>>();
 	let xt1_events = futures::executor::block_on_stream(xt1_watcher).collect::<Vec<_>>();
@@ -2044,6 +2078,15 @@ fn should_not_retain_invalid_hashes_from_retracted() {
 	let header02b = api.push_block_with_parent(header01.hash(), vec![], true);
 	block_on(pool.maintain(finalized_block_event(&pool, api.genesis_hash(), header02b.hash())));
 
+	// wait 10 blocks for revalidation
+	let mut prev_header = header02b.clone();
+	for _ in 3..=11 {
+		let header = api.push_block_with_parent(prev_header.hash(), vec![], true);
+		let event = finalized_block_event(&pool, prev_header.hash(), header.hash());
+		block_on(pool.maintain(event));
+		prev_header = header;
+	}
+
 	assert_eq!(
 		futures::executor::block_on_stream(watcher).collect::<Vec<_>>(),
 		vec![
@@ -2054,7 +2097,7 @@ fn should_not_retain_invalid_hashes_from_retracted() {
 	);
 
 	//todo: shall revalidation check finalized (fork's tip) view?
-	assert_eq!(pool.status_all()[&header02b.hash()].ready, 0);
+	assert_eq!(pool.status_all()[&prev_header.hash()].ready, 0);
 }
 
 #[test]
@@ -2081,6 +2124,15 @@ fn should_revalidate_during_maintenance() {
 	//todo: shall revalidation check finalized (fork's tip) view?
 	assert_eq!(pool.status_all()[&header02.hash()].ready, 1);
 
+	// wait 10 blocks for revalidation
+	let mut prev_header = header02.clone();
+	for _ in 3..=11 {
+		let header = api.push_block_with_parent(prev_header.hash(), vec![], true);
+		let event = finalized_block_event(&pool, prev_header.hash(), header.hash());
+		block_on(pool.maintain(event));
+		prev_header = header;
+	}
+
 	assert_eq!(
 		futures::executor::block_on_stream(watcher).collect::<Vec<_>>(),
 		vec![TransactionStatus::Ready, TransactionStatus::Invalid],
@@ -2088,7 +2140,7 @@ fn should_revalidate_during_maintenance() {
 }
 
 #[test]
-fn fap_transactions_purging_stale_on_finalization_works() {
+fn fatp_transactions_purging_stale_on_finalization_works() {
 	sp_tracing::try_init_simple();
 
 	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
@@ -2137,7 +2189,7 @@ fn fap_transactions_purging_stale_on_finalization_works() {
 }
 
 #[test]
-fn fap_transactions_purging_invalid_on_finalization_works() {
+fn fatp_transactions_purging_invalid_on_finalization_works() {
 	sp_tracing::try_init_simple();
 
 	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
@@ -2163,6 +2215,15 @@ fn fap_transactions_purging_invalid_on_finalization_works() {
 	api.add_invalid(&xt2);
 	api.add_invalid(&xt3);
 	block_on(pool.maintain(finalized_block_event(&pool, header01.hash(), header02.hash())));
+
+	// wait 10 blocks for revalidation
+	let mut prev_header = header02;
+	for n in 3..=13 {
+		let header = api.push_block(n, vec![], true);
+		let event = finalized_block_event(&pool, prev_header.hash(), header.hash());
+		block_on(pool.maintain(event));
+		prev_header = header;
+	}
 
 	//todo: should it work at all? (it requires better revalidation: mempool keeping validated txs)
 	//additionally it also requires revalidation of finalized view.
@@ -2294,6 +2355,101 @@ fn import_sink_works3() {
 
 	let expected_import_events = vec![api.hash_and_length(&xt0).0];
 	assert_eq!(import_events, expected_import_events);
+}
+
+#[test]
+fn fatp_avoid_stuck_transaction() {
+	sp_tracing::try_init_simple();
+
+	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
+	let (pool, _) = create_basic_pool(api.clone());
+
+	let xt0 = uxt(Alice, 200);
+	let xt1 = uxt(Alice, 201);
+	let xt2 = uxt(Alice, 202);
+	let xt3 = uxt(Alice, 203);
+	let xt4 = uxt(Alice, 204);
+	let xt4i = uxt(Alice, 204);
+	let xt4i_watcher =
+		block_on(pool.submit_and_watch(invalid_hash(), SOURCE, xt4i.clone())).unwrap();
+
+	assert_eq!(pool.mempool_len(), (0, 1));
+
+	let header01 = api.push_block(1, vec![xt0], true);
+	api.set_nonce(header01.hash(), Alice.into(), 201);
+	let header02 = api.push_block(2, vec![xt1], true);
+	api.set_nonce(header02.hash(), Alice.into(), 202);
+	let header03 = api.push_block(3, vec![xt2], true);
+	api.set_nonce(header03.hash(), Alice.into(), 203);
+
+	let header04 = api.push_block(4, vec![], true);
+	api.set_nonce(header04.hash(), Alice.into(), 203);
+
+	let header05 = api.push_block(5, vec![], true);
+	api.set_nonce(header05.hash(), Alice.into(), 203);
+
+	let event = new_best_block_event(&pool, None, header05.hash());
+	block_on(pool.maintain(event));
+
+	let event = finalized_block_event(&pool, api.genesis_hash(), header03.hash());
+	block_on(pool.maintain(event));
+
+	assert_pool_status!(header05.hash(), &pool, 0, 1);
+
+	let header06 = api.push_block(6, vec![xt3, xt4], true);
+	api.set_nonce(header06.hash(), Alice.into(), 205);
+	let event = new_best_block_event(&pool, None, header06.hash());
+	block_on(pool.maintain(event));
+
+	assert_pool_status!(header06.hash(), &pool, 0, 0);
+
+	// Import enough blocks to make xt4i revalidated
+	let mut prev_header = header03;
+	// wait 10 blocks for revalidation
+	for n in 7..=11 {
+		let header = api.push_block(n, vec![], true);
+		let event = finalized_block_event(&pool, prev_header.hash(), header.hash());
+		block_on(pool.maintain(event));
+		prev_header = header;
+	}
+
+	let xt4i_events = futures::executor::block_on_stream(xt4i_watcher).collect::<Vec<_>>();
+	log::info!("xt4i_events: {:#?}", xt4i_events);
+	assert_eq!(xt4i_events, vec![TransactionStatus::Future, TransactionStatus::Invalid]);
+	assert_eq!(pool.mempool_len(), (0, 0));
+}
+
+#[test]
+fn fatp_wtf_future_is_not_pruned() {
+	sp_tracing::try_init_simple();
+
+	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
+	let (pool, _) = create_basic_pool(api.clone());
+
+	let xt0 = uxt(Alice, 200);
+	let xt1 = uxt(Alice, 201);
+	let xt2 = uxt(Alice, 202);
+	let xt2i = uxt(Alice, 202);
+	log::info!("xt0: {:#?}", api.hash_and_length(&xt0).0);
+	log::info!("xt1: {:#?}", api.hash_and_length(&xt1).0);
+	log::info!("xt2: {:#?}", api.hash_and_length(&xt2).0);
+	log::info!("xt2i: {:#?}", api.hash_and_length(&xt2i).0);
+	let _ = block_on(pool.submit_and_watch(invalid_hash(), SOURCE, xt2i.clone())).unwrap();
+
+	assert_eq!(pool.mempool_len(), (0, 1));
+
+	let header01 = api.push_block(1, vec![], true);
+	let event = new_best_block_event(&pool, None, header01.hash());
+	block_on(pool.maintain(event));
+	assert_pool_status!(header01.hash(), &pool, 0, 1);
+
+	let header02 = api.push_block(2, vec![xt0, xt1, xt2], true);
+	api.set_nonce(header02.hash(), Alice.into(), 203);
+
+	let event = new_best_block_event(&pool, None, header02.hash());
+	block_on(pool.maintain(event));
+
+	assert_pool_status!(header02.hash(), &pool, 0, 0);
 }
 
 //todo: add test: check len of filter after finalization (!)

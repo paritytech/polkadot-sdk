@@ -209,30 +209,34 @@ fn only_prune_on_new_best() {
 
 #[test]
 fn should_correctly_prune_transactions_providing_more_than_one_tag() {
+	sp_tracing::try_init_simple();
 	let api = Arc::new(TestApi::with_alice_nonce(209));
 	api.set_valid_modifier(Box::new(|v: &mut ValidTransaction| {
 		v.provides.push(vec![155]);
 	}));
 	let pool = Pool::new(Default::default(), true.into(), api.clone());
-	let xt = uxt(Alice, 209);
-	block_on(pool.submit_one(&api.expect_hash_and_number(0), SOURCE, xt.clone()))
+	let xt0 = uxt(Alice, 209);
+	block_on(pool.submit_one(&api.expect_hash_and_number(0), SOURCE, xt0.clone()))
 		.expect("1. Imported");
 	assert_eq!(pool.validated_pool().status().ready, 1);
+	assert_eq!(api.validation_requests().len(), 1);
 
 	// remove the transaction that just got imported.
 	api.increment_nonce(Alice.into());
 	api.push_block(1, Vec::new(), true);
 	block_on(pool.prune_tags(&api.expect_hash_and_number(1), vec![vec![209]], vec![]));
+	assert_eq!(api.validation_requests().len(), 2);
 	assert_eq!(pool.validated_pool().status().ready, 0);
-	// it's re-imported to future
+	// it's re-imported to future, API does not support stale - xt0 becomes future
 	assert_eq!(pool.validated_pool().status().future, 1);
 
 	// so now let's insert another transaction that also provides the 155
 	api.increment_nonce(Alice.into());
 	api.push_block(2, Vec::new(), true);
-	let xt = uxt(Alice, 211);
-	block_on(pool.submit_one(&api.expect_hash_and_number(2), SOURCE, xt.clone()))
+	let xt1 = uxt(Alice, 211);
+	block_on(pool.submit_one(&api.expect_hash_and_number(2), SOURCE, xt1.clone()))
 		.expect("2. Imported");
+	assert_eq!(api.validation_requests().len(), 3);
 	assert_eq!(pool.validated_pool().status().ready, 1);
 	assert_eq!(pool.validated_pool().status().future, 1);
 	let pending: Vec<_> = pool
@@ -246,8 +250,15 @@ fn should_correctly_prune_transactions_providing_more_than_one_tag() {
 	api.increment_nonce(Alice.into());
 	api.push_block(3, Vec::new(), true);
 	block_on(pool.prune_tags(&api.expect_hash_and_number(3), vec![vec![155]], vec![]));
+	assert_eq!(api.validation_requests().len(), 4);
+	//xt0 was future, it failed (bc of 155 tag conflict) and was removed
 	assert_eq!(pool.validated_pool().status().ready, 0);
-	assert_eq!(pool.validated_pool().status().future, 2);
+	//xt1 was ready, it was pruned (bc of 155 tag conflict) but was revalidated and resubmitted
+	// (API does not know about 155).
+	assert_eq!(pool.validated_pool().status().future, 1);
+
+	let pending: Vec<_> = pool.validated_pool().futures().iter().map(|(hash, _)| *hash).collect();
+	assert_eq!(pending[0], api.hash_and_length(&xt1).0);
 }
 
 fn block_event(header: Header) -> ChainEvent<Block> {

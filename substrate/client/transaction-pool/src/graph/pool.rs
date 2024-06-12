@@ -18,7 +18,7 @@
 
 use std::{collections::HashMap, sync::Arc, time::Duration};
 
-use crate::LOG_TARGET;
+use crate::{log_xt_debug, LOG_TARGET};
 use futures::{channel::mpsc::Receiver, Future};
 use sc_transaction_pool_api::error;
 use sp_blockchain::{HashAndNumber, TreeRoute};
@@ -169,13 +169,8 @@ impl<B: ChainApi> Pool<B> {
 		xts: impl IntoIterator<Item = ExtrinsicFor<B>>,
 	) -> Vec<Result<ExtrinsicHash<B>, B::Error>> {
 		let xts = xts.into_iter().map(|xt| (source, xt));
-		let s = std::time::Instant::now();
 		let validated_transactions = self.verify(at, xts, CheckBannedBeforeVerify::Yes).await;
-		log::debug!("submit_one: verify: {:?}", s.elapsed());
-		let s = std::time::Instant::now();
-		let r = self.validated_pool.submit(validated_transactions.into_values());
-		log::debug!("submit_one: submit: {:?}", s.elapsed());
-		r
+		self.validated_pool.submit(validated_transactions.into_values())
 	}
 
 	/// Resubmit the given extrinsics to the pool.
@@ -271,12 +266,6 @@ impl<B: ChainApi> Pool<B> {
 			extrinsics.iter().map(|extrinsic| self.hash_of(extrinsic)).collect::<Vec<_>>();
 		let in_pool_tags = self.validated_pool.extrinsics_tags(&in_pool_hashes);
 
-		log::trace!("in_pool_tags: {at:#?} {in_pool_tags:#?} in_pool_hashes: {in_pool_hashes:#?}",);
-		// log::info!(
-		// 	"in_pool_tags: {at:#?} {in_pool_tags:#?} in_pool_hashes: {in_pool_hashes:#?} {:#?}",
-		// 	std::backtrace::Backtrace::force_capture()
-		// );
-
 		// Zip the ones from the pool with the full list (we get pairs `(Extrinsic,
 		// Option<Vec<Tag>>)`)
 		let all = extrinsics.iter().zip(in_pool_tags.into_iter());
@@ -303,7 +292,7 @@ impl<B: ChainApi> Pool<B> {
 							)
 							.await;
 
-						log::debug!(target: LOG_TARGET,"[{:?}] prune::revalidated", self.validated_pool.api().hash_and_length(&extrinsic.clone()).0);
+						log::debug!(target: LOG_TARGET,"[{:?}] prune::revalidated {:?}", self.validated_pool.api().hash_and_length(&extrinsic.clone()).0, validity);
 
 						if let Ok(Ok(validity)) = validity {
 							future_tags.extend(validity.provides);
@@ -318,7 +307,7 @@ impl<B: ChainApi> Pool<B> {
 			}
 		}
 
-		log::info!(target: LOG_TARGET,"prune: validated_counter:{validated_counter}");
+		log::debug!(target: LOG_TARGET,"prune: validated_counter:{validated_counter}");
 
 		self.prune_tags(at, future_tags, in_pool_hashes).await
 	}
@@ -350,9 +339,7 @@ impl<B: ChainApi> Pool<B> {
 		tags: impl IntoIterator<Item = Tag>,
 		known_imported_hashes: impl IntoIterator<Item = ExtrinsicHash<B>> + Clone,
 	) {
-		let tags = tags.into_iter().collect::<Vec<_>>();
-		log::trace!(target: LOG_TARGET, "Pool::prune_tags: Pruning at {:?} {:?}", at, tags.clone());
-		let tags = tags.into_iter();
+		log::debug!(target: LOG_TARGET, "Pruning at {:?}", at);
 		// Prune all transactions that provide given tags
 		let prune_status = self.validated_pool.prune_tags(tags);
 
@@ -372,9 +359,10 @@ impl<B: ChainApi> Pool<B> {
 
 		let pruned_hashes = reverified_transactions.keys().map(Clone::clone).collect();
 
-		log::trace!(target: LOG_TARGET, "Pruning at {:?}. Resubmitting transactions.", &at);
-		// And finally - submit reverified transactions back to the pool
+		log::debug!(target: LOG_TARGET, "Pruning at {:?}. Resubmitting transactions: {}", &at, reverified_transactions.len());
+		log_xt_debug!(data: tuple, target: LOG_TARGET, &reverified_transactions, "[{:?}]  Resubmitting transaction: {:?}");
 
+		// And finally - submit reverified transactions back to the pool
 		self.validated_pool.resubmit_pruned(
 			&at,
 			known_imported_hashes,
@@ -417,7 +405,6 @@ impl<B: ChainApi> Pool<B> {
 		xt: ExtrinsicFor<B>,
 		check: CheckBannedBeforeVerify,
 	) -> (ExtrinsicHash<B>, ValidatedTransactionFor<B>) {
-		let s = std::time::Instant::now();
 		let (hash, bytes) = self.validated_pool.api().hash_and_length(&xt);
 
 		let ignore_banned = matches!(check, CheckBannedBeforeVerify::No);
@@ -425,13 +412,17 @@ impl<B: ChainApi> Pool<B> {
 			return (hash, ValidatedTransaction::Invalid(hash, err))
 		}
 
-		let s0 = std::time::Instant::now();
+		let s = std::time::Instant::now();
 		let validation_result = self
 			.validated_pool
 			.api()
 			.validate_transaction(block_hash, source, xt.clone())
 			.await;
-		log::debug!("[{hash:?}] submit_one: api.validate_transaction: {:?}", s0.elapsed());
+		log::debug!(
+			"[{hash:?}] verify_one: validate_transaction:{:?} elapsed:{:?}",
+			validation_result,
+			s.elapsed()
+		);
 
 		let status = match validation_result {
 			Ok(status) => status,
@@ -457,8 +448,6 @@ impl<B: ChainApi> Pool<B> {
 			Err(TransactionValidityError::Unknown(e)) =>
 				ValidatedTransaction::Unknown(hash, error::Error::UnknownTransaction(e).into()),
 		};
-
-		log::debug!("[{hash:?}] submit_one: verify_one: {:?}", s.elapsed());
 
 		(hash, validity)
 	}
