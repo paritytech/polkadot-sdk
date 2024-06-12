@@ -43,15 +43,12 @@ std = [
 	"scale-info/std",
 
 	"frame/std",
-
 	"pallet-balances/std",
+	"pallet-minimal-template/std",
 	"pallet-sudo/std",
 	"pallet-timestamp/std",
 	"pallet-transaction-payment-rpc-runtime-api/std",
 	"pallet-transaction-payment/std",
-
-	"pallet-minimal-template/std",
-
 	"sp-genesis-builder/std",
 	"sp-runtime/std",
 	"substrate-wasm-builder",

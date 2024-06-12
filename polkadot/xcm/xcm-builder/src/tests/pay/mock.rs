@@ -26,13 +26,21 @@ use frame_support::{
 };
 use frame_system::{EnsureRoot, EnsureSigned};
 use polkadot_primitives::{AccountIndex, BlakeTwo256, Signature};
-use polkadot_test_runtime::SignedExtra;
 use sp_runtime::{generic, traits::MaybeEquivalence, AccountId32, BuildStorage};
 use xcm_executor::{traits::ConvertLocation, XcmExecutor};
 
+pub type TxExtension = (
+	frame_system::CheckNonZeroSender<Test>,
+	frame_system::CheckSpecVersion<Test>,
+	frame_system::CheckTxVersion<Test>,
+	frame_system::CheckGenesis<Test>,
+	frame_system::CheckMortality<Test>,
+	frame_system::CheckNonce<Test>,
+	frame_system::CheckWeight<Test>,
+);
 pub type Address = sp_runtime::MultiAddress<AccountId, AccountIndex>;
 pub type UncheckedExtrinsic =
-	generic::UncheckedExtrinsic<Address, RuntimeCall, Signature, SignedExtra>;
+	generic::UncheckedExtrinsic<Address, RuntimeCall, Signature, TxExtension>;
 pub type Header = generic::Header<BlockNumber, BlakeTwo256>;
 pub type Block = generic::Block<Header, UncheckedExtrinsic>;
 

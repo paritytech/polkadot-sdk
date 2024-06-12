@@ -39,9 +39,9 @@ pub mod runtime_vs_smart_contract;
 /// Learn about how extrinsics are encoded to be transmitted to a node and stored in blocks.
 pub mod extrinsic_encoding;
 
-/// Learn about the signed extensions that form a part of extrinsics.
+/// Learn about the transaction extensions that form a part of extrinsics.
 // TODO: @jsdw https://github.com/paritytech/polkadot-sdk-docs/issues/42
-pub mod signed_extensions;
+pub mod transaction_extensions;
 
 /// Learn about *Origins*, a topic in FRAME that enables complex account abstractions to be built.
 pub mod frame_origin;

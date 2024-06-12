@@ -18,9 +18,12 @@ use crate as pallet_skip_feeless_payment;
 
 use frame_support::{derive_impl, parameter_types};
 use frame_system as system;
+use sp_runtime::{
+	traits::{OriginOf, TransactionExtension},
+	transaction_validity::ValidTransaction,
+};
 
 type Block = frame_system::mocking::MockBlock<Runtime>;
-type AccountId = u64;
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Runtime {
@@ -32,42 +35,45 @@ impl Config for Runtime {
 }
 
 parameter_types! {
-	pub static PreDispatchCount: u32 = 0;
+	pub static PrepareCount: u32 = 0;
 	pub static ValidateCount: u32 = 0;
 }
 
 #[derive(Clone, Eq, PartialEq, Debug, Encode, Decode, TypeInfo)]
 pub struct DummyExtension;
 
-impl SignedExtension for DummyExtension {
-	type AccountId = AccountId;
-	type Call = RuntimeCall;
-	type AdditionalSigned = ();
-	type Pre = ();
+impl TransactionExtensionBase for DummyExtension {
 	const IDENTIFIER: &'static str = "DummyExtension";
-	fn additional_signed(&self) -> sp_std::result::Result<(), TransactionValidityError> {
-		Ok(())
-	}
+	type Implicit = ();
+}
+impl<C> TransactionExtension<RuntimeCall, C> for DummyExtension {
+	type Val = ();
+	type Pre = ();
 
 	fn validate(
 		&self,
-		_who: &Self::AccountId,
-		_call: &Self::Call,
-		_info: &DispatchInfoOf<Self::Call>,
+		origin: OriginOf<RuntimeCall>,
+		_call: &RuntimeCall,
+		_info: &DispatchInfoOf<RuntimeCall>,
 		_len: usize,
-	) -> TransactionValidity {
+		_context: &mut C,
+		_self_implicit: Self::Implicit,
+		_inherited_implication: &impl Encode,
+	) -> ValidateResult<Self::Val, RuntimeCall> {
 		ValidateCount::mutate(|c| *c += 1);
-		Ok(Default::default())
+		Ok((ValidTransaction::default(), (), origin))
 	}
 
-	fn pre_dispatch(
+	fn prepare(
 		self,
-		_who: &Self::AccountId,
-		_call: &Self::Call,
-		_info: &DispatchInfoOf<Self::Call>,
+		_val: Self::Val,
+		_origin: &OriginOf<RuntimeCall>,
+		_call: &RuntimeCall,
+		_info: &DispatchInfoOf<RuntimeCall>,
 		_len: usize,
+		_context: &C,
 	) -> Result<Self::Pre, TransactionValidityError> {
-		PreDispatchCount::mutate(|c| *c += 1);
+		PrepareCount::mutate(|c| *c += 1);
 		Ok(())
 	}
 }

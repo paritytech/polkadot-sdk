@@ -892,9 +892,9 @@ fn test_metadata() {
 
 	let extrinsic = ExtrinsicMetadata {
 		ty: meta_type::<UncheckedExtrinsic>(),
-		version: 4,
+		version: 5,
 		signed_extensions: vec![SignedExtensionMetadata {
-			identifier: "UnitSignedExtension",
+			identifier: "UnitTransactionExtension",
 			ty: meta_type::<()>(),
 			additional_signed: meta_type::<()>(),
 		}],

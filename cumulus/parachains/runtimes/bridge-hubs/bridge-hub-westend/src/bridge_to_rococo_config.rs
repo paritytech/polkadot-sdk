@@ -26,7 +26,7 @@ use bp_parachains::SingleParaStoredHeaderDataBuilder;
 use bp_runtime::Chain;
 use bridge_runtime_common::{
 	extensions::refund_relayer_extension::{
-		ActualFeeRefund, RefundBridgedMessages, RefundSignedExtensionAdapter,
+		ActualFeeRefund, RefundBridgedMessages, RefundTransactionExtensionAdapter,
 		RefundableMessagesLane,
 	},
 	messages,
@@ -193,8 +193,9 @@ impl ThisChainWithMessages for BridgeHubWestend {
 	type RuntimeOrigin = RuntimeOrigin;
 }
 
-/// Signed extension that refunds relayers that are delivering messages from the Rococo parachain.
-pub type OnBridgeHubWestendRefundBridgeHubRococoMessages = RefundSignedExtensionAdapter<
+/// Transaction extension that refunds relayers that are delivering messages from the Rococo
+/// parachain.
+pub type OnBridgeHubWestendRefundBridgeHubRococoMessages = RefundTransactionExtensionAdapter<
 	RefundBridgedMessages<
 		Runtime,
 		RefundableMessagesLane<

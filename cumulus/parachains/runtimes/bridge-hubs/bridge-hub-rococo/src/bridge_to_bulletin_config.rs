@@ -28,7 +28,7 @@ use bp_messages::LaneId;
 use bp_runtime::Chain;
 use bridge_runtime_common::{
 	extensions::refund_relayer_extension::{
-		ActualFeeRefund, RefundBridgedMessages, RefundSignedExtensionAdapter,
+		ActualFeeRefund, RefundBridgedMessages, RefundTransactionExtensionAdapter,
 		RefundableMessagesLane,
 	},
 	messages,
@@ -167,9 +167,9 @@ impl UnderlyingChainProvider for RococoBulletin {
 
 impl messages::BridgedChainWithMessages for RococoBulletin {}
 
-/// Signed extension that refunds relayers that are delivering messages from the Rococo Bulletin
-/// chain.
-pub type OnBridgeHubRococoRefundRococoBulletinMessages = RefundSignedExtensionAdapter<
+/// Transaction extension that refunds relayers that are delivering messages from the Rococo
+/// Bulletin chain.
+pub type OnBridgeHubRococoRefundRococoBulletinMessages = RefundTransactionExtensionAdapter<
 	RefundBridgedMessages<
 		Runtime,
 		RefundableMessagesLane<

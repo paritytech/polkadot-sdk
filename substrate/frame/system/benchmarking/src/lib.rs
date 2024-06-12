@@ -19,6 +19,8 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+pub mod extensions;
+
 #[cfg(feature = "runtime-benchmarks")]
 pub mod inner;
 

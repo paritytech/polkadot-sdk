@@ -1813,7 +1813,7 @@ mod tests {
 
 			let encoded = pool.read().transactions[0].clone();
 			let extrinsic: Extrinsic = codec::Decode::decode(&mut &*encoded).unwrap();
-			let call = extrinsic.call;
+			let call = extrinsic.function;
 			assert!(matches!(call, RuntimeCall::MultiPhase(Call::submit_unsigned { .. })));
 		})
 	}
@@ -1830,7 +1830,7 @@ mod tests {
 
 			let encoded = pool.read().transactions[0].clone();
 			let extrinsic = Extrinsic::decode(&mut &*encoded).unwrap();
-			let call = match extrinsic.call {
+			let call = match extrinsic.function {
 				RuntimeCall::MultiPhase(call @ Call::submit_unsigned { .. }) => call,
 				_ => panic!("bad call: unexpected submission"),
 			};

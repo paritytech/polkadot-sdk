@@ -20,7 +20,7 @@
 
 use crate::{self as tasks_example};
 use frame_support::derive_impl;
-use sp_runtime::testing::TestXt;
+use sp_runtime::generic::UncheckedExtrinsic;
 
 pub type AccountId = u32;
 pub type Balance = u32;
@@ -33,7 +33,7 @@ frame_support::construct_runtime!(
 	}
 );
 
-pub type Extrinsic = TestXt<RuntimeCall, ()>;
+pub type Extrinsic = UncheckedExtrinsic<u64, RuntimeCall, (), ()>;
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Runtime {

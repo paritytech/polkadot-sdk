@@ -29,7 +29,7 @@ use bp_messages::LaneId;
 use bp_runtime::Chain;
 use bridge_runtime_common::{
 	extensions::refund_relayer_extension::{
-		ActualFeeRefund, RefundBridgedMessages, RefundSignedExtensionAdapter,
+		ActualFeeRefund, RefundBridgedMessages, RefundTransactionExtensionAdapter,
 		RefundableMessagesLane,
 	},
 	messages,
@@ -176,8 +176,9 @@ impl UnderlyingChainProvider for BridgeHubWestend {
 
 impl messages::BridgedChainWithMessages for BridgeHubWestend {}
 
-/// Signed extension that refunds relayers that are delivering messages from the Westend parachain.
-pub type OnBridgeHubRococoRefundBridgeHubWestendMessages = RefundSignedExtensionAdapter<
+/// Transaction extension that refunds relayers that are delivering messages from the Westend
+/// parachain.
+pub type OnBridgeHubRococoRefundBridgeHubWestendMessages = RefundTransactionExtensionAdapter<
 	RefundBridgedMessages<
 		Runtime,
 		RefundableMessagesLane<

@@ -208,6 +208,7 @@ runtime-benchmarks = [
 	"frame-system/runtime-benchmarks",
 	"pallet-babe/runtime-benchmarks",
 	"pallet-staking/runtime-benchmarks",
+	"pallet-transaction-payment/runtime-benchmarks",
 	"polkadot-parachain-primitives/runtime-benchmarks",
 	"polkadot-primitives/runtime-benchmarks",
 	"polkadot-runtime-parachains/runtime-benchmarks",
@@ -230,7 +231,10 @@ try-runtime = [
 	"sp-runtime/try-runtime",
 	"westend-runtime?/try-runtime",
 ]
-fast-runtime = ["rococo-runtime?/fast-runtime", "westend-runtime?/fast-runtime"]
+fast-runtime = [
+	"rococo-runtime?/fast-runtime",
+	"westend-runtime?/fast-runtime",
+]
 
 malus = ["full-node"]
 runtime-metrics = [
