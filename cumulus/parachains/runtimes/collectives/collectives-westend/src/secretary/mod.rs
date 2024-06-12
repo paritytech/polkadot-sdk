@@ -21,17 +21,16 @@ mod tracks;
 
 use super::*;
 use crate::xcm_config::{FellowshipAdminBodyId, LocationToAccountId, WndAssetHub};
-use fellowship::Members;
-use frame_support::traits::{EitherOf, MapSuccess, TryMapSuccess};
+use frame_support::{
+	parameter_types,
+	traits::{
+		tokens::GetSalary, EitherOf, EitherOfDiverse, MapSuccess, PalletInfoAccess, TryMapSuccess,
+	},
+	PalletId,
+};
 use frame_system::EnsureRootWithSuccess;
 pub use origins::pallet_origins as pallet_secretary_origins;
 use origins::pallet_origins::Secretary;
-
-use frame_support::{
-	parameter_types,
-	traits::{tokens::GetSalary, EitherOf, EitherOfDiverse, MapSuccess, PalletInfoAccess},
-	PalletId,
-};
 use sp_core::ConstU128;
 use sp_runtime::traits::{CheckedReduceBy, ConstU16, ConvertToValue, Replace, ReplaceWithDefault};
 use xcm::prelude::*;
@@ -58,10 +57,7 @@ type OpenGovOrSecretaryOrFellow = EitherOfDiverse<
 
 type OpenGovOrFellow = EitherOfDiverse<
 	EnsureRoot<AccountId>,
-	EitherOfDiverse<
-		Fellows,
-		EnsureXcm<IsVoiceOfBody<GovernanceLocation, FellowshipAdminBodyId>>,
-	>,
+	EitherOfDiverse<Fellows, EnsureXcm<IsVoiceOfBody<GovernanceLocation, FellowshipAdminBodyId>>>,
 >;
 
 impl pallet_secretary_origins::Config for Runtime {}
@@ -98,7 +94,7 @@ impl pallet_referenda::Config<SecretaryReferendaInstance> for Runtime {
 impl pallet_ranked_collective::Config<SecretaryCollectiveInstance> for Runtime {
 	type WeightInfo = (); // TODO weights::pallet_ranked_collective_secretary_collective::WeightInfo<Runtime>;
 	type RuntimeEvent = RuntimeEvent;
-    type AddOrigin = MapSuccess<Self::PromoteOrigin, ReplaceWithDefault<()>>;
+	type AddOrigin = MapSuccess<Self::PromoteOrigin, ReplaceWithDefault<()>>;
 	type RemoveOrigin = Self::DemoteOrigin;
 	type PromoteOrigin = ApproveOrigin;
 	type DemoteOrigin = ApproveOrigin;
@@ -142,7 +138,7 @@ impl pallet_core_fellowship::Config<SecretaryCoreInstance> for Runtime {
 	type ApproveOrigin = ApproveOrigin;
 	type PromoteOrigin = ApproveOrigin;
 	type EvidenceSize = ConstU32<65536>;
-    type MaxRank = ConstU32<1>;
+	type MaxRank = ConstU32<1>;
 }
 
 pub type SecretarySalaryInstance = pallet_salary::Instance3;
