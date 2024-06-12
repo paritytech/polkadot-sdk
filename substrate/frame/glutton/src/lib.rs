@@ -277,13 +277,6 @@ pub mod pallet {
 		}
 	}
 
-	fn garbage_weight<T: Config>(
-		garbage: &[[u8; VALUE_SIZE]]
-	) -> Weight {
-		let size = garbage.encoded_size() * garbage.len();
-		Weight::zero().saturating_add(Weight::from_parts(0, size as u64))
-	}
-
 	#[pallet::call(weight = T::WeightInfo)]
 	impl<T: Config> Pallet<T> {
 		/// Initialize the pallet. Should be called once, if no genesis state was provided.
