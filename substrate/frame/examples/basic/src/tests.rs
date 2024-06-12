@@ -21,7 +21,7 @@ use crate::*;
 use frame_support::{
 	assert_ok, derive_impl,
 	dispatch::{DispatchInfo, GetDispatchInfo},
-	traits::{ConstU64, OnInitialize, VariantCountOf},
+	traits::{ConstU64, OnInitialize},
 };
 use sp_core::H256;
 // The testing primitives are very useful for avoiding having to work with signatures
@@ -71,20 +71,9 @@ impl frame_system::Config for Test {
 	type MaxConsumers = frame_support::traits::ConstU32<16>;
 }
 
+#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Test {
-	type MaxLocks = ();
-	type MaxReserves = ();
-	type ReserveIdentifier = [u8; 8];
-	type Balance = u64;
-	type DustRemoval = ();
-	type RuntimeEvent = RuntimeEvent;
-	type ExistentialDeposit = ConstU64<1>;
 	type AccountStore = System;
-	type WeightInfo = ();
-	type FreezeIdentifier = RuntimeFreezeReason;
-	type MaxFreezes = VariantCountOf<RuntimeFreezeReason>;
-	type RuntimeHoldReason = RuntimeHoldReason;
-	type RuntimeFreezeReason = RuntimeHoldReason;
 }
 
 impl Config for Test {

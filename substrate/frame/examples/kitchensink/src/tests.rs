@@ -18,10 +18,7 @@
 //! Tests for pallet-example-kitchensink.
 
 use crate::*;
-use frame_support::{
-	assert_ok, derive_impl, parameter_types,
-	traits::{ConstU64, VariantCountOf},
-};
+use frame_support::{assert_ok, derive_impl, parameter_types, traits::VariantCountOf};
 use sp_runtime::BuildStorage;
 // Reexport crate as its pallet name for construct_runtime.
 use crate as pallet_example_kitchensink;
@@ -46,14 +43,8 @@ impl frame_system::Config for Test {
 	type AccountData = pallet_balances::AccountData<u64>;
 }
 
+#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Test {
-	type MaxLocks = ();
-	type MaxReserves = ();
-	type ReserveIdentifier = [u8; 8];
-	type Balance = u64;
-	type DustRemoval = ();
-	type RuntimeEvent = RuntimeEvent;
-	type ExistentialDeposit = ConstU64<1>;
 	type AccountStore = System;
 	type WeightInfo = ();
 	type FreezeIdentifier = RuntimeFreezeReason;
