@@ -250,6 +250,9 @@ pub mod common_asset_kinds {
 /// This modules contains the common asset ops strategies.
 pub mod common_strategies {
 	use super::*;
+	use codec::{Decode, Encode, MaxEncodedLen};
+	use scale_info::TypeInfo;
+	use sp_runtime::RuntimeDebug;
 
 	/// The `WithOrigin` is a strategy that accepts a runtime origin and the `Inner` strategy.
 	///
@@ -439,6 +442,7 @@ pub mod common_strategies {
 	///
 	/// It accepts the `Id` type of the asset.
 	/// The "create" strategy should report the value of type `Id` upon successful asset creation.
+	#[derive(RuntimeDebug, PartialEq, Eq, Clone, Encode, Decode, MaxEncodedLen, TypeInfo)]
 	pub struct AutoId<Id>(PhantomData<Id>);
 	impl<Id> AutoId<Id> {
 		pub fn new() -> Self {
@@ -454,6 +458,7 @@ pub mod common_strategies {
 	///
 	/// It accepts `Params` to assign an ID to the newly created asset.
 	/// This ID assignment approach doesn't report the ID upon the asset's creation.
+	#[derive(RuntimeDebug, PartialEq, Eq, Clone, Encode, Decode, MaxEncodedLen, TypeInfo)]
 	pub struct AssignId<'a, Params>(pub &'a Params);
 	impl<'a, Params> IdAssignment for AssignId<'a, Params> {
 		type ReportedId = ();
@@ -469,6 +474,7 @@ pub mod common_strategies {
 	///
 	/// An example of ID derivation is the creation of an NFT inside a collection using the
 	/// collection ID as `Params`. The `Id` in this case is the full ID of the NFT.
+	#[derive(RuntimeDebug, PartialEq, Eq, Clone, Encode, Decode, MaxEncodedLen, TypeInfo)]
 	pub struct DeriveAndReportId<'a, Params, Id>(pub &'a Params, pub PhantomData<Id>);
 	impl<'a, Params, Id> DeriveAndReportId<'a, Params, Id> {
 		pub fn from(params: &'a Params) -> Self {
