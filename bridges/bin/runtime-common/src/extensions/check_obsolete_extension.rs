@@ -36,8 +36,10 @@ use sp_runtime::{
 	transaction_validity::{TransactionPriority, TransactionValidity, ValidTransactionBuilder},
 };
 
-// Re-export to avoid include tuplex dependency everywhere
-pub use tuplex;
+// Re-export to avoid include tuplex dependency everywhere.
+#[doc(hidden)]
+pub mod __private {
+	pub use tuplex;
 
 /// A duplication of the `FilterCall` trait.
 ///
