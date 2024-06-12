@@ -363,8 +363,8 @@ impl PeerData {
 
 #[derive(Debug)]
 struct GroupAssignments {
-	/// Current assignment.
-	current: Option<ParaId>,
+	/// Current assignments.
+	current: Vec<ParaId>,
 }
 
 struct PerRelayParent {
@@ -377,7 +377,7 @@ impl PerRelayParent {
 	fn new(mode: ProspectiveParachainsMode) -> Self {
 		Self {
 			prospective_parachains_mode: mode,
-			assignment: GroupAssignments { current: None },
+			assignment: GroupAssignments { current: vec![] },
 			collations: Collations::default(),
 		}
 	}
@@ -502,40 +502,28 @@ where
 		return Ok(())
 	};
 
-	let para_now = match fetch_claim_queue(sender, relay_parent).await.map_err(Error::Runtime)? {
-		Some(claim_queue) => {
-			// Runtime supports claim queue - use it
-			//
-			// `relay_parent_mode` is not examined here because if the runtime supports claim queue
-			// then it supports async backing params too (`ASYNC_BACKING_STATE_RUNTIME_REQUIREMENT`
-			// < `CLAIM_QUEUE_RUNTIME_REQUIREMENT`).
-			//
-			// Implementation note: here it might be better to fetch the whole claim queue for the
-			// core and use it as `paras_now`. Practical tests however showed that there is no
-			// benefit in doing this so to avoid unnecessary complexity we just only get the first
-			// claim from the queue.
-			claim_queue.get_claim_for(core_now, 0)
-		},
-		None => {
-			// Claim queue is not supported by the runtime - use availability cores instead.
-			cores.get(core_now.0 as usize).and_then(|c| match c {
+	let paras_now = match fetch_claim_queue(sender, relay_parent).await.map_err(Error::Runtime)? {
+		// Runtime supports claim queue - use it
+		//
+		// `relay_parent_mode` is not examined here because if the runtime supports claim queue
+		// then it supports async backing params too (`ASYNC_BACKING_STATE_RUNTIME_REQUIREMENT`
+		// < `CLAIM_QUEUE_RUNTIME_REQUIREMENT`).
+		Some(claim_queue) =>
+			claim_queue.iter_claims_for_core(&core_now).into_iter().collect::<Vec<_>>(),
+		// Claim queue is not supported by the runtime - use availability cores instead.
+		None => cores
+			.get(core_now.0 as usize)
+			.and_then(|c| match c {
 				CoreState::Occupied(core) if relay_parent_mode.is_enabled() =>
 					core.next_up_on_available.as_ref().map(|c| c.para_id),
 				CoreState::Scheduled(core) => Some(core.para_id),
 				CoreState::Occupied(_) | CoreState::Free => None,
 			})
-		},
+			.into_iter()
+			.collect::<Vec<_>>(),
 	};
 
-	// This code won't work well, if at all for on-demand parachains. For on-demand we'll
-	// have to be aware of which core the on-demand claim is going to be multiplexed
-	// onto. The on-demand claim will also have a known collator, and we should always
-	// allow an incoming connection from that collator. If not even connecting to them
-	// directly.
-	//
-	// However, this'll work fine for parachains, as each parachain gets a dedicated
-	// core.
-	if let Some(para_id) = para_now.as_ref() {
+	for para_id in paras_now.iter() {
 		let entry = current_assignments.entry(*para_id).or_default();
 		*entry += 1;
 		if *entry == 1 {
@@ -548,7 +536,7 @@ where
 		}
 	}
 
-	*group_assignment = GroupAssignments { current: para_now };
+	*group_assignment = GroupAssignments { current: paras_now };
 
 	Ok(())
 }
@@ -559,7 +547,7 @@ fn remove_outgoing(
 ) {
 	let GroupAssignments { current, .. } = per_relay_parent.assignment;
 
-	if let Some(cur) = current {
+	for cur in current {
 		if let Entry::Occupied(mut occupied) = current_assignments.entry(cur) {
 			*occupied.get_mut() -= 1;
 			if *occupied.get() == 0 {
@@ -874,7 +862,8 @@ async fn process_incoming_peer_message<Context>(
 					peer_id = ?origin,
 					?collator_id,
 					?para_id,
-					"Declared as collator for unneeded para",
+					"Declared as collator for unneeded para. Current assignments: {:?}",
+					&state.current_assignments
 				);
 
 				modify_reputation(
@@ -1106,7 +1095,7 @@ where
 		peer_data.collating_para().ok_or(AdvertisementError::UndeclaredCollator)?;
 
 	// Check if this is assigned to us.
-	if assignment.current.map_or(true, |id| id != collator_para_id) {
+	if !assignment.current.contains(&collator_para_id) {
 		return Err(AdvertisementError::InvalidAssignment)
 	}
 
@@ -1122,7 +1111,7 @@ where
 		)
 		.map_err(AdvertisementError::Invalid)?;
 
-	if !per_relay_parent.collations.is_seconded_limit_reached(relay_parent_mode) {
+	if per_relay_parent.collations.is_seconded_limit_reached(relay_parent_mode) {
 		return Err(AdvertisementError::SecondedLimitReached)
 	}
 
@@ -1214,7 +1203,7 @@ where
 		});
 
 	let collations = &mut per_relay_parent.collations;
-	if !collations.is_seconded_limit_reached(relay_parent_mode) {
+	if collations.is_seconded_limit_reached(relay_parent_mode) {
 		gum::trace!(
 			target: LOG_TARGET,
 			peer_id = ?peer_id,
