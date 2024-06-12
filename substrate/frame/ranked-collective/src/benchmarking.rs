@@ -16,7 +16,6 @@
 // limitations under the License.
 
 //! Staking pallet benchmarking.
-
 use super::*;
 #[allow(unused_imports)]
 use crate::Pallet as RankedCollective;
@@ -25,8 +24,8 @@ use frame_benchmarking::v1::{
 	account, benchmarks_instance_pallet, whitelisted_caller, BenchmarkError,
 };
 use frame_support::{assert_ok, traits::UnfilteredDispatchable};
-use frame_system::RawOrigin as SystemOrigin;
 
+use frame_system::RawOrigin as SystemOrigin;
 const SEED: u32 = 0;
 
 fn assert_last_event<T: Config<I>, I: 'static>(generic_event: <T as Config<I>>::RuntimeEvent) {
@@ -179,6 +178,21 @@ benchmarks_instance_pallet! {
 		assert_eq!(Members::<T, I>::get(&new_who).unwrap().rank, 1);
 		assert_eq!(Members::<T, I>::get(&who), None);
 		assert_has_event::<T, I>(Event::MemberExchanged { who, new_who }.into());
+	}
+
+	add_member_to_rank {
+		let r in 0 .. 10;
+		let rank = r as u16;
+		let who = account::<T::AccountId>("member-without-rank", 0, SEED);
+		let who_lookup = T::Lookup::unlookup(who.clone());
+		let origin =
+			T::AddOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
+		let call = Call::<T, I>::add_member_to_rank { who: who_lookup, rank };
+	}: { call.dispatch_bypass_filter(origin)? }
+	verify {
+		assert_eq!(Members::<T, I>::get(&who).unwrap().rank, rank);
+		assert_eq!(MemberCount::<T, I>::get(0),1);
+		assert_eq!(MemberCount::<T, I>::get(rank),1);
 	}
 
 	impl_benchmark_test_suite!(RankedCollective, crate::tests::ExtBuilder::default().build(), crate::tests::Test);

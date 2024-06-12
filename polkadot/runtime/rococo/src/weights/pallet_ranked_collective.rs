@@ -189,4 +189,10 @@ impl<T: frame_system::Config> pallet_ranked_collective::WeightInfo for WeightInf
 			.saturating_add(T::DbWeight::get().reads(6))
 			.saturating_add(T::DbWeight::get().writes(10))
 	}
+	fn add_member_to_rank(r: u32, ) -> Weight {
+		Weight::from_parts(15_000_000, 3507)
+			// Standard Error: 1_000
+			.saturating_add((Weight::from_parts(251_000, 0)).saturating_mul(r.into()))
+			.saturating_add(T::DbWeight::get().reads(1_u64))
+	}
 }

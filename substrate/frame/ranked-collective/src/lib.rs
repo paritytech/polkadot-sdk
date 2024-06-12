@@ -713,6 +713,18 @@ pub mod pallet {
 
 			Ok(())
 		}
+
+		#[pallet::call_index(7)]
+		#[pallet::weight(T::WeightInfo::add_member_to_rank(*rank as u32))]
+		pub fn add_member_to_rank(
+			origin: OriginFor<T>,
+			who: AccountIdLookupOf<T>,
+			rank: Rank,
+		) -> DispatchResult {
+			T::AddOrigin::ensure_origin(origin)?;
+			let who = T::Lookup::lookup(who)?;
+			Self::do_add_member_to_rank(who, rank, true)
+		}
 	}
 
 	#[pallet::hooks]

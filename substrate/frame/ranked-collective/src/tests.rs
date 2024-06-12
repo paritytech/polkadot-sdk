@@ -645,3 +645,20 @@ fn exchange_member_same_noops() {
 		);
 	});
 }
+
+#[test]
+pub fn add_member_to_rank_work() {
+	ExtBuilder::default().build_and_execute(|| {
+		let max_rank = 4u16;
+		assert_ok!(Club::add_member_to_rank(RuntimeOrigin::root(), 2, max_rank));
+		for i in 0..=max_rank {
+			assert_eq!(member_count(i), 1);
+		}
+
+		//-- Should fail ----------------------------------------
+		assert_noop!(
+			Club::add_member_to_rank(RuntimeOrigin::signed(1), 2, 1),
+			DispatchError::BadOrigin
+		);
+	})
+}

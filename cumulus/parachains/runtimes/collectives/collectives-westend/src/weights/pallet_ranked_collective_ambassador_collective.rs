@@ -177,4 +177,7 @@ impl<T: frame_system::Config> pallet_ranked_collective::WeightInfo for WeightInf
 	fn exchange_member() -> Weight {
 		todo!()
 	}
+	fn add_member_to_rank(_r: u32, ) -> Weight {
+		todo!()
+	}
 }
