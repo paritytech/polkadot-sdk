@@ -1,4 +1,4 @@
-title: CheckWeight: account for extrinsic len as proof size
+title: CheckWeight - account for extrinsic len as proof size
 
 doc:
   - audience: Runtime Dev
