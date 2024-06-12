@@ -10,10 +10,18 @@ doc:
 
 crates:
   - name: polkadot-runtime-parachains
-    bump: major
+    bump: minor
   - name: rococo-runtime
-    bump: major
+    bump: minor
   - name: westend-runtime
-    bump: major
+    bump: minor
   - name: pallet-broker
+    bump: minor
+  - name: rococo-runtime-constants
+    bump: minor
+  - name: westend-runtime-constants
+    bump: minor
+  - name: coretime-rococo-runtime
+    bump: minor
+  - name: coretime-westend-runtime
     bump: minor
