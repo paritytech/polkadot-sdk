@@ -234,8 +234,10 @@ struct PerRelayParentState {
 	/// If true, we're appending extra bits in the BackedCandidate validator indices bitfield,
 	/// which represent the assigned core index. True if ElasticScalingMVP is enabled.
 	inject_core_index: bool,
-	n_cores: u32,
-	claim_queue: ClaimQueueSnapshot,
+	/// The core states for all cores.
+	cores: Vec<CoreState>,
+	/// Optional claim queue state. Will be `None` if the runtime does not support this API.
+	claim_queue: Option<ClaimQueueSnapshot>,
 	/// The validator index -> group mapping at this relay parent.
 	validator_to_group: Arc<IndexedVec<ValidatorIndex, Option<GroupIndex>>>,
 	/// The associated group rotation information.
@@ -1005,12 +1007,14 @@ macro_rules! try_runtime_api {
 fn core_index_from_statement(
 	validator_to_group: &IndexedVec<ValidatorIndex, Option<GroupIndex>>,
 	group_rotation_info: &GroupRotationInfo,
-	n_cores: u32,
-	claim_queue: &ClaimQueueSnapshot,
+	cores: &[CoreState],
+	maybe_claim_queue: Option<&ClaimQueueSnapshot>,
 	statement: &SignedFullStatementWithPVD,
 ) -> Option<CoreIndex> {
 	let compact_statement = statement.as_unchecked();
 	let candidate_hash = CandidateHash(*compact_statement.unchecked_payload().candidate_hash());
+
+	let n_cores = cores.len();
 
 	gum::trace!(
 		target:LOG_TARGET,
@@ -1040,15 +1044,25 @@ fn core_index_from_statement(
 	// First check if the statement para id matches the core assignment.
 	let core_index = group_rotation_info.core_for_group(*group_index, n_cores as _);
 
-	if core_index.0 > n_cores {
+	if core_index.0 as usize > n_cores {
 		gum::warn!(target: LOG_TARGET, ?candidate_hash, ?core_index, n_cores, "Invalid CoreIndex");
 		return None
 	}
 
 	if let StatementWithPVD::Seconded(candidate, _pvd) = statement.payload() {
 		let candidate_para_id = candidate.descriptor.para_id;
-		let assigned_paras =
-			claim_queue.iter_claims_for_core(&core_index).into_iter().collect::<Vec<_>>();
+		let assigned_paras: Vec<ParaId> = if let Some(claim_queue) = maybe_claim_queue {
+			claim_queue.iter_claims_for_core(&core_index).into_iter().collect()
+		} else {
+			match &cores[core_index.0 as usize] {
+				CoreState::Free => None,
+				CoreState::Occupied(occupied) =>
+					occupied.next_up_on_available.as_ref().map(|c| c.para_id),
+				CoreState::Scheduled(scheduled) => Some(scheduled.para_id),
+			}
+			.into_iter()
+			.collect()
+		};
 
 		if !assigned_paras.contains(&candidate_para_id) {
 			gum::debug!(
@@ -1057,7 +1071,7 @@ fn core_index_from_statement(
 				?core_index,
 				?assigned_paras,
 				?candidate_para_id,
-				"Invalid CoreIndex, core is assigned to a different para_id"
+				"Invalid CoreIndex, core is not assigned to this para_id"
 			);
 			return None
 		}
@@ -1118,6 +1132,8 @@ async fn construct_per_relay_parent_state<Context>(
 			Error::UtilError(TryFrom::try_from(e).expect("the conversion is infallible; qed"))
 		})?;
 
+	let maybe_claim_queue = try_runtime_api!(fetch_claim_queue(ctx.sender(), parent).await);
+
 	let signing_context = SigningContext { parent_hash: parent, session_index };
 	let validator = match Validator::construct(
 		&validators,
@@ -1144,11 +1160,25 @@ async fn construct_per_relay_parent_state<Context>(
 	let mut assigned_core = None;
 	let mut assigned_paras = vec![];
 
-	let claim_queue = fetch_claim_queue(ctx.sender(), parent).await.unwrap().unwrap();
-
 	for (idx, core) in cores.iter().enumerate() {
 		let core_index = CoreIndex(idx as _);
-		let core_paras = claim_queue.iter_claims_for_core(&core_index).into_iter().collect();
+		let core_paras = if let Some(claim_queue) = &maybe_claim_queue {
+			claim_queue.iter_claims_for_core(&core_index).into_iter().collect()
+		} else {
+			match core {
+				CoreState::Scheduled(scheduled) => vec![scheduled.para_id],
+				CoreState::Occupied(occupied) if mode.is_enabled() => {
+					// Async backing makes it legal to build on top of
+					// occupied core.
+					if let Some(next) = &occupied.next_up_on_available {
+						vec![next.para_id]
+					} else {
+						continue
+					}
+				},
+				_ => continue,
+			}
+		};
 
 		let group_index = group_rotation_info.group_for_core(core_index, n_cores);
 		if let Some(g) = validator_groups.get(group_index.0 as usize) {
@@ -1197,8 +1227,8 @@ async fn construct_per_relay_parent_state<Context>(
 		fallbacks: HashMap::new(),
 		minimum_backing_votes,
 		inject_core_index,
-		n_cores: cores.len() as u32,
-		claim_queue,
+		cores,
+		claim_queue: maybe_claim_queue,
 		validator_to_group: validator_to_group.clone(),
 		group_rotation_info,
 	}))
@@ -1651,8 +1681,8 @@ async fn import_statement<Context>(
 	let core = core_index_from_statement(
 		&rp_state.validator_to_group,
 		&rp_state.group_rotation_info,
-		rp_state.n_cores,
-		&rp_state.claim_queue,
+		&rp_state.cores,
+		rp_state.claim_queue.as_ref(),
 		statement,
 	)
 	.ok_or(Error::CoreIndexUnavailable)?;
