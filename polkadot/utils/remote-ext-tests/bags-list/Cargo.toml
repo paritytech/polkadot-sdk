@@ -11,7 +11,7 @@ description = "remote-ext-tests-bags-list (polkadot v1.11.0)"
 workspace = true
 
 [dependencies]
-westend-runtime = { version = "12.0.0", path = "../../../runtime/westend" }
+westend-runtime = { version = "12.0.1", path = "../../../runtime/westend" }
 westend-runtime-constants = { version = "12.0.0", path = "../../../runtime/westend/constants" }
 pallet-bags-list-remote-tests = { version = "0.1.0", path = "../../../../substrate/frame/bags-list/remote-tests" }
 sp-tracing = { version = "17.0.0", path = "../../../../substrate/primitives/tracing" }

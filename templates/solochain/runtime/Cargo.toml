@@ -66,7 +66,7 @@ frame-system-benchmarking = { path = "../../../substrate/frame/system/benchmarki
 pallet-template = { path = "../pallets/template", default-features = false, version = "0.1.0" }
 
 [build-dependencies]
-substrate-wasm-builder = { path = "../../../substrate/utils/wasm-builder", optional = true, version = "22.0.0" }
+substrate-wasm-builder = { path = "../../../substrate/utils/wasm-builder", optional = true, version = "22.0.1" }
 
 [features]
 default = ["std"]

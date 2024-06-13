@@ -22,6 +22,6 @@ grandpa = { package = "sc-consensus-grandpa", path = "../../../../../../../subst
 # Polkadot
 polkadot-primitives = { path = "../../../../../../../polkadot/primitives", default-features = false, version = "12.0.0" }
 rococo-runtime-constants = { path = "../../../../../../../polkadot/runtime/rococo/constants", default-features = false, version = "12.0.0" }
-rococo-runtime = { version = "12.0.0", path = "../../../../../../../polkadot/runtime/rococo" }
+rococo-runtime = { version = "12.0.1", path = "../../../../../../../polkadot/runtime/rococo" }
 parachains-common = { version = "12.0.0", path = "../../../../../common" }
 emulated-integration-tests-common = { path = "../../../common", default-features = false, version = "8.0.0" }

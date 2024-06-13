@@ -22,7 +22,7 @@ polkadot-node-collation-generation = { version = "12.0.0", path = "../../../polk
 polkadot-node-core-runtime-api = { version = "12.0.0", path = "../../../polkadot/node/core/runtime-api" }
 polkadot-node-core-chain-api = { version = "12.0.0", path = "../../../polkadot/node/core/chain-api" }
 polkadot-node-core-prospective-parachains = { version = "11.0.0", path = "../../../polkadot/node/core/prospective-parachains" }
-polkadot-service = { version = "12.0.0", path = "../../../polkadot/node/service" }
+polkadot-service = { version = "12.0.1", path = "../../../polkadot/node/service" }
 sc-authority-discovery = { version = "0.39.0", path = "../../../substrate/client/authority-discovery" }
 sc-network = { version = "0.39.0", path = "../../../substrate/client/network" }
 sc-network-common = { version = "0.38.0", path = "../../../substrate/client/network/common" }

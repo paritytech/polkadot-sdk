@@ -73,7 +73,7 @@ sp-trie = { path = "../../../substrate/primitives/trie" }
 serde_json = { workspace = true, default-features = true }
 
 [build-dependencies]
-substrate-wasm-builder = { version = "22.0.0", path = "../../../substrate/utils/wasm-builder" }
+substrate-wasm-builder = { version = "22.0.1", path = "../../../substrate/utils/wasm-builder" }
 
 [features]
 default = ["std"]

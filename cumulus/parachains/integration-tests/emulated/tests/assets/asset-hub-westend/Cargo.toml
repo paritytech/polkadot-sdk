@@ -27,10 +27,10 @@ polkadot-runtime-common = { version = "12.0.0", path = "../../../../../../../pol
 xcm = { package = "staging-xcm", path = "../../../../../../../polkadot/xcm", default-features = false, version = "12.0.0" }
 xcm-executor = { package = "staging-xcm-executor", path = "../../../../../../../polkadot/xcm/xcm-executor", default-features = false, version = "12.0.0" }
 pallet-xcm = { path = "../../../../../../../polkadot/xcm/pallet-xcm", default-features = false, version = "12.0.0" }
-westend-runtime = { version = "12.0.0", path = "../../../../../../../polkadot/runtime/westend" }
+westend-runtime = { version = "12.0.1", path = "../../../../../../../polkadot/runtime/westend" }
 parachains-common = { version = "12.0.0", path = "../../../../../common" }
 penpal-runtime = { version = "0.19.0", path = "../../../../../runtimes/testing/penpal" }
-asset-hub-westend-runtime = { version = "0.20.0", path = "../../../../../runtimes/assets/asset-hub-westend" }
+asset-hub-westend-runtime = { version = "0.20.1", path = "../../../../../runtimes/assets/asset-hub-westend" }
 asset-test-utils = { version = "12.0.0", path = "../../../../../runtimes/assets/test-utils" }
 cumulus-pallet-xcmp-queue = { path = "../../../../../../pallets/xcmp-queue", default-features = false, version = "0.12.0" }
 cumulus-pallet-parachain-system = { path = "../../../../../../pallets/parachain-system", default-features = false, version = "0.12.0" }

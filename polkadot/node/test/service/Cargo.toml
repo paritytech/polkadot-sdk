@@ -23,7 +23,7 @@ polkadot-primitives = { version = "12.0.0", path = "../../../primitives" }
 polkadot-parachain-primitives = { version = "11.0.0", path = "../../../parachain" }
 polkadot-rpc = { version = "12.0.0", path = "../../../rpc" }
 polkadot-runtime-common = { version = "12.0.0", path = "../../../runtime/common" }
-polkadot-service = { version = "12.0.0", path = "../../service" }
+polkadot-service = { version = "12.0.1", path = "../../service" }
 polkadot-node-subsystem = { version = "12.0.0", path = "../../subsystem" }
 polkadot-node-primitives = { version = "12.0.0", path = "../../primitives" }
 polkadot-test-runtime = { version = "0.1.0", path = "../../../runtime/test-runtime" }

@@ -13,4 +13,4 @@ workspace = true
 clap = { version = "4.5.3", features = ["derive"] }
 generate-bags = { version = "33.0.0", path = "../../../substrate/utils/frame/generate-bags" }
 sp-io = { version = "35.0.0", path = "../../../substrate/primitives/io" }
-westend-runtime = { version = "12.0.0", path = "../../runtime/westend" }
+westend-runtime = { version = "12.0.1", path = "../../runtime/westend" }

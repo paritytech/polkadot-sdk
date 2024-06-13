@@ -20,7 +20,7 @@ pallet-identity = { path = "../../../../../../../substrate/frame/identity", defa
 # Polkadot
 xcm = { package = "staging-xcm", path = "../../../../../../../polkadot/xcm", default-features = false, version = "12.0.0" }
 xcm-executor = { package = "staging-xcm-executor", path = "../../../../../../../polkadot/xcm/xcm-executor", default-features = false, version = "12.0.0" }
-westend-runtime = { version = "12.0.0", path = "../../../../../../../polkadot/runtime/westend" }
+westend-runtime = { version = "12.0.1", path = "../../../../../../../polkadot/runtime/westend" }
 westend-runtime-constants = { version = "12.0.0", path = "../../../../../../../polkadot/runtime/westend/constants" }
 polkadot-runtime-common = { version = "12.0.0", path = "../../../../../../../polkadot/runtime/common" }
 asset-test-utils = { version = "12.0.0", path = "../../../../../runtimes/assets/test-utils" }

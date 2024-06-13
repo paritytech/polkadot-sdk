@@ -23,7 +23,7 @@ log = { workspace = true, default-features = true }
 test-parachain-adder = { version = "0.0.0", path = ".." }
 polkadot-primitives = { version = "12.0.0", path = "../../../../primitives" }
 polkadot-cli = { version = "12.0.0", path = "../../../../cli" }
-polkadot-service = { path = "../../../../node/service", features = ["elastic-scaling-experimental", "rococo-native"], version = "12.0.0" }
+polkadot-service = { path = "../../../../node/service", features = ["elastic-scaling-experimental", "rococo-native"], version = "12.0.1" }
 polkadot-node-primitives = { version = "12.0.0", path = "../../../../node/primitives" }
 polkadot-node-subsystem = { version = "12.0.0", path = "../../../../node/subsystem" }
 sc-cli = { version = "0.41.0", path = "../../../../../substrate/client/cli" }

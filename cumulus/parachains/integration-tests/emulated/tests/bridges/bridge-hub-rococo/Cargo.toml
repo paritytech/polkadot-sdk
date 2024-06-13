@@ -38,7 +38,7 @@ bridge-hub-rococo-runtime = { path = "../../../../../runtimes/bridge-hubs/bridge
 emulated-integration-tests-common = { path = "../../../common", default-features = false, version = "8.0.0" }
 rococo-westend-system-emulated-network = { version = "0.1.0", path = "../../../networks/rococo-westend-system" }
 rococo-system-emulated-network = { version = "0.1.0", path = "../../../networks/rococo-system" }
-asset-hub-rococo-runtime = { path = "../../../../../runtimes/assets/asset-hub-rococo", default-features = false, version = "0.16.0" }
+asset-hub-rococo-runtime = { path = "../../../../../runtimes/assets/asset-hub-rococo", default-features = false, version = "0.16.1" }
 
 # Snowbridge
 snowbridge-core = { path = "../../../../../../../bridges/snowbridge/primitives/core", default-features = false, version = "0.5.0" }

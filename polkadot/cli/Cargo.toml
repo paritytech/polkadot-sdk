@@ -26,7 +26,7 @@ futures = "0.3.30"
 pyro = { package = "pyroscope", version = "0.5.3", optional = true }
 pyroscope_pprofrs = { version = "0.2", optional = true }
 
-service = { package = "polkadot-service", path = "../node/service", default-features = false, optional = true, version = "12.0.0" }
+service = { package = "polkadot-service", path = "../node/service", default-features = false, optional = true, version = "12.0.1" }
 sp-core = { version = "32.0.0", path = "../../substrate/primitives/core" }
 sp-io = { version = "35.0.0", path = "../../substrate/primitives/io" }
 sp-keyring = { version = "36.0.0", path = "../../substrate/primitives/keyring" }

@@ -149,7 +149,7 @@ pallet-safe-mode = { path = "../../../frame/safe-mode", default-features = false
 pallet-parameters = { path = "../../../frame/parameters", default-features = false, version = "0.4.0" }
 
 [build-dependencies]
-substrate-wasm-builder = { path = "../../../utils/wasm-builder", optional = true, version = "22.0.0" }
+substrate-wasm-builder = { path = "../../../utils/wasm-builder", optional = true, version = "22.0.1" }
 
 [features]
 default = ["std"]

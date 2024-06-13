@@ -27,8 +27,8 @@ rococo-parachain-runtime = { version = "0.11.0", path = "../parachains/runtimes/
 shell-runtime = { version = "0.12.0", path = "../parachains/runtimes/starters/shell" }
 glutton-westend-runtime = { version = "8.0.0", path = "../parachains/runtimes/glutton/glutton-westend" }
 seedling-runtime = { version = "0.12.0", path = "../parachains/runtimes/starters/seedling" }
-asset-hub-rococo-runtime = { version = "0.16.0", path = "../parachains/runtimes/assets/asset-hub-rococo" }
-asset-hub-westend-runtime = { version = "0.20.0", path = "../parachains/runtimes/assets/asset-hub-westend" }
+asset-hub-rococo-runtime = { version = "0.16.1", path = "../parachains/runtimes/assets/asset-hub-rococo" }
+asset-hub-westend-runtime = { version = "0.20.1", path = "../parachains/runtimes/assets/asset-hub-westend" }
 collectives-westend-runtime = { version = "8.0.0", path = "../parachains/runtimes/collectives/collectives-westend" }
 contracts-rococo-runtime = { version = "0.13.0", path = "../parachains/runtimes/contracts/contracts-rococo" }
 bridge-hub-rococo-runtime = { version = "0.10.0", path = "../parachains/runtimes/bridge-hubs/bridge-hub-rococo" }
@@ -89,7 +89,7 @@ substrate-state-trie-migration-rpc = { version = "32.0.0", path = "../../substra
 # Use rococo-native as this is currently the default "local" relay chain
 polkadot-cli = { path = "../../polkadot/cli", features = ["rococo-native"], version = "12.0.0" }
 polkadot-primitives = { version = "12.0.0", path = "../../polkadot/primitives" }
-polkadot-service = { version = "12.0.0", path = "../../polkadot/node/service" }
+polkadot-service = { version = "12.0.1", path = "../../polkadot/node/service" }
 xcm = { package = "staging-xcm", path = "../../polkadot/xcm", version = "12.0.0" }
 cumulus-client-cli = { version = "0.12.0", path = "../client/cli" }
 cumulus-client-collator = { version = "0.12.0", path = "../client/collator" }

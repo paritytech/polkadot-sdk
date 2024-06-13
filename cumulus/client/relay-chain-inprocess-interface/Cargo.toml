@@ -26,7 +26,7 @@ sp-state-machine = { version = "0.40.0", path = "../../../substrate/primitives/s
 
 # Polkadot
 polkadot-cli = { path = "../../../polkadot/cli", default-features = false, features = ["cli"], version = "12.0.0" }
-polkadot-service = { version = "12.0.0", path = "../../../polkadot/node/service" }
+polkadot-service = { version = "12.0.1", path = "../../../polkadot/node/service" }
 cumulus-primitives-core = { version = "0.12.0", path = "../../primitives/core" }
 cumulus-relay-chain-interface = { version = "0.12.0", path = "../relay-chain-interface" }
 
