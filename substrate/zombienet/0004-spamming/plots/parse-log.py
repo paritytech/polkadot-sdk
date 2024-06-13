@@ -49,6 +49,7 @@ def parse_log_file(patterns, filepath):
     return parsed_data
 
 def save_parsed_data(data, columns, output_filepath):
+    print(f"Extracted data to: {output_filepath} data len: {len(data)}");
     with open(output_filepath, 'w') as file:
         file.write("\t".join(columns) + "\n")
         for entry in data:
@@ -62,8 +63,8 @@ def main():
     patterns = [
         {
             "type": "validate_transaction",
-            "regex": r'(\d{4}-\d{2}-\d{2}) (\d{2}:\d{2}:\d{2}\.\d{3}) DEBUG.*\[([0-9a-fx]+)\].*runtime_api.validate_transaction: (\d+\.\d+)(µs|ms)',
-            "guard": "runtime_api.validate_transaction",
+            "regex": r'(\d{4}-\d{2}-\d{2}) (\d{2}:\d{2}:\d{2}\.\d{3}) DEBUG.*\[([0-9a-fx]+)\].*validate_transaction_blocking: at:.*took:(\d+\.\d+)(µs|ms)',
+            "guard": "validate_transaction_blocking:",
             "column_names": ["date", "time", "transaction_id", "duration"],
             "extract_data": lambda match: (
                     match.group(1),
@@ -74,14 +75,13 @@ def main():
         },
         {
             "type": "import",
-            "regex": r'(\d{4}-\d{2}-\d{2}) (\d{2}:\d{2}:\d{2}\.\d{3})  INFO.*✨ Imported #(\d+) \((0x[a-f0-9…]+)\)',
-            "guard": "✨ Imported",
-            "column_names": ["date", "time", "block_number", "block_hash"],
+            "regex": r'(\d{4}-\d{2}-\d{2}) (\d{2}:\d{2}:\d{2}\.\d{3})  INFO.* Imported #(\d+) \((0x[a-f0-9…]+) → (0x[a-f0-9…]+)\)',
+            "guard": "Imported",
+            "column_names": ["date", "time", "block_number"],
             "extract_data": lambda match: (
                     match.group(1),
                     match.group(2),
                     match.group(3),
-                    match.group(4)
                 )
         },
         {
