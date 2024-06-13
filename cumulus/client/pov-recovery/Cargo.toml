@@ -22,6 +22,8 @@ sc-consensus = { path = "../../../substrate/client/consensus/common" }
 sp-consensus = { path = "../../../substrate/primitives/consensus/common" }
 sp-maybe-compressed-blob = { path = "../../../substrate/primitives/maybe-compressed-blob" }
 sp-runtime = { path = "../../../substrate/primitives/runtime" }
+sp-api = { path = "../../../substrate/primitives/api" }
+sp-version = { path = "../../../substrate/primitives/version" }
 
 # Polkadot
 polkadot-node-primitives = { path = "../../../polkadot/node/primitives" }
@@ -35,8 +37,14 @@ cumulus-relay-chain-interface = { path = "../relay-chain-interface" }
 async-trait = "0.1.79"
 
 [dev-dependencies]
+rstest = "0.18.2"
 tokio = { version = "1.32.0", features = ["macros"] }
 portpicker = "0.1.1"
+sp-blockchain = { path = "../../../substrate/primitives/blockchain" }
+cumulus-test-client = { path = "../../test/client" }
+sc-utils = { path = "../../../substrate/client/utils" }
+sp-tracing = { path = "../../../substrate/primitives/tracing" }
+assert_matches = "1.5"
 
 # Cumulus
 cumulus-test-service = { path = "../../test/service" }

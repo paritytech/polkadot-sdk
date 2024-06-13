@@ -36,7 +36,7 @@ use frame_support::{
 	migrations::MultiStepMigrator,
 	pallet_prelude::*,
 	parameter_types,
-	traits::{fungible, ConstU8, Currency, IsInherent},
+	traits::{fungible, ConstU8, Currency, IsInherent, VariantCount, VariantCountOf},
 	weights::{ConstantMultiplier, IdentityFee, RuntimeDbWeight, Weight, WeightMeter, WeightToFee},
 };
 use frame_system::{pallet_prelude::*, ChainContext, LastRuntimeUpgrade, LastRuntimeUpgradeInfo};
@@ -325,12 +325,24 @@ impl frame_system::Config for Runtime {
 	type MultiBlockMigrator = MockedModeGetter;
 }
 
+#[derive(Encode, Decode, Copy, Clone, Eq, PartialEq, MaxEncodedLen, TypeInfo, RuntimeDebug)]
+pub enum FreezeReasonId {
+	Foo,
+}
+
+impl VariantCount for FreezeReasonId {
+	const VARIANT_COUNT: u32 = 1;
+}
+
 type Balance = u64;
 
 #[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Runtime {
 	type Balance = Balance;
 	type AccountStore = System;
+	type RuntimeFreezeReason = FreezeReasonId;
+	type FreezeIdentifier = FreezeReasonId;
+	type MaxFreezes = VariantCountOf<FreezeReasonId>;
 }
 
 parameter_types! {
@@ -743,8 +755,12 @@ fn validate_unsigned() {
 fn can_not_pay_for_tx_fee_on_full_lock() {
 	let mut t = new_test_ext(1);
 	t.execute_with(|| {
-		<pallet_balances::Pallet<Runtime> as fungible::MutateFreeze<u64>>::set_freeze(&(), &1, 110)
-			.unwrap();
+		<pallet_balances::Pallet<Runtime> as fungible::MutateFreeze<u64>>::set_freeze(
+			&FreezeReasonId::Foo,
+			&1,
+			110,
+		)
+		.unwrap();
 		let xt = TestXt::new(
 			RuntimeCall::System(frame_system::Call::remark { remark: vec![1u8] }),
 			sign_extra(1, 0, 0),
