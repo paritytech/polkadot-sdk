@@ -110,7 +110,7 @@ benchmarks! {
 				.collect();
 
 		let scenario = BenchBuilder::<T>::new()
-			.set_backed_and_concluding_paras(cores_with_backed.clone())
+			.set_backed_in_inherent_paras(cores_with_backed.clone())
 			.build();
 
 		let mut benchmark = scenario.data.clone();
@@ -161,7 +161,7 @@ benchmarks! {
 				.collect();
 
 		let scenario = BenchBuilder::<T>::new()
-			.set_backed_and_concluding_paras(cores_with_backed.clone())
+			.set_backed_in_inherent_paras(cores_with_backed.clone())
 			.set_code_upgrade(v)
 			.build();
 
