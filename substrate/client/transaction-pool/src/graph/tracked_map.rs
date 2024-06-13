@@ -46,6 +46,20 @@ impl<K, V> Default for TrackedMap<K, V> {
 	}
 }
 
+impl<K, V> Clone for TrackedMap<K, V>
+where
+	K: Clone,
+	V: Clone,
+{
+	fn clone(&self) -> Self {
+		Self {
+			index: Arc::from(RwLock::from(self.index.read().clone())),
+			bytes: self.bytes.load(AtomicOrdering::Relaxed).into(),
+			length: self.length.load(AtomicOrdering::Relaxed).into(),
+		}
+	}
+}
+
 impl<K, V> TrackedMap<K, V> {
 	/// Current tracked length of the content.
 	pub fn len(&self) -> usize {

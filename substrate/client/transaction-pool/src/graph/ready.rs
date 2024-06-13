@@ -106,7 +106,7 @@ qed
 "#;
 
 /// Validated transactions that are block ready with all their dependencies met.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct ReadyTransactions<Hash: hash::Hash + Eq, Ex> {
 	/// Next free insertion id (used to indicate when a transaction was inserted into the pool).
 	insertion_id: u64,

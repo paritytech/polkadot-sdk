@@ -31,7 +31,7 @@ use std::sync::Arc;
 pub use sc_rpc_api::DenyUnsafe;
 
 /// Full client dependencies.
-pub struct FullDeps<C, P> {
+pub struct FullDeps<C, P: ?Sized> {
 	/// The client instance to use.
 	pub client: Arc<C>,
 	/// Transaction pool instance.
@@ -55,7 +55,7 @@ where
 		+ 'static,
 	C::Api: sp_block_builder::BlockBuilder<OpaqueBlock>,
 	C::Api: substrate_frame_rpc_system::AccountNonceApi<OpaqueBlock, AccountId, Nonce>,
-	P: TransactionPool + 'static,
+	P: TransactionPool<Block = OpaqueBlock> + 'static + ?Sized,
 {
 	use substrate_frame_rpc_system::{System, SystemApiServer};
 	let mut module = RpcModule::new(());

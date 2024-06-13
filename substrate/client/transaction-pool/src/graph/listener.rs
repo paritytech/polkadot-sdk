@@ -18,13 +18,15 @@
 
 use std::{collections::HashMap, fmt::Debug, hash};
 
-use crate::LOG_TARGET;
+// use crate::LOG_TARGET;
 use linked_hash_map::LinkedHashMap;
 use log::{debug, trace};
 use serde::Serialize;
 use sp_runtime::traits;
 
 use super::{watcher, BlockHash, ChainApi, ExtrinsicHash};
+
+static LOG_TARGET: &str = "txpool::watcher";
 
 /// Extrinsic pool default listener.
 pub struct Listener<H: hash::Hash + Eq, C: ChainApi> {
@@ -104,6 +106,8 @@ impl<H: hash::Hash + traits::Member + Serialize, C: ChainApi> Listener<H, C> {
 
 	/// Transaction was pruned from the pool.
 	pub fn pruned(&mut self, block_hash: BlockHash<C>, tx: &H) {
+		// debug!(target: LOG_TARGET, "[{:?}] Pruned at {:?} {:#?}", tx, block_hash,
+		// std::backtrace::Backtrace::force_capture());
 		debug!(target: LOG_TARGET, "[{:?}] Pruned at {:?}", tx, block_hash);
 		// Get the transactions included in the given block hash.
 		let txs = self.finality_watchers.entry(block_hash).or_insert(vec![]);
@@ -144,5 +148,10 @@ impl<H: hash::Hash + traits::Member + Serialize, C: ChainApi> Listener<H, C> {
 				self.fire(&hash, |watcher| watcher.finalized(block_hash, tx_index))
 			}
 		}
+	}
+
+	//todo: doc
+	pub fn watched_transactions(&self) -> impl Iterator<Item = &H> {
+		self.watchers.keys()
 	}
 }

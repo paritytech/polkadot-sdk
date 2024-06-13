@@ -24,6 +24,7 @@ use futures::{
 	future::{ready, Ready},
 };
 use sc_transaction_pool::*;
+use sp_blockchain::HashAndNumber;
 use sp_crypto_hashing::blake2_256;
 use sp_runtime::{
 	generic::BlockId,
@@ -144,6 +145,10 @@ fn bench_configured(pool: Pool<TestApi>, number: u64, api: Arc<TestApi>) {
 	let source = TransactionSource::External;
 	let mut futures = Vec::new();
 	let mut tags = Vec::new();
+	let at = HashAndNumber {
+		hash: api.block_id_to_hash(&BlockId::Number(1)).unwrap().unwrap(),
+		number: 1,
+	};
 
 	for nonce in 1..=number {
 		let xt = uxt(TransferData {
@@ -155,11 +160,7 @@ fn bench_configured(pool: Pool<TestApi>, number: u64, api: Arc<TestApi>) {
 
 		tags.push(to_tag(nonce, AccountId::from_h256(H256::from_low_u64_be(1))));
 
-		futures.push(pool.submit_one(
-			api.block_id_to_hash(&BlockId::Number(1)).unwrap().unwrap(),
-			source,
-			xt,
-		));
+		futures.push(pool.submit_one(&at, source, xt));
 	}
 
 	let res = block_on(futures::future::join_all(futures.into_iter()));
@@ -170,12 +171,11 @@ fn bench_configured(pool: Pool<TestApi>, number: u64, api: Arc<TestApi>) {
 
 	// Prune all transactions.
 	let block_num = 6;
-	block_on(pool.prune_tags(
-		api.block_id_to_hash(&BlockId::Number(block_num)).unwrap().unwrap(),
-		tags,
-		vec![],
-	))
-	.expect("Prune failed");
+	let at = HashAndNumber {
+		hash: api.block_id_to_hash(&BlockId::Number(block_num)).unwrap().unwrap(),
+		number: block_num,
+	};
+	block_on(pool.prune_tags(&at, tags, vec![]));
 
 	// pool is empty
 	assert_eq!(pool.validated_pool().status().ready, 0);
