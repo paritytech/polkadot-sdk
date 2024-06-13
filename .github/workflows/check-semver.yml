@@ -10,7 +10,7 @@ jobs:
   check-semver:
     runs-on: ubuntu-latest
     env:
-      NGHTLY: nightly-2024-03-01
+      NIGHTLY: nightly-2024-03-01
     container:
       image: docker.io/paritytech/ci-unified:bullseye-1.77.0-2024-04-10-v20240408
     steps:
@@ -21,7 +21,7 @@ jobs:
         with:
           cache-on-failure: true
 
-      - name: extra git setup
+      - name: Extra Git Setup
         env:
           BRANCH_NAME: ${{ github.head_ref || github.ref_name }} 
         run: |
@@ -41,7 +41,6 @@ jobs:
 
       - name: install parity-publish
         run: cargo install parity-publish@0.5.1 --locked --quiet
-
 
       - name: check semver
         env:
