@@ -6,7 +6,7 @@ title: "RFC-5: Add request revenue info"
 doc:
   - audience: Runtime Dev
     description: |
-      Parially implemented RFC-5 in terms of revenue requests and notifications
+      Partially implemented RFC-5 in terms of revenue requests and notifications
 
 crates:
   - name: polkadot-runtime-parachains

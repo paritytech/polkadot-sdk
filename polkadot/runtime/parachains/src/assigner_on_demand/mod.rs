@@ -125,7 +125,7 @@ pub mod pallet {
 		type PalletId: Get<PalletId>;
 	}
 
-	/// Creates and empty revenue tracker if one isn't present in storage already.
+	/// Creates an empty revenue tracker if one isn't present in storage already.
 	#[pallet::type_value]
 	pub fn RevenueOnEmpty<T: Config>() -> BoundedVec<BalanceOf<T>, T::MaxHistoricalRevenue> {
 		BoundedVec::new()
@@ -205,7 +205,7 @@ pub mod pallet {
 				if let Some(overdue) =
 					revenue.force_insert_keep_left(0, 0u32.into()).defensive_unwrap_or(None)
 				{
-					// We have some overdue revenue not claimed by the parachain, let's accumulate
+					// We have some overdue revenue not claimed by the Coretime Chain, let's accumulate
 					// it at the oldest stored block
 					if let Some(last) = revenue.last_mut() {
 						*last = last.saturating_add(overdue);

@@ -179,7 +179,7 @@ pub mod pallet {
 		#[pallet::weight(<T as Config>::WeightInfo::request_revenue_at())]
 		#[pallet::call_index(2)]
 		pub fn request_revenue_at(origin: OriginFor<T>, when: BlockNumber) -> DispatchResult {
-			// Ignore requests not coming from the broker parachain or root.
+			// Ignore requests not coming from the Coretime Chain or Root.
 			Self::ensure_root_or_para(origin, <T as Config>::BrokerId::get().into())?;
 			Self::notify_revenue(when)
 		}
