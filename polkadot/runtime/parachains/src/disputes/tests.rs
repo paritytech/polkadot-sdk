@@ -29,8 +29,8 @@ use frame_support::{
 	traits::{OnFinalize, OnInitialize},
 };
 use frame_system::pallet_prelude::BlockNumberFor;
-use keyring::Sr25519Keyring;
-use primitives::BlockNumber;
+use sp_keyring::Sr25519Keyring;
+use polkadot_primitives::BlockNumber;
 use sp_core::{crypto::CryptoType, Pair};
 
 const VOTE_FOR: VoteKind = VoteKind::ExplicitValid;
