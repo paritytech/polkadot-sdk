@@ -480,6 +480,8 @@ pub enum AvailabilityRecoveryMessage {
 		CandidateReceipt,
 		SessionIndex,
 		Option<GroupIndex>, // Optional backing group to request from first.
+		Option<CoreIndex>,  /* A `CoreIndex` needs to be specified for the recovery process to
+		                     * prefer systematic chunk recovery. */
 		oneshot::Sender<Result<AvailableData, crate::errors::RecoveryError>>,
 	),
 }
@@ -515,7 +517,7 @@ pub enum AvailabilityStoreMessage {
 	QueryChunkSize(CandidateHash, oneshot::Sender<Option<usize>>),
 
 	/// Query all chunks that we have for the given candidate hash.
-	QueryAllChunks(CandidateHash, oneshot::Sender<Vec<ErasureChunk>>),
+	QueryAllChunks(CandidateHash, oneshot::Sender<Vec<(ValidatorIndex, ErasureChunk)>>),
 
 	/// Query whether an `ErasureChunk` exists within the AV Store.
 	///
@@ -530,6 +532,8 @@ pub enum AvailabilityStoreMessage {
 	StoreChunk {
 		/// A hash of the candidate this chunk belongs to.
 		candidate_hash: CandidateHash,
+		/// Validator index. May not be equal to the chunk index.
+		validator_index: ValidatorIndex,
 		/// The chunk itself.
 		chunk: ErasureChunk,
 		/// Sending side of the channel to send result to.
@@ -549,6 +553,11 @@ pub enum AvailabilityStoreMessage {
 		available_data: AvailableData,
 		/// Erasure root we expect to get after chunking.
 		expected_erasure_root: Hash,
+		/// Core index where the candidate was backed.
+		core_index: CoreIndex,
+		/// Node features at the candidate relay parent. Used for computing the validator->chunk
+		/// mapping.
+		node_features: NodeFeatures,
 		/// Sending side of the channel to send result to.
 		tx: oneshot::Sender<Result<(), StoreAvailableDataError>>,
 	},

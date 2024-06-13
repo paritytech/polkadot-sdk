@@ -22,6 +22,7 @@ use crate::{
 	slot_range::SlotRange,
 	traits::{AuctionStatus, Auctioneer, LeaseError, Leaser, Registrar},
 };
+use codec::Decode;
 use frame_support::{
 	dispatch::DispatchResult,
 	ensure,
@@ -30,8 +31,7 @@ use frame_support::{
 };
 use frame_system::pallet_prelude::BlockNumberFor;
 pub use pallet::*;
-use parity_scale_codec::Decode;
-use primitives::Id as ParaId;
+use polkadot_primitives::Id as ParaId;
 use sp_runtime::traits::{CheckedSub, One, Saturating, Zero};
 use sp_std::{mem::swap, prelude::*};
 
@@ -671,7 +671,6 @@ impl<T: Config> Pallet<T> {
 mod tests {
 	use super::*;
 	use crate::{auctions, mock::TestRegistrar};
-	use ::test_helpers::{dummy_hash, dummy_head_data, dummy_validation_code};
 	use frame_support::{
 		assert_noop, assert_ok, assert_storage_noop, derive_impl, ord_parameter_types,
 		parameter_types,
@@ -679,7 +678,8 @@ mod tests {
 	};
 	use frame_system::{EnsureRoot, EnsureSignedBy};
 	use pallet_balances;
-	use primitives::{BlockNumber, Id as ParaId};
+	use polkadot_primitives::{BlockNumber, Id as ParaId};
+	use polkadot_primitives_test_helpers::{dummy_hash, dummy_head_data, dummy_validation_code};
 	use sp_core::H256;
 	use sp_runtime::{
 		traits::{BlakeTwo256, IdentityLookup},
@@ -699,10 +699,6 @@ mod tests {
 		}
 	);
 
-	parameter_types! {
-		pub const BlockHashCount: u32 = 250;
-	}
-
 	#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 	impl frame_system::Config for Test {
 		type BaseCallFilter = frame_support::traits::Everything;
@@ -718,7 +714,6 @@ mod tests {
 		type Lookup = IdentityLookup<Self::AccountId>;
 		type Block = Block;
 		type RuntimeEvent = RuntimeEvent;
-		type BlockHashCount = BlockHashCount;
 		type Version = ();
 		type PalletInfo = PalletInfo;
 		type AccountData = pallet_balances::AccountData<u64>;
@@ -1733,7 +1728,7 @@ mod benchmarking {
 		traits::{EnsureOrigin, OnInitialize},
 	};
 	use frame_system::RawOrigin;
-	use runtime_parachains::paras;
+	use polkadot_runtime_parachains::paras;
 	use sp_runtime::{traits::Bounded, SaturatedConversion};
 
 	use frame_benchmarking::{account, benchmarks, whitelisted_caller, BenchmarkError};

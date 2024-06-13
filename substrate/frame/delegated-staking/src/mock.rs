@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{self as delegated_staking, types::Agent};
+use crate::{self as delegated_staking, types::AgentLedgerOuter};
 use frame_support::{
 	assert_ok, derive_impl,
 	pallet_prelude::*,
@@ -32,7 +32,9 @@ use frame_election_provider_support::{
 };
 use frame_support::dispatch::RawOrigin;
 use pallet_staking::{ActiveEra, ActiveEraInfo, CurrentEra};
-use sp_staking::{Stake, StakingInterface};
+use sp_core::U256;
+use sp_runtime::traits::Convert;
+use sp_staking::{Agent, Stake, StakingInterface};
 
 pub type T = Runtime;
 type Block = frame_system::mocking::MockBlock<Runtime>;
@@ -129,7 +131,7 @@ impl pallet_staking::Config for Runtime {
 	type NominationsQuota = pallet_staking::FixedNominationsQuota<16>;
 	type MaxUnlockingChunks = ConstU32<10>;
 	type MaxControllersInDeprecationBatch = ConstU32<100>;
-	type EventListeners = DelegatedStaking;
+	type EventListeners = (Pools, DelegatedStaking);
 	type BenchmarkingConfig = pallet_staking::TestBenchmarkingConfig;
 	type WeightInfo = ();
 	type DisablingStrategy = pallet_staking::UpToLimitDisablingStrategy;
@@ -149,8 +151,39 @@ impl delegated_staking::Config for Runtime {
 	type CoreStaking = Staking;
 }
 
+pub struct BalanceToU256;
+impl Convert<Balance, U256> for BalanceToU256 {
+	fn convert(n: Balance) -> U256 {
+		n.into()
+	}
+}
+pub struct U256ToBalance;
+impl Convert<U256, Balance> for U256ToBalance {
+	fn convert(n: U256) -> Balance {
+		n.try_into().unwrap()
+	}
+}
+
 parameter_types! {
 	pub static MaxUnbonding: u32 = 8;
+	pub const PoolsPalletId: PalletId = PalletId(*b"py/nopls");
+}
+impl pallet_nomination_pools::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type WeightInfo = ();
+	type Currency = Balances;
+	type RuntimeFreezeReason = RuntimeFreezeReason;
+	type RewardCounter = sp_runtime::FixedU128;
+	type BalanceToU256 = BalanceToU256;
+	type U256ToBalance = U256ToBalance;
+	type PostUnbondingPoolsWindow = ConstU32<2>;
+	type PalletId = PoolsPalletId;
+	type MaxMetadataLen = ConstU32<256>;
+	type MaxUnbonding = MaxUnbonding;
+	type MaxPointsToBalance = frame_support::traits::ConstU8<10>;
+	type StakeAdapter =
+		pallet_nomination_pools::adapter::DelegateStake<Self, Staking, DelegatedStaking>;
+	type AdminOrigin = frame_system::EnsureRoot<Self::AccountId>;
 }
 
 frame_support::construct_runtime!(
@@ -159,6 +192,7 @@ frame_support::construct_runtime!(
 		Timestamp: pallet_timestamp,
 		Balances: pallet_balances,
 		Staking: pallet_staking,
+		Pools: pallet_nomination_pools,
 		DelegatedStaking: delegated_staking,
 	}
 );
@@ -275,8 +309,8 @@ pub(crate) fn setup_delegation_stake(
 	}
 
 	// sanity checks
-	assert_eq!(DelegatedStaking::stakeable_balance(&agent), delegated_amount);
-	assert_eq!(Agent::<T>::get(&agent).unwrap().available_to_bond(), 0);
+	assert_eq!(DelegatedStaking::stakeable_balance(Agent::from(agent)), delegated_amount);
+	assert_eq!(AgentLedgerOuter::<T>::get(&agent).unwrap().available_to_bond(), 0);
 
 	delegated_amount
 }
@@ -288,18 +322,25 @@ pub(crate) fn start_era(era: sp_staking::EraIndex) {
 
 pub(crate) fn eq_stake(who: AccountId, total: Balance, active: Balance) -> bool {
 	Staking::stake(&who).unwrap() == Stake { total, active } &&
-		get_agent(&who).ledger.stakeable_balance() == total
+		get_agent_ledger(&who).ledger.stakeable_balance() == total
 }
 
-pub(crate) fn get_agent(agent: &AccountId) -> Agent<T> {
-	Agent::<T>::get(agent).expect("delegate should exist")
+pub(crate) fn get_agent_ledger(agent: &AccountId) -> AgentLedgerOuter<T> {
+	AgentLedgerOuter::<T>::get(agent).expect("delegate should exist")
 }
 
 parameter_types! {
 	static ObservedEventsDelegatedStaking: usize = 0;
+	static ObservedEventsPools: usize = 0;
 }
 
-#[allow(unused)]
+pub(crate) fn pool_events_since_last_call() -> Vec<pallet_nomination_pools::Event<Runtime>> {
+	let events = System::read_events_for_pallet::<pallet_nomination_pools::Event<Runtime>>();
+	let already_seen = ObservedEventsPools::get();
+	ObservedEventsPools::set(events.len());
+	events.into_iter().skip(already_seen).collect()
+}
+
 pub(crate) fn events_since_last_call() -> Vec<crate::Event<Runtime>> {
 	let events = System::read_events_for_pallet::<crate::Event<Runtime>>();
 	let already_seen = ObservedEventsDelegatedStaking::get();

@@ -20,6 +20,11 @@
 
 //! Service implementation. Specialized wrapper over substrate service.
 
+use polkadot_sdk::{
+	sc_consensus_beefy as beefy, sc_consensus_grandpa as grandpa,
+	sp_consensus_beefy as beefy_primitives, *,
+};
+
 use crate::Cli;
 use codec::Encode;
 use frame_benchmarking_cli::SUBSTRATE_REFERENCE_HARDWARE;
@@ -65,8 +70,13 @@ type FullBackend = sc_service::TFullBackend<Block>;
 type FullSelectChain = sc_consensus::LongestChain<FullBackend, Block>;
 type FullGrandpaBlockImport =
 	grandpa::GrandpaBlockImport<FullBackend, Block, FullClient, FullSelectChain>;
-type FullBeefyBlockImport<InnerBlockImport> =
-	beefy::import::BeefyBlockImport<Block, FullBackend, FullClient, InnerBlockImport>;
+type FullBeefyBlockImport<InnerBlockImport> = beefy::import::BeefyBlockImport<
+	Block,
+	FullBackend,
+	FullClient,
+	InnerBlockImport,
+	beefy_primitives::ecdsa_crypto::AuthorityId,
+>;
 
 /// The transaction pool type definition.
 pub type TransactionPool = sc_transaction_pool::FullPool<Block, FullClient>;
@@ -178,7 +188,7 @@ pub fn new_partial(
 				>,
 				grandpa::LinkHalf<Block, FullClient, FullSelectChain>,
 				sc_consensus_babe::BabeLink<Block>,
-				beefy::BeefyVoterLinks<Block>,
+				beefy::BeefyVoterLinks<Block, beefy_primitives::ecdsa_crypto::AuthorityId>,
 			),
 			grandpa::SharedVoterState,
 			Option<Telemetry>,
@@ -326,7 +336,7 @@ pub fn new_partial(
 						subscription_executor: subscription_executor.clone(),
 						finality_provider: finality_proof_provider.clone(),
 					},
-					beefy: node_rpc::BeefyDeps {
+					beefy: node_rpc::BeefyDeps::<beefy_primitives::ecdsa_crypto::AuthorityId> {
 						beefy_finality_proof_stream: beefy_rpc_links
 							.from_voter_justif_stream
 							.clone(),
@@ -670,7 +680,7 @@ pub fn new_full_base<N: NetworkBackend<Block, <Block as BlockT>::Hash>>(
 	let beefy_params = beefy::BeefyParams {
 		client: client.clone(),
 		backend: backend.clone(),
-		payload_provider: beefy_primitives::mmr::MmrRootProvider::new(client.clone()),
+		payload_provider: sp_consensus_beefy::mmr::MmrRootProvider::new(client.clone()),
 		runtime: client.clone(),
 		key_store: keystore.clone(),
 		network_params,
@@ -681,7 +691,7 @@ pub fn new_full_base<N: NetworkBackend<Block, <Block as BlockT>::Hash>>(
 		is_authority: role.is_authority(),
 	};
 
-	let beefy_gadget = beefy::start_beefy_gadget::<_, _, _, _, _, _, _>(beefy_params);
+	let beefy_gadget = beefy::start_beefy_gadget::<_, _, _, _, _, _, _, _>(beefy_params);
 	// BEEFY is part of consensus, if it fails we'll bring the node down with it to make sure it
 	// is noticed.
 	task_manager
@@ -844,6 +854,7 @@ mod tests {
 		Address, BalancesCall, RuntimeCall, UncheckedExtrinsic,
 	};
 	use node_primitives::{Block, DigestItem, Signature};
+	use polkadot_sdk::*;
 	use sc_client_api::BlockBackend;
 	use sc_consensus::{BlockImport, BlockImportParams, ForkChoiceStrategy};
 	use sc_consensus_babe::{BabeIntermediate, CompatibleDigestItem, INTERMEDIATE_KEY};

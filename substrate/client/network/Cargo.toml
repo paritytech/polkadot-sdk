@@ -26,7 +26,7 @@ async-trait = "0.1.79"
 asynchronous-codec = "0.6"
 bytes = "1"
 cid = "0.9.0"
-codec = { package = "parity-scale-codec", version = "3.6.1", features = ["derive"] }
+codec = { package = "parity-scale-codec", version = "3.6.12", features = ["derive"] }
 either = "1.5.3"
 fnv = "1.0.6"
 futures = "0.3.30"
