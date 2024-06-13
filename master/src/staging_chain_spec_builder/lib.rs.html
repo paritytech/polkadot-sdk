@@ -588,7 +588,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// A utility to easily create a chain spec definition.
 </span><span class="attr">#[derive(Debug, Parser)]
-#[command(rename_all = <span class="string">"kebab-case"</span>)]
+#[command(rename_all = <span class="string">"kebab-case"</span>, version, about)]
 </span><span class="kw">pub struct </span>ChainSpecBuilder {
 	<span class="attr">#[command(subcommand)]
 	</span><span class="kw">pub </span>command: ChainSpecBuilderCmd,
