@@ -14,7 +14,7 @@ TestConfiguration:
     coalesce_tranche_diff: 12
     num_no_shows_per_candidate: 10
     workdir_prefix: "/tmp/"
-  n_cores: 50 # 50 cores occupied
+  n_cores: 100
   n_validators: 500
   max_validators_per_core: 5
   min_pov_size: 5120
@@ -40,7 +40,7 @@ TestConfiguration:
 - objective: !DataAvailabilityRead
     strategy: FullFromBackers
     fetch_from_backers: true
-  n_cores: 6 # we trigger 6 own assignments during approval-voting benchmark
+  n_cores: 7 # in average we trigger 7 own assignments during approval-voting benchmark
   n_validators: 500
   max_validators_per_core: 5
   min_pov_size: 5120
