@@ -9,6 +9,8 @@ on:
 jobs:
   check-semver:
     runs-on: ubuntu-latest
+    env:
+      NGHTLY: nightly-2024-03-01
     container:
       image: docker.io/paritytech/ci-unified:bullseye-1.77.0-2024-04-10-v20240408
     steps:
@@ -19,32 +21,36 @@ jobs:
         with:
           cache-on-failure: true
 
-      - name: Rust compilation prerequisites
-        run: |
-          rustup default nightly-2024-03-01
-          rustup target add wasm32-unknown-unknown --toolchain nightly-2024-03-01
-          rustup component add rust-src --toolchain nightly-2024-03-01
-
-      - name: install parity-publish
-        run: cargo install parity-publish@0.5.1
-
       - name: extra git setup
+        env:
+          BRANCH_NAME: ${{ github.head_ref || github.ref_name }} 
         run: |
           git config --global --add safe.directory '*'
           git fetch --no-tags --no-recurse-submodules --depth=1 origin master
           git branch old origin/master
+          # We need to manually check out the branch, because GHAs run on the merged result.
+          git fetch --unshallow origin $BRANCH_NAME
+          git checkout --quiet origin/$BRANCH_NAME
+          git log -3
+      
+      - name: Rust compilation prerequisites
+        run: |
+          rustup default $NIGHTLY
+          rustup target add wasm32-unknown-unknown --toolchain $NIGHTLY
+          rustup component add rust-src --toolchain $NIGHTLY
+
+      - name: install parity-publish
+        run: cargo install parity-publish@0.5.1 --locked --quiet
+
 
       - name: check semver
         env:
-          BRANCH_NAME: ${{ github.head_ref || github.ref_name }} 
           PR: ${{ github.event.pull_request.number }}     
         run: |
-          # We need to manually check out the branch, because GHAs run on the merged result.
-          git checkout --quiet $BRANCH_NAME
           export CARGO_TARGET_DIR=target
           export RUSTFLAGS='-A warnings -A missing_docs'
           export SKIP_WASM_BUILD=1
-          if ! parity-publish --color always prdoc --since old --validate prdoc/pr_$PR.prdoc --toolchain nightly-2024-03-01 -v; then
+          if ! parity-publish --color always prdoc --since old --validate prdoc/pr_$PR.prdoc --toolchain $NIGHTLY -v; then
             cat <<EOF
           👋 Hello developer! The SemVer information that you declared in the prdoc file did not match what the CI detected.
 
