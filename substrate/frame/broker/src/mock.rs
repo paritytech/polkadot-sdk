@@ -103,7 +103,7 @@ impl CoretimeInterface for TestCoretimeProvider {
 				}
 			})
 		});
-		RevenueInbox::<Test>::set(Some(OnDemandRevenueRecord { until: when, amount: total }));
+		RevenueInbox::<Test>::put(OnDemandRevenueRecord { until: when, amount: total });
 	}
 	fn credit_account(_who: Self::AccountId, _amount: Self::Balance) {
 		// Commented out code is from the reference mock implementation and should be uncommented as
@@ -128,6 +128,18 @@ impl CoretimeInterface for TestCoretimeProvider {
 			},
 		);
 		CoretimeTrace::mutate(|v| v.push(item));
+	}
+
+	fn check_notify_revenue_info(
+	) -> Option<OnDemandRevenueRecord<RCBlockNumberOf<Self>, Self::Balance>> {
+		RevenueInbox::<Test>::take()
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn ensure_notify_revenue_info(
+		info: OnDemandRevenueRecord<RCBlockNumberOf<Self>, Self::Balance>,
+	) {
+		RevenueInbox::<Test>::put(info);
 	}
 }
 

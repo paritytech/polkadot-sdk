@@ -25,7 +25,10 @@ use frame_support::{
 		OnUnbalanced,
 	},
 };
-use pallet_broker::{CoreAssignment, CoreIndex, CoretimeInterface, PartsOf57600, RCBlockNumberOf};
+use pallet_broker::{
+	CoreAssignment, CoreIndex, CoretimeInterface, OnDemandRevenueRecord, PartsOf57600,
+	RCBlockNumberOf, RevenueInbox,
+};
 use parachains_common::{AccountId, Balance};
 use westend_runtime_constants::system_parachain::coretime;
 use xcm::latest::prelude::*;
@@ -211,6 +214,18 @@ impl CoretimeInterface for CoretimeAllocator {
 				e
 			),
 		}
+	}
+
+	fn check_notify_revenue_info(
+	) -> Option<OnDemandRevenueRecord<RCBlockNumberOf<Self>, Self::Balance>> {
+		RevenueInbox::<Runtime>::take()
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn ensure_notify_revenue_info(
+		info: OnDemandRevenueRecord<RCBlockNumberOf<Self>, Self::Balance>,
+	) {
+		RevenueInbox::<Runtime>::put(info);
 	}
 }
 

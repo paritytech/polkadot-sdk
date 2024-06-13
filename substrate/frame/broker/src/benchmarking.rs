@@ -739,7 +739,7 @@ mod benches {
 		let timeslice_period: u32 = T::TimeslicePeriod::get().try_into().ok().unwrap();
 		let multiplicator = 5;
 
-		RevenueInbox::<T>::put(OnDemandRevenueRecord {
+		<T::Coretime as CoretimeInterface>::ensure_notify_revenue_info(OnDemandRevenueRecord {
 			until: (timeslice_period * multiplicator).into(),
 			amount: 10u32.into(),
 		});

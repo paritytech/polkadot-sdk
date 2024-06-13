@@ -22,7 +22,10 @@
 // `construct_runtime!` does a lot of recursion and requires us to increase the limits.
 #![recursion_limit = "1024"]
 
-use polkadot_sdk::*;
+use polkadot_sdk::{
+	pallet_broker::{OnDemandRevenueRecordOf, RevenueInbox},
+	*,
+};
 
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_election_provider_support::{
@@ -66,7 +69,10 @@ use frame_system::{
 pub use node_primitives::{AccountId, Signature};
 use node_primitives::{AccountIndex, Balance, BlockNumber, Hash, Moment, Nonce};
 use pallet_asset_conversion::{AccountIdConverter, Ascending, Chain, WithFirstAsset};
-use pallet_broker::{CoreAssignment, CoreIndex, CoretimeInterface, PartsOf57600};
+use pallet_broker::{
+	CoreAssignment, CoreIndex, CoretimeInterface, OnDemandRevenueRecord, PartsOf57600,
+	RCBlockNumberOf,
+};
 use pallet_election_provider_multi_phase::{GeometricDepositBase, SolutionAccuracyOf};
 use pallet_identity::legacy::IdentityInfo;
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
@@ -2117,6 +2123,16 @@ impl CoretimeInterface for CoretimeProvider {
 		_assignment: Vec<(CoreAssignment, PartsOf57600)>,
 		_end_hint: Option<u32>,
 	) {
+	}
+	fn check_notify_revenue_info(
+	) -> Option<OnDemandRevenueRecord<RCBlockNumberOf<Self>, Self::Balance>> {
+		RevenueInbox::<Runtime>::take()
+	}
+	#[cfg(feature = "runtime-benchmarks")]
+	fn ensure_notify_revenue_info(
+		info: OnDemandRevenueRecord<RCBlockNumberOf<Self>, Self::Balance>,
+	) {
+		RevenueInbox::<Runtime>::put(info);
 	}
 }
 
