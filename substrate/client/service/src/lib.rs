@@ -34,7 +34,10 @@ mod client;
 mod metrics;
 mod task_manager;
 
-use std::{collections::HashMap, net::SocketAddr};
+use std::{
+	collections::HashMap,
+	net::{Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV4, SocketAddrV6},
+};
 
 use codec::{Decode, Encode};
 use futures::{pin_mut, FutureExt, StreamExt};
@@ -376,33 +379,51 @@ pub fn start_rpc_servers<R>(
 where
 	R: Fn(sc_rpc::DenyUnsafe) -> Result<RpcModule<()>, Error>,
 {
-	fn deny_unsafe(addr: SocketAddr, methods: &RpcMethods) -> sc_rpc::DenyUnsafe {
-		let is_exposed_addr = !addr.ip().is_loopback();
-		match (is_exposed_addr, methods) {
+	fn deny_unsafe(
+		addr: &sc_rpc_server::ListenAddresses,
+		methods: &RpcMethods,
+	) -> sc_rpc::DenyUnsafe {
+		match (addr.is_external(), methods) {
 			| (_, RpcMethods::Unsafe) | (false, RpcMethods::Auto) => sc_rpc::DenyUnsafe::No,
 			_ => sc_rpc::DenyUnsafe::Yes,
 		}
 	}
 
-	// if binding the specified port failed then a random port is assigned by the OS.
-	let backup_port = |mut addr: SocketAddr| {
-		addr.set_port(0);
-		addr
+	let (ipv4, ipv6) = if let Some(addr) = config.rpc_addr {
+		let sock_ipv4 = match addr {
+			SocketAddr::V4(addr) => addr,
+			SocketAddr::V6(_) =>
+				unreachable!("Not possible to use IPV6 listening addr in substrate"),
+		};
+
+		let ipv6 = if !sock_ipv4.ip().is_loopback() {
+			sock_ipv4.ip().to_ipv6_mapped()
+		} else {
+			Ipv6Addr::LOCALHOST
+		};
+
+		let sock_ipv6 = SocketAddrV6::new(ipv6, sock_ipv4.port(), 0, 0);
+
+		(sock_ipv4, sock_ipv6)
+	} else {
+		let sock_ipv4 = SocketAddrV4::new(Ipv4Addr::LOCALHOST, config.rpc_port);
+		let sock_ipv6 = SocketAddrV6::new(Ipv6Addr::LOCALHOST, config.rpc_port, 0, 0);
+		(sock_ipv4, sock_ipv6)
 	};
 
-	let addr = config.rpc_addr.unwrap_or_else(|| ([127, 0, 0, 1], config.rpc_port).into());
-	let backup_addr = backup_port(addr);
+	let listen_addrs = sc_rpc_server::ListenAddresses::new(ipv4, ipv6);
 	let metrics = sc_rpc_server::RpcMetrics::new(config.prometheus_registry())?;
+	let rpc_api = gen_rpc_module(deny_unsafe(&listen_addrs, &config.rpc_methods))?;
 
 	let server_config = sc_rpc_server::Config {
-		addrs: [addr, backup_addr],
+		listen_addrs,
 		batch_config: config.rpc_batch_config,
 		max_connections: config.rpc_max_connections,
 		max_payload_in_mb: config.rpc_max_request_size,
 		max_payload_out_mb: config.rpc_max_response_size,
 		max_subs_per_conn: config.rpc_max_subs_per_conn,
 		message_buffer_capacity: config.rpc_message_buffer_capacity,
-		rpc_api: gen_rpc_module(deny_unsafe(addr, &config.rpc_methods))?,
+		rpc_api,
 		metrics,
 		id_provider: rpc_id_provider,
 		cors: config.rpc_cors.as_ref(),

@@ -23,7 +23,13 @@
 pub mod middleware;
 pub mod utils;
 
-use std::{error::Error as StdError, net::SocketAddr, num::NonZeroU32, sync::Arc, time::Duration};
+use std::{
+	error::Error as StdError,
+	net::{SocketAddr, SocketAddrV4, SocketAddrV6},
+	num::NonZeroU32,
+	sync::Arc,
+	time::Duration,
+};
 
 use jsonrpsee::{
 	core::BoxError,
@@ -52,11 +58,49 @@ const MEGABYTE: u32 = 1024 * 1024;
 /// Type alias for the JSON-RPC server.
 pub type Server = jsonrpsee::server::ServerHandle;
 
+#[derive(Copy, Clone, Debug)]
+pub struct ListenAddresses {
+	ipv4: SocketAddr,
+	ipv4_backup: SocketAddr,
+	ipv6: SocketAddr,
+	ipv6_backup: SocketAddr,
+}
+
+impl ListenAddresses {
+	/// Create a new `ListenAddresses` instance.
+	pub fn new(ipv4: SocketAddrV4, ipv6: SocketAddrV6) -> Self {
+		// if binding the specified port failed then a random port is assigned by the OS.
+		let backup_port = |mut addr: SocketAddr| {
+			addr.set_port(0);
+			addr
+		};
+
+		let ipv4 = ipv4.into();
+		let ipv6 = ipv6.into();
+
+		Self { ipv4, ipv4_backup: backup_port(ipv4), ipv6, ipv6_backup: backup_port(ipv6) }
+	}
+
+	/// Get the ipv4 listen addresses.
+	pub fn ipv4(&self) -> [SocketAddr; 2] {
+		[self.ipv4, self.ipv4_backup]
+	}
+
+	/// Get the ipv6 listen addresses.
+	pub fn ipv6(&self) -> [SocketAddr; 2] {
+		[self.ipv6, self.ipv6_backup]
+	}
+
+	/// Check if the listen addresses are external.
+	pub fn is_external(&self) -> bool {
+		!self.ipv4.ip().is_loopback() || !self.ipv6.ip().is_loopback()
+	}
+}
+
 /// RPC server configuration.
 #[derive(Debug)]
 pub struct Config<'a, M: Send + Sync + 'static> {
-	/// Socket addresses.
-	pub addrs: [SocketAddr; 2],
+	pub listen_addrs: ListenAddresses,
 	/// CORS.
 	pub cors: Option<&'a Vec<String>>,
 	/// Maximum connections.
@@ -105,7 +149,7 @@ where
 	M: Send + Sync,
 {
 	let Config {
-		addrs,
+		listen_addrs,
 		batch_config,
 		cors,
 		max_payload_in_mb,
@@ -122,9 +166,11 @@ where
 		rate_limit_trust_proxy_headers,
 	} = config;
 
-	let listener = TcpListener::bind(addrs.as_slice()).await?;
-	let local_addr = listener.local_addr().ok();
-	let host_filter = host_filtering(cors.is_some(), local_addr);
+	let ipv4_listener = TcpListener::bind(listen_addrs.ipv4().as_slice()).await?;
+	let ipv6_listener = TcpListener::bind(listen_addrs.ipv6().as_slice()).await?;
+	let local_ipv4_addr = ipv4_listener.local_addr().ok();
+	let local_ipv6_addr = ipv6_listener.local_addr().ok();
+	let host_filter = host_filtering(cors.is_some(), local_ipv4_addr);
 
 	let http_middleware = tower::ServiceBuilder::new()
 		.option_layer(host_filter)
@@ -167,11 +213,20 @@ where
 	tokio_handle.spawn(async move {
 		loop {
 			let (sock, remote_addr) = tokio::select! {
-				res = listener.accept() => {
+				res = ipv4_listener.accept() => {
 					match res {
 						Ok(s) => s,
 						Err(e) => {
 							log::debug!(target: "rpc", "Failed to accept ipv4 connection: {:?}", e);
+							continue;
+						}
+					}
+				}
+				res = ipv6_listener.accept() => {
+					match res {
+						Ok(s) => s,
+						Err(e) => {
+							log::debug!(target: "rpc", "Failed to accept ipv6 connection: {:?}", e);
 							continue;
 						}
 					}
@@ -258,8 +313,9 @@ where
 	});
 
 	log::info!(
-		"Running JSON-RPC server: addr={}, allowed origins={}",
-		local_addr.map_or_else(|| "unknown".to_string(), |a| a.to_string()),
+		"Running JSON-RPC server: addr={}, ipv6_addr={}, allowed origins={}",
+		local_ipv4_addr.map_or_else(|| "unknown".to_string(), |a| a.to_string()),
+		local_ipv6_addr.map_or_else(|| "unknown".to_string(), |a| a.to_string()),
 		format_cors(cors)
 	);
 
