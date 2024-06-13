@@ -419,8 +419,7 @@ struct RelayChainData {
 struct RelayChainCachingFetcher<RI> {
 	relay_client: RI,
 	para_id: ParaId,
-	last_seen_hash: Option<RelayHash>,
-	last_data: Option<RelayChainData>,
+	last_data: Option<(RelayHash, RelayChainData)>,
 }
 
 impl<RI> RelayChainCachingFetcher<RI>
@@ -428,7 +427,7 @@ where
 	RI: RelayChainInterface + Clone + 'static,
 {
 	pub fn new(relay_client: RI, para_id: ParaId) -> Self {
-		Self { relay_client, para_id, last_seen_hash: None, last_data: None }
+		Self { relay_client, para_id, last_data: None }
 	}
 
 	/// Fetch required [`RelayChainData`] from the relay chain.
@@ -440,19 +439,18 @@ where
 			return Err(())
 		};
 
-		if self.last_seen_hash.is_some_and(|h| h == relay_parent) {
-			if let Some(data) = self.last_data.as_ref() {
+		match &self.last_data {
+			Some((last_seen_hash, data)) if *last_seen_hash == relay_parent => {
 				tracing::trace!(target: crate::LOG_TARGET, %relay_parent, "Using cached data for relay parent.");
-
-				return Ok(data.clone())
-			}
+				Ok(data.clone())
+			},
+			_ => {
+				tracing::trace!(target: crate::LOG_TARGET, %relay_parent, "Relay chain best block changed, fetching new data from relay chain.");
+				let data = self.update_for_relay_parent(relay_parent).await?;
+				self.last_data = Some((relay_parent, data.clone()));
+				Ok(data)
+			},
 		}
-
-		tracing::trace!(target: crate::LOG_TARGET, %relay_parent, "Relay chain best block changed, fetching new data from relay chain.");
-		let data = self.update_for_relay_parent(relay_parent).await?;
-		self.last_seen_hash = Some(relay_parent);
-		self.last_data = Some(data.clone());
-		Ok(data)
 	}
 
 	/// Fetch fresh data from the relay chain for the given relay parent hash.
