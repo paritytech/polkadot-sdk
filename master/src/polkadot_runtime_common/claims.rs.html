@@ -1806,21 +1806,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1655" id="1655">1655</a>
 <a href="#1656" id="1656">1656</a>
 <a href="#1657" id="1657">1657</a>
-<a href="#1658" id="1658">1658</a>
-<a href="#1659" id="1659">1659</a>
-<a href="#1660" id="1660">1660</a>
-<a href="#1661" id="1661">1661</a>
-<a href="#1662" id="1662">1662</a>
-<a href="#1663" id="1663">1663</a>
-<a href="#1664" id="1664">1664</a>
-<a href="#1665" id="1665">1665</a>
-<a href="#1666" id="1666">1666</a>
-<a href="#1667" id="1667">1667</a>
-<a href="#1668" id="1668">1668</a>
-<a href="#1669" id="1669">1669</a>
-<a href="#1670" id="1670">1670</a>
-<a href="#1671" id="1671">1671</a>
-<a href="#1672" id="1672">1672</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -2531,7 +2516,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		assert_err, assert_noop, assert_ok, derive_impl,
 		dispatch::{GetDispatchInfo, Pays},
 		ord_parameter_types, parameter_types,
-		traits::{ConstU32, ExistenceRequirement, WithdrawReasons},
+		traits::{ExistenceRequirement, WithdrawReasons},
 	};
 	<span class="kw">use </span>pallet_balances;
 	<span class="kw">use </span>sp_runtime::{
@@ -2561,24 +2546,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">type </span>MaxConsumers = frame_support::traits::ConstU32&lt;<span class="number">16</span>&gt;;
 	}
 
-	<span class="macro">parameter_types! </span>{
-		<span class="kw">pub const </span>ExistentialDeposit: u64 = <span class="number">1</span>;
-	}
-
-	<span class="kw">impl </span>pallet_balances::Config <span class="kw">for </span>Test {
-		<span class="kw">type </span>Balance = u64;
-		<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
-		<span class="kw">type </span>DustRemoval = ();
-		<span class="kw">type </span>ExistentialDeposit = ExistentialDeposit;
+	<span class="attr">#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
+	</span><span class="kw">impl </span>pallet_balances::Config <span class="kw">for </span>Test {
 		<span class="kw">type </span>AccountStore = System;
-		<span class="kw">type </span>MaxLocks = ();
-		<span class="kw">type </span>MaxReserves = ();
-		<span class="kw">type </span>ReserveIdentifier = [u8; <span class="number">8</span>];
-		<span class="kw">type </span>WeightInfo = ();
-		<span class="kw">type </span>RuntimeHoldReason = RuntimeHoldReason;
-		<span class="kw">type </span>RuntimeFreezeReason = RuntimeFreezeReason;
-		<span class="kw">type </span>FreezeIdentifier = ();
-		<span class="kw">type </span>MaxFreezes = ConstU32&lt;<span class="number">1</span>&gt;;
 	}
 
 	<span class="macro">parameter_types! </span>{

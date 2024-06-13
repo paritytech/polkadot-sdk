@@ -3513,7 +3513,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		AsEnsureOriginWithArg, ConstBool, ConstU128, ConstU16, ConstU32, Contains, Currency,
 		EitherOfDiverse, EnsureOriginWithArg, EqualPrivilegeOnly, Imbalance, InsideBoth,
 		InstanceFilter, KeyOwnerProofSystem, LinearStoragePrice, LockIdentifier, Nothing,
-		OnUnbalanced, WithdrawReasons,
+		OnUnbalanced, VariantCountOf, WithdrawReasons,
 	},
 	weights::{
 		constants::{
@@ -4006,7 +4006,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">type </span>AccountStore = frame_system::Pallet&lt;Runtime&gt;;
 	<span class="kw">type </span>WeightInfo = pallet_balances::weights::SubstrateWeight&lt;Runtime&gt;;
 	<span class="kw">type </span>FreezeIdentifier = RuntimeFreezeReason;
-	<span class="kw">type </span>MaxFreezes = ConstU32&lt;<span class="number">1</span>&gt;;
+	<span class="kw">type </span>MaxFreezes = VariantCountOf&lt;RuntimeFreezeReason&gt;;
 }
 
 <span class="macro">parameter_types! </span>{

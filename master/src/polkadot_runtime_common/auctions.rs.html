@@ -2082,20 +2082,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1931" id="1931">1931</a>
 <a href="#1932" id="1932">1932</a>
 <a href="#1933" id="1933">1933</a>
-<a href="#1934" id="1934">1934</a>
-<a href="#1935" id="1935">1935</a>
-<a href="#1936" id="1936">1936</a>
-<a href="#1937" id="1937">1937</a>
-<a href="#1938" id="1938">1938</a>
-<a href="#1939" id="1939">1939</a>
-<a href="#1940" id="1940">1940</a>
-<a href="#1941" id="1941">1941</a>
-<a href="#1942" id="1942">1942</a>
-<a href="#1943" id="1943">1943</a>
-<a href="#1944" id="1944">1944</a>
-<a href="#1945" id="1945">1945</a>
-<a href="#1946" id="1946">1946</a>
-<a href="#1947" id="1947">1947</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -2772,7 +2758,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">use </span>frame_support::{
 		assert_noop, assert_ok, assert_storage_noop, derive_impl, ord_parameter_types,
 		parameter_types,
-		traits::{ConstU32, EitherOfDiverse, OnFinalize, OnInitialize},
+		traits::{EitherOfDiverse, OnFinalize, OnInitialize},
 	};
 	<span class="kw">use </span>frame_system::{EnsureRoot, EnsureSignedBy};
 	<span class="kw">use </span>pallet_balances;
@@ -2823,25 +2809,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">type </span>MaxConsumers = frame_support::traits::ConstU32&lt;<span class="number">16</span>&gt;;
 	}
 
-	<span class="macro">parameter_types! </span>{
-		<span class="kw">pub const </span>ExistentialDeposit: u64 = <span class="number">1</span>;
-		<span class="kw">pub const </span>MaxReserves: u32 = <span class="number">50</span>;
-	}
-
-	<span class="kw">impl </span>pallet_balances::Config <span class="kw">for </span>Test {
-		<span class="kw">type </span>Balance = u64;
-		<span class="kw">type </span>DustRemoval = ();
-		<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
-		<span class="kw">type </span>ExistentialDeposit = ExistentialDeposit;
+	<span class="attr">#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
+	</span><span class="kw">impl </span>pallet_balances::Config <span class="kw">for </span>Test {
 		<span class="kw">type </span>AccountStore = System;
-		<span class="kw">type </span>WeightInfo = ();
-		<span class="kw">type </span>MaxLocks = ();
-		<span class="kw">type </span>MaxReserves = MaxReserves;
-		<span class="kw">type </span>ReserveIdentifier = [u8; <span class="number">8</span>];
-		<span class="kw">type </span>RuntimeHoldReason = RuntimeHoldReason;
-		<span class="kw">type </span>RuntimeFreezeReason = RuntimeFreezeReason;
-		<span class="kw">type </span>FreezeIdentifier = ();
-		<span class="kw">type </span>MaxFreezes = ConstU32&lt;<span class="number">1</span>&gt;;
 	}
 
 	<span class="attr">#[derive(Eq, PartialEq, Ord, PartialOrd, Clone, Copy, Debug)]
@@ -3524,7 +3494,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>initialize_winners_in_ending_period_works() {
 		new_test_ext().execute_with(|| {
-			<span class="macro">assert_eq!</span>(&lt;Test <span class="kw">as </span>pallet_balances::Config&gt;::ExistentialDeposit::get(), <span class="number">1</span>);
+			<span class="kw">let </span>ed: u64 = &lt;Test <span class="kw">as </span>pallet_balances::Config&gt;::ExistentialDeposit::get();
+			<span class="macro">assert_eq!</span>(ed, <span class="number">1</span>);
 			run_to_block(<span class="number">1</span>);
 			<span class="macro">assert_ok!</span>(Auctions::new_auction(RuntimeOrigin::signed(<span class="number">6</span>), <span class="number">9</span>, <span class="number">1</span>));
 			<span class="kw">let </span>para_1 = ParaId::from(<span class="number">1_u32</span>);
@@ -3637,7 +3608,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="attr">#[test]
 	</span><span class="kw">fn </span>less_winning_samples_work() {
 		new_test_ext().execute_with(|| {
-			<span class="macro">assert_eq!</span>(&lt;Test <span class="kw">as </span>pallet_balances::Config&gt;::ExistentialDeposit::get(), <span class="number">1</span>);
+			<span class="kw">let </span>ed: u64 = &lt;Test <span class="kw">as </span>pallet_balances::Config&gt;::ExistentialDeposit::get();
+			<span class="macro">assert_eq!</span>(ed, <span class="number">1</span>);
 			EndingPeriod::set(<span class="number">30</span>);
 			SampleLength::set(<span class="number">10</span>);
 

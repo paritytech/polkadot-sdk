@@ -1601,21 +1601,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1450" id="1450">1450</a>
 <a href="#1451" id="1451">1451</a>
 <a href="#1452" id="1452">1452</a>
-<a href="#1453" id="1453">1453</a>
-<a href="#1454" id="1454">1454</a>
-<a href="#1455" id="1455">1455</a>
-<a href="#1456" id="1456">1456</a>
-<a href="#1457" id="1457">1457</a>
-<a href="#1458" id="1458">1458</a>
-<a href="#1459" id="1459">1459</a>
-<a href="#1460" id="1460">1460</a>
-<a href="#1461" id="1461">1461</a>
-<a href="#1462" id="1462">1462</a>
-<a href="#1463" id="1463">1463</a>
-<a href="#1464" id="1464">1464</a>
-<a href="#1465" id="1465">1465</a>
-<a href="#1466" id="1466">1466</a>
-<a href="#1467" id="1467">1467</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -2316,24 +2301,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">type </span>MaxConsumers = frame_support::traits::ConstU32&lt;<span class="number">16</span>&gt;;
 	}
 
-	<span class="macro">parameter_types! </span>{
-		<span class="kw">pub const </span>ExistentialDeposit: u64 = <span class="number">1</span>;
-	}
-
-	<span class="kw">impl </span>pallet_balances::Config <span class="kw">for </span>Test {
-		<span class="kw">type </span>Balance = u64;
-		<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
-		<span class="kw">type </span>DustRemoval = ();
-		<span class="kw">type </span>ExistentialDeposit = ExistentialDeposit;
+	<span class="attr">#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
+	</span><span class="kw">impl </span>pallet_balances::Config <span class="kw">for </span>Test {
 		<span class="kw">type </span>AccountStore = System;
-		<span class="kw">type </span>WeightInfo = ();
-		<span class="kw">type </span>MaxLocks = ();
-		<span class="kw">type </span>MaxReserves = ();
-		<span class="kw">type </span>ReserveIdentifier = [u8; <span class="number">8</span>];
-		<span class="kw">type </span>RuntimeHoldReason = RuntimeHoldReason;
-		<span class="kw">type </span>RuntimeFreezeReason = RuntimeFreezeReason;
-		<span class="kw">type </span>FreezeIdentifier = ();
-		<span class="kw">type </span>MaxFreezes = ConstU32&lt;<span class="number">1</span>&gt;;
 	}
 
 	<span class="kw">impl </span>parachains_configuration::Config <span class="kw">for </span>Test {

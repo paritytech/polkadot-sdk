@@ -2398,20 +2398,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#2247" id="2247">2247</a>
 <a href="#2248" id="2248">2248</a>
 <a href="#2249" id="2249">2249</a>
-<a href="#2250" id="2250">2250</a>
-<a href="#2251" id="2251">2251</a>
-<a href="#2252" id="2252">2252</a>
-<a href="#2253" id="2253">2253</a>
-<a href="#2254" id="2254">2254</a>
-<a href="#2255" id="2255">2255</a>
-<a href="#2256" id="2256">2256</a>
-<a href="#2257" id="2257">2257</a>
-<a href="#2258" id="2258">2258</a>
-<a href="#2259" id="2259">2259</a>
-<a href="#2260" id="2260">2260</a>
-<a href="#2261" id="2261">2261</a>
-<a href="#2262" id="2262">2262</a>
-<a href="#2263" id="2263">2263</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -3274,7 +3260,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">use </span>frame_support::{
 		assert_noop, assert_ok, derive_impl, parameter_types,
-		traits::{ConstU32, OnFinalize, OnInitialize},
+		traits::{OnFinalize, OnInitialize},
 	};
 	<span class="kw">use </span>polkadot_primitives::Id <span class="kw">as </span>ParaId;
 	<span class="kw">use </span>sp_core::H256;
@@ -3332,24 +3318,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">type </span>MaxConsumers = frame_support::traits::ConstU32&lt;<span class="number">16</span>&gt;;
 	}
 
-	<span class="macro">parameter_types! </span>{
-		<span class="kw">pub const </span>ExistentialDeposit: u64 = <span class="number">1</span>;
-	}
-
-	<span class="kw">impl </span>pallet_balances::Config <span class="kw">for </span>Test {
-		<span class="kw">type </span>Balance = u64;
-		<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
-		<span class="kw">type </span>DustRemoval = ();
-		<span class="kw">type </span>ExistentialDeposit = ExistentialDeposit;
+	<span class="attr">#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
+	</span><span class="kw">impl </span>pallet_balances::Config <span class="kw">for </span>Test {
 		<span class="kw">type </span>AccountStore = System;
-		<span class="kw">type </span>MaxLocks = ();
-		<span class="kw">type </span>MaxReserves = ();
-		<span class="kw">type </span>ReserveIdentifier = [u8; <span class="number">8</span>];
-		<span class="kw">type </span>WeightInfo = ();
-		<span class="kw">type </span>RuntimeHoldReason = RuntimeHoldReason;
-		<span class="kw">type </span>RuntimeFreezeReason = RuntimeFreezeReason;
-		<span class="kw">type </span>FreezeIdentifier = ();
-		<span class="kw">type </span>MaxFreezes = ConstU32&lt;<span class="number">1</span>&gt;;
 	}
 
 	<span class="attr">#[derive(Copy, Clone, Eq, PartialEq, Debug)]
@@ -3394,7 +3365,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>fund = Funds::&lt;Test&gt;::get(para).unwrap();
 		<span class="kw">let </span>account_id = Crowdloan::fund_account_id(fund.fund_index);
 		<span class="kw">if </span>winner {
-			<span class="kw">let </span>ed = &lt;Test <span class="kw">as </span>pallet_balances::Config&gt;::ExistentialDeposit::get();
+			<span class="kw">let </span>ed: u64 = &lt;Test <span class="kw">as </span>pallet_balances::Config&gt;::ExistentialDeposit::get();
 			<span class="kw">let </span>free_balance = Balances::free_balance(<span class="kw-2">&amp;</span>account_id);
 			Balances::reserve(<span class="kw-2">&amp;</span>account_id, free_balance - ed)
 				.expect(<span class="string">"should be able to reserve free balance minus ED"</span>);
@@ -4229,7 +4200,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>withdraw_from_finished_works() {
 		new_test_ext().execute_with(|| {
-			<span class="macro">assert_eq!</span>(&lt;Test <span class="kw">as </span>pallet_balances::Config&gt;::ExistentialDeposit::get(), <span class="number">1</span>);
+			<span class="kw">let </span>ed: u64 = &lt;Test <span class="kw">as </span>pallet_balances::Config&gt;::ExistentialDeposit::get();
+			<span class="macro">assert_eq!</span>(ed, <span class="number">1</span>);
 			<span class="kw">let </span>para = new_para();
 			<span class="kw">let </span>index = NextFundIndex::&lt;Test&gt;::get();
 			<span class="kw">let </span>account_id = Crowdloan::fund_account_id(index);
