@@ -30,6 +30,7 @@ use sp_blockchain::{Backend as BlockchainBackend, TreeRoute};
 use sp_runtime::traits::{Block as BlockT, Header as HeaderT};
 
 const PARENT_SEARCH_LOG_TARGET: &str = "consensus::common::find_potential_parents";
+
 /// Parameters when searching for suitable parents to build on top of.
 #[derive(Debug)]
 pub struct ParentSearchParams {
@@ -285,9 +286,8 @@ async fn build_relay_parent_ancestry(
 	let mut current_rp = relay_parent;
 	let mut required_session = None;
 	while ancestry.len() <= ancestry_lookback {
-		let header = match relay_client.header(RBlockId::hash(current_rp)).await? {
-			None => break,
-			Some(h) => h,
+		let Some(header) = relay_client.header(RBlockId::hash(current_rp)).await? else {
+			break
 		};
 
 		let session = relay_client.session_index_for_child(current_rp).await?;

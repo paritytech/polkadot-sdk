@@ -212,7 +212,7 @@ where
 		Ok(Some(ParachainCandidate { block, proof: proposal.proof }))
 	}
 
-	/// Propose, seal, and import a block, packaging it into a collation.
+	/// Propose, seal, import a block and packaging it into a collation.
 	///
 	/// Provide the slot to build at as well as any other necessary pre-digest logs,
 	/// the inherent data, and the proposal duration and PoV size limits.

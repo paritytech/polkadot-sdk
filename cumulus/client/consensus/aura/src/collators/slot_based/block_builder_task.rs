@@ -262,16 +262,15 @@ pub async fn run_block_builder<
 			continue;
 		};
 
-		let (included_block, parent) = match crate::collators::find_parent(
+		let Some((included_block, parent)) = crate::collators::find_parent(
 			relay_parent,
 			para_id,
 			&*para_backend,
 			&relay_client,
 		)
-		.await
+		.await else
 		{
-			Some(value) => value,
-			None => continue,
+			continue
 		};
 
 		let parent_header = parent.header;
@@ -384,6 +383,7 @@ pub async fn run_block_builder<
 			core_index: *core_index,
 		}) {
 			tracing::error!(target: crate::LOG_TARGET, ?err, "Unable to send block to collation task.");
+			break
 		}
 	}
 }
@@ -397,7 +397,7 @@ pub async fn run_block_builder<
 fn expected_core_count(
 	relay_chain_slot_duration: Duration,
 	slot_duration: SlotDuration,
-) -> Result<u64, ()> {
+) -> Option<u64> {
 	let slot_duration_millis = slot_duration.as_millis();
 	u64::try_from(relay_chain_slot_duration.as_millis())
 		.map_err(|e| tracing::error!("Unable to calculate expected parachain core count: {e}"))

@@ -243,10 +243,7 @@ where
 		Ok(x) => x,
 	};
 
-	let included_block = match potential_parents.iter().find(|x| x.depth == 0) {
-		None => return None, // also serves as an `is_empty` check.
-		Some(b) => b.hash,
-	};
+	let included_block = potential_parents.iter().find(|x| x.depth == 0)?.hash;
 	potential_parents
 		.into_iter()
 		.max_by_key(|a| a.depth)
