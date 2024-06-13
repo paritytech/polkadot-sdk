@@ -525,7 +525,7 @@ where
 					pending_iterator.report_invalid(&pending_tx);
 					debug!(
 						target: LOG_TARGET,
-						"[{:?}] Invalid transaction: {}", pending_tx_hash, e
+						"[{:?}] Invalid transaction: {} at: {}", pending_tx_hash, e, self.parent_hash
 					);
 					unqueue_invalid.push(pending_tx_hash);
 				},
