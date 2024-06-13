@@ -22,10 +22,7 @@
 // `construct_runtime!` does a lot of recursion and requires us to increase the limits.
 #![recursion_limit = "1024"]
 
-use polkadot_sdk::{
-	pallet_broker::{OnDemandRevenueRecordOf, RevenueInbox},
-	*,
-};
+use polkadot_sdk::{pallet_broker::RevenueInbox, *};
 
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_election_provider_support::{

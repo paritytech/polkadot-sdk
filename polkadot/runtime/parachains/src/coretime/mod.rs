@@ -168,14 +168,11 @@ pub mod pallet {
 			configuration::Pallet::<T>::set_coretime_cores_unchecked(u32::from(count))
 		}
 
-		/// Requests that the Relay-chain send a notify_revenue message back at or soon
-		/// after Relay-chain block number when whose until parameter is equal to `when`.
-		///
-		/// The period in to the past which when is allowed to be may be limited;
-		/// if so the limit should be understood on a channel outside of this proposal.
-		/// In the case that the request cannot be serviced because when is too old a block
-		/// then a `notify_revenue`` message must still be returned, but its `revenue` field
-		/// may be `None``.
+		/// Request to claim the instantaneous coretime sales revenue starting from the block it was
+		/// last claimed until and up to the block specified. The claimed amount value is sent back
+		/// to the Coretime chain in a `notify_revenue` message. At the same time, the amount is
+		/// burnt on the relay chain, and it's up to the Coretime chain logic how to handle those
+		/// funds.
 		#[pallet::weight(<T as Config>::WeightInfo::request_revenue_at())]
 		#[pallet::call_index(2)]
 		pub fn request_revenue_at(origin: OriginFor<T>, when: BlockNumber) -> DispatchResult {

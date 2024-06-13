@@ -7,6 +7,10 @@ doc:
   - audience: Runtime Dev
     description: |
       Partially implemented RFC-5 in terms of revenue requests and notifications
+  - audience: Runtime User
+    description: |
+      Instantaneous Coretime sold on the relay chain now generates revenue for its provider.
+      The revenue may be claimed by its provider on the Coretime chain.
 
 crates:
   - name: polkadot-runtime-parachains
