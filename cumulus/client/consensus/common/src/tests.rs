@@ -39,6 +39,7 @@ use sc_client_api::{Backend as _, UsageProvider};
 use sc_consensus::{BlockImport, BlockImportParams, ForkChoiceStrategy};
 use sp_blockchain::Backend as BlockchainBackend;
 use sp_consensus::{BlockOrigin, BlockStatus};
+use sp_version::RuntimeVersion;
 use std::{
 	collections::{BTreeMap, HashMap},
 	pin::Pin,
@@ -154,6 +155,14 @@ impl RelayChainInterface for Relaychain {
 		unimplemented!("Not needed for test")
 	}
 
+	async fn candidates_pending_availability(
+		&self,
+		_: PHash,
+		_: ParaId,
+	) -> RelayChainResult<Vec<CommittedCandidateReceipt>> {
+		unimplemented!("Not needed for test")
+	}
+
 	async fn session_index_for_child(&self, _: PHash) -> RelayChainResult<SessionIndex> {
 		Ok(0)
 	}
@@ -254,6 +263,10 @@ impl RelayChainInterface for Relaychain {
 		_relay_parent: PHash,
 	) -> RelayChainResult<Vec<CoreState<PHash, BlockNumber>>> {
 		unimplemented!("Not needed for test");
+	}
+
+	async fn version(&self, _: PHash) -> RelayChainResult<RuntimeVersion> {
+		unimplemented!("Not needed for test")
 	}
 }
 

@@ -13,9 +13,9 @@ workspace = true
 [dependencies]
 # Substrate Client
 sc-authority-discovery = { path = "../../../substrate/client/authority-discovery" }
-babe = { package = "sc-consensus-babe", path = "../../../substrate/client/consensus/babe" }
-beefy = { package = "sc-consensus-beefy", path = "../../../substrate/client/consensus/beefy" }
-grandpa = { package = "sc-consensus-grandpa", path = "../../../substrate/client/consensus/grandpa" }
+sc-consensus-babe = { path = "../../../substrate/client/consensus/babe" }
+sc-consensus-beefy = { path = "../../../substrate/client/consensus/beefy" }
+sc-consensus-grandpa = { path = "../../../substrate/client/consensus/grandpa" }
 mmr-gadget = { path = "../../../substrate/client/merkle-mountain-range" }
 sp-mmr-primitives = { path = "../../../substrate/primitives/merkle-mountain-range" }
 sc-block-builder = { path = "../../../substrate/client/block-builder" }
@@ -35,14 +35,14 @@ sc-keystore = { path = "../../../substrate/client/keystore" }
 sc-basic-authorship = { path = "../../../substrate/client/basic-authorship" }
 sc-offchain = { path = "../../../substrate/client/offchain" }
 sc-sysinfo = { path = "../../../substrate/client/sysinfo" }
-service = { package = "sc-service", path = "../../../substrate/client/service", default-features = false }
-telemetry = { package = "sc-telemetry", path = "../../../substrate/client/telemetry" }
+sc-service = { path = "../../../substrate/client/service", default-features = false }
+sc-telemetry = { path = "../../../substrate/client/telemetry" }
 
 # Substrate Primitives
 sp-authority-discovery = { path = "../../../substrate/primitives/authority-discovery" }
-consensus_common = { package = "sp-consensus", path = "../../../substrate/primitives/consensus/common" }
-beefy-primitives = { package = "sp-consensus-beefy", path = "../../../substrate/primitives/consensus/beefy" }
-grandpa_primitives = { package = "sp-consensus-grandpa", path = "../../../substrate/primitives/consensus/grandpa" }
+sp-consensus = { path = "../../../substrate/primitives/consensus/common" }
+sp-consensus-beefy = { path = "../../../substrate/primitives/consensus/beefy" }
+sp-consensus-grandpa = { path = "../../../substrate/primitives/consensus/grandpa" }
 sp-inherents = { path = "../../../substrate/primitives/inherents" }
 sp-keyring = { path = "../../../substrate/primitives/keyring" }
 sp-api = { path = "../../../substrate/primitives/api" }
@@ -148,7 +148,7 @@ xcm-fee-payment-runtime-api = { path = "../../xcm/xcm-fee-payment-runtime-api" }
 [dev-dependencies]
 polkadot-test-client = { path = "../test/client" }
 polkadot-node-subsystem-test-helpers = { path = "../subsystem-test-helpers" }
-test-helpers = { package = "polkadot-primitives-test-helpers", path = "../../primitives/test-helpers" }
+polkadot-primitives-test-helpers = { path = "../../primitives/test-helpers" }
 env_logger = "0.11"
 assert_matches = "1.5.0"
 serial_test = "2.0.0"
@@ -157,7 +157,7 @@ tempfile = "3.2"
 [features]
 default = ["db", "full-node"]
 
-db = ["service/rocksdb"]
+db = ["sc-service/rocksdb"]
 
 full-node = [
 	"kvdb-rocksdb",
@@ -214,7 +214,7 @@ runtime-benchmarks = [
 	"polkadot-test-client/runtime-benchmarks",
 	"rococo-runtime?/runtime-benchmarks",
 	"sc-client-db/runtime-benchmarks",
-	"service/runtime-benchmarks",
+	"sc-service/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"westend-runtime?/runtime-benchmarks",
 	"xcm-fee-payment-runtime-api/runtime-benchmarks",
