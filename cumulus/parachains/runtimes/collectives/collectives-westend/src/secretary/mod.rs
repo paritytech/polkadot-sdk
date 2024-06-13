@@ -58,7 +58,7 @@ pub mod ranks {
 /// - Plurarity vote from Fellows can promote, demote, remove and approve rank retention
 /// of members of the Secretary Collective (rank `2`).
 type ApproveOrigin = EitherOf<
-	frame_system::EnsureRootWithSuccess<AccountId, ConstU16<65535>>,
+	EnsureRootWithSuccess<AccountId, ConstU16<65535>>,
 	MapSuccess<Fellows, Replace<ConstU16<2>>>,
 >;
 
@@ -172,8 +172,6 @@ parameter_types! {
 	pub SecretarySalaryInteriorLocation: InteriorLocation = PalletInstance(94).into();
 }
 
-const USDT_UNITS: u128 = 1_000_000;
-
 /// [`PayOverXcm`] setup to pay the Secretary salary on the AssetHub in USDT.
 pub type SecretarySalaryPaymaster = PayOverXcm<
 	SecretarySalaryInteriorLocation,
@@ -221,5 +219,5 @@ impl pallet_salary::Config<SecretarySalaryInstance> for Runtime {
 	// 15 days to claim the salary payment.
 	type PayoutPeriod = ConstU32<{ 15 * DAYS }>;
 	// Total monthly salary budget.
-	type Budget = ConstU128<{ 10_000 * USDT_UNITS }>;
+	type Budget = ConstU128<{ 10_000 * DOLLARS }>;
 }
