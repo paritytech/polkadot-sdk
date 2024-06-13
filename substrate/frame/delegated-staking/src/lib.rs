@@ -409,7 +409,6 @@ pub mod pallet {
 				Delegation::<T>::can_delegate(&delegator, &agent),
 				Error::<T>::InvalidDelegation
 			);
-			ensure!(!Self::is_direct_staker(&delegator), Error::<T>::AlreadyStaking);
 
 			// ensure agent is sane.
 			ensure!(Self::is_agent(&agent), Error::<T>::NotAgent);

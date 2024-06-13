@@ -1983,8 +1983,9 @@ pub mod pallet {
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
-		/// Stake funds with a pool. The amount to bond is transferred from the member to the
-		/// pools account and immediately increases the pools bond.
+		/// Stake funds with a pool. The amount to bond is delegated (or transferred based on
+		/// [`adapter::StakeStrategyType`]) from the member to the pool account and immediately
+		/// increases the pools bond.
 		///
 		/// # Note
 		///
