@@ -716,6 +716,7 @@ mod staking_integration {
 mod pool_integration {
 	use super::*;
 	use pallet_nomination_pools::{BondExtra, BondedPools, PoolState};
+	use pallet_staking::RewardDestination;
 
 	#[test]
 	fn create_pool_test() {
@@ -1217,6 +1218,56 @@ mod pool_integration {
 		});
 	}
 
+	#[test]
+	fn staked_funds_cannot_be_used_for_delegation() {
+		ExtBuilder::default().build_and_execute(|| {
+			// GIVEN
+			// alice has a balance of 1000.
+			let alice = 300;
+			let balance_alice = 1000;
+			fund(&alice, balance_alice);
+			// alice stakes 600.
+			assert_ok!(Staking::bond(
+				RuntimeOrigin::signed(alice),
+				600,
+				RewardDestination::Account(alice)
+			));
+
+			// And a pool exists
+			let creator = 200;
+			fund(&creator, 5000);
+			let pool_id = create_pool(creator, 5000);
+
+			// WHEN
+			// alice can only use non staked funds for delegation.
+			assert_eq!(
+				Balances::reducible_balance(&alice, Preservation::Protect, Fortitude::Polite),
+				400
+			);
+
+			// alice tries to join with funds that are already staked (that is more than 400).
+			assert_noop!(
+				Pools::join(RawOrigin::Signed(alice).into(), 401, pool_id),
+				Error::<T>::NotEnoughFunds
+			);
+
+			// Delegating upto 400 works
+			assert_ok!(Pools::join(RawOrigin::Signed(alice).into(), 200, pool_id));
+			assert_ok!(Pools::bond_extra(
+				RawOrigin::Signed(alice).into(),
+				BondExtra::FreeBalance(200)
+			));
+			// alice balance that can be delegated has reduced to 0.
+			assert_eq!(
+				Balances::reducible_balance(&alice, Preservation::Protect, Fortitude::Polite),
+				0
+			);
+			assert_noop!(
+				Pools::bond_extra(RawOrigin::Signed(alice).into(), BondExtra::FreeBalance(200)),
+				Error::<T>::NotEnoughFunds
+			);
+		});
+	}
 	fn create_pool(creator: AccountId, amount: Balance) -> u32 {
 		fund(&creator, amount * 2);
 		assert_ok!(Pools::create(
