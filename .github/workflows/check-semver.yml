@@ -30,17 +30,16 @@ jobs:
           git branch old origin/master
 
           # We need to manually check out the branch, because GHAs run on the merged result.
-          git fetch --unshallow origin $BRANCH_NAME
-          git checkout --quiet origin/$BRANCH_NAME
+          #git fetch --unshallow origin $BRANCH_NAME
+          #git checkout --quiet origin/$BRANCH_NAME
 
       - name: Rust compilation prerequisites
         run: |
           rustup default $NIGHTLY
-          rustup target add wasm32-unknown-unknown --toolchain $NIGHTLY
           rustup component add rust-src --toolchain $NIGHTLY
 
       - name: install parity-publish
-        run: cargo install parity-publish@0.5.1 --locked --quiet
+        run: cargo install parity-publish --locked --quiet --git https://github.com/paritytech/parity-publish --branch oty-fix-semver-check
 
       - name: check semver
         env:
