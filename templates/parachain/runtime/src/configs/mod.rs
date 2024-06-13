@@ -261,6 +261,7 @@ impl pallet_session::Config for Runtime {
 	type WeightInfo = ();
 }
 
+#[docify::export(aura_config)]
 impl pallet_aura::Config for Runtime {
 	type AuthorityId = AuraId;
 	type DisabledValidators = ();

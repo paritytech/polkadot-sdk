@@ -39,11 +39,27 @@
 //!    runtime.
 //! 2. Establish and ensure the constant relay chain slot duration measured in milliseconds equal to
 //!    `6000` in the runtime.
-#![doc = docify::embed!("../../templates/parachain/runtime/src/lib.rs", async_backing_params)]
+//! ```rust
+//! // Maximum number of blocks simultaneously accepted by the Runtime, not yet included into the
+//! // relay chain.
+//! pub const UNINCLUDED_SEGMENT_CAPACITY: u32 = 1;
+//! // How many parachain blocks are processed by the relay chain per parent. Limits the number of
+//! // blocks authored per slot.
+//! pub const BLOCK_PROCESSING_VELOCITY: u32 = 1;
+//! // Relay chain slot duration, in milliseconds.
+//! pub const RELAY_CHAIN_SLOT_DURATION_MILLIS: u32 = 6000;
+//! ```
 //!
 //! 3. Establish constants `MILLISECS_PER_BLOCK` and `SLOT_DURATION` if not already present in the
 //!    runtime.
-#![doc = docify::embed!("../../templates/parachain/runtime/src/lib.rs", block_times)]
+//! ```ignore
+//! // `SLOT_DURATION` is picked up by `pallet_timestamp` which is in turn picked
+//! // up by `pallet_aura` to implement `fn slot_duration()`.
+//! //
+//! // Change this to adjust the block time.
+//! pub const MILLISECS_PER_BLOCK: u64 = 12000;
+//! pub const SLOT_DURATION: u64 = MILLISECS_PER_BLOCK;
+//! ```
 //!
 //! 4. Configure `cumulus_pallet_parachain_system` in the runtime.
 //!
@@ -186,7 +202,52 @@
 //! task_manager.spawn_essential_handle().spawn("aura", None, fut);
 //! ```
 //!
-
+//! ## Phase 3 - Activate Async Backing
+//!
+//! This phase consists of changes to your parachain’s runtime that activate async backing feature.
+//!
+//! 1. Configure `pallet_aura`, setting `AllowMultipleBlocksPerSlot` to true in
+//!    `runtime/src/lib.rs`.
+#![doc = docify::embed!("../../templates/parachain/runtime/src/configs/mod.rs", aura_config)]
+//!
+//! 2. Increase the maximum `UNINCLUDED_SEGMENT_CAPACITY` in `runtime/src/lib.rs`.
+#![doc = docify::embed!("../../templates/parachain/runtime/src/lib.rs", async_backing_params)]
+//!
+//! 3. Decrease `MILLISECS_PER_BLOCK` to 6000.
+//!
+//! - Note: For a parachain which measures time in terms of its own block number rather than by
+//!   relay block number it may be preferable to increase velocity. Changing block time may cause
+//!   complications, requiring additional changes. See the section “Timing by Block Number”.
+#![doc = docify::embed!("../../templates/parachain/runtime/src/lib.rs", block_times)]
+//!
+//! 4. Update `MAXIMUM_BLOCK_WEIGHT` to reflect the increased time available for block production.
+#![doc = docify::embed!("../../templates/parachain/runtime/src/lib.rs", max_block_weight)]
+//!
+//! 5. Add a feature flagged alternative for `MinimumPeriod` in `pallet_timestamp`. The type should
+//!    be `ConstU64<0>` with the feature flag experimental, and `ConstU64<{SLOT_DURATION / 2}>`
+//!    without.
+//! ```ignore
+//! impl pallet_timestamp::Config for Runtime {
+//!     ..
+//!     #[cfg(feature = "experimental")]
+//!     type MinimumPeriod = ConstU64<0>;
+//!     #[cfg(not(feature = "experimental"))]
+//!     type MinimumPeriod = ConstU64<{ SLOT_DURATION / 2 }>;
+//!     ..
+//! }
+//! ```
+//!
+//! ## Timing by Block Number
+//!
+//! With asynchronous backing it will be possible for parachains to opt for a block time of 6
+//! seconds rather than 12 seconds. But modifying block duration isn’t so simple for a parachain
+//! which was measuring time in terms of its own block number. It could result in expected and
+//! actual time not matching up, stalling the parachain.
+//!
+//! One strategy to deal with this issue is to instead rely on relay chain block numbers for timing.
+//! Relay block number is kept track of by each parachain in `pallet-parachain-system` with the
+//! storage value `LastRelayChainBlockNumber`. This value can be obtained and used wherever timing
+//! based on block number is needed.
 
 #![deny(rustdoc::broken_intra_doc_links)]
 #![deny(rustdoc::private_intra_doc_links)]
