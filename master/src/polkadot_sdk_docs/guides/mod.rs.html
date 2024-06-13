@@ -180,10 +180,28 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#29" id="29">29</a>
 <a href="#30" id="30">30</a>
 <a href="#31" id="31">31</a>
+<a href="#32" id="32">32</a>
+<a href="#33" id="33">33</a>
+<a href="#34" id="34">34</a>
+<a href="#35" id="35">35</a>
+<a href="#36" id="36">36</a>
+<a href="#37" id="37">37</a>
+<a href="#38" id="38">38</a>
+<a href="#39" id="39">39</a>
+<a href="#40" id="40">40</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! # Polkadot SDK Docs Guides
 //!
-//! This crate contains a collection of guides that are foundational to the developers of
-//! Polkadot SDK. They are common user-journeys that are traversed in the Polkadot ecosystem.
+//! This crate contains a collection of guides that are foundational to the developers of Polkadot
+//! SDK. They are common user-journeys that are traversed in the Polkadot ecosystem.
+//!
+//! 1. [`crate::guides::your_first_pallet`] is your starting point with Polkadot SDK. It contains
+//!    the basics of
+//! building a simple crypto currency with FRAME.
+//! 2. [`crate::guides::your_first_runtime`] is the next step in your journey. It contains the
+//!    basics of building a runtime that contains this pallet, plus a few common pallets from FRAME.
+//!
+//!
+//! Other guides are related to other miscellaneous topics and are listed as modules below.
 
 /// Write your first simple pallet, learning the most most basic features of FRAME along the way.
 </span><span class="kw">pub mod </span>your_first_pallet;
@@ -193,20 +211,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub mod </span>your_first_runtime;
 
 <span class="doccomment">/// Running the given runtime with a node. No specific consensus mechanism is used at this stage.
-</span><span class="kw">pub mod </span>your_first_node;
+</span><span class="comment">// TODO
+// pub mod your_first_node;
 
-<span class="doccomment">/// How to change the consensus engine of both the node and the runtime.
-</span><span class="kw">pub mod </span>changing_consensus;
-
-<span class="doccomment">/// How to enhance a given runtime and node to be cumulus-enabled, run it as a parachain and connect
+</span><span class="doccomment">/// How to enhance a given runtime and node to be cumulus-enabled, run it as a parachain and connect
 /// it to a relay-chain.
-</span><span class="kw">pub mod </span>cumulus_enabled_parachain;
+</span><span class="comment">// TODO
+// pub mod cumulus_enabled_parachain;
 
-<span class="doccomment">/// How to make a given runtime XCM-enabled, capable of sending messages (`Transact`) between itself
+</span><span class="doccomment">/// How to make a given runtime XCM-enabled, capable of sending messages (`Transact`) between itself
 /// and the relay chain to which it is connected.
-</span><span class="kw">pub mod </span>xcm_enabled_parachain;
+</span><span class="comment">// TODO
+// pub mod xcm_enabled_parachain;
 
-<span class="doccomment">/// How to enable storage weight reclaiming in a parachain node and runtime.
+</span><span class="doccomment">/// How to enable storage weight reclaiming in a parachain node and runtime.
 </span><span class="kw">pub mod </span>enable_pov_reclaim;
 
 <span class="doccomment">/// How to enable metadata hash verification in the runtime.

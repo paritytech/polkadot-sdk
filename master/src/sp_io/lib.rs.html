@@ -2111,6 +2111,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1960" id="1960">1960</a>
 <a href="#1961" id="1961">1961</a>
 <a href="#1962" id="1962">1962</a>
+<a href="#1963" id="1963">1963</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -3918,7 +3919,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// The host functions Substrate provides for the Wasm runtime environment.
 ///
 /// All these host functions will be callable from inside the Wasm environment.
-</span><span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
+</span><span class="attr">#[docify::export]
+#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">pub type </span>SubstrateHostFunctions = (
 	storage::HostFunctions,
 	default_child_storage::HostFunctions,

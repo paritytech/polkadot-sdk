@@ -906,6 +906,37 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#755" id="755">755</a>
 <a href="#756" id="756">756</a>
 <a href="#757" id="757">757</a>
+<a href="#758" id="758">758</a>
+<a href="#759" id="759">759</a>
+<a href="#760" id="760">760</a>
+<a href="#761" id="761">761</a>
+<a href="#762" id="762">762</a>
+<a href="#763" id="763">763</a>
+<a href="#764" id="764">764</a>
+<a href="#765" id="765">765</a>
+<a href="#766" id="766">766</a>
+<a href="#767" id="767">767</a>
+<a href="#768" id="768">768</a>
+<a href="#769" id="769">769</a>
+<a href="#770" id="770">770</a>
+<a href="#771" id="771">771</a>
+<a href="#772" id="772">772</a>
+<a href="#773" id="773">773</a>
+<a href="#774" id="774">774</a>
+<a href="#775" id="775">775</a>
+<a href="#776" id="776">776</a>
+<a href="#777" id="777">777</a>
+<a href="#778" id="778">778</a>
+<a href="#779" id="779">779</a>
+<a href="#780" id="780">780</a>
+<a href="#781" id="781">781</a>
+<a href="#782" id="782">782</a>
+<a href="#783" id="783">783</a>
+<a href="#784" id="784">784</a>
+<a href="#785" id="785">785</a>
+<a href="#786" id="786">786</a>
+<a href="#787" id="787">787</a>
+<a href="#788" id="788">788</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! # Currency Pallet
 //!
 //! By the end of this guide, you will write a small FRAME pallet (see
@@ -922,18 +953,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! &gt; FRAME-based runtimes use various techniques to re-use a currency pallet instead of writing
 //! &gt; one. Further advanced FRAME related topics are discussed in [`crate::reference_docs`].
 //!
-//! ## Topics Covered
-//!
-//! The following FRAME topics are covered in this guide:
-//!
-//! - [Storage](frame::pallet_macros::storage)
-//! - [Call](frame::pallet_macros::call)
-//! - [Event](frame::pallet_macros::event)
-//! - [Error](frame::pallet_macros::error)
-//! - Basics of testing a pallet
-//! - [Constructing a runtime](frame::runtime::prelude::construct_runtime)
-//!
 //! ## Writing Your First Pallet
+//!
+//! To get started, use one of the templates mentioned in [`crate::polkadot_sdk::templates`]. We
+//! recommend using the `polkadot-sdk-minimal-template`. You might need to change small parts of
+//! this guide, namely the crate/package names, based on which tutorial you use.
+//!
+//! &gt; Be aware that you can read the entire source code backing this tutorial by clicking on the
+//! &gt; [`source`](./mod.rs.html) button at the top right of the page.
 //!
 //! You should have studied the following modules as a prelude to this guide:
 //!
@@ -941,16 +968,28 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! - [`crate::reference_docs::trait_based_programming`]
 //! - [`crate::polkadot_sdk::frame_runtime`]
 //!
+//! ## Topics Covered
+//!
+//! The following FRAME topics are covered in this guide:
+//!
+//! - [`pallet::storage`]
+//! - [`pallet::call`]
+//! - [`pallet::event`]
+//! - [`pallet::error`]
+//! - Basics of testing a pallet
+//! - [Constructing a runtime](frame::runtime::prelude::construct_runtime)
+//!
 //! ### Shell Pallet
 //!
 //! Consider the following as a "shell pallet". We continue building the rest of this pallet based
 //! on this template.
 //!
-//! [`pallet::config`](frame::pallet_macros::config) and
-//! [`pallet::pallet`](frame::pallet_macros::pallet) are both mandatory parts of any pallet. Refer
-//! to the documentation of each to get an overview of what they do.
+//! [`pallet::config`] and [`pallet::pallet`] are both mandatory parts of any pallet. Refer to the
+//! documentation of each to get an overview of what they do.
 </span><span class="attr">#![doc = <span class="macro">docify::embed!</span>(<span class="string">"./src/guides/your_first_pallet/mod.rs"</span>, shell_pallet)]
 </span><span class="doccomment">//!
+//! All of the code that follows in this guide should live inside of the `mod pallet`.
+//!
 //! ### Storage
 //!
 //! First, we will need to create two onchain storage declarations.
@@ -963,15 +1002,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! &gt; generic bounded type in the `Config` trait, and then specify it in the implementation.
 </span><span class="attr">#![doc = <span class="macro">docify::embed!</span>(<span class="string">"./src/guides/your_first_pallet/mod.rs"</span>, Balance)]
 </span><span class="doccomment">//!
-//! The definition of these two storage items, based on [`frame::pallet_macros::storage`] details,
-//! is as follows:
+//! The definition of these two storage items, based on [`pallet::storage`] details, is as follows:
 </span><span class="attr">#![doc = <span class="macro">docify::embed!</span>(<span class="string">"./src/guides/your_first_pallet/mod.rs"</span>, TotalIssuance)]
 #![doc = <span class="macro">docify::embed!</span>(<span class="string">"./src/guides/your_first_pallet/mod.rs"</span>, Balances)]
 </span><span class="doccomment">//!
 //! ### Dispatchables
 //!
-//! Next, we will define the dispatchable functions. As per [`frame::pallet_macros::call`], these
-//! will be defined as normal `fn`s attached to `struct Pallet`.
+//! Next, we will define the dispatchable functions. As per [`pallet::call`], these will be defined
+//! as normal `fn`s attached to `struct Pallet`.
 </span><span class="attr">#![doc = <span class="macro">docify::embed!</span>(<span class="string">"./src/guides/your_first_pallet/mod.rs"</span>, impl_pallet)]
 </span><span class="doccomment">//!
 //! The logic of the functions is self-explanatory. Instead, we will focus on the FRAME-related
@@ -987,7 +1025,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //!   was signed by `who`.
 </span><span class="attr">#![doc = <span class="macro">docify::embed!</span>(<span class="string">"../../substrate/frame/system/src/lib.rs"</span>, ensure_signed)]
 </span><span class="doccomment">//!
-//!
 //! - Where does `mutate`, `get` and `insert` and other storage APIs come from? All of them are
 //! explained in the corresponding `type`, for example, for `Balances::&lt;T&gt;::insert`, you can look
 //! into [`frame::prelude::StorageMap::insert`].
@@ -1003,8 +1040,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //!
 //! - Why are all `get` and `mutate` functions returning an `Option`? This is the default behavior
 //!   of FRAME storage APIs. You can learn more about how to override this by looking into
-//!   [`frame::pallet_macros::storage`], and
-//!   [`frame::prelude::ValueQuery`]/[`frame::prelude::OptionQuery`]
+//!   [`pallet::storage`], and [`frame::prelude::ValueQuery`]/[`frame::prelude::OptionQuery`]
 //!
 //! ### Improving Errors
 //!
@@ -1023,6 +1059,25 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! This is more or less all the logic that there is this basic currency pallet!
 //!
 //! ### Your First (Test) Runtime
+//!
+//! The typical testing code of a pallet lives in a module that imports some preludes useful for
+//! testing, similar to:
+//!
+//! ```
+//! pub mod pallet {
+//! 	// snip -- actually pallet code.
+//! }
+//!
+//! #[cfg(test)]
+//! mod tests {
+//! 	// bring in the testing prelude of frame
+//! 	use frame::testing_prelude::*;
+//! 	// bring in all pallet items
+//! 	use super::pallet::*;
+//!
+//! 	// snip -- rest of the testing code.
+//! }
+//! ```
 //!
 //! Next, we create a "test runtime" in order to test our pallet. Recall from
 //! [`crate::polkadot_sdk::frame_runtime`] that a runtime is a collection of pallets, expressed
@@ -1074,8 +1129,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! As noted above, the `T::AccountId` is now `u64`. Moreover, `Runtime` is replacing `&lt;T: Config&gt;`.
 //! This is why for example you see `Balances::&lt;Runtime&gt;::get(..)`. Finally, notice that the
 //! dispatchables are simply functions that can be called on top of the `Pallet` struct.
-</span><span class="comment">// TODO: hard to explain exactly `RuntimeOrigin::signed(ALICE)` at this point.
-</span><span class="doccomment">//!
+//!
 //! Congratulations! You have written your first pallet and tested it! Next, we learn a few optional
 //! steps to improve our pallet.
 //!
@@ -1144,8 +1198,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //!   by one character. FRAME errors are exactly a solution to maintain readability, whilst fixing
 //!   the drawbacks mentioned. In short, we use an enum to represent different variants of our
 //!   error. These variants are then mapped in an efficient way (using only `u8` indices) to
-//!   [`sp_runtime::DispatchError::Module`]. Read more about this in
-//!   [`frame::pallet_macros::error`].
+//!   [`sp_runtime::DispatchError::Module`]. Read more about this in [`pallet::error`].
 //!
 //! - **Event**: Events are akin to the return type of dispatchables. They are mostly data blobs
 //!   emitted by the runtime to let outside world know what is happening inside the pallet. Since
@@ -1154,20 +1207,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //!   use passive tense for event names (eg. `SomethingHappened`). This allows other sub-systems or
 //!   external parties (eg. a light-node, a DApp) to listen to particular events happening, without
 //!   needing to re-execute the whole state transition function.
-</span><span class="comment">// TODO: both need to be improved a lot at the pallet-macro rust-doc level. Also my explanation
-// of event is probably not the best.
-</span><span class="doccomment">//!
+//!
 //! With the explanation out of the way, let's see how these components can be added. Both follow a
-//! fairly familiar syntax: normal Rust enums, with extra
-//! [`#[frame::event]`](frame::pallet_macros::event) and
-//! [`#[frame::error]`](frame::pallet_macros::error) attributes attached.
+//! fairly familiar syntax: normal Rust enums, with extra [`pallet::event`] and [`pallet::error`]
+//! attributes attached.
 </span><span class="attr">#![doc = <span class="macro">docify::embed!</span>(<span class="string">"./src/guides/your_first_pallet/mod.rs"</span>, Event)]
 #![doc = <span class="macro">docify::embed!</span>(<span class="string">"./src/guides/your_first_pallet/mod.rs"</span>, Error)]
 </span><span class="doccomment">//!
-//! One slightly custom part of this is the [`#[pallet::generate_deposit(pub(super) fn
-//! deposit_event)]`](frame::pallet_macros::generate_deposit) part. Without going into too
-//! much detail, in order for a pallet to emit events to the rest of the system, it needs to do two
-//! things:
+//! One slightly custom part of this is the [`pallet::generate_deposit`] part. Without going into
+//! too much detail, in order for a pallet to emit events to the rest of the system, it needs to do
+//! two things:
 //!
 //! 1. Declare a type in its `Config` that refers to the overarching event type of the runtime. In
 //! short, by doing this, the pallet is expressing an important bound: `type RuntimeEvent:
@@ -1176,8 +1225,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! store it where needed.
 //!
 //! 2. But, doing this conversion and storing is too much to expect each pallet to define. FRAME
-//! provides a default way of storing events, and this is what
-//! [`pallet::generate_deposit`](frame::pallet_macros::generate_deposit) is doing.
+//! provides a default way of storing events, and this is what [`pallet::generate_deposit`] is
+//! doing.
 </span><span class="attr">#![doc = <span class="macro">docify::embed!</span>(<span class="string">"./src/guides/your_first_pallet/mod.rs"</span>, config_v2)]
 </span><span class="doccomment">//!
 //! &gt; These `Runtime*` types are better explained in
@@ -1205,10 +1254,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! - [`crate::reference_docs::defensive_programming`].
 //! - [`crate::reference_docs::frame_origin`].
 //! - [`crate::reference_docs::frame_runtime_types`].
-//! - The pallet we wrote in this guide was using `dev_mode`, learn more in
-//!   [`frame::pallet_macros::config`].
+//! - The pallet we wrote in this guide was using `dev_mode`, learn more in [`pallet::config`].
 //! - Learn more about the individual pallet items/macros, such as event and errors and call, in
 //!   [`frame::pallet_macros`].
+//!
+//! [`pallet::storage`]: ../../../frame_support/pallet_macros/attr.config.html
+//! [`pallet::call`]: ../../../frame_support/pallet_macros/attr.call.html
+//! [`pallet::event`]: ../../../frame_support/pallet_macros/attr.event.html
+//! [`pallet::error`]: ../../../frame_support/pallet_macros/attr.error.html
+//! [`pallet::pallet`]: ../../../frame_support/pallet_macros/attr.pallet.html
+//! [`pallet::config`]: ../../../frame_support/pallet_macros/attr.config.html
+//! [`pallet::generate_deposit`]: ../../../frame_support/pallet_macros/attr.generate_deposit.html
 
 </span><span class="attr">#[docify::export]
 #[frame::pallet(dev_mode)]
@@ -1326,16 +1382,22 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[cfg(any(test, doc))]
 	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">mod </span>tests {
 		<span class="kw">use </span><span class="kw">crate</span>::guides::your_first_pallet::pallet::<span class="kw-2">*</span>;
-		<span class="kw">use </span>frame::testing_prelude::<span class="kw-2">*</span>;
-		<span class="kw">const </span>ALICE: u64 = <span class="number">1</span>;
-		<span class="kw">const </span>BOB: u64 = <span class="number">2</span>;
-		<span class="kw">const </span>CHARLIE: u64 = <span class="number">3</span>;
+
+		<span class="attr">#[docify::export(testing_prelude)]
+		</span><span class="kw">use </span>frame::testing_prelude::<span class="kw-2">*</span>;
+
+		<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>ALICE: u64 = <span class="number">1</span>;
+		<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>BOB: u64 = <span class="number">2</span>;
+		<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>CHARLIE: u64 = <span class="number">3</span>;
 
 		<span class="attr">#[docify::export]
+		</span><span class="comment">// This runtime is only used for testing, so it should be somewhere like `#[cfg(test)] mod
+		// tests { .. }`
 		</span><span class="kw">mod </span>runtime {
 			<span class="kw">use super</span>::<span class="kw-2">*</span>;
 			<span class="comment">// we need to reference our `mod pallet` as an identifier to pass to
 			// `construct_runtime`.
+			// YOU HAVE TO CHANGE THIS LINE BASED ON YOUR TEMPLATE
 			</span><span class="kw">use </span><span class="kw">crate</span>::guides::your_first_pallet::pallet <span class="kw">as </span>pallet_currency;
 
 			<span class="macro">construct_runtime!</span>(

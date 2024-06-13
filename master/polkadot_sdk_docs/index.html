@@ -172,7 +172,7 @@ list of further tools related to the Polkadot SDK.</li>
 <pre class="mermaid" style="text-align:center;background: transparent;">
 flowchart
     parity[paritytech.github.io] --> devhub[polkadot_sdk_docs]
-	polkadot[polkadot.network] --> devhub[polkadot_sdk_docs]
+	polkadot_network[polkadot.network] --> devhub[polkadot_sdk_docs]
 
     devhub --> polkadot_sdk
     devhub --> reference_docs
@@ -181,7 +181,7 @@ flowchart
     polkadot_sdk --> substrate
     polkadot_sdk --> frame
     polkadot_sdk --> cumulus
-    polkadot_sdk --> polkadot
+    polkadot_sdk --> polkadot[polkadot node]
     polkadot_sdk --> xcm
 
 </pre><script type="module">import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs";var doc_theme = localStorage.getItem("rustdoc-theme");if (doc_theme === "dark" || doc_theme === "ayu") mermaid.initialize({theme: "dark"});</script></div></details><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="mod" href="guides/index.html" title="mod polkadot_sdk_docs::guides">guides</a></div><div class="desc docblock-short">In-depth guides about the most common components of the Polkadot SDK. They are slightly more

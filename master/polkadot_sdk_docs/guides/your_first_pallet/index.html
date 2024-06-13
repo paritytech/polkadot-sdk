@@ -148,7 +148,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </style>
 
 <script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button><a class="logo-container" href="../../../polkadot_sdk_docs/index.html"><img src="https://europe1.discourse-cdn.com/standard21/uploads/polkadot2/original/1X/eb57081e2bb7c39e5fcb1a98b443e423fa4448ae.svg" alt=""></a></nav><nav class="sidebar"><div class="sidebar-crate"><a class="logo-container" href="../../../polkadot_sdk_docs/index.html"><img src="https://europe1.discourse-cdn.com/standard21/uploads/polkadot2/original/1X/eb57081e2bb7c39e5fcb1a98b443e423fa4448ae.svg" alt="logo"></a><h2><a href="../../../polkadot_sdk_docs/index.html">polkadot_sdk_docs</a><span class="version">0.0.1</span></h2></div><h2 class="location"><a href="#">Module your_first_pallet</a></h2><div class="sidebar-elems"><section><ul class="block"><li><a href="#modules">Modules</a></li></ul></section><h2><a href="../index.html">In polkadot_sdk_docs::guides</a></h2></div></nav><div class="sidebar-resizer"></div>
-    <main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../polkadot_sdk_docs/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Module <a href="../../index.html">polkadot_sdk_docs</a>::<wbr><a href="../index.html">guides</a>::<wbr><a class="mod" href="#">your_first_pallet</a><button id="copy-path" title="Copy item path to clipboard"><img src="../../../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><a class="src" href="../../../src/polkadot_sdk_docs/guides/your_first_pallet/mod.rs.html#1-757">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Write your first simple pallet, learning the most most basic features of FRAME along the way.</p>
+    <main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../polkadot_sdk_docs/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Module <a href="../../index.html">polkadot_sdk_docs</a>::<wbr><a href="../index.html">guides</a>::<wbr><a class="mod" href="#">your_first_pallet</a><button id="copy-path" title="Copy item path to clipboard"><img src="../../../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><a class="src" href="../../../src/polkadot_sdk_docs/guides/your_first_pallet/mod.rs.html#1-788">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Write your first simple pallet, learning the most most basic features of FRAME along the way.</p>
 <h2 id="currency-pallet"><a class="doc-anchor" href="#currency-pallet">§</a>Currency Pallet</h2>
 <p>By the end of this guide, you will write a small FRAME pallet (see
 <a href="../../polkadot_sdk/frame_runtime/index.html" title="mod polkadot_sdk_docs::polkadot_sdk::frame_runtime"><code>crate::polkadot_sdk::frame_runtime</code></a>) that is capable of handling a simple crypto-currency.
@@ -165,29 +165,35 @@ FRAME, and is mainly intended for education, not <em>applicability</em>. For exa
 FRAME-based runtimes use various techniques to re-use a currency pallet instead of writing
 one. Further advanced FRAME related topics are discussed in <a href="../../reference_docs/index.html" title="mod polkadot_sdk_docs::reference_docs"><code>crate::reference_docs</code></a>.</p>
 </blockquote>
-<h3 id="topics-covered"><a class="doc-anchor" href="#topics-covered">§</a>Topics Covered</h3>
-<p>The following FRAME topics are covered in this guide:</p>
-<ul>
-<li><a href="../../../frame_support_procedural/attr.storage.html" title="attr frame_support_procedural::storage">Storage</a></li>
-<li><a href="../../../frame_support_procedural/attr.call.html" title="attr frame_support_procedural::call">Call</a></li>
-<li><a href="../../../frame_support_procedural/attr.event.html" title="attr frame_support_procedural::event">Event</a></li>
-<li><a href="../../../frame_support_procedural/attr.error.html" title="attr frame_support_procedural::error">Error</a></li>
-<li>Basics of testing a pallet</li>
-<li><a href="../../../frame_support_procedural/macro.construct_runtime.html" title="macro frame_support_procedural::construct_runtime">Constructing a runtime</a></li>
-</ul>
 <h3 id="writing-your-first-pallet"><a class="doc-anchor" href="#writing-your-first-pallet">§</a>Writing Your First Pallet</h3>
+<p>To get started, use one of the templates mentioned in <a href="../../polkadot_sdk/templates/index.html" title="mod polkadot_sdk_docs::polkadot_sdk::templates"><code>crate::polkadot_sdk::templates</code></a>. We
+recommend using the <code>polkadot-sdk-minimal-template</code>. You might need to change small parts of
+this guide, namely the crate/package names, based on which tutorial you use.</p>
+<blockquote>
+<p>Be aware that you can read the entire source code backing this tutorial by clicking on the
+<a href="./mod.rs.html"><code>source</code></a> button at the top right of the page.</p>
+</blockquote>
 <p>You should have studied the following modules as a prelude to this guide:</p>
 <ul>
 <li><a href="../../reference_docs/blockchain_state_machines/index.html" title="mod polkadot_sdk_docs::reference_docs::blockchain_state_machines"><code>crate::reference_docs::blockchain_state_machines</code></a></li>
 <li><a href="../../reference_docs/trait_based_programming/index.html" title="mod polkadot_sdk_docs::reference_docs::trait_based_programming"><code>crate::reference_docs::trait_based_programming</code></a></li>
 <li><a href="../../polkadot_sdk/frame_runtime/index.html" title="mod polkadot_sdk_docs::polkadot_sdk::frame_runtime"><code>crate::polkadot_sdk::frame_runtime</code></a></li>
 </ul>
+<h3 id="topics-covered"><a class="doc-anchor" href="#topics-covered">§</a>Topics Covered</h3>
+<p>The following FRAME topics are covered in this guide:</p>
+<ul>
+<li><a href="../../../frame_support/pallet_macros/attr.config.html"><code>pallet::storage</code></a></li>
+<li><a href="../../../frame_support/pallet_macros/attr.call.html"><code>pallet::call</code></a></li>
+<li><a href="../../../frame_support/pallet_macros/attr.event.html"><code>pallet::event</code></a></li>
+<li><a href="../../../frame_support/pallet_macros/attr.error.html"><code>pallet::error</code></a></li>
+<li>Basics of testing a pallet</li>
+<li><a href="../../../frame_support_procedural/macro.construct_runtime.html" title="macro frame_support_procedural::construct_runtime">Constructing a runtime</a></li>
+</ul>
 <h4 id="shell-pallet"><a class="doc-anchor" href="#shell-pallet">§</a>Shell Pallet</h4>
 <p>Consider the following as a “shell pallet”. We continue building the rest of this pallet based
 on this template.</p>
-<p><a href="../../../frame_support_procedural/attr.config.html" title="attr frame_support_procedural::config"><code>pallet::config</code></a> and
-<a href="../../../frame_support_procedural/attr.pallet.html" title="attr frame_support_procedural::pallet"><code>pallet::pallet</code></a> are both mandatory parts of any pallet. Refer
-to the documentation of each to get an overview of what they do.</p>
+<p><a href="../../../frame_support/pallet_macros/attr.config.html"><code>pallet::config</code></a> and <a href="../../../frame_support/pallet_macros/attr.pallet.html"><code>pallet::pallet</code></a> are both mandatory parts of any pallet. Refer to the
+documentation of each to get an overview of what they do.</p>
 
 <div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="attr">#[frame::pallet(dev_mode)]
 </span><span class="kw">pub mod </span>shell_pallet {
@@ -199,6 +205,7 @@ to the documentation of each to get an overview of what they do.</p>
 	<span class="attr">#[pallet::pallet]
 	</span><span class="kw">pub struct </span>Pallet&lt;T&gt;(<span class="kw">_</span>);
 }</code></pre></div>
+<p>All of the code that follows in this guide should live inside of the <code>mod pallet</code>.</p>
 <h4 id="storage"><a class="doc-anchor" href="#storage">§</a>Storage</h4>
 <p>First, we will need to create two onchain storage declarations.</p>
 <p>One should be a mapping from account-ids to a balance type, and one value that is the total
@@ -210,8 +217,7 @@ generic bounded type in the <code>Config</code> trait, and then specify it in th
 </blockquote>
 
 <div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">pub type </span>Balance = u128;</code></pre></div>
-<p>The definition of these two storage items, based on <a href="../../../frame_support_procedural/attr.storage.html" title="attr frame_support_procedural::storage"><code>frame::pallet_macros::storage</code></a> details,
-is as follows:</p>
+<p>The definition of these two storage items, based on <a href="../../../frame_support/pallet_macros/attr.config.html"><code>pallet::storage</code></a> details, is as follows:</p>
 
 <div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="attr">#[pallet::storage]
 </span><span class="kw">pub type </span>TotalIssuance&lt;T: Config&gt; = StorageValue&lt;<span class="kw">_</span>, Balance&gt;;</code></pre></div>
@@ -219,8 +225,8 @@ is as follows:</p>
 <div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="attr">#[pallet::storage]
 </span><span class="kw">pub type </span>Balances&lt;T: Config&gt; = StorageMap&lt;<span class="kw">_</span>, <span class="kw">_</span>, T::AccountId, Balance&gt;;</code></pre></div>
 <h4 id="dispatchables"><a class="doc-anchor" href="#dispatchables">§</a>Dispatchables</h4>
-<p>Next, we will define the dispatchable functions. As per <a href="../../../frame_support_procedural/attr.call.html" title="attr frame_support_procedural::call"><code>frame::pallet_macros::call</code></a>, these
-will be defined as normal <code>fn</code>s attached to <code>struct Pallet</code>.</p>
+<p>Next, we will define the dispatchable functions. As per <a href="../../../frame_support/pallet_macros/attr.call.html"><code>pallet::call</code></a>, these will be defined
+as normal <code>fn</code>s attached to <code>struct Pallet</code>.</p>
 
 <div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="attr">#[pallet::call]
 </span><span class="kw">impl</span>&lt;T: Config&gt; Pallet&lt;T&gt; {
@@ -305,8 +311,7 @@ we can use basic string literals as our error type and <code>.into()</code> them
 <ul>
 <li>Why are all <code>get</code> and <code>mutate</code> functions returning an <code>Option</code>? This is the default behavior
 of FRAME storage APIs. You can learn more about how to override this by looking into
-<a href="../../../frame_support_procedural/attr.storage.html" title="attr frame_support_procedural::storage"><code>frame::pallet_macros::storage</code></a>, and
-<a href="../../../frame_support/storage/types/struct.ValueQuery.html" title="struct frame_support::storage::types::ValueQuery"><code>frame::prelude::ValueQuery</code></a>/<a href="../../../frame_support/storage/types/struct.OptionQuery.html" title="struct frame_support::storage::types::OptionQuery"><code>frame::prelude::OptionQuery</code></a></li>
+<a href="../../../frame_support/pallet_macros/attr.config.html"><code>pallet::storage</code></a>, and <a href="../../../frame_support/storage/types/struct.ValueQuery.html" title="struct frame_support::storage::types::ValueQuery"><code>frame::prelude::ValueQuery</code></a>/<a href="../../../frame_support/storage/types/struct.OptionQuery.html" title="struct frame_support::storage::types::OptionQuery"><code>frame::prelude::OptionQuery</code></a></li>
 </ul>
 <h4 id="improving-errors"><a class="doc-anchor" href="#improving-errors">§</a>Improving Errors</h4>
 <p>How we handle error in the above snippets is fairly rudimentary. Let’s look at how this can be
@@ -348,6 +353,22 @@ ergonomic.</p>
 }</code></pre></div>
 <p>This is more or less all the logic that there is this basic currency pallet!</p>
 <h4 id="your-first-test-runtime"><a class="doc-anchor" href="#your-first-test-runtime">§</a>Your First (Test) Runtime</h4>
+<p>The typical testing code of a pallet lives in a module that imports some preludes useful for
+testing, similar to:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">pub mod </span>pallet {
+	<span class="comment">// snip -- actually pallet code.
+</span>}
+
+<span class="attr">#[cfg(test)]
+</span><span class="kw">mod </span>tests {
+	<span class="comment">// bring in the testing prelude of frame
+	</span><span class="kw">use </span>frame::testing_prelude::<span class="kw-2">*</span>;
+	<span class="comment">// bring in all pallet items
+	</span><span class="kw">use </span><span class="kw">super</span>::pallet::<span class="kw-2">*</span>;
+
+	<span class="comment">// snip -- rest of the testing code.
+</span>}</code></pre></div>
 <p>Next, we create a “test runtime” in order to test our pallet. Recall from
 <a href="../../polkadot_sdk/frame_runtime/index.html" title="mod polkadot_sdk_docs::polkadot_sdk::frame_runtime"><code>crate::polkadot_sdk::frame_runtime</code></a> that a runtime is a collection of pallets, expressed
 through <a href="../../../frame_support_procedural/macro.construct_runtime.html" title="macro frame_support_procedural::construct_runtime"><code>frame::runtime::prelude::construct_runtime</code></a>. All runtimes also have to include
@@ -358,6 +379,7 @@ and the one we just wrote.</p>
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
 	<span class="comment">// we need to reference our `mod pallet` as an identifier to pass to
 	// `construct_runtime`.
+	// YOU HAVE TO CHANGE THIS LINE BASED ON YOUR TEMPLATE
 	</span><span class="kw">use </span><span class="kw">crate</span>::guides::your_first_pallet::pallet <span class="kw">as </span>pallet_currency;
 
 	<span class="macro">construct_runtime!</span>(
@@ -605,8 +627,7 @@ and are relatively heavy to transmit and encode/decode. Moreover, it is easy to 
 by one character. FRAME errors are exactly a solution to maintain readability, whilst fixing
 the drawbacks mentioned. In short, we use an enum to represent different variants of our
 error. These variants are then mapped in an efficient way (using only <code>u8</code> indices) to
-<a href="../../../sp_runtime/enum.DispatchError.html#variant.Module" title="variant sp_runtime::DispatchError::Module"><code>sp_runtime::DispatchError::Module</code></a>. Read more about this in
-<a href="../../../frame_support_procedural/attr.error.html" title="attr frame_support_procedural::error"><code>frame::pallet_macros::error</code></a>.</p>
+<a href="../../../sp_runtime/enum.DispatchError.html#variant.Module" title="variant sp_runtime::DispatchError::Module"><code>sp_runtime::DispatchError::Module</code></a>. Read more about this in <a href="../../../frame_support/pallet_macros/attr.error.html"><code>pallet::error</code></a>.</p>
 </li>
 <li>
 <p><strong>Event</strong>: Events are akin to the return type of dispatchables. They are mostly data blobs
@@ -619,9 +640,8 @@ needing to re-execute the whole state transition function.</p>
 </li>
 </ul>
 <p>With the explanation out of the way, let’s see how these components can be added. Both follow a
-fairly familiar syntax: normal Rust enums, with extra
-<a href="../../../frame_support_procedural/attr.event.html" title="attr frame_support_procedural::event"><code>#[frame::event]</code></a> and
-<a href="../../../frame_support_procedural/attr.error.html" title="attr frame_support_procedural::error"><code>#[frame::error]</code></a> attributes attached.</p>
+fairly familiar syntax: normal Rust enums, with extra <a href="../../../frame_support/pallet_macros/attr.event.html"><code>pallet::event</code></a> and <a href="../../../frame_support/pallet_macros/attr.error.html"><code>pallet::error</code></a>
+attributes attached.</p>
 
 <div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="attr">#[pallet::event]
 #[pallet::generate_deposit(<span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>deposit_event)]
@@ -637,9 +657,9 @@ fairly familiar syntax: normal Rust enums, with extra
 	<span class="doccomment">/// Account does not have enough balance.
 	</span>InsufficientBalance,
 }</code></pre></div>
-<p>One slightly custom part of this is the <a href="../../../frame_support_procedural/attr.generate_deposit.html" title="attr frame_support_procedural::generate_deposit"><code>#[pallet::generate_deposit(pub(super) fn deposit_event)]</code></a> part. Without going into too
-much detail, in order for a pallet to emit events to the rest of the system, it needs to do two
-things:</p>
+<p>One slightly custom part of this is the <a href="../../../frame_support/pallet_macros/attr.generate_deposit.html"><code>pallet::generate_deposit</code></a> part. Without going into
+too much detail, in order for a pallet to emit events to the rest of the system, it needs to do
+two things:</p>
 <ol>
 <li>
 <p>Declare a type in its <code>Config</code> that refers to the overarching event type of the runtime. In
@@ -648,8 +668,8 @@ store it where needed.</p>
 </li>
 <li>
 <p>But, doing this conversion and storing is too much to expect each pallet to define. FRAME
-provides a default way of storing events, and this is what
-<a href="../../../frame_support_procedural/attr.generate_deposit.html" title="attr frame_support_procedural::generate_deposit"><code>pallet::generate_deposit</code></a> is doing.</p>
+provides a default way of storing events, and this is what <a href="../../../frame_support/pallet_macros/attr.generate_deposit.html"><code>pallet::generate_deposit</code></a> is
+doing.</p>
 </li>
 </ol>
 
@@ -721,8 +741,7 @@ study them subsequently:</p>
 <li><a href="../../reference_docs/defensive_programming/index.html" title="mod polkadot_sdk_docs::reference_docs::defensive_programming"><code>crate::reference_docs::defensive_programming</code></a>.</li>
 <li><a href="../../reference_docs/frame_origin/index.html" title="mod polkadot_sdk_docs::reference_docs::frame_origin"><code>crate::reference_docs::frame_origin</code></a>.</li>
 <li><a href="../../reference_docs/frame_runtime_types/index.html" title="mod polkadot_sdk_docs::reference_docs::frame_runtime_types"><code>crate::reference_docs::frame_runtime_types</code></a>.</li>
-<li>The pallet we wrote in this guide was using <code>dev_mode</code>, learn more in
-<a href="../../../frame_support_procedural/attr.config.html" title="attr frame_support_procedural::config"><code>frame::pallet_macros::config</code></a>.</li>
+<li>The pallet we wrote in this guide was using <code>dev_mode</code>, learn more in <a href="../../../frame_support/pallet_macros/attr.config.html"><code>pallet::config</code></a>.</li>
 <li>Learn more about the individual pallet items/macros, such as event and errors and call, in
 <a href="../../../polkadot_sdk_frame/pallet_macros/index.html" title="mod polkadot_sdk_frame::pallet_macros"><code>frame::pallet_macros</code></a>.</li>
 </ul>

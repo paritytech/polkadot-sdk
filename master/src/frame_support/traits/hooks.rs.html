@@ -911,6 +911,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#760" id="760">760</a>
 <a href="#761" id="761">761</a>
 <a href="#762" id="762">762</a>
+<a href="#763" id="763">763</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1264,6 +1265,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// - [`crate::traits::misc::OffchainWorker`]
 /// - [`OnIdle`]
 /// - [`IntegrityTest`]
+/// - [`OnPoll`]
 ///
 /// ## Ordering
 ///
@@ -1276,34 +1278,32 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ///
 /// ```mermaid
 /// graph LR
-/// 	Optional --&gt; BeforeExtrinsics
-/// 	BeforeExtrinsics --&gt; Extrinsics
-/// 	Extrinsics --&gt; AfterExtrinsics
-/// 	subgraph Optional
+/// 	Optional --&gt; Mandatory
+/// 	Mandatory --&gt; ExtrinsicsMandatory
+/// 	ExtrinsicsMandatory --&gt; Poll
+/// 	Poll --&gt; Extrinsics
+/// 	Extrinsics --&gt; AfterMandatory
+/// 	AfterMandatory --&gt; onIdle
+///
+/// subgraph Optional
 /// 	OnRuntimeUpgrade
 /// end
 ///
-/// subgraph BeforeExtrinsics
+/// subgraph Mandatory
 /// 	OnInitialize
+/// end
+///
+/// subgraph ExtrinsicsMandatory
+/// 	Inherent1 --&gt; Inherent2
 /// end
 ///
 /// subgraph Extrinsics
 /// 	direction TB
-/// 	Inherent1
-/// 	Inherent2
-/// 	Extrinsic1
-/// 	Extrinsic2
-///
-/// 	Inherent1 --&gt; Inherent2
-/// 	Inherent2 --&gt; Extrinsic1
 /// 	Extrinsic1 --&gt; Extrinsic2
 /// end
 ///
-/// subgraph AfterExtrinsics
-/// 	OnIdle
+/// subgraph AfterMandatory
 /// 	OnFinalize
-///
-/// 	OnIdle --&gt; OnFinalize
 /// end
 /// ```
 ///
@@ -1379,6 +1379,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// Is not guaranteed to execute in a block and should therefore only be used in no-deadline
 	/// scenarios.
+	///
+	/// This is the non-mandatory version of [`Hooks::on_initialize`].
 	</span><span class="kw">fn </span>on_poll(_n: BlockNumber, _weight: <span class="kw-2">&amp;mut </span>WeightMeter) {}
 
 	<span class="doccomment">/// Hook executed when a code change (aka. a "runtime upgrade") is detected by the FRAME

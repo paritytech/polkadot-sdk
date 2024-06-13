@@ -168,6 +168,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <li>[<code>crate::traits::misc::OffchainWorker</code>]</li>
 <li>[<code>OnIdle</code>]</li>
 <li>[<code>IntegrityTest</code>]</li>
+<li>[<code>OnPoll</code>]</li>
 </ul>
 <h3 id="ordering"><a class="doc-anchor" href="#ordering">§</a>Ordering</h3>
 <p>For all hooks, except [<code>OnIdle</code>] the order of execution is derived from how the pallets are
@@ -175,34 +176,32 @@ ordered in <a href="../frame_support_procedural/macro.construct_runtime.html" ti
 <h3 id="summary"><a class="doc-anchor" href="#summary">§</a>Summary</h3>
 <p>In short, the following diagram shows the flow of hooks in a pallet</p>
 <div class="example-wrap"><pre class="language-mermaid"><code>graph LR
-	Optional --&gt; BeforeExtrinsics
-	BeforeExtrinsics --&gt; Extrinsics
-	Extrinsics --&gt; AfterExtrinsics
-	subgraph Optional
+	Optional --&gt; Mandatory
+	Mandatory --&gt; ExtrinsicsMandatory
+	ExtrinsicsMandatory --&gt; Poll
+	Poll --&gt; Extrinsics
+	Extrinsics --&gt; AfterMandatory
+	AfterMandatory --&gt; onIdle
+
+subgraph Optional
 	OnRuntimeUpgrade
 end
 
-subgraph BeforeExtrinsics
+subgraph Mandatory
 	OnInitialize
+end
+
+subgraph ExtrinsicsMandatory
+	Inherent1 --&gt; Inherent2
 end
 
 subgraph Extrinsics
 	direction TB
-	Inherent1
-	Inherent2
-	Extrinsic1
-	Extrinsic2
-
-	Inherent1 --&gt; Inherent2
-	Inherent2 --&gt; Extrinsic1
 	Extrinsic1 --&gt; Extrinsic2
 end
 
-subgraph AfterExtrinsics
-	OnIdle
+subgraph AfterMandatory
 	OnFinalize
-
-	OnIdle --&gt; OnFinalize
 end
 </code></pre></div>
 <ul>
@@ -255,6 +254,7 @@ therefore return) more than this amount.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.on_poll" class="method"><h4 class="code-header">fn <a href="#method.on_poll" class="fn">on_poll</a>(_n: BlockNumber, _weight: &amp;mut <a class="struct" href="../sp_weights/weight_meter/struct.WeightMeter.html" title="struct sp_weights::weight_meter::WeightMeter">WeightMeter</a>)</h4></section></summary><div class="docblock"><p>A hook to run logic after inherent application.</p>
 <p>Is not guaranteed to execute in a block and should therefore only be used in no-deadline
 scenarios.</p>
+<p>This is the non-mandatory version of <a href="trait.Hooks.html#method.on_initialize" title="associated function pallet_fast_unstake::Hooks::on_initialize"><code>Hooks::on_initialize</code></a>.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.on_runtime_upgrade" class="method"><h4 class="code-header">fn <a href="#method.on_runtime_upgrade" class="fn">on_runtime_upgrade</a>() -&gt; <a class="struct" href="../sp_weights/weight_v2/struct.Weight.html" title="struct sp_weights::weight_v2::Weight">Weight</a></h4></section></summary><div class="docblock"><p>Hook executed when a code change (aka. a “runtime upgrade”) is detected by the FRAME
 <code>Executive</code> pallet.</p>
 <p>Be aware that this is called before <a href="trait.Hooks.html#method.on_initialize" title="associated function pallet_fast_unstake::Hooks::on_initialize"><code>Hooks::on_initialize</code></a> of any pallet; therefore, a lot

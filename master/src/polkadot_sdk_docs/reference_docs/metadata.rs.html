@@ -150,7 +150,55 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
             <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
     <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../polkadot_sdk_docs/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<a href="#2" id="2">2</a>
+<a href="#3" id="3">3</a>
+<a href="#4" id="4">4</a>
+<a href="#5" id="5">5</a>
+<a href="#6" id="6">6</a>
+<a href="#7" id="7">7</a>
+<a href="#8" id="8">8</a>
+<a href="#9" id="9">9</a>
+<a href="#10" id="10">10</a>
+<a href="#11" id="11">11</a>
+<a href="#12" id="12">12</a>
+<a href="#13" id="13">13</a>
+<a href="#14" id="14">14</a>
+<a href="#15" id="15">15</a>
+<a href="#16" id="16">16</a>
+<a href="#17" id="17">17</a>
+<a href="#18" id="18">18</a>
+<a href="#19" id="19">19</a>
+<a href="#20" id="20">20</a>
+<a href="#21" id="21">21</a>
+<a href="#22" id="22">22</a>
+<a href="#23" id="23">23</a>
+<a href="#24" id="24">24</a>
+<a href="#25" id="25">25</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! # Metadata
+//!
+//! The existence of metadata in polkadot-sdk goes back to the (forkless) upgrade-ability of all
+//! Substrate-based blockchains, which is achieved through
+//! [`crate::reference_docs::wasm_meta_protocol`]. You can learn more about the details of how to
+//! deal with these upgrades in [`crate::reference_docs::frame_runtime_upgrades_and_migrations`].
+//!
+//! Another consequence of upgrade-ability is that as a UI, wallet, or generally an offchain entity,
+//! it is hard to know the types internal to the runtime, specifically in light of the fact that
+//! they can change at any point in time.
+//!
+//! This is why all Substrate-based runtimes must expose a [`sp_api::Metadata`] api, which mandates
+//! the runtime to return a description of itself. The return type of this api is `Vec&lt;u8&gt;`, meaning
+//! that it is up to the runtime developer to decide on the format of this.
+//!
+//! All [`crate::polkadot_sdk::frame_runtime`] based runtimes expose a specific metadata language,
+//! maintained in &lt;https://github.com/paritytech/frame-metadata&gt; which is adopted in the Polkadot
+//! ecosystem.
+//!
+//! ## Metadata Explorers:
+//!
+//! A few noteworthy tools that inspect the (FRAME-based) metadata of a chain:
+//!
+//! &lt;https://wiki.polkadot.network/docs/metadata&gt;
+//! &lt;https://paritytech.github.io/subxt-explorer/&gt;
 </span></code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 

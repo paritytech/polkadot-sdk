@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":["changing_consensus","cumulus_enabled_parachain","enable_metadata_hash","enable_pov_reclaim","xcm_enabled_parachain","your_first_node","your_first_pallet","your_first_runtime"]};
+window.SIDEBAR_ITEMS = {"mod":["enable_metadata_hash","enable_pov_reclaim","your_first_pallet","your_first_runtime"]};
