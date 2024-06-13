@@ -14,5 +14,4 @@ crates:
   - name: pallet-glutton
     bump: major
   - name: glutton-westend-runtime
-    bump: minor
-
+    bump: major
