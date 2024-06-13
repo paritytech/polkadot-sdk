@@ -512,20 +512,14 @@ where
 			match import_future.await {
 				Ok(_) => {
 					let elapsed = start.elapsed();
-					debug!("import transaction: {elapsed:?}");
+					debug!(target: sc_transaction_pool::LOG_TARGET, "import transaction: {elapsed:?}");
 					TransactionImport::NewGood
 				},
 				Err(e) => match e.into_pool_error() {
-					Ok(sc_transaction_pool_api::error::Error::AlreadyImported(_)) => {
-						debug!("import transaction known good");
-						TransactionImport::KnownGood
-					},
-					Ok(e) => {
-						debug!("Error adding transaction to the pool: {:?}", e);
-						TransactionImport::Bad
-					},
-					Err(e) => {
-						debug!("Error converting pool error: {}", e);
+					Ok(sc_transaction_pool_api::error::Error::AlreadyImported(_)) =>
+						TransactionImport::KnownGood,
+					Ok(_) => TransactionImport::Bad,
+					Err(_) => {
 						// it is not bad at least, just some internal node logic error, so peer is
 						// innocent.
 						TransactionImport::KnownGood
