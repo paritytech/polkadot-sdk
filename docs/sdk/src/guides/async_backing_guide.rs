@@ -114,5 +114,80 @@
 //!    `register_validate_block` should look after removing `CheckInherents`.
 #![doc = docify::embed!("../../templates/parachain/runtime/src/lib.rs", register_validate_block)]
 //!
+//!
+//! ## Phase 2 - Update Parachain Nodes
+//!
+//! This phase consists of plugging in the new lookahead collator node.
+//!
+//! 1. Import `cumulus_primitives_core::ValidationCode` to `node/src/service.rs`.
+#![doc = docify::embed!("../../templates/parachain/node/src/service.rs", cumulus_primitives)]
+//!
+//! 2. In `node/src/service.rs`, modify `sc_service::spawn_tasks` to use a clone of `Backend` rather
+//!    than the original
+//! ```ignore
+//! sc_service::spawn_tasks(sc_service::SpawnTasksParams {
+//!     ..
+//!     backend: backend.clone(),
+//!     ..
+//! })?;
+//! ```
+//!
+//! 3. Add `backend` as a parameter to `start_consensus()` in `node/src/service.rs`
+//! ```text
+//! fn start_consensus(
+//!     ..
+//!     backend: Arc<ParachainBackend>,
+//!     ..
+//! ```
+//! ```ignore
+//! if validator {
+//!   start_consensus(
+//!     ..
+//!     backend.clone(),
+//!     ..
+//!    )?;
+//! }
+//! ```
+//!
+//! 4. In `node/src/service.rs` import the lookahead collator rather than the basic collator
+#![doc = docify::embed!("../../templates/parachain/node/src/service.rs", lookahead_collator)]
+//!
+//! 5. In `start_consensus()` replace the `BasicAuraParams` struct with `AuraParams`
+//!    - Change the struct type from `BasicAuraParams` to `AuraParams`
+//!    - In the `para_client` field, pass in a cloned para client rather than the original
+//!    - Add a `para_backend` parameter after `para_client`, passing in our para backend
+//!    - Provide a `code_hash_provider` closure like that shown below
+//!    - Increase `authoring_duration` from 500 milliseconds to 1500
+//! ```ignore
+//! let params = AuraParams {
+//!     ..
+//!     para_client: client.clone(),
+//!     para_backend: backend.clone(),
+//!     ..
+//!     code_hash_provider: move |block_hash| {
+//!         client.code_at(block_hash).ok().map(|c| ValidationCode::from(c).hash())
+//!     },
+//!     ..
+//!     authoring_duration: Duration::from_millis(1500),
+//!     ..
+//! };
+//! ```
+//!
+//! **Note:** Set `authoring_duration` to whatever you want, taking your own hardware into account.
+//! But if the backer who should be slower than you due to reading from disk, times out at two
+//! seconds your candidates will be rejected.
+//!
+//! 6. In `start_consensus()` replace `basic_aura::run` with `aura::run`
+//! ```ignore
+//! let fut =
+//! aura::run::<Block, sp_consensus_aura::sr25519::AuthorityPair, _, _, _, _, _, _, _, _, _>(
+//!    params,
+//! );
+//! task_manager.spawn_essential_handle().spawn("aura", None, fut);
+//! ```
+//!
+
+
 #![deny(rustdoc::broken_intra_doc_links)]
 #![deny(rustdoc::private_intra_doc_links)]
+
