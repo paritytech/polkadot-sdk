@@ -123,7 +123,7 @@ pub mod pallet {
 
 	/// The proportion of the `block length` to consume on each block.
 	///
-	/// `1.0` is mapped to `100%`. If this too high could stall the chain as the block length
+	/// `1.0` is mapped to `100%`. If this is too high, it could stall the chain as the block length
 	/// increase will translate into higher PoV size.
 	#[pallet::storage]
 	pub(crate) type Length<T: Config> = StorageValue<_, FixedU64, ValueQuery>;
@@ -185,7 +185,7 @@ pub mod pallet {
 			assert!(self.storage <= RESOURCE_HARD_LIMIT, "Storage limit is insane");
 			<Storage<T>>::put(self.storage);
 
-			assert!(self.block_length <= RESOURCE_HARD_LIMIT, "Storage limit is insane");
+			assert!(self.block_length <= RESOURCE_HARD_LIMIT, "Block length limit is insane");
 			<Length<T>>::put(self.block_length);
 		}
 	}
@@ -225,24 +225,10 @@ pub mod pallet {
 		}
 	}
 
-	/// Dummy error type.
-	#[derive(codec::Encode, sp_runtime::RuntimeDebug)]
-	#[cfg_attr(feature = "std", derive(codec::Decode))]
-	pub enum InherentError {
-		/// Fatal error.
-		Fatal,
-	}
-
-	impl frame_support::inherent::IsFatalError for InherentError {
-		fn is_fatal_error(&self) -> bool {
-			matches!(self, InherentError::Fatal)
-		}
-	}
-
 	#[pallet::inherent]
 	impl<T: Config> ProvideInherent for Pallet<T> {
 		type Call = Call<T>;
-		type Error = InherentError;
+		type Error = sp_inherents::MakeFatalError<()>;
 
 		const INHERENT_IDENTIFIER: InherentIdentifier = *b"bloated0";
 
@@ -270,10 +256,6 @@ pub mod pallet {
 				Call::bloat { .. } => Ok(()),
 				_ => unreachable!("other calls are not inherents"),
 			}
-		}
-
-		fn is_inherent_required(_d: &InherentData) -> Result<Option<Self::Error>, Self::Error> {
-			Ok(Some(InherentError::Fatal))
 		}
 	}
 
