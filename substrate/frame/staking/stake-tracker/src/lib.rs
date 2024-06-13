@@ -136,7 +136,7 @@ impl<Score: PartialOrd + DefensiveSaturating> StakeImbalance<Score> {
 pub enum VoterUpdateMode {
 	/// All score update events will be automatically reflected in the sorted list.
 	Strict,
-	/// Score update events are *not* be automatically reflected in the sorted list. Howeber, node
+	/// Score update events are *not* be automatically reflected in the sorted list. However, node
 	/// insertion and removals are reflected in the list.
 	Lazy,
 }
@@ -191,7 +191,7 @@ pub mod pallet {
 			stake: Stake<BalanceOf<T>>,
 			nominations: Vec<T::AccountId>,
 		) {
-			debug_assert!(!Self::has_duplicate_nominations(nominations.clone()));
+			defensive_assert!(!Self::has_duplicate_nominations(nominations.clone()));
 
 			let voter_weight = Self::to_vote(stake.active);
 
@@ -247,8 +247,9 @@ pub mod pallet {
 		) {
 			// if target list does not contain target, add it and proceed.
 			if !T::TargetList::contains(who) {
-				T::TargetList::on_insert(who.clone(), Zero::zero())
-					.expect("staker does not yet exist in the list as per check above; qed.");
+				let _ = T::TargetList::on_insert(who.clone(), Zero::zero()).defensive_proof(
+					"staker does not yet exist in the list as per check above; qed.",
+				);
 			}
 
 			// update target score.
@@ -349,8 +350,8 @@ impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
 			Ok(_) => (),
 			Err(_) => {
 				// if the target already exists in the list, it means that the target is idle
-				// and/or is dangling.
-				debug_assert!(
+				// and/or is dangling and now it's becoming active again.
+				defensive_assert!(
 					T::Staking::status(who) == Ok(StakerStatus::Idle) ||
 						T::Staking::status(who).is_err()
 				);
@@ -360,21 +361,19 @@ impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
 		}
 
 		// a validator is also a nominator.
-		Self::on_nominator_add(who, vec![])
+		Self::on_nominator_add(who, vec![who.clone()])
 	}
 
 	/// Triggered when a validator is chilled.
 	///
 	/// Overview: When chilled, the target node may not be removed from the target list. The
-	/// associated target list score is updated so that the self-stake is decreased from itself. If
-	/// the final target score drops to 0, the node is removed since we can guarantee that there are
-	/// no nominators voting for the chlled target.
+	/// associated target list score is updated so that the self-stake is decreased from itself.
+	///
+	/// This method will not *try* to remove the target from the target list. That is the
+	/// responsability of [`OnStakingUpdate::on_validator_remove`].
 	fn on_validator_idle(who: &T::AccountId) {
-		let self_stake = Self::vote_of(who);
-		Self::update_target_score(who, StakeImbalance::Negative(self_stake.into()));
-
-		// validator is a nominator too.
-		Self::on_nominator_idle(who, vec![]);
+		// validator is a validator with itself as a nomination.
+		Self::on_nominator_idle(who, vec![who.clone()]);
 	}
 
 	/// Triggered when a validator is set as inactive/removed by the staking system.
@@ -403,7 +402,8 @@ impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
 			// active nominations, thus we keep it in the target list with corresponding approval
 			// stake.
 			if score.is_zero() {
-				T::TargetList::on_remove(who).expect("target exists as per above; qed");
+				let _ = T::TargetList::on_remove(who)
+					.defensive_proof("target exists as per above; qed");
 			}
 		} else {
 			// target is not part of the list. Given the contract with staking and the checks above,
@@ -414,11 +414,11 @@ impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
 	/// Triggered when a new nominator is added to the system.
 	///
 	/// Overview: Inserts a new node in the voter list with the score being `who`'s bonded stake.
-	/// The new node is inserted regardless of the [`Self::VoterUpdateMode`] set.
+	/// The new node is inserted regardless of the [`crate::VoterUpdateMode`] set.
 	///
 	/// Note: this method is also used locally when adding a new target (target is also a voter).
 	fn on_nominator_add(who: &T::AccountId, nominations: Vec<AccountIdOf<T>>) {
-		debug_assert!(!Self::has_duplicate_nominations(nominations.clone()));
+		defensive_assert!(!Self::has_duplicate_nominations(nominations.clone()));
 
 		let nominator_vote = Self::vote_of(who);
 
@@ -456,7 +456,7 @@ impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
 	/// Note: the number of nodes that are updated is bounded by the maximum number of
 	/// nominators, which is defined in the staking pallet.
 	fn on_nominator_remove(who: &T::AccountId, nominations: Vec<T::AccountId>) {
-		debug_assert!(!Self::has_duplicate_nominations(nominations.clone()));
+		defensive_assert!(!Self::has_duplicate_nominations(nominations.clone()));
 
 		let nominator_vote = Self::vote_of(who);
 
@@ -482,8 +482,8 @@ impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
 		prev_nominations: Vec<T::AccountId>,
 		nominations: Vec<T::AccountId>,
 	) {
-		debug_assert!(!Self::has_duplicate_nominations(prev_nominations.clone()));
-		debug_assert!(!Self::has_duplicate_nominations(nominations.clone()));
+		defensive_assert!(!Self::has_duplicate_nominations(prev_nominations.clone()));
+		defensive_assert!(!Self::has_duplicate_nominations(nominations.clone()));
 
 		let nominator_vote = Self::vote_of(who);
 
