@@ -22,6 +22,8 @@
 //! - availability-distribution
 //! - bitfield-distribution
 //! - availability-store
+//!
+//! The benchmark is run with 500 validators and 3 blocks.
 
 use polkadot_subsystem_bench::{
 	availability::{benchmark_availability_write, prepare_test, TestState},
