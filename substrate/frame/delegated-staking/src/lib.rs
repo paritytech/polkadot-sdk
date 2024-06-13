@@ -409,6 +409,10 @@ pub mod pallet {
 				Delegation::<T>::can_delegate(&delegator, &agent),
 				Error::<T>::InvalidDelegation
 			);
+
+			// Note: Staking uses locks (freeze) which are not mutually exclusive of holds. We
+			// cannot allow funds to be delegated if they are locked in staking. An account can
+			// only either delegate or stake.
 			ensure!(!Self::is_direct_staker(&delegator), Error::<T>::AlreadyStaking);
 
 			// ensure agent is sane.

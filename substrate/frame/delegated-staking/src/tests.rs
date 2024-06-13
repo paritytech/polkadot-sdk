@@ -1219,52 +1219,55 @@ mod pool_integration {
 	}
 
 	#[test]
-	fn staked_funds_cannot_be_used_for_delegation() {
+	fn existing_stakers_cannot_participate_in_pools() {
+		// Staking uses freezes while pools/delegated-staking uses holds. It is possible that funds
+		// frozen for staking, could be re-used to participate in pools. We ensure this does not
+		// happen by making sure that existing stakers cannot participate in pools and vice versa.
 		ExtBuilder::default().build_and_execute(|| {
 			// GIVEN
-			// alice has a balance of 1000.
+			// alice and a pool
 			let alice = 300;
-			let balance_alice = 1000;
-			fund(&alice, balance_alice);
-			// alice stakes 600.
+			fund(&alice, 1000);
+			fund(&200, 5000);
+			let pool_id = create_pool(200, 5000);
+
+			// WHEN
+			// alice directly stakes.
 			assert_ok!(Staking::bond(
 				RuntimeOrigin::signed(alice),
-				600,
+				300,
 				RewardDestination::Account(alice)
 			));
 
-			// And a pool exists
-			let creator = 200;
-			fund(&creator, 5000);
-			let pool_id = create_pool(creator, 5000);
+			// THEN
+			// alice cannot join the pool.
+			assert_noop!(
+				Pools::join(RawOrigin::Signed(alice).into(), 300, pool_id),
+				Error::<T>::AlreadyStaking
+			);
+		});
+	}
+
+	#[test]
+	fn existing_pool_members_cannot_directly_stake() {
+		// Also see `existing_stakers_cannot_participate_in_pools` for the opposite scenario.
+		ExtBuilder::default().build_and_execute(|| {
+			// GIVEN
+			// alice and a pool
+			let alice = 300;
+			fund(&alice, 1000);
+			fund(&200, 5000);
+			let pool_id = create_pool(200, 5000);
 
 			// WHEN
-			// alice can only use non staked funds for delegation.
-			assert_eq!(
-				Balances::reducible_balance(&alice, Preservation::Protect, Fortitude::Polite),
-				400
-			);
+			// alice participates in a pool.
+			assert_ok!(Pools::join(RawOrigin::Signed(alice).into(), 300, pool_id));
 
-			// alice tries to join with funds that are already staked (that is more than 400).
+			// THEN
+			// alice cannot directly stake.
 			assert_noop!(
-				Pools::join(RawOrigin::Signed(alice).into(), 401, pool_id),
-				Error::<T>::NotEnoughFunds
-			);
-
-			// Delegating upto 400 works
-			assert_ok!(Pools::join(RawOrigin::Signed(alice).into(), 200, pool_id));
-			assert_ok!(Pools::bond_extra(
-				RawOrigin::Signed(alice).into(),
-				BondExtra::FreeBalance(200)
-			));
-			// alice balance that can be delegated has reduced to 0.
-			assert_eq!(
-				Balances::reducible_balance(&alice, Preservation::Protect, Fortitude::Polite),
-				0
-			);
-			assert_noop!(
-				Pools::bond_extra(RawOrigin::Signed(alice).into(), BondExtra::FreeBalance(200)),
-				Error::<T>::NotEnoughFunds
+				Staking::bond(RuntimeOrigin::signed(alice), 300, RewardDestination::Account(alice)),
+				Error::<T>::AlreadyStaking
 			);
 		});
 	}
