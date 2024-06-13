@@ -140,6 +140,7 @@ use frame_support::{
 	pallet_prelude::*,
 	traits::{
 		fungible::{
+			freeze::Inspect as FunFreezeInspect,
 			hold::{
 				Balanced as FunHoldBalanced, Inspect as FunHoldInspect, Mutate as FunHoldMutate,
 			},
@@ -183,7 +184,8 @@ pub mod pallet {
 		/// Currency type.
 		type Currency: FunHoldMutate<Self::AccountId, Reason = Self::RuntimeHoldReason>
 			+ FunMutate<Self::AccountId>
-			+ FunHoldBalanced<Self::AccountId>;
+			+ FunHoldBalanced<Self::AccountId>
+		+ FunFreezeInspect<Self::AccountId>;
 
 		/// Handler for the unbalanced reduction when slashing a delegator.
 		type OnSlash: OnUnbalanced<Credit<Self::AccountId, Self::Currency>>;
@@ -403,6 +405,25 @@ pub mod pallet {
 			amount: BalanceOf<T>,
 		) -> DispatchResult {
 			let delegator = ensure_signed(origin)?;
+
+			// we need to ensure that the funds to delegate (hold) are not taken from frozen funds.
+			println!(
+				"Reducible balance delegator: {:?} {:?}",
+				delegator,
+				T::Currency::reducible_balance(
+					&delegator,
+					Preservation::Protect,
+					Fortitude::Polite
+				)
+			);
+			ensure!(
+				T::Currency::reducible_balance(
+					&delegator,
+					Preservation::Protect,
+					Fortitude::Polite
+				) >= amount,
+				Error::<T>::NotEnoughFunds
+			);
 
 			// ensure delegator is sane.
 			ensure!(
@@ -822,10 +843,6 @@ impl<T: Config> Pallet<T> {
 	) -> Result<(), sp_runtime::TryRuntimeError> {
 		let mut delegation_aggregation = BTreeMap::<T::AccountId, BalanceOf<T>>::new();
 		for (delegator, delegation) in delegations.iter() {
-			ensure!(
-				T::CoreStaking::status(delegator).is_err(),
-				"delegator should not be directly staked"
-			);
 			ensure!(!Self::is_agent(delegator), "delegator cannot be an agent");
 
 			delegation_aggregation
