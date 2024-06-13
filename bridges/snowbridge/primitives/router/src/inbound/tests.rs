@@ -5,7 +5,7 @@ use hex_literal::hex;
 use xcm::prelude::*;
 use xcm_executor::traits::ConvertLocation;
 
-const NETWORK: NetworkId = Ethereum { chain_id: 11155111 };
+const NETWORK: NetworkId = Ethereum { chain_id: 1 };
 
 parameter_types! {
 	pub EthereumNetwork: NetworkId = NETWORK;
@@ -15,6 +15,7 @@ parameter_types! {
 	pub const CreateAssetDeposit: u128 = 891;
 	pub const SendTokenExecutionFee: u128 = 592;
 }
+use sp_core::H256;
 
 #[test]
 fn test_contract_location_with_network_converts_successfully() {
@@ -25,6 +26,9 @@ fn test_contract_location_with_network_converts_successfully() {
 	let account =
 		GlobalConsensusEthereumConvertsFor::<[u8; 32]>::convert_location(&contract_location)
 			.unwrap();
+
+	let account_hex: H256 = account.into();
+	println!("{:?}", account_hex);
 
 	assert_eq!(account, expected_account);
 }
