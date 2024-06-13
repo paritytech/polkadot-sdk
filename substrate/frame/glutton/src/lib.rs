@@ -350,7 +350,7 @@ pub mod pallet {
 		/// Increase the block size by including the specified garbage bytes.
 		#[pallet::call_index(3)]
 		#[pallet::weight({0})]
-		pub fn bloat(origin: OriginFor<T>, garbage: Vec<[u8; VALUE_SIZE]>) -> DispatchResult {
+		pub fn bloat(_origin: OriginFor<T>, _garbage: Vec<[u8; VALUE_SIZE]>) -> DispatchResult {
 			Ok(())
 		}
 
