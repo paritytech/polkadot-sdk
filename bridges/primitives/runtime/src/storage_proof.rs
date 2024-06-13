@@ -21,8 +21,8 @@ use sp_core::{storage::TrackedStorageKey, RuntimeDebug};
 use sp_runtime::{SaturatedConversion, StateVersion};
 use sp_std::{default::Default, vec, vec::Vec};
 use sp_trie::{
-	generate_trie_proof, verify_trie_proof, LayoutV0, LayoutV1, PrefixedMemoryDB, StorageProof,
-	TrieDBBuilder, TrieHash,
+	generate_trie_proof, verify_trie_proof, LayoutV0, LayoutV1, StorageProof, TrieDBBuilder,
+	TrieHash,
 };
 
 use codec::{Decode, Encode};
@@ -108,8 +108,10 @@ impl UnverifiedStorageProof {
 		let keys: Vec<_> = entries.iter().map(|(key, _)| key.clone()).collect();
 		let entries: Vec<_> =
 			entries.iter().cloned().map(|(key, val)| (None, vec![(key, val)])).collect();
-		let backend =
-			sp_state_machine::TrieBackend::<PrefixedMemoryDB<H>, H>::from((entries, state_version));
+		let backend = sp_state_machine::TrieBackend::<sp_trie::PrefixedMemoryDB<H>, H>::from((
+			entries,
+			state_version,
+		));
 		let root = *backend.root();
 
 		Ok((root, UnverifiedStorageProof::try_from_db(backend.backend_storage(), root, keys)?))

@@ -23,13 +23,7 @@ use bp_messages::{
 	ChainWithMessages, LaneId, MessageNonce,
 };
 use bp_runtime::{messages::MessageDispatchResult, Chain, ChainId, HashOf};
-use bridge_runtime_common::{
-	// messages::{
-	// 	source::TargetHeaderChainAdapter, target::SourceHeaderChainAdapter,
-	// 	BridgedChainWithMessages, HashOf, MessageBridge, ThisChainWithMessages,
-	// },
-	messages_xcm_extension::{SenderAndLane, XcmBlobHauler},
-};
+use bridge_runtime_common::messages_xcm_extension::{SenderAndLane, XcmBlobHauler};
 use codec::Encode;
 use frame_support::{derive_impl, parameter_types, weights::RuntimeDbWeight};
 use sp_core::H256;
