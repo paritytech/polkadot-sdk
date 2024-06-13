@@ -24,6 +24,13 @@ macro_rules! log_xt {
 			}
 		}
 	};
+	(data: hash, target: $target:expr, $level:expr, $tx_collection:expr, $text_with_format:expr,  $($arg:expr),*) => {
+		if log::max_level() >= $level {
+			for tx in $tx_collection {
+				log::log!(target: $target, $level, $text_with_format, tx,  $($arg),*);
+			}
+		}
+	};
 	(data: tuple, target: $target:expr, $level:expr, $tx_collection:expr, $text_with_format:expr) => {
 		if log::max_level() >= $level {
 			for tx in $tx_collection {
@@ -35,7 +42,9 @@ macro_rules! log_xt {
 
 macro_rules! log_xt_debug {
     (data: $datatype:ident, target: $target:expr, $($arg:tt)+) => ($crate::common::log_xt::log_xt!(data: $datatype, target: $target, log::Level::Debug, $($arg)+));
-    (target: $target:expr, $($arg:tt)+) => ($crate::common::log_xt::log_xt!(data: hash, target: $target, log::Level::Debug, $($arg)+));
+    // (target: $target:expr, $($arg:tt)+) => ($crate::common::log_xt::log_xt!(data: hash, target: $target, log::Level::Debug, $($arg)+));
+    (target: $target:expr, $tx_collection:expr, $text_with_format:expr) => ($crate::common::log_xt::log_xt!(data: hash, target: $target, log::Level::Debug, $tx_collection, $text_with_format));
+    (target: $target:expr, $tx_collection:expr, $text_with_format:expr, $($arg:expr)*) => ($crate::common::log_xt::log_xt!(data: hash, target: $target, log::Level::Debug, $tx_collection, $text_with_format, $($arg)*));
 }
 
 pub(crate) use log_xt;

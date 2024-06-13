@@ -362,7 +362,7 @@ where
 			.add(at)
 			.map(|received| {
 				received.unwrap_or_else(|e| {
-					log::warn!("Error receiving pending set: {:?}", e);
+					log::warn!(target: LOG_TARGET, "Error receiving pending set: {:?}", e);
 					Box::new(std::iter::empty())
 				})
 			})
@@ -566,7 +566,7 @@ pub async fn prune_known_txs_for_block<Block: BlockT, Api: graph::ChainApi<Block
 		.block_body(at.hash)
 		.await
 		.unwrap_or_else(|e| {
-			log::warn!("Prune known transactions: error request: {}", e);
+			log::warn!(target: LOG_TARGET, "Prune known transactions: error request: {}", e);
 			None
 		})
 		.unwrap_or_default();
@@ -658,7 +658,7 @@ where
 					.block_body(hash)
 					.await
 					.unwrap_or_else(|e| {
-						log::warn!("Failed to fetch block body: {}", e);
+						log::warn!(target: LOG_TARGET, "Failed to fetch block body: {}", e);
 						None
 					})
 					.unwrap_or_default()

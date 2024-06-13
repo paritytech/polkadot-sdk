@@ -94,8 +94,6 @@ async fn batch_revalidate<Api: ChainApi>(
 	}))
 	.await;
 
-	log::info!("revalidate: {:#?}", validation_results);
-
 	for (validation_result, ext_hash, ext) in validation_results {
 		match validation_result {
 			Ok(Err(TransactionValidityError::Invalid(err))) => {

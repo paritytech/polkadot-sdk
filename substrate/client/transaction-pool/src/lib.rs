@@ -31,7 +31,11 @@ mod single_state_txpool;
 use common::{api, enactment_state};
 use std::{future::Future, pin::Pin, sync::Arc};
 
-pub(crate) const LOG_TARGET: &str = "txpool";
+/// Log target for transaction pool.
+///
+/// It can be used by other components for logging functionality strictly related to txpool (e.g.
+/// importing transaction).
+pub const LOG_TARGET: &str = "txpool";
 
 pub use graph::{base_pool::Limit as PoolLimit, ChainApi, Options};
 pub use single_state_txpool::{notification_future, RevalidationType};

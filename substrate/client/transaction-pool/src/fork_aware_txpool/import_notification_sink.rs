@@ -125,7 +125,7 @@ where
 				async move {
 					if filter.write().await.insert(event.clone()) {
 						for sink in &mut *external_sinks.write().await {
-							debug!(target: LOG_TARGET, "import_sink_worker sending out event: {event:?}");
+							debug!(target: LOG_TARGET, "[{:?}] import_sink_worker sending out imported", event);
 							//todo: log/handle error
 							let _ = sink.try_send(event.clone());
 						}

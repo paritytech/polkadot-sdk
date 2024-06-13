@@ -23,7 +23,7 @@ use std::{marker::PhantomData, sync::Arc, time::Duration};
 
 use crate::{
 	fork_aware_txpool::fork_aware_txpool::FullPool as ForkAwareFullPool, graph::IsValidator,
-	single_state_txpool::single_state_txpool::FullPool as SingleStateFullPool,
+	single_state_txpool::single_state_txpool::FullPool as SingleStateFullPool, LOG_TARGET,
 };
 use prometheus_endpoint::Registry as PrometheusRegistry;
 use sc_transaction_pool_api::{LocalTransactionPool, MaintainedTransactionPool};
@@ -208,6 +208,7 @@ where
 		spawner: impl SpawnEssentialNamed,
 		client: Arc<Client>,
 	) -> Arc<TransactionPoolImpl<Block, Client>> {
+		log::info!(target:LOG_TARGET, " creating {:?} txpool.", self.options.txpool_type);
 		match self.options.txpool_type {
 			TransactionPoolType::SingleState => SingleStateFullPool::new_full(
 				self.options.options,

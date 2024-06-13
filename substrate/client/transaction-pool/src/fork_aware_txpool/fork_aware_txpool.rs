@@ -155,6 +155,8 @@ where
 		source: TransactionSource,
 		xts: impl IntoIterator<Item = ExtrinsicFor<PoolApi>>,
 	) -> Vec<Result<ExtrinsicHash<PoolApi>, PoolApi::Error>> {
+		let xts = xts.into_iter().collect::<Vec<_>>();
+		log_xt_debug!(target: LOG_TARGET, xts.iter().map(|xt| self.pool.validated_pool().api().hash_and_length(xt).0), "[{:?}] view::submit_many at:{}", self.at.hash);
 		self.pool.submit_at(&self.at, source, xts).await
 	}
 
@@ -164,6 +166,7 @@ where
 		source: TransactionSource,
 		xt: ExtrinsicFor<PoolApi>,
 	) -> Result<ExtrinsicHash<PoolApi>, PoolApi::Error> {
+		log::debug!(target: LOG_TARGET, "[{:?}] view::submit_one at:{}", self.pool.validated_pool().api().hash_and_length(&xt).0, self.at.hash);
 		self.pool.submit_one(&self.at, source, xt).await
 	}
 
@@ -173,6 +176,7 @@ where
 		source: TransactionSource,
 		xt: ExtrinsicFor<PoolApi>,
 	) -> Result<Watcher<ExtrinsicHash<PoolApi>, ExtrinsicHash<PoolApi>>, PoolApi::Error> {
+		log::debug!(target: LOG_TARGET, "[{:?}] view::submit_and_watch at:{}", self.pool.validated_pool().api().hash_and_length(&xt).0, self.at.hash);
 		self.pool.submit_and_watch(&self.at, source, xt).await
 	}
 
@@ -215,9 +219,7 @@ where
 		xts: impl IntoIterator<Item = Block::Extrinsic> + Clone,
 	) -> HashMap<Block::Hash, Vec<Result<ExtrinsicHash<PoolApi>, PoolApi::Error>>> {
 		let results = {
-			let s = Instant::now();
 			let views = self.views.read();
-			log::debug!(target: LOG_TARGET, "submit_one: read: took:{:?}", s.elapsed());
 			let futs = views
 				.iter()
 				.map(|(hash, view)| {
@@ -225,9 +227,7 @@ where
 					//todo: remove this clone (Arc?)
 					let xts = xts.clone();
 					async move {
-						let s = Instant::now();
 						let r = (view.at.hash, view.submit_many(source, xts.clone()).await);
-						log::debug!(target: LOG_TARGET, "submit_one: submit_at: took:{:?}", s.elapsed());
 						r
 					}
 				})
@@ -295,8 +295,6 @@ where
 			futs
 		};
 		let maybe_watchers = futures::future::join_all(results).await;
-		log::trace!(target: LOG_TARGET, "[{:?}] submit_and_watch: maybe_watchers: {}", tx_hash, maybe_watchers.len());
-
 		//todo: maybe try_fold + ControlFlow ?
 		let maybe_error = maybe_watchers.into_iter().reduce(|mut r, v| {
 			if r.is_err() && v.is_ok() {
@@ -444,7 +442,7 @@ where
 	fn trigger(&mut self, at: <Block as BlockT>::Hash, ready_iterator: impl Fn() -> T) {
 		let Some(pollers) = self.pollers.remove(&at) else { return };
 		pollers.into_iter().for_each(|p| {
-			log::debug!(target: LOG_TARGET, "trigger ready signal at block {}", at);
+			log::info!(target: LOG_TARGET, "trigger ready signal at block {}", at);
 			let _ = p.send(ready_iterator());
 		});
 	}
@@ -1033,6 +1031,8 @@ where
 		xts: Vec<TransactionFor<Self>>,
 	) -> PoolFuture<Vec<Result<TxHash<Self>, Self::Error>>, Self::Error> {
 		let view_store = self.view_store.clone();
+		log::info!(target: LOG_TARGET, "fatp::submit_at count:{} views:{}", xts.len(), self.views_len());
+		log_xt_debug!(target: LOG_TARGET, xts.iter().map(|xt| self.tx_hash(xt)), "[{:?}] fatp::submit_at");
 		self.mempool.extend_unwatched(xts.clone());
 		let xts = xts.clone();
 
@@ -1065,21 +1065,21 @@ where
 		source: TransactionSource,
 		xt: TransactionFor<Self>,
 	) -> PoolFuture<TxHash<Self>, Self::Error> {
-		let start = Instant::now();
+		log::debug!(target: LOG_TARGET, "[{:?}] fatp::submit_one views:{}", self.tx_hash(&xt), self.views_len());
 		// todo:
 		// self.metrics.report(|metrics| metrics.submitted_transactions.inc());
-		let views = self.view_store.clone();
 		self.mempool.push_unwatched(xt.clone());
 
 		// assume that transaction may be valid, will be validated later.
-		if views.is_empty() {
+		let view_store = self.view_store.clone();
+		if view_store.is_empty() {
 			return future::ready(Ok(self.api.hash_and_length(&xt).0)).boxed()
 		}
 
 		let tx_hash = self.hash_of(&xt);
 		let view_count = self.views_len();
 		async move {
-			let results = views.submit_one(source, xt).await;
+			let results = view_store.submit_one(source, xt).await;
 			let results = results
 				.into_values()
 				.reduce(|mut r, v| {
@@ -1089,11 +1089,6 @@ where
 					r
 				})
 				.expect("there is at least one entry in input");
-
-			let duration = start.elapsed();
-
-			log::debug!(target: LOG_TARGET, "[{tx_hash:?}] submit_one: views:{view_count} took {duration:?}");
-
 			results
 		}
 		.boxed()
@@ -1105,18 +1100,19 @@ where
 		source: TransactionSource,
 		xt: TransactionFor<Self>,
 	) -> PoolFuture<Pin<Box<TransactionStatusStreamFor<Self>>>, Self::Error> {
-		log::info!(target: LOG_TARGET, "[{:?}] submit_and_watch", self.api.hash_and_length(&xt).0);
-		let view_store = self.view_store.clone();
+		log::debug!(target: LOG_TARGET, "[{:?}] fatp::submit_and_watch views:{}", self.tx_hash(&xt), self.views_len());
 		self.mempool.push_watched(xt.clone());
 
 		// todo:
 		// self.metrics.report(|metrics| metrics.submitted_transactions.inc());
 
+		let view_store = self.view_store.clone();
 		async move { view_store.submit_and_watch(at, source, xt).await }.boxed()
 	}
 
 	// todo: api change? we need block hash here (assuming we need it at all).
 	fn remove_invalid(&self, hashes: &[TxHash<Self>]) -> Vec<Arc<Self::InPoolTransaction>> {
+		log_xt_debug!(target:LOG_TARGET, hashes, "[{:?}] fatp::remove_invalid");
 		// let removed = self.pool.validated_pool().remove_invalid(hashes);
 		// removed
 
@@ -1345,8 +1341,10 @@ where
 		//todo this clone is not neccessary, try to use iterators
 		let xts = self.mempool.clone_unwatched();
 
-		//todo: internal checked banned: not required any more?
-		let _ = view.submit_many(source, xts).await;
+		if !xts.is_empty() {
+			//todo: internal checked banned: not required any more?
+			let _ = view.submit_many(source, xts).await;
+		}
 		let view = Arc::from(view);
 
 		//todo: some filtering can be applied - do not submit all txs, only those which are not in
@@ -1565,6 +1563,10 @@ where
 			log::debug!(target: LOG_TARGET, "purge_transactions_later skipped, cannot find block number {finalized_number:?}");
 		}
 		log::debug!(target: LOG_TARGET, "handle_finalized a:{:?}", self.views_len());
+	}
+
+	fn tx_hash(&self, xt: &TransactionFor<Self>) -> TxHash<Self> {
+		self.api.hash_and_length(xt).0
 	}
 }
 

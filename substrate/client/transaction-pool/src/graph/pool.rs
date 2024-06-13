@@ -412,17 +412,11 @@ impl<B: ChainApi> Pool<B> {
 			return (hash, ValidatedTransaction::Invalid(hash, err))
 		}
 
-		let s = std::time::Instant::now();
 		let validation_result = self
 			.validated_pool
 			.api()
 			.validate_transaction(block_hash, source, xt.clone())
 			.await;
-		log::debug!(
-			"[{hash:?}] verify_one: validate_transaction:{:?} elapsed:{:?}",
-			validation_result,
-			s.elapsed()
-		);
 
 		let status = match validation_result {
 			Ok(status) => status,
