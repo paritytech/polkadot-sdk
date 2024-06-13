@@ -12,3 +12,8 @@ doc:
 
 crates:
   - name: collectives-westend-runtime
+    bump: major
+  - name: testnet-parachains-constants
+    bump: patch
+  - name: asset-hub-westend-runtime
+    bump: patch
