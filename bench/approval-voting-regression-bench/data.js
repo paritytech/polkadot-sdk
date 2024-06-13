@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1718252802510,
+  "lastUpdate": 1718274182120,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -7331,6 +7331,53 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 3.037390468950111,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Branislav Kontur",
+            "username": "bkontur",
+            "email": "bkontur@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "988103d7578ad515b13c69578da1237b28fa9f36",
+          "message": "Use aggregated types for `RuntimeFreezeReason` and better examples of `MaxFreezes` (#4615)\n\nThis PR aligns the settings for `MaxFreezes`, `RuntimeFreezeReason`, and\n`FreezeIdentifier`.\n\n#### Future work and improvements\nhttps://github.com/paritytech/polkadot-sdk/issues/2997 (remove\n`MaxFreezes` and `FreezeIdentifier`)",
+          "timestamp": "2024-06-13T08:44:05Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/988103d7578ad515b13c69578da1237b28fa9f36"
+        },
+        "date": 1718274153802,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52936.8,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63542.21,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 7.001744056569985,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 3.109566849930148,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 9.360414324940006,
             "unit": "seconds"
           }
         ]
