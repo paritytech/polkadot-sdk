@@ -37,6 +37,7 @@ jobs:
       - name: check semver
         env:
           BRANCH_NAME: ${{ github.head_ref || github.ref_name }} 
+          PR: ${{ github.event.pull_request.number }}     
         run: |
           # We need to manually check out the branch, because GHAs run on the merged result.
           git checkout --quiet $BRANCH_NAME
@@ -56,5 +57,3 @@ jobs:
 
             exit 1
           fi
-        env:
-          PR: ${{ github.event.pull_request.number }}
