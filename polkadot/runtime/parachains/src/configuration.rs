@@ -19,13 +19,13 @@
 //! Configuration can change only at session boundaries and is buffered until then.
 
 use crate::{inclusion::MAX_UPWARD_MESSAGE_SIZE_BOUND, shared};
+use codec::{Decode, Encode};
 use frame_support::{pallet_prelude::*, DefaultNoBound};
 use frame_system::pallet_prelude::*;
-use parity_scale_codec::{Decode, Encode};
 use polkadot_parachain_primitives::primitives::{
 	MAX_HORIZONTAL_MESSAGE_NUM, MAX_UPWARD_MESSAGE_NUM,
 };
-use primitives::{
+use polkadot_primitives::{
 	ApprovalVotingParams, AsyncBackingParams, Balance, ExecutorParamError, ExecutorParams,
 	NodeFeatures, SessionIndex, LEGACY_MIN_BACKING_VOTES, MAX_CODE_SIZE, MAX_HEAD_DATA_SIZE,
 	MAX_POV_SIZE, ON_DEMAND_MAX_QUEUE_MAX_SIZE,
@@ -42,7 +42,7 @@ mod benchmarking;
 pub mod migration;
 
 pub use pallet::*;
-use primitives::vstaging::SchedulerParams;
+use polkadot_primitives::vstaging::SchedulerParams;
 
 const LOG_TARGET: &str = "runtime::configuration";
 
@@ -335,6 +335,8 @@ pub enum InconsistentError<BlockNumber> {
 	InconsistentExecutorParams { inner: ExecutorParamError },
 	/// TTL should be bigger than lookahead
 	LookaheadExceedsTTL,
+	/// Lookahead is zero, while it must be at least 1 for parachains to work.
+	LookaheadZero,
 	/// Passed in queue size for on-demand was too large.
 	OnDemandQueueSizeTooLarge,
 	/// Number of delay tranches cannot be 0.
@@ -430,6 +432,10 @@ where
 
 		if self.scheduler_params.ttl < self.scheduler_params.lookahead.into() {
 			return Err(LookaheadExceedsTTL)
+		}
+
+		if self.scheduler_params.lookahead == 0 {
+			return Err(LookaheadZero)
 		}
 
 		if self.scheduler_params.on_demand_queue_max_size > ON_DEMAND_MAX_QUEUE_MAX_SIZE {
@@ -1276,7 +1282,7 @@ pub mod pallet {
 		fn integrity_test() {
 			assert_eq!(
 				&ActiveConfig::<T>::hashed_key(),
-				primitives::well_known_keys::ACTIVE_CONFIG,
+				polkadot_primitives::well_known_keys::ACTIVE_CONFIG,
 				"`well_known_keys::ACTIVE_CONFIG` doesn't match key of `ActiveConfig`! Make sure that the name of the\
 				 configuration pallet is `Configuration` in the runtime!",
 			);
