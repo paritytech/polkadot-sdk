@@ -914,6 +914,20 @@ impl<Balance: Default> EraPayout<Balance> for () {
 	}
 }
 
+/// Trait that supports blocking some accounts from participating in staking.
+///
+/// This is useful when we want to restrict some activities from accounts based on roles taken by
+/// them elsewhere in the system.
+pub trait BlacklistCheck<AccountId> {
+	fn is_blacklisted(who: &AccountId) -> bool;
+}
+
+impl<AccountId> BlacklistCheck<AccountId> for () {
+	fn is_blacklisted(_who: &AccountId) -> bool {
+		false
+	}
+}
+
 /// Adaptor to turn a `PiecewiseLinear` curve definition into an `EraPayout` impl, used for
 /// backwards compatibility.
 pub struct ConvertCurve<T>(sp_std::marker::PhantomData<T>);

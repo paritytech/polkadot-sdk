@@ -292,9 +292,13 @@ pub mod pallet {
 		#[pallet::no_default_bounds]
 		type EventListeners: sp_staking::OnStakingUpdate<Self::AccountId, BalanceOf<Self>>;
 
-		/// `DisablingStragegy` controls how validators are disabled
 		#[pallet::no_default_bounds]
+		/// Controls how validators are disabled when they misbehave.
 		type DisablingStrategy: DisablingStrategy<Self>;
+
+		#[pallet::no_default_bounds]
+		/// Something that blocks some accounts from participating in staking.
+		type BlacklistCheck: crate::BlacklistCheck<Self::AccountId>;
 
 		/// Some parameters of the benchmarking.
 		type BenchmarkingConfig: BenchmarkingConfig;
@@ -338,6 +342,7 @@ pub mod pallet {
 			type MaxControllersInDeprecationBatch = ConstU32<100>;
 			type EventListeners = ();
 			type DisablingStrategy = crate::UpToLimitDisablingStrategy;
+			type BlacklistCheck = ();
 			type BenchmarkingConfig = crate::TestBenchmarkingConfig;
 			type WeightInfo = ();
 		}
