@@ -56,7 +56,7 @@ sp-consensus-aura = { version = "0.37.0", path = "../../../substrate/primitives/
 substrate-test-client = { version = "0.1.0", path = "../../../substrate/test-utils/client" }
 sc-cli = { version = "0.41.0", path = "../../../substrate/client/cli" }
 sc-block-builder = { version = "0.38.0", path = "../../../substrate/client/block-builder" }
-sc-executor-wasmtime = { version = "0.33.0", path = "../../../substrate/client/executor/wasmtime" }
+sc-executor-wasmtime = { version = "0.33.1", path = "../../../substrate/client/executor/wasmtime" }
 sc-executor-common = { version = "0.33.0", path = "../../../substrate/client/executor/common" }
 polkadot-primitives = { version = "12.0.0", path = "../../../polkadot/primitives" }
 polkadot-service = { version = "12.0.1", path = "../../../polkadot/node/service" }
