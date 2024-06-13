@@ -3,7 +3,6 @@
 # 100 cores
 # 5 backing validators per core
 
-
 TestConfiguration:
 # Approval voting best case scenario
 - objective: !ApprovalVoting
@@ -15,8 +14,8 @@ TestConfiguration:
     coalesce_tranche_diff: 12
     num_no_shows_per_candidate: 10
     workdir_prefix: "/tmp/"
+  n_cores: 50 # 50 cores occupied
   n_validators: 500
-  n_cores: 50
   max_validators_per_core: 5
   min_pov_size: 5120
   max_pov_size: 5120
@@ -27,8 +26,8 @@ TestConfiguration:
   num_blocks: 3
 
 - objective: DataAvailabilityWrite
-  n_validators: 500
   n_cores: 100
+  n_validators: 500
   max_validators_per_core: 5
   min_pov_size: 5120
   max_pov_size: 5120
@@ -41,8 +40,8 @@ TestConfiguration:
 - objective: !DataAvailabilityRead
     strategy: FullFromBackers
     fetch_from_backers: true
+  n_cores: 6 # we trigger 6 own assignments during approval-voting benchmark
   n_validators: 500
-  n_cores: 6
   max_validators_per_core: 5
   min_pov_size: 5120
   max_pov_size: 5120
@@ -54,8 +53,8 @@ TestConfiguration:
 
 
 - objective: StatementDistribution
-  n_validators: 500
   n_cores: 100
+  n_validators: 500
   max_validators_per_core: 5
   min_pov_size: 5120
   max_pov_size: 5120
