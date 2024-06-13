@@ -35,7 +35,11 @@ jobs:
           git branch old origin/master
 
       - name: check semver
+        env:
+          BRANCH_NAME: ${{ github.head_ref || github.ref_name }} 
         run: |
+          # We need to manually check out the branch, because GHAs run on the merged result.
+          git checkout --quiet $BRANCH_NAME
           export CARGO_TARGET_DIR=target
           export RUSTFLAGS='-A warnings -A missing_docs'
           export SKIP_WASM_BUILD=1
