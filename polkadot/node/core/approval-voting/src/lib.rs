@@ -691,6 +691,7 @@ struct ApprovalStatus {
 	tranche_now: DelayTranche,
 	block_tick: Tick,
 	last_no_shows: usize,
+	no_show_validators: Vec<ValidatorIndex>,
 }
 
 #[derive(Copy, Clone)]
@@ -832,6 +833,51 @@ struct State {
 	// tranches we trigger and why.
 	per_block_assignments_gathering_times:
 		LruMap<BlockNumber, HashMap<(Hash, CandidateHash), AssignmentGatheringRecord>>,
+	no_show_stats: NoShowStats,
+}
+
+// Regularly dump the no-show stats at this block number frequency.
+const NO_SHOW_DUMP_FREQUENCY: BlockNumber = 50;
+// The maximum number of validators we record no-shows for, per candidate.
+pub(crate) const MAX_RECORDED_NO_SHOW_VALIDATORS_PER_CANDIDATE: usize = 20;
+
+// No show stats per validator and per parachain.
+// This is valuable information when we have to debug live network issue, because
+// it gives information if things are going wrong only for some validators or just
+// for some parachains.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+struct NoShowStats {
+	per_validator_no_show: HashMap<SessionIndex, HashMap<ValidatorIndex, usize>>,
+	per_parachain_no_show: HashMap<u32, usize>,
+	last_dumped_block_number: BlockNumber,
+}
+
+impl NoShowStats {
+	// Print the no-show stats if NO_SHOW_DUMP_FREQUENCY blocks have passed since the last
+	// print.
+	fn maybe_print(&mut self, current_block_number: BlockNumber) {
+		if self.last_dumped_block_number > current_block_number ||
+			current_block_number - self.last_dumped_block_number < NO_SHOW_DUMP_FREQUENCY
+		{
+			return
+		}
+		if self.per_parachain_no_show.is_empty() && self.per_validator_no_show.is_empty() {
+			return
+		}
+
+		gum::debug!(
+			target: LOG_TARGET,
+			"Validators with no_show {:?} and parachains with no_shows {:?} since {:}",
+			self.per_validator_no_show,
+			self.per_parachain_no_show,
+			self.last_dumped_block_number
+		);
+
+		self.last_dumped_block_number = current_block_number;
+
+		self.per_validator_no_show.clear();
+		self.per_parachain_no_show.clear();
+	}
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -887,21 +933,25 @@ impl State {
 		);
 
 		if let Some(approval_entry) = candidate_entry.approval_entry(&block_hash) {
-			let TranchesToApproveResult { required_tranches, total_observed_no_shows } =
-				approval_checking::tranches_to_approve(
-					approval_entry,
-					candidate_entry.approvals(),
-					tranche_now,
-					block_tick,
-					no_show_duration,
-					session_info.needed_approvals as _,
-				);
+			let TranchesToApproveResult {
+				required_tranches,
+				total_observed_no_shows,
+				no_show_validators,
+			} = approval_checking::tranches_to_approve(
+				approval_entry,
+				candidate_entry.approvals(),
+				tranche_now,
+				block_tick,
+				no_show_duration,
+				session_info.needed_approvals as _,
+			);
 
 			let status = ApprovalStatus {
 				required_tranches,
 				block_tick,
 				tranche_now,
 				last_no_shows: total_observed_no_shows,
+				no_show_validators,
 			};
 
 			Some((approval_entry, status))
@@ -1044,6 +1094,26 @@ impl State {
 			},
 		}
 	}
+
+	fn record_no_shows(
+		&mut self,
+		session_index: SessionIndex,
+		para_id: u32,
+		no_show_validators: &Vec<ValidatorIndex>,
+	) {
+		if !no_show_validators.is_empty() {
+			*self.no_show_stats.per_parachain_no_show.entry(para_id.into()).or_default() += 1;
+		}
+		for validator_index in no_show_validators {
+			*self
+				.no_show_stats
+				.per_validator_no_show
+				.entry(session_index)
+				.or_default()
+				.entry(*validator_index)
+				.or_default() += 1;
+		}
+	}
 }
 
 #[derive(Debug, Clone)]
@@ -1096,6 +1166,7 @@ where
 		per_block_assignments_gathering_times: LruMap::new(ByLength::new(
 			MAX_BLOCKS_WITH_ASSIGNMENT_TIMESTAMPS,
 		)),
+		no_show_stats: NoShowStats::default(),
 	};
 
 	// `None` on start-up. Gets initialized/updated on leaf update
@@ -1739,6 +1810,8 @@ async fn handle_from_overseer<Context>(
 								num_candidates = block_batch.imported_candidates.len(),
 								"Imported new block.",
 							);
+
+							state.no_show_stats.maybe_print(block_batch.block_number);
 
 							for (c_hash, c_entry) in block_batch.imported_candidates {
 								metrics.on_candidate_imported();
@@ -2904,7 +2977,8 @@ where
 	let mut actions = Vec::new();
 	let block_hash = block_entry.block_hash();
 	let block_number = block_entry.block_number();
-
+	let session_index = block_entry.session();
+	let para_id = candidate_entry.candidate_receipt().descriptor().para_id;
 	let tick_now = state.clock.tick_now();
 
 	let (is_approved, status) = if let Some((approval_entry, status)) = state
@@ -3000,7 +3074,9 @@ where
 		if is_approved {
 			approval_entry.mark_approved();
 		}
-
+		if newly_approved {
+			state.record_no_shows(session_index, para_id.into(), &status.no_show_validators);
+		}
 		actions.extend(schedule_wakeup_action(
 			&approval_entry,
 			block_hash,
