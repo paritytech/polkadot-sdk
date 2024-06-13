@@ -46,7 +46,6 @@ jobs:
         run: |
           cargo build --locked --profile=production -p ${{ matrix.binary[0] }} --bin ${{ matrix.binary[1] }}
           target/production/${{ matrix.binary[1] }} --version
-          target/production/${{ matrix.binary[1] }} -h
 
       - name: Upload ${{ matrix.binary[1] }} binary
         uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3 # v4.3.1
