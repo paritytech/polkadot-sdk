@@ -291,18 +291,18 @@ pub mod common_strategies {
 	/// It accepts whatever parameters are set in its generic argument.
 	/// For instance, for an unchecked transfer,
 	/// this strategy may take a reference to a beneficiary account.
-	pub struct JustDo<'a, Params = ()>(pub &'a Params);
-	impl<'a> Default for JustDo<'a, ()> {
+	pub struct JustDo<Params = ()>(pub Params);
+	impl Default for JustDo<()> {
 		fn default() -> Self {
-			Self(&())
+			Self(())
 		}
 	}
-	impl<'a, Owner> TransferStrategy for JustDo<'a, Owner> {}
-	impl<'a> DestroyStrategy for JustDo<'a> {
+	impl<Params> TransferStrategy for JustDo<Params> {}
+	impl<Params> DestroyStrategy for JustDo<Params> {
 		type Success = ();
 	}
-	impl<'a> StashStrategy for JustDo<'a> {}
-	impl<'a, Owner> RestoreStrategy for JustDo<'a, Owner> {}
+	impl<Params> StashStrategy for JustDo<Params> {}
+	impl<Params> RestoreStrategy for JustDo<Params> {}
 
 	/// The `Bytes` strategy represents raw metadata bytes.
 	/// It is both an [inspect](MetadataInspectStrategy) and [update](MetadataUpdateStrategy)
@@ -459,8 +459,8 @@ pub mod common_strategies {
 	/// It accepts `Params` to assign an ID to the newly created asset.
 	/// This ID assignment approach doesn't report the ID upon the asset's creation.
 	#[derive(RuntimeDebug, PartialEq, Eq, Clone, Encode, Decode, MaxEncodedLen, TypeInfo)]
-	pub struct AssignId<'a, Params>(pub &'a Params);
-	impl<'a, Params> IdAssignment for AssignId<'a, Params> {
+	pub struct AssignId<Params>(pub Params);
+	impl<Params> IdAssignment for AssignId<Params> {
 		type ReportedId = ();
 	}
 
@@ -475,13 +475,13 @@ pub mod common_strategies {
 	/// An example of ID derivation is the creation of an NFT inside a collection using the
 	/// collection ID as `Params`. The `Id` in this case is the full ID of the NFT.
 	#[derive(RuntimeDebug, PartialEq, Eq, Clone, Encode, Decode, MaxEncodedLen, TypeInfo)]
-	pub struct DeriveAndReportId<'a, Params, Id>(pub &'a Params, pub PhantomData<Id>);
-	impl<'a, Params, Id> DeriveAndReportId<'a, Params, Id> {
-		pub fn from(params: &'a Params) -> Self {
+	pub struct DeriveAndReportId<Params, Id>(pub Params, pub PhantomData<Id>);
+	impl<Params, Id> DeriveAndReportId<Params, Id> {
+		pub fn from(params: Params) -> Self {
 			Self(params, PhantomData)
 		}
 	}
-	impl<'a, ParentId, Id> IdAssignment for DeriveAndReportId<'a, ParentId, Id> {
+	impl<Params, Id> IdAssignment for DeriveAndReportId<Params, Id> {
 		type ReportedId = Id;
 	}
 
@@ -495,28 +495,24 @@ pub mod common_strategies {
 	///
 	/// The [`Success`](CreateStrategy::Success) will contain
 	/// the [reported ID](IdAssignment::ReportedId) of the ID assignment approach.
-	pub struct Owned<'a, Owner, Assignment: IdAssignment, Config = (), Witness = ()> {
-		pub owner: &'a Owner,
+	pub struct Owned<Owner, Assignment: IdAssignment, Config = (), Witness = ()> {
+		pub owner: Owner,
 		pub id_assignment: Assignment,
-		pub config: &'a Config,
-		pub witness: &'a Witness,
+		pub config: Config,
+		pub witness: Witness,
 	}
-	impl<'a, Owner, Assignment: IdAssignment> Owned<'a, Owner, Assignment, (), ()> {
-		pub fn new(owner: &'a Owner, id_assignment: Assignment) -> Self {
-			Self { id_assignment, owner, config: &(), witness: &() }
+	impl<Owner, Assignment: IdAssignment> Owned<Owner, Assignment, (), ()> {
+		pub fn new(owner: Owner, id_assignment: Assignment) -> Self {
+			Self { id_assignment, owner, config: (), witness: () }
 		}
 	}
-	impl<'a, Owner, Assignment: IdAssignment, Config> Owned<'a, Owner, Assignment, Config, ()> {
-		pub fn new_configured(
-			owner: &'a Owner,
-			id_assignment: Assignment,
-			config: &'a Config,
-		) -> Self {
-			Self { id_assignment, owner, config, witness: &() }
+	impl<Owner, Assignment: IdAssignment, Config> Owned<Owner, Assignment, Config, ()> {
+		pub fn new_configured(owner: Owner, id_assignment: Assignment, config: Config) -> Self {
+			Self { id_assignment, owner, config, witness: () }
 		}
 	}
-	impl<'a, Owner, Assignment: IdAssignment, Config, Witness> CreateStrategy
-		for Owned<'a, Owner, Assignment, Config, Witness>
+	impl<Owner, Assignment: IdAssignment, Config, Witness> CreateStrategy
+		for Owned<Owner, Assignment, Config, Witness>
 	{
 		type Success = Assignment::ReportedId;
 	}
@@ -532,30 +528,30 @@ pub mod common_strategies {
 	///
 	/// The [`Success`](CreateStrategy::Success) will contain
 	/// the [reported ID](IdAssignment::ReportedId) of the ID assignment approach.
-	pub struct Adminable<'a, Account, Assignment: IdAssignment, Config = (), Witness = ()> {
-		pub owner: &'a Account,
-		pub admin: &'a Account,
+	pub struct Adminable<Account, Assignment: IdAssignment, Config = (), Witness = ()> {
+		pub owner: Account,
+		pub admin: Account,
 		pub id_assignment: Assignment,
-		pub config: &'a Config,
-		pub witness: &'a Witness,
+		pub config: Config,
+		pub witness: Witness,
 	}
-	impl<'a, Account, Assignment: IdAssignment> Adminable<'a, Account, Assignment, (), ()> {
-		pub fn new(id_assignment: Assignment, owner: &'a Account, admin: &'a Account) -> Self {
-			Self { id_assignment, owner, admin, config: &(), witness: &() }
+	impl<Account, Assignment: IdAssignment> Adminable<Account, Assignment, (), ()> {
+		pub fn new(id_assignment: Assignment, owner: Account, admin: Account) -> Self {
+			Self { id_assignment, owner, admin, config: (), witness: () }
 		}
 	}
-	impl<'a, Account, Assignment: IdAssignment, Config> Adminable<'a, Account, Assignment, Config, ()> {
+	impl<Account, Assignment: IdAssignment, Config> Adminable<Account, Assignment, Config, ()> {
 		pub fn new_configured(
-			owner: &'a Account,
-			admin: &'a Account,
+			owner: Account,
+			admin: Account,
 			id_assignment: Assignment,
-			config: &'a Config,
+			config: Config,
 		) -> Self {
-			Self { id_assignment, owner, admin, config, witness: &() }
+			Self { id_assignment, owner, admin, config, witness: () }
 		}
 	}
-	impl<'a, Account, Assignment: IdAssignment, Config, Witness> CreateStrategy
-		for Adminable<'a, Account, Assignment, Config, Witness>
+	impl<Account, Assignment: IdAssignment, Config, Witness> CreateStrategy
+		for Adminable<Account, Assignment, Config, Witness>
 	{
 		type Success = Assignment::ReportedId;
 	}
@@ -563,19 +559,19 @@ pub mod common_strategies {
 	/// The `FromTo` is a [`transfer strategy`](TransferStrategy).
 	///
 	/// It accepts two parameters: `from` and `to` whom the asset should be transferred.
-	pub struct FromTo<'a, Owner>(pub &'a Owner, pub &'a Owner);
-	impl<'a, Owner> TransferStrategy for FromTo<'a, Owner> {}
+	pub struct FromTo<Owner>(pub Owner, pub Owner);
+	impl<Owner> TransferStrategy for FromTo<Owner> {}
 
 	/// The `IfOwnedBy` is both a [`destroy strategy`](DestroyStrategy)
 	/// and a [`stash strategy`](StashStrategy).
 	///
 	/// It accepts a possible owner of the asset.
 	/// If the provided entity owns the asset, the corresponding operation will be performed.
-	pub struct IfOwnedBy<'a, Owner>(pub &'a Owner);
-	impl<'a, Owner> DestroyStrategy for IfOwnedBy<'a, Owner> {
+	pub struct IfOwnedBy<Owner>(pub Owner);
+	impl<Owner> DestroyStrategy for IfOwnedBy<Owner> {
 		type Success = ();
 	}
-	impl<'a, Owner> StashStrategy for IfOwnedBy<'a, Owner> {}
+	impl<Owner> StashStrategy for IfOwnedBy<Owner> {}
 
 	/// The `IfRestorable` is a [`restore strategy`](RestoreStrategy).
 	///
@@ -583,26 +579,26 @@ pub mod common_strategies {
 	/// For instance, if an asset is restorable,
 	/// this strategy may reference a beneficiary account,
 	/// which should own the asset upon restoration.
-	pub struct IfRestorable<'a, Params>(pub &'a Params);
-	impl<'a, Params> RestoreStrategy for IfRestorable<'a, Params> {}
+	pub struct IfRestorable<Params>(pub Params);
+	impl<Params> RestoreStrategy for IfRestorable<Params> {}
 
 	/// The `WithWitness` is a [`destroy strategy`](DestroyStrategy).
 	///
 	/// It accepts a `Witness` to destroy an asset.
 	/// It will also return a `Witness` value upon destruction.
-	pub struct WithWitness<'a, Witness>(pub &'a Witness);
-	impl<'a, Witness> DestroyStrategy for WithWitness<'a, Witness> {
+	pub struct WithWitness<Witness>(pub Witness);
+	impl<Witness> DestroyStrategy for WithWitness<Witness> {
 		type Success = Witness;
 	}
 
 	/// The `IfOwnedByWithWitness` is a [`destroy strategy`](DestroyStrategy).
 	///
 	/// It is a combination of the [`IfOwnedBy`] and the [`WithWitness`] strategies.
-	pub struct IfOwnedByWithWitness<'a, Owner, Witness> {
-		pub owner: &'a Owner,
-		pub witness: &'a Witness,
+	pub struct IfOwnedByWithWitness<Owner, Witness> {
+		pub owner: Owner,
+		pub witness: Witness,
 	}
-	impl<'a, Owner, Witness> DestroyStrategy for IfOwnedByWithWitness<'a, Owner, Witness> {
+	impl<Owner, Witness> DestroyStrategy for IfOwnedByWithWitness<Owner, Witness> {
 		type Success = Witness;
 	}
 }

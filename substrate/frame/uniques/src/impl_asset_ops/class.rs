@@ -56,8 +56,8 @@ impl<'a, T: Config<I>, I: 'static> InspectMetadata<Class, Bytes<Attribute<'a>>> 
 	}
 }
 
-impl<'a, T: Config<I>, I: 'static>
-	Create<Class, Adminable<'a, T::AccountId, AssignId<'a, T::CollectionId>>> for Pallet<T, I>
+impl<T: Config<I>, I: 'static> Create<Class, Adminable<T::AccountId, AssignId<T::CollectionId>>>
+	for Pallet<T, I>
 {
 	fn create(strategy: Adminable<T::AccountId, AssignId<T::CollectionId>>) -> DispatchResult {
 		let Adminable { owner, admin, id_assignment: AssignId(collection), .. } = strategy;
@@ -68,32 +68,25 @@ impl<'a, T: Config<I>, I: 'static>
 			admin.clone(),
 			T::CollectionDeposit::get(),
 			false,
-			Event::Created {
-				collection: collection.clone(),
-				creator: owner.clone(),
-				owner: admin.clone(),
-			},
+			Event::Created { collection, creator: owner, owner: admin },
 		)
 	}
 }
 
-impl<'a, T: Config<I>, I: 'static>
-	Create<
-		Class,
-		WithOrigin<T::RuntimeOrigin, Adminable<'a, T::AccountId, AssignId<'a, T::CollectionId>>>,
-	> for Pallet<T, I>
+impl<T: Config<I>, I: 'static>
+	Create<Class, WithOrigin<T::RuntimeOrigin, Adminable<T::AccountId, AssignId<T::CollectionId>>>>
+	for Pallet<T, I>
 {
 	fn create(
 		strategy: WithOrigin<T::RuntimeOrigin, Adminable<T::AccountId, AssignId<T::CollectionId>>>,
 	) -> DispatchResult {
-		let WithOrigin(
-			origin,
-			creation @ Adminable { owner, id_assignment: AssignId(collection), .. },
-		) = strategy;
+		let WithOrigin(origin, creation) = strategy;
+
+		let Adminable { owner, id_assignment: AssignId(collection), .. } = &creation;
 
 		let maybe_check_signer =
 			T::ForceOrigin::try_origin(origin).map(|_| None).or_else(|origin| {
-				T::CreateOrigin::ensure_origin(origin, &collection)
+				T::CreateOrigin::ensure_origin(origin, collection)
 					.map(Some)
 					.map_err(DispatchError::from)
 			})?;
@@ -106,25 +99,23 @@ impl<'a, T: Config<I>, I: 'static>
 	}
 }
 
-impl<'a, T: Config<I>, I: 'static> Destroy<Class, WithWitness<'a, DestroyWitness>>
-	for Pallet<T, I>
-{
+impl<T: Config<I>, I: 'static> Destroy<Class, WithWitness<DestroyWitness>> for Pallet<T, I> {
 	fn destroy(
 		collection: &Self::Id,
 		strategy: WithWitness<DestroyWitness>,
 	) -> Result<DestroyWitness, DispatchError> {
 		let WithWitness(witness) = strategy;
 
-		Self::do_destroy_collection(collection.clone(), *witness, None)
+		Self::do_destroy_collection(collection.clone(), witness, None)
 	}
 }
 
-impl<'a, T: Config<I>, I: 'static>
-	Destroy<Class, WithOrigin<T::RuntimeOrigin, WithWitness<'a, DestroyWitness>>> for Pallet<T, I>
+impl<T: Config<I>, I: 'static>
+	Destroy<Class, WithOrigin<T::RuntimeOrigin, WithWitness<DestroyWitness>>> for Pallet<T, I>
 {
 	fn destroy(
 		collection: &Self::Id,
-		strategy: WithOrigin<T::RuntimeOrigin, WithWitness<'a, DestroyWitness>>,
+		strategy: WithOrigin<T::RuntimeOrigin, WithWitness<DestroyWitness>>,
 	) -> Result<DestroyWitness, DispatchError> {
 		let WithOrigin(origin, destroy) = strategy;
 
@@ -134,8 +125,8 @@ impl<'a, T: Config<I>, I: 'static>
 	}
 }
 
-impl<'a, T: Config<I>, I: 'static>
-	Destroy<Class, IfOwnedByWithWitness<'a, T::AccountId, DestroyWitness>> for Pallet<T, I>
+impl<T: Config<I>, I: 'static> Destroy<Class, IfOwnedByWithWitness<T::AccountId, DestroyWitness>>
+	for Pallet<T, I>
 {
 	fn destroy(
 		collection: &Self::Id,
@@ -143,15 +134,13 @@ impl<'a, T: Config<I>, I: 'static>
 	) -> Result<DestroyWitness, DispatchError> {
 		let IfOwnedByWithWitness { owner, witness } = strategy;
 
-		Self::do_destroy_collection(collection.clone(), *witness, Some(owner.clone()))
+		Self::do_destroy_collection(collection.clone(), witness, Some(owner))
 	}
 }
 
-impl<'a, T: Config<I>, I: 'static>
-	Destroy<
-		Class,
-		WithOrigin<T::RuntimeOrigin, IfOwnedByWithWitness<'a, T::AccountId, DestroyWitness>>,
-	> for Pallet<T, I>
+impl<T: Config<I>, I: 'static>
+	Destroy<Class, WithOrigin<T::RuntimeOrigin, IfOwnedByWithWitness<T::AccountId, DestroyWitness>>>
+	for Pallet<T, I>
 {
 	fn destroy(
 		collection: &Self::Id,
@@ -164,9 +153,9 @@ impl<'a, T: Config<I>, I: 'static>
 		};
 
 		if let Some(signer) = maybe_check_owner {
-			ensure!(signer == *owner, Error::<T, I>::NoPermission);
+			ensure!(signer == owner, Error::<T, I>::NoPermission);
 		}
 
-		Self::do_destroy_collection(collection.clone(), *witness, Some(owner.clone()))
+		Self::do_destroy_collection(collection.clone(), witness, Some(owner))
 	}
 }

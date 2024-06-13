@@ -37,10 +37,10 @@ impl<AccountId, AccountIdConverter, Matcher, InstanceOps> TransactAsset
 where
 	AccountIdConverter: ConvertLocation<AccountId>,
 	Matcher: MatchesInstance<InstanceOps::Id>,
-	for<'a> InstanceOps: AssetDefinition<Instance>
-		+ Create<Instance, Owned<'a, AccountId, AssignId<'a, InstanceOps::Id>>>
-		+ Transfer<Instance, FromTo<'a, AccountId>>
-		+ Destroy<Instance, IfOwnedBy<'a, AccountId>>,
+	InstanceOps: AssetDefinition<Instance>
+		+ Create<Instance, Owned<AccountId, AssignId<InstanceOps::Id>>>
+		+ Transfer<Instance, FromTo<AccountId>>
+		+ Destroy<Instance, IfOwnedBy<AccountId>>,
 {
 	fn deposit_asset(what: &Asset, who: &Location, context: Option<&XcmContext>) -> XcmResult {
 		log::trace!(
@@ -55,7 +55,7 @@ where
 		let who = AccountIdConverter::convert_location(who)
 			.ok_or(MatchError::AccountIdConversionFailed)?;
 
-		InstanceOps::create(Owned::new(&who, AssignId(&instance_id)))
+		InstanceOps::create(Owned::new(who, AssignId(instance_id)))
 			.map_err(|e| XcmError::FailedToTransactAsset(e.into()))
 	}
 
@@ -75,7 +75,7 @@ where
 		let who = AccountIdConverter::convert_location(who)
 			.ok_or(MatchError::AccountIdConversionFailed)?;
 
-		InstanceOps::destroy(&instance_id, IfOwnedBy(&who))
+		InstanceOps::destroy(&instance_id, IfOwnedBy(who))
 			.map_err(|e| XcmError::FailedToTransactAsset(e.into()))?;
 
 		Ok(what.clone().into())
@@ -102,7 +102,7 @@ where
 		let to = AccountIdConverter::convert_location(to)
 			.ok_or(MatchError::AccountIdConversionFailed)?;
 
-		InstanceOps::transfer(&instance_id, FromTo(&from, &to))
+		InstanceOps::transfer(&instance_id, FromTo(from, to))
 			.map_err(|e| XcmError::FailedToTransactAsset(e.into()))?;
 
 		Ok(what.clone().into())
@@ -133,7 +133,7 @@ impl<AccountId, AccountIdConverter, Matcher, IdAssignment, InstanceCreateOp> Tra
 	AccountIdConverter: ConvertLocation<AccountId>,
 	IdAssignment: asset_ops::IdAssignment,
 	Matcher: MatchesInstance<IdAssignment>,
-	for<'a> InstanceCreateOp: Create<Instance, Owned<'a, AccountId, IdAssignment>>,
+	InstanceCreateOp: Create<Instance, Owned<AccountId, IdAssignment>>,
 {
 	fn deposit_asset(what: &Asset, who: &Location, context: Option<&XcmContext>) -> XcmResult {
 		log::trace!(
@@ -148,7 +148,7 @@ impl<AccountId, AccountIdConverter, Matcher, IdAssignment, InstanceCreateOp> Tra
 		let who = AccountIdConverter::convert_location(who)
 			.ok_or(MatchError::AccountIdConversionFailed)?;
 
-		InstanceCreateOp::create(Owned::new(&who, instance_id_assignment))
+		InstanceCreateOp::create(Owned::new(who, instance_id_assignment))
 			.map(|_reported_id| ())
 			.map_err(|e| XcmError::FailedToTransactAsset(e.into()))
 	}

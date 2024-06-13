@@ -61,44 +61,43 @@ where
 {
 	type Id = InstanceOps::Id;
 }
-impl<'a, StashAccount, InstanceOps> Stash<Instance, IfOwnedBy<'a, StashAccount::Type>>
+impl<StashAccount, InstanceOps> Stash<Instance, IfOwnedBy<StashAccount::Type>>
 	for SimpleStash<StashAccount, InstanceOps>
 where
 	StashAccount: TypedGet,
-	InstanceOps: for<'b> Transfer<Instance, FromTo<'b, StashAccount::Type>>,
+	InstanceOps: Transfer<Instance, FromTo<StashAccount::Type>>,
 {
 	fn stash(
 		id: &Self::Id,
 		IfOwnedBy(possible_owner): IfOwnedBy<StashAccount::Type>,
 	) -> DispatchResult {
-		InstanceOps::transfer(id, FromTo(possible_owner, &StashAccount::get()))
+		InstanceOps::transfer(id, FromTo(possible_owner, StashAccount::get()))
 	}
 }
-impl<'a, StashAccount, InstanceOps> Restore<Instance, IfRestorable<'a, StashAccount::Type>>
+impl<StashAccount, InstanceOps> Restore<Instance, IfRestorable<StashAccount::Type>>
 	for SimpleStash<StashAccount, InstanceOps>
 where
 	StashAccount: TypedGet,
-	InstanceOps: for<'b> Transfer<Instance, FromTo<'b, StashAccount::Type>>,
+	InstanceOps: Transfer<Instance, FromTo<StashAccount::Type>>,
 {
 	fn restore(
 		id: &Self::Id,
 		IfRestorable(owner): IfRestorable<StashAccount::Type>,
 	) -> DispatchResult {
-		InstanceOps::transfer(id, FromTo(&StashAccount::get(), owner))
+		InstanceOps::transfer(id, FromTo(StashAccount::get(), owner))
 	}
 }
 
 pub struct RestoreOnCreate<InstanceOps>(PhantomData<InstanceOps>);
-impl<'a, AccountId, InstanceOps>
-	Create<Instance, Owned<'a, AccountId, AssignId<'a, InstanceOps::Id>>>
+impl<AccountId, InstanceOps> Create<Instance, Owned<AccountId, AssignId<InstanceOps::Id>>>
 	for RestoreOnCreate<InstanceOps>
 where
-	InstanceOps: for<'b> Restore<Instance, IfRestorable<'b, AccountId>>,
+	InstanceOps: Restore<Instance, IfRestorable<AccountId>>,
 {
 	fn create(strategy: Owned<AccountId, AssignId<InstanceOps::Id>>) -> DispatchResult {
 		let Owned { owner, id_assignment: AssignId(instance_id), .. } = strategy;
 
-		InstanceOps::restore(instance_id, IfRestorable(owner))
+		InstanceOps::restore(&instance_id, IfRestorable(owner))
 	}
 }
 
@@ -109,12 +108,11 @@ where
 {
 	type Id = InstanceOps::Id;
 }
-impl<'a, AccountId, InstanceOps> Destroy<Instance, IfOwnedBy<'a, AccountId>>
-	for StashOnDestroy<InstanceOps>
+impl<AccountId, InstanceOps> Destroy<Instance, IfOwnedBy<AccountId>> for StashOnDestroy<InstanceOps>
 where
-	InstanceOps: for<'b> Stash<Instance, IfOwnedBy<'b, AccountId>>,
+	InstanceOps: Stash<Instance, IfOwnedBy<AccountId>>,
 {
-	fn destroy(id: &Self::Id, strategy: IfOwnedBy<'a, AccountId>) -> DispatchResult {
+	fn destroy(id: &Self::Id, strategy: IfOwnedBy<AccountId>) -> DispatchResult {
 		InstanceOps::stash(id, strategy)
 	}
 }

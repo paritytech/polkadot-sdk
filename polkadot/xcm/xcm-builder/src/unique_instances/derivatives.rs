@@ -37,16 +37,13 @@ pub struct RegisterDerivativeId<InstanceIdSource> {
 }
 
 pub struct RegisterOnCreate<Registrar, InstanceOps>(PhantomData<(Registrar, InstanceOps)>);
-impl<'a, AccountId, InstanceIdSource, Registrar, InstanceOps>
-	Create<Instance, Owned<'a, AccountId, AssignId<'a, RegisterDerivativeId<InstanceIdSource>>>>
+impl<AccountId, InstanceIdSource, Registrar, InstanceOps>
+	Create<Instance, Owned<AccountId, AssignId<RegisterDerivativeId<InstanceIdSource>>>>
 	for RegisterOnCreate<Registrar, InstanceOps>
 where
 	Registrar: TryRegisterDerivative<InstanceOps::Id>,
 	InstanceOps: AssetDefinition<Instance>
-		+ for<'b> Create<
-			Instance,
-			Owned<'b, AccountId, DeriveAndReportId<'b, InstanceIdSource, InstanceOps::Id>>,
-		>,
+		+ Create<Instance, Owned<AccountId, DeriveAndReportId<InstanceIdSource, InstanceOps::Id>>>,
 {
 	fn create(
 		strategy: Owned<AccountId, AssignId<RegisterDerivativeId<InstanceIdSource>>>,
@@ -57,7 +54,7 @@ where
 			..
 		} = strategy;
 
-		if Registrar::is_derivative_registered(foreign_asset) {
+		if Registrar::is_derivative_registered(&foreign_asset) {
 			return Err(DispatchError::Other(
 				"an attempt to register a duplicate of an existing derivative instance",
 			));
@@ -66,7 +63,7 @@ where
 		let instance_id =
 			InstanceOps::create(Owned::new(owner, DeriveAndReportId::from(instance_id_source)))?;
 
-		Registrar::try_register_derivative(foreign_asset, &instance_id)
+		Registrar::try_register_derivative(&foreign_asset, &instance_id)
 	}
 }
 
@@ -78,11 +75,11 @@ where
 {
 	type Id = InstanceOps::Id;
 }
-impl<'a, AccountId, Registrar, InstanceOps> Destroy<Instance, IfOwnedBy<'a, AccountId>>
+impl<AccountId, Registrar, InstanceOps> Destroy<Instance, IfOwnedBy<AccountId>>
 	for DeregisterOnDestroy<Registrar, InstanceOps>
 where
 	Registrar: TryDeregisterDerivative<InstanceOps::Id>,
-	InstanceOps: for<'b> Destroy<Instance, IfOwnedBy<'b, AccountId>>,
+	InstanceOps: Destroy<Instance, IfOwnedBy<AccountId>>,
 {
 	fn destroy(id: &Self::Id, strategy: IfOwnedBy<AccountId>) -> DispatchResult {
 		if !Registrar::is_derivative(id) {
