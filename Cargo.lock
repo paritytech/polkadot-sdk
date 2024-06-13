@@ -2101,7 +2101,6 @@ dependencies = [
  "static_assertions",
  "substrate-wasm-builder",
  "testnet-parachains-constants",
- "tuplex",
  "xcm-fee-payment-runtime-api",
 ]
 
@@ -2261,7 +2260,6 @@ dependencies = [
  "static_assertions",
  "substrate-wasm-builder",
  "testnet-parachains-constants",
- "tuplex",
  "westend-runtime-constants",
  "xcm-fee-payment-runtime-api",
 ]
