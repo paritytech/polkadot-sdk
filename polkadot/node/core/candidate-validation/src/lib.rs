@@ -49,8 +49,8 @@ use polkadot_primitives::{
 		DEFAULT_LENIENT_PREPARATION_TIMEOUT, DEFAULT_PRECHECK_PREPARATION_TIMEOUT,
 	},
 	CandidateCommitments, CandidateDescriptor, CandidateReceipt, ExecutorParams, Hash,
-	OccupiedCoreAssumption, PersistedValidationData, PvfExecKind, PvfPrepKind, ValidationCode,
-	ValidationCodeHash,
+	OccupiedCoreAssumption, PersistedValidationData, PvfExecKind, PvfPrepKind, SessionIndex,
+	ValidationCode, ValidationCodeHash,
 };
 
 use codec::Encode;
@@ -253,13 +253,39 @@ async fn run<Context>(
 	ctx.spawn_blocking("pvf-validation-host", task.boxed())?;
 
 	let mut tasks = FuturesUnordered::new();
+	let mut session_index: Option<SessionIndex> = None;
 
 	loop {
 		loop {
 			futures::select! {
 				comm = ctx.recv().fuse() => {
 					match comm {
-						Ok(FromOrchestra::Signal(OverseerSignal::ActiveLeaves(_))) => {},
+						// DONE: Check if there is a new session
+						// TODO: Check if our node is an active validator in the next session
+						// TODO: Prepare a list of pvf it needs for the next session
+						// TODO: Send the list to the pvf host to prepare
+						Ok(FromOrchestra::Signal(OverseerSignal::ActiveLeaves(update))) => {
+							if let Some(leaf) = update.activated {
+								let mut sender = ctx.sender().clone();
+								match request_session_index_for_child(&mut sender, leaf.hash)
+									.await {
+										Ok(new_session_index) => {
+											if session_index.map_or(true, |index| index < new_session_index) {
+												// New session
+												session_index = Some(new_session_index);
+											}
+										},
+										Err(_) => {
+											gum::warn!(
+												target: LOG_TARGET,
+												relay_parent = ?leaf.hash,
+												"cannot fetch session index from runtime API",
+											);
+											continue;
+										}
+									}
+							}
+						},
 						Ok(FromOrchestra::Signal(OverseerSignal::BlockFinalized(..))) => {},
 						Ok(FromOrchestra::Signal(OverseerSignal::Conclude)) => return Ok(()),
 						Ok(FromOrchestra::Communication { msg }) => {
@@ -350,6 +376,17 @@ where
 		rx,
 	)
 	.await
+}
+
+async fn request_session_index_for_child<Sender>(
+	sender: &mut Sender,
+	relay_parent: Hash,
+) -> Result<SessionIndex, RuntimeRequestFailed>
+where
+	Sender: SubsystemSender<RuntimeApiMessage>,
+{
+	let (tx, rx) = oneshot::channel();
+	runtime_api_request(sender, relay_parent, RuntimeApiRequest::SessionIndexForChild(tx), rx).await
 }
 
 async fn precheck_pvf<Sender>(
