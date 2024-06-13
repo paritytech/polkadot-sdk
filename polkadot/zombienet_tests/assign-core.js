@@ -1,28 +1,29 @@
-// Assign a parachain to a core.
-//
-// First argument should be the parachain id.
-// Second argument should be the core.
-// Third argument should be PartsOf57600 assigned for the parachain id.
 async function run(nodeName, networkInfo, args) {
-  const { wsUri, userDefinedTypes } = networkInfo.nodesByName[nodeName];
-  const api = await zombie.connect(wsUri, userDefinedTypes);
+  const wsUri = networkInfo.nodesByName[nodeName].wsUri;
+  const api = await zombie.connect(wsUri);
 
-  let para = Number(args[0]);
-  let core = Number(args[1]);
-  let parts_of_57600 = Number(args[2]);
+  let core = Number(args[0]);
 
-  console.log(`Assigning para ${para} to core ${core} parts_of_57600 ${parts_of_57600}`);
+  let assignments = [];
 
+  for (let i = 1; i < args.length; i += 2) {
+    let [para, parts] = [args[i], args[i + 1]];
+
+    console.log(`Assigning para ${para} to core ${core}`);
+
+    assignments.push(
+      [{ task: para }, parts]
+    );
+  }
   await zombie.util.cryptoWaitReady();
 
-  // Submit transaction with Alice accoung
+  // account to submit tx
   const keyring = new zombie.Keyring({ type: "sr25519" });
   const alice = keyring.addFromUri("//Alice");
 
-  // Wait for this transaction to be finalized in a block.
   await new Promise(async (resolve, reject) => {
     const unsub = await api.tx.sudo
-      .sudo(api.tx.coretime.assignCore(core, 0, [[{ task: para }, parts_of_57600]], null))
+      .sudo(api.tx.coretime.assignCore(core, 0, assignments, null))
       .signAndSend(alice, ({ status, isError }) => {
         if (status.isInBlock) {
           console.log(
@@ -40,8 +41,6 @@ async function run(nodeName, networkInfo, args) {
         }
       });
   });
-
-
 
   return 0;
 }

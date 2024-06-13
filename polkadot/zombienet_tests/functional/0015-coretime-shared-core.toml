@@ -2,45 +2,41 @@
 timeout = 1000
 
 [relaychain.genesis.runtimeGenesis.patch.configuration.config.async_backing_params]
-  max_candidate_depth = 2
+  max_candidate_depth = 3
   allowed_ancestry_len = 2
 
 [relaychain.genesis.runtimeGenesis.patch.configuration.config.scheduler_params]
   max_validators_per_core = 1
-  lookahead = 3 # should be set to 2 once https://github.com/paritytech/polkadot-sdk/pull/4691 is merged
+  lookahead = 2
   num_cores = 4
 
 [relaychain.genesis.runtimeGenesis.patch.configuration.config.approval_voting_params]
   needed_approvals = 3
-  max_approval_coalesce_count = 5
 
 [relaychain]
 default_image = "{{ZOMBIENET_INTEGRATION_TEST_IMAGE}}"
 chain = "rococo-local"
 command = "polkadot"
 
-  [[relaychain.nodes]]
-  name = "alice"
-  args = ["" ]
-
   [[relaychain.node_groups]]
   name = "validator"
-  args = ["-lruntime=debug,parachain=trace,runtime::parachains::scheduler=trace,runtime::inclusion-inherent=trace,runtime::inclusion=trace" ]
-  count = 8
+  args = ["-lruntime=debug,parachain=debug,parachain::backing=trace,parachain::collator-protocol=trace,parachain::prospective-parachains=trace,runtime::parachains::scheduler=trace,runtime::inclusion-inherent=trace,runtime::inclusion=trace" ]
+  count = 4
 
-{% for id in range(2000,2002) %}
+{% for id in range(2000,2004) %}
 [[parachains]]
 id = {{id}}
-addToGenesis = true
-cumulus_based = true
+register_para = false
+onboard_as_parachain = false
+add_to_genesis = false
 chain = "glutton-westend-local-{{id}}"
     [parachains.genesis.runtimeGenesis.patch.glutton]
-    compute = "50000000"
+    compute = "1000000000"
     storage = "2500000000"
     trashDataCount = 5120
 
     [parachains.collator]
-    name = "collator"
+    name = "collator-{{id}}"
     image = "{{CUMULUS_IMAGE}}"
     command = "polkadot-parachain"
     args = ["-lparachain=debug"]
