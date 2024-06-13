@@ -16,10 +16,10 @@ jobs:
     steps:
       - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
 
-      - name: Rust Cache
-        uses: Swatinem/rust-cache@23bce251a8cd2ffc3c1075eaa2367cf899916d84 # v2.7.3
-        with:
-          cache-on-failure: true
+      #- name: Rust Cache
+      #  uses: Swatinem/rust-cache@23bce251a8cd2ffc3c1075eaa2367cf899916d84 # v2.7.3
+      #  with:
+      #    cache-on-failure: true
 
       - name: Extra Git Setup
         env:
@@ -28,11 +28,11 @@ jobs:
           git config --global --add safe.directory '*'
           git fetch --no-tags --no-recurse-submodules --depth=1 origin master
           git branch old origin/master
+
           # We need to manually check out the branch, because GHAs run on the merged result.
           git fetch --unshallow origin $BRANCH_NAME
           git checkout --quiet origin/$BRANCH_NAME
-          git log -3
-      
+
       - name: Rust compilation prerequisites
         run: |
           rustup default $NIGHTLY
