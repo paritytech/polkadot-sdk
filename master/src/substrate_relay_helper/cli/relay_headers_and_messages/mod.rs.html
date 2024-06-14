@@ -656,6 +656,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#505" id="505">505</a>
 <a href="#506" id="506">506</a>
 <a href="#507" id="507">507</a>
+<a href="#508" id="508">508</a>
+<a href="#509" id="509">509</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2019-2022 Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
@@ -695,7 +697,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>futures::{FutureExt, TryFutureExt};
 
 <span class="kw">use crate</span>::{
-	cli::{bridge::MessagesCliBridge, HexLaneId, PrometheusParams},
+	cli::{bridge::MessagesCliBridge, DefaultClient, HexLaneId, PrometheusParams},
 	messages_lane::{MessagesRelayLimits, MessagesRelayParams},
 	on_demand::OnDemandRelay,
 	HeadersToRelay, TaggedAccount, TransactionParams,
@@ -704,7 +706,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>bp_runtime::BalanceOf;
 <span class="kw">use </span>relay_substrate_client::{
 	AccountIdOf, AccountKeyPairOf, Chain, ChainWithBalances, ChainWithMessages,
-	ChainWithRuntimeVersion, ChainWithTransactions, Client,
+	ChainWithRuntimeVersion, ChainWithTransactions,
 };
 <span class="kw">use </span>relay_utils::metrics::MetricsParams;
 <span class="kw">use </span>sp_core::Pair;
@@ -776,7 +778,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Parameters that are associated with one side of the bridge.
 </span><span class="kw">pub struct </span>BridgeEndCommonParams&lt;Chain: ChainWithTransactions + ChainWithRuntimeVersion&gt; {
 	<span class="doccomment">/// Chain client.
-	</span><span class="kw">pub </span>client: Client&lt;Chain&gt;,
+	</span><span class="kw">pub </span>client: DefaultClient&lt;Chain&gt;,
 	<span class="doccomment">/// Params used for sending transactions to the chain.
 	</span><span class="kw">pub </span>tx_params: TransactionParams&lt;AccountKeyPairOf&lt;Chain&gt;&gt;,
 	<span class="doccomment">/// Accounts, which balances are exposed as metrics by the relay process.
@@ -823,7 +825,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		target_to_source_headers_relay: Arc&lt;<span class="kw">dyn </span>OnDemandRelay&lt;Target, Source&gt;&gt;,
 		lane_id: LaneId,
 		maybe_limits: <span class="prelude-ty">Option</span>&lt;MessagesRelayLimits&gt;,
-	) -&gt; MessagesRelayParams&lt;Bridge::MessagesLane&gt; {
+	) -&gt; MessagesRelayParams&lt;Bridge::MessagesLane, DefaultClient&lt;Source&gt;, DefaultClient&lt;Target&gt;&gt; {
 		MessagesRelayParams {
 			source_client: <span class="self">self</span>.source.client.clone(),
 			source_transaction_params: <span class="self">self</span>.source.tx_params.clone(),
@@ -975,28 +977,30 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="comment">// Need 2x capacity since we consider both directions for each lane
 		</span><span class="kw">let </span><span class="kw-2">mut </span>message_relays = Vec::with_capacity(lanes.len() * <span class="number">2</span>);
 		<span class="kw">for </span>lane <span class="kw">in </span>lanes {
-			<span class="kw">let </span>left_to_right_messages = <span class="kw">crate</span>::messages_lane::run::&lt;
-				&lt;<span class="self">Self</span>::L2R <span class="kw">as </span>MessagesCliBridge&gt;::MessagesLane,
-			&gt;(<span class="self">self</span>.left_to_right().messages_relay_params(
-				left_to_right_on_demand_headers.clone(),
-				right_to_left_on_demand_headers.clone(),
-				lane,
-				<span class="self">Self</span>::L2R::maybe_messages_limits(),
-			))
-			.map_err(|e| <span class="macro">anyhow::format_err!</span>(<span class="string">"{}"</span>, e))
-			.boxed();
+			<span class="kw">let </span>left_to_right_messages =
+				<span class="kw">crate</span>::messages_lane::run::&lt;&lt;<span class="self">Self</span>::L2R <span class="kw">as </span>MessagesCliBridge&gt;::MessagesLane, <span class="kw">_</span>, <span class="kw">_</span>&gt;(
+					<span class="self">self</span>.left_to_right().messages_relay_params(
+						left_to_right_on_demand_headers.clone(),
+						right_to_left_on_demand_headers.clone(),
+						lane,
+						<span class="self">Self</span>::L2R::maybe_messages_limits(),
+					),
+				)
+				.map_err(|e| <span class="macro">anyhow::format_err!</span>(<span class="string">"{}"</span>, e))
+				.boxed();
 			message_relays.push(left_to_right_messages);
 
-			<span class="kw">let </span>right_to_left_messages = <span class="kw">crate</span>::messages_lane::run::&lt;
-				&lt;<span class="self">Self</span>::R2L <span class="kw">as </span>MessagesCliBridge&gt;::MessagesLane,
-			&gt;(<span class="self">self</span>.right_to_left().messages_relay_params(
-				right_to_left_on_demand_headers.clone(),
-				left_to_right_on_demand_headers.clone(),
-				lane,
-				<span class="self">Self</span>::R2L::maybe_messages_limits(),
-			))
-			.map_err(|e| <span class="macro">anyhow::format_err!</span>(<span class="string">"{}"</span>, e))
-			.boxed();
+			<span class="kw">let </span>right_to_left_messages =
+				<span class="kw">crate</span>::messages_lane::run::&lt;&lt;<span class="self">Self</span>::R2L <span class="kw">as </span>MessagesCliBridge&gt;::MessagesLane, <span class="kw">_</span>, <span class="kw">_</span>&gt;(
+					<span class="self">self</span>.right_to_left().messages_relay_params(
+						right_to_left_on_demand_headers.clone(),
+						left_to_right_on_demand_headers.clone(),
+						lane,
+						<span class="self">Self</span>::R2L::maybe_messages_limits(),
+					),
+				)
+				.map_err(|e| <span class="macro">anyhow::format_err!</span>(<span class="string">"{}"</span>, e))
+				.boxed();
 			message_relays.push(right_to_left_messages);
 		}
 

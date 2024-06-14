@@ -282,6 +282,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#131" id="131">131</a>
 <a href="#132" id="132">132</a>
 <a href="#133" id="133">133</a>
+<a href="#134" id="134">134</a>
+<a href="#135" id="135">135</a>
+<a href="#136" id="136">136</a>
+<a href="#137" id="137">137</a>
+<a href="#138" id="138">138</a>
+<a href="#139" id="139">139</a>
+<a href="#140" id="140">140</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2019-2021 Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
@@ -298,7 +305,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see &lt;http://www.gnu.org/licenses/&gt;.
 
-</span><span class="kw">use crate</span>::{chain::Chain, client::Client, Error <span class="kw">as </span>SubstrateError};
+</span><span class="kw">use crate</span>::{Chain, Client, Error <span class="kw">as </span>SubstrateError};
 
 <span class="kw">use </span>async_std::sync::{Arc, RwLock};
 <span class="kw">use </span>async_trait::async_trait;
@@ -350,20 +357,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Metric that represents fixed-point runtime storage value as float gauge.
 </span><span class="attr">#[derive(Clone, Debug)]
-</span><span class="kw">pub struct </span>FloatStorageValueMetric&lt;C: Chain, V: FloatStorageValue&gt; {
+</span><span class="kw">pub struct </span>FloatStorageValueMetric&lt;C, Clnt, V&gt; {
 	value_converter: V,
-	client: Client&lt;C&gt;,
+	client: Clnt,
 	storage_key: StorageKey,
 	metric: Gauge&lt;F64&gt;,
 	shared_value_ref: F64SharedRef,
-	_phantom: PhantomData&lt;V&gt;,
+	_phantom: PhantomData&lt;(C, V)&gt;,
 }
 
-<span class="kw">impl</span>&lt;C: Chain, V: FloatStorageValue&gt; FloatStorageValueMetric&lt;C, V&gt; {
+<span class="kw">impl</span>&lt;C, Clnt, V&gt; FloatStorageValueMetric&lt;C, Clnt, V&gt; {
 	<span class="doccomment">/// Create new metric.
 	</span><span class="kw">pub fn </span>new(
 		value_converter: V,
-		client: Client&lt;C&gt;,
+		client: Clnt,
 		storage_key: StorageKey,
 		name: String,
 		help: String,
@@ -385,32 +392,39 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="kw">impl</span>&lt;C: Chain, V: FloatStorageValue&gt; Metric <span class="kw">for </span>FloatStorageValueMetric&lt;C, V&gt; {
+<span class="kw">impl</span>&lt;C: Chain, Clnt: Client&lt;C&gt;, V: FloatStorageValue&gt; Metric
+	<span class="kw">for </span>FloatStorageValueMetric&lt;C, Clnt, V&gt;
+{
 	<span class="kw">fn </span>register(<span class="kw-2">&amp;</span><span class="self">self</span>, registry: <span class="kw-2">&amp;</span>Registry) -&gt; <span class="prelude-ty">Result</span>&lt;(), PrometheusError&gt; {
 		register(<span class="self">self</span>.metric.clone(), registry).map(drop)
 	}
 }
 
 <span class="attr">#[async_trait]
-</span><span class="kw">impl</span>&lt;C: Chain, V: FloatStorageValue&gt; StandaloneMetric <span class="kw">for </span>FloatStorageValueMetric&lt;C, V&gt; {
+</span><span class="kw">impl</span>&lt;C: Chain, Clnt: Client&lt;C&gt;, V: FloatStorageValue&gt; StandaloneMetric
+	<span class="kw">for </span>FloatStorageValueMetric&lt;C, Clnt, V&gt;
+{
 	<span class="kw">fn </span>update_interval(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Duration {
 		C::AVERAGE_BLOCK_INTERVAL * UPDATE_INTERVAL_IN_BLOCKS
 	}
 
 	<span class="kw">async fn </span>update(<span class="kw-2">&amp;</span><span class="self">self</span>) {
-		<span class="kw">let </span>value = <span class="self">self
-			</span>.client
-			.raw_storage_value(<span class="self">self</span>.storage_key.clone(), <span class="prelude-val">None</span>)
-			.<span class="kw">await
-			</span>.and_then(|maybe_storage_value| {
-				<span class="self">self</span>.value_converter.decode(maybe_storage_value).map(|maybe_fixed_point_value| {
-					maybe_fixed_point_value.map(|fixed_point_value| {
-						fixed_point_value.into_inner().unique_saturated_into() <span class="kw">as </span>f64 /
-							V::Value::DIV.unique_saturated_into() <span class="kw">as </span>f64
-					})
+		<span class="kw">let </span>value = <span class="kw">async move </span>{
+			<span class="kw">let </span>best_header_hash = <span class="self">self</span>.client.best_header_hash().<span class="kw">await</span><span class="question-mark">?</span>;
+			<span class="kw">let </span>maybe_storage_value = <span class="self">self
+				</span>.client
+				.raw_storage_value(best_header_hash, <span class="self">self</span>.storage_key.clone())
+				.<span class="kw">await</span><span class="question-mark">?</span>;
+			<span class="self">self</span>.value_converter.decode(maybe_storage_value).map(|maybe_fixed_point_value| {
+				maybe_fixed_point_value.map(|fixed_point_value| {
+					fixed_point_value.into_inner().unique_saturated_into() <span class="kw">as </span>f64 /
+						V::Value::DIV.unique_saturated_into() <span class="kw">as </span>f64
 				})
 			})
-			.map_err(|e| e.to_string());
+		}
+		.<span class="kw">await
+		</span>.map_err(|e| e.to_string());
+
 		relay_utils::metrics::set_gauge_value(<span class="kw-2">&amp;</span><span class="self">self</span>.metric, value.clone());
 		<span class="kw-2">*</span><span class="self">self</span>.shared_value_ref.write().<span class="kw">await </span>= value.ok().and_then(|x| x);
 	}

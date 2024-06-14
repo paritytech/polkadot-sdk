@@ -317,6 +317,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#166" id="166">166</a>
 <a href="#167" id="167">167</a>
 <a href="#168" id="168">168</a>
+<a href="#169" id="169">169</a>
+<a href="#170" id="170">170</a>
+<a href="#171" id="171">171</a>
+<a href="#172" id="172">172</a>
+<a href="#173" id="173">173</a>
+<a href="#174" id="174">174</a>
+<a href="#175" id="175">175</a>
+<a href="#176" id="176">176</a>
+<a href="#177" id="177">177</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2019-2021 Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
@@ -347,22 +356,25 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>bp_runtime::BlockNumberOf;
 <span class="kw">use </span>finality_relay::TargetClient;
 <span class="kw">use </span>relay_substrate_client::{
-	AccountKeyPairOf, Chain, Client, Error, HeaderIdOf, HeaderOf, SyncHeader, TransactionEra,
-	TransactionTracker, UnsignedTransaction,
+	AccountIdOf, AccountKeyPairOf, Chain, Client, Error, HeaderIdOf, HeaderOf, SyncHeader,
+	TransactionEra, TransactionTracker, UnsignedTransaction,
 };
 <span class="kw">use </span>relay_utils::relay_loop::Client <span class="kw">as </span>RelayClient;
+<span class="kw">use </span>sp_core::Pair;
 <span class="kw">use </span>sp_runtime::traits::Header;
 
 <span class="doccomment">/// Substrate client as Substrate finality target.
-</span><span class="kw">pub struct </span>SubstrateFinalityTarget&lt;P: SubstrateFinalitySyncPipeline&gt; {
-	client: Client&lt;P::TargetChain&gt;,
+</span><span class="kw">pub struct </span>SubstrateFinalityTarget&lt;P: SubstrateFinalitySyncPipeline, TargetClnt&gt; {
+	client: TargetClnt,
 	transaction_params: TransactionParams&lt;AccountKeyPairOf&lt;P::TargetChain&gt;&gt;,
 }
 
-<span class="kw">impl</span>&lt;P: SubstrateFinalitySyncPipeline&gt; SubstrateFinalityTarget&lt;P&gt; {
+<span class="kw">impl</span>&lt;P: SubstrateFinalitySyncPipeline, TargetClnt: Client&lt;P::TargetChain&gt;&gt;
+	SubstrateFinalityTarget&lt;P, TargetClnt&gt;
+{
 	<span class="doccomment">/// Create new Substrate headers target.
 	</span><span class="kw">pub fn </span>new(
-		client: Client&lt;P::TargetChain&gt;,
+		client: TargetClnt,
 		transaction_params: TransactionParams&lt;AccountKeyPairOf&lt;P::TargetChain&gt;&gt;,
 	) -&gt; <span class="self">Self </span>{
 		SubstrateFinalityTarget { client, transaction_params }
@@ -384,7 +396,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="kw">impl</span>&lt;P: SubstrateFinalitySyncPipeline&gt; Clone <span class="kw">for </span>SubstrateFinalityTarget&lt;P&gt; {
+<span class="kw">impl</span>&lt;P: SubstrateFinalitySyncPipeline, TargetClnt: Clone&gt; Clone
+	<span class="kw">for </span>SubstrateFinalityTarget&lt;P, TargetClnt&gt;
+{
 	<span class="kw">fn </span>clone(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="self">Self </span>{
 		SubstrateFinalityTarget {
 			client: <span class="self">self</span>.client.clone(),
@@ -394,7 +408,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="attr">#[async_trait]
-</span><span class="kw">impl</span>&lt;P: SubstrateFinalitySyncPipeline&gt; RelayClient <span class="kw">for </span>SubstrateFinalityTarget&lt;P&gt; {
+</span><span class="kw">impl</span>&lt;P: SubstrateFinalitySyncPipeline, TargetClnt: Client&lt;P::TargetChain&gt;&gt; RelayClient
+	<span class="kw">for </span>SubstrateFinalityTarget&lt;P, TargetClnt&gt;
+{
 	<span class="kw">type </span>Error = Error;
 
 	<span class="kw">async fn </span>reconnect(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
@@ -403,10 +419,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="attr">#[async_trait]
-</span><span class="kw">impl</span>&lt;P: SubstrateFinalitySyncPipeline&gt; TargetClient&lt;FinalitySyncPipelineAdapter&lt;P&gt;&gt;
-	<span class="kw">for </span>SubstrateFinalityTarget&lt;P&gt;
+</span><span class="kw">impl</span>&lt;P: SubstrateFinalitySyncPipeline, TargetClnt: Client&lt;P::TargetChain&gt;&gt;
+	TargetClient&lt;FinalitySyncPipelineAdapter&lt;P&gt;&gt; <span class="kw">for </span>SubstrateFinalityTarget&lt;P, TargetClnt&gt;
+<span class="kw">where
+	</span>AccountIdOf&lt;P::TargetChain&gt;: From&lt;&lt;AccountKeyPairOf&lt;P::TargetChain&gt; <span class="kw">as </span>Pair&gt;::Public&gt;,
 {
-	<span class="kw">type </span>TransactionTracker = TransactionTracker&lt;P::TargetChain, Client&lt;P::TargetChain&gt;&gt;;
+	<span class="kw">type </span>TransactionTracker = TransactionTracker&lt;P::TargetChain, TargetClnt&gt;;
 
 	<span class="kw">async fn </span>best_finalized_source_block_id(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;HeaderIdOf&lt;P::SourceChain&gt;, Error&gt; {
 		<span class="comment">// we can't continue to relay finality if target node is out of sync, because
@@ -428,10 +446,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;BlockNumberOf&lt;P::SourceChain&gt;&gt;, <span class="self">Self</span>::Error&gt; {
 		<span class="prelude-val">Ok</span>(<span class="self">self
 			</span>.client
-			.typed_state_call(
+			.state_call(
+				<span class="self">self</span>.client.best_header().<span class="kw">await</span><span class="question-mark">?</span>.hash(),
 				P::SourceChain::FREE_HEADERS_INTERVAL_METHOD.into(),
 				(),
-				<span class="prelude-val">Some</span>(<span class="self">self</span>.client.best_header().<span class="kw">await</span><span class="question-mark">?</span>.hash()),
 			)
 			.<span class="kw">await
 			</span>.unwrap_or_else(|e| {

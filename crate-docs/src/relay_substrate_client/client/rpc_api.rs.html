@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `bridges/relays/client-substrate/src/rpc.rs`."><title>rpc.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `bridges/relays/client-substrate/src/client/rpc_api.rs`."><title>rpc_api.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="relay_substrate_client" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="relay_substrate_client" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -149,7 +149,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
             <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
-    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../relay_substrate_client/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../relay_substrate_client/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -301,30 +301,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#150" id="150">150</a>
 <a href="#151" id="151">151</a>
 <a href="#152" id="152">152</a>
-<a href="#153" id="153">153</a>
-<a href="#154" id="154">154</a>
-<a href="#155" id="155">155</a>
-<a href="#156" id="156">156</a>
-<a href="#157" id="157">157</a>
-<a href="#158" id="158">158</a>
-<a href="#159" id="159">159</a>
-<a href="#160" id="160">160</a>
-<a href="#161" id="161">161</a>
-<a href="#162" id="162">162</a>
-<a href="#163" id="163">163</a>
-<a href="#164" id="164">164</a>
-<a href="#165" id="165">165</a>
-<a href="#166" id="166">166</a>
-<a href="#167" id="167">167</a>
-<a href="#168" id="168">168</a>
-<a href="#169" id="169">169</a>
-<a href="#170" id="170">170</a>
-<a href="#171" id="171">171</a>
-<a href="#172" id="172">172</a>
-<a href="#173" id="173">173</a>
-<a href="#174" id="174">174</a>
-<a href="#175" id="175">175</a>
-<a href="#176" id="176">176</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2019-2021 Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
@@ -343,15 +319,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="doccomment">//! The most generic Substrate node RPC interface.
 
-</span><span class="kw">use </span>async_trait::async_trait;
+</span><span class="kw">use crate</span>::{Chain, ChainWithGrandpa, TransactionStatusOf};
 
-<span class="kw">use crate</span>::{Chain, ChainWithGrandpa, TransactionStatusOf};
-
-<span class="kw">use </span>jsonrpsee::{
-	core::{client::Subscription, ClientError},
-	proc_macros::rpc,
-	ws_client::WsClient,
-};
+<span class="kw">use </span>jsonrpsee::proc_macros::rpc;
 <span class="kw">use </span>pallet_transaction_payment_rpc_runtime_api::FeeDetails;
 <span class="kw">use </span>sc_rpc_api::{state::ReadProof, system::Health};
 <span class="kw">use </span>sp_core::{
@@ -387,6 +357,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Return signed block (with justifications) by its hash.
 	</span><span class="attr">#[method(name = <span class="string">"getBlock"</span>)]
 	</span><span class="kw">async fn </span>block(<span class="kw-2">&amp;</span><span class="self">self</span>, block_hash: <span class="prelude-ty">Option</span>&lt;C::Hash&gt;) -&gt; RpcResult&lt;C::SignedBlock&gt;;
+	<span class="doccomment">/// Subscribe to best headers.
+	</span><span class="attr">#[subscription(
+		name = <span class="string">"subscribeNewHeads" </span>=&gt; <span class="string">"newHead"</span>,
+		unsubscribe = <span class="string">"unsubscribeNewHeads"</span>,
+		item = C::Header
+	)]
+	</span><span class="kw">async fn </span>subscribe_new_heads(<span class="kw-2">&amp;</span><span class="self">self</span>);
+	<span class="doccomment">/// Subscribe to finalized headers.
+	</span><span class="attr">#[subscription(
+		name = <span class="string">"subscribeFinalizedHeads" </span>=&gt; <span class="string">"finalizedHead"</span>,
+		unsubscribe = <span class="string">"unsubscribeFinalizedHeads"</span>,
+		item = C::Header
+	)]
+	</span><span class="kw">async fn </span>subscribe_finalized_heads(<span class="kw-2">&amp;</span><span class="self">self</span>);
 }
 
 <span class="doccomment">/// RPC methods of Substrate `author` namespace, that we are using.
@@ -433,32 +417,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	) -&gt; RpcResult&lt;ReadProof&lt;C::Hash&gt;&gt;;
 }
 
-<span class="doccomment">/// RPC methods that we are using for a certain finality gadget.
-</span><span class="attr">#[async_trait]
-</span><span class="kw">pub trait </span>SubstrateFinalityClient&lt;C: Chain&gt; {
-	<span class="doccomment">/// Subscribe to finality justifications.
-	</span><span class="kw">async fn </span>subscribe_justifications(
-		client: <span class="kw-2">&amp;</span>WsClient,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;Subscription&lt;Bytes&gt;, ClientError&gt;;
-}
-
 <span class="doccomment">/// RPC methods of Substrate `grandpa` namespace, that we are using.
 </span><span class="attr">#[rpc(client, client_bounds(C: ChainWithGrandpa), namespace = <span class="string">"grandpa"</span>)]
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">trait </span>SubstrateGrandpa&lt;C&gt; {
 	<span class="doccomment">/// Subscribe to GRANDPA justifications.
 	</span><span class="attr">#[subscription(name = <span class="string">"subscribeJustifications"</span>, unsubscribe = <span class="string">"unsubscribeJustifications"</span>, item = Bytes)]
 	</span><span class="kw">async fn </span>subscribe_justifications(<span class="kw-2">&amp;</span><span class="self">self</span>);
-}
-
-<span class="doccomment">/// RPC finality methods of Substrate `grandpa` namespace, that we are using.
-</span><span class="kw">pub struct </span>SubstrateGrandpaFinalityClient;
-<span class="attr">#[async_trait]
-</span><span class="kw">impl</span>&lt;C: ChainWithGrandpa&gt; SubstrateFinalityClient&lt;C&gt; <span class="kw">for </span>SubstrateGrandpaFinalityClient {
-	<span class="kw">async fn </span>subscribe_justifications(
-		client: <span class="kw-2">&amp;</span>WsClient,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;Subscription&lt;Bytes&gt;, ClientError&gt; {
-		SubstrateGrandpaClient::&lt;C&gt;::subscribe_justifications(client).<span class="kw">await
-	</span>}
 }
 
 <span class="comment">// TODO: Use `ChainWithBeefy` instead of `Chain` after #1606 is merged
@@ -468,18 +432,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Subscribe to BEEFY justifications.
 	</span><span class="attr">#[subscription(name = <span class="string">"subscribeJustifications"</span>, unsubscribe = <span class="string">"unsubscribeJustifications"</span>, item = Bytes)]
 	</span><span class="kw">async fn </span>subscribe_justifications(<span class="kw-2">&amp;</span><span class="self">self</span>);
-}
-
-<span class="doccomment">/// RPC finality methods of Substrate `beefy` namespace, that we are using.
-</span><span class="kw">pub struct </span>SubstrateBeefyFinalityClient;
-<span class="comment">// TODO: Use `ChainWithBeefy` instead of `Chain` after #1606 is merged
-</span><span class="attr">#[async_trait]
-</span><span class="kw">impl</span>&lt;C: Chain&gt; SubstrateFinalityClient&lt;C&gt; <span class="kw">for </span>SubstrateBeefyFinalityClient {
-	<span class="kw">async fn </span>subscribe_justifications(
-		client: <span class="kw-2">&amp;</span>WsClient,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;Subscription&lt;Bytes&gt;, ClientError&gt; {
-		SubstrateBeefyClient::&lt;C&gt;::subscribe_justifications(client).<span class="kw">await
-	</span>}
 }
 
 <span class="doccomment">/// RPC methods of Substrate `system` frame pallet, that we are using.

@@ -297,6 +297,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#146" id="146">146</a>
 <a href="#147" id="147">147</a>
 <a href="#148" id="148">148</a>
+<a href="#149" id="149">149</a>
+<a href="#150" id="150">150</a>
+<a href="#151" id="151">151</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2019-2021 Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
@@ -320,7 +323,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>bp_polkadot_core::BlockNumber <span class="kw">as </span>RelayBlockNumber;
 <span class="kw">use </span>bp_runtime::HeaderIdProvider;
 <span class="kw">use </span>parachains_relay::parachains_loop::{AvailableHeader, SourceClient, TargetClient};
-<span class="kw">use </span>relay_substrate_client::Parachain;
+<span class="kw">use </span>relay_substrate_client::{Client, Parachain};
 <span class="kw">use </span>relay_utils::metrics::{GlobalMetrics, StandaloneMetric};
 <span class="kw">use </span>std::sync::Arc;
 <span class="kw">use </span>structopt::StructOpt;
@@ -329,7 +332,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	cli::{
 		bridge::{CliBridgeBase, ParachainToRelayHeadersCliBridge},
 		chain_schema::<span class="kw-2">*</span>,
-		PrometheusParams,
+		DefaultClient, PrometheusParams,
 	},
 	parachains::{source::ParachainsSource, target::ParachainsTarget, ParachainsPipelineAdapter},
 	TransactionParams,
@@ -371,16 +374,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="attr">#[async_trait]
 </span><span class="kw">pub trait </span>ParachainsRelayer: ParachainToRelayHeadersCliBridge
 <span class="kw">where
-	</span>ParachainsSource&lt;<span class="self">Self</span>::ParachainFinality&gt;:
+	</span>ParachainsSource&lt;<span class="self">Self</span>::ParachainFinality, DefaultClient&lt;<span class="self">Self</span>::SourceRelay&gt;&gt;:
 		SourceClient&lt;ParachainsPipelineAdapter&lt;<span class="self">Self</span>::ParachainFinality&gt;&gt;,
-	ParachainsTarget&lt;<span class="self">Self</span>::ParachainFinality&gt;:
-		TargetClient&lt;ParachainsPipelineAdapter&lt;<span class="self">Self</span>::ParachainFinality&gt;&gt;,
+	ParachainsTarget&lt;
+		<span class="self">Self</span>::ParachainFinality,
+		DefaultClient&lt;<span class="self">Self</span>::SourceRelay&gt;,
+		DefaultClient&lt;<span class="self">Self</span>::Target&gt;,
+	&gt;: TargetClient&lt;ParachainsPipelineAdapter&lt;<span class="self">Self</span>::ParachainFinality&gt;&gt;,
 	&lt;<span class="self">Self </span><span class="kw">as </span>CliBridgeBase&gt;::Source: Parachain,
 {
 	<span class="doccomment">/// Start relaying parachains finality.
 	</span><span class="kw">async fn </span>relay_parachains(data: RelayParachainsParams) -&gt; anyhow::Result&lt;()&gt; {
 		<span class="kw">let </span>source_chain_client = data.source.into_client::&lt;<span class="self">Self</span>::SourceRelay&gt;().<span class="kw">await</span><span class="question-mark">?</span>;
-		<span class="kw">let </span>source_client = ParachainsSource::&lt;<span class="self">Self</span>::ParachainFinality&gt;::new(
+		<span class="kw">let </span>source_client = ParachainsSource::&lt;<span class="self">Self</span>::ParachainFinality, <span class="kw">_</span>&gt;::new(
 			source_chain_client.clone(),
 			Arc::new(Mutex::new(AvailableHeader::Missing)),
 		);
@@ -390,7 +396,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			mortality: data.target_sign.target_transactions_mortality,
 		};
 		<span class="kw">let </span>target_chain_client = data.target.into_client::&lt;<span class="self">Self</span>::Target&gt;().<span class="kw">await</span><span class="question-mark">?</span>;
-		<span class="kw">let </span>target_client = ParachainsTarget::&lt;<span class="self">Self</span>::ParachainFinality&gt;::new(
+		<span class="kw">let </span>target_client = ParachainsTarget::&lt;<span class="self">Self</span>::ParachainFinality, <span class="kw">_</span>, <span class="kw">_</span>&gt;::new(
 			source_chain_client,
 			target_chain_client,
 			target_transaction_params,
@@ -420,7 +426,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span>.map_err(|e| <span class="macro">anyhow::format_err!</span>(<span class="string">"{}"</span>, e))<span class="question-mark">?
 			</span>.id();
 
-		<span class="kw">let </span>source_client = ParachainsSource::&lt;<span class="self">Self</span>::ParachainFinality&gt;::new(
+		<span class="kw">let </span>source_client = ParachainsSource::&lt;<span class="self">Self</span>::ParachainFinality, <span class="kw">_</span>&gt;::new(
 			source_chain_client.clone(),
 			Arc::new(Mutex::new(AvailableHeader::Missing)),
 		);
@@ -430,7 +436,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			mortality: data.target_sign.target_transactions_mortality,
 		};
 		<span class="kw">let </span>target_chain_client = data.target.into_client::&lt;<span class="self">Self</span>::Target&gt;().<span class="kw">await</span><span class="question-mark">?</span>;
-		<span class="kw">let </span>target_client = ParachainsTarget::&lt;<span class="self">Self</span>::ParachainFinality&gt;::new(
+		<span class="kw">let </span>target_client = ParachainsTarget::&lt;<span class="self">Self</span>::ParachainFinality, <span class="kw">_</span>, <span class="kw">_</span>&gt;::new(
 			source_chain_client,
 			target_chain_client,
 			target_transaction_params,

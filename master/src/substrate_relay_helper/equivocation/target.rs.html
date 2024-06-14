@@ -260,6 +260,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#109" id="109">109</a>
 <a href="#110" id="110">110</a>
 <a href="#111" id="111">111</a>
+<a href="#112" id="112">112</a>
+<a href="#113" id="113">113</a>
+<a href="#114" id="114">114</a>
+<a href="#115" id="115">115</a>
+<a href="#116" id="116">116</a>
+<a href="#117" id="117">117</a>
+<a href="#118" id="118">118</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2019-2023 Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
@@ -296,27 +303,33 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>std::marker::PhantomData;
 
 <span class="doccomment">/// Substrate node as equivocation source.
-</span><span class="kw">pub struct </span>SubstrateEquivocationTarget&lt;P: SubstrateEquivocationDetectionPipeline&gt; {
-	client: Client&lt;P::TargetChain&gt;,
+</span><span class="kw">pub struct </span>SubstrateEquivocationTarget&lt;P: SubstrateEquivocationDetectionPipeline, TargetClnt&gt; {
+	client: TargetClnt,
 
 	_phantom: PhantomData&lt;P&gt;,
 }
 
-<span class="kw">impl</span>&lt;P: SubstrateEquivocationDetectionPipeline&gt; SubstrateEquivocationTarget&lt;P&gt; {
+<span class="kw">impl</span>&lt;P: SubstrateEquivocationDetectionPipeline, TargetClnt: Client&lt;P::TargetChain&gt;&gt;
+	SubstrateEquivocationTarget&lt;P, TargetClnt&gt;
+{
 	<span class="doccomment">/// Create new instance of `SubstrateEquivocationTarget`.
-	</span><span class="kw">pub fn </span>new(client: Client&lt;P::TargetChain&gt;) -&gt; <span class="self">Self </span>{
+	</span><span class="kw">pub fn </span>new(client: TargetClnt) -&gt; <span class="self">Self </span>{
 		<span class="self">Self </span>{ client, _phantom: Default::default() }
 	}
 }
 
-<span class="kw">impl</span>&lt;P: SubstrateEquivocationDetectionPipeline&gt; Clone <span class="kw">for </span>SubstrateEquivocationTarget&lt;P&gt; {
+<span class="kw">impl</span>&lt;P: SubstrateEquivocationDetectionPipeline, TargetClnt: Client&lt;P::TargetChain&gt;&gt; Clone
+	<span class="kw">for </span>SubstrateEquivocationTarget&lt;P, TargetClnt&gt;
+{
 	<span class="kw">fn </span>clone(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="self">Self </span>{
 		<span class="self">Self </span>{ client: <span class="self">self</span>.client.clone(), _phantom: Default::default() }
 	}
 }
 
 <span class="attr">#[async_trait]
-</span><span class="kw">impl</span>&lt;P: SubstrateEquivocationDetectionPipeline&gt; RelayClient <span class="kw">for </span>SubstrateEquivocationTarget&lt;P&gt; {
+</span><span class="kw">impl</span>&lt;P: SubstrateEquivocationDetectionPipeline, TargetClnt: Client&lt;P::TargetChain&gt;&gt; RelayClient
+	<span class="kw">for </span>SubstrateEquivocationTarget&lt;P, TargetClnt&gt;
+{
 	<span class="kw">type </span>Error = Error;
 
 	<span class="kw">async fn </span>reconnect(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
@@ -325,8 +338,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="attr">#[async_trait]
-</span><span class="kw">impl</span>&lt;P: SubstrateEquivocationDetectionPipeline&gt;
-	TargetClient&lt;EquivocationDetectionPipelineAdapter&lt;P&gt;&gt; <span class="kw">for </span>SubstrateEquivocationTarget&lt;P&gt;
+</span><span class="kw">impl</span>&lt;P: SubstrateEquivocationDetectionPipeline, TargetClnt: Client&lt;P::TargetChain&gt;&gt;
+	TargetClient&lt;EquivocationDetectionPipelineAdapter&lt;P&gt;&gt;
+	<span class="kw">for </span>SubstrateEquivocationTarget&lt;P, TargetClnt&gt;
 {
 	<span class="kw">async fn </span>best_finalized_header_number(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,

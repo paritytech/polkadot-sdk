@@ -255,7 +255,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#104" id="104">104</a>
 <a href="#105" id="105">105</a>
 <a href="#106" id="106">106</a>
-<a href="#107" id="107">107</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2019-2023 Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
@@ -308,11 +307,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Subscribe to new finality proofs.
 </span><span class="kw">pub async fn </span>finality_proofs&lt;P: SubstrateFinalityPipeline&gt;(
-	client: <span class="kw-2">&amp;</span>Client&lt;P::SourceChain&gt;,
+	client: <span class="kw-2">&amp;</span><span class="kw">impl </span>Client&lt;P::SourceChain&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;SubstrateFinalityProofsStream&lt;P&gt;, Error&gt; {
 	<span class="prelude-val">Ok</span>(unfold(
 		P::FinalityEngine::source_finality_proofs(client).<span class="kw">await</span><span class="question-mark">?</span>,
-		<span class="kw">move </span>|subscription| <span class="kw">async move </span>{
+		<span class="kw">move </span>|<span class="kw-2">mut </span>subscription| <span class="kw">async move </span>{
 			<span class="kw">loop </span>{
 				<span class="kw">let </span>log_error = |err| {
 					<span class="macro">log::error!</span>(
@@ -323,8 +322,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					);
 				};
 
-				<span class="kw">let </span>next_justification =
-					subscription.next().<span class="kw">await</span>.map_err(|err| log_error(err.to_string())).ok()<span class="question-mark">??</span>;
+				<span class="kw">let </span>next_justification = subscription.next().<span class="kw">await</span><span class="question-mark">?</span>;
 
 				<span class="kw">let </span>decoded_justification =
 					&lt;P::FinalityEngine <span class="kw">as </span>Engine&lt;P::SourceChain&gt;&gt;::FinalityProof::decode(
@@ -351,7 +349,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ///
 /// The runtime API method should be `&lt;TargetChain&gt;FinalityApi::best_finalized()`.
 </span><span class="kw">pub async fn </span>best_synced_header_id&lt;SourceChain, TargetChain&gt;(
-	target_client: <span class="kw-2">&amp;</span>Client&lt;TargetChain&gt;,
+	target_client: <span class="kw-2">&amp;</span><span class="kw">impl </span>Client&lt;TargetChain&gt;,
 	at: HashOf&lt;TargetChain&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;HeaderIdOf&lt;SourceChain&gt;&gt;, Error&gt;
 <span class="kw">where
@@ -360,7 +358,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 {
 	<span class="comment">// now let's read id of best finalized peer header at our best finalized block
 	</span>target_client
-		.typed_state_call(SourceChain::BEST_FINALIZED_HEADER_ID_METHOD.into(), (), <span class="prelude-val">Some</span>(at))
+		.state_call(at, SourceChain::BEST_FINALIZED_HEADER_ID_METHOD.into(), ())
 		.<span class="kw">await
 </span>}
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>

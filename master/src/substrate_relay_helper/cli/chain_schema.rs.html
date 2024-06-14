@@ -535,11 +535,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				</span><span class="attr">#[allow(dead_code)]
 				</span><span class="kw">pub async fn </span>into_client&lt;Chain: ChainWithRuntimeVersion&gt;(
 					<span class="self">self</span>,
-				) -&gt; anyhow::Result&lt;relay_substrate_client::Client&lt;Chain&gt;&gt; {
+				) -&gt; anyhow::Result&lt;<span class="macro-nonterminal">$crate::cli::DefaultClient</span>&lt;Chain&gt;&gt; {
 					<span class="kw">let </span>chain_runtime_version = <span class="self">self
 						</span>.[&lt;<span class="macro-nonterminal">$chain_prefix </span>_runtime_version&gt;]
 						.into_runtime_version(Chain::RUNTIME_VERSION)<span class="question-mark">?</span>;
-					<span class="prelude-val">Ok</span>(relay_substrate_client::Client::new(relay_substrate_client::ConnectionParams {
+					<span class="prelude-val">Ok</span>(relay_substrate_client::new(relay_substrate_client::ConnectionParams {
 						uri: <span class="self">self</span>.[&lt;<span class="macro-nonterminal">$chain_prefix </span>_uri&gt;],
 						host: <span class="self">self</span>.[&lt;<span class="macro-nonterminal">$chain_prefix </span>_host&gt;],
 						port: <span class="self">self</span>.[&lt;<span class="macro-nonterminal">$chain_prefix </span>_port&gt;],

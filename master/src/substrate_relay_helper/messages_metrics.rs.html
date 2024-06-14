@@ -377,7 +377,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Add relay accounts balance metrics.
 </span><span class="kw">pub async fn </span>add_relay_balances_metrics&lt;C: ChainWithBalances, BC: ChainWithMessages&gt;(
-	client: Client&lt;C&gt;,
+	client: <span class="kw">impl </span>Client&lt;C&gt;,
 	metrics: <span class="kw-2">&amp;</span>MetricsParams,
 	relay_accounts: <span class="kw-2">&amp;</span>Vec&lt;TaggedAccount&lt;AccountIdOf&lt;C&gt;&gt;&gt;,
 	lanes: <span class="kw-2">&amp;</span>[LaneId],

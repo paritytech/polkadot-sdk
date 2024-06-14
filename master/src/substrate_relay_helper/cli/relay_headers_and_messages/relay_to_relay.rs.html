@@ -352,7 +352,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	on_demand::{headers::OnDemandHeadersRelay, OnDemandRelay},
 };
 <span class="kw">use </span>relay_substrate_client::{
-	AccountIdOf, AccountKeyPairOf, ChainWithRuntimeVersion, ChainWithTransactions,
+	AccountIdOf, AccountKeyPairOf, ChainWithRuntimeVersion, ChainWithTransactions, Client,
 };
 <span class="kw">use </span>sp_core::Pair;
 
@@ -468,7 +468,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		.<span class="kw">await</span><span class="question-mark">?</span>;
 
 		<span class="kw">let </span>left_to_right_on_demand_headers =
-			OnDemandHeadersRelay::&lt;&lt;L2R <span class="kw">as </span>RelayToRelayHeadersCliBridge&gt;::Finality&gt;::new(
+			OnDemandHeadersRelay::&lt;&lt;L2R <span class="kw">as </span>RelayToRelayHeadersCliBridge&gt;::Finality, <span class="kw">_</span>, <span class="kw">_</span>&gt;::new(
 				<span class="self">self</span>.common.left.client.clone(),
 				<span class="self">self</span>.common.right.client.clone(),
 				<span class="self">self</span>.common.right.tx_params.clone(),
@@ -476,7 +476,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="prelude-val">None</span>,
 			);
 		<span class="kw">let </span>right_to_left_on_demand_headers =
-			OnDemandHeadersRelay::&lt;&lt;R2L <span class="kw">as </span>RelayToRelayHeadersCliBridge&gt;::Finality&gt;::new(
+			OnDemandHeadersRelay::&lt;&lt;R2L <span class="kw">as </span>RelayToRelayHeadersCliBridge&gt;::Finality, <span class="kw">_</span>, <span class="kw">_</span>&gt;::new(
 				<span class="self">self</span>.common.right.client.clone(),
 				<span class="self">self</span>.common.left.client.clone(),
 				<span class="self">self</span>.common.left.tx_params.clone(),

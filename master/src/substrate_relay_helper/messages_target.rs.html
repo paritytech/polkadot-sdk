@@ -456,6 +456,24 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#305" id="305">305</a>
 <a href="#306" id="306">306</a>
 <a href="#307" id="307">307</a>
+<a href="#308" id="308">308</a>
+<a href="#309" id="309">309</a>
+<a href="#310" id="310">310</a>
+<a href="#311" id="311">311</a>
+<a href="#312" id="312">312</a>
+<a href="#313" id="313">313</a>
+<a href="#314" id="314">314</a>
+<a href="#315" id="315">315</a>
+<a href="#316" id="316">316</a>
+<a href="#317" id="317">317</a>
+<a href="#318" id="318">318</a>
+<a href="#319" id="319">319</a>
+<a href="#320" id="320">320</a>
+<a href="#321" id="321">321</a>
+<a href="#322" id="322">322</a>
+<a href="#323" id="323">323</a>
+<a href="#324" id="324">324</a>
+<a href="#325" id="325">325</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2019-2021 Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
@@ -481,7 +499,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		BatchProofTransaction, MessageLaneAdapter, ReceiveMessagesProofCallBuilder,
 		SubstrateMessageLane,
 	},
-	messages_source::{ensure_messages_pallet_active, read_client_state, SubstrateMessagesProof},
+	messages_source::{
+		ensure_messages_pallet_active, read_client_state_from_both_chains, SubstrateMessagesProof,
+	},
 	on_demand::OnDemandRelay,
 	TransactionParams,
 };
@@ -510,20 +530,24 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	(UnrewardedRelayersState, FromBridgedChainMessagesDeliveryProof&lt;HashOf&lt;C&gt;&gt;);
 
 <span class="doccomment">/// Substrate client as Substrate messages target.
-</span><span class="kw">pub struct </span>SubstrateMessagesTarget&lt;P: SubstrateMessageLane&gt; {
-	target_client: Client&lt;P::TargetChain&gt;,
-	source_client: Client&lt;P::SourceChain&gt;,
+</span><span class="kw">pub struct </span>SubstrateMessagesTarget&lt;P: SubstrateMessageLane, SourceClnt, TargetClnt&gt; {
+	target_client: TargetClnt,
+	source_client: SourceClnt,
 	lane_id: LaneId,
 	relayer_id_at_source: AccountIdOf&lt;P::SourceChain&gt;,
 	transaction_params: <span class="prelude-ty">Option</span>&lt;TransactionParams&lt;AccountKeyPairOf&lt;P::TargetChain&gt;&gt;&gt;,
 	source_to_target_headers_relay: <span class="prelude-ty">Option</span>&lt;Arc&lt;<span class="kw">dyn </span>OnDemandRelay&lt;P::SourceChain, P::TargetChain&gt;&gt;&gt;,
 }
 
-<span class="kw">impl</span>&lt;P: SubstrateMessageLane&gt; SubstrateMessagesTarget&lt;P&gt; {
+<span class="kw">impl</span>&lt;P, SourceClnt, TargetClnt&gt; SubstrateMessagesTarget&lt;P, SourceClnt, TargetClnt&gt;
+<span class="kw">where
+	</span>P: SubstrateMessageLane,
+	TargetClnt: Client&lt;P::TargetChain&gt;,
+{
 	<span class="doccomment">/// Create new Substrate headers target.
 	</span><span class="kw">pub fn </span>new(
-		target_client: Client&lt;P::TargetChain&gt;,
-		source_client: Client&lt;P::SourceChain&gt;,
+		target_client: TargetClnt,
+		source_client: SourceClnt,
 		lane_id: LaneId,
 		relayer_id_at_source: AccountIdOf&lt;P::SourceChain&gt;,
 		transaction_params: <span class="prelude-ty">Option</span>&lt;TransactionParams&lt;AccountKeyPairOf&lt;P::TargetChain&gt;&gt;&gt;,
@@ -548,22 +572,25 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;InboundLaneData&lt;AccountIdOf&lt;P::SourceChain&gt;&gt;&gt;, SubstrateError&gt; {
 		<span class="self">self</span>.target_client
 			.storage_value(
+				id.hash(),
 				inbound_lane_data_key(
 					P::SourceChain::WITH_CHAIN_MESSAGES_PALLET_NAME,
 					<span class="kw-2">&amp;</span><span class="self">self</span>.lane_id,
 				),
-				<span class="prelude-val">Some</span>(id.<span class="number">1</span>),
 			)
 			.<span class="kw">await
 	</span>}
 
 	<span class="doccomment">/// Ensure that the messages pallet at target chain is active.
 	</span><span class="kw">async fn </span>ensure_pallet_active(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), SubstrateError&gt; {
-		ensure_messages_pallet_active::&lt;P::TargetChain, P::SourceChain&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>.target_client).<span class="kw">await
+		ensure_messages_pallet_active::&lt;P::TargetChain, P::SourceChain, <span class="kw">_</span>&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>.target_client)
+			.<span class="kw">await
 	</span>}
 }
 
-<span class="kw">impl</span>&lt;P: SubstrateMessageLane&gt; Clone <span class="kw">for </span>SubstrateMessagesTarget&lt;P&gt; {
+<span class="kw">impl</span>&lt;P: SubstrateMessageLane, SourceClnt: Clone, TargetClnt: Clone&gt; Clone
+	<span class="kw">for </span>SubstrateMessagesTarget&lt;P, SourceClnt, TargetClnt&gt;
+{
 	<span class="kw">fn </span>clone(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="self">Self </span>{
 		<span class="self">Self </span>{
 			target_client: <span class="self">self</span>.target_client.clone(),
@@ -577,7 +604,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="attr">#[async_trait]
-</span><span class="kw">impl</span>&lt;P: SubstrateMessageLane&gt; RelayClient <span class="kw">for </span>SubstrateMessagesTarget&lt;P&gt; {
+</span><span class="kw">impl</span>&lt;
+		P: SubstrateMessageLane,
+		SourceClnt: Client&lt;P::SourceChain&gt;,
+		TargetClnt: Client&lt;P::TargetChain&gt;,
+	&gt; RelayClient <span class="kw">for </span>SubstrateMessagesTarget&lt;P, SourceClnt, TargetClnt&gt;
+{
 	<span class="kw">type </span>Error = SubstrateError;
 
 	<span class="kw">async fn </span>reconnect(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), SubstrateError&gt; {
@@ -601,14 +633,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="attr">#[async_trait]
-</span><span class="kw">impl</span>&lt;P: SubstrateMessageLane&gt; TargetClient&lt;MessageLaneAdapter&lt;P&gt;&gt; <span class="kw">for </span>SubstrateMessagesTarget&lt;P&gt;
+</span><span class="kw">impl</span>&lt;
+		P: SubstrateMessageLane,
+		SourceClnt: Client&lt;P::SourceChain&gt;,
+		TargetClnt: Client&lt;P::TargetChain&gt;,
+	&gt; TargetClient&lt;MessageLaneAdapter&lt;P&gt;&gt; <span class="kw">for </span>SubstrateMessagesTarget&lt;P, SourceClnt, TargetClnt&gt;
 <span class="kw">where
 	</span>AccountIdOf&lt;P::TargetChain&gt;: From&lt;&lt;AccountKeyPairOf&lt;P::TargetChain&gt; <span class="kw">as </span>Pair&gt;::Public&gt;,
 	BalanceOf&lt;P::SourceChain&gt;: TryFrom&lt;BalanceOf&lt;P::TargetChain&gt;&gt;,
 {
 	<span class="kw">type </span>BatchTransaction =
 		BatchProofTransaction&lt;P::TargetChain, P::SourceChain, P::TargetBatchCallBuilder&gt;;
-	<span class="kw">type </span>TransactionTracker = TransactionTracker&lt;P::TargetChain, Client&lt;P::TargetChain&gt;&gt;;
+	<span class="kw">type </span>TransactionTracker = TransactionTracker&lt;P::TargetChain, TargetClnt&gt;;
 
 	<span class="kw">async fn </span>state(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;TargetClientState&lt;MessageLaneAdapter&lt;P&gt;&gt;, SubstrateError&gt; {
 		<span class="comment">// we can't continue to deliver confirmations if source node is out of sync, because
@@ -621,7 +657,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="comment">// we can't relay messages if messages pallet at target chain is halted
 		</span><span class="self">self</span>.ensure_pallet_active().<span class="kw">await</span><span class="question-mark">?</span>;
 
-		read_client_state(<span class="kw-2">&amp;</span><span class="self">self</span>.target_client, <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.source_client)).<span class="kw">await
+		read_client_state_from_both_chains(<span class="kw-2">&amp;</span><span class="self">self</span>.target_client, <span class="kw-2">&amp;</span><span class="self">self</span>.source_client).<span class="kw">await
 	</span>}
 
 	<span class="kw">async fn </span>latest_received_nonce(
@@ -677,7 +713,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		);
 		<span class="kw">let </span>proof = <span class="self">self
 			</span>.target_client
-			.prove_storage(<span class="macro">vec!</span>[inbound_data_key], id.<span class="number">1</span>)
+			.prove_storage(id.hash(), <span class="macro">vec!</span>[inbound_data_key])
 			.<span class="kw">await</span><span class="question-mark">?
 			</span>.into_iter_nodes()
 			.collect();

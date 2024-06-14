@@ -353,8 +353,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	TargetChain: ChainWithTransactions,
 	F,
 &gt;(
-	source_client: Client&lt;SourceChain&gt;,
-	target_client: Client&lt;TargetChain&gt;,
+	source_client: <span class="kw">impl </span>Client&lt;SourceChain&gt;,
+	target_client: <span class="kw">impl </span>Client&lt;TargetChain&gt;,
 	target_signer: AccountKeyPairOf&lt;TargetChain&gt;,
 	prepare_initialize_transaction: F,
 	dry_run: bool,
@@ -415,8 +415,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	TargetChain: ChainWithTransactions,
 	F,
 &gt;(
-	source_client: Client&lt;SourceChain&gt;,
-	target_client: Client&lt;TargetChain&gt;,
+	source_client: <span class="kw">impl </span>Client&lt;SourceChain&gt;,
+	target_client: <span class="kw">impl </span>Client&lt;TargetChain&gt;,
 	target_signer: AccountKeyPairOf&lt;TargetChain&gt;,
 	prepare_initialize_transaction: F,
 	dry_run: bool,

@@ -334,8 +334,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	xcm_message: Xcm&lt;InnerXcmRuntimeCall&gt;,
 	destination: InteriorLocation,
 ) -&gt; Vec&lt;u8&gt; {
-	<span class="kw">let </span>location = xcm::VersionedInteriorLocation::V4(destination);
-	<span class="kw">let </span>xcm = xcm::VersionedXcm::&lt;InnerXcmRuntimeCall&gt;::V4(xcm_message);
+	<span class="kw">let </span>location = xcm::VersionedInteriorLocation::from(destination);
+	<span class="kw">let </span>xcm = xcm::VersionedXcm::&lt;InnerXcmRuntimeCall&gt;::from(xcm_message);
 	<span class="comment">// this is the `BridgeMessage` from polkadot xcm builder, but it has no constructor
 	// or public fields, so just tuple
 	// (double encoding, because `.encode()` is called on original Xcm BLOB when it is pushed

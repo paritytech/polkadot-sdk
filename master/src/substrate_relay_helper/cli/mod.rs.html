@@ -340,6 +340,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#189" id="189">189</a>
 <a href="#190" id="190">190</a>
 <a href="#191" id="191">191</a>
+<a href="#192" id="192">192</a>
+<a href="#193" id="193">193</a>
+<a href="#194" id="194">194</a>
+<a href="#195" id="195">195</a>
+<a href="#196" id="196">196</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2019-2021 Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
@@ -376,6 +381,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// The target that will be used when publishing logs related to this pallet.
 </span><span class="kw">pub const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">"bridge"</span>;
+
+<span class="doccomment">/// Default Substrate client type that we are using. We'll use it all over the glue CLI code
+/// to avoid multiple level generic arguments and constraints. We still allow usage of other
+/// clients in the **core logic code**.
+</span><span class="kw">pub type </span>DefaultClient&lt;C&gt; = relay_substrate_client::RpcWithCachingClient&lt;C&gt;;
 
 <span class="doccomment">/// Lane id.
 </span><span class="attr">#[derive(Debug, Clone, PartialEq, Eq)]

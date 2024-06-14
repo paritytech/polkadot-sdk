@@ -443,7 +443,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Add relay guards if required.
 	</span><span class="kw">async fn </span>start_relay_guards(
-		source_client: <span class="kw-2">&amp;</span>Client&lt;<span class="self">Self</span>::SourceChain&gt;,
+		source_client: <span class="kw-2">&amp;</span><span class="kw">impl </span>Client&lt;<span class="self">Self</span>::SourceChain&gt;,
 		enable_version_guard: bool,
 	) -&gt; relay_substrate_client::Result&lt;()&gt; {
 		<span class="kw">if </span>enable_version_guard {
@@ -573,8 +573,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Run Substrate-to-Substrate equivocations detection loop.
 </span><span class="kw">pub async fn </span>run&lt;P: SubstrateEquivocationDetectionPipeline&gt;(
-	source_client: Client&lt;P::SourceChain&gt;,
-	target_client: Client&lt;P::TargetChain&gt;,
+	source_client: <span class="kw">impl </span>Client&lt;P::SourceChain&gt;,
+	target_client: <span class="kw">impl </span>Client&lt;P::TargetChain&gt;,
 	source_transaction_params: TransactionParams&lt;AccountKeyPairOf&lt;P::SourceChain&gt;&gt;,
 	metrics_params: MetricsParams,
 ) -&gt; anyhow::Result&lt;()&gt; {
@@ -586,8 +586,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	);
 
 	equivocation_detector::run(
-		SubstrateEquivocationSource::&lt;P&gt;::new(source_client, source_transaction_params),
-		SubstrateEquivocationTarget::&lt;P&gt;::new(target_client),
+		SubstrateEquivocationSource::&lt;P, <span class="kw">_</span>&gt;::new(source_client, source_transaction_params),
+		SubstrateEquivocationTarget::&lt;P, <span class="kw">_</span>&gt;::new(target_client),
 		P::TargetChain::AVERAGE_BLOCK_INTERVAL,
 		metrics_params,
 		futures::future::pending(),

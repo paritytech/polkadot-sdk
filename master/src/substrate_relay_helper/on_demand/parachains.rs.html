@@ -1188,6 +1188,23 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1037" id="1037">1037</a>
 <a href="#1038" id="1038">1038</a>
 <a href="#1039" id="1039">1039</a>
+<a href="#1040" id="1040">1040</a>
+<a href="#1041" id="1041">1041</a>
+<a href="#1042" id="1042">1042</a>
+<a href="#1043" id="1043">1043</a>
+<a href="#1044" id="1044">1044</a>
+<a href="#1045" id="1045">1045</a>
+<a href="#1046" id="1046">1046</a>
+<a href="#1047" id="1047">1047</a>
+<a href="#1048" id="1048">1048</a>
+<a href="#1049" id="1049">1049</a>
+<a href="#1050" id="1050">1050</a>
+<a href="#1051" id="1051">1051</a>
+<a href="#1052" id="1052">1052</a>
+<a href="#1053" id="1053">1053</a>
+<a href="#1054" id="1054">1054</a>
+<a href="#1055" id="1055">1055</a>
+<a href="#1056" id="1056">1056</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2019-2021 Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
@@ -1243,29 +1260,34 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// (e.g. messages relay) needs it to continue its regular work. When enough parachain headers
 /// are relayed, on-demand stops syncing headers.
 </span><span class="attr">#[derive(Clone)]
-</span><span class="kw">pub struct </span>OnDemandParachainsRelay&lt;P: SubstrateParachainsPipeline&gt; {
+</span><span class="kw">pub struct </span>OnDemandParachainsRelay&lt;P: SubstrateParachainsPipeline, SourceRelayClnt, TargetClnt&gt; {
 	<span class="doccomment">/// Relay task name.
 	</span>relay_task_name: String,
 	<span class="doccomment">/// Channel used to communicate with background task and ask for relay of parachain heads.
 	</span>required_header_number_sender: Sender&lt;BlockNumberOf&lt;P::SourceParachain&gt;&gt;,
 	<span class="doccomment">/// Source relay chain client.
-	</span>source_relay_client: Client&lt;P::SourceRelayChain&gt;,
+	</span>source_relay_client: SourceRelayClnt,
 	<span class="doccomment">/// Target chain client.
-	</span>target_client: Client&lt;P::TargetChain&gt;,
+	</span>target_client: TargetClnt,
 	<span class="doccomment">/// On-demand relay chain relay.
 	</span>on_demand_source_relay_to_target_headers:
 		Arc&lt;<span class="kw">dyn </span>OnDemandRelay&lt;P::SourceRelayChain, P::TargetChain&gt;&gt;,
 }
 
-<span class="kw">impl</span>&lt;P: SubstrateParachainsPipeline&gt; OnDemandParachainsRelay&lt;P&gt; {
+<span class="kw">impl</span>&lt;
+		P: SubstrateParachainsPipeline,
+		SourceRelayClnt: Client&lt;P::SourceRelayChain&gt;,
+		TargetClnt: Client&lt;P::TargetChain&gt;,
+	&gt; OnDemandParachainsRelay&lt;P, SourceRelayClnt, TargetClnt&gt;
+{
 	<span class="doccomment">/// Create new on-demand parachains relay.
 	///
 	/// Note that the argument is the source relay chain client, not the parachain client.
 	/// That's because parachain finality is determined by the relay chain and we don't
 	/// need to connect to the parachain itself here.
 	</span><span class="kw">pub fn </span>new(
-		source_relay_client: Client&lt;P::SourceRelayChain&gt;,
-		target_client: Client&lt;P::TargetChain&gt;,
+		source_relay_client: SourceRelayClnt,
+		target_client: TargetClnt,
 		target_transaction_params: TransactionParams&lt;AccountKeyPairOf&lt;P::TargetChain&gt;&gt;,
 		on_demand_source_relay_to_target_headers: Arc&lt;
 			<span class="kw">dyn </span>OnDemandRelay&lt;P::SourceRelayChain, P::TargetChain&gt;,
@@ -1304,10 +1326,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="attr">#[async_trait]
-</span><span class="kw">impl</span>&lt;P: SubstrateParachainsPipeline&gt; OnDemandRelay&lt;P::SourceParachain, P::TargetChain&gt;
-	<span class="kw">for </span>OnDemandParachainsRelay&lt;P&gt;
+</span><span class="kw">impl</span>&lt;P: SubstrateParachainsPipeline, SourceRelayClnt, TargetClnt&gt;
+	OnDemandRelay&lt;P::SourceParachain, P::TargetChain&gt;
+	<span class="kw">for </span>OnDemandParachainsRelay&lt;P, SourceRelayClnt, TargetClnt&gt;
 <span class="kw">where
 	</span>P::SourceParachain: Chain&lt;Hash = ParaHash&gt;,
+	SourceRelayClnt: Client&lt;P::SourceRelayChain&gt;,
+	TargetClnt: Client&lt;P::TargetChain&gt;,
 {
 	<span class="kw">async fn </span>reconnect(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), SubstrateError&gt; {
 		<span class="comment">// using clone is fine here (to avoid mut requirement), because clone on Client clones
@@ -1337,7 +1362,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		required_parachain_header: BlockNumberOf&lt;P::SourceParachain&gt;,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;(HeaderIdOf&lt;P::SourceParachain&gt;, Vec&lt;CallOf&lt;P::TargetChain&gt;&gt;), SubstrateError&gt; {
 		<span class="comment">// select headers to prove
-		</span><span class="kw">let </span>parachains_source = ParachainsSource::&lt;P&gt;::new(
+		</span><span class="kw">let </span>parachains_source = ParachainsSource::&lt;P, <span class="kw">_</span>&gt;::new(
 			<span class="self">self</span>.source_relay_client.clone(),
 			Arc::new(Mutex::new(AvailableHeader::Missing)),
 		);
@@ -1421,8 +1446,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Background task that is responsible for starting parachain headers relay.
 </span><span class="kw">async fn </span>background_task&lt;P: SubstrateParachainsPipeline&gt;(
-	source_relay_client: Client&lt;P::SourceRelayChain&gt;,
-	target_client: Client&lt;P::TargetChain&gt;,
+	source_relay_client: <span class="kw">impl </span>Client&lt;P::SourceRelayChain&gt;,
+	target_client: <span class="kw">impl </span>Client&lt;P::TargetChain&gt;,
 	target_transaction_params: TransactionParams&lt;AccountKeyPairOf&lt;P::TargetChain&gt;&gt;,
 	on_demand_source_relay_to_target_headers: Arc&lt;
 		<span class="kw">dyn </span>OnDemandRelay&lt;P::SourceRelayChain, P::TargetChain&gt;,
@@ -1445,9 +1470,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">let </span>parachains_relay_task = futures::future::Fuse::terminated();
 	<span class="macro">futures::pin_mut!</span>(parachains_relay_task);
 
-	<span class="kw">let </span><span class="kw-2">mut </span>parachains_source =
-		ParachainsSource::&lt;P&gt;::new(source_relay_client.clone(), required_para_header_ref.clone());
-	<span class="kw">let </span><span class="kw-2">mut </span>parachains_target = ParachainsTarget::&lt;P&gt;::new(
+	<span class="kw">let </span><span class="kw-2">mut </span>parachains_source = ParachainsSource::&lt;P, <span class="kw">_</span>&gt;::new(
+		source_relay_client.clone(),
+		required_para_header_ref.clone(),
+	);
+	<span class="kw">let </span><span class="kw-2">mut </span>parachains_target = ParachainsTarget::&lt;P, <span class="kw">_</span>, <span class="kw">_</span>&gt;::new(
 		source_relay_client.clone(),
 		target_client.clone(),
 		target_transaction_params.clone(),
@@ -1636,9 +1663,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// Read required data from source and target clients.
-</span><span class="kw">async fn </span>read_relay_data&lt;P: SubstrateParachainsPipeline&gt;(
-	source: <span class="kw-2">&amp;</span>ParachainsSource&lt;P&gt;,
-	target: <span class="kw-2">&amp;</span>ParachainsTarget&lt;P&gt;,
+</span><span class="kw">async fn </span>read_relay_data&lt;P: SubstrateParachainsPipeline, SourceRelayClnt, TargetClnt&gt;(
+	source: <span class="kw-2">&amp;</span>ParachainsSource&lt;P, SourceRelayClnt&gt;,
+	target: <span class="kw-2">&amp;</span>ParachainsTarget&lt;P, SourceRelayClnt, TargetClnt&gt;,
 	required_header_number: BlockNumberOf&lt;P::SourceParachain&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;
 	RelayData&lt;
@@ -1649,7 +1676,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	FailedClient,
 &gt;
 <span class="kw">where
-	</span>ParachainsTarget&lt;P&gt;:
+	</span>SourceRelayClnt: Client&lt;P::SourceRelayChain&gt;,
+	TargetClnt: Client&lt;P::TargetChain&gt;,
+	ParachainsTarget&lt;P, SourceRelayClnt, TargetClnt&gt;:
 		TargetClient&lt;ParachainsPipelineAdapter&lt;P&gt;&gt; + RelayClient&lt;Error = SubstrateError&gt;,
 {
 	<span class="kw">let </span>map_target_err = |e| {
@@ -1832,13 +1861,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="attr">#[async_trait]
-</span><span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, P: SubstrateParachainsPipeline&gt;
+</span><span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, P: SubstrateParachainsPipeline, SourceRelayClnt, TargetClnt&gt;
 	SelectHeadersToProveEnvironment&lt;
 		BlockNumberOf&lt;P::SourceRelayChain&gt;,
 		HashOf&lt;P::SourceRelayChain&gt;,
 		BlockNumberOf&lt;P::SourceParachain&gt;,
 		HashOf&lt;P::SourceParachain&gt;,
-	&gt; <span class="kw">for </span>(<span class="kw-2">&amp;</span><span class="lifetime">'a </span>OnDemandParachainsRelay&lt;P&gt;, <span class="kw-2">&amp;</span><span class="lifetime">'a </span>ParachainsSource&lt;P&gt;)
+	&gt;
+	<span class="kw">for </span>(
+		<span class="kw-2">&amp;</span><span class="lifetime">'a </span>OnDemandParachainsRelay&lt;P, SourceRelayClnt, TargetClnt&gt;,
+		<span class="kw-2">&amp;</span><span class="lifetime">'a </span>ParachainsSource&lt;P, SourceRelayClnt&gt;,
+	) <span class="kw">where
+	</span>SourceRelayClnt: Client&lt;P::SourceRelayChain&gt;,
+	TargetClnt: Client&lt;P::TargetChain&gt;,
 {
 	<span class="kw">fn </span>parachain_id(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; ParaId {
 		ParaId(P::SourceParachain::PARACHAIN_ID)
@@ -1855,7 +1890,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	) -&gt; <span class="prelude-ty">Result</span>&lt;HeaderIdOf&lt;P::SourceRelayChain&gt;, SubstrateError&gt; {
 		<span class="prelude-val">Ok</span>(<span class="kw">crate</span>::messages_source::read_client_state::&lt;P::TargetChain, P::SourceRelayChain&gt;(
 			<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0</span>.target_client,
-			<span class="prelude-val">None</span>,
 		)
 		.<span class="kw">await</span><span class="question-mark">?
 		</span>.best_finalized_peer_at_best_self

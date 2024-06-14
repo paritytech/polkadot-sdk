@@ -359,6 +359,29 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#208" id="208">208</a>
 <a href="#209" id="209">209</a>
 <a href="#210" id="210">210</a>
+<a href="#211" id="211">211</a>
+<a href="#212" id="212">212</a>
+<a href="#213" id="213">213</a>
+<a href="#214" id="214">214</a>
+<a href="#215" id="215">215</a>
+<a href="#216" id="216">216</a>
+<a href="#217" id="217">217</a>
+<a href="#218" id="218">218</a>
+<a href="#219" id="219">219</a>
+<a href="#220" id="220">220</a>
+<a href="#221" id="221">221</a>
+<a href="#222" id="222">222</a>
+<a href="#223" id="223">223</a>
+<a href="#224" id="224">224</a>
+<a href="#225" id="225">225</a>
+<a href="#226" id="226">226</a>
+<a href="#227" id="227">227</a>
+<a href="#228" id="228">228</a>
+<a href="#229" id="229">229</a>
+<a href="#230" id="230">230</a>
+<a href="#231" id="231">231</a>
+<a href="#232" id="232">232</a>
+<a href="#233" id="233">233</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2019-2021 Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
@@ -403,31 +426,42 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 };
 <span class="kw">use </span>relay_utils::relay_loop::Client <span class="kw">as </span>RelayClient;
 <span class="kw">use </span>sp_core::Pair;
+<span class="kw">use </span>sp_runtime::traits::Header;
 
 <span class="doccomment">/// Substrate client as parachain heads source.
-</span><span class="kw">pub struct </span>ParachainsTarget&lt;P: SubstrateParachainsPipeline&gt; {
-	source_client: Client&lt;P::SourceRelayChain&gt;,
-	target_client: Client&lt;P::TargetChain&gt;,
+</span><span class="kw">pub struct </span>ParachainsTarget&lt;P: SubstrateParachainsPipeline, SourceClnt, TargetClnt&gt; {
+	source_client: SourceClnt,
+	target_client: TargetClnt,
 	transaction_params: TransactionParams&lt;AccountKeyPairOf&lt;P::TargetChain&gt;&gt;,
 }
 
-<span class="kw">impl</span>&lt;P: SubstrateParachainsPipeline&gt; ParachainsTarget&lt;P&gt; {
+<span class="kw">impl</span>&lt;
+		P: SubstrateParachainsPipeline,
+		SourceClnt: Client&lt;P::SourceRelayChain&gt;,
+		TargetClnt: Client&lt;P::TargetChain&gt;,
+	&gt; ParachainsTarget&lt;P, SourceClnt, TargetClnt&gt;
+{
 	<span class="doccomment">/// Creates new parachains target client.
 	</span><span class="kw">pub fn </span>new(
-		source_client: Client&lt;P::SourceRelayChain&gt;,
-		target_client: Client&lt;P::TargetChain&gt;,
+		source_client: SourceClnt,
+		target_client: TargetClnt,
 		transaction_params: TransactionParams&lt;AccountKeyPairOf&lt;P::TargetChain&gt;&gt;,
 	) -&gt; <span class="self">Self </span>{
 		ParachainsTarget { source_client, target_client, transaction_params }
 	}
 
 	<span class="doccomment">/// Returns reference to the underlying RPC client.
-	</span><span class="kw">pub fn </span>target_client(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>Client&lt;P::TargetChain&gt; {
+	</span><span class="kw">pub fn </span>target_client(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>TargetClnt {
 		<span class="kw-2">&amp;</span><span class="self">self</span>.target_client
 	}
 }
 
-<span class="kw">impl</span>&lt;P: SubstrateParachainsPipeline&gt; Clone <span class="kw">for </span>ParachainsTarget&lt;P&gt; {
+<span class="kw">impl</span>&lt;
+		P: SubstrateParachainsPipeline,
+		SourceClnt: Client&lt;P::SourceRelayChain&gt;,
+		TargetClnt: Clone,
+	&gt; Clone <span class="kw">for </span>ParachainsTarget&lt;P, SourceClnt, TargetClnt&gt;
+{
 	<span class="kw">fn </span>clone(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="self">Self </span>{
 		ParachainsTarget {
 			source_client: <span class="self">self</span>.source_client.clone(),
@@ -438,7 +472,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="attr">#[async_trait]
-</span><span class="kw">impl</span>&lt;P: SubstrateParachainsPipeline&gt; RelayClient <span class="kw">for </span>ParachainsTarget&lt;P&gt; {
+</span><span class="kw">impl</span>&lt;
+		P: SubstrateParachainsPipeline,
+		SourceClnt: Client&lt;P::SourceRelayChain&gt;,
+		TargetClnt: Client&lt;P::TargetChain&gt;,
+	&gt; RelayClient <span class="kw">for </span>ParachainsTarget&lt;P, SourceClnt, TargetClnt&gt;
+{
 	<span class="kw">type </span>Error = SubstrateError;
 
 	<span class="kw">async fn </span>reconnect(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), SubstrateError&gt; {
@@ -449,14 +488,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="attr">#[async_trait]
-</span><span class="kw">impl</span>&lt;P&gt; TargetClient&lt;ParachainsPipelineAdapter&lt;P&gt;&gt; <span class="kw">for </span>ParachainsTarget&lt;P&gt;
+</span><span class="kw">impl</span>&lt;P, SourceClnt, TargetClnt&gt; TargetClient&lt;ParachainsPipelineAdapter&lt;P&gt;&gt;
+	<span class="kw">for </span>ParachainsTarget&lt;P, SourceClnt, TargetClnt&gt;
 <span class="kw">where
 	</span>P: SubstrateParachainsPipeline,
+	SourceClnt: Client&lt;P::SourceRelayChain&gt;,
+	TargetClnt: Client&lt;P::TargetChain&gt;,
 	AccountIdOf&lt;P::TargetChain&gt;: From&lt;&lt;AccountKeyPairOf&lt;P::TargetChain&gt; <span class="kw">as </span>Pair&gt;::Public&gt;,
 	P::SourceParachain: ChainBase&lt;Hash = ParaHash&gt;,
 	P::SourceRelayChain: ChainBase&lt;BlockNumber = RelayBlockNumber&gt;,
 {
-	<span class="kw">type </span>TransactionTracker = TransactionTracker&lt;P::TargetChain, Client&lt;P::TargetChain&gt;&gt;;
+	<span class="kw">type </span>TransactionTracker = TransactionTracker&lt;P::TargetChain, TargetClnt&gt;;
 
 	<span class="kw">async fn </span>best_block(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;HeaderIdOf&lt;P::TargetChain&gt;, <span class="self">Self</span>::Error&gt; {
 		<span class="kw">let </span>best_header = <span class="self">self</span>.target_client.best_header().<span class="kw">await</span><span class="question-mark">?</span>;
@@ -470,10 +512,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		at_block: <span class="kw-2">&amp;</span>HeaderIdOf&lt;P::TargetChain&gt;,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;HeaderIdOf&lt;P::SourceRelayChain&gt;, <span class="self">Self</span>::Error&gt; {
 		<span class="self">self</span>.target_client
-			.typed_state_call::&lt;<span class="kw">_</span>, <span class="prelude-ty">Option</span>&lt;HeaderIdOf&lt;P::SourceRelayChain&gt;&gt;&gt;(
+			.state_call::&lt;<span class="kw">_</span>, <span class="prelude-ty">Option</span>&lt;HeaderIdOf&lt;P::SourceRelayChain&gt;&gt;&gt;(
+				at_block.hash(),
 				P::SourceRelayChain::BEST_FINALIZED_HEADER_ID_METHOD.into(),
 				(),
-				<span class="prelude-val">Some</span>(at_block.<span class="number">1</span>),
 			)
 			.<span class="kw">await</span><span class="question-mark">?
 			</span>.map(<span class="prelude-val">Ok</span>)
@@ -485,7 +527,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;BlockNumberOf&lt;P::SourceRelayChain&gt;&gt;, <span class="self">Self</span>::Error&gt; {
 		<span class="prelude-val">Ok</span>(<span class="self">self
 			</span>.target_client
-			.typed_state_call(P::SourceRelayChain::FREE_HEADERS_INTERVAL_METHOD.into(), (), <span class="prelude-val">None</span>)
+			.state_call(
+				<span class="self">self</span>.target_client.best_header().<span class="kw">await</span><span class="question-mark">?</span>.hash(),
+				P::SourceRelayChain::FREE_HEADERS_INTERVAL_METHOD.into(),
+				(),
+			)
 			.<span class="kw">await
 			</span>.unwrap_or_else(|e| {
 				<span class="macro">log::info!</span>(
@@ -512,7 +558,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw-2">&amp;</span>P::SourceParachain::PARACHAIN_ID.into(),
 		);
 		<span class="kw">let </span>storage_value: <span class="prelude-ty">Option</span>&lt;ParaInfo&gt; =
-			<span class="self">self</span>.target_client.storage_value(storage_key, <span class="prelude-val">Some</span>(at_block.hash())).<span class="kw">await</span><span class="question-mark">?</span>;
+			<span class="self">self</span>.target_client.storage_value(at_block.hash(), storage_key).<span class="kw">await</span><span class="question-mark">?</span>;
 		<span class="kw">let </span>para_info = <span class="kw">match </span>storage_value {
 			<span class="prelude-val">Some</span>(para_info) =&gt; para_info,
 			<span class="prelude-val">None </span>=&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>),
@@ -533,7 +579,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw-2">&amp;</span>para_info.best_head_hash.head_hash,
 		);
 		<span class="kw">let </span>storage_value: <span class="prelude-ty">Option</span>&lt;ParaStoredHeaderData&gt; =
-			<span class="self">self</span>.target_client.storage_value(storage_key, <span class="prelude-val">Some</span>(at_block.hash())).<span class="kw">await</span><span class="question-mark">?</span>;
+			<span class="self">self</span>.target_client.storage_value(at_block.hash(), storage_key).<span class="kw">await</span><span class="question-mark">?</span>;
 		<span class="kw">let </span>para_head_number = <span class="kw">match </span>storage_value {
 			<span class="prelude-val">Some</span>(para_head_data) =&gt;
 				para_head_data.decode_parachain_head_data::&lt;P::SourceParachain&gt;()<span class="question-mark">?</span>.number,

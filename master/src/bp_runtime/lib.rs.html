@@ -951,9 +951,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// The same as `StorageMap::Hasher1`.
 	</span><span class="kw">type </span>Hasher: StorageHasher;
 	<span class="doccomment">/// The same as `StorageMap::Key1`.
-	</span><span class="kw">type </span>Key: FullCodec;
+	</span><span class="kw">type </span>Key: FullCodec + Send + Sync;
 	<span class="doccomment">/// The same as `StorageMap::Value`.
-	</span><span class="kw">type </span>Value: FullCodec;
+	</span><span class="kw">type </span>Value: <span class="lifetime">'static </span>+ FullCodec;
 
 	<span class="doccomment">/// This is a copy of the
 	/// `frame_support::storage::generator::StorageMap::storage_map_final_key`.
@@ -973,13 +973,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// The same as `StorageDoubleMap::Hasher1`.
 	</span><span class="kw">type </span>Hasher1: StorageHasher;
 	<span class="doccomment">/// The same as `StorageDoubleMap::Key1`.
-	</span><span class="kw">type </span>Key1: FullCodec;
+	</span><span class="kw">type </span>Key1: FullCodec + Send + Sync;
 	<span class="doccomment">/// The same as `StorageDoubleMap::Hasher2`.
 	</span><span class="kw">type </span>Hasher2: StorageHasher;
 	<span class="doccomment">/// The same as `StorageDoubleMap::Key2`.
-	</span><span class="kw">type </span>Key2: FullCodec;
+	</span><span class="kw">type </span>Key2: FullCodec + Send + Sync;
 	<span class="doccomment">/// The same as `StorageDoubleMap::Value`.
-	</span><span class="kw">type </span>Value: FullCodec;
+	</span><span class="kw">type </span>Value: <span class="lifetime">'static </span>+ FullCodec;
 
 	<span class="doccomment">/// This is a copy of the
 	/// `frame_support::storage::generator::StorageDoubleMap::storage_double_map_final_key`.

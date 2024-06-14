@@ -273,7 +273,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">mod </span>chain;
 <span class="kw">mod </span>client;
 <span class="kw">mod </span>error;
-<span class="kw">mod </span>rpc;
 <span class="kw">mod </span>sync_header;
 <span class="kw">mod </span>transaction_tracker;
 
@@ -289,14 +288,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		AccountKeyPairOf, BlockWithJustification, CallOf, Chain, ChainWithBalances,
 		ChainWithGrandpa, ChainWithMessages, ChainWithRuntimeVersion, ChainWithTransactions,
 		ChainWithUtilityPallet, FullRuntimeUtilityPallet, MockedRuntimeUtilityPallet, Parachain,
-		RelayChain, SignParam, TransactionStatusOf, UnsignedTransaction, UtilityPallet,
+		RelayChain, SignParam, SignedBlockOf, TransactionStatusOf, UnsignedTransaction,
+		UtilityPallet,
 	},
 	client::{
-		is_ancient_block, ChainRuntimeVersion, Client, OpaqueGrandpaAuthoritiesSet,
-		SimpleRuntimeVersion, Subscription, ANCIENT_BLOCK_THRESHOLD,
+		is_ancient_block, rpc_with_caching <span class="kw">as </span>new, ChainRuntimeVersion, Client,
+		OpaqueGrandpaAuthoritiesSet, RpcWithCachingClient, SimpleRuntimeVersion, StreamDescription,
+		Subscription, ANCIENT_BLOCK_THRESHOLD,
 	},
 	error::{Error, <span class="prelude-ty">Result</span>},
-	rpc::{SubstrateBeefyFinalityClient, SubstrateFinalityClient, SubstrateGrandpaFinalityClient},
 	sync_header::SyncHeader,
 	transaction_tracker::TransactionTracker,
 };

@@ -1137,7 +1137,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="doccomment">/// The overarching event type.
 		</span><span class="kw">type </span>RuntimeEvent: From&lt;Event&lt;<span class="self">Self</span>&gt;&gt; + IsType&lt;&lt;<span class="self">Self </span><span class="kw">as </span>frame_system::Config&gt;::RuntimeEvent&gt;;
 		<span class="doccomment">/// Type of relayer reward.
-		</span><span class="kw">type </span>Reward: AtLeast32BitUnsigned + Copy + Parameter + MaxEncodedLen;
+		</span><span class="kw">type </span>Reward: AtLeast32BitUnsigned + Copy + Member + Parameter + MaxEncodedLen;
 		<span class="doccomment">/// Pay rewards scheme.
 		</span><span class="kw">type </span>PaymentProcedure: PaymentProcedure&lt;<span class="self">Self</span>::AccountId, <span class="self">Self</span>::Reward&gt;;
 		<span class="doccomment">/// Stake and slash scheme.

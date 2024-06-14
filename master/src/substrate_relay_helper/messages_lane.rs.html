@@ -817,6 +817,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#666" id="666">666</a>
 <a href="#667" id="667">667</a>
 <a href="#668" id="668">668</a>
+<a href="#669" id="669">669</a>
+<a href="#670" id="670">670</a>
+<a href="#671" id="671">671</a>
+<a href="#672" id="672">672</a>
+<a href="#673" id="673">673</a>
+<a href="#674" id="674">674</a>
+<a href="#675" id="675">675</a>
+<a href="#676" id="676">676</a>
+<a href="#677" id="677">677</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2019-2021 Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
@@ -907,13 +916,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// Substrate &lt;-&gt; Substrate messages relay parameters.
-</span><span class="kw">pub struct </span>MessagesRelayParams&lt;P: SubstrateMessageLane&gt; {
+</span><span class="kw">pub struct </span>MessagesRelayParams&lt;P: SubstrateMessageLane, SourceClnt, TargetClnt&gt; {
 	<span class="doccomment">/// Messages source client.
-	</span><span class="kw">pub </span>source_client: Client&lt;P::SourceChain&gt;,
+	</span><span class="kw">pub </span>source_client: SourceClnt,
 	<span class="doccomment">/// Source transaction params.
 	</span><span class="kw">pub </span>source_transaction_params: TransactionParams&lt;AccountKeyPairOf&lt;P::SourceChain&gt;&gt;,
 	<span class="doccomment">/// Messages target client.
-	</span><span class="kw">pub </span>target_client: Client&lt;P::TargetChain&gt;,
+	</span><span class="kw">pub </span>target_client: TargetClnt,
 	<span class="doccomment">/// Target transaction params.
 	</span><span class="kw">pub </span>target_transaction_params: TransactionParams&lt;AccountKeyPairOf&lt;P::TargetChain&gt;&gt;,
 	<span class="doccomment">/// Optional on-demand source to target headers relay.
@@ -998,9 +1007,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// Run Substrate-to-Substrate messages sync loop.
-</span><span class="kw">pub async fn </span>run&lt;P: SubstrateMessageLane&gt;(params: MessagesRelayParams&lt;P&gt;) -&gt; anyhow::Result&lt;()&gt;
+</span><span class="kw">pub async fn </span>run&lt;P, SourceClnt, TargetClnt&gt;(
+	params: MessagesRelayParams&lt;P, SourceClnt, TargetClnt&gt;,
+) -&gt; anyhow::Result&lt;()&gt;
 <span class="kw">where
-	</span>AccountIdOf&lt;P::SourceChain&gt;: From&lt;&lt;AccountKeyPairOf&lt;P::SourceChain&gt; <span class="kw">as </span>Pair&gt;::Public&gt;,
+	</span>P: SubstrateMessageLane,
+	SourceClnt: Client&lt;P::SourceChain&gt;,
+	TargetClnt: Client&lt;P::TargetChain&gt;,
+	AccountIdOf&lt;P::SourceChain&gt;: From&lt;&lt;AccountKeyPairOf&lt;P::SourceChain&gt; <span class="kw">as </span>Pair&gt;::Public&gt;,
 	AccountIdOf&lt;P::TargetChain&gt;: From&lt;&lt;AccountKeyPairOf&lt;P::TargetChain&gt; <span class="kw">as </span>Pair&gt;::Public&gt;,
 	BalanceOf&lt;P::SourceChain&gt;: TryFrom&lt;BalanceOf&lt;P::TargetChain&gt;&gt;,
 {
@@ -1009,7 +1023,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">let </span>limits = <span class="kw">match </span>params.limits {
 		<span class="prelude-val">Some</span>(limits) =&gt; limits,
 		<span class="prelude-val">None </span>=&gt;
-			select_delivery_transaction_limits_rpc::&lt;P&gt;(
+			select_delivery_transaction_limits_rpc(
 				<span class="kw-2">&amp;</span>params,
 				P::TargetChain::max_extrinsic_weight(),
 				P::SourceChain::MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX,
@@ -1069,14 +1083,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				max_messages_size_in_single_batch,
 			},
 		},
-		SubstrateMessagesSource::&lt;P&gt;::new(
+		SubstrateMessagesSource::&lt;P, <span class="kw">_</span>, <span class="kw">_</span>&gt;::new(
 			source_client.clone(),
 			target_client.clone(),
 			params.lane_id,
 			params.source_transaction_params,
 			params.target_to_source_headers_relay,
 		),
-		SubstrateMessagesTarget::&lt;P&gt;::new(
+		SubstrateMessagesTarget::&lt;P, <span class="kw">_</span>, <span class="kw">_</span>&gt;::new(
 			target_client,
 			source_client,
 			params.lane_id,
@@ -1097,8 +1111,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Deliver range of Substrate-to-Substrate messages. No checks are made to ensure that transaction
 /// will succeed.
 </span><span class="kw">pub async fn </span>relay_messages_range&lt;P: SubstrateMessageLane&gt;(
-	source_client: Client&lt;P::SourceChain&gt;,
-	target_client: Client&lt;P::TargetChain&gt;,
+	source_client: <span class="kw">impl </span>Client&lt;P::SourceChain&gt;,
+	target_client: <span class="kw">impl </span>Client&lt;P::TargetChain&gt;,
 	source_transaction_params: TransactionParams&lt;AccountKeyPairOf&lt;P::SourceChain&gt;&gt;,
 	target_transaction_params: TransactionParams&lt;AccountKeyPairOf&lt;P::TargetChain&gt;&gt;,
 	at_source_block: HeaderIdOf&lt;P::SourceChain&gt;,
@@ -1114,14 +1128,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">let </span>relayer_id_at_source: AccountIdOf&lt;P::SourceChain&gt; =
 		source_transaction_params.signer.public().into();
 	messages_relay::relay_messages_range(
-		SubstrateMessagesSource::&lt;P&gt;::new(
+		SubstrateMessagesSource::&lt;P, <span class="kw">_</span>, <span class="kw">_</span>&gt;::new(
 			source_client.clone(),
 			target_client.clone(),
 			lane_id,
 			source_transaction_params,
 			<span class="prelude-val">None</span>,
 		),
-		SubstrateMessagesTarget::&lt;P&gt;::new(
+		SubstrateMessagesTarget::&lt;P, <span class="kw">_</span>, <span class="kw">_</span>&gt;::new(
 			target_client,
 			source_client,
 			lane_id,
@@ -1140,8 +1154,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Relay messages delivery confirmation of Substrate-to-Substrate messages.
 /// No checks are made to ensure that transaction will succeed.
 </span><span class="kw">pub async fn </span>relay_messages_delivery_confirmation&lt;P: SubstrateMessageLane&gt;(
-	source_client: Client&lt;P::SourceChain&gt;,
-	target_client: Client&lt;P::TargetChain&gt;,
+	source_client: <span class="kw">impl </span>Client&lt;P::SourceChain&gt;,
+	target_client: <span class="kw">impl </span>Client&lt;P::TargetChain&gt;,
 	source_transaction_params: TransactionParams&lt;AccountKeyPairOf&lt;P::SourceChain&gt;&gt;,
 	at_target_block: HeaderIdOf&lt;P::TargetChain&gt;,
 	lane_id: LaneId,
@@ -1154,14 +1168,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">let </span>relayer_id_at_source: AccountIdOf&lt;P::SourceChain&gt; =
 		source_transaction_params.signer.public().into();
 	messages_relay::relay_messages_delivery_confirmation(
-		SubstrateMessagesSource::&lt;P&gt;::new(
+		SubstrateMessagesSource::&lt;P, <span class="kw">_</span>, <span class="kw">_</span>&gt;::new(
 			source_client.clone(),
 			target_client.clone(),
 			lane_id,
 			source_transaction_params,
 			<span class="prelude-val">None</span>,
 		),
-		SubstrateMessagesTarget::&lt;P&gt;::new(
+		SubstrateMessagesTarget::&lt;P, <span class="kw">_</span>, <span class="kw">_</span>&gt;::new(
 			target_client,
 			source_client,
 			lane_id,
@@ -1365,13 +1379,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// Returns maximal number of messages and their maximal cumulative dispatch weight.
-</span><span class="kw">async fn </span>select_delivery_transaction_limits_rpc&lt;P: SubstrateMessageLane&gt;(
-	params: <span class="kw-2">&amp;</span>MessagesRelayParams&lt;P&gt;,
+</span><span class="kw">async fn </span>select_delivery_transaction_limits_rpc&lt;P, SourceClnt, TargetClnt&gt;(
+	params: <span class="kw-2">&amp;</span>MessagesRelayParams&lt;P, SourceClnt, TargetClnt&gt;,
 	max_extrinsic_weight: Weight,
 	max_unconfirmed_messages_at_inbound_lane: MessageNonce,
 ) -&gt; anyhow::Result&lt;MessagesRelayLimits&gt;
 <span class="kw">where
-	</span>AccountIdOf&lt;P::SourceChain&gt;: From&lt;&lt;AccountKeyPairOf&lt;P::SourceChain&gt; <span class="kw">as </span>Pair&gt;::Public&gt;,
+	</span>P: SubstrateMessageLane,
+	SourceClnt: Client&lt;P::SourceChain&gt;,
+	TargetClnt: Client&lt;P::TargetChain&gt;,
+	AccountIdOf&lt;P::SourceChain&gt;: From&lt;&lt;AccountKeyPairOf&lt;P::SourceChain&gt; <span class="kw">as </span>Pair&gt;::Public&gt;,
 {
 	<span class="comment">// We may try to guess accurate value, based on maximal number of messages and per-message
 	// weight overhead, but the relay loop isn't using this info in a super-accurate way anyway.
@@ -1386,20 +1403,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">let </span>weight_for_messages_dispatch = max_extrinsic_weight - weight_for_delivery_tx;
 
 	<span class="comment">// weight of empty message delivery with outbound lane state
-	</span><span class="kw">let </span>delivery_tx_with_zero_messages = dummy_messages_delivery_transaction::&lt;P&gt;(params, <span class="number">0</span>)<span class="question-mark">?</span>;
+	</span><span class="kw">let </span>best_target_block_hash = params.target_client.best_header_hash().<span class="kw">await</span><span class="question-mark">?</span>;
+	<span class="kw">let </span>delivery_tx_with_zero_messages = dummy_messages_delivery_transaction::&lt;P, <span class="kw">_</span>, <span class="kw">_</span>&gt;(params, <span class="number">0</span>)<span class="question-mark">?</span>;
 	<span class="kw">let </span>delivery_tx_with_zero_messages_weight = params
 		.target_client
-		.extimate_extrinsic_weight(delivery_tx_with_zero_messages)
+		.estimate_extrinsic_weight(best_target_block_hash, delivery_tx_with_zero_messages)
 		.<span class="kw">await
 		</span>.map_err(|e| {
 			<span class="macro">anyhow::format_err!</span>(<span class="string">"Failed to estimate delivery extrinsic weight: {:?}"</span>, e)
 		})<span class="question-mark">?</span>;
 
 	<span class="comment">// weight of single message delivery with outbound lane state
-	</span><span class="kw">let </span>delivery_tx_with_one_message = dummy_messages_delivery_transaction::&lt;P&gt;(params, <span class="number">1</span>)<span class="question-mark">?</span>;
+	</span><span class="kw">let </span>delivery_tx_with_one_message = dummy_messages_delivery_transaction::&lt;P, <span class="kw">_</span>, <span class="kw">_</span>&gt;(params, <span class="number">1</span>)<span class="question-mark">?</span>;
 	<span class="kw">let </span>delivery_tx_with_one_message_weight = params
 		.target_client
-		.extimate_extrinsic_weight(delivery_tx_with_one_message)
+		.estimate_extrinsic_weight(best_target_block_hash, delivery_tx_with_one_message)
 		.<span class="kw">await
 		</span>.map_err(|e| {
 			<span class="macro">anyhow::format_err!</span>(<span class="string">"Failed to estimate delivery extrinsic weight: {:?}"</span>, e)
@@ -1434,8 +1452,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// Returns dummy message delivery transaction with zero messages and `1kb` proof.
-</span><span class="kw">fn </span>dummy_messages_delivery_transaction&lt;P: SubstrateMessageLane&gt;(
-	params: <span class="kw-2">&amp;</span>MessagesRelayParams&lt;P&gt;,
+</span><span class="kw">fn </span>dummy_messages_delivery_transaction&lt;P: SubstrateMessageLane, SourceClnt, TargetClnt&gt;(
+	params: <span class="kw-2">&amp;</span>MessagesRelayParams&lt;P, SourceClnt, TargetClnt&gt;,
 	messages: u32,
 ) -&gt; anyhow::Result&lt;&lt;P::TargetChain <span class="kw">as </span>ChainWithTransactions&gt;::SignedTransaction&gt;
 <span class="kw">where

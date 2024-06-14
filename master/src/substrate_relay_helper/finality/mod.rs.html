@@ -537,7 +537,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Add relay guards if required.
 	</span><span class="kw">async fn </span>start_relay_guards(
-		target_client: <span class="kw-2">&amp;</span>Client&lt;<span class="self">Self</span>::TargetChain&gt;,
+		target_client: <span class="kw-2">&amp;</span><span class="kw">impl </span>Client&lt;<span class="self">Self</span>::TargetChain&gt;,
 		enable_version_guard: bool,
 	) -&gt; relay_substrate_client::Result&lt;()&gt; {
 		<span class="kw">if </span>enable_version_guard {
@@ -700,8 +700,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Run Substrate-to-Substrate finality sync loop.
 </span><span class="kw">pub async fn </span>run&lt;P: SubstrateFinalitySyncPipeline&gt;(
-	source_client: Client&lt;P::SourceChain&gt;,
-	target_client: Client&lt;P::TargetChain&gt;,
+	source_client: <span class="kw">impl </span>Client&lt;P::SourceChain&gt;,
+	target_client: <span class="kw">impl </span>Client&lt;P::TargetChain&gt;,
 	headers_to_relay: HeadersToRelay,
 	transaction_params: TransactionParams&lt;AccountKeyPairOf&lt;P::TargetChain&gt;&gt;,
 	metrics_params: MetricsParams,
@@ -715,8 +715,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	);
 
 	finality_relay::run(
-		SubstrateFinalitySource::&lt;P&gt;::new(source_client, <span class="prelude-val">None</span>),
-		SubstrateFinalityTarget::&lt;P&gt;::new(target_client, transaction_params.clone()),
+		SubstrateFinalitySource::&lt;P, <span class="kw">_</span>&gt;::new(source_client, <span class="prelude-val">None</span>),
+		SubstrateFinalityTarget::&lt;P, <span class="kw">_</span>&gt;::new(target_client, transaction_params.clone()),
 		finality_relay::FinalitySyncParams {
 			tick: std::cmp::max(
 				P::SourceChain::AVERAGE_BLOCK_INTERVAL,
@@ -739,12 +739,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Relay single header. No checks are made to ensure that transaction will succeed.
 </span><span class="kw">pub async fn </span>relay_single_header&lt;P: SubstrateFinalitySyncPipeline&gt;(
-	source_client: Client&lt;P::SourceChain&gt;,
-	target_client: Client&lt;P::TargetChain&gt;,
+	source_client: <span class="kw">impl </span>Client&lt;P::SourceChain&gt;,
+	target_client: <span class="kw">impl </span>Client&lt;P::TargetChain&gt;,
 	transaction_params: TransactionParams&lt;AccountKeyPairOf&lt;P::TargetChain&gt;&gt;,
 	header_number: BlockNumberOf&lt;P::SourceChain&gt;,
 ) -&gt; anyhow::Result&lt;()&gt; {
-	<span class="kw">let </span>finality_source = SubstrateFinalitySource::&lt;P&gt;::new(source_client, <span class="prelude-val">None</span>);
+	<span class="kw">let </span>finality_source = SubstrateFinalitySource::&lt;P, <span class="kw">_</span>&gt;::new(source_client, <span class="prelude-val">None</span>);
 	<span class="kw">let </span>(header, proof) = finality_source.header_and_finality_proof(header_number).<span class="kw">await</span><span class="question-mark">?</span>;
 	<span class="kw">let </span><span class="prelude-val">Some</span>(proof) = proof <span class="kw">else </span>{
 		<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">anyhow::format_err!</span>(
@@ -755,7 +755,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		));
 	};
 
-	<span class="kw">let </span>finality_target = SubstrateFinalityTarget::&lt;P&gt;::new(target_client, transaction_params);
+	<span class="kw">let </span>finality_target = SubstrateFinalityTarget::&lt;P, <span class="kw">_</span>&gt;::new(target_client, transaction_params);
 	<span class="kw">let </span>tx_tracker = finality_target.submit_finality_proof(header, proof, <span class="bool-val">false</span>).<span class="kw">await</span><span class="question-mark">?</span>;
 	<span class="kw">match </span>tx_tracker.wait().<span class="kw">await </span>{
 		TrackedTransactionStatus::Finalized(<span class="kw">_</span>) =&gt; <span class="prelude-val">Ok</span>(()),

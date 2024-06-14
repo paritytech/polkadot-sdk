@@ -497,8 +497,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">impl</span>&lt;AccountId, Reward&gt; StorageDoubleMapKeyProvider <span class="kw">for </span>RelayerRewardsKeyProvider&lt;AccountId, Reward&gt;
 <span class="kw">where
-	</span>AccountId: Codec + EncodeLike,
-	Reward: Codec + EncodeLike,
+	</span>AccountId: <span class="lifetime">'static </span>+ Codec + EncodeLike + Send + Sync,
+	Reward: <span class="lifetime">'static </span>+ Codec + EncodeLike + Send + Sync,
 {
 	<span class="kw">const </span>MAP_NAME: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str = <span class="string">"RelayerRewards"</span>;
 

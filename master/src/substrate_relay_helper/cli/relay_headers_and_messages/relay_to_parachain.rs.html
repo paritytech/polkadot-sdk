@@ -348,6 +348,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#197" id="197">197</a>
 <a href="#198" id="198">198</a>
 <a href="#199" id="199">199</a>
+<a href="#200" id="200">200</a>
+<a href="#201" id="201">201</a>
+<a href="#202" id="202">202</a>
+<a href="#203" id="203">203</a>
+<a href="#204" id="204">204</a>
+<a href="#205" id="205">205</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2019-2022 Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
@@ -376,6 +382,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			RelayToRelayHeadersCliBridge,
 		},
 		relay_headers_and_messages::{Full2WayBridgeBase, Full2WayBridgeCommonParams},
+		DefaultClient,
 	},
 	finality::SubstrateFinalitySyncPipeline,
 	on_demand::{
@@ -404,7 +411,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub </span>common:
 		Full2WayBridgeCommonParams&lt;&lt;R2L <span class="kw">as </span>CliBridgeBase&gt;::Target, &lt;L2R <span class="kw">as </span>CliBridgeBase&gt;::Target&gt;,
 	<span class="doccomment">/// Client of the right relay chain.
-	</span><span class="kw">pub </span>right_relay: Client&lt;&lt;R2L <span class="kw">as </span>ParachainToRelayHeadersCliBridge&gt;::SourceRelay&gt;,
+	</span><span class="kw">pub </span>right_relay: DefaultClient&lt;&lt;R2L <span class="kw">as </span>ParachainToRelayHeadersCliBridge&gt;::SourceRelay&gt;,
 }
 
 <span class="doccomment">/// Create set of configuration objects specific to relay-to-parachain relayer.
@@ -517,23 +524,28 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		.<span class="kw">await</span><span class="question-mark">?</span>;
 
 		<span class="kw">let </span>left_to_right_on_demand_headers =
-			OnDemandHeadersRelay::&lt;&lt;L2R <span class="kw">as </span>RelayToRelayHeadersCliBridge&gt;::Finality&gt;::new(
+			OnDemandHeadersRelay::&lt;&lt;L2R <span class="kw">as </span>RelayToRelayHeadersCliBridge&gt;::Finality, <span class="kw">_</span>, <span class="kw">_</span>&gt;::new(
 				<span class="self">self</span>.common.left.client.clone(),
 				<span class="self">self</span>.common.right.client.clone(),
 				<span class="self">self</span>.common.right.tx_params.clone(),
 				<span class="self">self</span>.common.shared.headers_to_relay(),
 				<span class="prelude-val">None</span>,
 			);
-		<span class="kw">let </span>right_relay_to_left_on_demand_headers =
-			OnDemandHeadersRelay::&lt;&lt;R2L <span class="kw">as </span>ParachainToRelayHeadersCliBridge&gt;::RelayFinality&gt;::new(
-				<span class="self">self</span>.right_relay.clone(),
-				<span class="self">self</span>.common.left.client.clone(),
-				<span class="self">self</span>.common.left.tx_params.clone(),
-				<span class="self">self</span>.common.shared.headers_to_relay(),
-				<span class="prelude-val">Some</span>(<span class="self">self</span>.common.metrics_params.clone()),
-			);
+		<span class="kw">let </span>right_relay_to_left_on_demand_headers = OnDemandHeadersRelay::&lt;
+			&lt;R2L <span class="kw">as </span>ParachainToRelayHeadersCliBridge&gt;::RelayFinality,
+			<span class="kw">_</span>,
+			<span class="kw">_</span>,
+		&gt;::new(
+			<span class="self">self</span>.right_relay.clone(),
+			<span class="self">self</span>.common.left.client.clone(),
+			<span class="self">self</span>.common.left.tx_params.clone(),
+			<span class="self">self</span>.common.shared.headers_to_relay(),
+			<span class="prelude-val">Some</span>(<span class="self">self</span>.common.metrics_params.clone()),
+		);
 		<span class="kw">let </span>right_to_left_on_demand_parachains = OnDemandParachainsRelay::&lt;
 			&lt;R2L <span class="kw">as </span>ParachainToRelayHeadersCliBridge&gt;::ParachainFinality,
+			<span class="kw">_</span>,
+			<span class="kw">_</span>,
 		&gt;::new(
 			<span class="self">self</span>.right_relay.clone(),
 			<span class="self">self</span>.common.left.client.clone(),

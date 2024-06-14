@@ -696,6 +696,33 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#545" id="545">545</a>
 <a href="#546" id="546">546</a>
 <a href="#547" id="547">547</a>
+<a href="#548" id="548">548</a>
+<a href="#549" id="549">549</a>
+<a href="#550" id="550">550</a>
+<a href="#551" id="551">551</a>
+<a href="#552" id="552">552</a>
+<a href="#553" id="553">553</a>
+<a href="#554" id="554">554</a>
+<a href="#555" id="555">555</a>
+<a href="#556" id="556">556</a>
+<a href="#557" id="557">557</a>
+<a href="#558" id="558">558</a>
+<a href="#559" id="559">559</a>
+<a href="#560" id="560">560</a>
+<a href="#561" id="561">561</a>
+<a href="#562" id="562">562</a>
+<a href="#563" id="563">563</a>
+<a href="#564" id="564">564</a>
+<a href="#565" id="565">565</a>
+<a href="#566" id="566">566</a>
+<a href="#567" id="567">567</a>
+<a href="#568" id="568">568</a>
+<a href="#569" id="569">569</a>
+<a href="#570" id="570">570</a>
+<a href="#571" id="571">571</a>
+<a href="#572" id="572">572</a>
+<a href="#573" id="573">573</a>
+<a href="#574" id="574">574</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2019-2021 Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
@@ -751,25 +778,30 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// relay) needs it to continue its regular work. When enough headers are relayed, on-demand stops
 /// syncing headers.
 </span><span class="attr">#[derive(Clone)]
-</span><span class="kw">pub struct </span>OnDemandHeadersRelay&lt;P: SubstrateFinalitySyncPipeline&gt; {
+</span><span class="kw">pub struct </span>OnDemandHeadersRelay&lt;P: SubstrateFinalitySyncPipeline, SourceClnt, TargetClnt&gt; {
 	<span class="doccomment">/// Relay task name.
 	</span>relay_task_name: String,
 	<span class="doccomment">/// Shared reference to maximal required finalized header number.
 	</span>required_header_number: RequiredHeaderNumberRef&lt;P::SourceChain&gt;,
 	<span class="doccomment">/// Client of the source chain.
-	</span>source_client: Client&lt;P::SourceChain&gt;,
+	</span>source_client: SourceClnt,
 	<span class="doccomment">/// Client of the target chain.
-	</span>target_client: Client&lt;P::TargetChain&gt;,
+	</span>target_client: TargetClnt,
 }
 
-<span class="kw">impl</span>&lt;P: SubstrateFinalitySyncPipeline&gt; OnDemandHeadersRelay&lt;P&gt; {
+<span class="kw">impl</span>&lt;
+		P: SubstrateFinalitySyncPipeline,
+		SourceClnt: Client&lt;P::SourceChain&gt;,
+		TargetClnt: Client&lt;P::TargetChain&gt;,
+	&gt; OnDemandHeadersRelay&lt;P, SourceClnt, TargetClnt&gt;
+{
 	<span class="doccomment">/// Create new on-demand headers relay.
 	///
 	/// If `metrics_params` is `Some(_)`, the metrics of the finality relay are registered.
 	/// Otherwise, all required metrics must be exposed outside of this method.
 	</span><span class="kw">pub fn </span>new(
-		source_client: Client&lt;P::SourceChain&gt;,
-		target_client: Client&lt;P::TargetChain&gt;,
+		source_client: SourceClnt,
+		target_client: TargetClnt,
 		target_transaction_params: TransactionParams&lt;AccountKeyPairOf&lt;P::TargetChain&gt;&gt;,
 		headers_to_relay: HeadersToRelay,
 		metrics_params: <span class="prelude-ty">Option</span>&lt;MetricsParams&gt;,
@@ -802,8 +834,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="attr">#[async_trait]
-</span><span class="kw">impl</span>&lt;P: SubstrateFinalitySyncPipeline&gt; OnDemandRelay&lt;P::SourceChain, P::TargetChain&gt;
-	<span class="kw">for </span>OnDemandHeadersRelay&lt;P&gt;
+</span><span class="kw">impl</span>&lt;
+		P: SubstrateFinalitySyncPipeline,
+		SourceClnt: Client&lt;P::SourceChain&gt;,
+		TargetClnt: Client&lt;P::TargetChain&gt;,
+	&gt; OnDemandRelay&lt;P::SourceChain, P::TargetChain&gt;
+	<span class="kw">for </span>OnDemandHeadersRelay&lt;P, SourceClnt, TargetClnt&gt;
 {
 	<span class="kw">async fn </span>reconnect(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), SubstrateError&gt; {
 		<span class="comment">// using clone is fine here (to avoid mut requirement), because clone on Client clones
@@ -837,7 +873,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">loop </span>{
 			<span class="comment">// first find proper header (either `current_required_header`) or its descendant
 			</span><span class="kw">let </span>finality_source =
-				SubstrateFinalitySource::&lt;P&gt;::new(<span class="self">self</span>.source_client.clone(), <span class="prelude-val">None</span>);
+				SubstrateFinalitySource::&lt;P, <span class="kw">_</span>&gt;::new(<span class="self">self</span>.source_client.clone(), <span class="prelude-val">None</span>);
 			<span class="kw">let </span>(header, <span class="kw-2">mut </span>proof) =
 				finality_source.prove_block_finality(current_required_header).<span class="kw">await</span><span class="question-mark">?</span>;
 			<span class="kw">let </span>header_id = header.id();
@@ -896,8 +932,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Background task that is responsible for starting headers relay.
 </span><span class="kw">async fn </span>background_task&lt;P: SubstrateFinalitySyncPipeline&gt;(
-	source_client: Client&lt;P::SourceChain&gt;,
-	target_client: Client&lt;P::TargetChain&gt;,
+	source_client: <span class="kw">impl </span>Client&lt;P::SourceChain&gt;,
+	target_client: <span class="kw">impl </span>Client&lt;P::TargetChain&gt;,
 	target_transaction_params: TransactionParams&lt;AccountKeyPairOf&lt;P::TargetChain&gt;&gt;,
 	headers_to_relay: HeadersToRelay,
 	required_header_number: RequiredHeaderNumberRef&lt;P::SourceChain&gt;,
@@ -907,7 +943,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 {
 	<span class="kw">let </span>relay_task_name = on_demand_headers_relay_name::&lt;P::SourceChain, P::TargetChain&gt;();
 	<span class="kw">let </span>target_transactions_mortality = target_transaction_params.mortality;
-	<span class="kw">let </span><span class="kw-2">mut </span>finality_source = SubstrateFinalitySource::&lt;P&gt;::new(
+	<span class="kw">let </span><span class="kw-2">mut </span>finality_source = SubstrateFinalitySource::&lt;P, <span class="kw">_</span>&gt;::new(
 		source_client.clone(),
 		<span class="prelude-val">Some</span>(required_header_number.clone()),
 	);
@@ -944,7 +980,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="comment">// read best finalized source header number from target
 		</span><span class="kw">let </span>best_finalized_source_header_at_target =
-			best_finalized_source_header_at_target::&lt;P&gt;(<span class="kw-2">&amp;</span>finality_target, <span class="kw-2">&amp;</span>relay_task_name).<span class="kw">await</span>;
+			best_finalized_source_header_at_target::&lt;P, <span class="kw">_</span>&gt;(<span class="kw-2">&amp;</span>finality_target, <span class="kw-2">&amp;</span>relay_task_name)
+				.<span class="kw">await</span>;
 		<span class="kw">if </span><span class="macro">matches!</span>(best_finalized_source_header_at_target, <span class="prelude-val">Err</span>(<span class="kw-2">ref </span>e) <span class="kw">if </span>e.is_connection_error()) {
 			relay_utils::relay_loop::reconnect_failed_client(
 				FailedClient::Target,
@@ -1108,13 +1145,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// it.
 ///
 /// Returns `true` if header was found and (asked to be) relayed and `false` otherwise.
-</span><span class="kw">async fn </span>relay_mandatory_header_from_range&lt;P: SubstrateFinalitySyncPipeline&gt;(
-	finality_source: <span class="kw-2">&amp;</span>SubstrateFinalitySource&lt;P&gt;,
+</span><span class="kw">async fn </span>relay_mandatory_header_from_range&lt;P, SourceClnt&gt;(
+	finality_source: <span class="kw-2">&amp;</span>SubstrateFinalitySource&lt;P, SourceClnt&gt;,
 	required_header_number: <span class="kw-2">&amp;</span>RequiredHeaderNumberRef&lt;P::SourceChain&gt;,
 	best_finalized_source_header_at_target: String,
 	range: (BlockNumberOf&lt;P::SourceChain&gt;, BlockNumberOf&lt;P::SourceChain&gt;),
 	relay_task_name: <span class="kw-2">&amp;</span>str,
-) -&gt; <span class="prelude-ty">Result</span>&lt;bool, relay_substrate_client::Error&gt; {
+) -&gt; <span class="prelude-ty">Result</span>&lt;bool, relay_substrate_client::Error&gt;
+<span class="kw">where
+	</span>P: SubstrateFinalitySyncPipeline,
+	SourceClnt: Client&lt;P::SourceChain&gt;,
+{
 	<span class="comment">// search for mandatory header first
 	</span><span class="kw">let </span>mandatory_source_header_number =
 		find_mandatory_header_in_range(finality_source, range).<span class="kw">await</span><span class="question-mark">?</span>;
@@ -1149,10 +1190,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Read best finalized source block number from source client.
 ///
 /// Returns `None` if we have failed to read the number.
-</span><span class="kw">async fn </span>best_finalized_source_header_at_source&lt;P: SubstrateFinalitySyncPipeline&gt;(
-	finality_source: <span class="kw-2">&amp;</span>SubstrateFinalitySource&lt;P&gt;,
+</span><span class="kw">async fn </span>best_finalized_source_header_at_source&lt;P, SourceClnt&gt;(
+	finality_source: <span class="kw-2">&amp;</span>SubstrateFinalitySource&lt;P, SourceClnt&gt;,
 	relay_task_name: <span class="kw-2">&amp;</span>str,
-) -&gt; <span class="prelude-ty">Result</span>&lt;BlockNumberOf&lt;P::SourceChain&gt;, relay_substrate_client::Error&gt; {
+) -&gt; <span class="prelude-ty">Result</span>&lt;BlockNumberOf&lt;P::SourceChain&gt;, relay_substrate_client::Error&gt;
+<span class="kw">where
+	</span>P: SubstrateFinalitySyncPipeline,
+	SourceClnt: Client&lt;P::SourceChain&gt;,
+{
 	finality_source.on_chain_best_finalized_block_number().<span class="kw">await</span>.map_err(|error| {
 		<span class="macro">log::error!</span>(
 			target: <span class="string">"bridge"</span>,
@@ -1168,12 +1213,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Read best finalized source block number from target client.
 ///
 /// Returns `None` if we have failed to read the number.
-</span><span class="kw">async fn </span>best_finalized_source_header_at_target&lt;P: SubstrateFinalitySyncPipeline&gt;(
-	finality_target: <span class="kw-2">&amp;</span>SubstrateFinalityTarget&lt;P&gt;,
+</span><span class="kw">async fn </span>best_finalized_source_header_at_target&lt;P, TargetClnt&gt;(
+	finality_target: <span class="kw-2">&amp;</span>SubstrateFinalityTarget&lt;P, TargetClnt&gt;,
 	relay_task_name: <span class="kw-2">&amp;</span>str,
-) -&gt; <span class="prelude-ty">Result</span>&lt;BlockNumberOf&lt;P::SourceChain&gt;, &lt;SubstrateFinalityTarget&lt;P&gt; <span class="kw">as </span>RelayClient&gt;::Error&gt;
+) -&gt; <span class="prelude-ty">Result</span>&lt;
+	BlockNumberOf&lt;P::SourceChain&gt;,
+	&lt;SubstrateFinalityTarget&lt;P, TargetClnt&gt; <span class="kw">as </span>RelayClient&gt;::Error,
+&gt;
 <span class="kw">where
-	</span>AccountIdOf&lt;P::TargetChain&gt;: From&lt;&lt;AccountKeyPairOf&lt;P::TargetChain&gt; <span class="kw">as </span>sp_core::Pair&gt;::Public&gt;,
+	</span>P: SubstrateFinalitySyncPipeline,
+	TargetClnt: Client&lt;P::TargetChain&gt;,
+	AccountIdOf&lt;P::TargetChain&gt;: From&lt;&lt;AccountKeyPairOf&lt;P::TargetChain&gt; <span class="kw">as </span>sp_core::Pair&gt;::Public&gt;,
 {
 	finality_target
 		.best_finalized_source_block_id()
@@ -1194,10 +1244,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Read first mandatory header in given inclusive range.
 ///
 /// Returns `Ok(None)` if there were no mandatory headers in the range.
-</span><span class="kw">async fn </span>find_mandatory_header_in_range&lt;P: SubstrateFinalitySyncPipeline&gt;(
-	finality_source: <span class="kw-2">&amp;</span>SubstrateFinalitySource&lt;P&gt;,
+</span><span class="kw">async fn </span>find_mandatory_header_in_range&lt;P, SourceClnt&gt;(
+	finality_source: <span class="kw-2">&amp;</span>SubstrateFinalitySource&lt;P, SourceClnt&gt;,
 	range: (BlockNumberOf&lt;P::SourceChain&gt;, BlockNumberOf&lt;P::SourceChain&gt;),
-) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;BlockNumberOf&lt;P::SourceChain&gt;&gt;, relay_substrate_client::Error&gt; {
+) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;BlockNumberOf&lt;P::SourceChain&gt;&gt;, relay_substrate_client::Error&gt;
+<span class="kw">where
+	</span>P: SubstrateFinalitySyncPipeline,
+	SourceClnt: Client&lt;P::SourceChain&gt;,
+{
 	<span class="kw">let </span><span class="kw-2">mut </span>current = range.<span class="number">0</span>;
 	<span class="kw">while </span>current &lt;= range.<span class="number">1 </span>{
 		<span class="kw">let </span>header = finality_source.client().header_by_number(current).<span class="kw">await</span><span class="question-mark">?</span>;

@@ -445,7 +445,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="attr">#[async_trait]
-</span><span class="kw">impl</span>&lt;C: Chain&gt; Environment&lt;C&gt; <span class="kw">for </span>Client&lt;C&gt; {
+</span><span class="kw">impl</span>&lt;C: Chain, Clnt: Client&lt;C&gt;&gt; Environment&lt;C&gt; <span class="kw">for </span>Clnt {
 	<span class="kw">type </span>Error = Error;
 
 	<span class="kw">async fn </span>runtime_version(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;RuntimeVersion, <span class="self">Self</span>::Error&gt; {

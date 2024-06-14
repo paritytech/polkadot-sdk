@@ -278,6 +278,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#127" id="127">127</a>
 <a href="#128" id="128">128</a>
 <a href="#129" id="129">129</a>
+<a href="#130" id="130">130</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2019-2021 Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
@@ -309,6 +310,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	finality::SubstrateFinalitySyncPipeline,
 	HeadersToRelay,
 };
+<span class="kw">use </span>relay_substrate_client::Client;
 
 <span class="doccomment">/// Chain headers relaying params.
 </span><span class="attr">#[derive(StructOpt)]

@@ -444,6 +444,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#293" id="293">293</a>
 <a href="#294" id="294">294</a>
 <a href="#295" id="295">295</a>
+<a href="#296" id="296">296</a>
+<a href="#297" id="297">297</a>
+<a href="#298" id="298">298</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2019-2021 Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
@@ -481,6 +484,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	ConsensusEngineId, EncodedJustification,
 };
 <span class="kw">use </span>std::{fmt::Debug, time::Duration};
+
+<span class="doccomment">/// Signed block type of given chain.
+</span><span class="kw">pub type </span>SignedBlockOf&lt;C&gt; = &lt;C <span class="kw">as </span>Chain&gt;::SignedBlock;
 
 <span class="doccomment">/// Substrate-based chain from minimal relay-client point of view.
 </span><span class="kw">pub trait </span>Chain: ChainBase + Clone {

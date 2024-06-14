@@ -587,6 +587,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#436" id="436">436</a>
 <a href="#437" id="437">437</a>
 <a href="#438" id="438">438</a>
+<a href="#439" id="439">439</a>
+<a href="#440" id="440">440</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2019-2021 Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
@@ -617,10 +619,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 };
 <span class="kw">use </span>bp_runtime::{BasicOperatingMode, HeaderIdProvider, OperatingMode};
 <span class="kw">use </span>codec::{Decode, Encode};
+<span class="kw">use </span>futures::stream::StreamExt;
 <span class="kw">use </span>num_traits::{One, Zero};
 <span class="kw">use </span>relay_substrate_client::{
 	BlockNumberOf, Chain, ChainWithGrandpa, Client, Error <span class="kw">as </span>SubstrateError, HashOf, HeaderOf,
-	Subscription, SubstrateFinalityClient, SubstrateGrandpaFinalityClient,
+	Subscription,
 };
 <span class="kw">use </span>sp_consensus_grandpa::{AuthorityList <span class="kw">as </span>GrandpaAuthoritiesSet, GRANDPA_ENGINE_ID};
 <span class="kw">use </span>sp_core::{storage::StorageKey, Bytes};
@@ -634,8 +637,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">const </span>ID: ConsensusEngineId;
 	<span class="doccomment">/// A reader that can extract the consensus log from the header digest and interpret it.
 	</span><span class="kw">type </span>ConsensusLogReader: ConsensusLogReader;
-	<span class="doccomment">/// Type of Finality RPC client used by this engine.
-	</span><span class="kw">type </span>FinalityClient: SubstrateFinalityClient&lt;C&gt;;
 	<span class="doccomment">/// Type of finality proofs, used by consensus engine.
 	</span><span class="kw">type </span>FinalityProof: FinalityProof&lt;HashOf&lt;C&gt;, BlockNumberOf&lt;C&gt;&gt; + Decode + Encode;
 	<span class="doccomment">/// The context needed for verifying finality proofs.
@@ -663,10 +664,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Returns `Ok(true)` if finality pallet at the bridged chain has already been initialized.
 	</span><span class="kw">async fn </span>is_initialized&lt;TargetChain: Chain&gt;(
-		target_client: <span class="kw-2">&amp;</span>Client&lt;TargetChain&gt;,
+		target_client: <span class="kw-2">&amp;</span><span class="kw">impl </span>Client&lt;TargetChain&gt;,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;bool, SubstrateError&gt; {
 		<span class="prelude-val">Ok</span>(target_client
-			.raw_storage_value(<span class="self">Self</span>::is_initialized_key(), <span class="prelude-val">None</span>)
+			.raw_storage_value(target_client.best_header_hash().<span class="kw">await</span><span class="question-mark">?</span>, <span class="self">Self</span>::is_initialized_key())
 			.<span class="kw">await</span><span class="question-mark">?
 			</span>.is_some())
 	}
@@ -677,10 +678,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Returns `Ok(true)` if finality pallet at the bridged chain is halted.
 	</span><span class="kw">async fn </span>is_halted&lt;TargetChain: Chain&gt;(
-		target_client: <span class="kw-2">&amp;</span>Client&lt;TargetChain&gt;,
+		target_client: <span class="kw-2">&amp;</span><span class="kw">impl </span>Client&lt;TargetChain&gt;,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;bool, SubstrateError&gt; {
 		<span class="prelude-val">Ok</span>(target_client
-			.storage_value::&lt;<span class="self">Self</span>::OperatingMode&gt;(<span class="self">Self</span>::pallet_operating_mode_key(), <span class="prelude-val">None</span>)
+			.storage_value::&lt;<span class="self">Self</span>::OperatingMode&gt;(
+				target_client.best_header_hash().<span class="kw">await</span><span class="question-mark">?</span>,
+				<span class="self">Self</span>::pallet_operating_mode_key(),
+			)
 			.<span class="kw">await</span><span class="question-mark">?
 			</span>.map(|operating_mode| operating_mode.is_halted())
 			.unwrap_or(<span class="bool-val">false</span>))
@@ -688,17 +692,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// A method to subscribe to encoded finality proofs, given source client.
 	</span><span class="kw">async fn </span>source_finality_proofs(
-		source_client: <span class="kw-2">&amp;</span>Client&lt;C&gt;,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;Subscription&lt;Bytes&gt;, SubstrateError&gt; {
-		source_client.subscribe_finality_justifications::&lt;<span class="self">Self</span>::FinalityClient&gt;().<span class="kw">await
-	</span>}
+		source_client: <span class="kw-2">&amp;</span><span class="kw">impl </span>Client&lt;C&gt;,
+	) -&gt; <span class="prelude-ty">Result</span>&lt;Subscription&lt;Bytes&gt;, SubstrateError&gt;;
 
 	<span class="doccomment">/// Verify and optimize finality proof before sending it to the target node.
 	///
 	/// Apart from optimization, we expect this method to perform all required checks
 	/// that the `header` and `proof` are valid at the current state of the target chain.
 	</span><span class="kw">async fn </span>verify_and_optimize_proof&lt;TargetChain: Chain&gt;(
-		target_client: <span class="kw-2">&amp;</span>Client&lt;TargetChain&gt;,
+		target_client: <span class="kw-2">&amp;</span><span class="kw">impl </span>Client&lt;TargetChain&gt;,
 		header: <span class="kw-2">&amp;</span>C::Header,
 		proof: <span class="kw-2">&amp;mut </span><span class="self">Self</span>::FinalityProof,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::FinalityVerificationContext, SubstrateError&gt;;
@@ -712,19 +714,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Prepare initialization data for the finality bridge pallet.
 	</span><span class="kw">async fn </span>prepare_initialization_data(
-		client: Client&lt;C&gt;,
+		client: <span class="kw">impl </span>Client&lt;C&gt;,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::InitializationData, Error&lt;HashOf&lt;C&gt;, BlockNumberOf&lt;C&gt;&gt;&gt;;
 
 	<span class="doccomment">/// Get the context needed for validating a finality proof.
 	</span><span class="kw">async fn </span>finality_verification_context&lt;TargetChain: Chain&gt;(
-		target_client: <span class="kw-2">&amp;</span>Client&lt;TargetChain&gt;,
+		target_client: <span class="kw-2">&amp;</span><span class="kw">impl </span>Client&lt;TargetChain&gt;,
 		at: HashOf&lt;TargetChain&gt;,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::FinalityVerificationContext, SubstrateError&gt;;
 
 	<span class="doccomment">/// Returns the finality info associated to the source headers synced with the target
 	/// at the provided block.
 	</span><span class="kw">async fn </span>synced_headers_finality_info&lt;TargetChain: Chain&gt;(
-		target_client: <span class="kw-2">&amp;</span>Client&lt;TargetChain&gt;,
+		target_client: <span class="kw-2">&amp;</span><span class="kw">impl </span>Client&lt;TargetChain&gt;,
 		at: TargetChain::Hash,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;
 		Vec&lt;HeaderFinalityInfo&lt;<span class="self">Self</span>::FinalityProof, <span class="self">Self</span>::FinalityVerificationContext&gt;&gt;,
@@ -733,7 +735,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Generate key ownership proof for the provided equivocation.
 	</span><span class="kw">async fn </span>generate_source_key_ownership_proof(
-		source_client: <span class="kw-2">&amp;</span>Client&lt;C&gt;,
+		source_client: <span class="kw-2">&amp;</span><span class="kw">impl </span>Client&lt;C&gt;,
 		at: C::Hash,
 		equivocation: <span class="kw-2">&amp;</span><span class="self">Self</span>::EquivocationProof,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::KeyOwnerProof, SubstrateError&gt;;
@@ -745,7 +747,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">impl</span>&lt;C: ChainWithGrandpa&gt; Grandpa&lt;C&gt; {
 	<span class="doccomment">/// Read header by hash from the source client.
 	</span><span class="kw">async fn </span>source_header(
-		source_client: <span class="kw-2">&amp;</span>Client&lt;C&gt;,
+		source_client: <span class="kw-2">&amp;</span><span class="kw">impl </span>Client&lt;C&gt;,
 		header_hash: C::Hash,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;C::Header, Error&lt;HashOf&lt;C&gt;, BlockNumberOf&lt;C&gt;&gt;&gt; {
 		source_client
@@ -756,15 +758,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Read GRANDPA authorities set at given header.
 	</span><span class="kw">async fn </span>source_authorities_set(
-		source_client: <span class="kw-2">&amp;</span>Client&lt;C&gt;,
+		source_client: <span class="kw-2">&amp;</span><span class="kw">impl </span>Client&lt;C&gt;,
 		header_hash: C::Hash,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;GrandpaAuthoritiesSet, Error&lt;HashOf&lt;C&gt;, BlockNumberOf&lt;C&gt;&gt;&gt; {
-		<span class="kw">let </span>raw_authorities_set = source_client
-			.grandpa_authorities_set(header_hash)
+		<span class="kw">const </span>SUB_API_GRANDPA_AUTHORITIES: <span class="kw-2">&amp;</span>str = <span class="string">"GrandpaApi_grandpa_authorities"</span>;
+
+		source_client
+			.state_call(header_hash, SUB_API_GRANDPA_AUTHORITIES.to_string(), ())
 			.<span class="kw">await
-			</span>.map_err(|err| Error::RetrieveAuthorities(C::NAME, header_hash, err))<span class="question-mark">?</span>;
-		GrandpaAuthoritiesSet::decode(<span class="kw-2">&amp;mut &amp;</span>raw_authorities_set[..])
-			.map_err(|err| Error::DecodeAuthorities(C::NAME, header_hash, err))
+			</span>.map_err(|err| Error::RetrieveAuthorities(C::NAME, header_hash, err))
 	}
 }
 
@@ -772,7 +774,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">impl</span>&lt;C: ChainWithGrandpa&gt; Engine&lt;C&gt; <span class="kw">for </span>Grandpa&lt;C&gt; {
 	<span class="kw">const </span>ID: ConsensusEngineId = GRANDPA_ENGINE_ID;
 	<span class="kw">type </span>ConsensusLogReader = GrandpaConsensusLogReader&lt;&lt;C::Header <span class="kw">as </span>Header&gt;::Number&gt;;
-	<span class="kw">type </span>FinalityClient = SubstrateGrandpaFinalityClient;
 	<span class="kw">type </span>FinalityProof = GrandpaJustification&lt;HeaderOf&lt;C&gt;&gt;;
 	<span class="kw">type </span>FinalityVerificationContext = JustificationVerificationContext;
 	<span class="kw">type </span>EquivocationProof = sp_consensus_grandpa::EquivocationProof&lt;HashOf&lt;C&gt;, BlockNumberOf&lt;C&gt;&gt;;
@@ -789,8 +790,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		bp_header_chain::storage_keys::pallet_operating_mode_key(C::WITH_CHAIN_GRANDPA_PALLET_NAME)
 	}
 
+	<span class="kw">async fn </span>source_finality_proofs(
+		client: <span class="kw-2">&amp;</span><span class="kw">impl </span>Client&lt;C&gt;,
+	) -&gt; <span class="prelude-ty">Result</span>&lt;Subscription&lt;Bytes&gt;, SubstrateError&gt; {
+		client.subscribe_grandpa_finality_justifications().<span class="kw">await
+	</span>}
+
 	<span class="kw">async fn </span>verify_and_optimize_proof&lt;TargetChain: Chain&gt;(
-		target_client: <span class="kw-2">&amp;</span>Client&lt;TargetChain&gt;,
+		target_client: <span class="kw-2">&amp;</span><span class="kw">impl </span>Client&lt;TargetChain&gt;,
 		header: <span class="kw-2">&amp;</span>C::Header,
 		proof: <span class="kw-2">&amp;mut </span><span class="self">Self</span>::FinalityProof,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::FinalityVerificationContext, SubstrateError&gt; {
@@ -828,7 +835,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Prepare initialization data for the GRANDPA verifier pallet.
 	</span><span class="kw">async fn </span>prepare_initialization_data(
-		source_client: Client&lt;C&gt;,
+		source_client: <span class="kw">impl </span>Client&lt;C&gt;,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::InitializationData, Error&lt;HashOf&lt;C&gt;, BlockNumberOf&lt;C&gt;&gt;&gt; {
 		<span class="comment">// In ideal world we just need to get best finalized header and then to read GRANDPA
 		// authorities set (`pallet_grandpa::CurrentSetId` + `GrandpaApi::grandpa_authorities()`) at
@@ -837,17 +844,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		// But now there are problems with this approach - `CurrentSetId` may return invalid value.
 		// So here we're waiting for the next justification, read the authorities set and then try
 		// to figure out the set id with bruteforce.
-		</span><span class="kw">let </span>justifications = <span class="self">Self</span>::source_finality_proofs(<span class="kw-2">&amp;</span>source_client)
+		</span><span class="kw">let </span><span class="kw-2">mut </span>justifications = <span class="self">Self</span>::source_finality_proofs(<span class="kw-2">&amp;</span>source_client)
 			.<span class="kw">await
 			</span>.map_err(|err| Error::Subscribe(C::NAME, err))<span class="question-mark">?</span>;
 		<span class="comment">// Read next justification - the header that it finalizes will be used as initial header.
 		</span><span class="kw">let </span>justification = justifications
 			.next()
 			.<span class="kw">await
-			</span>.map_err(|e| Error::ReadJustification(C::NAME, e))
-			.and_then(|justification| {
-				justification.ok_or(Error::ReadJustificationStreamEnded(C::NAME))
-			})<span class="question-mark">?</span>;
+			</span>.ok_or(Error::ReadJustificationStreamEnded(C::NAME))<span class="question-mark">?</span>;
 
 		<span class="comment">// Read initial header.
 		</span><span class="kw">let </span>justification: GrandpaJustification&lt;C::Header&gt; =
@@ -948,14 +952,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="kw">async fn </span>finality_verification_context&lt;TargetChain: Chain&gt;(
-		target_client: <span class="kw-2">&amp;</span>Client&lt;TargetChain&gt;,
+		target_client: <span class="kw-2">&amp;</span><span class="kw">impl </span>Client&lt;TargetChain&gt;,
 		at: HashOf&lt;TargetChain&gt;,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::FinalityVerificationContext, SubstrateError&gt; {
 		<span class="kw">let </span>current_authority_set_key = bp_header_chain::storage_keys::current_authority_set_key(
 			C::WITH_CHAIN_GRANDPA_PALLET_NAME,
 		);
 		<span class="kw">let </span>authority_set: AuthoritySet = target_client
-			.storage_value(current_authority_set_key, <span class="prelude-val">Some</span>(at))
+			.storage_value(at, current_authority_set_key)
 			.<span class="kw">await</span><span class="question-mark">?
 			</span>.map(<span class="prelude-val">Ok</span>)
 			.unwrap_or(<span class="prelude-val">Err</span>(SubstrateError::Custom(<span class="macro">format!</span>(
@@ -974,11 +978,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="kw">async fn </span>synced_headers_finality_info&lt;TargetChain: Chain&gt;(
-		target_client: <span class="kw-2">&amp;</span>Client&lt;TargetChain&gt;,
+		target_client: <span class="kw-2">&amp;</span><span class="kw">impl </span>Client&lt;TargetChain&gt;,
 		at: TargetChain::Hash,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;HeaderGrandpaInfo&lt;HeaderOf&lt;C&gt;&gt;&gt;, SubstrateError&gt; {
 		<span class="kw">let </span>stored_headers_grandpa_info: Vec&lt;StoredHeaderGrandpaInfo&lt;HeaderOf&lt;C&gt;&gt;&gt; = target_client
-			.typed_state_call(C::SYNCED_HEADERS_GRANDPA_INFO_METHOD.to_string(), (), <span class="prelude-val">Some</span>(at))
+			.state_call(at, C::SYNCED_HEADERS_GRANDPA_INFO_METHOD.to_string(), ())
 			.<span class="kw">await</span><span class="question-mark">?</span>;
 
 		<span class="kw">let </span><span class="kw-2">mut </span>headers_grandpa_info = <span class="macro">vec!</span>[];
@@ -996,7 +1000,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="kw">async fn </span>generate_source_key_ownership_proof(
-		source_client: <span class="kw-2">&amp;</span>Client&lt;C&gt;,
+		source_client: <span class="kw-2">&amp;</span><span class="kw">impl </span>Client&lt;C&gt;,
 		at: C::Hash,
 		equivocation: <span class="kw-2">&amp;</span><span class="self">Self</span>::EquivocationProof,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::KeyOwnerProof, SubstrateError&gt; {

@@ -334,7 +334,7 @@ var srcIndex = new Map(JSON.parse('[\
 ["polkadot_voter_bags",["",[],["main.rs"]]],\
 ["reconstruct",["",[],["reconstruct.rs"]]],\
 ["reduce",["",[],["common.rs","reduce.rs"]]],\
-["relay_substrate_client",["",[["metrics",[],["float_storage_value.rs","mod.rs"]]],["calls.rs","chain.rs","client.rs","error.rs","guard.rs","lib.rs","rpc.rs","sync_header.rs","test_chain.rs","transaction_tracker.rs"]]],\
+["relay_substrate_client",["",[["client",[],["caching.rs","mod.rs","rpc.rs","rpc_api.rs","subscription.rs","traits.rs"]],["metrics",[],["float_storage_value.rs","mod.rs"]]],["calls.rs","chain.rs","error.rs","guard.rs","lib.rs","sync_header.rs","test_chain.rs","transaction_tracker.rs"]]],\
 ["relay_utils",["",[["metrics",[],["float_json_value.rs","global.rs"]]],["error.rs","initialize.rs","lib.rs","metrics.rs","relay_loop.rs"]]],\
 ["remote_ext_tests_bags_list",["",[],["main.rs"]]],\
 ["rococo_emulated_chain",["",[],["genesis.rs","lib.rs"]]],\
