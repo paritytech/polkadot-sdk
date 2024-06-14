@@ -48,11 +48,11 @@ mod impls;
 pub use impls::*;
 
 use crate::{
-	slashing, weights::WeightInfo, AccountIdLookupOf, ActiveEraInfo, BalanceOf, DisablingStrategy,
-	EraPayout, EraRewardPoints, Exposure, ExposurePage, Forcing, LedgerIntegrityState,
-	MaxNominationsOf, NegativeImbalanceOf, Nominations, NominationsQuota, PositiveImbalanceOf,
-	RewardDestination, SessionInterface, StakingLedger, UnappliedSlash, UnlockChunk,
-	ValidatorPrefs,
+	slashing, weights::WeightInfo, AccountIdLookupOf, ActiveEraInfo, BalanceOf, BlacklistCheck,
+	DisablingStrategy, EraPayout, EraRewardPoints, Exposure, ExposurePage, Forcing,
+	LedgerIntegrityState, MaxNominationsOf, NegativeImbalanceOf, Nominations, NominationsQuota,
+	PositiveImbalanceOf, RewardDestination, SessionInterface, StakingLedger, UnappliedSlash,
+	UnlockChunk, ValidatorPrefs,
 };
 
 // The speculative number of spans are used as an input of the weight annotation of
@@ -298,7 +298,7 @@ pub mod pallet {
 
 		#[pallet::no_default_bounds]
 		/// Something that blocks some accounts from participating in staking.
-		type BlacklistCheck: crate::BlacklistCheck<Self::AccountId>;
+		type BlacklistCheck: BlacklistCheck<Self::AccountId>;
 
 		/// Some parameters of the benchmarking.
 		type BenchmarkingConfig: BenchmarkingConfig;
@@ -933,6 +933,9 @@ pub mod pallet {
 		NotEnoughFunds,
 		/// Operation not allowed for virtual stakers.
 		VirtualStakerNotAllowed,
+		/// Account is blacklisted and is only allowed to withdraw existing funds. This may happen
+		/// if the account is participating in staking in another way already.
+		Blacklisted,
 	}
 
 	#[pallet::hooks]
@@ -1011,6 +1014,7 @@ pub mod pallet {
 			payee: RewardDestination<T::AccountId>,
 		) -> DispatchResult {
 			let stash = ensure_signed(origin)?;
+			ensure!(!T::BlacklistCheck::is_blacklisted(&stash), Error::<T>::Blacklisted);
 
 			if StakingLedger::<T>::is_bonded(StakingAccount::Stash(stash.clone())) {
 				return Err(Error::<T>::AlreadyBonded.into())
@@ -1061,6 +1065,7 @@ pub mod pallet {
 			#[pallet::compact] max_additional: BalanceOf<T>,
 		) -> DispatchResult {
 			let stash = ensure_signed(origin)?;
+			ensure!(!T::BlacklistCheck::is_blacklisted(&stash), Error::<T>::Blacklisted);
 			Self::do_bond_extra(&stash, max_additional)
 		}
 
@@ -1647,6 +1652,9 @@ pub mod pallet {
 		) -> DispatchResultWithPostInfo {
 			let controller = ensure_signed(origin)?;
 			let ledger = Self::ledger(Controller(controller))?;
+			// ensure that the stash is not blacklisted
+			ensure!(!T::BlacklistCheck::is_blacklisted(&ledger.stash), Error::<T>::Blacklisted);
+
 			ensure!(!ledger.unlocking.is_empty(), Error::<T>::NoUnlockChunk);
 
 			let initial_unlocking = ledger.unlocking.len() as u32;
