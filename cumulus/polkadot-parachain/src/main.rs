@@ -19,8 +19,6 @@
 #![warn(missing_docs)]
 #![warn(unused_extern_crates)]
 
-// TODO: ensure execution is not set to native anywhere
-
 pub(crate) const EXAMPLES: &str = color_print::cstr!(
 	r#"<bold><underline>Examples:</></>
 
