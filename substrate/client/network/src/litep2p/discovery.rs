@@ -33,8 +33,9 @@ use litep2p::{
 		libp2p::{
 			identify::{Config as IdentifyConfig, IdentifyEvent},
 			kademlia::{
-				Config as KademliaConfig, ConfigBuilder as KademliaConfigBuilder, KademliaEvent,
-				KademliaHandle, QueryId, Quorum, Record, RecordKey, RecordsType,
+				Config as KademliaConfig, ConfigBuilder as KademliaConfigBuilder,
+				IncomingRecordValidationMode, KademliaEvent, KademliaHandle, QueryId, Quorum,
+				Record, RecordKey, RecordsType,
 			},
 			ping::{Config as PingConfig, PingEvent},
 		},
@@ -52,7 +53,7 @@ use std::{
 	pin::Pin,
 	sync::Arc,
 	task::{Context, Poll},
-	time::Duration,
+	time::{Duration, Instant},
 };
 
 /// Logging target for the file.
@@ -255,6 +256,7 @@ impl Discovery {
 			KademliaConfigBuilder::new()
 				.with_known_peers(known_peers)
 				.with_protocol_names(protocol_names)
+				.with_incoming_records_validation_mode(IncomingRecordValidationMode::Manual)
 				.build()
 		};
 
@@ -344,6 +346,24 @@ impl Discovery {
 		self.kademlia_handle
 			.put_record(Record::new(RecordKey::new(&key.to_vec()), value))
 			.await
+	}
+
+	/// Store record in the local DHT store.
+	pub async fn store_record(
+		&mut self,
+		key: KademliaKey,
+		value: Vec<u8>,
+		publisher: Option<sc_network_types::PeerId>,
+		expires: Option<Instant>,
+	) {
+		self.kademlia_handle
+			.store_record(Record {
+				key: RecordKey::new(&key.to_vec()),
+				value,
+				publisher: publisher.map(Into::into),
+				expires,
+			})
+			.await;
 	}
 
 	/// Check if the observed address is a known address.

@@ -698,6 +698,9 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 							let query_id = self.discovery.put_value(key.clone(), value).await;
 							self.pending_put_values.insert(query_id, (key, Instant::now()));
 						}
+						NetworkServiceCommand::StoreRecord { key, value, publisher, expires } => {
+							self.discovery.store_record(key, value, publisher.map(Into::into), expires).await;
+						}
 						NetworkServiceCommand::EventStream { tx } => {
 							self.event_streams.push(tx);
 						}
