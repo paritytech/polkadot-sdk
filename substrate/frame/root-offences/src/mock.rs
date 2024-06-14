@@ -129,11 +129,6 @@ impl pallet_staking::Config for Test {
 	type Currency = Balances;
 	type CurrencyBalance = <Self as pallet_balances::Config>::Balance;
 	type UnixTime = Timestamp;
-	type CurrencyToVote = ();
-	type RewardRemainder = ();
-	type RuntimeEvent = RuntimeEvent;
-	type Slash = ();
-	type Reward = ();
 	type SessionsPerEra = SessionsPerEra;
 	type SlashDeferDuration = SlashDeferDuration;
 	type AdminOrigin = frame_system::EnsureRoot<Self::AccountId>;
@@ -141,19 +136,10 @@ impl pallet_staking::Config for Test {
 	type SessionInterface = Self;
 	type EraPayout = pallet_staking::ConvertCurve<RewardCurve>;
 	type NextNewSession = Session;
-	type MaxExposurePageSize = ConstU32<64>;
 	type ElectionProvider = onchain::OnChainExecution<OnChainSeqPhragmen>;
 	type GenesisElectionProvider = Self::ElectionProvider;
 	type TargetList = pallet_staking::UseValidatorsMap<Self>;
-	type NominationsQuota = pallet_staking::FixedNominationsQuota<16>;
-	type MaxUnlockingChunks = ConstU32<32>;
-	type HistoryDepth = ConstU32<84>;
-	type MaxControllersInDeprecationBatch = ConstU32<100>;
 	type VoterList = pallet_staking::UseNominatorsAndValidatorsMap<Self>;
-	type EventListeners = ();
-	type BenchmarkingConfig = pallet_staking::TestBenchmarkingConfig;
-	type WeightInfo = ();
-	type DisablingStrategy = pallet_staking::UpToLimitDisablingStrategy;
 }
 
 impl pallet_session::historical::Config for Test {

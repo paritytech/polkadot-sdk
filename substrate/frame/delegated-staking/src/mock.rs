@@ -104,7 +104,6 @@ impl onchain::Config for OnChainSeqPhragmen {
 impl pallet_staking::Config for Runtime {
 	type Currency = Balances;
 	type UnixTime = pallet_timestamp::Pallet<Self>;
-	type RuntimeEvent = RuntimeEvent;
 	type AdminOrigin = frame_system::EnsureRoot<Self::AccountId>;
 	type EraPayout = pallet_staking::ConvertCurve<RewardCurve>;
 	type ElectionProvider = onchain::OnChainExecution<OnChainSeqPhragmen>;
