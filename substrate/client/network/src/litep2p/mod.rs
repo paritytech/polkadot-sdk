@@ -369,11 +369,13 @@ impl Litep2pNetworkBackend {
 			.with_websocket(WebSocketTransportConfig {
 				listen_addresses: websocket.into_iter().flatten().map(Into::into).collect(),
 				yamux_config: yamux_config.clone(),
+				nodelay: true,
 				..Default::default()
 			})
 			.with_tcp(TcpTransportConfig {
 				listen_addresses: tcp.into_iter().flatten().map(Into::into).collect(),
 				yamux_config,
+				nodelay: true,
 				..Default::default()
 			})
 	}
