@@ -58,7 +58,7 @@ use litep2p::{
 	protocol::{
 		libp2p::{
 			bitswap::Config as BitswapConfig,
-			kademlia::{QueryId, RecordsType},
+			kademlia::{QueryId, Record, RecordsType},
 		},
 		request_response::ConfigBuilder as RequestResponseConfigBuilder,
 	},
@@ -914,6 +914,16 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 							target: LOG_TARGET,
 							"ping time with {peer:?}: {rtt:?}",
 						);
+					}
+					Some(DiscoveryEvent::IncomingRecord { record: Record { key, value, publisher, expires }} ) => {
+						self.event_streams.send(Event::Dht(
+							DhtEvent::PutRecordRequest(
+								libp2p::kad::RecordKey::new(&key),
+								value,
+								publisher.map(Into::into),
+								expires,
+							)
+						));
 					}
 				},
 				event = self.litep2p.next_event() => match event {

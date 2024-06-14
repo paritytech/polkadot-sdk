@@ -138,6 +138,12 @@ pub enum DiscoveryEvent {
 		/// Query ID.
 		query_id: QueryId,
 	},
+
+	/// Incoming record to store.
+	IncomingRecord {
+		/// Record.
+		record: Record,
+	},
 }
 
 /// Discovery.
@@ -480,6 +486,16 @@ impl Stream for Discovery {
 					},
 					false => return Poll::Ready(Some(DiscoveryEvent::QueryFailed { query_id })),
 				}
+			},
+			Poll::Ready(Some(KademliaEvent::IncomingRecord { record })) => {
+				log::trace!(
+					target: LOG_TARGET,
+					"incoming `PUT_RECORD` request with key {:?} from publisher {:?}",
+					record.key,
+					record.publisher,
+				);
+
+				return Poll::Ready(Some(DiscoveryEvent::IncomingRecord { record }))
 			},
 		}
 
