@@ -292,50 +292,29 @@ fn load_spec(id: &str) -> std::result::Result<Box<dyn ChainSpec>, String> {
 /// (H/T to Phala for the idea)
 /// E.g. "penpal-kusama-2004" yields ("penpal-kusama", Some(2004))
 fn extract_parachain_id(id: &str) -> (&str, &str, Option<ParaId>) {
-	const ROCOCO_TEST_PARA_PREFIX: &str = "penpal-rococo-";
-	const KUSAMA_TEST_PARA_PREFIX: &str = "penpal-kusama-";
-	const POLKADOT_TEST_PARA_PREFIX: &str = "penpal-polkadot-";
+	let para_prefixes = [
+		// Penpal
+		"penpal-rococo-",
+		"penpal-kusama-",
+		"penpal-polkadot-",
+		// Glutton Kusama
+		"glutton-kusama-dev-",
+		"glutton-kusama-local-",
+		"glutton-kusama-genesis-",
+		// Glutton Westend
+		"glutton-westend-dev-",
+		"glutton-westend-local-",
+		"glutton-westend-genesis-",
+	];
 
-	const GLUTTON_PARA_DEV_PREFIX: &str = "glutton-kusama-dev-";
-	const GLUTTON_PARA_LOCAL_PREFIX: &str = "glutton-kusama-local-";
-	const GLUTTON_PARA_GENESIS_PREFIX: &str = "glutton-kusama-genesis-";
+	for para_prefix in para_prefixes {
+		if let Some(suffix) = id.strip_prefix(para_prefix) {
+			let para_id: u32 = suffix.parse().expect("Invalid parachain-id suffix");
+			return (&id[..para_prefix.len() - 1], id, Some(para_id.into()))
+		}
+	}
 
-	const GLUTTON_WESTEND_PARA_DEV_PREFIX: &str = "glutton-westend-dev-";
-	const GLUTTON_WESTEND_PARA_LOCAL_PREFIX: &str = "glutton-westend-local-";
-	const GLUTTON_WESTEND_PARA_GENESIS_PREFIX: &str = "glutton-westend-genesis-";
-
-	let (norm_id, orig_id, para) = if let Some(suffix) = id.strip_prefix(ROCOCO_TEST_PARA_PREFIX) {
-		let para_id: u32 = suffix.parse().expect("Invalid parachain-id suffix");
-		(&id[..ROCOCO_TEST_PARA_PREFIX.len() - 1], id, Some(para_id))
-	} else if let Some(suffix) = id.strip_prefix(KUSAMA_TEST_PARA_PREFIX) {
-		let para_id: u32 = suffix.parse().expect("Invalid parachain-id suffix");
-		(&id[..KUSAMA_TEST_PARA_PREFIX.len() - 1], id, Some(para_id))
-	} else if let Some(suffix) = id.strip_prefix(POLKADOT_TEST_PARA_PREFIX) {
-		let para_id: u32 = suffix.parse().expect("Invalid parachain-id suffix");
-		(&id[..POLKADOT_TEST_PARA_PREFIX.len() - 1], id, Some(para_id))
-	} else if let Some(suffix) = id.strip_prefix(GLUTTON_PARA_DEV_PREFIX) {
-		let para_id: u32 = suffix.parse().expect("Invalid parachain-id suffix");
-		(&id[..GLUTTON_PARA_DEV_PREFIX.len() - 1], id, Some(para_id))
-	} else if let Some(suffix) = id.strip_prefix(GLUTTON_PARA_LOCAL_PREFIX) {
-		let para_id: u32 = suffix.parse().expect("Invalid parachain-id suffix");
-		(&id[..GLUTTON_PARA_LOCAL_PREFIX.len() - 1], id, Some(para_id))
-	} else if let Some(suffix) = id.strip_prefix(GLUTTON_PARA_GENESIS_PREFIX) {
-		let para_id: u32 = suffix.parse().expect("Invalid parachain-id suffix");
-		(&id[..GLUTTON_PARA_GENESIS_PREFIX.len() - 1], id, Some(para_id))
-	} else if let Some(suffix) = id.strip_prefix(GLUTTON_WESTEND_PARA_DEV_PREFIX) {
-		let para_id: u32 = suffix.parse().expect("Invalid parachain-id suffix");
-		(&id[..GLUTTON_WESTEND_PARA_DEV_PREFIX.len() - 1], id, Some(para_id))
-	} else if let Some(suffix) = id.strip_prefix(GLUTTON_WESTEND_PARA_LOCAL_PREFIX) {
-		let para_id: u32 = suffix.parse().expect("Invalid parachain-id suffix");
-		(&id[..GLUTTON_WESTEND_PARA_LOCAL_PREFIX.len() - 1], id, Some(para_id))
-	} else if let Some(suffix) = id.strip_prefix(GLUTTON_WESTEND_PARA_GENESIS_PREFIX) {
-		let para_id: u32 = suffix.parse().expect("Invalid parachain-id suffix");
-		(&id[..GLUTTON_WESTEND_PARA_GENESIS_PREFIX.len() - 1], id, Some(para_id))
-	} else {
-		(id, id, None)
-	};
-
-	(norm_id, orig_id, para.map(Into::into))
+	(id, id, None)
 }
 
 impl SubstrateCli for Cli {
@@ -1055,7 +1034,7 @@ impl CliConfiguration<Self> for RelayChainCli {
 mod tests {
 	use crate::{
 		chain_spec::{get_account_id_from_seed, get_from_seed},
-		command::{Runtime, RuntimeResolver},
+		command::{Consensus, Runtime, RuntimeResolver},
 	};
 	use sc_chain_spec::{ChainSpec, ChainSpecExtension, ChainSpecGroup, ChainType, Extension};
 	use serde::{Deserialize, Serialize};
@@ -1082,9 +1061,9 @@ mod tests {
 		pub attribute_z: u32,
 	}
 
-	fn store_configuration(dir: &TempDir, spec: Box<dyn ChainSpec>) -> PathBuf {
+	fn store_configuration(dir: &TempDir, spec: &dyn ChainSpec) -> PathBuf {
 		let raw_output = true;
-		let json = sc_service::chain_ops::build_spec(&*spec, raw_output)
+		let json = sc_service::chain_ops::build_spec(spec, raw_output)
 			.expect("Failed to build json string");
 		let mut cfg_file_path = dir.path().to_path_buf();
 		cfg_file_path.push(spec.id());
@@ -1125,31 +1104,44 @@ mod tests {
 
 		let path = store_configuration(
 			&temp_dir,
-			Box::new(create_default_with_extensions("shell-1", Extensions1::default())),
+			&create_default_with_extensions("shell-1", Extensions1::default()),
 		);
 		assert_eq!(Runtime::Shell, path.runtime().unwrap());
 
 		let path = store_configuration(
 			&temp_dir,
-			Box::new(create_default_with_extensions("shell-2", Extensions2::default())),
+			&create_default_with_extensions("shell-2", Extensions2::default()),
 		);
 		assert_eq!(Runtime::Shell, path.runtime().unwrap());
 
 		let path = store_configuration(
 			&temp_dir,
-			Box::new(create_default_with_extensions("seedling", Extensions2::default())),
+			&create_default_with_extensions("seedling", Extensions2::default()),
 		);
 		assert_eq!(Runtime::Seedling, path.runtime().unwrap());
 
 		let path = store_configuration(
 			&temp_dir,
-			Box::new(crate::chain_spec::rococo_parachain::rococo_parachain_local_config()),
+			&create_default_with_extensions("penpal-rococo-1000", Extensions2::default()),
 		);
+		assert_eq!(Runtime::Penpal(1000.into()), path.runtime().unwrap());
 
 		let path = store_configuration(
 			&temp_dir,
-			Box::new(crate::chain_spec::contracts::contracts_rococo_local_config()),
+			&create_default_with_extensions("penpal-polkadot-2000", Extensions2::default()),
+		);
+		assert_eq!(Runtime::Penpal(2000.into()), path.runtime().unwrap());
+
+		let path = store_configuration(
+			&temp_dir,
+			&crate::chain_spec::contracts::contracts_rococo_local_config(),
 		);
 		assert_eq!(Runtime::ContractsRococo, path.runtime().unwrap());
+
+		let path = store_configuration(
+			&temp_dir,
+			&crate::chain_spec::rococo_parachain::rococo_parachain_local_config(),
+		);
+		assert_eq!(Runtime::Omni(Consensus::Aura), path.runtime().unwrap());
 	}
 }
