@@ -259,18 +259,18 @@ impl<T: Config, W: weights::WeightInfo> MigrationV13<T, W> {
 			SteppedMigrationError::Failed
 		);
 
-		let mut raw_targets = raw_nominations.targets.into_inner();
+		let raw_targets = raw_nominations.targets.into_inner();
 		let count_before = raw_targets.len();
 
-		// remove duplicate nominations.
-		let dedup_noms: Vec<T::AccountId> =
-			raw_targets.drain(..).collect::<BTreeSet<_>>().into_iter().collect::<Vec<_>>();
-
 		// remove all non-validator nominations.
-		let targets = dedup_noms
+		let targets: Vec<T::AccountId> = raw_targets
+			// dedup nominations.
 			.into_iter()
+			.collect::<BTreeSet<_>>()
+			.into_iter()
+			// remove all non-validator nominations.
 			.filter(|n| Pallet::<T>::status(n) == Ok(StakerStatus::Validator))
-			.collect::<Vec<_>>();
+			.collect();
 
 		if targets.len() == 0 {
 			// if no nominations are left, chill the nominator.
