@@ -17,9 +17,6 @@
 
 //! Mock file for offences benchmarking.
 
-#![cfg(test)]
-
-use super::*;
 use frame_election_provider_support::{
 	bounds::{ElectionBounds, ElectionBoundsBuilder},
 	onchain, SequentialPhragmen,
@@ -32,55 +29,22 @@ use frame_system as system;
 use pallet_session::historical as pallet_session_historical;
 use sp_runtime::{
 	testing::{Header, UintAuthorityId},
-	traits::IdentityLookup,
-	BuildStorage,
+	BuildStorage, Perbill,
 };
 
 type AccountId = u64;
-type Nonce = u32;
 type Balance = u64;
 
-#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
-	type BaseCallFilter = frame_support::traits::Everything;
-	type BlockWeights = ();
-	type BlockLength = ();
-	type DbWeight = ();
-	type RuntimeOrigin = RuntimeOrigin;
-	type Nonce = Nonce;
-	type RuntimeCall = RuntimeCall;
-	type Hash = sp_core::H256;
-	type Hashing = ::sp_runtime::traits::BlakeTwo256;
-	type AccountId = AccountId;
-	type Lookup = IdentityLookup<Self::AccountId>;
 	type Block = Block;
-	type RuntimeEvent = RuntimeEvent;
-	type BlockHashCount = ();
-	type Version = ();
-	type PalletInfo = PalletInfo;
 	type AccountData = pallet_balances::AccountData<u64>;
-	type OnNewAccount = ();
-	type OnKilledAccount = ();
-	type SystemWeightInfo = ();
-	type SS58Prefix = ();
-	type OnSetCode = ();
-	type MaxConsumers = frame_support::traits::ConstU32<16>;
 }
 
+#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Test {
-	type MaxLocks = ConstU32<128>;
-	type MaxReserves = ();
-	type ReserveIdentifier = [u8; 8];
-	type Balance = Balance;
-	type RuntimeEvent = RuntimeEvent;
-	type DustRemoval = ();
 	type ExistentialDeposit = ConstU64<10>;
 	type AccountStore = System;
-	type WeightInfo = ();
-	type FreezeIdentifier = ();
-	type MaxFreezes = ();
-	type RuntimeHoldReason = ();
-	type RuntimeFreezeReason = ();
 }
 
 impl pallet_timestamp::Config for Test {
@@ -148,7 +112,7 @@ parameter_types! {
 	pub static ElectionsBounds: ElectionBounds = ElectionBoundsBuilder::default().build();
 }
 
-pub type Extrinsic = sp_runtime::generic::UncheckedExtrinsic<u64, RuntimeCall, (), ()>;
+pub type Extrinsic = sp_runtime::testing::TestXt<RuntimeCall, ()>;
 
 pub struct OnChainSeqPhragmen;
 impl onchain::Config for OnChainSeqPhragmen {
@@ -177,7 +141,6 @@ impl pallet_staking::Config for Test {
 	type EraPayout = pallet_staking::ConvertCurve<RewardCurve>;
 	type NextNewSession = Session;
 	type MaxExposurePageSize = ConstU32<64>;
-	type OffendingValidatorsThreshold = ();
 	type ElectionProvider = onchain::OnChainExecution<OnChainSeqPhragmen>;
 	type GenesisElectionProvider = Self::ElectionProvider;
 	type VoterList = pallet_staking::UseNominatorsAndValidatorsMap<Self>;
@@ -189,6 +152,7 @@ impl pallet_staking::Config for Test {
 	type EventListeners = ();
 	type BenchmarkingConfig = pallet_staking::TestBenchmarkingConfig;
 	type WeightInfo = ();
+	type DisablingStrategy = pallet_staking::UpToLimitDisablingStrategy;
 }
 
 impl pallet_im_online::Config for Test {

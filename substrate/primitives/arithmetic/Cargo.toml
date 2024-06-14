@@ -17,19 +17,20 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = [
+codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false, features = [
 	"derive",
 	"max-encoded-len",
 ] }
 integer-sqrt = "0.1.2"
 num-traits = { version = "0.2.17", default-features = false }
-scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
+scale-info = { version = "2.11.1", default-features = false, features = ["derive"] }
 serde = { features = ["alloc", "derive"], optional = true, workspace = true }
 static_assertions = "1.1.0"
 sp-std = { path = "../std", default-features = false }
+docify = "0.2.8"
 
 [dev-dependencies]
-criterion = "0.4.0"
+criterion = "0.5.1"
 primitive-types = "0.12.0"
 sp-crypto-hashing = { path = "../crypto/hashing" }
 rand = "0.8.5"

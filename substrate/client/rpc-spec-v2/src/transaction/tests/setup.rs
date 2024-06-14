@@ -19,9 +19,9 @@
 use crate::{
 	chain_head::test_utils::ChainHeadMockClient,
 	transaction::{
-		api::TransactionBroadcastApiServer,
+		api::{TransactionApiServer, TransactionBroadcastApiServer},
 		tests::executor::{TaskExecutorBroadcast, TaskExecutorState},
-		TransactionBroadcast as RpcTransactionBroadcast,
+		Transaction as RpcTransaction, TransactionBroadcast as RpcTransactionBroadcast,
 	},
 };
 use futures::Future;
@@ -67,6 +67,7 @@ fn maintained_pool(
 
 pub fn setup_api(
 	options: Options,
+	max_tx_per_connection: usize,
 ) -> (
 	Arc<TestApi>,
 	Arc<MiddlewarePool>,
@@ -85,9 +86,36 @@ pub fn setup_api(
 
 	let (task_executor, executor_recv) = TaskExecutorBroadcast::new();
 
+	let tx_api = RpcTransactionBroadcast::new(
+		client_mock.clone(),
+		pool.clone(),
+		Arc::new(task_executor),
+		max_tx_per_connection,
+	)
+	.into_rpc();
+
+	(api, pool, client_mock, tx_api, executor_recv, pool_state)
+}
+
+pub fn setup_api_tx() -> (
+	Arc<TestApi>,
+	Arc<MiddlewarePool>,
+	Arc<ChainHeadMockClient<Client<Backend>>>,
+	RpcModule<RpcTransaction<MiddlewarePool, ChainHeadMockClient<Client<Backend>>>>,
+	TaskExecutorState,
+	MiddlewarePoolRecv,
+) {
+	let (pool, api, _) = maintained_pool(Default::default());
+	let (pool, pool_state) = MiddlewarePool::new(Arc::new(pool).clone());
+	let pool = Arc::new(pool);
+
+	let builder = TestClientBuilder::new();
+	let client = Arc::new(builder.build());
+	let client_mock = Arc::new(ChainHeadMockClient::new(client.clone()));
+	let (task_executor, executor_recv) = TaskExecutorBroadcast::new();
+
 	let tx_api =
-		RpcTransactionBroadcast::new(client_mock.clone(), pool.clone(), Arc::new(task_executor))
-			.into_rpc();
+		RpcTransaction::new(client_mock.clone(), pool.clone(), Arc::new(task_executor)).into_rpc();
 
 	(api, pool, client_mock, tx_api, executor_recv, pool_state)
 }
@@ -99,6 +127,18 @@ macro_rules! get_next_event {
 			.await
 			.unwrap()
 			.unwrap()
+	};
+}
+
+/// Get the next event from the provided middleware in at most 5 seconds.
+macro_rules! get_next_event_sub {
+	($sub:expr) => {
+		tokio::time::timeout(std::time::Duration::from_secs(5), $sub.next())
+			.await
+			.unwrap()
+			.unwrap()
+			.unwrap()
+			.0
 	};
 }
 

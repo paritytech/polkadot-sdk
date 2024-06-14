@@ -10,7 +10,6 @@
     - if [[ $CI_COMMIT_REF_NAME == *"gh-readonly-queue"* ]]; then export DOCKER_IMAGES_VERSION="${CI_COMMIT_SHORT_SHA}"; fi
     - export PIPELINE_IMAGE_TAG=${DOCKER_IMAGES_VERSION}
     - export BUILD_RELEASE_VERSION="$(cat ./artifacts/BUILD_RELEASE_VERSION)" # from build-linux-stable job
-    - export DEBUG=zombie,zombie::network-node
     - export ZOMBIENET_INTEGRATION_TEST_IMAGE="${POLKADOT_IMAGE}":${PIPELINE_IMAGE_TAG}
     - export COL_IMAGE="${COLANDER_IMAGE}":${PIPELINE_IMAGE_TAG}
     - export CUMULUS_IMAGE="docker.io/paritypr/polkadot-parachain-debug:${DOCKER_IMAGES_VERSION}"
@@ -158,13 +157,47 @@ zombienet-polkadot-functional-0011-async-backing-6-seconds-rate:
       --local-dir="${LOCAL_DIR}/functional"
       --test="0011-async-backing-6-seconds-rate.zndsl"
 
-zombienet-polkadot-functional-0012-elastic-scaling-mvp:
+zombienet-polkadot-elastic-scaling-0001-basic-3cores-6s-blocks:
+  extends:
+    - .zombienet-polkadot-common
+  variables:
+    FORCED_INFRA_INSTANCE: "spot-iops"
+  script:
+    - /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh
+      --local-dir="${LOCAL_DIR}/elastic_scaling"
+      --test="0001-basic-3cores-6s-blocks.zndsl"
+
+zombienet-polkadot-elastic-scaling-0002-elastic-scaling-doesnt-break-parachains:
+  extends:
+    - .zombienet-polkadot-common
+  script:
+    - /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh
+      --local-dir="${LOCAL_DIR}/elastic_scaling"
+      --test="0002-elastic-scaling-doesnt-break-parachains.zndsl"
+
+zombienet-polkadot-functional-0012-spam-statement-distribution-requests:
   extends:
     - .zombienet-polkadot-common
   script:
     - /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh
       --local-dir="${LOCAL_DIR}/functional"
-      --test="0012-elastic-scaling-mvp.zndsl"
+      --test="0012-spam-statement-distribution-requests.zndsl"
+
+zombienet-polkadot-functional-0013-systematic-chunk-recovery:
+  extends:
+    - .zombienet-polkadot-common
+  script:
+    - /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh
+      --local-dir="${LOCAL_DIR}/functional"
+      --test="0013-systematic-chunk-recovery.zndsl"
+
+zombienet-polkadot-functional-0014-chunk-fetching-network-compatibility:
+  extends:
+    - .zombienet-polkadot-common
+  script:
+    - /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh
+      --local-dir="${LOCAL_DIR}/functional"
+      --test="0014-chunk-fetching-network-compatibility.zndsl"
 
 zombienet-polkadot-smoke-0001-parachains-smoke-test:
   extends:

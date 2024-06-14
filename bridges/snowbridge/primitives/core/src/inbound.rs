@@ -5,6 +5,7 @@
 use codec::{Decode, Encode};
 use frame_support::PalletError;
 use scale_info::TypeInfo;
+use snowbridge_beacon_primitives::{BeaconHeader, ExecutionProof};
 use sp_core::{H160, H256};
 use sp_runtime::RuntimeDebug;
 use sp_std::vec::Vec;
@@ -25,6 +26,8 @@ pub enum VerificationError {
 	InvalidLog,
 	/// Unable to verify the transaction receipt with the provided proof
 	InvalidProof,
+	/// Unable to verify the execution header with ancestry proof
+	InvalidExecutionProof(#[codec(skip)] &'static str),
 }
 
 pub type MessageNonce = u64;
@@ -65,10 +68,15 @@ impl Log {
 /// Inclusion proof for a transaction receipt
 #[derive(Clone, Encode, Decode, PartialEq, RuntimeDebug, TypeInfo)]
 pub struct Proof {
-	// The block hash of the block in which the receipt was included.
-	pub block_hash: H256,
-	// The index of the transaction (and receipt) within the block.
-	pub tx_index: u32,
 	// Proof keys and values (receipts tree)
-	pub data: (Vec<Vec<u8>>, Vec<Vec<u8>>),
+	pub receipt_proof: (Vec<Vec<u8>>, Vec<Vec<u8>>),
+	// Proof that an execution header was finalized by the beacon chain
+	pub execution_proof: ExecutionProof,
+}
+
+#[derive(Clone, RuntimeDebug)]
+pub struct InboundQueueFixture {
+	pub message: Message,
+	pub finalized_header: BeaconHeader,
+	pub block_roots_root: H256,
 }

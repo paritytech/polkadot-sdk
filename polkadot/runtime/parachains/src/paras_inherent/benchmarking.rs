@@ -20,7 +20,7 @@ use frame_benchmarking::{benchmarks, impl_benchmark_test_suite};
 use frame_system::RawOrigin;
 use sp_std::{cmp::min, collections::btree_map::BTreeMap};
 
-use primitives::v6::GroupIndex;
+use polkadot_primitives::v7::GroupIndex;
 
 use crate::builder::BenchBuilder;
 
@@ -65,7 +65,7 @@ benchmarks! {
 				.collect();
 
 		let scenario = BenchBuilder::<T>::new()
-			.set_backed_and_concluding_cores(cores_with_backed)
+			.set_backed_and_concluding_paras(cores_with_backed)
 			.build();
 
 		let mut benchmark = scenario.data.clone();
@@ -110,7 +110,7 @@ benchmarks! {
 				.collect();
 
 		let scenario = BenchBuilder::<T>::new()
-			.set_backed_and_concluding_cores(cores_with_backed.clone())
+			.set_backed_in_inherent_paras(cores_with_backed.clone())
 			.build();
 
 		let mut benchmark = scenario.data.clone();
@@ -146,10 +146,6 @@ benchmarks! {
 		}
 
 		assert_eq!(
-			inclusion::PendingAvailabilityCommitments::<T>::iter().count(),
-			cores_with_backed.len()
-		);
-		assert_eq!(
 			inclusion::PendingAvailability::<T>::iter().count(),
 			cores_with_backed.len()
 		);
@@ -157,7 +153,7 @@ benchmarks! {
 
 	enter_backed_candidate_code_upgrade {
 		// For now we always assume worst case code size. In the future we could vary over this.
-		let v = crate::configuration::Pallet::<T>::config().max_code_size;
+		let v = crate::configuration::ActiveConfig::<T>::get().max_code_size;
 
 		let cores_with_backed: BTreeMap<_, _>
 			= vec![(0, BenchBuilder::<T>::fallback_min_validity_votes())]
@@ -165,7 +161,7 @@ benchmarks! {
 				.collect();
 
 		let scenario = BenchBuilder::<T>::new()
-			.set_backed_and_concluding_cores(cores_with_backed.clone())
+			.set_backed_in_inherent_paras(cores_with_backed.clone())
 			.set_code_upgrade(v)
 			.build();
 
@@ -209,10 +205,6 @@ benchmarks! {
 				);
 			}
 
-		assert_eq!(
-			inclusion::PendingAvailabilityCommitments::<T>::iter().count(),
-			cores_with_backed.len()
-		);
 		assert_eq!(
 			inclusion::PendingAvailability::<T>::iter().count(),
 			cores_with_backed.len()

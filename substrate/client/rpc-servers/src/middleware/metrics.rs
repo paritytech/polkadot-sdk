@@ -182,7 +182,7 @@ impl RpcMetrics {
 				transport_label,
 				req.method_name(),
 				// the label "is_error", so `success` should be regarded as false
-				// and vice-versa to be registrered correctly.
+				// and vice-versa to be registered correctly.
 				if rp.is_success() { "false" } else { "true" },
 				if is_rate_limited { "true" } else { "false" },
 			])

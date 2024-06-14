@@ -203,7 +203,7 @@ pub use v1::*;
 /// ## Where Clause
 ///
 /// Some pallets require a where clause specifying constraints on their generics to make
-/// writing benchmarks feasible. To accomodate this situation, you can provide such a where
+/// writing benchmarks feasible. To accommodate this situation, you can provide such a where
 /// clause as the (only) argument to the `#[benchmarks]` or `#[instance_benchmarks]` attribute
 /// macros. Below is an example of this taken from the `message-queue` pallet.
 ///

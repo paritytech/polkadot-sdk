@@ -2,24 +2,21 @@
 name = "solochain-template-runtime"
 description = "A solochain runtime template built with Substrate, part of Polkadot Sdk."
 version = "0.0.0"
-license = "MIT-0"
+license = "Unlicense"
 authors.workspace = true
 homepage.workspace = true
 repository.workspace = true
 edition.workspace = true
 publish = false
 
-[lints]
-workspace = true
-
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = [
+codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false, features = [
 	"derive",
 ] }
-scale-info = { version = "2.10.0", default-features = false, features = [
+scale-info = { version = "2.11.1", default-features = false, features = [
 	"derive",
 	"serde",
 ] }
@@ -62,7 +59,7 @@ sp-transaction-pool = { path = "../../../substrate/primitives/transaction-pool",
 sp-version = { path = "../../../substrate/primitives/version", default-features = false, features = [
 	"serde",
 ] }
-sp-genesis-builder = { default-features = false, path = "../../../substrate/primitives/genesis-builder" }
+sp-genesis-builder = { path = "../../../substrate/primitives/genesis-builder", default-features = false }
 
 # RPC related
 frame-system-rpc-runtime-api = { path = "../../../substrate/frame/system/rpc/runtime-api", default-features = false }
@@ -130,7 +127,6 @@ runtime-benchmarks = [
 	"pallet-sudo/runtime-benchmarks",
 	"pallet-template/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
-	"pallet-transaction-payment/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 ]
 
@@ -148,5 +144,3 @@ try-runtime = [
 	"pallet-transaction-payment/try-runtime",
 	"sp-runtime/try-runtime",
 ]
-
-experimental = ["pallet-aura/experimental"]

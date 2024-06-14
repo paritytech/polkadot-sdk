@@ -10,8 +10,8 @@ version = "7.0.0"
 workspace = true
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.6.1" }
-scale-info = { version = "2.10.0", features = ["derive"] }
+codec = { package = "parity-scale-codec", version = "3.6.12" }
+scale-info = { version = "2.11.1", features = ["derive"] }
 log = { workspace = true }
 
 frame-system = { path = "../../../../substrate/frame/system" }

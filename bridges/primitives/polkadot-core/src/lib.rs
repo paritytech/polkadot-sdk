@@ -24,8 +24,8 @@ use bp_runtime::{
 	self,
 	extensions::{
 		ChargeTransactionPayment, CheckEra, CheckGenesis, CheckNonZeroSender, CheckNonce,
-		CheckSpecVersion, CheckTxVersion, CheckWeight, GenericTransactionExtension,
-		TransactionExtensionSchema,
+		CheckSpecVersion, CheckTxVersion, CheckWeight, GenericSignedExtension,
+		SignedExtensionSchema,
 	},
 	EncodedOrDecodedCall, StorageMapKeyProvider, TransactionEra,
 };
@@ -71,7 +71,7 @@ pub const MAX_AUTHORITIES_COUNT: u32 = 1_256;
 /// justifications with any additional headers in votes ancestry, so reasonable headers may
 /// be set to zero. But we assume that there may be small GRANDPA lags, so we're leaving some
 /// reserve here.
-pub const REASONABLE_HEADERS_IN_JUSTIFICATON_ANCESTRY: u32 = 2;
+pub const REASONABLE_HEADERS_IN_JUSTIFICATION_ANCESTRY: u32 = 2;
 
 /// Average header size in `votes_ancestries` field of justification on Polkadot-like
 /// chains.
@@ -229,12 +229,8 @@ pub type SignedBlock = generic::SignedBlock<Block>;
 pub type Balance = u128;
 
 /// Unchecked Extrinsic type.
-pub type UncheckedExtrinsic<Call, TransactionExt> = generic::UncheckedExtrinsic<
-	AccountAddress,
-	EncodedOrDecodedCall<Call>,
-	Signature,
-	TransactionExt,
->;
+pub type UncheckedExtrinsic<Call, SignedExt> =
+	generic::UncheckedExtrinsic<AccountAddress, EncodedOrDecodedCall<Call>, Signature, SignedExt>;
 
 /// Account address, used by the Polkadot-like chain.
 pub type Address = MultiAddress<AccountId, ()>;
@@ -279,7 +275,7 @@ impl AccountInfoStorageMapKeyProvider {
 }
 
 /// Extra signed extension data that is used by most chains.
-pub type CommonTransactionExtra = (
+pub type CommonSignedExtra = (
 	CheckNonZeroSender,
 	CheckSpecVersion,
 	CheckTxVersion,
@@ -290,12 +286,12 @@ pub type CommonTransactionExtra = (
 	ChargeTransactionPayment<Balance>,
 );
 
-/// Extra transaction extension data that starts with `CommonTransactionExtra`.
-pub type SuffixedCommonTransactionExtension<Suffix> =
-	GenericTransactionExtension<(CommonTransactionExtra, Suffix)>;
+/// Extra signed extension data that starts with `CommonSignedExtra`.
+pub type SuffixedCommonSignedExtension<Suffix> =
+	GenericSignedExtension<(CommonSignedExtra, Suffix)>;
 
-/// Helper trait to define some extra methods on `SuffixedCommonTransactionExtension`.
-pub trait SuffixedCommonTransactionExtensionExt<Suffix: TransactionExtensionSchema> {
+/// Helper trait to define some extra methods on `SuffixedCommonSignedExtension`.
+pub trait SuffixedCommonSignedExtensionExt<Suffix: SignedExtensionSchema> {
 	/// Create signed extension from its components.
 	fn from_params(
 		spec_version: u32,
@@ -304,7 +300,7 @@ pub trait SuffixedCommonTransactionExtensionExt<Suffix: TransactionExtensionSche
 		genesis_hash: Hash,
 		nonce: Nonce,
 		tip: Balance,
-		extra: (Suffix::Payload, Suffix::Implicit),
+		extra: (Suffix::Payload, Suffix::AdditionalSigned),
 	) -> Self;
 
 	/// Return transaction nonce.
@@ -314,10 +310,9 @@ pub trait SuffixedCommonTransactionExtensionExt<Suffix: TransactionExtensionSche
 	fn tip(&self) -> Balance;
 }
 
-impl<Suffix> SuffixedCommonTransactionExtensionExt<Suffix>
-	for SuffixedCommonTransactionExtension<Suffix>
+impl<Suffix> SuffixedCommonSignedExtensionExt<Suffix> for SuffixedCommonSignedExtension<Suffix>
 where
-	Suffix: TransactionExtensionSchema,
+	Suffix: SignedExtensionSchema,
 {
 	fn from_params(
 		spec_version: u32,
@@ -326,9 +321,9 @@ where
 		genesis_hash: Hash,
 		nonce: Nonce,
 		tip: Balance,
-		extra: (Suffix::Payload, Suffix::Implicit),
+		extra: (Suffix::Payload, Suffix::AdditionalSigned),
 	) -> Self {
-		GenericTransactionExtension::new(
+		GenericSignedExtension::new(
 			(
 				(
 					(),              // non-zero sender
@@ -370,7 +365,7 @@ where
 }
 
 /// Signed extension that is used by most chains.
-pub type CommonTransactionExtension = SuffixedCommonTransactionExtension<()>;
+pub type CommonSignedExtension = SuffixedCommonSignedExtension<()>;
 
 #[cfg(test)]
 mod tests {

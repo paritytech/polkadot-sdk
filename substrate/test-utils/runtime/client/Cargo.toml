@@ -15,7 +15,7 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-futures = "0.3.21"
+futures = "0.3.30"
 sc-block-builder = { path = "../../../client/block-builder" }
 sc-client-api = { path = "../../../client/api" }
 sc-consensus = { path = "../../../client/consensus/common" }

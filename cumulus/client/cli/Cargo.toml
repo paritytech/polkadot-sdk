@@ -10,8 +10,8 @@ license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 workspace = true
 
 [dependencies]
-clap = { version = "4.5.1", features = ["derive"] }
-codec = { package = "parity-scale-codec", version = "3.0.0" }
+clap = { version = "4.5.3", features = ["derive"] }
+codec = { package = "parity-scale-codec", version = "3.6.12" }
 url = "2.4.0"
 
 # Substrate

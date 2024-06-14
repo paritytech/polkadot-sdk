@@ -22,7 +22,10 @@ use crate::{
 	peer_store::PeerStore,
 	protocol::notifications::{Notifications, NotificationsOut, ProtocolConfig},
 	protocol_controller::{ProtoSetConfig, ProtocolController, SetId},
-	service::traits::{NotificationEvent, ValidationResult},
+	service::{
+		metrics::NotificationMetrics,
+		traits::{NotificationEvent, ValidationResult},
+	},
 };
 
 use futures::{future::BoxFuture, prelude::*};
@@ -40,6 +43,7 @@ use sc_utils::mpsc::tracing_unbounded;
 use std::{
 	iter,
 	pin::Pin,
+	sync::Arc,
 	task::{Context, Poll},
 	time::Duration,
 };
@@ -91,7 +95,7 @@ fn build_nodes() -> (Swarm<CustomProtoWithAddr>, Swarm<CustomProtoWithAddr>) {
 				reserved_only: false,
 			},
 			to_notifications,
-			Box::new(peer_store.handle()),
+			Arc::new(peer_store.handle()),
 		);
 
 		let (notif_handle, command_stream) = protocol_handle_pair.split();
@@ -99,7 +103,7 @@ fn build_nodes() -> (Swarm<CustomProtoWithAddr>, Swarm<CustomProtoWithAddr>) {
 			inner: Notifications::new(
 				vec![controller_handle],
 				from_controller,
-				None,
+				NotificationMetrics::new(None),
 				iter::once((
 					ProtocolConfig {
 						name: "/foo".into(),

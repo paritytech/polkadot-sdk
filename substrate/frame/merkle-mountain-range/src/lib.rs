@@ -89,7 +89,7 @@ mod tests;
 /// is not available (since the block is not finished yet),
 /// we use the `parent_hash` here along with parent block number.
 pub struct ParentNumberAndHash<T: frame_system::Config> {
-	_phanthom: sp_std::marker::PhantomData<T>,
+	_phantom: sp_std::marker::PhantomData<T>,
 }
 
 impl<T: frame_system::Config> LeafDataProvider for ParentNumberAndHash<T> {
@@ -100,6 +100,24 @@ impl<T: frame_system::Config> LeafDataProvider for ParentNumberAndHash<T> {
 			frame_system::Pallet::<T>::block_number().saturating_sub(One::one()),
 			frame_system::Pallet::<T>::parent_hash(),
 		)
+	}
+}
+
+/// Block hash provider for a given block number.
+pub trait BlockHashProvider<BlockNumber, BlockHash> {
+	fn block_hash(block_number: BlockNumber) -> BlockHash;
+}
+
+/// Default implementation of BlockHashProvider using frame_system.
+pub struct DefaultBlockHashProvider<T: frame_system::Config> {
+	_phantom: sp_std::marker::PhantomData<T>,
+}
+
+impl<T: frame_system::Config> BlockHashProvider<BlockNumberFor<T>, T::Hash>
+	for DefaultBlockHashProvider<T>
+{
+	fn block_hash(block_number: BlockNumberFor<T>) -> T::Hash {
+		frame_system::Pallet::<T>::block_hash(block_number)
 	}
 }
 
@@ -177,13 +195,18 @@ pub mod pallet {
 		/// Clients. Hook complexity should be `O(1)`.
 		type OnNewRoot: primitives::OnNewRoot<HashOf<Self, I>>;
 
+		/// Block hash provider for a given block number.
+		type BlockHashProvider: BlockHashProvider<
+			BlockNumberFor<Self>,
+			<Self as frame_system::Config>::Hash,
+		>;
+
 		/// Weights for this pallet.
 		type WeightInfo: WeightInfo;
 	}
 
 	/// Latest MMR Root hash.
 	#[pallet::storage]
-	#[pallet::getter(fn mmr_root_hash)]
 	pub type RootHash<T: Config<I>, I: 'static = ()> = StorageValue<_, HashOf<T, I>, ValueQuery>;
 
 	/// Current size of the MMR (number of leaves).
@@ -204,7 +227,7 @@ pub mod pallet {
 	impl<T: Config<I>, I: 'static> Hooks<BlockNumberFor<T>> for Pallet<T, I> {
 		fn on_initialize(_n: BlockNumberFor<T>) -> Weight {
 			use primitives::LeafDataProvider;
-			let leaves = Self::mmr_leaves();
+			let leaves = NumberOfLeaves::<T, I>::get();
 			let peaks_before = sp_mmr_primitives::utils::NodesUtils::new(leaves).number_of_peaks();
 			let data = T::LeafData::leaf_data();
 
@@ -225,8 +248,8 @@ pub mod pallet {
 			};
 			<T::OnNewRoot as primitives::OnNewRoot<_>>::on_new_root(&root);
 
-			<NumberOfLeaves<T, I>>::put(leaves);
-			<RootHash<T, I>>::put(root);
+			NumberOfLeaves::<T, I>::put(leaves);
+			RootHash::<T, I>::put(root);
 
 			let peaks_after = sp_mmr_primitives::utils::NodesUtils::new(leaves).number_of_peaks();
 
@@ -237,15 +260,15 @@ pub mod pallet {
 
 /// Stateless MMR proof verification for batch of leaves.
 ///
-/// This function can be used to verify received MMR [primitives::Proof] (`proof`)
+/// This function can be used to verify received MMR [primitives::LeafProof] (`proof`)
 /// for given leaves set (`leaves`) against a known MMR root hash (`root`).
 /// Note, the leaves should be sorted such that corresponding leaves and leaf indices have the
 /// same position in both the `leaves` vector and the `leaf_indices` vector contained in the
-/// [primitives::Proof].
+/// [primitives::LeafProof].
 pub fn verify_leaves_proof<H, L>(
 	root: H::Output,
 	leaves: Vec<mmr::Node<H, L>>,
-	proof: primitives::Proof<H::Output>,
+	proof: primitives::LeafProof<H::Output>,
 ) -> Result<(), primitives::Error>
 where
 	H: traits::Hash,
@@ -301,7 +324,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	{
 		let first_mmr_block = utils::first_mmr_block_num::<HeaderFor<T>>(
 			<frame_system::Pallet<T>>::block_number(),
-			Self::mmr_leaves(),
+			NumberOfLeaves::<T, I>::get(),
 		)?;
 
 		utils::block_num_to_leaf_index::<HeaderFor<T>>(block_num, first_mmr_block)
@@ -319,7 +342,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	pub fn generate_proof(
 		block_numbers: Vec<BlockNumberFor<T>>,
 		best_known_block_number: Option<BlockNumberFor<T>>,
-	) -> Result<(Vec<LeafOf<T, I>>, primitives::Proof<HashOf<T, I>>), primitives::Error> {
+	) -> Result<(Vec<LeafOf<T, I>>, primitives::LeafProof<HashOf<T, I>>), primitives::Error> {
 		// check whether best_known_block_number provided, else use current best block
 		let best_known_block_number =
 			best_known_block_number.unwrap_or_else(|| <frame_system::Pallet<T>>::block_number());
@@ -339,11 +362,6 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		mmr.generate_proof(leaf_indices)
 	}
 
-	/// Return the on-chain MMR root hash.
-	pub fn mmr_root() -> HashOf<T, I> {
-		Self::mmr_root_hash()
-	}
-
 	/// Verify MMR proof for given `leaves`.
 	///
 	/// This method is safe to use within the runtime code.
@@ -352,9 +370,9 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	/// or the proof is invalid.
 	pub fn verify_leaves(
 		leaves: Vec<LeafOf<T, I>>,
-		proof: primitives::Proof<HashOf<T, I>>,
+		proof: primitives::LeafProof<HashOf<T, I>>,
 	) -> Result<(), primitives::Error> {
-		if proof.leaf_count > Self::mmr_leaves() ||
+		if proof.leaf_count > NumberOfLeaves::<T, I>::get() ||
 			proof.leaf_count == 0 ||
 			(proof.items.len().saturating_add(leaves.len())) as u64 > proof.leaf_count
 		{
@@ -369,5 +387,38 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		} else {
 			Err(primitives::Error::Verify.log_debug("The proof is incorrect."))
 		}
+	}
+
+	pub fn generate_ancestry_proof(
+		prev_block_number: BlockNumberFor<T>,
+		best_known_block_number: Option<BlockNumberFor<T>>,
+	) -> Result<primitives::AncestryProof<HashOf<T, I>>, Error> {
+		// check whether best_known_block_number provided, else use current best block
+		let best_known_block_number =
+			best_known_block_number.unwrap_or_else(|| <frame_system::Pallet<T>>::block_number());
+
+		let leaf_count = Self::block_num_to_leaf_index(best_known_block_number)?.saturating_add(1);
+		let prev_leaf_count = Self::block_num_to_leaf_index(prev_block_number)?.saturating_add(1);
+
+		let mmr: ModuleMmr<mmr::storage::OffchainStorage, T, I> = mmr::Mmr::new(leaf_count);
+		mmr.generate_ancestry_proof(prev_leaf_count)
+	}
+
+	pub fn verify_ancestry_proof(
+		ancestry_proof: primitives::AncestryProof<HashOf<T, I>>,
+	) -> Result<(), Error> {
+		let mmr: ModuleMmr<mmr::storage::OffchainStorage, T, I> =
+			mmr::Mmr::new(ancestry_proof.leaf_count);
+		let is_valid = mmr.verify_ancestry_proof(ancestry_proof)?;
+		if is_valid {
+			Ok(())
+		} else {
+			Err(Error::Verify.log_debug("The ancestry proof is incorrect."))
+		}
+	}
+
+	/// Return the on-chain MMR root hash.
+	pub fn mmr_root() -> HashOf<T, I> {
+		RootHash::<T, I>::get()
 	}
 }

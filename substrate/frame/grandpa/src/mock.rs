@@ -20,8 +20,8 @@
 #![cfg(test)]
 
 use crate::{self as pallet_grandpa, AuthorityId, AuthorityList, Config, ConsensusLog};
-use ::grandpa as finality_grandpa;
 use codec::Encode;
+use finality_grandpa;
 use frame_election_provider_support::{
 	bounds::{ElectionBounds, ElectionBoundsBuilder},
 	onchain, SequentialPhragmen,
@@ -35,8 +35,11 @@ use sp_consensus_grandpa::{RoundNumber, SetId, GRANDPA_ENGINE_ID};
 use sp_core::{crypto::KeyTypeId, H256};
 use sp_keyring::Ed25519Keyring;
 use sp_runtime::{
-	curve::PiecewiseLinear, generic::UncheckedExtrinsic, impl_opaque_keys,
-	testing::UintAuthorityId, traits::OpaqueKeys, BuildStorage, DigestItem, Perbill,
+	curve::PiecewiseLinear,
+	impl_opaque_keys,
+	testing::{TestXt, UintAuthorityId},
+	traits::OpaqueKeys,
+	BuildStorage, DigestItem, Perbill,
 };
 use sp_staking::{EraIndex, SessionIndex};
 
@@ -63,7 +66,7 @@ impl_opaque_keys! {
 	}
 }
 
-#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
 	type Block = Block;
 	type AccountData = pallet_balances::AccountData<u128>;
@@ -74,7 +77,7 @@ where
 	RuntimeCall: From<C>,
 {
 	type OverarchingCall = RuntimeCall;
-	type Extrinsic = UncheckedExtrinsic<u64, RuntimeCall, (), ()>;
+	type Extrinsic = TestXt<RuntimeCall, ()>;
 }
 
 parameter_types! {
@@ -105,20 +108,11 @@ impl pallet_authorship::Config for Test {
 	type EventHandler = ();
 }
 
+#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Test {
-	type MaxLocks = ();
-	type MaxReserves = ();
-	type ReserveIdentifier = [u8; 8];
 	type Balance = u128;
-	type DustRemoval = ();
-	type RuntimeEvent = RuntimeEvent;
 	type ExistentialDeposit = ConstU128<1>;
 	type AccountStore = System;
-	type WeightInfo = ();
-	type FreezeIdentifier = ();
-	type MaxFreezes = ();
-	type RuntimeHoldReason = ();
-	type RuntimeFreezeReason = ();
 }
 
 impl pallet_timestamp::Config for Test {
@@ -143,7 +137,6 @@ parameter_types! {
 	pub const SessionsPerEra: SessionIndex = 3;
 	pub const BondingDuration: EraIndex = 3;
 	pub const RewardCurve: &'static PiecewiseLinear<'static> = &REWARD_CURVE;
-	pub const OffendingValidatorsThreshold: Perbill = Perbill::from_percent(17);
 	pub static ElectionsBoundsOnChain: ElectionBounds = ElectionBoundsBuilder::default().build();
 }
 
@@ -173,7 +166,6 @@ impl pallet_staking::Config for Test {
 	type UnixTime = pallet_timestamp::Pallet<Test>;
 	type EraPayout = pallet_staking::ConvertCurve<RewardCurve>;
 	type MaxExposurePageSize = ConstU32<64>;
-	type OffendingValidatorsThreshold = OffendingValidatorsThreshold;
 	type NextNewSession = Session;
 	type ElectionProvider = onchain::OnChainExecution<OnChainSeqPhragmen>;
 	type GenesisElectionProvider = Self::ElectionProvider;
@@ -186,6 +178,7 @@ impl pallet_staking::Config for Test {
 	type EventListeners = ();
 	type BenchmarkingConfig = pallet_staking::TestBenchmarkingConfig;
 	type WeightInfo = ();
+	type DisablingStrategy = pallet_staking::UpToLimitDisablingStrategy;
 }
 
 impl pallet_offences::Config for Test {

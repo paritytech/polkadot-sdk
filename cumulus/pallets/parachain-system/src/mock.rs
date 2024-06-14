@@ -55,7 +55,6 @@ frame_support::construct_runtime!(
 );
 
 parameter_types! {
-	pub const BlockHashCount: u64 = 250;
 	pub Version: RuntimeVersion = RuntimeVersion {
 		spec_name: sp_version::create_runtime_str!("test"),
 		impl_name: sp_version::create_runtime_str!("system-test"),
@@ -71,10 +70,9 @@ parameter_types! {
 	pub const ReservedDmpWeight: Weight = Weight::zero();
 }
 
-#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
 	type Block = Block;
-	type BlockHashCount = BlockHashCount;
 	type Version = Version;
 	type OnSetCode = ParachainSetCode<Self>;
 }
@@ -122,9 +120,10 @@ impl pallet_message_queue::Config for Test {
 	type Size = u32;
 	type QueueChangeHandler = ();
 	type QueuePausedQuery = ();
-	type HeapSize = sp_core::ConstU32<{ 64 * 1024 }>;
+	type HeapSize = sp_core::ConstU32<{ 103 * 1024 }>;
 	type MaxStale = sp_core::ConstU32<8>;
 	type ServiceWeight = MaxWeight;
+	type IdleMaxServiceWeight = ();
 	type WeightInfo = ();
 }
 

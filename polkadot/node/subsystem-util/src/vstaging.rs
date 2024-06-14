@@ -19,13 +19,44 @@
 //! This module is intended to contain common boiler plate code handling unreleased runtime API
 //! calls.
 
+use std::collections::{BTreeMap, VecDeque};
+
 use polkadot_node_subsystem_types::messages::{RuntimeApiMessage, RuntimeApiRequest};
 use polkadot_overseer::SubsystemSender;
-use polkadot_primitives::{Hash, ValidatorIndex};
+use polkadot_primitives::{CoreIndex, Hash, Id as ParaId, ValidatorIndex};
 
-use crate::{has_required_runtime, request_disabled_validators, runtime};
+use crate::{has_required_runtime, request_claim_queue, request_disabled_validators, runtime};
 
 const LOG_TARGET: &'static str = "parachain::subsystem-util-vstaging";
+
+/// A snapshot of the runtime claim queue at an arbitrary relay chain block.
+#[derive(Default)]
+pub struct ClaimQueueSnapshot(BTreeMap<CoreIndex, VecDeque<ParaId>>);
+
+impl From<BTreeMap<CoreIndex, VecDeque<ParaId>>> for ClaimQueueSnapshot {
+	fn from(claim_queue_snapshot: BTreeMap<CoreIndex, VecDeque<ParaId>>) -> Self {
+		ClaimQueueSnapshot(claim_queue_snapshot)
+	}
+}
+
+impl ClaimQueueSnapshot {
+	/// Returns the `ParaId` that has a claim for `core_index` at the specified `depth` in the
+	/// claim queue. A depth of `0` means the very next block.
+	pub fn get_claim_for(&self, core_index: CoreIndex, depth: usize) -> Option<ParaId> {
+		self.0.get(&core_index)?.get(depth).copied()
+	}
+
+	/// Returns an iterator over all claimed cores and the claiming `ParaId` at the specified
+	/// `depth` in the claim queue.
+	pub fn iter_claims_at_depth(
+		&self,
+		depth: usize,
+	) -> impl Iterator<Item = (CoreIndex, ParaId)> + '_ {
+		self.0
+			.iter()
+			.filter_map(move |(core_index, paras)| Some((*core_index, *paras.get(depth)?)))
+	}
+}
 
 // TODO: https://github.com/paritytech/polkadot-sdk/issues/1940
 /// Returns disabled validators list if the runtime supports it. Otherwise logs a debug messages and
@@ -53,4 +84,29 @@ pub async fn get_disabled_validators_with_fallback<Sender: SubsystemSender<Runti
 	};
 
 	Ok(disabled_validators)
+}
+
+/// Checks if the runtime supports `request_claim_queue` and attempts to fetch the claim queue.
+/// Returns `ClaimQueueSnapshot` or `None` if claim queue API is not supported by runtime.
+/// Any specific `RuntimeApiError` is bubbled up to the caller.
+pub async fn fetch_claim_queue(
+	sender: &mut impl SubsystemSender<RuntimeApiMessage>,
+	relay_parent: Hash,
+) -> Result<Option<ClaimQueueSnapshot>, runtime::Error> {
+	if has_required_runtime(
+		sender,
+		relay_parent,
+		RuntimeApiRequest::CLAIM_QUEUE_RUNTIME_REQUIREMENT,
+	)
+	.await
+	{
+		let res = request_claim_queue(relay_parent, sender)
+			.await
+			.await
+			.map_err(runtime::Error::RuntimeRequestCanceled)??;
+		Ok(Some(res.into()))
+	} else {
+		gum::trace!(target: LOG_TARGET, "Runtime doesn't support `request_claim_queue`");
+		Ok(None)
+	}
 }

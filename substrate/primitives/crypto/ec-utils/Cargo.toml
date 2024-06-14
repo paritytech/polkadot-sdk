@@ -28,7 +28,6 @@ ark-ed-on-bls12-377-ext = { version = "0.4.1", default-features = false, optiona
 ark-ed-on-bls12-377 = { version = "0.4.0", default-features = false, optional = true }
 ark-scale = { version = "0.0.12", default-features = false, features = ["hazmat"], optional = true }
 sp-runtime-interface = { path = "../../runtime-interface", default-features = false, optional = true }
-sp-std = { path = "../../std", default-features = false, optional = true }
 
 [features]
 default = ["std"]
@@ -47,9 +46,8 @@ std = [
 	"ark-ed-on-bls12-381-bandersnatch?/std",
 	"ark-scale?/std",
 	"sp-runtime-interface?/std",
-	"sp-std?/std",
 ]
-common = ["ark-ec", "ark-scale", "sp-runtime-interface", "sp-std"]
+common = ["ark-ec", "ark-scale", "sp-runtime-interface"]
 bls12-377 = ["ark-bls12-377", "ark-bls12-377-ext", "common"]
 bls12-381 = ["ark-bls12-381", "ark-bls12-381-ext", "common"]
 bw6-761 = ["ark-bw6-761", "ark-bw6-761-ext", "common"]

@@ -16,8 +16,8 @@ workspace = true
 sp-core = { path = "../../../../../../../substrate/primitives/core", default-features = false }
 sp-authority-discovery = { path = "../../../../../../../substrate/primitives/authority-discovery", default-features = false }
 sp-consensus-babe = { path = "../../../../../../../substrate/primitives/consensus/babe", default-features = false }
-beefy-primitives = { package = "sp-consensus-beefy", path = "../../../../../../../substrate/primitives/consensus/beefy" }
-grandpa = { package = "sc-consensus-grandpa", path = "../../../../../../../substrate/client/consensus/grandpa", default-features = false }
+sp-consensus-beefy = { path = "../../../../../../../substrate/primitives/consensus/beefy" }
+sc-consensus-grandpa = { path = "../../../../../../../substrate/client/consensus/grandpa", default-features = false }
 
 # Polkadot
 polkadot-primitives = { path = "../../../../../../../polkadot/primitives", default-features = false }
@@ -25,5 +25,5 @@ rococo-runtime-constants = { path = "../../../../../../../polkadot/runtime/rococ
 rococo-runtime = { path = "../../../../../../../polkadot/runtime/rococo" }
 
 # Cumulus
-parachains-common = { path = "../../../../../../parachains/common" }
+parachains-common = { path = "../../../../../common" }
 emulated-integration-tests-common = { path = "../../../common", default-features = false }

@@ -1,0 +1,15 @@
+title: Detect incorrect pre-image length when submitting a referenda
+
+doc:
+  - audience: Runtime User
+    description: |
+      When submitting a referenda the `proposal` is passed as argument.
+      The `proposal` is most of the time a reference to a `pre-image` and
+      which also contains the length of the `pre-image`. This pull request
+      adds some logic to check that if the `pre-image` already exists and if
+      it exists, it ensures that the length is passed correctly. This prevents
+      that the referenda can not be executed because of a mismatch of this
+      length.
+
+crates:
+  - name: pallet-referenda

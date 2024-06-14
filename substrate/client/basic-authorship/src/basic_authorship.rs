@@ -180,7 +180,7 @@ impl<A, C, PR> ProposerFactory<A, C, PR> {
 	/// The soft deadline indicates where we should stop attempting to add transactions
 	/// to the block, which exhaust resources. After soft deadline is reached,
 	/// we switch to a fixed-amount mode, in which after we see `MAX_SKIPPED_TRANSACTIONS`
-	/// transactions which exhaust resrouces, we will conclude that the block is full.
+	/// transactions which exhaust resources, we will conclude that the block is full.
 	///
 	/// Setting the value too low will significantly limit the amount of transactions
 	/// we try in case they exhaust resources. Setting the value too high can

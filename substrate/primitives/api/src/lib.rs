@@ -838,3 +838,4 @@ decl_runtime_apis! {
 
 sp_core::generate_feature_enabled_macro!(std_enabled, feature = "std", $);
 sp_core::generate_feature_enabled_macro!(std_disabled, not(feature = "std"), $);
+sp_core::generate_feature_enabled_macro!(frame_metadata_enabled, feature = "frame-metadata", $);

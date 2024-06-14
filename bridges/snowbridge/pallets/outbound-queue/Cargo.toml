@@ -16,9 +16,8 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 serde = { features = ["alloc", "derive"], workspace = true }
-codec = { version = "3.6.1", package = "parity-scale-codec", default-features = false, features = ["derive"] }
+codec = { version = "3.6.12", package = "parity-scale-codec", default-features = false, features = ["derive"] }
 scale-info = { version = "2.9.0", default-features = false, features = ["derive"] }
-hex-literal = { version = "0.4.1", optional = true }
 
 frame-benchmarking = { path = "../../../../substrate/frame/benchmarking", default-features = false, optional = true }
 frame-support = { path = "../../../../substrate/frame/support", default-features = false }
@@ -35,12 +34,9 @@ snowbridge-core = { path = "../../primitives/core", default-features = false, fe
 snowbridge-outbound-queue-merkle-tree = { path = "merkle-tree", default-features = false }
 ethabi = { package = "ethabi-decode", version = "1.0.0", default-features = false }
 
-xcm = { package = "staging-xcm", path = "../../../../polkadot/xcm", default-features = false }
-
 [dev-dependencies]
 pallet-message-queue = { path = "../../../../substrate/frame/message-queue", default-features = false }
 sp-keyring = { path = "../../../../substrate/primitives/keyring" }
-hex-literal = { version = "0.4.1" }
 
 [features]
 default = ["std"]
@@ -61,7 +57,6 @@ std = [
 	"sp-io/std",
 	"sp-runtime/std",
 	"sp-std/std",
-	"xcm/std",
 ]
 runtime-benchmarks = [
 	"bridge-hub-common/runtime-benchmarks",
@@ -69,7 +64,6 @@ runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
-	"hex-literal",
 	"pallet-message-queue/runtime-benchmarks",
 	"snowbridge-core/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",

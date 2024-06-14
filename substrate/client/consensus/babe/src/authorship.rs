@@ -59,7 +59,7 @@ pub(super) fn calculate_primary_threshold(
 	assert!(theta > 0.0, "authority with weight 0.");
 
 	// NOTE: in the equation `p = 1 - (1 - c)^theta` the value of `p` is always
-	// capped by `c`. For all pratical purposes `c` should always be set to a
+	// capped by `c`. For all practical purposes `c` should always be set to a
 	// value < 0.5, as such in the computations below we should never be near
 	// edge cases like `0.999999`.
 

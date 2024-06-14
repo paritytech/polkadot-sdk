@@ -1310,32 +1310,21 @@ mod tests {
 		assert_noop, assert_ok, derive_impl,
 		dispatch::DispatchResultWithPostInfo,
 		parameter_types,
-		traits::{ConstU32, ConstU64, OnInitialize},
+		traits::{ConstU32, OnInitialize},
 	};
 	use frame_system::ensure_signed;
 	use sp_runtime::{testing::Header, BuildStorage};
 	use substrate_test_utils::assert_eq_uvec;
 
-	#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+	#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 	impl frame_system::Config for Test {
 		type Block = Block;
 		type AccountData = pallet_balances::AccountData<u64>;
 	}
 
+	#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 	impl pallet_balances::Config for Test {
-		type Balance = u64;
-		type RuntimeEvent = RuntimeEvent;
-		type DustRemoval = ();
-		type ExistentialDeposit = ConstU64<1>;
 		type AccountStore = frame_system::Pallet<Test>;
-		type MaxLocks = ();
-		type MaxReserves = ();
-		type ReserveIdentifier = [u8; 8];
-		type WeightInfo = ();
-		type FreezeIdentifier = ();
-		type MaxFreezes = ();
-		type RuntimeHoldReason = ();
-		type RuntimeFreezeReason = ();
 	}
 
 	frame_support::parameter_types! {
@@ -1422,7 +1411,7 @@ mod tests {
 
 	pub type Block = sp_runtime::generic::Block<Header, UncheckedExtrinsic>;
 	pub type UncheckedExtrinsic =
-		sp_runtime::generic::UncheckedExtrinsic<u32, RuntimeCall, u64, ()>;
+		sp_runtime::generic::UncheckedExtrinsic<u32, u64, RuntimeCall, ()>;
 
 	frame_support::construct_runtime!(
 		pub enum Test

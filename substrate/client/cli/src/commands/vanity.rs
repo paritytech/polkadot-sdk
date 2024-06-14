@@ -51,7 +51,7 @@ pub struct VanityCmd {
 impl VanityCmd {
 	/// Run the command
 	pub fn run(&self) -> error::Result<()> {
-		let formated_seed = with_crypto_scheme!(
+		let formatted_seed = with_crypto_scheme!(
 			self.crypto_scheme.scheme,
 			generate_key(
 				&self.pattern,
@@ -62,7 +62,7 @@ impl VanityCmd {
 		with_crypto_scheme!(
 			self.crypto_scheme.scheme,
 			print_from_uri(
-				&formated_seed,
+				&formatted_seed,
 				None,
 				self.network_scheme.network,
 				self.output_scheme.output_type,

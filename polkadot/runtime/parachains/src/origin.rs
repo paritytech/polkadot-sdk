@@ -16,7 +16,7 @@
 
 //! Declaration of the parachain specific origin and a pallet that hosts it.
 
-use primitives::Id as ParaId;
+use polkadot_primitives::Id as ParaId;
 use sp_runtime::traits::BadOrigin;
 use sp_std::result;
 

@@ -10,10 +10,10 @@ description = "Westend Collectives Parachain Runtime"
 workspace = true
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive", "max-encoded-len"] }
+codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false, features = ["derive", "max-encoded-len"] }
 hex-literal = { version = "0.4.1" }
 log = { workspace = true }
-scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
+scale-info = { version = "2.11.1", default-features = false, features = ["derive"] }
 
 # Substrate
 frame-benchmarking = { path = "../../../../../substrate/frame/benchmarking", default-features = false, optional = true }
@@ -34,6 +34,7 @@ pallet-preimage = { path = "../../../../../substrate/frame/preimage", default-fe
 pallet-proxy = { path = "../../../../../substrate/frame/proxy", default-features = false }
 pallet-scheduler = { path = "../../../../../substrate/frame/scheduler", default-features = false }
 pallet-session = { path = "../../../../../substrate/frame/session", default-features = false }
+pallet-state-trie-migration = { path = "../../../../../substrate/frame/state-trie-migration", default-features = false }
 pallet-timestamp = { path = "../../../../../substrate/frame/timestamp", default-features = false }
 pallet-transaction-payment = { path = "../../../../../substrate/frame/transaction-payment", default-features = false }
 pallet-transaction-payment-rpc-runtime-api = { path = "../../../../../substrate/frame/transaction-payment/rpc/runtime-api", default-features = false }
@@ -65,18 +66,21 @@ polkadot-runtime-common = { path = "../../../../../polkadot/runtime/common", def
 xcm = { package = "staging-xcm", path = "../../../../../polkadot/xcm", default-features = false }
 xcm-builder = { package = "staging-xcm-builder", path = "../../../../../polkadot/xcm/xcm-builder", default-features = false }
 xcm-executor = { package = "staging-xcm-executor", path = "../../../../../polkadot/xcm/xcm-executor", default-features = false }
+xcm-fee-payment-runtime-api = { path = "../../../../../polkadot/xcm/xcm-fee-payment-runtime-api", default-features = false }
 westend-runtime-constants = { path = "../../../../../polkadot/runtime/westend/constants", default-features = false }
 
 # Cumulus
 cumulus-pallet-aura-ext = { path = "../../../../pallets/aura-ext", default-features = false }
 pallet-message-queue = { path = "../../../../../substrate/frame/message-queue", default-features = false }
-cumulus-pallet-parachain-system = { path = "../../../../pallets/parachain-system", default-features = false, features = ["parameterized-consensus-hook"] }
+cumulus-pallet-parachain-system = { path = "../../../../pallets/parachain-system", default-features = false }
 cumulus-pallet-session-benchmarking = { path = "../../../../pallets/session-benchmarking", default-features = false }
 cumulus-pallet-xcm = { path = "../../../../pallets/xcm", default-features = false }
 cumulus-pallet-xcmp-queue = { path = "../../../../pallets/xcmp-queue", default-features = false }
 cumulus-primitives-aura = { path = "../../../../primitives/aura", default-features = false }
 cumulus-primitives-core = { path = "../../../../primitives/core", default-features = false }
 cumulus-primitives-utility = { path = "../../../../primitives/utility", default-features = false }
+cumulus-primitives-storage-weight-reclaim = { path = "../../../../primitives/storage-weight-reclaim", default-features = false }
+
 pallet-collator-selection = { path = "../../../../pallets/collator-selection", default-features = false }
 pallet-collective-content = { path = "../../../pallets/collective-content", default-features = false }
 parachain-info = { package = "staging-parachain-info", path = "../../../pallets/parachain-info", default-features = false }
@@ -116,8 +120,8 @@ runtime-benchmarks = [
 	"pallet-referenda/runtime-benchmarks",
 	"pallet-salary/runtime-benchmarks",
 	"pallet-scheduler/runtime-benchmarks",
+	"pallet-state-trie-migration/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
-	"pallet-transaction-payment/runtime-benchmarks",
 	"pallet-treasury/runtime-benchmarks",
 	"pallet-utility/runtime-benchmarks",
 	"pallet-xcm/runtime-benchmarks",
@@ -127,6 +131,7 @@ runtime-benchmarks = [
 	"sp-runtime/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",
+	"xcm-fee-payment-runtime-api/runtime-benchmarks",
 ]
 try-runtime = [
 	"cumulus-pallet-aura-ext/try-runtime",
@@ -155,6 +160,7 @@ try-runtime = [
 	"pallet-salary/try-runtime",
 	"pallet-scheduler/try-runtime",
 	"pallet-session/try-runtime",
+	"pallet-state-trie-migration/try-runtime",
 	"pallet-timestamp/try-runtime",
 	"pallet-transaction-payment/try-runtime",
 	"pallet-treasury/try-runtime",
@@ -173,6 +179,7 @@ std = [
 	"cumulus-pallet-xcmp-queue/std",
 	"cumulus-primitives-aura/std",
 	"cumulus-primitives-core/std",
+	"cumulus-primitives-storage-weight-reclaim/std",
 	"cumulus-primitives-utility/std",
 	"frame-benchmarking?/std",
 	"frame-executive/std",
@@ -200,6 +207,7 @@ std = [
 	"pallet-salary/std",
 	"pallet-scheduler/std",
 	"pallet-session/std",
+	"pallet-state-trie-migration/std",
 	"pallet-timestamp/std",
 	"pallet-transaction-payment-rpc-runtime-api/std",
 	"pallet-transaction-payment/std",
@@ -230,10 +238,9 @@ std = [
 	"westend-runtime-constants/std",
 	"xcm-builder/std",
 	"xcm-executor/std",
+	"xcm-fee-payment-runtime-api/std",
 	"xcm/std",
 ]
-
-experimental = ["pallet-aura/experimental"]
 
 # A feature that should be enabled when the runtime should be built for on-chain
 # deployment. This will disable stuff that shouldn't be part of the on-chain wasm

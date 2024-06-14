@@ -1,0 +1,28 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: "Benchmarking pallet V2 syntax extension: pov_mode attribute"
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Adds the `pov_mode` attribute from the V1 benchmarking syntax to the V2 syntax. This allows to
+      override the default PoV mode (`MaxEncodedLen`) to either `Measured` or `Ignored`. It can be
+      overridden for a whole benchmark, a key prefix of a specific key itself.
+      
+      Example syntax looks like this:
+      ```rust
+      #[benchmark(pov_mode = Measured {
+        Pallet: Measured,
+        Pallet::Storage: MaxEncodedLen,
+      })]
+      fn do_some() {
+        ..
+      }
+      ```
+
+crates:
+  - name: frame-support-procedural
+    bump: minor
+  - name: frame-support
+    bump: minor

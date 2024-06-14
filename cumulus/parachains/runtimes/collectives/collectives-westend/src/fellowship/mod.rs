@@ -21,13 +21,16 @@ mod tracks;
 use crate::{
 	weights,
 	xcm_config::{FellowshipAdminBodyId, LocationToAccountId, TreasurerBodyId, UsdtAssetHub},
-	AccountId, AssetRate, Balance, Balances, FellowshipReferenda, GovernanceLocation, Preimage,
-	Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin, Scheduler, WestendTreasuryAccount, DAYS,
+	AccountId, AssetRate, Balance, Balances, FellowshipReferenda, GovernanceLocation,
+	ParachainInfo, Preimage, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin, Scheduler,
+	WestendTreasuryAccount, DAYS,
 };
+use cumulus_primitives_core::ParaId;
 use frame_support::{
 	parameter_types,
 	traits::{
-		EitherOf, EitherOfDiverse, MapSuccess, NeverEnsureOrigin, OriginTrait, TryWithMorphedArg,
+		tokens::UnityOrOuterConversion, EitherOf, EitherOfDiverse, FromContains, MapSuccess,
+		NeverEnsureOrigin, OriginTrait, TryWithMorphedArg,
 	},
 	PalletId,
 };
@@ -40,10 +43,10 @@ use pallet_ranked_collective::EnsureOfRank;
 use pallet_xcm::{EnsureXcm, IsVoiceOfBody};
 use parachains_common::impls::ToParentTreasury;
 use polkadot_runtime_common::impls::{
-	LocatableAssetConverter, VersionedLocatableAsset, VersionedLocationConverter,
+	ContainsParts, LocatableAssetConverter, VersionedLocatableAsset, VersionedLocationConverter,
 };
 use sp_arithmetic::Permill;
-use sp_core::{ConstU128, ConstU32};
+use sp_core::{ConstU128, ConstU32, ConstU8};
 use sp_runtime::traits::{ConstU16, ConvertToValue, IdentityLookup, Replace, TakeFirst};
 use testnet_parachains_constants::westend::{account, currency::GRAND};
 use westend_runtime_constants::time::HOURS;
@@ -207,6 +210,7 @@ impl pallet_core_fellowship::Config<FellowshipCoreInstance> for Runtime {
 		EnsureCanPromoteTo,
 	>;
 	type EvidenceSize = ConstU32<65536>;
+	type MaxRank = ConstU32<9>;
 }
 
 pub type FellowshipSalaryInstance = pallet_salary::Instance1;
@@ -263,6 +267,7 @@ parameter_types! {
 	// The asset's interior location for the paying account. This is the Fellowship Treasury
 	// pallet instance (which sits at index 65).
 	pub FellowshipTreasuryInteriorLocation: InteriorLocation = PalletInstance(65).into();
+	pub SelfParaId: ParaId = ParachainInfo::parachain_id();
 }
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -345,7 +350,15 @@ impl pallet_treasury::Config<FellowshipTreasuryInstance> for Runtime {
 	type Paymaster = FellowshipTreasuryPaymaster;
 	#[cfg(feature = "runtime-benchmarks")]
 	type Paymaster = PayWithEnsure<FellowshipTreasuryPaymaster, OpenHrmpChannel<ConstU32<1000>>>;
-	type BalanceConverter = AssetRate;
+	type BalanceConverter = UnityOrOuterConversion<
+		ContainsParts<
+			FromContains<
+				xcm_builder::IsSiblingSystemParachain<ParaId, SelfParaId>,
+				xcm_builder::IsParentsOnly<ConstU8<1>>,
+			>,
+		>,
+		AssetRate,
+	>;
 	type PayoutPeriod = ConstU32<{ 30 * DAYS }>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = polkadot_runtime_common::impls::benchmarks::TreasuryArguments<

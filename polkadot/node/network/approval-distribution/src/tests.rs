@@ -36,7 +36,6 @@ use polkadot_node_primitives::approval::{
 use polkadot_node_subsystem::messages::{
 	network_bridge_event, AllMessages, ApprovalCheckError, ReportPeerMessage,
 };
-use polkadot_node_subsystem_test_helpers as test_helpers;
 use polkadot_node_subsystem_util::{reputation::add_reputation, TimeoutExt as _};
 use polkadot_primitives::{AuthorityDiscoveryId, BlakeTwo256, CoreIndex, HashT};
 use polkadot_primitives_test_helpers::dummy_signature;
@@ -44,7 +43,8 @@ use rand::SeedableRng;
 use sp_authority_discovery::AuthorityPair as AuthorityDiscoveryPair;
 use sp_core::crypto::Pair as PairT;
 use std::time::Duration;
-type VirtualOverseer = test_helpers::TestSubsystemContextHandle<ApprovalDistributionMessage>;
+type VirtualOverseer =
+	polkadot_node_subsystem_test_helpers::TestSubsystemContextHandle<ApprovalDistributionMessage>;
 
 fn test_harness<T: Future<Output = VirtualOverseer>>(
 	mut state: State,
@@ -56,7 +56,8 @@ fn test_harness<T: Future<Output = VirtualOverseer>>(
 		.try_init();
 
 	let pool = sp_core::testing::TaskExecutor::new();
-	let (context, virtual_overseer) = test_helpers::make_subsystem_context(pool.clone());
+	let (context, virtual_overseer) =
+		polkadot_node_subsystem_test_helpers::make_subsystem_context(pool.clone());
 
 	let subsystem = ApprovalDistribution::new(Default::default());
 	{
@@ -394,7 +395,7 @@ fn try_import_the_same_assignment() {
 		setup_peer_with_view(overseer, &peer_b, view![hash], ValidationVersion::V1).await;
 		setup_peer_with_view(overseer, &peer_c, view![hash], ValidationVersion::V1).await;
 
-		// Set up a gossip topology, where a, b, c and d are topology neighboors to the node under
+		// Set up a gossip topology, where a, b, c and d are topology neighbors to the node under
 		// testing.
 		let peers_with_optional_peer_id = peers
 			.iter()
@@ -491,7 +492,7 @@ fn try_import_the_same_assignment_v2() {
 		setup_peer_with_view(overseer, &peer_b, view![hash], ValidationVersion::V3).await;
 		setup_peer_with_view(overseer, &peer_c, view![hash], ValidationVersion::V3).await;
 
-		// Set up a gossip topology, where a, b, c and d are topology neighboors to the node under
+		// Set up a gossip topology, where a, b, c and d are topology neighbors to the node under
 		// testing.
 		let peers_with_optional_peer_id = peers
 			.iter()
@@ -744,7 +745,7 @@ fn peer_sending_us_the_same_we_just_sent_them_is_ok() {
 			.iter()
 			.map(|(peer_id, authority)| (Some(*peer_id), authority.clone()))
 			.collect_vec();
-		// Setup a topology where peer_a is neigboor to current node.
+		// Setup a topology where peer_a is neighbor to current node.
 		setup_gossip_topology(
 			overseer,
 			make_gossip_topology(1, &peers_with_optional_peer_id, &[0], &[2], 1),
@@ -850,7 +851,7 @@ fn import_approval_happy_path_v1_v2_peers() {
 			.iter()
 			.map(|(peer_id, authority)| (Some(*peer_id), authority.clone()))
 			.collect_vec();
-		// Set up a gossip topology, where a, b, and c are topology neighboors to the node.
+		// Set up a gossip topology, where a, b, and c are topology neighbors to the node.
 		setup_gossip_topology(
 			overseer,
 			make_gossip_topology(1, &peers_with_optional_peer_id, &[0, 1], &[2, 4], 3),
@@ -972,7 +973,7 @@ fn import_approval_happy_path_v2() {
 			.iter()
 			.map(|(peer_id, authority)| (Some(*peer_id), authority.clone()))
 			.collect_vec();
-		// Set up a gossip topology, where a, b, and c are topology neighboors to the node.
+		// Set up a gossip topology, where a, b, and c are topology neighbors to the node.
 		setup_gossip_topology(
 			overseer,
 			make_gossip_topology(1, &peers_with_optional_peer_id, &[0, 1], &[2, 4], 3),
@@ -1083,7 +1084,7 @@ fn multiple_assignments_covered_with_one_approval_vote() {
 			.iter()
 			.map(|(peer_id, authority)| (Some(*peer_id), authority.clone()))
 			.collect_vec();
-		// Set up a gossip topology, where a, b, and c, d are topology neighboors to the node.
+		// Set up a gossip topology, where a, b, and c, d are topology neighbors to the node.
 		setup_gossip_topology(
 			overseer,
 			make_gossip_topology(1, &peers_with_optional_peer_id, &[0, 1], &[2, 4], 3),
@@ -1273,7 +1274,7 @@ fn unify_with_peer_multiple_assignments_covered_with_one_approval_vote() {
 			.iter()
 			.map(|(peer_id, authority)| (Some(*peer_id), authority.clone()))
 			.collect_vec();
-		// Set up a gossip topology, where a, b, and c, d are topology neighboors to the node.
+		// Set up a gossip topology, where a, b, and c, d are topology neighbors to the node.
 		setup_gossip_topology(
 			overseer,
 			make_gossip_topology(1, &peers_with_optional_peer_id, &[0, 1], &[2, 4], 3),
@@ -1631,7 +1632,7 @@ fn update_peer_view() {
 			.iter()
 			.map(|(peer_id, authority)| (Some(*peer_id), authority.clone()))
 			.collect_vec();
-		// Setup a topology where peer_a is neigboor to current node.
+		// Setup a topology where peer_a is neighbor to current node.
 		setup_gossip_topology(
 			overseer,
 			make_gossip_topology(1, &peers_with_optional_peer_id, &[0], &[2], 1),
@@ -1758,7 +1759,7 @@ fn update_peer_view() {
 	assert!(state.blocks.get(&hash_c).unwrap().known_by.get(peer).is_none());
 }
 
-// Tests that updating the known peer_id for a given authorithy updates the topology
+// Tests that updating the known peer_id for a given authority updates the topology
 // and sends the required messages
 #[test]
 fn update_peer_authority_id() {
@@ -1770,9 +1771,9 @@ fn update_peer_authority_id() {
 	let neighbour_x_index = 0;
 	let neighbour_y_index = 2;
 	let local_index = 1;
-	// X neighbour, we simulate that PeerId is not known in the beginining.
+	// X neighbour, we simulate that PeerId is not known in the beginning.
 	let neighbour_x = peers.get(neighbour_x_index).unwrap().0;
-	// Y neighbour, we simulate that PeerId is not known in the beginining.
+	// Y neighbour, we simulate that PeerId is not known in the beginning.
 	let neighbour_y = peers.get(neighbour_y_index).unwrap().0;
 
 	let _state = test_harness(State::default(), |mut virtual_overseer| async move {
@@ -1814,7 +1815,7 @@ fn update_peer_authority_id() {
 			})
 			.collect_vec();
 
-		// Setup a topology where peer_a is neigboor to current node.
+		// Setup a topology where peer_a is neighbor to current node.
 		setup_gossip_topology(
 			overseer,
 			make_gossip_topology(
@@ -2053,7 +2054,7 @@ fn sends_assignments_even_when_state_is_approved() {
 			.iter()
 			.map(|(peer_id, authority)| (Some(*peer_id), authority.clone()))
 			.collect_vec();
-		// Setup a topology where peer_a is neigboor to current node.
+		// Setup a topology where peer_a is neighbor to current node.
 		setup_gossip_topology(
 			overseer,
 			make_gossip_topology(1, &peers_with_optional_peer_id, &[0], &[2], 1),
@@ -2125,7 +2126,7 @@ fn sends_assignments_even_when_state_is_approved() {
 }
 
 /// Same as `sends_assignments_even_when_state_is_approved_v2` but with `VRFModuloCompact`
-/// assignemnts.
+/// assignments.
 #[test]
 fn sends_assignments_even_when_state_is_approved_v2() {
 	let peers = make_peers_and_authority_ids(8);
@@ -2153,7 +2154,7 @@ fn sends_assignments_even_when_state_is_approved_v2() {
 			.iter()
 			.map(|(peer_id, authority)| (Some(*peer_id), authority.clone()))
 			.collect_vec();
-		// Setup a topology where peer_a is neigboor to current node.
+		// Setup a topology where peer_a is neighbor to current node.
 		setup_gossip_topology(
 			overseer,
 			make_gossip_topology(1, &peers_with_optional_peer_id, &[0], &[2], 1),
@@ -3509,7 +3510,7 @@ fn import_versioned_approval() {
 		setup_peer_with_view(overseer, &peer_b, view![hash], ValidationVersion::V1).await;
 		setup_peer_with_view(overseer, &peer_c, view![hash], ValidationVersion::V2).await;
 
-		// Set up a gossip topology, where a, b, c and d are topology neighboors to the node under
+		// Set up a gossip topology, where a, b, c and d are topology neighbors to the node under
 		// testing.
 		let peers_with_optional_peer_id = peers
 			.iter()
@@ -3657,7 +3658,8 @@ fn batch_test_round(message_count: usize) {
 	let pool = sp_core::testing::TaskExecutor::new();
 	let mut state = State::default();
 
-	let (mut context, mut virtual_overseer) = test_helpers::make_subsystem_context(pool.clone());
+	let (mut context, mut virtual_overseer) =
+		polkadot_node_subsystem_test_helpers::make_subsystem_context(pool.clone());
 	let subsystem = ApprovalDistribution::new(Default::default());
 	let mut rng = rand_chacha::ChaCha12Rng::seed_from_u64(12345);
 	let mut sender = context.sender().clone();
