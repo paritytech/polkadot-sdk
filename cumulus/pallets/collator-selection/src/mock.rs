@@ -53,23 +53,12 @@ impl system::Config for Test {
 
 parameter_types! {
 	pub const ExistentialDeposit: u64 = 5;
-	pub const MaxReserves: u32 = 50;
 }
 
+#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Test {
-	type Balance = u64;
-	type RuntimeEvent = RuntimeEvent;
-	type DustRemoval = ();
 	type ExistentialDeposit = ExistentialDeposit;
 	type AccountStore = System;
-	type WeightInfo = ();
-	type MaxLocks = ();
-	type MaxReserves = MaxReserves;
-	type ReserveIdentifier = [u8; 8];
-	type RuntimeHoldReason = RuntimeHoldReason;
-	type RuntimeFreezeReason = RuntimeFreezeReason;
-	type FreezeIdentifier = ();
-	type MaxFreezes = ConstU32<0>;
 }
 
 pub struct Author4;
