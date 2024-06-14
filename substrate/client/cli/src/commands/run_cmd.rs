@@ -23,7 +23,7 @@ use crate::{
 		ImportParams, KeystoreParams, NetworkParams, OffchainWorkerParams, SharedParams,
 		TransactionPoolParams,
 	},
-	CliConfiguration, PrometheusParams, RuntimeParams, TelemetryParams,
+	CliConfiguration, PrometheusParams, RpcListenAddr, RuntimeParams, TelemetryParams,
 	RPC_DEFAULT_MAX_CONNECTIONS, RPC_DEFAULT_MAX_REQUEST_SIZE_MB, RPC_DEFAULT_MAX_RESPONSE_SIZE_MB,
 	RPC_DEFAULT_MAX_SUBS_PER_CONN, RPC_DEFAULT_MESSAGE_CAPACITY_PER_CONN,
 };
@@ -37,7 +37,7 @@ use sc_service::{
 };
 use sc_telemetry::TelemetryEndpoints;
 use std::{
-	net::{IpAddr, Ipv4Addr, SocketAddr},
+	net::{Ipv4Addr, Ipv6Addr, SocketAddr},
 	num::NonZeroU32,
 };
 
@@ -127,6 +127,10 @@ pub struct RunCmd {
 	/// Specify JSON-RPC server TCP port.
 	#[arg(long, value_name = "PORT")]
 	pub rpc_port: Option<u16>,
+
+	/// Specify the JSON-RPC server listen address.
+	#[arg(long, conflicts_with_all = &["rpc_external", "unsafe_rpc_external", "rpc_port"])]
+	pub rpc_listen_address: Option<SocketAddr>,
 
 	/// Maximum number of RPC server connections.
 	#[arg(long, value_name = "COUNT", default_value_t = RPC_DEFAULT_MAX_CONNECTIONS)]
@@ -410,15 +414,21 @@ impl CliConfiguration for RunCmd {
 			.into())
 	}
 
-	fn rpc_addr(&self, default_listen_port: u16) -> Result<Option<SocketAddr>> {
-		let interface = rpc_interface(
+	fn rpc_addr(&self, default_listen_port: u16) -> Result<Option<RpcListenAddr>> {
+		if let Some(addr) = self.rpc_listen_address {
+			return Ok(Some(RpcListenAddr::only(addr)))
+		}
+
+		let (ipv4, ipv6) = rpc_interface(
 			self.rpc_external,
 			self.unsafe_rpc_external,
 			self.rpc_methods,
 			self.validator,
 		)?;
 
-		Ok(Some(SocketAddr::new(interface, self.rpc_port.unwrap_or(default_listen_port))))
+		let addr = RpcListenAddr::new(ipv4, ipv6, self.rpc_port.unwrap_or(default_listen_port));
+
+		Ok(Some(addr))
 	}
 
 	fn rpc_methods(&self) -> Result<sc_service::config::RpcMethods> {
@@ -523,7 +533,7 @@ fn rpc_interface(
 	is_unsafe_external: bool,
 	rpc_methods: RpcMethods,
 	is_validator: bool,
-) -> Result<IpAddr> {
+) -> Result<(Ipv4Addr, Ipv6Addr)> {
 	if is_external && is_validator && rpc_methods != RpcMethods::Unsafe {
 		return Err(Error::Input(
 			"--rpc-external option shouldn't be used if the node is running as \
@@ -541,9 +551,9 @@ fn rpc_interface(
 			);
 		}
 
-		Ok(Ipv4Addr::UNSPECIFIED.into())
+		Ok((Ipv4Addr::UNSPECIFIED, Ipv6Addr::UNSPECIFIED))
 	} else {
-		Ok(Ipv4Addr::LOCALHOST.into())
+		Ok((Ipv4Addr::LOCALHOST, Ipv6Addr::LOCALHOST))
 	}
 }
 

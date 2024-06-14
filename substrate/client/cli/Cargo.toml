@@ -40,6 +40,7 @@ sc-client-db = { path = "../db", default-features = false }
 sc-keystore = { path = "../keystore" }
 sc-mixnet = { path = "../mixnet" }
 sc-network = { path = "../network" }
+sc-rpc-server = { path = "../rpc-servers" }
 sc-service = { path = "../service", default-features = false }
 sc-telemetry = { path = "../telemetry" }
 sc-tracing = { path = "../tracing" }

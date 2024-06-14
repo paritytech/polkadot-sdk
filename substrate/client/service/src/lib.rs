@@ -36,7 +36,7 @@ mod task_manager;
 
 use std::{
 	collections::HashMap,
-	net::{Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV4, SocketAddrV6},
+	net::{Ipv4Addr, Ipv6Addr},
 };
 
 use codec::{Decode, Encode};
@@ -379,39 +379,19 @@ pub fn start_rpc_servers<R>(
 where
 	R: Fn(sc_rpc::DenyUnsafe) -> Result<RpcModule<()>, Error>,
 {
-	fn deny_unsafe(
-		addr: &sc_rpc_server::ListenAddresses,
-		methods: &RpcMethods,
-	) -> sc_rpc::DenyUnsafe {
+	fn deny_unsafe(addr: &sc_rpc_server::ListenAddr, methods: &RpcMethods) -> sc_rpc::DenyUnsafe {
 		match (addr.is_external(), methods) {
 			| (_, RpcMethods::Unsafe) | (false, RpcMethods::Auto) => sc_rpc::DenyUnsafe::No,
 			_ => sc_rpc::DenyUnsafe::Yes,
 		}
 	}
 
-	let (ipv4, ipv6) = if let Some(addr) = config.rpc_addr {
-		let sock_ipv4 = match addr {
-			SocketAddr::V4(addr) => addr,
-			SocketAddr::V6(_) =>
-				unreachable!("Not possible to use IPV6 listening addr in substrate"),
-		};
-
-		let ipv6 = if !sock_ipv4.ip().is_loopback() {
-			sock_ipv4.ip().to_ipv6_mapped()
-		} else {
-			Ipv6Addr::LOCALHOST
-		};
-
-		let sock_ipv6 = SocketAddrV6::new(ipv6, sock_ipv4.port(), 0, 0);
-
-		(sock_ipv4, sock_ipv6)
+	let listen_addrs = if let Some(addr) = config.rpc_addr {
+		addr
 	} else {
-		let sock_ipv4 = SocketAddrV4::new(Ipv4Addr::LOCALHOST, config.rpc_port);
-		let sock_ipv6 = SocketAddrV6::new(Ipv6Addr::LOCALHOST, config.rpc_port, 0, 0);
-		(sock_ipv4, sock_ipv6)
+		sc_rpc_server::ListenAddr::new(Ipv4Addr::LOCALHOST, Ipv6Addr::LOCALHOST, config.rpc_port)
 	};
 
-	let listen_addrs = sc_rpc_server::ListenAddresses::new(ipv4, ipv6);
 	let metrics = sc_rpc_server::RpcMetrics::new(config.prometheus_registry())?;
 	let rpc_api = gen_rpc_module(deny_unsafe(&listen_addrs, &config.rpc_methods))?;
 

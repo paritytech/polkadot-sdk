@@ -34,7 +34,7 @@ pub use sc_network::{
 	},
 	Multiaddr,
 };
-pub use sc_rpc_server::IpNetwork;
+pub use sc_rpc_server::{IpNetwork, ListenAddr as RpcListenAddr};
 pub use sc_telemetry::TelemetryEndpoints;
 pub use sc_transaction_pool::Options as TransactionPoolOptions;
 use sp_core::crypto::SecretString;
@@ -84,7 +84,7 @@ pub struct Configuration {
 	/// disable overrides (default).
 	pub wasm_runtime_overrides: Option<PathBuf>,
 	/// JSON-RPC server binding address.
-	pub rpc_addr: Option<SocketAddr>,
+	pub rpc_addr: Option<RpcListenAddr>,
 	/// Maximum number of connections for JSON-RPC server.
 	pub rpc_max_connections: u32,
 	/// CORS settings for HTTP & WS servers. `None` if all origins are allowed.

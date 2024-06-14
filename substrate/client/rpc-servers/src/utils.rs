@@ -33,15 +33,34 @@ const X_FORWARDED_FOR: HeaderName = HeaderName::from_static("x-forwarded-for");
 const X_REAL_IP: HeaderName = HeaderName::from_static("x-real-ip");
 const FORWARDED: HeaderName = HeaderName::from_static("forwarded");
 
-pub(crate) fn host_filtering(enabled: bool, addr: Option<SocketAddr>) -> Option<HostFilterLayer> {
-	// If the local_addr failed, fallback to wildcard.
-	let port = addr.map_or("*".to_string(), |p| p.port().to_string());
+pub(crate) fn host_filtering(
+	enabled: bool,
+	addr: SocketAddr,
+	addr2: Option<SocketAddr>,
+) -> Option<HostFilterLayer> {
+	fn hosts(addr: SocketAddr) -> Vec<String> {
+		let mut hosts = Vec::new();
+
+		if addr.is_ipv4() {
+			hosts.push(format!("localhost:{}", addr.port()));
+			hosts.push(format!("127.0.0.1:{}", addr.port()));
+		} else {
+			hosts.push(format!("[::1]:{}", addr.port()));
+		}
+
+		hosts
+	}
 
 	if enabled {
 		// NOTE: The listening addresses are whitelisted by default.
-		let hosts =
-			[format!("localhost:{port}"), format!("127.0.0.1:{port}"), format!("[::1]:{port}")];
-		Some(HostFilterLayer::new(hosts).expect("Valid hosts; qed"))
+
+		let mut list = hosts(addr);
+
+		if let Some(addr2) = addr2 {
+			list.extend(hosts(addr2));
+		}
+
+		Some(HostFilterLayer::new(list).expect("Valid hosts; qed"))
 	} else {
 		None
 	}
