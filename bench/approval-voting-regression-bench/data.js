@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1718352337736,
+  "lastUpdate": 1718370246419,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -7472,6 +7472,53 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-distribution",
             "value": 7.380523744189955,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Branislav Kontur",
+            "username": "bkontur",
+            "email": "bkontur@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "977254ccb1afca975780987ff9f19f356e99378f",
+          "message": "Bridges - changes for Bridges V2 - relay client part (#4494)\n\nContains mainly changes/nits/refactors related to the relayer code\n(`client-substrate` and `lib-substrate-relay`) migrated from the Bridges\nV2 [branch](https://github.com/paritytech/polkadot-sdk/pull/4427).\n\nRelates to:\nhttps://github.com/paritytech/parity-bridges-common/issues/2976\nCompanion: https://github.com/paritytech/parity-bridges-common/pull/2988\n\n\n## TODO\n- [x] fix comments\n\n## Questions\n- [x] Do we need more testing for client V2 stuff? If so, how/what is\nthe ultimate test? @svyatonik\n- [x] check\n[comment](https://github.com/paritytech/polkadot-sdk/pull/4494#issuecomment-2117181144)\nfor more testing\n\n---------\n\nCo-authored-by: Svyatoslav Nikolsky <svyatonik@gmail.com>\nCo-authored-by: Serban Iorga <serban@parity.io>",
+          "timestamp": "2024-06-14T11:30:08Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/977254ccb1afca975780987ff9f19f356e99378f"
+        },
+        "date": 1718370217741,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52942.09999999999,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63554.609999999986,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 3.526871195140175,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 7.686127097840047,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 10.39121992768012,
             "unit": "seconds"
           }
         ]
