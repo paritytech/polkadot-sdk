@@ -16,6 +16,8 @@ futures-timer = "3.0.2"
 gum = { package = "tracing-gum", path = "../../gum" }
 
 sp-maybe-compressed-blob = { package = "sp-maybe-compressed-blob", path = "../../../../substrate/primitives/maybe-compressed-blob" }
+sp-keystore = { path = "../../../../substrate/primitives/keystore" }
+sp-application-crypto = { path = "../../../../substrate/primitives/application-crypto" }
 codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false, features = ["bit-vec", "derive"] }
 
 polkadot-primitives = { path = "../../../primitives" }

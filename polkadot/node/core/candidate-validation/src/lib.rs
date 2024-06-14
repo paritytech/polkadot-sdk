@@ -39,7 +39,10 @@ use polkadot_node_subsystem::{
 	overseer, FromOrchestra, OverseerSignal, SpawnedSubsystem, SubsystemError, SubsystemResult,
 	SubsystemSender,
 };
-use polkadot_node_subsystem_util::executor_params_at_relay_parent;
+use polkadot_node_subsystem_util::{
+	executor_params_at_relay_parent, request_authorities, request_session_index_for_child,
+};
+use polkadot_overseer::ActiveLeavesUpdate;
 use polkadot_parachain_primitives::primitives::{
 	ValidationParams, ValidationResult as WasmValidationResult,
 };
@@ -48,10 +51,12 @@ use polkadot_primitives::{
 		DEFAULT_APPROVAL_EXECUTION_TIMEOUT, DEFAULT_BACKING_EXECUTION_TIMEOUT,
 		DEFAULT_LENIENT_PREPARATION_TIMEOUT, DEFAULT_PRECHECK_PREPARATION_TIMEOUT,
 	},
-	CandidateCommitments, CandidateDescriptor, CandidateReceipt, ExecutorParams, Hash,
-	OccupiedCoreAssumption, PersistedValidationData, PvfExecKind, PvfPrepKind, SessionIndex,
-	ValidationCode, ValidationCodeHash,
+	AuthorityDiscoveryId, CandidateCommitments, CandidateDescriptor, CandidateReceipt,
+	ExecutorParams, Hash, OccupiedCoreAssumption, PersistedValidationData, PvfExecKind,
+	PvfPrepKind, SessionIndex, ValidationCode, ValidationCodeHash,
 };
+use sp_application_crypto::{AppCrypto, ByteArray};
+use sp_keystore::KeystorePtr;
 
 use codec::Encode;
 
@@ -111,6 +116,7 @@ pub struct Config {
 
 /// The candidate validation subsystem.
 pub struct CandidateValidationSubsystem {
+	keystore: KeystorePtr,
 	#[allow(missing_docs)]
 	pub metrics: Metrics,
 	#[allow(missing_docs)]
@@ -122,10 +128,11 @@ impl CandidateValidationSubsystem {
 	/// Create a new `CandidateValidationSubsystem`.
 	pub fn with_config(
 		config: Option<Config>,
+		keystore: KeystorePtr,
 		metrics: Metrics,
 		pvf_metrics: polkadot_node_core_pvf::Metrics,
 	) -> Self {
-		CandidateValidationSubsystem { config, metrics, pvf_metrics }
+		CandidateValidationSubsystem { keystore, config, metrics, pvf_metrics }
 	}
 }
 
@@ -133,7 +140,7 @@ impl CandidateValidationSubsystem {
 impl<Context> CandidateValidationSubsystem {
 	fn start(self, ctx: Context) -> SpawnedSubsystem {
 		if let Some(config) = self.config {
-			let future = run(ctx, self.metrics, self.pvf_metrics, config)
+			let future = run(ctx, self.keystore, self.metrics, self.pvf_metrics, config)
 				.map_err(|e| SubsystemError::with_origin("candidate-validation", e))
 				.boxed();
 			SpawnedSubsystem { name: "candidate-validation-subsystem", future }
@@ -223,6 +230,7 @@ where
 #[overseer::contextbounds(CandidateValidation, prefix = self::overseer)]
 async fn run<Context>(
 	mut ctx: Context,
+	keystore: KeystorePtr,
 	metrics: Metrics,
 	pvf_metrics: polkadot_node_core_pvf::Metrics,
 	Config {
@@ -260,31 +268,8 @@ async fn run<Context>(
 			futures::select! {
 				comm = ctx.recv().fuse() => {
 					match comm {
-						// DONE: Check if there is a new session
-						// TODO: Check if our node is an active validator in the next session
-						// TODO: Prepare a list of pvf it needs for the next session
-						// TODO: Send the list to the pvf host to prepare
 						Ok(FromOrchestra::Signal(OverseerSignal::ActiveLeaves(update))) => {
-							if let Some(leaf) = update.activated {
-								let mut sender = ctx.sender().clone();
-								match request_session_index_for_child(&mut sender, leaf.hash)
-									.await {
-										Ok(new_session_index) => {
-											if session_index.map_or(true, |index| index < new_session_index) {
-												// New session
-												session_index = Some(new_session_index);
-											}
-										},
-										Err(_) => {
-											gum::warn!(
-												target: LOG_TARGET,
-												relay_parent = ?leaf.hash,
-												"cannot fetch session index from runtime API",
-											);
-											continue;
-										}
-									}
-							}
+							handle_update(ctx.sender().clone(), keystore.clone(), update, &mut session_index).await;
 						},
 						Ok(FromOrchestra::Signal(OverseerSignal::BlockFinalized(..))) => {},
 						Ok(FromOrchestra::Signal(OverseerSignal::Conclude)) => return Ok(()),
@@ -320,6 +305,49 @@ async fn run<Context>(
 					}
 				}
 			}
+		}
+	}
+}
+
+async fn handle_update<Sender>(
+	mut sender: Sender,
+	keystore: KeystorePtr,
+	update: ActiveLeavesUpdate,
+	session_index: &mut Option<SessionIndex>,
+) where
+	Sender: SubsystemSender<RuntimeApiMessage>,
+{
+	if let Some(leaf) = update.activated {
+		if let Ok(Ok(new_session_index)) =
+			request_session_index_for_child(leaf.hash, &mut sender).await.await
+		{
+			if session_index.map_or(true, |index| index < new_session_index) {
+				*session_index = Some(new_session_index);
+				if let Ok(Ok(authorities)) = request_authorities(leaf.hash, &mut sender).await.await
+				{
+					let is_authority = authorities
+						.iter()
+						.any(|v| keystore.has_keys(&[(v.to_raw_vec(), AuthorityDiscoveryId::ID)]));
+					if is_authority {
+						// TODO: Prepare a list of pvf it needs for the next session
+						// TODO: Send the list to the pvf host to prepare
+					}
+				} else {
+					gum::warn!(
+						target: LOG_TARGET,
+						relay_parent = ?leaf.hash,
+						"cannot fetch authorities from runtime API",
+					);
+					return
+				}
+			}
+		} else {
+			gum::warn!(
+				target: LOG_TARGET,
+				relay_parent = ?leaf.hash,
+				"cannot fetch session index from runtime API",
+			);
+			return
 		}
 	}
 }
@@ -376,17 +404,6 @@ where
 		rx,
 	)
 	.await
-}
-
-async fn request_session_index_for_child<Sender>(
-	sender: &mut Sender,
-	relay_parent: Hash,
-) -> Result<SessionIndex, RuntimeRequestFailed>
-where
-	Sender: SubsystemSender<RuntimeApiMessage>,
-{
-	let (tx, rx) = oneshot::channel();
-	runtime_api_request(sender, relay_parent, RuntimeApiRequest::SessionIndexForChild(tx), rx).await
 }
 
 async fn precheck_pvf<Sender>(

@@ -13101,8 +13101,10 @@ dependencies = [
  "polkadot-parachain-primitives",
  "polkadot-primitives",
  "polkadot-primitives-test-helpers",
+ "sp-application-crypto",
  "sp-core",
  "sp-keyring",
+ "sp-keystore",
  "sp-maybe-compressed-blob",
  "tracing-gum",
 ]
