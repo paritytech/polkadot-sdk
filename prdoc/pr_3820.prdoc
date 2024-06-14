@@ -15,10 +15,18 @@ doc:
 
 crates:
   - name: pallet-treasury
-    bump: major
+    bump: patch
   - name: pallet-tips
-    bump: minor
+    bump: patch
   - name: pallet-child-bounties
-    bump: minor
+    bump: patch
   - name: pallet-bounties
-    bump: minor
+    bump: patch
+  - name: polkadot-runtime-common
+    bump: patch
+  - name: rococo-runtime
+    bump: patch
+  - name: westend-runtime
+    bump: patch
+  - name: collectives-westend-runtime
+    bump: patch
