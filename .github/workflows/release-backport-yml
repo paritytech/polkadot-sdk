@@ -8,13 +8,4 @@ on:
 
 jobs:
   bench:
-    #if: |
-    #  github.event.issue.pull_request != null &&
-    #  contains(github.event.comment.body, '/backport')
     runs-on: ubuntu-latest
-
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-    
-    - 
