@@ -11,6 +11,14 @@ doc:
 			- Replace the code flow of `propose_spend` then `approve_proposal` with `spend_local`
 			- Remove deprecated calls' related weight functions and test cases.
       - Remove deprecated parameter types: ProposalBond, ProposalBondMaximum, ProposalBondMinimum
+      - Remove pallet treasury's relevant deprecated code in pallet-tips, pallet-bounties and pallet-child-bounties
 
 crates:
   - name: pallet-treasury
+    bump: major
+  - name: pallet-tips
+    bump: minor
+  - name: pallet-child-bounties
+    bump: minor
+  - name: pallet-bounties
+    bump: minor
