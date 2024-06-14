@@ -274,6 +274,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#123" id="123">123</a>
 <a href="#124" id="124">124</a>
 <a href="#125" id="125">125</a>
+<a href="#126" id="126">126</a>
+<a href="#127" id="127">127</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -290,7 +292,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see &lt;http://www.gnu.org/licenses/&gt;.
 
-</span><span class="kw">use </span>std::path::PathBuf;
+</span><span class="kw">use </span>clap::{CommandFactory, FromArgMatches};
+<span class="kw">use </span>std::path::PathBuf;
 
 <span class="doccomment">/// Sub-commands supported by the collator.
 </span><span class="attr">#[derive(Debug, clap::Subcommand)]
@@ -384,19 +387,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="kw">impl </span>RelayChainCli {
-	<span class="doccomment">/// Parse the relay chain CLI parameters using the para chain `Configuration`.
+	<span class="doccomment">/// Parse the relay chain CLI parameters using the parachain `Configuration`.
 	</span><span class="kw">pub fn </span>new&lt;<span class="lifetime">'a</span>&gt;(
 		para_config: <span class="kw-2">&amp;</span>sc_service::Configuration,
 		relay_chain_args: <span class="kw">impl </span>Iterator&lt;Item = <span class="kw-2">&amp;</span><span class="lifetime">'a </span>String&gt;,
 	) -&gt; <span class="self">Self </span>{
+		<span class="kw">let </span>polkadot_cmd = polkadot_cli::RunCmd::command().no_binary_name(<span class="bool-val">true</span>);
+		<span class="kw">let </span>matches = polkadot_cmd.get_matches_from(relay_chain_args);
+		<span class="kw">let </span>base = FromArgMatches::from_arg_matches(<span class="kw-2">&amp;</span>matches).unwrap_or_else(|e| e.exit());
+
 		<span class="kw">let </span>extension = <span class="kw">crate</span>::chain_spec::Extensions::try_get(<span class="kw-2">&amp;*</span>para_config.chain_spec);
 		<span class="kw">let </span>chain_id = extension.map(|e| e.relay_chain.clone());
+
 		<span class="kw">let </span>base_path = para_config.base_path.path().join(<span class="string">"polkadot"</span>);
-		<span class="self">Self </span>{
-			base_path: <span class="prelude-val">Some</span>(base_path),
-			chain_id,
-			base: clap::Parser::parse_from(relay_chain_args),
-		}
+		<span class="self">Self </span>{ base, chain_id, base_path: <span class="prelude-val">Some</span>(base_path) }
 	}
 }
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>

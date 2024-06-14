@@ -775,7 +775,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">static </span><span class="kw-2">mut </span>BASE_PATH_TEMP: <span class="prelude-ty">Option</span>&lt;TempDir&gt; = <span class="prelude-val">None</span>;
 
 <span class="doccomment">/// The base path that is used for everything that needs to be written on disk to run a node.
-</span><span class="attr">#[derive(Debug)]
+</span><span class="attr">#[derive(Clone, Debug)]
 </span><span class="kw">pub struct </span>BasePath {
 	path: PathBuf,
 }
