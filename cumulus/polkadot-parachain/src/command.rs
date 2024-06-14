@@ -68,7 +68,6 @@ enum Runtime {
 	CollectivesPolkadot,
 	CollectivesWestend,
 	Glutton,
-	GluttonWestend,
 	BridgeHub(chain_spec::bridge_hubs::BridgeHubRuntimeType),
 	Coretime(chain_spec::coretime::CoretimeRuntimeType),
 	People(chain_spec::people::PeopleRuntimeType),
@@ -134,8 +133,6 @@ fn runtime(id: &str) -> Runtime {
 		Runtime::Coretime(
 			id.parse::<chain_spec::coretime::CoretimeRuntimeType>().expect("Invalid value"),
 		)
-	} else if id.starts_with("glutton-westend") {
-		Runtime::GluttonWestend
 	} else if id.starts_with("glutton") {
 		Runtime::Glutton
 	} else if id.starts_with(chain_spec::people::PeopleRuntimeType::ID_PREFIX) {
@@ -412,7 +409,7 @@ macro_rules! construct_partials {
 				)?;
 				$code
 			},
-			Runtime::GluttonWestend | Runtime::Glutton | Runtime::Shell | Runtime::Seedling => {
+			Runtime::Glutton | Runtime::Shell | Runtime::Seedling => {
 				let $partials = new_partial::<RuntimeApi, _>(
 					&$config,
 					crate::service::build_shell_import_queue,
@@ -479,7 +476,6 @@ macro_rules! construct_async_run {
 			},
 			Runtime::Shell |
 			Runtime::Seedling |
-			Runtime::GluttonWestend |
 			Runtime::Glutton => {
 				runner.async_run(|$config| {
 					let $components = new_partial::<RuntimeApi, _>(
@@ -844,17 +840,16 @@ async fn start_node<Network: sc_network::NetworkBackend<Block, Hash>>(
 		.map(|r| r.0)
 		.map_err(Into::into),
 
-		Runtime::Glutton | Runtime::GluttonWestend =>
-			crate::service::start_basic_lookahead_node::<Network>(
-				config,
-				polkadot_config,
-				collator_options,
-				id,
-				hwbench,
-			)
-			.await
-			.map(|r| r.0)
-			.map_err(Into::into),
+		Runtime::Glutton => crate::service::start_basic_lookahead_node::<Network>(
+			config,
+			polkadot_config,
+			collator_options,
+			id,
+			hwbench,
+		)
+		.await
+		.map(|r| r.0)
+		.map_err(Into::into),
 
 		Runtime::People(people_runtime_type) => match people_runtime_type {
 			chain_spec::people::PeopleRuntimeType::Kusama |
