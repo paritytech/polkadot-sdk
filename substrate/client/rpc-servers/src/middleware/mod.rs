@@ -32,10 +32,12 @@ use jsonrpsee::{
 };
 
 mod metrics;
+mod node_health;
 mod rate_limit;
 
 pub use metrics::*;
 pub use rate_limit::*;
+pub use node_health::*;
 
 const MAX_JITTER: Duration = Duration::from_millis(50);
 const MAX_RETRIES: usize = 10;
