@@ -1,0 +1,13 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Add health readiness endpoint to the rpc server
+
+doc:
+  - audience: Node Operator
+    description: |
+      Add health readiness endpoint to the rpc server
+
+crates:
+  - name: sc-rpc-server
+    bump: patch
