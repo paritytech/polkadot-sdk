@@ -4,12 +4,12 @@
 title: Remove deprecated calls from treasury pallet
 
 doc:
-  - audience: Runtime Dev, Runtime User
+  - audience: Runtime User
     description: |
       This PR remove deprecated calls, relevant tests from `pallet-treasury`.
-			- Remove deprecated calls `propose_spend`, `reject_proposal`, `approve_proposal`.
-			- Replace the code flow of `propose_spend` then `approve_proposal` with `spend_local`
-			- Remove deprecated calls' related weight functions and test cases.
+      - Remove deprecated calls `propose_spend`, `reject_proposal`, `approve_proposal`.
+      - Replace the code flow of `propose_spend` then `approve_proposal` with `spend_local`
+      - Remove deprecated calls' related weight functions and test cases.
       - Remove deprecated parameter types: ProposalBond, ProposalBondMaximum, ProposalBondMinimum
       - Remove pallet treasury's relevant deprecated code in pallet-tips, pallet-bounties and pallet-child-bounties
 
