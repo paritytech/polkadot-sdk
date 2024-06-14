@@ -812,6 +812,97 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#661" id="661">661</a>
 <a href="#662" id="662">662</a>
 <a href="#663" id="663">663</a>
+<a href="#664" id="664">664</a>
+<a href="#665" id="665">665</a>
+<a href="#666" id="666">666</a>
+<a href="#667" id="667">667</a>
+<a href="#668" id="668">668</a>
+<a href="#669" id="669">669</a>
+<a href="#670" id="670">670</a>
+<a href="#671" id="671">671</a>
+<a href="#672" id="672">672</a>
+<a href="#673" id="673">673</a>
+<a href="#674" id="674">674</a>
+<a href="#675" id="675">675</a>
+<a href="#676" id="676">676</a>
+<a href="#677" id="677">677</a>
+<a href="#678" id="678">678</a>
+<a href="#679" id="679">679</a>
+<a href="#680" id="680">680</a>
+<a href="#681" id="681">681</a>
+<a href="#682" id="682">682</a>
+<a href="#683" id="683">683</a>
+<a href="#684" id="684">684</a>
+<a href="#685" id="685">685</a>
+<a href="#686" id="686">686</a>
+<a href="#687" id="687">687</a>
+<a href="#688" id="688">688</a>
+<a href="#689" id="689">689</a>
+<a href="#690" id="690">690</a>
+<a href="#691" id="691">691</a>
+<a href="#692" id="692">692</a>
+<a href="#693" id="693">693</a>
+<a href="#694" id="694">694</a>
+<a href="#695" id="695">695</a>
+<a href="#696" id="696">696</a>
+<a href="#697" id="697">697</a>
+<a href="#698" id="698">698</a>
+<a href="#699" id="699">699</a>
+<a href="#700" id="700">700</a>
+<a href="#701" id="701">701</a>
+<a href="#702" id="702">702</a>
+<a href="#703" id="703">703</a>
+<a href="#704" id="704">704</a>
+<a href="#705" id="705">705</a>
+<a href="#706" id="706">706</a>
+<a href="#707" id="707">707</a>
+<a href="#708" id="708">708</a>
+<a href="#709" id="709">709</a>
+<a href="#710" id="710">710</a>
+<a href="#711" id="711">711</a>
+<a href="#712" id="712">712</a>
+<a href="#713" id="713">713</a>
+<a href="#714" id="714">714</a>
+<a href="#715" id="715">715</a>
+<a href="#716" id="716">716</a>
+<a href="#717" id="717">717</a>
+<a href="#718" id="718">718</a>
+<a href="#719" id="719">719</a>
+<a href="#720" id="720">720</a>
+<a href="#721" id="721">721</a>
+<a href="#722" id="722">722</a>
+<a href="#723" id="723">723</a>
+<a href="#724" id="724">724</a>
+<a href="#725" id="725">725</a>
+<a href="#726" id="726">726</a>
+<a href="#727" id="727">727</a>
+<a href="#728" id="728">728</a>
+<a href="#729" id="729">729</a>
+<a href="#730" id="730">730</a>
+<a href="#731" id="731">731</a>
+<a href="#732" id="732">732</a>
+<a href="#733" id="733">733</a>
+<a href="#734" id="734">734</a>
+<a href="#735" id="735">735</a>
+<a href="#736" id="736">736</a>
+<a href="#737" id="737">737</a>
+<a href="#738" id="738">738</a>
+<a href="#739" id="739">739</a>
+<a href="#740" id="740">740</a>
+<a href="#741" id="741">741</a>
+<a href="#742" id="742">742</a>
+<a href="#743" id="743">743</a>
+<a href="#744" id="744">744</a>
+<a href="#745" id="745">745</a>
+<a href="#746" id="746">746</a>
+<a href="#747" id="747">747</a>
+<a href="#748" id="748">748</a>
+<a href="#749" id="749">749</a>
+<a href="#750" id="750">750</a>
+<a href="#751" id="751">751</a>
+<a href="#752" id="752">752</a>
+<a href="#753" id="753">753</a>
+<a href="#754" id="754">754</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -1015,7 +1106,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
 	<span class="kw">use </span>frame_support::{
 		assert_ok,
-		dispatch::DispatchClass,
+		dispatch::{DispatchClass, PerDispatchClass},
 		weights::{Weight, WeightMeter},
 	};
 	<span class="kw">use </span>frame_system::{BlockWeight, CheckWeight};
@@ -1029,7 +1120,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			pages: <span class="number">0u64</span>,
 		});
 	<span class="kw">const </span>ALICE: AccountId32 = AccountId32::new([<span class="number">1u8</span>; <span class="number">32</span>]);
-	<span class="kw">const </span>LEN: usize = <span class="number">0</span>;
+	<span class="kw">const </span>LEN: usize = <span class="number">150</span>;
 
 	<span class="kw">pub fn </span>new_test_ext() -&gt; sp_io::TestExternalities {
 		<span class="kw">let </span>ext: sp_io::TestExternalities = cumulus_test_runtime::RuntimeGenesisConfig::default()
@@ -1070,6 +1161,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		});
 	}
 
+	<span class="kw">fn </span>get_storage_weight() -&gt; PerDispatchClass&lt;Weight&gt; {
+		BlockWeight::&lt;Test&gt;::get()
+	}
+
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>basic_refund() {
 		<span class="comment">// The real cost will be 100 bytes of storage size
@@ -1081,6 +1176,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="comment">// Benchmarked storage weight: 500
 			</span><span class="kw">let </span>info = DispatchInfo { weight: Weight::from_parts(<span class="number">0</span>, <span class="number">500</span>), ..Default::default() };
 			<span class="kw">let </span>post_info = PostDispatchInfo::default();
+
+			<span class="comment">// Should add 500 + 150 (len) to weight.
+			</span><span class="macro">assert_ok!</span>(CheckWeight::&lt;Test&gt;::do_pre_dispatch(<span class="kw-2">&amp;</span>info, LEN));
 
 			<span class="kw">let </span>pre = StorageWeightReclaim::&lt;Test&gt;(PhantomData)
 				.pre_dispatch(<span class="kw-2">&amp;</span>ALICE, CALL, <span class="kw-2">&amp;</span>info, LEN)
@@ -1097,7 +1195,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw-2">&amp;</span><span class="prelude-val">Ok</span>(())
 			));
 
-			<span class="macro">assert_eq!</span>(BlockWeight::&lt;Test&gt;::get().total().proof_size(), <span class="number">600</span>);
+			<span class="macro">assert_eq!</span>(get_storage_weight().total().proof_size(), <span class="number">1250</span>);
 		})
 	}
 
@@ -1113,6 +1211,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span><span class="kw">let </span>info = DispatchInfo { weight: Weight::from_parts(<span class="number">0</span>, <span class="number">500</span>), ..Default::default() };
 			<span class="kw">let </span>post_info = PostDispatchInfo::default();
 
+			<span class="comment">// Adds 500 + 150 (len) weight
+			</span><span class="macro">assert_ok!</span>(CheckWeight::&lt;Test&gt;::do_pre_dispatch(<span class="kw-2">&amp;</span>info, LEN));
+
 			<span class="kw">let </span>pre = StorageWeightReclaim::&lt;Test&gt;(PhantomData)
 				.pre_dispatch(<span class="kw-2">&amp;</span>ALICE, CALL, <span class="kw-2">&amp;</span>info, LEN)
 				.unwrap();
@@ -1127,7 +1228,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw-2">&amp;</span><span class="prelude-val">Ok</span>(())
 			));
 
-			<span class="macro">assert_eq!</span>(BlockWeight::&lt;Test&gt;::get().total().proof_size(), <span class="number">1000</span>);
+			<span class="macro">assert_eq!</span>(get_storage_weight().total().proof_size(), <span class="number">1650</span>);
 		})
 	}
 
@@ -1140,6 +1241,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="comment">// Benchmarked storage weight: 100
 			</span><span class="kw">let </span>info = DispatchInfo { weight: Weight::from_parts(<span class="number">0</span>, <span class="number">100</span>), ..Default::default() };
 			<span class="kw">let </span>post_info = PostDispatchInfo::default();
+
+			<span class="comment">// Weight added should be 100 + 150 (len)
+			</span><span class="macro">assert_ok!</span>(CheckWeight::&lt;Test&gt;::do_pre_dispatch(<span class="kw-2">&amp;</span>info, LEN));
 
 			<span class="kw">let </span>pre = StorageWeightReclaim::&lt;Test&gt;(PhantomData)
 				.pre_dispatch(<span class="kw-2">&amp;</span>ALICE, CALL, <span class="kw-2">&amp;</span>info, LEN)
@@ -1156,7 +1260,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw-2">&amp;</span><span class="prelude-val">Ok</span>(())
 			));
 
-			<span class="macro">assert_eq!</span>(BlockWeight::&lt;Test&gt;::get().total().proof_size(), <span class="number">1100</span>);
+			<span class="macro">assert_eq!</span>(
+				get_storage_weight().total().proof_size(),
+				<span class="number">1100 </span>+ LEN <span class="kw">as </span>u64 + info.weight.proof_size()
+			);
 		})
 	}
 
@@ -1167,6 +1274,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		test_ext.execute_with(|| {
 			<span class="kw">let </span>info = DispatchInfo { weight: Weight::from_parts(<span class="number">0</span>, <span class="number">500</span>), ..Default::default() };
 			<span class="kw">let </span>post_info = PostDispatchInfo::default();
+
+			<span class="macro">assert_ok!</span>(CheckWeight::&lt;Test&gt;::do_pre_dispatch(<span class="kw-2">&amp;</span>info, LEN));
 
 			<span class="kw">let </span>pre = StorageWeightReclaim::&lt;Test&gt;(PhantomData)
 				.pre_dispatch(<span class="kw-2">&amp;</span>ALICE, CALL, <span class="kw-2">&amp;</span>info, LEN)
@@ -1182,7 +1291,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw-2">&amp;</span><span class="prelude-val">Ok</span>(())
 			));
 
-			<span class="macro">assert_eq!</span>(BlockWeight::&lt;Test&gt;::get().total().proof_size(), <span class="number">0</span>);
+			<span class="comment">// Proof size should be exactly equal to extrinsic length
+			</span><span class="macro">assert_eq!</span>(get_storage_weight().total().proof_size(), LEN <span class="kw">as </span>u64);
 		});
 	}
 
@@ -1196,13 +1306,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>info = DispatchInfo { weight: Weight::from_parts(<span class="number">0</span>, <span class="number">500</span>), ..Default::default() };
 			<span class="kw">let </span>post_info = PostDispatchInfo::default();
 
+			<span class="comment">// Adds 500 + 150 (len) weight, total weight is 1950
+			</span><span class="macro">assert_ok!</span>(CheckWeight::&lt;Test&gt;::do_pre_dispatch(<span class="kw-2">&amp;</span>info, LEN));
+
 			<span class="kw">let </span>pre = StorageWeightReclaim::&lt;Test&gt;(PhantomData)
 				.pre_dispatch(<span class="kw-2">&amp;</span>ALICE, CALL, <span class="kw-2">&amp;</span>info, LEN)
 				.unwrap();
 			<span class="macro">assert_eq!</span>(pre, <span class="prelude-val">Some</span>(<span class="number">300</span>));
 
-			<span class="macro">assert_ok!</span>(CheckWeight::&lt;Test&gt;::post_dispatch(<span class="prelude-val">None</span>, <span class="kw-2">&amp;</span>info, <span class="kw-2">&amp;</span>post_info, <span class="number">0</span>, <span class="kw-2">&amp;</span><span class="prelude-val">Ok</span>(())));
-			<span class="macro">assert_ok!</span>(StorageWeightReclaim::&lt;Test&gt;::post_dispatch(
+			<span class="comment">// Refund 500 unspent weight according to `post_info`, total weight is now 1650
+			</span><span class="macro">assert_ok!</span>(CheckWeight::&lt;Test&gt;::post_dispatch(<span class="prelude-val">None</span>, <span class="kw-2">&amp;</span>info, <span class="kw-2">&amp;</span>post_info, <span class="number">0</span>, <span class="kw-2">&amp;</span><span class="prelude-val">Ok</span>(())));
+			<span class="comment">// Recorded proof size is negative -200, total weight is now 1450
+			</span><span class="macro">assert_ok!</span>(StorageWeightReclaim::&lt;Test&gt;::post_dispatch(
 				<span class="prelude-val">Some</span>(pre),
 				<span class="kw-2">&amp;</span>info,
 				<span class="kw-2">&amp;</span>post_info,
@@ -1210,7 +1325,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw-2">&amp;</span><span class="prelude-val">Ok</span>(())
 			));
 
-			<span class="macro">assert_eq!</span>(BlockWeight::&lt;Test&gt;::get().total().proof_size(), <span class="number">800</span>);
+			<span class="macro">assert_eq!</span>(get_storage_weight().total().proof_size(), <span class="number">1450</span>);
 		});
 	}
 
@@ -1230,6 +1345,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				pays_fee: Default::default(),
 			};
 
+			<span class="comment">// Should add 300 + 150 (len) of weight
+			</span><span class="macro">assert_ok!</span>(CheckWeight::&lt;Test&gt;::do_pre_dispatch(<span class="kw-2">&amp;</span>info, LEN));
+
 			<span class="kw">let </span>pre = StorageWeightReclaim::&lt;Test&gt;(PhantomData)
 				.pre_dispatch(<span class="kw-2">&amp;</span>ALICE, CALL, <span class="kw-2">&amp;</span>info, LEN)
 				.unwrap();
@@ -1246,7 +1364,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw-2">&amp;</span><span class="prelude-val">Ok</span>(())
 			));
 
-			<span class="macro">assert_eq!</span>(BlockWeight::&lt;Test&gt;::get().total().proof_size(), <span class="number">900</span>);
+			<span class="comment">// Reclaimed 100
+			</span><span class="macro">assert_eq!</span>(get_storage_weight().total().proof_size(), <span class="number">1350</span>);
 		})
 	}
 
@@ -1265,6 +1384,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				pays_fee: Default::default(),
 			};
 
+			<span class="comment">// Adds 50 + 150 (len) weight, total weight 1200
+			</span><span class="macro">assert_ok!</span>(CheckWeight::&lt;Test&gt;::do_pre_dispatch(<span class="kw-2">&amp;</span>info, LEN));
+
 			<span class="kw">let </span>pre = StorageWeightReclaim::&lt;Test&gt;(PhantomData)
 				.pre_dispatch(<span class="kw-2">&amp;</span>ALICE, CALL, <span class="kw-2">&amp;</span>info, LEN)
 				.unwrap();
@@ -1272,8 +1394,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="comment">// The `CheckWeight` extension will refund `actual_weight` from `PostDispatchInfo`
 			// we always need to call `post_dispatch` to verify that they interoperate correctly.
+
+			// Refunds unspent 25 weight according to `post_info`, 1175
 			</span><span class="macro">assert_ok!</span>(CheckWeight::&lt;Test&gt;::post_dispatch(<span class="prelude-val">None</span>, <span class="kw-2">&amp;</span>info, <span class="kw-2">&amp;</span>post_info, <span class="number">0</span>, <span class="kw-2">&amp;</span><span class="prelude-val">Ok</span>(())));
-			<span class="macro">assert_ok!</span>(StorageWeightReclaim::&lt;Test&gt;::post_dispatch(
+			<span class="comment">// Adds 200 - 25 (unspent) == 175 weight, total weight 1350
+			</span><span class="macro">assert_ok!</span>(StorageWeightReclaim::&lt;Test&gt;::post_dispatch(
 				<span class="prelude-val">Some</span>(pre),
 				<span class="kw-2">&amp;</span>info,
 				<span class="kw-2">&amp;</span>post_info,
@@ -1281,7 +1406,55 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw-2">&amp;</span><span class="prelude-val">Ok</span>(())
 			));
 
-			<span class="macro">assert_eq!</span>(BlockWeight::&lt;Test&gt;::get().total().proof_size(), <span class="number">1150</span>);
+			<span class="macro">assert_eq!</span>(get_storage_weight().total().proof_size(), <span class="number">1350</span>);
+		})
+	}
+
+	<span class="attr">#[test]
+	</span><span class="kw">fn </span>test_nothing_relcaimed() {
+		<span class="kw">let </span><span class="kw-2">mut </span>test_ext = setup_test_externalities(<span class="kw-2">&amp;</span>[<span class="number">100</span>, <span class="number">200</span>]);
+
+		test_ext.execute_with(|| {
+			set_current_storage_weight(<span class="number">0</span>);
+			<span class="comment">// Benchmarked storage weight: 100
+			</span><span class="kw">let </span>info = DispatchInfo { weight: Weight::from_parts(<span class="number">100</span>, <span class="number">100</span>), ..Default::default() };
+
+			<span class="comment">// Actual proof size is 100
+			</span><span class="kw">let </span>post_info = PostDispatchInfo {
+				actual_weight: <span class="prelude-val">Some</span>(Weight::from_parts(<span class="number">50</span>, <span class="number">100</span>)),
+				pays_fee: Default::default(),
+			};
+
+			<span class="comment">// Adds benchmarked weight 100 + 150 (len), total weight is now 250
+			</span><span class="macro">assert_ok!</span>(CheckWeight::&lt;Test&gt;::do_pre_dispatch(<span class="kw-2">&amp;</span>info, LEN));
+
+			<span class="comment">// Weight should go up by 150 len + 100 proof size weight, total weight 250
+			</span><span class="macro">assert_eq!</span>(get_storage_weight().total().proof_size(), <span class="number">250</span>);
+
+			<span class="kw">let </span>pre = StorageWeightReclaim::&lt;Test&gt;(PhantomData)
+				.pre_dispatch(<span class="kw-2">&amp;</span>ALICE, CALL, <span class="kw-2">&amp;</span>info, LEN)
+				.unwrap();
+			<span class="comment">// Should return `setup_test_externalities` proof recorder value: 100.
+			</span><span class="macro">assert_eq!</span>(pre, <span class="prelude-val">Some</span>(<span class="number">100</span>));
+
+			<span class="comment">// The `CheckWeight` extension will refund `actual_weight` from `PostDispatchInfo`
+			// we always need to call `post_dispatch` to verify that they interoperate correctly.
+			// Nothing to refund, unspent is 0, total weight 250
+			</span><span class="macro">assert_ok!</span>(CheckWeight::&lt;Test&gt;::post_dispatch(<span class="prelude-val">None</span>, <span class="kw-2">&amp;</span>info, <span class="kw-2">&amp;</span>post_info, LEN, <span class="kw-2">&amp;</span><span class="prelude-val">Ok</span>(())));
+			<span class="comment">// `setup_test_externalities` proof recorder value: 200, so this means the extrinsic
+			// actually used 100 proof size.
+			// Nothing to refund or add, weight matches proof recorder
+			</span><span class="macro">assert_ok!</span>(StorageWeightReclaim::&lt;Test&gt;::post_dispatch(
+				<span class="prelude-val">Some</span>(pre),
+				<span class="kw-2">&amp;</span>info,
+				<span class="kw-2">&amp;</span>post_info,
+				LEN,
+				<span class="kw-2">&amp;</span><span class="prelude-val">Ok</span>(())
+			));
+
+			<span class="comment">// Check block len weight was not reclaimed:
+			// 100 weight + 150 extrinsic len == 250 proof size
+			</span><span class="macro">assert_eq!</span>(get_storage_weight().total().proof_size(), <span class="number">250</span>);
 		})
 	}
 
@@ -1301,12 +1474,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				pays_fee: Default::default(),
 			};
 
+			<span class="comment">// Adds 300 + 150 (len) weight, total weight 1450
+			</span><span class="macro">assert_ok!</span>(CheckWeight::&lt;Test&gt;::do_pre_dispatch(<span class="kw-2">&amp;</span>info, LEN));
+
 			<span class="kw">let </span>pre = StorageWeightReclaim::&lt;Test&gt;(PhantomData)
 				.pre_dispatch(<span class="kw-2">&amp;</span>ALICE, CALL, <span class="kw-2">&amp;</span>info, LEN)
 				.unwrap();
 			<span class="macro">assert_eq!</span>(pre, <span class="prelude-val">Some</span>(<span class="number">100</span>));
 
-			<span class="macro">assert_ok!</span>(StorageWeightReclaim::&lt;Test&gt;::post_dispatch(
+			<span class="comment">// This refunds 100 - 50(unspent), total weight is now 1400
+			</span><span class="macro">assert_ok!</span>(StorageWeightReclaim::&lt;Test&gt;::post_dispatch(
 				<span class="prelude-val">Some</span>(pre),
 				<span class="kw-2">&amp;</span>info,
 				<span class="kw-2">&amp;</span>post_info,
@@ -1318,7 +1495,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			// we always need to call `post_dispatch` to verify that they interoperate correctly.
 			</span><span class="macro">assert_ok!</span>(CheckWeight::&lt;Test&gt;::post_dispatch(<span class="prelude-val">None</span>, <span class="kw-2">&amp;</span>info, <span class="kw-2">&amp;</span>post_info, <span class="number">0</span>, <span class="kw-2">&amp;</span><span class="prelude-val">Ok</span>(())));
 
-			<span class="macro">assert_eq!</span>(BlockWeight::&lt;Test&gt;::get().total().proof_size(), <span class="number">900</span>);
+			<span class="comment">// Above call refunds 50 (unspent), total weight is 1350 now
+			</span><span class="macro">assert_eq!</span>(get_storage_weight().total().proof_size(), <span class="number">1350</span>);
 		})
 	}
 
@@ -1337,12 +1515,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				pays_fee: Default::default(),
 			};
 
+			<span class="comment">// Adds 50 + 150 (len) weight, total weight is 1200
+			</span><span class="macro">assert_ok!</span>(CheckWeight::&lt;Test&gt;::do_pre_dispatch(<span class="kw-2">&amp;</span>info, LEN));
+
 			<span class="kw">let </span>pre = StorageWeightReclaim::&lt;Test&gt;(PhantomData)
 				.pre_dispatch(<span class="kw-2">&amp;</span>ALICE, CALL, <span class="kw-2">&amp;</span>info, LEN)
 				.unwrap();
 			<span class="macro">assert_eq!</span>(pre, <span class="prelude-val">Some</span>(<span class="number">100</span>));
 
-			<span class="macro">assert_ok!</span>(StorageWeightReclaim::&lt;Test&gt;::post_dispatch(
+			<span class="comment">// Adds additional 150 weight recorded
+			</span><span class="macro">assert_ok!</span>(StorageWeightReclaim::&lt;Test&gt;::post_dispatch(
 				<span class="prelude-val">Some</span>(pre),
 				<span class="kw-2">&amp;</span>info,
 				<span class="kw-2">&amp;</span>post_info,
@@ -1354,7 +1536,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			// we always need to call `post_dispatch` to verify that they interoperate correctly.
 			</span><span class="macro">assert_ok!</span>(CheckWeight::&lt;Test&gt;::post_dispatch(<span class="prelude-val">None</span>, <span class="kw-2">&amp;</span>info, <span class="kw-2">&amp;</span>post_info, <span class="number">0</span>, <span class="kw-2">&amp;</span><span class="prelude-val">Ok</span>(())));
 
-			<span class="macro">assert_eq!</span>(BlockWeight::&lt;Test&gt;::get().total().proof_size(), <span class="number">1150</span>);
+			<span class="macro">assert_eq!</span>(get_storage_weight().total().proof_size(), <span class="number">1350</span>);
 		})
 	}
 
@@ -1458,7 +1640,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="comment">// We reclaimed 3 bytes of storage size!
 			</span><span class="macro">assert_eq!</span>(reclaimed, <span class="prelude-val">Some</span>(Weight::from_parts(<span class="number">0</span>, <span class="number">3</span>)));
-			<span class="macro">assert_eq!</span>(BlockWeight::&lt;Test&gt;::get().total().proof_size(), <span class="number">10</span>);
+			<span class="macro">assert_eq!</span>(get_storage_weight().total().proof_size(), <span class="number">10</span>);
 			<span class="macro">assert_eq!</span>(remaining_weight_meter.remaining(), Weight::from_parts(<span class="number">10</span>, <span class="number">8</span>));
 		}
 	}

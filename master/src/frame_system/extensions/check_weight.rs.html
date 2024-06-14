@@ -1008,86 +1008,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#857" id="857">857</a>
 <a href="#858" id="858">858</a>
 <a href="#859" id="859">859</a>
-<a href="#860" id="860">860</a>
-<a href="#861" id="861">861</a>
-<a href="#862" id="862">862</a>
-<a href="#863" id="863">863</a>
-<a href="#864" id="864">864</a>
-<a href="#865" id="865">865</a>
-<a href="#866" id="866">866</a>
-<a href="#867" id="867">867</a>
-<a href="#868" id="868">868</a>
-<a href="#869" id="869">869</a>
-<a href="#870" id="870">870</a>
-<a href="#871" id="871">871</a>
-<a href="#872" id="872">872</a>
-<a href="#873" id="873">873</a>
-<a href="#874" id="874">874</a>
-<a href="#875" id="875">875</a>
-<a href="#876" id="876">876</a>
-<a href="#877" id="877">877</a>
-<a href="#878" id="878">878</a>
-<a href="#879" id="879">879</a>
-<a href="#880" id="880">880</a>
-<a href="#881" id="881">881</a>
-<a href="#882" id="882">882</a>
-<a href="#883" id="883">883</a>
-<a href="#884" id="884">884</a>
-<a href="#885" id="885">885</a>
-<a href="#886" id="886">886</a>
-<a href="#887" id="887">887</a>
-<a href="#888" id="888">888</a>
-<a href="#889" id="889">889</a>
-<a href="#890" id="890">890</a>
-<a href="#891" id="891">891</a>
-<a href="#892" id="892">892</a>
-<a href="#893" id="893">893</a>
-<a href="#894" id="894">894</a>
-<a href="#895" id="895">895</a>
-<a href="#896" id="896">896</a>
-<a href="#897" id="897">897</a>
-<a href="#898" id="898">898</a>
-<a href="#899" id="899">899</a>
-<a href="#900" id="900">900</a>
-<a href="#901" id="901">901</a>
-<a href="#902" id="902">902</a>
-<a href="#903" id="903">903</a>
-<a href="#904" id="904">904</a>
-<a href="#905" id="905">905</a>
-<a href="#906" id="906">906</a>
-<a href="#907" id="907">907</a>
-<a href="#908" id="908">908</a>
-<a href="#909" id="909">909</a>
-<a href="#910" id="910">910</a>
-<a href="#911" id="911">911</a>
-<a href="#912" id="912">912</a>
-<a href="#913" id="913">913</a>
-<a href="#914" id="914">914</a>
-<a href="#915" id="915">915</a>
-<a href="#916" id="916">916</a>
-<a href="#917" id="917">917</a>
-<a href="#918" id="918">918</a>
-<a href="#919" id="919">919</a>
-<a href="#920" id="920">920</a>
-<a href="#921" id="921">921</a>
-<a href="#922" id="922">922</a>
-<a href="#923" id="923">923</a>
-<a href="#924" id="924">924</a>
-<a href="#925" id="925">925</a>
-<a href="#926" id="926">926</a>
-<a href="#927" id="927">927</a>
-<a href="#928" id="928">928</a>
-<a href="#929" id="929">929</a>
-<a href="#930" id="930">930</a>
-<a href="#931" id="931">931</a>
-<a href="#932" id="932">932</a>
-<a href="#933" id="933">933</a>
-<a href="#934" id="934">934</a>
-<a href="#935" id="935">935</a>
-<a href="#936" id="936">936</a>
-<a href="#937" id="937">937</a>
-<a href="#938" id="938">938</a>
-<a href="#939" id="939">939</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1105,7 +1025,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-</span><span class="kw">use crate</span>::{limits::BlockWeights, Config, DispatchClass, Pallet, LOG_TARGET};
+</span><span class="kw">use crate</span>::{limits::BlockWeights, Config, Pallet, LOG_TARGET};
 <span class="kw">use </span>codec::{Decode, Encode};
 <span class="kw">use </span>frame_support::{
 	dispatch::{DispatchInfo, PostDispatchInfo},
@@ -1196,8 +1116,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>all_weight = Pallet::&lt;T&gt;::block_weight();
 		<span class="kw">let </span>maximum_weight = T::BlockWeights::get();
 		<span class="kw">let </span>next_weight =
-			calculate_consumed_weight::&lt;T::RuntimeCall&gt;(<span class="kw-2">&amp;</span>maximum_weight, all_weight, info)<span class="question-mark">?</span>;
-		check_combined_proof_size::&lt;T::RuntimeCall&gt;(info, <span class="kw-2">&amp;</span>maximum_weight, next_len, <span class="kw-2">&amp;</span>next_weight)<span class="question-mark">?</span>;
+			calculate_consumed_weight::&lt;T::RuntimeCall&gt;(<span class="kw-2">&amp;</span>maximum_weight, all_weight, info, len)<span class="question-mark">?</span>;
 		<span class="self">Self</span>::check_extrinsic_weight(info)<span class="question-mark">?</span>;
 
 		<span class="kw">crate</span>::AllExtrinsicsLen::&lt;T&gt;::put(next_len);
@@ -1220,36 +1139,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="doccomment">/// Check that the combined extrinsic length and proof size together do not exceed the PoV limit.
-</span><span class="kw">pub fn </span>check_combined_proof_size&lt;Call&gt;(
-	info: <span class="kw-2">&amp;</span>DispatchInfoOf&lt;Call&gt;,
-	maximum_weight: <span class="kw-2">&amp;</span>BlockWeights,
-	next_len: u32,
-	next_weight: <span class="kw-2">&amp;</span><span class="kw">crate</span>::ConsumedWeight,
-) -&gt; <span class="prelude-ty">Result</span>&lt;(), TransactionValidityError&gt;
-<span class="kw">where
-	</span>Call: Dispatchable&lt;Info = DispatchInfo, PostInfo = PostDispatchInfo&gt;,
-{
-	<span class="comment">// This extra check ensures that the extrinsic length does not push the
-	// PoV over the limit.
-	</span><span class="kw">let </span>total_pov_size = next_weight.total().proof_size().saturating_add(next_len <span class="kw">as </span>u64);
-	<span class="kw">if </span>total_pov_size &gt; maximum_weight.max_block.proof_size() {
-		<span class="macro">log::debug!</span>(
-			target: LOG_TARGET,
-			<span class="string">"Extrinsic exceeds total pov size. Still including if mandatory. size: {}kb, limit: {}kb, is_mandatory: {}"</span>,
-			total_pov_size <span class="kw">as </span>f64/<span class="number">1024.0</span>,
-			maximum_weight.max_block.proof_size() <span class="kw">as </span>f64/<span class="number">1024.0</span>,
-			info.class == DispatchClass::Mandatory
-		);
-		<span class="kw">return match </span>info.class {
-			<span class="comment">// Allow mandatory extrinsics
-			</span>DispatchClass::Mandatory =&gt; <span class="prelude-val">Ok</span>(()),
-			<span class="kw">_ </span>=&gt; <span class="prelude-val">Err</span>(InvalidTransaction::ExhaustsResources.into()),
-		};
-	}
-	<span class="prelude-val">Ok</span>(())
-}
-
 <span class="doccomment">/// Checks if the current extrinsic can fit into the block with respect to block weight limits.
 ///
 /// Upon successes, it returns the new block weight as a `Result`.
@@ -1257,12 +1146,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	maximum_weight: <span class="kw-2">&amp;</span>BlockWeights,
 	<span class="kw-2">mut </span>all_weight: <span class="kw">crate</span>::ConsumedWeight,
 	info: <span class="kw-2">&amp;</span>DispatchInfoOf&lt;Call&gt;,
+	len: usize,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="kw">crate</span>::ConsumedWeight, TransactionValidityError&gt;
 <span class="kw">where
 	</span>Call: Dispatchable&lt;Info = DispatchInfo, PostInfo = PostDispatchInfo&gt;,
 {
-	<span class="kw">let </span>extrinsic_weight =
-		info.weight.saturating_add(maximum_weight.get(info.class).base_extrinsic);
+	<span class="comment">// Also Consider extrinsic length as proof weight.
+	</span><span class="kw">let </span>extrinsic_weight = info
+		.weight
+		.saturating_add(maximum_weight.get(info.class).base_extrinsic)
+		.saturating_add(Weight::from_parts(<span class="number">0</span>, len <span class="kw">as </span>u64));
 	<span class="kw">let </span>limit_per_class = maximum_weight.get(info.class);
 
 	<span class="comment">// add the weight. If class is unlimited, use saturating add instead of checked one.
@@ -1862,169 +1755,116 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw-2">&amp;</span>maximum_weight,
 			all_weight.clone(),
 			<span class="kw-2">&amp;</span>mandatory1,
-		));
+			<span class="number">0
+		</span>));
 		<span class="macro">assert_err!</span>(
 			calculate_consumed_weight::&lt;&lt;Test <span class="kw">as </span>Config&gt;::RuntimeCall&gt;(
 				<span class="kw-2">&amp;</span>maximum_weight,
 				all_weight,
 				<span class="kw-2">&amp;</span>mandatory2,
-			),
+				<span class="number">0
+			</span>),
 			InvalidTransaction::ExhaustsResources
 		);
 	}
 
 	<span class="attr">#[test]
-	</span><span class="kw">fn </span>maximum_proof_size_includes_length() {
+	</span><span class="kw">fn </span>proof_size_includes_length() {
 		<span class="kw">let </span>maximum_weight = BlockWeights::builder()
 			.base_block(Weight::zero())
 			.for_class(DispatchClass::non_mandatory(), |w| {
 				w.base_extrinsic = Weight::zero();
-				w.max_total = <span class="prelude-val">Some</span>(Weight::from_parts(<span class="number">20</span>, <span class="number">10</span>));
+				w.max_total = <span class="prelude-val">Some</span>(Weight::from_parts(<span class="number">20</span>, <span class="number">1000</span>));
 			})
 			.for_class(DispatchClass::Mandatory, |w| {
 				w.base_extrinsic = Weight::zero();
-				w.reserved = <span class="prelude-val">Some</span>(Weight::from_parts(<span class="number">5</span>, <span class="number">10</span>));
-				w.max_total = <span class="prelude-val">None</span>;
+				w.max_total = <span class="prelude-val">Some</span>(Weight::from_parts(<span class="number">20</span>, <span class="number">1000</span>));
 			})
 			.build_or_panic();
-
-		<span class="macro">assert_eq!</span>(maximum_weight.max_block, Weight::from_parts(<span class="number">20</span>, <span class="number">10</span>));
-
-		<span class="kw">let </span>info = DispatchInfo { class: DispatchClass::Normal, ..Default::default() };
-		<span class="kw">let </span>mandatory = DispatchInfo { class: DispatchClass::Mandatory, ..Default::default() };
-		<span class="comment">// We have 10 reftime and 5 proof size left over.
-		</span><span class="kw">let </span>next_weight = <span class="kw">crate</span>::ConsumedWeight::new(|class| <span class="kw">match </span>class {
-			DispatchClass::Normal =&gt; Weight::from_parts(<span class="number">10</span>, <span class="number">5</span>),
-			DispatchClass::Operational =&gt; Weight::from_parts(<span class="number">0</span>, <span class="number">0</span>),
-			DispatchClass::Mandatory =&gt; Weight::zero(),
+		<span class="kw">let </span>all_weight = <span class="kw">crate</span>::ConsumedWeight::new(|class| <span class="kw">match </span>class {
+			DispatchClass::Normal =&gt; Weight::from_parts(<span class="number">5</span>, <span class="number">0</span>),
+			DispatchClass::Operational =&gt; Weight::from_parts(<span class="number">5</span>, <span class="number">0</span>),
+			DispatchClass::Mandatory =&gt; Weight::from_parts(<span class="number">0</span>, <span class="number">0</span>),
 		});
 
-		<span class="comment">// Simple checks for the length
-		</span><span class="macro">assert_ok!</span>(check_combined_proof_size::&lt;&lt;Test <span class="kw">as </span>Config&gt;::RuntimeCall&gt;(
-			<span class="kw-2">&amp;</span>info,
-			<span class="kw-2">&amp;</span>maximum_weight,
-			<span class="number">0</span>,
-			<span class="kw-2">&amp;</span>next_weight
-		));
-		<span class="macro">assert_ok!</span>(check_combined_proof_size::&lt;&lt;Test <span class="kw">as </span>Config&gt;::RuntimeCall&gt;(
-			<span class="kw-2">&amp;</span>info,
-			<span class="kw-2">&amp;</span>maximum_weight,
-			<span class="number">5</span>,
-			<span class="kw-2">&amp;</span>next_weight
-		));
-		<span class="macro">assert_err!</span>(
-			check_combined_proof_size::&lt;&lt;Test <span class="kw">as </span>Config&gt;::RuntimeCall&gt;(
-				<span class="kw-2">&amp;</span>info,
-				<span class="kw-2">&amp;</span>maximum_weight,
-				<span class="number">6</span>,
-				<span class="kw-2">&amp;</span>next_weight
-			),
-			InvalidTransaction::ExhaustsResources
-		);
-		<span class="macro">assert_ok!</span>(check_combined_proof_size::&lt;&lt;Test <span class="kw">as </span>Config&gt;::RuntimeCall&gt;(
-			<span class="kw-2">&amp;</span>mandatory,
-			<span class="kw-2">&amp;</span>maximum_weight,
-			<span class="number">6</span>,
-			<span class="kw-2">&amp;</span>next_weight
-		));
+		<span class="kw">let </span>normal = DispatchInfo {
+			weight: Weight::from_parts(<span class="number">5</span>, <span class="number">0</span>),
+			class: DispatchClass::Normal,
+			..Default::default()
+		};
 
-		<span class="comment">// We have 10 reftime and 0 proof size left over.
-		</span><span class="kw">let </span>next_weight = <span class="kw">crate</span>::ConsumedWeight::new(|class| <span class="kw">match </span>class {
-			DispatchClass::Normal =&gt; Weight::from_parts(<span class="number">10</span>, <span class="number">10</span>),
-			DispatchClass::Operational =&gt; Weight::from_parts(<span class="number">0</span>, <span class="number">0</span>),
-			DispatchClass::Mandatory =&gt; Weight::zero(),
-		});
-		<span class="macro">assert_ok!</span>(check_combined_proof_size::&lt;&lt;Test <span class="kw">as </span>Config&gt;::RuntimeCall&gt;(
-			<span class="kw-2">&amp;</span>info,
-			<span class="kw-2">&amp;</span>maximum_weight,
-			<span class="number">0</span>,
-			<span class="kw-2">&amp;</span>next_weight
-		));
-		<span class="macro">assert_err!</span>(
-			check_combined_proof_size::&lt;&lt;Test <span class="kw">as </span>Config&gt;::RuntimeCall&gt;(
-				<span class="kw-2">&amp;</span>info,
-				<span class="kw-2">&amp;</span>maximum_weight,
-				<span class="number">1</span>,
-				<span class="kw-2">&amp;</span>next_weight
-			),
-			InvalidTransaction::ExhaustsResources
-		);
-		<span class="macro">assert_ok!</span>(check_combined_proof_size::&lt;&lt;Test <span class="kw">as </span>Config&gt;::RuntimeCall&gt;(
-			<span class="kw-2">&amp;</span>mandatory,
-			<span class="kw-2">&amp;</span>maximum_weight,
-			<span class="number">1</span>,
-			<span class="kw-2">&amp;</span>next_weight
-		));
+		<span class="kw">let </span>mandatory = DispatchInfo {
+			weight: Weight::from_parts(<span class="number">5</span>, <span class="number">0</span>),
+			class: DispatchClass::Mandatory,
+			..Default::default()
+		};
 
-		<span class="comment">// We have 10 reftime and 2 proof size left over.
-		// Used weight is spread across dispatch classes this time.
-		</span><span class="kw">let </span>next_weight = <span class="kw">crate</span>::ConsumedWeight::new(|class| <span class="kw">match </span>class {
-			DispatchClass::Normal =&gt; Weight::from_parts(<span class="number">10</span>, <span class="number">5</span>),
-			DispatchClass::Operational =&gt; Weight::from_parts(<span class="number">0</span>, <span class="number">3</span>),
-			DispatchClass::Mandatory =&gt; Weight::zero(),
-		});
-		<span class="macro">assert_ok!</span>(check_combined_proof_size::&lt;&lt;Test <span class="kw">as </span>Config&gt;::RuntimeCall&gt;(
-			<span class="kw-2">&amp;</span>info,
+		<span class="comment">// Using 0 length extrinsics.
+		</span><span class="kw">let </span>consumed = calculate_consumed_weight::&lt;&lt;Test <span class="kw">as </span>Config&gt;::RuntimeCall&gt;(
 			<span class="kw-2">&amp;</span>maximum_weight,
+			all_weight.clone(),
+			<span class="kw-2">&amp;</span>normal,
 			<span class="number">0</span>,
-			<span class="kw-2">&amp;</span>next_weight
-		));
-		<span class="macro">assert_ok!</span>(check_combined_proof_size::&lt;&lt;Test <span class="kw">as </span>Config&gt;::RuntimeCall&gt;(
-			<span class="kw-2">&amp;</span>info,
-			<span class="kw-2">&amp;</span>maximum_weight,
-			<span class="number">2</span>,
-			<span class="kw-2">&amp;</span>next_weight
-		));
-		<span class="macro">assert_err!</span>(
-			check_combined_proof_size::&lt;&lt;Test <span class="kw">as </span>Config&gt;::RuntimeCall&gt;(
-				<span class="kw-2">&amp;</span>info,
-				<span class="kw-2">&amp;</span>maximum_weight,
-				<span class="number">3</span>,
-				<span class="kw-2">&amp;</span>next_weight
-			),
-			InvalidTransaction::ExhaustsResources
-		);
-		<span class="macro">assert_ok!</span>(check_combined_proof_size::&lt;&lt;Test <span class="kw">as </span>Config&gt;::RuntimeCall&gt;(
-			<span class="kw-2">&amp;</span>mandatory,
-			<span class="kw-2">&amp;</span>maximum_weight,
-			<span class="number">3</span>,
-			<span class="kw-2">&amp;</span>next_weight
-		));
+		)
+		.unwrap();
 
-		<span class="comment">// Ref time is over the limit. Should not happen, but we should make sure that it is
-		// ignored.
-		</span><span class="kw">let </span>next_weight = <span class="kw">crate</span>::ConsumedWeight::new(|class| <span class="kw">match </span>class {
-			DispatchClass::Normal =&gt; Weight::from_parts(<span class="number">30</span>, <span class="number">5</span>),
-			DispatchClass::Operational =&gt; Weight::from_parts(<span class="number">0</span>, <span class="number">0</span>),
-			DispatchClass::Mandatory =&gt; Weight::zero(),
-		});
-		<span class="macro">assert_ok!</span>(check_combined_proof_size::&lt;&lt;Test <span class="kw">as </span>Config&gt;::RuntimeCall&gt;(
-			<span class="kw-2">&amp;</span>info,
+		<span class="macro">assert_eq!</span>(consumed.total().saturating_sub(all_weight.total()), normal.weight);
+
+		<span class="kw">let </span>consumed = calculate_consumed_weight::&lt;&lt;Test <span class="kw">as </span>Config&gt;::RuntimeCall&gt;(
 			<span class="kw-2">&amp;</span>maximum_weight,
-			<span class="number">0</span>,
-			<span class="kw-2">&amp;</span>next_weight
-		));
-		<span class="macro">assert_ok!</span>(check_combined_proof_size::&lt;&lt;Test <span class="kw">as </span>Config&gt;::RuntimeCall&gt;(
-			<span class="kw-2">&amp;</span>info,
-			<span class="kw-2">&amp;</span>maximum_weight,
-			<span class="number">5</span>,
-			<span class="kw-2">&amp;</span>next_weight
-		));
-		<span class="macro">assert_err!</span>(
-			check_combined_proof_size::&lt;&lt;Test <span class="kw">as </span>Config&gt;::RuntimeCall&gt;(
-				<span class="kw-2">&amp;</span>info,
-				<span class="kw-2">&amp;</span>maximum_weight,
-				<span class="number">6</span>,
-				<span class="kw-2">&amp;</span>next_weight
-			),
-			InvalidTransaction::ExhaustsResources
-		);
-		<span class="macro">assert_ok!</span>(check_combined_proof_size::&lt;&lt;Test <span class="kw">as </span>Config&gt;::RuntimeCall&gt;(
+			all_weight.clone(),
 			<span class="kw-2">&amp;</span>mandatory,
+			<span class="number">0</span>,
+		)
+		.unwrap();
+		<span class="macro">assert_eq!</span>(consumed.total().saturating_sub(all_weight.total()), mandatory.weight);
+
+		<span class="comment">// Using non zero length extrinsics.
+		</span><span class="kw">let </span>consumed = calculate_consumed_weight::&lt;&lt;Test <span class="kw">as </span>Config&gt;::RuntimeCall&gt;(
 			<span class="kw-2">&amp;</span>maximum_weight,
-			<span class="number">6</span>,
-			<span class="kw-2">&amp;</span>next_weight
-		));
+			all_weight.clone(),
+			<span class="kw-2">&amp;</span>normal,
+			<span class="number">100</span>,
+		)
+		.unwrap();
+		<span class="comment">// Must account for the len in the proof size
+		</span><span class="macro">assert_eq!</span>(
+			consumed.total().saturating_sub(all_weight.total()),
+			normal.weight.add_proof_size(<span class="number">100</span>)
+		);
+
+		<span class="kw">let </span>consumed = calculate_consumed_weight::&lt;&lt;Test <span class="kw">as </span>Config&gt;::RuntimeCall&gt;(
+			<span class="kw-2">&amp;</span>maximum_weight,
+			all_weight.clone(),
+			<span class="kw-2">&amp;</span>mandatory,
+			<span class="number">100</span>,
+		)
+		.unwrap();
+		<span class="comment">// Must account for the len in the proof size
+		</span><span class="macro">assert_eq!</span>(
+			consumed.total().saturating_sub(all_weight.total()),
+			mandatory.weight.add_proof_size(<span class="number">100</span>)
+		);
+
+		<span class="comment">// Using oversized zero length extrinsics.
+		</span><span class="kw">let </span>consumed = calculate_consumed_weight::&lt;&lt;Test <span class="kw">as </span>Config&gt;::RuntimeCall&gt;(
+			<span class="kw-2">&amp;</span>maximum_weight,
+			all_weight.clone(),
+			<span class="kw-2">&amp;</span>normal,
+			<span class="number">2000</span>,
+		);
+		<span class="comment">// errors out
+		</span><span class="macro">assert_eq!</span>(consumed, <span class="prelude-val">Err</span>(InvalidTransaction::ExhaustsResources.into()));
+
+		<span class="comment">// Using oversized zero length extrinsics.
+		</span><span class="kw">let </span>consumed = calculate_consumed_weight::&lt;&lt;Test <span class="kw">as </span>Config&gt;::RuntimeCall&gt;(
+			<span class="kw-2">&amp;</span>maximum_weight,
+			all_weight.clone(),
+			<span class="kw-2">&amp;</span>mandatory,
+			<span class="number">2000</span>,
+		);
+		<span class="comment">// errors out
+		</span><span class="macro">assert_eq!</span>(consumed, <span class="prelude-val">Err</span>(InvalidTransaction::ExhaustsResources.into()));
 	}
 }
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
