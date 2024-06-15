@@ -291,7 +291,7 @@ mod runtime {
 	pub type MessageQueue = pallet_message_queue;
 	#[runtime::pallet_index(50)]
 
-	// Include the custom logic from the pallet-template in the runtime.
+	// Template
 	pub type TemplatePallet = pallet_parachain_template;
 }
 
