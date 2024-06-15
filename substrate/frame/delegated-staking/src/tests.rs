@@ -1221,8 +1221,9 @@ mod pool_integration {
 	#[test]
 	fn existing_stakers_cannot_participate_in_pools() {
 		// Staking uses freezes while pools/delegated-staking uses holds. It is possible that funds
-		// frozen for staking, could be re-used to participate in pools. We ensure this does not
-		// happen by making sure that existing stakers cannot participate in pools and vice versa.
+		// frozen for staking, could be re-used to participate in pools. To avoid this, we can
+		// blacklist the stakers from participating in pools. See
+		// `pallet_nomination_pools::Config::Blacklist`.
 		ExtBuilder::default().build_and_execute(|| {
 			// GIVEN
 			// alice and a pool
@@ -1250,7 +1251,10 @@ mod pool_integration {
 
 	#[test]
 	fn existing_pool_members_cannot_directly_stake() {
-		// Also see `existing_stakers_cannot_participate_in_pools` for the opposite scenario.
+		// Staking uses freezes while pools/delegated-staking uses holds. It is possible that funds
+		// frozen for staking, could be re-used to participate in pools. To avoid this, we can
+		// blacklist pool members from participating in staking. See
+		// `pallet_staking::Config::Blacklist`.
 		ExtBuilder::default().build_and_execute(|| {
 			// GIVEN
 			// alice and a pool

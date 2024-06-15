@@ -304,7 +304,6 @@ pub mod weights;
 
 mod pallet;
 
-use std::marker::PhantomData;
 use codec::{Decode, Encode, HasCompact, MaxEncodedLen};
 use frame_support::{
 	defensive, defensive_assert,
@@ -328,6 +327,7 @@ use sp_staking::{
 };
 pub use sp_staking::{Exposure, IndividualExposure, StakerStatus};
 use sp_std::{collections::btree_map::BTreeMap, prelude::*};
+use std::marker::PhantomData;
 pub use weights::WeightInfo;
 
 pub use pallet::{pallet::*, UseNominatorsAndValidatorsMap, UseValidatorsMap};

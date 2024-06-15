@@ -54,8 +54,7 @@ use pallet_staking::StakerStatus;
 use parking_lot::RwLock;
 use std::sync::Arc;
 
-use frame_support::derive_impl;
-use frame_support::traits::Nothing;
+use frame_support::{derive_impl, traits::Nothing};
 
 use crate::{log, log_current_time};
 

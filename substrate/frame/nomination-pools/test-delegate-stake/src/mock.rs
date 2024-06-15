@@ -20,10 +20,9 @@ use frame_support::{
 	assert_ok, derive_impl,
 	pallet_prelude::*,
 	parameter_types,
-	traits::{ConstU64, ConstU8, VariantCountOf},
+	traits::{ConstU64, ConstU8, Nothing, VariantCountOf},
 	PalletId,
 };
-use frame_support::traits::Nothing;
 use frame_system::EnsureRoot;
 use pallet_nomination_pools::{
 	adapter::{Member, Pool, StakeStrategyType},
