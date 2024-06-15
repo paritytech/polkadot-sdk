@@ -645,19 +645,19 @@ pub mod pallet {
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn on_initialize(_n: BlockNumberFor<T>) -> Weight {
-			let status = ServiceQueuesContext::OnInitialize;
+			let context = ServiceQueuesContext::OnInitialize;
 			if let Some(weight_limit) = T::ServiceWeight::get() {
-				Self::service_queues(weight_limit, status)
+				Self::service_queues(weight_limit, context)
 			} else {
 				Weight::zero()
 			}
 		}
 
 		fn on_idle(_n: BlockNumberFor<T>, remaining_weight: Weight) -> Weight {
-			let status = ServiceQueuesContext::OnIdle;
+			let context = ServiceQueuesContext::OnIdle;
 			if let Some(weight_limit) = T::IdleMaxServiceWeight::get() {
 				// Make use of the remaining weight to process enqueued messages.
-				Self::service_queues(weight_limit.min(remaining_weight), status)
+				Self::service_queues(weight_limit.min(remaining_weight), context)
 			} else {
 				Weight::zero()
 			}
@@ -1565,14 +1565,14 @@ impl<T: Get<O>, O: Into<u32>> Get<u32> for IntoU32<T, O> {
 impl<T: Config> ServiceQueues for Pallet<T> {
 	type OverweightMessageAddress = (MessageOriginOf<T>, PageIndex, T::Size);
 
-	fn service_queues(weight_limit: Weight, status: ServiceQueuesContext) -> Weight {
+	fn service_queues(weight_limit: Weight, context: ServiceQueuesContext) -> Weight {
 		let mut weight = WeightMeter::with_limit(weight_limit);
 
 		// Get the maximum weight that processing a single message may take:
 		let max_weight = Self::max_message_weight(weight_limit).unwrap_or_else(|| {
 			// throw defensive message when service_queues is called from on_initialize
 			// don't throw message when service_queues is called from on_idle
-			match status {
+			match context {
 				ServiceQueuesContext::OnInitialize => {
 					defensive!("Not enough weight to service a single message.");
 					Weight::zero()
