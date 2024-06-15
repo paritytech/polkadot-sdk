@@ -77,6 +77,7 @@ use polkadot_runtime_parachains::{
 	shared as parachains_shared,
 };
 use scale_info::TypeInfo;
+use frame_support::traits::Nothing;
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_consensus_beefy::{
 	ecdsa_crypto::{AuthorityId as BeefyId, Signature as BeefySignature},
@@ -1366,6 +1367,7 @@ impl pallet_nomination_pools::Config for Runtime {
 	type PalletId = PoolsPalletId;
 	type MaxPointsToBalance = MaxPointsToBalance;
 	type AdminOrigin = EitherOf<EnsureRoot<AccountId>, StakingAdmin>;
+	type Blacklist = Nothing;
 }
 
 parameter_types! {

@@ -48,11 +48,11 @@ mod impls;
 pub use impls::*;
 
 use crate::{
-	slashing, weights::WeightInfo, AccountIdLookupOf, ActiveEraInfo, BalanceOf, BlacklistCheck,
-	DisablingStrategy, EraPayout, EraRewardPoints, Exposure, ExposurePage, Forcing,
-	LedgerIntegrityState, MaxNominationsOf, NegativeImbalanceOf, Nominations, NominationsQuota,
-	PositiveImbalanceOf, RewardDestination, SessionInterface, StakingLedger, UnappliedSlash,
-	UnlockChunk, ValidatorPrefs,
+	slashing, weights::WeightInfo, AccountIdLookupOf, ActiveEraInfo, BalanceOf, DisablingStrategy,
+	EraPayout, EraRewardPoints, Exposure, ExposurePage, Forcing, LedgerIntegrityState,
+	MaxNominationsOf, NegativeImbalanceOf, Nominations, NominationsQuota, PositiveImbalanceOf,
+	RewardDestination, SessionInterface, StakingLedger, UnappliedSlash, UnlockChunk,
+	ValidatorPrefs,
 };
 
 // The speculative number of spans are used as an input of the weight annotation of
@@ -63,6 +63,7 @@ pub(crate) const SPECULATIVE_NUM_SPANS: u32 = 32;
 #[frame_support::pallet]
 pub mod pallet {
 	use frame_election_provider_support::ElectionDataProvider;
+	use frame_support::traits::Contains;
 
 	use crate::{BenchmarkingConfig, PagedExposureMetadata};
 
@@ -297,8 +298,11 @@ pub mod pallet {
 		type DisablingStrategy: DisablingStrategy<Self>;
 
 		#[pallet::no_default_bounds]
-		/// Something that blocks some accounts from participating in staking.
-		type BlacklistCheck: BlacklistCheck<Self::AccountId>;
+		/// Blacklist some accounts from participating in staking.
+		///
+		/// This is useful for example to blacklist an account that is participating in staking in
+		/// another way (such as pools).
+		type Blacklist: Contains<Self::AccountId>;
 
 		/// Some parameters of the benchmarking.
 		#[cfg(feature = "std")]
@@ -315,7 +319,10 @@ pub mod pallet {
 	/// Default implementations of [`DefaultConfig`], which can be used to implement [`Config`].
 	pub mod config_preludes {
 		use super::*;
-		use frame_support::{derive_impl, parameter_types, traits::ConstU32};
+		use frame_support::{
+			derive_impl, parameter_types,
+			traits::{ConstU32, Nothing},
+		};
 		pub struct TestDefaultConfig;
 
 		#[derive_impl(frame_system::config_preludes::TestDefaultConfig, no_aggregated_types)]
@@ -347,7 +354,7 @@ pub mod pallet {
 			type MaxControllersInDeprecationBatch = ConstU32<100>;
 			type EventListeners = ();
 			type DisablingStrategy = crate::UpToLimitDisablingStrategy;
-			type BlacklistCheck = ();
+			type Blacklist = Nothing;
 			#[cfg(feature = "std")]
 			type BenchmarkingConfig = crate::TestBenchmarkingConfig;
 			type WeightInfo = ();
@@ -1020,7 +1027,7 @@ pub mod pallet {
 			payee: RewardDestination<T::AccountId>,
 		) -> DispatchResult {
 			let stash = ensure_signed(origin)?;
-			ensure!(!T::BlacklistCheck::is_blacklisted(&stash), Error::<T>::Blacklisted);
+			ensure!(!T::Blacklist::contains(&stash), Error::<T>::Blacklisted);
 
 			if StakingLedger::<T>::is_bonded(StakingAccount::Stash(stash.clone())) {
 				return Err(Error::<T>::AlreadyBonded.into())
@@ -1071,7 +1078,7 @@ pub mod pallet {
 			#[pallet::compact] max_additional: BalanceOf<T>,
 		) -> DispatchResult {
 			let stash = ensure_signed(origin)?;
-			ensure!(!T::BlacklistCheck::is_blacklisted(&stash), Error::<T>::Blacklisted);
+			ensure!(!T::Blacklist::contains(&stash), Error::<T>::Blacklisted);
 			Self::do_bond_extra(&stash, max_additional)
 		}
 
@@ -1659,7 +1666,7 @@ pub mod pallet {
 			let controller = ensure_signed(origin)?;
 			let ledger = Self::ledger(Controller(controller))?;
 			// ensure that the stash is not blacklisted
-			ensure!(!T::BlacklistCheck::is_blacklisted(&ledger.stash), Error::<T>::Blacklisted);
+			ensure!(!T::Blacklist::contains(&ledger.stash), Error::<T>::Blacklisted);
 
 			ensure!(!ledger.unlocking.is_empty(), Error::<T>::NoUnlockChunk);
 

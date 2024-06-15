@@ -25,8 +25,8 @@ use frame_election_provider_support::{
 use frame_support::{
 	assert_ok, derive_impl, ord_parameter_types, parameter_types,
 	traits::{
-		ConstU64, Currency, EitherOfDiverse, FindAuthor, Get, Hooks, Imbalance, LockableCurrency,
-		OnUnbalanced, OneSessionHandler, WithdrawReasons,
+		ConstU64, Contains, Currency, EitherOfDiverse, FindAuthor, Get, Hooks, Imbalance,
+		LockableCurrency, OnUnbalanced, OneSessionHandler, WithdrawReasons,
 	},
 	weights::constants::RocksDbWeight,
 };
@@ -259,9 +259,9 @@ impl OnStakingUpdate<AccountId, Balance> for EventListenerMock {
 	}
 }
 
-pub struct BlacklistCheckMock;
-impl BlacklistCheck<AccountId> for BlacklistCheckMock {
-	fn is_blacklisted(who: &AccountId) -> bool {
+pub struct BlacklistMock;
+impl Contains<AccountId> for BlacklistMock {
+	fn contains(who: &AccountId) -> bool {
 		BlacklistedAccounts::get().contains(who)
 	}
 }
@@ -293,7 +293,7 @@ impl crate::pallet::pallet::Config for Test {
 	type MaxControllersInDeprecationBatch = MaxControllersInDeprecationBatch;
 	type EventListeners = EventListenerMock;
 	type DisablingStrategy = pallet_staking::UpToLimitDisablingStrategy<DISABLING_LIMIT_FACTOR>;
-	type BlacklistCheck = BlacklistCheckMock;
+	type Blacklist = BlacklistMock;
 }
 
 pub struct WeightedNominationsQuota<const MAX: u32>;

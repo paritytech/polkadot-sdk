@@ -22,6 +22,7 @@ use frame_support::{
 	traits::{fungible::Mutate, VariantCountOf},
 	PalletId,
 };
+use frame_support::traits::Nothing;
 use frame_system::{EnsureSignedBy, RawOrigin};
 use sp_runtime::{BuildStorage, FixedU128};
 use sp_staking::{OnStakingUpdate, Stake};
@@ -302,6 +303,7 @@ impl pools::Config for Runtime {
 	type MaxUnbonding = MaxUnbonding;
 	type MaxPointsToBalance = frame_support::traits::ConstU8<10>;
 	type AdminOrigin = EnsureSignedBy<Admin, AccountId>;
+	type Blacklist = Nothing;
 }
 
 type Block = frame_system::mocking::MockBlock<Runtime>;

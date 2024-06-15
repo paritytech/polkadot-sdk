@@ -23,6 +23,7 @@ use frame_support::{
 	traits::{ConstU64, ConstU8, VariantCountOf},
 	PalletId,
 };
+use frame_support::traits::Nothing;
 use sp_runtime::{
 	traits::{Convert, IdentityLookup},
 	BuildStorage, FixedU128, Perbill,
@@ -145,6 +146,7 @@ impl pallet_nomination_pools::Config for Runtime {
 	type MaxPointsToBalance = ConstU8<10>;
 	type PalletId = PoolsPalletId;
 	type AdminOrigin = frame_system::EnsureRoot<Self::AccountId>;
+	type Blacklist = Nothing;
 }
 
 type Block = frame_system::mocking::MockBlock<Runtime>;

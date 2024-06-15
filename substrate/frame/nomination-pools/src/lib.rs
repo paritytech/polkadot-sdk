@@ -360,7 +360,7 @@ use frame_support::{
 	traits::{
 		fungible::{Inspect, InspectFreeze, Mutate, MutateFreeze},
 		tokens::{Fortitude, Preservation},
-		Defensive, DefensiveOption, DefensiveResult, DefensiveSaturating, Get,
+		Contains, Defensive, DefensiveOption, DefensiveResult, DefensiveSaturating, Get,
 	},
 	DefaultNoBound, PalletError,
 };
@@ -1648,6 +1648,9 @@ pub mod pallet {
 
 		/// The origin that can manage pool configurations.
 		type AdminOrigin: EnsureOrigin<Self::RuntimeOrigin>;
+
+		/// Blacklist some accounts from participating in pools.
+		type Blacklist: Contains<Self::AccountId>;
 	}
 
 	/// The sum of funds across all pools.
@@ -1946,6 +1949,9 @@ pub mod pallet {
 		NotMigrated,
 		/// This call is not allowed in the current state of the pallet.
 		NotSupported,
+		/// Account is blacklisted from participation in pools. This may happen if the account is
+		/// staking in another way already.
+		Blacklisted,
 	}
 
 	#[derive(Encode, Decode, PartialEq, TypeInfo, PalletError, RuntimeDebug)]
@@ -2002,6 +2008,7 @@ pub mod pallet {
 			pool_id: PoolId,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
+			ensure!(!T::Blacklist::contains(&who), Error::<T>::Blacklisted);
 
 			ensure!(amount >= MinJoinBond::<T>::get(), Error::<T>::MinimumBondNotMet);
 			// If a member already exists that means they already belong to a pool
@@ -2064,6 +2071,7 @@ pub mod pallet {
 		)]
 		pub fn bond_extra(origin: OriginFor<T>, extra: BondExtra<BalanceOf<T>>) -> DispatchResult {
 			let who = ensure_signed(origin)?;
+			ensure!(!T::Blacklist::contains(&who), Error::<T>::Blacklisted);
 			Self::do_bond_extra(who.clone(), who, extra)
 		}
 
@@ -2412,6 +2420,7 @@ pub mod pallet {
 			bouncer: AccountIdLookupOf<T>,
 		) -> DispatchResult {
 			let depositor = ensure_signed(origin)?;
+			ensure!(!T::Blacklist::contains(&depositor), Error::<T>::Blacklisted);
 
 			let pool_id = LastPoolId::<T>::try_mutate::<_, Error<T>, _>(|id| {
 				*id = id.checked_add(1).ok_or(Error::<T>::OverflowRisk)?;
@@ -2438,6 +2447,7 @@ pub mod pallet {
 			pool_id: PoolId,
 		) -> DispatchResult {
 			let depositor = ensure_signed(origin)?;
+			ensure!(!T::Blacklist::contains(&depositor), Error::<T>::Blacklisted);
 
 			ensure!(!BondedPools::<T>::contains_key(pool_id), Error::<T>::PoolIdInUse);
 			ensure!(pool_id < LastPoolId::<T>::get(), Error::<T>::InvalidPoolId);
@@ -2693,7 +2703,9 @@ pub mod pallet {
 			extra: BondExtra<BalanceOf<T>>,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-			Self::do_bond_extra(who, T::Lookup::lookup(member)?, extra)
+			let member = T::Lookup::lookup(member)?;
+			ensure!(!T::Blacklist::contains(&member), Error::<T>::Blacklisted);
+			Self::do_bond_extra(who, member, extra)
 		}
 
 		/// Allows a pool member to set a claim permission to allow or disallow permissionless
@@ -2917,6 +2929,8 @@ pub mod pallet {
 			);
 
 			let member_account = T::Lookup::lookup(member_account)?;
+			ensure!(!T::Blacklist::contains(&member_account), Error::<T>::Blacklisted);
+
 			let member =
 				PoolMembers::<T>::get(&member_account).ok_or(Error::<T>::PoolMemberNotFound)?;
 
@@ -3947,5 +3961,12 @@ impl<T: Config> sp_staking::OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pall
 				tvl.saturating_reduce(amount);
 			});
 		}
+	}
+}
+
+pub struct AllPoolMembers<T: Config>(PhantomData<T>);
+impl<T: Config> Contains<T::AccountId> for AllPoolMembers<T> {
+	fn contains(t: &T::AccountId) -> bool {
+		PoolMembers::<T>::contains_key(t)
 	}
 }
