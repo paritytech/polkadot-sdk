@@ -1,47 +1,46 @@
 use core::marker::PhantomData;
 
-use frame_support::traits::{
-	tokens::asset_ops::{
-		common_asset_kinds::{Class, Instance},
-		common_strategies::{
-			AssignId, AutoId, DeriveAndReportId, FromTo, IfOwnedBy, IfRestorable, Owned,
+use frame_support::{
+	ensure,
+	traits::{
+		tokens::asset_ops::{
+			common_asset_kinds::{Class, Instance},
+			common_strategies::{
+				AssignId, AutoId, DeriveAndReportId, FromTo, IfOwnedBy, IfRestorable, Owned,
+			},
+			AssetDefinition, Create, CreateStrategy, Destroy, DestroyStrategy, Restore, Stash,
+			Transfer, TransferStrategy,
 		},
-		AssetDefinition, Create, CreateStrategy, Destroy, DestroyStrategy, Restore, Stash,
-		Transfer, TransferStrategy,
+		TypedGet,
 	},
-	TypedGet,
 };
 use sp_runtime::{DispatchError, DispatchResult};
 use xcm::latest::prelude::*;
+use xcm_executor::traits::{Error, MatchesInstance};
 
 use super::NonFungibleAsset;
 
-pub trait TryRegisterDerivative<InstanceId> {
-	fn try_register_derivative(
-		foreign_asset: &NonFungibleAsset,
-		instance_id: &InstanceId,
-	) -> DispatchResult;
+pub trait DerivativesRegistry<Original, Derivative> {
+	fn try_register_derivative(original: &Original, derivative: &Derivative) -> DispatchResult;
 
-	fn is_derivative_registered(foreign_asset: &NonFungibleAsset) -> bool;
-}
+	fn try_deregister_derivative(derivative: &Derivative) -> DispatchResult;
 
-pub trait TryDeregisterDerivative<InstanceId> {
-	fn try_deregister_derivative(instance_id: &InstanceId) -> DispatchResult;
+	fn get_derivative(original: &Original) -> Option<Derivative>;
 
-	fn is_derivative(instance_id: &InstanceId) -> bool;
+	fn get_original(derivative: &Derivative) -> Option<Original>;
 }
 
 pub struct RegisterDerivativeId<InstanceIdSource> {
-	pub foreign_asset: NonFungibleAsset,
+	pub foreign_nonfungible: NonFungibleAsset,
 	pub instance_id_source: InstanceIdSource,
 }
 
-pub struct RegisterOnCreate<Registrar, InstanceOps>(PhantomData<(Registrar, InstanceOps)>);
-impl<AccountId, InstanceIdSource, Registrar, InstanceOps>
+pub struct RegisterOnCreate<Registry, InstanceOps>(PhantomData<(Registry, InstanceOps)>);
+impl<AccountId, InstanceIdSource, Registry, InstanceOps>
 	Create<Instance, Owned<AccountId, AssignId<RegisterDerivativeId<InstanceIdSource>>>>
-	for RegisterOnCreate<Registrar, InstanceOps>
+	for RegisterOnCreate<Registry, InstanceOps>
 where
-	Registrar: TryRegisterDerivative<InstanceOps::Id>,
+	Registry: DerivativesRegistry<NonFungibleAsset, InstanceOps::Id>,
 	InstanceOps: AssetDefinition<Instance>
 		+ Create<Instance, Owned<AccountId, DeriveAndReportId<InstanceIdSource, InstanceOps::Id>>>,
 {
@@ -50,11 +49,12 @@ where
 	) -> DispatchResult {
 		let Owned {
 			owner,
-			id_assignment: AssignId(RegisterDerivativeId { foreign_asset, instance_id_source }),
+			id_assignment:
+				AssignId(RegisterDerivativeId { foreign_nonfungible, instance_id_source }),
 			..
 		} = strategy;
 
-		if Registrar::is_derivative_registered(&foreign_asset) {
+		if Registry::get_derivative(&foreign_nonfungible).is_some() {
 			return Err(DispatchError::Other(
 				"an attempt to register a duplicate of an existing derivative instance",
 			));
@@ -63,26 +63,25 @@ where
 		let instance_id =
 			InstanceOps::create(Owned::new(owner, DeriveAndReportId::from(instance_id_source)))?;
 
-		Registrar::try_register_derivative(&foreign_asset, &instance_id)
+		Registry::try_register_derivative(&foreign_nonfungible, &instance_id)
 	}
 }
 
-pub struct DeregisterOnDestroy<Registrar, InstanceOps>(PhantomData<(Registrar, InstanceOps)>);
-impl<Registrar, InstanceOps> AssetDefinition<Instance>
-	for DeregisterOnDestroy<Registrar, InstanceOps>
+pub struct DeregisterOnDestroy<Registry, InstanceOps>(PhantomData<(Registry, InstanceOps)>);
+impl<Registry, InstanceOps> AssetDefinition<Instance> for DeregisterOnDestroy<Registry, InstanceOps>
 where
 	InstanceOps: AssetDefinition<Instance>,
 {
 	type Id = InstanceOps::Id;
 }
-impl<AccountId, Registrar, InstanceOps> Destroy<Instance, IfOwnedBy<AccountId>>
-	for DeregisterOnDestroy<Registrar, InstanceOps>
+impl<AccountId, Registry, InstanceOps> Destroy<Instance, IfOwnedBy<AccountId>>
+	for DeregisterOnDestroy<Registry, InstanceOps>
 where
-	Registrar: TryDeregisterDerivative<InstanceOps::Id>,
+	Registry: DerivativesRegistry<NonFungibleAsset, InstanceOps::Id>,
 	InstanceOps: Destroy<Instance, IfOwnedBy<AccountId>>,
 {
 	fn destroy(id: &Self::Id, strategy: IfOwnedBy<AccountId>) -> DispatchResult {
-		if !Registrar::is_derivative(id) {
+		if Registry::get_original(id).is_none() {
 			return Err(DispatchError::Other(
 				"an attempt to deregister an instance that isn't a derivative",
 			));
@@ -90,6 +89,59 @@ where
 
 		InstanceOps::destroy(id, strategy)?;
 
-		Registrar::try_deregister_derivative(id)
+		Registry::try_deregister_derivative(id)
+	}
+}
+
+pub struct MatchDerivativeIdSources<Registry>(PhantomData<Registry>);
+impl<Registry: DerivativesRegistry<AssetId, DerivativeIdSource>, DerivativeIdSource>
+	MatchesInstance<AssignId<RegisterDerivativeId<DerivativeIdSource>>>
+	for MatchDerivativeIdSources<Registry>
+{
+	fn matches_instance(
+		asset: &Asset,
+	) -> Result<AssignId<RegisterDerivativeId<DerivativeIdSource>>, Error> {
+		match asset.fun {
+			Fungibility::NonFungible(asset_instance) => {
+				let instance_id_source =
+					Registry::get_derivative(&asset.id).ok_or(Error::AssetNotHandled)?;
+
+				Ok(AssignId(RegisterDerivativeId {
+					foreign_nonfungible: (asset.id.clone(), asset_instance),
+					instance_id_source,
+				}))
+			},
+			Fungibility::Fungible(_) => Err(Error::AssetNotHandled),
+		}
+	}
+}
+
+pub struct MatchDerivativeInstances<Registry>(PhantomData<Registry>);
+impl<Registry: DerivativesRegistry<NonFungibleAsset, DerivativeId>, DerivativeId>
+	MatchesInstance<DerivativeId> for MatchDerivativeInstances<Registry>
+{
+	fn matches_instance(asset: &Asset) -> Result<DerivativeId, Error> {
+		match asset.fun {
+			Fungibility::NonFungible(asset_instance) =>
+				Registry::get_derivative(&(asset.id.clone(), asset_instance))
+					.ok_or(Error::AssetNotHandled),
+			Fungibility::Fungible(_) => Err(Error::AssetNotHandled),
+		}
+	}
+}
+
+pub struct EnsureNotDerivativeInstance<Registry, Matcher>(PhantomData<(Registry, Matcher)>);
+impl<
+		Registry: DerivativesRegistry<NonFungibleAsset, DerivativeId>,
+		Matcher: MatchesInstance<DerivativeId>,
+		DerivativeId,
+	> MatchesInstance<DerivativeId> for EnsureNotDerivativeInstance<Registry, Matcher>
+{
+	fn matches_instance(asset: &Asset) -> Result<DerivativeId, Error> {
+		let instance_id = Matcher::matches_instance(asset)?;
+
+		ensure!(Registry::get_original(&instance_id).is_none(), Error::AssetNotHandled,);
+
+		Ok(instance_id)
 	}
 }
