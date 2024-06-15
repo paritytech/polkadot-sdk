@@ -95,6 +95,7 @@ impl pallet_staking::Config for Runtime {
 	type VoterList = VoterList;
 	type TargetList = pallet_staking::UseValidatorsMap<Self>;
 	type EventListeners = Pools;
+	type BenchmarkingConfig = pallet_staking::TestBenchmarkingConfig;
 }
 
 parameter_types! {
