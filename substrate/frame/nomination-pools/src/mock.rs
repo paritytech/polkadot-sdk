@@ -22,7 +22,6 @@ use frame_support::{
 	traits::{fungible::Mutate, VariantCountOf},
 	PalletId,
 };
-use frame_support::traits::Nothing;
 use frame_system::{EnsureSignedBy, RawOrigin};
 use sp_runtime::{BuildStorage, FixedU128};
 use sp_staking::{OnStakingUpdate, Stake};
@@ -57,6 +56,7 @@ parameter_types! {
 	pub static MaxUnbonding: u32 = 8;
 	pub static StakingMinBond: Balance = 10;
 	pub storage Nominations: Option<Vec<AccountId>> = None;
+	pub static BlacklistedAccounts: Vec<AccountId> = Vec::new();
 }
 pub struct StakingMock;
 
@@ -277,6 +277,13 @@ impl Convert<U256, Balance> for U256ToBalance {
 	}
 }
 
+pub struct BlacklistMock;
+impl Contains<AccountId> for BlacklistMock {
+	fn contains(who: &AccountId) -> bool {
+		BlacklistedAccounts::get().contains(who)
+	}
+}
+
 parameter_types! {
 	pub static PostUnbondingPoolsWindow: u32 = 2;
 	pub static MaxMetadataLen: u32 = 2;
@@ -303,7 +310,7 @@ impl pools::Config for Runtime {
 	type MaxUnbonding = MaxUnbonding;
 	type MaxPointsToBalance = frame_support::traits::ConstU8<10>;
 	type AdminOrigin = EnsureSignedBy<Admin, AccountId>;
-	type Blacklist = Nothing;
+	type Blacklist = BlacklistMock;
 }
 
 type Block = frame_system::mocking::MockBlock<Runtime>;
@@ -533,6 +540,16 @@ pub fn reward_imbalance(pool: PoolId) -> RewardImbalance {
 	} else {
 		RewardImbalance::Surplus(current_balance - pending_rewards)
 	}
+}
+
+pub(crate) fn blacklist(who: &AccountId) {
+	if !BlacklistedAccounts::get().contains(who) {
+		BlacklistedAccounts::mutate(|l| l.push(*who));
+	}
+}
+
+pub(crate) fn remove_from_blacklist(who: &AccountId) {
+	BlacklistedAccounts::mutate(|l| l.retain(|x| x != who));
 }
 
 #[cfg(test)]

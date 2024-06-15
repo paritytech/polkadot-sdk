@@ -21,10 +21,9 @@ use frame_support::{
 	derive_impl,
 	pallet_prelude::*,
 	parameter_types,
-	traits::{ConstU64, VariantCountOf},
+	traits::{ConstU64, Nothing, VariantCountOf},
 	PalletId,
 };
-use frame_support::traits::Nothing;
 use sp_runtime::{
 	traits::{Convert, IdentityLookup},
 	BuildStorage, FixedU128, Perbill,

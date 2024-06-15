@@ -29,7 +29,8 @@ use frame_support::{
 	traits::{
 		fungible::HoldConsideration, tokens::UnityOrOuterConversion, ConstU32, Contains, EitherOf,
 		EitherOfDiverse, EverythingBut, FromContains, InstanceFilter, KeyOwnerProofSystem,
-		LinearStoragePrice, ProcessMessage, ProcessMessageError, VariantCountOf, WithdrawReasons,
+		LinearStoragePrice, Nothing, ProcessMessage, ProcessMessageError, VariantCountOf,
+		WithdrawReasons,
 	},
 	weights::{ConstantMultiplier, WeightMeter, WeightToFee as _},
 	PalletId,
@@ -77,7 +78,6 @@ use polkadot_runtime_parachains::{
 	shared as parachains_shared,
 };
 use scale_info::TypeInfo;
-use frame_support::traits::Nothing;
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_consensus_beefy::{
 	ecdsa_crypto::{AuthorityId as BeefyId, Signature as BeefySignature},
