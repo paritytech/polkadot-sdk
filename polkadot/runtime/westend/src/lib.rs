@@ -648,6 +648,10 @@ impl pallet_staking::Config for Runtime {
 	type EventListeners = (NominationPools, DelegatedStaking);
 	type WeightInfo = weights::pallet_staking::WeightInfo<Runtime>;
 	type DisablingStrategy = pallet_staking::UpToLimitDisablingStrategy;
+	// Due to difference in how pools and staking pallets handle currency locks, we want to keep
+	// pool members and stakers mutually exclusive. Hence, we prevent pool members from directly
+	// staking.
+	type Blacklist = pallet_nomination_pools::AllPoolMembers<Self>;
 }
 
 impl pallet_fast_unstake::Config for Runtime {
@@ -1367,7 +1371,11 @@ impl pallet_nomination_pools::Config for Runtime {
 	type PalletId = PoolsPalletId;
 	type MaxPointsToBalance = MaxPointsToBalance;
 	type AdminOrigin = EitherOf<EnsureRoot<AccountId>, StakingAdmin>;
-	type Blacklist = Nothing;
+	// Due to difference in how pools and staking pallets handle currency locks, we want to keep
+	// pool members and stakers mutually exclusive. Hence, we want to prevent stakers from using
+	// the pool pallet. Any existing account that is already in the pool but blacklisted can still
+	// withdraw funds but cannot add new funds.
+	type Blacklist = pallet_staking::AllStakers<Self>;
 }
 
 parameter_types! {
