@@ -1243,7 +1243,7 @@ mod pool_integration {
 			// alice cannot join the pool.
 			assert_noop!(
 				Pools::join(RawOrigin::Signed(alice).into(), 300, pool_id),
-				Error::<T>::AlreadyStaking
+				PoolsError::<T>::Blacklisted
 			);
 		});
 	}
@@ -1267,7 +1267,7 @@ mod pool_integration {
 			// alice cannot directly stake.
 			assert_noop!(
 				Staking::bond(RuntimeOrigin::signed(alice), 300, RewardDestination::Account(alice)),
-				Error::<T>::AlreadyStaking
+				StakingError::<T>::Blacklisted
 			);
 		});
 	}

@@ -55,6 +55,7 @@ use parking_lot::RwLock;
 use std::sync::Arc;
 
 use frame_support::derive_impl;
+use frame_support::traits::Nothing;
 
 use crate::{log, log_current_time};
 
@@ -273,6 +274,7 @@ impl pallet_nomination_pools::Config for Runtime {
 	type MaxUnbonding = MaxUnbonding;
 	type MaxPointsToBalance = frame_support::traits::ConstU8<10>;
 	type AdminOrigin = frame_system::EnsureRoot<Self::AccountId>;
+	type Blacklist = Nothing;
 }
 
 parameter_types! {

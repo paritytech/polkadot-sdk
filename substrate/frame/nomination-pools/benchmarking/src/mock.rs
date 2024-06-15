@@ -24,6 +24,7 @@ use frame_support::{
 	traits::{ConstU64, VariantCountOf},
 	PalletId,
 };
+use frame_support::traits::Nothing;
 use sp_runtime::{
 	traits::{Convert, IdentityLookup},
 	BuildStorage, FixedU128, Perbill,
@@ -139,6 +140,7 @@ impl pallet_nomination_pools::Config for Runtime {
 	type PalletId = PoolsPalletId;
 	type MaxPointsToBalance = MaxPointsToBalance;
 	type AdminOrigin = frame_system::EnsureRoot<Self::AccountId>;
+	type Blacklist = Nothing;
 }
 
 parameter_types! {
