@@ -297,6 +297,11 @@ pub mod pallet {
 		type DisablingStrategy: DisablingStrategy<Self>;
 
 		/// Some parameters of the benchmarking.
+		#[cfg(feature = "std")]
+		type BenchmarkingConfig: BenchmarkingConfig;
+
+		#[cfg(not(feature = "std"))]
+		#[pallet::no_default]
 		type BenchmarkingConfig: BenchmarkingConfig;
 
 		/// Weight information for extrinsics in this pallet.
@@ -340,8 +345,6 @@ pub mod pallet {
 			type DisablingStrategy = crate::UpToLimitDisablingStrategy;
 			#[cfg(feature = "std")]
 			type BenchmarkingConfig = crate::TestBenchmarkingConfig;
-			#[cfg(not(feature = "std"))]
-			type BenchmarkingConfig = ();
 			type WeightInfo = ();
 		}
 	}
