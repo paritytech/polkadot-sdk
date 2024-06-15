@@ -313,8 +313,8 @@ pub mod pallet {
 		impl frame_system::DefaultConfig for TestDefaultConfig {}
 
 		parameter_types! {
-			pub static SessionsPerEra: SessionIndex = 3;
-			pub static BondingDuration: EraIndex = 3;
+			pub const SessionsPerEra: SessionIndex = 3;
+			pub const BondingDuration: EraIndex = 3;
 		}
 
 		#[frame_support::register_default_impl(TestDefaultConfig)]
@@ -338,7 +338,10 @@ pub mod pallet {
 			type MaxControllersInDeprecationBatch = ConstU32<100>;
 			type EventListeners = ();
 			type DisablingStrategy = crate::UpToLimitDisablingStrategy;
+			#[cfg(feature = "std")]
 			type BenchmarkingConfig = crate::TestBenchmarkingConfig;
+			#[cfg(not(feature = "std"))]
+			type BenchmarkingConfig = ();
 			type WeightInfo = ();
 		}
 	}
