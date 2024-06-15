@@ -86,7 +86,6 @@ impl frame_system::Config for TestRuntime {
 
 #[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for TestRuntime {
-	type ReserveIdentifier = [u8; 8];
 	type AccountStore = System;
 }
 
