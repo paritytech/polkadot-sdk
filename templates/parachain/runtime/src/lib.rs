@@ -24,11 +24,9 @@ use sp_std::prelude::*;
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 
-use frame_support::{
-	weights::{
-		constants::WEIGHT_REF_TIME_PER_SECOND, Weight, WeightToFeeCoefficient,
-		WeightToFeeCoefficients, WeightToFeePolynomial,
-	},
+use frame_support::weights::{
+	constants::WEIGHT_REF_TIME_PER_SECOND, Weight, WeightToFeeCoefficient, WeightToFeeCoefficients,
+	WeightToFeePolynomial,
 };
 pub use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 pub use sp_runtime::{MultiAddress, Perbill, Permill};
@@ -252,7 +250,7 @@ mod runtime {
 	#[runtime::pallet_index(0)]
 	pub type System = frame_system;
 	#[runtime::pallet_index(1)]
-	pub type ParachainSystem = cumulus_pallet_parachain_system ;
+	pub type ParachainSystem = cumulus_pallet_parachain_system;
 	#[runtime::pallet_index(2)]
 	pub type Timestamp = pallet_timestamp;
 	#[runtime::pallet_index(3)]
