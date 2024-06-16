@@ -704,6 +704,7 @@ impl pallet_staking::Config for Runtime {
 	type WeightInfo = pallet_staking::weights::SubstrateWeight<Runtime>;
 	type BenchmarkingConfig = StakingBenchmarkingConfig;
 	type DisablingStrategy = pallet_staking::UpToLimitDisablingStrategy;
+	type Blacklist = pallet_nomination_pools::AllPoolMembers<Self>;
 }
 
 impl pallet_fast_unstake::Config for Runtime {
@@ -922,7 +923,7 @@ impl pallet_nomination_pools::Config for Runtime {
 		EnsureRoot<AccountId>,
 		pallet_collective::EnsureProportionAtLeast<AccountId, CouncilCollective, 3, 4>,
 	>;
-	type Blacklist = Nothing;
+	type Blacklist = pallet_staking::AllStakers<Self>;
 }
 
 parameter_types! {

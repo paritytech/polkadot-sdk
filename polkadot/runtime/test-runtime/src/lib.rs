@@ -51,6 +51,7 @@ use frame_support::{
 	parameter_types,
 	traits::{KeyOwnerProofSystem, WithdrawReasons},
 };
+use frame_support::traits::Nothing;
 use pallet_grandpa::{fg_primitives, AuthorityId as GrandpaId};
 use pallet_session::historical as session_historical;
 use pallet_transaction_payment::{FeeDetails, RuntimeDispatchInfo};
@@ -366,6 +367,7 @@ impl pallet_staking::Config for Runtime {
 	type EventListeners = ();
 	type WeightInfo = ();
 	type DisablingStrategy = pallet_staking::UpToLimitDisablingStrategy;
+	type Blacklist = Nothing;
 }
 
 parameter_types! {
