@@ -13,12 +13,12 @@ pub mod weights;
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
 
-// https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/polkadot_sdk/frame_runtime/index.html
-// https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/guides/your_first_pallet/index.html
+// <https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/polkadot_sdk/frame_runtime/index.html>
+// <https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/guides/your_first_pallet/index.html>
 //
 // To see a full list of `pallet` macros and their use cases, see:
-// https://paritytech.github.io/polkadot-sdk/master/pallet_example_kitchensink/index.html
-// https://paritytech.github.io/polkadot-sdk/master/frame_support/pallet_macros/index.html
+// <https://paritytech.github.io/polkadot-sdk/master/pallet_example_kitchensink/index.html>
+// <https://paritytech.github.io/polkadot-sdk/master/frame_support/pallet_macros/index.html>
 #[frame_support::pallet]
 pub mod pallet {
 	use frame_support::{dispatch::DispatchResultWithPostInfo, pallet_prelude::*};
@@ -28,7 +28,7 @@ pub mod pallet {
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
 		/// Because this pallet emits events, it depends on the runtime's definition of an event.
-		/// https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/reference_docs/frame_runtime_types/index.html
+		/// <https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/reference_docs/frame_runtime_types/index.html>
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		/// A type representing the weights required by the dispatchables of this pallet.
@@ -39,13 +39,13 @@ pub mod pallet {
 	pub struct Pallet<T>(_);
 
 	/// The pallet's storage items.
-	/// https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/guides/your_first_pallet/index.html#storage
-	/// https://paritytech.github.io/polkadot-sdk/master/frame_support/pallet_macros/attr.storage.html
+	/// <https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/guides/your_first_pallet/index.html#storage>
+	/// <https://paritytech.github.io/polkadot-sdk/master/frame_support/pallet_macros/attr.storage.html>
 	#[pallet::storage]
 	pub type Something<T> = StorageValue<_, u32>;
 
 	/// Pallets use events to inform users when important changes are made.
-	/// https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/guides/your_first_pallet/index.html#event-and-error
+	/// <https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/guides/your_first_pallet/index.html#event-and-error>
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
@@ -54,7 +54,7 @@ pub mod pallet {
 	}
 
 	/// Errors inform users that something went wrong.
-	/// https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/guides/your_first_pallet/index.html#event-and-error
+	/// <https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/guides/your_first_pallet/index.html#event-and-error>
 	#[pallet::error]
 	pub enum Error<T> {
 		/// Error names should be descriptive.
@@ -69,7 +69,7 @@ pub mod pallet {
 	/// Dispatchable functions allows users to interact with the pallet and invoke state changes.
 	/// These functions materialize as "extrinsics", which are often compared to transactions.
 	/// Dispatchable functions must be annotated with a weight and must return a DispatchResult.
-	/// https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/guides/your_first_pallet/index.html#dispatchables
+	/// <https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/guides/your_first_pallet/index.html#dispatchables>
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
 		/// An example dispatchable that takes a singles value as a parameter, writes the value to
@@ -79,7 +79,7 @@ pub mod pallet {
 		pub fn do_something(origin: OriginFor<T>, something: u32) -> DispatchResultWithPostInfo {
 			// Check that the extrinsic was signed and get the signer.
 			// This function will return an error if the extrinsic is not signed.
-			// https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/reference_docs/frame_origin/index.html
+			// <https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/reference_docs/frame_origin/index.html>
 			let who = ensure_signed(origin)?;
 
 			// Update storage.
