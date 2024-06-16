@@ -776,12 +776,13 @@ enum MessageExecutionStatus {
 	StackLimitReached,
 }
 
-/// The status of an attempt to process a message.
+/// The context to pass to service_queues through on_idle and on_initialize hooks
+/// We don't want to throw the defensive message if called from on_idle hook
 #[derive(PartialEq)]
 enum ServiceQueuesContext {
-	/// There is not enough weight remaining at present.
+	/// Context of on_idle hook
 	OnIdle,
-	/// There will never be enough weight.
+	/// Context of on_initialize hook
 	OnInitialize,
 }
 
