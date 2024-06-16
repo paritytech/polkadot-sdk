@@ -13,3 +13,5 @@ doc:
 crates:
   - name: pallet-core-fellowship
     bump: major
+  - name: collectives-westend-runtime
+    bump: patch
