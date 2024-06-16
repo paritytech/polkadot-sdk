@@ -522,6 +522,26 @@ pub mod pallet {
 		}
 
 		/// Force a previously approved proposal to be removed from the approval queue.
+		///
+		/// ## Dispatch Origin
+		///
+		/// Must be [`Config::RejectOrigin`].
+		///
+		/// ## Details
+		///
+		/// The original deposit will no longer be returned.
+		///
+		/// ### Parameters
+		/// - `proposal_id`: The index of a proposal
+		///
+		/// ### Complexity
+		/// - O(A) where `A` is the number of approvals
+		///
+		/// ### Errors
+		/// - [`Error::ProposalNotApproved`]: The `proposal_id` supplied was not found in the
+		///   approval queue, i.e., the proposal has not been approved. This could also mean the
+		///   proposal does not exist altogether, thus there is no way it would have been approved
+		///   in the first place.
 		#[pallet::call_index(4)]
 		#[pallet::weight((T::WeightInfo::remove_approval(), DispatchClass::Operational))]
 		pub fn remove_approval(
@@ -637,6 +657,21 @@ pub mod pallet {
 		/// Claim a spend.
 		///
 		/// ## Dispatch Origin
+		///
+		///
+		/// ## Details
+		///
+		/// Spends must be claimed within some temporal bounds. A spend may be claimed within one
+		/// [`Config::PayoutPeriod`] from the `valid_from` block.
+		/// In case of a payout failure, the spend status must be updated with the `check_status`
+		/// dispatchable before retrying with the current function.
+		///
+		/// ### Parameters
+		/// - `index`: The spend index.
+		///
+		/// ## Events
+		///
+		/// Emits [`Event::Paid`] if successful.
 		#[pallet::call_index(6)]
 		#[pallet::weight(T::WeightInfo::payout())]
 		pub fn payout(origin: OriginFor<T>, index: SpendIndex) -> DispatchResult {
@@ -755,6 +790,9 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	// Add public immutables and private mutables.
 
 	/// The account ID of the treasury pot.
+	///
+	/// This actually does computation. If you need to keep using it, then make sure you cache the
+	/// value and only call this once.
 	pub fn account_id() -> T::AccountId {
 		T::PalletId::get().into_account_truncating()
 	}
@@ -894,6 +932,12 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	}
 
 	/// ## Invariants of spend storage items
+	///
+	/// 1. [`SpendCount`] >= Number of elements in [`Spends`].
+	/// 2. Each entry in [`Spends`] should be saved under a key strictly less than current
+	/// [`SpendCount`].
+	/// 3. For each spend entry contained in [`Spends`] we should have spend.expire_at
+	/// > spend.valid_from.
 	#[cfg(any(feature = "try-runtime", test))]
 	fn try_state_spends() -> Result<(), sp_runtime::TryRuntimeError> {
 		let current_spend_count = SpendCount::<T, I>::get();

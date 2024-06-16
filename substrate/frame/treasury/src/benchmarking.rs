@@ -64,7 +64,7 @@ fn setup_proposal<T: Config<I>, I: 'static>(
 	u: u32,
 ) -> (T::AccountId, BalanceOf<T, I>, AccountIdLookupOf<T>) {
 	let caller = account("caller", u, SEED);
-	let value: BalanceOf<T, I> = 100u32.try_into().ok().unwrap();
+	let value: BalanceOf<T, I> = T::Currency::minimum_balance() * 100u32.into();
 	let _ = T::Currency::make_free_balance_be(&caller, value);
 	let beneficiary = account("beneficiary", u, SEED);
 	let beneficiary_lookup = T::Lookup::unlookup(beneficiary);
