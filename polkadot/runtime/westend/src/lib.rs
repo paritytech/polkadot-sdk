@@ -29,8 +29,7 @@ use frame_support::{
 	traits::{
 		fungible::HoldConsideration, tokens::UnityOrOuterConversion, ConstU32, Contains, EitherOf,
 		EitherOfDiverse, EverythingBut, FromContains, InstanceFilter, KeyOwnerProofSystem,
-		LinearStoragePrice, ProcessMessage, ProcessMessageError, VariantCountOf,
-		WithdrawReasons,
+		LinearStoragePrice, ProcessMessage, ProcessMessageError, VariantCountOf, WithdrawReasons,
 	},
 	weights::{ConstantMultiplier, WeightMeter, WeightToFee as _},
 	PalletId,
