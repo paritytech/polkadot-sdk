@@ -15,7 +15,7 @@ doc:
 
 crates:
   - name: pallet-treasury
-    bump: patch
+    bump: major
   - name: pallet-tips
     bump: patch
   - name: pallet-child-bounties
