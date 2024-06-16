@@ -326,8 +326,7 @@ use sp_staking::{
 	StakingAccount,
 };
 pub use sp_staking::{Exposure, IndividualExposure, StakerStatus};
-use sp_std::{collections::btree_map::BTreeMap, prelude::*};
-use sp_std::marker::PhantomData;
+use sp_std::{collections::btree_map::BTreeMap, marker::PhantomData, prelude::*};
 pub use weights::WeightInfo;
 
 pub use pallet::{pallet::*, UseNominatorsAndValidatorsMap, UseValidatorsMap};

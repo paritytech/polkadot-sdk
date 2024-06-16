@@ -542,13 +542,13 @@ pub fn reward_imbalance(pool: PoolId) -> RewardImbalance {
 	}
 }
 
-pub(crate) fn blacklist(who: &AccountId) {
+pub fn blacklist(who: &AccountId) {
 	if !BlacklistedAccounts::get().contains(who) {
 		BlacklistedAccounts::mutate(|l| l.push(*who));
 	}
 }
 
-pub(crate) fn remove_from_blacklist(who: &AccountId) {
+pub fn remove_from_blacklist(who: &AccountId) {
 	BlacklistedAccounts::mutate(|l| l.retain(|x| x != who));
 }
 
