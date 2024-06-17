@@ -120,18 +120,17 @@ where
 		ignore_overrides: bool,
 	) -> sp_blockchain::Result<(RuntimeCode<'a>, RuntimeVersion)> {
 		let on_chain_version = self.on_chain_runtime_version(&onchain_code, state)?;
-		let code_and_version = if let Some(d) =
-			self.wasm_override.as_ref().as_ref().filter(|_| ignore_overrides).and_then(|o| {
-				if ignore_overrides {
-					return None
-				}
+		let code_and_version = if let Some(d) = self.wasm_override.as_ref().as_ref().and_then(|o| {
+			if ignore_overrides {
+				return None
+			}
 
-				o.get(
-					&on_chain_version.spec_version,
-					onchain_code.heap_pages,
-					&on_chain_version.spec_name,
-				)
-			}) {
+			o.get(
+				&on_chain_version.spec_version,
+				onchain_code.heap_pages,
+				&on_chain_version.spec_name,
+			)
+		}) {
 			tracing::debug!(target: "code-provider::overrides", block = ?hash, "using WASM override");
 			d
 		} else if let Some(s) =
