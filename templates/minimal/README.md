@@ -37,7 +37,8 @@ A Polkadot SDK based project such as this one consists of:
 * 🛠️ Depending on your operating system and Rust version, there might be additional
 packages required to compile this template - please take note of the Rust compiler output.
 
-## Customisation
+## Customization
+
 In case you would like to change the pallet's name from  `pallet-minimal-template` to `pallet-test` for example, you would need to implement the following changes:
 - Change the pallet folder name from `template` to `test` for consistency
 - Also for consistency, in `/runtime/src/lib.rs`, change from `pub type Template` to `pub type Test`, and don't forget to also customize the corresponding comments.
