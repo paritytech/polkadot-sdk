@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1718630371113,
+  "lastUpdate": 1718643168039,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -7660,6 +7660,53 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting",
             "value": 9.556652814509956,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Tom Mi",
+            "username": "hitchhooker",
+            "email": "tommi@niemi.lol"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "6cb3bd23910ec48ab37a3c95a6b03286ff2979bf",
+          "message": "Ibp bootnodes for Kusama People (#6) (#4741)\n\n* fix rotko's pcollectives bootnode\n* Update people-kusama.json\n* Add Dwellir People Kusama bootnode\n* add Gatotech bootnodes to `people-kusama`\n* Add Dwellir People Kusama bootnode\n* Update Amforc bootnodes for Kusama and Polkadot (#4668)\n\n---------\n\nCo-authored-by: RadiumBlock <info@radiumblock.com>\nCo-authored-by: Jonathan Udd <jonathan@dwellir.com>\nCo-authored-by: Milos Kriz <milos_kriz@hotmail.com>\nCo-authored-by: tugy <33746108+tugytur@users.noreply.github.com>\nCo-authored-by: Kutsal Kaan Bilgin <kutsalbilgin@gmail.com>\nCo-authored-by: Petr Mensik <petr.mensik1@gmail.com>\nCo-authored-by: Tommi <tommi@romeblockchain>",
+          "timestamp": "2024-06-17T15:11:21Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/6cb3bd23910ec48ab37a3c95a6b03286ff2979bf"
+        },
+        "date": 1718643137446,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63552.409999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52940.5,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 8.097260994689977,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 3.7968603961201937,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 10.714941321930064,
             "unit": "seconds"
           }
         ]
