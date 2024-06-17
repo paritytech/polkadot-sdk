@@ -21,16 +21,15 @@ use log::warn;
 use parking_lot::RwLock;
 use sp_runtime::{
 	generic::BlockId,
-	traits::{Block as BlockT, Header as HeaderT, NumberFor, Zero},
+	traits::{Block as BlockT, CheckedSub, Header as HeaderT, NumberFor, Zero},
 	Justifications,
 };
 use std::collections::{btree_map::BTreeMap, btree_set::BTreeSet};
 
-use crate::header_metadata::HeaderMetadata;
-
 use crate::{
 	error::{Error, Result},
-	tree_route, TreeRoute,
+	header_metadata::{self, HeaderMetadata},
+	lowest_common_ancestor_multiblock, tree_route, TreeRoute,
 };
 
 /// Blockchain database header backend. Does not perform any validation.
@@ -229,12 +228,41 @@ pub trait Backend<Block: BlockT>:
 	) -> std::result::Result<DisplacedLeavesAfterFinalization<Block>, Error> {
 		let mut result = DisplacedLeavesAfterFinalization::default();
 
-		if finalized_block_number == Zero::zero() {
+		let leaves = self.leaves()?;
+
+		// If we have only one leaf there are no forks, and we can return early.
+		if finalized_block_number == Zero::zero() || leaves.len() == 1 {
 			return Ok(result)
 		}
 
+		let first_leaf = leaves.first().ok_or(Error::Backend(
+			"Unable to find any leaves. This should not happen.".to_string(),
+		))?;
+		let leaf_block_header = self.expect_header(*first_leaf)?;
+
+		// If the distance between the leafs and the finalized block is large,  calculating
+		// tree routes can be very expensive. In that case, we will try to find the
+		// lowest common ancestor between all the leaves. The assumption here is that the forks are
+		// close to the tip and not long. So the LCA can be computed from the header cache. If the
+		// LCA is above the finalized block, we know that there are no displaced leaves by the
+		// finalization.
+		if leaf_block_header
+			.number()
+			.checked_sub(&finalized_block_number)
+			.unwrap_or(0u32.into()) >
+			header_metadata::LRU_CACHE_SIZE.into()
+		{
+			if let Some(lca) = lowest_common_ancestor_multiblock(self, leaves.clone())? {
+				if lca.number > finalized_block_number {
+					return Ok(result)
+				} else {
+					log::warn!("The distance between leafs and finalized block is large. Finalization can take a long time.");
+				}
+			};
+		}
+
 		// For each leaf determine whether it belongs to a non-canonical branch.
-		for leaf_hash in self.leaves()? {
+		for leaf_hash in leaves {
 			let leaf_block_header = self.expect_header(leaf_hash)?;
 			let leaf_number = *leaf_block_header.number();
 
@@ -284,7 +312,7 @@ impl<Block: BlockT> DisplacedLeavesAfterFinalization<Block> {
 }
 
 /// Blockchain info
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug, Eq, PartialEq, Clone)]
 pub struct Info<Block: BlockT> {
 	/// Best block hash.
 	pub best_hash: Block::Hash,

@@ -29,7 +29,8 @@ use structopt::StructOpt;
 use bp_messages::MessageNonce;
 use bp_runtime::HeaderIdProvider;
 use relay_substrate_client::{
-	AccountIdOf, AccountKeyPairOf, BalanceOf, Chain, ChainWithRuntimeVersion, ChainWithTransactions,
+	AccountIdOf, AccountKeyPairOf, BalanceOf, Chain, ChainWithRuntimeVersion,
+	ChainWithTransactions, Client,
 };
 use relay_utils::UniqueSaturatedInto;
 
@@ -116,7 +117,7 @@ where
 		let target_sign = data.target_sign.to_keypair::<Self::Target>()?;
 		let target_transactions_mortality = data.target_sign.transactions_mortality()?;
 
-		crate::messages_lane::run::<Self::MessagesLane>(MessagesRelayParams {
+		crate::messages_lane::run::<Self::MessagesLane, _, _>(MessagesRelayParams {
 			source_client,
 			source_transaction_params: TransactionParams {
 				signer: source_sign,
