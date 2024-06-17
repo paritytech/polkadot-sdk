@@ -877,8 +877,7 @@ async fn fetch_upcoming_paras<Context>(
 			// Runtime supports claim queue - use it
 			claim_queue
 				.iter_all_claims()
-				.map(|(_, paras)| paras.into_iter())
-				.flatten()
+				.flat_map(|(_, paras)| paras.into_iter())
 				.copied()
 				.collect()
 		},
