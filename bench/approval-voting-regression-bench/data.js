@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1718600545027,
+  "lastUpdate": 1718630371113,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -7613,6 +7613,53 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 3.1930408402001706,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Ankan",
+            "username": "Ank4n",
+            "email": "10196091+Ank4n@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "d91cbbd453c1d4553d7e3dc8753a2007fc4c5a67",
+          "message": "Impl and use default config for pallet-staking in tests (#4797)",
+          "timestamp": "2024-06-17T12:35:15Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/d91cbbd453c1d4553d7e3dc8753a2007fc4c5a67"
+        },
+        "date": 1718630342208,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63545.21000000001,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52939.2,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 3.087246896820188,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 7.0411818510100135,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 9.556652814509956,
             "unit": "seconds"
           }
         ]
