@@ -88,13 +88,13 @@ impl<P: SubstrateMessageLane> MessageLane for MessageLaneAdapter<P> {
 }
 
 /// Substrate <-> Substrate messages relay parameters.
-pub struct MessagesRelayParams<P: SubstrateMessageLane> {
+pub struct MessagesRelayParams<P: SubstrateMessageLane, SourceClnt, TargetClnt> {
 	/// Messages source client.
-	pub source_client: Client<P::SourceChain>,
+	pub source_client: SourceClnt,
 	/// Source transaction params.
 	pub source_transaction_params: TransactionParams<AccountKeyPairOf<P::SourceChain>>,
 	/// Messages target client.
-	pub target_client: Client<P::TargetChain>,
+	pub target_client: TargetClnt,
 	/// Target transaction params.
 	pub target_transaction_params: TransactionParams<AccountKeyPairOf<P::TargetChain>>,
 	/// Optional on-demand source to target headers relay.
@@ -179,8 +179,13 @@ impl<SC: Chain, TC: Chain, B: BatchCallBuilderConstructor<CallOf<SC>>>
 }
 
 /// Run Substrate-to-Substrate messages sync loop.
-pub async fn run<P: SubstrateMessageLane>(params: MessagesRelayParams<P>) -> anyhow::Result<()>
+pub async fn run<P, SourceClnt, TargetClnt>(
+	params: MessagesRelayParams<P, SourceClnt, TargetClnt>,
+) -> anyhow::Result<()>
 where
+	P: SubstrateMessageLane,
+	SourceClnt: Client<P::SourceChain>,
+	TargetClnt: Client<P::TargetChain>,
 	AccountIdOf<P::SourceChain>: From<<AccountKeyPairOf<P::SourceChain> as Pair>::Public>,
 	AccountIdOf<P::TargetChain>: From<<AccountKeyPairOf<P::TargetChain> as Pair>::Public>,
 	BalanceOf<P::SourceChain>: TryFrom<BalanceOf<P::TargetChain>>,
@@ -190,7 +195,7 @@ where
 	let limits = match params.limits {
 		Some(limits) => limits,
 		None =>
-			select_delivery_transaction_limits_rpc::<P>(
+			select_delivery_transaction_limits_rpc(
 				&params,
 				P::TargetChain::max_extrinsic_weight(),
 				P::SourceChain::MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX,
@@ -250,14 +255,14 @@ where
 				max_messages_size_in_single_batch,
 			},
 		},
-		SubstrateMessagesSource::<P>::new(
+		SubstrateMessagesSource::<P, _, _>::new(
 			source_client.clone(),
 			target_client.clone(),
 			params.lane_id,
 			params.source_transaction_params,
 			params.target_to_source_headers_relay,
 		),
-		SubstrateMessagesTarget::<P>::new(
+		SubstrateMessagesTarget::<P, _, _>::new(
 			target_client,
 			source_client,
 			params.lane_id,
@@ -278,8 +283,8 @@ where
 /// Deliver range of Substrate-to-Substrate messages. No checks are made to ensure that transaction
 /// will succeed.
 pub async fn relay_messages_range<P: SubstrateMessageLane>(
-	source_client: Client<P::SourceChain>,
-	target_client: Client<P::TargetChain>,
+	source_client: impl Client<P::SourceChain>,
+	target_client: impl Client<P::TargetChain>,
 	source_transaction_params: TransactionParams<AccountKeyPairOf<P::SourceChain>>,
 	target_transaction_params: TransactionParams<AccountKeyPairOf<P::TargetChain>>,
 	at_source_block: HeaderIdOf<P::SourceChain>,
@@ -295,14 +300,14 @@ where
 	let relayer_id_at_source: AccountIdOf<P::SourceChain> =
 		source_transaction_params.signer.public().into();
 	messages_relay::relay_messages_range(
-		SubstrateMessagesSource::<P>::new(
+		SubstrateMessagesSource::<P, _, _>::new(
 			source_client.clone(),
 			target_client.clone(),
 			lane_id,
 			source_transaction_params,
 			None,
 		),
-		SubstrateMessagesTarget::<P>::new(
+		SubstrateMessagesTarget::<P, _, _>::new(
 			target_client,
 			source_client,
 			lane_id,
@@ -321,8 +326,8 @@ where
 /// Relay messages delivery confirmation of Substrate-to-Substrate messages.
 /// No checks are made to ensure that transaction will succeed.
 pub async fn relay_messages_delivery_confirmation<P: SubstrateMessageLane>(
-	source_client: Client<P::SourceChain>,
-	target_client: Client<P::TargetChain>,
+	source_client: impl Client<P::SourceChain>,
+	target_client: impl Client<P::TargetChain>,
 	source_transaction_params: TransactionParams<AccountKeyPairOf<P::SourceChain>>,
 	at_target_block: HeaderIdOf<P::TargetChain>,
 	lane_id: LaneId,
@@ -335,14 +340,14 @@ where
 	let relayer_id_at_source: AccountIdOf<P::SourceChain> =
 		source_transaction_params.signer.public().into();
 	messages_relay::relay_messages_delivery_confirmation(
-		SubstrateMessagesSource::<P>::new(
+		SubstrateMessagesSource::<P, _, _>::new(
 			source_client.clone(),
 			target_client.clone(),
 			lane_id,
 			source_transaction_params,
 			None,
 		),
-		SubstrateMessagesTarget::<P>::new(
+		SubstrateMessagesTarget::<P, _, _>::new(
 			target_client,
 			source_client,
 			lane_id,
@@ -546,12 +551,15 @@ macro_rules! generate_receive_message_delivery_proof_call_builder {
 }
 
 /// Returns maximal number of messages and their maximal cumulative dispatch weight.
-async fn select_delivery_transaction_limits_rpc<P: SubstrateMessageLane>(
-	params: &MessagesRelayParams<P>,
+async fn select_delivery_transaction_limits_rpc<P, SourceClnt, TargetClnt>(
+	params: &MessagesRelayParams<P, SourceClnt, TargetClnt>,
 	max_extrinsic_weight: Weight,
 	max_unconfirmed_messages_at_inbound_lane: MessageNonce,
 ) -> anyhow::Result<MessagesRelayLimits>
 where
+	P: SubstrateMessageLane,
+	SourceClnt: Client<P::SourceChain>,
+	TargetClnt: Client<P::TargetChain>,
 	AccountIdOf<P::SourceChain>: From<<AccountKeyPairOf<P::SourceChain> as Pair>::Public>,
 {
 	// We may try to guess accurate value, based on maximal number of messages and per-message
@@ -567,20 +575,21 @@ where
 	let weight_for_messages_dispatch = max_extrinsic_weight - weight_for_delivery_tx;
 
 	// weight of empty message delivery with outbound lane state
-	let delivery_tx_with_zero_messages = dummy_messages_delivery_transaction::<P>(params, 0)?;
+	let best_target_block_hash = params.target_client.best_header_hash().await?;
+	let delivery_tx_with_zero_messages = dummy_messages_delivery_transaction::<P, _, _>(params, 0)?;
 	let delivery_tx_with_zero_messages_weight = params
 		.target_client
-		.extimate_extrinsic_weight(delivery_tx_with_zero_messages)
+		.estimate_extrinsic_weight(best_target_block_hash, delivery_tx_with_zero_messages)
 		.await
 		.map_err(|e| {
 			anyhow::format_err!("Failed to estimate delivery extrinsic weight: {:?}", e)
 		})?;
 
 	// weight of single message delivery with outbound lane state
-	let delivery_tx_with_one_message = dummy_messages_delivery_transaction::<P>(params, 1)?;
+	let delivery_tx_with_one_message = dummy_messages_delivery_transaction::<P, _, _>(params, 1)?;
 	let delivery_tx_with_one_message_weight = params
 		.target_client
-		.extimate_extrinsic_weight(delivery_tx_with_one_message)
+		.estimate_extrinsic_weight(best_target_block_hash, delivery_tx_with_one_message)
 		.await
 		.map_err(|e| {
 			anyhow::format_err!("Failed to estimate delivery extrinsic weight: {:?}", e)
@@ -615,8 +624,8 @@ where
 }
 
 /// Returns dummy message delivery transaction with zero messages and `1kb` proof.
-fn dummy_messages_delivery_transaction<P: SubstrateMessageLane>(
-	params: &MessagesRelayParams<P>,
+fn dummy_messages_delivery_transaction<P: SubstrateMessageLane, SourceClnt, TargetClnt>(
+	params: &MessagesRelayParams<P, SourceClnt, TargetClnt>,
 	messages: u32,
 ) -> anyhow::Result<<P::TargetChain as ChainWithTransactions>::SignedTransaction>
 where
