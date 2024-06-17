@@ -1422,11 +1422,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Reexport from `hash_db`, with genericity set for `Hasher` trait.
 </span><span class="kw">pub type </span>GenericMemoryDB&lt;H, KF&gt; = memory_db::MemoryDB&lt;H, KF, trie_db::DBValue&gt;;
 
-<span class="doccomment">/// Persistent trie database read-access interface for the a given hasher.
+<span class="doccomment">/// Persistent trie database read-access interface for a given hasher.
 </span><span class="kw">pub type </span>TrieDB&lt;<span class="lifetime">'a</span>, <span class="lifetime">'cache</span>, L&gt; = trie_db::TrieDB&lt;<span class="lifetime">'a</span>, <span class="lifetime">'cache</span>, L&gt;;
 <span class="doccomment">/// Builder for creating a [`TrieDB`].
 </span><span class="kw">pub type </span>TrieDBBuilder&lt;<span class="lifetime">'a</span>, <span class="lifetime">'cache</span>, L&gt; = trie_db::TrieDBBuilder&lt;<span class="lifetime">'a</span>, <span class="lifetime">'cache</span>, L&gt;;
-<span class="doccomment">/// Persistent trie database write-access interface for the a given hasher.
+<span class="doccomment">/// Persistent trie database write-access interface for a given hasher.
 </span><span class="kw">pub type </span>TrieDBMut&lt;<span class="lifetime">'a</span>, L&gt; = trie_db::TrieDBMut&lt;<span class="lifetime">'a</span>, L&gt;;
 <span class="doccomment">/// Builder for creating a [`TrieDBMut`].
 </span><span class="kw">pub type </span>TrieDBMutBuilder&lt;<span class="lifetime">'a</span>, L&gt; = trie_db::TrieDBMutBuilder&lt;<span class="lifetime">'a</span>, L&gt;;
@@ -1439,17 +1439,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub mod </span>trie_types {
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
 
-	<span class="doccomment">/// Persistent trie database read-access interface for the a given hasher.
+	<span class="doccomment">/// Persistent trie database read-access interface for a given hasher.
 	///
 	/// Read only V1 and V0 are compatible, thus we always use V1.
 	</span><span class="kw">pub type </span>TrieDB&lt;<span class="lifetime">'a</span>, <span class="lifetime">'cache</span>, H&gt; = <span class="kw">super</span>::TrieDB&lt;<span class="lifetime">'a</span>, <span class="lifetime">'cache</span>, LayoutV1&lt;H&gt;&gt;;
 	<span class="doccomment">/// Builder for creating a [`TrieDB`].
 	</span><span class="kw">pub type </span>TrieDBBuilder&lt;<span class="lifetime">'a</span>, <span class="lifetime">'cache</span>, H&gt; = <span class="kw">super</span>::TrieDBBuilder&lt;<span class="lifetime">'a</span>, <span class="lifetime">'cache</span>, LayoutV1&lt;H&gt;&gt;;
-	<span class="doccomment">/// Persistent trie database write-access interface for the a given hasher.
+	<span class="doccomment">/// Persistent trie database write-access interface for a given hasher.
 	</span><span class="kw">pub type </span>TrieDBMutV0&lt;<span class="lifetime">'a</span>, H&gt; = <span class="kw">super</span>::TrieDBMut&lt;<span class="lifetime">'a</span>, LayoutV0&lt;H&gt;&gt;;
 	<span class="doccomment">/// Builder for creating a [`TrieDBMutV0`].
 	</span><span class="kw">pub type </span>TrieDBMutBuilderV0&lt;<span class="lifetime">'a</span>, H&gt; = <span class="kw">super</span>::TrieDBMutBuilder&lt;<span class="lifetime">'a</span>, LayoutV0&lt;H&gt;&gt;;
-	<span class="doccomment">/// Persistent trie database write-access interface for the a given hasher.
+	<span class="doccomment">/// Persistent trie database write-access interface for a given hasher.
 	</span><span class="kw">pub type </span>TrieDBMutV1&lt;<span class="lifetime">'a</span>, H&gt; = <span class="kw">super</span>::TrieDBMut&lt;<span class="lifetime">'a</span>, LayoutV1&lt;H&gt;&gt;;
 	<span class="doccomment">/// Builder for creating a [`TrieDBMutV1`].
 	</span><span class="kw">pub type </span>TrieDBMutBuilderV1&lt;<span class="lifetime">'a</span>, H&gt; = <span class="kw">super</span>::TrieDBMutBuilder&lt;<span class="lifetime">'a</span>, LayoutV1&lt;H&gt;&gt;;

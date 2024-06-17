@@ -555,7 +555,7 @@ mint would look like.</p>
 <div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="attr">#[test]
 </span><span class="kw">fn </span>transfer_works() {
 	StateBuilder::default().build_and_execute(|| {
-		<span class="comment">// given the the initial state, when:
+		<span class="comment">// given the initial state, when:
 		</span><span class="macro">assert_ok!</span>(Pallet::&lt;Runtime&gt;::transfer(RuntimeOrigin::signed(ALICE), BOB, <span class="number">50</span>));
 
 		<span class="comment">// then:
@@ -601,7 +601,7 @@ mint would look like.</p>
 <div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="attr">#[test]
 </span><span class="kw">fn </span>transfer_from_non_existent_fails() {
 	StateBuilder::default().build_and_execute(|| {
-		<span class="comment">// given the the initial state, when:
+		<span class="comment">// given the initial state, when:
 		</span><span class="macro">assert_err!</span>(
 			Pallet::&lt;Runtime&gt;::transfer(RuntimeOrigin::signed(CHARLIE), ALICE, <span class="number">10</span>),
 			<span class="string">"NonExistentAccount"
