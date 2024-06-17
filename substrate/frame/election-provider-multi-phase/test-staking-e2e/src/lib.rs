@@ -23,7 +23,6 @@ pub(crate) const LOG_TARGET: &str = "tests::e2e-epm";
 use frame_support::{assert_err, assert_noop, assert_ok};
 use mock::*;
 use sp_core::Get;
-use sp_npos_elections::{to_supports, StakedAssignment};
 use sp_runtime::Perbill;
 
 use crate::mock::RuntimeOrigin;
@@ -127,75 +126,48 @@ fn offchainify_works() {
 }
 
 #[test]
-/// Replicates the Kusama incident of 8th Dec 2022 and its resolution through the governance
+/// Inspired by the Kusama incident of 8th Dec 2022 and its resolution through the governance
 /// fallback.
 ///
-/// After enough slashes exceeded the `Staking::OffendingValidatorsThreshold`, the staking pallet
-/// set `Forcing::ForceNew`. When a new session starts, staking will start to force a new era and
-/// calls <EPM as election_provider>::elect(). If at this point EPM and the staking miners did not
-/// have enough time to queue a new solution (snapshot + solution submission), the election request
-/// fails. If there is no election fallback mechanism in place, EPM enters in emergency mode.
-/// Recovery: Once EPM is in emergency mode, subsequent calls to `elect()` will fail until a new
-/// solution is added to EPM's `QueuedSolution` queue. This can be achieved through
-/// `Call::set_emergency_election_result` or `Call::governance_fallback` dispatchables. Once a new
-/// solution is added to the queue, EPM phase transitions to `Phase::Off` and the election flow
-/// restarts. Note that in this test case, the emergency throttling is disabled.
-fn enters_emergency_phase_after_forcing_before_elect() {
+/// Mass slash of validators shouldn't disable more than 1/3 of them (the byzantine threshold). Also
+/// no new era should be forced which could lead to EPM entering emergency mode.
+fn mass_slash_doesnt_enter_emergency_phase() {
 	let epm_builder = EpmExtBuilder::default().disable_emergency_throttling();
-	let (ext, pool_state, _) = ExtBuilder::default().epm(epm_builder).build_offchainify();
+	let staking_builder = StakingExtBuilder::default().validator_count(7);
+	let (mut ext, _, _) = ExtBuilder::default()
+		.epm(epm_builder)
+		.staking(staking_builder)
+		.build_offchainify();
 
-	execute_with(ext, || {
-		log!(
-			trace,
-			"current validators (staking): {:?}",
-			<Runtime as pallet_staking::SessionInterface<AccountId>>::validators()
+	ext.execute_with(|| {
+		assert_eq!(pallet_staking::ForceEra::<Runtime>::get(), pallet_staking::Forcing::NotForcing);
+
+		let active_set_size_before_slash = Session::validators().len();
+
+		// Slash more than 1/3 of the active validators
+		let mut slashed = slash_half_the_active_set();
+
+		let active_set_size_after_slash = Session::validators().len();
+
+		// active set should stay the same before and after the slash
+		assert_eq!(active_set_size_before_slash, active_set_size_after_slash);
+
+		// Slashed validators are disabled up to a limit
+		slashed.truncate(
+			pallet_staking::UpToLimitDisablingStrategy::<SLASHING_DISABLING_FACTOR>::disable_limit(
+				active_set_size_after_slash,
+			),
 		);
-		let session_validators_before = Session::validators();
 
-		roll_to_epm_off();
-		assert!(ElectionProviderMultiPhase::current_phase().is_off());
+		// Find the indices of the disabled validators
+		let active_set = Session::validators();
+		let expected_disabled = slashed
+			.into_iter()
+			.map(|d| active_set.iter().position(|a| *a == d).unwrap() as u32)
+			.collect::<Vec<_>>();
 
 		assert_eq!(pallet_staking::ForceEra::<Runtime>::get(), pallet_staking::Forcing::NotForcing);
-		// slashes so that staking goes into `Forcing::ForceNew`.
-		slash_through_offending_threshold();
-
-		assert_eq!(pallet_staking::ForceEra::<Runtime>::get(), pallet_staking::Forcing::ForceNew);
-
-		advance_session_delayed_solution(pool_state.clone());
-		assert!(ElectionProviderMultiPhase::current_phase().is_emergency());
-		log_current_time();
-
-		let era_before_delayed_next = Staking::current_era();
-		// try to advance 2 eras.
-		assert!(start_next_active_era_delayed_solution(pool_state.clone()).is_ok());
-		assert_eq!(Staking::current_era(), era_before_delayed_next);
-		assert!(start_next_active_era(pool_state).is_err());
-		assert_eq!(Staking::current_era(), era_before_delayed_next);
-
-		// EPM is still in emergency phase.
-		assert!(ElectionProviderMultiPhase::current_phase().is_emergency());
-
-		// session validator set remains the same.
-		assert_eq!(Session::validators(), session_validators_before);
-
-		// performs recovery through the set emergency result.
-		let supports = to_supports(&vec![
-			StakedAssignment { who: 21, distribution: vec![(21, 10)] },
-			StakedAssignment { who: 31, distribution: vec![(21, 10), (31, 10)] },
-			StakedAssignment { who: 41, distribution: vec![(41, 10)] },
-		]);
-		assert!(ElectionProviderMultiPhase::set_emergency_election_result(
-			RuntimeOrigin::root(),
-			supports
-		)
-		.is_ok());
-
-		// EPM can now roll to signed phase to proceed with elections. The validator set is the
-		// expected (ie. set through `set_emergency_election_result`).
-		roll_to_epm_signed();
-		//assert!(ElectionProviderMultiPhase::current_phase().is_signed());
-		assert_eq!(Session::validators(), vec![21, 31, 41]);
-		assert_eq!(Staking::current_era(), era_before_delayed_next.map(|e| e + 1));
+		assert_eq!(Session::disabled_validators(), expected_disabled);
 	});
 }
 
@@ -253,77 +225,7 @@ fn continuous_slashes_below_offending_threshold() {
 }
 
 #[test]
-/// Slashed validator sets intentions in the same era of slashing.
-///
-/// When validators are slashed, they are chilled and removed from the current `VoterList`. Thus,
-/// the slashed validator should not be considered in the next validator set. However, if the
-/// slashed validator sets its intention to validate again in the same era when it was slashed and
-/// chilled, the validator may not be removed from the active validator set across eras, provided
-/// it would selected in the subsequent era if there was no slash. Nominators of the slashed
-/// validator will also be slashed and chilled, as expected, but the nomination intentions will
-/// remain after the validator re-set the intention to be validating again.
-///
-/// This behaviour is due to removing implicit chill upon slash
-/// <https://github.com/paritytech/substrate/pull/12420>.
-///
-/// Related to <https://github.com/paritytech/substrate/issues/13714>.
-fn set_validation_intention_after_chilled() {
-	use frame_election_provider_support::SortedListProvider;
-	use pallet_staking::{Event, Forcing, Nominators};
-
-	let (ext, pool_state, _) = ExtBuilder::default()
-		.epm(EpmExtBuilder::default())
-		.staking(StakingExtBuilder::default())
-		.build_offchainify();
-
-	execute_with(ext, || {
-		assert_eq!(active_era(), 0);
-		// validator is part of the validator set.
-		assert!(Session::validators().contains(&41));
-		assert!(<Runtime as pallet_staking::Config>::VoterList::contains(&41));
-
-		// nominate validator 81.
-		assert_ok!(Staking::nominate(RuntimeOrigin::signed(21), vec![41]));
-		assert_eq!(Nominators::<Runtime>::get(21).unwrap().targets, vec![41]);
-
-		// validator is slashed. it is removed from the `VoterList` through chilling but in the
-		// current era, the validator is still part of the active validator set.
-		add_slash(&41);
-		assert!(Session::validators().contains(&41));
-		assert!(!<Runtime as pallet_staking::Config>::VoterList::contains(&41));
-		assert_eq!(
-			staking_events(),
-			[
-				Event::Chilled { stash: 41 },
-				Event::ForceEra { mode: Forcing::ForceNew },
-				Event::SlashReported {
-					validator: 41,
-					slash_era: 0,
-					fraction: Perbill::from_percent(10)
-				}
-			],
-		);
-
-		// after the nominator is slashed and chilled, the nominations remain.
-		assert_eq!(Nominators::<Runtime>::get(21).unwrap().targets, vec![41]);
-
-		// validator sets intention to stake again in the same era it was chilled.
-		assert_ok!(Staking::validate(RuntimeOrigin::signed(41), Default::default()));
-
-		// progress era and check that the slashed validator is still part of the validator
-		// set.
-		assert!(start_next_active_era(pool_state).is_ok());
-		assert_eq!(active_era(), 1);
-		assert!(Session::validators().contains(&41));
-		assert!(<Runtime as pallet_staking::Config>::VoterList::contains(&41));
-
-		// nominations are still active as before the slash.
-		assert_eq!(Nominators::<Runtime>::get(21).unwrap().targets, vec![41]);
-	})
-}
-
-#[test]
-/// Active ledger balance may fall below ED if account chills before unbonding.
+/// Active ledger balance may fall below ED if account chills before unbounding.
 ///
 /// Unbonding call fails if the remaining ledger's stash balance falls below the existential
 /// deposit. However, if the stash is chilled before unbonding, the ledger's active balance may
@@ -420,7 +322,7 @@ fn automatic_unbonding_pools() {
 		let init_free_balance_2 = Balances::free_balance(2);
 		let init_free_balance_3 = Balances::free_balance(3);
 
-		let pool_bonded_account = Pools::create_bonded_account(1);
+		let pool_bonded_account = Pools::generate_bonded_account(1);
 
 		// creates a pool with 5 bonded, owned by 1.
 		assert_ok!(Pools::create(RuntimeOrigin::signed(1), 5, 1, 1, 1));

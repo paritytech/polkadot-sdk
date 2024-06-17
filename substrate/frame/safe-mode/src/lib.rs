@@ -79,7 +79,6 @@ pub mod mock;
 mod tests;
 pub mod weights;
 
-use core::convert::TryInto;
 use frame_support::{
 	defensive_assert,
 	pallet_prelude::*,

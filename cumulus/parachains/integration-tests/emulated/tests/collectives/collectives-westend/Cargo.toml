@@ -1,0 +1,43 @@
+[package]
+name = "collectives-westend-integration-tests"
+version = "1.0.0"
+authors.workspace = true
+edition.workspace = true
+license = "Apache-2.0"
+description = "Collectives Westend runtime integration tests with xcm-emulator"
+publish = false
+
+[lints]
+workspace = true
+
+[dependencies]
+codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false }
+assert_matches = "1.5.0"
+
+# Substrate
+sp-runtime = { path = "../../../../../../../substrate/primitives/runtime", default-features = false }
+frame-support = { path = "../../../../../../../substrate/frame/support", default-features = false }
+pallet-balances = { path = "../../../../../../../substrate/frame/balances", default-features = false }
+pallet-asset-rate = { path = "../../../../../../../substrate/frame/asset-rate", default-features = false }
+pallet-assets = { path = "../../../../../../../substrate/frame/assets", default-features = false }
+pallet-treasury = { path = "../../../../../../../substrate/frame/treasury", default-features = false }
+pallet-message-queue = { path = "../../../../../../../substrate/frame/message-queue", default-features = false }
+pallet-utility = { path = "../../../../../../../substrate/frame/utility", default-features = false }
+
+# Polkadot
+polkadot-runtime-common = { path = "../../../../../../../polkadot/runtime/common" }
+xcm = { package = "staging-xcm", path = "../../../../../../../polkadot/xcm", default-features = false }
+xcm-executor = { package = "staging-xcm-executor", path = "../../../../../../../polkadot/xcm/xcm-executor", default-features = false }
+pallet-xcm = { path = "../../../../../../../polkadot/xcm/pallet-xcm", default-features = false }
+westend-runtime = { path = "../../../../../../../polkadot/runtime/westend" }
+westend-runtime-constants = { path = "../../../../../../../polkadot/runtime/westend/constants" }
+
+# Cumulus
+parachains-common = { path = "../../../../../../parachains/common" }
+testnet-parachains-constants = { path = "../../../../../runtimes/constants", features = ["westend"] }
+asset-hub-westend-runtime = { path = "../../../../../runtimes/assets/asset-hub-westend" }
+collectives-westend-runtime = { path = "../../../../../runtimes/collectives/collectives-westend" }
+cumulus-pallet-xcmp-queue = { default-features = false, path = "../../../../../../pallets/xcmp-queue" }
+cumulus-pallet-parachain-system = { default-features = false, path = "../../../../../../pallets/parachain-system" }
+emulated-integration-tests-common = { path = "../../../common", default-features = false }
+westend-system-emulated-network = { path = "../../../networks/westend-system" }

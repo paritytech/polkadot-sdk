@@ -22,12 +22,12 @@ use crate::{
 	DispatchResult, OriginFor,
 };
 use frame_support::{
-	assert_ok,
+	assert_err, assert_ok,
 	traits::{tokens::fungibles::Inspect, Currency},
 	weights::Weight,
 };
 use polkadot_parachain_primitives::primitives::Id as ParaId;
-use sp_runtime::{traits::AccountIdConversion, DispatchError, ModuleError};
+use sp_runtime::traits::AccountIdConversion;
 use xcm::prelude::*;
 use xcm_executor::traits::ConvertLocation;
 
@@ -76,7 +76,7 @@ fn limited_teleport_assets_works() {
 			)]
 		);
 		let versioned_sent = VersionedXcm::from(sent_xcm().into_iter().next().unwrap().1);
-		let _check_v2_ok: xcm::v2::Xcm<()> = versioned_sent.try_into().unwrap();
+		let _check_v3_ok: xcm::v3::Xcm<()> = versioned_sent.try_into().unwrap();
 
 		let mut last_events = last_events(3).into_iter();
 		assert_eq!(
@@ -112,14 +112,8 @@ fn limited_teleport_filtered_assets_disallowed() {
 			0,
 			Unlimited,
 		);
-		assert_eq!(
-			result,
-			Err(DispatchError::Module(ModuleError {
-				index: 4,
-				error: [2, 0, 0, 0],
-				message: Some("Filtered")
-			}))
-		);
+		let expected_result = Err(crate::Error::<Test>::Filtered.into());
+		assert_eq!(result, expected_result);
 	});
 }
 
@@ -365,11 +359,7 @@ fn reserve_transfer_assets_with_local_asset_reserve_and_local_fee_reserve_works(
 /// Test `limited_teleport_assets` with local asset reserve and local fee reserve disallowed.
 #[test]
 fn teleport_assets_with_local_asset_reserve_and_local_fee_reserve_disallowed() {
-	let expected_result = Err(DispatchError::Module(ModuleError {
-		index: 4,
-		error: [2, 0, 0, 0],
-		message: Some("Filtered"),
-	}));
+	let expected_result = Err(crate::Error::<Test>::Filtered.into());
 	local_asset_reserve_and_local_fee_reserve_call(
 		XcmPallet::limited_teleport_assets,
 		expected_result,
@@ -527,11 +517,7 @@ fn transfer_assets_with_destination_asset_reserve_and_local_fee_reserve_works() 
 /// disallowed.
 #[test]
 fn reserve_transfer_assets_with_destination_asset_reserve_and_local_fee_reserve_disallowed() {
-	let expected_result = Err(DispatchError::Module(ModuleError {
-		index: 4,
-		error: [23, 0, 0, 0],
-		message: Some("TooManyReserves"),
-	}));
+	let expected_result = Err(crate::Error::<Test>::TooManyReserves.into());
 	destination_asset_reserve_and_local_fee_reserve_call(
 		XcmPallet::limited_reserve_transfer_assets,
 		expected_result,
@@ -542,11 +528,7 @@ fn reserve_transfer_assets_with_destination_asset_reserve_and_local_fee_reserve_
 /// disallowed.
 #[test]
 fn teleport_assets_with_destination_asset_reserve_and_local_fee_reserve_disallowed() {
-	let expected_result = Err(DispatchError::Module(ModuleError {
-		index: 4,
-		error: [2, 0, 0, 0],
-		message: Some("Filtered"),
-	}));
+	let expected_result = Err(crate::Error::<Test>::Filtered.into());
 	destination_asset_reserve_and_local_fee_reserve_call(
 		XcmPallet::limited_teleport_assets,
 		expected_result,
@@ -633,11 +615,7 @@ fn remote_asset_reserve_and_local_fee_reserve_call_disallowed<Call>(
 /// Test `transfer_assets` with remote asset reserve and local fee reserve is disallowed.
 #[test]
 fn transfer_assets_with_remote_asset_reserve_and_local_fee_reserve_disallowed() {
-	let expected_result = Err(DispatchError::Module(ModuleError {
-		index: 4,
-		error: [22, 0, 0, 0],
-		message: Some("InvalidAssetUnsupportedReserve"),
-	}));
+	let expected_result = Err(crate::Error::<Test>::InvalidAssetUnsupportedReserve.into());
 	remote_asset_reserve_and_local_fee_reserve_call_disallowed(
 		XcmPallet::transfer_assets,
 		expected_result,
@@ -648,11 +626,7 @@ fn transfer_assets_with_remote_asset_reserve_and_local_fee_reserve_disallowed() 
 /// disallowed.
 #[test]
 fn reserve_transfer_assets_with_remote_asset_reserve_and_local_fee_reserve_disallowed() {
-	let expected_result = Err(DispatchError::Module(ModuleError {
-		index: 4,
-		error: [23, 0, 0, 0],
-		message: Some("TooManyReserves"),
-	}));
+	let expected_result = Err(crate::Error::<Test>::TooManyReserves.into());
 	remote_asset_reserve_and_local_fee_reserve_call_disallowed(
 		XcmPallet::limited_reserve_transfer_assets,
 		expected_result,
@@ -662,11 +636,7 @@ fn reserve_transfer_assets_with_remote_asset_reserve_and_local_fee_reserve_disal
 /// Test `limited_teleport_assets` with remote asset reserve and local fee reserve is disallowed.
 #[test]
 fn teleport_assets_with_remote_asset_reserve_and_local_fee_reserve_disallowed() {
-	let expected_result = Err(DispatchError::Module(ModuleError {
-		index: 4,
-		error: [2, 0, 0, 0],
-		message: Some("Filtered"),
-	}));
+	let expected_result = Err(crate::Error::<Test>::Filtered.into());
 	remote_asset_reserve_and_local_fee_reserve_call_disallowed(
 		XcmPallet::limited_teleport_assets,
 		expected_result,
@@ -745,7 +715,7 @@ fn local_asset_reserve_and_destination_fee_reserve_call<Call>(
 		assert_eq!(result, expected_result);
 		if expected_result.is_err() {
 			// short-circuit here for tests where we expect failure
-			return
+			return;
 		}
 
 		let weight = BaseXcmWeight::get() * 3;
@@ -821,11 +791,7 @@ fn transfer_assets_with_local_asset_reserve_and_destination_fee_reserve_works() 
 /// disallowed.
 #[test]
 fn reserve_transfer_assets_with_local_asset_reserve_and_destination_fee_reserve_disallowed() {
-	let expected_result = Err(DispatchError::Module(ModuleError {
-		index: 4,
-		error: [23, 0, 0, 0],
-		message: Some("TooManyReserves"),
-	}));
+	let expected_result = Err(crate::Error::<Test>::TooManyReserves.into());
 	local_asset_reserve_and_destination_fee_reserve_call(
 		XcmPallet::limited_reserve_transfer_assets,
 		expected_result,
@@ -835,11 +801,7 @@ fn reserve_transfer_assets_with_local_asset_reserve_and_destination_fee_reserve_
 /// Test `limited_teleport_assets` with local asset reserve and destination fee reserve disallowed.
 #[test]
 fn teleport_assets_with_local_asset_reserve_and_destination_fee_reserve_disallowed() {
-	let expected_result = Err(DispatchError::Module(ModuleError {
-		index: 4,
-		error: [2, 0, 0, 0],
-		message: Some("Filtered"),
-	}));
+	let expected_result = Err(crate::Error::<Test>::Filtered.into());
 	local_asset_reserve_and_destination_fee_reserve_call(
 		XcmPallet::limited_teleport_assets,
 		expected_result,
@@ -993,11 +955,7 @@ fn reserve_transfer_assets_with_destination_asset_reserve_and_destination_fee_re
 /// disallowed.
 #[test]
 fn teleport_assets_with_destination_asset_reserve_and_destination_fee_reserve_disallowed() {
-	let expected_result = Err(DispatchError::Module(ModuleError {
-		index: 4,
-		error: [2, 0, 0, 0],
-		message: Some("Filtered"),
-	}));
+	let expected_result = Err(crate::Error::<Test>::Filtered.into());
 	destination_asset_reserve_and_destination_fee_reserve_call(
 		XcmPallet::limited_teleport_assets,
 		expected_result,
@@ -1102,11 +1060,7 @@ fn remote_asset_reserve_and_destination_fee_reserve_call_disallowed<Call>(
 /// Test `transfer_assets` with remote asset reserve and destination fee reserve is disallowed.
 #[test]
 fn transfer_assets_with_remote_asset_reserve_and_destination_fee_reserve_disallowed() {
-	let expected_result = Err(DispatchError::Module(ModuleError {
-		index: 4,
-		error: [22, 0, 0, 0],
-		message: Some("InvalidAssetUnsupportedReserve"),
-	}));
+	let expected_result = Err(crate::Error::<Test>::InvalidAssetUnsupportedReserve.into());
 	remote_asset_reserve_and_destination_fee_reserve_call_disallowed(
 		XcmPallet::transfer_assets,
 		expected_result,
@@ -1117,11 +1071,7 @@ fn transfer_assets_with_remote_asset_reserve_and_destination_fee_reserve_disallo
 /// disallowed.
 #[test]
 fn reserve_transfer_assets_with_remote_asset_reserve_and_destination_fee_reserve_disallowed() {
-	let expected_result = Err(DispatchError::Module(ModuleError {
-		index: 4,
-		error: [23, 0, 0, 0],
-		message: Some("TooManyReserves"),
-	}));
+	let expected_result = Err(crate::Error::<Test>::TooManyReserves.into());
 	remote_asset_reserve_and_destination_fee_reserve_call_disallowed(
 		XcmPallet::limited_reserve_transfer_assets,
 		expected_result,
@@ -1132,11 +1082,7 @@ fn reserve_transfer_assets_with_remote_asset_reserve_and_destination_fee_reserve
 /// disallowed.
 #[test]
 fn teleport_assets_with_remote_asset_reserve_and_destination_fee_reserve_disallowed() {
-	let expected_result = Err(DispatchError::Module(ModuleError {
-		index: 4,
-		error: [2, 0, 0, 0],
-		message: Some("Filtered"),
-	}));
+	let expected_result = Err(crate::Error::<Test>::Filtered.into());
 	remote_asset_reserve_and_destination_fee_reserve_call_disallowed(
 		XcmPallet::limited_teleport_assets,
 		expected_result,
@@ -1222,11 +1168,7 @@ fn local_asset_reserve_and_remote_fee_reserve_call_disallowed<Call>(
 /// Test `transfer_assets` with local asset reserve and remote fee reserve is disallowed.
 #[test]
 fn transfer_assets_with_local_asset_reserve_and_remote_fee_reserve_disallowed() {
-	let expected_result = Err(DispatchError::Module(ModuleError {
-		index: 4,
-		error: [22, 0, 0, 0],
-		message: Some("InvalidAssetUnsupportedReserve"),
-	}));
+	let expected_result = Err(crate::Error::<Test>::InvalidAssetUnsupportedReserve.into());
 	local_asset_reserve_and_remote_fee_reserve_call_disallowed(
 		XcmPallet::transfer_assets,
 		expected_result,
@@ -1237,11 +1179,7 @@ fn transfer_assets_with_local_asset_reserve_and_remote_fee_reserve_disallowed() 
 /// disallowed.
 #[test]
 fn reserve_transfer_assets_with_local_asset_reserve_and_remote_fee_reserve_disallowed() {
-	let expected_result = Err(DispatchError::Module(ModuleError {
-		index: 4,
-		error: [23, 0, 0, 0],
-		message: Some("TooManyReserves"),
-	}));
+	let expected_result = Err(crate::Error::<Test>::TooManyReserves.into());
 	local_asset_reserve_and_remote_fee_reserve_call_disallowed(
 		XcmPallet::limited_reserve_transfer_assets,
 		expected_result,
@@ -1251,11 +1189,7 @@ fn reserve_transfer_assets_with_local_asset_reserve_and_remote_fee_reserve_disal
 /// Test `limited_teleport_assets` with local asset reserve and remote fee reserve is disallowed.
 #[test]
 fn teleport_assets_with_local_asset_reserve_and_remote_fee_reserve_disallowed() {
-	let expected_result = Err(DispatchError::Module(ModuleError {
-		index: 4,
-		error: [2, 0, 0, 0],
-		message: Some("Filtered"),
-	}));
+	let expected_result = Err(crate::Error::<Test>::Filtered.into());
 	local_asset_reserve_and_remote_fee_reserve_call_disallowed(
 		XcmPallet::limited_teleport_assets,
 		expected_result,
@@ -1366,11 +1300,7 @@ fn destination_asset_reserve_and_remote_fee_reserve_call_disallowed<Call>(
 /// Test `transfer_assets` with destination asset reserve and remote fee reserve is disallowed.
 #[test]
 fn transfer_assets_with_destination_asset_reserve_and_remote_fee_reserve_disallowed() {
-	let expected_result = Err(DispatchError::Module(ModuleError {
-		index: 4,
-		error: [22, 0, 0, 0],
-		message: Some("InvalidAssetUnsupportedReserve"),
-	}));
+	let expected_result = Err(crate::Error::<Test>::InvalidAssetUnsupportedReserve.into());
 	destination_asset_reserve_and_remote_fee_reserve_call_disallowed(
 		XcmPallet::transfer_assets,
 		expected_result,
@@ -1381,11 +1311,7 @@ fn transfer_assets_with_destination_asset_reserve_and_remote_fee_reserve_disallo
 /// disallowed.
 #[test]
 fn reserve_transfer_assets_with_destination_asset_reserve_and_remote_fee_reserve_disallowed() {
-	let expected_result = Err(DispatchError::Module(ModuleError {
-		index: 4,
-		error: [23, 0, 0, 0],
-		message: Some("TooManyReserves"),
-	}));
+	let expected_result = Err(crate::Error::<Test>::TooManyReserves.into());
 	destination_asset_reserve_and_remote_fee_reserve_call_disallowed(
 		XcmPallet::limited_reserve_transfer_assets,
 		expected_result,
@@ -1396,11 +1322,7 @@ fn reserve_transfer_assets_with_destination_asset_reserve_and_remote_fee_reserve
 /// disallowed.
 #[test]
 fn teleport_assets_with_destination_asset_reserve_and_remote_fee_reserve_disallowed() {
-	let expected_result = Err(DispatchError::Module(ModuleError {
-		index: 4,
-		error: [2, 0, 0, 0],
-		message: Some("Filtered"),
-	}));
+	let expected_result = Err(crate::Error::<Test>::Filtered.into());
 	destination_asset_reserve_and_remote_fee_reserve_call_disallowed(
 		XcmPallet::limited_teleport_assets,
 		expected_result,
@@ -1485,7 +1407,7 @@ fn remote_asset_reserve_and_remote_fee_reserve_call<Call>(
 		assert_eq!(result, expected_result);
 		if expected_result.is_err() {
 			// short-circuit here for tests where we expect failure
-			return
+			return;
 		}
 
 		assert!(matches!(
@@ -1558,11 +1480,7 @@ fn reserve_transfer_assets_with_remote_asset_reserve_and_remote_fee_reserve_work
 /// disallowed.
 #[test]
 fn teleport_assets_with_remote_asset_reserve_and_remote_fee_reserve_disallowed() {
-	let expected_result = Err(DispatchError::Module(ModuleError {
-		index: 4,
-		error: [2, 0, 0, 0],
-		message: Some("Filtered"),
-	}));
+	let expected_result = Err(crate::Error::<Test>::Filtered.into());
 	remote_asset_reserve_and_remote_fee_reserve_call(
 		XcmPallet::limited_teleport_assets,
 		expected_result,
@@ -1702,11 +1620,7 @@ fn transfer_assets_with_local_asset_reserve_and_teleported_fee_works() {
 /// Test `limited_reserve_transfer_assets` with local asset reserve and teleported fee disallowed.
 #[test]
 fn reserve_transfer_assets_with_local_asset_reserve_and_teleported_fee_disallowed() {
-	let expected_result = Err(DispatchError::Module(ModuleError {
-		index: 4,
-		error: [23, 0, 0, 0],
-		message: Some("TooManyReserves"),
-	}));
+	let expected_result = Err(crate::Error::<Test>::TooManyReserves.into());
 	local_asset_reserve_and_teleported_fee_call(
 		XcmPallet::limited_reserve_transfer_assets,
 		expected_result,
@@ -1716,11 +1630,7 @@ fn reserve_transfer_assets_with_local_asset_reserve_and_teleported_fee_disallowe
 /// Test `limited_teleport_assets` with local asset reserve and teleported fee disallowed.
 #[test]
 fn teleport_assets_with_local_asset_reserve_and_teleported_fee_disallowed() {
-	let expected_result = Err(DispatchError::Module(ModuleError {
-		index: 4,
-		error: [2, 0, 0, 0],
-		message: Some("Filtered"),
-	}));
+	let expected_result = Err(crate::Error::<Test>::Filtered.into());
 	local_asset_reserve_and_teleported_fee_call(
 		XcmPallet::limited_teleport_assets,
 		expected_result,
@@ -1802,7 +1712,7 @@ fn destination_asset_reserve_and_teleported_fee_call<Call>(
 		assert_eq!(result, expected_result);
 		if expected_result.is_err() {
 			// short-circuit here for tests where we expect failure
-			return
+			return;
 		}
 
 		let weight = BaseXcmWeight::get() * 4;
@@ -1891,11 +1801,7 @@ fn transfer_assets_with_destination_asset_reserve_and_teleported_fee_works() {
 /// disallowed.
 #[test]
 fn reserve_transfer_assets_with_destination_asset_reserve_and_teleported_fee_disallowed() {
-	let expected_result = Err(DispatchError::Module(ModuleError {
-		index: 4,
-		error: [23, 0, 0, 0],
-		message: Some("TooManyReserves"),
-	}));
+	let expected_result = Err(crate::Error::<Test>::TooManyReserves.into());
 	destination_asset_reserve_and_teleported_fee_call(
 		XcmPallet::limited_reserve_transfer_assets,
 		expected_result,
@@ -1905,11 +1811,7 @@ fn reserve_transfer_assets_with_destination_asset_reserve_and_teleported_fee_dis
 /// Test `limited_teleport_assets` with destination asset reserve and teleported fee disallowed.
 #[test]
 fn teleport_assets_with_destination_asset_reserve_and_teleported_fee_disallowed() {
-	let expected_result = Err(DispatchError::Module(ModuleError {
-		index: 4,
-		error: [2, 0, 0, 0],
-		message: Some("Filtered"),
-	}));
+	let expected_result = Err(crate::Error::<Test>::Filtered.into());
 	destination_asset_reserve_and_teleported_fee_call(
 		XcmPallet::limited_teleport_assets,
 		expected_result,
@@ -2013,11 +1915,7 @@ fn remote_asset_reserve_and_teleported_fee_reserve_call_disallowed<Call>(
 /// Test `transfer_assets` with remote asset reserve and teleported fee is disallowed.
 #[test]
 fn transfer_assets_with_remote_asset_reserve_and_teleported_fee_disallowed() {
-	let expected_result = Err(DispatchError::Module(ModuleError {
-		index: 4,
-		error: [22, 0, 0, 0],
-		message: Some("InvalidAssetUnsupportedReserve"),
-	}));
+	let expected_result = Err(crate::Error::<Test>::InvalidAssetUnsupportedReserve.into());
 	remote_asset_reserve_and_teleported_fee_reserve_call_disallowed(
 		XcmPallet::transfer_assets,
 		expected_result,
@@ -2028,11 +1926,7 @@ fn transfer_assets_with_remote_asset_reserve_and_teleported_fee_disallowed() {
 /// disallowed.
 #[test]
 fn reserve_transfer_assets_with_remote_asset_reserve_and_teleported_fee_disallowed() {
-	let expected_result = Err(DispatchError::Module(ModuleError {
-		index: 4,
-		error: [23, 0, 0, 0],
-		message: Some("TooManyReserves"),
-	}));
+	let expected_result = Err(crate::Error::<Test>::TooManyReserves.into());
 	remote_asset_reserve_and_teleported_fee_reserve_call_disallowed(
 		XcmPallet::limited_reserve_transfer_assets,
 		expected_result,
@@ -2042,11 +1936,7 @@ fn reserve_transfer_assets_with_remote_asset_reserve_and_teleported_fee_disallow
 /// Test `limited_teleport_assets` with remote asset reserve and teleported fee is disallowed.
 #[test]
 fn teleport_assets_with_remote_asset_reserve_and_teleported_fee_disallowed() {
-	let expected_result = Err(DispatchError::Module(ModuleError {
-		index: 4,
-		error: [2, 0, 0, 0],
-		message: Some("Filtered"),
-	}));
+	let expected_result = Err(crate::Error::<Test>::Filtered.into());
 	remote_asset_reserve_and_teleported_fee_reserve_call_disallowed(
 		XcmPallet::limited_teleport_assets,
 		expected_result,
@@ -2088,14 +1978,7 @@ fn reserve_transfer_assets_with_teleportable_asset_disallowed() {
 			fee_index as u32,
 			Unlimited,
 		);
-		assert_eq!(
-			res,
-			Err(DispatchError::Module(ModuleError {
-				index: 4,
-				error: [2, 0, 0, 0],
-				message: Some("Filtered")
-			}))
-		);
+		assert_err!(res, crate::Error::<Test>::Filtered);
 		// Alice native asset is still same
 		assert_eq!(Balances::free_balance(ALICE), INITIAL_BALANCE);
 		// Alice USDT balance is still same
@@ -2136,14 +2019,7 @@ fn transfer_assets_with_filtered_teleported_fee_disallowed() {
 			fee_index as u32,
 			Unlimited,
 		);
-		assert_eq!(
-			result,
-			Err(DispatchError::Module(ModuleError {
-				index: 4,
-				error: [2, 0, 0, 0],
-				message: Some("Filtered")
-			}))
-		);
+		assert_err!(result, crate::Error::<Test>::Filtered);
 	});
 }
 
@@ -2350,11 +2226,7 @@ fn transfer_assets_with_teleportable_asset_and_local_fee_reserve_works() {
 /// Test `limited_reserve_transfer_assets` with teleportable asset and local fee reserve disallowed.
 #[test]
 fn reserve_transfer_assets_with_teleportable_asset_and_local_fee_reserve_disallowed() {
-	let expected_result = Err(DispatchError::Module(ModuleError {
-		index: 4,
-		error: [2, 0, 0, 0],
-		message: Some("Filtered"),
-	}));
+	let expected_result = Err(crate::Error::<Test>::Filtered.into());
 	teleport_asset_using_local_fee_reserve_call(
 		XcmPallet::limited_reserve_transfer_assets,
 		expected_result,
@@ -2364,11 +2236,7 @@ fn reserve_transfer_assets_with_teleportable_asset_and_local_fee_reserve_disallo
 /// Test `limited_teleport_assets` with teleportable asset and local fee reserve disallowed.
 #[test]
 fn teleport_assets_with_teleportable_asset_and_local_fee_reserve_disallowed() {
-	let expected_result = Err(DispatchError::Module(ModuleError {
-		index: 4,
-		error: [2, 0, 0, 0],
-		message: Some("Filtered"),
-	}));
+	let expected_result = Err(crate::Error::<Test>::Filtered.into());
 	teleport_asset_using_local_fee_reserve_call(
 		XcmPallet::limited_teleport_assets,
 		expected_result,
@@ -2541,11 +2409,7 @@ fn transfer_teleported_assets_using_destination_reserve_fee_works() {
 /// disallowed.
 #[test]
 fn reserve_transfer_teleported_assets_using_destination_reserve_fee_disallowed() {
-	let expected_result = Err(DispatchError::Module(ModuleError {
-		index: 4,
-		error: [2, 0, 0, 0],
-		message: Some("Filtered"),
-	}));
+	let expected_result = Err(crate::Error::<Test>::Filtered.into());
 	teleported_asset_using_destination_reserve_fee_call(
 		XcmPallet::limited_reserve_transfer_assets,
 		expected_result,
@@ -2555,11 +2419,7 @@ fn reserve_transfer_teleported_assets_using_destination_reserve_fee_disallowed()
 /// Test `limited_teleport_assets` with teleported asset reserve and destination fee disallowed.
 #[test]
 fn teleport_assets_using_destination_reserve_fee_disallowed() {
-	let expected_result = Err(DispatchError::Module(ModuleError {
-		index: 4,
-		error: [2, 0, 0, 0],
-		message: Some("Filtered"),
-	}));
+	let expected_result = Err(crate::Error::<Test>::Filtered.into());
 	teleported_asset_using_destination_reserve_fee_call(
 		XcmPallet::limited_teleport_assets,
 		expected_result,

@@ -68,8 +68,8 @@ use sc_client_api::{
 use sc_state_db::{IsPruned, LastCanonicalized, StateDb};
 use sp_arithmetic::traits::Saturating;
 use sp_blockchain::{
-	Backend as _, CachedHeaderMetadata, Error as ClientError, HeaderBackend, HeaderMetadata,
-	HeaderMetadataCache, Result as ClientResult,
+	Backend as _, CachedHeaderMetadata, DisplacedLeavesAfterFinalization, Error as ClientError,
+	HeaderBackend, HeaderMetadata, HeaderMetadataCache, Result as ClientResult,
 };
 use sp_core::{
 	offchain::OffchainOverlayedChange,
@@ -745,19 +745,6 @@ impl<Block: BlockT> sc_client_api::blockchain::Backend<Block> for BlockchainDb<B
 
 	fn leaves(&self) -> ClientResult<Vec<Block::Hash>> {
 		Ok(self.leaves.read().hashes())
-	}
-
-	fn displaced_leaves_after_finalizing(
-		&self,
-		block_number: NumberFor<Block>,
-	) -> ClientResult<Vec<Block::Hash>> {
-		Ok(self
-			.leaves
-			.read()
-			.displaced_by_finalize_height(block_number)
-			.leaves()
-			.cloned()
-			.collect::<Vec<_>>())
 	}
 
 	fn children(&self, parent_hash: Block::Hash) -> ClientResult<Vec<Block::Hash>> {
@@ -1813,14 +1800,13 @@ impl<Block: BlockT> Backend<Block> {
 			apply_state_commit(transaction, commit);
 		}
 
-		let new_displaced = self.blockchain.leaves.write().finalize_height(f_num);
-		self.prune_blocks(
-			transaction,
-			f_num,
-			f_hash,
-			&new_displaced,
-			current_transaction_justifications,
-		)?;
+		let new_displaced = self.blockchain.displaced_leaves_after_finalizing(f_hash, f_num)?;
+		let finalization_outcome =
+			FinalizationOutcome::new(new_displaced.displaced_leaves.clone().into_iter());
+
+		self.blockchain.leaves.write().remove_displaced_leaves(&finalization_outcome);
+
+		self.prune_blocks(transaction, f_num, &new_displaced, current_transaction_justifications)?;
 
 		Ok(())
 	}
@@ -1829,8 +1815,7 @@ impl<Block: BlockT> Backend<Block> {
 		&self,
 		transaction: &mut Transaction<DbHash>,
 		finalized_number: NumberFor<Block>,
-		finalized_hash: Block::Hash,
-		displaced: &FinalizationOutcome<Block::Hash, NumberFor<Block>>,
+		displaced: &DisplacedLeavesAfterFinalization<Block>,
 		current_transaction_justifications: &mut HashMap<Block::Hash, Justification>,
 	) -> ClientResult<()> {
 		match self.blocks_pruning {
@@ -1858,10 +1843,10 @@ impl<Block: BlockT> Backend<Block> {
 
 					self.prune_block(transaction, BlockId::<Block>::number(number))?;
 				}
-				self.prune_displaced_branches(transaction, finalized_hash, displaced)?;
+				self.prune_displaced_branches(transaction, displaced)?;
 			},
 			BlocksPruning::KeepFinalized => {
-				self.prune_displaced_branches(transaction, finalized_hash, displaced)?;
+				self.prune_displaced_branches(transaction, displaced)?;
 			},
 		}
 		Ok(())
@@ -1870,21 +1855,13 @@ impl<Block: BlockT> Backend<Block> {
 	fn prune_displaced_branches(
 		&self,
 		transaction: &mut Transaction<DbHash>,
-		finalized: Block::Hash,
-		displaced: &FinalizationOutcome<Block::Hash, NumberFor<Block>>,
+		displaced: &DisplacedLeavesAfterFinalization<Block>,
 	) -> ClientResult<()> {
 		// Discard all blocks from displaced branches
-		for h in displaced.leaves() {
-			match sp_blockchain::tree_route(&self.blockchain, *h, finalized) {
-				Ok(tree_route) =>
-					for r in tree_route.retracted() {
-						self.blockchain.insert_persisted_body_if_pinned(r.hash)?;
-						self.prune_block(transaction, BlockId::<Block>::hash(r.hash))?;
-					},
-				Err(sp_blockchain::Error::UnknownBlock(_)) => {
-					// Sometimes routes can't be calculated. E.g. after warp sync.
-				},
-				Err(e) => Err(e)?,
+		for (_, tree_route) in displaced.tree_routes.iter() {
+			for r in tree_route.retracted() {
+				self.blockchain.insert_persisted_body_if_pinned(r.hash)?;
+				self.prune_block(transaction, BlockId::<Block>::hash(r.hash))?;
 			}
 		}
 		Ok(())
@@ -2570,7 +2547,7 @@ pub(crate) mod tests {
 		backend::{Backend as BTrait, BlockImportOperation as Op},
 		blockchain::Backend as BLBTrait,
 	};
-	use sp_blockchain::{lowest_common_ancestor, tree_route};
+	use sp_blockchain::{lowest_common_ancestor, lowest_common_ancestor_multiblock, tree_route};
 	use sp_core::H256;
 	use sp_runtime::{
 		testing::{Block as RawBlock, ExtrinsicWrapper, Header},
@@ -3132,6 +3109,125 @@ pub(crate) mod tests {
 	}
 
 	#[test]
+	fn lowest_common_ancestors_multiblock_works() {
+		let backend = Backend::<Block>::new_test(1000, 100);
+		let blockchain = backend.blockchain();
+		let block0 = insert_header(&backend, 0, Default::default(), None, Default::default());
+
+		// fork from genesis: 3 prong.
+		// block 0 -> a1 -> a2 -> a3
+		//    |
+		//     -> b1 -> b2 -> c1 -> c2
+		//           |
+		//           -> d1 -> d2
+		let a1 = insert_header(&backend, 1, block0, None, Default::default());
+		let a2 = insert_header(&backend, 2, a1, None, Default::default());
+		let a3 = insert_header(&backend, 3, a2, None, Default::default());
+
+		// fork from genesis: 2 prong.
+		let b1 = insert_header(&backend, 1, block0, None, H256::from([1; 32]));
+		let b2 = insert_header(&backend, 2, b1, None, Default::default());
+
+		// fork from b2.
+		let c1 = insert_header(&backend, 3, b2, None, H256::from([2; 32]));
+		let c2 = insert_header(&backend, 4, c1, None, Default::default());
+
+		// fork from b1.
+		let d1 = insert_header(&backend, 2, b1, None, H256::from([3; 32]));
+		let d2 = insert_header(&backend, 3, d1, None, Default::default());
+		{
+			let lca = lowest_common_ancestor_multiblock(blockchain, vec![a3, b2]).unwrap().unwrap();
+
+			assert_eq!(lca.hash, block0);
+			assert_eq!(lca.number, 0);
+		}
+
+		{
+			let lca = lowest_common_ancestor_multiblock(blockchain, vec![a1, a3]).unwrap().unwrap();
+
+			assert_eq!(lca.hash, a1);
+			assert_eq!(lca.number, 1);
+		}
+
+		{
+			let lca = lowest_common_ancestor_multiblock(blockchain, vec![a3, a1]).unwrap().unwrap();
+
+			assert_eq!(lca.hash, a1);
+			assert_eq!(lca.number, 1);
+		}
+
+		{
+			let lca = lowest_common_ancestor_multiblock(blockchain, vec![a2, a3]).unwrap().unwrap();
+
+			assert_eq!(lca.hash, a2);
+			assert_eq!(lca.number, 2);
+		}
+
+		{
+			let lca = lowest_common_ancestor_multiblock(blockchain, vec![a2, a1]).unwrap().unwrap();
+
+			assert_eq!(lca.hash, a1);
+			assert_eq!(lca.number, 1);
+		}
+
+		{
+			let lca = lowest_common_ancestor_multiblock(blockchain, vec![a2, a2]).unwrap().unwrap();
+
+			assert_eq!(lca.hash, a2);
+			assert_eq!(lca.number, 2);
+		}
+
+		{
+			let lca = lowest_common_ancestor_multiblock(blockchain, vec![a3, d2, c2])
+				.unwrap()
+				.unwrap();
+
+			assert_eq!(lca.hash, block0);
+			assert_eq!(lca.number, 0);
+		}
+
+		{
+			let lca = lowest_common_ancestor_multiblock(blockchain, vec![c2, d2, b2])
+				.unwrap()
+				.unwrap();
+
+			assert_eq!(lca.hash, b1);
+			assert_eq!(lca.number, 1);
+		}
+
+		{
+			let lca = lowest_common_ancestor_multiblock(blockchain, vec![a1, a2, a3])
+				.unwrap()
+				.unwrap();
+
+			assert_eq!(lca.hash, a1);
+			assert_eq!(lca.number, 1);
+		}
+
+		{
+			let lca = lowest_common_ancestor_multiblock(blockchain, vec![b1, b2, d1])
+				.unwrap()
+				.unwrap();
+
+			assert_eq!(lca.hash, b1);
+			assert_eq!(lca.number, 1);
+		}
+
+		{
+			let lca = lowest_common_ancestor_multiblock(blockchain, vec![]);
+
+			assert_eq!(true, matches!(lca, Ok(None)));
+		}
+
+		{
+			let lca = lowest_common_ancestor_multiblock(blockchain, vec![a1]).unwrap().unwrap();
+
+			assert_eq!(lca.hash, a1);
+			assert_eq!(lca.number, 1);
+		}
+	}
+
+	#[test]
 	fn test_tree_route_regression() {
 		// NOTE: this is a test for a regression introduced in #3665, the result
 		// of tree_route would be erroneously computed, since it was taking into
@@ -3190,6 +3286,9 @@ pub(crate) mod tests {
 
 	#[test]
 	fn test_leaves_pruned_on_finality() {
+		//   / 1b - 2b - 3b
+		// 0 - 1a - 2a
+		//   \ 1c
 		let backend: Backend<Block> = Backend::new_test(10, 10);
 		let block0 = insert_header(&backend, 0, Default::default(), None, Default::default());
 
@@ -3201,18 +3300,16 @@ pub(crate) mod tests {
 
 		let block2_a = insert_header(&backend, 2, block1_a, None, Default::default());
 		let block2_b = insert_header(&backend, 2, block1_b, None, Default::default());
-		let block2_c = insert_header(&backend, 2, block1_b, None, [1; 32].into());
 
-		assert_eq!(
-			backend.blockchain().leaves().unwrap(),
-			vec![block2_a, block2_b, block2_c, block1_c]
-		);
+		let block3_b = insert_header(&backend, 3, block2_b, None, [3; 32].into());
+
+		assert_eq!(backend.blockchain().leaves().unwrap(), vec![block3_b, block2_a, block1_c]);
 
 		backend.finalize_block(block1_a, None).unwrap();
 		backend.finalize_block(block2_a, None).unwrap();
 
-		// leaves at same height stay. Leaves at lower heights pruned.
-		assert_eq!(backend.blockchain().leaves().unwrap(), vec![block2_a, block2_b, block2_c]);
+		// All leaves are pruned that are known to not belong to canonical branch
+		assert_eq!(backend.blockchain().leaves().unwrap(), vec![block2_a]);
 	}
 
 	#[test]

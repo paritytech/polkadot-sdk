@@ -28,19 +28,22 @@ use frame_support::{
 	pallet_prelude::*,
 	traits::{
 		Currency, Defensive, DefensiveSaturating, EstimateNextNewSession, Get, Imbalance,
-		InspectLockableCurrency, Len, OnUnbalanced, TryCollect, UnixTime,
+		InspectLockableCurrency, Len, LockableCurrency, OnUnbalanced, TryCollect, UnixTime,
 	},
 	weights::Weight,
 };
 use frame_system::{pallet_prelude::BlockNumberFor, RawOrigin};
 use pallet_session::historical;
 use sp_runtime::{
-	traits::{Bounded, Convert, One, SaturatedConversion, Saturating, StaticLookup, Zero},
-	Perbill, Percent,
+	traits::{
+		Bounded, CheckedAdd, CheckedSub, Convert, One, SaturatedConversion, Saturating,
+		StaticLookup, Zero,
+	},
+	ArithmeticError, Perbill, Percent,
 };
 use sp_staking::{
 	currency_to_vote::CurrencyToVote,
-	offence::{DisableStrategy, OffenceDetails, OnOffenceHandler},
+	offence::{OffenceDetails, OnOffenceHandler},
 	EraIndex, OnStakingUpdate, Page, SessionIndex, Stake,
 	StakingAccount::{self, Controller, Stash},
 	StakingInterface,
@@ -84,10 +87,12 @@ impl<T: Config> Pallet<T> {
 		StakingLedger::<T>::paired_account(Stash(stash.clone()))
 	}
 
-	/// Inspects and returns the corruption state of a ledger and bond, if any.
+	/// Inspects and returns the corruption state of a ledger and direct bond, if any.
 	///
 	/// Note: all operations in this method access directly the `Bonded` and `Ledger` storage maps
 	/// instead of using the [`StakingLedger`] API since the bond and/or ledger may be corrupted.
+	/// It is also meant to check state for direct bonds and may not work as expected for virtual
+	/// bonds.
 	pub(crate) fn inspect_bond_state(
 		stash: &T::AccountId,
 	) -> Result<LedgerIntegrityState, Error<T>> {
@@ -149,6 +154,39 @@ impl<T: Config> Pallet<T> {
 		Self::slashable_balance_of_vote_weight(who, issuance)
 	}
 
+	pub(super) fn do_bond_extra(stash: &T::AccountId, additional: BalanceOf<T>) -> DispatchResult {
+		let mut ledger = Self::ledger(StakingAccount::Stash(stash.clone()))?;
+
+		// for virtual stakers, we don't need to check the balance. Since they are only accessed
+		// via low level apis, we can assume that the caller has done the due diligence.
+		let extra = if Self::is_virtual_staker(stash) {
+			additional
+		} else {
+			// additional amount or actual balance of stash whichever is lower.
+			additional.min(
+				T::Currency::free_balance(stash)
+					.checked_sub(&ledger.total)
+					.ok_or(ArithmeticError::Overflow)?,
+			)
+		};
+
+		ledger.total = ledger.total.checked_add(&extra).ok_or(ArithmeticError::Overflow)?;
+		ledger.active = ledger.active.checked_add(&extra).ok_or(ArithmeticError::Overflow)?;
+		// last check: the new active amount of ledger must be more than ED.
+		ensure!(ledger.active >= T::Currency::minimum_balance(), Error::<T>::InsufficientBond);
+
+		// NOTE: ledger must be updated prior to calling `Self::weight_of`.
+		ledger.update()?;
+		// update this staker in the sorted list, if they exist in it.
+		if T::VoterList::contains(stash) {
+			let _ = T::VoterList::on_update(&stash, Self::weight_of(stash)).defensive();
+		}
+
+		Self::deposit_event(Event::<T>::Bonded { stash: stash.clone(), amount: extra });
+
+		Ok(())
+	}
+
 	pub(super) fn do_withdraw_unbonded(
 		controller: &T::AccountId,
 		num_slashing_spans: u32,
@@ -160,8 +198,9 @@ impl<T: Config> Pallet<T> {
 		}
 		let new_total = ledger.total;
 
+		let ed = T::Currency::minimum_balance();
 		let used_weight =
-			if ledger.unlocking.is_empty() && ledger.active < T::Currency::minimum_balance() {
+			if ledger.unlocking.is_empty() && (ledger.active < ed || ledger.active.is_zero()) {
 				// This account must have called `unbond()` with some value that caused the active
 				// portion to fall below existential deposit + will have no more unlocking chunks
 				// left. We can now safely remove all staking-related information.
@@ -469,10 +508,8 @@ impl<T: Config> Pallet<T> {
 		}
 
 		// disable all offending validators that have been disabled for the whole era
-		for (index, disabled) in <OffendingValidators<T>>::get() {
-			if disabled {
-				T::SessionInterface::disable_validator(index);
-			}
+		for index in <DisabledValidators<T>>::get() {
+			T::SessionInterface::disable_validator(index);
 		}
 	}
 
@@ -562,8 +599,8 @@ impl<T: Config> Pallet<T> {
 			<ErasValidatorReward<T>>::insert(&active_era.index, validator_payout);
 			T::RewardRemainder::on_unbalanced(T::Currency::issue(remainder));
 
-			// Clear offending validators.
-			<OffendingValidators<T>>::kill();
+			// Clear disabled validators.
+			<DisabledValidators<T>>::kill();
 		}
 	}
 
@@ -830,14 +867,6 @@ impl<T: Config> Pallet<T> {
 		log!(info, "Setting force era mode {:?}.", mode);
 		ForceEra::<T>::put(mode);
 		Self::deposit_event(Event::<T>::ForceEra { mode });
-	}
-
-	/// Ensures that at the end of the current session there will be a new era.
-	pub(crate) fn ensure_new_era() {
-		match ForceEra::<T>::get() {
-			Forcing::ForceAlways | Forcing::ForceNew => (),
-			_ => Self::set_force_era(Forcing::ForceNew),
-		}
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
@@ -1152,6 +1181,10 @@ impl<T: Config> Pallet<T> {
 	pub fn api_eras_stakers_page_count(era: EraIndex, account: T::AccountId) -> Page {
 		EraInfo::<T>::get_page_count(era, &account)
 	}
+
+	pub fn api_pending_rewards(era: EraIndex, account: T::AccountId) -> bool {
+		EraInfo::<T>::pending_rewards(era, &account)
+	}
 }
 
 impl<T: Config> ElectionDataProvider for Pallet<T> {
@@ -1406,7 +1439,6 @@ where
 		>],
 		slash_fraction: &[Perbill],
 		slash_session: SessionIndex,
-		disable_strategy: DisableStrategy,
 	) -> Weight {
 		let reward_proportion = SlashRewardFraction::<T>::get();
 		let mut consumed_weight = Weight::from_parts(0, 0);
@@ -1471,7 +1503,6 @@ where
 				window_start,
 				now: active_era,
 				reward_proportion,
-				disable_strategy,
 			});
 
 			Self::deposit_event(Event::<T>::SlashReported {
@@ -1748,6 +1779,23 @@ impl<T: Config> StakingInterface for Pallet<T> {
 			.map(|_| ())
 	}
 
+	fn update_payee(stash: &Self::AccountId, reward_acc: &Self::AccountId) -> DispatchResult {
+		// Since virtual stakers are not allowed to compound their rewards as this pallet does not
+		// manage their locks, we do not allow reward account to be set same as stash. For
+		// external pallets that manage the virtual bond, they can claim rewards and re-bond them.
+		ensure!(
+			!Self::is_virtual_staker(stash) || stash != reward_acc,
+			Error::<T>::RewardDestinationRestricted
+		);
+
+		// since controller is deprecated and this function is never used for old ledgers with
+		// distinct controllers, we can safely assume that stash is the controller.
+		Self::set_payee(
+			RawOrigin::Signed(stash.clone()).into(),
+			RewardDestination::Account(reward_acc.clone()),
+		)
+	}
+
 	fn chill(who: &Self::AccountId) -> DispatchResult {
 		// defensive-only: any account bonded via this interface has the stash set as the
 		// controller, but we have to be sure. Same comment anywhere else that we read this.
@@ -1832,6 +1880,15 @@ impl<T: Config> StakingInterface for Pallet<T> {
 		}
 	}
 
+	/// Whether `who` is a virtual staker whose funds are managed by another pallet.
+	fn is_virtual_staker(who: &T::AccountId) -> bool {
+		VirtualStakers::<T>::contains_key(who)
+	}
+
+	fn slash_reward_fraction() -> Perbill {
+		SlashRewardFraction::<T>::get()
+	}
+
 	sp_staking::runtime_benchmarks_enabled! {
 		fn nominations(who: &Self::AccountId) -> Option<Vec<T::AccountId>> {
 			Nominators::<T>::get(who).map(|n| n.targets.into_inner())
@@ -1860,6 +1917,55 @@ impl<T: Config> StakingInterface for Pallet<T> {
 	}
 }
 
+impl<T: Config> sp_staking::StakingUnchecked for Pallet<T> {
+	fn migrate_to_virtual_staker(who: &Self::AccountId) {
+		T::Currency::remove_lock(crate::STAKING_ID, who);
+		VirtualStakers::<T>::insert(who, ());
+	}
+
+	/// Virtually bonds `keyless_who` to `payee` with `value`.
+	///
+	/// The payee must not be the same as the `keyless_who`.
+	fn virtual_bond(
+		keyless_who: &Self::AccountId,
+		value: Self::Balance,
+		payee: &Self::AccountId,
+	) -> DispatchResult {
+		if StakingLedger::<T>::is_bonded(StakingAccount::Stash(keyless_who.clone())) {
+			return Err(Error::<T>::AlreadyBonded.into())
+		}
+
+		// check if payee not same as who.
+		ensure!(keyless_who != payee, Error::<T>::RewardDestinationRestricted);
+
+		// mark this pallet as consumer of `who`.
+		frame_system::Pallet::<T>::inc_consumers(&keyless_who).map_err(|_| Error::<T>::BadState)?;
+
+		// mark who as a virtual staker.
+		VirtualStakers::<T>::insert(keyless_who, ());
+
+		Self::deposit_event(Event::<T>::Bonded { stash: keyless_who.clone(), amount: value });
+		let ledger = StakingLedger::<T>::new(keyless_who.clone(), value);
+
+		ledger.bond(RewardDestination::Account(payee.clone()))?;
+
+		Ok(())
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn migrate_to_direct_staker(who: &Self::AccountId) {
+		assert!(VirtualStakers::<T>::contains_key(who));
+		let ledger = StakingLedger::<T>::get(Stash(who.clone())).unwrap();
+		T::Currency::set_lock(
+			crate::STAKING_ID,
+			who,
+			ledger.total,
+			frame_support::traits::WithdrawReasons::all(),
+		);
+		VirtualStakers::<T>::remove(who);
+	}
+}
+
 #[cfg(any(test, feature = "try-runtime"))]
 impl<T: Config> Pallet<T> {
 	pub(crate) fn do_try_state(_: BlockNumberFor<T>) -> Result<(), TryRuntimeError> {
@@ -1875,7 +1981,8 @@ impl<T: Config> Pallet<T> {
 		Self::check_nominators()?;
 		Self::check_exposures()?;
 		Self::check_paged_exposures()?;
-		Self::check_count()
+		Self::check_count()?;
+		Self::ensure_disabled_validators_sorted()
 	}
 
 	/// Invariants:
@@ -1980,16 +2087,44 @@ impl<T: Config> Pallet<T> {
 	/// Invariants:
 	/// * Stake consistency: ledger.total == ledger.active + sum(ledger.unlocking).
 	/// * The ledger's controller and stash matches the associated `Bonded` tuple.
-	/// * Staking locked funds for every bonded stash should be the same as its ledger's total.
+	/// * Staking locked funds for every bonded stash (non virtual stakers) should be the same as
+	/// its ledger's total.
+	/// * For virtual stakers, locked funds should be zero and payee should be non-stash account.
 	/// * Staking ledger and bond are not corrupted.
 	fn check_ledgers() -> Result<(), TryRuntimeError> {
 		Bonded::<T>::iter()
 			.map(|(stash, ctrl)| {
 				// ensure locks consistency.
-				ensure!(
-					Self::inspect_bond_state(&stash) == Ok(LedgerIntegrityState::Ok),
-					"bond, ledger and/or staking lock inconsistent for a bonded stash."
-				);
+				if VirtualStakers::<T>::contains_key(stash.clone()) {
+					ensure!(
+						T::Currency::balance_locked(crate::STAKING_ID, &stash) == Zero::zero(),
+						"virtual stakers should not have any locked balance"
+					);
+					ensure!(
+						<Bonded<T>>::get(stash.clone()).unwrap() == stash.clone(),
+						"stash and controller should be same"
+					);
+					ensure!(
+						Ledger::<T>::get(stash.clone()).unwrap().stash == stash,
+						"ledger corrupted for virtual staker"
+					);
+					let reward_destination = <Payee<T>>::get(stash.clone()).unwrap();
+					if let RewardDestination::Account(payee) = reward_destination {
+						ensure!(
+							payee != stash.clone(),
+							"reward destination should not be same as stash for virtual staker"
+						);
+					} else {
+						return Err(DispatchError::Other(
+							"reward destination must be of account variant for virtual staker",
+						));
+					}
+				} else {
+					ensure!(
+						Self::inspect_bond_state(&stash) == Ok(LedgerIntegrityState::Ok),
+						"bond, ledger and/or staking lock inconsistent for a bonded stash."
+					);
+				}
 
 				// ensure ledger consistency.
 				Self::ensure_ledger_consistent(ctrl)
@@ -2159,6 +2294,14 @@ impl<T: Config> Pallet<T> {
 			ledger.unlocking.iter().fold(ledger.active, |a, c| a + c.value);
 		ensure!(real_total == ledger.total, "ledger.total corrupt");
 
+		Ok(())
+	}
+
+	fn ensure_disabled_validators_sorted() -> Result<(), TryRuntimeError> {
+		ensure!(
+			DisabledValidators::<T>::get().windows(2).all(|pair| pair[0] <= pair[1]),
+			"DisabledValidators is not sorted"
+		);
 		Ok(())
 	}
 }

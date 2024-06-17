@@ -35,7 +35,7 @@ use frame_support::{traits::Get, weights::Weight};
 use hash_db::Hasher;
 use scale_info::TypeInfo;
 use sp_runtime::RuntimeDebug;
-use sp_std::{convert::TryFrom, marker::PhantomData, vec::Vec};
+use sp_std::{marker::PhantomData, vec::Vec};
 
 /// Bidirectional message bridge.
 pub trait MessageBridge {

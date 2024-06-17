@@ -29,7 +29,7 @@ use crate::{
 use async_trait::async_trait;
 use backoff::{backoff::Backoff, ExponentialBackoff};
 use futures::{future::Fuse, select, Future, FutureExt};
-use num_traits::Saturating;
+use num_traits::{Saturating, Zero};
 use relay_utils::{
 	metrics::MetricsParams, relay_loop::Client as RelayClient, retry_backoff, FailedClient,
 	HeaderId, MaybeConnectionError, TrackedTransactionStatus, TransactionTracker,
@@ -38,6 +38,17 @@ use std::{
 	fmt::Debug,
 	time::{Duration, Instant},
 };
+
+/// Type of headers that we relay.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum HeadersToRelay {
+	/// Relay all headers.
+	All,
+	/// Relay only mandatory headers.
+	Mandatory,
+	/// Relay only free (including mandatory) headers.
+	Free,
+}
 
 /// Finality proof synchronization loop parameters.
 #[derive(Debug, Clone)]
@@ -63,7 +74,7 @@ pub struct FinalitySyncParams {
 	/// Timeout before we treat our transactions as lost and restart the whole sync process.
 	pub stall_timeout: Duration,
 	/// If true, only mandatory headers are relayed.
-	pub only_mandatory_headers: bool,
+	pub headers_to_relay: HeadersToRelay,
 }
 
 /// Source client used in finality synchronization loop.
@@ -90,11 +101,16 @@ pub trait TargetClient<P: FinalitySyncPipeline>: RelayClient {
 		&self,
 	) -> Result<HeaderId<P::Hash, P::Number>, Self::Error>;
 
+	/// Get free source headers submission interval, if it is configured in the
+	/// target runtime.
+	async fn free_source_headers_interval(&self) -> Result<Option<P::Number>, Self::Error>;
+
 	/// Submit header finality proof.
 	async fn submit_finality_proof(
 		&self,
 		header: P::Header,
 		proof: P::FinalityProof,
+		is_free_execution_expected: bool,
 	) -> Result<Self::TransactionTracker, Self::Error>;
 }
 
@@ -104,9 +120,13 @@ pub fn metrics_prefix<P: FinalitySyncPipeline>() -> String {
 	format!("{}_to_{}_Sync", P::SOURCE_NAME, P::TARGET_NAME)
 }
 
+/// Finality sync information.
 pub struct SyncInfo<P: FinalitySyncPipeline> {
+	/// Best finalized header at the source client.
 	pub best_number_at_source: P::Number,
+	/// Best source header, known to the target client.
 	pub best_number_at_target: P::Number,
+	/// Whether the target client follows the same fork as the source client do.
 	pub is_using_same_fork: bool,
 }
 
@@ -183,6 +203,7 @@ impl<Tracker: TransactionTracker, Number: Debug + PartialOrd> Transaction<Tracke
 		target_client: &TC,
 		header: P::Header,
 		justification: P::FinalityProof,
+		is_free_execution_expected: bool,
 	) -> Result<Self, TC::Error> {
 		let header_number = header.number();
 		log::debug!(
@@ -193,7 +214,9 @@ impl<Tracker: TransactionTracker, Number: Debug + PartialOrd> Transaction<Tracke
 			P::TARGET_NAME,
 		);
 
-		let tracker = target_client.submit_finality_proof(header, justification).await?;
+		let tracker = target_client
+			.submit_finality_proof(header, justification, is_free_execution_expected)
+			.await?;
 		Ok(Transaction { tracker, header_number })
 	}
 
@@ -292,6 +315,7 @@ impl<P: FinalitySyncPipeline, SC: SourceClient<P>, TC: TargetClient<P>> Finality
 	pub async fn select_header_to_submit(
 		&mut self,
 		info: &SyncInfo<P>,
+		free_headers_interval: Option<P::Number>,
 	) -> Result<Option<JustifiedHeader<P>>, Error<P, SC::Error, TC::Error>> {
 		// to see that the loop is progressing
 		log::trace!(
@@ -302,9 +326,15 @@ impl<P: FinalitySyncPipeline, SC: SourceClient<P>, TC: TargetClient<P>> Finality
 		);
 
 		// read missing headers
-		let selector = JustifiedHeaderSelector::new::<SC, TC>(&self.source_client, info).await?;
+		let selector = JustifiedHeaderSelector::new::<SC, TC>(
+			&self.source_client,
+			info,
+			self.sync_params.headers_to_relay,
+			free_headers_interval,
+		)
+		.await?;
 		// if we see that the header schedules GRANDPA change, we need to submit it
-		if self.sync_params.only_mandatory_headers {
+		if self.sync_params.headers_to_relay == HeadersToRelay::Mandatory {
 			return Ok(selector.select_mandatory())
 		}
 
@@ -312,7 +342,12 @@ impl<P: FinalitySyncPipeline, SC: SourceClient<P>, TC: TargetClient<P>> Finality
 		// => even if we have already selected some header and its persistent finality proof,
 		// we may try to select better header by reading non-persistent proofs from the stream
 		self.finality_proofs_buf.fill(&mut self.finality_proofs_stream);
-		let maybe_justified_header = selector.select(&self.finality_proofs_buf);
+		let maybe_justified_header = selector.select(
+			info,
+			self.sync_params.headers_to_relay,
+			free_headers_interval,
+			&self.finality_proofs_buf,
+		);
 
 		// remove obsolete 'recent' finality proofs + keep its size under certain limit
 		let oldest_finality_proof_to_keep = maybe_justified_header
@@ -329,6 +364,7 @@ impl<P: FinalitySyncPipeline, SC: SourceClient<P>, TC: TargetClient<P>> Finality
 
 	pub async fn run_iteration(
 		&mut self,
+		free_headers_interval: Option<P::Number>,
 	) -> Result<
 		Option<Transaction<TC::TransactionTracker, P::Number>>,
 		Error<P, SC::Error, TC::Error>,
@@ -345,12 +381,16 @@ impl<P: FinalitySyncPipeline, SC: SourceClient<P>, TC: TargetClient<P>> Finality
 		}
 
 		// submit new header if we have something new
-		match self.select_header_to_submit(&info).await? {
+		match self.select_header_to_submit(&info, free_headers_interval).await? {
 			Some(header) => {
-				let transaction =
-					Transaction::submit(&self.target_client, header.header, header.proof)
-						.await
-						.map_err(Error::Target)?;
+				let transaction = Transaction::submit(
+					&self.target_client,
+					header.header,
+					header.proof,
+					self.sync_params.headers_to_relay == HeadersToRelay::Free,
+				)
+				.await
+				.map_err(Error::Target)?;
 				self.best_submitted_number = Some(transaction.header_number);
 				Ok(Some(transaction))
 			},
@@ -378,9 +418,11 @@ impl<P: FinalitySyncPipeline, SC: SourceClient<P>, TC: TargetClient<P>> Finality
 		let exit_signal = exit_signal.fuse();
 		futures::pin_mut!(exit_signal, proof_submission_tx_tracker);
 
+		let free_headers_interval = free_headers_interval(&self.target_client).await?;
+
 		loop {
 			// run loop iteration
-			let next_tick = match self.run_iteration().await {
+			let next_tick = match self.run_iteration(free_headers_interval).await {
 				Ok(Some(tx)) => {
 					proof_submission_tx_tracker
 						.set(tx.track::<P, SC, _>(self.target_client.clone()).fuse());
@@ -430,6 +472,52 @@ impl<P: FinalitySyncPipeline, SC: SourceClient<P>, TC: TargetClient<P>> Finality
 	) -> Result<(), FailedClient> {
 		let mut finality_loop = Self::new(source_client, target_client, sync_params, metrics_sync);
 		finality_loop.run_until_connection_lost(exit_signal).await
+	}
+}
+
+async fn free_headers_interval<P: FinalitySyncPipeline>(
+	target_client: &impl TargetClient<P>,
+) -> Result<Option<P::Number>, FailedClient> {
+	match target_client.free_source_headers_interval().await {
+		Ok(Some(free_headers_interval)) if !free_headers_interval.is_zero() => {
+			log::trace!(
+				target: "bridge",
+				"Free headers interval for {} headers at {} is: {:?}",
+				P::SOURCE_NAME,
+				P::TARGET_NAME,
+				free_headers_interval,
+			);
+			Ok(Some(free_headers_interval))
+		},
+		Ok(Some(_free_headers_interval)) => {
+			log::trace!(
+				target: "bridge",
+				"Free headers interval for {} headers at {} is zero. Not submitting any free headers",
+				P::SOURCE_NAME,
+				P::TARGET_NAME,
+			);
+			Ok(None)
+		},
+		Ok(None) => {
+			log::trace!(
+				target: "bridge",
+				"Free headers interval for {} headers at {} is None. Not submitting any free headers",
+				P::SOURCE_NAME,
+				P::TARGET_NAME,
+			);
+
+			Ok(None)
+		},
+		Err(e) => {
+			log::error!(
+				target: "bridge",
+				"Failed to read free headers interval for {} headers at {}: {:?}",
+				P::SOURCE_NAME,
+				P::TARGET_NAME,
+				e,
+			);
+			Err(FailedClient::Target)
+		},
 	}
 }
 
@@ -509,7 +597,7 @@ mod tests {
 			tick: Duration::from_secs(0),
 			recent_finality_proofs_limit: 1024,
 			stall_timeout: Duration::from_secs(1),
-			only_mandatory_headers: false,
+			headers_to_relay: HeadersToRelay::All,
 		}
 	}
 
@@ -593,8 +681,8 @@ mod tests {
 		);
 	}
 
-	fn run_only_mandatory_headers_mode_test(
-		only_mandatory_headers: bool,
+	fn run_headers_to_relay_mode_test(
+		headers_to_relay: HeadersToRelay,
 		has_mandatory_headers: bool,
 	) -> Option<JustifiedHeader<TestFinalitySyncPipeline>> {
 		let (exit_sender, _) = futures::channel::mpsc::unbounded();
@@ -619,7 +707,7 @@ mod tests {
 					tick: Duration::from_secs(0),
 					recent_finality_proofs_limit: 0,
 					stall_timeout: Duration::from_secs(0),
-					only_mandatory_headers,
+					headers_to_relay,
 				},
 				None,
 			);
@@ -628,16 +716,22 @@ mod tests {
 				best_number_at_target: 5,
 				is_using_same_fork: true,
 			};
-			finality_loop.select_header_to_submit(&info).await.unwrap()
+			finality_loop.select_header_to_submit(&info, Some(3)).await.unwrap()
 		})
 	}
 
 	#[test]
-	fn select_header_to_submit_skips_non_mandatory_headers_when_only_mandatory_headers_are_required(
-	) {
-		assert_eq!(run_only_mandatory_headers_mode_test(true, false), None);
+	fn select_header_to_submit_may_select_non_mandatory_header() {
+		assert_eq!(run_headers_to_relay_mode_test(HeadersToRelay::Mandatory, false), None);
 		assert_eq!(
-			run_only_mandatory_headers_mode_test(false, false),
+			run_headers_to_relay_mode_test(HeadersToRelay::Free, false),
+			Some(JustifiedHeader {
+				header: TestSourceHeader(false, 10, 10),
+				proof: TestFinalityProof(10)
+			}),
+		);
+		assert_eq!(
+			run_headers_to_relay_mode_test(HeadersToRelay::All, false),
 			Some(JustifiedHeader {
 				header: TestSourceHeader(false, 10, 10),
 				proof: TestFinalityProof(10)
@@ -646,17 +740,23 @@ mod tests {
 	}
 
 	#[test]
-	fn select_header_to_submit_selects_mandatory_headers_when_only_mandatory_headers_are_required()
-	{
+	fn select_header_to_submit_may_select_mandatory_header() {
 		assert_eq!(
-			run_only_mandatory_headers_mode_test(true, true),
+			run_headers_to_relay_mode_test(HeadersToRelay::Mandatory, true),
 			Some(JustifiedHeader {
 				header: TestSourceHeader(true, 8, 8),
 				proof: TestFinalityProof(8)
 			}),
 		);
 		assert_eq!(
-			run_only_mandatory_headers_mode_test(false, true),
+			run_headers_to_relay_mode_test(HeadersToRelay::Free, true),
+			Some(JustifiedHeader {
+				header: TestSourceHeader(true, 8, 8),
+				proof: TestFinalityProof(8)
+			}),
+		);
+		assert_eq!(
+			run_headers_to_relay_mode_test(HeadersToRelay::All, true),
 			Some(JustifiedHeader {
 				header: TestSourceHeader(true, 8, 8),
 				proof: TestFinalityProof(8)
@@ -690,7 +790,7 @@ mod tests {
 				test_sync_params(),
 				Some(metrics_sync.clone()),
 			);
-			finality_loop.run_iteration().await.unwrap()
+			finality_loop.run_iteration(None).await.unwrap()
 		});
 
 		assert!(!metrics_sync.is_using_same_fork());

@@ -2,7 +2,7 @@
 name = "pallet-collective-content"
 version = "0.6.0"
 authors = ["Parity Technologies <admin@parity.io>"]
-edition = "2021"
+edition.workspace = true
 description = "Managed content"
 license = "Apache-2.0"
 
@@ -10,7 +10,7 @@ license = "Apache-2.0"
 workspace = true
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive", "max-encoded-len"] }
+codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false, features = ["derive", "max-encoded-len"] }
 scale-info = { version = "2.11.1", default-features = false, features = ["derive"] }
 
 frame-benchmarking = { path = "../../../../substrate/frame/benchmarking", default-features = false, optional = true }

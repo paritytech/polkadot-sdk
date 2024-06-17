@@ -32,11 +32,11 @@ use relay_substrate_client::{
 use relay_utils::metrics::{MetricsParams, StandaloneMetric};
 use sp_core::storage::StorageData;
 use sp_runtime::{FixedPointNumber, FixedU128};
-use std::{convert::TryFrom, fmt::Debug, marker::PhantomData};
+use std::{fmt::Debug, marker::PhantomData};
 
 /// Add relay accounts balance metrics.
 pub async fn add_relay_balances_metrics<C: ChainWithBalances, BC: ChainWithMessages>(
-	client: Client<C>,
+	client: impl Client<C>,
 	metrics: &MetricsParams,
 	relay_accounts: &Vec<TaggedAccount<AccountIdOf<C>>>,
 	lanes: &[LaneId],

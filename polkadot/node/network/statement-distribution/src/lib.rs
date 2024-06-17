@@ -19,7 +19,6 @@
 //! This is responsible for distributing signed statements about candidate
 //! validity among validators.
 
-#![deny(unused_crate_dependencies)]
 #![warn(missing_docs)]
 
 use error::{log_error, FatalResult};
@@ -207,6 +206,7 @@ impl<R: rand::Rng> StatementDistributionSubsystem<R> {
 			v2::respond_task(
 				self.req_receiver.take().expect("Mandatory argument to new. qed"),
 				res_sender.clone(),
+				self.metrics.clone(),
 			)
 			.boxed(),
 		)
