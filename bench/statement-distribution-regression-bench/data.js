@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1718601446520,
+  "lastUpdate": 1718631275236,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
@@ -2225,6 +2225,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.04624845210399999,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Ankan",
+            "username": "Ank4n",
+            "email": "10196091+Ank4n@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "d91cbbd453c1d4553d7e3dc8753a2007fc4c5a67",
+          "message": "Impl and use default config for pallet-staking in tests (#4797)",
+          "timestamp": "2024-06-17T12:35:15Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/d91cbbd453c1d4553d7e3dc8753a2007fc4c5a67"
+        },
+        "date": 1718631246335,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.40199999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 127.93599999999995,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.037332102544,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.04715301060799998,
             "unit": "seconds"
           }
         ]
