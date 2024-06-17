@@ -523,7 +523,7 @@ impl<Hash: hash::Hash + Member, Ex> BestIterator<Hash, Ex> {
 		if let Some(to_report) = self.all.get(&tx.hash) {
 			debug!(
 				target: LOG_TARGET,
-				"[{:?}] Reported as invalid. Will skip sub-chains while iterating.",
+				"[{:?}] best-iterator: Reported as invalid. Will skip sub-chains while iterating.",
 				to_report.transaction.transaction.hash
 			);
 			for hash in &to_report.unlocks {

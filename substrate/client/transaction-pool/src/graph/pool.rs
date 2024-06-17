@@ -360,7 +360,7 @@ impl<B: ChainApi> Pool<B> {
 		let pruned_hashes = reverified_transactions.keys().map(Clone::clone).collect();
 
 		log::debug!(target: LOG_TARGET, "Pruning at {:?}. Resubmitting transactions: {}", &at, reverified_transactions.len());
-		log_xt_debug!(data: tuple, target: LOG_TARGET, &reverified_transactions, "[{:?}]  Resubmitting transaction: {:?}");
+		log_xt_debug!(data: tuple, target: LOG_TARGET, &reverified_transactions, "[{:?}] Resubmitting transaction: {:?}");
 
 		// And finally - submit reverified transactions back to the pool
 		self.validated_pool.resubmit_pruned(
@@ -412,17 +412,11 @@ impl<B: ChainApi> Pool<B> {
 			return (hash, ValidatedTransaction::Invalid(hash, err))
 		}
 
-		let s = std::time::Instant::now();
 		let validation_result = self
 			.validated_pool
 			.api()
 			.validate_transaction(block_hash, source, xt.clone())
 			.await;
-		log::debug!(
-			"[{hash:?}] verify_one: validate_transaction:{:?} elapsed:{:?}",
-			validation_result,
-			s.elapsed()
-		);
 
 		let status = match validation_result {
 			Ok(status) => status,

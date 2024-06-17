@@ -28,7 +28,7 @@ use sp_runtime::traits::Block as BlockT;
 use super::fork_aware_txpool::TxMemPool;
 use futures::prelude::*;
 
-const LOG_TARGET: &str = "txpool::v-revalidation";
+const LOG_TARGET: &str = "txpool";
 
 // /// Payload from queue to worker.
 // struct WorkerPayload<Api: ChainApi> {

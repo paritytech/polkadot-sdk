@@ -420,9 +420,10 @@ where
 			res = t1 => Some(res),
 			_ = t2 => {
 				warn!(target: LOG_TARGET,
-					"Timeout fired waiting for transaction pool at block #{}. \
+					"Timeout fired waiting for transaction pool at block #{} ({:?}). \
 					Proceeding with production.",
 					self.parent_number,
+					self.parent_hash,
 				);
 				//todo: unwrap
 				self.transaction_pool.ready(self.parent_hash)
@@ -525,7 +526,7 @@ where
 					pending_iterator.report_invalid(&pending_tx);
 					debug!(
 						target: LOG_TARGET,
-						"[{:?}] Invalid transaction: {}", pending_tx_hash, e
+						"[{:?}] Invalid transaction: {} at: {}", pending_tx_hash, e, self.parent_hash
 					);
 					unqueue_invalid.push(pending_tx_hash);
 				},

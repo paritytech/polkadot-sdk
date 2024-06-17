@@ -94,8 +94,6 @@ async fn batch_revalidate<Api: ChainApi>(
 	}))
 	.await;
 
-	log::info!("revalidate: {:#?}", validation_results);
-
 	for (validation_result, ext_hash, ext) in validation_results {
 		match validation_result {
 			Ok(Err(TransactionValidityError::Invalid(err))) => {
@@ -253,10 +251,6 @@ impl<Api: ChainApi> RevalidationWorker<Api> {
 				_ = (&mut interval_fut).fuse() => {
 					let next_batch = this.prepare_batch();
 					let batch_len = next_batch.len();
-						log::debug!(
-							target: LOG_TARGET,
-							"revalidation -- interval.",
-						);
 
 					batch_revalidate(this.pool.clone(), this.api.clone(), this.best_block, next_batch).await;
 

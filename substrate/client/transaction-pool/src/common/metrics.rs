@@ -22,6 +22,8 @@ use std::sync::Arc;
 
 use prometheus_endpoint::{register, Counter, PrometheusError, Registry, U64};
 
+use crate::LOG_TARGET;
+
 #[derive(Clone, Default)]
 pub struct MetricsLink(Arc<Option<Metrics>>);
 
@@ -30,7 +32,7 @@ impl MetricsLink {
 		Self(Arc::new(registry.and_then(|registry| {
 			Metrics::register(registry)
 				.map_err(|err| {
-					log::warn!("Failed to register prometheus metrics: {}", err);
+					log::warn!(target: LOG_TARGET, "Failed to register prometheus metrics: {}", err);
 				})
 				.ok()
 		})))

@@ -113,7 +113,7 @@ pub struct ValidatedPool<B: ChainApi> {
 
 //todo: cleanup this
 fn xxxx_is_validator() -> bool {
-	log::error!("xxx: is_validator: todo!!");
+	log::error!(target:LOG_TARGET, "xxx: is_validator: todo!!");
 	false
 }
 
@@ -210,7 +210,7 @@ impl<B: ChainApi> ValidatedPool<B> {
 	fn submit_one(&self, tx: ValidatedTransactionFor<B>) -> Result<ExtrinsicHash<B>, B::Error> {
 		match tx {
 			ValidatedTransaction::Valid(tx) => {
-				log::debug!(target: LOG_TARGET, "[{:?}] ValidatedPool::submit_at", tx.hash);
+				log::debug!(target: LOG_TARGET, "[{:?}] ValidatedPool::submit_one", tx.hash);
 				if !tx.propagate && !(self.is_validator.0)() {
 					return Err(error::Error::Unactionable.into())
 				}
@@ -240,12 +240,12 @@ impl<B: ChainApi> ValidatedPool<B> {
 				Ok(*imported.hash())
 			},
 			ValidatedTransaction::Invalid(hash, err) => {
-				log::debug!(target: LOG_TARGET, "[{:?}] ValidatedPool::submit_at invalid", hash);
+				log::debug!(target: LOG_TARGET, "[{:?}] ValidatedPool::submit_one invalid: {:?}", hash, err);
 				self.rotator.ban(&Instant::now(), std::iter::once(hash));
 				Err(err)
 			},
 			ValidatedTransaction::Unknown(hash, err) => {
-				log::debug!(target: LOG_TARGET, "[{:?}] ValidatedPool::submit_at unknown", hash);
+				log::debug!(target: LOG_TARGET, "[{:?}] ValidatedPool::submit_one unknown {:?}", hash, err);
 				self.listener.write().invalid(&hash);
 				Err(err)
 			},

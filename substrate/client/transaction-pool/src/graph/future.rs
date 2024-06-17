@@ -172,7 +172,6 @@ impl<Hash: hash::Hash + Eq + Clone + std::fmt::Debug, Ex: std::fmt::Debug>
 	///
 	/// Returns list of removed transactions.
 	pub fn prune_tags(&mut self, tags: &Vec<Tag>) -> Vec<Arc<Transaction<Hash, Ex>>> {
-		// let mut pruned = vec![];
 		let pruned = self
 			.waiting
 			.values()
