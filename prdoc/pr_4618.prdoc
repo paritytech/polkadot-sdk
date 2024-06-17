@@ -14,6 +14,6 @@ doc:
 
 crates:
   - name: cumulus-client-consensus-aura
-    bump: patch
+    bump: minor
   - name: sc-service
     bump: minor
