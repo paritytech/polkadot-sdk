@@ -395,7 +395,7 @@ pub mod pallet {
 		///
 		/// `who` must already be tracked by this pallet for this to have an effect.
 		///
-		/// - `origin`: An origin which satisfies `ApproveOrigin` or root.
+		/// - `origin`: An origin which  satisfies `ApproveOrigin` or root.
 		/// - `who`: A member (i.e. of non-zero rank).
 		/// - `at_rank`: The rank of member.
 		#[pallet::weight(T::WeightInfo::approve())]

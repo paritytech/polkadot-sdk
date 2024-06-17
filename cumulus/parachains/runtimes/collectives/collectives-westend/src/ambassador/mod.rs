@@ -117,6 +117,7 @@ impl pallet_ranked_collective::Config<AmbassadorCollectiveInstance> for Runtime 
 	type MinRankOfClass = sp_runtime::traits::Identity;
 	type MemberSwappedHandler = (crate::AmbassadorCore, crate::AmbassadorSalary);
 	type VoteWeight = pallet_ranked_collective::Linear;
+	type MaxMemberCount = ();
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkSetup = (crate::AmbassadorCore, crate::AmbassadorSalary);
 }
