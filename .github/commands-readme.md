@@ -12,6 +12,7 @@ The current available command actions are:
 - [Command Update UI](https://github.com/paritytech/polkadot-sdk/actions/workflows/command-update-ui.yml)
 - [Command Sync](https://github.com/paritytech/polkadot-sdk/actions/workflows/command-sync.yml)
 - [Command Bench](https://github.com/paritytech/polkadot-sdk/actions/workflows/command-bench.yml)
+- [Command Bench All](https://github.com/paritytech/polkadot-sdk/actions/workflows/command-bench-all.yml)
 
 **WIP**: Need more actions.
 
