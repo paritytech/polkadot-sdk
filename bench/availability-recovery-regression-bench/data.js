@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1718643752904,
+  "lastUpdate": 1718656602254,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
@@ -11591,6 +11591,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 12.785578088266668,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Florian Franzen",
+            "username": "FlorianFranzen",
+            "email": "Florian.Franzen@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "5055294521021c0ffa1c449d6793ec9d264e5bd5",
+          "message": "node-inspect: do not depend on rocksdb (#4783)\n\nThe crate `sc-cli` otherwise enables the `rocksdb` feature.",
+          "timestamp": "2024-06-17T18:47:36Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/5055294521021c0ffa1c449d6793ec9d264e5bd5"
+        },
+        "date": 1718656573552,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 12.650665220233336,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.17088862596666665,
             "unit": "seconds"
           }
         ]
