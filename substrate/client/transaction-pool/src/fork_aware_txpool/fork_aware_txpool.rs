@@ -1525,7 +1525,7 @@ where
 				// });
 			}
 
-			let x = view
+			let _ = view
 				.pool
 				.resubmit_at(
 					&hash_and_number,
@@ -1535,7 +1535,6 @@ where
 					resubmit_transactions,
 				)
 				.await;
-			log::trace!(target: LOG_TARGET, "retracted resubmit: {:#?}", x);
 		}
 	}
 
