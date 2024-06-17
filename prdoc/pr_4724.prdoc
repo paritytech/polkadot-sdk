@@ -17,6 +17,6 @@ crates:
   - name: polkadot-statement-distribution
     bump: minor
   - name: polkadot-node-subsystem-util
-    bump: patch
+    bump: minor
   - name: polkadot-runtime-parachains
     bump: none
