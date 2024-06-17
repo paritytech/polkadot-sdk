@@ -41,7 +41,7 @@
 //!
 //! Add log statements to your pallet as such:
 //!
-//! First, add the log crate to the `Cargo.toml` of the pallet.
+//! You can add the log crate to the `Cargo.toml` of the pallet.
 //!
 //! ```text
 //! #[dependencies]
@@ -53,6 +53,8 @@
 //! 	"log/std"
 //! ]
 //! ```
+//! 
+//! More conveniently, both `frame` and `frame_support` re-exeport the log crate as [`frame::log`] and [`frame_support::log`].
 //!
 //! Then, the pallet can use this crate to emit log statements. In this statement, we use the info
 //! level, and the target is `pallet-example`.
@@ -63,7 +65,7 @@
 //!
 //! 	impl Pallet {
 //! 		fn logs() {
-//! 			log::info!(target: "pallet-example", "Hello, world!");
+//! 			frame::log::info!(target: "pallet-example", "Hello, world!");
 //! 		}
 //! 	}
 //! }
