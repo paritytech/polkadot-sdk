@@ -199,6 +199,7 @@ impl pallet_assets::Config for Runtime {
 	type MetadataDepositPerByte = ConstU64<0>;
 	type ApprovalDeposit = ConstU64<0>;
 	type StringLimit = ConstU32<20>;
+	type Holder = ();
 	type Freezer = ();
 	type Extra = ();
 	type CallbackHandle = ();
@@ -224,6 +225,7 @@ impl pallet_assets::Config<Instance2> for Runtime {
 	type MetadataDepositPerByte = ConstU64<0>;
 	type ApprovalDeposit = ConstU64<0>;
 	type StringLimit = ConstU32<50>;
+	type Holder = ();
 	type Freezer = ();
 	type Extra = ();
 	type WeightInfo = ();
