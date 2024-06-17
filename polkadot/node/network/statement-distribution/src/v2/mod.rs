@@ -741,7 +741,7 @@ fn find_active_validator_state(
 
 	let core_index = group_rotation_info.core_for_group(our_group, availability_cores.len());
 	let paras_assigned_to_core = if let Some(claim_queue) = maybe_claim_queue {
-		claim_queue.iter_claims_for_core(&core_index).into_iter().collect()
+		claim_queue.iter_claims_for_core(&core_index).copied().collect()
 	} else {
 		availability_cores
 			.get(core_index.0 as usize)
