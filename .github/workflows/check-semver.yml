@@ -5,6 +5,11 @@ on:
     types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - prdoc/*.prdoc
+  workflow_dispatch:
+
+concurrency:
+  group: check-semver-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   check-semver:
@@ -22,11 +27,10 @@ jobs:
       - name: Rust compilation prerequisites
         run: |
           rustup default nightly-2024-03-01
-          rustup target add wasm32-unknown-unknown --toolchain nightly-2024-03-01
           rustup component add rust-src --toolchain nightly-2024-03-01
 
       - name: install parity-publish
-        run: cargo install parity-publish@0.5.1
+        run: CARGO_TARGET_DIR=./target/ cargo install parity-publish -q --git https://github.com/paritytech/parity-publish --branch oty-max-allowed-bump
 
       - name: extra git setup
         run: |
@@ -34,12 +38,35 @@ jobs:
           git fetch --no-tags --no-recurse-submodules --depth=1 origin master
           git branch old origin/master
 
+      - name: Comment If Backport
+        if: github.event.pull_request.base.ref == 'stable'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          echo "This is a backport into stable."
+
+          wget -q https://github.com/cli/cli/releases/download/v2.51.0/gh_2.51.0_linux_amd64.tar.gz -O gh.tar.gz && \
+          tar -xzf gh.tar.gz && mv gh_2.51.0_linux_amd64/bin/gh /usr/local/bin/gh && rm gh.tar.gz
+          chmod +x /usr/local/bin/gh
+
+            cat > msg.txt <<EOF
+          This is treated as a backport since it targets the 'stable' branch. Please proceed with caution to not impact teams that rely on the stability of our current release. Some things to consider:
+          - Must only declare 'patch' or 'minor' changes in its PrDoc.
+          - Should be a legit *fix* for some  bug, not add tons of new features.
+          - Must either be audited or trivial.
+          EOF
+          gh issue comment $PR --edit-last -F msg.txt || gh issue comment $PR -F msg.txt
+
+          echo "PRDOC_EXTRA_ARGS=--max-allowed-bump minor" >> $GITHUB_ENV
+
       - name: check semver
         run: |
           export CARGO_TARGET_DIR=target
           export RUSTFLAGS='-A warnings -A missing_docs'
           export SKIP_WASM_BUILD=1
-          if ! parity-publish --color always prdoc --since old --validate prdoc/pr_$PR.prdoc --toolchain nightly-2024-03-01 -v; then
+
+          if ! parity-publish --color always prdoc --since old --validate prdoc/pr_$PR.prdoc --toolchain nightly-2024-03-01 $PRDOC_EXTRA_ARGS -v; then
             cat <<EOF
           👋 Hello developer! The SemVer information that you declared in the prdoc file did not match what the CI detected.
 
@@ -54,3 +81,4 @@ jobs:
           fi
         env:
           PR: ${{ github.event.pull_request.number }}
+          PRDOC_EXTRA_ARGS: ${{ env.PRDOC_EXTRA_ARGS }}
