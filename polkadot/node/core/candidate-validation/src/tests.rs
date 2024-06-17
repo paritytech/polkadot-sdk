@@ -1075,6 +1075,10 @@ impl ValidationBackend for MockPreCheckBackend {
 	async fn precheck_pvf(&mut self, _pvf: PvfPrepData) -> Result<(), PrepareError> {
 		self.result.clone()
 	}
+
+	async fn heads_up(&mut self, active_pvfs: Vec<PvfPrepData>) -> Result<(), String> {
+		unreachable!()
+	}
 }
 
 #[test]

@@ -397,7 +397,18 @@ async fn handle_update<Sender>(
 								}
 							}
 
-							validation_backend.heads_up(active_pvfs);
+							match validation_backend.heads_up(active_pvfs).await {
+								Ok(_) => return,
+								Err(err) => {
+									gum::warn!(
+										target: LOG_TARGET,
+										relay_parent = ?leaf.hash,
+										?err,
+										"cannot prepare",
+									);
+									return
+								},
+							};
 						} else {
 							gum::warn!(
 								target: LOG_TARGET,
