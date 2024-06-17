@@ -17,7 +17,13 @@
 
 use crate::VoterBagsListInstance;
 use frame_election_provider_support::VoteWeight;
-use frame_support::{derive_impl, pallet_prelude::*, parameter_types, traits::ConstU64, PalletId};
+use frame_support::{
+	derive_impl,
+	pallet_prelude::*,
+	parameter_types,
+	traits::{ConstU64, VariantCountOf},
+	PalletId,
+};
 use sp_runtime::{
 	traits::{Convert, IdentityLookup},
 	BuildStorage, FixedU128, Perbill,
@@ -45,20 +51,16 @@ impl pallet_timestamp::Config for Runtime {
 parameter_types! {
 	pub const ExistentialDeposit: Balance = 10;
 }
+
+#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Runtime {
-	type MaxLocks = ();
-	type MaxReserves = ();
-	type ReserveIdentifier = [u8; 8];
 	type Balance = Balance;
-	type RuntimeEvent = RuntimeEvent;
-	type DustRemoval = ();
 	type ExistentialDeposit = ExistentialDeposit;
 	type AccountStore = System;
-	type WeightInfo = ();
 	type FreezeIdentifier = RuntimeFreezeReason;
-	type MaxFreezes = ConstU32<1>;
+	type MaxFreezes = VariantCountOf<RuntimeFreezeReason>;
 	type RuntimeHoldReason = RuntimeHoldReason;
-	type RuntimeFreezeReason = ();
+	type RuntimeFreezeReason = RuntimeFreezeReason;
 }
 
 pallet_staking_reward_curve::build! {

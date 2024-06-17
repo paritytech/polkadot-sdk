@@ -29,7 +29,7 @@ use frame_support::{
 	traits::{
 		fungible::HoldConsideration, tokens::UnityOrOuterConversion, ConstU32, Contains, EitherOf,
 		EitherOfDiverse, EverythingBut, FromContains, InstanceFilter, KeyOwnerProofSystem,
-		LinearStoragePrice, ProcessMessage, ProcessMessageError, WithdrawReasons,
+		LinearStoragePrice, ProcessMessage, ProcessMessageError, VariantCountOf, WithdrawReasons,
 	},
 	weights::{ConstantMultiplier, WeightMeter, WeightToFee as _},
 	PalletId,
@@ -154,7 +154,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("westend"),
 	impl_name: create_runtime_str!("parity-westend"),
 	authoring_version: 2,
-	spec_version: 1_012_000,
+	spec_version: 1_013_000,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 26,
@@ -310,7 +310,7 @@ impl pallet_balances::Config for Runtime {
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type RuntimeFreezeReason = RuntimeFreezeReason;
 	type FreezeIdentifier = RuntimeFreezeReason;
-	type MaxFreezes = ConstU32<1>;
+	type MaxFreezes = VariantCountOf<RuntimeFreezeReason>;
 }
 
 parameter_types! {

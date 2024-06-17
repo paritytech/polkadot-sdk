@@ -20,7 +20,7 @@ use frame_support::{
 	assert_ok, derive_impl,
 	pallet_prelude::*,
 	parameter_types,
-	traits::{ConstU64, Currency},
+	traits::{ConstU64, Currency, VariantCountOf},
 	PalletId,
 };
 
@@ -44,7 +44,7 @@ pub const GENESIS_VALIDATOR: AccountId = 1;
 pub const GENESIS_NOMINATOR_ONE: AccountId = 101;
 pub const GENESIS_NOMINATOR_TWO: AccountId = 102;
 
-#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Runtime {
 	type Block = Block;
 	type AccountData = pallet_balances::AccountData<Balance>;
@@ -64,19 +64,14 @@ pub type Balance = u128;
 parameter_types! {
 	pub static ExistentialDeposit: Balance = 1;
 }
+
+#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Runtime {
-	type MaxLocks = ConstU32<128>;
-	type MaxReserves = ();
-	type ReserveIdentifier = [u8; 8];
 	type Balance = Balance;
-	type RuntimeEvent = RuntimeEvent;
-	type DustRemoval = ();
 	type ExistentialDeposit = ExistentialDeposit;
 	type AccountStore = System;
-	type WeightInfo = ();
 	type FreezeIdentifier = RuntimeFreezeReason;
-	type MaxFreezes = ConstU32<1>;
-	type RuntimeHoldReason = RuntimeHoldReason;
+	type MaxFreezes = VariantCountOf<RuntimeFreezeReason>;
 	type RuntimeFreezeReason = RuntimeFreezeReason;
 }
 

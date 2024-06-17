@@ -20,7 +20,7 @@ use frame_support::{
 	assert_ok, derive_impl,
 	pallet_prelude::*,
 	parameter_types,
-	traits::{ConstU64, ConstU8},
+	traits::{ConstU64, ConstU8, VariantCountOf},
 	PalletId,
 };
 use sp_runtime::{
@@ -56,20 +56,14 @@ parameter_types! {
 	pub static ExistentialDeposit: Balance = 5;
 }
 
+#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Runtime {
-	type MaxLocks = ();
-	type MaxReserves = ();
-	type ReserveIdentifier = [u8; 8];
 	type Balance = Balance;
-	type RuntimeEvent = RuntimeEvent;
-	type DustRemoval = ();
 	type ExistentialDeposit = ExistentialDeposit;
 	type AccountStore = System;
-	type WeightInfo = ();
 	type FreezeIdentifier = RuntimeFreezeReason;
-	type MaxFreezes = ConstU32<1>;
-	type RuntimeHoldReason = ();
-	type RuntimeFreezeReason = ();
+	type MaxFreezes = VariantCountOf<RuntimeFreezeReason>;
+	type RuntimeFreezeReason = RuntimeFreezeReason;
 }
 
 pallet_staking_reward_curve::build! {

@@ -41,20 +41,10 @@ impl frame_system::Config for Test {
 	type AccountData = pallet_balances::AccountData<u64>;
 }
 
+#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Test {
-	type MaxLocks = ConstU32<128>;
-	type MaxReserves = ();
-	type ReserveIdentifier = [u8; 8];
-	type Balance = Balance;
-	type RuntimeEvent = RuntimeEvent;
-	type DustRemoval = ();
 	type ExistentialDeposit = ConstU64<10>;
 	type AccountStore = System;
-	type WeightInfo = ();
-	type FreezeIdentifier = ();
-	type MaxFreezes = ();
-	type RuntimeHoldReason = ();
-	type RuntimeFreezeReason = ();
 }
 
 impl pallet_timestamp::Config for Test {

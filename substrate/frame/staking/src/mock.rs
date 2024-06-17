@@ -123,20 +123,12 @@ impl frame_system::Config for Test {
 	type Block = Block;
 	type AccountData = pallet_balances::AccountData<Balance>;
 }
+#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Test {
 	type MaxLocks = frame_support::traits::ConstU32<1024>;
-	type MaxReserves = ();
-	type ReserveIdentifier = [u8; 8];
 	type Balance = Balance;
-	type RuntimeEvent = RuntimeEvent;
-	type DustRemoval = ();
 	type ExistentialDeposit = ExistentialDeposit;
 	type AccountStore = System;
-	type WeightInfo = ();
-	type FreezeIdentifier = ();
-	type MaxFreezes = ();
-	type RuntimeHoldReason = ();
-	type RuntimeFreezeReason = ();
 }
 
 sp_runtime::impl_opaque_keys! {
