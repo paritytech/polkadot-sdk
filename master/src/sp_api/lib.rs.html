@@ -990,6 +990,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#839" id="839">839</a>
 <a href="#840" id="840">840</a>
 <a href="#841" id="841">841</a>
+<a href="#842" id="842">842</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1524,7 +1525,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>construct_runtime_api(call: <span class="kw-2">&amp;</span>C) -&gt; ApiRef&lt;<span class="self">Self</span>::RuntimeApi&gt;;
 }
 
-<span class="doccomment">/// Init the [`RuntimeLogger`](sp_runtime::runtime_logger::RuntimeLogger).
+<span class="attr">#[docify::export]
+</span><span class="doccomment">/// Init the [`RuntimeLogger`](sp_runtime::runtime_logger::RuntimeLogger).
 </span><span class="kw">pub fn </span>init_runtime_logger() {
 	<span class="attr">#[cfg(not(feature = <span class="string">"disable-logging"</span>))]
 	</span>sp_runtime::runtime_logger::RuntimeLogger::init();

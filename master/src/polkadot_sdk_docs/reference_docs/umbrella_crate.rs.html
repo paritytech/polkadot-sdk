@@ -238,6 +238,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#87" id="87">87</a>
 <a href="#88" id="88">88</a>
 <a href="#89" id="89">89</a>
+<a href="#90" id="90">90</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! # Umbrella Crate
 //!
 //! The Polkadot-SDK "umbrella" is a crate that re-exports all other published crates. This makes it
@@ -268,8 +269,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //!   `node` feature. For docs.rs the manifest contains specific configuration to make it show up
 //!   all re-exports.
 //!
-//! There is a specific `zepter` check in place to ensure that the features of the umbrella are
-//! correctly configured. This check is run in CI and locally when running `zepter`.
+//! There is a specific [`zepter`](https://github.com/ggwpez/zepter) check in place to ensure that
+//! the features of the umbrella are correctly configured. This check is run in CI and locally when
+//! running `zepter`.
 //!
 //! ## Generation
 //!
