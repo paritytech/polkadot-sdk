@@ -282,7 +282,7 @@ async fn run<Context>(
 
 							// On every active leaf check candidates and prepare PVFs our node doesn't have yet.
 							if is_next_session_authority {
-								let code_hashes = prepare_pvfs_for_next_session(&mut sender, validation_host.clone(), leaf.hash, &already_prepared_code_hashes).await;
+								let code_hashes = prepare_pvfs_for_current_candidates(&mut sender, validation_host.clone(), leaf.hash, &already_prepared_code_hashes).await;
 								already_prepared_code_hashes.extend(code_hashes.unwrap_or_default());
 							}
 						},
@@ -379,7 +379,7 @@ where
 }
 
 // Sends PVF with unknown code hashes to the validation host returning the list of code hashes sent.
-async fn prepare_pvfs_for_next_session<Sender>(
+async fn prepare_pvfs_for_current_candidates<Sender>(
 	sender: &mut Sender,
 	mut validation_backend: impl ValidationBackend,
 	relay_parent: Hash,
