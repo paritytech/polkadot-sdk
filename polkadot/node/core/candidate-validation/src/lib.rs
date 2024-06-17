@@ -1067,7 +1067,7 @@ impl ValidationBackend for ValidationHost {
 	}
 
 	async fn heads_up(&mut self, active_pvfs: Vec<PvfPrepData>) -> Result<(), String> {
-		self.heads_up(active_pvfs)
+		self.heads_up(active_pvfs).await
 	}
 }
 

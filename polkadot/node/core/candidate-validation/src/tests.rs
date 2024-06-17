@@ -390,6 +390,10 @@ impl ValidationBackend for MockValidateCandidateBackend {
 	async fn precheck_pvf(&mut self, _pvf: PvfPrepData) -> Result<(), PrepareError> {
 		unreachable!()
 	}
+
+	async fn heads_up(&mut self, active_pvfs: Vec<PvfPrepData>) -> Result<(), String> {
+		unreachable!()
+	}
 }
 
 #[test]
