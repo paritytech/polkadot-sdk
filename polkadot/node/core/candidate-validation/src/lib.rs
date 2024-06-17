@@ -40,7 +40,7 @@ use polkadot_node_subsystem::{
 	SubsystemSender,
 };
 use polkadot_node_subsystem_util as util;
-use polkadot_overseer::ActiveLeavesUpdate;
+use polkadot_overseer::{ActivatedLeaf, ActiveLeavesUpdate};
 use polkadot_parachain_primitives::primitives::{
 	ValidationParams, ValidationResult as WasmValidationResult,
 };
@@ -267,7 +267,9 @@ async fn run<Context>(
 				comm = ctx.recv().fuse() => {
 					match comm {
 						Ok(FromOrchestra::Signal(OverseerSignal::ActiveLeaves(update))) => {
-							handle_update(ctx.sender().clone(), validation_host.clone(),  keystore.clone(), update, &mut session_index).await;
+							if let Some(new_session_index) = handle_new_session(ctx.sender().clone(), validation_host.clone(),  keystore.clone(), update, session_index).await {
+								session_index = Some(new_session_index)
+							}
 						},
 						Ok(FromOrchestra::Signal(OverseerSignal::BlockFinalized(..))) => {},
 						Ok(FromOrchestra::Signal(OverseerSignal::Conclude)) => return Ok(()),
@@ -307,135 +309,159 @@ async fn run<Context>(
 	}
 }
 
-async fn handle_update<Sender>(
+/// Returns the index of a new session
+async fn handle_new_session<Sender>(
 	mut sender: Sender,
-	mut validation_backend: impl ValidationBackend,
+	validation_host: ValidationHost,
 	keystore: KeystorePtr,
 	update: ActiveLeavesUpdate,
-	session_index: &mut Option<SessionIndex>,
+	session_index: Option<SessionIndex>,
+) -> Option<SessionIndex>
+where
+	Sender: SubsystemSender<RuntimeApiMessage>,
+{
+	let Some(leaf) = update.activated else { return None };
+	let Some(new_session_index) = new_session_index(&mut sender, session_index, leaf.hash).await
+	else {
+		return None
+	};
+
+	if is_next_session_authority(&mut sender, keystore, leaf.hash).await {
+		prepare_pvfs_for_next_session(sender, validation_host, leaf.hash).await
+	}
+
+	Some(new_session_index)
+}
+
+async fn new_session_index<Sender>(
+	sender: &mut Sender,
+	session_index: Option<SessionIndex>,
+	relay_parent: Hash,
+) -> Option<SessionIndex>
+where
+	Sender: SubsystemSender<RuntimeApiMessage>,
+{
+	let Ok(Ok(new_session_index)) =
+		util::request_session_index_for_child(relay_parent, sender).await.await
+	else {
+		gum::warn!(
+			target: LOG_TARGET,
+			?relay_parent,
+			"cannot fetch session index from runtime API",
+		);
+		return None
+	};
+
+	session_index.map_or(Some(new_session_index), |index| {
+		if new_session_index > index {
+			Some(new_session_index)
+		} else {
+			None
+		}
+	})
+}
+
+async fn is_next_session_authority<Sender>(
+	sender: &mut Sender,
+	keystore: KeystorePtr,
+	relay_parent: Hash,
+) -> bool
+where
+	Sender: SubsystemSender<RuntimeApiMessage>,
+{
+	// In spite of function name here we request past, present and future authorities.
+	// It's ok to stil prepare PVFs in other cases, but better to request only future ones.
+	let Ok(Ok(authorities)) = util::request_authorities(relay_parent, sender).await.await else {
+		gum::warn!(
+			target: LOG_TARGET,
+			?relay_parent,
+			"cannot fetch authorities from runtime API",
+		);
+		return false
+	};
+
+	authorities
+		.iter()
+		.any(|v| keystore.has_keys(&[(v.to_raw_vec(), AuthorityDiscoveryId::ID)]))
+}
+
+async fn prepare_pvfs_for_next_session<Sender>(
+	mut sender: Sender,
+	mut validation_backend: impl ValidationBackend,
+	relay_parent: Hash,
 ) where
 	Sender: SubsystemSender<RuntimeApiMessage>,
 {
-	if let Some(leaf) = update.activated {
-		if let Ok(Ok(new_session_index)) =
-			util::request_session_index_for_child(leaf.hash, &mut sender).await.await
-		{
-			if session_index.map_or(true, |index| index < new_session_index) {
-				*session_index = Some(new_session_index);
-				if let Ok(Ok(authorities)) =
-					util::request_authorities(leaf.hash, &mut sender).await.await
-				{
-					let is_authority = authorities
-						.iter()
-						.any(|v| keystore.has_keys(&[(v.to_raw_vec(), AuthorityDiscoveryId::ID)]));
-					if is_authority {
-						if let Ok(Ok(events)) =
-							util::request_candidate_events(leaf.hash, &mut sender).await.await
-						{
-							let code_hashes = events.into_iter().filter_map(|e| match e {
-								CandidateEvent::CandidateBacked(receipt, ..) =>
-									Some(receipt.descriptor.validation_code_hash),
-								_ => None,
-							});
+	let Ok(Ok(events)) = util::request_candidate_events(relay_parent, &mut sender).await.await
+	else {
+		gum::warn!(
+			target: LOG_TARGET,
+			?relay_parent,
+			"cannot fetch candidate events from runtime API",
+		);
+		return
+	};
+	let code_hashes = events.into_iter().filter_map(|e| match e {
+		CandidateEvent::CandidateBacked(receipt, ..) =>
+			Some(receipt.descriptor.validation_code_hash),
+		_ => None,
+	});
 
-							let executor_params = if let Ok(executor_params) =
-								util::executor_params_at_relay_parent(leaf.hash, &mut sender).await
-							{
-								gum::debug!(
-									target: LOG_TARGET,
-									relay_parent = ?leaf.hash,
-									"precheck: acquired executor params for the session: {:?}",
-									executor_params,
-								);
-								executor_params
-							} else {
-								gum::warn!(
-									target: LOG_TARGET,
-									relay_parent = ?leaf.hash,
-									"precheck: failed to acquire executor params for the session, thus voting against.",
-								);
-								return
-							};
+	let Ok(executor_params) =
+		util::executor_params_at_relay_parent(relay_parent, &mut sender).await
+	else {
+		gum::warn!(
+			target: LOG_TARGET,
+			?relay_parent,
+			"cannot fetch executor params for the session",
+		);
+		return
+	};
+	let timeout = pvf_prep_timeout(&executor_params, PvfPrepKind::Precheck);
 
-							let timeout = pvf_prep_timeout(&executor_params, PvfPrepKind::Precheck);
-
-							let mut active_pvfs = vec![];
-							for code_hash in code_hashes {
-								if let Ok(Ok(Some(validation_code))) =
-									util::request_validation_code_by_hash(
-										leaf.hash,
-										code_hash,
-										&mut sender,
-									)
-									.await
-									.await
-								{
-									let pvf = match sp_maybe_compressed_blob::decompress(
-										&validation_code.0,
-										VALIDATION_CODE_BOMB_LIMIT,
-									) {
-										Ok(code) => PvfPrepData::from_code(
-											code.into_owned(),
-											executor_params.clone(),
-											timeout,
-											PrepareJobKind::Prechecking,
-										),
-										Err(e) => {
-											gum::debug!(target: LOG_TARGET, err=?e, "precheck: cannot decompress validation code");
-											continue
-										},
-									};
-
-									active_pvfs.push(pvf);
-								} else {
-									gum::warn!(
-										target: LOG_TARGET,
-										relay_parent = ?leaf.hash,
-										?code_hash,
-										"cannot fetch validation code hash from runtime API",
-									);
-								}
-							}
-
-							match validation_backend.heads_up(active_pvfs).await {
-								Ok(_) => return,
-								Err(err) => {
-									gum::warn!(
-										target: LOG_TARGET,
-										relay_parent = ?leaf.hash,
-										?err,
-										"cannot prepare",
-									);
-									return
-								},
-							};
-						} else {
-							gum::warn!(
-								target: LOG_TARGET,
-								relay_parent = ?leaf.hash,
-								"cannot fetch candidate events from runtime API",
-							);
-							return
-						}
-					}
-				} else {
-					gum::warn!(
-						target: LOG_TARGET,
-						relay_parent = ?leaf.hash,
-						"cannot fetch authorities from runtime API",
-					);
-					return
-				}
-			}
-		} else {
+	let mut active_pvfs = vec![];
+	for code_hash in code_hashes {
+		let Ok(Ok(Some(validation_code))) =
+			util::request_validation_code_by_hash(relay_parent, code_hash, &mut sender)
+				.await
+				.await
+		else {
 			gum::warn!(
 				target: LOG_TARGET,
-				relay_parent = ?leaf.hash,
-				"cannot fetch session index from runtime API",
+				?relay_parent,
+				?code_hash,
+				"cannot fetch validation code hash from runtime API",
 			);
-			return
-		}
+			continue;
+		};
+
+		let pvf = match sp_maybe_compressed_blob::decompress(
+			&validation_code.0,
+			VALIDATION_CODE_BOMB_LIMIT,
+		) {
+			Ok(code) => PvfPrepData::from_code(
+				code.into_owned(),
+				executor_params.clone(),
+				timeout,
+				PrepareJobKind::Prechecking,
+			),
+			Err(e) => {
+				gum::debug!(target: LOG_TARGET, err=?e, "cannot decompress validation code");
+				continue
+			},
+		};
+
+		active_pvfs.push(pvf);
 	}
+
+	if let Err(err) = validation_backend.heads_up(active_pvfs).await {
+		gum::warn!(
+			target: LOG_TARGET,
+			?relay_parent,
+			?err,
+			"cannot prepare PVF for the next session",
+		);
+	};
 }
 
 struct RuntimeRequestFailed;
