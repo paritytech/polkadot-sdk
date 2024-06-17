@@ -32,6 +32,111 @@ The number of the pull request. Required so the action can fetch the correct bra
 
 ## Action configurations
 
+### Bench
+
+Runs `benchmark pallet` or `benchmark overhead` against your PR and commits back updated weights.
+
+Posible combinations based on the `benchmark` dropdown.
+
+- `substrate-pallet`: Pallet Benchmark for Substrate for specific pallet
+  - Requires `Subcommand` to be `pallet`
+  - Requires `Runtime` to be `dev`
+  - Requires field `Pallet` to have an input that applies to `^([a-z_]+)([:]{2}[a-z_]+)?$`
+  - Requires `Target Directory` to be `substrate`
+- `polkadot-pallet`: Pallet Benchmark for Polkadot for specific pallet
+  - Requires `Subcommand` to be one of the following:
+    - `pallet`
+    - `xcm`
+  - Requires `Runtime` to be one of the following:
+    - `rococo`
+    - `westend`
+  - Requires field `Pallet` to have an input that applies to `^([a-z_]+)([:]{2}[a-z_]+)?$`
+  - Requires `Target Directory` to be `polkadot`
+- `cumulus-assets`: Pallet Benchmark for Cumulus assets
+  - Requires `Subcommand` to be one of the following:
+    - `pallet`
+    - `xcm`
+  - Requires `Runtime` to be one of the following:
+    - `asset-hub-westend`
+    - `asset-hub-rococo`
+  - Requires field `Pallet` to have an input that applies to `^([a-z_]+)([:]{2}[a-z_]+)?$`
+  - Requires `Runtime Dir` to be `assets`
+  - Requires `Target Directory` to be `cumulus`
+- `cumulus-collectives`: Pallet Benchmark for Cumulus collectives
+  - Requires `Subcommand` to be one of the following:
+    - `pallet`
+    - `xcm`
+  - Requires `Runtime` to be `collectives-westend`
+  - Requires field `Pallet` to have an input that applies to `^([a-z_]+)([:]{2}[a-z_]+)?$`
+  - Requires `Runtime Dir` to be `collectives`
+  - Requires `Target Directory` to be `cumulus`
+- `cumulus-coretime`: Pallet Benchmark for Cumulus coretime
+  - Requires `Subcommand` to be one of the following:
+    - `pallet`
+    - `xcm`
+  - Requires `Runtime` to be one of the following:
+    - `coretime-rococo`
+    - `coretime-westend`
+  - Requires field `Pallet` to have an input that applies to `^([a-z_]+)([:]{2}[a-z_]+)?$`
+  - Requires `Runtime Dir` to be `coretime`
+  - Requires `Target Directory` to be `cumulus`
+- `cumulus-bridge-hubs`: Pallet Benchmark for Cumulus bridge-hubs
+  - Requires `Subcommand` to be one of the following:
+    - `pallet`
+    - `xcm`
+  - Requires `Runtime` to be one of the following:
+    - `bridge-hub-rococo`
+    - `bridge-hub-westend`
+  - Requires field `Pallet` to have an input that applies to `^([a-z_]+)([:]{2}[a-z_]+)?$`
+  - Requires `Runtime Dir` to be `bridge-hub`
+  - Requires `Target Directory` to be `cumulus`
+- `cumulus-contracts`: Pallet Benchmark for Cumulus contracts
+  - Requires `Subcommand` to be one of the following:
+    - `pallet`
+    - `xcm`
+  - Requires `Runtime` to be one `contracts-rococo`
+  - Requires field `Pallet` to have an input that applies to `^([a-z_]+)([:]{2}[a-z_]+)?$`
+  - Requires `Runtime Dir` to be `contracts`
+  - Requires `Target Directory` to be `cumulus`
+- `cumulus-glutton`: Pallet Benchmark for Cumulus glutton
+  - Requires `Subcommand` to be `pallet`
+  - Requires `Runtime` to be one of the following:
+    - `glutton-westend`
+    - `glutton-westend-dev-1300`
+  - Requires field `Pallet` to have an input that applies to `^([a-z_]+)([:]{2}[a-z_]+)?$`
+  - Requires `Runtime Dir` to be `glutton`
+  - Requires `Target Directory` to be `cumulus`
+- `cumulus-starters`: Pallet Benchmark for Cumulus starters
+  - Requires `Subcommand` to be one of the following:
+    - `pallet`
+    - `xcm`
+  - Requires `Runtime` to be one of the following:
+    - `seedling`
+    - `shell`
+  - Requires field `Pallet` to have an input that applies to `^([a-z_]+)([:]{2}[a-z_]+)?$`
+  - Requires `Runtime Dir` to be `starters`
+  - Requires `Target Directory` to be `cumulus`
+- `cumulus-people`: Pallet Benchmark for Cumulus people
+  - Requires `Subcommand` to be one of the following:
+    - `pallet`
+    - `xcm`
+  - Requires `Runtime` to be one of the following:
+    - `people-westend`
+    - `people-rococo`
+  - Requires field `Pallet` to have an input that applies to `^([a-z_]+)([:]{2}[a-z_]+)?$`
+  - Requires `Runtime Dir` to be `people`
+  - Requires `Target Directory` to be `cumulus`
+- `cumulus-testing`: Pallet Benchmark for Cumulus testing
+  - Requires `Subcommand` to be one of the following:
+    - `pallet`
+    - `xcm`
+  - Requires `Runtime` to be one of the following:
+    - `penpal`
+    - `rococo-parachain`
+  - Requires field `Pallet` to have an input that applies to `^([a-z_]+)([:]{2}[a-z_]+)?$`
+  - Requires `Runtime Dir` to be `testing`
+  - Requires `Target Directory` to be `cumulus`
+
 ### Bench-all
 
 This is a wrapper to run `bench` for all pallets.
