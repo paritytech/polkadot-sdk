@@ -131,6 +131,8 @@ jobs:
         run: pip3 install "cargo-workspace>=1.2.4" toml
       - name: check umbrella correctness
         run: |
+          cat Cargo.lock | grep "parking_lot 0.12.1" && echo "parking_lot 0.12.1 found in Cargo.lock" && exit 1 || echo "parking_lot 0.12.1 not found in Cargo.lock"
+
           # Fixes "detected dubious ownership" error in the ci
           git config --global --add safe.directory '*'
           python3 scripts/generate-umbrella.py --sdk . --version 0.1.0

@@ -7,6 +7,7 @@ cargo-clippy:
   variables:
     RUSTFLAGS: "-D warnings"
   script:
+    - cat Cargo.lock | grep "parking_lot 0.12.1" && echo "parking_lot 0.12.1 found in Cargo.lock" && exit 1 || echo "parking_lot 0.12.1 not found in Cargo.lock"
     - SKIP_WASM_BUILD=1 cargo clippy --all-targets --locked --workspace --quiet
     - SKIP_WASM_BUILD=1 cargo clippy --all-targets --all-features --locked --workspace --quiet
 
