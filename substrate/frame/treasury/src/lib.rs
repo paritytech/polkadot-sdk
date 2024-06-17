@@ -658,6 +658,7 @@ pub mod pallet {
 		///
 		/// ## Dispatch Origin
 		///
+		/// Must be signed
 		///
 		/// ## Details
 		///
