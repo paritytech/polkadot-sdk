@@ -1269,6 +1269,10 @@ where
 				log_xt_debug!(data: tuple, target: LOG_TARGET, &pending_revalidation_result, "[{:?}]  resubmitted pending revalidation {:?}");
 				view.pool.resubmit(HashMap::from_iter(pending_revalidation_result.into_iter()));
 			}
+
+			self.ready_poll.lock().trigger(hash_and_number.hash, move || {
+				Box::from(view.pool.validated_pool().ready())
+			});
 		}
 	}
 
@@ -1325,13 +1329,6 @@ where
 			most_recent_view_lock.replace(view.at.hash);
 			view
 		};
-
-		{
-			let view = view.clone();
-			self.ready_poll
-				.lock()
-				.trigger(new_block_hash, move || Box::from(view.pool.validated_pool().ready()));
-		}
 
 		Some(view)
 	}
