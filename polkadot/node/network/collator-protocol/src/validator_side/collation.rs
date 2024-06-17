@@ -280,7 +280,7 @@ impl Collations {
 		}
 	}
 
-	/// Checks the limit of seconded candidates for a given para.
+	/// Checks the limit of seconded candidates.
 	pub(super) fn is_seconded_limit_reached(
 		&self,
 		relay_parent_mode: ProspectiveParachainsMode,
