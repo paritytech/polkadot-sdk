@@ -53,8 +53,8 @@
 //! 	"log/std"
 //! ]
 //! ```
-//! 
-//! More conveniently, both `frame` and `frame_support` re-exeport the log crate as [`frame::log`] and [`frame_support::log`].
+//!
+//! More conveniently, the `frame` umbrella crate re-exports the log crate as [`frame::log`].
 //!
 //! Then, the pallet can use this crate to emit log statements. In this statement, we use the info
 //! level, and the target is `pallet-example`.
