@@ -440,6 +440,9 @@ where
 	}
 
 	fn trigger(&mut self, at: <Block as BlockT>::Hash, ready_iterator: impl Fn() -> T) {
+		log::info!( target: LOG_TARGET,
+			"fatp::trigger {at:?} pending keys: {:?}",
+			self.pollers.keys());
 		let Some(pollers) = self.pollers.remove(&at) else { return };
 		pollers.into_iter().for_each(|p| {
 			log::info!(target: LOG_TARGET, "trigger ready signal at block {}", at);
@@ -1171,11 +1174,13 @@ where
 	// todo: API change? ready at hash (not number)?
 	fn ready_at(&self, at: <Self::Block as BlockT>::Hash) -> PolledIterator<PoolApi> {
 		if let Some(view) = self.view_store.views.read().get(&at) {
+			log::info!( target: LOG_TARGET, "fatp::ready_at {:?}", at);
 			let iterator: ReadyIteratorFor<PoolApi> = Box::new(view.pool.validated_pool().ready());
 			return async move { iterator }.boxed();
 		}
 
-		self.ready_poll
+		let pending = self
+			.ready_poll
 			.lock()
 			.add(at)
 			.map(|received| {
@@ -1184,7 +1189,11 @@ where
 					Box::new(std::iter::empty())
 				})
 			})
-			.boxed()
+			.boxed();
+		log::info!( target: LOG_TARGET,
+			"fatp::ready_at {at:?} pending keys: {:?}",
+			self.ready_poll.lock().pollers.keys());
+		pending
 	}
 
 	fn ready(&self, at: <Self::Block as BlockT>::Hash) -> Option<ReadyIteratorFor<PoolApi>> {
