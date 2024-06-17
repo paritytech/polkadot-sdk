@@ -89,6 +89,10 @@ use sc_network_common::{
 use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedReceiver, TracingUnboundedSender};
 use sp_runtime::traits::Block as BlockT;
 
+pub use behaviour::{InboundFailure, OutboundFailure, ResponseFailure};
+pub use libp2p::identity::{DecodingError, Keypair, PublicKey};
+pub use metrics::NotificationMetrics;
+pub use protocol::NotificationsSink;
 use std::{
 	cmp,
 	collections::{HashMap, HashSet},
@@ -101,13 +105,8 @@ use std::{
 		atomic::{AtomicUsize, Ordering},
 		Arc,
 	},
-	time::Duration,
+	time::{Duration, Instant},
 };
-
-pub use behaviour::{InboundFailure, OutboundFailure, ResponseFailure};
-pub use libp2p::identity::{DecodingError, Keypair, PublicKey};
-pub use metrics::NotificationMetrics;
-pub use protocol::NotificationsSink;
 
 pub(crate) mod metrics;
 pub(crate) mod out_events;
@@ -957,6 +956,21 @@ where
 	fn put_value(&self, key: KademliaKey, value: Vec<u8>) {
 		let _ = self.to_worker.unbounded_send(ServiceToWorkerMsg::PutValue(key, value));
 	}
+
+	fn store_record(
+		&self,
+		key: KademliaKey,
+		value: Vec<u8>,
+		publisher: Option<sc_network_types::PeerId>,
+		expires: Option<Instant>,
+	) {
+		let _ = self.to_worker.unbounded_send(ServiceToWorkerMsg::StoreRecord(
+			key,
+			value,
+			publisher.map(Into::into),
+			expires,
+		));
+	}
 }
 
 #[async_trait::async_trait]
@@ -1311,6 +1325,7 @@ impl<'a> NotificationSenderReadyT for NotificationSenderReady<'a> {
 enum ServiceToWorkerMsg {
 	GetValue(KademliaKey),
 	PutValue(KademliaKey, Vec<u8>),
+	StoreRecord(KademliaKey, Vec<u8>, Option<PeerId>, Option<Instant>),
 	AddKnownAddress(PeerId, Multiaddr),
 	EventStream(out_events::Sender),
 	Request {
@@ -1438,6 +1453,10 @@ where
 				self.network_service.behaviour_mut().get_value(key),
 			ServiceToWorkerMsg::PutValue(key, value) =>
 				self.network_service.behaviour_mut().put_value(key, value),
+			ServiceToWorkerMsg::StoreRecord(key, value, publisher, expires) => self
+				.network_service
+				.behaviour_mut()
+				.store_record(key, value, publisher, expires),
 			ServiceToWorkerMsg::AddKnownAddress(peer_id, addr) =>
 				self.network_service.behaviour_mut().add_known_address(peer_id, addr),
 			ServiceToWorkerMsg::EventStream(sender) => self.event_streams.push(sender),
@@ -1639,17 +1658,21 @@ where
 					.report_notification_received(remote, notification);
 			},
 			SwarmEvent::Behaviour(BehaviourOut::Dht(event, duration)) => {
-				if let Some(metrics) = self.metrics.as_ref() {
-					let query_type = match event {
-						DhtEvent::ValueFound(_) => "value-found",
-						DhtEvent::ValueNotFound(_) => "value-not-found",
-						DhtEvent::ValuePut(_) => "value-put",
-						DhtEvent::ValuePutFailed(_) => "value-put-failed",
-					};
-					metrics
-						.kademlia_query_duration
-						.with_label_values(&[query_type])
-						.observe(duration.as_secs_f64());
+				match (self.metrics.as_ref(), duration) {
+					(Some(metrics), Some(duration)) => {
+						let query_type = match event {
+							DhtEvent::ValueFound(_) => "value-found",
+							DhtEvent::ValueNotFound(_) => "value-not-found",
+							DhtEvent::ValuePut(_) => "value-put",
+							DhtEvent::ValuePutFailed(_) => "value-put-failed",
+							DhtEvent::PutRecordRequest(_, _, _, _) => "put-record-request",
+						};
+						metrics
+							.kademlia_query_duration
+							.with_label_values(&[query_type])
+							.observe(duration.as_secs_f64());
+					},
+					_ => {},
 				}
 
 				self.event_streams.send(Event::Dht(event));

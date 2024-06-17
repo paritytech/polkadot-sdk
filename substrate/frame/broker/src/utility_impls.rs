@@ -63,13 +63,32 @@ impl<T: Config> Pallet<T> {
 	pub fn sale_price(sale: &SaleInfoRecordOf<T>, now: BlockNumberFor<T>) -> BalanceOf<T> {
 		let num = now.saturating_sub(sale.sale_start).min(sale.leadin_length).saturated_into();
 		let through = FixedU64::from_rational(num, sale.leadin_length.saturated_into());
-		T::PriceAdapter::leadin_factor_at(through).saturating_mul_int(sale.price)
+		T::PriceAdapter::leadin_factor_at(through).saturating_mul_int(sale.end_price)
 	}
 
 	pub(crate) fn charge(who: &T::AccountId, amount: BalanceOf<T>) -> DispatchResult {
 		let credit = T::Currency::withdraw(&who, amount, Exact, Expendable, Polite)?;
 		T::OnRevenue::on_unbalanced(credit);
 		Ok(())
+	}
+
+	/// Buy a core at the specified price (price is to be determined by the caller).
+	///
+	/// Note: It is the responsibility of the caller to write back the changed `SaleInfoRecordOf` to
+	/// storage.
+	pub(crate) fn purchase_core(
+		who: &T::AccountId,
+		price: BalanceOf<T>,
+		sale: &mut SaleInfoRecordOf<T>,
+	) -> Result<CoreIndex, DispatchError> {
+		Self::charge(who, price)?;
+		log::debug!("Purchased core at: {:?}", price);
+		let core = sale.first_core.saturating_add(sale.cores_sold);
+		sale.cores_sold.saturating_inc();
+		if sale.cores_sold <= sale.ideal_cores_sold || sale.sellout_price.is_none() {
+			sale.sellout_price = Some(price);
+		}
+		Ok(core)
 	}
 
 	pub fn issue(
