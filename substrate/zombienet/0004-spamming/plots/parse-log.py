@@ -123,7 +123,7 @@ def main():
         },
         {
             "type": "block_proposing",
-            "regex": r'^(\d{4}-\d{2}-\d{2}) (\d{2}:\d{2}:\d{2}\.\d{3})  INFO.*sc_basic_authorship::basic_authorship: 🎁 Prepared block for proposing at \d+ \(\d+ ms\).* extrinsics \((\d+)\)',
+            "regex": r'^(\d{4}-\d{2}-\d{2}) (\d{2}:\d{2}:\d{2}\.\d{3})  INFO.*sc_basic_authorship::basic_authorship:.*🎁 Prepared block for proposing at \d+ \(\d+ ms\).* extrinsics \((\d+)\)',
             "guard": "Prepared block for proposing",
             "column_names": ["date", "time", "extrinsics_count"],
             "extract_data": lambda match: (
