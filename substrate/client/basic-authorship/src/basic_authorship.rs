@@ -420,9 +420,10 @@ where
 			res = t1 => Some(res),
 			_ = t2 => {
 				warn!(target: LOG_TARGET,
-					"Timeout fired waiting for transaction pool at block #{}. \
+					"Timeout fired waiting for transaction pool at block #{} ({:?}). \
 					Proceeding with production.",
 					self.parent_number,
+					self.parent_hash,
 				);
 				//todo: unwrap
 				self.transaction_pool.ready(self.parent_hash)
