@@ -319,6 +319,7 @@ pub async fn start_node_impl<RB, Net: NetworkBackend<Block, Hash>>(
 	consensus: Consensus,
 	collator_options: CollatorOptions,
 	proof_recording_during_import: bool,
+	use_slot_based_collator: bool,
 ) -> sc_service::error::Result<(
 	TaskManager,
 	Arc<Client>,
@@ -465,7 +466,7 @@ where
 
 			let client_for_aura = client.clone();
 
-			if collator_options.use_slot_based {
+			if use_slot_based_collator {
 				tracing::info!(target: LOG_TARGET, "Starting block authoring with slot based authoring.");
 				let params = SlotBasedParams {
 					create_inherent_data_providers: move |_, ()| async move { Ok(()) },
@@ -736,8 +737,7 @@ impl TestNodeBuilder {
 			false,
 		);
 
-		let collator_options =
-			CollatorOptions { relay_chain_mode: self.relay_chain_mode, use_slot_based: false };
+		let collator_options = CollatorOptions { relay_chain_mode: self.relay_chain_mode };
 
 		relay_chain_config.network.node_name =
 			format!("{} (relay chain)", relay_chain_config.network.node_name);
@@ -757,6 +757,7 @@ impl TestNodeBuilder {
 						self.consensus,
 						collator_options,
 						self.record_proof_during_import,
+						false,
 					)
 					.await
 					.expect("could not create Cumulus test service"),
@@ -772,6 +773,7 @@ impl TestNodeBuilder {
 						self.consensus,
 						collator_options,
 						self.record_proof_during_import,
+						false,
 					)
 					.await
 					.expect("could not create Cumulus test service"),

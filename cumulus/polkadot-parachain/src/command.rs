@@ -674,6 +674,7 @@ pub fn run() -> Result<()> {
 							polkadot_config,
 							collator_options,
 							id,
+							cli.experimental_use_slot_based,
 							hwbench,
 						)
 						.await,
@@ -683,6 +684,7 @@ pub fn run() -> Result<()> {
 							polkadot_config,
 							collator_options,
 							id,
+							cli.experimental_use_slot_based,
 							hwbench,
 						)
 						.await,
@@ -697,24 +699,27 @@ async fn start_node<Network: sc_network::NetworkBackend<Block, Hash>>(
 	polkadot_config: sc_service::Configuration,
 	collator_options: cumulus_client_cli::CollatorOptions,
 	id: ParaId,
+	use_experimental_slot_based: bool,
 	hwbench: Option<sc_sysinfo::HwBench>,
 ) -> Result<sc_service::TaskManager> {
 	match config.chain_spec.runtime()? {
-		Runtime::AssetHubPolkadot => crate::service::start_asset_hub_lookahead_node::<
-			AssetHubPolkadotRuntimeApi,
-			AssetHubPolkadotAuraId,
-			Network,
-		>(config, polkadot_config, collator_options, id, hwbench)
-		.await
-		.map(|r| r.0)
-		.map_err(Into::into),
+		Runtime::AssetHubPolkadot =>
+			crate::service::start_asset_hub_async_backing_node::<
+				AssetHubPolkadotRuntimeApi,
+				AssetHubPolkadotAuraId,
+				Network,
+			>(config, polkadot_config, collator_options, id, use_experimental_slot_based, hwbench)
+			.await
+			.map(|r| r.0)
+			.map_err(Into::into),
 
 		Runtime::AssetHubRococo | Runtime::AssetHubWestend | Runtime::AssetHubKusama =>
-			crate::service::start_asset_hub_lookahead_node::<RuntimeApi, AuraId, Network>(
+			crate::service::start_asset_hub_async_backing_node::<RuntimeApi, AuraId, Network>(
 				config,
 				polkadot_config,
 				collator_options,
 				id,
+				use_experimental_slot_based,
 				hwbench,
 			)
 			.await
@@ -722,11 +727,12 @@ async fn start_node<Network: sc_network::NetworkBackend<Block, Hash>>(
 			.map_err(Into::into),
 
 		Runtime::CollectivesWestend | Runtime::CollectivesPolkadot =>
-			crate::service::start_generic_aura_lookahead_node::<Network>(
+			crate::service::start_generic_aura_async_backing_node::<Network>(
 				config,
 				polkadot_config,
 				collator_options,
 				id,
+				use_experimental_slot_based,
 				hwbench,
 			)
 			.await
@@ -749,6 +755,7 @@ async fn start_node<Network: sc_network::NetworkBackend<Block, Hash>>(
 			polkadot_config,
 			collator_options,
 			id,
+			use_experimental_slot_based,
 			hwbench,
 		)
 		.await
@@ -766,11 +773,12 @@ async fn start_node<Network: sc_network::NetworkBackend<Block, Hash>>(
 			chain_spec::bridge_hubs::BridgeHubRuntimeType::Rococo |
 			chain_spec::bridge_hubs::BridgeHubRuntimeType::RococoLocal |
 			chain_spec::bridge_hubs::BridgeHubRuntimeType::RococoDevelopment =>
-				crate::service::start_generic_aura_lookahead_node::<Network>(
+				crate::service::start_generic_aura_async_backing_node::<Network>(
 					config,
 					polkadot_config,
 					collator_options,
 					id,
+					use_experimental_slot_based,
 					hwbench,
 				)
 				.await
@@ -789,11 +797,12 @@ async fn start_node<Network: sc_network::NetworkBackend<Block, Hash>>(
 			chain_spec::coretime::CoretimeRuntimeType::Westend |
 			chain_spec::coretime::CoretimeRuntimeType::WestendLocal |
 			chain_spec::coretime::CoretimeRuntimeType::WestendDevelopment =>
-				crate::service::start_generic_aura_lookahead_node::<Network>(
+				crate::service::start_generic_aura_async_backing_node::<Network>(
 					config,
 					polkadot_config,
 					collator_options,
 					id,
+					use_experimental_slot_based,
 					hwbench,
 				)
 				.await
@@ -814,11 +823,12 @@ async fn start_node<Network: sc_network::NetworkBackend<Block, Hash>>(
 			.map_err(Into::into),
 
 		Runtime::Glutton | Runtime::GluttonWestend =>
-			crate::service::start_basic_lookahead_node::<Network>(
+			crate::service::start_basic_async_backing_node::<Network>(
 				config,
 				polkadot_config,
 				collator_options,
 				id,
+				use_experimental_slot_based,
 				hwbench,
 			)
 			.await
@@ -836,11 +846,12 @@ async fn start_node<Network: sc_network::NetworkBackend<Block, Hash>>(
 			chain_spec::people::PeopleRuntimeType::Westend |
 			chain_spec::people::PeopleRuntimeType::WestendLocal |
 			chain_spec::people::PeopleRuntimeType::WestendDevelopment =>
-				crate::service::start_generic_aura_lookahead_node::<Network>(
+				crate::service::start_generic_aura_async_backing_node::<Network>(
 					config,
 					polkadot_config,
 					collator_options,
 					id,
+					use_experimental_slot_based,
 					hwbench,
 				)
 				.await

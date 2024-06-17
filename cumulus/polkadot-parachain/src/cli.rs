@@ -80,6 +80,11 @@ pub struct Cli {
 	#[command(flatten)]
 	pub run: cumulus_client_cli::RunCmd,
 
+	/// EXPERIMENTAL: Use slot-based collator which can handle elastic scaling. Use with care, this
+	/// flag is unstable and subject to change.
+	#[arg(long)]
+	pub experimental_use_slot_based: bool,
+
 	/// Disable automatic hardware benchmarks.
 	///
 	/// By default these benchmarks are automatically ran at startup and measure
