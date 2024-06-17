@@ -9,7 +9,7 @@
 # - Set `compute`, `storage`, and `trash_data_count` set to 50%, 131%, and 5,120, respectively;
 # - And save the results in `output-dir`.
 #
-# ./scripts/create_glutton_spec.sh ./target/release/polkadot-parachain rococo 1300 1370 GZ9YSgtib4kEMxWcpWfnXa1cnrumspTCTZSaNWWmMkJbWqW 500000000 1310000000 5120 output-dir
+# ./scripts/create_glutton_spec.sh ./target/release/polkadot-parachain-omni-node rococo 1300 1370 GZ9YSgtib4kEMxWcpWfnXa1cnrumspTCTZSaNWWmMkJbWqW 500000000 1310000000 5120 output-dir
 
 usage() {
     echo Usage:

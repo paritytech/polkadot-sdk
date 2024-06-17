@@ -30,13 +30,13 @@ if [ "$ZOMBIENET_DOCKER_PATHS" -eq 1 ]; then
     unset ZOMBIENET_IMAGE
 
     export POLKADOT_BINARY=/usr/local/bin/polkadot
-    export POLKADOT_PARACHAIN_BINARY=/usr/local/bin/polkadot-parachain
+    export POLKADOT_PARACHAIN_BINARY=/usr/local/bin/polkadot-parachain-omni-node
 
     export ZOMBIENET_BINARY=/usr/local/bin/zombie
     export SUBSTRATE_RELAY_BINARY=/usr/local/bin/substrate-relay
 else
     export POLKADOT_BINARY=$POLKADOT_SDK_PATH/target/release/polkadot
-    export POLKADOT_PARACHAIN_BINARY=$POLKADOT_SDK_PATH/target/release/polkadot-parachain
+    export POLKADOT_PARACHAIN_BINARY=$POLKADOT_SDK_PATH/target/release/polkadot-parachain-omni-node
 
     export ZOMBIENET_BINARY=~/local_bridge_testing/bin/zombienet-linux-x64
     export SUBSTRATE_RELAY_BINARY=~/local_bridge_testing/bin/substrate-relay

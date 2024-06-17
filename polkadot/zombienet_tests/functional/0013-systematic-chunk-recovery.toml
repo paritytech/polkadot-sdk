@@ -40,7 +40,7 @@ chain = "glutton-westend-local-{{id}}"
     [parachains.collator]
     name = "collator"
     image = "{{CUMULUS_IMAGE}}"
-    command = "polkadot-parachain"
+    command = "polkadot-parachain-omni-node"
     args = ["-lparachain=debug"]
 
 {% endfor %}

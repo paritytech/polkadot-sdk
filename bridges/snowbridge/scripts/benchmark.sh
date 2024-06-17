@@ -2,7 +2,7 @@
 
 # Example command for updating pallet benchmarking
 pushd ../cumulus
-cargo run --release --bin polkadot-parachain \
+cargo run --release --bin polkadot-parachain-omni-node \
 --features runtime-benchmarks \
 -- \
 benchmark pallet \

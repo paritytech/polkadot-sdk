@@ -15,7 +15,7 @@ fi
 
 # Load all pallet names in an array.
 pallets=($(
-  ${artifactsDir}/polkadot-parachain benchmark pallet --list --chain="${benchmarkRuntimeName}" |\
+  ${artifactsDir}/polkadot-parachain-omni-node benchmark pallet --list --chain="${benchmarkRuntimeName}" |\
     tail -n+2 |\
     cut -d',' -f1 |\
     sort |\
@@ -38,7 +38,7 @@ do
 		output_dir="xcm/"
 		extra_args="--template=./templates/xcm-bench-template.hbs"
 	fi
-	$artifactsDir/polkadot-parachain benchmark pallet \
+	$artifactsDir/polkadot-parachain-omni-node benchmark pallet \
 		$extra_args \
 		--chain=$benchmarkRuntimeName \
 		--wasm-execution=compiled \

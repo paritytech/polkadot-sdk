@@ -13615,7 +13615,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-parachain-omni-node"
-version = "4.0.0"
+version = "0.1.0"
 dependencies = [
  "assert_cmd",
  "asset-hub-rococo-runtime",

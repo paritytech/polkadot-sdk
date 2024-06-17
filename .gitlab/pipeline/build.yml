@@ -171,10 +171,10 @@ build-linux-stable-cumulus:
     RUSTFLAGS: "-Cdebug-assertions=y -Dwarnings"
   script:
     - echo "___Building a binary, please refrain from using it in production since it goes with the debug assertions.___"
-    - time cargo build --release --locked -p polkadot-parachain-bin --bin polkadot-parachain
+    - time cargo build --release --locked -p polkadot-parachain-omni-node --bin polkadot-parachain-omni-node
     - echo "___Packing the artifacts___"
     - mkdir -p ./artifacts
-    - mv ./target/release/polkadot-parachain ./artifacts/.
+    - mv ./target/release/polkadot-parachain-omni-node ./artifacts/.
     - echo "___The VERSION is either a tag name or the curent branch if triggered not by a tag___"
     - echo ${CI_COMMIT_REF_NAME} | tee ./artifacts/VERSION
 
@@ -288,10 +288,10 @@ build-short-benchmark-cumulus:
     - .run-immediately
     - .collect-artifacts
   script:
-    - cargo build --profile release --locked --features=runtime-benchmarks,on-chain-release-build -p polkadot-parachain-bin --bin polkadot-parachain --workspace
+    - cargo build --profile release --locked --features=runtime-benchmarks,on-chain-release-build -p polkadot-parachain-omni-node --bin polkadot-parachain-omni-node --workspace
     - mkdir -p artifacts
-    - target/release/polkadot-parachain --version
-    - cp ./target/release/polkadot-parachain ./artifacts/
+    - target/release/polkadot-parachain-omni-node --version
+    - cp ./target/release/polkadot-parachain-omni-node ./artifacts/
 
 # substrate
 
@@ -313,7 +313,7 @@ build-linux-substrate:
     # tldr: we need to checkout the branch HEAD explicitly because of our dynamic versioning approach while building the substrate binary
     # see https://github.com/paritytech/ci_cd/issues/682#issuecomment-1340953589
     - git checkout -B "$CI_COMMIT_REF_NAME" "$CI_COMMIT_SHA"
-    - !reference [.forklift-cache, before_script]
+    - !reference [ .forklift-cache, before_script ]
   script:
     - time WASM_BUILD_NO_COLOR=1 cargo build --locked --release -p staging-node-cli
     - mv $CARGO_TARGET_DIR/release/substrate-node ./artifacts/substrate/substrate
@@ -353,7 +353,7 @@ build-runtimes-polkavm:
     CARGO_TARGET_DIR: "$CI_PROJECT_DIR/target"
   before_script:
     - mkdir -p ./artifacts/subkey
-    - !reference [.forklift-cache, before_script]
+    - !reference [ .forklift-cache, before_script ]
   script:
     - cd ./substrate/bin/utils/subkey
     - time SKIP_WASM_BUILD=1 cargo build --locked --release

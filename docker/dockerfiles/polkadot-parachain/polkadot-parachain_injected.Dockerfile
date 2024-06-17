@@ -21,7 +21,7 @@ USER root
 
 RUN	mkdir -p /specs
 
-# add polkadot-parachain binary to the docker image
+# add polkadot-parachain-omni-node binary to the docker image
 COPY bin/* /usr/local/bin/
 COPY specs/* /specs/
 
@@ -30,9 +30,9 @@ RUN chmod -R a+rx "/usr/local/bin"
 USER parity
 
 # check if executable works in this container
-RUN /usr/local/bin/polkadot-parachain --version
+RUN /usr/local/bin/polkadot-parachain-omni-node --version
 
 EXPOSE 30333 9933 9944 9615
 VOLUME ["/polkadot", "/specs"]
 
-ENTRYPOINT ["/usr/local/bin/polkadot-parachain"]
+ENTRYPOINT ["/usr/local/bin/polkadot-parachain-omni-node"]

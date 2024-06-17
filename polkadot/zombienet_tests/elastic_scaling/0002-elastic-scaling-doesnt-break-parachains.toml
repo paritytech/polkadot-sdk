@@ -36,5 +36,5 @@ onboard_as_parachain = false
 
   [parachains.collator]
   name = "collator2000"
-  command = "polkadot-parachain"
+  command = "polkadot-parachain-omni-node"
   args = [ "-lparachain=debug" ]

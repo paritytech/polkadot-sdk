@@ -53,7 +53,7 @@ impl Extensions {
 	}
 }
 
-/// Generic chain spec for all polkadot-parachain runtimes
+/// Generic chain spec for all polkadot-parachain-omni-node runtimes
 pub type GenericChainSpec = sc_service::GenericChainSpec<Extensions>;
 
 /// Helper function to generate a crypto pair from seed

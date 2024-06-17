@@ -36,8 +36,8 @@ RUN yarn global add @polkadot/api-cli
 COPY ./artifacts/polkadot /usr/local/bin/
 COPY ./artifacts/polkadot-execute-worker /usr/local/bin/
 COPY ./artifacts/polkadot-prepare-worker /usr/local/bin/
-# add polkadot-parachain binary to the docker image
-COPY ./artifacts/polkadot-parachain /usr/local/bin
+# add polkadot-parachain-omni-node binary to the docker image
+COPY ./artifacts/polkadot-parachain-omni-node /usr/local/bin
 # copy substrate-relay to the docker image
 COPY --from=relay-builder /home/user/substrate-relay /usr/local/bin/
 # we need bridges zombienet runner and tests
@@ -51,7 +51,7 @@ RUN set -eux; \
 # check if executable works in this container
 USER nonroot
 RUN /usr/local/bin/polkadot --version
-RUN /usr/local/bin/polkadot-parachain --version
+RUN /usr/local/bin/polkadot-parachain-omni-node --version
 RUN /usr/local/bin/substrate-relay --version
 
 # https://polkadot.js.org/apps/?rpc=ws://127.0.0.1:{PORT}#/explorer

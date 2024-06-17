@@ -23,7 +23,7 @@ RUN apt-get update && apt-get install jq curl bash -y && \
     npm install --global yarn && \
     yarn global add @polkadot/api-cli@0.10.0-beta.14
 COPY --from=builder \
-    /paritytech/cumulus/target/release/polkadot-parachain /usr/bin
+    /paritytech/cumulus/target/release/polkadot-parachain-omni-node /usr/bin
 COPY ./docker/scripts/inject_bootnodes.sh /usr/bin
 CMD ["/usr/bin/inject_bootnodes.sh"]
 COPY ./docker/scripts/healthcheck.sh /usr/bin/
@@ -41,6 +41,6 @@ CMD ["cp", "-v", "/var/opt/cumulus_test_parachain_runtime.compact.wasm", "/runti
 
 FROM debian:buster-slim
 COPY --from=builder \
-    /paritytech/cumulus/target/release/polkadot-parachain /usr/bin
+    /paritytech/cumulus/target/release/polkadot-parachain-omni-node /usr/bin
 
 CMD ["/usr/bin/polkadot-parachain"]
