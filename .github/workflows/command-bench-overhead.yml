@@ -1,4 +1,4 @@
-name: Command Bench All
+name: Command Bench Overhead
 
 on: 
   workflow_dispatch: 
@@ -11,21 +11,8 @@ on:
         type: choice
         required: true
         options:
-          - pallet
+          - default
           - substrate
-          - polkadot
-          - cumulus
-      pallet:
-        description: Pallet
-        required: false
-        type: string
-        default: pallet_name
-      target_dir:
-        description: Target directory
-        type: choice
-        options:
-          - substrate
-          - polkadot
           - cumulus
       runtime:
         description: Runtime
@@ -33,24 +20,15 @@ on:
         options:
           - rococo
           - westend
-          - asset-hub-kusama
-          - asset-hub-polkadot
           - asset-hub-rococo
           - asset-hub-westend
-          - bridge-hub-kusama
-          - bridge-hub-polkadot
-          - bridge-hub-rococo
-          - bridge-hub-westend
-          - collectives-polkadot
-          - collectives-westend
-          - coretime-rococo
-          - coretime-westend
-          - contracts-rococo
-          - glutton-kusama
-          - glutton-westend
-          - people-rococo
-          - people-westend
-
+      target_dir:
+        description: Target directory
+        type: choice
+        options:
+          - polkadot
+          - substrate
+          - cumulus
 
 jobs:
   set-image:     
@@ -62,7 +40,7 @@ jobs:
         uses: actions/checkout@v4
       - id: set_image
         run: cat .github/env >> $GITHUB_OUTPUT
-  cmd-bench-all:
+  cmd-bench-overhead:
     needs: [set-image]
     runs-on: ubuntu-latest
     container:
@@ -76,9 +54,9 @@ jobs:
         with:
           pr-number: ${{ inputs.pr }}
           GH_TOKEN: ${{ github.token }}
-      - name: Run bench all
+      - name: Run bench overhead
         run: |
-          "./scripts/bench-all.sh" "${{ inputs.benchmark }}" --runtime "${{ inputs.runtime }}" --pallet "${{ inputs.pallet }}" --target_dir "${{ inputs.target_dir }}"
+          "./scripts/bench.sh" "${{ inputs.benchmark }}" --subcommand "overhead" --runtime "${{ inputs.runtime }}" --target_dir "${{ inputs.target_dir }}"
       - name: Report failure
         if: ${{ failure() }}
         run: gh pr comment ${{ inputs.pr }} --body "<h2>Command failed ❌</h2> Run by @${{ github.actor }} for <code>${{ github.workflow }}</code> failed. See logs <a href=\"$RUN\">here</a>."
