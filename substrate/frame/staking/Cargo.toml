@@ -31,6 +31,7 @@ pallet-session = { path = "../session", default-features = false, features = [
 	"historical",
 ] }
 pallet-authorship = { path = "../authorship", default-features = false }
+pallet-stake-tracker = { path = "./stake-tracker", default-features = false }
 sp-application-crypto = { path = "../../primitives/application-crypto", default-features = false, features = ["serde"] }
 frame-election-provider-support = { path = "../election-provider-support", default-features = false }
 log = { workspace = true }
@@ -46,11 +47,13 @@ sp-core = { path = "../../primitives/core" }
 sp-npos-elections = { path = "../../primitives/npos-elections" }
 pallet-timestamp = { path = "../timestamp" }
 pallet-staking-reward-curve = { path = "reward-curve" }
-pallet-bags-list = { path = "../bags-list" }
+pallet-bags-list = { path = "../bags-list", default-features = false, features = ["try-runtime"] }
+pallet-migrations = { path = "../migrations" }
 substrate-test-utils = { path = "../../test-utils" }
 frame-benchmarking = { path = "../benchmarking" }
 frame-election-provider-support = { path = "../election-provider-support" }
 rand_chacha = { version = "0.3.1" }
+sp-staking = { path = "../../primitives/staking", default-features = false, features = ["serde", "test-utils"] }
 
 [features]
 default = ["std"]
@@ -64,7 +67,9 @@ std = [
 	"pallet-authorship/std",
 	"pallet-bags-list/std",
 	"pallet-balances/std",
+	"pallet-migrations/std",
 	"pallet-session/std",
+	"pallet-stake-tracker/std",
 	"pallet-timestamp/std",
 	"scale-info/std",
 	"serde/std",
@@ -84,6 +89,8 @@ runtime-benchmarks = [
 	"frame-system/runtime-benchmarks",
 	"pallet-bags-list/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
+	"pallet-migrations/runtime-benchmarks",
+	"pallet-stake-tracker/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
 	"rand_chacha",
 	"sp-runtime/runtime-benchmarks",
@@ -96,7 +103,9 @@ try-runtime = [
 	"pallet-authorship/try-runtime",
 	"pallet-bags-list/try-runtime",
 	"pallet-balances/try-runtime",
+	"pallet-migrations/try-runtime",
 	"pallet-session/try-runtime",
+	"pallet-stake-tracker/try-runtime",
 	"pallet-timestamp/try-runtime",
 	"sp-runtime/try-runtime",
 ]

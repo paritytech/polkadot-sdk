@@ -920,9 +920,6 @@ fn pool_migration_e2e() {
 		assert_ok!(Pools::create(RuntimeOrigin::signed(10), 50, 10, 10, 10));
 		assert_eq!(LastPoolId::<Runtime>::get(), 1);
 
-		// have the pool nominate.
-		assert_ok!(Pools::nominate(RuntimeOrigin::signed(10), 1, vec![1, 2, 3]));
-
 		assert_eq!(
 			staking_events_since_last_call(),
 			vec![StakingEvent::Bonded { stash: POOL1_BONDED, amount: 50 }]

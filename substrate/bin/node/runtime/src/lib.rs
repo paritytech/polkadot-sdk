@@ -129,7 +129,7 @@ use constants::{currency::*, time::*};
 use sp_runtime::generic::Era;
 
 /// Generated voter bag information.
-mod voter_bags;
+mod voter_target_bags;
 
 /// Runtime API definition for assets.
 pub mod assets_api;
@@ -694,16 +694,27 @@ impl pallet_staking::Config for Runtime {
 	type ElectionProvider = ElectionProviderMultiPhase;
 	type GenesisElectionProvider = onchain::OnChainExecution<OnChainSeqPhragmen>;
 	type VoterList = VoterList;
+	type TargetList = TargetList;
 	type NominationsQuota = pallet_staking::FixedNominationsQuota<MAX_QUOTA_NOMINATIONS>;
-	// This a placeholder, to be introduced in the next PR as an instance of bags-list
-	type TargetList = pallet_staking::UseValidatorsMap<Self>;
 	type MaxUnlockingChunks = ConstU32<32>;
 	type MaxControllersInDeprecationBatch = MaxControllersInDeprecationBatch;
 	type HistoryDepth = HistoryDepth;
-	type EventListeners = NominationPools;
+	type EventListeners = (StakeTracker, NominationPools);
 	type WeightInfo = pallet_staking::weights::SubstrateWeight<Runtime>;
 	type BenchmarkingConfig = StakingBenchmarkingConfig;
 	type DisablingStrategy = pallet_staking::UpToLimitDisablingStrategy;
+}
+
+parameter_types! {
+	pub const VoterUpdateMode: pallet_stake_tracker::VoterUpdateMode = pallet_stake_tracker::VoterUpdateMode::Lazy;
+}
+
+impl pallet_stake_tracker::Config for Runtime {
+	type Currency = Balances;
+	type Staking = Staking;
+	type VoterList = VoterList;
+	type TargetList = TargetList;
+	type VoterUpdateMode = VoterUpdateMode;
 }
 
 impl pallet_fast_unstake::Config for Runtime {
@@ -870,7 +881,8 @@ impl pallet_election_provider_multi_phase::Config for Runtime {
 }
 
 parameter_types! {
-	pub const BagThresholds: &'static [u64] = &voter_bags::THRESHOLDS;
+	pub const VoterBagThresholds: &'static [u64] = &voter_target_bags::VOTER_THRESHOLDS;
+	pub const TargetBagThresholds: &'static [Balance] = &voter_target_bags::TARGET_THRESHOLDS;
 }
 
 type VoterBagsListInstance = pallet_bags_list::Instance1;
@@ -879,8 +891,17 @@ impl pallet_bags_list::Config<VoterBagsListInstance> for Runtime {
 	/// The voter bags-list is loosely kept up to date, and the real source of truth for the score
 	/// of each node is the staking pallet.
 	type ScoreProvider = Staking;
-	type BagThresholds = BagThresholds;
+	type BagThresholds = VoterBagThresholds;
 	type Score = VoteWeight;
+	type WeightInfo = pallet_bags_list::weights::SubstrateWeight<Runtime>;
+}
+
+type TargetBagsListInstance = pallet_bags_list::Instance2;
+impl pallet_bags_list::Config<TargetBagsListInstance> for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type ScoreProvider = pallet_bags_list::Pallet<Runtime, TargetBagsListInstance>;
+	type BagThresholds = TargetBagThresholds;
+	type Score = Balance;
 	type WeightInfo = pallet_bags_list::weights::SubstrateWeight<Runtime>;
 }
 
@@ -2490,6 +2511,12 @@ mod runtime {
 
 	#[runtime::pallet_index(79)]
 	pub type AssetConversionMigration = pallet_asset_conversion_ops;
+
+	#[runtime::pallet_index(80)]
+	pub type TargetList = pallet_bags_list<Instance2>;
+
+	#[runtime::pallet_index(81)]
+	pub type StakeTracker = pallet_stake_tracker;
 }
 
 /// The address format for describing accounts.
@@ -2592,6 +2619,7 @@ mod benches {
 		[pallet_assets, Assets]
 		[pallet_babe, Babe]
 		[pallet_bags_list, VoterList]
+		[pallet_bags_list, TargetList]
 		[pallet_balances, Balances]
 		[pallet_bounties, Bounties]
 		[pallet_broker, Broker]

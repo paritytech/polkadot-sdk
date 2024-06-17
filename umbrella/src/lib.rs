@@ -657,6 +657,10 @@ pub use pallet_skip_feeless_payment;
 #[cfg(feature = "pallet-society")]
 pub use pallet_society;
 
+/// FRAME stake tracker pallet.
+#[cfg(feature = "pallet-stake-tracker")]
+pub use pallet_stake_tracker;
+
 /// FRAME pallet staking.
 #[cfg(feature = "pallet-staking")]
 pub use pallet_staking;

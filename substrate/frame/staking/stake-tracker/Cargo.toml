@@ -1,0 +1,80 @@
+[package]
+name = "pallet-stake-tracker"
+version = "0.1.0"
+description = "FRAME stake tracker pallet"
+authors = ["Parity Technologies <admin@parity.io>"]
+homepage = "https://substrate.io"
+edition = "2021"
+license = "Apache-2.0"
+repository = "https://github.com/paritytech/polkadot-sdk"
+
+[package.metadata.docs.rs]
+targets = ["x86_64-unknown-linux-gnu"]
+
+[dependencies]
+codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
+scale-info = { version = "2.0.0", default-features = false, features = ["derive"] }
+
+sp-runtime = { default-features = false, path = "../../../primitives/runtime", features = ["serde"] }
+sp-staking = { default-features = false, path = "../../../primitives/staking", features = ["serde"] }
+sp-std = { default-features = false, path = "../../../primitives/std" }
+
+sp-npos-elections = { default-features = false, path = "../../../primitives/npos-elections" }
+frame-election-provider-support = { default-features = false, path = "../../election-provider-support" }
+frame-support = { default-features = false, path = "../../support" }
+frame-system = { default-features = false, path = "../../system" }
+
+# Optional imports for benchmarking
+frame-benchmarking = { path = "../../benchmarking", default-features = false, optional = true }
+
+[dev-dependencies]
+sp-std = { default-features = false, path = "../../../primitives/std" }
+sp-core = { default-features = false, path = "../../../primitives/core" }
+sp-io = { default-features = false, path = "../../../primitives/io" }
+sp-runtime = { default-features = false, path = "../../../primitives/runtime", features = ["serde"] }
+sp-tracing = { default-features = false, path = "../../../primitives/tracing" }
+pallet-bags-list = { default-features = false, path = "../../bags-list", features = ["try-runtime"] }
+pallet-balances = { default-features = false, path = "../../balances" }
+frame-benchmarking = { path = "../../benchmarking" }
+
+[features]
+default = ["std"]
+
+std = [
+	"codec/std",
+	"frame-benchmarking?/std",
+	"frame-election-provider-support/std",
+	"frame-support/std",
+	"frame-system/std",
+	"pallet-bags-list/std",
+	"pallet-balances/std",
+	"scale-info/std",
+	"sp-core/std",
+	"sp-io/std",
+	"sp-npos-elections/std",
+	"sp-runtime/std",
+	"sp-runtime/std",
+	"sp-staking/std",
+	"sp-std/std",
+	"sp-tracing/std",
+]
+
+runtime-benchmarks = [
+	"frame-benchmarking/runtime-benchmarks",
+	"frame-election-provider-support/runtime-benchmarks",
+	"frame-support/runtime-benchmarks",
+	"frame-system/runtime-benchmarks",
+	"pallet-bags-list/runtime-benchmarks",
+	"pallet-balances/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"sp-staking/runtime-benchmarks",
+]
+
+try-runtime = [
+	"frame-election-provider-support/try-runtime",
+	"frame-support/try-runtime",
+	"frame-system/try-runtime",
+	"pallet-bags-list/try-runtime",
+	"pallet-balances/try-runtime",
+	"sp-runtime/try-runtime",
+]

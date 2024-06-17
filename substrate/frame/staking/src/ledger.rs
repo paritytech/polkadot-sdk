@@ -35,7 +35,7 @@ use frame_support::{
 	defensive, ensure,
 	traits::{Defensive, LockableCurrency},
 };
-use sp_staking::{StakingAccount, StakingInterface};
+use sp_staking::{OnStakingUpdate, Stake, StakerStatus, StakingAccount, StakingInterface};
 use sp_std::prelude::*;
 
 use crate::{
@@ -43,12 +43,10 @@ use crate::{
 	VirtualStakers, STAKING_ID,
 };
 
-#[cfg(any(feature = "runtime-benchmarks", test))]
-use sp_runtime::traits::Zero;
-
 impl<T: Config> StakingLedger<T> {
 	#[cfg(any(feature = "runtime-benchmarks", test))]
 	pub fn default_from(stash: T::AccountId) -> Self {
+		use sp_runtime::traits::Zero;
 		Self {
 			stash: stash.clone(),
 			total: Zero::zero(),
@@ -76,6 +74,10 @@ impl<T: Config> StakingLedger<T> {
 			// controllers are deprecated and mapped 1-1 to stashes.
 			controller: Some(stash),
 		}
+	}
+
+	pub fn stake(&self) -> Stake<BalanceOf<T>> {
+		Stake { total: self.total, active: self.active }
 	}
 
 	/// Returns the paired account, if any.
@@ -181,12 +183,20 @@ impl<T: Config> StakingLedger<T> {
 	/// Bonds the ledger if it is not bonded yet, signalling that this is a new ledger. The staking
 	/// locks of the stash account are updated accordingly.
 	///
+	/// Emits:
+	/// * [`OnStakeUpdate::on_stake_update`]
+	///
 	/// Note: To ensure lock consistency, all the [`Ledger`] storage updates should be made through
 	/// this helper function.
 	pub(crate) fn update(self) -> Result<(), Error<T>> {
 		if !<Bonded<T>>::contains_key(&self.stash) {
 			return Err(Error::<T>::NotStash)
 		}
+
+		let controller = &self.controller().ok_or(Error::<T>::BadState)?;
+
+		// previous stake is the current stake in storage.
+		let prev_stake = Ledger::<T>::get(&controller).map(|ledger| ledger.stake());
 
 		// We skip locking virtual stakers.
 		if !Pallet::<T>::is_virtual_staker(&self.stash) {
@@ -206,6 +216,12 @@ impl<T: Config> StakingLedger<T> {
 			})?,
 			&self,
 		);
+
+		// fire `on_stake_update` if there was a stake update.
+		let new_stake: Stake<_> = self.stake();
+		if new_stake != prev_stake.unwrap_or_default() {
+			T::EventListeners::on_stake_update(&self.stash, prev_stake, new_stake);
+		}
 
 		Ok(())
 	}
@@ -259,8 +275,21 @@ impl<T: Config> StakingLedger<T> {
 
 	/// Clears all data related to a staking ledger and its bond in both [`Ledger`] and [`Bonded`]
 	/// storage items and updates the stash staking lock.
+	///
+	/// Emits:
+	/// * [`OnStakingUpdate::on_unstake`]
+	///
+	/// Note: we assume that [`T::EventListeners::on_nominator_remove`] and/or
+	/// [`T::EventListeners::on_validator_remove`] have been called and the stash is idle, prior to
+	/// call this method. This can be achieved by calling [`crate::Pallet::<T>::kill_stash`] prior
+	/// to this call.
 	pub(crate) fn kill(stash: &T::AccountId) -> Result<(), Error<T>> {
 		let controller = <Bonded<T>>::get(stash).ok_or(Error::<T>::NotStash)?;
+
+		debug_assert!(
+			crate::Pallet::<T>::status(stash) == Ok(StakerStatus::Idle),
+			"ledger being killed before set as Idle"
+		);
 
 		<Ledger<T>>::get(&controller).ok_or(Error::<T>::NotController).map(|ledger| {
 			Ledger::<T>::remove(controller);
@@ -272,6 +301,8 @@ impl<T: Config> StakingLedger<T> {
 				// if not virtual staker, clear locks.
 				T::Currency::remove_lock(STAKING_ID, &ledger.stash);
 			}
+
+			T::EventListeners::on_unstake(stash);
 
 			Ok(())
 		})?

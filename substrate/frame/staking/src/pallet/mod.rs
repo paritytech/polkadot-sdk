@@ -37,11 +37,11 @@ use sp_runtime::{
 };
 
 use sp_staking::{
-	EraIndex, Page, SessionIndex,
+	EraIndex, OnStakingUpdate, Page, SessionIndex,
 	StakingAccount::{self, Controller, Stash},
 	StakingInterface,
 };
-use sp_std::prelude::*;
+use sp_std::{collections::btree_set::BTreeSet, prelude::*};
 
 mod impls;
 
@@ -51,7 +51,7 @@ use crate::{
 	slashing, weights::WeightInfo, AccountIdLookupOf, ActiveEraInfo, BalanceOf, DisablingStrategy,
 	EraPayout, EraRewardPoints, Exposure, ExposurePage, Forcing, LedgerIntegrityState,
 	MaxNominationsOf, NegativeImbalanceOf, Nominations, NominationsQuota, PositiveImbalanceOf,
-	RewardDestination, SessionInterface, StakingLedger, UnappliedSlash, UnlockChunk,
+	RewardDestination, SessionInterface, StakerStatus, StakingLedger, UnappliedSlash, UnlockChunk,
 	ValidatorPrefs,
 };
 
@@ -105,6 +105,7 @@ pub mod pallet {
 			+ From<u64>
 			+ TypeInfo
 			+ MaxEncodedLen;
+
 		/// Time used for computing era duration.
 		///
 		/// It is guaranteed to start being called from the first `on_finalize`. Thus value at
@@ -219,39 +220,36 @@ pub mod pallet {
 		#[pallet::constant]
 		type MaxExposurePageSize: Get<u32>;
 
-		/// Something that provides a best-effort sorted list of voters aka electing nominators,
-		/// used for NPoS election.
+		/// Something that provides a sorted list of voters (aka electing nominators), used for
+		/// NPoS election.
 		///
 		/// The changes to nominators are reported to this. Moreover, each validator's self-vote is
 		/// also reported as one independent vote.
 		///
-		/// To keep the load off the chain as much as possible, changes made to the staked amount
-		/// via rewards and slashes are not reported and thus need to be manually fixed by the
-		/// staker. In case of `bags-list`, this always means using `rebag` and `putInFrontOf`.
+		/// Voters will be removed from this list when their ledger is killed or the nominator is
+		/// chilled.
 		///
-		/// Invariant: what comes out of this list will always be a nominator.
+		/// Invariant: what comes out of this list will always be an active nominator.
 		type VoterList: SortedListProvider<Self::AccountId, Score = VoteWeight>;
 
-		/// WIP: This is a noop as of now, the actual business logic that's described below is going
-		/// to be introduced in a follow-up PR.
+		/// Something that provides a sorted list of targets (aka electable and chilled
+		/// validators), used for NPoS election.
 		///
-		/// Something that provides a best-effort sorted list of targets aka electable validators,
-		/// used for NPoS election.
+		/// The changes to the approval stake of each validator are reported to this list through
+		/// [`Self::EventListeners`]. The target(s) approval stake in the list should be updated in
+		/// any of these cases:
+		/// 1. The stake of a validator or nominator is updated.
+		/// 2. A nominator or validator is chilled.
+		/// 3. The nominations of a voter are updated.
+		/// 4. A nominator or validator ledger is removed from the staking system.
 		///
-		/// The changes to the approval stake of each validator are reported to this. This means any
-		/// change to:
-		/// 1. The stake of any validator or nominator.
-		/// 2. The targets of any nominator
-		/// 3. The role of any staker (e.g. validator -> chilled, nominator -> validator, etc)
+		/// Chilled validators will *not* be removed from this list. Even when chilled, the target's
+		/// approval voting must be kept up to date. In case a chilled validator re-validates their
+		/// intention to be a validator again, their target score is up to date with the nominations
+		/// in the system.
 		///
-		/// Unlike `VoterList`, the values in this list are always kept up to date with reward and
-		/// slash as well, and thus represent the accurate approval stake of all account being
-		/// nominated by nominators.
-		///
-		/// Note that while at the time of nomination, all targets are checked to be real
-		/// validators, they can chill at any point, and their approval stakes will still be
-		/// recorded. This implies that what comes out of iterating this list MIGHT NOT BE AN ACTIVE
-		/// VALIDATOR.
+		/// A target is removed from the list IFF its approval score is zero. This means that the
+		/// validator must be unbonded *AND* no staker is nominating it.
 		type TargetList: SortedListProvider<Self::AccountId, Score = BalanceOf<Self>>;
 
 		/// The maximum number of `unlocking` chunks a [`StakingLedger`] can
@@ -272,9 +270,7 @@ pub mod pallet {
 
 		/// Something that listens to staking updates and performs actions based on the data it
 		/// receives.
-		///
-		/// WARNING: this only reports slashing and withdraw events for the time being.
-		type EventListeners: sp_staking::OnStakingUpdate<Self::AccountId, BalanceOf<Self>>;
+		type EventListeners: OnStakingUpdate<Self::AccountId, BalanceOf<Self>>;
 
 		// `DisablingStragegy` controls how validators are disabled
 		type DisablingStrategy: DisablingStrategy<Self>;
@@ -359,10 +355,9 @@ pub mod pallet {
 	/// The map from nominator stash key to their nomination preferences, namely the validators that
 	/// they wish to support.
 	///
-	/// Note that the keys of this storage map might become non-decodable in case the
-	/// account's [`NominationsQuota::MaxNominations`] configuration is decreased.
-	/// In this rare case, these nominators
-	/// are still existent in storage, their key is correct and retrievable (i.e. `contains_key`
+	/// Note that the keys of this storage map might become non-decodable in case the account's
+	/// [`NominationsQuota::MaxNominations`] configuration is decreased. In this rare case, these
+	/// nominators still exist in storage, their key is correct and retrievable (i.e. `contains_key`
 	/// indicates that they exist), but their value cannot be decoded. Therefore, the non-decodable
 	/// nominators will effectively not-exist, until they re-submit their preferences such that it
 	/// is within the bounds of the newly set `Config::MaxNominations`.
@@ -800,6 +795,8 @@ pub mod pallet {
 		ForceEra { mode: Forcing },
 		/// Report of a controller batch deprecation.
 		ControllerBatchDeprecated { failures: u32 },
+		/// A set of dangling nominations have been successfully dropped.
+		DanglingNominationsDropped { nominator: T::AccountId, count: u32 },
 	}
 
 	#[pallet::error]
@@ -865,6 +862,12 @@ pub mod pallet {
 		ControllerDeprecated,
 		/// Cannot reset a ledger.
 		CannotRestoreLedger,
+		/// Target is not dangling.
+		///
+		/// A dandling target is a target that is part of the target list but is unbonded.
+		NotDanglingTarget,
+		/// Not a nominator.
+		NotNominator,
 		/// Provided reward destination is not allowed.
 		RewardDestinationRestricted,
 		/// Not enough funds available to withdraw.
@@ -1092,13 +1095,7 @@ pub mod pallet {
 						.try_push(UnlockChunk { value, era })
 						.map_err(|_| Error::<T>::NoMoreChunks)?;
 				};
-				// NOTE: ledger must be updated prior to calling `Self::weight_of`.
 				ledger.update()?;
-
-				// update this staker in the sorted list, if they exist in it.
-				if T::VoterList::contains(&stash) {
-					let _ = T::VoterList::on_update(&stash, Self::weight_of(&stash)).defensive();
-				}
 
 				Self::deposit_event(Event::<T>::Unbonded { stash, amount: value });
 			}
@@ -1178,7 +1175,7 @@ pub mod pallet {
 				}
 			}
 
-			Self::do_remove_nominator(stash);
+			Self::do_chill_nominator(stash);
 			Self::do_add_validator(stash, prefs.clone());
 			Self::deposit_event(Event::<T>::ValidatorPrefsSet { stash: ledger.stash, prefs });
 
@@ -1187,7 +1184,9 @@ pub mod pallet {
 
 		/// Declare the desire to nominate `targets` for the origin controller.
 		///
-		/// Effects will be felt at the beginning of the next era.
+		///	The duplicate nominations will be implicitly removed. Only validators or idle stakers
+		///	are valid targets. If successful, the effects of this call will be felt at the beginning
+		/// of the next era.
 		///
 		/// The dispatch origin for this call must be _Signed_ by the controller, not the stash.
 		///
@@ -1221,7 +1220,7 @@ pub mod pallet {
 				}
 			}
 
-			ensure!(!targets.is_empty(), Error::<T>::EmptyTargets);
+			// Check if maximum nominations quota is respected.
 			ensure!(
 				targets.len() <= T::NominationsQuota::get_quota(ledger.active) as usize,
 				Error::<T>::TooManyTargets
@@ -1234,7 +1233,17 @@ pub mod pallet {
 				.map(|t| T::Lookup::lookup(t).map_err(DispatchError::from))
 				.map(|n| {
 					n.and_then(|n| {
-						if old.contains(&n) || !Validators::<T>::get(&n).blocked {
+						// a good target nomination must be an active validator or a Idle staker.
+						// The validator must not be blocked.
+						let validator_or_idle = Self::status(&n)
+							.map(|status| {
+								status == StakerStatus::Validator || status == StakerStatus::Idle
+							})
+							.unwrap_or(false);
+
+						if validator_or_idle &&
+							(old.contains(&n) || !Validators::<T>::get(&n).blocked)
+						{
 							Ok(n)
 						} else {
 							Err(Error::<T>::BadTarget.into())
@@ -1242,8 +1251,16 @@ pub mod pallet {
 					})
 				})
 				.collect::<Result<Vec<_>, _>>()?
+				// remove duplicate nominations.
+				.drain(..)
+				.collect::<BTreeSet<_>>()
+				.into_iter()
+				.collect::<Vec<_>>()
 				.try_into()
 				.map_err(|_| Error::<T>::TooManyNominators)?;
+
+			// Ensure final target vec is not empty.
+			ensure!(!targets.is_empty(), Error::<T>::EmptyTargets);
 
 			let nominations = Nominations {
 				targets,
@@ -1252,8 +1269,9 @@ pub mod pallet {
 				suppressed: false,
 			};
 
-			Self::do_remove_validator(stash);
+			Self::do_chill_validator(stash);
 			Self::do_add_nominator(stash, nominations);
+
 			Ok(())
 		}
 
@@ -1686,6 +1704,10 @@ pub mod pallet {
 					if let Some(ref mut nom) = maybe_nom {
 						if let Some(pos) = nom.targets.iter().position(|v| v == stash) {
 							nom.targets.swap_remove(pos);
+
+							// update nominations and trickle down to target list score.
+							Self::do_add_nominator(&nom_stash, nom.clone());
+
 							Self::deposit_event(Event::<T>::Kicked {
 								nominator: nom_stash.clone(),
 								stash: stash.clone(),
@@ -2088,6 +2110,41 @@ pub mod pallet {
 				Error::<T>::BadState
 			);
 			Ok(())
+		}
+
+		/// Removes nomination of a non-active validator.
+		///
+		/// In the case that an unboded target still has nominations lingering, the approvals stake
+		/// for the "dangling" target needs to remain in the target list. This extrinsic allows
+		/// nominations of dangling targets to be removed.
+		///
+		/// A dangling nomination may be removed IFF:
+		///  * The `target` is unbonded and it exists in the target list.
+		///  * The `voter` is nominating `target`.
+		#[pallet::call_index(30)]
+		#[pallet::weight(T::WeightInfo::drop_dangling_nomination())]
+		pub fn drop_dangling_nomination(
+			origin: OriginFor<T>,
+			nominator: T::AccountId,
+			target: T::AccountId,
+		) -> DispatchResultWithPostInfo {
+			let _ = ensure_signed(origin)?;
+
+			ensure!(
+				Self::status(&target).is_err() && T::TargetList::contains(&target),
+				Error::<T>::NotDanglingTarget
+			);
+
+			Self::do_drop_dangling_nominations(&nominator, Some(&target))
+				.map(|_| {
+					Self::deposit_event(Event::<T>::DanglingNominationsDropped {
+						nominator,
+						count: 1,
+					});
+
+					Pays::No.into()
+				})
+				.map_err(|err| err.into())
 		}
 	}
 }

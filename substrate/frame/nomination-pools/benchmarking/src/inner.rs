@@ -109,6 +109,15 @@ fn create_pool_account<T: pallet_nomination_pools::Config>(
 	(pool_creator, pool_account)
 }
 
+// Set an account as validator.
+fn add_targets<T: pallet_staking::Config>(targets: Vec<T::AccountId>) {
+	use frame_election_provider_support::ElectionDataProvider;
+
+	for t in targets.into_iter() {
+		pallet_staking::Pallet::<T>::add_target(t);
+	}
+}
+
 fn migrate_to_transfer_stake<T: Config>(pool_id: PoolId) {
 	if T::StakeAdapter::strategy_type() == StakeStrategyType::Transfer {
 		// should already be in the correct strategy
@@ -185,19 +194,15 @@ impl<T: Config> ListScenario<T> {
 		let (pool_creator1, pool_origin1) =
 			create_pool_account::<T>(USER_SEED + 1, origin_weight, Some(Perbill::from_percent(50)));
 
-		T::StakeAdapter::nominate(
-			Pool::from(pool_origin1.clone()),
-			// NOTE: these don't really need to be validators.
-			vec![account("random_validator", 0, USER_SEED)],
-		)?;
+		let target: T::AccountId = account("random_validator", 0, USER_SEED);
+		add_targets::<T>(vec![target.clone()]);
+
+		T::StakeAdapter::nominate(Pool::from(pool_origin1.clone()), vec![target.clone()])?;
 
 		let (_, pool_origin2) =
 			create_pool_account::<T>(USER_SEED + 2, origin_weight, Some(Perbill::from_percent(50)));
 
-		T::StakeAdapter::nominate(
-			Pool::from(pool_origin2.clone()),
-			vec![account("random_validator", 0, USER_SEED)].clone(),
-		)?;
+		T::StakeAdapter::nominate(Pool::from(pool_origin2.clone()), vec![target.clone()])?;
 
 		// Find a destination weight that will trigger the worst case scenario
 		let dest_weight_as_vote = <T as pallet_staking::Config>::VoterList::score_update_worst_case(
@@ -212,10 +217,7 @@ impl<T: Config> ListScenario<T> {
 		let (_, pool_dest1) =
 			create_pool_account::<T>(USER_SEED + 3, dest_weight, Some(Perbill::from_percent(50)));
 
-		T::StakeAdapter::nominate(
-			Pool::from(pool_dest1.clone()),
-			vec![account("random_validator", 0, USER_SEED)],
-		)?;
+		T::StakeAdapter::nominate(Pool::from(pool_dest1.clone()), vec![target.clone()])?;
 
 		let weight_of = pallet_staking::Pallet::<T>::weight_of_fn();
 		assert_eq!(vote_to_balance::<T>(weight_of(&pool_origin1)).unwrap(), origin_weight);
@@ -613,11 +615,13 @@ frame_benchmarking::benchmarks! {
 		let min_create_bond = Pools::<T>::depositor_min_bond() * 2u32.into();
 		let (depositor, pool_account) = create_pool_account::<T>(0, min_create_bond, None);
 
-		// Create some accounts to nominate. For the sake of benchmarking they don't need to be
-		// actual validators
+		// Create some accounts to nominate.
 		 let validators: Vec<_> = (0..n)
 			.map(|i| account("stash", USER_SEED, i))
 			.collect();
+
+		// Ensure the nominations are all active targets.
+		 add_targets::<T>(validators.clone());
 
 		whitelist_account!(depositor);
 	}:_(RuntimeOrigin::Signed(depositor.clone()), 1, validators)
@@ -725,6 +729,9 @@ frame_benchmarking::benchmarks! {
 		 let validators: Vec<_> = (0..MaxNominationsOf::<T>::get())
 			.map(|i| account("stash", USER_SEED, i))
 			.collect();
+
+		// Ensure the nominations are all active targets.
+		 add_targets::<T>(validators.clone());
 
 		assert_ok!(T::StakeAdapter::nominate(Pool::from(pool_account.clone()), validators));
 		assert!(T::StakeAdapter::nominations(Pool::from(pool_account.clone())).is_some());

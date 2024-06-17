@@ -54,7 +54,8 @@ use crate::{
 	election_size_tracker::StaticTracker, log, slashing, weights::WeightInfo, ActiveEraInfo,
 	BalanceOf, EraInfo, EraPayout, Exposure, ExposureOf, Forcing, IndividualExposure,
 	LedgerIntegrityState, MaxNominationsOf, MaxWinnersOf, Nominations, NominationsQuota,
-	PositiveImbalanceOf, RewardDestination, SessionInterface, StakingLedger, ValidatorPrefs,
+	PositiveImbalanceOf, RewardDestination, SessionInterface, StakerStatus, StakingLedger,
+	ValidatorPrefs,
 };
 
 use super::pallet::*;
@@ -208,7 +209,8 @@ impl<T: Config> Pallet<T> {
 
 				T::WeightInfo::withdraw_unbonded_kill(num_slashing_spans)
 			} else {
-				// This was the consequence of a partial unbond. just update the ledger and move on.
+				// This was the consequence of a partial unbond. just update the ledger and move
+				// on.
 				ledger.update()?;
 
 				// This is only an update, so we use less overall weight.
@@ -285,14 +287,12 @@ impl<T: Config> Pallet<T> {
 				Err(Error::<T>::NotStash.with_weight(T::WeightInfo::payout_stakers_alive_staked(0)))
 			}
 		})?;
+		let stash = ledger.stash.clone();
 
 		// clean up older claimed rewards
 		ledger
 			.legacy_claimed_rewards
 			.retain(|&x| x >= current_era.saturating_sub(history_depth));
-		ledger.clone().update()?;
-
-		let stash = ledger.stash.clone();
 
 		if EraInfo::<T>::is_rewards_claimed_with_legacy_fallback(era, &ledger, &stash, page) {
 			return Err(Error::<T>::AlreadyClaimed
@@ -306,7 +306,8 @@ impl<T: Config> Pallet<T> {
 				.with_weight(T::WeightInfo::payout_stakers_alive_staked(0))
 		})?;
 
-		// Input data seems good, no errors allowed after this point
+		// Input data seems good, no errors allowed after the ledger is successfully updated.
+		ledger.update()?;
 
 		// Get Era reward points. It has TOTAL and INDIVIDUAL
 		// Find the fraction of the era reward that belongs to the validator
@@ -333,7 +334,7 @@ impl<T: Config> Pallet<T> {
 		// This is how much validator + nominators are entitled to.
 		let validator_total_payout = validator_total_reward_part * era_payout;
 
-		let validator_commission = EraInfo::<T>::get_validator_commission(era, &ledger.stash);
+		let validator_commission = EraInfo::<T>::get_validator_commission(era, &stash);
 		// total commission validator takes across all nominator pages
 		let validator_total_commission_payout = validator_commission * validator_total_payout;
 
@@ -393,12 +394,72 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Chill a stash account.
+	///
+	/// Chilling consists of removing the nominator/validator's stash from the corresponding
+	/// `Nominators` or `Validators` storage map.
+	///
+	/// Note: chilling a staker does not remove its footprint from the voter list or target list.
+	///
+	/// Invariant: upon chilling the status of the stash must be `StakerStatus::Idle`.
 	pub(crate) fn chill_stash(stash: &T::AccountId) {
-		let chilled_as_validator = Self::do_remove_validator(stash);
-		let chilled_as_nominator = Self::do_remove_nominator(stash);
+		let chilled_as_validator = Self::do_chill_validator(stash);
+		let chilled_as_nominator = Self::do_chill_nominator(stash);
 		if chilled_as_validator || chilled_as_nominator {
+			debug_assert_eq!(Self::status(stash), Ok(StakerStatus::Idle));
+
 			Self::deposit_event(Event::<T>::Chilled { stash: stash.clone() });
 		}
+	}
+
+	/// Removes dangling nominations from a nominator.
+	///
+	/// If `maybe_target` is `None`, search for *all* dangling nominations and drop them. Otherwise
+	/// drop only one dangling target. If the new set of nominations without the dangling targets
+	/// is empry, the `nominator` is chilled.
+	///
+	/// IMPORTANT NOTE: if `maybe_target` is set, it is assumed that the target is indeed dangling.
+	/// No further checks are performed in this method.
+	pub(crate) fn do_drop_dangling_nominations(
+		nominator: &T::AccountId,
+		target: Option<&T::AccountId>,
+	) -> Result<BoundedVec<T::AccountId, MaxNominationsOf<T>>, DispatchError> {
+		let (size_before, nominations_after) = match (target, Self::status(&nominator)) {
+			(None, Ok(StakerStatus::Nominator(nominations))) => {
+				// target not set, filter out all non-validator nominations.
+				(
+					nominations.len(),
+					nominations
+						.into_iter()
+						.filter(|n| Self::status(n) == Ok(StakerStatus::Validator))
+						.collect::<Vec<_>>(),
+				)
+			},
+			(Some(target), Ok(StakerStatus::Nominator(nominations))) => {
+				debug_assert!(Self::status(&target).is_err() && T::TargetList::contains(&target),);
+
+				(
+					nominations.len(),
+					nominations.iter().cloned().filter(|n| n != target).collect::<Vec<_>>(),
+				)
+			},
+			// not a nominator, return earlier.
+			(_, _) => return Err(Error::<T>::NotNominator.into()),
+		};
+
+		// no dangling targets after all.
+		if nominations_after.len() == size_before {
+			return Err(Error::<T>::NotDanglingTarget.into());
+		}
+
+		if nominations_after.len().is_zero() {
+			// no valid nominations left, chill nominator.
+			<Self as StakingInterface>::chill(nominator)?;
+		} else {
+			// update the nominations without the dangling(s) nominations.
+			<Self as StakingInterface>::nominate(nominator, nominations_after.clone())?;
+		}
+
+		Ok(BoundedVec::truncate_from(nominations_after))
 	}
 
 	/// Actually make a payment to a staker. This uses the currency's reward function
@@ -420,7 +481,6 @@ impl<T: Config> Pallet<T> {
 					ledger.active += amount;
 					ledger.total += amount;
 					let r = T::Currency::deposit_into_existing(stash, amount).ok();
-
 					let _ = ledger
 						.update()
 						.defensive_proof("ledger fetched from storage, so it exists; qed.");
@@ -790,12 +850,29 @@ impl<T: Config> Pallet<T> {
 	pub(crate) fn kill_stash(stash: &T::AccountId, num_slashing_spans: u32) -> DispatchResult {
 		slashing::clear_stash_metadata::<T>(&stash, num_slashing_spans)?;
 
-		// removes controller from `Bonded` and staking ledger from `Ledger`, as well as reward
-		// setting of the stash in `Payee`.
-		StakingLedger::<T>::kill(&stash)?;
+		// note: these must be called *before* cleaning up the staking ledger storage with fn kill.
+		match Self::status(stash) {
+			Ok(StakerStatus::Validator) => {
+				// validator is both a nominator and validator.
+				Self::do_remove_validator(&stash);
+				Self::do_remove_nominator(&stash);
+			},
+			Ok(StakerStatus::Nominator(_)) => {
+				Self::do_remove_nominator(&stash);
+			},
+			Ok(StakerStatus::Idle) => {
+				// we keep track of chilled (`Idle`) validators in the TargetList as well, so we
+				// may need to remove them.
+				Self::do_remove_validator(&stash);
+			},
+			Err(_) => {
+				// do nothing; it will fail below when trying to kill the stash.
+			},
+		}
 
-		Self::do_remove_validator(&stash);
-		Self::do_remove_nominator(&stash);
+		// and finally, it removes controller from `Bonded` and staking ledger from `Ledger`, as
+		// well as reward setting of the stash in `Payee`.
+		StakingLedger::<T>::kill(&stash)?;
 
 		frame_system::Pallet::<T>::dec_consumers(&stash);
 
@@ -881,6 +958,44 @@ impl<T: Config> Pallet<T> {
 	#[cfg(feature = "runtime-benchmarks")]
 	pub fn set_slash_reward_fraction(fraction: Perbill) {
 		SlashRewardFraction::<T>::put(fraction);
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	pub fn setup_dangling_target(target: T::AccountId, nominator: T::AccountId) {
+		let nominations = Self::nominations(&nominator).unwrap();
+		let nominations: BoundedVec<_, MaxNominationsOf<T>> =
+			BoundedVec::truncate_from(nominations);
+
+		let prev_nominations = Nominators::<T>::get(&nominator).unwrap();
+
+		Nominators::<T>::insert(
+			nominator.clone(),
+			Nominations { targets: nominations.clone(), submitted_in: 0, suppressed: false },
+		);
+
+		T::EventListeners::on_nominator_update(
+			&nominator,
+			prev_nominations.targets.into_iter().map(|t| t.into()).collect::<Vec<_>>(),
+			nominations.into_iter().map(|n| n.into()).collect::<Vec<_>>(),
+		);
+
+		let nominator_stake = Self::stake(&nominator).unwrap();
+
+		let prev_stake = Self::stake(&target).unwrap();
+		let stake_after_unbond = Stake {
+			total: prev_stake.total - nominator_stake.total,
+			active: prev_stake.active - nominator_stake.active,
+		};
+
+		T::EventListeners::on_stake_update(
+			&target.clone().into(),
+			Some(prev_stake),
+			stake_after_unbond,
+		);
+
+		Bonded::<T>::remove(target.clone());
+		Validators::<T>::remove(target.clone());
+		Nominators::<T>::remove(target);
 	}
 
 	/// Get all of the voters that are eligible for the npos election.
@@ -1017,7 +1132,13 @@ impl<T: Config> Pallet<T> {
 		let mut all_targets = Vec::<T::AccountId>::with_capacity(final_predicted_len as usize);
 		let mut targets_seen = 0;
 
-		let mut targets_iter = T::TargetList::iter();
+		// target list may contain chilled validators, dangling (i.e. unbonded) targets or even
+		// nominators that have been validators - filter those out.
+		let mut targets_iter = T::TargetList::iter().filter(|t| match Self::status(&t) {
+			Ok(StakerStatus::Idle) | Ok(StakerStatus::Nominator(_)) | Err(_) => false,
+			Ok(StakerStatus::Validator) => true,
+		});
+
 		while all_targets.len() < final_predicted_len as usize &&
 			targets_seen < (NPOS_MAX_ITERATIONS_COEFFICIENT * final_predicted_len as u32)
 		{
@@ -1053,21 +1174,47 @@ impl<T: Config> Pallet<T> {
 	///
 	/// If the nominator already exists, their nominations will be updated.
 	///
-	/// NOTE: you must ALWAYS use this function to add nominator or update their targets. Any access
-	/// to `Nominators` or `VoterList` outside of this function is almost certainly
-	/// wrong.
+	/// NOTE: you must ALWAYS use this function to add nominator or update their targets. Any
+	/// access to `Nominators` or `VoterList` outside of this function is almost certainly wrong.
 	pub fn do_add_nominator(who: &T::AccountId, nominations: Nominations<T>) {
-		if !Nominators::<T>::contains_key(who) {
-			// maybe update sorted list.
-			let _ = T::VoterList::on_insert(who.clone(), Self::weight_of(who))
-				.defensive_unwrap_or_default();
+		let nomination_accounts = nominations.targets.to_vec();
+
+		match Self::status(who) {
+			Ok(StakerStatus::Idle) => {
+				// new nomination
+				Nominators::<T>::insert(who, nominations);
+				T::EventListeners::on_nominator_add(who, nomination_accounts);
+			},
+			Ok(StakerStatus::Nominator(prev_nominations)) => {
+				// update nominations or un-chill nominator.
+				Nominators::<T>::insert(who, nominations);
+				T::EventListeners::on_nominator_update(who, prev_nominations, nomination_accounts);
+			},
+			_ => {
+				defensive!("calling add_nominator on a validator or unbonded stash.");
+			},
 		}
-		Nominators::<T>::insert(who, nominations);
 
 		debug_assert_eq!(
 			Nominators::<T>::count() + Validators::<T>::count(),
-			T::VoterList::count()
+			T::VoterList::iter()
+				.filter(|v| Self::status(&v) != Ok(StakerStatus::Idle))
+				.filter(|v| !Self::status(&v).is_err())
+				.count() as u32,
 		);
+	}
+
+	/// Tries to chill a nominator.
+	///
+	/// A chilled nominator is removed from the `Nominators` map, and the nominator's new state must
+	/// be signalled to [`T::EventListeners`].
+	///
+	/// Returns `true` if the nominator was successfully chilled, `false` otherwise.
+	pub(crate) fn do_chill_nominator(who: &T::AccountId) -> bool {
+		Nominators::<T>::take(who).map_or(false, |nominations| {
+			T::EventListeners::on_nominator_remove(who, nominations.clone().targets.into());
+			true
+		})
 	}
 
 	/// This function will remove a nominator from the `Nominators` storage map,
@@ -1075,21 +1222,17 @@ impl<T: Config> Pallet<T> {
 	///
 	/// Returns true if `who` was removed from `Nominators`, otherwise false.
 	///
-	/// NOTE: you must ALWAYS use this function to remove a nominator from the system. Any access to
-	/// `Nominators` or `VoterList` outside of this function is almost certainly
-	/// wrong.
+	/// NOTE: you must ALWAYS use this function to remove a nominator from the system. Any access
+	/// to `Nominators` or `VoterList` outside of this function is almost certainly wrong.
 	pub fn do_remove_nominator(who: &T::AccountId) -> bool {
-		let outcome = if Nominators::<T>::contains_key(who) {
-			Nominators::<T>::remove(who);
-			let _ = T::VoterList::on_remove(who).defensive();
-			true
-		} else {
-			false
-		};
+		let outcome = Self::do_chill_nominator(who);
 
 		debug_assert_eq!(
 			Nominators::<T>::count() + Validators::<T>::count(),
-			T::VoterList::count()
+			T::VoterList::iter()
+				.filter(|v| Self::status(&v) != Ok(StakerStatus::Idle))
+				.filter(|v| !Self::status(&v).is_err())
+				.count() as u32,
 		);
 
 		outcome
@@ -1104,16 +1247,36 @@ impl<T: Config> Pallet<T> {
 	/// wrong.
 	pub fn do_add_validator(who: &T::AccountId, prefs: ValidatorPrefs) {
 		if !Validators::<T>::contains_key(who) {
-			// maybe update sorted list.
-			let _ = T::VoterList::on_insert(who.clone(), Self::weight_of(who))
-				.defensive_unwrap_or_default();
-		}
+			let self_stake = Self::stake(who);
+			T::EventListeners::on_validator_add(
+				who,
+				self_stake.defensive_unwrap_or_default().into(),
+			);
+		};
 		Validators::<T>::insert(who, prefs);
 
 		debug_assert_eq!(
 			Nominators::<T>::count() + Validators::<T>::count(),
-			T::VoterList::count()
+			T::VoterList::iter()
+				.filter(|v| Self::status(&v) != Ok(StakerStatus::Idle))
+				.filter(|v| !Self::status(&v).is_err())
+				.count() as u32,
 		);
+	}
+
+	/// Tries to chill a validator.
+	///
+	/// A chilled validator is removed from the `Validators` map.
+	///
+	/// Returns `true` if the validator was successfully chilled, `false` otherwise.
+	pub(crate) fn do_chill_validator(who: &T::AccountId) -> bool {
+		if Validators::<T>::contains_key(who) {
+			Validators::<T>::remove(who);
+			T::EventListeners::on_validator_idle(who);
+			true
+		} else {
+			false
+		}
 	}
 
 	/// This function will remove a validator from the `Validators` storage map.
@@ -1124,17 +1287,15 @@ impl<T: Config> Pallet<T> {
 	/// `Validators` or `VoterList` outside of this function is almost certainly
 	/// wrong.
 	pub fn do_remove_validator(who: &T::AccountId) -> bool {
-		let outcome = if Validators::<T>::contains_key(who) {
-			Validators::<T>::remove(who);
-			let _ = T::VoterList::on_remove(who).defensive();
-			true
-		} else {
-			false
-		};
+		let outcome = Self::do_chill_validator(who);
+		T::EventListeners::on_validator_remove(who);
 
 		debug_assert_eq!(
 			Nominators::<T>::count() + Validators::<T>::count(),
-			T::VoterList::count()
+			T::VoterList::iter()
+				.filter(|v| Self::status(&v) != Ok(StakerStatus::Idle))
+				.filter(|v| !Self::status(&v).is_err())
+				.count() as u32,
 		);
 
 		outcome
@@ -1638,11 +1799,6 @@ impl<T: Config> SortedListProvider<T::AccountId> for UseValidatorsMap<T> {
 		// nothing to do upon regenerate.
 		0
 	}
-	#[cfg(feature = "try-runtime")]
-	fn try_state() -> Result<(), TryRuntimeError> {
-		Ok(())
-	}
-
 	fn unsafe_clear() {
 		#[allow(deprecated)]
 		Validators::<T>::remove_all();
@@ -1650,6 +1806,11 @@ impl<T: Config> SortedListProvider<T::AccountId> for UseValidatorsMap<T> {
 
 	#[cfg(feature = "runtime-benchmarks")]
 	fn score_update_worst_case(_who: &T::AccountId, _is_increase: bool) -> Self::Score {
+		unimplemented!()
+	}
+
+	#[cfg(feature = "try-runtime")]
+	fn in_position(_id: &T::AccountId) -> Result<bool, Self::Error> {
 		unimplemented!()
 	}
 }
@@ -1714,12 +1875,6 @@ impl<T: Config> SortedListProvider<T::AccountId> for UseNominatorsAndValidatorsM
 		// nothing to do upon regenerate.
 		0
 	}
-
-	#[cfg(feature = "try-runtime")]
-	fn try_state() -> Result<(), TryRuntimeError> {
-		Ok(())
-	}
-
 	fn unsafe_clear() {
 		// NOTE: Caller must ensure this doesn't lead to too many storage accesses. This is a
 		// condition of SortedListProvider::unsafe_clear.
@@ -1731,6 +1886,11 @@ impl<T: Config> SortedListProvider<T::AccountId> for UseNominatorsAndValidatorsM
 
 	#[cfg(feature = "runtime-benchmarks")]
 	fn score_update_worst_case(_who: &T::AccountId, _is_increase: bool) -> Self::Score {
+		unimplemented!()
+	}
+
+	#[cfg(feature = "try-runtime")]
+	fn in_position(_id: &T::AccountId) -> Result<bool, Self::Error> {
 		unimplemented!()
 	}
 }
@@ -1856,6 +2016,7 @@ impl<T: Config> StakingInterface for Pallet<T> {
 			validator == *who || exposure_page.others.iter().any(|i| i.who == *who)
 		})
 	}
+
 	fn status(
 		who: &Self::AccountId,
 	) -> Result<sp_staking::StakerStatus<Self::AccountId>, DispatchError> {
@@ -1866,7 +2027,6 @@ impl<T: Config> StakingInterface for Pallet<T> {
 		let is_validator = Validators::<T>::contains_key(&who);
 		let is_nominator = Nominators::<T>::get(&who);
 
-		use sp_staking::StakerStatus;
 		match (is_validator, is_nominator.is_some()) {
 			(false, false) => Ok(StakerStatus::Idle),
 			(true, false) => Ok(StakerStatus::Validator),
@@ -1968,10 +2128,11 @@ impl<T: Config> sp_staking::StakingUnchecked for Pallet<T> {
 
 #[cfg(any(test, feature = "try-runtime"))]
 impl<T: Config> Pallet<T> {
-	pub(crate) fn do_try_state(_: BlockNumberFor<T>) -> Result<(), TryRuntimeError> {
+	pub fn do_try_state(_: BlockNumberFor<T>) -> Result<(), TryRuntimeError> {
 		ensure!(
-			T::VoterList::iter()
-				.all(|x| <Nominators<T>>::contains_key(&x) || <Validators<T>>::contains_key(&x)),
+			T::VoterList::iter().all(|x| <Nominators<T>>::contains_key(&x) ||
+				<Validators<T>>::contains_key(&x) ||
+				Self::status(&x) == Ok(StakerStatus::Idle)),
 			"VoterList contains non-staker"
 		);
 
@@ -1982,7 +2143,9 @@ impl<T: Config> Pallet<T> {
 		Self::check_exposures()?;
 		Self::check_paged_exposures()?;
 		Self::check_count()?;
-		Self::ensure_disabled_validators_sorted()
+		Self::ensure_disabled_validators_sorted()?;
+		Self::do_try_state_approvals()?;
+		Self::do_try_state_target_sorting()
 	}
 
 	/// Invariants:
@@ -2068,13 +2231,16 @@ impl<T: Config> Pallet<T> {
 	/// * Current validator count is bounded by the election provider's max winners.
 	fn check_count() -> Result<(), TryRuntimeError> {
 		ensure!(
-			<T as Config>::VoterList::count() ==
-				Nominators::<T>::count() + Validators::<T>::count(),
-			"wrong external count"
+			<T as Config>::VoterList::iter()
+				.filter(|v| Self::status(&v) != Ok(StakerStatus::Idle))
+				.count() as u32 == Nominators::<T>::count() + Validators::<T>::count(),
+			"wrong external count (VoterList.count != Nominators.count + Validators.count)"
 		);
 		ensure!(
-			<T as Config>::TargetList::count() == Validators::<T>::count(),
-			"wrong external count"
+			<T as Config>::TargetList::iter()
+				.filter(|t| Self::status(&t) == Ok(StakerStatus::Validator))
+				.count() as u32 == Validators::<T>::count(),
+			"wrong external count (TargetList.count != Validators.count)"
 		);
 		ensure!(
 			ValidatorCount::<T>::get() <=
@@ -2224,7 +2390,10 @@ impl<T: Config> Pallet<T> {
 
 	/// Invariants:
 	/// * Checks that each nominator has its entire stake correctly distributed.
+	/// * Nominations do not have duplicate targets.
 	fn check_nominators() -> Result<(), TryRuntimeError> {
+		use sp_std::collections::btree_set::BTreeSet;
+
 		// a check per nominator to ensure their entire stake is correctly distributed. Will only
 		// kick-in if the nomination was submitted before the current era.
 		let era = Self::active_era().unwrap().index;
@@ -2236,15 +2405,34 @@ impl<T: Config> Pallet<T> {
 			.collect::<Vec<_>>();
 
 		<Nominators<T>>::iter()
-			.filter_map(
-				|(nominator, nomination)| {
+			// fails if a nomination vec has duplicate targets.
+			.map(|nomination| -> Result<(T::AccountId, Nominations<T>), TryRuntimeError> {
+				let targets = nomination.clone().1.targets;
+
+				let count_before = targets.len();
+				let dedup_noms: Vec<T::AccountId> = targets
+					.clone()
+					.drain(..)
+					.collect::<BTreeSet<_>>()
+					.into_iter()
+					.collect::<Vec<_>>();
+
+				ensure!(
+					count_before == dedup_noms.len(),
+					"A nominator has duplicate nominations; unexpected."
+				);
+
+				Ok(nomination)
+			})
+			.filter_map(|n| match n {
+				Ok((nominator, nomination)) =>
 					if nomination.submitted_in < era {
 						Some(nominator)
 					} else {
 						None
-					}
-				},
-			)
+					},
+				Err(_) => None,
+			})
 			.map(|nominator| -> Result<(), TryRuntimeError> {
 				// must be bonded.
 				Self::ensure_is_stash(&nominator)?;
@@ -2302,6 +2490,149 @@ impl<T: Config> Pallet<T> {
 			DisabledValidators::<T>::get().windows(2).all(|pair| pair[0] <= pair[1]),
 			"DisabledValidators is not sorted"
 		);
+		Ok(())
+	}
+
+	/// Stake-tracker: checks if the approvals stake of the targets in the target list are correct.
+	///
+	/// These try-state checks generate a map with approval stake of all the targets based on
+	/// the staking state of stakers in the voter and target lists. In doing so, we are able to
+	/// verify that the current voter and target lists and scores are in sync with the staking
+	/// data and perform other sanity checks as the approvals map is calculated.
+	///
+	/// NOTE: this is an expensive state check since it iterates over all the nodes in the
+	/// target and voter list providers.
+	///
+	/// Invariants:
+	///
+	/// * Target List:
+	///   * The sum of the calculated approvals stake is the same as the current approvals in
+	///   the target list per target.
+	///   * The target score of an active validator is the sum of all of its nominators' stake
+	///   and the self-stake;
+	///   * The target score of an idle validator (i.e. chilled) is the sum of its nominator's
+	///   stake. An idle target may not be part of the target list, if it has no nominations.
+	///   * The target score of a "dangling" target (ie. idle AND unbonded validator) must
+	///   always be > 0. We expect the stake-tracker to have cleaned up dangling targets with 0
+	///   score.
+	///   * The number of target nodes in the target list matches the number of
+	///   (active_validators + idle_validators + dangling_targets_score_with_score).
+	pub fn do_try_state_approvals() -> Result<(), sp_runtime::TryRuntimeError> {
+		use sp_std::collections::{btree_map::BTreeMap, btree_set::BTreeSet};
+		let mut approvals_map: BTreeMap<T::AccountId, T::CurrencyBalance> = BTreeMap::new();
+
+		// build map of approvals stakes from the `Nominators` storage map POV.
+		for (voter, nominations) in Nominators::<T>::iter() {
+			let vote = Self::weight_of(&voter);
+			let nominations = nominations.targets;
+
+			// fail if nominator has duplicate nominations, unexpected in the context of
+			// keeping track of the stake approvals.
+			let count_before = nominations.len();
+			let dedup_noms: Vec<T::AccountId> = nominations
+				.clone()
+				.drain(..)
+				.collect::<BTreeSet<_>>()
+				.into_iter()
+				.collect::<Vec<_>>();
+
+			ensure!(
+				count_before == dedup_noms.len(),
+				"nominator has duplicate nominations, unexpected."
+			);
+
+			for target in nominations.into_iter() {
+				if let Some(approvals) = approvals_map.get_mut(&target) {
+					*approvals += vote.into();
+				} else {
+					// new addition to the map. add self-stake if validator is active.
+					let _ = match Self::status(&target) {
+						Ok(StakerStatus::Validator) => {
+							let self_stake = Pallet::<T>::weight_of(&target);
+							approvals_map.insert(target, vote.saturating_add(self_stake).into())
+						},
+						_ => approvals_map.insert(target, vote.into()),
+					};
+				}
+			}
+		}
+
+		// add active validators without any nominations.
+		for (validator, _) in Validators::<T>::iter() {
+			// do not add validator if it is not in a good state.
+			match Self::inspect_bond_state(&validator) {
+				Ok(LedgerIntegrityState::Ok) | Err(_) => (),
+				_ => continue,
+			}
+
+			if !approvals_map.contains_key(&validator) {
+				// skip if for some reason there is a nominator being nominated.
+				match Self::status(&validator) {
+					Ok(StakerStatus::Nominator(_)) => {
+						log!(
+							warn,
+							"nominated staker {:?} is a nominator, not a validator.",
+							validator
+						);
+					},
+					_ => {
+						let self_stake = Pallet::<T>::weight_of(&validator);
+						approvals_map.insert(validator, self_stake.into());
+					},
+				}
+			}
+		}
+
+		let mut mismatch_approvals = 0;
+
+		// compare calculated approvals per target with target list state.
+		for (target, calculated_stake) in approvals_map.iter() {
+			let stake_in_list = T::TargetList::get_score(target).unwrap();
+
+			if *calculated_stake != stake_in_list {
+				mismatch_approvals += 1;
+
+				log!(
+					error,
+					"try-runtime: score of {:?} in `TargetList` list: {:?}, calculated sum of all stake: {:?} -- weight self-stake: {:?}",
+					target,
+					stake_in_list,
+					calculated_stake,
+					Pallet::<T>::weight_of(&target),
+				);
+			}
+		}
+
+		frame_support::ensure!(
+			approvals_map.keys().count() == T::TargetList::iter().count(),
+			"calculated approvals count is different from total of target list.",
+		);
+
+		if !mismatch_approvals.is_zero() {
+			log!(error, "{} targets with unexpected score in list", mismatch_approvals);
+			return Err("final calculated approvals != target list scores".into());
+		}
+
+		Ok(())
+	}
+
+	/// Try-state: checks if targets in the target list are sorted by score.
+	///
+	/// Invariant
+	///  * All targets in the target list are sorted by their score (approvals).
+	///
+	///  NOTE: unfortunatelly, it is not trivial to check if the sort correctness of the list if
+	///  the `SortedListProvider` is implemented by bags list due to score bucketing. Thus, we
+	///  leverage the [`SortedListProvider::in_position`] to verify if the target is in the
+	/// correct  position in the list (bag or otherwise), given its score.
+	pub fn do_try_state_target_sorting() -> Result<(), sp_runtime::TryRuntimeError> {
+		for t in T::TargetList::iter() {
+			frame_support::ensure!(
+				T::TargetList::in_position(&t).expect("target exists"),
+				"target list is not sorted"
+			);
+		}
+
 		Ok(())
 	}
 }

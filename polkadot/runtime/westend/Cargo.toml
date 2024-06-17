@@ -81,6 +81,7 @@ pallet-scheduler = { path = "../../../substrate/frame/scheduler", default-featur
 pallet-session = { path = "../../../substrate/frame/session", default-features = false }
 pallet-society = { path = "../../../substrate/frame/society", default-features = false }
 pallet-staking = { path = "../../../substrate/frame/staking", default-features = false }
+pallet-stake-tracker = { path = "../../../substrate/frame/staking/stake-tracker", default-features = false }
 pallet-staking-reward-curve = { package = "pallet-staking-reward-curve", path = "../../../substrate/frame/staking/reward-curve" }
 pallet-staking-runtime-api = { path = "../../../substrate/frame/staking/runtime-api", default-features = false }
 pallet-delegated-staking = { path = "../../../substrate/frame/delegated-staking", default-features = false }
@@ -184,6 +185,7 @@ std = [
 	"pallet-session-benchmarking?/std",
 	"pallet-session/std",
 	"pallet-society/std",
+	"pallet-stake-tracker/std",
 	"pallet-staking-runtime-api/std",
 	"pallet-staking/std",
 	"pallet-state-trie-migration/std",
@@ -270,6 +272,7 @@ runtime-benchmarks = [
 	"pallet-scheduler/runtime-benchmarks",
 	"pallet-session-benchmarking/runtime-benchmarks",
 	"pallet-society/runtime-benchmarks",
+	"pallet-stake-tracker/runtime-benchmarks",
 	"pallet-staking/runtime-benchmarks",
 	"pallet-state-trie-migration/runtime-benchmarks",
 	"pallet-sudo/runtime-benchmarks",
@@ -329,6 +332,7 @@ try-runtime = [
 	"pallet-scheduler/try-runtime",
 	"pallet-session/try-runtime",
 	"pallet-society/try-runtime",
+	"pallet-stake-tracker/try-runtime",
 	"pallet-staking/try-runtime",
 	"pallet-state-trie-migration/try-runtime",
 	"pallet-sudo/try-runtime",

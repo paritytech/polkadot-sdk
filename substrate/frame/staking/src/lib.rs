@@ -291,7 +291,7 @@ pub mod benchmarking;
 pub mod testing_utils;
 
 #[cfg(test)]
-pub(crate) mod mock;
+pub mod mock;
 #[cfg(test)]
 mod tests;
 
@@ -596,7 +596,6 @@ impl<T: Config> StakingLedger<T> {
 		if slash_amount.is_zero() {
 			return Zero::zero()
 		}
-
 		use sp_runtime::PerThing as _;
 		let mut remaining_slash = slash_amount;
 		let pre_slash_total = self.total;
@@ -703,6 +702,7 @@ impl<T: Config> StakingLedger<T> {
 		self.unlocking.retain(|c| !c.value.is_zero());
 
 		let final_slashed_amount = pre_slash_total.saturating_sub(self.total);
+
 		T::EventListeners::on_slash(
 			&self.stash,
 			self.active,

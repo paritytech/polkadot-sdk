@@ -115,7 +115,6 @@ pub use pallet_balances::Call as BalancesCall;
 pub use pallet_election_provider_multi_phase::{Call as EPMCall, GeometricDepositBase};
 #[cfg(feature = "std")]
 pub use pallet_staking::StakerStatus;
-use pallet_staking::UseValidatorsMap;
 pub use pallet_timestamp::Call as TimestampCall;
 use sp_runtime::traits::Get;
 #[cfg(any(feature = "std", test))]
@@ -578,7 +577,10 @@ impl pallet_election_provider_multi_phase::Config for Runtime {
 }
 
 parameter_types! {
-	pub const BagThresholds: &'static [u64] = &bag_thresholds::THRESHOLDS;
+	pub const VoterBagThresholds: &'static [u64] = &bag_thresholds::VOTER_THRESHOLDS;
+	pub const TargetBagThresholds: &'static [u128] = &bag_thresholds::TARGET_THRESHOLDS;
+
+	pub const VoterUpdateMode: pallet_stake_tracker::VoterUpdateMode = pallet_stake_tracker::VoterUpdateMode::Lazy;
 }
 
 type VoterBagsListInstance = pallet_bags_list::Instance1;
@@ -586,8 +588,25 @@ impl pallet_bags_list::Config<VoterBagsListInstance> for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type ScoreProvider = Staking;
 	type WeightInfo = weights::pallet_bags_list::WeightInfo<Runtime>;
-	type BagThresholds = BagThresholds;
+	type BagThresholds = VoterBagThresholds;
 	type Score = sp_npos_elections::VoteWeight;
+}
+
+type TargetBagsListInstance = pallet_bags_list::Instance2;
+impl pallet_bags_list::Config<TargetBagsListInstance> for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type ScoreProvider = pallet_bags_list::Pallet<Runtime, TargetBagsListInstance>;
+	type WeightInfo = weights::pallet_bags_list::WeightInfo<Runtime>;
+	type BagThresholds = TargetBagThresholds;
+	type Score = u128;
+}
+
+impl pallet_stake_tracker::Config for Runtime {
+	type Currency = Balances;
+	type Staking = Staking;
+	type VoterList = VoterList;
+	type TargetList = TargetList;
+	type VoterUpdateMode = VoterUpdateMode;
 }
 
 pallet_staking_reward_curve::build! {
@@ -638,13 +657,13 @@ impl pallet_staking::Config for Runtime {
 	type ElectionProvider = ElectionProviderMultiPhase;
 	type GenesisElectionProvider = onchain::OnChainExecution<OnChainSeqPhragmen>;
 	type VoterList = VoterList;
-	type TargetList = UseValidatorsMap<Self>;
+	type TargetList = TargetList;
 	type NominationsQuota = pallet_staking::FixedNominationsQuota<{ MaxNominations::get() }>;
 	type MaxUnlockingChunks = frame_support::traits::ConstU32<32>;
 	type HistoryDepth = frame_support::traits::ConstU32<84>;
 	type MaxControllersInDeprecationBatch = MaxControllersInDeprecationBatch;
 	type BenchmarkingConfig = polkadot_runtime_common::StakingBenchmarkingConfig;
-	type EventListeners = (NominationPools, DelegatedStaking);
+	type EventListeners = (StakeTracker, NominationPools, DelegatedStaking);
 	type WeightInfo = weights::pallet_staking::WeightInfo<Runtime>;
 	type DisablingStrategy = pallet_staking::UpToLimitDisablingStrategy;
 }
@@ -1003,6 +1022,7 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 				RuntimeCall::Slots(..) |
 				RuntimeCall::Auctions(..) | // Specifically omitting the entire XCM Pallet
 				RuntimeCall::VoterList(..) |
+				RuntimeCall::TargetList(..) |
 				RuntimeCall::NominationPools(..) |
 				RuntimeCall::FastUnstake(..)
 			),
@@ -1013,6 +1033,7 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 						RuntimeCall::Session(..) | RuntimeCall::Utility(..) |
 						RuntimeCall::FastUnstake(..) |
 						RuntimeCall::VoterList(..) |
+						RuntimeCall::TargetList(..) |
 						RuntimeCall::NominationPools(..)
 				)
 			},
@@ -1505,7 +1526,7 @@ mod runtime {
 	#[runtime::pallet_index(24)]
 	pub type ElectionProviderMultiPhase = pallet_election_provider_multi_phase;
 
-	// Provides a semi-sorted list of nominators for staking.
+	// Provides a sorted list of nominators for staking.
 	#[runtime::pallet_index(25)]
 	pub type VoterList = pallet_bags_list<Instance1>;
 
@@ -1613,6 +1634,14 @@ mod runtime {
 	// Pallet for migrating Identity to a parachain. To be removed post-migration.
 	#[runtime::pallet_index(248)]
 	pub type IdentityMigrator = identity_migrator;
+
+	// Provides a sorted list of validators for staking.
+	#[runtime::pallet_index(249)]
+	pub type TargetList = pallet_bags_list<Instance2>;
+
+	// Keeps VoterList and TargetList up to date based on staking events.
+	#[runtime::pallet_index(250)]
+	pub type StakeTracker = pallet_stake_tracker;
 }
 
 /// The address format for describing accounts.
@@ -1683,7 +1712,7 @@ pub mod migrations {
 			Runtime,
 			MaxPoolsToMigrate,
 		>,
-		pallet_staking::migrations::v15::MigrateV14ToV15<Runtime>,
+		pallet_staking::migrations::single_block::v15::MigrateV14ToV15<Runtime>,
 	);
 }
 
@@ -1726,6 +1755,7 @@ mod benches {
 		[polkadot_runtime_parachains::coretime, Coretime]
 		// Substrate
 		[pallet_bags_list, VoterList]
+		[pallet_bags_list, TargetList]
 		[pallet_balances, Balances]
 		[pallet_conviction_voting, ConvictionVoting]
 		[pallet_election_provider_multi_phase, ElectionProviderMultiPhase]
