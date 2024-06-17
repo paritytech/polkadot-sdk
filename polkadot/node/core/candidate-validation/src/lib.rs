@@ -40,7 +40,6 @@ use polkadot_node_subsystem::{
 	SubsystemSender,
 };
 use polkadot_node_subsystem_util as util;
-use polkadot_overseer::{ActivatedLeaf, ActiveLeavesUpdate};
 use polkadot_parachain_primitives::primitives::{
 	ValidationParams, ValidationResult as WasmValidationResult,
 };
@@ -61,6 +60,7 @@ use codec::Encode;
 use futures::{channel::oneshot, prelude::*, stream::FuturesUnordered};
 
 use std::{
+	collections::HashSet,
 	path::PathBuf,
 	pin::Pin,
 	sync::Arc,
@@ -260,6 +260,9 @@ async fn run<Context>(
 
 	let mut tasks = FuturesUnordered::new();
 	let mut session_index: Option<SessionIndex> = None;
+	let mut is_next_session_authority = false;
+	// PVF host won't prepare the same code hash twice, so here we just avoid extra communication
+	let mut already_prepared_code_hashes = HashSet::new();
 
 	loop {
 		loop {
@@ -267,8 +270,20 @@ async fn run<Context>(
 				comm = ctx.recv().fuse() => {
 					match comm {
 						Ok(FromOrchestra::Signal(OverseerSignal::ActiveLeaves(update))) => {
-							if let Some(new_session_index) = handle_new_session(ctx.sender().clone(), validation_host.clone(),  keystore.clone(), update, session_index).await {
-								session_index = Some(new_session_index)
+							let mut sender = ctx.sender().clone();
+
+							let Some(leaf) = update.activated else { continue };
+							let new_session_index = new_session_index(&mut sender, session_index, leaf.hash).await;
+							if new_session_index.is_some() {
+								session_index = new_session_index;
+								already_prepared_code_hashes.clear();
+								is_next_session_authority = check_next_session_authority(&mut sender, keystore.clone(), leaf.hash).await;
+							}
+
+							// On every active leaf check candidates and prepare PVFs our node doesn't have yet.
+							if is_next_session_authority {
+								let code_hashes = prepare_pvfs_for_next_session(&mut sender, validation_host.clone(), leaf.hash, &already_prepared_code_hashes).await;
+								already_prepared_code_hashes.extend(code_hashes.unwrap_or_default());
 							}
 						},
 						Ok(FromOrchestra::Signal(OverseerSignal::BlockFinalized(..))) => {},
@@ -309,30 +324,7 @@ async fn run<Context>(
 	}
 }
 
-/// Returns the index of a new session
-async fn handle_new_session<Sender>(
-	mut sender: Sender,
-	validation_host: ValidationHost,
-	keystore: KeystorePtr,
-	update: ActiveLeavesUpdate,
-	session_index: Option<SessionIndex>,
-) -> Option<SessionIndex>
-where
-	Sender: SubsystemSender<RuntimeApiMessage>,
-{
-	let Some(leaf) = update.activated else { return None };
-	let Some(new_session_index) = new_session_index(&mut sender, session_index, leaf.hash).await
-	else {
-		return None
-	};
-
-	if is_next_session_authority(&mut sender, keystore, leaf.hash).await {
-		prepare_pvfs_for_next_session(sender, validation_host, leaf.hash).await
-	}
-
-	Some(new_session_index)
-}
-
+// Returns the new session index if it is greater than the current one.
 async fn new_session_index<Sender>(
 	sender: &mut Sender,
 	session_index: Option<SessionIndex>,
@@ -361,7 +353,8 @@ where
 	})
 }
 
-async fn is_next_session_authority<Sender>(
+// Returns true if the node is an authority in the next session.
+async fn check_next_session_authority<Sender>(
 	sender: &mut Sender,
 	keystore: KeystorePtr,
 	relay_parent: Hash,
@@ -385,44 +378,55 @@ where
 		.any(|v| keystore.has_keys(&[(v.to_raw_vec(), AuthorityDiscoveryId::ID)]))
 }
 
+// Sends PVF with unknown code hashes to the validation host returning the list of code hashes sent.
 async fn prepare_pvfs_for_next_session<Sender>(
-	mut sender: Sender,
+	sender: &mut Sender,
 	mut validation_backend: impl ValidationBackend,
 	relay_parent: Hash,
-) where
+	already_prepared: &HashSet<ValidationCodeHash>,
+) -> Option<Vec<ValidationCodeHash>>
+where
 	Sender: SubsystemSender<RuntimeApiMessage>,
 {
-	let Ok(Ok(events)) = util::request_candidate_events(relay_parent, &mut sender).await.await
-	else {
+	let Ok(Ok(events)) = util::request_candidate_events(relay_parent, sender).await.await else {
 		gum::warn!(
 			target: LOG_TARGET,
 			?relay_parent,
 			"cannot fetch candidate events from runtime API",
 		);
-		return
+		return None
 	};
-	let code_hashes = events.into_iter().filter_map(|e| match e {
-		CandidateEvent::CandidateBacked(receipt, ..) =>
-			Some(receipt.descriptor.validation_code_hash),
-		_ => None,
-	});
+	let code_hashes = events
+		.into_iter()
+		.filter_map(|e| match e {
+			CandidateEvent::CandidateBacked(receipt, ..) => {
+				let h = receipt.descriptor.validation_code_hash;
+				if already_prepared.contains(&h) {
+					None
+				} else {
+					Some(h)
+				}
+			},
+			_ => None,
+		})
+		.collect::<Vec<_>>();
 
-	let Ok(executor_params) =
-		util::executor_params_at_relay_parent(relay_parent, &mut sender).await
+	let Ok(executor_params) = util::executor_params_at_relay_parent(relay_parent, sender).await
 	else {
 		gum::warn!(
 			target: LOG_TARGET,
 			?relay_parent,
 			"cannot fetch executor params for the session",
 		);
-		return
+		return None
 	};
 	let timeout = pvf_prep_timeout(&executor_params, PvfPrepKind::Precheck);
 
 	let mut active_pvfs = vec![];
+	let mut processed_code_hashes = vec![];
 	for code_hash in code_hashes {
 		let Ok(Ok(Some(validation_code))) =
-			util::request_validation_code_by_hash(relay_parent, code_hash, &mut sender)
+			util::request_validation_code_by_hash(relay_parent, code_hash, sender)
 				.await
 				.await
 		else {
@@ -452,6 +456,7 @@ async fn prepare_pvfs_for_next_session<Sender>(
 		};
 
 		active_pvfs.push(pvf);
+		processed_code_hashes.push(code_hash);
 	}
 
 	if let Err(err) = validation_backend.heads_up(active_pvfs).await {
@@ -461,7 +466,10 @@ async fn prepare_pvfs_for_next_session<Sender>(
 			?err,
 			"cannot prepare PVF for the next session",
 		);
+		return None
 	};
+
+	Some(processed_code_hashes)
 }
 
 struct RuntimeRequestFailed;
