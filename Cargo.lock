@@ -17964,6 +17964,7 @@ dependencies = [
  "parity-scale-codec",
  "parking_lot 0.12.1",
  "pretty_assertions",
+ "prometheus",
  "sc-block-builder",
  "sc-chain-spec",
  "sc-client-api",

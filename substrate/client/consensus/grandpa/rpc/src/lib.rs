@@ -40,8 +40,7 @@ use notification::JustificationNotification;
 use report::{ReportAuthoritySet, ReportVoterState, ReportedRoundStates};
 use sc_consensus_grandpa::GrandpaJustificationStream;
 use sc_rpc::{
-	utils::{pipe_from_stream, ConnData},
-	SubscriptionTaskExecutor,
+	utils::pipe_from_stream, SubscriptionMetrics, SubscriptionParams, SubscriptionTaskExecutor,
 };
 use sp_runtime::traits::{Block as BlockT, NumberFor};
 
@@ -76,6 +75,7 @@ pub struct Grandpa<AuthoritySet, VoterState, Block: BlockT, ProofProvider> {
 	voter_state: VoterState,
 	justification_stream: GrandpaJustificationStream<Block>,
 	finality_proof_provider: Arc<ProofProvider>,
+	metrics: SubscriptionMetrics,
 }
 impl<AuthoritySet, VoterState, Block: BlockT, ProofProvider>
 	Grandpa<AuthoritySet, VoterState, Block, ProofProvider>
@@ -87,8 +87,16 @@ impl<AuthoritySet, VoterState, Block: BlockT, ProofProvider>
 		voter_state: VoterState,
 		justification_stream: GrandpaJustificationStream<Block>,
 		finality_proof_provider: Arc<ProofProvider>,
+		metrics: SubscriptionMetrics,
 	) -> Self {
-		Self { executor, authority_set, voter_state, justification_stream, finality_proof_provider }
+		Self {
+			executor,
+			authority_set,
+			voter_state,
+			justification_stream,
+			finality_proof_provider,
+			metrics,
+		}
 	}
 }
 
@@ -107,10 +115,12 @@ where
 	}
 
 	fn subscribe_justifications(&self, pending: PendingSubscriptionSink, ext: &Extensions) {
-		let conn_id = *ext.get::<ConnectionId>().expect("ConnectionId is set");
-		let ip_addr = *ext.get::<std::net::IpAddr>().expect("IpAddr is set");
-
-		let conn_data = ConnData { conn_id, ip_addr, method: "grandpa_subscribeJustifications" };
+		let params = SubscriptionParams {
+			conn_id: *ext.get::<ConnectionId>().expect("ConnectionId is set"),
+			ip_addr: *ext.get::<std::net::IpAddr>().expect("IpAddr is set"),
+			method: "grandpa_subscribeJustifications",
+			metrics: self.metrics.clone(),
+		};
 
 		let stream = self.justification_stream.subscribe(100_000).map(
 			|x: sc_consensus_grandpa::GrandpaJustification<Block>| {
@@ -120,7 +130,7 @@ where
 
 		sc_rpc::utils::spawn_subscription_task(
 			&self.executor,
-			pipe_from_stream(pending, stream, conn_data),
+			pipe_from_stream(pending, stream, params),
 		);
 	}
 
@@ -273,6 +283,7 @@ mod tests {
 			voter_state,
 			justification_stream,
 			finality_proof_provider,
+			Metrics::empty(),
 		)
 		.into_rpc();
 

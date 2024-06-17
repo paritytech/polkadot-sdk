@@ -179,6 +179,8 @@ where
 	let chain_name = chain_spec.name().to_string();
 	let genesis_hash = client.block_hash(0).ok().flatten().expect("Genesis block exists; qed");
 	let properties = chain_spec.properties();
+	let metrics = sc_rpc::SubscriptionMetrics::disabled();
+
 	io.merge(ChainSpec::new(chain_name, genesis_hash, properties).into_rpc())?;
 
 	io.merge(System::new(client.clone(), pool, deny_unsafe).into_rpc())?;
@@ -206,6 +208,7 @@ where
 			shared_voter_state,
 			justification_stream,
 			finality_provider,
+			metrics.clone(),
 		)
 		.into_rpc(),
 	)?;
@@ -231,6 +234,7 @@ where
 			beefy.beefy_finality_proof_stream,
 			beefy.beefy_best_block_stream,
 			beefy.subscription_executor,
+			metrics,
 		)?
 		.into_rpc(),
 	)?;

@@ -25,7 +25,7 @@ mod tests;
 
 use std::sync::Arc;
 
-use crate::{utils::ConnData, SubscriptionTaskExecutor};
+use crate::{SubscriptionMetrics, SubscriptionParams, SubscriptionTaskExecutor};
 
 use jsonrpsee::{core::async_trait, ConnectionId, Extensions, PendingSubscriptionSink};
 use sc_client_api::BlockchainEvents;
@@ -92,26 +92,33 @@ where
 	}
 
 	/// All new head subscription
-	fn subscribe_all_heads(&self, pending: PendingSubscriptionSink, conn_data: ConnData);
+	fn subscribe_all_heads(&self, pending: PendingSubscriptionSink, params: SubscriptionParams);
 
 	/// New best head subscription
-	fn subscribe_new_heads(&self, pending: PendingSubscriptionSink, conn_data: ConnData);
+	fn subscribe_new_heads(&self, pending: PendingSubscriptionSink, params: SubscriptionParams);
 
 	/// Finalized head subscription
-	fn subscribe_finalized_heads(&self, pending: PendingSubscriptionSink, conn_data: ConnData);
+	fn subscribe_finalized_heads(
+		&self,
+		pending: PendingSubscriptionSink,
+		params: SubscriptionParams,
+	);
 }
 
 /// Create new state API that works on full node.
 pub fn new_full<Block: BlockT, Client>(
 	client: Arc<Client>,
 	executor: SubscriptionTaskExecutor,
+	subscription_metrics: SubscriptionMetrics,
 ) -> Chain<Block, Client>
 where
 	Block: BlockT + 'static,
 	Block::Header: Unpin,
 	Client: BlockBackend<Block> + HeaderBackend<Block> + BlockchainEvents<Block> + 'static,
 {
-	Chain { backend: Box::new(self::chain_full::FullChain::new(client, executor)) }
+	Chain {
+		backend: Box::new(self::chain_full::FullChain::new(client, executor, subscription_metrics)),
+	}
 }
 
 /// Chain API with subscriptions support.
@@ -159,33 +166,36 @@ where
 	}
 
 	fn subscribe_all_heads(&self, pending: PendingSubscriptionSink, ext: &Extensions) {
-		let conn_id = *ext.get::<ConnectionId>().expect("ConnectionId is set");
-		let ip_addr = *ext.get::<std::net::IpAddr>().expect("IpAddr is set");
+		let params = SubscriptionParams {
+			method: "chain_subscribeAllHeads",
+			ip_addr: *ext.get::<std::net::IpAddr>().expect("IpAddr is set"),
+			conn_id: *ext.get::<ConnectionId>().expect("ConnectionId is set"),
+			metrics: SubscriptionMetrics::disabled(),
+		};
 
-		let conn_data =
-			crate::utils::ConnData { method: "chain_subscribeAllHeads", ip_addr, conn_id };
-
-		self.backend.subscribe_all_heads(pending, conn_data);
+		self.backend.subscribe_all_heads(pending, params);
 	}
 
 	fn subscribe_new_heads(&self, pending: PendingSubscriptionSink, ext: &Extensions) {
-		let conn_id = *ext.get::<ConnectionId>().expect("ConnectionId is set");
-		let ip_addr = *ext.get::<std::net::IpAddr>().expect("IpAddr is set");
+		let params = SubscriptionParams {
+			method: "chain_subscribeNewHeads",
+			ip_addr: *ext.get::<std::net::IpAddr>().expect("IpAddr is set"),
+			conn_id: *ext.get::<ConnectionId>().expect("ConnectionId is set"),
+			metrics: SubscriptionMetrics::disabled(),
+		};
 
-		let conn_data =
-			crate::utils::ConnData { method: "chain_subscribeNewHeads", ip_addr, conn_id };
-
-		self.backend.subscribe_new_heads(pending, conn_data)
+		self.backend.subscribe_new_heads(pending, params)
 	}
 
 	fn subscribe_finalized_heads(&self, pending: PendingSubscriptionSink, ext: &Extensions) {
-		let conn_id = *ext.get::<ConnectionId>().expect("ConnectionId is set");
-		let ip_addr = *ext.get::<std::net::IpAddr>().expect("IpAddr is set");
+		let params = SubscriptionParams {
+			method: "chain_subscribeFinalizedHeads",
+			ip_addr: *ext.get::<std::net::IpAddr>().expect("IpAddr is set"),
+			conn_id: *ext.get::<ConnectionId>().expect("ConnectionId is set"),
+			metrics: SubscriptionMetrics::disabled(),
+		};
 
-		let conn_data =
-			crate::utils::ConnData { method: "chain_subscribeFinalizedHeads", ip_addr, conn_id };
-
-		self.backend.subscribe_finalized_heads(pending, conn_data)
+		self.backend.subscribe_finalized_heads(pending, params)
 	}
 }
 

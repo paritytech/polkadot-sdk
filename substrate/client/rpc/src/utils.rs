@@ -25,9 +25,66 @@ use futures::{
 };
 use jsonrpsee::{ConnectionId, PendingSubscriptionSink, SubscriptionMessage, SubscriptionSink};
 use sp_runtime::Serialize;
-use std::collections::VecDeque;
+use std::{collections::VecDeque, net::IpAddr};
 
 const DEFAULT_BUF_SIZE: usize = 16;
+
+/// Parameters for a subscription.
+pub struct SubscriptionParams {
+	/// Connection id.
+	pub conn_id: ConnectionId,
+	/// Metrics.
+	pub metrics: SubscriptionMetrics,
+	/// Method name.
+	pub method: &'static str,
+	/// IP address of the peer.
+	pub ip_addr: std::net::IpAddr,
+}
+
+#[derive(Debug, Clone)]
+struct InnerMetrics {
+	dropped_subscriptions: prometheus::CounterVec,
+}
+
+/// Metrics for dropped subscriptions.
+#[derive(Debug, Clone)]
+pub struct SubscriptionMetrics(Option<InnerMetrics>);
+
+impl SubscriptionMetrics {
+	/// Create a new metrics instance.
+	pub fn new(
+		registry: Option<prometheus::Registry>,
+	) -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
+		if let Some(registry) = registry {
+			let dropped_subscriptions = prometheus::CounterVec::new(
+				prometheus::Opts::new(
+					"substrate_rpc_dropped_subscriptions",
+					"Number of subscriptions that was closed pre-maturely by the server due to lagging",
+				),
+				&["method", "peer"],
+			)?;
+			registry.register(Box::new(dropped_subscriptions.clone()))?;
+			Ok(Self(Some(InnerMetrics { dropped_subscriptions })))
+		} else {
+			Ok(Self(None))
+		}
+	}
+
+	/// Create a new metrics instance that is disabled.
+	pub fn disabled() -> Self {
+		Self(None)
+	}
+
+	/// Register that a subscription was dropped.
+	pub fn register_dropped(&self, method: &str, peer: IpAddr) {
+		if let Some(metrics) = &self.0 {
+			metrics
+				.dropped_subscriptions
+				.with_label_values(&[method, &peer.to_string()])
+				.inc();
+		}
+	}
+}
 
 /// A simple bounded VecDeque.
 struct BoundedVecDeque<T> {
@@ -55,16 +112,6 @@ impl<T> BoundedVecDeque<T> {
 	}
 }
 
-/// Connection data.
-pub struct ConnData {
-	/// ..
-	pub method: &'static str,
-	/// ..
-	pub ip_addr: std::net::IpAddr,
-	/// ..
-	pub conn_id: ConnectionId,
-}
-
 /// Feed items to the subscription from the underlying stream.
 ///
 /// This is bounded because the underlying streams in substrate are
@@ -75,7 +122,7 @@ pub struct ConnData {
 pub async fn pipe_from_stream<S, T>(
 	pending: PendingSubscriptionSink,
 	mut stream: S,
-	conn_data: ConnData,
+	params: SubscriptionParams,
 ) where
 	S: Stream<Item = T> + Unpin + Send + 'static,
 	T: Serialize + Send + 'static,
@@ -93,7 +140,7 @@ pub async fn pipe_from_stream<S, T>(
 			Either::Left((Ok(sink), _)) => break sink,
 			Either::Right((Some(msg), f)) => {
 				if buf.push_back(msg).is_err() {
-					log::warn!(target: "rpc", "Subscription::accept lagged dropping subscription=`{}`, peer={}", conn_data.method, conn_data.ip_addr);
+					params.metrics.register_dropped(params.method, params.ip_addr);
 					return
 				}
 				accept_fut = f;
@@ -103,14 +150,14 @@ pub async fn pipe_from_stream<S, T>(
 		}
 	};
 
-	inner_pipe_from_stream(sink, stream, buf, conn_data).await
+	inner_pipe_from_stream(sink, stream, buf, params).await
 }
 
 async fn inner_pipe_from_stream<S, T>(
 	sink: SubscriptionSink,
 	mut stream: S,
 	mut buf: BoundedVecDeque<T>,
-	conn_data: ConnData,
+	params: SubscriptionParams,
 ) where
 	S: Stream<Item = T> + Unpin + Send + 'static,
 	T: Serialize + Send + 'static,
@@ -118,6 +165,7 @@ async fn inner_pipe_from_stream<S, T>(
 	let mut next_fut = Box::pin(Fuse::terminated());
 	let mut next_item = stream.next();
 	let closed = sink.closed();
+	let SubscriptionParams { metrics, method, ip_addr, .. } = params;
 
 	futures::pin_mut!(closed);
 
@@ -139,12 +187,7 @@ async fn inner_pipe_from_stream<S, T>(
 			// New item from the stream
 			Either::Right((Either::Right((Some(v), n)), c)) => {
 				if buf.push_back(v).is_err() {
-					log::warn!(
-						target: "rpc",
-						"Subscription lagged dropping subscription `{}`, peer={}",
-						conn_data.method,
-						conn_data.ip_addr,
-					);
+					metrics.register_dropped(method, ip_addr);
 					return
 				}
 
@@ -195,15 +238,16 @@ pub fn spawn_subscription_task(
 
 #[cfg(test)]
 mod tests {
-	use super::{pipe_from_stream, ConnData};
+	use super::pipe_from_stream;
 	use futures::StreamExt;
 	use jsonrpsee::{core::EmptyServerParams, RpcModule, Subscription};
 
-	fn conn_data() -> ConnData {
-		super::ConnData {
+	fn sub_params() -> SubscriptionParams {
+		SubscriptionParams {
 			method: "sub",
 			ip_addr: std::net::IpAddr::V4(std::net::Ipv4Addr::new(127, 0, 0, 1)),
 			conn_id: 0,
+			metrics: SubscriptionMetrics::disabled(),
 		}
 	}
 
@@ -212,7 +256,7 @@ mod tests {
 		module
 			.register_subscription("sub", "my_sub", "unsub", |_, pending, _, _| async move {
 				let stream = futures::stream::iter([0; 16]);
-				pipe_from_stream(pending, stream, conn_data()).await;
+				pipe_from_stream(pending, stream, sub_params()).await;
 				Ok(())
 			})
 			.unwrap();
@@ -240,7 +284,7 @@ mod tests {
 		module
 			.register_subscription("sub", "my_sub", "unsub", |_, pending, ctx, _| async move {
 				let stream = futures::stream::iter([0; 32]);
-				pipe_from_stream(pending, stream, conn_data()).await;
+				pipe_from_stream(pending, stream, sub_params()).await;
 				_ = ctx.unbounded_send(());
 				Ok(())
 			})
@@ -269,7 +313,7 @@ mod tests {
 					// to sync buffer and channel send operations
 					let stream = futures::stream::empty::<()>();
 					// this should exit immediately
-					pipe_from_stream(pending, stream, conn_data()).await;
+					pipe_from_stream(pending, stream, sub_params()).await;
 					// notify that the `pipe_from_stream` has returned
 					notify_tx.notify_one();
 					Ok(())

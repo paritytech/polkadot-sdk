@@ -40,6 +40,7 @@ sp-runtime = { path = "../../primitives/runtime" }
 sp-session = { path = "../../primitives/session" }
 sp-version = { path = "../../primitives/version" }
 sp-statement-store = { path = "../../primitives/statement-store" }
+prometheus = { version = "0.13.0", default-features = false }
 tokio = "1.37"
 
 [dev-dependencies]
