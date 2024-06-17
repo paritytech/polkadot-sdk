@@ -2247,6 +2247,69 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#2096" id="2096">2096</a>
 <a href="#2097" id="2097">2097</a>
 <a href="#2098" id="2098">2098</a>
+<a href="#2099" id="2099">2099</a>
+<a href="#2100" id="2100">2100</a>
+<a href="#2101" id="2101">2101</a>
+<a href="#2102" id="2102">2102</a>
+<a href="#2103" id="2103">2103</a>
+<a href="#2104" id="2104">2104</a>
+<a href="#2105" id="2105">2105</a>
+<a href="#2106" id="2106">2106</a>
+<a href="#2107" id="2107">2107</a>
+<a href="#2108" id="2108">2108</a>
+<a href="#2109" id="2109">2109</a>
+<a href="#2110" id="2110">2110</a>
+<a href="#2111" id="2111">2111</a>
+<a href="#2112" id="2112">2112</a>
+<a href="#2113" id="2113">2113</a>
+<a href="#2114" id="2114">2114</a>
+<a href="#2115" id="2115">2115</a>
+<a href="#2116" id="2116">2116</a>
+<a href="#2117" id="2117">2117</a>
+<a href="#2118" id="2118">2118</a>
+<a href="#2119" id="2119">2119</a>
+<a href="#2120" id="2120">2120</a>
+<a href="#2121" id="2121">2121</a>
+<a href="#2122" id="2122">2122</a>
+<a href="#2123" id="2123">2123</a>
+<a href="#2124" id="2124">2124</a>
+<a href="#2125" id="2125">2125</a>
+<a href="#2126" id="2126">2126</a>
+<a href="#2127" id="2127">2127</a>
+<a href="#2128" id="2128">2128</a>
+<a href="#2129" id="2129">2129</a>
+<a href="#2130" id="2130">2130</a>
+<a href="#2131" id="2131">2131</a>
+<a href="#2132" id="2132">2132</a>
+<a href="#2133" id="2133">2133</a>
+<a href="#2134" id="2134">2134</a>
+<a href="#2135" id="2135">2135</a>
+<a href="#2136" id="2136">2136</a>
+<a href="#2137" id="2137">2137</a>
+<a href="#2138" id="2138">2138</a>
+<a href="#2139" id="2139">2139</a>
+<a href="#2140" id="2140">2140</a>
+<a href="#2141" id="2141">2141</a>
+<a href="#2142" id="2142">2142</a>
+<a href="#2143" id="2143">2143</a>
+<a href="#2144" id="2144">2144</a>
+<a href="#2145" id="2145">2145</a>
+<a href="#2146" id="2146">2146</a>
+<a href="#2147" id="2147">2147</a>
+<a href="#2148" id="2148">2148</a>
+<a href="#2149" id="2149">2149</a>
+<a href="#2150" id="2150">2150</a>
+<a href="#2151" id="2151">2151</a>
+<a href="#2152" id="2152">2152</a>
+<a href="#2153" id="2153">2153</a>
+<a href="#2154" id="2154">2154</a>
+<a href="#2155" id="2155">2155</a>
+<a href="#2156" id="2156">2156</a>
+<a href="#2157" id="2157">2157</a>
+<a href="#2158" id="2158">2158</a>
+<a href="#2159" id="2159">2159</a>
+<a href="#2160" id="2160">2160</a>
+<a href="#2161" id="2161">2161</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2335,9 +2398,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span>Remove,
 	}
 
-	<span class="attr">#[pallet::config]
+	<span class="attr">#[pallet::config(with_default)]
 	</span><span class="kw">pub trait </span>Config: frame_system::Config {
 		<span class="doccomment">/// The staking balance.
+		</span><span class="attr">#[pallet::no_default]
 		</span><span class="kw">type </span>Currency: LockableCurrency&lt;
 				<span class="self">Self</span>::AccountId,
 				Moment = BlockNumberFor&lt;<span class="self">Self</span>&gt;,
@@ -2358,6 +2422,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		///
 		/// It is guaranteed to start being called from the first `on_finalize`. Thus value at
 		/// genesis is not used.
+		</span><span class="attr">#[pallet::no_default]
 		</span><span class="kw">type </span>UnixTime: UnixTime;
 
 		<span class="doccomment">/// Convert a balance into a number used for election calculation. This must fit into a
@@ -2366,9 +2431,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		/// in 128.
 		/// Consequently, the backward convert is used convert the u128s from sp-elections back to a
 		/// [`BalanceOf`].
+		</span><span class="attr">#[pallet::no_default_bounds]
 		</span><span class="kw">type </span>CurrencyToVote: sp_staking::currency_to_vote::CurrencyToVote&lt;BalanceOf&lt;<span class="self">Self</span>&gt;&gt;;
 
 		<span class="doccomment">/// Something that provides the election functionality.
+		</span><span class="attr">#[pallet::no_default]
 		</span><span class="kw">type </span>ElectionProvider: ElectionProvider&lt;
 			AccountId = <span class="self">Self</span>::AccountId,
 			BlockNumber = BlockNumberFor&lt;<span class="self">Self</span>&gt;,
@@ -2376,6 +2443,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span>DataProvider = Pallet&lt;<span class="self">Self</span>&gt;,
 		&gt;;
 		<span class="doccomment">/// Something that provides the election functionality at genesis.
+		</span><span class="attr">#[pallet::no_default]
 		</span><span class="kw">type </span>GenesisElectionProvider: ElectionProvider&lt;
 			AccountId = <span class="self">Self</span>::AccountId,
 			BlockNumber = BlockNumberFor&lt;<span class="self">Self</span>&gt;,
@@ -2383,6 +2451,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		&gt;;
 
 		<span class="doccomment">/// Something that defines the maximum number of nominations per nominator.
+		</span><span class="attr">#[pallet::no_default_bounds]
 		</span><span class="kw">type </span>NominationsQuota: NominationsQuota&lt;BalanceOf&lt;<span class="self">Self</span>&gt;&gt;;
 
 		<span class="doccomment">/// Number of eras to keep in history.
@@ -2410,17 +2479,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="doccomment">/// Tokens have been minted and are unused for validator-reward.
 		/// See [Era payout](./index.html#era-payout).
+		</span><span class="attr">#[pallet::no_default_bounds]
 		</span><span class="kw">type </span>RewardRemainder: OnUnbalanced&lt;NegativeImbalanceOf&lt;<span class="self">Self</span>&gt;&gt;;
 
 		<span class="doccomment">/// The overarching event type.
+		</span><span class="attr">#[pallet::no_default_bounds]
 		</span><span class="kw">type </span>RuntimeEvent: From&lt;Event&lt;<span class="self">Self</span>&gt;&gt; + IsType&lt;&lt;<span class="self">Self </span><span class="kw">as </span>frame_system::Config&gt;::RuntimeEvent&gt;;
 
 		<span class="doccomment">/// Handler for the unbalanced reduction when slashing a staker.
+		</span><span class="attr">#[pallet::no_default_bounds]
 		</span><span class="kw">type </span>Slash: OnUnbalanced&lt;NegativeImbalanceOf&lt;<span class="self">Self</span>&gt;&gt;;
 
 		<span class="doccomment">/// Handler for the unbalanced increment when rewarding a staker.
 		/// NOTE: in most cases, the implementation of `OnUnbalanced` should modify the total
 		/// issuance.
+		</span><span class="attr">#[pallet::no_default_bounds]
 		</span><span class="kw">type </span>Reward: OnUnbalanced&lt;PositiveImbalanceOf&lt;<span class="self">Self</span>&gt;&gt;;
 
 		<span class="doccomment">/// Number of sessions per era.
@@ -2441,6 +2514,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="doccomment">/// The origin which can manage less critical staking parameters that does not require root.
 		///
 		/// Supported actions: (1) cancel deferred slash, (2) set minimum commission.
+		</span><span class="attr">#[pallet::no_default]
 		</span><span class="kw">type </span>AdminOrigin: EnsureOrigin&lt;<span class="self">Self</span>::RuntimeOrigin&gt;;
 
 		<span class="doccomment">/// Interface for interacting with a session pallet.
@@ -2448,10 +2522,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="doccomment">/// The payout for validators and the system for the current era.
 		/// See [Era payout](./index.html#era-payout).
+		</span><span class="attr">#[pallet::no_default]
 		</span><span class="kw">type </span>EraPayout: EraPayout&lt;BalanceOf&lt;<span class="self">Self</span>&gt;&gt;;
 
 		<span class="doccomment">/// Something that can estimate the next session change, accurately or as a best effort
 		/// guess.
+		</span><span class="attr">#[pallet::no_default_bounds]
 		</span><span class="kw">type </span>NextNewSession: EstimateNextNewSession&lt;BlockNumberFor&lt;<span class="self">Self</span>&gt;&gt;;
 
 		<span class="doccomment">/// The maximum size of each `T::ExposurePage`.
@@ -2479,6 +2555,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		/// staker. In case of `bags-list`, this always means using `rebag` and `putInFrontOf`.
 		///
 		/// Invariant: what comes out of this list will always be a nominator.
+		</span><span class="attr">#[pallet::no_default]
 		</span><span class="kw">type </span>VoterList: SortedListProvider&lt;<span class="self">Self</span>::AccountId, Score = VoteWeight&gt;;
 
 		<span class="doccomment">/// WIP: This is a noop as of now, the actual business logic that's described below is going
@@ -2501,6 +2578,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		/// validators, they can chill at any point, and their approval stakes will still be
 		/// recorded. This implies that what comes out of iterating this list MIGHT NOT BE AN ACTIVE
 		/// VALIDATOR.
+		</span><span class="attr">#[pallet::no_default]
 		</span><span class="kw">type </span>TargetList: SortedListProvider&lt;<span class="self">Self</span>::AccountId, Score = BalanceOf&lt;<span class="self">Self</span>&gt;&gt;;
 
 		<span class="doccomment">/// The maximum number of `unlocking` chunks a [`StakingLedger`] can
@@ -2523,16 +2601,64 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		/// receives.
 		///
 		/// WARNING: this only reports slashing and withdraw events for the time being.
+		</span><span class="attr">#[pallet::no_default_bounds]
 		</span><span class="kw">type </span>EventListeners: sp_staking::OnStakingUpdate&lt;<span class="self">Self</span>::AccountId, BalanceOf&lt;<span class="self">Self</span>&gt;&gt;;
 
-		<span class="comment">// `DisablingStragegy` controls how validators are disabled
+		<span class="doccomment">/// `DisablingStragegy` controls how validators are disabled
+		</span><span class="attr">#[pallet::no_default_bounds]
 		</span><span class="kw">type </span>DisablingStrategy: DisablingStrategy&lt;<span class="self">Self</span>&gt;;
 
 		<span class="doccomment">/// Some parameters of the benchmarking.
+		</span><span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
+		</span><span class="kw">type </span>BenchmarkingConfig: BenchmarkingConfig;
+
+		<span class="attr">#[cfg(not(feature = <span class="string">"std"</span>))]
+		#[pallet::no_default]
 		</span><span class="kw">type </span>BenchmarkingConfig: BenchmarkingConfig;
 
 		<span class="doccomment">/// Weight information for extrinsics in this pallet.
 		</span><span class="kw">type </span>WeightInfo: WeightInfo;
+	}
+
+	<span class="doccomment">/// Default implementations of [`DefaultConfig`], which can be used to implement [`Config`].
+	</span><span class="kw">pub mod </span>config_preludes {
+		<span class="kw">use super</span>::<span class="kw-2">*</span>;
+		<span class="kw">use </span>frame_support::{derive_impl, parameter_types, traits::ConstU32};
+		<span class="kw">pub struct </span>TestDefaultConfig;
+
+		<span class="attr">#[derive_impl(frame_system::config_preludes::TestDefaultConfig, no_aggregated_types)]
+		</span><span class="kw">impl </span>frame_system::DefaultConfig <span class="kw">for </span>TestDefaultConfig {}
+
+		<span class="macro">parameter_types! </span>{
+			<span class="kw">pub const </span>SessionsPerEra: SessionIndex = <span class="number">3</span>;
+			<span class="kw">pub const </span>BondingDuration: EraIndex = <span class="number">3</span>;
+		}
+
+		<span class="attr">#[frame_support::register_default_impl(TestDefaultConfig)]
+		</span><span class="kw">impl </span>DefaultConfig <span class="kw">for </span>TestDefaultConfig {
+			<span class="attr">#[inject_runtime_type]
+			</span><span class="kw">type </span>RuntimeEvent = ();
+			<span class="kw">type </span>CurrencyBalance = u128;
+			<span class="kw">type </span>CurrencyToVote = ();
+			<span class="kw">type </span>NominationsQuota = <span class="kw">crate</span>::FixedNominationsQuota&lt;<span class="number">16</span>&gt;;
+			<span class="kw">type </span>HistoryDepth = ConstU32&lt;<span class="number">84</span>&gt;;
+			<span class="kw">type </span>RewardRemainder = ();
+			<span class="kw">type </span>Slash = ();
+			<span class="kw">type </span>Reward = ();
+			<span class="kw">type </span>SessionsPerEra = SessionsPerEra;
+			<span class="kw">type </span>BondingDuration = BondingDuration;
+			<span class="kw">type </span>SlashDeferDuration = ();
+			<span class="kw">type </span>SessionInterface = ();
+			<span class="kw">type </span>NextNewSession = ();
+			<span class="kw">type </span>MaxExposurePageSize = ConstU32&lt;<span class="number">64</span>&gt;;
+			<span class="kw">type </span>MaxUnlockingChunks = ConstU32&lt;<span class="number">32</span>&gt;;
+			<span class="kw">type </span>MaxControllersInDeprecationBatch = ConstU32&lt;<span class="number">100</span>&gt;;
+			<span class="kw">type </span>EventListeners = ();
+			<span class="kw">type </span>DisablingStrategy = <span class="kw">crate</span>::UpToLimitDisablingStrategy;
+			<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
+			</span><span class="kw">type </span>BenchmarkingConfig = <span class="kw">crate</span>::TestBenchmarkingConfig;
+			<span class="kw">type </span>WeightInfo = ();
+		}
 	}
 
 	<span class="doccomment">/// The ideal number of active validators.
