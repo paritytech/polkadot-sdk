@@ -30,6 +30,46 @@ GitHub's official documentation: [Manually running a workflow](https://docs.gith
 
 The number of the pull request. Required so the action can fetch the correct branch and comment if it fails.
 
+## Action configurations
+
+### Bench-all
+
+This is a wrapper to run `bench` for all pallets.
+
+Posible combinations based on the `benchmark` dropdown.
+
+- `pallet`: Benchmark for Substrate/Polkadot/Cumulus/Trappist for specific pallet
+  - Requires field `Pallet` to have an input that applies to `^([a-z_]+)([:]{2}[a-z_]+)?$`
+- `substrate`: Pallet + Overhead + Machine Benchmark for Substrate for all pallets
+  - Requires `Target Directory` to be `substrate`
+- `polkadot`: Pallet + Overhead Benchmark for Polkadot
+  - Requires `Runtime` to be one of the following:
+    - `rococo`
+    - `westend`
+  - Requires `Target Directory` to be `polkadot`
+- `cumulus`: Pallet Benchmark for Cumulus
+  - Requires `Runtime` to be one of the following:
+    - `rococo`
+    - `westend`
+    - `asset-hub-kusama`
+    - `asset-hub-polkadot`
+    - `asset-hub-rococo`
+    - `asset-hub-westend`
+    - `bridge-hub-kusama`
+    - `bridge-hub-polkadot`
+    - `bridge-hub-rococo`
+    - `bridge-hub-westend`
+    - `collectives-polkadot`
+    - `collectives-westend`
+    - `coretime-rococo`
+    - `coretime-westend`
+    - `contracts-rococo`
+    - `glutton-kusama`
+    - `glutton-westend`
+    - `people-rococo`
+    - `people-westend`
+  - Requires `Target Directory` to be `cumulus`
+
 ## How to modify an action
 
 If you want to modify an action and test it, you can do by simply pushing your changes and then selecting your branch in the `Use worflow from` option.
