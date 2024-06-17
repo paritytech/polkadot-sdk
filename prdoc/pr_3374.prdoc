@@ -11,4 +11,3 @@ doc:
 
 crates: 
   - name: pallet-timestamp
-  - name: pallet-election-provider-multi-phase
