@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1718643168039,
+  "lastUpdate": 1718656002747,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -7707,6 +7707,53 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting",
             "value": 10.714941321930064,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Florian Franzen",
+            "username": "FlorianFranzen",
+            "email": "Florian.Franzen@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "5055294521021c0ffa1c449d6793ec9d264e5bd5",
+          "message": "node-inspect: do not depend on rocksdb (#4783)\n\nThe crate `sc-cli` otherwise enables the `rocksdb` feature.",
+          "timestamp": "2024-06-17T18:47:36Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/5055294521021c0ffa1c449d6793ec9d264e5bd5"
+        },
+        "date": 1718655974207,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63554.39,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52942.5,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting",
+            "value": 10.62921363210991,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 8.14774842490007,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 3.8046545736901636,
             "unit": "seconds"
           }
         ]
