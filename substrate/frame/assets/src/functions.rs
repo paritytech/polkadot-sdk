@@ -370,7 +370,8 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		}
 		Asset::<T, I>::insert(&id, details);
 		// Executing a hook here is safe, since it is not in a `mutate`.
-		T::Freezer::died(id, &who);
+		T::Freezer::died(id.clone(), &who);
+		T::Holder::died(id, &who);
 		Ok(())
 	}
 
@@ -401,7 +402,8 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		}
 		Asset::<T, I>::insert(&id, details);
 		// Executing a hook here is safe, since it is not in a `mutate`.
-		T::Freezer::died(id, &who);
+		T::Freezer::died(id.clone(), &who);
+		T::Holder::died(id, &who);
 		return Ok(())
 	}
 
@@ -569,7 +571,8 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
 		// Execute hook outside of `mutate`.
 		if let Some(Remove) = target_died {
-			T::Freezer::died(id, target);
+			T::Freezer::died(id.clone(), target);
+			T::Holder::died(id, target);
 		}
 		Ok(actual)
 	}
@@ -593,7 +596,8 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		let (balance, died) =
 			Self::transfer_and_die(id.clone(), source, dest, amount, maybe_need_admin, f)?;
 		if let Some(Remove) = died {
-			T::Freezer::died(id, source);
+			T::Freezer::died(id.clone(), source);
+			T::Holder::died(id, source);
 		}
 		Ok(balance)
 	}
@@ -791,6 +795,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
 		for who in &dead_accounts {
 			T::Freezer::died(id.clone(), &who);
+			T::Holder::died(id.clone(), &who);
 		}
 
 		Self::deposit_event(Event::AccountsDestroyed {
@@ -951,7 +956,8 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
 		// Execute hook outside of `mutate`.
 		if let Some(Remove) = owner_died {
-			T::Freezer::died(id, owner);
+			T::Freezer::died(id.clone(), owner);
+			T::Holder::died(id, owner);
 		}
 		Ok(())
 	}
