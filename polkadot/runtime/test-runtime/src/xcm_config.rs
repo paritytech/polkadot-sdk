@@ -20,8 +20,8 @@ use frame_support::{
 	weights::Weight,
 };
 use frame_system::EnsureRoot;
+use polkadot_runtime_common::xcm_sender::{ChildParachainRouter, PriceForMessageDelivery};
 use polkadot_runtime_parachains::FeeTracker;
-use runtime_common::xcm_sender::{ChildParachainRouter, PriceForMessageDelivery};
 use xcm::latest::prelude::*;
 use xcm_builder::{
 	AllowUnpaidExecutionFrom, EnsureXcmOrigin, FixedWeightBounds, FrameTransactionalProcessor,
@@ -156,6 +156,7 @@ impl xcm_executor::Config for XcmConfig {
 	type HrmpNewChannelOpenRequestHandler = ();
 	type HrmpChannelAcceptedHandler = ();
 	type HrmpChannelClosingHandler = ();
+	type XcmRecorder = ();
 }
 
 impl pallet_xcm::Config for crate::Runtime {

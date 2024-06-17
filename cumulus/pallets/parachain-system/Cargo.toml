@@ -11,7 +11,7 @@ workspace = true
 
 [dependencies]
 bytes = { version = "1.4.0", default-features = false }
-codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
+codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false, features = ["derive"] }
 environmental = { version = "1.1.4", default-features = false }
 impl-trait-for-tuples = "0.2.1"
 log = { workspace = true }
@@ -38,6 +38,7 @@ polkadot-parachain-primitives = { path = "../../../polkadot/parachain", default-
 polkadot-runtime-parachains = { path = "../../../polkadot/runtime/parachains", default-features = false }
 polkadot-runtime-common = { path = "../../../polkadot/runtime/common", default-features = false, optional = true }
 xcm = { package = "staging-xcm", path = "../../../polkadot/xcm", default-features = false }
+xcm-builder = { package = "staging-xcm-builder", path = "../../../polkadot/xcm/xcm-builder", default-features = false }
 
 # Cumulus
 cumulus-pallet-parachain-system-proc-macro = { path = "proc-macro", default-features = false }
@@ -95,6 +96,7 @@ std = [
 	"sp-tracing/std",
 	"sp-trie/std",
 	"trie-db/std",
+	"xcm-builder/std",
 	"xcm/std",
 ]
 
@@ -109,6 +111,7 @@ runtime-benchmarks = [
 	"polkadot-runtime-common/runtime-benchmarks",
 	"polkadot-runtime-parachains/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
+	"xcm-builder/runtime-benchmarks",
 ]
 
 try-runtime = [
@@ -119,5 +122,3 @@ try-runtime = [
 	"polkadot-runtime-parachains/try-runtime",
 	"sp-runtime/try-runtime",
 ]
-
-parameterized-consensus-hook = []

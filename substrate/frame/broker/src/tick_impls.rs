@@ -17,10 +17,7 @@
 
 use super::*;
 use frame_support::{pallet_prelude::*, weights::WeightMeter};
-use sp_arithmetic::{
-	traits::{One, SaturatedConversion, Saturating, Zero},
-	FixedPointNumber,
-};
+use sp_arithmetic::traits::{One, SaturatedConversion, Saturating, Zero};
 use sp_runtime::traits::ConvertBack;
 use sp_std::{vec, vec::Vec};
 use CompletionStatus::Complete;
@@ -163,31 +160,13 @@ impl<T: Config> Pallet<T> {
 		InstaPoolIo::<T>::mutate(old_sale.region_end, |r| r.system.saturating_reduce(old_pooled));
 
 		// Calculate the start price for the upcoming sale.
-		let price = {
-			let offered = old_sale.cores_offered;
-			let ideal = old_sale.ideal_cores_sold;
-			let sold = old_sale.cores_sold;
+		let new_prices = T::PriceAdapter::adapt_price(SalePerformance::from_sale(&old_sale));
 
-			let maybe_purchase_price = if offered == 0 {
-				// No cores offered for sale - no purchase price.
-				None
-			} else if sold >= ideal {
-				// Sold more than the ideal amount. We should look for the last purchase price
-				// before the sell-out. If there was no purchase at all, then we avoid having a
-				// price here so that we make no alterations to it (since otherwise we would
-				// increase it).
-				old_sale.sellout_price
-			} else {
-				// Sold less than the ideal - we fall back to the regular price.
-				Some(old_sale.price)
-			};
-			if let Some(purchase_price) = maybe_purchase_price {
-				T::PriceAdapter::adapt_price(sold.min(offered), ideal, offered)
-					.saturating_mul_int(purchase_price)
-			} else {
-				old_sale.price
-			}
-		};
+		log::debug!(
+			"Rotated sale, new prices: {:?}, {:?}",
+			new_prices.end_price,
+			new_prices.target_price
+		);
 
 		// Set workload for the reserved (system, probably) workloads.
 		let region_begin = old_sale.region_end;
@@ -216,24 +195,28 @@ impl<T: Config> Pallet<T> {
 			let assignment = CoreAssignment::Task(task);
 			let schedule = BoundedVec::truncate_from(vec![ScheduleItem { mask, assignment }]);
 			Workplan::<T>::insert((region_begin, first_core), &schedule);
-			// Separate these to avoid missed expired leases hanging around forever.
-			let expired = until < region_end;
-			let expiring = until >= region_begin && expired;
-			if expiring {
-				// last time for this one - make it renewable.
-				let renewal_id = AllowedRenewalId { core: first_core, when: region_end };
-				let record = AllowedRenewalRecord { price, completion: Complete(schedule) };
-				AllowedRenewals::<T>::insert(renewal_id, &record);
+			// Will the lease expire at the end of the period?
+			let expire = until < region_end;
+			if expire {
+				// last time for this one - make it renewable in the next sale.
+				let renewal_id = PotentialRenewalId { core: first_core, when: region_end };
+				let record = PotentialRenewalRecord {
+					price: new_prices.target_price,
+					completion: Complete(schedule),
+				};
+				PotentialRenewals::<T>::insert(renewal_id, &record);
 				Self::deposit_event(Event::Renewable {
 					core: first_core,
-					price,
+					price: new_prices.target_price,
 					begin: region_end,
 					workload: record.completion.drain_complete().unwrap_or_default(),
 				});
 				Self::deposit_event(Event::LeaseEnding { when: region_end, task });
 			}
+
 			first_core.saturating_inc();
-			!expired
+
+			!expire
 		});
 		Leases::<T>::put(&leases);
 
@@ -243,12 +226,19 @@ impl<T: Config> Pallet<T> {
 		let sale_start = now.saturating_add(config.interlude_length);
 		let leadin_length = config.leadin_length;
 		let ideal_cores_sold = (config.ideal_bulk_proportion * cores_offered as u32) as u16;
+		let sellout_price = if cores_offered > 0 {
+			// No core sold -> price was too high -> we have to adjust downwards.
+			Some(new_prices.end_price)
+		} else {
+			None
+		};
+
 		// Update SaleInfo
 		let new_sale = SaleInfoRecord {
 			sale_start,
 			leadin_length,
-			price,
-			sellout_price: None,
+			end_price: new_prices.end_price,
+			sellout_price,
 			region_begin,
 			region_end,
 			first_core,
@@ -256,12 +246,13 @@ impl<T: Config> Pallet<T> {
 			cores_offered,
 			cores_sold: 0,
 		};
+
 		SaleInfo::<T>::put(&new_sale);
 		Self::deposit_event(Event::SaleInitialized {
 			sale_start,
 			leadin_length,
 			start_price: Self::sale_price(&new_sale, now),
-			regular_price: price,
+			end_price: new_prices.end_price,
 			region_begin,
 			region_end,
 			ideal_cores_sold,

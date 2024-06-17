@@ -48,6 +48,9 @@ impl TestHost {
 			false,
 			prepare_worker_path,
 			execute_worker_path,
+			2,
+			1,
+			2,
 		);
 		f(&mut config);
 		let (host, task) = start(config, Metrics::default()).await.unwrap();

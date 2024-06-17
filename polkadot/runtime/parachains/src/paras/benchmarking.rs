@@ -18,7 +18,9 @@ use super::*;
 use crate::configuration::HostConfiguration;
 use frame_benchmarking::benchmarks;
 use frame_system::{pallet_prelude::BlockNumberFor, RawOrigin};
-use primitives::{HeadData, Id as ParaId, ValidationCode, MAX_CODE_SIZE, MAX_HEAD_DATA_SIZE};
+use polkadot_primitives::{
+	HeadData, Id as ParaId, ValidationCode, MAX_CODE_SIZE, MAX_HEAD_DATA_SIZE,
+};
 use sp_runtime::traits::{One, Saturating};
 
 mod pvf_check;
@@ -68,7 +70,7 @@ pub(crate) fn generate_disordered_upgrades<T: Config>() {
 
 fn generate_disordered_actions_queue<T: Config>() {
 	let mut queue = Vec::new();
-	let next_session = shared::Pallet::<T>::session_index().saturating_add(One::one());
+	let next_session = shared::CurrentSessionIndex::<T>::get().saturating_add(One::one());
 
 	for _ in 0..SAMPLE_SIZE {
 		let id = ParaId::from(1000);
@@ -140,7 +142,7 @@ benchmarks! {
 		generate_disordered_actions_queue::<T>();
 	}: _(RawOrigin::Root, para_id)
 	verify {
-		let next_session = crate::shared::Pallet::<T>::session_index().saturating_add(One::one());
+		let next_session = crate::shared::CurrentSessionIndex::<T>::get().saturating_add(One::one());
 		assert_last_event::<T>(Event::ActionQueued(para_id, next_session).into());
 	}
 

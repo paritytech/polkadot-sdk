@@ -20,9 +20,9 @@ use super::*;
 use crate::{metrics::Metrics, *};
 
 use assert_matches::assert_matches;
+use codec::{Decode, Encode};
 use futures::executor;
 use futures_timer::Delay;
-use parity_scale_codec::{Decode, Encode};
 use polkadot_node_network_protocol::{
 	grid_topology::{SessionGridTopology, TopologyPeerInfo},
 	peer_set::ValidationVersion,
@@ -55,7 +55,7 @@ use sp_application_crypto::{sr25519::Pair, AppCrypto, Pair as TraitPair};
 use sp_authority_discovery::AuthorityPair;
 use sp_keyring::Sr25519Keyring;
 use sp_keystore::{Keystore, KeystorePtr};
-use std::{iter::FromIterator as _, sync::Arc, time::Duration};
+use std::{sync::Arc, time::Duration};
 use util::reputation::add_reputation;
 
 // Some deterministic genesis hash for protocol names

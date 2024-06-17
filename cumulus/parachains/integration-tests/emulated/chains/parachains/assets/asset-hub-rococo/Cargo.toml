@@ -23,3 +23,6 @@ emulated-integration-tests-common = { path = "../../../../common", default-featu
 asset-hub-rococo-runtime = { path = "../../../../../../runtimes/assets/asset-hub-rococo" }
 rococo-emulated-chain = { path = "../../../relays/rococo" }
 testnet-parachains-constants = { path = "../../../../../../runtimes/constants", features = ["rococo"] }
+
+# Polkadot
+xcm = { package = "staging-xcm", path = "../../../../../../../../polkadot/xcm", default-features = false }

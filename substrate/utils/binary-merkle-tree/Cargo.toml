@@ -12,12 +12,12 @@ homepage = "https://substrate.io"
 workspace = true
 
 [dependencies]
-array-bytes = { version = "6.1", optional = true }
+array-bytes = { version = "6.2.2", optional = true }
 log = { optional = true, workspace = true }
 hash-db = { version = "0.16.0", default-features = false }
 
 [dev-dependencies]
-array-bytes = "6.1"
+array-bytes = "6.2.2"
 env_logger = "0.11"
 sp-core = { path = "../../primitives/core" }
 sp-runtime = { path = "../../primitives/runtime" }

@@ -37,7 +37,7 @@ use polkadot_node_primitives::{
 use polkadot_node_subsystem::{
 	messages::{
 		network_bridge_event::NewGossipTopology, CandidateBackingMessage, HypotheticalCandidate,
-		HypotheticalFrontierRequest, NetworkBridgeEvent, NetworkBridgeTxMessage,
+		HypotheticalMembershipRequest, NetworkBridgeEvent, NetworkBridgeTxMessage,
 		ProspectiveParachainsMessage,
 	},
 	overseer, ActivatedLeaf,
@@ -59,6 +59,8 @@ use sp_keystore::KeystorePtr;
 use fatality::Nested;
 use futures::{
 	channel::{mpsc, oneshot},
+	future::FutureExt,
+	select,
 	stream::FuturesUnordered,
 	SinkExt, StreamExt,
 };
@@ -66,13 +68,14 @@ use futures::{
 use std::{
 	collections::{
 		hash_map::{Entry, HashMap},
-		BTreeSet, HashSet,
+		HashSet,
 	},
 	time::{Duration, Instant},
 };
 
 use crate::{
 	error::{JfyiError, JfyiErrorResult},
+	metrics::Metrics,
 	LOG_TARGET,
 };
 use candidates::{BadAdvertisement, Candidates, PostConfirmation};
@@ -153,6 +156,7 @@ struct PerRelayParentState {
 	seconding_limit: usize,
 	session: SessionIndex,
 	groups_per_para: HashMap<ParaId, Vec<GroupIndex>>,
+	disabled_validators: HashSet<ValidatorIndex>,
 }
 
 impl PerRelayParentState {
@@ -162,6 +166,17 @@ impl PerRelayParentState {
 
 	fn active_validator_state_mut(&mut self) -> Option<&mut ActiveValidatorState> {
 		self.local_validator.as_mut().and_then(|local| local.active.as_mut())
+	}
+
+	/// Returns `true` if the given validator is disabled in the context of the relay parent.
+	pub fn is_disabled(&self, validator_index: &ValidatorIndex) -> bool {
+		self.disabled_validators.contains(validator_index)
+	}
+
+	/// A convenience function to generate a disabled bitmask for the given backing group.
+	/// The output bits are set to `true` for validators that are disabled.
+	pub fn disabled_bitmask(&self, group: &[ValidatorIndex]) -> BitVec<u8, Lsb0> {
+		BitVec::from_iter(group.iter().map(|v| self.is_disabled(v)))
 	}
 }
 
@@ -203,8 +218,6 @@ struct PerSessionState {
 	// getting the topology from the gossip-support subsystem
 	grid_view: Option<grid::SessionTopologyView>,
 	local_validator: Option<LocalValidatorIndex>,
-	// We store the latest state here based on union of leaves.
-	disabled_validators: BTreeSet<ValidatorIndex>,
 }
 
 impl PerSessionState {
@@ -221,16 +234,7 @@ impl PerSessionState {
 		)
 		.map(|(_, index)| LocalValidatorIndex::Active(index));
 
-		let disabled_validators = BTreeSet::new();
-
-		PerSessionState {
-			session_info,
-			groups,
-			authority_lookup,
-			grid_view: None,
-			local_validator,
-			disabled_validators,
-		}
+		PerSessionState { session_info, groups, authority_lookup, grid_view: None, local_validator }
 	}
 
 	fn supply_topology(
@@ -265,33 +269,6 @@ impl PerSessionState {
 	/// `false` is also returned if session topology is not known yet.
 	fn is_not_validator(&self) -> bool {
 		self.grid_view.is_some() && self.local_validator.is_none()
-	}
-
-	/// A convenience function to generate a disabled bitmask for the given backing group.
-	/// The output bits are set to `true` for validators that are disabled.
-	/// Returns `None` if the group index is out of bounds.
-	pub fn disabled_bitmask(&self, group: GroupIndex) -> Option<BitVec<u8, Lsb0>> {
-		let group = self.groups.get(group)?;
-		let mask = BitVec::from_iter(group.iter().map(|v| self.is_disabled(v)));
-		Some(mask)
-	}
-
-	/// Returns `true` if the given validator is disabled in the current session.
-	pub fn is_disabled(&self, validator_index: &ValidatorIndex) -> bool {
-		self.disabled_validators.contains(validator_index)
-	}
-
-	/// Extend the list of disabled validators.
-	pub fn extend_disabled_validators(
-		&mut self,
-		disabled: impl IntoIterator<Item = ValidatorIndex>,
-	) {
-		self.disabled_validators.extend(disabled);
-	}
-
-	/// Clear the list of disabled validators.
-	pub fn clear_disabled_validators(&mut self) {
-		self.disabled_validators.clear();
 	}
 }
 
@@ -579,19 +556,16 @@ pub(crate) async fn handle_active_leaves_update<Context>(
 	let new_relay_parents =
 		state.implicit_view.all_allowed_relay_parents().cloned().collect::<Vec<_>>();
 
-	// We clear the list of disabled validators to reset it properly based on union of leaves.
-	let mut cleared_disabled_validators: BTreeSet<SessionIndex> = BTreeSet::new();
-
 	for new_relay_parent in new_relay_parents.iter().cloned() {
-		// Even if we processed this relay parent before, we need to fetch the list of disabled
-		// validators based on union of active leaves.
-		let disabled_validators =
+		let disabled_validators: HashSet<_> =
 			polkadot_node_subsystem_util::vstaging::get_disabled_validators_with_fallback(
 				ctx.sender(),
 				new_relay_parent,
 			)
 			.await
-			.map_err(JfyiError::FetchDisabledValidators)?;
+			.map_err(JfyiError::FetchDisabledValidators)?
+			.into_iter()
+			.collect();
 
 		let session_index = polkadot_node_subsystem_util::request_session_index_for_child(
 			new_relay_parent,
@@ -641,10 +615,6 @@ pub(crate) async fn handle_active_leaves_update<Context>(
 			.get_mut(&session_index)
 			.expect("either existed or just inserted; qed");
 
-		if cleared_disabled_validators.insert(session_index) {
-			per_session.clear_disabled_validators();
-		}
-
 		if !disabled_validators.is_empty() {
 			gum::debug!(
 				target: LOG_TARGET,
@@ -653,8 +623,6 @@ pub(crate) async fn handle_active_leaves_update<Context>(
 				?disabled_validators,
 				"Disabled validators detected"
 			);
-
-			per_session.extend_disabled_validators(disabled_validators);
 		}
 
 		if state.per_relay_parent.contains_key(&new_relay_parent) {
@@ -720,6 +688,7 @@ pub(crate) async fn handle_active_leaves_update<Context>(
 				seconding_limit,
 				session: session_index,
 				groups_per_para,
+				disabled_validators,
 			},
 		);
 	}
@@ -750,7 +719,7 @@ pub(crate) async fn handle_active_leaves_update<Context>(
 		}
 	}
 
-	new_leaf_fragment_tree_updates(ctx, state, activated.hash).await;
+	new_leaf_fragment_chain_updates(ctx, state, activated.hash).await;
 
 	Ok(())
 }
@@ -826,7 +795,16 @@ pub(crate) fn handle_deactivate_leaves(state: &mut State, leaves: &[Hash]) {
 	// clean up sessions based on everything remaining.
 	let sessions: HashSet<_> = state.per_relay_parent.values().map(|r| r.session).collect();
 	state.per_session.retain(|s, _| sessions.contains(s));
-	state.unused_topologies.retain(|s, _| sessions.contains(s));
+
+	let last_session_index = state.unused_topologies.keys().max().copied();
+	// Do not clean-up the last saved toplogy unless we moved to the next session
+	// This is needed because handle_deactive_leaves, gets also called when
+	// prospective_parachains APIs are not present, so we would actually remove
+	// the topology without using it because `per_relay_parent` is empty until
+	// prospective_parachains gets enabled
+	state
+		.unused_topologies
+		.retain(|s, _| sessions.contains(s) || last_session_index == Some(*s));
 }
 
 #[overseer::contextbounds(StatementDistribution, prefix=self::overseer)]
@@ -1569,6 +1547,17 @@ async fn handle_incoming_statement<Context>(
 	};
 	let session_info = &per_session.session_info;
 
+	if per_relay_parent.is_disabled(&statement.unchecked_validator_index()) {
+		gum::debug!(
+			target: LOG_TARGET,
+			?relay_parent,
+			validator_index = ?statement.unchecked_validator_index(),
+			"Ignoring a statement from disabled validator."
+		);
+		modify_reputation(reputation, ctx.sender(), peer, COST_DISABLED_VALIDATOR).await;
+		return
+	}
+
 	let local_validator = match per_relay_parent.local_validator.as_mut() {
 		None => {
 			// we shouldn't be receiving statements unless we're a validator
@@ -1601,17 +1590,6 @@ async fn handle_incoming_statement<Context>(
 				return
 			},
 		};
-
-	if per_session.is_disabled(&statement.unchecked_validator_index()) {
-		gum::debug!(
-			target: LOG_TARGET,
-			?relay_parent,
-			validator_index = ?statement.unchecked_validator_index(),
-			"Ignoring a statement from disabled validator."
-		);
-		modify_reputation(reputation, ctx.sender(), peer, COST_DISABLED_VALIDATOR).await;
-		return
-	}
 
 	let (active, cluster_sender_index) = {
 		// This block of code only returns `Some` when both the originator and
@@ -2204,7 +2182,7 @@ async fn determine_groups_per_para(
 }
 
 #[overseer::contextbounds(StatementDistribution, prefix=self::overseer)]
-async fn fragment_tree_update_inner<Context>(
+async fn fragment_chain_update_inner<Context>(
 	ctx: &mut Context,
 	state: &mut State,
 	active_leaf_hash: Option<Hash>,
@@ -2218,31 +2196,34 @@ async fn fragment_tree_update_inner<Context>(
 	};
 
 	// 2. find out which are in the frontier
-	let frontier = {
+	gum::debug!(
+		target: LOG_TARGET,
+		"Calling getHypotheticalMembership from statement distribution"
+	);
+	let candidate_memberships = {
 		let (tx, rx) = oneshot::channel();
-		ctx.send_message(ProspectiveParachainsMessage::GetHypotheticalFrontier(
-			HypotheticalFrontierRequest {
+		ctx.send_message(ProspectiveParachainsMessage::GetHypotheticalMembership(
+			HypotheticalMembershipRequest {
 				candidates: hypotheticals,
-				fragment_tree_relay_parent: active_leaf_hash,
-				backed_in_path_only: false,
+				fragment_chain_relay_parent: active_leaf_hash,
 			},
 			tx,
 		))
 		.await;
 
 		match rx.await {
-			Ok(frontier) => frontier,
+			Ok(candidate_memberships) => candidate_memberships,
 			Err(oneshot::Canceled) => return,
 		}
 	};
 	// 3. note that they are importable under a given leaf hash.
-	for (hypo, membership) in frontier {
-		// skip parablocks outside of the frontier
+	for (hypo, membership) in candidate_memberships {
+		// skip parablocks which aren't potential candidates
 		if membership.is_empty() {
 			continue
 		}
 
-		for (leaf_hash, _) in membership {
+		for leaf_hash in membership {
 			state.candidates.note_importable_under(&hypo, leaf_hash);
 		}
 
@@ -2286,31 +2267,31 @@ async fn fragment_tree_update_inner<Context>(
 }
 
 #[overseer::contextbounds(StatementDistribution, prefix=self::overseer)]
-async fn new_leaf_fragment_tree_updates<Context>(
+async fn new_leaf_fragment_chain_updates<Context>(
 	ctx: &mut Context,
 	state: &mut State,
 	leaf_hash: Hash,
 ) {
-	fragment_tree_update_inner(ctx, state, Some(leaf_hash), None, None).await
+	fragment_chain_update_inner(ctx, state, Some(leaf_hash), None, None).await
 }
 
 #[overseer::contextbounds(StatementDistribution, prefix=self::overseer)]
-async fn prospective_backed_notification_fragment_tree_updates<Context>(
+async fn prospective_backed_notification_fragment_chain_updates<Context>(
 	ctx: &mut Context,
 	state: &mut State,
 	para_id: ParaId,
 	para_head: Hash,
 ) {
-	fragment_tree_update_inner(ctx, state, None, Some((para_head, para_id)), None).await
+	fragment_chain_update_inner(ctx, state, None, Some((para_head, para_id)), None).await
 }
 
 #[overseer::contextbounds(StatementDistribution, prefix=self::overseer)]
-async fn new_confirmed_candidate_fragment_tree_updates<Context>(
+async fn new_confirmed_candidate_fragment_chain_updates<Context>(
 	ctx: &mut Context,
 	state: &mut State,
 	candidate: HypotheticalCandidate,
 ) {
-	fragment_tree_update_inner(ctx, state, None, None, Some(vec![candidate])).await
+	fragment_chain_update_inner(ctx, state, None, None, Some(vec![candidate])).await
 }
 
 struct ManifestImportSuccess<'a> {
@@ -2364,21 +2345,18 @@ async fn handle_incoming_manifest_common<'a, Context>(
 		Some(s) => s,
 	};
 
-	let local_validator = match relay_parent_state.local_validator.as_mut() {
-		None => {
-			if per_session.is_not_validator() {
-				modify_reputation(
-					reputation,
-					ctx.sender(),
-					peer,
-					COST_UNEXPECTED_MANIFEST_MISSING_KNOWLEDGE,
-				)
-				.await;
-			}
-			return None
-		},
-		Some(x) => x,
-	};
+	if relay_parent_state.local_validator.is_none() {
+		if per_session.is_not_validator() {
+			modify_reputation(
+				reputation,
+				ctx.sender(),
+				peer,
+				COST_UNEXPECTED_MANIFEST_MISSING_KNOWLEDGE,
+			)
+			.await;
+		}
+		return None
+	}
 
 	let Some(expected_groups) = relay_parent_state.groups_per_para.get(&para_id) else {
 		modify_reputation(reputation, ctx.sender(), peer, COST_MALFORMED_MANIFEST).await;
@@ -2421,9 +2399,12 @@ async fn handle_incoming_manifest_common<'a, Context>(
 	let claimed_parent_hash = manifest_summary.claimed_parent_hash;
 
 	// Ignore votes from disabled validators when counting towards the threshold.
-	let disabled_mask = per_session.disabled_bitmask(group_index).unwrap_or_default();
+	let group = per_session.groups.get(group_index).unwrap_or(&[]);
+	let disabled_mask = relay_parent_state.disabled_bitmask(group);
 	manifest_summary.statement_knowledge.mask_seconded(&disabled_mask);
 	manifest_summary.statement_knowledge.mask_valid(&disabled_mask);
+
+	let local_validator = relay_parent_state.local_validator.as_mut().expect("checked above; qed");
 
 	let acknowledge = match local_validator.grid_tracker.import_manifest(
 		grid_topology,
@@ -2853,7 +2834,7 @@ pub(crate) async fn handle_backed_candidate_message<Context>(
 	.await;
 
 	// Search for children of the backed candidate to request.
-	prospective_backed_notification_fragment_tree_updates(
+	prospective_backed_notification_fragment_chain_updates(
 		ctx,
 		state,
 		confirmed.para_id(),
@@ -2944,7 +2925,8 @@ async fn apply_post_confirmation<Context>(
 		post_confirmation.hypothetical.relay_parent(),
 	)
 	.await;
-	new_confirmed_candidate_fragment_tree_updates(ctx, state, post_confirmation.hypothetical).await;
+	new_confirmed_candidate_fragment_chain_updates(ctx, state, post_confirmation.hypothetical)
+		.await;
 }
 
 /// Dispatch pending requests for candidate data & statements.
@@ -3002,9 +2984,7 @@ pub(crate) async fn dispatch_requests<Context>(ctx: &mut Context, state: &mut St
 		}
 
 		// Add disabled validators to the unwanted mask.
-		let disabled_mask = per_session
-			.disabled_bitmask(group_index)
-			.expect("group existence checked above; qed");
+		let disabled_mask = relay_parent_state.disabled_bitmask(group);
 		unwanted_mask.seconded_in_group |= &disabled_mask;
 		unwanted_mask.validated_in_group |= &disabled_mask;
 
@@ -3095,9 +3075,7 @@ pub(crate) async fn handle_response<Context>(
 			Some(g) => g,
 		};
 
-		let disabled_mask = per_session
-			.disabled_bitmask(group_index)
-			.expect("group_index checked above; qed");
+		let disabled_mask = relay_parent_state.disabled_bitmask(group);
 
 		let res = response.validate_response(
 			&mut state.request_manager,
@@ -3173,8 +3151,8 @@ pub(crate) async fn handle_response<Context>(
 
 	let confirmed = state.candidates.get_confirmed(&candidate_hash).expect("just confirmed; qed");
 
-	// Although the candidate is confirmed, it isn't yet on the
-	// hypothetical frontier of the fragment tree. Later, when it is,
+	// Although the candidate is confirmed, it isn't yet a
+	// hypothetical member of the fragment chain. Later, when it is,
 	// we will import statements.
 	if !confirmed.is_importable(None) {
 		return
@@ -3242,7 +3220,7 @@ pub(crate) fn answer_request(state: &mut State, message: ResponderMessage) {
 		Some(s) => s,
 	};
 
-	let local_validator = match relay_parent_state.local_validator.as_mut() {
+	let local_validator = match relay_parent_state.local_validator.as_ref() {
 		None => return,
 		Some(s) => s,
 	};
@@ -3316,16 +3294,15 @@ pub(crate) fn answer_request(state: &mut State, message: ResponderMessage) {
 
 	// Transform mask with 'OR' semantics into one with 'AND' semantics for the API used
 	// below.
-	let mut and_mask = StatementFilter {
+	let and_mask = StatementFilter {
 		seconded_in_group: !mask.seconded_in_group.clone(),
 		validated_in_group: !mask.validated_in_group.clone(),
 	};
 
-	// Ignore disabled validators from the latest state when sending the response.
-	let disabled_mask =
-		per_session.disabled_bitmask(group_index).expect("group existence checked; qed");
-	and_mask.mask_seconded(&disabled_mask);
-	and_mask.mask_valid(&disabled_mask);
+	let local_validator = match relay_parent_state.local_validator.as_mut() {
+		None => return,
+		Some(s) => s,
+	};
 
 	let mut sent_filter = StatementFilter::blank(group_size);
 	let statements: Vec<_> = relay_parent_state
@@ -3414,35 +3391,61 @@ pub(crate) struct ResponderMessage {
 pub(crate) async fn respond_task(
 	mut receiver: IncomingRequestReceiver<AttestedCandidateRequest>,
 	mut sender: mpsc::Sender<ResponderMessage>,
+	metrics: Metrics,
 ) {
 	let mut pending_out = FuturesUnordered::new();
+	let mut active_peers = HashSet::new();
+
 	loop {
-		// Ensure we are not handling too many requests in parallel.
-		if pending_out.len() >= MAX_PARALLEL_ATTESTED_CANDIDATE_REQUESTS as usize {
-			// Wait for one to finish:
-			pending_out.next().await;
-		}
+		select! {
+			// New request
+			request_result = receiver.recv(|| vec![COST_INVALID_REQUEST]).fuse() => {
+				let request = match request_result.into_nested() {
+					Ok(Ok(v)) => v,
+					Err(fatal) => {
+						gum::debug!(target: LOG_TARGET, error = ?fatal, "Shutting down request responder");
+						return
+					},
+					Ok(Err(jfyi)) => {
+						gum::debug!(target: LOG_TARGET, error = ?jfyi, "Decoding request failed");
+						continue
+					},
+				};
 
-		let req = match receiver.recv(|| vec![COST_INVALID_REQUEST]).await.into_nested() {
-			Ok(Ok(v)) => v,
-			Err(fatal) => {
-				gum::debug!(target: LOG_TARGET, error = ?fatal, "Shutting down request responder");
-				return
-			},
-			Ok(Err(jfyi)) => {
-				gum::debug!(target: LOG_TARGET, error = ?jfyi, "Decoding request failed");
-				continue
-			},
-		};
+				// If peer currently being served drop request
+				if active_peers.contains(&request.peer) {
+					gum::trace!(target: LOG_TARGET, "Peer already being served, dropping request");
+					metrics.on_request_dropped_peer_rate_limit();
+					continue
+				}
 
-		let (pending_sent_tx, pending_sent_rx) = oneshot::channel();
-		if let Err(err) = sender
-			.feed(ResponderMessage { request: req, sent_feedback: pending_sent_tx })
-			.await
-		{
-			gum::debug!(target: LOG_TARGET, ?err, "Shutting down responder");
-			return
+				// If we are over parallel limit wait for one to finish
+				if pending_out.len() >= MAX_PARALLEL_ATTESTED_CANDIDATE_REQUESTS as usize {
+					gum::trace!(target: LOG_TARGET, "Over max parallel requests, waiting for one to finish");
+					metrics.on_max_parallel_requests_reached();
+					let (_, peer) = pending_out.select_next_some().await;
+					active_peers.remove(&peer);
+				}
+
+				// Start serving the request
+				let (pending_sent_tx, pending_sent_rx) = oneshot::channel();
+				let peer = request.peer;
+				if let Err(err) = sender
+					.feed(ResponderMessage { request, sent_feedback: pending_sent_tx })
+					.await
+				{
+					gum::debug!(target: LOG_TARGET, ?err, "Shutting down responder");
+					return
+				}
+				let future_with_peer = pending_sent_rx.map(move |result| (result, peer));
+				pending_out.push(future_with_peer);
+				active_peers.insert(peer);
+			},
+			// Request served/finished
+			result = pending_out.select_next_some() => {
+				let (_, peer) = result;
+				active_peers.remove(&peer);
+			},
 		}
-		pending_out.push(pending_sent_rx);
 	}
 }

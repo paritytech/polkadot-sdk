@@ -93,7 +93,7 @@ fn construct_runtime_implicit_to_explicit(
 	let frame_support = generate_access_from_frame_or_crate("frame-support")?;
 	let attr = if legacy_ordering { quote!((legacy_ordering)) } else { quote!() };
 	let mut expansion = quote::quote!(
-		#[frame_support::runtime #attr]
+		#[#frame_support::runtime #attr]
 		#input
 	);
 	for pallet in definition.pallet_decls.iter() {
@@ -103,7 +103,7 @@ fn construct_runtime_implicit_to_explicit(
 		expansion = quote::quote!(
 			#frame_support::__private::tt_call! {
 				macro = [{ #pallet_path::tt_default_parts_v2 }]
-				frame_support = [{ #frame_support }]
+				your_tt_return = [{ #frame_support::__private::tt_return }]
 				~~> #frame_support::match_and_insert! {
 					target = [{ #expansion }]
 					pattern = [{ #pallet_name = #pallet_path #pallet_instance  }]
@@ -244,7 +244,7 @@ fn construct_runtime_final_expansion(
 		// Prevent UncheckedExtrinsic to print unused warning.
 		const _: () = {
 			#[allow(unused)]
-			type __hidden_use_of_unchecked_extrinsic = #unchecked_extrinsic;
+			type __HiddenUseOfUncheckedExtrinsic = #unchecked_extrinsic;
 		};
 
 		#[derive(

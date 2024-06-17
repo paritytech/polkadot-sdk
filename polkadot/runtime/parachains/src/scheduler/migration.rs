@@ -34,7 +34,7 @@ struct V0Assignment {
 /// Old scheduler with explicit parathreads and `Scheduled` storage instead of `ClaimQueue`.
 mod v0 {
 	use super::*;
-	use primitives::{CollatorId, Id};
+	use polkadot_primitives::{CollatorId, Id};
 
 	#[storage_alias]
 	pub(super) type Scheduled<T: Config> = StorageValue<Pallet<T>, Vec<CoreAssignment>, ValueQuery>;
@@ -172,7 +172,7 @@ mod v1 {
 			v0::ParathreadQueue::<T>::kill();
 			v0::ParathreadClaimIndex::<T>::kill();
 
-			let now = <frame_system::Pallet<T>>::block_number();
+			let now = frame_system::Pallet::<T>::block_number();
 			let scheduled = v0::Scheduled::<T>::take();
 			let sched_len = scheduled.len() as u64;
 			for core_assignment in scheduled {
@@ -182,7 +182,7 @@ mod v1 {
 				v1::add_to_claimqueue::<T>(core_idx, pe);
 			}
 
-			let parachains = paras::Pallet::<T>::parachains();
+			let parachains = paras::Parachains::<T>::get();
 			let availability_cores = v0::AvailabilityCores::<T>::take();
 			let mut new_availability_cores = Vec::new();
 
@@ -248,7 +248,7 @@ mod v1 {
 				.count();
 
 			ensure!(
-				Pallet::<T>::claimqueue_len() as u32 + availability_cores_waiting as u32 ==
+				Pallet::<T>::claim_queue_len() as u32 + availability_cores_waiting as u32 ==
 					expected_len,
 				"ClaimQueue and AvailabilityCores should have the correct length",
 			);

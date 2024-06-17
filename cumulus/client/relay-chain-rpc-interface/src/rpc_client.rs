@@ -27,7 +27,7 @@ use serde_json::Value as JsonValue;
 use std::collections::VecDeque;
 use tokio::sync::mpsc::Sender as TokioSender;
 
-use parity_scale_codec::{Decode, Encode};
+use codec::{Decode, Encode};
 
 use cumulus_primitives_core::{
 	relay_chain::{
@@ -653,6 +653,20 @@ impl RelayChainRpcClient {
 	) -> Result<BTreeMap<CoreIndex, VecDeque<ParaId>>, RelayChainError> {
 		self.call_remote_runtime_function("ParachainHost_claim_queue", at, None::<()>)
 			.await
+	}
+
+	/// Get the receipt of all candidates pending availability.
+	pub async fn parachain_host_candidates_pending_availability(
+		&self,
+		at: RelayHash,
+		para_id: ParaId,
+	) -> Result<Vec<CommittedCandidateReceipt>, RelayChainError> {
+		self.call_remote_runtime_function(
+			"ParachainHost_candidates_pending_availability",
+			at,
+			Some(para_id),
+		)
+		.await
 	}
 
 	pub async fn validation_code_hash(

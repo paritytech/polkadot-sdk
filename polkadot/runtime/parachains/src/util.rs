@@ -18,7 +18,7 @@
 //! on all modules.
 
 use frame_system::pallet_prelude::BlockNumberFor;
-use primitives::{HeadData, Id as ParaId, PersistedValidationData, ValidatorIndex};
+use polkadot_primitives::{HeadData, Id as ParaId, PersistedValidationData, ValidatorIndex};
 use sp_std::{collections::btree_set::BTreeSet, vec::Vec};
 
 use crate::{configuration, hrmp, paras};
@@ -32,10 +32,10 @@ pub fn make_persisted_validation_data<T: paras::Config + hrmp::Config>(
 	relay_parent_number: BlockNumberFor<T>,
 	relay_parent_storage_root: T::Hash,
 ) -> Option<PersistedValidationData<T::Hash, BlockNumberFor<T>>> {
-	let config = <configuration::Pallet<T>>::config();
+	let config = configuration::ActiveConfig::<T>::get();
 
 	Some(PersistedValidationData {
-		parent_head: <paras::Pallet<T>>::para_head(&para_id)?,
+		parent_head: paras::Heads::<T>::get(&para_id)?,
 		relay_parent_number,
 		relay_parent_storage_root,
 		max_pov_size: config.max_pov_size,
@@ -49,7 +49,7 @@ pub fn make_persisted_validation_data_with_parent<T: configuration::Config>(
 	relay_parent_storage_root: T::Hash,
 	parent_head: HeadData,
 ) -> PersistedValidationData<T::Hash, BlockNumberFor<T>> {
-	let config = <configuration::Pallet<T>>::config();
+	let config = configuration::ActiveConfig::<T>::get();
 
 	PersistedValidationData {
 		parent_head,
@@ -121,7 +121,7 @@ mod tests {
 	use sp_std::vec::Vec;
 
 	use crate::util::{split_active_subset, take_active_subset};
-	use primitives::ValidatorIndex;
+	use polkadot_primitives::ValidatorIndex;
 
 	#[test]
 	fn take_active_subset_is_compatible_with_split_active_subset() {

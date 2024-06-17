@@ -23,7 +23,7 @@ use frame_support::{
 	weights::Weight,
 	Twox64Concat,
 };
-use sp_staking::offence::{DisableStrategy, OnOffenceHandler};
+use sp_staking::offence::OnOffenceHandler;
 use sp_std::vec::Vec;
 
 #[cfg(feature = "try-runtime")]
@@ -106,12 +106,7 @@ pub fn remove_deferred_storage<T: Config>() -> Weight {
 	let deferred = <DeferredOffences<T>>::take();
 	log::info!(target: LOG_TARGET, "have {} deferred offences, applying.", deferred.len());
 	for (offences, perbill, session) in deferred.iter() {
-		let consumed = T::OnOffenceHandler::on_offence(
-			offences,
-			perbill,
-			*session,
-			DisableStrategy::WhenSlashed,
-		);
+		let consumed = T::OnOffenceHandler::on_offence(offences, perbill, *session);
 		weight = weight.saturating_add(consumed);
 	}
 

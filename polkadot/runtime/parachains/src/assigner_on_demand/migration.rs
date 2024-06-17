@@ -56,7 +56,7 @@ mod v1 {
 			let mut weight: Weight = Weight::zero();
 
 			// Migrate the current traffic value
-			let config = <configuration::Pallet<T>>::config();
+			let config = configuration::ActiveConfig::<T>::get();
 			QueueStatus::<T>::mutate(|mut queue_status| {
 				Pallet::<T>::update_spot_traffic(&config, &mut queue_status);
 
@@ -143,7 +143,7 @@ pub type MigrateV0ToV1<T> = VersionedMigration<
 mod tests {
 	use super::{v0, v1, UncheckedOnRuntimeUpgrade, Weight};
 	use crate::mock::{new_test_ext, MockGenesisConfig, OnDemandAssigner, Test};
-	use primitives::Id as ParaId;
+	use polkadot_primitives::Id as ParaId;
 
 	#[test]
 	fn migration_to_v1_preserves_queue_ordering() {

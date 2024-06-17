@@ -530,13 +530,9 @@ pub fn run() -> Result<()> {
 		}),
 		Some(Subcommand::PurgeChain(cmd)) => {
 			let runner = cli.create_runner(cmd)?;
+			let polkadot_cli = RelayChainCli::new(runner.config(), cli.relaychain_args.iter());
 
 			runner.sync_run(|config| {
-				let polkadot_cli = RelayChainCli::new(
-					&config,
-					[RelayChainCli::executable_name()].iter().chain(cli.relaychain_args.iter()),
-				);
-
 				let polkadot_config = SubstrateCli::create_configuration(
 					&polkadot_cli,
 					&polkadot_cli,
@@ -549,9 +545,8 @@ pub fn run() -> Result<()> {
 		},
 		Some(Subcommand::ExportGenesisHead(cmd)) => {
 			let runner = cli.create_runner(cmd)?;
-			runner.sync_run(|config| {
-				construct_partials!(config, |partials| cmd.run(partials.client))
-			})
+			runner
+				.sync_run(|config| construct_partials!(config, |partials| cmd.run(partials.client)))
 		},
 		Some(Subcommand::ExportGenesisWasm(cmd)) => {
 			let runner = cli.create_runner(cmd)?;
@@ -601,10 +596,10 @@ pub fn run() -> Result<()> {
 				_ => Err("Benchmarking sub-command unsupported".into()),
 			}
 		},
-		Some(Subcommand::TryRuntime) => Err("The `try-runtime` subcommand has been migrated to a standalone CLI (https://github.com/paritytech/try-runtime-cli). It is no longer being maintained here and will be removed entirely some time after January 2024. Please remove this subcommand from your runtime and use the standalone CLI.".into()),
 		Some(Subcommand::Key(cmd)) => Ok(cmd.run(&cli)?),
 		None => {
 			let runner = cli.create_runner(&cli.run.normalize())?;
+			let polkadot_cli = RelayChainCli::new(runner.config(), cli.relaychain_args.iter());
 			let collator_options = cli.run.collator_options();
 
 			runner.run_node_until_exit(|config| async move {
@@ -650,11 +645,6 @@ pub fn run() -> Result<()> {
 					.map(|e| e.para_id)
 					.ok_or("Could not find parachain extension in chain-spec.")?;
 
-				let polkadot_cli = RelayChainCli::new(
-					&config,
-					[RelayChainCli::executable_name()].iter().chain(cli.relaychain_args.iter()),
-				);
-
 				let id = ParaId::from(para_id);
 
 				let parachain_account =
@@ -669,7 +659,7 @@ pub fn run() -> Result<()> {
 				info!("Parachain Account: {}", parachain_account);
 				info!("Is collating: {}", if config.role.is_authority() { "yes" } else { "no" });
 
-				match polkadot_config.network.network_backend {
+				match config.network.network_backend {
 					sc_network::config::NetworkBackendType::Libp2p =>
 						start_node::<sc_network::NetworkWorker<_, _>>(
 							config,
@@ -702,7 +692,7 @@ async fn start_node<Network: sc_network::NetworkBackend<Block, Hash>>(
 	hwbench: Option<sc_sysinfo::HwBench>,
 ) -> Result<sc_service::TaskManager> {
 	match config.chain_spec.runtime()? {
-		Runtime::AssetHubPolkadot => crate::service::start_asset_hub_node::<
+		Runtime::AssetHubPolkadot => crate::service::start_asset_hub_lookahead_node::<
 			AssetHubPolkadotRuntimeApi,
 			AssetHubPolkadotAuraId,
 			Network,
@@ -711,16 +701,7 @@ async fn start_node<Network: sc_network::NetworkBackend<Block, Hash>>(
 		.map(|r| r.0)
 		.map_err(Into::into),
 
-		Runtime::AssetHubKusama => crate::service::start_asset_hub_node::<
-			RuntimeApi,
-			AuraId,
-			Network,
-		>(config, polkadot_config, collator_options, id, hwbench)
-		.await
-		.map(|r| r.0)
-		.map_err(Into::into),
-
-		Runtime::AssetHubRococo | Runtime::AssetHubWestend =>
+		Runtime::AssetHubRococo | Runtime::AssetHubWestend | Runtime::AssetHubKusama =>
 			crate::service::start_asset_hub_lookahead_node::<RuntimeApi, AuraId, Network>(
 				config,
 				polkadot_config,
@@ -732,18 +713,7 @@ async fn start_node<Network: sc_network::NetworkBackend<Block, Hash>>(
 			.map(|r| r.0)
 			.map_err(Into::into),
 
-		Runtime::CollectivesPolkadot => crate::service::start_generic_aura_node::<Network>(
-			config,
-			polkadot_config,
-			collator_options,
-			id,
-			hwbench,
-		)
-		.await
-		.map(|r| r.0)
-		.map_err(Into::into),
-
-		Runtime::CollectivesWestend =>
+		Runtime::CollectivesWestend | Runtime::CollectivesPolkadot =>
 			crate::service::start_generic_aura_lookahead_node::<Network>(
 				config,
 				polkadot_config,
@@ -779,39 +749,12 @@ async fn start_node<Network: sc_network::NetworkBackend<Block, Hash>>(
 
 		Runtime::BridgeHub(bridge_hub_runtime_type) => match bridge_hub_runtime_type {
 			chain_spec::bridge_hubs::BridgeHubRuntimeType::Polkadot |
-			chain_spec::bridge_hubs::BridgeHubRuntimeType::PolkadotLocal =>
-				crate::service::start_generic_aura_node::<Network>(
-					config,
-					polkadot_config,
-					collator_options,
-					id,
-					hwbench,
-				)
-				.await
-				.map(|r| r.0),
+			chain_spec::bridge_hubs::BridgeHubRuntimeType::PolkadotLocal |
 			chain_spec::bridge_hubs::BridgeHubRuntimeType::Kusama |
-			chain_spec::bridge_hubs::BridgeHubRuntimeType::KusamaLocal =>
-				crate::service::start_generic_aura_node::<Network>(
-					config,
-					polkadot_config,
-					collator_options,
-					id,
-					hwbench,
-				)
-				.await
-				.map(|r| r.0),
+			chain_spec::bridge_hubs::BridgeHubRuntimeType::KusamaLocal |
 			chain_spec::bridge_hubs::BridgeHubRuntimeType::Westend |
 			chain_spec::bridge_hubs::BridgeHubRuntimeType::WestendLocal |
-			chain_spec::bridge_hubs::BridgeHubRuntimeType::WestendDevelopment =>
-				crate::service::start_generic_aura_lookahead_node::<Network>(
-					config,
-					polkadot_config,
-					collator_options,
-					id,
-					hwbench,
-				)
-				.await
-				.map(|r| r.0),
+			chain_spec::bridge_hubs::BridgeHubRuntimeType::WestendDevelopment |
 			chain_spec::bridge_hubs::BridgeHubRuntimeType::Rococo |
 			chain_spec::bridge_hubs::BridgeHubRuntimeType::RococoLocal |
 			chain_spec::bridge_hubs::BridgeHubRuntimeType::RococoDevelopment =>
@@ -1066,7 +1009,7 @@ mod tests {
 		cfg_file_path
 	}
 
-	pub type DummyChainSpec<E> = sc_service::GenericChainSpec<(), E>;
+	pub type DummyChainSpec<E> = sc_service::GenericChainSpec<E>;
 
 	pub fn create_default_with_extensions<E: Extension>(
 		id: &str,
