@@ -123,8 +123,8 @@ pub mod pallet {
 
 	/// The proportion of the `block length` to consume on each block.
 	///
-	/// `1.0` is mapped to `100%`. If this is too high, it could stall the chain as the block length
-	/// increase will translate into higher PoV size.
+	/// `1.0` is mapped to `100%`. Must be at most [`crate::RESOURCE_HARD_LIMIT`]. Setting this to
+	/// over `1.0` could stall the chain.
 	#[pallet::storage]
 	pub(crate) type Length<T: Config> = StorageValue<_, FixedU64, ValueQuery>;
 
