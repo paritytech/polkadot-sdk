@@ -1208,6 +1208,8 @@ impl coretime::Config for Runtime {
 	type BrokerId = BrokerId;
 	type WeightInfo = weights::runtime_parachains_coretime::WeightInfo<Runtime>;
 	type SendXcm = crate::xcm_config::XcmRouter;
+	type AssetTransactor = crate::xcm_config::LocalAssetTransactor;
+	type AccountToLocation = xcm_builder::AliasesIntoAccountId32<xcm_config::ThisNetwork, <Runtime as frame_system::Config>::AccountId>;
 	type MaxXcmTransactWeight = MaxXcmTransactWeight;
 }
 

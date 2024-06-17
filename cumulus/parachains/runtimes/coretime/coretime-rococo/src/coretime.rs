@@ -14,6 +14,8 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
+use core::marker::PhantomData;
+
 use crate::*;
 use codec::{Decode, Encode};
 use cumulus_pallet_parachain_system::RelaychainDataProvider;
@@ -31,7 +33,9 @@ use pallet_broker::{
 };
 use parachains_common::{AccountId, Balance};
 use rococo_runtime_constants::system_parachain::coretime;
+use sp_runtime::traits::AccountIdConversion;
 use xcm::latest::prelude::*;
+use sp_core::Get;
 
 pub struct CreditToCollatorPot;
 impl OnUnbalanced<Credit<AccountId, Balances>> for CreditToCollatorPot {
@@ -217,6 +221,16 @@ impl CoretimeInterface for CoretimeAllocator {
 	}
 }
 
+pub struct PotAccount<T>(PhantomData<T>);
+impl<T> Get<T::AccountId> for PotAccount<T>
+where
+	T: frame_system::Config + cumulus_pallet_parachain_system::Config
+{
+    fn get() -> T::AccountId {
+        T::SelfParaId::get().into_account_truncating()
+    }
+}
+
 impl pallet_broker::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Currency = Balances;
@@ -227,7 +241,7 @@ impl pallet_broker::Config for Runtime {
 	type Coretime = CoretimeAllocator;
 	type ConvertBalance = sp_runtime::traits::Identity;
 	type WeightInfo = weights::pallet_broker::WeightInfo<Runtime>;
-	type PalletId = BrokerPalletId;
+	type PotAccountId = PotAccount<Runtime>;
 	type AdminOrigin = EnsureRoot<AccountId>;
 	type PriceAdapter = pallet_broker::CenterTargetPrice<Balance>;
 }

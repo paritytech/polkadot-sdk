@@ -31,6 +31,7 @@
 //! occupying multiple cores in on-demand, we will likely add a separate order type, where the
 //! intent can be made explicit.
 
+use frame_support::traits::Imbalance;
 mod benchmarking;
 pub mod migration;
 mod mock_helpers;
@@ -86,6 +87,17 @@ impl WeightInfo for TestWeightInfo {
 	fn place_order_keep_alive(_: u32) -> Weight {
 		Weight::MAX
 	}
+}
+
+pub struct RevenueClaim<T: Config> {
+	split_off: Option<usize>,
+	pub amount: BalanceOf<T>
+}
+
+impl<T: Config> Default for RevenueClaim<T> {
+    fn default() -> Self {
+        Self { split_off: None, amount: 0u32.into() }
+    }
 }
 
 #[frame_support::pallet]
@@ -396,8 +408,8 @@ where
 				Error::<T>::QueueFull
 			);
 
-			// Charge the sending account the spot price. The amount will be burnt once the
-			// broker chain requests revenue information.
+			// Charge the sending account the spot price. The amount will be teleported to the broker chain
+			// once it requests revenue information.
 			let amt = T::Currency::withdraw(
 				&sender,
 				spot_price,
@@ -636,29 +648,45 @@ where
 		})
 	}
 
-	/// Collect the revenue from the `when` blockheight
-	pub fn claim_revenue_until(when: BlockNumberFor<T>) -> BalanceOf<T> {
+	/// Start claiming the revenue from the `when` blockheight. The claim should be later commited
+	/// with `commit_revenue_claim`
+	pub fn start_revenue_claim_until(when: BlockNumberFor<T>) -> RevenueClaim<T> {
 		let now = <frame_system::Pallet<T>>::block_number();
-		let mut amount: BalanceOf<T> = BalanceOf::<T>::zero();
-		Revenue::<T>::mutate(|revenue| {
-			while !revenue.is_empty() {
-				let index = (revenue.len() - 1) as u32;
-				if when > now.saturating_sub(index.into()) {
-					amount = amount.saturating_add(revenue.pop().defensive_unwrap_or(0u32.into()));
-				} else {
-					break
-				}
-			}
-		});
 
-		let imbalance = T::Currency::burn(amount);
-		let _ = T::Currency::settle(
-			&Self::account_id(),
-			imbalance,
-			WithdrawReasons::FEE,
-			ExistenceRequirement::AllowDeath,
+		if when > now {
+			log::warn!(
+				target: LOG_TARGET,
+				"Tried to claim future revenue until block {when:?} at block {now:?}"
+			);
+			return Default::default();
+		}
+
+		let split_off: usize = 1 + (now - when).try_into().unwrap_or(usize::MAX - 1);
+		let revenue = Revenue::<T>::get();
+
+		log::debug!(
+			target: LOG_TARGET,
+			"Started claiming revenue until block {when:?} at block {now:?}, split {} revenue entries at {split_off}",
+			revenue.len(),
 		);
-		amount
+
+		if split_off < revenue.len() {
+			RevenueClaim {
+				split_off: Some(split_off),
+				amount: revenue[split_off..].iter().fold(0u32.into(), |acc, x| acc + *x),
+			}
+		} else {
+			Default::default()
+		}
+	}
+
+	/// Commit previously created revenue claim
+	pub fn commit_revenue_claim(claim: RevenueClaim<T>) {
+		if let Some(split_off) = claim.split_off {
+			Revenue::<T>::mutate(|revenue| {
+				revenue.truncate(split_off);
+			});
+		}
 	}
 
 	pub fn account_id() -> T::AccountId {

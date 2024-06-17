@@ -99,9 +99,9 @@ pub mod pallet {
 		type ConvertBalance: Convert<BalanceOf<Self>, RelayBalanceOf<Self>>
 			+ ConvertBack<BalanceOf<Self>, RelayBalanceOf<Self>>;
 
-		/// Identifier from which the internal Pot is generated.
+		/// Identifier of the internal Pot account.
 		#[pallet::constant]
-		type PalletId: Get<PalletId>;
+		type PotAccountId: Get<Self::AccountId>;
 
 		/// Number of Relay-chain blocks per timeslice.
 		#[pallet::constant]
