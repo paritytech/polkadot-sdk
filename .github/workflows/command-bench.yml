@@ -89,7 +89,7 @@ jobs:
         run: cat .github/env >> $GITHUB_OUTPUT
   cmd-bench:
     needs: [set-image]
-    runs-on: ubuntu-latest
+    runs-on: arc-runners-polkadot-sdk-benchmark
     container:
       image: ${{ needs.set-image.outputs.IMAGE }}
     steps:
