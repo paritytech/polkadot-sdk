@@ -9,5 +9,3 @@ crates:
   - name: pallet-ranked-collective
     bump: major
 
-
-
