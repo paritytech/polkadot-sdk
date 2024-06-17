@@ -11,12 +11,17 @@ doc:
         pallet. This mitigates the risk of using same fund to double stake.
 
 crates:
-  - name: polkadot-test-runtime
   - name: westend-runtime
-  - name: kitchensink-runtime
+    bump: minor
   - name: pallet-nomination-pools-benchmarking
+    bump: minor
   - name: pallet-nomination-pools
+    bump: minor
   - name: pallet-staking
+    bump: minor
+  - name: pallet-delegated-staking
+    bump: minor
   - name: sp-staking
+    bump: minor
 
 
