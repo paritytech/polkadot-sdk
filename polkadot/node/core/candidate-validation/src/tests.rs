@@ -391,7 +391,7 @@ impl ValidationBackend for MockValidateCandidateBackend {
 		unreachable!()
 	}
 
-	async fn heads_up(&mut self, active_pvfs: Vec<PvfPrepData>) -> Result<(), String> {
+	async fn heads_up(&mut self, _active_pvfs: Vec<PvfPrepData>) -> Result<(), String> {
 		unreachable!()
 	}
 }
@@ -1076,7 +1076,7 @@ impl ValidationBackend for MockPreCheckBackend {
 		self.result.clone()
 	}
 
-	async fn heads_up(&mut self, active_pvfs: Vec<PvfPrepData>) -> Result<(), String> {
+	async fn heads_up(&mut self, _active_pvfs: Vec<PvfPrepData>) -> Result<(), String> {
 		unreachable!()
 	}
 }
