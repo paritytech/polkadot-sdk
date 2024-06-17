@@ -1355,6 +1355,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1204" id="1204">1204</a>
 <a href="#1205" id="1205">1205</a>
 <a href="#1206" id="1206">1206</a>
+<a href="#1207" id="1207">1207</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1410,6 +1411,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 };
 <span class="kw">use </span>pallet_grandpa::{fg_primitives, AuthorityId <span class="kw">as </span>GrandpaId};
 <span class="kw">use </span>pallet_session::historical <span class="kw">as </span>session_historical;
+<span class="kw">use </span>pallet_timestamp::Now;
 <span class="kw">use </span>pallet_transaction_payment::{FeeDetails, RuntimeDispatchInfo};
 <span class="kw">use </span>polkadot_primitives::{
 	slashing, AccountId, AccountIndex, Balance, BlockNumber, CandidateEvent, CandidateHash,
@@ -2543,7 +2545,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">impl </span><span class="kw">crate</span>::GetLastTimestamp&lt;Block&gt; <span class="kw">for </span>Runtime {
 		<span class="kw">fn </span>get_last_timestamp() -&gt; u64 {
-			Timestamp::now()
+			Now::&lt;Runtime&gt;::get()
 		}
 	}
 

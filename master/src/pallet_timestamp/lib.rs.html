@@ -529,7 +529,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#378" id="378">378</a>
 <a href="#379" id="379">379</a>
 <a href="#380" id="380">380</a>
-<a href="#381" id="381">381</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -734,7 +733,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// The current time for the current block.
 	</span><span class="attr">#[pallet::storage]
-	#[pallet::getter(<span class="kw">fn </span>now)]
 	</span><span class="kw">pub type </span>Now&lt;T: Config&gt; = StorageValue&lt;<span class="kw">_</span>, T::Moment, ValueQuery&gt;;
 
 	<span class="doccomment">/// Whether the timestamp has been updated in this block.
@@ -793,7 +791,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="kw">pub fn </span>set(origin: OriginFor&lt;T&gt;, <span class="attr">#[pallet::compact] </span>now: T::Moment) -&gt; DispatchResult {
 			ensure_none(origin)<span class="question-mark">?</span>;
 			<span class="macro">assert!</span>(!DidUpdate::&lt;T&gt;::exists(), <span class="string">"Timestamp must be updated only once in the block"</span>);
-			<span class="kw">let </span>prev = <span class="self">Self</span>::now();
+			<span class="kw">let </span>prev = Now::&lt;T&gt;::get();
 			<span class="macro">assert!</span>(
 				prev.is_zero() || now &gt;= prev + T::MinimumPeriod::get(),
 				<span class="string">"Timestamp must increment by at least &lt;MinimumPeriod&gt; between sequential blocks"
@@ -828,7 +826,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				.expect(<span class="string">"Timestamp inherent data must be provided"</span>);
 			<span class="kw">let </span>data = (<span class="kw-2">*</span>inherent_data).saturated_into::&lt;T::Moment&gt;();
 
-			<span class="kw">let </span>next_time = cmp::max(data, <span class="self">Self</span>::now() + T::MinimumPeriod::get());
+			<span class="kw">let </span>next_time = cmp::max(data, Now::&lt;T&gt;::get() + T::MinimumPeriod::get());
 			<span class="prelude-val">Some</span>(Call::set { now: next_time })
 		}
 
@@ -849,7 +847,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				.expect(<span class="string">"Timestamp inherent data not correctly encoded"</span>)
 				.expect(<span class="string">"Timestamp inherent data must be provided"</span>);
 
-			<span class="kw">let </span>minimum = (<span class="self">Self</span>::now() + T::MinimumPeriod::get()).saturated_into::&lt;u64&gt;();
+			<span class="kw">let </span>minimum = (Now::&lt;T&gt;::get() + T::MinimumPeriod::get()).saturated_into::&lt;u64&gt;();
 			<span class="kw">if </span>t &gt; <span class="kw-2">*</span>(data + MAX_TIMESTAMP_DRIFT_MILLIS) {
 				<span class="prelude-val">Err</span>(InherentError::TooFarInFuture)
 			} <span class="kw">else if </span>t &lt; minimum {
@@ -871,7 +869,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// NOTE: if this function is called prior to setting the timestamp,
 	/// it will return the timestamp of the previous block.
 	</span><span class="kw">pub fn </span>get() -&gt; T::Moment {
-		<span class="self">Self</span>::now()
+		Now::&lt;T&gt;::get()
 	}
 
 	<span class="doccomment">/// Set the timestamp to something in particular. Only used for tests.
@@ -888,7 +886,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">type </span>Moment = T::Moment;
 
 	<span class="kw">fn </span>now() -&gt; <span class="self">Self</span>::Moment {
-		<span class="self">Self</span>::now()
+		Now::&lt;T&gt;::get()
 	}
 }
 
@@ -899,7 +897,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">fn </span>now() -&gt; core::time::Duration {
 		<span class="comment">// now is duration since unix epoch in millisecond as documented in
 		// `sp_timestamp::InherentDataProvider`.
-		</span><span class="kw">let </span>now = <span class="self">Self</span>::now();
+		</span><span class="kw">let </span>now = Now::&lt;T&gt;::get();
 		<span class="macro">sp_std::if_std! </span>{
 			<span class="kw">if </span>now == T::Moment::zero() {
 				<span class="macro">log::error!</span>(

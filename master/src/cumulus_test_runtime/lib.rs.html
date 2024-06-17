@@ -747,7 +747,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">pub use </span>pallet_balances::Call <span class="kw">as </span>BalancesCall;
 <span class="kw">pub use </span>pallet_glutton::Call <span class="kw">as </span>GluttonCall;
 <span class="kw">pub use </span>pallet_sudo::Call <span class="kw">as </span>SudoCall;
-<span class="kw">pub use </span>pallet_timestamp::Call <span class="kw">as </span>TimestampCall;
+<span class="kw">pub use </span>pallet_timestamp::{Call <span class="kw">as </span>TimestampCall, Now};
 <span class="attr">#[cfg(any(feature = <span class="string">"std"</span>, test))]
 </span><span class="kw">pub use </span>sp_runtime::BuildStorage;
 <span class="kw">pub use </span>sp_runtime::{Perbill, Permill};
@@ -1180,7 +1180,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">impl </span><span class="kw">crate</span>::GetLastTimestamp&lt;Block&gt; <span class="kw">for </span>Runtime {
 		<span class="kw">fn </span>get_last_timestamp() -&gt; u64 {
-			Timestamp::now()
+			Now::&lt;Runtime&gt;::get()
 		}
 	}
 

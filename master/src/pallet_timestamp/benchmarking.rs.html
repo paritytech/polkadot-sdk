@@ -237,7 +237,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>frame_system::RawOrigin;
 <span class="kw">use </span>sp_storage::TrackedStorageKey;
 
-<span class="kw">use </span><span class="kw">crate</span>::Pallet <span class="kw">as </span>Timestamp;
+<span class="kw">use crate</span>::{Now, Pallet <span class="kw">as </span>Timestamp};
 
 <span class="kw">const </span>MAX_TIME: u32 = <span class="number">100</span>;
 
@@ -254,7 +254,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		});
 	}: <span class="kw">_</span>(RawOrigin::None, t.into())
 	verify {
-		<span class="macro">ensure!</span>(Timestamp::&lt;T&gt;::now() == t.into(), <span class="string">"Time was not set."</span>);
+		<span class="macro">ensure!</span>(Now::&lt;T&gt;::get() == t.into(), <span class="string">"Time was not set."</span>);
 	}
 
 	on_finalize {
