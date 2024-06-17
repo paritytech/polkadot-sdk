@@ -18,7 +18,6 @@
 use super::*;
 use frame_support::{
 	pallet_prelude::*,
-	traits::{fungible::Balanced, DefensiveResult},
 	weights::WeightMeter,
 };
 use sp_arithmetic::traits::{One, SaturatedConversion, Saturating, Zero};
@@ -115,10 +114,6 @@ impl<T: Config> Pallet<T> {
 			target: "pallet_broker::process_revenue",
 			"Received {amount:?} from RC, converted into {revenue:?} revenue",
 		);
-
-		// Mint revenue amount on our end of the teleport
-		let revenue_imbalance = T::Currency::issue(revenue);
-		T::Currency::resolve(&Self::account_id(), revenue_imbalance).defensive_ok();
 
 		let mut r = InstaPoolHistory::<T>::get(when).unwrap_or_default();
 		if r.maybe_payout.is_some() {

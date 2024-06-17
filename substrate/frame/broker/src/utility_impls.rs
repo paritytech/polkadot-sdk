@@ -29,7 +29,7 @@ use sp_arithmetic::{
 	traits::{SaturatedConversion, Saturating},
 	FixedPointNumber, FixedU64,
 };
-use sp_runtime::traits::{AccountIdConversion, BlockNumberProvider};
+use sp_runtime::traits::BlockNumberProvider;
 
 impl<T: Config> Pallet<T> {
 	pub fn current_timeslice() -> Timeslice {
@@ -57,7 +57,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	pub fn account_id() -> T::AccountId {
-		T::PalletId::get().into_account_truncating()
+		T::PotAccountId::get()
 	}
 
 	pub fn sale_price(sale: &SaleInfoRecordOf<T>, now: BlockNumberFor<T>) -> BalanceOf<T> {

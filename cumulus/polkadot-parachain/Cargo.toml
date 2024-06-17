@@ -171,4 +171,8 @@ try-runtime = [
 	"shell-runtime/try-runtime",
 	"sp-runtime/try-runtime",
 ]
-fast-runtime = ["bridge-hub-rococo-runtime/fast-runtime"]
+fast-runtime = [
+	"bridge-hub-rococo-runtime/fast-runtime",
+	"coretime-rococo-runtime/fast-runtime",
+	"coretime-westend-runtime/fast-runtime",
+]
