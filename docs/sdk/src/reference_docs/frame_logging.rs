@@ -87,7 +87,7 @@
 //! `info`, `error` and `warn` logs are printed by default, but if you want lower level logs to also
 //! be printed, you must to add the following compiler flag:
 //!
-//! ```
+//! ```text
 //! RUST_LOG=pallet-example=trace cargo test
 //! ```
 //!
