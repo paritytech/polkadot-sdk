@@ -1137,8 +1137,8 @@ fn extract_core_index_from_statement_works() {
 	let core_index_1 = core_index_from_statement(
 		&test_state.validator_to_group,
 		&test_state.validator_groups.1,
-		&test_state.availability_cores,
-		Some(&test_state.claim_queue.clone().into()),
+		test_state.availability_cores.len() as _,
+		&test_state.claim_queue.clone().into(),
 		&signed_statement_1,
 	)
 	.unwrap();
@@ -1148,8 +1148,8 @@ fn extract_core_index_from_statement_works() {
 	let core_index_2 = core_index_from_statement(
 		&test_state.validator_to_group,
 		&test_state.validator_groups.1,
-		&test_state.availability_cores,
-		Some(&test_state.claim_queue.clone().into()),
+		test_state.availability_cores.len() as _,
+		&test_state.claim_queue.clone().into(),
 		&signed_statement_2,
 	);
 
@@ -1159,8 +1159,8 @@ fn extract_core_index_from_statement_works() {
 	let core_index_3 = core_index_from_statement(
 		&test_state.validator_to_group,
 		&test_state.validator_groups.1,
-		&test_state.availability_cores,
-		Some(&test_state.claim_queue.clone().into()),
+		test_state.availability_cores.len() as _,
+		&test_state.claim_queue.clone().into(),
 		&signed_statement_3,
 	)
 	.unwrap();

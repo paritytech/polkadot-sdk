@@ -319,18 +319,9 @@ async fn handle_leaf_activation(
 		);
 	}
 
-	for _ in 0..test_state
-		.claim_queue
-		.values()
-		.fold(HashSet::new(), |mut acc, paras| {
-			for para in paras {
-				acc.insert(*para);
-			}
+	let paras: HashSet<_> = test_state.claim_queue.values().flatten().collect();
 
-			acc
-		})
-		.len()
-	{
+	for _ in 0..paras.len() {
 		let message = virtual_overseer.recv().await;
 		// Get the para we are working with since the order is not deterministic.
 		let para_id = match &message {

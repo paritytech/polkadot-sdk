@@ -508,35 +508,34 @@ where
 		// `relay_parent_mode` is not examined here because if the runtime supports claim queue
 		// then it supports async backing params too (`ASYNC_BACKING_STATE_RUNTIME_REQUIREMENT`
 		// < `CLAIM_QUEUE_RUNTIME_REQUIREMENT`).
-		Some(claim_queue) =>
-			claim_queue.iter_claims_for_core(&core_now).into_iter().collect::<Vec<_>>(),
+		Some(mut claim_queue) => claim_queue.0.remove(&core_now),
 		// Claim queue is not supported by the runtime - use availability cores instead.
-		None => cores
-			.get(core_now.0 as usize)
-			.and_then(|c| match c {
-				CoreState::Occupied(core) if relay_parent_mode.is_enabled() =>
-					core.next_up_on_available.as_ref().map(|c| c.para_id),
-				CoreState::Scheduled(core) => Some(core.para_id),
-				CoreState::Occupied(_) | CoreState::Free => None,
-			})
-			.into_iter()
-			.collect::<Vec<_>>(),
+		None => cores.get(core_now.0 as usize).and_then(|c| match c {
+			CoreState::Occupied(core) if relay_parent_mode.is_enabled() =>
+				core.next_up_on_available.as_ref().map(|c| [c.para_id].into_iter().collect()),
+			CoreState::Scheduled(core) => Some([core.para_id].into_iter().collect()),
+			CoreState::Occupied(_) | CoreState::Free => None,
+		}),
 	};
 
-	for para_id in paras_now.iter() {
-		let entry = current_assignments.entry(*para_id).or_default();
-		*entry += 1;
-		if *entry == 1 {
-			gum::debug!(
-				target: LOG_TARGET,
-				?relay_parent,
-				para_id = ?para_id,
-				"Assigned to a parachain",
-			);
+	if let Some(paras) = paras_now {
+		for para_id in paras.iter() {
+			let entry = current_assignments.entry(*para_id).or_default();
+			*entry += 1;
+			if *entry == 1 {
+				gum::debug!(
+					target: LOG_TARGET,
+					?relay_parent,
+					para_id = ?para_id,
+					"Assigned to a parachain",
+				);
+			}
 		}
-	}
 
-	*group_assignment = GroupAssignments { current: paras_now };
+		*group_assignment = GroupAssignments { current: paras.into_iter().collect() };
+	} else {
+		*group_assignment = GroupAssignments { current: vec![] };
+	}
 
 	Ok(())
 }

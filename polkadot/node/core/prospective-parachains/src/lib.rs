@@ -871,17 +871,16 @@ async fn fetch_backing_state<Context>(
 async fn fetch_upcoming_paras<Context>(
 	ctx: &mut Context,
 	relay_parent: Hash,
-) -> JfyiErrorResult<Vec<ParaId>> {
-	let mut upcoming = HashSet::new();
-
-	match fetch_claim_queue(ctx.sender(), relay_parent).await? {
+) -> JfyiErrorResult<HashSet<ParaId>> {
+	Ok(match fetch_claim_queue(ctx.sender(), relay_parent).await? {
 		Some(claim_queue) => {
 			// Runtime supports claim queue - use it
-			for (_, claims) in claim_queue.iter_all_claims() {
-				for claim in claims {
-					upcoming.insert(*claim);
-				}
-			}
+			claim_queue
+				.iter_all_claims()
+				.map(|(_, paras)| paras.into_iter())
+				.flatten()
+				.copied()
+				.collect()
 		},
 		None => {
 			// fallback to availability cores - remove this branch once claim queue is released
@@ -894,6 +893,8 @@ async fn fetch_upcoming_paras<Context>(
 			.await;
 
 			let cores = rx.await.map_err(JfyiError::RuntimeApiRequestCanceled)??;
+
+			let mut upcoming = HashSet::with_capacity(cores.len());
 			for core in cores {
 				match core {
 					CoreState::Occupied(occupied) => {
@@ -912,10 +913,10 @@ async fn fetch_upcoming_paras<Context>(
 					CoreState::Free => {},
 				}
 			}
-		},
-	}
 
-	Ok(upcoming.into_iter().collect())
+			upcoming
+		},
+	})
 }
 
 // Fetch ancestors in descending order, up to the amount requested.

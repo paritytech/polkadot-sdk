@@ -588,8 +588,7 @@ async fn determine_cores(
 				// Runtime supports claim queue - use it.
 				claim_queue
 					.iter_claims_for_core(&CoreIndex(idx as u32))
-					.into_iter()
-					.any(|para| para == para_id)
+					.any(|para| para == &para_id)
 			},
 			None => match core {
 				CoreState::Scheduled(scheduled) if scheduled.para_id == para_id => true,

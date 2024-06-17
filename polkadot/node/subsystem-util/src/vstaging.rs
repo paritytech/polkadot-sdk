@@ -31,7 +31,7 @@ const LOG_TARGET: &'static str = "parachain::subsystem-util-vstaging";
 
 /// A snapshot of the runtime claim queue at an arbitrary relay chain block.
 #[derive(Default)]
-pub struct ClaimQueueSnapshot(BTreeMap<CoreIndex, VecDeque<ParaId>>);
+pub struct ClaimQueueSnapshot(pub BTreeMap<CoreIndex, VecDeque<ParaId>>);
 
 impl From<BTreeMap<CoreIndex, VecDeque<ParaId>>> for ClaimQueueSnapshot {
 	fn from(claim_queue_snapshot: BTreeMap<CoreIndex, VecDeque<ParaId>>) -> Self {
@@ -61,8 +61,8 @@ impl ClaimQueueSnapshot {
 	pub fn iter_claims_for_core(
 		&self,
 		core_index: &CoreIndex,
-	) -> impl IntoIterator<Item = ParaId> + '_ {
-		self.0.get(core_index).map(|c| c.iter().copied()).into_iter().flatten()
+	) -> impl Iterator<Item = &ParaId> + '_ {
+		self.0.get(core_index).map(|c| c.iter()).into_iter().flatten()
 	}
 
 	/// Returns an iterator over the whole claim queue.
