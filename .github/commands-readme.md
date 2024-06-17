@@ -175,6 +175,25 @@ Posible combinations based on the `benchmark` dropdown.
     - `people-westend`
   - Requires `Target Directory` to be `cumulus`
 
+### Bench-overhead
+
+Run benchmarks overhead and commit back results to PR.
+
+Posible combinations based on the `benchmark` dropdown.
+
+- `default`: Runs `benchmark overhead` and commits back to PR the updated `extrinsic_weights.rs` files
+  - Requires `Runtime` to be one of the following:
+    - `rococo`
+    - `westend`
+  - Requires `Target directory` to be `polkadot`
+- `substrate`: Runs `benchmark overhead` and commits back to PR the updated `extrinsic_weights.rs` files
+  - Requires `Target directory` to be `substrate`
+- `cumulus`: Runs `benchmark overhead` and commits back to PR the updated `extrinsic_weights.rs` files
+  - Requires `Runtime` to be one of the following:
+    - `asset-hub-rococo`
+    - `asset-hub-westend`
+  - Requires `Target directory` to be `cumulus`
+
 ## How to modify an action
 
 If you want to modify an action and test it, you can do by simply pushing your changes and then selecting your branch in the `Use worflow from` option.
