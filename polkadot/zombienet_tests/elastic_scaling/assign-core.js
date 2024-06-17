@@ -1,0 +1,1 @@
+/Users/alindima/Desktop/code/polkadot-sdk/polkadot/zombienet_tests/assign-core.js
