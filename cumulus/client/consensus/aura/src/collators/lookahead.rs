@@ -370,16 +370,13 @@ where
 					break
 				};
 
-				let Some(state_validation_code_hash) = super::check_validation_code_or_log(
+				super::check_validation_code_or_log(
 					&validation_code_hash,
 					params.para_id,
 					&params.relay_client,
 					relay_parent,
 				)
-				.await
-				else {
-					break
-				};
+				.await;
 
 				match collator
 					.collate(
@@ -413,11 +410,7 @@ where
 										relay_parent,
 										collation,
 										parent_head: parent_header.encode().into(),
-										// We are using the validation code hash as found in the
-										// relay chain state. This is done because the local node
-										// could for example running with an override for some sort
-										// of testing or whatever.
-										validation_code_hash: state_validation_code_hash,
+										validation_code_hash,
 										result_sender: None,
 										core_index,
 									},

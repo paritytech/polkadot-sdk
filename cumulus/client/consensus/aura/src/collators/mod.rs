@@ -32,14 +32,12 @@ pub mod lookahead;
 /// state.
 ///
 /// If the code hashes do not match, it prints a warning.
-///
-/// Returns the hash of the validation code on the relay chain.
 async fn check_validation_code_or_log(
 	local_validation_code_hash: &ValidationCodeHash,
 	para_id: ParaId,
 	relay_client: &impl RelayChainInterface,
 	relay_parent: RHash,
-) -> Option<ValidationCodeHash> {
+) {
 	let state_validation_code_hash = match relay_client
 		.validation_code_hash(relay_parent, para_id, OccupiedCoreAssumption::Included)
 		.await
@@ -53,12 +51,12 @@ async fn check_validation_code_or_log(
 				%para_id,
 				"Failed to fetch validation code hash",
 			);
-			return None
+			return
 		},
 	};
 
 	match state_validation_code_hash {
-		Some(state) => {
+		Some(state) =>
 			if state != *local_validation_code_hash {
 				tracing::warn!(
 					target: super::LOG_TARGET,
@@ -66,13 +64,9 @@ async fn check_validation_code_or_log(
 					?relay_parent,
 					?local_validation_code_hash,
 					relay_validation_code_hash = ?state,
-					"Parachain code doesn't match validation code stored in the relay chain state. \
-					 This is expected if you are using an override for example.",
+					"Parachain code doesn't match validation code stored in the relay chain state.",
 				);
-			}
-
-			Some(state)
-		},
+			},
 		None => {
 			tracing::warn!(
 				target: super::LOG_TARGET,
@@ -80,8 +74,6 @@ async fn check_validation_code_or_log(
 				?relay_parent,
 				"Could not find validation code for parachain in the relay chain state.",
 			);
-
-			None
 		},
 	}
 }

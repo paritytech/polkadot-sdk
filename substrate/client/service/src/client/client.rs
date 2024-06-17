@@ -480,9 +480,9 @@ where
 
 	/// Get the code at a given block.
 	///
-	/// This takes any potential overrides/substitutes into account.
+	/// This takes any potential substitutes into account, but ignores overrides.
 	pub fn code_at(&self, hash: Block::Hash) -> sp_blockchain::Result<Vec<u8>> {
-		self.code_provider.code_at(hash)
+		self.code_provider.code_at(hash, true)
 	}
 
 	/// Get the RuntimeVersion at a given block.

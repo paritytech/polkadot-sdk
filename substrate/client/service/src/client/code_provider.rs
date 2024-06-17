@@ -78,18 +78,23 @@ where
 	/// Returns the `:code` for the given `block`.
 	///
 	/// This takes into account potential overrides/substitutes.
-	pub fn code_at(&self, block: Block::Hash) -> sp_blockchain::Result<Vec<u8>> {
+	pub fn code_at(
+		&self,
+		block: Block::Hash,
+		ignore_overrides: bool,
+	) -> sp_blockchain::Result<Vec<u8>> {
 		let state = self.backend.state_at(block)?;
 
 		let state_runtime_code = sp_state_machine::backend::BackendRuntimeCode::new(&state);
 		let runtime_code =
 			state_runtime_code.runtime_code().map_err(sp_blockchain::Error::RuntimeCode)?;
 
-		self.maybe_override_code(runtime_code, &state, block).and_then(|r| {
-			r.0.fetch_runtime_code().map(Into::into).ok_or_else(|| {
-				sp_blockchain::Error::Backend("Could not find `:code` in backend.".into())
+		self.maybe_override_code_internal(runtime_code, &state, block, ignore_overrides)
+			.and_then(|r| {
+				r.0.fetch_runtime_code().map(Into::into).ok_or_else(|| {
+					sp_blockchain::Error::Backend("Could not find `:code` in backend.".into())
+				})
 			})
-		})
 	}
 
 	/// Maybe override the given `onchain_code`.
@@ -101,14 +106,32 @@ where
 		state: &Backend::State,
 		hash: Block::Hash,
 	) -> sp_blockchain::Result<(RuntimeCode<'a>, RuntimeVersion)> {
+		self.maybe_override_code_internal(onchain_code, state, hash, false)
+	}
+
+	/// Maybe override the given `onchain_code`.
+	///
+	/// This takes into account potential overrides(depending on `ignore_overrides`)/substitutes.
+	fn maybe_override_code_internal<'a>(
+		&'a self,
+		onchain_code: RuntimeCode<'a>,
+		state: &Backend::State,
+		hash: Block::Hash,
+		ignore_overrides: bool,
+	) -> sp_blockchain::Result<(RuntimeCode<'a>, RuntimeVersion)> {
 		let on_chain_version = self.on_chain_runtime_version(&onchain_code, state)?;
-		let code_and_version = if let Some(d) = self.wasm_override.as_ref().as_ref().and_then(|o| {
-			o.get(
-				&on_chain_version.spec_version,
-				onchain_code.heap_pages,
-				&on_chain_version.spec_name,
-			)
-		}) {
+		let code_and_version = if let Some(d) =
+			self.wasm_override.as_ref().as_ref().filter(|_| ignore_overrides).and_then(|o| {
+				if ignore_overrides {
+					return None
+				}
+
+				o.get(
+					&on_chain_version.spec_version,
+					onchain_code.heap_pages,
+					&on_chain_version.spec_name,
+				)
+			}) {
 			tracing::debug!(target: "code-provider::overrides", block = ?hash, "using WASM override");
 			d
 		} else if let Some(s) =
