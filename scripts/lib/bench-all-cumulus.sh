@@ -4,7 +4,8 @@
 # default RUST_LOG is warn, but could be overridden
 export RUST_LOG="${RUST_LOG:-error}"
 
-. "$BENCH_ROOT_DIR/../utils.sh"
+THIS_DIR=$(dirname "${BASH_SOURCE[0]}")
+. "$THIS_DIR/../command-utils.sh"
 
 POLKADOT_PARACHAIN="./target/$profile/polkadot-parachain"
 
