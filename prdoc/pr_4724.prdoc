@@ -1,0 +1,22 @@
+title: Fix core sharing and make use of scheduling_lookahead during backing
+
+doc:
+  - audience: Node Dev
+    description: |
+      Core sharing (two or more parachains scheduled on the same core with interlaced assignments) was not working correctly.
+      Adds the neccessary fixes to the backing subsystems. Moreover, adds support for backing collations which are built
+      and advertised ahead of time (with up to `scheduling_lookahead` relay chain blocks in advance).
+
+crates:
+  - name: polkadot-node-core-backing
+    bump: minor
+  - name: polkadot-node-core-prospective-parachains
+    bump: minor
+  - name: polkadot-collator-protocol
+    bump: minor
+  - name: polkadot-statement-distribution
+    bump: minor
+  - name: polkadot-node-subsystem-util
+    bump: patch
+  - name: polkadot-runtime-parachains
+    bump: none
