@@ -4,7 +4,7 @@
 title: "Glutton - add support for bloating the parachain block length"
 
 doc:
-  - audience: Runtime Dev, Runtime User
+  - audience: [Runtime Dev, Runtime User]
     description: |
       Introduce a new configuration parameter `block_length` which can be configured via a call to
       `set_block_length`. This sets the ration of the block length that is to be filled with trash.
