@@ -507,7 +507,7 @@ impl<T: Config> Pallet<T> {
 			Preservation::Expendable,
 		)?;
 
-		T::CoreStaking::update_payee(who, reward_account)?;
+		T::CoreStaking::set_payee(who, reward_account)?;
 		// delegate all transferred funds back to agent.
 		Self::do_delegate(proxy_delegator, Agent::from(who.clone()), amount_to_transfer)?;
 

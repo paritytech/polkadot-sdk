@@ -647,9 +647,7 @@ impl pallet_staking::Config for Runtime {
 	type EventListeners = (NominationPools, DelegatedStaking);
 	type WeightInfo = weights::pallet_staking::WeightInfo<Runtime>;
 	type DisablingStrategy = pallet_staking::UpToLimitDisablingStrategy;
-	// Due to difference in how pools and staking pallets handle currency locks, we want to keep
-	// pool members and stakers mutually exclusive. Hence, we prevent pool members from directly
-	// staking.
+	// We restrict pool members to directly stake.
 	type Blacklist = pallet_nomination_pools::AllPoolMembers<Self>;
 }
 
