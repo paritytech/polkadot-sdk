@@ -13,8 +13,7 @@ The current available command actions are:
 - [Command Sync](https://github.com/paritytech/polkadot-sdk/actions/workflows/command-sync.yml)
 - [Command Bench](https://github.com/paritytech/polkadot-sdk/actions/workflows/command-bench.yml)
 - [Command Bench All](https://github.com/paritytech/polkadot-sdk/actions/workflows/command-bench-all.yml)
-
-**WIP**: Need more actions.
+- [Command Bench Overhead](https://github.com/paritytech/polkadot-sdk/actions/workflows/command-bench-overhead.yml)
 
 You need to select the action, and click on the dropdown that says: `Run workflow`. It is located in the upper right.
 
