@@ -1574,6 +1574,44 @@ where
 	fn tx_hash(&self, xt: &TransactionFor<Self>) -> TxHash<Self> {
 		self.api.hash_and_length(xt).0
 	}
+
+	async fn verify(&self) {
+		log::info!(target:LOG_TARGET, "fatp::verify++");
+
+		let views_ready_txs = {
+			let views = self.view_store.views.read();
+
+			views
+				.values()
+				.map(|view| {
+					let ready = view.pool.validated_pool().ready();
+					let future = view.pool.validated_pool().futures();
+					(view.at.hash, ready.collect::<Vec<_>>(), future)
+				})
+				.collect::<Vec<_>>()
+		};
+
+		for view in views_ready_txs {
+			let block_hash = view.0;
+			let ready = view.1;
+			for tx in ready {
+				let validation_result = self
+					.api
+					.validate_transaction(block_hash, TransactionSource::External, tx.data.clone())
+					.await;
+				log::debug!(target:LOG_TARGET, "[{:?}] is ready in view {:?} validation result {:?}", tx.hash, block_hash, validation_result);
+			}
+			let future = view.2;
+			for tx in future {
+				let validation_result = self
+					.api
+					.validate_transaction(block_hash, TransactionSource::External, tx.1.clone())
+					.await;
+				log::debug!(target:LOG_TARGET, "[{:?}] is future in view {:?} validation result {:?}", tx.0, block_hash, validation_result);
+			}
+		}
+		log::info!(target:LOG_TARGET, "fatp::verify--");
+	}
 }
 
 #[async_trait]
@@ -1652,6 +1690,8 @@ where
 			self.views_numbers(),
 			start.elapsed()
 		);
+
+		self.verify().await;
 
 		()
 	}
