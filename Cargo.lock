@@ -15491,7 +15491,7 @@ checksum = "5253a3a0d56548d5b0be25414171dc780cc6870727746d05bd2bde352eee96c5"
 dependencies = [
  "ahash 0.8.11",
  "hashbrown 0.13.2",
- "parking_lot 0.12.1",
+ "parking_lot 0.12.3",
 ]
 
 [[package]]
