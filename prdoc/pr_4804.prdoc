@@ -1,0 +1,22 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Make pool and staking mutually exclusive
+
+doc:
+  - audience: Runtime User
+    description: |
+        This PR aims to make pool accounts and staking accounts mutually exclusive. Accounts doing both are still
+        able to withdraw funds completely from one of them after which they can do all normal operations with other
+        pallet. This mitigates the risk of using same fund to double stake.
+
+crates:
+  - name: polkadot-test-runtime
+  - name: westend-runtime
+  - name: kitchensink-runtime
+  - name: pallet-nomination-pools-benchmarking
+  - name: pallet-nomination-pools
+  - name: pallet-staking
+  - name: sp-staking
+
+
