@@ -161,7 +161,7 @@ async fn parse_rpc_response(body: Body) -> Result<Health, Box<dyn Error + Send +
 	let bytes = hyper::body::to_bytes(body).await?;
 
 	let raw_rp = serde_json::from_slice::<RpcResponse<Health>>(&bytes)?;
-	let rp: RpcResponseSuccess<Health> = raw_rp.try_into()?;
+	let rp = RpcResponseSuccess::<Health>::try_from(raw_rp)?;
 
 	Ok(rp.result)
 }
