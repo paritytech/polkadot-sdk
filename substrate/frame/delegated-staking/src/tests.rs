@@ -501,17 +501,17 @@ mod staking_integration {
 		ExtBuilder::default().build_and_execute(|| {
 			start_era(1);
 			let agent = 200;
-			setup_delegation_stake(agent, 201, (300..350).collect(), 100, 0);
+			setup_delegation_stake(agent, 201, (300..350).collect(), 320, 0);
 
 			// verify withdraw not possible yet
 			assert_noop!(
-				DelegatedStaking::release_delegation(RawOrigin::Signed(agent).into(), 300, 100, 0),
+				DelegatedStaking::release_delegation(RawOrigin::Signed(agent).into(), 300, 320, 0),
 				Error::<T>::NotEnoughFunds
 			);
 
 			// fill up unlocking chunks in core staking.
-			// 10 is the max chunks
-			for i in 2..=11 {
+			// 32 is the max chunks
+			for i in 2..=33 {
 				start_era(i);
 				assert_ok!(Staking::unbond(RawOrigin::Signed(agent).into(), 10));
 				// no withdrawals from core staking yet.
@@ -519,35 +519,35 @@ mod staking_integration {
 			}
 
 			// another unbond would trigger withdrawal
-			start_era(12);
+			start_era(34);
 			assert_ok!(Staking::unbond(RawOrigin::Signed(agent).into(), 10));
 
-			// 8 previous unbonds would be withdrawn as they were already unlocked. Unlocking period
-			// is 3 eras.
-			assert_eq!(get_agent_ledger(&agent).ledger.unclaimed_withdrawals, 8 * 10);
+			// 30 previous unbonds would be withdrawn as they were already unlocked. Unlocking
+			// period is 3 eras.
+			assert_eq!(get_agent_ledger(&agent).ledger.unclaimed_withdrawals, 30 * 10);
 
 			// release some delegation now.
 			assert_ok!(DelegatedStaking::release_delegation(
 				RawOrigin::Signed(agent).into(),
 				300,
-				40,
+				160,
 				0
 			));
-			assert_eq!(get_agent_ledger(&agent).ledger.unclaimed_withdrawals, 80 - 40);
+			assert_eq!(get_agent_ledger(&agent).ledger.unclaimed_withdrawals, 300 - 160);
 
 			// cannot release more than available
 			assert_noop!(
-				DelegatedStaking::release_delegation(RawOrigin::Signed(agent).into(), 300, 50, 0),
+				DelegatedStaking::release_delegation(RawOrigin::Signed(agent).into(), 300, 141, 0),
 				Error::<T>::NotEnoughFunds
 			);
 			assert_ok!(DelegatedStaking::release_delegation(
 				RawOrigin::Signed(agent).into(),
 				300,
-				40,
+				140,
 				0
 			));
 
-			assert_eq!(DelegatedStaking::held_balance_of(Delegator::from(300)), 100 - 80);
+			assert_eq!(DelegatedStaking::held_balance_of(Delegator::from(300)), 320 - 300);
 		});
 	}
 

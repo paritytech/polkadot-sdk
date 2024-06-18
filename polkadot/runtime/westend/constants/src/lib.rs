@@ -20,7 +20,7 @@ pub mod weights;
 
 /// Money matters.
 pub mod currency {
-	use primitives::Balance;
+	use polkadot_primitives::Balance;
 
 	/// The existential deposit.
 	pub const EXISTENTIAL_DEPOSIT: Balance = 1 * CENTS;
@@ -37,8 +37,8 @@ pub mod currency {
 
 /// Time and blocks.
 pub mod time {
-	use primitives::{BlockNumber, Moment};
-	use runtime_common::prod_or_fast;
+	use polkadot_primitives::{BlockNumber, Moment};
+	use polkadot_runtime_common::prod_or_fast;
 
 	pub const MILLISECS_PER_BLOCK: Moment = 6000;
 	pub const SLOT_DURATION: Moment = MILLISECS_PER_BLOCK;
@@ -62,7 +62,7 @@ pub mod fee {
 	use frame_support::weights::{
 		WeightToFeeCoefficient, WeightToFeeCoefficients, WeightToFeePolynomial,
 	};
-	use primitives::Balance;
+	use polkadot_primitives::Balance;
 	use smallvec::smallvec;
 	pub use sp_runtime::Perbill;
 
@@ -98,7 +98,7 @@ pub mod fee {
 
 /// System Parachains.
 pub mod system_parachain {
-	use primitives::Id;
+	use polkadot_primitives::Id;
 	use xcm_builder::IsChildSystemParachain;
 
 	/// Network's Asset Hub parachain ID.
@@ -144,7 +144,7 @@ mod tests {
 	};
 	use crate::weights::ExtrinsicBaseWeight;
 	use frame_support::weights::WeightToFee as WeightToFeeT;
-	use runtime_common::MAXIMUM_BLOCK_WEIGHT;
+	use polkadot_runtime_common::MAXIMUM_BLOCK_WEIGHT;
 
 	#[test]
 	// Test that the fee for `MAXIMUM_BLOCK_WEIGHT` of weight has sane bounds.
