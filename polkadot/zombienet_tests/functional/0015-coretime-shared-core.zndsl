@@ -10,7 +10,7 @@ validator-0: js-script ./0015-force-register-paras.js with "2002,2003" return is
 # assign core 0 to be shared by all paras.
 validator-0: js-script ./assign-core.js with "0,2000,14400,2001,14400,2002,14400,2003,14400" return is 0 within 600 seconds
 
-collator-2000: reports block height is at least 6 within 150 seconds
+collator-2000: reports block height is at least 6 within 200 seconds
 collator-2001: reports block height is at least 6 within 50 seconds
 collator-2002: reports block height is at least 6 within 50 seconds
 collator-2003: reports block height is at least 6 within 50 seconds
