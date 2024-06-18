@@ -30,7 +30,9 @@ use crate::{
 
 use codec::{Decode, Encode};
 use futures::TryFutureExt;
-use jsonrpsee::{core::async_trait, types::ErrorObject, PendingSubscriptionSink};
+use jsonrpsee::{
+	core::async_trait, types::ErrorObject, ConnectionId, Extensions, PendingSubscriptionSink,
+};
 use sc_rpc_api::DenyUnsafe;
 use sc_transaction_pool_api::{
 	error::IntoPoolError, BlockHash, InPoolTransaction, TransactionFor, TransactionPool,
@@ -177,7 +179,10 @@ where
 			.collect())
 	}
 
-	fn watch_extrinsic(&self, pending: PendingSubscriptionSink, xt: Bytes) {
+	fn watch_extrinsic(&self, pending: PendingSubscriptionSink, ext: &Extensions, xt: Bytes) {
+		let conn_id = *ext.get::<ConnectionId>().expect("ConnectionId is set");
+		let ip_addr = *ext.get::<std::net::IpAddr>().expect("IpAddr is set");
+
 		let best_block_hash = self.client.info().best_hash;
 		let dxt = match TransactionFor::<P>::decode(&mut &xt[..]).map_err(|e| Error::from(e)) {
 			Ok(dxt) => dxt,
@@ -202,7 +207,13 @@ where
 				},
 			};
 
-			pipe_from_stream(pending, stream).await;
+			let conn_data = crate::utils::ConnData {
+				method: "author_submitAndWatchExtrinsic",
+				ip_addr,
+				conn_id,
+			};
+
+			pipe_from_stream(pending, stream, conn_data).await;
 		};
 
 		spawn_subscription_task(&self.executor, fut);

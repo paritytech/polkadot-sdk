@@ -128,6 +128,7 @@ pub trait StateApi<Hash> {
 		aliases = ["chain_subscribeRuntimeVersion"],
 		unsubscribe_aliases = ["chain_unsubscribeRuntimeVersion"],
 		item = RuntimeVersion,
+		with_extensions,
 	)]
 	fn subscribe_runtime_version(&self);
 
@@ -136,6 +137,7 @@ pub trait StateApi<Hash> {
 		name = "state_subscribeStorage" => "state_storage",
 		unsubscribe = "state_unsubscribeStorage",
 		item = StorageChangeSet<Hash>,
+		with_extensions
 	)]
 	fn subscribe_storage(&self, keys: Option<Vec<StorageKey>>);
 

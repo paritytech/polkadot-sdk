@@ -23,7 +23,7 @@ use futures::{
 	future::{self, Either, Fuse, FusedFuture},
 	Future, FutureExt, Stream, StreamExt,
 };
-use jsonrpsee::{PendingSubscriptionSink, SubscriptionMessage, SubscriptionSink};
+use jsonrpsee::{ConnectionId, PendingSubscriptionSink, SubscriptionMessage, SubscriptionSink};
 use sp_runtime::Serialize;
 use std::collections::VecDeque;
 
@@ -55,6 +55,16 @@ impl<T> BoundedVecDeque<T> {
 	}
 }
 
+/// Connection data.
+pub struct ConnData {
+	/// ..
+	pub method: &'static str,
+	/// ..
+	pub ip_addr: std::net::IpAddr,
+	/// ..
+	pub conn_id: ConnectionId,
+}
+
 /// Feed items to the subscription from the underlying stream.
 ///
 /// This is bounded because the underlying streams in substrate are
@@ -62,8 +72,11 @@ impl<T> BoundedVecDeque<T> {
 /// cause the buffer to become very large and consume lots of memory.
 ///
 /// In such cases the subscription is dropped.
-pub async fn pipe_from_stream<S, T>(pending: PendingSubscriptionSink, mut stream: S)
-where
+pub async fn pipe_from_stream<S, T>(
+	pending: PendingSubscriptionSink,
+	mut stream: S,
+	conn_data: ConnData,
+) where
 	S: Stream<Item = T> + Unpin + Send + 'static,
 	T: Serialize + Send + 'static,
 {
@@ -80,7 +93,7 @@ where
 			Either::Left((Ok(sink), _)) => break sink,
 			Either::Right((Some(msg), f)) => {
 				if buf.push_back(msg).is_err() {
-					log::warn!(target: "rpc", "Subscription::accept failed buffer limit={} exceeded; dropping subscription", buf.max_cap);
+					log::warn!(target: "rpc", "Subscription::accept lagged dropping subscription=`{}`, peer={}", conn_data.method, conn_data.ip_addr);
 					return
 				}
 				accept_fut = f;
@@ -90,13 +103,14 @@ where
 		}
 	};
 
-	inner_pipe_from_stream(sink, stream, buf).await
+	inner_pipe_from_stream(sink, stream, buf, conn_data).await
 }
 
 async fn inner_pipe_from_stream<S, T>(
 	sink: SubscriptionSink,
 	mut stream: S,
 	mut buf: BoundedVecDeque<T>,
+	conn_data: ConnData,
 ) where
 	S: Stream<Item = T> + Unpin + Send + 'static,
 	T: Serialize + Send + 'static,
@@ -127,10 +141,9 @@ async fn inner_pipe_from_stream<S, T>(
 				if buf.push_back(v).is_err() {
 					log::warn!(
 						target: "rpc",
-						"Subscription buffer limit={} exceeded for subscription={} conn_id={}; dropping subscription",
-						buf.max_cap,
-						sink.method_name(),
-						sink.connection_id().0
+						"Subscription lagged dropping subscription `{}`, peer={}",
+						conn_data.method,
+						conn_data.ip_addr,
 					);
 					return
 				}
@@ -182,16 +195,24 @@ pub fn spawn_subscription_task(
 
 #[cfg(test)]
 mod tests {
-	use super::pipe_from_stream;
+	use super::{pipe_from_stream, ConnData};
 	use futures::StreamExt;
 	use jsonrpsee::{core::EmptyServerParams, RpcModule, Subscription};
+
+	fn conn_data() -> ConnData {
+		super::ConnData {
+			method: "sub",
+			ip_addr: std::net::IpAddr::V4(std::net::Ipv4Addr::new(127, 0, 0, 1)),
+			conn_id: 0,
+		}
+	}
 
 	async fn subscribe() -> Subscription {
 		let mut module = RpcModule::new(());
 		module
 			.register_subscription("sub", "my_sub", "unsub", |_, pending, _, _| async move {
 				let stream = futures::stream::iter([0; 16]);
-				pipe_from_stream(pending, stream).await;
+				pipe_from_stream(pending, stream, conn_data()).await;
 				Ok(())
 			})
 			.unwrap();
@@ -219,7 +240,7 @@ mod tests {
 		module
 			.register_subscription("sub", "my_sub", "unsub", |_, pending, ctx, _| async move {
 				let stream = futures::stream::iter([0; 32]);
-				pipe_from_stream(pending, stream).await;
+				pipe_from_stream(pending, stream, conn_data()).await;
 				_ = ctx.unbounded_send(());
 				Ok(())
 			})
@@ -248,7 +269,7 @@ mod tests {
 					// to sync buffer and channel send operations
 					let stream = futures::stream::empty::<()>();
 					// this should exit immediately
-					pipe_from_stream(pending, stream).await;
+					pipe_from_stream(pending, stream, conn_data()).await;
 					// notify that the `pipe_from_stream` has returned
 					notify_tx.notify_one();
 					Ok(())

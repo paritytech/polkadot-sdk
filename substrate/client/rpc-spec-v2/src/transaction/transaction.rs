@@ -29,7 +29,7 @@ use crate::{
 
 use codec::Decode;
 use futures::{StreamExt, TryFutureExt};
-use jsonrpsee::{core::async_trait, PendingSubscriptionSink};
+use jsonrpsee::{core::async_trait, ConnectionId, Extensions, PendingSubscriptionSink};
 use sc_rpc::utils::{pipe_from_stream, to_sub_message};
 use sc_transaction_pool_api::{
 	error::IntoPoolError, BlockHash, TransactionFor, TransactionPool, TransactionSource,
@@ -74,7 +74,16 @@ where
 	<Pool::Block as BlockT>::Hash: Unpin,
 	Client: HeaderBackend<Pool::Block> + Send + Sync + 'static,
 {
-	fn submit_and_watch(&self, pending: PendingSubscriptionSink, xt: Bytes) {
+	fn submit_and_watch(&self, pending: PendingSubscriptionSink, ext: &Extensions, xt: Bytes) {
+		let conn_id = *ext.get::<ConnectionId>().expect("ConnectionId is always set");
+		let ip_addr = *ext.get::<std::net::IpAddr>().expect("IpAddr is always set");
+
+		let conn_data = sc_rpc::utils::ConnData {
+			method: "transactionWatch_v1_submitAndWatch",
+			ip_addr,
+			conn_id,
+		};
+
 		let client = self.client.clone();
 		let pool = self.pool.clone();
 
@@ -111,13 +120,18 @@ where
 			match submit.await {
 				Ok(stream) => {
 					let stream = stream.filter_map(move |event| async move { handle_event(event) });
-					pipe_from_stream(pending, stream.boxed()).await;
+					pipe_from_stream(pending, stream.boxed(), conn_data).await;
 				},
 				Err(err) => {
 					// We have not created an `Watcher` for the tx. Make sure the
 					// error is still propagated as an event.
 					let event: TransactionEvent<<Pool::Block as BlockT>::Hash> = err.into();
-					pipe_from_stream(pending, futures::stream::once(async { event }).boxed()).await;
+					pipe_from_stream(
+						pending,
+						futures::stream::once(async { event }).boxed(),
+						conn_data,
+					)
+					.await;
 				},
 			};
 		};

@@ -25,9 +25,9 @@ mod tests;
 
 use std::sync::Arc;
 
-use crate::SubscriptionTaskExecutor;
+use crate::{utils::ConnData, SubscriptionTaskExecutor};
 
-use jsonrpsee::{core::async_trait, PendingSubscriptionSink};
+use jsonrpsee::{core::async_trait, ConnectionId, Extensions, PendingSubscriptionSink};
 use sc_client_api::BlockchainEvents;
 use sp_rpc::{list::ListOrValue, number::NumberOrHex};
 use sp_runtime::{
@@ -92,13 +92,13 @@ where
 	}
 
 	/// All new head subscription
-	fn subscribe_all_heads(&self, pending: PendingSubscriptionSink);
+	fn subscribe_all_heads(&self, pending: PendingSubscriptionSink, conn_data: ConnData);
 
 	/// New best head subscription
-	fn subscribe_new_heads(&self, pending: PendingSubscriptionSink);
+	fn subscribe_new_heads(&self, pending: PendingSubscriptionSink, conn_data: ConnData);
 
 	/// Finalized head subscription
-	fn subscribe_finalized_heads(&self, pending: PendingSubscriptionSink);
+	fn subscribe_finalized_heads(&self, pending: PendingSubscriptionSink, conn_data: ConnData);
 }
 
 /// Create new state API that works on full node.
@@ -158,16 +158,34 @@ where
 		self.backend.finalized_head()
 	}
 
-	fn subscribe_all_heads(&self, pending: PendingSubscriptionSink) {
-		self.backend.subscribe_all_heads(pending);
+	fn subscribe_all_heads(&self, pending: PendingSubscriptionSink, ext: &Extensions) {
+		let conn_id = *ext.get::<ConnectionId>().expect("ConnectionId is set");
+		let ip_addr = *ext.get::<std::net::IpAddr>().expect("IpAddr is set");
+
+		let conn_data =
+			crate::utils::ConnData { method: "chain_subscribeAllHeads", ip_addr, conn_id };
+
+		self.backend.subscribe_all_heads(pending, conn_data);
 	}
 
-	fn subscribe_new_heads(&self, pending: PendingSubscriptionSink) {
-		self.backend.subscribe_new_heads(pending)
+	fn subscribe_new_heads(&self, pending: PendingSubscriptionSink, ext: &Extensions) {
+		let conn_id = *ext.get::<ConnectionId>().expect("ConnectionId is set");
+		let ip_addr = *ext.get::<std::net::IpAddr>().expect("IpAddr is set");
+
+		let conn_data =
+			crate::utils::ConnData { method: "chain_subscribeNewHeads", ip_addr, conn_id };
+
+		self.backend.subscribe_new_heads(pending, conn_data)
 	}
 
-	fn subscribe_finalized_heads(&self, pending: PendingSubscriptionSink) {
-		self.backend.subscribe_finalized_heads(pending)
+	fn subscribe_finalized_heads(&self, pending: PendingSubscriptionSink, ext: &Extensions) {
+		let conn_id = *ext.get::<ConnectionId>().expect("ConnectionId is set");
+		let ip_addr = *ext.get::<std::net::IpAddr>().expect("IpAddr is set");
+
+		let conn_data =
+			crate::utils::ConnData { method: "chain_subscribeFinalizedHeads", ip_addr, conn_id };
+
+		self.backend.subscribe_finalized_heads(pending, conn_data)
 	}
 }
 

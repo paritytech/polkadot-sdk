@@ -24,7 +24,10 @@ use parking_lot::RwLock;
 use sp_consensus_beefy::AuthorityIdBound;
 use std::sync::Arc;
 
-use sc_rpc::{utils::pipe_from_stream, SubscriptionTaskExecutor};
+use sc_rpc::{
+	utils::{pipe_from_stream, ConnData},
+	SubscriptionTaskExecutor,
+};
 use sp_application_crypto::RuntimeAppPublic;
 use sp_runtime::traits::Block as BlockT;
 
@@ -33,7 +36,7 @@ use jsonrpsee::{
 	core::async_trait,
 	proc_macros::rpc,
 	types::{ErrorObject, ErrorObjectOwned},
-	PendingSubscriptionSink,
+	ConnectionId, Extensions, PendingSubscriptionSink,
 };
 use log::warn;
 
@@ -87,6 +90,7 @@ pub trait BeefyApi<Notification, Hash> {
 		name = "beefy_subscribeJustifications" => "beefy_justifications",
 		unsubscribe = "beefy_unsubscribeJustifications",
 		item = Notification,
+		with_extensions
 	)]
 	fn subscribe_justifications(&self);
 
@@ -139,13 +143,21 @@ where
 	AuthorityId: AuthorityIdBound,
 	<AuthorityId as RuntimeAppPublic>::Signature: Send + Sync,
 {
-	fn subscribe_justifications(&self, pending: PendingSubscriptionSink) {
+	fn subscribe_justifications(&self, pending: PendingSubscriptionSink, ext: &Extensions) {
+		let conn_id = *ext.get::<ConnectionId>().expect("ConnectionId is set");
+		let ip_addr = *ext.get::<std::net::IpAddr>().expect("IpAddr is set");
+
+		let conn_data = ConnData { conn_id, ip_addr, method: "beefy_subscribeJustifications" };
+
 		let stream = self
 			.finality_proof_stream
 			.subscribe(100_000)
 			.map(|vfp| notification::EncodedVersionedFinalityProof::new::<Block, AuthorityId>(vfp));
 
-		sc_rpc::utils::spawn_subscription_task(&self.executor, pipe_from_stream(pending, stream));
+		sc_rpc::utils::spawn_subscription_task(
+			&self.executor,
+			pipe_from_stream(pending, stream, conn_data),
+		);
 	}
 
 	async fn latest_finalized(&self) -> Result<Block::Hash, Error> {

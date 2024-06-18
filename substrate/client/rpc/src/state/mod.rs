@@ -24,8 +24,8 @@ mod utils;
 #[cfg(test)]
 mod tests;
 
-use crate::SubscriptionTaskExecutor;
-use jsonrpsee::{core::async_trait, PendingSubscriptionSink};
+use crate::{utils::ConnData, SubscriptionTaskExecutor};
+use jsonrpsee::{core::async_trait, ConnectionId, Extensions, PendingSubscriptionSink};
 use sc_client_api::{
 	Backend, BlockBackend, BlockchainEvents, ExecutorProvider, ProofProvider, StorageProvider,
 };
@@ -149,7 +149,7 @@ where
 	) -> Result<sp_rpc::tracing::TraceBlockResponse, Error>;
 
 	/// New runtime version subscription
-	fn subscribe_runtime_version(&self, pending: PendingSubscriptionSink);
+	fn subscribe_runtime_version(&self, pending: PendingSubscriptionSink, conn_data: ConnData);
 
 	/// New storage subscription
 	fn subscribe_storage(
@@ -157,6 +157,7 @@ where
 		pending: PendingSubscriptionSink,
 		keys: Option<Vec<StorageKey>>,
 		deny_unsafe: DenyUnsafe,
+		conn_data: ConnData,
 	);
 }
 
@@ -323,12 +324,27 @@ where
 			.map_err(Into::into)
 	}
 
-	fn subscribe_runtime_version(&self, pending: PendingSubscriptionSink) {
-		self.backend.subscribe_runtime_version(pending)
+	fn subscribe_runtime_version(&self, pending: PendingSubscriptionSink, ext: &Extensions) {
+		let conn_id = *ext.get::<ConnectionId>().expect("ConnectionId is set");
+		let ip_addr = *ext.get::<std::net::IpAddr>().expect("IpAddr is set");
+
+		let conn_data = ConnData { method: "state_subscribeRuntimeVersion", ip_addr, conn_id };
+
+		self.backend.subscribe_runtime_version(pending, conn_data)
 	}
 
-	fn subscribe_storage(&self, pending: PendingSubscriptionSink, keys: Option<Vec<StorageKey>>) {
-		self.backend.subscribe_storage(pending, keys, self.deny_unsafe)
+	fn subscribe_storage(
+		&self,
+		pending: PendingSubscriptionSink,
+		ext: &Extensions,
+		keys: Option<Vec<StorageKey>>,
+	) {
+		let conn_id = *ext.get::<ConnectionId>().expect("ConnectionId is set");
+		let ip_addr = *ext.get::<std::net::IpAddr>().expect("IpAddr is set");
+
+		let conn_data = ConnData { method: "state_subscribeStorage", ip_addr, conn_id };
+
+		self.backend.subscribe_storage(pending, keys, self.deny_unsafe, conn_data)
 	}
 }
 

@@ -20,7 +20,7 @@
 
 use super::{client_err, ChainBackend, Error};
 use crate::{
-	utils::{pipe_from_stream, spawn_subscription_task},
+	utils::{pipe_from_stream, spawn_subscription_task, ConnData},
 	SubscriptionTaskExecutor,
 };
 use std::{marker::PhantomData, sync::Arc};
@@ -70,7 +70,7 @@ where
 		self.client.block(self.unwrap_or_best(hash)).map_err(client_err)
 	}
 
-	fn subscribe_all_heads(&self, pending: PendingSubscriptionSink) {
+	fn subscribe_all_heads(&self, pending: PendingSubscriptionSink, conn_data: ConnData) {
 		subscribe_headers(
 			&self.client,
 			&self.executor,
@@ -81,10 +81,11 @@ where
 					.import_notification_stream()
 					.map(|notification| notification.header)
 			},
+			conn_data,
 		)
 	}
 
-	fn subscribe_new_heads(&self, pending: PendingSubscriptionSink) {
+	fn subscribe_new_heads(&self, pending: PendingSubscriptionSink, conn_data: ConnData) {
 		subscribe_headers(
 			&self.client,
 			&self.executor,
@@ -96,10 +97,11 @@ where
 					.filter(|notification| future::ready(notification.is_new_best))
 					.map(|notification| notification.header)
 			},
+			conn_data,
 		)
 	}
 
-	fn subscribe_finalized_heads(&self, pending: PendingSubscriptionSink) {
+	fn subscribe_finalized_heads(&self, pending: PendingSubscriptionSink, conn_data: ConnData) {
 		subscribe_headers(
 			&self.client,
 			&self.executor,
@@ -110,6 +112,7 @@ where
 					.finality_notification_stream()
 					.map(|notification| notification.header)
 			},
+			conn_data,
 		)
 	}
 }
@@ -121,6 +124,7 @@ fn subscribe_headers<Block, Client, F, G, S>(
 	pending: PendingSubscriptionSink,
 	best_block_hash: G,
 	stream: F,
+	conn_data: ConnData,
 ) where
 	Block: BlockT + 'static,
 	Block::Header: Unpin,
@@ -143,5 +147,5 @@ fn subscribe_headers<Block, Client, F, G, S>(
 	// duplicates at the beginning of the stream though.
 	let stream = stream::iter(maybe_header).chain(stream());
 
-	spawn_subscription_task(executor, pipe_from_stream(pending, stream));
+	spawn_subscription_task(executor, pipe_from_stream(pending, stream, conn_data));
 }
