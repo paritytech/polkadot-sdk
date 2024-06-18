@@ -30,10 +30,7 @@ use frame_support::{
 	BoundedVec,
 };
 use frame_system::{pallet_prelude::BlockNumberFor, RawOrigin as SystemOrigin};
-use sp_runtime::{
-	traits::{Bounded, One},
-	AccountId32, MultiSignature,
-};
+use sp_runtime::traits::{Bounded, One};
 use sp_std::prelude::*;
 
 use crate::Pallet as Nfts;
