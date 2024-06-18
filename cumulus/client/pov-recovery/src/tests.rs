@@ -17,9 +17,11 @@
 use super::*;
 use assert_matches::assert_matches;
 use codec::{Decode, Encode};
-use cumulus_primitives_core::relay_chain::{BlockId, CandidateCommitments, CandidateDescriptor};
+use cumulus_primitives_core::relay_chain::{
+	BlockId, BlockNumber, CandidateCommitments, CandidateDescriptor,
+};
 use cumulus_relay_chain_interface::{
-	InboundDownwardMessage, InboundHrmpMessage, OccupiedCoreAssumption, PHash, PHeader,
+	CoreState, InboundDownwardMessage, InboundHrmpMessage, OccupiedCoreAssumption, PHash, PHeader,
 	PersistedValidationData, StorageValue, ValidationCodeHash, ValidatorId,
 };
 use cumulus_test_client::{
@@ -476,6 +478,13 @@ impl RelayChainInterface for Relaychain {
 	}
 
 	async fn header(&self, _: BlockId) -> RelayChainResult<Option<PHeader>> {
+		unimplemented!("Not needed for test");
+	}
+
+	async fn availability_cores(
+		&self,
+		_: PHash,
+	) -> RelayChainResult<Vec<CoreState<PHash, BlockNumber>>> {
 		unimplemented!("Not needed for test");
 	}
 }
