@@ -820,6 +820,61 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#669" id="669">669</a>
 <a href="#670" id="670">670</a>
 <a href="#671" id="671">671</a>
+<a href="#672" id="672">672</a>
+<a href="#673" id="673">673</a>
+<a href="#674" id="674">674</a>
+<a href="#675" id="675">675</a>
+<a href="#676" id="676">676</a>
+<a href="#677" id="677">677</a>
+<a href="#678" id="678">678</a>
+<a href="#679" id="679">679</a>
+<a href="#680" id="680">680</a>
+<a href="#681" id="681">681</a>
+<a href="#682" id="682">682</a>
+<a href="#683" id="683">683</a>
+<a href="#684" id="684">684</a>
+<a href="#685" id="685">685</a>
+<a href="#686" id="686">686</a>
+<a href="#687" id="687">687</a>
+<a href="#688" id="688">688</a>
+<a href="#689" id="689">689</a>
+<a href="#690" id="690">690</a>
+<a href="#691" id="691">691</a>
+<a href="#692" id="692">692</a>
+<a href="#693" id="693">693</a>
+<a href="#694" id="694">694</a>
+<a href="#695" id="695">695</a>
+<a href="#696" id="696">696</a>
+<a href="#697" id="697">697</a>
+<a href="#698" id="698">698</a>
+<a href="#699" id="699">699</a>
+<a href="#700" id="700">700</a>
+<a href="#701" id="701">701</a>
+<a href="#702" id="702">702</a>
+<a href="#703" id="703">703</a>
+<a href="#704" id="704">704</a>
+<a href="#705" id="705">705</a>
+<a href="#706" id="706">706</a>
+<a href="#707" id="707">707</a>
+<a href="#708" id="708">708</a>
+<a href="#709" id="709">709</a>
+<a href="#710" id="710">710</a>
+<a href="#711" id="711">711</a>
+<a href="#712" id="712">712</a>
+<a href="#713" id="713">713</a>
+<a href="#714" id="714">714</a>
+<a href="#715" id="715">715</a>
+<a href="#716" id="716">716</a>
+<a href="#717" id="717">717</a>
+<a href="#718" id="718">718</a>
+<a href="#719" id="719">719</a>
+<a href="#720" id="720">720</a>
+<a href="#721" id="721">721</a>
+<a href="#722" id="722">722</a>
+<a href="#723" id="723">723</a>
+<a href="#724" id="724">724</a>
+<a href="#725" id="725">725</a>
+<a href="#726" id="726">726</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1044,6 +1099,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">pub type </span>ParamsOf&lt;T, I&gt; =
 		ParamsType&lt;&lt;T <span class="kw">as </span>Config&lt;I&gt;&gt;::Balance, BlockNumberFor&lt;T&gt;, &lt;T <span class="kw">as </span>Config&lt;I&gt;&gt;::MaxRank&gt;;
+	<span class="kw">pub type </span>PartialParamsOf&lt;T, I&gt; = ParamsType&lt;
+		<span class="prelude-ty">Option</span>&lt;&lt;T <span class="kw">as </span>Config&lt;I&gt;&gt;::Balance&gt;,
+		<span class="prelude-ty">Option</span>&lt;BlockNumberFor&lt;T&gt;&gt;,
+		&lt;T <span class="kw">as </span>Config&lt;I&gt;&gt;::MaxRank,
+	&gt;;
 	<span class="kw">pub type </span>MemberStatusOf&lt;T&gt; = MemberStatus&lt;BlockNumberFor&lt;T&gt;&gt;;
 	<span class="kw">pub type </span>RankOf&lt;T, I&gt; = &lt;&lt;T <span class="kw">as </span>Config&lt;I&gt;&gt;::Members <span class="kw">as </span>RankedMembers&gt;::Rank;
 
@@ -1380,9 +1440,59 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="prelude-val">Ok</span>(Pays::No.into())
 		}
+
+		<span class="doccomment">/// Set the parameters partially.
+		///
+		/// - `origin`: An origin complying with `ParamsOrigin` or root.
+		/// - `partial_params`: The new parameters for the pallet.
+		///
+		/// This update config with multiple arguments without duplicating
+		/// the fields that does not need to update (set to None).
+		</span><span class="attr">#[pallet::weight(T::WeightInfo::set_partial_params())]
+		#[pallet::call_index(<span class="number">9</span>)]
+		</span><span class="kw">pub fn </span>set_partial_params(
+			origin: OriginFor&lt;T&gt;,
+			partial_params: Box&lt;PartialParamsOf&lt;T, I&gt;&gt;,
+		) -&gt; DispatchResult {
+			T::ParamsOrigin::ensure_origin_or_root(origin)<span class="question-mark">?</span>;
+			<span class="kw">let </span>params = Params::&lt;T, I&gt;::mutate(|p| {
+				<span class="self">Self</span>::set_partial_params_slice(<span class="kw-2">&amp;mut </span>p.active_salary, partial_params.active_salary);
+				<span class="self">Self</span>::set_partial_params_slice(
+					<span class="kw-2">&amp;mut </span>p.passive_salary,
+					partial_params.passive_salary,
+				);
+				<span class="self">Self</span>::set_partial_params_slice(
+					<span class="kw-2">&amp;mut </span>p.demotion_period,
+					partial_params.demotion_period,
+				);
+				<span class="self">Self</span>::set_partial_params_slice(
+					<span class="kw-2">&amp;mut </span>p.min_promotion_period,
+					partial_params.min_promotion_period,
+				);
+				<span class="kw">if let </span><span class="prelude-val">Some</span>(new_offboard_timeout) = partial_params.offboard_timeout {
+					p.offboard_timeout = new_offboard_timeout;
+				}
+				p.clone()
+			});
+			<span class="self">Self</span>::deposit_event(Event::&lt;T, I&gt;::ParamsChanged { params });
+			<span class="prelude-val">Ok</span>(())
+		}
 	}
 
 	<span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt; Pallet&lt;T, I&gt; {
+		<span class="doccomment">/// Partially update the base slice with a new slice
+		///
+		/// Only elements in the base slice which has a new value in the new slice will be updated.
+		</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>set_partial_params_slice&lt;S&gt;(
+			base_slice: <span class="kw-2">&amp;mut </span>BoundedVec&lt;S, &lt;T <span class="kw">as </span>Config&lt;I&gt;&gt;::MaxRank&gt;,
+			new_slice: BoundedVec&lt;<span class="prelude-ty">Option</span>&lt;S&gt;, &lt;T <span class="kw">as </span>Config&lt;I&gt;&gt;::MaxRank&gt;,
+		) {
+			<span class="kw">for </span>(base_element, new_element) <span class="kw">in </span>base_slice.iter_mut().zip(new_slice) {
+				<span class="kw">if let </span><span class="prelude-val">Some</span>(element) = new_element {
+					<span class="kw-2">*</span>base_element = element;
+				}
+			}
+		}
 		<span class="doccomment">/// Convert a rank into a `0..RANK_COUNT` index suitable for the arrays in Params.
 		///
 		/// Rank 1 becomes index 0, rank `RANK_COUNT` becomes index `RANK_COUNT - 1`. Any rank not

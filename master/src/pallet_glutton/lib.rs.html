@@ -526,6 +526,82 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#375" id="375">375</a>
 <a href="#376" id="376">376</a>
 <a href="#377" id="377">377</a>
+<a href="#378" id="378">378</a>
+<a href="#379" id="379">379</a>
+<a href="#380" id="380">380</a>
+<a href="#381" id="381">381</a>
+<a href="#382" id="382">382</a>
+<a href="#383" id="383">383</a>
+<a href="#384" id="384">384</a>
+<a href="#385" id="385">385</a>
+<a href="#386" id="386">386</a>
+<a href="#387" id="387">387</a>
+<a href="#388" id="388">388</a>
+<a href="#389" id="389">389</a>
+<a href="#390" id="390">390</a>
+<a href="#391" id="391">391</a>
+<a href="#392" id="392">392</a>
+<a href="#393" id="393">393</a>
+<a href="#394" id="394">394</a>
+<a href="#395" id="395">395</a>
+<a href="#396" id="396">396</a>
+<a href="#397" id="397">397</a>
+<a href="#398" id="398">398</a>
+<a href="#399" id="399">399</a>
+<a href="#400" id="400">400</a>
+<a href="#401" id="401">401</a>
+<a href="#402" id="402">402</a>
+<a href="#403" id="403">403</a>
+<a href="#404" id="404">404</a>
+<a href="#405" id="405">405</a>
+<a href="#406" id="406">406</a>
+<a href="#407" id="407">407</a>
+<a href="#408" id="408">408</a>
+<a href="#409" id="409">409</a>
+<a href="#410" id="410">410</a>
+<a href="#411" id="411">411</a>
+<a href="#412" id="412">412</a>
+<a href="#413" id="413">413</a>
+<a href="#414" id="414">414</a>
+<a href="#415" id="415">415</a>
+<a href="#416" id="416">416</a>
+<a href="#417" id="417">417</a>
+<a href="#418" id="418">418</a>
+<a href="#419" id="419">419</a>
+<a href="#420" id="420">420</a>
+<a href="#421" id="421">421</a>
+<a href="#422" id="422">422</a>
+<a href="#423" id="423">423</a>
+<a href="#424" id="424">424</a>
+<a href="#425" id="425">425</a>
+<a href="#426" id="426">426</a>
+<a href="#427" id="427">427</a>
+<a href="#428" id="428">428</a>
+<a href="#429" id="429">429</a>
+<a href="#430" id="430">430</a>
+<a href="#431" id="431">431</a>
+<a href="#432" id="432">432</a>
+<a href="#433" id="433">433</a>
+<a href="#434" id="434">434</a>
+<a href="#435" id="435">435</a>
+<a href="#436" id="436">436</a>
+<a href="#437" id="437">437</a>
+<a href="#438" id="438">438</a>
+<a href="#439" id="439">439</a>
+<a href="#440" id="440">440</a>
+<a href="#441" id="441">441</a>
+<a href="#442" id="442">442</a>
+<a href="#443" id="443">443</a>
+<a href="#444" id="444">444</a>
+<a href="#445" id="445">445</a>
+<a href="#446" id="446">446</a>
+<a href="#447" id="447">447</a>
+<a href="#448" id="448">448</a>
+<a href="#449" id="449">449</a>
+<a href="#450" id="450">450</a>
+<a href="#451" id="451">451</a>
+<a href="#452" id="452">452</a>
+<a href="#453" id="453">453</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -617,6 +693,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="doccomment">/// The storage limit.
 			</span>storage: FixedU64,
 		},
+		<span class="doccomment">/// The block length limit has been updated.
+		</span>BlockLengthLimitSet {
+			<span class="doccomment">/// The block length limit.
+			</span>block_length: FixedU64,
+		},
 	}
 
 	<span class="attr">#[pallet::error]
@@ -643,6 +724,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// over `1.0` could stall the chain.
 	</span><span class="attr">#[pallet::storage]
 	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">type </span>Storage&lt;T: Config&gt; = StorageValue&lt;<span class="kw">_</span>, FixedU64, ValueQuery&gt;;
+
+	<span class="doccomment">/// The proportion of the `block length` to consume on each block.
+	///
+	/// `1.0` is mapped to `100%`. Must be at most [`crate::RESOURCE_HARD_LIMIT`]. Setting this to
+	/// over `1.0` could stall the chain.
+	</span><span class="attr">#[pallet::storage]
+	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">type </span>Length&lt;T: Config&gt; = StorageValue&lt;<span class="kw">_</span>, FixedU64, ValueQuery&gt;;
 
 	<span class="doccomment">/// Storage map used for wasting proof size.
 	///
@@ -674,6 +762,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="kw">pub </span>storage: FixedU64,
 		<span class="doccomment">/// The amount of trash data for wasting proof size.
 		</span><span class="kw">pub </span>trash_data_count: u32,
+		<span class="doccomment">/// The block length limit.
+		</span><span class="kw">pub </span>block_length: FixedU64,
 		<span class="attr">#[serde(skip)]
 		</span><span class="doccomment">/// The required configuration field.
 		</span><span class="kw">pub </span>_config: sp_std::marker::PhantomData&lt;T&gt;,
@@ -698,6 +788,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="macro">assert!</span>(<span class="self">self</span>.storage &lt;= RESOURCE_HARD_LIMIT, <span class="string">"Storage limit is insane"</span>);
 			&lt;Storage&lt;T&gt;&gt;::put(<span class="self">self</span>.storage);
+
+			<span class="macro">assert!</span>(<span class="self">self</span>.block_length &lt;= RESOURCE_HARD_LIMIT, <span class="string">"Block length limit is insane"</span>);
+			&lt;Length&lt;T&gt;&gt;::put(<span class="self">self</span>.block_length);
 		}
 	}
 
@@ -733,6 +826,40 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="self">Self</span>::waste_at_most_ref_time(<span class="kw-2">&amp;mut </span>meter);
 
 			meter.consumed()
+		}
+	}
+
+	<span class="attr">#[pallet::inherent]
+	</span><span class="kw">impl</span>&lt;T: Config&gt; ProvideInherent <span class="kw">for </span>Pallet&lt;T&gt; {
+		<span class="kw">type </span>Call = Call&lt;T&gt;;
+		<span class="kw">type </span>Error = sp_inherents::MakeFatalError&lt;()&gt;;
+
+		<span class="kw">const </span>INHERENT_IDENTIFIER: InherentIdentifier = <span class="kw-2">*</span><span class="string">b"bloated0"</span>;
+
+		<span class="kw">fn </span>create_inherent(_data: <span class="kw-2">&amp;</span>InherentData) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>::Call&gt; {
+			<span class="kw">let </span>max_block_length = <span class="kw-2">*</span>T::BlockLength::get().max.get(DispatchClass::Mandatory);
+			<span class="kw">let </span>bloat_size = Length::&lt;T&gt;::get().saturating_mul_int(max_block_length) <span class="kw">as </span>usize;
+			<span class="kw">let </span>amount_trash = bloat_size / VALUE_SIZE;
+			<span class="kw">let </span>garbage = TrashData::&lt;T&gt;::iter()
+				.map(|(_k, v)| v)
+				.collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;()
+				.into_iter()
+				.cycle()
+				.take(amount_trash)
+				.collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
+
+			<span class="prelude-val">Some</span>(Call::bloat { garbage })
+		}
+
+		<span class="kw">fn </span>is_inherent(call: <span class="kw-2">&amp;</span><span class="self">Self</span>::Call) -&gt; bool {
+			<span class="macro">matches!</span>(call, Call::bloat { .. })
+		}
+
+		<span class="kw">fn </span>check_inherent(call: <span class="kw-2">&amp;</span><span class="self">Self</span>::Call, <span class="kw">_</span>: <span class="kw-2">&amp;</span>InherentData) -&gt; <span class="prelude-ty">Result</span>&lt;(), <span class="self">Self</span>::Error&gt; {
+			<span class="kw">match </span>call {
+				Call::bloat { .. } =&gt; <span class="prelude-val">Ok</span>(()),
+				<span class="kw">_ </span>=&gt; <span class="macro">unreachable!</span>(<span class="string">"other calls are not inherents"</span>),
+			}
 		}
 	}
 
@@ -803,6 +930,31 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			Storage::&lt;T&gt;::set(storage);
 
 			<span class="self">Self</span>::deposit_event(Event::StorageLimitSet { storage });
+			<span class="prelude-val">Ok</span>(())
+		}
+
+		<span class="doccomment">/// Increase the block size by including the specified garbage bytes.
+		</span><span class="attr">#[pallet::call_index(<span class="number">3</span>)]
+		#[pallet::weight((<span class="number">0</span>, DispatchClass::Mandatory))]
+		</span><span class="kw">pub fn </span>bloat(_origin: OriginFor&lt;T&gt;, _garbage: Vec&lt;[u8; VALUE_SIZE]&gt;) -&gt; DispatchResult {
+			<span class="prelude-val">Ok</span>(())
+		}
+
+		<span class="doccomment">/// Set how much of the block length should be filled with trash data on each block.
+		///
+		/// `1.0` means that all block should be filled. If set to `1.0`, storage proof size will
+		///  be close to zero.
+		///
+		/// Only callable by Root or `AdminOrigin`.
+		</span><span class="attr">#[pallet::call_index(<span class="number">4</span>)]
+		#[pallet::weight({<span class="number">1</span>})]
+		</span><span class="kw">pub fn </span>set_block_length(origin: OriginFor&lt;T&gt;, block_length: FixedU64) -&gt; DispatchResult {
+			T::AdminOrigin::ensure_origin_or_root(origin)<span class="question-mark">?</span>;
+
+			<span class="macro">ensure!</span>(block_length &lt;= RESOURCE_HARD_LIMIT, Error::&lt;T&gt;::InsaneLimit);
+			Length::&lt;T&gt;::set(block_length);
+
+			<span class="self">Self</span>::deposit_event(Event::BlockLengthLimitSet { block_length });
 			<span class="prelude-val">Ok</span>(())
 		}
 	}

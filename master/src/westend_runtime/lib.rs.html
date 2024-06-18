@@ -2830,12 +2830,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#2679" id="2679">2679</a>
 <a href="#2680" id="2680">2680</a>
 <a href="#2681" id="2681">2681</a>
-<a href="#2682" id="2682">2682</a>
-<a href="#2683" id="2683">2683</a>
-<a href="#2684" id="2684">2684</a>
-<a href="#2685" id="2685">2685</a>
-<a href="#2686" id="2686">2686</a>
-<a href="#2687" id="2687">2687</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -3499,9 +3493,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="macro">parameter_types! </span>{
-	<span class="kw">pub const </span>ProposalBond: Permill = Permill::from_percent(<span class="number">5</span>);
-	<span class="kw">pub const </span>ProposalBondMinimum: Balance = <span class="number">2000 </span>* CENTS;
-	<span class="kw">pub const </span>ProposalBondMaximum: Balance = <span class="number">1 </span>* GRAND;
 	<span class="kw">pub const </span>SpendPeriod: BlockNumber = <span class="number">6 </span>* DAYS;
 	<span class="kw">pub const </span>Burn: Permill = Permill::from_perthousand(<span class="number">2</span>);
 	<span class="kw">pub const </span>TreasuryPalletId: PalletId = PalletId(<span class="kw-2">*</span><span class="string">b"py/trsry"</span>);
@@ -3528,9 +3519,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">type </span>RejectOrigin = EitherOfDiverse&lt;EnsureRoot&lt;AccountId&gt;, Treasurer&gt;;
 	<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
 	<span class="kw">type </span>OnSlash = Treasury;
-	<span class="kw">type </span>ProposalBond = ProposalBond;
-	<span class="kw">type </span>ProposalBondMinimum = ProposalBondMinimum;
-	<span class="kw">type </span>ProposalBondMaximum = ProposalBondMaximum;
 	<span class="kw">type </span>SpendPeriod = SpendPeriod;
 	<span class="kw">type </span>Burn = Burn;
 	<span class="kw">type </span>BurnDestination = ();

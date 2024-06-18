@@ -431,66 +431,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#280" id="280">280</a>
 <a href="#281" id="281">281</a>
 <a href="#282" id="282">282</a>
-<a href="#283" id="283">283</a>
-<a href="#284" id="284">284</a>
-<a href="#285" id="285">285</a>
-<a href="#286" id="286">286</a>
-<a href="#287" id="287">287</a>
-<a href="#288" id="288">288</a>
-<a href="#289" id="289">289</a>
-<a href="#290" id="290">290</a>
-<a href="#291" id="291">291</a>
-<a href="#292" id="292">292</a>
-<a href="#293" id="293">293</a>
-<a href="#294" id="294">294</a>
-<a href="#295" id="295">295</a>
-<a href="#296" id="296">296</a>
-<a href="#297" id="297">297</a>
-<a href="#298" id="298">298</a>
-<a href="#299" id="299">299</a>
-<a href="#300" id="300">300</a>
-<a href="#301" id="301">301</a>
-<a href="#302" id="302">302</a>
-<a href="#303" id="303">303</a>
-<a href="#304" id="304">304</a>
-<a href="#305" id="305">305</a>
-<a href="#306" id="306">306</a>
-<a href="#307" id="307">307</a>
-<a href="#308" id="308">308</a>
-<a href="#309" id="309">309</a>
-<a href="#310" id="310">310</a>
-<a href="#311" id="311">311</a>
-<a href="#312" id="312">312</a>
-<a href="#313" id="313">313</a>
-<a href="#314" id="314">314</a>
-<a href="#315" id="315">315</a>
-<a href="#316" id="316">316</a>
-<a href="#317" id="317">317</a>
-<a href="#318" id="318">318</a>
-<a href="#319" id="319">319</a>
-<a href="#320" id="320">320</a>
-<a href="#321" id="321">321</a>
-<a href="#322" id="322">322</a>
-<a href="#323" id="323">323</a>
-<a href="#324" id="324">324</a>
-<a href="#325" id="325">325</a>
-<a href="#326" id="326">326</a>
-<a href="#327" id="327">327</a>
-<a href="#328" id="328">328</a>
-<a href="#329" id="329">329</a>
-<a href="#330" id="330">330</a>
-<a href="#331" id="331">331</a>
-<a href="#332" id="332">332</a>
-<a href="#333" id="333">333</a>
-<a href="#334" id="334">334</a>
-<a href="#335" id="335">335</a>
-<a href="#336" id="336">336</a>
-<a href="#337" id="337">337</a>
-<a href="#338" id="338">338</a>
-<a href="#339" id="339">339</a>
-<a href="#340" id="340">340</a>
-<a href="#341" id="341">341</a>
-<a href="#342" id="342">342</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -552,12 +492,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">const </span>SEED: u32 = <span class="number">0</span>;
 
-<span class="comment">// Create the pre-requisite information needed to create a treasury `propose_spend`.
+<span class="comment">// Create the pre-requisite information needed to create a treasury `spend_local`.
 </span><span class="kw">fn </span>setup_proposal&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt;(
 	u: u32,
 ) -&gt; (T::AccountId, BalanceOf&lt;T, I&gt;, AccountIdLookupOf&lt;T&gt;) {
 	<span class="kw">let </span>caller = account(<span class="string">"caller"</span>, u, SEED);
-	<span class="kw">let </span>value: BalanceOf&lt;T, I&gt; = T::ProposalBondMinimum::get().saturating_mul(<span class="number">100u32</span>.into());
+	<span class="kw">let </span>value: BalanceOf&lt;T, I&gt; = T::Currency::minimum_balance() * <span class="number">100u32</span>.into();
 	<span class="kw">let _ </span>= T::Currency::make_free_balance_be(<span class="kw-2">&amp;</span>caller, value);
 	<span class="kw">let </span>beneficiary = account(<span class="string">"beneficiary"</span>, u, SEED);
 	<span class="kw">let </span>beneficiary_lookup = T::Lookup::unlookup(beneficiary);
@@ -566,12 +506,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="comment">// Create proposals that are approved for use in `on_initialize`.
 </span><span class="kw">fn </span>create_approved_proposals&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt;(n: u32) -&gt; <span class="prelude-ty">Result</span>&lt;(), <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt; {
+	<span class="kw">let </span>origin = T::SpendOrigin::try_successful_origin().map_err(|<span class="kw">_</span>| BenchmarkError::Weightless)<span class="question-mark">?</span>;
 	<span class="kw">for </span>i <span class="kw">in </span><span class="number">0</span>..n {
-		<span class="kw">let </span>(caller, value, lookup) = setup_proposal::&lt;T, I&gt;(i);
-		<span class="attr">#[allow(deprecated)]
-		</span>Treasury::&lt;T, I&gt;::propose_spend(RawOrigin::Signed(caller).into(), value, lookup)<span class="question-mark">?</span>;
-		<span class="kw">let </span>proposal_id = &lt;ProposalCount&lt;T, I&gt;&gt;::get() - <span class="number">1</span>;
-		Approvals::&lt;T, I&gt;::try_append(proposal_id).unwrap();
+		<span class="kw">let </span>(<span class="kw">_</span>, value, lookup) = setup_proposal::&lt;T, I&gt;(i);
+		Treasury::&lt;T, I&gt;::spend_local(origin.clone(), value, lookup)<span class="question-mark">?</span>;
 	}
 	<span class="macro">ensure!</span>(&lt;Approvals&lt;T, I&gt;&gt;::get().len() == n <span class="kw">as </span>usize, <span class="string">"Not all approved"</span>);
 	<span class="prelude-val">Ok</span>(())
@@ -620,70 +558,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="attr">#[benchmark]
-	</span><span class="kw">fn </span>propose_spend() -&gt; <span class="prelude-ty">Result</span>&lt;(), BenchmarkError&gt; {
-		<span class="kw">let </span>(caller, value, beneficiary_lookup) = setup_proposal::&lt;T, <span class="kw">_</span>&gt;(SEED);
-		<span class="comment">// Whitelist caller account from further DB operations.
-		</span><span class="kw">let </span>caller_key = frame_system::Account::&lt;T&gt;::hashed_key_for(<span class="kw-2">&amp;</span>caller);
-		frame_benchmarking::benchmarking::add_to_whitelist(caller_key.into());
-
-		<span class="attr">#[extrinsic_call]
-		</span><span class="kw">_</span>(RawOrigin::Signed(caller), value, beneficiary_lookup);
-
-		<span class="prelude-val">Ok</span>(())
-	}
-
-	<span class="attr">#[benchmark]
-	</span><span class="kw">fn </span>reject_proposal() -&gt; <span class="prelude-ty">Result</span>&lt;(), BenchmarkError&gt; {
-		<span class="kw">let </span>(caller, value, beneficiary_lookup) = setup_proposal::&lt;T, <span class="kw">_</span>&gt;(SEED);
-		<span class="attr">#[allow(deprecated)]
-		</span>Treasury::&lt;T, <span class="kw">_</span>&gt;::propose_spend(
-			RawOrigin::Signed(caller).into(),
-			value,
-			beneficiary_lookup,
-		)<span class="question-mark">?</span>;
-		<span class="kw">let </span>proposal_id = Treasury::&lt;T, <span class="kw">_</span>&gt;::proposal_count() - <span class="number">1</span>;
-		<span class="kw">let </span>reject_origin =
-			T::RejectOrigin::try_successful_origin().map_err(|<span class="kw">_</span>| BenchmarkError::Weightless)<span class="question-mark">?</span>;
-
-		<span class="attr">#[extrinsic_call]
-		</span><span class="kw">_</span>(reject_origin <span class="kw">as </span>T::RuntimeOrigin, proposal_id);
-
-		<span class="prelude-val">Ok</span>(())
-	}
-
-	<span class="attr">#[benchmark]
-	</span><span class="kw">fn </span>approve_proposal(
-		p: Linear&lt;<span class="number">0</span>, { T::MaxApprovals::get() - <span class="number">1 </span>}&gt;,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;(), BenchmarkError&gt; {
-		<span class="kw">let </span>approve_origin =
-			T::ApproveOrigin::try_successful_origin().map_err(|<span class="kw">_</span>| BenchmarkError::Weightless)<span class="question-mark">?</span>;
-		create_approved_proposals::&lt;T, <span class="kw">_</span>&gt;(p)<span class="question-mark">?</span>;
-		<span class="kw">let </span>(caller, value, beneficiary_lookup) = setup_proposal::&lt;T, <span class="kw">_</span>&gt;(SEED);
-		<span class="attr">#[allow(deprecated)]
-		</span>Treasury::&lt;T, <span class="kw">_</span>&gt;::propose_spend(
-			RawOrigin::Signed(caller).into(),
-			value,
-			beneficiary_lookup,
-		)<span class="question-mark">?</span>;
-		<span class="kw">let </span>proposal_id = Treasury::&lt;T, <span class="kw">_</span>&gt;::proposal_count() - <span class="number">1</span>;
-
-		<span class="attr">#[extrinsic_call]
-		</span><span class="kw">_</span>(approve_origin <span class="kw">as </span>T::RuntimeOrigin, proposal_id);
-
-		<span class="prelude-val">Ok</span>(())
-	}
-
-	<span class="attr">#[benchmark]
 	</span><span class="kw">fn </span>remove_approval() -&gt; <span class="prelude-ty">Result</span>&lt;(), BenchmarkError&gt; {
-		<span class="kw">let </span>(caller, value, beneficiary_lookup) = setup_proposal::&lt;T, <span class="kw">_</span>&gt;(SEED);
-		<span class="attr">#[allow(deprecated)]
-		</span>Treasury::&lt;T, <span class="kw">_</span>&gt;::propose_spend(
-			RawOrigin::Signed(caller).into(),
-			value,
-			beneficiary_lookup,
-		)<span class="question-mark">?</span>;
+		<span class="kw">let </span>origin =
+			T::SpendOrigin::try_successful_origin().map_err(|<span class="kw">_</span>| BenchmarkError::Weightless)<span class="question-mark">?</span>;
+		<span class="kw">let </span>(<span class="kw">_</span>, value, beneficiary_lookup) = setup_proposal::&lt;T, <span class="kw">_</span>&gt;(SEED);
+		Treasury::&lt;T, <span class="kw">_</span>&gt;::spend_local(origin, value, beneficiary_lookup)<span class="question-mark">?</span>;
 		<span class="kw">let </span>proposal_id = Treasury::&lt;T, <span class="kw">_</span>&gt;::proposal_count() - <span class="number">1</span>;
-		Approvals::&lt;T, <span class="kw">_</span>&gt;::try_append(proposal_id).unwrap();
 		<span class="kw">let </span>reject_origin =
 			T::RejectOrigin::try_successful_origin().map_err(|<span class="kw">_</span>| BenchmarkError::Weightless)<span class="question-mark">?</span>;
 

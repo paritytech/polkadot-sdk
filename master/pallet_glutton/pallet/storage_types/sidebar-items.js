@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["Compute","Storage","TrashData","TrashDataCount"]};
+window.SIDEBAR_ITEMS = {"struct":["Compute","Length","Storage","TrashData","TrashDataCount"]};

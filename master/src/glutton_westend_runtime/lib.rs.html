@@ -644,6 +644,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#493" id="493">493</a>
 <a href="#494" id="494">494</a>
 <a href="#495" id="495">495</a>
+<a href="#496" id="496">496</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -942,6 +943,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	frame_system::CheckGenesis&lt;Runtime&gt;,
 	frame_system::CheckEra&lt;Runtime&gt;,
 	frame_system::CheckNonce&lt;Runtime&gt;,
+	frame_system::CheckWeight&lt;Runtime&gt;,
 );
 <span class="doccomment">/// Unchecked extrinsic type as expected by this runtime.
 </span><span class="kw">pub type </span>UncheckedExtrinsic =
