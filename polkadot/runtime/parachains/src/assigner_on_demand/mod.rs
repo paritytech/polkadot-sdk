@@ -31,7 +31,6 @@
 //! occupying multiple cores in on-demand, we will likely add a separate order type, where the
 //! intent can be made explicit.
 
-use frame_support::traits::Imbalance;
 mod benchmarking;
 pub mod migration;
 mod mock_helpers;
@@ -58,7 +57,7 @@ use frame_support::{
 use frame_system::pallet_prelude::*;
 use polkadot_primitives::{CoreIndex, Id as ParaId};
 use sp_runtime::{
-	traits::{AccountIdConversion, One, SaturatedConversion, Zero},
+	traits::{AccountIdConversion, One, SaturatedConversion},
 	FixedPointNumber, FixedPointOperand, FixedU128, Perbill, Saturating,
 };
 use sp_std::prelude::*;
@@ -91,13 +90,13 @@ impl WeightInfo for TestWeightInfo {
 
 pub struct RevenueClaim<T: Config> {
 	split_off: Option<usize>,
-	pub amount: BalanceOf<T>
+	pub amount: BalanceOf<T>,
 }
 
 impl<T: Config> Default for RevenueClaim<T> {
-    fn default() -> Self {
-        Self { split_off: None, amount: 0u32.into() }
-    }
+	fn default() -> Self {
+		Self { split_off: None, amount: 0u32.into() }
+	}
 }
 
 #[frame_support::pallet]
@@ -408,8 +407,8 @@ where
 				Error::<T>::QueueFull
 			);
 
-			// Charge the sending account the spot price. The amount will be teleported to the broker chain
-			// once it requests revenue information.
+			// Charge the sending account the spot price. The amount will be teleported to the
+			// broker chain once it requests revenue information.
 			let amt = T::Currency::withdraw(
 				&sender,
 				spot_price,
