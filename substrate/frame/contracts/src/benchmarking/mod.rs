@@ -23,6 +23,7 @@ mod code;
 mod sandbox;
 use self::{
 	call_builder::CallSetup,
+	call_builder::StackExt,
 	code::{body, ImportedMemory, Location, ModuleDefinition, WasmModule},
 	sandbox::Sandbox,
 };
@@ -182,6 +183,27 @@ fn caller_funding<T: Config>() -> BalanceOf<T> {
 	// Minting can overflow, so we can't abuse of the funding. This value happens to be big enough,
 	// but not too big to make the total supply overflow.
 	BalanceOf::<T>::max_value() / 10_000u32.into()
+}
+
+fn dummy_transient_storage<T: Config>(
+	ext: &mut StackExt<T>,
+	stor_num: u32,
+	stor_size: u32,
+) -> Result<(), BenchmarkError> {
+	let storage_items = (0..stor_num)
+		.map(|i| {
+			let hash = T::Hashing::hash_of(&i)
+				.as_ref()
+				.try_into()
+				.map_err(|_| "Hash too big for storage key")?;
+			Ok((hash, vec![42u8; stor_size as usize]))
+		})
+		.collect::<Result<Vec<_>, &'static str>>()?;
+	for item in storage_items {
+		ext.set_transient_storage(&Key::Fix(item.0), Some(item.1.clone()), false)
+			.map_err(|_| "Failed to write storage to restoration dest")?;
+	}
+	Ok(())
 }
 
 #[benchmarks(
@@ -1159,6 +1181,71 @@ mod benchmarks {
 		assert_ok!(result);
 		assert!(&info.read(&key).is_none());
 		assert_eq!(&value, &memory[out_ptr as usize..]);
+		Ok(())
+	}
+
+	// The weight of journal rollbacks should be taken into account when setting storage.
+	#[benchmark]
+	fn rollback_journal(//n: Linear<0, { T::Schedule::get().limits.payload_len }>,
+	) -> Result<(), BenchmarkError> {
+		let n = T::Schedule::get().limits.payload_len;
+		let max_key_len = T::MaxStorageKeyLen::get();
+		let key = Key::<T>::try_from_var(vec![0u8; max_key_len as usize])
+			.map_err(|_| "Key has wrong length")?;
+
+		let mut setup = CallSetup::<T>::default();
+		let (mut ext, _) = setup.ext();
+		let mut runtime = crate::wasm::Runtime::new(&mut ext, vec![]);
+		let max_storage_items = T::MaxTransientStorageLen::get()
+			.saturating_div(max_key_len.saturating_add(128).saturating_add(n));
+		dummy_transient_storage::<T>(runtime.ext(), max_storage_items, n)?;
+		runtime.ext().transient_storage().start_transaction();
+		runtime
+			.ext()
+			.set_transient_storage(&key, Some(vec![0u8; n as _]), false)
+			.map_err(|_| "Failed to write to storage during setup.")?;
+		#[block]
+		{
+			runtime.ext().transient_storage().rollback_transaction();
+		}
+
+		assert_eq!(runtime.ext().get_transient_storage(&key), None);
+		Ok(())
+	}
+
+	#[benchmark]
+	fn seal_set_transient_storage() -> Result<(), BenchmarkError> {
+		let max_value_len = T::Schedule::get().limits.payload_len;
+		let max_key_len = T::MaxStorageKeyLen::get();
+		let max_storage_items = T::MaxTransientStorageLen::get()
+			.saturating_div(max_key_len.saturating_add(128).saturating_add(max_value_len));
+		let key = Key::<T>::try_from_var(vec![0u8; max_key_len as usize])
+			.map_err(|_| "Key has wrong length")?;
+		let value = vec![1u8; max_value_len as usize];
+
+		build_runtime!(runtime, memory: [ key.to_vec(), value.clone(), ]);
+
+		dummy_transient_storage::<T>(runtime.ext(), max_storage_items, 16000)?;
+		runtime
+			.ext()
+			.set_transient_storage(&key, Some(vec![16u8; max_value_len as usize]), false)
+			.map_err(|_| "Failed to write to storage during setup.")?;
+
+		let result;
+		#[block]
+		{
+			result = BenchEnv::seal0_set_transient_storage(
+				&mut runtime,
+				&mut memory,
+				0,             // key_ptr
+				max_key_len,   // key_len
+				max_key_len,   // value_ptr
+				max_value_len, // value_len
+			);
+		}
+
+		assert_ok!(result);
+		assert_eq!(runtime.ext().get_transient_storage(&key).unwrap(), value);
 		Ok(())
 	}
 

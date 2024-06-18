@@ -453,6 +453,9 @@ pub trait HostFn {
 	/// [KeyNotFound][`crate::ReturnErrorCode::KeyNotFound]
 	fn get_storage_v1(key: &[u8], output: &mut &mut [u8]) -> Result;
 
+	fn get_transient_storage(key: &[u8], output: &mut &mut [u8]) -> Result;
+
+
 	hash_fn!(sha2_256, 32);
 	hash_fn!(keccak_256, 32);
 	hash_fn!(blake2_256, 32);
@@ -672,6 +675,7 @@ pub trait HostFn {
 	///
 	/// Returns the size of the pre-existing value at the specified key if any.
 	fn set_storage_v2(key: &[u8], value: &[u8]) -> Option<u32>;
+	fn set_transient_storage(key: &[u8], value: &[u8]) -> Option<u32>;
 
 	/// Verify a sr25519 signature
 	///

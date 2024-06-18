@@ -29,7 +29,7 @@ use frame_benchmarking::benchmarking;
 use sp_core::Get;
 use sp_std::prelude::*;
 
-type StackExt<'a, T> = Stack<'a, T, WasmBlob<T>>;
+pub type StackExt<'a, T> = Stack<'a, T, WasmBlob<T>>;
 
 /// A prepared contract call ready to be executed.
 pub struct PreparedCall<'a, T: Config> {

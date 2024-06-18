@@ -329,6 +329,9 @@ pub trait Ext: sealing::Sealed {
 	#[cfg(any(test, feature = "runtime-benchmarks"))]
 	fn contract_info(&mut self) -> &mut ContractInfo<Self::T>;
 
+	#[cfg(any(test, feature = "runtime-benchmarks"))]
+	fn transient_storage(&mut self) -> &mut TransientStorage<Self::T>;
+
 	/// Sets new code hash for existing contract.
 	fn set_code_hash(&mut self, hash: CodeHash<Self::T>) -> DispatchResult;
 
@@ -1575,6 +1578,11 @@ where
 	#[cfg(any(test, feature = "runtime-benchmarks"))]
 	fn contract_info(&mut self) -> &mut ContractInfo<Self::T> {
 		self.top_frame_mut().contract_info()
+	}
+
+	#[cfg(any(test, feature = "runtime-benchmarks"))]
+	fn transient_storage(&mut self) -> &mut TransientStorage<Self::T> {
+		&mut self.transient_storage
 	}
 
 	fn set_code_hash(&mut self, hash: CodeHash<Self::T>) -> DispatchResult {

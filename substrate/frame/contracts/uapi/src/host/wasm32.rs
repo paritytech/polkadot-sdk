@@ -103,6 +103,13 @@ mod sys {
 			out_len_ptr: *mut u32,
 		) -> ReturnCode;
 
+		pub fn get_transient_storage(
+			key_ptr: *const u8,
+			key_len: u32,
+			out_ptr: *mut u8,
+			out_len_ptr: *mut u32,
+		) -> ReturnCode;
+
 		pub fn hash_blake2_128(input_ptr: *const u8, input_len: u32, output_ptr: *mut u8);
 
 		pub fn hash_blake2_256(input_ptr: *const u8, input_len: u32, output_ptr: *mut u8);
@@ -132,6 +139,13 @@ mod sys {
 		pub fn set_code_hash(code_hash_ptr: *const u8) -> ReturnCode;
 
 		pub fn set_storage(key_ptr: *const u8, value_ptr: *const u8, value_len: u32);
+
+		pub fn set_transient_storage(
+			key_ptr: *const u8,
+			key_len: u32,
+			value_ptr: *const u8,
+			value_len: u32,
+		) -> ReturnCode;
 
 		pub fn sr25519_verify(
 			signature_ptr: *const u8,
@@ -598,6 +612,18 @@ impl HostFn for HostFnImpl {
 		ret_code.into()
 	}
 
+	fn set_transient_storage(key: &[u8], encoded_value: &[u8]) -> Option<u32> {
+		let ret_code = unsafe {
+			sys::set_transient_storage(
+				key.as_ptr(),
+				key.len() as u32,
+				encoded_value.as_ptr(),
+				encoded_value.len() as u32,
+			)
+		};
+		ret_code.into()
+	}
+
 	fn clear_storage(key: &[u8]) {
 		unsafe { sys::clear_storage(key.as_ptr()) };
 	}
@@ -622,6 +648,23 @@ impl HostFn for HostFnImpl {
 		let ret_code = {
 			unsafe {
 				sys::v1::get_storage(
+					key.as_ptr(),
+					key.len() as u32,
+					output.as_mut_ptr(),
+					&mut output_len,
+				)
+			}
+		};
+		extract_from_slice(output, output_len as usize);
+		ret_code.into()
+	}
+
+	#[inline(always)]
+	fn get_transient_storage(key: &[u8], output: &mut &mut [u8]) -> Result {
+		let mut output_len = output.len() as u32;
+		let ret_code = {
+			unsafe {
+				sys::get_transient_storage(
 					key.as_ptr(),
 					key.len() as u32,
 					output.as_mut_ptr(),
