@@ -55,13 +55,6 @@ pub struct StorageCmd {
 	pub params: StorageParams,
 }
 
-#[derive(clap::ValueEnum, Clone, Default, Debug, Serialize, PartialEq)]
-enum StateVersionFlag {
-	#[default]
-	V0,
-	V1,
-}
-
 /// Parameters for modifying the benchmark behaviour and the post processing of the results.
 #[derive(Debug, Default, Serialize, Clone, PartialEq, Args)]
 pub struct StorageParams {
@@ -105,10 +98,12 @@ pub struct StorageParams {
 
 	/// The `StateVersion` to use.
 	///
-	/// Substrate `--dev` should use `v1` and Polkadot `v0`.
+	/// Substrate `--dev` should use `V1` and Polkadot `V0`.
+	/// To specify the state version, pass `--state-version=1` for `V1`
+	/// or `--state-version=0` for `V0`.
 	/// Selecting the wrong version can corrupt the DB.
-	#[arg(long, value_enum)]
-	pub state_version: StateVersionFlag,
+	#[arg(long, value_parser = clap::value_parser!(u8).range(0..=1))]
+	pub state_version: u8,
 
 	/// Trie cache size in bytes.
 	///
@@ -175,8 +170,9 @@ impl StorageCmd {
 	/// Returns the specified state version.
 	pub(crate) fn state_version(&self) -> StateVersion {
 		match self.params.state_version {
-			StateVersionFlag::V0 => StateVersion::V0,
-			StateVersionFlag::V1 => StateVersion::V1,
+			0 => StateVersion::V0,
+			1 => StateVersion::V1,
+			_ => unreachable!("Clap set to only allow 0 and 1"),
 		}
 	}
 

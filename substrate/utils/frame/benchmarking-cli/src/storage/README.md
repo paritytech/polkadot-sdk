@@ -6,7 +6,7 @@ This sub-command measures the cost of storage operations for a concrete snapshot
 
 For the Substrate node it looks like this (for debugging you can use `--release`):
 ```sh
-cargo run --profile=production -- benchmark storage --dev --state-version=v1
+cargo run --profile=production -- benchmark storage --dev --state-version=1
 ```
 
 Running the command on Substrate itself is not verify meaningful, since the genesis state of the `--dev` chain spec is
@@ -16,7 +16,7 @@ The output for the Polkadot client with a recent chain snapshot will give you a 
 be downloaded from [Polkachu].
 Then run (remove the `--db=paritydb` if you have a RocksDB snapshot):
 ```sh
-cargo run --profile=production -- benchmark storage --dev --state-version=v0 --db=paritydb --weight-path runtime/polkadot/constants/src/weights
+cargo run --profile=production -- benchmark storage --dev --state-version=0 --db=paritydb --weight-path runtime/polkadot/constants/src/weights
 ```
 
 This takes a while since reads and writes all keys from the snapshot:
