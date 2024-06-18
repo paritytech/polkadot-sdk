@@ -595,7 +595,7 @@ pub mod pallet {
 				if let Some(new_offboard_timeout) = partial_params.offboard_timeout {
 					p.offboard_timeout = new_offboard_timeout;
 				}
-				return p.clone();
+				p.clone()
 			});
 			Self::deposit_event(Event::<T, I>::ParamsChanged { params });
 			Ok(())
