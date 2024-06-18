@@ -332,9 +332,6 @@ mod tests {
 		type RejectOrigin = frame_system::EnsureRoot<AccountId>;
 		type RuntimeEvent = RuntimeEvent;
 		type OnSlash = ();
-		type ProposalBond = ();
-		type ProposalBondMinimum = ();
-		type ProposalBondMaximum = ();
 		type SpendPeriod = ();
 		type Burn = ();
 		type BurnDestination = ();
