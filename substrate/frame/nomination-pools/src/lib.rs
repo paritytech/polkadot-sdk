@@ -3082,11 +3082,11 @@ impl<T: Config> Pallet<T> {
 
 		// ensure pool is migrated.
 		ensure!(
-				T::StakeAdapter::pool_strategy(Pool::from(Self::generate_bonded_account(
-					member.pool_id
-				))) == adapter::StakeStrategyType::Delegate,
-				Error::<T>::NotMigrated
-			);
+			T::StakeAdapter::pool_strategy(Pool::from(Self::generate_bonded_account(
+				member.pool_id
+			))) == adapter::StakeStrategyType::Delegate,
+			Error::<T>::NotMigrated
+		);
 
 		let pool_contribution = member.total_balance();
 		ensure!(pool_contribution >= MinJoinBond::<T>::get(), Error::<T>::MinimumBondNotMet);

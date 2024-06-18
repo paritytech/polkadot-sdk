@@ -1007,8 +1007,7 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 				matches!(
 					c,
 					RuntimeCall::Staking(..) |
-						RuntimeCall::Session(..) |
-						RuntimeCall::Utility(..) |
+						RuntimeCall::Session(..) | RuntimeCall::Utility(..) |
 						RuntimeCall::FastUnstake(..) |
 						RuntimeCall::VoterList(..) |
 						RuntimeCall::NominationPools(..)
@@ -2726,11 +2725,15 @@ mod remote_tests {
 			success = 0;
 			// iterate over all pool members
 			pallet_nomination_pools::PoolMembers::<Runtime>::iter_keys().for_each(|k| {
-				if pallet_nomination_pools::Pallet::<Runtime>::api_member_needs_delegate_migration(k.clone()) {
+				if pallet_nomination_pools::Pallet::<Runtime>::api_member_needs_delegate_migration(
+					k.clone(),
+				) {
 					needs_migration = needs_migration + 1;
-					pallet_nomination_pools::Pallet::<Runtime>::migrate_member_to_delegate_stake(k.clone())
-						.map(|_| success = success + 1)
-						.map_err(|e| log::error!("Failed to migrate member {}: {:?}", k, e));
+					pallet_nomination_pools::Pallet::<Runtime>::migrate_member_to_delegate_stake(
+						k.clone(),
+					)
+					.map(|_| success = success + 1)
+					.map_err(|e| log::error!("Failed to migrate member {}: {:?}", k, e));
 				}
 			});
 
