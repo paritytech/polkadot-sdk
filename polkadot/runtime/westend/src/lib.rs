@@ -1007,7 +1007,8 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 				matches!(
 					c,
 					RuntimeCall::Staking(..) |
-						RuntimeCall::Session(..) | RuntimeCall::Utility(..) |
+						RuntimeCall::Session(..) |
+						RuntimeCall::Utility(..) |
 						RuntimeCall::FastUnstake(..) |
 						RuntimeCall::VoterList(..) |
 						RuntimeCall::NominationPools(..)
@@ -2698,6 +2699,11 @@ mod remote_tests {
 			.await
 			.unwrap();
 		ext.execute_with(|| {
+			// create an account with some balance
+			let alice = AccountId::from([1u8; 32]);
+			use frame_support::traits::Currency;
+			Balances::deposit_creating(&alice, 100_000 * UNITS);
+
 			let mut needs_migration = 0;
 			let mut success = 0;
 
@@ -2707,14 +2713,18 @@ mod remote_tests {
 					k.clone(),
 				) {
 					needs_migration = needs_migration + 1;
-					pallet_nomination_pools::Pallet::<Runtime>::migrate_to_delegate_stake(k)
-						.map(|_| success = success + 1)
-						.map_err(|e| log::error!("Failed to migrate pool {}: {:?}", k, e));
+					pallet_nomination_pools::Pallet::<Runtime>::migrate_pool_to_delegate_stake(
+						RuntimeOrigin::signed(alice.clone()).into(),
+						k,
+					)
+					.map(|_| success = success + 1)
+					.map_err(|e| log::error!(target: "remote_test", "Failed to migrate pool {}: {:?}", k, e));
 				}
 			});
 
 			// log summary
 			log::info!(
+				target: "remote_test",
 				"Migration summary: {} pools needed migration, {} pools successfully migrated",
 				needs_migration,
 				success
@@ -2729,16 +2739,18 @@ mod remote_tests {
 					k.clone(),
 				) {
 					needs_migration = needs_migration + 1;
-					pallet_nomination_pools::Pallet::<Runtime>::migrate_member_to_delegate_stake(
-						k.clone(),
+					pallet_nomination_pools::Pallet::<Runtime>::migrate_delegation(
+						RuntimeOrigin::signed(alice.clone()).into(),
+						sp_runtime::MultiAddress::Id(k.clone()),
 					)
 					.map(|_| success = success + 1)
-					.map_err(|e| log::error!("Failed to migrate member {}: {:?}", k, e));
+					.map_err(|e| log::error!(target: "remote_test", "Failed to migrate member {}: {:?}", k, e));
 				}
 			});
 
 			// log summary
 			log::info!(
+				target: "remote_test",
 				"Migration summary: {} members needed migration, {} members successfully migrated",
 				needs_migration,
 				success
