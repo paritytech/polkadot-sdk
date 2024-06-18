@@ -149,6 +149,8 @@ use frame_support::{
 		Defensive, DefensiveOption, Imbalance, OnUnbalanced,
 	},
 };
+use frame_support::traits::tokens::Fortitude::Force;
+use frame_support::traits::tokens::Restriction;
 use sp_runtime::{
 	traits::{AccountIdConversion, CheckedAdd, CheckedSub, Zero},
 	ArithmeticError, DispatchResult, Perbill, RuntimeDebug, Saturating,
@@ -682,32 +684,23 @@ impl<T: Config> Pallet<T> {
 
 		source_delegation.update_or_kill(&source_delegator);
 
-		// release funds from source
-		let released = T::Currency::release(
-			&HoldReason::StakingDelegation.into(),
-			&source_delegator,
-			amount,
-			Precision::BestEffort,
-		)?;
-
-		defensive_assert!(released == amount, "hold should have been released fully");
-
 		// transfer the released amount to `destination_delegator`.
-		let post_balance = T::Currency::transfer(
+		let _ = T::Currency::transfer_on_hold(
+			&HoldReason::StakingDelegation.into(),
 			&source_delegator,
 			&destination_delegator,
 			amount,
-			Preservation::Expendable,
-		)
-		.map_err(|_| Error::<T>::BadState)?;
+			Precision::Exact,
+			Restriction::Free,
+			Fortitude::Polite,
+		)?;
+
+		let post_balance_src = T::Currency::total_balance(&source_delegator);
 
 		// if balance is zero, clear provider for source (proxy) delegator.
-		if post_balance == Zero::zero() {
+		if post_balance_src == Zero::zero() {
 			let _ = frame_system::Pallet::<T>::dec_providers(&source_delegator).defensive();
 		}
-
-		// hold the funds again in the new delegator account.
-		T::Currency::hold(&HoldReason::StakingDelegation.into(), &destination_delegator, amount)?;
 
 		Self::deposit_event(Event::<T>::MigratedDelegation {
 			agent,
