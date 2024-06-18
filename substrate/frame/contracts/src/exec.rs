@@ -826,8 +826,7 @@ where
 			determinism,
 			transient_storage: TransientStorage::new(
 				transient_storage_limit,
-				transient_storage_limit
-					.saturating_div((T::CallStack::size() as u32).saturating_add(1)),
+				transient_storage_limit,
 			),
 			_phantom: Default::default(),
 		};

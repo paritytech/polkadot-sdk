@@ -22,7 +22,7 @@ use core::marker::PhantomData;
 use crate::{
 	exec::{AccountIdOf, Key},
 	storage::WriteOutcome,
-	Config,
+	Config, Error,
 };
 use codec::Encode;
 use frame_support::DefaultNoBound;
@@ -74,7 +74,7 @@ impl<T: Config> StorageMeter<T> {
 		if current_amount > self.transaction_limit ||
 			amount.saturating_add(self.total_amount()) > self.total_limit
 		{
-			//	return Err(Error::<T>::OutOfTransientStorage.into());
+			return Err(Error::<T>::OutOfTransientStorage.into());
 		}
 		self.top_meter_mut().current = current_amount;
 		Ok(())

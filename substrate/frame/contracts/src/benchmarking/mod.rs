@@ -22,8 +22,7 @@ mod call_builder;
 mod code;
 mod sandbox;
 use self::{
-	call_builder::CallSetup,
-	call_builder::StackExt,
+	call_builder::{CallSetup, StackExt},
 	code::{body, ImportedMemory, Location, ModuleDefinition, WasmModule},
 	sandbox::Sandbox,
 };
@@ -1186,8 +1185,7 @@ mod benchmarks {
 
 	// The weight of journal rollbacks should be taken into account when setting storage.
 	#[benchmark]
-	fn rollback_journal(//n: Linear<0, { T::Schedule::get().limits.payload_len }>,
-	) -> Result<(), BenchmarkError> {
+	fn rollback_journal() -> Result<(), BenchmarkError> {
 		let n = T::Schedule::get().limits.payload_len;
 		let max_key_len = T::MaxStorageKeyLen::get();
 		let key = Key::<T>::try_from_var(vec![0u8; max_key_len as usize])
@@ -1196,8 +1194,8 @@ mod benchmarks {
 		let mut setup = CallSetup::<T>::default();
 		let (mut ext, _) = setup.ext();
 		let mut runtime = crate::wasm::Runtime::new(&mut ext, vec![]);
-		let max_storage_items = T::MaxTransientStorageLen::get()
-			.saturating_div(max_key_len.saturating_add(128).saturating_add(n));
+		let max_storage_items = T::MaxTransientStorageItems::get();
+
 		dummy_transient_storage::<T>(runtime.ext(), max_storage_items, n)?;
 		runtime.ext().transient_storage().start_transaction();
 		runtime
@@ -1217,15 +1215,15 @@ mod benchmarks {
 	fn seal_set_transient_storage() -> Result<(), BenchmarkError> {
 		let max_value_len = T::Schedule::get().limits.payload_len;
 		let max_key_len = T::MaxStorageKeyLen::get();
-		let max_storage_items = T::MaxTransientStorageLen::get()
-			.saturating_div(max_key_len.saturating_add(128).saturating_add(max_value_len));
+		let max_storage_items = T::MaxTransientStorageItems::get();
+		sp_runtime::print("{max_storage_items}");
 		let key = Key::<T>::try_from_var(vec![0u8; max_key_len as usize])
 			.map_err(|_| "Key has wrong length")?;
 		let value = vec![1u8; max_value_len as usize];
 
 		build_runtime!(runtime, memory: [ key.to_vec(), value.clone(), ]);
 
-		dummy_transient_storage::<T>(runtime.ext(), max_storage_items, 16000)?;
+		dummy_transient_storage::<T>(runtime.ext(), max_storage_items, max_value_len)?;
 		runtime
 			.ext()
 			.set_transient_storage(&key, Some(vec![16u8; max_value_len as usize]), false)

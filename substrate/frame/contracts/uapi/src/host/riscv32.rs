@@ -183,6 +183,14 @@ impl HostFn for HostFnImpl {
 	impl_get_storage!(get_storage, sys::get_storage);
 	impl_get_storage!(get_storage_v1, sys::v1::get_storage);
 
+	fn set_transient_storage(key: &[u8], encoded_value: &[u8]) -> Option<u32> {
+		todo!()
+	}
+
+	fn get_transient_storage(key: &[u8], output: &mut &mut [u8]) -> Result {
+		todo!()
+	}
+
 	fn take_storage(key: &[u8], output: &mut &mut [u8]) -> Result {
 		todo!()
 	}
