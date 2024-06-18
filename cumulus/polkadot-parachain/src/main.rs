@@ -29,7 +29,7 @@ pub(crate) const EXAMPLES: &str = color_print::cstr!(
 
 	You can find the chain-spec of some networks in:
 
-	https://paritytech.github.io/polkadot_network_directory
+	https://paritytech.github.io/chainspecs
 
    <bold>polkadot-parachain-omni-node --chain asset-hub-polkadot --sync warp -- --chain polkadot --sync warp</>
         Launch a warp-syncing full node of the <italic>Asset Hub</> parachain on the <italic>Polkadot</> Relay Chain.
