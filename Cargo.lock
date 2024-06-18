@@ -14035,6 +14035,7 @@ dependencies = [
  "pallet-asset-rate",
  "pallet-asset-tx-payment",
  "pallet-assets",
+ "pallet-assets-freezer",
  "pallet-atomic-swap",
  "pallet-aura",
  "pallet-authority-discovery",
