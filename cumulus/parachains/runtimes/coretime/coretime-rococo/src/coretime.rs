@@ -23,8 +23,7 @@ use cumulus_primitives_core::relay_chain;
 use frame_support::{
 	parameter_types,
 	traits::{
-		fungible::{Balanced, Credit},
-		OnUnbalanced,
+		fungible::{Balanced, Credit}, Imbalance, OnUnbalanced, TryDrop,
 	},
 };
 use pallet_broker::{
@@ -37,11 +36,41 @@ use sp_core::Get;
 use sp_runtime::traits::AccountIdConversion;
 use xcm::latest::prelude::*;
 
-pub struct CreditToCollatorPot;
-impl OnUnbalanced<Credit<AccountId, Balances>> for CreditToCollatorPot {
-	fn on_nonzero_unbalanced(credit: Credit<AccountId, Balances>) {
-		let staking_pot = CollatorSelection::account_id();
-		let _ = <Balances as Balanced<_>>::resolve(&staking_pot, credit);
+pub struct BurnAtRelay;
+impl OnUnbalanced<Credit<AccountId, Balances>> for BurnAtRelay {
+    fn on_nonzero_unbalanced(amount: Credit<AccountId, Balances>) {
+    	let value = amount.peek();
+
+    	// The assets being burnt, from the relay chain perspective
+    	let parent_assets: Assets = vec![Asset { id: AssetId(Location::here()), fun: Fungible(value) }].into();
+
+    	let send_res = PolkadotXcm::send_xcm(Here, Location::parent(), Xcm(vec![
+			Instruction::UnpaidExecution {
+				weight_limit: WeightLimit::Unlimited,
+				check_origin: None,
+			},
+			ReceiveTeleportedAsset(parent_assets.clone()),
+			BurnAsset(parent_assets),
+   		]));
+
+   		match send_res {
+	        Ok(_) => {
+	        	log::debug!(
+	        		target: "runtime::coretime",
+	        		"{value} tokens teleported to the RC for burning",
+	        	);
+
+	        	// Burn the asset on the parachain. It's on the best effort basis
+		    	let debt = <Balances as Balanced<_>>::rescind(value);
+		    	let _ = amount.offset(debt).try_drop().map_err(|rest| drop(rest));
+	        },
+	        Err(_) => {
+	        	log::error!(
+	        		target: "runtime::coretime",
+	        		"Failed to transfer {value} tokens to the relay chain for burning",
+	        	);
+	        },
+	    }
 	}
 }
 
@@ -234,7 +263,7 @@ where
 impl pallet_broker::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Currency = Balances;
-	type OnRevenue = CreditToCollatorPot;
+	type OnRevenue = BurnAtRelay;
 	type TimeslicePeriod = ConstU32<{ coretime::TIMESLICE_PERIOD }>;
 	type MaxLeasedCores = ConstU32<50>;
 	type MaxReservedCores = ConstU32<10>;

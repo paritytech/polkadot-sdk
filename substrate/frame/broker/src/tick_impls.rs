@@ -16,7 +16,7 @@
 // limitations under the License.
 
 use super::*;
-use frame_support::{pallet_prelude::*, weights::WeightMeter};
+use frame_support::{pallet_prelude::*, traits::defensive_prelude::*, weights::WeightMeter};
 use sp_arithmetic::traits::{One, SaturatedConversion, Saturating, Zero};
 use sp_runtime::traits::ConvertBack;
 use sp_std::{vec, vec::Vec};
@@ -122,7 +122,7 @@ impl<T: Config> Pallet<T> {
 		let system_payout = if !total_contrib.is_zero() {
 			let system_payout =
 				revenue.saturating_mul(r.system_contributions.into()) / total_contrib.into();
-			let _ = Self::charge(&Self::account_id(), system_payout);
+			Self::charge(&Self::account_id(), system_payout).defensive_ok();
 			revenue.saturating_reduce(system_payout);
 
 			system_payout
