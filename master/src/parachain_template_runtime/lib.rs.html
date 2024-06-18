@@ -423,6 +423,31 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#272" id="272">272</a>
 <a href="#273" id="273">273</a>
 <a href="#274" id="274">274</a>
+<a href="#275" id="275">275</a>
+<a href="#276" id="276">276</a>
+<a href="#277" id="277">277</a>
+<a href="#278" id="278">278</a>
+<a href="#279" id="279">279</a>
+<a href="#280" id="280">280</a>
+<a href="#281" id="281">281</a>
+<a href="#282" id="282">282</a>
+<a href="#283" id="283">283</a>
+<a href="#284" id="284">284</a>
+<a href="#285" id="285">285</a>
+<a href="#286" id="286">286</a>
+<a href="#287" id="287">287</a>
+<a href="#288" id="288">288</a>
+<a href="#289" id="289">289</a>
+<a href="#290" id="290">290</a>
+<a href="#291" id="291">291</a>
+<a href="#292" id="292">292</a>
+<a href="#293" id="293">293</a>
+<a href="#294" id="294">294</a>
+<a href="#295" id="295">295</a>
+<a href="#296" id="296">296</a>
+<a href="#297" id="297">297</a>
+<a href="#298" id="298">298</a>
+<a href="#299" id="299">299</a>
 </pre></div><pre class="rust"><code><span class="attr">#![cfg_attr(not(feature = <span class="string">"std"</span>), no_std)]
 </span><span class="comment">// `construct_runtime!` does a lot of recursion and requires us to increase the limit to 256.
 </span><span class="attr">#![recursion_limit = <span class="string">"256"</span>]
@@ -432,6 +457,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="macro">include!</span>(<span class="macro">concat!</span>(<span class="macro">env!</span>(<span class="string">"OUT_DIR"</span>), <span class="string">"/wasm_binary.rs"</span>));
 
 <span class="kw">pub mod </span>apis;
+<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
+</span><span class="kw">mod </span>benchmarks;
 <span class="kw">mod </span>configs;
 <span class="kw">mod </span>weights;
 
@@ -447,12 +474,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">use </span>sp_version::NativeVersion;
 <span class="kw">use </span>sp_version::RuntimeVersion;
 
-<span class="kw">use </span>frame_support::{
-	construct_runtime,
-	weights::{
-		constants::WEIGHT_REF_TIME_PER_SECOND, Weight, WeightToFeeCoefficient,
-		WeightToFeeCoefficients, WeightToFeePolynomial,
-	},
+<span class="kw">use </span>frame_support::weights::{
+	constants::WEIGHT_REF_TIME_PER_SECOND, Weight, WeightToFeeCoefficient, WeightToFeeCoefficients,
+	WeightToFeePolynomial,
 };
 <span class="kw">pub use </span>sp_consensus_aura::sr25519::AuthorityId <span class="kw">as </span>AuraId;
 <span class="kw">pub use </span>sp_runtime::{MultiAddress, Perbill, Permill};
@@ -657,46 +681,72 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="comment">// Create the runtime by composing the FRAME pallets that were previously configured.
-</span><span class="macro">construct_runtime!</span>(
-	<span class="kw">pub enum </span>Runtime {
-		<span class="comment">// System support stuff.
-		</span>System: frame_system = <span class="number">0</span>,
-		ParachainSystem: cumulus_pallet_parachain_system = <span class="number">1</span>,
-		Timestamp: pallet_timestamp = <span class="number">2</span>,
-		ParachainInfo: parachain_info = <span class="number">3</span>,
+</span><span class="attr">#[frame_support::runtime]
+</span><span class="kw">mod </span>runtime {
+	<span class="attr">#[runtime::runtime]
+	#[runtime::derive(
+		RuntimeCall,
+		RuntimeEvent,
+		RuntimeError,
+		RuntimeOrigin,
+		RuntimeFreezeReason,
+		RuntimeHoldReason,
+		RuntimeSlashReason,
+		RuntimeLockId,
+		RuntimeTask
+	)]
+	</span><span class="kw">pub struct </span>Runtime;
 
-		<span class="comment">// Monetary stuff.
-		</span>Balances: pallet_balances = <span class="number">10</span>,
-		TransactionPayment: pallet_transaction_payment = <span class="number">11</span>,
+	<span class="attr">#[runtime::pallet_index(<span class="number">0</span>)]
+	</span><span class="kw">pub type </span>System = frame_system;
+	<span class="attr">#[runtime::pallet_index(<span class="number">1</span>)]
+	</span><span class="kw">pub type </span>ParachainSystem = cumulus_pallet_parachain_system;
+	<span class="attr">#[runtime::pallet_index(<span class="number">2</span>)]
+	</span><span class="kw">pub type </span>Timestamp = pallet_timestamp;
+	<span class="attr">#[runtime::pallet_index(<span class="number">3</span>)]
+	</span><span class="kw">pub type </span>ParachainInfo = parachain_info;
 
-		<span class="comment">// Governance
-		</span>Sudo: pallet_sudo = <span class="number">15</span>,
+	<span class="comment">// Monetary stuff.
+	</span><span class="attr">#[runtime::pallet_index(<span class="number">10</span>)]
+	</span><span class="kw">pub type </span>Balances = pallet_balances;
+	<span class="attr">#[runtime::pallet_index(<span class="number">11</span>)]
+	</span><span class="kw">pub type </span>TransactionPayment = pallet_transaction_payment;
 
-		<span class="comment">// Collator support. The order of these 4 are important and shall not change.
-		</span>Authorship: pallet_authorship = <span class="number">20</span>,
-		CollatorSelection: pallet_collator_selection = <span class="number">21</span>,
-		Session: pallet_session = <span class="number">22</span>,
-		Aura: pallet_aura = <span class="number">23</span>,
-		AuraExt: cumulus_pallet_aura_ext = <span class="number">24</span>,
+	<span class="comment">// Governance
+	</span><span class="attr">#[runtime::pallet_index(<span class="number">15</span>)]
+	</span><span class="kw">pub type </span>Sudo = pallet_sudo;
 
-		<span class="comment">// XCM helpers.
-		</span>XcmpQueue: cumulus_pallet_xcmp_queue = <span class="number">30</span>,
-		PolkadotXcm: pallet_xcm = <span class="number">31</span>,
-		CumulusXcm: cumulus_pallet_xcm = <span class="number">32</span>,
-		MessageQueue: pallet_message_queue = <span class="number">33</span>,
+	<span class="comment">// Collator support. The order of these 4 are important and shall not change.
+	</span><span class="attr">#[runtime::pallet_index(<span class="number">20</span>)]
+	</span><span class="kw">pub type </span>Authorship = pallet_authorship;
+	<span class="attr">#[runtime::pallet_index(<span class="number">21</span>)]
+	</span><span class="kw">pub type </span>CollatorSelection = pallet_collator_selection;
+	<span class="attr">#[runtime::pallet_index(<span class="number">22</span>)]
+	</span><span class="kw">pub type </span>Session = pallet_session;
+	<span class="attr">#[runtime::pallet_index(<span class="number">23</span>)]
+	</span><span class="kw">pub type </span>Aura = pallet_aura;
+	<span class="attr">#[runtime::pallet_index(<span class="number">24</span>)]
+	</span><span class="kw">pub type </span>AuraExt = cumulus_pallet_aura_ext;
 
-		<span class="comment">// Template
-		</span>TemplatePallet: pallet_parachain_template = <span class="number">50</span>,
-	}
-);
+	<span class="comment">// XCM helpers.
+	</span><span class="attr">#[runtime::pallet_index(<span class="number">30</span>)]
+	</span><span class="kw">pub type </span>XcmpQueue = cumulus_pallet_xcmp_queue;
+	<span class="attr">#[runtime::pallet_index(<span class="number">31</span>)]
+	</span><span class="kw">pub type </span>PolkadotXcm = pallet_xcm;
+	<span class="attr">#[runtime::pallet_index(<span class="number">32</span>)]
+	</span><span class="kw">pub type </span>CumulusXcm = cumulus_pallet_xcm;
+	<span class="attr">#[runtime::pallet_index(<span class="number">33</span>)]
+	</span><span class="kw">pub type </span>MessageQueue = pallet_message_queue;
+
+	<span class="comment">// Template
+	</span><span class="attr">#[runtime::pallet_index(<span class="number">50</span>)]
+	</span><span class="kw">pub type </span>TemplatePallet = pallet_parachain_template;
+}
 
 <span class="macro">cumulus_pallet_parachain_system::register_validate_block! </span>{
 	Runtime = Runtime,
 	BlockExecutor = cumulus_pallet_aura_ext::BlockExecutor::&lt;Runtime, Executive&gt;,
 }
-
-<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
-</span><span class="kw">mod </span>benchmarks;
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 

@@ -258,11 +258,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#107" id="107">107</a>
 <a href="#108" id="108">108</a>
 <a href="#109" id="109">109</a>
+<a href="#110" id="110">110</a>
+<a href="#111" id="111">111</a>
+<a href="#112" id="112">112</a>
+<a href="#113" id="113">113</a>
+<a href="#114" id="114">114</a>
+<a href="#115" id="115">115</a>
 </pre></div><pre class="rust"><code><span class="attr">#![cfg_attr(not(feature = <span class="string">"std"</span>), no_std)]
 
-</span><span class="doccomment">/// Edit this file to define custom logic or remove it if it is not needed.
-/// Learn more about FRAME and the core library of Substrate FRAME pallets:
-/// &lt;https://docs.substrate.io/v3/runtime/frame&gt;
 </span><span class="kw">pub use </span>pallet::<span class="kw-2">*</span>;
 
 <span class="attr">#[cfg(test)]
@@ -276,7 +279,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 </span><span class="kw">mod </span>benchmarking;
 
-<span class="attr">#[frame_support::pallet]
+<span class="comment">// &lt;https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/polkadot_sdk/frame_runtime/index.html&gt;
+// &lt;https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/guides/your_first_pallet/index.html&gt;
+//
+// To see a full list of `pallet` macros and their use cases, see:
+// &lt;https://paritytech.github.io/polkadot-sdk/master/pallet_example_kitchensink/index.html&gt;
+// &lt;https://paritytech.github.io/polkadot-sdk/master/frame_support/pallet_macros/index.html&gt;
+</span><span class="attr">#[frame_support::pallet]
 </span><span class="kw">pub mod </span>pallet {
 	<span class="kw">use </span>frame_support::{dispatch::DispatchResultWithPostInfo, pallet_prelude::<span class="kw-2">*</span>};
 	<span class="kw">use </span>frame_system::pallet_prelude::<span class="kw-2">*</span>;
@@ -285,7 +294,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="attr">#[pallet::config]
 	</span><span class="kw">pub trait </span>Config: frame_system::Config {
 		<span class="doccomment">/// Because this pallet emits events, it depends on the runtime's definition of an event.
+		/// &lt;https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/reference_docs/frame_runtime_types/index.html&gt;
 		</span><span class="kw">type </span>RuntimeEvent: From&lt;Event&lt;<span class="self">Self</span>&gt;&gt; + IsType&lt;&lt;<span class="self">Self </span><span class="kw">as </span>frame_system::Config&gt;::RuntimeEvent&gt;;
+
 		<span class="doccomment">/// A type representing the weights required by the dispatchables of this pallet.
 		</span><span class="kw">type </span>WeightInfo: <span class="kw">crate</span>::weights::WeightInfo;
 	}
@@ -293,24 +304,23 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[pallet::pallet]
 	</span><span class="kw">pub struct </span>Pallet&lt;T&gt;(<span class="kw">_</span>);
 
-	<span class="comment">// The pallet's runtime storage items.
-	// https://docs.substrate.io/v3/runtime/storage
+	<span class="doccomment">/// The pallet's storage items.
+	/// &lt;https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/guides/your_first_pallet/index.html#storage&gt;
+	/// &lt;https://paritytech.github.io/polkadot-sdk/master/frame_support/pallet_macros/attr.storage.html&gt;
 	</span><span class="attr">#[pallet::storage]
-	</span><span class="comment">// Learn more about declaring storage items:
-	// https://docs.substrate.io/v3/runtime/storage#declaring-storage-items
 	</span><span class="kw">pub type </span>Something&lt;T&gt; = StorageValue&lt;<span class="kw">_</span>, u32&gt;;
 
-	<span class="comment">// Pallets use events to inform users when important changes are made.
-	// https://docs.substrate.io/v3/runtime/events-and-errors
+	<span class="doccomment">/// Pallets use events to inform users when important changes are made.
+	/// &lt;https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/guides/your_first_pallet/index.html#event-and-error&gt;
 	</span><span class="attr">#[pallet::event]
 	#[pallet::generate_deposit(<span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>deposit_event)]
 	</span><span class="kw">pub enum </span>Event&lt;T: Config&gt; {
-		<span class="doccomment">/// Event documentation should end with an array that provides descriptive names for event
-		/// parameters. [something, who]
-		</span>SomethingStored(u32, T::AccountId),
+		<span class="doccomment">/// We usually use passive tense for events.
+		</span>SomethingStored { something: u32, who: T::AccountId },
 	}
 
-	<span class="comment">// Errors inform users that something went wrong.
+	<span class="doccomment">/// Errors inform users that something went wrong.
+	/// &lt;https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/guides/your_first_pallet/index.html#event-and-error&gt;
 	</span><span class="attr">#[pallet::error]
 	</span><span class="kw">pub enum </span>Error&lt;T&gt; {
 		<span class="doccomment">/// Error names should be descriptive.
@@ -322,9 +332,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[pallet::hooks]
 	</span><span class="kw">impl</span>&lt;T: Config&gt; Hooks&lt;BlockNumberFor&lt;T&gt;&gt; <span class="kw">for </span>Pallet&lt;T&gt; {}
 
-	<span class="comment">// Dispatchable functions allows users to interact with the pallet and invoke state changes.
-	// These functions materialize as "extrinsics", which are often compared to transactions.
-	// Dispatchable functions must be annotated with a weight and must return a DispatchResult.
+	<span class="doccomment">/// Dispatchable functions allows users to interact with the pallet and invoke state changes.
+	/// These functions materialize as "extrinsics", which are often compared to transactions.
+	/// Dispatchable functions must be annotated with a weight and must return a DispatchResult.
+	/// &lt;https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/guides/your_first_pallet/index.html#dispatchables&gt;
 	</span><span class="attr">#[pallet::call]
 	</span><span class="kw">impl</span>&lt;T: Config&gt; Pallet&lt;T&gt; {
 		<span class="doccomment">/// An example dispatchable that takes a singles value as a parameter, writes the value to
@@ -334,14 +345,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="kw">pub fn </span>do_something(origin: OriginFor&lt;T&gt;, something: u32) -&gt; DispatchResultWithPostInfo {
 			<span class="comment">// Check that the extrinsic was signed and get the signer.
 			// This function will return an error if the extrinsic is not signed.
-			// https://docs.substrate.io/v3/runtime/origins
+			// &lt;https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/reference_docs/frame_origin/index.html&gt;
 			</span><span class="kw">let </span>who = ensure_signed(origin)<span class="question-mark">?</span>;
 
 			<span class="comment">// Update storage.
 			</span>&lt;Something&lt;T&gt;&gt;::put(something);
 
 			<span class="comment">// Emit an event.
-			</span><span class="self">Self</span>::deposit_event(Event::SomethingStored(something, who));
+			</span><span class="self">Self</span>::deposit_event(Event::SomethingStored { something, who });
+
 			<span class="comment">// Return a successful DispatchResultWithPostInfo
 			</span><span class="prelude-val">Ok</span>(().into())
 		}
