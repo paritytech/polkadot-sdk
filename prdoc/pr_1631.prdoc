@@ -21,7 +21,7 @@ crates:
     bump: minor
   - name: sc-network-common
     bump: minor
-  - name: sc-netowrk-light
+  - name: sc-network-light
     bump: minor
   - name: sc-network-statement
     bump: minor
