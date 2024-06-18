@@ -1201,11 +1201,11 @@ fn context_holds_onto_message_until_enough_signals_received() {
 
 		assert_eq!(ctx.signals_received.load(), 1);
 		bounded_tx
-			.send(MessagePacket { signals_received: 2, message: () })
+			.send(MessagePacket { signals_received: 2, message: Box::new(()) })
 			.await
 			.unwrap();
 		unbounded_tx
-			.unbounded_send(MessagePacket { signals_received: 2, message: () })
+			.unbounded_send(MessagePacket { signals_received: 2, message: Box::new(()) })
 			.unwrap();
 
 		match poll!(ctx.recv()) {
