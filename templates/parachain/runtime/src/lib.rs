@@ -287,9 +287,9 @@ mod runtime {
 	pub type CumulusXcm = cumulus_pallet_xcm;
 	#[runtime::pallet_index(33)]
 	pub type MessageQueue = pallet_message_queue;
-	#[runtime::pallet_index(50)]
 
 	// Template
+	#[runtime::pallet_index(50)]
 	pub type TemplatePallet = pallet_parachain_template;
 }
 
