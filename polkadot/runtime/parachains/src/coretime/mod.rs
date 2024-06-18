@@ -314,6 +314,8 @@ impl<T: Config> Pallet<T>
 					return Ok(());
 				}
 
+				let dummy_xcm_context = XcmContext { origin: None, message_id: [0; 32], topic: None };
+
 				let on_demand_pot = T::AccountToLocation::try_convert(&<assigner_on_demand::Pallet<T>>::account_id()).map_err(|err| {
 					log::error!(
 						target: LOG_TARGET,
@@ -337,8 +339,7 @@ impl<T: Config> Pallet<T>
 				T::AssetTransactor::can_check_out(
 					&dest,
 					&asset,
-					// not used in AssetTransactor
-					&XcmContext { origin: None, message_id: [0; 32], topic: None },
+					&dummy_xcm_context,
 				)
 				.map_err(|err| {
 					log::error!(
@@ -348,6 +349,11 @@ impl<T: Config> Pallet<T>
 					);
 					Error::<T>::AssetTransferFailed
 				})?;
+				T::AssetTransactor::check_out(
+					&dest,
+					&asset,
+					&dummy_xcm_context,
+				);
 
 				let asset_reanchored: Assets =
 					vec![Asset { id: AssetId(Location::new(1, Here)), fun: Fungible(raw_revenue) }].into();
@@ -360,7 +366,7 @@ impl<T: Config> Pallet<T>
 					ReceiveTeleportedAsset(asset_reanchored),
 					DepositAsset {
 						assets: Wild(AllCounted(1)),
-						beneficiary: Junction::Parachain(T::BrokerId::get()).into_location(),
+						beneficiary: Junction::Parachain(T::BrokerId::get()).into_exterior(1),
 					},
 					mk_coretime_call::<T>(CoretimeCalls::NotifyRevenue((when, raw_revenue))),
 				]);
