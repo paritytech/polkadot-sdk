@@ -1089,7 +1089,7 @@ mod tests {
 		},
 		identity::Keypair,
 		noise,
-		swarm::{Executor, Swarm, SwarmEvent},
+		swarm::{Config as SwarmConfig, Executor, Swarm, SwarmEvent},
 		Multiaddr,
 	};
 	use std::{iter, time::Duration};
@@ -1115,17 +1115,18 @@ mod tests {
 		let behaviour = RequestResponsesBehaviour::new(list, Arc::new(MockPeerStore {})).unwrap();
 
 		let runtime = tokio::runtime::Runtime::new().unwrap();
-		#[allow(deprecated)]
-		let mut swarm = libp2p::swarm::SwarmBuilder::with_executor(
+
+		let mut swarm = Swarm::new(
 			transport,
 			behaviour,
 			keypair.public().to_peer_id(),
-			TokioExecutor(runtime),
-		)
-		.build();
+			SwarmConfig::with_executor(TokioExecutor(runtime)),
+		);
+
 		let listen_addr: Multiaddr = format!("/memory/{}", rand::random::<u64>()).parse().unwrap();
 
 		swarm.listen_on(listen_addr.clone()).unwrap();
+
 		(swarm, listen_addr)
 	}
 
