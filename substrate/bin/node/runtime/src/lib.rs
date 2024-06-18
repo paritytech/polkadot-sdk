@@ -1374,7 +1374,7 @@ impl pallet_contracts::Config for Runtime {
 	type InstantiateOrigin = EnsureSigned<Self::AccountId>;
 	type MaxDebugBufferLen = ConstU32<{ 2 * 1024 * 1024 }>;
 	type MaxTransientStorageLen = ConstU32<{ 1 * 1024 * 1024 }>;
-	type MaxTransientStorageItems = ConstU32<2000>;
+	type MaxTransientStorageItems = ConstU32<50>;
 	type RuntimeHoldReason = RuntimeHoldReason;
 	#[cfg(not(feature = "runtime-benchmarks"))]
 	type Migrations = ();
