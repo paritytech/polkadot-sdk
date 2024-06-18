@@ -145,12 +145,12 @@ use frame_support::{
 			},
 			Balanced, Inspect as FunInspect, Mutate as FunMutate,
 		},
-		tokens::{fungible::Credit, Fortitude, Precision, Preservation},
+		tokens::{
+			fungible::Credit, Fortitude, Fortitude::Force, Precision, Preservation, Restriction,
+		},
 		Defensive, DefensiveOption, Imbalance, OnUnbalanced,
 	},
 };
-use frame_support::traits::tokens::Fortitude::Force;
-use frame_support::traits::tokens::Restriction;
 use sp_runtime::{
 	traits::{AccountIdConversion, CheckedAdd, CheckedSub, Zero},
 	ArithmeticError, DispatchResult, Perbill, RuntimeDebug, Saturating,
