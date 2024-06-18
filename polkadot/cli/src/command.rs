@@ -373,16 +373,16 @@ pub fn run() -> Result<()> {
 			Ok(runner.async_run(|mut config| {
 				let (client, backend, _, task_manager) =
 					polkadot_service::new_chain_ops(&mut config, None)?;
+				let task_handle = task_manager.spawn_handle();
 				let aux_revert = Box::new(|client, backend, blocks| {
-					polkadot_service::revert_backend(client, backend, blocks, config).map_err(
-						|err| {
+					polkadot_service::revert_backend(client, backend, blocks, config, task_handle)
+						.map_err(|err| {
 							match err {
 								polkadot_service::Error::Blockchain(err) => err.into(),
 								// Generic application-specific error.
 								err => sc_cli::Error::Application(err.into()),
 							}
-						},
-					)
+						})
 				});
 				Ok((
 					cmd.run(client, backend, Some(aux_revert)).map_err(Error::SubstrateCli),
