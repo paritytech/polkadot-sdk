@@ -21,4 +21,4 @@ sp-core = { path = "../../../substrate/primitives/core" }
 thiserror = { workspace = true }
 tokio = "1.37"
 log = { workspace = true, default-features = true }
-parity-scale-codec = { version = "3.6.12", default-features = false }
+codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false }
