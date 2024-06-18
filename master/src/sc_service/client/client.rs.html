@@ -2280,6 +2280,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#2129" id="2129">2129</a>
 <a href="#2130" id="2130">2130</a>
 <a href="#2131" id="2131">2131</a>
+<a href="#2132" id="2132">2132</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2300,7 +2301,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="doccomment">//! Substrate Client
 
-</span><span class="kw">use </span><span class="kw">super</span>::block_rules::{BlockRules, LookupResult <span class="kw">as </span>BlockLookupResult};
+</span><span class="kw">use super</span>::{
+	block_rules::{BlockRules, LookupResult <span class="kw">as </span>BlockLookupResult},
+	CodeProvider,
+};
 <span class="kw">use </span><span class="kw">crate</span>::client::notification_pinning::NotificationPinningWorker;
 <span class="kw">use </span>log::{debug, info, trace, warn};
 <span class="kw">use </span>parking_lot::{Mutex, RwLock};
@@ -2339,10 +2343,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">use </span>sc_utils::mpsc::{tracing_unbounded, TracingUnboundedSender};
 <span class="kw">use </span>sp_core::{
-	storage::{
-		well_known_keys, ChildInfo, ChildType, PrefixedStorageKey, StorageChild, StorageData,
-		StorageKey,
-	},
+	storage::{ChildInfo, ChildType, PrefixedStorageKey, StorageChild, StorageData, StorageKey},
 	traits::{CallContext, SpawnNamed},
 };
 <span class="kw">use </span>sp_runtime::{
@@ -2397,6 +2398,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	config: ClientConfig&lt;Block&gt;,
 	telemetry: <span class="prelude-ty">Option</span>&lt;TelemetryHandle&gt;,
 	unpin_worker_sender: TracingUnboundedSender&lt;UnpinWorkerMessage&lt;Block&gt;&gt;,
+	code_provider: CodeProvider&lt;Block, B, E&gt;,
 	_phantom: PhantomData&lt;RA&gt;,
 }
 
@@ -2692,6 +2694,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			Block,
 			BlockImportOperation = &lt;B <span class="kw">as </span>backend::Backend&lt;Block&gt;&gt;::BlockImportOperation,
 		&gt;,
+		E: Clone,
 		B: <span class="lifetime">'static</span>,
 	{
 		<span class="kw">let </span>info = backend.blockchain().info();
@@ -2720,6 +2723,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		);
 		<span class="kw">let </span>unpin_worker = NotificationPinningWorker::new(rx, backend.clone());
 		spawn_handle.spawn(<span class="string">"notification-pinning-worker"</span>, <span class="prelude-val">None</span>, Box::pin(unpin_worker.run()));
+		<span class="kw">let </span>code_provider = CodeProvider::new(<span class="kw-2">&amp;</span>config, executor.clone(), backend.clone())<span class="question-mark">?</span>;
 
 		<span class="prelude-val">Ok</span>(Client {
 			backend,
@@ -2735,6 +2739,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			config,
 			telemetry,
 			unpin_worker_sender,
+			code_provider,
 			_phantom: Default::default(),
 		})
 	}
@@ -2757,13 +2762,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="doccomment">/// Get the code at a given block.
+	///
+	/// This takes any potential substitutes into account, but ignores overrides.
 	</span><span class="kw">pub fn </span>code_at(<span class="kw-2">&amp;</span><span class="self">self</span>, hash: Block::Hash) -&gt; sp_blockchain::Result&lt;Vec&lt;u8&gt;&gt; {
-		<span class="prelude-val">Ok</span>(StorageProvider::storage(<span class="self">self</span>, hash, <span class="kw-2">&amp;</span>StorageKey(well_known_keys::CODE.to_vec()))<span class="question-mark">?
-			</span>.expect(
-				<span class="string">"None is returned if there's no value stored for the given key;\
-				':code' key is always defined; qed"</span>,
-			)
-			.<span class="number">0</span>)
+		<span class="self">self</span>.code_provider.code_at_ignoring_overrides(hash)
 	}
 
 	<span class="doccomment">/// Get the RuntimeVersion at a given block.

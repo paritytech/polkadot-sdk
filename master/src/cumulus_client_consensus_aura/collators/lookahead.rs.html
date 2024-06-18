@@ -707,8 +707,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#556" id="556">556</a>
 <a href="#557" id="557">557</a>
 <a href="#558" id="558">558</a>
-<a href="#559" id="559">559</a>
-<a href="#560" id="560">560</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -1074,14 +1072,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="prelude-val">Ok</span>(x) =&gt; x,
 				};
 
-				<span class="kw">let </span>validation_code_hash = <span class="kw">match </span>params.code_hash_provider.code_hash_at(parent_hash)
-				{
-					<span class="prelude-val">None </span>=&gt; {
-						<span class="macro">tracing::error!</span>(target: <span class="kw">crate</span>::LOG_TARGET, <span class="question-mark">?</span>parent_hash, <span class="string">"Could not fetch validation code hash"</span>);
-						<span class="kw">break
-					</span>},
-					<span class="prelude-val">Some</span>(v) =&gt; v,
-				};
+				<span class="kw">let </span><span class="prelude-val">Some</span>(validation_code_hash) =
+					params.code_hash_provider.code_hash_at(parent_hash)
+				<span class="kw">else </span>{
+					<span class="macro">tracing::error!</span>(target: <span class="kw">crate</span>::LOG_TARGET, <span class="question-mark">?</span>parent_hash, <span class="string">"Could not fetch validation code hash"</span>);
+					<span class="kw">break
+				</span>};
 
 				<span class="kw">super</span>::check_validation_code_or_log(
 					<span class="kw-2">&amp;</span>validation_code_hash,

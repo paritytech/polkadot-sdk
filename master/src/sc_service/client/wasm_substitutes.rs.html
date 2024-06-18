@@ -408,7 +408,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub struct </span>WasmSubstitutes&lt;Block: BlockT, Executor, Backend&gt; {
 	<span class="doccomment">/// spec_version -&gt; WasmSubstitute
 	</span>substitutes: Arc&lt;HashMap&lt;u32, WasmSubstitute&lt;Block&gt;&gt;&gt;,
-	executor: Executor,
+	executor: Arc&lt;Executor&gt;,
 	backend: Arc&lt;Backend&gt;,
 }
 
@@ -424,14 +424,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">impl</span>&lt;Executor, Backend, Block&gt; WasmSubstitutes&lt;Block, Executor, Backend&gt;
 <span class="kw">where
-	</span>Executor: RuntimeVersionOf + Clone + <span class="lifetime">'static</span>,
+	</span>Executor: RuntimeVersionOf,
 	Backend: backend::Backend&lt;Block&gt;,
 	Block: BlockT,
 {
 	<span class="doccomment">/// Create a new instance.
 	</span><span class="kw">pub fn </span>new(
 		substitutes: HashMap&lt;NumberFor&lt;Block&gt;, Vec&lt;u8&gt;&gt;,
-		executor: Executor,
+		executor: Arc&lt;Executor&gt;,
 		backend: Arc&lt;Backend&gt;,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>&gt; {
 		<span class="kw">let </span>substitutes = substitutes
