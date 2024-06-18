@@ -17,6 +17,7 @@
 
 use super::helper;
 use frame_support_procedural_tools::{get_doc_literals, is_using_frame_crate};
+use proc_macro::TokenStream;
 use quote::ToTokens;
 use syn::{spanned::Spanned, token, Token};
 
@@ -80,6 +81,8 @@ pub struct ConstMetadataDef {
 	pub type_: syn::Type,
 	/// The doc associated
 	pub doc: Vec<syn::Expr>,
+	/// attributes
+	pub attrs: Vec<syn::Attribute>,
 }
 
 impl TryFrom<&syn::TraitItemType> for ConstMetadataDef {
@@ -102,22 +105,22 @@ impl TryFrom<&syn::TraitItemType> for ConstMetadataDef {
 			.ok_or_else(|| err(trait_ty.span(), "`Get<T>` trait bound not found"))?;
 
 		let syn::PathArguments::AngleBracketed(ref ab) = bound.arguments else {
-			return Err(err(bound.span(), "Expected trait generic args"))
+			return Err(err(bound.span(), "Expected trait generic args"));
 		};
 
 		// Only one type argument is expected.
 		if ab.args.len() != 1 {
-			return Err(err(bound.span(), "Expected a single type argument"))
+			return Err(err(bound.span(), "Expected a single type argument"));
 		}
 
 		let syn::GenericArgument::Type(ref type_arg) = ab.args[0] else {
-			return Err(err(ab.args[0].span(), "Expected a type argument"))
+			return Err(err(ab.args[0].span(), "Expected a type argument"));
 		};
 
 		let type_ = syn::parse2::<syn::Type>(replace_self_by_t(type_arg.to_token_stream()))
 			.expect("Internal error: replacing `Self` by `T` should result in valid type");
 
-		Ok(Self { ident, type_, doc })
+		Ok(Self { ident, type_, doc, attrs: trait_ty.attrs.clone() })
 	}
 }
 
@@ -222,7 +225,7 @@ fn check_event_type(
 	let syn::TraitItem::Type(type_) = trait_item else { return Ok(false) };
 
 	if type_.ident != "RuntimeEvent" {
-		return Ok(false)
+		return Ok(false);
 	}
 
 	// Check event has no generics
@@ -230,7 +233,7 @@ fn check_event_type(
 		let msg =
 			"Invalid `type RuntimeEvent`, associated type `RuntimeEvent` is reserved and must have\
 					no generics nor where_clause";
-		return Err(syn::Error::new(trait_item.span(), msg))
+		return Err(syn::Error::new(trait_item.span(), msg));
 	}
 
 	// Check bound contains IsType and From
@@ -244,7 +247,7 @@ fn check_event_type(
 			"Invalid `type RuntimeEvent`, associated type `RuntimeEvent` is reserved and must \
 					bound: `IsType<<Self as frame_system::Config>::RuntimeEvent>`"
 				.to_string();
-		return Err(syn::Error::new(type_.span(), msg))
+		return Err(syn::Error::new(type_.span(), msg));
 	}
 
 	let from_event_bound = type_
@@ -256,7 +259,7 @@ fn check_event_type(
 		let msg =
 			"Invalid `type RuntimeEvent`, associated type `RuntimeEvent` is reserved and must \
 				bound: `From<Event>` or `From<Event<Self>>` or `From<Event<Self, I>>`";
-		return Err(syn::Error::new(type_.span(), msg))
+		return Err(syn::Error::new(type_.span(), msg));
 	};
 
 	if from_event_bound.is_generic && (from_event_bound.has_instance != trait_has_instance) {
@@ -264,7 +267,7 @@ fn check_event_type(
 			"Invalid `type RuntimeEvent`, associated type `RuntimeEvent` bounds inconsistent \
 					`From<Event..>`. Config and generic Event must be both with instance or \
 					without instance";
-		return Err(syn::Error::new(type_.span(), msg))
+		return Err(syn::Error::new(type_.span(), msg));
 	}
 
 	Ok(true)
@@ -276,7 +279,7 @@ fn check_event_type(
 fn has_expected_system_config(path: syn::Path, frame_system: &syn::Path) -> bool {
 	// Check if `frame_system` is actually 'frame_system'.
 	if path.segments.iter().all(|s| s.ident != "frame_system") {
-		return false
+		return false;
 	}
 
 	let mut expected_system_config =
@@ -284,14 +287,20 @@ fn has_expected_system_config(path: syn::Path, frame_system: &syn::Path) -> bool
 			(true, false) =>
 			// We can't use the path to `frame_system` from `frame` if `frame_system` is not being
 			// in scope through `frame`.
-				return false,
+			{
+				return false
+			},
 			(false, true) =>
 			// We know that the only valid frame_system path is one that is `frame_system`, as
 			// `frame` re-exports it as such.
-				syn::parse2::<syn::Path>(quote::quote!(frame_system)).expect("is a valid path; qed"),
+			{
+				syn::parse2::<syn::Path>(quote::quote!(frame_system)).expect("is a valid path; qed")
+			},
 			(_, _) =>
 			// They are either both `frame_system` or both `polkadot_sdk_frame::xyz::frame_system`.
-				frame_system.clone(),
+			{
+				frame_system.clone()
+			},
 		};
 
 	expected_system_config
@@ -304,8 +313,8 @@ fn has_expected_system_config(path: syn::Path, frame_system: &syn::Path) -> bool
 		.segments
 		.into_iter()
 		.map(|ps| ps.ident)
-		.collect::<Vec<_>>() ==
-		path.segments.into_iter().map(|ps| ps.ident).collect::<Vec<_>>()
+		.collect::<Vec<_>>()
+		== path.segments.into_iter().map(|ps| ps.ident).collect::<Vec<_>>()
 }
 
 /// Replace ident `Self` by `T`
@@ -313,10 +322,12 @@ pub fn replace_self_by_t(input: proc_macro2::TokenStream) -> proc_macro2::TokenS
 	input
 		.into_iter()
 		.map(|token_tree| match token_tree {
-			proc_macro2::TokenTree::Group(group) =>
-				proc_macro2::Group::new(group.delimiter(), replace_self_by_t(group.stream())).into(),
-			proc_macro2::TokenTree::Ident(ident) if ident == "Self" =>
-				proc_macro2::Ident::new("T", ident.span()).into(),
+			proc_macro2::TokenTree::Group(group) => {
+				proc_macro2::Group::new(group.delimiter(), replace_self_by_t(group.stream())).into()
+			},
+			proc_macro2::TokenTree::Ident(ident) if ident == "Self" => {
+				proc_macro2::Ident::new("T", ident.span()).into()
+			},
 			other => other,
 		})
 		.collect()
@@ -332,12 +343,12 @@ impl ConfigDef {
 	) -> syn::Result<Self> {
 		let syn::Item::Trait(item) = item else {
 			let msg = "Invalid pallet::config, expected trait definition";
-			return Err(syn::Error::new(item.span(), msg))
+			return Err(syn::Error::new(item.span(), msg));
 		};
 
 		if !matches!(item.vis, syn::Visibility::Public(_)) {
 			let msg = "Invalid pallet::config, trait must be public";
-			return Err(syn::Error::new(item.span(), msg))
+			return Err(syn::Error::new(item.span(), msg));
 		}
 
 		syn::parse2::<keyword::Config>(item.ident.to_token_stream())?;
@@ -352,7 +363,7 @@ impl ConfigDef {
 
 		if item.generics.params.len() > 1 {
 			let msg = "Invalid pallet::config, expected no more than one generic";
-			return Err(syn::Error::new(item.generics.params[2].span(), msg))
+			return Err(syn::Error::new(item.generics.params[2].span(), msg));
 		}
 
 		let has_instance = if item.generics.params.first().is_some() {
@@ -394,29 +405,30 @@ impl ConfigDef {
 							return Err(syn::Error::new(
 								pallet_attr._bracket.span.join(),
 								"Duplicate #[pallet::constant] attribute not allowed.",
-							))
+							));
 						}
 						already_constant = true;
 						consts_metadata.push(ConstMetadataDef::try_from(typ)?);
 					},
-					(PalletAttrType::Constant(_), _) =>
+					(PalletAttrType::Constant(_), _) => {
 						return Err(syn::Error::new(
 							trait_item.span(),
 							"Invalid #[pallet::constant] in #[pallet::config], expected type item",
-						)),
+						))
+					},
 					(PalletAttrType::NoDefault(_), _) => {
 						if !enable_default {
 							return Err(syn::Error::new(
 								pallet_attr._bracket.span.join(),
 								"`#[pallet:no_default]` can only be used if `#[pallet::config(with_default)]` \
 								has been specified"
-							))
+							));
 						}
 						if already_no_default {
 							return Err(syn::Error::new(
 								pallet_attr._bracket.span.join(),
 								"Duplicate #[pallet::no_default] attribute not allowed.",
-							))
+							));
 						}
 
 						already_no_default = true;
@@ -427,13 +439,13 @@ impl ConfigDef {
 								pallet_attr._bracket.span.join(),
 								"`#[pallet:no_default_bounds]` can only be used if `#[pallet::config(with_default)]` \
 								has been specified"
-							))
+							));
 						}
 						if already_no_default_bounds {
 							return Err(syn::Error::new(
 								pallet_attr._bracket.span.join(),
 								"Duplicate #[pallet::no_default_bounds] attribute not allowed.",
-							))
+							));
 						}
 						already_no_default_bounds = true;
 					},
@@ -475,7 +487,7 @@ impl ConfigDef {
 				frame_system.to_token_stream(),
 				found,
 			);
-			return Err(syn::Error::new(item.span(), msg))
+			return Err(syn::Error::new(item.span(), msg));
 		}
 
 		Ok(Self {

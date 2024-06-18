@@ -94,7 +94,7 @@ pub fn generate_decl_runtime_metadata(decl: &ItemTrait) -> TokenStream2 {
 		let is_changed_in =
 			method.attrs.iter().any(|attr| attr.path().is_ident(CHANGED_IN_ATTRIBUTE));
 		if is_changed_in {
-			continue
+			continue;
 		}
 
 		let mut inputs = Vec::new();
@@ -131,6 +131,7 @@ pub fn generate_decl_runtime_metadata(decl: &ItemTrait) -> TokenStream2 {
 
 		// Include the method metadata only if its `cfg` features are enabled.
 		let attrs = filter_cfg_attributes(&method.attrs);
+		let deprecation = crate::utils::get_deprecation(&crate_, &method.attrs).unwrap();
 		methods.push(quote!(
 			#( #attrs )*
 			#crate_::metadata_ir::RuntimeApiMethodMetadataIR {
@@ -138,6 +139,7 @@ pub fn generate_decl_runtime_metadata(decl: &ItemTrait) -> TokenStream2 {
 				inputs: #crate_::vec![ #( #inputs, )* ],
 				output: #output,
 				docs: #docs,
+				deprecation_info: #deprecation,
 			}
 		));
 	}
@@ -146,6 +148,7 @@ pub fn generate_decl_runtime_metadata(decl: &ItemTrait) -> TokenStream2 {
 	let trait_name = trait_name_ident.to_string();
 	let docs = collect_docs(&decl.attrs, &crate_);
 	let attrs = filter_cfg_attributes(&decl.attrs);
+	let deprecation = crate::utils::get_deprecation(&crate_, &decl.attrs).unwrap();
 	// The trait generics where already extended with `Block: BlockT`.
 	let mut generics = decl.generics.clone();
 	for generic_param in generics.params.iter_mut() {
@@ -174,6 +177,7 @@ pub fn generate_decl_runtime_metadata(decl: &ItemTrait) -> TokenStream2 {
 					name: #trait_name,
 					methods: #crate_::vec![ #( #methods, )* ],
 					docs: #docs,
+					deprecation_info: #deprecation,
 				}
 			}
 		}
@@ -187,7 +191,7 @@ pub fn generate_decl_runtime_metadata(decl: &ItemTrait) -> TokenStream2 {
 /// exposed by `generate_decl_runtime_metadata`.
 pub fn generate_impl_runtime_metadata(impls: &[ItemImpl]) -> Result<TokenStream2> {
 	if impls.is_empty() {
-		return Ok(quote!())
+		return Ok(quote!());
 	}
 
 	let crate_ = generate_crate_access();

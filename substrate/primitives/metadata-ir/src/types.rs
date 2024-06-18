@@ -52,6 +52,8 @@ pub struct RuntimeApiMetadataIR<T: Form = MetaForm> {
 	pub methods: Vec<RuntimeApiMethodMetadataIR<T>>,
 	/// Trait documentation.
 	pub docs: Vec<T::String>,
+	/// Deprecation info
+	pub deprecation_info: DeprecationStatus<T>,
 }
 
 impl IntoPortable for RuntimeApiMetadataIR {
@@ -62,6 +64,7 @@ impl IntoPortable for RuntimeApiMetadataIR {
 			name: self.name.into_portable(registry),
 			methods: registry.map_into_portable(self.methods),
 			docs: registry.map_into_portable(self.docs),
+			deprecation_info: self.deprecation_info.into_portable(registry),
 		}
 	}
 }
@@ -77,6 +80,8 @@ pub struct RuntimeApiMethodMetadataIR<T: Form = MetaForm> {
 	pub output: T::Type,
 	/// Method documentation.
 	pub docs: Vec<T::String>,
+	/// Deprecation info
+	pub deprecation_info: DeprecationStatus<T>,
 }
 
 impl IntoPortable for RuntimeApiMethodMetadataIR {
@@ -88,6 +93,7 @@ impl IntoPortable for RuntimeApiMethodMetadataIR {
 			inputs: registry.map_into_portable(self.inputs),
 			output: registry.register_type(&self.output),
 			docs: registry.map_into_portable(self.docs),
+			deprecation_info: self.deprecation_info.into_portable(registry),
 		}
 	}
 }
@@ -132,6 +138,8 @@ pub struct PalletMetadataIR<T: Form = MetaForm> {
 	pub index: u8,
 	/// Pallet documentation.
 	pub docs: Vec<T::String>,
+	/// Deprecation info
+	pub deprecation_info: DeprecationStatus<T>,
 }
 
 impl IntoPortable for PalletMetadataIR {
@@ -147,6 +155,7 @@ impl IntoPortable for PalletMetadataIR {
 			error: self.error.map(|error| error.into_portable(registry)),
 			index: self.index,
 			docs: registry.map_into_portable(self.docs),
+			deprecation_info: self.deprecation_info.into_portable(registry),
 		}
 	}
 }
@@ -245,6 +254,8 @@ pub struct StorageEntryMetadataIR<T: Form = MetaForm> {
 	pub default: Vec<u8>,
 	/// Storage entry documentation.
 	pub docs: Vec<T::String>,
+	/// Deprecation info
+	pub deprecation_info: DeprecationStatus<T>,
 }
 
 impl IntoPortable for StorageEntryMetadataIR {
@@ -257,6 +268,7 @@ impl IntoPortable for StorageEntryMetadataIR {
 			ty: self.ty.into_portable(registry),
 			default: self.default,
 			docs: registry.map_into_portable(self.docs),
+			deprecation_info: self.deprecation_info.into_portable(registry),
 		}
 	}
 }
@@ -379,6 +391,8 @@ pub struct PalletConstantMetadataIR<T: Form = MetaForm> {
 	pub value: Vec<u8>,
 	/// Documentation of the constant.
 	pub docs: Vec<T::String>,
+	/// Deprecation info
+	pub deprecation_info: DeprecationStatus<T>,
 }
 
 impl IntoPortable for PalletConstantMetadataIR {
@@ -390,6 +404,7 @@ impl IntoPortable for PalletConstantMetadataIR {
 			ty: registry.register_type(&self.ty),
 			value: self.value,
 			docs: registry.map_into_portable(self.docs),
+			deprecation_info: self.deprecation_info.into_portable(registry),
 		}
 	}
 }
@@ -448,6 +463,37 @@ impl IntoPortable for OuterEnumsIR {
 			call_enum_ty: registry.register_type(&self.call_enum_ty),
 			event_enum_ty: registry.register_type(&self.event_enum_ty),
 			error_enum_ty: registry.register_type(&self.error_enum_ty),
+		}
+	}
+}
+
+/// Deprecation status for an entry inside MetadataIR
+#[derive(Clone, PartialEq, Eq, Encode, Debug)]
+pub enum DeprecationStatus<T: Form = MetaForm> {
+	/// Entry is not deprecated
+	NotDeprecated,
+	/// Deprecated without a note.
+	DeprecatedWithoutNote,
+	/// Entry is deprecated with an note and an optional `since` field.
+	Deprecated {
+		/// Note explaining the deprecation
+		note: T::String,
+		/// Optional value for denoting version when the deprecation occured
+		since: Option<T::String>,
+	},
+}
+impl IntoPortable for DeprecationStatus {
+	type Output = DeprecationStatus<PortableForm>;
+
+	fn into_portable(self, registry: &mut Registry) -> Self::Output {
+		match self {
+			Self::Deprecated { note, since } => {
+				let note = note.into_portable(registry);
+				let since = since.map(|x| x.into_portable(registry));
+				DeprecationStatus::Deprecated { note, since }
+			},
+			Self::DeprecatedWithoutNote => DeprecationStatus::DeprecatedWithoutNote,
+			Self::NotDeprecated => DeprecationStatus::NotDeprecated,
 		}
 	}
 }

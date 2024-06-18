@@ -632,9 +632,14 @@ where
 	OnEmpty: Get<QueryKind::Query> + 'static,
 	MaxValues: Get<Option<u32>>,
 {
-	fn build_metadata(docs: Vec<&'static str>, entries: &mut Vec<StorageEntryMetadataIR>) {
-		<Self as MapWrapper>::Map::build_metadata(docs, entries);
+	fn build_metadata(
+		deprecation_status: sp_metadata_ir::DeprecationStatus,
+		docs: Vec<&'static str>,
+		entries: &mut Vec<StorageEntryMetadataIR>,
+	) {
+		<Self as MapWrapper>::Map::build_metadata(deprecation_status.clone(), docs, entries);
 		CounterFor::<Prefix>::build_metadata(
+			deprecation_status,
 			vec![&"Counter for the related counted storage map"],
 			entries,
 		);
@@ -858,8 +863,16 @@ mod test {
 			assert_eq!(A::count(), 2);
 
 			let mut entries = vec![];
-			A::build_metadata(vec![], &mut entries);
-			AValueQueryWithAnOnEmpty::build_metadata(vec![], &mut entries);
+			A::build_metadata(
+				sp_metadata_ir::DeprecationStatus::NotDeprecated,
+				vec![],
+				&mut entries,
+			);
+			AValueQueryWithAnOnEmpty::build_metadata(
+				sp_metadata_ir::DeprecationStatus::NotDeprecated,
+				vec![],
+				&mut entries,
+			);
 			assert_eq!(
 				entries,
 				vec![
@@ -873,6 +886,7 @@ mod test {
 						},
 						default: Option::<u32>::None.encode(),
 						docs: vec![],
+						deprecation_info: sp_metadata_ir::DeprecationStatus::NotDeprecated,
 					},
 					StorageEntryMetadataIR {
 						name: "Foo",
@@ -884,6 +898,7 @@ mod test {
 						} else {
 							vec!["Counter for the related counted storage map"]
 						},
+						deprecation_info: sp_metadata_ir::DeprecationStatus::NotDeprecated,
 					},
 					StorageEntryMetadataIR {
 						name: "Foo",
@@ -895,6 +910,7 @@ mod test {
 						},
 						default: 98u32.encode(),
 						docs: vec![],
+						deprecation_info: sp_metadata_ir::DeprecationStatus::NotDeprecated,
 					},
 					StorageEntryMetadataIR {
 						name: "Foo",
@@ -906,6 +922,7 @@ mod test {
 						} else {
 							vec!["Counter for the related counted storage map"]
 						},
+						deprecation_info: sp_metadata_ir::DeprecationStatus::NotDeprecated,
 					},
 				]
 			);
@@ -1107,8 +1124,16 @@ mod test {
 			assert_eq!(A::count(), 2);
 
 			let mut entries = vec![];
-			A::build_metadata(vec![], &mut entries);
-			AValueQueryWithAnOnEmpty::build_metadata(vec![], &mut entries);
+			A::build_metadata(
+				sp_metadata_ir::DeprecationStatus::NotDeprecated,
+				vec![],
+				&mut entries,
+			);
+			AValueQueryWithAnOnEmpty::build_metadata(
+				sp_metadata_ir::DeprecationStatus::NotDeprecated,
+				vec![],
+				&mut entries,
+			);
 			assert_eq!(
 				entries,
 				vec![
@@ -1125,6 +1150,7 @@ mod test {
 						},
 						default: Option::<u32>::None.encode(),
 						docs: vec![],
+						deprecation_info: sp_metadata_ir::DeprecationStatus::NotDeprecated,
 					},
 					StorageEntryMetadataIR {
 						name: "Foo",
@@ -1136,6 +1162,7 @@ mod test {
 						} else {
 							vec!["Counter for the related counted storage map"]
 						},
+						deprecation_info: sp_metadata_ir::DeprecationStatus::NotDeprecated,
 					},
 					StorageEntryMetadataIR {
 						name: "Foo",
@@ -1150,6 +1177,7 @@ mod test {
 						},
 						default: 98u32.encode(),
 						docs: vec![],
+						deprecation_info: sp_metadata_ir::DeprecationStatus::NotDeprecated,
 					},
 					StorageEntryMetadataIR {
 						name: "Foo",
@@ -1161,6 +1189,7 @@ mod test {
 						} else {
 							vec!["Counter for the related counted storage map"]
 						},
+						deprecation_info: sp_metadata_ir::DeprecationStatus::NotDeprecated,
 					},
 				]
 			);
@@ -1357,9 +1386,9 @@ mod test {
 			let _ = A::clear(u32::max_value(), None);
 			// one of the item has been removed
 			assert!(
-				!A::contains_key((2, 20, 200)) &&
-					!A::contains_key((3, 30, 300)) &&
-					!A::contains_key((4, 40, 400))
+				!A::contains_key((2, 20, 200))
+					&& !A::contains_key((3, 30, 300))
+					&& !A::contains_key((4, 40, 400))
 			);
 			assert_eq!(A::count(), 0);
 
@@ -1393,8 +1422,16 @@ mod test {
 			assert_eq!(A::count(), 2);
 
 			let mut entries = vec![];
-			A::build_metadata(vec![], &mut entries);
-			AValueQueryWithAnOnEmpty::build_metadata(vec![], &mut entries);
+			A::build_metadata(
+				sp_metadata_ir::DeprecationStatus::NotDeprecated,
+				vec![],
+				&mut entries,
+			);
+			AValueQueryWithAnOnEmpty::build_metadata(
+				sp_metadata_ir::DeprecationStatus::NotDeprecated,
+				vec![],
+				&mut entries,
+			);
 			assert_eq!(
 				entries,
 				vec![
@@ -1412,6 +1449,7 @@ mod test {
 						},
 						default: Option::<u32>::None.encode(),
 						docs: vec![],
+						deprecation_info: sp_metadata_ir::DeprecationStatus::NotDeprecated,
 					},
 					StorageEntryMetadataIR {
 						name: "Foo",
@@ -1423,6 +1461,7 @@ mod test {
 						} else {
 							vec!["Counter for the related counted storage map"]
 						},
+						deprecation_info: sp_metadata_ir::DeprecationStatus::NotDeprecated,
 					},
 					StorageEntryMetadataIR {
 						name: "Foo",
@@ -1438,6 +1477,7 @@ mod test {
 						},
 						default: 98u32.encode(),
 						docs: vec![],
+						deprecation_info: sp_metadata_ir::DeprecationStatus::NotDeprecated,
 					},
 					StorageEntryMetadataIR {
 						name: "Foo",
@@ -1449,6 +1489,7 @@ mod test {
 						} else {
 							vec!["Counter for the related counted storage map"]
 						},
+						deprecation_info: sp_metadata_ir::DeprecationStatus::NotDeprecated,
 					},
 				]
 			);

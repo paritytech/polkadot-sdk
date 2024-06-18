@@ -21,8 +21,9 @@ use proc_macro2::{Span, TokenStream};
 use proc_macro_crate::{crate_name, FoundCrate};
 use quote::{format_ident, quote};
 use syn::{
-	parse_quote, spanned::Spanned, token::And, Attribute, Error, FnArg, GenericArgument, Ident,
-	ImplItem, ItemImpl, Pat, Path, PathArguments, Result, ReturnType, Signature, Type, TypePath,
+	parse_quote, punctuated::Punctuated, spanned::Spanned, token::And, Attribute, Error, Expr,
+	ExprLit, FnArg, GenericArgument, Ident, ImplItem, ItemImpl, Lit, Meta, MetaNameValue, Pat,
+	Path, PathArguments, Result, ReturnType, Signature, Token, Type, TypePath,
 };
 
 /// Generates the access to the `sc_client` crate.
@@ -33,7 +34,7 @@ pub fn generate_crate_access() -> TokenStream {
 			let renamed_name = Ident::new(&renamed_name, Span::call_site());
 			quote!(#renamed_name::__private)
 		},
-		Err(e) =>
+		Err(e) => {
 			if let Ok(FoundCrate::Name(name)) =
 				crate_name(&"polkadot-sdk-frame").or_else(|_| crate_name(&"frame"))
 			{
@@ -47,7 +48,8 @@ pub fn generate_crate_access() -> TokenStream {
 			} else {
 				let err = Error::new(Span::call_site(), e).to_compile_error();
 				quote!( #err )
-			},
+			}
+		},
 	}
 }
 
@@ -140,12 +142,14 @@ pub fn extract_parameter_names_types_and_borrows(
 					generate_unique_pattern((*arg.pat).clone(), &mut generated_pattern_counter);
 				result.push((name, ty, borrow));
 			},
-			FnArg::Receiver(_) if matches!(allow_self, AllowSelfRefInParameters::No) =>
-				return Err(Error::new(input.span(), "`self` parameter not supported!")),
-			FnArg::Receiver(recv) =>
+			FnArg::Receiver(_) if matches!(allow_self, AllowSelfRefInParameters::No) => {
+				return Err(Error::new(input.span(), "`self` parameter not supported!"))
+			},
+			FnArg::Receiver(recv) => {
 				if recv.mutability.is_some() || recv.reference.is_none() {
-					return Err(Error::new(recv.span(), "Only `&self` is supported!"))
-				},
+					return Err(Error::new(recv.span(), "Only `&self` is supported!"));
+				}
+			},
 		}
 	}
 
@@ -211,8 +215,9 @@ pub fn extract_block_type_from_trait_path(trait_: &Path) -> Result<&TypePath> {
 			let span = trait_.segments.last().as_ref().unwrap().span();
 			Err(Error::new(span, "Missing `Block` generic parameter."))
 		},
-		PathArguments::Parenthesized(_) =>
-			Err(Error::new(generics.arguments.span(), "Unexpected parentheses in path!")),
+		PathArguments::Parenthesized(_) => {
+			Err(Error::new(generics.arguments.span(), "Unexpected parentheses in path!"))
+		},
 	}
 }
 
@@ -284,6 +289,62 @@ pub fn filter_cfg_attributes(attrs: &[syn::Attribute]) -> Vec<syn::Attribute> {
 	attrs.iter().filter(|a| a.path().is_ident("cfg")).cloned().collect()
 }
 
+fn parse_deprecated_meta(crate_: &TokenStream, attr: &syn::Attribute) -> Result<TokenStream> {
+	match &attr.meta {
+		Meta::List(meta_list) => {
+			let parsed = meta_list
+				.parse_args_with(Punctuated::<MetaNameValue, Token![,]>::parse_terminated)
+				.map_err(|e| Error::new(attr.span(), e.to_string()))?;
+			let (note, since) = parsed.iter().try_fold((None, None), |mut acc, item| {
+				let value = match &item.value {
+					Expr::Lit(ExprLit { lit: lit @ Lit::Str(_), .. }) => Ok(lit),
+					_ => Err(Error::new(attr.span(), "Invalid deprecation attribute")),
+				}?;
+				if item.path.is_ident("note") {
+					acc.0.replace(value);
+				} else {
+					acc.1.replace(value);
+				};
+				Ok::<(Option<&syn::Lit>, Option<&syn::Lit>), Error>(acc)
+			})?;
+			note.map_or_else(
+				|| Err(Error::new(attr.span(), "Invalid deprecation attribute: missing `note`")),
+				|note| {
+					let since = if let Some(str) = since {
+						quote! { Some(#str) }
+					} else {
+						quote! { None }
+					};
+					let doc = quote! { #crate_::metadata_ir::DeprecationStatus::Deprecated { note: #note, since: #since }};
+					Ok(doc)
+				},
+			)
+		},
+		Meta::NameValue(MetaNameValue {
+			value: Expr::Lit(ExprLit { lit: lit @ Lit::Str(_), .. }),
+			..
+		}) => {
+			// #[deprecated = "lit"]
+			let doc = quote! { #crate_::metadata_ir::DeprecationStatus::Deprecated { note: #lit, since: None } };
+			Ok(doc)
+		},
+		Meta::Path(_) => {
+			// #[deprecated]
+			Ok(quote! { #crate_::metadata_ir::DeprecationStatus::DeprecatedWithoutNote })
+		},
+		_ => Err(Error::new(attr.span(), "Invalid deprecation attribute")),
+	}
+}
+
+/// collects deprecation attribute if its present.
+pub fn get_deprecation(crate_: &TokenStream, attrs: &[syn::Attribute]) -> Result<TokenStream> {
+	attrs
+		.iter()
+		.find(|a| a.path().is_ident("deprecated"))
+		.map(|a| parse_deprecated_meta(&crate_, a))
+		.unwrap_or_else(|| Ok(quote! {#crate_::metadata_ir::DeprecationStatus::NotDeprecated}))
+}
+
 #[cfg(test)]
 mod tests {
 	use assert_matches::assert_matches;
@@ -329,5 +390,33 @@ mod tests {
 		assert_eq!(filtered.len(), 2);
 		assert_eq!(cfg_std, filtered[0]);
 		assert_eq!(cfg_benchmarks, filtered[1]);
+	}
+
+	#[test]
+	fn check_deprecated_attr() {
+		const FIRST: &'static str = "hello";
+		const SECOND: &'static str = "WORLD";
+
+		let simple: Attribute = parse_quote!(#[deprecated]);
+		let simple_path: Attribute = parse_quote!(#[deprecated = #FIRST]);
+		let meta_list: Attribute = parse_quote!(#[deprecated(note = #FIRST)]);
+		let meta_list_with_since: Attribute =
+			parse_quote!(#[deprecated(note = #FIRST, since = #SECOND)]);
+		assert_eq!(
+			get_deprecation(&quote! { crate }, &[simple]).unwrap(),
+			quote! {crate_::metadata_id::DeprecationStatus::DeprecatedWithoutNote}
+		);
+		// assert_eq!(
+		// 	get_deprecation(&[simple_path]).unwrap(),
+		// 	DeprecationStatus::Deprecated { note: FIRST, since: None }
+		// );
+		// assert_eq!(
+		// 	get_deprecation(&[meta_list]).unwrap(),
+		// 	DeprecationStatus::Deprecated { note: FIRST, since: None }
+		// );
+		// assert_eq!(
+		// 	get_deprecation(&[meta_list_with_since]).unwrap(),
+		// 	DeprecationStatus::Deprecated { note: FIRST, since: Some(SECOND) }
+		// );
 	}
 }

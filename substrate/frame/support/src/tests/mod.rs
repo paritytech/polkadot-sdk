@@ -102,11 +102,11 @@ pub mod frame_system {
 		#[pallet::weight(task.weight())]
 		pub fn do_task(_origin: OriginFor<T>, task: T::RuntimeTask) -> DispatchResultWithPostInfo {
 			if !task.is_valid() {
-				return Err(Error::<T>::InvalidTask.into())
+				return Err(Error::<T>::InvalidTask.into());
 			}
 
 			if let Err(_err) = task.run() {
-				return Err(Error::<T>::FailedTask.into())
+				return Err(Error::<T>::FailedTask.into());
 			}
 
 			Ok(().into())
@@ -590,6 +590,7 @@ fn expected_metadata() -> PalletStorageMetadataIR {
 				},
 				default: vec![0, 0, 0, 0, 0, 0, 0, 0],
 				docs: vec![],
+				deprecation_info: sp_metadata_ir::DeprecationStatus::NotDeprecated,
 			},
 			StorageEntryMetadataIR {
 				name: "OptionLinkedMap",
@@ -601,6 +602,7 @@ fn expected_metadata() -> PalletStorageMetadataIR {
 				},
 				default: vec![0],
 				docs: vec![],
+				deprecation_info: sp_metadata_ir::DeprecationStatus::NotDeprecated,
 			},
 			StorageEntryMetadataIR {
 				name: "GenericData",
@@ -612,6 +614,7 @@ fn expected_metadata() -> PalletStorageMetadataIR {
 				},
 				default: vec![0, 0, 0, 0],
 				docs: vec![],
+				deprecation_info: sp_metadata_ir::DeprecationStatus::NotDeprecated,
 			},
 			StorageEntryMetadataIR {
 				name: "GenericData2",
@@ -623,6 +626,7 @@ fn expected_metadata() -> PalletStorageMetadataIR {
 				},
 				default: vec![0],
 				docs: vec![],
+				deprecation_info: sp_metadata_ir::DeprecationStatus::NotDeprecated,
 			},
 			StorageEntryMetadataIR {
 				name: "DataDM",
@@ -634,6 +638,7 @@ fn expected_metadata() -> PalletStorageMetadataIR {
 				},
 				default: vec![0, 0, 0, 0, 0, 0, 0, 0],
 				docs: vec![],
+				deprecation_info: sp_metadata_ir::DeprecationStatus::NotDeprecated,
 			},
 			StorageEntryMetadataIR {
 				name: "GenericDataDM",
@@ -645,6 +650,7 @@ fn expected_metadata() -> PalletStorageMetadataIR {
 				},
 				default: vec![0, 0, 0, 0],
 				docs: vec![],
+				deprecation_info: sp_metadata_ir::DeprecationStatus::NotDeprecated,
 			},
 			StorageEntryMetadataIR {
 				name: "GenericData2DM",
@@ -656,6 +662,7 @@ fn expected_metadata() -> PalletStorageMetadataIR {
 				},
 				default: vec![0],
 				docs: vec![],
+				deprecation_info: sp_metadata_ir::DeprecationStatus::NotDeprecated,
 			},
 			StorageEntryMetadataIR {
 				name: "AppendableDM",
@@ -670,6 +677,7 @@ fn expected_metadata() -> PalletStorageMetadataIR {
 				},
 				default: vec![0],
 				docs: vec![],
+				deprecation_info: sp_metadata_ir::DeprecationStatus::NotDeprecated,
 			},
 			StorageEntryMetadataIR {
 				name: "Total",
@@ -677,6 +685,7 @@ fn expected_metadata() -> PalletStorageMetadataIR {
 				ty: StorageEntryTypeIR::Plain(scale_info::meta_type::<(u32, u32)>()),
 				default: vec![0, 0, 0, 0, 0, 0, 0, 0],
 				docs: vec![" Some running total."],
+				deprecation_info: sp_metadata_ir::DeprecationStatus::NotDeprecated,
 			},
 			StorageEntryMetadataIR {
 				name: "Numbers",
@@ -688,6 +697,7 @@ fn expected_metadata() -> PalletStorageMetadataIR {
 				},
 				default: vec![0],
 				docs: vec![" Numbers to be added into the total."],
+				deprecation_info: sp_metadata_ir::DeprecationStatus::NotDeprecated,
 			},
 		],
 	}

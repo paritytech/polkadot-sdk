@@ -23,6 +23,7 @@
 mod benchmark;
 mod construct_runtime;
 mod crate_version;
+mod deprecation;
 mod derive_impl;
 mod dummy_part_checker;
 mod dynamic_params;
@@ -788,14 +789,14 @@ pub fn register_default_impl(attrs: TokenStream, tokens: TokenStream) -> TokenSt
 pub fn inject_runtime_type(_: TokenStream, tokens: TokenStream) -> TokenStream {
 	let item = tokens.clone();
 	let item = syn::parse_macro_input!(item as TraitItemType);
-	if item.ident != "RuntimeCall" &&
-		item.ident != "RuntimeEvent" &&
-		item.ident != "RuntimeTask" &&
-		item.ident != "RuntimeOrigin" &&
-		item.ident != "RuntimeHoldReason" &&
-		item.ident != "RuntimeFreezeReason" &&
-		item.ident != "RuntimeParameters" &&
-		item.ident != "PalletInfo"
+	if item.ident != "RuntimeCall"
+		&& item.ident != "RuntimeEvent"
+		&& item.ident != "RuntimeTask"
+		&& item.ident != "RuntimeOrigin"
+		&& item.ident != "RuntimeHoldReason"
+		&& item.ident != "RuntimeFreezeReason"
+		&& item.ident != "RuntimeParameters"
+		&& item.ident != "PalletInfo"
 	{
 		return syn::Error::new_spanned(
 			item,
@@ -803,7 +804,7 @@ pub fn inject_runtime_type(_: TokenStream, tokens: TokenStream) -> TokenStream {
 			`RuntimeTask`, `RuntimeOrigin`, `RuntimeParameters` or `PalletInfo`",
 		)
 		.to_compile_error()
-		.into()
+		.into();
 	}
 	tokens
 }
@@ -1176,7 +1177,7 @@ pub fn import_section(attr: TokenStream, tokens: TokenStream) -> TokenStream {
 			"`#[import_section]` can only be applied to a valid pallet module",
 		)
 		.to_compile_error()
-		.into()
+		.into();
 	}
 
 	if let Some(ref mut content) = internal_mod.content {

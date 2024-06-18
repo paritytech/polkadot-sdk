@@ -583,7 +583,11 @@ where
 	OnEmpty: Get<QueryKind::Query> + 'static,
 	MaxValues: Get<Option<u32>>,
 {
-	fn build_metadata(docs: Vec<&'static str>, entries: &mut Vec<StorageEntryMetadataIR>) {
+	fn build_metadata(
+		deprecation_status: sp_metadata_ir::DeprecationStatus,
+		docs: Vec<&'static str>,
+		entries: &mut Vec<StorageEntryMetadataIR>,
+	) {
 		let docs = if cfg!(feature = "no-metadata-docs") { vec![] } else { docs };
 
 		let entry = StorageEntryMetadataIR {
@@ -596,6 +600,7 @@ where
 			},
 			default: OnEmpty::get().encode(),
 			docs,
+			deprecation_info: deprecation_status,
 		};
 
 		entries.push(entry);
@@ -819,8 +824,16 @@ mod test {
 			assert_eq!(A::iter().collect::<Vec<_>>(), vec![(4, 40), (3, 30)]);
 
 			let mut entries = vec![];
-			A::build_metadata(vec![], &mut entries);
-			AValueQueryWithAnOnEmpty::build_metadata(vec![], &mut entries);
+			A::build_metadata(
+				sp_metadata_ir::DeprecationStatus::NotDeprecated,
+				vec![],
+				&mut entries,
+			);
+			AValueQueryWithAnOnEmpty::build_metadata(
+				sp_metadata_ir::DeprecationStatus::NotDeprecated,
+				vec![],
+				&mut entries,
+			);
 			assert_eq!(
 				entries,
 				vec![
@@ -834,6 +847,7 @@ mod test {
 						},
 						default: Option::<u32>::None.encode(),
 						docs: vec![],
+						deprecation_info: sp_metadata_ir::DeprecationStatus::NotDeprecated,
 					},
 					StorageEntryMetadataIR {
 						name: "Foo",
@@ -845,6 +859,7 @@ mod test {
 						},
 						default: 98u32.encode(),
 						docs: vec![],
+						deprecation_info: sp_metadata_ir::DeprecationStatus::NotDeprecated,
 					}
 				]
 			);
@@ -1019,8 +1034,16 @@ mod test {
 			assert_eq!(A::iter().collect::<Vec<_>>(), vec![((4, 40), 1600), ((3, 30), 900)]);
 
 			let mut entries = vec![];
-			A::build_metadata(vec![], &mut entries);
-			AValueQueryWithAnOnEmpty::build_metadata(vec![], &mut entries);
+			A::build_metadata(
+				sp_metadata_ir::DeprecationStatus::NotDeprecated,
+				vec![],
+				&mut entries,
+			);
+			AValueQueryWithAnOnEmpty::build_metadata(
+				sp_metadata_ir::DeprecationStatus::NotDeprecated,
+				vec![],
+				&mut entries,
+			);
 			assert_eq!(
 				entries,
 				vec![
@@ -1037,6 +1060,7 @@ mod test {
 						},
 						default: Option::<u32>::None.encode(),
 						docs: vec![],
+						deprecation_info: sp_metadata_ir::DeprecationStatus::NotDeprecated,
 					},
 					StorageEntryMetadataIR {
 						name: "Foo",
@@ -1051,6 +1075,7 @@ mod test {
 						},
 						default: 98u32.encode(),
 						docs: vec![],
+						deprecation_info: sp_metadata_ir::DeprecationStatus::NotDeprecated,
 					}
 				]
 			);
@@ -1260,8 +1285,16 @@ mod test {
 			assert_eq!(A::iter().collect::<Vec<_>>(), vec![((4, 40, 400), 4), ((3, 30, 300), 3)]);
 
 			let mut entries = vec![];
-			A::build_metadata(vec![], &mut entries);
-			AValueQueryWithAnOnEmpty::build_metadata(vec![], &mut entries);
+			A::build_metadata(
+				sp_metadata_ir::DeprecationStatus::NotDeprecated,
+				vec![],
+				&mut entries,
+			);
+			AValueQueryWithAnOnEmpty::build_metadata(
+				sp_metadata_ir::DeprecationStatus::NotDeprecated,
+				vec![],
+				&mut entries,
+			);
 			assert_eq!(
 				entries,
 				vec![
@@ -1279,6 +1312,7 @@ mod test {
 						},
 						default: Option::<u32>::None.encode(),
 						docs: vec![],
+						deprecation_info: sp_metadata_ir::DeprecationStatus::NotDeprecated,
 					},
 					StorageEntryMetadataIR {
 						name: "Foo",
@@ -1294,6 +1328,7 @@ mod test {
 						},
 						default: 98u32.encode(),
 						docs: vec![],
+						deprecation_info: sp_metadata_ir::DeprecationStatus::NotDeprecated,
 					}
 				]
 			);
