@@ -256,7 +256,7 @@ impl Discovery {
 			KademliaConfigBuilder::new()
 				.with_known_peers(known_peers)
 				.with_protocol_names(protocol_names)
-				.with_incoming_records_validation_mode(IncomingRecordValidationMode::Manual)
+				// .with_incoming_records_validation_mode(IncomingRecordValidationMode::Manual)
 				.build()
 		};
 
@@ -356,14 +356,14 @@ impl Discovery {
 		publisher: Option<sc_network_types::PeerId>,
 		expires: Option<Instant>,
 	) {
-		self.kademlia_handle
-			.store_record(Record {
-				key: RecordKey::new(&key.to_vec()),
-				value,
-				publisher: publisher.map(Into::into),
-				expires,
-			})
-			.await;
+		// self.kademlia_handle
+		// 	.store_record(Record {
+		// 		key: RecordKey::new(&key.to_vec()),
+		// 		value,
+		// 		publisher: publisher.map(Into::into),
+		// 		expires,
+		// 	})
+		// 	.await;
 	}
 
 	/// Check if the observed address is a known address.
