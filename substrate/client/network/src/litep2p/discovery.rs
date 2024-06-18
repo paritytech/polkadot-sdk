@@ -351,10 +351,10 @@ impl Discovery {
 	/// Store record in the local DHT store.
 	pub async fn store_record(
 		&mut self,
-		key: KademliaKey,
-		value: Vec<u8>,
-		publisher: Option<sc_network_types::PeerId>,
-		expires: Option<Instant>,
+		_key: KademliaKey,
+		_value: Vec<u8>,
+		_publisher: Option<sc_network_types::PeerId>,
+		_expires: Option<Instant>,
 	) {
 		// self.kademlia_handle
 		// 	.store_record(Record {
