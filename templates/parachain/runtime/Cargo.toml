@@ -35,7 +35,7 @@ pallet-parachain-template = { path = "../pallets/template", default-features = f
 frame-benchmarking = { path = "../../../substrate/frame/benchmarking", default-features = false, optional = true }
 frame-executive = { path = "../../../substrate/frame/executive", default-features = false }
 frame-metadata-hash-extension = { path = "../../../substrate/frame/metadata-hash-extension", default-features = false }
-frame-support = { path = "../../../substrate/frame/support", default-features = false }
+frame-support = { path = "../../../substrate/frame/support", default-features = false, features = ["experimental"] }
 frame-system = { path = "../../../substrate/frame/system", default-features = false }
 frame-system-benchmarking = { path = "../../../substrate/frame/system/benchmarking", default-features = false, optional = true }
 frame-system-rpc-runtime-api = { path = "../../../substrate/frame/system/rpc/runtime-api", default-features = false }
