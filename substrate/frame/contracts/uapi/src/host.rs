@@ -455,7 +455,6 @@ pub trait HostFn {
 
 	fn get_transient_storage(key: &[u8], output: &mut &mut [u8]) -> Result;
 
-
 	hash_fn!(sha2_256, 32);
 	hash_fn!(keccak_256, 32);
 	hash_fn!(blake2_256, 32);

@@ -1196,7 +1196,7 @@ mod benchmarks {
 		let mut runtime = crate::wasm::Runtime::new(&mut ext, vec![]);
 		let max_storage_items = T::MaxTransientStorageItems::get();
 
-		dummy_transient_storage::<T>(runtime.ext(), max_storage_items, n)?;
+		dummy_transient_storage::<T>(runtime.ext(), max_storage_items, 1)?;
 		runtime.ext().transient_storage().start_transaction();
 		runtime
 			.ext()
@@ -1216,14 +1216,12 @@ mod benchmarks {
 		let max_value_len = T::Schedule::get().limits.payload_len;
 		let max_key_len = T::MaxStorageKeyLen::get();
 		let max_storage_items = T::MaxTransientStorageItems::get();
-		sp_runtime::print("{max_storage_items}");
 		let key = Key::<T>::try_from_var(vec![0u8; max_key_len as usize])
 			.map_err(|_| "Key has wrong length")?;
 		let value = vec![1u8; max_value_len as usize];
-
 		build_runtime!(runtime, memory: [ key.to_vec(), value.clone(), ]);
 
-		dummy_transient_storage::<T>(runtime.ext(), max_storage_items, max_value_len)?;
+		dummy_transient_storage::<T>(runtime.ext(), max_storage_items, 1)?;
 		runtime
 			.ext()
 			.set_transient_storage(&key, Some(vec![16u8; max_value_len as usize]), false)
