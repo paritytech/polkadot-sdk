@@ -31,7 +31,7 @@ onboard_as_parachain = false
 add_to_genesis = false
 chain = "glutton-westend-local-{{id}}"
     [parachains.genesis.runtimeGenesis.patch.glutton]
-    compute = "1000000000"
+    compute = "50000000"
     storage = "2500000000"
     trashDataCount = 5120
 
