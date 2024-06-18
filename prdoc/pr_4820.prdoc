@@ -1,0 +1,11 @@
+title: Make --state-version in storage benchmark command self-descriptive
+
+doc:
+  - audience: Node Dev
+    description: |
+      The value of `--state-version` flag in storage benchmark command is changed from `0/1` to `v0/v1`.
+      See the new help message for the usage.
+
+crates:
+  - name: frame-benchmarking-cli
+    bump: minor
