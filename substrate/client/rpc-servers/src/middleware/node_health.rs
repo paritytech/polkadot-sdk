@@ -25,6 +25,7 @@ use std::{
 	task::{Context, Poll},
 };
 
+use futures::future::FutureExt;
 use http::{HeaderValue, Method, StatusCode, Uri};
 use hyper::Body;
 use jsonrpsee::types::{Response as RpcResponse, ResponseSuccess as RpcResponseSuccess};
@@ -104,6 +105,8 @@ where
 			let res = fut.await.map_err(|err| err.into())?;
 
 			Ok(match maybe_intercept {
+				InterceptRequest::Deny =>
+					http_response(StatusCode::METHOD_NOT_ALLOWED, Body::empty()),
 				InterceptRequest::No => res,
 				InterceptRequest::Health => {
 					let health = parse_rpc_response(res.into_body()).await?;
@@ -118,7 +121,8 @@ where
 					}
 				},
 			})
-		}.boxed()
+		}
+		.boxed()
 	}
 }
 
@@ -174,13 +178,28 @@ enum InterceptRequest {
 	Readiness,
 	/// Treat as a ordinary RPC call and don't modify the request or response.
 	No,
+	/// Deny health or readiness calls that is not HTTP GET request.
+	///
+	/// Returns HTTP status code 405.
+	Deny,
 }
 
 impl InterceptRequest {
-	fn from_http(req: &http::Request<Body>) -> Self {
+	fn from_http(req: &http::Request<Body>) -> InterceptRequest {
 		match req.uri().path() {
-			"/health" if req.method() == http::Method::GET => InterceptRequest::Health,
-			"/health/readiness" if req.method() == http::Method::GET => InterceptRequest::Readiness,
+			"/health" =>
+				if req.method() == http::Method::GET {
+					InterceptRequest::Health
+				} else {
+					InterceptRequest::Deny
+				},
+			"/health/readiness" =>
+				if req.method() == http::Method::GET {
+					InterceptRequest::Readiness
+				} else {
+					InterceptRequest::Deny
+				},
+			// Forward all other requests to the RPC server.
 			_ => InterceptRequest::No,
 		}
 	}
