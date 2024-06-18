@@ -131,7 +131,7 @@ where
 	let http_middleware = tower::ServiceBuilder::new()
 		.option_layer(host_filter)
 		// Proxy `GET /health, /health/readiness` requests to the internal `system_health` method.
-		.layer(NodeHealthProxyLayer::new())
+		.layer(NodeHealthProxyLayer::default())
 		.layer(try_into_cors(cors)?);
 
 	let mut builder = jsonrpsee::server::Server::builder()

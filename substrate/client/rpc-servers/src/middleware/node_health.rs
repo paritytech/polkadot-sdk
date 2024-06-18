@@ -39,13 +39,6 @@ const HEADER_VALUE_JSON: HeaderValue = HeaderValue::from_static("application/jso
 #[derive(Debug, Clone, Default)]
 pub struct NodeHealthProxyLayer;
 
-impl NodeHealthProxyLayer {
-	/// Creates a new [`NodeHealthProxyLayer`].
-	pub fn new() -> Self {
-		Self
-	}
-}
-
 impl<S> tower::Layer<S> for NodeHealthProxyLayer {
 	type Service = NodeHealthProxy<S>;
 
