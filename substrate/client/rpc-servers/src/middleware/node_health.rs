@@ -100,7 +100,7 @@ where
 		// Call the inner service and get a future that resolves to the response.
 		let fut = self.0.call(req);
 
-		let res_fut = async move {
+		async move {
 			let res = fut.await.map_err(|err| err.into())?;
 
 			Ok(match maybe_intercept {
@@ -111,16 +111,14 @@ where
 				},
 				InterceptRequest::Readiness => {
 					let health = parse_rpc_response(res.into_body()).await?;
-					if !health.is_syncing && health.peers > 0 {
+					if (!health.is_syncing && health.peers > 0) || !health.should_have_peers {
 						http_ok_response(Body::empty())
 					} else {
 						http_internal_error()
 					}
 				},
 			})
-		};
-
-		Box::pin(res_fut)
+		}.boxed()
 	}
 }
 
