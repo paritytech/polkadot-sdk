@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1718703221832,
+  "lastUpdate": 1718718548924,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -7848,6 +7848,53 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 2.991006914380159,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Javier Bullrich",
+            "username": "Bullrich",
+            "email": "javier@bullrich.dev"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "6daa939bc7c3f26c693a876d5a4b7ea00c6b2d7f",
+          "message": "Migrated commands to github actions (#4701)\n\nMigrated commands individually to work as GitHub actions with a\n[`workflow_dispatch`](https://docs.github.com/en/actions/using-workflows/events-that-trigger-workflows#workflow_dispatch)\nevent.\n\nThis will not disable the command-bot yet, but it's the first step\nbefore disabling it.\n\n### Commands migrated\n- [x] bench-all\n- [x] bench-overhead\n- [x] bench\n- [x] fmt\n- [x] update-ui\n\nAlso created an action that will inform users about the new\ndocumentation when they comment `bot`.\n\n### Created documentation \nCreated a detailed documentation on how to use this action. Found the\ndocumentation\n[here](https://github.com/paritytech/polkadot-sdk/blob/bullrich/cmd-action/.github/commands-readme.md).\n\n---------\n\nCo-authored-by: Alexander Samusev <41779041+alvicsam@users.noreply.github.com>\nCo-authored-by: Przemek Rzad <przemek@parity.io>",
+          "timestamp": "2024-06-18T13:12:03Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/6daa939bc7c3f26c693a876d5a4b7ea00c6b2d7f"
+        },
+        "date": 1718718520252,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63544.56999999999,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52943.2,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting",
+            "value": 9.70097270847,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 7.201733687410012,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 3.21615149713017,
             "unit": "seconds"
           }
         ]
