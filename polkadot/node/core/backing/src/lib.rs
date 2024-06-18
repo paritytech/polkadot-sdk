@@ -1166,6 +1166,8 @@ async fn construct_per_relay_parent_state<Context>(
 				},
 				_ => continue,
 			};
+		} else if !claim_queue.contains_key(&core_index) {
+			continue
 		}
 
 		let group_index = group_rotation_info.group_for_core(core_index, n_cores);
