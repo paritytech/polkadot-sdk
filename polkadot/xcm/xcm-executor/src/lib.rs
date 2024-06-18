@@ -524,6 +524,25 @@ impl<Config: config::Config> XcmExecutor<Config> {
 		assets.into_assets_iter().collect::<Vec<_>>().into()
 	}
 
+	/// Helper function for calculating transport fee to be deducted from `assets`, and put back
+	/// into Holding for later use for paying the XcmSender. Used during execution of all asset
+	/// transfer instructions that send an onward XCM without JIT_WITHDRAW=true and thus need to
+	/// charge a transport fee from transferred assets.
+	fn reserve_assets_transfer_transport_fee(
+		&mut self,
+		assets: &mut AssetsInHolding,
+		dest: Location,
+		remote_xcm: Xcm<()>,
+	) -> Result<(), XcmError> {
+		// calculate the transport fee for this remote XCM
+		let (_, fee) = validate_send::<Config::XcmSender>(dest, remote_xcm)?;
+		// take the required fee from assets to be transferred
+		let transport_fee = assets.try_take(fee.into()).map_err(|_| XcmError::FeesNotMet)?;
+		// put back transport_fee in Holding to be charged by XcmSender
+		self.holding.subsume_assets(transport_fee);
+		Ok(())
+	}
+
 	#[cfg(feature = "runtime-benchmarks")]
 	pub fn bench_process(&mut self, xcm: Xcm<Config::RuntimeCall>) -> Result<(), ExecutorError> {
 		self.process(xcm)
@@ -842,34 +861,38 @@ impl<Config: config::Config> XcmExecutor<Config> {
 			DepositReserveAsset { assets, dest, xcm } => {
 				let old_holding = self.holding.clone();
 				let result = Config::TransactionalProcessor::process(|| {
-					// TODO: check JIT_WITHDRAW
-					// we need to do this take/put cycle to solve wildcards and get exact assets to
-					// be weighed
-					let to_weigh = self.holding.saturating_take(assets.clone());
-					self.holding.subsume_assets(to_weigh.clone());
-					let to_weigh_reanchored = Self::reanchored(to_weigh, &dest, None);
-					let mut message_to_weigh =
-						vec![ReserveAssetDeposited(to_weigh_reanchored), ClearOrigin];
-					message_to_weigh.extend(xcm.0.clone().into_iter());
-					let (_, fee) =
-						validate_send::<Config::XcmSender>(dest.clone(), Xcm(message_to_weigh))?;
-					// set aside fee to be charged by XcmSender
-					let transport_fee = self.holding.saturating_take(fee.into());
+					let remote_xcm = |assets: AssetsInHolding, mut xcm: Xcm<()>| -> Xcm<()> {
+						// reanchor assets in context of `dest`
+						let reanchored = Self::reanchored(assets, &dest, None);
+						// build the remote XCM for reserve depositing assets
+						let mut message = vec![ReserveAssetDeposited(reanchored), ClearOrigin];
+						message.append(&mut xcm.0);
+						Xcm(message)
+					};
 
-					// now take assets to deposit (excluding transport_fee)
-					let deposited = self.holding.saturating_take(assets);
-					for asset in deposited.assets_iter() {
+					// take assets to transfer from Holding
+					let mut to_deposit = self.holding.saturating_take(assets);
+
+					// if not using JIT withdraw, transport fee will be charged from Holding
+					if !self.fees_mode.jit_withdraw {
+						// get the remote XCM for weighing
+						let message_to_weigh = remote_xcm(to_deposit.clone(), xcm.clone());
+						// calculate transport fee and move it from `to_deposit` back to Holding, to
+						// be later charged by XcmSender
+						self.reserve_assets_transfer_transport_fee(
+							&mut to_deposit,
+							dest.clone(),
+							message_to_weigh,
+						)?;
+					}
+
+					// deposit assets (minus transport fee) to dest's sovereign account
+					for asset in to_deposit.assets_iter() {
 						Config::AssetTransactor::deposit_asset(&asset, &dest, Some(&self.context))?;
 					}
-					// Note that we pass `None` as `maybe_failed_bin` and drop any assets which
-					// cannot be reanchored  because we have already called `deposit_asset` on all
-					// assets.
-					let assets = Self::reanchored(deposited, &dest, None);
-					let mut message = vec![ReserveAssetDeposited(assets), ClearOrigin];
-					message.extend(xcm.0.into_iter());
-					// put back transport_fee in holding register to be charged by XcmSender
-					self.holding.subsume_assets(transport_fee);
-					self.send(dest, Xcm(message), FeeReason::DepositReserveAsset)?;
+					// build the remote message (assets to transfer minus potential transport fees)
+					let message = remote_xcm(to_deposit, xcm);
+					self.send(dest, message, FeeReason::DepositReserveAsset)?;
 					Ok(())
 				});
 				if Config::TransactionalProcessor::IS_TRANSACTIONAL && result.is_err() {
@@ -900,41 +923,44 @@ impl<Config: config::Config> XcmExecutor<Config> {
 			InitiateTeleport { assets, dest, xcm } => {
 				let old_holding = self.holding.clone();
 				let result = (|| -> Result<(), XcmError> {
-					// TODO: check JIT_WITHDRAW
-					// we need to do this take/put cycle to solve wildcards and get exact assets to
-					// be weighed
-					let to_weigh = self.holding.saturating_take(assets.clone());
-					self.holding.subsume_assets(to_weigh.clone());
-					let to_weigh_reanchored = Self::reanchored(to_weigh, &dest, None);
-					let mut message_to_weigh =
-						vec![ReceiveTeleportedAsset(to_weigh_reanchored), ClearOrigin];
-					message_to_weigh.extend(xcm.0.clone().into_iter());
-					let (_, fee) =
-						validate_send::<Config::XcmSender>(dest.clone(), Xcm(message_to_weigh))?;
-					// set aside fee to be charged by XcmSender
-					let transport_fee = self.holding.saturating_take(fee.into());
+					let remote_xcm = |assets: AssetsInHolding, mut xcm: Xcm<()>| -> Xcm<()> {
+						// reanchor assets in context of `dest`
+						let reanchored = Self::reanchored(assets, &dest, None);
+						// build the remote XCM for teleporting assets
+						let mut message = vec![ReceiveTeleportedAsset(reanchored), ClearOrigin];
+						message.append(&mut xcm.0);
+						Xcm(message)
+					};
 
-					// now take assets to teleport (excluding transport_fee already withdrawn from
-					// holding)
-					let assets = self.holding.saturating_take(assets);
-					for asset in assets.assets_iter() {
+					// take assets to transfer from Holding
+					let mut to_teleport = self.holding.saturating_take(assets);
+
+					// if not using JIT withdraw, transport fee will be charged from Holding
+					if !self.fees_mode.jit_withdraw {
+						// get the remote XCM for weighing
+						let message_to_weigh = remote_xcm(to_teleport.clone(), xcm.clone());
+						// calculate transport fee and move it from `to_deposit` back to Holding, to
+						// be later charged by XcmSender
+						self.reserve_assets_transfer_transport_fee(
+							&mut to_teleport,
+							dest.clone(),
+							message_to_weigh,
+						)?;
+					}
+
+					let to_check_out: Vec<Asset> = to_teleport.assets_iter().collect();
+					for asset in &to_check_out {
 						// We should check that the asset can actually be teleported out (for this
 						// to be in error, there would need to be an accounting violation by
 						// ourselves, so it's unlikely, but we don't want to allow that kind of bug
 						// to leak into a trusted chain.
-						Config::AssetTransactor::can_check_out(&dest, &asset, &self.context)?;
+						Config::AssetTransactor::can_check_out(&dest, asset, &self.context)?;
 					}
-					// Note that we pass `None` as `maybe_failed_bin` and drop any assets which
-					// cannot be reanchored  because we have already checked all assets out.
-					let reanchored_assets = Self::reanchored(assets.clone(), &dest, None);
-					let mut message = vec![ReceiveTeleportedAsset(reanchored_assets), ClearOrigin];
-					message.extend(xcm.0.into_iter());
+					// build the remote message (assets to teleport minus potential transport fees)
+					let message = remote_xcm(to_teleport, xcm);
+					self.send(dest.clone(), message, FeeReason::InitiateTeleport)?;
 
-					// put back transport_fee in holding register to be charged by XcmSender
-					self.holding.subsume_assets(transport_fee);
-					self.send(dest.clone(), Xcm(message), FeeReason::InitiateTeleport)?;
-
-					for asset in assets.assets_iter() {
+					for asset in to_check_out {
 						Config::AssetTransactor::check_out(&dest, &asset, &self.context);
 					}
 					Ok(())
