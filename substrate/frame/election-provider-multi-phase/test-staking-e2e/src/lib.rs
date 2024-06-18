@@ -22,6 +22,7 @@ pub(crate) const LOG_TARGET: &str = "tests::e2e-epm";
 
 use frame_support::{assert_err, assert_noop, assert_ok};
 use mock::*;
+use pallet_timestamp::Now;
 use sp_core::Get;
 use sp_runtime::Perbill;
 
@@ -46,7 +47,7 @@ fn log_current_time() {
 		Session::current_index(),
 		Staking::current_era(),
 		ElectionProviderMultiPhase::current_phase(),
-		Timestamp::now()
+		Now::<Runtime>::get()
 	);
 }
 
@@ -209,7 +210,7 @@ fn continuous_slashes_below_offending_threshold() {
 			// failed due to election minimum score.
 			if start_next_active_era(pool_state.clone()).is_err() {
 				assert!(ElectionProviderMultiPhase::current_phase().is_emergency());
-				break
+				break;
 			}
 
 			active_validator_set = Session::validators();
