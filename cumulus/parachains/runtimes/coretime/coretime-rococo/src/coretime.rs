@@ -33,9 +33,9 @@ use pallet_broker::{
 };
 use parachains_common::{AccountId, Balance};
 use rococo_runtime_constants::system_parachain::coretime;
+use sp_core::Get;
 use sp_runtime::traits::AccountIdConversion;
 use xcm::latest::prelude::*;
-use sp_core::Get;
 
 pub struct CreditToCollatorPot;
 impl OnUnbalanced<Credit<AccountId, Balances>> for CreditToCollatorPot {
@@ -224,11 +224,11 @@ impl CoretimeInterface for CoretimeAllocator {
 pub struct PotAccount<T>(PhantomData<T>);
 impl<T> Get<T::AccountId> for PotAccount<T>
 where
-	T: frame_system::Config + cumulus_pallet_parachain_system::Config
+	T: frame_system::Config + cumulus_pallet_parachain_system::Config,
 {
-    fn get() -> T::AccountId {
-        T::SelfParaId::get().into_account_truncating()
-    }
+	fn get() -> T::AccountId {
+		T::SelfParaId::get().into_account_truncating()
+	}
 }
 
 impl pallet_broker::Config for Runtime {

@@ -18,17 +18,32 @@
 //!
 //! <https://github.com/polkadot-fellows/RFCs/blob/main/text/0005-coretime-interface.md>
 
-use sp_runtime::traits::TryConvert;
-use frame_support::{pallet_prelude::*, traits::{Currency, DefensiveResult}};
+use frame_support::{
+	pallet_prelude::*,
+	storage::{with_transaction, TransactionOutcome},
+	traits::{defensive_prelude::*, Currency},
+};
 use frame_system::pallet_prelude::*;
 pub use pallet::*;
 use pallet_broker::{CoreAssignment, CoreIndex as BrokerCoreIndex};
 use polkadot_primitives::{Balance, BlockNumber, CoreIndex, Id as ParaId};
 use sp_arithmetic::traits::SaturatedConversion;
+use sp_runtime::traits::TryConvert;
 use sp_std::{prelude::*, result};
-use xcm::{prelude::{
-	send_xcm, Instruction, Junction, Location, OriginKind, SendXcm, WeightLimit, Xcm,
-}, v4::{Asset, AssetId, Assets, Fungibility::Fungible, Instruction::{ReceiveTeleportedAsset, DepositAsset}, Junctions::Here, XcmContext, AssetFilter::Wild, WildAsset::AllCounted}};
+use xcm::{
+	prelude::{send_xcm, Instruction, Junction, Location, OriginKind, SendXcm, WeightLimit, Xcm},
+	v4::{
+		Asset,
+		AssetFilter::Wild,
+		AssetId, Assets, Error as XcmError,
+		Fungibility::Fungible,
+		Instruction::{DepositAsset, ReceiveTeleportedAsset},
+		Junctions::Here,
+		Reanchorable,
+		WildAsset::AllCounted,
+		XcmContext,
+	},
+};
 use xcm_executor::traits::TransactAsset;
 
 use crate::{
@@ -102,9 +117,9 @@ enum CoretimeCalls {
 #[frame_support::pallet]
 pub mod pallet {
 
+	use crate::configuration;
 	use sp_runtime::traits::TryConvert;
 	use xcm_executor::traits::TransactAsset;
-	use crate::configuration;
 
 	use super::*;
 
@@ -160,8 +175,7 @@ pub mod pallet {
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {}
 
 	#[pallet::call]
-	impl<T: Config> Pallet<T>
-	{
+	impl<T: Config> Pallet<T> {
 		/// Request the configuration to be updated with the specified number of cores. Warning:
 		/// Since this only schedules a configuration update, it takes two sessions to come into
 		/// effect.
@@ -234,8 +248,7 @@ pub mod pallet {
 	}
 }
 
-impl<T: Config> Pallet<T>
-{
+impl<T: Config> Pallet<T> {
 	/// Ensure the origin is one of Root or the `para` itself.
 	fn ensure_root_or_para(
 		origin: <T as frame_system::Config>::RuntimeOrigin,
@@ -292,99 +305,38 @@ impl<T: Config> Pallet<T>
 		let claim = <assigner_on_demand::Pallet<T>>::start_revenue_claim_until(when_bnf);
 		log::debug!(target: LOG_TARGET, "Revenue info requested: {:?}", claim.amount);
 
+		let raw_revenue: Balance = claim.amount.try_into().map_err(|_| {
+			log::error!(target: LOG_TARGET, "Converting on demand revenue for `NotifyRevenue` failed");
+			Error::<T>::AssetTransferFailed
+		})?;
 
-		match TryInto::<Balance>::try_into(claim.amount) {
-			Ok(raw_revenue) => {
-				log::trace!(target: LOG_TARGET, "Revenue into balance success: {:?}", raw_revenue);
-
-				let dest = Location::new(0, [Junction::Parachain(T::BrokerId::get())]);
-
-				if raw_revenue == 0 {
-					send_xcm::<T::SendXcm>(
-						dest,
-						Xcm(vec![
-							Instruction::UnpaidExecution {
-								weight_limit: WeightLimit::Unlimited,
-								check_origin: None,
-							},
-							mk_coretime_call::<T>(CoretimeCalls::NotifyRevenue((when, raw_revenue))),
-						])
-					).defensive_ok();
-
-					return Ok(());
-				}
-
-				let dummy_xcm_context = XcmContext { origin: None, message_id: [0; 32], topic: None };
-
-				let on_demand_pot = T::AccountToLocation::try_convert(&<assigner_on_demand::Pallet<T>>::account_id()).map_err(|err| {
-					log::error!(
-						target: LOG_TARGET,
-						"Failed to convert on-demand pot account to XCM location: {err:?}",
-					);
-					Error::<T>::AssetTransferFailed
-				})?;
-				let asset = Asset { id: AssetId(Here.into_location()), fun: Fungible(raw_revenue) };
-
-				let _withdrawn = T::AssetTransactor::withdraw_asset(&asset, &on_demand_pot, None)
-					.map_err(|err| {
-						log::error!(
-							target: LOG_TARGET,
-							"notify_revenue: withdraw_asset(what: {:?}, who_origin: {:?}) error: {:?}",
-							&asset, &on_demand_pot, err
-						);
-						Error::<T>::AssetTransferFailed
-					})?;
-
-				// check out
-				T::AssetTransactor::can_check_out(
-					&dest,
-					&asset,
-					&dummy_xcm_context,
-				)
-				.map_err(|err| {
-					log::error!(
-						target: LOG_TARGET,
-						"notify_revenue: can_check_out(destination: {:?}, asset: {:?}, _) error: {:?}",
-						dest, asset, err
-					);
-					Error::<T>::AssetTransferFailed
-				})?;
-				T::AssetTransactor::check_out(
-					&dest,
-					&asset,
-					&dummy_xcm_context,
-				);
-
-				let asset_reanchored: Assets =
-					vec![Asset { id: AssetId(Location::new(1, Here)), fun: Fungible(raw_revenue) }].into();
-
-				let message = Xcm(vec![
+		if raw_revenue == 0 {
+			send_xcm::<T::SendXcm>(
+				Junction::Parachain(T::BrokerId::get()).into_location(),
+				Xcm(vec![
 					Instruction::UnpaidExecution {
 						weight_limit: WeightLimit::Unlimited,
 						check_origin: None,
 					},
-					ReceiveTeleportedAsset(asset_reanchored),
-					DepositAsset {
-						assets: Wild(AllCounted(1)),
-						beneficiary: Junction::Parachain(T::BrokerId::get()).into_exterior(1),
-					},
 					mk_coretime_call::<T>(CoretimeCalls::NotifyRevenue((when, raw_revenue))),
-				]);
+				]),
+			)
+			.defensive_ok();
 
-				send_xcm::<T::SendXcm>(
-					dest,
-					message,
-				).map_err(|err| {
-					log::error!(target: LOG_TARGET, "Sending `NotifyRevenue` to coretime chain failed: {:?}", err);
-					Error::<T>::AssetTransferFailed
-				})?;
-
-				<assigner_on_demand::Pallet<T>>::commit_revenue_claim(claim);
-			},
-			Err(_err) => {
-				log::error!(target: LOG_TARGET, "Converting on demand revenue for `NotifyRevenue`failed");
-			},
+			return Ok(());
 		}
+
+		with_transaction(|| -> TransactionOutcome<Result<_, DispatchError>> {
+			match do_notify_revenue::<T>(when, raw_revenue) {
+				Ok(()) => TransactionOutcome::Commit(Ok(())),
+				Err(err) => {
+					log::error!(target: LOG_TARGET, "notify_revenue failed: {err:?}");
+					TransactionOutcome::Rollback(Err(Error::<T>::AssetTransferFailed.into()))
+				},
+			}
+		})?;
+
+		<assigner_on_demand::Pallet<T>>::commit_revenue_claim(claim);
 
 		Ok(())
 	}
@@ -408,8 +360,7 @@ impl<T: Config> Pallet<T>
 	}
 }
 
-impl<T: Config> OnNewSession<BlockNumberFor<T>> for Pallet<T>
-{
+impl<T: Config> OnNewSession<BlockNumberFor<T>> for Pallet<T> {
 	fn on_new_session(notification: &SessionChangeNotification<BlockNumberFor<T>>) {
 		Self::initializer_on_new_session(notification);
 	}
@@ -421,4 +372,44 @@ fn mk_coretime_call<T: Config>(call: crate::coretime::CoretimeCalls) -> Instruct
 		require_weight_at_most: T::MaxXcmTransactWeight::get(),
 		call: BrokerRuntimePallets::Broker(call).encode().into(),
 	}
+}
+
+fn do_notify_revenue<T: Config>(when: BlockNumber, raw_revenue: Balance) -> Result<(), XcmError> {
+	let dest = Location::new(0, [Junction::Parachain(T::BrokerId::get())]);
+	let dummy_xcm_context = XcmContext { origin: None, message_id: [0; 32], topic: None };
+	let on_demand_pot = T::AccountToLocation::try_convert(
+		&<assigner_on_demand::Pallet<T>>::account_id(),
+	)
+	.map_err(|err| {
+		log::error!(
+			target: LOG_TARGET,
+			"Failed to convert on-demand pot account to XCM location: {err:?}",
+		);
+		XcmError::InvalidLocation
+	})?;
+
+	let asset = Asset { id: AssetId(Location::here()), fun: Fungible(raw_revenue) };
+	let withdrawn = T::AssetTransactor::withdraw_asset(&asset, &on_demand_pot, None)?;
+
+	T::AssetTransactor::can_check_out(&dest, &asset, &dummy_xcm_context)?;
+
+	let assets_reanchored = Into::<Assets>::into(withdrawn)
+		.reanchored(&dest, &Here.into())
+		.defensive_map_err(|_| XcmError::ReanchorFailed)?;
+
+	let message = Xcm(vec![
+		Instruction::UnpaidExecution { weight_limit: WeightLimit::Unlimited, check_origin: None },
+		ReceiveTeleportedAsset(assets_reanchored),
+		DepositAsset {
+			assets: Wild(AllCounted(1)),
+			beneficiary: Junction::Parachain(T::BrokerId::get()).into_exterior(1),
+		},
+		mk_coretime_call::<T>(CoretimeCalls::NotifyRevenue((when, raw_revenue))),
+	]);
+
+	send_xcm::<T::SendXcm>(dest.clone(), message)?;
+
+	T::AssetTransactor::check_out(&dest, &asset, &dummy_xcm_context);
+
+	Ok(())
 }

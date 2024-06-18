@@ -16,6 +16,7 @@
 
 use crate::*;
 use codec::{Decode, Encode};
+use core::marker::PhantomData;
 use cumulus_pallet_parachain_system::RelaychainDataProvider;
 use cumulus_primitives_core::relay_chain;
 use frame_support::{
@@ -30,11 +31,10 @@ use pallet_broker::{
 	RCBlockNumberOf, RevenueInbox,
 };
 use parachains_common::{AccountId, Balance};
+use sp_core::Get;
+use sp_runtime::traits::AccountIdConversion;
 use westend_runtime_constants::system_parachain::coretime;
 use xcm::latest::prelude::*;
-use sp_runtime::traits::AccountIdConversion;
-use sp_core::Get;
-use core::marker::PhantomData;
 
 pub struct CreditToCollatorPot;
 impl OnUnbalanced<Credit<AccountId, Balances>> for CreditToCollatorPot {
@@ -235,11 +235,11 @@ impl CoretimeInterface for CoretimeAllocator {
 pub struct PotAccount<T>(PhantomData<T>);
 impl<T> Get<T::AccountId> for PotAccount<T>
 where
-	T: frame_system::Config + cumulus_pallet_parachain_system::Config
+	T: frame_system::Config + cumulus_pallet_parachain_system::Config,
 {
-    fn get() -> T::AccountId {
-        T::SelfParaId::get().into_account_truncating()
-    }
+	fn get() -> T::AccountId {
+		T::SelfParaId::get().into_account_truncating()
+	}
 }
 
 impl pallet_broker::Config for Runtime {

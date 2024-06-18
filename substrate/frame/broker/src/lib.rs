@@ -59,7 +59,6 @@ pub mod pallet {
 			fungible::{Balanced, Credit, Mutate},
 			EnsureOrigin, OnUnbalanced,
 		},
-		PalletId,
 	};
 	use frame_system::pallet_prelude::*;
 	use sp_runtime::traits::{Convert, ConvertBack};
