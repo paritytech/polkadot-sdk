@@ -25,7 +25,7 @@ use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedReceiver, TracingUnbound
 use sp_blockchain::HashAndNumber;
 use sp_runtime::traits::Block as BlockT;
 
-use super::fork_aware_txpool::TxMemPool;
+use super::txmempool::TxMemPool;
 use futures::prelude::*;
 
 const LOG_TARGET: &str = "txpool";

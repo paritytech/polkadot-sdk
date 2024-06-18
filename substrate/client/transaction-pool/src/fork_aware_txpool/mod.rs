@@ -22,6 +22,9 @@ pub(crate) mod fork_aware_txpool;
 // mod metrics;
 mod import_notification_sink;
 mod multi_view_listener;
+mod txmempool;
+mod view;
 mod view_revalidation;
+mod view_store;
 
 pub use fork_aware_txpool::{ForkAwareTxPool, ImportNotificationTask};
