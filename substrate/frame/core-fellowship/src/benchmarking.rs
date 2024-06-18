@@ -89,7 +89,7 @@ mod benchmarks {
 	fn set_partial_params() -> Result<(), BenchmarkError> {
 		let max_rank = T::MaxRank::get().try_into().unwrap();
 
-		// Set up the initial default state for the Params storage 
+		// Set up the initial default state for the Params storage
 		let params = ParamsType {
 			active_salary: BoundedVec::try_from(vec![100u32.into(); max_rank]).unwrap(),
 			passive_salary: BoundedVec::try_from(vec![10u32.into(); max_rank]).unwrap(),
@@ -98,7 +98,7 @@ mod benchmarks {
 			offboard_timeout: 1u32.into(),
 		};
 		CoreFellowship::<T, I>::set_params(RawOrigin::Root.into(), Box::new(params))?;
-		
+
 		let default_params = Params::<T, I>::get();
 		let expected_params = ParamsType {
 			active_salary: default_params.active_salary,
