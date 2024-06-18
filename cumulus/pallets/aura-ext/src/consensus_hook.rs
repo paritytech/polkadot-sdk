@@ -76,7 +76,8 @@ where
 			);
 		}
 
-		if authored > velocity {
+		// We need to allow authoring multiple blocks in the same slot.
+		if slot != para_slot_from_relay && authored > velocity {
 			panic!("authored blocks limit is reached for the slot")
 		}
 		let weight = T::DbWeight::get().reads(1);
