@@ -691,7 +691,7 @@ impl<T: Config> Pallet<T> {
 			&destination_delegator,
 			amount,
 			Precision::Exact,
-			Restriction::Free,
+			Restriction::OnHold,
 			Fortitude::Polite,
 		)?;
 
