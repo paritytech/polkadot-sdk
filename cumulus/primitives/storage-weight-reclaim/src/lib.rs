@@ -151,7 +151,7 @@ where
 		pre: Option<Self::Pre>,
 		info: &DispatchInfoOf<Self::Call>,
 		post_info: &PostDispatchInfoOf<Self::Call>,
-		_len: usize,
+		len: usize,
 		_result: &DispatchResult,
 	) -> Result<(), TransactionValidityError> {
 		let Some(Some(pre_dispatch_proof_size)) = pre else {
@@ -166,12 +166,12 @@ where
 			return Ok(())
 		};
 		let benchmarked_weight = info.weight.proof_size();
-		let consumed_weight = post_dispatch_proof_size.saturating_sub(pre_dispatch_proof_size);
+		let consumed_weight = post_dispatch_proof_size.saturating_sub(pre_dispatch_proof_size).saturating_add(len as u64);
 
 		// Unspent weight according to the `actual_weight` from `PostDispatchInfo`
 		// This unspent weight will be refunded by the `CheckWeight` extension, so we need to
 		// account for that.
-		let unspent = post_info.calc_unspent(info).proof_size();
+		let unspent: u64 = post_info.calc_unspent(info).proof_size();
 		let storage_size_diff =
 			benchmarked_weight.saturating_sub(unspent).abs_diff(consumed_weight as u64);
 

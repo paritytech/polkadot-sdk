@@ -814,7 +814,7 @@ async fn start_node<Network: sc_network::NetworkBackend<Block, Hash>>(
 			.map_err(Into::into),
 
 		Runtime::Glutton | Runtime::GluttonWestend =>
-			crate::service::start_basic_lookahead_node::<Network>(
+			crate::service::start_rococo_parachain_node::<Network>(
 				config,
 				polkadot_config,
 				collator_options,

@@ -48,6 +48,8 @@ pub mod weights;
 pub mod xcm_config;
 
 use cumulus_pallet_parachain_system::RelayNumberMonotonicallyIncreases;
+use frame_support::weights::NoFee;
+use pallet_transaction_payment::OnChargeTransaction;
 use sp_api::impl_runtime_apis;
 pub use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
@@ -170,8 +172,8 @@ parameter_types! {
 type ConsensusHook = cumulus_pallet_aura_ext::FixedVelocityConsensusHook<
 	Runtime,
 	RELAY_CHAIN_SLOT_DURATION_MILLIS,
-	BLOCK_PROCESSING_VELOCITY,
-	UNINCLUDED_SEGMENT_CAPACITY,
+	3,
+	9,
 >;
 
 impl cumulus_pallet_parachain_system::Config for Runtime {
@@ -232,7 +234,7 @@ impl pallet_aura::Config for Runtime {
 	type DisabledValidators = ();
 	type MaxAuthorities = ConstU32<100_000>;
 	type AllowMultipleBlocksPerSlot = ConstBool<true>;
-	type SlotDuration = ConstU64<SLOT_DURATION>;
+	type SlotDuration = ConstU64<2000>;
 }
 
 impl pallet_glutton::Config for Runtime {
@@ -245,6 +247,48 @@ impl pallet_sudo::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type RuntimeCall = RuntimeCall;
 	type WeightInfo = ();
+}
+
+/// Balance of an account.
+pub type Balance = u128;
+
+pub struct NoCharge;
+
+impl<T> OnChargeTransaction<T> for NoCharge
+where
+	T: pallet_transaction_payment::Config,
+{
+	type Balance = Balance;
+	type LiquidityInfo = ();
+
+	fn correct_and_deposit_fee(
+		_who: &T::AccountId,
+		_dispatch_info: &sp_runtime::traits::DispatchInfoOf<T::RuntimeCall>,
+		_post_info: &sp_runtime::traits::PostDispatchInfoOf<T::RuntimeCall>,
+		_corrected_fee: Self::Balance,
+		_tip: Self::Balance,
+		_already_withdrawn: Self::LiquidityInfo,
+	) -> Result<(), frame_support::pallet_prelude::TransactionValidityError> {
+		Ok(())
+	}
+	fn withdraw_fee(
+		_who: &T::AccountId,
+		_call: &T::RuntimeCall,
+		_dispatch_info: &sp_runtime::traits::DispatchInfoOf<T::RuntimeCall>,
+		_fee: Self::Balance,
+		_tip: Self::Balance,
+	) -> Result<Self::LiquidityInfo, frame_support::pallet_prelude::TransactionValidityError> {
+		Ok(())
+	}
+}
+
+impl pallet_transaction_payment::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type OnChargeTransaction = NoCharge;
+	type WeightToFee = NoFee<Balance>;
+	type LengthToFee = NoFee<Balance>;
+	type FeeMultiplierUpdate = ();
+	type OperationalFeeMultiplier = ConstU8<0>;
 }
 
 construct_runtime! {
@@ -266,6 +310,7 @@ construct_runtime! {
 		Aura: pallet_aura = 30,
 		AuraExt: cumulus_pallet_aura_ext = 31,
 
+		TransactionPayment: pallet_transaction_payment,
 		// Sudo.
 		Sudo: pallet_sudo = 255,
 	}
