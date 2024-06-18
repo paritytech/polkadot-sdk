@@ -19,7 +19,7 @@ use futures::{
 };
 use futures_timer::Delay;
 use std::{
-	collections::{hash_map::Entry, HashMap, HashSet},
+	collections::{hash_map::Entry, HashMap, HashSet, VecDeque},
 	future::Future,
 	time::{Duration, Instant},
 };
@@ -516,26 +516,23 @@ where
 			CoreState::Scheduled(core) => Some([core.para_id].into_iter().collect()),
 			CoreState::Occupied(_) | CoreState::Free => None,
 		}),
-	};
-
-	if let Some(paras) = paras_now {
-		for para_id in paras.iter() {
-			let entry = current_assignments.entry(*para_id).or_default();
-			*entry += 1;
-			if *entry == 1 {
-				gum::debug!(
-					target: LOG_TARGET,
-					?relay_parent,
-					para_id = ?para_id,
-					"Assigned to a parachain",
-				);
-			}
-		}
-
-		*group_assignment = GroupAssignments { current: paras.into_iter().collect() };
-	} else {
-		*group_assignment = GroupAssignments { current: vec![] };
 	}
+	.unwrap_or_else(|| VecDeque::new());
+
+	for para_id in paras_now.iter() {
+		let entry = current_assignments.entry(*para_id).or_default();
+		*entry += 1;
+		if *entry == 1 {
+			gum::debug!(
+				target: LOG_TARGET,
+				?relay_parent,
+				para_id = ?para_id,
+				"Assigned to a parachain",
+			);
+		}
+	}
+
+	*group_assignment = GroupAssignments { current: paras_now.into_iter().collect() };
 
 	Ok(())
 }
