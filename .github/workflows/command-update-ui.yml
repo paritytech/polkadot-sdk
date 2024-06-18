@@ -22,7 +22,7 @@ jobs:
         run: cat .github/env >> $GITHUB_OUTPUT
   cmd-update-ui:
     needs: [set-image]
-    runs-on: arc-runners-polkadot-sdk-benchmark
+    runs-on: arc-runners-polkadot-sdk-beefy
     container:
       image: ${{ needs.set-image.outputs.IMAGE }}
     steps:
