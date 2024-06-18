@@ -22,7 +22,7 @@ use sp_runtime::traits::{IdentifyAccount, Verify};
 #[cfg(not(feature = "std"))]
 use sp_std::alloc::format;
 
-/// Helper function to generate a crypto pair from seed
+/// Helper function to generate a crypto pair from seed.
 pub fn get_from_seed<TPublic: Public>(seed: &str) -> <TPublic::Pair as Pair>::Public {
 	TPublic::Pair::from_string(&format!("//{}", seed), None)
 		.expect("static values are valid; qed")
@@ -31,6 +31,7 @@ pub fn get_from_seed<TPublic: Public>(seed: &str) -> <TPublic::Pair as Pair>::Pu
 
 type AccountPublic = <Signature as Verify>::Signer;
 
+/// Helper function to generate an account id from seed.
 pub fn get_account_id_from_seed<TPublic: Public>(seed: &str) -> AccountId
 where
 	AccountPublic: From<<TPublic::Pair as Pair>::Public>,
