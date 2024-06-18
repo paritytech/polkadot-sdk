@@ -2916,32 +2916,7 @@ pub mod pallet {
 			);
 
 			let member_account = T::Lookup::lookup(member_account)?;
-			let member =
-				PoolMembers::<T>::get(&member_account).ok_or(Error::<T>::PoolMemberNotFound)?;
-
-			// ensure pool is migrated.
-			ensure!(
-				T::StakeAdapter::pool_strategy(Pool::from(Self::generate_bonded_account(
-					member.pool_id
-				))) == adapter::StakeStrategyType::Delegate,
-				Error::<T>::NotMigrated
-			);
-
-			let pool_contribution = member.total_balance();
-			ensure!(pool_contribution >= MinJoinBond::<T>::get(), Error::<T>::MinimumBondNotMet);
-			// the member must have some contribution to be migrated.
-			ensure!(pool_contribution > Zero::zero(), Error::<T>::AlreadyMigrated);
-
-			let delegation =
-				T::StakeAdapter::member_delegation_balance(Member::from(member_account.clone()));
-			// delegation should not exist.
-			ensure!(delegation.is_none(), Error::<T>::AlreadyMigrated);
-
-			T::StakeAdapter::migrate_delegation(
-				Pool::from(Pallet::<T>::generate_bonded_account(member.pool_id)),
-				Member::from(member_account),
-				pool_contribution,
-			)?;
+			Self::migrate_member_to_delegate_stake(member_account)?;
 
 			// if successful, we refund the fee.
 			Ok(Pays::No.into())
@@ -3094,10 +3069,39 @@ impl<T: Config> Pallet<T> {
 		T::PalletId::get().into_sub_account_truncating((AccountType::Bonded, id))
 	}
 
-	fn migrate_to_delegate_stake(id: PoolId) -> DispatchResult {
+	pub fn migrate_to_delegate_stake(id: PoolId) -> DispatchResult {
 		T::StakeAdapter::migrate_nominator_to_agent(
 			Pool::from(Self::generate_bonded_account(id)),
 			&Self::generate_reward_account(id),
+		)
+	}
+
+	pub fn migrate_member_to_delegate_stake(member_account: T::AccountId) -> DispatchResult {
+		let member =
+			PoolMembers::<T>::get(&member_account).ok_or(Error::<T>::PoolMemberNotFound)?;
+
+		// ensure pool is migrated.
+		ensure!(
+				T::StakeAdapter::pool_strategy(Pool::from(Self::generate_bonded_account(
+					member.pool_id
+				))) == adapter::StakeStrategyType::Delegate,
+				Error::<T>::NotMigrated
+			);
+
+		let pool_contribution = member.total_balance();
+		ensure!(pool_contribution >= MinJoinBond::<T>::get(), Error::<T>::MinimumBondNotMet);
+		// the member must have some contribution to be migrated.
+		ensure!(pool_contribution > Zero::zero(), Error::<T>::AlreadyMigrated);
+
+		let delegation =
+			T::StakeAdapter::member_delegation_balance(Member::from(member_account.clone()));
+		// delegation should not exist.
+		ensure!(delegation.is_none(), Error::<T>::AlreadyMigrated);
+
+		T::StakeAdapter::migrate_delegation(
+			Pool::from(Pallet::<T>::generate_bonded_account(member.pool_id)),
+			Member::from(member_account),
+			pool_contribution,
 		)
 	}
 

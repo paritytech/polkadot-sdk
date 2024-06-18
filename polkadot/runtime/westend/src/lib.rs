@@ -1007,7 +1007,8 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 				matches!(
 					c,
 					RuntimeCall::Staking(..) |
-						RuntimeCall::Session(..) | RuntimeCall::Utility(..) |
+						RuntimeCall::Session(..) |
+						RuntimeCall::Utility(..) |
 						RuntimeCall::FastUnstake(..) |
 						RuntimeCall::VoterList(..) |
 						RuntimeCall::NominationPools(..)
@@ -2666,6 +2667,80 @@ mod remote_tests {
 			.await
 			.unwrap();
 		ext.execute_with(|| Runtime::on_runtime_upgrade(UpgradeCheckSelect::PreAndPost));
+	}
+
+	#[tokio::test]
+	async fn delegate_stake_migration() {
+		use frame_support::{migrations::SteppedMigration, traits::TryState};
+		sp_tracing::try_init_simple();
+		let transport: Transport = var("WS").unwrap_or("ws://127.0.0.1:9900".to_string()).into();
+		let maybe_state_snapshot: Option<SnapshotConfig> = var("SNAP").map(|s| s.into()).ok();
+		let mut ext = Builder::<Block>::default()
+			.mode(if let Some(state_snapshot) = maybe_state_snapshot {
+				Mode::OfflineOrElseOnline(
+					OfflineConfig { state_snapshot: state_snapshot.clone() },
+					OnlineConfig {
+						transport,
+						state_snapshot: Some(state_snapshot),
+						pallets: vec![
+							"staking".into(),
+							"system".into(),
+							"balances".into(),
+							"nomination-pools".into(),
+							"delegated-staking".into(),
+						],
+						..Default::default()
+					},
+				)
+			} else {
+				Mode::Online(OnlineConfig { transport, ..Default::default() })
+			})
+			.build()
+			.await
+			.unwrap();
+		ext.execute_with(|| {
+			let mut needs_migration = 0;
+			let mut success = 0;
+
+			// iterate over all pools
+			pallet_nomination_pools::BondedPools::<Runtime>::iter_keys().for_each(|k| {
+				if pallet_nomination_pools::Pallet::<Runtime>::api_pool_needs_delegate_migration(
+					k.clone(),
+				) {
+					needs_migration = needs_migration + 1;
+					pallet_nomination_pools::Pallet::<Runtime>::migrate_to_delegate_stake(k)
+						.map(|_| success = success + 1)
+						.map_err(|e| log::error!("Failed to migrate pool {}: {:?}", k, e));
+				}
+			});
+
+			// log summary
+			log::info!(
+				"Migration summary: {} pools needed migration, {} pools successfully migrated",
+				needs_migration,
+				success
+			);
+
+			// reset counters
+			needs_migration = 0;
+			success = 0;
+			// iterate over all pool members
+			pallet_nomination_pools::PoolMembers::<Runtime>::iter_keys().for_each(|k| {
+				if pallet_nomination_pools::Pallet::<Runtime>::api_member_needs_delegate_migration(k.clone()) {
+					needs_migration = needs_migration + 1;
+					pallet_nomination_pools::Pallet::<Runtime>::migrate_member_to_delegate_stake(k.clone())
+						.map(|_| success = success + 1)
+						.map_err(|e| log::error!("Failed to migrate member {}: {:?}", k, e));
+				}
+			});
+
+			// log summary
+			log::info!(
+				"Migration summary: {} members needed migration, {} members successfully migrated",
+				needs_migration,
+				success
+			);
+		});
 	}
 }
 
