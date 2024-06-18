@@ -228,12 +228,6 @@ fn make_filled_vec(value: u16, length: usize) -> Vec<u8> {
 }
 
 benchmarks_instance_pallet! {
-	where_clause {
-		where
-			T::OffchainSignature: From<MultiSignature>,
-			T::AccountId: From<AccountId32>,
-	}
-
 	create {
 		let collection = T::Helper::collection(0);
 		let origin = T::CreateOrigin::try_successful_origin(&collection)
