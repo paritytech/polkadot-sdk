@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1718656907090,
+  "lastUpdate": 1718670274420,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
@@ -2351,6 +2351,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "statement-distribution",
             "value": 0.036266912992000015,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Kantapat chankasem",
+            "username": "tesol2y090",
+            "email": "gliese090@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "55a13abcd2f67e7fdfc8843f5c4a54798e26a9df",
+          "message": "remove pallet::getter usage from pallet-timestamp (#3374)\n\nthis pr is a part of #3326\n\n---------\n\nCo-authored-by: Kian Paimani <5588131+kianenigma@users.noreply.github.com>\nCo-authored-by: Bastian Köcher <git@kchr.de>",
+          "timestamp": "2024-06-17T22:30:13Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/55a13abcd2f67e7fdfc8843f5c4a54798e26a9df"
+        },
+        "date": 1718670244610,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 127.928,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 106.40599999999999,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.03741549381200001,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.04744983627999999,
             "unit": "seconds"
           }
         ]
