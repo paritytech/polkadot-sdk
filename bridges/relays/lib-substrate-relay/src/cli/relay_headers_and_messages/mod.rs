@@ -37,7 +37,7 @@ use structopt::StructOpt;
 use futures::{FutureExt, TryFutureExt};
 
 use crate::{
-	cli::{bridge::MessagesCliBridge, HexLaneId, PrometheusParams},
+	cli::{bridge::MessagesCliBridge, DefaultClient, HexLaneId, PrometheusParams},
 	messages_lane::{MessagesRelayLimits, MessagesRelayParams},
 	on_demand::OnDemandRelay,
 	HeadersToRelay, TaggedAccount, TransactionParams,
@@ -46,7 +46,7 @@ use bp_messages::LaneId;
 use bp_runtime::BalanceOf;
 use relay_substrate_client::{
 	AccountIdOf, AccountKeyPairOf, Chain, ChainWithBalances, ChainWithMessages,
-	ChainWithRuntimeVersion, ChainWithTransactions, Client,
+	ChainWithRuntimeVersion, ChainWithTransactions,
 };
 use relay_utils::metrics::MetricsParams;
 use sp_core::Pair;
@@ -118,7 +118,7 @@ impl<
 /// Parameters that are associated with one side of the bridge.
 pub struct BridgeEndCommonParams<Chain: ChainWithTransactions + ChainWithRuntimeVersion> {
 	/// Chain client.
-	pub client: Client<Chain>,
+	pub client: DefaultClient<Chain>,
 	/// Params used for sending transactions to the chain.
 	pub tx_params: TransactionParams<AccountKeyPairOf<Chain>>,
 	/// Accounts, which balances are exposed as metrics by the relay process.
@@ -165,7 +165,7 @@ where
 		target_to_source_headers_relay: Arc<dyn OnDemandRelay<Target, Source>>,
 		lane_id: LaneId,
 		maybe_limits: Option<MessagesRelayLimits>,
-	) -> MessagesRelayParams<Bridge::MessagesLane> {
+	) -> MessagesRelayParams<Bridge::MessagesLane, DefaultClient<Source>, DefaultClient<Target>> {
 		MessagesRelayParams {
 			source_client: self.source.client.clone(),
 			source_transaction_params: self.source.tx_params.clone(),
@@ -317,28 +317,30 @@ where
 		// Need 2x capacity since we consider both directions for each lane
 		let mut message_relays = Vec::with_capacity(lanes.len() * 2);
 		for lane in lanes {
-			let left_to_right_messages = crate::messages_lane::run::<
-				<Self::L2R as MessagesCliBridge>::MessagesLane,
-			>(self.left_to_right().messages_relay_params(
-				left_to_right_on_demand_headers.clone(),
-				right_to_left_on_demand_headers.clone(),
-				lane,
-				Self::L2R::maybe_messages_limits(),
-			))
-			.map_err(|e| anyhow::format_err!("{}", e))
-			.boxed();
+			let left_to_right_messages =
+				crate::messages_lane::run::<<Self::L2R as MessagesCliBridge>::MessagesLane, _, _>(
+					self.left_to_right().messages_relay_params(
+						left_to_right_on_demand_headers.clone(),
+						right_to_left_on_demand_headers.clone(),
+						lane,
+						Self::L2R::maybe_messages_limits(),
+					),
+				)
+				.map_err(|e| anyhow::format_err!("{}", e))
+				.boxed();
 			message_relays.push(left_to_right_messages);
 
-			let right_to_left_messages = crate::messages_lane::run::<
-				<Self::R2L as MessagesCliBridge>::MessagesLane,
-			>(self.right_to_left().messages_relay_params(
-				right_to_left_on_demand_headers.clone(),
-				left_to_right_on_demand_headers.clone(),
-				lane,
-				Self::R2L::maybe_messages_limits(),
-			))
-			.map_err(|e| anyhow::format_err!("{}", e))
-			.boxed();
+			let right_to_left_messages =
+				crate::messages_lane::run::<<Self::R2L as MessagesCliBridge>::MessagesLane, _, _>(
+					self.right_to_left().messages_relay_params(
+						right_to_left_on_demand_headers.clone(),
+						left_to_right_on_demand_headers.clone(),
+						lane,
+						Self::R2L::maybe_messages_limits(),
+					),
+				)
+				.map_err(|e| anyhow::format_err!("{}", e))
+				.boxed();
 			message_relays.push(right_to_left_messages);
 		}
 

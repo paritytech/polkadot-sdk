@@ -59,16 +59,17 @@ impl BasicExternalities {
 	}
 
 	/// Consume self and returns inner storages
-	pub fn into_storages(self) -> Storage {
+	#[cfg(feature = "std")]
+	pub fn into_storages(mut self) -> Storage {
 		Storage {
 			top: self
 				.overlay
-				.changes()
+				.changes_mut()
 				.filter_map(|(k, v)| v.value().map(|v| (k.to_vec(), v.to_vec())))
 				.collect(),
 			children_default: self
 				.overlay
-				.children()
+				.children_mut()
 				.map(|(iter, i)| {
 					(
 						i.storage_key().to_vec(),
@@ -87,6 +88,7 @@ impl BasicExternalities {
 	/// Execute the given closure `f` with the externalities set and initialized with `storage`.
 	///
 	/// Returns the result of the closure and updates `storage` with all changes.
+	#[cfg(feature = "std")]
 	pub fn execute_with_storage<R>(
 		storage: &mut sp_core::storage::Storage,
 		f: impl FnOnce() -> R,
@@ -118,19 +120,37 @@ impl BasicExternalities {
 	}
 }
 
+#[cfg(test)]
 impl PartialEq for BasicExternalities {
-	fn eq(&self, other: &BasicExternalities) -> bool {
-		self.overlay.changes().map(|(k, v)| (k, v.value())).collect::<BTreeMap<_, _>>() ==
-			other.overlay.changes().map(|(k, v)| (k, v.value())).collect::<BTreeMap<_, _>>() &&
+	fn eq(&self, other: &Self) -> bool {
+		self.overlay
+			.changes()
+			.map(|(k, v)| (k, v.value_ref().materialize()))
+			.collect::<BTreeMap<_, _>>() ==
+			other
+				.overlay
+				.changes()
+				.map(|(k, v)| (k, v.value_ref().materialize()))
+				.collect::<BTreeMap<_, _>>() &&
 			self.overlay
 				.children()
-				.map(|(iter, i)| (i, iter.map(|(k, v)| (k, v.value())).collect::<BTreeMap<_, _>>()))
+				.map(|(iter, i)| {
+					(
+						i,
+						iter.map(|(k, v)| (k, v.value_ref().materialize()))
+							.collect::<BTreeMap<_, _>>(),
+					)
+				})
 				.collect::<BTreeMap<_, _>>() ==
 				other
 					.overlay
 					.children()
 					.map(|(iter, i)| {
-						(i, iter.map(|(k, v)| (k, v.value())).collect::<BTreeMap<_, _>>())
+						(
+							i,
+							iter.map(|(k, v)| (k, v.value_ref().materialize()))
+								.collect::<BTreeMap<_, _>>(),
+						)
 					})
 					.collect::<BTreeMap<_, _>>()
 	}
@@ -159,27 +179,27 @@ impl From<BTreeMap<StorageKey, StorageValue>> for BasicExternalities {
 impl Externalities for BasicExternalities {
 	fn set_offchain_storage(&mut self, _key: &[u8], _value: Option<&[u8]>) {}
 
-	fn storage(&self, key: &[u8]) -> Option<StorageValue> {
+	fn storage(&mut self, key: &[u8]) -> Option<StorageValue> {
 		self.overlay.storage(key).and_then(|v| v.map(|v| v.to_vec()))
 	}
 
-	fn storage_hash(&self, key: &[u8]) -> Option<Vec<u8>> {
+	fn storage_hash(&mut self, key: &[u8]) -> Option<Vec<u8>> {
 		self.storage(key).map(|v| Blake2Hasher::hash(&v).encode())
 	}
 
-	fn child_storage(&self, child_info: &ChildInfo, key: &[u8]) -> Option<StorageValue> {
+	fn child_storage(&mut self, child_info: &ChildInfo, key: &[u8]) -> Option<StorageValue> {
 		self.overlay.child_storage(child_info, key).and_then(|v| v.map(|v| v.to_vec()))
 	}
 
-	fn child_storage_hash(&self, child_info: &ChildInfo, key: &[u8]) -> Option<Vec<u8>> {
+	fn child_storage_hash(&mut self, child_info: &ChildInfo, key: &[u8]) -> Option<Vec<u8>> {
 		self.child_storage(child_info, key).map(|v| Blake2Hasher::hash(&v).encode())
 	}
 
-	fn next_storage_key(&self, key: &[u8]) -> Option<StorageKey> {
+	fn next_storage_key(&mut self, key: &[u8]) -> Option<StorageKey> {
 		self.overlay.iter_after(key).find_map(|(k, v)| v.value().map(|_| k.to_vec()))
 	}
 
-	fn next_child_storage_key(&self, child_info: &ChildInfo, key: &[u8]) -> Option<StorageKey> {
+	fn next_child_storage_key(&mut self, child_info: &ChildInfo, key: &[u8]) -> Option<StorageKey> {
 		self.overlay
 			.child_iter_after(child_info.storage_key(), key)
 			.find_map(|(k, v)| v.value().map(|_| k.to_vec()))
@@ -243,15 +263,14 @@ impl Externalities for BasicExternalities {
 		MultiRemovalResults { maybe_cursor: None, backend: count, unique: count, loops: count }
 	}
 
-	fn storage_append(&mut self, key: Vec<u8>, value: Vec<u8>) {
-		let current_value = self.overlay.value_mut_or_insert_with(&key, || Default::default());
-		crate::ext::StorageAppend::new(current_value).append(value);
+	fn storage_append(&mut self, key: Vec<u8>, element: Vec<u8>) {
+		self.overlay.append_storage(key, element, Default::default);
 	}
 
 	fn storage_root(&mut self, state_version: StateVersion) -> Vec<u8> {
 		let mut top = self
 			.overlay
-			.changes()
+			.changes_mut()
 			.filter_map(|(k, v)| v.value().map(|v| (k.clone(), v.clone())))
 			.collect::<BTreeMap<_, _>>();
 		// Single child trie implementation currently allows using the same child
@@ -278,7 +297,7 @@ impl Externalities for BasicExternalities {
 		child_info: &ChildInfo,
 		state_version: StateVersion,
 	) -> Vec<u8> {
-		if let Some((data, child_info)) = self.overlay.child_changes(child_info.storage_key()) {
+		if let Some((data, child_info)) = self.overlay.child_changes_mut(child_info.storage_key()) {
 			let delta =
 				data.into_iter().map(|(k, v)| (k.as_ref(), v.value().map(|v| v.as_slice())));
 			crate::in_memory_backend::new_in_mem::<Blake2Hasher>()
