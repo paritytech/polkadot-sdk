@@ -78,18 +78,14 @@ where
 	/// Returns the `:code` for the given `block`.
 	///
 	/// This takes into account potential overrides/substitutes.
-	pub fn code_at(
-		&self,
-		block: Block::Hash,
-		ignore_overrides: bool,
-	) -> sp_blockchain::Result<Vec<u8>> {
+	pub fn code_at_ignoring_overrides(&self, block: Block::Hash) -> sp_blockchain::Result<Vec<u8>> {
 		let state = self.backend.state_at(block)?;
 
 		let state_runtime_code = sp_state_machine::backend::BackendRuntimeCode::new(&state);
 		let runtime_code =
 			state_runtime_code.runtime_code().map_err(sp_blockchain::Error::RuntimeCode)?;
 
-		self.maybe_override_code_internal(runtime_code, &state, block, ignore_overrides)
+		self.maybe_override_code_internal(runtime_code, &state, block, true)
 			.and_then(|r| {
 				r.0.fetch_runtime_code().map(Into::into).ok_or_else(|| {
 					sp_blockchain::Error::Backend("Could not find `:code` in backend.".into())
@@ -179,6 +175,66 @@ mod tests {
 	};
 	use std::collections::HashMap;
 	use substrate_test_runtime_client::{runtime, GenesisInit};
+
+	#[test]
+	fn no_override_no_substitutes_work() {
+		let executor = WasmExecutor::default();
+
+		let code_fetcher = WrappedRuntimeCode(substrate_test_runtime::wasm_binary_unwrap().into());
+		let onchain_code = RuntimeCode {
+			code_fetcher: &code_fetcher,
+			heap_pages: Some(128),
+			hash: vec![0, 0, 0, 0],
+		};
+
+		let backend = Arc::new(in_mem::Backend::<runtime::Block>::new());
+
+		// wasm_runtime_overrides is `None` here because we construct the
+		// LocalCallExecutor directly later on
+		let client_config = ClientConfig::default();
+
+		let genesis_block_builder = crate::GenesisBlockBuilder::new(
+			&substrate_test_runtime_client::GenesisParameters::default().genesis_storage(),
+			!client_config.no_genesis,
+			backend.clone(),
+			executor.clone(),
+		)
+		.expect("Creates genesis block builder");
+
+		// client is used for the convenience of creating and inserting the genesis block.
+		let _client =
+			crate::client::new_with_backend::<_, _, runtime::Block, _, runtime::RuntimeApi>(
+				backend.clone(),
+				executor.clone(),
+				genesis_block_builder,
+				Box::new(TaskExecutor::new()),
+				None,
+				None,
+				client_config.clone(),
+			)
+			.expect("Creates a client");
+
+		let executor = Arc::new(executor);
+
+		let code_provider = CodeProvider {
+			backend: backend.clone(),
+			executor: executor.clone(),
+			wasm_override: Arc::new(None),
+			wasm_substitutes: WasmSubstitutes::new(Default::default(), executor, backend.clone())
+				.unwrap(),
+		};
+
+		let check = code_provider
+			.maybe_override_code(
+				onchain_code,
+				&backend.state_at(backend.blockchain().info().genesis_hash).unwrap(),
+				backend.blockchain().info().genesis_hash,
+			)
+			.expect("RuntimeCode override")
+			.0;
+
+		assert_eq!(code_fetcher.fetch_runtime_code(), check.fetch_runtime_code());
+	}
 
 	#[test]
 	fn should_get_override_if_exists() {

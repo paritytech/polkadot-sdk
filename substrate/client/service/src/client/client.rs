@@ -482,7 +482,7 @@ where
 	///
 	/// This takes any potential substitutes into account, but ignores overrides.
 	pub fn code_at(&self, hash: Block::Hash) -> sp_blockchain::Result<Vec<u8>> {
-		self.code_provider.code_at(hash, true)
+		self.code_provider.code_at_ignoring_overrides(hash)
 	}
 
 	/// Get the RuntimeVersion at a given block.
