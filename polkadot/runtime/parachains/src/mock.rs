@@ -27,8 +27,9 @@ use crate::{
 	session_info, shared, ParaId,
 };
 use frame_support::pallet_prelude::*;
-use primitives::CoreIndex;
+use polkadot_primitives::CoreIndex;
 
+use codec::Decode;
 use frame_support::{
 	assert_ok, derive_impl, parameter_types,
 	traits::{
@@ -38,8 +39,7 @@ use frame_support::{
 };
 use frame_support_test::TestRandomness;
 use frame_system::limits;
-use parity_scale_codec::Decode;
-use primitives::{
+use polkadot_primitives::{
 	AuthorityDiscoveryId, Balance, BlockNumber, CandidateHash, Moment, SessionIndex, UpwardMessage,
 	ValidationCode, ValidatorIndex,
 };
@@ -139,20 +139,11 @@ parameter_types! {
 	pub static ExistentialDeposit: u64 = 1;
 }
 
+#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Test {
-	type MaxLocks = ();
-	type MaxReserves = ();
-	type ReserveIdentifier = [u8; 8];
 	type Balance = Balance;
-	type RuntimeEvent = RuntimeEvent;
-	type DustRemoval = ();
 	type ExistentialDeposit = ExistentialDeposit;
 	type AccountStore = System;
-	type WeightInfo = ();
-	type RuntimeHoldReason = RuntimeHoldReason;
-	type RuntimeFreezeReason = RuntimeFreezeReason;
-	type FreezeIdentifier = ();
-	type MaxFreezes = ConstU32<0>;
 }
 
 parameter_types! {

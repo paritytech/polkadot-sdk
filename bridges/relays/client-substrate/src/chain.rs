@@ -36,6 +36,9 @@ use sp_runtime::{
 };
 use std::{fmt::Debug, time::Duration};
 
+/// Signed block type of given chain.
+pub type SignedBlockOf<C> = <C as Chain>::SignedBlock;
+
 /// Substrate-based chain from minimal relay-client point of view.
 pub trait Chain: ChainBase + Clone {
 	/// Chain name.

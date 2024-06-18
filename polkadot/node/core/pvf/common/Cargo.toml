@@ -17,7 +17,7 @@ libc = "0.2.152"
 nix = { version = "0.28.0", features = ["resource", "sched"] }
 thiserror = { workspace = true }
 
-parity-scale-codec = { version = "3.6.12", default-features = false, features = [
+codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false, features = [
 	"derive",
 ] }
 
