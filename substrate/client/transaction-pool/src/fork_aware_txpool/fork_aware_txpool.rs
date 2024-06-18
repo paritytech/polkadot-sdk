@@ -186,7 +186,6 @@ where
 	enactment_state: Arc<Mutex<EnactmentState<Block>>>,
 	revalidation_queue: Arc<view_revalidation::RevalidationQueue<PoolApi, Block>>,
 
-	most_recent_view: RwLock<Option<Block::Hash>>,
 	import_notification_sink:
 		MultiViewImportNotificationSink<Block::Hash, graph::ExtrinsicHash<PoolApi>>,
 	// todo: this are coming from ValidatedPool, some of them maybe needed here
@@ -222,7 +221,6 @@ where
 					finalized_hash,
 				))),
 				revalidation_queue: Arc::from(view_revalidation::RevalidationQueue::new()),
-				most_recent_view: RwLock::from(None),
 				import_notification_sink,
 				options: graph::Options::default(),
 			},
@@ -268,7 +266,6 @@ where
 				finalized_hash,
 			))),
 			revalidation_queue: Arc::from(revalidation_queue),
-			most_recent_view: RwLock::from(None),
 			import_notification_sink,
 			options,
 		}
@@ -636,7 +633,8 @@ where
 	// todo: probably API change to:
 	// status(Hash) -> Option<PoolStatus>
 	fn status(&self) -> PoolStatus {
-		self.most_recent_view
+		self.view_store
+			.most_recent_view
 			.read()
 			.map(|hash| self.view_store.status()[&hash].clone())
 			.unwrap_or(PoolStatus { ready: 0, ready_bytes: 0, future: 0, future_bytes: 0 })
@@ -662,24 +660,23 @@ where
 	// todo: api change we should have at here?
 	fn ready_transaction(&self, tx_hash: &TxHash<Self>) -> Option<Arc<Self::InPoolTransaction>> {
 		// unimplemented!()
-		let result = self
-			.most_recent_view
-			.read()
+		let most_recent_view = self.view_store.most_recent_view.read();
+		let result = most_recent_view
 			.map(|block_hash| self.view_store.ready_transaction(block_hash, tx_hash))
 			.flatten();
 		log::trace!(
 			target: LOG_TARGET,
 			"[{tx_hash:?}] ready_transaction: {} {:?}",
 			result.is_some(),
-			self.most_recent_view.read()
+			most_recent_view
 		);
 		result
 	}
 
 	// todo: API change? ready at hash (not number)?
 	fn ready_at(&self, at: <Self::Block as BlockT>::Hash) -> PolledIterator<PoolApi> {
-		if let Some(view) = self.view_store.views.read().get(&at) {
-			log::info!( target: LOG_TARGET, "fatp::ready_at {:?}", at);
+		if let Some((view, retracted)) = self.view_store.get_view_at(at, true) {
+			log::info!( target: LOG_TARGET, "fatp::ready_at {:?} (retracted:{:?})", at, retracted);
 			let iterator: ReadyIteratorFor<PoolApi> = Box::new(view.pool.validated_pool().ready());
 			return async move { iterator }.boxed();
 		}
@@ -816,25 +813,8 @@ where
 		let duration = start.elapsed();
 		log::info!(target: LOG_TARGET, "update_view_fork: at {at:?} took {duration:?}");
 
-		//todo: refactor this: maybe single object with one mutex?
-		// shall be property of views_store + insert/remove/get wrappers?
-		let view = {
-			let mut most_recent_view_lock = self.most_recent_view.write();
-			let views_to_be_removed = {
-				let views = self.view_store.views.read();
-				std::iter::once(tree_route.common_block())
-					.chain(tree_route.enacted().iter())
-					.map(|block| block.hash)
-					.collect::<Vec<_>>()
-			};
-			self.view_store.views.write().retain(|v, _| !views_to_be_removed.contains(v));
-
-			let view = Arc::from(view);
-			self.view_store.views.write().insert(new_block_hash, view.clone());
-			most_recent_view_lock.replace(view.at.hash);
-			view
-		};
-
+		let view = Arc::from(view);
+		self.view_store.insert_new_view(view.clone(), tree_route).await;
 		Some(view)
 	}
 
@@ -1047,17 +1027,8 @@ where
 		let finalized_number = self.api.block_id_to_number(&BlockId::Hash(finalized_hash));
 		log::info!(target: LOG_TARGET, "handle_finalized {finalized_number:?} tree_route: {tree_route:?}");
 
-		let finalized_xts = self.view_store.finalize_route(finalized_hash, tree_route).await;
+		let finalized_xts = self.view_store.handle_finalized(finalized_hash, tree_route).await;
 		log::debug!(target: LOG_TARGET, "handle_finalized b:{:?}", self.views_len());
-		{
-			//clean up older then finalized
-			let mut views = self.view_store.views.write();
-			views.retain(|hash, v| match finalized_number {
-				Err(_) | Ok(None) => *hash == finalized_hash,
-				Ok(Some(n)) if v.at.number == n => *hash == finalized_hash,
-				Ok(Some(n)) => v.at.number > n,
-			})
-		}
 
 		self.mempool.purge_finalized_transactions(&finalized_xts).await;
 		self.import_notification_sink.clean_filter(&finalized_xts).await;

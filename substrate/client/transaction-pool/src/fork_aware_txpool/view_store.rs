@@ -25,11 +25,11 @@ use std::{collections::HashMap, sync::Arc};
 
 use crate::graph::ExtrinsicHash;
 use sc_transaction_pool_api::{PoolStatus, TransactionSource};
-use sp_runtime::traits::Block as BlockT;
 
 use super::multi_view_listener::{MultiViewListener, TxStatusStream};
 use crate::{ReadyIteratorFor, LOG_TARGET};
 use sp_blockchain::TreeRoute;
+use sp_runtime::{generic::BlockId, traits::Block as BlockT};
 
 use super::view::View;
 
@@ -40,7 +40,9 @@ where
 {
 	pub(super) api: Arc<PoolApi>,
 	pub(super) views: RwLock<HashMap<Block::Hash, Arc<View<PoolApi>>>>,
+	pub(super) retracted_views: RwLock<HashMap<Block::Hash, Arc<View<PoolApi>>>>,
 	pub(super) listener: Arc<MultiViewListener<PoolApi>>,
+	pub(super) most_recent_view: RwLock<Option<Block::Hash>>,
 }
 
 impl<PoolApi, Block> ViewStore<PoolApi, Block>
@@ -50,7 +52,13 @@ where
 	<Block as BlockT>::Hash: Unpin,
 {
 	pub(super) fn new(api: Arc<PoolApi>, listener: Arc<MultiViewListener<PoolApi>>) -> Self {
-		Self { api, views: Default::default(), listener }
+		Self {
+			api,
+			views: Default::default(),
+			retracted_views: Default::default(),
+			listener,
+			most_recent_view: RwLock::from(None),
+		}
 	}
 
 	/// Imports a bunch of unverified extrinsics to every view
@@ -257,5 +265,91 @@ where
 			.read()
 			.get(&at)
 			.and_then(|v| v.pool.validated_pool().ready_by_hash(tx_hash))
+	}
+
+	pub(super) async fn insert_new_view(
+		&self,
+		view: Arc<View<PoolApi>>,
+		tree_route: &TreeRoute<Block>,
+	) {
+		//todo: refactor this: maybe single object with one mutex?
+		// shall be property of views_store + insert/remove/get wrappers?
+		let views_to_be_removed = {
+			let mut most_recent_view_lock = self.most_recent_view.write();
+			let mut views_to_be_removed = {
+				std::iter::once(tree_route.common_block())
+					.chain(tree_route.enacted().iter())
+					.map(|block| block.hash)
+					.collect::<Vec<_>>()
+			};
+			let mut views = self.views.write();
+			let mut retracted_views = self.retracted_views.write();
+			views_to_be_removed.retain(|hash| {
+				let view = views.remove(hash);
+				if let Some(view) = view {
+					retracted_views.insert(*hash, view);
+					true
+				} else {
+					false
+				}
+			});
+			views.insert(view.at.hash, view.clone());
+			most_recent_view_lock.replace(view.at.hash);
+			views_to_be_removed
+		};
+		{
+			log::debug!(target:LOG_TARGET,"insert_new_view: retracted_views: {:?}", self.retracted_views.read().keys());
+		}
+		for hash in &views_to_be_removed {
+			self.listener.remove_view(*hash).await;
+		}
+	}
+
+	pub(super) fn get_view_at(
+		&self,
+		at: Block::Hash,
+		allow_retracted: bool,
+	) -> Option<(Arc<View<PoolApi>>, bool)> {
+		if let Some(view) = self.views.read().get(&at) {
+			return Some((view.clone(), false));
+		}
+		if allow_retracted {
+			if let Some(view) = self.retracted_views.read().get(&at) {
+				return Some((view.clone(), true))
+			}
+		};
+		None
+	}
+
+	pub(crate) async fn handle_finalized(
+		&self,
+		finalized_hash: Block::Hash,
+		tree_route: &[Block::Hash],
+	) -> Vec<ExtrinsicHash<PoolApi>> {
+		let finalized_xts = self.finalize_route(finalized_hash, tree_route).await;
+
+		let finalized_number = self.api.block_id_to_number(&BlockId::Hash(finalized_hash));
+
+		//clean up older then finalized
+		{
+			let mut views = self.views.write();
+			views.retain(|hash, v| match finalized_number {
+				Err(_) | Ok(None) => *hash == finalized_hash,
+				Ok(Some(n)) if v.at.number == n => *hash == finalized_hash,
+				Ok(Some(n)) => v.at.number > n,
+			});
+		}
+
+		{
+			let mut retracted_views = self.retracted_views.write();
+			retracted_views.retain(|_, v| match finalized_number {
+				Err(_) | Ok(None) => false,
+				Ok(Some(n)) => v.at.number > n,
+			});
+
+			log::debug!(target:LOG_TARGET,"finalize_route: retracted_views: {:?}", retracted_views.keys());
+		}
+
+		finalized_xts
 	}
 }

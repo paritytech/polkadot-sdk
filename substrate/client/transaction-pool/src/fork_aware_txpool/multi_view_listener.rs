@@ -39,6 +39,7 @@ pub type TxStatusStream<T> = Pin<Box<TransactionStatusStream<TxHash<T>, BlockHas
 
 enum ListenerAction<PoolApi: ChainApi> {
 	ViewAdded(BlockHash<PoolApi>, TxStatusStream<PoolApi>),
+	ViewRemoved(BlockHash<PoolApi>),
 	InvalidateTransaction,
 	FinalizeTransaction(BlockHash<PoolApi>, TxIndex),
 }
@@ -50,6 +51,7 @@ where
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 		match self {
 			ListenerAction::ViewAdded(h, _) => write!(f, "ListenerAction::ViewAdded({})", h),
+			ListenerAction::ViewRemoved(h) => write!(f, "ListenerAction::ViewRemoved({})", h),
 			ListenerAction::InvalidateTransaction => {
 				write!(f, "ListenerAction::InvalidateTransaction")
 			},
@@ -174,6 +176,11 @@ where
 		self.fused.get_mut().insert(block_hash, stream);
 		trace!(target: LOG_TARGET, "[{:?}] ViewAdded view: {:?} views:{:?}", self.tx_hash, block_hash, self.fused.get_ref().keys().collect::<Vec<_>>());
 	}
+
+	fn remove_view(&mut self, block_hash: BlockHash<PoolApi>) {
+		self.fused.get_mut().remove(&block_hash);
+		trace!(target: LOG_TARGET, "[{:?}] ViewRemoved view: {:?} views:{:?}", self.tx_hash, block_hash, self.fused.get_ref().keys().collect::<Vec<_>>());
+	}
 }
 
 impl<PoolApi> MultiViewListener<PoolApi>
@@ -226,6 +233,9 @@ where
 							Some(ListenerAction::ViewAdded(h,stream)) => {
 								ctx.add_stream(h, stream);
 							},
+							Some(ListenerAction::ViewRemoved(h)) => {
+								ctx.remove_view(h);
+							},
 							Some(ListenerAction::InvalidateTransaction) => {
 								if ctx.handle_invalidate_transaction() {
 									log::debug!(target: LOG_TARGET, "[{:?}] sending out: Invalid", ctx.tx_hash);
@@ -268,6 +278,19 @@ where
 		}
 	}
 
+	pub(crate) async fn remove_view(&self, block_hash: BlockHash<PoolApi>) {
+		let controllers = self.controllers.write().await;
+		for (tx_hash, sender) in controllers.iter() {
+			match sender.send(ListenerAction::ViewRemoved(block_hash)).await {
+				Err(mpsc::error::SendError(e)) => {
+					log::trace!(target: LOG_TARGET, "[{:?}] remove_view: SendError: {:?}", tx_hash, e);
+					// todo:
+					// controllers.remove(&tx_hash);
+				},
+				Ok(_) => {},
+			}
+		}
+	}
 	pub(crate) async fn invalidate_transactions(&self, invalid_hashes: Vec<TxHash<PoolApi>>) {
 		use futures::future::FutureExt;
 		let mut controllers = self.controllers.write().await;
