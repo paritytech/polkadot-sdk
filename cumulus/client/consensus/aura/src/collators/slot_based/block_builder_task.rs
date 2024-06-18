@@ -235,7 +235,7 @@ pub async fn run_block_builder<
 			return;
 		};
 
-		let Ok(expected_cores) =
+		let Some(expected_cores) =
 			expected_core_count(relay_chain_slot_duration, para_slot.slot_duration)
 		else {
 			return
@@ -262,14 +262,10 @@ pub async fn run_block_builder<
 			continue;
 		};
 
-		let Some((included_block, parent)) = crate::collators::find_parent(
-			relay_parent,
-			para_id,
-			&*para_backend,
-			&relay_client,
-		)
-		.await else
-		{
+		let Some((included_block, parent)) =
+			crate::collators::find_parent(relay_parent, para_id, &*para_backend, &relay_client)
+				.await
+		else {
 			continue
 		};
 
@@ -402,6 +398,7 @@ fn expected_core_count(
 	u64::try_from(relay_chain_slot_duration.as_millis())
 		.map_err(|e| tracing::error!("Unable to calculate expected parachain core count: {e}"))
 		.map(|relay_slot_duration| (relay_slot_duration / slot_duration_millis).max(1))
+		.ok()
 }
 
 /// Contains relay chain data necessary for parachain block building.
