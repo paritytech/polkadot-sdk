@@ -395,7 +395,7 @@ impl DiscoveryBehaviour {
 				p == self
 					.kademlia_protocol
 					.as_ref()
-					.expect("kademlia protocol was checked above to be anabled; qed")
+					.expect("kademlia protocol was checked above to be enabled; qed")
 			}) {
 				trace!(
 					target: "sub-libp2p",

@@ -149,7 +149,7 @@ pub struct MultiaddrWithPeerId {
 impl MultiaddrWithPeerId {
 	/// Concatenates the multiaddress and peer ID into one multiaddress containing both.
 	pub fn concat(&self) -> Multiaddr {
-		let proto = multiaddr::Protocol::P2p(*self.peer_id.as_ref());
+		let proto = multiaddr::Protocol::P2p(From::from(self.peer_id));
 		self.multiaddr.clone().with(proto)
 	}
 }
@@ -197,8 +197,8 @@ impl fmt::Display for ParseErr {
 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
 		match self {
 			Self::MultiaddrParse(err) => write!(f, "{}", err),
+			Self::InvalidPeerId => write!(f, "Peer id at the end of the address is invalid"),
 			Self::PeerIdMissing => write!(f, "Peer id is missing from the address"),
-			Self::InvalidPeerId => write!(f, "Multihash in the addres is not valid peer id"),
 		}
 	}
 }
@@ -207,8 +207,8 @@ impl std::error::Error for ParseErr {
 	fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
 		match self {
 			Self::MultiaddrParse(err) => Some(err),
-			Self::PeerIdMissing => None,
 			Self::InvalidPeerId => None,
+			Self::PeerIdMissing => None,
 		}
 	}
 }

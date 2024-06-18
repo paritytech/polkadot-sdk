@@ -1786,10 +1786,8 @@ where
 							} else {
 								None
 							},
-						// DialError::ConnectionLimit(_) => Some("limit-reached"),
-						// DialError::InvalidPeerId(_) |
-						DialError::LocalPeerId { .. } | DialError::WrongPeerId { .. } =>
-							Some("invalid-peer-id"),
+						DialError::LocalPeerId { .. } => Some("local-peer-id"),
+						DialError::WrongPeerId { .. } => Some("invalid-peer-id"),
 						DialError::Transport(_) => Some("transport-error"),
 						DialError::NoAddresses |
 						DialError::DialPeerConditionFalse(_) |

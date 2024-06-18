@@ -981,7 +981,6 @@ pub mod tests {
 		}
 	}
 
-	#[allow(unused)]
 	struct MockSubstream {
 		pub rx: mpsc::Receiver<Vec<u8>>,
 		pub tx: mpsc::Sender<Vec<u8>>,

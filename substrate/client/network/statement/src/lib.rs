@@ -297,7 +297,7 @@ where
 	fn handle_sync_event(&mut self, event: SyncEvent) {
 		match event {
 			SyncEvent::PeerConnected(remote) => {
-				let addr = iter::once(multiaddr::Protocol::P2p(*remote.as_ref()))
+				let addr = iter::once(multiaddr::Protocol::P2p(remote.into()))
 					.collect::<multiaddr::Multiaddr>();
 				let result = self.network.add_peers_to_reserved_set(
 					self.protocol_name.clone(),
