@@ -100,7 +100,6 @@ pub mod pallet {
 
 	/// The current prime member, if one exists.
 	#[pallet::storage]
-	#[pallet::getter(fn prime)]
 	pub type Prime<T: Config<I>, I: 'static = ()> = StorageValue<_, T::AccountId, OptionQuery>;
 
 	#[pallet::genesis_config]
@@ -668,12 +667,12 @@ mod tests {
 				Error::<Test, _>::NotMember
 			);
 			assert_ok!(Membership::set_prime(RuntimeOrigin::signed(5), 20));
-			assert_eq!(Membership::prime(), Some(20));
-			assert_eq!(PRIME.with(|m| *m.borrow()), Membership::prime());
+			assert_eq!(Prime::<Test>::get(), Some(20));
+			assert_eq!(PRIME.with(|m| *m.borrow()), Prime::<Test>::get());
 
 			assert_ok!(Membership::clear_prime(RuntimeOrigin::signed(5)));
-			assert_eq!(Membership::prime(), None);
-			assert_eq!(PRIME.with(|m| *m.borrow()), Membership::prime());
+			assert_eq!(Prime::<Test>::get(), None);
+			assert_eq!(PRIME.with(|m| *m.borrow()), Prime::<Test>::get());
 		});
 	}
 
@@ -703,8 +702,8 @@ mod tests {
 			assert_ok!(Membership::remove_member(RuntimeOrigin::signed(2), 20));
 			assert_eq!(Members::<Test>::get(), vec![10, 30]);
 			assert_eq!(MEMBERS.with(|m| m.borrow().clone()), Members::<Test>::get().to_vec());
-			assert_eq!(Membership::prime(), None);
-			assert_eq!(PRIME.with(|m| *m.borrow()), Membership::prime());
+			assert_eq!(Prime::<Test>::get(), None);
+			assert_eq!(PRIME.with(|m| *m.borrow()), Prime::<Test>::get());
 		});
 	}
 
@@ -724,15 +723,15 @@ mod tests {
 			assert_ok!(Membership::set_prime(RuntimeOrigin::signed(5), 20));
 			assert_ok!(Membership::swap_member(RuntimeOrigin::signed(3), 20, 20));
 			assert_eq!(Members::<Test>::get(), vec![10, 20, 30]);
-			assert_eq!(Membership::prime(), Some(20));
-			assert_eq!(PRIME.with(|m| *m.borrow()), Membership::prime());
+			assert_eq!(Prime::<Test>::get(), Some(20));
+			assert_eq!(PRIME.with(|m| *m.borrow()), Prime::<Test>::get());
 
 			assert_ok!(Membership::set_prime(RuntimeOrigin::signed(5), 10));
 			assert_ok!(Membership::swap_member(RuntimeOrigin::signed(3), 10, 25));
 			assert_eq!(Members::<Test>::get(), vec![20, 25, 30]);
 			assert_eq!(MEMBERS.with(|m| m.borrow().clone()), Members::<Test>::get().to_vec());
-			assert_eq!(Membership::prime(), None);
-			assert_eq!(PRIME.with(|m| *m.borrow()), Membership::prime());
+			assert_eq!(Prime::<Test>::get(), None);
+			assert_eq!(PRIME.with(|m| *m.borrow()), Prime::<Test>::get());
 		});
 	}
 
@@ -771,8 +770,8 @@ mod tests {
 			assert_ok!(Membership::change_key(RuntimeOrigin::signed(10), 40));
 			assert_eq!(Members::<Test>::get(), vec![20, 30, 40]);
 			assert_eq!(MEMBERS.with(|m| m.borrow().clone()), Members::<Test>::get().to_vec());
-			assert_eq!(Membership::prime(), Some(40));
-			assert_eq!(PRIME.with(|m| *m.borrow()), Membership::prime());
+			assert_eq!(Prime::<Test>::get(), Some(40));
+			assert_eq!(PRIME.with(|m| *m.borrow()), Prime::<Test>::get());
 		});
 	}
 
@@ -804,14 +803,14 @@ mod tests {
 			assert_ok!(Membership::reset_members(RuntimeOrigin::signed(4), vec![20, 40, 30]));
 			assert_eq!(Members::<Test>::get(), vec![20, 30, 40]);
 			assert_eq!(MEMBERS.with(|m| m.borrow().clone()), Members::<Test>::get().to_vec());
-			assert_eq!(Membership::prime(), Some(20));
-			assert_eq!(PRIME.with(|m| *m.borrow()), Membership::prime());
+			assert_eq!(Prime::<Test>::get(), Some(20));
+			assert_eq!(PRIME.with(|m| *m.borrow()), Prime::<Test>::get());
 
 			assert_ok!(Membership::reset_members(RuntimeOrigin::signed(4), vec![10, 40, 30]));
 			assert_eq!(Members::<Test>::get(), vec![10, 30, 40]);
 			assert_eq!(MEMBERS.with(|m| m.borrow().clone()), Members::<Test>::get().to_vec());
-			assert_eq!(Membership::prime(), None);
-			assert_eq!(PRIME.with(|m| *m.borrow()), Membership::prime());
+			assert_eq!(Prime::<Test>::get(), None);
+			assert_eq!(PRIME.with(|m| *m.borrow()), Prime::<Test>::get());
 		});
 	}
 
