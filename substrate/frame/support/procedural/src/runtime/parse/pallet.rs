@@ -67,13 +67,19 @@ impl Pallet {
 					let mut segment = segment.clone();
 					segment.arguments = PathArguments::None;
 					pallet_segment = Some(segment.clone());
-				} 
+				}
 				let mut args_iter = args.iter();
-				if let Some(syn::GenericArgument::Type(syn::Type::Path(arg_path))) = args_iter.next() {
-					let ident = Ident::new(&arg_path.to_token_stream().to_string(), arg_path.span());
+				if let Some(syn::GenericArgument::Type(syn::Type::Path(arg_path))) =
+					args_iter.next()
+				{
+					let ident =
+						Ident::new(&arg_path.to_token_stream().to_string(), arg_path.span());
 					if segment.ident == "Pallet" {
 						if let Some(arg_path) = args_iter.next() {
-							instance = Some(Ident::new(&arg_path.to_token_stream().to_string(), arg_path.span()));
+							instance = Some(Ident::new(
+								&arg_path.to_token_stream().to_string(),
+								arg_path.span(),
+							));
 							segment.arguments = PathArguments::None;
 						}
 					} else {
@@ -85,10 +91,12 @@ impl Pallet {
 		}
 
 		if pallet_segment.is_some() {
-			path = PalletPath { inner: syn::Path {
-				leading_colon: None,
-				segments: path.inner.segments.first().cloned().into_iter().collect(),
-			}};
+			path = PalletPath {
+				inner: syn::Path {
+					leading_colon: None,
+					segments: path.inner.segments.first().cloned().into_iter().collect(),
+				},
+			};
 		}
 
 		pallet_parts = pallet_parts

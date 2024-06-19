@@ -27,9 +27,9 @@ use sp_runtime::{generic, traits::BlakeTwo256, BuildStorage};
 pub use self::frame_system::{pallet_prelude::*, Config, Pallet};
 
 mod inject_runtime_type;
+mod runtime;
 mod storage_alias;
 mod tasks;
-mod runtime;
 
 #[import_section(tasks::tasks_example)]
 #[pallet]
@@ -233,7 +233,7 @@ mod runtime {
 		RuntimeHoldReason,
 		RuntimeSlashReason,
 		RuntimeLockId,
-		RuntimeTask,
+		RuntimeTask
 	)]
 	pub struct Runtime;
 
