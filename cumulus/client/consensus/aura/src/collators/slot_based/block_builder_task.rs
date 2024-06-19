@@ -90,6 +90,8 @@ pub struct BuilderTaskParams<
 	/// Slot duration of the relay chain
 	pub relay_chain_slot_duration: Duration,
 	/// Drift every slot by this duration.
+	/// This can be used to shift slots in relation to relay chain slots,
+	/// making it less likely to to encounter unlucky notification arrival timings.
 	pub slot_drift: Duration,
 }
 
