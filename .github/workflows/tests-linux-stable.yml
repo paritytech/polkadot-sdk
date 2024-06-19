@@ -96,6 +96,8 @@ jobs:
         uses: actions/checkout@v4
       - name: script
         run: |
+          # Fixes "detected dubious ownership" error in the ci
+          git config --global --add safe.directory '*'
           time forklift cargo nextest run \
             --workspace \
             --locked \
