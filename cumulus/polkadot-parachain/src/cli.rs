@@ -15,6 +15,7 @@
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
 use clap::{Command, CommandFactory, FromArgMatches};
+use sc_cli::SubstrateCli;
 use std::path::PathBuf;
 
 /// Sub-commands supported by the collator.
@@ -63,7 +64,7 @@ pub enum Subcommand {
 	propagate_version = true,
 	args_conflicts_with_subcommands = true,
 	subcommand_negates_reqs = true,
-	after_help = crate::EXAMPLES
+	after_help = crate::examples(Self::executable_name())
 )]
 pub struct Cli {
 	#[command(subcommand)]

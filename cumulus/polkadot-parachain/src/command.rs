@@ -316,7 +316,7 @@ fn extract_parachain_id(id: &str) -> (&str, &str, Option<ParaId>) {
 
 impl SubstrateCli for Cli {
 	fn impl_name() -> String {
-		"polkadot-parachain-omni-node".into()
+		Self::executable_name()
 	}
 
 	fn impl_version() -> String {

@@ -19,26 +19,28 @@
 #![warn(missing_docs)]
 #![warn(unused_extern_crates)]
 
-pub(crate) const EXAMPLES: &str = color_print::cstr!(
-	r#"<bold><underline>Examples:</></>
+pub(crate) fn examples(executable_name: String) -> String {
+	color_print::cformat!(
+		r#"<bold><underline>Examples:</></>
 
-   <bold>polkadot-parachain-omni-node --chain para.json --sync warp -- --chain relay.json --sync warp</>
+   <bold>{0} --chain para.json --sync warp -- --chain relay.json --sync warp</>
         Launch a warp-syncing full node of a given para's chain-spec, and a given relay's chain-spec.
 
 	<green><italic>The above approach is the most flexible, and the most forward-compatible way to spawn an omni-node.</></>
 
 	You can find the chain-spec of some networks in:
-
 	https://paritytech.github.io/chainspecs
 
-   <bold>polkadot-parachain-omni-node --chain asset-hub-polkadot --sync warp -- --chain polkadot --sync warp</>
+   <bold>{0} --chain asset-hub-polkadot --sync warp -- --chain polkadot --sync warp</>
         Launch a warp-syncing full node of the <italic>Asset Hub</> parachain on the <italic>Polkadot</> Relay Chain.
 
-   <bold>polkadot-parachain-omni-node --chain asset-hub-kusama --sync warp --relay-chain-rpc-url ws://rpc.example.com -- --chain polkadot</>
+   <bold>{0} --chain asset-hub-kusama --sync warp --relay-chain-rpc-url ws://rpc.example.com -- --chain polkadot</>
         Launch a warp-syncing full node of the <italic>Asset Hub</> parachain on the <italic>Kusama</> Relay Chain.
         Uses <italic>ws://rpc.example.com</> as remote relay chain node.
- "#
-);
+ "#,
+		executable_name,
+	)
+}
 
 pub(crate) const BANNER: &str = color_print::cstr!(
 	r#"
