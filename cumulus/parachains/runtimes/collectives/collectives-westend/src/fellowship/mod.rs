@@ -283,14 +283,6 @@ pub type FellowshipTreasuryPaymaster = PayOverXcm<
 pub type FellowshipTreasuryInstance = pallet_treasury::Instance1;
 
 impl pallet_treasury::Config<FellowshipTreasuryInstance> for Runtime {
-	// The creation of proposals via the treasury pallet is deprecated and should not be utilized.
-	// Instead, public or fellowship referenda should be used to propose and command the treasury
-	// spend or spend_local dispatchables. The parameters below have been configured accordingly to
-	// discourage its use.
-	// TODO: replace with `NeverEnsure` once polkadot-sdk 1.5 is released.
-	type ApproveOrigin = NeverEnsureOrigin<()>;
-	type OnSlash = ();
-
 	type WeightInfo = weights::pallet_treasury::WeightInfo<Runtime>;
 	type PalletId = FellowshipTreasuryPalletId;
 	type Currency = Balances;
