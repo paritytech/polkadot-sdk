@@ -114,6 +114,7 @@ pub mod frame_system {
 	}
 
 	#[pallet::storage]
+	#[deprecated]
 	pub type Data<T> = StorageMap<_, Twox64Concat, u32, u64, ValueQuery>;
 
 	#[pallet::storage]
@@ -590,7 +591,7 @@ fn expected_metadata() -> PalletStorageMetadataIR {
 				},
 				default: vec![0, 0, 0, 0, 0, 0, 0, 0],
 				docs: vec![],
-				deprecation_info: sp_metadata_ir::DeprecationStatus::NotDeprecated,
+				deprecation_info: sp_metadata_ir::DeprecationStatus::DeprecatedWithoutNote,
 			},
 			StorageEntryMetadataIR {
 				name: "OptionLinkedMap",

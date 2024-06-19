@@ -147,8 +147,8 @@ pub fn generate_decl_runtime_metadata(decl: &ItemTrait) -> TokenStream2 {
 	let trait_name_ident = &decl.ident;
 	let trait_name = trait_name_ident.to_string();
 	let docs = collect_docs(&decl.attrs, &crate_);
-	let attrs = filter_cfg_attributes(&decl.attrs);
 	let deprecation = crate::utils::get_deprecation(&crate_, &decl.attrs).unwrap();
+	let attrs = filter_cfg_attributes(&decl.attrs);
 	// The trait generics where already extended with `Block: BlockT`.
 	let mut generics = decl.generics.clone();
 	for generic_param in generics.params.iter_mut() {

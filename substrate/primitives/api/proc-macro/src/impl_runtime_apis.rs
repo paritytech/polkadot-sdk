@@ -471,7 +471,7 @@ fn extend_with_api_version(mut trait_: Path, version: Option<u64>) -> Path {
 		v
 	} else {
 		// nothing to do
-		return trait_
+		return trait_;
 	};
 
 	let trait_name = &mut trait_
@@ -762,7 +762,7 @@ fn generate_runtime_api_versions(impls: &[ItemImpl]) -> Result<TokenStream> {
 
 			error.combine(Error::new(other_span, "First trait implementation."));
 
-			return Err(error)
+			return Err(error);
 		}
 
 		let id: Path = parse_quote!( #path ID );
@@ -892,7 +892,7 @@ fn extract_cfg_api_version(attrs: &Vec<Attribute>, span: Span) -> Result<Option<
 			err.combine(Error::new(attr_span, format!("`{}` found here", API_VERSION_ATTRIBUTE)));
 		}
 
-		return Err(err)
+		return Err(err);
 	}
 
 	Ok(cfg_api_version_attr
@@ -929,7 +929,7 @@ fn extract_api_version(attrs: &Vec<Attribute>, span: Span) -> Result<ApiVersion>
 				Each runtime API can have only one version.",
 				API_VERSION_ATTRIBUTE
 			),
-		))
+		));
 	}
 
 	// Parse the runtime version if there exists one.

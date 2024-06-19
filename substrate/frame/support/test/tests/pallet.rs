@@ -35,6 +35,7 @@ use sp_io::{
 	hashing::{blake2_128, twox_128, twox_64},
 	TestExternalities,
 };
+use sp_metadata_ir::DeprecationStatus;
 use sp_runtime::{
 	traits::{Dispatchable, Extrinsic as ExtrinsicT, SignaturePayload as SignaturePayloadT},
 	DispatchError, ModuleError,
@@ -116,6 +117,7 @@ impl SomeAssociation2 for u64 {
 // Comments should not be included in the pallet documentation
 #[pallet_doc("../../README.md")]
 #[doc = include_str!("../../README.md")]
+#[deprecated]
 pub mod pallet {
 	use super::*;
 	use frame_support::pallet_prelude::*;
@@ -486,7 +488,7 @@ pub mod pallet {
 			let _ = T::AccountId::from(SomeType1); // Test for where clause
 			let _ = T::AccountId::from(SomeType5); // Test for where clause
 			if matches!(call, Call::foo_storage_layer { .. }) {
-				return Ok(ValidTransaction::default())
+				return Ok(ValidTransaction::default());
 			}
 			Err(TransactionValidityError::Invalid(InvalidTransaction::Call))
 		}
@@ -1819,9 +1821,9 @@ fn metadata() {
 		},
 	];
 
-	let empty_doc = pallets[0].event.as_ref().unwrap().ty.type_info().docs.is_empty() &&
-		pallets[0].error.as_ref().unwrap().ty.type_info().docs.is_empty() &&
-		pallets[0].calls.as_ref().unwrap().ty.type_info().docs.is_empty();
+	let empty_doc = pallets[0].event.as_ref().unwrap().ty.type_info().docs.is_empty()
+		&& pallets[0].error.as_ref().unwrap().ty.type_info().docs.is_empty()
+		&& pallets[0].calls.as_ref().unwrap().ty.type_info().docs.is_empty();
 
 	if cfg!(feature = "no-metadata-docs") {
 		assert!(empty_doc)
@@ -1900,6 +1902,17 @@ fn metadata_at_version() {
 #[test]
 fn metadata_versions() {
 	assert_eq!(vec![14, LATEST_METADATA_VERSION], Runtime::metadata_versions());
+}
+
+#[test]
+fn metadata_ir_pallet_runtime_deprecated() {
+	let ir = Runtime::metadata_ir();
+	let pallet = ir
+		.pallets
+		.iter()
+		.any(|pallet| matches!(pallet.deprecation_info, DeprecationStatus::DeprecatedWithoutNote));
+
+	assert!(pallet)
 }
 
 #[test]
@@ -2390,8 +2403,8 @@ fn post_runtime_upgrade_detects_storage_version_issues() {
 
 		// The version isn't changed, we should detect it.
 		assert!(
-			Executive::try_runtime_upgrade(UpgradeCheckSelect::PreAndPost).unwrap_err() ==
-				"On chain and in-code storage version do not match. Missing runtime upgrade?"
+			Executive::try_runtime_upgrade(UpgradeCheckSelect::PreAndPost).unwrap_err()
+				== "On chain and in-code storage version do not match. Missing runtime upgrade?"
 					.into()
 		);
 	});
@@ -2450,11 +2463,11 @@ fn test_dispatch_context() {
 fn test_call_feature_parsing() {
 	let call = pallet::Call::<Runtime>::check_for_dispatch_context {};
 	match call {
-		pallet::Call::<Runtime>::check_for_dispatch_context {} |
-		pallet::Call::<Runtime>::foo { .. } |
-		pallet::Call::foo_storage_layer { .. } |
-		pallet::Call::foo_index_out_of_order {} |
-		pallet::Call::foo_no_post_info {} => (),
+		pallet::Call::<Runtime>::check_for_dispatch_context {}
+		| pallet::Call::<Runtime>::foo { .. }
+		| pallet::Call::foo_storage_layer { .. }
+		| pallet::Call::foo_index_out_of_order {}
+		| pallet::Call::foo_no_post_info {} => (),
 		#[cfg(feature = "frame-feature-testing")]
 		pallet::Call::foo_feature_test {} => (),
 		pallet::Call::__Ignore(_, _) => (),
@@ -2465,11 +2478,11 @@ fn test_call_feature_parsing() {
 fn test_error_feature_parsing() {
 	let err = pallet::Error::<Runtime>::InsufficientProposersBalance;
 	match err {
-		pallet::Error::InsufficientProposersBalance |
-		pallet::Error::NonExistentStorageValue |
-		pallet::Error::Code(_) |
-		pallet::Error::Skipped(_) |
-		pallet::Error::CompactU8(_) => (),
+		pallet::Error::InsufficientProposersBalance
+		| pallet::Error::NonExistentStorageValue
+		| pallet::Error::Code(_)
+		| pallet::Error::Skipped(_)
+		| pallet::Error::CompactU8(_) => (),
 		#[cfg(feature = "frame-feature-testing")]
 		pallet::Error::FeatureTest => (),
 		pallet::Error::__Ignore(_, _) => (),

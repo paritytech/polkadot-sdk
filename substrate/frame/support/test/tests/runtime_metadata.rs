@@ -14,6 +14,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+#![allow(useless_deprecated)]
 
 use frame_support::{derive_impl, traits::ConstU32};
 use scale_info::{form::MetaForm, meta_type};
@@ -65,12 +66,14 @@ sp_api::decl_runtime_apis! {
 	/// ApiWithCustomVersion trait documentation
 	///
 	/// Documentation on multiline.
+	#[deprecated]
 	pub trait Api {
 		fn test(data: u64);
 		/// something_with_block.
 		fn something_with_block(block: Block) -> Block;
 		fn function_with_two_args(data: u64, block: Block);
 		fn same_name();
+		#[deprecated(note = "example")]
 		fn wild_card(_: u32);
 	}
 }
@@ -172,7 +175,10 @@ fn runtime_metadata() {
 					}],
 					output: meta_type::<()>(),
 					docs: vec![],
-					deprecation_info: DeprecationStatus::NotDeprecated,
+					deprecation_info: DeprecationStatus::Deprecated {
+						                    note: "example",
+						                    since: None,
+						                }
 				},
 			],
 			docs: maybe_docs(vec![
@@ -180,7 +186,7 @@ fn runtime_metadata() {
 				"",
 				" Documentation on multiline.",
 			]),
-			deprecation_info: DeprecationStatus::NotDeprecated,
+			deprecation_info: DeprecationStatus::DeprecatedWithoutNote,
 
 		},
 		RuntimeApiMetadataIR {

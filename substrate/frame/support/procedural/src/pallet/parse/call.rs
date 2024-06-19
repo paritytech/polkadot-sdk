@@ -122,7 +122,7 @@ impl syn::parse::Parse for FunctionAttr {
 			let index = call_index_content.parse::<syn::LitInt>()?;
 			if !index.suffix().is_empty() {
 				let msg = "Number literal must not have a suffix";
-				return Err(syn::Error::new(index.span(), msg))
+				return Err(syn::Error::new(index.span(), msg));
 			}
 			Ok(FunctionAttr::CallIndex(index.base10_parse()?))
 		} else if lookahead.peek(keyword::feeless_if) {
@@ -198,9 +198,9 @@ pub fn check_dispatchable_first_arg_type(ty: &syn::Type, is_ref: bool) -> syn::R
 			} else {
 				"Invalid type: expected `OriginFor<T>` or `T::RuntimeOrigin`"
 			};
-			return Err(syn::Error::new(ty.span(), msg))
+			return Err(syn::Error::new(ty.span(), msg));
 		},
-	}
+	};
 }
 
 impl CallDef {
@@ -214,9 +214,8 @@ impl CallDef {
 		let item_impl = if let syn::Item::Impl(item) = item {
 			item
 		} else {
-			return Err(syn::Error::new(item.span(), "Invalid pallet::call, expected item impl"))
+			return Err(syn::Error::new(item.span(), "Invalid pallet::call, expected item impl"));
 		};
-
 		let instances = vec![
 			helper::check_impl_gen(&item_impl.generics, item_impl.impl_token.span())?,
 			helper::check_pallet_struct_usage(&item_impl.self_ty)?,
@@ -225,7 +224,7 @@ impl CallDef {
 		if let Some((_, _, for_)) = item_impl.trait_ {
 			let msg = "Invalid pallet::call, expected no trait ident as in \
 				`impl<..> Pallet<..> { .. }`";
-			return Err(syn::Error::new(for_.span(), msg))
+			return Err(syn::Error::new(for_.span(), msg));
 		}
 
 		let mut methods = vec![];
@@ -242,18 +241,18 @@ impl CallDef {
 						_ => method.vis.span(),
 					};
 
-					return Err(syn::Error::new(span, msg))
+					return Err(syn::Error::new(span, msg));
 				}
 
 				match method.sig.inputs.first() {
 					None => {
 						let msg = "Invalid pallet::call, must have at least origin arg";
-						return Err(syn::Error::new(method.sig.span(), msg))
+						return Err(syn::Error::new(method.sig.span(), msg));
 					},
 					Some(syn::FnArg::Receiver(_)) => {
 						let msg = "Invalid pallet::call, first argument must be a typed argument, \
 							e.g. `origin: OriginFor<T>`";
-						return Err(syn::Error::new(method.sig.span(), msg))
+						return Err(syn::Error::new(method.sig.span(), msg));
 					},
 					Some(syn::FnArg::Typed(arg)) => {
 						check_dispatchable_first_arg_type(&arg.ty, false)?;
@@ -265,7 +264,7 @@ impl CallDef {
 				} else {
 					let msg = "Invalid pallet::call, require return type \
 						DispatchResultWithPostInfo";
-					return Err(syn::Error::new(method.sig.span(), msg))
+					return Err(syn::Error::new(method.sig.span(), msg));
 				}
 
 				let cfg_attrs: Vec<syn::Attribute> = helper::get_item_cfg_attrs(&method.attrs);
@@ -308,13 +307,13 @@ impl CallDef {
 					},
 					_ => {
 						let msg = "Invalid pallet::call, too many weight attributes given";
-						return Err(syn::Error::new(method.sig.span(), msg))
+						return Err(syn::Error::new(method.sig.span(), msg));
 					},
 				};
 
 				if call_idx_attrs.len() > 1 {
 					let msg = "Invalid pallet::call, too many call_index attributes given";
-					return Err(syn::Error::new(method.sig.span(), msg))
+					return Err(syn::Error::new(method.sig.span(), msg));
 				}
 				let call_index = call_idx_attrs.pop().map(|attr| match attr {
 					FunctionAttr::CallIndex(idx) => idx,
@@ -324,11 +323,12 @@ impl CallDef {
 
 				let final_index = match call_index {
 					Some(i) => i,
-					None =>
+					None => {
 						last_index.map_or(Some(0), |idx| idx.checked_add(1)).ok_or_else(|| {
 							let msg = "Call index doesn't fit into u8, index is 256";
 							syn::Error::new(method.sig.span(), msg)
-						})?,
+						})?
+					},
 				};
 				last_index = Some(final_index);
 
@@ -339,7 +339,7 @@ impl CallDef {
 					);
 					let mut err = syn::Error::new(used_fn.span(), &msg);
 					err.combine(syn::Error::new(method.sig.ident.span(), msg));
-					return Err(err)
+					return Err(err);
 				}
 
 				let mut args = vec![];
@@ -355,14 +355,14 @@ impl CallDef {
 
 					if arg_attrs.len() > 1 {
 						let msg = "Invalid pallet::call, argument has too many attributes";
-						return Err(syn::Error::new(arg.span(), msg))
+						return Err(syn::Error::new(arg.span(), msg));
 					}
 
 					let arg_ident = if let syn::Pat::Ident(pat) = &*arg.pat {
 						pat.ident.clone()
 					} else {
 						let msg = "Invalid pallet::call, argument must be ident";
-						return Err(syn::Error::new(arg.pat.span(), msg))
+						return Err(syn::Error::new(arg.pat.span(), msg));
 					};
 
 					args.push((!arg_attrs.is_empty(), arg_ident, arg.ty.clone()));
@@ -372,7 +372,7 @@ impl CallDef {
 
 				if feeless_attrs.len() > 1 {
 					let msg = "Invalid pallet::call, there can only be one feeless_if attribute";
-					return Err(syn::Error::new(feeless_attrs[1].0, msg))
+					return Err(syn::Error::new(feeless_attrs[1].0, msg));
 				}
 				let feeless_check: Option<ExprClosure> =
 					feeless_attrs.pop().map(|(_, attr)| match attr {
@@ -384,13 +384,13 @@ impl CallDef {
 					if feeless_check.inputs.len() != args.len() + 1 {
 						let msg = "Invalid pallet::call, feeless_if closure must have same \
 							number of arguments as the dispatchable function";
-						return Err(syn::Error::new(feeless_check.span(), msg))
+						return Err(syn::Error::new(feeless_check.span(), msg));
 					}
 
 					match feeless_check.inputs.first() {
 						None => {
 							let msg = "Invalid pallet::call, feeless_if closure must have at least origin arg";
-							return Err(syn::Error::new(feeless_check.span(), msg))
+							return Err(syn::Error::new(feeless_check.span(), msg));
 						},
 						Some(syn::Pat::Type(arg)) => {
 							check_dispatchable_first_arg_type(&arg.ty, true)?;
@@ -398,7 +398,7 @@ impl CallDef {
 						_ => {
 							let msg = "Invalid pallet::call, feeless_if closure first argument must be a typed argument, \
 								e.g. `origin: OriginFor<T>`";
-							return Err(syn::Error::new(feeless_check.span(), msg))
+							return Err(syn::Error::new(feeless_check.span(), msg));
 						},
 					}
 
@@ -409,18 +409,18 @@ impl CallDef {
 									pat.elem.clone()
 								} else {
 									let msg = "Invalid pallet::call, feeless_if closure argument must be a reference";
-									return Err(syn::Error::new(ty.span(), msg))
+									return Err(syn::Error::new(ty.span(), msg));
 								}
 							} else {
 								let msg = "Invalid pallet::call, feeless_if closure argument must be a type ascription pattern";
-								return Err(syn::Error::new(feeless_arg.span(), msg))
+								return Err(syn::Error::new(feeless_arg.span(), msg));
 							};
 
 						if feeless_arg_type != arg.2 {
 							let msg =
 								"Invalid pallet::call, feeless_if closure argument must have \
 								a reference to the same type as the dispatchable function argument";
-							return Err(syn::Error::new(feeless_arg.span(), msg))
+							return Err(syn::Error::new(feeless_arg.span(), msg));
 						}
 					}
 
@@ -433,7 +433,7 @@ impl CallDef {
 					};
 					if !valid_return {
 						let msg = "Invalid pallet::call, feeless_if closure must return `bool`";
-						return Err(syn::Error::new(feeless_check.output.span(), msg))
+						return Err(syn::Error::new(feeless_check.output.span(), msg));
 					}
 				}
 
@@ -450,7 +450,7 @@ impl CallDef {
 				});
 			} else {
 				let msg = "Invalid pallet::call, only method accepted";
-				return Err(syn::Error::new(item.span(), msg))
+				return Err(syn::Error::new(item.span(), msg));
 			}
 		}
 
