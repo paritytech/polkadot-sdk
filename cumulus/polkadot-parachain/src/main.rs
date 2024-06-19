@@ -42,40 +42,6 @@ pub(crate) fn examples(executable_name: String) -> String {
 	)
 }
 
-pub(crate) const BANNER: &str = color_print::cstr!(
-	r#"
- _____                     _           _
-|  __ \                   | |         (_)
-| |__) |_ _ _ __ __ _  ___| |__   __ _ _ _ __
-|  ___/ _` | '__/ _` |/ __| '_ \ / _` | | '_ \
-| |  | (_| | | | (_| | (__| | | | (_| | | | | |
-|_|___\__,_|_|  \__,_|\___|_| |_|\__,_|_|_| |_|
-/ __ \                (_) | \ | |         | |
-| |  | |_ __ ___  _ __  _  |  \| | ___   __| | ___
-| |  | | '_ ` _ \| '_ \| | | . ` |/ _ \ / _` |/ _ \
-| |__| | | | | | | | | | | | |\  | (_) | (_| |  __/
- \____/|_| |_| |_|_| |_|_| |_| \_|\___/ \__,_|\___|
-
-<i>
-Formerly know as polkadot-parachain, now called polkadot-parachain-omni-node, equipped with running more parachains in the Polkadot networks.
-</>
-
-Run with --help to see example usages.
-
-Please refer to the following resources to learn more about the omni-node:
-- https://forum.polkadot.network/t/polkadot-parachain-omni-node-gathering-ideas-and-feedback/7823/4
-- https://github.com/paritytech/polkadot-sdk/issues/5
-- sdk-docs
-
-<y>
-Warning: The degree of flexibility of this node is still expanding, as explained in the issue
-above. Please only use this if your parachain is using <bold>Aura</> consensus, and has not special
-node side specialization. Later versions of the omni-node could support customizing details
-such as RPCs, inherents and consensus.
-</>
-"#,
-);
-
 mod chain_spec;
 mod cli;
 mod command;

@@ -325,14 +325,12 @@ impl SubstrateCli for Cli {
 
 	fn description() -> String {
 		format!(
-			"{} \n\
-			The command-line arguments provided first will be passed to the parachain node, \n\
+			"The command-line arguments provided first will be passed to the parachain node, \n\
 			and the arguments provided after -- will be passed to the relay chain node. \n\
 			\n\
 			Example: \n\
 			\n\
 			{} [parachain-args] -- [relay-chain-args]",
-			crate::BANNER,
 			Self::executable_name()
 		)
 	}
@@ -380,7 +378,7 @@ impl SubstrateCli for RelayChainCli {
 	}
 
 	fn load_spec(&self, id: &str) -> std::result::Result<Box<dyn ChainSpec>, String> {
-		polkadot_cli::Cli::from_iter([RelayChainCli::executable_name()].iter()).load_spec(id)
+		Cli::from_iter([RelayChainCli::executable_name()].iter()).load_spec(id)
 	}
 }
 
