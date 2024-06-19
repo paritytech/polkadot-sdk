@@ -82,7 +82,7 @@ jobs:
   test-linux-stable-oldkernel:
     needs: [set-image, changes]
     if: ${{ needs.changes.outputs.rust }}
-    runs-on: oldkernel
+    runs-on: oldlinux
     timeout-minutes: 30
     container:
       image: ${{ needs.set-image.outputs.IMAGE }}
