@@ -150,7 +150,7 @@ impl<H: hash::Hash + traits::Member + Serialize, C: ChainApi> Listener<H, C> {
 		}
 	}
 
-	//todo: doc
+	/// Provides hashes of all watched transactions.
 	pub fn watched_transactions(&self) -> impl Iterator<Item = &H> {
 		self.watchers.keys()
 	}

@@ -319,7 +319,7 @@ impl<B: ChainApi> ValidatedPool<B> {
 		}
 	}
 
-	//todo: doc
+	/// Creates a new watcher for given extrinsic.
 	pub fn create_watcher(
 		&self,
 		tx_hash: ExtrinsicHash<B>,
@@ -327,7 +327,7 @@ impl<B: ChainApi> ValidatedPool<B> {
 		self.listener.write().create_watcher(tx_hash)
 	}
 
-	//todo: doc
+	/// Provides a list of hashes for all watched transactions in the pool.
 	pub fn watched_transactions(&self) -> Vec<ExtrinsicHash<B>> {
 		self.listener.read().watched_transactions().map(Clone::clone).collect()
 	}

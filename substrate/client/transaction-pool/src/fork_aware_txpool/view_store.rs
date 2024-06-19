@@ -33,25 +33,33 @@ use sp_runtime::{generic::BlockId, traits::Block as BlockT};
 
 use super::view::View;
 
-pub(super) struct ViewStore<PoolApi, Block>
+/// The helper structure encapsulates all the views.
+pub(super) struct ViewStore<ChainApi, Block>
 where
 	Block: BlockT,
-	PoolApi: graph::ChainApi<Block = Block>,
+	ChainApi: graph::ChainApi<Block = Block>,
 {
-	pub(super) api: Arc<PoolApi>,
-	pub(super) views: RwLock<HashMap<Block::Hash, Arc<View<PoolApi>>>>,
-	pub(super) retracted_views: RwLock<HashMap<Block::Hash, Arc<View<PoolApi>>>>,
-	pub(super) listener: Arc<MultiViewListener<PoolApi>>,
+	/// The blockchain api.
+	pub(super) api: Arc<ChainApi>,
+	/// Views at tips of the forks.
+	pub(super) views: RwLock<HashMap<Block::Hash, Arc<View<ChainApi>>>>,
+	/// Views at intermediary blocks that are no longer tip of the fork.
+	pub(super) retracted_views: RwLock<HashMap<Block::Hash, Arc<View<ChainApi>>>>,
+	/// Listener for controlling external watchers of transactions.
+	pub(super) listener: Arc<MultiViewListener<ChainApi>>,
+
+	/// Most recent block processed by tx-pool. Used on in API functions that were not changed to
+	/// add at parameter.
 	pub(super) most_recent_view: RwLock<Option<Block::Hash>>,
 }
 
-impl<PoolApi, Block> ViewStore<PoolApi, Block>
+impl<ChainApi, Block> ViewStore<ChainApi, Block>
 where
 	Block: BlockT,
-	PoolApi: graph::ChainApi<Block = Block> + 'static,
+	ChainApi: graph::ChainApi<Block = Block> + 'static,
 	<Block as BlockT>::Hash: Unpin,
 {
-	pub(super) fn new(api: Arc<PoolApi>, listener: Arc<MultiViewListener<PoolApi>>) -> Self {
+	pub(super) fn new(api: Arc<ChainApi>, listener: Arc<MultiViewListener<ChainApi>>) -> Self {
 		Self {
 			api,
 			views: Default::default(),
@@ -66,7 +74,7 @@ where
 		&self,
 		source: TransactionSource,
 		xts: impl IntoIterator<Item = Block::Extrinsic> + Clone,
-	) -> HashMap<Block::Hash, Vec<Result<ExtrinsicHash<PoolApi>, PoolApi::Error>>> {
+	) -> HashMap<Block::Hash, Vec<Result<ExtrinsicHash<ChainApi>, ChainApi::Error>>> {
 		let results = {
 			let views = self.views.read();
 			let futs = views
@@ -93,7 +101,7 @@ where
 		&self,
 		source: TransactionSource,
 		xt: Block::Extrinsic,
-	) -> HashMap<Block::Hash, Result<ExtrinsicHash<PoolApi>, PoolApi::Error>> {
+	) -> HashMap<Block::Hash, Result<ExtrinsicHash<ChainApi>, ChainApi::Error>> {
 		let mut output = HashMap::new();
 		let mut result = self.submit_at(source, std::iter::once(xt)).await;
 		result.iter_mut().for_each(|(hash, result)| {
@@ -113,7 +121,7 @@ where
 		_at: Block::Hash,
 		source: TransactionSource,
 		xt: Block::Extrinsic,
-	) -> Result<TxStatusStream<PoolApi>, PoolApi::Error> {
+	) -> Result<TxStatusStream<ChainApi>, ChainApi::Error> {
 		let tx_hash = self.api.hash_and_length(&xt).0;
 		let external_watcher = self.listener.create_external_watcher_for_tx(tx_hash).await;
 		let results = {
@@ -186,7 +194,7 @@ where
 	pub(super) fn find_best_view(
 		&self,
 		tree_route: &TreeRoute<Block>,
-	) -> Option<Arc<View<PoolApi>>> {
+	) -> Option<Arc<View<ChainApi>>> {
 		let views = self.views.read();
 		let best_view = {
 			tree_route
@@ -202,18 +210,16 @@ where
 		})
 	}
 
-	// todo: API change? ready at block?
-	pub(super) fn ready(&self, at: Block::Hash) -> Option<ReadyIteratorFor<PoolApi>> {
+	pub(super) fn ready(&self, at: Block::Hash) -> Option<ReadyIteratorFor<ChainApi>> {
 		let maybe_ready = self.views.read().get(&at).map(|v| v.pool.validated_pool().ready());
 		let Some(ready) = maybe_ready else { return None };
 		Some(Box::new(ready))
 	}
 
-	// todo: API change? futures at block?
 	pub(super) fn futures(
 		&self,
 		at: Block::Hash,
-	) -> Option<Vec<graph::base_pool::Transaction<ExtrinsicHash<PoolApi>, Block::Extrinsic>>> {
+	) -> Option<Vec<graph::base_pool::Transaction<ExtrinsicHash<ChainApi>, Block::Extrinsic>>> {
 		self.views
 			.read()
 			.get(&at)
@@ -224,7 +230,7 @@ where
 		&self,
 		finalized_hash: Block::Hash,
 		tree_route: &[Block::Hash],
-	) -> Vec<ExtrinsicHash<PoolApi>> {
+	) -> Vec<ExtrinsicHash<ChainApi>> {
 		log::debug!(target: LOG_TARGET, "finalize_route finalized_hash:{finalized_hash:?} tree_route: {tree_route:?}");
 
 		let mut finalized_transactions = Vec::new();
@@ -259,8 +265,8 @@ where
 	pub(super) fn ready_transaction(
 		&self,
 		at: Block::Hash,
-		tx_hash: &ExtrinsicHash<PoolApi>,
-	) -> Option<Arc<graph::base_pool::Transaction<ExtrinsicHash<PoolApi>, Block::Extrinsic>>> {
+		tx_hash: &ExtrinsicHash<ChainApi>,
+	) -> Option<Arc<graph::base_pool::Transaction<ExtrinsicHash<ChainApi>, Block::Extrinsic>>> {
 		self.views
 			.read()
 			.get(&at)
@@ -269,19 +275,18 @@ where
 
 	pub(super) async fn insert_new_view(
 		&self,
-		view: Arc<View<PoolApi>>,
+		view: Arc<View<ChainApi>>,
 		tree_route: &TreeRoute<Block>,
 	) {
+		let mut views_to_be_removed = {
+			std::iter::once(tree_route.common_block())
+				.chain(tree_route.enacted().iter())
+				.map(|block| block.hash)
+				.collect::<Vec<_>>()
+		};
 		//todo: refactor this: maybe single object with one mutex?
-		// shall be property of views_store + insert/remove/get wrappers?
 		let views_to_be_removed = {
 			let mut most_recent_view_lock = self.most_recent_view.write();
-			let mut views_to_be_removed = {
-				std::iter::once(tree_route.common_block())
-					.chain(tree_route.enacted().iter())
-					.map(|block| block.hash)
-					.collect::<Vec<_>>()
-			};
 			let mut views = self.views.write();
 			let mut retracted_views = self.retracted_views.write();
 			views_to_be_removed.retain(|hash| {
@@ -309,7 +314,7 @@ where
 		&self,
 		at: Block::Hash,
 		allow_retracted: bool,
-	) -> Option<(Arc<View<PoolApi>>, bool)> {
+	) -> Option<(Arc<View<ChainApi>>, bool)> {
 		if let Some(view) = self.views.read().get(&at) {
 			return Some((view.clone(), false));
 		}
@@ -325,7 +330,7 @@ where
 		&self,
 		finalized_hash: Block::Hash,
 		tree_route: &[Block::Hash],
-	) -> Vec<ExtrinsicHash<PoolApi>> {
+	) -> Vec<ExtrinsicHash<ChainApi>> {
 		let finalized_xts = self.finalize_route(finalized_hash, tree_route).await;
 
 		let finalized_number = self.api.block_id_to_number(&BlockId::Hash(finalized_hash));
@@ -347,7 +352,7 @@ where
 				Ok(Some(n)) => v.at.number > n,
 			});
 
-			log::debug!(target:LOG_TARGET,"finalize_route: retracted_views: {:?}", retracted_views.keys());
+			log::debug!(target:LOG_TARGET,"handle_finalized: retracted_views: {:?}", retracted_views.keys());
 		}
 
 		finalized_xts

@@ -166,43 +166,39 @@ where
 
 ////////////////////////////////////////////////////////////////////////////////
 
-////////////////////////////////////////////////////////////////////////////////
-
-pub struct ForkAwareTxPool<PoolApi, Block>
+pub struct ForkAwareTxPool<ChainApi, Block>
 where
 	Block: BlockT,
-	PoolApi: graph::ChainApi<Block = Block> + 'static,
+	ChainApi: graph::ChainApi<Block = Block> + 'static,
 	<Block as BlockT>::Hash: Unpin,
 {
-	api: Arc<PoolApi>,
-	mempool: Arc<TxMemPool<PoolApi, Block>>,
+	api: Arc<ChainApi>,
+	mempool: Arc<TxMemPool<ChainApi, Block>>,
 
-	// todo: is ViewManager strucy really needed? (no)
-	view_store: Arc<ViewStore<PoolApi, Block>>,
-	// todo: is ReadyPoll struct really needed? (no)
-	ready_poll: Arc<Mutex<ReadyPoll<ReadyIteratorFor<PoolApi>, Block>>>,
-	// current tree? (somehow similar to enactment state?)
+	// todo: is ViewStore strucy really needed? (no)
+	view_store: Arc<ViewStore<ChainApi, Block>>,
+	ready_poll: Arc<Mutex<ReadyPoll<ReadyIteratorFor<ChainApi>, Block>>>,
 	// todo: metrics
 	enactment_state: Arc<Mutex<EnactmentState<Block>>>,
-	revalidation_queue: Arc<view_revalidation::RevalidationQueue<PoolApi, Block>>,
+	revalidation_queue: Arc<view_revalidation::RevalidationQueue<ChainApi, Block>>,
 
 	import_notification_sink:
-		MultiViewImportNotificationSink<Block::Hash, graph::ExtrinsicHash<PoolApi>>,
+		MultiViewImportNotificationSink<Block::Hash, graph::ExtrinsicHash<ChainApi>>,
 	// todo: this are coming from ValidatedPool, some of them maybe needed here
 	// is_validator: IsValidator,
 	options: Options,
 	// rotator: PoolRotator<ExtrinsicHash<B>>,
 }
 
-impl<PoolApi, Block> ForkAwareTxPool<PoolApi, Block>
+impl<ChainApi, Block> ForkAwareTxPool<ChainApi, Block>
 where
 	Block: BlockT,
-	PoolApi: graph::ChainApi<Block = Block> + 'static,
+	ChainApi: graph::ChainApi<Block = Block> + 'static,
 	<Block as BlockT>::Hash: Unpin,
 {
 	/// Create new fork aware transaction pool with provided api, for tests.
 	pub fn new_test(
-		pool_api: Arc<PoolApi>,
+		pool_api: Arc<ChainApi>,
 		best_block_hash: Block::Hash,
 		finalized_hash: Block::Hash,
 	) -> (Self, ImportNotificationTask) {
@@ -231,7 +227,7 @@ where
 	pub fn new_with_background_queue(
 		options: graph::Options,
 		is_validator: IsValidator,
-		pool_api: Arc<PoolApi>,
+		pool_api: Arc<ChainApi>,
 		// todo: prometheus: Option<&PrometheusRegistry>,
 		spawner: impl SpawnEssentialNamed,
 		best_block_number: NumberFor<Block>,
@@ -272,7 +268,7 @@ where
 	}
 
 	/// Get access to the underlying api
-	pub fn api(&self) -> &PoolApi {
+	pub fn api(&self) -> &ChainApi {
 		&self.api
 	}
 
@@ -507,16 +503,16 @@ mod reduce_multiview_result_tests {
 	}
 }
 
-impl<PoolApi, Block> TransactionPool for ForkAwareTxPool<PoolApi, Block>
+impl<ChainApi, Block> TransactionPool for ForkAwareTxPool<ChainApi, Block>
 where
 	Block: BlockT,
-	PoolApi: 'static + graph::ChainApi<Block = Block>,
+	ChainApi: 'static + graph::ChainApi<Block = Block>,
 	<Block as BlockT>::Hash: Unpin,
 {
-	type Block = PoolApi::Block;
-	type Hash = graph::ExtrinsicHash<PoolApi>;
+	type Block = ChainApi::Block;
+	type Hash = graph::ExtrinsicHash<ChainApi>;
 	type InPoolTransaction = graph::base_pool::Transaction<TxHash<Self>, TransactionFor<Self>>;
-	type Error = PoolApi::Error;
+	type Error = ChainApi::Error;
 
 	fn submit_at(
 		&self,
@@ -608,7 +604,7 @@ where
 	fn remove_invalid(&self, hashes: &[TxHash<Self>]) -> Vec<Arc<Self::InPoolTransaction>> {
 		log_xt_debug!(target:LOG_TARGET, hashes, "[{:?}] fatp::remove_invalid");
 
-		//what hash shall be used here?
+		//revlidate check: what hash shall be used here?
 		// for tx in ready {
 		// 	let validation_result = self
 		// 		.api
@@ -644,7 +640,7 @@ where
 	///
 	/// Consumers of this stream should use the `ready` method to actually get the
 	/// pending transactions in the right order.
-	fn import_notification_stream(&self) -> ImportNotificationStream<ExtrinsicHash<PoolApi>> {
+	fn import_notification_stream(&self) -> ImportNotificationStream<ExtrinsicHash<ChainApi>> {
 		futures::executor::block_on(self.import_notification_sink.event_stream())
 	}
 
@@ -674,10 +670,10 @@ where
 	}
 
 	// todo: API change? ready at hash (not number)?
-	fn ready_at(&self, at: <Self::Block as BlockT>::Hash) -> PolledIterator<PoolApi> {
+	fn ready_at(&self, at: <Self::Block as BlockT>::Hash) -> PolledIterator<ChainApi> {
 		if let Some((view, retracted)) = self.view_store.get_view_at(at, true) {
 			log::info!( target: LOG_TARGET, "fatp::ready_at {:?} (retracted:{:?})", at, retracted);
-			let iterator: ReadyIteratorFor<PoolApi> = Box::new(view.pool.validated_pool().ready());
+			let iterator: ReadyIteratorFor<ChainApi> = Box::new(view.pool.validated_pool().ready());
 			return async move { iterator }.boxed();
 		}
 
@@ -698,7 +694,7 @@ where
 		pending
 	}
 
-	fn ready(&self, at: <Self::Block as BlockT>::Hash) -> Option<ReadyIteratorFor<PoolApi>> {
+	fn ready(&self, at: <Self::Block as BlockT>::Hash) -> Option<ReadyIteratorFor<ChainApi>> {
 		self.view_store.ready(at)
 	}
 
@@ -733,10 +729,10 @@ where
 	}
 }
 
-impl<PoolApi, Block> ForkAwareTxPool<PoolApi, Block>
+impl<ChainApi, Block> ForkAwareTxPool<ChainApi, Block>
 where
 	Block: BlockT,
-	PoolApi: graph::ChainApi<Block = Block> + 'static,
+	ChainApi: graph::ChainApi<Block = Block> + 'static,
 	<Block as BlockT>::Hash: Unpin,
 {
 	async fn handle_new_block(&self, tree_route: &TreeRoute<Block>) {
@@ -780,10 +776,10 @@ where
 
 	async fn build_new_view(
 		&self,
-		origin_view: Option<Arc<View<PoolApi>>>,
+		origin_view: Option<Arc<View<ChainApi>>>,
 		at: &HashAndNumber<Block>,
 		tree_route: &TreeRoute<Block>,
-	) -> Option<Arc<View<PoolApi>>> {
+	) -> Option<Arc<View<ChainApi>>> {
 		log::info!(
 			target: LOG_TARGET,
 			"build_new_view: for: {:?} from: {:?} tree_route: {:?}",
@@ -818,7 +814,7 @@ where
 		Some(view)
 	}
 
-	async fn update_view(&self, view: &View<PoolApi>) {
+	async fn update_view(&self, view: &View<ChainApi>) {
 		log::debug!(
 			target: LOG_TARGET,
 			"update_view: {:?} xts:{:?} v:{}",
@@ -938,7 +934,7 @@ where
 	//todo: move to ViewManager
 	async fn update_view_with_fork(
 		&self,
-		view: &View<PoolApi>,
+		view: &View<ChainApi>,
 		tree_route: &TreeRoute<Block>,
 		hash_and_number: HashAndNumber<Block>,
 	) {
@@ -947,7 +943,7 @@ where
 
 		// We keep track of everything we prune so that later we won't add
 		// transactions with those hashes from the retracted blocks.
-		let mut pruned_log = HashSet::<ExtrinsicHash<PoolApi>>::new();
+		let mut pruned_log = HashSet::<ExtrinsicHash<ChainApi>>::new();
 
 		future::join_all(
 			tree_route
@@ -1093,21 +1089,14 @@ where
 }
 
 #[async_trait]
-impl<PoolApi, Block> MaintainedTransactionPool for ForkAwareTxPool<PoolApi, Block>
+impl<ChainApi, Block> MaintainedTransactionPool for ForkAwareTxPool<ChainApi, Block>
 where
 	Block: BlockT,
-	PoolApi: 'static + graph::ChainApi<Block = Block>,
+	ChainApi: 'static + graph::ChainApi<Block = Block>,
 	<Block as BlockT>::Hash: Unpin,
 {
 	async fn maintain(&self, event: ChainEvent<Self::Block>) {
 		let start = Instant::now();
-		// log::info!(
-		//  target: LOG_TARGET,
-		// 	"maintain: txs:{:?} views:[{};{:?}] event:{event:?}",
-		// 	self.mempool_len(),
-		// 	self.views_len(),
-		// 	self.views_numbers(),
-		// );
 		let prev_finalized_block = self.enactment_state.lock().recent_finalized_block();
 
 		let compute_tree_route = |from, to| -> Result<TreeRoute<Block>, String> {
