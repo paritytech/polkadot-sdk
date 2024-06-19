@@ -3,8 +3,8 @@
 use super::*;
 
 use frame_support::{
-	derive_impl, parameter_types,
-	traits::{ConstU32, Everything},
+	parameter_types,
+	traits::{ConstU128, ConstU32, Everything},
 	weights::IdentityFee,
 };
 use hex_literal::hex;
@@ -76,10 +76,6 @@ impl frame_system::Config for Test {
 	type Block = Block;
 }
 
-parameter_types! {
-	pub const ExistentialDeposit: u128 = 1;
-}
-
 impl pallet_balances::Config for Test {
 	type MaxLocks = ();
 	type MaxReserves = ();
@@ -87,7 +83,7 @@ impl pallet_balances::Config for Test {
 	type Balance = Balance;
 	type RuntimeEvent = RuntimeEvent;
 	type DustRemoval = ();
-	type ExistentialDeposit = ExistentialDeposit;
+	type ExistentialDeposit = ConstU128<1>;
 	type AccountStore = System;
 	type WeightInfo = ();
 	type FreezeIdentifier = ();
