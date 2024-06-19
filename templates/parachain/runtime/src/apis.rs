@@ -79,7 +79,7 @@ impl_runtime_apis! {
 			included_hash: <Block as BlockT>::Hash,
 			slot: cumulus_primitives_aura::Slot,
 		) -> bool {
-			Runtime::impl_can_build_upon()
+			Runtime::impl_can_build_upon(included_hash, slot)
 		}
 	}
 
