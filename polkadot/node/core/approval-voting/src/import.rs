@@ -574,9 +574,13 @@ pub(crate) async fn handle_new_head<Context, B: Backend>(
 			hash: block_hash,
 			number: block_header.number,
 			parent_hash: block_header.parent_hash,
-			candidates: included_candidates.iter().map(|(hash, _, _, _)| *hash).collect(),
+			candidates: included_candidates
+				.iter()
+				.map(|(hash, _, core_index, group_index)| (*hash, *core_index, *group_index))
+				.collect(),
 			slot,
 			session: session_index,
+			vrf_story: relay_vrf_story,
 		});
 
 		imported_candidates.push(BlockImportedCandidates {

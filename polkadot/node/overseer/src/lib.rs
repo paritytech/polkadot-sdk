@@ -580,6 +580,7 @@ pub struct Overseer<SupportsParachains> {
 	#[subsystem(blocking, message_capacity: 64000, ApprovalDistributionMessage, sends: [
 		NetworkBridgeTxMessage,
 		ApprovalVotingMessage,
+		RuntimeApiMessage,
 	])]
 	approval_distribution: ApprovalDistribution,
 

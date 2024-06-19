@@ -41,8 +41,9 @@ use polkadot_node_subsystem_test_helpers as test_helpers;
 use polkadot_node_subsystem_util::TimeoutExt;
 use polkadot_overseer::HeadSupportsParachains;
 use polkadot_primitives::{
-	ApprovalVote, CandidateCommitments, CandidateEvent, CoreIndex, GroupIndex, Header,
-	Id as ParaId, IndexedVec, NodeFeatures, ValidationCode, ValidatorSignature,
+	ApprovalVote, CandidateCommitments, CandidateEvent, CoreIndex, DisputeStatement, GroupIndex,
+	Header, Id as ParaId, IndexedVec, NodeFeatures, ValidDisputeStatementKind, ValidationCode,
+	ValidatorSignature,
 };
 use std::{cmp::max, time::Duration};
 
@@ -262,7 +263,8 @@ where
 		_relay_vrf_story: polkadot_node_primitives::approval::v1::RelayVRFStory,
 		_assignment: &polkadot_node_primitives::approval::v2::AssignmentCertV2,
 		_backing_groups: Vec<polkadot_primitives::GroupIndex>,
-	) -> Result<polkadot_node_primitives::approval::v1::DelayTranche, criteria::InvalidAssignment> {
+	) -> Result<polkadot_node_primitives::approval::v1::DelayTranche, criteria::InvalidAssignment>
+	{
 		self.1(validator_index)
 	}
 }
@@ -677,7 +679,7 @@ async fn check_and_import_approval(
 					validator,
 					signature,
 				},
-				tx,
+				Some(tx),
 			),
 		},
 	)
@@ -698,6 +700,7 @@ async fn check_and_import_assignment(
 	block_hash: Hash,
 	candidate_index: CandidateIndex,
 	validator: ValidatorIndex,
+	tranche: DelayTranche,
 ) -> oneshot::Receiver<AssignmentCheckResult> {
 	let (tx, rx) = oneshot::channel();
 	overseer_send(
@@ -711,7 +714,8 @@ async fn check_and_import_assignment(
 						.into(),
 				},
 				candidate_index.into(),
-				tx,
+				tranche,
+				Some(tx),
 			),
 		},
 	)
@@ -744,7 +748,8 @@ async fn check_and_import_assignment_v2(
 					}),
 				},
 				core_indices.try_into().unwrap(),
-				tx,
+				0,
+				Some(tx),
 			),
 		},
 	)
@@ -1130,6 +1135,7 @@ fn subsystem_rejects_bad_assignment_ok_criteria() {
 			block_hash,
 			candidate_index,
 			validator,
+			0,
 		)
 		.await;
 
@@ -1143,65 +1149,13 @@ fn subsystem_rejects_bad_assignment_ok_criteria() {
 			unknown_hash,
 			candidate_index,
 			validator,
+			0,
 		)
 		.await;
 
 		assert_eq!(
 			rx.await,
 			Ok(AssignmentCheckResult::Bad(AssignmentCheckError::UnknownBlock(unknown_hash))),
-		);
-
-		virtual_overseer
-	});
-}
-
-#[test]
-fn subsystem_rejects_bad_assignment_err_criteria() {
-	let assignment_criteria = Box::new(MockAssignmentCriteria::check_only(move |_| {
-		Err(criteria::InvalidAssignment(
-			criteria::InvalidAssignmentReason::ValidatorIndexOutOfBounds,
-		))
-	}));
-	let config = HarnessConfigBuilder::default().assignment_criteria(assignment_criteria).build();
-	test_harness(config, |test_harness| async move {
-		let TestHarness { mut virtual_overseer, sync_oracle_handle: _sync_oracle_handle, .. } =
-			test_harness;
-		assert_matches!(
-			overseer_recv(&mut virtual_overseer).await,
-			AllMessages::ChainApi(ChainApiMessage::FinalizedBlockNumber(rx)) => {
-				rx.send(Ok(0)).unwrap();
-			}
-		);
-
-		let block_hash = Hash::repeat_byte(0x01);
-		let candidate_index = 0;
-		let validator = ValidatorIndex(0);
-
-		let head: Hash = ChainBuilder::GENESIS_HASH;
-		let mut builder = ChainBuilder::new();
-		let slot = Slot::from(1 as u64);
-		builder.add_block(
-			block_hash,
-			head,
-			1,
-			BlockConfig { slot, candidates: None, session_info: None, end_syncing: false },
-		);
-		builder.build(&mut virtual_overseer).await;
-
-		let rx = check_and_import_assignment(
-			&mut virtual_overseer,
-			block_hash,
-			candidate_index,
-			validator,
-		)
-		.await;
-
-		assert_eq!(
-			rx.await,
-			Ok(AssignmentCheckResult::Bad(AssignmentCheckError::InvalidCert(
-				ValidatorIndex(0),
-				"ValidatorIndexOutOfBounds".to_string(),
-			))),
 		);
 
 		virtual_overseer
@@ -1236,7 +1190,8 @@ fn blank_subsystem_act_on_bad_block() {
 						.into(),
 					},
 					0u32.into(),
-					tx,
+					0,
+					Some(tx),
 				),
 			},
 		)
@@ -1429,68 +1384,6 @@ fn subsystem_rejects_approval_before_assignment() {
 }
 
 #[test]
-fn subsystem_rejects_assignment_in_future() {
-	let assignment_criteria =
-		Box::new(MockAssignmentCriteria::check_only(|_| Ok(TICK_TOO_FAR_IN_FUTURE as _)));
-	let config = HarnessConfigBuilder::default().assignment_criteria(assignment_criteria).build();
-	test_harness(config, |test_harness| async move {
-		let TestHarness { mut virtual_overseer, clock, sync_oracle_handle: _sync_oracle_handle } =
-			test_harness;
-		assert_matches!(
-			overseer_recv(&mut virtual_overseer).await,
-			AllMessages::ChainApi(ChainApiMessage::FinalizedBlockNumber(rx)) => {
-				rx.send(Ok(0)).unwrap();
-			}
-		);
-
-		let block_hash = Hash::repeat_byte(0x01);
-		let candidate_index = 0;
-		let validator = ValidatorIndex(0);
-
-		// Add block hash 00.
-		ChainBuilder::new()
-			.add_block(
-				block_hash,
-				ChainBuilder::GENESIS_HASH,
-				1,
-				BlockConfig {
-					slot: Slot::from(0),
-					candidates: None,
-					session_info: None,
-					end_syncing: false,
-				},
-			)
-			.build(&mut virtual_overseer)
-			.await;
-
-		let rx = check_and_import_assignment(
-			&mut virtual_overseer,
-			block_hash,
-			candidate_index,
-			validator,
-		)
-		.await;
-
-		assert_eq!(rx.await, Ok(AssignmentCheckResult::TooFarInFuture));
-
-		// Advance clock to make assignment reasonably near.
-		clock.inner.lock().set_tick(9);
-
-		let rx = check_and_import_assignment(
-			&mut virtual_overseer,
-			block_hash,
-			candidate_index,
-			validator,
-		)
-		.await;
-
-		assert_eq!(rx.await, Ok(AssignmentCheckResult::Accepted));
-
-		virtual_overseer
-	});
-}
-
-#[test]
 fn subsystem_accepts_duplicate_assignment() {
 	test_harness(HarnessConfig::default(), |test_harness| async move {
 		let TestHarness { mut virtual_overseer, sync_oracle_handle: _sync_oracle_handle, .. } =
@@ -1555,6 +1448,7 @@ fn subsystem_accepts_duplicate_assignment() {
 			block_hash,
 			candidate_index,
 			validator,
+			0,
 		)
 		.await;
 
@@ -1613,6 +1507,7 @@ fn subsystem_rejects_assignment_with_unknown_candidate() {
 			block_hash,
 			candidate_index,
 			validator,
+			0,
 		)
 		.await;
 
@@ -1663,6 +1558,7 @@ fn subsystem_rejects_oversized_bitfields() {
 			block_hash,
 			candidate_index,
 			validator,
+			0,
 		)
 		.await;
 
@@ -1736,6 +1632,7 @@ fn subsystem_accepts_and_imports_approval_after_assignment() {
 			block_hash,
 			candidate_index,
 			validator,
+			0,
 		)
 		.await;
 
@@ -1828,6 +1725,7 @@ fn subsystem_second_approval_import_only_schedules_wakeups() {
 			block_hash,
 			candidate_index,
 			validator,
+			0,
 		)
 		.await;
 
@@ -1916,6 +1814,7 @@ fn subsystem_assignment_import_updates_candidate_entry_and_schedules_wakeup() {
 			block_hash,
 			candidate_index,
 			validator,
+			0,
 		)
 		.await;
 
@@ -2038,6 +1937,7 @@ fn test_approvals_on_fork_are_always_considered_after_no_show(
 			block_hash,
 			candidate_index,
 			validator,
+			0,
 		)
 		.await;
 		assert_eq!(rx.await, Ok(AssignmentCheckResult::Accepted));
@@ -2047,6 +1947,7 @@ fn test_approvals_on_fork_are_always_considered_after_no_show(
 			block_hash_fork,
 			candidate_index,
 			validator,
+			0,
 		)
 		.await;
 
@@ -2151,6 +2052,7 @@ fn subsystem_process_wakeup_schedules_wakeup() {
 			block_hash,
 			candidate_index,
 			validator,
+			0,
 		)
 		.await;
 
@@ -2215,7 +2117,8 @@ fn linear_import_act_on_leaf() {
 						.into(),
 					},
 					0u32.into(),
-					tx,
+					0,
+					Some(tx),
 				),
 			},
 		)
@@ -2286,7 +2189,8 @@ fn forkful_import_at_same_height_act_on_leaf() {
 							.into(),
 						},
 						0u32.into(),
-						tx,
+						0,
+						Some(tx),
 					),
 				},
 			)
@@ -2448,6 +2352,7 @@ fn import_checked_approval_updates_entries_and_schedules() {
 			block_hash,
 			candidate_index,
 			validator_index_a,
+			0,
 		)
 		.await;
 
@@ -2458,6 +2363,7 @@ fn import_checked_approval_updates_entries_and_schedules() {
 			block_hash,
 			candidate_index,
 			validator_index_b,
+			0,
 		)
 		.await;
 
@@ -2611,6 +2517,7 @@ fn subsystem_import_checked_approval_sets_one_block_bit_at_a_time() {
 				block_hash,
 				candidate_index,
 				validator,
+				0,
 			)
 			.await;
 			assert_eq!(rx.await, Ok(AssignmentCheckResult::Accepted));
@@ -2896,6 +2803,7 @@ fn approved_ancestor_test(
 				*block_hash,
 				candidate_index,
 				validator,
+				0,
 			)
 			.await;
 			assert_eq!(rx.await, Ok(AssignmentCheckResult::Accepted));
@@ -3359,7 +3267,8 @@ where
 	F1: 'static
 		+ Fn(ValidatorIndex) -> Result<DelayTranche, criteria::InvalidAssignment>
 		+ Send
-		+ Sync,
+		+ Sync
+		+ Clone,
 	F2: Fn(Tick) -> bool,
 {
 	let TriggersAssignmentConfig {
@@ -3388,7 +3297,7 @@ where
 			);
 			assignments
 		},
-		assign_validator_tranche,
+		assign_validator_tranche.clone(),
 	));
 	let config = HarnessConfigBuilder::default().assignment_criteria(assignment_criteria).build();
 	let store = config.backend();
@@ -3454,6 +3363,7 @@ where
 				block_hash,
 				candidate_index,
 				ValidatorIndex(validator),
+				assign_validator_tranche(ValidatorIndex(validator)).unwrap(),
 			)
 			.await;
 			assert_eq!(rx.await, Ok(AssignmentCheckResult::Accepted));
@@ -3772,6 +3682,7 @@ fn pre_covers_dont_stall_approval() {
 			block_hash,
 			candidate_index,
 			validator_index_a,
+			0,
 		)
 		.await;
 
@@ -3782,6 +3693,7 @@ fn pre_covers_dont_stall_approval() {
 			block_hash,
 			candidate_index,
 			validator_index_b,
+			0,
 		)
 		.await;
 
@@ -3792,6 +3704,7 @@ fn pre_covers_dont_stall_approval() {
 			block_hash,
 			candidate_index,
 			validator_index_c,
+			1,
 		)
 		.await;
 
@@ -3950,6 +3863,7 @@ fn waits_until_approving_assignments_are_old_enough() {
 			block_hash,
 			candidate_index,
 			validator_index_a,
+			0,
 		)
 		.await;
 
@@ -3960,6 +3874,7 @@ fn waits_until_approving_assignments_are_old_enough() {
 			block_hash,
 			candidate_index,
 			validator_index_b,
+			0,
 		)
 		.await;
 
@@ -4996,7 +4911,6 @@ fn subsystem_sends_pending_approvals_on_approval_restart() {
 				}));
 			}
 		);
-
 		assert_matches!(
 			overseer_recv(&mut virtual_overseer).await,
 			AllMessages::RuntimeApi(

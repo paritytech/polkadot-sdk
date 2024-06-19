@@ -254,7 +254,7 @@ impl<'a> From<&'a SessionInfo> for Config {
 }
 
 /// A trait for producing and checking assignments. Used to mock.
-pub(crate) trait AssignmentCriteria {
+pub trait AssignmentCriteria {
 	fn compute_assignments(
 		&self,
 		keystore: &LocalKeystore,
@@ -276,7 +276,7 @@ pub(crate) trait AssignmentCriteria {
 	) -> Result<DelayTranche, InvalidAssignment>;
 }
 
-pub(crate) struct RealAssignmentCriteria;
+pub struct RealAssignmentCriteria;
 
 impl AssignmentCriteria for RealAssignmentCriteria {
 	fn compute_assignments(
@@ -614,7 +614,7 @@ fn compute_relay_vrf_delay_assignments(
 
 /// Assignment invalid.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct InvalidAssignment(pub(crate) InvalidAssignmentReason);
+pub struct InvalidAssignment(pub InvalidAssignmentReason);
 
 impl std::fmt::Display for InvalidAssignment {
 	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
@@ -626,7 +626,7 @@ impl std::error::Error for InvalidAssignment {}
 
 /// Failure conditions when checking an assignment cert.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum InvalidAssignmentReason {
+pub enum InvalidAssignmentReason {
 	ValidatorIndexOutOfBounds,
 	SampleOutOfBounds,
 	CoreIndexOutOfBounds,

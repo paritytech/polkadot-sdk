@@ -804,8 +804,11 @@ fn build_overseer(
 		Box::new(system_clock.clone()),
 	);
 
-	let approval_distribution =
-		ApprovalDistribution::new(Metrics::register(Some(&dependencies.registry)).unwrap());
+	let approval_distribution = ApprovalDistribution::new_with_clock(
+		Metrics::register(Some(&dependencies.registry)).unwrap(),
+		SLOT_DURATION_MILLIS,
+		Box::new(system_clock.clone()),
+	);
 	let mock_chain_api = MockChainApi::new(state.build_chain_api_state());
 	let mock_chain_selection = MockChainSelection { state: state.clone(), clock: system_clock };
 	let mock_runtime_api = MockRuntimeApi::new(
