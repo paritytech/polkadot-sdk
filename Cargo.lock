@@ -17846,6 +17846,7 @@ dependencies = [
  "ip_network",
  "jsonrpsee",
  "log",
+ "serde",
  "serde_json",
  "substrate-prometheus-endpoint",
  "tokio",
