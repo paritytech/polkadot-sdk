@@ -155,6 +155,18 @@ impl CollationGenerationSubsystem {
 				false
 			},
 			Ok(FromOrchestra::Communication {
+				msg: CollationGenerationMessage::SetConfig(config),
+			}) => {
+				self.config = Some(Arc::new(config));
+				false
+			},
+			Ok(FromOrchestra::Communication {
+				msg: CollationGenerationMessage::ClearExistingConfig,
+			}) => {
+				self.config = None;
+				false
+			},
+			Ok(FromOrchestra::Communication {
 				msg: CollationGenerationMessage::SubmitCollation(params),
 			}) => {
 				if let Some(config) = &self.config {

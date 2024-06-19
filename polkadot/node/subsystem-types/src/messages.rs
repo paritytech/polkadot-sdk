@@ -862,6 +862,10 @@ pub enum CollationGenerationMessage {
 	Initialize(CollationGenerationConfig),
 	/// Reinitialize the collation generation subsystem, overriding the existing config.
 	Reinitialize(CollationGenerationConfig),
+	/// Set to None the collatorGenerationConfiguration
+	ClearExistingConfig,
+	/// Set to the collator generation configuration regardless if it exists one or not
+	SetConfig(CollationGenerationConfig),
 	/// Submit a collation to the subsystem. This will package it into a signed
 	/// [`CommittedCandidateReceipt`] and distribute along the network to validators.
 	///
