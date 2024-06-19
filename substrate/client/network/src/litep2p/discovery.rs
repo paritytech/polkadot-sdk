@@ -303,7 +303,7 @@ impl Discovery {
 	) {
 		if self.local_protocols.is_disjoint(&supported_protocols) {
 			log::trace!(
-				target: "sub-libp2p",
+				target: LOG_TARGET,
 				"Ignoring self-reported address of peer {peer} as remote node is not part of the \
 				 Kademlia DHT supported by the local node.",
 			);
@@ -356,6 +356,12 @@ impl Discovery {
 		publisher: Option<sc_network_types::PeerId>,
 		expires: Option<Instant>,
 	) {
+		log::debug!(
+			target: LOG_TARGET,
+			"Storing DHT record with key {key:?}, originally published by {publisher:?}, \
+			 expires {expires:?}.",
+		);
+
 		self.kademlia_handle
 			.store_record(Record {
 				key: RecordKey::new(&key.to_vec()),
