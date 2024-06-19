@@ -60,7 +60,7 @@
 //!     impl<T: Config> Pallet<T> {
 //!         #[pallet::weight(0)]
 //!         pub fn random_module_example(origin: OriginFor<T>) -> DispatchResult {
-//!             let _random_value = <pallet_insecure_randomness_collective_flip::Pallet<T>>::random(&b"my context"[..]);
+//!             let _random_value = pallet_insecure_randomness_collective_flip::Pallet::<T>::random(&b"my context"[..]);
 //!             Ok(())
 //!         }
 //!     }
@@ -101,9 +101,9 @@ pub mod pallet {
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn on_initialize(block_number: BlockNumberFor<T>) -> Weight {
-			let parent_hash = <frame_system::Pallet<T>>::parent_hash();
+			let parent_hash = frame_system::Pallet::<T>::parent_hash();
 
-			<RandomMaterial<T>>::mutate(|ref mut values| {
+			RandomMaterial::<T>::mutate(|ref mut values| {
 				if values.try_push(parent_hash).is_err() {
 					let index = block_number_to_index::<T>(block_number);
 					values[index] = parent_hash;
@@ -135,10 +135,10 @@ impl<T: Config> Randomness<T::Hash, BlockNumberFor<T>> for Pallet<T> {
 	/// and mean that all bits of the resulting value are entirely manipulatable by the author of
 	/// the parent block, who can determine the value of `parent_hash`.
 	fn random(subject: &[u8]) -> (T::Hash, BlockNumberFor<T>) {
-		let block_number = <frame_system::Pallet<T>>::block_number();
+		let block_number = frame_system::Pallet::<T>::block_number();
 		let index = block_number_to_index::<T>(block_number);
 
-		let hash_series = <RandomMaterial<T>>::get();
+		let hash_series = RandomMaterial::<T>::get();
 		let seed = if !hash_series.is_empty() {
 			// Always the case after block 1 is initialized.
 			hash_series
