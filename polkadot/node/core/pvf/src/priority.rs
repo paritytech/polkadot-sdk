@@ -36,8 +36,11 @@ impl Priority {
 	}
 }
 
+/// A priority assigned to execution of a PVF.
 #[derive(Debug, Hash, PartialEq, Eq, Clone, Copy)]
 pub enum ExecutePriority {
+	/// Normall
 	Normal,
+	/// Critical
 	Critical,
 }

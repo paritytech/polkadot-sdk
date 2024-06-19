@@ -378,6 +378,7 @@ impl ValidationBackend for MockValidateCandidateBackend {
 		_timeout: Duration,
 		_encoded_params: Vec<u8>,
 		_prepare_priority: polkadot_node_core_pvf::Priority,
+		_execute_priority: polkadot_node_core_pvf::ExecutePriority,
 	) -> Result<WasmValidationResult, ValidationError> {
 		// This is expected to panic if called more times than expected, indicating an error in the
 		// test.
@@ -1064,6 +1065,7 @@ impl ValidationBackend for MockPreCheckBackend {
 		_timeout: Duration,
 		_encoded_params: Vec<u8>,
 		_prepare_priority: polkadot_node_core_pvf::Priority,
+		_execute_priority: polkadot_node_core_pvf::ExecutePriority,
 	) -> Result<WasmValidationResult, ValidationError> {
 		unreachable!()
 	}
