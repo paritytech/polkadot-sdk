@@ -80,6 +80,9 @@ fn counter_prefix(prefix: &str) -> String {
 }
 
 /// Construct a runtime, with the given name and the given pallets.
+/// 
+/// NOTE: A new version of this macro is available at `frame_support::runtime`. This macro will
+/// soon be deprecated. Please use the new macro instead.
 ///
 /// The parameters here are specific types for `Block`, `NodeBlock`, and `UncheckedExtrinsic`
 /// and the pallets that are used by the runtime.

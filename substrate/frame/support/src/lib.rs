@@ -511,47 +511,7 @@ pub use frame_support_procedural::{
 /// Construct a runtime, with the given name and the given pallets.
 ///
 /// # Example:
-///
-/// ```ignore
-/// #[frame_support::runtime]
-/// mod runtime {
-///   // The main runtime
-///   #[runtime::runtime]
-///   // Runtime Types to be generated
-///   #[runtime::derive(
-///       RuntimeCall,
-/// 	  RuntimeEvent,
-/// 	  RuntimeError,
-/// 	  RuntimeOrigin,
-/// 	  RuntimeFreezeReason,
-/// 	  RuntimeHoldReason,
-/// 	  RuntimeSlashReason,
-/// 	  RuntimeLockId,
-/// 	  RuntimeTask,
-///   )]
-///   pub struct Runtime;
-///
-///   #[runtime::pallet_index(0)]
-///   pub type System = frame_system;
-///
-///   #[runtime::pallet_index(1)]
-///   pub type Test = path::to::test;
-///
-///   // Pallet with instance.
-///   #[runtime::pallet_index(2)]
-///   pub type Test2_Instance1 = test2<Instance1>;
-///
-///   // Pallet with calls disabled.
-///   #[runtime::pallet_index(3)]
-///   #[runtime::disable_call]
-///   pub type Test3 = test3;
-///
-///   // Pallet with unsigned extrinsics disabled.
-///   #[runtime::pallet_index(4)]
-///   #[runtime::disable_unsigned]
-///   pub type Test4 = test4;
-/// }
-/// ```
+#[doc = docify::embed!("src/tests/runtime.rs", runtime_macro)]
 ///
 /// # Legacy Ordering
 ///
