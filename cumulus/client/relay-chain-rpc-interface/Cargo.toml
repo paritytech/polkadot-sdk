@@ -15,7 +15,6 @@ polkadot-overseer = { path = "../../../polkadot/node/overseer" }
 cumulus-primitives-core = { path = "../../primitives/core" }
 cumulus-relay-chain-interface = { path = "../relay-chain-interface" }
 
-sp-api = { path = "../../../substrate/primitives/api" }
 sp-core = { path = "../../../substrate/primitives/core" }
 sp-consensus-babe = { path = "../../../substrate/primitives/consensus/babe" }
 sp-authority-discovery = { path = "../../../substrate/primitives/authority-discovery" }

@@ -186,6 +186,7 @@ where
 	P::Signature: TryFrom<Vec<u8>> + Member + Codec,
 {
 	async move {
+		tracing::info!(target: LOG_TARGET, "Starting slot-based block-builder task.");
 		let BuilderTaskParams {
 			relay_client,
 			create_inherent_data_providers,

@@ -21,7 +21,6 @@ tokio = { version = "1.36.0", features = ["sync"] }
 sc-client-api = { path = "../../../../substrate/client/api" }
 sc-consensus = { path = "../../../../substrate/client/consensus/common" }
 sc-consensus-aura = { path = "../../../../substrate/client/consensus/aura" }
-sc-consensus-babe = { path = "../../../../substrate/client/consensus/babe" }
 sc-consensus-slots = { path = "../../../../substrate/client/consensus/slots" }
 sc-telemetry = { path = "../../../../substrate/client/telemetry" }
 sp-api = { path = "../../../../substrate/primitives/api" }
@@ -36,7 +35,6 @@ sp-keystore = { path = "../../../../substrate/primitives/keystore" }
 sp-runtime = { path = "../../../../substrate/primitives/runtime" }
 sp-timestamp = { path = "../../../../substrate/primitives/timestamp" }
 sp-state-machine = { path = "../../../../substrate/primitives/state-machine" }
-sc-service = { path = "../../../../substrate/client/service" }
 prometheus-endpoint = { package = "substrate-prometheus-endpoint", path = "../../../../substrate/utils/prometheus" }
 
 # Cumulus

@@ -252,7 +252,7 @@ impl RelayChainInterface for RelayChainRpcInterface {
 	async fn version(&self, relay_parent: RelayHash) -> RelayChainResult<RuntimeVersion> {
 		self.rpc_client.runtime_version(relay_parent).await
 	}
-	
+
 	async fn availability_cores(
 		&self,
 		relay_parent: RelayHash,

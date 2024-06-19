@@ -829,7 +829,6 @@ where
 				// Move to Aura consensus.
 				let proposer = Proposer::new(proposer_factory);
 				if use_experimental_slot_based {
-					log::info!("Starting block authoring with slot based authoring.");
 					let client_for_aura = client.clone();
 					let params = SlotBasedParams {
 						create_inherent_data_providers: move |_, ()| async move { Ok(()) },
@@ -1058,7 +1057,6 @@ fn start_slot_based_aura_consensus(
 	announce_block: Arc<dyn Fn(Hash, Option<Vec<u8>>) + Send + Sync>,
 	backend: Arc<ParachainBackend>,
 ) -> Result<(), sc_service::Error> {
-	log::info!("Starting block authoring with slot based authoring.");
 	let proposer_factory = sc_basic_authorship::ProposerFactory::with_proof_recording(
 		task_manager.spawn_handle(),
 		client.clone(),
