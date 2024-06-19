@@ -25,12 +25,12 @@ use super::{
 use crate::DoubleEncoded;
 use alloc::{vec, vec::Vec};
 use bounded_collections::{parameter_types, BoundedVec};
-use core::{fmt::Debug, result};
-use derivative::Derivative;
-use parity_scale_codec::{
+use codec::{
 	self, decode_vec_with_len, Compact, Decode, Encode, Error as CodecError, Input as CodecInput,
 	MaxEncodedLen,
 };
+use core::{fmt::Debug, result};
+use derivative::Derivative;
 use scale_info::TypeInfo;
 
 mod junction;
@@ -49,9 +49,46 @@ pub use multilocation::{
 	Ancestor, AncestorThen, InteriorMultiLocation, Location, MultiLocation, Parent, ParentThen,
 };
 pub use traits::{
-	send_xcm, validate_send, Error, ExecuteXcm, Outcome, PreparedMessage, Result, SendError,
-	SendResult, SendXcm, Weight, XcmHash, GetWeight,
+	send_xcm, validate_send, Error, ExecuteXcm, GetWeight, Outcome, PreparedMessage, Result,
+	SendError, SendResult, SendXcm, Weight, XcmHash,
 };
+
+/// Basically just the XCM (more general) version of `ParachainDispatchOrigin`.
+#[derive(Copy, Clone, Eq, PartialEq, Encode, Decode, Debug, TypeInfo)]
+#[scale_info(replace_segment("staging_xcm", "xcm"))]
+#[cfg_attr(feature = "json-schema", derive(schemars::JsonSchema))]
+pub enum OriginKind {
+	/// Origin should just be the native dispatch origin representation for the sender in the
+	/// local runtime framework. For Cumulus/Frame chains this is the `Parachain` or `Relay` origin
+	/// if coming from a chain, though there may be others if the `MultiLocation` XCM origin has a
+	/// primary/native dispatch origin form.
+	Native,
+
+	/// Origin should just be the standard account-based origin with the sovereign account of
+	/// the sender. For Cumulus/Frame chains, this is the `Signed` origin.
+	SovereignAccount,
+
+	/// Origin should be the super-user. For Cumulus/Frame chains, this is the `Root` origin.
+	/// This will not usually be an available option.
+	Superuser,
+
+	/// Origin should be interpreted as an XCM native origin and the `MultiLocation` should be
+	/// encoded directly in the dispatch origin unchanged. For Cumulus/Frame chains, this will be
+	/// the `pallet_xcm::Origin::Xcm` type.
+	Xcm,
+}
+
+impl From<OldOriginKind> for OriginKind {
+	fn from(old: OldOriginKind) -> Self {
+		use OldOriginKind::*;
+		match old {
+			Native => Self::Native,
+			SovereignAccount => Self::SovereignAccount,
+			Superuser => Self::Superuser,
+			Xcm => Self::Xcm,
+		}
+	}
+}
 
 /// This module's XCM version.
 pub const VERSION: super::Version = 3;

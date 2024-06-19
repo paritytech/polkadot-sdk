@@ -70,11 +70,12 @@ const MAX_VOTE_ANCESTRIES_RANGE_END: u32 =
 // the same with validators - if there are too much validators, let's run benchmarks on subrange
 fn precommits_range_end<T: Config<I>, I: 'static>() -> u32 {
 	let max_bridged_authorities = T::BridgedChain::MAX_AUTHORITIES_COUNT;
-	if max_bridged_authorities > 128 {
+	let max_bridged_authorities = if max_bridged_authorities > 128 {
 		sp_std::cmp::max(128, max_bridged_authorities / 5)
 	} else {
 		max_bridged_authorities
 	};
+
 	required_justification_precommits(max_bridged_authorities)
 }
 

@@ -14,13 +14,13 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
+use codec::Encode;
 use frame_support::{
 	construct_runtime, derive_impl, parameter_types,
 	traits::{ConstU32, Everything, Nothing},
 	weights::Weight,
 };
 use frame_system::EnsureRoot;
-use parity_scale_codec::Encode;
 use primitive_types::H256;
 use sp_runtime::{traits::IdentityLookup, AccountId32, BuildStorage};
 use sp_std::cell::RefCell;
@@ -74,10 +74,6 @@ pub type TestXcmRouter = EnsureDecodableXcm<TestSendXcm>;
 pub const UNITS: Balance = 1_000_000_000_000;
 pub const CENTS: Balance = UNITS / 30_000;
 
-parameter_types! {
-	pub const BlockHashCount: u64 = 250;
-}
-
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Runtime {
 	type RuntimeOrigin = RuntimeOrigin;
@@ -89,7 +85,6 @@ impl frame_system::Config for Runtime {
 	type Lookup = IdentityLookup<Self::AccountId>;
 	type Block = Block;
 	type RuntimeEvent = RuntimeEvent;
-	type BlockHashCount = BlockHashCount;
 	type BlockWeights = ();
 	type BlockLength = ();
 	type Version = ();
