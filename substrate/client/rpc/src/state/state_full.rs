@@ -27,7 +27,7 @@ use super::{
 };
 use crate::{
 	utils::{pipe_from_stream, spawn_subscription_task},
-	DenyUnsafe, SubscriptionMetrics, SubscriptionParams, SubscriptionTaskExecutor,
+	DenyUnsafe, SubscriptionParams, SubscriptionTaskExecutor,
 };
 
 use futures::{future, stream, StreamExt};
