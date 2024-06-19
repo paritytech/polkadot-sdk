@@ -109,16 +109,13 @@ where
 pub fn new_full<Block: BlockT, Client>(
 	client: Arc<Client>,
 	executor: SubscriptionTaskExecutor,
-	subscription_metrics: SubscriptionMetrics,
 ) -> Chain<Block, Client>
 where
 	Block: BlockT + 'static,
 	Block::Header: Unpin,
 	Client: BlockBackend<Block> + HeaderBackend<Block> + BlockchainEvents<Block> + 'static,
 {
-	Chain {
-		backend: Box::new(self::chain_full::FullChain::new(client, executor, subscription_metrics)),
-	}
+	Chain { backend: Box::new(self::chain_full::FullChain::new(client, executor)) }
 }
 
 /// Chain API with subscriptions support.

@@ -140,6 +140,7 @@ pub async fn pipe_from_stream<S, T>(
 			Either::Left((Ok(sink), _)) => break sink,
 			Either::Right((Some(msg), f)) => {
 				if buf.push_back(msg).is_err() {
+					log::trace!(target: "rpc", "Subscription::accept lagged, dropping subscription=`{}`, peer=`{}`", params.method, params.ip_addr);
 					params.metrics.register_dropped(params.method, params.ip_addr);
 					return
 				}
@@ -187,6 +188,7 @@ async fn inner_pipe_from_stream<S, T>(
 			// New item from the stream
 			Either::Right((Either::Right((Some(v), n)), c)) => {
 				if buf.push_back(v).is_err() {
+					log::trace!(target: "rpc", "Subscription lagged, dropping subscription=`{}`, peer=`{}`", params.method, params.ip_addr);
 					metrics.register_dropped(method, ip_addr);
 					return
 				}

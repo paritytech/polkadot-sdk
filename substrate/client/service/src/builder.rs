@@ -645,8 +645,7 @@ where
 	let task_executor = Arc::new(spawn_handle);
 
 	let (chain, state, child_state) = {
-		let chain = sc_rpc::chain::new_full(client.clone(), task_executor.clone(), metrics.clone())
-			.into_rpc();
+		let chain = sc_rpc::chain::new_full(client.clone(), task_executor.clone()).into_rpc();
 		let (state, child_state) = sc_rpc::state::new_full(
 			client.clone(),
 			task_executor.clone(),
