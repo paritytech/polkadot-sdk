@@ -35,3 +35,9 @@ impl Priority {
 		self == Priority::Critical
 	}
 }
+
+#[derive(Debug, Hash, PartialEq, Eq, Clone, Copy)]
+pub enum ExecutePriority {
+	Normal,
+	Critical,
+}

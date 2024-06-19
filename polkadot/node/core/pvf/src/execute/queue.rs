@@ -22,7 +22,7 @@ use crate::{
 	host::ResultSender,
 	metrics::Metrics,
 	worker_interface::{IdleWorker, WorkerHandle},
-	InvalidCandidate, PossiblyInvalidError, ValidationError, LOG_TARGET,
+	ExecutePriority, InvalidCandidate, PossiblyInvalidError, ValidationError, LOG_TARGET,
 };
 use futures::{
 	channel::{mpsc, oneshot},
@@ -57,12 +57,6 @@ pub enum ToQueue {
 	Enqueue { artifact: ArtifactPathId, pending_execution_request: PendingExecutionRequest },
 }
 
-#[derive(Debug, Hash, PartialEq, Eq)]
-pub enum ExecutePriority {
-	Normal,
-	Critical,
-}
-
 /// A response from queue.
 #[derive(Debug)]
 pub enum FromQueue {
@@ -77,6 +71,7 @@ pub struct PendingExecutionRequest {
 	pub params: Vec<u8>,
 	pub executor_params: ExecutorParams,
 	pub result_tx: ResultSender,
+	pub execute_priority: ExecutePriority,
 }
 
 struct ExecuteJob {
@@ -309,10 +304,14 @@ async fn purge_dead(metrics: &Metrics, workers: &mut Workers) {
 }
 
 fn handle_to_queue(queue: &mut Queue, to_queue: ToQueue) {
-	let priority = ExecutePriority::Normal;
 	let ToQueue::Enqueue { artifact, pending_execution_request } = to_queue;
-	let PendingExecutionRequest { exec_timeout, params, executor_params, result_tx } =
-		pending_execution_request;
+	let PendingExecutionRequest {
+		exec_timeout,
+		params,
+		executor_params,
+		result_tx,
+		execute_priority: execution_priority,
+	} = pending_execution_request;
 	gum::debug!(
 		target: LOG_TARGET,
 		validation_code_hash = ?artifact.id.code_hash,
@@ -327,7 +326,7 @@ fn handle_to_queue(queue: &mut Queue, to_queue: ToQueue) {
 		result_tx,
 		waiting_since: Instant::now(),
 	};
-	queue.unscheduled.entry(priority).or_default().push_back(job);
+	queue.unscheduled.entry(execution_priority).or_default().push_back(job);
 	queue.try_assign_next_job(None);
 }
 
