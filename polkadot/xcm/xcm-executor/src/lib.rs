@@ -42,6 +42,7 @@ pub use traits::RecordXcm;
 mod assets;
 pub use assets::AssetsInHolding;
 mod config;
+use crate::assets::TakeError;
 pub use config::Config;
 
 /// A struct to specify how fees are being paid.
@@ -524,10 +525,12 @@ impl<Config: config::Config> XcmExecutor<Config> {
 		assets.into_assets_iter().collect::<Vec<_>>().into()
 	}
 
-	/// Helper function for calculating transport fee to be deducted from `assets`, and put back
-	/// into Holding for later use in paying the XcmSender. Used during execution of all asset
-	/// transfer instructions that send an onward XCM without JIT_WITHDRAW=true and thus need to
-	/// charge a transport fee from the transferred assets.
+	/// Calculate transport fee and make sure it is available in Holding, deducting from `assets` if
+	/// necessary.
+	///
+	/// Used during execution of all asset transfer instructions that send an onward XCM without
+	/// JIT_WITHDRAW=true and thus need to charge a transport fee potentially from the transferred
+	/// assets.
 	fn hold_transport_fee(
 		&mut self,
 		assets: &mut AssetsInHolding,
@@ -536,11 +539,17 @@ impl<Config: config::Config> XcmExecutor<Config> {
 	) -> Result<(), XcmError> {
 		// calculate the transport fee for this remote XCM
 		let (_, fee) = validate_send::<Config::XcmSender>(dest, remote_xcm)?;
-		// take the required fee from assets to be transferred
-		let transport_fee = assets.try_take(fee.into()).map_err(|_| XcmError::FeesNotMet)?;
-		// put back transport_fee in Holding to be charged by XcmSender
-		self.holding.subsume_assets(transport_fee);
-		Ok(())
+		// make sure Holding contains the required transport fee
+		self.holding
+			.ensure_contains(&fee)
+			.or_else(|_| {
+				// take the required fee from assets to be transferred
+				let transport_fee = assets.try_take(fee.into())?;
+				// add required transport_fee to Holding to be charged by XcmSender
+				self.holding.subsume_assets(transport_fee);
+				Ok(())
+			})
+			.map_err(|_: TakeError| XcmError::FeesNotMet)
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
