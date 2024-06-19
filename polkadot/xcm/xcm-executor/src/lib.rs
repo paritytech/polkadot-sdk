@@ -525,10 +525,10 @@ impl<Config: config::Config> XcmExecutor<Config> {
 	}
 
 	/// Helper function for calculating transport fee to be deducted from `assets`, and put back
-	/// into Holding for later use for paying the XcmSender. Used during execution of all asset
+	/// into Holding for later use in paying the XcmSender. Used during execution of all asset
 	/// transfer instructions that send an onward XCM without JIT_WITHDRAW=true and thus need to
-	/// charge a transport fee from transferred assets.
-	fn reserve_assets_transfer_transport_fee(
+	/// charge a transport fee from the transferred assets.
+	fn hold_transport_fee(
 		&mut self,
 		assets: &mut AssetsInHolding,
 		dest: Location,
@@ -876,14 +876,10 @@ impl<Config: config::Config> XcmExecutor<Config> {
 					// if not using JIT withdraw, transport fee will be charged from Holding
 					if !self.fees_mode.jit_withdraw {
 						// get the remote XCM for weighing
-						let message_to_weigh = remote_xcm(to_deposit.clone(), xcm.clone());
+						let to_weigh = remote_xcm(to_deposit.clone(), xcm.clone());
 						// calculate transport fee and move it from `to_deposit` back to Holding, to
 						// be later charged by XcmSender
-						self.reserve_assets_transfer_transport_fee(
-							&mut to_deposit,
-							dest.clone(),
-							message_to_weigh,
-						)?;
+						self.hold_transport_fee(&mut to_deposit, dest.clone(), to_weigh)?;
 					}
 
 					// deposit assets (minus transport fee) to dest's sovereign account
@@ -938,14 +934,10 @@ impl<Config: config::Config> XcmExecutor<Config> {
 					// if not using JIT withdraw, transport fee will be charged from Holding
 					if !self.fees_mode.jit_withdraw {
 						// get the remote XCM for weighing
-						let message_to_weigh = remote_xcm(to_teleport.clone(), xcm.clone());
+						let to_weigh = remote_xcm(to_teleport.clone(), xcm.clone());
 						// calculate transport fee and move it from `to_deposit` back to Holding, to
 						// be later charged by XcmSender
-						self.reserve_assets_transfer_transport_fee(
-							&mut to_teleport,
-							dest.clone(),
-							message_to_weigh,
-						)?;
+						self.hold_transport_fee(&mut to_teleport, dest.clone(), to_weigh)?;
 					}
 
 					let to_check_out: Vec<Asset> = to_teleport.assets_iter().collect();
