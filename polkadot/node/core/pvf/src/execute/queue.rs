@@ -37,7 +37,7 @@ use polkadot_node_core_pvf_common::{
 use polkadot_primitives::{ExecutorParams, ExecutorParamsHash};
 use slotmap::HopSlotMap;
 use std::{
-	collections::VecDeque,
+	collections::{HashMap, VecDeque},
 	fmt,
 	path::PathBuf,
 	time::{Duration, Instant},
@@ -55,6 +55,12 @@ slotmap::new_key_type! { struct Worker; }
 #[derive(Debug)]
 pub enum ToQueue {
 	Enqueue { artifact: ArtifactPathId, pending_execution_request: PendingExecutionRequest },
+}
+
+#[derive(Debug, Hash, PartialEq, Eq)]
+pub enum ExecutePriority {
+	Normal,
+	Critical,
 }
 
 /// A response from queue.
@@ -162,7 +168,7 @@ struct Queue {
 	security_status: SecurityStatus,
 
 	/// The queue of jobs that are waiting for a worker to pick up.
-	queue: VecDeque<ExecuteJob>,
+	unscheduled: HashMap<ExecutePriority, VecDeque<ExecuteJob>>,
 	workers: Workers,
 	mux: Mux,
 }
@@ -188,7 +194,7 @@ impl Queue {
 			security_status,
 			to_queue_rx,
 			from_queue_tx,
-			queue: VecDeque::new(),
+			unscheduled: HashMap::new(),
 			mux: Mux::new(),
 			workers: Workers {
 				running: HopSlotMap::with_capacity_and_key(10),
@@ -224,7 +230,18 @@ impl Queue {
 	fn try_assign_next_job(&mut self, finished_worker: Option<Worker>) {
 		// New jobs are always pushed to the tail of the queue; the one at its head is always
 		// the eldest one.
-		let eldest = if let Some(eldest) = self.queue.get(0) { eldest } else { return };
+
+		let has_critical = self
+			.unscheduled
+			.get(&ExecutePriority::Critical)
+			.map_or(false, |v| !v.is_empty());
+		let queue_priority = has_critical
+			.then(|| ExecutePriority::Critical)
+			.unwrap_or(ExecutePriority::Normal);
+
+		let Some(queue) = self.unscheduled.get_mut(&queue_priority) else { return };
+
+		let eldest = if let Some(eldest) = queue.get(0) { eldest } else { return };
 
 		// By default, we're going to execute the eldest job on any worker slot available, even if
 		// we have to kill and re-spawn a worker
@@ -236,7 +253,7 @@ impl Queue {
 		if eldest.waiting_since.elapsed() < MAX_KEEP_WAITING {
 			if let Some(finished_worker) = finished_worker {
 				if let Some(worker_data) = self.workers.running.get(finished_worker) {
-					for (i, job) in self.queue.iter().enumerate() {
+					for (i, job) in queue.iter().enumerate() {
 						if worker_data.executor_params_hash == job.executor_params.hash() {
 							(worker, job_index) = (Some(finished_worker), i);
 							break
@@ -248,7 +265,7 @@ impl Queue {
 
 		if worker.is_none() {
 			// Try to obtain a worker for the job
-			worker = self.workers.find_available(self.queue[job_index].executor_params.hash());
+			worker = self.workers.find_available(queue[job_index].executor_params.hash());
 		}
 
 		if worker.is_none() {
@@ -266,7 +283,7 @@ impl Queue {
 			return
 		}
 
-		let job = self.queue.remove(job_index).expect("Job is just checked to be in queue; qed");
+		let job = queue.remove(job_index).expect("Job is just checked to be in queue; qed");
 
 		if let Some(worker) = worker {
 			assign(self, worker, job);
@@ -292,6 +309,7 @@ async fn purge_dead(metrics: &Metrics, workers: &mut Workers) {
 }
 
 fn handle_to_queue(queue: &mut Queue, to_queue: ToQueue) {
+	let priority = ExecutePriority::Normal;
 	let ToQueue::Enqueue { artifact, pending_execution_request } = to_queue;
 	let PendingExecutionRequest { exec_timeout, params, executor_params, result_tx } =
 		pending_execution_request;
@@ -309,7 +327,7 @@ fn handle_to_queue(queue: &mut Queue, to_queue: ToQueue) {
 		result_tx,
 		waiting_since: Instant::now(),
 	};
-	queue.queue.push_back(job);
+	queue.unscheduled.entry(priority).or_default().push_back(job);
 	queue.try_assign_next_job(None);
 }
 
