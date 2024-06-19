@@ -25,7 +25,7 @@ pub(crate) const EXAMPLES: &str = color_print::cstr!(
    <bold>polkadot-parachain-omni-node --chain para.json --sync warp -- --chain relay.json --sync warp</>
         Launch a warp-syncing full node of a given para's chain-spec, and a given relay's chain-spec.
 
-	<green><italic>The above approach is the most flexible, and the most forward-compatible used to spawn an omni-node.</></>
+	<green><italic>The above approach is the most flexible, and the most forward-compatible way to spawn an omni-node.</></>
 
 	You can find the chain-spec of some networks in:
 

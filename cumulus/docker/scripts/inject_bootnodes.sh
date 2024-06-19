@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# this script runs the polkadot-parachain-omni-node after fetching
+# this script runs the polkadot-parachain after fetching
 # appropriate bootnode IDs
 #
 # this is _not_ a general-purpose script; it is closely tied to the

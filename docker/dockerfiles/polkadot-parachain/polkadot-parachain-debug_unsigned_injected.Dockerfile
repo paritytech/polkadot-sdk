@@ -31,19 +31,19 @@ RUN apt-get update && \
 	useradd -m -u 1000 -U -s /bin/sh -d /polkadot-parachain polkadot-parachain && \
 	mkdir -p /data /polkadot-parachain/.local/share && \
 	chown -R polkadot-parachain:polkadot-parachain /data && \
-	ln -s /data /polkadot-parachain/.local/share/polkadot-parachain-omni-node && \
+	ln -s /data /polkadot-parachain/.local/share/polkadot-parachain && \
 	mkdir -p /specs
 
-# add polkadot-parachain-omni-node binary to the docker image
-COPY ./artifacts/polkadot-parachain-omni-node /usr/local/bin
+# add polkadot-parachain binary to the docker image
+COPY ./artifacts/polkadot-parachain /usr/local/bin
 COPY ./cumulus/parachains/chain-specs/*.json /specs/
 
 USER polkadot-parachain
 
 # check if executable works in this container
-RUN /usr/local/bin/polkadot-parachain-omni-node --version
+RUN /usr/local/bin/polkadot-parachain --version
 
 EXPOSE 30333 9933 9944
 VOLUME ["/polkadot-parachain"]
 
-ENTRYPOINT ["/usr/local/bin/polkadot-parachain-omni-node"]
+ENTRYPOINT ["/usr/local/bin/polkadot-parachain"]

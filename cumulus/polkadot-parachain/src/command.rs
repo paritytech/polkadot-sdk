@@ -43,8 +43,8 @@ pub enum Consensus {
 	#[default]
 	Aura,
 	/// Use the relay chain consensus.
-	// TOOD: atm this is just a demonstration, not really reach-able. We can add it to the CLI,
-	// evn, or the chain spec. Or, just don't, and when we properly refactor this mess we will
+	// TODO: atm this is just a demonstration, not really reach-able. We can add it to the CLI,
+	// env, or the chain spec. Or, just don't, and when we properly refactor this mess we will
 	// re-introduce it.
 	#[allow(unused)]
 	Relay,

@@ -47,7 +47,7 @@ short-benchmark-westend: &short-bench
   tags:
     - benchmark
   script:
-    - ./artifacts/polkadot-parachain-omni-node benchmark pallet --chain $RUNTIME_CHAIN --pallet "*" --extrinsic "*" --steps 2 --repeat 1
+    - ./artifacts/polkadot-parachain benchmark pallet --chain $RUNTIME_CHAIN --pallet "*" --extrinsic "*" --steps 2 --repeat 1
 
 short-benchmark-asset-hub-rococo:
   <<: *short-bench-cumulus

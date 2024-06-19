@@ -25,7 +25,7 @@ docker run --rm -it \
     -w /polkadot-sdk \
     -v $(pwd):/polkadot-sdk \
     docker.io/paritytech/ci-unified:bullseye-1.77.0-2024-04-10-v20240408 \
-    cargo build --release --locked -p polkadot-parachain-omni-node --bin polkadot-parachain-omni-node
+    cargo build --release --locked -p polkadot-parachain-bin --bin polkadot-parachain
 sudo chown -R $(id -u):$(id -g) target/
 ```
 

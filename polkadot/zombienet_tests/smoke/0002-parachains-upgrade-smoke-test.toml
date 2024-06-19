@@ -31,7 +31,7 @@ cumulus_based = true
   [parachains.collator]
   name = "collator01"
   image = "{{CUMULUS_IMAGE}}"
-  command = "polkadot-parachain-omni-node"
+  command = "polkadot-parachain"
 
   [[parachains.collator.env]]
   name = "RUST_LOG"

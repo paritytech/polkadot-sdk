@@ -1,8 +1,7 @@
 # Contracts 📝
 
 This is a parachain node for smart contracts; it contains a default configuration of
-Substrate's module for smart contracts ‒
-the [`pallet-contracts`](https://github.com/paritytech/polkadot-sdk/tree/master/substrate/frame/contracts).
+Substrate's module for smart contracts ‒ the [`pallet-contracts`](https://github.com/paritytech/polkadot-sdk/tree/master/substrate/frame/contracts).
 
 The node is only available on Rococo, a testnet for Polkadot and Kusama parachains.
 It has been configured as a common good parachain, as such it uses the Rococo relay
@@ -35,8 +34,7 @@ or interact with contracts:
 
 * [Contracts UI](https://paritytech.github.io/contracts-ui/) ‒ a beginner-friendly UI for smart contract developers.
 * [`polkadot-js`](https://polkadot.js.org/apps/) ‒ the go-to expert UI for smart contract developers.
-* [`cargo-contract`](https://github.com/paritytech/cargo-contract) ‒ a CLI tool, ideal for scripting or your terminal
-  workflow.
+* [`cargo-contract`](https://github.com/paritytech/cargo-contract) ‒ a CLI tool, ideal for scripting or your terminal workflow.
 
 If you are looking for a quickstart, we can recommend
 [ink!'s Guided Tutorial for Beginners](https://docs.substrate.io/tutorials/v3/ink-workshop/pt1/).
@@ -53,7 +51,7 @@ cargo build --release --locked --bin polkadot-parachain
 Once the executable is built, launch the parachain node via:
 
 ```bash
-./target/release/polkadot-parachain-omni-node --chain contracts-rococo
+./target/release/polkadot-parachain --chain contracts-rococo
 ```
 
 Refer to the [setup instructions](https://github.com/paritytech/polkadot-sdk/tree/master/cumulus#manual-setup) to run a
@@ -73,8 +71,7 @@ Due to this you'll need `ROC` in order to deploy contracts on this parachain.
 As a first step, you should create an account. See [here](https://wiki.polkadot.network/docs/learn-account-generation)
 for a detailed guide.
 
-As a second step, you have to get `ROC` testnet tokens through
-the [Rococo Faucet](https://wiki.polkadot.network/docs/learn-DOT#obtaining-testnet-tokens).
+As a second step, you have to get `ROC` testnet tokens through the [Rococo Faucet](https://wiki.polkadot.network/docs/learn-DOT#obtaining-testnet-tokens).
 This is a chat room in which you'd need to post the following message:
 
 ```bash

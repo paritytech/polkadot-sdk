@@ -45,7 +45,7 @@ cumulus_based = true
   [parachains.collator]
   name = "collator02"
   image = "{{CUMULUS_IMAGE}}"
-  command = "polkadot-parachain-omni-node"
+  command = "polkadot-parachain"
   args = ["-lparachain=debug"]
 
 [types.Header]

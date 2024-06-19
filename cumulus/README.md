@@ -4,8 +4,7 @@
 
 This repository contains both the Cumulus SDK and also specific chains implemented on top of this SDK.
 
-If you only want to run a **Polkadot Parachain Node**, check out
-our [container section](./docs/contributor/container.md).
+If you only want to run a **Polkadot Parachain Node**, check out our [container section](./docs/contributor/container.md).
 
 ## Cumulus SDK
 
@@ -38,16 +37,13 @@ You may run `polkadot-parachain` locally after building it or using one of the c
 [here](./docs/contributor/container.md).
 
 ### Relay Chain Interaction
-
 To operate a parachain node, a connection to the corresponding relay chain is necessary. This can be achieved in one of
 three ways:
-
 1. Run a full relay chain node within the parachain node (default)
 2. Connect to an external relay chain node via WebSocket RPC
 3. Run a light client for the relay chain
 
 #### In-process Relay Chain Node
-
 If an external relay chain node is not specified (default behavior), then a full relay chain node is spawned within the
 same process.
 
@@ -55,9 +51,8 @@ This node has all of the typical components of a regular Polkadot node and will 
 to work.
 
 ##### Example command
-
 ```bash
-polkadot-parachain-omni-node \
+polkadot-parachain \
 	--chain parachain-chainspec.json \
 	--tmp \
 	-- \
@@ -65,7 +60,6 @@ polkadot-parachain-omni-node \
 ```
 
 #### External Relay Chain Node
-
 An external relay chain node is connected via WebsSocket RPC by using the `--relay-chain-rpc-urls` command line
 argument. This option accepts one or more space-separated WebSocket URLs to a full relay chain node. By default, only
 the first URL will be used, with the rest as a backup in case the connection to the first node is lost.
@@ -80,7 +74,7 @@ directly to the relay chain network.
 ##### Example command
 
 ```bash
-polkadot-parachain-omni-node \
+polkadot-parachain \
 	--chain parachain-chainspec.json \
 	--tmp \
 	--relay-chain-rpc-urls \
@@ -91,7 +85,6 @@ polkadot-parachain-omni-node \
 ```
 
 #### Relay Chain Light Client
-
 An internal relay chain light client provides a fast and lightweight approach for connecting to the relay chain network.
 It provides relay chain notifications and facilitates runtime calls.
 
@@ -102,10 +95,10 @@ relay chain arguments.
 node in-process. Even though they lack the majority of normal Polkadot subsystems, they will still need to connect
 directly to the relay chain network.
 
-##### Example command
 
+##### Example command
 ```bash
-polkadot-parachain-omni-node \
+polkadot-parachain \
 	--chain parachain-chainspec.json \
 	--tmp \
 	--relay-chain-light-client \
@@ -114,7 +107,6 @@ polkadot-parachain-omni-node \
 ```
 
 ## Installation and Setup
-
 Before building Cumulus SDK based nodes / runtimes prepare your environment by following Substrate [installation
 instructions](https://docs.substrate.io/main-docs/install/).
 
@@ -122,24 +114,19 @@ To launch a local network, you can use [zombienet](https://github.com/paritytech
 experimentation or follow the [manual setup](#manual-setup).
 
 ### Zombienet
-
 We use Zombienet to spin up networks for integration tests and local networks. Follow [these installation
 steps](https://github.com/paritytech/zombienet#requirements-by-provider) to set it up on your machine. A simple network
 specification with two relay chain nodes and one collator is located at
 [zombienet/examples/small_network.toml](zombienet/examples/small_network.toml).
 
 #### Which provider should I use?
-
 Zombienet offers multiple providers to run networks. Choose the one that best fits your needs:
-
 - **Podman:** Choose this if you want to spin up a network quick and easy.
 - **Native:** Choose this if you want to develop and deploy your changes. Requires compilation of the binaries.
 - **Kubernetes:** Choose this for advanced use-cases or running on cloud-infrastructure.
 
 #### How to run
-
 To run the example network, use the following commands:
-
 ```bash
 # Podman provider
 zombienet --provider podman spawn ./zombienet/examples/small_network.toml
@@ -149,7 +136,6 @@ zombienet --provider native spawn ./zombienet/examples/small_network.toml
 ```
 
 ### Manual Setup
-
 #### Launch the Relay Chain
 
 ```bash
@@ -173,30 +159,31 @@ cargo build --release -p polkadot
 
 ```bash
 # Compile
-cargo build --release -p polkadot-parachain-omni-node
+cargo build --release -p polkadot-parachain-bin
 
 # Export genesis state
-./target/release/polkadot-parachain-omni-node export-genesis-state > genesis-state
+./target/release/polkadot-parachain export-genesis-state > genesis-state
 
 # Export genesis wasm
-./target/release/polkadot-parachain-omni-node export-genesis-wasm > genesis-wasm
+./target/release/polkadot-parachain export-genesis-wasm > genesis-wasm
 
 # Collator1
-./target/release/polkadot-parachain-omni-node --collator --alice --force-authoring \
+./target/release/polkadot-parachain --collator --alice --force-authoring \
   --tmp --port 40335 --rpc-port 9946 -- --chain rococo-local-cfde.json --port 30335
 
 # Collator2
-./target/release/polkadot-parachain-omni-node --collator --bob --force-authoring \
+./target/release/polkadot-parachain --collator --bob --force-authoring \
   --tmp --port 40336 --rpc-port 9947 -- --chain rococo-local-cfde.json --port 30336
 
 # Parachain Full Node 1
-./target/release/polkadot-parachain-omni-node --tmp --port 40337 --rpc-port 9948 -- \
+./target/release/polkadot-parachain --tmp --port 40337 --rpc-port 9948 -- \
   --chain rococo-local-cfde.json --port 30337
 ```
 
 #### Register the parachain
 
 ![image](https://user-images.githubusercontent.com/2915325/99548884-1be13580-2987-11eb-9a8b-20be658d34f9.png)
+
 
 ## Asset Hub 🪙
 
@@ -215,7 +202,7 @@ Once the executable is built, launch the parachain node via:
 
 ```bash
 CHAIN=asset-hub-westend # or asset-hub-kusama
-./target/release/polkadot-parachain-omni-node --chain $CHAIN
+./target/release/polkadot-parachain --chain $CHAIN
 ```
 
 Refer to the [setup instructions](#manual-setup) to run a local network for development.
@@ -229,7 +216,6 @@ See [the `contracts-rococo` readme](parachains/runtimes/contracts/contracts-roco
 See [the `bridge-hubs` readme](parachains/runtimes/bridge-hubs/README.md) for details.
 
 ## Rococo 👑
-
 [Rococo](https://polkadot.js.org/apps/?rpc=wss://rococo-rpc.polkadot.io) is becoming a [Community Parachain
 Testbed](https://polkadot.network/blog/rococo-revamp-becoming-a-community-parachain-testbed/) for parachain teams in the
 Polkadot ecosystem. It supports multiple parachains with the differentiation of long-term connections and recurring
@@ -245,6 +231,7 @@ the relay chain for a parachain.
 
 To run a Rococo collator you will need to compile the following binary:
 
+
 ```bash
 cargo build --release --locked --bin polkadot-parachain
 ```
@@ -252,7 +239,7 @@ cargo build --release --locked --bin polkadot-parachain
 Once the executable is built, launch collators for each parachain (repeat once each for chain `tick`, `trick`, `track`):
 
 ```bash
-./target/release/polkadot-parachain-omni-node --chain $CHAIN --validator
+./target/release/polkadot-parachain --chain $CHAIN --validator
 ```
 
 You can also build [using a container](./docs/contributor/container.md).
