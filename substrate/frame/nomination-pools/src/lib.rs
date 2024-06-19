@@ -2928,7 +2928,7 @@ pub mod pallet {
 			);
 
 			let pool_contribution = member.total_balance();
-			ensure!(pool_contribution >= MinJoinBond::<T>::get(), Error::<T>::MinimumBondNotMet);
+			// ensure!(pool_contribution >= MinJoinBond::<T>::get(), Error::<T>::MinimumBondNotMet);
 			// the member must have some contribution to be migrated.
 			ensure!(pool_contribution > Zero::zero(), Error::<T>::AlreadyMigrated);
 

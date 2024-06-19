@@ -372,7 +372,7 @@ pub mod pallet {
 			let agent = ensure_signed(origin)?;
 
 			// Ensure they have minimum delegation.
-			ensure!(amount >= T::Currency::minimum_balance(), Error::<T>::NotEnoughFunds);
+			// ensure!(amount >= T::Currency::minimum_balance(), Error::<T>::NotEnoughFunds);
 
 			// Ensure delegator is sane.
 			ensure!(!Self::is_agent(&delegator), Error::<T>::NotAllowed);
