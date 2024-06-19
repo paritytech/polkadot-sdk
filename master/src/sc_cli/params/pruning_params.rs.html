@@ -283,6 +283,37 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#132" id="132">132</a>
 <a href="#133" id="133">133</a>
 <a href="#134" id="134">134</a>
+<a href="#135" id="135">135</a>
+<a href="#136" id="136">136</a>
+<a href="#137" id="137">137</a>
+<a href="#138" id="138">138</a>
+<a href="#139" id="139">139</a>
+<a href="#140" id="140">140</a>
+<a href="#141" id="141">141</a>
+<a href="#142" id="142">142</a>
+<a href="#143" id="143">143</a>
+<a href="#144" id="144">144</a>
+<a href="#145" id="145">145</a>
+<a href="#146" id="146">146</a>
+<a href="#147" id="147">147</a>
+<a href="#148" id="148">148</a>
+<a href="#149" id="149">149</a>
+<a href="#150" id="150">150</a>
+<a href="#151" id="151">151</a>
+<a href="#152" id="152">152</a>
+<a href="#153" id="153">153</a>
+<a href="#154" id="154">154</a>
+<a href="#155" id="155">155</a>
+<a href="#156" id="156">156</a>
+<a href="#157" id="157">157</a>
+<a href="#158" id="158">158</a>
+<a href="#159" id="159">159</a>
+<a href="#160" id="160">160</a>
+<a href="#161" id="161">161</a>
+<a href="#162" id="162">162</a>
+<a href="#163" id="163">163</a>
+<a href="#164" id="164">164</a>
+<a href="#165" id="165">165</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -302,7 +333,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // along with this program. If not, see &lt;https://www.gnu.org/licenses/&gt;.
 
 </span><span class="kw">use </span><span class="kw">crate</span>::error;
-<span class="kw">use </span>clap::{builder::PossibleValue, Args, ValueEnum};
+<span class="kw">use </span>clap::Args;
 <span class="kw">use </span>sc_service::{BlocksPruning, PruningMode};
 
 <span class="doccomment">/// Parameters to define the pruning mode
@@ -315,24 +346,39 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// This setting can only be set on the first creation of the database. Every subsequent run
 	/// will load the pruning mode from the database and will error if the stored mode doesn't
 	/// match this CLI value. It is fine to drop this CLI flag for subsequent runs. The only
-	/// exception is that `&lt;NUMBER&gt;` can change between subsequent runs (increasing it will not
+	/// exception is that `NUMBER` can change between subsequent runs (increasing it will not
 	/// lead to restoring pruned state).
 	///
+	/// Possible values:
+	///
+	/// - archive: Keep the data of all blocks.
+	///
+	/// - archive-canonical: Keep only the data of finalized blocks.
+	///
+	/// - NUMBER: Keep the data of the last NUMBER of finalized blocks.
+	///
 	/// [default: 256]
-	</span><span class="attr">#[arg(alias = <span class="string">"pruning"</span>, long, value_name = <span class="string">"PRUNING_MODE"</span>, value_enum)]
+	</span><span class="attr">#[arg(alias = <span class="string">"pruning"</span>, long, value_name = <span class="string">"PRUNING_MODE"</span>)]
 	</span><span class="kw">pub </span>state_pruning: <span class="prelude-ty">Option</span>&lt;DatabasePruningMode&gt;,
 
 	<span class="doccomment">/// Specify the blocks pruning mode.
 	///
 	/// This mode specifies when the block's body (including justifications)
 	/// should be pruned (ie, removed) from the database.
+	///
+	/// Possible values:
+	///
+	/// - archive: Keep the data of all blocks.
+	///
+	/// - archive-canonical: Keep only the data of finalized blocks.
+	///
+	/// - NUMBER: Keep the data of the last NUMBER of finalized blocks.
 	</span><span class="attr">#[arg(
 		alias = <span class="string">"keep-blocks"</span>,
 		long,
 		value_name = <span class="string">"PRUNING_MODE"</span>,
-		default_value_t = DatabasePruningMode::ArchiveCanonical,
-		value_enum
-	)]
+		default_value = <span class="string">"archive-canonical"
+	</span>)]
 	</span><span class="kw">pub </span>blocks_pruning: DatabasePruningMode,
 }
 
@@ -361,26 +407,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>ArchiveCanonical,
 	<span class="doccomment">/// Keep the data of the last number of finalized blocks.
 	</span>Custom(u32),
-}
-
-<span class="kw">impl </span>ValueEnum <span class="kw">for </span>DatabasePruningMode {
-	<span class="kw">fn </span>value_variants&lt;<span class="lifetime">'a</span>&gt;() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'a </span>[<span class="self">Self</span>] {
-		<span class="kw-2">&amp;</span>[<span class="self">Self</span>::Archive, <span class="self">Self</span>::ArchiveCanonical, <span class="self">Self</span>::Custom(<span class="number">0</span>)]
-	}
-
-	<span class="kw">fn </span>to_possible_value(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;clap::builder::PossibleValue&gt; {
-		<span class="prelude-val">Some</span>(<span class="kw">match </span><span class="self">self </span>{
-			<span class="self">Self</span>::Archive =&gt; PossibleValue::new(<span class="string">"archive"</span>).help(<span class="string">"Keep the data of all blocks."</span>),
-			<span class="self">Self</span>::ArchiveCanonical =&gt; PossibleValue::new(<span class="string">"archive-canonical"</span>)
-				.help(<span class="string">"Keep only the data of finalized blocks."</span>),
-			<span class="self">Self</span>::Custom(<span class="kw">_</span>) =&gt; PossibleValue::new(<span class="string">"&lt;NUMBER&gt;"</span>)
-				.help(<span class="string">"Keep the data of the last &lt;NUMBER&gt; of finalized blocks."</span>),
-		})
-	}
-
-	<span class="kw">fn </span>from_str(input: <span class="kw-2">&amp;</span>str, <span class="kw">_</span>: bool) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, String&gt; {
-		&lt;<span class="self">Self </span><span class="kw">as </span>std::str::FromStr&gt;::from_str(input)
-	}
 }
 
 <span class="kw">impl </span>std::str::FromStr <span class="kw">for </span>DatabasePruningMode {
@@ -415,6 +441,42 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			DatabasePruningMode::ArchiveCanonical =&gt; BlocksPruning::KeepFinalized,
 			DatabasePruningMode::Custom(n) =&gt; BlocksPruning::Some(n),
 		}
+	}
+}
+
+<span class="attr">#[cfg(test)]
+</span><span class="kw">mod </span>tests {
+	<span class="kw">use super</span>::<span class="kw-2">*</span>;
+	<span class="kw">use </span>clap::Parser;
+
+	<span class="attr">#[derive(Parser)]
+	</span><span class="kw">struct </span>Cli {
+		<span class="attr">#[clap(flatten)]
+		</span>pruning: PruningParams,
+	}
+
+	<span class="attr">#[test]
+	</span><span class="kw">fn </span>pruning_params_parse_works() {
+		<span class="kw">let </span>Cli { pruning } =
+			Cli::parse_from([<span class="string">""</span>, <span class="string">"--state-pruning=1000"</span>, <span class="string">"--blocks-pruning=1000"</span>]);
+
+		<span class="macro">assert!</span>(<span class="macro">matches!</span>(pruning.state_pruning, <span class="prelude-val">Some</span>(DatabasePruningMode::Custom(<span class="number">1000</span>))));
+		<span class="macro">assert!</span>(<span class="macro">matches!</span>(pruning.blocks_pruning, DatabasePruningMode::Custom(<span class="number">1000</span>)));
+
+		<span class="kw">let </span>Cli { pruning } =
+			Cli::parse_from([<span class="string">""</span>, <span class="string">"--state-pruning=archive"</span>, <span class="string">"--blocks-pruning=archive"</span>]);
+
+		<span class="macro">assert!</span>(<span class="macro">matches!</span>(<span class="macro">dbg!</span>(pruning.state_pruning), <span class="prelude-val">Some</span>(DatabasePruningMode::Archive)));
+		<span class="macro">assert!</span>(<span class="macro">matches!</span>(pruning.blocks_pruning, DatabasePruningMode::Archive));
+
+		<span class="kw">let </span>Cli { pruning } = Cli::parse_from([
+			<span class="string">""</span>,
+			<span class="string">"--state-pruning=archive-canonical"</span>,
+			<span class="string">"--blocks-pruning=archive-canonical"</span>,
+		]);
+
+		<span class="macro">assert!</span>(<span class="macro">matches!</span>(<span class="macro">dbg!</span>(pruning.state_pruning), <span class="prelude-val">Some</span>(DatabasePruningMode::ArchiveCanonical)));
+		<span class="macro">assert!</span>(<span class="macro">matches!</span>(pruning.blocks_pruning, DatabasePruningMode::ArchiveCanonical));
 	}
 }
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
