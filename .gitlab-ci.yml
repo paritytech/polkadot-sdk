@@ -117,7 +117,8 @@ default:
     - linux-docker
 
 #
-.forklift-cache:
+# broken for purposes of testing
+ .forklift-cache:
   before_script:
     - mkdir ~/.forklift
     - cp .forklift/config.toml ~/.forklift/config.toml
