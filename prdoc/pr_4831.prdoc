@@ -7,11 +7,11 @@ doc:
       Add `OnSlash` config parameter to the bounties and tips pallets. 
 
 crates:
-  - name: frame-treasury
+  - name: pallet-treasury
     bump: major
-  - name: frame-bounties
+  - name: pallet-bounties
     bump: major
-  - name: frame-tips
+  - name: pallet-tips
     bump: major
   - name: collectives-westend-runtime
     bump: patch
