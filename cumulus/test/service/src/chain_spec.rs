@@ -17,7 +17,7 @@
 #![allow(missing_docs)]
 
 use cumulus_primitives_core::ParaId;
-use cumulus_test_runtime::{AccountId, RuntimeGenesisConfig, Signature};
+use cumulus_test_runtime::{AccountId, Signature};
 use parachains_common::AuraId;
 use sc_chain_spec::{ChainSpecExtension, ChainSpecGroup};
 use sc_service::ChainType;
@@ -26,7 +26,7 @@ use sp_core::{sr25519, Pair, Public};
 use sp_runtime::traits::{IdentifyAccount, Verify};
 
 /// Specialized `ChainSpec` for the normal parachain runtime.
-pub type ChainSpec = sc_service::GenericChainSpec<RuntimeGenesisConfig, Extensions>;
+pub type ChainSpec = sc_service::GenericChainSpec<Extensions>;
 
 /// Helper function to generate a crypto pair from seed
 pub fn get_from_seed<TPublic: Public>(seed: &str) -> <TPublic::Pair as Pair>::Public {
@@ -142,7 +142,9 @@ pub fn testnet_genesis(
 			balances: endowed_accounts.iter().cloned().map(|k| (k, 1 << 60)).collect(),
 		},
 		"sudo": cumulus_test_runtime::SudoConfig { key: Some(root_key) },
-		"testPallet": cumulus_test_runtime::TestPalletConfig { self_para_id: Some(self_para_id), ..Default::default() },
+		"parachainInfo": {
+			"parachainId": self_para_id,
+		},
 		"aura": cumulus_test_runtime::AuraConfig { authorities: invulnerables }
 	})
 }

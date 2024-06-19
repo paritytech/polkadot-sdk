@@ -51,7 +51,7 @@ impl From<Error> for XcmError {
 ///
 /// # Example
 /// ```
-/// use parity_scale_codec::Decode;
+/// use codec::Decode;
 /// use frame_support::{parameter_types, PalletId};
 /// use sp_runtime::traits::{AccountIdConversion, TrailingZeroInput};
 /// use xcm::latest::prelude::*;

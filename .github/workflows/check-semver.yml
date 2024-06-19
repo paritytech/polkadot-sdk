@@ -38,6 +38,7 @@ jobs:
         run: |
           export CARGO_TARGET_DIR=target
           export RUSTFLAGS='-A warnings -A missing_docs'
+          export SKIP_WASM_BUILD=1
           if ! parity-publish --color always prdoc --since old --validate prdoc/pr_$PR.prdoc --toolchain nightly-2024-03-01 -v; then
             cat <<EOF
           👋 Hello developer! The SemVer information that you declared in the prdoc file did not match what the CI detected.
