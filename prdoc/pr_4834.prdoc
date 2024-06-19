@@ -1,0 +1,11 @@
+title: "xcm-executor: take transport fee from transferred assets if necessary"
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      In asset transfers, as a last resort, XCM transport fees are taken from
+      transferred assets rather than failing the transfer.
+
+crates:
+  - name: staging-xcm-executor
+    bump: patch
