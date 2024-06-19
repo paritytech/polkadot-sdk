@@ -3600,6 +3600,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#3449" id="3449">3449</a>
 <a href="#3450" id="3450">3450</a>
 <a href="#3451" id="3451">3451</a>
+<a href="#3452" id="3452">3452</a>
+<a href="#3453" id="3453">3453</a>
+<a href="#3454" id="3454">3454</a>
+<a href="#3455" id="3455">3455</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -3797,8 +3801,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>index: ValidatorIndex,
 	<span class="comment">// our validator group
 	</span>group: GroupIndex,
-	<span class="comment">// the assignment of our validator group, if any.
-	</span>assignment: <span class="prelude-ty">Option</span>&lt;ParaId&gt;,
+	<span class="comment">// the assignments of our validator group, if any.
+	</span>assignments: Vec&lt;ParaId&gt;,
 	<span class="comment">// the 'direct-in-group' communication at this relay-parent.
 	</span>cluster_tracker: ClusterTracker,
 }
@@ -4342,8 +4346,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">let </span>our_group = groups.by_validator_index(validator_index)<span class="question-mark">?</span>;
 
 	<span class="kw">let </span>core_index = group_rotation_info.core_for_group(our_group, availability_cores.len());
-	<span class="kw">let </span>para_assigned_to_core = <span class="kw">if let </span><span class="prelude-val">Some</span>(claim_queue) = maybe_claim_queue {
-		claim_queue.get_claim_for(core_index, <span class="number">0</span>)
+	<span class="kw">let </span>paras_assigned_to_core = <span class="kw">if let </span><span class="prelude-val">Some</span>(claim_queue) = maybe_claim_queue {
+		claim_queue.iter_claims_for_core(<span class="kw-2">&amp;</span>core_index).copied().collect()
 	} <span class="kw">else </span>{
 		availability_cores
 			.get(core_index.<span class="number">0 </span><span class="kw">as </span>usize)
@@ -4355,6 +4359,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					.map(|scheduled_core| scheduled_core.para_id),
 				CoreState::Free | CoreState::Occupied(<span class="kw">_</span>) =&gt; <span class="prelude-val">None</span>,
 			})
+			.into_iter()
+			.collect()
 	};
 	<span class="kw">let </span>group_validators = groups.get(our_group)<span class="question-mark">?</span>.to_owned();
 
@@ -4362,7 +4368,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		active: <span class="prelude-val">Some</span>(ActiveValidatorState {
 			index: validator_index,
 			group: our_group,
-			assignment: para_assigned_to_core,
+			assignments: paras_assigned_to_core,
 			cluster_tracker: ClusterTracker::new(group_validators, seconding_limit)
 				.expect(<span class="string">"group is non-empty because we are in it; qed"</span>),
 		}),
@@ -4764,10 +4770,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="prelude-val">None </span>=&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(()),
 	};
 
-	<span class="kw">let </span>(local_index, local_assignment, local_group) =
+	<span class="kw">let </span>(local_index, local_assignments, local_group) =
 		<span class="kw">match </span>per_relay_parent.active_validator_state() {
 			<span class="prelude-val">None </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(JfyiError::InvalidShare),
-			<span class="prelude-val">Some</span>(l) =&gt; (l.index, l.assignment, l.group),
+			<span class="prelude-val">Some</span>(l) =&gt; (l.index, <span class="kw-2">&amp;</span>l.assignments, l.group),
 		};
 
 	<span class="comment">// Two possibilities: either the statement is `Seconded` or we already
@@ -4805,7 +4811,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">return </span><span class="prelude-val">Err</span>(JfyiError::InvalidShare)
 	}
 
-	<span class="kw">if </span>local_assignment != <span class="prelude-val">Some</span>(expected_para) || relay_parent != expected_relay_parent {
+	<span class="kw">if </span>!local_assignments.contains(<span class="kw-2">&amp;</span>expected_para) || relay_parent != expected_relay_parent {
 		<span class="kw">return </span><span class="prelude-val">Err</span>(JfyiError::InvalidShare)
 	}
 
@@ -5746,12 +5752,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">let </span>n_cores = availability_cores.len();
 
 	<span class="comment">// Determine the core indices occupied by each para at the current relay parent. To support
-	// on-demand parachains we also consider the core indices at next block if core has a candidate
-	// pending availability.
-	</span><span class="kw">let </span>para_core_indices: Vec&lt;<span class="kw">_</span>&gt; = <span class="kw">if let </span><span class="prelude-val">Some</span>(claim_queue) = maybe_claim_queue {
+	// on-demand parachains we also consider the core indices at next blocks.
+	</span><span class="kw">let </span>schedule: HashMap&lt;CoreIndex, Vec&lt;ParaId&gt;&gt; = <span class="kw">if let </span><span class="prelude-val">Some</span>(claim_queue) = maybe_claim_queue {
 		claim_queue
-			.iter_claims_at_depth(<span class="number">0</span>)
-			.map(|(core_index, para)| (para, core_index))
+			.iter_all_claims()
+			.map(|(core_index, paras)| (<span class="kw-2">*</span>core_index, paras.iter().copied().collect()))
 			.collect()
 	} <span class="kw">else </span>{
 		availability_cores
@@ -5759,12 +5764,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.enumerate()
 			.filter_map(|(index, core)| <span class="kw">match </span>core {
 				CoreState::Scheduled(scheduled_core) =&gt;
-					<span class="prelude-val">Some</span>((scheduled_core.para_id, CoreIndex(index <span class="kw">as </span>u32))),
+					<span class="prelude-val">Some</span>((CoreIndex(index <span class="kw">as </span>u32), <span class="macro">vec!</span>[scheduled_core.para_id])),
 				CoreState::Occupied(occupied_core) =&gt;
 					<span class="kw">if </span>max_candidate_depth &gt;= <span class="number">1 </span>{
-						occupied_core
-							.next_up_on_available
-							.map(|scheduled_core| (scheduled_core.para_id, CoreIndex(index <span class="kw">as </span>u32)))
+						occupied_core.next_up_on_available.map(|scheduled_core| {
+							(CoreIndex(index <span class="kw">as </span>u32), <span class="macro">vec!</span>[scheduled_core.para_id])
+						})
 					} <span class="kw">else </span>{
 						<span class="prelude-val">None
 					</span>},
@@ -5775,9 +5780,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">let </span><span class="kw-2">mut </span>groups_per_para = HashMap::new();
 	<span class="comment">// Map from `CoreIndex` to `GroupIndex` and collect as `HashMap`.
-	</span><span class="kw">for </span>(para, core_index) <span class="kw">in </span>para_core_indices {
+	</span><span class="kw">for </span>(core_index, paras) <span class="kw">in </span>schedule {
 		<span class="kw">let </span>group_index = group_rotation_info.group_for_core(core_index, n_cores);
-		groups_per_para.entry(para).or_insert_with(Vec::new).push(group_index)
+
+		<span class="kw">for </span>para <span class="kw">in </span>paras {
+			groups_per_para.entry(para).or_insert_with(Vec::new).push(group_index);
+		}
 	}
 
 	groups_per_para

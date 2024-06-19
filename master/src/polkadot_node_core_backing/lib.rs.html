@@ -2362,8 +2362,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#2211" id="2211">2211</a>
 <a href="#2212" id="2212">2212</a>
 <a href="#2213" id="2213">2213</a>
-<a href="#2214" id="2214">2214</a>
-<a href="#2215" id="2215">2215</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -2468,6 +2466,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	runtime::{
 		<span class="self">self</span>, prospective_parachains_mode, request_min_backing_votes, ProspectiveParachainsMode,
 	},
+	vstaging::{fetch_claim_queue, ClaimQueueSnapshot},
 	Validator,
 };
 <span class="kw">use </span>polkadot_primitives::{
@@ -2578,8 +2577,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>parent: Hash,
 	<span class="doccomment">/// Session index.
 	</span>session_index: SessionIndex,
-	<span class="doccomment">/// The `ParaId` assigned to the local validator at this relay parent.
-	</span>assigned_para: <span class="prelude-ty">Option</span>&lt;ParaId&gt;,
 	<span class="doccomment">/// The `CoreIndex` assigned to the local validator at this relay parent.
 	</span>assigned_core: <span class="prelude-ty">Option</span>&lt;CoreIndex&gt;,
 	<span class="doccomment">/// The candidates that are backed by enough validators in their group, by hash.
@@ -2599,8 +2596,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// If true, we're appending extra bits in the BackedCandidate validator indices bitfield,
 	/// which represent the assigned core index. True if ElasticScalingMVP is enabled.
 	</span>inject_core_index: bool,
-	<span class="doccomment">/// The core states for all cores.
-	</span>cores: Vec&lt;CoreState&gt;,
+	<span class="doccomment">/// The number of cores.
+	</span>n_cores: u32,
+	<span class="doccomment">/// Claim queue state. If the runtime API is not available, it'll be populated with info from
+	/// availability cores.
+	</span>claim_queue: ClaimQueueSnapshot,
 	<span class="doccomment">/// The validator index -&gt; group mapping at this relay parent.
 	</span>validator_to_group: Arc&lt;IndexedVec&lt;ValidatorIndex, <span class="prelude-ty">Option</span>&lt;GroupIndex&gt;&gt;&gt;,
 	<span class="doccomment">/// The associated group rotation information.
@@ -3370,20 +3370,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">fn </span>core_index_from_statement(
 	validator_to_group: <span class="kw-2">&amp;</span>IndexedVec&lt;ValidatorIndex, <span class="prelude-ty">Option</span>&lt;GroupIndex&gt;&gt;,
 	group_rotation_info: <span class="kw-2">&amp;</span>GroupRotationInfo,
-	cores: <span class="kw-2">&amp;</span>[CoreState],
+	n_cores: u32,
+	claim_queue: <span class="kw-2">&amp;</span>ClaimQueueSnapshot,
 	statement: <span class="kw-2">&amp;</span>SignedFullStatementWithPVD,
 ) -&gt; <span class="prelude-ty">Option</span>&lt;CoreIndex&gt; {
 	<span class="kw">let </span>compact_statement = statement.as_unchecked();
 	<span class="kw">let </span>candidate_hash = CandidateHash(<span class="kw-2">*</span>compact_statement.unchecked_payload().candidate_hash());
-
-	<span class="kw">let </span>n_cores = cores.len();
 
 	<span class="macro">gum::trace!</span>(
 		target:LOG_TARGET,
 		<span class="question-mark">?</span>group_rotation_info,
 		<span class="question-mark">?</span>statement,
 		<span class="question-mark">?</span>validator_to_group,
-		n_cores = <span class="question-mark">?</span>cores.len(),
+		n_cores,
 		<span class="question-mark">?</span>candidate_hash,
 		<span class="string">"Extracting core index from statement"
 	</span>);
@@ -3395,7 +3394,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="question-mark">?</span>group_rotation_info,
 			<span class="question-mark">?</span>statement,
 			<span class="question-mark">?</span>validator_to_group,
-			n_cores = <span class="question-mark">?</span>cores.len() ,
+			n_cores,
 			<span class="question-mark">?</span>candidate_hash,
 			<span class="string">"Invalid validator index: {:?}"</span>,
 			statement_validator_index
@@ -3404,37 +3403,25 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>};
 
 	<span class="comment">// First check if the statement para id matches the core assignment.
-	</span><span class="kw">let </span>core_index = group_rotation_info.core_for_group(<span class="kw-2">*</span>group_index, n_cores);
+	</span><span class="kw">let </span>core_index = group_rotation_info.core_for_group(<span class="kw-2">*</span>group_index, n_cores <span class="kw">as _</span>);
 
-	<span class="kw">if </span>core_index.<span class="number">0 </span><span class="kw">as </span>usize &gt; n_cores {
+	<span class="kw">if </span>core_index.<span class="number">0 </span>&gt; n_cores {
 		<span class="macro">gum::warn!</span>(target: LOG_TARGET, <span class="question-mark">?</span>candidate_hash, <span class="question-mark">?</span>core_index, n_cores, <span class="string">"Invalid CoreIndex"</span>);
 		<span class="kw">return </span><span class="prelude-val">None
 	</span>}
 
 	<span class="kw">if let </span>StatementWithPVD::Seconded(candidate, _pvd) = statement.payload() {
 		<span class="kw">let </span>candidate_para_id = candidate.descriptor.para_id;
-		<span class="kw">let </span>assigned_para_id = <span class="kw">match </span><span class="kw-2">&amp;</span>cores[core_index.<span class="number">0 </span><span class="kw">as </span>usize] {
-			CoreState::Free =&gt; {
-				<span class="macro">gum::debug!</span>(target: LOG_TARGET, <span class="question-mark">?</span>candidate_hash, <span class="string">"Invalid CoreIndex, core is not assigned to any para_id"</span>);
-				<span class="kw">return </span><span class="prelude-val">None
-			</span>},
-			CoreState::Occupied(occupied) =&gt;
-				<span class="kw">if let </span><span class="prelude-val">Some</span>(next) = <span class="kw-2">&amp;</span>occupied.next_up_on_available {
-					next.para_id
-				} <span class="kw">else </span>{
-					<span class="kw">return </span><span class="prelude-val">None
-				</span>},
-			CoreState::Scheduled(scheduled) =&gt; scheduled.para_id,
-		};
+		<span class="kw">let </span><span class="kw-2">mut </span>assigned_paras = claim_queue.iter_claims_for_core(<span class="kw-2">&amp;</span>core_index);
 
-		<span class="kw">if </span>assigned_para_id != candidate_para_id {
+		<span class="kw">if </span>!assigned_paras.any(|id| id == <span class="kw-2">&amp;</span>candidate_para_id) {
 			<span class="macro">gum::debug!</span>(
 				target: LOG_TARGET,
 				<span class="question-mark">?</span>candidate_hash,
 				<span class="question-mark">?</span>core_index,
-				<span class="question-mark">?</span>assigned_para_id,
+				assigned_paras = <span class="question-mark">?</span>claim_queue.iter_claims_for_core(<span class="kw-2">&amp;</span>core_index).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
 				<span class="question-mark">?</span>candidate_para_id,
-				<span class="string">"Invalid CoreIndex, core is assigned to a different para_id"
+				<span class="string">"Invalid CoreIndex, core is not assigned to this para_id"
 			</span>);
 			<span class="kw">return </span><span class="prelude-val">None
 		</span>}
@@ -3495,6 +3482,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			Error::UtilError(TryFrom::try_from(e).expect(<span class="string">"the conversion is infallible; qed"</span>))
 		})<span class="question-mark">?</span>;
 
+	<span class="kw">let </span>maybe_claim_queue = <span class="macro">try_runtime_api!</span>(fetch_claim_queue(ctx.sender(), parent).<span class="kw">await</span>);
+
 	<span class="kw">let </span>signing_context = SigningContext { parent_hash: parent, session_index };
 	<span class="kw">let </span>validator = <span class="kw">match </span>Validator::construct(
 		<span class="kw-2">&amp;</span>validators,
@@ -3519,31 +3508,35 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">let </span><span class="kw-2">mut </span>groups = HashMap::&lt;CoreIndex, Vec&lt;ValidatorIndex&gt;&gt;::new();
 	<span class="kw">let </span><span class="kw-2">mut </span>assigned_core = <span class="prelude-val">None</span>;
-	<span class="kw">let </span><span class="kw-2">mut </span>assigned_para = <span class="prelude-val">None</span>;
+
+	<span class="kw">let </span>has_claim_queue = maybe_claim_queue.is_some();
+	<span class="kw">let </span><span class="kw-2">mut </span>claim_queue = maybe_claim_queue.unwrap_or_default().<span class="number">0</span>;
 
 	<span class="kw">for </span>(idx, core) <span class="kw">in </span>cores.iter().enumerate() {
-		<span class="kw">let </span>core_para_id = <span class="kw">match </span>core {
-			CoreState::Scheduled(scheduled) =&gt; scheduled.para_id,
-			CoreState::Occupied(occupied) =&gt;
-				<span class="kw">if </span>mode.is_enabled() {
+		<span class="kw">let </span>core_index = CoreIndex(idx <span class="kw">as _</span>);
+
+		<span class="kw">if </span>!has_claim_queue {
+			<span class="kw">match </span>core {
+				CoreState::Scheduled(scheduled) =&gt;
+					claim_queue.insert(core_index, [scheduled.para_id].into_iter().collect()),
+				CoreState::Occupied(occupied) <span class="kw">if </span>mode.is_enabled() =&gt; {
 					<span class="comment">// Async backing makes it legal to build on top of
 					// occupied core.
 					</span><span class="kw">if let </span><span class="prelude-val">Some</span>(next) = <span class="kw-2">&amp;</span>occupied.next_up_on_available {
-						next.para_id
+						claim_queue.insert(core_index, [next.para_id].into_iter().collect())
 					} <span class="kw">else </span>{
 						<span class="kw">continue
 					</span>}
-				} <span class="kw">else </span>{
-					<span class="kw">continue
-				</span>},
-			CoreState::Free =&gt; <span class="kw">continue</span>,
-		};
+				},
+				<span class="kw">_ </span>=&gt; <span class="kw">continue</span>,
+			};
+		} <span class="kw">else if </span>!claim_queue.contains_key(<span class="kw-2">&amp;</span>core_index) {
+			<span class="kw">continue
+		</span>}
 
-		<span class="kw">let </span>core_index = CoreIndex(idx <span class="kw">as _</span>);
 		<span class="kw">let </span>group_index = group_rotation_info.group_for_core(core_index, n_cores);
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(g) = validator_groups.get(group_index.<span class="number">0 </span><span class="kw">as </span>usize) {
 			<span class="kw">if </span>validator.as_ref().map_or(<span class="bool-val">false</span>, |v| g.contains(<span class="kw-2">&amp;</span>v.index())) {
-				assigned_para = <span class="prelude-val">Some</span>(core_para_id);
 				assigned_core = <span class="prelude-val">Some</span>(core_index);
 			}
 			groups.insert(core_index, g.clone());
@@ -3578,7 +3571,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		parent,
 		session_index,
 		assigned_core,
-		assigned_para,
 		backed: HashSet::new(),
 		table: Table::new(table_config),
 		table_context,
@@ -3587,7 +3579,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		fallbacks: HashMap::new(),
 		minimum_backing_votes,
 		inject_core_index,
-		cores,
+		n_cores: cores.len() <span class="kw">as </span>u32,
+		claim_queue: ClaimQueueSnapshot::from(claim_queue),
 		validator_to_group: validator_to_group.clone(),
 		group_rotation_info,
 	}))
@@ -4040,7 +4033,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">let </span>core = core_index_from_statement(
 		<span class="kw-2">&amp;</span>rp_state.validator_to_group,
 		<span class="kw-2">&amp;</span>rp_state.group_rotation_info,
-		<span class="kw-2">&amp;</span>rp_state.cores,
+		rp_state.n_cores,
+		<span class="kw-2">&amp;</span>rp_state.claim_queue,
 		statement,
 	)
 	.ok_or(Error::CoreIndexUnavailable)<span class="question-mark">?</span>;
@@ -4464,12 +4458,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">return </span><span class="prelude-val">Ok</span>(())
 	}
 
+	<span class="kw">let </span>assigned_paras = rp_state.assigned_core.and_then(|core| rp_state.claim_queue.<span class="number">0</span>.get(<span class="kw-2">&amp;</span>core));
+
 	<span class="comment">// Sanity check that candidate is from our assignment.
-	</span><span class="kw">if </span><span class="prelude-val">Some</span>(candidate.descriptor().para_id) != rp_state.assigned_para {
+	</span><span class="kw">if </span>!<span class="macro">matches!</span>(assigned_paras, <span class="prelude-val">Some</span>(paras) <span class="kw">if </span>paras.contains(<span class="kw-2">&amp;</span>candidate.descriptor().para_id)) {
 		<span class="macro">gum::debug!</span>(
 			target: LOG_TARGET,
 			our_assignment_core = <span class="question-mark">?</span>rp_state.assigned_core,
-			our_assignment_para = <span class="question-mark">?</span>rp_state.assigned_para,
+			our_assignment_paras = <span class="question-mark">?</span>assigned_paras,
 			collation = <span class="question-mark">?</span>candidate.descriptor().para_id,
 			<span class="string">"Subsystem asked to second for para outside of our assignment"</span>,
 		);
@@ -4479,7 +4475,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="macro">gum::debug!</span>(
 		target: LOG_TARGET,
 		our_assignment_core = <span class="question-mark">?</span>rp_state.assigned_core,
-		our_assignment_para = <span class="question-mark">?</span>rp_state.assigned_para,
+		our_assignment_paras = <span class="question-mark">?</span>assigned_paras,
 		collation = <span class="question-mark">?</span>candidate.descriptor().para_id,
 		<span class="string">"Current assignments vs collation"</span>,
 	);

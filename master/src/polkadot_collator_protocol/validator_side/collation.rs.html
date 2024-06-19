@@ -797,7 +797,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="comment">// We don't need to fetch any other collation when we already have seconded one.
 			</span>CollationStatus::Seconded =&gt; <span class="prelude-val">None</span>,
 			CollationStatus::Waiting =&gt;
-				<span class="kw">if </span>!<span class="self">self</span>.is_seconded_limit_reached(relay_parent_mode) {
+				<span class="kw">if </span><span class="self">self</span>.is_seconded_limit_reached(relay_parent_mode) {
 					<span class="prelude-val">None
 				</span>} <span class="kw">else </span>{
 					<span class="self">self</span>.waiting_queue.pop_front()
@@ -807,7 +807,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 	}
 
-	<span class="doccomment">/// Checks the limit of seconded candidates for a given para.
+	<span class="doccomment">/// Checks the limit of seconded candidates.
 	</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>is_seconded_limit_reached(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		relay_parent_mode: ProspectiveParachainsMode,
@@ -820,7 +820,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span>} <span class="kw">else </span>{
 				<span class="number">1
 			</span>};
-		<span class="self">self</span>.seconded_count &lt; seconded_limit
+		<span class="self">self</span>.seconded_count &gt;= seconded_limit
 	}
 }
 

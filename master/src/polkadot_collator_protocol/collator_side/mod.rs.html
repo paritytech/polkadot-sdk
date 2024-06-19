@@ -1753,6 +1753,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1602" id="1602">1602</a>
 <a href="#1603" id="1603">1603</a>
 <a href="#1604" id="1604">1604</a>
+<a href="#1605" id="1605">1605</a>
+<a href="#1606" id="1606">1606</a>
+<a href="#1607" id="1607">1607</a>
+<a href="#1608" id="1608">1608</a>
+<a href="#1609" id="1609">1609</a>
+<a href="#1610" id="1610">1610</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1806,6 +1812,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		get_availability_cores, get_group_rotation_info, prospective_parachains_mode,
 		ProspectiveParachainsMode, RuntimeInfo,
 	},
+	vstaging::fetch_claim_queue,
 	TimeoutExt,
 };
 <span class="kw">use </span>polkadot_primitives::{
@@ -2334,22 +2341,27 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">let </span>cores = get_availability_cores(sender, relay_parent).<span class="kw">await</span><span class="question-mark">?</span>;
 	<span class="kw">let </span>n_cores = cores.len();
 	<span class="kw">let </span><span class="kw-2">mut </span>assigned_cores = Vec::new();
+	<span class="kw">let </span>maybe_claim_queue = fetch_claim_queue(sender, relay_parent).<span class="kw">await</span><span class="question-mark">?</span>;
 
 	<span class="kw">for </span>(idx, core) <span class="kw">in </span>cores.iter().enumerate() {
-		<span class="kw">let </span>core_para_id = <span class="kw">match </span>core {
-			CoreState::Scheduled(scheduled) =&gt; <span class="prelude-val">Some</span>(scheduled.para_id),
-			CoreState::Occupied(occupied) =&gt;
-				<span class="kw">if </span>relay_parent_mode.is_enabled() {
-					<span class="comment">// With async backing we don't care about the core state,
-					// it is only needed for figuring our validators group.
-					</span><span class="prelude-val">Some</span>(occupied.candidate_descriptor.para_id)
-				} <span class="kw">else </span>{
-					<span class="prelude-val">None
-				</span>},
-			CoreState::Free =&gt; <span class="prelude-val">None</span>,
+		<span class="kw">let </span>core_is_scheduled = <span class="kw">match </span>maybe_claim_queue {
+			<span class="prelude-val">Some</span>(<span class="kw-2">ref </span>claim_queue) =&gt; {
+				<span class="comment">// Runtime supports claim queue - use it.
+				</span>claim_queue
+					.iter_claims_for_core(<span class="kw-2">&amp;</span>CoreIndex(idx <span class="kw">as </span>u32))
+					.any(|para| para == <span class="kw-2">&amp;</span>para_id)
+			},
+			<span class="prelude-val">None </span>=&gt; <span class="kw">match </span>core {
+				CoreState::Scheduled(scheduled) <span class="kw">if </span>scheduled.para_id == para_id =&gt; <span class="bool-val">true</span>,
+				CoreState::Occupied(occupied) <span class="kw">if </span>relay_parent_mode.is_enabled() =&gt;
+				<span class="comment">// With async backing we don't care about the core state,
+				// it is only needed for figuring our validators group.
+					</span>occupied.next_up_on_available.as_ref().map(|c| c.para_id) == <span class="prelude-val">Some</span>(para_id),
+				<span class="kw">_ </span>=&gt; <span class="bool-val">false</span>,
+			},
 		};
 
-		<span class="kw">if </span>core_para_id == <span class="prelude-val">Some</span>(para_id) {
+		<span class="kw">if </span>core_is_scheduled {
 			assigned_cores.push(CoreIndex::from(idx <span class="kw">as </span>u32));
 		}
 	}

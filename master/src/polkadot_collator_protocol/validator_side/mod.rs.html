@@ -2261,6 +2261,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#2110" id="2110">2110</a>
 <a href="#2111" id="2111">2111</a>
 <a href="#2112" id="2112">2112</a>
+<a href="#2113" id="2113">2113</a>
+<a href="#2114" id="2114">2114</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -2282,7 +2284,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 };
 <span class="kw">use </span>futures_timer::Delay;
 <span class="kw">use </span>std::{
-	collections::{hash_map::Entry, HashMap, HashSet},
+	collections::{hash_map::Entry, HashMap, HashSet, VecDeque},
 	future::Future,
 	time::{Duration, Instant},
 };
@@ -2314,6 +2316,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	backing_implicit_view::View <span class="kw">as </span>ImplicitView,
 	reputation::{ReputationAggregator, REPUTATION_CHANGE_INTERVAL},
 	runtime::{prospective_parachains_mode, ProspectiveParachainsMode},
+	vstaging::fetch_claim_queue,
 };
 <span class="kw">use </span>polkadot_primitives::{
 	CandidateHash, CollatorId, CoreState, Hash, HeadData, Id <span class="kw">as </span>ParaId, OccupiedCoreAssumption,
@@ -2625,8 +2628,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="attr">#[derive(Debug)]
 </span><span class="kw">struct </span>GroupAssignments {
-	<span class="doccomment">/// Current assignment.
-	</span>current: <span class="prelude-ty">Option</span>&lt;ParaId&gt;,
+	<span class="doccomment">/// Current assignments.
+	</span>current: Vec&lt;ParaId&gt;,
 }
 
 <span class="kw">struct </span>PerRelayParent {
@@ -2639,7 +2642,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">fn </span>new(mode: ProspectiveParachainsMode) -&gt; <span class="self">Self </span>{
 		<span class="self">Self </span>{
 			prospective_parachains_mode: mode,
-			assignment: GroupAssignments { current: <span class="prelude-val">None </span>},
+			assignment: GroupAssignments { current: <span class="macro">vec!</span>[] },
 			collations: Collations::default(),
 		}
 	}
@@ -2754,34 +2757,34 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span>.<span class="kw">await
 		</span>.map_err(Error::CancelledAvailabilityCores)<span class="question-mark">??</span>;
 
-	<span class="kw">let </span>para_now = <span class="kw">match </span>polkadot_node_subsystem_util::signing_key_and_index(<span class="kw-2">&amp;</span>validators, keystore)
-		.and_then(|(<span class="kw">_</span>, index)| polkadot_node_subsystem_util::find_validator_group(<span class="kw-2">&amp;</span>groups, index))
-	{
-		<span class="prelude-val">Some</span>(group) =&gt; {
-			<span class="kw">let </span>core_now = rotation_info.core_for_group(group, cores.len());
-
-			cores.get(core_now.<span class="number">0 </span><span class="kw">as </span>usize).and_then(|c| <span class="kw">match </span>c {
-				CoreState::Occupied(core) <span class="kw">if </span>relay_parent_mode.is_enabled() =&gt; <span class="prelude-val">Some</span>(core.para_id()),
-				CoreState::Scheduled(core) =&gt; <span class="prelude-val">Some</span>(core.para_id),
-				CoreState::Occupied(<span class="kw">_</span>) | CoreState::Free =&gt; <span class="prelude-val">None</span>,
-			})
-		},
-		<span class="prelude-val">None </span>=&gt; {
-			<span class="macro">gum::trace!</span>(target: LOG_TARGET, <span class="question-mark">?</span>relay_parent, <span class="string">"Not a validator"</span>);
-
-			<span class="kw">return </span><span class="prelude-val">Ok</span>(())
-		},
+	<span class="kw">let </span>core_now = <span class="kw">if let </span><span class="prelude-val">Some</span>(group) =
+		polkadot_node_subsystem_util::signing_key_and_index(<span class="kw-2">&amp;</span>validators, keystore).and_then(
+			|(<span class="kw">_</span>, index)| polkadot_node_subsystem_util::find_validator_group(<span class="kw-2">&amp;</span>groups, index),
+		) {
+		rotation_info.core_for_group(group, cores.len())
+	} <span class="kw">else </span>{
+		<span class="macro">gum::trace!</span>(target: LOG_TARGET, <span class="question-mark">?</span>relay_parent, <span class="string">"Not a validator"</span>);
+		<span class="kw">return </span><span class="prelude-val">Ok</span>(())
 	};
 
-	<span class="comment">// This code won't work well, if at all for on-demand parachains. For on-demand we'll
-	// have to be aware of which core the on-demand claim is going to be multiplexed
-	// onto. The on-demand claim will also have a known collator, and we should always
-	// allow an incoming connection from that collator. If not even connecting to them
-	// directly.
-	//
-	// However, this'll work fine for parachains, as each parachain gets a dedicated
-	// core.
-	</span><span class="kw">if let </span><span class="prelude-val">Some</span>(para_id) = para_now.as_ref() {
+	<span class="kw">let </span>paras_now = <span class="kw">match </span>fetch_claim_queue(sender, relay_parent).<span class="kw">await</span>.map_err(Error::Runtime)<span class="question-mark">? </span>{
+		<span class="comment">// Runtime supports claim queue - use it
+		//
+		// `relay_parent_mode` is not examined here because if the runtime supports claim queue
+		// then it supports async backing params too (`ASYNC_BACKING_STATE_RUNTIME_REQUIREMENT`
+		// &lt; `CLAIM_QUEUE_RUNTIME_REQUIREMENT`).
+		</span><span class="prelude-val">Some</span>(<span class="kw-2">mut </span>claim_queue) =&gt; claim_queue.<span class="number">0</span>.remove(<span class="kw-2">&amp;</span>core_now),
+		<span class="comment">// Claim queue is not supported by the runtime - use availability cores instead.
+		</span><span class="prelude-val">None </span>=&gt; cores.get(core_now.<span class="number">0 </span><span class="kw">as </span>usize).and_then(|c| <span class="kw">match </span>c {
+			CoreState::Occupied(core) <span class="kw">if </span>relay_parent_mode.is_enabled() =&gt;
+				core.next_up_on_available.as_ref().map(|c| [c.para_id].into_iter().collect()),
+			CoreState::Scheduled(core) =&gt; <span class="prelude-val">Some</span>([core.para_id].into_iter().collect()),
+			CoreState::Occupied(<span class="kw">_</span>) | CoreState::Free =&gt; <span class="prelude-val">None</span>,
+		}),
+	}
+	.unwrap_or_else(|| VecDeque::new());
+
+	<span class="kw">for </span>para_id <span class="kw">in </span>paras_now.iter() {
 		<span class="kw">let </span>entry = current_assignments.entry(<span class="kw-2">*</span>para_id).or_default();
 		<span class="kw-2">*</span>entry += <span class="number">1</span>;
 		<span class="kw">if </span><span class="kw-2">*</span>entry == <span class="number">1 </span>{
@@ -2794,7 +2797,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 	}
 
-	<span class="kw-2">*</span>group_assignment = GroupAssignments { current: para_now };
+	<span class="kw-2">*</span>group_assignment = GroupAssignments { current: paras_now.into_iter().collect() };
 
 	<span class="prelude-val">Ok</span>(())
 }
@@ -2805,7 +2808,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ) {
 	<span class="kw">let </span>GroupAssignments { current, .. } = per_relay_parent.assignment;
 
-	<span class="kw">if let </span><span class="prelude-val">Some</span>(cur) = current {
+	<span class="kw">for </span>cur <span class="kw">in </span>current {
 		<span class="kw">if let </span>Entry::Occupied(<span class="kw-2">mut </span>occupied) = current_assignments.entry(cur) {
 			<span class="kw-2">*</span>occupied.get_mut() -= <span class="number">1</span>;
 			<span class="kw">if </span><span class="kw-2">*</span>occupied.get() == <span class="number">0 </span>{
@@ -3120,7 +3123,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					peer_id = <span class="question-mark">?</span>origin,
 					<span class="question-mark">?</span>collator_id,
 					<span class="question-mark">?</span>para_id,
-					<span class="string">"Declared as collator for unneeded para"</span>,
+					<span class="string">"Declared as collator for unneeded para. Current assignments: {:?}"</span>,
+					<span class="kw-2">&amp;</span>state.current_assignments
 				);
 
 				modify_reputation(
@@ -3352,7 +3356,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		peer_data.collating_para().ok_or(AdvertisementError::UndeclaredCollator)<span class="question-mark">?</span>;
 
 	<span class="comment">// Check if this is assigned to us.
-	</span><span class="kw">if </span>assignment.current.map_or(<span class="bool-val">true</span>, |id| id != collator_para_id) {
+	</span><span class="kw">if </span>!assignment.current.contains(<span class="kw-2">&amp;</span>collator_para_id) {
 		<span class="kw">return </span><span class="prelude-val">Err</span>(AdvertisementError::InvalidAssignment)
 	}
 
@@ -3368,7 +3372,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		)
 		.map_err(AdvertisementError::Invalid)<span class="question-mark">?</span>;
 
-	<span class="kw">if </span>!per_relay_parent.collations.is_seconded_limit_reached(relay_parent_mode) {
+	<span class="kw">if </span>per_relay_parent.collations.is_seconded_limit_reached(relay_parent_mode) {
 		<span class="kw">return </span><span class="prelude-val">Err</span>(AdvertisementError::SecondedLimitReached)
 	}
 
@@ -3460,7 +3464,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		});
 
 	<span class="kw">let </span>collations = <span class="kw-2">&amp;mut </span>per_relay_parent.collations;
-	<span class="kw">if </span>!collations.is_seconded_limit_reached(relay_parent_mode) {
+	<span class="kw">if </span>collations.is_seconded_limit_reached(relay_parent_mode) {
 		<span class="macro">gum::trace!</span>(
 			target: LOG_TARGET,
 			peer_id = <span class="question-mark">?</span>peer_id,

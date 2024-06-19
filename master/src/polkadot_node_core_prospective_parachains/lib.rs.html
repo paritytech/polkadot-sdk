@@ -1149,6 +1149,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#998" id="998">998</a>
 <a href="#999" id="999">999</a>
 <a href="#1000" id="1000">1000</a>
+<a href="#1001" id="1001">1001</a>
+<a href="#1002" id="1002">1002</a>
+<a href="#1003" id="1003">1003</a>
+<a href="#1004" id="1004">1004</a>
+<a href="#1005" id="1005">1005</a>
+<a href="#1006" id="1006">1006</a>
+<a href="#1007" id="1007">1007</a>
+<a href="#1008" id="1008">1008</a>
+<a href="#1009" id="1009">1009</a>
+<a href="#1010" id="1010">1010</a>
+<a href="#1011" id="1011">1011</a>
+<a href="#1012" id="1012">1012</a>
+<a href="#1013" id="1013">1013</a>
+<a href="#1014" id="1014">1014</a>
+<a href="#1015" id="1015">1015</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1195,6 +1210,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	inclusion_emulator::{Constraints, RelayChainBlockInfo},
 	request_session_index_for_child,
 	runtime::{prospective_parachains_mode, ProspectiveParachainsMode},
+	vstaging::fetch_claim_queue,
 };
 <span class="kw">use </span>polkadot_primitives::{
 	async_backing::CandidatePendingAvailability, BlockNumber, CandidateHash,
@@ -2021,37 +2037,51 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">async fn </span>fetch_upcoming_paras&lt;Context&gt;(
 	ctx: <span class="kw-2">&amp;mut </span>Context,
 	relay_parent: Hash,
-) -&gt; JfyiErrorResult&lt;Vec&lt;ParaId&gt;&gt; {
-	<span class="kw">let </span>(tx, rx) = oneshot::channel();
+) -&gt; JfyiErrorResult&lt;HashSet&lt;ParaId&gt;&gt; {
+	<span class="prelude-val">Ok</span>(<span class="kw">match </span>fetch_claim_queue(ctx.sender(), relay_parent).<span class="kw">await</span><span class="question-mark">? </span>{
+		<span class="prelude-val">Some</span>(claim_queue) =&gt; {
+			<span class="comment">// Runtime supports claim queue - use it
+			</span>claim_queue
+				.iter_all_claims()
+				.flat_map(|(<span class="kw">_</span>, paras)| paras.into_iter())
+				.copied()
+				.collect()
+		},
+		<span class="prelude-val">None </span>=&gt; {
+			<span class="comment">// fallback to availability cores - remove this branch once claim queue is released
+			// everywhere
+			</span><span class="kw">let </span>(tx, rx) = oneshot::channel();
+			ctx.send_message(RuntimeApiMessage::Request(
+				relay_parent,
+				RuntimeApiRequest::AvailabilityCores(tx),
+			))
+			.<span class="kw">await</span>;
 
-	<span class="comment">// This'll have to get more sophisticated with parathreads,
-	// but for now we can just use the `AvailabilityCores`.
-	</span>ctx.send_message(RuntimeApiMessage::Request(
-		relay_parent,
-		RuntimeApiRequest::AvailabilityCores(tx),
-	))
-	.<span class="kw">await</span>;
+			<span class="kw">let </span>cores = rx.<span class="kw">await</span>.map_err(JfyiError::RuntimeApiRequestCanceled)<span class="question-mark">??</span>;
 
-	<span class="kw">let </span>cores = rx.<span class="kw">await</span>.map_err(JfyiError::RuntimeApiRequestCanceled)<span class="question-mark">??</span>;
-	<span class="kw">let </span><span class="kw-2">mut </span>upcoming = HashSet::new();
-	<span class="kw">for </span>core <span class="kw">in </span>cores {
-		<span class="kw">match </span>core {
-			CoreState::Occupied(occupied) =&gt; {
-				<span class="kw">if let </span><span class="prelude-val">Some</span>(next_up_on_available) = occupied.next_up_on_available {
-					upcoming.insert(next_up_on_available.para_id);
+			<span class="kw">let </span><span class="kw-2">mut </span>upcoming = HashSet::with_capacity(cores.len());
+			<span class="kw">for </span>core <span class="kw">in </span>cores {
+				<span class="kw">match </span>core {
+					CoreState::Occupied(occupied) =&gt; {
+						<span class="comment">// core sharing won't work optimally with this branch because the collations
+						// can't be prepared in advance.
+						</span><span class="kw">if let </span><span class="prelude-val">Some</span>(next_up_on_available) = occupied.next_up_on_available {
+							upcoming.insert(next_up_on_available.para_id);
+						}
+						<span class="kw">if let </span><span class="prelude-val">Some</span>(next_up_on_time_out) = occupied.next_up_on_time_out {
+							upcoming.insert(next_up_on_time_out.para_id);
+						}
+					},
+					CoreState::Scheduled(scheduled) =&gt; {
+						upcoming.insert(scheduled.para_id);
+					},
+					CoreState::Free =&gt; {},
 				}
-				<span class="kw">if let </span><span class="prelude-val">Some</span>(next_up_on_time_out) = occupied.next_up_on_time_out {
-					upcoming.insert(next_up_on_time_out.para_id);
-				}
-			},
-			CoreState::Scheduled(scheduled) =&gt; {
-				upcoming.insert(scheduled.para_id);
-			},
-			CoreState::Free =&gt; {},
-		}
-	}
+			}
 
-	<span class="prelude-val">Ok</span>(upcoming.into_iter().collect())
+			upcoming
+		},
+	})
 }
 
 <span class="comment">// Fetch ancestors in descending order, up to the amount requested.

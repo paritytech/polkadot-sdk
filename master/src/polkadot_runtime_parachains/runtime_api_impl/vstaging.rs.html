@@ -239,10 +239,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub fn </span>claim_queue&lt;T: scheduler::Config&gt;() -&gt; BTreeMap&lt;CoreIndex, VecDeque&lt;ParaId&gt;&gt; {
 	<span class="kw">let </span>now = &lt;frame_system::Pallet&lt;T&gt;&gt;::block_number() + One::one();
 
-	<span class="comment">// This explicit update is only strictly required for session boundaries:
-	//
-	// At the end of a session we clear the claim queues: Without this update call, nothing would be
-	// scheduled to the client.
+	<span class="comment">// This is needed so that the claim queue always has the right size (equal to
+	// scheduling_lookahead). Otherwise, if a candidate is backed in the same block where the
+	// previous candidate is included, the claim queue will have already pop()-ed the next item
+	// from the queue and the length would be `scheduling_lookahead - 1`.
 	</span>&lt;scheduler::Pallet&lt;T&gt;&gt;::free_cores_and_fill_claim_queue(Vec::new(), now);
 	<span class="kw">let </span>config = configuration::ActiveConfig::&lt;T&gt;::get();
 	<span class="comment">// Extra sanity, config should already never be smaller than 1:

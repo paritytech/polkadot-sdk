@@ -880,6 +880,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#729" id="729">729</a>
 <a href="#730" id="730">730</a>
 <a href="#731" id="731">731</a>
+<a href="#732" id="732">732</a>
+<a href="#733" id="733">733</a>
+<a href="#734" id="734">734</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1233,6 +1236,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="doccomment">/// Note that the given cores have become occupied. Update the claim queue accordingly.
+	/// This will not push a new entry onto the claim queue, so the length after this call will be
+	/// the expected length - 1. The claim_queue runtime API will take care of adding another entry
+	/// here, to ensure the right lookahead.
 	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>occupied(
 		now_occupied: BTreeMap&lt;CoreIndex, ParaId&gt;,
 	) -&gt; BTreeMap&lt;CoreIndex, PositionInClaimQueue&gt; {
