@@ -101,4 +101,5 @@ jobs:
             --locked \
             --release \
             --no-fail-fast \
-            --features try-runtime,experimental,riscv,ci-only-tests
+            --features try-runtime,experimental,riscv,ci-only-tests \
+            --partition count:1/3
