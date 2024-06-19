@@ -21,7 +21,7 @@ proc-macro = true
 derive-syn-parse = "0.2.0"
 Inflector = "0.11.4"
 cfg-expr = "0.15.5"
-itertools = "0.10.3"
+itertools = "0.11"
 proc-macro2 = "1.0.56"
 quote = { workspace = true }
 syn = { features = ["full", "visit-mut"], workspace = true }

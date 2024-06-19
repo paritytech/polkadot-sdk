@@ -11,7 +11,7 @@ workspace = true
 
 [dependencies]
 async-trait = "0.1.79"
-codec = { package = "parity-scale-codec", version = "3.0.0", features = ["derive"] }
+codec = { package = "parity-scale-codec", version = "3.6.12", features = ["derive"] }
 futures = "0.3.28"
 tracing = "0.1.37"
 schnellru = "0.2.1"
@@ -35,7 +35,7 @@ sp-keystore = { path = "../../../../substrate/primitives/keystore" }
 sp-runtime = { path = "../../../../substrate/primitives/runtime" }
 sp-timestamp = { path = "../../../../substrate/primitives/timestamp" }
 sp-state-machine = { path = "../../../../substrate/primitives/state-machine" }
-substrate-prometheus-endpoint = { path = "../../../../substrate/utils/prometheus" }
+prometheus-endpoint = { package = "substrate-prometheus-endpoint", path = "../../../../substrate/utils/prometheus" }
 
 # Cumulus
 cumulus-client-consensus-common = { path = "../common" }
