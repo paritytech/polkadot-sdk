@@ -908,16 +908,34 @@ impl<Config: config::Config> XcmExecutor<Config> {
 			InitiateReserveWithdraw { assets, reserve, xcm } => {
 				let old_holding = self.holding.clone();
 				let result = Config::TransactionalProcessor::process(|| {
+					let remote_xcm = |assets: AssetsInHolding,
+					                  mut xcm: Xcm<()>,
+					                  maybe_failed_bin: Option<&mut AssetsInHolding>|
+					 -> Xcm<()> {
+						// reanchor assets in context of `reserve`
+						let reanchored = Self::reanchored(assets, &reserve, maybe_failed_bin);
+						// build the remote XCM for withdrawing reserve assets
+						let mut message = vec![WithdrawAsset(reanchored), ClearOrigin];
+						message.append(&mut xcm.0);
+						Xcm(message)
+					};
+
+					// take assets to transfer from Holding
+					let mut to_transfer = self.holding.saturating_take(assets);
+
+					// if not using JIT withdraw, transport fee will be charged from Holding
+					if !self.fees_mode.jit_withdraw {
+						// get the remote XCM for weighing
+						let to_weigh = remote_xcm(to_transfer.clone(), xcm.clone(), None);
+						// calculate transport fee and move it from `to_transfer` back to Holding,
+						// to be later charged by XcmSender
+						self.hold_transport_fee(&mut to_transfer, reserve.clone(), to_weigh)?;
+					}
+
 					// Note that here we are able to place any assets which could not be reanchored
 					// back into Holding.
-					let assets = Self::reanchored(
-						self.holding.saturating_take(assets),
-						&reserve,
-						Some(&mut self.holding),
-					);
-					let mut message = vec![WithdrawAsset(assets), ClearOrigin];
-					message.extend(xcm.0.into_iter());
-					self.send(reserve, Xcm(message), FeeReason::InitiateReserveWithdraw)?;
+					let message = remote_xcm(to_transfer, xcm, Some(&mut self.holding));
+					self.send(reserve, message, FeeReason::InitiateReserveWithdraw)?;
 					Ok(())
 				});
 				if Config::TransactionalProcessor::IS_TRANSACTIONAL && result.is_err() {
@@ -944,8 +962,8 @@ impl<Config: config::Config> XcmExecutor<Config> {
 					if !self.fees_mode.jit_withdraw {
 						// get the remote XCM for weighing
 						let to_weigh = remote_xcm(to_teleport.clone(), xcm.clone());
-						// calculate transport fee and move it from `to_deposit` back to Holding, to
-						// be later charged by XcmSender
+						// calculate transport fee and move it from `to_teleport` back to Holding,
+						// to be later charged by XcmSender
 						self.hold_transport_fee(&mut to_teleport, dest.clone(), to_weigh)?;
 					}
 
