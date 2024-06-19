@@ -119,6 +119,7 @@ pub mod pallet {
 
 	use crate::configuration;
 	use sp_runtime::traits::TryConvert;
+	use xcm::v4::InteriorLocation;
 	use xcm_executor::traits::TransactAsset;
 
 	use super::*;
@@ -139,10 +140,16 @@ pub mod pallet {
 		/// The ParaId of the coretime chain.
 		#[pallet::constant]
 		type BrokerId: Get<u32>;
+		/// The coretime chain pot location.
+		#[pallet::constant]
+		type BrokerPotLocation: Get<InteriorLocation>;
 		/// Something that provides the weight of this pallet.
 		type WeightInfo: WeightInfo;
+		/// The XCM sender.
 		type SendXcm: SendXcm;
+		/// The asstet transactor.
 		type AssetTransactor: TransactAsset;
+		/// AccountId to Location converter
 		type AccountToLocation: for<'a> TryConvert<&'a Self::AccountId, Location>;
 
 		/// Maximum weight for any XCM transact call that should be executed on the coretime chain.
@@ -310,22 +317,6 @@ impl<T: Config> Pallet<T> {
 			Error::<T>::AssetTransferFailed
 		})?;
 
-		if raw_revenue == 0 {
-			send_xcm::<T::SendXcm>(
-				Junction::Parachain(T::BrokerId::get()).into_location(),
-				Xcm(vec![
-					Instruction::UnpaidExecution {
-						weight_limit: WeightLimit::Unlimited,
-						check_origin: None,
-					},
-					mk_coretime_call::<T>(CoretimeCalls::NotifyRevenue((when, raw_revenue))),
-				]),
-			)
-			.defensive_ok();
-
-			return Ok(());
-		}
-
 		with_transaction(|| -> TransactionOutcome<Result<_, DispatchError>> {
 			match do_notify_revenue::<T>(when, raw_revenue) {
 				Ok(()) => TransactionOutcome::Commit(Ok(())),
@@ -375,41 +366,53 @@ fn mk_coretime_call<T: Config>(call: crate::coretime::CoretimeCalls) -> Instruct
 }
 
 fn do_notify_revenue<T: Config>(when: BlockNumber, raw_revenue: Balance) -> Result<(), XcmError> {
-	let dest = Location::new(0, [Junction::Parachain(T::BrokerId::get())]);
-	let dummy_xcm_context = XcmContext { origin: None, message_id: [0; 32], topic: None };
-	let on_demand_pot = T::AccountToLocation::try_convert(
-		&<assigner_on_demand::Pallet<T>>::account_id(),
-	)
-	.map_err(|err| {
-		log::error!(
-			target: LOG_TARGET,
-			"Failed to convert on-demand pot account to XCM location: {err:?}",
-		);
-		XcmError::InvalidLocation
-	})?;
-
+	let dest = Junction::Parachain(T::BrokerId::get()).into_location();
+	let mut message = Vec::new();
 	let asset = Asset { id: AssetId(Location::here()), fun: Fungible(raw_revenue) };
-	let withdrawn = T::AssetTransactor::withdraw_asset(&asset, &on_demand_pot, None)?;
+	let dummy_xcm_context = XcmContext { origin: None, message_id: [0; 32], topic: None };
 
-	T::AssetTransactor::can_check_out(&dest, &asset, &dummy_xcm_context)?;
+	if raw_revenue > 0 {
+		let on_demand_pot =
+			T::AccountToLocation::try_convert(&<assigner_on_demand::Pallet<T>>::account_id())
+				.map_err(|err| {
+					log::error!(
+						target: LOG_TARGET,
+						"Failed to convert on-demand pot account to XCM location: {err:?}",
+					);
+					XcmError::InvalidLocation
+				})?;
 
-	let assets_reanchored = Into::<Assets>::into(withdrawn)
-		.reanchored(&dest, &Here.into())
-		.defensive_map_err(|_| XcmError::ReanchorFailed)?;
+		let withdrawn = T::AssetTransactor::withdraw_asset(&asset, &on_demand_pot, None)?;
 
-	let message = Xcm(vec![
-		Instruction::UnpaidExecution { weight_limit: WeightLimit::Unlimited, check_origin: None },
-		ReceiveTeleportedAsset(assets_reanchored),
-		DepositAsset {
-			assets: Wild(AllCounted(1)),
-			beneficiary: Junction::Parachain(T::BrokerId::get()).into_exterior(1),
-		},
-		mk_coretime_call::<T>(CoretimeCalls::NotifyRevenue((when, raw_revenue))),
-	]);
+		T::AssetTransactor::can_check_out(&dest, &asset, &dummy_xcm_context)?;
 
-	send_xcm::<T::SendXcm>(dest.clone(), message)?;
+		let assets_reanchored = Into::<Assets>::into(withdrawn)
+			.reanchored(&dest, &Here.into())
+			.defensive_map_err(|_| XcmError::ReanchorFailed)?;
 
-	T::AssetTransactor::check_out(&dest, &asset, &dummy_xcm_context);
+		message.extend(
+			[
+				Instruction::UnpaidExecution {
+					weight_limit: WeightLimit::Unlimited,
+					check_origin: None,
+				},
+				ReceiveTeleportedAsset(assets_reanchored),
+				DepositAsset {
+					assets: Wild(AllCounted(1)),
+					beneficiary: T::BrokerPotLocation::get().into_location(),
+				},
+			]
+			.into_iter(),
+		);
+	}
+
+	message.push(mk_coretime_call::<T>(CoretimeCalls::NotifyRevenue((when, raw_revenue))));
+
+	send_xcm::<T::SendXcm>(dest.clone(), Xcm(message))?;
+
+	if raw_revenue > 0 {
+		T::AssetTransactor::check_out(&dest, &asset, &dummy_xcm_context);
+	}
 
 	Ok(())
 }

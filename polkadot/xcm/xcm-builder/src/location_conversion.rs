@@ -305,12 +305,16 @@ impl<ParaId: From<u32> + Into<u32> + AccountIdConversion<AccountId>, AccountId: 
 }
 
 pub struct SiblingParachainConvertsVia<ParaId, AccountId>(PhantomData<(ParaId, AccountId)>);
-impl<ParaId: From<u32> + Into<u32> + AccountIdConversion<AccountId>, AccountId: Clone>
+impl<ParaId: From<u32> + Into<u32> + AccountIdConversion<AccountId>, AccountId: Clone + Encode>
 	ConvertLocation<AccountId> for SiblingParachainConvertsVia<ParaId, AccountId>
 {
 	fn convert_location(location: &Location) -> Option<AccountId> {
 		match location.unpack() {
-			(1, [Parachain(id)]) => Some(ParaId::from(*id).into_account_truncating()),
+			(1, [Parachain(id)]) => {
+				let a = ParaId::from(*id).into_account_truncating();
+				log::error!("LOCATION CONVERTED TO {:?}", a.encode());
+				Some(a)
+			},
 			_ => None,
 		}
 	}
