@@ -1,4 +1,4 @@
-title: CheckWeight - account for extrinsic len as proof size
+title: "treasury pallet: - remove unused config parameters"
 
 doc:
   - audience: Runtime Dev
