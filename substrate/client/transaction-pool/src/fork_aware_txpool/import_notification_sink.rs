@@ -104,7 +104,7 @@ pub struct MultiViewImportNotificationSink<K, I: Send + Sync> {
 	filter: Arc<RwLock<HashSet<I>>>,
 }
 
-///todo: doc
+/// A txpool task driving import notifications.
 pub type ImportNotificationTask = Pin<Box<dyn Future<Output = ()> + Send>>;
 
 impl<K, I> MultiViewImportNotificationSink<K, I>

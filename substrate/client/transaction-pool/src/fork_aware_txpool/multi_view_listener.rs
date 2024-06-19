@@ -119,9 +119,6 @@ where
 		status: &TransactionStatus<TxHash<ChainApi>, BlockHash<ChainApi>>,
 		hash: BlockHash<ChainApi>,
 	) -> bool {
-		// todo: full termination logic: count invalid status events
-		// self.terminate = matches!(status,TransactionStatus::Finalized(_));
-
 		trace!(
 			target: LOG_TARGET, "[{:?}] handle event from {hash:?}: {status:?} views:{:#?}", self.tx_hash,
 			self.fused.get_ref().keys().collect::<Vec<_>>()

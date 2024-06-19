@@ -453,7 +453,9 @@ impl<B: ChainApi> Pool<B> {
 }
 
 impl<B: ChainApi> Pool<B> {
-	///todo: doc
+	/// Deep clones the pool.
+	///
+	/// Must be called on purpose: it duplicates all the internal structures.
 	pub fn deep_clone(&self) -> Self {
 		let other: ValidatedPool<B> = (*self.validated_pool).clone();
 		Self { validated_pool: Arc::from(other) }

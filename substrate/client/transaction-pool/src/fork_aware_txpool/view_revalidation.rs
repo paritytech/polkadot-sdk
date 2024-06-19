@@ -50,9 +50,6 @@ struct RevalidationWorker<Block: BlockT> {
 	_phantom: PhantomData<Block>,
 }
 
-// todo: ??? (remove?)
-// impl<Block: BlockT> Unpin for RevalidationWorker<Block> {}
-
 impl<Block> RevalidationWorker<Block>
 where
 	Block: BlockT,

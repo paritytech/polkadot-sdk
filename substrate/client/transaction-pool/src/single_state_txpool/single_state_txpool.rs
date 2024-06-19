@@ -66,11 +66,6 @@ pub(crate) const LOG_TARGET: &str = "txpool";
 use crate::{PolledIterator, ReadyIteratorFor};
 
 /// A transaction pool for a full node.
-//todo: clean up:
-// - feature maybe
-// - or command line
-// - or just get rid of old txpool?
-// pub type FullPool<Block, Client> = BasicPool<FullChainApi<Client, Block>, Block>;
 pub type FullPool<Block, Client> = BasicPool<FullChainApi<Client, Block>, Block>;
 
 /// Basic implementation of transaction pool that can be customized by providing PoolApi.
