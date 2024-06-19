@@ -42,6 +42,12 @@ pub mod basic;
 pub mod lookahead;
 pub mod slot_based;
 
+// This is an arbitrary value which is likely guaranteed to exceed any reasonable
+// limit, as it would correspond to 10 non-included blocks.
+//
+// Since we only search for parent blocks which have already been imported,
+// we can guarantee that all imported blocks respect the unincluded segment
+// rules specified by the parachain's runtime and thus will never be too deep.
 const PARENT_SEARCH_DEPTH: usize = 10;
 
 /// Check the `local_validation_code_hash` against the validation code hash in the relay chain

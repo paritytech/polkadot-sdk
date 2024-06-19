@@ -854,7 +854,7 @@ where
 						slot_drift: Duration::from_secs(1),
 					};
 
-					let (collation_future, block_builer_future) = slot_based::run::<
+					let (collation_future, block_builder_future) = slot_based::run::<
 						Block,
 						<AuraId as AppCrypto>::Pair,
 						_,
@@ -871,7 +871,7 @@ where
 						Some("parachain-block-authoring"),
 						Box::pin(collation_future),
 					);
-					block_builer_future.await;
+					block_builder_future.await;
 				} else {
 					let params = AuraParams {
 						create_inherent_data_providers: move |_, ()| async move { Ok(()) },
@@ -1095,14 +1095,20 @@ fn start_slot_based_aura_consensus(
 		reinitialize: false,
 		slot_drift: Duration::from_secs(1),
 	};
-	let (collation_future, block_builer_future) =
+
+	let (collation_future, block_builder_future) =
 		slot_based::run::<Block, <AuraId as AppCrypto>::Pair, _, _, _, _, _, _, _, _>(params);
-	task_manager
-		.spawn_essential_handle()
-		.spawn("collation-task", None, collation_future);
-	task_manager
-		.spawn_essential_handle()
-		.spawn("block-builder-task", None, block_builer_future);
+
+	task_manager.spawn_essential_handle().spawn(
+		"collation-task",
+		Some("parachain-block-authoring"),
+		collation_future,
+	);
+	task_manager.spawn_essential_handle().spawn(
+		"block-builder-task",
+		Some("parachain-block-authoring"),
+		block_builder_future,
+	);
 	Ok(())
 }
 
