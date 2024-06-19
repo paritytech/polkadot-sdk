@@ -30,7 +30,7 @@ pub struct PruningParams {
 	/// This setting can only be set on the first creation of the database. Every subsequent run
 	/// will load the pruning mode from the database and will error if the stored mode doesn't
 	/// match this CLI value. It is fine to drop this CLI flag for subsequent runs. The only
-	/// exception is that `<NUMBER>` can change between subsequent runs (increasing it will not
+	/// exception is that `NUMBER` can change between subsequent runs (increasing it will not
 	/// lead to restoring pruned state).
 	///
 	/// Possible values:
@@ -39,7 +39,7 @@ pub struct PruningParams {
 	///
 	/// - archive-canonical: Keep only the data of finalized blocks.
 	///
-	/// - <NUMBER>: Keep the data of the last <NUMBER> of finalized blocks.
+	/// - NUMBER: Keep the data of the last NUMBER of finalized blocks.
 	///
 	/// [default: 256]
 	#[arg(alias = "pruning", long, value_name = "PRUNING_MODE")]
@@ -56,7 +56,7 @@ pub struct PruningParams {
 	///
 	/// - archive-canonical: Keep only the data of finalized blocks.
 	///
-	/// - <NUMBER>: Keep the data of the last <NUMBER> of finalized blocks.
+	/// - NUMBER: Keep the data of the last NUMBER of finalized blocks.
 	#[arg(
 		alias = "keep-blocks",
 		long,
