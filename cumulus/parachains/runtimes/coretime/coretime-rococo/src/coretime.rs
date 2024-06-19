@@ -23,7 +23,8 @@ use cumulus_primitives_core::relay_chain;
 use frame_support::{
 	parameter_types,
 	traits::{
-		fungible::{Balanced, Credit}, Imbalance, OnUnbalanced, TryDrop,
+		fungible::{Balanced, Credit},
+		Imbalance, OnUnbalanced, TryDrop,
 	},
 };
 use pallet_broker::{
@@ -38,39 +39,44 @@ use xcm::latest::prelude::*;
 
 pub struct BurnAtRelay;
 impl OnUnbalanced<Credit<AccountId, Balances>> for BurnAtRelay {
-    fn on_nonzero_unbalanced(amount: Credit<AccountId, Balances>) {
-    	let value = amount.peek();
+	fn on_nonzero_unbalanced(amount: Credit<AccountId, Balances>) {
+		let value = amount.peek();
 
-    	// The assets being burnt, from the relay chain perspective
-    	let parent_assets: Assets = vec![Asset { id: AssetId(Location::here()), fun: Fungible(value) }].into();
+		// The assets being burnt, from the relay chain perspective
+		let parent_assets: Assets =
+			vec![Asset { id: AssetId(Location::here()), fun: Fungible(value) }].into();
 
-    	let send_res = PolkadotXcm::send_xcm(Here, Location::parent(), Xcm(vec![
-			Instruction::UnpaidExecution {
-				weight_limit: WeightLimit::Unlimited,
-				check_origin: None,
+		let send_res = PolkadotXcm::send_xcm(
+			Here,
+			Location::parent(),
+			Xcm(vec![
+				Instruction::UnpaidExecution {
+					weight_limit: WeightLimit::Unlimited,
+					check_origin: None,
+				},
+				ReceiveTeleportedAsset(parent_assets.clone()),
+				BurnAsset(parent_assets),
+			]),
+		);
+
+		match send_res {
+			Ok(_) => {
+				log::debug!(
+					target: "runtime::coretime",
+					"{value} tokens teleported to the RC for burning",
+				);
+
+				// Burn the asset on the parachain. It's on the best effort basis
+				let debt = <Balances as Balanced<_>>::rescind(value);
+				let _ = amount.offset(debt).try_drop().map_err(|rest| drop(rest));
 			},
-			ReceiveTeleportedAsset(parent_assets.clone()),
-			BurnAsset(parent_assets),
-   		]));
-
-   		match send_res {
-	        Ok(_) => {
-	        	log::debug!(
-	        		target: "runtime::coretime",
-	        		"{value} tokens teleported to the RC for burning",
-	        	);
-
-	        	// Burn the asset on the parachain. It's on the best effort basis
-		    	let debt = <Balances as Balanced<_>>::rescind(value);
-		    	let _ = amount.offset(debt).try_drop().map_err(|rest| drop(rest));
-	        },
-	        Err(_) => {
-	        	log::error!(
-	        		target: "runtime::coretime",
-	        		"Failed to transfer {value} tokens to the relay chain for burning",
-	        	);
-	        },
-	    }
+			Err(_) => {
+				log::error!(
+					target: "runtime::coretime",
+					"Failed to transfer {value} tokens to the relay chain for burning",
+				);
+			},
+		}
 	}
 }
 
@@ -250,16 +256,6 @@ impl CoretimeInterface for CoretimeAllocator {
 	}
 }
 
-pub struct PotAccount<T>(PhantomData<T>);
-impl<T> Get<T::AccountId> for PotAccount<T>
-where
-	T: frame_system::Config + cumulus_pallet_parachain_system::Config,
-{
-	fn get() -> T::AccountId {
-		T::SelfParaId::get().into_account_truncating()
-	}
-}
-
 impl pallet_broker::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Currency = Balances;
@@ -270,7 +266,7 @@ impl pallet_broker::Config for Runtime {
 	type Coretime = CoretimeAllocator;
 	type ConvertBalance = sp_runtime::traits::Identity;
 	type WeightInfo = weights::pallet_broker::WeightInfo<Runtime>;
-	type PotAccountId = PotAccount<Runtime>;
+	type PalletId = BrokerPalletId;
 	type AdminOrigin = EnsureRoot<AccountId>;
 	type PriceAdapter = pallet_broker::CenterTargetPrice<Balance>;
 }

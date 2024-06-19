@@ -59,6 +59,7 @@ pub mod pallet {
 			fungible::{Balanced, Credit, Mutate},
 			EnsureOrigin, OnUnbalanced,
 		},
+		PalletId,
 	};
 	use frame_system::pallet_prelude::*;
 	use sp_runtime::traits::{Convert, ConvertBack};
@@ -98,9 +99,9 @@ pub mod pallet {
 		type ConvertBalance: Convert<BalanceOf<Self>, RelayBalanceOf<Self>>
 			+ ConvertBack<BalanceOf<Self>, RelayBalanceOf<Self>>;
 
-		/// Identifier of the internal Pot account.
+		/// Identifier from which the internal Pot is generated.
 		#[pallet::constant]
-		type PotAccountId: Get<Self::AccountId>;
+		type PalletId: Get<PalletId>;
 
 		/// Number of Relay-chain blocks per timeslice.
 		#[pallet::constant]
