@@ -60,8 +60,9 @@ impl PeopleRuntimeType {
 
 	pub fn load_config(&self) -> Result<Box<dyn ChainSpec>, String> {
 		match self {
-			PeopleRuntimeType::Kusama =>
-				todo!("Update chain-spec: ../../chain-specs/people-kusama.json - https://github.com/paritytech/polkadot-sdk/pull/3961#issuecomment-2037438431"),
+			PeopleRuntimeType::Kusama => Ok(Box::new(GenericChainSpec::from_json_bytes(
+				&include_bytes!("../../chain-specs/people-kusama.json")[..],
+			)?)),
 			PeopleRuntimeType::Polkadot =>
 				todo!("Generate chain-spec: ../../chain-specs/people-polkadot.json"),
 			PeopleRuntimeType::Rococo => Ok(Box::new(GenericChainSpec::from_json_bytes(

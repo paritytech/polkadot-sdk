@@ -854,7 +854,7 @@ pub fn expand_storages(def: &mut Def) -> proc_macro2::TokenStream {
 			for #pallet_ident<#type_use_gen> #completed_where_clause
 			{
 				fn try_decode_entire_state() -> Result<usize, #frame_support::__private::sp_std::vec::Vec<#frame_support::traits::TryDecodeEntireStorageError>> {
-					let pallet_name = <<T as #frame_system::Config>::PalletInfo	as frame_support::traits::PalletInfo>
+					let pallet_name = <<T as #frame_system::Config>::PalletInfo	as #frame_support::traits::PalletInfo>
 						::name::<#pallet_ident<#type_use_gen>>()
 						.expect("Every active pallet has a name in the runtime; qed");
 

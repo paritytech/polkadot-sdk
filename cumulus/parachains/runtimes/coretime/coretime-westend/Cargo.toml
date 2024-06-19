@@ -13,7 +13,7 @@ workspace = true
 substrate-wasm-builder = { path = "../../../../../substrate/utils/wasm-builder", optional = true }
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
+codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false, features = ["derive"] }
 hex-literal = "0.4.1"
 log = { workspace = true }
 scale-info = { version = "2.9.0", default-features = false, features = ["derive"] }
@@ -61,10 +61,11 @@ westend-runtime-constants = { path = "../../../../../polkadot/runtime/westend/co
 xcm = { package = "staging-xcm", path = "../../../../../polkadot/xcm", default-features = false }
 xcm-builder = { package = "staging-xcm-builder", path = "../../../../../polkadot/xcm/xcm-builder", default-features = false }
 xcm-executor = { package = "staging-xcm-executor", path = "../../../../../polkadot/xcm/xcm-executor", default-features = false }
+xcm-fee-payment-runtime-api = { path = "../../../../../polkadot/xcm/xcm-fee-payment-runtime-api", default-features = false }
 
 # Cumulus
 cumulus-pallet-aura-ext = { path = "../../../../pallets/aura-ext", default-features = false }
-cumulus-pallet-parachain-system = { path = "../../../../pallets/parachain-system", default-features = false, features = ["parameterized-consensus-hook"] }
+cumulus-pallet-parachain-system = { path = "../../../../pallets/parachain-system", default-features = false }
 cumulus-pallet-session-benchmarking = { path = "../../../../pallets/session-benchmarking", default-features = false }
 cumulus-pallet-xcm = { path = "../../../../pallets/xcm", default-features = false }
 cumulus-pallet-xcmp-queue = { path = "../../../../pallets/xcmp-queue", default-features = false }
@@ -137,6 +138,7 @@ std = [
 	"westend-runtime-constants/std",
 	"xcm-builder/std",
 	"xcm-executor/std",
+	"xcm-fee-payment-runtime-api/std",
 	"xcm/std",
 ]
 
@@ -165,6 +167,7 @@ runtime-benchmarks = [
 	"sp-runtime/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",
+	"xcm-fee-payment-runtime-api/runtime-benchmarks",
 ]
 
 try-runtime = [
