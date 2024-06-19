@@ -42,7 +42,6 @@ pub use traits::RecordXcm;
 mod assets;
 pub use assets::AssetsInHolding;
 mod config;
-use crate::assets::TakeError;
 pub use config::Config;
 
 /// A struct to specify how fees are being paid.
@@ -549,7 +548,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 				self.holding.subsume_assets(transport_fee);
 				Ok(())
 			})
-			.map_err(|_: TakeError| XcmError::FeesNotMet)
+			.map_err(|_: crate::assets::TakeError| XcmError::FeesNotMet)
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
