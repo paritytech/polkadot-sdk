@@ -126,7 +126,7 @@ pub mod pallet {
 			let mut members = self.members.clone();
 			members.sort();
 			T::MembershipInitialized::initialize_members(&members);
-			<Members<T, I>>::put(members);
+			Members::<T, I>::put(members);
 		}
 	}
 
@@ -171,14 +171,14 @@ pub mod pallet {
 			T::AddOrigin::ensure_origin(origin)?;
 			let who = T::Lookup::lookup(who)?;
 
-			let mut members = <Members<T, I>>::get();
+			let mut members = Members::<T, I>::get();
 			let init_length = members.len();
 			let location = members.binary_search(&who).err().ok_or(Error::<T, I>::AlreadyMember)?;
 			members
 				.try_insert(location, who.clone())
 				.map_err(|_| Error::<T, I>::TooManyMembers)?;
 
-			<Members<T, I>>::put(&members);
+			Members::<T, I>::put(&members);
 
 			T::MembershipChanged::change_members_sorted(&[who], &[], &members[..]);
 
@@ -199,12 +199,12 @@ pub mod pallet {
 			T::RemoveOrigin::ensure_origin(origin)?;
 			let who = T::Lookup::lookup(who)?;
 
-			let mut members = <Members<T, I>>::get();
+			let mut members = Members::<T, I>::get();
 			let init_length = members.len();
 			let location = members.binary_search(&who).ok().ok_or(Error::<T, I>::NotMember)?;
 			members.remove(location);
 
-			<Members<T, I>>::put(&members);
+			Members::<T, I>::put(&members);
 
 			T::MembershipChanged::change_members_sorted(&[], &[who], &members[..]);
 			Self::rejig_prime(&members);
@@ -233,13 +233,13 @@ pub mod pallet {
 				return Ok(().into());
 			}
 
-			let mut members = <Members<T, I>>::get();
+			let mut members = Members::<T, I>::get();
 			let location = members.binary_search(&remove).ok().ok_or(Error::<T, I>::NotMember)?;
 			let _ = members.binary_search(&add).err().ok_or(Error::<T, I>::AlreadyMember)?;
 			members[location] = add.clone();
 			members.sort();
 
-			<Members<T, I>>::put(&members);
+			Members::<T, I>::put(&members);
 
 			T::MembershipChanged::change_members_sorted(&[add], &[remove], &members[..]);
 			Self::rejig_prime(&members);
@@ -260,7 +260,7 @@ pub mod pallet {
 			let mut members: BoundedVec<T::AccountId, T::MaxMembers> =
 				BoundedVec::try_from(members).map_err(|_| Error::<T, I>::TooManyMembers)?;
 			members.sort();
-			<Members<T, I>>::mutate(|m| {
+			Members::<T, I>::mutate(|m| {
 				T::MembershipChanged::set_members_sorted(&members[..], m);
 				Self::rejig_prime(&members);
 				*m = members;
@@ -288,14 +288,14 @@ pub mod pallet {
 				return Ok(().into());
 			}
 
-			let mut members = <Members<T, I>>::get();
+			let mut members = Members::<T, I>::get();
 			let members_length = members.len() as u32;
 			let location = members.binary_search(&remove).ok().ok_or(Error::<T, I>::NotMember)?;
 			let _ = members.binary_search(&new).err().ok_or(Error::<T, I>::AlreadyMember)?;
 			members[location] = new.clone();
 			members.sort();
 
-			<Members<T, I>>::put(&members);
+			Members::<T, I>::put(&members);
 
 			T::MembershipChanged::change_members_sorted(
 				&[new.clone()],
@@ -398,12 +398,12 @@ mod benchmark {
 		let prime_origin = T::PrimeOrigin::try_successful_origin()
 			.expect("PrimeOrigin has no successful origin required for the benchmark");
 
-		assert_ok!(<Membership<T, I>>::reset_members(reset_origin, members.clone()));
+		assert_ok!(Membership::<T, I>::reset_members(reset_origin, members.clone()));
 		if let Some(prime) = prime.map(|i| members[i].clone()) {
 			let prime_lookup = T::Lookup::unlookup(prime);
-			assert_ok!(<Membership<T, I>>::set_prime(prime_origin, prime_lookup));
+			assert_ok!(Membership::<T, I>::set_prime(prime_origin, prime_lookup));
 		} else {
-			assert_ok!(<Membership<T, I>>::clear_prime(prime_origin));
+			assert_ok!(Membership::<T, I>::clear_prime(prime_origin));
 		}
 	}
 
@@ -416,12 +416,12 @@ mod benchmark {
 			let new_member = account::<T::AccountId>("add", m, SEED);
 			let new_member_lookup = T::Lookup::unlookup(new_member.clone());
 		}: {
-			assert_ok!(<Membership<T, I>>::add_member(
+			assert_ok!(Membership::<T, I>::add_member(
 				T::AddOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?,
 				new_member_lookup,
 			));
 		} verify {
-			assert!(<Members<T, I>>::get().contains(&new_member));
+			assert!(Members::<T, I>::get().contains(&new_member));
 			#[cfg(test)] crate::tests::clean();
 		}
 
@@ -436,14 +436,14 @@ mod benchmark {
 			let to_remove = members.first().cloned().unwrap();
 			let to_remove_lookup = T::Lookup::unlookup(to_remove.clone());
 		}: {
-			assert_ok!(<Membership<T, I>>::remove_member(
+			assert_ok!(Membership::<T, I>::remove_member(
 				T::RemoveOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?,
 				to_remove_lookup,
 			));
 		} verify {
-			assert!(!<Members<T, I>>::get().contains(&to_remove));
+			assert!(!Members::<T, I>::get().contains(&to_remove));
 			// prime is rejigged
-			assert!(<Prime<T, I>>::get().is_some() && T::MembershipChanged::get_prime().is_some());
+			assert!(Prime::<T, I>::get().is_some() && T::MembershipChanged::get_prime().is_some());
 			#[cfg(test)] crate::tests::clean();
 		}
 
@@ -458,16 +458,16 @@ mod benchmark {
 			let remove = members.first().cloned().unwrap();
 			let remove_lookup = T::Lookup::unlookup(remove.clone());
 		}: {
-			assert_ok!(<Membership<T, I>>::swap_member(
+			assert_ok!(Membership::<T, I>::swap_member(
 				T::SwapOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?,
 				remove_lookup,
 				add_lookup,
 			));
 		} verify {
-			assert!(!<Members<T, I>>::get().contains(&remove));
-			assert!(<Members<T, I>>::get().contains(&add));
+			assert!(!Members::<T, I>::get().contains(&remove));
+			assert!(Members::<T, I>::get().contains(&add));
 			// prime is rejigged
-			assert!(<Prime<T, I>>::get().is_some() && T::MembershipChanged::get_prime().is_some());
+			assert!(Prime::<T, I>::get().is_some() && T::MembershipChanged::get_prime().is_some());
 			#[cfg(test)] crate::tests::clean();
 		}
 
@@ -479,15 +479,15 @@ mod benchmark {
 			set_members::<T, I>(members.clone(), Some(members.len() - 1));
 			let mut new_members = (m..2*m).map(|i| account("member", i, SEED)).collect::<Vec<T::AccountId>>();
 		}: {
-			assert_ok!(<Membership<T, I>>::reset_members(
+			assert_ok!(Membership::<T, I>::reset_members(
 				T::ResetOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?,
 				new_members.clone(),
 			));
 		} verify {
 			new_members.sort();
-			assert_eq!(<Members<T, I>>::get(), new_members);
+			assert_eq!(Members::<T, I>::get(), new_members);
 			// prime is rejigged
-			assert!(<Prime<T, I>>::get().is_some() && T::MembershipChanged::get_prime().is_some());
+			assert!(Prime::<T, I>::get().is_some() && T::MembershipChanged::get_prime().is_some());
 			#[cfg(test)] crate::tests::clean();
 		}
 
@@ -503,12 +503,12 @@ mod benchmark {
 			let add_lookup = T::Lookup::unlookup(add.clone());
 			whitelist!(prime);
 		}: {
-			assert_ok!(<Membership<T, I>>::change_key(RawOrigin::Signed(prime.clone()).into(), add_lookup));
+			assert_ok!(Membership::<T, I>::change_key(RawOrigin::Signed(prime.clone()).into(), add_lookup));
 		} verify {
-			assert!(!<Members<T, I>>::get().contains(&prime));
-			assert!(<Members<T, I>>::get().contains(&add));
+			assert!(!Members::<T, I>::get().contains(&prime));
+			assert!(Members::<T, I>::get().contains(&add));
 			// prime is rejigged
-			assert_eq!(<Prime<T, I>>::get().unwrap(), add);
+			assert_eq!(Prime::<T, I>::get().unwrap(), add);
 			#[cfg(test)] crate::tests::clean();
 		}
 
@@ -519,12 +519,12 @@ mod benchmark {
 			let prime_lookup = T::Lookup::unlookup(prime.clone());
 			set_members::<T, I>(members, None);
 		}: {
-			assert_ok!(<Membership<T, I>>::set_prime(
+			assert_ok!(Membership::<T, I>::set_prime(
 				T::PrimeOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?,
 				prime_lookup,
 			));
 		} verify {
-			assert!(<Prime<T, I>>::get().is_some());
+			assert!(Prime::<T, I>::get().is_some());
 			assert!(<T::MembershipChanged>::get_prime().is_some());
 			#[cfg(test)] crate::tests::clean();
 		}
@@ -534,11 +534,11 @@ mod benchmark {
 			let prime = members.last().cloned().unwrap();
 			set_members::<T, I>(members, None);
 		}: {
-			assert_ok!(<Membership<T, I>>::clear_prime(
+			assert_ok!(Membership::<T, I>::clear_prime(
 				T::PrimeOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?,
 			));
 		} verify {
-			assert!(<Prime<T, I>>::get().is_none());
+			assert!(Prime::<T, I>::get().is_none());
 			assert!(<T::MembershipChanged>::get_prime().is_none());
 			#[cfg(test)] crate::tests::clean();
 		}
