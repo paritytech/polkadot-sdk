@@ -145,9 +145,7 @@ use frame_support::{
 			},
 			Balanced, Inspect as FunInspect, Mutate as FunMutate,
 		},
-		tokens::{
-			fungible::Credit, Fortitude, Fortitude::Force, Precision, Preservation, Restriction,
-		},
+		tokens::{fungible::Credit, Fortitude, Precision, Preservation, Restriction},
 		Defensive, DefensiveOption, Imbalance, OnUnbalanced,
 	},
 };

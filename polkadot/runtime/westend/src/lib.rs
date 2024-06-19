@@ -92,7 +92,7 @@ use sp_runtime::{
 		IdentityLookup, Keccak256, OpaqueKeys, SaturatedConversion, Verify,
 	},
 	transaction_validity::{TransactionPriority, TransactionSource, TransactionValidity},
-	ApplyExtrinsicResult, FixedU128, KeyTypeId, Perbill, Percent, Permill,
+	ApplyExtrinsicResult, FixedU128, KeyTypeId, Percent, Permill,
 };
 use sp_staking::SessionIndex;
 use sp_std::{
@@ -2671,9 +2671,12 @@ mod remote_tests {
 
 	#[tokio::test]
 	async fn delegate_stake_migration() {
-		use frame_support::{migrations::SteppedMigration, traits::TryState};
-		use sp_runtime::traits::Zero;
+		if var("RUN_MIGRATION_TESTS").is_err() {
+			return;
+		}
+		use frame_support::{assert_ok, migrations::SteppedMigration, traits::TryState};
 		sp_tracing::try_init_simple();
+
 		let transport: Transport = var("WS").unwrap_or("ws://127.0.0.1:9900".to_string()).into();
 		let maybe_state_snapshot: Option<SnapshotConfig> = var("SNAP").map(|s| s.into()).ok();
 		let mut ext = Builder::<Block>::default()
@@ -2703,85 +2706,51 @@ mod remote_tests {
 			// create an account with some balance
 			let alice = AccountId::from([1u8; 32]);
 			use frame_support::traits::Currency;
-			Balances::deposit_creating(&alice, 100_000 * UNITS);
-
-			let mut needs_migration = 0;
-			let mut success = 0;
+			let _ = Balances::deposit_creating(&alice, 100_000 * UNITS);
 
 			// iterate over all pools
 			pallet_nomination_pools::BondedPools::<Runtime>::iter_keys().for_each(|k| {
 				if pallet_nomination_pools::Pallet::<Runtime>::api_pool_needs_delegate_migration(
 					k.clone(),
 				) {
-					needs_migration = needs_migration + 1;
-					pallet_nomination_pools::Pallet::<Runtime>::migrate_pool_to_delegate_stake(
-						RuntimeOrigin::signed(alice.clone()).into(),
-						k,
-					)
-					.map(|_| success = success + 1)
-					.map_err(
-						|e| log::error!(target: "remote_test", "Failed to migrate pool {}: {:?}", k, e),
+					assert_ok!(
+						pallet_nomination_pools::Pallet::<Runtime>::migrate_pool_to_delegate_stake(
+							RuntimeOrigin::signed(alice.clone()).into(),
+							k,
+						)
 					);
 				}
 			});
 
-			// log summary
-			log::info!(
-				target: "remote_test",
-				"Migration summary: {} pools needed migration, {} pools successfully migrated",
-				needs_migration,
-				success
-			);
-
-			log::info!(target: "remote_test", "Existential Deposit: {:?}", EXISTENTIAL_DEPOSIT);
-
-			// reset counters
-			needs_migration = 0;
-			let mut unexpected_fails = 0;
 			// iterate over all pool members
 			pallet_nomination_pools::PoolMembers::<Runtime>::iter_keys().for_each(|k| {
 				if pallet_nomination_pools::Pallet::<Runtime>::api_member_needs_delegate_migration(
 					k.clone(),
 				) {
-					needs_migration = needs_migration + 1;
-					let pool_member = pallet_nomination_pools::PoolMembers::<Runtime>::get(&k);
 					let is_direct_staker = pallet_staking::Bonded::<Runtime>::contains_key(&k);
-					let member_balance = Balances::free_balance(&k);
-
-					let res = pallet_nomination_pools::Pallet::<Runtime>::migrate_delegation(
+					let migration = pallet_nomination_pools::Pallet::<Runtime>::migrate_delegation(
 						RuntimeOrigin::signed(alice.clone()).into(),
 						sp_runtime::MultiAddress::Id(k.clone()),
 					);
 
-					if is_direct_staker  {
-						if res.is_ok() {
-							log::error!(target: "remote_test", "Member {} is direct staker but migration succeeded.", k);
-						}
-					} else if res.is_err() {
-						log::info!(target: "remote_test", "Try One: Failed to migrate member {} with balance {:?}. Err: {:?}", k, member_balance, res.unwrap_err());
-						// try giving these accounts minimum balance
-						Balances::deposit_creating(&k, EXISTENTIAL_DEPOSIT);
-						// retry migration
-						let res = pallet_nomination_pools::Pallet::<Runtime>::migrate_delegation(
+					if is_direct_staker {
+						// if the member is a direct staker, the migration should fail until pool
+						// member unstakes all funds from pallet-staking.
+						assert_eq!(
+							migration.unwrap_err(),
+							pallet_delegated_staking::Error::<Runtime>::AlreadyStaking.into()
+						);
+					} else if migration.is_err() {
+						// migration can fail if the member has less than the existential deposit.
+						// we try funding them with the existential deposit and retry migration.
+						let _ = Balances::deposit_creating(&k, EXISTENTIAL_DEPOSIT);
+						assert_ok!(pallet_nomination_pools::Pallet::<Runtime>::migrate_delegation(
 							RuntimeOrigin::signed(alice.clone()).into(),
 							sp_runtime::MultiAddress::Id(k.clone()),
-						);
-
-						if res.is_err() {
-							log::error!(target: "remote_test", "Try Two: Failed to re-migrate member {} with balance {:?} after giving them ed. Err: {:?}", k, Balances::free_balance(&k), res.unwrap_err());
-							unexpected_fails = unexpected_fails + 1;
-						}
+						));
 					}
 				}
 			});
-
-			// log summary
-			log::info!(
-				target: "remote_test",
-				"Migration summary: {} members needed migration, {} failed to migrate",
-				needs_migration,
-				unexpected_fails
-			);
 		});
 	}
 }
