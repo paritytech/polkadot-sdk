@@ -762,7 +762,7 @@ fn transfer_native_asset_from_relay_to_para_through_asset_hub() {
 		// reanchor final dest (Penpal) to the view of hop (Asset Hub)
 		let mut dest = t.args.dest.clone();
 		dest.reanchor(&asset_hub_location, &context).unwrap();
-		// on Asset Hub, forward assets to Penpal
+		// on Asset Hub, forward assets (deposit-reserve) to Penpal
 		let xcm_on_hop = Xcm::<()>(vec![DepositReserveAsset {
 			assets: Wild(AllCounted(t.args.assets.len() as u32)),
 			dest,
@@ -803,6 +803,134 @@ fn transfer_native_asset_from_relay_to_para_through_asset_hub() {
 	assert!(sender_balance_after < sender_balance_before - amount_to_send);
 	// SA on AH balance is increased
 	assert!(sov_penpal_on_ah_after > sov_penpal_on_ah_before);
+	// Receiver's asset balance is increased
+	assert!(receiver_assets_after > receiver_assets_before);
+	// Receiver's asset balance increased by `amount_to_send - delivery_fees - bought_execution`;
+	// `delivery_fees` might be paid from transfer or JIT, also `bought_execution` is unknown but
+	// should be non-zero
+	assert!(receiver_assets_after < receiver_assets_before + amount_to_send);
+}
+
+// ===============================================================
+// ===== Transfer - Native Asset - Parachain->AssetHub->Relay ====
+// ===============================================================
+/// Transfers of native asset Parachain to Relay (using AssetHub reserve). Parachains want to avoid
+/// managing SAs on all system chains, thus want all their DOT-in-reserve to be held in their
+/// Sovereign Account on Asset Hub.
+#[test]
+fn transfer_native_asset_from_para_to_relay_through_asset_hub() {
+	let destination = RelayLocation::get();
+	let sender = PenpalASender::get();
+	let amount_to_send: Balance = WESTEND_ED * 1000;
+	let relay_native_asset_location = RelayLocation::get();
+	let receiver = WestendReceiver::get();
+	let assets = (relay_native_asset_location.clone(), amount_to_send).into();
+
+	// fund Parachain's sender account
+	PenpalA::mint_foreign_asset(
+		<PenpalA as Chain>::RuntimeOrigin::signed(PenpalAssetOwner::get()),
+		relay_native_asset_location.clone(),
+		sender.clone(),
+		amount_to_send * 2,
+	);
+
+	// Init Test
+	let test_args = TestContext {
+		sender: sender.clone(),
+		receiver: receiver.clone(),
+		args: TestArgs::new_para(
+			destination.clone(),
+			receiver.clone(),
+			amount_to_send,
+			assets,
+			None,
+			0,
+		),
+	};
+	let mut test = ParaToRelayThroughAHTest::new(test_args);
+
+	// prefund SA of Penpal on AH to be able to reserve-withdraw
+	let sov_penpal_on_ah = AssetHubWestend::sovereign_account_id_of(
+		AssetHubWestend::sibling_location_of(PenpalA::para_id()),
+	);
+	AssetHubWestend::fund_accounts(vec![(sov_penpal_on_ah.clone(), amount_to_send)]);
+
+	// prefund Relay checking account so we accept teleport "back" from AssetHub
+	let check_account =
+		Westend::execute_with(|| <Westend as WestendPallet>::XcmPallet::check_account());
+	Westend::fund_accounts(vec![(check_account, amount_to_send)]);
+
+	// Query initial balances
+	let sender_balance_before = PenpalA::execute_with(|| {
+		type ForeignAssets = <PenpalA as PenpalAPallet>::ForeignAssets;
+		<ForeignAssets as Inspect<_>>::balance(relay_native_asset_location.clone(), &sender)
+	});
+	let sov_penpal_on_ah_before = AssetHubWestend::execute_with(|| {
+		<AssetHubWestend as AssetHubWestendPallet>::Balances::free_balance(sov_penpal_on_ah.clone())
+	});
+	let receiver_assets_before = test.receiver.balance;
+
+	fn transfer_assets_dispatchable(t: ParaToRelayThroughAHTest) -> DispatchResult {
+		let fee_idx = t.args.fee_asset_item as usize;
+		let fee: Asset = t.args.assets.inner().get(fee_idx).cloned().unwrap();
+		let asset_hub_location = PenpalA::sibling_location_of(AssetHubWestend::para_id());
+		let context = PenpalUniversalLocation::get();
+
+		// reanchor fees to the view of destination (Westend)
+		let mut remote_fees = fee.clone().reanchored(&t.args.dest, &context).unwrap();
+		if let Fungible(ref mut amount) = remote_fees.fun {
+			// we already spent some fees along the way, just use half of what we started with
+			*amount = *amount / 2;
+		}
+
+		let xcm_on_final_dest = Xcm::<()>(vec![
+			BuyExecution { fees: remote_fees, weight_limit: t.args.weight_limit.clone() },
+			DepositAsset {
+				assets: Wild(AllCounted(t.args.assets.len() as u32)),
+				beneficiary: t.args.beneficiary,
+			},
+		]);
+
+		// reanchor final dest (Westend) to the view of hop (Asset Hub)
+		let mut dest = t.args.dest.clone();
+		dest.reanchor(&asset_hub_location, &context).unwrap();
+		// on Asset Hub, teleport assets to Westend
+		let xcm_on_hop = Xcm::<()>(vec![InitiateTeleport {
+			assets: Wild(AllCounted(t.args.assets.len() as u32)),
+			dest,
+			xcm: xcm_on_final_dest,
+		}]);
+
+		// First leg is a destination-reserve-withdraw, from there a teleport to final dest
+		<PenpalA as PenpalAPallet>::PolkadotXcm::transfer_assets_using_type_and_then(
+			t.signed_origin,
+			bx!(asset_hub_location.into()),
+			bx!(t.args.assets.into()),
+			bx!(TransferType::DestinationReserve),
+			bx!(fee.id.into()),
+			bx!(TransferType::DestinationReserve),
+			bx!(VersionedXcm::from(xcm_on_hop)),
+			t.args.weight_limit,
+		)
+	}
+
+	test.set_dispatchable::<PenpalA>(transfer_assets_dispatchable);
+	test.assert();
+
+	// Query final balances
+	let sender_balance_after = PenpalA::execute_with(|| {
+		type ForeignAssets = <PenpalA as PenpalAPallet>::ForeignAssets;
+		<ForeignAssets as Inspect<_>>::balance(relay_native_asset_location.clone(), &sender)
+	});
+	let sov_penpal_on_ah_after = AssetHubWestend::execute_with(|| {
+		<AssetHubWestend as AssetHubWestendPallet>::Balances::free_balance(sov_penpal_on_ah.clone())
+	});
+	let receiver_assets_after = test.receiver.balance;
+
+	// Sender's balance is reduced by amount sent plus delivery fees
+	assert!(sender_balance_after < sender_balance_before - amount_to_send);
+	// SA on AH balance is decreased
+	assert!(sov_penpal_on_ah_after < sov_penpal_on_ah_before);
 	// Receiver's asset balance is increased
 	assert!(receiver_assets_after > receiver_assets_before);
 	// Receiver's asset balance increased by `amount_to_send - delivery_fees - bought_execution`;

@@ -73,6 +73,7 @@ mod imports {
 	pub use penpal_runtime::xcm_config::{
 		LocalReservableFromAssetHub as PenpalLocalReservableFromAssetHub,
 		LocalTeleportableToAssetHub as PenpalLocalTeleportableToAssetHub,
+		UniversalLocation as PenpalUniversalLocation,
 	};
 	pub use westend_runtime::xcm_config::{
 		UniversalLocation as WestendUniversalLocation, XcmConfig as WestendXcmConfig,
@@ -90,6 +91,7 @@ mod imports {
 	pub type ParaToParaThroughRelayTest = Test<PenpalA, PenpalB, Westend>;
 	pub type ParaToParaThroughAHTest = Test<PenpalA, PenpalB, AssetHubWestend>;
 	pub type RelayToParaThroughAHTest = Test<Westend, PenpalA, AssetHubWestend>;
+	pub type ParaToRelayThroughAHTest = Test<PenpalA, Westend, AssetHubWestend>;
 }
 
 #[cfg(test)]
