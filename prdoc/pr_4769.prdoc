@@ -14,5 +14,7 @@ doc:
 crates:
   - name: frame-support-procedural
     bump: patch
+  - name: frame-support
+    bump: patch
   - name: minimal-template-runtime
     bump: patch
