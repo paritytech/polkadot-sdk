@@ -747,6 +747,7 @@ where
 		+ cumulus_primitives_aura::AuraUnincludedSegmentApi<Block>,
 	<<AuraId as AppCrypto>::Pair as Pair>::Signature:
 		TryFrom<Vec<u8>> + std::hash::Hash + sp_runtime::traits::Member + Codec,
+	<AuraId as AppCrypto>::Pair: Send + Sync,
 	Net: NetworkBackend<Block, Hash>,
 {
 	start_node_impl::<RuntimeApi, _, _, _, Net>(
@@ -790,6 +791,7 @@ where
 				telemetry.clone(),
 			);
 
+			let essential_spawner = task_manager.spawn_essential_handle();
 			let collation_future = Box::pin(async move {
 				// Start collating with the `shell` runtime while waiting for an upgrade to an Aura
 				// compatible runtime.
@@ -824,12 +826,53 @@ where
 					}
 				}
 
+				// Move to Aura consensus.
+				let proposer = Proposer::new(proposer_factory);
 				if use_experimental_slot_based {
-					panic!();
-				} else {
-					// Move to Aura consensus.
-					let proposer = Proposer::new(proposer_factory);
+					log::info!("Starting block authoring with slot based authoring.");
+					let client_for_aura = client.clone();
+					let params = SlotBasedParams {
+						create_inherent_data_providers: move |_, ()| async move { Ok(()) },
+						block_import,
+						para_client: client.clone(),
+						para_backend: backend.clone(),
+						relay_client: relay_chain_interface,
+						code_hash_provider: move |block_hash| {
+							client_for_aura
+								.code_at(block_hash)
+								.ok()
+								.map(|c| ValidationCode::from(c).hash())
+						},
+						keystore,
+						collator_key,
+						para_id,
+						relay_chain_slot_duration,
+						proposer,
+						collator_service,
+						authoring_duration: Duration::from_millis(2000),
+						reinitialize: false,
+						slot_drift: Duration::from_secs(1),
+					};
 
+					let (collation_future, block_builer_future) = slot_based::run::<
+						Block,
+						<AuraId as AppCrypto>::Pair,
+						_,
+						_,
+						_,
+						_,
+						_,
+						_,
+						_,
+						_,
+					>(params);
+					essential_spawner.spawn_essential(
+						"block-builder-task",
+						Some("parachain-block-authoring"),
+						Box::pin(collation_future),
+					);
+					block_builer_future.await;
+				} else {
 					let params = AuraParams {
 						create_inherent_data_providers: move |_, ()| async move { Ok(()) },
 						block_import,
@@ -857,7 +900,11 @@ where
 			});
 
 			let spawner = task_manager.spawn_essential_handle();
-			spawner.spawn_essential("cumulus-asset-hub-collator", None, collation_future);
+			spawner.spawn_essential(
+				"cumulus-asset-hub-collator",
+				Some("parachain-block-authoring"),
+				collation_future,
+			);
 
 			Ok(())
 		},
@@ -1047,10 +1094,15 @@ fn start_slot_based_aura_consensus(
 		authoring_duration: Duration::from_millis(2000),
 		reinitialize: false,
 		slot_drift: Duration::from_secs(1),
-		spawn_handle: task_manager.spawn_essential_handle(),
 	};
-
-	slot_based::run::<Block, <AuraId as AppCrypto>::Pair, _, _, _, _, _, _, _, _, _>(params);
+	let (collation_future, block_builer_future) =
+		slot_based::run::<Block, <AuraId as AppCrypto>::Pair, _, _, _, _, _, _, _, _>(params);
+	task_manager
+		.spawn_essential_handle()
+		.spawn("collation-task", None, collation_future);
+	task_manager
+		.spawn_essential_handle()
+		.spawn("block-builder-task", None, block_builer_future);
 	Ok(())
 }
 

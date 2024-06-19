@@ -111,6 +111,7 @@ cumulus-primitives-aura = { path = "../primitives/aura" }
 cumulus-primitives-core = { path = "../primitives/core" }
 cumulus-relay-chain-interface = { path = "../client/relay-chain-interface" }
 color-print = "0.3.4"
+tokio = { version = "1.32.0", features = ["macros", "parking_lot", "time"] }
 
 [build-dependencies]
 substrate-build-script-utils = { path = "../../substrate/utils/build-script-utils" }
@@ -120,7 +121,6 @@ assert_cmd = "2.0"
 nix = { version = "0.28.0", features = ["signal"] }
 tempfile = "3.8.0"
 wait-timeout = "0.2"
-tokio = { version = "1.32.0", features = ["macros", "parking_lot", "time"] }
 
 [features]
 default = []

@@ -56,7 +56,7 @@ use sp_api::ProvideRuntimeApi;
 use sp_application_crypto::AppPublic;
 use sp_blockchain::HeaderBackend;
 use sp_consensus_aura::AuraApi;
-use sp_core::{crypto::Pair, traits::SpawnEssentialNamed};
+use sp_core::crypto::Pair;
 use sp_inherents::CreateInherentDataProviders;
 use sp_keystore::KeystorePtr;
 use sp_runtime::traits::{Block as BlockT, Member};
@@ -69,7 +69,7 @@ mod block_builder_task;
 mod collation_task;
 
 /// Parameters for [`run`].
-pub struct Params<BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, SpawnHandle> {
+pub struct Params<BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS> {
 	/// Inherent data providers. Only non-consensus inherent data should be provided, i.e.
 	/// the timestamp, slot, and paras inherents should be omitted, as they are set by this
 	/// collator.
@@ -103,14 +103,13 @@ pub struct Params<BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, SpawnHa
 	/// Drift slots by a fixed duration. This can be used to create more preferrable authoring
 	/// timings.
 	pub slot_drift: Duration,
-	/// Spawn handle to spawn the block building and collation tasks.
-	pub spawn_handle: SpawnHandle,
 }
 
 /// Run aura-based block building and collation task.
-pub fn run<Block, P, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, SpawnHandle>(
-	params: Params<BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, SpawnHandle>,
-) where
+pub fn run<Block, P, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS>(
+	params: Params<BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS>,
+) -> (impl futures::Future<Output = ()>, impl futures::Future<Output = ()>)
+where
 	Block: BlockT,
 	Client: ProvideRuntimeApi<Block>
 		+ BlockOf
@@ -131,10 +130,9 @@ pub fn run<Block, P, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spaw
 	Proposer: ProposerInterface<Block> + Send + Sync + 'static,
 	CS: CollatorServiceInterface<Block> + Send + Sync + Clone + 'static,
 	CHP: consensus_common::ValidationCodeHashProvider<Block::Hash> + Send + 'static,
-	P: Pair + Send + Sync + 'static,
+	P: Pair + 'static,
 	P::Public: AppPublic + Member + Codec,
 	P::Signature: TryFrom<Vec<u8>> + Member + Codec,
-	SpawnHandle: SpawnEssentialNamed,
 {
 	let (tx, rx) = tracing_unbounded("mpsc_builder_to_collator", 100);
 	let collator_task_params = collation_task::Params {
@@ -168,17 +166,7 @@ pub fn run<Block, P, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spaw
 	let block_builder_fut =
 		run_block_builder::<Block, P, _, _, _, _, _, _, _, _>(block_builder_params);
 
-	params.spawn_handle.spawn_essential_blocking(
-		"collation-task",
-		Some("parachain-authoring"),
-		Box::pin(collation_task_fut),
-	);
-
-	params.spawn_handle.spawn_essential_blocking(
-		"parachain-block-builder-task",
-		Some("parachain-authoring"),
-		Box::pin(block_builder_fut),
-	);
+	(collation_task_fut, block_builder_fut)
 }
 
 /// Message to be sent from the block builder to the collation task.

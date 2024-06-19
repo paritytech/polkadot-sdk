@@ -489,10 +489,20 @@ where
 					authoring_duration: Duration::from_millis(2000),
 					reinitialize: false,
 					slot_drift: Duration::from_secs(1),
-					spawn_handle: task_manager.spawn_essential_handle(),
 				};
 
-				slot_based::run::<Block, AuthorityPair, _, _, _, _, _, _, _, _, _>(params);
+				let (collation_future, block_builer_future) =
+					slot_based::run::<Block, AuthorityPair, _, _, _, _, _, _, _, _>(params);
+				task_manager.spawn_essential_handle().spawn(
+					"collation-task",
+					None,
+					collation_future,
+				);
+				task_manager.spawn_essential_handle().spawn(
+					"block-builder-task",
+					None,
+					block_builer_future,
+				);
 			} else {
 				tracing::info!(target: LOG_TARGET, "Starting block authoring with lookahead collator.");
 				let params = AuraParams {

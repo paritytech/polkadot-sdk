@@ -28,6 +28,7 @@ use polkadot_primitives::{
 	OccupiedCoreAssumption,
 };
 
+use futures::prelude::*;
 use sc_client_api::{backend::AuxStore, BlockBackend, BlockOf, UsageProvider};
 use sc_consensus::BlockImport;
 use sp_api::ProvideRuntimeApi;
@@ -103,7 +104,7 @@ struct SlotInfo {
 struct SlotTimer<Block, Client, P> {
 	client: Arc<Client>,
 	drift: Duration,
-	phantom: std::marker::PhantomData<(P, Block)>,
+	_marker: std::marker::PhantomData<(Block, Box<dyn Fn(P) + Send + Sync + 'static>)>,
 }
 
 /// Returns current duration since Unix epoch.
@@ -134,7 +135,7 @@ where
 	P::Signature: TryFrom<Vec<u8>> + Member + Codec,
 {
 	pub fn new_with_drift(client: Arc<Client>, drift: Duration) -> Self {
-		Self { client, drift, phantom: Default::default() }
+		Self { client, drift, _marker: Default::default() }
 	}
 
 	/// Returns a future that resolves when the next slot arrives.
@@ -156,20 +157,10 @@ where
 }
 
 /// Run block-builder.
-pub async fn run_block_builder<
-	Block,
-	P,
-	BI,
-	CIDP,
-	Client,
-	Backend,
-	RelayClient,
-	CHP,
-	Proposer,
-	CS,
->(
+pub fn run_block_builder<Block, P, BI, CIDP, Client, Backend, RelayClient, CHP, Proposer, CS>(
 	params: BuilderTaskParams<Block, BI, CIDP, Client, Backend, RelayClient, CHP, Proposer, CS>,
-) where
+) -> impl Future<Output = ()> + Send + 'static
+where
 	Block: BlockT,
 	Client: ProvideRuntimeApi<Block>
 		+ UsageProvider<Block>
@@ -194,192 +185,199 @@ pub async fn run_block_builder<
 	P::Public: AppPublic + Member + Codec,
 	P::Signature: TryFrom<Vec<u8>> + Member + Codec,
 {
-	let BuilderTaskParams {
-		relay_client,
-		create_inherent_data_providers,
-		para_client,
-		keystore,
-		block_import,
-		para_id,
-		proposer,
-		collator_service,
-		collator_sender,
-		code_hash_provider,
-		authoring_duration,
-		para_backend,
-		relay_chain_slot_duration,
-		slot_drift,
-	} = params;
-
-	let slot_timer = SlotTimer::<_, _, P>::new_with_drift(para_client.clone(), slot_drift);
-
-	let mut collator = {
-		let params = collator_util::Params {
+	async move {
+		let BuilderTaskParams {
+			relay_client,
 			create_inherent_data_providers,
+			para_client,
+			keystore,
 			block_import,
-			relay_client: relay_client.clone(),
-			keystore: keystore.clone(),
 			para_id,
 			proposer,
 			collator_service,
+			collator_sender,
+			code_hash_provider,
+			authoring_duration,
+			para_backend,
+			relay_chain_slot_duration,
+			slot_drift,
+		} = params;
+
+		let slot_timer = SlotTimer::<_, _, P>::new_with_drift(para_client.clone(), slot_drift);
+
+		let mut collator = {
+			let params = collator_util::Params {
+				create_inherent_data_providers,
+				block_import,
+				relay_client: relay_client.clone(),
+				keystore: keystore.clone(),
+				para_id,
+				proposer,
+				collator_service,
+			};
+
+			collator_util::Collator::<Block, P, _, _, _, _, _>::new(params)
 		};
 
-		collator_util::Collator::<Block, P, _, _, _, _, _>::new(params)
-	};
+		let mut relay_chain_fetcher = RelayChainCachingFetcher::new(relay_client.clone(), para_id);
 
-	let mut relay_chain_fetcher = RelayChainCachingFetcher::new(relay_client.clone(), para_id);
+		loop {
+			// We wait here until the next slot arrives.
+			let Ok(para_slot) = slot_timer.wait_until_next_slot().await else {
+				return;
+			};
 
-	loop {
-		// We wait here until the next slot arrives.
-		let Ok(para_slot) = slot_timer.wait_until_next_slot().await else {
-			return;
-		};
+			let Some(expected_cores) =
+				expected_core_count(relay_chain_slot_duration, para_slot.slot_duration)
+			else {
+				return
+			};
 
-		let Some(expected_cores) =
-			expected_core_count(relay_chain_slot_duration, para_slot.slot_duration)
-		else {
-			return
-		};
+			let Ok(RelayChainData {
+				relay_parent_header,
+				max_pov_size,
+				relay_parent_hash: relay_parent,
+				scheduled_cores,
+			}) = relay_chain_fetcher.get_relay_chain_data().await
+			else {
+				continue;
+			};
 
-		let Ok(RelayChainData {
-			relay_parent_header,
-			max_pov_size,
-			relay_parent_hash: relay_parent,
-			scheduled_cores,
-		}) = relay_chain_fetcher.get_relay_chain_data().await
-		else {
-			continue;
-		};
+			if scheduled_cores.is_empty() {
+				tracing::debug!(target: LOG_TARGET, "Parachain not scheduled, skipping slot.");
+				continue;
+			}
 
-		if scheduled_cores.is_empty() {
-			tracing::debug!(target: LOG_TARGET, "Parachain not scheduled, skipping slot.");
-			continue;
-		}
+			let core_index_in_scheduled: u64 = *para_slot.slot % expected_cores;
+			let Some(core_index) = scheduled_cores.get(core_index_in_scheduled as usize) else {
+				tracing::debug!(target: LOG_TARGET, core_index_in_scheduled, core_len = scheduled_cores.len(), "Para is scheduled, but not enough cores available.");
+				continue;
+			};
 
-		let core_index_in_scheduled: u64 = *para_slot.slot % expected_cores;
-		let Some(core_index) = scheduled_cores.get(core_index_in_scheduled as usize) else {
-			tracing::debug!(target: LOG_TARGET, core_index_in_scheduled, core_len = scheduled_cores.len(), "Para is scheduled, but not enough cores available.");
-			continue;
-		};
-
-		let Some((included_block, parent)) =
-			crate::collators::find_parent(relay_parent, para_id, &*para_backend, &relay_client)
-				.await
-		else {
-			continue
-		};
-
-		let parent_header = parent.header;
-		let parent_hash = parent.hash;
-
-		// We mainly call this to inform users at genesis if there is a mismatch with the
-		// on-chain data.
-		collator.collator_service().check_block_status(parent_hash, &parent_header);
-
-		let slot_claim = match crate::collators::can_build_upon::<_, _, P>(
-			para_slot.slot,
-			para_slot.timestamp,
-			parent_hash,
-			included_block,
-			&*para_client,
-			&keystore,
-		)
-		.await
-		{
-			Some(slot) => slot,
-			None => {
-				tracing::debug!(
-					target: crate::LOG_TARGET,
-					?core_index,
-					slot_info = ?para_slot,
-					unincluded_segment_len = parent.depth,
-					relay_parent = %relay_parent,
-					included = %included_block,
-					parent = %parent_hash,
-					"Not building block."
-				);
+			let Some((included_block, parent)) =
+				crate::collators::find_parent(relay_parent, para_id, &*para_backend, &relay_client)
+					.await
+			else {
 				continue
-			},
-		};
+			};
 
-		tracing::debug!(
-			target: crate::LOG_TARGET,
-			?core_index,
-			slot_info = ?para_slot,
-			unincluded_segment_len = parent.depth,
-			relay_parent = %relay_parent,
-			included = %included_block,
-			parent = %parent_hash,
-			"Building block."
-		);
+			let parent_header = parent.header;
+			let parent_hash = parent.hash;
 
-		let validation_data = PersistedValidationData {
-			parent_head: parent_header.encode().into(),
-			relay_parent_number: *relay_parent_header.number(),
-			relay_parent_storage_root: *relay_parent_header.state_root(),
-			max_pov_size,
-		};
+			// We mainly call this to inform users at genesis if there is a mismatch with the
+			// on-chain data.
+			collator.collator_service().check_block_status(parent_hash, &parent_header);
 
-		let (parachain_inherent_data, other_inherent_data) = match collator
-			.create_inherent_data(
-				relay_parent,
-				&validation_data,
+			let slot_claim = match crate::collators::can_build_upon::<_, _, P>(
+				para_slot.slot,
+				para_slot.timestamp,
 				parent_hash,
-				slot_claim.timestamp(),
+				included_block,
+				&*para_client,
+				&keystore,
 			)
 			.await
-		{
-			Err(err) => {
-				tracing::error!(target: crate::LOG_TARGET, ?err);
-				break
-			},
-			Ok(x) => x,
-		};
+			{
+				Some(slot) => slot,
+				None => {
+					tracing::debug!(
+						target: crate::LOG_TARGET,
+						?core_index,
+						slot_info = ?para_slot,
+						unincluded_segment_len = parent.depth,
+						relay_parent = %relay_parent,
+						included = %included_block,
+						parent = %parent_hash,
+						"Not building block."
+					);
+					continue
+				},
+			};
 
-		let validation_code_hash = match code_hash_provider.code_hash_at(parent_hash) {
-			None => {
-				tracing::error!(target: crate::LOG_TARGET, ?parent_hash, "Could not fetch validation code hash");
-				break
-			},
-			Some(v) => v,
-		};
+			tracing::debug!(
+				target: crate::LOG_TARGET,
+				?core_index,
+				slot_info = ?para_slot,
+				unincluded_segment_len = parent.depth,
+				relay_parent = %relay_parent,
+				included = %included_block,
+				parent = %parent_hash,
+				"Building block."
+			);
 
-		check_validation_code_or_log(&validation_code_hash, para_id, &relay_client, relay_parent)
+			let validation_data = PersistedValidationData {
+				parent_head: parent_header.encode().into(),
+				relay_parent_number: *relay_parent_header.number(),
+				relay_parent_storage_root: *relay_parent_header.state_root(),
+				max_pov_size,
+			};
+
+			let (parachain_inherent_data, other_inherent_data) = match collator
+				.create_inherent_data(
+					relay_parent,
+					&validation_data,
+					parent_hash,
+					slot_claim.timestamp(),
+				)
+				.await
+			{
+				Err(err) => {
+					tracing::error!(target: crate::LOG_TARGET, ?err);
+					break
+				},
+				Ok(x) => x,
+			};
+
+			let validation_code_hash = match code_hash_provider.code_hash_at(parent_hash) {
+				None => {
+					tracing::error!(target: crate::LOG_TARGET, ?parent_hash, "Could not fetch validation code hash");
+					break
+				},
+				Some(v) => v,
+			};
+
+			check_validation_code_or_log(
+				&validation_code_hash,
+				para_id,
+				&relay_client,
+				relay_parent,
+			)
 			.await;
 
-		let Ok(Some(candidate)) = collator
-			.build_block_and_import(
-				&parent_header,
-				&slot_claim,
-				None,
-				(parachain_inherent_data, other_inherent_data),
-				authoring_duration,
-				// Set the block limit to 50% of the maximum PoV size.
-				//
-				// TODO: If we got benchmarking that includes the proof size,
-				// we should be able to use the maximum pov size.
-				(validation_data.max_pov_size / 2) as usize,
-			)
-			.await
-		else {
-			tracing::error!(target: crate::LOG_TARGET, "Unable to build block at slot.");
-			continue;
-		};
+			let Ok(Some(candidate)) = collator
+				.build_block_and_import(
+					&parent_header,
+					&slot_claim,
+					None,
+					(parachain_inherent_data, other_inherent_data),
+					authoring_duration,
+					// Set the block limit to 50% of the maximum PoV size.
+					//
+					// TODO: If we got benchmarking that includes the proof size,
+					// we should be able to use the maximum pov size.
+					(validation_data.max_pov_size / 2) as usize,
+				)
+				.await
+			else {
+				tracing::error!(target: crate::LOG_TARGET, "Unable to build block at slot.");
+				continue;
+			};
 
-		let new_block_hash = candidate.block.header().hash();
+			let new_block_hash = candidate.block.header().hash();
 
-		// Announce the newly built block to our peers.
-		collator.collator_service().announce_block(new_block_hash, None);
+			// Announce the newly built block to our peers.
+			collator.collator_service().announce_block(new_block_hash, None);
 
-		if let Err(err) = collator_sender.unbounded_send(CollatorMessage {
-			relay_parent,
-			parent_header,
-			parachain_candidate: candidate,
-			validation_code_hash,
-			core_index: *core_index,
-		}) {
-			tracing::error!(target: crate::LOG_TARGET, ?err, "Unable to send block to collation task.");
-			break
+			if let Err(err) = collator_sender.unbounded_send(CollatorMessage {
+				relay_parent,
+				parent_header,
+				parachain_candidate: candidate,
+				validation_code_hash,
+				core_index: *core_index,
+			}) {
+				tracing::error!(target: crate::LOG_TARGET, ?err, "Unable to send block to collation task.");
+				break
+			}
 		}
 	}
 }
