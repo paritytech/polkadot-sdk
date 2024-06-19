@@ -28,11 +28,6 @@ pub trait GetWeight<W> {
 
 use super::*;
 
-// A simple trait to get the weight of some object.
-pub trait GetWeight<W> {
-	fn weight(&self) -> sp_weights::Weight;
-}
-
 /// Error codes used in XCM. The first errors codes have explicit indices and are part of the XCM
 /// format. Those trailing are merely part of the XCM implementation; there is no expectation that
 /// they will retain the same index over time.

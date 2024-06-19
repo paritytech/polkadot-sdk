@@ -21,8 +21,6 @@
 //
 // Hence, `no_std` rather than sp-runtime.
 #![cfg_attr(not(feature = "std"), no_std)]
-// Because of XCMv2.
-#![allow(deprecated)]
 
 extern crate alloc;
 
@@ -39,7 +37,7 @@ pub mod lts {
 }
 
 pub mod latest {
-	pub use super::v4::*;
+	pub use super::v5::*;
 }
 
 mod double_encoded;
@@ -78,6 +76,8 @@ pub trait TryAs<T> {
 	fn try_as(&self) -> Result<&T, ()>;
 }
 
+// Macro that generated versioned wrapper types.
+// NOTE: converting a v4 type into a versioned type will make it v5.
 macro_rules! versioned_type {
 	($(#[$attr:meta])* pub enum $n:ident {
 		$(#[$index3:meta])+
@@ -150,13 +150,8 @@ macro_rules! versioned_type {
 				$n::V3(x.into())
 			}
 		}
-		impl From<$v4> for $n {
-			fn from(x: $v4) -> Self {
-				$n::V4(x.into())
-			}
-		}
-		impl From<$v5> for $n {
-			fn from(x: $v5) -> Self {
+		impl<T: Into<$v5>> From<T> for $n {
+			fn from(x: T) -> Self {
 				$n::V5(x.into())
 			}
 		}
@@ -521,7 +516,7 @@ pub type AlwaysLts = AlwaysV4;
 
 pub mod prelude {
 	pub use super::{
-		latest::prelude::*, AlwaysLatest, AlwaysLts, AlwaysV3, AlwaysV4, GetVersion,
+		latest::prelude::*, AlwaysLatest, AlwaysLts, AlwaysV3, AlwaysV4, AlwaysV5, GetVersion,
 		IdentifyVersion, IntoVersion, Unsupported, Version as XcmVersion, VersionedAsset,
 		VersionedAssetId, VersionedAssets, VersionedInteriorLocation, VersionedLocation,
 		VersionedResponse, VersionedXcm, WrapVersion,

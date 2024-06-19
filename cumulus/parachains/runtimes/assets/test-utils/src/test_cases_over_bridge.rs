@@ -418,8 +418,9 @@ pub fn receive_reserve_asset_deposited_from_different_consensus_works<
 			// additional check before
 			additional_checks_before();
 
+			let v4_foreign_asset_id_location: xcm::v4::Location = foreign_asset_id_location.try_into().unwrap();
 			let foreign_asset_id_location_latest: Location =
-				foreign_asset_id_location.try_into().unwrap();
+				v4_foreign_asset_id_location.try_into().unwrap();
 
 			let expected_assets = Assets::from(vec![Asset {
 				id: AssetId(foreign_asset_id_location_latest.clone()),

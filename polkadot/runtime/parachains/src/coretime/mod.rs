@@ -26,7 +26,7 @@ pub use pallet::*;
 use pallet_broker::{CoreAssignment, CoreIndex as BrokerCoreIndex};
 use polkadot_primitives::{CoreIndex, Id as ParaId};
 use sp_arithmetic::traits::SaturatedConversion;
-use xcm::prelude::{
+use xcm::v4::prelude::{
 	send_xcm, Instruction, Junction, Location, OriginKind, SendXcm, WeightLimit, Xcm,
 };
 

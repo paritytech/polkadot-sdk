@@ -23,7 +23,7 @@ use crate::{
 	VersionedLocation,
 };
 use bounded_collections::{BoundedSlice, BoundedVec, ConstU32};
-use parity_scale_codec::{self, Decode, Encode, MaxEncodedLen};
+use codec::{self, Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 use serde::{Deserialize, Serialize};
 
@@ -72,7 +72,6 @@ pub enum Junction {
 	/// An instanced, indexed pallet that forms a constituent part of the context.
 	///
 	/// Generally used when the context is a Frame-based chain.
-	// TODO XCMv4 inner should be `Compact<u32>`.
 	PalletInstance(u8),
 	/// A non-descript index within the context location.
 	///
