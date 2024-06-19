@@ -30,7 +30,7 @@ use frame_support::{
 	parameter_types,
 	traits::{
 		tokens::UnityOrOuterConversion, EitherOf, EitherOfDiverse, FromContains, MapSuccess,
-		NeverEnsureOrigin, OriginTrait, TryWithMorphedArg,
+		OriginTrait, TryWithMorphedArg,
 	},
 	PalletId,
 };
