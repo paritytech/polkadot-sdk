@@ -24,9 +24,13 @@
 #![warn(missing_docs)]
 
 use self::metrics::Metrics;
-use futures::{channel::oneshot, select, FutureExt as _};
+use futures::{select, FutureExt as _};
 use itertools::Itertools;
 use net_protocol::peer_set::{ProtocolVersion, ValidationVersion};
+use polkadot_node_core_approval_voting::{
+	time::{Clock, ClockExt},
+	AssignmentCriteria, TICK_TOO_FAR_IN_FUTURE,
+};
 use polkadot_node_jaeger as jaeger;
 use polkadot_node_network_protocol::{
 	self as net_protocol, filter_by_peer_version,
@@ -37,7 +41,8 @@ use polkadot_node_network_protocol::{
 };
 use polkadot_node_primitives::approval::{
 	v1::{
-		AssignmentCertKind, BlockApprovalMeta, IndirectAssignmentCert, IndirectSignedApprovalVote,
+		AssignmentCertKind, BlockApprovalMeta, DelayTranche, IndirectAssignmentCert,
+		IndirectSignedApprovalVote, RelayVRFStory,
 	},
 	v2::{
 		AsBitIndex, AssignmentCertKindV2, CandidateBitfield, IndirectAssignmentCertV2,
@@ -46,18 +51,20 @@ use polkadot_node_primitives::approval::{
 };
 use polkadot_node_subsystem::{
 	messages::{
-		ApprovalCheckResult, ApprovalDistributionMessage, ApprovalVotingMessage,
-		AssignmentCheckResult, NetworkBridgeEvent, NetworkBridgeTxMessage,
+		ApprovalDistributionMessage, ApprovalVotingMessage, NetworkBridgeEvent,
+		NetworkBridgeTxMessage,
 	},
 	overseer, FromOrchestra, OverseerSignal, SpawnedSubsystem, SubsystemError,
 };
 use polkadot_node_subsystem_util::reputation::{ReputationAggregator, REPUTATION_CHANGE_INTERVAL};
 use polkadot_primitives::{
-	BlockNumber, CandidateIndex, Hash, SessionIndex, ValidatorIndex, ValidatorSignature,
+	BlockNumber, CandidateHash, CandidateIndex, CoreIndex, DisputeStatement, GroupIndex, Hash,
+	SessionIndex, SessionInfo, Slot, ValidDisputeStatementKind, ValidatorIndex, ValidatorSignature,
 };
 use rand::{CryptoRng, Rng, SeedableRng};
 use std::{
 	collections::{hash_map, BTreeMap, HashMap, HashSet, VecDeque},
+	sync::Arc,
 	time::Duration,
 };
 
@@ -86,6 +93,7 @@ const MAX_BITFIELD_SIZE: usize = 500;
 /// The Approval Distribution subsystem.
 pub struct ApprovalDistribution {
 	metrics: Metrics,
+	slot_duration_millis: u64,
 }
 
 /// Contains recently finalized
@@ -354,6 +362,9 @@ pub struct State {
 
 	/// Aggregated reputation change
 	reputation: ReputationAggregator,
+
+	slot_duration_millis: u64,
+	clock: Option<Arc<dyn Clock + Send + Sync>>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -488,11 +499,19 @@ struct BlockEntry {
 	knowledge: Knowledge,
 	/// A votes entry for each candidate indexed by [`CandidateIndex`].
 	candidates: Vec<CandidateEntry>,
+	/// Information about candidate metadata.
+	candidates_metadata: Vec<(CandidateHash, CoreIndex, GroupIndex)>,
 	/// The session index of this block.
 	session: SessionIndex,
 	/// Approval entries for whole block. These also contain all approvals in the case of multiple
 	/// candidates being claimed by assignments.
 	approval_entries: HashMap<(ValidatorIndex, CandidateBitfield), ApprovalEntry>,
+	/// Information about session_info
+	session_info: SessionInfo,
+	/// The block vrf story.
+	pub vrf_story: RelayVRFStory,
+	/// The block slot.
+	slot: Slot,
 }
 
 impl BlockEntry {
@@ -662,6 +681,11 @@ enum PendingMessage {
 
 #[overseer::contextbounds(ApprovalDistribution, prefix = self::overseer)]
 impl State {
+	/// Build State with specified slot duration.
+	pub fn with_config(slot_duration_millis: u64, clock: Arc<dyn Clock + Send + Sync>) -> Self {
+		Self { slot_duration_millis, clock: Some(clock), ..Default::default() }
+	}
+
 	async fn handle_network_msg<
 		N: overseer::SubsystemSender<NetworkBridgeTxMessage>,
 		A: overseer::SubsystemSender<ApprovalVotingMessage>,
@@ -785,7 +809,14 @@ impl State {
 		rng: &mut (impl CryptoRng + Rng),
 	) {
 		let mut new_hashes = HashSet::new();
-		for meta in &metas {
+
+		gum::debug!(
+			target: LOG_TARGET,
+			"Got new blocks {:?}",
+			metas.iter().map(|m| (m.hash, m.number)).collect::<Vec<_>>(),
+		);
+
+		for meta in metas {
 			let mut span = self
 				.spans
 				.get(&meta.hash)
@@ -809,6 +840,10 @@ impl State {
 						candidates,
 						session: meta.session,
 						approval_entries: HashMap::new(),
+						candidates_metadata: meta.candidates,
+						session_info: meta.session_info,
+						vrf_story: meta.vrf_story,
+						slot: meta.slot,
 					});
 
 					self.topologies.inc_session_refs(meta.session);
@@ -822,12 +857,6 @@ impl State {
 				_ => continue,
 			}
 		}
-
-		gum::debug!(
-			target: LOG_TARGET,
-			"Got new blocks {:?}",
-			metas.iter().map(|m| (m.hash, m.number)).collect::<Vec<_>>(),
-		);
 
 		{
 			for (peer_id, PeerEntry { view, version }) in self.peer_views.iter() {
@@ -1360,36 +1389,67 @@ impl State {
 				metrics.on_assignment_good_known();
 				return
 			}
+			let checker = polkadot_node_core_approval_voting::RealAssignmentCriteria {};
 
-			let (tx, rx) = oneshot::channel();
+			let claimed_cores = claimed_candidate_indices
+				.iter_ones()
+				.flat_map(|candidate_index| {
+					entry.candidates_metadata.get(candidate_index).map(|(_, core, _)| *core)
+				})
+				.collect::<Vec<_>>();
+			let backing_groups = claimed_candidate_indices
+				.iter_ones()
+				.flat_map(|candidate_index| {
+					entry.candidates_metadata.get(candidate_index).map(|(_, _, group)| *group)
+				})
+				.collect::<Vec<_>>();
 
-			approval_voting_sender
-				.send_message(ApprovalVotingMessage::CheckAndImportAssignment(
-					assignment.clone(),
-					claimed_candidate_indices.clone(),
-					tx,
-				))
-				.await;
-
-			let timer = metrics.time_awaiting_approval_voting();
-			let result = match rx.await {
-				Ok(result) => result,
-				Err(_) => {
-					gum::debug!(target: LOG_TARGET, "The approval voting subsystem is down");
-					return
-				},
-			};
-			drop(timer);
-
-			gum::trace!(
-				target: LOG_TARGET,
-				?source,
-				?message_subject,
-				?result,
-				"Checked assignment",
+			let result = checker.check_assignment_cert(
+				claimed_cores.try_into().expect("Non-empty vec; qed"),
+				assignment.validator,
+				&polkadot_node_core_approval_voting::AssignmentConfig::from(&entry.session_info),
+				entry.vrf_story.clone(),
+				&assignment.cert,
+				backing_groups,
 			);
+
 			match result {
-				AssignmentCheckResult::Accepted => {
+				Ok(tranche) => {
+					let current_tranche = self
+						.clock
+						.as_ref()
+						.map(|clock| clock.tranche_now(self.slot_duration_millis, entry.slot))
+						.unwrap_or(u32::MAX);
+
+					let too_far_in_future =
+						current_tranche + TICK_TOO_FAR_IN_FUTURE as DelayTranche;
+
+					if tranche >= too_far_in_future {
+						gum::debug!(
+							target: LOG_TARGET,
+							hash = ?block_hash,
+							?peer_id,
+							"Got an assignment too far in the future",
+						);
+						modify_reputation(
+							&mut self.reputation,
+							network_sender,
+							peer_id,
+							COST_ASSIGNMENT_TOO_FAR_IN_THE_FUTURE,
+						)
+						.await;
+						metrics.on_assignment_far();
+
+						return
+					}
+
+					approval_voting_sender
+						.send_message(ApprovalVotingMessage::CheckAndImportAssignment(
+							assignment.clone(),
+							claimed_candidate_indices.clone(),
+							tranche,
+						))
+						.await;
 					modify_reputation(
 						&mut self.reputation,
 						network_sender,
@@ -1402,42 +1462,8 @@ impl State {
 						peer_knowledge.received.insert(message_subject.clone(), message_kind);
 					}
 				},
-				AssignmentCheckResult::AcceptedDuplicate => {
-					// "duplicate" assignments aren't necessarily equal.
-					// There is more than one way each validator can be assigned to each core.
-					// cf. https://github.com/paritytech/polkadot/pull/2160#discussion_r557628699
-					if let Some(peer_knowledge) = entry.known_by.get_mut(&peer_id) {
-						peer_knowledge.received.insert(message_subject.clone(), message_kind);
-					}
-					gum::debug!(
-						target: LOG_TARGET,
-						hash = ?block_hash,
-						?peer_id,
-						"Got an `AcceptedDuplicate` assignment",
-					);
-					metrics.on_assignment_duplicatevoting();
 
-					return
-				},
-				AssignmentCheckResult::TooFarInFuture => {
-					gum::debug!(
-						target: LOG_TARGET,
-						hash = ?block_hash,
-						?peer_id,
-						"Got an assignment too far in the future",
-					);
-					modify_reputation(
-						&mut self.reputation,
-						network_sender,
-						peer_id,
-						COST_ASSIGNMENT_TOO_FAR_IN_THE_FUTURE,
-					)
-					.await;
-					metrics.on_assignment_far();
-
-					return
-				},
-				AssignmentCheckResult::Bad(error) => {
+				Err(error) => {
 					gum::info!(
 						target: LOG_TARGET,
 						hash = ?block_hash,
@@ -1745,32 +1771,35 @@ impl State {
 			{
 				return
 			}
-
-			let (tx, rx) = oneshot::channel();
-
-			approval_voting_sender
-				.send_message(ApprovalVotingMessage::CheckAndImportApproval(vote.clone(), tx))
-				.await;
-
-			let timer = metrics.time_awaiting_approval_voting();
-			let result = match rx.await {
-				Ok(result) => result,
-				Err(_) => {
-					gum::debug!(target: LOG_TARGET, "The approval voting subsystem is down");
-					return
-				},
-			};
-			drop(timer);
-
-			gum::trace!(
-				target: LOG_TARGET,
-				?peer_id,
-				?result,
-				?vote,
-				"Checked approval",
+			let candidate_hashes = vote
+				.candidate_indices
+				.iter_ones()
+				.flat_map(|candidate_index| {
+					entry
+						.candidates_metadata
+						.get(candidate_index)
+						.map(|(candidate_hash, _, _)| *candidate_hash)
+				})
+				.collect::<Vec<_>>();
+			let pubkey = entry.session_info.validators.get(vote.validator).unwrap();
+			let result = DisputeStatement::Valid(
+				ValidDisputeStatementKind::ApprovalCheckingMultipleCandidates(
+					candidate_hashes.clone(),
+				),
+			)
+			.check_signature(
+				&pubkey,
+				*candidate_hashes.first().unwrap(),
+				entry.session,
+				&vote.signature,
 			);
+
 			match result {
-				ApprovalCheckResult::Accepted => {
+				Ok(_) => {
+					approval_voting_sender
+						.send_message(ApprovalVotingMessage::CheckAndImportApproval(vote.clone()))
+						.await;
+
 					modify_reputation(
 						&mut self.reputation,
 						network_sender,
@@ -1788,7 +1817,7 @@ impl State {
 							.insert(approval_knwowledge_key.0.clone(), approval_knwowledge_key.1);
 					}
 				},
-				ApprovalCheckResult::Bad(error) => {
+				Err(_) => {
 					modify_reputation(
 						&mut self.reputation,
 						network_sender,
@@ -1799,8 +1828,7 @@ impl State {
 					gum::info!(
 						target: LOG_TARGET,
 						?peer_id,
-						%error,
-						"Got a bad approval from peer",
+						"Got a badly signed approval from peer",
 					);
 					metrics.on_approval_bad();
 					return
@@ -2474,12 +2502,13 @@ async fn modify_reputation(
 #[overseer::contextbounds(ApprovalDistribution, prefix = self::overseer)]
 impl ApprovalDistribution {
 	/// Create a new instance of the [`ApprovalDistribution`] subsystem.
-	pub fn new(metrics: Metrics) -> Self {
-		Self { metrics }
+	pub fn new(metrics: Metrics, slot_duration_millis: u64) -> Self {
+		Self { metrics, slot_duration_millis }
 	}
 
 	async fn run<Context>(self, ctx: Context) {
-		let mut state = State::default();
+		let mut state =
+			State { slot_duration_millis: self.slot_duration_millis, ..Default::default() };
 		// According to the docs of `rand`, this is a ChaCha12 RNG in practice
 		// and will always be chosen for strong performance and security properties.
 		let mut rng = rand::rngs::StdRng::from_entropy();

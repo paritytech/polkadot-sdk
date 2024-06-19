@@ -254,7 +254,7 @@ impl<'a> From<&'a SessionInfo> for Config {
 }
 
 /// A trait for producing and checking assignments. Used to mock.
-pub(crate) trait AssignmentCriteria {
+pub trait AssignmentCriteria {
 	fn compute_assignments(
 		&self,
 		keystore: &LocalKeystore,
@@ -276,7 +276,7 @@ pub(crate) trait AssignmentCriteria {
 	) -> Result<DelayTranche, InvalidAssignment>;
 }
 
-pub(crate) struct RealAssignmentCriteria;
+pub struct RealAssignmentCriteria;
 
 impl AssignmentCriteria for RealAssignmentCriteria {
 	fn compute_assignments(
