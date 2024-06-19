@@ -118,8 +118,7 @@ pub mod pallet {
 	/// is arranged as a ring buffer with `block_number % 81` being the index into the `Vec` of
 	/// the oldest hash.
 	#[pallet::storage]
-	#[pallet::getter(fn random_material)]
-	pub(super) type RandomMaterial<T: Config> =
+	pub type RandomMaterial<T: Config> =
 		StorageValue<_, BoundedVec<T::Hash, ConstU32<RANDOM_MATERIAL_LEN>>, ValueQuery>;
 }
 
@@ -226,7 +225,7 @@ mod tests {
 
 			setup_blocks(38);
 
-			let random_material = CollectiveFlip::random_material();
+			let random_material = RandomMaterial::<Test>::get();
 
 			assert_eq!(random_material.len(), 38);
 			assert_eq!(random_material[0], genesis_hash);
@@ -240,7 +239,7 @@ mod tests {
 
 			setup_blocks(81);
 
-			let random_material = CollectiveFlip::random_material();
+			let random_material = RandomMaterial::<Test>::get();
 
 			assert_eq!(random_material.len(), 81);
 			assert_ne!(random_material[0], random_material[1]);
@@ -255,7 +254,7 @@ mod tests {
 
 			setup_blocks(162);
 
-			let random_material = CollectiveFlip::random_material();
+			let random_material = RandomMaterial::<Test>::get();
 
 			assert_eq!(random_material.len(), 81);
 			assert_ne!(random_material[0], random_material[1]);
@@ -276,7 +275,7 @@ mod tests {
 
 			assert_eq!(known_since, 162 - RANDOM_MATERIAL_LEN as u64);
 			assert_ne!(random, H256::zero());
-			assert!(!CollectiveFlip::random_material().contains(&random));
+			assert!(!RandomMaterial::<Test>::get().contains(&random));
 		});
 	}
 }
