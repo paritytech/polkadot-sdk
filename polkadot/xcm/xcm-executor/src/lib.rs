@@ -842,6 +842,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 			DepositReserveAsset { assets, dest, xcm } => {
 				let old_holding = self.holding.clone();
 				let result = Config::TransactionalProcessor::process(|| {
+					// TODO: check JIT_WITHDRAW
 					// we need to do this take/put cycle to solve wildcards and get exact assets to
 					// be weighed
 					let to_weigh = self.holding.saturating_take(assets.clone());
@@ -899,7 +900,22 @@ impl<Config: config::Config> XcmExecutor<Config> {
 			InitiateTeleport { assets, dest, xcm } => {
 				let old_holding = self.holding.clone();
 				let result = (|| -> Result<(), XcmError> {
-					// We must do this first in order to resolve wildcards.
+					// TODO: check JIT_WITHDRAW
+					// we need to do this take/put cycle to solve wildcards and get exact assets to
+					// be weighed
+					let to_weigh = self.holding.saturating_take(assets.clone());
+					self.holding.subsume_assets(to_weigh.clone());
+					let to_weigh_reanchored = Self::reanchored(to_weigh, &dest, None);
+					let mut message_to_weigh =
+						vec![ReceiveTeleportedAsset(to_weigh_reanchored), ClearOrigin];
+					message_to_weigh.extend(xcm.0.clone().into_iter());
+					let (_, fee) =
+						validate_send::<Config::XcmSender>(dest.clone(), Xcm(message_to_weigh))?;
+					// set aside fee to be charged by XcmSender
+					let transport_fee = self.holding.saturating_take(fee.into());
+
+					// now take assets to teleport (excluding transport_fee already withdrawn from
+					// holding)
 					let assets = self.holding.saturating_take(assets);
 					for asset in assets.assets_iter() {
 						// We should check that the asset can actually be teleported out (for this
@@ -913,6 +929,9 @@ impl<Config: config::Config> XcmExecutor<Config> {
 					let reanchored_assets = Self::reanchored(assets.clone(), &dest, None);
 					let mut message = vec![ReceiveTeleportedAsset(reanchored_assets), ClearOrigin];
 					message.extend(xcm.0.into_iter());
+
+					// put back transport_fee in holding register to be charged by XcmSender
+					self.holding.subsume_assets(transport_fee);
 					self.send(dest.clone(), Xcm(message), FeeReason::InitiateTeleport)?;
 
 					for asset in assets.assets_iter() {
