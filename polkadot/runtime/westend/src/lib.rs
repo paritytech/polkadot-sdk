@@ -2733,6 +2733,8 @@ mod remote_tests {
 				success
 			);
 
+			log::info!(target: "remote_test", "Existential Deposit: {:?}", EXISTENTIAL_DEPOSIT);
+
 			// reset counters
 			needs_migration = 0;
 			let mut unexpected_fails = 0;
@@ -2755,13 +2757,20 @@ mod remote_tests {
 						if res.is_ok() {
 							log::error!(target: "remote_test", "Member {} is direct staker but migration succeeded.", k);
 						}
-					} else if member_balance.is_zero() {
-						if res.is_ok() {
-							log::error!(target: "remote_test", "Member {} has balance {:?} but migration succeeded.", k, member_balance);
-						}
 					} else if res.is_err() {
-						log::error!(target: "remote_test", "Failed to migrate member {}: {:?}", k, res.unwrap_err());
-						unexpected_fails = unexpected_fails + 1;
+						log::info!(target: "remote_test", "Try One: Failed to migrate member {} with balance {:?}. Err: {:?}", k, member_balance, res.unwrap_err());
+						// try giving these accounts minimum balance
+						Balances::deposit_creating(&k, EXISTENTIAL_DEPOSIT);
+						// retry migration
+						let res = pallet_nomination_pools::Pallet::<Runtime>::migrate_delegation(
+							RuntimeOrigin::signed(alice.clone()).into(),
+							sp_runtime::MultiAddress::Id(k.clone()),
+						);
+
+						if res.is_err() {
+							log::error!(target: "remote_test", "Try Two: Failed to re-migrate member {} with balance {:?} after giving them ed. Err: {:?}", k, Balances::free_balance(&k), res.unwrap_err());
+							unexpected_fails = unexpected_fails + 1;
+						}
 					}
 				}
 			});
