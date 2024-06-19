@@ -376,7 +376,7 @@ where
 				core_index: *core_index,
 			}) {
 				tracing::error!(target: crate::LOG_TARGET, ?err, "Unable to send block to collation task.");
-				break
+				return
 			}
 		}
 	}
