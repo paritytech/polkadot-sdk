@@ -48,7 +48,7 @@ use cumulus_client_cli::{CollatorOptions, RelayChainMode};
 use cumulus_client_consensus_common::{
 	ParachainBlockImport as TParachainBlockImport, ParachainCandidate, ParachainConsensus,
 };
-use cumulus_client_pov_recovery::RecoveryHandle;
+use cumulus_client_pov_recovery::{RecoveryDelayRange, RecoveryHandle};
 #[allow(deprecated)]
 use cumulus_client_service::old_consensus;
 use cumulus_client_service::{
@@ -413,7 +413,6 @@ where
 	} else {
 		Box::new(overseer_handle.clone())
 	};
-	let is_collator = collator_key.is_some();
 	let relay_chain_slot_duration = Duration::from_secs(6);
 
 	start_relay_chain_tasks(StartRelayChainTasksParams {
@@ -422,11 +421,11 @@ where
 		para_id,
 		relay_chain_interface: relay_chain_interface.clone(),
 		task_manager: &mut task_manager,
-		da_recovery_profile: if is_collator {
-			DARecoveryProfile::Collator
-		} else {
-			DARecoveryProfile::FullNode
-		},
+		// Increase speed of recovery for testing purposes.
+		da_recovery_profile: DARecoveryProfile::Other(RecoveryDelayRange {
+			min: Duration::from_secs(1),
+			max: Duration::from_secs(5),
+		}),
 		import_queue: import_queue_service,
 		relay_chain_slot_duration,
 		recovery_handle,
