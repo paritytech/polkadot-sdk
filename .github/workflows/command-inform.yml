@@ -1,0 +1,15 @@
+name: Inform of new command action
+
+on:
+  issue_comment:
+    types: [created]
+
+jobs:
+  comment:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Inform that the new command exist
+      if: ${{ github.event.issue.pull_request && startsWith(github.event.comment.body, 'bot ') }}
+      run: gh pr comment ${{ github.event.issue.number }} --body 'We are migrating this bot to be a GitHub Action<br/><br/>Please, see the <a href="https://github.com/paritytech/polkadot-sdk/blob/master/.github/commands-readme.md">documentation on how to use it</a>'
+      env:
+        GH_TOKEN: ${{ github.token }}
