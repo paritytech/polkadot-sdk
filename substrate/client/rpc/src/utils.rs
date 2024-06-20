@@ -240,15 +240,15 @@ pub fn spawn_subscription_task(
 
 #[cfg(test)]
 mod tests {
-	use super::pipe_from_stream;
+	use super::{pipe_from_stream, SubscriptionMetrics, SubscriptionParams};
 	use futures::StreamExt;
-	use jsonrpsee::{core::EmptyServerParams, RpcModule, Subscription};
+	use jsonrpsee::{core::EmptyServerParams, ConnectionId, RpcModule, Subscription};
 
 	fn sub_params() -> SubscriptionParams {
 		SubscriptionParams {
 			method: "sub",
 			ip_addr: std::net::IpAddr::V4(std::net::Ipv4Addr::new(127, 0, 0, 1)),
-			conn_id: 0,
+			conn_id: ConnectionId(0),
 			metrics: SubscriptionMetrics::disabled(),
 		}
 	}

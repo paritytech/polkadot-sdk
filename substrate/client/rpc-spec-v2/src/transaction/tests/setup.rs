@@ -26,6 +26,7 @@ use crate::{
 };
 use futures::Future;
 use jsonrpsee::RpcModule;
+use sc_rpc::SubscriptionMetrics;
 use sc_transaction_pool::*;
 use std::{pin::Pin, sync::Arc};
 use substrate_test_runtime_client::{prelude::*, Client};
@@ -114,8 +115,13 @@ pub fn setup_api_tx() -> (
 	let client_mock = Arc::new(ChainHeadMockClient::new(client.clone()));
 	let (task_executor, executor_recv) = TaskExecutorBroadcast::new();
 
-	let tx_api =
-		RpcTransaction::new(client_mock.clone(), pool.clone(), Arc::new(task_executor)).into_rpc();
+	let tx_api = RpcTransaction::new(
+		client_mock.clone(),
+		pool.clone(),
+		Arc::new(task_executor),
+		SubscriptionMetrics::disabled(),
+	)
+	.into_rpc();
 
 	(api, pool, client_mock, tx_api, executor_recv, pool_state)
 }

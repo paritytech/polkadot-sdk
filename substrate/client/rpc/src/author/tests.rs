@@ -79,6 +79,7 @@ impl TestSetup {
 			keystore: self.keystore.clone(),
 			deny_unsafe: DenyUnsafe::No,
 			executor: test_executor(),
+			subscription_metrics: SubscriptionMetrics::disabled(),
 		}
 	}
 
