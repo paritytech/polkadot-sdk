@@ -26,11 +26,7 @@
 //! - on some forks transaction can be invalid (view does not contain it), on other for tx can be
 //!   valid.
 
-use crate::{
-	graph,
-	graph::{ValidatedTransaction, ValidatedTransactionFor},
-	log_xt_debug,
-};
+use crate::{graph, log_xt_debug, LOG_TARGET};
 use itertools::Itertools;
 use parking_lot::RwLock;
 use sp_runtime::transaction_validity::InvalidTransaction;
@@ -46,7 +42,6 @@ use sp_runtime::traits::Block as BlockT;
 use std::time::Instant;
 
 use super::multi_view_listener::MultiViewListener;
-use crate::LOG_TARGET;
 use sp_blockchain::HashAndNumber;
 use sp_runtime::transaction_validity::TransactionValidityError;
 
@@ -116,11 +111,7 @@ where
 	<Block as BlockT>::Hash: Unpin,
 {
 	pub(super) fn new(api: Arc<ChainApi>, listener: Arc<MultiViewListener<ChainApi>>) -> Self {
-		Self {
-			api,
-			listener,
-			xts2: Default::default(),
-		}
+		Self { api, listener, xts2: Default::default() }
 	}
 
 	pub(super) fn watched_xts(&self) -> impl Iterator<Item = Block::Extrinsic> {
@@ -206,22 +197,23 @@ where
 
 		let duration = start.elapsed();
 
-		let (invalid_hashes, _): (Vec<_>, Vec<_>) = validation_results
-			.into_iter()
-			.partition(|(xt_hash, _, validation_result)| match validation_result {
-				Ok(Ok(_)) |
-				Ok(Err(TransactionValidityError::Invalid(InvalidTransaction::Future))) => false,
-				Err(_) |
-				Ok(Err(TransactionValidityError::Unknown(_))) |
-				Ok(Err(TransactionValidityError::Invalid(_))) => {
-					log::debug!(
-						target: LOG_TARGET,
-						"[{:?}]: Purging: invalid: {:?}",
-						xt_hash,
-						validation_result,
-					);
-					true
-				},
+		let (invalid_hashes, _): (Vec<_>, Vec<_>) =
+			validation_results.into_iter().partition(|(xt_hash, _, validation_result)| {
+				match validation_result {
+					Ok(Ok(_)) |
+					Ok(Err(TransactionValidityError::Invalid(InvalidTransaction::Future))) => false,
+					Err(_) |
+					Ok(Err(TransactionValidityError::Unknown(_))) |
+					Ok(Err(TransactionValidityError::Invalid(_))) => {
+						log::debug!(
+							target: LOG_TARGET,
+							"[{:?}]: Purging: invalid: {:?}",
+							xt_hash,
+							validation_result,
+						);
+						true
+					},
+				}
 			});
 
 		let invalid_hashes = invalid_hashes.into_iter().map(|v| v.0).collect::<Vec<_>>();

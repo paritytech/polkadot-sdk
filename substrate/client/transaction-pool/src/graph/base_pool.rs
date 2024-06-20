@@ -239,8 +239,8 @@ impl<Hash: hash::Hash + Member + Serialize, Ex: std::fmt::Debug> BasePool<Hash, 
 	}
 
 	pub fn clear_recently_pruned(&mut self) {
-		self.recently_pruned= Default::default();
-		self.recently_pruned_index= 0;
+		self.recently_pruned = Default::default();
+		self.recently_pruned_index = 0;
 	}
 
 	/// Temporary enables future transactions, runs closure and then restores

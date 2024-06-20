@@ -30,7 +30,6 @@ use futures::prelude::*;
 
 use super::view::{FinishRevalidationWorkerChannels, View};
 
-
 /// Payload from queue to worker.
 enum WorkerPayload<Api, Block>
 where
