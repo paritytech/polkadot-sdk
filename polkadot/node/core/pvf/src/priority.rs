@@ -37,10 +37,34 @@ impl Priority {
 }
 
 /// A priority assigned to execution of a PVF.
-#[derive(Debug, Hash, PartialEq, Eq, Clone, Copy)]
+#[derive(Debug, Hash, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
 pub enum ExecutePriority {
+	/// Low
+	Low,
 	/// Normall
 	Normal,
 	/// Critical
 	Critical,
+}
+
+impl ExecutePriority {
+	/// Returns an iterator over the variants of `ExecutePriority` in order from `Low` to
+	/// `Critical`.
+	pub fn iter() -> impl Iterator<Item = ExecutePriority> {
+		[Self::Low, Self::Normal, Self::Critical].iter().copied()
+	}
+
+	/// Returns the next lower priority level, or `None` if `self` is `Low`.
+	pub fn lower(&self) -> Option<Self> {
+		match self {
+			Self::Critical => Some(Self::Normal),
+			Self::Normal => Some(Self::Low),
+			Self::Low => None,
+		}
+	}
+
+	/// Returns `true` if `self` is `Normal`
+	pub fn is_normal(&self) -> bool {
+		*self == Self::Normal
+	}
 }
