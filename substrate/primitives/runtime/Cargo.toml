@@ -34,6 +34,7 @@ sp-io = { path = "../io", default-features = false }
 sp-std = { path = "../std", default-features = false }
 sp-weights = { path = "../weights", default-features = false }
 docify = "0.2.8"
+tracing = { version = "0.1.37", default-features = false }
 
 simple-mermaid = { version = "0.1.1", optional = true }
 
@@ -69,6 +70,7 @@ std = [
 	"sp-std/std",
 	"sp-tracing/std",
 	"sp-weights/std",
+	"tracing/std",
 ]
 
 # Serde support without relying on std features.

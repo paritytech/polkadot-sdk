@@ -19,6 +19,9 @@
 //!
 //! See [`RuntimeLogger`] for more docs.
 
+use log::LevelFilter;
+use tracing::{span, Level};
+
 /// Runtime logger implementation - `log` crate backend.
 ///
 /// The logger should be initialized if you want to display
@@ -39,6 +42,7 @@ impl RuntimeLogger {
 	pub fn init() {
 		static LOGGER: RuntimeLogger = RuntimeLogger;
 		let _ = log::set_logger(&LOGGER);
+		tracing::dispatcher::set_global_default(tracing::Dispatch::new(RuntimeLogger)).unwrap();
 
 		// Use the same max log level as used by the host.
 		log::set_max_level(sp_io::logging::max_level().into());
@@ -63,6 +67,38 @@ impl log::Log for RuntimeLogger {
 	fn flush(&self) {}
 }
 
+impl tracing::Subscriber for RuntimeLogger {
+	fn enabled(&self, metadata: &tracing::Metadata<'_>) -> bool {
+		let level = match *metadata.level() {
+			Level::DEBUG => LevelFilter::Debug,
+			Level::ERROR => LevelFilter::Error,
+			Level::INFO => LevelFilter::Info,
+			Level::TRACE => LevelFilter::Trace,
+			Level::WARN => LevelFilter::Warn,
+		};
+
+		true
+	}
+
+	fn new_span(&self, _: &span::Attributes<'_>) -> span::Id {
+		span::Id::from_u64(1)
+	}
+
+	fn record(&self, _: &span::Id, _: &span::Record<'_>) {}
+
+	fn record_follows_from(&self, _: &span::Id, _: &span::Id) {}
+
+	fn event(&self, _: &tracing::Event<'_>) {}
+
+	fn enter(&self, _: &span::Id) {}
+
+	fn exit(&self, _: &span::Id) {}
+
+	fn max_level_hint(&self) -> Option<tracing::level_filters::LevelFilter> {
+		Some(tracing::level_filters::LevelFilter::TRACE)
+	}
+}
+
 #[cfg(test)]
 mod tests {
 	use sp_api::ProvideRuntimeApi;
@@ -75,7 +111,7 @@ mod tests {
 	fn ensure_runtime_logger_respects_host_max_log_level() {
 		if env::var("RUN_TEST").is_ok() {
 			sp_tracing::try_init_simple();
-			log::set_max_level(log::LevelFilter::from_str(&env::var("RUST_LOG").unwrap()).unwrap());
+			// log::set_max_level(log::LevelFilter::from(&env::var("RUST_LOG").unwrap()).unwrap());
 
 			let client = TestClientBuilder::new().build();
 			let runtime_api = client.runtime_api();
@@ -94,6 +130,8 @@ mod tests {
 
 				let output = String::from_utf8(output.stderr).unwrap();
 				assert!(output.contains("Hey I'm runtime") == *should_print);
+				assert!(output.contains("THIS IS TRACING") == *should_print);
+				assert!(output.contains("Hey, I'm tracing") == *should_print);
 			}
 		}
 	}

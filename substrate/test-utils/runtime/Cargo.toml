@@ -54,6 +54,7 @@ array-bytes = { version = "6.2.2", optional = true }
 serde_json = { workspace = true, features = ["alloc"] }
 log = { workspace = true }
 hex-literal = { version = "0.4.1" }
+tracing = { version = "0.1.37", default-features = false }
 
 [dev-dependencies]
 futures = "0.3.30"
@@ -113,6 +114,7 @@ std = [
 	"sp-version/std",
 	"substrate-wasm-builder",
 	"trie-db/std",
+	"tracing/std",
 ]
 
 # Special feature to disable logging
