@@ -2532,8 +2532,10 @@ fn fatp_ready_txs_are_provided_in_valid_order() {
 	assert_pool_status!(header02b.hash(), &pool, 2, 0);
 
 	let mut ready_iterator = pool.ready_at(header02b.hash()).now_or_never().unwrap();
-	log::info!("--> {:?}", ready_iterator.next());
-	log::info!("--> {:?}", ready_iterator.next());
+	let ready01 = ready_iterator.next();
+	let ready02 = ready_iterator.next();
+	assert_eq!(ready01.unwrap().hash, api.hash_and_length(&xt1).0);
+	assert_eq!(ready02.unwrap().hash, api.hash_and_length(&xt2).0);
 
 	// assert_eq!(pool.mempool_len(), (0, 1));
 	//
