@@ -104,8 +104,6 @@ where
 	api: Arc<ChainApi>,
 	//could be removed after removing watched field (and adding listener into tx)
 	listener: Arc<MultiViewListener<ChainApi>>,
-	pub(super) pending_revalidation_result:
-		RwLock<Option<Vec<(ExtrinsicHash<ChainApi>, ValidatedTransactionFor<ChainApi>)>>>,
 	xts2: RwLock<HashMap<graph::ExtrinsicHash<ChainApi>, Arc<TxInMemPool<Block>>>>,
 }
 
@@ -121,7 +119,6 @@ where
 		Self {
 			api,
 			listener,
-			pending_revalidation_result: Default::default(),
 			xts2: Default::default(),
 		}
 	}
@@ -209,7 +206,7 @@ where
 
 		let duration = start.elapsed();
 
-		let (invalid_hashes, revalidated): (Vec<_>, Vec<_>) = validation_results
+		let (invalid_hashes, _): (Vec<_>, Vec<_>) = validation_results
 			.into_iter()
 			.partition(|(xt_hash, _, validation_result)| match validation_result {
 				Ok(Ok(_)) |
@@ -229,38 +226,9 @@ where
 
 		let invalid_hashes = invalid_hashes.into_iter().map(|v| v.0).collect::<Vec<_>>();
 
-		//todo: is it ok to overwrite validity?
-		let pending_revalidation_result = revalidated
-			.into_iter()
-			.filter_map(|(xt_hash, xt, transaction_validity)| match transaction_validity {
-				Ok(Ok(valid_transaction)) => Some((xt_hash, xt, valid_transaction)),
-				_ => None,
-			})
-			.map(|(xt_hash, xt, valid_transaction)| {
-				let xt_len = self.api.hash_and_length(&xt.tx).1;
-				let block_number = finalized_block.number.into().as_u64();
-				xt.validated_at.store(block_number, atomic::Ordering::Relaxed);
-				(
-					xt_hash,
-					ValidatedTransaction::valid_at(
-						block_number,
-						xt_hash,
-						xt.source,
-						xt.tx.clone(),
-						xt_len,
-						valid_transaction,
-					),
-				)
-			})
-			.collect::<Vec<_>>();
-
-		let pending_revalidation_len = pending_revalidation_result.len();
-		log_xt_debug!(data: tuple, target: LOG_TARGET, &pending_revalidation_result,"[{:?}] purge_transactions, revalidated: {:?}");
-		*self.pending_revalidation_result.write() = Some(pending_revalidation_result);
-
 		log::info!(
 			target: LOG_TARGET,
-			"purge_transactions: at {finalized_block:?} count:{count:?} purged:{:?} revalidated:{pending_revalidation_len:?} took {duration:?}", invalid_hashes.len(),
+			"purge_transactions: at {finalized_block:?} count:{count:?} purged:{:?} took {duration:?}", invalid_hashes.len(),
 		);
 
 		invalid_hashes

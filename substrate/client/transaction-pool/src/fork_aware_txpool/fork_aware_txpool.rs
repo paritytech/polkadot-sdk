@@ -745,13 +745,6 @@ where
 		let new_view = self.build_new_view(best_view, hash_and_number, tree_route).await;
 
 		if let Some(view) = new_view {
-			if let Some(pending_revalidation_result) =
-				self.mempool.pending_revalidation_result.write().take()
-			{
-				log_xt_debug!(data: tuple, target: LOG_TARGET, &pending_revalidation_result, "[{:?}]  resubmitted pending revalidation {:?}");
-				view.pool.resubmit(HashMap::from_iter(pending_revalidation_result.into_iter()));
-			}
-
 			{
 				let view = view.clone();
 				self.ready_poll.lock().trigger(hash_and_number.hash, move || {
