@@ -1,4 +1,4 @@
-title: CheckWeight - account for extrinsic len as proof size
+title: Use real rust type for pallet alias in `runtime` macro
 
 doc:
   - audience: Runtime Dev
