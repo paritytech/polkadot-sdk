@@ -413,8 +413,14 @@ pub async fn start_rococo_parachain_node<Net: NetworkBackend<Block, Hash>>(
 	polkadot_config: Configuration,
 	collator_options: CollatorOptions,
 	para_id: ParaId,
+	use_experimental_slot_based: bool,
 	hwbench: Option<sc_sysinfo::HwBench>,
 ) -> sc_service::error::Result<(TaskManager, Arc<ParachainClient<FakeRuntimeApi>>)> {
+	let consensus_starter = if use_experimental_slot_based {
+		start_slot_based_aura_consensus
+	} else {
+		start_lookahead_aura_consensus
+	};
 	start_node_impl::<FakeRuntimeApi, _, _, _, Net>(
 		parachain_config,
 		polkadot_config,
@@ -423,7 +429,7 @@ pub async fn start_rococo_parachain_node<Net: NetworkBackend<Block, Hash>>(
 		para_id,
 		build_parachain_rpc_extensions::<FakeRuntimeApi>,
 		build_aura_import_queue,
-		start_lookahead_aura_consensus,
+		consensus_starter,
 		hwbench,
 	)
 	.await
