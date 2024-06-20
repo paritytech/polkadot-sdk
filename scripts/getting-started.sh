@@ -79,6 +79,7 @@ if prompt "\n🦀 Setup the Rust environment (e.g. WASM support)?"; then
     rustup default stable
     rustup update
     rustup target add wasm32-unknown-unknown
+    rustup component add rust-src
 
     rustup update nightly
     rustup target add wasm32-unknown-unknown --toolchain nightly
