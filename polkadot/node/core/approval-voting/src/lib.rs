@@ -1558,8 +1558,8 @@ pub async fn start_approval_worker<
 	let backend = DbBackend::new(db.clone(), approval_voting.db_config);
 	let spawner = approval_voting.spawner.clone();
 	spawner.spawn_blocking(
-		"approval-voting-rewrite-db",
-		Some("approval-voting-rewrite-subsystem"),
+		"approval-voting-parallel-db",
+		Some("approval-voting-parallel-subsystem"),
 		Box::pin(async move {
 			run_approval_on_worker_thread(
 				approval_work,

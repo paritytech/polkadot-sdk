@@ -39,8 +39,9 @@ use super::{HeaderProvider, HeaderProviderProvider};
 use futures::channel::oneshot;
 use polkadot_node_primitives::MAX_FINALITY_LAG as PRIMITIVES_MAX_FINALITY_LAG;
 use polkadot_node_subsystem::messages::{
-	ApprovalDistributionMessage, ApprovalVotingMessage, ChainSelectionMessage,
-	DisputeCoordinatorMessage, HighestApprovedAncestorBlock,
+	approval_voting_parallel_enabled, ApprovalDistributionMessage, ApprovalVotingMessage,
+	ApprovalVotingParallelMessage, ChainSelectionMessage, DisputeCoordinatorMessage,
+	HighestApprovedAncestorBlock,
 };
 use polkadot_node_subsystem_util::metrics::{self, prometheus};
 use polkadot_overseer::{AllMessages, Handle};
@@ -477,12 +478,21 @@ where
 		if let Some(spawn_handle) = &self.spawn_handle {
 			let mut overseer_handle = self.overseer.clone();
 			let lag_update_task = async move {
-				overseer_handle
-					.send_msg(
-						ApprovalDistributionMessage::ApprovalCheckingLagUpdate(lag),
-						std::any::type_name::<Self>(),
-					)
-					.await;
+				if approval_voting_parallel_enabled() {
+					overseer_handle
+						.send_msg(
+							ApprovalVotingParallelMessage::ApprovalCheckingLagUpdate(lag),
+							std::any::type_name::<Self>(),
+						)
+						.await;
+				} else {
+					overseer_handle
+						.send_msg(
+							ApprovalDistributionMessage::ApprovalCheckingLagUpdate(lag),
+							std::any::type_name::<Self>(),
+						)
+						.await;
+				}
 			};
 
 			spawn_handle.spawn(

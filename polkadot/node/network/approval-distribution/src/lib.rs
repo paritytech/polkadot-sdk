@@ -68,7 +68,8 @@ use std::{
 	time::Duration,
 };
 
-mod metrics;
+/// Approval distribution metrics.
+pub mod metrics;
 
 #[cfg(test)]
 mod tests;
