@@ -121,6 +121,7 @@ default:
   before_script:
     - mkdir ~/.forklift
     - cp .forklift/config-gitlab.toml ~/.forklift/config.toml
+    - cat .forklift/config-gitlab.toml > .forklift/config.toml
     - >
       if [ "$FORKLIFT_BYPASS" != "true" ]; then
         echo "FORKLIFT_BYPASS not set"; 
