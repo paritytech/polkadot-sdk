@@ -27,8 +27,7 @@ cat <<EOF
 🚀 We will be setting up an example template and its environment for you to experiment with.
 EOF
 
-# MacOS
-
+# Determine OS
 os_name=$(uname -s)
 
 if [ "$os_name" = "Darwin" ]; then
@@ -54,7 +53,8 @@ if [ "$os_name" = "Darwin" ]; then
         echo "⚙️ Assuming cmake, openssl and protobuf are present."
     fi
 elif [ "$os_name" = "Linux" ]; then
-    echo "Running on Linux"
+    echo "Running on Linux. TODO: implement."
+    exit 0
 else
     echo "Unknown operating system. Aborting."
     exit 1
