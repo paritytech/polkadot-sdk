@@ -23,7 +23,11 @@ job_name = "$CI_JOB_NAME"
 project_name = "$CI_PROJECT_PATH"
 
 [storage]
-type = "gcs"
+type = "s3"
 
-[storage.gcs]
-bucketName = "parity-ci-forklift"
+[storage.s3]
+accessKeyId = "placeholder"
+bucketName = "placeholder"
+concurrency = 10
+endpointUrl = "placeholder"
+secretAccessKey = "placeholder"
