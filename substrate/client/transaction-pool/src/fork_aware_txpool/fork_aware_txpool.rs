@@ -770,7 +770,11 @@ where
 			tree_route
 		);
 		let mut view = if let Some(origin_view) = origin_view {
-			View::new_from_other(&origin_view, at)
+			let mut view = View::new_from_other(&origin_view, at);
+			if !tree_route.retracted().is_empty() {
+				view.pool.clear_recently_pruned();
+			}
+			view
 		} else {
 			View::new(self.api.clone(), at.clone(), self.options.clone())
 		};

@@ -446,9 +446,14 @@ impl<B: ChainApi> Pool<B> {
 		(hash, validity)
 	}
 
-	/// get a reference to the underlying validated pool.
+	/// Get a reference to the underlying validated pool.
 	pub fn validated_pool(&self) -> &ValidatedPool<B> {
 		&self.validated_pool
+	}
+
+	/// Clears the recently pruned transaction in validated pool.
+	pub fn clear_recently_pruned(&mut self) {
+		self.validated_pool.pool.write().clear_recently_pruned();
 	}
 }
 
