@@ -402,8 +402,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#251" id="251">251</a>
 <a href="#252" id="252">252</a>
 <a href="#253" id="253">253</a>
-<a href="#254" id="254">254</a>
-<a href="#255" id="255">255</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -438,12 +436,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	service::{make_service_fn, service_fn},
 };
 <span class="kw">use </span>jsonrpsee::{
-	server::{
-		middleware::http::ProxyGetRequestLayer, stop_channel, ws, PingConfig, StopHandle,
-		TowerServiceBuilder,
-	},
+	server::{stop_channel, ws, PingConfig, StopHandle, TowerServiceBuilder},
 	Methods, RpcModule,
 };
+<span class="kw">use </span>middleware::NodeHealthProxyLayer;
 <span class="kw">use </span>tokio::net::TcpListener;
 <span class="kw">use </span>tower::Service;
 <span class="kw">use </span>utils::{build_rpc_api, format_cors, get_proxy_ip, host_filtering, try_into_cors};
@@ -538,8 +534,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">let </span>http_middleware = tower::ServiceBuilder::new()
 		.option_layer(host_filter)
-		<span class="comment">// Proxy `GET /health` requests to internal `system_health` method.
-		</span>.layer(ProxyGetRequestLayer::new(<span class="string">"/health"</span>, <span class="string">"system_health"</span>)<span class="question-mark">?</span>)
+		<span class="comment">// Proxy `GET /health, /health/readiness` requests to the internal `system_health` method.
+		</span>.layer(NodeHealthProxyLayer::default())
 		.layer(try_into_cors(cors)<span class="question-mark">?</span>);
 
 	<span class="kw">let </span><span class="kw-2">mut </span>builder = jsonrpsee::server::Server::builder()

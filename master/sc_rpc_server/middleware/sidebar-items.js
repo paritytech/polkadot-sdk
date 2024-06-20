@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["Metrics","Middleware","MiddlewareLayer","RateLimit","RpcMetrics"]};
+window.SIDEBAR_ITEMS = {"struct":["Metrics","Middleware","MiddlewareLayer","NodeHealthProxy","NodeHealthProxyLayer","RateLimit","RpcMetrics"]};
