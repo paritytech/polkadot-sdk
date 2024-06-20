@@ -21,7 +21,7 @@
 use crate::graph;
 use futures::prelude::*;
 use parking_lot::RwLock;
-use std::{collections::HashMap, sync::Arc};
+use std::{collections::HashMap, sync::Arc, time::Instant};
 
 use crate::graph::ExtrinsicHash;
 use sc_transaction_pool_api::{PoolStatus, TransactionSource};
@@ -356,5 +356,22 @@ where
 		}
 
 		finalized_xts
+	}
+
+	pub(crate) async fn finish_background_revalidations(&self) {
+		let start = Instant::now();
+		let futures = {
+			let views = self.views.read();
+			let futs = views
+				.iter()
+				.map(|(_, view)| {
+					let view = view.clone();
+					async move { view.finish_revalidation().await }
+				})
+				.collect::<Vec<_>>();
+			futs
+		};
+		futures::future::join_all(futures).await;
+		log::debug!(target:LOG_TARGET,"finish_background_revalidations took {:?}", start.elapsed());
 	}
 }

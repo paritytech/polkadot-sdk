@@ -20,7 +20,7 @@
 
 use std::{marker::PhantomData, pin::Pin, sync::Arc};
 
-use crate::graph::ChainApi;
+use crate::{graph::ChainApi, LOG_TARGET};
 use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedReceiver, TracingUnboundedSender};
 use sp_blockchain::HashAndNumber;
 use sp_runtime::traits::Block as BlockT;
@@ -28,18 +28,16 @@ use sp_runtime::traits::Block as BlockT;
 use super::txmempool::TxMemPool;
 use futures::prelude::*;
 
-const LOG_TARGET: &str = "txpool";
+use super::view::{FinishRevalidationWorkerChannels, View};
 
-// /// Payload from queue to worker.
-// struct WorkerPayload<Api: ChainApi> {
-// 	view: Arc<View<Api>>,
-// }
+
 /// Payload from queue to worker.
 enum WorkerPayload<Api, Block>
 where
 	Block: BlockT,
 	Api: ChainApi<Block = Block> + 'static,
 {
+	RevalidateView(Arc<View<Api>>, FinishRevalidationWorkerChannels<Api>),
 	RevalidateMempool(Arc<TxMemPool<Api, Block>>, HashAndNumber<Block>),
 }
 
@@ -77,6 +75,8 @@ where
 				break;
 			};
 			match payload {
+				WorkerPayload::RevalidateView(view, worker_channels) =>
+					(*view).revalidate_later(worker_channels).await,
 				WorkerPayload::RevalidateMempool(mempool, finalized_hash_and_number) =>
 					(*mempool).purge_transactions(finalized_hash_and_number).await,
 			};
@@ -86,8 +86,8 @@ where
 
 /// Revalidation queue.
 ///
-/// Can be configured background (`new_background`)
-/// or immediate (just `new`).
+/// Can be configured with background (`new_background`) or immediate (just `new`).
+/// Revalidates views and mempool.
 pub struct RevalidationQueue<Api, Block>
 where
 	Api: ChainApi<Block = Block> + 'static,
@@ -113,6 +113,44 @@ where
 		(Self { background: Some(to_worker) }, RevalidationWorker::new().run(from_queue).boxed())
 	}
 
+	/// Queue the view for later revalidation.
+	///
+	/// If queue configured with background worker, this will return immediately.
+	/// If queue configured without background worker, this will resolve after
+	/// revalidation is actually done.
+	pub async fn revalidate_later(
+		&self,
+		view: Arc<View<Api>>,
+		finish_revalidation_worker_channels: FinishRevalidationWorkerChannels<Api>,
+	) {
+		log::info!(
+			target: LOG_TARGET,
+			"revalidation_queue::revalidate_later: Sent view to revalidation queue {:?}",
+			view.at
+		);
+
+		if let Some(ref to_worker) = self.background {
+			log::info!(
+				target: LOG_TARGET,
+				"revalidation_queue::revalidate_later: revalidation sent",
+			);
+			if let Err(e) = to_worker.unbounded_send(WorkerPayload::RevalidateView(
+				view,
+				finish_revalidation_worker_channels,
+			)) {
+				log::warn!(target: LOG_TARGET, "revalidation_queue::revalidate_later: Failed to update background worker: {:?}", e);
+			}
+		} else {
+			view.revalidate_later(finish_revalidation_worker_channels).await
+		}
+	}
+
+	/// Revalidates mempool.
+	///
+	/// Removes invalid transactions from the mempool.
+	/// If queue configured with background worker, this will return immediately.
+	/// If queue configured without background worker, this will resolve after
+	/// revalidation is actually done.
 	pub async fn purge_transactions_later(
 		&self,
 		mempool: Arc<TxMemPool<Api, Block>>,

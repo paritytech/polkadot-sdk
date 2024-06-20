@@ -752,9 +752,14 @@ where
 				view.pool.resubmit(HashMap::from_iter(pending_revalidation_result.into_iter()));
 			}
 
-			self.ready_poll.lock().trigger(hash_and_number.hash, move || {
-				Box::from(view.pool.validated_pool().ready())
-			});
+			{
+				let view = view.clone();
+				self.ready_poll.lock().trigger(hash_and_number.hash, move || {
+					Box::from(view.pool.validated_pool().ready())
+				});
+			}
+
+			View::start_background_revalidation(view, self.revalidation_queue.clone()).await;
 		}
 	}
 
@@ -1080,6 +1085,9 @@ where
 {
 	async fn maintain(&self, event: ChainEvent<Self::Block>) {
 		let start = Instant::now();
+
+		self.view_store.finish_background_revalidations().await;
+
 		let prev_finalized_block = self.enactment_state.lock().recent_finalized_block();
 
 		let compute_tree_route = |from, to| -> Result<TreeRoute<Block>, String> {
@@ -1140,7 +1148,7 @@ where
 			start.elapsed()
 		);
 
-		self.verify().await;
+		// self.verify().await;
 
 		()
 	}
