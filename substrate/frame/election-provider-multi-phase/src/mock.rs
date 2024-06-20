@@ -433,7 +433,7 @@ impl Convert<usize, BalanceOf<Runtime>> for Runtime {
 	}
 }
 
-impl<LocalCall> frame_system::offchain::SendTransactionTypes<LocalCall> for Runtime
+impl<LocalCall> frame_system::offchain::CreateTransactionBase<LocalCall> for Runtime
 where
 	RuntimeCall: From<LocalCall>,
 {
