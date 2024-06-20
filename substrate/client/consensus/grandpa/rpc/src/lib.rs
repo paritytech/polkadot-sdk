@@ -283,7 +283,7 @@ mod tests {
 			voter_state,
 			justification_stream,
 			finality_proof_provider,
-			Metrics::empty(),
+			SubscriptionMetrics::disabled(),
 		)
 		.into_rpc();
 
