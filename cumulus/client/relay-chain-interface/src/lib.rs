@@ -208,6 +208,14 @@ pub trait RelayChainInterface: Send + Sync {
 		occupied_core_assumption: OccupiedCoreAssumption,
 	) -> RelayChainResult<Option<ValidationCodeHash>>;
 
+	/// Yields information on all availability cores as relevant to the child block.
+	///
+	/// Cores are either free, scheduled or occupied. Free cores can have paras assigned to them.
+	async fn availability_cores(
+		&self,
+		relay_parent: PHash,
+	) -> RelayChainResult<Vec<CoreState<PHash, BlockNumber>>>;
+
 	/// Get the receipts of all candidates pending availability for this para_id.
 	async fn candidates_pending_availability(
 		&self,
@@ -217,14 +225,6 @@ pub trait RelayChainInterface: Send + Sync {
 
 	/// Get the runtime version of the relay chain.
 	async fn version(&self, relay_parent: PHash) -> RelayChainResult<RuntimeVersion>;
-
-	/// Yields information on all availability cores as relevant to the child block.
-	///
-	/// Cores are either free, scheduled or occupied. Free cores can have paras assigned to them.
-	async fn availability_cores(
-		&self,
-		relay_parent: PHash,
-	) -> RelayChainResult<Vec<CoreState<PHash, BlockNumber>>>;
 }
 
 #[async_trait]

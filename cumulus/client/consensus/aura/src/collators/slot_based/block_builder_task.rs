@@ -263,12 +263,10 @@ where
 			else {
 				continue
 			};
-
 			let parent_header = parent.header;
 			let parent_hash = parent.hash;
 
 			// We mainly call this to inform users at genesis if there is a mismatch with the
-			// on-chain data.
 			collator.collator_service().check_block_status(parent_hash, &parent_header);
 
 			let slot_claim = match crate::collators::can_build_upon::<_, _, P>(

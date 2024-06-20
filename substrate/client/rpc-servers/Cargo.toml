@@ -25,6 +25,7 @@ ip_network = "0.4.1"
 jsonrpsee = { version = "0.22", features = ["server"] }
 log = { workspace = true, default-features = true }
 prometheus-endpoint = { package = "substrate-prometheus-endpoint", path = "../../utils/prometheus" }
+serde = { workspace = true }
 serde_json = { workspace = true, default-features = true }
 tokio = { version = "1.22.0", features = ["parking_lot"] }
 tower = { version = "0.4.13", features = ["util"] }

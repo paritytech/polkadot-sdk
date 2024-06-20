@@ -239,6 +239,13 @@ impl RelayChainInterface for RelayChainRpcInterface {
 		Ok(imported_headers_stream.boxed())
 	}
 
+	async fn availability_cores(
+		&self,
+		relay_parent: RelayHash,
+	) -> RelayChainResult<Vec<CoreState<RelayHash, BlockNumber>>> {
+		self.rpc_client.parachain_host_availability_cores(relay_parent).await
+	}
+
 	async fn candidates_pending_availability(
 		&self,
 		hash: RelayHash,
@@ -251,12 +258,5 @@ impl RelayChainInterface for RelayChainRpcInterface {
 
 	async fn version(&self, relay_parent: RelayHash) -> RelayChainResult<RuntimeVersion> {
 		self.rpc_client.runtime_version(relay_parent).await
-	}
-
-	async fn availability_cores(
-		&self,
-		relay_parent: RelayHash,
-	) -> RelayChainResult<Vec<CoreState<RelayHash, BlockNumber>>> {
-		self.rpc_client.parachain_host_availability_cores(relay_parent).await
 	}
 }

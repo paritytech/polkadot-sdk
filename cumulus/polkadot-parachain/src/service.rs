@@ -423,7 +423,7 @@ pub async fn start_rococo_parachain_node<Net: NetworkBackend<Block, Hash>>(
 		para_id,
 		build_parachain_rpc_extensions::<FakeRuntimeApi>,
 		build_aura_import_queue,
-		start_lookahead_aura_consensus,
+		start_slot_based_aura_consensus,
 		hwbench,
 	)
 	.await
@@ -948,6 +948,7 @@ where
 
 	Ok(())
 }
+
 /// Start consensus using the lookahead aura collator.
 fn start_slot_based_aura_consensus(
 	client: Arc<ParachainClient<FakeRuntimeApi>>,
