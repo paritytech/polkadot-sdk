@@ -123,7 +123,7 @@ impl TestHost {
 				),
 				TEST_EXECUTION_TIMEOUT,
 				params.encode(),
-				polkadot_node_core_pvf::Priority::Normal,
+				polkadot_node_core_pvf::PreparePriority::Normal,
 				polkadot_node_core_pvf::ExecutePriority::Normal,
 				result_tx,
 			)

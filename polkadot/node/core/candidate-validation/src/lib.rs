@@ -675,7 +675,7 @@ async fn validate_candidate_exhaustive(
 					pvf,
 					exec_timeout,
 					params.encode(),
-					polkadot_node_core_pvf::Priority::Normal,
+					polkadot_node_core_pvf::PreparePriority::Normal,
 					polkadot_node_core_pvf::ExecutePriority::Normal,
 				)
 				.await
@@ -688,7 +688,7 @@ async fn validate_candidate_exhaustive(
 					params,
 					executor_params,
 					PVF_APPROVAL_EXECUTION_RETRY_DELAY,
-					polkadot_node_core_pvf::Priority::Critical,
+					polkadot_node_core_pvf::PreparePriority::Critical,
 					polkadot_node_core_pvf::ExecutePriority::Normal,
 				)
 				.await,
@@ -773,7 +773,7 @@ trait ValidationBackend {
 		exec_timeout: Duration,
 		encoded_params: Vec<u8>,
 		// The priority for the preparation job.
-		prepare_priority: polkadot_node_core_pvf::Priority,
+		prepare_priority: polkadot_node_core_pvf::PreparePriority,
 		// The priority for the preparation job.
 		execute_priority: polkadot_node_core_pvf::ExecutePriority,
 	) -> Result<WasmValidationResult, ValidationError>;
@@ -794,7 +794,7 @@ trait ValidationBackend {
 		executor_params: ExecutorParams,
 		retry_delay: Duration,
 		// The priority for the preparation job.
-		prepare_priority: polkadot_node_core_pvf::Priority,
+		prepare_priority: polkadot_node_core_pvf::PreparePriority,
 		// The priority for the preparation job.
 		execute_priority: polkadot_node_core_pvf::ExecutePriority,
 	) -> Result<WasmValidationResult, ValidationError> {
@@ -920,7 +920,7 @@ impl ValidationBackend for ValidationHost {
 		exec_timeout: Duration,
 		encoded_params: Vec<u8>,
 		// The priority for the preparation job.
-		prepare_priority: polkadot_node_core_pvf::Priority,
+		prepare_priority: polkadot_node_core_pvf::PreparePriority,
 		// The priority for the preparation job.
 		execute_priority: polkadot_node_core_pvf::ExecutePriority,
 	) -> Result<WasmValidationResult, ValidationError> {

@@ -24,7 +24,7 @@ use crate::{
 	artifacts::{ArtifactId, ArtifactPathId, ArtifactState, Artifacts, ArtifactsCleanupConfig},
 	execute::{self, PendingExecutionRequest},
 	metrics::Metrics,
-	prepare, ExecutePriority, Priority, SecurityStatus, ValidationError, LOG_TARGET,
+	prepare, ExecutePriority, PreparePriority, SecurityStatus, ValidationError, LOG_TARGET,
 };
 use always_assert::never;
 use futures::{
@@ -109,7 +109,7 @@ impl ValidationHost {
 		pvf: PvfPrepData,
 		exec_timeout: Duration,
 		params: Vec<u8>,
-		priority: Priority,
+		priority: PreparePriority,
 		execute_priority: ExecutePriority,
 		result_tx: ResultSender,
 	) -> Result<(), String> {
@@ -150,7 +150,7 @@ struct ExecutePvfInputs {
 	pvf: PvfPrepData,
 	exec_timeout: Duration,
 	params: Vec<u8>,
-	priority: Priority,
+	priority: PreparePriority,
 	execute_priority: ExecutePriority,
 	result_tx: ResultSender,
 }
@@ -517,8 +517,11 @@ async fn handle_precheck_pvf(
 		}
 	} else {
 		artifacts.insert_preparing(artifact_id, vec![result_sender]);
-		send_prepare(prepare_queue, prepare::ToQueue::Enqueue { priority: Priority::Normal, pvf })
-			.await?;
+		send_prepare(
+			prepare_queue,
+			prepare::ToQueue::Enqueue { priority: PreparePriority::Normal, pvf },
+		)
+		.await?;
 	}
 	Ok(())
 }
@@ -713,7 +716,7 @@ async fn handle_heads_up(
 						send_prepare(
 							prepare_queue,
 							prepare::ToQueue::Enqueue {
-								priority: Priority::Normal,
+								priority: PreparePriority::Normal,
 								pvf: active_pvf,
 							},
 						)
@@ -727,7 +730,7 @@ async fn handle_heads_up(
 
 			send_prepare(
 				prepare_queue,
-				prepare::ToQueue::Enqueue { priority: Priority::Normal, pvf: active_pvf },
+				prepare::ToQueue::Enqueue { priority: PreparePriority::Normal, pvf: active_pvf },
 			)
 			.await?;
 		}
@@ -873,7 +876,7 @@ async fn enqueue_prepare_for_execute(
 	prepare_queue: &mut mpsc::Sender<prepare::ToQueue>,
 	awaiting_prepare: &mut AwaitingPrepare,
 	pvf: PvfPrepData,
-	priority: Priority,
+	priority: PreparePriority,
 	artifact_id: ArtifactId,
 	pending_execution_request: PendingExecutionRequest,
 ) -> Result<(), Fatal> {
@@ -1254,7 +1257,7 @@ pub(crate) mod tests {
 			PvfPrepData::from_discriminator(1),
 			TEST_EXECUTION_TIMEOUT,
 			b"pvf1".to_vec(),
-			Priority::Normal,
+			PreparePriority::Normal,
 			ExecutePriority::Normal,
 			result_tx,
 		)
@@ -1266,7 +1269,7 @@ pub(crate) mod tests {
 			PvfPrepData::from_discriminator(1),
 			TEST_EXECUTION_TIMEOUT,
 			b"pvf1".to_vec(),
-			Priority::Critical,
+			PreparePriority::Critical,
 			ExecutePriority::Normal,
 			result_tx,
 		)
@@ -1278,7 +1281,7 @@ pub(crate) mod tests {
 			PvfPrepData::from_discriminator(2),
 			TEST_EXECUTION_TIMEOUT,
 			b"pvf2".to_vec(),
-			Priority::Normal,
+			PreparePriority::Normal,
 			ExecutePriority::Normal,
 			result_tx,
 		)
@@ -1420,7 +1423,7 @@ pub(crate) mod tests {
 			PvfPrepData::from_discriminator(1),
 			TEST_EXECUTION_TIMEOUT,
 			b"pvf2".to_vec(),
-			Priority::Critical,
+			PreparePriority::Critical,
 			ExecutePriority::Normal,
 			result_tx,
 		)
@@ -1468,7 +1471,7 @@ pub(crate) mod tests {
 			PvfPrepData::from_discriminator(2),
 			TEST_EXECUTION_TIMEOUT,
 			b"pvf2".to_vec(),
-			Priority::Critical,
+			PreparePriority::Critical,
 			ExecutePriority::Normal,
 			result_tx,
 		)
@@ -1571,7 +1574,7 @@ pub(crate) mod tests {
 			PvfPrepData::from_discriminator(1),
 			TEST_EXECUTION_TIMEOUT,
 			b"pvf".to_vec(),
-			Priority::Critical,
+			PreparePriority::Critical,
 			ExecutePriority::Normal,
 			result_tx,
 		)
@@ -1602,7 +1605,7 @@ pub(crate) mod tests {
 			PvfPrepData::from_discriminator(1),
 			TEST_EXECUTION_TIMEOUT,
 			b"pvf".to_vec(),
-			Priority::Critical,
+			PreparePriority::Critical,
 			ExecutePriority::Normal,
 			result_tx_2,
 		)
@@ -1625,7 +1628,7 @@ pub(crate) mod tests {
 			PvfPrepData::from_discriminator(1),
 			TEST_EXECUTION_TIMEOUT,
 			b"pvf".to_vec(),
-			Priority::Critical,
+			PreparePriority::Critical,
 			ExecutePriority::Normal,
 			result_tx_3,
 		)
@@ -1676,7 +1679,7 @@ pub(crate) mod tests {
 			PvfPrepData::from_discriminator(1),
 			TEST_EXECUTION_TIMEOUT,
 			b"pvf".to_vec(),
-			Priority::Critical,
+			PreparePriority::Critical,
 			ExecutePriority::Normal,
 			result_tx,
 		)
@@ -1707,7 +1710,7 @@ pub(crate) mod tests {
 			PvfPrepData::from_discriminator(1),
 			TEST_EXECUTION_TIMEOUT,
 			b"pvf".to_vec(),
-			Priority::Critical,
+			PreparePriority::Critical,
 			ExecutePriority::Normal,
 			result_tx_2,
 		)
@@ -1730,7 +1733,7 @@ pub(crate) mod tests {
 			PvfPrepData::from_discriminator(1),
 			TEST_EXECUTION_TIMEOUT,
 			b"pvf".to_vec(),
-			Priority::Critical,
+			PreparePriority::Critical,
 			ExecutePriority::Normal,
 			result_tx_3,
 		)
@@ -1797,7 +1800,7 @@ pub(crate) mod tests {
 			PvfPrepData::from_discriminator(1),
 			TEST_EXECUTION_TIMEOUT,
 			b"pvf1".to_vec(),
-			Priority::Normal,
+			PreparePriority::Normal,
 			ExecutePriority::Normal,
 			result_tx,
 		)

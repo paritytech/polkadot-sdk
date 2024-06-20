@@ -16,7 +16,7 @@
 
 /// A priority assigned to preparation of a PVF.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
-pub enum Priority {
+pub enum PreparePriority {
 	/// Normal priority for things that do not require immediate response, but still need to be
 	/// done pretty quick.
 	///
@@ -29,10 +29,10 @@ pub enum Priority {
 	Critical,
 }
 
-impl Priority {
+impl PreparePriority {
 	/// Returns `true` if `self` is `Critical`
 	pub fn is_critical(self) -> bool {
-		self == Priority::Critical
+		self == PreparePriority::Critical
 	}
 }
 

@@ -17,7 +17,7 @@
 //! A queue that handles requests for PVF preparation.
 
 use super::pool::{self, Worker};
-use crate::{artifacts::ArtifactId, metrics::Metrics, Priority, LOG_TARGET};
+use crate::{artifacts::ArtifactId, metrics::Metrics, PreparePriority, LOG_TARGET};
 use always_assert::{always, never};
 use futures::{channel::mpsc, stream::StreamExt as _, Future, SinkExt};
 use polkadot_node_core_pvf_common::{error::PrepareResult, pvf::PvfPrepData};
@@ -36,7 +36,7 @@ pub enum ToQueue {
 	///
 	/// Note that it is incorrect to enqueue the same PVF again without first receiving the
 	/// [`FromQueue`] response.
-	Enqueue { priority: Priority, pvf: PvfPrepData },
+	Enqueue { priority: PreparePriority, pvf: PvfPrepData },
 }
 
 /// A response from queue.
@@ -80,7 +80,7 @@ slotmap::new_key_type! { pub struct Job; }
 
 struct JobData {
 	/// The priority of this job. Can be bumped.
-	priority: Priority,
+	priority: PreparePriority,
 	pvf: PvfPrepData,
 	worker: Option<Worker>,
 }
@@ -106,18 +106,18 @@ struct Unscheduled {
 }
 
 impl Unscheduled {
-	fn queue_mut(&mut self, prio: Priority) -> &mut VecDeque<Job> {
+	fn queue_mut(&mut self, prio: PreparePriority) -> &mut VecDeque<Job> {
 		match prio {
-			Priority::Normal => &mut self.normal,
-			Priority::Critical => &mut self.critical,
+			PreparePriority::Normal => &mut self.normal,
+			PreparePriority::Critical => &mut self.critical,
 		}
 	}
 
-	fn add(&mut self, prio: Priority, job: Job) {
+	fn add(&mut self, prio: PreparePriority, job: Job) {
 		self.queue_mut(prio).push_back(job);
 	}
 
-	fn readd(&mut self, prio: Priority, job: Job) {
+	fn readd(&mut self, prio: PreparePriority, job: Job) {
 		self.queue_mut(prio).push_front(job);
 	}
 
@@ -126,8 +126,8 @@ impl Unscheduled {
 	}
 
 	fn next(&mut self) -> Option<Job> {
-		let mut check = |prio: Priority| self.queue_mut(prio).pop_front();
-		check(Priority::Critical).or_else(|| check(Priority::Normal))
+		let mut check = |prio: PreparePriority| self.queue_mut(prio).pop_front();
+		check(PreparePriority::Critical).or_else(|| check(PreparePriority::Normal))
 	}
 }
 
@@ -219,7 +219,7 @@ async fn handle_to_queue(queue: &mut Queue, to_queue: ToQueue) -> Result<(), Fat
 
 async fn handle_enqueue(
 	queue: &mut Queue,
-	priority: Priority,
+	priority: PreparePriority,
 	pvf: PvfPrepData,
 ) -> Result<(), Fatal> {
 	gum::debug!(
@@ -394,7 +394,7 @@ async fn handle_worker_rip(queue: &mut Queue, worker: Worker) -> Result<(), Fata
 			// this path cannot be hit;
 			// qed.
 			never!("the job of the ripped worker must be known but it is not");
-			Priority::Normal
+			PreparePriority::Normal
 		});
 		queue.unscheduled.readd(priority, job);
 	}
@@ -604,7 +604,7 @@ mod tests {
 	async fn properly_concludes() {
 		let mut test = Test::new(2, 2);
 
-		test.send_queue(ToQueue::Enqueue { priority: Priority::Normal, pvf: pvf(1) });
+		test.send_queue(ToQueue::Enqueue { priority: PreparePriority::Normal, pvf: pvf(1) });
 		assert_eq!(test.poll_and_recv_to_pool().await, pool::ToPool::Spawn);
 
 		let w = test.workers.insert(());
@@ -625,7 +625,7 @@ mod tests {
 	async fn dont_spawn_over_soft_limit_unless_critical() {
 		let mut test = Test::new(2, 3);
 
-		let priority = Priority::Normal;
+		let priority = PreparePriority::Normal;
 		test.send_queue(ToQueue::Enqueue { priority, pvf: PvfPrepData::from_discriminator(1) });
 		test.send_queue(ToQueue::Enqueue { priority, pvf: PvfPrepData::from_discriminator(2) });
 		// Start a non-precheck preparation for this one.
@@ -658,7 +658,7 @@ mod tests {
 
 		// Enqueue a critical job.
 		test.send_queue(ToQueue::Enqueue {
-			priority: Priority::Critical,
+			priority: PreparePriority::Critical,
 			pvf: PvfPrepData::from_discriminator(4),
 		});
 
@@ -672,7 +672,7 @@ mod tests {
 		let mut test = Test::new(1, 2);
 
 		test.send_queue(ToQueue::Enqueue {
-			priority: Priority::Normal,
+			priority: PreparePriority::Normal,
 			pvf: PvfPrepData::from_discriminator(1),
 		});
 		assert_eq!(test.poll_and_recv_to_pool().await, pool::ToPool::Spawn);
@@ -682,7 +682,7 @@ mod tests {
 
 		// Enqueue a critical job, which warrants spawning over the soft limit.
 		test.send_queue(ToQueue::Enqueue {
-			priority: Priority::Critical,
+			priority: PreparePriority::Critical,
 			pvf: PvfPrepData::from_discriminator(2),
 		});
 		assert_eq!(test.poll_and_recv_to_pool().await, pool::ToPool::Spawn);
@@ -706,7 +706,7 @@ mod tests {
 	async fn worker_mass_die_out_doesnt_stall_queue() {
 		let mut test = Test::new(2, 2);
 
-		let priority = Priority::Normal;
+		let priority = PreparePriority::Normal;
 		test.send_queue(ToQueue::Enqueue { priority, pvf: PvfPrepData::from_discriminator(1) });
 		test.send_queue(ToQueue::Enqueue { priority, pvf: PvfPrepData::from_discriminator(2) });
 		// Start a non-precheck preparation for this one.
@@ -748,7 +748,7 @@ mod tests {
 		let mut test = Test::new(2, 2);
 
 		test.send_queue(ToQueue::Enqueue {
-			priority: Priority::Normal,
+			priority: PreparePriority::Normal,
 			pvf: PvfPrepData::from_discriminator(1),
 		});
 
@@ -772,7 +772,7 @@ mod tests {
 		let mut test = Test::new(2, 2);
 
 		test.send_queue(ToQueue::Enqueue {
-			priority: Priority::Normal,
+			priority: PreparePriority::Normal,
 			pvf: PvfPrepData::from_discriminator(1),
 		});
 
