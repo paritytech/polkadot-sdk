@@ -166,6 +166,7 @@ pub struct ApprovalVotingSubsystem {
 	metrics: Metrics,
 	clock: Arc<dyn Clock + Send + Sync>,
 	spawner: Arc<dyn overseer::gen::Spawner + 'static>,
+	subsystem_disabled: bool,
 }
 
 #[derive(Clone)]
@@ -485,6 +486,7 @@ impl ApprovalVotingSubsystem {
 		sync_oracle: Box<dyn SyncOracle + Send>,
 		metrics: Metrics,
 		spawner: Arc<dyn overseer::gen::Spawner + 'static>,
+		subsystem_disabled: bool,
 	) -> Self {
 		ApprovalVotingSubsystem::with_config_and_clock(
 			config,
@@ -494,6 +496,7 @@ impl ApprovalVotingSubsystem {
 			metrics,
 			Arc::new(SystemClock {}),
 			spawner,
+			subsystem_disabled,
 		)
 	}
 
@@ -506,6 +509,7 @@ impl ApprovalVotingSubsystem {
 		metrics: Metrics,
 		clock: Arc<dyn Clock + Send + Sync>,
 		spawner: Arc<dyn overseer::gen::Spawner + 'static>,
+		subsystem_disabled: bool,
 	) -> Self {
 		ApprovalVotingSubsystem {
 			keystore,
@@ -516,6 +520,7 @@ impl ApprovalVotingSubsystem {
 			metrics,
 			clock,
 			spawner,
+			subsystem_disabled,
 		}
 	}
 
@@ -1251,6 +1256,12 @@ where
 				).await?
 			}
 			next_msg = work_provider.recv().fuse() => {
+				if subsystem.subsystem_disabled {
+					// If we are running in parallel mode, we need to ensure that we are not
+					// processing messages, but also consume the messages, so that the system
+					// is not marked as stalled because of the signals it receives.
+					continue;
+				}
 				let mut actions = handle_from_overseer(
 					&mut to_other_subsystems,
 					&mut to_approval_distr,
@@ -1397,12 +1408,13 @@ pub async fn start_approval_worker<
 		metrics,
 		clock,
 		spawner,
+		false,
 	);
 	let backend = DbBackend::new(db.clone(), approval_voting.db_config);
 	let spawner = approval_voting.spawner.clone();
 	spawner.spawn_blocking(
-		"approval-voting-rewrite-db",
-		Some("approval-voting-rewrite-subsystem"),
+		"approval-voting-parallel-db",
+		Some("approval-voting-parallel-subsystem"),
 		Box::pin(async move {
 			if let Err(err) = run(
 				work_provider,

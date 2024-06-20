@@ -24,7 +24,8 @@ use crate::{
 use futures::{channel::mpsc::UnboundedSender, FutureExt, StreamExt};
 use polkadot_node_network_protocol::Versioned;
 use polkadot_node_subsystem::{
-	messages::NetworkBridgeTxMessage, overseer, SpawnedSubsystem, SubsystemError,
+	messages::{ApprovalVotingParallelMessage, NetworkBridgeTxMessage},
+	overseer, SpawnedSubsystem, SubsystemError,
 };
 use polkadot_node_subsystem_types::{
 	messages::{
@@ -200,7 +201,7 @@ impl MockNetworkBridgeRx {
 									polkadot_node_network_protocol::v3::ValidationProtocol::ApprovalDistribution(msg)
 								) => {
 									ctx.send_message(
-										ApprovalDistributionMessage::NetworkBridgeUpdate(NetworkBridgeEvent::PeerMessage(peer_id, polkadot_node_network_protocol::Versioned::V3(msg)))
+										ApprovalVotingParallelMessage::NetworkBridgeUpdate(NetworkBridgeEvent::PeerMessage(peer_id, polkadot_node_network_protocol::Versioned::V3(msg)))
 									).await;
 								}
 								Versioned::V3(

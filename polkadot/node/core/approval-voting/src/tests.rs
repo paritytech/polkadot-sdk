@@ -35,7 +35,7 @@ use polkadot_node_subsystem::{
 	messages::{
 		AllMessages, ApprovalVotingMessage, AssignmentCheckResult, AvailabilityRecoveryMessage,
 	},
-	ActiveLeavesUpdate,
+	ActiveLeavesUpdate, SubsystemContext,
 };
 use polkadot_node_subsystem_test_helpers as test_helpers;
 use polkadot_node_subsystem_util::TimeoutExt;
@@ -555,7 +555,7 @@ fn test_harness<T: Future<Output = VirtualOverseer>>(
 		config;
 
 	let pool = sp_core::testing::TaskExecutor::new();
-	let (context, virtual_overseer) =
+	let (mut context, virtual_overseer) =
 		polkadot_node_subsystem_test_helpers::make_subsystem_context(pool.clone());
 
 	let keystore = LocalKeystore::in_memory();
@@ -567,9 +567,12 @@ fn test_harness<T: Future<Output = VirtualOverseer>>(
 	let clock = Arc::new(clock);
 	let db = kvdb_memorydb::create(test_constants::NUM_COLUMNS);
 	let db = polkadot_node_subsystem_util::database::kvdb_impl::DbAdapter::new(db, &[]);
-
+	let sender = context.sender().clone();
+	let to_approval_distr_sender = context.sender().clone();
 	let subsystem = run(
 		context,
+		sender,
+		to_approval_distr_sender,
 		ApprovalVotingSubsystem::with_config_and_clock(
 			Config {
 				col_approval_data: test_constants::TEST_CONFIG.col_approval_data,
@@ -581,6 +584,7 @@ fn test_harness<T: Future<Output = VirtualOverseer>>(
 			Metrics::default(),
 			clock.clone(),
 			Arc::new(SpawnGlue(pool)),
+			false,
 		),
 		assignment_criteria,
 		backend,

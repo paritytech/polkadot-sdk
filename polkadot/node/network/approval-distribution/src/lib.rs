@@ -71,10 +71,12 @@ use polkadot_primitives::{
 use rand::{CryptoRng, Rng, SeedableRng};
 use std::{
 	collections::{hash_map, BTreeMap, HashMap, HashSet, VecDeque},
+	sync::Arc,
 	time::Duration,
 };
 
-mod metrics;
+/// Approval distribution metrics.
+pub mod metrics;
 
 #[cfg(test)]
 mod tests;
@@ -100,7 +102,8 @@ const MAX_BITFIELD_SIZE: usize = 500;
 pub struct ApprovalDistribution {
 	metrics: Metrics,
 	slot_duration_millis: u64,
-	clock: Box<dyn Clock + Send + Sync>,
+	clock: Arc<dyn Clock + Send + Sync>,
+	subsystem_disabled: bool,
 }
 
 /// Contains recently finalized
@@ -2643,17 +2646,23 @@ async fn modify_reputation(
 #[overseer::contextbounds(ApprovalDistribution, prefix = self::overseer)]
 impl ApprovalDistribution {
 	/// Create a new instance of the [`ApprovalDistribution`] subsystem.
-	pub fn new(metrics: Metrics, slot_duration_millis: u64) -> Self {
-		Self::new_with_clock(metrics, slot_duration_millis, Box::new(SystemClock))
+	pub fn new(metrics: Metrics, slot_duration_millis: u64, subsystem_disabled: bool) -> Self {
+		Self::new_with_clock(
+			metrics,
+			slot_duration_millis,
+			Arc::new(SystemClock),
+			subsystem_disabled,
+		)
 	}
 
 	/// Create a new instance of the [`ApprovalDistribution`] subsystem, with a custom clock.
 	pub fn new_with_clock(
 		metrics: Metrics,
 		slot_duration_millis: u64,
-		clock: Box<dyn Clock + Send + Sync>,
+		clock: Arc<dyn Clock + Send + Sync>,
+		subsystem_disabled: bool,
 	) -> Self {
-		Self { metrics, slot_duration_millis, clock }
+		Self { metrics, slot_duration_millis, clock, subsystem_disabled }
 	}
 
 	async fn run<Context>(self, ctx: Context) {
@@ -2702,6 +2711,10 @@ impl ApprovalDistribution {
 					reputation_delay = new_reputation_delay();
 				},
 				message = ctx.recv().fuse() => {
+					if self.subsystem_disabled {
+						gum::trace!(target: LOG_TARGET, "Approval voting parallel is enabled skipping messages");
+						continue;
+					}
 					let message = match message {
 						Ok(message) => message,
 						Err(e) => {

@@ -41,7 +41,7 @@ use polkadot_node_subsystem::{
 		ApprovalDistributionMessage, ChainApiMessage, ChainSelectionMessage, RuntimeApiMessage,
 		RuntimeApiRequest,
 	},
-	overseer, RuntimeApiError, SubsystemError, SubsystemResult,
+	overseer, RuntimeApiError, SubsystemContext, SubsystemError, SubsystemResult,
 };
 use polkadot_node_subsystem_util::{determine_new_blocks, runtime::RuntimeInfo};
 use polkadot_overseer::SubsystemSender;

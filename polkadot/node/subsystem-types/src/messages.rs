@@ -945,6 +945,118 @@ pub struct BlockDescription {
 	pub candidates: Vec<CandidateHash>,
 }
 
+/// Message to the Approval Voting subsystem running both approval-distribution and approval-voting
+/// logic in parallel. This is a combination of all the messages ApprovalVoting and
+/// ApprovalDistribution subsystems can receive.
+#[derive(Debug, derive_more::From)]
+pub enum ApprovalVotingParallelMessage {
+	/// Check if the assignment is valid and can be accepted by our view of the protocol.
+	/// Should not be sent unless the block hash is known.
+	CheckAndImportAssignment(IndirectAssignmentCertV2, CandidateBitfield, DelayTranche),
+	/// Check if the approval vote is valid and can be accepted by our view of the
+	/// protocol.
+	///
+	/// Should not be sent unless the block hash within the indirect vote is known.
+	CheckAndImportApproval(IndirectSignedApprovalVoteV2),
+	/// Returns the highest possible ancestor hash of the provided block hash which is
+	/// acceptable to vote on finality for.
+	/// The `BlockNumber` provided is the number of the block's ancestor which is the
+	/// earliest possible vote.
+	///
+	/// It can also return the same block hash, if that is acceptable to vote upon.
+	/// Return `None` if the input hash is unrecognized.
+	ApprovedAncestor(Hash, BlockNumber, oneshot::Sender<Option<HighestApprovedAncestorBlock>>),
+
+	/// Retrieve all available approval signatures for a candidate from approval-voting.
+	///
+	/// This message involves a linear search for candidates on each relay chain fork and also
+	/// requires calling into `approval-distribution`: Calls should be infrequent and bounded.
+	GetApprovalSignaturesForCandidate(
+		CandidateHash,
+		oneshot::Sender<HashMap<ValidatorIndex, (Vec<CandidateHash>, ValidatorSignature)>>,
+	),
+	/// Notify the `ApprovalDistribution` subsystem about new blocks
+	/// and the candidates contained within them.
+	NewBlocks(Vec<BlockApprovalMeta>),
+	/// Distribute an assignment cert from the local validator. The cert is assumed
+	/// to be valid, relevant, and for the given relay-parent and validator index.
+	DistributeAssignment(IndirectAssignmentCertV2, CandidateBitfield),
+	/// Distribute an approval vote for the local validator. The approval vote is assumed to be
+	/// valid, relevant, and the corresponding approval already issued.
+	/// If not, the subsystem is free to drop the message.
+	DistributeApproval(IndirectSignedApprovalVoteV2),
+	/// An update from the network bridge.
+	#[from]
+	NetworkBridgeUpdate(NetworkBridgeEvent<net_protocol::ApprovalDistributionMessage>),
+
+	/// Get all approval signatures for all chains a candidate appeared in.
+	GetApprovalSignatures(
+		HashSet<(Hash, CandidateIndex)>,
+		oneshot::Sender<HashMap<ValidatorIndex, (Hash, Vec<CandidateIndex>, ValidatorSignature)>>,
+	),
+	/// Approval checking lag update measured in blocks.
+	ApprovalCheckingLagUpdate(BlockNumber),
+}
+
+impl TryFrom<ApprovalVotingParallelMessage> for ApprovalVotingMessage {
+	type Error = ();
+
+	fn try_from(msg: ApprovalVotingParallelMessage) -> Result<Self, Self::Error> {
+		match msg {
+			ApprovalVotingParallelMessage::CheckAndImportAssignment(cert, bitfield, tranche) =>
+				Ok(ApprovalVotingMessage::CheckAndImportAssignment(cert, bitfield, tranche, None)),
+			ApprovalVotingParallelMessage::CheckAndImportApproval(vote) =>
+				Ok(ApprovalVotingMessage::CheckAndImportApproval(vote, None)),
+			ApprovalVotingParallelMessage::ApprovedAncestor(hash, number, tx) =>
+				Ok(ApprovalVotingMessage::ApprovedAncestor(hash, number, tx)),
+			ApprovalVotingParallelMessage::GetApprovalSignaturesForCandidate(candidate, tx) =>
+				Ok(ApprovalVotingMessage::GetApprovalSignaturesForCandidate(candidate, tx)),
+			_ => Err(()),
+		}
+	}
+}
+
+impl TryFrom<ApprovalVotingParallelMessage> for ApprovalDistributionMessage {
+	type Error = ();
+
+	fn try_from(msg: ApprovalVotingParallelMessage) -> Result<Self, Self::Error> {
+		match msg {
+			ApprovalVotingParallelMessage::NewBlocks(blocks) =>
+				Ok(ApprovalDistributionMessage::NewBlocks(blocks)),
+			ApprovalVotingParallelMessage::DistributeAssignment(assignment, claimed_cores) =>
+				Ok(ApprovalDistributionMessage::DistributeAssignment(assignment, claimed_cores)),
+			ApprovalVotingParallelMessage::DistributeApproval(vote) =>
+				Ok(ApprovalDistributionMessage::DistributeApproval(vote)),
+			ApprovalVotingParallelMessage::NetworkBridgeUpdate(msg) =>
+				Ok(ApprovalDistributionMessage::NetworkBridgeUpdate(msg)),
+			ApprovalVotingParallelMessage::GetApprovalSignatures(candidate_indicies, tx) =>
+				Ok(ApprovalDistributionMessage::GetApprovalSignatures(candidate_indicies, tx)),
+			ApprovalVotingParallelMessage::ApprovalCheckingLagUpdate(lag) =>
+				Ok(ApprovalDistributionMessage::ApprovalCheckingLagUpdate(lag)),
+			_ => Err(()),
+		}
+	}
+}
+
+impl From<ApprovalDistributionMessage> for ApprovalVotingParallelMessage {
+	fn from(msg: ApprovalDistributionMessage) -> Self {
+		match msg {
+			ApprovalDistributionMessage::NewBlocks(blocks) =>
+				ApprovalVotingParallelMessage::NewBlocks(blocks),
+			ApprovalDistributionMessage::DistributeAssignment(cert, bitfield) =>
+				ApprovalVotingParallelMessage::DistributeAssignment(cert, bitfield),
+			ApprovalDistributionMessage::DistributeApproval(vote) =>
+				ApprovalVotingParallelMessage::DistributeApproval(vote),
+			ApprovalDistributionMessage::NetworkBridgeUpdate(msg) =>
+				ApprovalVotingParallelMessage::NetworkBridgeUpdate(msg),
+			ApprovalDistributionMessage::GetApprovalSignatures(candidate_indicies, tx) =>
+				ApprovalVotingParallelMessage::GetApprovalSignatures(candidate_indicies, tx),
+			ApprovalDistributionMessage::ApprovalCheckingLagUpdate(lag) =>
+				ApprovalVotingParallelMessage::ApprovalCheckingLagUpdate(lag),
+		}
+	}
+}
+
 /// Response type to `ApprovalVotingMessage::ApprovedAncestor`.
 #[derive(Clone, Debug)]
 pub struct HighestApprovedAncestorBlock {

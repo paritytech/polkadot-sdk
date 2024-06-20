@@ -21,8 +21,9 @@ use polkadot_node_network_protocol::{
 	grid_topology::{SessionGridTopology, TopologyPeerInfo},
 	View,
 };
+use polkadot_node_subsystem::messages::ApprovalVotingParallelMessage;
 use polkadot_node_subsystem_types::messages::{
-	network_bridge_event::NewGossipTopology, ApprovalDistributionMessage, NetworkBridgeEvent,
+	network_bridge_event::NewGossipTopology, NetworkBridgeEvent,
 };
 use polkadot_overseer::AllMessages;
 use polkadot_primitives::{
@@ -129,14 +130,16 @@ pub fn generate_new_session_topology(
 		topology,
 		local_index: Some(test_node),
 	});
-	vec![AllMessages::ApprovalDistribution(ApprovalDistributionMessage::NetworkBridgeUpdate(event))]
+	vec![AllMessages::ApprovalVotingParallel(ApprovalVotingParallelMessage::NetworkBridgeUpdate(
+		event,
+	))]
 }
 
 /// Generates a peer view change for the passed `block_hash`
 pub fn generate_peer_view_change_for(block_hash: Hash, peer_id: PeerId) -> AllMessages {
 	let network = NetworkBridgeEvent::PeerViewChange(peer_id, View::new([block_hash], 0));
 
-	AllMessages::ApprovalDistribution(ApprovalDistributionMessage::NetworkBridgeUpdate(network))
+	AllMessages::ApprovalVotingParallel(ApprovalVotingParallelMessage::NetworkBridgeUpdate(network))
 }
 
 /// Helper function to create a a signature for the block header.

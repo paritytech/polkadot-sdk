@@ -13,7 +13,6 @@
 
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
-
 use crate::{
 	approval::{
 		helpers::{
@@ -49,14 +48,15 @@ use overseer::{metrics::Metrics as OverseerMetrics, MetricsTrait};
 use polkadot_approval_distribution::ApprovalDistribution;
 use polkadot_node_core_approval_voting::{
 	time::{slot_number_to_tick, tick_to_slot_number, Clock, ClockExt, SystemClock},
-	ApprovalVotingSubsystem, Config as ApprovalVotingConfig, Metrics as ApprovalVotingMetrics,
+	ApprovalVotingSubsystem, Config as ApprovalVotingConfig,
 };
 use polkadot_node_network_protocol::v3 as protocol_v3;
 use polkadot_node_primitives::approval::{self, v1::RelayVRFStory};
-use polkadot_node_subsystem::{overseer, AllMessages, Overseer, OverseerConnector, SpawnGlue};
+use polkadot_node_subsystem::{
+	messages::ApprovalVotingParallelMessage, overseer, AllMessages, Overseer, OverseerConnector,
+	SpawnGlue,
+};
 use polkadot_node_subsystem_test_helpers::mock::new_block_import_info;
-use polkadot_node_subsystem_types::messages::{ApprovalDistributionMessage, ApprovalVotingMessage};
-use polkadot_node_subsystem_util::metrics::Metrics;
 use polkadot_overseer::Handle as OverseerHandleReal;
 use polkadot_primitives::{
 	BlockNumber, CandidateEvent, CandidateIndex, CandidateReceipt, Hash, Header, Slot,
@@ -265,7 +265,7 @@ pub struct ApprovalTestState {
 	/// Total unique sent messages.
 	total_unique_messages: Arc<AtomicU64>,
 	/// Approval voting metrics.
-	approval_voting_metrics: ApprovalVotingMetrics,
+	approval_voting_metrics_rewrite: polkadot_node_core_approval_voting_parallel::Metrics,
 	/// The delta ticks from the tick the messages were generated to the the time we start this
 	/// message.
 	delta_tick_from_generated: Arc<AtomicU64>,
@@ -323,7 +323,10 @@ impl ApprovalTestState {
 			total_sent_messages_from_node: Arc::new(AtomicU64::new(0)),
 			total_unique_messages: Arc::new(AtomicU64::new(0)),
 			options,
-			approval_voting_metrics: ApprovalVotingMetrics::try_register(&dependencies.registry)
+			approval_voting_metrics_rewrite:
+				polkadot_node_core_approval_voting_parallel::Metrics::try_register(
+					&dependencies.registry,
+				)
 				.unwrap(),
 			delta_tick_from_generated: Arc::new(AtomicU64::new(630720000)),
 			configuration: configuration.clone(),
@@ -590,9 +593,9 @@ impl PeerMessageProducer {
 			// so when the approval-distribution answered to it, we know it doesn't have anything
 			// else to process.
 			let (tx, rx) = oneshot::channel();
-			let msg = ApprovalDistributionMessage::GetApprovalSignatures(HashSet::new(), tx);
+			let msg = ApprovalVotingParallelMessage::GetApprovalSignatures(HashSet::new(), tx);
 			self.send_overseer_message(
-				AllMessages::ApprovalDistribution(msg),
+				AllMessages::ApprovalVotingParallel(msg),
 				ValidatorIndex(0),
 				None,
 			)
@@ -795,21 +798,38 @@ fn build_overseer(
 
 	let system_clock =
 		PastSystemClock::new(SystemClock {}, state.delta_tick_from_generated.clone());
+	let keystore = Arc::new(keystore);
+	let db = Arc::new(db);
 	let approval_voting = ApprovalVotingSubsystem::with_config_and_clock(
 		TEST_CONFIG,
-		Arc::new(db),
-		Arc::new(keystore),
+		db.clone(),
+		keystore.clone(),
 		Box::new(TestSyncOracle {}),
-		state.approval_voting_metrics.clone(),
+		state.approval_voting_metrics_rewrite.1.clone(),
 		Arc::new(system_clock.clone()),
 		Arc::new(SpawnGlue(spawn_task_handle.clone())),
+		true,
 	);
 
 	let approval_distribution = ApprovalDistribution::new_with_clock(
-		Metrics::register(Some(&dependencies.registry)).unwrap(),
-		SLOT_DURATION_MILLIS,
-		Box::new(system_clock.clone()),
+		state.approval_voting_metrics_rewrite.0.clone(),
+		TEST_CONFIG.slot_duration_millis as u64,
+		Arc::new(system_clock.clone()),
+		true,
 	);
+
+	let approval_voting_parallel =
+		polkadot_node_core_approval_voting_parallel::ApprovalVotingParallelSubsystem::with_config_and_clock(
+			TEST_CONFIG,
+			db.clone(),
+			keystore.clone(),
+			Box::new(TestSyncOracle {}),
+			state.approval_voting_metrics_rewrite.clone(),
+			Arc::new(system_clock.clone()),
+			SpawnGlue(spawn_task_handle.clone()),
+			true,
+		);
+
 	let mock_chain_api = MockChainApi::new(state.build_chain_api_state());
 	let mock_chain_selection = MockChainSelection { state: state.clone(), clock: system_clock };
 	let mock_runtime_api = MockRuntimeApi::new(
@@ -831,6 +851,7 @@ fn build_overseer(
 	let dummy = dummy_builder!(spawn_task_handle, overseer_metrics)
 		.replace_approval_distribution(|_| approval_distribution)
 		.replace_approval_voting(|_| approval_voting)
+		.replace_approval_voting_parallel(|_| approval_voting_parallel)
 		.replace_chain_api(|_| mock_chain_api)
 		.replace_chain_selection(|_| mock_chain_selection)
 		.replace_runtime_api(|_| mock_runtime_api)
@@ -927,7 +948,7 @@ pub async fn bench_approvals_run(
 	// First create the initialization messages that make sure that then node under
 	// tests receives notifications about the topology used and the connected peers.
 	let mut initialization_messages = env.network().generate_peer_connected(|e| {
-		AllMessages::ApprovalDistribution(ApprovalDistributionMessage::NetworkBridgeUpdate(e))
+		AllMessages::ApprovalVotingParallel(ApprovalVotingParallelMessage::NetworkBridgeUpdate(e))
 	});
 	initialization_messages.extend(generate_new_session_topology(
 		&state.test_authorities,
@@ -996,7 +1017,7 @@ pub async fn bench_approvals_run(
 		state.total_sent_messages_to_node.load(std::sync::atomic::Ordering::SeqCst) as usize;
 	env.wait_until_metric(
 		"polkadot_parachain_subsystem_bounded_received",
-		Some(("subsystem_name", "approval-distribution-subsystem")),
+		Some(("subsystem_name", "approval-voting-parallel-subsystem")),
 		|value| {
 			gum::debug!(target: LOG_TARGET, ?value, ?at_least_messages, "Waiting metric");
 			value >= at_least_messages as f64
@@ -1013,11 +1034,11 @@ pub async fn bench_approvals_run(
 				CandidateEvent::CandidateIncluded(receipt_fetch, _head, _, _) => {
 					let (tx, rx) = oneshot::channel();
 
-					let msg = ApprovalVotingMessage::GetApprovalSignaturesForCandidate(
+					let msg = ApprovalVotingParallelMessage::GetApprovalSignaturesForCandidate(
 						receipt_fetch.hash(),
 						tx,
 					);
-					env.send_message(AllMessages::ApprovalVoting(msg)).await;
+					env.send_message(AllMessages::ApprovalVotingParallel(msg)).await;
 
 					let result = rx.await.unwrap();
 
@@ -1041,7 +1062,7 @@ pub async fn bench_approvals_run(
 		state.total_sent_messages_to_node.load(std::sync::atomic::Ordering::SeqCst) as usize;
 	env.wait_until_metric(
 		"polkadot_parachain_subsystem_bounded_received",
-		Some(("subsystem_name", "approval-distribution-subsystem")),
+		Some(("subsystem_name", "approval-voting-parallel-subsystem")),
 		|value| {
 			gum::debug!(target: LOG_TARGET, ?value, ?at_least_messages, "Waiting metric");
 			value >= at_least_messages as f64
@@ -1082,5 +1103,9 @@ pub async fn bench_approvals_run(
 		state.total_unique_messages.load(std::sync::atomic::Ordering::SeqCst)
 	);
 
-	env.collect_resource_usage(&["approval-distribution", "approval-voting"])
+	env.collect_resource_usage(&[
+		"approval-distribution",
+		"approval-voting",
+		"approval-voting-parallel",
+	])
 }

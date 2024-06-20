@@ -58,6 +58,9 @@ pub use polkadot_network_bridge::{
 };
 pub use polkadot_node_collation_generation::CollationGenerationSubsystem;
 pub use polkadot_node_core_approval_voting::ApprovalVotingSubsystem;
+pub use polkadot_node_core_approval_voting_parallel::{
+	ApprovalVotingParallelSubsystem, Metrics as ApprovalVotingParallelMetrics,
+};
 pub use polkadot_node_core_av_store::AvailabilityStoreSubsystem;
 pub use polkadot_node_core_backing::CandidateBackingSubsystem;
 pub use polkadot_node_core_bitfield_signing::BitfieldSigningSubsystem;
@@ -139,6 +142,7 @@ pub struct ExtendedOverseerGenArgs {
 	/// than the value put in here we always try to recovery availability from backers.
 	/// The presence of this parameter here is needed to have different values per chain.
 	pub fetch_chunks_threshold: Option<usize>,
+	pub enable_approval_voting_parallel: bool,
 }
 
 /// Obtain a prepared validator `Overseer`, that is initialized with all default values.
@@ -174,6 +178,7 @@ pub fn validator_overseer_builder<Spawner, RuntimeClient>(
 		dispute_coordinator_config,
 		chain_selection_config,
 		fetch_chunks_threshold,
+		enable_approval_voting_parallel,
 	}: ExtendedOverseerGenArgs,
 ) -> Result<
 	InitializedOverseerBuilder<
@@ -203,6 +208,7 @@ pub fn validator_overseer_builder<Spawner, RuntimeClient>(
 		CollatorProtocolSubsystem,
 		ApprovalDistributionSubsystem,
 		ApprovalVotingSubsystem,
+		ApprovalVotingParallelSubsystem,
 		GossipSupportSubsystem<AuthorityDiscoveryService>,
 		DisputeCoordinatorSubsystem,
 		DisputeDistributionSubsystem<AuthorityDiscoveryService>,
@@ -223,7 +229,8 @@ where
 	let spawner = SpawnGlue(spawner);
 
 	let network_bridge_metrics: NetworkBridgeMetrics = Metrics::register(registry)?;
-
+	let approval_voting_parallel_metrics: ApprovalVotingParallelMetrics =
+		Metrics::register(registry)?;
 	let builder = Overseer::builder()
 		.network_bridge_tx(NetworkBridgeTxSubsystem::new(
 			network_service.clone(),
@@ -241,6 +248,7 @@ where
 			peerset_protocol_names,
 			notification_services,
 			notification_sinks,
+			enable_approval_voting_parallel,
 		))
 		.availability_distribution(AvailabilityDistributionSubsystem::new(
 			keystore.clone(),
@@ -309,16 +317,27 @@ where
 			rand::rngs::StdRng::from_entropy(),
 		))
 		.approval_distribution(ApprovalDistributionSubsystem::new(
-			Metrics::register(registry)?,
+			approval_voting_parallel_metrics.0.clone(),
 			approval_voting_config.slot_duration_millis,
+			enable_approval_voting_parallel,
 		))
 		.approval_voting(ApprovalVotingSubsystem::with_config(
+			approval_voting_config.clone(),
+			parachains_db.clone(),
+			keystore.clone(),
+			Box::new(sync_service.clone()),
+			approval_voting_parallel_metrics.1.clone(),
+			Arc::new(spawner.clone()),
+			enable_approval_voting_parallel,
+		))
+		.approval_voting_parallel(ApprovalVotingParallelSubsystem::with_config(
 			approval_voting_config,
 			parachains_db.clone(),
 			keystore.clone(),
 			Box::new(sync_service.clone()),
-			Metrics::register(registry)?,
-			Arc::new(spawner.clone()),
+			approval_voting_parallel_metrics,
+			spawner.clone(),
+			enable_approval_voting_parallel,
 		))
 		.gossip_support(GossipSupportSubsystem::new(
 			keystore.clone(),
@@ -330,6 +349,7 @@ where
 			dispute_coordinator_config,
 			keystore.clone(),
 			Metrics::register(registry)?,
+			enable_approval_voting_parallel,
 		))
 		.dispute_distribution(DisputeDistributionSubsystem::new(
 			keystore.clone(),
@@ -405,6 +425,7 @@ pub fn collator_overseer_builder<Spawner, RuntimeClient>(
 		DummySubsystem,
 		DummySubsystem,
 		DummySubsystem,
+		DummySubsystem,
 	>,
 	Error,
 >
@@ -437,6 +458,7 @@ where
 			peerset_protocol_names,
 			notification_services,
 			notification_sinks,
+			false,
 		))
 		.availability_distribution(DummySubsystem)
 		.availability_recovery(AvailabilityRecoverySubsystem::for_collator(
@@ -479,6 +501,7 @@ where
 		.statement_distribution(DummySubsystem)
 		.approval_distribution(DummySubsystem)
 		.approval_voting(DummySubsystem)
+		.approval_voting_parallel(DummySubsystem)
 		.gossip_support(DummySubsystem)
 		.dispute_coordinator(DummySubsystem)
 		.dispute_distribution(DummySubsystem)
