@@ -195,11 +195,11 @@ pub type MemoryDB<H> = memory_db::MemoryDB<H, memory_db::HashKey<H>, trie_db::DB
 /// Reexport from `hash_db`, with genericity set for `Hasher` trait.
 pub type GenericMemoryDB<H, KF> = memory_db::MemoryDB<H, KF, trie_db::DBValue>;
 
-/// Persistent trie database read-access interface for the a given hasher.
+/// Persistent trie database read-access interface for a given hasher.
 pub type TrieDB<'a, 'cache, L> = trie_db::TrieDB<'a, 'cache, L>;
 /// Builder for creating a [`TrieDB`].
 pub type TrieDBBuilder<'a, 'cache, L> = trie_db::TrieDBBuilder<'a, 'cache, L>;
-/// Persistent trie database write-access interface for the a given hasher.
+/// Persistent trie database write-access interface for a given hasher.
 pub type TrieDBMut<'a, L> = trie_db::TrieDBMut<'a, L>;
 /// Builder for creating a [`TrieDBMut`].
 pub type TrieDBMutBuilder<'a, L> = trie_db::TrieDBMutBuilder<'a, L>;
@@ -212,17 +212,17 @@ pub type TrieHash<L> = <<L as TrieLayout>::Hash as Hasher>::Out;
 pub mod trie_types {
 	use super::*;
 
-	/// Persistent trie database read-access interface for the a given hasher.
+	/// Persistent trie database read-access interface for a given hasher.
 	///
 	/// Read only V1 and V0 are compatible, thus we always use V1.
 	pub type TrieDB<'a, 'cache, H> = super::TrieDB<'a, 'cache, LayoutV1<H>>;
 	/// Builder for creating a [`TrieDB`].
 	pub type TrieDBBuilder<'a, 'cache, H> = super::TrieDBBuilder<'a, 'cache, LayoutV1<H>>;
-	/// Persistent trie database write-access interface for the a given hasher.
+	/// Persistent trie database write-access interface for a given hasher.
 	pub type TrieDBMutV0<'a, H> = super::TrieDBMut<'a, LayoutV0<H>>;
 	/// Builder for creating a [`TrieDBMutV0`].
 	pub type TrieDBMutBuilderV0<'a, H> = super::TrieDBMutBuilder<'a, LayoutV0<H>>;
-	/// Persistent trie database write-access interface for the a given hasher.
+	/// Persistent trie database write-access interface for a given hasher.
 	pub type TrieDBMutV1<'a, H> = super::TrieDBMut<'a, LayoutV1<H>>;
 	/// Builder for creating a [`TrieDBMutV1`].
 	pub type TrieDBMutBuilderV1<'a, H> = super::TrieDBMutBuilder<'a, LayoutV1<H>>;

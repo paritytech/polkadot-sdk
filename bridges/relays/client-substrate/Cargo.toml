@@ -19,9 +19,11 @@ jsonrpsee = { version = "0.23.1", features = ["macros", "ws-client"] }
 log = { workspace = true }
 num-traits = "0.2"
 rand = "0.8.5"
+serde_json = { workspace = true }
 scale-info = { version = "2.11.1", features = ["derive"] }
 tokio = { version = "1.37", features = ["rt-multi-thread"] }
 thiserror = { workspace = true }
+quick_cache = "0.3"
 
 # Bridge dependencies
 

@@ -351,6 +351,9 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Note that the given cores have become occupied. Update the claim queue accordingly.
+	/// This will not push a new entry onto the claim queue, so the length after this call will be
+	/// the expected length - 1. The claim_queue runtime API will take care of adding another entry
+	/// here, to ensure the right lookahead.
 	pub(crate) fn occupied(
 		now_occupied: BTreeMap<CoreIndex, ParaId>,
 	) -> BTreeMap<CoreIndex, PositionInClaimQueue> {

@@ -294,6 +294,9 @@ name = "arbitrary"
 version = "1.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7d5a26814d8dcb93b0e5a0ff3c6d80a8843bafb21b39e8e18a6f05471870e110"
+dependencies = [
+ "derive_arbitrary",
+]
 
 [[package]]
 name = "ark-bls12-377"
@@ -2104,7 +2107,6 @@ dependencies = [
  "static_assertions",
  "substrate-wasm-builder",
  "testnet-parachains-constants",
- "tuplex",
  "xcm-fee-payment-runtime-api",
 ]
 
@@ -2264,7 +2266,6 @@ dependencies = [
  "static_assertions",
  "substrate-wasm-builder",
  "testnet-parachains-constants",
- "tuplex",
  "westend-runtime-constants",
  "xcm-fee-payment-runtime-api",
 ]
@@ -4547,16 +4548,15 @@ dependencies = [
 
 [[package]]
 name = "curve25519-dalek"
-version = "4.1.2"
+version = "4.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0a677b8922c94e01bdbb12126b0bc852f00447528dee1782229af9c720c3f348"
+checksum = "97fb8b7c4503de7d6ae7b42ab72a5a59857b4c937ec27a3d4539dba95b5ab2be"
 dependencies = [
  "cfg-if",
  "cpufeatures",
  "curve25519-dalek-derive",
  "digest 0.10.7",
  "fiat-crypto",
- "platforms",
  "rustc_version 0.4.0",
  "subtle 2.5.0",
  "zeroize",
@@ -4735,6 +4735,17 @@ name = "derive-syn-parse"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d65d7ce8132b7c0e54497a4d9a55a1c2a0912a0d786cf894472ba818fba45762"
+dependencies = [
+ "proc-macro2 1.0.82",
+ "quote 1.0.35",
+ "syn 2.0.61",
+]
+
+[[package]]
+name = "derive_arbitrary"
+version = "1.3.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "67e77553c4162a157adbf834ebae5b415acbecbeafc7a74b0e886657506a7611"
 dependencies = [
  "proc-macro2 1.0.82",
  "quote 1.0.35",
@@ -5018,7 +5029,7 @@ version = "2.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4a3daa8e81a3963a60642bcc1f90a670680bd4a77535faa384e9d1c79d620871"
 dependencies = [
- "curve25519-dalek 4.1.2",
+ "curve25519-dalek 4.1.3",
  "ed25519 2.2.2",
  "rand_core 0.6.4",
  "serde",
@@ -5033,7 +5044,7 @@ version = "4.0.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7d9ce6874da5d4415896cd45ffbc4d1cfc0c4f9c079427bd870742c30f2f65a9"
 dependencies = [
- "curve25519-dalek 4.1.2",
+ "curve25519-dalek 4.1.3",
  "ed25519 2.2.2",
  "hashbrown 0.14.3",
  "hex",
@@ -6737,12 +6748,12 @@ dependencies = [
 
 [[package]]
 name = "http-body-util"
-version = "0.1.1"
+version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0475f8b2ac86659c21b64320d5d653f9efe42acd2a4e560073ec61a155a34f1d"
+checksum = "793429d76616a256bcb62c2a2ec2bed781c8307e797e2598c50010f2bee2544f"
 dependencies = [
  "bytes",
- "futures-core",
+ "futures-util",
  "http 1.1.0",
  "http-body 1.0.0",
  "pin-project-lite 0.2.12",
@@ -8619,7 +8630,7 @@ dependencies = [
  "bitflags 1.3.2",
  "blake2 0.10.6",
  "c2-chacha",
- "curve25519-dalek 4.1.2",
+ "curve25519-dalek 4.1.3",
  "either",
  "hashlink",
  "lioness",
@@ -10617,6 +10628,7 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "sp-core",
+ "sp-inherents",
  "sp-io",
  "sp-runtime",
  "sp-std 14.0.0",
@@ -13348,6 +13360,7 @@ dependencies = [
  "polkadot-node-subsystem-util",
  "polkadot-primitives",
  "polkadot-primitives-test-helpers",
+ "rstest",
  "sc-keystore",
  "sp-application-crypto",
  "sp-core",
@@ -14468,6 +14481,7 @@ dependencies = [
  "frame-support",
  "frame-system",
  "kitchensink-runtime",
+ "minimal-template-runtime",
  "pallet-assets",
  "pallet-aura",
  "pallet-authorship",
@@ -14490,6 +14504,7 @@ dependencies = [
  "pallet-transaction-payment",
  "pallet-uniques",
  "pallet-utility",
+ "parachain-template-runtime",
  "parity-scale-codec",
  "polkadot-sdk",
  "polkadot-sdk-frame",
@@ -14509,6 +14524,7 @@ dependencies = [
  "sc-service",
  "scale-info",
  "simple-mermaid 0.1.1",
+ "solochain-template-runtime",
  "sp-api",
  "sp-arithmetic",
  "sp-core",
@@ -14517,6 +14533,9 @@ dependencies = [
  "sp-keyring",
  "sp-offchain",
  "sp-runtime",
+ "sp-runtime-interface 24.0.0",
+ "sp-std 14.0.0",
+ "sp-tracing 16.0.0",
  "sp-version",
  "staging-chain-spec-builder",
  "staging-node-cli",
@@ -15618,6 +15637,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "quick_cache"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5253a3a0d56548d5b0be25414171dc780cc6870727746d05bd2bde352eee96c5"
+dependencies = [
+ "ahash 0.8.11",
+ "hashbrown 0.13.2",
+ "parking_lot 0.12.1",
+]
+
+[[package]]
 name = "quickcheck"
 version = "1.0.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -16052,12 +16082,14 @@ dependencies = [
  "pallet-transaction-payment-rpc-runtime-api",
  "pallet-utility",
  "parity-scale-codec",
+ "quick_cache",
  "rand 0.8.5",
  "relay-utils",
  "sc-chain-spec",
  "sc-rpc-api",
  "sc-transaction-pool-api",
  "scale-info",
+ "serde_json",
  "sp-consensus-grandpa",
  "sp-core",
  "sp-rpc",
@@ -17991,10 +18023,12 @@ dependencies = [
  "futures",
  "governor",
  "http 1.1.0",
+ "http-body-util",
  "hyper 1.3.1",
  "ip_network",
  "jsonrpsee",
  "log",
+ "serde",
  "serde_json",
  "substrate-prometheus-endpoint",
  "tokio",
@@ -18487,7 +18521,7 @@ dependencies = [
  "aead",
  "arrayref",
  "arrayvec 0.7.4",
- "curve25519-dalek 4.1.2",
+ "curve25519-dalek 4.1.3",
  "getrandom_or_panic",
  "merlin",
  "rand_core 0.6.4",
@@ -19234,7 +19268,7 @@ dependencies = [
  "aes-gcm",
  "blake2 0.10.6",
  "chacha20poly1305",
- "curve25519-dalek 4.1.2",
+ "curve25519-dalek 4.1.3",
  "rand_core 0.6.4",
  "ring 0.17.7",
  "rustc_version 0.4.0",
@@ -19699,6 +19733,7 @@ dependencies = [
 name = "sp-api"
 version = "26.0.0"
 dependencies = [
+ "docify",
  "hash-db",
  "log",
  "parity-scale-codec",
@@ -20192,6 +20227,7 @@ name = "sp-io"
 version = "30.0.0"
 dependencies = [
  "bytes",
+ "docify",
  "ed25519-dalek 2.1.1",
  "libsecp256k1",
  "log",
@@ -20493,6 +20529,7 @@ dependencies = [
 name = "sp-state-machine"
 version = "0.35.0"
 dependencies = [
+ "arbitrary",
  "array-bytes",
  "assert_matches",
  "hash-db",
@@ -20517,7 +20554,7 @@ name = "sp-statement-store"
 version = "10.0.0"
 dependencies = [
  "aes-gcm",
- "curve25519-dalek 4.1.2",
+ "curve25519-dalek 4.1.3",
  "ed25519-dalek 2.1.1",
  "hkdf",
  "parity-scale-codec",
@@ -23950,7 +23987,7 @@ version = "2.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fb66477291e7e8d2b0ff1bcb900bf29489a9692816d79874bea351e7a8b6de96"
 dependencies = [
- "curve25519-dalek 4.1.2",
+ "curve25519-dalek 4.1.3",
  "rand_core 0.6.4",
  "serde",
  "zeroize",
