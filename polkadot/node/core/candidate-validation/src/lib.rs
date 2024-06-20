@@ -676,7 +676,7 @@ async fn validate_candidate_exhaustive(
 					exec_timeout,
 					params.encode(),
 					polkadot_node_core_pvf::PreparePriority::Normal,
-					polkadot_node_core_pvf::ExecutePriority::Normal,
+					polkadot_node_core_pvf::ExecutePriority::Low,
 				)
 				.await
 		},
