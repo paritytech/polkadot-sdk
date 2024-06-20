@@ -28,7 +28,6 @@ use crate::{
 use quote::ToTokens;
 use std::{collections::HashMap, ops::IndexMut};
 use syn::spanned::Spanned;
-use syn::Error;
 /// Generate the prefix_ident related to the storage.
 /// prefix_ident is used for the prefix struct to be given to storage as first generic param.
 fn prefix_ident(storage: &StorageDef) -> syn::Ident {

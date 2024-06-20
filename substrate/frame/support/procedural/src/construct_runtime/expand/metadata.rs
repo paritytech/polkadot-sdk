@@ -58,8 +58,6 @@ pub fn expand_runtime_metadata(
 					#attr
 				}
 			});
-			let deprecation_info = crate::deprecation::get_deprecation(scrate, &decl.attrs)
-				.expect("invalid deprecation attribute");
 			quote! {
 				#attr
 				#scrate::__private::metadata_ir::PalletMetadataIR {
@@ -71,7 +69,6 @@ pub fn expand_runtime_metadata(
 					constants: #constants,
 					error: #errors,
 					docs: #docs,
-					deprecation_info: #deprecation_info,
 				}
 			}
 		})

@@ -117,7 +117,6 @@ impl SomeAssociation2 for u64 {
 // Comments should not be included in the pallet documentation
 #[pallet_doc("../../README.md")]
 #[doc = include_str!("../../README.md")]
-#[deprecated]
 pub mod pallet {
 	use super::*;
 	use frame_support::pallet_prelude::*;

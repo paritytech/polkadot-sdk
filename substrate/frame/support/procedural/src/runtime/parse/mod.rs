@@ -21,7 +21,7 @@ pub mod pallet_decl;
 pub mod runtime_struct;
 pub mod runtime_types;
 
-use crate::{construct_runtime::parse::Pallet, pallet::parse::helper::MutItemAttrs};
+use crate::construct_runtime::parse::Pallet;
 use pallet_decl::PalletDeclaration;
 use proc_macro2::TokenStream as TokenStream2;
 use quote::ToTokens;
@@ -150,10 +150,10 @@ impl Def {
 
 		let mut pallet_decls = vec![];
 		let mut pallets = vec![];
-		
+
 		for item in items.iter_mut() {
 			let mut pallet_index_and_item = None;
-		
+
 			let mut disable_call = false;
 			let mut disable_unsigned = false;
 
@@ -185,7 +185,7 @@ impl Def {
 				}
 			}
 
-			if let Some((pallet_index, mut pallet_item)) = pallet_index_and_item {
+			if let Some((pallet_index, pallet_item)) = pallet_index_and_item {
 				match *pallet_item.ty.clone() {
 					syn::Type::Path(ref path) => {
 						let pallet_decl =
