@@ -123,12 +123,6 @@ where
 	P::Public: AppPublic + Member + Codec,
 	P::Signature: TryFrom<Vec<u8>> + Member + Codec,
 {
-	// This is an arbitrary value which is likely guaranteed to exceed any reasonable
-	// limit, as it would correspond to 10 non-included blocks.
-	//
-	// Since we only search for parent blocks which have already been imported,
-	// we can guarantee that all imported blocks respect the unincluded segment
-	// rules specified by the parachain's runtime and thus will never be too deep.
 	async move {
 		cumulus_client_collator::initialize_collator_subsystems(
 			&mut params.overseer_handle,

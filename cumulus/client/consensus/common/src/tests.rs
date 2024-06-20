@@ -1244,14 +1244,7 @@ fn find_potential_parents_unknown_pending() {
 	))
 	.unwrap();
 
-	assert_eq!(potential_parents.len(), 1);
-	let expected = included_block;
-	let parent = &potential_parents[0];
-
-	assert_eq!(parent.hash, expected.hash());
-	assert_eq!(&parent.header, expected.header());
-	assert_eq!(parent.depth, 0);
-	assert!(parent.aligned_with_pending);
+	assert!(potential_parents.is_empty());
 }
 
 #[test]
@@ -1331,7 +1324,7 @@ fn find_potential_parents_unknown_pending_include_alternative_branches() {
 	assert_eq!(expected_parents[1].hash(), potential_parents[1].hash);
 }
 
-/// Test where there is an additional block between included and pending block.
+/// Test where there are multiple pending blocks.
 #[test]
 fn find_potential_parents_aligned_with_late_pending() {
 	sp_tracing::try_init_simple();

@@ -24,6 +24,7 @@ hex-literal = "0.4.1"
 log = { workspace = true, default-features = true }
 serde = { features = ["derive"], workspace = true, default-features = true }
 serde_json = { workspace = true, default-features = true }
+tokio = { version = "1.32.0", features = ["macros", "parking_lot", "time"] }
 
 # Local
 rococo-parachain-runtime = { path = "../parachains/runtimes/testing/rococo-parachain" }
@@ -120,7 +121,6 @@ assert_cmd = "2.0"
 nix = { version = "0.28.0", features = ["signal"] }
 tempfile = "3.8.0"
 wait-timeout = "0.2"
-tokio = { version = "1.32.0", features = ["macros", "parking_lot", "time"] }
 
 [features]
 default = []

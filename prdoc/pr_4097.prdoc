@@ -1,0 +1,19 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Introduce experimental slot-based collator
+
+doc:
+  - audience: Node Operator
+    description: |
+      Introduces an experimental collator that is fit fot elastic-scaling.
+      It can be activated on `test-parachain` and `polkadot-parachain` binaries via
+      `--experimental-use-slot-based` flag. The current implementation is MVP status and purely
+      for testing. Behaviour can change any time and should not be relied upon in environments with
+      any stability requirements.
+
+crates:
+  - name: cumulus-client-consensus-aura
+    bump: minor
+  - name: cumulus-client-consensus-common
+    bump: minor

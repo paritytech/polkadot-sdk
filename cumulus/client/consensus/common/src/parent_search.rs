@@ -140,7 +140,7 @@ pub async fn find_potential_parents<B: BlockT>(
 						%pending_hash,
 						"Failed to get header for pending block.",
 					);
-					return Ok(only_included)
+					return Ok(Default::default())
 				},
 				Ok(Some(_)) => Some((header, pending_hash)),
 				_ => None,
@@ -286,9 +286,7 @@ async fn build_relay_parent_ancestry(
 	let mut current_rp = relay_parent;
 	let mut required_session = None;
 	while ancestry.len() <= ancestry_lookback {
-		let Some(header) = relay_client.header(RBlockId::hash(current_rp)).await? else {
-			break
-		};
+		let Some(header) = relay_client.header(RBlockId::hash(current_rp)).await? else { break };
 
 		let session = relay_client.session_index_for_child(current_rp).await?;
 		if let Some(required_session) = required_session {

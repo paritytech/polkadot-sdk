@@ -17,13 +17,7 @@ polkadot-overseer = { path = "../../../polkadot/node/overseer" }
 polkadot-node-subsystem-util = { path = "../../../polkadot/node/subsystem-util" }
 polkadot-node-network-protocol = { path = "../../../polkadot/node/network/protocol" }
 
-polkadot-availability-recovery = { path = "../../../polkadot/node/network/availability-recovery" }
-polkadot-collator-protocol = { path = "../../../polkadot/node/network/collator-protocol" }
 polkadot-network-bridge = { path = "../../../polkadot/node/network/bridge" }
-polkadot-node-collation-generation = { path = "../../../polkadot/node/collation-generation" }
-polkadot-node-core-runtime-api = { path = "../../../polkadot/node/core/runtime-api" }
-polkadot-node-core-chain-api = { path = "../../../polkadot/node/core/chain-api" }
-polkadot-node-core-prospective-parachains = { path = "../../../polkadot/node/core/prospective-parachains" }
 polkadot-service = { path = "../../../polkadot/node/service" }
 
 # substrate deps
@@ -40,7 +34,6 @@ sp-consensus-babe = { path = "../../../substrate/primitives/consensus/babe" }
 sp-consensus = { path = "../../../substrate/primitives/consensus/common" }
 sp-runtime = { path = "../../../substrate/primitives/runtime" }
 sp-blockchain = { path = "../../../substrate/primitives/blockchain" }
-tokio = { version = "1.32.0", features = ["macros"] }
 
 # cumulus deps
 cumulus-relay-chain-interface = { path = "../relay-chain-interface" }
@@ -51,4 +44,3 @@ array-bytes = "6.2.2"
 tracing = "0.1.37"
 async-trait = "0.1.79"
 futures = "0.3.28"
-parking_lot = "0.12.1"

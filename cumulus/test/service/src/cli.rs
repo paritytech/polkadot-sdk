@@ -50,6 +50,11 @@ pub struct TestCollatorCli {
 
 	#[arg(long)]
 	pub fail_pov_recovery: bool,
+
+	/// EXPERIMENTAL: Use slot-based collator which can handle elastic scaling. Use with care, this
+	/// flag is unstable and subject to change.
+	#[arg(long)]
+	pub experimental_use_slot_based: bool,
 }
 
 #[derive(Debug, clap::Subcommand)]
