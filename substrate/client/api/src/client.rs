@@ -410,7 +410,7 @@ impl<B: BlockT> TryFrom<BlockImportNotification<B>> for ChainEvent<B> {
 		if n.is_new_best {
 			Ok(Self::NewBestBlock { hash: n.hash, tree_route: n.tree_route })
 		} else {
-			Err(())
+			Ok(Self::NewBlock { hash: n.hash })
 		}
 	}
 }

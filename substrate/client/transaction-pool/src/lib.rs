@@ -31,26 +31,13 @@ mod single_state_txpool;
 use common::{api, enactment_state};
 use std::{future::Future, pin::Pin, sync::Arc};
 
-/// Log target for transaction pool.
-///
-/// It can be used by other components for logging functionality strictly related to txpool (e.g.
-/// importing transaction).
-pub const LOG_TARGET: &str = "txpool";
-
-pub use graph::{base_pool::Limit as PoolLimit, ChainApi, Options};
-pub use single_state_txpool::{notification_future, RevalidationType};
-
-//benches:
-pub use graph::Pool;
-
-//testing:
 pub use api::FullChainApi;
+pub use builder::{Builder, TransactionPoolImpl, TransactionPoolOptions, TransactionPoolType};
 pub use fork_aware_txpool::{ForkAwareTxPool, ImportNotificationTask};
-pub use single_state_txpool::BasicPool;
-
+pub use graph::{base_pool::Limit as PoolLimit, ChainApi, Options, Pool};
 use single_state_txpool::prune_known_txs_for_block;
+pub use single_state_txpool::{notification_future, BasicPool, RevalidationType};
 
-// shared types
 type BoxedReadyIterator<Hash, Data> = Box<
 	dyn sc_transaction_pool_api::ReadyTransactions<
 			Item = Arc<graph::base_pool::Transaction<Hash, Data>>,
@@ -62,6 +49,10 @@ type ReadyIteratorFor<PoolApi> =
 
 type PolledIterator<PoolApi> = Pin<Box<dyn Future<Output = ReadyIteratorFor<PoolApi>> + Send>>;
 
-pub use builder::{Builder, TransactionPoolImpl, TransactionPoolOptions, TransactionPoolType};
-
 use crate::common::log_xt::*;
+
+/// Log target for transaction pool.
+///
+/// It can be used by other components for logging functionality strictly related to txpool (e.g.
+/// importing transaction).
+pub const LOG_TARGET: &str = "txpool";

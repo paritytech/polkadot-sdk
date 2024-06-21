@@ -16,6 +16,9 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
+//! Utility for logging transaction collections.
+
+/// Logs every transaction from given `tx_collection` with given level.
 macro_rules! log_xt {
 	(data: hash, target: $target:expr, $level:expr, $tx_collection:expr, $text_with_format:expr) => {
 		if log::max_level() >= $level {
@@ -40,9 +43,9 @@ macro_rules! log_xt {
 	};
 }
 
+/// Logs every transaction from given `tx_collection` with debug level.
 macro_rules! log_xt_debug {
     (data: $datatype:ident, target: $target:expr, $($arg:tt)+) => ($crate::common::log_xt::log_xt!(data: $datatype, target: $target, log::Level::Debug, $($arg)+));
-    // (target: $target:expr, $($arg:tt)+) => ($crate::common::log_xt::log_xt!(data: hash, target: $target, log::Level::Debug, $($arg)+));
     (target: $target:expr, $tx_collection:expr, $text_with_format:expr) => ($crate::common::log_xt::log_xt!(data: hash, target: $target, log::Level::Debug, $tx_collection, $text_with_format));
     (target: $target:expr, $tx_collection:expr, $text_with_format:expr, $($arg:expr)*) => ($crate::common::log_xt::log_xt!(data: hash, target: $target, log::Level::Debug, $tx_collection, $text_with_format, $($arg)*));
 }

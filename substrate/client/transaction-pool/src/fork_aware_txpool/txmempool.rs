@@ -17,12 +17,16 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 //! Transaction memory pool, container for watched and unwatched transactions.
+//! Acts as a buffer which collect transactions before importing them to the views. Following are
+//! the crucial use cases when it is needed:
+//! - empty pool (no views yet)
+//! - potential races between creation of view and submitting transaction (w/o intermediary buffer
+//!   some transactions
+//! could be lost)
+//! - on some forks transaction can be invalid (view does not contain it), on other for tx can be
+//!   valid.
 
-use crate::{
-	graph,
-	graph::{ValidatedTransaction, ValidatedTransactionFor},
-	log_xt_debug,
-};
+use crate::{graph, log_xt_debug, LOG_TARGET};
 use itertools::Itertools;
 use parking_lot::RwLock;
 use sp_runtime::transaction_validity::InvalidTransaction;
@@ -38,19 +42,24 @@ use sp_runtime::traits::Block as BlockT;
 use std::time::Instant;
 
 use super::multi_view_listener::MultiViewListener;
-use crate::LOG_TARGET;
 use sp_blockchain::HashAndNumber;
 use sp_runtime::transaction_validity::TransactionValidityError;
 
+/// Represents the transaction in the intermediary buffer.
 #[derive(Debug)]
-pub struct TxInMemPool<Block>
+struct TxInMemPool<Block>
 where
 	Block: BlockT,
 {
 	//todo: add listener? for updating view with invalid transaction?
+	/// is transaction watched
 	watched: bool,
+	//todo: Arc?
+	/// transaction actual body
 	tx: Block::Extrinsic,
+	/// transaction source
 	source: TransactionSource,
+	/// when transaction was revalidated, used to periodically revalidate mem pool buffer.
 	validated_at: AtomicU64,
 }
 
@@ -78,33 +87,31 @@ impl<Block: BlockT> TxInMemPool<Block> {
 	}
 }
 
-pub struct TxMemPool<PoolApi, Block>
+/// Intermediary transaction buffer.
+///
+/// Keeps all the transaction which are potentially valid. Transactions that were finalized or
+/// transaction that are invalid at finalized blocks are removed.
+pub(super) struct TxMemPool<ChainApi, Block>
 where
 	Block: BlockT,
-	PoolApi: graph::ChainApi<Block = Block> + 'static,
+	ChainApi: graph::ChainApi<Block = Block> + 'static,
 {
-	api: Arc<PoolApi>,
-	//could be removed after removing watched (and adding listener into tx)
-	listener: Arc<MultiViewListener<PoolApi>>,
-	pub(super) pending_revalidation_result:
-		RwLock<Option<Vec<(ExtrinsicHash<PoolApi>, ValidatedTransactionFor<PoolApi>)>>>,
-	// todo:
-	xts2: RwLock<HashMap<graph::ExtrinsicHash<PoolApi>, Arc<TxInMemPool<Block>>>>,
+	api: Arc<ChainApi>,
+	//could be removed after removing watched field (and adding listener into tx)
+	listener: Arc<MultiViewListener<ChainApi>>,
+	xts2: RwLock<HashMap<graph::ExtrinsicHash<ChainApi>, Arc<TxInMemPool<Block>>>>,
 }
 
-impl<PoolApi, Block> TxMemPool<PoolApi, Block>
+// Clumsy implementation - some improvements shall be done in the following code, use of Arc,
+// redundant clones, naming..., etc...
+impl<ChainApi, Block> TxMemPool<ChainApi, Block>
 where
 	Block: BlockT,
-	PoolApi: graph::ChainApi<Block = Block> + 'static,
+	ChainApi: graph::ChainApi<Block = Block> + 'static,
 	<Block as BlockT>::Hash: Unpin,
 {
-	pub(super) fn new(api: Arc<PoolApi>, listener: Arc<MultiViewListener<PoolApi>>) -> Self {
-		Self {
-			api,
-			listener,
-			pending_revalidation_result: Default::default(),
-			xts2: Default::default(),
-		}
+	pub(super) fn new(api: Arc<ChainApi>, listener: Arc<MultiViewListener<ChainApi>>) -> Self {
+		Self { api, listener, xts2: Default::default() }
 	}
 
 	pub(super) fn watched_xts(&self) -> impl Iterator<Item = Block::Extrinsic> {
@@ -190,58 +197,30 @@ where
 
 		let duration = start.elapsed();
 
-		let (invalid_hashes, revalidated): (Vec<_>, Vec<_>) = validation_results
-			.into_iter()
-			.partition(|(xt_hash, _, validation_result)| match validation_result {
-				Ok(Ok(_)) |
-				Ok(Err(TransactionValidityError::Invalid(InvalidTransaction::Future))) => false,
-				Err(_) |
-				Ok(Err(TransactionValidityError::Unknown(_))) |
-				Ok(Err(TransactionValidityError::Invalid(_))) => {
-					log::debug!(
-						target: LOG_TARGET,
-						"[{:?}]: Purging: invalid: {:?}",
-						xt_hash,
-						validation_result,
-					);
-					true
-				},
+		let (invalid_hashes, _): (Vec<_>, Vec<_>) =
+			validation_results.into_iter().partition(|(xt_hash, _, validation_result)| {
+				match validation_result {
+					Ok(Ok(_)) |
+					Ok(Err(TransactionValidityError::Invalid(InvalidTransaction::Future))) => false,
+					Err(_) |
+					Ok(Err(TransactionValidityError::Unknown(_))) |
+					Ok(Err(TransactionValidityError::Invalid(_))) => {
+						log::debug!(
+							target: LOG_TARGET,
+							"[{:?}]: Purging: invalid: {:?}",
+							xt_hash,
+							validation_result,
+						);
+						true
+					},
+				}
 			});
 
 		let invalid_hashes = invalid_hashes.into_iter().map(|v| v.0).collect::<Vec<_>>();
 
-		//todo: is it ok to overwrite validity?
-		let pending_revalidation_result = revalidated
-			.into_iter()
-			.filter_map(|(xt_hash, xt, transaction_validity)| match transaction_validity {
-				Ok(Ok(valid_transaction)) => Some((xt_hash, xt, valid_transaction)),
-				_ => None,
-			})
-			.map(|(xt_hash, xt, valid_transaction)| {
-				let xt_len = self.api.hash_and_length(&xt.tx).1;
-				let block_number = finalized_block.number.into().as_u64();
-				xt.validated_at.store(block_number, atomic::Ordering::Relaxed);
-				(
-					xt_hash,
-					ValidatedTransaction::valid_at(
-						block_number,
-						xt_hash,
-						xt.source,
-						xt.tx.clone(),
-						xt_len,
-						valid_transaction,
-					),
-				)
-			})
-			.collect::<Vec<_>>();
-
-		let pending_revalidation_len = pending_revalidation_result.len();
-		log_xt_debug!(data: tuple, target: LOG_TARGET, &pending_revalidation_result,"[{:?}] purge_transactions, revalidated: {:?}");
-		*self.pending_revalidation_result.write() = Some(pending_revalidation_result);
-
 		log::info!(
 			target: LOG_TARGET,
-			"purge_transactions: at {finalized_block:?} count:{count:?} purged:{:?} revalidated:{pending_revalidation_len:?} took {duration:?}", invalid_hashes.len(),
+			"purge_transactions: at {finalized_block:?} count:{count:?} purged:{:?} took {duration:?}", invalid_hashes.len(),
 		);
 
 		invalid_hashes
@@ -249,14 +228,14 @@ where
 
 	pub(super) async fn purge_finalized_transactions(
 		&self,
-		finalized_xts: &Vec<ExtrinsicHash<PoolApi>>,
+		finalized_xts: &Vec<ExtrinsicHash<ChainApi>>,
 	) {
 		log::info!(target: LOG_TARGET, "purge_finalized_transactions count:{:?}", finalized_xts.len());
 		log_xt_debug!(target: LOG_TARGET, finalized_xts, "[{:?}] purged finalized transactions");
 		self.xts2.write().retain(|hash, _| !finalized_xts.contains(&hash));
 	}
 
-	pub async fn purge_transactions(&self, finalized_block: HashAndNumber<Block>) {
+	pub(super) async fn purge_transactions(&self, finalized_block: HashAndNumber<Block>) {
 		let invalid_hashes = self.validate_array(finalized_block.clone()).await;
 
 		self.xts2.write().retain(|hash, _| !invalid_hashes.contains(&hash));

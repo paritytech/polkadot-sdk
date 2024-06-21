@@ -19,7 +19,7 @@
 //! Multi view listener. Combines streams from many views into single transaction status stream.
 
 use crate::{
-	graph::{BlockHash, ChainApi, ExtrinsicHash as TxHash},
+	graph::{self, BlockHash, ExtrinsicHash as TxHash},
 	LOG_TARGET,
 };
 use futures::{stream, StreamExt};
@@ -33,25 +33,26 @@ use std::{
 use tokio::sync::mpsc;
 use tokio_stream::StreamMap;
 
-// pub type TransactionStatusStream<Hash, BlockHash> =
-// 	dyn Stream<Item = TransactionStatus<Hash, BlockHash>> + Send;
+/// The stream of transaction events.
+///
+/// It can represent both view's stream and external watcher stream.
 pub type TxStatusStream<T> = Pin<Box<TransactionStatusStream<TxHash<T>, BlockHash<T>>>>;
 
-enum ListenerAction<PoolApi: ChainApi> {
-	ViewAdded(BlockHash<PoolApi>, TxStatusStream<PoolApi>),
-	ViewRemoved(BlockHash<PoolApi>),
+enum ListenerAction<ChainApi: graph::ChainApi> {
+	AddView(BlockHash<ChainApi>, TxStatusStream<ChainApi>),
+	RemoveView(BlockHash<ChainApi>),
 	InvalidateTransaction,
-	FinalizeTransaction(BlockHash<PoolApi>, TxIndex),
+	FinalizeTransaction(BlockHash<ChainApi>, TxIndex),
 }
 
-impl<PoolApi> std::fmt::Debug for ListenerAction<PoolApi>
+impl<ChainApi> std::fmt::Debug for ListenerAction<ChainApi>
 where
-	PoolApi: ChainApi,
+	ChainApi: graph::ChainApi,
 {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 		match self {
-			ListenerAction::ViewAdded(h, _) => write!(f, "ListenerAction::ViewAdded({})", h),
-			ListenerAction::ViewRemoved(h) => write!(f, "ListenerAction::ViewRemoved({})", h),
+			ListenerAction::AddView(h, _) => write!(f, "ListenerAction::AddView({})", h),
+			ListenerAction::RemoveView(h) => write!(f, "ListenerAction::RemoveView({})", h),
 			ListenerAction::InvalidateTransaction => {
 				write!(f, "ListenerAction::InvalidateTransaction")
 			},
@@ -62,31 +63,42 @@ where
 	}
 }
 
-pub struct MultiViewListener<PoolApi: ChainApi> {
+/// This struct allows to create and control listener for single transactions.
+///
+/// For every transaction the view's stream generating its own events can be added. The events are
+/// flattened and sent out to the external listener.
+///
+/// The listner allows to add and remove view's stream (per transaction).
+/// The listener allows also to invalidate and finalize transcation.
+pub struct MultiViewListener<ChainApi: graph::ChainApi> {
 	//todo: rwlock not needed here (mut?)
 	controllers:
-		tokio::sync::RwLock<HashMap<TxHash<PoolApi>, mpsc::Sender<ListenerAction<PoolApi>>>>,
+		tokio::sync::RwLock<HashMap<TxHash<ChainApi>, mpsc::Sender<ListenerAction<ChainApi>>>>,
 }
 
-struct ExternalWatcherContext<PoolApi: ChainApi> {
-	tx_hash: TxHash<PoolApi>,
-	fused: futures::stream::Fuse<StreamMap<BlockHash<PoolApi>, TxStatusStream<PoolApi>>>,
-	rx: mpsc::Receiver<ListenerAction<PoolApi>>,
+/// External watcher context.
+///
+/// Aggregates and implements the logic of converting single view's events to the external events.
+/// This context is used to unfold external watcher stream.
+struct ExternalWatcherContext<ChainApi: graph::ChainApi> {
+	tx_hash: TxHash<ChainApi>,
+	fused: futures::stream::Fuse<StreamMap<BlockHash<ChainApi>, TxStatusStream<ChainApi>>>,
+	rx: mpsc::Receiver<ListenerAction<ChainApi>>,
 	terminate: bool,
 	future_seen: bool,
 	ready_seen: bool,
 	broadcast_seen: bool,
 
-	inblock: HashSet<BlockHash<PoolApi>>,
-	views_keeping_tx_valid: HashSet<BlockHash<PoolApi>>,
+	inblock: HashSet<BlockHash<ChainApi>>,
+	views_keeping_tx_valid: HashSet<BlockHash<ChainApi>>,
 }
 
-impl<PoolApi: ChainApi> ExternalWatcherContext<PoolApi>
+impl<ChainApi: graph::ChainApi> ExternalWatcherContext<ChainApi>
 where
-	<<PoolApi as ChainApi>::Block as BlockT>::Hash: Unpin,
+	<<ChainApi as graph::ChainApi>::Block as BlockT>::Hash: Unpin,
 {
-	fn new(tx_hash: TxHash<PoolApi>, rx: mpsc::Receiver<ListenerAction<PoolApi>>) -> Self {
-		let mut stream_map: StreamMap<BlockHash<PoolApi>, TxStatusStream<PoolApi>> =
+	fn new(tx_hash: TxHash<ChainApi>, rx: mpsc::Receiver<ListenerAction<ChainApi>>) -> Self {
+		let mut stream_map: StreamMap<BlockHash<ChainApi>, TxStatusStream<ChainApi>> =
 			StreamMap::new();
 		stream_map.insert(Default::default(), stream::pending().boxed());
 		Self {
@@ -104,12 +116,9 @@ where
 
 	fn handle(
 		&mut self,
-		status: &TransactionStatus<TxHash<PoolApi>, BlockHash<PoolApi>>,
-		hash: BlockHash<PoolApi>,
+		status: &TransactionStatus<TxHash<ChainApi>, BlockHash<ChainApi>>,
+		hash: BlockHash<ChainApi>,
 	) -> bool {
-		// todo: full termination logic: count invalid status events
-		// self.terminate = matches!(status,TransactionStatus::Finalized(_));
-
 		trace!(
 			target: LOG_TARGET, "[{:?}] handle event from {hash:?}: {status:?} views:{:#?}", self.tx_hash,
 			self.fused.get_ref().keys().collect::<Vec<_>>()
@@ -157,8 +166,9 @@ where
 	}
 
 	fn handle_invalidate_transaction(&mut self) -> bool {
-		let keys =
-			HashSet::<BlockHash<PoolApi>>::from_iter(self.fused.get_ref().keys().map(Clone::clone));
+		let keys = HashSet::<BlockHash<ChainApi>>::from_iter(
+			self.fused.get_ref().keys().map(Clone::clone),
+		);
 		trace!(
 			target: LOG_TARGET,
 			"[{:?}] got invalidate_transaction: views:{:#?}", self.tx_hash,
@@ -172,31 +182,32 @@ where
 		}
 	}
 
-	fn add_stream(&mut self, block_hash: BlockHash<PoolApi>, stream: TxStatusStream<PoolApi>) {
+	fn add_stream(&mut self, block_hash: BlockHash<ChainApi>, stream: TxStatusStream<ChainApi>) {
 		self.fused.get_mut().insert(block_hash, stream);
-		trace!(target: LOG_TARGET, "[{:?}] ViewAdded view: {:?} views:{:?}", self.tx_hash, block_hash, self.fused.get_ref().keys().collect::<Vec<_>>());
+		trace!(target: LOG_TARGET, "[{:?}] AddView view: {:?} views:{:?}", self.tx_hash, block_hash, self.fused.get_ref().keys().collect::<Vec<_>>());
 	}
 
-	fn remove_view(&mut self, block_hash: BlockHash<PoolApi>) {
+	fn remove_view(&mut self, block_hash: BlockHash<ChainApi>) {
 		self.fused.get_mut().remove(&block_hash);
-		trace!(target: LOG_TARGET, "[{:?}] ViewRemoved view: {:?} views:{:?}", self.tx_hash, block_hash, self.fused.get_ref().keys().collect::<Vec<_>>());
+		trace!(target: LOG_TARGET, "[{:?}] RemoveView view: {:?} views:{:?}", self.tx_hash, block_hash, self.fused.get_ref().keys().collect::<Vec<_>>());
 	}
 }
 
-impl<PoolApi> MultiViewListener<PoolApi>
+impl<ChainApi> MultiViewListener<ChainApi>
 where
-	PoolApi: ChainApi + 'static,
-	<<PoolApi as ChainApi>::Block as BlockT>::Hash: Unpin,
+	ChainApi: graph::ChainApi + 'static,
+	<<ChainApi as graph::ChainApi>::Block as BlockT>::Hash: Unpin,
 {
+	/// Creates new instance.
 	pub fn new() -> Self {
 		Self { controllers: Default::default() }
 	}
-	//should be called when tx is first submitted
-	//is async needed (bc of rwlock)
+
+	/// Creates an external watcher for given transaction.
 	pub(crate) async fn create_external_watcher_for_tx(
 		&self,
-		tx_hash: TxHash<PoolApi>,
-	) -> Option<TxStatusStream<PoolApi>> {
+		tx_hash: TxHash<ChainApi>,
+	) -> Option<TxStatusStream<ChainApi>> {
 		if self.controllers.read().await.contains_key(&tx_hash) {
 			return None;
 		}
@@ -230,10 +241,10 @@ where
 					cmd = ctx.rx.recv() => {
 						log::trace!(target: LOG_TARGET, "[{:?}] select::rx views:{:?}", ctx.tx_hash, ctx.fused.get_ref().keys().collect::<Vec<_>>());
 						match cmd {
-							Some(ListenerAction::ViewAdded(h,stream)) => {
+							Some(ListenerAction::AddView(h,stream)) => {
 								ctx.add_stream(h, stream);
 							},
-							Some(ListenerAction::ViewRemoved(h)) => {
+							Some(ListenerAction::RemoveView(h)) => {
 								ctx.remove_view(h);
 							},
 							Some(ListenerAction::InvalidateTransaction) => {
@@ -258,17 +269,16 @@ where
 		)
 	}
 
-	//should be called after submitting tx to every view
-	//todo: should be async?
+	/// Adds a view's stream for particular transaction.
 	pub(crate) async fn add_view_watcher_for_tx(
 		&self,
-		tx_hash: TxHash<PoolApi>,
-		block_hash: BlockHash<PoolApi>,
-		stream: TxStatusStream<PoolApi>,
+		tx_hash: TxHash<ChainApi>,
+		block_hash: BlockHash<ChainApi>,
+		stream: TxStatusStream<ChainApi>,
 	) {
 		let mut controllers = self.controllers.write().await;
 		if let Some(tx) = controllers.get(&tx_hash) {
-			match tx.send(ListenerAction::ViewAdded(block_hash, stream)).await {
+			match tx.send(ListenerAction::AddView(block_hash, stream)).await {
 				Err(mpsc::error::SendError(e)) => {
 					trace!(target: LOG_TARGET, "[{:?}] add_view_watcher_for_tx: SendError: {:?}", tx_hash, e);
 					controllers.remove(&tx_hash);
@@ -278,10 +288,11 @@ where
 		}
 	}
 
-	pub(crate) async fn remove_view(&self, block_hash: BlockHash<PoolApi>) {
+	/// Remove given view's stream from every transaction stream.
+	pub(crate) async fn remove_view(&self, block_hash: BlockHash<ChainApi>) {
 		let controllers = self.controllers.write().await;
 		for (tx_hash, sender) in controllers.iter() {
-			match sender.send(ListenerAction::ViewRemoved(block_hash)).await {
+			match sender.send(ListenerAction::RemoveView(block_hash)).await {
 				Err(mpsc::error::SendError(e)) => {
 					log::trace!(target: LOG_TARGET, "[{:?}] remove_view: SendError: {:?}", tx_hash, e);
 					// todo:
@@ -291,7 +302,11 @@ where
 			}
 		}
 	}
-	pub(crate) async fn invalidate_transactions(&self, invalid_hashes: Vec<TxHash<PoolApi>>) {
+
+	/// Invalidate given transaction.
+	///
+	/// This will send invalidated event to the external watcher.
+	pub(crate) async fn invalidate_transactions(&self, invalid_hashes: Vec<TxHash<ChainApi>>) {
 		use futures::future::FutureExt;
 		let mut controllers = self.controllers.write().await;
 
@@ -319,10 +334,13 @@ where
 			});
 	}
 
+	/// Finalize given transaction at given block.
+	///
+	/// This will send finalize event to the external watcher.
 	pub(crate) async fn finalize_transaction(
 		&self,
-		tx_hash: TxHash<PoolApi>,
-		block: BlockHash<PoolApi>,
+		tx_hash: TxHash<ChainApi>,
+		block: BlockHash<ChainApi>,
 		idx: TxIndex,
 	) {
 		let mut controllers = self.controllers.write().await;

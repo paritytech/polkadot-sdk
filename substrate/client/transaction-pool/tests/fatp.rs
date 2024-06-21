@@ -2420,7 +2420,7 @@ fn fatp_avoid_stuck_transaction() {
 }
 
 #[test]
-fn fatp_wtf_future_is_not_pruned() {
+fn fatp_future_is_pruned_by_conflicting_tags() {
 	sp_tracing::try_init_simple();
 
 	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
@@ -2452,4 +2452,103 @@ fn fatp_wtf_future_is_not_pruned() {
 	assert_pool_status!(header02.hash(), &pool, 0, 0);
 }
 
+#[test]
+fn fatp_dangling_ready_gets_revalidated() {
+	sp_tracing::try_init_simple();
+
+	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
+	let (pool, _) = create_basic_pool(api.clone());
+
+	let xt0 = uxt(Alice, 200);
+	let xt1 = uxt(Alice, 201);
+	let xt2 = uxt(Alice, 202);
+	log::info!("xt0: {:#?}", api.hash_and_length(&xt0).0);
+	log::info!("xt1: {:#?}", api.hash_and_length(&xt1).0);
+	log::info!("xt2: {:#?}", api.hash_and_length(&xt2).0);
+
+	let header01 = api.push_block(1, vec![], true);
+	let event = new_best_block_event(&pool, None, header01.hash());
+	block_on(pool.maintain(event));
+	assert_pool_status!(header01.hash(), &pool, 0, 0);
+
+	let header02a = api.push_block_with_parent(header01.hash(), vec![], true);
+	api.set_nonce(header02a.hash(), Alice.into(), 202);
+	let event = new_best_block_event(&pool, Some(header01.hash()), header02a.hash());
+	block_on(pool.maintain(event));
+
+	// send xt2 - it will become ready on block 02a.
+	let _ = block_on(pool.submit_and_watch(invalid_hash(), SOURCE, xt2.clone())).unwrap();
+	assert_pool_status!(header02a.hash(), &pool, 1, 0);
+	assert_eq!(pool.mempool_len(), (0, 1));
+
+	//xt2 is still ready (revalidation executed in background).
+	let header02b = api.push_block_with_parent(header01.hash(), vec![], true);
+	let event = new_best_block_event(&pool, Some(header02a.hash()), header02b.hash());
+	block_on(pool.maintain(event));
+	assert_pool_status!(header02b.hash(), &pool, 1, 0);
+
+	//xt2 is now future - view revalidation worked.
+	let header03b = api.push_block_with_parent(header02b.hash(), vec![], true);
+	let event = new_best_block_event(&pool, Some(header02b.hash()), header03b.hash());
+	block_on(pool.maintain(event));
+	assert_pool_status!(header03b.hash(), &pool, 0, 1);
+}
+
+#[test]
+fn fatp_ready_txs_are_provided_in_valid_order() {
+	sp_tracing::try_init_simple();
+
+	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
+	let (pool, _) = create_basic_pool(api.clone());
+
+	let xt0 = uxt(Alice, 200);
+	let xt1 = uxt(Alice, 201);
+	let xt2 = uxt(Alice, 202);
+	log::info!("xt0: {:#?}", api.hash_and_length(&xt0).0);
+	log::info!("xt1: {:#?}", api.hash_and_length(&xt1).0);
+	log::info!("xt2: {:#?}", api.hash_and_length(&xt2).0);
+
+	let _ = block_on(pool.submit_and_watch(invalid_hash(), SOURCE, xt2.clone())).unwrap();
+	let _ = block_on(pool.submit_and_watch(invalid_hash(), SOURCE, xt1.clone())).unwrap();
+	let _ = block_on(pool.submit_and_watch(invalid_hash(), SOURCE, xt0.clone())).unwrap();
+
+	let header01 = api.push_block(1, vec![xt0], true);
+	api.set_nonce(header01.hash(), Alice.into(), 201);
+	let event = new_best_block_event(&pool, None, header01.hash());
+	block_on(pool.maintain(event));
+	assert_pool_status!(header01.hash(), &pool, 2, 0);
+
+	let header02a =
+		api.push_block_with_parent(header01.hash(), vec![xt1.clone(), xt2.clone()], true);
+	api.set_nonce(header02a.hash(), Alice.into(), 203);
+	let event = new_best_block_event(&pool, Some(header01.hash()), header02a.hash());
+	block_on(pool.maintain(event));
+	assert_pool_status!(header02a.hash(), &pool, 0, 0);
+
+	let header02b = api.push_block_with_parent(header01.hash(), vec![], true);
+	api.set_nonce(header02b.hash(), Alice.into(), 201);
+	let event = new_best_block_event(&pool, Some(header02a.hash()), header02b.hash());
+	block_on(pool.maintain(event));
+	assert_pool_status!(header02b.hash(), &pool, 2, 0);
+
+	let mut ready_iterator = pool.ready_at(header02b.hash()).now_or_never().unwrap();
+	let ready01 = ready_iterator.next();
+	let ready02 = ready_iterator.next();
+	assert_eq!(ready01.unwrap().hash, api.hash_and_length(&xt1).0);
+	assert_eq!(ready02.unwrap().hash, api.hash_and_length(&xt2).0);
+
+	// assert_eq!(pool.mempool_len(), (0, 1));
+	//
+	// //xt2 is still ready (revalidation executed in background).
+	// let header02b = api.push_block_with_parent(header01.hash(), vec![], true);
+	// let event = new_best_block_event(&pool, Some(header03a.hash()), header02b.hash());
+	// block_on(pool.maintain(event));
+	// assert_pool_status!(header02b.hash(), &pool, 1, 0);
+	//
+	// //xt2 is now future - view revalidation worked.
+	// let header03b = api.push_block_with_parent(header02b.hash(), vec![], true);
+	// let event = new_best_block_event(&pool, Some(header02b.hash()), header03b.hash());
+	// block_on(pool.maintain(event));
+	// assert_pool_status!(header03b.hash(), &pool, 0, 1);
+}
 //todo: add test: check len of filter after finalization (!)

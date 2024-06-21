@@ -18,57 +18,41 @@
 
 //! Substrate fork-aware transaction pool implementation.
 
-//todo:
-#![allow(missing_docs)]
 #![warn(unused_extern_crates)]
-//todo:
-#![allow(unused_imports)]
-//todo:
-#![allow(unused_variables)]
 #![allow(dead_code)]
 
 use crate::{
 	api::FullChainApi,
 	enactment_state::{EnactmentAction, EnactmentState},
 	graph,
-	graph::{
-		base_pool::Limit as PoolLimit, watcher::Watcher, ChainApi, Options, Pool, Transaction,
-		ValidatedTransaction, ValidatedTransactionFor,
-	},
+	graph::Options,
 	log_xt_debug,
 };
 use async_trait::async_trait;
 use futures::{
-	channel::{
-		mpsc::{channel, Sender},
-		oneshot,
-	},
-	future::{self, ready},
+	channel::oneshot,
+	future::{self},
 	prelude::*,
 };
-use itertools::Itertools;
-use parking_lot::{Mutex, RwLock};
+use parking_lot::Mutex;
 use sc_transaction_pool_api::error::{Error, IntoPoolError};
 use sp_runtime::transaction_validity::InvalidTransaction;
 use std::{
 	collections::{HashMap, HashSet},
 	pin::Pin,
-	sync::{atomic, atomic::AtomicU64, Arc},
+	sync::Arc,
 };
 
-use crate::graph::{ExtrinsicFor, ExtrinsicHash, IsValidator};
+use crate::graph::{ExtrinsicHash, IsValidator};
 use futures::FutureExt;
 use sc_transaction_pool_api::{
-	error::Error as TxPoolError, ChainEvent, ImportNotificationStream, MaintainedTransactionPool,
-	PoolFuture, PoolStatus, ReadyTransactions, TransactionFor, TransactionPool, TransactionSource,
-	TransactionStatusStreamFor, TxHash,
+	ChainEvent, ImportNotificationStream, MaintainedTransactionPool, PoolFuture, PoolStatus,
+	TransactionFor, TransactionPool, TransactionSource, TransactionStatusStreamFor, TxHash,
 };
 use sp_core::traits::SpawnEssentialNamed;
 use sp_runtime::{
 	generic::BlockId,
-	traits::{
-		AtLeast32Bit, Block as BlockT, Extrinsic, Hash as HashT, Header as HeaderT, NumberFor, Zero,
-	},
+	traits::{Block as BlockT, Extrinsic, NumberFor},
 	transaction_validity::UnknownTransaction,
 };
 use std::time::Instant;
@@ -76,15 +60,11 @@ use std::time::Instant;
 pub use super::import_notification_sink::ImportNotificationTask;
 use super::{
 	import_notification_sink::MultiViewImportNotificationSink,
-	multi_view_listener::{MultiViewListener, TxStatusStream},
+	multi_view_listener::MultiViewListener,
 };
-use crate::{
-	fork_aware_txpool::{view_revalidation, view_revalidation::RevalidationQueue},
-	PolledIterator, ReadyIteratorFor, LOG_TARGET,
-};
+use crate::{fork_aware_txpool::view_revalidation, PolledIterator, ReadyIteratorFor, LOG_TARGET};
 use prometheus_endpoint::Registry as PrometheusRegistry;
 use sp_blockchain::{HashAndNumber, TreeRoute};
-use sp_runtime::transaction_validity::TransactionValidityError;
 
 pub type FullPool<Block, Client> = ForkAwareTxPool<FullChainApi<Client, Block>, Block>;
 use super::{txmempool::TxMemPool, view::View, view_store::ViewStore};
@@ -166,43 +146,41 @@ where
 
 ////////////////////////////////////////////////////////////////////////////////
 
-////////////////////////////////////////////////////////////////////////////////
-
-pub struct ForkAwareTxPool<PoolApi, Block>
+/// The fork-aware transaction pool.
+///
+/// It keeps track of every fork and provides the set of transactions that is valid for every fork.
+pub struct ForkAwareTxPool<ChainApi, Block>
 where
 	Block: BlockT,
-	PoolApi: graph::ChainApi<Block = Block> + 'static,
+	ChainApi: graph::ChainApi<Block = Block> + 'static,
 	<Block as BlockT>::Hash: Unpin,
 {
-	api: Arc<PoolApi>,
-	mempool: Arc<TxMemPool<PoolApi, Block>>,
+	api: Arc<ChainApi>,
+	mempool: Arc<TxMemPool<ChainApi, Block>>,
 
-	// todo: is ViewManager strucy really needed? (no)
-	view_store: Arc<ViewStore<PoolApi, Block>>,
-	// todo: is ReadyPoll struct really needed? (no)
-	ready_poll: Arc<Mutex<ReadyPoll<ReadyIteratorFor<PoolApi>, Block>>>,
-	// current tree? (somehow similar to enactment state?)
+	view_store: Arc<ViewStore<ChainApi, Block>>,
+	ready_poll: Arc<Mutex<ReadyPoll<ReadyIteratorFor<ChainApi>, Block>>>,
 	// todo: metrics
 	enactment_state: Arc<Mutex<EnactmentState<Block>>>,
-	revalidation_queue: Arc<view_revalidation::RevalidationQueue<PoolApi, Block>>,
+	revalidation_queue: Arc<view_revalidation::RevalidationQueue<ChainApi, Block>>,
 
 	import_notification_sink:
-		MultiViewImportNotificationSink<Block::Hash, graph::ExtrinsicHash<PoolApi>>,
+		MultiViewImportNotificationSink<Block::Hash, graph::ExtrinsicHash<ChainApi>>,
+	options: Options,
 	// todo: this are coming from ValidatedPool, some of them maybe needed here
 	// is_validator: IsValidator,
-	options: Options,
 	// rotator: PoolRotator<ExtrinsicHash<B>>,
 }
 
-impl<PoolApi, Block> ForkAwareTxPool<PoolApi, Block>
+impl<ChainApi, Block> ForkAwareTxPool<ChainApi, Block>
 where
 	Block: BlockT,
-	PoolApi: graph::ChainApi<Block = Block> + 'static,
+	ChainApi: graph::ChainApi<Block = Block> + 'static,
 	<Block as BlockT>::Hash: Unpin,
 {
 	/// Create new fork aware transaction pool with provided api, for tests.
 	pub fn new_test(
-		pool_api: Arc<PoolApi>,
+		pool_api: Arc<ChainApi>,
 		best_block_hash: Block::Hash,
 		finalized_hash: Block::Hash,
 	) -> (Self, ImportNotificationTask) {
@@ -228,13 +206,16 @@ where
 		)
 	}
 
+	/// Create new fork aware transaction pool with provided api.
+	///
+	/// The txpool essential tasks are spawned using provided spawner.
 	pub fn new_with_background_queue(
 		options: graph::Options,
-		is_validator: IsValidator,
-		pool_api: Arc<PoolApi>,
+		_is_validator: IsValidator,
+		pool_api: Arc<ChainApi>,
 		// todo: prometheus: Option<&PrometheusRegistry>,
 		spawner: impl SpawnEssentialNamed,
-		best_block_number: NumberFor<Block>,
+		_best_block_number: NumberFor<Block>,
 		best_block_hash: Block::Hash,
 		finalized_hash: Block::Hash,
 	) -> Self {
@@ -272,25 +253,25 @@ where
 	}
 
 	/// Get access to the underlying api
-	pub fn api(&self) -> &PoolApi {
+	pub fn api(&self) -> &ChainApi {
 		&self.api
 	}
 
-	//todo: this should be new TransactionPool API?
+	/// Provides a status for all views at the tips of the forks.
 	pub fn status_all(&self) -> HashMap<Block::Hash, PoolStatus> {
 		self.view_store.status()
 	}
 
-	//todo:naming? maybe just views()
+	/// Provides a number of views at the tips of the forks.
 	pub fn views_len(&self) -> usize {
 		self.view_store.views.read().len()
 	}
 
-	pub fn views_accpeting_len(&self) -> usize {
-		self.view_store.views.read().iter().collect::<Vec<_>>().len()
-	}
-
-	pub fn views_numbers(&self) -> Vec<(NumberFor<Block>, usize, usize)> {
+	/// Provides internal views statistics.
+	///
+	/// Provides block number, count of ready, count of future transactions for every view. It is
+	/// suitable for printing log information.
+	fn views_numbers(&self) -> Vec<(NumberFor<Block>, usize, usize)> {
 		self.view_store
 			.views
 			.read()
@@ -299,10 +280,14 @@ where
 			.collect()
 	}
 
+	/// Checks if there is a view at the tip of the fork with given hash.
 	pub fn has_view(&self, hash: Block::Hash) -> bool {
 		self.view_store.views.read().get(&hash).is_some()
 	}
 
+	/// Returns numbder of unwatched and watched transactions in internal mempool.
+	///
+	/// Intended for use in unit tests.
 	pub fn mempool_len(&self) -> (usize, usize) {
 		self.mempool.len()
 	}
@@ -343,7 +328,7 @@ fn reduce_multiview_result<H, E>(input: &mut HashMap<H, Vec<Result<H, E>>>) -> V
 	assert!(values.all(|x| length == x.len()));
 
 	let mut output = Vec::with_capacity(length);
-	for i in 0..length {
+	for _ in 0..length {
 		let ith_results = input
 			.values_mut()
 			.map(|values_for_view| values_for_view.pop().expect(""))
@@ -424,7 +409,7 @@ mod reduce_multiview_result_tests {
 			(H256::repeat_byte(0x14), vec![Err(Error::Custom(23))]),
 		];
 		let mut input = HashMap::from_iter(v);
-		let r = reduce_multiview_result(&mut input);
+		let _ = reduce_multiview_result(&mut input);
 	}
 
 	#[test]
@@ -507,16 +492,16 @@ mod reduce_multiview_result_tests {
 	}
 }
 
-impl<PoolApi, Block> TransactionPool for ForkAwareTxPool<PoolApi, Block>
+impl<ChainApi, Block> TransactionPool for ForkAwareTxPool<ChainApi, Block>
 where
 	Block: BlockT,
-	PoolApi: 'static + graph::ChainApi<Block = Block>,
+	ChainApi: 'static + graph::ChainApi<Block = Block>,
 	<Block as BlockT>::Hash: Unpin,
 {
-	type Block = PoolApi::Block;
-	type Hash = graph::ExtrinsicHash<PoolApi>;
+	type Block = ChainApi::Block;
+	type Hash = graph::ExtrinsicHash<ChainApi>;
 	type InPoolTransaction = graph::base_pool::Transaction<TxHash<Self>, TransactionFor<Self>>;
-	type Error = PoolApi::Error;
+	type Error = ChainApi::Error;
 
 	fn submit_at(
 		&self,
@@ -533,11 +518,7 @@ where
 		if view_store.is_empty() {
 			return future::ready(Ok(xts
 				.iter()
-				.map(|xt| {
-					//todo: error or ok if no views?
-					// Err(TxPoolError::UnknownTransaction(UnknownTransaction::CannotLookup).into())
-					Ok(self.api.hash_and_length(xt).0)
-				})
+				.map(|xt| Ok(self.api.hash_and_length(xt).0))
 				.collect()))
 			.boxed()
 		}
@@ -570,8 +551,6 @@ where
 			return future::ready(Ok(self.api.hash_and_length(&xt).0)).boxed()
 		}
 
-		let tx_hash = self.hash_of(&xt);
-		let view_count = self.views_len();
 		async move {
 			let results = view_store.submit_one(source, xt).await;
 			let results = results
@@ -608,7 +587,7 @@ where
 	fn remove_invalid(&self, hashes: &[TxHash<Self>]) -> Vec<Arc<Self::InPoolTransaction>> {
 		log_xt_debug!(target:LOG_TARGET, hashes, "[{:?}] fatp::remove_invalid");
 
-		//what hash shall be used here?
+		//revlidate check: what hash shall be used here?
 		// for tx in ready {
 		// 	let validation_result = self
 		// 		.api
@@ -644,7 +623,7 @@ where
 	///
 	/// Consumers of this stream should use the `ready` method to actually get the
 	/// pending transactions in the right order.
-	fn import_notification_stream(&self) -> ImportNotificationStream<ExtrinsicHash<PoolApi>> {
+	fn import_notification_stream(&self) -> ImportNotificationStream<ExtrinsicHash<ChainApi>> {
 		futures::executor::block_on(self.import_notification_sink.event_stream())
 	}
 
@@ -652,14 +631,14 @@ where
 		self.api().hash_and_length(xt).0
 	}
 
-	fn on_broadcasted(&self, propagations: HashMap<TxHash<Self>, Vec<String>>) {
+	fn on_broadcasted(&self, _propagations: HashMap<TxHash<Self>, Vec<String>>) {
+		// todo !!!
 		// self.pool.validated_pool().on_broadcasted(propagations)
 		// unimplemented!()
 	}
 
-	// todo: api change we should have at here?
+	// todo: api change: we probably should have at here?
 	fn ready_transaction(&self, tx_hash: &TxHash<Self>) -> Option<Arc<Self::InPoolTransaction>> {
-		// unimplemented!()
 		let most_recent_view = self.view_store.most_recent_view.read();
 		let result = most_recent_view
 			.map(|block_hash| self.view_store.ready_transaction(block_hash, tx_hash))
@@ -673,11 +652,10 @@ where
 		result
 	}
 
-	// todo: API change? ready at hash (not number)?
-	fn ready_at(&self, at: <Self::Block as BlockT>::Hash) -> PolledIterator<PoolApi> {
+	fn ready_at(&self, at: <Self::Block as BlockT>::Hash) -> PolledIterator<ChainApi> {
 		if let Some((view, retracted)) = self.view_store.get_view_at(at, true) {
 			log::info!( target: LOG_TARGET, "fatp::ready_at {:?} (retracted:{:?})", at, retracted);
-			let iterator: ReadyIteratorFor<PoolApi> = Box::new(view.pool.validated_pool().ready());
+			let iterator: ReadyIteratorFor<ChainApi> = Box::new(view.pool.validated_pool().ready());
 			return async move { iterator }.boxed();
 		}
 
@@ -698,7 +676,7 @@ where
 		pending
 	}
 
-	fn ready(&self, at: <Self::Block as BlockT>::Hash) -> Option<ReadyIteratorFor<PoolApi>> {
+	fn ready(&self, at: <Self::Block as BlockT>::Hash) -> Option<ReadyIteratorFor<ChainApi>> {
 		self.view_store.ready(at)
 	}
 
@@ -726,17 +704,19 @@ where
 
 	fn submit_local(
 		&self,
-		at: Block::Hash,
-		xt: sc_transaction_pool_api::LocalTransactionFor<Self>,
+		_at: Block::Hash,
+		_xt: sc_transaction_pool_api::LocalTransactionFor<Self>,
 	) -> Result<Self::Hash, Self::Error> {
+		//todo
+		//looks like view_store / view needs non async submit_local method ?.
 		unimplemented!();
 	}
 }
 
-impl<PoolApi, Block> ForkAwareTxPool<PoolApi, Block>
+impl<ChainApi, Block> ForkAwareTxPool<ChainApi, Block>
 where
 	Block: BlockT,
-	PoolApi: graph::ChainApi<Block = Block> + 'static,
+	ChainApi: graph::ChainApi<Block = Block> + 'static,
 	<Block as BlockT>::Hash: Unpin,
 {
 	async fn handle_new_block(&self, tree_route: &TreeRoute<Block>) {
@@ -765,25 +745,23 @@ where
 		let new_view = self.build_new_view(best_view, hash_and_number, tree_route).await;
 
 		if let Some(view) = new_view {
-			if let Some(pending_revalidation_result) =
-				self.mempool.pending_revalidation_result.write().take()
 			{
-				log_xt_debug!(data: tuple, target: LOG_TARGET, &pending_revalidation_result, "[{:?}]  resubmitted pending revalidation {:?}");
-				view.pool.resubmit(HashMap::from_iter(pending_revalidation_result.into_iter()));
+				let view = view.clone();
+				self.ready_poll.lock().trigger(hash_and_number.hash, move || {
+					Box::from(view.pool.validated_pool().ready())
+				});
 			}
 
-			self.ready_poll.lock().trigger(hash_and_number.hash, move || {
-				Box::from(view.pool.validated_pool().ready())
-			});
+			View::start_background_revalidation(view, self.revalidation_queue.clone()).await;
 		}
 	}
 
 	async fn build_new_view(
 		&self,
-		origin_view: Option<Arc<View<PoolApi>>>,
+		origin_view: Option<Arc<View<ChainApi>>>,
 		at: &HashAndNumber<Block>,
 		tree_route: &TreeRoute<Block>,
-	) -> Option<Arc<View<PoolApi>>> {
+	) -> Option<Arc<View<ChainApi>>> {
 		log::info!(
 			target: LOG_TARGET,
 			"build_new_view: for: {:?} from: {:?} tree_route: {:?}",
@@ -791,9 +769,12 @@ where
 			origin_view.as_ref().map(|v| v.at.clone()),
 			tree_route
 		);
-		let new_block_hash = at.hash;
 		let mut view = if let Some(origin_view) = origin_view {
-			View::new_from_other(&origin_view, at)
+			let mut view = View::new_from_other(&origin_view, at);
+			if !tree_route.retracted().is_empty() {
+				view.pool.clear_recently_pruned();
+			}
+			view
 		} else {
 			View::new(self.api.clone(), at.clone(), self.options.clone())
 		};
@@ -818,7 +799,8 @@ where
 		Some(view)
 	}
 
-	async fn update_view(&self, view: &View<PoolApi>) {
+	//todo: maybe move to ViewManager
+	async fn update_view(&self, view: &View<ChainApi>) {
 		log::debug!(
 			target: LOG_TARGET,
 			"update_view: {:?} xts:{:?} v:{}",
@@ -934,11 +916,10 @@ where
 		}
 	}
 
-	//copied from handle_enactment
-	//todo: move to ViewManager
+	//todo: maybe move to ViewManager
 	async fn update_view_with_fork(
 		&self,
-		view: &View<PoolApi>,
+		view: &View<ChainApi>,
 		tree_route: &TreeRoute<Block>,
 		hash_and_number: HashAndNumber<Block>,
 	) {
@@ -947,7 +928,7 @@ where
 
 		// We keep track of everything we prune so that later we won't add
 		// transactions with those hashes from the retracted blocks.
-		let mut pruned_log = HashSet::<ExtrinsicHash<PoolApi>>::new();
+		let mut pruned_log = HashSet::<ExtrinsicHash<ChainApi>>::new();
 
 		future::join_all(
 			tree_route
@@ -1093,21 +1074,17 @@ where
 }
 
 #[async_trait]
-impl<PoolApi, Block> MaintainedTransactionPool for ForkAwareTxPool<PoolApi, Block>
+impl<ChainApi, Block> MaintainedTransactionPool for ForkAwareTxPool<ChainApi, Block>
 where
 	Block: BlockT,
-	PoolApi: 'static + graph::ChainApi<Block = Block>,
+	ChainApi: 'static + graph::ChainApi<Block = Block>,
 	<Block as BlockT>::Hash: Unpin,
 {
 	async fn maintain(&self, event: ChainEvent<Self::Block>) {
 		let start = Instant::now();
-		// log::info!(
-		//  target: LOG_TARGET,
-		// 	"maintain: txs:{:?} views:[{};{:?}] event:{event:?}",
-		// 	self.mempool_len(),
-		// 	self.views_len(),
-		// 	self.views_numbers(),
-		// );
+
+		self.view_store.finish_background_revalidations().await;
+
 		let prev_finalized_block = self.enactment_state.lock().recent_finalized_block();
 
 		let compute_tree_route = |from, to| -> Result<TreeRoute<Block>, String> {
@@ -1146,9 +1123,8 @@ where
 				self.handle_new_block(&tree_route).await,
 		};
 
-		use sp_runtime::traits::CheckedSub;
 		match event {
-			ChainEvent::NewBestBlock { hash, .. } => {},
+			ChainEvent::NewBestBlock { .. } | ChainEvent::NewBlock { .. } => {},
 			ChainEvent::Finalized { hash, ref tree_route } => {
 				self.handle_finalized(hash, tree_route).await;
 
@@ -1169,7 +1145,7 @@ where
 			start.elapsed()
 		);
 
-		self.verify().await;
+		// self.verify().await;
 
 		()
 	}
