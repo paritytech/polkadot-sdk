@@ -472,7 +472,7 @@ where
 		let conn_id = ext
 			.get::<ConnectionId>()
 			.copied()
-			.expect("ConnectionId is always set by jsonrpsee");
+			.expect("ConnectionId is always set by jsonrpsee; qed");
 
 		if !self.subscriptions.contains_subscription(conn_id, &follow_subscription) {
 			// The spec says to return `LimitReached` if the follow subscription is invalid or
