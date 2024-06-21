@@ -147,23 +147,7 @@ impl CollationGenerationSubsystem {
 			Ok(FromOrchestra::Communication {
 				msg: CollationGenerationMessage::Reinitialize(config),
 			}) => {
-				if self.config.is_none() {
-					gum::error!(target: LOG_TARGET, "no initial initialization");
-				} else {
-					self.config = Some(Arc::new(config));
-				}
-				false
-			},
-			Ok(FromOrchestra::Communication {
-				msg: CollationGenerationMessage::SetConfig(config),
-			}) => {
 				self.config = Some(Arc::new(config));
-				false
-			},
-			Ok(FromOrchestra::Communication {
-				msg: CollationGenerationMessage::ClearExistingConfig,
-			}) => {
-				self.config = None;
 				false
 			},
 			Ok(FromOrchestra::Communication {
