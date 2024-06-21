@@ -78,7 +78,7 @@ jobs:
         uses: actions/checkout@v4
       - name: script
         id: required
-        run: exit 1
+        run: sleep 600; exit 1
       - name: Worfklow stopper - Generate token
         uses: actions/create-github-app-token@v1
         if: ${{ failure() && steps.required.conclusion == 'failure' }}
