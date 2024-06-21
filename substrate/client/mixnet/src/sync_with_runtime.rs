@@ -198,7 +198,6 @@ where
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use sc_network_types::multiaddr::multiaddr;
 
 	#[test]
 	fn fixup_empty_external_addresses() {

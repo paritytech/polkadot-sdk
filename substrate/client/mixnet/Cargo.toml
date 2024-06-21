@@ -25,7 +25,6 @@ futures = "0.3.30"
 futures-timer = "3.0.2"
 log = { workspace = true, default-features = true }
 mixnet = "0.7.0"
-multiaddr = "0.18.1"
 parking_lot = "0.12.1"
 sc-client-api = { path = "../api" }
 sc-network = { path = "../network" }

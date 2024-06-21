@@ -17620,7 +17620,6 @@ dependencies = [
  "futures-timer",
  "log",
  "mixnet",
- "multiaddr 0.18.1",
  "parity-scale-codec",
  "parking_lot 0.12.1",
  "sc-client-api",
