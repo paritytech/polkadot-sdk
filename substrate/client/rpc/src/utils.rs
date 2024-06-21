@@ -140,7 +140,7 @@ pub async fn pipe_from_stream<S, T>(
 			Either::Left((Ok(sink), _)) => break sink,
 			Either::Right((Some(msg), f)) => {
 				if buf.push_back(msg).is_err() {
-					log::trace!(target: "rpc", "Subscription::accept lagged, dropping subscription=`{}`, peer=`{}`", params.method, params.ip_addr);
+					log::warn!(target: "rpc", "Subscription::accept lagged, dropping subscription=`{}`, peer=`{}`", params.method, params.ip_addr);
 					params.metrics.register_dropped(params.method, params.ip_addr);
 					return
 				}
