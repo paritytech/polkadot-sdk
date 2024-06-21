@@ -28,8 +28,6 @@ use cumulus_client_service::{
 };
 use cumulus_primitives_core::{relay_chain::ValidationCode, ParaId};
 use cumulus_relay_chain_interface::{OverseerHandle, RelayChainInterface};
-use sc_rpc::DenyUnsafe;
-
 use jsonrpsee::RpcModule;
 
 use crate::{
@@ -198,7 +196,6 @@ async fn start_node_impl<RuntimeApi, RB, BIQ, SC, Net>(
 where
 	RuntimeApi: ConstructNodeRuntimeApi<Block, ParachainClient<RuntimeApi>>,
 	RB: Fn(
-			DenyUnsafe,
 			Arc<ParachainClient<RuntimeApi>>,
 			Arc<ParachainBackend>,
 			Arc<sc_transaction_pool::FullPool<Block, ParachainClient<RuntimeApi>>>,
@@ -275,13 +272,8 @@ where
 		let transaction_pool = transaction_pool.clone();
 		let backend_for_rpc = backend.clone();
 
-		Box::new(move |deny_unsafe, _| {
-			rpc_ext_builder(
-				deny_unsafe,
-				client.clone(),
-				backend_for_rpc.clone(),
-				transaction_pool.clone(),
-			)
+		Box::new(move |_| {
+			rpc_ext_builder(client.clone(), backend_for_rpc.clone(), transaction_pool.clone())
 		})
 	};
 
@@ -448,7 +440,6 @@ pub fn build_shell_import_queue(
 }
 
 fn build_parachain_rpc_extensions<RuntimeApi>(
-	deny_unsafe: sc_rpc::DenyUnsafe,
 	client: Arc<ParachainClient<RuntimeApi>>,
 	backend: Arc<ParachainBackend>,
 	pool: Arc<sc_transaction_pool::FullPool<Block, ParachainClient<RuntimeApi>>>,
@@ -460,18 +451,17 @@ where
 		+ pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block, Balance>
 		+ substrate_frame_rpc_system::AccountNonceApi<Block, AccountId, Nonce>,
 {
-	let deps = rpc::FullDeps { client, pool, deny_unsafe };
+	let deps = rpc::FullDeps { client, pool };
 
 	rpc::create_full(deps, backend).map_err(Into::into)
 }
 
 fn build_contracts_rpc_extensions(
-	deny_unsafe: sc_rpc::DenyUnsafe,
 	client: Arc<ParachainClient<FakeRuntimeApi>>,
 	_backend: Arc<ParachainBackend>,
 	pool: Arc<sc_transaction_pool::FullPool<Block, ParachainClient<FakeRuntimeApi>>>,
 ) -> Result<jsonrpsee::RpcModule<()>, sc_service::Error> {
-	let deps = crate::rpc::FullDeps { client: client.clone(), pool: pool.clone(), deny_unsafe };
+	let deps = crate::rpc::FullDeps { client: client.clone(), pool: pool.clone() };
 
 	crate::rpc::create_contracts_rococo(deps).map_err(Into::into)
 }

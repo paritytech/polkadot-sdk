@@ -23,7 +23,7 @@ use crate::{
 		ImportParams, KeystoreParams, NetworkParams, OffchainWorkerParams, SharedParams,
 		TransactionPoolParams,
 	},
-	CliConfiguration, PrometheusParams, RpcListenAddr, RuntimeParams, TelemetryParams,
+	CliConfiguration, PrometheusParams, RuntimeParams, TelemetryParams,
 	RPC_DEFAULT_MAX_CONNECTIONS, RPC_DEFAULT_MAX_REQUEST_SIZE_MB, RPC_DEFAULT_MAX_RESPONSE_SIZE_MB,
 	RPC_DEFAULT_MAX_SUBS_PER_CONN, RPC_DEFAULT_MESSAGE_CAPACITY_PER_CONN,
 };
@@ -129,8 +129,11 @@ pub struct RunCmd {
 	pub rpc_port: Option<u16>,
 
 	/// Specify the JSON-RPC server listen address.
+	///
+	/// Example `--rpc-listen-addrs ["localhost:9933 rpc-methods=unsafe", "10.0.0.1:9933
+	/// rpc-methods=unsafe"]
 	#[arg(long, conflicts_with_all = &["rpc_external", "unsafe_rpc_external", "rpc_port"])]
-	pub rpc_listen_address: Option<SocketAddr>,
+	pub rpc_listen_addrs: Vec<String>,
 
 	/// Maximum number of RPC server connections.
 	#[arg(long, value_name = "COUNT", default_value_t = RPC_DEFAULT_MAX_CONNECTIONS)]
@@ -414,9 +417,9 @@ impl CliConfiguration for RunCmd {
 			.into())
 	}
 
-	fn rpc_addr(&self, default_listen_port: u16) -> Result<Option<RpcListenAddr>> {
-		if let Some(addr) = self.rpc_listen_address {
-			return Ok(Some(RpcListenAddr::only(addr)))
+	fn rpc_addr(&self, default_listen_port: u16) -> Result<Option<Vec<String>>> {
+		if !self.rpc_listen_addrs.is_empty() {
+			return Ok(Some(self.rpc_listen_addrs.clone()));
 		}
 
 		let (ipv4, ipv6) = rpc_interface(
@@ -426,7 +429,16 @@ impl CliConfiguration for RunCmd {
 			self.validator,
 		)?;
 
-		let addr = RpcListenAddr::new(ipv4, ipv6, self.rpc_port.unwrap_or(default_listen_port));
+		let rpc_methods = match self.rpc_methods {
+			RpcMethods::Auto => "rpc-methods=auto",
+			RpcMethods::Safe => "rpc-methods=safe",
+			RpcMethods::Unsafe => "rpc-methods=unsafe",
+		};
+
+		let addr = vec![
+			format!("{}:{}//{rpc_methods}", ipv4, self.rpc_port.unwrap_or(default_listen_port)),
+			format!("[{}]:{}//{rpc_methods}", ipv6, self.rpc_port.unwrap_or(default_listen_port)),
+		];
 
 		Ok(Some(addr))
 	}

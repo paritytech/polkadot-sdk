@@ -45,7 +45,6 @@ pub use crate::params::{
 	pruning_params::*, runtime_params::*, shared_params::*, telemetry_params::*,
 	transaction_pool_params::*,
 };
-pub use sc_rpc_server::ListenAddr as RpcListenAddr;
 
 /// Parse Ss58AddressFormat
 pub fn parse_ss58_address_format(x: &str) -> Result<Ss58AddressFormat, String> {

@@ -20,18 +20,136 @@
 
 use std::{
 	error::Error as StdError,
+	future::Future,
 	net::{IpAddr, SocketAddr},
+	pin::Pin,
 	str::FromStr,
+	task::{Context, Poll},
 };
 
 use forwarded_header_value::ForwardedHeaderValue;
 use http::header::{HeaderName, HeaderValue};
 use jsonrpsee::{server::middleware::http::HostFilterLayer, RpcModule};
+use sc_rpc_api::DenyUnsafe;
 use tower_http::cors::{AllowOrigin, CorsLayer};
 
 const X_FORWARDED_FOR: HeaderName = HeaderName::from_static("x-forwarded-for");
 const X_REAL_IP: HeaderName = HeaderName::from_static("x-real-ip");
 const FORWARDED: HeaderName = HeaderName::from_static("forwarded");
+
+/// Rate limit configuration.
+#[derive(Debug, Copy, Clone)]
+pub enum RateLimitCfg {
+	Enable,
+	Disable,
+}
+
+impl FromStr for RateLimitCfg {
+	type Err = String;
+
+	fn from_str(s: &str) -> Result<Self, Self::Err> {
+		match s {
+			"disable-rate-limit=true" => Ok(RateLimitCfg::Disable),
+			"disable-rate-limit=false" => Ok(RateLimitCfg::Enable),
+			_ => Err("Invalid rate limit".to_string()),
+		}
+	}
+}
+
+/// Available RPC methods.
+#[derive(Debug, Copy, Clone)]
+pub enum RpcMethods {
+	/// Allow only a safe subset of RPC methods.
+	Safe,
+	/// Expose every RPC method (even potentially unsafe ones).
+	Unsafe,
+	/// Automatically determine the RPC methods based on the connection.
+	Auto,
+}
+
+impl FromStr for RpcMethods {
+	type Err = String;
+
+	fn from_str(s: &str) -> Result<Self, Self::Err> {
+		match s {
+			"rpc-methods=safe" => Ok(RpcMethods::Safe),
+			"rpc-methods=unsafe" => Ok(RpcMethods::Unsafe),
+			"rpc-methods=auto" => Ok(RpcMethods::Auto),
+			_ => Err("Invalid rpc methods".to_string()),
+		}
+	}
+}
+
+/// Listen address.
+///
+/// <sockaddr>//<rpc-methods=VALUE>//<disable-rate-limit=VALUE>
+pub struct ListenAddr {
+	listen_addr: SocketAddr,
+	rpc_methods: RpcMethods,
+	rate_limit_cfg: RateLimitCfg,
+}
+
+impl FromStr for ListenAddr {
+	type Err = String;
+
+	fn from_str(s: &str) -> Result<Self, Self::Err> {
+		let mut parts = s.split("//");
+		let listen_addr: SocketAddr = parts
+			.next()
+			.ok_or("RPC Listen address is missing")?
+			.parse()
+			.map_err(|e| format!("Invalid listen address: {}", e))?;
+		let rpc_methods = parts
+			.next()
+			.ok_or("Missing rpc methods")?
+			.parse()
+			.map_err(|e| format!("Invalid rpc methods: {}", e))?;
+		let rate_limit_cfg = match parts.next() {
+			Some(v) =>
+				v.parse::<RateLimitCfg>().map_err(|e| format!("Invalid rate limit: {}", e))?,
+			None => RateLimitCfg::Enable,
+		};
+
+		Ok(ListenAddr { listen_addr, rpc_methods, rate_limit_cfg })
+	}
+}
+
+impl ListenAddr {
+	/// Binds to the listen address.
+	pub async fn bind(self) -> Result<Listener, Box<dyn StdError + Send + Sync>> {
+		let listener = tokio::net::TcpListener::bind(self.listen_addr).await?;
+		let local_addr = listener.local_addr()?;
+		Ok(Listener {
+			listener,
+			rpc_methods: self.rpc_methods,
+			rate_limit_cfg: self.rate_limit_cfg,
+			local_addr,
+		})
+	}
+}
+
+/// TCP socket server with RPC settings.
+pub struct Listener {
+	listener: tokio::net::TcpListener,
+	rpc_methods: RpcMethods,
+	rate_limit_cfg: RateLimitCfg,
+	local_addr: SocketAddr,
+}
+
+impl Listener {
+	/// Accepts a new connection.
+	pub async fn accept(
+		&mut self,
+	) -> std::io::Result<(tokio::net::TcpStream, SocketAddr, RpcMethods, RateLimitCfg)> {
+		let (sock, remote_addr) = self.listener.accept().await?;
+		Ok((sock, remote_addr, self.rpc_methods, self.rate_limit_cfg))
+	}
+
+	/// Returns the local address the listener is bound to.
+	pub fn local_addr(&self) -> SocketAddr {
+		self.local_addr
+	}
+}
 
 pub(crate) fn host_filtering(
 	enabled: bool,
@@ -143,6 +261,13 @@ pub(crate) fn get_proxy_ip<B>(req: &http::Request<B>) -> Option<IpAddr> {
 	}
 
 	None
+}
+
+pub fn deny_unsafe(addr: &SocketAddr, methods: &RpcMethods) -> DenyUnsafe {
+	match (addr.ip().is_loopback(), methods) {
+		| (_, RpcMethods::Unsafe) | (false, RpcMethods::Auto) => DenyUnsafe::No,
+		_ => DenyUnsafe::Yes,
+	}
 }
 
 #[cfg(test)]

@@ -25,12 +25,13 @@ use jsonrpsee::{
 	core::async_trait,
 	proc_macros::rpc,
 	types::{ErrorObject, ErrorObjectOwned},
+	Extensions,
 };
 use serde::{Deserialize, Serialize};
 
 use sc_consensus_babe::{authorship, BabeWorkerHandle};
 use sc_consensus_epochs::Epoch as EpochT;
-use sc_rpc_api::{DenyUnsafe, UnsafeRpcError};
+use sc_rpc_api::{check_if_safe, UnsafeRpcError};
 use sp_api::ProvideRuntimeApi;
 use sp_application_crypto::AppCrypto;
 use sp_blockchain::{Error as BlockChainError, HeaderBackend, HeaderMetadata};
@@ -47,7 +48,7 @@ const BABE_ERROR: i32 = 9000;
 pub trait BabeApi {
 	/// Returns data about which slots (primary or secondary) can be claimed in the current epoch
 	/// with the keys in the keystore.
-	#[method(name = "babe_epochAuthorship")]
+	#[method(name = "babe_epochAuthorship", with_extensions)]
 	async fn epoch_authorship(&self) -> Result<HashMap<AuthorityId, EpochAuthorship>, Error>;
 }
 
@@ -61,8 +62,6 @@ pub struct Babe<B: BlockT, C, SC> {
 	keystore: KeystorePtr,
 	/// The SelectChain strategy
 	select_chain: SC,
-	/// Whether to deny unsafe calls
-	deny_unsafe: DenyUnsafe,
 }
 
 impl<B: BlockT, C, SC> Babe<B, C, SC> {
@@ -72,9 +71,8 @@ impl<B: BlockT, C, SC> Babe<B, C, SC> {
 		babe_worker_handle: BabeWorkerHandle<B>,
 		keystore: KeystorePtr,
 		select_chain: SC,
-		deny_unsafe: DenyUnsafe,
 	) -> Self {
-		Self { client, babe_worker_handle, keystore, select_chain, deny_unsafe }
+		Self { client, babe_worker_handle, keystore, select_chain }
 	}
 }
 
@@ -89,8 +87,11 @@ where
 	C::Api: BabeRuntimeApi<B>,
 	SC: SelectChain<B> + Clone + 'static,
 {
-	async fn epoch_authorship(&self) -> Result<HashMap<AuthorityId, EpochAuthorship>, Error> {
-		self.deny_unsafe.check_if_safe()?;
+	async fn epoch_authorship(
+		&self,
+		ext: &Extensions,
+	) -> Result<HashMap<AuthorityId, EpochAuthorship>, Error> {
+		check_if_safe(ext)?;
 
 		let best_header = self.select_chain.best_chain().map_err(Error::SelectChain).await?;
 
@@ -248,7 +249,7 @@ mod tests {
 		})
 		.unwrap();
 
-		Babe::new(client.clone(), babe_worker_handle, keystore, longest_chain, deny_unsafe)
+		Babe::new(client.clone(), babe_worker_handle, keystore, longest_chain)
 	}
 
 	#[tokio::test]

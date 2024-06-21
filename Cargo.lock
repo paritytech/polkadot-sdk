@@ -18028,6 +18028,7 @@ dependencies = [
  "ip_network",
  "jsonrpsee",
  "log",
+ "sc-rpc-api",
  "serde",
  "serde_json",
  "substrate-prometheus-endpoint",

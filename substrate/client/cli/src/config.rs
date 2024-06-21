@@ -20,8 +20,7 @@
 
 use crate::{
 	arg_enums::Database, error::Result, DatabaseParams, ImportParams, KeystoreParams,
-	NetworkParams, NodeKeyParams, OffchainWorkerParams, PruningParams, RpcListenAddr, SharedParams,
-	SubstrateCli,
+	NetworkParams, NodeKeyParams, OffchainWorkerParams, PruningParams, SharedParams, SubstrateCli,
 };
 use log::warn;
 use names::{Generator, Name};
@@ -296,7 +295,7 @@ pub trait CliConfiguration<DCV: DefaultConfigurationValues = ()>: Sized {
 	}
 
 	/// Get the RPC address.
-	fn rpc_addr(&self, _default_listen_port: u16) -> Result<Option<RpcListenAddr>> {
+	fn rpc_addr(&self, _default_listen_port: u16) -> Result<Option<Vec<String>>> {
 		Ok(None)
 	}
 

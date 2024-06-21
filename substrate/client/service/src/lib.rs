@@ -377,23 +377,18 @@ pub fn start_rpc_servers<R>(
 	rpc_id_provider: Option<Box<dyn RpcSubscriptionIdProvider>>,
 ) -> Result<Box<dyn std::any::Any + Send + Sync>, error::Error>
 where
-	R: Fn(sc_rpc::DenyUnsafe) -> Result<RpcModule<()>, Error>,
+	R: Fn() -> Result<RpcModule<()>, Error>,
 {
-	fn deny_unsafe(addr: &sc_rpc_server::ListenAddr, methods: &RpcMethods) -> sc_rpc::DenyUnsafe {
-		match (addr.is_external(), methods) {
-			| (_, RpcMethods::Unsafe) | (false, RpcMethods::Auto) => sc_rpc::DenyUnsafe::No,
-			_ => sc_rpc::DenyUnsafe::Yes,
-		}
-	}
+	let listen_addrs = config.rpc_addr.clone().unwrap();
 
-	let listen_addrs = if let Some(addr) = config.rpc_addr {
+	/*let listen_addrs = if let Some(addr) = config.rpc_addr {
 		addr
 	} else {
 		sc_rpc_server::ListenAddr::new(Ipv4Addr::LOCALHOST, Ipv6Addr::LOCALHOST, config.rpc_port)
-	};
+	};*/
 
 	let metrics = sc_rpc_server::RpcMetrics::new(config.prometheus_registry())?;
-	let rpc_api = gen_rpc_module(deny_unsafe(&listen_addrs, &config.rpc_methods))?;
+	let rpc_api = gen_rpc_module()?;
 
 	let server_config = sc_rpc_server::Config {
 		listen_addrs,
