@@ -16,6 +16,7 @@
 // limitations under the License.
 
 use super::*;
+use crate::traits::NewTimesliceHook;
 use frame_support::{pallet_prelude::*, traits::defensive_prelude::*, weights::WeightMeter};
 use sp_arithmetic::traits::{One, SaturatedConversion, Saturating, Zero};
 use sp_runtime::traits::ConvertBack;
@@ -76,6 +77,8 @@ impl<T: Config> Pallet<T> {
 			let rc_block = T::TimeslicePeriod::get() * status.last_timeslice.into();
 			T::Coretime::request_revenue_info_at(rc_block);
 			meter.consume(T::WeightInfo::request_revenue_info_at());
+			T::OnNewTimeslice::on_new_timeslice(status.last_timeslice);
+			meter.consume(T::WeightInfo::on_new_timeslice());
 		}
 
 		Status::<T>::put(&status);

@@ -38,6 +38,7 @@ mod utility_impls;
 
 pub mod migration;
 pub mod runtime_api;
+pub mod traits;
 
 pub mod weights;
 pub use weights::WeightInfo;
@@ -64,6 +65,7 @@ pub mod pallet {
 	use frame_system::pallet_prelude::*;
 	use sp_runtime::traits::{Convert, ConvertBack};
 	use sp_std::vec::Vec;
+	use traits::NewTimesliceHook;
 
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(2);
 
@@ -86,6 +88,9 @@ pub mod pallet {
 
 		/// What to do with any revenues collected from the sale of Coretime.
 		type OnRevenue: OnUnbalanced<Credit<Self::AccountId, Self::Currency>>;
+
+		/// Hook allowing to perform custom logic when new timeslice begins.
+		type OnNewTimeslice: NewTimesliceHook;
 
 		/// Relay chain's Coretime API used to interact with and instruct the low-level scheduling
 		/// system.

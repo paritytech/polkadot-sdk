@@ -16,60 +16,92 @@
 
 use crate::*;
 use codec::{Decode, Encode};
-use core::marker::PhantomData;
 use cumulus_pallet_parachain_system::RelaychainDataProvider;
 use cumulus_primitives_core::relay_chain;
 use frame_support::{
 	parameter_types,
+	storage::with_transaction,
 	traits::{
-		fungible::{Balanced, Credit},
-		Imbalance, OnUnbalanced, TryDrop,
+		fungible::{Balanced, Credit, Inspect},
+		tokens::{Fortitude, Preservation},
+		DefensiveResult, OnUnbalanced,
 	},
 };
 use pallet_broker::{
-	CoreAssignment, CoreIndex, CoretimeInterface, OnDemandRevenueRecord, PartsOf57600,
-	RCBlockNumberOf, RevenueInbox,
+	traits::NewTimesliceHook, CoreAssignment, CoreIndex, CoretimeInterface, OnDemandRevenueRecord,
+	PartsOf57600, RCBlockNumberOf, RevenueInbox,
 };
 use parachains_common::{AccountId, Balance};
-use sp_core::Get;
-use sp_runtime::traits::AccountIdConversion;
+use sp_runtime::{traits::AccountIdConversion, TransactionOutcome};
 use westend_runtime_constants::system_parachain::coretime;
 use xcm::latest::prelude::*;
+use xcm_executor::traits::TransactAsset;
 
-pub struct BurnAtRelay;
-impl OnUnbalanced<Credit<AccountId, Balances>> for BurnAtRelay {
+pub struct StashToBurn;
+impl OnUnbalanced<Credit<AccountId, Balances>> for StashToBurn {
 	fn on_nonzero_unbalanced(amount: Credit<AccountId, Balances>) {
-		let value = amount.peek();
+		Balances::resolve(&BurnStashAccount::get(), amount).defensive_ok();
+	}
+}
 
-		// The assets being burnt, from the relay chain perspective
-		let parent_assets: Assets =
-			vec![Asset { id: AssetId(Location::here()), fun: Fungible(value) }].into();
+type AssetTransactor = <xcm_config::XcmConfig as xcm_executor::Config>::AssetTransactor;
 
-		let send_res = PolkadotXcm::send_xcm(
-			Here,
-			Location::parent(),
-			Xcm(vec![
-				Instruction::UnpaidExecution {
-					weight_limit: WeightLimit::Unlimited,
-					check_origin: None,
-				},
-				ReceiveTeleportedAsset(parent_assets.clone()),
-				BurnAsset(parent_assets),
-			]),
-		);
+fn burn_at_relay(stash: &AccountId, value: Balance) -> Result<(), XcmError> {
+	let dest = Location::parent();
+	let stash_location =
+		Junction::AccountId32 { network: None, id: stash.clone().into() }.into_location();
+	let asset = Asset { id: AssetId(Location::parent()), fun: Fungible(value) };
+	let dummy_xcm_context = XcmContext { origin: None, message_id: [0; 32], topic: None };
 
-		match send_res {
-			Ok(_) => {
-				// Burn the asset on the parachain. It's on the best effort basis
-				let debt = <Balances as Balanced<_>>::rescind(value);
-				let _ = amount.offset(debt).try_drop().map_err(|rest| drop(rest));
+	let withdrawn = AssetTransactor::withdraw_asset(&asset, &stash_location, None)?;
+
+	AssetTransactor::can_check_out(&dest, &asset, &dummy_xcm_context)?;
+
+	let parent_assets = Into::<Assets>::into(withdrawn)
+		.reanchored(&dest, &Here.into())
+		.defensive_map_err(|_| XcmError::ReanchorFailed)?;
+
+	PolkadotXcm::send_xcm(
+		Here,
+		Location::parent(),
+		Xcm(vec![
+			Instruction::UnpaidExecution {
+				weight_limit: WeightLimit::Unlimited,
+				check_origin: None,
 			},
-			Err(_) => {
-				log::error!(
-					target: "runtime::coretime",
-					"Failed to transfer {value} tokens to the relay chain for burning",
-				);
-			},
+			ReceiveTeleportedAsset(parent_assets.clone()),
+			BurnAsset(parent_assets),
+		]),
+	)?;
+
+	AssetTransactor::check_out(&dest, &asset, &dummy_xcm_context);
+
+	Ok(())
+}
+
+pub struct BurnStash;
+impl NewTimesliceHook for BurnStash {
+	fn on_new_timeslice(_t: pallet_broker::Timeslice) {
+		let stash = BurnStashAccount::get();
+		let value = Balances::reducible_balance(&stash, Preservation::Expendable, Fortitude::Force);
+
+		if value > 0 {
+			log::debug!(target: "runtime::coretime", "Going to burn {value} stashed tokens at RC");
+			with_transaction(|| -> TransactionOutcome<Result<(), DispatchError>> {
+				match burn_at_relay(&stash, value) {
+					Ok(()) => {
+						log::debug!(target: "runtime::coretime", "Succesfully burnt {value} tokens");
+						TransactionOutcome::Commit(Ok(()))
+					},
+					Err(err) => {
+						log::error!(target: "runtime::coretime", "burn_at_relay failed: {err:?}");
+						TransactionOutcome::Rollback(Err(DispatchError::Other(
+							"Failed to burn funds on relay chain",
+						)))
+					},
+				}
+			})
+			.defensive_ok();
 		}
 	}
 }
@@ -103,6 +135,7 @@ enum CoretimeProviderCalls {
 
 parameter_types! {
 	pub const BrokerPalletId: PalletId = PalletId(*b"py/broke");
+	pub BurnStashAccount: AccountId = BrokerPalletId::get().into_sub_account_truncating(b"burnstash");
 }
 
 /// Type that implements the `CoretimeInterface` for the allocation of Coretime. Meant to operate
@@ -265,7 +298,8 @@ impl CoretimeInterface for CoretimeAllocator {
 impl pallet_broker::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Currency = Balances;
-	type OnRevenue = BurnAtRelay;
+	type OnRevenue = StashToBurn;
+	type OnNewTimeslice = BurnStash;
 	type TimeslicePeriod = ConstU32<{ coretime::TIMESLICE_PERIOD }>;
 	// We don't actually need any leases at launch but set to 10 in case we want to sudo some in.
 	type MaxLeasedCores = ConstU32<10>;
