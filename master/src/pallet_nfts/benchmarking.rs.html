@@ -1032,18 +1032,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#881" id="881">881</a>
 <a href="#882" id="882">882</a>
 <a href="#883" id="883">883</a>
-<a href="#884" id="884">884</a>
-<a href="#885" id="885">885</a>
-<a href="#886" id="886">886</a>
-<a href="#887" id="887">887</a>
-<a href="#888" id="888">888</a>
-<a href="#889" id="889">889</a>
-<a href="#890" id="890">890</a>
-<a href="#891" id="891">891</a>
-<a href="#892" id="892">892</a>
-<a href="#893" id="893">893</a>
-<a href="#894" id="894">894</a>
-<a href="#895" id="895">895</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1076,11 +1064,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	BoundedVec,
 };
 <span class="kw">use </span>frame_system::{pallet_prelude::BlockNumberFor, RawOrigin <span class="kw">as </span>SystemOrigin};
-<span class="kw">use </span>sp_io::crypto::{sr25519_generate, sr25519_sign};
-<span class="kw">use </span>sp_runtime::{
-	traits::{Bounded, IdentifyAccount, One},
-	AccountId32, MultiSignature, MultiSigner,
-};
+<span class="kw">use </span>sp_runtime::traits::{Bounded, One};
 <span class="kw">use </span>sp_std::prelude::<span class="kw-2">*</span>;
 
 <span class="kw">use </span><span class="kw">crate</span>::Pallet <span class="kw">as </span>Nfts;
@@ -1275,12 +1259,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="macro">benchmarks_instance_pallet! </span>{
-	where_clause {
-		<span class="kw">where
-			</span>T::OffchainSignature: From&lt;MultiSignature&gt;,
-			T::AccountId: From&lt;AccountId32&gt;,
-	}
-
 	create {
 		<span class="kw">let </span>collection = T::Helper::collection(<span class="number">0</span>);
 		<span class="kw">let </span>origin = T::CreateOrigin::try_successful_origin(<span class="kw-2">&amp;</span>collection)
@@ -1846,8 +1824,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	mint_pre_signed {
 		<span class="kw">let </span>n <span class="kw">in </span><span class="number">0 </span>.. T::MaxAttributesPerCall::get() <span class="kw">as </span>u32;
-		<span class="kw">let </span>caller_public = sr25519_generate(<span class="number">0</span>.into(), <span class="prelude-val">None</span>);
-		<span class="kw">let </span>caller = MultiSigner::Sr25519(caller_public).into_account().into();
+		<span class="kw">let </span>(caller_public, caller) = T::Helper::signer();
 		T::Currency::make_free_balance_be(<span class="kw-2">&amp;</span>caller, DepositBalanceOf::&lt;T, I&gt;::max_value());
 		<span class="kw">let </span>caller_lookup = T::Lookup::unlookup(caller.clone());
 
@@ -1876,7 +1853,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			mint_price: <span class="prelude-val">Some</span>(DepositBalanceOf::&lt;T, I&gt;::min_value()),
 		};
 		<span class="kw">let </span>message = Encode::encode(<span class="kw-2">&amp;</span>mint_data);
-		<span class="kw">let </span>signature = MultiSignature::Sr25519(sr25519_sign(<span class="number">0</span>.into(), <span class="kw-2">&amp;</span>caller_public, <span class="kw-2">&amp;</span>message).unwrap());
+		<span class="kw">let </span>signature = T::Helper::sign(<span class="kw-2">&amp;</span>caller_public, <span class="kw-2">&amp;</span>message);
 
 		<span class="kw">let </span>target: T::AccountId = account(<span class="string">"target"</span>, <span class="number">0</span>, SEED);
 		T::Currency::make_free_balance_be(<span class="kw-2">&amp;</span>target, DepositBalanceOf::&lt;T, I&gt;::max_value());
@@ -1894,8 +1871,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>item_owner: T::AccountId = account(<span class="string">"item_owner"</span>, <span class="number">0</span>, SEED);
 		<span class="kw">let </span>item_owner_lookup = T::Lookup::unlookup(item_owner.clone());
 
-		<span class="kw">let </span>signer_public = sr25519_generate(<span class="number">0</span>.into(), <span class="prelude-val">None</span>);
-		<span class="kw">let </span>signer: T::AccountId = MultiSigner::Sr25519(signer_public).into_account().into();
+		<span class="kw">let </span>(signer_public, signer) = T::Helper::signer();
 
 		T::Currency::make_free_balance_be(<span class="kw-2">&amp;</span>item_owner, DepositBalanceOf::&lt;T, I&gt;::max_value());
 
@@ -1922,7 +1898,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			deadline: One::one(),
 		};
 		<span class="kw">let </span>message = Encode::encode(<span class="kw-2">&amp;</span>pre_signed_data);
-		<span class="kw">let </span>signature = MultiSignature::Sr25519(sr25519_sign(<span class="number">0</span>.into(), <span class="kw-2">&amp;</span>signer_public, <span class="kw-2">&amp;</span>message).unwrap());
+		<span class="kw">let </span>signature = T::Helper::sign(<span class="kw-2">&amp;</span>signer_public, <span class="kw-2">&amp;</span>message);
 
 		frame_system::Pallet::&lt;T&gt;::set_block_number(One::one());
 	}: <span class="kw">_</span>(SystemOrigin::Signed(item_owner.clone()), pre_signed_data, signature.into(), signer.clone())
