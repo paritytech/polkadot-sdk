@@ -227,6 +227,7 @@ members = [
 	"polkadot/xcm/xcm-executor",
 	"polkadot/xcm/xcm-executor/integration-tests",
 	"polkadot/xcm/xcm-fee-payment-runtime-api",
+	"polkadot/xcm/xcm-runtime-api",
 	"polkadot/xcm/xcm-simulator",
 	"polkadot/xcm/xcm-simulator/example",
 	"polkadot/xcm/xcm-simulator/fuzzer",
