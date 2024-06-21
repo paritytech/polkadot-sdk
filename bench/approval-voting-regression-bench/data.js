@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1718983195577,
+  "lastUpdate": 1718988917271,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -8130,6 +8130,53 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting",
             "value": 9.718201077269976,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Bastian Köcher",
+            "username": "bkchr",
+            "email": "git@kchr.de"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "c4b3c1c6c6e492c4196e06fbba824a58e8119a3b",
+          "message": "Bump time to fix compilation on latest nightly (#4862)\n\nCloses: https://github.com/paritytech/polkadot-sdk/issues/4748",
+          "timestamp": "2024-06-21T15:05:24Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/c4b3c1c6c6e492c4196e06fbba824a58e8119a3b"
+        },
+        "date": 1718988888942,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63552.770000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52940.40000000001,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 10.000618212120017,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 5.0319300388002794,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 12.500398158309943,
             "unit": "seconds"
           }
         ]
