@@ -85,15 +85,15 @@ pub use sp_runtime::BuildStorage;
 
 use assets_common::{foreign_creators::ForeignCreators, matching::FromSiblingParachain};
 use polkadot_runtime_common::{BlockHashCount, SlowAdjustingFeeUpdate};
-use xcm::prelude::{VersionedAssetId, VersionedAssets, VersionedLocation, VersionedXcm};
-
-// We exclude `Assets` since it's the name of a pallet
-use xcm::latest::prelude::AssetId;
+use xcm::{
+	latest::prelude::{AssetId, Location},
+	prelude::{VersionedAssetId, VersionedAssets, VersionedLocation, VersionedXcm},
+};
 
 #[cfg(feature = "runtime-benchmarks")]
 use xcm::latest::prelude::{
-	Asset, Assets as XcmAssets, Fungible, Here, InteriorLocation, Junction, Junction::*, Location,
-	NetworkId, NonFungible, Parent, ParentThen, Response, XCM_VERSION,
+	Asset, Assets as XcmAssets, Fungible, Here, InteriorLocation, Junction, Junction::*, NetworkId,
+	NonFungible, Parent, ParentThen, Response, XCM_VERSION,
 };
 
 use xcm_fee_payment_runtime_api::{
@@ -1365,6 +1365,19 @@ impl_runtime_apis! {
 
 		fn dry_run_xcm(origin_location: VersionedLocation, xcm: VersionedXcm<RuntimeCall>) -> Result<XcmDryRunEffects<RuntimeEvent>, XcmDryRunApiError> {
 			PolkadotXcm::dry_run_xcm::<Runtime, xcm_config::XcmRouter, RuntimeCall, xcm_config::XcmConfig>(origin_location, xcm)
+		}
+	}
+
+	impl xcm_runtime_api::conversions::LocationToAccountApi<Block, AccountId> for Runtime {
+		fn convert(location: Location, ss58_prefix: Option<u16>) -> Result<
+			xcm_runtime_api::conversions::Account<AccountId>,
+			xcm_runtime_api::conversions::Error
+		> {
+			xcm_runtime_api::conversions::LocationToAccountHelper::<
+				AccountId,
+				xcm_config::LocationToAccountId,
+				SS58Prefix,
+			>::convert(location, ss58_prefix)
 		}
 	}
 

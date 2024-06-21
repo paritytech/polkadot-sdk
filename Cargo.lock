@@ -1003,6 +1003,7 @@ dependencies = [
  "testnet-parachains-constants",
  "westend-runtime-constants",
  "xcm-fee-payment-runtime-api",
+ "xcm-runtime-api",
 ]
 
 [[package]]
