@@ -30,7 +30,6 @@ snowbridge-core = { path = "../core", default-features = false }
 hex-literal = { version = "0.4.1" }
 
 [dev-dependencies]
-rustc-hex = { version = "2.1.0" }
 
 [features]
 default = ["std"]

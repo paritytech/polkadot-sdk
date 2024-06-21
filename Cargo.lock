@@ -19345,7 +19345,6 @@ dependencies = [
  "hex-literal",
  "log",
  "parity-scale-codec",
- "rustc-hex",
  "scale-info",
  "snowbridge-core",
  "sp-core",
