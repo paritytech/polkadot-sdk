@@ -418,7 +418,7 @@ where
 		);
 		return None
 	};
-	let timeout = pvf_prep_timeout(&executor_params, PvfPrepKind::Precheck);
+	let timeout = pvf_prep_timeout(&executor_params, PvfPrepKind::Prepare);
 
 	let mut active_pvfs = vec![];
 	let mut processed_code_hashes = vec![];
