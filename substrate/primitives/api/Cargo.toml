@@ -33,6 +33,7 @@ scale-info = { version = "2.11.1", default-features = false, features = [
 ] }
 sp-metadata-ir = { path = "../metadata-ir", default-features = false, optional = true }
 log = { workspace = true }
+docify = { version = "0.2.1" }
 
 [dev-dependencies]
 sp-test-primitives = { path = "../test-primitives" }

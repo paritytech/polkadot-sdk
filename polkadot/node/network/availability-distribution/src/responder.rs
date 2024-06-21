@@ -20,8 +20,8 @@ use std::sync::Arc;
 
 use futures::{channel::oneshot, select, FutureExt};
 
+use codec::{Decode, Encode};
 use fatality::Nested;
-use parity_scale_codec::{Decode, Encode};
 use polkadot_node_network_protocol::{
 	request_response::{v1, v2, IncomingRequest, IncomingRequestReceiver, IsRequest},
 	UnifiedReputationChange as Rep,
