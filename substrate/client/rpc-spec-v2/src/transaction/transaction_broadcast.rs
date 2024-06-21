@@ -126,7 +126,7 @@ where
 		let conn_id = ext
 			.get::<ConnectionId>()
 			.copied()
-			.expect("ConnectionId is always set by jsonrpsee");
+			.expect("ConnectionId is always set by jsonrpsee; qed");
 
 		// The unique ID of this operation.
 		let id = self.generate_unique_id();
