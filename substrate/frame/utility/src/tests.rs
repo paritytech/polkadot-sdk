@@ -378,7 +378,7 @@ fn batch_with_root_works() {
 		assert_eq!(Balances::free_balance(2), 10);
 		assert_ok!(Utility::batch(
 			RuntimeOrigin::root(),
-			vec![
+			CallsBatch(vec![
 				RuntimeCall::Balances(BalancesCall::force_transfer {
 					source: 1,
 					dest: 2,
@@ -390,7 +390,7 @@ fn batch_with_root_works() {
 					value: 5
 				}),
 				call, // Check filters are correctly bypassed
-			]
+			])
 		));
 		assert_eq!(Balances::free_balance(1), 0);
 		assert_eq!(Balances::free_balance(2), 20);
@@ -405,7 +405,7 @@ fn batch_with_signed_works() {
 		assert_eq!(Balances::free_balance(2), 10);
 		assert_ok!(Utility::batch(
 			RuntimeOrigin::signed(1),
-			vec![call_transfer(2, 5), call_transfer(2, 5)]
+			CallsBatch(vec![call_transfer(2, 5), call_transfer(2, 5)])
 		),);
 		assert_eq!(Balances::free_balance(1), 0);
 		assert_eq!(Balances::free_balance(2), 20);
@@ -417,10 +417,10 @@ fn batch_with_signed_filters() {
 	new_test_ext().execute_with(|| {
 		assert_ok!(Utility::batch(
 			RuntimeOrigin::signed(1),
-			vec![RuntimeCall::Balances(pallet_balances::Call::transfer_keep_alive {
+			CallsBatch(vec![RuntimeCall::Balances(pallet_balances::Call::transfer_keep_alive {
 				dest: 2,
 				value: 1
-			})]
+			})])
 		),);
 		System::assert_last_event(
 			utility::Event::BatchInterrupted {
@@ -439,7 +439,7 @@ fn batch_early_exit_works() {
 		assert_eq!(Balances::free_balance(2), 10);
 		assert_ok!(Utility::batch(
 			RuntimeOrigin::signed(1),
-			vec![call_transfer(2, 5), call_transfer(2, 10), call_transfer(2, 5),]
+			CallsBatch(vec![call_transfer(2, 5), call_transfer(2, 10), call_transfer(2, 5),])
 		),);
 		assert_eq!(Balances::free_balance(1), 5);
 		assert_eq!(Balances::free_balance(2), 15);
@@ -457,7 +457,7 @@ fn batch_weight_calculation_doesnt_overflow() {
 
 		// 3 * 50% saturates to 100%
 		let batch_call = RuntimeCall::Utility(crate::Call::batch {
-			calls: vec![big_call.clone(), big_call.clone(), big_call.clone()],
+			calls: CallsBatch(vec![big_call.clone(), big_call.clone(), big_call.clone()]),
 		});
 
 		assert_eq!(batch_call.get_dispatch_info().weight, Weight::MAX);
@@ -475,7 +475,7 @@ fn batch_handles_weight_refund() {
 		// Full weight when ok
 		let inner_call = call_foobar(false, start_weight, None);
 		let batch_calls = vec![inner_call; batch_len as usize];
-		let call = RuntimeCall::Utility(UtilityCall::batch { calls: batch_calls });
+		let call = RuntimeCall::Utility(UtilityCall::batch { calls: CallsBatch(batch_calls) });
 		let info = call.get_dispatch_info();
 		let result = call.dispatch(RuntimeOrigin::signed(1));
 		assert_ok!(result);
@@ -484,7 +484,7 @@ fn batch_handles_weight_refund() {
 		// Refund weight when ok
 		let inner_call = call_foobar(false, start_weight, Some(end_weight));
 		let batch_calls = vec![inner_call; batch_len as usize];
-		let call = RuntimeCall::Utility(UtilityCall::batch { calls: batch_calls });
+		let call = RuntimeCall::Utility(UtilityCall::batch { calls: CallsBatch(batch_calls) });
 		let info = call.get_dispatch_info();
 		let result = call.dispatch(RuntimeOrigin::signed(1));
 		assert_ok!(result);
@@ -495,7 +495,7 @@ fn batch_handles_weight_refund() {
 		let good_call = call_foobar(false, start_weight, None);
 		let bad_call = call_foobar(true, start_weight, None);
 		let batch_calls = vec![good_call, bad_call];
-		let call = RuntimeCall::Utility(UtilityCall::batch { calls: batch_calls });
+		let call = RuntimeCall::Utility(UtilityCall::batch { calls: CallsBatch(batch_calls) });
 		let info = call.get_dispatch_info();
 		let result = call.dispatch(RuntimeOrigin::signed(1));
 		assert_ok!(result);
@@ -510,7 +510,7 @@ fn batch_handles_weight_refund() {
 		let bad_call = call_foobar(true, start_weight, Some(end_weight));
 		let batch_calls = vec![good_call, bad_call];
 		let batch_len = batch_calls.len() as u64;
-		let call = RuntimeCall::Utility(UtilityCall::batch { calls: batch_calls });
+		let call = RuntimeCall::Utility(UtilityCall::batch { calls: CallsBatch(batch_calls) });
 		let info = call.get_dispatch_info();
 		let result = call.dispatch(RuntimeOrigin::signed(1));
 		assert_ok!(result);
@@ -523,7 +523,7 @@ fn batch_handles_weight_refund() {
 		let good_call = call_foobar(false, start_weight, Some(end_weight));
 		let bad_call = call_foobar(true, start_weight, Some(end_weight));
 		let batch_calls = vec![good_call, bad_call.clone(), bad_call];
-		let call = RuntimeCall::Utility(UtilityCall::batch { calls: batch_calls });
+		let call = RuntimeCall::Utility(UtilityCall::batch { calls: CallsBatch(batch_calls) });
 		let info = call.get_dispatch_info();
 		let result = call.dispatch(RuntimeOrigin::signed(1));
 		assert_ok!(result);
@@ -545,7 +545,7 @@ fn batch_all_works() {
 		assert_eq!(Balances::free_balance(2), 10);
 		assert_ok!(Utility::batch_all(
 			RuntimeOrigin::signed(1),
-			vec![call_transfer(2, 5), call_transfer(2, 5)]
+			CallsBatch(vec![call_transfer(2, 5), call_transfer(2, 5)])
 		),);
 		assert_eq!(Balances::free_balance(1), 0);
 		assert_eq!(Balances::free_balance(2), 20);
@@ -561,7 +561,7 @@ fn batch_all_revert() {
 		assert_eq!(Balances::free_balance(1), 10);
 		assert_eq!(Balances::free_balance(2), 10);
 		let batch_all_calls = RuntimeCall::Utility(crate::Call::<Test>::batch_all {
-			calls: vec![call_transfer(2, 5), call_transfer(2, 10), call_transfer(2, 5)],
+			calls: CallsBatch(vec![call_transfer(2, 5), call_transfer(2, 10), call_transfer(2, 5)]),
 		});
 		assert_noop!(
 			batch_all_calls.dispatch(RuntimeOrigin::signed(1)),
@@ -591,7 +591,7 @@ fn batch_all_handles_weight_refund() {
 		// Full weight when ok
 		let inner_call = call_foobar(false, start_weight, None);
 		let batch_calls = vec![inner_call; batch_len as usize];
-		let call = RuntimeCall::Utility(UtilityCall::batch_all { calls: batch_calls });
+		let call = RuntimeCall::Utility(UtilityCall::batch_all { calls: CallsBatch(batch_calls) });
 		let info = call.get_dispatch_info();
 		let result = call.dispatch(RuntimeOrigin::signed(1));
 		assert_ok!(result);
@@ -600,7 +600,7 @@ fn batch_all_handles_weight_refund() {
 		// Refund weight when ok
 		let inner_call = call_foobar(false, start_weight, Some(end_weight));
 		let batch_calls = vec![inner_call; batch_len as usize];
-		let call = RuntimeCall::Utility(UtilityCall::batch_all { calls: batch_calls });
+		let call = RuntimeCall::Utility(UtilityCall::batch_all { calls: CallsBatch(batch_calls) });
 		let info = call.get_dispatch_info();
 		let result = call.dispatch(RuntimeOrigin::signed(1));
 		assert_ok!(result);
@@ -611,7 +611,7 @@ fn batch_all_handles_weight_refund() {
 		let good_call = call_foobar(false, start_weight, None);
 		let bad_call = call_foobar(true, start_weight, None);
 		let batch_calls = vec![good_call, bad_call];
-		let call = RuntimeCall::Utility(UtilityCall::batch_all { calls: batch_calls });
+		let call = RuntimeCall::Utility(UtilityCall::batch_all { calls: CallsBatch(batch_calls) });
 		let info = call.get_dispatch_info();
 		let result = call.dispatch(RuntimeOrigin::signed(1));
 		assert_err_ignore_postinfo!(result, "The cake is a lie.");
@@ -623,7 +623,7 @@ fn batch_all_handles_weight_refund() {
 		let bad_call = call_foobar(true, start_weight, Some(end_weight));
 		let batch_calls = vec![good_call, bad_call];
 		let batch_len = batch_calls.len() as u64;
-		let call = RuntimeCall::Utility(UtilityCall::batch_all { calls: batch_calls });
+		let call = RuntimeCall::Utility(UtilityCall::batch_all { calls: CallsBatch(batch_calls) });
 		let info = call.get_dispatch_info();
 		let result = call.dispatch(RuntimeOrigin::signed(1));
 		assert_err_ignore_postinfo!(result, "The cake is a lie.");
@@ -633,7 +633,7 @@ fn batch_all_handles_weight_refund() {
 		let good_call = call_foobar(false, start_weight, Some(end_weight));
 		let bad_call = call_foobar(true, start_weight, Some(end_weight));
 		let batch_calls = vec![good_call, bad_call.clone(), bad_call];
-		let call = RuntimeCall::Utility(UtilityCall::batch_all { calls: batch_calls });
+		let call = RuntimeCall::Utility(UtilityCall::batch_all { calls: CallsBatch(batch_calls) });
 		let info = call.get_dispatch_info();
 		let result = call.dispatch(RuntimeOrigin::signed(1));
 		assert_err_ignore_postinfo!(result, "The cake is a lie.");
@@ -649,7 +649,7 @@ fn batch_all_handles_weight_refund() {
 fn batch_all_does_not_nest() {
 	new_test_ext().execute_with(|| {
 		let batch_all = RuntimeCall::Utility(UtilityCall::batch_all {
-			calls: vec![call_transfer(2, 1), call_transfer(2, 1), call_transfer(2, 1)],
+			calls: CallsBatch(vec![call_transfer(2, 1), call_transfer(2, 1), call_transfer(2, 1)]),
 		});
 
 		let info = batch_all.get_dispatch_info();
@@ -658,7 +658,7 @@ fn batch_all_does_not_nest() {
 		assert_eq!(Balances::free_balance(2), 10);
 		// A nested batch_all call will not pass the filter, and fail with `BadOrigin`.
 		assert_noop!(
-			Utility::batch_all(RuntimeOrigin::signed(1), vec![batch_all.clone()]),
+			Utility::batch_all(RuntimeOrigin::signed(1), CallsBatch(vec![batch_all.clone()])),
 			DispatchErrorWithPostInfo {
 				post_info: PostDispatchInfo {
 					actual_weight: Some(<Test as Config>::WeightInfo::batch_all(1) + info.weight),
@@ -671,10 +671,11 @@ fn batch_all_does_not_nest() {
 		// And for those who want to get a little fancy, we check that the filter persists across
 		// other kinds of dispatch wrapping functions... in this case
 		// `batch_all(batch(batch_all(..)))`
-		let batch_nested = RuntimeCall::Utility(UtilityCall::batch { calls: vec![batch_all] });
+		let batch_nested =
+			RuntimeCall::Utility(UtilityCall::batch { calls: CallsBatch(vec![batch_all]) });
 		// Batch will end with `Ok`, but does not actually execute as we can see from the event
 		// and balances.
-		assert_ok!(Utility::batch_all(RuntimeOrigin::signed(1), vec![batch_nested]));
+		assert_ok!(Utility::batch_all(RuntimeOrigin::signed(1), CallsBatch(vec![batch_nested])));
 		System::assert_has_event(
 			utility::Event::BatchInterrupted {
 				index: 0,
@@ -690,7 +691,8 @@ fn batch_all_does_not_nest() {
 #[test]
 fn batch_limit() {
 	new_test_ext().execute_with(|| {
-		let calls = vec![RuntimeCall::System(SystemCall::remark { remark: vec![] }); 40_000];
+		let calls =
+			CallsBatch(vec![RuntimeCall::System(SystemCall::remark { remark: vec![] }); 40_000]);
 		assert_noop!(
 			Utility::batch(RuntimeOrigin::signed(1), calls.clone()),
 			Error::<Test>::TooManyCalls
@@ -709,12 +711,12 @@ fn force_batch_works() {
 		assert_eq!(Balances::free_balance(2), 10);
 		assert_ok!(Utility::force_batch(
 			RuntimeOrigin::signed(1),
-			vec![
+			CallsBatch(vec![
 				call_transfer(2, 5),
 				call_foobar(true, Weight::from_parts(75, 0), None),
 				call_transfer(2, 10),
 				call_transfer(2, 5),
-			]
+			])
 		));
 		System::assert_last_event(utility::Event::BatchCompletedWithErrors.into());
 		System::assert_has_event(
@@ -725,11 +727,14 @@ fn force_batch_works() {
 
 		assert_ok!(Utility::force_batch(
 			RuntimeOrigin::signed(2),
-			vec![call_transfer(1, 5), call_transfer(1, 5),]
+			CallsBatch(vec![call_transfer(1, 5), call_transfer(1, 5),])
 		));
 		System::assert_last_event(utility::Event::BatchCompleted.into());
 
-		assert_ok!(Utility::force_batch(RuntimeOrigin::signed(1), vec![call_transfer(2, 50),]),);
+		assert_ok!(Utility::force_batch(
+			RuntimeOrigin::signed(1),
+			CallsBatch(vec![call_transfer(2, 50),])
+		),);
 		System::assert_last_event(utility::Event::BatchCompletedWithErrors.into());
 	});
 }
@@ -737,9 +742,9 @@ fn force_batch_works() {
 #[test]
 fn none_origin_does_not_work() {
 	new_test_ext().execute_with(|| {
-		assert_noop!(Utility::force_batch(RuntimeOrigin::none(), vec![]), BadOrigin);
-		assert_noop!(Utility::batch(RuntimeOrigin::none(), vec![]), BadOrigin);
-		assert_noop!(Utility::batch_all(RuntimeOrigin::none(), vec![]), BadOrigin);
+		assert_noop!(Utility::force_batch(RuntimeOrigin::none(), CallsBatch(vec![])), BadOrigin);
+		assert_noop!(Utility::batch(RuntimeOrigin::none(), CallsBatch(vec![])), BadOrigin);
+		assert_noop!(Utility::batch_all(RuntimeOrigin::none(), CallsBatch(vec![])), BadOrigin);
 	})
 }
 
@@ -749,7 +754,7 @@ fn batch_doesnt_work_with_inherents() {
 		// fails because inherents expect the origin to be none.
 		assert_ok!(Utility::batch(
 			RuntimeOrigin::signed(1),
-			vec![RuntimeCall::Timestamp(TimestampCall::set { now: 42 }),]
+			CallsBatch(vec![RuntimeCall::Timestamp(TimestampCall::set { now: 42 }),])
 		));
 		System::assert_last_event(
 			utility::Event::BatchInterrupted {
@@ -767,7 +772,7 @@ fn force_batch_doesnt_work_with_inherents() {
 		// fails because inherents expect the origin to be none.
 		assert_ok!(Utility::force_batch(
 			RuntimeOrigin::root(),
-			vec![RuntimeCall::Timestamp(TimestampCall::set { now: 42 }),]
+			CallsBatch(vec![RuntimeCall::Timestamp(TimestampCall::set { now: 42 }),])
 		));
 		System::assert_last_event(utility::Event::BatchCompletedWithErrors.into());
 	})
@@ -777,7 +782,7 @@ fn force_batch_doesnt_work_with_inherents() {
 fn batch_all_doesnt_work_with_inherents() {
 	new_test_ext().execute_with(|| {
 		let batch_all = RuntimeCall::Utility(UtilityCall::batch_all {
-			calls: vec![RuntimeCall::Timestamp(TimestampCall::set { now: 42 })],
+			calls: CallsBatch(vec![RuntimeCall::Timestamp(TimestampCall::set { now: 42 })]),
 		});
 		let info = batch_all.get_dispatch_info();
 
@@ -799,7 +804,9 @@ fn batch_all_doesnt_work_with_inherents() {
 fn batch_works_with_council_origin() {
 	new_test_ext().execute_with(|| {
 		let proposal = RuntimeCall::Utility(UtilityCall::batch {
-			calls: vec![RuntimeCall::Democracy(mock_democracy::Call::external_propose_majority {})],
+			calls: CallsBatch(vec![RuntimeCall::Democracy(
+				mock_democracy::Call::external_propose_majority {},
+			)]),
 		});
 		let proposal_len: u32 = proposal.using_encoded(|p| p.len() as u32);
 		let proposal_weight = proposal.get_dispatch_info().weight;
@@ -836,7 +843,9 @@ fn batch_works_with_council_origin() {
 fn force_batch_works_with_council_origin() {
 	new_test_ext().execute_with(|| {
 		let proposal = RuntimeCall::Utility(UtilityCall::force_batch {
-			calls: vec![RuntimeCall::Democracy(mock_democracy::Call::external_propose_majority {})],
+			calls: CallsBatch(vec![RuntimeCall::Democracy(
+				mock_democracy::Call::external_propose_majority {},
+			)]),
 		});
 		let proposal_len: u32 = proposal.using_encoded(|p| p.len() as u32);
 		let proposal_weight = proposal.get_dispatch_info().weight;
@@ -874,7 +883,9 @@ fn batch_all_works_with_council_origin() {
 	new_test_ext().execute_with(|| {
 		assert_ok!(Utility::batch_all(
 			RuntimeOrigin::from(pallet_collective::RawOrigin::Members(3, 3)),
-			vec![RuntimeCall::Democracy(mock_democracy::Call::external_propose_majority {})]
+			CallsBatch(vec![RuntimeCall::Democracy(
+				mock_democracy::Call::external_propose_majority {}
+			)])
 		));
 	})
 }

@@ -490,6 +490,7 @@ members = [
 	"substrate/primitives/transaction-pool",
 	"substrate/primitives/transaction-storage-proof",
 	"substrate/primitives/trie",
+	"substrate/primitives/utility",
 	"substrate/primitives/version",
 	"substrate/primitives/version/proc-macro",
 	"substrate/primitives/wasm-interface",

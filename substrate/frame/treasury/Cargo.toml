@@ -34,8 +34,9 @@ sp-core = { path = "../../primitives/core", default-features = false, optional =
 
 [dev-dependencies]
 sp-io = { path = "../../primitives/io" }
-pallet-utility = { path = "../utility" }
+sp-utility = { path = "../../primitives/utility", default-features = false }
 sp-core = { path = "../../primitives/core", default-features = false }
+pallet-utility = { path = "../utility" }
 
 [features]
 default = ["std"]
@@ -52,6 +53,7 @@ std = [
 	"sp-io/std",
 	"sp-runtime/std",
 	"sp-std/std",
+	"sp-utility/std",
 ]
 runtime-benchmarks = [
 	"dep:sp-core",

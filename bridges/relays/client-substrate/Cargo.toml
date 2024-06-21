@@ -51,6 +51,7 @@ sp-rpc = { path = "../../../substrate/primitives/rpc" }
 sp-runtime = { path = "../../../substrate/primitives/runtime" }
 sp-std = { path = "../../../substrate/primitives/std" }
 sp-trie = { path = "../../../substrate/primitives/trie" }
+sp-utility = { path = "../../../substrate/primitives/utility" }
 sp-version = { path = "../../../substrate/primitives/version" }
 
 # Polkadot Dependencies

@@ -44,6 +44,7 @@ use bp_header_chain::{justification::GrandpaJustification, ChainWithGrandpa};
 use bp_messages::{DeliveredMessages, InboundLaneData, UnrewardedRelayer};
 use bp_runtime::HashOf;
 use sp_runtime::DigestItem;
+use sp_utility::CallsBatch;
 
 /// Prepare a batch call with bridged GRANDPA finality and message proof.
 pub fn make_complex_relayer_delivery_batch<Runtime, GPI, MPI>(
@@ -78,7 +79,7 @@ where
 		dispatch_weight: Weight::from_parts(1000000000, 0),
 	};
 	pallet_utility::Call::<Runtime>::batch_all {
-		calls: vec![submit_grandpa.into(), submit_message.into()],
+		calls: CallsBatch(vec![submit_grandpa.into(), submit_message.into()]),
 	}
 }
 
@@ -117,7 +118,7 @@ where
 			relayers_state,
 		};
 	pallet_utility::Call::<Runtime>::batch_all {
-		calls: vec![submit_grandpa.into(), submit_message_delivery_proof.into()],
+		calls: CallsBatch(vec![submit_grandpa.into(), submit_message_delivery_proof.into()]),
 	}
 }
 

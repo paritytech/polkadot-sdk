@@ -22,6 +22,7 @@ use crate::mock::{RuntimeCall, *};
 
 use frame_support::{assert_err, assert_noop, assert_ok};
 use sp_runtime::DispatchError;
+use sp_utility::CallsBatch;
 
 // GENERAL SUCCESS/POSITIVE TESTS ---------------------
 
@@ -50,8 +51,9 @@ fn can_pause_all_calls_in_pallet_except_on_whitelist() {
 	new_test_ext().execute_with(|| {
 		assert_ok!(call_transfer(1, 1).dispatch(RuntimeOrigin::signed(0)));
 
-		let batch_call =
-			RuntimeCall::Utility(pallet_utility::Call::batch { calls: vec![call_transfer(1, 1)] });
+		let batch_call = RuntimeCall::Utility(pallet_utility::Call::batch {
+			calls: CallsBatch(vec![call_transfer(1, 1)]),
+		});
 		assert_ok!(batch_call.clone().dispatch(RuntimeOrigin::signed(0)));
 
 		assert_ok!(TxPause::pause(
@@ -90,8 +92,9 @@ fn can_unpause_specific_call() {
 #[test]
 fn can_filter_balance_in_batch_when_paused() {
 	new_test_ext().execute_with(|| {
-		let batch_call =
-			RuntimeCall::Utility(pallet_utility::Call::batch { calls: vec![call_transfer(1, 1)] });
+		let batch_call = RuntimeCall::Utility(pallet_utility::Call::batch {
+			calls: CallsBatch(vec![call_transfer(1, 1)]),
+		});
 
 		assert_ok!(TxPause::pause(
 			RuntimeOrigin::signed(mock::PauseOrigin::get()),
@@ -149,8 +152,9 @@ fn fails_to_pause_unpausable_call_when_other_call_is_paused() {
 	new_test_ext().execute_with(|| {
 		assert_ok!(call_transfer(1, 1).dispatch(RuntimeOrigin::signed(0)));
 
-		let batch_call =
-			RuntimeCall::Utility(pallet_utility::Call::batch { calls: vec![call_transfer(1, 1)] });
+		let batch_call = RuntimeCall::Utility(pallet_utility::Call::batch {
+			calls: CallsBatch(vec![call_transfer(1, 1)]),
+		});
 		assert_ok!(batch_call.clone().dispatch(RuntimeOrigin::signed(0)));
 
 		assert_ok!(TxPause::pause(

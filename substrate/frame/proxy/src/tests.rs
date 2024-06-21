@@ -29,6 +29,7 @@ use frame_support::{
 };
 use sp_core::H256;
 use sp_runtime::{traits::BlakeTwo256, BuildStorage, DispatchError, RuntimeDebug};
+use sp_utility::CallsBatch;
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
@@ -348,7 +349,8 @@ fn filtering_works() {
 			ProxyEvent::ProxyExecuted { result: Err(SystemError::CallFiltered.into()) }.into(),
 		);
 
-		let call = Box::new(RuntimeCall::Utility(UtilityCall::batch { calls: vec![*inner] }));
+		let call =
+			Box::new(RuntimeCall::Utility(UtilityCall::batch { calls: CallsBatch(vec![*inner]) }));
 		assert_ok!(Proxy::proxy(RuntimeOrigin::signed(2), 1, None, call.clone()));
 		expect_events(vec![
 			UtilityEvent::BatchCompleted.into(),
@@ -370,7 +372,8 @@ fn filtering_works() {
 			ProxyType::Any,
 			0,
 		)));
-		let call = Box::new(RuntimeCall::Utility(UtilityCall::batch { calls: vec![*inner] }));
+		let call =
+			Box::new(RuntimeCall::Utility(UtilityCall::batch { calls: CallsBatch(vec![*inner]) }));
 		assert_ok!(Proxy::proxy(RuntimeOrigin::signed(2), 1, None, call.clone()));
 		expect_events(vec![
 			UtilityEvent::BatchCompleted.into(),

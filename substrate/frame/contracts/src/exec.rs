@@ -1664,6 +1664,7 @@ mod tests {
 	use pallet_contracts_uapi::ReturnFlags;
 	use pretty_assertions::assert_eq;
 	use sp_runtime::{traits::Hash, DispatchError};
+	use sp_utility::CallsBatch;
 	use std::{cell::RefCell, collections::hash_map::HashMap, rc::Rc};
 
 	type System = frame_system::Pallet<Test>;
@@ -3240,7 +3241,7 @@ mod tests {
 
 			// as part of a patch: return is OK (but it interrupted the batch)
 			assert_ok!(ctx.ext.call_runtime(RuntimeCall::Utility(UtilCall::batch {
-				calls: vec![allowed_call.clone(), forbidden_call, allowed_call]
+				calls: CallsBatch(vec![allowed_call.clone(), forbidden_call, allowed_call])
 			})),);
 
 			// the transfer wasn't performed

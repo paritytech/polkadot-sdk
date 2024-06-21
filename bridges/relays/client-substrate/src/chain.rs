@@ -34,6 +34,7 @@ use sp_runtime::{
 	traits::{Block as BlockT, Member},
 	ConsensusEngineId, EncodedJustification,
 };
+use sp_utility::CallsBatch;
 use std::{fmt::Debug, time::Duration};
 
 /// Signed block type of given chain.
@@ -272,7 +273,7 @@ where
 	<R as pallet_utility::Config>::RuntimeCall: From<pallet_utility::Call<R>>,
 {
 	fn build_batch_call(calls: Vec<C::Call>) -> C::Call {
-		pallet_utility::Call::batch_all { calls }.into()
+		pallet_utility::Call::batch_all { calls: CallsBatch(calls) }.into()
 	}
 }
 
