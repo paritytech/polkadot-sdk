@@ -61,6 +61,8 @@ pub struct Extensions {
 	pub bad_blocks: sc_client_api::BadBlocks<Block>,
 	/// The light sync state extension used by the sync-state rpc.
 	pub light_sync_state: sc_sync_state_rpc::LightSyncStateExtension,
+	/// The checkpoint extension used by the sync-state rpc.
+	pub checkpoint: sc_sync_state_rpc::CheckpointExtension,
 }
 
 /// Specialized `ChainSpec`.
