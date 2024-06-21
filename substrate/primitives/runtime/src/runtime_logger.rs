@@ -19,9 +19,6 @@
 //!
 //! See [`RuntimeLogger`] for more docs.
 
-use log::LevelFilter;
-use tracing::{span, Level};
-
 /// Runtime logger implementation - `log` crate backend.
 ///
 /// The logger should be initialized if you want to display
@@ -42,7 +39,6 @@ impl RuntimeLogger {
 	pub fn init() {
 		static LOGGER: RuntimeLogger = RuntimeLogger;
 		let _ = log::set_logger(&LOGGER);
-		tracing::dispatcher::set_global_default(tracing::Dispatch::new(RuntimeLogger)).unwrap();
 
 		// Use the same max log level as used by the host.
 		log::set_max_level(sp_io::logging::max_level().into());
@@ -67,51 +63,18 @@ impl log::Log for RuntimeLogger {
 	fn flush(&self) {}
 }
 
-impl tracing::Subscriber for RuntimeLogger {
-	fn enabled(&self, metadata: &tracing::Metadata<'_>) -> bool {
-		let level = match *metadata.level() {
-			Level::DEBUG => LevelFilter::Debug,
-			Level::ERROR => LevelFilter::Error,
-			Level::INFO => LevelFilter::Info,
-			Level::TRACE => LevelFilter::Trace,
-			Level::WARN => LevelFilter::Warn,
-		};
-
-		true
-	}
-
-	fn new_span(&self, _: &span::Attributes<'_>) -> span::Id {
-		span::Id::from_u64(1)
-	}
-
-	fn record(&self, _: &span::Id, _: &span::Record<'_>) {}
-
-	fn record_follows_from(&self, _: &span::Id, _: &span::Id) {}
-
-	fn event(&self, _: &tracing::Event<'_>) {}
-
-	fn enter(&self, _: &span::Id) {}
-
-	fn exit(&self, _: &span::Id) {}
-
-	fn max_level_hint(&self) -> Option<tracing::level_filters::LevelFilter> {
-		Some(tracing::level_filters::LevelFilter::TRACE)
-	}
-}
-
 #[cfg(test)]
 mod tests {
 	use sp_api::ProvideRuntimeApi;
-	use std::{env, str::FromStr};
+	use std::env;
 	use substrate_test_runtime_client::{
 		runtime::TestAPI, DefaultTestClientBuilderExt, TestClientBuilder, TestClientBuilderExt,
 	};
 
 	#[test]
-	fn ensure_runtime_logger_respects_host_max_log_level() {
+	fn ensure_runtime_logger_works() {
 		if env::var("RUN_TEST").is_ok() {
 			sp_tracing::try_init_simple();
-			// log::set_max_level(log::LevelFilter::from(&env::var("RUST_LOG").unwrap()).unwrap());
 
 			let client = TestClientBuilder::new().build();
 			let runtime_api = client.runtime_api();
@@ -119,12 +82,12 @@ mod tests {
 				.do_trace_log(client.chain_info().genesis_hash)
 				.expect("Logging should not fail");
 		} else {
-			for (level, should_print) in &[("trace", true), ("info", false)] {
+			for (level, should_print) in &[("test=trace", true), ("info", false)] {
 				let executable = std::env::current_exe().unwrap();
 				let output = std::process::Command::new(executable)
 					.env("RUN_TEST", "1")
 					.env("RUST_LOG", level)
-					.args(&["--nocapture", "ensure_runtime_logger_respects_host_max_log_level"])
+					.args(&["--nocapture", "ensure_runtime_logger_works"])
 					.output()
 					.unwrap();
 
