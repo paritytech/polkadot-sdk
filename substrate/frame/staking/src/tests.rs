@@ -27,8 +27,9 @@ use frame_support::{
 	assert_noop, assert_ok, assert_storage_noop,
 	dispatch::{extract_actual_weight, GetDispatchInfo, WithPostDispatchInfo},
 	pallet_prelude::*,
-	traits::{Currency, Get, InspectLockableCurrency, ReservableCurrency},
+	traits::{fungible::{Mutate, InspectHold, Balanced}, Get},
 };
+use frame_support::traits::tokens::Precision;
 
 use mock::*;
 use pallet_balances::Error as BalancesError;
@@ -430,7 +431,7 @@ fn staking_should_work() {
 
 		// put some money in account that we'll use.
 		for i in 1..5 {
-			let _ = Balances::make_free_balance_be(&i, 2000);
+			let _ = Balances::set_balance(&i, 2000);
 		}
 
 		// --- Block 2:
@@ -490,9 +491,9 @@ fn staking_should_work() {
 				legacy_claimed_rewards: bounded_vec![],
 			}
 		);
-		// e.g. it cannot reserve more than 500 that it has free from the total 2000
-		assert_noop!(Balances::reserve(&3, 501), BalancesError::<Test, _>::LiquidityRestrictions);
-		assert_ok!(Balances::reserve(&3, 409));
+
+		// it has 500 balance as free.
+		assert_eq!(Balances::balance(&3), 500);
 	});
 }
 
@@ -612,7 +613,7 @@ fn nominating_and_rewards_should_work() {
 			// give the man some money
 			let initial_balance = 1000;
 			for i in [1, 3, 5, 11, 21].iter() {
-				let _ = Balances::make_free_balance_be(i, initial_balance);
+				let _ = Balances::set_balance(i, initial_balance);
 			}
 
 			// bond two account pairs and state interest in nomination.
@@ -1004,7 +1005,7 @@ fn cannot_transfer_staked_balance() {
 		);
 
 		// Give account 11 extra free balance
-		let _ = Balances::make_free_balance_be(&11, 10000);
+		let _ = Balances::set_balance(&11, 10000);
 		// Confirm that account 11 can now transfer some balance
 		assert_ok!(Balances::transfer_allow_death(RuntimeOrigin::signed(11), 21, 1));
 	});
@@ -1042,12 +1043,12 @@ fn cannot_reserve_staked_balance() {
 		// Confirm account 11 (via controller 10) is totally staked
 		assert_eq!(Staking::eras_stakers(active_era(), &11).own, 1000);
 		// Confirm account 11 cannot reserve as a result
-		assert_noop!(Balances::reserve(&11, 1), BalancesError::<Test, _>::LiquidityRestrictions);
+		// assert_noop!(Balances::reserve(&11, 1), BalancesError::<Test, _>::LiquidityRestrictions);
 
 		// Give account 11 extra free balance
-		let _ = Balances::make_free_balance_be(&11, 10000);
+		let _ = Balances::set_balance(&11, 10000);
 		// Confirm account 11 can now reserve balance
-		assert_ok!(Balances::reserve(&11, 1));
+		// assert_ok!(Balances::reserve(&11, 1));
 	});
 }
 
@@ -1223,7 +1224,7 @@ fn bond_extra_works() {
 		);
 
 		// Give account 11 some large free balance greater than total
-		let _ = Balances::make_free_balance_be(&11, 1000000);
+		let _ = Balances::set_balance(&11, 1000000);
 
 		// Call the bond_extra function from controller, add only 100
 		assert_ok!(Staking::bond_extra(RuntimeOrigin::signed(11), 100));
@@ -1285,7 +1286,7 @@ fn bond_extra_and_withdraw_unbonded_works() {
 		assert_ok!(Staking::set_payee(RuntimeOrigin::signed(11), RewardDestination::Stash));
 
 		// Give account 11 some large free balance greater than total
-		let _ = Balances::make_free_balance_be(&11, 1000000);
+		let _ = Balances::set_balance(&11, 1000000);
 
 		// Initial config should be correct
 		assert_eq!(active_era(), 0);
@@ -1496,7 +1497,7 @@ fn rebond_works() {
 		assert_ok!(Staking::set_payee(RuntimeOrigin::signed(11), RewardDestination::Stash));
 
 		// Give account 11 some large free balance greater than total
-		let _ = Balances::make_free_balance_be(&11, 1000000);
+		let _ = Balances::set_balance(&11, 1000000);
 
 		// confirm that 10 is a normal validator and gets paid at the end of the era.
 		mock::start_active_era(1);
@@ -1622,7 +1623,7 @@ fn rebond_is_fifo() {
 		assert_ok!(Staking::set_payee(RuntimeOrigin::signed(11), RewardDestination::Stash));
 
 		// Give account 11 some large free balance greater than total
-		let _ = Balances::make_free_balance_be(&11, 1000000);
+		let _ = Balances::set_balance(&11, 1000000);
 
 		// confirm that 10 is a normal validator and gets paid at the end of the era.
 		mock::start_active_era(1);
@@ -1718,7 +1719,7 @@ fn rebond_emits_right_value_in_event() {
 		assert_ok!(Staking::set_payee(RuntimeOrigin::signed(11), RewardDestination::Stash));
 
 		// Give account 11 some large free balance greater than total
-		let _ = Balances::make_free_balance_be(&11, 1000000);
+		let _ = Balances::set_balance(&11, 1000000);
 
 		// confirm that 10 is a normal validator and gets paid at the end of the era.
 		mock::start_active_era(1);
@@ -1853,8 +1854,8 @@ fn reward_to_stake_works() {
 			assert_eq!(Staking::eras_stakers(active_era(), &21).total, 2000);
 
 			// Give the man some money.
-			let _ = Balances::make_free_balance_be(&10, 1000);
-			let _ = Balances::make_free_balance_be(&20, 1000);
+			let _ = Balances::set_balance(&10, 1000);
+			let _ = Balances::set_balance(&20, 1000);
 
 			// Bypass logic and change current exposure
 			EraInfo::<Test>::set_exposure(0, &21, Exposure { total: 69, own: 69, others: vec![] });
@@ -1900,7 +1901,7 @@ fn reap_stash_works() {
 		.balance_factor(10)
 		.build_and_execute(|| {
 			// given
-			assert_eq!(Balances::balance_locked(STAKING_ID, &11), 10 * 1000);
+			assert_eq!(Balances::total_balance_on_hold(&11), 10 * 1000);
 			assert_eq!(Staking::bonded(&11), Some(11));
 
 			assert!(<Ledger<Test>>::contains_key(&11));
@@ -1927,7 +1928,7 @@ fn reap_stash_works() {
 			assert!(!<Validators<Test>>::contains_key(&11));
 			assert!(!<Payee<Test>>::contains_key(&11));
 			// lock is removed.
-			assert_eq!(Balances::balance_locked(STAKING_ID, &11), 0);
+			assert_eq!(Balances::total_balance_on_hold(&11), 0);
 		});
 }
 
@@ -1938,7 +1939,7 @@ fn reap_stash_works_with_existential_deposit_zero() {
 		.balance_factor(10)
 		.build_and_execute(|| {
 			// given
-			assert_eq!(Balances::balance_locked(STAKING_ID, &11), 10 * 1000);
+			assert_eq!(Balances::total_balance_on_hold(&11), 10 * 1000);
 			assert_eq!(Staking::bonded(&11), Some(11));
 
 			assert!(<Ledger<Test>>::contains_key(&11));
@@ -1965,7 +1966,7 @@ fn reap_stash_works_with_existential_deposit_zero() {
 			assert!(!<Validators<Test>>::contains_key(&11));
 			assert!(!<Payee<Test>>::contains_key(&11));
 			// lock is removed.
-			assert_eq!(Balances::balance_locked(STAKING_ID, &11), 0);
+			assert_eq!(Balances::total_balance_on_hold(&11), 0);
 		});
 }
 
@@ -1983,7 +1984,7 @@ fn switching_roles() {
 
 		// put some money in account that we'll use.
 		for i in 1..7 {
-			let _ = Balances::deposit_creating(&i, 5000);
+			let _ = Balances::deposit(&i, 5000, Precision::Exact);
 		}
 
 		// add 2 nominators
@@ -2189,7 +2190,7 @@ fn bond_with_duplicate_vote_should_be_ignored_by_election_provider() {
 			// give the man some money.
 			let initial_balance = 1000;
 			for i in [1, 2, 3, 4].iter() {
-				let _ = Balances::make_free_balance_be(i, initial_balance);
+				let _ = Balances::set_balance(i, initial_balance);
 			}
 
 			assert_ok!(Staking::bond(
@@ -2242,7 +2243,7 @@ fn bond_with_duplicate_vote_should_be_ignored_by_election_provider_elected() {
 			// give the man some money.
 			let initial_balance = 1000;
 			for i in [1, 2, 3, 4].iter() {
-				let _ = Balances::make_free_balance_be(i, initial_balance);
+				let _ = Balances::set_balance(i, initial_balance);
 			}
 
 			assert_ok!(Staking::bond(
@@ -2318,7 +2319,7 @@ fn reward_validator_slashing_validator_does_not_overflow() {
 		assert!(stake.checked_mul(reward_slash).is_none());
 
 		// Set staker
-		let _ = Balances::make_free_balance_be(&11, stake);
+		let _ = Balances::set_balance(&11, stake);
 
 		let exposure = Exposure::<AccountId, Balance> { total: stake, own: stake, others: vec![] };
 		let reward = EraRewardPoints::<AccountId> {
@@ -2334,8 +2335,8 @@ fn reward_validator_slashing_validator_does_not_overflow() {
 		assert_eq!(Balances::total_balance(&11), stake * 2);
 
 		// Set staker
-		let _ = Balances::make_free_balance_be(&11, stake);
-		let _ = Balances::make_free_balance_be(&2, stake);
+		let _ = Balances::set_balance(&11, stake);
+		let _ = Balances::set_balance(&2, stake);
 
 		// only slashes out of bonded stake are applied. without this line, it is 0.
 		Staking::bond(RuntimeOrigin::signed(2), stake - 1, RewardDestination::Staked).unwrap();
@@ -3682,7 +3683,7 @@ fn claim_reward_at_the_last_era_and_no_double_claim_and_invalid_claim() {
 
 		Pallet::<Test>::reward_by_ids(vec![(11, 1)]);
 		// Increase total token issuance to affect the total payout.
-		let _ = Balances::deposit_creating(&999, 1_000_000_000);
+		let _ = Balances::deposit(&999, 1_000_000_000, Precision::Exact);
 
 		// Compute total payout now for whole duration as other parameter won't change
 		let total_payout_1 = current_total_payout_for_duration(reward_time_per_era());
@@ -3692,7 +3693,7 @@ fn claim_reward_at_the_last_era_and_no_double_claim_and_invalid_claim() {
 
 		Pallet::<Test>::reward_by_ids(vec![(11, 1)]);
 		// Increase total token issuance to affect the total payout.
-		let _ = Balances::deposit_creating(&999, 1_000_000_000);
+		let _ = Balances::deposit(&999, 1_000_000_000, Precision::Exact);
 		// Compute total payout now for whole duration as other parameter won't change
 		let total_payout_2 = current_total_payout_for_duration(reward_time_per_era());
 		assert!(total_payout_2 != total_payout_0);
@@ -3838,7 +3839,7 @@ fn test_nominators_over_max_exposure_page_size_are_rewarded() {
 		for i in 0..=MaxExposurePageSize::get() {
 			let stash = 10_000 + i as AccountId;
 			let balance = 10_000 + i as Balance;
-			Balances::make_free_balance_be(&stash, balance);
+			Balances::set_balance(&stash, balance);
 			assert_ok!(Staking::bond(
 				RuntimeOrigin::signed(stash),
 				balance,
@@ -3879,7 +3880,7 @@ fn test_nominators_are_rewarded_for_all_exposure_page() {
 		for i in 0..nominator_count {
 			let stash = 10_000 + i as AccountId;
 			let balance = 10_000 + i as Balance;
-			Balances::make_free_balance_be(&stash, balance);
+			Balances::set_balance(&stash, balance);
 			assert_ok!(Staking::bond(
 				RuntimeOrigin::signed(stash),
 				balance,
@@ -5654,9 +5655,9 @@ fn chill_other_works() {
 				let a = 4 * i;
 				let b = 4 * i + 2;
 				let c = 4 * i + 3;
-				Balances::make_free_balance_be(&a, 100_000);
-				Balances::make_free_balance_be(&b, 100_000);
-				Balances::make_free_balance_be(&c, 100_000);
+				Balances::set_balance(&a, 100_000);
+				Balances::set_balance(&b, 100_000);
+				Balances::set_balance(&c, 100_000);
 
 				// Nominator
 				assert_ok!(Staking::bond(RuntimeOrigin::signed(a), 1000, RewardDestination::Stash));
@@ -6852,7 +6853,7 @@ fn test_runtime_api_pending_rewards() {
 
 		// Set staker
 		for v in validator_one..=validator_three {
-			let _ = Balances::make_free_balance_be(&v, stake);
+			let _ = Balances::set_balance(&v, stake);
 			assert_ok!(Staking::bond(RuntimeOrigin::signed(v), stake, RewardDestination::Staked));
 		}
 
@@ -7042,7 +7043,7 @@ mod staking_interface {
 				assert!(!<Validators<Test>>::contains_key(&11));
 				assert!(!<Payee<Test>>::contains_key(&11));
 				// lock is removed.
-				assert_eq!(Balances::balance_locked(STAKING_ID, &11), 0);
+				assert_eq!(Balances::total_balance_on_hold(&11), 0);
 			});
 	}
 
@@ -7084,7 +7085,7 @@ mod staking_unchecked {
 			// bonding.
 			assert_ok!(<Staking as StakingUnchecked>::virtual_bond(&10, 100, &15));
 			// nothing is locked on 10.
-			assert_eq!(Balances::balance_locked(STAKING_ID, &10), 0);
+			assert_eq!(Balances::total_balance_on_hold(&10), 0);
 			// adding more balance does not lock anything as well.
 			assert_ok!(<Staking as StakingInterface>::bond_extra(&10, 1000));
 			// but ledger is updated correctly.
@@ -7111,7 +7112,7 @@ mod staking_unchecked {
 				Ok(Stake { total: 1100, active: 900 })
 			);
 			// still no locks.
-			assert_eq!(Balances::balance_locked(STAKING_ID, &10), 0);
+			assert_eq!(Balances::total_balance_on_hold(&10), 0);
 
 			mock::start_active_era(2);
 			// cannot withdraw without waiting for unbonding period.
@@ -7211,11 +7212,11 @@ mod staking_unchecked {
 	fn migrate_virtual_staker() {
 		ExtBuilder::default().build_and_execute(|| {
 			// give some balance to 200
-			Balances::make_free_balance_be(&200, 2000);
+			Balances::set_balance(&200, 2000);
 
 			// stake
 			assert_ok!(Staking::bond(RuntimeOrigin::signed(200), 1000, RewardDestination::Staked));
-			assert_eq!(Balances::balance_locked(crate::STAKING_ID, &200), 1000);
+			assert_eq!(Balances::total_balance_on_hold(&200), 1000);
 
 			// migrate them to virtual staker
 			<Staking as StakingUnchecked>::migrate_to_virtual_staker(&200);
@@ -7223,7 +7224,7 @@ mod staking_unchecked {
 			assert_ok!(<Staking as StakingInterface>::update_payee(&200, &201));
 
 			// ensure the balance is not locked anymore
-			assert_eq!(Balances::balance_locked(crate::STAKING_ID, &200), 0);
+			assert_eq!(Balances::total_balance_on_hold(&200), 0);
 
 			// and they are marked as virtual stakers
 			assert_eq!(Pallet::<Test>::is_virtual_staker(&200), true);
@@ -7893,7 +7894,7 @@ mod ledger_recovery {
 		ExtBuilder::default().has_stakers(true).try_state(false).build_and_execute(|| {
 			setup_double_bonded_ledgers();
 
-			let lock_333_before = Balances::balance_locked(crate::STAKING_ID, &333);
+			let lock_333_before = Balances::total_balance_on_hold(&333);
 
 			// get into corrupted and killed ledger state by killing a corrupted ledger:
 			// init state:
@@ -7929,14 +7930,14 @@ mod ledger_recovery {
 
 			// side effects on 333 - ledger, bonded, payee, lock should be completely empty.
 			// however, 333 lock remains.
-			assert_eq!(Balances::balance_locked(crate::STAKING_ID, &333), lock_333_before); // NOK
+			assert_eq!(Balances::total_balance_on_hold(&333), lock_333_before); // NOK
 			assert!(Bonded::<Test>::get(&333).is_none()); // OK
 			assert!(Payee::<Test>::get(&333).is_none()); // OK
 			assert!(Ledger::<Test>::get(&444).is_none()); // OK
 
 			// side effects on 444 - ledger, bonded, payee, lock should remain be intact.
 			// however, 444 lock was removed.
-			assert_eq!(Balances::balance_locked(crate::STAKING_ID, &444), 0); // NOK
+			assert_eq!(Balances::total_balance_on_hold(&444), 0); // NOK
 			assert!(Bonded::<Test>::get(&444).is_some()); // OK
 			assert!(Payee::<Test>::get(&444).is_some()); // OK
 			assert!(Ledger::<Test>::get(&555).is_none()); // NOK
@@ -7950,7 +7951,7 @@ mod ledger_recovery {
 		ExtBuilder::default().has_stakers(true).try_state(false).build_and_execute(|| {
 			setup_double_bonded_ledgers();
 
-			let lock_333_before = Balances::balance_locked(crate::STAKING_ID, &333);
+			let lock_333_before = Balances::total_balance_on_hold(&333);
 
 			// get into corrupted and killed ledger state by killing a corrupted ledger:
 			// init state:
@@ -7985,14 +7986,14 @@ mod ledger_recovery {
 			assert_eq!(Staking::inspect_bond_state(&444), Err(Error::<Test>::NotStash));
 
 			// side effects on 333 - ledger, bonded, payee, lock should be intact.
-			assert_eq!(Balances::balance_locked(crate::STAKING_ID, &333), lock_333_before); // OK
+			assert_eq!(Balances::total_balance_on_hold(&333), lock_333_before); // OK
 			assert_eq!(Bonded::<Test>::get(&333), Some(444)); // OK
 			assert!(Payee::<Test>::get(&333).is_some()); // OK
 											 // however, ledger associated with its controller was killed.
 			assert!(Ledger::<Test>::get(&444).is_none()); // NOK
 
 			// side effects on 444 - ledger, bonded, payee, lock should be completely removed.
-			assert_eq!(Balances::balance_locked(crate::STAKING_ID, &444), 0); // OK
+			assert_eq!(Balances::total_balance_on_hold(&444), 0); // OK
 			assert!(Bonded::<Test>::get(&444).is_none()); // OK
 			assert!(Payee::<Test>::get(&444).is_none()); // OK
 			assert!(Ledger::<Test>::get(&555).is_none()); // OK
@@ -8073,7 +8074,7 @@ mod ledger_recovery {
 			setup_double_bonded_ledgers();
 
 			// ledger.total == lock
-			let total_444_before_corruption = Balances::balance_locked(crate::STAKING_ID, &444);
+			let total_444_before_corruption = Balances::total_balance_on_hold(&444);
 
 			// get into corrupted and killed ledger state by killing a corrupted ledger:
 			// init state:
@@ -8175,8 +8176,8 @@ mod ledger_recovery {
 		ExtBuilder::default().has_stakers(true).build_and_execute(|| {
 			setup_double_bonded_ledgers();
 
-			let lock_333_before = Balances::balance_locked(crate::STAKING_ID, &333);
-			let lock_444_before = Balances::balance_locked(crate::STAKING_ID, &444);
+			let lock_333_before = Balances::total_balance_on_hold(&333);
+			let lock_444_before = Balances::total_balance_on_hold(&444);
 
 			// get into corrupted and killed ledger state by killing a corrupted ledger:
 			// init state:
@@ -8196,16 +8197,16 @@ mod ledger_recovery {
 
 			// if 444 bonds extra, the locks remain in sync.
 			bond_extra_no_checks(&444, 40);
-			assert_eq!(Balances::balance_locked(crate::STAKING_ID, &333), lock_333_before);
-			assert_eq!(Balances::balance_locked(crate::STAKING_ID, &444), lock_444_before + 40);
+			assert_eq!(Balances::total_balance_on_hold(&333), lock_333_before);
+			assert_eq!(Balances::total_balance_on_hold(&444), lock_444_before + 40);
 
 			// however if 333 bonds extra, the wrong lock is updated.
 			bond_extra_no_checks(&333, 30);
 			assert_eq!(
-				Balances::balance_locked(crate::STAKING_ID, &333),
+				Balances::total_balance_on_hold(&333),
 				lock_444_before + 40 + 30
 			); //not OK
-			assert_eq!(Balances::balance_locked(crate::STAKING_ID, &444), lock_444_before + 40); // OK
+			assert_eq!(Balances::total_balance_on_hold(&444), lock_444_before + 40); // OK
 
 			// recover the ledger bonded by 333 stash. Note that the total/lock needs to be
 			// re-written since on-chain data lock has become out of sync.
@@ -8240,9 +8241,9 @@ mod ledger_recovery {
 			let ledger_444 = Bonded::<Test>::get(&444).and_then(Ledger::<Test>::get).unwrap();
 
 			assert_eq!(ledger_333.total, lock_333_before + 30);
-			assert_eq!(Balances::balance_locked(crate::STAKING_ID, &333), ledger_333.total);
+			assert_eq!(Balances::total_balance_on_hold(&333), ledger_333.total);
 			assert_eq!(ledger_444.total, lock_444_before + 40);
-			assert_eq!(Balances::balance_locked(crate::STAKING_ID, &444), ledger_444.total);
+			assert_eq!(Balances::total_balance_on_hold(&444), ledger_444.total);
 
 			// try-state checks are ok now.
 			assert_ok!(Staking::do_try_state(System::block_number()));

@@ -52,12 +52,12 @@
 use crate::{
 	BalanceOf, Config, DisabledValidators, DisablingStrategy, Error, Exposure, NegativeImbalanceOf,
 	NominatorSlashInEra, Pallet, Perbill, SessionInterface, SpanSlash, UnappliedSlash,
-	ValidatorSlashInEra,
+	ValidatorSlashInEra, HoldReason,
 };
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{
 	ensure,
-	traits::{Currency, Defensive, DefensiveSaturating, Imbalance, OnUnbalanced},
+	traits::{Defensive, DefensiveSaturating, Imbalance, OnUnbalanced, fungible::{Inspect, BalancedHold, Balanced}},
 };
 use scale_info::TypeInfo;
 use sp_runtime::{
@@ -586,7 +586,7 @@ pub fn do_slash<T: Config>(
 
 	// Skip slashing for virtual stakers. The pallets managing them should handle the slashing.
 	if !Pallet::<T>::is_virtual_staker(stash) {
-		let (imbalance, missing) = T::Currency::slash(stash, value);
+		let (imbalance, missing) = T::Currency::slash(&HoldReason::Staking.into(), stash, value);
 		slashed_imbalance.subsume(imbalance);
 
 		if !missing.is_zero() {
@@ -656,7 +656,7 @@ fn pay_reporters<T: Config>(
 
 		// this cancels out the reporter reward imbalance internally, leading
 		// to no change in total issuance.
-		T::Currency::resolve_creating(reporter, reporter_reward);
+		let _ = T::Currency::resolve(reporter, reporter_reward);
 	}
 
 	// the rest goes to the on-slash imbalance handler (e.g. treasury)

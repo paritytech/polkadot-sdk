@@ -25,7 +25,8 @@ use frame_election_provider_support::{
 use frame_support::{
 	assert_ok, derive_impl, ord_parameter_types, parameter_types,
 	traits::{
-		ConstU64, Currency, EitherOfDiverse, FindAuthor, Get, Hooks, Imbalance, LockableCurrency,
+		fungible::{Inspect, Mutate, MutateHold},
+		ConstU64, EitherOfDiverse, FindAuthor, Get, Hooks, Imbalance,
 		OnUnbalanced, OneSessionHandler, WithdrawReasons,
 	},
 	weights::constants::RocksDbWeight,
@@ -575,7 +576,7 @@ pub(crate) fn current_era() -> EraIndex {
 }
 
 pub(crate) fn bond(who: AccountId, val: Balance) {
-	let _ = Balances::make_free_balance_be(&who, val);
+	let _ = Balances::set_balance(&who, val);
 	assert_ok!(Staking::bond(RuntimeOrigin::signed(who), val, RewardDestination::Stash));
 }
 
@@ -811,7 +812,7 @@ pub(crate) fn bond_extra_no_checks(stash: &AccountId, amount: Balance) {
 	let mut ledger = Ledger::<Test>::get(&controller).expect("ledger must exist to bond_extra");
 
 	let new_total = ledger.total + amount;
-	Balances::set_lock(crate::STAKING_ID, stash, new_total, WithdrawReasons::all());
+	Balances::set_on_hold(&HoldReason::Staking.into(), stash, new_total).expect("account should have enough funds to hold");
 	ledger.total = new_total;
 	ledger.active = new_total;
 	Ledger::<Test>::insert(controller, ledger);
@@ -820,10 +821,10 @@ pub(crate) fn bond_extra_no_checks(stash: &AccountId, amount: Balance) {
 pub(crate) fn setup_double_bonded_ledgers() {
 	let init_ledgers = Ledger::<Test>::iter().count();
 
-	let _ = Balances::make_free_balance_be(&333, 2000);
-	let _ = Balances::make_free_balance_be(&444, 2000);
-	let _ = Balances::make_free_balance_be(&555, 2000);
-	let _ = Balances::make_free_balance_be(&777, 2000);
+	let _ = Balances::set_balance(&333, 2000);
+	let _ = Balances::set_balance(&444, 2000);
+	let _ = Balances::set_balance(&555, 2000);
+	let _ = Balances::set_balance(&777, 2000);
 
 	assert_ok!(Staking::bond(RuntimeOrigin::signed(333), 10, RewardDestination::Staked));
 	assert_ok!(Staking::bond(RuntimeOrigin::signed(444), 20, RewardDestination::Staked));

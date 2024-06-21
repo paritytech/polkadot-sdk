@@ -612,21 +612,21 @@ benchmarks! {
 		<ErasValidatorPrefs<T>>::insert(current_era, validator.clone(), <Staking<T>>::validators(&validator));
 
 		let caller = whitelisted_caller();
-		let balance_before = T::Currency::free_balance(&validator);
+		let balance_before = T::Currency::balance(&validator);
 		let mut nominator_balances_before = Vec::new();
 		for (stash, _) in &nominators {
-			let balance = T::Currency::free_balance(stash);
+			let balance = T::Currency::balance(stash);
 			nominator_balances_before.push(balance);
 		}
 	}: payout_stakers(RawOrigin::Signed(caller), validator.clone(), current_era)
 	verify {
-		let balance_after = T::Currency::free_balance(&validator);
+		let balance_after = T::Currency::balance(&validator);
 		ensure!(
 			balance_before < balance_after,
 			"Balance of validator stash should have increased after payout.",
 		);
 		for ((stash, _), balance_before) in nominators.iter().zip(nominator_balances_before.iter()) {
-			let balance_after = T::Currency::free_balance(stash);
+			let balance_after = T::Currency::balance(stash);
 			ensure!(
 				balance_before < &balance_after,
 				"Balance of nominator stash should have increased after payout.",
@@ -795,7 +795,7 @@ benchmarks! {
 		}
 		Ledger::<T>::insert(controller, staking_ledger);
 		let slash_amount = T::Currency::minimum_balance() * 10u32.into();
-		let balance_before = T::Currency::free_balance(&stash);
+		let balance_before = T::Currency::balance(&stash);
 	}: {
 		crate::slashing::do_slash::<T>(
 			&stash,
@@ -805,7 +805,7 @@ benchmarks! {
 			EraIndex::zero()
 		);
 	} verify {
-		let balance_after = T::Currency::free_balance(&stash);
+		let balance_after = T::Currency::balance(&stash);
 		assert!(balance_before > balance_after);
 	}
 

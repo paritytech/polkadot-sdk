@@ -27,8 +27,8 @@ use frame_support::{
 	dispatch::WithPostDispatchInfo,
 	pallet_prelude::*,
 	traits::{
-		Currency, Defensive, DefensiveSaturating, EstimateNextNewSession, Get, Imbalance,
-		InspectLockableCurrency, Len, LockableCurrency, OnUnbalanced, TryCollect, UnixTime,
+		fungible::{Inspect, InspectHold, MutateHold, Mutate, Balanced}, Defensive, DefensiveSaturating, EstimateNextNewSession, Get, Imbalance,
+		Len, OnUnbalanced, TryCollect, UnixTime,
 	},
 	weights::Weight,
 };
@@ -55,12 +55,14 @@ use crate::{
 	BalanceOf, EraInfo, EraPayout, Exposure, ExposureOf, Forcing, IndividualExposure,
 	LedgerIntegrityState, MaxNominationsOf, MaxWinnersOf, Nominations, NominationsQuota,
 	PositiveImbalanceOf, RewardDestination, SessionInterface, StakingLedger, ValidatorPrefs,
+	HoldReason,
 };
 
 use super::pallet::*;
 
 #[cfg(feature = "try-runtime")]
 use frame_support::ensure;
+use frame_support::traits::tokens::Precision;
 #[cfg(any(test, feature = "try-runtime"))]
 use sp_runtime::TryRuntimeError;
 
@@ -96,7 +98,7 @@ impl<T: Config> Pallet<T> {
 	pub(crate) fn inspect_bond_state(
 		stash: &T::AccountId,
 	) -> Result<LedgerIntegrityState, Error<T>> {
-		let lock = T::Currency::balance_locked(crate::STAKING_ID, &stash);
+		let lock = T::Currency::balance_on_hold(&HoldReason::Staking.into(), &stash);
 
 		let controller = <Bonded<T>>::get(stash).ok_or_else(|| {
 			if lock == Zero::zero() {
@@ -164,7 +166,7 @@ impl<T: Config> Pallet<T> {
 		} else {
 			// additional amount or actual balance of stash whichever is lower.
 			additional.min(
-				T::Currency::free_balance(stash)
+				T::Currency::balance(stash)
 					.checked_sub(&ledger.total)
 					.ok_or(ArithmeticError::Overflow)?,
 			)
@@ -413,13 +415,13 @@ impl<T: Config> Pallet<T> {
 		}
 		let dest = Self::payee(StakingAccount::Stash(stash.clone()))?;
 
-		let maybe_imbalance = match dest {
-			RewardDestination::Stash => T::Currency::deposit_into_existing(stash, amount).ok(),
+		let maybe_imbalance: Option<PositiveImbalanceOf<T>> = match dest {
+			RewardDestination::Stash => T::Currency::deposit(stash, amount, Precision::Exact).ok(),
 			RewardDestination::Staked => Self::ledger(Stash(stash.clone()))
 				.and_then(|mut ledger| {
 					ledger.active += amount;
 					ledger.total += amount;
-					let r = T::Currency::deposit_into_existing(stash, amount).ok();
+					let r = T::Currency::deposit(stash, amount, Precision::Exact).ok();
 
 					let _ = ledger
 						.update()
@@ -429,7 +431,7 @@ impl<T: Config> Pallet<T> {
 				})
 				.unwrap_or_default(),
 			RewardDestination::Account(ref dest_account) =>
-				Some(T::Currency::deposit_creating(&dest_account, amount)),
+				T::Currency::deposit(&dest_account, amount, Precision::Exact).ok(),
 			RewardDestination::None => None,
 			#[allow(deprecated)]
 			RewardDestination::Controller => Self::bonded(stash)
@@ -437,7 +439,7 @@ impl<T: Config> Pallet<T> {
 						defensive!("Paying out controller as reward destination which is deprecated and should be migrated.");
 						// This should never happen once payees with a `Controller` variant have been migrated.
 						// But if it does, just pay the controller account.
-						T::Currency::deposit_creating(&controller, amount)
+						T::Currency::deposit(&controller, amount, Precision::Exact).unwrap_or_default()
 		}),
 		};
 		maybe_imbalance.map(|imbalance| (imbalance, dest))
@@ -1919,7 +1921,7 @@ impl<T: Config> StakingInterface for Pallet<T> {
 
 impl<T: Config> sp_staking::StakingUnchecked for Pallet<T> {
 	fn migrate_to_virtual_staker(who: &Self::AccountId) {
-		T::Currency::remove_lock(crate::STAKING_ID, who);
+		let _ = T::Currency::release_all(&HoldReason::Staking.into(), who, Precision::BestEffort).defensive();
 		VirtualStakers::<T>::insert(who, ());
 	}
 
@@ -2097,7 +2099,7 @@ impl<T: Config> Pallet<T> {
 				// ensure locks consistency.
 				if VirtualStakers::<T>::contains_key(stash.clone()) {
 					ensure!(
-						T::Currency::balance_locked(crate::STAKING_ID, &stash) == Zero::zero(),
+						T::Currency::balance_on_hold(&HoldReason::Staking.into(), &stash) == Zero::zero(),
 						"virtual stakers should not have any locked balance"
 					);
 					ensure!(

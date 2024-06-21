@@ -28,7 +28,7 @@ use rand_chacha::{
 use sp_io::hashing::blake2_256;
 
 use frame_election_provider_support::SortedListProvider;
-use frame_support::{pallet_prelude::*, traits::Currency};
+use frame_support::{pallet_prelude::*, traits::fungible::Mutate};
 use sp_runtime::{traits::StaticLookup, Perbill};
 use sp_std::prelude::*;
 
@@ -55,7 +55,7 @@ pub fn create_funded_user<T: Config>(
 ) -> T::AccountId {
 	let user = account(string, n, SEED);
 	let balance = T::Currency::minimum_balance() * balance_factor.into();
-	let _ = T::Currency::make_free_balance_be(&user, balance);
+	let _ = T::Currency::set_balance(&user, balance);
 	user
 }
 
@@ -66,7 +66,7 @@ pub fn create_funded_user_with_balance<T: Config>(
 	balance: BalanceOf<T>,
 ) -> T::AccountId {
 	let user = account(string, n, SEED);
-	let _ = T::Currency::make_free_balance_be(&user, balance);
+	let _ = T::Currency::set_balance(&user, balance);
 	user
 }
 
