@@ -29,13 +29,12 @@ EOF
 
 # Determine OS
 os_name=$(uname -s)
-
 if [ "$os_name" = "Darwin" ]; then
     echo "🍎 Detected macOS. Installing dependencies via Homebrew."
 
     # Check if brew is installed
     if command -v brew >/dev/null 2>&1; then
-        echo "\n✅︎ Homebrew already installed."
+        echo "\n✅︎🍺 Homebrew already installed."
     else
         if prompt "\n🍺 Homebrew is not installed. Install it?"; then
             echo "🍺 Installing Homebrew."
@@ -46,23 +45,54 @@ if [ "$os_name" = "Darwin" ]; then
         fi
     fi
 
-    if prompt "\n⚙️ Install cmake, openssl and protobuf?"; then
-        brew update
+    brew update
+    if command -v git >/dev/null 2>&1; then
+        echo "\n✅︎🍺 git already installed."
+    else 
+        echo "\n🍺 We will need git to be installed, installing."
+        brew install git
+    fi
+
+    if prompt "\n🍺 Install cmake, openssl and protobuf?"; then
         brew install cmake openssl protobuf
     else
-        echo "⚙️ Assuming cmake, openssl and protobuf are present."
+        echo "🍺 Assuming cmake, openssl and protobuf are present."
     fi
 elif [ "$os_name" = "Linux" ]; then
-    echo "Running on Linux. TODO: implement."
-    exit 0
+    # find the distro name in the release files
+    distro=$( cat /etc/*-release | tr '[:upper:]' '[:lower:]' | grep -Poi '(debian|ubuntu|arch|fedora|opensuse)' | uniq | head -n 1 )
+
+    if [ "$distro" = "ubuntu" ]; then
+        echo "\n🐧 Detected Ubuntu. Using apt to install dependencies."
+        sudo apt install --assume-yes git clang curl libssl-dev protobuf-compiler
+    elif [ "$distro" = "debian" ]; then
+        echo "\n🐧 Detected Debian. Using apt to install dependencies."
+        sudo apt install --assume-yes git clang curl libssl-dev llvm libudev-dev make protobuf-compiler
+    elif [ "$distro" = "arch" ]; then
+        echo "\n🐧 Detected Arch Linux. Using pacman to install dependencies."
+        pacman -Syu --needed --noconfirm curl git clang make protobuf
+    elif [ "$distro" = "fedora" ]; then
+        echo "\n🐧 Detected Fedora. Using dnf to install dependencies."
+        sudo dnf update
+        sudo dnf install clang curl git openssl-devel make protobuf-compiler
+    elif [ "$distro" = "opensuse" ]; then
+        echo "\n🐧 Detected openSUSE. Using zypper to install dependencies."
+        sudo zypper install clang curl git openssl-devel llvm-devel libudev-devel make protobuf
+    else
+        if prompt "\n🐧 Unknown Linux distribution. Unable to install dependencies. Continue anyway?"; then
+            echo "\n🐧 Proceeding with unknown linux distribution..."
+        else
+            exit 1
+        fi
+    fi
 else
-    echo "Unknown operating system. Aborting."
+    echo "❌ Unknown operating system. Aborting."
     exit 1
 fi
 
 # Check if rustup is installed
 if command -v rustc >/dev/null 2>&1; then
-    echo "\n✅︎ Rust already installed."
+    echo "\n✅︎🦀 Rust already installed."
 else
     if prompt "\n🦀 Rust is not installed. Install it?"; then
         echo "🦀 Installing via rustup."
