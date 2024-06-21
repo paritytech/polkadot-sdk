@@ -218,8 +218,8 @@ pub mod pallet {
 	};
 	use frame_system::pallet_prelude::*;
 
-	/// The in-code storage version.
-	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
+	/// The current storage version.
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(2);
 
 	#[pallet::pallet]
 	#[pallet::storage_version(STORAGE_VERSION)]
@@ -440,6 +440,7 @@ pub mod pallet {
 						admin: owner.clone(),
 						freezer: owner.clone(),
 						supply: Zero::zero(),
+						inactive: Zero::zero(),
 						deposit: Zero::zero(),
 						min_balance: *min_balance,
 						is_sufficient: *is_sufficient,
@@ -670,6 +671,7 @@ pub mod pallet {
 					admin: admin.clone(),
 					freezer: admin.clone(),
 					supply: Zero::zero(),
+					inactive: Zero::zero(),
 					deposit,
 					min_balance,
 					is_sufficient: false,

@@ -1,0 +1,13 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Implement Inactive balance tracking in Assets pallet 
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      The trait `fungibles::Unbalanced` provides methods to increase and decrease active issuance. 
+      This PR addresses the lack of this feature in Assets, by introducing a new field `inactive` in the `Asset` struct and implementing the methods accordingly.
+
+crates: 
+  - name: pallet-assets
