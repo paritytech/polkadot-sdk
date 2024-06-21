@@ -47,4 +47,5 @@ snowbridge-core = { path = "../../../../../../../bridges/snowbridge/primitives/c
 snowbridge-router-primitives = { path = "../../../../../../../bridges/snowbridge/primitives/router", default-features = false }
 snowbridge-pallet-system = { path = "../../../../../../../bridges/snowbridge/pallets/system", default-features = false }
 snowbridge-pallet-outbound-queue = { path = "../../../../../../../bridges/snowbridge/pallets/outbound-queue", default-features = false }
+snowbridge-pallet-inbound-queue = { path = "../../../../../../../bridges/snowbridge/pallets/inbound-queue", default-features = false }
 snowbridge-pallet-inbound-queue-fixtures = { path = "../../../../../../../bridges/snowbridge/pallets/inbound-queue/fixtures" }

@@ -85,7 +85,10 @@ where
 		let message = ticket.message.as_bounded_slice();
 
 		T::MessageQueue::enqueue_message(message, origin);
-		Self::deposit_event(Event::MessageQueued { id: ticket.message_id });
+		Self::deposit_event(Event::MessageQueued {
+			channel_id: ticket.channel_id,
+			id: ticket.message_id,
+		});
 		Ok(ticket.message_id)
 	}
 }

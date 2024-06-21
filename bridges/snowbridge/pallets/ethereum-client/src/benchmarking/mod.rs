@@ -3,9 +3,20 @@
 use super::*;
 mod util;
 
-use crate::Pallet as EthereumBeaconClient;
+use crate::{
+	migration::{
+		v0::{
+			CompactExecutionHeader, ExecutionHeaderIndex, ExecutionHeaderMapping,
+			ExecutionHeaderState, ExecutionHeaders, LatestExecutionState,
+		},
+		EthereumExecutionHeaderCleanup,
+	},
+	Pallet as EthereumBeaconClient,
+};
 use frame_benchmarking::v2::*;
+use frame_support::{migrations::SteppedMigration, weights::WeightMeter};
 use frame_system::RawOrigin;
+use hex_literal::hex;
 
 use snowbridge_pallet_ethereum_client_fixtures::*;
 
@@ -123,6 +134,61 @@ mod benchmarks {
 		}
 
 		Ok(())
+	}
+
+	use frame_support::parameter_types;
+
+	parameter_types! {
+		pub ExecutionHeaderCount: u32 = 1;
+	}
+
+	#[benchmark]
+	fn step() {
+		let block_root: H256 =
+			hex!("4e4ed8c829bf771f94c60caa052dc3b703b24165a2e6459350e3a43a80ab7a8f").into();
+		ExecutionHeaders::<T>::insert(
+			block_root,
+			CompactExecutionHeader {
+				parent_hash: hex!(
+					"e0a5ca63886dfa16d53347ba347289e0187f7c38320768d094fc48d331ac7a23"
+				)
+				.into(),
+				block_number: 48242,
+				state_root: hex!(
+					"b3f33b6950fd047b634dcea0d09f002f07431d3e6648213604e54caa822055a6"
+				)
+				.into(),
+				receipts_root: hex!(
+					"f744e1ebe846b2961a7daa3c0d9023d8b109cf9e425b9e9973f039180e487b67"
+				)
+				.into(),
+			},
+		);
+		ExecutionHeaderMapping::<T>::insert(0u32, block_root);
+		LatestExecutionState::<T>::set(ExecutionHeaderState {
+			beacon_block_root: hex!(
+				"b3f33b6950fd047b634dcea0d09f002f07431d3e6648213604e54caa822055a6"
+			)
+			.into(),
+			beacon_slot: 5353,
+			block_hash: hex!("e0a5ca63886dfa16d53347ba347289e0187f7c38320768d094fc48d331ac7a23")
+				.into(),
+			block_number: 5454,
+		});
+		ExecutionHeaderIndex::<T>::set(0);
+		let mut meter = WeightMeter::new();
+
+		#[block]
+		{
+			EthereumExecutionHeaderCleanup::<T, (), ExecutionHeaderCount>::step(None, &mut meter)
+				.unwrap();
+		}
+
+		// Check that the header is removed
+		assert_eq!(ExecutionHeaderMapping::<T>::get(0u32), H256::zero());
+		assert!(ExecutionHeaders::<T>::get(block_root).is_none());
+		assert!(LatestExecutionState::<T>::get().beacon_block_root == H256::zero());
+		assert!(ExecutionHeaderIndex::<T>::get() == 0);
 	}
 
 	impl_benchmark_test_suite!(EthereumBeaconClient, crate::mock::new_tester(), crate::mock::Test);
