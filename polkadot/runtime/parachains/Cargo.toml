@@ -14,7 +14,6 @@ impl-trait-for-tuples = "0.2.2"
 bitvec = { version = "1.0.0", default-features = false, features = ["alloc"] }
 codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false, features = ["derive", "max-encoded-len"] }
 log = { workspace = true }
-rustc-hex = { version = "2.1.0", default-features = false }
 scale-info = { version = "2.11.1", default-features = false, features = ["derive"] }
 serde = { features = ["alloc", "derive"], workspace = true }
 derive_more = "0.99.17"
@@ -98,7 +97,6 @@ std = [
 	"polkadot-runtime-metrics/std",
 	"rand/std",
 	"rand_chacha/std",
-	"rustc-hex/std",
 	"scale-info/std",
 	"serde/std",
 	"sp-api/std",

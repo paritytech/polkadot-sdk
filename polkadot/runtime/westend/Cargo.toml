@@ -15,7 +15,6 @@ bitvec = { version = "1.0.0", default-features = false, features = ["alloc"] }
 codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false, features = ["derive", "max-encoded-len"] }
 scale-info = { version = "2.11.1", default-features = false, features = ["derive"] }
 log = { workspace = true }
-rustc-hex = { version = "2.1.0", default-features = false }
 serde = { workspace = true }
 serde_derive = { optional = true, workspace = true }
 smallvec = "1.8.0"
@@ -201,7 +200,6 @@ std = [
 	"polkadot-primitives/std",
 	"polkadot-runtime-common/std",
 	"polkadot-runtime-parachains/std",
-	"rustc-hex/std",
 	"scale-info/std",
 	"serde/std",
 	"serde_derive",
