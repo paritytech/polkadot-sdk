@@ -275,7 +275,13 @@ async fn run<Context>(
 							if new_session_index.is_some() {
 								session_index = new_session_index;
 								already_prepared_code_hashes.clear();
-								is_next_session_authority = check_next_session_authority(ctx.sender(), keystore.clone(), leaf.hash).await;
+								is_next_session_authority = check_next_session_authority(
+									ctx.sender(),
+									keystore.clone(),
+									leaf.hash,
+									session_index.expect("qed: just checked above"),
+								)
+								.await;
 							}
 
 							// On every active leaf check candidates and prepare PVFs our node doesn't have yet.
@@ -352,10 +358,12 @@ where
 }
 
 // Returns true if the node is an authority in the next session.
+// TODO: Request only future keys
 async fn check_next_session_authority<Sender>(
 	sender: &mut Sender,
 	keystore: KeystorePtr,
 	relay_parent: Hash,
+	session_index: SessionIndex,
 ) -> bool
 where
 	Sender: SubsystemSender<RuntimeApiMessage>,
@@ -371,9 +379,30 @@ where
 		return false
 	};
 
-	authorities
+	// We need to exclude at least current session authority from the previous request
+	let Ok(Ok(Some(session_info))) =
+		util::request_session_info(relay_parent, session_index, sender).await.await
+	else {
+		gum::warn!(
+			target: LOG_TARGET,
+			?relay_parent,
+			"cannot fetch session info from runtime API",
+		);
+		return false
+	};
+
+	let is_past_present_or_future_authority = authorities
 		.iter()
-		.any(|v| keystore.has_keys(&[(v.to_raw_vec(), AuthorityDiscoveryId::ID)]))
+		.any(|v| keystore.has_keys(&[(v.to_raw_vec(), AuthorityDiscoveryId::ID)]));
+
+	let is_present_authority = session_info
+		.discovery_keys
+		.iter()
+		.any(|v| keystore.has_keys(&[(v.to_raw_vec(), AuthorityDiscoveryId::ID)]));
+
+	// There is still a chance to be a previous session authority, but this extra work does not
+	// affect the finalization.
+	is_past_present_or_future_authority && !is_present_authority
 }
 
 // Sends PVF with unknown code hashes to the validation host returning the list of code hashes sent.
