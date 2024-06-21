@@ -1,0 +1,21 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: MBM try-runtime support
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      - Adds pre_upgrade post_upgrade hook usage to MBM example
+      - Adds try-runtime gated methods pre_upgrade and post_upgrade on SteppedMigration
+      - Adds try-runtime gated methods nth_pre_upgrade and nth_post_upgrade on SteppedMigrations
+      - Modifies pallet_migrations implementation to run pre_upgrade and post_upgrade steps at the appropriate times, and panic in the event of migration failure
+      - Derives `impl_for_tuples` for `MockedMigrations`
+
+crates:
+  - name: pallet-example-mbm
+    bump: minor
+  - name: pallet-migrations
+    bump: minor
+  - name: frame-support
+    bump: minor
