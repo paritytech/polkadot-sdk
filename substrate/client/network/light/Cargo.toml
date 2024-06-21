@@ -24,7 +24,6 @@ array-bytes = "6.2.2"
 codec = { package = "parity-scale-codec", version = "3.6.12", features = [
 	"derive",
 ] }
-libp2p-identity = { version = "0.2.3", features = ["peerid"] }
 futures = "0.3.30"
 log = { workspace = true, default-features = true }
 prost = "0.12.4"
