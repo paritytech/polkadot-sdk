@@ -34,7 +34,7 @@ add_to_genesis = true
 
   [[parachains.collators]]
   name = "collator-elastic"
-  image = "{{CUMULUS_IMAGE}}"
+  image = "{{COL_IMAGE}}"
   command = "test-parachain"
   args = ["-laura=trace,runtime=info,cumulus-consensus=trace,consensus::common=trace,parachain::collation-generation=trace,parachain::collator-protocol=trace,parachain=debug", "--force-authoring", "--experimental-use-slot-based"]
 
@@ -45,6 +45,6 @@ add_to_genesis = true
 
   [[parachains.collators]]
   name = "collator-single-core"
-  image = "{{CUMULUS_IMAGE}}"
+  image = "{{COL_IMAGE}}"
   command = "test-parachain"
   args = ["-laura=trace,runtime=info,cumulus-consensus=trace,consensus::common=trace,parachain::collation-generation=trace,parachain::collator-protocol=trace,parachain=debug", "--force-authoring", "--experimental-use-slot-based"]

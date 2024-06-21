@@ -35,7 +35,7 @@ add_to_genesis = true
   # Slot based authoring with 3 cores and 2s slot duration
   [[parachains.collators]]
   name = "collator-elastic"
-  image = "{{CUMULUS_IMAGE}}"
+  image = "{{COL_IMAGE}}"
   command = "test-parachain"
   args = ["--disable-block-announcements", "-laura=trace,runtime=info,cumulus-consensus=trace,consensus::common=trace,parachain::collation-generation=trace,parachain::collator-protocol=trace,parachain=debug", "--force-authoring", "--experimental-use-slot-based"]
 
