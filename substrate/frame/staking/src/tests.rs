@@ -1226,7 +1226,7 @@ fn bond_extra_works() {
 		);
 
 		// Give account 11 some large free balance greater than total
-		let _ = Balances::set_balance(&11, 1000000);
+		make_stakable_balance(&11, 1000000);
 
 		// Call the bond_extra function from controller, add only 100
 		assert_ok!(Staking::bond_extra(RuntimeOrigin::signed(11), 100));
@@ -1288,7 +1288,7 @@ fn bond_extra_and_withdraw_unbonded_works() {
 		assert_ok!(Staking::set_payee(RuntimeOrigin::signed(11), RewardDestination::Stash));
 
 		// Give account 11 some large free balance greater than total
-		let _ = Balances::set_balance(&11, 1000000);
+		make_stakable_balance(&11, 1000000);
 
 		// Initial config should be correct
 		assert_eq!(active_era(), 0);
@@ -1499,7 +1499,7 @@ fn rebond_works() {
 		assert_ok!(Staking::set_payee(RuntimeOrigin::signed(11), RewardDestination::Stash));
 
 		// Give account 11 some large free balance greater than total
-		let _ = Balances::set_balance(&11, 1000000);
+		make_stakable_balance(&11, 1000000);
 
 		// confirm that 10 is a normal validator and gets paid at the end of the era.
 		mock::start_active_era(1);
@@ -1625,7 +1625,7 @@ fn rebond_is_fifo() {
 		assert_ok!(Staking::set_payee(RuntimeOrigin::signed(11), RewardDestination::Stash));
 
 		// Give account 11 some large free balance greater than total
-		let _ = Balances::set_balance(&11, 1000000);
+		make_stakable_balance(&11, 1000000);
 
 		// confirm that 10 is a normal validator and gets paid at the end of the era.
 		mock::start_active_era(1);
@@ -1721,7 +1721,7 @@ fn rebond_emits_right_value_in_event() {
 		assert_ok!(Staking::set_payee(RuntimeOrigin::signed(11), RewardDestination::Stash));
 
 		// Give account 11 some large free balance greater than total
-		let _ = Balances::set_balance(&11, 1000000);
+		make_stakable_balance(&11, 1000000);
 
 		// confirm that 10 is a normal validator and gets paid at the end of the era.
 		mock::start_active_era(1);
@@ -1856,8 +1856,8 @@ fn reward_to_stake_works() {
 			assert_eq!(Staking::eras_stakers(active_era(), &21).total, 2000);
 
 			// Give the man some money.
-			let _ = Balances::set_balance(&10, 1000);
-			let _ = Balances::set_balance(&20, 1000);
+			make_stakable_balance(&10, 1000);
+			make_stakable_balance(&20, 1000);
 
 			// Bypass logic and change current exposure
 			EraInfo::<Test>::set_exposure(0, &21, Exposure { total: 69, own: 69, others: vec![] });
@@ -2192,7 +2192,7 @@ fn bond_with_duplicate_vote_should_be_ignored_by_election_provider() {
 			// give the man some money.
 			let initial_balance = 1000;
 			for i in [1, 2, 3, 4].iter() {
-				let _ = Balances::set_balance(i, initial_balance);
+				make_stakable_balance(i, initial_balance);
 			}
 
 			assert_ok!(Staking::bond(
@@ -2245,7 +2245,7 @@ fn bond_with_duplicate_vote_should_be_ignored_by_election_provider_elected() {
 			// give the man some money.
 			let initial_balance = 1000;
 			for i in [1, 2, 3, 4].iter() {
-				let _ = Balances::set_balance(i, initial_balance);
+				make_stakable_balance(i, initial_balance);
 			}
 
 			assert_ok!(Staking::bond(
@@ -2321,7 +2321,7 @@ fn reward_validator_slashing_validator_does_not_overflow() {
 		assert!(stake.checked_mul(reward_slash).is_none());
 
 		// Set staker
-		let _ = Balances::set_balance(&11, stake);
+		make_stakable_balance(&11, stake);
 
 		let exposure = Exposure::<AccountId, Balance> { total: stake, own: stake, others: vec![] };
 		let reward = EraRewardPoints::<AccountId> {
@@ -2337,8 +2337,8 @@ fn reward_validator_slashing_validator_does_not_overflow() {
 		assert_eq!(Balances::total_balance(&11), stake * 2);
 
 		// Set staker
-		let _ = Balances::set_balance(&11, stake);
-		let _ = Balances::set_balance(&2, stake);
+		make_stakable_balance(&11, stake);
+		make_stakable_balance(&2, stake);
 
 		// only slashes out of bonded stake are applied. without this line, it is 0.
 		Staking::bond(RuntimeOrigin::signed(2), stake - 1, RewardDestination::Staked).unwrap();
@@ -6863,7 +6863,7 @@ fn test_runtime_api_pending_rewards() {
 
 		// Set staker
 		for v in validator_one..=validator_three {
-			let _ = Balances::set_balance(&v, stake);
+			make_stakable_balance(&v, stake);
 			assert_ok!(Staking::bond(RuntimeOrigin::signed(v), stake, RewardDestination::Staked));
 		}
 

@@ -577,7 +577,7 @@ pub(crate) fn current_era() -> EraIndex {
 }
 
 pub(crate) fn bond(who: AccountId, val: Balance) {
-	let _ = Balances::set_balance(&who, val);
+	let _ = Balances::set_balance(&who, val + ExistentialDeposit::get());
 	assert_ok!(Staking::bond(RuntimeOrigin::signed(who), val, RewardDestination::Stash));
 }
 
@@ -929,4 +929,10 @@ pub(crate) fn staking_events_since_last_call() -> Vec<crate::Event<Test>> {
 
 pub(crate) fn balances(who: &AccountId) -> (Balance, Balance) {
 	(Balances::free_balance(who), Balances::reserved_balance(who))
+}
+
+pub(crate) fn make_stakable_balance(who: &AccountId, amount: Balance) {
+	let current_staked = Balances::total_balance_on_hold(who);
+	// This does not affect balance on hold. We also want to add ED to the balance.
+	let _ = Balances::set_balance(who, amount - current_staked + ExistentialDeposit::get());
 }
