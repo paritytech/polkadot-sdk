@@ -122,17 +122,13 @@ where
 		view: Arc<View<Api>>,
 		finish_revalidation_worker_channels: FinishRevalidationWorkerChannels<Api>,
 	) {
-		log::info!(
+		log::debug!(
 			target: LOG_TARGET,
-			"revalidation_queue::revalidate_later: Sent view to revalidation queue {:?}",
-			view.at
+			"revalidation_queue::revalidate_later: Sending view to revalidation queue at {}",
+			view.at.hash
 		);
 
 		if let Some(ref to_worker) = self.background {
-			log::info!(
-				target: LOG_TARGET,
-				"revalidation_queue::revalidate_later: revalidation sent",
-			);
 			if let Err(e) = to_worker.unbounded_send(WorkerPayload::RevalidateView(
 				view,
 				finish_revalidation_worker_channels,
@@ -155,7 +151,7 @@ where
 		mempool: Arc<TxMemPool<Api, Block>>,
 		finalized_hash: HashAndNumber<Block>,
 	) {
-		log::info!(
+		log::debug!(
 			target: LOG_TARGET,
 			"Sent mempool to revalidation queue at hash: {:?}",
 			finalized_hash

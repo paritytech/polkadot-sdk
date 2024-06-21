@@ -184,7 +184,7 @@ where
 			revalidation_result_tx,
 		} = finish_revalidation_worker_channels;
 
-		log::debug!(target:LOG_TARGET, "view::revalidate_later: at {:?} starting", self.at.hash);
+		log::debug!(target:LOG_TARGET, "view::revalidate_later: at {} starting", self.at.hash);
 		let start = Instant::now();
 		let validated_pool = self.pool.validated_pool();
 		let api = validated_pool.api();
@@ -205,7 +205,7 @@ where
 		loop {
 			tokio::select! {
 				_ = finish_revalidation_request_rx.recv() => {
-					log::debug!(target: LOG_TARGET, "view::revalidate_later: finish revalidation request received at {:?}. Terminating the loop.", self.at.hash);
+					log::trace!(target: LOG_TARGET, "view::revalidate_later: finish revalidation request received at {}.", self.at.hash);
 					should_break = true;
 				}
 				_ = async {
@@ -229,7 +229,14 @@ where
 			}
 		}
 
-		log::info!(target:LOG_TARGET, "view::revalidate_later: at {:?} count: {}/{} took {:?}", self.at.hash, validation_results.len(), batch_len, start.elapsed());
+		log::info!(
+			target:LOG_TARGET,
+			"view::revalidate_later: at {:?} count: {}/{} took {:?}",
+			self.at.hash,
+			validation_results.len(),
+			batch_len,
+			start.elapsed()
+		);
 		log_xt_debug!(data:tuple, target:LOG_TARGET, validation_results.iter().map(|x| (x.1, &x.0)), "[{:?}] view::revalidate_later result: {:?}");
 
 		for (validation_result, ext_hash, ext) in validation_results {
@@ -266,12 +273,12 @@ where
 			}
 		}
 
-		log::info!(target:LOG_TARGET, "view::revalidate_later: sending revalidation result at {:?}", self.at.hash);
+		log::debug!(target:LOG_TARGET, "view::revalidate_later: sending revalidation result at {}", self.at.hash);
 		let result = revalidation_result_tx
 			.send(RevalidationResult { invalid_hashes, revalidated })
 			.await;
 		if result.is_err() {
-			log::trace!(target:LOG_TARGET, "view::revalidate_later: sending revalidation_result at {:?} failed {:?}", self.at.hash, result);
+			log::trace!(target:LOG_TARGET, "view::revalidate_later: sending revalidation_result at {} failed {:?}", self.at.hash, result);
 		}
 	}
 
@@ -285,7 +292,7 @@ where
 			super::view_revalidation::RevalidationQueue<ChainApi, ChainApi::Block>,
 		>,
 	) {
-		log::debug!(target:LOG_TARGET,"view::start_background_revalidation: at {}", view.at.hash);
+		log::trace!(target:LOG_TARGET,"view::start_background_revalidation: at {}", view.at.hash);
 		let (finish_revalidation_request_tx, finish_revalidation_request_rx) =
 			tokio::sync::mpsc::channel(1);
 		let (revalidation_result_tx, revalidation_result_rx) = tokio::sync::mpsc::channel(1);
@@ -311,10 +318,10 @@ where
 	/// Receives the results from the worker and applies them to the internal pool.
 	/// Intended to ba called from maintain thread.
 	pub(super) async fn finish_revalidation(&self) {
-		log::debug!(target:LOG_TARGET,"view::finish_revalidation: at {}", self.at.hash);
+		log::trace!(target:LOG_TARGET,"view::finish_revalidation: at {}", self.at.hash);
 		let Some(revalidation_worker_channels) = self.revalidation_worker_channels.lock().take()
 		else {
-			log::info!(target:LOG_TARGET, "view::finish_revalidation: no finish_revalidation_request_tx");
+			log::trace!(target:LOG_TARGET, "view::finish_revalidation: no finish_revalidation_request_tx");
 			return
 		};
 
@@ -326,17 +333,26 @@ where
 		if let Some(finish_revalidation_request_tx) = finish_revalidation_request_tx {
 			let result = finish_revalidation_request_tx.send(()).await;
 			if result.is_err() {
-				log::trace!(target:LOG_TARGET, "view::finish_revalidation: sending cancellation request at {:?} failed {:?}", self.at.hash, result);
+				log::trace!(target:LOG_TARGET, "view::finish_revalidation: sending cancellation request at {} failed {:?}", self.at.hash, result);
 			}
 		}
 
 		if let Some(revalidation_result) = revalidation_result_rx.recv().await {
-			log::info!(target:LOG_TARGET, "view::finish_revalidation: applying revalidation result invalid: {} revalidated: {} at {:?}", revalidation_result.invalid_hashes.len(), revalidation_result.revalidated.len(), self.at.hash);
+			let start = Instant::now();
+			let revalidated_len = revalidation_result.revalidated.len();
 			let validated_pool = self.pool.validated_pool();
 			validated_pool.remove_invalid(&revalidation_result.invalid_hashes);
 			if revalidation_result.revalidated.len() > 0 {
 				self.pool.resubmit(revalidation_result.revalidated);
 			}
+			log::info!(
+				target:LOG_TARGET,
+				"view::finish_revalidation: applying revalidation result invalid: {} revalidated: {} at {:?} took {:?}",
+				revalidation_result.invalid_hashes.len(),
+				revalidated_len,
+				self.at.hash,
+				start.elapsed()
+			);
 		}
 	}
 }
