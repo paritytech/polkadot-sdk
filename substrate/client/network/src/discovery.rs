@@ -1042,9 +1042,9 @@ fn kademlia_protocol_name<Hash: AsRef<[u8]>>(
 ) -> StreamProtocol {
 	let genesis_hash_hex = bytes2hex("", genesis_hash.as_ref());
 	let name = if let Some(fork_id) = fork_id {
-		format!("/{}/{}/kad", genesis_hash_hex, fork_id)
+		format!("/{genesis_hash_hex}/{fork_id}/kad")
 	} else {
-		format!("/{}/kad", genesis_hash_hex)
+		format!("/{genesis_hash_hex}/kad")
 	};
 
 	StreamProtocol::try_from_owned(name).expect("protocol name is valid. qed")

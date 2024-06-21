@@ -1701,7 +1701,7 @@ where
 				endpoint,
 				num_established,
 			} => {
-				debug!(target: "sub-libp2p", "Libp2p => Disconnected({:?} via {:?}, {:?})", peer_id, connection_id, cause);
+				debug!(target: "sub-libp2p", "Libp2p => Disconnected({peer_id:?} via {connection_id:?}, {cause:?})");
 				if let Some(metrics) = self.metrics.as_ref() {
 					let direction = match endpoint {
 						ConnectedPoint::Dialer { .. } => "out",
@@ -1747,8 +1747,7 @@ where
 				if let Some(peer_id) = peer_id {
 					trace!(
 						target: "sub-libp2p",
-						"Libp2p => Failed to reach {:?} via {:?}: {}",
-						peer_id, connection_id, error,
+						"Libp2p => Failed to reach {peer_id:?} via {connection_id:?}: {error}",
 					);
 
 					let not_reported = !self.reported_invalid_boot_nodes.contains(&peer_id);
@@ -1799,11 +1798,10 @@ where
 				}
 			},
 			SwarmEvent::Dialing { connection_id, peer_id } => {
-				trace!(target: "sub-libp2p", "Libp2p => Dialing({:?}) via {:?}", peer_id, connection_id)
+				trace!(target: "sub-libp2p", "Libp2p => Dialing({peer_id:?}) via {connection_id:?}")
 			},
 			SwarmEvent::IncomingConnection { connection_id, local_addr, send_back_addr } => {
-				trace!(target: "sub-libp2p", "Libp2p => IncomingConnection({},{} via {:?}))",
-					local_addr, send_back_addr, connection_id);
+				trace!(target: "sub-libp2p", "Libp2p => IncomingConnection({local_addr},{send_back_addr} via {connection_id:?}))");
 				if let Some(metrics) = self.metrics.as_ref() {
 					metrics.incoming_connections_total.inc();
 				}
@@ -1816,8 +1814,7 @@ where
 			} => {
 				debug!(
 					target: "sub-libp2p",
-					"Libp2p => IncomingConnectionError({},{} via {:?}): {}",
-					local_addr, send_back_addr, connection_id, error,
+					"Libp2p => IncomingConnectionError({local_addr},{send_back_addr} via {connection_id:?}): {error}"
 				);
 				if let Some(metrics) = self.metrics.as_ref() {
 					#[allow(deprecated)]
