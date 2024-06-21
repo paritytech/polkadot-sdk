@@ -90,7 +90,7 @@ else
     exit 1
 fi
 
-# Check if rustup is installed
+# Check if rust is installed
 if command -v rustc >/dev/null 2>&1; then
     echo "\n✅︎🦀 Rust already installed."
 else
