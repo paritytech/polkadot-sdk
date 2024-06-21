@@ -26,7 +26,7 @@ use mixnet::core::{
 	SessionPhase as CoreSessionPhase, SessionStatus as CoreSessionStatus,
 };
 use sc_network_types::{
-	multiaddr::{Multiaddr, Protocol},
+	multiaddr::{multiaddr, Multiaddr, Protocol},
 	PeerId,
 };
 use sp_api::{ApiError, ApiRef};
@@ -91,29 +91,34 @@ fn parse_external_addresses(external_addresses: Vec<Vec<u8>>) -> Vec<Multiaddr> 
 /// each address matches `peer_id`.
 fn fixup_external_addresses(external_addresses: &mut Vec<Multiaddr>, peer_id: &PeerId) {
 	// Ensure the final component of each address matches peer_id
-	external_addresses.retain_mut(|addr| {
-		match addr.iter().find(|protocol| std::matches!(protocol, Protocol::P2p(_))) {
-			Some(Protocol::P2p(addr_peer_id)) if addr_peer_id == *peer_id.as_ref() => true,
-			Some(protocol) => {
-				debug!(
-					target: LOG_TARGET,
-					"Mixnode address {} does not match mixnode peer ID {} (protocol {}), ignoring",
-					addr,
-					peer_id,
-					protocol,
-				);
-				false
-			},
-			None => {
-				addr.push(Protocol::P2p(*peer_id.as_ref()));
-				true
-			},
-		}
+	external_addresses.retain_mut(|addr| match PeerId::try_from_multiaddr(addr) {
+		Some(addr_peer_id) if addr_peer_id == *peer_id => true,
+		Some(_) => {
+			debug!(
+				target: LOG_TARGET,
+				"Mixnode address {} does not match mixnode peer ID {}, ignoring",
+				addr,
+				peer_id
+			);
+			false
+		},
+		None if matches!(addr.iter().last(), Some(Protocol::P2p(_))) => {
+			debug!(
+				target: LOG_TARGET,
+				"Mixnode address {} has unrecognised P2P protocol, ignoring",
+				addr
+			);
+			false
+		},
+		None => {
+			addr.push(Protocol::P2p(*peer_id.as_ref()));
+			true
+		},
 	});
 
 	// If there are no addresses, insert one consisting of just the peer ID
 	if external_addresses.is_empty() {
-		external_addresses.push(Multiaddr::empty().with(Protocol::P2p(*peer_id.as_ref())));
+		external_addresses.push(multiaddr!(P2p(*peer_id.as_ref())));
 	}
 }
 
