@@ -10,7 +10,7 @@ description = "System overseer of the Polkadot node"
 workspace = true
 
 [dependencies]
-client = { package = "sc-client-api", path = "../../../substrate/client/api" }
+sc-client-api = { path = "../../../substrate/client/api" }
 sp-api = { path = "../../../substrate/primitives/api" }
 futures = "0.3.30"
 futures-timer = "3.0.2"
@@ -32,8 +32,8 @@ sp-core = { path = "../../../substrate/primitives/core" }
 futures = { version = "0.3.30", features = ["thread-pool"] }
 femme = "2.2.1"
 assert_matches = "1.4.0"
-test-helpers = { package = "polkadot-primitives-test-helpers", path = "../../primitives/test-helpers" }
-node-test-helpers = { package = "polkadot-node-subsystem-test-helpers", path = "../subsystem-test-helpers" }
+polkadot-primitives-test-helpers = { path = "../../primitives/test-helpers" }
+polkadot-node-subsystem-test-helpers = { path = "../subsystem-test-helpers" }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 tikv-jemalloc-ctl = "0.5.0"
