@@ -299,6 +299,7 @@ impl pallet_assets::Config for Test {
 	type MetadataDepositPerByte = ConstU128<1>;
 	type ApprovalDeposit = ConstU128<1>;
 	type StringLimit = ConstU32<50>;
+	type Holder = ();
 	type Freezer = ();
 	type WeightInfo = ();
 	type CallbackHandle = ();

@@ -221,20 +221,26 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		let account = Account::<T, I>::get(&id, who).ok_or(Error::<T, I>::NoAccount)?;
 		ensure!(!account.status.is_frozen(), Error::<T, I>::Frozen);
 
-		let amount = if let Some(frozen) = T::Freezer::frozen_balance(id, who) {
-			// Frozen balance: account CANNOT be deleted
-			let required =
-				frozen.checked_add(&details.min_balance).ok_or(ArithmeticError::Overflow)?;
-			account.balance.saturating_sub(required)
+		let frozen = T::Freezer::frozen_balance(id.clone(), who).unwrap_or_default();
+		let amount = if let Some(held) = T::Holder::held_balance(id, who) {
+			let untouchable = frozen
+				.saturating_sub(held)
+				.checked_add(&details.min_balance)
+				.ok_or(ArithmeticError::Overflow)?;
+			account.balance.saturating_sub(untouchable)
 		} else {
-			if keep_alive {
-				// We want to keep the account around.
-				account.balance.saturating_sub(details.min_balance)
+			let required = if frozen > Zero::zero() {
+				frozen.checked_add(&details.min_balance).ok_or(ArithmeticError::Overflow)?
 			} else {
-				// Don't care if the account dies
-				account.balance
-			}
+				if keep_alive {
+					details.min_balance
+				} else {
+					Zero::zero()
+				}
+			};
+			account.balance.saturating_sub(required)
 		};
+
 		Ok(amount.min(details.supply))
 	}
 
@@ -364,7 +370,8 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		}
 		Asset::<T, I>::insert(&id, details);
 		// Executing a hook here is safe, since it is not in a `mutate`.
-		T::Freezer::died(id, &who);
+		T::Freezer::died(id.clone(), &who);
+		T::Holder::died(id, &who);
 		Ok(())
 	}
 
@@ -400,7 +407,8 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		}
 		Asset::<T, I>::insert(&id, details);
 		// Executing a hook here is safe, since it is not in a `mutate`.
-		T::Freezer::died(id, &who);
+		T::Freezer::died(id.clone(), &who);
+		T::Holder::died(id, &who);
 		return Ok(())
 	}
 
@@ -568,7 +576,8 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
 		// Execute hook outside of `mutate`.
 		if let Some(Remove) = target_died {
-			T::Freezer::died(id, target);
+			T::Freezer::died(id.clone(), target);
+			T::Holder::died(id, target);
 		}
 		Ok(actual)
 	}
@@ -592,7 +601,8 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		let (balance, died) =
 			Self::transfer_and_die(id.clone(), source, dest, amount, maybe_need_admin, f)?;
 		if let Some(Remove) = died {
-			T::Freezer::died(id, source);
+			T::Freezer::died(id.clone(), source);
+			T::Holder::died(id, source);
 		}
 		Ok(balance)
 	}
@@ -790,6 +800,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
 		for who in &dead_accounts {
 			T::Freezer::died(id.clone(), &who);
+			T::Holder::died(id.clone(), &who);
 		}
 
 		Self::deposit_event(Event::AccountsDestroyed {
@@ -950,7 +961,8 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
 		// Execute hook outside of `mutate`.
 		if let Some(Remove) = owner_died {
-			T::Freezer::died(id, owner);
+			T::Freezer::died(id.clone(), owner);
+			T::Holder::died(id, owner);
 		}
 		Ok(())
 	}
