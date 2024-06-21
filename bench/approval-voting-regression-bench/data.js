@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1718969795579,
+  "lastUpdate": 1718983195577,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -8083,6 +8083,53 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-distribution",
             "value": 7.753536444880015,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Dmitry Markin",
+            "username": "dmitry-markin",
+            "email": "dmitry@markin.tech"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "3b3a1d2b99512aa3bb52a2af6fe6adc8c63ac984",
+          "message": "sc-network-types: implement `From<IpAddr> for Multiaddr` (#4855)\n\nAdd `From` implementation used by downstream project.\n\nRef.\nhttps://github.com/paritytech/polkadot-sdk/pull/4198#discussion_r1648676102\n\nCC @nazar-pc",
+          "timestamp": "2024-06-21T14:38:22Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/3b3a1d2b99512aa3bb52a2af6fe6adc8c63ac984"
+        },
+        "date": 1718983166450,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63545.54,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52936.8,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 3.241604231780078,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 7.187141284289983,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 9.718201077269976,
             "unit": "seconds"
           }
         ]
