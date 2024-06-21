@@ -64,8 +64,7 @@ impl PalletDeclaration {
 				if let Some(syn::GenericArgument::Type(syn::Type::Path(arg_path))) =
 					args_iter.next()
 				{
-					let ident =
-						Ident::new(&arg_path.to_token_stream().to_string(), arg_path.span());
+					let ident = arg_path.require_ident()?.clone();
 					if segment.ident == "Pallet" {
 						runtime_param = Some(ident.clone());
 						if let Some(arg_path) = args_iter.next() {
