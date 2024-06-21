@@ -37,7 +37,7 @@ use sp_runtime::{
 	transaction_validity::{TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult,
 };
-use sp_std::prelude::Vec;
+use sp_std::prelude::*;
 use sp_version::RuntimeVersion;
 
 // Local module imports
@@ -279,11 +279,16 @@ impl_runtime_apis! {
 		}
 
 		fn get_preset(id: &Option<sp_genesis_builder::PresetId>) -> Option<Vec<u8>> {
-			get_preset::<RuntimeGenesisConfig>(id, |_| None)
+			get_preset::<RuntimeGenesisConfig>(id, crate::genesis_config_presets::get_preset)
 		}
 
 		fn preset_names() -> Vec<sp_genesis_builder::PresetId> {
-			Default::default()
+			use sp_genesis_builder::PresetId;
+			use crate::genesis_config_presets as presets;
+			vec![
+				PresetId::from(presets::PRESET_DEVELOPMENT),
+				PresetId::from(presets::PRESET_LOCAL_TESTNET),
+			]
 		}
 	}
 }

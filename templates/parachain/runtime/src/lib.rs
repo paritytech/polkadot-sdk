@@ -10,6 +10,7 @@ pub mod apis;
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarks;
 mod configs;
+mod genesis_config_presets;
 mod weights;
 
 use smallvec::smallvec;
