@@ -718,7 +718,7 @@ where
 	PoolApi: 'static + graph::ChainApi<Block = Block>,
 {
 	async fn maintain(&self, event: ChainEvent<Self::Block>) {
-		if matches!(event, ChainEvent::NewBlock{..}) {
+		if matches!(event, ChainEvent::NewBlock { .. }) {
 			return
 		}
 
