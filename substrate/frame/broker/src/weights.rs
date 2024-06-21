@@ -78,6 +78,7 @@ pub trait WeightInfo {
 	fn notify_revenue() -> Weight;
 	fn do_tick_base() -> Weight;
 	fn swap_leases() -> Weight;
+	fn on_new_timeslice() -> Weight;
 }
 
 /// Weights for `pallet_broker` using the Substrate node and recommended hardware.
@@ -492,6 +493,9 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(1_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
+	
+	// TODO: Re-run bencmarks!
+	fn on_new_timeslice() -> frame_support::weights::Weight { Weight::zero() }
 }
 
 // For backwards compatibility and tests.
@@ -904,5 +908,10 @@ impl WeightInfo for () {
 		Weight::from_parts(6_258_000, 1526)
 			.saturating_add(RocksDbWeight::get().reads(1_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
+	}
+
+	// TODO: Re-run bencmarks!
+	fn on_new_timeslice() -> Weight {
+		Weight::zero()
 	}
 }

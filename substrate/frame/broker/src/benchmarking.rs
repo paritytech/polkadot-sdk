@@ -19,7 +19,7 @@
 
 use super::*;
 
-use crate::{CoreAssignment::Task, Pallet as Broker};
+use crate::{traits::NewTimesliceHook, CoreAssignment::Task, Pallet as Broker};
 use frame_benchmarking::v2::*;
 use frame_support::{
 	storage::bounded_vec::BoundedVec,
@@ -890,6 +890,7 @@ mod benches {
 			T::Coretime::request_revenue_info_at(rc_block);
 		}
 	}
+
 	#[benchmark]
 	fn notify_core_count() -> Result<(), BenchmarkError> {
 		let admin_origin =
@@ -953,6 +954,16 @@ mod benches {
 		_(admin_origin as T::RuntimeOrigin, 1, 2);
 
 		Ok(())
+	}
+
+	#[benchmark]
+	fn on_new_timeslice() {
+		let current_timeslice = Broker::<T>::current_timeslice();
+
+		#[block]
+		{
+			T::OnNewTimeslice::on_new_timeslice(current_timeslice);
+		}
 	}
 
 	// Implements a test for each benchmark. Execute with:
