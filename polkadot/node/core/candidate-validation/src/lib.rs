@@ -270,19 +270,17 @@ async fn run<Context>(
 				comm = ctx.recv().fuse() => {
 					match comm {
 						Ok(FromOrchestra::Signal(OverseerSignal::ActiveLeaves(update))) => {
-							let mut sender = ctx.sender().clone();
-
 							let Some(leaf) = update.activated else { continue };
-							let new_session_index = new_session_index(&mut sender, session_index, leaf.hash).await;
+							let new_session_index = new_session_index(ctx.sender(), session_index, leaf.hash).await;
 							if new_session_index.is_some() {
 								session_index = new_session_index;
 								already_prepared_code_hashes.clear();
-								is_next_session_authority = check_next_session_authority(&mut sender, keystore.clone(), leaf.hash).await;
+								is_next_session_authority = check_next_session_authority(ctx.sender(), keystore.clone(), leaf.hash).await;
 							}
 
 							// On every active leaf check candidates and prepare PVFs our node doesn't have yet.
 							if is_next_session_authority {
-								let code_hashes = prepare_pvfs_for_current_candidates(&mut sender, validation_host.clone(), leaf.hash, &already_prepared_code_hashes).await;
+								let code_hashes = prepare_pvfs_for_current_candidates(ctx.sender(), validation_host.clone(), leaf.hash, &already_prepared_code_hashes).await;
 								already_prepared_code_hashes.extend(code_hashes.unwrap_or_default());
 							}
 						},
