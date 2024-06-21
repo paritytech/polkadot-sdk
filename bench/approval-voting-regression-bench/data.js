@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1718960117909,
+  "lastUpdate": 1718969795579,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -8036,6 +8036,53 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 2.996202384440138,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Alexander Samusev",
+            "username": "alvicsam",
+            "email": "41779041+alvicsam@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "b301218db8785c6d425ca9a9ef90daa80780f2ce",
+          "message": "[ci] Change storage type for forklift in GHA (#4850)\n\nPR changes forklift authentication to gcs\n\ncc https://github.com/paritytech/ci_cd/issues/987",
+          "timestamp": "2024-06-21T09:33:33Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/b301218db8785c6d425ca9a9ef90daa80780f2ce"
+        },
+        "date": 1718969766979,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63543.93000000001,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52937.2,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting",
+            "value": 10.501351819750123,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 3.695427293180238,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 7.753536444880015,
             "unit": "seconds"
           }
         ]
