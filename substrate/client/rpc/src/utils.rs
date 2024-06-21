@@ -188,7 +188,7 @@ async fn inner_pipe_from_stream<S, T>(
 			// New item from the stream
 			Either::Right((Either::Right((Some(v), n)), c)) => {
 				if buf.push_back(v).is_err() {
-					log::trace!(target: "rpc", "Subscription lagged, dropping subscription=`{}`, peer=`{}`", params.method, params.ip_addr);
+					log::warn!(target: "rpc", "Subscription lagged, dropping subscription=`{}`, peer=`{}`", params.method, params.ip_addr);
 					metrics.register_dropped(method, ip_addr);
 					return
 				}
