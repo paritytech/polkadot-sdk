@@ -68,7 +68,7 @@ jobs:
       - name: script
         run: time forklift cargo nextest run --workspace --features runtime-benchmarks benchmark --locked --cargo-profile testnet
   test-linux-worfklow-stopper:
-    runs-on: ubuntu-latest
+    runs-on: arc-runners-polkadot-sdk-beefy
     timeout-minutes: 30
     needs: [set-image]
     container:
