@@ -486,6 +486,10 @@ where
 		processed_code_hashes.push(code_hash);
 	}
 
+	if active_pvfs.is_empty() {
+		return None
+	}
+
 	if let Err(err) = validation_backend.heads_up(active_pvfs).await {
 		gum::warn!(
 			target: LOG_TARGET,
