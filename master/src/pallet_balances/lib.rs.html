@@ -1534,6 +1534,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		tokens::{
 			fungible, BalanceStatus <span class="kw">as </span>Status, DepositConsequence,
 			Fortitude::{<span class="self">self</span>, Force, Polite},
+			IdAmount,
 			Preservation::{Expendable, Preserve, Protect},
 			WithdrawConsequence,
 		},
@@ -1553,8 +1554,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 };
 <span class="kw">use </span>sp_std::{cmp, fmt::Debug, mem, prelude::<span class="kw-2">*</span>, result};
 <span class="kw">pub use </span>types::{
-	AccountData, AdjustmentDirection, BalanceLock, DustCleaner, ExtraFlags, IdAmount, Reasons,
-	ReserveData,
+	AccountData, AdjustmentDirection, BalanceLock, DustCleaner, ExtraFlags, Reasons, ReserveData,
 };
 <span class="kw">pub use </span>weights::WeightInfo;
 

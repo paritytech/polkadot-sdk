@@ -137,6 +137,7 @@ var srcIndex = new Map(JSON.parse('[\
 ["pallet_asset_rate",["",[],["benchmarking.rs","lib.rs","weights.rs"]]],\
 ["pallet_asset_tx_payment",["",[],["lib.rs","payment.rs"]]],\
 ["pallet_assets",["",[],["benchmarking.rs","extra_mutator.rs","functions.rs","impl_fungibles.rs","impl_stored_map.rs","lib.rs","migration.rs","types.rs","weights.rs"]]],\
+["pallet_assets_freezer",["",[],["impls.rs","lib.rs"]]],\
 ["pallet_atomic_swap",["",[],["lib.rs"]]],\
 ["pallet_aura",["",[],["lib.rs","migrations.rs"]]],\
 ["pallet_authority_discovery",["",[],["lib.rs"]]],\

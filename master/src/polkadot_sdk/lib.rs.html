@@ -1718,6 +1718,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1567" id="1567">1567</a>
 <a href="#1568" id="1568">1568</a>
 <a href="#1569" id="1569">1569</a>
+<a href="#1570" id="1570">1570</a>
+<a href="#1571" id="1571">1571</a>
+<a href="#1572" id="1572">1572</a>
+<a href="#1573" id="1573">1573</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -2079,6 +2083,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// FRAME asset management pallet.
 </span><span class="attr">#[cfg(feature = <span class="string">"pallet-assets"</span>)]
 </span><span class="kw">pub use </span>pallet_assets;
+
+<span class="doccomment">/// Provides freezing features to `pallet-assets`.
+</span><span class="attr">#[cfg(feature = <span class="string">"pallet-assets-freezer"</span>)]
+</span><span class="kw">pub use </span>pallet_assets_freezer;
 
 <span class="doccomment">/// FRAME atomic swap pallet.
 </span><span class="attr">#[cfg(feature = <span class="string">"pallet-atomic-swap"</span>)]

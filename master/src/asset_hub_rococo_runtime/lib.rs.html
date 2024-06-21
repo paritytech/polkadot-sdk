@@ -1947,6 +1947,30 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1796" id="1796">1796</a>
 <a href="#1797" id="1797">1797</a>
 <a href="#1798" id="1798">1798</a>
+<a href="#1799" id="1799">1799</a>
+<a href="#1800" id="1800">1800</a>
+<a href="#1801" id="1801">1801</a>
+<a href="#1802" id="1802">1802</a>
+<a href="#1803" id="1803">1803</a>
+<a href="#1804" id="1804">1804</a>
+<a href="#1805" id="1805">1805</a>
+<a href="#1806" id="1806">1806</a>
+<a href="#1807" id="1807">1807</a>
+<a href="#1808" id="1808">1808</a>
+<a href="#1809" id="1809">1809</a>
+<a href="#1810" id="1810">1810</a>
+<a href="#1811" id="1811">1811</a>
+<a href="#1812" id="1812">1812</a>
+<a href="#1813" id="1813">1813</a>
+<a href="#1814" id="1814">1814</a>
+<a href="#1815" id="1815">1815</a>
+<a href="#1816" id="1816">1816</a>
+<a href="#1817" id="1817">1817</a>
+<a href="#1818" id="1818">1818</a>
+<a href="#1819" id="1819">1819</a>
+<a href="#1820" id="1820">1820</a>
+<a href="#1821" id="1821">1821</a>
+<a href="#1822" id="1822">1822</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -2206,7 +2230,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">type </span>MetadataDepositPerByte = MetadataDepositPerByte;
 	<span class="kw">type </span>ApprovalDeposit = ApprovalDeposit;
 	<span class="kw">type </span>StringLimit = AssetsStringLimit;
-	<span class="kw">type </span>Freezer = ();
+	<span class="kw">type </span>Freezer = AssetsFreezer;
 	<span class="kw">type </span>Extra = ();
 	<span class="kw">type </span>WeightInfo = weights::pallet_assets_local::WeightInfo&lt;Runtime&gt;;
 	<span class="kw">type </span>CallbackHandle = ();
@@ -2214,6 +2238,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">type </span>RemoveItemsLimit = frame_support::traits::ConstU32&lt;<span class="number">1000</span>&gt;;
 	<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 	</span><span class="kw">type </span>BenchmarkHelper = ();
+}
+
+<span class="comment">// Allow Freezes for the `Assets` pallet
+</span><span class="kw">pub type </span>AssetsFreezerInstance = pallet_assets_freezer::Instance1;
+<span class="kw">impl </span>pallet_assets_freezer::Config&lt;AssetsFreezerInstance&gt; <span class="kw">for </span>Runtime {
+	<span class="kw">type </span>RuntimeFreezeReason = RuntimeFreezeReason;
+	<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
 }
 
 <span class="macro">parameter_types! </span>{
@@ -2244,12 +2275,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">type </span>MetadataDepositPerByte = ConstU128&lt;<span class="number">0</span>&gt;;
 	<span class="kw">type </span>ApprovalDeposit = ApprovalDeposit;
 	<span class="kw">type </span>StringLimit = ConstU32&lt;<span class="number">50</span>&gt;;
-	<span class="kw">type </span>Freezer = ();
+	<span class="kw">type </span>Freezer = PoolAssetsFreezer;
 	<span class="kw">type </span>Extra = ();
 	<span class="kw">type </span>WeightInfo = weights::pallet_assets_pool::WeightInfo&lt;Runtime&gt;;
 	<span class="kw">type </span>CallbackHandle = ();
 	<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 	</span><span class="kw">type </span>BenchmarkHelper = ();
+}
+
+<span class="comment">// Allow Freezes for the `PoolAssets` pallet
+</span><span class="kw">pub type </span>PoolAssetsFreezerInstance = pallet_assets_freezer::Instance3;
+<span class="kw">impl </span>pallet_assets_freezer::Config&lt;PoolAssetsFreezerInstance&gt; <span class="kw">for </span>Runtime {
+	<span class="kw">type </span>RuntimeFreezeReason = RuntimeFreezeReason;
+	<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
 }
 
 <span class="doccomment">/// Union fungibles implementation for `Assets` and `ForeignAssets`.
@@ -2360,7 +2398,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">type </span>MetadataDepositPerByte = ForeignAssetsMetadataDepositPerByte;
 	<span class="kw">type </span>ApprovalDeposit = ForeignAssetsApprovalDeposit;
 	<span class="kw">type </span>StringLimit = ForeignAssetsAssetsStringLimit;
-	<span class="kw">type </span>Freezer = ();
+	<span class="kw">type </span>Freezer = ForeignAssetsFreezer;
 	<span class="kw">type </span>Extra = ();
 	<span class="kw">type </span>WeightInfo = weights::pallet_assets_foreign::WeightInfo&lt;Runtime&gt;;
 	<span class="kw">type </span>CallbackHandle = ();
@@ -2368,6 +2406,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">type </span>RemoveItemsLimit = frame_support::traits::ConstU32&lt;<span class="number">1000</span>&gt;;
 	<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 	</span><span class="kw">type </span>BenchmarkHelper = xcm_config::XcmBenchmarkHelper;
+}
+
+<span class="comment">// Allow Freezes for the `ForeignAssets` pallet
+</span><span class="kw">pub type </span>ForeignAssetsFreezerInstance = pallet_assets_freezer::Instance2;
+<span class="kw">impl </span>pallet_assets_freezer::Config&lt;ForeignAssetsFreezerInstance&gt; <span class="kw">for </span>Runtime {
+	<span class="kw">type </span>RuntimeFreezeReason = RuntimeFreezeReason;
+	<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
 }
 
 <span class="macro">parameter_types! </span>{
@@ -2902,6 +2947,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		NftFractionalization: pallet_nft_fractionalization = <span class="number">54</span>,
 		PoolAssets: pallet_assets::&lt;Instance3&gt; = <span class="number">55</span>,
 		AssetConversion: pallet_asset_conversion = <span class="number">56</span>,
+		AssetsFreezer: pallet_assets_freezer::&lt;Instance1&gt; = <span class="number">57</span>,
+		ForeignAssetsFreezer: pallet_assets_freezer::&lt;Instance2&gt; = <span class="number">58</span>,
+		PoolAssetsFreezer: pallet_assets_freezer::&lt;Instance3&gt; = <span class="number">59</span>,
 
 		<span class="comment">// TODO: the pallet instance should be removed once all pools have migrated
 		// to the new account IDs.

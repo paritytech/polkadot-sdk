@@ -1210,6 +1210,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1059" id="1059">1059</a>
 <a href="#1060" id="1060">1060</a>
 <a href="#1061" id="1061">1061</a>
+<a href="#1062" id="1062">1062</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -1703,7 +1704,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="kw">let </span>channel_info =
 			T::ChannelInfo::get_channel_info(recipient).ok_or(MessageSendError::NoChannel)<span class="question-mark">?</span>;
 		<span class="comment">// Max message size refers to aggregates, or pages. Not to individual fragments.
-		</span><span class="kw">let </span>max_message_size = channel_info.max_message_size <span class="kw">as </span>usize;
+		</span><span class="kw">let </span>max_message_size = channel_info.max_message_size.min(T::MaxPageSize::get()) <span class="kw">as </span>usize;
 		<span class="kw">let </span>format_size = format.encoded_size();
 		<span class="comment">// We check the encoded fragment length plus the format size against the max message size
 		// because the format is concatenated if a new page is needed.
@@ -1734,7 +1735,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		// We return the size of the last page inside of the option, to not calculate it again.
 		</span><span class="kw">let </span>appended_to_last_page = have_active
 			.then(|| {
-				&lt;OutboundXcmpMessages&lt;T&gt;&gt;::mutate(
+				&lt;OutboundXcmpMessages&lt;T&gt;&gt;::try_mutate(
 					recipient,
 					channel_details.last_index - <span class="number">1</span>,
 					|page| {
@@ -1744,17 +1745,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						) != <span class="prelude-val">Ok</span>(format)
 						{
 							<span class="macro">defensive!</span>(<span class="string">"Bad format in outbound queue; dropping message"</span>);
-							<span class="kw">return </span><span class="prelude-val">None
-						</span>}
-						<span class="kw">if </span>page.len() + encoded_fragment.len() &gt; max_message_size {
-							<span class="kw">return </span><span class="prelude-val">None
-						</span>}
-						<span class="kw">for </span>frag <span class="kw">in </span>encoded_fragment.iter() {
-							page.try_push(<span class="kw-2">*</span>frag).ok()<span class="question-mark">?</span>;
+							<span class="kw">return </span><span class="prelude-val">Err</span>(())
 						}
-						<span class="prelude-val">Some</span>(page.len())
+						<span class="kw">if </span>page.len() + encoded_fragment.len() &gt; max_message_size {
+							<span class="kw">return </span><span class="prelude-val">Err</span>(())
+						}
+						<span class="kw">for </span>frag <span class="kw">in </span>encoded_fragment.iter() {
+							page.try_push(<span class="kw-2">*</span>frag)<span class="question-mark">?</span>;
+						}
+						<span class="prelude-val">Ok</span>(page.len())
 					},
 				)
+				.ok()
 			})
 			.flatten();
 

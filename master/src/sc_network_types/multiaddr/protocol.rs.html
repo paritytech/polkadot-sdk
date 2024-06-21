@@ -287,6 +287,30 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#136" id="136">136</a>
 <a href="#137" id="137">137</a>
 <a href="#138" id="138">138</a>
+<a href="#139" id="139">139</a>
+<a href="#140" id="140">140</a>
+<a href="#141" id="141">141</a>
+<a href="#142" id="142">142</a>
+<a href="#143" id="143">143</a>
+<a href="#144" id="144">144</a>
+<a href="#145" id="145">145</a>
+<a href="#146" id="146">146</a>
+<a href="#147" id="147">147</a>
+<a href="#148" id="148">148</a>
+<a href="#149" id="149">149</a>
+<a href="#150" id="150">150</a>
+<a href="#151" id="151">151</a>
+<a href="#152" id="152">152</a>
+<a href="#153" id="153">153</a>
+<a href="#154" id="154">154</a>
+<a href="#155" id="155">155</a>
+<a href="#156" id="156">156</a>
+<a href="#157" id="157">157</a>
+<a href="#158" id="158">158</a>
+<a href="#159" id="159">159</a>
+<a href="#160" id="160">160</a>
+<a href="#161" id="161">161</a>
+<a href="#162" id="162">162</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -309,7 +333,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>litep2p::types::multiaddr::Protocol <span class="kw">as </span>LiteP2pProtocol;
 <span class="kw">use </span>std::{
 	borrow::Cow,
-	net::{Ipv4Addr, Ipv6Addr},
+	net::{IpAddr, Ipv4Addr, Ipv6Addr},
 };
 
 <span class="doccomment">/// [`Protocol`] describes all possible multiaddress protocols.
@@ -347,6 +371,30 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	Utp,
 	Ws(Cow&lt;<span class="lifetime">'a</span>, str&gt;),
 	Wss(Cow&lt;<span class="lifetime">'a</span>, str&gt;),
+}
+
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>&gt; From&lt;IpAddr&gt; <span class="kw">for </span>Protocol&lt;<span class="lifetime">'a</span>&gt; {
+	<span class="attr">#[inline]
+	</span><span class="kw">fn </span>from(addr: IpAddr) -&gt; <span class="self">Self </span>{
+		<span class="kw">match </span>addr {
+			IpAddr::V4(addr) =&gt; Protocol::Ip4(addr),
+			IpAddr::V6(addr) =&gt; Protocol::Ip6(addr),
+		}
+	}
+}
+
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>&gt; From&lt;Ipv4Addr&gt; <span class="kw">for </span>Protocol&lt;<span class="lifetime">'a</span>&gt; {
+	<span class="attr">#[inline]
+	</span><span class="kw">fn </span>from(addr: Ipv4Addr) -&gt; <span class="self">Self </span>{
+		Protocol::Ip4(addr)
+	}
+}
+
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>&gt; From&lt;Ipv6Addr&gt; <span class="kw">for </span>Protocol&lt;<span class="lifetime">'a</span>&gt; {
+	<span class="attr">#[inline]
+	</span><span class="kw">fn </span>from(addr: Ipv6Addr) -&gt; <span class="self">Self </span>{
+		Protocol::Ip6(addr)
+	}
 }
 
 <span class="kw">impl</span>&lt;<span class="lifetime">'a</span>&gt; From&lt;LiteP2pProtocol&lt;<span class="lifetime">'a</span>&gt;&gt; <span class="kw">for </span>Protocol&lt;<span class="lifetime">'a</span>&gt; {

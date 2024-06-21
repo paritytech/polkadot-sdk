@@ -508,6 +508,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#357" id="357">357</a>
 <a href="#358" id="358">358</a>
 <a href="#359" id="359">359</a>
+<a href="#360" id="360">360</a>
+<a href="#361" id="361">361</a>
+<a href="#362" id="362">362</a>
+<a href="#363" id="363">363</a>
+<a href="#364" id="364">364</a>
+<a href="#365" id="365">365</a>
+<a href="#366" id="366">366</a>
+<a href="#367" id="367">367</a>
+<a href="#368" id="368">368</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -527,7 +536,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="doccomment">//! Miscellaneous types.
 
-</span><span class="kw">use </span><span class="kw">crate</span>::traits::Contains;
+</span><span class="kw">use crate</span>::{traits::Contains, TypeInfo};
 <span class="kw">use </span>codec::{Decode, Encode, FullCodec, MaxEncodedLen};
 <span class="kw">use </span>sp_arithmetic::traits::{AtLeast32BitUnsigned, Zero};
 <span class="kw">use </span>sp_core::RuntimeDebug;
@@ -866,6 +875,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">fn </span>get_salary(rank: R, <span class="kw">_</span>: <span class="kw-2">&amp;</span>A) -&gt; B {
 		C::convert(rank)
 	}
+}
+
+<span class="doccomment">/// An identifier and balance.
+</span><span class="attr">#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, MaxEncodedLen, TypeInfo)]
+</span><span class="kw">pub struct </span>IdAmount&lt;Id, Balance&gt; {
+	<span class="doccomment">/// An identifier for this item.
+	</span><span class="kw">pub </span>id: Id,
+	<span class="doccomment">/// Some amount for this item.
+	</span><span class="kw">pub </span>amount: Balance,
 }
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
