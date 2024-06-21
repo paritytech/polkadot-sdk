@@ -2710,9 +2710,8 @@ mod remote_tests {
 
 			// iterate over all pools
 			pallet_nomination_pools::BondedPools::<Runtime>::iter_keys().for_each(|k| {
-				if pallet_nomination_pools::Pallet::<Runtime>::api_pool_needs_delegate_migration(
-					k.clone(),
-				) {
+				if pallet_nomination_pools::Pallet::<Runtime>::api_pool_needs_delegate_migration(k)
+				{
 					assert_ok!(
 						pallet_nomination_pools::Pallet::<Runtime>::migrate_pool_to_delegate_stake(
 							RuntimeOrigin::signed(alice.clone()).into(),
