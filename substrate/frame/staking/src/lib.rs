@@ -311,7 +311,10 @@ use codec::{Decode, Encode, HasCompact, MaxEncodedLen};
 use frame_support::{
 	defensive, defensive_assert,
 	traits::{
-		tokens::fungible::{Credit, Debt, Inspect as FunInspect},
+		tokens::{
+			fungible::{Credit, Debt, Inspect, InspectHold},
+			Fortitude, Preservation,
+		},
 		ConstU32, Defensive, DefensiveMax, DefensiveSaturating, Get, LockIdentifier,
 	},
 	weights::Weight,
@@ -1339,5 +1342,18 @@ impl<T: Config, const DISABLING_LIMIT_FACTOR: usize> DisablingStrategy<T>
 		log!(debug, "Will disable {:?}", offender_idx);
 
 		Some(offender_idx)
+	}
+}
+
+pub struct CurrencyUtils<T>(sp_std::marker::PhantomData<T>);
+impl<T: Config> CurrencyUtils<T> {
+	fn stakable_balance(who: &T::AccountId) -> BalanceOf<T> {
+		// total stakable balance of an account is
+		// * the amount already staking
+		// * the amount that is liquid in the account
+		let free_balance =
+			T::Currency::reducible_balance(who, Preservation::Preserve, Fortitude::Polite);
+		let staked_balance = T::Currency::balance_on_hold(&HoldReason::Staking.into(), who);
+		free_balance.saturating_add(staked_balance)
 	}
 }

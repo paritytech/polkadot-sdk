@@ -52,9 +52,10 @@ use sp_staking::{
 
 use crate::{
 	election_size_tracker::StaticTracker, log, slashing, weights::WeightInfo, ActiveEraInfo,
-	BalanceOf, EraInfo, EraPayout, Exposure, ExposureOf, Forcing, HoldReason, IndividualExposure,
-	LedgerIntegrityState, MaxNominationsOf, MaxWinnersOf, Nominations, NominationsQuota,
-	PositiveImbalanceOf, RewardDestination, SessionInterface, StakingLedger, ValidatorPrefs,
+	BalanceOf, CurrencyUtils, EraInfo, EraPayout, Exposure, ExposureOf, Forcing, HoldReason,
+	IndividualExposure, LedgerIntegrityState, MaxNominationsOf, MaxWinnersOf, Nominations,
+	NominationsQuota, PositiveImbalanceOf, RewardDestination, SessionInterface, StakingLedger,
+	ValidatorPrefs,
 };
 use alloc::{boxed::Box, vec, vec::Vec};
 
@@ -166,7 +167,7 @@ impl<T: Config> Pallet<T> {
 		} else {
 			// additional amount or actual balance of stash whichever is lower.
 			additional.min(
-				T::Currency::balance(stash)
+				CurrencyUtils::<T>::stakable_balance(stash)
 					.checked_sub(&ledger.total)
 					.ok_or(ArithmeticError::Overflow)?,
 			)
