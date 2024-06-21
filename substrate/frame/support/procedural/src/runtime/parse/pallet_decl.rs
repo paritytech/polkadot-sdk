@@ -69,7 +69,6 @@ impl PalletDeclaration {
 						runtime_param = Some(ident);
 						if let Some(arg_path) = args_iter.next() {
 							instance = Some(arg_path.require_ident()?.clone());
-							segment.arguments = PathArguments::None;
 						}
 					} else {
 						instance = Some(ident);
