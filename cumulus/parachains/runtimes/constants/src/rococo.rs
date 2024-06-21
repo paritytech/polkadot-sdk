@@ -161,3 +161,8 @@ pub mod snowbridge {
 		pub EthereumNetwork: NetworkId = NetworkId::Ethereum { chain_id: 11155111 };
 	}
 }
+
+pub mod xcm_version {
+	/// The default XCM version to set in genesis config.
+	pub const SAFE_XCM_VERSION: u32 = xcm::prelude::XCM_VERSION;
+}
