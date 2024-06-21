@@ -66,7 +66,7 @@ impl PalletDeclaration {
 				{
 					let ident = arg_path.require_ident()?.clone();
 					if segment.ident == "Pallet" {
-						runtime_param = Some(ident.clone());
+						runtime_param = Some(ident);
 						if let Some(arg_path) = args_iter.next() {
 							instance = Some(Ident::new(
 								&arg_path.to_token_stream().to_string(),
