@@ -27,8 +27,9 @@ use frame_support::{
 	dispatch::WithPostDispatchInfo,
 	pallet_prelude::*,
 	traits::{
-		fungible::{Inspect, InspectHold, MutateHold, Mutate, Balanced}, Defensive, DefensiveSaturating, EstimateNextNewSession, Get, Imbalance,
-		Len, OnUnbalanced, TryCollect, UnixTime,
+		fungible::{Balanced, Inspect, InspectHold, Mutate, MutateHold},
+		Defensive, DefensiveSaturating, EstimateNextNewSession, Get, Imbalance, Len, OnUnbalanced,
+		TryCollect, UnixTime,
 	},
 	weights::Weight,
 };
@@ -51,10 +52,9 @@ use sp_staking::{
 
 use crate::{
 	election_size_tracker::StaticTracker, log, slashing, weights::WeightInfo, ActiveEraInfo,
-	BalanceOf, EraInfo, EraPayout, Exposure, ExposureOf, Forcing, IndividualExposure,
+	BalanceOf, EraInfo, EraPayout, Exposure, ExposureOf, Forcing, HoldReason, IndividualExposure,
 	LedgerIntegrityState, MaxNominationsOf, MaxWinnersOf, Nominations, NominationsQuota,
 	PositiveImbalanceOf, RewardDestination, SessionInterface, StakingLedger, ValidatorPrefs,
-	HoldReason,
 };
 use alloc::{boxed::Box, vec, vec::Vec};
 
@@ -1921,7 +1921,8 @@ impl<T: Config> StakingInterface for Pallet<T> {
 
 impl<T: Config> sp_staking::StakingUnchecked for Pallet<T> {
 	fn migrate_to_virtual_staker(who: &Self::AccountId) {
-		let _ = T::Currency::release_all(&HoldReason::Staking.into(), who, Precision::BestEffort).defensive();
+		let _ = T::Currency::release_all(&HoldReason::Staking.into(), who, Precision::BestEffort)
+			.defensive();
 		VirtualStakers::<T>::insert(who, ());
 	}
 
@@ -2099,7 +2100,8 @@ impl<T: Config> Pallet<T> {
 				// ensure locks consistency.
 				if VirtualStakers::<T>::contains_key(stash.clone()) {
 					ensure!(
-						T::Currency::balance_on_hold(&HoldReason::Staking.into(), &stash) == Zero::zero(),
+						T::Currency::balance_on_hold(&HoldReason::Staking.into(), &stash) ==
+							Zero::zero(),
 						"virtual stakers should not have any locked balance"
 					);
 					ensure!(

@@ -978,9 +978,7 @@ impl<T: Config<I>, I: 'static> OnUnbalanced<NegativeImbalanceOf<T, I>> for Palle
 
 /// Implement the `OnUnbalanced` handler for [`frame_support::traits::fungible`] trait currency.
 pub struct FungibleCompat<T>(PhantomData<T>);
-impl<T: Config> OnUnbalanced<Credit<T::AccountId, T::Currency>>
-	for FungibleCompat<T>
-{
+impl<T: Config> OnUnbalanced<Credit<T::AccountId, T::Currency>> for FungibleCompat<T> {
 	fn on_nonzero_unbalanced(credit: Credit<T::AccountId, T::Currency>) {
 		use frame_support::traits::fungible::Balanced;
 		let numeric_amount = credit.peek();

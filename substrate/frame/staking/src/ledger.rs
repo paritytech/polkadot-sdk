@@ -33,13 +33,13 @@
 
 use frame_support::{
 	defensive, ensure,
-	traits::{Defensive, fungible::MutateHold, tokens::Precision},
+	traits::{fungible::MutateHold, tokens::Precision, Defensive},
 };
 use sp_staking::{StakingAccount, StakingInterface};
 
 use crate::{
-	BalanceOf, Bonded, Config, Error, Ledger, Pallet, Payee, RewardDestination, StakingLedger,
-	VirtualStakers, STAKING_ID, HoldReason,
+	BalanceOf, Bonded, Config, Error, HoldReason, Ledger, Pallet, Payee, RewardDestination,
+	StakingLedger, VirtualStakers, STAKING_ID,
 };
 
 #[cfg(any(feature = "runtime-benchmarks", test))]
@@ -190,9 +190,8 @@ impl<T: Config> StakingLedger<T> {
 		// We skip locking virtual stakers.
 		if !Pallet::<T>::is_virtual_staker(&self.stash) {
 			// for direct stakers, update lock on stash based on ledger.
-			T::Currency::set_on_hold(&HoldReason::Staking.into(), &self.stash, self.total).map_err(|_| {
-				Error::<T>::NotEnoughFunds
-			})?
+			T::Currency::set_on_hold(&HoldReason::Staking.into(), &self.stash, self.total)
+				.map_err(|_| Error::<T>::NotEnoughFunds)?
 		}
 
 		Ledger::<T>::insert(
@@ -266,9 +265,13 @@ impl<T: Config> StakingLedger<T> {
 			// kill virtual staker if it exists.
 			if <VirtualStakers<T>>::take(&stash).is_none() {
 				// if not virtual staker, clear locks.
-				let _ = T::Currency::release_all(&HoldReason::Staking.into(), &ledger.stash, Precision::BestEffort).map_err(|_| {
-					Error::<T>::BadState
-				}).defensive()?;
+				let _ = T::Currency::release_all(
+					&HoldReason::Staking.into(),
+					&ledger.stash,
+					Precision::BestEffort,
+				)
+				.map_err(|_| Error::<T>::BadState)
+				.defensive()?;
 			}
 
 			Ok(())

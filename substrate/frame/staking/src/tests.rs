@@ -27,9 +27,12 @@ use frame_support::{
 	assert_noop, assert_ok, assert_storage_noop,
 	dispatch::{extract_actual_weight, GetDispatchInfo, WithPostDispatchInfo},
 	pallet_prelude::*,
-	traits::{fungible::{Mutate, InspectHold, Balanced}, Get},
+	traits::{
+		fungible::{Balanced, InspectHold, Mutate},
+		tokens::Precision,
+		Get,
+	},
 };
-use frame_support::traits::tokens::Precision;
 
 use mock::*;
 use pallet_balances::Error as BalancesError;
@@ -8209,10 +8212,7 @@ mod ledger_recovery {
 
 			// however if 333 bonds extra, the wrong lock is updated.
 			bond_extra_no_checks(&333, 30);
-			assert_eq!(
-				Balances::total_balance_on_hold(&333),
-				lock_444_before + 40 + 30
-			); //not OK
+			assert_eq!(Balances::total_balance_on_hold(&333), lock_444_before + 40 + 30); //not OK
 			assert_eq!(Balances::total_balance_on_hold(&444), lock_444_before + 40); // OK
 
 			// recover the ledger bonded by 333 stash. Note that the total/lock needs to be

@@ -26,8 +26,8 @@ use frame_support::{
 	assert_ok, derive_impl, ord_parameter_types, parameter_types,
 	traits::{
 		fungible::{Inspect, Mutate, MutateHold},
-		ConstU64, EitherOfDiverse, FindAuthor, Get, Hooks, Imbalance,
-		OnUnbalanced, OneSessionHandler, WithdrawReasons,
+		ConstU64, EitherOfDiverse, FindAuthor, Get, Hooks, Imbalance, OnUnbalanced,
+		OneSessionHandler, WithdrawReasons,
 	},
 	weights::constants::RocksDbWeight,
 };
@@ -813,7 +813,8 @@ pub(crate) fn bond_extra_no_checks(stash: &AccountId, amount: Balance) {
 	let mut ledger = Ledger::<Test>::get(&controller).expect("ledger must exist to bond_extra");
 
 	let new_total = ledger.total + amount;
-	Balances::set_on_hold(&HoldReason::Staking.into(), stash, new_total).expect("account should have enough funds to hold");
+	Balances::set_on_hold(&HoldReason::Staking.into(), stash, new_total)
+		.expect("account should have enough funds to hold");
 	ledger.total = new_total;
 	ledger.active = new_total;
 	Ledger::<Test>::insert(controller, ledger);
