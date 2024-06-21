@@ -81,7 +81,7 @@ impl PalletDeclaration {
 		if pallet_segment.is_some() {
 			path = syn::Path {
 				leading_colon: None,
-				segments: path.segments.first().cloned().into_iter().collect(),
+				segments: path.segments.iter().filter(|seg| seg.arguments.is_empty()).cloned().iter()
 			};
 		}
 
