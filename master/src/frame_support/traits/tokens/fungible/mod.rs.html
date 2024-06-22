@@ -505,6 +505,51 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#354" id="354">354</a>
 <a href="#355" id="355">355</a>
 <a href="#356" id="356">356</a>
+<a href="#357" id="357">357</a>
+<a href="#358" id="358">358</a>
+<a href="#359" id="359">359</a>
+<a href="#360" id="360">360</a>
+<a href="#361" id="361">361</a>
+<a href="#362" id="362">362</a>
+<a href="#363" id="363">363</a>
+<a href="#364" id="364">364</a>
+<a href="#365" id="365">365</a>
+<a href="#366" id="366">366</a>
+<a href="#367" id="367">367</a>
+<a href="#368" id="368">368</a>
+<a href="#369" id="369">369</a>
+<a href="#370" id="370">370</a>
+<a href="#371" id="371">371</a>
+<a href="#372" id="372">372</a>
+<a href="#373" id="373">373</a>
+<a href="#374" id="374">374</a>
+<a href="#375" id="375">375</a>
+<a href="#376" id="376">376</a>
+<a href="#377" id="377">377</a>
+<a href="#378" id="378">378</a>
+<a href="#379" id="379">379</a>
+<a href="#380" id="380">380</a>
+<a href="#381" id="381">381</a>
+<a href="#382" id="382">382</a>
+<a href="#383" id="383">383</a>
+<a href="#384" id="384">384</a>
+<a href="#385" id="385">385</a>
+<a href="#386" id="386">386</a>
+<a href="#387" id="387">387</a>
+<a href="#388" id="388">388</a>
+<a href="#389" id="389">389</a>
+<a href="#390" id="390">390</a>
+<a href="#391" id="391">391</a>
+<a href="#392" id="392">392</a>
+<a href="#393" id="393">393</a>
+<a href="#394" id="394">394</a>
+<a href="#395" id="395">395</a>
+<a href="#396" id="396">396</a>
+<a href="#397" id="397">397</a>
+<a href="#398" id="398">398</a>
+<a href="#399" id="399">399</a>
+<a href="#400" id="400">400</a>
+<a href="#401" id="401">401</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -705,31 +750,40 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	MaxEncodedLen,
 	RuntimeDebugNoBound,
 )]
-#[scale_info(skip_type_params(A, F, R, D))]
+#[scale_info(skip_type_params(A, F, R, D, Fp))]
 #[codec(mel_bound())]
-</span><span class="kw">pub struct </span>FreezeConsideration&lt;A, F, R, D&gt;(F::Balance, PhantomData&lt;<span class="kw">fn</span>() -&gt; (A, R, D)&gt;)
+</span><span class="kw">pub struct </span>FreezeConsideration&lt;A, F, R, D, Fp&gt;(F::Balance, PhantomData&lt;<span class="kw">fn</span>() -&gt; (A, R, D, Fp)&gt;)
 <span class="kw">where
 	</span>F: MutateFreeze&lt;A&gt;;
 <span class="kw">impl</span>&lt;
 		A: <span class="lifetime">'static</span>,
 		F: <span class="lifetime">'static </span>+ MutateFreeze&lt;A&gt;,
 		R: <span class="lifetime">'static </span>+ Get&lt;F::Id&gt;,
-		D: <span class="lifetime">'static </span>+ Convert&lt;Footprint, F::Balance&gt;,
-	&gt; Consideration&lt;A&gt; <span class="kw">for </span>FreezeConsideration&lt;A, F, R, D&gt;
+		D: <span class="lifetime">'static </span>+ Convert&lt;Fp, F::Balance&gt;,
+		Fp: <span class="lifetime">'static</span>,
+	&gt; Consideration&lt;A, Fp&gt; <span class="kw">for </span>FreezeConsideration&lt;A, F, R, D, Fp&gt;
 {
-	<span class="kw">fn </span>new(who: <span class="kw-2">&amp;</span>A, footprint: Footprint) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, DispatchError&gt; {
+	<span class="kw">fn </span>new(who: <span class="kw-2">&amp;</span>A, footprint: Fp) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>&gt;, DispatchError&gt; {
 		<span class="kw">let </span>new = D::convert(footprint);
-		F::increase_frozen(<span class="kw-2">&amp;</span>R::get(), who, new)<span class="question-mark">?</span>;
-		<span class="prelude-val">Ok</span>(<span class="self">Self</span>(new, PhantomData))
+		<span class="kw">if </span>new.is_zero() {
+			<span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>)
+		} <span class="kw">else </span>{
+			F::increase_frozen(<span class="kw-2">&amp;</span>R::get(), who, new)<span class="question-mark">?</span>;
+			<span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(<span class="self">Self</span>(new, PhantomData)))
+		}
 	}
-	<span class="kw">fn </span>update(<span class="self">self</span>, who: <span class="kw-2">&amp;</span>A, footprint: Footprint) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, DispatchError&gt; {
+	<span class="kw">fn </span>update(<span class="self">self</span>, who: <span class="kw-2">&amp;</span>A, footprint: Fp) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>&gt;, DispatchError&gt; {
 		<span class="kw">let </span>new = D::convert(footprint);
 		<span class="kw">if </span><span class="self">self</span>.<span class="number">0 </span>&gt; new {
 			F::decrease_frozen(<span class="kw-2">&amp;</span>R::get(), who, <span class="self">self</span>.<span class="number">0 </span>- new)<span class="question-mark">?</span>;
 		} <span class="kw">else if </span>new &gt; <span class="self">self</span>.<span class="number">0 </span>{
 			F::increase_frozen(<span class="kw-2">&amp;</span>R::get(), who, new - <span class="self">self</span>.<span class="number">0</span>)<span class="question-mark">?</span>;
 		}
-		<span class="prelude-val">Ok</span>(<span class="self">Self</span>(new, PhantomData))
+		<span class="kw">if </span>new.is_zero() {
+			<span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>)
+		} <span class="kw">else </span>{
+			<span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(<span class="self">Self</span>(new, PhantomData)))
+		}
 	}
 	<span class="kw">fn </span>drop(<span class="self">self</span>, who: <span class="kw-2">&amp;</span>A) -&gt; <span class="prelude-ty">Result</span>&lt;(), DispatchError&gt; {
 		F::decrease_frozen(<span class="kw-2">&amp;</span>R::get(), who, <span class="self">self</span>.<span class="number">0</span>).map(|<span class="kw">_</span>| ())
@@ -747,31 +801,43 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	MaxEncodedLen,
 	RuntimeDebugNoBound,
 )]
-#[scale_info(skip_type_params(A, F, R, D))]
+#[scale_info(skip_type_params(A, F, R, D, Fp))]
 #[codec(mel_bound())]
-</span><span class="kw">pub struct </span>HoldConsideration&lt;A, F, R, D&gt;(F::Balance, PhantomData&lt;<span class="kw">fn</span>() -&gt; (A, R, D)&gt;)
+</span><span class="kw">pub struct </span>HoldConsideration&lt;A, F, R, D, Fp = Footprint&gt;(
+	F::Balance,
+	PhantomData&lt;<span class="kw">fn</span>() -&gt; (A, R, D, Fp)&gt;,
+)
 <span class="kw">where
 	</span>F: MutateHold&lt;A&gt;;
 <span class="kw">impl</span>&lt;
 		A: <span class="lifetime">'static</span>,
 		F: <span class="lifetime">'static </span>+ MutateHold&lt;A&gt;,
 		R: <span class="lifetime">'static </span>+ Get&lt;F::Reason&gt;,
-		D: <span class="lifetime">'static </span>+ Convert&lt;Footprint, F::Balance&gt;,
-	&gt; Consideration&lt;A&gt; <span class="kw">for </span>HoldConsideration&lt;A, F, R, D&gt;
+		D: <span class="lifetime">'static </span>+ Convert&lt;Fp, F::Balance&gt;,
+		Fp: <span class="lifetime">'static</span>,
+	&gt; Consideration&lt;A, Fp&gt; <span class="kw">for </span>HoldConsideration&lt;A, F, R, D, Fp&gt;
 {
-	<span class="kw">fn </span>new(who: <span class="kw-2">&amp;</span>A, footprint: Footprint) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, DispatchError&gt; {
+	<span class="kw">fn </span>new(who: <span class="kw-2">&amp;</span>A, footprint: Fp) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>&gt;, DispatchError&gt; {
 		<span class="kw">let </span>new = D::convert(footprint);
-		F::hold(<span class="kw-2">&amp;</span>R::get(), who, new)<span class="question-mark">?</span>;
-		<span class="prelude-val">Ok</span>(<span class="self">Self</span>(new, PhantomData))
+		<span class="kw">if </span>new.is_zero() {
+			<span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>)
+		} <span class="kw">else </span>{
+			F::hold(<span class="kw-2">&amp;</span>R::get(), who, new)<span class="question-mark">?</span>;
+			<span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(<span class="self">Self</span>(new, PhantomData)))
+		}
 	}
-	<span class="kw">fn </span>update(<span class="self">self</span>, who: <span class="kw-2">&amp;</span>A, footprint: Footprint) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, DispatchError&gt; {
+	<span class="kw">fn </span>update(<span class="self">self</span>, who: <span class="kw-2">&amp;</span>A, footprint: Fp) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>&gt;, DispatchError&gt; {
 		<span class="kw">let </span>new = D::convert(footprint);
 		<span class="kw">if </span><span class="self">self</span>.<span class="number">0 </span>&gt; new {
 			F::release(<span class="kw-2">&amp;</span>R::get(), who, <span class="self">self</span>.<span class="number">0 </span>- new, BestEffort)<span class="question-mark">?</span>;
 		} <span class="kw">else if </span>new &gt; <span class="self">self</span>.<span class="number">0 </span>{
 			F::hold(<span class="kw-2">&amp;</span>R::get(), who, new - <span class="self">self</span>.<span class="number">0</span>)<span class="question-mark">?</span>;
 		}
-		<span class="prelude-val">Ok</span>(<span class="self">Self</span>(new, PhantomData))
+		<span class="kw">if </span>new.is_zero() {
+			<span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>)
+		} <span class="kw">else </span>{
+			<span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(<span class="self">Self</span>(new, PhantomData)))
+		}
 	}
 	<span class="kw">fn </span>drop(<span class="self">self</span>, who: <span class="kw-2">&amp;</span>A) -&gt; <span class="prelude-ty">Result</span>&lt;(), DispatchError&gt; {
 		F::release(<span class="kw-2">&amp;</span>R::get(), who, <span class="self">self</span>.<span class="number">0</span>, BestEffort).map(|<span class="kw">_</span>| ())
@@ -798,22 +864,34 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	MaxEncodedLen,
 	RuntimeDebugNoBound,
 )]
-#[scale_info(skip_type_params(A, Fx, Rx, D))]
+#[scale_info(skip_type_params(A, Fx, Rx, D, Fp))]
 #[codec(mel_bound())]
-</span><span class="kw">pub struct </span>LoneFreezeConsideration&lt;A, Fx, Rx, D&gt;(PhantomData&lt;<span class="kw">fn</span>() -&gt; (A, Fx, Rx, D)&gt;);
+</span><span class="kw">pub struct </span>LoneFreezeConsideration&lt;A, Fx, Rx, D, Fp&gt;(PhantomData&lt;<span class="kw">fn</span>() -&gt; (A, Fx, Rx, D, Fp)&gt;);
 <span class="kw">impl</span>&lt;
 		A: <span class="lifetime">'static</span>,
 		Fx: <span class="lifetime">'static </span>+ MutateFreeze&lt;A&gt;,
 		Rx: <span class="lifetime">'static </span>+ Get&lt;Fx::Id&gt;,
-		D: <span class="lifetime">'static </span>+ Convert&lt;Footprint, Fx::Balance&gt;,
-	&gt; Consideration&lt;A&gt; <span class="kw">for </span>LoneFreezeConsideration&lt;A, Fx, Rx, D&gt;
+		D: <span class="lifetime">'static </span>+ Convert&lt;Fp, Fx::Balance&gt;,
+		Fp: <span class="lifetime">'static</span>,
+	&gt; Consideration&lt;A, Fp&gt; <span class="kw">for </span>LoneFreezeConsideration&lt;A, Fx, Rx, D, Fp&gt;
 {
-	<span class="kw">fn </span>new(who: <span class="kw-2">&amp;</span>A, footprint: Footprint) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, DispatchError&gt; {
+	<span class="kw">fn </span>new(who: <span class="kw-2">&amp;</span>A, footprint: Fp) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>&gt;, DispatchError&gt; {
 		<span class="macro">ensure!</span>(Fx::balance_frozen(<span class="kw-2">&amp;</span>Rx::get(), who).is_zero(), DispatchError::Unavailable);
-		Fx::set_frozen(<span class="kw-2">&amp;</span>Rx::get(), who, D::convert(footprint), Polite).map(|<span class="kw">_</span>| <span class="self">Self</span>(PhantomData))
+		<span class="kw">let </span>new = D::convert(footprint);
+		<span class="kw">if </span>new.is_zero() {
+			<span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>)
+		} <span class="kw">else </span>{
+			Fx::set_frozen(<span class="kw-2">&amp;</span>Rx::get(), who, new, Polite).map(|<span class="kw">_</span>| <span class="prelude-val">Some</span>(<span class="self">Self</span>(PhantomData)))
+		}
 	}
-	<span class="kw">fn </span>update(<span class="self">self</span>, who: <span class="kw-2">&amp;</span>A, footprint: Footprint) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, DispatchError&gt; {
-		Fx::set_frozen(<span class="kw-2">&amp;</span>Rx::get(), who, D::convert(footprint), Polite).map(|<span class="kw">_</span>| <span class="self">Self</span>(PhantomData))
+	<span class="kw">fn </span>update(<span class="self">self</span>, who: <span class="kw-2">&amp;</span>A, footprint: Fp) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>&gt;, DispatchError&gt; {
+		<span class="kw">let </span>new = D::convert(footprint);
+		<span class="kw">let _ </span>= Fx::set_frozen(<span class="kw-2">&amp;</span>Rx::get(), who, new, Polite)<span class="question-mark">?</span>;
+		<span class="kw">if </span>new.is_zero() {
+			<span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>)
+		} <span class="kw">else </span>{
+			<span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(<span class="self">Self</span>(PhantomData)))
+		}
 	}
 	<span class="kw">fn </span>drop(<span class="self">self</span>, who: <span class="kw-2">&amp;</span>A) -&gt; <span class="prelude-ty">Result</span>&lt;(), DispatchError&gt; {
 		Fx::thaw(<span class="kw-2">&amp;</span>Rx::get(), who).map(|<span class="kw">_</span>| ())
@@ -837,22 +915,34 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	MaxEncodedLen,
 	RuntimeDebugNoBound,
 )]
-#[scale_info(skip_type_params(A, Fx, Rx, D))]
+#[scale_info(skip_type_params(A, Fx, Rx, D, Fp))]
 #[codec(mel_bound())]
-</span><span class="kw">pub struct </span>LoneHoldConsideration&lt;A, Fx, Rx, D&gt;(PhantomData&lt;<span class="kw">fn</span>() -&gt; (A, Fx, Rx, D)&gt;);
+</span><span class="kw">pub struct </span>LoneHoldConsideration&lt;A, Fx, Rx, D, Fp&gt;(PhantomData&lt;<span class="kw">fn</span>() -&gt; (A, Fx, Rx, D, Fp)&gt;);
 <span class="kw">impl</span>&lt;
 		A: <span class="lifetime">'static</span>,
 		F: <span class="lifetime">'static </span>+ MutateHold&lt;A&gt;,
 		R: <span class="lifetime">'static </span>+ Get&lt;F::Reason&gt;,
-		D: <span class="lifetime">'static </span>+ Convert&lt;Footprint, F::Balance&gt;,
-	&gt; Consideration&lt;A&gt; <span class="kw">for </span>LoneHoldConsideration&lt;A, F, R, D&gt;
+		D: <span class="lifetime">'static </span>+ Convert&lt;Fp, F::Balance&gt;,
+		Fp: <span class="lifetime">'static</span>,
+	&gt; Consideration&lt;A, Fp&gt; <span class="kw">for </span>LoneHoldConsideration&lt;A, F, R, D, Fp&gt;
 {
-	<span class="kw">fn </span>new(who: <span class="kw-2">&amp;</span>A, footprint: Footprint) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, DispatchError&gt; {
+	<span class="kw">fn </span>new(who: <span class="kw-2">&amp;</span>A, footprint: Fp) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>&gt;, DispatchError&gt; {
 		<span class="macro">ensure!</span>(F::balance_on_hold(<span class="kw-2">&amp;</span>R::get(), who).is_zero(), DispatchError::Unavailable);
-		F::set_on_hold(<span class="kw-2">&amp;</span>R::get(), who, D::convert(footprint)).map(|<span class="kw">_</span>| <span class="self">Self</span>(PhantomData))
+		<span class="kw">let </span>new = D::convert(footprint);
+		<span class="kw">if </span>new.is_zero() {
+			<span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>)
+		} <span class="kw">else </span>{
+			F::set_on_hold(<span class="kw-2">&amp;</span>R::get(), who, new).map(|<span class="kw">_</span>| <span class="prelude-val">Some</span>(<span class="self">Self</span>(PhantomData)))
+		}
 	}
-	<span class="kw">fn </span>update(<span class="self">self</span>, who: <span class="kw-2">&amp;</span>A, footprint: Footprint) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, DispatchError&gt; {
-		F::set_on_hold(<span class="kw-2">&amp;</span>R::get(), who, D::convert(footprint)).map(|<span class="kw">_</span>| <span class="self">Self</span>(PhantomData))
+	<span class="kw">fn </span>update(<span class="self">self</span>, who: <span class="kw-2">&amp;</span>A, footprint: Fp) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>&gt;, DispatchError&gt; {
+		<span class="kw">let </span>new = D::convert(footprint);
+		<span class="kw">let _ </span>= F::set_on_hold(<span class="kw-2">&amp;</span>R::get(), who, new)<span class="question-mark">?</span>;
+		<span class="kw">if </span>new.is_zero() {
+			<span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>)
+		} <span class="kw">else </span>{
+			<span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(<span class="self">Self</span>(PhantomData)))
+		}
 	}
 	<span class="kw">fn </span>drop(<span class="self">self</span>, who: <span class="kw-2">&amp;</span>A) -&gt; <span class="prelude-ty">Result</span>&lt;(), DispatchError&gt; {
 		F::release_all(<span class="kw-2">&amp;</span>R::get(), who, BestEffort).map(|<span class="kw">_</span>| ())
