@@ -306,6 +306,7 @@ members = [
 	"substrate/frame/asset-conversion/ops",
 	"substrate/frame/asset-rate",
 	"substrate/frame/assets",
+	"substrate/frame/assets-freezer",
 	"substrate/frame/atomic-swap",
 	"substrate/frame/aura",
 	"substrate/frame/authority-discovery",
