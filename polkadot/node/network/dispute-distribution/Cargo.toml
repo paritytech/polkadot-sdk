@@ -14,7 +14,7 @@ futures = "0.3.30"
 futures-timer = "3.0.2"
 gum = { package = "tracing-gum", path = "../../gum" }
 derive_more = "0.99.17"
-parity-scale-codec = { version = "3.6.12", features = ["std"] }
+codec = { package = "parity-scale-codec", version = "3.6.12", features = ["std"] }
 polkadot-primitives = { path = "../../../primitives" }
 polkadot-erasure-coding = { path = "../../../erasure-coding" }
 polkadot-node-subsystem = { path = "../../subsystem" }

@@ -9,6 +9,7 @@
 ![GitHub stars](https://img.shields.io/github/stars/paritytech/polkadot-sdk)&nbsp;&nbsp;![GitHub
 forks](https://img.shields.io/github/forks/paritytech/polkadot-sdk)
 
+<!-- markdownlint-disable-next-line MD013 -->
 [![StackExchange](https://img.shields.io/badge/StackExchange-Community%20&%20Support-222222?logo=stackexchange)](https://substrate.stackexchange.com/)&nbsp;&nbsp;![GitHub contributors](https://img.shields.io/github/contributors/paritytech/polkadot-sdk)&nbsp;&nbsp;![GitHub commit activity](https://img.shields.io/github/commit-activity/m/paritytech/polkadot-sdk)
 
 ![GitHub lines of code](https://tokei.rs/b1/github/paritytech/polkadot-sdk)&nbsp;&nbsp;
@@ -22,21 +23,28 @@ forks](https://img.shields.io/github/forks/paritytech/polkadot-sdk)
 
 ## 📚 Documentation
 
-* [🦀 rust-docs]([paritytech.github.io/](https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/index.html))
- * [Introduction](https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/polkadot_sdk/index.html)
-   to each component of the Polkadot SDK: Substrate, FRAME, Cumulus, and XCM
+* [🦀 rust-docs](https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/index.html)
+  * [Introduction](https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/polkadot_sdk/index.html)
+	to each component of the Polkadot SDK: Substrate, FRAME, Cumulus, and XCM
+  * [Guides](https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/guides/index.html),
+	namely how to build your first FRAME pallet.
+  * [Templates](https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/polkadot_sdk/templates/index.html)
+    for starting a new project.
 * Other Resources:
   * [Polkadot Wiki -> Build](https://wiki.polkadot.network/docs/build-guide)
 
 ## 🚀 Releases
 
-> [!NOTE] 
+> [!NOTE]
 > Our release process is still Work-In-Progress and may not yet reflect the aspired outline
 > here.
 
 The Polkadot-SDK has two release channels: `stable` and `nightly`. Production software is advised to
 only use `stable`. `nightly` is meant for tinkerers to try out the latest features. The detailed
 release process is described in [RELEASE.md](docs/RELEASE.md).
+
+You can use [`psvm`](https://github.com/paritytech/psvm) to manage your Polkadot-SDK dependency
+versions in downstream projects.
 
 ### 😌 Stable
 
@@ -48,6 +56,12 @@ non-breaking features on a **two week** cadence.
 
 `nightly` releases are released every night from the `master` branch, potentially with breaking
 changes. They have pre-release version numbers in the format `major.0.0-nightlyYYMMDD`.
+
+## 🛠️ Tooling
+
+[Polkadot SDK Version Manager](https://github.com/paritytech/psvm):
+A simple tool to manage and update the Polkadot SDK dependencies in any Cargo.toml file.
+It will automatically update the Polkadot SDK dependencies to their correct crates.io version.
 
 ## 🔐 Security
 
@@ -62,9 +76,10 @@ Conduct](./docs/contributor/CODE_OF_CONDUCT.md).
 
 ### 👾 Ready to Contribute?
 
-Take a look at the issues labeled with [`mentor`](https://github.com/paritytech/polkadot-sdk/labels/C1-mentor) (or alternatively [this](https://mentor.tasty.limo/) page, created by one of
-the maintainers) label to get started! We always recognize valuable contributions by proposing an
-on-chain tip to the Polkadot network as a token of our appreciation.
+Take a look at the issues labeled with [`mentor`](https://github.com/paritytech/polkadot-sdk/labels/C1-mentor)
+(or alternatively [this](https://mentor.tasty.limo/) page, created by one of the maintainers) label to get started!
+We always recognize valuable contributions by proposing an on-chain tip to the Polkadot network as a token of our
+appreciation.
 
 ## Polkadot Fellowship
 

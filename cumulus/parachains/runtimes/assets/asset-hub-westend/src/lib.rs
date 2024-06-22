@@ -85,10 +85,7 @@ pub use sp_runtime::BuildStorage;
 
 use assets_common::{foreign_creators::ForeignCreators, matching::FromSiblingParachain};
 use polkadot_runtime_common::{BlockHashCount, SlowAdjustingFeeUpdate};
-use xcm::{
-	prelude::{VersionedAssetId, VersionedAssets, VersionedLocation, VersionedXcm},
-	IntoVersion,
-};
+use xcm::prelude::{VersionedAssetId, VersionedAssets, VersionedLocation, VersionedXcm};
 
 // We exclude `Assets` since it's the name of a pallet
 use xcm::latest::prelude::AssetId;
@@ -100,7 +97,7 @@ use xcm::latest::prelude::{
 };
 
 use xcm_fee_payment_runtime_api::{
-	dry_run::{Error as XcmDryRunApiError, ExtrinsicDryRunEffects, XcmDryRunEffects},
+	dry_run::{CallDryRunEffects, Error as XcmDryRunApiError, XcmDryRunEffects},
 	fees::Error as XcmPaymentApiError,
 };
 
@@ -120,7 +117,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("westmint"),
 	impl_name: create_runtime_str!("westmint"),
 	authoring_version: 1,
-	spec_version: 1_012_000,
+	spec_version: 1_013_000,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 16,
@@ -258,7 +255,7 @@ impl pallet_assets::Config<TrustBackedAssetsInstance> for Runtime {
 	type MetadataDepositPerByte = MetadataDepositPerByte;
 	type ApprovalDeposit = ApprovalDeposit;
 	type StringLimit = AssetsStringLimit;
-	type Freezer = ();
+	type Freezer = AssetsFreezer;
 	type Extra = ();
 	type WeightInfo = weights::pallet_assets_local::WeightInfo<Runtime>;
 	type CallbackHandle = ();
@@ -266,6 +263,13 @@ impl pallet_assets::Config<TrustBackedAssetsInstance> for Runtime {
 	type RemoveItemsLimit = ConstU32<1000>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = ();
+}
+
+// Allow Freezes for the `Assets` pallet
+pub type AssetsFreezerInstance = pallet_assets_freezer::Instance1;
+impl pallet_assets_freezer::Config<AssetsFreezerInstance> for Runtime {
+	type RuntimeFreezeReason = RuntimeFreezeReason;
+	type RuntimeEvent = RuntimeEvent;
 }
 
 parameter_types! {
@@ -295,12 +299,19 @@ impl pallet_assets::Config<PoolAssetsInstance> for Runtime {
 	type MetadataDepositPerByte = ConstU128<0>;
 	type ApprovalDeposit = ConstU128<0>;
 	type StringLimit = ConstU32<50>;
-	type Freezer = ();
+	type Freezer = PoolAssetsFreezer;
 	type Extra = ();
 	type WeightInfo = weights::pallet_assets_pool::WeightInfo<Runtime>;
 	type CallbackHandle = ();
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = ();
+}
+
+// Allow Freezes for the `PoolAssets` pallet
+pub type PoolAssetsFreezerInstance = pallet_assets_freezer::Instance3;
+impl pallet_assets_freezer::Config<PoolAssetsFreezerInstance> for Runtime {
+	type RuntimeFreezeReason = RuntimeFreezeReason;
+	type RuntimeEvent = RuntimeEvent;
 }
 
 /// Union fungibles implementation for `Assets` and `ForeignAssets`.
@@ -408,7 +419,7 @@ impl pallet_assets::Config<ForeignAssetsInstance> for Runtime {
 	type MetadataDepositPerByte = ForeignAssetsMetadataDepositPerByte;
 	type ApprovalDeposit = ForeignAssetsApprovalDeposit;
 	type StringLimit = ForeignAssetsAssetsStringLimit;
-	type Freezer = ();
+	type Freezer = ForeignAssetsFreezer;
 	type Extra = ();
 	type WeightInfo = weights::pallet_assets_foreign::WeightInfo<Runtime>;
 	type CallbackHandle = ();
@@ -416,6 +427,13 @@ impl pallet_assets::Config<ForeignAssetsInstance> for Runtime {
 	type RemoveItemsLimit = frame_support::traits::ConstU32<1000>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = xcm_config::XcmBenchmarkHelper;
+}
+
+// Allow Freezes for the `ForeignAssets` pallet
+pub type ForeignAssetsFreezerInstance = pallet_assets_freezer::Instance2;
+impl pallet_assets_freezer::Config<ForeignAssetsFreezerInstance> for Runtime {
+	type RuntimeFreezeReason = RuntimeFreezeReason;
+	type RuntimeEvent = RuntimeEvent;
 }
 
 parameter_types! {
@@ -946,6 +964,9 @@ construct_runtime!(
 		NftFractionalization: pallet_nft_fractionalization = 54,
 		PoolAssets: pallet_assets::<Instance3> = 55,
 		AssetConversion: pallet_asset_conversion = 56,
+		AssetsFreezer: pallet_assets_freezer::<Instance1> = 57,
+		ForeignAssetsFreezer: pallet_assets_freezer::<Instance2> = 58,
+		PoolAssetsFreezer: pallet_assets_freezer::<Instance3> = 59,
 
 		StateTrieMigration: pallet_state_trie_migration = 70,
 
@@ -1331,15 +1352,8 @@ impl_runtime_apis! {
 
 	impl xcm_fee_payment_runtime_api::fees::XcmPaymentApi<Block> for Runtime {
 		fn query_acceptable_payment_assets(xcm_version: xcm::Version) -> Result<Vec<VersionedAssetId>, XcmPaymentApiError> {
-			let acceptable = vec![
-				// native token
-				VersionedAssetId::from(AssetId(xcm_config::WestendLocation::get()))
-			];
-
-			Ok(acceptable
-				.into_iter()
-				.filter_map(|asset| asset.into_version(xcm_version).ok())
-				.collect())
+			let acceptable_assets = vec![AssetId(xcm_config::WestendLocation::get())];
+			PolkadotXcm::query_acceptable_payment_assets(xcm_version, acceptable_assets)
 		}
 
 		fn query_weight_to_asset_fee(weight: Weight, asset: VersionedAssetId) -> Result<u128, XcmPaymentApiError> {
@@ -1368,67 +1382,13 @@ impl_runtime_apis! {
 		}
 	}
 
-	impl xcm_fee_payment_runtime_api::dry_run::XcmDryRunApi<Block, RuntimeCall, RuntimeEvent> for Runtime {
-		fn dry_run_extrinsic(extrinsic: <Block as BlockT>::Extrinsic) -> Result<ExtrinsicDryRunEffects<RuntimeEvent>, XcmDryRunApiError> {
-			use xcm_builder::InspectMessageQueues;
-			use xcm_executor::RecordXcm;
-			use xcm::prelude::*;
-
-			pallet_xcm::Pallet::<Runtime>::set_record_xcm(true);
-			let result = Executive::apply_extrinsic(extrinsic).map_err(|error| {
-				log::error!(
-					target: "xcm::XcmDryRunApi::dry_run_extrinsic",
-					"Applying extrinsic failed with error {:?}",
-					error,
-				);
-				XcmDryRunApiError::InvalidExtrinsic
-			})?;
-			let local_xcm = pallet_xcm::Pallet::<Runtime>::recorded_xcm();
-			let forwarded_xcms = xcm_config::XcmRouter::get_messages();
-			let events: Vec<RuntimeEvent> = System::read_events_no_consensus().map(|record| record.event.clone()).collect();
-			Ok(ExtrinsicDryRunEffects {
-				local_xcm: local_xcm.map(VersionedXcm::<()>::from),
-				forwarded_xcms,
-				emitted_events: events,
-				execution_result: result,
-			})
+	impl xcm_fee_payment_runtime_api::dry_run::DryRunApi<Block, RuntimeCall, RuntimeEvent, OriginCaller> for Runtime {
+		fn dry_run_call(origin: OriginCaller, call: RuntimeCall) -> Result<CallDryRunEffects<RuntimeEvent>, XcmDryRunApiError> {
+			PolkadotXcm::dry_run_call::<Runtime, xcm_config::XcmRouter, OriginCaller, RuntimeCall>(origin, call)
 		}
 
-		fn dry_run_xcm(origin_location: VersionedLocation, program: VersionedXcm<RuntimeCall>) -> Result<XcmDryRunEffects<RuntimeEvent>, XcmDryRunApiError> {
-			use xcm_builder::InspectMessageQueues;
-			use xcm::prelude::*;
-
-			let origin_location: Location = origin_location.try_into().map_err(|error| {
-				log::error!(
-					target: "xcm::XcmDryRunApi::dry_run_xcm",
-					"Location version conversion failed with error: {:?}",
-					error,
-				);
-				XcmDryRunApiError::VersionedConversionFailed
-			})?;
-			let program: Xcm<RuntimeCall> = program.try_into().map_err(|error| {
-				log::error!(
-					target: "xcm::XcmDryRunApi::dry_run_xcm",
-					"Xcm version conversion failed with error {:?}",
-					error,
-				);
-				XcmDryRunApiError::VersionedConversionFailed
-			})?;
-			let mut hash = program.using_encoded(sp_core::hashing::blake2_256);
-			let result = xcm_executor::XcmExecutor::<xcm_config::XcmConfig>::prepare_and_execute(
-				origin_location,
-				program,
-				&mut hash,
-				Weight::MAX, // Max limit available for execution.
-				Weight::zero(),
-			);
-			let forwarded_xcms = xcm_config::XcmRouter::get_messages();
-			let events: Vec<RuntimeEvent> = System::read_events_no_consensus().map(|record| record.event.clone()).collect();
-			Ok(XcmDryRunEffects {
-				forwarded_xcms,
-				emitted_events: events,
-				execution_result: result,
-			})
+		fn dry_run_xcm(origin_location: VersionedLocation, xcm: VersionedXcm<RuntimeCall>) -> Result<XcmDryRunEffects<RuntimeEvent>, XcmDryRunApiError> {
+			PolkadotXcm::dry_run_xcm::<Runtime, xcm_config::XcmRouter, RuntimeCall, xcm_config::XcmConfig>(origin_location, xcm)
 		}
 	}
 
@@ -1799,10 +1759,8 @@ impl_runtime_apis! {
 				}
 
 				fn universal_alias() -> Result<(Location, Junction), BenchmarkError> {
-					match xcm_config::bridging::BridgingBenchmarksHelper::prepare_universal_alias() {
-						Some(alias) => Ok(alias),
-						None => Err(BenchmarkError::Skip)
-					}
+					xcm_config::bridging::BridgingBenchmarksHelper::prepare_universal_alias()
+					.ok_or(BenchmarkError::Skip)
 				}
 
 				fn transact_origin_and_runtime_call() -> Result<(Location, RuntimeCall), BenchmarkError> {

@@ -11,13 +11,6 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
-env:
-  FORKLIFT_storage_s3_bucketName: ${{ secrets.FORKLIFT_storage_s3_bucketName }}
-  FORKLIFT_storage_s3_accessKeyId: ${{ secrets.FORKLIFT_storage_s3_accessKeyId }}
-  FORKLIFT_storage_s3_secretAccessKey: ${{ secrets.FORKLIFT_storage_s3_secretAccessKey }}
-  FORKLIFT_storage_s3_endpointUrl: ${{ secrets.FORKLIFT_storage_s3_endpointUrl }}
-  FORKLIFT_metrics_pushEndpoint: ${{ secrets.FORKLIFT_metrics_pushEndpoint }}
-
 jobs:
   set-image:
     # GitHub Actions allows using 'env' in a container context.
@@ -34,7 +27,7 @@ jobs:
   # rococo and westend are disabled for now (no access to parity-chains.parity.io)
   check-runtime-migration:
     runs-on: arc-runners-polkadot-sdk-beefy
-    timeout-minutes: 30
+    timeout-minutes: 40
     needs: [set-image]
     container:
       image: ${{ needs.set-image.outputs.IMAGE }}
