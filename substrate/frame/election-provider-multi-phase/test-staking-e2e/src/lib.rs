@@ -48,7 +48,7 @@ fn log_current_time() {
 		System::block_number(),
 		Session::current_index(),
 		Staking::current_era(),
-		ElectionProviderMultiPhase::current_phase(),
+		CurrentPhase::<Runtime>::get(),
 		Now::<Runtime>::get()
 	);
 }
@@ -211,7 +211,7 @@ fn continuous_slashes_below_offending_threshold() {
 			// break loop when era does not progress; EPM is in emergency phase as election
 			// failed due to election minimum score.
 			if start_next_active_era(pool_state.clone()).is_err() {
-				assert!(ElectionProviderMultiPhase::current_phase().is_emergency());
+				assert!(CurrentPhase::<Runtime>::get().is_emergency());
 				break;
 			}
 
