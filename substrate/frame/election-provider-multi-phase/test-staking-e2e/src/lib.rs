@@ -22,6 +22,7 @@ pub(crate) const LOG_TARGET: &str = "tests::e2e-epm";
 
 use frame_support::{assert_err, assert_noop, assert_ok};
 use mock::*;
+use pallet_timestamp::Now;
 use sp_core::Get;
 use sp_runtime::Perbill;
 
@@ -47,8 +48,8 @@ fn log_current_time() {
 		System::block_number(),
 		Session::current_index(),
 		Staking::current_era(),
-		CurrentPhase::<Runtime>::get(),
-		Timestamp::now()
+		ElectionProviderMultiPhase::current_phase(),
+		Now::<Runtime>::get()
 	);
 }
 
@@ -210,8 +211,8 @@ fn continuous_slashes_below_offending_threshold() {
 			// break loop when era does not progress; EPM is in emergency phase as election
 			// failed due to election minimum score.
 			if start_next_active_era(pool_state.clone()).is_err() {
-				assert!(CurrentPhase::<Runtime>::get().is_emergency());
-				break
+				assert!(ElectionProviderMultiPhase::current_phase().is_emergency());
+				break;
 			}
 
 			active_validator_set = Session::validators();
@@ -324,7 +325,7 @@ fn automatic_unbonding_pools() {
 		let init_free_balance_2 = Balances::free_balance(2);
 		let init_free_balance_3 = Balances::free_balance(3);
 
-		let pool_bonded_account = Pools::create_bonded_account(1);
+		let pool_bonded_account = Pools::generate_bonded_account(1);
 
 		// creates a pool with 5 bonded, owned by 1.
 		assert_ok!(Pools::create(RuntimeOrigin::signed(1), 5, 1, 1, 1));

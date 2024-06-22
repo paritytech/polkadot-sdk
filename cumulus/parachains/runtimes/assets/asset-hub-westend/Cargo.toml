@@ -18,6 +18,7 @@ scale-info = { version = "2.11.1", default-features = false, features = ["derive
 # Substrate
 frame-benchmarking = { path = "../../../../../substrate/frame/benchmarking", default-features = false, optional = true }
 frame-executive = { path = "../../../../../substrate/frame/executive", default-features = false }
+frame-metadata-hash-extension = { path = "../../../../../substrate/frame/metadata-hash-extension", default-features = false }
 frame-support = { path = "../../../../../substrate/frame/support", default-features = false }
 frame-system = { path = "../../../../../substrate/frame/system", default-features = false }
 frame-system-benchmarking = { path = "../../../../../substrate/frame/system/benchmarking", default-features = false, optional = true }
@@ -27,6 +28,7 @@ pallet-asset-conversion-ops = { path = "../../../../../substrate/frame/asset-con
 pallet-asset-conversion-tx-payment = { path = "../../../../../substrate/frame/transaction-payment/asset-conversion-tx-payment", default-features = false }
 pallet-assets = { path = "../../../../../substrate/frame/assets", default-features = false }
 pallet-asset-conversion = { path = "../../../../../substrate/frame/asset-conversion", default-features = false }
+pallet-assets-freezer = { path = "../../../../../substrate/frame/assets-freezer", default-features = false }
 pallet-aura = { path = "../../../../../substrate/frame/aura", default-features = false }
 pallet-authorship = { path = "../../../../../substrate/frame/authorship", default-features = false }
 pallet-balances = { path = "../../../../../substrate/frame/balances", default-features = false }
@@ -72,7 +74,7 @@ xcm-fee-payment-runtime-api = { path = "../../../../../polkadot/xcm/xcm-fee-paym
 # Cumulus
 cumulus-pallet-aura-ext = { path = "../../../../pallets/aura-ext", default-features = false }
 pallet-message-queue = { path = "../../../../../substrate/frame/message-queue", default-features = false }
-cumulus-pallet-parachain-system = { path = "../../../../pallets/parachain-system", default-features = false, features = ["parameterized-consensus-hook"] }
+cumulus-pallet-parachain-system = { path = "../../../../pallets/parachain-system", default-features = false }
 cumulus-pallet-session-benchmarking = { path = "../../../../pallets/session-benchmarking", default-features = false }
 cumulus-pallet-xcm = { path = "../../../../pallets/xcm", default-features = false }
 cumulus-pallet-xcmp-queue = { path = "../../../../pallets/xcmp-queue", default-features = false, features = ["bridging"] }
@@ -114,6 +116,7 @@ runtime-benchmarks = [
 	"frame-system/runtime-benchmarks",
 	"pallet-asset-conversion-ops/runtime-benchmarks",
 	"pallet-asset-conversion/runtime-benchmarks",
+	"pallet-assets-freezer/runtime-benchmarks",
 	"pallet-assets/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
 	"pallet-collator-selection/runtime-benchmarks",
@@ -149,6 +152,7 @@ try-runtime = [
 	"pallet-asset-conversion-ops/try-runtime",
 	"pallet-asset-conversion-tx-payment/try-runtime",
 	"pallet-asset-conversion/try-runtime",
+	"pallet-assets-freezer/try-runtime",
 	"pallet-assets/try-runtime",
 	"pallet-aura/try-runtime",
 	"pallet-authorship/try-runtime",
@@ -189,6 +193,7 @@ std = [
 	"cumulus-primitives-utility/std",
 	"frame-benchmarking?/std",
 	"frame-executive/std",
+	"frame-metadata-hash-extension/std",
 	"frame-support/std",
 	"frame-system-benchmarking?/std",
 	"frame-system-rpc-runtime-api/std",
@@ -198,6 +203,7 @@ std = [
 	"pallet-asset-conversion-ops/std",
 	"pallet-asset-conversion-tx-payment/std",
 	"pallet-asset-conversion/std",
+	"pallet-assets-freezer/std",
 	"pallet-assets/std",
 	"pallet-aura/std",
 	"pallet-authorship/std",
@@ -247,7 +253,10 @@ std = [
 	"xcm/std",
 ]
 
+# Enable the metadata hash generation in the wasm builder.
+metadata-hash = ["substrate-wasm-builder/metadata-hash"]
+
 # A feature that should be enabled when the runtime should be built for on-chain
 # deployment. This will disable stuff that shouldn't be part of the on-chain wasm
 # to make it smaller, like logging for example.
-on-chain-release-build = ["sp-api/disable-logging"]
+on-chain-release-build = ["metadata-hash", "sp-api/disable-logging"]

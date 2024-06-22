@@ -1,0 +1,14 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Removed `pallet::getter` usage from pallet-fast-unstake
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      This PR removed the `pallet::getter`s from `pallet-fast-unstake`.
+      The syntax `StorageItem::<T, I>::get()` should be used instead.
+
+crates:
+  - name: pallet-fast-unstake
+    bump: major
