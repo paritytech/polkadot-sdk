@@ -120,6 +120,7 @@ std = [
 	"pallet-recovery?/std",
 	"pallet-referenda?/std",
 	"pallet-remark?/std",
+	"pallet-revive?/std",
 	"pallet-root-offences?/std",
 	"pallet-root-testing?/std",
 	"pallet-safe-mode?/std",
@@ -304,6 +305,7 @@ runtime-benchmarks = [
 	"pallet-recovery?/runtime-benchmarks",
 	"pallet-referenda?/runtime-benchmarks",
 	"pallet-remark?/runtime-benchmarks",
+	"pallet-revive?/runtime-benchmarks",
 	"pallet-root-offences?/runtime-benchmarks",
 	"pallet-safe-mode?/runtime-benchmarks",
 	"pallet-salary?/runtime-benchmarks",
@@ -432,6 +434,7 @@ try-runtime = [
 	"pallet-recovery?/try-runtime",
 	"pallet-referenda?/try-runtime",
 	"pallet-remark?/try-runtime",
+	"pallet-revive?/try-runtime",
 	"pallet-root-offences?/try-runtime",
 	"pallet-root-testing?/try-runtime",
 	"pallet-safe-mode?/try-runtime",
@@ -641,6 +644,7 @@ runtime = [
 	"pallet-recovery",
 	"pallet-referenda",
 	"pallet-remark",
+	"pallet-revive",
 	"pallet-root-offences",
 	"pallet-root-testing",
 	"pallet-safe-mode",
@@ -760,6 +764,15 @@ tuples-96 = [
 	"frame-support-procedural?/tuples-96",
 	"frame-support?/tuples-96",
 ]
+# Build riscv test and benchmarking fixtures
+#
+# A custom rust toolchain (https://github.com/paritytech/rustc-rv32e-toolchain/) is needed in
+# order to run the pallet_revive tests and runtime benchmarks. Since we don't assume people to have this
+# toolchain installed we guard this behind a new feature. Not setting this feature will simply remove all
+# benchmarks and most of the tests from the pallet. It will continue to work just fine apart from this.
+#
+# Feature should be removed as soon as there is upstream PolkaVM support in rustc.
+riscv = ["pallet-revive?/riscv"]
 
 [package.edition]
 workspace = true
@@ -1329,6 +1342,11 @@ optional = true
 
 [dependencies.pallet-remark]
 path = "../substrate/frame/remark"
+default-features = false
+optional = true
+
+[dependencies.pallet-revive]
+path = "../substrate/frame/revive"
 default-features = false
 optional = true
 

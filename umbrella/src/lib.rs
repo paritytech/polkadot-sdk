@@ -576,6 +576,10 @@ pub use pallet_referenda;
 #[cfg(feature = "pallet-remark")]
 pub use pallet_remark;
 
+/// FRAME pallet for PolkaVM contracts.
+#[cfg(feature = "pallet-revive")]
+pub use pallet_revive;
+
 /// FRAME root offences pallet.
 #[cfg(feature = "pallet-root-offences")]
 pub use pallet_root_offences;

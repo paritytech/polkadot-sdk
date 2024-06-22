@@ -9592,6 +9592,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "object"
+version = "0.36.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "081b846d1d56ddfc18fdf1a922e4f6e07a11768ea1b92dec44e42b72712ccfce"
+dependencies = [
+ "memchr",
+]
+
+[[package]]
 name = "oid-registry"
 version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -10377,7 +10386,7 @@ dependencies = [
  "anyhow",
  "frame-system",
  "parity-wasm",
- "polkavm-linker",
+ "polkavm-linker 0.9.2",
  "sp-runtime",
  "tempfile",
  "toml 0.8.8",
@@ -11429,6 +11438,115 @@ dependencies = [
  "sp-core",
  "sp-io",
  "sp-runtime",
+]
+
+[[package]]
+name = "pallet-revive"
+version = "0.1.0"
+dependencies = [
+ "array-bytes",
+ "assert_matches",
+ "bitflags 1.3.2",
+ "environmental",
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "impl-trait-for-tuples",
+ "log",
+ "pallet-assets",
+ "pallet-balances",
+ "pallet-message-queue",
+ "pallet-proxy",
+ "pallet-revive-fixtures",
+ "pallet-revive-proc-macro",
+ "pallet-revive-uapi",
+ "pallet-timestamp",
+ "pallet-utility",
+ "parity-scale-codec",
+ "paste",
+ "polkavm 0.10.0",
+ "pretty_assertions",
+ "scale-info",
+ "serde",
+ "sp-api",
+ "sp-core",
+ "sp-io",
+ "sp-keystore",
+ "sp-runtime",
+ "sp-std 14.0.0",
+ "sp-tracing 16.0.0",
+ "staging-xcm",
+ "staging-xcm-builder",
+ "wat",
+]
+
+[[package]]
+name = "pallet-revive-fixtures"
+version = "0.0.1"
+dependencies = [
+ "anyhow",
+ "frame-system",
+ "parity-wasm",
+ "polkavm-linker 0.10.0",
+ "sp-runtime",
+ "tempfile",
+ "toml 0.8.8",
+]
+
+[[package]]
+name = "pallet-revive-mock-network"
+version = "0.1.0"
+dependencies = [
+ "assert_matches",
+ "frame-support",
+ "frame-system",
+ "pallet-assets",
+ "pallet-balances",
+ "pallet-message-queue",
+ "pallet-proxy",
+ "pallet-revive",
+ "pallet-revive-fixtures",
+ "pallet-revive-proc-macro",
+ "pallet-revive-uapi",
+ "pallet-timestamp",
+ "pallet-utility",
+ "pallet-xcm",
+ "parity-scale-codec",
+ "polkadot-parachain-primitives",
+ "polkadot-primitives",
+ "polkadot-runtime-parachains",
+ "pretty_assertions",
+ "scale-info",
+ "sp-api",
+ "sp-core",
+ "sp-io",
+ "sp-keystore",
+ "sp-runtime",
+ "sp-tracing 16.0.0",
+ "staging-xcm",
+ "staging-xcm-builder",
+ "staging-xcm-executor",
+ "xcm-simulator",
+]
+
+[[package]]
+name = "pallet-revive-proc-macro"
+version = "0.1.0"
+dependencies = [
+ "proc-macro2 1.0.82",
+ "quote 1.0.36",
+ "syn 2.0.61",
+]
+
+[[package]]
+name = "pallet-revive-uapi"
+version = "0.1.0"
+dependencies = [
+ "bitflags 1.3.2",
+ "parity-scale-codec",
+ "paste",
+ "polkavm-derive",
+ "scale-info",
 ]
 
 [[package]]
@@ -14315,6 +14433,7 @@ dependencies = [
  "pallet-recovery",
  "pallet-referenda",
  "pallet-remark",
+ "pallet-revive",
  "pallet-root-offences",
  "pallet-root-testing",
  "pallet-safe-mode",
@@ -15102,9 +15221,21 @@ checksum = "8a3693e5efdb2bf74e449cd25fd777a28bd7ed87e41f5d5da75eb31b4de48b94"
 dependencies = [
  "libc",
  "log",
- "polkavm-assembler",
- "polkavm-common",
- "polkavm-linux-raw",
+ "polkavm-assembler 0.9.0",
+ "polkavm-common 0.9.0",
+ "polkavm-linux-raw 0.9.0",
+]
+
+[[package]]
+name = "polkavm"
+version = "0.10.0"
+source = "git+https://github.com/koute/polkavm.git?branch=tmp_new_api_wip#a317a00c4d767dd35adca1bd980b140f82760b7f"
+dependencies = [
+ "libc",
+ "log",
+ "polkavm-assembler 0.10.0",
+ "polkavm-common 0.10.0",
+ "polkavm-linux-raw 0.10.0",
 ]
 
 [[package]]
@@ -15117,10 +15248,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "polkavm-assembler"
+version = "0.10.0"
+source = "git+https://github.com/koute/polkavm.git?branch=tmp_new_api_wip#a317a00c4d767dd35adca1bd980b140f82760b7f"
+dependencies = [
+ "log",
+]
+
+[[package]]
 name = "polkavm-common"
 version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1d9428a5cfcc85c5d7b9fc4b6a18c4b802d0173d768182a51cc7751640f08b92"
+dependencies = [
+ "log",
+]
+
+[[package]]
+name = "polkavm-common"
+version = "0.10.0"
+source = "git+https://github.com/koute/polkavm.git?branch=tmp_new_api_wip#a317a00c4d767dd35adca1bd980b140f82760b7f"
 dependencies = [
  "log",
 ]
@@ -15140,7 +15287,7 @@ version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5c4fdfc49717fb9a196e74a5d28e0bc764eb394a2c803eb11133a31ac996c60c"
 dependencies = [
- "polkavm-common",
+ "polkavm-common 0.9.0",
  "proc-macro2 1.0.82",
  "quote 1.0.36",
  "syn 2.0.61",
@@ -15166,7 +15313,21 @@ dependencies = [
  "hashbrown 0.14.3",
  "log",
  "object 0.32.2",
- "polkavm-common",
+ "polkavm-common 0.9.0",
+ "regalloc2 0.9.3",
+ "rustc-demangle",
+]
+
+[[package]]
+name = "polkavm-linker"
+version = "0.10.0"
+source = "git+https://github.com/koute/polkavm.git?branch=tmp_new_api_wip#a317a00c4d767dd35adca1bd980b140f82760b7f"
+dependencies = [
+ "gimli 0.28.0",
+ "hashbrown 0.14.3",
+ "log",
+ "object 0.36.1",
+ "polkavm-common 0.10.0",
  "regalloc2 0.9.3",
  "rustc-demangle",
 ]
@@ -15176,6 +15337,11 @@ name = "polkavm-linux-raw"
 version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "26e85d3456948e650dff0cfc85603915847faf893ed1e66b020bb82ef4557120"
+
+[[package]]
+name = "polkavm-linux-raw"
+version = "0.10.0"
+source = "git+https://github.com/koute/polkavm.git?branch=tmp_new_api_wip#a317a00c4d767dd35adca1bd980b140f82760b7f"
 
 [[package]]
 name = "polling"
@@ -17647,7 +17813,7 @@ dependencies = [
 name = "sc-executor-common"
 version = "0.29.0"
 dependencies = [
- "polkavm",
+ "polkavm 0.9.3",
  "sc-allocator",
  "sp-maybe-compressed-blob",
  "sp-wasm-interface 20.0.0",
@@ -17660,7 +17826,7 @@ name = "sc-executor-polkavm"
 version = "0.29.0"
 dependencies = [
  "log",
- "polkavm",
+ "polkavm 0.9.3",
  "sc-executor-common",
  "sp-wasm-interface 20.0.0",
 ]
@@ -21554,7 +21720,7 @@ dependencies = [
  "merkleized-metadata",
  "parity-scale-codec",
  "parity-wasm",
- "polkavm-linker",
+ "polkavm-linker 0.9.2",
  "sc-executor",
  "sp-core",
  "sp-io",
