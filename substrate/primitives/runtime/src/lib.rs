@@ -85,6 +85,7 @@ pub mod generic;
 pub mod legacy;
 mod multiaddress;
 pub mod offchain;
+pub mod proving_trie;
 pub mod runtime_logger;
 mod runtime_string;
 #[cfg(feature = "std")]
