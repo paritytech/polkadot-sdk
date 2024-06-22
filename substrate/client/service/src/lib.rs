@@ -34,10 +34,7 @@ mod client;
 mod metrics;
 mod task_manager;
 
-use std::{
-	collections::HashMap,
-	net::{Ipv4Addr, Ipv6Addr},
-};
+use std::collections::HashMap;
 
 use codec::{Decode, Encode};
 use futures::{pin_mut, FutureExt, StreamExt};

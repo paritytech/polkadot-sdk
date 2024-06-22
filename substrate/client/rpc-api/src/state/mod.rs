@@ -136,6 +136,7 @@ pub trait StateApi<Hash> {
 		name = "state_subscribeStorage" => "state_storage",
 		unsubscribe = "state_unsubscribeStorage",
 		item = StorageChangeSet<Hash>,
+		with_extensions,
 	)]
 	fn subscribe_storage(&self, keys: Option<Vec<StorageKey>>);
 

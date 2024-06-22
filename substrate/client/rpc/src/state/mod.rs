@@ -326,8 +326,14 @@ where
 		self.backend.subscribe_runtime_version(pending)
 	}
 
-	fn subscribe_storage(&self, pending: PendingSubscriptionSink, keys: Option<Vec<StorageKey>>) {
-		self.backend.subscribe_storage(pending, keys, DenyUnsafe::No)
+	fn subscribe_storage(
+		&self,
+		pending: PendingSubscriptionSink,
+		ext: &Extensions,
+		keys: Option<Vec<StorageKey>>,
+	) {
+		let deny_unsafe = ext.get::<DenyUnsafe>().cloned().unwrap_or(DenyUnsafe::No);
+		self.backend.subscribe_storage(pending, keys, deny_unsafe)
 	}
 }
 
