@@ -343,6 +343,14 @@ pub mod pallet {
 }
 
 impl<T: Config<I>, I: 'static> Pallet<T, I> {
+	pub fn members() -> BoundedVec<T::AccountId, T::MaxMembers> {
+		Members::<T, I>::get()
+	}
+
+	pub fn prime() -> Option<T::AccountId> {
+		Prime::<T, I>::get()
+	}
+
 	fn rejig_prime(members: &[T::AccountId]) {
 		if let Some(prime) = Prime::<T, I>::get() {
 			match members.binary_search(&prime) {

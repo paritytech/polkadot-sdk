@@ -11,4 +11,4 @@ doc:
 
 crates:
   - name: pallet-membership
-    bump: major
+    bump: minor
