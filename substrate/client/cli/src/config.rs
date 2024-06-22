@@ -35,6 +35,7 @@ use sc_service::{
 };
 use sc_tracing::logging::LoggerBuilder;
 use std::{num::NonZeroU32, path::PathBuf};
+use url::Url;
 
 /// The maximum number of characters for a node name.
 pub(crate) const NODE_NAME_MAX_LENGTH: usize = 64;

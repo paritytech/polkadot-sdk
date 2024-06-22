@@ -24,9 +24,9 @@ mod tests;
 use self::error::Error;
 use jsonrpsee::{core::async_trait, Extensions};
 use parking_lot::RwLock;
+use sc_rpc_api::check_if_safe;
 /// Re-export the API for backward compatibility.
 pub use sc_rpc_api::offchain::*;
-use sc_rpc_api::{check_if_safe, DenyUnsafe, UnsafeRpcError};
 use sp_core::{
 	offchain::{OffchainStorage, StorageKind},
 	Bytes,

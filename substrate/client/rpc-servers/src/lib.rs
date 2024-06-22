@@ -23,7 +23,7 @@
 pub mod middleware;
 pub mod utils;
 
-use std::{error::Error as StdError, num::NonZeroU32, str::FromStr, sync::Arc, time::Duration};
+use std::{error::Error as StdError, str::FromStr, time::Duration};
 
 use jsonrpsee::{
 	core::BoxError,
@@ -33,13 +33,8 @@ use jsonrpsee::{
 	Methods, RpcModule,
 };
 use middleware::NodeHealthProxyLayer;
-use sc_rpc_api::DenyUnsafe;
-use tokio::net::TcpListener;
 use tower::Service;
-use utils::{
-	build_rpc_api, deny_unsafe, format_cors, get_proxy_ip, host_filtering, try_into_cors,
-	ListenAddr,
-};
+use utils::{build_rpc_api, deny_unsafe, get_proxy_ip, ListenAddr, RpcSettings};
 
 pub use ip_network::IpNetwork;
 pub use jsonrpsee::{
@@ -58,11 +53,9 @@ pub type Server = jsonrpsee::server::ServerHandle;
 
 /// RPC server configuration.
 #[derive(Debug)]
-pub struct Config<'a, M: Send + Sync + 'static> {
+pub struct Config<M: Send + Sync + 'static> {
 	/// Listen addresses.
 	pub listen_addrs: Vec<String>,
-	/// CORS.
-	pub cors: Option<&'a Vec<String>>,
 	/// Maximum connections.
 	pub max_connections: u32,
 	/// Maximum subscriptions per connection.
@@ -83,12 +76,6 @@ pub struct Config<'a, M: Send + Sync + 'static> {
 	pub tokio_handle: tokio::runtime::Handle,
 	/// Batch request config.
 	pub batch_config: BatchRequestConfig,
-	/// Rate limit calls per minute.
-	pub rate_limit: Option<NonZeroU32>,
-	/// Disable rate limit for certain ips.
-	pub rate_limit_whitelisted_ips: Vec<IpNetwork>,
-	/// Trust proxy headers for rate limiting.
-	pub rate_limit_trust_proxy_headers: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -98,20 +85,16 @@ struct PerConnection<RpcMiddleware, HttpMiddleware> {
 	metrics: Option<RpcMetrics>,
 	tokio_handle: tokio::runtime::Handle,
 	service_builder: TowerServiceBuilder<RpcMiddleware, HttpMiddleware>,
-	rate_limit_whitelisted_ips: Arc<Vec<IpNetwork>>,
 }
 
 /// Start RPC server listening on given address.
-pub async fn start_server<M>(
-	config: Config<'_, M>,
-) -> Result<Server, Box<dyn StdError + Send + Sync>>
+pub async fn start_server<M>(config: Config<M>) -> Result<Server, Box<dyn StdError + Send + Sync>>
 where
 	M: Send + Sync,
 {
 	let Config {
 		listen_addrs,
 		batch_config,
-		cors,
 		max_payload_in_mb,
 		max_payload_out_mb,
 		max_connections,
@@ -121,18 +104,8 @@ where
 		id_provider,
 		tokio_handle,
 		rpc_api,
-		rate_limit,
-		rate_limit_whitelisted_ips,
-		rate_limit_trust_proxy_headers,
+		..
 	} = config;
-
-	/*let host_filter = host_filtering(cors.is_some(), local_addr, local_addr2);
-
-	let http_middleware = tower::ServiceBuilder::new()
-		.option_layer(host_filter)
-		// Proxy `GET /health, /health/readiness` requests to the internal `system_health` method.
-		.layer(NodeHealthProxyLayer::default())
-		.layer(try_into_cors(cors)?);*/
 
 	let mut builder = jsonrpsee::server::Server::builder()
 		.max_request_body_size(max_payload_in_mb.saturating_mul(MEGABYTE))
@@ -145,7 +118,6 @@ where
 				.inactive_limit(Duration::from_secs(60))
 				.max_failures(3),
 		)
-		//.set_http_middleware(http_middleware)
 		.set_message_buffer_capacity(message_buffer_capacity)
 		.set_batch_request_config(batch_config)
 		.custom_tokio_runtime(tokio_handle.clone());
@@ -163,20 +135,19 @@ where
 		metrics,
 		tokio_handle: tokio_handle.clone(),
 		stop_handle,
-		rate_limit_whitelisted_ips: Arc::new(rate_limit_whitelisted_ips),
 	};
 
 	let mut local_addrs = Vec::new();
 
 	for addr in listen_addrs {
 		let mut listener = ListenAddr::from_str(&addr)?.bind().await?;
-		let mut local_addr = listener.local_addr();
+		let local_addr = listener.local_addr();
 		local_addrs.push(local_addr);
 		let cfg = cfg.clone();
 
 		tokio_handle.spawn(async move {
 			loop {
-				let (sock, remote_addr, rpc_method, rate_limit_cfg) = tokio::select! {
+				let (sock, remote_addr, rpc_cfg) = tokio::select! {
 					res = listener.accept() => {
 						match res {
 							Ok(s) => s,
@@ -189,10 +160,22 @@ where
 					_ = cfg.stop_handle.clone().shutdown() => break,
 				};
 
-				let deny_unsafe = deny_unsafe(&local_addr, &rpc_method);
+				let RpcSettings {
+					rpc_methods,
+					rate_limit_trust_proxy_headers,
+					rate_limit_whitelisted_ips,
+					host_filter,
+					cors,
+					rate_limit,
+				} = rpc_cfg;
+
+				let deny_unsafe = deny_unsafe(&local_addr, &rpc_methods);
 
 				let ip = remote_addr.ip();
 				let cfg2 = cfg.clone();
+				let cors2 = cors.clone();
+				let host_filter2 = host_filter.clone();
+
 				let svc =
 					tower::service_fn(move |mut req: http::Request<hyper::body::Incoming>| {
 						req.extensions_mut().insert(deny_unsafe);
@@ -203,8 +186,9 @@ where
 							metrics,
 							tokio_handle,
 							stop_handle,
-							rate_limit_whitelisted_ips,
 						} = cfg2.clone();
+						let cors = cors2.clone();
+						let host_filter = host_filter2.clone();
 
 						let proxy_ip =
 							if rate_limit_trust_proxy_headers { get_proxy_ip(&req) } else { None };
@@ -240,10 +224,19 @@ where
 							),
 						};
 
+						let http_middleware = tower::ServiceBuilder::new()
+							.option_layer(host_filter)
+							// Proxy `GET /health, /health/readiness` requests to the internal
+							// `system_health` method.
+							.layer(NodeHealthProxyLayer::default())
+							.layer(cors);
+
 						let rpc_middleware =
 							RpcServiceBuilder::new().option_layer(middleware_layer.clone());
 						let mut svc = service_builder
 							.set_rpc_middleware(rpc_middleware)
+							// TODO: fix trait bounds.
+							//.set_http_middleware(http_middleware)
 							.build(methods, stop_handle);
 
 						async move {
@@ -275,11 +268,7 @@ where
 		});
 	}
 
-	log::info!(
-		"Running JSON-RPC server: addr={:?}, allowed origins={}",
-		local_addrs,
-		format_cors(cors)
-	);
+	log::info!("Running JSON-RPC server: addr={:?}", local_addrs,);
 
 	Ok(server_handle)
 }

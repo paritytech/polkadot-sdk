@@ -63,7 +63,7 @@ use sc_rpc::{
 	offchain::OffchainApiServer,
 	state::{ChildStateApiServer, StateApiServer},
 	system::SystemApiServer,
-	DenyUnsafe, SubscriptionTaskExecutor,
+	SubscriptionTaskExecutor,
 };
 use sc_rpc_spec_v2::{
 	archive::ArchiveApiServer,

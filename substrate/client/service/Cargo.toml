@@ -85,6 +85,7 @@ tempfile = "3.1.0"
 directories = "5.0.1"
 static_init = "1.0.3"
 schnellru = "0.2.1"
+url = "2.5"
 
 [dev-dependencies]
 substrate-test-runtime-client = { path = "../../test-utils/runtime/client" }

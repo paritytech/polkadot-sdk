@@ -379,6 +379,7 @@ pub fn start_rpc_servers<R>(
 where
 	R: Fn() -> Result<RpcModule<()>, Error>,
 {
+	// TODO: fix this niklas
 	let listen_addrs = config.rpc_addr.clone().unwrap();
 
 	/*let listen_addrs = if let Some(addr) = config.rpc_addr {
@@ -401,11 +402,7 @@ where
 		rpc_api,
 		metrics,
 		id_provider: rpc_id_provider,
-		cors: config.rpc_cors.as_ref(),
 		tokio_handle: config.tokio_handle.clone(),
-		rate_limit: config.rpc_rate_limit,
-		rate_limit_whitelisted_ips: config.rpc_rate_limit_whitelisted_ips.clone(),
-		rate_limit_trust_proxy_headers: config.rpc_rate_limit_trust_proxy_headers,
 	};
 
 	// TODO: https://github.com/paritytech/substrate/issues/13773
