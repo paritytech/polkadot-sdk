@@ -120,6 +120,13 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type RandomMaterial<T: Config> =
 		StorageValue<_, BoundedVec<T::Hash, ConstU32<RANDOM_MATERIAL_LEN>>, ValueQuery>;
+
+	impl<T: Config> Pallet<T> {
+		/// Gets the random material storage value
+		pub fn random_material() -> BoundedVec<T::Hash, ConstU32<RANDOM_MATERIAL_LEN>> {
+			RandomMaterial::<T>::get()
+		}
+	}
 }
 
 impl<T: Config> Randomness<T::Hash, BlockNumberFor<T>> for Pallet<T> {
