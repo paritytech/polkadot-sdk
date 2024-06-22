@@ -44,8 +44,8 @@ use sp_authority_discovery::AuthorityPair as AuthorityDiscoveryPair;
 use sp_keyring::Sr25519Keyring;
 
 use assert_matches::assert_matches;
+use codec::Encode;
 use futures::Future;
-use parity_scale_codec::Encode;
 use rand::{Rng, SeedableRng};
 use test_helpers::mock::new_leaf;
 
@@ -55,7 +55,8 @@ mod cluster;
 mod grid;
 mod requests;
 
-type VirtualOverseer = test_helpers::TestSubsystemContextHandle<StatementDistributionMessage>;
+type VirtualOverseer =
+	polkadot_node_subsystem_test_helpers::TestSubsystemContextHandle<StatementDistributionMessage>;
 
 const DEFAULT_ASYNC_BACKING_PARAMETERS: AsyncBackingParams =
 	AsyncBackingParams { max_candidate_depth: 4, allowed_ancestry_len: 3 };
@@ -371,7 +372,8 @@ fn test_harness<T: Future<Output = VirtualOverseer>>(
 
 	let test_state = TestState::from_config(config, req_cfg.inbound_queue.unwrap(), &mut rng);
 
-	let (context, virtual_overseer) = test_helpers::make_subsystem_context(pool.clone());
+	let (context, virtual_overseer) =
+		polkadot_node_subsystem_test_helpers::make_subsystem_context(pool.clone());
 	let subsystem = async move {
 		let subsystem = crate::StatementDistributionSubsystem {
 			keystore,
@@ -422,7 +424,7 @@ struct TestLeaf {
 	parent_hash: Hash,
 	session: SessionIndex,
 	availability_cores: Vec<CoreState>,
-	disabled_validators: Vec<ValidatorIndex>,
+	pub disabled_validators: Vec<ValidatorIndex>,
 	para_data: Vec<(ParaId, PerParaData)>,
 	minimum_backing_votes: u32,
 }
@@ -586,19 +588,6 @@ async fn handle_leaf_activation(
 		}
 	);
 
-	let mrp_response: Vec<(ParaId, BlockNumber)> = para_data
-		.iter()
-		.map(|(para_id, data)| (*para_id, data.min_relay_parent))
-		.collect();
-	assert_matches!(
-		virtual_overseer.recv().await,
-		AllMessages::ProspectiveParachains(
-			ProspectiveParachainsMessage::GetMinimumRelayParents(parent, tx)
-		) if parent == *hash => {
-			tx.send(mrp_response).unwrap();
-		}
-	);
-
 	let header = Header {
 		parent_hash: *parent_hash,
 		number: *number,
@@ -612,6 +601,19 @@ async fn handle_leaf_activation(
 			ChainApiMessage::BlockHeader(parent, tx)
 		) if parent == *hash => {
 			tx.send(Ok(Some(header))).unwrap();
+		}
+	);
+
+	let mrp_response: Vec<(ParaId, BlockNumber)> = para_data
+		.iter()
+		.map(|(para_id, data)| (*para_id, data.min_relay_parent))
+		.collect();
+	assert_matches!(
+		virtual_overseer.recv().await,
+		AllMessages::ProspectiveParachains(
+			ProspectiveParachainsMessage::GetMinimumRelayParents(parent, tx)
+		) if parent == *hash => {
+			tx.send(mrp_response).unwrap();
 		}
 	);
 
