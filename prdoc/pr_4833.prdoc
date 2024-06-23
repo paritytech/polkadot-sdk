@@ -9,4 +9,4 @@ doc:
 
 crates:
   - name: polkadot-node-collation-generation
-    bump: none
+    bump: minor
