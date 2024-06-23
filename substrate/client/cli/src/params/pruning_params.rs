@@ -17,7 +17,7 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 use crate::error;
-use clap::{builder::PossibleValue, Args, ValueEnum};
+use clap::Args;
 use sc_service::{BlocksPruning, PruningMode};
 
 /// Parameters to define the pruning mode
@@ -30,23 +30,38 @@ pub struct PruningParams {
 	/// This setting can only be set on the first creation of the database. Every subsequent run
 	/// will load the pruning mode from the database and will error if the stored mode doesn't
 	/// match this CLI value. It is fine to drop this CLI flag for subsequent runs. The only
-	/// exception is that `<NUMBER>` can change between subsequent runs (increasing it will not
+	/// exception is that `NUMBER` can change between subsequent runs (increasing it will not
 	/// lead to restoring pruned state).
 	///
+	/// Possible values:
+	///
+	/// - archive: Keep the data of all blocks.
+	///
+	/// - archive-canonical: Keep only the data of finalized blocks.
+	///
+	/// - NUMBER: Keep the data of the last NUMBER of finalized blocks.
+	///
 	/// [default: 256]
-	#[arg(alias = "pruning", long, value_name = "PRUNING_MODE", value_enum)]
+	#[arg(alias = "pruning", long, value_name = "PRUNING_MODE")]
 	pub state_pruning: Option<DatabasePruningMode>,
 
 	/// Specify the blocks pruning mode.
 	///
 	/// This mode specifies when the block's body (including justifications)
 	/// should be pruned (ie, removed) from the database.
+	///
+	/// Possible values:
+	///
+	/// - archive: Keep the data of all blocks.
+	///
+	/// - archive-canonical: Keep only the data of finalized blocks.
+	///
+	/// - NUMBER: Keep the data of the last NUMBER of finalized blocks.
 	#[arg(
 		alias = "keep-blocks",
 		long,
 		value_name = "PRUNING_MODE",
-		default_value_t = DatabasePruningMode::ArchiveCanonical,
-		value_enum
+		default_value = "archive-canonical"
 	)]
 	pub blocks_pruning: DatabasePruningMode,
 }
@@ -76,26 +91,6 @@ pub enum DatabasePruningMode {
 	ArchiveCanonical,
 	/// Keep the data of the last number of finalized blocks.
 	Custom(u32),
-}
-
-impl ValueEnum for DatabasePruningMode {
-	fn value_variants<'a>() -> &'a [Self] {
-		&[Self::Archive, Self::ArchiveCanonical, Self::Custom(0)]
-	}
-
-	fn to_possible_value(&self) -> Option<clap::builder::PossibleValue> {
-		Some(match self {
-			Self::Archive => PossibleValue::new("archive").help("Keep the data of all blocks."),
-			Self::ArchiveCanonical => PossibleValue::new("archive-canonical")
-				.help("Keep only the data of finalized blocks."),
-			Self::Custom(_) => PossibleValue::new("<NUMBER>")
-				.help("Keep the data of the last <NUMBER> of finalized blocks."),
-		})
-	}
-
-	fn from_str(input: &str, _: bool) -> Result<Self, String> {
-		<Self as std::str::FromStr>::from_str(input)
-	}
 }
 
 impl std::str::FromStr for DatabasePruningMode {
@@ -130,5 +125,41 @@ impl Into<BlocksPruning> for DatabasePruningMode {
 			DatabasePruningMode::ArchiveCanonical => BlocksPruning::KeepFinalized,
 			DatabasePruningMode::Custom(n) => BlocksPruning::Some(n),
 		}
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use clap::Parser;
+
+	#[derive(Parser)]
+	struct Cli {
+		#[clap(flatten)]
+		pruning: PruningParams,
+	}
+
+	#[test]
+	fn pruning_params_parse_works() {
+		let Cli { pruning } =
+			Cli::parse_from(["", "--state-pruning=1000", "--blocks-pruning=1000"]);
+
+		assert!(matches!(pruning.state_pruning, Some(DatabasePruningMode::Custom(1000))));
+		assert!(matches!(pruning.blocks_pruning, DatabasePruningMode::Custom(1000)));
+
+		let Cli { pruning } =
+			Cli::parse_from(["", "--state-pruning=archive", "--blocks-pruning=archive"]);
+
+		assert!(matches!(dbg!(pruning.state_pruning), Some(DatabasePruningMode::Archive)));
+		assert!(matches!(pruning.blocks_pruning, DatabasePruningMode::Archive));
+
+		let Cli { pruning } = Cli::parse_from([
+			"",
+			"--state-pruning=archive-canonical",
+			"--blocks-pruning=archive-canonical",
+		]);
+
+		assert!(matches!(dbg!(pruning.state_pruning), Some(DatabasePruningMode::ArchiveCanonical)));
+		assert!(matches!(pruning.blocks_pruning, DatabasePruningMode::ArchiveCanonical));
 	}
 }
