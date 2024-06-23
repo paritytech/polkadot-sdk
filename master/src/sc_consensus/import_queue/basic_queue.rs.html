@@ -821,22 +821,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#670" id="670">670</a>
 <a href="#671" id="671">671</a>
 <a href="#672" id="672">672</a>
-<a href="#673" id="673">673</a>
-<a href="#674" id="674">674</a>
-<a href="#675" id="675">675</a>
-<a href="#676" id="676">676</a>
-<a href="#677" id="677">677</a>
-<a href="#678" id="678">678</a>
-<a href="#679" id="679">679</a>
-<a href="#680" id="680">680</a>
-<a href="#681" id="681">681</a>
-<a href="#682" id="682">682</a>
-<a href="#683" id="683">683</a>
-<a href="#684" id="684">684</a>
-<a href="#685" id="685">685</a>
-<a href="#686" id="686">686</a>
-<a href="#687" id="687">687</a>
-<a href="#688" id="688">688</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -858,7 +842,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	prelude::<span class="kw-2">*</span>,
 	task::{Context, Poll},
 };
-<span class="kw">use </span>futures_timer::Delay;
 <span class="kw">use </span>log::{debug, trace};
 <span class="kw">use </span>prometheus_endpoint::Registry;
 <span class="kw">use </span>sc_utils::mpsc::{tracing_unbounded, TracingUnboundedReceiver, TracingUnboundedSender};
@@ -867,7 +850,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	traits::{Block <span class="kw">as </span>BlockT, Header <span class="kw">as </span>HeaderT, NumberFor},
 	Justification, Justifications,
 };
-<span class="kw">use </span>std::{pin::Pin, time::Duration};
+<span class="kw">use </span>std::pin::Pin;
 
 <span class="kw">use crate</span>::{
 	import_queue::{
@@ -1063,7 +1046,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw-2">mut </span>result_sender: BufferedLinkSender&lt;B&gt;,
 	<span class="kw-2">mut </span>block_import_receiver: TracingUnboundedReceiver&lt;worker_messages::ImportBlocks&lt;B&gt;&gt;,
 	metrics: <span class="prelude-ty">Option</span>&lt;Metrics&gt;,
-	delay_between_blocks: Duration,
 ) {
 	<span class="kw">loop </span>{
 		<span class="kw">let </span>worker_messages::ImportBlocks(origin, blocks) = <span class="kw">match </span>block_import_receiver.next().<span class="kw">await
@@ -1078,15 +1060,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span>},
 		};
 
-		<span class="kw">let </span>res = import_many_blocks(
-			<span class="kw-2">&amp;mut </span>block_import,
-			origin,
-			blocks,
-			<span class="kw-2">&amp;mut </span>verifier,
-			delay_between_blocks,
-			metrics.clone(),
-		)
-		.<span class="kw">await</span>;
+		<span class="kw">let </span>res =
+			import_many_blocks(<span class="kw-2">&amp;mut </span>block_import, origin, blocks, <span class="kw-2">&amp;mut </span>verifier, metrics.clone())
+				.<span class="kw">await</span>;
 
 		result_sender.blocks_processed(res.imported, res.block_count, res.results);
 	}
@@ -1115,12 +1091,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>(justification_sender, <span class="kw-2">mut </span>justification_port) =
 			tracing_unbounded(<span class="string">"mpsc_import_queue_worker_justification"</span>, <span class="number">100_000</span>);
 
-		<span class="kw">let </span>(block_import_sender, block_import_port) =
+		<span class="kw">let </span>(block_import_sender, block_import_receiver) =
 			tracing_unbounded(<span class="string">"mpsc_import_queue_worker_blocks"</span>, <span class="number">100_000</span>);
 
 		<span class="kw">let </span><span class="kw-2">mut </span>worker = BlockImportWorker { result_sender, justification_import, metrics };
-
-		<span class="kw">let </span>delay_between_blocks = Duration::default();
 
 		<span class="kw">let </span>future = <span class="kw">async move </span>{
 			<span class="comment">// Let's initialize `justification_import`
@@ -1134,9 +1108,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				block_import,
 				verifier,
 				worker.result_sender.clone(),
-				block_import_port,
+				block_import_receiver,
 				worker.metrics.clone(),
-				delay_between_blocks,
 			);
 			<span class="macro">futures::pin_mut!</span>(block_import_process);
 
@@ -1233,7 +1206,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	blocks_origin: BlockOrigin,
 	blocks: Vec&lt;IncomingBlock&lt;B&gt;&gt;,
 	verifier: <span class="kw-2">&amp;mut </span>V,
-	delay_between_blocks: Duration,
 	metrics: <span class="prelude-ty">Option</span>&lt;Metrics&gt;,
 ) -&gt; ImportManyBlocksResult&lt;B&gt; {
 	<span class="kw">let </span>count = blocks.len();
@@ -1299,12 +1271,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		results.push((import_result, block_hash));
 
-		<span class="kw">if </span>delay_between_blocks != Duration::default() &amp;&amp; !has_error {
-			Delay::new(delay_between_blocks).<span class="kw">await</span>;
-		} <span class="kw">else </span>{
-			Yield::new().<span class="kw">await
-		</span>}
-	}
+		Yield::new().<span class="kw">await
+	</span>}
 }
 
 <span class="doccomment">/// A future that will always `yield` on the first call of `poll` but schedules the
