@@ -28,6 +28,7 @@ pallet-asset-conversion-tx-payment = { path = "../../../../../substrate/frame/tr
 pallet-assets = { path = "../../../../../substrate/frame/assets", default-features = false }
 pallet-asset-conversion-ops = { path = "../../../../../substrate/frame/asset-conversion/ops", default-features = false }
 pallet-asset-conversion = { path = "../../../../../substrate/frame/asset-conversion", default-features = false }
+pallet-assets-freezer = { path = "../../../../../substrate/frame/assets-freezer", default-features = false }
 pallet-aura = { path = "../../../../../substrate/frame/aura", default-features = false }
 pallet-authorship = { path = "../../../../../substrate/frame/authorship", default-features = false }
 pallet-balances = { path = "../../../../../substrate/frame/balances", default-features = false }
@@ -116,6 +117,7 @@ runtime-benchmarks = [
 	"frame-system/runtime-benchmarks",
 	"pallet-asset-conversion-ops/runtime-benchmarks",
 	"pallet-asset-conversion/runtime-benchmarks",
+	"pallet-assets-freezer/runtime-benchmarks",
 	"pallet-assets/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
 	"pallet-collator-selection/runtime-benchmarks",
@@ -151,6 +153,7 @@ try-runtime = [
 	"pallet-asset-conversion-ops/try-runtime",
 	"pallet-asset-conversion-tx-payment/try-runtime",
 	"pallet-asset-conversion/try-runtime",
+	"pallet-assets-freezer/try-runtime",
 	"pallet-assets/try-runtime",
 	"pallet-aura/try-runtime",
 	"pallet-authorship/try-runtime",
@@ -200,6 +203,7 @@ std = [
 	"pallet-asset-conversion-ops/std",
 	"pallet-asset-conversion-tx-payment/std",
 	"pallet-asset-conversion/std",
+	"pallet-assets-freezer/std",
 	"pallet-assets/std",
 	"pallet-aura/std",
 	"pallet-authorship/std",
