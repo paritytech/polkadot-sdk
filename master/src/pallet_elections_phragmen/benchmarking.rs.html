@@ -637,7 +637,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Get the current number of candidates.
 </span><span class="kw">fn </span>candidate_count&lt;T: Config&gt;() -&gt; u32 {
-	&lt;Candidates&lt;T&gt;&gt;::decode_len().unwrap_or(<span class="number">0usize</span>) <span class="kw">as </span>u32
+	Candidates::&lt;T&gt;::decode_len().unwrap_or(<span class="number">0usize</span>) <span class="kw">as </span>u32
 }
 
 <span class="doccomment">/// Add `c` new candidates.
@@ -648,7 +648,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	(<span class="number">0</span>..c)
 		.map(|i| {
 			<span class="kw">let </span>account = endowed_account::&lt;T&gt;(prefix, i);
-			&lt;Elections&lt;T&gt;&gt;::submit_candidacy(
+			Elections::&lt;T&gt;::submit_candidacy(
 				RawOrigin::Signed(account.clone()).into(),
 				candidate_count::&lt;T&gt;(),
 			)
@@ -677,7 +677,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	votes: Vec&lt;T::AccountId&gt;,
 	stake: BalanceOf&lt;T&gt;,
 ) -&gt; DispatchResultWithPostInfo {
-	&lt;Elections&lt;T&gt;&gt;::vote(RawOrigin::Signed(caller).into(), votes, stake)
+	Elections::&lt;T&gt;::vote(RawOrigin::Signed(caller).into(), votes, stake)
 }
 
 <span class="doccomment">/// create `num_voter` voters who randomly vote for at most `votes` of `all_candidates` if
@@ -702,28 +702,28 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// members, or members and runners-up.
 </span><span class="kw">fn </span>fill_seats_up_to&lt;T: Config&gt;(m: u32) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;T::AccountId&gt;, <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt; {
 	<span class="kw">let _ </span>= submit_candidates_with_self_vote::&lt;T&gt;(m, <span class="string">"fill_seats_up_to"</span>)<span class="question-mark">?</span>;
-	<span class="macro">assert_eq!</span>(&lt;Elections&lt;T&gt;&gt;::candidates().len() <span class="kw">as </span>u32, m, <span class="string">"wrong number of candidates."</span>);
-	&lt;Elections&lt;T&gt;&gt;::do_phragmen();
-	<span class="macro">assert_eq!</span>(&lt;Elections&lt;T&gt;&gt;::candidates().len(), <span class="number">0</span>, <span class="string">"some candidates remaining."</span>);
+	<span class="macro">assert_eq!</span>(Candidates::&lt;T&gt;::get().len() <span class="kw">as </span>u32, m, <span class="string">"wrong number of candidates."</span>);
+	Elections::&lt;T&gt;::do_phragmen();
+	<span class="macro">assert_eq!</span>(Candidates::&lt;T&gt;::get().len(), <span class="number">0</span>, <span class="string">"some candidates remaining."</span>);
 	<span class="macro">assert_eq!</span>(
-		&lt;Elections&lt;T&gt;&gt;::members().len() + &lt;Elections&lt;T&gt;&gt;::runners_up().len(),
+		Members::&lt;T&gt;::get().len() + RunnersUp::&lt;T&gt;::get().len(),
 		m <span class="kw">as </span>usize,
 		<span class="string">"wrong number of members and runners-up"</span>,
 	);
-	<span class="prelude-val">Ok</span>(&lt;Elections&lt;T&gt;&gt;::members()
+	<span class="prelude-val">Ok</span>(Members::&lt;T&gt;::get()
 		.into_iter()
 		.map(|m| m.who)
-		.chain(&lt;Elections&lt;T&gt;&gt;::runners_up().into_iter().map(|r| r.who))
+		.chain(RunnersUp::&lt;T&gt;::get().into_iter().map(|r| r.who))
 		.collect())
 }
 
 <span class="doccomment">/// removes all the storage items to reverse any genesis state.
 </span><span class="kw">fn </span>clean&lt;T: Config&gt;() {
-	&lt;Members&lt;T&gt;&gt;::kill();
-	&lt;Candidates&lt;T&gt;&gt;::kill();
-	&lt;RunnersUp&lt;T&gt;&gt;::kill();
+	Members::&lt;T&gt;::kill();
+	Candidates::&lt;T&gt;::kill();
+	RunnersUp::&lt;T&gt;::kill();
 	<span class="attr">#[allow(deprecated)]
-	</span>&lt;Voting&lt;T&gt;&gt;::remove_all(<span class="prelude-val">None</span>);
+	</span>Voting::&lt;T&gt;::remove_all(<span class="prelude-val">None</span>);
 }
 
 <span class="macro">benchmarks! </span>{
@@ -761,14 +761,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="comment">// original votes.
 		</span><span class="kw">let </span><span class="kw-2">mut </span>votes = all_candidates.iter().skip(<span class="number">1</span>).cloned().collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
-		submit_voter::&lt;T&gt;(caller.clone(), votes.clone(), stake / &lt;BalanceOf&lt;T&gt;&gt;::from(<span class="number">10u32</span>))<span class="question-mark">?</span>;
+		submit_voter::&lt;T&gt;(caller.clone(), votes.clone(), stake / BalanceOf::&lt;T&gt;::from(<span class="number">10u32</span>))<span class="question-mark">?</span>;
 
 		<span class="comment">// new votes.
 		</span>votes = all_candidates;
-		<span class="macro">assert!</span>(votes.len() &gt; &lt;Voting&lt;T&gt;&gt;::get(caller.clone()).votes.len());
+		<span class="macro">assert!</span>(votes.len() &gt; Voting::&lt;T&gt;::get(caller.clone()).votes.len());
 
 		<span class="macro">whitelist!</span>(caller);
-	}: vote(RawOrigin::Signed(caller), votes, stake / &lt;BalanceOf&lt;T&gt;&gt;::from(<span class="number">10u32</span>))
+	}: vote(RawOrigin::Signed(caller), votes, stake / BalanceOf::&lt;T&gt;::from(<span class="number">10u32</span>))
 
 	vote_less {
 		<span class="kw">let </span>v <span class="kw">in </span><span class="number">2 </span>.. T::MaxVotesPerVoter::get();
@@ -786,7 +786,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="comment">// new votes.
 		</span>votes = votes.into_iter().skip(<span class="number">1</span>).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
-		<span class="macro">assert!</span>(votes.len() &lt; &lt;Voting&lt;T&gt;&gt;::get(caller.clone()).votes.len());
+		<span class="macro">assert!</span>(votes.len() &lt; Voting::&lt;T&gt;::get(caller.clone()).votes.len());
 
 		<span class="macro">whitelist!</span>(caller);
 	}: vote(RawOrigin::Signed(caller), votes, stake)
@@ -875,7 +875,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="kw">let </span>members_and_runners_up = fill_seats_up_to::&lt;T&gt;(m)<span class="question-mark">?</span>;
 
 		<span class="kw">let </span>bailing = members_and_runners_up[<span class="number">0</span>].clone();
-		<span class="macro">assert!</span>(&lt;Elections&lt;T&gt;&gt;::is_member(<span class="kw-2">&amp;</span>bailing));
+		<span class="macro">assert!</span>(Elections::&lt;T&gt;::is_member(<span class="kw-2">&amp;</span>bailing));
 
 		<span class="macro">whitelist!</span>(bailing);
 	}: renounce_candidacy(RawOrigin::Signed(bailing.clone()), Renouncing::Member)
@@ -899,7 +899,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="kw">let </span>members_and_runners_up = fill_seats_up_to::&lt;T&gt;(m)<span class="question-mark">?</span>;
 
 		<span class="kw">let </span>bailing = members_and_runners_up[T::DesiredMembers::get() <span class="kw">as </span>usize + <span class="number">1</span>].clone();
-		<span class="macro">assert!</span>(&lt;Elections&lt;T&gt;&gt;::is_runner_up(<span class="kw-2">&amp;</span>bailing));
+		<span class="macro">assert!</span>(Elections::&lt;T&gt;::is_runner_up(<span class="kw-2">&amp;</span>bailing));
 
 		<span class="macro">whitelist!</span>(bailing);
 	}: renounce_candidacy(RawOrigin::Signed(bailing.clone()), Renouncing::RunnerUp)
@@ -926,11 +926,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		clean::&lt;T&gt;();
 
 		<span class="kw">let _ </span>= fill_seats_up_to::&lt;T&gt;(m)<span class="question-mark">?</span>;
-		<span class="kw">let </span>removing = as_lookup::&lt;T&gt;(&lt;Elections&lt;T&gt;&gt;::members_ids()[<span class="number">0</span>].clone());
+		<span class="kw">let </span>removing = as_lookup::&lt;T&gt;(Elections::&lt;T&gt;::members_ids()[<span class="number">0</span>].clone());
 	}: remove_member(RawOrigin::Root, removing, <span class="bool-val">true</span>, <span class="bool-val">false</span>)
 	verify {
 		<span class="comment">// must still have enough members.
-		</span><span class="macro">assert_eq!</span>(&lt;Elections&lt;T&gt;&gt;::members().len() <span class="kw">as </span>u32, T::DesiredMembers::get());
+		</span><span class="macro">assert_eq!</span>(Members::&lt;T&gt;::get().len() <span class="kw">as </span>u32, T::DesiredMembers::get());
 		<span class="attr">#[cfg(test)]
 		</span>{
 			<span class="comment">// reset members in between benchmark tests.
@@ -952,15 +952,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		distribute_voters::&lt;T&gt;(all_candidates, v, T::MaxVotesPerVoter::get() <span class="kw">as </span>usize)<span class="question-mark">?</span>;
 
 		<span class="comment">// all candidates leave.
-		</span>&lt;Candidates&lt;T&gt;&gt;::kill();
+		</span>Candidates::&lt;T&gt;::kill();
 
 		<span class="comment">// now everyone is defunct
-		</span><span class="macro">assert!</span>(&lt;Voting&lt;T&gt;&gt;::iter().all(|(<span class="kw">_</span>, v)| &lt;Elections&lt;T&gt;&gt;::is_defunct_voter(<span class="kw-2">&amp;</span>v.votes)));
-		<span class="macro">assert_eq!</span>(&lt;Voting&lt;T&gt;&gt;::iter().count() <span class="kw">as </span>u32, v);
+		</span><span class="macro">assert!</span>(Voting::&lt;T&gt;::iter().all(|(<span class="kw">_</span>, v)| Elections::&lt;T&gt;::is_defunct_voter(<span class="kw-2">&amp;</span>v.votes)));
+		<span class="macro">assert_eq!</span>(Voting::&lt;T&gt;::iter().count() <span class="kw">as </span>u32, v);
 		<span class="kw">let </span>root = RawOrigin::Root;
 	}: <span class="kw">_</span>(root, v, d)
 	verify {
-		<span class="macro">assert_eq!</span>(&lt;Voting&lt;T&gt;&gt;::iter().count() <span class="kw">as </span>u32, v - d);
+		<span class="macro">assert_eq!</span>(Voting::&lt;T&gt;::iter().count() <span class="kw">as </span>u32, v - d);
 	}
 
 	election_phragmen {
@@ -985,12 +985,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>all_candidates = submit_candidates_with_self_vote::&lt;T&gt;(c, <span class="string">"candidates"</span>)<span class="question-mark">?</span>;
 		<span class="kw">let _ </span>= distribute_voters::&lt;T&gt;(all_candidates, v.saturating_sub(c), votes_per_voter <span class="kw">as </span>usize)<span class="question-mark">?</span>;
 	}: {
-		&lt;Elections&lt;T&gt;&gt;::on_initialize(T::TermDuration::get());
+		Elections::&lt;T&gt;::on_initialize(T::TermDuration::get());
 	}
 	verify {
-		<span class="macro">assert_eq!</span>(&lt;Elections&lt;T&gt;&gt;::members().len() <span class="kw">as </span>u32, T::DesiredMembers::get().min(c));
+		<span class="macro">assert_eq!</span>(Members::&lt;T&gt;::get().len() <span class="kw">as </span>u32, T::DesiredMembers::get().min(c));
 		<span class="macro">assert_eq!</span>(
-			&lt;Elections&lt;T&gt;&gt;::runners_up().len() <span class="kw">as </span>u32,
+			RunnersUp::&lt;T&gt;::get().len() <span class="kw">as </span>u32,
 			T::DesiredRunnersUp::get().min(c.saturating_sub(T::DesiredMembers::get())),
 		);
 

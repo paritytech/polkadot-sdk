@@ -3442,8 +3442,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#3291" id="3291">3291</a>
 <a href="#3292" id="3292">3292</a>
 <a href="#3293" id="3293">3293</a>
-<a href="#3294" id="3294">3294</a>
-<a href="#3295" id="3295">3295</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -3823,9 +3821,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			);
 			<span class="macro">ensure!</span>(!votes.is_empty(), Error::&lt;T&gt;::NoVotes);
 
-			<span class="kw">let </span>candidates_count = &lt;Candidates&lt;T&gt;&gt;::decode_len().unwrap_or(<span class="number">0</span>);
-			<span class="kw">let </span>members_count = &lt;Members&lt;T&gt;&gt;::decode_len().unwrap_or(<span class="number">0</span>);
-			<span class="kw">let </span>runners_up_count = &lt;RunnersUp&lt;T&gt;&gt;::decode_len().unwrap_or(<span class="number">0</span>);
+			<span class="kw">let </span>candidates_count = Candidates::&lt;T&gt;::decode_len().unwrap_or(<span class="number">0</span>);
+			<span class="kw">let </span>members_count = Members::&lt;T&gt;::decode_len().unwrap_or(<span class="number">0</span>);
+			<span class="kw">let </span>runners_up_count = RunnersUp::&lt;T&gt;::decode_len().unwrap_or(<span class="number">0</span>);
 
 			<span class="comment">// can never submit a vote of there are no members, and cannot submit more votes than
 			// all potential vote targets.
@@ -3839,7 +3837,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="comment">// Reserve bond.
 			</span><span class="kw">let </span>new_deposit = <span class="self">Self</span>::deposit_of(votes.len());
-			<span class="kw">let </span>Voter { deposit: old_deposit, .. } = &lt;Voting&lt;T&gt;&gt;::get(<span class="kw-2">&amp;</span>who);
+			<span class="kw">let </span>Voter { deposit: old_deposit, .. } = Voting::&lt;T&gt;::get(<span class="kw-2">&amp;</span>who);
 			<span class="kw">match </span>new_deposit.cmp(<span class="kw-2">&amp;</span>old_deposit) {
 				Ordering::Greater =&gt; {
 					<span class="comment">// Must reserve a bit more.
@@ -3901,7 +3899,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		) -&gt; DispatchResult {
 			<span class="kw">let </span>who = ensure_signed(origin)<span class="question-mark">?</span>;
 
-			<span class="kw">let </span>actual_count = &lt;Candidates&lt;T&gt;&gt;::decode_len().unwrap_or(<span class="number">0</span>) <span class="kw">as </span>u32;
+			<span class="kw">let </span>actual_count = Candidates::&lt;T&gt;::decode_len().unwrap_or(<span class="number">0</span>) <span class="kw">as </span>u32;
 			<span class="macro">ensure!</span>(actual_count &lt;= candidate_count, Error::&lt;T&gt;::InvalidWitnessData);
 			<span class="macro">ensure!</span>(
 				actual_count &lt;= &lt;T <span class="kw">as </span>Config&gt;::MaxCandidates::get(),
@@ -3916,7 +3914,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			T::Currency::reserve(<span class="kw-2">&amp;</span>who, T::CandidacyBond::get())
 				.map_err(|<span class="kw">_</span>| Error::&lt;T&gt;::InsufficientCandidateFunds)<span class="question-mark">?</span>;
 
-			&lt;Candidates&lt;T&gt;&gt;::mutate(|c| c.insert(index, (who, T::CandidacyBond::get())));
+			Candidates::&lt;T&gt;::mutate(|c| c.insert(index, (who, T::CandidacyBond::get())));
 			<span class="prelude-val">Ok</span>(())
 		}
 
@@ -3955,7 +3953,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="self">Self</span>::deposit_event(Event::Renounced { candidate: who });
 				},
 				Renouncing::RunnerUp =&gt; {
-					&lt;RunnersUp&lt;T&gt;&gt;::try_mutate::&lt;<span class="kw">_</span>, Error&lt;T&gt;, <span class="kw">_</span>&gt;(|runners_up| {
+					RunnersUp::&lt;T&gt;::try_mutate::&lt;<span class="kw">_</span>, Error&lt;T&gt;, <span class="kw">_</span>&gt;(|runners_up| {
 						<span class="kw">let </span>index = runners_up
 							.iter()
 							.position(|SeatHolder { who: r, .. }| r == <span class="kw-2">&amp;</span>who)
@@ -3969,7 +3967,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					})<span class="question-mark">?</span>;
 				},
 				Renouncing::Candidate(count) =&gt; {
-					&lt;Candidates&lt;T&gt;&gt;::try_mutate::&lt;<span class="kw">_</span>, Error&lt;T&gt;, <span class="kw">_</span>&gt;(|candidates| {
+					Candidates::&lt;T&gt;::try_mutate::&lt;<span class="kw">_</span>, Error&lt;T&gt;, <span class="kw">_</span>&gt;(|candidates| {
 						<span class="macro">ensure!</span>(count &gt;= candidates.len() <span class="kw">as </span>u32, Error::&lt;T&gt;::InvalidWitnessData);
 						<span class="kw">let </span>index = candidates
 							.binary_search_by(|(c, <span class="kw">_</span>)| c.cmp(<span class="kw-2">&amp;</span>who))
@@ -4045,7 +4043,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		) -&gt; DispatchResult {
 			<span class="kw">let _ </span>= ensure_root(origin)<span class="question-mark">?</span>;
 
-			&lt;Voting&lt;T&gt;&gt;::iter()
+			Voting::&lt;T&gt;::iter()
 				.take(num_voters <span class="kw">as </span>usize)
 				.filter(|(<span class="kw">_</span>, x)| <span class="self">Self</span>::is_defunct_voter(<span class="kw-2">&amp;</span>x.votes))
 				.take(num_defunct <span class="kw">as </span>usize)
@@ -4128,7 +4126,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// Invariant: Always sorted based on account id.
 	</span><span class="attr">#[pallet::storage]
-	#[pallet::getter(<span class="kw">fn </span>members)]
 	</span><span class="kw">pub type </span>Members&lt;T: Config&gt; =
 		StorageValue&lt;<span class="kw">_</span>, Vec&lt;SeatHolder&lt;T::AccountId, BalanceOf&lt;T&gt;&gt;&gt;, ValueQuery&gt;;
 
@@ -4137,7 +4134,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// Invariant: Always sorted based on rank (worse to best). Upon removal of a member, the
 	/// last (i.e. _best_) runner-up will be replaced.
 	</span><span class="attr">#[pallet::storage]
-	#[pallet::getter(<span class="kw">fn </span>runners_up)]
 	</span><span class="kw">pub type </span>RunnersUp&lt;T: Config&gt; =
 		StorageValue&lt;<span class="kw">_</span>, Vec&lt;SeatHolder&lt;T::AccountId, BalanceOf&lt;T&gt;&gt;&gt;, ValueQuery&gt;;
 
@@ -4148,19 +4144,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// Invariant: Always sorted based on account id.
 	</span><span class="attr">#[pallet::storage]
-	#[pallet::getter(<span class="kw">fn </span>candidates)]
 	</span><span class="kw">pub type </span>Candidates&lt;T: Config&gt; = StorageValue&lt;<span class="kw">_</span>, Vec&lt;(T::AccountId, BalanceOf&lt;T&gt;)&gt;, ValueQuery&gt;;
 
 	<span class="doccomment">/// The total number of vote rounds that have happened, excluding the upcoming one.
 	</span><span class="attr">#[pallet::storage]
-	#[pallet::getter(<span class="kw">fn </span>election_rounds)]
 	</span><span class="kw">pub type </span>ElectionRounds&lt;T: Config&gt; = StorageValue&lt;<span class="kw">_</span>, u32, ValueQuery&gt;;
 
 	<span class="doccomment">/// Votes and locked stake of a particular voter.
 	///
 	/// TWOX-NOTE: SAFE as `AccountId` is a crypto hash.
 	</span><span class="attr">#[pallet::storage]
-	#[pallet::getter(<span class="kw">fn </span>voting)]
 	</span><span class="kw">pub type </span>Voting&lt;T: Config&gt; =
 		StorageMap&lt;<span class="kw">_</span>, Twox64Concat, T::AccountId, Voter&lt;T::AccountId, BalanceOf&lt;T&gt;&gt;, ValueQuery&gt;;
 
@@ -4214,7 +4207,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					// they have any lock. NOTE: this means that we will still try to remove a lock
 					// once this genesis voter is removed, and for now it is okay because
 					// remove_lock is noop if lock is not there.
-					</span>&lt;Voting&lt;T&gt;&gt;::insert(
+					</span>Voting::&lt;T&gt;::insert(
 						<span class="kw-2">&amp;</span>member,
 						Voter { votes: <span class="macro">vec!</span>[member.clone()], stake: <span class="kw-2">*</span>stake, deposit: Zero::zero() },
 					);
@@ -4257,7 +4250,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		// - `Ok(Option(replacement))` if member was removed and replacement was replaced.
 		// - `Ok(None)` if member was removed but no replacement was found
 		// - `Err(_)` if who is not a member.
-		</span><span class="kw">let </span>maybe_replacement = &lt;Members&lt;T&gt;&gt;::try_mutate::&lt;<span class="kw">_</span>, Error&lt;T&gt;, <span class="kw">_</span>&gt;(|members| {
+		</span><span class="kw">let </span>maybe_replacement = Members::&lt;T&gt;::try_mutate::&lt;<span class="kw">_</span>, Error&lt;T&gt;, <span class="kw">_</span>&gt;(|members| {
 			<span class="kw">let </span>remove_index = members
 				.binary_search_by(|m| m.who.cmp(who))
 				.map_err(|<span class="kw">_</span>| Error::&lt;T&gt;::NotMember)<span class="question-mark">?</span>;
@@ -4277,7 +4270,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				T::Currency::unreserve(who, removed.deposit);
 			}
 
-			<span class="kw">let </span>maybe_next_best = &lt;RunnersUp&lt;T&gt;&gt;::mutate(|r| r.pop()).map(|next_best| {
+			<span class="kw">let </span>maybe_next_best = RunnersUp::&lt;T&gt;::mutate(|r| r.pop()).map(|next_best| {
 				<span class="comment">// defensive-only: Members and runners-up are disjoint. This will always be err and
 				// give us an index to insert.
 				</span><span class="kw">if let </span><span class="prelude-val">Err</span>(index) = members.binary_search_by(|m| m.who.cmp(<span class="kw-2">&amp;</span>next_best.who)) {
@@ -4293,7 +4286,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		})<span class="question-mark">?</span>;
 
 		<span class="kw">let </span>remaining_member_ids_sorted =
-			<span class="self">Self</span>::members().into_iter().map(|x| x.who).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
+			Members::&lt;T&gt;::get().into_iter().map(|x| x.who).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
 		<span class="kw">let </span>outgoing = <span class="kw-2">&amp;</span>[who.clone()];
 		<span class="kw">let </span>maybe_current_prime = T::ChangeMembers::get_prime();
 		<span class="kw">let </span>return_value = <span class="kw">match </span>maybe_replacement {
@@ -4330,7 +4323,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Check if `who` is a candidate. It returns the insert index if the element does not exists as
 	/// an error.
 	</span><span class="kw">fn </span>is_candidate(who: <span class="kw-2">&amp;</span>T::AccountId) -&gt; <span class="prelude-ty">Result</span>&lt;(), usize&gt; {
-		<span class="self">Self</span>::candidates().binary_search_by(|c| c.<span class="number">0</span>.cmp(who)).map(|<span class="kw">_</span>| ())
+		Candidates::&lt;T&gt;::get().binary_search_by(|c| c.<span class="number">0</span>.cmp(who)).map(|<span class="kw">_</span>| ())
 	}
 
 	<span class="doccomment">/// Check if `who` is a voter. It may or may not be a _current_ one.
@@ -4340,17 +4333,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Check if `who` is currently an active member.
 	</span><span class="kw">fn </span>is_member(who: <span class="kw-2">&amp;</span>T::AccountId) -&gt; bool {
-		<span class="self">Self</span>::members().binary_search_by(|m| m.who.cmp(who)).is_ok()
+		Members::&lt;T&gt;::get().binary_search_by(|m| m.who.cmp(who)).is_ok()
 	}
 
 	<span class="doccomment">/// Check if `who` is currently an active runner-up.
 	</span><span class="kw">fn </span>is_runner_up(who: <span class="kw-2">&amp;</span>T::AccountId) -&gt; bool {
-		<span class="self">Self</span>::runners_up().iter().any(|r| <span class="kw-2">&amp;</span>r.who == who)
+		RunnersUp::&lt;T&gt;::get().iter().any(|r| <span class="kw-2">&amp;</span>r.who == who)
 	}
 
 	<span class="doccomment">/// Get the members' account ids.
 	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>members_ids() -&gt; Vec&lt;T::AccountId&gt; {
-		<span class="self">Self</span>::members().into_iter().map(|m| m.who).collect::&lt;Vec&lt;T::AccountId&gt;&gt;()
+		Members::&lt;T&gt;::get().into_iter().map(|m| m.who).collect::&lt;Vec&lt;T::AccountId&gt;&gt;()
 	}
 
 	<span class="doccomment">/// Get a concatenation of previous members and runners-up and their deposits.
@@ -4358,10 +4351,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// These accounts are essentially treated as candidates.
 	</span><span class="kw">fn </span>implicit_candidates_with_deposit() -&gt; Vec&lt;(T::AccountId, BalanceOf&lt;T&gt;)&gt; {
 		<span class="comment">// invariant: these two are always without duplicates.
-		</span><span class="self">Self</span>::members()
+		</span>Members::&lt;T&gt;::get()
 			.into_iter()
 			.map(|m| (m.who, m.deposit))
-			.chain(<span class="self">Self</span>::runners_up().into_iter().map(|r| (r.who, r.deposit)))
+			.chain(RunnersUp::&lt;T&gt;::get().into_iter().map(|r| (r.who, r.deposit)))
 			.collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;()
 	}
 
@@ -4378,7 +4371,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Remove a certain someone as a voter.
 	</span><span class="kw">fn </span>do_remove_voter(who: <span class="kw-2">&amp;</span>T::AccountId) {
-		<span class="kw">let </span>Voter { deposit, .. } = &lt;Voting&lt;T&gt;&gt;::take(who);
+		<span class="kw">let </span>Voter { deposit, .. } = Voting::&lt;T&gt;::take(who);
 
 		<span class="comment">// remove storage, lock and unreserve.
 		</span>T::Currency::remove_lock(T::PalletId::get(), who);
@@ -4398,7 +4391,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>desired_runners_up = T::DesiredRunnersUp::get() <span class="kw">as </span>usize;
 		<span class="kw">let </span>num_to_elect = desired_runners_up + desired_seats;
 
-		<span class="kw">let </span><span class="kw-2">mut </span>candidates_and_deposit = <span class="self">Self</span>::candidates();
+		<span class="kw">let </span><span class="kw-2">mut </span>candidates_and_deposit = Candidates::&lt;T&gt;::get();
 		<span class="comment">// add all the previous members and runners-up as candidates as well.
 		</span>candidates_and_deposit.append(<span class="kw-2">&amp;mut </span><span class="self">Self</span>::implicit_candidates_with_deposit());
 
@@ -4457,12 +4450,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			sp_npos_elections::seq_phragmen(num_to_elect, candidate_ids, voters_and_votes, <span class="prelude-val">None</span>)
 				.map(|ElectionResult::&lt;T::AccountId, Perbill&gt; { winners, assignments: <span class="kw">_ </span>}| {
 					<span class="comment">// this is already sorted by id.
-					</span><span class="kw">let </span>old_members_ids_sorted = &lt;Members&lt;T&gt;&gt;::take()
+					</span><span class="kw">let </span>old_members_ids_sorted = Members::&lt;T&gt;::take()
 						.into_iter()
 						.map(|m| m.who)
 						.collect::&lt;Vec&lt;T::AccountId&gt;&gt;();
 					<span class="comment">// this one needs a sort by id.
-					</span><span class="kw">let </span><span class="kw-2">mut </span>old_runners_up_ids_sorted = &lt;RunnersUp&lt;T&gt;&gt;::take()
+					</span><span class="kw">let </span><span class="kw-2">mut </span>old_runners_up_ids_sorted = RunnersUp::&lt;T&gt;::take()
 						.into_iter()
 						.map(|r| r.who)
 						.collect::&lt;Vec&lt;T::AccountId&gt;&gt;();
@@ -4568,7 +4561,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="comment">// fetch deposits from the one recorded one. This will make sure that a
 					// candidate who submitted candidacy before a change to candidacy deposit will
 					// have the correct amount recorded.
-					</span>&lt;Members&lt;T&gt;&gt;::put(
+					</span>Members::&lt;T&gt;::put(
 						new_members_sorted_by_id
 							.iter()
 							.map(|(who, stake)| SeatHolder {
@@ -4578,7 +4571,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 							})
 							.collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
 					);
-					&lt;RunnersUp&lt;T&gt;&gt;::put(
+					RunnersUp::&lt;T&gt;::put(
 						new_runners_up_sorted_by_rank
 							.into_iter()
 							.map(|(who, stake)| SeatHolder {
@@ -4590,10 +4583,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					);
 
 					<span class="comment">// clean candidates.
-					</span>&lt;Candidates&lt;T&gt;&gt;::kill();
+					</span>Candidates::&lt;T&gt;::kill();
 
 					<span class="self">Self</span>::deposit_event(Event::NewTerm { new_members: new_members_sorted_by_id });
-					&lt;ElectionRounds&lt;T&gt;&gt;::mutate(|v| <span class="kw-2">*</span>v += <span class="number">1</span>);
+					ElectionRounds::&lt;T&gt;::mutate(|v| <span class="kw-2">*</span>v += <span class="number">1</span>);
 				})
 				.map_err(|e| {
 					<span class="macro">log::error!</span>(target: LOG_TARGET, <span class="string">"Failed to run election [{:?}]."</span>, e,);
@@ -4740,11 +4733,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="kw">fn </span>candidates_ids() -&gt; Vec&lt;T::AccountId&gt; {
-		Pallet::&lt;T&gt;::candidates().iter().map(|(x, <span class="kw">_</span>)| x).cloned().collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;()
+		Candidates::&lt;T&gt;::get().iter().map(|(x, <span class="kw">_</span>)| x).cloned().collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;()
 	}
 
 	<span class="kw">fn </span>runners_up_ids() -&gt; Vec&lt;T::AccountId&gt; {
-		Pallet::&lt;T&gt;::runners_up().into_iter().map(|r| r.who).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;()
+		RunnersUp::&lt;T&gt;::get().into_iter().map(|r| r.who).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;()
 	}
 }
 
@@ -4946,22 +4939,22 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="kw">fn </span>candidate_ids() -&gt; Vec&lt;u64&gt; {
-		Elections::candidates().into_iter().map(|(c, <span class="kw">_</span>)| c).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;()
+		Candidates::&lt;Test&gt;::get().into_iter().map(|(c, <span class="kw">_</span>)| c).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;()
 	}
 
 	<span class="kw">fn </span>candidate_deposit(who: <span class="kw-2">&amp;</span>u64) -&gt; u64 {
-		Elections::candidates()
+		Candidates::&lt;Test&gt;::get()
 			.into_iter()
 			.find_map(|(c, d)| <span class="kw">if </span>c == <span class="kw-2">*</span>who { <span class="prelude-val">Some</span>(d) } <span class="kw">else </span>{ <span class="prelude-val">None </span>})
 			.unwrap_or_default()
 	}
 
 	<span class="kw">fn </span>voter_deposit(who: <span class="kw-2">&amp;</span>u64) -&gt; u64 {
-		Elections::voting(who).deposit
+		Voting::&lt;Test&gt;::get(who).deposit
 	}
 
 	<span class="kw">fn </span>runners_up_ids() -&gt; Vec&lt;u64&gt; {
-		Elections::runners_up().into_iter().map(|r| r.who).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;()
+		RunnersUp::&lt;Test&gt;::get().into_iter().map(|r| r.who).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;()
 	}
 
 	<span class="kw">fn </span>members_ids() -&gt; Vec&lt;u64&gt; {
@@ -4969,11 +4962,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="kw">fn </span>members_and_stake() -&gt; Vec&lt;(u64, u64)&gt; {
-		Elections::members().into_iter().map(|m| (m.who, m.stake)).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;()
+		elections_phragmen::Members::&lt;Test&gt;::get()
+			.into_iter()
+			.map(|m| (m.who, m.stake))
+			.collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;()
 	}
 
 	<span class="kw">fn </span>runners_up_and_stake() -&gt; Vec&lt;(u64, u64)&gt; {
-		Elections::runners_up()
+		RunnersUp::&lt;Test&gt;::get()
 			.into_iter()
 			.map(|r| (r.who, r.stake))
 			.collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;()
@@ -5008,7 +5004,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="kw">fn </span>submit_candidacy(origin: RuntimeOrigin) -&gt; sp_runtime::DispatchResult {
-		Elections::submit_candidacy(origin, Elections::candidates().len() <span class="kw">as </span>u32)
+		Elections::submit_candidacy(origin, Candidates::&lt;Test&gt;::get().len() <span class="kw">as </span>u32)
 	}
 
 	<span class="kw">fn </span>vote(origin: RuntimeOrigin, votes: Vec&lt;u64&gt;, stake: u64) -&gt; DispatchResultWithPostInfo {
@@ -5032,13 +5028,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="macro">assert_eq!</span>(&lt;Test <span class="kw">as </span>Config&gt;::VotingBondFactor::get(), <span class="number">0</span>);
 			<span class="macro">assert_eq!</span>(&lt;Test <span class="kw">as </span>Config&gt;::CandidacyBond::get(), <span class="number">3</span>);
 			<span class="macro">assert_eq!</span>(&lt;Test <span class="kw">as </span>Config&gt;::TermDuration::get(), <span class="number">5</span>);
-			<span class="macro">assert_eq!</span>(Elections::election_rounds(), <span class="number">0</span>);
+			<span class="macro">assert_eq!</span>(ElectionRounds::&lt;Test&gt;::get(), <span class="number">0</span>);
 
-			<span class="macro">assert!</span>(Elections::members().is_empty());
-			<span class="macro">assert!</span>(Elections::runners_up().is_empty());
+			<span class="macro">assert!</span>(elections_phragmen::Members::&lt;Test&gt;::get().is_empty());
+			<span class="macro">assert!</span>(RunnersUp::&lt;Test&gt;::get().is_empty());
 
 			<span class="macro">assert!</span>(candidate_ids().is_empty());
-			<span class="macro">assert_eq!</span>(&lt;Candidates&lt;Test&gt;&gt;::decode_len(), <span class="prelude-val">None</span>);
+			<span class="macro">assert_eq!</span>(Candidates::&lt;Test&gt;::decode_len(), <span class="prelude-val">None</span>);
 			<span class="macro">assert!</span>(Elections::is_candidate(<span class="kw-2">&amp;</span><span class="number">1</span>).is_err());
 
 			<span class="macro">assert!</span>(all_voters().is_empty());
@@ -5053,7 +5049,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.build_and_execute(|| {
 				System::set_block_number(<span class="number">1</span>);
 				<span class="macro">assert_eq!</span>(
-					Elections::members(),
+					elections_phragmen::Members::&lt;Test&gt;::get(),
 					<span class="macro">vec!</span>[
 						SeatHolder { who: <span class="number">1</span>, stake: <span class="number">10</span>, deposit: <span class="number">0 </span>},
 						SeatHolder { who: <span class="number">2</span>, stake: <span class="number">20</span>, deposit: <span class="number">0 </span>}
@@ -5061,11 +5057,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				);
 
 				<span class="macro">assert_eq!</span>(
-					Elections::voting(<span class="number">1</span>),
+					Voting::&lt;Test&gt;::get(<span class="number">1</span>),
 					Voter { stake: <span class="number">10u64</span>, votes: <span class="macro">vec!</span>[<span class="number">1</span>], deposit: <span class="number">0 </span>}
 				);
 				<span class="macro">assert_eq!</span>(
-					Elections::voting(<span class="number">2</span>),
+					Voting::&lt;Test&gt;::get(<span class="number">2</span>),
 					Voter { stake: <span class="number">20u64</span>, votes: <span class="macro">vec!</span>[<span class="number">2</span>], deposit: <span class="number">0 </span>}
 				);
 
@@ -5085,19 +5081,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				System::set_block_number(<span class="number">1</span>);
 
 				<span class="macro">assert_eq!</span>(
-					Elections::voting(<span class="number">1</span>),
+					Voting::&lt;Test&gt;::get(<span class="number">1</span>),
 					Voter { stake: <span class="number">10u64</span>, votes: <span class="macro">vec!</span>[<span class="number">1</span>], deposit: <span class="number">0 </span>}
 				);
 				<span class="macro">assert_eq!</span>(
-					Elections::voting(<span class="number">2</span>),
+					Voting::&lt;Test&gt;::get(<span class="number">2</span>),
 					Voter { stake: <span class="number">20u64</span>, votes: <span class="macro">vec!</span>[<span class="number">2</span>], deposit: <span class="number">0 </span>}
 				);
 
 				<span class="macro">assert_ok!</span>(Elections::remove_voter(RuntimeOrigin::signed(<span class="number">1</span>)));
 				<span class="macro">assert_ok!</span>(Elections::remove_voter(RuntimeOrigin::signed(<span class="number">2</span>)));
 
-				<span class="macro">assert_eq!</span>(Elections::voting(<span class="number">1</span>), Default::default());
-				<span class="macro">assert_eq!</span>(Elections::voting(<span class="number">2</span>), Default::default());
+				<span class="macro">assert_eq!</span>(Voting::&lt;Test&gt;::get(<span class="number">1</span>), Default::default());
+				<span class="macro">assert_eq!</span>(Voting::&lt;Test&gt;::get(<span class="number">2</span>), Default::default());
 			})
 	}
 
@@ -5108,7 +5104,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.build_and_execute(|| {
 				System::set_block_number(<span class="number">1</span>);
 				<span class="macro">assert_eq!</span>(
-					Elections::members(),
+					elections_phragmen::Members::&lt;Test&gt;::get(),
 					<span class="macro">vec!</span>[
 						SeatHolder { who: <span class="number">1</span>, stake: <span class="number">10</span>, deposit: <span class="number">0 </span>},
 						SeatHolder { who: <span class="number">2</span>, stake: <span class="number">20</span>, deposit: <span class="number">0 </span>},
@@ -5116,11 +5112,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				);
 
 				<span class="macro">assert_eq!</span>(
-					Elections::voting(<span class="number">1</span>),
+					Voting::&lt;Test&gt;::get(<span class="number">1</span>),
 					Voter { stake: <span class="number">10u64</span>, votes: <span class="macro">vec!</span>[<span class="number">1</span>], deposit: <span class="number">0 </span>}
 				);
 				<span class="macro">assert_eq!</span>(
-					Elections::voting(<span class="number">2</span>),
+					Voting::&lt;Test&gt;::get(<span class="number">2</span>),
 					Voter { stake: <span class="number">20u64</span>, votes: <span class="macro">vec!</span>[<span class="number">2</span>], deposit: <span class="number">0 </span>}
 				);
 
@@ -5164,17 +5160,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		ExtBuilder::default().term_duration(<span class="number">0</span>).build_and_execute(|| {
 			<span class="macro">assert_eq!</span>(&lt;Test <span class="kw">as </span>Config&gt;::TermDuration::get(), <span class="number">0</span>);
 			<span class="macro">assert_eq!</span>(&lt;Test <span class="kw">as </span>Config&gt;::DesiredMembers::get(), <span class="number">2</span>);
-			<span class="macro">assert_eq!</span>(Elections::election_rounds(), <span class="number">0</span>);
+			<span class="macro">assert_eq!</span>(ElectionRounds::&lt;Test&gt;::get(), <span class="number">0</span>);
 
 			<span class="macro">assert!</span>(members_ids().is_empty());
-			<span class="macro">assert!</span>(Elections::runners_up().is_empty());
+			<span class="macro">assert!</span>(RunnersUp::&lt;Test&gt;::get().is_empty());
 			<span class="macro">assert!</span>(candidate_ids().is_empty());
 
 			System::set_block_number(<span class="number">5</span>);
 			Elections::on_initialize(System::block_number());
 
 			<span class="macro">assert!</span>(members_ids().is_empty());
-			<span class="macro">assert!</span>(Elections::runners_up().is_empty());
+			<span class="macro">assert!</span>(RunnersUp::&lt;Test&gt;::get().is_empty());
 			<span class="macro">assert!</span>(candidate_ids().is_empty());
 		});
 	}
@@ -5215,14 +5211,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		ExtBuilder::default().build_and_execute(|| {
 			<span class="macro">assert_ok!</span>(submit_candidacy(RuntimeOrigin::signed(<span class="number">5</span>)));
 			<span class="macro">assert_ok!</span>(vote(RuntimeOrigin::signed(<span class="number">5</span>), <span class="macro">vec!</span>[<span class="number">5</span>], <span class="number">50</span>));
-			<span class="macro">assert_eq!</span>(Elections::candidates(), <span class="macro">vec!</span>[(<span class="number">5</span>, <span class="number">3</span>)]);
+			<span class="macro">assert_eq!</span>(Candidates::&lt;Test&gt;::get(), <span class="macro">vec!</span>[(<span class="number">5</span>, <span class="number">3</span>)]);
 
 			<span class="comment">// a runtime upgrade changes the bond.
 			</span>CANDIDACY_BOND.with(|v| <span class="kw-2">*</span>v.borrow_mut() = <span class="number">4</span>);
 
 			<span class="macro">assert_ok!</span>(submit_candidacy(RuntimeOrigin::signed(<span class="number">4</span>)));
 			<span class="macro">assert_ok!</span>(vote(RuntimeOrigin::signed(<span class="number">4</span>), <span class="macro">vec!</span>[<span class="number">4</span>], <span class="number">40</span>));
-			<span class="macro">assert_eq!</span>(Elections::candidates(), <span class="macro">vec!</span>[(<span class="number">4</span>, <span class="number">4</span>), (<span class="number">5</span>, <span class="number">3</span>)]);
+			<span class="macro">assert_eq!</span>(Candidates::&lt;Test&gt;::get(), <span class="macro">vec!</span>[(<span class="number">4</span>, <span class="number">4</span>), (<span class="number">5</span>, <span class="number">3</span>)]);
 
 			<span class="comment">// once elected, they each hold their candidacy bond, no more.
 			</span>System::set_block_number(<span class="number">5</span>);
@@ -5231,7 +5227,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="macro">assert_eq!</span>(balances(<span class="kw-2">&amp;</span><span class="number">4</span>), (<span class="number">34</span>, <span class="number">6</span>));
 			<span class="macro">assert_eq!</span>(balances(<span class="kw-2">&amp;</span><span class="number">5</span>), (<span class="number">45</span>, <span class="number">5</span>));
 			<span class="macro">assert_eq!</span>(
-				Elections::members(),
+				elections_phragmen::Members::&lt;Test&gt;::get(),
 				<span class="macro">vec!</span>[
 					SeatHolder { who: <span class="number">4</span>, stake: <span class="number">34</span>, deposit: <span class="number">4 </span>},
 					SeatHolder { who: <span class="number">5</span>, stake: <span class="number">45</span>, deposit: <span class="number">3 </span>},
@@ -5280,7 +5276,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			Elections::on_initialize(System::block_number());
 
 			<span class="macro">assert_eq!</span>(members_ids(), <span class="macro">vec!</span>[<span class="number">5</span>]);
-			<span class="macro">assert!</span>(Elections::runners_up().is_empty());
+			<span class="macro">assert!</span>(RunnersUp::&lt;Test&gt;::get().is_empty());
 			<span class="macro">assert!</span>(candidate_ids().is_empty());
 
 			<span class="macro">assert_noop!</span>(submit_candidacy(RuntimeOrigin::signed(<span class="number">5</span>)), Error::&lt;Test&gt;::MemberSubmit);
@@ -5406,7 +5402,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="comment">// 2 + 1
 			</span><span class="macro">assert_eq!</span>(balances(<span class="kw-2">&amp;</span><span class="number">2</span>), (<span class="number">17</span>, <span class="number">3</span>));
-			<span class="macro">assert_eq!</span>(Elections::voting(<span class="kw-2">&amp;</span><span class="number">2</span>).deposit, <span class="number">3</span>);
+			<span class="macro">assert_eq!</span>(Voting::&lt;Test&gt;::get(<span class="kw-2">&amp;</span><span class="number">2</span>).deposit, <span class="number">3</span>);
 			<span class="macro">assert_eq!</span>(has_lock(<span class="kw-2">&amp;</span><span class="number">2</span>), <span class="number">10</span>);
 			<span class="macro">assert_eq!</span>(locked_stake_of(<span class="kw-2">&amp;</span><span class="number">2</span>), <span class="number">10</span>);
 
@@ -5414,7 +5410,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span><span class="macro">assert_ok!</span>(vote(RuntimeOrigin::signed(<span class="number">2</span>), <span class="macro">vec!</span>[<span class="number">5</span>, <span class="number">4</span>], <span class="number">15</span>));
 			<span class="comment">// 2 + 2
 			</span><span class="macro">assert_eq!</span>(balances(<span class="kw-2">&amp;</span><span class="number">2</span>), (<span class="number">16</span>, <span class="number">4</span>));
-			<span class="macro">assert_eq!</span>(Elections::voting(<span class="kw-2">&amp;</span><span class="number">2</span>).deposit, <span class="number">4</span>);
+			<span class="macro">assert_eq!</span>(Voting::&lt;Test&gt;::get(<span class="kw-2">&amp;</span><span class="number">2</span>).deposit, <span class="number">4</span>);
 			<span class="macro">assert_eq!</span>(has_lock(<span class="kw-2">&amp;</span><span class="number">2</span>), <span class="number">15</span>);
 			<span class="macro">assert_eq!</span>(locked_stake_of(<span class="kw-2">&amp;</span><span class="number">2</span>), <span class="number">15</span>);
 
@@ -5422,7 +5418,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span><span class="macro">assert_ok!</span>(vote(RuntimeOrigin::signed(<span class="number">2</span>), <span class="macro">vec!</span>[<span class="number">5</span>, <span class="number">3</span>], <span class="number">18</span>));
 			<span class="comment">// 2 + 2
 			</span><span class="macro">assert_eq!</span>(balances(<span class="kw-2">&amp;</span><span class="number">2</span>), (<span class="number">16</span>, <span class="number">4</span>));
-			<span class="macro">assert_eq!</span>(Elections::voting(<span class="kw-2">&amp;</span><span class="number">2</span>).deposit, <span class="number">4</span>);
+			<span class="macro">assert_eq!</span>(Voting::&lt;Test&gt;::get(<span class="kw-2">&amp;</span><span class="number">2</span>).deposit, <span class="number">4</span>);
 			<span class="macro">assert_eq!</span>(has_lock(<span class="kw-2">&amp;</span><span class="number">2</span>), <span class="number">16</span>);
 			<span class="macro">assert_eq!</span>(locked_stake_of(<span class="kw-2">&amp;</span><span class="number">2</span>), <span class="number">16</span>);
 
@@ -5430,7 +5426,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span><span class="macro">assert_ok!</span>(vote(RuntimeOrigin::signed(<span class="number">2</span>), <span class="macro">vec!</span>[<span class="number">4</span>], <span class="number">12</span>));
 			<span class="comment">// 2 + 1
 			</span><span class="macro">assert_eq!</span>(balances(<span class="kw-2">&amp;</span><span class="number">2</span>), (<span class="number">17</span>, <span class="number">3</span>));
-			<span class="macro">assert_eq!</span>(Elections::voting(<span class="kw-2">&amp;</span><span class="number">2</span>).deposit, <span class="number">3</span>);
+			<span class="macro">assert_eq!</span>(Voting::&lt;Test&gt;::get(<span class="kw-2">&amp;</span><span class="number">2</span>).deposit, <span class="number">3</span>);
 			<span class="macro">assert_eq!</span>(has_lock(<span class="kw-2">&amp;</span><span class="number">2</span>), <span class="number">12</span>);
 			<span class="macro">assert_eq!</span>(locked_stake_of(<span class="kw-2">&amp;</span><span class="number">2</span>), <span class="number">12</span>);
 		});
@@ -5708,9 +5704,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="macro">assert_eq!</span>(votes_of(<span class="kw-2">&amp;</span><span class="number">4</span>), <span class="macro">vec!</span>[<span class="number">4</span>]);
 
 			<span class="macro">assert_eq!</span>(candidate_ids(), <span class="macro">vec!</span>[<span class="number">3</span>, <span class="number">4</span>, <span class="number">5</span>]);
-			<span class="macro">assert_eq!</span>(&lt;Candidates&lt;Test&gt;&gt;::decode_len().unwrap(), <span class="number">3</span>);
+			<span class="macro">assert_eq!</span>(Candidates::&lt;Test&gt;::decode_len().unwrap(), <span class="number">3</span>);
 
-			<span class="macro">assert_eq!</span>(Elections::election_rounds(), <span class="number">0</span>);
+			<span class="macro">assert_eq!</span>(ElectionRounds::&lt;Test&gt;::get(), <span class="number">0</span>);
 
 			System::set_block_number(<span class="number">5</span>);
 			Elections::on_initialize(System::block_number());
@@ -5719,13 +5715,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="comment">// votes for 5
 			</span><span class="macro">assert_eq!</span>(balances(<span class="kw-2">&amp;</span><span class="number">2</span>), (<span class="number">18</span>, <span class="number">2</span>));
 			<span class="macro">assert_eq!</span>(members_and_stake(), <span class="macro">vec!</span>[(<span class="number">3</span>, <span class="number">25</span>), (<span class="number">5</span>, <span class="number">18</span>)]);
-			<span class="macro">assert!</span>(Elections::runners_up().is_empty());
+			<span class="macro">assert!</span>(RunnersUp::&lt;Test&gt;::get().is_empty());
 
 			<span class="macro">assert_eq_uvec!</span>(all_voters(), <span class="macro">vec!</span>[<span class="number">2</span>, <span class="number">3</span>, <span class="number">4</span>]);
 			<span class="macro">assert!</span>(candidate_ids().is_empty());
-			<span class="macro">assert_eq!</span>(&lt;Candidates&lt;Test&gt;&gt;::decode_len(), <span class="prelude-val">None</span>);
+			<span class="macro">assert_eq!</span>(Candidates::&lt;Test&gt;::decode_len(), <span class="prelude-val">None</span>);
 
-			<span class="macro">assert_eq!</span>(Elections::election_rounds(), <span class="number">1</span>);
+			<span class="macro">assert_eq!</span>(ElectionRounds::&lt;Test&gt;::get(), <span class="number">1</span>);
 		});
 	}
 
@@ -5788,7 +5784,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			Elections::on_initialize(System::block_number());
 
 			<span class="macro">assert_eq!</span>(members_and_stake(), <span class="macro">vec!</span>[(<span class="number">5</span>, <span class="number">45</span>)]);
-			<span class="macro">assert_eq!</span>(Elections::election_rounds(), <span class="number">1</span>);
+			<span class="macro">assert_eq!</span>(ElectionRounds::&lt;Test&gt;::get(), <span class="number">1</span>);
 
 			<span class="comment">// but now it has a valid target.
 			</span><span class="macro">assert_ok!</span>(submit_candidacy(RuntimeOrigin::signed(<span class="number">4</span>)));
@@ -5798,7 +5794,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="comment">// candidate 4 is affected by an old vote.
 			</span><span class="macro">assert_eq!</span>(members_and_stake(), <span class="macro">vec!</span>[(<span class="number">4</span>, <span class="number">28</span>), (<span class="number">5</span>, <span class="number">45</span>)]);
-			<span class="macro">assert_eq!</span>(Elections::election_rounds(), <span class="number">2</span>);
+			<span class="macro">assert_eq!</span>(ElectionRounds::&lt;Test&gt;::get(), <span class="number">2</span>);
 			<span class="macro">assert_eq_uvec!</span>(all_voters(), <span class="macro">vec!</span>[<span class="number">3</span>, <span class="number">5</span>]);
 		});
 	}
@@ -5819,7 +5815,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			System::set_block_number(<span class="number">5</span>);
 			Elections::on_initialize(System::block_number());
 
-			<span class="macro">assert_eq!</span>(Elections::election_rounds(), <span class="number">1</span>);
+			<span class="macro">assert_eq!</span>(ElectionRounds::&lt;Test&gt;::get(), <span class="number">1</span>);
 			<span class="macro">assert_eq!</span>(members_ids(), <span class="macro">vec!</span>[<span class="number">4</span>, <span class="number">5</span>]);
 		});
 	}
@@ -5834,7 +5830,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			Elections::on_initialize(System::block_number());
 
 			<span class="macro">assert!</span>(candidate_ids().is_empty());
-			<span class="macro">assert_eq!</span>(Elections::election_rounds(), <span class="number">1</span>);
+			<span class="macro">assert_eq!</span>(ElectionRounds::&lt;Test&gt;::get(), <span class="number">1</span>);
 			<span class="macro">assert!</span>(members_ids().is_empty());
 
 			System::assert_last_event(RuntimeEvent::Elections(<span class="kw">super</span>::Event::NewTerm {
@@ -5988,7 +5984,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			Elections::on_initialize(System::block_number());
 
 			<span class="macro">assert_eq!</span>(members_ids(), <span class="macro">vec!</span>[<span class="number">4</span>, <span class="number">5</span>]);
-			<span class="macro">assert_eq!</span>(Elections::election_rounds(), <span class="number">1</span>);
+			<span class="macro">assert_eq!</span>(ElectionRounds::&lt;Test&gt;::get(), <span class="number">1</span>);
 
 			<span class="macro">assert_ok!</span>(submit_candidacy(RuntimeOrigin::signed(<span class="number">2</span>)));
 			<span class="macro">assert_ok!</span>(vote(RuntimeOrigin::signed(<span class="number">2</span>), <span class="macro">vec!</span>[<span class="number">2</span>], <span class="number">20</span>));
@@ -6032,7 +6028,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="macro">assert_eq!</span>(runners_up_and_stake(), <span class="macro">vec!</span>[(<span class="number">2</span>, <span class="number">15</span>), (<span class="number">3</span>, <span class="number">25</span>)]);
 				<span class="comment">// no new candidates but old members and runners-up are always added.
 				</span><span class="macro">assert!</span>(candidate_ids().is_empty());
-				<span class="macro">assert_eq!</span>(Elections::election_rounds(), b / <span class="number">5</span>);
+				<span class="macro">assert_eq!</span>(ElectionRounds::&lt;Test&gt;::get(), b / <span class="number">5</span>);
 				<span class="macro">assert_eq_uvec!</span>(all_voters(), <span class="macro">vec!</span>[<span class="number">2</span>, <span class="number">3</span>, <span class="number">4</span>, <span class="number">5</span>]);
 			};
 
@@ -6056,7 +6052,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			System::set_block_number(<span class="number">5</span>);
 			Elections::on_initialize(System::block_number());
 			<span class="macro">assert_eq!</span>(members_ids(), <span class="macro">vec!</span>[<span class="number">4</span>, <span class="number">5</span>]);
-			<span class="macro">assert_eq!</span>(Elections::election_rounds(), <span class="number">1</span>);
+			<span class="macro">assert_eq!</span>(ElectionRounds::&lt;Test&gt;::get(), <span class="number">1</span>);
 
 			<span class="comment">// a new candidate
 			</span><span class="macro">assert_ok!</span>(submit_candidacy(RuntimeOrigin::signed(<span class="number">3</span>)));
@@ -6065,7 +6061,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="macro">assert_ok!</span>(Elections::remove_member(RuntimeOrigin::root(), <span class="number">4</span>, <span class="bool-val">true</span>, <span class="bool-val">true</span>));
 
 			<span class="macro">assert_eq!</span>(balances(<span class="kw-2">&amp;</span><span class="number">4</span>), (<span class="number">35</span>, <span class="number">2</span>)); <span class="comment">// slashed
-			</span><span class="macro">assert_eq!</span>(Elections::election_rounds(), <span class="number">2</span>); <span class="comment">// new election round
+			</span><span class="macro">assert_eq!</span>(ElectionRounds::&lt;Test&gt;::get(), <span class="number">2</span>); <span class="comment">// new election round
 			</span><span class="macro">assert_eq!</span>(members_ids(), <span class="macro">vec!</span>[<span class="number">3</span>, <span class="number">5</span>]); <span class="comment">// new members
 		</span>});
 	}
@@ -6082,14 +6078,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="macro">assert_ok!</span>(vote(RuntimeOrigin::signed(<span class="number">4</span>), <span class="macro">vec!</span>[<span class="number">4</span>], <span class="number">40</span>));
 			<span class="macro">assert_ok!</span>(vote(RuntimeOrigin::signed(<span class="number">5</span>), <span class="macro">vec!</span>[<span class="number">5</span>], <span class="number">50</span>));
 
-			<span class="macro">assert_eq!</span>(&lt;Candidates&lt;Test&gt;&gt;::decode_len().unwrap(), <span class="number">3</span>);
+			<span class="macro">assert_eq!</span>(Candidates::&lt;Test&gt;::decode_len().unwrap(), <span class="number">3</span>);
 
-			<span class="macro">assert_eq!</span>(Elections::election_rounds(), <span class="number">0</span>);
+			<span class="macro">assert_eq!</span>(ElectionRounds::&lt;Test&gt;::get(), <span class="number">0</span>);
 
 			System::set_block_number(<span class="number">5</span>);
 			Elections::on_initialize(System::block_number());
 			<span class="macro">assert_eq!</span>(members_ids(), <span class="macro">vec!</span>[<span class="number">3</span>, <span class="number">5</span>]);
-			<span class="macro">assert_eq!</span>(Elections::election_rounds(), <span class="number">1</span>);
+			<span class="macro">assert_eq!</span>(ElectionRounds::&lt;Test&gt;::get(), <span class="number">1</span>);
 
 			<span class="macro">assert_ok!</span>(Elections::remove_voter(RuntimeOrigin::signed(<span class="number">2</span>)));
 			<span class="macro">assert_ok!</span>(Elections::remove_voter(RuntimeOrigin::signed(<span class="number">3</span>)));
@@ -6100,7 +6096,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span>System::set_block_number(<span class="number">10</span>);
 			Elections::on_initialize(System::block_number());
 			<span class="macro">assert!</span>(members_ids().is_empty());
-			<span class="macro">assert_eq!</span>(Elections::election_rounds(), <span class="number">2</span>);
+			<span class="macro">assert_eq!</span>(ElectionRounds::&lt;Test&gt;::get(), <span class="number">2</span>);
 		});
 	}
 
@@ -6165,7 +6161,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			Elections::on_initialize(System::block_number());
 
 			<span class="macro">assert_eq_uvec!</span>(members_ids(), <span class="macro">vec!</span>[<span class="number">3</span>, <span class="number">4</span>]);
-			<span class="macro">assert_eq!</span>(Elections::election_rounds(), <span class="number">1</span>);
+			<span class="macro">assert_eq!</span>(ElectionRounds::&lt;Test&gt;::get(), <span class="number">1</span>);
 		});
 	}
 
@@ -6610,13 +6606,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.desired_members(<span class="number">0</span>)
 			.desired_runners_up(<span class="number">0</span>)
 			.build_and_execute(|| {
-				<span class="macro">assert_eq!</span>(Elections::candidates().len(), <span class="number">0</span>);
+				<span class="macro">assert_eq!</span>(Candidates::&lt;Test&gt;::get().len(), <span class="number">0</span>);
 
 				<span class="macro">assert_ok!</span>(submit_candidacy(RuntimeOrigin::signed(<span class="number">4</span>)));
 				<span class="macro">assert_ok!</span>(submit_candidacy(RuntimeOrigin::signed(<span class="number">3</span>)));
 				<span class="macro">assert_ok!</span>(submit_candidacy(RuntimeOrigin::signed(<span class="number">2</span>)));
 
-				<span class="macro">assert_eq!</span>(Elections::candidates().len(), <span class="number">3</span>);
+				<span class="macro">assert_eq!</span>(Candidates::&lt;Test&gt;::get().len(), <span class="number">3</span>);
 
 				<span class="macro">assert_ok!</span>(vote(RuntimeOrigin::signed(<span class="number">4</span>), <span class="macro">vec!</span>[<span class="number">4</span>], <span class="number">40</span>));
 				<span class="macro">assert_ok!</span>(vote(RuntimeOrigin::signed(<span class="number">3</span>), <span class="macro">vec!</span>[<span class="number">3</span>], <span class="number">30</span>));
@@ -6628,7 +6624,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="macro">assert_eq!</span>(members_ids().len(), <span class="number">0</span>);
 				<span class="macro">assert_eq!</span>(runners_up_ids().len(), <span class="number">0</span>);
 				<span class="macro">assert_eq!</span>(all_voters().len(), <span class="number">3</span>);
-				<span class="macro">assert_eq!</span>(Elections::candidates().len(), <span class="number">0</span>);
+				<span class="macro">assert_eq!</span>(Candidates::&lt;Test&gt;::get().len(), <span class="number">0</span>);
 			});
 
 		<span class="comment">// not interested in members
@@ -6636,13 +6632,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.desired_members(<span class="number">0</span>)
 			.desired_runners_up(<span class="number">2</span>)
 			.build_and_execute(|| {
-				<span class="macro">assert_eq!</span>(Elections::candidates().len(), <span class="number">0</span>);
+				<span class="macro">assert_eq!</span>(Candidates::&lt;Test&gt;::get().len(), <span class="number">0</span>);
 
 				<span class="macro">assert_ok!</span>(submit_candidacy(RuntimeOrigin::signed(<span class="number">4</span>)));
 				<span class="macro">assert_ok!</span>(submit_candidacy(RuntimeOrigin::signed(<span class="number">3</span>)));
 				<span class="macro">assert_ok!</span>(submit_candidacy(RuntimeOrigin::signed(<span class="number">2</span>)));
 
-				<span class="macro">assert_eq!</span>(Elections::candidates().len(), <span class="number">3</span>);
+				<span class="macro">assert_eq!</span>(Candidates::&lt;Test&gt;::get().len(), <span class="number">3</span>);
 
 				<span class="macro">assert_ok!</span>(vote(RuntimeOrigin::signed(<span class="number">4</span>), <span class="macro">vec!</span>[<span class="number">4</span>], <span class="number">40</span>));
 				<span class="macro">assert_ok!</span>(vote(RuntimeOrigin::signed(<span class="number">3</span>), <span class="macro">vec!</span>[<span class="number">3</span>], <span class="number">30</span>));
@@ -6654,7 +6650,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="macro">assert_eq!</span>(members_ids().len(), <span class="number">0</span>);
 				<span class="macro">assert_eq!</span>(runners_up_ids(), <span class="macro">vec!</span>[<span class="number">3</span>, <span class="number">4</span>]);
 				<span class="macro">assert_eq!</span>(all_voters().len(), <span class="number">3</span>);
-				<span class="macro">assert_eq!</span>(Elections::candidates().len(), <span class="number">0</span>);
+				<span class="macro">assert_eq!</span>(Candidates::&lt;Test&gt;::get().len(), <span class="number">0</span>);
 			});
 
 		<span class="comment">// not interested in runners-up
@@ -6662,13 +6658,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.desired_members(<span class="number">2</span>)
 			.desired_runners_up(<span class="number">0</span>)
 			.build_and_execute(|| {
-				<span class="macro">assert_eq!</span>(Elections::candidates().len(), <span class="number">0</span>);
+				<span class="macro">assert_eq!</span>(Candidates::&lt;Test&gt;::get().len(), <span class="number">0</span>);
 
 				<span class="macro">assert_ok!</span>(submit_candidacy(RuntimeOrigin::signed(<span class="number">4</span>)));
 				<span class="macro">assert_ok!</span>(submit_candidacy(RuntimeOrigin::signed(<span class="number">3</span>)));
 				<span class="macro">assert_ok!</span>(submit_candidacy(RuntimeOrigin::signed(<span class="number">2</span>)));
 
-				<span class="macro">assert_eq!</span>(Elections::candidates().len(), <span class="number">3</span>);
+				<span class="macro">assert_eq!</span>(Candidates::&lt;Test&gt;::get().len(), <span class="number">3</span>);
 
 				<span class="macro">assert_ok!</span>(vote(RuntimeOrigin::signed(<span class="number">4</span>), <span class="macro">vec!</span>[<span class="number">4</span>], <span class="number">40</span>));
 				<span class="macro">assert_ok!</span>(vote(RuntimeOrigin::signed(<span class="number">3</span>), <span class="macro">vec!</span>[<span class="number">3</span>], <span class="number">30</span>));
@@ -6680,7 +6676,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="macro">assert_eq!</span>(members_ids(), <span class="macro">vec!</span>[<span class="number">3</span>, <span class="number">4</span>]);
 				<span class="macro">assert_eq!</span>(runners_up_ids().len(), <span class="number">0</span>);
 				<span class="macro">assert_eq!</span>(all_voters().len(), <span class="number">3</span>);
-				<span class="macro">assert_eq!</span>(Elections::candidates().len(), <span class="number">0</span>);
+				<span class="macro">assert_eq!</span>(Candidates::&lt;Test&gt;::get().len(), <span class="number">0</span>);
 			});
 	}
 

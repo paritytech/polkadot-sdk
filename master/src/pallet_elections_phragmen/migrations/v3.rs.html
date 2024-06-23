@@ -433,16 +433,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Migrate from the old legacy voting bond (fixed) to the new one (per-vote dynamic).
 </span><span class="kw">pub fn </span>migrate_voters_to_recorded_deposit&lt;V: V2ToV3, T: Config&gt;(old_deposit: V::Balance) {
-	&lt;Voting&lt;V, T&gt;&gt;::translate::&lt;(V::Balance, Vec&lt;V::AccountId&gt;), <span class="kw">_</span>&gt;(|_who, (stake, votes)| {
+	Voting::&lt;V, T&gt;::translate::&lt;(V::Balance, Vec&lt;V::AccountId&gt;), <span class="kw">_</span>&gt;(|_who, (stake, votes)| {
 		<span class="prelude-val">Some</span>(Voter { votes, stake, deposit: old_deposit })
 	});
 
-	<span class="macro">log::info!</span>(target: LOG_TARGET, <span class="string">"migrated {} voter accounts."</span>, &lt;Voting&lt;V, T&gt;&gt;::iter().count());
+	<span class="macro">log::info!</span>(target: LOG_TARGET, <span class="string">"migrated {} voter accounts."</span>, Voting::&lt;V, T&gt;::iter().count());
 }
 
 <span class="doccomment">/// Migrate all candidates to recorded deposit.
 </span><span class="kw">pub fn </span>migrate_candidates_to_recorded_deposit&lt;V: V2ToV3, T: Config&gt;(old_deposit: V::Balance) {
-	<span class="kw">let _ </span>= &lt;Candidates&lt;V, T&gt;&gt;::translate::&lt;Vec&lt;V::AccountId&gt;, <span class="kw">_</span>&gt;(|maybe_old_candidates| {
+	<span class="kw">let _ </span>= Candidates::&lt;V, T&gt;::translate::&lt;Vec&lt;V::AccountId&gt;, <span class="kw">_</span>&gt;(|maybe_old_candidates| {
 		maybe_old_candidates.map(|old_candidates| {
 			<span class="macro">log::info!</span>(target: LOG_TARGET, <span class="string">"migrated {} candidate accounts."</span>, old_candidates.len());
 			old_candidates.into_iter().map(|c| (c, old_deposit)).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;()
@@ -452,7 +452,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Migrate all members to recorded deposit.
 </span><span class="kw">pub fn </span>migrate_members_to_recorded_deposit&lt;V: V2ToV3, T: Config&gt;(old_deposit: V::Balance) {
-	<span class="kw">let _ </span>= &lt;Members&lt;V, T&gt;&gt;::translate::&lt;Vec&lt;(V::AccountId, V::Balance)&gt;, <span class="kw">_</span>&gt;(|maybe_old_members| {
+	<span class="kw">let _ </span>= Members::&lt;V, T&gt;::translate::&lt;Vec&lt;(V::AccountId, V::Balance)&gt;, <span class="kw">_</span>&gt;(|maybe_old_members| {
 		maybe_old_members.map(|old_members| {
 			<span class="macro">log::info!</span>(target: LOG_TARGET, <span class="string">"migrated {} member accounts."</span>, old_members.len());
 			old_members
@@ -465,7 +465,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Migrate all runners-up to recorded deposit.
 </span><span class="kw">pub fn </span>migrate_runners_up_to_recorded_deposit&lt;V: V2ToV3, T: Config&gt;(old_deposit: V::Balance) {
-	<span class="kw">let _ </span>= &lt;RunnersUp&lt;V, T&gt;&gt;::translate::&lt;Vec&lt;(V::AccountId, V::Balance)&gt;, <span class="kw">_</span>&gt;(
+	<span class="kw">let _ </span>= RunnersUp::&lt;V, T&gt;::translate::&lt;Vec&lt;(V::AccountId, V::Balance)&gt;, <span class="kw">_</span>&gt;(
 		|maybe_old_runners_up| {
 			maybe_old_runners_up.map(|old_runners_up| {
 				<span class="macro">log::info!</span>(
