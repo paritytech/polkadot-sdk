@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1719235280057,
+  "lastUpdate": 1719248324942,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -15235,6 +15235,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-distribution",
             "value": 0.012103376240000005,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "dashangcun",
+            "username": "dashangcun",
+            "email": "907225865@qq.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "63e264446f6cabff06be72912eae902662dcb699",
+          "message": "chore: remove repeat words (#4869)\n\nSigned-off-by: dashangcun <jchaodaohang@foxmail.com>\nCo-authored-by: dashangcun <jchaodaohang@foxmail.com>",
+          "timestamp": "2024-06-24T15:00:20Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/63e264446f6cabff06be72912eae902662dcb699"
+        },
+        "date": 1719248295351,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009768099186666667,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02191959452,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.01195993549333333,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.1673878811666667,
             "unit": "seconds"
           }
         ]
