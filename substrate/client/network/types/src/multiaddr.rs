@@ -113,7 +113,7 @@ impl From<LibP2pMultiaddr> for Multiaddr {
 impl From<Multiaddr> for LibP2pMultiaddr {
 	fn from(multiaddr: Multiaddr) -> Self {
 		multiaddr.into_iter().map(Into::into).collect()
-    }
+	}
 }
 
 impl From<IpAddr> for Multiaddr {

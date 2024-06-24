@@ -70,7 +70,7 @@ impl<'a> Display for Protocol<'a> {
 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
 		let protocol = LiteP2pProtocol::from(self.clone());
 		Display::fmt(&protocol, f)
-    }
+	}
 }
 
 impl<'a> From<IpAddr> for Protocol<'a> {
