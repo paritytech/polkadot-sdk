@@ -666,7 +666,7 @@ pub mod pallet {
 		NotFrozen,
 		/// Callback action resulted in error
 		CallbackFailed,
-		/// The asset id must be equal to the [`NextAssetId`].
+		/// The asset ID must be equal to the [`NextAssetId`].
 		BadAssetId,
 	}
 
