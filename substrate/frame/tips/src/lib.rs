@@ -180,7 +180,6 @@ pub mod pallet {
 	/// This has the insecure enumerable hash function since the key itself is already
 	/// guaranteed to be a secure hash.
 	#[pallet::storage]
-	#[pallet::getter(fn tips)]
 	pub type Tips<T: Config<I>, I: 'static = ()> = StorageMap<
 		_,
 		Twox64Concat,
@@ -192,7 +191,6 @@ pub mod pallet {
 	/// Simple preimage lookup from the reason's hash to the original data. Again, has an
 	/// insecure enumerable hash since the key is guaranteed to be the result of a secure hash.
 	#[pallet::storage]
-	#[pallet::getter(fn reasons)]
 	pub type Reasons<T: Config<I>, I: 'static = ()> =
 		StorageMap<_, Identity, T::Hash, Vec<u8>, OptionQuery>;
 
