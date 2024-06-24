@@ -35,6 +35,11 @@ pub mod relay_parachains;
 /// The target that will be used when publishing logs related to this pallet.
 pub const LOG_TARGET: &str = "bridge";
 
+/// Default Substrate client type that we are using. We'll use it all over the glue CLI code
+/// to avoid multiple level generic arguments and constraints. We still allow usage of other
+/// clients in the **core logic code**.
+pub type DefaultClient<C> = relay_substrate_client::RpcWithCachingClient<C>;
+
 /// Lane id.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct HexLaneId(pub [u8; 4]);
@@ -125,14 +130,13 @@ impl PrometheusParams {
 			None
 		};
 
-		let relay_version = option_env!("CARGO_PKG_VERSION").unwrap_or("unknown");
+		let relay_version = relay_utils::initialize::RELAYER_VERSION
+			.lock()
+			.clone()
+			.unwrap_or_else(|| "unknown".to_string());
 		let relay_commit = SubstrateRelayBuildInfo::get_git_commit();
-		relay_utils::metrics::MetricsParams::new(
-			metrics_address,
-			relay_version.into(),
-			relay_commit,
-		)
-		.map_err(|e| anyhow::format_err!("{:?}", e))
+		relay_utils::metrics::MetricsParams::new(metrics_address, relay_version, relay_commit)
+			.map_err(|e| anyhow::format_err!("{:?}", e))
 	}
 }
 

@@ -16,6 +16,7 @@
 // limitations under the License.
 
 use crate::construct_runtime::parse::{Pallet, PalletPart, PalletPartKeyword, PalletPath};
+use frame_support_procedural_tools::get_doc_literals;
 use quote::ToTokens;
 use syn::{punctuated::Punctuated, spanned::Spanned, token, Error, Ident, PathArguments};
 
@@ -86,6 +87,8 @@ impl Pallet {
 
 		let cfg_pattern = vec![];
 
+		let docs = get_doc_literals(&item.attrs);
+
 		Ok(Pallet {
 			is_expanded: true,
 			name,
@@ -94,6 +97,7 @@ impl Pallet {
 			instance,
 			cfg_pattern,
 			pallet_parts,
+			docs,
 		})
 	}
 }

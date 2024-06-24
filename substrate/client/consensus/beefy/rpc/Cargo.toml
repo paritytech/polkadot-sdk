@@ -12,9 +12,9 @@ homepage = "https://substrate.io"
 workspace = true
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.6.1", features = ["derive"] }
+codec = { package = "parity-scale-codec", version = "3.6.12", features = ["derive"] }
 futures = "0.3.30"
-jsonrpsee = { version = "0.22", features = ["client-core", "macros", "server"] }
+jsonrpsee = { version = "0.22.5", features = ["client-core", "macros", "server-core"] }
 log = { workspace = true, default-features = true }
 parking_lot = "0.12.1"
 serde = { features = ["derive"], workspace = true, default-features = true }
@@ -24,6 +24,7 @@ sp-consensus-beefy = { path = "../../../../primitives/consensus/beefy" }
 sc-rpc = { path = "../../../rpc" }
 sp-core = { path = "../../../../primitives/core" }
 sp-runtime = { path = "../../../../primitives/runtime" }
+sp-application-crypto = { path = "../../../../primitives/application-crypto" }
 
 [dev-dependencies]
 serde_json = { workspace = true, default-features = true }

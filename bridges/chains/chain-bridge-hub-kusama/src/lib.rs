@@ -62,6 +62,7 @@ impl Chain for BridgeHubKusama {
 
 impl Parachain for BridgeHubKusama {
 	const PARACHAIN_ID: u32 = BRIDGE_HUB_KUSAMA_PARACHAIN_ID;
+	const MAX_HEADER_SIZE: u32 = MAX_BRIDGE_HUB_HEADER_SIZE;
 }
 
 impl ChainWithMessages for BridgeHubKusama {

@@ -19,8 +19,30 @@ use alloc::{vec, vec::Vec};
 use codec::{Decode, Encode, Error, Input};
 use core::cmp;
 use scale_info::TypeInfo;
+use sp_application_crypto::RuntimeAppPublic;
+use sp_runtime::traits::Hash;
 
-use crate::{Payload, ValidatorSetId};
+use crate::{BeefyAuthorityId, Payload, ValidatorSet, ValidatorSetId};
+
+/// A commitment signature, accompanied by the id of the validator that it belongs to.
+#[derive(Debug)]
+pub struct KnownSignature<TAuthorityId, TSignature> {
+	/// The signing validator.
+	pub validator_id: TAuthorityId,
+	/// The signature.
+	pub signature: TSignature,
+}
+
+impl<TAuthorityId: Clone, TSignature: Clone> KnownSignature<&TAuthorityId, &TSignature> {
+	/// Creates a `KnownSignature<TAuthorityId, TSignature>` from an
+	/// `KnownSignature<&TAuthorityId, &TSignature>`.
+	pub fn to_owned(&self) -> KnownSignature<TAuthorityId, TSignature> {
+		KnownSignature {
+			validator_id: self.validator_id.clone(),
+			signature: self.signature.clone(),
+		}
+	}
+}
 
 /// A commitment signed by GRANDPA validators as part of BEEFY protocol.
 ///
@@ -113,8 +135,48 @@ impl<TBlockNumber: core::fmt::Debug, TSignature> core::fmt::Display
 
 impl<TBlockNumber, TSignature> SignedCommitment<TBlockNumber, TSignature> {
 	/// Return the number of collected signatures.
-	pub fn no_of_signatures(&self) -> usize {
+	pub fn signature_count(&self) -> usize {
 		self.signatures.iter().filter(|x| x.is_some()).count()
+	}
+
+	/// Verify all the commitment signatures against the validator set that was active
+	/// at the block where the commitment was generated.
+	///
+	/// Returns the valid validator-signature pairs if the commitment can be verified.
+	pub fn verify_signatures<'a, TAuthorityId, MsgHash>(
+		&'a self,
+		target_number: TBlockNumber,
+		validator_set: &'a ValidatorSet<TAuthorityId>,
+	) -> Result<Vec<KnownSignature<&'a TAuthorityId, &'a TSignature>>, u32>
+	where
+		TBlockNumber: Clone + Encode + PartialEq,
+		TAuthorityId: RuntimeAppPublic<Signature = TSignature> + BeefyAuthorityId<MsgHash>,
+		MsgHash: Hash,
+	{
+		if self.signatures.len() != validator_set.len() ||
+			self.commitment.validator_set_id != validator_set.id() ||
+			self.commitment.block_number != target_number
+		{
+			return Err(0)
+		}
+
+		// Arrangement of signatures in the commitment should be in the same order
+		// as validators for that set.
+		let encoded_commitment = self.commitment.encode();
+		let signatories: Vec<_> = validator_set
+			.validators()
+			.into_iter()
+			.zip(self.signatures.iter())
+			.filter_map(|(id, maybe_signature)| {
+				let signature = maybe_signature.as_ref()?;
+				match BeefyAuthorityId::verify(id, signature, &encoded_commitment) {
+					true => Some(KnownSignature { validator_id: id, signature }),
+					false => None,
+				}
+			})
+			.collect();
+
+		Ok(signatories)
 	}
 }
 
@@ -439,13 +501,13 @@ mod tests {
 			commitment,
 			signatures: vec![None, None, Some(sigs.0), Some(sigs.1)],
 		};
-		assert_eq!(signed.no_of_signatures(), 2);
+		assert_eq!(signed.signature_count(), 2);
 
 		// when
 		signed.signatures[2] = None;
 
 		// then
-		assert_eq!(signed.no_of_signatures(), 1);
+		assert_eq!(signed.signature_count(), 1);
 	}
 
 	#[test]

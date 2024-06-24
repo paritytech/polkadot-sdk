@@ -24,7 +24,7 @@ use sp_core::hexdisplay::HexDisplay;
 
 #[test]
 fn remove_keys_weight_is_sensible() {
-	use runtime_common::crowdloan::WeightInfo;
+	use polkadot_runtime_common::crowdloan::WeightInfo;
 	let max_weight = <Runtime as crowdloan::Config>::WeightInfo::refund(RemoveKeysLimit::get());
 	// Max remove keys limit should be no more than half the total block weight.
 	assert!((max_weight * 2).all_lt(BlockWeights::get().max_block));
@@ -32,7 +32,7 @@ fn remove_keys_weight_is_sensible() {
 
 #[test]
 fn sample_size_is_sensible() {
-	use runtime_common::auctions::WeightInfo;
+	use polkadot_runtime_common::auctions::WeightInfo;
 	// Need to clean up all samples at the end of an auction.
 	let samples: BlockNumber = EndingPeriod::get() / SampleLength::get();
 	let max_weight: frame_support::weights::Weight =

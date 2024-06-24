@@ -562,6 +562,9 @@ fn assign(queue: &mut Queue, worker: Worker, job: ExecuteJob) {
 			thus claim_idle cannot return None;
 			qed.",
 	);
+	queue
+		.metrics
+		.observe_execution_queued_time(job.waiting_since.elapsed().as_millis() as u32);
 	let execution_timer = queue.metrics.time_execution();
 	queue.mux.push(
 		async move {

@@ -53,7 +53,7 @@ use polkadot_primitives::{
 	ValidationCodeHash,
 };
 
-use parity_scale_codec::Encode;
+use codec::Encode;
 
 use futures::{channel::oneshot, prelude::*, stream::FuturesUnordered};
 
@@ -100,6 +100,13 @@ pub struct Config {
 	pub prep_worker_path: PathBuf,
 	/// Path to the execution worker binary
 	pub exec_worker_path: PathBuf,
+	/// The maximum number of pvf execution workers.
+	pub pvf_execute_workers_max_num: usize,
+	/// The maximum number of pvf workers that can be spawned in the pvf prepare pool for tasks
+	/// with the priority below critical.
+	pub pvf_prepare_workers_soft_max_num: usize,
+	/// The absolute number of pvf workers that can be spawned in the pvf prepare pool.
+	pub pvf_prepare_workers_hard_max_num: usize,
 }
 
 /// The candidate validation subsystem.
@@ -224,6 +231,9 @@ async fn run<Context>(
 		secure_validator_mode,
 		prep_worker_path,
 		exec_worker_path,
+		pvf_execute_workers_max_num,
+		pvf_prepare_workers_soft_max_num,
+		pvf_prepare_workers_hard_max_num,
 	}: Config,
 ) -> SubsystemResult<()> {
 	let (validation_host, task) = polkadot_node_core_pvf::start(
@@ -233,6 +243,9 @@ async fn run<Context>(
 			secure_validator_mode,
 			prep_worker_path,
 			exec_worker_path,
+			pvf_execute_workers_max_num,
+			pvf_prepare_workers_soft_max_num,
+			pvf_prepare_workers_hard_max_num,
 		),
 		pvf_metrics,
 	)

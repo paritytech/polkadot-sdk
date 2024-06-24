@@ -169,11 +169,98 @@ function run_relay() {
         --lane "${LANE_ID}"
 }
 
+function run_finality_relay() {
+    local relayer_path=$(ensure_relayer)
+
+    RUST_LOG=runtime=trace,rpc=trace,bridge=trace \
+        $relayer_path relay-headers rococo-to-bridge-hub-westend \
+        --only-free-headers \
+        --source-uri ws://localhost:9942 \
+        --source-version-mode Auto \
+        --target-uri ws://localhost:8945 \
+        --target-version-mode Auto \
+        --target-signer //Charlie \
+        --target-transactions-mortality 4&
+
+    RUST_LOG=runtime=trace,rpc=trace,bridge=trace \
+        $relayer_path relay-headers westend-to-bridge-hub-rococo \
+        --only-free-headers \
+        --source-uri ws://localhost:9945 \
+        --source-version-mode Auto \
+        --target-uri ws://localhost:8943 \
+        --target-version-mode Auto \
+        --target-signer //Charlie \
+        --target-transactions-mortality 4
+}
+
+function run_parachains_relay() {
+    local relayer_path=$(ensure_relayer)
+
+    RUST_LOG=runtime=trace,rpc=trace,bridge=trace \
+        $relayer_path relay-parachains rococo-to-bridge-hub-westend \
+        --only-free-headers \
+        --source-uri ws://localhost:9942 \
+        --source-version-mode Auto \
+        --target-uri ws://localhost:8945 \
+        --target-version-mode Auto \
+        --target-signer //Dave \
+        --target-transactions-mortality 4&
+
+    RUST_LOG=runtime=trace,rpc=trace,bridge=trace \
+        $relayer_path relay-parachains westend-to-bridge-hub-rococo \
+        --only-free-headers \
+        --source-uri ws://localhost:9945 \
+        --source-version-mode Auto \
+        --target-uri ws://localhost:8943 \
+        --target-version-mode Auto \
+        --target-signer //Dave \
+        --target-transactions-mortality 4
+}
+
+function run_messages_relay() {
+    local relayer_path=$(ensure_relayer)
+
+    RUST_LOG=runtime=trace,rpc=trace,bridge=trace \
+        $relayer_path relay-messages bridge-hub-rococo-to-bridge-hub-westend \
+        --source-uri ws://localhost:8943 \
+        --source-version-mode Auto \
+        --source-signer //Eve \
+        --source-transactions-mortality 4 \
+        --target-uri ws://localhost:8945 \
+        --target-version-mode Auto \
+        --target-signer //Eve \
+        --target-transactions-mortality 4 \
+        --lane $LANE_ID&
+
+    RUST_LOG=runtime=trace,rpc=trace,bridge=trace \
+        $relayer_path relay-messages bridge-hub-westend-to-bridge-hub-rococo \
+        --source-uri ws://localhost:8945 \
+        --source-version-mode Auto \
+        --source-signer //Ferdie \
+        --source-transactions-mortality 4 \
+        --target-uri ws://localhost:8943 \
+        --target-version-mode Auto \
+        --target-signer //Ferdie \
+        --target-transactions-mortality 4 \
+        --lane $LANE_ID
+}
+
 case "$1" in
   run-relay)
     init_wnd_ro
     init_ro_wnd
     run_relay
+    ;;
+  run-finality-relay)
+    init_wnd_ro
+    init_ro_wnd
+    run_finality_relay
+    ;;
+  run-parachains-relay)
+    run_parachains_relay
+    ;;
+  run-messages-relay)
+    run_messages_relay
     ;;
   init-asset-hub-rococo-local)
       ensure_polkadot_js_api
@@ -386,6 +473,9 @@ case "$1" in
     echo "A command is require. Supported commands for:
     Local (zombienet) run:
           - run-relay
+          - run-finality-relay
+          - run-parachains-relay
+          - run-messages-relay
           - init-asset-hub-rococo-local
           - init-bridge-hub-rococo-local
           - init-asset-hub-westend-local

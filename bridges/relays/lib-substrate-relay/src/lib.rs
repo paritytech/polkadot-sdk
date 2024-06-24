@@ -22,6 +22,9 @@ use relay_substrate_client::{Chain, ChainWithUtilityPallet, UtilityPallet};
 
 use std::marker::PhantomData;
 
+// to avoid `finality_relay` dependency in other crates
+pub use finality_relay::HeadersToRelay;
+
 pub mod cli;
 pub mod equivocation;
 pub mod error;

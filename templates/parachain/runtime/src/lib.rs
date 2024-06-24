@@ -7,6 +7,8 @@
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
 pub mod apis;
+#[cfg(feature = "runtime-benchmarks")]
+mod benchmarks;
 mod configs;
 mod weights;
 
@@ -22,12 +24,9 @@ use sp_std::prelude::*;
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 
-use frame_support::{
-	construct_runtime,
-	weights::{
-		constants::WEIGHT_REF_TIME_PER_SECOND, Weight, WeightToFeeCoefficient,
-		WeightToFeeCoefficients, WeightToFeePolynomial,
-	},
+use frame_support::weights::{
+	constants::WEIGHT_REF_TIME_PER_SECOND, Weight, WeightToFeeCoefficient, WeightToFeeCoefficients,
+	WeightToFeePolynomial,
 };
 pub use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 pub use sp_runtime::{MultiAddress, Perbill, Permill};
@@ -75,6 +74,7 @@ pub type SignedBlock = generic::SignedBlock<Block>;
 pub type BlockId = generic::BlockId<Block>;
 
 /// The SignedExtension to the basic transaction logic.
+#[docify::export(template_signed_extra)]
 pub type SignedExtra = (
 	frame_system::CheckNonZeroSender<Runtime>,
 	frame_system::CheckSpecVersion<Runtime>,
@@ -85,6 +85,7 @@ pub type SignedExtra = (
 	frame_system::CheckWeight<Runtime>,
 	pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
 	cumulus_primitives_storage_weight_reclaim::StorageWeightReclaim<Runtime>,
+	frame_metadata_hash_extension::CheckMetadataHash<Runtime>,
 );
 
 /// Unchecked extrinsic type as expected by this runtime.
@@ -173,7 +174,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 /// up by `pallet_aura` to implement `fn slot_duration()`.
 ///
 /// Change this to adjust the block time.
-pub const MILLISECS_PER_BLOCK: u64 = 12000;
+pub const MILLISECS_PER_BLOCK: u64 = 6000;
 
 // NOTE: Currently it is not possible to change the slot duration after the chain has started.
 //       Attempting to do so will brick block production.
@@ -200,20 +201,28 @@ const AVERAGE_ON_INITIALIZE_RATIO: Perbill = Perbill::from_percent(5);
 /// `Operational` extrinsics.
 const NORMAL_DISPATCH_RATIO: Perbill = Perbill::from_percent(75);
 
-/// We allow for 0.5 of a second of compute with a 12 second average block time.
+/// We allow for 2 seconds of compute with a 6 second average block time.
 const MAXIMUM_BLOCK_WEIGHT: Weight = Weight::from_parts(
-	WEIGHT_REF_TIME_PER_SECOND.saturating_div(2),
+	WEIGHT_REF_TIME_PER_SECOND.saturating_mul(2),
 	cumulus_primitives_core::relay_chain::MAX_POV_SIZE as u64,
 );
 
 /// Maximum number of blocks simultaneously accepted by the Runtime, not yet included
 /// into the relay chain.
-const UNINCLUDED_SEGMENT_CAPACITY: u32 = 1;
+const UNINCLUDED_SEGMENT_CAPACITY: u32 = 3;
 /// How many parachain blocks are processed by the relay chain per parent. Limits the
 /// number of blocks authored per slot.
 const BLOCK_PROCESSING_VELOCITY: u32 = 1;
 /// Relay chain slot duration, in milliseconds.
 const RELAY_CHAIN_SLOT_DURATION_MILLIS: u32 = 6000;
+
+/// Aura consensus hook
+type ConsensusHook = cumulus_pallet_aura_ext::FixedVelocityConsensusHook<
+	Runtime,
+	RELAY_CHAIN_SLOT_DURATION_MILLIS,
+	BLOCK_PROCESSING_VELOCITY,
+	UNINCLUDED_SEGMENT_CAPACITY,
+>;
 
 /// The version information used to identify this runtime when compiled natively.
 #[cfg(feature = "std")]
@@ -222,43 +231,69 @@ pub fn native_version() -> NativeVersion {
 }
 
 // Create the runtime by composing the FRAME pallets that were previously configured.
-construct_runtime!(
-	pub enum Runtime {
-		// System support stuff.
-		System: frame_system = 0,
-		ParachainSystem: cumulus_pallet_parachain_system = 1,
-		Timestamp: pallet_timestamp = 2,
-		ParachainInfo: parachain_info = 3,
+#[frame_support::runtime]
+mod runtime {
+	#[runtime::runtime]
+	#[runtime::derive(
+		RuntimeCall,
+		RuntimeEvent,
+		RuntimeError,
+		RuntimeOrigin,
+		RuntimeFreezeReason,
+		RuntimeHoldReason,
+		RuntimeSlashReason,
+		RuntimeLockId,
+		RuntimeTask
+	)]
+	pub struct Runtime;
 
-		// Monetary stuff.
-		Balances: pallet_balances = 10,
-		TransactionPayment: pallet_transaction_payment = 11,
+	#[runtime::pallet_index(0)]
+	pub type System = frame_system;
+	#[runtime::pallet_index(1)]
+	pub type ParachainSystem = cumulus_pallet_parachain_system;
+	#[runtime::pallet_index(2)]
+	pub type Timestamp = pallet_timestamp;
+	#[runtime::pallet_index(3)]
+	pub type ParachainInfo = parachain_info;
 
-		// Governance
-		Sudo: pallet_sudo = 15,
+	// Monetary stuff.
+	#[runtime::pallet_index(10)]
+	pub type Balances = pallet_balances;
+	#[runtime::pallet_index(11)]
+	pub type TransactionPayment = pallet_transaction_payment;
 
-		// Collator support. The order of these 4 are important and shall not change.
-		Authorship: pallet_authorship = 20,
-		CollatorSelection: pallet_collator_selection = 21,
-		Session: pallet_session = 22,
-		Aura: pallet_aura = 23,
-		AuraExt: cumulus_pallet_aura_ext = 24,
+	// Governance
+	#[runtime::pallet_index(15)]
+	pub type Sudo = pallet_sudo;
 
-		// XCM helpers.
-		XcmpQueue: cumulus_pallet_xcmp_queue = 30,
-		PolkadotXcm: pallet_xcm = 31,
-		CumulusXcm: cumulus_pallet_xcm = 32,
-		MessageQueue: pallet_message_queue = 33,
+	// Collator support. The order of these 4 are important and shall not change.
+	#[runtime::pallet_index(20)]
+	pub type Authorship = pallet_authorship;
+	#[runtime::pallet_index(21)]
+	pub type CollatorSelection = pallet_collator_selection;
+	#[runtime::pallet_index(22)]
+	pub type Session = pallet_session;
+	#[runtime::pallet_index(23)]
+	pub type Aura = pallet_aura;
+	#[runtime::pallet_index(24)]
+	pub type AuraExt = cumulus_pallet_aura_ext;
 
-		// Template
-		TemplatePallet: pallet_parachain_template = 50,
-	}
-);
+	// XCM helpers.
+	#[runtime::pallet_index(30)]
+	pub type XcmpQueue = cumulus_pallet_xcmp_queue;
+	#[runtime::pallet_index(31)]
+	pub type PolkadotXcm = pallet_xcm;
+	#[runtime::pallet_index(32)]
+	pub type CumulusXcm = cumulus_pallet_xcm;
+	#[runtime::pallet_index(33)]
+	pub type MessageQueue = pallet_message_queue;
+
+	// Template
+	#[runtime::pallet_index(50)]
+	pub type TemplatePallet = pallet_parachain_template;
+}
 
 cumulus_pallet_parachain_system::register_validate_block! {
 	Runtime = Runtime,
 	BlockExecutor = cumulus_pallet_aura_ext::BlockExecutor::<Runtime, Executive>,
 }
-
-#[cfg(feature = "runtime-benchmarks")]
-mod benchmarks;

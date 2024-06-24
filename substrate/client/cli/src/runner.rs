@@ -252,12 +252,15 @@ mod tests {
 				state_pruning: None,
 				blocks_pruning: sc_client_db::BlocksPruning::KeepAll,
 				chain_spec: Box::new(
-					GenericChainSpec::<()>::builder(Default::default(), NoExtension::None)
-						.with_name("test")
-						.with_id("test_id")
-						.with_chain_type(ChainType::Development)
-						.with_genesis_config_patch(Default::default())
-						.build(),
+					GenericChainSpec::<NoExtension, ()>::builder(
+						Default::default(),
+						NoExtension::None,
+					)
+					.with_name("test")
+					.with_id("test_id")
+					.with_chain_type(ChainType::Development)
+					.with_genesis_config_patch(Default::default())
+					.build(),
 				),
 				wasm_method: Default::default(),
 				wasm_runtime_overrides: None,
@@ -273,6 +276,8 @@ mod tests {
 				rpc_port: 9944,
 				rpc_batch_config: sc_service::config::RpcBatchRequestConfig::Unlimited,
 				rpc_rate_limit: None,
+				rpc_rate_limit_whitelisted_ips: Default::default(),
+				rpc_rate_limit_trust_proxy_headers: Default::default(),
 				prometheus_config: None,
 				telemetry_endpoints: None,
 				default_heap_pages: None,

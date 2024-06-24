@@ -118,6 +118,22 @@ impl<T: Config<I>, I: 'static> fungibles::Balanced<<T as SystemConfig>::AccountI
 {
 	type OnDropCredit = fungibles::DecreaseIssuance<T::AccountId, Self>;
 	type OnDropDebt = fungibles::IncreaseIssuance<T::AccountId, Self>;
+
+	fn done_deposit(
+		asset_id: Self::AssetId,
+		who: &<T as SystemConfig>::AccountId,
+		amount: Self::Balance,
+	) {
+		Self::deposit_event(Event::Deposited { asset_id, who: who.clone(), amount })
+	}
+
+	fn done_withdraw(
+		asset_id: Self::AssetId,
+		who: &<T as SystemConfig>::AccountId,
+		amount: Self::Balance,
+	) {
+		Self::deposit_event(Event::Withdrawn { asset_id, who: who.clone(), amount })
+	}
 }
 
 impl<T: Config<I>, I: 'static> fungibles::Unbalanced<T::AccountId> for Pallet<T, I> {

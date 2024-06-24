@@ -508,7 +508,6 @@ pub use frame_support_procedural::{
 	construct_runtime, match_and_insert, transactional, PalletError, RuntimeDebugNoBound,
 };
 
-#[cfg(feature = "experimental")]
 pub use frame_support_procedural::runtime;
 
 #[doc(hidden)]
@@ -2464,6 +2463,9 @@ pub mod pallet_macros {
 	///
 	/// Finally, the `RuntimeTask` can then used by a script or off-chain worker to create and
 	/// submit such tasks via an extrinsic defined in `frame_system` called `do_task`.
+	///
+	/// When submitted as unsigned transactions (for example via an off-chain workder), note
+	/// that the tasks will be executed in a random order.
 	///
 	/// ## Example
 	#[doc = docify::embed!("src/tests/tasks.rs", tasks_example)]

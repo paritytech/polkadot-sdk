@@ -293,7 +293,7 @@ impl ChildInfo {
 		}
 	}
 
-	/// Return a the full location in the direct parent of
+	/// Return the full location in the direct parent of
 	/// this trie.
 	pub fn prefixed_storage_key(&self) -> PrefixedStorageKey {
 		match self {
@@ -302,7 +302,7 @@ impl ChildInfo {
 		}
 	}
 
-	/// Returns a the full location in the direct parent of
+	/// Returns the full location in the direct parent of
 	/// this trie.
 	pub fn into_prefixed_storage_key(self) -> PrefixedStorageKey {
 		match self {

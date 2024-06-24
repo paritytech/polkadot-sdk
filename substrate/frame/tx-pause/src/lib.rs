@@ -87,7 +87,7 @@ use frame_support::{
 };
 use frame_system::pallet_prelude::*;
 use sp_runtime::{traits::Dispatchable, DispatchResult};
-use sp_std::{convert::TryInto, prelude::*};
+use sp_std::prelude::*;
 
 pub use pallet::*;
 pub use weights::*;

@@ -18,8 +18,10 @@
 
 use async_std::sync::Mutex;
 use async_trait::async_trait;
+use bp_polkadot_core::BlockNumber as RelayBlockNumber;
+use bp_runtime::HeaderIdProvider;
 use parachains_relay::parachains_loop::{AvailableHeader, SourceClient, TargetClient};
-use relay_substrate_client::Parachain;
+use relay_substrate_client::{Client, Parachain};
 use relay_utils::metrics::{GlobalMetrics, StandaloneMetric};
 use std::sync::Arc;
 use structopt::StructOpt;
@@ -28,7 +30,7 @@ use crate::{
 	cli::{
 		bridge::{CliBridgeBase, ParachainToRelayHeadersCliBridge},
 		chain_schema::*,
-		PrometheusParams,
+		DefaultClient, PrometheusParams,
 	},
 	parachains::{source::ParachainsSource, target::ParachainsTarget, ParachainsPipelineAdapter},
 	TransactionParams,
@@ -43,25 +45,47 @@ pub struct RelayParachainsParams {
 	target: TargetConnectionParams,
 	#[structopt(flatten)]
 	target_sign: TargetSigningParams,
+	/// If passed, only free headers (those, available at "free" relay chain headers)
+	/// are relayed.
+	#[structopt(long)]
+	only_free_headers: bool,
 	#[structopt(flatten)]
 	prometheus_params: PrometheusParams,
+}
+
+/// Single parachains head relaying params.
+#[derive(StructOpt)]
+pub struct RelayParachainHeadParams {
+	#[structopt(flatten)]
+	source: SourceConnectionParams,
+	#[structopt(flatten)]
+	target: TargetConnectionParams,
+	#[structopt(flatten)]
+	target_sign: TargetSigningParams,
+	/// Prove parachain head at that relay block number. This relay header must be previously
+	/// proved to the target chain.
+	#[structopt(long)]
+	at_relay_block: RelayBlockNumber,
 }
 
 /// Trait used for relaying parachains finality between 2 chains.
 #[async_trait]
 pub trait ParachainsRelayer: ParachainToRelayHeadersCliBridge
 where
-	ParachainsSource<Self::ParachainFinality>:
+	ParachainsSource<Self::ParachainFinality, DefaultClient<Self::SourceRelay>>:
 		SourceClient<ParachainsPipelineAdapter<Self::ParachainFinality>>,
-	ParachainsTarget<Self::ParachainFinality>:
-		TargetClient<ParachainsPipelineAdapter<Self::ParachainFinality>>,
+	ParachainsTarget<
+		Self::ParachainFinality,
+		DefaultClient<Self::SourceRelay>,
+		DefaultClient<Self::Target>,
+	>: TargetClient<ParachainsPipelineAdapter<Self::ParachainFinality>>,
 	<Self as CliBridgeBase>::Source: Parachain,
 {
 	/// Start relaying parachains finality.
 	async fn relay_parachains(data: RelayParachainsParams) -> anyhow::Result<()> {
-		let source_client = data.source.into_client::<Self::SourceRelay>().await?;
-		let source_client = ParachainsSource::<Self::ParachainFinality>::new(
-			source_client,
+		let source_chain_client = data.source.into_client::<Self::SourceRelay>().await?;
+		let source_client = ParachainsSource::<Self::ParachainFinality, _>::new(
+			source_chain_client.clone(),
 			Arc::new(Mutex::new(AvailableHeader::Missing)),
 		);
 
@@ -69,9 +93,10 @@ where
 			signer: data.target_sign.to_keypair::<Self::Target>()?,
 			mortality: data.target_sign.target_transactions_mortality,
 		};
-		let target_client = data.target.into_client::<Self::Target>().await?;
-		let target_client = ParachainsTarget::<Self::ParachainFinality>::new(
-			target_client.clone(),
+		let target_chain_client = data.target.into_client::<Self::Target>().await?;
+		let target_client = ParachainsTarget::<Self::ParachainFinality, _, _>::new(
+			source_chain_client,
+			target_chain_client,
 			target_transaction_params,
 		);
 
@@ -83,9 +108,44 @@ where
 			source_client,
 			target_client,
 			metrics_params,
+			data.only_free_headers,
 			futures::future::pending(),
 		)
 		.await
 		.map_err(|e| anyhow::format_err!("{}", e))
+	}
+
+	/// Relay single parachain head. No checks are made to ensure that transaction will succeed.
+	async fn relay_parachain_head(data: RelayParachainHeadParams) -> anyhow::Result<()> {
+		let source_chain_client = data.source.into_client::<Self::SourceRelay>().await?;
+		let at_relay_block = source_chain_client
+			.header_by_number(data.at_relay_block)
+			.await
+			.map_err(|e| anyhow::format_err!("{}", e))?
+			.id();
+
+		let source_client = ParachainsSource::<Self::ParachainFinality, _>::new(
+			source_chain_client.clone(),
+			Arc::new(Mutex::new(AvailableHeader::Missing)),
+		);
+
+		let target_transaction_params = TransactionParams {
+			signer: data.target_sign.to_keypair::<Self::Target>()?,
+			mortality: data.target_sign.target_transactions_mortality,
+		};
+		let target_chain_client = data.target.into_client::<Self::Target>().await?;
+		let target_client = ParachainsTarget::<Self::ParachainFinality, _, _>::new(
+			source_chain_client,
+			target_chain_client,
+			target_transaction_params,
+		);
+
+		parachains_relay::parachains_loop::relay_single_head(
+			source_client,
+			target_client,
+			at_relay_block,
+		)
+		.await
+		.map_err(|_| anyhow::format_err!("The command has failed"))
 	}
 }

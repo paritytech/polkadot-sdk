@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-//! Common runtime code for Polkadot and Kusama.
+//! Common runtime code for the Relay Chain, e.g. Rococo, Westend, Polkadot, Kusama ...
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -47,7 +47,7 @@ use frame_support::{
 	weights::{constants::WEIGHT_REF_TIME_PER_SECOND, Weight},
 };
 use frame_system::limits;
-use primitives::{AssignmentId, Balance, BlockNumber, ValidatorId};
+use polkadot_primitives::{AssignmentId, Balance, BlockNumber, ValidatorId};
 use sp_runtime::{FixedPointNumber, Perbill, Perquintill};
 use static_assertions::const_assert;
 
@@ -123,7 +123,7 @@ macro_rules! impl_runtime_weights {
 		use frame_support::{dispatch::DispatchClass, weights::Weight};
 		use frame_system::limits;
 		use pallet_transaction_payment::{Multiplier, TargetedFeeAdjustment};
-		pub use runtime_common::{
+		pub use polkadot_runtime_common::{
 			impl_elections_weights, AVERAGE_ON_INITIALIZE_RATIO, MAXIMUM_BLOCK_WEIGHT,
 			NORMAL_DISPATCH_RATIO,
 		};
@@ -165,7 +165,7 @@ macro_rules! impl_runtime_weights {
 ///
 /// This must only be used as long as the balance type is `u128`.
 pub type CurrencyToVote = sp_staking::currency_to_vote::U128CurrencyToVote;
-static_assertions::assert_eq_size!(primitives::Balance, u128);
+static_assertions::assert_eq_size!(polkadot_primitives::Balance, u128);
 
 /// A placeholder since there is currently no provided session key handler for parachain validator
 /// keys.
