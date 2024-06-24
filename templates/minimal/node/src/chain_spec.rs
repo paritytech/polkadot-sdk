@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use runtime::{BalancesConfig, SudoConfig, WASM_BINARY};
+use minimal_template_runtime::{BalancesConfig, SudoConfig, WASM_BINARY};
 use sc_service::{ChainType, Properties};
 use serde_json::{json, Value};
 use sp_keyring::AccountKeyring;
@@ -43,7 +43,7 @@ pub fn development_config() -> Result<ChainSpec, String> {
 /// Configure initial storage state for FRAME pallets.
 fn testnet_genesis() -> Value {
 	use frame::traits::Get;
-	use runtime::interface::{Balance, MinimumBalance};
+	use minimal_template_runtime::interface::{Balance, MinimumBalance};
 	let endowment = <MinimumBalance as Get<Balance>>::get().max(1) * 1000;
 	let balances = AccountKeyring::iter()
 		.map(|a| (a.to_account_id(), endowment))
