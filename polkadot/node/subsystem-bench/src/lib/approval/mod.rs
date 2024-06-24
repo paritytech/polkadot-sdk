@@ -789,7 +789,7 @@ fn build_overseer(
 	keystore
 		.sr25519_generate_new(
 			ASSIGNMENT_KEY_TYPE_ID,
-			Some(state.test_authorities.key_seeds.first().unwrap().as_str()),
+			Some(state.test_authorities.key_seeds.get(NODE_UNDER_TEST).unwrap().as_str()),
 		)
 		.unwrap();
 
