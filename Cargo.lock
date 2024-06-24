@@ -823,6 +823,7 @@ dependencies = [
  "pallet-asset-conversion-ops",
  "pallet-asset-conversion-tx-payment",
  "pallet-assets",
+ "pallet-assets-freezer",
  "pallet-aura",
  "pallet-authorship",
  "pallet-balances",
@@ -956,6 +957,7 @@ dependencies = [
  "pallet-asset-conversion-ops",
  "pallet-asset-conversion-tx-payment",
  "pallet-assets",
+ "pallet-assets-freezer",
  "pallet-aura",
  "pallet-authorship",
  "pallet-balances",
@@ -4733,9 +4735,12 @@ dependencies = [
 
 [[package]]
 name = "deranged"
-version = "0.3.8"
+version = "0.3.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f2696e8a945f658fd14dc3b87242e6b80cd0f36ff04ea560fa39082368847946"
+checksum = "b42b6fa04a440b495c8b04d0e71b707c585f83cb9cb28cf8cd0d976c315e31b4"
+dependencies = [
+ "powerfmt",
+]
 
 [[package]]
 name = "derivative"
@@ -5228,19 +5233,6 @@ checksum = "a19187fea3ac7e84da7dacf48de0c45d63c6a76f9490dae389aead16c243fce3"
 dependencies = [
  "log",
  "regex",
-]
-
-[[package]]
-name = "env_logger"
-version = "0.9.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a12e6657c4c97ebab115a42dcee77225f7f482cdd841cf7088c657a42e9e00e7"
-dependencies = [
- "atty",
- "humantime",
- "log",
- "regex",
- "termcolor",
 ]
 
 [[package]]
@@ -9260,6 +9252,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "num-conv"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "51d515d32fb182ee37cda2ccdcb92950d6a3c2893aa280e540671c2cd0f3b1d9"
+
+[[package]]
 name = "num-derive"
 version = "0.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -9657,6 +9655,23 @@ dependencies = [
  "sp-io",
  "sp-runtime",
  "sp-std 14.0.0",
+]
+
+[[package]]
+name = "pallet-assets-freezer"
+version = "0.1.0"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "log",
+ "pallet-assets",
+ "pallet-balances",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
 ]
 
 [[package]]
@@ -12097,8 +12112,8 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4e69bf016dc406eff7d53a7d3f7cf1c2e72c82b9088aac1118591e36dd2cd3e9"
 dependencies = [
  "bitcoin_hashes 0.13.0",
- "rand 0.7.3",
- "rand_core 0.5.1",
+ "rand 0.8.5",
+ "rand_core 0.6.4",
  "serde",
  "unicode-normalization",
 ]
@@ -14124,6 +14139,7 @@ dependencies = [
  "pallet-asset-rate",
  "pallet-asset-tx-payment",
  "pallet-assets",
+ "pallet-assets-freezer",
  "pallet-atomic-swap",
  "pallet-aura",
  "pallet-authority-discovery",
@@ -14772,7 +14788,7 @@ dependencies = [
  "sp-keystore",
  "sp-runtime",
  "sp-timestamp",
- "strum 0.24.1",
+ "strum 0.26.2",
  "substrate-prometheus-endpoint",
  "tokio",
  "tracing-gum",
@@ -15112,6 +15128,12 @@ checksum = "be97d76faf1bfab666e1375477b23fde79eccf0276e9b63b92a39d676a889ba9"
 dependencies = [
  "rand 0.8.5",
 ]
+
+[[package]]
+name = "powerfmt"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "439ee305def115ba05938db6eb1644ff94165c5ab5e9420d1c1bcedbba909391"
 
 [[package]]
 name = "pprof"
@@ -16914,6 +16936,7 @@ dependencies = [
  "libp2p",
  "linked_hash_set",
  "log",
+ "multihash 0.19.1",
  "parity-scale-codec",
  "prost 0.12.4",
  "prost-build 0.12.4",
@@ -17128,7 +17151,6 @@ version = "0.33.0"
 dependencies = [
  "async-trait",
  "futures",
- "futures-timer",
  "log",
  "mockall 0.11.4",
  "parking_lot 0.12.1",
@@ -17620,6 +17642,7 @@ dependencies = [
  "futures-timer",
  "log",
  "mixnet",
+ "multiaddr 0.18.1",
  "parity-scale-codec",
  "parking_lot 0.12.1",
  "sc-client-api",
@@ -18009,6 +18032,7 @@ dependencies = [
  "ip_network",
  "jsonrpsee",
  "log",
+ "serde",
  "serde_json",
  "substrate-prometheus-endpoint",
  "tokio",
@@ -21979,14 +22003,16 @@ dependencies = [
 
 [[package]]
 name = "time"
-version = "0.3.27"
+version = "0.3.36"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0bb39ee79a6d8de55f48f2293a830e040392f1c5f16e336bdd1788cd0aadce07"
+checksum = "5dfd88e563464686c916c7e46e623e520ddc6d79fa6641390f2e3fa86e83e885"
 dependencies = [
  "deranged",
  "itoa",
  "libc",
+ "num-conv",
  "num_threads",
+ "powerfmt",
  "serde",
  "time-core",
  "time-macros",
@@ -21994,16 +22020,17 @@ dependencies = [
 
 [[package]]
 name = "time-core"
-version = "0.1.1"
+version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7300fbefb4dadc1af235a9cef3737cea692a9d97e1b9cbcd4ebdae6f8868e6fb"
+checksum = "ef927ca75afb808a4d64dd374f00a2adf8d0fcff8e7b184af886c3c87ec4a3f3"
 
 [[package]]
 name = "time-macros"
-version = "0.2.13"
+version = "0.2.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "733d258752e9303d392b94b75230d07b0b9c489350c69b851fc6c065fde3e8f9"
+checksum = "3f252a68540fde3a3877aeea552b832b40ab9a69e318efd078774a01ddee1ccf"
 dependencies = [
+ "num-conv",
  "time-core",
 ]
 
@@ -22576,7 +22603,7 @@ checksum = "97fee6b57c6a41524a810daee9286c02d7752c4253064d0b05472833a438f675"
 dependencies = [
  "cfg-if",
  "digest 0.10.7",
- "rand 0.7.3",
+ "rand 0.8.5",
  "static_assertions",
 ]
 
@@ -23989,7 +24016,7 @@ dependencies = [
 name = "xcm-fee-payment-runtime-api"
 version = "0.1.0"
 dependencies = [
- "env_logger 0.9.3",
+ "env_logger 0.11.3",
  "frame-executive",
  "frame-support",
  "frame-system",
