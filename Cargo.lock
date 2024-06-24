@@ -5196,19 +5196,6 @@ dependencies = [
 
 [[package]]
 name = "env_logger"
-version = "0.9.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a12e6657c4c97ebab115a42dcee77225f7f482cdd841cf7088c657a42e9e00e7"
-dependencies = [
- "atty",
- "humantime",
- "log",
- "regex",
- "termcolor",
-]
-
-[[package]]
-name = "env_logger"
 version = "0.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "95b3f3e67048839cb0d0781f445682a35113da7121f7c949db0e2be96a4fbece"
@@ -14694,7 +14681,7 @@ dependencies = [
  "sp-keystore",
  "sp-runtime",
  "sp-timestamp",
- "strum 0.24.1",
+ "strum 0.26.2",
  "substrate-prometheus-endpoint",
  "tokio",
  "tracing-gum",
@@ -16995,7 +16982,6 @@ version = "0.33.0"
 dependencies = [
  "async-trait",
  "futures",
- "futures-timer",
  "log",
  "mockall 0.11.4",
  "parking_lot 0.12.1",
@@ -23954,7 +23940,7 @@ dependencies = [
 name = "xcm-fee-payment-runtime-api"
 version = "0.1.0"
 dependencies = [
- "env_logger 0.9.3",
+ "env_logger 0.11.3",
  "frame-executive",
  "frame-support",
  "frame-system",
