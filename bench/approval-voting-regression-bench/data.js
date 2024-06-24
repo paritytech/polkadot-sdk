@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1719148251673,
+  "lastUpdate": 1719226343120,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -8318,6 +8318,53 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting",
             "value": 9.607189222469868,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Oliver Tale-Yazdi",
+            "username": "ggwpez",
+            "email": "oliver.tale-yazdi@parity.io"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "7df94a469e02e1d553bd4050b0e91870d6a4c31b",
+          "message": "Dont publish example pallets (#4861)\n\nSigned-off-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>",
+          "timestamp": "2024-06-24T09:16:34Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/7df94a469e02e1d553bd4050b0e91870d6a4c31b"
+        },
+        "date": 1719226313958,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52940.90000000001,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63548.55000000001,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 6.851494898030021,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 9.260658322589915,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 3.0272067420301116,
             "unit": "seconds"
           }
         ]
