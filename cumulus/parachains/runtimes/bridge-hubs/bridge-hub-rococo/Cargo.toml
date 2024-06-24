@@ -22,7 +22,6 @@ scale-info = { features = [
 	"derive",
 ], workspace = true }
 serde = { optional = true, features = ["derive"], workspace = true, default-features = true }
-tuplex = { workspace = true }
 
 # Substrate
 frame-benchmarking = { optional = true, workspace = true }
@@ -218,7 +217,6 @@ std = [
 	"sp-version/std",
 	"substrate-wasm-builder",
 	"testnet-parachains-constants/std",
-	"tuplex/std",
 	"xcm-builder/std",
 	"xcm-executor/std",
 	"xcm-fee-payment-runtime-api/std",

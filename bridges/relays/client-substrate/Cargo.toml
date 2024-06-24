@@ -22,6 +22,7 @@ rand = { workspace = true, default-features = true }
 scale-info = { features = ["derive"], workspace = true, default-features = true }
 tokio = { features = ["rt-multi-thread"], workspace = true, default-features = true }
 thiserror = { workspace = true }
+quick_cache = "0.3"
 
 # Bridge dependencies
 

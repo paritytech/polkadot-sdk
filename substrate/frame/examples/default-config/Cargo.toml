@@ -8,6 +8,7 @@ homepage = "https://substrate.io"
 repository.workspace = true
 description = "FRAME example pallet demonstrating derive_impl / default_config in action"
 readme = "README.md"
+publish = false
 
 [lints]
 workspace = true
