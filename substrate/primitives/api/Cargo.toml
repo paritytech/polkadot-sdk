@@ -33,7 +33,7 @@ scale-info = { features = [
 ], workspace = true }
 sp-metadata-ir = { optional = true, workspace = true }
 log = { workspace = true }
-docify = { version = "0.2.1" }
+docify = { workspace = true }
 
 [dev-dependencies]
 sp-test-primitives = { workspace = true }

@@ -717,7 +717,7 @@ cumulus-test-client = { path = "cumulus/test/client" }
 cumulus-test-relay-sproof-builder = { path = "cumulus/test/relay-sproof-builder", default-features = false }
 cumulus-test-runtime = { path = "cumulus/test/runtime" }
 cumulus-test-service = { path = "cumulus/test/service" }
-curve25519-dalek = { version = "4.1.1" }
+curve25519-dalek = { version = "4.1.3" }
 derivative = { version = "2.2.0", default-features = false }
 derive-syn-parse = { version = "0.2.0" }
 derive_more = { version = "0.99.17", default-features = false }
@@ -1339,6 +1339,8 @@ xcm-procedural = { path = "polkadot/xcm/procedural", default-features = false }
 xcm-simulator = { path = "polkadot/xcm/xcm-simulator", default-features = false }
 zeroize = { version = "1.7.0", default-features = false }
 zstd = { version = "0.12.4", default-features = false }
+pallet-assets-freezer = { path = "substrate/frame/assets-freezer", default-features = false }
+quick_cache = { version = "0.3" }
 
 [profile.release]
 # Polkadot runtime requires unwinding.

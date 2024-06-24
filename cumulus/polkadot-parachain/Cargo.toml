@@ -15,12 +15,12 @@ name = "polkadot-parachain"
 path = "src/main.rs"
 
 [dependencies]
-async-trait = "0.1.79"
-clap = { version = "4.5.3", features = ["derive"] }
-codec = { package = "parity-scale-codec", version = "3.6.12" }
-color-print = "0.3.4"
-futures = "0.3.28"
-hex-literal = "0.4.1"
+async-trait = { workspace = true }
+clap = { features = ["derive"] , workspace = true }
+codec = { workspace = true, default-features = true }
+color-print = { workspace = true }
+futures = { workspace = true }
+hex-literal = { workspace = true, default-features = true }
 log = { workspace = true, default-features = true }
 serde = { features = ["derive"], workspace = true, default-features = true }
 serde_json = { workspace = true, default-features = true }
@@ -101,17 +101,17 @@ polkadot-service = { workspace = true, default-features = true }
 xcm = { workspace = true, default-features = true }
 
 # Cumulus
-cumulus-client-cli = { path = "../client/cli" }
-cumulus-client-collator = { path = "../client/collator" }
-cumulus-client-consensus-aura = { path = "../client/consensus/aura" }
-cumulus-client-consensus-relay-chain = { path = "../client/consensus/relay-chain" }
-cumulus-client-consensus-common = { path = "../client/consensus/common" }
-cumulus-client-consensus-proposer = { path = "../client/consensus/proposer" }
-cumulus-client-parachain-inherent = { path = "../client/parachain-inherent" }
-cumulus-client-service = { path = "../client/service" }
-cumulus-primitives-aura = { path = "../primitives/aura" }
-cumulus-primitives-core = { path = "../primitives/core" }
-cumulus-relay-chain-interface = { path = "../client/relay-chain-interface" }
+cumulus-client-cli = { workspace = true, default-features = true }
+cumulus-client-collator = { workspace = true, default-features = true }
+cumulus-client-consensus-aura = { workspace = true, default-features = true }
+cumulus-client-consensus-relay-chain = { workspace = true, default-features = true }
+cumulus-client-consensus-common = { workspace = true, default-features = true }
+cumulus-client-consensus-proposer = { workspace = true, default-features = true }
+cumulus-client-parachain-inherent = { workspace = true, default-features = true }
+cumulus-client-service = { workspace = true, default-features = true }
+cumulus-primitives-aura = { workspace = true, default-features = true }
+cumulus-primitives-core = { workspace = true, default-features = true }
+cumulus-relay-chain-interface = { workspace = true, default-features = true }
 
 [build-dependencies]
 substrate-build-script-utils = { workspace = true, default-features = true }
