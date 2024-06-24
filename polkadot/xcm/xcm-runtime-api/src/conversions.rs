@@ -16,22 +16,23 @@
 
 //! Contains runtime APIs for useful conversions, such as between XCM `Location` and `AccountId`.
 
-use codec::{Codec, Decode, Encode};
-use frame_support::{sp_runtime::RuntimeString, traits::Get};
+use codec::{Decode, Encode};
+use frame_support::traits::Get;
 use scale_info::TypeInfo;
 use sp_core::crypto::Ss58Codec;
 use xcm::prelude::Location;
 use xcm_executor::traits::ConvertLocation;
 
+/// Account identifier
 #[derive(Encode, Decode, Debug, Eq, PartialEq, TypeInfo)]
-pub struct Account<AccountId> {
-	pub id: AccountId,
+pub struct Account {
+	pub id: sp_std::vec::Vec<u8>,
 	pub ss58: Ss58,
 }
 
 #[derive(Encode, Decode, Debug, Eq, PartialEq, TypeInfo)]
 pub struct Ss58 {
-	pub address: RuntimeString,
+	pub address: sp_std::vec::Vec<u8>,
 	pub version: u16,
 }
 
@@ -44,9 +45,9 @@ pub enum Error {
 
 sp_api::decl_runtime_apis! {
 	/// API for useful conversions between XCM `Location` and `AccountId`.
-	pub trait LocationToAccountApi<AccountId: Codec> {
+	pub trait LocationToAccountApi {
 		/// Converts `Location` to `Account` with `AccountId` and Ss58 representation.
-		fn convert(location: Location, ss58_prefix: Option<u16>) -> Result<Account<AccountId>, Error>;
+		fn convert_location(location: Location, ss58_prefix: Option<u16>) -> Result<Account, Error>;
 	}
 }
 
@@ -59,22 +60,20 @@ pub struct LocationToAccountHelper<AccountId, Conversion, Ss58Prefix>(
 impl<AccountId: Ss58Codec, Conversion: ConvertLocation<AccountId>, Ss58Prefix: Get<u16>>
 	LocationToAccountHelper<AccountId, Conversion, Ss58Prefix>
 {
-	pub fn convert(
+	pub fn convert_location(
 		location: Location,
 		ss58_prefix: Option<u16>,
-	) -> Result<Account<AccountId>, Error> {
+	) -> Result<Account, Error> {
 		// convert location to `AccountId`
 		let account_id = Conversion::convert_location(&location).ok_or(Error::Unsupported)?;
 
 		// convert to Ss58 format
 		let ss58_prefix = ss58_prefix.unwrap_or_else(|| Ss58Prefix::get());
 		let ss58 = Ss58 {
-			address: RuntimeString::Owned(
-				account_id.to_ss58check_with_version(ss58_prefix.into()).into(),
-			),
+			address: account_id.to_ss58check_with_version(ss58_prefix.into()).into(),
 			version: ss58_prefix,
 		};
 
-		Ok(Account { id: account_id, ss58 })
+		Ok(Account { id: account_id.to_raw_vec(), ss58 })
 	}
 }

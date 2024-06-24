@@ -71,9 +71,13 @@ impl sp_api::ProvideRuntimeApi<Block> for TestClient {
 }
 
 sp_api::mock_impl_runtime_apis! {
-	impl LocationToAccountApi<Block, AccountId> for RuntimeApi {
-		fn convert(location: Location, ss58_prefix: Option<u16>) -> Result<Account<AccountId>, LocationToAccountApiError> {
-			LocationToAccountHelper::<AccountId, LocationToAccountId, DefaultSs58Prefix>::convert(location, ss58_prefix)
+	impl LocationToAccountApi<Block> for RuntimeApi {
+		fn convert_location(location: Location, ss58_prefix: Option<u16>) -> Result<Account, LocationToAccountApiError> {
+			LocationToAccountHelper::<
+				AccountId,
+				LocationToAccountId,
+				DefaultSs58Prefix
+			>::convert_location(location, ss58_prefix)
 		}
 	}
 }

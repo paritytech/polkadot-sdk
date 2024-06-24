@@ -1368,16 +1368,16 @@ impl_runtime_apis! {
 		}
 	}
 
-	impl xcm_runtime_api::conversions::LocationToAccountApi<Block, AccountId> for Runtime {
-		fn convert(location: Location, ss58_prefix: Option<u16>) -> Result<
-			xcm_runtime_api::conversions::Account<AccountId>,
+	impl xcm_runtime_api::conversions::LocationToAccountApi<Block> for Runtime {
+		fn convert_location(location: Location, ss58_prefix: Option<u16>) -> Result<
+			xcm_runtime_api::conversions::Account,
 			xcm_runtime_api::conversions::Error
 		> {
 			xcm_runtime_api::conversions::LocationToAccountHelper::<
 				AccountId,
 				xcm_config::LocationToAccountId,
 				SS58Prefix,
-			>::convert(location, ss58_prefix)
+			>::convert_location(location, ss58_prefix)
 		}
 	}
 
