@@ -180,7 +180,7 @@ const LOG_TARGET: &str = "runtime::system";
 /// Compute the trie root of a list of extrinsics.
 ///
 /// The merkle proof is using the same trie as runtime state with
-/// `state_version` 0.
+/// `state_version` 0 or 1.
 pub fn extrinsics_root<H: Hash, E: codec::Encode>(
 	extrinsics: &[E],
 	state_version: StateVersion,
@@ -191,7 +191,7 @@ pub fn extrinsics_root<H: Hash, E: codec::Encode>(
 /// Compute the trie root of a list of extrinsics.
 ///
 /// The merkle proof is using the same trie as runtime state with
-/// `state_version` 0.
+/// `state_version` 0 or 1.
 pub fn extrinsics_data_root<H: Hash>(xts: Vec<Vec<u8>>, state_version: StateVersion) -> H::Output {
 	H::ordered_trie_root(xts, state_version)
 }
