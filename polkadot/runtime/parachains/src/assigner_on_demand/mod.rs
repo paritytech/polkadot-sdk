@@ -88,8 +88,15 @@ impl WeightInfo for TestWeightInfo {
 	}
 }
 
+/// A revenue claim that has been started but is not commited yet.
+/// Produced by `start_revenue_claim_until` and consumed then by `commit_revenue_claim`.
 pub struct RevenueClaim<T: Config> {
+	/// The index in the `Revenue` storage where the revenue history of this claim begins. Committing
+	/// the claim will truncate the `Revenue` storage by this point. If `None`, no claim is possible
+	/// (the cmail is in the future or is too old)
 	split_off: Option<usize>,
+	/// The amount that will be claimed when the claim is commited. It's a sum of all the revenue
+	/// history entries beyond `split_off`.
 	pub amount: BalanceOf<T>,
 }
 

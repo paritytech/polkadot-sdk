@@ -147,7 +147,7 @@ pub mod pallet {
 		type WeightInfo: WeightInfo;
 		/// The XCM sender.
 		type SendXcm: SendXcm;
-		/// The asstet transactor.
+		/// The asset transactor.
 		type AssetTransactor: TransactAsset;
 		/// AccountId to Location converter
 		type AccountToLocation: for<'a> TryConvert<&'a Self::AccountId, Location>;
