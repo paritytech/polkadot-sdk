@@ -15,7 +15,24 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+pub use constants::*;
+pub use default_configs::*;
+
 #[cfg(feature = "rococo")]
 pub mod rococo;
 #[cfg(feature = "westend")]
 pub mod westend;
+
+pub mod default_configs;
+
+pub mod constants {
+	use frame_support::parameter_types;
+	use frame_system::limits::BlockLength;
+	use parachains_common::NORMAL_DISPATCH_RATIO;
+
+	parameter_types! {
+		/// The block length of a parachain runtime.
+		pub RuntimeBlockLength: BlockLength =
+			BlockLength::max_with_normal_ratio(5 * 1024 * 1024, NORMAL_DISPATCH_RATIO);
+	}
+}

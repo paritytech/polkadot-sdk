@@ -21724,7 +21724,11 @@ version = "1.0.0"
 dependencies = [
  "cumulus-primitives-core",
  "frame-support",
+ "frame-system",
+ "pallet-balances",
+ "parachains-common",
  "polkadot-core-primitives",
+ "polkadot-runtime-common",
  "rococo-runtime-constants",
  "smallvec",
  "sp-runtime",
