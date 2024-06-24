@@ -343,10 +343,12 @@ pub mod pallet {
 }
 
 impl<T: Config<I>, I: 'static> Pallet<T, I> {
+	/// The current membership, stored as an ordered Vec
 	pub fn members() -> BoundedVec<T::AccountId, T::MaxMembers> {
 		Members::<T, I>::get()
 	}
 
+	/// The current prime member, if one exists
 	pub fn prime() -> Option<T::AccountId> {
 		Prime::<T, I>::get()
 	}
