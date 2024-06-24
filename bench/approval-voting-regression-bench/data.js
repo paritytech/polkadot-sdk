@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1719226343120,
+  "lastUpdate": 1719234980829,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -8365,6 +8365,53 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 3.0272067420301116,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Muharem",
+            "username": "muharem",
+            "email": "ismailov.m.h@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "5e62782d27a18d8c57da28617181c66cd57076b5",
+          "message": "treasury pallet: remove unused config parameters (#4831)\n\nRemove unused config parameters `ApproveOrigin` and `OnSlash` from the\ntreasury pallet. Add `OnSlash` config parameter to the bounties and tips\npallets.\n\npart of https://github.com/paritytech/polkadot-sdk/issues/3800",
+          "timestamp": "2024-06-24T12:31:55Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/5e62782d27a18d8c57da28617181c66cd57076b5"
+        },
+        "date": 1719234951665,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52944.8,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63544.569999999985,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 6.948956350090043,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 9.378985339300037,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 3.0932228218401407,
             "unit": "seconds"
           }
         ]
