@@ -10,3 +10,4 @@ doc:
 
 crates:
   - name: pallet-membership
+    bump: minor

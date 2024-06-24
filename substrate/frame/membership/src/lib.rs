@@ -24,7 +24,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use frame_support::{
-	traits::{ChangeMembers, Contains, Get, InitializeMembers, SortedMembers, ContainsLengthBound},
+	traits::{ChangeMembers, Contains, ContainsLengthBound, Get, InitializeMembers, SortedMembers},
 	BoundedVec,
 };
 use sp_runtime::traits::{StaticLookup, UniqueSaturatedInto};
