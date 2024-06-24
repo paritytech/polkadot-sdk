@@ -84,7 +84,7 @@ pub struct Configuration {
 	/// disable overrides (default).
 	pub wasm_runtime_overrides: Option<PathBuf>,
 	/// JSON-RPC server binding address.
-	pub rpc_addr: Option<SocketAddr>,
+	pub rpc_addr: Option<Vec<String>>,
 	/// Maximum number of connections for JSON-RPC server.
 	pub rpc_max_connections: u32,
 	/// CORS settings for HTTP & WS servers. `None` if all origins are allowed.

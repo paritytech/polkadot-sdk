@@ -37,7 +37,7 @@ use sc_service::{
 };
 use sc_telemetry::TelemetryEndpoints;
 use std::{
-	net::{IpAddr, Ipv4Addr, SocketAddr},
+	net::{Ipv4Addr, Ipv6Addr},
 	num::NonZeroU32,
 };
 
@@ -127,6 +127,19 @@ pub struct RunCmd {
 	/// Specify JSON-RPC server TCP port.
 	#[arg(long, value_name = "PORT")]
 	pub rpc_port: Option<u16>,
+
+	/// Specify the JSON-RPC server listen address.
+	///
+	/// The format of the listen addr is `"<ip:port>/?<query params>"`
+	///
+	/// For example: if you want to listen on `127.0.0.1:9944` and enable the `rpc-methods=unsafe
+	/// query parameter, you can use:
+	///  `--rpc_listen_addrs 127.0.0.1:9933/?rpc-methods=unsafe&cors=*"`.
+	//
+	// Dev Note: This is a `String` because `Url` does not work for socket addresses without scheme
+	// such as `127.0.0.1:9933/?rpc-methods=unsafe` is not a valid URL.
+	#[arg(long, conflicts_with_all = &["rpc_external", "unsafe_rpc_external", "rpc_port"])]
+	pub rpc_listen_addrs: Vec<String>,
 
 	/// Maximum number of RPC server connections.
 	#[arg(long, value_name = "COUNT", default_value_t = RPC_DEFAULT_MAX_CONNECTIONS)]
@@ -410,15 +423,60 @@ impl CliConfiguration for RunCmd {
 			.into())
 	}
 
-	fn rpc_addr(&self, default_listen_port: u16) -> Result<Option<SocketAddr>> {
-		let interface = rpc_interface(
+	fn rpc_addr(&self, default_listen_port: u16) -> Result<Option<Vec<String>>> {
+		if !self.rpc_listen_addrs.is_empty() {
+			return Ok(Some(self.rpc_listen_addrs.clone()));
+		}
+
+		let (ipv4, ipv6) = rpc_interface(
 			self.rpc_external,
 			self.unsafe_rpc_external,
 			self.rpc_methods,
 			self.validator,
 		)?;
 
-		Ok(Some(SocketAddr::new(interface, self.rpc_port.unwrap_or(default_listen_port))))
+		let rpc_methods = match self.rpc_methods {
+			RpcMethods::Auto => "rpc-methods=auto",
+			RpcMethods::Safe => "rpc-methods=safe",
+			RpcMethods::Unsafe => "rpc-methods=unsafe",
+		};
+
+		let port = self.rpc_port.unwrap_or(default_listen_port);
+
+		let mut addr_ipv4 = format!(
+			"{ipv4}:{port}/?{rpc_methods}&rate-limit-trust-proxy-headers={}",
+			self.rpc_rate_limit_trust_proxy_headers
+		);
+		let mut addr_ipv6 = format!(
+			"[{ipv6}]:{port}/?{rpc_methods}&rate-limit-trust-proxy-headers={}",
+			self.rpc_rate_limit_trust_proxy_headers
+		);
+
+		if let Some(list) = self.rpc_cors(self.is_dev()?)? {
+			let val = format!("&cors={}", list.join(","));
+			addr_ipv4.push_str(&val);
+			addr_ipv6.push_str(&val);
+		};
+
+		if let Some(rate_limit) = self.rpc_rate_limit {
+			let val = format!("&rate-limit={}", rate_limit);
+			addr_ipv4.push_str(&val);
+			addr_ipv6.push_str(&val);
+		}
+
+		if !self.rpc_rate_limit_whitelisted_ips.is_empty() {
+			let ips = self
+				.rpc_rate_limit_whitelisted_ips
+				.iter()
+				.map(|ip| ip.to_string())
+				.collect::<Vec<String>>()
+				.join(",");
+			let val = format!("&rate-limit-whitelisted-ips={}", ips);
+			addr_ipv4.push_str(&val);
+			addr_ipv6.push_str(&val);
+		}
+
+		Ok(Some(vec![addr_ipv4, addr_ipv6]))
 	}
 
 	fn rpc_methods(&self) -> Result<sc_service::config::RpcMethods> {
@@ -523,7 +581,7 @@ fn rpc_interface(
 	is_unsafe_external: bool,
 	rpc_methods: RpcMethods,
 	is_validator: bool,
-) -> Result<IpAddr> {
+) -> Result<(Ipv4Addr, Ipv6Addr)> {
 	if is_external && is_validator && rpc_methods != RpcMethods::Unsafe {
 		return Err(Error::Input(
 			"--rpc-external option shouldn't be used if the node is running as \
@@ -541,9 +599,9 @@ fn rpc_interface(
 			);
 		}
 
-		Ok(Ipv4Addr::UNSPECIFIED.into())
+		Ok((Ipv4Addr::UNSPECIFIED, Ipv6Addr::UNSPECIFIED))
 	} else {
-		Ok(Ipv4Addr::LOCALHOST.into())
+		Ok((Ipv4Addr::LOCALHOST, Ipv6Addr::LOCALHOST))
 	}
 }
 

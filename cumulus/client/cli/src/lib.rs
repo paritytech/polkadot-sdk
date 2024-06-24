@@ -21,7 +21,6 @@
 use std::{
 	fs,
 	io::{self, Write},
-	net::SocketAddr,
 	path::PathBuf,
 	sync::Arc,
 };
@@ -423,7 +422,7 @@ impl sc_cli::CliConfiguration for NormalizedRunCmd {
 		self.base.rpc_cors(is_dev)
 	}
 
-	fn rpc_addr(&self, default_listen_port: u16) -> sc_cli::Result<Option<SocketAddr>> {
+	fn rpc_addr(&self, default_listen_port: u16) -> sc_cli::Result<Option<Vec<String>>> {
 		self.base.rpc_addr(default_listen_port)
 	}
 

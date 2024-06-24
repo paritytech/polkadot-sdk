@@ -954,7 +954,10 @@ pub fn run_relay_chain_validator_node(
 	);
 
 	if let Some(port) = port {
-		config.rpc_addr = Some(SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), port));
+		config.rpc_addr = Some(RpcListenAddr::only(SocketAddr::new(
+			IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)),
+			port,
+		)));
 	}
 
 	let mut workers_path = std::env::current_exe().unwrap();
