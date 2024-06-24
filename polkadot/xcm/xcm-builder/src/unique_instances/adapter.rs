@@ -2,7 +2,7 @@ use core::marker::PhantomData;
 use frame_support::traits::tokens::asset_ops::{
 	self,
 	common_asset_kinds::Instance,
-	common_strategies::{AssignId, FromTo, IfOwnedBy, Owned},
+	common_strategies::{DeriveAndReportId, FromTo, IfOwnedBy, Owned, PredefinedId},
 	AssetDefinition, Create, Destroy, Transfer,
 };
 use xcm::latest::prelude::*;
@@ -14,7 +14,7 @@ const LOG_TARGET: &str = "xcm::unique_instances";
 /// entities), for which the `Matcher` can deduce the instance ID from the XCM [`AssetId`].
 ///
 /// The adapter uses the following asset operations:
-/// * [`Create`] with the [`Owned`] strategy, which uses the [`AssignId`] approach
+/// * [`Create`] with the [`Owned`] strategy, which uses the [`PredefinedId`] approach
 /// to assign the instance ID deduced by the `Matcher`.
 /// * [`Transfer`] with [`FromTo`] strategy
 /// * [`Destroy`] with [`IfOwnedBy`] strategy
@@ -38,7 +38,7 @@ where
 	AccountIdConverter: ConvertLocation<AccountId>,
 	Matcher: MatchesInstance<InstanceOps::Id>,
 	InstanceOps: AssetDefinition<Instance>
-		+ Create<Instance, Owned<AccountId, AssignId<InstanceOps::Id>>>
+		+ Create<Instance, Owned<AccountId, PredefinedId<InstanceOps::Id>>>
 		+ Transfer<Instance, FromTo<AccountId>>
 		+ Destroy<Instance, IfOwnedBy<AccountId>>,
 {
@@ -55,7 +55,8 @@ where
 		let who = AccountIdConverter::convert_location(who)
 			.ok_or(MatchError::AccountIdConversionFailed)?;
 
-		InstanceOps::create(Owned::new(who, AssignId(instance_id)))
+		InstanceOps::create(Owned::new(who, PredefinedId::from(instance_id)))
+			.map(|_reported_id| ())
 			.map_err(|e| XcmError::FailedToTransactAsset(e.into()))
 	}
 
@@ -109,46 +110,49 @@ where
 	}
 }
 
-/// The `UniqueDerivedInstancesAdapter` implements the [`TransactAsset`] to create unique instances
+/// The `UniqueInstancesDepositAdapter` implements the [`TransactAsset`] to create unique instances
 /// (NFT-like entities), for which the `Matcher` can **not** deduce the instance ID from the XCM
 /// [`AssetId`]. Instead, this adapter requires the `Matcher` to return
-/// the [instance ID assignment approach](asset_ops::IdAssignment)
-/// so a new instance can be created using this approach and then deposited to a beneficiary.
-pub struct UniqueDerivedInstancesAdapter<
+/// the derive ID parameters (the `DeriveIdParams`) for the [`DeriveAndReportId`] ID assignment
+/// approach.
+///
+/// The new instance will be created using the `InstanceCreateOp` and then deposited to a
+/// beneficiary.
+pub struct UniqueInstancesDepositAdapter<
 	AccountId,
 	AccountIdConverter,
-	IdAssignment,
+	DeriveIdParams,
 	Matcher,
 	InstanceCreateOp,
->(PhantomData<(AccountId, AccountIdConverter, IdAssignment, Matcher, InstanceCreateOp)>);
+>(PhantomData<(AccountId, AccountIdConverter, DeriveIdParams, Matcher, InstanceCreateOp)>);
 
-impl<AccountId, AccountIdConverter, Matcher, IdAssignment, InstanceCreateOp> TransactAsset
-	for UniqueDerivedInstancesAdapter<
+impl<AccountId, AccountIdConverter, Matcher, DeriveIdParams, InstanceCreateOp> TransactAsset
+	for UniqueInstancesDepositAdapter<
 		AccountId,
 		AccountIdConverter,
-		IdAssignment,
+		DeriveIdParams,
 		Matcher,
 		InstanceCreateOp,
 	> where
 	AccountIdConverter: ConvertLocation<AccountId>,
-	IdAssignment: asset_ops::IdAssignment,
-	Matcher: MatchesInstance<IdAssignment>,
-	InstanceCreateOp: Create<Instance, Owned<AccountId, IdAssignment>>,
+	Matcher: MatchesInstance<DeriveIdParams>,
+	InstanceCreateOp: AssetDefinition<Instance>
+		+ Create<Instance, Owned<AccountId, DeriveAndReportId<DeriveIdParams, InstanceCreateOp::Id>>>,
 {
 	fn deposit_asset(what: &Asset, who: &Location, context: Option<&XcmContext>) -> XcmResult {
 		log::trace!(
 			target: LOG_TARGET,
-			"UniqueDerivedInstancesAdapter::deposit_asset what: {:?}, who: {:?}, context: {:?}",
+			"UniqueInstancesDepositAdapter::deposit_asset what: {:?}, who: {:?}, context: {:?}",
 			what,
 			who,
 			context,
 		);
 
-		let instance_id_assignment = Matcher::matches_instance(what)?;
+		let derive_id_params = Matcher::matches_instance(what)?;
 		let who = AccountIdConverter::convert_location(who)
 			.ok_or(MatchError::AccountIdConversionFailed)?;
 
-		InstanceCreateOp::create(Owned::new(who, instance_id_assignment))
+		InstanceCreateOp::create(Owned::new(who, DeriveAndReportId::from(derive_id_params)))
 			.map(|_reported_id| ())
 			.map_err(|e| XcmError::FailedToTransactAsset(e.into()))
 	}

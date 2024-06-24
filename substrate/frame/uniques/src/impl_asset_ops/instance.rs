@@ -5,7 +5,8 @@ use frame_support::{
 	traits::tokens::asset_ops::{
 		common_asset_kinds::Instance,
 		common_strategies::{
-			AssignId, Bytes, CanTransfer, FromTo, IfOwnedBy, JustDo, Owned, Ownership, WithOrigin,
+			Bytes, CanTransfer, FromTo, IfOwnedBy, JustDo, Owned, Ownership, PredefinedId,
+			WithOrigin,
 		},
 		AssetDefinition, Create, Destroy, InspectMetadata, Transfer,
 	},
@@ -70,38 +71,46 @@ impl<T: Config<I>, I: 'static> InspectMetadata<Instance, CanTransfer> for Pallet
 }
 
 impl<T: Config<I>, I: 'static>
-	Create<Instance, Owned<T::AccountId, AssignId<(T::CollectionId, T::ItemId)>>> for Pallet<T, I>
+	Create<Instance, Owned<T::AccountId, PredefinedId<(T::CollectionId, T::ItemId)>>> for Pallet<T, I>
 {
 	fn create(
-		strategy: Owned<T::AccountId, AssignId<(T::CollectionId, T::ItemId)>>,
-	) -> DispatchResult {
-		let Owned { owner, id_assignment: AssignId((collection, item)), .. } = strategy;
+		strategy: Owned<T::AccountId, PredefinedId<(T::CollectionId, T::ItemId)>>,
+	) -> Result<(T::CollectionId, T::ItemId), DispatchError> {
+		let Owned { owner, id_assignment, .. } = strategy;
+		let (collection, item) = id_assignment.params;
 
-		Self::do_mint(collection, item, owner, |_| Ok(()))
+		Self::do_mint(collection.clone(), item.clone(), owner, |_| Ok(()))?;
+
+		Ok((collection, item))
 	}
 }
 
 impl<T: Config<I>, I: 'static>
 	Create<
 		Instance,
-		WithOrigin<T::RuntimeOrigin, Owned<T::AccountId, AssignId<(T::CollectionId, T::ItemId)>>>,
+		WithOrigin<
+			T::RuntimeOrigin,
+			Owned<T::AccountId, PredefinedId<(T::CollectionId, T::ItemId)>>,
+		>,
 	> for Pallet<T, I>
 {
 	fn create(
 		strategy: WithOrigin<
 			T::RuntimeOrigin,
-			Owned<T::AccountId, AssignId<(T::CollectionId, T::ItemId)>>,
+			Owned<T::AccountId, PredefinedId<(T::CollectionId, T::ItemId)>>,
 		>,
-	) -> DispatchResult {
-		let WithOrigin(origin, Owned { owner, id_assignment: AssignId((collection, item)), .. }) =
-			strategy;
+	) -> Result<(T::CollectionId, T::ItemId), DispatchError> {
+		let WithOrigin(origin, Owned { owner, id_assignment, .. }) = strategy;
+		let (collection, item) = id_assignment.params;
 
 		let signer = ensure_signed(origin)?;
 
-		Self::do_mint(collection, item, owner, |collection_details| {
+		Self::do_mint(collection.clone(), item.clone(), owner, |collection_details| {
 			ensure!(collection_details.issuer == signer, Error::<T, I>::NoPermission);
 			Ok(())
-		})
+		})?;
+
+		Ok((collection, item))
 	}
 }
 

@@ -1,12 +1,11 @@
 use crate::{asset_strategies::Attribute, *};
 use frame_support::{
-	dispatch::DispatchResult,
 	ensure,
 	traits::{
 		tokens::asset_ops::{
 			common_asset_kinds::Class,
 			common_strategies::{
-				Adminable, AssignId, Bytes, IfOwnedByWithWitness, Ownership, WithOrigin,
+				Adminable, Bytes, IfOwnedByWithWitness, Ownership, PredefinedId, WithOrigin,
 				WithWitness,
 			},
 			AssetDefinition, Create, Destroy, InspectMetadata,
@@ -56,11 +55,14 @@ impl<'a, T: Config<I>, I: 'static> InspectMetadata<Class, Bytes<Attribute<'a>>> 
 	}
 }
 
-impl<T: Config<I>, I: 'static> Create<Class, Adminable<T::AccountId, AssignId<T::CollectionId>>>
+impl<T: Config<I>, I: 'static> Create<Class, Adminable<T::AccountId, PredefinedId<T::CollectionId>>>
 	for Pallet<T, I>
 {
-	fn create(strategy: Adminable<T::AccountId, AssignId<T::CollectionId>>) -> DispatchResult {
-		let Adminable { owner, admin, id_assignment: AssignId(collection), .. } = strategy;
+	fn create(
+		strategy: Adminable<T::AccountId, PredefinedId<T::CollectionId>>,
+	) -> Result<T::CollectionId, DispatchError> {
+		let Adminable { owner, admin, id_assignment, .. } = strategy;
+		let collection = id_assignment.params;
 
 		Self::do_create_collection(
 			collection.clone(),
@@ -68,21 +70,29 @@ impl<T: Config<I>, I: 'static> Create<Class, Adminable<T::AccountId, AssignId<T:
 			admin.clone(),
 			T::CollectionDeposit::get(),
 			false,
-			Event::Created { collection, creator: owner, owner: admin },
-		)
+			Event::Created { collection: collection.clone(), creator: owner, owner: admin },
+		)?;
+
+		Ok(collection)
 	}
 }
 
 impl<T: Config<I>, I: 'static>
-	Create<Class, WithOrigin<T::RuntimeOrigin, Adminable<T::AccountId, AssignId<T::CollectionId>>>>
-	for Pallet<T, I>
+	Create<
+		Class,
+		WithOrigin<T::RuntimeOrigin, Adminable<T::AccountId, PredefinedId<T::CollectionId>>>,
+	> for Pallet<T, I>
 {
 	fn create(
-		strategy: WithOrigin<T::RuntimeOrigin, Adminable<T::AccountId, AssignId<T::CollectionId>>>,
-	) -> DispatchResult {
+		strategy: WithOrigin<
+			T::RuntimeOrigin,
+			Adminable<T::AccountId, PredefinedId<T::CollectionId>>,
+		>,
+	) -> Result<T::CollectionId, DispatchError> {
 		let WithOrigin(origin, creation) = strategy;
 
-		let Adminable { owner, id_assignment: AssignId(collection), .. } = &creation;
+		let Adminable { owner, id_assignment, .. } = &creation;
+		let collection = &id_assignment.params;
 
 		let maybe_check_signer =
 			T::ForceOrigin::try_origin(origin).map(|_| None).or_else(|origin| {

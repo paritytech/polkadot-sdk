@@ -1,8 +1,12 @@
+//! Utilities for redefining and auto-implementing the unique instances operations.
+
 use core::marker::PhantomData;
 use frame_support::traits::{
 	tokens::asset_ops::{
 		common_asset_kinds::Instance,
-		common_strategies::{AssignId, DeriveAndReportId, FromTo, IfOwnedBy, IfRestorable, Owned},
+		common_strategies::{
+			DeriveAndReportId, FromTo, IfOwnedBy, IfRestorable, Owned, PredefinedId,
+		},
 		AssetDefinition, Create, CreateStrategy, Destroy, DestroyStrategy, Restore, Stash,
 		Transfer, TransferStrategy,
 	},
@@ -10,6 +14,11 @@ use frame_support::traits::{
 };
 use sp_runtime::{DispatchError, DispatchResult};
 
+/// The `UniqueInstancesOps` allows the creation of a new "NFT engine" capable of creating,
+/// transferring, and destroying the unique instances by merging three distinct implementations.
+///
+/// The resulting "NFT engine" can be used in the
+/// [`UniqueInstancesAdapter`](super::UniqueInstancesAdapter).
 pub struct UniqueInstancesOps<CreateOp, TransferOp, DestroyOp>(
 	PhantomData<(CreateOp, TransferOp, DestroyOp)>,
 );
@@ -54,6 +63,11 @@ where
 	}
 }
 
+/// The `SimpleStash` implements both the [`Stash`] and [`Restore`] operations
+/// by utilizing the [`Transfer`] operation.
+/// Stashing with the [`IfOwnedBy`] strategy is implemented as the transfer to the stash account
+/// using the [`FromTo`] strategy. Restoring with the [`IfRestorable`] is implemented symmetrically
+/// as the transfer from the stash account using the [`FromTo`] strategy.
 pub struct SimpleStash<StashAccount, InstanceOps>(PhantomData<(StashAccount, InstanceOps)>);
 impl<StashAccount, InstanceOps> AssetDefinition<Instance> for SimpleStash<StashAccount, InstanceOps>
 where
@@ -88,19 +102,43 @@ where
 	}
 }
 
+/// The `RestoreOnCreate` implements the [`Create`] operation by utilizing the [`Restore`]
+/// operation. The creation is implemented using the [`Owned`] strategy with the [`PredefinedId`] ID
+/// assignment. Such creation is modeled by the [`Restore`] operation using the [`IfRestorable`]
+/// strategy.
+///
+/// The implemented [`Create`] operation can be used in the
+/// [`UniqueInstancesAdapter`](super::UniqueInstancesAdapter) via the [`UniqueInstancesOps`].
 pub struct RestoreOnCreate<InstanceOps>(PhantomData<InstanceOps>);
-impl<AccountId, InstanceOps> Create<Instance, Owned<AccountId, AssignId<InstanceOps::Id>>>
+impl<InstanceOps> AssetDefinition<Instance> for RestoreOnCreate<InstanceOps>
+where
+	InstanceOps: AssetDefinition<Instance>,
+{
+	type Id = InstanceOps::Id;
+}
+impl<AccountId, InstanceOps> Create<Instance, Owned<AccountId, PredefinedId<InstanceOps::Id>>>
 	for RestoreOnCreate<InstanceOps>
 where
 	InstanceOps: Restore<Instance, IfRestorable<AccountId>>,
 {
-	fn create(strategy: Owned<AccountId, AssignId<InstanceOps::Id>>) -> DispatchResult {
-		let Owned { owner, id_assignment: AssignId(instance_id), .. } = strategy;
+	fn create(
+		strategy: Owned<AccountId, PredefinedId<InstanceOps::Id>>,
+	) -> Result<InstanceOps::Id, DispatchError> {
+		let Owned { owner, id_assignment, .. } = strategy;
+		let instance_id = id_assignment.params;
 
-		InstanceOps::restore(&instance_id, IfRestorable(owner))
+		InstanceOps::restore(&instance_id, IfRestorable(owner))?;
+
+		Ok(instance_id)
 	}
 }
 
+/// The `StashOnDestroy` implements the [`Destroy`] operation by utilizing the [`Stash`] operation.
+/// The destroy operation is implemented using the [`IfOwnedBy`] strategy
+/// and  modeled by the [`Stash`] operation using the same strategy.
+///
+/// The implemented [`Destroy`] operation can be used in the
+/// [`UniqueInstancesAdapter`](super::UniqueInstancesAdapter) via the [`UniqueInstancesOps`].
 pub struct StashOnDestroy<InstanceOps>(PhantomData<InstanceOps>);
 impl<InstanceOps> AssetDefinition<Instance> for StashOnDestroy<InstanceOps>
 where

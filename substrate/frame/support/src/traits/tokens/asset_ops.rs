@@ -125,15 +125,17 @@ pub trait CreateStrategy {
 ///
 /// The common ID assignments are:
 /// * [`AutoId`](common_strategies::AutoId)
-/// * [`AssignId`](common_strategies::AssignId)
+/// * [`PredefinedId`](common_strategies::PredefinedId)
 /// * [`DeriveAndReportId`](common_strategies::DeriveAndReportId)
 pub trait IdAssignment {
 	/// The reported ID type.
 	///
 	/// Examples:
-	/// * [`AutoId`](common_strategies::AutoId) returns ID of the newly created asset
-	/// * [`AssignId`](common_strategies::AssignId) doesn't report an ID, i.e., returns `()`
-	/// * [`DeriveAndReportId`](common_strategies::DeriveAndReportId) returns the derived ID
+	/// * [`AutoId`](common_strategies::AutoId) returns the ID of the newly created asset
+	/// * [`PredefinedId`](common_strategies::PredefinedId) accepts the ID to be assigned to the
+	///   newly created asset
+	/// * [`DeriveAndReportId`](common_strategies::DeriveAndReportId) returns the ID derived from
+	///   the input parameters
 	type ReportedId;
 }
 
@@ -215,7 +217,7 @@ pub trait Stash<AssetKind, Strategy: StashStrategy>: AssetDefinition<AssetKind> 
 }
 
 /// A strategy for use in the [`Restore`] implementations.
-/// The common stash strategies are:
+/// The common restore strategies are:
 /// * [`JustDo`](common_strategies::JustDo)
 /// * [`IfRestorable`](common_strategies::IfRestorable)
 pub trait RestoreStrategy {}
@@ -441,48 +443,45 @@ pub mod common_strategies {
 	/// [`"create" strategies`](CreateStrategy).
 	///
 	/// It accepts the `Id` type of the asset.
-	/// The "create" strategy should report the value of type `Id` upon successful asset creation.
-	#[derive(RuntimeDebug, PartialEq, Eq, Clone, Encode, Decode, MaxEncodedLen, TypeInfo)]
-	pub struct AutoId<Id>(PhantomData<Id>);
-	impl<Id> AutoId<Id> {
-		pub fn new() -> Self {
-			Self(PhantomData)
-		}
-	}
-	impl<Id> IdAssignment for AutoId<Id> {
-		type ReportedId = Id;
-	}
+	/// The "create" strategy should report the value of type `ReportedId` upon successful asset
+	/// creation.
+	pub type AutoId<ReportedId> = DeriveAndReportId<(), ReportedId>;
 
-	/// The `AssignId` is an ID assignment approach intended to be used in
+	/// The `PredefinedId` is an ID assignment approach intended to be used in
 	/// [`"create" strategies`](CreateStrategy).
 	///
-	/// It accepts `Params` to assign an ID to the newly created asset.
-	/// This ID assignment approach doesn't report the ID upon the asset's creation.
-	#[derive(RuntimeDebug, PartialEq, Eq, Clone, Encode, Decode, MaxEncodedLen, TypeInfo)]
-	pub struct AssignId<Params>(pub Params);
-	impl<Params> IdAssignment for AssignId<Params> {
-		type ReportedId = ();
-	}
+	/// It accepts the `Id` that should be assigned to the newly created asset.
+	///
+	/// The "create" strategy should report the `Id` value upon successful asset creation.
+	pub type PredefinedId<Id> = DeriveAndReportId<Id, Id>;
 
 	/// The `DeriveAndReportId` is an ID assignment approach intended to be used in
 	/// [`"create" strategies`](CreateStrategy).
 	///
 	/// It accepts the `Params` and the `Id`.
-	/// The `Id` value should be computed by the "create" strategy using the `Params` value.
+	/// The `ReportedId` value should be computed by the "create" strategy using the `Params` value.
 	///
-	/// The "create" strategy should report the `Id` value upon successful asset creation.
+	/// The "create" strategy should report the `ReportedId` value upon successful asset creation.
 	///
 	/// An example of ID derivation is the creation of an NFT inside a collection using the
-	/// collection ID as `Params`. The `Id` in this case is the full ID of the NFT.
+	/// collection ID as `Params`. The `ReportedId` in this case is the full ID of the NFT.
 	#[derive(RuntimeDebug, PartialEq, Eq, Clone, Encode, Decode, MaxEncodedLen, TypeInfo)]
-	pub struct DeriveAndReportId<Params, Id>(pub Params, pub PhantomData<Id>);
-	impl<Params, Id> DeriveAndReportId<Params, Id> {
-		pub fn from(params: Params) -> Self {
-			Self(params, PhantomData)
+	pub struct DeriveAndReportId<Params, ReportedId> {
+		pub params: Params,
+		_phantom: PhantomData<ReportedId>,
+	}
+	impl<ReportedId> DeriveAndReportId<(), ReportedId> {
+		pub fn auto() -> AutoId<ReportedId> {
+			Self { params: (), _phantom: PhantomData }
 		}
 	}
-	impl<Params, Id> IdAssignment for DeriveAndReportId<Params, Id> {
-		type ReportedId = Id;
+	impl<Params, ReportedId> DeriveAndReportId<Params, ReportedId> {
+		pub fn from(params: Params) -> Self {
+			Self { params, _phantom: PhantomData }
+		}
+	}
+	impl<Params, ReportedId> IdAssignment for DeriveAndReportId<Params, ReportedId> {
+		type ReportedId = ReportedId;
 	}
 
 	/// The `Owned` is a [`"create" strategy`](CreateStrategy).
