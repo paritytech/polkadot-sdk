@@ -223,8 +223,8 @@ impl<AssetId, AccountId> AssetsCallback<AssetId, AccountId> for Tuple {
 /// Auto-increment the [`NextAssetId`] when an asset is created.
 ///
 /// This has not effect if the [`NextAssetId`] value is not present.
-pub struct AutoIncrAssetId<T, I = ()>(PhantomData<(T, I)>);
-impl<T: Config<I>, I> AssetsCallback<T::AssetId, T::AccountId> for AutoIncrAssetId<T, I>
+pub struct AutoIncAssetId<T, I = ()>(PhantomData<(T, I)>);
+impl<T: Config<I>, I> AssetsCallback<T::AssetId, T::AccountId> for AutoIncAssetId<T, I>
 where
 	T::AssetId: Incrementable,
 {
@@ -394,7 +394,7 @@ pub mod pallet {
 		///
 		/// Types implementing the [`AssetsCallback`] can be chained when listed together as a
 		/// tuple.
-		/// The [`AutoIncrAssetId`] callback, in conjunction with the [`NextAssetId`], can be
+		/// The [`AutoIncAssetId`] callback, in conjunction with the [`NextAssetId`], can be
 		/// used to set up auto-incrementing asset IDs for this collection.
 		type CallbackHandle: AssetsCallback<Self::AssetId, Self::AccountId>;
 
@@ -455,7 +455,7 @@ pub mod pallet {
 	///
 	/// The next asset ID can be set using the
 	/// [SetNextAssetId](`migration::next_asset_id::SetNextAssetId`) migration. For the auto-
-	/// incremented model, the [`crate::AutoIncrAssetId`] callback can be used.
+	/// incremented model, the [`crate::AutoIncAssetId`] callback can be used.
 	#[pallet::storage]
 	pub type NextAssetId<T: Config<I>, I: 'static = ()> = StorageValue<_, T::AssetId, OptionQuery>;
 
