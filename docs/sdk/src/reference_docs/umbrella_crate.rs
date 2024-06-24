@@ -28,8 +28,9 @@
 //!   `node` feature. For docs.rs the manifest contains specific configuration to make it show up
 //!   all re-exports.
 //!
-//! There is a specific `zepter` check in place to ensure that the features of the umbrella are
-//! correctly configured. This check is run in CI and locally when running `zepter`.
+//! There is a specific [`zepter`](https://github.com/ggwpez/zepter) check in place to ensure that
+//! the features of the umbrella are correctly configured. This check is run in CI and locally when
+//! running `zepter`.
 //!
 //! ## Generation
 //!

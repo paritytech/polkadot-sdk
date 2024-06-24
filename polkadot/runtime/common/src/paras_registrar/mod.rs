@@ -721,7 +721,7 @@ mod tests {
 		assert_noop, assert_ok, derive_impl,
 		error::BadOrigin,
 		parameter_types,
-		traits::{ConstU32, OnFinalize, OnInitialize},
+		traits::{OnFinalize, OnInitialize},
 	};
 	use frame_system::limits;
 	use pallet_balances::Error as BalancesError;
@@ -799,20 +799,11 @@ mod tests {
 		pub const ExistentialDeposit: Balance = 1;
 	}
 
+	#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 	impl pallet_balances::Config for Test {
-		type Balance = u128;
-		type DustRemoval = ();
-		type RuntimeEvent = RuntimeEvent;
+		type Balance = Balance;
 		type ExistentialDeposit = ExistentialDeposit;
 		type AccountStore = System;
-		type MaxLocks = ();
-		type MaxReserves = ();
-		type ReserveIdentifier = [u8; 8];
-		type WeightInfo = ();
-		type RuntimeHoldReason = RuntimeHoldReason;
-		type RuntimeFreezeReason = RuntimeFreezeReason;
-		type FreezeIdentifier = ();
-		type MaxFreezes = ConstU32<1>;
 	}
 
 	impl shared::Config for Test {

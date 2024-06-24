@@ -55,8 +55,6 @@ use xcm_builder::{AliasesIntoAccountId32, PayOverXcm};
 
 #[cfg(feature = "runtime-benchmarks")]
 use crate::impls::benchmarks::{OpenHrmpChannel, PayWithEnsure};
-#[cfg(feature = "runtime-benchmarks")]
-use testnet_parachains_constants::westend::currency::DOLLARS;
 
 /// The Fellowship members' ranks.
 pub mod ranks {
@@ -152,6 +150,7 @@ impl pallet_ranked_collective::Config<FellowshipCollectiveInstance> for Runtime 
 	type MinRankOfClass = tracks::MinRankOfClass;
 	type MemberSwappedHandler = (crate::FellowshipCore, crate::FellowshipSalary);
 	type VoteWeight = pallet_ranked_collective::Geometric;
+	type MaxMemberCount = ();
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkSetup = (crate::FellowshipCore, crate::FellowshipSalary);
 }
@@ -270,16 +269,6 @@ parameter_types! {
 	pub SelfParaId: ParaId = ParachainInfo::parachain_id();
 }
 
-#[cfg(feature = "runtime-benchmarks")]
-parameter_types! {
-	// Benchmark bond. Needed to make `propose_spend` work.
-	pub const TenPercent: Permill = Permill::from_percent(10);
-	// Benchmark minimum. Needed to make `propose_spend` work.
-	pub const BenchmarkProposalBondMinimum: Balance = 1 * DOLLARS;
-	// Benchmark maximum. Needed to make `propose_spend` work.
-	pub const BenchmarkProposalBondMaximum: Balance = 10 * DOLLARS;
-}
-
 /// [`PayOverXcm`] setup to pay the Fellowship Treasury.
 pub type FellowshipTreasuryPaymaster = PayOverXcm<
 	FellowshipTreasuryInteriorLocation,
@@ -302,20 +291,6 @@ impl pallet_treasury::Config<FellowshipTreasuryInstance> for Runtime {
 	// TODO: replace with `NeverEnsure` once polkadot-sdk 1.5 is released.
 	type ApproveOrigin = NeverEnsureOrigin<()>;
 	type OnSlash = ();
-	#[cfg(not(feature = "runtime-benchmarks"))]
-	type ProposalBond = HundredPercent;
-	#[cfg(not(feature = "runtime-benchmarks"))]
-	type ProposalBondMinimum = MaxBalance;
-	#[cfg(not(feature = "runtime-benchmarks"))]
-	type ProposalBondMaximum = MaxBalance;
-
-	#[cfg(feature = "runtime-benchmarks")]
-	type ProposalBond = TenPercent;
-	#[cfg(feature = "runtime-benchmarks")]
-	type ProposalBondMinimum = BenchmarkProposalBondMinimum;
-	#[cfg(feature = "runtime-benchmarks")]
-	type ProposalBondMaximum = BenchmarkProposalBondMaximum;
-	// end.
 
 	type WeightInfo = weights::pallet_treasury::WeightInfo<Runtime>;
 	type PalletId = FellowshipTreasuryPalletId;
