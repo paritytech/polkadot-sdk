@@ -35,7 +35,7 @@ jobs:
         run: cat .github/env >> $GITHUB_OUTPUT
   cmd-sync:
     needs: [set-image]
-    runs-on: arc-runners-polkadot-sdk-benchmark
+    runs-on: arc-runners-polkadot-sdk-warpsync
     container:
       image: ${{ needs.set-image.outputs.IMAGE }}
     steps:
