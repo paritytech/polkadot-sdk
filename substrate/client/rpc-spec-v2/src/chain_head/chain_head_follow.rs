@@ -572,7 +572,7 @@ where
 					// The information from `.info()` is updated from the DB as the last
 					// step of the finalization and it should be up to date.
 					// If the info is outdated, there is nothing the RPC can do for now.
-					error!(
+					debug!(
 						target: LOG_TARGET,
 						"[follow][id={:?}] Client does not contain different best block",
 						self.sub_id,
