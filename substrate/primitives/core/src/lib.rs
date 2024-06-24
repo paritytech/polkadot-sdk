@@ -323,6 +323,37 @@ pub fn to_substrate_wasm_fn_return_value(value: &impl Encode) -> u64 {
 #[derive(Clone, Decode, Encode, Eq, PartialEq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 pub enum Void {}
 
+/// todo: [AJ] docs
+#[derive(Encode, Decode, RuntimeDebug, TypeInfo)]
+
+pub enum QueryDispatchError {
+	NotImplemented,
+	NotFound(QueryId),
+	Codec,
+}
+
+impl From<codec::Error> for QueryDispatchError {
+	fn from(_: codec::Error) -> Self {
+		QueryDispatchError::Codec
+	}
+}
+
+/// todo: [AJ] docs
+#[derive(Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
+pub struct QueryId {
+	pub prefix: [u8; 16],
+	pub suffix: [u8; 16],
+}
+
+impl From<QueryId> for [u8; 32] {
+	fn from(value: QueryId) -> Self {
+		let mut output = [0u8; 32];
+		output[..16].copy_from_slice(&value.prefix);
+		output[16..].copy_from_slice(&value.suffix);
+		output
+	}
+}
+
 /// Macro for creating `Maybe*` marker traits.
 ///
 /// Such a maybe-marker trait requires the given bound when `feature = std` and doesn't require

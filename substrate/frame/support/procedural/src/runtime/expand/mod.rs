@@ -176,6 +176,7 @@ fn construct_runtime_final_expansion(
 	let mut slash_reason = None;
 	let mut lock_id = None;
 	let mut task = None;
+	let mut query = None;
 
 	for runtime_type in runtime_types.iter() {
 		match runtime_type {
@@ -217,6 +218,9 @@ fn construct_runtime_final_expansion(
 			},
 			RuntimeType::RuntimeTask(_) => {
 				task = Some(expand::expand_outer_task(&name, &pallets, &scrate));
+			},
+			RuntimeType::RuntimeQuery(_) => {
+				query = Some(expand::expand_outer_query(&name, &pallets, &scrate));
 			},
 		}
 	}
@@ -294,6 +298,8 @@ fn construct_runtime_final_expansion(
 		#dispatch
 
 		#task
+
+		#query
 
 		#metadata
 
