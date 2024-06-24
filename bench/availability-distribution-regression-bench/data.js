@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1719148554832,
+  "lastUpdate": 1719226645386,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -15131,6 +15131,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-store",
             "value": 0.1672423005866667,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Deepak Chaudhary",
+            "username": "Aideepakchaudhary",
+            "email": "54492415+Aideepakchaudhary@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "fed81f7e854f4a82ad815343fac13caf7b5d03eb",
+          "message": "pallet-membership should implement ContainsLengthBound (#4865)\n\n### ISSUE\nLink to the issue:\nhttps://github.com/paritytech/polkadot-sdk/issues/1143\n\nDeliverables\n - Implement trait `ContainsLengthBound` for pallet-membership\n \n\n### Test Outcomes\n___\nSuccessful tests by running `cargo test -p pallet-membership --features\nruntime-benchmarks`\n\n\n\nrunning 22 tests\ntest tests::__construct_runtime_integrity_test::runtime_integrity_tests\n... ok\ntest benchmark::bench_clear_prime ... ok\ntest tests::add_member_works ... ok\ntest tests::change_key_with_same_caller_as_argument_changes_nothing ...\nok\ntest tests::change_key_works ... ok\ntest benchmark::bench_set_prime ... ok\ntest benchmark::bench_remove_member ... ok\ntest benchmark::bench_change_key ... ok\ntest tests::change_key_works_that_does_not_change_order ... ok\ntest benchmark::bench_reset_members ... ok\ntest benchmark::bench_add_member ... ok\ntest tests::genesis_build_panics_with_duplicate_members - should panic\n... ok\ntest benchmark::bench_swap_member ... ok\ntest tests::query_membership_works ... ok\ntest tests::prime_member_works ... ok\ntest tests::test_genesis_config_builds ... ok\ntest tests::remove_member_works ... ok\ntest tests::migration_v4 ... ok\ntest tests::swap_member_with_identical_arguments_changes_nothing ... ok\ntest tests::swap_member_works_that_does_not_change_order ... ok\ntest tests::swap_member_works ... ok\ntest tests::reset_members_works ... ok\n\ntest result: ok. 22 passed; 0 failed; 0 ignored; 0 measured; 0 filtered\nout; finished in 0.01s\n\n   Doc-tests pallet_membership\n\nrunning 0 tests\n\ntest result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered\nout; finished in 0.00s\n\n---------\n\nCo-authored-by: Bastian Köcher <git@kchr.de>",
+          "timestamp": "2024-06-24T10:34:34Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/fed81f7e854f4a82ad815343fac13caf7b5d03eb"
+        },
+        "date": 1719226615752,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02180320428666667,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.01185829518,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.1671595300933333,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009418645160000006,
             "unit": "seconds"
           }
         ]
