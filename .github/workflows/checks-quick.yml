@@ -56,7 +56,11 @@ jobs:
     steps:
       - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
       - name: run zepter
-        run: zepter run check
+        run: |
+          # Pull all dependencies eagerly:
+          time cargo metadata --format-version=1 --locked > /dev/null
+          zepter --version
+          time zepter run check
   test-rust-features:
     runs-on: ubuntu-latest
     timeout-minutes: 10
