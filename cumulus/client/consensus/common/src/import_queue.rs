@@ -63,7 +63,7 @@ impl<Block: BlockT> Verifier<Block> for VerifyNothing {
 pub fn verify_nothing_import_queue<Block: BlockT, I>(
 	block_import: I,
 	spawner: &impl sp_core::traits::SpawnEssentialNamed,
-	registry: Option<&substrate_prometheus_endpoint::Registry>,
+	registry: Option<&prometheus_endpoint::Registry>,
 ) -> BasicQueue<Block>
 where
 	I: BlockImport<Block, Error = ConsensusError>
