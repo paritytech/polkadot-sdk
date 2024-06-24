@@ -54,7 +54,7 @@ pub type Service = PartialComponents<
 	ParachainBackend,
 	(),
 	sc_consensus::DefaultImportQueue<Block>,
-	sc_transaction_pool::FullPool<Block, ParachainClient>,
+	sc_transaction_pool::TransactionPoolImpl<Block, ParachainClient>,
 	(ParachainBlockImport, Option<Telemetry>, Option<TelemetryWorkerHandle>),
 >;
 
@@ -103,13 +103,14 @@ pub fn new_partial(config: &Configuration) -> Result<Service, sc_service::Error>
 		telemetry
 	});
 
-	let transaction_pool = sc_transaction_pool::BasicPool::new_full(
-		config.transaction_pool.clone(),
-		config.role.is_authority().into(),
-		config.prometheus_registry(),
-		task_manager.spawn_essential_handle(),
-		client.clone(),
-	);
+	let transaction_pool = sc_transaction_pool::Builder::new()
+		.with_options(config.transaction_pool.clone())
+		.build(
+			config.role.is_authority().into(),
+			config.prometheus_registry(),
+			task_manager.spawn_essential_handle(),
+			client.clone(),
+		);
 
 	let block_import = ParachainBlockImport::new(client.clone(), backend.clone());
 
@@ -169,7 +170,7 @@ fn start_consensus(
 	telemetry: Option<TelemetryHandle>,
 	task_manager: &TaskManager,
 	relay_chain_interface: Arc<dyn RelayChainInterface>,
-	transaction_pool: Arc<sc_transaction_pool::FullPool<Block, ParachainClient>>,
+	transaction_pool: Arc<sc_transaction_pool::TransactionPoolImpl<Block, ParachainClient>>,
 	sync_oracle: Arc<SyncingService<Block>>,
 	keystore: KeystorePtr,
 	relay_chain_slot_duration: Duration,

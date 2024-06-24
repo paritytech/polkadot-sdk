@@ -22,7 +22,7 @@ use crate::graph::{BlockHash, ChainApi, ExtrinsicFor, NumberFor, Pool};
 use codec::Encode;
 use parking_lot::Mutex;
 use sc_transaction_pool_api::error;
-use sp_blockchain::TreeRoute;
+use sp_blockchain::{HashAndNumber, TreeRoute};
 use sp_runtime::{
 	generic::BlockId,
 	traits::{Block as BlockT, Hash},
@@ -57,6 +57,10 @@ impl TestApi {
 	/// Helper function for mapping block number to hash. Use if mapping shall not fail.
 	pub fn expect_hash_from_number(&self, n: BlockNumber) -> H256 {
 		self.block_id_to_hash(&BlockId::Number(n)).unwrap().unwrap()
+	}
+
+	pub fn expect_hash_and_number(&self, n: BlockNumber) -> HashAndNumber<Block> {
+		HashAndNumber { hash: self.expect_hash_from_number(n), number: n }
 	}
 }
 

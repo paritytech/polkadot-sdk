@@ -27,6 +27,7 @@ use sp_runtime::transaction_validity::TransactionTag as Tag;
 use std::time::Instant;
 
 use super::base_pool::Transaction;
+use crate::{log_xt_debug, LOG_TARGET};
 
 /// Transaction with partially satisfied dependencies.
 pub struct WaitingTransaction<Hash, Ex> {
@@ -107,7 +108,7 @@ impl<Hash, Ex> WaitingTransaction<Hash, Ex> {
 ///
 /// Contains transactions that are still awaiting for some other transactions that
 /// could provide a tag that they require.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct FutureTransactions<Hash: hash::Hash + Eq, Ex> {
 	/// tags that are not yet provided by any transaction and we await for them
 	wanted_tags: HashMap<Tag, HashSet<Hash>>,
@@ -128,7 +129,9 @@ every hash from `wanted_tags` is always present in `waiting`;
 qed
 #";
 
-impl<Hash: hash::Hash + Eq + Clone, Ex> FutureTransactions<Hash, Ex> {
+impl<Hash: hash::Hash + Eq + Clone + std::fmt::Debug, Ex: std::fmt::Debug>
+	FutureTransactions<Hash, Ex>
+{
 	/// Import transaction to Future queue.
 	///
 	/// Only transactions that don't have all their tags satisfied should occupy
@@ -163,6 +166,26 @@ impl<Hash: hash::Hash + Eq + Clone, Ex> FutureTransactions<Hash, Ex> {
 			.iter()
 			.map(|h| self.waiting.get(h).map(|x| x.transaction.clone()))
 			.collect()
+	}
+
+	/// Removes transactions that provide any of tags in the given list.
+	///
+	/// Returns list of removed transactions.
+	pub fn prune_tags(&mut self, tags: &Vec<Tag>) -> Vec<Arc<Transaction<Hash, Ex>>> {
+		let pruned = self
+			.waiting
+			.values()
+			.filter_map(|tx| {
+				tx.transaction
+					.provides
+					.iter()
+					.any(|provided_tag| tags.contains(provided_tag))
+					.then(|| tx.transaction.hash.clone())
+			})
+			.collect::<Vec<_>>();
+
+		log_xt_debug!(target: LOG_TARGET, &pruned, "[{:?}] FutureTransactions: removed while pruning tags.");
+		self.remove(&pruned)
 	}
 
 	/// Satisfies provided tags in transactions that are waiting for them.
@@ -218,6 +241,7 @@ impl<Hash: hash::Hash + Eq + Clone, Ex> FutureTransactions<Hash, Ex> {
 				removed.push(waiting_tx.transaction)
 			}
 		}
+
 		removed
 	}
 

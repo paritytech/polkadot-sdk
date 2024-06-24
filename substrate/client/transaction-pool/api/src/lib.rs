@@ -26,7 +26,7 @@ use codec::Codec;
 use futures::{Future, Stream};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use sp_core::offchain::TransactionPoolExt;
-use sp_runtime::traits::{Block as BlockT, Member, NumberFor};
+use sp_runtime::traits::{Block as BlockT, Member};
 use std::{collections::HashMap, hash::Hash, marker::PhantomData, pin::Pin, sync::Arc};
 
 const LOG_TARGET: &str = "txpool::api";
@@ -36,7 +36,7 @@ pub use sp_runtime::transaction_validity::{
 };
 
 /// Transaction pool status.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct PoolStatus {
 	/// Number of transactions in the ready queue.
 	pub ready: usize,
@@ -285,7 +285,7 @@ pub trait TransactionPool: Send + Sync {
 	/// Guarantees to return immediately when `None` is passed.
 	fn ready_at(
 		&self,
-		at: NumberFor<Self::Block>,
+		at: <Self::Block as BlockT>::Hash,
 	) -> Pin<
 		Box<
 			dyn Future<
@@ -295,7 +295,10 @@ pub trait TransactionPool: Send + Sync {
 	>;
 
 	/// Get an iterator for ready transactions ordered by priority.
-	fn ready(&self) -> Box<dyn ReadyTransactions<Item = Arc<Self::InPoolTransaction>> + Send>;
+	fn ready(
+		&self,
+		at: <Self::Block as BlockT>::Hash,
+	) -> Option<Box<dyn ReadyTransactions<Item = Arc<Self::InPoolTransaction>> + Send>>;
 
 	// *** Block production
 	/// Remove transactions identified by given hashes (and dependent transactions) from the pool.
@@ -303,7 +306,7 @@ pub trait TransactionPool: Send + Sync {
 
 	// *** logging
 	/// Get futures transaction list.
-	fn futures(&self) -> Vec<Self::InPoolTransaction>;
+	fn futures(&self, at: <Self::Block as BlockT>::Hash) -> Option<Vec<Self::InPoolTransaction>>;
 
 	/// Returns pool status.
 	fn status(&self) -> PoolStatus;
@@ -345,7 +348,13 @@ impl<T> ReadyTransactions for std::iter::Empty<T> {
 }
 
 /// Events that the transaction pool listens for.
+#[derive(Debug)]
 pub enum ChainEvent<B: BlockT> {
+	/// New block have been added to the chain.
+	NewBlock {
+		/// Hash of the block.
+		hash: B::Hash,
+	},
 	/// New best block have been added to the chain.
 	NewBestBlock {
 		/// Hash of the block.
@@ -368,7 +377,9 @@ impl<B: BlockT> ChainEvent<B> {
 	/// Returns the block hash associated to the event.
 	pub fn hash(&self) -> B::Hash {
 		match self {
-			Self::NewBestBlock { hash, .. } | Self::Finalized { hash, .. } => *hash,
+			Self::NewBlock { hash, .. } |
+			Self::NewBestBlock { hash, .. } |
+			Self::Finalized { hash, .. } => *hash,
 		}
 	}
 
@@ -407,7 +418,7 @@ pub trait LocalTransactionPool: Send + Sync {
 	) -> Result<Self::Hash, Self::Error>;
 }
 
-impl<T: LocalTransactionPool> LocalTransactionPool for Arc<T> {
+impl<T: LocalTransactionPool + ?Sized> LocalTransactionPool for Arc<T> {
 	type Block = T::Block;
 
 	type Hash = T::Hash;

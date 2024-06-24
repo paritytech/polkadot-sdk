@@ -1,0 +1,19 @@
+#!/bin/bash -x
+sender=/home/miszka/parity/14-txpool-forks/polkadot-stps/utils/sender/target/release/sender 
+
+if [ $# -ne 1 ]; then
+  echo "nonce shall be given"
+  exit
+fi
+
+# count=20
+# $sender --node-url ws://127.0.0.1:9999 --num $count --nonce 7  --threads 1
+# exit
+
+count=16000
+nonce=$1
+# $sender --node-url ws://127.0.0.1:9999 --num $count --nonce 3  --threads 20 &
+# $sender --node-url ws://127.0.0.1:9999 --num $count --nonce 2  --threads 20 &
+# $sender --node-url ws://127.0.0.1:9999 --num $count --nonce 1  --threads 20 &
+# sleep 60 #not needed?
+$sender --node-url ws://127.0.0.1:9999 --num $count --nonce $nonce  --threads 20

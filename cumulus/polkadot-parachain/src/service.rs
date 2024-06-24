@@ -89,7 +89,7 @@ pub type Service<RuntimeApi> = PartialComponents<
 	ParachainBackend,
 	(),
 	sc_consensus::DefaultImportQueue<Block>,
-	sc_transaction_pool::FullPool<Block, ParachainClient<RuntimeApi>>,
+	sc_transaction_pool::TransactionPoolImpl<Block, ParachainClient<RuntimeApi>>,
 	(ParachainBlockImport<RuntimeApi>, Option<Telemetry>, Option<TelemetryWorkerHandle>),
 >;
 
@@ -150,13 +150,14 @@ where
 		telemetry
 	});
 
-	let transaction_pool = sc_transaction_pool::BasicPool::new_full(
-		config.transaction_pool.clone(),
-		config.role.is_authority().into(),
-		config.prometheus_registry(),
-		task_manager.spawn_essential_handle(),
-		client.clone(),
-	);
+	let transaction_pool = sc_transaction_pool::Builder::new()
+		.with_options(config.transaction_pool.clone())
+		.build(
+			config.role.is_authority().into(),
+			config.prometheus_registry(),
+			task_manager.spawn_essential_handle(),
+			client.clone(),
+		);
 
 	let block_import = ParachainBlockImport::new(client.clone(), backend.clone());
 
@@ -201,7 +202,7 @@ where
 			DenyUnsafe,
 			Arc<ParachainClient<RuntimeApi>>,
 			Arc<ParachainBackend>,
-			Arc<sc_transaction_pool::FullPool<Block, ParachainClient<RuntimeApi>>>,
+			Arc<sc_transaction_pool::TransactionPoolImpl<Block, ParachainClient<RuntimeApi>>>,
 		) -> Result<jsonrpsee::RpcModule<()>, sc_service::Error>
 		+ 'static,
 	BIQ: FnOnce(
@@ -218,7 +219,7 @@ where
 		Option<TelemetryHandle>,
 		&TaskManager,
 		Arc<dyn RelayChainInterface>,
-		Arc<sc_transaction_pool::FullPool<Block, ParachainClient<RuntimeApi>>>,
+		Arc<sc_transaction_pool::TransactionPoolImpl<Block, ParachainClient<RuntimeApi>>>,
 		Arc<SyncingService<Block>>,
 		KeystorePtr,
 		Duration,
@@ -377,8 +378,6 @@ pub fn build_aura_import_queue(
 	telemetry: Option<TelemetryHandle>,
 	task_manager: &TaskManager,
 ) -> Result<sc_consensus::DefaultImportQueue<Block>, sc_service::Error> {
-	let slot_duration = cumulus_client_consensus_aura::slot_duration(&*client)?;
-
 	cumulus_client_consensus_aura::import_queue::<
 		sp_consensus_aura::sr25519::AuthorityPair,
 		_,
@@ -388,17 +387,23 @@ pub fn build_aura_import_queue(
 		_,
 	>(cumulus_client_consensus_aura::ImportQueueParams {
 		block_import,
-		client,
-		create_inherent_data_providers: move |_, _| async move {
-			let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
+		client: client.clone(),
+		create_inherent_data_providers: move |at, _| {
+			let client = client.clone();
 
-			let slot =
+			async move {
+				let slot_duration = cumulus_client_consensus_aura::slot_duration_at(&*client, at)?;
+
+				let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
+
+				let slot =
 				sp_consensus_aura::inherents::InherentDataProvider::from_timestamp_and_slot_duration(
 					*timestamp,
 					slot_duration,
 				);
 
-			Ok((slot, timestamp))
+				Ok((slot, timestamp))
+			}
 		},
 		registry: config.prometheus_registry(),
 		spawner: &task_manager.spawn_essential_handle(),
@@ -451,7 +456,7 @@ fn build_parachain_rpc_extensions<RuntimeApi>(
 	deny_unsafe: sc_rpc::DenyUnsafe,
 	client: Arc<ParachainClient<RuntimeApi>>,
 	backend: Arc<ParachainBackend>,
-	pool: Arc<sc_transaction_pool::FullPool<Block, ParachainClient<RuntimeApi>>>,
+	pool: Arc<sc_transaction_pool::TransactionPoolImpl<Block, ParachainClient<RuntimeApi>>>,
 ) -> Result<jsonrpsee::RpcModule<()>, sc_service::Error>
 where
 	RuntimeApi: ConstructRuntimeApi<Block, ParachainClient<RuntimeApi>> + Send + Sync + 'static,
@@ -469,7 +474,7 @@ fn build_contracts_rpc_extensions(
 	deny_unsafe: sc_rpc::DenyUnsafe,
 	client: Arc<ParachainClient<FakeRuntimeApi>>,
 	_backend: Arc<ParachainBackend>,
-	pool: Arc<sc_transaction_pool::FullPool<Block, ParachainClient<FakeRuntimeApi>>>,
+	pool: Arc<sc_transaction_pool::TransactionPoolImpl<Block, ParachainClient<FakeRuntimeApi>>>,
 ) -> Result<jsonrpsee::RpcModule<()>, sc_service::Error> {
 	let deps = crate::rpc::FullDeps { client: client.clone(), pool: pool.clone(), deny_unsafe };
 
@@ -766,7 +771,9 @@ fn start_relay_chain_consensus(
 	telemetry: Option<TelemetryHandle>,
 	task_manager: &TaskManager,
 	relay_chain_interface: Arc<dyn RelayChainInterface>,
-	transaction_pool: Arc<sc_transaction_pool::FullPool<Block, ParachainClient<FakeRuntimeApi>>>,
+	transaction_pool: Arc<
+		sc_transaction_pool::TransactionPoolImpl<Block, ParachainClient<FakeRuntimeApi>>,
+	>,
 	_sync_oracle: Arc<SyncingService<Block>>,
 	_keystore: KeystorePtr,
 	_relay_chain_slot_duration: Duration,
@@ -837,7 +844,9 @@ fn start_lookahead_aura_consensus<RuntimeApi>(
 	telemetry: Option<TelemetryHandle>,
 	task_manager: &TaskManager,
 	relay_chain_interface: Arc<dyn RelayChainInterface>,
-	transaction_pool: Arc<sc_transaction_pool::FullPool<Block, ParachainClient<RuntimeApi>>>,
+	transaction_pool: Arc<
+		sc_transaction_pool::TransactionPoolImpl<Block, ParachainClient<RuntimeApi>>,
+	>,
 	sync_oracle: Arc<SyncingService<Block>>,
 	keystore: KeystorePtr,
 	relay_chain_slot_duration: Duration,

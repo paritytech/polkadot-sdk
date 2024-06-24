@@ -71,14 +71,14 @@ impl From<Error> for i32 {
 }
 
 /// An implementation of System-specific RPC methods on full client.
-pub struct System<P: TransactionPool, C, B> {
+pub struct System<P: TransactionPool + ?Sized, C, B> {
 	client: Arc<C>,
 	pool: Arc<P>,
 	deny_unsafe: DenyUnsafe,
 	_marker: std::marker::PhantomData<B>,
 }
 
-impl<P: TransactionPool, C, B> System<P, C, B> {
+impl<P: TransactionPool + ?Sized, C, B> System<P, C, B> {
 	/// Create new `FullSystem` given client and transaction pool.
 	pub fn new(client: Arc<C>, pool: Arc<P>, deny_unsafe: DenyUnsafe) -> Self {
 		Self { client, pool, deny_unsafe, _marker: Default::default() }
@@ -94,7 +94,7 @@ where
 	C: Send + Sync + 'static,
 	C::Api: AccountNonceApi<Block, AccountId, Nonce>,
 	C::Api: BlockBuilder<Block>,
-	P: TransactionPool + 'static,
+	P: TransactionPool<Block = Block> + 'static + ?Sized,
 	Block: traits::Block,
 	AccountId: Clone + Display + Codec + Send + 'static,
 	Nonce: Clone + Display + Codec + Send + traits::AtLeast32Bit + 'static,
@@ -110,7 +110,7 @@ where
 				Some(e.to_string()),
 			)
 		})?;
-		Ok(adjust_nonce(&*self.pool, account, nonce))
+		Ok(adjust_nonce(&*self.pool, account, nonce, best))
 	}
 
 	async fn dry_run(
@@ -177,11 +177,17 @@ where
 
 /// Adjust account nonce from state, so that tx with the nonce will be
 /// placed after all ready txpool transactions.
-fn adjust_nonce<P, AccountId, Nonce>(pool: &P, account: AccountId, nonce: Nonce) -> Nonce
+fn adjust_nonce<P, AccountId, Nonce, Block>(
+	pool: &P,
+	account: AccountId,
+	nonce: Nonce,
+	best: <Block as traits::Block>::Hash,
+) -> Nonce
 where
-	P: TransactionPool,
+	P: TransactionPool<Block = Block> + ?Sized,
 	AccountId: Clone + std::fmt::Display + Encode,
 	Nonce: Clone + std::fmt::Display + Encode + traits::AtLeast32Bit + 'static,
+	Block: traits::Block,
 {
 	log::debug!(target: "rpc", "State nonce for {}: {}", account, nonce);
 	// Now we need to query the transaction pool
@@ -192,19 +198,22 @@ where
 	// that matches the current one.
 	let mut current_nonce = nonce.clone();
 	let mut current_tag = (account.clone(), nonce).encode();
-	for tx in pool.ready() {
-		log::debug!(
-			target: "rpc",
-			"Current nonce to {}, checking {} vs {:?}",
-			current_nonce,
-			HexDisplay::from(&current_tag),
-			tx.provides().iter().map(|x| format!("{}", HexDisplay::from(x))).collect::<Vec<_>>(),
-		);
-		// since transactions in `ready()` need to be ordered by nonce
-		// it's fine to continue with current iterator.
-		if tx.provides().get(0) == Some(&current_tag) {
-			current_nonce += traits::One::one();
-			current_tag = (account.clone(), current_nonce.clone()).encode();
+
+	if let Some(ready) = pool.ready(best) {
+		for tx in ready {
+			log::debug!(
+				target: "rpc",
+				"Current nonce to {}, checking {} vs {:?}",
+				current_nonce,
+				HexDisplay::from(&current_tag),
+				tx.provides().iter().map(|x| format!("{}", HexDisplay::from(x))).collect::<Vec<_>>(),
+			);
+			// since transactions in `ready()` need to be ordered by nonce
+			// it's fine to continue with current iterator.
+			if tx.provides().get(0) == Some(&current_tag) {
+				current_nonce += traits::One::one();
+				current_tag = (account.clone(), current_nonce.clone()).encode();
+			}
 		}
 	}
 

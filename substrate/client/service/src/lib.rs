@@ -88,7 +88,7 @@ pub use sc_rpc::{
 	RandomIntegerSubscriptionId, RandomStringSubscriptionId, RpcSubscriptionIdProvider,
 };
 pub use sc_tracing::TracingReceiver;
-pub use sc_transaction_pool::Options as TransactionPoolOptions;
+pub use sc_transaction_pool::TransactionPoolOptions;
 pub use sc_transaction_pool_api::{error::IntoPoolError, InPoolTransaction, TransactionPool};
 #[doc(hidden)]
 pub use std::{ops::Deref, result::Result, sync::Arc};
@@ -130,7 +130,14 @@ impl RpcHandlers {
 }
 
 /// An incomplete set of chain components, but enough to run the chain ops subcommands.
-pub struct PartialComponents<Client, Backend, SelectChain, ImportQueue, TransactionPool, Other> {
+pub struct PartialComponents<
+	Client,
+	Backend,
+	SelectChain,
+	ImportQueue,
+	TransactionPool: ?Sized,
+	Other,
+> {
 	/// A shared client instance.
 	pub client: Arc<Client>,
 	/// A shared backend instance.
@@ -425,12 +432,12 @@ where
 }
 
 /// Transaction pool adapter.
-pub struct TransactionPoolAdapter<C, P> {
+pub struct TransactionPoolAdapter<C, P: ?Sized> {
 	pool: Arc<P>,
 	client: Arc<C>,
 }
 
-impl<C, P> TransactionPoolAdapter<C, P> {
+impl<C, P: ?Sized> TransactionPoolAdapter<C, P> {
 	/// Constructs a new instance of [`TransactionPoolAdapter`].
 	pub fn new(pool: Arc<P>, client: Arc<C>) -> Self {
 		Self { pool, client }
@@ -440,19 +447,24 @@ impl<C, P> TransactionPoolAdapter<C, P> {
 /// Get transactions for propagation.
 ///
 /// Function extracted to simplify the test and prevent creating `ServiceFactory`.
-fn transactions_to_propagate<Pool, B, H, E>(pool: &Pool) -> Vec<(H, B::Extrinsic)>
+fn transactions_to_propagate<Pool, B, H, E>(
+	at: <B as BlockT>::Hash,
+	pool: &Pool,
+) -> Vec<(H, B::Extrinsic)>
 where
-	Pool: TransactionPool<Block = B, Hash = H, Error = E>,
+	Pool: TransactionPool<Block = B, Hash = H, Error = E> + ?Sized,
 	B: BlockT,
 	H: std::hash::Hash + Eq + sp_runtime::traits::Member + sp_runtime::traits::MaybeSerialize,
 	E: IntoPoolError + From<sc_transaction_pool_api::error::Error>,
 {
-	pool.ready()
-		.filter(|t| t.is_propagable())
-		.map(|t| {
-			let hash = t.hash().clone();
-			let ex: B::Extrinsic = t.data().clone();
-			(hash, ex)
+	pool.ready(at)
+		.into_iter()
+		.flat_map(|ready| {
+			ready.filter(|t| t.is_propagable()).map(|t| {
+				let hash = t.hash().clone();
+				let ex: B::Extrinsic = t.data().clone();
+				(hash, ex)
+			})
 		})
 		.collect()
 }
@@ -467,13 +479,13 @@ where
 		+ Send
 		+ Sync
 		+ 'static,
-	Pool: 'static + TransactionPool<Block = B, Hash = H, Error = E>,
+	Pool: 'static + TransactionPool<Block = B, Hash = H, Error = E> + ?Sized,
 	B: BlockT,
 	H: std::hash::Hash + Eq + sp_runtime::traits::Member + sp_runtime::traits::MaybeSerialize,
 	E: 'static + IntoPoolError + From<sc_transaction_pool_api::error::Error>,
 {
 	fn transactions(&self) -> Vec<(H, B::Extrinsic)> {
-		transactions_to_propagate(&*self.pool)
+		transactions_to_propagate(self.client.info().best_hash, &*self.pool)
 	}
 
 	fn hash_of(&self, transaction: &B::Extrinsic) -> H {
@@ -490,6 +502,7 @@ where
 			},
 		};
 
+		let start = std::time::Instant::now();
 		let import_future = self.pool.submit_one(
 			self.client.info().best_hash,
 			sc_transaction_pool_api::TransactionSource::External,
@@ -497,16 +510,16 @@ where
 		);
 		Box::pin(async move {
 			match import_future.await {
-				Ok(_) => TransactionImport::NewGood,
+				Ok(_) => {
+					let elapsed = start.elapsed();
+					debug!(target: sc_transaction_pool::LOG_TARGET, "import transaction: {elapsed:?}");
+					TransactionImport::NewGood
+				},
 				Err(e) => match e.into_pool_error() {
 					Ok(sc_transaction_pool_api::error::Error::AlreadyImported(_)) =>
 						TransactionImport::KnownGood,
-					Ok(e) => {
-						debug!("Error adding transaction to the pool: {:?}", e);
-						TransactionImport::Bad
-					},
-					Err(e) => {
-						debug!("Error converting pool error: {}", e);
+					Ok(_) => TransactionImport::Bad,
+					Err(_) => {
 						// it is not bad at least, just some internal node logic error, so peer is
 						// innocent.
 						TransactionImport::KnownGood
@@ -566,7 +579,7 @@ mod tests {
 		assert_eq!(pool.status().ready, 2);
 
 		// when
-		let transactions = transactions_to_propagate(&*pool);
+		let transactions = transactions_to_propagate(best.hash(), &*pool);
 
 		// then
 		assert_eq!(transactions.len(), 1);

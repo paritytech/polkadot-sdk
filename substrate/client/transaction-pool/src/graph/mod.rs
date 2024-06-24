@@ -37,8 +37,8 @@ mod validated_pool;
 pub mod base_pool;
 pub mod watcher;
 
-pub use self::{
-	base_pool::Transaction,
-	pool::{BlockHash, ChainApi, ExtrinsicFor, ExtrinsicHash, NumberFor, Options, Pool},
+pub use self::pool::{
+	BlockHash, ChainApi, ExtrinsicFor, ExtrinsicHash, NumberFor, Options, Pool,
+	ValidatedTransactionFor,
 };
 pub use validated_pool::{IsValidator, ValidatedTransaction};

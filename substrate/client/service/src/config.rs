@@ -36,7 +36,7 @@ pub use sc_network::{
 };
 pub use sc_rpc_server::IpNetwork;
 pub use sc_telemetry::TelemetryEndpoints;
-pub use sc_transaction_pool::Options as TransactionPoolOptions;
+pub use sc_transaction_pool::TransactionPoolOptions;
 use sp_core::crypto::SecretString;
 use std::{
 	io, iter,
