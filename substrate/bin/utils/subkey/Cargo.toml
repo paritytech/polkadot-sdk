@@ -20,5 +20,5 @@ path = "src/main.rs"
 name = "subkey"
 
 [dependencies]
-clap = { version = "4.5.3", features = ["derive"] }
-sc-cli = { path = "../../../client/cli" }
+clap = { features = ["derive"], workspace = true }
+sc-cli = { workspace = true, default-features = true }

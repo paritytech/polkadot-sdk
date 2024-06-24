@@ -24,8 +24,8 @@ name = "chain-spec-builder"
 crate-type = ["rlib"]
 
 [dependencies]
-clap = { version = "4.5.3", features = ["derive"] }
+clap = { features = ["derive"], workspace = true }
 log = { workspace = true, default-features = true }
-sc-chain-spec = { path = "../../../client/chain-spec", features = ["clap"] }
+sc-chain-spec = { features = ["clap"], workspace = true, default-features = true }
 serde_json = { workspace = true, default-features = true }
-sp-tracing = { path = "../../../primitives/tracing" }
+sp-tracing = { workspace = true, default-features = true }

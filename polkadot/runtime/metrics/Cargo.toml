@@ -10,13 +10,13 @@ description = "Runtime metric interface for the Polkadot node"
 workspace = true
 
 [dependencies]
-sp-std = { package = "sp-std", path = "../../../substrate/primitives/std", default-features = false }
-sp-tracing = { path = "../../../substrate/primitives/tracing", default-features = false }
-codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false }
-polkadot-primitives = { path = "../../primitives", default-features = false }
-frame-benchmarking = { path = "../../../substrate/frame/benchmarking", default-features = false, optional = true }
+sp-std = { workspace = true }
+sp-tracing = { workspace = true }
+codec = { workspace = true }
+polkadot-primitives = { workspace = true }
+frame-benchmarking = { optional = true, workspace = true }
 
-bs58 = { version = "0.5.0", default-features = false, features = ["alloc"] }
+bs58 = { features = ["alloc"], workspace = true }
 
 [features]
 default = ["std"]
