@@ -2700,7 +2700,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#2549" id="2549">2549</a>
 <a href="#2550" id="2550">2550</a>
 <a href="#2551" id="2551">2551</a>
-<a href="#2552" id="2552">2552</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -3201,10 +3200,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">impl </span>pallet_treasury::Config <span class="kw">for </span>Runtime {
 	<span class="kw">type </span>PalletId = TreasuryPalletId;
 	<span class="kw">type </span>Currency = Balances;
-	<span class="kw">type </span>ApproveOrigin = EitherOfDiverse&lt;EnsureRoot&lt;AccountId&gt;, Treasurer&gt;;
 	<span class="kw">type </span>RejectOrigin = EitherOfDiverse&lt;EnsureRoot&lt;AccountId&gt;, Treasurer&gt;;
 	<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
-	<span class="kw">type </span>OnSlash = Treasury;
 	<span class="kw">type </span>SpendPeriod = SpendPeriod;
 	<span class="kw">type </span>Burn = Burn;
 	<span class="kw">type </span>BurnDestination = Society;
@@ -3263,6 +3260,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
 	<span class="kw">type </span>MaximumReasonLength = MaximumReasonLength;
 	<span class="kw">type </span>WeightInfo = weights::pallet_bounties::WeightInfo&lt;Runtime&gt;;
+	<span class="kw">type </span>OnSlash = Treasury;
 }
 
 <span class="macro">parameter_types! </span>{

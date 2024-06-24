@@ -3455,9 +3455,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#3304" id="3304">3304</a>
 <a href="#3305" id="3305">3305</a>
 <a href="#3306" id="3306">3306</a>
-<a href="#3307" id="3307">3307</a>
-<a href="#3308" id="3308">3308</a>
-<a href="#3309" id="3309">3309</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -4689,16 +4686,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">impl </span>pallet_treasury::Config <span class="kw">for </span>Runtime {
 	<span class="kw">type </span>PalletId = TreasuryPalletId;
 	<span class="kw">type </span>Currency = Balances;
-	<span class="kw">type </span>ApproveOrigin = EitherOfDiverse&lt;
-		EnsureRoot&lt;AccountId&gt;,
-		pallet_collective::EnsureProportionAtLeast&lt;AccountId, CouncilCollective, <span class="number">3</span>, <span class="number">5</span>&gt;,
-	&gt;;
 	<span class="kw">type </span>RejectOrigin = EitherOfDiverse&lt;
 		EnsureRoot&lt;AccountId&gt;,
 		pallet_collective::EnsureProportionMoreThan&lt;AccountId, CouncilCollective, <span class="number">1</span>, <span class="number">2</span>&gt;,
 	&gt;;
 	<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
-	<span class="kw">type </span>OnSlash = ();
 	<span class="kw">type </span>SpendPeriod = SpendPeriod;
 	<span class="kw">type </span>Burn = Burn;
 	<span class="kw">type </span>BurnDestination = ();
@@ -4752,6 +4744,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">type </span>MaximumReasonLength = MaximumReasonLength;
 	<span class="kw">type </span>WeightInfo = pallet_bounties::weights::SubstrateWeight&lt;Runtime&gt;;
 	<span class="kw">type </span>ChildBountyManager = ChildBounties;
+	<span class="kw">type </span>OnSlash = Treasury;
 }
 
 <span class="macro">parameter_types! </span>{
@@ -4796,6 +4789,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">type </span>TipReportDepositBase = TipReportDepositBase;
 	<span class="kw">type </span>MaxTipAmount = ConstU128&lt;{ <span class="number">500 </span>* DOLLARS }&gt;;
 	<span class="kw">type </span>WeightInfo = pallet_tips::weights::SubstrateWeight&lt;Runtime&gt;;
+	<span class="kw">type </span>OnSlash = Treasury;
 }
 
 <span class="macro">parameter_types! </span>{

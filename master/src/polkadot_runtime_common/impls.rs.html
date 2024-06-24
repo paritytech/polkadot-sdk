@@ -586,8 +586,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#435" id="435">435</a>
 <a href="#436" id="436">436</a>
 <a href="#437" id="437">437</a>
-<a href="#438" id="438">438</a>
-<a href="#439" id="439">439</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -918,10 +916,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">impl </span>pallet_treasury::Config <span class="kw">for </span>Test {
 		<span class="kw">type </span>Currency = pallet_balances::Pallet&lt;Test&gt;;
-		<span class="kw">type </span>ApproveOrigin = frame_system::EnsureRoot&lt;AccountId&gt;;
 		<span class="kw">type </span>RejectOrigin = frame_system::EnsureRoot&lt;AccountId&gt;;
 		<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
-		<span class="kw">type </span>OnSlash = ();
 		<span class="kw">type </span>SpendPeriod = ();
 		<span class="kw">type </span>Burn = ();
 		<span class="kw">type </span>BurnDestination = ();

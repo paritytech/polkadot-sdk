@@ -1134,12 +1134,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#983" id="983">983</a>
 <a href="#984" id="984">984</a>
 <a href="#985" id="985">985</a>
-<a href="#986" id="986">986</a>
-<a href="#987" id="987">987</a>
-<a href="#988" id="988">988</a>
-<a href="#989" id="989">989</a>
-<a href="#990" id="990">990</a>
-<a href="#991" id="991">991</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1347,18 +1341,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="doccomment">/// The staking balance.
 		</span><span class="kw">type </span>Currency: Currency&lt;<span class="self">Self</span>::AccountId&gt; + ReservableCurrency&lt;<span class="self">Self</span>::AccountId&gt;;
 
-		<span class="doccomment">/// Origin from which approvals must come.
-		</span><span class="kw">type </span>ApproveOrigin: EnsureOrigin&lt;<span class="self">Self</span>::RuntimeOrigin&gt;;
-
 		<span class="doccomment">/// Origin from which rejections must come.
 		</span><span class="kw">type </span>RejectOrigin: EnsureOrigin&lt;<span class="self">Self</span>::RuntimeOrigin&gt;;
 
 		<span class="doccomment">/// The overarching event type.
 		</span><span class="kw">type </span>RuntimeEvent: From&lt;Event&lt;<span class="self">Self</span>, I&gt;&gt;
 			+ IsType&lt;&lt;<span class="self">Self </span><span class="kw">as </span>frame_system::Config&gt;::RuntimeEvent&gt;;
-
-		<span class="doccomment">/// Handler for the unbalanced decrease when slashing for a rejected proposal or bounty.
-		</span><span class="kw">type </span>OnSlash: OnUnbalanced&lt;NegativeImbalanceOf&lt;<span class="self">Self</span>, I&gt;&gt;;
 
 		<span class="doccomment">/// Period between successive spends.
 		</span><span class="attr">#[pallet::constant]

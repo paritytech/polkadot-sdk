@@ -1080,6 +1080,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#929" id="929">929</a>
 <a href="#930" id="930">930</a>
 <a href="#931" id="931">931</a>
+<a href="#932" id="932">932</a>
+<a href="#933" id="933">933</a>
+<a href="#934" id="934">934</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1327,6 +1330,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="doccomment">/// The child bounty manager.
 		</span><span class="kw">type </span>ChildBountyManager: ChildBountyManager&lt;BalanceOf&lt;<span class="self">Self</span>, I&gt;&gt;;
+
+		<span class="doccomment">/// Handler for the unbalanced decrease when slashing for a rejected bounty.
+		</span><span class="kw">type </span>OnSlash: OnUnbalanced&lt;pallet_treasury::NegativeImbalanceOf&lt;<span class="self">Self</span>, I&gt;&gt;;
 	}
 
 	<span class="attr">#[pallet::error]

@@ -2554,7 +2554,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		sp_crypto_hashing::twox_64(x).iter().chain(x.iter()).cloned().collect()
 	}
 
-	<span class="doccomment">/// Generate the hashed storage keys from the raw literals. These keys are expected to be be in
+	<span class="doccomment">/// Generate the hashed storage keys from the raw literals. These keys are expected to be in
 	/// storage with given substrate-test runtime.
 	</span><span class="kw">pub fn </span>generate_expected_storage_hashed_keys(custom_heap_pages: bool) -&gt; Vec&lt;String&gt; {
 		<span class="kw">let </span><span class="kw-2">mut </span>literals: Vec&lt;<span class="kw-2">&amp;</span>[u8]&gt; = <span class="macro">vec!</span>[<span class="string">b":code"</span>, <span class="string">b":extrinsic_index"</span>];

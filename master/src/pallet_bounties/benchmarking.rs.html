@@ -563,7 +563,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		Bounties::&lt;T, I&gt;::propose_bounty(RawOrigin::Signed(caller).into(), value, reason)<span class="question-mark">?</span>;
 		<span class="kw">let </span>bounty_id = BountyCount::&lt;T, I&gt;::get() - <span class="number">1</span>;
 		<span class="kw">let </span>approve_origin =
-			T::ApproveOrigin::try_successful_origin().map_err(|<span class="kw">_</span>| BenchmarkError::Weightless)<span class="question-mark">?</span>;
+			T::RejectOrigin::try_successful_origin().map_err(|<span class="kw">_</span>| BenchmarkError::Weightless)<span class="question-mark">?</span>;
 	}: close_bounty&lt;T::RuntimeOrigin&gt;(approve_origin, bounty_id)
 
 	close_bounty_active {
@@ -572,7 +572,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		Treasury::&lt;T, I&gt;::on_initialize(BlockNumberFor::&lt;T&gt;::zero());
 		<span class="kw">let </span>bounty_id = BountyCount::&lt;T, I&gt;::get() - <span class="number">1</span>;
 		<span class="kw">let </span>approve_origin =
-			T::ApproveOrigin::try_successful_origin().map_err(|<span class="kw">_</span>| BenchmarkError::Weightless)<span class="question-mark">?</span>;
+			T::RejectOrigin::try_successful_origin().map_err(|<span class="kw">_</span>| BenchmarkError::Weightless)<span class="question-mark">?</span>;
 	}: close_bounty&lt;T::RuntimeOrigin&gt;(approve_origin, bounty_id)
 	verify {
 		assert_last_event::&lt;T, I&gt;(Event::BountyCanceled { index: bounty_id }.into())
