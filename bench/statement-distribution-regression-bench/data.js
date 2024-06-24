@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1719235880615,
+  "lastUpdate": 1719248934249,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
@@ -2897,6 +2897,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.04554308903399998,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "dashangcun",
+            "username": "dashangcun",
+            "email": "907225865@qq.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "63e264446f6cabff06be72912eae902662dcb699",
+          "message": "chore: remove repeat words (#4869)\n\nSigned-off-by: dashangcun <jchaodaohang@foxmail.com>\nCo-authored-by: dashangcun <jchaodaohang@foxmail.com>",
+          "timestamp": "2024-06-24T15:00:20Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/63e264446f6cabff06be72912eae902662dcb699"
+        },
+        "date": 1719248903866,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 127.958,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.035781901483999984,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.04541261339399999,
             "unit": "seconds"
           }
         ]
