@@ -999,6 +999,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#848" id="848">848</a>
 <a href="#849" id="849">849</a>
 <a href="#850" id="850">850</a>
+<a href="#851" id="851">851</a>
+<a href="#852" id="852">852</a>
+<a href="#853" id="853">853</a>
+<a href="#854" id="854">854</a>
+<a href="#855" id="855">855</a>
+<a href="#856" id="856">856</a>
+<a href="#857" id="857">857</a>
+<a href="#858" id="858">858</a>
+<a href="#859" id="859">859</a>
+<a href="#860" id="860">860</a>
+<a href="#861" id="861">861</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1025,7 +1036,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="attr">#![cfg_attr(not(feature = <span class="string">"std"</span>), no_std)]
 
 </span><span class="kw">use </span>frame_support::{
-	traits::{ChangeMembers, Contains, Get, InitializeMembers, SortedMembers},
+	traits::{ChangeMembers, Contains, ContainsLengthBound, Get, InitializeMembers, SortedMembers},
 	BoundedVec,
 };
 <span class="kw">use </span>sp_runtime::traits::{StaticLookup, UniqueSaturatedInto};
@@ -1359,6 +1370,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt; Contains&lt;T::AccountId&gt; <span class="kw">for </span>Pallet&lt;T, I&gt; {
 	<span class="kw">fn </span>contains(t: <span class="kw-2">&amp;</span>T::AccountId) -&gt; bool {
 		<span class="self">Self</span>::members().binary_search(t).is_ok()
+	}
+}
+
+<span class="kw">impl</span>&lt;T: Config&gt; ContainsLengthBound <span class="kw">for </span>Pallet&lt;T&gt; {
+	<span class="kw">fn </span>min_len() -&gt; usize {
+		<span class="number">0
+	</span>}
+
+	<span class="doccomment">/// Implementation uses a parameter type so calling is cost-free.
+	</span><span class="kw">fn </span>max_len() -&gt; usize {
+		T::MaxMembers::get() <span class="kw">as </span>usize
 	}
 }
 

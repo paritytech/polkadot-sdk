@@ -1555,6 +1555,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1404" id="1404">1404</a>
 <a href="#1405" id="1405">1405</a>
 <a href="#1406" id="1406">1406</a>
+<a href="#1407" id="1407">1407</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2448,7 +2449,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		call: BoundedCallOf&lt;T, I&gt;,
 	) {
 		<span class="kw">let </span>now = frame_system::Pallet::&lt;T&gt;::block_number();
-		<span class="kw">let </span>earliest_allowed = now.saturating_add(track.min_enactment_period);
+		<span class="comment">// Earliest allowed block is always at minimum the next block.
+		</span><span class="kw">let </span>earliest_allowed = now.saturating_add(track.min_enactment_period.max(One::one()));
 		<span class="kw">let </span>desired = desired.evaluate(now);
 		<span class="kw">let </span>ok = T::Scheduler::schedule_named(
 			(ASSEMBLY_ID, <span class="string">"enactment"</span>, index).using_encoded(sp_io::hashing::blake2_256),
