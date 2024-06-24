@@ -58,6 +58,8 @@ pub trait WeightInfo {
 	fn vote() -> Weight;
 	fn cleanup_poll(n: u32, ) -> Weight;
 	fn exchange_member() -> Weight;
+	fn add_member_to_rank(r: u32, ) -> Weight;
+
 }
 
 /// Weights for `pallet_ranked_collective` using the Substrate node and recommended hardware.
@@ -205,6 +207,30 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(11_u64))
 			.saturating_add(T::DbWeight::get().writes(14_u64))
 	}
+	/// Storage: `RankedCollective::Members` (r:1 w:1)
+	/// Proof: `RankedCollective::Members` (`max_values`: None, `max_size`: Some(42), added: 2517, mode: `MaxEncodedLen`)
+	/// Storage: `RankedCollective::MemberCount` (r:11 w:11)
+	/// Proof: `RankedCollective::MemberCount` (`max_values`: None, `max_size`: Some(14), added: 2489, mode: `MaxEncodedLen`)
+	/// Storage: `RankedCollective::IndexToId` (r:0 w:11)
+	/// Proof: `RankedCollective::IndexToId` (`max_values`: None, `max_size`: Some(54), added: 2529, mode: `MaxEncodedLen`)
+	/// Storage: `RankedCollective::IdToIndex` (r:0 w:11)
+	/// Proof: `RankedCollective::IdToIndex` (`max_values`: None, `max_size`: Some(54), added: 2529, mode: `MaxEncodedLen`)
+	/// The range of component `r` is `[0, 10]`.
+	fn add_member_to_rank(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `142`
+		//  Estimated: `3507 + r * (2489 ±0)`
+		// Minimum execution time: 10_000_000 picoseconds.
+		Weight::from_parts(10_242_965, 0)
+			.saturating_add(Weight::from_parts(0, 3507))
+			// Standard Error: 8_506
+			.saturating_add(Weight::from_parts(7_883_857, 0).saturating_mul(r.into()))
+			.saturating_add(T::DbWeight::get().reads(2))
+			.saturating_add(T::DbWeight::get().reads((1_u64).saturating_mul(r.into())))
+			.saturating_add(T::DbWeight::get().writes(4))
+			.saturating_add(T::DbWeight::get().writes((3_u64).saturating_mul(r.into())))
+			.saturating_add(Weight::from_parts(0, 2489).saturating_mul(r.into()))
+	}
 }
 
 // For backwards compatibility and tests.
@@ -350,5 +376,29 @@ impl WeightInfo for () {
 		Weight::from_parts(75_103_000, 19894)
 			.saturating_add(RocksDbWeight::get().reads(11_u64))
 			.saturating_add(RocksDbWeight::get().writes(14_u64))
+	}
+	/// Storage: `RankedCollective::Members` (r:1 w:1)
+	/// Proof: `RankedCollective::Members` (`max_values`: None, `max_size`: Some(42), added: 2517, mode: `MaxEncodedLen`)
+	/// Storage: `RankedCollective::MemberCount` (r:11 w:11)
+	/// Proof: `RankedCollective::MemberCount` (`max_values`: None, `max_size`: Some(14), added: 2489, mode: `MaxEncodedLen`)
+	/// Storage: `RankedCollective::IndexToId` (r:0 w:11)
+	/// Proof: `RankedCollective::IndexToId` (`max_values`: None, `max_size`: Some(54), added: 2529, mode: `MaxEncodedLen`)
+	/// Storage: `RankedCollective::IdToIndex` (r:0 w:11)
+	/// Proof: `RankedCollective::IdToIndex` (`max_values`: None, `max_size`: Some(54), added: 2529, mode: `MaxEncodedLen`)
+	/// The range of component `r` is `[0, 10]`.
+	fn add_member_to_rank(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `142`
+		//  Estimated: `3507 + r * (2489 ±0)`
+		// Minimum execution time: 10_000_000 picoseconds.
+		Weight::from_parts(10_242_965, 0)
+			.saturating_add(Weight::from_parts(0, 3507))
+			// Standard Error: 8_506
+			.saturating_add(Weight::from_parts(7_883_857, 0).saturating_mul(r.into()))
+			.saturating_add(RocksDbWeight::get().reads(2))
+			.saturating_add(RocksDbWeight::get().reads((1_u64).saturating_mul(r.into())))
+			.saturating_add(RocksDbWeight::get().writes(4))
+			.saturating_add(RocksDbWeight::get().writes((3_u64).saturating_mul(r.into())))
+			.saturating_add(Weight::from_parts(0, 2489).saturating_mul(r.into()))
 	}
 }
