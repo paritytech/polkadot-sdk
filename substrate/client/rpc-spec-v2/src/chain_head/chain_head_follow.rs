@@ -32,7 +32,7 @@ use futures::{
 };
 use futures_util::future::Either;
 use jsonrpsee::SubscriptionSink;
-use log::{debug, error};
+use log::debug;
 use sc_client_api::{
 	Backend, BlockBackend, BlockImportNotification, BlockchainEvents, FinalityNotification,
 };
