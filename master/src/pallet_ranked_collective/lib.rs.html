@@ -1156,6 +1156,25 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1005" id="1005">1005</a>
 <a href="#1006" id="1006">1006</a>
 <a href="#1007" id="1007">1007</a>
+<a href="#1008" id="1008">1008</a>
+<a href="#1009" id="1009">1009</a>
+<a href="#1010" id="1010">1010</a>
+<a href="#1011" id="1011">1011</a>
+<a href="#1012" id="1012">1012</a>
+<a href="#1013" id="1013">1013</a>
+<a href="#1014" id="1014">1014</a>
+<a href="#1015" id="1015">1015</a>
+<a href="#1016" id="1016">1016</a>
+<a href="#1017" id="1017">1017</a>
+<a href="#1018" id="1018">1018</a>
+<a href="#1019" id="1019">1019</a>
+<a href="#1020" id="1020">1020</a>
+<a href="#1021" id="1021">1021</a>
+<a href="#1022" id="1022">1022</a>
+<a href="#1023" id="1023">1023</a>
+<a href="#1024" id="1024">1024</a>
+<a href="#1025" id="1025">1025</a>
+<a href="#1026" id="1026">1026</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1537,6 +1556,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
 	<span class="kw">use </span>frame_support::{pallet_prelude::<span class="kw-2">*</span>, storage::KeyLenOf};
 	<span class="kw">use </span>frame_system::pallet_prelude::<span class="kw-2">*</span>;
+	<span class="kw">use </span>sp_runtime::traits::MaybeConvert;
 
 	<span class="attr">#[pallet::pallet]
 	</span><span class="kw">pub struct </span>Pallet&lt;T, I = ()&gt;(PhantomData&lt;(T, I)&gt;);
@@ -1588,6 +1608,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		/// Rank_delta is defined as the number of ranks above the minimum required to take part
 		/// in the poll.
 		</span><span class="kw">type </span>VoteWeight: Convert&lt;Rank, Votes&gt;;
+
+		<span class="doccomment">/// The maximum number of members for a given rank in the collective.
+		///
+		/// The member at rank `x` contributes to the count at rank `x` and all ranks below it.
+		/// Therefore, the limit `m` at rank `x` sets the maximum total member count for rank `x`
+		/// and all ranks above.
+		/// The `None` indicates no member count limit for the given rank.
+		</span><span class="kw">type </span>MaxMemberCount: MaybeConvert&lt;Rank, MemberIndex&gt;;
 
 		<span class="doccomment">/// Setup a member for benchmarking.
 		</span><span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
@@ -1669,6 +1697,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span>NoPermission,
 		<span class="doccomment">/// The new member to exchange is the same as the old member
 		</span>SameMember,
+		<span class="doccomment">/// The max member count for the rank has been reached.
+		</span>TooManyMembers,
 	}
 
 	<span class="attr">#[pallet::call]
@@ -1916,6 +1946,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="macro">ensure!</span>(!Members::&lt;T, I&gt;::contains_key(<span class="kw-2">&amp;</span>who), Error::&lt;T, I&gt;::AlreadyMember);
 			<span class="kw">let </span>index = MemberCount::&lt;T, I&gt;::get(<span class="number">0</span>);
 			<span class="kw">let </span>count = index.checked_add(<span class="number">1</span>).ok_or(Overflow)<span class="question-mark">?</span>;
+			<span class="kw">if let </span><span class="prelude-val">Some</span>(max) = T::MaxMemberCount::maybe_convert(<span class="number">0</span>) {
+				<span class="macro">ensure!</span>(count &lt;= max, Error::&lt;T, I&gt;::TooManyMembers);
+			}
 
 			Members::&lt;T, I&gt;::insert(<span class="kw-2">&amp;</span>who, MemberRecord { rank: <span class="number">0 </span>});
 			IdToIndex::&lt;T, I&gt;::insert(<span class="number">0</span>, <span class="kw-2">&amp;</span>who, index);
@@ -1942,6 +1975,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="macro">ensure!</span>(max_rank &gt;= rank, Error::&lt;T, I&gt;::NoPermission);
 			}
 			<span class="kw">let </span>index = MemberCount::&lt;T, I&gt;::get(rank);
+			<span class="kw">let </span>count = index.checked_add(<span class="number">1</span>).ok_or(Overflow)<span class="question-mark">?</span>;
+			<span class="kw">if let </span><span class="prelude-val">Some</span>(max) = T::MaxMemberCount::maybe_convert(rank) {
+				<span class="macro">ensure!</span>(count &lt;= max, Error::&lt;T, I&gt;::TooManyMembers);
+			}
+
 			MemberCount::&lt;T, I&gt;::insert(rank, index.checked_add(<span class="number">1</span>).ok_or(Overflow)<span class="question-mark">?</span>);
 			IdToIndex::&lt;T, I&gt;::insert(rank, <span class="kw-2">&amp;</span>who, index);
 			IndexToId::&lt;T, I&gt;::insert(rank, index, <span class="kw-2">&amp;</span>who);
