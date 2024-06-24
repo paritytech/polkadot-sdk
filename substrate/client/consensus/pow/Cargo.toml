@@ -1,8 +1,8 @@
 [package]
 name = "sc-consensus-pow"
-version = "0.33.0"
+version = "0.40.0"
 authors.workspace = true
-description = "PoW consensus algorithm for substrate"
+description = "PoW consensus algorithm for substrate (polkadot v1.13.0)"
 edition.workspace = true
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 homepage = "https://substrate.io"
@@ -23,14 +23,14 @@ futures-timer = "3.0.1"
 log = { workspace = true, default-features = true }
 parking_lot = "0.12.1"
 thiserror = { workspace = true }
-prometheus-endpoint = { package = "substrate-prometheus-endpoint", path = "../../../utils/prometheus" }
-sc-client-api = { path = "../../api" }
-sc-consensus = { path = "../common" }
-sp-api = { path = "../../../primitives/api" }
-sp-block-builder = { path = "../../../primitives/block-builder" }
-sp-blockchain = { path = "../../../primitives/blockchain" }
-sp-consensus = { path = "../../../primitives/consensus/common" }
-sp-consensus-pow = { path = "../../../primitives/consensus/pow" }
-sp-core = { path = "../../../primitives/core" }
-sp-inherents = { path = "../../../primitives/inherents" }
-sp-runtime = { path = "../../../primitives/runtime" }
+prometheus-endpoint = { package = "substrate-prometheus-endpoint", path = "../../../utils/prometheus", version = "0.17.0" }
+sc-client-api = { version = "35.0.0", path = "../../api" }
+sc-consensus = { version = "0.40.0", path = "../common" }
+sp-api = { version = "33.0.0", path = "../../../primitives/api" }
+sp-block-builder = { version = "33.0.0", path = "../../../primitives/block-builder" }
+sp-blockchain = { version = "35.0.0", path = "../../../primitives/blockchain" }
+sp-consensus = { version = "0.39.0", path = "../../../primitives/consensus/common" }
+sp-consensus-pow = { version = "0.39.0", path = "../../../primitives/consensus/pow" }
+sp-core = { version = "34.0.0", path = "../../../primitives/core" }
+sp-inherents = { version = "33.0.0", path = "../../../primitives/inherents" }
+sp-runtime = { version = "38.0.0", path = "../../../primitives/runtime" }

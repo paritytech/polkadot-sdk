@@ -1,7 +1,7 @@
 [package]
 name = "snowbridge-pallet-inbound-queue-fixtures"
-description = "Snowbridge Inbound Queue Test Fixtures"
-version = "0.10.0"
+description = "Snowbridge Inbound Queue Test Fixtures (polkadot v1.13.0)"
+version = "0.15.0"
 authors = ["Snowfork <contact@snowfork.com>"]
 edition.workspace = true
 repository.workspace = true
@@ -16,10 +16,10 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 hex-literal = { version = "0.4.1" }
-sp-core = { path = "../../../../../substrate/primitives/core", default-features = false }
-sp-std = { path = "../../../../../substrate/primitives/std", default-features = false }
-snowbridge-core = { path = "../../../primitives/core", default-features = false }
-snowbridge-beacon-primitives = { path = "../../../primitives/beacon", default-features = false }
+sp-core = { path = "../../../../../substrate/primitives/core", default-features = false, version = "34.0.0" }
+sp-std = { path = "../../../../../substrate/primitives/std", default-features = false, version = "14.0.0" }
+snowbridge-core = { path = "../../../primitives/core", default-features = false, version = "0.7.0" }
+snowbridge-beacon-primitives = { path = "../../../primitives/beacon", default-features = false, version = "0.7.0" }
 
 [features]
 default = ["std"]

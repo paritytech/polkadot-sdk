@@ -1,12 +1,12 @@
 [package]
 name = "sc-client-api"
-version = "28.0.0"
+version = "35.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 homepage = "https://substrate.io"
 repository.workspace = true
-description = "Substrate client interfaces."
+description = "Substrate client interfaces. (polkadot v1.13.0)"
 documentation = "https://docs.rs/sc-client-api"
 readme = "README.md"
 
@@ -24,21 +24,21 @@ fnv = "1.0.6"
 futures = "0.3.30"
 log = { workspace = true, default-features = true }
 parking_lot = "0.12.1"
-prometheus-endpoint = { package = "substrate-prometheus-endpoint", path = "../../utils/prometheus" }
-sc-executor = { path = "../executor" }
-sc-transaction-pool-api = { path = "../transaction-pool/api" }
-sc-utils = { path = "../utils" }
-sp-api = { path = "../../primitives/api" }
-sp-blockchain = { path = "../../primitives/blockchain" }
-sp-consensus = { path = "../../primitives/consensus/common" }
-sp-core = { path = "../../primitives/core", default-features = false }
-sp-database = { path = "../../primitives/database" }
-sp-externalities = { path = "../../primitives/externalities" }
-sp-runtime = { path = "../../primitives/runtime", default-features = false }
-sp-state-machine = { path = "../../primitives/state-machine" }
-sp-statement-store = { path = "../../primitives/statement-store" }
-sp-storage = { path = "../../primitives/storage" }
-sp-trie = { path = "../../primitives/trie" }
+prometheus-endpoint = { package = "substrate-prometheus-endpoint", path = "../../utils/prometheus", version = "0.17.0" }
+sc-executor = { version = "0.39.0", path = "../executor" }
+sc-transaction-pool-api = { version = "35.0.0", path = "../transaction-pool/api" }
+sc-utils = { version = "17.0.0", path = "../utils" }
+sp-api = { version = "33.0.0", path = "../../primitives/api" }
+sp-blockchain = { version = "35.0.0", path = "../../primitives/blockchain" }
+sp-consensus = { version = "0.39.0", path = "../../primitives/consensus/common" }
+sp-core = { path = "../../primitives/core", default-features = false, version = "34.0.0" }
+sp-database = { version = "10.0.0", path = "../../primitives/database" }
+sp-externalities = { version = "0.29.0", path = "../../primitives/externalities" }
+sp-runtime = { path = "../../primitives/runtime", default-features = false, version = "38.0.0" }
+sp-state-machine = { version = "0.42.0", path = "../../primitives/state-machine" }
+sp-statement-store = { version = "17.0.0", path = "../../primitives/statement-store" }
+sp-storage = { version = "21.0.0", path = "../../primitives/storage" }
+sp-trie = { version = "36.0.0", path = "../../primitives/trie" }
 
 [dev-dependencies]
 thiserror = { workspace = true }

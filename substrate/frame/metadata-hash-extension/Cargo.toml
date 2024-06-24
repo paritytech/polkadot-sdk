@@ -1,20 +1,20 @@
 [package]
 name = "frame-metadata-hash-extension"
-version = "0.1.0"
+version = "0.3.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
 homepage.workspace = true
 repository.workspace = true
-description = "FRAME signed extension for verifying the metadata hash"
+description = "FRAME signed extension for verifying the metadata hash (polkadot v1.13.0)"
 
 [dependencies]
 array-bytes = "6.2.2"
 codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = ["derive"] }
 scale-info = { version = "2.11.1", default-features = false, features = ["derive", "serde"] }
-sp-runtime = { path = "../../primitives/runtime", default-features = false, features = ["serde"] }
-frame-support = { path = "../support", default-features = false }
-frame-system = { path = "../system", default-features = false }
+sp-runtime = { path = "../../primitives/runtime", default-features = false, features = ["serde"], version = "38.0.0" }
+frame-support = { path = "../support", default-features = false, version = "35.0.0" }
+frame-system = { path = "../system", default-features = false, version = "35.0.0" }
 log = { workspace = true, default-features = false }
 docify = "0.2.8"
 

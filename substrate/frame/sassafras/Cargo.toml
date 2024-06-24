@@ -1,12 +1,12 @@
 [package]
 name = "pallet-sassafras"
-version = "0.3.5-dev"
+version = "0.1.0"
 authors = ["Parity Technologies <admin@parity.io>"]
 edition.workspace = true
 license = "Apache-2.0"
 homepage = "https://substrate.io"
 repository = "https://github.com/paritytech/substrate/"
-description = "Consensus extension module for Sassafras consensus."
+description = "Consensus extension module for Sassafras consensus. (polkadot v1.13.0)"
 readme = "README.md"
 publish = false
 
@@ -19,14 +19,14 @@ targets = ["x86_64-unknown-linux-gnu"]
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false, features = ["derive"] }
 scale-info = { version = "2.11.1", default-features = false, features = ["derive"] }
-frame-benchmarking = { path = "../benchmarking", default-features = false, optional = true }
-frame-support = { path = "../support", default-features = false }
-frame-system = { path = "../system", default-features = false }
+frame-benchmarking = { path = "../benchmarking", default-features = false, optional = true, version = "35.0.0" }
+frame-support = { path = "../support", default-features = false, version = "35.0.0" }
+frame-system = { path = "../system", default-features = false, version = "35.0.0" }
 log = { workspace = true }
-sp-consensus-sassafras = { path = "../../primitives/consensus/sassafras", default-features = false, features = ["serde"] }
-sp-io = { path = "../../primitives/io", default-features = false }
-sp-runtime = { path = "../../primitives/runtime", default-features = false }
-sp-std = { path = "../../primitives/std", default-features = false }
+sp-consensus-sassafras = { path = "../../primitives/consensus/sassafras", default-features = false, features = ["serde"], version = "0.1.0" }
+sp-io = { path = "../../primitives/io", default-features = false, version = "37.0.0" }
+sp-runtime = { path = "../../primitives/runtime", default-features = false, version = "38.0.0" }
+sp-std = { path = "../../primitives/std", default-features = false, version = "14.0.0" }
 
 [dev-dependencies]
 array-bytes = "6.2.2"

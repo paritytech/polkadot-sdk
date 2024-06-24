@@ -1,11 +1,11 @@
 [package]
 name = "binary-merkle-tree"
-version = "13.0.0"
+version = "15.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
 repository.workspace = true
-description = "A no-std/Substrate compatible library to construct binary merkle tree."
+description = "A no-std/Substrate compatible library to construct binary merkle tree. (polkadot v1.13.0)"
 homepage = "https://substrate.io"
 
 [lints]
@@ -25,4 +25,4 @@ sp-runtime = { path = "../../primitives/runtime" }
 [features]
 debug = ["array-bytes", "log"]
 default = ["debug", "std"]
-std = ["hash-db/std", "log/std", "sp-core/std", "sp-runtime/std"]
+std = ["hash-db/std", "log/std"]

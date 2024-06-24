@@ -1,12 +1,12 @@
 [package]
 name = "sc-rpc-spec-v2"
-version = "0.34.0"
+version = "0.41.0"
 authors.workspace = true
 edition.workspace = true
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 homepage = "https://substrate.io"
 repository.workspace = true
-description = "Substrate RPC interface v2."
+description = "Substrate RPC interface v2. (polkadot v1.13.0)"
 readme = "README.md"
 
 [lints]
@@ -17,19 +17,17 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 jsonrpsee = { version = "0.22.5", features = ["client-core", "macros", "server-core"] }
-# Internal chain structures for "chain_spec".
-sc-chain-spec = { path = "../chain-spec" }
-# Pool for submitting extrinsics required by "transaction"
-sc-transaction-pool-api = { path = "../transaction-pool/api" }
-sp-core = { path = "../../primitives/core" }
-sp-runtime = { path = "../../primitives/runtime" }
-sp-api = { path = "../../primitives/api" }
-sp-rpc = { path = "../../primitives/rpc" }
-sp-blockchain = { path = "../../primitives/blockchain" }
-sp-version = { path = "../../primitives/version" }
-sc-client-api = { path = "../api" }
-sc-utils = { path = "../utils" }
-sc-rpc = { path = "../rpc" }
+sc-chain-spec = { version = "34.0.0", path = "../chain-spec" }
+sc-transaction-pool-api = { version = "35.0.0", path = "../transaction-pool/api" }
+sp-core = { version = "34.0.0", path = "../../primitives/core" }
+sp-runtime = { version = "38.0.0", path = "../../primitives/runtime" }
+sp-api = { version = "33.0.0", path = "../../primitives/api" }
+sp-rpc = { version = "32.0.0", path = "../../primitives/rpc" }
+sp-blockchain = { version = "35.0.0", path = "../../primitives/blockchain" }
+sp-version = { version = "36.0.0", path = "../../primitives/version" }
+sc-client-api = { version = "35.0.0", path = "../api" }
+sc-utils = { version = "17.0.0", path = "../utils" }
+sc-rpc = { version = "36.0.0", path = "../rpc" }
 codec = { package = "parity-scale-codec", version = "3.6.12" }
 thiserror = { workspace = true }
 serde = { workspace = true, default-features = true }

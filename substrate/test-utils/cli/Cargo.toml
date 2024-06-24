@@ -1,6 +1,6 @@
 [package]
 name = "substrate-cli-test-utils"
-description = "CLI testing utilities"
+description = "CLI testing utilities (polkadot v1.13.0)"
 version = "0.1.0"
 authors.workspace = true
 edition.workspace = true
@@ -16,16 +16,16 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-substrate-rpc-client = { path = "../../utils/frame/rpc/client" }
-sp-rpc = { path = "../../primitives/rpc" }
+substrate-rpc-client = { version = "0.40.0", path = "../../utils/frame/rpc/client" }
+sp-rpc = { version = "32.0.0", path = "../../primitives/rpc" }
 assert_cmd = "2.0.10"
 nix = { version = "0.28.0", features = ["signal"] }
 regex = "1.7.3"
 tokio = { version = "1.22.0", features = ["full"] }
-node-primitives = { path = "../../bin/node/primitives" }
-node-cli = { package = "staging-node-cli", path = "../../bin/node/cli" }
-sc-cli = { path = "../../client/cli" }
-sc-service = { path = "../../client/service" }
+node-primitives = { version = "0.1.0", path = "../../bin/node/primitives" }
+node-cli = { package = "staging-node-cli", path = "../../bin/node/cli", version = "0.1.0" }
+sc-cli = { version = "0.43.0", path = "../../client/cli" }
+sc-service = { version = "0.42.0", path = "../../client/service" }
 futures = "0.3.28"
 
 [features]

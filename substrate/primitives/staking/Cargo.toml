@@ -1,12 +1,12 @@
 [package]
 name = "sp-staking"
-version = "26.0.0"
+version = "33.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
 homepage = "https://substrate.io"
 repository.workspace = true
-description = "A crate which contains primitives that are useful for implementation that uses staking approaches in general. Definitions related to sessions, slashing, etc go here."
+description = "A crate which contains primitives that are useful for implementation that uses staking approaches in general. Definitions related to sessions, slashing, etc go here. (polkadot v1.13.0)"
 readme = "README.md"
 
 [lints]
@@ -21,8 +21,8 @@ codec = { package = "parity-scale-codec", version = "3.6.12", default-features =
 scale-info = { version = "2.11.1", default-features = false, features = ["derive"] }
 impl-trait-for-tuples = "0.2.2"
 
-sp-core = { path = "../core", default-features = false }
-sp-runtime = { path = "../runtime", default-features = false }
+sp-core = { path = "../core", default-features = false, version = "34.0.0" }
+sp-runtime = { path = "../runtime", default-features = false, version = "38.0.0" }
 
 [features]
 default = ["std"]

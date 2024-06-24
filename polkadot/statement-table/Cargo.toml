@@ -1,16 +1,16 @@
 [package]
 name = "polkadot-statement-table"
-version = "7.0.0"
+version = "14.0.0"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
-description = "Stores messages other authorities issue about candidates in Polkadot."
+description = "Stores messages other authorities issue about candidates in Polkadot. (polkadot v1.13.0)"
 
 [lints]
 workspace = true
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false, features = ["derive"] }
-sp-core = { path = "../../substrate/primitives/core" }
-polkadot-primitives = { path = "../primitives" }
-gum = { package = "tracing-gum", path = "../node/gum" }
+sp-core = { version = "34.0.0", path = "../../substrate/primitives/core" }
+polkadot-primitives = { version = "14.0.0", path = "../primitives" }
+gum = { package = "tracing-gum", path = "../node/gum", version = "14.0.0" }

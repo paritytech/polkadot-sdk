@@ -1,5 +1,5 @@
 [package]
-description = "Endpoint to expose Prometheus metrics"
+description = "Endpoint to expose Prometheus metrics (polkadot v1.13.0)"
 name = "substrate-prometheus-endpoint"
 version = "0.17.0"
 license = "Apache-2.0"

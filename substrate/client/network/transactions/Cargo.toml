@@ -1,7 +1,7 @@
 [package]
-description = "Substrate transaction protocol"
+description = "Substrate transaction protocol (polkadot v1.13.0)"
 name = "sc-network-transactions"
-version = "0.33.0"
+version = "0.40.0"
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 authors.workspace = true
 edition.workspace = true
@@ -21,11 +21,11 @@ codec = { package = "parity-scale-codec", version = "3.6.12", features = ["deriv
 futures = "0.3.30"
 libp2p = "0.51.4"
 log = { workspace = true, default-features = true }
-prometheus-endpoint = { package = "substrate-prometheus-endpoint", path = "../../../utils/prometheus" }
-sc-network = { path = ".." }
-sc-network-common = { path = "../common" }
-sc-network-sync = { path = "../sync" }
-sc-network-types = { path = "../types" }
-sc-utils = { path = "../../utils" }
-sp-runtime = { path = "../../../primitives/runtime" }
-sp-consensus = { path = "../../../primitives/consensus/common" }
+prometheus-endpoint = { package = "substrate-prometheus-endpoint", path = "../../../utils/prometheus", version = "0.17.0" }
+sc-network = { version = "0.41.0", path = ".." }
+sc-network-common = { version = "0.40.0", path = "../common" }
+sc-network-sync = { version = "0.40.0", path = "../sync" }
+sc-network-types = { version = "0.12.0", path = "../types" }
+sc-utils = { version = "17.0.0", path = "../../utils" }
+sp-runtime = { version = "38.0.0", path = "../../../primitives/runtime" }
+sp-consensus = { version = "0.39.0", path = "../../../primitives/consensus/common" }

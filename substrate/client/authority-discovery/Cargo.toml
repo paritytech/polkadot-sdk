@@ -1,13 +1,13 @@
 [package]
 name = "sc-authority-discovery"
-version = "0.34.0"
+version = "0.41.0"
 authors.workspace = true
 edition.workspace = true
 build = "build.rs"
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 homepage = "https://substrate.io"
 repository.workspace = true
-description = "Substrate authority discovery."
+description = "Substrate authority discovery. (polkadot v1.13.0)"
 readme = "README.md"
 
 [lints]
@@ -31,16 +31,16 @@ log = { workspace = true, default-features = true }
 prost = "0.12.4"
 rand = "0.8.5"
 thiserror = { workspace = true }
-prometheus-endpoint = { package = "substrate-prometheus-endpoint", path = "../../utils/prometheus" }
-sc-client-api = { path = "../api" }
-sc-network = { path = "../network" }
-sc-network-types = { path = "../network/types" }
-sp-api = { path = "../../primitives/api" }
-sp-authority-discovery = { path = "../../primitives/authority-discovery" }
-sp-blockchain = { path = "../../primitives/blockchain" }
-sp-core = { path = "../../primitives/core" }
-sp-keystore = { path = "../../primitives/keystore" }
-sp-runtime = { path = "../../primitives/runtime" }
+prometheus-endpoint = { package = "substrate-prometheus-endpoint", path = "../../utils/prometheus", version = "0.17.0" }
+sc-client-api = { version = "35.0.0", path = "../api" }
+sc-network = { version = "0.41.0", path = "../network" }
+sc-network-types = { version = "0.12.0", path = "../network/types" }
+sp-api = { version = "33.0.0", path = "../../primitives/api" }
+sp-authority-discovery = { version = "33.0.0", path = "../../primitives/authority-discovery" }
+sp-blockchain = { version = "35.0.0", path = "../../primitives/blockchain" }
+sp-core = { version = "34.0.0", path = "../../primitives/core" }
+sp-keystore = { version = "0.40.0", path = "../../primitives/keystore" }
+sp-runtime = { version = "38.0.0", path = "../../primitives/runtime" }
 async-trait = "0.1.79"
 multihash-codetable = { version = "0.1.1", features = [
 	"digest",

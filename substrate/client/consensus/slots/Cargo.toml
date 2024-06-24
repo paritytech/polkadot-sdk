@@ -1,8 +1,8 @@
 [package]
 name = "sc-consensus-slots"
-version = "0.33.0"
+version = "0.40.0"
 authors.workspace = true
-description = "Generic slots-based utilities for consensus"
+description = "Generic slots-based utilities for consensus (polkadot v1.13.0)"
 edition.workspace = true
 build = "build.rs"
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
@@ -22,17 +22,17 @@ codec = { package = "parity-scale-codec", version = "3.6.12" }
 futures = "0.3.30"
 futures-timer = "3.0.1"
 log = { workspace = true, default-features = true }
-sc-client-api = { path = "../../api" }
-sc-consensus = { path = "../common" }
-sc-telemetry = { path = "../../telemetry" }
-sp-arithmetic = { path = "../../../primitives/arithmetic" }
-sp-blockchain = { path = "../../../primitives/blockchain" }
-sp-consensus = { path = "../../../primitives/consensus/common" }
-sp-consensus-slots = { path = "../../../primitives/consensus/slots" }
-sp-core = { path = "../../../primitives/core" }
-sp-inherents = { path = "../../../primitives/inherents" }
-sp-runtime = { path = "../../../primitives/runtime" }
-sp-state-machine = { path = "../../../primitives/state-machine" }
+sc-client-api = { version = "35.0.0", path = "../../api" }
+sc-consensus = { version = "0.40.0", path = "../common" }
+sc-telemetry = { version = "21.0.0", path = "../../telemetry" }
+sp-arithmetic = { version = "26.0.0", path = "../../../primitives/arithmetic" }
+sp-blockchain = { version = "35.0.0", path = "../../../primitives/blockchain" }
+sp-consensus = { version = "0.39.0", path = "../../../primitives/consensus/common" }
+sp-consensus-slots = { version = "0.39.0", path = "../../../primitives/consensus/slots" }
+sp-core = { version = "34.0.0", path = "../../../primitives/core" }
+sp-inherents = { version = "33.0.0", path = "../../../primitives/inherents" }
+sp-runtime = { version = "38.0.0", path = "../../../primitives/runtime" }
+sp-state-machine = { version = "0.42.0", path = "../../../primitives/state-machine" }
 
 [dev-dependencies]
 substrate-test-runtime-client = { path = "../../../test-utils/runtime/client" }

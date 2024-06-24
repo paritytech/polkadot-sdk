@@ -1,7 +1,7 @@
 [package]
 name = "test-parachains"
-description = "Integration tests using the test-parachains"
-version = "1.0.0"
+description = "Integration tests using the test-parachains (polkadot v1.13.0)"
+version = "0.1.0"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -13,9 +13,8 @@ workspace = true
 [dependencies]
 tiny-keccak = { version = "2.0.2", features = ["keccak"] }
 codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false, features = ["derive"] }
-
-test-parachain-adder = { path = "adder" }
-test-parachain-halt = { path = "halt" }
+test-parachain-adder = { version = "0.0.0", path = "adder" }
+test-parachain-halt = { version = "0.0.0", path = "halt" }
 
 [dev-dependencies]
 sp-core = { path = "../../../substrate/primitives/core" }

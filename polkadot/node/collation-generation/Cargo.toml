@@ -1,24 +1,24 @@
 [package]
 name = "polkadot-node-collation-generation"
-version = "7.0.0"
+version = "14.0.0"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
-description = "Collator-side subsystem that handles incoming candidate submissions from the parachain."
+description = "Collator-side subsystem that handles incoming candidate submissions from the parachain. (polkadot v1.13.0)"
 
 [lints]
 workspace = true
 
 [dependencies]
 futures = "0.3.30"
-gum = { package = "tracing-gum", path = "../gum" }
-polkadot-erasure-coding = { path = "../../erasure-coding" }
-polkadot-node-primitives = { path = "../primitives" }
-polkadot-node-subsystem = { path = "../subsystem" }
-polkadot-node-subsystem-util = { path = "../subsystem-util" }
-polkadot-primitives = { path = "../../primitives" }
-sp-core = { path = "../../../substrate/primitives/core" }
-sp-maybe-compressed-blob = { path = "../../../substrate/primitives/maybe-compressed-blob" }
+gum = { package = "tracing-gum", path = "../gum", version = "14.0.0" }
+polkadot-erasure-coding = { version = "14.0.0", path = "../../erasure-coding" }
+polkadot-node-primitives = { version = "14.0.0", path = "../primitives" }
+polkadot-node-subsystem = { version = "14.0.0", path = "../subsystem" }
+polkadot-node-subsystem-util = { version = "14.0.0", path = "../subsystem-util" }
+polkadot-primitives = { version = "14.0.0", path = "../../primitives" }
+sp-core = { version = "34.0.0", path = "../../../substrate/primitives/core" }
+sp-maybe-compressed-blob = { version = "11.0.0", path = "../../../substrate/primitives/maybe-compressed-blob" }
 thiserror = { workspace = true }
 codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false, features = ["bit-vec", "derive"] }
 

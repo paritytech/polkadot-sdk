@@ -6,7 +6,7 @@ edition.workspace = true
 license = "Apache-2.0"
 homepage = "https://substrate.io"
 repository.workspace = true
-description = "Hashing primitives."
+description = "Hashing primitives. (polkadot v1.13.0)"
 documentation = "https://docs.rs/sp-crypto-hashing"
 
 [lints]

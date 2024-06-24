@@ -1,40 +1,40 @@
 [package]
 name = "polkadot-rpc"
-version = "7.0.0"
+version = "14.0.0"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
-description = "Polkadot specific RPC functionality."
+description = "Polkadot specific RPC functionality. (polkadot v1.13.0)"
 
 [lints]
 workspace = true
 
 [dependencies]
 jsonrpsee = { version = "0.22", features = ["server"] }
-polkadot-primitives = { path = "../primitives" }
-sc-client-api = { path = "../../substrate/client/api" }
-sp-blockchain = { path = "../../substrate/primitives/blockchain" }
-sp-keystore = { path = "../../substrate/primitives/keystore" }
-sp-runtime = { path = "../../substrate/primitives/runtime" }
-sp-api = { path = "../../substrate/primitives/api" }
-sp-application-crypto = { path = "../../substrate/primitives/application-crypto" }
-sp-consensus = { path = "../../substrate/primitives/consensus/common" }
-sp-consensus-babe = { path = "../../substrate/primitives/consensus/babe" }
-sp-consensus-beefy = { path = "../../substrate/primitives/consensus/beefy" }
-sc-chain-spec = { path = "../../substrate/client/chain-spec" }
-sc-rpc = { path = "../../substrate/client/rpc" }
-sc-rpc-spec-v2 = { path = "../../substrate/client/rpc-spec-v2" }
-sc-consensus-babe = { path = "../../substrate/client/consensus/babe" }
-sc-consensus-babe-rpc = { path = "../../substrate/client/consensus/babe/rpc" }
-sc-consensus-beefy = { path = "../../substrate/client/consensus/beefy" }
-sc-consensus-beefy-rpc = { path = "../../substrate/client/consensus/beefy/rpc" }
-sc-consensus-epochs = { path = "../../substrate/client/consensus/epochs" }
-sc-consensus-grandpa = { path = "../../substrate/client/consensus/grandpa" }
-sc-consensus-grandpa-rpc = { path = "../../substrate/client/consensus/grandpa/rpc" }
-sc-sync-state-rpc = { path = "../../substrate/client/sync-state-rpc" }
-sc-transaction-pool-api = { path = "../../substrate/client/transaction-pool/api" }
-substrate-frame-rpc-system = { path = "../../substrate/utils/frame/rpc/system" }
-mmr-rpc = { path = "../../substrate/client/merkle-mountain-range/rpc" }
-pallet-transaction-payment-rpc = { path = "../../substrate/frame/transaction-payment/rpc" }
-sp-block-builder = { path = "../../substrate/primitives/block-builder" }
-substrate-state-trie-migration-rpc = { path = "../../substrate/utils/frame/rpc/state-trie-migration-rpc" }
+polkadot-primitives = { version = "14.0.0", path = "../primitives" }
+sc-client-api = { version = "35.0.0", path = "../../substrate/client/api" }
+sp-blockchain = { version = "35.0.0", path = "../../substrate/primitives/blockchain" }
+sp-keystore = { version = "0.40.0", path = "../../substrate/primitives/keystore" }
+sp-runtime = { version = "38.0.0", path = "../../substrate/primitives/runtime" }
+sp-api = { version = "33.0.0", path = "../../substrate/primitives/api" }
+sp-application-crypto = { version = "37.0.0", path = "../../substrate/primitives/application-crypto" }
+sp-consensus = { version = "0.39.0", path = "../../substrate/primitives/consensus/common" }
+sp-consensus-babe = { version = "0.39.0", path = "../../substrate/primitives/consensus/babe" }
+sp-consensus-beefy = { version = "20.0.0", path = "../../substrate/primitives/consensus/beefy" }
+sc-chain-spec = { version = "34.0.0", path = "../../substrate/client/chain-spec" }
+sc-rpc = { version = "36.0.0", path = "../../substrate/client/rpc" }
+sc-rpc-spec-v2 = { version = "0.41.0", path = "../../substrate/client/rpc-spec-v2" }
+sc-consensus-babe = { version = "0.41.0", path = "../../substrate/client/consensus/babe" }
+sc-consensus-babe-rpc = { version = "0.41.0", path = "../../substrate/client/consensus/babe/rpc" }
+sc-consensus-beefy = { version = "20.0.0", path = "../../substrate/client/consensus/beefy" }
+sc-consensus-beefy-rpc = { version = "20.0.0", path = "../../substrate/client/consensus/beefy/rpc" }
+sc-consensus-epochs = { version = "0.40.0", path = "../../substrate/client/consensus/epochs" }
+sc-consensus-grandpa = { version = "0.26.0", path = "../../substrate/client/consensus/grandpa" }
+sc-consensus-grandpa-rpc = { version = "0.26.0", path = "../../substrate/client/consensus/grandpa/rpc" }
+sc-sync-state-rpc = { version = "0.41.0", path = "../../substrate/client/sync-state-rpc" }
+sc-transaction-pool-api = { version = "35.0.0", path = "../../substrate/client/transaction-pool/api" }
+substrate-frame-rpc-system = { version = "35.0.0", path = "../../substrate/utils/frame/rpc/system" }
+mmr-rpc = { version = "35.0.0", path = "../../substrate/client/merkle-mountain-range/rpc" }
+pallet-transaction-payment-rpc = { version = "37.0.0", path = "../../substrate/frame/transaction-payment/rpc" }
+sp-block-builder = { version = "33.0.0", path = "../../substrate/primitives/block-builder" }
+substrate-state-trie-migration-rpc = { version = "34.0.0", path = "../../substrate/utils/frame/rpc/state-trie-migration-rpc" }

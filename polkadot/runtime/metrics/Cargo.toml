@@ -1,20 +1,20 @@
 [package]
 name = "polkadot-runtime-metrics"
-version = "7.0.0"
+version = "14.0.0"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
-description = "Runtime metric interface for the Polkadot node"
+description = "Runtime metric interface for the Polkadot node (polkadot v1.13.0)"
 
 [lints]
 workspace = true
 
 [dependencies]
-sp-std = { package = "sp-std", path = "../../../substrate/primitives/std", default-features = false }
-sp-tracing = { path = "../../../substrate/primitives/tracing", default-features = false }
+sp-std = { package = "sp-std", path = "../../../substrate/primitives/std", default-features = false, version = "14.0.0" }
+sp-tracing = { path = "../../../substrate/primitives/tracing", default-features = false, version = "17.0.0" }
 codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false }
-polkadot-primitives = { path = "../../primitives", default-features = false }
-frame-benchmarking = { path = "../../../substrate/frame/benchmarking", default-features = false, optional = true }
+polkadot-primitives = { path = "../../primitives", default-features = false, version = "14.0.0" }
+frame-benchmarking = { path = "../../../substrate/frame/benchmarking", default-features = false, optional = true, version = "35.0.0" }
 
 bs58 = { version = "0.5.0", default-features = false, features = ["alloc"] }
 

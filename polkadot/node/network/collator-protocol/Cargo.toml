@@ -1,7 +1,7 @@
 [package]
 name = "polkadot-collator-protocol"
-version = "7.0.0"
-description = "Polkadot Collator Protocol subsystem. Allows collators and validators to talk to each other."
+version = "14.0.0"
+description = "Polkadot Collator Protocol subsystem. Allows collators and validators to talk to each other. (polkadot v1.13.0)"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -13,17 +13,15 @@ workspace = true
 bitvec = { version = "1.0.1", default-features = false, features = ["alloc"] }
 futures = "0.3.30"
 futures-timer = "3"
-gum = { package = "tracing-gum", path = "../../gum" }
-
-sp-core = { path = "../../../../substrate/primitives/core" }
-sp-runtime = { path = "../../../../substrate/primitives/runtime" }
-sp-keystore = { path = "../../../../substrate/primitives/keystore" }
-
-polkadot-primitives = { path = "../../../primitives" }
-polkadot-node-network-protocol = { path = "../protocol" }
-polkadot-node-primitives = { path = "../../primitives" }
-polkadot-node-subsystem-util = { path = "../../subsystem-util" }
-polkadot-node-subsystem = { path = "../../subsystem" }
+gum = { package = "tracing-gum", path = "../../gum", version = "14.0.0" }
+sp-core = { version = "34.0.0", path = "../../../../substrate/primitives/core" }
+sp-runtime = { version = "38.0.0", path = "../../../../substrate/primitives/runtime" }
+sp-keystore = { version = "0.40.0", path = "../../../../substrate/primitives/keystore" }
+polkadot-primitives = { version = "14.0.0", path = "../../../primitives" }
+polkadot-node-network-protocol = { version = "14.0.0", path = "../protocol" }
+polkadot-node-primitives = { version = "14.0.0", path = "../../primitives" }
+polkadot-node-subsystem-util = { version = "14.0.0", path = "../../subsystem-util" }
+polkadot-node-subsystem = { version = "14.0.0", path = "../../subsystem" }
 fatality = "0.1.1"
 thiserror = { workspace = true }
 tokio-util = "0.7.1"
@@ -39,7 +37,6 @@ sp-keyring = { path = "../../../../substrate/primitives/keyring" }
 sc-keystore = { path = "../../../../substrate/client/keystore" }
 sc-network = { path = "../../../../substrate/client/network" }
 codec = { package = "parity-scale-codec", version = "3.6.12", features = ["std"] }
-
 polkadot-node-subsystem-test-helpers = { path = "../../subsystem-test-helpers" }
 polkadot-primitives-test-helpers = { path = "../../../primitives/test-helpers" }
 

@@ -1,12 +1,12 @@
 [package]
 name = "frame-try-runtime"
-version = "0.34.0"
+version = "0.41.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
 homepage = "https://substrate.io"
 repository.workspace = true
-description = "FRAME pallet for democracy"
+description = "FRAME pallet for democracy (polkadot v1.13.0)"
 
 [lints]
 workspace = true
@@ -16,10 +16,10 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false, features = ["derive"] }
-frame-support = { path = "../support", default-features = false }
-sp-api = { path = "../../primitives/api", default-features = false }
-sp-runtime = { path = "../../primitives/runtime", default-features = false }
-sp-std = { path = "../../primitives/std", default-features = false }
+frame-support = { path = "../support", default-features = false, version = "35.0.0" }
+sp-api = { path = "../../primitives/api", default-features = false, version = "33.0.0" }
+sp-runtime = { path = "../../primitives/runtime", default-features = false, version = "38.0.0" }
+sp-std = { path = "../../primitives/std", default-features = false, version = "14.0.0" }
 
 [features]
 default = ["std"]

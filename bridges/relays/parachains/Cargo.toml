@@ -6,6 +6,7 @@ edition.workspace = true
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 repository.workspace = true
 publish = false
+description = "parachains-relay (polkadot v1.13.0)"
 
 [lints]
 workspace = true
@@ -15,12 +16,9 @@ async-std = "1.9.0"
 async-trait = "0.1.79"
 futures = "0.3.30"
 log = { workspace = true }
-relay-utils = { path = "../utils" }
-
-# Bridge dependencies
-
-bp-polkadot-core = { path = "../../primitives/polkadot-core" }
-relay-substrate-client = { path = "../client-substrate" }
+relay-utils = { version = "0.1.0", path = "../utils" }
+bp-polkadot-core = { version = "0.14.0", path = "../../primitives/polkadot-core" }
+relay-substrate-client = { version = "0.1.0", path = "../client-substrate" }
 
 [dev-dependencies]
 codec = { package = "parity-scale-codec", version = "3.6.12" }

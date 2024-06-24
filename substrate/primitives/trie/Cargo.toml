@@ -1,8 +1,8 @@
 [package]
 name = "sp-trie"
-version = "29.0.0"
+version = "36.0.0"
 authors.workspace = true
-description = "Patricia trie stuff using a parity-scale-codec node format"
+description = "Patricia trie stuff using a parity-scale-codec node format (polkadot v1.13.0)"
 repository.workspace = true
 license = "Apache-2.0"
 edition.workspace = true
@@ -34,8 +34,8 @@ thiserror = { optional = true, workspace = true }
 tracing = { version = "0.1.29", optional = true }
 trie-db = { version = "0.29.0", default-features = false }
 trie-root = { version = "0.18.0", default-features = false }
-sp-core = { path = "../core", default-features = false }
-sp-externalities = { path = "../externalities", default-features = false }
+sp-core = { path = "../core", default-features = false, version = "34.0.0" }
+sp-externalities = { path = "../externalities", default-features = false, version = "0.29.0" }
 schnellru = { version = "0.2.1", optional = true }
 
 [dev-dependencies]
@@ -60,7 +60,6 @@ std = [
 	"schnellru",
 	"sp-core/std",
 	"sp-externalities/std",
-	"sp-runtime/std",
 	"thiserror",
 	"tracing",
 	"trie-db/std",

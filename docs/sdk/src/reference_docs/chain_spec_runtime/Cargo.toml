@@ -1,7 +1,7 @@
 [package]
 name = "chain-spec-guide-runtime"
-description = "A minimal runtime for chain spec guide"
-version = "0.0.0"
+description = "A minimal runtime for chain spec guide (polkadot v1.13.0)"
+version = "0.1.0"
 license = "MIT-0"
 authors.workspace = true
 homepage.workspace = true
@@ -17,28 +17,25 @@ serde = { workspace = true, default-features = false }
 serde_json = { workspace = true }
 
 # this is a frame-based runtime, thus importing `frame` with runtime feature enabled.
-frame = { package = "polkadot-sdk-frame", path = "../../../../../substrate/frame", default-features = false, features = [
-	"experimental",
-	"runtime",
-] }
+frame = { package = "polkadot-sdk-frame", path = "../../../../../substrate/frame", default-features = false, features = ["experimental", "runtime"], version = "0.4.0" }
 
 # pallets that we want to use
-pallet-balances = { path = "../../../../../substrate/frame/balances", default-features = false }
-pallet-sudo = { path = "../../../../../substrate/frame/sudo", default-features = false }
-pallet-timestamp = { path = "../../../../../substrate/frame/timestamp", default-features = false }
-pallet-transaction-payment = { path = "../../../../../substrate/frame/transaction-payment", default-features = false }
-pallet-transaction-payment-rpc-runtime-api = { path = "../../../../../substrate/frame/transaction-payment/rpc/runtime-api", default-features = false }
+pallet-balances = { path = "../../../../../substrate/frame/balances", default-features = false, version = "36.0.0" }
+pallet-sudo = { path = "../../../../../substrate/frame/sudo", default-features = false, version = "35.0.0" }
+pallet-timestamp = { path = "../../../../../substrate/frame/timestamp", default-features = false, version = "34.0.0" }
+pallet-transaction-payment = { path = "../../../../../substrate/frame/transaction-payment", default-features = false, version = "35.0.0" }
+pallet-transaction-payment-rpc-runtime-api = { path = "../../../../../substrate/frame/transaction-payment/rpc/runtime-api", default-features = false, version = "35.0.0" }
 
 # genesis builder that allows us to interact with runtime genesis config
-sp-genesis-builder = { path = "../../../../../substrate/primitives/genesis-builder", default-features = false }
-sp-runtime = { path = "../../../../../substrate/primitives/runtime", default-features = false, features = ["serde"] }
-sp-core = { path = "../../../../../substrate/primitives/core", default-features = false }
-sp-std = { path = "../../../../../substrate/primitives/std", default-features = false }
-sp-keyring = { path = "../../../../../substrate/primitives/keyring", default-features = false }
-sp-application-crypto = { path = "../../../../../substrate/primitives/application-crypto", default-features = false, features = ["serde"] }
+sp-genesis-builder = { path = "../../../../../substrate/primitives/genesis-builder", default-features = false, version = "0.14.0" }
+sp-runtime = { path = "../../../../../substrate/primitives/runtime", default-features = false, features = ["serde"], version = "38.0.0" }
+sp-core = { path = "../../../../../substrate/primitives/core", default-features = false, version = "34.0.0" }
+sp-std = { path = "../../../../../substrate/primitives/std", default-features = false, version = "14.0.0" }
+sp-keyring = { path = "../../../../../substrate/primitives/keyring", default-features = false, version = "38.0.0" }
+sp-application-crypto = { path = "../../../../../substrate/primitives/application-crypto", default-features = false, features = ["serde"], version = "37.0.0" }
 
 [build-dependencies]
-substrate-wasm-builder = { path = "../../../../../substrate/utils/wasm-builder", optional = true }
+substrate-wasm-builder = { path = "../../../../../substrate/utils/wasm-builder", optional = true, version = "23.0.0" }
 
 [dev-dependencies]
 chain-spec-builder = { package = "staging-chain-spec-builder", path = "../../../../../substrate/bin/utils/chain-spec-builder" }

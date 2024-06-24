@@ -1,8 +1,8 @@
 [package]
 name = "kitchensink-runtime"
-version = "3.0.0-dev"
+version = "0.1.0"
 authors.workspace = true
-description = "Substrate node kitchensink runtime."
+description = "Substrate node kitchensink runtime. (polkadot v1.13.0)"
 edition.workspace = true
 build = "build.rs"
 license = "Apache-2.0"
@@ -31,17 +31,17 @@ serde_json = { features = ["alloc", "arbitrary_precision"], workspace = true }
 # pallet-asset-conversion: turn on "num-traits" feature
 primitive-types = { version = "0.12.0", default-features = false, features = ["codec", "num-traits", "scale-info"] }
 
-polkadot-sdk = { path = "../../../../umbrella", features = ["runtime", "tuples-96"], default-features = false }
+polkadot-sdk = { path = "../../../../umbrella", features = ["runtime", "tuples-96"], default-features = false, version = "0.2.0" }
 
 # shared code between runtime and node
-node-primitives = { path = "../primitives", default-features = false }
+node-primitives = { path = "../primitives", default-features = false, version = "0.1.0" }
 
 # Example pallets that are not published:
-pallet-example-mbm = { path = "../../../frame/examples/multi-block-migrations", default-features = false }
-pallet-example-tasks = { path = "../../../frame/examples/tasks", default-features = false }
+pallet-example-mbm = { path = "../../../frame/examples/multi-block-migrations", default-features = false, version = "0.1.0" }
+pallet-example-tasks = { path = "../../../frame/examples/tasks", default-features = false, version = "8.0.0" }
 
 [build-dependencies]
-substrate-wasm-builder = { path = "../../../utils/wasm-builder", optional = true }
+substrate-wasm-builder = { path = "../../../utils/wasm-builder", optional = true, version = "23.0.0" }
 
 [features]
 default = ["std"]

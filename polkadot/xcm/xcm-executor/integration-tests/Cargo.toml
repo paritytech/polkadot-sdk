@@ -1,10 +1,10 @@
 [package]
 name = "xcm-executor-integration-tests"
-description = "Integration tests for the XCM Executor"
+description = "Integration tests for the XCM Executor (polkadot v1.13.0)"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
-version = "1.0.0"
+version = "0.1.0"
 publish = false
 
 [lints]
@@ -12,23 +12,23 @@ workspace = true
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.6.12" }
-frame-support = { path = "../../../../substrate/frame/support", default-features = false }
-frame-system = { path = "../../../../substrate/frame/system" }
+frame-support = { path = "../../../../substrate/frame/support", default-features = false, version = "35.0.0" }
+frame-system = { version = "35.0.0", path = "../../../../substrate/frame/system" }
 futures = "0.3.30"
-pallet-transaction-payment = { path = "../../../../substrate/frame/transaction-payment" }
-pallet-xcm = { path = "../../pallet-xcm" }
-polkadot-test-client = { path = "../../../node/test/client" }
-polkadot-test-runtime = { path = "../../../runtime/test-runtime" }
-polkadot-test-service = { path = "../../../node/test/service" }
-polkadot-service = { path = "../../../node/service" }
-sp-consensus = { path = "../../../../substrate/primitives/consensus/common" }
-sp-keyring = { path = "../../../../substrate/primitives/keyring" }
-sp-runtime = { path = "../../../../substrate/primitives/runtime", default-features = false }
-sp-state-machine = { path = "../../../../substrate/primitives/state-machine" }
-xcm = { package = "staging-xcm", path = "../..", default-features = false }
-xcm-executor = { package = "staging-xcm-executor", path = ".." }
-sp-tracing = { path = "../../../../substrate/primitives/tracing" }
-sp-core = { path = "../../../../substrate/primitives/core" }
+pallet-transaction-payment = { version = "35.0.0", path = "../../../../substrate/frame/transaction-payment" }
+pallet-xcm = { version = "14.0.0", path = "../../pallet-xcm" }
+polkadot-test-client = { version = "0.1.0", path = "../../../node/test/client" }
+polkadot-test-runtime = { version = "0.1.0", path = "../../../runtime/test-runtime" }
+polkadot-test-service = { version = "0.1.0", path = "../../../node/test/service" }
+polkadot-service = { version = "14.0.0", path = "../../../node/service" }
+sp-consensus = { version = "0.39.0", path = "../../../../substrate/primitives/consensus/common" }
+sp-keyring = { version = "38.0.0", path = "../../../../substrate/primitives/keyring" }
+sp-runtime = { path = "../../../../substrate/primitives/runtime", default-features = false, version = "38.0.0" }
+sp-state-machine = { version = "0.42.0", path = "../../../../substrate/primitives/state-machine" }
+xcm = { package = "staging-xcm", path = "../..", default-features = false, version = "14.0.0" }
+xcm-executor = { package = "staging-xcm-executor", path = "..", version = "14.0.0" }
+sp-tracing = { version = "17.0.0", path = "../../../../substrate/primitives/tracing" }
+sp-core = { version = "34.0.0", path = "../../../../substrate/primitives/core" }
 
 [features]
 default = ["std"]

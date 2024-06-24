@@ -1,6 +1,6 @@
 [package]
 name = "staging-tracking-allocator"
-description = "Tracking allocator to control the amount of memory consumed by the process"
+description = "Tracking allocator to control the amount of memory consumed by the process (polkadot v1.13.0)"
 version = "2.0.0"
 authors.workspace = true
 edition.workspace = true

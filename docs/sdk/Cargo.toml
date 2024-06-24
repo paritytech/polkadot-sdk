@@ -1,6 +1,6 @@
 [package]
 name = "polkadot-sdk-docs"
-description = "The one stop shop for developers of the polkadot-sdk"
+description = "The one stop shop for developers of the polkadot-sdk (polkadot v1.13.0)"
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 homepage = "paritytech.github.io"
 repository.workspace = true
@@ -8,7 +8,7 @@ authors.workspace = true
 edition.workspace = true
 # This crate is not publish-able to crates.io for now because of docify.
 publish = false
-version = "0.0.1"
+version = "0.1.0"
 
 [lints]
 workspace = true
@@ -17,93 +17,76 @@ workspace = true
 # Needed for all FRAME-based code
 codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false }
 scale-info = { version = "2.6.0", default-features = false }
-frame = { package = "polkadot-sdk-frame", path = "../../substrate/frame", features = [
-	"experimental",
-	"runtime",
-] }
-pallet-examples = { path = "../../substrate/frame/examples" }
-pallet-default-config-example = { path = "../../substrate/frame/examples/default-config" }
-pallet-example-offchain-worker = { path = "../../substrate/frame/examples/offchain-worker" }
+frame = { package = "polkadot-sdk-frame", path = "../../substrate/frame", features = ["experimental", "runtime"], version = "0.4.0" }
+pallet-examples = { version = "7.0.0", path = "../../substrate/frame/examples" }
+pallet-default-config-example = { version = "17.0.0", path = "../../substrate/frame/examples/default-config" }
+pallet-example-offchain-worker = { version = "35.0.0", path = "../../substrate/frame/examples/offchain-worker" }
 
 # How we build docs in rust-docs
 simple-mermaid = "0.1.1"
 docify = "0.2.8"
 
 # Polkadot SDK deps, typically all should only be in scope such that we can link to their doc item.
-polkadot-sdk = { path = "../../umbrella", features = ["runtime"] }
-node-cli = { package = "staging-node-cli", path = "../../substrate/bin/node/cli" }
-kitchensink-runtime = { path = "../../substrate/bin/node/runtime" }
-chain-spec-builder = { package = "staging-chain-spec-builder", path = "../../substrate/bin/utils/chain-spec-builder" }
-subkey = { path = "../../substrate/bin/utils/subkey" }
-frame-system = { path = "../../substrate/frame/system", default-features = false }
-frame-support = { path = "../../substrate/frame/support", default-features = false }
-frame-executive = { path = "../../substrate/frame/executive", default-features = false }
-pallet-example-single-block-migrations = { path = "../../substrate/frame/examples/single-block-migrations" }
-frame-metadata-hash-extension = { path = "../../substrate/frame/metadata-hash-extension" }
-
-# Substrate Client
-sc-network = { path = "../../substrate/client/network" }
-sc-rpc-api = { path = "../../substrate/client/rpc-api" }
-sc-rpc = { path = "../../substrate/client/rpc" }
-sc-client-db = { path = "../../substrate/client/db" }
-sc-cli = { path = "../../substrate/client/cli" }
-sc-consensus-aura = { path = "../../substrate/client/consensus/aura" }
-sc-consensus-babe = { path = "../../substrate/client/consensus/babe" }
-sc-consensus-grandpa = { path = "../../substrate/client/consensus/grandpa" }
-sc-consensus-beefy = { path = "../../substrate/client/consensus/beefy" }
-sc-consensus-manual-seal = { path = "../../substrate/client/consensus/manual-seal" }
-sc-consensus-pow = { path = "../../substrate/client/consensus/pow" }
-sc-executor = { path = "../../substrate/client/executor" }
-sc-service = { path = "../../substrate/client/service" }
-sc-chain-spec = { path = "../../substrate/client/chain-spec" }
-
-substrate-wasm-builder = { path = "../../substrate/utils/wasm-builder" }
-
-# Cumulus
-cumulus-pallet-aura-ext = { path = "../../cumulus/pallets/aura-ext" }
-cumulus-pallet-parachain-system = { path = "../../cumulus/pallets/parachain-system" }
-parachain-info = { package = "staging-parachain-info", path = "../../cumulus/parachains/pallets/parachain-info" }
-cumulus-primitives-proof-size-hostfunction = { path = "../../cumulus/primitives/proof-size-hostfunction" }
-cumulus-client-service = { path = "../../cumulus/client/service" }
-cumulus-primitives-storage-weight-reclaim = { path = "../../cumulus/primitives/storage-weight-reclaim" }
-
-# Pallets and FRAME internals
-pallet-aura = { path = "../../substrate/frame/aura" }
-pallet-timestamp = { path = "../../substrate/frame/timestamp" }
-pallet-balances = { path = "../../substrate/frame/balances" }
-pallet-assets = { path = "../../substrate/frame/assets" }
-pallet-preimage = { path = "../../substrate/frame/preimage" }
-pallet-transaction-payment = { path = "../../substrate/frame/transaction-payment" }
-pallet-utility = { path = "../../substrate/frame/utility" }
-pallet-multisig = { path = "../../substrate/frame/multisig" }
-pallet-proxy = { path = "../../substrate/frame/proxy" }
-pallet-authorship = { path = "../../substrate/frame/authorship" }
-pallet-collective = { path = "../../substrate/frame/collective" }
-pallet-democracy = { path = "../../substrate/frame/democracy" }
-pallet-uniques = { path = "../../substrate/frame/uniques" }
-pallet-nfts = { path = "../../substrate/frame/nfts" }
-pallet-scheduler = { path = "../../substrate/frame/scheduler" }
-
-# Primitives
-sp-io = { path = "../../substrate/primitives/io" }
-sp-api = { path = "../../substrate/primitives/api" }
-sp-core = { path = "../../substrate/primitives/core" }
-sp-keyring = { path = "../../substrate/primitives/keyring" }
-sp-runtime = { path = "../../substrate/primitives/runtime" }
-sp-arithmetic = { path = "../../substrate/primitives/arithmetic" }
-sp-genesis-builder = { path = "../../substrate/primitives/genesis-builder" }
-
-# Misc pallet dependencies
-pallet-referenda = { path = "../../substrate/frame/referenda" }
-pallet-broker = { path = "../../substrate/frame/broker" }
-pallet-babe = { path = "../../substrate/frame/babe" }
-
-sp-offchain = { path = "../../substrate/primitives/offchain" }
-sp-version = { path = "../../substrate/primitives/version" }
+polkadot-sdk = { path = "../../umbrella", features = ["runtime"], version = "0.2.0" }
+node-cli = { package = "staging-node-cli", path = "../../substrate/bin/node/cli", version = "0.1.0" }
+kitchensink-runtime = { version = "0.1.0", path = "../../substrate/bin/node/runtime" }
+chain-spec-builder = { package = "staging-chain-spec-builder", path = "../../substrate/bin/utils/chain-spec-builder", version = "2.0.0" }
+subkey = { version = "16.0.0", path = "../../substrate/bin/utils/subkey" }
+frame-system = { path = "../../substrate/frame/system", default-features = false, version = "35.0.0" }
+frame-support = { path = "../../substrate/frame/support", default-features = false, version = "35.0.0" }
+frame-executive = { path = "../../substrate/frame/executive", default-features = false, version = "35.0.0" }
+pallet-example-single-block-migrations = { version = "0.1.0", path = "../../substrate/frame/examples/single-block-migrations" }
+frame-metadata-hash-extension = { version = "0.3.0", path = "../../substrate/frame/metadata-hash-extension" }
+sc-network = { version = "0.41.0", path = "../../substrate/client/network" }
+sc-rpc-api = { version = "0.40.0", path = "../../substrate/client/rpc-api" }
+sc-rpc = { version = "36.0.0", path = "../../substrate/client/rpc" }
+sc-client-db = { version = "0.42.0", path = "../../substrate/client/db" }
+sc-cli = { version = "0.43.0", path = "../../substrate/client/cli" }
+sc-consensus-aura = { version = "0.41.0", path = "../../substrate/client/consensus/aura" }
+sc-consensus-babe = { version = "0.41.0", path = "../../substrate/client/consensus/babe" }
+sc-consensus-grandpa = { version = "0.26.0", path = "../../substrate/client/consensus/grandpa" }
+sc-consensus-beefy = { version = "20.0.0", path = "../../substrate/client/consensus/beefy" }
+sc-consensus-manual-seal = { version = "0.42.0", path = "../../substrate/client/consensus/manual-seal" }
+sc-consensus-pow = { version = "0.40.0", path = "../../substrate/client/consensus/pow" }
+sc-executor = { version = "0.39.0", path = "../../substrate/client/executor" }
+sc-service = { version = "0.42.0", path = "../../substrate/client/service" }
+sc-chain-spec = { version = "34.0.0", path = "../../substrate/client/chain-spec" }
+substrate-wasm-builder = { version = "23.0.0", path = "../../substrate/utils/wasm-builder" }
+cumulus-pallet-aura-ext = { version = "0.14.0", path = "../../cumulus/pallets/aura-ext" }
+cumulus-pallet-parachain-system = { version = "0.14.0", path = "../../cumulus/pallets/parachain-system" }
+parachain-info = { package = "staging-parachain-info", path = "../../cumulus/parachains/pallets/parachain-info", version = "0.14.0" }
+cumulus-primitives-proof-size-hostfunction = { version = "0.9.0", path = "../../cumulus/primitives/proof-size-hostfunction" }
+cumulus-client-service = { version = "0.14.0", path = "../../cumulus/client/service" }
+cumulus-primitives-storage-weight-reclaim = { version = "5.0.0", path = "../../cumulus/primitives/storage-weight-reclaim" }
+pallet-aura = { version = "34.0.0", path = "../../substrate/frame/aura" }
+pallet-timestamp = { version = "34.0.0", path = "../../substrate/frame/timestamp" }
+pallet-balances = { version = "36.0.0", path = "../../substrate/frame/balances" }
+pallet-assets = { version = "36.0.0", path = "../../substrate/frame/assets" }
+pallet-preimage = { version = "35.0.0", path = "../../substrate/frame/preimage" }
+pallet-transaction-payment = { version = "35.0.0", path = "../../substrate/frame/transaction-payment" }
+pallet-utility = { version = "35.0.0", path = "../../substrate/frame/utility" }
+pallet-multisig = { version = "35.0.0", path = "../../substrate/frame/multisig" }
+pallet-proxy = { version = "35.0.0", path = "../../substrate/frame/proxy" }
+pallet-authorship = { version = "35.0.0", path = "../../substrate/frame/authorship" }
+pallet-collective = { version = "35.0.0", path = "../../substrate/frame/collective" }
+pallet-democracy = { version = "35.0.0", path = "../../substrate/frame/democracy" }
+pallet-uniques = { version = "35.0.0", path = "../../substrate/frame/uniques" }
+pallet-nfts = { version = "29.0.0", path = "../../substrate/frame/nfts" }
+pallet-scheduler = { version = "36.0.0", path = "../../substrate/frame/scheduler" }
+sp-io = { version = "37.0.0", path = "../../substrate/primitives/io" }
+sp-api = { version = "33.0.0", path = "../../substrate/primitives/api" }
+sp-core = { version = "34.0.0", path = "../../substrate/primitives/core" }
+sp-keyring = { version = "38.0.0", path = "../../substrate/primitives/keyring" }
+sp-runtime = { version = "38.0.0", path = "../../substrate/primitives/runtime" }
+sp-arithmetic = { version = "26.0.0", path = "../../substrate/primitives/arithmetic" }
+sp-genesis-builder = { version = "0.14.0", path = "../../substrate/primitives/genesis-builder" }
+pallet-referenda = { version = "35.0.0", path = "../../substrate/frame/referenda" }
+pallet-broker = { version = "0.14.0", path = "../../substrate/frame/broker" }
+pallet-babe = { version = "35.0.0", path = "../../substrate/frame/babe" }
+sp-offchain = { version = "33.0.0", path = "../../substrate/primitives/offchain" }
+sp-version = { version = "36.0.0", path = "../../substrate/primitives/version" }
 
 # XCM
-xcm = { package = "staging-xcm", path = "../../polkadot/xcm" }
-xcm-docs = { path = "../../polkadot/xcm/docs" }
-
-# runtime guides
-chain-spec-guide-runtime = { path = "./src/reference_docs/chain_spec_runtime" }
+xcm = { package = "staging-xcm", path = "../../polkadot/xcm", version = "14.0.0" }
+xcm-docs = { version = "0.1.0", path = "../../polkadot/xcm/docs" }
+chain-spec-guide-runtime = { version = "0.1.0", path = "src/reference_docs/chain_spec_runtime" }

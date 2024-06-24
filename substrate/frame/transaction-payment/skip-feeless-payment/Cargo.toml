@@ -1,11 +1,11 @@
 [package]
 name = "pallet-skip-feeless-payment"
-version = "3.0.0"
+version = "10.0.0"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
-description = "Pallet to skip payments for calls annotated with `feeless_if` if the respective conditions are satisfied."
+description = "Pallet to skip payments for calls annotated with `feeless_if` if the respective conditions are satisfied. (polkadot v1.13.0)"
 
 [lints]
 workspace = true
@@ -15,11 +15,11 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 # Substrate dependencies
-sp-runtime = { path = "../../../primitives/runtime", default-features = false }
-sp-std = { path = "../../../primitives/std", default-features = false }
+sp-runtime = { path = "../../../primitives/runtime", default-features = false, version = "38.0.0" }
+sp-std = { path = "../../../primitives/std", default-features = false, version = "14.0.0" }
 
-frame-support = { path = "../../support", default-features = false }
-frame-system = { path = "../../system", default-features = false }
+frame-support = { path = "../../support", default-features = false, version = "35.0.0" }
+frame-system = { path = "../../system", default-features = false, version = "35.0.0" }
 
 # Other dependencies
 codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false, features = ["derive"] }

@@ -1,12 +1,12 @@
 [package]
 name = "sc-basic-authorship"
-version = "0.34.0"
+version = "0.41.0"
 authors.workspace = true
 edition.workspace = true
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 homepage = "https://substrate.io"
 repository.workspace = true
-description = "Basic implementation of block-authoring logic."
+description = "Basic implementation of block-authoring logic. (polkadot v1.13.0)"
 readme = "README.md"
 
 [lints]
@@ -20,17 +20,17 @@ codec = { package = "parity-scale-codec", version = "3.6.12" }
 futures = "0.3.30"
 futures-timer = "3.0.1"
 log = { workspace = true, default-features = true }
-prometheus-endpoint = { package = "substrate-prometheus-endpoint", path = "../../utils/prometheus" }
-sc-block-builder = { path = "../block-builder" }
-sc-proposer-metrics = { path = "../proposer-metrics" }
-sc-telemetry = { path = "../telemetry" }
-sc-transaction-pool-api = { path = "../transaction-pool/api" }
-sp-api = { path = "../../primitives/api" }
-sp-blockchain = { path = "../../primitives/blockchain" }
-sp-consensus = { path = "../../primitives/consensus/common" }
-sp-core = { path = "../../primitives/core" }
-sp-inherents = { path = "../../primitives/inherents" }
-sp-runtime = { path = "../../primitives/runtime" }
+prometheus-endpoint = { package = "substrate-prometheus-endpoint", path = "../../utils/prometheus", version = "0.17.0" }
+sc-block-builder = { version = "0.40.0", path = "../block-builder" }
+sc-proposer-metrics = { version = "0.18.0", path = "../proposer-metrics" }
+sc-telemetry = { version = "21.0.0", path = "../telemetry" }
+sc-transaction-pool-api = { version = "35.0.0", path = "../transaction-pool/api" }
+sp-api = { version = "33.0.0", path = "../../primitives/api" }
+sp-blockchain = { version = "35.0.0", path = "../../primitives/blockchain" }
+sp-consensus = { version = "0.39.0", path = "../../primitives/consensus/common" }
+sp-core = { version = "34.0.0", path = "../../primitives/core" }
+sp-inherents = { version = "33.0.0", path = "../../primitives/inherents" }
+sp-runtime = { version = "38.0.0", path = "../../primitives/runtime" }
 
 [dev-dependencies]
 parking_lot = "0.12.1"

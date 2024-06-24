@@ -1,6 +1,6 @@
 [package]
 name = "bp-beefy"
-description = "Primitives of pallet-bridge-beefy module."
+description = "Primitives of pallet-bridge-beefy module. (polkadot v1.13.0)"
 version = "0.1.0"
 authors.workspace = true
 edition.workspace = true
@@ -18,17 +18,17 @@ serde = { default-features = false, features = ["alloc", "derive"], workspace = 
 
 # Bridge Dependencies
 
-bp-runtime = { path = "../runtime", default-features = false }
+bp-runtime = { path = "../runtime", default-features = false, version = "0.14.0" }
 
 # Substrate Dependencies
 
-binary-merkle-tree = { path = "../../../substrate/utils/binary-merkle-tree", default-features = false }
-sp-consensus-beefy = { path = "../../../substrate/primitives/consensus/beefy", default-features = false }
-frame-support = { path = "../../../substrate/frame/support", default-features = false }
-pallet-beefy-mmr = { path = "../../../substrate/frame/beefy-mmr", default-features = false }
-pallet-mmr = { path = "../../../substrate/frame/merkle-mountain-range", default-features = false }
-sp-runtime = { path = "../../../substrate/primitives/runtime", default-features = false }
-sp-std = { path = "../../../substrate/primitives/std", default-features = false }
+binary-merkle-tree = { path = "../../../substrate/utils/binary-merkle-tree", default-features = false, version = "15.0.0" }
+sp-consensus-beefy = { path = "../../../substrate/primitives/consensus/beefy", default-features = false, version = "20.0.0" }
+frame-support = { path = "../../../substrate/frame/support", default-features = false, version = "35.0.0" }
+pallet-beefy-mmr = { path = "../../../substrate/frame/beefy-mmr", default-features = false, version = "35.0.0" }
+pallet-mmr = { path = "../../../substrate/frame/merkle-mountain-range", default-features = false, version = "34.0.0" }
+sp-runtime = { path = "../../../substrate/primitives/runtime", default-features = false, version = "38.0.0" }
+sp-std = { path = "../../../substrate/primitives/std", default-features = false, version = "14.0.0" }
 
 [features]
 default = ["std"]

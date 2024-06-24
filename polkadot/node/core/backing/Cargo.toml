@@ -1,25 +1,25 @@
 [package]
 name = "polkadot-node-core-backing"
-version = "7.0.0"
+version = "14.0.0"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
-description = "The Candidate Backing Subsystem. Tracks parachain candidates that can be backed, as well as the issuance of statements about candidates."
+description = "The Candidate Backing Subsystem. Tracks parachain candidates that can be backed, as well as the issuance of statements about candidates. (polkadot v1.13.0)"
 
 [lints]
 workspace = true
 
 [dependencies]
 futures = "0.3.30"
-sp-keystore = { path = "../../../../substrate/primitives/keystore" }
-polkadot-primitives = { path = "../../../primitives" }
-polkadot-node-primitives = { path = "../../primitives" }
-polkadot-node-subsystem = { path = "../../subsystem" }
-polkadot-node-subsystem-util = { path = "../../subsystem-util" }
-polkadot-erasure-coding = { path = "../../../erasure-coding" }
-polkadot-statement-table = { path = "../../../statement-table" }
+sp-keystore = { version = "0.40.0", path = "../../../../substrate/primitives/keystore" }
+polkadot-primitives = { version = "14.0.0", path = "../../../primitives" }
+polkadot-node-primitives = { version = "14.0.0", path = "../../primitives" }
+polkadot-node-subsystem = { version = "14.0.0", path = "../../subsystem" }
+polkadot-node-subsystem-util = { version = "14.0.0", path = "../../subsystem-util" }
+polkadot-erasure-coding = { version = "14.0.0", path = "../../../erasure-coding" }
+polkadot-statement-table = { version = "14.0.0", path = "../../../statement-table" }
 bitvec = { version = "1.0.0", default-features = false, features = ["alloc"] }
-gum = { package = "tracing-gum", path = "../../gum" }
+gum = { package = "tracing-gum", path = "../../gum", version = "14.0.0" }
 thiserror = { workspace = true }
 fatality = "0.1.1"
 schnellru = "0.2.1"

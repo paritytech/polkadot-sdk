@@ -1,12 +1,12 @@
 [package]
 name = "sp-block-builder"
-version = "26.0.0"
+version = "33.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
 homepage = "https://substrate.io"
 repository.workspace = true
-description = "The block builder runtime api."
+description = "The block builder runtime api. (polkadot v1.13.0)"
 readme = "README.md"
 
 [lints]
@@ -16,9 +16,9 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-sp-api = { path = "../api", default-features = false }
-sp-inherents = { path = "../inherents", default-features = false }
-sp-runtime = { path = "../runtime", default-features = false }
+sp-api = { path = "../api", default-features = false, version = "33.0.0" }
+sp-inherents = { path = "../inherents", default-features = false, version = "33.0.0" }
+sp-runtime = { path = "../runtime", default-features = false, version = "38.0.0" }
 
 [features]
 default = ["std"]

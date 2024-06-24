@@ -6,7 +6,7 @@ edition.workspace = true
 license = "Apache-2.0"
 homepage = "https://substrate.io"
 repository.workspace = true
-description = "Custom panic hook with bug report link"
+description = "Custom panic hook with bug report link (polkadot v1.13.0)"
 documentation = "https://docs.rs/sp-panic-handler"
 readme = "README.md"
 

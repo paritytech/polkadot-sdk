@@ -5,7 +5,7 @@ authors.workspace = true
 edition.workspace = true
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 repository.workspace = true
-description = "Equivocation detector"
+description = "Equivocation detector (polkadot v1.13.0)"
 publish = false
 
 [lints]
@@ -14,10 +14,10 @@ workspace = true
 [dependencies]
 async-std = { version = "1.9.0", features = ["attributes"] }
 async-trait = "0.1.79"
-bp-header-chain = { path = "../../primitives/header-chain" }
-finality-relay = { path = "../finality" }
-frame-support = { path = "../../../substrate/frame/support" }
+bp-header-chain = { version = "0.14.0", path = "../../primitives/header-chain" }
+finality-relay = { version = "0.1.0", path = "../finality" }
+frame-support = { version = "35.0.0", path = "../../../substrate/frame/support" }
 futures = "0.3.30"
 log = { workspace = true }
 num-traits = "0.2"
-relay-utils = { path = "../utils" }
+relay-utils = { version = "0.1.0", path = "../utils" }

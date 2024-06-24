@@ -1,12 +1,12 @@
 [package]
 name = "pallet-staking-reward-curve"
-version = "11.0.0"
+version = "12.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
 homepage = "https://substrate.io"
 repository.workspace = true
-description = "Reward Curve for FRAME staking pallet"
+description = "Reward Curve for FRAME staking pallet (polkadot v1.13.0)"
 
 [lints]
 workspace = true

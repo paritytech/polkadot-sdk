@@ -1,12 +1,12 @@
 [package]
 name = "sp-weights"
-version = "27.0.0"
+version = "31.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
 homepage = "https://substrate.io"
 repository.workspace = true
-description = "Types and traits for interfacing between the host and the wasm runtime."
+description = "Types and traits for interfacing between the host and the wasm runtime. (polkadot v1.13.0)"
 documentation = "https://docs.rs/sp-wasm-interface"
 
 [lints]
@@ -21,8 +21,8 @@ codec = { package = "parity-scale-codec", version = "3.6.12", default-features =
 scale-info = { version = "2.11.1", default-features = false, features = ["derive"] }
 serde = { optional = true, features = ["alloc", "derive"], workspace = true }
 smallvec = "1.11.0"
-sp-arithmetic = { path = "../arithmetic", default-features = false }
-sp-debug-derive = { path = "../debug-derive", default-features = false }
+sp-arithmetic = { path = "../arithmetic", default-features = false, version = "26.0.0" }
+sp-debug-derive = { path = "../debug-derive", default-features = false, version = "14.0.0" }
 schemars = { version = "0.8.3", default-features = false, optional = true }
 
 [features]

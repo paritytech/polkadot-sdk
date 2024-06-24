@@ -1,8 +1,8 @@
 [package]
 name = "sp-transaction-storage-proof"
-version = "26.0.0"
+version = "33.0.0"
 authors.workspace = true
-description = "Transaction storage proof primitives"
+description = "Transaction storage proof primitives (polkadot v1.13.0)"
 edition.workspace = true
 license = "Apache-2.0"
 homepage = "https://substrate.io"
@@ -19,10 +19,10 @@ targets = ["x86_64-unknown-linux-gnu"]
 async-trait = { version = "0.1.79", optional = true }
 codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false, features = ["derive"] }
 scale-info = { version = "2.11.1", default-features = false, features = ["derive"] }
-sp-core = { path = "../core", optional = true, default-features = false }
-sp-inherents = { path = "../inherents", default-features = false }
-sp-runtime = { path = "../runtime", default-features = false }
-sp-trie = { path = "../trie", optional = true, default-features = false }
+sp-core = { path = "../core", optional = true, default-features = false, version = "34.0.0" }
+sp-inherents = { path = "../inherents", default-features = false, version = "33.0.0" }
+sp-runtime = { path = "../runtime", default-features = false, version = "38.0.0" }
+sp-trie = { path = "../trie", optional = true, default-features = false, version = "36.0.0" }
 
 [features]
 default = ["std"]

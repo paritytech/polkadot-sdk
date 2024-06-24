@@ -1,12 +1,12 @@
 [package]
 name = "pallet-nomination-pools"
-version = "25.0.0"
+version = "32.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
 homepage = "https://substrate.io"
 repository.workspace = true
-description = "FRAME nomination pools pallet"
+description = "FRAME nomination pools pallet (polkadot v1.13.0)"
 
 [lints]
 workspace = true
@@ -24,18 +24,18 @@ scale-info = { version = "2.11.1", default-features = false, features = [
 ] }
 
 # FRAME
-frame-support = { path = "../support", default-features = false }
-frame-system = { path = "../system", default-features = false }
-sp-runtime = { path = "../../primitives/runtime", default-features = false }
-sp-std = { path = "../../primitives/std", default-features = false }
-sp-staking = { path = "../../primitives/staking", default-features = false }
-sp-core = { path = "../../primitives/core", default-features = false }
-sp-io = { path = "../../primitives/io", default-features = false }
+frame-support = { path = "../support", default-features = false, version = "35.0.0" }
+frame-system = { path = "../system", default-features = false, version = "35.0.0" }
+sp-runtime = { path = "../../primitives/runtime", default-features = false, version = "38.0.0" }
+sp-std = { path = "../../primitives/std", default-features = false, version = "14.0.0" }
+sp-staking = { path = "../../primitives/staking", default-features = false, version = "33.0.0" }
+sp-core = { path = "../../primitives/core", default-features = false, version = "34.0.0" }
+sp-io = { path = "../../primitives/io", default-features = false, version = "37.0.0" }
 log = { workspace = true }
 
 # Optional: use for testing and/or fuzzing
-pallet-balances = { path = "../balances", optional = true, default-features = false }
-sp-tracing = { path = "../../primitives/tracing", optional = true, default-features = false }
+pallet-balances = { path = "../balances", optional = true, default-features = false, version = "36.0.0" }
+sp-tracing = { path = "../../primitives/tracing", optional = true, default-features = false, version = "17.0.0" }
 
 [dev-dependencies]
 pallet-balances = { path = "../balances" }

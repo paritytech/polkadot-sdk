@@ -1,12 +1,12 @@
 [package]
 name = "pallet-example-single-block-migrations"
-version = "0.0.1"
+version = "0.1.0"
 authors.workspace = true
 edition.workspace = true
 license = "MIT-0"
 homepage = "https://substrate.io"
 repository.workspace = true
-description = "FRAME example pallet demonstrating best-practices for writing storage migrations."
+description = "FRAME example pallet demonstrating best-practices for writing storage migrations. (polkadot v1.13.0)"
 publish = false
 
 [package.metadata.docs.rs]
@@ -17,16 +17,16 @@ docify = "0.2.8"
 log = { version = "0.4.21", default-features = false }
 codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false, features = ["derive"] }
 scale-info = { version = "2.11.1", default-features = false, features = ["derive"] }
-frame-support = { path = "../../support", default-features = false }
-frame-executive = { path = "../../executive", default-features = false }
-frame-system = { path = "../../system", default-features = false }
-frame-try-runtime = { path = "../../try-runtime", default-features = false, optional = true }
-pallet-balances = { path = "../../balances", default-features = false }
-sp-std = { path = "../../../primitives/std", default-features = false }
-sp-runtime = { path = "../../../primitives/runtime", default-features = false }
-sp-core = { path = "../../../primitives/core", default-features = false }
-sp-io = { path = "../../../primitives/io", default-features = false }
-sp-version = { path = "../../../primitives/version", default-features = false }
+frame-support = { path = "../../support", default-features = false, version = "35.0.0" }
+frame-executive = { path = "../../executive", default-features = false, version = "35.0.0" }
+frame-system = { path = "../../system", default-features = false, version = "35.0.0" }
+frame-try-runtime = { path = "../../try-runtime", default-features = false, optional = true, version = "0.41.0" }
+pallet-balances = { path = "../../balances", default-features = false, version = "36.0.0" }
+sp-std = { path = "../../../primitives/std", default-features = false, version = "14.0.0" }
+sp-runtime = { path = "../../../primitives/runtime", default-features = false, version = "38.0.0" }
+sp-core = { path = "../../../primitives/core", default-features = false, version = "34.0.0" }
+sp-io = { path = "../../../primitives/io", default-features = false, version = "37.0.0" }
+sp-version = { path = "../../../primitives/version", default-features = false, version = "36.0.0" }
 
 [features]
 default = ["std"]

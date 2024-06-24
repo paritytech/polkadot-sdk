@@ -1,18 +1,18 @@
 [package]
 name = "pallet-contracts-fixtures"
 publish = false
-version = "1.0.0"
+version = "0.1.0"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
-description = "Fixtures for testing contracts pallet."
+description = "Fixtures for testing contracts pallet. (polkadot v1.13.0)"
 
 [lints]
 workspace = true
 
 [dependencies]
-frame-system = { path = "../../system" }
-sp-runtime = { path = "../../../primitives/runtime" }
+frame-system = { version = "35.0.0", path = "../../system" }
+sp-runtime = { version = "38.0.0", path = "../../../primitives/runtime" }
 anyhow = "1.0.81"
 
 [build-dependencies]

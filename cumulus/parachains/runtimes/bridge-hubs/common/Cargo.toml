@@ -1,22 +1,22 @@
 [package]
 name = "bridge-hub-common"
-version = "0.1.0"
+version = "0.7.0"
 authors.workspace = true
 edition.workspace = true
-description = "Bridge hub common utilities"
+description = "Bridge hub common utilities (polkadot v1.13.0)"
 license = "Apache-2.0"
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false, features = ["derive"] }
 scale-info = { version = "2.11.1", default-features = false, features = ["derive"] }
-frame-support = { path = "../../../../../substrate/frame/support", default-features = false }
-sp-std = { path = "../../../../../substrate/primitives/std", default-features = false }
-sp-core = { path = "../../../../../substrate/primitives/core", default-features = false }
-sp-runtime = { path = "../../../../../substrate/primitives/runtime", default-features = false }
-cumulus-primitives-core = { path = "../../../../primitives/core", default-features = false }
-xcm = { package = "staging-xcm", path = "../../../../../polkadot/xcm", default-features = false }
-pallet-message-queue = { path = "../../../../../substrate/frame/message-queue", default-features = false }
-snowbridge-core = { path = "../../../../../bridges/snowbridge/primitives/core", default-features = false }
+frame-support = { path = "../../../../../substrate/frame/support", default-features = false, version = "35.0.0" }
+sp-std = { path = "../../../../../substrate/primitives/std", default-features = false, version = "14.0.0" }
+sp-core = { path = "../../../../../substrate/primitives/core", default-features = false, version = "34.0.0" }
+sp-runtime = { path = "../../../../../substrate/primitives/runtime", default-features = false, version = "38.0.0" }
+cumulus-primitives-core = { path = "../../../../primitives/core", default-features = false, version = "0.14.0" }
+xcm = { package = "staging-xcm", path = "../../../../../polkadot/xcm", default-features = false, version = "14.0.0" }
+pallet-message-queue = { path = "../../../../../substrate/frame/message-queue", default-features = false, version = "38.0.0" }
+snowbridge-core = { path = "../../../../../bridges/snowbridge/primitives/core", default-features = false, version = "0.7.0" }
 
 [features]
 default = ["std"]

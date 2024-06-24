@@ -1,12 +1,12 @@
 [package]
 name = "sc-chain-spec"
-version = "28.0.0"
+version = "34.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 homepage = "https://substrate.io"
 repository.workspace = true
-description = "Substrate chain configurations."
+description = "Substrate chain configurations. (polkadot v1.13.0)"
 readme = "README.md"
 
 [lints]
@@ -21,20 +21,20 @@ codec = { package = "parity-scale-codec", version = "3.6.12", default-features =
 memmap2 = "0.9.3"
 serde = { features = ["derive"], workspace = true, default-features = true }
 serde_json = { workspace = true, default-features = true }
-sc-client-api = { path = "../api" }
-sc-chain-spec-derive = { path = "derive" }
-sc-executor = { path = "../executor" }
-sp-io = { default-features = false, path = "../../primitives/io" }
-sc-network = { path = "../network" }
-sc-telemetry = { path = "../telemetry" }
-sp-blockchain = { path = "../../primitives/blockchain" }
-sp-core = { path = "../../primitives/core" }
-sp-crypto-hashing = { path = "../../primitives/crypto/hashing" }
-sp-genesis-builder = { path = "../../primitives/genesis-builder" }
-sp-runtime = { path = "../../primitives/runtime" }
-sp-state-machine = { path = "../../primitives/state-machine" }
+sc-client-api = { version = "35.0.0", path = "../api" }
+sc-chain-spec-derive = { version = "12.0.0", path = "derive" }
+sc-executor = { version = "0.39.0", path = "../executor" }
+sp-io = { default-features = false, path = "../../primitives/io", version = "37.0.0" }
+sc-network = { version = "0.41.0", path = "../network" }
+sc-telemetry = { version = "21.0.0", path = "../telemetry" }
+sp-blockchain = { version = "35.0.0", path = "../../primitives/blockchain" }
+sp-core = { version = "34.0.0", path = "../../primitives/core" }
+sp-crypto-hashing = { version = "0.1.0", path = "../../primitives/crypto/hashing" }
+sp-genesis-builder = { version = "0.14.0", path = "../../primitives/genesis-builder" }
+sp-runtime = { version = "38.0.0", path = "../../primitives/runtime" }
+sp-state-machine = { version = "0.42.0", path = "../../primitives/state-machine" }
 log = { workspace = true }
-sp-tracing = { path = "../../primitives/tracing" }
+sp-tracing = { version = "17.0.0", path = "../../primitives/tracing" }
 array-bytes = "6.2.2"
 docify = "0.2.8"
 

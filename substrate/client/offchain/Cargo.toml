@@ -1,7 +1,7 @@
 [package]
-description = "Substrate offchain workers"
+description = "Substrate offchain workers (polkadot v1.13.0)"
 name = "sc-offchain"
-version = "29.0.0"
+version = "36.0.0"
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 authors.workspace = true
 edition.workspace = true
@@ -31,18 +31,18 @@ parking_lot = "0.12.1"
 rand = "0.8.5"
 threadpool = "1.7"
 tracing = "0.1.29"
-sc-client-api = { path = "../api" }
-sc-network = { path = "../network" }
-sc-network-common = { path = "../network/common" }
-sc-network-types = { path = "../network/types" }
-sc-transaction-pool-api = { path = "../transaction-pool/api" }
-sc-utils = { path = "../utils" }
-sp-api = { path = "../../primitives/api" }
-sp-core = { path = "../../primitives/core" }
-sp-offchain = { path = "../../primitives/offchain" }
-sp-runtime = { path = "../../primitives/runtime" }
-sp-keystore = { path = "../../primitives/keystore" }
-sp-externalities = { path = "../../primitives/externalities" }
+sc-client-api = { version = "35.0.0", path = "../api" }
+sc-network = { version = "0.41.0", path = "../network" }
+sc-network-common = { version = "0.40.0", path = "../network/common" }
+sc-network-types = { version = "0.12.0", path = "../network/types" }
+sc-transaction-pool-api = { version = "35.0.0", path = "../transaction-pool/api" }
+sc-utils = { version = "17.0.0", path = "../utils" }
+sp-api = { version = "33.0.0", path = "../../primitives/api" }
+sp-core = { version = "34.0.0", path = "../../primitives/core" }
+sp-offchain = { version = "33.0.0", path = "../../primitives/offchain" }
+sp-runtime = { version = "38.0.0", path = "../../primitives/runtime" }
+sp-keystore = { version = "0.40.0", path = "../../primitives/keystore" }
+sp-externalities = { version = "0.29.0", path = "../../primitives/externalities" }
 log = { workspace = true, default-features = true }
 
 [dev-dependencies]

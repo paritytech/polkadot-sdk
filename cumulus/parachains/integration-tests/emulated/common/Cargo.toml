@@ -1,10 +1,10 @@
 [package]
 name = "emulated-integration-tests-common"
-version = "3.0.0"
+version = "10.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
-description = "Common resources for integration testing with xcm-emulator"
+description = "Common resources for integration testing with xcm-emulator (polkadot v1.13.0)"
 
 [lints]
 workspace = true
@@ -12,35 +12,27 @@ workspace = true
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false }
 paste = "1.0.14"
-
-# Substrate
-sp-consensus-beefy = { path = "../../../../../substrate/primitives/consensus/beefy" }
-sc-consensus-grandpa = { path = "../../../../../substrate/client/consensus/grandpa" }
-sp-authority-discovery = { path = "../../../../../substrate/primitives/authority-discovery" }
-sp-runtime = { path = "../../../../../substrate/primitives/runtime" }
-frame-support = { path = "../../../../../substrate/frame/support" }
-sp-core = { path = "../../../../../substrate/primitives/core" }
-sp-consensus-babe = { path = "../../../../../substrate/primitives/consensus/babe" }
-pallet-assets = { path = "../../../../../substrate/frame/assets" }
-pallet-balances = { path = "../../../../../substrate/frame/balances" }
-pallet-message-queue = { path = "../../../../../substrate/frame/message-queue" }
-
-# Polkadot
-polkadot-primitives = { path = "../../../../../polkadot/primitives" }
-polkadot-parachain-primitives = { path = "../../../../../polkadot/parachain" }
-polkadot-runtime-parachains = { path = "../../../../../polkadot/runtime/parachains" }
-xcm = { package = "staging-xcm", path = "../../../../../polkadot/xcm" }
-pallet-xcm = { path = "../../../../../polkadot/xcm/pallet-xcm" }
-
-# Cumulus
-parachains-common = { path = "../../../common" }
-cumulus-primitives-core = { path = "../../../../primitives/core" }
-xcm-emulator = { path = "../../../../xcm/xcm-emulator" }
-cumulus-pallet-xcmp-queue = { path = "../../../../pallets/xcmp-queue" }
-cumulus-pallet-parachain-system = { path = "../../../../pallets/parachain-system" }
-asset-test-utils = { path = "../../../runtimes/assets/test-utils" }
-
-# Bridges
-bp-messages = { path = "../../../../../bridges/primitives/messages" }
-pallet-bridge-messages = { path = "../../../../../bridges/modules/messages" }
-bridge-runtime-common = { path = "../../../../../bridges/bin/runtime-common" }
+sp-consensus-beefy = { version = "20.0.0", path = "../../../../../substrate/primitives/consensus/beefy" }
+sc-consensus-grandpa = { version = "0.26.0", path = "../../../../../substrate/client/consensus/grandpa" }
+sp-authority-discovery = { version = "33.0.0", path = "../../../../../substrate/primitives/authority-discovery" }
+sp-runtime = { version = "38.0.0", path = "../../../../../substrate/primitives/runtime" }
+frame-support = { version = "35.0.0", path = "../../../../../substrate/frame/support" }
+sp-core = { version = "34.0.0", path = "../../../../../substrate/primitives/core" }
+sp-consensus-babe = { version = "0.39.0", path = "../../../../../substrate/primitives/consensus/babe" }
+pallet-assets = { version = "36.0.0", path = "../../../../../substrate/frame/assets" }
+pallet-balances = { version = "36.0.0", path = "../../../../../substrate/frame/balances" }
+pallet-message-queue = { version = "38.0.0", path = "../../../../../substrate/frame/message-queue" }
+polkadot-primitives = { version = "14.0.0", path = "../../../../../polkadot/primitives" }
+polkadot-parachain-primitives = { version = "13.0.0", path = "../../../../../polkadot/parachain" }
+polkadot-runtime-parachains = { version = "14.0.0", path = "../../../../../polkadot/runtime/parachains" }
+xcm = { package = "staging-xcm", path = "../../../../../polkadot/xcm", version = "14.0.0" }
+pallet-xcm = { version = "14.0.0", path = "../../../../../polkadot/xcm/pallet-xcm" }
+parachains-common = { version = "14.0.0", path = "../../../common" }
+cumulus-primitives-core = { version = "0.14.0", path = "../../../../primitives/core" }
+xcm-emulator = { version = "0.12.0", path = "../../../../xcm/xcm-emulator" }
+cumulus-pallet-xcmp-queue = { version = "0.14.0", path = "../../../../pallets/xcmp-queue" }
+cumulus-pallet-parachain-system = { version = "0.14.0", path = "../../../../pallets/parachain-system" }
+asset-test-utils = { version = "14.0.0", path = "../../../runtimes/assets/test-utils" }
+bp-messages = { version = "0.14.0", path = "../../../../../bridges/primitives/messages" }
+pallet-bridge-messages = { version = "0.14.0", path = "../../../../../bridges/modules/messages" }
+bridge-runtime-common = { version = "0.14.0", path = "../../../../../bridges/bin/runtime-common" }

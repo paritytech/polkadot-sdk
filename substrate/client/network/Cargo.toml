@@ -1,7 +1,7 @@
 [package]
-description = "Substrate network protocol"
+description = "Substrate network protocol (polkadot v1.13.0)"
 name = "sc-network"
-version = "0.34.0"
+version = "0.41.0"
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 authors.workspace = true
 edition.workspace = true
@@ -48,16 +48,16 @@ tokio = { version = "1.22.0", features = ["macros", "sync"] }
 tokio-stream = "0.1.7"
 unsigned-varint = { version = "0.7.2", features = ["asynchronous_codec", "futures"] }
 zeroize = "1.4.3"
-prometheus-endpoint = { package = "substrate-prometheus-endpoint", path = "../../utils/prometheus" }
+prometheus-endpoint = { package = "substrate-prometheus-endpoint", path = "../../utils/prometheus", version = "0.17.0" }
 prost = "0.12.4"
-sc-client-api = { path = "../api" }
-sc-network-common = { path = "common" }
-sc-network-types = { path = "types" }
-sc-utils = { path = "../utils" }
-sp-arithmetic = { path = "../../primitives/arithmetic" }
-sp-blockchain = { path = "../../primitives/blockchain" }
-sp-core = { path = "../../primitives/core" }
-sp-runtime = { path = "../../primitives/runtime" }
+sc-client-api = { version = "35.0.0", path = "../api" }
+sc-network-common = { version = "0.40.0", path = "common" }
+sc-network-types = { version = "0.12.0", path = "types" }
+sc-utils = { version = "17.0.0", path = "../utils" }
+sp-arithmetic = { version = "26.0.0", path = "../../primitives/arithmetic" }
+sp-blockchain = { version = "35.0.0", path = "../../primitives/blockchain" }
+sp-core = { version = "34.0.0", path = "../../primitives/core" }
+sp-runtime = { version = "38.0.0", path = "../../primitives/runtime" }
 wasm-timer = "0.2"
 litep2p = "0.5.0"
 once_cell = "1.18.0"

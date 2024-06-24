@@ -1,12 +1,12 @@
 [package]
 name = "cumulus-pallet-session-benchmarking"
-version = "9.0.0"
+version = "16.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
 homepage = "https://substrate.io"
 repository.workspace = true
-description = "FRAME sessions pallet benchmarking"
+description = "FRAME sessions pallet benchmarking (polkadot v1.13.0)"
 readme = "README.md"
 
 [lints]
@@ -17,12 +17,12 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false }
-sp-std = { path = "../../../substrate/primitives/std", default-features = false }
-sp-runtime = { path = "../../../substrate/primitives/runtime", default-features = false }
-frame-support = { path = "../../../substrate/frame/support", default-features = false }
-frame-system = { path = "../../../substrate/frame/system", default-features = false }
-frame-benchmarking = { path = "../../../substrate/frame/benchmarking", default-features = false, optional = true }
-pallet-session = { path = "../../../substrate/frame/session", default-features = false }
+sp-std = { path = "../../../substrate/primitives/std", default-features = false, version = "14.0.0" }
+sp-runtime = { path = "../../../substrate/primitives/runtime", default-features = false, version = "38.0.0" }
+frame-support = { path = "../../../substrate/frame/support", default-features = false, version = "35.0.0" }
+frame-system = { path = "../../../substrate/frame/system", default-features = false, version = "35.0.0" }
+frame-benchmarking = { path = "../../../substrate/frame/benchmarking", default-features = false, optional = true, version = "35.0.0" }
+pallet-session = { path = "../../../substrate/frame/session", default-features = false, version = "35.0.0" }
 
 [features]
 default = ["std"]

@@ -4,7 +4,7 @@ version = "5.0.0"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
-description = "Generate an overseer including builder pattern and message wrapper from a single annotated struct definition."
+description = "Generate an overseer including builder pattern and message wrapper from a single annotated struct definition. (polkadot v1.13.0)"
 
 [lints]
 workspace = true

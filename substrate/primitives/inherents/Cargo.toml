@@ -1,12 +1,12 @@
 [package]
 name = "sp-inherents"
-version = "26.0.0"
+version = "33.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
 homepage = "https://substrate.io"
 repository.workspace = true
-description = "Provides types and traits for creating and checking inherents."
+description = "Provides types and traits for creating and checking inherents. (polkadot v1.13.0)"
 documentation = "https://docs.rs/sp-inherents"
 readme = "README.md"
 
@@ -22,7 +22,7 @@ codec = { package = "parity-scale-codec", version = "3.6.12", default-features =
 scale-info = { version = "2.11.1", default-features = false, features = ["derive"] }
 impl-trait-for-tuples = "0.2.2"
 thiserror = { optional = true, workspace = true }
-sp-runtime = { path = "../runtime", default-features = false, optional = true }
+sp-runtime = { path = "../runtime", default-features = false, optional = true, version = "38.0.0" }
 
 [dev-dependencies]
 futures = "0.3.30"

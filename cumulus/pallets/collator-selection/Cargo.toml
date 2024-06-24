@@ -1,13 +1,13 @@
 [package]
 authors.workspace = true
-description = "Simple pallet to select collators for a parachain."
+description = "Simple pallet to select collators for a parachain. (polkadot v1.13.0)"
 edition.workspace = true
 homepage = "https://substrate.io"
 license = "Apache-2.0"
 name = "pallet-collator-selection"
 readme = "README.md"
 repository.workspace = true
-version = "9.0.0"
+version = "16.0.0"
 
 [lints]
 workspace = true
@@ -21,16 +21,16 @@ codec = { default-features = false, features = ["derive"], package = "parity-sca
 rand = { version = "0.8.5", features = ["std_rng"], default-features = false }
 scale-info = { version = "2.11.1", default-features = false, features = ["derive"] }
 
-sp-std = { path = "../../../substrate/primitives/std", default-features = false }
-sp-runtime = { path = "../../../substrate/primitives/runtime", default-features = false }
-sp-staking = { path = "../../../substrate/primitives/staking", default-features = false }
-frame-support = { path = "../../../substrate/frame/support", default-features = false }
-frame-system = { path = "../../../substrate/frame/system", default-features = false }
-pallet-authorship = { path = "../../../substrate/frame/authorship", default-features = false }
-pallet-balances = { path = "../../../substrate/frame/balances", default-features = false }
-pallet-session = { path = "../../../substrate/frame/session", default-features = false }
+sp-std = { path = "../../../substrate/primitives/std", default-features = false, version = "14.0.0" }
+sp-runtime = { path = "../../../substrate/primitives/runtime", default-features = false, version = "38.0.0" }
+sp-staking = { path = "../../../substrate/primitives/staking", default-features = false, version = "33.0.0" }
+frame-support = { path = "../../../substrate/frame/support", default-features = false, version = "35.0.0" }
+frame-system = { path = "../../../substrate/frame/system", default-features = false, version = "35.0.0" }
+pallet-authorship = { path = "../../../substrate/frame/authorship", default-features = false, version = "35.0.0" }
+pallet-balances = { path = "../../../substrate/frame/balances", default-features = false, version = "36.0.0" }
+pallet-session = { path = "../../../substrate/frame/session", default-features = false, version = "35.0.0" }
 
-frame-benchmarking = { path = "../../../substrate/frame/benchmarking", default-features = false, optional = true }
+frame-benchmarking = { path = "../../../substrate/frame/benchmarking", default-features = false, optional = true, version = "35.0.0" }
 
 [dev-dependencies]
 sp-core = { path = "../../../substrate/primitives/core" }
@@ -48,7 +48,6 @@ runtime-benchmarks = [
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
-	"pallet-timestamp/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"sp-staking/runtime-benchmarks",
 ]
@@ -71,10 +70,8 @@ std = [
 try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
-	"pallet-aura/try-runtime",
 	"pallet-authorship/try-runtime",
 	"pallet-balances/try-runtime",
 	"pallet-session/try-runtime",
-	"pallet-timestamp/try-runtime",
 	"sp-runtime/try-runtime",
 ]

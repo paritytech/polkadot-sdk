@@ -1,12 +1,12 @@
 [package]
 name = "sp-consensus-grandpa"
-version = "13.0.0"
+version = "20.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
 homepage = "https://substrate.io"
 repository.workspace = true
-description = "Primitives for GRANDPA integration, suitable for WASM compilation."
+description = "Primitives for GRANDPA integration, suitable for WASM compilation. (polkadot v1.13.0)"
 documentation = "https://docs.rs/sp-consensus-grandpa"
 readme = "README.md"
 
@@ -22,11 +22,11 @@ finality-grandpa = { version = "0.16.2", default-features = false, features = ["
 log = { workspace = true }
 scale-info = { version = "2.11.1", default-features = false, features = ["derive"] }
 serde = { features = ["alloc", "derive"], optional = true, workspace = true }
-sp-api = { path = "../../api", default-features = false }
-sp-application-crypto = { path = "../../application-crypto", default-features = false }
-sp-core = { path = "../../core", default-features = false }
-sp-keystore = { path = "../../keystore", default-features = false, optional = true }
-sp-runtime = { path = "../../runtime", default-features = false }
+sp-api = { path = "../../api", default-features = false, version = "33.0.0" }
+sp-application-crypto = { path = "../../application-crypto", default-features = false, version = "37.0.0" }
+sp-core = { path = "../../core", default-features = false, version = "34.0.0" }
+sp-keystore = { path = "../../keystore", default-features = false, optional = true, version = "0.40.0" }
+sp-runtime = { path = "../../runtime", default-features = false, version = "38.0.0" }
 
 [features]
 default = ["std"]

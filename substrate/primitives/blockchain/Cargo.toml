@@ -1,12 +1,12 @@
 [package]
 name = "sp-blockchain"
-version = "28.0.0"
+version = "35.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
 homepage = "https://substrate.io"
 repository.workspace = true
-description = "Substrate blockchain traits and primitives."
+description = "Substrate blockchain traits and primitives. (polkadot v1.13.0)"
 documentation = "https://docs.rs/sp-blockchain"
 readme = "README.md"
 
@@ -23,8 +23,8 @@ log = { workspace = true, default-features = true }
 parking_lot = "0.12.1"
 schnellru = "0.2.1"
 thiserror = { workspace = true }
-sp-api = { path = "../api" }
-sp-consensus = { path = "../consensus/common" }
-sp-database = { path = "../database" }
-sp-runtime = { path = "../runtime" }
-sp-state-machine = { path = "../state-machine" }
+sp-api = { version = "33.0.0", path = "../api" }
+sp-consensus = { version = "0.39.0", path = "../consensus/common" }
+sp-database = { version = "10.0.0", path = "../database" }
+sp-runtime = { version = "38.0.0", path = "../runtime" }
+sp-state-machine = { version = "0.42.0", path = "../state-machine" }

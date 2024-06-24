@@ -6,6 +6,7 @@ edition.workspace = true
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 repository.workspace = true
 publish = false
+description = "substrate-relay-helper (polkadot v1.13.0)"
 
 [lints]
 workspace = true
@@ -23,39 +24,30 @@ rbtag = "0.3"
 structopt = "0.3"
 strum = { version = "0.26.2", features = ["derive"] }
 thiserror = { workspace = true }
-
-# Bridge dependencies
-
-bp-header-chain = { path = "../../primitives/header-chain" }
-bp-parachains = { path = "../../primitives/parachains" }
-bp-polkadot-core = { path = "../../primitives/polkadot-core" }
-bp-relayers = { path = "../../primitives/relayers" }
-bridge-runtime-common = { path = "../../bin/runtime-common" }
-
-equivocation-detector = { path = "../equivocation" }
+bp-header-chain = { version = "0.14.0", path = "../../primitives/header-chain" }
+bp-parachains = { version = "0.14.0", path = "../../primitives/parachains" }
+bp-polkadot-core = { version = "0.14.0", path = "../../primitives/polkadot-core" }
+bp-relayers = { version = "0.14.0", path = "../../primitives/relayers" }
+bridge-runtime-common = { version = "0.14.0", path = "../../bin/runtime-common" }
+equivocation-detector = { version = "0.1.0", path = "../equivocation" }
 finality-grandpa = { version = "0.16.2" }
-finality-relay = { path = "../finality" }
-parachains-relay = { path = "../parachains" }
-relay-utils = { path = "../utils" }
-messages-relay = { path = "../messages" }
-relay-substrate-client = { path = "../client-substrate" }
-
-pallet-bridge-grandpa = { path = "../../modules/grandpa" }
-pallet-bridge-messages = { path = "../../modules/messages" }
-pallet-bridge-parachains = { path = "../../modules/parachains" }
-
-bp-runtime = { path = "../../primitives/runtime" }
-bp-messages = { path = "../../primitives/messages" }
-
-# Substrate Dependencies
-
-frame-support = { path = "../../../substrate/frame/support" }
-frame-system = { path = "../../../substrate/frame/system" }
-pallet-balances = { path = "../../../substrate/frame/balances" }
-pallet-grandpa = { path = "../../../substrate/frame/grandpa" }
-sp-core = { path = "../../../substrate/primitives/core" }
-sp-consensus-grandpa = { path = "../../../substrate/primitives/consensus/grandpa" }
-sp-runtime = { path = "../../../substrate/primitives/runtime" }
+finality-relay = { version = "0.1.0", path = "../finality" }
+parachains-relay = { version = "0.1.0", path = "../parachains" }
+relay-utils = { version = "0.1.0", path = "../utils" }
+messages-relay = { version = "0.1.0", path = "../messages" }
+relay-substrate-client = { version = "0.1.0", path = "../client-substrate" }
+pallet-bridge-grandpa = { version = "0.14.0", path = "../../modules/grandpa" }
+pallet-bridge-messages = { version = "0.14.0", path = "../../modules/messages" }
+pallet-bridge-parachains = { version = "0.14.0", path = "../../modules/parachains" }
+bp-runtime = { version = "0.14.0", path = "../../primitives/runtime" }
+bp-messages = { version = "0.14.0", path = "../../primitives/messages" }
+frame-support = { version = "35.0.0", path = "../../../substrate/frame/support" }
+frame-system = { version = "35.0.0", path = "../../../substrate/frame/system" }
+pallet-balances = { version = "36.0.0", path = "../../../substrate/frame/balances" }
+pallet-grandpa = { version = "35.0.0", path = "../../../substrate/frame/grandpa" }
+sp-core = { version = "34.0.0", path = "../../../substrate/primitives/core" }
+sp-consensus-grandpa = { version = "20.0.0", path = "../../../substrate/primitives/consensus/grandpa" }
+sp-runtime = { version = "38.0.0", path = "../../../substrate/primitives/runtime" }
 
 [dev-dependencies]
 pallet-transaction-payment = { path = "../../../substrate/frame/transaction-payment" }

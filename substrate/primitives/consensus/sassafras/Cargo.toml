@@ -1,8 +1,8 @@
 [package]
 name = "sp-consensus-sassafras"
-version = "0.3.4-dev"
+version = "0.1.0"
 authors.workspace = true
-description = "Primitives for Sassafras consensus"
+description = "Primitives for Sassafras consensus (polkadot v1.13.0)"
 edition.workspace = true
 license = "Apache-2.0"
 homepage = "https://substrate.io"
@@ -21,11 +21,11 @@ targets = ["x86_64-unknown-linux-gnu"]
 codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false }
 scale-info = { version = "2.11.1", default-features = false, features = ["derive"] }
 serde = { features = ["derive"], optional = true, workspace = true }
-sp-api = { path = "../../api", default-features = false }
-sp-application-crypto = { path = "../../application-crypto", default-features = false, features = ["bandersnatch-experimental"] }
-sp-consensus-slots = { path = "../slots", default-features = false }
-sp-core = { path = "../../core", default-features = false, features = ["bandersnatch-experimental"] }
-sp-runtime = { path = "../../runtime", default-features = false }
+sp-api = { path = "../../api", default-features = false, version = "33.0.0" }
+sp-application-crypto = { path = "../../application-crypto", default-features = false, features = ["bandersnatch-experimental"], version = "37.0.0" }
+sp-consensus-slots = { path = "../slots", default-features = false, version = "0.39.0" }
+sp-core = { path = "../../core", default-features = false, features = ["bandersnatch-experimental"], version = "34.0.0" }
+sp-runtime = { path = "../../runtime", default-features = false, version = "38.0.0" }
 
 [features]
 default = ["std"]

@@ -1,7 +1,7 @@
 [package]
 name = "polkadot-node-core-chain-selection"
-description = "Chain Selection Subsystem"
-version = "7.0.0"
+description = "Chain Selection Subsystem (polkadot v1.13.0)"
+version = "14.0.0"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -12,11 +12,11 @@ workspace = true
 [dependencies]
 futures = "0.3.30"
 futures-timer = "3"
-gum = { package = "tracing-gum", path = "../../gum" }
-polkadot-primitives = { path = "../../../primitives" }
-polkadot-node-primitives = { path = "../../primitives" }
-polkadot-node-subsystem = { path = "../../subsystem" }
-polkadot-node-subsystem-util = { path = "../../subsystem-util" }
+gum = { package = "tracing-gum", path = "../../gum", version = "14.0.0" }
+polkadot-primitives = { version = "14.0.0", path = "../../../primitives" }
+polkadot-node-primitives = { version = "14.0.0", path = "../../primitives" }
+polkadot-node-subsystem = { version = "14.0.0", path = "../../subsystem" }
+polkadot-node-subsystem-util = { version = "14.0.0", path = "../../subsystem-util" }
 kvdb = "0.13.0"
 thiserror = { workspace = true }
 codec = { package = "parity-scale-codec", version = "3.6.12" }
