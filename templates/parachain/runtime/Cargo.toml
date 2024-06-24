@@ -32,14 +32,14 @@ docify = { workspace = true }
 pallet-parachain-template = { workspace = true }
 
 # Substrate / FRAME
-frame-benchmarking = { optional = true , workspace = true }
+frame-benchmarking = { optional = true, workspace = true }
 frame-executive = { workspace = true }
 frame-metadata-hash-extension = { workspace = true }
-frame-support = { features = ["experimental"] , workspace = true }
+frame-support = { features = ["experimental"], workspace = true }
 frame-system = { workspace = true }
-frame-system-benchmarking = { optional = true , workspace = true }
+frame-system-benchmarking = { optional = true, workspace = true }
 frame-system-rpc-runtime-api = { workspace = true }
-frame-try-runtime = { optional = true , workspace = true }
+frame-try-runtime = { optional = true, workspace = true }
 
 # FRAME Pallets
 pallet-aura = { workspace = true }

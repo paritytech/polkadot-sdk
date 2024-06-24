@@ -16,14 +16,14 @@ log = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 
 # Substrate
-frame-benchmarking = { optional = true , workspace = true }
+frame-benchmarking = { optional = true, workspace = true }
 frame-executive = { workspace = true }
 frame-metadata-hash-extension = { workspace = true }
 frame-support = { workspace = true }
 frame-system = { workspace = true }
-frame-system-benchmarking = { optional = true , workspace = true }
+frame-system-benchmarking = { optional = true, workspace = true }
 frame-system-rpc-runtime-api = { workspace = true }
-frame-try-runtime = { optional = true , workspace = true }
+frame-try-runtime = { optional = true, workspace = true }
 pallet-asset-conversion-tx-payment = { workspace = true }
 pallet-assets = { workspace = true }
 pallet-asset-conversion-ops = { workspace = true }
