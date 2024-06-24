@@ -8,6 +8,7 @@ homepage = "https://substrate.io"
 repository.workspace = true
 description = "FRAME example split pallet"
 readme = "README.md"
+publish = false
 
 [lints]
 workspace = true
