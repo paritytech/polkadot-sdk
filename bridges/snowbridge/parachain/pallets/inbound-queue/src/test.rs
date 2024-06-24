@@ -159,9 +159,8 @@ fn test_submit_no_funds_to_reward_relayers() {
 		let message = Message {
 			event_log: mock_event_log(),
 			proof: Proof {
-				block_hash: Default::default(),
-				tx_index: Default::default(),
-				data: Default::default(),
+				receipt_proof: Default::default(),
+				execution_proof: mock_execution_proof(),
 			},
 		};
 		assert_noop!(
