@@ -83,7 +83,7 @@ pub struct BurnStash;
 impl NewTimesliceHook for BurnStash {
 	fn on_new_timeslice(_t: pallet_broker::Timeslice) {
 		let stash = BurnStashAccount::get();
-		let value = Balances::reducible_balance(&stash, Preservation::Expendable, Fortitude::Force);
+		let value = Balances::reducible_balance(&stash, Preservation::Preserve, Fortitude::Polite);
 
 		if value > 0 {
 			log::debug!(target: "runtime::coretime", "Going to burn {value} stashed tokens at RC");
