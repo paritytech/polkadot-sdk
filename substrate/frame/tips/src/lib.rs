@@ -491,7 +491,9 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	// Add public immutables and private mutables.
 
 	/// Access tips storage from outside
-	pub fn tips(hash: T::Hash) -> Option<OpenTip<T::AccountId, BalanceOf<T, I>, BlockNumberFor<T>, T::Hash>> {
+	pub fn tips(
+		hash: T::Hash,
+	) -> Option<OpenTip<T::AccountId, BalanceOf<T, I>, BlockNumberFor<T>, T::Hash>> {
 		Tips::<T, I>::get(hash)
 	}
 
