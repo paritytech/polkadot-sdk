@@ -1738,13 +1738,13 @@ path = "../polkadot/xcm/xcm-fee-payment-runtime-api"
 default-features = false
 optional = true
 
-[dependencies.xcm-runtime-api]
-path = "../polkadot/xcm/xcm-runtime-api"
+[dependencies.xcm-procedural]
+path = "../polkadot/xcm/procedural"
 default-features = false
 optional = true
 
-[dependencies.xcm-procedural]
-path = "../polkadot/xcm/procedural"
+[dependencies.xcm-runtime-api]
+path = "../polkadot/xcm/xcm-runtime-api"
 default-features = false
 optional = true
 

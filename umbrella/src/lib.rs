@@ -1568,7 +1568,7 @@ pub use xcm_fee_payment_runtime_api;
 #[cfg(feature = "xcm-procedural")]
 pub use xcm_procedural;
 
-/// XCM runtime API.
+/// XCM runtime APIs.
 #[cfg(feature = "xcm-runtime-api")]
 pub use xcm_runtime_api;
 
