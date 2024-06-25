@@ -86,14 +86,14 @@ pub use sp_runtime::BuildStorage;
 use assets_common::{foreign_creators::ForeignCreators, matching::FromSiblingParachain};
 use polkadot_runtime_common::{BlockHashCount, SlowAdjustingFeeUpdate};
 use xcm::{
-	latest::prelude::{AssetId, Location},
+	latest::prelude::AssetId,
 	prelude::{VersionedAssetId, VersionedAssets, VersionedLocation, VersionedXcm},
 };
 
 #[cfg(feature = "runtime-benchmarks")]
 use xcm::latest::prelude::{
-	Asset, Assets as XcmAssets, Fungible, Here, InteriorLocation, Junction, Junction::*, NetworkId,
-	NonFungible, Parent, ParentThen, Response, XCM_VERSION,
+	Asset, Assets as XcmAssets, Fungible, Here, InteriorLocation, Junction, Junction::*, Location,
+	NetworkId, NonFungible, Parent, ParentThen, Response, XCM_VERSION,
 };
 
 use xcm_fee_payment_runtime_api::{
