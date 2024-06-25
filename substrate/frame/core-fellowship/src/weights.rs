@@ -56,7 +56,7 @@ pub trait WeightInfo {
 	fn set_active() -> Weight;
 	fn induct() -> Weight;
 	fn promote() -> Weight;
-	fn promote_fast(r: u32) -> Weight;
+	fn promote_fast(_r: u32) -> Weight;
 	fn offboard() -> Weight;
 	fn import() -> Weight;
 	fn approve() -> Weight;
@@ -188,7 +188,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().writes(6_u64))
 	}
 
-	fn promote_fast(r: u32) -> Weight {
+	fn promote_fast(_r: u32) -> Weight {
 		// FAIL-CI
 		// Proof Size summary in bytes:
 		//  Measured:  `16931`
@@ -379,7 +379,7 @@ impl WeightInfo for () {
 			.saturating_add(RocksDbWeight::get().reads(5_u64))
 			.saturating_add(RocksDbWeight::get().writes(6_u64))
 	}
-	fn promote_fast(r: u32) -> Weight {
+	fn promote_fast(_r: u32) -> Weight {
 		// FAIL-CI
 		// Proof Size summary in bytes:
 		//  Measured:  `16931`

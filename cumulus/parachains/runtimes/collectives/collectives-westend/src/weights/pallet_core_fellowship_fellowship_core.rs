@@ -170,7 +170,7 @@ impl<T: frame_system::Config> pallet_core_fellowship::WeightInfo for WeightInfo<
 			.saturating_add(T::DbWeight::get().reads(5))
 			.saturating_add(T::DbWeight::get().writes(6))
 	}
-	fn promote_fast(r: u32) -> Weight {
+	fn promote_fast(_r: u32) -> Weight {
 		// FAIL-CI
 		// Proof Size summary in bytes:
 		//  Measured:  `16931`
