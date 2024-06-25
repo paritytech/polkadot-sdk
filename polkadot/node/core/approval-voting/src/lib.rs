@@ -41,7 +41,7 @@ use polkadot_node_subsystem::{
 		ApprovalVotingMessage, AssignmentCheckError, AssignmentCheckResult,
 		AvailabilityRecoveryMessage, BlockDescription, CandidateValidationMessage, ChainApiMessage,
 		ChainSelectionMessage, DisputeCoordinatorMessage, HighestApprovedAncestorBlock,
-		RuntimeApiMessage, RuntimeApiRequest,
+		PvfExecution, RuntimeApiMessage, RuntimeApiRequest,
 	},
 	overseer, FromOrchestra, OverseerSignal, SpawnedSubsystem, SubsystemError, SubsystemResult,
 	SubsystemSender,
@@ -56,8 +56,8 @@ use polkadot_node_subsystem_util::{
 use polkadot_primitives::{
 	ApprovalVoteMultipleCandidates, ApprovalVotingParams, BlockNumber, CandidateHash,
 	CandidateIndex, CandidateReceipt, CoreIndex, DisputeStatement, ExecutorParams, GroupIndex,
-	Hash, PvfExecKind, SessionIndex, SessionInfo, ValidDisputeStatementKind, ValidatorId,
-	ValidatorIndex, ValidatorPair, ValidatorSignature,
+	Hash, SessionIndex, SessionInfo, ValidDisputeStatementKind, ValidatorId, ValidatorIndex,
+	ValidatorPair, ValidatorSignature,
 };
 use sc_keystore::LocalKeystore;
 use sp_application_crypto::Pair;
@@ -3529,7 +3529,7 @@ async fn launch_approval<Context>(
 				candidate_receipt: candidate.clone(),
 				pov: available_data.pov,
 				executor_params,
-				exec_kind: PvfExecKind::Approval,
+				exec_kind: PvfExecution::Approval,
 				response_sender: val_tx,
 			})
 			.await;

@@ -86,7 +86,7 @@ impl FakeCandidateValidation {
 		}
 	}
 
-	fn should_misbehave(&self, timeout: PvfExecKind) -> bool {
+	fn should_misbehave(&self, timeout: PvfExecution) -> bool {
 		match timeout {
 			PvfExecKind::Backing => self.includes_backing(),
 			PvfExecKind::Approval => self.includes_approval(),

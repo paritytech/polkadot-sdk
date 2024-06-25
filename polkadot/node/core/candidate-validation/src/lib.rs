@@ -33,8 +33,8 @@ use polkadot_node_primitives::{
 use polkadot_node_subsystem::{
 	errors::RuntimeApiError,
 	messages::{
-		CandidateValidationMessage, PreCheckOutcome, RuntimeApiMessage, RuntimeApiRequest,
-		ValidationFailed,
+		CandidateValidationMessage, PreCheckOutcome, PvfExecution, RuntimeApiMessage,
+		RuntimeApiRequest, ValidationFailed,
 	},
 	overseer, FromOrchestra, OverseerSignal, SpawnedSubsystem, SubsystemError, SubsystemResult,
 	SubsystemSender,
@@ -542,7 +542,7 @@ async fn validate_from_chain_state<Sender>(
 	candidate_receipt: CandidateReceipt,
 	pov: Arc<PoV>,
 	executor_params: ExecutorParams,
-	exec_kind: PvfExecKind,
+	exec_kind: PvfExecution,
 	metrics: &Metrics,
 ) -> Result<ValidationResult, ValidationFailed>
 where
@@ -598,7 +598,7 @@ async fn validate_candidate_exhaustive(
 	candidate_receipt: CandidateReceipt,
 	pov: Arc<PoV>,
 	executor_params: ExecutorParams,
-	exec_kind: PvfExecKind,
+	exec_kind: PvfExecution,
 	metrics: &Metrics,
 ) -> Result<ValidationResult, ValidationFailed> {
 	let _timer = metrics.time_validate_candidate_exhaustive();
@@ -660,9 +660,9 @@ async fn validate_candidate_exhaustive(
 	let result = match exec_kind {
 		// Retry is disabled to reduce the chance of nondeterministic blocks getting backed and
 		// honest backers getting slashed.
-		PvfExecKind::Backing => {
+		PvfExecution::Backing => {
 			let prep_timeout = pvf_prep_timeout(&executor_params, PvfPrepKind::Prepare);
-			let exec_timeout = pvf_exec_timeout(&executor_params, exec_kind);
+			let exec_timeout = pvf_exec_timeout(&executor_params, exec_kind.into());
 			let pvf = PvfPrepData::from_code(
 				raw_validation_code.to_vec(),
 				executor_params,
@@ -675,21 +675,21 @@ async fn validate_candidate_exhaustive(
 					pvf,
 					exec_timeout,
 					params.encode(),
-					polkadot_node_core_pvf::PreparePriority::Normal,
-					polkadot_node_core_pvf::ExecutePriority::Low,
+					exec_kind.into(),
+					exec_kind.into(),
 				)
 				.await
 		},
-		PvfExecKind::Approval =>
+		PvfExecution::Approval | PvfExecution::Dispute =>
 			validation_backend
 				.validate_candidate_with_retry(
 					raw_validation_code.to_vec(),
-					pvf_exec_timeout(&executor_params, exec_kind),
+					pvf_exec_timeout(&executor_params, exec_kind.into()),
 					params,
 					executor_params,
 					PVF_APPROVAL_EXECUTION_RETRY_DELAY,
-					polkadot_node_core_pvf::PreparePriority::Critical,
-					polkadot_node_core_pvf::ExecutePriority::Normal,
+					exec_kind.into(),
+					exec_kind.into(),
 				)
 				.await,
 	};
