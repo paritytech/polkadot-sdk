@@ -1229,16 +1229,11 @@ parameter_types! {
 impl pallet_treasury::Config for Runtime {
 	type PalletId = TreasuryPalletId;
 	type Currency = Balances;
-	type ApproveOrigin = EitherOfDiverse<
-		EnsureRoot<AccountId>,
-		pallet_collective::EnsureProportionAtLeast<AccountId, CouncilCollective, 3, 5>,
-	>;
 	type RejectOrigin = EitherOfDiverse<
 		EnsureRoot<AccountId>,
 		pallet_collective::EnsureProportionMoreThan<AccountId, CouncilCollective, 1, 2>,
 	>;
 	type RuntimeEvent = RuntimeEvent;
-	type OnSlash = ();
 	type SpendPeriod = SpendPeriod;
 	type Burn = Burn;
 	type BurnDestination = ();
@@ -1293,6 +1288,7 @@ impl pallet_bounties::Config for Runtime {
 	type MaximumReasonLength = MaximumReasonLength;
 	type WeightInfo = pallet_bounties::weights::SubstrateWeight<Runtime>;
 	type ChildBountyManager = ChildBounties;
+	type OnSlash = Treasury;
 }
 
 parameter_types! {
@@ -1337,6 +1333,7 @@ impl pallet_tips::Config for Runtime {
 	type TipReportDepositBase = TipReportDepositBase;
 	type MaxTipAmount = ConstU128<{ 500 * DOLLARS }>;
 	type WeightInfo = pallet_tips::weights::SubstrateWeight<Runtime>;
+	type OnSlash = Treasury;
 }
 
 parameter_types! {
