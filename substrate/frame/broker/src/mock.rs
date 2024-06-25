@@ -103,6 +103,7 @@ impl CoretimeInterface for TestCoretimeProvider {
 				}
 			})
 		});
+		mint_to_pot(total);
 		RevenueInbox::<Test>::put(OnDemandRevenueRecord { until: when, amount: total });
 	}
 	fn credit_account(_who: Self::AccountId, _amount: Self::Balance) {
@@ -235,6 +236,11 @@ pub fn advance_sale_period() {
 
 pub fn pot() -> u64 {
 	balance(Broker::account_id())
+}
+
+pub fn mint_to_pot(amount: u64) {
+	let imb = <Test as crate::Config>::Currency::issue(amount);
+	let _ = <Test as crate::Config>::Currency::resolve(&Broker::account_id(), imb);
 }
 
 pub fn revenue() -> u64 {
