@@ -29,7 +29,7 @@ use frame_support::{
 use frame_support::traits::PalletInfo;
 
 #[test]
-	fn query_membership_works() {
+fn query_membership_works() {
     new_test_ext().execute_with(|| {
         assert_eq!(Membership::members(), vec![10, 20, 30]);
         assert_eq!(MEMBERS.with(|m| m.borrow().clone()), vec![10, 20, 30]);
@@ -206,7 +206,6 @@ fn genesis_build_panics_with_duplicate_members() {
 #[test]
 fn migration_v4() {
     new_test_ext().execute_with(|| {
-        //use frame_support::traits::PalletInfo;
         let old_pallet_name = "OldMembership";
         let new_pallet_name =
             <Test as frame_system::Config>::PalletInfo::name::<Membership>().unwrap();
