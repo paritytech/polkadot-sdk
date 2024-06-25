@@ -244,7 +244,7 @@ where
 	let verifier = Verifier::<P, _, _, _> {
 		client,
 		create_inherent_data_providers,
-        defender: Mutex::new(NaiveEquivocationDefender::default()),
+		defender: Mutex::new(NaiveEquivocationDefender::default()),
 		telemetry,
 		_phantom: std::marker::PhantomData,
 	};
