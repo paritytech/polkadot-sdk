@@ -5,28 +5,41 @@ on:
       - Review-Trigger
     types:
       - completed
+  workflow_dispatch:
+    inputs:
+      pr-number:
+        description: "Number of the PR to evaluate"
+        required: true
+        type: number
 
 jobs:
   review-approvals:
     runs-on: ubuntu-latest
     environment: master
     steps:
-      - name: Extract content of artifact
-        id: number
-        uses: Bullrich/extract-text-from-artifact@v1.0.0
-        with:
-          artifact-name: pr_number
       - name: Generate token
         id: app_token
-        uses: tibdex/github-app-token@v1
+        uses: actions/create-github-app-token@v1.9.3
         with:
-          app_id: ${{ secrets.REVIEW_APP_ID }}
-          private_key: ${{ secrets.REVIEW_APP_KEY }}
+          app-id: ${{ secrets.REVIEW_APP_ID }}
+          private-key: ${{ secrets.REVIEW_APP_KEY }}
+      - name: Extract content of artifact
+        if: ${{ !inputs.pr-number }}
+        id: number
+        uses: Bullrich/extract-text-from-artifact@v1.0.1
+        with:
+          artifact-name: pr_number
       - name: "Evaluates PR reviews and assigns reviewers"
         uses: paritytech/review-bot@v2.4.0
         with:
           repo-token: ${{ steps.app_token.outputs.token }}
           team-token: ${{ steps.app_token.outputs.token }}
           checks-token: ${{ steps.app_token.outputs.token }}
-          pr-number: ${{ steps.number.outputs.content }}
+          # This is extracted from the triggering event
+          pr-number: ${{ inputs.pr-number || steps.number.outputs.content }}
           request-reviewers: true
+      - name: Log payload
+        if: ${{ failure() || runner.debug }}
+        run: echo "::debug::$payload"
+        env:
+          payload: ${{ toJson(github.event) }}

@@ -29,7 +29,7 @@ use frame_support::{
 };
 use frame_system::{EnsureRoot, EnsureSignedBy};
 use sp_arithmetic::Perbill;
-use sp_core::{ConstU32, ConstU64};
+use sp_core::{ConstU32, ConstU64, Get};
 use sp_runtime::{
 	traits::{BlockNumberProvider, Identity},
 	BuildStorage, Saturating,
@@ -199,7 +199,7 @@ impl crate::Config for Test {
 	type WeightInfo = ();
 	type PalletId = TestBrokerId;
 	type AdminOrigin = EnsureOneOrRoot;
-	type PriceAdapter = Linear;
+	type PriceAdapter = CenterTargetPrice<BalanceOf<Self>>;
 }
 
 pub fn advance_to(b: u64) {
@@ -208,6 +208,15 @@ pub fn advance_to(b: u64) {
 		TestCoretimeProvider::bump();
 		Broker::on_initialize(System::block_number());
 	}
+}
+
+pub fn advance_sale_period() {
+	let sale = SaleInfo::<Test>::get().unwrap();
+
+	let target_block_number =
+		sale.region_begin as u64 * <<Test as crate::Config>::TimeslicePeriod as Get<u64>>::get();
+
+	advance_to(target_block_number)
 }
 
 pub fn pot() -> u64 {
@@ -244,6 +253,10 @@ pub struct TestExt(ConfigRecordOf<Test>);
 impl TestExt {
 	pub fn new() -> Self {
 		Self(new_config())
+	}
+
+	pub fn new_with_config(config: ConfigRecordOf<Test>) -> Self {
+		Self(config)
 	}
 
 	pub fn advance_notice(mut self, advance_notice: Timeslice) -> Self {

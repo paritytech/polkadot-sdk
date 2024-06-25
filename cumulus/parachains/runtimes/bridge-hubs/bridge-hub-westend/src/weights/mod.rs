@@ -17,8 +17,10 @@
 
 //! Expose the auto generated weight files.
 
+use ::pallet_bridge_grandpa::WeightInfoExt as GrandpaWeightInfoExt;
 use ::pallet_bridge_messages::WeightInfoExt as MessagesWeightInfoExt;
 use ::pallet_bridge_parachains::WeightInfoExt as ParachainsWeightInfoExt;
+use ::pallet_bridge_relayers::WeightInfo as _;
 
 pub mod block_weights;
 pub mod cumulus_pallet_parachain_system;
@@ -51,6 +53,16 @@ use frame_support::weights::Weight;
 // import trait from dependency module
 use ::pallet_bridge_relayers::WeightInfoExt as _;
 
+impl GrandpaWeightInfoExt for pallet_bridge_grandpa::WeightInfo<crate::Runtime> {
+	fn submit_finality_proof_overhead_from_runtime() -> Weight {
+		// our signed extension:
+		// 1) checks whether relayer registration is active from validate/pre_dispatch;
+		// 2) may slash and deregister relayer from post_dispatch
+		// (2) includes (1), so (2) is the worst case
+		pallet_bridge_relayers::WeightInfo::<Runtime>::slash_and_deregister()
+	}
+}
+
 impl MessagesWeightInfoExt for pallet_bridge_messages::WeightInfo<crate::Runtime> {
 	fn expected_extra_storage_proof_size() -> u32 {
 		bp_bridge_hub_rococo::EXTRA_STORAGE_PROOF_SIZE
@@ -69,5 +81,13 @@ impl MessagesWeightInfoExt for pallet_bridge_messages::WeightInfo<crate::Runtime
 impl ParachainsWeightInfoExt for pallet_bridge_parachains::WeightInfo<crate::Runtime> {
 	fn expected_extra_storage_proof_size() -> u32 {
 		bp_bridge_hub_rococo::EXTRA_STORAGE_PROOF_SIZE
+	}
+
+	fn submit_parachain_heads_overhead_from_runtime() -> Weight {
+		// our signed extension:
+		// 1) checks whether relayer registration is active from validate/pre_dispatch;
+		// 2) may slash and deregister relayer from post_dispatch
+		// (2) includes (1), so (2) is the worst case
+		pallet_bridge_relayers::WeightInfo::<Runtime>::slash_and_deregister()
 	}
 }

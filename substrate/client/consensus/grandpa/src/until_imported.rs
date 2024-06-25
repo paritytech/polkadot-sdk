@@ -632,7 +632,7 @@ mod tests {
 	impl BlockSyncRequesterT<Block> for TestBlockSyncRequester {
 		fn set_sync_fork_request(
 			&self,
-			_peers: Vec<sc_network::PeerId>,
+			_peers: Vec<sc_network_types::PeerId>,
 			hash: Hash,
 			number: NumberFor<Block>,
 		) {

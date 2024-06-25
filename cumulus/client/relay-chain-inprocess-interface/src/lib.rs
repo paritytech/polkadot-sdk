@@ -30,7 +30,7 @@ use futures::{FutureExt, Stream, StreamExt};
 use polkadot_service::{
 	CollatorPair, Configuration, FullBackend, FullClient, Handle, NewFull, TaskManager,
 };
-use sc_cli::SubstrateCli;
+use sc_cli::{RuntimeVersion, SubstrateCli};
 use sc_client_api::{
 	blockchain::BlockStatus, Backend, BlockchainEvents, HeaderBackend, ImportNotifications,
 	StorageProof,
@@ -68,6 +68,10 @@ impl RelayChainInProcessInterface {
 
 #[async_trait]
 impl RelayChainInterface for RelayChainInProcessInterface {
+	async fn version(&self, relay_parent: PHash) -> RelayChainResult<RuntimeVersion> {
+		Ok(self.full_client.runtime_version_at(relay_parent)?)
+	}
+
 	async fn retrieve_dmq_contents(
 		&self,
 		para_id: ParaId,
@@ -251,6 +255,14 @@ impl RelayChainInterface for RelayChainInProcessInterface {
 				});
 		Ok(Box::pin(notifications_stream))
 	}
+
+	async fn candidates_pending_availability(
+		&self,
+		hash: PHash,
+		para_id: ParaId,
+	) -> RelayChainResult<Vec<CommittedCandidateReceipt>> {
+		Ok(self.full_client.runtime_api().candidates_pending_availability(hash, para_id)?)
+	}
 }
 
 pub enum BlockCheckStatus {
@@ -312,6 +324,9 @@ fn build_polkadot_full_node(
 			overseer_message_channel_capacity_override: None,
 			malus_finality_delay: None,
 			hwbench,
+			execute_workers_max_num: None,
+			prepare_workers_hard_max_num: None,
+			prepare_workers_soft_max_num: None,
 		},
 	)?;
 

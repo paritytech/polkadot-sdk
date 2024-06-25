@@ -24,16 +24,18 @@ use crate::justification::{
 	GrandpaJustification, JustificationVerificationContext, JustificationVerificationError,
 };
 use bp_runtime::{
-	BasicOperatingMode, Chain, HashOf, HasherOf, HeaderOf, RawStorageProof, StorageProofChecker,
-	StorageProofError, UnderlyingChainProvider,
+	BasicOperatingMode, BlockNumberOf, Chain, HashOf, HasherOf, HeaderOf, RawStorageProof,
+	StorageProofChecker, StorageProofError, UnderlyingChainProvider,
 };
 use codec::{Codec, Decode, Encode, EncodeLike, MaxEncodedLen};
 use core::{clone::Clone, cmp::Eq, default::Default, fmt::Debug};
 use frame_support::PalletError;
 use scale_info::TypeInfo;
 use serde::{Deserialize, Serialize};
-use sp_consensus_grandpa::{AuthorityList, ConsensusLog, SetId, GRANDPA_ENGINE_ID};
-use sp_runtime::{traits::Header as HeaderT, Digest, RuntimeDebug};
+use sp_consensus_grandpa::{
+	AuthorityList, ConsensusLog, ScheduledChange, SetId, GRANDPA_ENGINE_ID,
+};
+use sp_runtime::{traits::Header as HeaderT, Digest, RuntimeDebug, SaturatedConversion};
 use sp_std::{boxed::Box, vec::Vec};
 
 pub mod justification;
@@ -147,24 +149,23 @@ pub struct GrandpaConsensusLogReader<Number>(sp_std::marker::PhantomData<Number>
 
 impl<Number: Codec> GrandpaConsensusLogReader<Number> {
 	/// Find and return scheduled (regular) change digest item.
-	pub fn find_scheduled_change(
-		digest: &Digest,
-	) -> Option<sp_consensus_grandpa::ScheduledChange<Number>> {
+	pub fn find_scheduled_change(digest: &Digest) -> Option<ScheduledChange<Number>> {
+		use sp_runtime::generic::OpaqueDigestItemId;
+		let id = OpaqueDigestItemId::Consensus(&GRANDPA_ENGINE_ID);
+
+		let filter_log = |log: ConsensusLog<Number>| match log {
+			ConsensusLog::ScheduledChange(change) => Some(change),
+			_ => None,
+		};
+
 		// find the first consensus digest with the right ID which converts to
 		// the right kind of consensus log.
-		digest
-			.convert_first(|log| log.consensus_try_to(&GRANDPA_ENGINE_ID))
-			.and_then(|log| match log {
-				ConsensusLog::ScheduledChange(change) => Some(change),
-				_ => None,
-			})
+		digest.convert_first(|l| l.try_to(id).and_then(filter_log))
 	}
 
 	/// Find and return forced change digest item. Or light client can't do anything
 	/// with forced changes, so we can't accept header with the forced change digest.
-	pub fn find_forced_change(
-		digest: &Digest,
-	) -> Option<(Number, sp_consensus_grandpa::ScheduledChange<Number>)> {
+	pub fn find_forced_change(digest: &Digest) -> Option<(Number, ScheduledChange<Number>)> {
 		// find the first consensus digest with the right ID which converts to
 		// the right kind of consensus log.
 		digest
@@ -324,6 +325,68 @@ where
 	const AVERAGE_HEADER_SIZE: u32 = <T::Chain as ChainWithGrandpa>::AVERAGE_HEADER_SIZE;
 }
 
+/// Result of checking maximal expected submit finality proof call weight and size.
+#[derive(Debug)]
+pub struct SubmitFinalityProofCallExtras {
+	/// If true, the call weight is larger than what we have assumed.
+	///
+	/// We have some assumptions about headers and justifications of the bridged chain.
+	/// We know that if our assumptions are correct, then the call must not have the
+	/// weight above some limit. The fee paid for weight above that limit, is never refunded.
+	pub is_weight_limit_exceeded: bool,
+	/// Extra size (in bytes) that we assume are included in the call.
+	///
+	/// We have some assumptions about headers and justifications of the bridged chain.
+	/// We know that if our assumptions are correct, then the call must not have the
+	/// weight above some limit. The fee paid for bytes above that limit, is never refunded.
+	pub extra_size: u32,
+	/// A flag that is true if the header is the mandatory header that enacts new
+	/// authorities set.
+	pub is_mandatory_finality_target: bool,
+}
+
+/// Checks whether the given `header` and its finality `proof` fit the maximal expected
+/// call limits (size and weight). The submission may be refunded sometimes (see pallet
+/// configuration for details), but it should fit some limits. If the call has some extra
+/// weight and/or size included, though, we won't refund it or refund will be partial.
+pub fn submit_finality_proof_limits_extras<C: ChainWithGrandpa>(
+	header: &C::Header,
+	proof: &justification::GrandpaJustification<C::Header>,
+) -> SubmitFinalityProofCallExtras {
+	// the `submit_finality_proof` call will reject justifications with invalid, duplicate,
+	// unknown and extra signatures. It'll also reject justifications with less than necessary
+	// signatures. So we do not care about extra weight because of additional signatures here.
+	let precommits_len = proof.commit.precommits.len().saturated_into();
+	let required_precommits = precommits_len;
+
+	// the weight check is simple - we assume that there are no more than the `limit`
+	// headers in the ancestry proof
+	let votes_ancestries_len: u32 = proof.votes_ancestries.len().saturated_into();
+	let is_weight_limit_exceeded =
+		votes_ancestries_len > C::REASONABLE_HEADERS_IN_JUSTIFICATION_ANCESTRY;
+
+	// check if the `finality_target` is a mandatory header. If so, we are ready to refund larger
+	// size
+	let is_mandatory_finality_target =
+		GrandpaConsensusLogReader::<BlockNumberOf<C>>::find_scheduled_change(header.digest())
+			.is_some();
+
+	// we can estimate extra call size easily, without any additional significant overhead
+	let actual_call_size: u32 =
+		header.encoded_size().saturating_add(proof.encoded_size()).saturated_into();
+	let max_expected_call_size = max_expected_submit_finality_proof_arguments_size::<C>(
+		is_mandatory_finality_target,
+		required_precommits,
+	);
+	let extra_size = actual_call_size.saturating_sub(max_expected_call_size);
+
+	SubmitFinalityProofCallExtras {
+		is_weight_limit_exceeded,
+		extra_size,
+		is_mandatory_finality_target,
+	}
+}
+
 /// Returns maximal expected size of `submit_finality_proof` call arguments.
 pub fn max_expected_submit_finality_proof_arguments_size<C: ChainWithGrandpa>(
 	is_mandatory_finality_target: bool,
@@ -346,7 +409,7 @@ mod tests {
 	use super::*;
 	use bp_runtime::ChainId;
 	use frame_support::weights::Weight;
-	use sp_runtime::{testing::H256, traits::BlakeTwo256, MultiSignature};
+	use sp_runtime::{testing::H256, traits::BlakeTwo256, DigestItem, MultiSignature};
 
 	struct TestChain;
 
@@ -383,6 +446,37 @@ mod tests {
 		assert!(
 			max_expected_submit_finality_proof_arguments_size::<TestChain>(true, 100) >
 				max_expected_submit_finality_proof_arguments_size::<TestChain>(false, 100),
+		);
+	}
+
+	#[test]
+	fn find_scheduled_change_works() {
+		let scheduled_change = ScheduledChange { next_authorities: vec![], delay: 0 };
+
+		// first
+		let mut digest = Digest::default();
+		digest.push(DigestItem::Consensus(
+			GRANDPA_ENGINE_ID,
+			ConsensusLog::ScheduledChange(scheduled_change.clone()).encode(),
+		));
+		assert_eq!(
+			GrandpaConsensusLogReader::find_scheduled_change(&digest),
+			Some(scheduled_change.clone())
+		);
+
+		// not first
+		let mut digest = Digest::default();
+		digest.push(DigestItem::Consensus(
+			GRANDPA_ENGINE_ID,
+			ConsensusLog::<u64>::OnDisabled(0).encode(),
+		));
+		digest.push(DigestItem::Consensus(
+			GRANDPA_ENGINE_ID,
+			ConsensusLog::ScheduledChange(scheduled_change.clone()).encode(),
+		));
+		assert_eq!(
+			GrandpaConsensusLogReader::find_scheduled_change(&digest),
+			Some(scheduled_change.clone())
 		);
 	}
 }

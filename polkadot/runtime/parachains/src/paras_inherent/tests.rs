@@ -20,7 +20,7 @@ use crate::{
 	configuration::{self, HostConfiguration},
 	mock::MockGenesisConfig,
 };
-use primitives::vstaging::SchedulerParams;
+use polkadot_primitives::vstaging::SchedulerParams;
 
 fn default_config() -> MockGenesisConfig {
 	MockGenesisConfig {
@@ -57,7 +57,7 @@ mod enter {
 	use core::panic;
 	use frame_support::assert_ok;
 	use frame_system::limits;
-	use primitives::{vstaging::SchedulerParams, AvailabilityBitfield, UncheckedSigned};
+	use polkadot_primitives::{vstaging::SchedulerParams, AvailabilityBitfield, UncheckedSigned};
 	use sp_runtime::Perbill;
 	use sp_std::collections::btree_map::BTreeMap;
 
@@ -166,7 +166,7 @@ mod enter {
 				.unwrap();
 
 			// The current schedule is empty prior to calling `create_inherent_enter`.
-			assert!(<scheduler::Pallet<Test>>::claimqueue_is_empty());
+			assert!(scheduler::Pallet::<Test>::claim_queue_is_empty());
 
 			// Nothing is filtered out (including the backed candidates.)
 			assert_eq!(
@@ -177,13 +177,13 @@ mod enter {
 			assert_eq!(
 				// The length of this vec is equal to the number of candidates, so we know our 2
 				// backed candidates did not get filtered out
-				Pallet::<Test>::on_chain_votes().unwrap().backing_validators_per_candidate.len(),
+				OnChainVotes::<Test>::get().unwrap().backing_validators_per_candidate.len(),
 				2
 			);
 
 			assert_eq!(
 				// The session of the on chain votes should equal the current session, which is 2
-				Pallet::<Test>::on_chain_votes().unwrap().session,
+				OnChainVotes::<Test>::get().unwrap().session,
 				2
 			);
 
@@ -217,7 +217,7 @@ mod enter {
 		assert!(config.configuration.config.scheduler_params.lookahead > 0);
 		new_test_ext(config).execute_with(|| {
 			// Set the elastic scaling MVP feature.
-			<configuration::Pallet<Test>>::set_node_feature(
+			configuration::Pallet::<Test>::set_node_feature(
 				RuntimeOrigin::root(),
 				FeatureIndex::ElasticScalingMVP as u8,
 				true,
@@ -257,9 +257,9 @@ mod enter {
 				.unwrap();
 
 			// The current schedule is empty prior to calling `create_inherent_enter`.
-			assert!(<scheduler::Pallet<Test>>::claimqueue_is_empty());
+			assert!(scheduler::Pallet::<Test>::claim_queue_is_empty());
 
-			assert!(Pallet::<Test>::on_chain_votes().is_none());
+			assert!(pallet::OnChainVotes::<Test>::get().is_none());
 
 			// Nothing is filtered out (including the backed candidates.)
 			assert_eq!(
@@ -270,13 +270,16 @@ mod enter {
 			assert_eq!(
 				// The length of this vec is equal to the number of candidates, so we know our 5
 				// backed candidates did not get filtered out
-				Pallet::<Test>::on_chain_votes().unwrap().backing_validators_per_candidate.len(),
+				pallet::OnChainVotes::<Test>::get()
+					.unwrap()
+					.backing_validators_per_candidate
+					.len(),
 				5
 			);
 
 			assert_eq!(
 				// The session of the on chain votes should equal the current session, which is 2
-				Pallet::<Test>::on_chain_votes().unwrap().session,
+				pallet::OnChainVotes::<Test>::get().unwrap().session,
 				2
 			);
 
@@ -316,7 +319,7 @@ mod enter {
 		assert!(config.configuration.config.scheduler_params.lookahead > 0);
 		new_test_ext(config).execute_with(|| {
 			// Set the elastic scaling MVP feature.
-			<configuration::Pallet<Test>>::set_node_feature(
+			configuration::Pallet::<Test>::set_node_feature(
 				RuntimeOrigin::root(),
 				FeatureIndex::ElasticScalingMVP as u8,
 				true,
@@ -352,7 +355,7 @@ mod enter {
 			assert_eq!(expected_para_inherent_data.backed_candidates.len(), 6);
 			// * 0 disputes.
 			assert_eq!(expected_para_inherent_data.disputes.len(), 0);
-			assert!(Pallet::<Test>::on_chain_votes().is_none());
+			assert!(pallet::OnChainVotes::<Test>::get().is_none());
 
 			expected_para_inherent_data.backed_candidates = expected_para_inherent_data
 				.backed_candidates
@@ -369,7 +372,7 @@ mod enter {
 			let mut inherent_data = InherentData::new();
 			inherent_data.put_data(PARACHAINS_INHERENT_IDENTIFIER, &scenario.data).unwrap();
 
-			assert!(!<scheduler::Pallet<Test>>::claimqueue_is_empty());
+			assert!(!scheduler::Pallet::<Test>::claim_queue_is_empty());
 
 			// The right candidates have been filtered out (the ones for cores 0,4,5)
 			assert_eq!(
@@ -379,13 +382,16 @@ mod enter {
 
 			// 3 candidates have been backed (for cores 1,2 and 3)
 			assert_eq!(
-				Pallet::<Test>::on_chain_votes().unwrap().backing_validators_per_candidate.len(),
+				pallet::OnChainVotes::<Test>::get()
+					.unwrap()
+					.backing_validators_per_candidate
+					.len(),
 				3
 			);
 
 			assert_eq!(
 				// The session of the on chain votes should equal the current session, which is 2
-				Pallet::<Test>::on_chain_votes().unwrap().session,
+				pallet::OnChainVotes::<Test>::get().unwrap().session,
 				2
 			);
 
@@ -420,7 +426,7 @@ mod enter {
 
 			// Now just make all candidates available.
 			let mut data = scenario.data.clone();
-			let validators = session_info::Pallet::<Test>::session_info(2).unwrap().validators;
+			let validators = session_info::Sessions::<Test>::get(2).unwrap().validators;
 			let signing_context = SigningContext {
 				parent_hash: BenchBuilder::<Test>::header(4).hash(),
 				session_index: 2,
@@ -447,7 +453,7 @@ mod enter {
 			);
 
 			// No more candidates have been backed
-			assert!(Pallet::<Test>::on_chain_votes()
+			assert!(pallet::OnChainVotes::<Test>::get()
 				.unwrap()
 				.backing_validators_per_candidate
 				.is_empty());
@@ -480,10 +486,7 @@ mod enter {
 
 			// Paras have the right on-chain heads now
 			expected_heads.into_iter().enumerate().for_each(|(id, head)| {
-				assert_eq!(
-					paras::Pallet::<Test>::para_head(ParaId::from(id as u32)).unwrap(),
-					head
-				);
+				assert_eq!(paras::Heads::<Test>::get(ParaId::from(id as u32)).unwrap(), head);
 			});
 		});
 	}
@@ -491,7 +494,7 @@ mod enter {
 	#[test]
 	fn test_session_is_tracked_in_on_chain_scraping() {
 		use crate::disputes::run_to_block;
-		use primitives::{
+		use polkadot_primitives::{
 			DisputeStatement, DisputeStatementSet, ExplicitDisputeStatement,
 			InvalidDisputeStatementKind, ValidDisputeStatementKind,
 		};
@@ -551,7 +554,7 @@ mod enter {
 			let candidate_hash = CandidateHash(sp_core::H256::repeat_byte(1));
 			let statements = generate_votes(3, candidate_hash);
 			set_scrapable_on_chain_disputes::<Test>(3, statements);
-			assert_matches!(pallet::Pallet::<Test>::on_chain_votes(), Some(ScrapedOnChainVotes {
+			assert_matches!(pallet::OnChainVotes::<Test>::get(), Some(ScrapedOnChainVotes {
 				session,
 				..
 			} ) => {
@@ -570,7 +573,7 @@ mod enter {
 			let candidate_hash = CandidateHash(sp_core::H256::repeat_byte(2));
 			let statements = generate_votes(7, candidate_hash);
 			set_scrapable_on_chain_disputes::<Test>(7, statements);
-			assert_matches!(pallet::Pallet::<Test>::on_chain_votes(), Some(ScrapedOnChainVotes {
+			assert_matches!(pallet::OnChainVotes::<Test>::get(), Some(ScrapedOnChainVotes {
 				session,
 				..
 			} ) => {
@@ -615,7 +618,7 @@ mod enter {
 				.unwrap();
 
 			// The current schedule is empty prior to calling `create_inherent_enter`.
-			assert!(<scheduler::Pallet<Test>>::claimqueue_is_empty());
+			assert!(scheduler::Pallet::<Test>::claim_queue_is_empty());
 
 			let multi_dispute_inherent_data =
 				Pallet::<Test>::create_inherent_inner(&inherent_data.clone()).unwrap();
@@ -638,13 +641,13 @@ mod enter {
 			assert_eq!(
 				// The length of this vec is equal to the number of candidates, so we know there
 				// where no backed candidates included
-				Pallet::<Test>::on_chain_votes().unwrap().backing_validators_per_candidate.len(),
+				OnChainVotes::<Test>::get().unwrap().backing_validators_per_candidate.len(),
 				0
 			);
 
 			assert_eq!(
 				// The session of the on chain votes should equal the current session, which is 2
-				Pallet::<Test>::on_chain_votes().unwrap().session,
+				OnChainVotes::<Test>::get().unwrap().session,
 				2
 			);
 		});
@@ -687,7 +690,7 @@ mod enter {
 				.unwrap();
 
 			// The current schedule is empty prior to calling `create_inherent_enter`.
-			assert!(<scheduler::Pallet<Test>>::claimqueue_is_empty());
+			assert!(scheduler::Pallet::<Test>::claim_queue_is_empty());
 
 			let limit_inherent_data =
 				Pallet::<Test>::create_inherent_inner(&inherent_data.clone()).unwrap();
@@ -706,13 +709,13 @@ mod enter {
 
 			assert_eq!(
 				// Ensure that our inherent data did not included backed candidates as expected
-				Pallet::<Test>::on_chain_votes().unwrap().backing_validators_per_candidate.len(),
+				OnChainVotes::<Test>::get().unwrap().backing_validators_per_candidate.len(),
 				0
 			);
 
 			assert_eq!(
 				// The session of the on chain votes should equal the current session, which is 2
-				Pallet::<Test>::on_chain_votes().unwrap().session,
+				OnChainVotes::<Test>::get().unwrap().session,
 				2
 			);
 		});
@@ -759,7 +762,7 @@ mod enter {
 				.unwrap();
 
 			// The current schedule is empty prior to calling `create_inherent_enter`.
-			assert!(<scheduler::Pallet<Test>>::claimqueue_is_empty());
+			assert!(scheduler::Pallet::<Test>::claim_queue_is_empty());
 
 			// Nothing is filtered out (including the backed candidates.)
 			let limit_inherent_data =
@@ -789,13 +792,13 @@ mod enter {
 			assert_eq!(
 				// The length of this vec is equal to the number of candidates, so we know
 				// all of our candidates got filtered out
-				Pallet::<Test>::on_chain_votes().unwrap().backing_validators_per_candidate.len(),
+				OnChainVotes::<Test>::get().unwrap().backing_validators_per_candidate.len(),
 				0,
 			);
 
 			assert_eq!(
 				// The session of the on chain votes should equal the current session, which is 2
-				Pallet::<Test>::on_chain_votes().unwrap().session,
+				OnChainVotes::<Test>::get().unwrap().session,
 				2
 			);
 		});
@@ -846,7 +849,7 @@ mod enter {
 				.unwrap();
 
 			// The current schedule is empty prior to calling `create_inherent_enter`.
-			assert!(<scheduler::Pallet<Test>>::claimqueue_is_empty());
+			assert!(scheduler::Pallet::<Test>::claim_queue_is_empty());
 
 			// Nothing is filtered out (including the backed candidates.)
 			let limit_inherent_data =
@@ -877,13 +880,13 @@ mod enter {
 			assert_eq!(
 				// The length of this vec is equal to the number of candidates, so we know
 				// all of our candidates got filtered out
-				Pallet::<Test>::on_chain_votes().unwrap().backing_validators_per_candidate.len(),
+				OnChainVotes::<Test>::get().unwrap().backing_validators_per_candidate.len(),
 				0,
 			);
 
 			assert_eq!(
 				// The session of the on chain votes should equal the current session, which is 2
-				Pallet::<Test>::on_chain_votes().unwrap().session,
+				OnChainVotes::<Test>::get().unwrap().session,
 				2
 			);
 		});
@@ -1043,24 +1046,24 @@ mod enter {
 			assert_eq!(
 				// The length of this vec is equal to the number of candidates, so we know 1
 				// candidate got filtered out
-				Pallet::<Test>::on_chain_votes().unwrap().backing_validators_per_candidate.len(),
+				OnChainVotes::<Test>::get().unwrap().backing_validators_per_candidate.len(),
 				1
 			);
 
 			assert_eq!(
 				// The session of the on chain votes should equal the current session, which is 2
-				Pallet::<Test>::on_chain_votes().unwrap().session,
+				OnChainVotes::<Test>::get().unwrap().session,
 				2
 			);
 
 			// One core was scheduled. We should put the assignment back, before calling enter().
-			let now = <frame_system::Pallet<Test>>::block_number() + 1;
+			let now = frame_system::Pallet::<Test>::block_number() + 1;
 			let used_cores = 5;
 			let cores = (0..used_cores)
 				.into_iter()
 				.map(|i| {
 					let SchedulerParams { ttl, .. } =
-						<configuration::Pallet<Test>>::config().scheduler_params;
+						configuration::ActiveConfig::<Test>::get().scheduler_params;
 					// Load an assignment into provider so that one is present to pop
 					let assignment =
 						<Test as scheduler::Config>::AssignmentProvider::get_mock_assignment(
@@ -1464,8 +1467,8 @@ mod enter {
 	}
 }
 
-fn default_header() -> primitives::Header {
-	primitives::Header {
+fn default_header() -> polkadot_primitives::Header {
+	polkadot_primitives::Header {
 		parent_hash: Default::default(),
 		number: 0,
 		state_root: Default::default(),
@@ -1484,7 +1487,7 @@ mod sanitizers {
 		mock::new_test_ext,
 	};
 	use bitvec::order::Lsb0;
-	use primitives::{
+	use polkadot_primitives::{
 		AvailabilityBitfield, GroupIndex, Hash, Id as ParaId, SignedAvailabilityBitfield,
 		ValidatorIndex,
 	};
@@ -1492,13 +1495,13 @@ mod sanitizers {
 	use sp_core::crypto::UncheckedFrom;
 
 	use crate::mock::Test;
-	use keyring::Sr25519Keyring;
-	use primitives::PARACHAIN_KEY_TYPE_ID;
+	use polkadot_primitives::PARACHAIN_KEY_TYPE_ID;
 	use sc_keystore::LocalKeystore;
+	use sp_keyring::Sr25519Keyring;
 	use sp_keystore::{Keystore, KeystorePtr};
 	use std::sync::Arc;
 
-	fn validator_pubkeys(val_ids: &[keyring::Sr25519Keyring]) -> Vec<ValidatorId> {
+	fn validator_pubkeys(val_ids: &[sp_keyring::Sr25519Keyring]) -> Vec<ValidatorId> {
 		val_ids.iter().map(|v| v.public().into()).collect()
 	}
 
@@ -1515,10 +1518,10 @@ mod sanitizers {
 		let signing_context = SigningContext { parent_hash, session_index };
 
 		let validators = vec![
-			keyring::Sr25519Keyring::Alice,
-			keyring::Sr25519Keyring::Bob,
-			keyring::Sr25519Keyring::Charlie,
-			keyring::Sr25519Keyring::Dave,
+			sp_keyring::Sr25519Keyring::Alice,
+			sp_keyring::Sr25519Keyring::Bob,
+			sp_keyring::Sr25519Keyring::Charlie,
+			sp_keyring::Sr25519Keyring::Dave,
 		];
 		for validator in validators.iter() {
 			Keystore::sr25519_generate_new(
@@ -1741,7 +1744,7 @@ mod sanitizers {
 			scheduler::{common::Assignment, ParasEntry},
 			util::{make_persisted_validation_data, make_persisted_validation_data_with_parent},
 		};
-		use primitives::ValidationCode;
+		use polkadot_primitives::ValidationCode;
 		use sp_std::collections::vec_deque::VecDeque;
 
 		use super::*;
@@ -1751,7 +1754,7 @@ mod sanitizers {
 			backed_candidates: Vec<BackedCandidate>,
 			expected_backed_candidates_with_core:
 				BTreeMap<ParaId, Vec<(BackedCandidate, CoreIndex)>>,
-			scheduled_paras: BTreeMap<primitives::Id, BTreeSet<CoreIndex>>,
+			scheduled_paras: BTreeMap<polkadot_primitives::Id, BTreeSet<CoreIndex>>,
 		}
 
 		// Generate test data for the candidates and assert that the environment is set as expected
@@ -1777,11 +1780,11 @@ mod sanitizers {
 			let signing_context = SigningContext { parent_hash: relay_parent, session_index };
 
 			let validators = vec![
-				keyring::Sr25519Keyring::Alice,
-				keyring::Sr25519Keyring::Bob,
-				keyring::Sr25519Keyring::Charlie,
-				keyring::Sr25519Keyring::Dave,
-				keyring::Sr25519Keyring::Eve,
+				sp_keyring::Sr25519Keyring::Alice,
+				sp_keyring::Sr25519Keyring::Bob,
+				sp_keyring::Sr25519Keyring::Charlie,
+				sp_keyring::Sr25519Keyring::Dave,
+				sp_keyring::Sr25519Keyring::Eve,
 			];
 			for validator in validators.iter() {
 				Keystore::sr25519_generate_new(
@@ -1815,7 +1818,7 @@ mod sanitizers {
 			]);
 
 			// Update scheduler's claimqueue with the parachains
-			scheduler::Pallet::<Test>::set_claimqueue(BTreeMap::from([
+			scheduler::Pallet::<Test>::set_claim_queue(BTreeMap::from([
 				(
 					CoreIndex::from(0),
 					VecDeque::from([ParasEntry::new(
@@ -1899,11 +1902,11 @@ mod sanitizers {
 
 			// State sanity checks
 			assert_eq!(
-				<scheduler::Pallet<Test>>::scheduled_paras().collect::<Vec<_>>(),
+				scheduler::Pallet::<Test>::scheduled_paras().collect::<Vec<_>>(),
 				vec![(CoreIndex(0), ParaId::from(1)), (CoreIndex(1), ParaId::from(2))]
 			);
 			assert_eq!(
-				shared::Pallet::<Test>::active_validator_indices(),
+				shared::ActiveValidatorIndices::<Test>::get(),
 				vec![
 					ValidatorIndex(0),
 					ValidatorIndex(1),
@@ -1962,14 +1965,14 @@ mod sanitizers {
 			let signing_context = SigningContext { parent_hash: relay_parent, session_index };
 
 			let validators = vec![
-				keyring::Sr25519Keyring::Alice,
-				keyring::Sr25519Keyring::Bob,
-				keyring::Sr25519Keyring::Charlie,
-				keyring::Sr25519Keyring::Dave,
-				keyring::Sr25519Keyring::Eve,
-				keyring::Sr25519Keyring::Ferdie,
-				keyring::Sr25519Keyring::One,
-				keyring::Sr25519Keyring::Two,
+				sp_keyring::Sr25519Keyring::Alice,
+				sp_keyring::Sr25519Keyring::Bob,
+				sp_keyring::Sr25519Keyring::Charlie,
+				sp_keyring::Sr25519Keyring::Dave,
+				sp_keyring::Sr25519Keyring::Eve,
+				sp_keyring::Sr25519Keyring::Ferdie,
+				sp_keyring::Sr25519Keyring::One,
+				sp_keyring::Sr25519Keyring::Two,
 			];
 			for validator in validators.iter() {
 				Keystore::sr25519_generate_new(
@@ -1998,7 +2001,7 @@ mod sanitizers {
 			]);
 
 			// Update scheduler's claimqueue with the parachains
-			scheduler::Pallet::<Test>::set_claimqueue(BTreeMap::from([
+			scheduler::Pallet::<Test>::set_claim_queue(BTreeMap::from([
 				(
 					CoreIndex::from(0),
 					VecDeque::from([ParasEntry::new(
@@ -2434,7 +2437,7 @@ mod sanitizers {
 
 			// State sanity checks
 			assert_eq!(
-				<scheduler::Pallet<Test>>::scheduled_paras().collect::<Vec<_>>(),
+				scheduler::Pallet::<Test>::scheduled_paras().collect::<Vec<_>>(),
 				vec![
 					(CoreIndex(0), ParaId::from(1)),
 					(CoreIndex(1), ParaId::from(1)),
@@ -2449,12 +2452,12 @@ mod sanitizers {
 				]
 			);
 			let mut scheduled: BTreeMap<ParaId, BTreeSet<CoreIndex>> = BTreeMap::new();
-			for (core_idx, para_id) in <scheduler::Pallet<Test>>::scheduled_paras() {
+			for (core_idx, para_id) in scheduler::Pallet::<Test>::scheduled_paras() {
 				scheduled.entry(para_id).or_default().insert(core_idx);
 			}
 
 			assert_eq!(
-				shared::Pallet::<Test>::active_validator_indices(),
+				shared::ActiveValidatorIndices::<Test>::get(),
 				vec![
 					ValidatorIndex(0),
 					ValidatorIndex(1),
@@ -2501,15 +2504,15 @@ mod sanitizers {
 			let signing_context = SigningContext { parent_hash: relay_parent, session_index };
 
 			let validators = vec![
-				keyring::Sr25519Keyring::Alice,
-				keyring::Sr25519Keyring::Bob,
-				keyring::Sr25519Keyring::Charlie,
-				keyring::Sr25519Keyring::Dave,
-				keyring::Sr25519Keyring::Eve,
-				keyring::Sr25519Keyring::Ferdie,
-				keyring::Sr25519Keyring::One,
-				keyring::Sr25519Keyring::Two,
-				keyring::Sr25519Keyring::AliceStash,
+				sp_keyring::Sr25519Keyring::Alice,
+				sp_keyring::Sr25519Keyring::Bob,
+				sp_keyring::Sr25519Keyring::Charlie,
+				sp_keyring::Sr25519Keyring::Dave,
+				sp_keyring::Sr25519Keyring::Eve,
+				sp_keyring::Sr25519Keyring::Ferdie,
+				sp_keyring::Sr25519Keyring::One,
+				sp_keyring::Sr25519Keyring::Two,
+				sp_keyring::Sr25519Keyring::AliceStash,
 			];
 			for validator in validators.iter() {
 				Keystore::sr25519_generate_new(
@@ -2539,7 +2542,7 @@ mod sanitizers {
 			]);
 
 			// Update scheduler's claimqueue with the parachains
-			scheduler::Pallet::<Test>::set_claimqueue(BTreeMap::from([
+			scheduler::Pallet::<Test>::set_claim_queue(BTreeMap::from([
 				(
 					CoreIndex::from(0),
 					VecDeque::from([ParasEntry::new(
@@ -2937,7 +2940,7 @@ mod sanitizers {
 
 			// State sanity checks
 			assert_eq!(
-				<scheduler::Pallet<Test>>::scheduled_paras().collect::<Vec<_>>(),
+				scheduler::Pallet::<Test>::scheduled_paras().collect::<Vec<_>>(),
 				vec![
 					(CoreIndex(0), ParaId::from(1)),
 					(CoreIndex(1), ParaId::from(1)),
@@ -2951,12 +2954,12 @@ mod sanitizers {
 				]
 			);
 			let mut scheduled: BTreeMap<ParaId, BTreeSet<CoreIndex>> = BTreeMap::new();
-			for (core_idx, para_id) in <scheduler::Pallet<Test>>::scheduled_paras() {
+			for (core_idx, para_id) in scheduler::Pallet::<Test>::scheduled_paras() {
 				scheduled.entry(para_id).or_default().insert(core_idx);
 			}
 
 			assert_eq!(
-				shared::Pallet::<Test>::active_validator_indices(),
+				shared::ActiveValidatorIndices::<Test>::get(),
 				vec![
 					ValidatorIndex(0),
 					ValidatorIndex(1),
@@ -2991,7 +2994,7 @@ mod sanitizers {
 				assert_eq!(
 					sanitize_backed_candidates::<Test>(
 						backed_candidates.clone(),
-						&<shared::Pallet<Test>>::allowed_relay_parents(),
+						&shared::AllowedRelayParents::<Test>::get(),
 						BTreeSet::new(),
 						scheduled,
 						core_index_enabled
@@ -3015,7 +3018,7 @@ mod sanitizers {
 				assert_eq!(
 					sanitize_backed_candidates::<Test>(
 						backed_candidates.clone(),
-						&<shared::Pallet<Test>>::allowed_relay_parents(),
+						&shared::AllowedRelayParents::<Test>::get(),
 						BTreeSet::new(),
 						scheduled,
 						core_index_enabled
@@ -3039,7 +3042,7 @@ mod sanitizers {
 				assert_eq!(
 					sanitize_backed_candidates::<Test>(
 						backed_candidates.clone(),
-						&<shared::Pallet<Test>>::allowed_relay_parents(),
+						&shared::AllowedRelayParents::<Test>::get(),
 						BTreeSet::new(),
 						scheduled,
 						core_index_enabled,
@@ -3069,7 +3072,7 @@ mod sanitizers {
 
 				let sanitized_backed_candidates = sanitize_backed_candidates::<Test>(
 					backed_candidates.clone(),
-					&<shared::Pallet<Test>>::allowed_relay_parents(),
+					&shared::AllowedRelayParents::<Test>::get(),
 					BTreeSet::new(),
 					scheduled,
 					core_index_enabled,
@@ -3105,7 +3108,7 @@ mod sanitizers {
 					Vec<(BackedCandidate<_>, CoreIndex)>,
 				> = sanitize_backed_candidates::<Test>(
 					backed_candidates.clone(),
-					&<shared::Pallet<Test>>::allowed_relay_parents(),
+					&shared::AllowedRelayParents::<Test>::get(),
 					set,
 					scheduled,
 					core_index_enabled,
@@ -3142,7 +3145,7 @@ mod sanitizers {
 					Vec<(BackedCandidate<_>, CoreIndex)>,
 				> = sanitize_backed_candidates::<Test>(
 					backed_candidates.clone(),
-					&<shared::Pallet<Test>>::allowed_relay_parents(),
+					&shared::AllowedRelayParents::<Test>::get(),
 					invalid_set,
 					scheduled,
 					true,
@@ -3178,7 +3181,7 @@ mod sanitizers {
 					Vec<(BackedCandidate<_>, CoreIndex)>,
 				> = sanitize_backed_candidates::<Test>(
 					backed_candidates.clone(),
-					&<shared::Pallet<Test>>::allowed_relay_parents(),
+					&shared::AllowedRelayParents::<Test>::get(),
 					invalid_set,
 					scheduled,
 					true,
@@ -3212,7 +3215,7 @@ mod sanitizers {
 				// filtered
 				filter_backed_statements_from_disabled_validators::<Test>(
 					&mut expected_backed_candidates_with_core,
-					&<shared::Pallet<Test>>::allowed_relay_parents(),
+					&shared::AllowedRelayParents::<Test>::get(),
 					core_index_enabled,
 				);
 				assert_eq!(expected_backed_candidates_with_core, before);
@@ -3235,7 +3238,7 @@ mod sanitizers {
 				// Update `minimum_backing_votes` in HostConfig. We want `minimum_backing_votes` set
 				// to one so that the candidate will have enough backing votes even after dropping
 				// Alice's one.
-				let mut hc = configuration::Pallet::<Test>::config();
+				let mut hc = configuration::ActiveConfig::<Test>::get();
 				hc.minimum_backing_votes = 1;
 				configuration::Pallet::<Test>::force_set_active_config(hc);
 
@@ -3280,7 +3283,7 @@ mod sanitizers {
 				let before = expected_backed_candidates_with_core.clone();
 				filter_backed_statements_from_disabled_validators::<Test>(
 					&mut expected_backed_candidates_with_core,
-					&<shared::Pallet<Test>>::allowed_relay_parents(),
+					&shared::AllowedRelayParents::<Test>::get(),
 					core_index_enabled,
 				);
 				assert_eq!(before.len(), expected_backed_candidates_with_core.len());
@@ -3368,7 +3371,7 @@ mod sanitizers {
 
 				filter_backed_statements_from_disabled_validators::<Test>(
 					&mut expected_backed_candidates_with_core,
-					&<shared::Pallet<Test>>::allowed_relay_parents(),
+					&shared::AllowedRelayParents::<Test>::get(),
 					core_index_enabled,
 				);
 
@@ -3400,7 +3403,7 @@ mod sanitizers {
 
 				filter_backed_statements_from_disabled_validators::<Test>(
 					&mut expected_backed_candidates_with_core,
-					&<shared::Pallet<Test>>::allowed_relay_parents(),
+					&shared::AllowedRelayParents::<Test>::get(),
 					true,
 				);
 
@@ -3422,7 +3425,7 @@ mod sanitizers {
 
 					filter_backed_statements_from_disabled_validators::<Test>(
 						&mut expected_backed_candidates_with_core,
-						&<shared::Pallet<Test>>::allowed_relay_parents(),
+						&shared::AllowedRelayParents::<Test>::get(),
 						true,
 					);
 

@@ -19,6 +19,7 @@
 
 use super::*;
 
+use pallet_transaction_payment::FungibleAdapter;
 use sp_core::H256;
 use sp_runtime::{
 	generic::{DigestItem, Era},
@@ -35,12 +36,11 @@ use frame_support::{
 	migrations::MultiStepMigrator,
 	pallet_prelude::*,
 	parameter_types,
-	traits::{fungible, ConstU8, Currency, IsInherent},
+	traits::{fungible, ConstU8, Currency, IsInherent, VariantCount, VariantCountOf},
 	weights::{ConstantMultiplier, IdentityFee, RuntimeDbWeight, Weight, WeightMeter, WeightToFee},
 };
 use frame_system::{pallet_prelude::*, ChainContext, LastRuntimeUpgrade, LastRuntimeUpgradeInfo};
 use pallet_balances::Call as BalancesCall;
-use pallet_transaction_payment::CurrencyAdapter;
 
 const TEST_KEY: &[u8] = b":test:key:";
 
@@ -325,12 +325,24 @@ impl frame_system::Config for Runtime {
 	type MultiBlockMigrator = MockedModeGetter;
 }
 
+#[derive(Encode, Decode, Copy, Clone, Eq, PartialEq, MaxEncodedLen, TypeInfo, RuntimeDebug)]
+pub enum FreezeReasonId {
+	Foo,
+}
+
+impl VariantCount for FreezeReasonId {
+	const VARIANT_COUNT: u32 = 1;
+}
+
 type Balance = u64;
 
 #[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Runtime {
 	type Balance = Balance;
 	type AccountStore = System;
+	type RuntimeFreezeReason = FreezeReasonId;
+	type FreezeIdentifier = FreezeReasonId;
+	type MaxFreezes = VariantCountOf<FreezeReasonId>;
 }
 
 parameter_types! {
@@ -338,7 +350,7 @@ parameter_types! {
 }
 impl pallet_transaction_payment::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type OnChargeTransaction = CurrencyAdapter<Balances, ()>;
+	type OnChargeTransaction = FungibleAdapter<Balances, ()>;
 	type OperationalFeeMultiplier = ConstU8<5>;
 	type WeightToFee = IdentityFee<Balance>;
 	type LengthToFee = ConstantMultiplier<Balance, TransactionByteFee>;
@@ -637,8 +649,8 @@ fn block_weight_limit_enforced() {
 				assert!(res.is_ok());
 				assert_eq!(
 					<frame_system::Pallet<Runtime>>::block_weight().total(),
-					//--------------------- on_initialize + block_execution + extrinsic_base weight
-					Weight::from_parts((encoded_len + 5) * (nonce + 1), 0) + base_block_weight,
+					//--------------------- on_initialize + block_execution + extrinsic_base weight + extrinsic len
+					Weight::from_parts((encoded_len + 5) * (nonce + 1), (nonce + 1)* encoded_len) + base_block_weight,
 				);
 				assert_eq!(
 					<frame_system::Pallet<Runtime>>::extrinsic_index(),
@@ -686,9 +698,10 @@ fn block_weight_and_size_is_stored_per_tx() {
 			<Runtime as frame_system::Config>::BlockWeights::get()
 				.get(DispatchClass::Normal)
 				.base_extrinsic;
+		// Check we account for all extrinsic weight and their len.
 		assert_eq!(
 			<frame_system::Pallet<Runtime>>::block_weight().total(),
-			base_block_weight + 3u64 * extrinsic_weight,
+			base_block_weight + 3u64 * extrinsic_weight + 3u64 * Weight::from_parts(0, len as u64),
 		);
 		assert_eq!(<frame_system::Pallet<Runtime>>::all_extrinsics_len(), 3 * len);
 
@@ -743,8 +756,12 @@ fn validate_unsigned() {
 fn can_not_pay_for_tx_fee_on_full_lock() {
 	let mut t = new_test_ext(1);
 	t.execute_with(|| {
-		<pallet_balances::Pallet<Runtime> as fungible::MutateFreeze<u64>>::set_freeze(&(), &1, 110)
-			.unwrap();
+		<pallet_balances::Pallet<Runtime> as fungible::MutateFreeze<u64>>::set_freeze(
+			&FreezeReasonId::Foo,
+			&1,
+			110,
+		)
+		.unwrap();
 		let xt = TestXt::new(
 			RuntimeCall::System(frame_system::Call::remark { remark: vec![1u8] }),
 			sign_extra(1, 0, 0),

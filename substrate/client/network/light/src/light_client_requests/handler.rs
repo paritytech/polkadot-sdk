@@ -25,15 +25,15 @@
 use crate::schema;
 use codec::{self, Decode, Encode};
 use futures::prelude::*;
-use libp2p_identity::PeerId;
 use log::{debug, trace};
 use prost::Message;
 use sc_client_api::{BlockBackend, ProofProvider};
 use sc_network::{
 	config::ProtocolId,
-	request_responses::{IncomingRequest, OutgoingResponse, ProtocolConfig},
-	ReputationChange,
+	request_responses::{IncomingRequest, OutgoingResponse},
+	NetworkBackend, ReputationChange,
 };
+use sc_network_types::PeerId;
 use sp_core::{
 	hexdisplay::HexDisplay,
 	storage::{ChildInfo, ChildType, PrefixedStorageKey},
@@ -61,14 +61,14 @@ where
 	Client: BlockBackend<B> + ProofProvider<B> + Send + Sync + 'static,
 {
 	/// Create a new [`LightClientRequestHandler`].
-	pub fn new(
+	pub fn new<N: NetworkBackend<B, <B as Block>::Hash>>(
 		protocol_id: &ProtocolId,
 		fork_id: Option<&str>,
 		client: Arc<Client>,
-	) -> (Self, ProtocolConfig) {
+	) -> (Self, N::RequestResponseProtocolConfig) {
 		let (tx, request_receiver) = async_channel::bounded(MAX_LIGHT_REQUEST_QUEUE);
 
-		let mut protocol_config = super::generate_protocol_config(
+		let protocol_config = super::generate_protocol_config::<_, B, N>(
 			protocol_id,
 			client
 				.block_hash(0u32.into())
@@ -76,8 +76,8 @@ where
 				.flatten()
 				.expect("Genesis block exists; qed"),
 			fork_id,
+			tx,
 		);
-		protocol_config.inbound_queue = Some(tx);
 
 		(Self { client, request_receiver, _block: PhantomData::default() }, protocol_config)
 	}

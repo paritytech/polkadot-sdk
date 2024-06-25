@@ -21,7 +21,7 @@ use polkadot_node_subsystem::messages::AvailabilityRecoveryMessage;
 
 use futures::{channel::oneshot, stream::FuturesUnordered, Future, FutureExt, StreamExt};
 
-use std::{collections::HashSet, pin::Pin, sync::Arc};
+use std::{pin::Pin, sync::Arc};
 
 use crate::RecoveryHandle;
 
@@ -32,14 +32,12 @@ pub(crate) struct ActiveCandidateRecovery<Block: BlockT> {
 	/// The recoveries that are currently being executed.
 	recoveries:
 		FuturesUnordered<Pin<Box<dyn Future<Output = (Block::Hash, Option<Arc<PoV>>)> + Send>>>,
-	/// The block hashes of the candidates currently being recovered.
-	candidates: HashSet<Block::Hash>,
 	recovery_handle: Box<dyn RecoveryHandle>,
 }
 
 impl<Block: BlockT> ActiveCandidateRecovery<Block> {
 	pub fn new(recovery_handle: Box<dyn RecoveryHandle>) -> Self {
-		Self { recoveries: Default::default(), candidates: Default::default(), recovery_handle }
+		Self { recoveries: Default::default(), recovery_handle }
 	}
 
 	/// Recover the given `candidate`.
@@ -56,13 +54,12 @@ impl<Block: BlockT> ActiveCandidateRecovery<Block> {
 					candidate.receipt.clone(),
 					candidate.session_index,
 					None,
+					None,
 					tx,
 				),
 				"ActiveCandidateRecovery",
 			)
 			.await;
-
-		self.candidates.insert(block_hash);
 
 		self.recoveries.push(
 			async move {
@@ -96,7 +93,6 @@ impl<Block: BlockT> ActiveCandidateRecovery<Block> {
 	pub async fn wait_for_recovery(&mut self) -> (Block::Hash, Option<Arc<PoV>>) {
 		loop {
 			if let Some(res) = self.recoveries.next().await {
-				self.candidates.remove(&res.0);
 				return res
 			} else {
 				futures::pending!()

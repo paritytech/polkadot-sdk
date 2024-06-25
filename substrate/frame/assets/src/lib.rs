@@ -18,8 +18,7 @@
 //! # Assets Pallet
 //!
 //! A simple, secure module for dealing with sets of assets implementing
-//! [`fungible`](frame_support::traits::fungible) traits, via
-//! [`fungibles`](frame_support::traits::fungibles) traits.
+//! [`fungible`](frame_support::traits::fungible) traits, via [`fungibles`] traits.
 //!
 //! The pallet makes heavy use of concepts such as Holds and Freezes from the
 //! [`frame_support::traits::fungible`] traits, therefore you should read and understand those docs
@@ -572,6 +571,10 @@ pub mod pallet {
 		Touched { asset_id: T::AssetId, who: T::AccountId, depositor: T::AccountId },
 		/// Some account `who` was blocked.
 		Blocked { asset_id: T::AssetId, who: T::AccountId },
+		/// Some assets were deposited (e.g. for transaction fees).
+		Deposited { asset_id: T::AssetId, who: T::AccountId, amount: T::Balance },
+		/// Some assets were withdrawn from the account (e.g. for transaction fees).
+		Withdrawn { asset_id: T::AssetId, who: T::AccountId, amount: T::Balance },
 	}
 
 	#[pallet::error]
@@ -988,7 +991,7 @@ pub mod pallet {
 			let d = Asset::<T, I>::get(&id).ok_or(Error::<T, I>::Unknown)?;
 			ensure!(
 				d.status == AssetStatus::Live || d.status == AssetStatus::Frozen,
-				Error::<T, I>::AssetNotLive
+				Error::<T, I>::IncorrectStatus
 			);
 			ensure!(origin == d.freezer, Error::<T, I>::NoPermission);
 			let who = T::Lookup::lookup(who)?;
@@ -1025,7 +1028,7 @@ pub mod pallet {
 			let details = Asset::<T, I>::get(&id).ok_or(Error::<T, I>::Unknown)?;
 			ensure!(
 				details.status == AssetStatus::Live || details.status == AssetStatus::Frozen,
-				Error::<T, I>::AssetNotLive
+				Error::<T, I>::IncorrectStatus
 			);
 			ensure!(origin == details.admin, Error::<T, I>::NoPermission);
 			let who = T::Lookup::lookup(who)?;
@@ -1114,7 +1117,7 @@ pub mod pallet {
 
 			Asset::<T, I>::try_mutate(id.clone(), |maybe_details| {
 				let details = maybe_details.as_mut().ok_or(Error::<T, I>::Unknown)?;
-				ensure!(details.status == AssetStatus::Live, Error::<T, I>::LiveAsset);
+				ensure!(details.status == AssetStatus::Live, Error::<T, I>::AssetNotLive);
 				ensure!(origin == details.owner, Error::<T, I>::NoPermission);
 				if details.owner == owner {
 					return Ok(())
@@ -1645,7 +1648,7 @@ pub mod pallet {
 			let origin = ensure_signed(origin)?;
 			let who = T::Lookup::lookup(who)?;
 			let id: T::AssetId = id.into();
-			Self::do_refund_other(id, &who, &origin)
+			Self::do_refund_other(id, &who, Some(origin))
 		}
 
 		/// Disallow further unprivileged transfers of an asset `id` to and from an account `who`.
@@ -1670,7 +1673,7 @@ pub mod pallet {
 			let d = Asset::<T, I>::get(&id).ok_or(Error::<T, I>::Unknown)?;
 			ensure!(
 				d.status == AssetStatus::Live || d.status == AssetStatus::Frozen,
-				Error::<T, I>::AssetNotLive
+				Error::<T, I>::IncorrectStatus
 			);
 			ensure!(origin == d.freezer, Error::<T, I>::NoPermission);
 			let who = T::Lookup::lookup(who)?;
@@ -1698,7 +1701,9 @@ pub mod pallet {
 
 		fn should_touch(asset: T::AssetId, who: &T::AccountId) -> bool {
 			match Asset::<T, I>::get(&asset) {
+				// refer to the [`Self::new_account`] function for more details.
 				Some(info) if info.is_sufficient => false,
+				Some(_) if frame_system::Pallet::<T>::can_accrue_consumers(who, 2) => false,
 				Some(_) => !Account::<T, I>::contains_key(asset, who),
 				_ => true,
 			}

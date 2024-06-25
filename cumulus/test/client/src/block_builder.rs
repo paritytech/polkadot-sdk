@@ -15,14 +15,26 @@
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
 use crate::Client;
+use codec::Encode;
 use cumulus_primitives_core::{ParachainBlockData, PersistedValidationData};
 use cumulus_primitives_parachain_inherent::{ParachainInherentData, INHERENT_IDENTIFIER};
 use cumulus_test_relay_sproof_builder::RelayStateSproofBuilder;
 use cumulus_test_runtime::{Block, GetLastTimestamp, Hash, Header};
 use polkadot_primitives::{BlockNumber as PBlockNumber, Hash as PHash};
-use sc_block_builder::{BlockBuilder, BlockBuilderBuilder};
+use sc_block_builder::BlockBuilderBuilder;
 use sp_api::ProvideRuntimeApi;
-use sp_runtime::traits::{Block as BlockT, Header as HeaderT};
+use sp_consensus_aura::Slot;
+use sp_runtime::{
+	traits::{Block as BlockT, Header as HeaderT},
+	Digest, DigestItem,
+};
+
+/// A struct containing a block builder and support data required to build test scenarios.
+pub struct BlockBuilderAndSupportData<'a> {
+	pub block_builder: sc_block_builder::BlockBuilder<'a, Block, Client>,
+	pub persisted_validation_data: PersistedValidationData<PHash, PBlockNumber>,
+	pub slot: Slot,
+}
 
 /// An extension for the Cumulus test client to init a block builder.
 pub trait InitBlockBuilder {
@@ -32,12 +44,15 @@ pub trait InitBlockBuilder {
 	/// valid for the test runtime.
 	///
 	/// You can use the relay chain state sproof builder to arrange required relay chain state or
-	/// just use a default one.
+	/// just use a default one. The relay chain slot in the storage proof
+	/// will be adjusted to align with the parachain slot to pass validation.
+	///
+	/// Returns the block builder and validation data for further usage.
 	fn init_block_builder(
 		&self,
 		validation_data: Option<PersistedValidationData<PHash, PBlockNumber>>,
 		relay_sproof_builder: RelayStateSproofBuilder,
-	) -> sc_block_builder::BlockBuilder<Block, Client>;
+	) -> BlockBuilderAndSupportData;
 
 	/// Init a specific block builder at a specific block that works for the test runtime.
 	///
@@ -48,7 +63,7 @@ pub trait InitBlockBuilder {
 		at: Hash,
 		validation_data: Option<PersistedValidationData<PHash, PBlockNumber>>,
 		relay_sproof_builder: RelayStateSproofBuilder,
-	) -> sc_block_builder::BlockBuilder<Block, Client>;
+	) -> BlockBuilderAndSupportData;
 
 	/// Init a specific block builder that works for the test runtime.
 	///
@@ -61,21 +76,30 @@ pub trait InitBlockBuilder {
 		validation_data: Option<PersistedValidationData<PHash, PBlockNumber>>,
 		relay_sproof_builder: RelayStateSproofBuilder,
 		timestamp: u64,
-	) -> sc_block_builder::BlockBuilder<Block, Client>;
+	) -> BlockBuilderAndSupportData;
 }
 
 fn init_block_builder(
 	client: &Client,
 	at: Hash,
 	validation_data: Option<PersistedValidationData<PHash, PBlockNumber>>,
-	relay_sproof_builder: RelayStateSproofBuilder,
+	mut relay_sproof_builder: RelayStateSproofBuilder,
 	timestamp: u64,
-) -> BlockBuilder<'_, Block, Client> {
+) -> BlockBuilderAndSupportData<'_> {
+	// This slot will be used for both relay chain and parachain
+	let slot: Slot = (timestamp / cumulus_test_runtime::SLOT_DURATION).into();
+	relay_sproof_builder.current_slot = slot;
+
+	let aura_pre_digest = Digest {
+		logs: vec![DigestItem::PreRuntime(sp_consensus_aura::AURA_ENGINE_ID, slot.encode())],
+	};
+
 	let mut block_builder = BlockBuilderBuilder::new(client)
 		.on_parent_block(at)
 		.fetch_parent_block_number(client)
 		.unwrap()
 		.enable_proof_recording()
+		.with_inherent_digests(aura_pre_digest)
 		.build()
 		.expect("Creates new block builder for test runtime");
 
@@ -89,18 +113,13 @@ fn init_block_builder(
 		relay_sproof_builder.into_state_root_and_proof();
 
 	let mut validation_data = validation_data.unwrap_or_default();
-	assert_eq!(
-		validation_data.relay_parent_storage_root,
-		Default::default(),
-		"Overriding the relay storage root is not implemented",
-	);
 	validation_data.relay_parent_storage_root = relay_parent_storage_root;
 
 	inherent_data
 		.put_data(
 			INHERENT_IDENTIFIER,
 			&ParachainInherentData {
-				validation_data,
+				validation_data: validation_data.clone(),
 				relay_chain_state,
 				downward_messages: Default::default(),
 				horizontal_messages: Default::default(),
@@ -114,7 +133,7 @@ fn init_block_builder(
 		.into_iter()
 		.for_each(|ext| block_builder.push(ext).expect("Pushes inherent"));
 
-	block_builder
+	BlockBuilderAndSupportData { block_builder, persisted_validation_data: validation_data, slot }
 }
 
 impl InitBlockBuilder for Client {
@@ -122,7 +141,7 @@ impl InitBlockBuilder for Client {
 		&self,
 		validation_data: Option<PersistedValidationData<PHash, PBlockNumber>>,
 		relay_sproof_builder: RelayStateSproofBuilder,
-	) -> BlockBuilder<Block, Client> {
+	) -> BlockBuilderAndSupportData {
 		let chain_info = self.chain_info();
 		self.init_block_builder_at(chain_info.best_hash, validation_data, relay_sproof_builder)
 	}
@@ -132,10 +151,17 @@ impl InitBlockBuilder for Client {
 		at: Hash,
 		validation_data: Option<PersistedValidationData<PHash, PBlockNumber>>,
 		relay_sproof_builder: RelayStateSproofBuilder,
-	) -> BlockBuilder<Block, Client> {
+	) -> BlockBuilderAndSupportData {
 		let last_timestamp = self.runtime_api().get_last_timestamp(at).expect("Get last timestamp");
 
-		let timestamp = last_timestamp + cumulus_test_runtime::MinimumPeriod::get();
+		let timestamp = if last_timestamp == 0 {
+			std::time::SystemTime::now()
+				.duration_since(std::time::SystemTime::UNIX_EPOCH)
+				.expect("Time is always after UNIX_EPOCH; qed")
+				.as_millis() as u64
+		} else {
+			last_timestamp + cumulus_test_runtime::SLOT_DURATION
+		};
 
 		init_block_builder(self, at, validation_data, relay_sproof_builder, timestamp)
 	}
@@ -146,7 +172,7 @@ impl InitBlockBuilder for Client {
 		validation_data: Option<PersistedValidationData<PHash, PBlockNumber>>,
 		relay_sproof_builder: RelayStateSproofBuilder,
 		timestamp: u64,
-	) -> sc_block_builder::BlockBuilder<Block, Client> {
+	) -> BlockBuilderAndSupportData {
 		init_block_builder(self, at, validation_data, relay_sproof_builder, timestamp)
 	}
 }

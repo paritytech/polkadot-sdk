@@ -20,6 +20,7 @@ use std::{
 	collections::HashSet,
 	sync::{Arc, Mutex},
 	task::Poll,
+	time::Instant,
 };
 
 use futures::{
@@ -29,16 +30,15 @@ use futures::{
 	sink::SinkExt,
 	task::LocalSpawn,
 };
-use libp2p::{
-	core::multiaddr,
-	identity::{Keypair, SigningError},
-	kad::record::Key as KademliaKey,
-	PeerId,
-};
+use libp2p::{identity::SigningError, kad::record::Key as KademliaKey};
 use prometheus_endpoint::prometheus::default_registry;
 
 use sc_client_api::HeaderBackend;
-use sc_network::Signature;
+use sc_network::{service::signature::Keypair, Signature};
+use sc_network_types::{
+	multiaddr::{Multiaddr, Protocol},
+	PeerId,
+};
 use sp_api::{ApiRef, ProvideRuntimeApi};
 use sp_keystore::{testing::MemoryKeystore, Keystore};
 use sp_runtime::traits::{Block as BlockT, NumberFor, Zero};
@@ -119,16 +119,20 @@ sp_api::mock_impl_runtime_apis! {
 pub enum TestNetworkEvent {
 	GetCalled(KademliaKey),
 	PutCalled(KademliaKey, Vec<u8>),
+	StoreRecordCalled(KademliaKey, Vec<u8>, Option<sc_network_types::PeerId>, Option<Instant>),
 }
 
 pub struct TestNetwork {
-	peer_id: PeerId,
+	peer_id: sc_network_types::PeerId,
 	identity: Keypair,
 	external_addresses: Vec<Multiaddr>,
 	// Whenever functions on `TestNetwork` are called, the function arguments are added to the
 	// vectors below.
 	pub put_value_call: Arc<Mutex<Vec<(KademliaKey, Vec<u8>)>>>,
 	pub get_value_call: Arc<Mutex<Vec<KademliaKey>>>,
+	pub store_value_call:
+		Arc<Mutex<Vec<(KademliaKey, Vec<u8>, Option<sc_network_types::PeerId>, Option<Instant>)>>>,
+
 	event_sender: mpsc::UnboundedSender<TestNetworkEvent>,
 	event_receiver: Option<mpsc::UnboundedReceiver<TestNetworkEvent>>,
 }
@@ -149,6 +153,7 @@ impl Default for TestNetwork {
 			external_addresses: vec!["/ip6/2001:db8::/tcp/30333".parse().unwrap()],
 			put_value_call: Default::default(),
 			get_value_call: Default::default(),
+			store_value_call: Default::default(),
 			event_sender: tx,
 			event_receiver: Some(rx),
 		}
@@ -158,9 +163,24 @@ impl Default for TestNetwork {
 impl NetworkSigner for TestNetwork {
 	fn sign_with_local_identity(
 		&self,
-		msg: impl AsRef<[u8]>,
+		msg: Vec<u8>,
 	) -> std::result::Result<Signature, SigningError> {
 		Signature::sign_message(msg, &self.identity)
+	}
+
+	fn verify(
+		&self,
+		peer_id: sc_network_types::PeerId,
+		public_key: &Vec<u8>,
+		signature: &Vec<u8>,
+		message: &Vec<u8>,
+	) -> std::result::Result<bool, String> {
+		let public_key = libp2p::identity::PublicKey::try_decode_protobuf(&public_key)
+			.map_err(|error| error.to_string())?;
+		let peer_id: PeerId = peer_id.into();
+		let remote: PeerId = public_key.to_peer_id().into();
+
+		Ok(peer_id == remote && public_key.verify(message, signature))
 	}
 }
 
@@ -179,11 +199,30 @@ impl NetworkDHTProvider for TestNetwork {
 			.unbounded_send(TestNetworkEvent::GetCalled(key.clone()))
 			.unwrap();
 	}
+
+	fn store_record(
+		&self,
+		key: KademliaKey,
+		value: Vec<u8>,
+		publisher: Option<PeerId>,
+		expires: Option<Instant>,
+	) {
+		self.store_value_call.lock().unwrap().push((
+			key.clone(),
+			value.clone(),
+			publisher,
+			expires,
+		));
+		self.event_sender
+			.clone()
+			.unbounded_send(TestNetworkEvent::StoreRecordCalled(key, value, publisher, expires))
+			.unwrap();
+	}
 }
 
 impl NetworkStateInfo for TestNetwork {
-	fn local_peer_id(&self) -> PeerId {
-		self.peer_id
+	fn local_peer_id(&self) -> sc_network_types::PeerId {
+		self.peer_id.into()
 	}
 
 	fn external_addresses(&self) -> Vec<Multiaddr> {
@@ -202,9 +241,19 @@ struct TestSigner<'a> {
 impl<'a> NetworkSigner for TestSigner<'a> {
 	fn sign_with_local_identity(
 		&self,
-		msg: impl AsRef<[u8]>,
+		msg: Vec<u8>,
 	) -> std::result::Result<Signature, SigningError> {
 		Signature::sign_message(msg, self.keypair)
+	}
+
+	fn verify(
+		&self,
+		_: sc_network_types::PeerId,
+		_: &Vec<u8>,
+		_: &Vec<u8>,
+		_: &Vec<u8>,
+	) -> std::result::Result<bool, String> {
+		unimplemented!();
 	}
 }
 
@@ -415,7 +464,7 @@ fn dont_stop_polling_dht_event_stream_after_bogus_event() {
 		let peer_id = PeerId::random();
 		let address: Multiaddr = "/ip6/2001:db8:0:0:0:0:0:1/tcp/30333".parse().unwrap();
 
-		address.with(multiaddr::Protocol::P2p(peer_id.into()))
+		address.with(Protocol::P2p(peer_id.into()))
 	};
 	let remote_key_store = MemoryKeystore::new();
 	let remote_public_key: AuthorityId = remote_key_store
@@ -500,7 +549,6 @@ struct DhtValueFoundTester {
 	pub local_worker: Option<
 		Worker<
 			TestApi,
-			TestNetwork,
 			sp_runtime::generic::Block<
 				sp_runtime::generic::Header<u64, sp_runtime::traits::BlakeTwo256>,
 				substrate_test_runtime_client::runtime::Extrinsic,
@@ -844,6 +892,109 @@ fn lookup_throttling() {
 				(remote_public_keys.len() - MAX_IN_FLIGHT_LOOKUPS - 2) as u64
 			);
 			assert_eq!(network.get_value_call.lock().unwrap().len(), MAX_IN_FLIGHT_LOOKUPS);
+		}
+		.boxed_local(),
+	);
+}
+
+#[test]
+fn test_handle_put_record_request() {
+	let network = TestNetwork::default();
+	let peer_id = network.peer_id;
+
+	let remote_multiaddr = {
+		let address: Multiaddr = "/ip6/2001:db8:0:0:0:0:0:1/tcp/30333".parse().unwrap();
+
+		address.with(multiaddr::Protocol::P2p(peer_id.into()))
+	};
+	let remote_key_store = MemoryKeystore::new();
+	let remote_public_keys: Vec<AuthorityId> = (0..20)
+		.map(|_| {
+			remote_key_store
+				.sr25519_generate_new(key_types::AUTHORITY_DISCOVERY, None)
+				.unwrap()
+				.into()
+		})
+		.collect();
+
+	let remote_non_authorithy_keys: Vec<AuthorityId> = (0..20)
+		.map(|_| {
+			remote_key_store
+				.sr25519_generate_new(key_types::AUTHORITY_DISCOVERY, None)
+				.unwrap()
+				.into()
+		})
+		.collect();
+
+	let (_dht_event_tx, dht_event_rx) = channel(1);
+	let (_to_worker, from_service) = mpsc::channel(0);
+	let network = Arc::new(network);
+	let mut worker = Worker::new(
+		from_service,
+		Arc::new(TestApi { authorities: remote_public_keys.clone() }),
+		network.clone(),
+		dht_event_rx.boxed(),
+		Role::Discover,
+		Some(default_registry().clone()),
+		Default::default(),
+	);
+
+	let mut pool = LocalPool::new();
+
+	let valid_authorithy_key = remote_public_keys.first().unwrap().clone();
+
+	let kv_pairs = build_dht_event(
+		vec![remote_multiaddr],
+		valid_authorithy_key.into(),
+		&remote_key_store,
+		Some(&TestSigner { keypair: &network.identity }),
+	);
+
+	pool.run_until(
+		async {
+			// Invalid format should return an error.
+			for authority in remote_public_keys.iter() {
+				let key = hash_authority_id(authority.as_ref());
+				assert!(matches!(
+					worker.handle_put_record_requested(key, vec![0x0], Some(peer_id), None).await,
+					Err(Error::DecodingProto(_))
+				));
+			}
+			let prev_requested_authorithies = worker.authorities_queried_at;
+
+			// Unknown authority should return an error.
+			for authority in remote_non_authorithy_keys.iter() {
+				let key = hash_authority_id(authority.as_ref());
+				assert!(matches!(
+					worker.handle_put_record_requested(key, vec![0x0], Some(peer_id), None).await,
+					Err(Error::UnknownAuthority)
+				));
+				assert!(prev_requested_authorithies == worker.authorities_queried_at);
+			}
+			assert_eq!(network.store_value_call.lock().unwrap().len(), 0);
+
+			// Valid authority should return Ok.
+			for (key, value) in kv_pairs.clone() {
+				assert!(worker
+					.handle_put_record_requested(key, value, Some(peer_id), None)
+					.await
+					.is_ok());
+			}
+			assert_eq!(network.store_value_call.lock().unwrap().len(), 1);
+
+			let another_authorithy_id = remote_public_keys.get(3).unwrap().clone();
+			let key = hash_authority_id(another_authorithy_id.as_ref());
+
+			// Valid record signed with a different key should return error.
+			for (_, value) in kv_pairs {
+				assert!(matches!(
+					worker
+						.handle_put_record_requested(key.clone(), value, Some(peer_id), None)
+						.await,
+					Err(Error::VerifyingDhtPayload)
+				));
+			}
+			assert_eq!(network.store_value_call.lock().unwrap().len(), 1);
 		}
 		.boxed_local(),
 	);

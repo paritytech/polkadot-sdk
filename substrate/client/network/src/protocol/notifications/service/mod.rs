@@ -21,8 +21,11 @@
 use crate::{
 	error,
 	protocol::notifications::handler::NotificationsSink,
-	service::traits::{
-		Direction, MessageSink, NotificationEvent, NotificationService, ValidationResult,
+	service::{
+		metrics::NotificationMetrics,
+		traits::{
+			Direction, MessageSink, NotificationEvent, NotificationService, ValidationResult,
+		},
 	},
 	types::ProtocolName,
 };
@@ -66,7 +69,7 @@ impl MessageSink for NotificationSink {
 	fn send_sync_notification(&self, notification: Vec<u8>) {
 		let sink = self.lock();
 
-		metrics::register_notification_sent(&sink.0.metrics(), &sink.1, notification.len());
+		metrics::register_notification_sent(sink.0.metrics(), &sink.1, notification.len());
 		sink.0.send_sync_notification(notification);
 	}
 
@@ -87,7 +90,7 @@ impl MessageSink for NotificationSink {
 			.map_err(|_| error::Error::ConnectionClosed)?;
 
 		permit.send(notification).map_err(|_| error::Error::ChannelClosed).map(|res| {
-			metrics::register_notification_sent(&sink.0.metrics(), &sink.1, notification_len);
+			metrics::register_notification_sent(sink.0.metrics(), &sink.1, notification_len);
 			res
 		})
 	}
@@ -220,20 +223,20 @@ impl NotificationHandle {
 #[async_trait::async_trait]
 impl NotificationService for NotificationHandle {
 	/// Instruct `Notifications` to open a new substream for `peer`.
-	async fn open_substream(&mut self, _peer: PeerId) -> Result<(), ()> {
+	async fn open_substream(&mut self, _peer: sc_network_types::PeerId) -> Result<(), ()> {
 		todo!("support for opening substreams not implemented yet");
 	}
 
 	/// Instruct `Notifications` to close substream for `peer`.
-	async fn close_substream(&mut self, _peer: PeerId) -> Result<(), ()> {
+	async fn close_substream(&mut self, _peer: sc_network_types::PeerId) -> Result<(), ()> {
 		todo!("support for closing substreams not implemented yet, call `NetworkService::disconnect_peer()` instead");
 	}
 
 	/// Send synchronous `notification` to `peer`.
-	fn send_sync_notification(&self, peer: &PeerId, notification: Vec<u8>) {
-		if let Some(info) = self.peers.get(&peer) {
+	fn send_sync_notification(&mut self, peer: &sc_network_types::PeerId, notification: Vec<u8>) {
+		if let Some(info) = self.peers.get(&((*peer).into())) {
 			metrics::register_notification_sent(
-				&info.sink.metrics(),
+				info.sink.metrics(),
 				&self.protocol,
 				notification.len(),
 			);
@@ -244,12 +247,16 @@ impl NotificationService for NotificationHandle {
 
 	/// Send asynchronous `notification` to `peer`, allowing sender to exercise backpressure.
 	async fn send_async_notification(
-		&self,
-		peer: &PeerId,
+		&mut self,
+		peer: &sc_network_types::PeerId,
 		notification: Vec<u8>,
 	) -> Result<(), error::Error> {
 		let notification_len = notification.len();
-		let sink = &self.peers.get(&peer).ok_or_else(|| error::Error::PeerDoesntExist(*peer))?.sink;
+		let sink = &self
+			.peers
+			.get(&peer.into())
+			.ok_or_else(|| error::Error::PeerDoesntExist((*peer).into()))?
+			.sink;
 
 		sink.reserve_notification()
 			.await
@@ -258,7 +265,7 @@ impl NotificationService for NotificationHandle {
 			.map_err(|_| error::Error::ChannelClosed)
 			.map(|res| {
 				metrics::register_notification_sent(
-					&sink.metrics(),
+					sink.metrics(),
 					&self.protocol,
 					notification_len,
 				);
@@ -288,7 +295,7 @@ impl NotificationService for NotificationHandle {
 			match self.rx.next().await? {
 				InnerNotificationEvent::ValidateInboundSubstream { peer, handshake, result_tx } =>
 					return Some(NotificationEvent::ValidateInboundSubstream {
-						peer,
+						peer: peer.into(),
 						handshake,
 						result_tx,
 					}),
@@ -307,7 +314,7 @@ impl NotificationService for NotificationHandle {
 						},
 					);
 					return Some(NotificationEvent::NotificationStreamOpened {
-						peer,
+						peer: peer.into(),
 						handshake,
 						direction,
 						negotiated_fallback,
@@ -315,10 +322,13 @@ impl NotificationService for NotificationHandle {
 				},
 				InnerNotificationEvent::NotificationStreamClosed { peer } => {
 					self.peers.remove(&peer);
-					return Some(NotificationEvent::NotificationStreamClosed { peer })
+					return Some(NotificationEvent::NotificationStreamClosed { peer: peer.into() })
 				},
 				InnerNotificationEvent::NotificationReceived { peer, notification } =>
-					return Some(NotificationEvent::NotificationReceived { peer, notification }),
+					return Some(NotificationEvent::NotificationReceived {
+						peer: peer.into(),
+						notification,
+					}),
 				InnerNotificationEvent::NotificationSinkReplaced { peer, sink } => {
 					match self.peers.get_mut(&peer) {
 						None => log::error!(
@@ -357,8 +367,8 @@ impl NotificationService for NotificationHandle {
 	}
 
 	/// Get message sink of the peer.
-	fn message_sink(&self, peer: &PeerId) -> Option<Box<dyn MessageSink>> {
-		match self.peers.get(peer) {
+	fn message_sink(&self, peer: &sc_network_types::PeerId) -> Option<Box<dyn MessageSink>> {
+		match self.peers.get(&peer.into()) {
 			Some(context) => Some(Box::new(context.shared_sink.clone())),
 			None => None,
 		}
@@ -417,7 +427,7 @@ pub(crate) struct ProtocolHandle {
 	delegate_to_peerset: bool,
 
 	/// Prometheus metrics.
-	metrics: Option<metrics::Metrics>,
+	metrics: Option<NotificationMetrics>,
 }
 
 pub(crate) enum ValidationCallResult {
@@ -432,8 +442,8 @@ impl ProtocolHandle {
 	}
 
 	/// Set metrics.
-	pub fn set_metrics(&mut self, metrics: Option<metrics::Metrics>) {
-		self.metrics = metrics;
+	pub fn set_metrics(&mut self, metrics: NotificationMetrics) {
+		self.metrics = Some(metrics);
 	}
 
 	/// Delegate validation to `Peerset`.

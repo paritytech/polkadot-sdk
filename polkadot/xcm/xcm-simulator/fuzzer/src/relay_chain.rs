@@ -72,24 +72,13 @@ impl frame_system::Config for Runtime {
 
 parameter_types! {
 	pub ExistentialDeposit: Balance = 1;
-	pub const MaxLocks: u32 = 50;
-	pub const MaxReserves: u32 = 50;
 }
 
+#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Runtime {
-	type MaxLocks = MaxLocks;
 	type Balance = Balance;
-	type RuntimeEvent = RuntimeEvent;
-	type DustRemoval = ();
 	type ExistentialDeposit = ExistentialDeposit;
 	type AccountStore = System;
-	type WeightInfo = ();
-	type MaxReserves = MaxReserves;
-	type ReserveIdentifier = [u8; 8];
-	type RuntimeHoldReason = RuntimeHoldReason;
-	type RuntimeFreezeReason = RuntimeFreezeReason;
-	type FreezeIdentifier = ();
-	type MaxFreezes = ConstU32<0>;
 }
 
 impl shared::Config for Runtime {
@@ -104,7 +93,7 @@ parameter_types! {
 	pub const TokenLocation: Location = Here.into_location();
 	pub const ThisNetwork: NetworkId = NetworkId::ByGenesis([0; 32]);
 	pub const AnyNetwork: Option<NetworkId> = None;
-	pub const UniversalLocation: InteriorLocation = Here;
+	pub UniversalLocation: InteriorLocation = ThisNetwork::get().into();
 }
 
 pub type SovereignAccountOf =
@@ -160,6 +149,7 @@ impl Config for XcmConfig {
 	type HrmpNewChannelOpenRequestHandler = ();
 	type HrmpChannelAcceptedHandler = ();
 	type HrmpChannelClosingHandler = ();
+	type XcmRecorder = ();
 }
 
 pub type LocalOriginToLocation = SignedToAccountId32<RuntimeOrigin, AccountId, ThisNetwork>;
@@ -189,10 +179,6 @@ impl pallet_xcm::Config for Runtime {
 	type RemoteLockConsumerIdentifier = ();
 	type WeightInfo = pallet_xcm::TestWeightInfo;
 	type AdminOrigin = EnsureRoot<AccountId>;
-}
-
-parameter_types! {
-	pub const FirstMessageFactorPercent: u64 = 100;
 }
 
 impl origin::Config for Runtime {}

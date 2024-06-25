@@ -159,6 +159,52 @@ where
 	}
 }
 
+/// Prepare a call with message proof.
+pub fn make_standalone_relayer_delivery_call<Runtime, MPI, InboundRelayer>(
+	message_proof: FromBridgedChainMessagesProof<ParaHash>,
+	relayer_id_at_bridged_chain: InboundRelayer,
+) -> Runtime::RuntimeCall where
+	Runtime: pallet_bridge_messages::Config<
+		MPI,
+		InboundPayload = XcmAsPlainPayload,
+		InboundRelayer = InboundRelayer,
+	>,
+	MPI: 'static,
+	Runtime::RuntimeCall: From<pallet_bridge_messages::Call::<Runtime, MPI>>,
+	<<Runtime as pallet_bridge_messages::Config<MPI>>::SourceHeaderChain as SourceHeaderChain>::MessagesProof:
+		From<FromBridgedChainMessagesProof<ParaHash>>,
+{
+	pallet_bridge_messages::Call::<Runtime, MPI>::receive_messages_proof {
+		relayer_id_at_bridged_chain: relayer_id_at_bridged_chain.into(),
+		proof: message_proof.into(),
+		messages_count: 1,
+		dispatch_weight: Weight::from_parts(1000000000, 0),
+	}
+	.into()
+}
+
+/// Prepare a call with message delivery proof.
+pub fn make_standalone_relayer_confirmation_call<Runtime, MPI>(
+	message_delivery_proof: FromBridgedChainMessagesDeliveryProof<ParaHash>,
+	relayers_state: UnrewardedRelayersState,
+) -> Runtime::RuntimeCall
+where
+	Runtime: pallet_bridge_messages::Config<MPI, OutboundPayload = XcmAsPlainPayload>,
+	MPI: 'static,
+	Runtime::RuntimeCall: From<pallet_bridge_messages::Call<Runtime, MPI>>,
+	<Runtime as pallet_bridge_messages::Config<MPI>>::TargetHeaderChain: TargetHeaderChain<
+		XcmAsPlainPayload,
+		Runtime::AccountId,
+		MessagesDeliveryProof = FromBridgedChainMessagesDeliveryProof<ParaHash>,
+	>,
+{
+	pallet_bridge_messages::Call::<Runtime, MPI>::receive_messages_delivery_proof {
+		proof: message_delivery_proof,
+		relayers_state,
+	}
+	.into()
+}
+
 /// Prepare storage proofs of messages, stored at the source chain.
 pub fn make_complex_relayer_delivery_proofs<BridgedRelayChain, MB, InnerXcmRuntimeCall>(
 	lane_id: LaneId,
@@ -168,6 +214,7 @@ pub fn make_complex_relayer_delivery_proofs<BridgedRelayChain, MB, InnerXcmRunti
 	para_header_number: u32,
 	relay_header_number: u32,
 	bridged_para_id: u32,
+	is_minimal_call: bool,
 ) -> (
 	HeaderOf<BridgedRelayChain>,
 	GrandpaJustification<HeaderOf<BridgedRelayChain>>,
@@ -201,6 +248,7 @@ where
 			para_header_number,
 			relay_header_number,
 			bridged_para_id,
+			is_minimal_call,
 		);
 
 	let message_proof = FromBridgedChainMessagesProof {
@@ -266,6 +314,7 @@ where
 			para_header_number,
 			relay_header_number,
 			bridged_para_id,
+			false,
 		);
 
 	let message_delivery_proof = FromBridgedChainMessagesDeliveryProof {
@@ -290,6 +339,7 @@ pub fn make_complex_bridged_parachain_heads_proof<BridgedRelayChain, MB>(
 	para_header_number: u32,
 	relay_header_number: BlockNumberOf<BridgedRelayChain>,
 	bridged_para_id: u32,
+	is_minimal_call: bool,
 ) -> (
 	HeaderOf<BridgedRelayChain>,
 	GrandpaJustification<HeaderOf<BridgedRelayChain>>,
@@ -319,9 +369,12 @@ where
 		)]);
 	assert_eq!(bridged_para_head.hash(), parachain_heads[0].1);
 
-	let (relay_chain_header, justification) = make_complex_bridged_grandpa_header_proof::<
-		BridgedRelayChain,
-	>(relay_state_root, relay_header_number);
+	let (relay_chain_header, justification) =
+		make_complex_bridged_grandpa_header_proof::<BridgedRelayChain>(
+			relay_state_root,
+			relay_header_number,
+			is_minimal_call,
+		);
 
 	(relay_chain_header, justification, bridged_para_head, parachain_heads, para_heads_proof)
 }
