@@ -385,7 +385,7 @@ async fn participate(
 			candidate_receipt: req.candidate_receipt().clone(),
 			pov: available_data.pov,
 			executor_params: req.executor_params(),
-			exec_kind: PvfExecution::Approval,
+			exec_kind: PvfExecution::Dispute,
 			response_sender: validation_tx,
 		})
 		.await;
