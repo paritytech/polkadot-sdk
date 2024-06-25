@@ -24,7 +24,7 @@ use frame_support::{
 	pallet_prelude::*,
 	parameter_types,
 	traits::{
-		fungible,
+		fungible, fungibles,
 		tokens::{
 			fungible::{NativeFromLeft, NativeOrWithId, UnionOf},
 			imbalance::ResolveAssetTo,
@@ -128,13 +128,9 @@ parameter_types! {
 }
 
 pub struct DealWithFees;
-impl OnUnbalanced<fungible::Credit<<Runtime as frame_system::Config>::AccountId, Balances>>
-	for DealWithFees
-{
+impl OnUnbalanced<fungible::Credit<AccountId, Balances>> for DealWithFees {
 	fn on_unbalanceds<B>(
-		mut fees_then_tips: impl Iterator<
-			Item = fungible::Credit<<Runtime as frame_system::Config>::AccountId, Balances>,
-		>,
+		mut fees_then_tips: impl Iterator<Item = fungible::Credit<AccountId, Balances>>,
 	) {
 		if let Some(fees) = fees_then_tips.next() {
 			FeeUnbalancedAmount::mutate(|a| *a += fees.peek());
@@ -142,6 +138,20 @@ impl OnUnbalanced<fungible::Credit<<Runtime as frame_system::Config>::AccountId,
 				TipUnbalancedAmount::mutate(|a| *a += tips.peek());
 			}
 		}
+	}
+}
+
+pub struct DealWithFee;
+impl OnUnbalanced<fungibles::Credit<AccountId, NativeAndAssets>> for DealWithFee {
+	fn on_nonzero_unbalanced(fee: fungibles::Credit<AccountId, NativeAndAssets>) {
+		FeeUnbalancedAmount::mutate(|a| *a += fee.peek());
+	}
+}
+
+pub struct DealWithTip;
+impl OnUnbalanced<fungibles::Credit<AccountId, NativeAndAssets>> for DealWithTip {
+	fn on_nonzero_unbalanced(tip: fungibles::Credit<AccountId, NativeAndAssets>) {
+		TipUnbalancedAmount::mutate(|a| *a += tip.peek());
 	}
 }
 
@@ -221,12 +231,14 @@ pub type PoolIdToAccountId = pallet_asset_conversion::AccountIdConverter<
 	(NativeOrWithId<u32>, NativeOrWithId<u32>),
 >;
 
+type NativeAndAssets = UnionOf<Balances, Assets, NativeFromLeft, NativeOrWithId<u32>, AccountId>;
+
 impl pallet_asset_conversion::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Balance = Balance;
 	type HigherPrecisionBalance = u128;
 	type AssetKind = NativeOrWithId<u32>;
-	type Assets = UnionOf<Balances, Assets, NativeFromLeft, NativeOrWithId<u32>, AccountId>;
+	type Assets = NativeAndAssets;
 	type PoolId = (Self::AssetKind, Self::AssetKind);
 	type PoolLocator = Chain<
 		WithFirstAsset<Native, AccountId, NativeOrWithId<u32>, PoolIdToAccountId>,
@@ -250,6 +262,7 @@ impl pallet_asset_conversion::Config for Runtime {
 
 impl Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type Fungibles = Assets;
-	type OnChargeAssetTransaction = AssetConversionAdapter<Balances, AssetConversion, Native>;
+	type AssetId = NativeOrWithId<u32>;
+	type OnChargeAssetTransaction =
+		SwapAssetAdapter<Native, NativeAndAssets, AssetConversion, DealWithFee, DealWithTip>;
 }

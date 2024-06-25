@@ -664,6 +664,11 @@ impl<T: Config> Pallet<T> {
 		let capped_weight = weight.min(T::BlockWeights::get().max_block);
 		T::WeightToFee::weight_to_fee(&capped_weight)
 	}
+
+	/// Deposit the [`Event::TransactionFeePaid`] event.
+	pub fn deposit_fee_paid_event(who: T::AccountId, actual_fee: BalanceOf<T>, tip: BalanceOf<T>) {
+		Self::deposit_event(Event::TransactionFeePaid { who, actual_fee, tip });
+	}
 }
 
 impl<T> Convert<Weight, BalanceOf<T>> for Pallet<T>
