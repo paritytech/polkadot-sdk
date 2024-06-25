@@ -513,7 +513,9 @@ pub use frame_support_procedural::{
 /// # Example:
 #[doc = docify::embed!("src/tests/runtime.rs", runtime_macro)]
 ///
-/// # Legacy Ordering
+/// # Supported Attributes:
+/// 
+/// ## Legacy Ordering
 ///
 /// An optional attribute can be defined as #[frame_support::runtime(legacy_ordering)] to
 /// ensure that the order of hooks is same as the order of pallets (and not based on the
