@@ -16,9 +16,10 @@
 // limitations under the License.
 
 use crate::construct_runtime::parse::{Pallet, PalletPart, PalletPartKeyword, PalletPath};
+use crate::runtime::parse::PalletDeclaration;
 use frame_support_procedural_tools::get_doc_literals;
 use quote::ToTokens;
-use syn::{punctuated::Punctuated, spanned::Spanned, token, Error, Ident, PathArguments};
+use syn::{punctuated::Punctuated, token, Error};
 
 impl Pallet {
 	pub fn try_from(
@@ -55,40 +56,7 @@ impl Pallet {
 			"Invalid pallet declaration, expected a path or a trait object",
 		))?;
 
-		let mut pallet_segment = None;
-		let mut instance = None;
-		if let Some(segment) = path.inner.segments.iter_mut().find(|seg| !seg.arguments.is_empty())
-		{
-			if let PathArguments::AngleBracketed(syn::AngleBracketedGenericArguments {
-				args, ..
-			}) = segment.arguments.clone()
-			{
-				if segment.ident == "Pallet" {
-					let mut segment = segment.clone();
-					segment.arguments = PathArguments::None;
-					pallet_segment = Some(segment.clone());
-				}
-				let mut args_iter = args.iter();
-				if let Some(syn::GenericArgument::Type(syn::Type::Path(arg_path))) =
-					args_iter.next()
-				{
-					let ident =
-						Ident::new(&arg_path.to_token_stream().to_string(), arg_path.span());
-					if segment.ident == "Pallet" {
-						if let Some(arg_path) = args_iter.next() {
-							instance = Some(Ident::new(
-								&arg_path.to_token_stream().to_string(),
-								arg_path.span(),
-							));
-							segment.arguments = PathArguments::None;
-						}
-					} else {
-						instance = Some(ident);
-						segment.arguments = PathArguments::None;
-					}
-				}
-			}
-		}
+		let PalletDeclaration { pallet_segment, instance, .. } = PalletDeclaration::try_from(attr_span, item, &path.inner)?;
 
 		if pallet_segment.is_some() {
 			path = PalletPath {

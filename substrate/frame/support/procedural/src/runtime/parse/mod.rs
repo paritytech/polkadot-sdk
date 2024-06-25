@@ -189,7 +189,7 @@ impl Def {
 				match *pallet_item.ty.clone() {
 					syn::Type::Path(ref path) => {
 						let pallet_decl =
-							PalletDeclaration::try_from(item.span(), &pallet_item, path)?;
+							PalletDeclaration::try_from(item.span(), &pallet_item, &path.path)?;
 
 						if let Some(used_pallet) =
 							names.insert(pallet_decl.name.clone(), pallet_decl.name.span())

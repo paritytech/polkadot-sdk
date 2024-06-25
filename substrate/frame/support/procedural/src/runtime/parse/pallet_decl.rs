@@ -15,8 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use quote::ToTokens;
-use syn::{spanned::Spanned, Attribute, Ident, PathArguments};
+use syn::{Attribute, Ident, PathArguments};
 
 /// The declaration of a pallet.
 #[derive(Debug, Clone)]
@@ -41,11 +40,11 @@ impl PalletDeclaration {
 	pub fn try_from(
 		_attr_span: proc_macro2::Span,
 		item: &syn::ItemType,
-		path: &syn::TypePath,
+		path: &syn::Path,
 	) -> syn::Result<Self> {
 		let name = item.ident.clone();
 
-		let mut path = path.path.clone();
+		let mut path = path.clone();
 
 		let mut pallet_segment = None;
 		let mut runtime_param = None;
@@ -64,11 +63,11 @@ impl PalletDeclaration {
 				if let Some(syn::GenericArgument::Type(syn::Type::Path(arg_path))) =
 					args_iter.next()
 				{
-					let ident = arg_path.require_ident()?.clone();
+					let ident = arg_path.path.require_ident()?.clone();
 					if segment.ident == "Pallet" {
 						runtime_param = Some(ident);
-						if let Some(arg_path) = args_iter.next() {
-							instance = Some(arg_path.require_ident()?.clone());
+						if let Some(syn::GenericArgument::Type(syn::Type::Path(arg_path))) = args_iter.next() {
+							instance = Some(arg_path.path.require_ident()?.clone());
 						}
 					} else {
 						instance = Some(ident);
@@ -81,7 +80,7 @@ impl PalletDeclaration {
 		if pallet_segment.is_some() {
 			path = syn::Path {
 				leading_colon: None,
-				segments: path.segments.iter().filter(|seg| seg.arguments.is_empty()).cloned().iter()
+				segments: path.segments.iter().filter(|seg| seg.arguments.is_empty()).cloned().collect()
 			};
 		}
 
