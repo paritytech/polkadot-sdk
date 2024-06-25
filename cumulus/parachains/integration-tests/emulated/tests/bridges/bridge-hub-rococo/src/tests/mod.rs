@@ -59,6 +59,29 @@ pub(crate) fn send_asset_from_asset_hub_rococo(
 	})
 }
 
+pub(crate) fn send_assets_from_asset_hub_rococo(
+	destination: Location,
+	assets: Assets,
+	fee_idx: u32,
+) -> DispatchResult {
+	let signed_origin =
+		<AssetHubRococo as Chain>::RuntimeOrigin::signed(AssetHubRococoSender::get().into());
+
+	let beneficiary: Location =
+		AccountId32Junction { network: None, id: AssetHubWestendReceiver::get().into() }.into();
+
+	AssetHubRococo::execute_with(|| {
+		<AssetHubRococo as AssetHubRococoPallet>::PolkadotXcm::limited_reserve_transfer_assets(
+			signed_origin,
+			bx!(destination.into()),
+			bx!(beneficiary.into()),
+			bx!(assets.into()),
+			fee_idx,
+			WeightLimit::Unlimited,
+		)
+	})
+}
+
 pub(crate) fn assert_bridge_hub_rococo_message_accepted(expected_processed: bool) {
 	BridgeHubRococo::execute_with(|| {
 		type RuntimeEvent = <BridgeHubRococo as Chain>::RuntimeEvent;
