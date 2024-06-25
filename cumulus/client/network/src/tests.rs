@@ -26,9 +26,10 @@ use futures::{executor::block_on, poll, task::Poll, FutureExt, Stream, StreamExt
 use parking_lot::Mutex;
 use polkadot_node_primitives::{SignedFullStatement, Statement};
 use polkadot_primitives::{
-	CandidateCommitments, CandidateDescriptor, CollatorPair, CommittedCandidateReceipt,
-	Hash as PHash, HeadData, InboundDownwardMessage, InboundHrmpMessage, OccupiedCoreAssumption,
-	PersistedValidationData, SessionIndex, SigningContext, ValidationCodeHash, ValidatorId,
+	BlockNumber, CandidateCommitments, CandidateDescriptor, CollatorPair,
+	CommittedCandidateReceipt, CoreState, Hash as PHash, HeadData, InboundDownwardMessage,
+	InboundHrmpMessage, OccupiedCoreAssumption, PersistedValidationData, SessionIndex,
+	SigningContext, ValidationCodeHash, ValidatorId,
 };
 use polkadot_test_client::{
 	Client as PClient, ClientBlockImportExt, DefaultTestClientBuilderExt, FullBackend as PBackend,
@@ -295,6 +296,13 @@ impl RelayChainInterface for DummyRelayChainInterface {
 		let header = self.relay_client.header(hash)?;
 
 		Ok(header)
+	}
+
+	async fn availability_cores(
+		&self,
+		_relay_parent: PHash,
+	) -> RelayChainResult<Vec<CoreState<PHash, BlockNumber>>> {
+		unimplemented!("Not needed for test");
 	}
 
 	async fn version(&self, _: PHash) -> RelayChainResult<RuntimeVersion> {
