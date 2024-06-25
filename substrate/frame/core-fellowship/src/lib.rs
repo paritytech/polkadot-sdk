@@ -533,7 +533,7 @@ pub mod pallet {
 				// NOTE: We could factor this out, but it would destroy our invariants:
 				Member::<T, I>::insert(&who, &member);
 
-				Self::dispose_evidence(who.clone(), rank, Some(rank));
+				Self::dispose_evidence(who.clone(), rank.saturating_sub(1), Some(rank));
 				Self::deposit_event(Event::<T, I>::Promoted { who: who.clone(), to_rank: rank });
 			}
 
