@@ -331,18 +331,16 @@ fn promote_fast_identical_to_promote() {
 
 		let root_promote = hypothetically!({
 			assert_ok!(CoreFellowship::promote(signed(alice), alice, 1));
-
-			System::reset_events();
+			// Don't clean the events since they should emit the same events:
 			sp_io::storage::root(sp_runtime::StateVersion::V1)
 		});
 
-		// This us using thread locals instead of storage...
+		// This is using thread locals instead of storage...
 		TestClub::demote(&alice).unwrap();
 
 		let root_promote_fast = hypothetically!({
 			assert_ok!(CoreFellowship::promote_fast(signed(alice), alice, 1));
 
-			System::reset_events();
 			sp_io::storage::root(sp_runtime::StateVersion::V1)
 		});
 
