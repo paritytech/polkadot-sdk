@@ -812,7 +812,7 @@ linked-hash-map = { version = "0.5.4" }
 linked_hash_set = { version = "0.1.4" }
 linregress = { version = "0.5.1" }
 lite-json = { version = "0.2.0", default-features = false }
-litep2p = { git = "git@github.com:paritytech/litep2p.git", rev = "fd02c1feaf993ccd3e4ab04e9cd81beae5793c79" }
+litep2p = { git = "https://github.com/paritytech/litep2p.git", rev = "fd02c1feaf993ccd3e4ab04e9cd81beae5793c79" }
 log = { version = "0.4.21", default-features = false }
 macro_magic = { version = "0.5.0" }
 maplit = { version = "1.0.2" }
