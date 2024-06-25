@@ -63,6 +63,7 @@ xcm = { package = "staging-xcm", path = "../../../../../polkadot/xcm", default-f
 xcm-builder = { package = "staging-xcm-builder", path = "../../../../../polkadot/xcm/xcm-builder", default-features = false }
 xcm-executor = { package = "staging-xcm-executor", path = "../../../../../polkadot/xcm/xcm-executor", default-features = false }
 xcm-fee-payment-runtime-api = { path = "../../../../../polkadot/xcm/xcm-fee-payment-runtime-api", default-features = false }
+xcm-runtime-api = { path = "../../../../../polkadot/xcm/xcm-runtime-api", default-features = false }
 
 # Cumulus
 cumulus-pallet-aura-ext = { path = "../../../../pallets/aura-ext", default-features = false }
@@ -140,6 +141,7 @@ std = [
 	"xcm-builder/std",
 	"xcm-executor/std",
 	"xcm-fee-payment-runtime-api/std",
+	"xcm-runtime-api/std",
 	"xcm/std",
 ]
 

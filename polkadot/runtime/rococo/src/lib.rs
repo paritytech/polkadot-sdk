@@ -1803,6 +1803,19 @@ sp_api::impl_runtime_apis! {
 		}
 	}
 
+	impl xcm_runtime_api::conversions::LocationToAccountApi<Block> for Runtime {
+		fn convert_location(location: VersionedLocation, ss58_prefix: Option<u16>) -> Result<
+			xcm_runtime_api::conversions::Account,
+			xcm_runtime_api::conversions::Error
+		> {
+			xcm_runtime_api::conversions::LocationToAccountHelper::<
+				AccountId,
+				xcm_config::LocationConverter,
+				SS58Prefix,
+			>::convert_location(location, ss58_prefix)
+		}
+	}
+
 	impl sp_api::Metadata<Block> for Runtime {
 		fn metadata() -> OpaqueMetadata {
 			OpaqueMetadata::new(Runtime::metadata().into())

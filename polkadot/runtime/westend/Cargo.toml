@@ -116,6 +116,7 @@ xcm = { package = "staging-xcm", path = "../../xcm", default-features = false }
 xcm-executor = { package = "staging-xcm-executor", path = "../../xcm/xcm-executor", default-features = false }
 xcm-builder = { package = "staging-xcm-builder", path = "../../xcm/xcm-builder", default-features = false }
 xcm-fee-payment-runtime-api = { path = "../../xcm/xcm-fee-payment-runtime-api", default-features = false }
+xcm-runtime-api = { path = "../../xcm/xcm-runtime-api", default-features = false }
 
 [dev-dependencies]
 hex-literal = "0.4.1"
@@ -231,6 +232,7 @@ std = [
 	"xcm-builder/std",
 	"xcm-executor/std",
 	"xcm-fee-payment-runtime-api/std",
+	"xcm-runtime-api/std",
 	"xcm/std",
 ]
 runtime-benchmarks = [

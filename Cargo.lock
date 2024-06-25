@@ -871,6 +871,7 @@ dependencies = [
  "substrate-wasm-builder",
  "testnet-parachains-constants",
  "xcm-fee-payment-runtime-api",
+ "xcm-runtime-api",
 ]
 
 [[package]]
@@ -2103,6 +2104,7 @@ dependencies = [
  "substrate-wasm-builder",
  "testnet-parachains-constants",
  "xcm-fee-payment-runtime-api",
+ "xcm-runtime-api",
 ]
 
 [[package]]
@@ -2263,6 +2265,7 @@ dependencies = [
  "testnet-parachains-constants",
  "westend-runtime-constants",
  "xcm-fee-payment-runtime-api",
+ "xcm-runtime-api",
 ]
 
 [[package]]
@@ -2899,6 +2902,7 @@ dependencies = [
  "testnet-parachains-constants",
  "westend-runtime-constants",
  "xcm-fee-payment-runtime-api",
+ "xcm-runtime-api",
 ]
 
 [[package]]
@@ -3155,6 +3159,7 @@ dependencies = [
  "substrate-wasm-builder",
  "testnet-parachains-constants",
  "xcm-fee-payment-runtime-api",
+ "xcm-runtime-api",
 ]
 
 [[package]]
@@ -3252,6 +3257,7 @@ dependencies = [
  "substrate-wasm-builder",
  "testnet-parachains-constants",
  "xcm-fee-payment-runtime-api",
+ "xcm-runtime-api",
 ]
 
 [[package]]
@@ -3317,6 +3323,7 @@ dependencies = [
  "testnet-parachains-constants",
  "westend-runtime-constants",
  "xcm-fee-payment-runtime-api",
+ "xcm-runtime-api",
 ]
 
 [[package]]
@@ -12361,6 +12368,7 @@ dependencies = [
  "substrate-wasm-builder",
  "testnet-parachains-constants",
  "xcm-fee-payment-runtime-api",
+ "xcm-runtime-api",
 ]
 
 [[package]]
@@ -12462,6 +12470,7 @@ dependencies = [
  "testnet-parachains-constants",
  "westend-runtime-constants",
  "xcm-fee-payment-runtime-api",
+ "xcm-runtime-api",
 ]
 
 [[package]]
@@ -14311,6 +14320,7 @@ dependencies = [
  "xcm-emulator",
  "xcm-fee-payment-runtime-api",
  "xcm-procedural",
+ "xcm-runtime-api",
  "xcm-simulator",
 ]
 
@@ -16303,6 +16313,7 @@ dependencies = [
  "tiny-keccak",
  "tokio",
  "xcm-fee-payment-runtime-api",
+ "xcm-runtime-api",
 ]
 
 [[package]]
@@ -23364,6 +23375,7 @@ dependencies = [
  "tokio",
  "westend-runtime-constants",
  "xcm-fee-payment-runtime-api",
+ "xcm-runtime-api",
 ]
 
 [[package]]
