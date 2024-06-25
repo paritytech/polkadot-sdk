@@ -226,7 +226,12 @@ pub struct UpdateCodeCmd {
 /// Add a code substitute in the chain spec.
 ///
 /// The `codeSubstitute` object of the chain spec will be updated with the block height as key and
-/// runtime code as value. This operation supports both plain and raw formats.
+/// runtime code as value. This operation supports both plain and raw formats. The `codeSubstitute`
+/// field instructs the node to use the provided runtime code at the given block height. This is
+/// useful when the chain can not progress on its own due to a bug that prevents block-building.
+///
+/// Note: For parachains, the validation function on the relaychain needs to be adjusted too,
+/// otherwise blocks built using the substituted parachain runtime will be rejected.
 #[derive(Parser, Debug, Clone)]
 pub struct AddCodeSubstituteCmd {
 	/// Chain spec to be updated.
