@@ -1564,13 +1564,13 @@ pub use xcm_emulator;
 #[cfg(feature = "xcm-fee-payment-runtime-api")]
 pub use xcm_fee_payment_runtime_api;
 
-/// XCM runtime API.
-#[cfg(feature = "xcm-runtime-api")]
-pub use xcm_runtime_api;
-
 /// Procedural macros for XCM.
 #[cfg(feature = "xcm-procedural")]
 pub use xcm_procedural;
+
+/// XCM runtime API.
+#[cfg(feature = "xcm-runtime-api")]
+pub use xcm_runtime_api;
 
 /// Test kit to simulate cross-chain message passing and XCM execution.
 #[cfg(feature = "xcm-simulator")]
