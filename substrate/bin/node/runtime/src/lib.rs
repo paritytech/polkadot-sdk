@@ -1867,7 +1867,7 @@ impl pallet_core_fellowship::Config for Runtime {
 	type InductOrigin = pallet_core_fellowship::EnsureInducted<Runtime, (), 1>;
 	type ApproveOrigin = EnsureRootWithSuccess<AccountId, ConstU16<9>>;
 	type PromoteOrigin = EnsureRootWithSuccess<AccountId, ConstU16<9>>;
-	type FastPromoteOrigin = PromoteOrigin;
+	type FastPromoteOrigin = Self::PromoteOrigin;
 	type EvidenceSize = ConstU32<16_384>;
 	type MaxRank = ConstU32<9>;
 }
