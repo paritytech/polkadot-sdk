@@ -17,7 +17,7 @@ scale-info = { features = ["derive", "serde"], workspace = true }
 frame-support = { workspace = true }
 sp-api = { workspace = true }
 sp-core = { workspace = true }
-sp-std = { path = "../../../substrate/primitives/std", default-features = false }
+sp-std = { workspace = true }
 xcm = { workspace = true }
 xcm-executor = { workspace = true }
 
