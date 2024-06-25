@@ -518,9 +518,9 @@ pub mod pallet {
 				Ok(allow_rank) => ensure!(allow_rank >= to_rank, Error::<T, I>::NoPermission),
 				Err(origin) => ensure_root(origin)?,
 			}
-			ensure!(to_rank as u32 <= T::MaxRank::get(), Error::<T, I>::InvalidRank,);
+			ensure!(to_rank as u32 <= T::MaxRank::get(), Error::<T, I>::InvalidRank);
 			let curr_rank = T::Members::rank_of(&who).ok_or(Error::<T, I>::Unranked)?;
-			ensure!(to_rank > curr_rank, Error::<T, I>::UnexpectedRank,);
+			ensure!(to_rank > curr_rank, Error::<T, I>::UnexpectedRank);
 
 			let mut member = Member::<T, I>::get(&who).ok_or(Error::<T, I>::NotTracked)?;
 			let now = frame_system::Pallet::<T>::block_number();
