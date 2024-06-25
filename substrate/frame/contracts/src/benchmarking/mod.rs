@@ -1245,7 +1245,7 @@ mod benchmarks {
 		let max_key_len = T::MaxStorageKeyLen::get();
 		let key = Key::<T>::try_from_var(vec![0u8; max_key_len as usize])
 			.map_err(|_| "Key has wrong length")?;
-		build_runtime!(runtime, instance, memory: [ key.to_vec(), ]);
+		build_runtime!(runtime, memory: [ key.to_vec(), ]);
 
 		dummy_transient_storage::<T>(runtime.ext(), 1)?;
 		runtime
@@ -1271,7 +1271,7 @@ mod benchmarks {
 		let max_key_len = T::MaxStorageKeyLen::get();
 		let key = Key::<T>::try_from_var(vec![0u8; max_key_len as usize])
 			.map_err(|_| "Key has wrong length")?;
-		build_runtime!(runtime, instance, memory: [ key.to_vec(), max_value_len.to_le_bytes(), vec![0u8; max_value_len as _], ]);
+		build_runtime!(runtime, memory: [ key.to_vec(), max_value_len.to_le_bytes(), vec![0u8; max_value_len as _], ]);
 		dummy_transient_storage::<T>(runtime.ext(), 1)?;
 		runtime
 			.ext()
@@ -1306,7 +1306,7 @@ mod benchmarks {
 		let max_key_len = T::MaxStorageKeyLen::get();
 		let key = Key::<T>::try_from_var(vec![0u8; max_key_len as usize])
 			.map_err(|_| "Key has wrong length")?;
-		build_runtime!(runtime, instance, memory: [ key.to_vec(), ]);
+		build_runtime!(runtime, memory: [ key.to_vec(), ]);
 		dummy_transient_storage::<T>(runtime.ext(), 1)?;
 		runtime
 			.ext()
@@ -1334,7 +1334,7 @@ mod benchmarks {
 		let max_key_len = T::MaxStorageKeyLen::get();
 		let key = Key::<T>::try_from_var(vec![0u8; max_key_len as usize])
 			.map_err(|_| "Key has wrong length")?;
-		build_runtime!(runtime, instance, memory: [ key.to_vec(), max_value_len.to_le_bytes(), vec![0u8; max_value_len as _], ]);
+		build_runtime!(runtime, memory: [ key.to_vec(), max_value_len.to_le_bytes(), vec![0u8; max_value_len as _], ]);
 		dummy_transient_storage::<T>(runtime.ext(), 1)?;
 		let value = vec![42u8; max_value_len as usize];
 		runtime
