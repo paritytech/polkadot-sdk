@@ -679,6 +679,7 @@ where
 		}
 	}
 
+	/// Account of the pallet pot, where the funds from instantaneous coretime sale are accumulated. 
 	pub fn account_id() -> T::AccountId {
 		T::PalletId::get().into_account_truncating()
 	}
