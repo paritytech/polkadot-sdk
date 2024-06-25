@@ -61,6 +61,8 @@ mod sys {
 
 		pub fn clear_storage(key_ptr: *const u8);
 
+		pub fn clear_transient_storage(key_ptr: *const u8, key_len: u32) -> ReturnCode;
+
 		pub fn code_hash(
 			account_id_ptr: *const u8,
 			output_ptr: *mut u8,
@@ -68,6 +70,8 @@ mod sys {
 		) -> ReturnCode;
 
 		pub fn contains_storage(key_ptr: *const u8) -> ReturnCode;
+
+		pub fn contains_transient_storage(key_ptr: *const u8, key_len: u32) -> ReturnCode;
 
 		pub fn debug_message(str_ptr: *const u8, str_len: u32) -> ReturnCode;
 
@@ -155,6 +159,13 @@ mod sys {
 		) -> ReturnCode;
 
 		pub fn take_storage(
+			key_ptr: *const u8,
+			key_len: u32,
+			out_ptr: *mut u8,
+			out_len_ptr: *mut u32,
+		) -> ReturnCode;
+
+		pub fn take_transient_storage(
 			key_ptr: *const u8,
 			key_len: u32,
 			out_ptr: *mut u8,
@@ -633,6 +644,11 @@ impl HostFn for HostFnImpl {
 		ret_code.into()
 	}
 
+	fn clear_transient_storage(key: &[u8]) -> Option<u32> {
+		let ret_code = unsafe { sys::clear_transient_storage(key.as_ptr(), key.len() as u32) };
+		ret_code.into()
+	}
+
 	#[inline(always)]
 	fn get_storage(key: &[u8], output: &mut &mut [u8]) -> Result {
 		let mut output_len = output.len() as u32;
@@ -693,6 +709,23 @@ impl HostFn for HostFnImpl {
 		ret_code.into()
 	}
 
+	#[inline(always)]
+	fn take_transient_storage(key: &[u8], output: &mut &mut [u8]) -> Result {
+		let mut output_len = output.len() as u32;
+		let ret_code = {
+			unsafe {
+				sys::take_transient_storage(
+					key.as_ptr(),
+					key.len() as u32,
+					output.as_mut_ptr(),
+					&mut output_len,
+				)
+			}
+		};
+		extract_from_slice(output, output_len as usize);
+		ret_code.into()
+	}
+
 	fn debug_message(str: &[u8]) -> Result {
 		let ret_code = unsafe { sys::debug_message(str.as_ptr(), str.len() as u32) };
 		ret_code.into()
@@ -705,6 +738,11 @@ impl HostFn for HostFnImpl {
 
 	fn contains_storage_v1(key: &[u8]) -> Option<u32> {
 		let ret_code = unsafe { sys::v1::contains_storage(key.as_ptr(), key.len() as u32) };
+		ret_code.into()
+	}
+
+	fn contains_transient_storage(key: &[u8]) -> Option<u32> {
+		let ret_code = unsafe { sys::contains_transient_storage(key.as_ptr(), key.len() as u32) };
 		ret_code.into()
 	}
 

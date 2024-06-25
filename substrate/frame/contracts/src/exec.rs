@@ -329,6 +329,9 @@ pub trait Ext: sealing::Sealed {
 	#[cfg(any(test, feature = "runtime-benchmarks"))]
 	fn contract_info(&mut self) -> &mut ContractInfo<Self::T>;
 
+	/// Get a mutable reference to the transient storage.
+	/// Useful in tests when it is sometimes necessary to modify and inspect the transient storage
+	/// directly.
 	#[cfg(any(test, feature = "runtime-benchmarks"))]
 	fn transient_storage(&mut self) -> &mut TransientStorage<Self::T>;
 
@@ -811,7 +814,6 @@ where
 			false,
 		)?;
 
-		let transient_storage_limit = T::MaxTransientStorageLen::get();
 		let stack = Self {
 			origin,
 			schedule,
@@ -824,10 +826,7 @@ where
 			frames: Default::default(),
 			debug_message,
 			determinism,
-			transient_storage: TransientStorage::new(
-				transient_storage_limit,
-				transient_storage_limit,
-			),
+			transient_storage: TransientStorage::new(T::MaxTransientStorageLen::get()),
 			_phantom: Default::default(),
 		};
 

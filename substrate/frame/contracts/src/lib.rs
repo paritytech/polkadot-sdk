@@ -414,10 +414,6 @@ pub mod pallet {
 		#[pallet::constant]
 		type MaxTransientStorageLen: Get<u32>;
 
-		/// The maximum length of the transient storage in bytes.
-		#[pallet::constant]
-		type MaxTransientStorageItems: Get<u32>;
-
 		/// Origin allowed to upload code.
 		///
 		/// By default, it is safe to set this to `EnsureSigned`, allowing anyone to upload contract
@@ -564,7 +560,6 @@ pub mod pallet {
 			type MaxDelegateDependencies = MaxDelegateDependencies;
 			type MaxStorageKeyLen = ConstU32<128>;
 			type MaxTransientStorageLen = ConstU32<{ 1 * 1024 * 1024 }>;
-			type MaxTransientStorageItems = ConstU32<{ 50 }>;
 			type Migrations = ();
 			type Time = Self;
 			type Randomness = Self;

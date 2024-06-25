@@ -172,6 +172,10 @@ impl HostFn for HostFnImpl {
 		todo!()
 	}
 
+	fn set_transient_storage(key: &[u8], encoded_value: &[u8]) -> Option<u32> {
+		todo!()
+	}
+
 	fn clear_storage(key: &[u8]) {
 		todo!()
 	}
@@ -180,12 +184,12 @@ impl HostFn for HostFnImpl {
 		todo!()
 	}
 
-	impl_get_storage!(get_storage, sys::get_storage);
-	impl_get_storage!(get_storage_v1, sys::v1::get_storage);
-
-	fn set_transient_storage(key: &[u8], encoded_value: &[u8]) -> Option<u32> {
+	fn clear_transient_storage(key: &[u8]) -> Option<u32> {
 		todo!()
 	}
+
+	impl_get_storage!(get_storage, sys::get_storage);
+	impl_get_storage!(get_storage_v1, sys::v1::get_storage);
 
 	fn get_transient_storage(key: &[u8], output: &mut &mut [u8]) -> Result {
 		todo!()
@@ -195,11 +199,19 @@ impl HostFn for HostFnImpl {
 		todo!()
 	}
 
+	fn take_transient_storage(key: &[u8], output: &mut &mut [u8]) -> Result {
+		todo!()
+	}
+
 	fn contains_storage(key: &[u8]) -> Option<u32> {
 		todo!()
 	}
 
 	fn contains_storage_v1(key: &[u8]) -> Option<u32> {
+		todo!()
+	}
+
+	fn contains_transient_storage(key: &[u8]) -> Option<u32> {
 		todo!()
 	}
 

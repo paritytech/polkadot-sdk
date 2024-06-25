@@ -291,6 +291,7 @@ pub trait HostFn {
 	///
 	/// Returns the size of the pre-existing value at the specified key if any.
 	fn clear_storage_v1(key: &[u8]) -> Option<u32>;
+	fn clear_transient_storage(key: &[u8]) -> Option<u32>;
 
 	/// Retrieve the code hash for a specified contract address.
 	///
@@ -323,6 +324,7 @@ pub trait HostFn {
 	///
 	/// Returns the size of the pre-existing value at the specified key if any.
 	fn contains_storage_v1(key: &[u8]) -> Option<u32>;
+	fn contains_transient_storage(key: &[u8]) -> Option<u32>;
 
 	/// Emit a custom debug message.
 	///
@@ -698,6 +700,7 @@ pub trait HostFn {
 	///
 	/// [KeyNotFound][`crate::ReturnErrorCode::KeyNotFound]
 	fn take_storage(key: &[u8], output: &mut &mut [u8]) -> Result;
+	fn take_transient_storage(key: &[u8], output: &mut &mut [u8]) -> Result;
 
 	/// Transfer some amount of funds into the specified account.
 	///

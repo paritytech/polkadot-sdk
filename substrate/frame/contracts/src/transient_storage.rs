@@ -17,14 +17,13 @@
 
 //! This module contains routines for accessing and altering a contract transient storage.
 
-use core::marker::PhantomData;
-
 use crate::{
 	exec::{AccountIdOf, Key},
 	storage::WriteOutcome,
 	Config, Error,
 };
 use codec::Encode;
+use core::marker::PhantomData;
 use frame_support::DefaultNoBound;
 use sp_runtime::{DispatchError, DispatchResult};
 use sp_std::{
@@ -37,85 +36,109 @@ use sp_std::{
 /// Meter entry tracks transaction allocations.
 #[derive(Default, Debug)]
 struct MeterEntry {
-	/// Allocation commited from subsequent transactions.
-	pub nested: u32,
-	/// Allocation made in the current transaction.
-	pub current: u32,
+	/// Allocations made in the current transaction.
+	pub amount: u32,
+	/// Allocations limit in the current transaction.
+	pub limit: u32,
 }
 
 impl MeterEntry {
-	pub fn sum(&self) -> u32 {
-		self.current.saturating_add(self.nested)
+	pub fn new(limit: u32) -> Self {
+		Self { limit, amount: Default::default() }
+	}
+
+	pub fn exceeds_limit(&self, amount: u32) -> bool {
+		self.amount.saturating_add(amount) > self.limit
 	}
 
 	pub fn absorb(&mut self, rhs: Self) {
-		self.nested = self.nested.saturating_add(rhs.sum())
+		self.amount = self.amount.saturating_add(rhs.amount)
 	}
 }
 
-/// The storage meter enforces a limit for each nested transaction and the total allocation limit.
+// The storage meter enforces a limit for each transaction,
+// which is calculated as free_storage * (1 - 1/16) for each subsequent frame.
 #[derive(DefaultNoBound)]
-struct StorageMeter<T: Config> {
-	total_limit: u32,
-	transaction_limit: u32,
-	nested: Vec<MeterEntry>,
-	root: MeterEntry,
+pub struct StorageMeter<T: Config> {
+	nested_meters: Vec<MeterEntry>,
+	root_meter: MeterEntry,
 	_phantom: PhantomData<T>,
 }
 
 impl<T: Config> StorageMeter<T> {
-	pub fn new(total_limit: u32, transaction_limit: u32) -> Self {
-		Self { total_limit, transaction_limit, ..Default::default() }
+	const STORAGE_FRACTION_DENOMINATOR: u32 = 16;
+
+	pub fn new(memory_limit: u32) -> Self {
+		Self { root_meter: MeterEntry::new(memory_limit), ..Default::default() }
 	}
 
 	/// Charge the allocated amount of transaction storage from the meter.
 	pub fn charge(&mut self, amount: u32) -> DispatchResult {
-		let current_amount = self.current_amount().saturating_add(amount);
-		if current_amount > self.transaction_limit ||
-			amount.saturating_add(self.total_amount()) > self.total_limit
-		{
+		let meter = self.top_meter_mut();
+		if meter.exceeds_limit(amount) {
 			return Err(Error::<T>::OutOfTransientStorage.into());
 		}
-		self.top_meter_mut().current = current_amount;
+		meter.amount = meter.amount.saturating_add(amount);
 		Ok(())
 	}
 
 	/// The allocated amount of memory inside the current transaction.
 	pub fn current_amount(&self) -> u32 {
-		self.top_meter().current
+		self.top_meter().amount
+	}
+
+	/// The memory limit of the current transaction.
+	pub fn current_limit(&self) -> u32 {
+		self.top_meter().limit
 	}
 
 	/// The total allocated amount of memory.
 	pub fn total_amount(&self) -> u32 {
-		self.nested
+		self.nested_meters
 			.iter()
-			.map(|e: &MeterEntry| e.sum())
-			.fold(self.root.sum(), |acc, e| acc.saturating_add(e))
+			.fold(self.root_meter.amount, |acc, e| acc.saturating_add(e.amount))
 	}
 
 	/// Revert a transaction meter.
 	pub fn revert(&mut self) {
-		self.nested.pop().expect("There is no nested meter that can be reverted.");
+		self.nested_meters
+			.pop()
+			.expect("There is no nested meter that can be reverted.");
 	}
 
-	/// Start a nested transaction meter.
+	/// Start a transaction meter.
 	pub fn start(&mut self) {
-		self.nested.push(Default::default());
+		let meter = self.top_meter();
+		let free = meter.limit - meter.amount;
+		let transaction_limit = if !self.nested_meters.is_empty() {
+			// Allow use of (1 - 1/cost_value) of free storage for subsequent calls.
+			free.saturating_sub(free.saturating_div(Self::STORAGE_FRACTION_DENOMINATOR))
+		} else {
+			free
+		};
+		self.nested_meters.push(MeterEntry::new(transaction_limit));
 	}
 
 	/// Commit a transaction meter.
 	pub fn commit(&mut self) {
-		let nested_meter =
-			self.nested.pop().expect("There is no nested meter that can be committed.");
-		self.top_meter_mut().absorb(nested_meter);
+		let transaction_meter = self
+			.nested_meters
+			.pop()
+			.expect("There is no nested meter that can be committed.");
+		self.top_meter_mut().absorb(transaction_meter)
+	}
+
+	pub fn clear(&mut self) {
+		self.nested_meters.clear();
+		self.root_meter.amount = 0;
 	}
 
 	fn top_meter_mut(&mut self) -> &mut MeterEntry {
-		self.nested.last_mut().unwrap_or(&mut self.root)
+		self.nested_meters.last_mut().unwrap_or(&mut self.root_meter)
 	}
 
 	fn top_meter(&self) -> &MeterEntry {
-		self.nested.last().unwrap_or(&self.root)
+		self.nested_meters.last().unwrap_or(&self.root_meter)
 	}
 }
 
@@ -218,12 +241,12 @@ pub struct TransientStorage<T: Config> {
 }
 
 impl<T: Config> TransientStorage<T> {
-	pub fn new(total_limit: u32, transaction_limit: u32) -> Self {
+	pub fn new(memory_limit: u32) -> Self {
 		TransientStorage {
 			current: Default::default(),
 			journal: Journal::new(),
 			checkpoints: Default::default(),
-			meter: StorageMeter::new(total_limit, transaction_limit),
+			meter: StorageMeter::new(memory_limit),
 		}
 	}
 
@@ -331,10 +354,15 @@ impl<T: Config> TransientStorage<T> {
 			.expect("No open transient storage transaction that can be committed.");
 		self.meter.commit();
 	}
+
+	pub fn meter(&mut self) -> &mut StorageMeter<T> {
+		return &mut self.meter
+	}
 }
 
 #[cfg(test)]
 mod tests {
+
 	use super::*;
 	use crate::{
 		tests::{Test, ALICE, BOB, CHARLIE},
@@ -343,7 +371,7 @@ mod tests {
 
 	#[test]
 	fn read_write_works() {
-		let mut storage = TransientStorage::<Test>::new(2048, 2048);
+		let mut storage = TransientStorage::<Test>::new(2048);
 		assert_eq!(
 			storage.write(&ALICE, &Key::Fix([1; 32]), Some(vec![1]), false),
 			Ok(WriteOutcome::New)
@@ -375,7 +403,7 @@ mod tests {
 
 	#[test]
 	fn remove_transaction_works() {
-		let mut storage = TransientStorage::<Test>::new(1024, 1024);
+		let mut storage = TransientStorage::<Test>::new(1024);
 		assert_eq!(
 			storage.write(&ALICE, &Key::Fix([1; 32]), Some(vec![1]), false),
 			Ok(WriteOutcome::New)
@@ -396,7 +424,7 @@ mod tests {
 
 	#[test]
 	fn commit_remove_transaction_works() {
-		let mut storage = TransientStorage::<Test>::new(1024, 256);
+		let mut storage = TransientStorage::<Test>::new(1024);
 		storage.start_transaction();
 		assert_eq!(
 			storage.write(&ALICE, &Key::Fix([1; 32]), Some(vec![1]), false),
@@ -420,7 +448,7 @@ mod tests {
 
 	#[test]
 	fn rollback_remove_transaction_works() {
-		let mut storage = TransientStorage::<Test>::new(1024, 256);
+		let mut storage = TransientStorage::<Test>::new(1024);
 		storage.start_transaction();
 		assert_eq!(
 			storage.write(&ALICE, &Key::Fix([1; 32]), Some(vec![1]), false),
@@ -436,7 +464,7 @@ mod tests {
 
 	#[test]
 	fn rollback_transaction_works() {
-		let mut storage = TransientStorage::<Test>::new(1024, 256);
+		let mut storage = TransientStorage::<Test>::new(1024);
 
 		storage.start_transaction();
 		assert_eq!(
@@ -449,7 +477,7 @@ mod tests {
 
 	#[test]
 	fn commit_transaction_works() {
-		let mut storage = TransientStorage::<Test>::new(1024, 256);
+		let mut storage = TransientStorage::<Test>::new(1024);
 
 		storage.start_transaction();
 		assert_eq!(
@@ -462,7 +490,7 @@ mod tests {
 
 	#[test]
 	fn overwrite_and_commmit_transaction_works() {
-		let mut storage = TransientStorage::<Test>::new(1024, 512);
+		let mut storage = TransientStorage::<Test>::new(1024);
 		storage.start_transaction();
 		assert_eq!(
 			storage.write(&ALICE, &Key::Fix([1; 32]), Some(vec![1]), false),
@@ -478,7 +506,7 @@ mod tests {
 
 	#[test]
 	fn rollback_in_nested_transaction_works() {
-		let mut storage = TransientStorage::<Test>::new(1024, 256);
+		let mut storage = TransientStorage::<Test>::new(1024);
 		storage.start_transaction();
 		assert_eq!(
 			storage.write(&ALICE, &Key::Fix([1; 32]), Some(vec![1]), false),
@@ -497,7 +525,7 @@ mod tests {
 
 	#[test]
 	fn commit_in_nested_transaction_works() {
-		let mut storage = TransientStorage::<Test>::new(1024, 256);
+		let mut storage = TransientStorage::<Test>::new(1024);
 		storage.start_transaction();
 		assert_eq!(
 			storage.write(&ALICE, &Key::Fix([1; 32]), Some(vec![1]), false),
@@ -523,7 +551,7 @@ mod tests {
 
 	#[test]
 	fn commit_rollback_in_nested_transaction_works() {
-		let mut storage = TransientStorage::<Test>::new(1024, 256);
+		let mut storage = TransientStorage::<Test>::new(1024);
 		storage.start_transaction();
 		assert_eq!(
 			storage.write(&ALICE, &Key::Fix([1; 32]), Some(vec![1]), false),
@@ -548,30 +576,67 @@ mod tests {
 	}
 
 	#[test]
-	fn metering_nested_limit_works() {
-		let mut storage = TransientStorage::<Test>::new(1024, 128);
+	fn metering_transactions_works() {
+		// 192 bytes is the allocation overhead, plus 32 bytes for the account and 32 bytes for the
+		// key. Call stack size is 2, so free storage is divided by 2 with each frame.
+		let mut storage = TransientStorage::<Test>::new((4096 + 256) * 2);
+		storage.start_transaction();
+		assert_eq!(
+			storage.write(&ALICE, &Key::Fix([1; 32]), Some(vec![1u8; 4096]), false),
+			Ok(WriteOutcome::New)
+		);
+		storage.commit_transaction();
 
 		storage.start_transaction();
 		assert_eq!(
-			storage.write(&ALICE, &Key::Fix([1; 32]), Some(vec![1]), false),
-			Err(Error::<Test>::OutOfTransientStorage.into())
+			storage.write(&ALICE, &Key::Fix([2; 32]), Some(vec![1u8; 4096]), false),
+			Ok(WriteOutcome::New)
 		);
 		storage.commit_transaction();
-		assert_eq!(storage.read(&ALICE, &Key::Fix([1; 32])), None);
 	}
 
 	#[test]
-	fn metering_total_limit_works() {
-		let mut storage = TransientStorage::<Test>::new(256, 256);
+	fn metering_nested_transactions_works() {
+		let mut storage = TransientStorage::<Test>::new((4096 + 256) * 3);
 
 		storage.start_transaction();
 		assert_eq!(
-			storage.write(&ALICE, &Key::Fix([1; 32]), Some(vec![1]), false),
+			storage.write(&ALICE, &Key::Fix([1; 32]), Some(vec![1u8; 4096]), false),
 			Ok(WriteOutcome::New)
 		);
 		storage.start_transaction();
 		assert_eq!(
-			storage.write(&ALICE, &Key::Fix([2; 32]), Some(vec![1]), false),
+			storage.write(&ALICE, &Key::Fix([2; 32]), Some(vec![1u8; 4096]), false),
+			Ok(WriteOutcome::New)
+		);
+		storage.commit_transaction();
+		storage.commit_transaction();
+	}
+
+	#[test]
+	fn metering_transaction_fails() {
+		let mut storage = TransientStorage::<Test>::new(4096);
+		storage.start_transaction();
+		assert_eq!(
+			storage.write(&ALICE, &Key::Fix([1; 32]), Some(vec![1u8; 4096]), false),
+			Err(Error::<Test>::OutOfTransientStorage.into())
+		);
+		storage.commit_transaction();
+		assert_eq!(storage.meter.total_amount(), 0);
+	}
+
+	#[test]
+	fn metering_nested_transactions_fails() {
+		let mut storage = TransientStorage::<Test>::new((4096 + 256) * 2);
+
+		storage.start_transaction();
+		assert_eq!(
+			storage.write(&ALICE, &Key::Fix([1; 32]), Some(vec![1u8; 4096]), false),
+			Ok(WriteOutcome::New)
+		);
+		storage.start_transaction();
+		assert_eq!(
+			storage.write(&ALICE, &Key::Fix([2; 32]), Some(vec![1u8; 4096]), false),
 			Err(Error::<Test>::OutOfTransientStorage.into())
 		);
 		storage.commit_transaction();
@@ -579,18 +644,22 @@ mod tests {
 	}
 
 	#[test]
-	fn metering_total_limit_with_rollback_works() {
-		let mut storage = TransientStorage::<Test>::new(256, 256);
+	fn metering_nested_transaction_with_rollback_works() {
+		let mut storage = TransientStorage::<Test>::new((4096 + 256) * 2);
 
 		storage.start_transaction();
+		let limit = storage.meter.current_limit();
 		storage.start_transaction();
 		assert_eq!(
-			storage.write(&ALICE, &Key::Fix([2; 32]), Some(vec![1]), false),
+			storage.write(&ALICE, &Key::Fix([2; 32]), Some(vec![1u8; 4096]), false),
 			Ok(WriteOutcome::New)
 		);
 		storage.rollback_transaction();
+
+		assert_eq!(storage.meter.total_amount(), 0);
+		assert_eq!(storage.meter.current_limit(), limit);
 		assert_eq!(
-			storage.write(&ALICE, &Key::Fix([1; 32]), Some(vec![1]), false),
+			storage.write(&ALICE, &Key::Fix([1; 32]), Some(vec![1u8; 4096]), false),
 			Ok(WriteOutcome::New)
 		);
 		storage.commit_transaction();
@@ -598,27 +667,27 @@ mod tests {
 
 	#[test]
 	fn metering_with_rollback_works() {
-		let mut storage = TransientStorage::<Test>::new(1024, 256);
+		let mut storage = TransientStorage::<Test>::new((4096 + 256) * 5);
 
 		storage.start_transaction();
 		assert_eq!(
-			storage.write(&ALICE, &Key::Fix([1; 32]), Some(vec![1]), false),
+			storage.write(&ALICE, &Key::Fix([1; 32]), Some(vec![1u8; 4096]), false),
 			Ok(WriteOutcome::New)
 		);
 		let amount = storage.meter.total_amount();
 		storage.start_transaction();
 		assert_eq!(
-			storage.write(&ALICE, &Key::Fix([2; 32]), Some(vec![2]), false),
+			storage.write(&ALICE, &Key::Fix([2; 32]), Some(vec![1u8; 4096]), false),
 			Ok(WriteOutcome::New)
 		);
 		storage.start_transaction();
 		assert_eq!(
-			storage.write(&BOB, &Key::Fix([1; 32]), Some(vec![3]), false),
+			storage.write(&BOB, &Key::Fix([1; 32]), Some(vec![1u8; 4096]), false),
 			Ok(WriteOutcome::New)
 		);
 		storage.commit_transaction();
 		storage.rollback_transaction();
-		storage.commit_transaction();
 		assert_eq!(amount, storage.meter.total_amount());
+		storage.commit_transaction();
 	}
 }
