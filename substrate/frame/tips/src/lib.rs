@@ -169,6 +169,9 @@ pub mod pallet {
 		/// update weights file when altering this method.
 		type Tippers: SortedMembers<Self::AccountId> + ContainsLengthBound;
 
+		/// Handler for the unbalanced decrease when slashing for a removed tip.
+		type OnSlash: OnUnbalanced<NegativeImbalanceOf<Self, I>>;
+
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
 	}
