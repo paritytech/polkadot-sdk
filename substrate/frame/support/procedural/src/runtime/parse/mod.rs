@@ -267,3 +267,24 @@ impl Def {
 		Ok(def)
 	}
 }
+
+#[test]
+fn runtime_parsing_works() {
+	let def = Def::try_from(syn::parse_quote! {
+		#[runtime::runtime]
+		mod runtime {
+			#[runtime::derive(RuntimeCall, RuntimeEvent)]
+			#[runtime::runtime]
+			pub struct Runtime;
+
+			#[runtime::pallet_index(0)]
+			pub type System = frame_system::Pallet<Runtime>;
+
+			#[runtime::pallet_index(1)]
+			pub type Pallet1 = pallet1<Instance1>;
+		}
+	})
+	.expect("Failed to parse runtime definition");
+
+	assert_eq!(def.runtime_struct.ident, "Runtime");
+}

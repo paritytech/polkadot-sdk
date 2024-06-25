@@ -58,17 +58,10 @@ impl Pallet {
 			"Invalid pallet declaration, expected a path or a trait object",
 		))?;
 
-		let PalletDeclaration { pallet_segment, instance, .. } =
+		let PalletDeclaration { path: inner, instance, .. } =
 			PalletDeclaration::try_from(attr_span, item, &path.inner)?;
 
-		if pallet_segment.is_some() {
-			path = PalletPath {
-				inner: syn::Path {
-					leading_colon: None,
-					segments: path.inner.segments.first().cloned().into_iter().collect(),
-				},
-			};
-		}
+		path = PalletPath { inner };
 
 		pallet_parts = pallet_parts
 			.into_iter()
@@ -100,4 +93,96 @@ impl Pallet {
 			docs,
 		})
 	}
+}
+
+#[test]
+fn pallet_parsing_works() {
+	use syn::{parse_quote, ItemType};
+
+	let item: ItemType = parse_quote! {
+		pub type System = frame_system + Call;
+	};
+	let ItemType { ty, .. } = item.clone();
+	let syn::Type::TraitObject(syn::TypeTraitObject { bounds, .. }) = *ty else {
+		panic!("Expected a trait object");
+	};
+
+	let index = 0;
+	let pallet =
+		Pallet::try_from(proc_macro2::Span::call_site(), &item, index, false, false, &bounds)
+			.unwrap();
+
+	assert_eq!(pallet.name.to_string(), "System");
+	assert_eq!(pallet.index, index);
+	assert_eq!(pallet.path.to_token_stream().to_string(), "frame_system");
+	assert_eq!(pallet.instance, None);
+}
+
+#[test]
+fn pallet_parsing_works_with_instance() {
+	use syn::{parse_quote, ItemType};
+
+	let item: ItemType = parse_quote! {
+		pub type System = frame_system<Instance1> + Call;
+	};
+	let ItemType { ty, .. } = item.clone();
+	let syn::Type::TraitObject(syn::TypeTraitObject { bounds, .. }) = *ty else {
+		panic!("Expected a trait object");
+	};
+
+	let index = 0;
+	let pallet =
+		Pallet::try_from(proc_macro2::Span::call_site(), &item, index, false, false, &bounds)
+			.unwrap();
+
+	assert_eq!(pallet.name.to_string(), "System");
+	assert_eq!(pallet.index, index);
+	assert_eq!(pallet.path.to_token_stream().to_string(), "frame_system");
+	assert_eq!(pallet.instance, Some(parse_quote! { Instance1 }));
+}
+
+#[test]
+fn pallet_parsing_works_with_pallet() {
+	use syn::{parse_quote, ItemType};
+
+	let item: ItemType = parse_quote! {
+		pub type System = frame_system::Pallet<Runtime> + Call;
+	};
+	let ItemType { ty, .. } = item.clone();
+	let syn::Type::TraitObject(syn::TypeTraitObject { bounds, .. }) = *ty else {
+		panic!("Expected a trait object");
+	};
+
+	let index = 0;
+	let pallet =
+		Pallet::try_from(proc_macro2::Span::call_site(), &item, index, false, false, &bounds)
+			.unwrap();
+
+	assert_eq!(pallet.name.to_string(), "System");
+	assert_eq!(pallet.index, index);
+	assert_eq!(pallet.path.to_token_stream().to_string(), "frame_system");
+	assert_eq!(pallet.instance, None);
+}
+
+#[test]
+fn pallet_parsing_works_with_instance_and_pallet() {
+	use syn::{parse_quote, ItemType};
+
+	let item: ItemType = parse_quote! {
+		pub type System = frame_system::Pallet<Runtime, Instance1> + Call;
+	};
+	let ItemType { ty, .. } = item.clone();
+	let syn::Type::TraitObject(syn::TypeTraitObject { bounds, .. }) = *ty else {
+		panic!("Expected a trait object");
+	};
+
+	let index = 0;
+	let pallet =
+		Pallet::try_from(proc_macro2::Span::call_site(), &item, index, false, false, &bounds)
+			.unwrap();
+
+	assert_eq!(pallet.name.to_string(), "System");
+	assert_eq!(pallet.index, index);
+	assert_eq!(pallet.path.to_token_stream().to_string(), "frame_system");
+	assert_eq!(pallet.instance, Some(parse_quote! { Instance1 }));
 }
