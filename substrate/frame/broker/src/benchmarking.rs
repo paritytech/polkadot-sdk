@@ -735,7 +735,7 @@ mod benches {
 			&caller.clone(),
 			T::Currency::minimum_balance().saturating_add(30_000_000u32.into()),
 		);
-		T::Currency::set_balance(&Broker::<T>::account_id(), T::Currency::minimum_balance());
+		T::Currency::set_balance(&Broker::<T>::account_id(), 30_000_000u32.into());
 
 		let timeslice_period: u32 = T::TimeslicePeriod::get().try_into().ok().unwrap();
 		let multiplicator = 5;
