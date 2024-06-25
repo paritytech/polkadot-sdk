@@ -109,8 +109,8 @@ use polkadot_primitives::{
 	node_features::FeatureIndex, BackedCandidate, CandidateCommitments, CandidateHash,
 	CandidateReceipt, CommittedCandidateReceipt, CoreIndex, CoreState, ExecutorParams, GroupIndex,
 	GroupRotationInfo, Hash, Id as ParaId, IndexedVec, NodeFeatures, PersistedValidationData,
-	PvfExecKind, SessionIndex, SigningContext, ValidationCode, ValidatorId, ValidatorIndex,
-	ValidatorSignature, ValidityAttestation,
+	SessionIndex, SigningContext, ValidationCode, ValidatorId, ValidatorIndex, ValidatorSignature,
+	ValidityAttestation,
 };
 use polkadot_statement_table::{
 	generic::AttestedCandidate as TableAttestedCandidate,

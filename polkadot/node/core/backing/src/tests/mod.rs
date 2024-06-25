@@ -30,7 +30,7 @@ use polkadot_node_subsystem::{
 use polkadot_node_subsystem_test_helpers as test_helpers;
 use polkadot_primitives::{
 	node_features, CandidateDescriptor, GroupRotationInfo, HeadData, PersistedValidationData,
-	PvfExecKind, ScheduledCore, SessionIndex, LEGACY_MIN_BACKING_VOTES,
+	ScheduledCore, SessionIndex, LEGACY_MIN_BACKING_VOTES,
 };
 use polkadot_primitives_test_helpers::{
 	dummy_candidate_receipt_bad_sig, dummy_collator, dummy_collator_signature,
