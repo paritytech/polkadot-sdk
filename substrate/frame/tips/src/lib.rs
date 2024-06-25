@@ -490,6 +490,16 @@ pub mod pallet {
 impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	// Add public immutables and private mutables.
 
+	/// Access tips storage from outside
+	pub fn tips(hash: T::Hash) -> Option<OpenTip<T::AccountId, BalanceOf<T, I>, BlockNumberFor<T>, T::Hash>> {
+		Tips::<T, I>::get(hash)
+	}
+
+	/// Access reasons storage from outside
+	pub fn reasons(hash: T::Hash) -> Option<Vec<u8>> {
+		Reasons::<T, I>::get(hash)
+	}
+
 	/// The account ID of the treasury pot.
 	///
 	/// This actually does computation. If you need to keep using it, then make sure you cache the
