@@ -25,7 +25,7 @@ fn timestamp_works() {
 	new_test_ext().execute_with(|| {
 		crate::Now::<Test>::put(46);
 		assert_ok!(Timestamp::set(RuntimeOrigin::none(), 69));
-		assert_eq!(Timestamp::now(), 69);
+		assert_eq!(crate::Now::<Test>::get(), 69);
 		assert_eq!(Some(69), get_captured_moment());
 	});
 }
