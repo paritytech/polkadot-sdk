@@ -339,8 +339,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#188" id="188">188</a>
 <a href="#189" id="189">189</a>
 <a href="#190" id="190">190</a>
-<a href="#191" id="191">191</a>
-<a href="#192" id="192">192</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -499,24 +497,22 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="comment">// TODO: uncomment this after upgrading `multihash` crate to v0.19.1.
-//
-// impl From&lt;multihash::Multihash&lt;64&gt;&gt; for Multihash {
-// 	fn from(generic: multihash::MultihashGeneric&lt;64&gt;) -&gt; Self {
-// 		LiteP2pMultihash::wrap(generic.code(), generic.digest())
-// 			.expect("both have size 64; qed")
-// 			.into()
-// 	}
-// }
-//
-// impl From&lt;Multihash&gt; for multihash::Multihash&lt;64&gt; {
-// 	fn from(multihash: Multihash) -&gt; Self {
-// 		multihash::Multihash::&lt;64&gt;::wrap(multihash.code(), multihash.digest())
-// 			.expect("both have size 64; qed")
-// 	}
-// }
+<span class="kw">impl </span>From&lt;multihash::Multihash&lt;<span class="number">64</span>&gt;&gt; <span class="kw">for </span>Multihash {
+	<span class="kw">fn </span>from(generic: multihash::Multihash&lt;<span class="number">64</span>&gt;) -&gt; <span class="self">Self </span>{
+		LiteP2pMultihash::wrap(generic.code(), generic.digest())
+			.expect(<span class="string">"both have size 64; qed"</span>)
+			.into()
+	}
+}
 
-</span><span class="attr">#[cfg(test)]
+<span class="kw">impl </span>From&lt;Multihash&gt; <span class="kw">for </span>multihash::Multihash&lt;<span class="number">64</span>&gt; {
+	<span class="kw">fn </span>from(multihash: Multihash) -&gt; <span class="self">Self </span>{
+		multihash::Multihash::&lt;<span class="number">64</span>&gt;::wrap(multihash.code(), multihash.digest())
+			.expect(<span class="string">"both have size 64; qed"</span>)
+	}
+}
+
+<span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>tests {
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
 

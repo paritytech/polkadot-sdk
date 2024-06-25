@@ -632,6 +632,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#481" id="481">481</a>
 <a href="#482" id="482">482</a>
 <a href="#483" id="483">483</a>
+<a href="#484" id="484">484</a>
+<a href="#485" id="485">485</a>
+<a href="#486" id="486">486</a>
+<a href="#487" id="487">487</a>
+<a href="#488" id="488">488</a>
+<a href="#489" id="489">489</a>
+<a href="#490" id="490">490</a>
+<a href="#491" id="491">491</a>
+<a href="#492" id="492">492</a>
+<a href="#493" id="493">493</a>
+<a href="#494" id="494">494</a>
+<a href="#495" id="495">495</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -898,8 +910,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">async fn </span>network_state(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;NetworkState, ()&gt; {
 		<span class="prelude-val">Ok</span>(NetworkState {
 			peer_id: <span class="self">self</span>.local_peer_id.to_base58(),
-			listened_addresses: <span class="self">self</span>.listen_addresses.read().iter().cloned().collect(),
-			external_addresses: <span class="self">self</span>.external_addresses.read().iter().cloned().collect(),
+			listened_addresses: <span class="self">self
+				</span>.listen_addresses
+				.read()
+				.iter()
+				.cloned()
+				.map(|a| Multiaddr::from(a).into())
+				.collect(),
+			external_addresses: <span class="self">self
+				</span>.external_addresses
+				.read()
+				.iter()
+				.cloned()
+				.map(|a| Multiaddr::from(a).into())
+				.collect(),
 			connected_peers: HashMap::new(),
 			not_connected_peers: HashMap::new(),
 			<span class="comment">// TODO: Check what info we can include here.

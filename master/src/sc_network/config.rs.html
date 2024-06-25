@@ -1241,13 +1241,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Splits a Multiaddress into a Multiaddress and PeerId.
 </span><span class="kw">pub fn </span>parse_addr(<span class="kw-2">mut </span>addr: Multiaddr) -&gt; <span class="prelude-ty">Result</span>&lt;(PeerId, Multiaddr), ParseErr&gt; {
-	<span class="kw">let </span>who = <span class="kw">match </span>addr.pop() {
-		<span class="prelude-val">Some</span>(multiaddr::Protocol::P2p(key)) =&gt;
-			PeerId::from_multihash(key).map_err(|<span class="kw">_</span>| ParseErr::InvalidPeerId)<span class="question-mark">?</span>,
+	<span class="kw">let </span>multihash = <span class="kw">match </span>addr.pop() {
+		<span class="prelude-val">Some</span>(multiaddr::Protocol::P2p(multihash)) =&gt; multihash,
 		<span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(ParseErr::PeerIdMissing),
 	};
+	<span class="kw">let </span>peer_id = PeerId::from_multihash(multihash).map_err(|<span class="kw">_</span>| ParseErr::InvalidPeerId)<span class="question-mark">?</span>;
 
-	<span class="prelude-val">Ok</span>((who, addr))
+	<span class="prelude-val">Ok</span>((peer_id, addr))
 }
 
 <span class="doccomment">/// Address of a node, including its identity.

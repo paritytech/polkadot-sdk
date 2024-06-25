@@ -346,7 +346,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // along with this program. If not, see &lt;https://www.gnu.org/licenses/&gt;.
 
 </span><span class="kw">use </span>futures::prelude::<span class="kw-2">*</span>;
-<span class="kw">use </span>libp2p::core::upgrade::{InboundUpgrade, ProtocolName, UpgradeInfo};
+<span class="kw">use </span>libp2p::core::upgrade::{InboundUpgrade, UpgradeInfo};
 <span class="kw">use </span>std::{
 	pin::Pin,
 	task::{Context, Poll},
@@ -404,9 +404,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="attr">#[derive(Debug, Clone, PartialEq)]
 </span><span class="kw">pub struct </span>ProtoNameWithUsize&lt;T&gt;(T, usize);
 
-<span class="kw">impl</span>&lt;T: ProtocolName&gt; ProtocolName <span class="kw">for </span>ProtoNameWithUsize&lt;T&gt; {
-	<span class="kw">fn </span>protocol_name(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>[u8] {
-		<span class="self">self</span>.<span class="number">0</span>.protocol_name()
+<span class="kw">impl</span>&lt;T: AsRef&lt;str&gt;&gt; AsRef&lt;str&gt; <span class="kw">for </span>ProtoNameWithUsize&lt;T&gt; {
+	<span class="kw">fn </span>as_ref(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>str {
+		<span class="self">self</span>.<span class="number">0</span>.as_ref()
 	}
 }
 
@@ -432,13 +432,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">mod </span>tests {
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
 	<span class="kw">use </span><span class="kw">crate</span>::types::ProtocolName <span class="kw">as </span>ProtoName;
-	<span class="kw">use </span>libp2p::core::upgrade::{ProtocolName, UpgradeInfo};
+	<span class="kw">use </span>libp2p::core::upgrade::UpgradeInfo;
 
 	<span class="comment">// TODO: move to mocks
 	</span><span class="macro">mockall::mock! </span>{
 		<span class="kw">pub </span>ProtocolUpgrade&lt;T&gt; {}
 
-		<span class="kw">impl</span>&lt;T: Clone + ProtocolName&gt; UpgradeInfo <span class="kw">for </span>ProtocolUpgrade&lt;T&gt; {
+		<span class="kw">impl</span>&lt;T: Clone + AsRef&lt;str&gt;&gt; UpgradeInfo <span class="kw">for </span>ProtocolUpgrade&lt;T&gt; {
 			<span class="kw">type </span>Info = T;
 			<span class="kw">type </span>InfoIter = vec::IntoIter&lt;T&gt;;
 			<span class="kw">fn </span>protocol_info(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; vec::IntoIter&lt;T&gt;;

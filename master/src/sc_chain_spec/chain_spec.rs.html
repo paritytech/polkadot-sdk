@@ -1334,6 +1334,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1183" id="1183">1183</a>
 <a href="#1184" id="1184">1184</a>
 <a href="#1185" id="1185">1185</a>
+<a href="#1186" id="1186">1186</a>
+<a href="#1187" id="1187">1187</a>
+<a href="#1188" id="1188">1188</a>
+<a href="#1189" id="1189">1189</a>
+<a href="#1190" id="1190">1190</a>
+<a href="#1191" id="1191">1191</a>
+<a href="#1192" id="1192">1192</a>
+<a href="#1193" id="1193">1193</a>
+<a href="#1194" id="1194">1194</a>
+<a href="#1195" id="1195">1195</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2100,6 +2110,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>} <span class="kw">else </span>{
 		<span class="bool-val">false
 	</span>}
+}
+
+<span class="doccomment">/// This function sets a codeSubstitute in the chain spec.
+</span><span class="kw">pub fn </span>set_code_substitute_in_json_chain_spec(
+	chain_spec: <span class="kw-2">&amp;mut </span>json::Value,
+	code: <span class="kw-2">&amp;</span>[u8],
+	block_height: u64,
+) {
+	<span class="kw">let </span>substitutes = <span class="macro">json::json!</span>({<span class="string">"codeSubstitutes"</span>:{ <span class="kw-2">&amp;</span>block_height.to_string(): sp_core::bytes::to_hex(code, <span class="bool-val">false</span>) }});
+	<span class="kw">crate</span>::json_patch::merge(chain_spec, substitutes);
 }
 
 <span class="attr">#[cfg(test)]

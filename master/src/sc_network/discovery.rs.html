@@ -1469,6 +1469,35 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1318" id="1318">1318</a>
 <a href="#1319" id="1319">1319</a>
 <a href="#1320" id="1320">1320</a>
+<a href="#1321" id="1321">1321</a>
+<a href="#1322" id="1322">1322</a>
+<a href="#1323" id="1323">1323</a>
+<a href="#1324" id="1324">1324</a>
+<a href="#1325" id="1325">1325</a>
+<a href="#1326" id="1326">1326</a>
+<a href="#1327" id="1327">1327</a>
+<a href="#1328" id="1328">1328</a>
+<a href="#1329" id="1329">1329</a>
+<a href="#1330" id="1330">1330</a>
+<a href="#1331" id="1331">1331</a>
+<a href="#1332" id="1332">1332</a>
+<a href="#1333" id="1333">1333</a>
+<a href="#1334" id="1334">1334</a>
+<a href="#1335" id="1335">1335</a>
+<a href="#1336" id="1336">1336</a>
+<a href="#1337" id="1337">1337</a>
+<a href="#1338" id="1338">1338</a>
+<a href="#1339" id="1339">1339</a>
+<a href="#1340" id="1340">1340</a>
+<a href="#1341" id="1341">1341</a>
+<a href="#1342" id="1342">1342</a>
+<a href="#1343" id="1343">1343</a>
+<a href="#1344" id="1344">1344</a>
+<a href="#1345" id="1345">1345</a>
+<a href="#1346" id="1346">1346</a>
+<a href="#1347" id="1347">1347</a>
+<a href="#1348" id="1348">1348</a>
+<a href="#1349" id="1349">1349</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1526,20 +1555,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>libp2p::{
 	core::{Endpoint, Multiaddr},
 	kad::{
-		handler::KademliaHandler,
+		<span class="self">self</span>,
 		record::store::{MemoryStore, RecordStore},
-		GetClosestPeersError, GetRecordOk, Kademlia, KademliaBucketInserts, KademliaConfig,
-		KademliaEvent, QueryId, QueryResult, Quorum, Record, RecordKey,
+		Behaviour <span class="kw">as </span>Kademlia, BucketInserts, Config <span class="kw">as </span>KademliaConfig, Event <span class="kw">as </span>KademliaEvent,
+		GetClosestPeersError, GetRecordOk, QueryId, QueryResult, Quorum, Record, RecordKey,
 	},
 	mdns::{<span class="self">self</span>, tokio::Behaviour <span class="kw">as </span>TokioMdns},
 	multiaddr::Protocol,
 	swarm::{
 		behaviour::{
 			toggle::{Toggle, ToggleConnectionHandler},
-			DialFailure, FromSwarm, NewExternalAddr,
+			DialFailure, ExternalAddrConfirmed, FromSwarm,
 		},
-		ConnectionDenied, ConnectionId, DialError, NetworkBehaviour, PollParameters, THandler,
-		THandlerInEvent, THandlerOutEvent, ToSwarm,
+		ConnectionDenied, ConnectionId, DialError, NetworkBehaviour, PollParameters,
+		StreamProtocol, THandler, THandlerInEvent, THandlerOutEvent, ToSwarm,
 	},
 	PeerId,
 };
@@ -1576,8 +1605,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	discovery_only_if_under_num: u64,
 	enable_mdns: bool,
 	kademlia_disjoint_query_paths: bool,
-	kademlia_protocol: Vec&lt;u8&gt;,
-	kademlia_legacy_protocol: Vec&lt;u8&gt;,
+	kademlia_protocol: <span class="prelude-ty">Option</span>&lt;StreamProtocol&gt;,
+	kademlia_legacy_protocol: <span class="prelude-ty">Option</span>&lt;StreamProtocol&gt;,
 	kademlia_replication_factor: NonZeroUsize,
 }
 
@@ -1593,8 +1622,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			discovery_only_if_under_num: std::u64::MAX,
 			enable_mdns: <span class="bool-val">false</span>,
 			kademlia_disjoint_query_paths: <span class="bool-val">false</span>,
-			kademlia_protocol: Vec::new(),
-			kademlia_legacy_protocol: Vec::new(),
+			kademlia_protocol: <span class="prelude-val">None</span>,
+			kademlia_legacy_protocol: <span class="prelude-val">None</span>,
 			kademlia_replication_factor: NonZeroUsize::new(DEFAULT_KADEMLIA_REPLICATION_FACTOR)
 				.expect(<span class="string">"value is a constant; constant is non-zero; qed."</span>),
 		}
@@ -1650,8 +1679,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		fork_id: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>str&gt;,
 		protocol_id: <span class="kw-2">&amp;</span>ProtocolId,
 	) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self </span>{
-		<span class="self">self</span>.kademlia_protocol = kademlia_protocol_name(genesis_hash, fork_id);
-		<span class="self">self</span>.kademlia_legacy_protocol = legacy_kademlia_protocol_name(protocol_id);
+		<span class="self">self</span>.kademlia_protocol = <span class="prelude-val">Some</span>(kademlia_protocol_name(genesis_hash, fork_id));
+		<span class="self">self</span>.kademlia_legacy_protocol = <span class="prelude-val">Some</span>(legacy_kademlia_protocol_name(protocol_id));
 		<span class="self">self
 	</span>}
 
@@ -1684,26 +1713,31 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			kademlia_replication_factor,
 		} = <span class="self">self</span>;
 
-		<span class="kw">let </span>kademlia = <span class="kw">if </span>!kademlia_protocol.is_empty() {
+		<span class="kw">let </span>kademlia = <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>kademlia_protocol) = kademlia_protocol {
 			<span class="kw">let </span><span class="kw-2">mut </span>config = KademliaConfig::default();
 
 			config.set_replication_factor(kademlia_replication_factor);
 			<span class="comment">// Populate kad with both the legacy and the new protocol names.
 			// Remove the legacy protocol:
 			// https://github.com/paritytech/polkadot-sdk/issues/504
-			</span><span class="kw">let </span>kademlia_protocols = [kademlia_protocol.clone(), kademlia_legacy_protocol];
+			</span><span class="kw">let </span>kademlia_protocols = <span class="kw">if let </span><span class="prelude-val">Some</span>(legacy_protocol) = kademlia_legacy_protocol {
+				<span class="macro">vec!</span>[kademlia_protocol.clone(), legacy_protocol]
+			} <span class="kw">else </span>{
+				<span class="macro">vec!</span>[kademlia_protocol.clone()]
+			};
 			config.set_protocol_names(kademlia_protocols.into_iter().map(Into::into).collect());
 
-			config.set_record_filtering(libp2p::kad::KademliaStoreInserts::FilterBoth);
+			config.set_record_filtering(libp2p::kad::StoreInserts::FilterBoth);
 
 			<span class="comment">// By default Kademlia attempts to insert all peers into its routing table once a
 			// dialing attempt succeeds. In order to control which peer is added, disable the
 			// auto-insertion and instead add peers manually.
-			</span>config.set_kbucket_inserts(KademliaBucketInserts::Manual);
+			</span>config.set_kbucket_inserts(BucketInserts::Manual);
 			config.disjoint_query_paths(kademlia_disjoint_query_paths);
 
 			<span class="kw">let </span>store = MemoryStore::new(local_peer_id);
 			<span class="kw">let </span><span class="kw-2">mut </span>kad = Kademlia::with_config(local_peer_id, store, config);
+			kad.set_mode(<span class="prelude-val">Some</span>(kad::Mode::Server));
 
 			<span class="kw">for </span>(peer_id, addr) <span class="kw">in </span><span class="kw-2">&amp;</span>permanent_addresses {
 				kad.add_address(peer_id, addr.clone());
@@ -1794,7 +1828,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// Remove when all nodes are upgraded to genesis hash and fork ID-based Kademlia:
 	/// &lt;https://github.com/paritytech/polkadot-sdk/issues/504&gt;.
-	</span>kademlia_protocol: Vec&lt;u8&gt;,
+	</span>kademlia_protocol: <span class="prelude-ty">Option</span>&lt;StreamProtocol&gt;,
 }
 
 <span class="kw">impl </span>DiscoveryBehaviour {
@@ -1840,7 +1874,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub fn </span>add_self_reported_address(
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
 		peer_id: <span class="kw-2">&amp;</span>PeerId,
-		supported_protocols: <span class="kw-2">&amp;</span>[<span class="kw">impl </span>AsRef&lt;[u8]&gt;],
+		supported_protocols: <span class="kw-2">&amp;</span>[StreamProtocol],
 		addr: Multiaddr,
 	) {
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(kademlia) = <span class="self">self</span>.kademlia.as_mut() {
@@ -1857,10 +1891,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			// Extract the chain-based Kademlia protocol from `kademlia.protocol_name()`
 			// when all nodes are upgraded to genesis hash and fork ID-based Kademlia:
 			// https://github.com/paritytech/polkadot-sdk/issues/504.
-			</span><span class="kw">if </span>!supported_protocols
-				.iter()
-				.any(|p| p.as_ref() == <span class="self">self</span>.kademlia_protocol.as_slice())
-			{
+			</span><span class="kw">if </span>!supported_protocols.iter().any(|p| {
+				p == <span class="self">self
+					</span>.kademlia_protocol
+					.as_ref()
+					.expect(<span class="string">"kademlia protocol was checked above to be enabled; qed"</span>)
+			}) {
 				<span class="macro">trace!</span>(
 					target: <span class="string">"sub-libp2p"</span>,
 					<span class="string">"Ignoring self-reported address {} from {} as remote node is not part of the \
@@ -1974,7 +2010,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="attr">#[derive(Debug)]
 </span><span class="kw">pub enum </span>DiscoveryOut {
 	<span class="doccomment">/// A connection to a peer has been established but the peer has not been
-	/// added to the routing table because [`KademliaBucketInserts::Manual`] is
+	/// added to the routing table because [`BucketInserts::Manual`] is
 	/// configured. If the peer is to be included in the routing table, it must
 	/// be explicitly added via
 	/// [`DiscoveryBehaviour::add_self_reported_address`].
@@ -2023,8 +2059,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="kw">impl </span>NetworkBehaviour <span class="kw">for </span>DiscoveryBehaviour {
-	<span class="kw">type </span>ConnectionHandler = ToggleConnectionHandler&lt;KademliaHandler&lt;QueryId&gt;&gt;;
-	<span class="kw">type </span>OutEvent = DiscoveryOut;
+	<span class="kw">type </span>ConnectionHandler =
+		ToggleConnectionHandler&lt;&lt;Kademlia&lt;MemoryStore&gt; <span class="kw">as </span>NetworkBehaviour&gt;::ConnectionHandler&gt;;
+	<span class="kw">type </span>ToSwarm = DiscoveryOut;
 
 	<span class="kw">fn </span>handle_established_inbound_connection(
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
@@ -2160,11 +2197,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			FromSwarm::ListenerError(e) =&gt; {
 				<span class="self">self</span>.kademlia.on_swarm_event(FromSwarm::ListenerError(e));
 			},
-			FromSwarm::ExpiredExternalAddr(e) =&gt; {
+			FromSwarm::ExternalAddrExpired(e) =&gt; {
 				<span class="comment">// We intentionally don't remove the element from `known_external_addresses` in
 				// order to not print the log line again.
 
-				</span><span class="self">self</span>.kademlia.on_swarm_event(FromSwarm::ExpiredExternalAddr(e));
+				</span><span class="self">self</span>.kademlia.on_swarm_event(FromSwarm::ExternalAddrExpired(e));
 			},
 			FromSwarm::NewListener(e) =&gt; {
 				<span class="self">self</span>.kademlia.on_swarm_event(FromSwarm::NewListener(e));
@@ -2172,8 +2209,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			FromSwarm::ExpiredListenAddr(e) =&gt; {
 				<span class="self">self</span>.kademlia.on_swarm_event(FromSwarm::ExpiredListenAddr(e));
 			},
-			FromSwarm::NewExternalAddr(e @ NewExternalAddr { addr }) =&gt; {
-				<span class="kw">let </span>new_addr = addr.clone().with(Protocol::P2p(<span class="self">self</span>.local_peer_id.into()));
+			FromSwarm::NewExternalAddrCandidate(e) =&gt; {
+				<span class="self">self</span>.kademlia.on_swarm_event(FromSwarm::NewExternalAddrCandidate(e));
+			},
+			FromSwarm::AddressChange(e) =&gt; {
+				<span class="self">self</span>.kademlia.on_swarm_event(FromSwarm::AddressChange(e));
+			},
+			FromSwarm::NewListenAddr(e) =&gt; {
+				<span class="self">self</span>.kademlia.on_swarm_event(FromSwarm::NewListenAddr(e));
+				<span class="self">self</span>.mdns.on_swarm_event(FromSwarm::NewListenAddr(e));
+			},
+			FromSwarm::ExternalAddrConfirmed(e @ ExternalAddrConfirmed { addr }) =&gt; {
+				<span class="kw">let </span>new_addr = addr.clone().with(Protocol::P2p(<span class="self">self</span>.local_peer_id));
 
 				<span class="kw">if </span><span class="self">Self</span>::can_add_to_dht(addr) {
 					<span class="comment">// NOTE: we might re-discover the same address multiple times
@@ -2187,14 +2234,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					}
 				}
 
-				<span class="self">self</span>.kademlia.on_swarm_event(FromSwarm::NewExternalAddr(e));
-			},
-			FromSwarm::AddressChange(e) =&gt; {
-				<span class="self">self</span>.kademlia.on_swarm_event(FromSwarm::AddressChange(e));
-			},
-			FromSwarm::NewListenAddr(e) =&gt; {
-				<span class="self">self</span>.kademlia.on_swarm_event(FromSwarm::NewListenAddr(e));
-				<span class="self">self</span>.mdns.on_swarm_event(FromSwarm::NewListenAddr(e));
+				<span class="self">self</span>.kademlia.on_swarm_event(FromSwarm::ExternalAddrConfirmed(e));
 			},
 		}
 	}
@@ -2212,7 +2252,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
 		cx: <span class="kw-2">&amp;mut </span>Context,
 		params: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>PollParameters,
-	) -&gt; Poll&lt;ToSwarm&lt;<span class="self">Self</span>::OutEvent, THandlerInEvent&lt;<span class="self">Self</span>&gt;&gt;&gt; {
+	) -&gt; Poll&lt;ToSwarm&lt;<span class="self">Self</span>::ToSwarm, THandlerInEvent&lt;<span class="self">Self</span>&gt;&gt;&gt; {
 		<span class="comment">// Immediately process the content of `discovered`.
 		</span><span class="kw">if let </span><span class="prelude-val">Some</span>(ev) = <span class="self">self</span>.pending_events.pop_front() {
 			<span class="kw">return </span>Poll::Ready(ToSwarm::GenerateEvent(ev))
@@ -2434,10 +2474,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				ToSwarm::Dial { opts } =&gt; <span class="kw">return </span>Poll::Ready(ToSwarm::Dial { opts }),
 				ToSwarm::NotifyHandler { peer_id, handler, event } =&gt;
 					<span class="kw">return </span>Poll::Ready(ToSwarm::NotifyHandler { peer_id, handler, event }),
-				ToSwarm::ReportObservedAddr { address, score } =&gt;
-					<span class="kw">return </span>Poll::Ready(ToSwarm::ReportObservedAddr { address, score }),
 				ToSwarm::CloseConnection { peer_id, connection } =&gt;
 					<span class="kw">return </span>Poll::Ready(ToSwarm::CloseConnection { peer_id, connection }),
+				ToSwarm::NewExternalAddrCandidate(observed) =&gt;
+					<span class="kw">return </span>Poll::Ready(ToSwarm::NewExternalAddrCandidate(observed)),
+				ToSwarm::ExternalAddrConfirmed(addr) =&gt;
+					<span class="kw">return </span>Poll::Ready(ToSwarm::ExternalAddrConfirmed(addr)),
+				ToSwarm::ExternalAddrExpired(addr) =&gt;
+					<span class="kw">return </span>Poll::Ready(ToSwarm::ExternalAddrExpired(addr)),
+				ToSwarm::ListenOn { opts } =&gt; <span class="kw">return </span>Poll::Ready(ToSwarm::ListenOn { opts }),
+				ToSwarm::RemoveListener { id } =&gt;
+					<span class="kw">return </span>Poll::Ready(ToSwarm::RemoveListener { id }),
 			}
 		}
 
@@ -2450,8 +2497,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 							<span class="kw">continue
 						</span>}
 
-						<span class="self">self</span>.pending_events
-							.extend(list.map(|(peer_id, <span class="kw">_</span>)| DiscoveryOut::Discovered(peer_id)));
+						<span class="self">self</span>.pending_events.extend(
+							list.into_iter().map(|(peer_id, <span class="kw">_</span>)| DiscoveryOut::Discovered(peer_id)),
+						);
 						<span class="kw">if let </span><span class="prelude-val">Some</span>(ev) = <span class="self">self</span>.pending_events.pop_front() {
 							<span class="kw">return </span>Poll::Ready(ToSwarm::GenerateEvent(ev))
 						}
@@ -2461,13 +2509,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				ToSwarm::Dial { .. } =&gt; {
 					<span class="macro">unreachable!</span>(<span class="string">"mDNS never dials!"</span>);
 				},
-				ToSwarm::NotifyHandler { event, .. } =&gt; <span class="kw">match </span>event {}, <span class="comment">/* `event` is an */
-				// enum with no
-				// variant
-				</span>ToSwarm::ReportObservedAddr { address, score } =&gt;
-					<span class="kw">return </span>Poll::Ready(ToSwarm::ReportObservedAddr { address, score }),
+				<span class="comment">// `event` is an enum with no variant
+				</span>ToSwarm::NotifyHandler { event, .. } =&gt; <span class="kw">match </span>event {},
 				ToSwarm::CloseConnection { peer_id, connection } =&gt;
 					<span class="kw">return </span>Poll::Ready(ToSwarm::CloseConnection { peer_id, connection }),
+				ToSwarm::NewExternalAddrCandidate(observed) =&gt;
+					<span class="kw">return </span>Poll::Ready(ToSwarm::NewExternalAddrCandidate(observed)),
+				ToSwarm::ExternalAddrConfirmed(addr) =&gt;
+					<span class="kw">return </span>Poll::Ready(ToSwarm::ExternalAddrConfirmed(addr)),
+				ToSwarm::ExternalAddrExpired(addr) =&gt;
+					<span class="kw">return </span>Poll::Ready(ToSwarm::ExternalAddrExpired(addr)),
+				ToSwarm::ListenOn { opts } =&gt; <span class="kw">return </span>Poll::Ready(ToSwarm::ListenOn { opts }),
+				ToSwarm::RemoveListener { id } =&gt;
+					<span class="kw">return </span>Poll::Ready(ToSwarm::RemoveListener { id }),
 			}
 		}
 
@@ -2476,21 +2530,24 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// Legacy (fallback) Kademlia protocol name based on `protocol_id`.
-</span><span class="kw">fn </span>legacy_kademlia_protocol_name(id: <span class="kw-2">&amp;</span>ProtocolId) -&gt; Vec&lt;u8&gt; {
-	<span class="kw">let </span><span class="kw-2">mut </span>v = <span class="macro">vec!</span>[<span class="string">b'/'</span>];
-	v.extend_from_slice(id.as_ref().as_bytes());
-	v.extend_from_slice(<span class="string">b"/kad"</span>);
-	v
+</span><span class="kw">fn </span>legacy_kademlia_protocol_name(id: <span class="kw-2">&amp;</span>ProtocolId) -&gt; StreamProtocol {
+	<span class="kw">let </span>name = <span class="macro">format!</span>(<span class="string">"/{}/kad"</span>, id.as_ref());
+	StreamProtocol::try_from_owned(name).expect(<span class="string">"protocol name is valid. qed"</span>)
 }
 
 <span class="doccomment">/// Kademlia protocol name based on `genesis_hash` and `fork_id`.
-</span><span class="kw">fn </span>kademlia_protocol_name&lt;Hash: AsRef&lt;[u8]&gt;&gt;(genesis_hash: Hash, fork_id: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>str&gt;) -&gt; Vec&lt;u8&gt; {
+</span><span class="kw">fn </span>kademlia_protocol_name&lt;Hash: AsRef&lt;[u8]&gt;&gt;(
+	genesis_hash: Hash,
+	fork_id: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>str&gt;,
+) -&gt; StreamProtocol {
 	<span class="kw">let </span>genesis_hash_hex = bytes2hex(<span class="string">""</span>, genesis_hash.as_ref());
-	<span class="kw">if let </span><span class="prelude-val">Some</span>(fork_id) = fork_id {
-		<span class="macro">format!</span>(<span class="string">"/{}/{}/kad"</span>, genesis_hash_hex, fork_id).as_bytes().into()
+	<span class="kw">let </span>name = <span class="kw">if let </span><span class="prelude-val">Some</span>(fork_id) = fork_id {
+		<span class="macro">format!</span>(<span class="string">"/{genesis_hash_hex}/{fork_id}/kad"</span>)
 	} <span class="kw">else </span>{
-		<span class="macro">format!</span>(<span class="string">"/{}/kad"</span>, genesis_hash_hex).as_bytes().into()
-	}
+		<span class="macro">format!</span>(<span class="string">"/{genesis_hash_hex}/kad"</span>)
+	};
+
+	StreamProtocol::try_from_owned(name).expect(<span class="string">"protocol name is valid. qed"</span>)
 }
 
 <span class="attr">#[cfg(test)]
@@ -2507,7 +2564,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		},
 		identity::Keypair,
 		noise,
-		swarm::{Executor, Swarm, SwarmBuilder, SwarmEvent},
+		swarm::{Executor, Swarm, SwarmEvent},
 		yamux, Multiaddr,
 	};
 	<span class="kw">use </span>sp_core::hash::H256;
@@ -2553,7 +2610,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				};
 
 				<span class="kw">let </span>runtime = tokio::runtime::Runtime::new().unwrap();
-				<span class="kw">let </span><span class="kw-2">mut </span>swarm = SwarmBuilder::with_executor(
+				<span class="attr">#[allow(deprecated)]
+				</span><span class="kw">let </span><span class="kw-2">mut </span>swarm = libp2p::swarm::SwarmBuilder::with_executor(
 					transport,
 					behaviour,
 					keypair.public().to_peer_id(),

@@ -331,7 +331,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>initialize_transport() -&gt; <span class="prelude-ty">Result</span>&lt;WsTrans, io::Error&gt; {
 	<span class="kw">let </span>transport = {
 		<span class="kw">let </span>tcp_transport = libp2p::tcp::tokio::Transport::new(libp2p::tcp::Config::new());
-		<span class="kw">let </span>inner = libp2p::dns::TokioDnsConfig::system(tcp_transport)<span class="question-mark">?</span>;
+		<span class="kw">let </span>inner = libp2p::dns::tokio::Transport::system(tcp_transport)<span class="question-mark">?</span>;
 		libp2p::websocket::framed::WsConfig::new(inner).and_then(|connec, <span class="kw">_</span>| {
 			<span class="kw">let </span>connec = connec
 				.with(|item| {

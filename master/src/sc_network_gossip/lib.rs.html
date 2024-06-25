@@ -252,6 +252,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#101" id="101">101</a>
 <a href="#102" id="102">102</a>
 <a href="#103" id="103">103</a>
+<a href="#104" id="104">104</a>
+<a href="#105" id="105">105</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -321,9 +323,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	validator::{DiscardAll, MessageIntent, ValidationResult, Validator, ValidatorContext},
 };
 
-<span class="kw">use </span>sc_network::{multiaddr, types::ProtocolName, NetworkBlock, NetworkEventStream, NetworkPeers};
+<span class="kw">use </span>sc_network::{types::ProtocolName, NetworkBlock, NetworkEventStream, NetworkPeers};
 <span class="kw">use </span>sc_network_sync::SyncEventStream;
-<span class="kw">use </span>sc_network_types::PeerId;
+<span class="kw">use </span>sc_network_types::{
+	multiaddr::{Multiaddr, Protocol},
+	PeerId,
+};
 <span class="kw">use </span>sp_runtime::traits::{Block <span class="kw">as </span>BlockT, NumberFor};
 <span class="kw">use </span>std::iter;
 
@@ -334,8 +339,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Abstraction over a network.
 </span><span class="kw">pub trait </span>Network&lt;B: BlockT&gt;: NetworkPeers + NetworkEventStream {
 	<span class="kw">fn </span>add_set_reserved(<span class="kw-2">&amp;</span><span class="self">self</span>, who: PeerId, protocol: ProtocolName) {
-		<span class="kw">let </span>addr =
-			iter::once(multiaddr::Protocol::P2p(who.into())).collect::&lt;multiaddr::Multiaddr&gt;();
+		<span class="kw">let </span>addr = Multiaddr::empty().with(Protocol::P2p(<span class="kw-2">*</span>who.as_ref()));
 		<span class="kw">let </span>result = <span class="self">self</span>.add_peers_to_reserved_set(protocol, iter::once(addr).collect());
 		<span class="kw">if let </span><span class="prelude-val">Err</span>(err) = result {
 			<span class="macro">log::error!</span>(target: <span class="string">"gossip"</span>, <span class="string">"add_set_reserved failed: {}"</span>, err);

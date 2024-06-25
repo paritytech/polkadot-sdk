@@ -2066,22 +2066,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1915" id="1915">1915</a>
 <a href="#1916" id="1916">1916</a>
 <a href="#1917" id="1917">1917</a>
-<a href="#1918" id="1918">1918</a>
-<a href="#1919" id="1919">1919</a>
-<a href="#1920" id="1920">1920</a>
-<a href="#1921" id="1921">1921</a>
-<a href="#1922" id="1922">1922</a>
-<a href="#1923" id="1923">1923</a>
-<a href="#1924" id="1924">1924</a>
-<a href="#1925" id="1925">1925</a>
-<a href="#1926" id="1926">1926</a>
-<a href="#1927" id="1927">1927</a>
-<a href="#1928" id="1928">1928</a>
-<a href="#1929" id="1929">1929</a>
-<a href="#1930" id="1930">1930</a>
-<a href="#1931" id="1931">1931</a>
-<a href="#1932" id="1932">1932</a>
-<a href="#1933" id="1933">1933</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2145,18 +2129,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>codec::DecodeAll;
 <span class="kw">use </span>either::Either;
 <span class="kw">use </span>futures::{channel::oneshot, prelude::<span class="kw-2">*</span>};
-<span class="kw">use </span>libp2p::identity::ed25519;
 <span class="attr">#[allow(deprecated)]
-</span><span class="kw">use </span>libp2p::{
-	connection_limits::Exceeded,
+</span><span class="kw">use </span>libp2p::swarm::THandlerErr;
+<span class="kw">use </span>libp2p::{
+	connection_limits::{ConnectionLimits, Exceeded},
 	core::{upgrade, ConnectedPoint, Endpoint},
 	identify::Info <span class="kw">as </span>IdentifyInfo,
+	identity::ed25519,
 	kad::record::Key <span class="kw">as </span>KademliaKey,
 	multiaddr::{<span class="self">self</span>, Multiaddr},
-	ping::Failure <span class="kw">as </span>PingFailure,
 	swarm::{
-		AddressScore, ConnectionError, ConnectionId, ConnectionLimits, DialError, Executor,
-		ListenError, NetworkBehaviour, Swarm, SwarmBuilder, SwarmEvent, THandlerErr,
+		Config <span class="kw">as </span>SwarmConfig, ConnectionError, ConnectionId, DialError, Executor, ListenError,
+		NetworkBehaviour, Swarm, SwarmEvent,
 	},
 	PeerId,
 };
@@ -2358,10 +2342,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="kw">let </span>local_identity: ed25519::Keypair = local_identity.into();
 		<span class="kw">let </span>local_public: ed25519::PublicKey = local_public.into();
 		<span class="kw">let </span>local_peer_id: PeerId = local_peer_id.into();
-		<span class="kw">let </span>listen_addresses: Vec&lt;Multiaddr&gt; =
-			network_config.listen_addresses.iter().cloned().map(Into::into).collect();
-		<span class="kw">let </span>public_addresses: Vec&lt;Multiaddr&gt; =
-			network_config.public_addresses.iter().cloned().map(Into::into).collect();
 
 		network_config.boot_nodes = network_config
 			.boot_nodes
@@ -2643,6 +2623,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					request_response_protocols,
 					Arc::clone(<span class="kw-2">&amp;</span>peer_store_handle),
 					external_addresses.clone(),
+					ConnectionLimits::default()
+						.with_max_established_per_peer(<span class="prelude-val">Some</span>(<span class="kw">crate</span>::MAX_CONNECTIONS_PER_PEER <span class="kw">as </span>u32))
+						.with_max_established_incoming(<span class="prelude-val">Some</span>(
+							<span class="kw">crate</span>::MAX_CONNECTIONS_ESTABLISHED_INCOMING,
+						)),
 				);
 
 				<span class="kw">match </span>result {
@@ -2652,37 +2637,27 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				}
 			};
 
-			<span class="kw">let </span>builder = {
+			<span class="kw">let </span>swarm = {
 				<span class="kw">struct </span>SpawnImpl&lt;F&gt;(F);
 				<span class="kw">impl</span>&lt;F: Fn(Pin&lt;Box&lt;<span class="kw">dyn </span>Future&lt;Output = ()&gt; + Send&gt;&gt;)&gt; Executor <span class="kw">for </span>SpawnImpl&lt;F&gt; {
 					<span class="kw">fn </span>exec(<span class="kw-2">&amp;</span><span class="self">self</span>, f: Pin&lt;Box&lt;<span class="kw">dyn </span>Future&lt;Output = ()&gt; + Send&gt;&gt;) {
 						(<span class="self">self</span>.<span class="number">0</span>)(f)
 					}
 				}
-				SwarmBuilder::with_executor(
-					transport,
-					behaviour,
-					local_peer_id,
-					SpawnImpl(params.executor),
-				)
-			};
-			<span class="attr">#[allow(deprecated)]
-			</span><span class="kw">let </span>builder = builder
-				.connection_limits(
-					ConnectionLimits::default()
-						.with_max_established_per_peer(<span class="prelude-val">Some</span>(<span class="kw">crate</span>::MAX_CONNECTIONS_PER_PEER <span class="kw">as </span>u32))
-						.with_max_established_incoming(<span class="prelude-val">Some</span>(
-							<span class="kw">crate</span>::MAX_CONNECTIONS_ESTABLISHED_INCOMING,
-						)),
-				)
-				.substream_upgrade_protocol_override(upgrade::Version::V1)
-				.notify_handler_buffer_size(NonZeroUsize::new(<span class="number">32</span>).expect(<span class="string">"32 != 0; qed"</span>))
-				<span class="comment">// NOTE: 24 is somewhat arbitrary and should be tuned in the future if necessary.
-				// See &lt;https://github.com/paritytech/substrate/pull/6080&gt;
-				</span>.per_connection_event_buffer_size(<span class="number">24</span>)
-				.max_negotiating_inbound_streams(<span class="number">2048</span>);
 
-			(builder.build(), Arc::new(Libp2pBandwidthSink { sink: bandwidth }))
+				<span class="kw">let </span>config = SwarmConfig::with_executor(SpawnImpl(params.executor))
+					.with_substream_upgrade_protocol_override(upgrade::Version::V1)
+					.with_notify_handler_buffer_size(NonZeroUsize::new(<span class="number">32</span>).expect(<span class="string">"32 != 0; qed"</span>))
+					<span class="comment">// NOTE: 24 is somewhat arbitrary and should be tuned in the future if
+					// necessary. See &lt;https://github.com/paritytech/substrate/pull/6080&gt;
+					</span>.with_per_connection_event_buffer_size(<span class="number">24</span>)
+					.with_max_negotiating_inbound_streams(<span class="number">2048</span>)
+					.with_idle_connection_timeout(Duration::from_secs(<span class="number">10</span>));
+
+				Swarm::new(transport, behaviour, local_peer_id, config)
+			};
+
+			(swarm, Arc::new(Libp2pBandwidthSink { sink: bandwidth }))
 		};
 
 		<span class="comment">// Initialize the metrics.
@@ -2698,19 +2673,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		};
 
 		<span class="comment">// Listen on multiaddresses.
-		</span><span class="kw">for </span>addr <span class="kw">in </span><span class="kw-2">&amp;</span>listen_addresses {
-			<span class="kw">if let </span><span class="prelude-val">Err</span>(err) = Swarm::&lt;Behaviour&lt;B&gt;&gt;::listen_on(<span class="kw-2">&amp;mut </span>swarm, addr.clone()) {
+		</span><span class="kw">for </span>addr <span class="kw">in </span><span class="kw-2">&amp;</span>network_config.listen_addresses {
+			<span class="kw">if let </span><span class="prelude-val">Err</span>(err) = Swarm::&lt;Behaviour&lt;B&gt;&gt;::listen_on(<span class="kw-2">&amp;mut </span>swarm, addr.clone().into()) {
 				<span class="macro">warn!</span>(target: <span class="string">"sub-libp2p"</span>, <span class="string">"Can't listen on {} because: {:?}"</span>, addr, err)
 			}
 		}
 
 		<span class="comment">// Add external addresses.
-		</span><span class="kw">for </span>addr <span class="kw">in </span><span class="kw-2">&amp;</span>public_addresses {
-			Swarm::&lt;Behaviour&lt;B&gt;&gt;::add_external_address(
-				<span class="kw-2">&amp;mut </span>swarm,
-				addr.clone(),
-				AddressScore::Infinite,
-			);
+		</span><span class="kw">for </span>addr <span class="kw">in </span><span class="kw-2">&amp;</span>network_config.public_addresses {
+			Swarm::&lt;Behaviour&lt;B&gt;&gt;::add_external_address(<span class="kw-2">&amp;mut </span>swarm, addr.clone().into());
 		}
 
 		<span class="kw">let </span>listen_addresses_set = Arc::new(Mutex::new(HashSet::new()));
@@ -2891,7 +2862,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">let </span>peer_id = Swarm::&lt;Behaviour&lt;B&gt;&gt;::local_peer_id(swarm).to_base58();
 		<span class="kw">let </span>listened_addresses = swarm.listeners().cloned().collect();
-		<span class="kw">let </span>external_addresses = swarm.external_addresses().map(|r| <span class="kw-2">&amp;</span>r.addr).cloned().collect();
+		<span class="kw">let </span>external_addresses = swarm.external_addresses().cloned().collect();
 
 		NetworkState {
 			peer_id,
@@ -2951,8 +2922,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.into_iter()
 			.map(|<span class="kw-2">mut </span>addr| {
 				<span class="kw">let </span>peer = <span class="kw">match </span>addr.pop() {
-					<span class="prelude-val">Some</span>(multiaddr::Protocol::P2p(key)) =&gt; PeerId::from_multihash(key)
-						.map_err(|<span class="kw">_</span>| <span class="string">"Invalid PeerId format"</span>.to_string())<span class="question-mark">?</span>,
+					<span class="prelude-val">Some</span>(multiaddr::Protocol::P2p(peer_id)) =&gt; peer_id,
 					<span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">"Missing PeerId from address"</span>.to_string()),
 				};
 
@@ -3576,6 +3546,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="doccomment">/// Process the next event coming from `Swarm`.
+	</span><span class="attr">#[allow(deprecated)]
 	</span><span class="kw">fn </span>handle_swarm_event(<span class="kw-2">&amp;mut </span><span class="self">self</span>, event: SwarmEvent&lt;BehaviourOut, THandlerErr&lt;Behaviour&lt;B&gt;&gt;&gt;) {
 		<span class="kw">match </span>event {
 			SwarmEvent::Behaviour(BehaviourOut::InboundRequest { protocol, result, .. }) =&gt; {
@@ -3670,9 +3641,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					listen_addrs.truncate(<span class="number">30</span>);
 				}
 				<span class="kw">for </span>addr <span class="kw">in </span>listen_addrs {
-					<span class="self">self</span>.network_service
-						.behaviour_mut()
-						.add_self_reported_address_to_dht(<span class="kw-2">&amp;</span>peer_id, <span class="kw-2">&amp;</span>protocols, addr);
+					<span class="self">self</span>.network_service.behaviour_mut().add_self_reported_address_to_dht(
+						<span class="kw-2">&amp;</span>peer_id,
+						<span class="kw-2">&amp;</span>protocols,
+						addr.clone(),
+					);
 				}
 				<span class="self">self</span>.peer_store_handle.add_known_peer(peer_id.into());
 			},
@@ -3789,8 +3762,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					}
 				}
 			},
-			SwarmEvent::ConnectionClosed { peer_id, cause, endpoint, num_established } =&gt; {
-				<span class="macro">debug!</span>(target: <span class="string">"sub-libp2p"</span>, <span class="string">"Libp2p =&gt; Disconnected({:?}, {:?})"</span>, peer_id, cause);
+			SwarmEvent::ConnectionClosed {
+				connection_id,
+				peer_id,
+				cause,
+				endpoint,
+				num_established,
+			} =&gt; {
+				<span class="macro">debug!</span>(target: <span class="string">"sub-libp2p"</span>, <span class="string">"Libp2p =&gt; Disconnected({peer_id:?} via {connection_id:?}, {cause:?})"</span>);
 				<span class="kw">if let </span><span class="prelude-val">Some</span>(metrics) = <span class="self">self</span>.metrics.as_ref() {
 					<span class="kw">let </span>direction = <span class="kw">match </span>endpoint {
 						ConnectedPoint::Dialer { .. } =&gt; <span class="string">"out"</span>,
@@ -3799,11 +3778,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="kw">let </span>reason = <span class="kw">match </span>cause {
 						<span class="prelude-val">Some</span>(ConnectionError::IO(<span class="kw">_</span>)) =&gt; <span class="string">"transport-error"</span>,
 						<span class="prelude-val">Some</span>(ConnectionError::Handler(Either::Left(Either::Left(
-							Either::Right(Either::Left(PingFailure::Timeout)),
-						)))) =&gt; <span class="string">"ping-timeout"</span>,
-						<span class="prelude-val">Some</span>(ConnectionError::Handler(Either::Left(Either::Left(
-							Either::Left(NotifsHandlerError::SyncNotificationsClogged),
+							Either::Left(Either::Right(
+								NotifsHandlerError::SyncNotificationsClogged,
+							)),
 						)))) =&gt; <span class="string">"sync-notifications-clogged"</span>,
+						<span class="prelude-val">Some</span>(ConnectionError::Handler(Either::Left(Either::Left(
+							Either::Right(Either::Left(<span class="kw">_</span>)),
+						)))) =&gt; <span class="string">"ping-timeout"</span>,
 						<span class="prelude-val">Some</span>(ConnectionError::Handler(<span class="kw">_</span>)) =&gt; <span class="string">"protocol-error"</span>,
 						<span class="prelude-val">Some</span>(ConnectionError::KeepAliveTimeout) =&gt; <span class="string">"keep-alive-timeout"</span>,
 						<span class="prelude-val">None </span>=&gt; <span class="string">"actively-closed"</span>,
@@ -3830,12 +3811,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				}
 				<span class="self">self</span>.listen_addresses.lock().remove(<span class="kw-2">&amp;</span>address);
 			},
-			SwarmEvent::OutgoingConnectionError { peer_id, error } =&gt; {
+			SwarmEvent::OutgoingConnectionError { connection_id, peer_id, error } =&gt; {
 				<span class="kw">if let </span><span class="prelude-val">Some</span>(peer_id) = peer_id {
 					<span class="macro">trace!</span>(
 						target: <span class="string">"sub-libp2p"</span>,
-						<span class="string">"Libp2p =&gt; Failed to reach {:?}: {}"</span>,
-						peer_id, error,
+						<span class="string">"Libp2p =&gt; Failed to reach {peer_id:?} via {connection_id:?}: {error}"</span>,
 					);
 
 					<span class="kw">let </span>not_reported = !<span class="self">self</span>.reported_invalid_boot_nodes.contains(<span class="kw-2">&amp;</span>peer_id);
@@ -3873,12 +3853,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 							} <span class="kw">else </span>{
 								<span class="prelude-val">None
 							</span>},
-						DialError::ConnectionLimit(<span class="kw">_</span>) =&gt; <span class="prelude-val">Some</span>(<span class="string">"limit-reached"</span>),
-						DialError::InvalidPeerId(<span class="kw">_</span>) |
-						DialError::WrongPeerId { .. } |
-						DialError::LocalPeerId { .. } =&gt; <span class="prelude-val">Some</span>(<span class="string">"invalid-peer-id"</span>),
+						DialError::LocalPeerId { .. } =&gt; <span class="prelude-val">Some</span>(<span class="string">"local-peer-id"</span>),
+						DialError::WrongPeerId { .. } =&gt; <span class="prelude-val">Some</span>(<span class="string">"invalid-peer-id"</span>),
 						DialError::Transport(<span class="kw">_</span>) =&gt; <span class="prelude-val">Some</span>(<span class="string">"transport-error"</span>),
-						DialError::Banned |
 						DialError::NoAddresses |
 						DialError::DialPeerConditionFalse(<span class="kw">_</span>) |
 						DialError::Aborted =&gt; <span class="prelude-val">None</span>, <span class="comment">// ignore them
@@ -3888,22 +3865,25 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					}
 				}
 			},
-			SwarmEvent::Dialing(peer_id) =&gt; {
-				<span class="macro">trace!</span>(target: <span class="string">"sub-libp2p"</span>, <span class="string">"Libp2p =&gt; Dialing({:?})"</span>, peer_id)
+			SwarmEvent::Dialing { connection_id, peer_id } =&gt; {
+				<span class="macro">trace!</span>(target: <span class="string">"sub-libp2p"</span>, <span class="string">"Libp2p =&gt; Dialing({peer_id:?}) via {connection_id:?}"</span>)
 			},
-			SwarmEvent::IncomingConnection { local_addr, send_back_addr } =&gt; {
-				<span class="macro">trace!</span>(target: <span class="string">"sub-libp2p"</span>, <span class="string">"Libp2p =&gt; IncomingConnection({},{}))"</span>,
-					local_addr, send_back_addr);
+			SwarmEvent::IncomingConnection { connection_id, local_addr, send_back_addr } =&gt; {
+				<span class="macro">trace!</span>(target: <span class="string">"sub-libp2p"</span>, <span class="string">"Libp2p =&gt; IncomingConnection({local_addr},{send_back_addr} via {connection_id:?}))"</span>);
 				<span class="kw">if let </span><span class="prelude-val">Some</span>(metrics) = <span class="self">self</span>.metrics.as_ref() {
 					metrics.incoming_connections_total.inc();
 				}
 			},
-			SwarmEvent::IncomingConnectionError { local_addr, send_back_addr, error } =&gt; {
+			SwarmEvent::IncomingConnectionError {
+				connection_id,
+				local_addr,
+				send_back_addr,
+				error,
+			} =&gt; {
 				<span class="macro">debug!</span>(
 					target: <span class="string">"sub-libp2p"</span>,
-					<span class="string">"Libp2p =&gt; IncomingConnectionError({},{}): {}"</span>,
-					local_addr, send_back_addr, error,
-				);
+					<span class="string">"Libp2p =&gt; IncomingConnectionError({local_addr},{send_back_addr} via {connection_id:?}): {error}"
+				</span>);
 				<span class="kw">if let </span><span class="prelude-val">Some</span>(metrics) = <span class="self">self</span>.metrics.as_ref() {
 					<span class="attr">#[allow(deprecated)]
 					</span><span class="kw">let </span>reason = <span class="kw">match </span>error {
@@ -3913,7 +3893,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 							} <span class="kw">else </span>{
 								<span class="prelude-val">None
 							</span>},
-						ListenError::ConnectionLimit(<span class="kw">_</span>) =&gt; <span class="prelude-val">Some</span>(<span class="string">"limit-reached"</span>),
 						ListenError::WrongPeerId { .. } | ListenError::LocalPeerId { .. } =&gt;
 							<span class="prelude-val">Some</span>(<span class="string">"invalid-peer-id"</span>),
 						ListenError::Transport(<span class="kw">_</span>) =&gt; <span class="prelude-val">Some</span>(<span class="string">"transport-error"</span>),
@@ -3926,17 +3905,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 							.with_label_values(<span class="kw-2">&amp;</span>[reason])
 							.inc();
 					}
-				}
-			},
-			<span class="attr">#[allow(deprecated)]
-			</span>SwarmEvent::BannedPeer { peer_id, endpoint } =&gt; {
-				<span class="macro">debug!</span>(
-					target: <span class="string">"sub-libp2p"</span>,
-					<span class="string">"Libp2p =&gt; BannedPeer({}). Connected via {:?}."</span>,
-					peer_id, endpoint,
-				);
-				<span class="kw">if let </span><span class="prelude-val">Some</span>(metrics) = <span class="self">self</span>.metrics.as_ref() {
-					metrics.incoming_connections_errors_total.with_label_values(<span class="kw-2">&amp;</span>[<span class="string">"banned"</span>]).inc();
 				}
 			},
 			SwarmEvent::ListenerClosed { reason, addresses, .. } =&gt; {

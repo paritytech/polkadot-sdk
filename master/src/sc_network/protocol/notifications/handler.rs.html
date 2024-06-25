@@ -1814,6 +1814,33 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1663" id="1663">1663</a>
 <a href="#1664" id="1664">1664</a>
 <a href="#1665" id="1665">1665</a>
+<a href="#1666" id="1666">1666</a>
+<a href="#1667" id="1667">1667</a>
+<a href="#1668" id="1668">1668</a>
+<a href="#1669" id="1669">1669</a>
+<a href="#1670" id="1670">1670</a>
+<a href="#1671" id="1671">1671</a>
+<a href="#1672" id="1672">1672</a>
+<a href="#1673" id="1673">1673</a>
+<a href="#1674" id="1674">1674</a>
+<a href="#1675" id="1675">1675</a>
+<a href="#1676" id="1676">1676</a>
+<a href="#1677" id="1677">1677</a>
+<a href="#1678" id="1678">1678</a>
+<a href="#1679" id="1679">1679</a>
+<a href="#1680" id="1680">1680</a>
+<a href="#1681" id="1681">1681</a>
+<a href="#1682" id="1682">1682</a>
+<a href="#1683" id="1683">1683</a>
+<a href="#1684" id="1684">1684</a>
+<a href="#1685" id="1685">1685</a>
+<a href="#1686" id="1686">1686</a>
+<a href="#1687" id="1687">1687</a>
+<a href="#1688" id="1688">1688</a>
+<a href="#1689" id="1689">1689</a>
+<a href="#1690" id="1690">1690</a>
+<a href="#1691" id="1691">1691</a>
+<a href="#1692" id="1692">1692</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1891,8 +1918,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>libp2p::{
 	core::ConnectedPoint,
 	swarm::{
-		handler::ConnectionEvent, ConnectionHandler, ConnectionHandlerEvent, KeepAlive,
-		NegotiatedSubstream, SubstreamProtocol,
+		handler::ConnectionEvent, ConnectionHandler, ConnectionHandlerEvent, KeepAlive, Stream,
+		SubstreamProtocol,
 	},
 	PeerId,
 };
@@ -2015,7 +2042,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// emitted.
 	</span>OpenDesiredByRemote {
 		<span class="doccomment">/// Substream opened by the remote and that hasn't been accepted/rejected yet.
-		</span>in_substream: NotificationsInSubstream&lt;NegotiatedSubstream&gt;,
+		</span>in_substream: NotificationsInSubstream&lt;Stream&gt;,
 
 		<span class="doccomment">/// See [`State::Closed::pending_opening`].
 		</span>pending_opening: bool,
@@ -2028,7 +2055,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// be emitted when transitioning to respectively [`State::Open`] or [`State::Closed`].
 	</span>Opening {
 		<span class="doccomment">/// Substream opened by the remote. If `Some`, has been accepted.
-		</span>in_substream: <span class="prelude-ty">Option</span>&lt;NotificationsInSubstream&lt;NegotiatedSubstream&gt;&gt;,
+		</span>in_substream: <span class="prelude-ty">Option</span>&lt;NotificationsInSubstream&lt;Stream&gt;&gt;,
 		<span class="doccomment">/// Is the connection inbound.
 		</span>inbound: bool,
 	},
@@ -2052,14 +2079,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		/// Always `Some` on transition to [`State::Open`]. Switched to `None` only if the remote
 		/// closed the substream. If `None`, a [`NotifsHandlerOut::CloseDesired`] event has been
 		/// emitted.
-		</span>out_substream: <span class="prelude-ty">Option</span>&lt;NotificationsOutSubstream&lt;NegotiatedSubstream&gt;&gt;,
+		</span>out_substream: <span class="prelude-ty">Option</span>&lt;NotificationsOutSubstream&lt;Stream&gt;&gt;,
 
 		<span class="doccomment">/// Substream opened by the remote.
 		///
 		/// Contrary to the `out_substream` field, operations continue as normal even if the
 		/// substream has been closed by the remote. A `None` is treated the same way as if there
 		/// was an idle substream.
-		</span>in_substream: <span class="prelude-ty">Option</span>&lt;NotificationsInSubstream&lt;NegotiatedSubstream&gt;&gt;,
+		</span>in_substream: <span class="prelude-ty">Option</span>&lt;NotificationsInSubstream&lt;Stream&gt;&gt;,
 	},
 }
 
@@ -2297,8 +2324,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="kw">impl </span>ConnectionHandler <span class="kw">for </span>NotifsHandler {
-	<span class="kw">type </span>InEvent = NotifsHandlerIn;
-	<span class="kw">type </span>OutEvent = NotifsHandlerOut;
+	<span class="kw">type </span>FromBehaviour = NotifsHandlerIn;
+	<span class="kw">type </span>ToBehaviour = NotifsHandlerOut;
 	<span class="kw">type </span>Error = NotifsHandlerError;
 	<span class="kw">type </span>InboundProtocol = UpgradeCollec&lt;NotificationsIn&gt;;
 	<span class="kw">type </span>OutboundProtocol = NotificationsOut;
@@ -2333,7 +2360,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 				<span class="kw">match </span>protocol_info.state {
 					State::Closed { pending_opening } =&gt; {
-						<span class="self">self</span>.events_queue.push_back(ConnectionHandlerEvent::Custom(
+						<span class="self">self</span>.events_queue.push_back(ConnectionHandlerEvent::NotifyBehaviour(
 							NotifsHandlerOut::OpenDesiredByRemote {
 								protocol_index,
 								handshake: in_substream_open.handshake,
@@ -2402,7 +2429,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 							in_substream: in_substream.take(),
 						};
 
-						<span class="self">self</span>.events_queue.push_back(ConnectionHandlerEvent::Custom(
+						<span class="self">self</span>.events_queue.push_back(ConnectionHandlerEvent::NotifyBehaviour(
 							NotifsHandlerOut::OpenResultOk {
 								protocol_index,
 								negotiated_fallback: new_open.negotiated_fallback,
@@ -2416,6 +2443,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				}
 			},
 			ConnectionEvent::AddressChange(_address_change) =&gt; {},
+			ConnectionEvent::LocalProtocolsChange(<span class="kw">_</span>) =&gt; {},
+			ConnectionEvent::RemoteProtocolsChange(<span class="kw">_</span>) =&gt; {},
 			ConnectionEvent::DialUpgradeError(dial_upgrade_error) =&gt; <span class="kw">match </span><span class="self">self</span>.protocols
 				[dial_upgrade_error.info]
 				.state
@@ -2430,7 +2459,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="self">self</span>.protocols[dial_upgrade_error.info].state =
 						State::Closed { pending_opening: <span class="bool-val">false </span>};
 
-					<span class="self">self</span>.events_queue.push_back(ConnectionHandlerEvent::Custom(
+					<span class="self">self</span>.events_queue.push_back(ConnectionHandlerEvent::NotifyBehaviour(
 						NotifsHandlerOut::OpenResultErr { protocol_index: dial_upgrade_error.info },
 					));
 				},
@@ -2517,7 +2546,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						<span class="self">self</span>.protocols[protocol_index].state =
 							State::Closed { pending_opening: <span class="bool-val">true </span>};
 
-						<span class="self">self</span>.events_queue.push_back(ConnectionHandlerEvent::Custom(
+						<span class="self">self</span>.events_queue.push_back(ConnectionHandlerEvent::NotifyBehaviour(
 							NotifsHandlerOut::OpenResultErr { protocol_index },
 						));
 					},
@@ -2527,7 +2556,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					State::Closed { .. } =&gt; {},
 				}
 
-				<span class="self">self</span>.events_queue.push_back(ConnectionHandlerEvent::Custom(
+				<span class="self">self</span>.events_queue.push_back(ConnectionHandlerEvent::NotifyBehaviour(
 					NotifsHandlerOut::CloseResult { protocol_index },
 				));
 			},
@@ -2542,17 +2571,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="comment">// A grace period of `INITIAL_KEEPALIVE_TIME` must be given to leave time for the remote
 		// to express desire to open substreams.
+		</span><span class="attr">#[allow(deprecated)]
 		</span>KeepAlive::Until(<span class="self">self</span>.when_connection_open + INITIAL_KEEPALIVE_TIME)
 	}
 
-	<span class="kw">fn </span>poll(
+	<span class="attr">#[allow(deprecated)]
+	</span><span class="kw">fn </span>poll(
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
 		cx: <span class="kw-2">&amp;mut </span>Context,
 	) -&gt; Poll&lt;
 		ConnectionHandlerEvent&lt;
 			<span class="self">Self</span>::OutboundProtocol,
 			<span class="self">Self</span>::OutboundOpenInfo,
-			<span class="self">Self</span>::OutEvent,
+			<span class="self">Self</span>::ToBehaviour,
 			<span class="self">Self</span>::Error,
 		&gt;,
 	&gt; {
@@ -2571,6 +2602,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="comment">// Only proceed with `out_substream.poll_ready_unpin` if there is an element
 					// available in `notifications_sink_rx`. This avoids waking up the task when
 					// a substream is ready to send if there isn't actually something to send.
+					</span><span class="attr">#[allow(deprecated)]
 					</span><span class="kw">match </span>Pin::new(<span class="kw-2">&amp;mut *</span>notifications_sink_rx).as_mut().poll_peek(cx) {
 						Poll::Ready(<span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>NotificationsSinkMessage::ForceClose)) =&gt;
 							<span class="kw">return </span>Poll::Ready(ConnectionHandlerEvent::Close(
@@ -2624,7 +2656,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						Poll::Ready(<span class="prelude-val">Err</span>(<span class="kw">_</span>)) =&gt; {
 							<span class="kw-2">*</span>out_substream = <span class="prelude-val">None</span>;
 							<span class="kw">let </span>event = NotifsHandlerOut::CloseDesired { protocol_index };
-							<span class="kw">return </span>Poll::Ready(ConnectionHandlerEvent::Custom(event))
+							<span class="kw">return </span>Poll::Ready(ConnectionHandlerEvent::NotifyBehaviour(event))
 						},
 					};
 				},
@@ -2646,11 +2678,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				State::Opening { in_substream: <span class="prelude-val">None</span>, .. } =&gt; {},
 
 				State::Open { in_substream: in_substream @ <span class="prelude-val">Some</span>(<span class="kw">_</span>), .. } =&gt;
-					<span class="kw">match </span>Stream::poll_next(Pin::new(in_substream.as_mut().unwrap()), cx) {
+					<span class="kw">match </span>futures::prelude::stream::Stream::poll_next(
+						Pin::new(in_substream.as_mut().unwrap()),
+						cx,
+					) {
 						Poll::Pending =&gt; {},
 						Poll::Ready(<span class="prelude-val">Some</span>(<span class="prelude-val">Ok</span>(message))) =&gt; {
 							<span class="kw">let </span>event = NotifsHandlerOut::Notification { protocol_index, message };
-							<span class="kw">return </span>Poll::Ready(ConnectionHandlerEvent::Custom(event))
+							<span class="kw">return </span>Poll::Ready(ConnectionHandlerEvent::NotifyBehaviour(event))
 						},
 						Poll::Ready(<span class="prelude-val">None</span>) | Poll::Ready(<span class="prelude-val">Some</span>(<span class="prelude-val">Err</span>(<span class="kw">_</span>))) =&gt; <span class="kw-2">*</span>in_substream = <span class="prelude-val">None</span>,
 					},
@@ -2662,7 +2697,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						Poll::Ready(<span class="prelude-val">Err</span>(<span class="kw">_</span>)) =&gt; {
 							<span class="self">self</span>.protocols[protocol_index].state =
 								State::Closed { pending_opening: <span class="kw-2">*</span>pending_opening };
-							<span class="kw">return </span>Poll::Ready(ConnectionHandlerEvent::Custom(
+							<span class="kw">return </span>Poll::Ready(ConnectionHandlerEvent::NotifyBehaviour(
 								NotifsHandlerOut::CloseDesired { protocol_index },
 							))
 						},
@@ -2696,8 +2731,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">use </span>asynchronous_codec::Framed;
 	<span class="kw">use </span>libp2p::{
 		core::muxing::SubstreamBox,
-		swarm::{handler, ConnectionHandlerUpgrErr},
-		Multiaddr,
+		swarm::handler::{<span class="self">self</span>, StreamUpgradeError},
+		Multiaddr, Stream,
 	};
 	<span class="kw">use </span>multistream_select::{dialer_select_proto, listener_select_proto, Negotiated, Version};
 	<span class="kw">use </span>std::{
@@ -2788,6 +2823,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.<span class="kw">await
 		</span>}
 	}
+
 	<span class="kw">struct </span>MockSubstream {
 		<span class="kw">pub </span>rx: mpsc::Receiver&lt;Vec&lt;u8&gt;&gt;,
 		<span class="kw">pub </span>tx: mpsc::Sender&lt;Vec&lt;u8&gt;&gt;,
@@ -2807,18 +2843,35 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 
 		<span class="doccomment">/// Create new negotiated substream pair.
-		</span><span class="kw">pub async fn </span>negotiated() -&gt; (Negotiated&lt;SubstreamBox&gt;, Negotiated&lt;SubstreamBox&gt;) {
+		</span><span class="kw">pub async fn </span>negotiated() -&gt; (Stream, Stream) {
 			<span class="kw">let </span>(socket1, socket2) = <span class="self">Self</span>::new();
 			<span class="kw">let </span>socket1 = SubstreamBox::new(socket1);
 			<span class="kw">let </span>socket2 = SubstreamBox::new(socket2);
 
-			<span class="kw">let </span>protos = <span class="macro">vec!</span>[<span class="string">b"/echo/1.0.0"</span>, <span class="string">b"/echo/2.5.0"</span>];
+			<span class="kw">let </span>protos = <span class="macro">vec!</span>[<span class="string">"/echo/1.0.0"</span>, <span class="string">"/echo/2.5.0"</span>];
 			<span class="kw">let </span>(res1, res2) = <span class="macro">tokio::join!</span>(
 				dialer_select_proto(socket1, protos.clone(), Version::V1),
 				listener_select_proto(socket2, protos),
 			);
 
-			(res1.unwrap().<span class="number">1</span>, res2.unwrap().<span class="number">1</span>)
+			(<span class="self">Self</span>::stream_new(res1.unwrap().<span class="number">1</span>), <span class="self">Self</span>::stream_new(res2.unwrap().<span class="number">1</span>))
+		}
+
+		<span class="doccomment">/// Unsafe substitute for `Stream::new` private constructor.
+		</span><span class="kw">fn </span>stream_new(stream: Negotiated&lt;SubstreamBox&gt;) -&gt; Stream {
+			<span class="comment">// Static asserts to make sure this doesn't break.
+			</span><span class="kw">const _</span>: () = {
+				<span class="macro">assert!</span>(
+					core::mem::size_of::&lt;Stream&gt;() ==
+						core::mem::size_of::&lt;Negotiated&lt;SubstreamBox&gt;&gt;()
+				);
+				<span class="macro">assert!</span>(
+					core::mem::align_of::&lt;Stream&gt;() ==
+						core::mem::align_of::&lt;Negotiated&lt;SubstreamBox&gt;&gt;()
+				);
+			};
+
+			<span class="kw">unsafe </span>{ core::mem::transmute(stream) }
 		}
 	}
 
@@ -3320,7 +3373,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="comment">// inject dial failure to an already closed substream and verify outbound state is reset
 		</span>handler.on_connection_event(handler::ConnectionEvent::DialUpgradeError(
-			handler::DialUpgradeError { info: <span class="number">0</span>, error: ConnectionHandlerUpgrErr::Timeout },
+			handler::DialUpgradeError { info: <span class="number">0</span>, error: StreamUpgradeError::Timeout },
 		));
 		<span class="macro">assert!</span>(<span class="macro">std::matches!</span>(
 			handler.protocols[<span class="number">0</span>].state,
@@ -3390,7 +3443,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="comment">// inject dial failure to an already closed substream and verify outbound state is reset
 		</span>handler.on_connection_event(handler::ConnectionEvent::DialUpgradeError(
-			handler::DialUpgradeError { info: <span class="number">0</span>, error: ConnectionHandlerUpgrErr::Timeout },
+			handler::DialUpgradeError { info: <span class="number">0</span>, error: StreamUpgradeError::Timeout },
 		));
 		<span class="macro">assert!</span>(<span class="macro">std::matches!</span>(
 			handler.protocols[<span class="number">0</span>].state,
@@ -3426,7 +3479,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		notifications_sink.send_sync_notification(<span class="macro">vec!</span>[<span class="number">1</span>, <span class="number">3</span>, <span class="number">3</span>, <span class="number">9</span>]);
 		notifications_sink.send_sync_notification(<span class="macro">vec!</span>[<span class="number">1</span>, <span class="number">3</span>, <span class="number">4</span>, <span class="number">0</span>]);
 
-		futures::future::poll_fn(|cx| {
+		<span class="attr">#[allow(deprecated)]
+		</span>futures::future::poll_fn(|cx| {
 			<span class="macro">assert!</span>(<span class="macro">std::matches!</span>(
 				handler.poll(cx),
 				Poll::Ready(ConnectionHandlerEvent::Close(
@@ -3464,15 +3518,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		futures::future::poll_fn(|cx| {
 			<span class="macro">assert!</span>(<span class="macro">std::matches!</span>(
 				handler.poll(cx),
-				Poll::Ready(ConnectionHandlerEvent::Custom(
+				Poll::Ready(ConnectionHandlerEvent::NotifyBehaviour(
 					NotifsHandlerOut::OpenDesiredByRemote { protocol_index: <span class="number">0</span>, .. },
 				))
 			));
 			<span class="macro">assert!</span>(<span class="macro">std::matches!</span>(
 				handler.poll(cx),
-				Poll::Ready(ConnectionHandlerEvent::Custom(NotifsHandlerOut::CloseDesired {
-					protocol_index: <span class="number">0
-				</span>},))
+				Poll::Ready(ConnectionHandlerEvent::NotifyBehaviour(
+					NotifsHandlerOut::CloseDesired { protocol_index: <span class="number">0 </span>},
+				))
 			));
 			Poll::Ready(())
 		})

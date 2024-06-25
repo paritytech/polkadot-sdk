@@ -1873,6 +1873,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1722" id="1722">1722</a>
 <a href="#1723" id="1723">1723</a>
 <a href="#1724" id="1724">1724</a>
+<a href="#1725" id="1725">1725</a>
+<a href="#1726" id="1726">1726</a>
+<a href="#1727" id="1727">1727</a>
+<a href="#1728" id="1728">1728</a>
+<a href="#1729" id="1729">1729</a>
+<a href="#1730" id="1730">1730</a>
+<a href="#1731" id="1731">1731</a>
+<a href="#1732" id="1732">1732</a>
+<a href="#1733" id="1733">1733</a>
+<a href="#1734" id="1734">1734</a>
+<a href="#1735" id="1735">1735</a>
+<a href="#1736" id="1736">1736</a>
+<a href="#1737" id="1737">1737</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2193,7 +2206,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span><span class="kw-2">mut </span>protocols = HashMap::new();
 		<span class="kw">for </span>protocol <span class="kw">in </span>list {
 			<span class="kw">let </span><span class="kw-2">mut </span>cfg = Config::default();
-			cfg.set_connection_keep_alive(Duration::from_secs(<span class="number">10</span>));
 			cfg.set_request_timeout(protocol.request_timeout);
 
 			<span class="kw">let </span>protocol_support = <span class="kw">if </span>protocol.inbound_queue.is_some() {
@@ -2202,13 +2214,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				ProtocolSupport::Outbound
 			};
 
-			<span class="kw">let </span>rq_rp = Behaviour::new(
+			<span class="kw">let </span>rq_rp = Behaviour::with_codec(
 				GenericCodec {
 					max_request_size: protocol.max_request_size,
 					max_response_size: protocol.max_response_size,
 				},
-				iter::once(protocol.name.as_bytes().to_vec())
-					.chain(protocol.fallback_names.iter().map(|name| name.as_bytes().to_vec()))
+				iter::once(protocol.name.clone())
+					.chain(protocol.fallback_names)
 					.zip(iter::repeat(protocol_support)),
 				cfg,
 			);
@@ -2302,7 +2314,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">impl </span>NetworkBehaviour <span class="kw">for </span>RequestResponsesBehaviour {
 	<span class="kw">type </span>ConnectionHandler =
 		MultiHandler&lt;String, &lt;Behaviour&lt;GenericCodec&gt; <span class="kw">as </span>NetworkBehaviour&gt;::ConnectionHandler&gt;;
-	<span class="kw">type </span>OutEvent = Event;
+	<span class="kw">type </span>ToSwarm = Event;
 
 	<span class="kw">fn </span>handle_pending_inbound_connection(
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
@@ -2418,9 +2430,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw">for </span>(p, <span class="kw">_</span>) <span class="kw">in </span><span class="self">self</span>.protocols.values_mut() {
 					NetworkBehaviour::on_swarm_event(p, FromSwarm::ListenerError(e));
 				},
-			FromSwarm::ExpiredExternalAddr(e) =&gt;
+			FromSwarm::ExternalAddrExpired(e) =&gt;
 				<span class="kw">for </span>(p, <span class="kw">_</span>) <span class="kw">in </span><span class="self">self</span>.protocols.values_mut() {
-					NetworkBehaviour::on_swarm_event(p, FromSwarm::ExpiredExternalAddr(e));
+					NetworkBehaviour::on_swarm_event(p, FromSwarm::ExternalAddrExpired(e));
 				},
 			FromSwarm::NewListener(e) =&gt;
 				<span class="kw">for </span>(p, <span class="kw">_</span>) <span class="kw">in </span><span class="self">self</span>.protocols.values_mut() {
@@ -2430,9 +2442,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw">for </span>(p, <span class="kw">_</span>) <span class="kw">in </span><span class="self">self</span>.protocols.values_mut() {
 					NetworkBehaviour::on_swarm_event(p, FromSwarm::ExpiredListenAddr(e));
 				},
-			FromSwarm::NewExternalAddr(e) =&gt;
+			FromSwarm::NewExternalAddrCandidate(e) =&gt;
 				<span class="kw">for </span>(p, <span class="kw">_</span>) <span class="kw">in </span><span class="self">self</span>.protocols.values_mut() {
-					NetworkBehaviour::on_swarm_event(p, FromSwarm::NewExternalAddr(e));
+					NetworkBehaviour::on_swarm_event(p, FromSwarm::NewExternalAddrCandidate(e));
+				},
+			FromSwarm::ExternalAddrConfirmed(e) =&gt;
+				<span class="kw">for </span>(p, <span class="kw">_</span>) <span class="kw">in </span><span class="self">self</span>.protocols.values_mut() {
+					NetworkBehaviour::on_swarm_event(p, FromSwarm::ExternalAddrConfirmed(e));
 				},
 			FromSwarm::AddressChange(e) =&gt;
 				<span class="kw">for </span>(p, <span class="kw">_</span>) <span class="kw">in </span><span class="self">self</span>.protocols.values_mut() {
@@ -2467,7 +2483,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
 		cx: <span class="kw-2">&amp;mut </span>Context,
 		params: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>PollParameters,
-	) -&gt; Poll&lt;ToSwarm&lt;<span class="self">Self</span>::OutEvent, THandlerInEvent&lt;<span class="self">Self</span>&gt;&gt;&gt; {
+	) -&gt; Poll&lt;ToSwarm&lt;<span class="self">Self</span>::ToSwarm, THandlerInEvent&lt;<span class="self">Self</span>&gt;&gt;&gt; {
 		<span class="lifetime">'poll_all</span>: <span class="kw">loop </span>{
 			<span class="comment">// Poll to see if any response is ready to be sent back.
 			</span><span class="kw">while let </span>Poll::Ready(<span class="prelude-val">Some</span>(outcome)) = <span class="self">self</span>.pending_responses.poll_next_unpin(cx) {
@@ -2538,10 +2554,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 								handler,
 								event: ((<span class="kw-2">*</span>protocol).to_string(), event),
 							}),
-						ToSwarm::ReportObservedAddr { address, score } =&gt;
-							<span class="kw">return </span>Poll::Ready(ToSwarm::ReportObservedAddr { address, score }),
 						ToSwarm::CloseConnection { peer_id, connection } =&gt;
 							<span class="kw">return </span>Poll::Ready(ToSwarm::CloseConnection { peer_id, connection }),
+						ToSwarm::NewExternalAddrCandidate(observed) =&gt;
+							<span class="kw">return </span>Poll::Ready(ToSwarm::NewExternalAddrCandidate(observed)),
+						ToSwarm::ExternalAddrConfirmed(addr) =&gt;
+							<span class="kw">return </span>Poll::Ready(ToSwarm::ExternalAddrConfirmed(addr)),
+						ToSwarm::ExternalAddrExpired(addr) =&gt;
+							<span class="kw">return </span>Poll::Ready(ToSwarm::ExternalAddrExpired(addr)),
+						ToSwarm::ListenOn { opts } =&gt;
+							<span class="kw">return </span>Poll::Ready(ToSwarm::ListenOn { opts }),
+						ToSwarm::RemoveListener { id } =&gt;
+							<span class="kw">return </span>Poll::Ready(ToSwarm::RemoveListener { id }),
 					};
 
 					<span class="kw">match </span>ev {
@@ -2825,7 +2849,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="attr">#[async_trait::async_trait]
 </span><span class="kw">impl </span>Codec <span class="kw">for </span>GenericCodec {
-	<span class="kw">type </span>Protocol = Vec&lt;u8&gt;;
+	<span class="kw">type </span>Protocol = ProtocolName;
 	<span class="kw">type </span>Request = Vec&lt;u8&gt;;
 	<span class="kw">type </span>Response = <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, ()&gt;;
 
@@ -2953,7 +2977,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		},
 		identity::Keypair,
 		noise,
-		swarm::{Executor, Swarm, SwarmBuilder, SwarmEvent},
+		swarm::{Config <span class="kw">as </span>SwarmConfig, Executor, Swarm, SwarmEvent},
 		Multiaddr,
 	};
 	<span class="kw">use </span>std::{iter, time::Duration};
@@ -2979,16 +3003,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>behaviour = RequestResponsesBehaviour::new(list, Arc::new(MockPeerStore {})).unwrap();
 
 		<span class="kw">let </span>runtime = tokio::runtime::Runtime::new().unwrap();
-		<span class="kw">let </span><span class="kw-2">mut </span>swarm = SwarmBuilder::with_executor(
+
+		<span class="kw">let </span><span class="kw-2">mut </span>swarm = Swarm::new(
 			transport,
 			behaviour,
 			keypair.public().to_peer_id(),
-			TokioExecutor(runtime),
-		)
-		.build();
+			SwarmConfig::with_executor(TokioExecutor(runtime)),
+		);
+
 		<span class="kw">let </span>listen_addr: Multiaddr = <span class="macro">format!</span>(<span class="string">"/memory/{}"</span>, rand::random::&lt;u64&gt;()).parse().unwrap();
 
 		swarm.listen_on(listen_addr.clone()).unwrap();
+
 		(swarm, listen_addr)
 	}
 

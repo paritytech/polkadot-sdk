@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["InboundFailure","Keypair","OutboundFailure","PublicKey"],"mod":["signature","traits"],"struct":["DecodingError","NetworkService","NetworkWorker","NotificationMetrics","NotificationSender","NotificationSenderReady","NotificationsSink"]};
+window.SIDEBAR_ITEMS = {"enum":["InboundFailure","OutboundFailure"],"mod":["signature","traits"],"struct":["DecodingError","Keypair","NetworkService","NetworkWorker","NotificationMetrics","NotificationSender","NotificationSenderReady","NotificationsSink","PublicKey"]};

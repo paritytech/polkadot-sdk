@@ -541,6 +541,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#390" id="390">390</a>
 <a href="#391" id="391">391</a>
 <a href="#392" id="392">392</a>
+<a href="#393" id="393">393</a>
+<a href="#394" id="394">394</a>
+<a href="#395" id="395">395</a>
+<a href="#396" id="396">396</a>
+<a href="#397" id="397">397</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -706,10 +711,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub fn </span>disconnect_peer(<span class="kw-2">&amp;mut </span><span class="self">self</span>, peer_id: <span class="kw-2">&amp;</span>PeerId, protocol_name: ProtocolName) {
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(position) = <span class="self">self</span>.notification_protocols.iter().position(|p| <span class="kw-2">*</span>p == protocol_name)
 		{
-			<span class="comment">// Note: no need to remove a peer from `self.peers` if we are dealing with sync
-			// protocol, because it will be done when handling
-			// `NotificationsOut::CustomProtocolClosed`.
-			</span><span class="self">self</span>.behaviour.disconnect_peer(peer_id, SetId::from(position));
+			<span class="self">self</span>.behaviour.disconnect_peer(peer_id, SetId::from(position));
 		} <span class="kw">else </span>{
 			<span class="macro">warn!</span>(target: <span class="string">"sub-libp2p"</span>, <span class="string">"disconnect_peer() with invalid protocol name"</span>)
 		}
@@ -772,7 +774,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">impl</span>&lt;B: BlockT&gt; NetworkBehaviour <span class="kw">for </span>Protocol&lt;B&gt; {
 	<span class="kw">type </span>ConnectionHandler = &lt;Notifications <span class="kw">as </span>NetworkBehaviour&gt;::ConnectionHandler;
-	<span class="kw">type </span>OutEvent = CustomMessageOutcome;
+	<span class="kw">type </span>ToSwarm = CustomMessageOutcome;
 
 	<span class="kw">fn </span>handle_established_inbound_connection(
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
@@ -833,17 +835,25 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
 		cx: <span class="kw-2">&amp;mut </span>std::task::Context,
 		params: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>PollParameters,
-	) -&gt; Poll&lt;ToSwarm&lt;<span class="self">Self</span>::OutEvent, THandlerInEvent&lt;<span class="self">Self</span>&gt;&gt;&gt; {
+	) -&gt; Poll&lt;ToSwarm&lt;<span class="self">Self</span>::ToSwarm, THandlerInEvent&lt;<span class="self">Self</span>&gt;&gt;&gt; {
 		<span class="kw">let </span>event = <span class="kw">match </span><span class="self">self</span>.behaviour.poll(cx, params) {
 			Poll::Pending =&gt; <span class="kw">return </span>Poll::Pending,
 			Poll::Ready(ToSwarm::GenerateEvent(ev)) =&gt; ev,
 			Poll::Ready(ToSwarm::Dial { opts }) =&gt; <span class="kw">return </span>Poll::Ready(ToSwarm::Dial { opts }),
 			Poll::Ready(ToSwarm::NotifyHandler { peer_id, handler, event }) =&gt;
 				<span class="kw">return </span>Poll::Ready(ToSwarm::NotifyHandler { peer_id, handler, event }),
-			Poll::Ready(ToSwarm::ReportObservedAddr { address, score }) =&gt;
-				<span class="kw">return </span>Poll::Ready(ToSwarm::ReportObservedAddr { address, score }),
 			Poll::Ready(ToSwarm::CloseConnection { peer_id, connection }) =&gt;
 				<span class="kw">return </span>Poll::Ready(ToSwarm::CloseConnection { peer_id, connection }),
+			Poll::Ready(ToSwarm::NewExternalAddrCandidate(observed)) =&gt;
+				<span class="kw">return </span>Poll::Ready(ToSwarm::NewExternalAddrCandidate(observed)),
+			Poll::Ready(ToSwarm::ExternalAddrConfirmed(addr)) =&gt;
+				<span class="kw">return </span>Poll::Ready(ToSwarm::ExternalAddrConfirmed(addr)),
+			Poll::Ready(ToSwarm::ExternalAddrExpired(addr)) =&gt;
+				<span class="kw">return </span>Poll::Ready(ToSwarm::ExternalAddrExpired(addr)),
+			Poll::Ready(ToSwarm::ListenOn { opts }) =&gt;
+				<span class="kw">return </span>Poll::Ready(ToSwarm::ListenOn { opts }),
+			Poll::Ready(ToSwarm::RemoveListener { id }) =&gt;
+				<span class="kw">return </span>Poll::Ready(ToSwarm::RemoveListener { id }),
 		};
 
 		<span class="kw">let </span>outcome = <span class="kw">match </span>event {

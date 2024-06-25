@@ -1620,12 +1620,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>tests {
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
-	<span class="kw">use </span><span class="kw">crate</span>::multiaddr::Multiaddr;
 	<span class="kw">use </span>futures::prelude::<span class="kw-2">*</span>;
 	<span class="kw">use </span>sc_network::{
 		config::MultiaddrWithPeerId, event::Event, service::traits::NotificationEvent, MessageSink,
 		NetworkBlock, NetworkEventStream, NetworkPeers, ReputationChange,
 	};
+	<span class="kw">use </span>sc_network_types::multiaddr::Multiaddr;
 	<span class="kw">use </span>sp_runtime::{
 		testing::{Block <span class="kw">as </span>RawBlock, ExtrinsicWrapper, H256},
 		traits::NumberFor,

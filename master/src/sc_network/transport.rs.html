@@ -314,7 +314,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="comment">// Main transport: DNS(TCP)
 		</span><span class="kw">let </span>tcp_config = tcp::Config::new().nodelay(<span class="bool-val">true</span>);
 		<span class="kw">let </span>tcp_trans = tcp::tokio::Transport::new(tcp_config.clone());
-		<span class="kw">let </span>dns_init = dns::TokioDnsConfig::system(tcp_trans);
+		<span class="kw">let </span>dns_init = dns::tokio::Transport::system(tcp_trans);
 
 		Either::Left(<span class="kw">if let </span><span class="prelude-val">Ok</span>(dns) = dns_init {
 			<span class="comment">// WS + WSS transport
@@ -323,7 +323,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			// unresolved addresses (BUT WSS transport itself needs an instance of DNS transport to
 			// resolve and dial addresses).
 			</span><span class="kw">let </span>tcp_trans = tcp::tokio::Transport::new(tcp_config);
-			<span class="kw">let </span>dns_for_wss = dns::TokioDnsConfig::system(tcp_trans)
+			<span class="kw">let </span>dns_for_wss = dns::tokio::Transport::system(tcp_trans)
 				.expect(<span class="string">"same system_conf &amp; resolver to work"</span>);
 			Either::Left(websocket::WsConfig::new(dns_for_wss).or_transport(dns))
 		} <span class="kw">else </span>{

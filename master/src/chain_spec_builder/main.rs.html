@@ -265,6 +265,30 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#114" id="114">114</a>
 <a href="#115" id="115">115</a>
 <a href="#116" id="116">116</a>
+<a href="#117" id="117">117</a>
+<a href="#118" id="118">118</a>
+<a href="#119" id="119">119</a>
+<a href="#120" id="120">120</a>
+<a href="#121" id="121">121</a>
+<a href="#122" id="122">122</a>
+<a href="#123" id="123">123</a>
+<a href="#124" id="124">124</a>
+<a href="#125" id="125">125</a>
+<a href="#126" id="126">126</a>
+<a href="#127" id="127">127</a>
+<a href="#128" id="128">128</a>
+<a href="#129" id="129">129</a>
+<a href="#130" id="130">130</a>
+<a href="#131" id="131">131</a>
+<a href="#132" id="132">132</a>
+<a href="#133" id="133">133</a>
+<a href="#134" id="134">134</a>
+<a href="#135" id="135">135</a>
+<a href="#136" id="136">136</a>
+<a href="#137" id="137">137</a>
+<a href="#138" id="138">138</a>
+<a href="#139" id="139">139</a>
+<a href="#140" id="140">140</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -284,15 +308,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // along with this program. If not, see &lt;https://www.gnu.org/licenses/&gt;.
 
 </span><span class="kw">use </span>chain_spec_builder::{
-	generate_chain_spec_for_runtime, ChainSpecBuilder, ChainSpecBuilderCmd, ConvertToRawCmd,
-	DisplayPresetCmd, ListPresetsCmd, UpdateCodeCmd, VerifyCmd,
+	generate_chain_spec_for_runtime, AddCodeSubstituteCmd, ChainSpecBuilder, ChainSpecBuilderCmd,
+	ConvertToRawCmd, DisplayPresetCmd, ListPresetsCmd, UpdateCodeCmd, VerifyCmd,
 };
 <span class="kw">use </span>clap::Parser;
 <span class="kw">use </span>sc_chain_spec::{
-	update_code_in_json_chain_spec, GenericChainSpec, GenesisConfigBuilderRuntimeCaller,
+	set_code_substitute_in_json_chain_spec, update_code_in_json_chain_spec, GenericChainSpec,
+	GenesisConfigBuilderRuntimeCaller,
 };
 <span class="kw">use </span>staging_chain_spec_builder <span class="kw">as </span>chain_spec_builder;
 <span class="kw">use </span>std::fs;
+
+<span class="kw">type </span>ChainSpec = GenericChainSpec&lt;(), ()&gt;;
 
 <span class="comment">//avoid error message escaping
 </span><span class="kw">fn </span>main() {
@@ -317,7 +344,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw-2">ref </span>input_chain_spec,
 			<span class="kw-2">ref </span>runtime_wasm_path,
 		}) =&gt; {
-			<span class="kw">let </span>chain_spec = GenericChainSpec::&lt;()&gt;::from_json_file(input_chain_spec.clone())<span class="question-mark">?</span>;
+			<span class="kw">let </span>chain_spec = ChainSpec::from_json_file(input_chain_spec.clone())<span class="question-mark">?</span>;
 
 			<span class="kw">let </span><span class="kw-2">mut </span>chain_spec_json =
 				serde_json::from_str::&lt;serde_json::Value&gt;(<span class="kw-2">&amp;</span>chain_spec.as_json(<span class="bool-val">false</span>)<span class="question-mark">?</span>)
@@ -332,8 +359,29 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				.map_err(|e| <span class="macro">format!</span>(<span class="string">"to pretty failed: {e}"</span>))<span class="question-mark">?</span>;
 			fs::write(chain_spec_path, chain_spec_json).map_err(|err| err.to_string())<span class="question-mark">?</span>;
 		},
+		ChainSpecBuilderCmd::AddCodeSubstitute(AddCodeSubstituteCmd {
+			<span class="kw-2">ref </span>input_chain_spec,
+			<span class="kw-2">ref </span>runtime_wasm_path,
+			block_height,
+		}) =&gt; {
+			<span class="kw">let </span>chain_spec = ChainSpec::from_json_file(input_chain_spec.clone())<span class="question-mark">?</span>;
+
+			<span class="kw">let </span><span class="kw-2">mut </span>chain_spec_json =
+				serde_json::from_str::&lt;serde_json::Value&gt;(<span class="kw-2">&amp;</span>chain_spec.as_json(<span class="bool-val">false</span>)<span class="question-mark">?</span>)
+					.map_err(|e| <span class="macro">format!</span>(<span class="string">"Conversion to json failed: {e}"</span>))<span class="question-mark">?</span>;
+
+			set_code_substitute_in_json_chain_spec(
+				<span class="kw-2">&amp;mut </span>chain_spec_json,
+				<span class="kw-2">&amp;</span>fs::read(runtime_wasm_path.as_path())
+					.map_err(|e| <span class="macro">format!</span>(<span class="string">"Wasm blob file could not be read: {e}"</span>))<span class="question-mark">?</span>[..],
+				block_height,
+			);
+			<span class="kw">let </span>chain_spec_json = serde_json::to_string_pretty(<span class="kw-2">&amp;</span>chain_spec_json)
+				.map_err(|e| <span class="macro">format!</span>(<span class="string">"to pretty failed: {e}"</span>))<span class="question-mark">?</span>;
+			fs::write(chain_spec_path, chain_spec_json).map_err(|err| err.to_string())<span class="question-mark">?</span>;
+		},
 		ChainSpecBuilderCmd::ConvertToRaw(ConvertToRawCmd { <span class="kw-2">ref </span>input_chain_spec }) =&gt; {
-			<span class="kw">let </span>chain_spec = GenericChainSpec::&lt;()&gt;::from_json_file(input_chain_spec.clone())<span class="question-mark">?</span>;
+			<span class="kw">let </span>chain_spec = ChainSpec::from_json_file(input_chain_spec.clone())<span class="question-mark">?</span>;
 
 			<span class="kw">let </span>chain_spec_json =
 				serde_json::from_str::&lt;serde_json::Value&gt;(<span class="kw-2">&amp;</span>chain_spec.as_json(<span class="bool-val">true</span>)<span class="question-mark">?</span>)
@@ -344,7 +392,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			fs::write(chain_spec_path, chain_spec_json).map_err(|err| err.to_string())<span class="question-mark">?</span>;
 		},
 		ChainSpecBuilderCmd::Verify(VerifyCmd { <span class="kw-2">ref </span>input_chain_spec }) =&gt; {
-			<span class="kw">let </span>chain_spec = GenericChainSpec::&lt;()&gt;::from_json_file(input_chain_spec.clone())<span class="question-mark">?</span>;
+			<span class="kw">let </span>chain_spec = ChainSpec::from_json_file(input_chain_spec.clone())<span class="question-mark">?</span>;
 			<span class="kw">let _ </span>= serde_json::from_str::&lt;serde_json::Value&gt;(<span class="kw-2">&amp;</span>chain_spec.as_json(<span class="bool-val">true</span>)<span class="question-mark">?</span>)
 				.map_err(|e| <span class="macro">format!</span>(<span class="string">"Conversion to json failed: {e}"</span>))<span class="question-mark">?</span>;
 		},

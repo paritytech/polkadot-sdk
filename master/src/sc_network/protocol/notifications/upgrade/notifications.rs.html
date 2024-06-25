@@ -947,14 +947,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#796" id="796">796</a>
 <a href="#797" id="797">797</a>
 <a href="#798" id="798">798</a>
-<a href="#799" id="799">799</a>
-<a href="#800" id="800">800</a>
-<a href="#801" id="801">801</a>
-<a href="#802" id="802">802</a>
-<a href="#803" id="803">803</a>
-<a href="#804" id="804">804</a>
-<a href="#805" id="805">805</a>
-<a href="#806" id="806">806</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1470,45 +1462,99 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>tests {
+	<span class="kw">use </span><span class="kw">crate</span>::ProtocolName;
+
 	<span class="kw">use super</span>::{
-		NotificationsIn, NotificationsInOpen, NotificationsOut, NotificationsOutError,
-		NotificationsOutOpen,
+		NotificationsHandshakeError, NotificationsIn, NotificationsInOpen,
+		NotificationsInSubstream, NotificationsOut, NotificationsOutError, NotificationsOutOpen,
+		NotificationsOutSubstream,
 	};
-	<span class="kw">use </span>futures::{channel::oneshot, future, prelude::<span class="kw-2">*</span>};
-	<span class="kw">use </span>libp2p::core::upgrade;
+	<span class="kw">use </span>futures::{channel::oneshot, future, prelude::<span class="kw-2">*</span>, SinkExt, StreamExt};
+	<span class="kw">use </span>libp2p::core::{upgrade, InboundUpgrade, OutboundUpgrade, UpgradeInfo};
 	<span class="kw">use </span>std::{pin::Pin, task::Poll};
 	<span class="kw">use </span>tokio::net::{TcpListener, TcpStream};
 	<span class="kw">use </span>tokio_util::compat::TokioAsyncReadCompatExt;
 
+	<span class="doccomment">/// Opens a substream to the given address, negotiates the protocol, and returns the substream
+	/// along with the handshake message.
+	</span><span class="kw">async fn </span>dial(
+		addr: std::net::SocketAddr,
+		handshake: <span class="kw">impl </span>Into&lt;Vec&lt;u8&gt;&gt;,
+	) -&gt; <span class="prelude-ty">Result</span>&lt;
+		(
+			Vec&lt;u8&gt;,
+			NotificationsOutSubstream&lt;
+				multistream_select::Negotiated&lt;tokio_util::compat::Compat&lt;TcpStream&gt;&gt;,
+			&gt;,
+		),
+		NotificationsHandshakeError,
+	&gt; {
+		<span class="kw">let </span>socket = TcpStream::connect(addr).<span class="kw">await</span>.unwrap();
+		<span class="kw">let </span>notifs_out = NotificationsOut::new(<span class="string">"/test/proto/1"</span>, Vec::new(), handshake, <span class="number">1024 </span>* <span class="number">1024</span>);
+		<span class="kw">let </span>(<span class="kw">_</span>, substream) = multistream_select::dialer_select_proto(
+			socket.compat(),
+			notifs_out.protocol_info(),
+			upgrade::Version::V1,
+		)
+		.<span class="kw">await
+		</span>.unwrap();
+		<span class="kw">let </span>NotificationsOutOpen { handshake, substream, .. } =
+			&lt;NotificationsOut <span class="kw">as </span>OutboundUpgrade&lt;<span class="kw">_</span>&gt;&gt;::upgrade_outbound(
+				notifs_out,
+				substream,
+				<span class="string">"/test/proto/1"</span>.into(),
+			)
+			.<span class="kw">await</span><span class="question-mark">?</span>;
+		<span class="prelude-val">Ok</span>((handshake, substream))
+	}
+
+	<span class="doccomment">/// Listens on a localhost, negotiates the protocol, and returns the substream along with the
+	/// handshake message.
+	///
+	/// Also sends the listener address through the given channel.
+	</span><span class="kw">async fn </span>listen_on_localhost(
+		listener_addr_tx: oneshot::Sender&lt;std::net::SocketAddr&gt;,
+	) -&gt; <span class="prelude-ty">Result</span>&lt;
+		(
+			Vec&lt;u8&gt;,
+			NotificationsInSubstream&lt;
+				multistream_select::Negotiated&lt;tokio_util::compat::Compat&lt;TcpStream&gt;&gt;,
+			&gt;,
+		),
+		NotificationsHandshakeError,
+	&gt; {
+		<span class="kw">let </span>listener = TcpListener::bind(<span class="string">"127.0.0.1:0"</span>).<span class="kw">await</span>.unwrap();
+		listener_addr_tx.send(listener.local_addr().unwrap()).unwrap();
+
+		<span class="kw">let </span>(socket, <span class="kw">_</span>) = listener.accept().<span class="kw">await</span>.unwrap();
+		<span class="kw">let </span>notifs_in = NotificationsIn::new(<span class="string">"/test/proto/1"</span>, Vec::new(), <span class="number">1024 </span>* <span class="number">1024</span>);
+		<span class="kw">let </span>(<span class="kw">_</span>, substream) =
+			multistream_select::listener_select_proto(socket.compat(), notifs_in.protocol_info())
+				.<span class="kw">await
+				</span>.unwrap();
+		<span class="kw">let </span>NotificationsInOpen { handshake, substream, .. } =
+			&lt;NotificationsIn <span class="kw">as </span>InboundUpgrade&lt;<span class="kw">_</span>&gt;&gt;::upgrade_inbound(
+				notifs_in,
+				substream,
+				<span class="string">"/test/proto/1"</span>.into(),
+			)
+			.<span class="kw">await</span><span class="question-mark">?</span>;
+		<span class="prelude-val">Ok</span>((handshake, substream))
+	}
+
 	<span class="attr">#[tokio::test]
 	</span><span class="kw">async fn </span>basic_works() {
-		<span class="kw">const </span>PROTO_NAME: <span class="kw-2">&amp;</span>str = <span class="string">"/test/proto/1"</span>;
 		<span class="kw">let </span>(listener_addr_tx, listener_addr_rx) = oneshot::channel();
 
 		<span class="kw">let </span>client = tokio::spawn(<span class="kw">async move </span>{
-			<span class="kw">let </span>socket = TcpStream::connect(listener_addr_rx.<span class="kw">await</span>.unwrap()).<span class="kw">await</span>.unwrap();
-			<span class="kw">let </span>NotificationsOutOpen { handshake, <span class="kw-2">mut </span>substream, .. } = upgrade::apply_outbound(
-				socket.compat(),
-				NotificationsOut::new(PROTO_NAME, Vec::new(), <span class="kw-2">&amp;</span><span class="string">b"initial message"</span>[..], <span class="number">1024 </span>* <span class="number">1024</span>),
-				upgrade::Version::V1,
-			)
-			.<span class="kw">await
-			</span>.unwrap();
+			<span class="kw">let </span>(handshake, <span class="kw-2">mut </span>substream) =
+				dial(listener_addr_rx.<span class="kw">await</span>.unwrap(), <span class="kw-2">&amp;</span><span class="string">b"initial message"</span>[..]).<span class="kw">await</span>.unwrap();
 
 			<span class="macro">assert_eq!</span>(handshake, <span class="string">b"hello world"</span>);
 			substream.send(<span class="string">b"test message"</span>.to_vec()).<span class="kw">await</span>.unwrap();
 		});
 
-		<span class="kw">let </span>listener = TcpListener::bind(<span class="string">"127.0.0.1:0"</span>).<span class="kw">await</span>.unwrap();
-		listener_addr_tx.send(listener.local_addr().unwrap()).unwrap();
-
-		<span class="kw">let </span>(socket, <span class="kw">_</span>) = listener.accept().<span class="kw">await</span>.unwrap();
-		<span class="kw">let </span>NotificationsInOpen { handshake, <span class="kw-2">mut </span>substream, .. } = upgrade::apply_inbound(
-			socket.compat(),
-			NotificationsIn::new(PROTO_NAME, Vec::new(), <span class="number">1024 </span>* <span class="number">1024</span>),
-		)
-		.<span class="kw">await
-		</span>.unwrap();
+		<span class="kw">let </span>(handshake, <span class="kw-2">mut </span>substream) = listen_on_localhost(listener_addr_tx).<span class="kw">await</span>.unwrap();
 
 		<span class="macro">assert_eq!</span>(handshake, <span class="string">b"initial message"</span>);
 		substream.send_handshake(<span class="kw-2">&amp;</span><span class="string">b"hello world"</span>[..]);
@@ -1523,33 +1569,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">async fn </span>empty_handshake() {
 		<span class="comment">// Check that everything still works when the handshake messages are empty.
 
-		</span><span class="kw">const </span>PROTO_NAME: <span class="kw-2">&amp;</span>str = <span class="string">"/test/proto/1"</span>;
-		<span class="kw">let </span>(listener_addr_tx, listener_addr_rx) = oneshot::channel();
+		</span><span class="kw">let </span>(listener_addr_tx, listener_addr_rx) = oneshot::channel();
 
 		<span class="kw">let </span>client = tokio::spawn(<span class="kw">async move </span>{
-			<span class="kw">let </span>socket = TcpStream::connect(listener_addr_rx.<span class="kw">await</span>.unwrap()).<span class="kw">await</span>.unwrap();
-			<span class="kw">let </span>NotificationsOutOpen { handshake, <span class="kw-2">mut </span>substream, .. } = upgrade::apply_outbound(
-				socket.compat(),
-				NotificationsOut::new(PROTO_NAME, Vec::new(), <span class="macro">vec!</span>[], <span class="number">1024 </span>* <span class="number">1024</span>),
-				upgrade::Version::V1,
-			)
-			.<span class="kw">await
-			</span>.unwrap();
+			<span class="kw">let </span>(handshake, <span class="kw-2">mut </span>substream) =
+				dial(listener_addr_rx.<span class="kw">await</span>.unwrap(), <span class="macro">vec!</span>[]).<span class="kw">await</span>.unwrap();
 
 			<span class="macro">assert!</span>(handshake.is_empty());
 			substream.send(Default::default()).<span class="kw">await</span>.unwrap();
 		});
 
-		<span class="kw">let </span>listener = TcpListener::bind(<span class="string">"127.0.0.1:0"</span>).<span class="kw">await</span>.unwrap();
-		listener_addr_tx.send(listener.local_addr().unwrap()).unwrap();
-
-		<span class="kw">let </span>(socket, <span class="kw">_</span>) = listener.accept().<span class="kw">await</span>.unwrap();
-		<span class="kw">let </span>NotificationsInOpen { handshake, <span class="kw-2">mut </span>substream, .. } = upgrade::apply_inbound(
-			socket.compat(),
-			NotificationsIn::new(PROTO_NAME, Vec::new(), <span class="number">1024 </span>* <span class="number">1024</span>),
-		)
-		.<span class="kw">await
-		</span>.unwrap();
+		<span class="kw">let </span>(handshake, <span class="kw-2">mut </span>substream) = listen_on_localhost(listener_addr_tx).<span class="kw">await</span>.unwrap();
 
 		<span class="macro">assert!</span>(handshake.is_empty());
 		substream.send_handshake(<span class="macro">vec!</span>[]);
@@ -1562,17 +1592,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[tokio::test]
 	</span><span class="kw">async fn </span>refused() {
-		<span class="kw">const </span>PROTO_NAME: <span class="kw-2">&amp;</span>str = <span class="string">"/test/proto/1"</span>;
 		<span class="kw">let </span>(listener_addr_tx, listener_addr_rx) = oneshot::channel();
 
 		<span class="kw">let </span>client = tokio::spawn(<span class="kw">async move </span>{
-			<span class="kw">let </span>socket = TcpStream::connect(listener_addr_rx.<span class="kw">await</span>.unwrap()).<span class="kw">await</span>.unwrap();
-			<span class="kw">let </span>outcome = upgrade::apply_outbound(
-				socket.compat(),
-				NotificationsOut::new(PROTO_NAME, Vec::new(), <span class="kw-2">&amp;</span><span class="string">b"hello"</span>[..], <span class="number">1024 </span>* <span class="number">1024</span>),
-				upgrade::Version::V1,
-			)
-			.<span class="kw">await</span>;
+			<span class="kw">let </span>outcome = dial(listener_addr_rx.<span class="kw">await</span>.unwrap(), <span class="kw-2">&amp;</span><span class="string">b"hello"</span>[..]).<span class="kw">await</span>;
 
 			<span class="comment">// Despite the protocol negotiation being successfully conducted on the listener
 			// side, we have to receive an error here because the listener didn't send the
@@ -1580,17 +1603,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span><span class="macro">assert!</span>(outcome.is_err());
 		});
 
-		<span class="kw">let </span>listener = TcpListener::bind(<span class="string">"127.0.0.1:0"</span>).<span class="kw">await</span>.unwrap();
-		listener_addr_tx.send(listener.local_addr().unwrap()).unwrap();
-
-		<span class="kw">let </span>(socket, <span class="kw">_</span>) = listener.accept().<span class="kw">await</span>.unwrap();
-		<span class="kw">let </span>NotificationsInOpen { handshake, substream, .. } = upgrade::apply_inbound(
-			socket.compat(),
-			NotificationsIn::new(PROTO_NAME, Vec::new(), <span class="number">1024 </span>* <span class="number">1024</span>),
-		)
-		.<span class="kw">await
-		</span>.unwrap();
-
+		<span class="kw">let </span>(handshake, substream) = listen_on_localhost(listener_addr_tx).<span class="kw">await</span>.unwrap();
 		<span class="macro">assert_eq!</span>(handshake, <span class="string">b"hello"</span>);
 
 		<span class="comment">// We successfully upgrade to the protocol, but then close the substream.
@@ -1601,66 +1614,29 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[tokio::test]
 	</span><span class="kw">async fn </span>large_initial_message_refused() {
-		<span class="kw">const </span>PROTO_NAME: <span class="kw-2">&amp;</span>str = <span class="string">"/test/proto/1"</span>;
 		<span class="kw">let </span>(listener_addr_tx, listener_addr_rx) = oneshot::channel();
 
 		<span class="kw">let </span>client = tokio::spawn(<span class="kw">async move </span>{
-			<span class="kw">let </span>socket = TcpStream::connect(listener_addr_rx.<span class="kw">await</span>.unwrap()).<span class="kw">await</span>.unwrap();
-			<span class="kw">let </span>ret = upgrade::apply_outbound(
-				socket.compat(),
-				<span class="comment">// We check that an initial message that is too large gets refused.
-				</span>NotificationsOut::new(
-					PROTO_NAME,
-					Vec::new(),
-					(<span class="number">0</span>..<span class="number">32768</span>).map(|<span class="kw">_</span>| <span class="number">0</span>).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
-					<span class="number">1024 </span>* <span class="number">1024</span>,
-				),
-				upgrade::Version::V1,
-			)
-			.<span class="kw">await</span>;
+			<span class="kw">let </span>ret =
+				dial(listener_addr_rx.<span class="kw">await</span>.unwrap(), (<span class="number">0</span>..<span class="number">32768</span>).map(|<span class="kw">_</span>| <span class="number">0</span>).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;())
+					.<span class="kw">await</span>;
 			<span class="macro">assert!</span>(ret.is_err());
 		});
 
-		<span class="kw">let </span>listener = TcpListener::bind(<span class="string">"127.0.0.1:0"</span>).<span class="kw">await</span>.unwrap();
-		listener_addr_tx.send(listener.local_addr().unwrap()).unwrap();
-
-		<span class="kw">let </span>(socket, <span class="kw">_</span>) = listener.accept().<span class="kw">await</span>.unwrap();
-		<span class="kw">let </span>ret = upgrade::apply_inbound(
-			socket.compat(),
-			NotificationsIn::new(PROTO_NAME, Vec::new(), <span class="number">1024 </span>* <span class="number">1024</span>),
-		)
-		.<span class="kw">await</span>;
-		<span class="macro">assert!</span>(ret.is_err());
-
+		<span class="kw">let </span>_ret = listen_on_localhost(listener_addr_tx).<span class="kw">await</span>;
 		client.<span class="kw">await</span>.unwrap();
 	}
 
 	<span class="attr">#[tokio::test]
 	</span><span class="kw">async fn </span>large_handshake_refused() {
-		<span class="kw">const </span>PROTO_NAME: <span class="kw-2">&amp;</span>str = <span class="string">"/test/proto/1"</span>;
 		<span class="kw">let </span>(listener_addr_tx, listener_addr_rx) = oneshot::channel();
 
 		<span class="kw">let </span>client = tokio::spawn(<span class="kw">async move </span>{
-			<span class="kw">let </span>socket = TcpStream::connect(listener_addr_rx.<span class="kw">await</span>.unwrap()).<span class="kw">await</span>.unwrap();
-			<span class="kw">let </span>ret = upgrade::apply_outbound(
-				socket.compat(),
-				NotificationsOut::new(PROTO_NAME, Vec::new(), <span class="kw-2">&amp;</span><span class="string">b"initial message"</span>[..], <span class="number">1024 </span>* <span class="number">1024</span>),
-				upgrade::Version::V1,
-			)
-			.<span class="kw">await</span>;
+			<span class="kw">let </span>ret = dial(listener_addr_rx.<span class="kw">await</span>.unwrap(), <span class="kw-2">&amp;</span><span class="string">b"initial message"</span>[..]).<span class="kw">await</span>;
 			<span class="macro">assert!</span>(ret.is_err());
 		});
 
-		<span class="kw">let </span>listener = TcpListener::bind(<span class="string">"127.0.0.1:0"</span>).<span class="kw">await</span>.unwrap();
-		listener_addr_tx.send(listener.local_addr().unwrap()).unwrap();
-
-		<span class="kw">let </span>(socket, <span class="kw">_</span>) = listener.accept().<span class="kw">await</span>.unwrap();
-		<span class="kw">let </span>NotificationsInOpen { handshake, <span class="kw-2">mut </span>substream, .. } = upgrade::apply_inbound(
-			socket.compat(),
-			NotificationsIn::new(PROTO_NAME, Vec::new(), <span class="number">1024 </span>* <span class="number">1024</span>),
-		)
-		.<span class="kw">await
-		</span>.unwrap();
+		<span class="kw">let </span>(handshake, <span class="kw-2">mut </span>substream) = listen_on_localhost(listener_addr_tx).<span class="kw">await</span>.unwrap();
 		<span class="macro">assert_eq!</span>(handshake, <span class="string">b"initial message"</span>);
 
 		<span class="comment">// We check that a handshake that is too large gets refused.
@@ -1677,10 +1653,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">let </span>client = tokio::spawn(<span class="kw">async move </span>{
 			<span class="kw">let </span>socket = TcpStream::connect(listener_addr_rx.<span class="kw">await</span>.unwrap()).<span class="kw">await</span>.unwrap();
-			<span class="kw">let </span>NotificationsOutOpen { handshake, .. } = upgrade::apply_outbound(
-				socket.compat(),
+			<span class="kw">let </span>NotificationsOutOpen { handshake, .. } = OutboundUpgrade::upgrade_outbound(
 				NotificationsOut::new(PROTO_NAME, Vec::new(), <span class="kw-2">&amp;</span><span class="string">b"initial message"</span>[..], <span class="number">1024 </span>* <span class="number">1024</span>),
-				upgrade::Version::V1,
+				socket.compat(),
+				ProtocolName::Static(PROTO_NAME),
 			)
 			.<span class="kw">await
 			</span>.unwrap();
@@ -1692,9 +1668,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		listener_addr_tx.send(listener.local_addr().unwrap()).unwrap();
 
 		<span class="kw">let </span>(socket, <span class="kw">_</span>) = listener.accept().<span class="kw">await</span>.unwrap();
-		<span class="kw">let </span>NotificationsInOpen { handshake, <span class="kw-2">mut </span>substream, .. } = upgrade::apply_inbound(
-			socket.compat(),
+		<span class="kw">let </span>NotificationsInOpen { handshake, <span class="kw-2">mut </span>substream, .. } = InboundUpgrade::upgrade_inbound(
 			NotificationsIn::new(PROTO_NAME, Vec::new(), <span class="number">1024 </span>* <span class="number">1024</span>),
+			socket.compat(),
+			ProtocolName::Static(PROTO_NAME),
 		)
 		.<span class="kw">await
 		</span>.unwrap();
@@ -1715,13 +1692,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">let </span>client = tokio::spawn(<span class="kw">async move </span>{
 			<span class="kw">let </span>socket = TcpStream::connect(listener_addr_rx.<span class="kw">await</span>.unwrap()).<span class="kw">await</span>.unwrap();
-			<span class="kw">let </span>NotificationsOutOpen { handshake, <span class="kw-2">mut </span>substream, .. } = upgrade::apply_outbound(
-				socket.compat(),
-				NotificationsOut::new(PROTO_NAME, Vec::new(), <span class="kw-2">&amp;</span><span class="string">b"initial message"</span>[..], <span class="number">1024 </span>* <span class="number">1024</span>),
-				upgrade::Version::V1,
-			)
-			.<span class="kw">await
-			</span>.unwrap();
+			<span class="kw">let </span>NotificationsOutOpen { handshake, <span class="kw-2">mut </span>substream, .. } =
+				OutboundUpgrade::upgrade_outbound(
+					NotificationsOut::new(
+						PROTO_NAME,
+						Vec::new(),
+						<span class="kw-2">&amp;</span><span class="string">b"initial message"</span>[..],
+						<span class="number">1024 </span>* <span class="number">1024</span>,
+					),
+					socket.compat(),
+					ProtocolName::Static(PROTO_NAME),
+				)
+				.<span class="kw">await
+				</span>.unwrap();
 
 			<span class="macro">assert_eq!</span>(handshake, <span class="string">b"hello world"</span>);
 
@@ -1743,9 +1726,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		listener_addr_tx.send(listener.local_addr().unwrap()).unwrap();
 
 		<span class="kw">let </span>(socket, <span class="kw">_</span>) = listener.accept().<span class="kw">await</span>.unwrap();
-		<span class="kw">let </span>NotificationsInOpen { handshake, <span class="kw-2">mut </span>substream, .. } = upgrade::apply_inbound(
-			socket.compat(),
+		<span class="kw">let </span>NotificationsInOpen { handshake, <span class="kw-2">mut </span>substream, .. } = InboundUpgrade::upgrade_inbound(
 			NotificationsIn::new(PROTO_NAME, Vec::new(), <span class="number">1024 </span>* <span class="number">1024</span>),
+			socket.compat(),
+			ProtocolName::Static(PROTO_NAME),
 		)
 		.<span class="kw">await
 		</span>.unwrap();

@@ -1043,6 +1043,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#892" id="892">892</a>
 <a href="#893" id="893">893</a>
 <a href="#894" id="894">894</a>
+<a href="#895" id="895">895</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1393,7 +1394,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>tests {
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
-	<span class="kw">use crate</span>::{multiaddr::Multiaddr, ValidationResult, ValidatorContext};
+	<span class="kw">use crate</span>::{ValidationResult, ValidatorContext};
 	<span class="kw">use </span>codec::{DecodeAll, Encode};
 	<span class="kw">use </span>futures::{
 		channel::mpsc::{unbounded, UnboundedReceiver, UnboundedSender},
@@ -1408,6 +1409,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	};
 	<span class="kw">use </span>sc_network_common::role::ObservedRole;
 	<span class="kw">use </span>sc_network_sync::SyncEventStream;
+	<span class="kw">use </span>sc_network_types::multiaddr::Multiaddr;
 	<span class="kw">use </span>sp_runtime::{
 		testing::H256,
 		traits::{Block <span class="kw">as </span>BlockT, NumberFor},

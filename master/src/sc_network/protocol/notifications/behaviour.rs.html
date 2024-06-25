@@ -5235,23 +5235,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#5084" id="5084">5084</a>
 <a href="#5085" id="5085">5085</a>
 <a href="#5086" id="5086">5086</a>
-<a href="#5087" id="5087">5087</a>
-<a href="#5088" id="5088">5088</a>
-<a href="#5089" id="5089">5089</a>
-<a href="#5090" id="5090">5090</a>
-<a href="#5091" id="5091">5091</a>
-<a href="#5092" id="5092">5092</a>
-<a href="#5093" id="5093">5093</a>
-<a href="#5094" id="5094">5094</a>
-<a href="#5095" id="5095">5095</a>
-<a href="#5096" id="5096">5096</a>
-<a href="#5097" id="5097">5097</a>
-<a href="#5098" id="5098">5098</a>
-<a href="#5099" id="5099">5099</a>
-<a href="#5100" id="5100">5100</a>
-<a href="#5101" id="5101">5101</a>
-<a href="#5102" id="5102">5102</a>
-<a href="#5103" id="5103">5103</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -6452,7 +6435,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">impl </span>NetworkBehaviour <span class="kw">for </span>Notifications {
 	<span class="kw">type </span>ConnectionHandler = NotifsHandler;
-	<span class="kw">type </span>OutEvent = NotificationsOut;
+	<span class="kw">type </span>ToSwarm = NotificationsOut;
 
 	<span class="kw">fn </span>handle_pending_inbound_connection(
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
@@ -6932,10 +6915,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			FromSwarm::ListenerClosed(<span class="kw">_</span>) =&gt; {},
 			FromSwarm::ListenFailure(<span class="kw">_</span>) =&gt; {},
 			FromSwarm::ListenerError(<span class="kw">_</span>) =&gt; {},
-			FromSwarm::ExpiredExternalAddr(<span class="kw">_</span>) =&gt; {},
+			FromSwarm::ExternalAddrExpired(<span class="kw">_</span>) =&gt; {},
 			FromSwarm::NewListener(<span class="kw">_</span>) =&gt; {},
 			FromSwarm::ExpiredListenAddr(<span class="kw">_</span>) =&gt; {},
-			FromSwarm::NewExternalAddr(<span class="kw">_</span>) =&gt; {},
+			FromSwarm::NewExternalAddrCandidate(<span class="kw">_</span>) =&gt; {},
+			FromSwarm::ExternalAddrConfirmed(<span class="kw">_</span>) =&gt; {},
 			FromSwarm::AddressChange(<span class="kw">_</span>) =&gt; {},
 			FromSwarm::NewListenAddr(<span class="kw">_</span>) =&gt; {},
 		}
@@ -7493,7 +7477,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
 		cx: <span class="kw-2">&amp;mut </span>Context,
 		_params: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>PollParameters,
-	) -&gt; Poll&lt;ToSwarm&lt;<span class="self">Self</span>::OutEvent, THandlerInEvent&lt;<span class="self">Self</span>&gt;&gt;&gt; {
+	) -&gt; Poll&lt;ToSwarm&lt;<span class="self">Self</span>::ToSwarm, THandlerInEvent&lt;<span class="self">Self</span>&gt;&gt;&gt; {
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(event) = <span class="self">self</span>.events.pop_front() {
 			<span class="kw">return </span>Poll::Ready(event)
 		}
@@ -7636,7 +7620,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		protocol::notifications::handler::tests::<span class="kw-2">*</span>,
 		protocol_controller::{IncomingIndex, ProtoSetConfig, ProtocolController},
 	};
-	<span class="kw">use </span>libp2p::swarm::AddressRecord;
 	<span class="kw">use </span>sc_utils::mpsc::tracing_unbounded;
 	<span class="kw">use </span>std::{collections::HashSet, iter};
 
@@ -7656,30 +7639,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="attr">#[derive(Clone)]
-	</span><span class="kw">struct </span>MockPollParams {
-		peer_id: PeerId,
-		addr: Multiaddr,
-	}
+	</span><span class="kw">struct </span>MockPollParams {}
 
 	<span class="kw">impl </span>PollParameters <span class="kw">for </span>MockPollParams {
 		<span class="kw">type </span>SupportedProtocolsIter = std::vec::IntoIter&lt;Vec&lt;u8&gt;&gt;;
-		<span class="kw">type </span>ListenedAddressesIter = std::vec::IntoIter&lt;Multiaddr&gt;;
-		<span class="kw">type </span>ExternalAddressesIter = std::vec::IntoIter&lt;AddressRecord&gt;;
 
 		<span class="kw">fn </span>supported_protocols(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="self">Self</span>::SupportedProtocolsIter {
 			<span class="macro">vec!</span>[].into_iter()
-		}
-
-		<span class="kw">fn </span>listened_addresses(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="self">Self</span>::ListenedAddressesIter {
-			<span class="macro">vec!</span>[<span class="self">self</span>.addr.clone()].into_iter()
-		}
-
-		<span class="kw">fn </span>external_addresses(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="self">Self</span>::ExternalAddressesIter {
-			<span class="macro">vec!</span>[].into_iter()
-		}
-
-		<span class="kw">fn </span>local_peer_id(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>PeerId {
-			<span class="kw-2">&amp;</span><span class="self">self</span>.peer_id
 		}
 	}
 
@@ -8585,7 +8551,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		notif.on_swarm_event(FromSwarm::DialFailure(libp2p::swarm::behaviour::DialFailure {
 			peer_id: <span class="prelude-val">Some</span>(peer),
-			error: <span class="kw-2">&amp;</span>libp2p::swarm::DialError::Banned,
+			error: <span class="kw-2">&amp;</span>libp2p::swarm::DialError::Aborted,
 			connection_id: ConnectionId::new_unchecked(<span class="number">1337</span>),
 		}));
 
@@ -9131,7 +9097,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>now = Instant::now();
 		notif.on_swarm_event(FromSwarm::DialFailure(libp2p::swarm::behaviour::DialFailure {
 			peer_id: <span class="prelude-val">Some</span>(peer),
-			error: <span class="kw-2">&amp;</span>libp2p::swarm::DialError::Banned,
+			error: <span class="kw-2">&amp;</span>libp2p::swarm::DialError::Aborted,
 			connection_id: ConnectionId::new_unchecked(<span class="number">0</span>),
 		}));
 
@@ -9257,7 +9223,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="macro">assert!</span>(notif.peers.get(<span class="kw-2">&amp;</span>(peer, set_id)).is_some());
 
 		<span class="kw">if </span>tokio::time::timeout(Duration::from_secs(<span class="number">5</span>), <span class="kw">async </span>{
-			<span class="kw">let </span><span class="kw-2">mut </span>params = MockPollParams { peer_id: PeerId::random(), addr: Multiaddr::empty() };
+			<span class="kw">let </span><span class="kw-2">mut </span>params = MockPollParams {};
 
 			<span class="kw">loop </span>{
 				futures::future::poll_fn(|cx| {
@@ -9369,7 +9335,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		// verify that the code continues to keep the peer disabled by resetting the timer
 		// after the first one expired.
 		</span><span class="kw">if </span>tokio::time::timeout(Duration::from_secs(<span class="number">5</span>), <span class="kw">async </span>{
-			<span class="kw">let </span><span class="kw-2">mut </span>params = MockPollParams { peer_id: PeerId::random(), addr: Multiaddr::empty() };
+			<span class="kw">let </span><span class="kw-2">mut </span>params = MockPollParams {};
 
 			<span class="kw">loop </span>{
 				futures::future::poll_fn(|cx| {

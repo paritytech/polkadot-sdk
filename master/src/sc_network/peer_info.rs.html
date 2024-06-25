@@ -649,6 +649,48 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#498" id="498">498</a>
 <a href="#499" id="499">499</a>
 <a href="#500" id="500">500</a>
+<a href="#501" id="501">501</a>
+<a href="#502" id="502">502</a>
+<a href="#503" id="503">503</a>
+<a href="#504" id="504">504</a>
+<a href="#505" id="505">505</a>
+<a href="#506" id="506">506</a>
+<a href="#507" id="507">507</a>
+<a href="#508" id="508">508</a>
+<a href="#509" id="509">509</a>
+<a href="#510" id="510">510</a>
+<a href="#511" id="511">511</a>
+<a href="#512" id="512">512</a>
+<a href="#513" id="513">513</a>
+<a href="#514" id="514">514</a>
+<a href="#515" id="515">515</a>
+<a href="#516" id="516">516</a>
+<a href="#517" id="517">517</a>
+<a href="#518" id="518">518</a>
+<a href="#519" id="519">519</a>
+<a href="#520" id="520">520</a>
+<a href="#521" id="521">521</a>
+<a href="#522" id="522">522</a>
+<a href="#523" id="523">523</a>
+<a href="#524" id="524">524</a>
+<a href="#525" id="525">525</a>
+<a href="#526" id="526">526</a>
+<a href="#527" id="527">527</a>
+<a href="#528" id="528">528</a>
+<a href="#529" id="529">529</a>
+<a href="#530" id="530">530</a>
+<a href="#531" id="531">531</a>
+<a href="#532" id="532">532</a>
+<a href="#533" id="533">533</a>
+<a href="#534" id="534">534</a>
+<a href="#535" id="535">535</a>
+<a href="#536" id="536">536</a>
+<a href="#537" id="537">537</a>
+<a href="#538" id="538">538</a>
+<a href="#539" id="539">539</a>
+<a href="#540" id="540">540</a>
+<a href="#541" id="541">541</a>
+<a href="#542" id="542">542</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -682,14 +724,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		Info <span class="kw">as </span>IdentifyInfo,
 	},
 	identity::PublicKey,
-	ping::{Behaviour <span class="kw">as </span>Ping, Config <span class="kw">as </span>PingConfig, Event <span class="kw">as </span>PingEvent, Success <span class="kw">as </span>PingSuccess},
+	ping::{Behaviour <span class="kw">as </span>Ping, Config <span class="kw">as </span>PingConfig, Event <span class="kw">as </span>PingEvent},
 	swarm::{
 		behaviour::{
-			AddressChange, ConnectionClosed, ConnectionEstablished, DialFailure, FromSwarm,
-			ListenFailure,
+			AddressChange, ConnectionClosed, ConnectionEstablished, DialFailure,
+			ExternalAddrConfirmed, FromSwarm, ListenFailure,
 		},
-		ConnectionDenied, ConnectionHandler, ConnectionId, IntoConnectionHandlerSelect,
-		NetworkBehaviour, PollParameters, THandler, THandlerInEvent, THandlerOutEvent, ToSwarm,
+		ConnectionDenied, ConnectionHandler, ConnectionHandlerSelect, ConnectionId,
+		NetworkBehaviour, NewExternalAddrCandidate, PollParameters, THandler, THandlerInEvent,
+		THandlerOutEvent, ToSwarm,
 	},
 	Multiaddr, PeerId,
 };
@@ -698,7 +741,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>smallvec::SmallVec;
 
 <span class="kw">use </span>std::{
-	collections::{hash_map::Entry, HashSet},
+	collections::{hash_map::Entry, HashSet, VecDeque},
 	pin::Pin,
 	sync::Arc,
 	task::{Context, Poll},
@@ -722,6 +765,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>garbage_collect: Pin&lt;Box&lt;<span class="kw">dyn </span>Stream&lt;Item = ()&gt; + Send&gt;&gt;,
 	<span class="doccomment">/// Record keeping of external addresses. Data is queried by the `NetworkService`.
 	</span>external_addresses: ExternalAddresses,
+	<span class="doccomment">/// Pending events to emit to [`Swarm`](libp2p::swarm::Swarm).
+	</span>pending_actions: VecDeque&lt;ToSwarm&lt;PeerInfoEvent, THandlerInEvent&lt;PeerInfoBehaviour&gt;&gt;&gt;,
 }
 
 <span class="doccomment">/// Information about a node we're connected to.
@@ -785,6 +830,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			nodes_info: FnvHashMap::default(),
 			garbage_collect: Box::pin(interval(GARBAGE_COLLECT_INTERVAL)),
 			external_addresses: ExternalAddresses { addresses: external_addresses },
+			pending_actions: Default::default(),
 		}
 	}
 
@@ -799,13 +845,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Inserts a ping time in the cache. Has no effect if we don't have any entry for that node,
 	/// which shouldn't happen.
-	</span><span class="kw">fn </span>handle_ping_report(<span class="kw-2">&amp;mut </span><span class="self">self</span>, peer_id: <span class="kw-2">&amp;</span>PeerId, ping_time: Duration) {
-		<span class="macro">trace!</span>(target: <span class="string">"sub-libp2p"</span>, <span class="string">"Ping time with {:?}: {:?}"</span>, peer_id, ping_time);
+	</span><span class="kw">fn </span>handle_ping_report(
+		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
+		peer_id: <span class="kw-2">&amp;</span>PeerId,
+		ping_time: Duration,
+		connection: ConnectionId,
+	) {
+		<span class="macro">trace!</span>(target: <span class="string">"sub-libp2p"</span>, <span class="string">"Ping time with {:?} via {:?}: {:?}"</span>, peer_id, connection, ping_time);
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(entry) = <span class="self">self</span>.nodes_info.get_mut(peer_id) {
 			entry.latest_ping = <span class="prelude-val">Some</span>(ping_time);
 		} <span class="kw">else </span>{
 			<span class="macro">error!</span>(target: <span class="string">"sub-libp2p"</span>,
-				<span class="string">"Received ping from node we're not connected to {:?}"</span>, peer_id);
+				<span class="string">"Received ping from node we're not connected to {:?} via {:?}"</span>, peer_id, connection);
 		}
 	}
 
@@ -859,11 +910,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="kw">impl </span>NetworkBehaviour <span class="kw">for </span>PeerInfoBehaviour {
-	<span class="kw">type </span>ConnectionHandler = IntoConnectionHandlerSelect&lt;
+	<span class="kw">type </span>ConnectionHandler = ConnectionHandlerSelect&lt;
 		&lt;Ping <span class="kw">as </span>NetworkBehaviour&gt;::ConnectionHandler,
 		&lt;Identify <span class="kw">as </span>NetworkBehaviour&gt;::ConnectionHandler,
 	&gt;;
-	<span class="kw">type </span>OutEvent = PeerInfoEvent;
+	<span class="kw">type </span>ToSwarm = PeerInfoEvent;
 
 	<span class="kw">fn </span>handle_pending_inbound_connection(
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
@@ -1029,9 +1080,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="self">self</span>.ping.on_swarm_event(FromSwarm::ListenerError(e));
 				<span class="self">self</span>.identify.on_swarm_event(FromSwarm::ListenerError(e));
 			},
-			FromSwarm::ExpiredExternalAddr(e) =&gt; {
-				<span class="self">self</span>.ping.on_swarm_event(FromSwarm::ExpiredExternalAddr(e));
-				<span class="self">self</span>.identify.on_swarm_event(FromSwarm::ExpiredExternalAddr(e));
+			FromSwarm::ExternalAddrExpired(e) =&gt; {
+				<span class="self">self</span>.ping.on_swarm_event(FromSwarm::ExternalAddrExpired(e));
+				<span class="self">self</span>.identify.on_swarm_event(FromSwarm::ExternalAddrExpired(e));
 			},
 			FromSwarm::NewListener(e) =&gt; {
 				<span class="self">self</span>.ping.on_swarm_event(FromSwarm::NewListener(e));
@@ -1042,10 +1093,23 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="self">self</span>.identify.on_swarm_event(FromSwarm::ExpiredListenAddr(e));
 				<span class="self">self</span>.external_addresses.remove(e.addr);
 			},
-			FromSwarm::NewExternalAddr(e) =&gt; {
-				<span class="self">self</span>.ping.on_swarm_event(FromSwarm::NewExternalAddr(e));
-				<span class="self">self</span>.identify.on_swarm_event(FromSwarm::NewExternalAddr(e));
-				<span class="self">self</span>.external_addresses.add(e.addr.clone());
+			FromSwarm::NewExternalAddrCandidate(e @ NewExternalAddrCandidate { addr }) =&gt; {
+				<span class="self">self</span>.ping.on_swarm_event(FromSwarm::NewExternalAddrCandidate(e));
+				<span class="self">self</span>.identify.on_swarm_event(FromSwarm::NewExternalAddrCandidate(e));
+
+				<span class="comment">// Manually confirm all external address candidates.
+				// TODO: consider adding [AutoNAT protocol](https://docs.rs/libp2p/0.52.3/libp2p/autonat/index.html)
+				// (must go through the polkadot protocol spec) or implemeting heuristics for
+				// approving external address candidates. This can be done, for example, by
+				// approving only addresses reported by multiple peers.
+				// See also https://github.com/libp2p/rust-libp2p/pull/4721 introduced
+				// in libp2p v0.53 for heuristics approach.
+				</span><span class="self">self</span>.pending_actions.push_back(ToSwarm::ExternalAddrConfirmed(addr.clone()));
+			},
+			FromSwarm::ExternalAddrConfirmed(e @ ExternalAddrConfirmed { addr }) =&gt; {
+				<span class="self">self</span>.ping.on_swarm_event(FromSwarm::ExternalAddrConfirmed(e));
+				<span class="self">self</span>.identify.on_swarm_event(FromSwarm::ExternalAddrConfirmed(e));
+				<span class="self">self</span>.external_addresses.add(addr.clone());
 			},
 			FromSwarm::AddressChange(e @ AddressChange { peer_id, old, new, .. }) =&gt; {
 				<span class="self">self</span>.ping.on_swarm_event(FromSwarm::AddressChange(e));
@@ -1088,13 +1152,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
 		cx: <span class="kw-2">&amp;mut </span>Context,
 		params: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>PollParameters,
-	) -&gt; Poll&lt;ToSwarm&lt;<span class="self">Self</span>::OutEvent, THandlerInEvent&lt;<span class="self">Self</span>&gt;&gt;&gt; {
+	) -&gt; Poll&lt;ToSwarm&lt;<span class="self">Self</span>::ToSwarm, THandlerInEvent&lt;<span class="self">Self</span>&gt;&gt;&gt; {
+		<span class="kw">if let </span><span class="prelude-val">Some</span>(event) = <span class="self">self</span>.pending_actions.pop_front() {
+			<span class="kw">return </span>Poll::Ready(event)
+		}
+
 		<span class="kw">loop </span>{
 			<span class="kw">match </span><span class="self">self</span>.ping.poll(cx, params) {
 				Poll::Pending =&gt; <span class="kw">break</span>,
 				Poll::Ready(ToSwarm::GenerateEvent(ev)) =&gt; {
-					<span class="kw">if let </span>PingEvent { peer, result: <span class="prelude-val">Ok</span>(PingSuccess::Ping { rtt }) } = ev {
-						<span class="self">self</span>.handle_ping_report(<span class="kw-2">&amp;</span>peer, rtt)
+					<span class="kw">if let </span>PingEvent { peer, result: <span class="prelude-val">Ok</span>(rtt), connection } = ev {
+						<span class="self">self</span>.handle_ping_report(<span class="kw-2">&amp;</span>peer, rtt, connection)
 					}
 				},
 				Poll::Ready(ToSwarm::Dial { opts }) =&gt; <span class="kw">return </span>Poll::Ready(ToSwarm::Dial { opts }),
@@ -1104,10 +1172,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						handler,
 						event: Either::Left(event),
 					}),
-				Poll::Ready(ToSwarm::ReportObservedAddr { address, score }) =&gt;
-					<span class="kw">return </span>Poll::Ready(ToSwarm::ReportObservedAddr { address, score }),
 				Poll::Ready(ToSwarm::CloseConnection { peer_id, connection }) =&gt;
 					<span class="kw">return </span>Poll::Ready(ToSwarm::CloseConnection { peer_id, connection }),
+				Poll::Ready(ToSwarm::NewExternalAddrCandidate(observed)) =&gt;
+					<span class="kw">return </span>Poll::Ready(ToSwarm::NewExternalAddrCandidate(observed)),
+				Poll::Ready(ToSwarm::ExternalAddrConfirmed(addr)) =&gt;
+					<span class="kw">return </span>Poll::Ready(ToSwarm::ExternalAddrConfirmed(addr)),
+				Poll::Ready(ToSwarm::ExternalAddrExpired(addr)) =&gt;
+					<span class="kw">return </span>Poll::Ready(ToSwarm::ExternalAddrExpired(addr)),
+				Poll::Ready(ToSwarm::ListenOn { opts }) =&gt;
+					<span class="kw">return </span>Poll::Ready(ToSwarm::ListenOn { opts }),
+				Poll::Ready(ToSwarm::RemoveListener { id }) =&gt;
+					<span class="kw">return </span>Poll::Ready(ToSwarm::RemoveListener { id }),
 			}
 		}
 
@@ -1133,10 +1209,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						handler,
 						event: Either::Right(event),
 					}),
-				Poll::Ready(ToSwarm::ReportObservedAddr { address, score }) =&gt;
-					<span class="kw">return </span>Poll::Ready(ToSwarm::ReportObservedAddr { address, score }),
 				Poll::Ready(ToSwarm::CloseConnection { peer_id, connection }) =&gt;
 					<span class="kw">return </span>Poll::Ready(ToSwarm::CloseConnection { peer_id, connection }),
+				Poll::Ready(ToSwarm::NewExternalAddrCandidate(observed)) =&gt;
+					<span class="kw">return </span>Poll::Ready(ToSwarm::NewExternalAddrCandidate(observed)),
+				Poll::Ready(ToSwarm::ExternalAddrConfirmed(addr)) =&gt;
+					<span class="kw">return </span>Poll::Ready(ToSwarm::ExternalAddrConfirmed(addr)),
+				Poll::Ready(ToSwarm::ExternalAddrExpired(addr)) =&gt;
+					<span class="kw">return </span>Poll::Ready(ToSwarm::ExternalAddrExpired(addr)),
+				Poll::Ready(ToSwarm::ListenOn { opts }) =&gt;
+					<span class="kw">return </span>Poll::Ready(ToSwarm::ListenOn { opts }),
+				Poll::Ready(ToSwarm::RemoveListener { id }) =&gt;
+					<span class="kw">return </span>Poll::Ready(ToSwarm::RemoveListener { id }),
 			}
 		}
 

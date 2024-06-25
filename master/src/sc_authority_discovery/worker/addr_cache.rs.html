@@ -533,8 +533,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#382" id="382">382</a>
 <a href="#383" id="383">383</a>
 <a href="#384" id="384">384</a>
-<a href="#385" id="385">385</a>
-<a href="#386" id="386">386</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -714,7 +712,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
 
 	<span class="kw">use </span>quickcheck::{Arbitrary, Gen, QuickCheck, TestResult};
-	<span class="kw">use </span>sc_network_types::multihash::Multihash;
+	<span class="kw">use </span>sc_network_types::multihash::{Code, Multihash};
 
 	<span class="kw">use </span>sp_authority_discovery::{AuthorityId, AuthorityPair};
 	<span class="kw">use </span>sp_core::crypto::Pair;
@@ -735,10 +733,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">impl </span>Arbitrary <span class="kw">for </span>TestMultiaddr {
 		<span class="kw">fn </span>arbitrary(g: <span class="kw-2">&amp;mut </span>Gen) -&gt; <span class="self">Self </span>{
 			<span class="kw">let </span>seed = (<span class="number">0</span>..<span class="number">32</span>).map(|<span class="kw">_</span>| u8::arbitrary(g)).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
-			<span class="kw">let </span>peer_id = PeerId::from_multihash(
-				Multihash::wrap(multihash::Code::Sha2_256.into(), <span class="kw-2">&amp;</span>seed).unwrap(),
-			)
-			.unwrap();
+			<span class="kw">let </span>peer_id =
+				PeerId::from_multihash(Multihash::wrap(Code::Sha2_256.into(), <span class="kw-2">&amp;</span>seed).unwrap())
+					.unwrap();
 			<span class="kw">let </span>multiaddr = <span class="string">"/ip6/2001:db8:0:0:0:0:0:2/tcp/30333"
 				</span>.parse::&lt;Multiaddr&gt;()
 				.unwrap()
@@ -754,10 +751,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">impl </span>Arbitrary <span class="kw">for </span>TestMultiaddrsSamePeerCombo {
 		<span class="kw">fn </span>arbitrary(g: <span class="kw-2">&amp;mut </span>Gen) -&gt; <span class="self">Self </span>{
 			<span class="kw">let </span>seed = (<span class="number">0</span>..<span class="number">32</span>).map(|<span class="kw">_</span>| u8::arbitrary(g)).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
-			<span class="kw">let </span>peer_id = PeerId::from_multihash(
-				Multihash::wrap(multihash::Code::Sha2_256.into(), <span class="kw-2">&amp;</span>seed).unwrap(),
-			)
-			.unwrap();
+			<span class="kw">let </span>peer_id =
+				PeerId::from_multihash(Multihash::wrap(Code::Sha2_256.into(), <span class="kw-2">&amp;</span>seed).unwrap())
+					.unwrap();
 			<span class="kw">let </span>multiaddr1 = <span class="string">"/ip6/2001:db8:0:0:0:0:0:2/tcp/30333"
 				</span>.parse::&lt;Multiaddr&gt;()
 				.unwrap()

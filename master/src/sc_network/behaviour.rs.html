@@ -527,6 +527,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#376" id="376">376</a>
 <a href="#377" id="377">377</a>
 <a href="#378" id="378">378</a>
+<a href="#379" id="379">379</a>
+<a href="#380" id="380">380</a>
+<a href="#381" id="381">381</a>
+<a href="#382" id="382">382</a>
+<a href="#383" id="383">383</a>
+<a href="#384" id="384">384</a>
+<a href="#385" id="385">385</a>
+<a href="#386" id="386">386</a>
+<a href="#387" id="387">387</a>
+<a href="#388" id="388">388</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -560,8 +570,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">use </span>futures::channel::oneshot;
 <span class="kw">use </span>libp2p::{
-	core::Multiaddr, identify::Info <span class="kw">as </span>IdentifyInfo, identity::PublicKey, kad::RecordKey,
-	swarm::NetworkBehaviour, PeerId,
+	connection_limits::ConnectionLimits, core::Multiaddr, identify::Info <span class="kw">as </span>IdentifyInfo,
+	identity::PublicKey, kad::RecordKey, swarm::NetworkBehaviour, PeerId, StreamProtocol,
 };
 
 <span class="kw">use </span>parking_lot::Mutex;
@@ -576,8 +586,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// General behaviour of the network. Combines all protocols together.
 </span><span class="attr">#[derive(NetworkBehaviour)]
-#[behaviour(out_event = <span class="string">"BehaviourOut"</span>)]
+#[behaviour(to_swarm = <span class="string">"BehaviourOut"</span>)]
 </span><span class="kw">pub struct </span>Behaviour&lt;B: BlockT&gt; {
+	<span class="doccomment">/// Connection limits.
+	</span>connection_limits: libp2p::connection_limits::Behaviour,
 	<span class="doccomment">/// All the substrate-specific protocols.
 	</span>substrate: Protocol&lt;B&gt;,
 	<span class="doccomment">/// Periodically pings and identifies the nodes we are connected to, and store information in a
@@ -709,6 +721,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		request_response_protocols: Vec&lt;ProtocolConfig&gt;,
 		peer_store_handle: Arc&lt;<span class="kw">dyn </span>PeerStoreProvider&gt;,
 		external_addresses: Arc&lt;Mutex&lt;HashSet&lt;Multiaddr&gt;&gt;&gt;,
+		connection_limits: ConnectionLimits,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, request_responses::RegisterError&gt; {
 		<span class="prelude-val">Ok</span>(<span class="self">Self </span>{
 			substrate,
@@ -722,6 +735,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				request_response_protocols.into_iter(),
 				peer_store_handle,
 			)<span class="question-mark">?</span>,
+			connection_limits: libp2p::connection_limits::Behaviour::new(connection_limits),
 		})
 	}
 
@@ -796,7 +810,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub fn </span>add_self_reported_address_to_dht(
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
 		peer_id: <span class="kw-2">&amp;</span>PeerId,
-		supported_protocols: <span class="kw-2">&amp;</span>[<span class="kw">impl </span>AsRef&lt;[u8]&gt;],
+		supported_protocols: <span class="kw-2">&amp;</span>[StreamProtocol],
 		addr: Multiaddr,
 	) {
 		<span class="self">self</span>.discovery.add_self_reported_address(peer_id, supported_protocols, addr);
@@ -903,6 +917,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				BehaviourOut::Dht(DhtEvent::ValuePutFailed(key), <span class="prelude-val">Some</span>(duration)),
 			DiscoveryOut::RandomKademliaStarted =&gt; BehaviourOut::RandomKademliaStarted,
 		}
+	}
+}
+
+<span class="kw">impl </span>From&lt;void::Void&gt; <span class="kw">for </span>BehaviourOut {
+	<span class="kw">fn </span>from(e: void::Void) -&gt; <span class="self">Self </span>{
+		void::unreachable(e)
 	}
 }
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
