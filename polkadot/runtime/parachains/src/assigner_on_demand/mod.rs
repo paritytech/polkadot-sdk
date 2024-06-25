@@ -90,7 +90,7 @@ impl WeightInfo for TestWeightInfo {
 
 /// A revenue claim that has been started but is not commited yet.
 /// Produced by `start_revenue_claim_until` and consumed then by `commit_revenue_claim`.
-#[derive(DefaultNoBound)]
+#[derive(frame_support::DefaultNoBound)]
 pub struct RevenueClaim<T: Config> {
 	/// The index in the `Revenue` storage where the revenue history of this claim begins.
 	/// Committing the claim will truncate the `Revenue` storage by this point. If `None`, no claim
@@ -100,7 +100,6 @@ pub struct RevenueClaim<T: Config> {
 	/// history entries beyond `split_off`.
 	pub amount: BalanceOf<T>,
 }
-
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -180,11 +179,8 @@ pub mod pallet {
 
 	/// Keeps track of accumulated revenue from on demand order sales.
 	#[pallet::storage]
-	pub type Revenue<T: Config> = StorageValue<
-		_,
-		BoundedVec<BalanceOf<T>, T::MaxHistoricalRevenue>,
-		ValueQuery,
-	>;
+	pub type Revenue<T: Config> =
+		StorageValue<_, BoundedVec<BalanceOf<T>, T::MaxHistoricalRevenue>, ValueQuery>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
