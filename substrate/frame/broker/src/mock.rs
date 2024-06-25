@@ -139,7 +139,7 @@ impl CoretimeInterface for TestCoretimeProvider {
 }
 
 impl TestCoretimeProvider {
-	pub fn spend_instantaneous(who: u64, price: u64) -> Result<(), ()> {
+	pub fn spend_instantaneous(_who: u64, price: u64) -> Result<(), ()> {
 		let c = CoretimeCredit::get();
 		ensure!(CoretimeInPool::get() > 0, ());
 		// c.insert(who, c.get(&who).ok_or(())?.checked_sub(price).ok_or(())?);
@@ -196,7 +196,6 @@ impl crate::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type Currency = ItemOf<TestFungibles<(), u64, (), ConstU64<0>, ()>, (), u64>;
 	type OnRevenue = IntoZero;
-	type OnNewTimeslice = ();
 	type TimeslicePeriod = ConstU64<2>;
 	type MaxLeasedCores = ConstU32<5>;
 	type MaxReservedCores = ConstU32<5>;

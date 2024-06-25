@@ -19,7 +19,7 @@
 
 use super::*;
 
-use crate::{traits::NewTimesliceHook, CoreAssignment::Task, Pallet as Broker};
+use crate::{CoreAssignment::Task, Pallet as Broker};
 use frame_benchmarking::v2::*;
 use frame_support::{
 	storage::bounded_vec::BoundedVec,
@@ -979,7 +979,7 @@ mod benches {
 
 		#[block]
 		{
-			T::OnNewTimeslice::on_new_timeslice(timeslice);
+			T::Coretime::on_new_timeslice(timeslice);
 		}
 
 		Ok(())

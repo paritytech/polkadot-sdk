@@ -25,7 +25,7 @@ use sp_core::RuntimeDebug;
 use sp_runtime::traits::BlockNumberProvider;
 use sp_std::{fmt::Debug, vec::Vec};
 
-use crate::OnDemandRevenueRecord;
+use crate::{OnDemandRevenueRecord, Timeslice};
 
 /// Index of a Polkadot Core.
 pub type CoreIndex = u16;
@@ -120,6 +120,11 @@ pub trait CoretimeInterface {
 	/// single revenue information destination exists.
 	fn check_notify_revenue_info(
 	) -> Option<OnDemandRevenueRecord<RCBlockNumberOf<Self>, Self::Balance>>;
+
+	/// A hook supposed to be called right after a new timeslice has begun. Likely to be used for
+	/// batching different matters happened during the timeslice that may benifit from batched
+	/// processing.
+	fn on_new_timeslice(_timeslice: Timeslice) {}
 
 	/// Ensure that revenue information is updated to the provided value.
 	///

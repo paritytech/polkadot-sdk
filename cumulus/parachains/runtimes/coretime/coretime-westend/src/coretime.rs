@@ -27,8 +27,8 @@ use frame_support::{
 	},
 };
 use pallet_broker::{
-	traits::NewTimesliceHook, CoreAssignment, CoreIndex, CoretimeInterface, OnDemandRevenueRecord,
-	PartsOf57600, RCBlockNumberOf, RevenueInbox,
+	CoreAssignment, CoreIndex, CoretimeInterface, OnDemandRevenueRecord, PartsOf57600,
+	RCBlockNumberOf, RevenueInbox, Timeslice,
 };
 use parachains_common::{AccountId, Balance};
 use sp_runtime::traits::AccountIdConversion;
@@ -76,26 +76,6 @@ fn burn_at_relay(stash: &AccountId, value: Balance) -> Result<(), XcmError> {
 	AssetTransactor::check_out(&dest, &asset, &dummy_xcm_context);
 
 	Ok(())
-}
-
-pub struct BurnStash;
-impl NewTimesliceHook for BurnStash {
-	fn on_new_timeslice(_t: pallet_broker::Timeslice) {
-		let stash = BurnStashAccount::get();
-		let value = Balances::reducible_balance(&stash, Preservation::Preserve, Fortitude::Polite);
-
-		if value > 0 {
-			log::debug!(target: "runtime::coretime", "Going to burn {value} stashed tokens at RC");
-			match burn_at_relay(&stash, value) {
-				Ok(()) => {
-					log::debug!(target: "runtime::coretime", "Succesfully burnt {value} tokens");
-				},
-				Err(err) => {
-					log::error!(target: "runtime::coretime", "burn_at_relay failed: {err:?}");
-				},
-			}
-		}
-	}
 }
 
 /// A type containing the encoding of the coretime pallet in the Relay chain runtime. Used to
@@ -279,6 +259,23 @@ impl CoretimeInterface for CoretimeAllocator {
 		RevenueInbox::<Runtime>::take()
 	}
 
+	fn on_new_timeslice(_timeslice: Timeslice) {
+		let stash = BurnStashAccount::get();
+		let value = Balances::reducible_balance(&stash, Preservation::Preserve, Fortitude::Polite);
+
+		if value > 0 {
+			log::debug!(target: "runtime::coretime", "Going to burn {value} stashed tokens at RC");
+			match burn_at_relay(&stash, value) {
+				Ok(()) => {
+					log::debug!(target: "runtime::coretime", "Succesfully burnt {value} tokens");
+				},
+				Err(err) => {
+					log::error!(target: "runtime::coretime", "burn_at_relay failed: {err:?}");
+				},
+			}
+		}
+	}
+
 	#[cfg(feature = "runtime-benchmarks")]
 	fn ensure_notify_revenue_info(
 		info: OnDemandRevenueRecord<RCBlockNumberOf<Self>, Self::Balance>,
@@ -291,7 +288,6 @@ impl pallet_broker::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Currency = Balances;
 	type OnRevenue = StashToBurn;
-	type OnNewTimeslice = BurnStash;
 	type TimeslicePeriod = ConstU32<{ coretime::TIMESLICE_PERIOD }>;
 	// We don't actually need any leases at launch but set to 10 in case we want to sudo some in.
 	type MaxLeasedCores = ConstU32<10>;
