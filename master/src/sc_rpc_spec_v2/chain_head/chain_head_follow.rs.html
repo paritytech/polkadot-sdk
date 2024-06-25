@@ -897,7 +897,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 };
 <span class="kw">use </span>futures_util::future::Either;
 <span class="kw">use </span>jsonrpsee::SubscriptionSink;
-<span class="kw">use </span>log::{debug, error};
+<span class="kw">use </span>log::debug;
 <span class="kw">use </span>sc_client_api::{
 	Backend, BlockBackend, BlockImportNotification, BlockchainEvents, FinalityNotification,
 };
@@ -1437,7 +1437,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					// The information from `.info()` is updated from the DB as the last
 					// step of the finalization and it should be up to date.
 					// If the info is outdated, there is nothing the RPC can do for now.
-					</span><span class="macro">error!</span>(
+					</span><span class="macro">debug!</span>(
 						target: LOG_TARGET,
 						<span class="string">"[follow][id={:?}] Client does not contain different best block"</span>,
 						<span class="self">self</span>.sub_id,
