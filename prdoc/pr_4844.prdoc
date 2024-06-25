@@ -1,0 +1,11 @@
+title: Make `Verifier::verify` and `BlockImport::check_block` use `&self` instead of `&mut self`
+
+doc:
+  - audience: Node Dev
+    description: |
+      `Verifier::verify` and `BlockImport::check_block` were refactored to use `&self` instead of `&mut self`
+      because there is no fundamental requirement for those operations to be exclusive in nature.
+
+crates:
+- name: sc-consensus
+  bump: major
