@@ -170,6 +170,16 @@ impl<T: frame_system::Config> pallet_core_fellowship::WeightInfo for WeightInfo<
 			.saturating_add(T::DbWeight::get().reads(5))
 			.saturating_add(T::DbWeight::get().writes(6))
 	}
+	fn promote_fast(r: u32) -> Weight {
+		// FAIL-CI
+		// Proof Size summary in bytes:
+		//  Measured:  `16931`
+		//  Estimated: `19894`
+		// Minimum execution time: 55_062_000 picoseconds.
+		Weight::from_parts(58_422_000, 19894)
+			.saturating_add(T::DbWeight::get().reads(5_u64))
+			.saturating_add(T::DbWeight::get().writes(6_u64))
+	}
 	/// Storage: `FellowshipCollective::Members` (r:1 w:0)
 	/// Proof: `FellowshipCollective::Members` (`max_values`: None, `max_size`: Some(42), added: 2517, mode: `MaxEncodedLen`)
 	/// Storage: `FellowshipCore::Member` (r:1 w:1)
