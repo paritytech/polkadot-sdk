@@ -50,7 +50,7 @@ use frame_support::{
 	dispatch::DispatchClass,
 	genesis_builder_helper::{build_state, get_preset},
 	parameter_types,
-	traits::{ConstBool, ConstU16, ConstU32, ConstU64, ConstU8},
+	traits::{ConstBool, ConstU32, ConstU64, ConstU8},
 	weights::{ConstantMultiplier, Weight, WeightToFee as _},
 	PalletId,
 };
