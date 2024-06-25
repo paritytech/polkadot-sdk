@@ -15,7 +15,6 @@
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
 use clap::{CommandFactory, FromArgMatches};
-use cumulus_client_chain_spec_extension::Extensions;
 use std::path::PathBuf;
 
 /// Sub-commands supported by the collator.

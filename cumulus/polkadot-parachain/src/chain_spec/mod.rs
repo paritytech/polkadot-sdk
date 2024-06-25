@@ -14,8 +14,9 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
-use cumulus_client_chain_spec_extension::Extensions;
 use parachains_common::{AccountId, Signature};
+use sc_chain_spec::{ChainSpecExtension, ChainSpecGroup};
+use serde::{Deserialize, Serialize};
 use sp_core::{Pair, Public};
 use sp_runtime::traits::{IdentifyAccount, Verify};
 
@@ -33,6 +34,24 @@ pub mod shell;
 
 /// The default XCM version to set in genesis config.
 const SAFE_XCM_VERSION: u32 = xcm::prelude::XCM_VERSION;
+
+/// Generic extensions for Parachain ChainSpecs.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ChainSpecGroup, ChainSpecExtension)]
+pub struct Extensions {
+	/// The relay chain of the Parachain.
+	#[serde(alias = "relayChain", alias = "RelayChain")]
+	pub relay_chain: String,
+	/// The id of the Parachain.
+	#[serde(alias = "paraId", alias = "ParaId")]
+	pub para_id: u32,
+}
+
+impl Extensions {
+	/// Try to get the extension from the given `ChainSpec`.
+	pub fn try_get(chain_spec: &dyn sc_service::ChainSpec) -> Option<&Self> {
+		sc_chain_spec::get_extension(chain_spec.extensions())
+	}
+}
 
 /// Generic chain spec for all polkadot-parachain runtimes
 pub type GenericChainSpec = sc_service::GenericChainSpec<Extensions>;

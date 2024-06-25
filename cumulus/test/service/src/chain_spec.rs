@@ -16,11 +16,12 @@
 
 #![allow(missing_docs)]
 
-use cumulus_client_chain_spec_extension::Extensions;
 use cumulus_primitives_core::ParaId;
 use cumulus_test_runtime::{AccountId, Signature};
 use parachains_common::AuraId;
+use sc_chain_spec::{ChainSpecExtension, ChainSpecGroup};
 use sc_service::ChainType;
+use serde::{Deserialize, Serialize};
 use sp_core::{sr25519, Pair, Public};
 use sp_runtime::traits::{IdentifyAccount, Verify};
 
@@ -32,6 +33,21 @@ pub fn get_from_seed<TPublic: Public>(seed: &str) -> <TPublic::Pair as Pair>::Pu
 	TPublic::Pair::from_string(&format!("//{}", seed), None)
 		.expect("static values are valid; qed")
 		.public()
+}
+
+/// The extensions for the [`ChainSpec`].
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ChainSpecGroup, ChainSpecExtension)]
+#[serde(deny_unknown_fields)]
+pub struct Extensions {
+	/// The id of the Parachain.
+	pub para_id: u32,
+}
+
+impl Extensions {
+	/// Try to get the extension from the given `ChainSpec`.
+	pub fn try_get(chain_spec: &dyn sc_service::ChainSpec) -> Option<&Self> {
+		sc_chain_spec::get_extension(chain_spec.extensions())
+	}
 }
 
 type AccountPublic = <Signature as Verify>::Signer;
@@ -53,10 +69,7 @@ pub fn get_chain_spec_with_extra_endowed(
 ) -> ChainSpec {
 	ChainSpec::builder(
 		cumulus_test_runtime::WASM_BINARY.expect("WASM binary was not built, please build it!"),
-		Extensions {
-			para_id: id.unwrap_or(cumulus_test_runtime::PARACHAIN_ID.into()).into(),
-			relay_chain: "rococo-local".to_string(),
-		},
+		Extensions { para_id: id.unwrap_or(cumulus_test_runtime::PARACHAIN_ID.into()).into() },
 	)
 	.with_name("Local Testnet")
 	.with_id("local_testnet")

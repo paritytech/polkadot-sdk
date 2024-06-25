@@ -73,7 +73,6 @@ cumulus-client-service = { workspace = true, default-features = true }
 cumulus-primitives-core = { workspace = true, default-features = true }
 cumulus-primitives-parachain-inherent = { workspace = true, default-features = true }
 cumulus-relay-chain-interface = { workspace = true, default-features = true }
-cumulus-client-chain-spec-extension = { workspace = true, default-features = true }
 color-print = { workspace = true }
 
 [build-dependencies]

@@ -21,7 +21,6 @@ use chain_spec_builder::{
 	ConvertToRawCmd, DisplayPresetCmd, ListPresetsCmd, UpdateCodeCmd, VerifyCmd,
 };
 use clap::Parser;
-use cumulus_client_chain_spec_extension::Extensions;
 use sc_chain_spec::{
 	set_code_substitute_in_json_chain_spec, update_code_in_json_chain_spec, GenericChainSpec,
 	GenesisConfigBuilderRuntimeCaller,
@@ -29,7 +28,7 @@ use sc_chain_spec::{
 use staging_chain_spec_builder as chain_spec_builder;
 use std::fs;
 
-type ChainSpec = GenericChainSpec<Option<Extensions>, ()>;
+type ChainSpec = GenericChainSpec<(), ()>;
 
 //avoid error message escaping
 fn main() {

@@ -112,8 +112,6 @@ cumulus-client-service = { workspace = true, default-features = true }
 cumulus-primitives-aura = { workspace = true, default-features = true }
 cumulus-primitives-core = { workspace = true, default-features = true }
 cumulus-relay-chain-interface = { workspace = true, default-features = true }
-cumulus-client-chain-spec-extension = { workspace = true, default-features = true }
-
 
 [build-dependencies]
 substrate-build-script-utils = { workspace = true, default-features = true }

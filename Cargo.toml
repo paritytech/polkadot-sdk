@@ -61,7 +61,6 @@ members = [
 	"bridges/snowbridge/primitives/router",
 	"bridges/snowbridge/runtime/runtime-common",
 	"bridges/snowbridge/runtime/test-common",
-	"cumulus/client/chain-spec-extension",
 	"cumulus/client/cli",
 	"cumulus/client/collator",
 	"cumulus/client/consensus/aura",
@@ -680,7 +679,6 @@ cumulus-client-consensus-proposer = { path = "cumulus/client/consensus/proposer"
 cumulus-client-consensus-relay-chain = { path = "cumulus/client/consensus/relay-chain", default-features = false }
 cumulus-client-network = { path = "cumulus/client/network", default-features = false }
 cumulus-client-parachain-inherent = { path = "cumulus/client/parachain-inherent", default-features = false }
-cumulus-client-chain-spec-extension = { path = "cumulus/client/chain-spec-extension", default-features = false }
 cumulus-client-pov-recovery = { path = "cumulus/client/pov-recovery", default-features = false }
 cumulus-client-service = { path = "cumulus/client/service", default-features = false }
 cumulus-pallet-aura-ext = { path = "cumulus/pallets/aura-ext", default-features = false }
