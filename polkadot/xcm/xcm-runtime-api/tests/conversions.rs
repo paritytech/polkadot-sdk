@@ -23,7 +23,7 @@ use xcm::prelude::Location;
 use xcm_runtime_api::conversions::{Error as LocationToAccountApiError, LocationToAccountApi};
 
 #[test]
-pub fn convert_location_to_account_works() {
+fn convert_location_to_account_works() {
 	run_test(|| {
 		let client = TestClient {};
 		let runtime_api = client.runtime_api();
