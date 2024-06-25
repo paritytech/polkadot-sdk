@@ -17,28 +17,17 @@
 //! Contains runtime APIs for useful conversions, such as between XCM `Location` and `AccountId`.
 
 use codec::{Decode, Encode};
-use frame_support::traits::Get;
 use scale_info::TypeInfo;
-use sp_core::crypto::Ss58Codec;
+use sp_core::crypto::ByteArray;
 use xcm::VersionedLocation;
 use xcm_executor::traits::ConvertLocation;
 
-/// Account identifier-related data
-#[derive(Encode, Decode, Debug, Eq, PartialEq, TypeInfo)]
-pub struct Account {
-	/// Account identifier
-	pub id: sp_std::vec::Vec<u8>,
-	/// Ss58 formatted address
-	pub ss58: Ss58,
-}
-
-/// Ss58-formatted address
-#[derive(Encode, Decode, Debug, Eq, PartialEq, TypeInfo)]
-pub struct Ss58 {
-	/// Ss58 address
-	pub address: sp_std::vec::Vec<u8>,
-	/// Ss58 version
-	pub version: u16,
+sp_api::decl_runtime_apis! {
+	/// API for useful conversions between XCM `Location` and `AccountId`.
+	pub trait LocationToAccountApi {
+		/// Converts `Location` to `AccountId`.
+		fn convert_location(location: VersionedLocation) -> Result<Vec<u8>, Error>;
+	}
 }
 
 #[derive(Copy, Clone, Encode, Decode, Eq, PartialEq, Debug, TypeInfo)]
@@ -52,38 +41,19 @@ pub enum Error {
 	VersionedConversionFailed,
 }
 
-sp_api::decl_runtime_apis! {
-	/// API for useful conversions between XCM `Location` and `AccountId`.
-	pub trait LocationToAccountApi {
-		/// Converts `Location` to `Account` with `AccountId` and Ss58 representation.
-		fn convert_location(location: VersionedLocation) -> Result<Vec<u8>, Error>;
-	}
-}
-
 /// A helper implementation that can be used for `LocationToAccountApi` implementations.
 /// It is useful when you already have a `ConvertLocation<AccountId>` implementation and a default
 /// `Ss58Prefix`.
-pub struct LocationToAccountHelper<AccountId, Conversion, Ss58Prefix>(
-	sp_std::marker::PhantomData<(AccountId, Conversion, Ss58Prefix)>,
+pub struct LocationToAccountHelper<AccountId, Conversion>(
+	sp_std::marker::PhantomData<(AccountId, Conversion)>,
 );
-impl<AccountId: Ss58Codec, Conversion: ConvertLocation<AccountId>, Ss58Prefix: Get<u16>>
-	LocationToAccountHelper<AccountId, Conversion, Ss58Prefix>
+impl<AccountId: ByteArray, Conversion: ConvertLocation<AccountId>>
+	LocationToAccountHelper<AccountId, Conversion>
 {
-	pub fn convert_location(
-		location: VersionedLocation,
-		ss58_prefix: Option<u16>,
-	) -> Result<Account, Error> {
-		// convert location to `AccountId`
+	pub fn convert_location(location: VersionedLocation) -> Result<Vec<u8>, Error> {
 		let location = location.try_into().map_err(|_| Error::VersionedConversionFailed)?;
-		let account_id = Conversion::convert_location(&location).ok_or(Error::Unsupported)?;
-
-		// convert to Ss58 format
-		let ss58_prefix = ss58_prefix.unwrap_or_else(|| Ss58Prefix::get());
-		let ss58 = Ss58 {
-			address: account_id.to_ss58check_with_version(ss58_prefix.into()).into(),
-			version: ss58_prefix,
-		};
-
-		Ok(Account { id: account_id.to_raw_vec(), ss58 })
+		Conversion::convert_location(&location)
+			.map(|account_id| account_id.to_raw_vec())
+			.ok_or(Error::Unsupported)
 	}
 }

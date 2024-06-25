@@ -16,7 +16,7 @@
 
 mod mock;
 
-use frame_support::{assert_err, sp_runtime::testing::H256};
+use frame_support::{assert_err, assert_ok, sp_runtime::testing::H256};
 use mock::*;
 use sp_api::ProvideRuntimeApi;
 use xcm::prelude::Location;
@@ -31,45 +31,18 @@ fn convert_location_to_account_works() {
 		// Test unknown conversion for `Here` location
 		assert_err!(
 			runtime_api
-				.convert_location(H256::zero(), Location::here().into_versioned(), None)
+				.convert_location(H256::zero(), Location::here().into_versioned())
 				.unwrap(),
 			LocationToAccountApiError::Unsupported
 		);
 
 		// Test known conversion for `Parent` location
-		let result_ss58_default = runtime_api
-			.convert_location(H256::zero(), Location::parent().into_versioned(), None)
-			.unwrap()
-			.expect("conversion works");
-		let result_ss58_1 = runtime_api
-			.convert_location(H256::zero(), Location::parent().into_versioned(), Some(1))
-			.unwrap()
-			.expect("conversion works");
-		let result_ss58_2 = runtime_api
-			.convert_location(H256::zero(), Location::parent().into_versioned(), Some(2))
-			.unwrap()
-			.expect("conversion works");
-		let result_ss58_42 = runtime_api
-			.convert_location(H256::zero(), Location::parent().into_versioned(), Some(42))
-			.unwrap()
-			.expect("conversion works");
-
-		// `account_id` is the same
-		assert_eq!(result_ss58_default.id, result_ss58_1.id);
-		assert_eq!(result_ss58_1.id, result_ss58_2.id);
-		assert_eq!(result_ss58_2.id, result_ss58_42.id);
-
-		// but `address` changes according to the requested `ss58_version`
-		assert_ne!(result_ss58_default.ss58.address, result_ss58_1.ss58.address);
-		assert_ne!(result_ss58_default.ss58.address, result_ss58_2.ss58.address);
-		assert_ne!(result_ss58_default.ss58.address, result_ss58_42.ss58.address);
-		assert_ne!(result_ss58_1.ss58.address, result_ss58_2.ss58.address);
-		assert_ne!(result_ss58_1.ss58.address, result_ss58_42.ss58.address);
-		assert_ne!(result_ss58_2.ss58.address, result_ss58_42.ss58.address);
-
-		assert_eq!(result_ss58_default.ss58.version, DefaultSs58Prefix::get());
-		assert_eq!(result_ss58_1.ss58.version, 1);
-		assert_eq!(result_ss58_2.ss58.version, 2);
-		assert_eq!(result_ss58_42.ss58.version, 42);
+		assert_ok!(
+			runtime_api
+				.convert_location(H256::zero(), Location::parent().into_versioned())
+				.unwrap(),
+			hex_literal::hex!("506172656e740000000000000000000000000000000000000000000000000000")
+				.to_vec()
+		);
 	})
 }

@@ -26,6 +26,7 @@ frame-system = { workspace = true }
 sp-runtime = { workspace = true }
 sp-io = { workspace = true }
 xcm-builder = { workspace = true }
+hex-literal = { workspace = true }
 
 [features]
 default = ["std"]

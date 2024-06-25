@@ -23,7 +23,7 @@ use frame_support::{
 use xcm::VersionedLocation;
 use xcm_builder::ParentIsPreset;
 use xcm_runtime_api::conversions::{
-	Account, Error as LocationToAccountApiError, LocationToAccountApi, LocationToAccountHelper,
+	Error as LocationToAccountApiError, LocationToAccountApi, LocationToAccountHelper,
 };
 
 construct_runtime! {
@@ -72,12 +72,11 @@ impl sp_api::ProvideRuntimeApi<Block> for TestClient {
 
 sp_api::mock_impl_runtime_apis! {
 	impl LocationToAccountApi<Block> for RuntimeApi {
-		fn convert_location(location: VersionedLocation, ss58_prefix: Option<u16>) -> Result<Account, LocationToAccountApiError> {
+		fn convert_location(location: VersionedLocation) -> Result<Vec<u8>, LocationToAccountApiError> {
 			LocationToAccountHelper::<
 				AccountId,
-				LocationToAccountId,
-				DefaultSs58Prefix
-			>::convert_location(location, ss58_prefix)
+				LocationToAccountId
+			>::convert_location(location)
 		}
 	}
 }
