@@ -293,7 +293,9 @@ impl MockRuntimeApi {
 							RuntimeApiRequest::ValidationCodeByHash(_, tx),
 						) => {
 							let validation_code = ValidationCode(Vec::new());
-							tx.send(Ok(Some(validation_code))).unwrap();
+							if let Err(err) = tx.send(Ok(Some(validation_code))) {
+								gum::error!(target: LOG_TARGET, ?err, "validation code wasn't received");
+							}
 						},
 						// Long term TODO: implement more as needed.
 						message => {
