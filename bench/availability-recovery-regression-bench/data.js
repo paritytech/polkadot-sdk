@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1719248620621,
+  "lastUpdate": 1719312709093,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
@@ -12221,6 +12221,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 12.827494063333333,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Andrei Eres",
+            "username": "AndreiEres",
+            "email": "eresav@me.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "909bfc2d7c00a0fed7a5fd4e5292aa3fbe2299b6",
+          "message": "[subsystem-bench] Trigger own assignments in approval-voting (#4772)",
+          "timestamp": "2024-06-25T09:08:39Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/909bfc2d7c00a0fed7a5fd4e5292aa3fbe2299b6"
+        },
+        "date": 1719312679321,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 13.165249286233333,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.26059736626666663,
             "unit": "seconds"
           }
         ]
