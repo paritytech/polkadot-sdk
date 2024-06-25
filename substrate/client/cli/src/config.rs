@@ -265,14 +265,6 @@ pub trait CliConfiguration<DCV: DefaultConfigurationValues = ()>: Sized {
 			.unwrap_or_else(|| Ok(BlocksPruning::KeepFinalized))
 	}
 
-	/// Get information whether the limit of 32 noncanonicalized blocks with the same
-	/// block number is disabled.
-	///
-	/// By default this is `false`.
-	fn disable_block_limit_per_level(&self) -> Result<bool> {
-		Ok(Default::default())
-	}
-
 	/// Get the chain ID (string).
 	///
 	/// By default this is retrieved from `SharedParams`.
@@ -527,7 +519,6 @@ pub trait CliConfiguration<DCV: DefaultConfigurationValues = ()>: Sized {
 			trie_cache_maximum_size: self.trie_cache_maximum_size()?,
 			state_pruning: self.state_pruning()?,
 			blocks_pruning: self.blocks_pruning()?,
-			disable_block_limit_per_level: self.disable_block_limit_per_level()?,
 			wasm_method: self.wasm_method()?,
 			wasm_runtime_overrides: self.wasm_runtime_overrides(),
 			rpc_addr: self.rpc_addr(DCV::rpc_listen_port())?,
