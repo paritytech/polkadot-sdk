@@ -140,7 +140,7 @@ impl CoretimeInterface for TestCoretimeProvider {
 
 impl TestCoretimeProvider {
 	pub fn spend_instantaneous(who: u64, price: u64) -> Result<(), ()> {
-		let mut _c = CoretimeCredit::get();
+		let c = CoretimeCredit::get();
 		ensure!(CoretimeInPool::get() > 0, ());
 		// c.insert(who, c.get(&who).ok_or(())?.checked_sub(price).ok_or(())?);
 		CoretimeCredit::set(c);

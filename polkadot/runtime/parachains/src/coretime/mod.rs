@@ -308,25 +308,18 @@ impl<T: Config> Pallet<T> {
 		// When cannot be in the future.
 		ensure!(until_bnf <= now, Error::<T>::RequestedFutureRevenue);
 
-		let claim = <assigner_on_demand::Pallet<T>>::start_revenue_claim_until(until_bnf);
-		log::debug!(target: LOG_TARGET, "Revenue info requested: {:?}", claim.amount);
+		let amount = <assigner_on_demand::Pallet<T>>::claim_revenue_until(until_bnf);
+		log::debug!(target: LOG_TARGET, "Revenue info requested: {:?}", amount);
 
-		let raw_revenue: Balance = claim.amount.try_into().map_err(|_| {
+		let raw_revenue: Balance = amount.try_into().map_err(|_| {
 			log::error!(target: LOG_TARGET, "Converting on demand revenue for `NotifyRevenue` failed");
 			Error::<T>::AssetTransferFailed
 		})?;
 
-		with_transaction(|| -> TransactionOutcome<Result<_, DispatchError>> {
-			match do_notify_revenue::<T>(until, raw_revenue) {
-				Ok(()) => TransactionOutcome::Commit(Ok(())),
-				Err(err) => {
-					log::error!(target: LOG_TARGET, "notify_revenue failed: {err:?}");
-					TransactionOutcome::Rollback(Err(Error::<T>::AssetTransferFailed.into()))
-				},
-			}
+		do_notify_revenue::<T>(until, raw_revenue).map_err(|err| {
+			log::error!(target: LOG_TARGET, "notify_revenue failed: {err:?}");
+			Error::<T>::AssetTransferFailed
 		})?;
-
-		<assigner_on_demand::Pallet<T>>::commit_revenue_claim(claim);
 
 		Ok(())
 	}

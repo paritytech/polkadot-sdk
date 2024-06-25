@@ -31,6 +31,7 @@
 //! occupying multiple cores in on-demand, we will likely add a separate order type, where the
 //! intent can be made explicit.
 
+use sp_runtime::traits::Zero;
 mod benchmarking;
 pub mod migration;
 mod mock_helpers;
@@ -86,19 +87,6 @@ impl WeightInfo for TestWeightInfo {
 	fn place_order_keep_alive(_: u32) -> Weight {
 		Weight::MAX
 	}
-}
-
-/// A revenue claim that has been started but is not commited yet.
-/// Produced by `start_revenue_claim_until` and consumed then by `commit_revenue_claim`.
-#[derive(frame_support::DefaultNoBound)]
-pub struct RevenueClaim<T: Config> {
-	/// The index in the `Revenue` storage where the revenue history of this claim begins.
-	/// Committing the claim will truncate the `Revenue` storage by this point. If `None`, no claim
-	/// is possible (the cmail is in the future or is too old)
-	split_off: Option<usize>,
-	/// The amount that will be claimed when the claim is commited. It's a sum of all the revenue
-	/// history entries beyond `split_off`.
-	pub amount: BalanceOf<T>,
 }
 
 #[frame_support::pallet]
@@ -638,48 +626,25 @@ where
 		})
 	}
 
-	/// Start claiming the revenue from the `when` blockheight. The claim should be later commited
-	/// with `commit_revenue_claim`
-	pub fn start_revenue_claim_until(when: BlockNumberFor<T>) -> RevenueClaim<T> {
+	/// Collect the revenue from the `when` blockheight
+	pub fn claim_revenue_until(when: BlockNumberFor<T>) -> BalanceOf<T> {
 		let now = <frame_system::Pallet<T>>::block_number();
-
-		if when > now {
-			log::warn!(
-				target: LOG_TARGET,
-				"Tried to claim future revenue until block {when:?} at block {now:?}"
-			);
-			return Default::default();
-		}
-
-		let split_off: usize = 1 + (now - when).try_into().unwrap_or(usize::MAX - 1);
-		let revenue = Revenue::<T>::get();
-
-		log::debug!(
-			target: LOG_TARGET,
-			"Started claiming revenue until block {when:?} at block {now:?}, split {} revenue entries at {split_off}",
-			revenue.len(),
-		);
-
-		if split_off < revenue.len() {
-			RevenueClaim {
-				split_off: Some(split_off),
-				amount: revenue[split_off..].iter().fold(0u32.into(), |acc, x| acc + *x),
+		let mut amount: BalanceOf<T> = BalanceOf::<T>::zero();
+		Revenue::<T>::mutate(|revenue| {
+			while !revenue.is_empty() {
+				let index = (revenue.len() - 1) as u32;
+				if when > now.saturating_sub(index.into()) {
+					amount = amount.saturating_add(revenue.pop().defensive_unwrap_or(0u32.into()));
+				} else {
+					break
+				}
 			}
-		} else {
-			Default::default()
-		}
+		});
+
+		amount
 	}
 
-	/// Commit previously created revenue claim
-	pub fn commit_revenue_claim(claim: RevenueClaim<T>) {
-		if let Some(split_off) = claim.split_off {
-			Revenue::<T>::mutate(|revenue| {
-				revenue.truncate(split_off);
-			});
-		}
-	}
-
-	/// Account of the pallet pot, where the funds from instantaneous coretime sale are accumulated. 
+	/// Account of the pallet pot, where the funds from instantaneous coretime sale are accumulated.
 	pub fn account_id() -> T::AccountId {
 		T::PalletId::get().into_account_truncating()
 	}

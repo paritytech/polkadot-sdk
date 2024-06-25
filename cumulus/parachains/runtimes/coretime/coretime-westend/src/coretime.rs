@@ -20,7 +20,6 @@ use cumulus_pallet_parachain_system::RelaychainDataProvider;
 use cumulus_primitives_core::relay_chain;
 use frame_support::{
 	parameter_types,
-	storage::with_transaction,
 	traits::{
 		fungible::{Balanced, Credit, Inspect},
 		tokens::{Fortitude, Preservation},
@@ -32,7 +31,7 @@ use pallet_broker::{
 	PartsOf57600, RCBlockNumberOf, RevenueInbox,
 };
 use parachains_common::{AccountId, Balance};
-use sp_runtime::{traits::AccountIdConversion, TransactionOutcome};
+use sp_runtime::traits::AccountIdConversion;
 use westend_runtime_constants::system_parachain::coretime;
 use xcm::latest::prelude::*;
 use xcm_executor::traits::TransactAsset;
@@ -83,25 +82,18 @@ pub struct BurnStash;
 impl NewTimesliceHook for BurnStash {
 	fn on_new_timeslice(_t: pallet_broker::Timeslice) {
 		let stash = BurnStashAccount::get();
-		let value = Balances::reducible_balance(&stash, Preservation::Expendable, Fortitude::Force);
+		let value = Balances::reducible_balance(&stash, Preservation::Preserve, Fortitude::Polite);
 
 		if value > 0 {
 			log::debug!(target: "runtime::coretime", "Going to burn {value} stashed tokens at RC");
-			with_transaction(|| -> TransactionOutcome<Result<(), DispatchError>> {
-				match burn_at_relay(&stash, value) {
-					Ok(()) => {
-						log::debug!(target: "runtime::coretime", "Succesfully burnt {value} tokens");
-						TransactionOutcome::Commit(Ok(()))
-					},
-					Err(err) => {
-						log::error!(target: "runtime::coretime", "burn_at_relay failed: {err:?}");
-						TransactionOutcome::Rollback(Err(DispatchError::Other(
-							"Failed to burn funds on relay chain",
-						)))
-					},
-				}
-			})
-			.defensive_ok();
+			match burn_at_relay(&stash, value) {
+				Ok(()) => {
+					log::debug!(target: "runtime::coretime", "Succesfully burnt {value} tokens");
+				},
+				Err(err) => {
+					log::error!(target: "runtime::coretime", "burn_at_relay failed: {err:?}");
+				},
+			}
 		}
 	}
 }

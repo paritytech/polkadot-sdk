@@ -734,28 +734,25 @@ fn revenue_information_fetching_works() {
 		schedule_blank_para(para_a, ParaKind::Parathread);
 		// Mock assigner sets max revenue history to 10.
 		run_to_block(10, |n| if n == 10 { Some(Default::default()) } else { None });
-		let revenue = OnDemandAssigner::start_revenue_claim_until(10);
+		let revenue = OnDemandAssigner::claim_revenue_until(10);
 
 		// No revenue should be recorded.
-		assert_eq!(revenue.amount, 0);
-		OnDemandAssigner::commit_revenue_claim(revenue);
+		assert_eq!(revenue, 0);
 
 		// Place one order
 		place_order_run_to_blocknumber(para_a, Some(11));
 		let revenue = OnDemandAssigner::get_revenue();
-		let claim = OnDemandAssigner::start_revenue_claim_until(11);
+		let claim = OnDemandAssigner::claim_revenue_until(11);
 
 		// Revenue until the current block is still zero as "until" is non-inclusive
-		assert_eq!(claim.amount, 0);
-		OnDemandAssigner::commit_revenue_claim(claim);
+		assert_eq!(claim, 0);
 
 		run_to_block(12, |n| if n == 12 { Some(Default::default()) } else { None });
-		let claim = OnDemandAssigner::start_revenue_claim_until(12);
+		let claim = OnDemandAssigner::claim_revenue_until(12);
 
 		// Revenue for a single order should be recorded and shouldn't have been pruned by the
 		// previous call
-		assert_eq!(claim.amount, revenue[0]);
-		OnDemandAssigner::commit_revenue_claim(claim);
+		assert_eq!(claim, revenue[0]);
 
 		// Place many orders
 		place_order(para_a);
@@ -767,25 +764,22 @@ fn revenue_information_fetching_works() {
 
 		run_to_block(15, |n| if n == 14 { Some(Default::default()) } else { None });
 
-		let revenue = OnDemandAssigner::start_revenue_claim_until(15);
+		let revenue = OnDemandAssigner::claim_revenue_until(15);
 
 		// All 3 orders should be accounted for.
-		assert_eq!(revenue.amount, 30_000);
-		OnDemandAssigner::commit_revenue_claim(revenue);
+		assert_eq!(revenue, 30_000);
 
 		// Place one order
 		place_order_run_to_blocknumber(para_a, Some(16));
 
-		let revenue = OnDemandAssigner::start_revenue_claim_until(15);
+		let revenue = OnDemandAssigner::claim_revenue_until(15);
 
 		// Order is not in range of  the revenue_until call
-		assert_eq!(revenue.amount, 0);
-		OnDemandAssigner::commit_revenue_claim(revenue);
+		assert_eq!(revenue, 0);
 
 		run_to_block(21, |n| if n == 20 { Some(Default::default()) } else { None });
-		let revenue = OnDemandAssigner::start_revenue_claim_until(21);
-		assert_eq!(revenue.amount, 10_000);
-		OnDemandAssigner::commit_revenue_claim(revenue);
+		let revenue = OnDemandAssigner::claim_revenue_until(21);
+		assert_eq!(revenue, 10_000);
 
 		// Make sure overdue revenue is accumulated
 		for i in 21..=35 {
@@ -793,8 +787,7 @@ fn revenue_information_fetching_works() {
 			place_order(para_a);
 		}
 		run_to_block(36, |_| None);
-		let revenue = OnDemandAssigner::start_revenue_claim_until(36);
-		assert_eq!(revenue.amount, 150_000);
-		OnDemandAssigner::commit_revenue_claim(revenue);
+		let revenue = OnDemandAssigner::claim_revenue_until(36);
+		assert_eq!(revenue, 150_000);
 	});
 }
