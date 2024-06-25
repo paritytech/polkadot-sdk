@@ -4,7 +4,6 @@ doc:
   - audience: Runtime Dev
     description: |
       This PR improves the beacon client to send the execution header along with the message as proof and removes the verification and storing of all execution headers.
-      If the AH sovereign account is depleted and relayer rewards cannot be paid, the message should still be processed.
 
 crates:
 - name: snowbridge-pallet-ethereum-client
