@@ -298,17 +298,15 @@ pub(crate) async fn verify_single_block_metered<B: BlockT, V: Verifier<B>>(
 	metrics: Option<&Metrics>,
 ) -> Result<SingleBlockVerificationOutcome<B>, BlockImportError> {
 	let peer = block.origin;
+	let justifications = block.justifications;
 
-	let (header, justifications) = match (block.header, block.justifications) {
-		(Some(header), justifications) => (header, justifications),
-		(None, _) => {
-			if let Some(ref peer) = peer {
-				debug!(target: LOG_TARGET, "Header {} was not provided by {} ", block.hash, peer);
-			} else {
-				debug!(target: LOG_TARGET, "Header {} was not provided ", block.hash);
-			}
-			return Err(BlockImportError::IncompleteHeader(peer))
-		},
+	let Some(header) = block.header else {
+		if let Some(ref peer) = peer {
+			debug!(target: LOG_TARGET, "Header {} was not provided by {peer} ", block.hash);
+		} else {
+			debug!(target: LOG_TARGET, "Header {} was not provided ", block.hash);
+		}
+		return Err(BlockImportError::IncompleteHeader(peer))
 	};
 
 	trace!(target: LOG_TARGET, "Header {} has {:?} logs", block.hash, header.digest().logs().len());
