@@ -359,7 +359,7 @@ impl xcm_executor::Config for XcmConfig {
 	// as reserve locations (we trust the Bridge Hub to relay the message that a reserve is being
 	// held). Asset Hub may _act_ as a reserve location for WND and assets created
 	// under `pallet-assets`. Users must use teleport where allowed (e.g. WND with the Relay Chain).
-	type IsReserve = (bridging::to_rococo::IsTrustedBridgedReserveLocationForConcreteAsset,);
+	type IsReserve = (bridging::to_rococo::RococoAssetFromAssetHubRococo,);
 	type IsTeleporter = TrustedTeleporters;
 	type UniversalLocation = UniversalLocation;
 	type Barrier = Barrier;
@@ -569,13 +569,11 @@ pub mod bridging {
 			);
 
 			pub const RococoNetwork: NetworkId = NetworkId::Rococo;
-			pub AssetHubRococo: Location = Location::new(2, [GlobalConsensus(RococoNetwork::get()), Parachain(bp_asset_hub_rococo::ASSET_HUB_ROCOCO_PARACHAIN_ID)]);
-			pub RocLocation: Location = Location::new(2, [GlobalConsensus(RococoNetwork::get())]);
-
-			pub RocFromAssetHubRococo: (AssetFilter, Location) = (
-				Wild(AllOf { fun: WildFungible, id: AssetId(RocLocation::get()) }),
-				AssetHubRococo::get()
-			);
+			pub RococoEcosystem: Location = Location::new(2, [GlobalConsensus(RococoNetwork::get())]);
+			pub AssetHubRococo: Location = Location::new(2, [
+				GlobalConsensus(RococoNetwork::get()),
+				Parachain(bp_asset_hub_rococo::ASSET_HUB_ROCOCO_PARACHAIN_ID)
+			]);
 
 			/// Set up exporters configuration.
 			/// `Option<Asset>` represents static "base fee" which is used for total delivery fee calculation.
@@ -608,17 +606,9 @@ pub mod bridging {
 			}
 		}
 
-		/// Reserve locations filter for `xcm_executor::Config::IsReserve`.
-		/// Locations from which the runtime accepts reserved assets.
-		pub type IsTrustedBridgedReserveLocationForConcreteAsset =
-			matching::IsTrustedBridgedReserveLocationForConcreteAsset<
-				UniversalLocation,
-				(
-					// allow receive ROC from AssetHubRococo
-					xcm_builder::Case<RocFromAssetHubRococo>,
-					// and nothing else
-				),
-			>;
+		/// Allow any asset native to the Rococo ecosystem if it comes from Rococo Asset Hub.
+		pub type RococoAssetFromAssetHubRococo =
+			matching::RemoteAssetFromLocation<StartsWith<RococoEcosystem>, AssetHubRococo>;
 
 		impl Contains<RuntimeCall> for ToRococoXcmRouter {
 			fn contains(call: &RuntimeCall) -> bool {

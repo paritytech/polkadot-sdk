@@ -340,7 +340,7 @@ impl xcm_executor::Config for XcmConfig {
 	// held). Asset Hub may _act_ as a reserve location for ROC and assets created
 	// under `pallet-assets`. Users must use teleport where allowed (e.g. ROC with the Relay Chain).
 	type IsReserve = (
-		bridging::to_westend::IsTrustedBridgedReserveLocationForConcreteAsset,
+		bridging::to_westend::WestendAssetFromAssetHubWestend,
 		bridging::to_ethereum::IsTrustedBridgedReserveLocationForForeignAsset,
 	);
 	type IsTeleporter = TrustedTeleporters;
@@ -568,13 +568,11 @@ pub mod bridging {
 			);
 
 			pub const WestendNetwork: NetworkId = NetworkId::Westend;
-			pub AssetHubWestend: Location = Location::new(2, [GlobalConsensus(WestendNetwork::get()), Parachain(bp_asset_hub_westend::ASSET_HUB_WESTEND_PARACHAIN_ID)]);
-			pub WndLocation: Location = Location::new(2, [GlobalConsensus(WestendNetwork::get())]);
-
-			pub WndFromAssetHubWestend: (AssetFilter, Location) = (
-				Wild(AllOf { fun: WildFungible, id: AssetId(WndLocation::get()) }),
-				AssetHubWestend::get()
-			);
+			pub WestendEcosystem: Location = Location::new(2, [GlobalConsensus(WestendNetwork::get())]);
+			pub AssetHubWestend: Location = Location::new(2, [
+				GlobalConsensus(WestendNetwork::get()),
+				Parachain(bp_asset_hub_westend::ASSET_HUB_WESTEND_PARACHAIN_ID)
+			]);
 
 			/// Set up exporters configuration.
 			/// `Option<Asset>` represents static "base fee" which is used for total delivery fee calculation.
@@ -607,17 +605,9 @@ pub mod bridging {
 			}
 		}
 
-		/// Trusted reserve locations filter for `xcm_executor::Config::IsReserve`.
-		/// Locations from which the runtime accepts reserved assets.
-		pub type IsTrustedBridgedReserveLocationForConcreteAsset =
-			matching::IsTrustedBridgedReserveLocationForConcreteAsset<
-				UniversalLocation,
-				(
-					// allow receive WND from AssetHubWestend
-					xcm_builder::Case<WndFromAssetHubWestend>,
-					// and nothing else
-				),
-			>;
+		/// Allow any asset native to the Westend ecosystem if it comes from Westend Asset Hub.
+		pub type WestendAssetFromAssetHubWestend =
+			matching::RemoteAssetFromLocation<StartsWith<WestendEcosystem>, AssetHubWestend>;
 
 		impl Contains<RuntimeCall> for ToWestendXcmRouter {
 			fn contains(call: &RuntimeCall) -> bool {
@@ -672,7 +662,7 @@ pub mod bridging {
 		}
 
 		pub type IsTrustedBridgedReserveLocationForForeignAsset =
-			matching::IsForeignConcreteAsset<FromNetwork<UniversalLocation, EthereumNetwork>>;
+			IsForeignConcreteAsset<FromNetwork<UniversalLocation, EthereumNetwork>>;
 
 		impl Contains<(Location, Junction)> for UniversalAliases {
 			fn contains(alias: &(Location, Junction)) -> bool {

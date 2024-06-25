@@ -14,7 +14,10 @@
 // limitations under the License.
 
 use cumulus_primitives_core::ParaId;
-use frame_support::{pallet_prelude::Get, traits::ContainsPair};
+use frame_support::{
+	pallet_prelude::Get,
+	traits::{Contains, ContainsPair},
+};
 use xcm::prelude::*;
 
 use xcm_builder::ensure_is_remote;
@@ -94,36 +97,34 @@ impl<
 	}
 }
 
-/// Adapter verifies if it is allowed to receive `Asset` from `Location`.
-///
-/// Note: `Location` has to be from a different global consensus.
-pub struct IsTrustedBridgedReserveLocationForConcreteAsset<UniversalLocation, Reserves>(
-	sp_std::marker::PhantomData<(UniversalLocation, Reserves)>,
+/// Accept an asset if it is native to `AssetsAllowedNetworks` and it is coming from
+/// `RemoteAssetHubLocation`.
+pub struct RemoteAssetFromLocation<AssetsAllowedNetworks, RemoteAssetHubLocation>(
+	sp_std::marker::PhantomData<(AssetsAllowedNetworks, RemoteAssetHubLocation)>,
 );
-impl<UniversalLocation: Get<InteriorLocation>, Reserves: ContainsPair<Asset, Location>>
+impl<AssetsAllowedNetworks: Contains<Location>, RemoteAssetHubLocation: Get<Location>>
 	ContainsPair<Asset, Location>
-	for IsTrustedBridgedReserveLocationForConcreteAsset<UniversalLocation, Reserves>
+	for RemoteAssetFromLocation<AssetsAllowedNetworks, RemoteAssetHubLocation>
 {
 	fn contains(asset: &Asset, origin: &Location) -> bool {
-		let universal_source = UniversalLocation::get();
-		log::trace!(
-			target: "xcm::contains",
-			"IsTrustedBridgedReserveLocationForConcreteAsset asset: {:?}, origin: {:?}, universal_source: {:?}",
-			asset, origin, universal_source
-		);
-
-		// check remote origin
-		if ensure_is_remote(universal_source.clone(), origin.clone()).is_err() {
+		let remote_asset_hub = RemoteAssetHubLocation::get();
+		// ensure `origin` is `RemoteAssetHubLocation`
+		if !remote_asset_hub.eq(origin) {
 			log::trace!(
 				target: "xcm::contains",
-				"IsTrustedBridgedReserveLocationForConcreteAsset origin: {:?} is not remote to the universal_source: {:?}",
-				origin, universal_source
+				"RemoteAssetFromLocation asset: {:?}, origin: {:?} is not from expected {:?}",
+				asset, origin, remote_asset_hub,
 			);
 			return false
+		} else {
+			log::trace!(
+				target: "xcm::contains",
+				"RemoteAssetFromLocation asset: {asset:?}, origin: {origin:?}",
+			);
 		}
 
-		// check asset according to the configured reserve locations
-		Reserves::contains(asset, origin)
+		// ensure `asset` is from remote consensus listed in `AssetsAllowedNetworks`
+		AssetsAllowedNetworks::contains(&asset.id.0)
 	}
 }
 
