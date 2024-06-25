@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1719248934249,
+  "lastUpdate": 1719313011769,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
@@ -2939,6 +2939,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.04541261339399999,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Andrei Eres",
+            "username": "AndreiEres",
+            "email": "eresav@me.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "909bfc2d7c00a0fed7a5fd4e5292aa3fbe2299b6",
+          "message": "[subsystem-bench] Trigger own assignments in approval-voting (#4772)",
+          "timestamp": "2024-06-25T09:08:39Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/909bfc2d7c00a0fed7a5fd4e5292aa3fbe2299b6"
+        },
+        "date": 1719312982920,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 127.92599999999995,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.04200565245799999,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.04973421488800001,
             "unit": "seconds"
           }
         ]
