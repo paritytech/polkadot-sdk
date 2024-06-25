@@ -46,7 +46,7 @@ use core::marker::PhantomData;
 
 /// Weight functions for `runtime_common::claims`.
 pub struct WeightInfo<T>(PhantomData<T>);
-impl<T: frame_system::Config> runtime_common::claims::WeightInfo for WeightInfo<T> {
+impl<T: frame_system::Config> polkadot_runtime_common::claims::WeightInfo for WeightInfo<T> {
 	/// Storage: Claims Claims (r:1 w:1)
 	/// Proof Skipped: Claims Claims (max_values: None, max_size: None, mode: Measured)
 	/// Storage: Claims Signing (r:1 w:1)

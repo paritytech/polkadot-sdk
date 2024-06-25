@@ -360,6 +360,10 @@ pub use pallet_asset_tx_payment;
 #[cfg(feature = "pallet-assets")]
 pub use pallet_assets;
 
+/// Provides freezing features to `pallet-assets`.
+#[cfg(feature = "pallet-assets-freezer")]
+pub use pallet_assets_freezer;
+
 /// FRAME atomic swap pallet.
 #[cfg(feature = "pallet-atomic-swap")]
 pub use pallet_atomic_swap;
@@ -1468,6 +1472,11 @@ pub use sp_wasm_interface;
 /// Types and traits for interfacing between the host and the wasm runtime.
 #[cfg(feature = "sp-weights")]
 pub use sp_weights;
+
+/// Utility for building chain-specification files for Substrate-based runtimes based on
+/// `sp-genesis-builder`.
+#[cfg(feature = "staging-chain-spec-builder")]
+pub use staging_chain_spec_builder;
 
 /// Substrate node block inspection tool.
 #[cfg(feature = "staging-node-inspect")]

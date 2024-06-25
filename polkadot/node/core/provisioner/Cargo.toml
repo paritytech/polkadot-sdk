@@ -10,21 +10,21 @@ license.workspace = true
 workspace = true
 
 [dependencies]
-bitvec = { version = "1.0.0", default-features = false, features = ["alloc"] }
-futures = "0.3.30"
-gum = { package = "tracing-gum", path = "../../gum" }
+bitvec = { features = ["alloc"], workspace = true }
+futures = { workspace = true }
+gum = { workspace = true, default-features = true }
 thiserror = { workspace = true }
-polkadot-primitives = { path = "../../../primitives" }
-polkadot-node-primitives = { path = "../../primitives" }
-polkadot-node-subsystem = { path = "../../subsystem" }
-polkadot-node-subsystem-util = { path = "../../subsystem-util" }
-futures-timer = "3.0.2"
-fatality = "0.1.1"
-schnellru = "0.2.1"
+polkadot-primitives = { workspace = true, default-features = true }
+polkadot-node-primitives = { workspace = true, default-features = true }
+polkadot-node-subsystem = { workspace = true, default-features = true }
+polkadot-node-subsystem-util = { workspace = true, default-features = true }
+futures-timer = { workspace = true }
+fatality = { workspace = true }
+schnellru = { workspace = true }
 
 [dev-dependencies]
-sp-application-crypto = { path = "../../../../substrate/primitives/application-crypto" }
-sp-keystore = { path = "../../../../substrate/primitives/keystore" }
-polkadot-node-subsystem-test-helpers = { path = "../../subsystem-test-helpers" }
-test-helpers = { package = "polkadot-primitives-test-helpers", path = "../../../primitives/test-helpers" }
-rstest = "0.18.2"
+sp-application-crypto = { workspace = true, default-features = true }
+sp-keystore = { workspace = true, default-features = true }
+polkadot-node-subsystem-test-helpers = { workspace = true }
+polkadot-primitives-test-helpers = { workspace = true }
+rstest = { workspace = true }

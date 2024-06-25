@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use erasure_coding::systematic_recovery_threshold;
+use polkadot_erasure_coding::systematic_recovery_threshold;
 use polkadot_primitives::{node_features, ChunkIndex, CoreIndex, NodeFeatures, ValidatorIndex};
 
 /// Compute the per-validator availability chunk index.
@@ -26,7 +26,7 @@ pub fn availability_chunk_index(
 	n_validators: usize,
 	core_index: CoreIndex,
 	validator_index: ValidatorIndex,
-) -> Result<ChunkIndex, erasure_coding::Error> {
+) -> Result<ChunkIndex, polkadot_erasure_coding::Error> {
 	if let Some(features) = maybe_node_features {
 		if let Some(&true) = features
 			.get(usize::from(node_features::FeatureIndex::AvailabilityChunkMapping as u8))
@@ -51,7 +51,7 @@ pub fn availability_chunk_indices(
 	maybe_node_features: Option<&NodeFeatures>,
 	n_validators: usize,
 	core_index: CoreIndex,
-) -> Result<Vec<ChunkIndex>, erasure_coding::Error> {
+) -> Result<Vec<ChunkIndex>, polkadot_erasure_coding::Error> {
 	let identity = (0..n_validators).map(|index| ChunkIndex(index as u32));
 	if let Some(features) = maybe_node_features {
 		if let Some(&true) = features

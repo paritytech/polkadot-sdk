@@ -1376,7 +1376,7 @@ pub mod pallet {
 		/// - `assets`: The assets to be withdrawn. This should include the assets used to pay the
 		///   fee on the `dest` (and possibly reserve) chains.
 		/// - `assets_transfer_type`: The XCM `TransferType` used to transfer the `assets`.
-		/// - `remote_fees_id`: One of the included `assets` to be be used to pay fees.
+		/// - `remote_fees_id`: One of the included `assets` to be used to pay fees.
 		/// - `fees_transfer_type`: The XCM `TransferType` used to transfer the `fees` assets.
 		/// - `custom_xcm_on_dest`: The XCM to be executed on `dest` chain as the last step of the
 		///   transfer, which also determines what happens to the assets on the destination chain.
@@ -2515,6 +2515,21 @@ impl<T: Config> Pallet<T> {
 				.map(|record| record.event.clone())
 				.collect();
 		Ok(XcmDryRunEffects { forwarded_xcms, emitted_events: events, execution_result: result })
+	}
+
+	/// Given a list of asset ids, returns the correct API response for
+	/// `XcmPaymentApi::query_acceptable_payment_assets`.
+	///
+	/// The assets passed in have to be supported for fee payment.
+	pub fn query_acceptable_payment_assets(
+		version: xcm::Version,
+		asset_ids: Vec<AssetId>,
+	) -> Result<Vec<VersionedAssetId>, XcmPaymentApiError> {
+		Ok(asset_ids
+			.into_iter()
+			.map(|asset_id| VersionedAssetId::from(asset_id))
+			.filter_map(|asset_id| asset_id.into_version(version).ok())
+			.collect())
 	}
 
 	pub fn query_xcm_weight(message: VersionedXcm<()>) -> Result<Weight, XcmPaymentApiError> {

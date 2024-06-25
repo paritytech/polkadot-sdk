@@ -780,7 +780,7 @@ fn nominators_also_get_slashed_pro_rata() {
 #[test]
 fn double_staking_should_fail() {
 	// should test (in the same order):
-	// * an account already bonded as stash cannot be be stashed again.
+	// * an account already bonded as stash cannot be stashed again.
 	// * an account already bonded as stash cannot nominate.
 	// * an account already bonded as controller can nominate.
 	ExtBuilder::default().try_state(false).build_and_execute(|| {
