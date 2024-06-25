@@ -116,7 +116,6 @@ enum CoretimeCalls {
 
 #[frame_support::pallet]
 pub mod pallet {
-
 	use crate::configuration;
 	use sp_runtime::traits::TryConvert;
 	use xcm::v4::InteriorLocation;

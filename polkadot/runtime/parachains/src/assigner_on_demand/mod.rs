@@ -90,6 +90,7 @@ impl WeightInfo for TestWeightInfo {
 
 /// A revenue claim that has been started but is not commited yet.
 /// Produced by `start_revenue_claim_until` and consumed then by `commit_revenue_claim`.
+#[derive(DefaultNoBound)]
 pub struct RevenueClaim<T: Config> {
 	/// The index in the `Revenue` storage where the revenue history of this claim begins.
 	/// Committing the claim will truncate the `Revenue` storage by this point. If `None`, no claim
@@ -100,11 +101,6 @@ pub struct RevenueClaim<T: Config> {
 	pub amount: BalanceOf<T>,
 }
 
-impl<T: Config> Default for RevenueClaim<T> {
-	fn default() -> Self {
-		Self { split_off: None, amount: 0u32.into() }
-	}
-}
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -141,12 +137,6 @@ pub mod pallet {
 		/// Identifier for the internal revenue balance.
 		#[pallet::constant]
 		type PalletId: Get<PalletId>;
-	}
-
-	/// Creates an empty revenue tracker if one isn't present in storage already.
-	#[pallet::type_value]
-	pub fn RevenueOnEmpty<T: Config>() -> BoundedVec<BalanceOf<T>, T::MaxHistoricalRevenue> {
-		BoundedVec::new()
 	}
 
 	/// Creates an empty queue status for an empty queue with initial traffic value.
@@ -194,7 +184,6 @@ pub mod pallet {
 		_,
 		BoundedVec<BalanceOf<T>, T::MaxHistoricalRevenue>,
 		ValueQuery,
-		RevenueOnEmpty<T>,
 	>;
 
 	#[pallet::event]
@@ -374,7 +363,7 @@ where
 
 	/// Helper function for `place_order_*` calls. Used to differentiate between placing orders
 	/// with a keep alive check or to allow the account to be reaped. The amount charged is
-	/// burnt from the `Currency` and stored to the pallet account.
+	/// stored to the pallet account to be later paid out as revenue.
 	///
 	/// Parameters:
 	/// - `sender`: The sender of the call, funds will be withdrawn from this account.
@@ -431,9 +420,8 @@ where
 					*current_block = current_block.saturating_add(spot_price);
 				} else {
 					// Revenue has already been claimed in the same block, including the block
-					// itself. It shouldn't normally happen as the parachain part checks not to
-					// claim revenue in the future, but relay-chain-only implementations (e.g. mocks
-					// or some future implementations) may still do that.
+					// itself. It shouldn't normally happen as revenue claims in the future are
+					// not allowed.
 					bounded_revenue.try_push(spot_price).defensive_ok();
 				}
 			});
