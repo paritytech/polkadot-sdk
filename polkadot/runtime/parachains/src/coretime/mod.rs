@@ -301,14 +301,14 @@ impl<T: Config> Pallet<T> {
 	///
 	/// The Relay-chain must be configured to ensure that only a single revenue information
 	/// destination exists.
-	pub fn notify_revenue(when: BlockNumber) -> DispatchResult {
+	pub fn notify_revenue(until: BlockNumber) -> DispatchResult {
 		let now = <frame_system::Pallet<T>>::block_number();
-		let when_bnf: BlockNumberFor<T> = when.into();
+		let until_bnf: BlockNumberFor<T> = until.into();
 
 		// When cannot be in the future.
-		ensure!(when_bnf <= now, Error::<T>::RequestedFutureRevenue);
+		ensure!(until_bnf <= now, Error::<T>::RequestedFutureRevenue);
 
-		let claim = <assigner_on_demand::Pallet<T>>::start_revenue_claim_until(when_bnf);
+		let claim = <assigner_on_demand::Pallet<T>>::start_revenue_claim_until(until_bnf);
 		log::debug!(target: LOG_TARGET, "Revenue info requested: {:?}", claim.amount);
 
 		let raw_revenue: Balance = claim.amount.try_into().map_err(|_| {
@@ -317,7 +317,7 @@ impl<T: Config> Pallet<T> {
 		})?;
 
 		with_transaction(|| -> TransactionOutcome<Result<_, DispatchError>> {
-			match do_notify_revenue::<T>(when, raw_revenue) {
+			match do_notify_revenue::<T>(until, raw_revenue) {
 				Ok(()) => TransactionOutcome::Commit(Ok(())),
 				Err(err) => {
 					log::error!(target: LOG_TARGET, "notify_revenue failed: {err:?}");
