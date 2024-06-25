@@ -3,16 +3,10 @@
 use core::marker::PhantomData;
 use frame_support::{
 	ensure,
-	traits::{
-		tokens::asset_ops::{
-			common_asset_kinds::{Class, Instance},
-			common_strategies::{
-				AutoId, DeriveAndReportId, FromTo, IfOwnedBy, IfRestorable, Owned,
-			},
-			AssetDefinition, Create, CreateStrategy, Destroy, DestroyStrategy, Restore, Stash,
-			Transfer, TransferStrategy,
-		},
-		TypedGet,
+	traits::tokens::asset_ops::{
+		common_asset_kinds::{Class, Instance},
+		common_strategies::{AutoId, DeriveAndReportId, FromTo, IfOwnedBy, IfRestorable, Owned},
+		AssetDefinition, Create, Destroy,
 	},
 };
 use sp_runtime::{DispatchError, DispatchResult};
