@@ -24,8 +24,12 @@ forks](https://img.shields.io/github/forks/paritytech/polkadot-sdk)
 ## 📚 Documentation
 
 * [🦀 rust-docs](https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/index.html)
- * [Introduction](https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/polkadot_sdk/index.html)
-   to each component of the Polkadot SDK: Substrate, FRAME, Cumulus, and XCM
+  * [Introduction](https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/polkadot_sdk/index.html)
+	to each component of the Polkadot SDK: Substrate, FRAME, Cumulus, and XCM
+  * [Guides](https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/guides/index.html),
+	namely how to build your first FRAME pallet.
+  * [Templates](https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/polkadot_sdk/templates/index.html)
+    for starting a new project.
 * Other Resources:
   * [Polkadot Wiki -> Build](https://wiki.polkadot.network/docs/build-guide)
 
@@ -39,6 +43,9 @@ The Polkadot-SDK has two release channels: `stable` and `nightly`. Production so
 only use `stable`. `nightly` is meant for tinkerers to try out the latest features. The detailed
 release process is described in [RELEASE.md](docs/RELEASE.md).
 
+You can use [`psvm`](https://github.com/paritytech/psvm) to manage your Polkadot-SDK dependency
+versions in downstream projects.
+
 ### 😌 Stable
 
 `stable` releases have a support duration of **three months**. In this period, the release will not
@@ -49,6 +56,12 @@ non-breaking features on a **two week** cadence.
 
 `nightly` releases are released every night from the `master` branch, potentially with breaking
 changes. They have pre-release version numbers in the format `major.0.0-nightlyYYMMDD`.
+
+## 🛠️ Tooling
+
+[Polkadot SDK Version Manager](https://github.com/paritytech/psvm):
+A simple tool to manage and update the Polkadot SDK dependencies in any Cargo.toml file.
+It will automatically update the Polkadot SDK dependencies to their correct crates.io version.
 
 ## 🔐 Security
 
@@ -81,7 +94,3 @@ fellowship, this separation, the RFC process
 This repository is the amalgamation of 3 separate repositories that used to make up Polkadot SDK,
 namely Substrate, Polkadot and Cumulus. Read more about the merge and its history
 [here](https://polkadot-public.notion.site/Polkadot-SDK-FAQ-fbc4cecc2c46443fb37b9eeec2f0d85f).
-
-## Other useful resources and tooling
-
-* A simple tool to manage and update the Polkadot SDK dependencies (https://github.com/paritytech/psvm)
