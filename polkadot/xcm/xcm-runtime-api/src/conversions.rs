@@ -26,7 +26,7 @@ sp_api::decl_runtime_apis! {
 	/// API for useful conversions between XCM `Location` and `AccountId`.
 	pub trait LocationToAccountApi {
 		/// Converts `Location` to `AccountId`.
-		fn convert_location(location: VersionedLocation) -> Result<Vec<u8>, Error>;
+		fn convert_location(location: VersionedLocation) -> Result<sp_std::vec::Vec<u8>, Error>;
 	}
 }
 
@@ -50,7 +50,7 @@ pub struct LocationToAccountHelper<AccountId, Conversion>(
 impl<AccountId: ByteArray, Conversion: ConvertLocation<AccountId>>
 	LocationToAccountHelper<AccountId, Conversion>
 {
-	pub fn convert_location(location: VersionedLocation) -> Result<Vec<u8>, Error> {
+	pub fn convert_location(location: VersionedLocation) -> Result<sp_std::vec::Vec<u8>, Error> {
 		let location = location.try_into().map_err(|_| Error::VersionedConversionFailed)?;
 		Conversion::convert_location(&location)
 			.map(|account_id| account_id.to_raw_vec())
