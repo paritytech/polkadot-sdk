@@ -86,7 +86,7 @@ pub use sp_runtime::BuildStorage;
 use assets_common::{foreign_creators::ForeignCreators, matching::FromSiblingParachain};
 use polkadot_runtime_common::{BlockHashCount, SlowAdjustingFeeUpdate};
 use xcm::{
-	latest::prelude::AssetId,
+	latest::prelude::{AssetId, Location},
 	prelude::{VersionedAssetId, VersionedAssets, VersionedLocation, VersionedXcm},
 };
 

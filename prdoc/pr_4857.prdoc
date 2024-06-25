@@ -1,0 +1,14 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: "[xcm] runtime api for LocationToAccount conversions"
+
+doc:
+  - audience: Runtime User
+    description: |
+      Introduces a new runtime API to help with conversions of XCM `Location` to the runtime's `AccountId`,
+      showing an Ss58 formatted address for easier verification.
+
+crates:
+  - name: xcm-runtime-api
+    bump: major

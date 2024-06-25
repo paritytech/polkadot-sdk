@@ -23,16 +23,21 @@ use sp_core::crypto::Ss58Codec;
 use xcm::VersionedLocation;
 use xcm_executor::traits::ConvertLocation;
 
-/// Account identifier
+/// Account identifier-related data
 #[derive(Encode, Decode, Debug, Eq, PartialEq, TypeInfo)]
 pub struct Account {
+	/// Account identifier
 	pub id: sp_std::vec::Vec<u8>,
+	/// Ss58 formatted address
 	pub ss58: Ss58,
 }
 
+/// Ss58-formatted address
 #[derive(Encode, Decode, Debug, Eq, PartialEq, TypeInfo)]
 pub struct Ss58 {
+	/// Ss58 address
 	pub address: sp_std::vec::Vec<u8>,
+	/// Ss58 version
 	pub version: u16,
 }
 
