@@ -221,6 +221,7 @@ members = [
 	"polkadot/xcm/docs",
 	"polkadot/xcm/pallet-xcm",
 	"polkadot/xcm/pallet-xcm-benchmarks",
+	"polkadot/xcm/pallet-xnft",
 	"polkadot/xcm/procedural",
 	"polkadot/xcm/xcm-builder",
 	"polkadot/xcm/xcm-executor",
