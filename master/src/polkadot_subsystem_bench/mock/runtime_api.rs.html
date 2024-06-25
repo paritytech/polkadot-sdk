@@ -456,6 +456,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#305" id="305">305</a>
 <a href="#306" id="306">306</a>
 <a href="#307" id="307">307</a>
+<a href="#308" id="308">308</a>
+<a href="#309" id="309">309</a>
+<a href="#310" id="310">310</a>
+<a href="#311" id="311">311</a>
+<a href="#312" id="312">312</a>
+<a href="#313" id="313">313</a>
+<a href="#314" id="314">314</a>
+<a href="#315" id="315">315</a>
+<a href="#316" id="316">316</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -486,7 +495,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>polkadot_primitives::{
 	node_features, AsyncBackingParams, CandidateEvent, CandidateReceipt, CoreState, GroupIndex,
 	GroupRotationInfo, IndexedVec, NodeFeatures, OccupiedCore, ScheduledCore, SessionIndex,
-	SessionInfo, ValidatorIndex,
+	SessionInfo, ValidationCode, ValidatorIndex,
 };
 <span class="kw">use </span>sp_consensus_babe::Epoch <span class="kw">as </span>BabeEpoch;
 <span class="kw">use </span>sp_core::H256;
@@ -745,6 +754,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 								now: <span class="number">1</span>,
 							};
 							tx.send(<span class="prelude-val">Ok</span>((groups, group_rotation_info))).unwrap();
+						},
+						RuntimeApiMessage::Request(
+							_parent,
+							RuntimeApiRequest::ValidationCodeByHash(<span class="kw">_</span>, tx),
+						) =&gt; {
+							<span class="kw">let </span>validation_code = ValidationCode(Vec::new());
+							<span class="kw">if let </span><span class="prelude-val">Err</span>(err) = tx.send(<span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(validation_code))) {
+								<span class="macro">gum::error!</span>(target: LOG_TARGET, <span class="question-mark">?</span>err, <span class="string">"validation code wasn't received"</span>);
+							}
 						},
 						<span class="comment">// Long term TODO: implement more as needed.
 						</span>message =&gt; {
