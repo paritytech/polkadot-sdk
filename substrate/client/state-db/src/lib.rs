@@ -309,21 +309,14 @@ impl<BlockHash: Hash, Key: Hash, D: MetaDb> StateDbSync<BlockHash, Key, D> {
 	) -> Result<StateDbSync<BlockHash, Key, D>, Error<D::Error>> {
 		trace!(target: LOG_TARGET, "StateDb settings: {:?}. Ref-counting: {}", mode, ref_counting);
 
-		let non_canonical: NonCanonicalOverlay<BlockHash, Key> =
-			NonCanonicalOverlay::new(&db)?;
+		let non_canonical: NonCanonicalOverlay<BlockHash, Key> = NonCanonicalOverlay::new(&db)?;
 		let pruning: Option<RefWindow<BlockHash, Key, D>> = match mode {
 			PruningMode::Constrained(Constraints { max_blocks }) =>
 				Some(RefWindow::new(db, max_blocks.unwrap_or(0), ref_counting)?),
 			PruningMode::ArchiveAll | PruningMode::ArchiveCanonical => None,
 		};
 
-		Ok(StateDbSync {
-			mode,
-			non_canonical,
-			pruning,
-			pinned: Default::default(),
-			ref_counting,
-		})
+		Ok(StateDbSync { mode, non_canonical, pruning, pinned: Default::default(), ref_counting })
 	}
 
 	fn insert_block(
@@ -570,9 +563,8 @@ impl<BlockHash: Hash, Key: Hash, D: MetaDb> StateDb<BlockHash, Key, D> {
 			Default::default()
 		};
 
-		let state_db = StateDb {
-			db: RwLock::new(StateDbSync::new(selected_mode, ref_counting, db, )?),
-		};
+		let state_db =
+			StateDb { db: RwLock::new(StateDbSync::new(selected_mode, ref_counting, db)?) };
 
 		Ok((db_init_commit_set, state_db))
 	}

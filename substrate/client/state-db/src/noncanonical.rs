@@ -181,9 +181,7 @@ fn discard_descendants<BlockHash: Hash, Key: Hash>(
 
 impl<BlockHash: Hash, Key: Hash> NonCanonicalOverlay<BlockHash, Key> {
 	/// Creates a new instance. Does not expect any metadata to be present in the DB.
-	pub fn new<D: MetaDb>(
-		db: &D,
-	) -> Result<NonCanonicalOverlay<BlockHash, Key>, Error<D::Error>> {
+	pub fn new<D: MetaDb>(db: &D) -> Result<NonCanonicalOverlay<BlockHash, Key>, Error<D::Error>> {
 		let last_canonicalized =
 			db.get_meta(&to_meta_key(LAST_CANONICAL, &())).map_err(Error::Db)?;
 		let last_canonicalized = last_canonicalized
