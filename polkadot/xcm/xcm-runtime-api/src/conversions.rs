@@ -56,7 +56,7 @@ sp_api::decl_runtime_apis! {
 	/// API for useful conversions between XCM `Location` and `AccountId`.
 	pub trait LocationToAccountApi {
 		/// Converts `Location` to `Account` with `AccountId` and Ss58 representation.
-		fn convert_location(location: VersionedLocation, ss58_prefix: Option<u16>) -> Result<Account, Error>;
+		fn convert_location(location: VersionedLocation) -> Result<Vec<u8>, Error>;
 	}
 }
 
