@@ -40,6 +40,7 @@ use polkadot_node_subsystem::{
 	SubsystemSender,
 };
 use polkadot_node_subsystem_util as util;
+use polkadot_overseer::ActiveLeavesUpdate;
 use polkadot_parachain_primitives::primitives::{
 	ValidationParams, ValidationResult as WasmValidationResult,
 };
@@ -91,7 +92,7 @@ const PVF_APPROVAL_EXECUTION_RETRY_DELAY: Duration = Duration::from_millis(200);
 const TASK_LIMIT: usize = 30;
 
 /// Configuration for the candidate validation subsystem
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct Config {
 	/// The path where candidate validation can store compiled artifacts for PVFs.
 	pub artifacts_cache_path: PathBuf,
@@ -259,10 +260,7 @@ async fn run<Context>(
 	ctx.spawn_blocking("pvf-validation-host", task.boxed())?;
 
 	let mut tasks = FuturesUnordered::new();
-	let mut session_index: Option<SessionIndex> = None;
-	let mut is_next_session_authority = false;
-	// PVF host won't prepare the same code hash twice, so here we just avoid extra communication
-	let mut already_prepared_code_hashes = HashSet::new();
+	let mut prepare_state = PrepareForValidationState::default();
 
 	loop {
 		loop {
@@ -270,25 +268,7 @@ async fn run<Context>(
 				comm = ctx.recv().fuse() => {
 					match comm {
 						Ok(FromOrchestra::Signal(OverseerSignal::ActiveLeaves(update))) => {
-							let Some(leaf) = update.activated else { continue };
-							let new_session_index = new_session_index(ctx.sender(), session_index, leaf.hash).await;
-							if new_session_index.is_some() {
-								session_index = new_session_index;
-								already_prepared_code_hashes.clear();
-								is_next_session_authority = check_next_session_authority(
-									ctx.sender(),
-									keystore.clone(),
-									leaf.hash,
-									session_index.expect("qed: just checked above"),
-								)
-								.await;
-							}
-
-							// On every active leaf check candidates and prepare PVFs our node doesn't have yet.
-							if is_next_session_authority {
-								let code_hashes = prepare_pvfs_for_backed_candidates(ctx.sender(), validation_host.clone(), leaf.hash, &already_prepared_code_hashes).await;
-								already_prepared_code_hashes.extend(code_hashes.unwrap_or_default());
-							}
+							maybe_prepare_for_validation(ctx.sender(), keystore.clone(), validation_host.clone(), update, &mut prepare_state).await;
 						},
 						Ok(FromOrchestra::Signal(OverseerSignal::BlockFinalized(..))) => {},
 						Ok(FromOrchestra::Signal(OverseerSignal::Conclude)) => return Ok(()),
@@ -325,6 +305,50 @@ async fn run<Context>(
 				}
 			}
 		}
+	}
+}
+
+#[derive(Default)]
+struct PrepareForValidationState {
+	session_index: Option<SessionIndex>,
+	is_next_session_authority: bool,
+	// PVF host won't prepare the same code hash twice, so here we just avoid extra communication
+	already_prepared_code_hashes: HashSet<ValidationCodeHash>,
+}
+
+async fn maybe_prepare_for_validation<Sender>(
+	sender: &mut Sender,
+	keystore: KeystorePtr,
+	validation_host: ValidationHost,
+	update: ActiveLeavesUpdate,
+	state: &mut PrepareForValidationState,
+) where
+	Sender: SubsystemSender<RuntimeApiMessage>,
+{
+	let Some(leaf) = update.activated else { return };
+	let new_session_index = new_session_index(sender, state.session_index, leaf.hash).await;
+	if new_session_index.is_some() {
+		state.session_index = new_session_index;
+		state.already_prepared_code_hashes.clear();
+		state.is_next_session_authority = check_next_session_authority(
+			sender,
+			keystore,
+			leaf.hash,
+			state.session_index.expect("qed: just checked above"),
+		)
+		.await;
+	}
+
+	// On every active leaf check candidates and prepare PVFs our node doesn't have yet.
+	if state.is_next_session_authority {
+		let code_hashes = prepare_pvfs_for_backed_candidates(
+			sender,
+			validation_host,
+			leaf.hash,
+			&state.already_prepared_code_hashes,
+		)
+		.await;
+		state.already_prepared_code_hashes.extend(code_hashes.unwrap_or_default());
 	}
 }
 
