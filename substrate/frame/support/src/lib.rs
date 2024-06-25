@@ -514,7 +514,7 @@ pub use frame_support_procedural::{
 #[doc = docify::embed!("src/tests/runtime.rs", runtime_macro)]
 ///
 /// # Supported Attributes:
-/// 
+///
 /// ## Legacy Ordering
 ///
 /// An optional attribute can be defined as #[frame_support::runtime(legacy_ordering)] to
