@@ -30,12 +30,16 @@ xcm-builder = { workspace = true }
 [features]
 default = ["std"]
 std = [
-    "codec/std",
-    "frame-support/std",
-    "scale-info/std",
-    "sp-api/std",
-    "sp-core/std",
-    "sp-std/std",
-    "xcm-executor/std",
-    "xcm/std",
+	"codec/std",
+	"frame-support/std",
+	"frame-system/std",
+	"scale-info/std",
+	"sp-api/std",
+	"sp-core/std",
+	"sp-io/std",
+	"sp-runtime/std",
+	"sp-std/std",
+	"xcm-builder/std",
+	"xcm-executor/std",
+	"xcm/std",
 ]
