@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1719248027560,
+  "lastUpdate": 1719312106651,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -8459,6 +8459,53 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 2.9982344279001203,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Andrei Eres",
+            "username": "AndreiEres",
+            "email": "eresav@me.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "909bfc2d7c00a0fed7a5fd4e5292aa3fbe2299b6",
+          "message": "[subsystem-bench] Trigger own assignments in approval-voting (#4772)",
+          "timestamp": "2024-06-25T09:08:39Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/909bfc2d7c00a0fed7a5fd4e5292aa3fbe2299b6"
+        },
+        "date": 1719312078277,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63847.82000000001,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52938.3,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 3.849407058520227,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 10.77000638471994,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 8.185767882629937,
             "unit": "seconds"
           }
         ]
