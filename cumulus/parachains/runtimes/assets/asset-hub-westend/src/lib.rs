@@ -1369,7 +1369,7 @@ impl_runtime_apis! {
 	}
 
 	impl xcm_runtime_api::conversions::LocationToAccountApi<Block> for Runtime {
-		fn convert_location(location: Location, ss58_prefix: Option<u16>) -> Result<
+		fn convert_location(location: VersionedLocation, ss58_prefix: Option<u16>) -> Result<
 			xcm_runtime_api::conversions::Account,
 			xcm_runtime_api::conversions::Error
 		> {

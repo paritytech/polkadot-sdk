@@ -20,7 +20,7 @@ use codec::{Decode, Encode};
 use frame_support::traits::Get;
 use scale_info::TypeInfo;
 use sp_core::crypto::Ss58Codec;
-use xcm::prelude::Location;
+use xcm::VersionedLocation;
 use xcm_executor::traits::ConvertLocation;
 
 /// Account identifier
@@ -41,13 +41,17 @@ pub enum Error {
 	/// Requested `Location` is not supported by the local conversion.
 	#[codec(index = 0)]
 	Unsupported,
+
+	/// Converting a versioned data structure from one version to another failed.
+	#[codec(index = 1)]
+	VersionedConversionFailed,
 }
 
 sp_api::decl_runtime_apis! {
 	/// API for useful conversions between XCM `Location` and `AccountId`.
 	pub trait LocationToAccountApi {
 		/// Converts `Location` to `Account` with `AccountId` and Ss58 representation.
-		fn convert_location(location: Location, ss58_prefix: Option<u16>) -> Result<Account, Error>;
+		fn convert_location(location: VersionedLocation, ss58_prefix: Option<u16>) -> Result<Account, Error>;
 	}
 }
 
@@ -61,10 +65,11 @@ impl<AccountId: Ss58Codec, Conversion: ConvertLocation<AccountId>, Ss58Prefix: G
 	LocationToAccountHelper<AccountId, Conversion, Ss58Prefix>
 {
 	pub fn convert_location(
-		location: Location,
+		location: VersionedLocation,
 		ss58_prefix: Option<u16>,
 	) -> Result<Account, Error> {
 		// convert location to `AccountId`
+		let location = location.try_into().map_err(|_| Error::VersionedConversionFailed)?;
 		let account_id = Conversion::convert_location(&location).ok_or(Error::Unsupported)?;
 
 		// convert to Ss58 format

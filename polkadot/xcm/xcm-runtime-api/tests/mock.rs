@@ -20,7 +20,7 @@ use frame_support::{
 	construct_runtime, derive_impl, parameter_types, sp_runtime,
 	sp_runtime::traits::{IdentifyAccount, IdentityLookup, Verify},
 };
-use xcm::prelude::*;
+use xcm::VersionedLocation;
 use xcm_builder::ParentIsPreset;
 use xcm_runtime_api::conversions::{
 	Account, Error as LocationToAccountApiError, LocationToAccountApi, LocationToAccountHelper,
@@ -72,7 +72,7 @@ impl sp_api::ProvideRuntimeApi<Block> for TestClient {
 
 sp_api::mock_impl_runtime_apis! {
 	impl LocationToAccountApi<Block> for RuntimeApi {
-		fn convert_location(location: Location, ss58_prefix: Option<u16>) -> Result<Account, LocationToAccountApiError> {
+		fn convert_location(location: VersionedLocation, ss58_prefix: Option<u16>) -> Result<Account, LocationToAccountApiError> {
 			LocationToAccountHelper::<
 				AccountId,
 				LocationToAccountId,

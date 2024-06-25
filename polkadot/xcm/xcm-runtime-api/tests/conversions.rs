@@ -30,25 +30,27 @@ pub fn convert_location_to_account_works() {
 
 		// Test unknown conversion for `Here` location
 		assert_err!(
-			runtime_api.convert_location(H256::zero(), Location::here(), None).unwrap(),
+			runtime_api
+				.convert_location(H256::zero(), Location::here().into_versioned(), None)
+				.unwrap(),
 			LocationToAccountApiError::Unsupported
 		);
 
 		// Test known conversion for `Parent` location
 		let result_ss58_default = runtime_api
-			.convert_location(H256::zero(), Location::parent(), None)
+			.convert_location(H256::zero(), Location::parent().into_versioned(), None)
 			.unwrap()
 			.expect("conversion works");
 		let result_ss58_1 = runtime_api
-			.convert_location(H256::zero(), Location::parent(), Some(1))
+			.convert_location(H256::zero(), Location::parent().into_versioned(), Some(1))
 			.unwrap()
 			.expect("conversion works");
 		let result_ss58_2 = runtime_api
-			.convert_location(H256::zero(), Location::parent(), Some(2))
+			.convert_location(H256::zero(), Location::parent().into_versioned(), Some(2))
 			.unwrap()
 			.expect("conversion works");
 		let result_ss58_42 = runtime_api
-			.convert_location(H256::zero(), Location::parent(), Some(42))
+			.convert_location(H256::zero(), Location::parent().into_versioned(), Some(42))
 			.unwrap()
 			.expect("conversion works");
 
