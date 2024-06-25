@@ -66,7 +66,9 @@ impl PalletDeclaration {
 					let ident = arg_path.path.require_ident()?.clone();
 					if segment.ident == "Pallet" {
 						runtime_param = Some(ident);
-						if let Some(syn::GenericArgument::Type(syn::Type::Path(arg_path))) = args_iter.next() {
+						if let Some(syn::GenericArgument::Type(syn::Type::Path(arg_path))) =
+							args_iter.next()
+						{
 							instance = Some(arg_path.path.require_ident()?.clone());
 						}
 					} else {
@@ -80,7 +82,12 @@ impl PalletDeclaration {
 		if pallet_segment.is_some() {
 			path = syn::Path {
 				leading_colon: None,
-				segments: path.segments.iter().filter(|seg| seg.arguments.is_empty()).cloned().collect()
+				segments: path
+					.segments
+					.iter()
+					.filter(|seg| seg.arguments.is_empty())
+					.cloned()
+					.collect(),
 			};
 		}
 

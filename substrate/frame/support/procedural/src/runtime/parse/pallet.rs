@@ -15,8 +15,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::construct_runtime::parse::{Pallet, PalletPart, PalletPartKeyword, PalletPath};
-use crate::runtime::parse::PalletDeclaration;
+use crate::{
+	construct_runtime::parse::{Pallet, PalletPart, PalletPartKeyword, PalletPath},
+	runtime::parse::PalletDeclaration,
+};
 use frame_support_procedural_tools::get_doc_literals;
 use quote::ToTokens;
 use syn::{punctuated::Punctuated, token, Error};
@@ -56,7 +58,8 @@ impl Pallet {
 			"Invalid pallet declaration, expected a path or a trait object",
 		))?;
 
-		let PalletDeclaration { pallet_segment, instance, .. } = PalletDeclaration::try_from(attr_span, item, &path.inner)?;
+		let PalletDeclaration { pallet_segment, instance, .. } =
+			PalletDeclaration::try_from(attr_span, item, &path.inner)?;
 
 		if pallet_segment.is_some() {
 			path = PalletPath {
