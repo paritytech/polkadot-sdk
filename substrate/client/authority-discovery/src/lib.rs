@@ -40,8 +40,8 @@ use futures::{
 	Stream,
 };
 
-use libp2p::{Multiaddr, PeerId};
-use sc_network::event::DhtEvent;
+use sc_network::{event::DhtEvent, Multiaddr};
+use sc_network_types::PeerId;
 use sp_authority_discovery::AuthorityId;
 use sp_blockchain::HeaderBackend;
 use sp_runtime::traits::Block as BlockT;
@@ -80,6 +80,10 @@ pub struct WorkerConfig {
 	/// Defaults to `true` to avoid the surprise factor.
 	pub publish_non_global_ips: bool,
 
+	/// Public addresses set by the node operator to always publish first in the authority
+	/// discovery DHT record.
+	pub public_addresses: Vec<Multiaddr>,
+
 	/// Reject authority discovery records that are not signed by their network identity (PeerId)
 	///
 	/// Defaults to `false` to provide compatibility with old versions
@@ -104,6 +108,7 @@ impl Default for WorkerConfig {
 			// `authority_discovery_dht_event_received`.
 			max_query_interval: Duration::from_secs(10 * 60),
 			publish_non_global_ips: true,
+			public_addresses: Vec::new(),
 			strict_record_validation: false,
 		}
 	}
@@ -112,16 +117,15 @@ impl Default for WorkerConfig {
 /// Create a new authority discovery [`Worker`] and [`Service`].
 ///
 /// See the struct documentation of each for more details.
-pub fn new_worker_and_service<Client, Network, Block, DhtEventStream>(
+pub fn new_worker_and_service<Client, Block, DhtEventStream>(
 	client: Arc<Client>,
-	network: Arc<Network>,
+	network: Arc<dyn NetworkProvider>,
 	dht_event_rx: DhtEventStream,
 	role: Role,
 	prometheus_registry: Option<prometheus_endpoint::Registry>,
-) -> (Worker<Client, Network, Block, DhtEventStream>, Service)
+) -> (Worker<Client, Block, DhtEventStream>, Service)
 where
 	Block: BlockT + Unpin + 'static,
-	Network: NetworkProvider,
 	Client: AuthorityDiscovery<Block> + Send + Sync + 'static + HeaderBackend<Block>,
 	DhtEventStream: Stream<Item = DhtEvent> + Unpin,
 {
@@ -138,17 +142,16 @@ where
 /// Same as [`new_worker_and_service`] but with support for providing the `config`.
 ///
 /// When in doubt use [`new_worker_and_service`] as it will use the default configuration.
-pub fn new_worker_and_service_with_config<Client, Network, Block, DhtEventStream>(
+pub fn new_worker_and_service_with_config<Client, Block, DhtEventStream>(
 	config: WorkerConfig,
 	client: Arc<Client>,
-	network: Arc<Network>,
+	network: Arc<dyn NetworkProvider>,
 	dht_event_rx: DhtEventStream,
 	role: Role,
 	prometheus_registry: Option<prometheus_endpoint::Registry>,
-) -> (Worker<Client, Network, Block, DhtEventStream>, Service)
+) -> (Worker<Client, Block, DhtEventStream>, Service)
 where
 	Block: BlockT + Unpin + 'static,
-	Network: NetworkProvider,
 	Client: AuthorityDiscovery<Block> + 'static,
 	DhtEventStream: Stream<Item = DhtEvent> + Unpin,
 {

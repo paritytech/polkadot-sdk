@@ -532,6 +532,7 @@ pub trait ConstructRuntimeApi<Block: BlockT, C: CallApiAt<Block>> {
 	fn construct_runtime_api(call: &C) -> ApiRef<Self::RuntimeApi>;
 }
 
+#[docify::export]
 /// Init the [`RuntimeLogger`](sp_runtime::runtime_logger::RuntimeLogger).
 pub fn init_runtime_logger() {
 	#[cfg(not(feature = "disable-logging"))]
@@ -838,3 +839,4 @@ decl_runtime_apis! {
 
 sp_core::generate_feature_enabled_macro!(std_enabled, feature = "std", $);
 sp_core::generate_feature_enabled_macro!(std_disabled, not(feature = "std"), $);
+sp_core::generate_feature_enabled_macro!(frame_metadata_enabled, feature = "frame-metadata", $);

@@ -180,7 +180,7 @@ pub trait HostFn {
 		flags: CallFlags,
 		callee: &[u8],
 		ref_time_limit: u64,
-		proof_time_limit: u64,
+		proof_size_limit: u64,
 		deposit: Option<&[u8]>,
 		value: &[u8],
 		input_data: &[u8],
@@ -790,7 +790,7 @@ pub trait HostFn {
 	///
 	/// # Parameters
 	///
-	/// - `dest`: The XCM destination, should be decodable as [VersionedMultiLocation](https://paritytech.github.io/polkadot-sdk/master/staging_xcm/enum.VersionedMultiLocation.html),
+	/// - `dest`: The XCM destination, should be decodable as [VersionedLocation](https://paritytech.github.io/polkadot-sdk/master/staging_xcm/enum.VersionedLocation.html),
 	///   traps otherwise.
 	/// - `msg`: The message, should be decodable as a [VersionedXcm](https://paritytech.github.io/polkadot-sdk/master/staging_xcm/enum.VersionedXcm.html),
 	///   traps otherwise.

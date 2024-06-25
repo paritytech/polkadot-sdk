@@ -129,6 +129,16 @@ use sp_externalities::{Externalities, ExternalitiesExt};
 
 pub use sp_externalities::MultiRemovalResults;
 
+#[cfg(all(not(feature = "disable_allocator"), substrate_runtime, target_family = "wasm"))]
+mod global_alloc_wasm;
+
+#[cfg(all(
+	not(feature = "disable_allocator"),
+	substrate_runtime,
+	any(target_arch = "riscv32", target_arch = "riscv64")
+))]
+mod global_alloc_riscv;
+
 #[cfg(feature = "std")]
 const LOG_TARGET: &str = "runtime::io";
 
@@ -171,8 +181,8 @@ impl From<MultiRemovalResults> for KillStorageResult {
 #[runtime_interface]
 pub trait Storage {
 	/// Returns the data for `key` in the storage or `None` if the key can not be found.
-	fn get(&self, key: &[u8]) -> Option<bytes::Bytes> {
-		self.storage(key).map(|s| bytes::Bytes::from(s.to_vec()))
+	fn get(&mut self, key: &[u8]) -> Option<bytes::Bytes> {
+		self.storage(key).map(bytes::Bytes::from)
 	}
 
 	/// Get `key` from storage, placing the value into `value_out` and return the number of
@@ -180,7 +190,7 @@ pub trait Storage {
 	/// doesn't exist at all.
 	/// If `value_out` length is smaller than the returned length, only `value_out` length bytes
 	/// are copied into `value_out`.
-	fn read(&self, key: &[u8], value_out: &mut [u8], value_offset: u32) -> Option<u32> {
+	fn read(&mut self, key: &[u8], value_out: &mut [u8], value_offset: u32) -> Option<u32> {
 		self.storage(key).map(|value| {
 			let value_offset = value_offset as usize;
 			let data = &value[value_offset.min(value.len())..];
@@ -201,7 +211,7 @@ pub trait Storage {
 	}
 
 	/// Check whether the given `key` exists in storage.
-	fn exists(&self, key: &[u8]) -> bool {
+	fn exists(&mut self, key: &[u8]) -> bool {
 		self.exists_storage(key)
 	}
 
@@ -377,7 +387,7 @@ pub trait DefaultChildStorage {
 	///
 	/// Parameter `storage_key` is the unprefixed location of the root of the child trie in the
 	/// parent trie. Result is `None` if the value for `key` in the child storage can not be found.
-	fn get(&self, storage_key: &[u8], key: &[u8]) -> Option<Vec<u8>> {
+	fn get(&mut self, storage_key: &[u8], key: &[u8]) -> Option<Vec<u8>> {
 		let child_info = ChildInfo::new_default(storage_key);
 		self.child_storage(&child_info, key).map(|s| s.to_vec())
 	}
@@ -390,7 +400,7 @@ pub trait DefaultChildStorage {
 	/// If `value_out` length is smaller than the returned length, only `value_out` length bytes
 	/// are copied into `value_out`.
 	fn read(
-		&self,
+		&mut self,
 		storage_key: &[u8],
 		key: &[u8],
 		value_out: &mut [u8],
@@ -468,7 +478,7 @@ pub trait DefaultChildStorage {
 	/// Check a child storage key.
 	///
 	/// Check whether the given `key` exists in default child defined at `storage_key`.
-	fn exists(&self, storage_key: &[u8], key: &[u8]) -> bool {
+	fn exists(&mut self, storage_key: &[u8], key: &[u8]) -> bool {
 		let child_info = ChildInfo::new_default(storage_key);
 		self.exists_child_storage(&child_info, key)
 	}
@@ -1071,7 +1081,7 @@ pub trait Crypto {
 	/// Register a `ecdsa` signature for batch verification.
 	///
 	/// Batch verification must be enabled by calling [`start_batch_verify`].
-	/// If batch verification is not enabled, the signature will be verified immediatley.
+	/// If batch verification is not enabled, the signature will be verified immediately.
 	/// To get the result of the batch verification, [`finish_batch_verify`]
 	/// needs to be called.
 	///
@@ -1686,9 +1696,9 @@ mod tracing_setup {
 
 	/// The PassingTracingSubscriber implements `tracing_core::Subscriber`
 	/// and pushes the information across the runtime interface to the host
-	struct PassingTracingSubsciber;
+	struct PassingTracingSubscriber;
 
-	impl tracing_core::Subscriber for PassingTracingSubsciber {
+	impl tracing_core::Subscriber for PassingTracingSubscriber {
 		fn enabled(&self, metadata: &Metadata<'_>) -> bool {
 			wasm_tracing::enabled(Crossing(metadata.into()))
 		}
@@ -1721,7 +1731,7 @@ mod tracing_setup {
 	/// set the global bridging subscriber once.
 	pub fn init_tracing() {
 		if TRACING_SET.load(Ordering::Relaxed) == false {
-			set_global_default(Dispatch::new(PassingTracingSubsciber {}))
+			set_global_default(Dispatch::new(PassingTracingSubscriber {}))
 				.expect("We only ever call this once");
 			TRACING_SET.store(true, Ordering::Relaxed);
 		}
@@ -1736,30 +1746,6 @@ mod tracing_setup {
 }
 
 pub use tracing_setup::init_tracing;
-
-/// Allocator used by Substrate from within the runtime.
-#[cfg(substrate_runtime)]
-struct RuntimeAllocator;
-
-#[cfg(all(not(feature = "disable_allocator"), substrate_runtime))]
-#[global_allocator]
-static ALLOCATOR: RuntimeAllocator = RuntimeAllocator;
-
-#[cfg(substrate_runtime)]
-mod allocator_impl {
-	use super::*;
-	use core::alloc::{GlobalAlloc, Layout};
-
-	unsafe impl GlobalAlloc for RuntimeAllocator {
-		unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
-			allocator::malloc(layout.size() as u32)
-		}
-
-		unsafe fn dealloc(&self, ptr: *mut u8, _: Layout) {
-			allocator::free(ptr)
-		}
-	}
-}
 
 /// Crashes the execution of the program.
 ///
@@ -1819,6 +1805,7 @@ pub type TestExternalities = sp_state_machine::TestExternalities<sp_core::Blake2
 /// The host functions Substrate provides for the Wasm runtime environment.
 ///
 /// All these host functions will be callable from inside the Wasm environment.
+#[docify::export]
 #[cfg(feature = "std")]
 pub type SubstrateHostFunctions = (
 	storage::HostFunctions,

@@ -36,7 +36,6 @@
 #![cfg(feature = "full-node")]
 
 use super::{HeaderProvider, HeaderProviderProvider};
-use consensus_common::{Error as ConsensusError, SelectChain};
 use futures::channel::oneshot;
 use polkadot_node_primitives::MAX_FINALITY_LAG as PRIMITIVES_MAX_FINALITY_LAG;
 use polkadot_node_subsystem::messages::{
@@ -46,9 +45,10 @@ use polkadot_node_subsystem::messages::{
 use polkadot_node_subsystem_util::metrics::{self, prometheus};
 use polkadot_overseer::{AllMessages, Handle};
 use polkadot_primitives::{Block as PolkadotBlock, BlockNumber, Hash, Header as PolkadotHeader};
+use sp_consensus::{Error as ConsensusError, SelectChain};
 use std::sync::Arc;
 
-pub use service::SpawnTaskHandle;
+pub use sc_service::SpawnTaskHandle;
 
 /// The maximum amount of unfinalized blocks we are willing to allow due to approval checking
 /// or disputes.
@@ -472,7 +472,7 @@ where
 		let lag = initial_leaf_number.saturating_sub(subchain_number);
 		self.metrics.note_approval_checking_finality_lag(lag);
 
-		// Messages sent to `approval-distrbution` are known to have high `ToF`, we need to spawn a
+		// Messages sent to `approval-distribution` are known to have high `ToF`, we need to spawn a
 		// task for sending the message to not block here and delay finality.
 		if let Some(spawn_handle) = &self.spawn_handle {
 			let mut overseer_handle = self.overseer.clone();
@@ -524,7 +524,7 @@ where
 			// and not push it up the stack to cause additional issues in GRANDPA/BABE.
 			let (lag, subchain_head) =
 				match rx.await.map_err(Error::DetermineUndisputedChainCanceled) {
-					// If request succeded we will receive (block number, block hash).
+					// If request succeeded we will receive (block number, block hash).
 					Ok((subchain_number, subchain_head)) => {
 						// The total lag accounting for disputes.
 						let lag_disputes = initial_leaf_number.saturating_sub(subchain_number);

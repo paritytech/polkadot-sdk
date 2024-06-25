@@ -872,7 +872,7 @@ mod tests {
 	fn detects_incompatible_mode() {
 		let mut db = make_db(&[]);
 		let (state_db_init, state_db) =
-			StateDb::open(db.clone(), Some(PruningMode::ArchiveAll), false, true, true).unwrap();
+			StateDb::open(db.clone(), Some(PruningMode::ArchiveAll), false, true, false).unwrap();
 		db.commit(&state_db_init);
 		db.commit(
 			&state_db
@@ -893,7 +893,7 @@ mod tests {
 	fn check_stored_and_requested_mode_compatibility(
 		mode_when_created: Option<PruningMode>,
 		mode_when_reopened: Option<PruningMode>,
-		expected_effective_mode_when_reopenned: Result<PruningMode, ()>,
+		expected_effective_mode_when_reopened: Result<PruningMode, ()>,
 	) {
 		let mut db = make_db(&[]);
 		let (state_db_init, state_db) =
@@ -904,7 +904,7 @@ mod tests {
 
 		let state_db_reopen_result =
 			StateDb::<H256, H256, TestDb>::open(db.clone(), mode_when_reopened, false, false, true);
-		if let Ok(expected_mode) = expected_effective_mode_when_reopenned {
+		if let Ok(expected_mode) = expected_effective_mode_when_reopened {
 			let (state_db_init, state_db_reopened) = state_db_reopen_result.unwrap();
 			db.commit(&state_db_init);
 			assert_eq!(state_db_reopened.pruning_mode(), expected_mode,)

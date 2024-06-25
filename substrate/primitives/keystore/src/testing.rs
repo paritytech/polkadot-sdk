@@ -516,7 +516,7 @@ mod tests {
 		let suri = "//Alice";
 		let pair = ecdsa_bls377::Pair::from_string(suri, None).unwrap();
 
-		let msg = b"this should be a normal unhashed message not ";
+		let msg = b"this should be a normal unhashed message not a hash of a message because bls scheme comes with its own hashing";
 
 		// insert key, sign again
 		store.insert(ECDSA_BLS377, suri, pair.public().as_ref()).unwrap();
@@ -528,7 +528,7 @@ mod tests {
 		assert!(res.is_some());
 
 		// does not verify with default out-of-the-box verification
-		assert!(!ecdsa_bls377::Pair::verify(&res.clone().unwrap(), &msg[..], &pair.public()));
+		assert!(!ecdsa_bls377::Pair::verify(&res.unwrap(), &msg[..], &pair.public()));
 
 		// should verify using keccak256 as hasher
 		assert!(ecdsa_bls377::Pair::verify_with_hasher::<KeccakHasher>(

@@ -132,7 +132,7 @@ pub trait StateMigrationApi<BlockHash> {
 	/// Check current migration state.
 	///
 	/// This call is performed locally without submitting any transactions. Thus executing this
-	/// won't change any state. Nonetheless it is a VERY costy call that should be
+	/// won't change any state. Nonetheless it is a VERY costly call that should be
 	/// only exposed to trusted peers.
 	#[method(name = "state_trieMigrationStatus")]
 	fn call(&self, at: Option<BlockHash>) -> RpcResult<MigrationStatusResult>;

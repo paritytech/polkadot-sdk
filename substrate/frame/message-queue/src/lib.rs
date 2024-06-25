@@ -208,8 +208,9 @@ use frame_support::{
 	defensive,
 	pallet_prelude::*,
 	traits::{
-		Defensive, DefensiveTruncateFrom, EnqueueMessage, ExecuteOverweightError, Footprint,
-		ProcessMessage, ProcessMessageError, QueueFootprint, QueuePausedQuery, ServiceQueues,
+		Defensive, DefensiveSaturating, DefensiveTruncateFrom, EnqueueMessage,
+		ExecuteOverweightError, Footprint, ProcessMessage, ProcessMessageError, QueueFootprint,
+		QueuePausedQuery, ServiceQueues,
 	},
 	BoundedSlice, CloneNoBound, DefaultNoBound,
 };
@@ -442,6 +443,7 @@ impl<MessageOrigin> From<BookState<MessageOrigin>> for QueueFootprint {
 	fn from(book: BookState<MessageOrigin>) -> Self {
 		QueueFootprint {
 			pages: book.count,
+			ready_pages: book.end.defensive_saturating_sub(book.begin),
 			storage: Footprint { count: book.message_count, size: book.size },
 		}
 	}
@@ -523,12 +525,21 @@ pub mod pallet {
 		type MaxStale: Get<u32>;
 
 		/// The amount of weight (if any) which should be provided to the message queue for
-		/// servicing enqueued items.
+		/// servicing enqueued items `on_initialize`.
 		///
 		/// This may be legitimately `None` in the case that you will call
-		/// `ServiceQueues::service_queues` manually.
+		/// `ServiceQueues::service_queues` manually or set [`Self::IdleMaxServiceWeight`] to have
+		/// it run in `on_idle`.
 		#[pallet::constant]
 		type ServiceWeight: Get<Option<Weight>>;
+
+		/// The maximum amount of weight (if any) to be used from remaining weight `on_idle` which
+		/// should be provided to the message queue for servicing enqueued items `on_idle`.
+		/// Useful for parachains to process messages at the same block they are received.
+		///
+		/// If `None`, it will not call `ServiceQueues::service_queues` in `on_idle`.
+		#[pallet::constant]
+		type IdleMaxServiceWeight: Get<Option<Weight>>;
 	}
 
 	#[pallet::event]
@@ -641,6 +652,15 @@ pub mod pallet {
 			}
 		}
 
+		fn on_idle(_n: BlockNumberFor<T>, remaining_weight: Weight) -> Weight {
+			if let Some(weight_limit) = T::IdleMaxServiceWeight::get() {
+				// Make use of the remaining weight to process enqueued messages.
+				Self::service_queues(weight_limit.min(remaining_weight))
+			} else {
+				Weight::zero()
+			}
+		}
+
 		#[cfg(feature = "try-runtime")]
 		fn try_state(_: BlockNumberFor<T>) -> Result<(), sp_runtime::TryRuntimeError> {
 			Self::do_try_state()
@@ -745,6 +765,13 @@ enum MessageExecutionStatus {
 	Processed,
 	/// The message was processed and resulted in a, possibly permanent, error.
 	Unprocessable { permanent: bool },
+	/// The stack depth limit was reached.
+	///
+	/// We cannot just return `Unprocessable` in this case, because the processability of the
+	/// message depends on how the function was called. This may be a permanent error if it was
+	/// called by a top-level function, or a transient error if it was already called in a nested
+	/// function.
+	StackLimitReached,
 }
 
 impl<T: Config> Pallet<T> {
@@ -964,7 +991,8 @@ impl<T: Config> Pallet<T> {
 			// additional overweight event being deposited.
 		) {
 			Overweight | InsufficientWeight => Err(Error::<T>::InsufficientWeight),
-			Unprocessable { permanent: false } => Err(Error::<T>::TemporarilyUnprocessable),
+			StackLimitReached | Unprocessable { permanent: false } =>
+				Err(Error::<T>::TemporarilyUnprocessable),
 			Unprocessable { permanent: true } | Processed => {
 				page.note_processed_at_pos(pos);
 				book_state.message_count.saturating_dec();
@@ -1230,7 +1258,7 @@ impl<T: Config> Pallet<T> {
 		let is_processed = match res {
 			InsufficientWeight => return ItemExecutionStatus::Bailed,
 			Unprocessable { permanent: false } => return ItemExecutionStatus::NoProgress,
-			Processed | Unprocessable { permanent: true } => true,
+			Processed | Unprocessable { permanent: true } | StackLimitReached => true,
 			Overweight => false,
 		};
 
@@ -1281,6 +1309,9 @@ impl<T: Config> Pallet<T> {
 			ensure!(book.message_count < 1 << 30, "Likely overflow or corruption");
 			ensure!(book.size < 1 << 30, "Likely overflow or corruption");
 			ensure!(book.count < 1 << 30, "Likely overflow or corruption");
+
+			let fp: QueueFootprint = book.into();
+			ensure!(fp.ready_pages <= fp.pages, "There cannot be more ready than total pages");
 		}
 
 		//loop around this origin
@@ -1438,6 +1469,10 @@ impl<T: Config> Pallet<T> {
 				Self::deposit_event(Event::<T>::ProcessingFailed { id: id.into(), origin, error });
 				MessageExecutionStatus::Unprocessable { permanent: true }
 			},
+			Err(error @ StackLimitReached) => {
+				Self::deposit_event(Event::<T>::ProcessingFailed { id: id.into(), origin, error });
+				MessageExecutionStatus::StackLimitReached
+			},
 			Ok(success) => {
 				// Success
 				let weight_used = meter.consumed().saturating_sub(prev_consumed);
@@ -1455,7 +1490,7 @@ impl<T: Config> Pallet<T> {
 
 /// Run a closure that errors on re-entrance. Meant to be used by anything that services queues.
 pub(crate) fn with_service_mutex<F: FnOnce() -> R, R>(f: F) -> Result<R, ()> {
-	// Holds the singelton token instance.
+	// Holds the singleton token instance.
 	environmental::environmental!(token: Option<()>);
 
 	token::using_once(&mut Some(()), || {

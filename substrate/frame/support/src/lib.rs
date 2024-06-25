@@ -145,7 +145,7 @@ impl TypeId for PalletId {
 /// # Examples
 ///
 /// There are different ways to declare the `prefix` to use. The `prefix` type can either be
-/// declared explicetly by passing it to the macro as an attribute or by letting the macro
+/// declared explicitly by passing it to the macro as an attribute or by letting the macro
 /// guess on what the `prefix` type is. The `prefix` is always passed as the first generic
 /// argument to the type declaration. When using [`#[pallet::storage]`](pallet_macros::storage)
 /// this first generic argument is always `_`. Besides declaring the `prefix`, the rest of the
@@ -508,6 +508,8 @@ pub use frame_support_procedural::{
 	construct_runtime, match_and_insert, transactional, PalletError, RuntimeDebugNoBound,
 };
 
+pub use frame_support_procedural::runtime;
+
 #[doc(hidden)]
 pub use frame_support_procedural::{__create_tt_macro, __generate_dummy_part_checker};
 
@@ -700,7 +702,7 @@ pub use frame_support_procedural::crate_to_crate_version;
 #[macro_export]
 macro_rules! fail {
 	( $y:expr ) => {{
-		return Err($y.into())
+		return Err($y.into());
 	}};
 }
 
@@ -933,6 +935,83 @@ pub mod pallet_prelude {
 	pub use sp_weights::Weight;
 }
 
+/// The pallet macro has 2 purposes:
+///
+/// * [For declaring a pallet as a rust module](#1---pallet-module-declaration)
+/// * [For declaring the `struct` placeholder of a
+///   pallet](#2---pallet-struct-placeholder-declaration)
+///
+/// # 1 - Pallet module declaration
+///
+/// The module to declare a pallet is organized as follow:
+/// ```
+/// #[frame_support::pallet]    // <- the macro
+/// mod pallet {
+/// 	#[pallet::pallet]
+/// 	pub struct Pallet<T>(_);
+///
+/// 	#[pallet::config]
+/// 	pub trait Config: frame_system::Config {}
+///
+/// 	#[pallet::call]
+/// 	impl<T: Config> Pallet<T> {
+/// 	}
+///
+/// 	/* ... */
+/// }
+/// ```
+///
+/// The documentation for each individual part can be found at [frame_support::pallet_macros]
+///
+/// ## Dev Mode (`#[pallet(dev_mode)]`)
+///
+/// Syntax:
+///
+/// ```
+/// #[frame_support::pallet(dev_mode)]
+/// mod pallet {
+/// # 	 #[pallet::pallet]
+/// # 	 pub struct Pallet<T>(_);
+/// # 	 #[pallet::config]
+/// # 	 pub trait Config: frame_system::Config {}
+/// 	/* ... */
+/// }
+/// ```
+///
+/// Specifying the argument `dev_mode` will allow you to enable dev mode for a pallet. The
+/// aim of dev mode is to loosen some of the restrictions and requirements placed on
+/// production pallets for easy tinkering and development. Dev mode pallets should not be
+/// used in production. Enabling dev mode has the following effects:
+///
+/// * Weights no longer need to be specified on every `#[pallet::call]` declaration. By
+///   default, dev mode pallets will assume a weight of zero (`0`) if a weight is not
+///   specified. This is equivalent to specifying `#[weight(0)]` on all calls that do not
+///   specify a weight.
+/// * Call indices no longer need to be specified on every `#[pallet::call]` declaration. By
+///   default, dev mode pallets will assume a call index based on the order of the call.
+/// * All storages are marked as unbounded, meaning you do not need to implement
+///   [`MaxEncodedLen`](frame_support::pallet_prelude::MaxEncodedLen) on storage types. This is
+///   equivalent to specifying `#[pallet::unbounded]` on all storage type definitions.
+/// * Storage hashers no longer need to be specified and can be replaced by `_`. In dev mode,
+///   these will be replaced by `Blake2_128Concat`. In case of explicit key-binding, `Hasher`
+///   can simply be ignored when in `dev_mode`.
+///
+/// Note that the `dev_mode` argument can only be supplied to the `#[pallet]` or
+/// `#[frame_support::pallet]` attribute macro that encloses your pallet module. This
+/// argument cannot be specified anywhere else, including but not limited to the
+/// `#[pallet::pallet]` attribute macro.
+///
+/// <div class="example-wrap" style="display:inline-block"><pre class="compile_fail"
+/// style="white-space:normal;font:inherit;">
+/// <strong>WARNING</strong>:
+/// You should never deploy or use dev mode pallets in production. Doing so can break your
+/// chain. Once you are done tinkering, you should
+/// remove the 'dev_mode' argument from your #[pallet] declaration and fix any compile
+/// errors before attempting to use your pallet in a production scenario.
+/// </pre></div>
+///
+/// # 2 - Pallet struct placeholder declaration
+///
 /// The pallet struct placeholder `#[pallet::pallet]` is mandatory and allows you to
 /// specify pallet information.
 ///
@@ -947,7 +1026,7 @@ pub mod pallet_prelude {
 /// 	pub trait Config: frame_system::Config {}
 /// }
 /// ```
-///
+//
 /// I.e. a regular struct definition named `Pallet`, with generic T and no where clause.
 ///
 /// ## Macro expansion:
@@ -981,40 +1060,6 @@ pub mod pallet_prelude {
 /// [`StorageInfoTrait`](frame_support::traits::StorageInfoTrait) for the pallet using the
 /// [`PartialStorageInfoTrait`](frame_support::traits::PartialStorageInfoTrait)
 /// implementation of storages.
-///
-/// ## Dev Mode (`#[pallet(dev_mode)]`)
-///
-/// Specifying the argument `dev_mode` will allow you to enable dev mode for a pallet. The
-/// aim of dev mode is to loosen some of the restrictions and requirements placed on
-/// production pallets for easy tinkering and development. Dev mode pallets should not be
-/// used in production. Enabling dev mode has the following effects:
-///
-/// * Weights no longer need to be specified on every `#[pallet::call]` declaration. By
-///   default, dev mode pallets will assume a weight of zero (`0`) if a weight is not
-///   specified. This is equivalent to specifying `#[weight(0)]` on all calls that do not
-///   specify a weight.
-/// * Call indices no longer need to be specified on every `#[pallet::call]` declaration. By
-///   default, dev mode pallets will assume a call index based on the order of the call.
-/// * All storages are marked as unbounded, meaning you do not need to implement
-///   [`MaxEncodedLen`](frame_support::pallet_prelude::MaxEncodedLen) on storage types. This is
-///   equivalent to specifying `#[pallet::unbounded]` on all storage type definitions.
-/// * Storage hashers no longer need to be specified and can be replaced by `_`. In dev mode,
-///   these will be replaced by `Blake2_128Concat`. In case of explicit key-binding, `Hasher`
-///   can simply be ignored when in `dev_mode`.
-///
-/// Note that the `dev_mode` argument can only be supplied to the `#[pallet]` or
-/// `#[frame_support::pallet]` attribute macro that encloses your pallet module. This
-/// argument cannot be specified anywhere else, including but not limited to the
-/// `#[pallet::pallet]` attribute macro.
-///
-/// <div class="example-wrap" style="display:inline-block"><pre class="compile_fail"
-/// style="white-space:normal;font:inherit;">
-/// <strong>WARNING</strong>:
-/// You should not deploy or use dev mode pallets in production. Doing so can break your
-/// chain and therefore should never be done. Once you are done tinkering, you should
-/// remove the 'dev_mode' argument from your #[pallet] declaration and fix any compile
-/// errors before attempting to use your pallet in a production scenario.
-/// </pre></div>
 pub use frame_support_procedural::pallet;
 
 /// Contains macro stubs for all of the `pallet::` macros
@@ -1107,7 +1152,7 @@ pub mod pallet_macros {
 
 	/// Declares a storage as unbounded in potential size.
 	///
-	/// When implementating the storage info (when `#[pallet::generate_storage_info]` is
+	/// When implementing the storage info (when `#[pallet::generate_storage_info]` is
 	/// specified on the pallet struct placeholder), the size of the storage will be declared
 	/// as unbounded. This can be useful for storage which can never go into PoV (Proof of
 	/// Validity).
@@ -1339,26 +1384,6 @@ pub mod pallet_macros {
 	/// See [`pallet::storage`](`frame_support::pallet_macros::storage`) for more info.
 	pub use frame_support_procedural::getter;
 
-	/// Allows generating the `Store` trait for all storages.
-	///
-	/// DEPRECATED: Will be removed, do not use.
-	/// See <https://github.com/paritytech/substrate/pull/13535> for more details.
-	///
-	/// To generate a `Store` trait associating all storages, annotate your `Pallet` struct
-	/// with the attribute `#[pallet::generate_store($vis trait Store)]`, e.g.:
-	///
-	/// ```ignore
-	/// #[pallet::pallet]
-	/// #[pallet::generate_store(pub(super) trait Store)]
-	/// pub struct Pallet<T>(_);
-	/// ```
-	/// More precisely, the `Store` trait contains an associated type for each storage. It is
-	/// implemented for `Pallet` allowing access to the storage from pallet struct.
-	///
-	/// Thus when defining a storage named `Foo`, it can later be accessed from `Pallet` using
-	/// `<Pallet as Store>::Foo`.
-	pub use frame_support_procedural::generate_store;
-
 	/// Defines constants that are added to the constant field of
 	/// [`PalletMetadata`](frame_metadata::v15::PalletMetadata) struct for this pallet.
 	///
@@ -1473,16 +1498,24 @@ pub mod pallet_macros {
 	/// # 	use core::fmt::Debug;
 	/// # 	use frame_support::traits::Contains;
 	/// #
+	/// # 	pub trait SomeMoreComplexBound {}
+	/// #
 	/// 	#[pallet::pallet]
 	/// 	pub struct Pallet<T>(_);
 	///
 	/// 	#[pallet::config(with_default)] // <- with_default is optional
 	/// 	pub trait Config: frame_system::Config {
 	/// 		/// The overarching event type.
-	/// 		#[pallet::no_default_bounds] // Default is not supported for RuntimeEvent
+	/// 		#[pallet::no_default_bounds] // Default with bounds is not supported for RuntimeEvent
 	/// 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 	///
-	/// 		// ...other config items get default
+	/// 		/// A more complex type.
+	/// 		#[pallet::no_default] // Example of type where no default should be provided
+	/// 		type MoreComplexType: SomeMoreComplexBound;
+	///
+	/// 		/// A simple type.
+	/// 		// Default with bounds is supported for simple types
+	/// 		type SimpleType: From<u32>;
 	/// 	}
 	///
 	/// 	#[pallet::event]
@@ -1492,12 +1525,23 @@ pub mod pallet_macros {
 	/// }
 	/// ```
 	///
-	/// As shown above, you may also attach the [`#[pallet::no_default]`](`no_default`)
+	/// As shown above:
+	/// * you may attach the [`#[pallet::no_default]`](`no_default`)
 	/// attribute to specify that a particular trait item _cannot_ be used as a default when a
 	/// test `Config` is derived using the [`#[derive_impl(..)]`](`frame_support::derive_impl`)
 	/// attribute macro. This will cause that particular trait item to simply not appear in
 	/// default testing configs based on this config (the trait item will not be included in
 	/// `DefaultConfig`).
+	/// * you may attach the [`#[pallet::no_default_bounds]`](`no_default_bounds`)
+	/// attribute to specify that a particular trait item can be used as a default when a
+	/// test `Config` is derived using the [`#[derive_impl(..)]`](`frame_support::derive_impl`)
+	/// attribute macro. But its bounds cannot be enforced at this point and should be
+	/// discarded when generating the default config trait.
+	/// * you may not specify any attribute to generate a trait item in the default config
+	///   trait.
+	///
+	/// In case origin of error is not clear it is recommended to disable all default with
+	/// [`#[pallet::no_default]`](`no_default`) and enable them one by one.
 	///
 	/// ### `DefaultConfig` Caveats
 	///
@@ -1517,7 +1561,10 @@ pub mod pallet_macros {
 	///   the `DefaultConfig` trait, and therefore any impl of `DefaultConfig` doesn't need to
 	///   implement such items.
 	///
-	/// For more information, see [`frame_support::derive_impl`].
+	/// For more information, see:
+	/// * [`frame_support::derive_impl`].
+	/// * [`#[pallet::no_default]`](`no_default`)
+	/// * [`#[pallet::no_default_bounds]`](`no_default_bounds`)
 	pub use frame_support_procedural::config;
 
 	/// Allows defining an enum that gets composed as an aggregate enum by `construct_runtime`.
@@ -1529,9 +1576,8 @@ pub mod pallet_macros {
 	/// The attribute currently only supports enum definitions, and identifiers that are named
 	/// `FreezeReason`, `HoldReason`, `LockId` or `SlashReason`. Arbitrary identifiers for the
 	/// enum are not supported. The aggregate enum generated by
-	/// [`frame_support::construct_runtime`](frame_support::construct_runtime) will have the
-	/// name of `RuntimeFreezeReason`, `RuntimeHoldReason`, `RuntimeLockId` and
-	/// `RuntimeSlashReason` respectively.
+	/// [`frame_support::construct_runtime`] will have the name of `RuntimeFreezeReason`,
+	/// `RuntimeHoldReason`, `RuntimeLockId` and `RuntimeSlashReason` respectively.
 	///
 	/// NOTE: The aggregate enum generated by `construct_runtime` generates a conversion
 	/// function from the pallet enum to the aggregate enum, and automatically derives the
@@ -1951,7 +1997,7 @@ pub mod pallet_macros {
 	/// #   use frame_support::__private::TestExternalities;
 	/// #   use frame_support::traits::UnfilteredDispatchable;
 	/// #    impl custom_pallet::Config for Runtime {}
-	/// #    #[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+	/// #    #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 	/// #    impl frame_system::Config for Runtime {
 	/// #        type Block = frame_system::mocking::MockBlock<Self>;
 	/// #    }
@@ -2358,7 +2404,7 @@ pub mod pallet_macros {
 
 	/// Allows defining conditions for a task to run.
 	///
-	/// This attribute is attached to a function inside an `impl` block annoated with
+	/// This attribute is attached to a function inside an `impl` block annotated with
 	/// [`pallet::tasks_experimental`](`tasks_experimental`) to define the conditions for a
 	/// given work item to be valid.
 	///
@@ -2369,7 +2415,7 @@ pub mod pallet_macros {
 
 	/// Allows defining an index for a task.
 	///
-	/// This attribute is attached to a function inside an `impl` block annoated with
+	/// This attribute is attached to a function inside an `impl` block annotated with
 	/// [`pallet::tasks_experimental`](`tasks_experimental`) to define the index of a given
 	/// work item.
 	///
@@ -2379,7 +2425,7 @@ pub mod pallet_macros {
 
 	/// Allows defining an iterator over available work items for a task.
 	///
-	/// This attribute is attached to a function inside an `impl` block annoated with
+	/// This attribute is attached to a function inside an `impl` block annotated with
 	/// [`pallet::tasks_experimental`](`tasks_experimental`).
 	///
 	/// It takes an iterator as input that yields a tuple with same types as the function
@@ -2388,7 +2434,7 @@ pub mod pallet_macros {
 
 	/// Allows defining the weight of a task.
 	///
-	/// This attribute is attached to a function inside an `impl` block annoated with
+	/// This attribute is attached to a function inside an `impl` block annotated with
 	/// [`pallet::tasks_experimental`](`tasks_experimental`) define the weight of a given work
 	/// item.
 	///
@@ -2417,6 +2463,9 @@ pub mod pallet_macros {
 	///
 	/// Finally, the `RuntimeTask` can then used by a script or off-chain worker to create and
 	/// submit such tasks via an extrinsic defined in `frame_system` called `do_task`.
+	///
+	/// When submitted as unsigned transactions (for example via an off-chain workder), note
+	/// that the tasks will be executed in a random order.
 	///
 	/// ## Example
 	#[doc = docify::embed!("src/tests/tasks.rs", tasks_example)]

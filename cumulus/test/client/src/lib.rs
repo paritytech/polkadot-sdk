@@ -17,55 +17,46 @@
 //! A Cumulus test client.
 
 mod block_builder;
+pub use block_builder::*;
 use codec::{Decode, Encode};
+pub use cumulus_test_runtime as runtime;
+use cumulus_test_runtime::AuraId;
+pub use polkadot_parachain_primitives::primitives::{
+	BlockData, HeadData, ValidationParams, ValidationResult,
+};
 use runtime::{
 	Balance, Block, BlockHashCount, Runtime, RuntimeCall, Signature, SignedExtra, SignedPayload,
 	UncheckedExtrinsic, VERSION,
 };
+use sc_consensus_aura::standalone::{seal, slot_author};
+pub use sc_executor::error::Result as ExecutorResult;
 use sc_executor::HeapAllocStrategy;
 use sc_executor_common::runtime_blob::RuntimeBlob;
+use sp_api::ProvideRuntimeApi;
+use sp_application_crypto::AppCrypto;
 use sp_blockchain::HeaderBackend;
+use sp_consensus_aura::{AuraApi, Slot};
 use sp_core::Pair;
 use sp_io::TestExternalities;
-use sp_runtime::{generic::Era, BuildStorage, SaturatedConversion};
-
-pub use block_builder::*;
-pub use cumulus_test_runtime as runtime;
-pub use polkadot_parachain_primitives::primitives::{
-	BlockData, HeadData, ValidationParams, ValidationResult,
-};
-pub use sc_executor::error::Result as ExecutorResult;
+use sp_keystore::testing::MemoryKeystore;
+use sp_runtime::{generic::Era, traits::Header, BuildStorage, SaturatedConversion};
+use std::sync::Arc;
 pub use substrate_test_client::*;
 
 pub type ParachainBlockData = cumulus_primitives_core::ParachainBlockData<Block>;
-
-mod local_executor {
-	/// Native executor instance.
-	pub struct LocalExecutor;
-
-	impl sc_executor::NativeExecutionDispatch for LocalExecutor {
-		type ExtendHostFunctions =
-			cumulus_primitives_proof_size_hostfunction::storage_proof_size::HostFunctions;
-
-		fn dispatch(method: &str, data: &[u8]) -> Option<Vec<u8>> {
-			cumulus_test_runtime::api::dispatch(method, data)
-		}
-
-		fn native_version() -> sc_executor::NativeVersion {
-			cumulus_test_runtime::native_version()
-		}
-	}
-}
-
-/// Native executor used for tests.
-pub use local_executor::LocalExecutor;
 
 /// Test client database backend.
 pub type Backend = substrate_test_client::Backend<Block>;
 
 /// Test client executor.
-pub type Executor =
-	client::LocalCallExecutor<Block, Backend, sc_executor::NativeElseWasmExecutor<LocalExecutor>>;
+pub type Executor = client::LocalCallExecutor<
+	Block,
+	Backend,
+	WasmExecutor<(
+		sp_io::SubstrateHostFunctions,
+		cumulus_primitives_proof_size_hostfunction::storage_proof_size::HostFunctions,
+	)>,
+>;
 
 /// Test client builder for Cumulus
 pub type TestClientBuilder =
@@ -94,7 +85,7 @@ impl substrate_test_client::GenesisInit for GenesisParameters {
 	}
 }
 
-/// A `test-runtime` extensions to `TestClientBuilder`.
+/// A `test-runtime` extensions to [`TestClientBuilder`].
 pub trait TestClientBuilderExt: Sized {
 	/// Build the test client.
 	fn build(self) -> Client {
@@ -224,4 +215,41 @@ pub fn validate_block(
 			&validation_params.encode(),
 		)
 		.map(|v| ValidationResult::decode(&mut &v[..]).expect("Decode `ValidationResult`."))
+}
+
+fn get_keystore() -> sp_keystore::KeystorePtr {
+	let keystore = MemoryKeystore::new();
+	sp_keyring::Sr25519Keyring::iter().for_each(|key| {
+		keystore
+			.sr25519_generate_new(
+				sp_consensus_aura::sr25519::AuthorityPair::ID,
+				Some(&key.to_seed()),
+			)
+			.expect("Key should be created");
+	});
+	Arc::new(keystore)
+}
+
+/// Given parachain block data and a slot, seal the block with an aura seal. Assumes that the
+/// authorities of the test runtime are present in the keyring.
+pub fn seal_block(
+	block: ParachainBlockData,
+	parachain_slot: Slot,
+	client: &Client,
+) -> ParachainBlockData {
+	let parent_hash = block.header().parent_hash;
+	let authorities = client.runtime_api().authorities(parent_hash).unwrap();
+	let expected_author = slot_author::<<AuraId as AppCrypto>::Pair>(parachain_slot, &authorities)
+		.expect("Should be able to find author");
+
+	let (mut header, extrinsics, proof) = block.deconstruct();
+	let keystore = get_keystore();
+	let seal_digest = seal::<_, sp_consensus_aura::sr25519::AuthorityPair>(
+		&header.hash(),
+		expected_author,
+		&keystore,
+	)
+	.expect("Should be able to create seal");
+	header.digest_mut().push(seal_digest);
+	ParachainBlockData::new(header, extrinsics, proof)
 }

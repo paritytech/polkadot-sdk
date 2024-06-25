@@ -1,0 +1,17 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Add HRMP notification handlers to the xcm-executor
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Adds optional HRMP notification handlers to the xcm-executor. These handlers are 3 new config types on the xcm-executor `Config` trait:
+      - `HrmpNewChannelOpenRequestHandler`
+      - `HrmpChannelAcceptedHandler`
+      - `HrmpChannelClosingHandler`
+
+      The traits of these config types are implemented on tuples, and on `()` for the default case.
+
+crates:
+    - name: staging-xcm-executor

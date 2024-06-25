@@ -13,7 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::*;
+use crate::imports::*;
 use emulated_integration_tests_common::accounts::{ALICE, BOB};
 use frame_support::traits::fungibles::{Create, Inspect, Mutate};
 use polkadot_runtime_common::impls::VersionedLocatableAsset;

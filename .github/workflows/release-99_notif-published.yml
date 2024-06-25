@@ -16,12 +16,6 @@ jobs:
           - name: "RelEng: Polkadot Release Coordination"
             room: '!cqAmzdIcbOFwrdrubV:parity.io'
             pre-release: true
-          - name: 'General: Rust, Polkadot, Substrate'
-            room: '!aJymqQYtCjjqImFLSb:parity.io'
-            pre-release: false
-          - name: 'Team: DevOps'
-            room: '!lUslSijLMgNcEKcAiE:parity.io'
-            pre-release: true
 
          # External
           - name: 'Ledger <> Polkadot Coordination'
@@ -48,9 +42,9 @@ jobs:
           access_token: ${{ secrets.RELEASENOTES_MATRIX_V2_ACCESS_TOKEN }}
           server: m.parity.io
           message: |
-            A (pre)release has been ${{github.event.action}} in **${{github.event.repository.full_name}}:**<br/>
+            @room
+
+            A new node release has been ${{github.event.action}} in **${{github.event.repository.full_name}}:**<br/>
             Release version: [${{github.event.release.tag_name}}](${{github.event.release.html_url}})
 
             -----
-
-            ${{github.event.release.body}}

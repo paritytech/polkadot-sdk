@@ -53,7 +53,7 @@ construct_runtime!(
 	}
 );
 
-#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
 	type AccountId = u128;
 	type Lookup = IdentityLookup<Self::AccountId>;
@@ -61,20 +61,11 @@ impl frame_system::Config for Test {
 	type AccountData = pallet_balances::AccountData<u128>;
 }
 
+#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Test {
 	type Balance = u128;
-	type DustRemoval = ();
-	type RuntimeEvent = RuntimeEvent;
 	type ExistentialDeposit = ConstU128<100>;
 	type AccountStore = System;
-	type WeightInfo = ();
-	type MaxLocks = ();
-	type MaxReserves = ConstU32<50>;
-	type ReserveIdentifier = [u8; 8];
-	type FreezeIdentifier = ();
-	type MaxFreezes = ();
-	type RuntimeHoldReason = ();
-	type RuntimeFreezeReason = ();
 }
 
 impl pallet_assets::Config<Instance1> for Test {
@@ -137,8 +128,11 @@ ord_parameter_types! {
 }
 
 pub type NativeAndAssets = UnionOf<Balances, Assets, NativeFromLeft, NativeOrWithId<u32>, u128>;
-pub type AscendingLocator = Ascending<u128, NativeOrWithId<u32>>;
-pub type WithFirstAssetLocator = WithFirstAsset<Native, u128, NativeOrWithId<u32>>;
+pub type PoolIdToAccountId =
+	AccountIdConverter<AssetConversionPalletId, (NativeOrWithId<u32>, NativeOrWithId<u32>)>;
+pub type AscendingLocator = Ascending<u128, NativeOrWithId<u32>, PoolIdToAccountId>;
+pub type WithFirstAssetLocator =
+	WithFirstAsset<Native, u128, NativeOrWithId<u32>, PoolIdToAccountId>;
 
 impl Config for Test {
 	type RuntimeEvent = RuntimeEvent;

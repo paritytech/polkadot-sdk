@@ -59,7 +59,7 @@ mod sys {
 
 		pub fn caller_is_root() -> ReturnCode;
 
-		pub fn clear_storage(key_ptr: *const u8, key_len: u32) -> ReturnCode;
+		pub fn clear_storage(key_ptr: *const u8);
 
 		pub fn code_hash(
 			account_id_ptr: *const u8,
@@ -67,7 +67,7 @@ mod sys {
 			output_len_ptr: *mut u32,
 		) -> ReturnCode;
 
-		pub fn contains_storage(key_ptr: *const u8, key_len: u32) -> ReturnCode;
+		pub fn contains_storage(key_ptr: *const u8) -> ReturnCode;
 
 		pub fn debug_message(str_ptr: *const u8, str_len: u32) -> ReturnCode;
 
@@ -223,7 +223,7 @@ mod sys {
 
 			pub fn weight_to_fee(
 				ref_time_limit: u64,
-				proof_time_limit: u64,
+				proof_size_limit: u64,
 				output_ptr: *mut u8,
 				output_len_ptr: *mut u32,
 			);
@@ -239,7 +239,7 @@ mod sys {
 				flags: u32,
 				callee_ptr: *const u8,
 				ref_time_limit: u64,
-				proof_time_limit: u64,
+				proof_size_limit: u64,
 				deposit_ptr: *const u8,
 				transferred_value_ptr: *const u8,
 				input_data_ptr: *const u8,
@@ -251,7 +251,7 @@ mod sys {
 			pub fn instantiate(
 				code_hash_ptr: *const u8,
 				ref_time_limit: u64,
-				proof_time_limit: u64,
+				proof_size_limit: u64,
 				deposit_ptr: *const u8,
 				value_ptr: *const u8,
 				input_ptr: *const u8,
@@ -301,6 +301,7 @@ macro_rules! impl_wrapper_for {
 				unsafe {
 					$( $mod )::*::$name(output.as_mut_ptr(), &mut output_len);
 				}
+				extract_from_slice(output, output_len as usize)
 			}
 		}
 	};
@@ -487,7 +488,7 @@ impl HostFn for HostFnImpl {
 		flags: CallFlags,
 		callee: &[u8],
 		ref_time_limit: u64,
-		proof_time_limit: u64,
+		proof_size_limit: u64,
 		deposit: Option<&[u8]>,
 		value: &[u8],
 		input_data: &[u8],
@@ -501,7 +502,7 @@ impl HostFn for HostFnImpl {
 					flags.bits(),
 					callee.as_ptr(),
 					ref_time_limit,
-					proof_time_limit,
+					proof_size_limit,
 					deposit_ptr,
 					value.as_ptr(),
 					input_data.as_ptr(),
@@ -598,7 +599,7 @@ impl HostFn for HostFnImpl {
 	}
 
 	fn clear_storage(key: &[u8]) {
-		unsafe { sys::clear_storage(key.as_ptr(), key.len() as u32) };
+		unsafe { sys::clear_storage(key.as_ptr()) };
 	}
 
 	fn clear_storage_v1(key: &[u8]) -> Option<u32> {
@@ -655,7 +656,7 @@ impl HostFn for HostFnImpl {
 	}
 
 	fn contains_storage(key: &[u8]) -> Option<u32> {
-		let ret_code = unsafe { sys::contains_storage(key.as_ptr(), key.len() as u32) };
+		let ret_code = unsafe { sys::contains_storage(key.as_ptr()) };
 		ret_code.into()
 	}
 

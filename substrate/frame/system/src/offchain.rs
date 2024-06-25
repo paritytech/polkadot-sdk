@@ -22,7 +22,7 @@
 //! This module provides transaction related helpers to:
 //! - Submit a raw unsigned transaction
 //! - Submit an unsigned transaction with a signed payload
-//! - Submit a signed transction.
+//! - Submit a signed transaction.
 //!
 //! ## Usage
 //!
@@ -384,7 +384,7 @@ where
 ///
 /// // runtime-specific public key
 /// type Public = MultiSigner: From<sr25519::Public>;
-/// type Signature = MulitSignature: From<sr25519::Signature>;
+/// type Signature = MultiSignature: From<sr25519::Signature>;
 /// ```
 // TODO [#5662] Potentially use `IsWrappedBy` types, or find some other way to make it easy to
 // obtain unwrapped crypto (and wrap it back).
@@ -444,7 +444,7 @@ pub trait SigningTypes: crate::Config {
 	/// A public key that is capable of identifying `AccountId`s.
 	///
 	/// Usually that's either a raw crypto public key (e.g. `sr25519::Public`) or
-	/// an aggregate type for multiple crypto public keys, like `MulitSigner`.
+	/// an aggregate type for multiple crypto public keys, like `MultiSigner`.
 	type Public: Clone
 		+ PartialEq
 		+ IdentifyAccount<AccountId = Self::AccountId>

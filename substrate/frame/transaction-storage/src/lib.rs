@@ -137,7 +137,7 @@ pub mod pallet {
 		InvalidProof,
 		/// Missing storage proof.
 		MissingProof,
-		/// Unable to verify proof becasue state data is missing.
+		/// Unable to verify proof because state data is missing.
 		MissingStateData,
 		/// Double proof check in the block.
 		DoubleCheck,

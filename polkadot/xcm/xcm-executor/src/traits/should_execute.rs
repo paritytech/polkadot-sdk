@@ -18,7 +18,7 @@ use frame_support::traits::ProcessMessageError;
 use sp_std::result::Result;
 use xcm::latest::{Instruction, Location, Weight, XcmHash};
 
-/// Properyies of an XCM message and its imminent execution.
+/// Properties of an XCM message and its imminent execution.
 #[derive(Clone, Eq, PartialEq, Debug)]
 pub struct Properties {
 	/// The amount of weight that the system has determined this
@@ -33,9 +33,9 @@ pub struct Properties {
 /// Trait to determine whether the execution engine should actually execute a given XCM.
 ///
 /// Can be amalgamated into a tuple to have multiple trials. If any of the tuple elements returns
-/// `Ok()`, the execution stops. Else, `Err(_)` is returned if all elements reject the message.
+/// `Ok(())`, the execution stops. Else, `Err(_)` is returned if all elements reject the message.
 pub trait ShouldExecute {
-	/// Returns `true` if the given `message` may be executed.
+	/// Returns `Ok(())` if the given `message` may be executed.
 	///
 	/// - `origin`: The origin (sender) of the message.
 	/// - `instructions`: The message itself.

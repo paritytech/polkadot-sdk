@@ -99,7 +99,7 @@ pub(crate) struct Initialized {
 	/// This is the highest `SessionIndex` seen via `ActiveLeavesUpdate`. It doesn't matter if it
 	/// was cached successfully or not. It is used to detect ancient disputes.
 	highest_session_seen: SessionIndex,
-	/// Will be set to `true` if an error occured during the last caching attempt
+	/// Will be set to `true` if an error occurred during the last caching attempt
 	gaps_in_cache: bool,
 	spam_slots: SpamSlots,
 	participation: Participation,

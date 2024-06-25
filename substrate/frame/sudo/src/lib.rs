@@ -38,7 +38,7 @@
 //! In Substrate blockchains, pallets may contain dispatchable calls that can only be called at
 //! the system level of the chain (i.e. dispatchables that require a `Root` origin).
 //! Setting a privileged account, called the _sudo key_, allows you to make such calls as an
-//! extrinisic.
+//! extrinsic.
 //!
 //! Here's an example of a privileged function in another pallet:
 //!
@@ -156,7 +156,7 @@ pub mod pallet {
 		/// Default prelude sensible to be used in a testing environment.
 		pub struct TestDefaultConfig;
 
-		#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig, no_aggregated_types)]
+		#[derive_impl(frame_system::config_preludes::TestDefaultConfig, no_aggregated_types)]
 		impl frame_system::DefaultConfig for TestDefaultConfig {}
 
 		#[frame_support::register_default_impl(TestDefaultConfig)]

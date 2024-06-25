@@ -1,0 +1,15 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: "[pallet_broker] Fix `Linear::adapt_price` behavior at zero"
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      This fixes the behaviour of `Linear` which is the default implementation of the `AdaptPrice`
+      trait in the broker pallet. Previously if cores were offered but not sold in only one sale,
+      the price would be set to zero and due to the logic being purely multiplicative, the price
+      would stay at 0 indefinitely.
+
+crates:
+  - name: pallet-broker

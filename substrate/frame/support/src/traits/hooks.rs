@@ -167,7 +167,7 @@ pub trait OnGenesis {
 ///
 /// This hook is intended to be used internally in FRAME and not be exposed to FRAME developers.
 ///
-/// It is defined as a seperate trait from [`OnRuntimeUpgrade`] precisely to not pollute the public
+/// It is defined as a separate trait from [`OnRuntimeUpgrade`] precisely to not pollute the public
 /// API.
 pub trait BeforeAllRuntimeMigrations {
 	/// Something that should happen before runtime migrations are executed.
@@ -212,6 +212,30 @@ pub trait OnRuntimeUpgrade {
 		}
 
 		Ok(weight)
+	}
+
+	/// See [`Hooks::pre_upgrade`].
+	#[cfg(feature = "try-runtime")]
+	fn pre_upgrade() -> Result<Vec<u8>, TryRuntimeError> {
+		Ok(Vec::new())
+	}
+
+	/// See [`Hooks::post_upgrade`].
+	#[cfg(feature = "try-runtime")]
+	fn post_upgrade(_state: Vec<u8>) -> Result<(), TryRuntimeError> {
+		Ok(())
+	}
+}
+
+/// This trait is intended for use within `VersionedMigration` to execute storage migrations without
+/// automatic version checks. Implementations should ensure migration logic is safe and idempotent.
+pub trait UncheckedOnRuntimeUpgrade {
+	/// Called within `VersionedMigration` to execute the actual migration. It is also
+	/// expected that no version checks are performed within this function.
+	///
+	/// See also [`Hooks::on_runtime_upgrade`].
+	fn on_runtime_upgrade() -> Weight {
+		Weight::zero()
 	}
 
 	/// See [`Hooks::pre_upgrade`].
@@ -327,6 +351,7 @@ pub trait IntegrityTest {
 /// - [`crate::traits::misc::OffchainWorker`]
 /// - [`OnIdle`]
 /// - [`IntegrityTest`]
+/// - [`OnPoll`]
 ///
 /// ## Ordering
 ///
@@ -339,34 +364,32 @@ pub trait IntegrityTest {
 ///
 /// ```mermaid
 /// graph LR
-/// 	Optional --> BeforeExtrinsics
-/// 	BeforeExtrinsics --> Extrinsics
-/// 	Extrinsics --> AfterExtrinsics
-/// 	subgraph Optional
+/// 	Optional --> Mandatory
+/// 	Mandatory --> ExtrinsicsMandatory
+/// 	ExtrinsicsMandatory --> Poll
+/// 	Poll --> Extrinsics
+/// 	Extrinsics --> AfterMandatory
+/// 	AfterMandatory --> onIdle
+///
+/// subgraph Optional
 /// 	OnRuntimeUpgrade
 /// end
 ///
-/// subgraph BeforeExtrinsics
+/// subgraph Mandatory
 /// 	OnInitialize
+/// end
+///
+/// subgraph ExtrinsicsMandatory
+/// 	Inherent1 --> Inherent2
 /// end
 ///
 /// subgraph Extrinsics
 /// 	direction TB
-/// 	Inherent1
-/// 	Inherent2
-/// 	Extrinsic1
-/// 	Extrinsic2
-///
-/// 	Inherent1 --> Inherent2
-/// 	Inherent2 --> Extrinsic1
 /// 	Extrinsic1 --> Extrinsic2
 /// end
 ///
-/// subgraph AfterExtrinsics
-/// 	OnIdle
+/// subgraph AfterMandatory
 /// 	OnFinalize
-///
-/// 	OnIdle --> OnFinalize
 /// end
 /// ```
 ///
@@ -442,6 +465,8 @@ pub trait Hooks<BlockNumber> {
 	///
 	/// Is not guaranteed to execute in a block and should therefore only be used in no-deadline
 	/// scenarios.
+	///
+	/// This is the non-mandatory version of [`Hooks::on_initialize`].
 	fn on_poll(_n: BlockNumber, _weight: &mut WeightMeter) {}
 
 	/// Hook executed when a code change (aka. a "runtime upgrade") is detected by the FRAME
@@ -459,7 +484,9 @@ pub trait Hooks<BlockNumber> {
 	/// ## Implementation Note: Standalone Migrations
 	///
 	/// Additional migrations can be created by directly implementing [`OnRuntimeUpgrade`] on
-	/// structs and passing them to `Executive`.
+	/// structs and passing them to `Executive`. Or alternatively, by implementing
+	/// [`UncheckedOnRuntimeUpgrade`], passing it to [`crate::migrations::VersionedMigration`],
+	/// which already implements [`OnRuntimeUpgrade`].
 	///
 	/// ## Implementation Note: Pallet Versioning
 	///

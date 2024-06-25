@@ -52,7 +52,7 @@ frame_support::construct_runtime!(
 	}
 );
 
-#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
 	type Block = Block;
 }
@@ -73,6 +73,7 @@ impl Config for Test {
 	type HeapSize = HeapSize;
 	type MaxStale = MaxStale;
 	type ServiceWeight = ServiceWeight;
+	type IdleMaxServiceWeight = ();
 }
 
 /// Simulates heavy usage by enqueueing and processing large amounts of messages.
@@ -329,6 +330,11 @@ fn process_some_messages(num_msgs: u32) {
 	let weight = (num_msgs as u64).into_weight();
 	ServiceWeight::set(Some(weight));
 	let consumed = next_block();
+
+	for origin in BookStateFor::<Test>::iter_keys() {
+		let fp = MessageQueue::footprint(origin);
+		assert_eq!(fp.pages, fp.ready_pages);
+	}
 
 	assert_eq!(consumed, weight, "\n{}", MessageQueue::debug_info());
 	assert_eq!(NumMessagesProcessed::take(), num_msgs as usize);

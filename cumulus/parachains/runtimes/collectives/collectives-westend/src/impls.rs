@@ -81,7 +81,7 @@ where
 	}
 
 	fn proposal_of(proposal_hash: HashOf<T>) -> Option<ProposalOf<T, I>> {
-		pallet_collective::Pallet::<T, I>::proposal_of(proposal_hash)
+		pallet_collective::ProposalOf::<T, I>::get(proposal_hash)
 	}
 }
 

@@ -303,11 +303,11 @@ pub fn take_storage_item<K: Encode + Sized, T: Decode + Sized, H: StorageHasher>
 /// Move a storage from a pallet prefix to another pallet prefix.
 ///
 /// Keys used in pallet storages always start with:
-/// `concat(twox_128(pallet_name), towx_128(storage_name))`.
+/// `concat(twox_128(pallet_name), twox_128(storage_name))`.
 ///
 /// This function will remove all value for which the key start with
-/// `concat(twox_128(old_pallet_name), towx_128(storage_name))` and insert them at the key with
-/// the start replaced by `concat(twox_128(new_pallet_name), towx_128(storage_name))`.
+/// `concat(twox_128(old_pallet_name), twox_128(storage_name))` and insert them at the key with
+/// the start replaced by `concat(twox_128(new_pallet_name), twox_128(storage_name))`.
 ///
 /// # Example
 ///
@@ -339,7 +339,7 @@ pub fn move_storage_from_pallet(
 /// Move all storages from a pallet prefix to another pallet prefix.
 ///
 /// Keys used in pallet storages always start with:
-/// `concat(twox_128(pallet_name), towx_128(storage_name))`.
+/// `concat(twox_128(pallet_name), twox_128(storage_name))`.
 ///
 /// This function will remove all value for which the key start with `twox_128(old_pallet_name)`
 /// and insert them at the key with the start replaced by `twox_128(new_pallet_name)`.
