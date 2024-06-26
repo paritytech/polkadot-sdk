@@ -436,6 +436,19 @@ pub mod pallet {
 	}
 
 	impl<T: Config> Pallet<T> {
+		/// Get transaction storage information from outside of this pallet.
+		pub fn transaction_roots(block: BlockNumberFor<T>) -> Option<BoundedVec<TransactionInfo, T::MaxBlockTransactions>> {
+			Transactions::<T>::get(block)
+		}
+		/// Get ByteFee storage information from outside of this pallet.
+		pub fn byte_fee() -> Option<BalanceOf<T>> {
+			ByteFee::<T>::get()
+		}
+		/// Get EntryFee storage information from outside of this pallet.
+		pub fn entry_fee() -> Option<BalanceOf<T>> {
+			EntryFee::<T>::get()
+		}
+
 		fn apply_fee(sender: T::AccountId, size: u32) -> DispatchResult {
 			let byte_fee = ByteFee::<T>::get().ok_or(Error::<T>::NotConfigured)?;
 			let entry_fee = EntryFee::<T>::get().ok_or(Error::<T>::NotConfigured)?;
