@@ -637,3 +637,12 @@ subsystem-benchmark-statement-distribution:
   script:
     - cargo bench -p polkadot-statement-distribution --bench statement-distribution-regression-bench --features subsystem-benchmarks
   allow_failure: true
+  
+  
+subsystem-benchmark-estimate-cpu-requirements:
+  extends:
+    - .subsystem-benchmark-template
+  script:
+    - cargo run -p polkadot-subsystem-bench  --release    -- polkadot/node/subsystem-bench/examples/estimate_cpu_requirements.yaml
+  allow_failure: true
+  

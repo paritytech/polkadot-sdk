@@ -1,0 +1,22 @@
+## Estimate CPU requirements on a network with 500 validators 100 cores
+## and 5 backing validators per core.
+TestConfiguration:
+# Approval voting best case scenario
+- objective: !ApprovalVoting
+    coalesce_mean: 3.0
+    coalesce_std_dev: 1.0
+    enable_assignments_v2: true
+    last_considered_tranche: 89
+    stop_when_approved: true
+    coalesce_tranche_diff: 12
+    num_no_shows_per_candidate: 5
+    workdir_prefix: "/tmp/"
+  n_validators: 1000
+  n_cores: 200
+  min_pov_size: 1120
+  max_pov_size: 5120
+  peer_bandwidth: 524288000000
+  bandwidth: 524288000000
+  num_blocks: 10
+  connectivity: 100
+  latency: null
