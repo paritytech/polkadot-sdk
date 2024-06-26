@@ -2097,10 +2097,6 @@ impl OnUnbalanced<Credit<AccountId, Balances>> for IntoAuthor {
 	}
 }
 
-parameter_types! {
-	pub storage CoretimeRevenue: Option<(BlockNumber, Balance)> = None;
-}
-
 pub struct CoretimeProvider;
 impl CoretimeInterface for CoretimeProvider {
 	type AccountId = AccountId;
@@ -2115,15 +2111,6 @@ impl CoretimeInterface for CoretimeProvider {
 		_assignment: Vec<(CoreAssignment, PartsOf57600)>,
 		_end_hint: Option<u32>,
 	) {
-	}
-	fn check_notify_revenue_info() -> Option<(u32, Self::Balance)> {
-		let revenue = CoretimeRevenue::get();
-		CoretimeRevenue::set(&None);
-		revenue
-	}
-	#[cfg(feature = "runtime-benchmarks")]
-	fn ensure_notify_revenue_info(when: u32, revenue: Self::Balance) {
-		CoretimeRevenue::set(&Some((when, revenue)));
 	}
 }
 
