@@ -349,7 +349,6 @@ pub mod pallet {
 
 	/// Collection of transaction metadata by block number.
 	#[pallet::storage]
-	#[pallet::getter(fn transaction_roots)]
 	pub(super) type Transactions<T: Config> = StorageMap<
 		_,
 		Blake2_128Concat,
@@ -364,12 +363,10 @@ pub mod pallet {
 		StorageMap<_, Blake2_128Concat, BlockNumberFor<T>, u32, ValueQuery>;
 
 	#[pallet::storage]
-	#[pallet::getter(fn byte_fee)]
 	/// Storage fee per byte.
 	pub(super) type ByteFee<T: Config> = StorageValue<_, BalanceOf<T>>;
 
 	#[pallet::storage]
-	#[pallet::getter(fn entry_fee)]
 	/// Storage fee per transaction.
 	pub(super) type EntryFee<T: Config> = StorageValue<_, BalanceOf<T>>;
 
