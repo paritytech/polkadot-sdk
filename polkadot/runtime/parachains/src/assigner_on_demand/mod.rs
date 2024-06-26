@@ -398,7 +398,7 @@ where
 
 			// Consume the negative imbalance and deposit it into the pallet account. Make sure the
 			// account preserves even without the existential deposit.
-			let pot = &Self::account_id();
+			let pot = Self::account_id();
 			if !System::<T>::account_exists(&pot) {
 				System::<T>::inc_providers(&pot);
 			}

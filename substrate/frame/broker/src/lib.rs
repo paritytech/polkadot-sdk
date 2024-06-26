@@ -57,7 +57,7 @@ pub mod pallet {
 		pallet_prelude::{DispatchResult, DispatchResultWithPostInfo, *},
 		traits::{
 			fungible::{Balanced, Credit, Mutate},
-			EnsureOrigin, OnUnbalanced,
+			BuildGenesisConfig, EnsureOrigin, OnUnbalanced,
 		},
 		PalletId,
 	};
@@ -490,6 +490,20 @@ pub mod pallet {
 		InvalidConfig,
 		/// The revenue must be claimed for 1 or more timeslices.
 		NoClaimTimeslices,
+	}
+
+	#[derive(frame_support::DefaultNoBound)]
+	#[pallet::genesis_config]
+	pub struct GenesisConfig<T: Config> {
+		#[serde(skip)]
+		pub _config: sp_std::marker::PhantomData<T>,
+	}
+
+	#[pallet::genesis_build]
+	impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
+		fn build(&self) {
+			frame_system::Pallet::<T>::inc_providers(&Pallet::<T>::account_id());
+		}
 	}
 
 	#[pallet::hooks]
