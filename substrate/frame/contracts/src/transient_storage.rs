@@ -140,20 +140,19 @@ impl<T: Config> StorageMeter<T> {
 
 /// An entry representing a journal change.
 struct JournalEntry {
-	account: Vec<u8>,
 	key: Vec<u8>,
 	prev_value: Option<Vec<u8>>,
 }
 
 impl JournalEntry {
 	/// Create a new change.
-	pub fn new(account: &[u8], key: &[u8], prev_value: Option<Vec<u8>>) -> Self {
-		Self { account: account.to_vec(), key: key.to_vec(), prev_value }
+	pub fn new(key: Vec<u8>, prev_value: Option<Vec<u8>>) -> Self {
+		Self { key, prev_value }
 	}
 
 	/// Revert the change.
 	pub fn revert(self, storage: &mut Storage) {
-		storage.write(&self.account, &self.key, self.prev_value);
+		storage.write(&self.key, self.prev_value);
 	}
 }
 
@@ -188,26 +187,19 @@ struct Storage(BTreeMap<Vec<u8>, Vec<u8>>);
 
 impl Storage {
 	/// Read the storage entry.
-	pub fn read(&self, account: &[u8], key: &[u8]) -> Option<Vec<u8>> {
-		self.0.get(&Self::storage_key(account, key)).cloned()
+	pub fn read(&self, key: &Vec<u8>) -> Option<Vec<u8>> {
+		self.0.get(key).cloned()
 	}
 
 	/// Write the storage entry.
-	pub fn write(&mut self, account: &[u8], key: &[u8], value: Option<Vec<u8>>) -> Option<Vec<u8>> {
+	pub fn write(&mut self, key: &Vec<u8>, value: Option<Vec<u8>>) -> Option<Vec<u8>> {
 		if let Some(value) = value {
 			// Insert storage entry.
-			self.0.insert(Self::storage_key(account, key), value)
+			self.0.insert(key.clone(), value)
 		} else {
 			// Remove storage entry.
-			self.0.remove(&Self::storage_key(account, key))
+			self.0.remove(key)
 		}
-	}
-
-	fn storage_key(account: &[u8], key: &[u8]) -> Vec<u8> {
-		let mut storage_key = Vec::with_capacity(account.len() + key.len());
-		storage_key.extend_from_slice(&account);
-		storage_key.extend_from_slice(&key);
-		storage_key
 	}
 }
 
@@ -240,7 +232,7 @@ impl<T: Config> TransientStorage<T> {
 
 	/// Read the storage entry.
 	pub fn read(&self, account: &AccountIdOf<T>, key: &Key<T>) -> Option<Vec<u8>> {
-		self.storage.read(&account.encode(), &key.hash())
+		self.storage.read(&Self::storage_key(&account.encode(), &key.hash()))
 	}
 
 	/// Write a value to storage.
@@ -254,34 +246,32 @@ impl<T: Config> TransientStorage<T> {
 		let prev_value = self.read(account, key);
 		// Skip if the same value is being set.
 		if prev_value != value {
-			let key = key.hash();
-			let account = account.encode();
+			let key = Self::storage_key(&account.encode(), &key.hash());
 
 			// Calculate the allocation size.
 			if let Some(value) = &value {
-				// Charge the keys, value and journal entry.
+				// Charge the key, value and journal entry.
 				// If a new value is written, a new journal entry is created. The previous value is
-				// moved to the journal along with its keys, and the new value is written to
+				// moved to the journal along with its key, and the new value is written to
 				// storage.
-				let keys_len = account.len().saturating_add(key.len());
+				let key_len = key.capacity();
 				let mut amount = value
-					.len()
-					.saturating_add(keys_len)
+					.capacity()
+					.saturating_add(key_len)
 					.saturating_add(mem::size_of::<JournalEntry>());
 				if prev_value.is_none() {
 					// Charge a new storage entry.
 					// If there was no previous value, a new entry is added to storage (BTreeMap)
 					// containing a Vec for the key and a Vec for the value. The value was already
 					// included in the amount.
-					amount = amount
-						.saturating_add(keys_len)
-						.saturating_add(mem::size_of::<Vec<u8>>().saturating_mul(2));
+					amount =
+						amount.saturating_add(key_len).saturating_add(mem::size_of::<Vec<u8>>());
 				}
 				self.meter.charge(amount as _)?;
 			}
-			self.storage.write(&account, &key, value);
+			self.storage.write(&key, value);
 			// Update the journal.
-			self.journal.push(JournalEntry::new(&account, &key, prev_value.clone()));
+			self.journal.push(JournalEntry::new(key, prev_value.clone()));
 		}
 
 		Ok(match (take, prev_value) {
@@ -333,6 +323,13 @@ impl<T: Config> TransientStorage<T> {
 
 	pub fn meter(&mut self) -> &mut StorageMeter<T> {
 		return &mut self.meter
+	}
+
+	fn storage_key(account: &[u8], key: &[u8]) -> Vec<u8> {
+		let mut storage_key = Vec::with_capacity(account.len() + key.len());
+		storage_key.extend_from_slice(&account);
+		storage_key.extend_from_slice(&key);
+		storage_key
 	}
 }
 

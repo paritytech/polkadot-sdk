@@ -163,7 +163,11 @@ where
 	/// Add transient_storage
 	pub fn with_transient_storage(ext: &mut StackExt<T>) {
 		for i in 0u32.. {
-			let key = Key::<T>::try_from_var(i.to_le_bytes().to_vec()).unwrap();
+			let mut key_data = i.to_le_bytes().to_vec();
+			while key_data.first() == Some(&0) {
+				key_data.remove(0);
+			}
+			let key = Key::<T>::try_from_var(key_data).unwrap();
 			if ext.set_transient_storage(&key, Some(Vec::new()), false).is_err() {
 				ext.transient_storage().meter().clear();
 				break;

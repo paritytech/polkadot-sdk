@@ -411,6 +411,7 @@ pub mod pallet {
 		type MaxDebugBufferLen: Get<u32>;
 
 		/// The maximum length of the transient storage in bytes.
+		/// This includes keys, values, and previous entries used for storage rollback.
 		#[pallet::constant]
 		type MaxTransientStorageLen: Get<u32>;
 
