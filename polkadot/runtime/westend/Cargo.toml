@@ -114,7 +114,6 @@ polkadot-runtime-parachains = { workspace = true }
 xcm = { workspace = true }
 xcm-executor = { workspace = true }
 xcm-builder = { workspace = true }
-xcm-fee-payment-runtime-api = { workspace = true }
 xcm-runtime-api = { workspace = true }
 
 [dev-dependencies]
@@ -229,7 +228,6 @@ std = [
 	"westend-runtime-constants/std",
 	"xcm-builder/std",
 	"xcm-executor/std",
-	"xcm-fee-payment-runtime-api/std",
 	"xcm-runtime-api/std",
 	"xcm/std",
 ]
@@ -288,7 +286,7 @@ runtime-benchmarks = [
 	"sp-staking/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",
-	"xcm-fee-payment-runtime-api/runtime-benchmarks",
+	"xcm-runtime-api/runtime-benchmarks",
 ]
 try-runtime = [
 	"frame-election-provider-support/try-runtime",

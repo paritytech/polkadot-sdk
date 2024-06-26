@@ -226,7 +226,6 @@ members = [
 	"polkadot/xcm/xcm-builder",
 	"polkadot/xcm/xcm-executor",
 	"polkadot/xcm/xcm-executor/integration-tests",
-	"polkadot/xcm/xcm-fee-payment-runtime-api",
 	"polkadot/xcm/xcm-runtime-api",
 	"polkadot/xcm/xcm-simulator",
 	"polkadot/xcm/xcm-simulator/example",
@@ -1337,7 +1336,6 @@ xcm-builder = { path = "polkadot/xcm/xcm-builder", default-features = false, pac
 xcm-docs = { path = "polkadot/xcm/docs" }
 xcm-emulator = { path = "cumulus/xcm/xcm-emulator", default-features = false }
 xcm-executor = { path = "polkadot/xcm/xcm-executor", default-features = false, package = "staging-xcm-executor" }
-xcm-fee-payment-runtime-api = { path = "polkadot/xcm/xcm-fee-payment-runtime-api", default-features = false }
 xcm-procedural = { path = "polkadot/xcm/procedural", default-features = false }
 xcm-runtime-api = { path = "polkadot/xcm/xcm-runtime-api", default-features = false }
 xcm-simulator = { path = "polkadot/xcm/xcm-simulator", default-features = false }

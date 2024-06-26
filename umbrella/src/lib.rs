@@ -1560,10 +1560,6 @@ pub use westend_runtime_constants;
 #[cfg(feature = "xcm-emulator")]
 pub use xcm_emulator;
 
-/// XCM fee payment runtime API.
-#[cfg(feature = "xcm-fee-payment-runtime-api")]
-pub use xcm_fee_payment_runtime_api;
-
 /// Procedural macros for XCM.
 #[cfg(feature = "xcm-procedural")]
 pub use xcm_procedural;

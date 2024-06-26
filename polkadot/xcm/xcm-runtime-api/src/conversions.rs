@@ -18,7 +18,6 @@
 
 use codec::{Decode, Encode};
 use scale_info::TypeInfo;
-use sp_core::crypto::ByteArray;
 use xcm::VersionedLocation;
 use xcm_executor::traits::ConvertLocation;
 
@@ -47,13 +46,13 @@ pub enum Error {
 pub struct LocationToAccountHelper<AccountId, Conversion>(
 	sp_std::marker::PhantomData<(AccountId, Conversion)>,
 );
-impl<AccountId: ByteArray, Conversion: ConvertLocation<AccountId>>
+impl<AccountId: AsRef<[u8]>, Conversion: ConvertLocation<AccountId>>
 	LocationToAccountHelper<AccountId, Conversion>
 {
 	pub fn convert_location(location: VersionedLocation) -> Result<sp_std::vec::Vec<u8>, Error> {
 		let location = location.try_into().map_err(|_| Error::VersionedConversionFailed)?;
 		Conversion::convert_location(&location)
-			.map(|account_id| account_id.to_raw_vec())
+			.map(|account_id| account_id.as_ref().to_vec())
 			.ok_or(Error::Unsupported)
 	}
 }
