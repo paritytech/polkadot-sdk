@@ -794,8 +794,8 @@ is_executable = { version = "1.0.1" }
 isahc = { version = "1.2" }
 itertools = { version = "0.11" }
 jsonpath_lib = { version = "0.3" }
-jsonrpsee = { version = "0.23.1" }
-jsonrpsee-core = { version = "0.23.1" }
+jsonrpsee = { version = "0.23.2" }
+jsonrpsee-core = { version = "0.23.2" }
 k256 = { version = "0.13.3", default-features = false }
 kitchensink-runtime = { path = "substrate/bin/node/runtime" }
 kvdb = { version = "0.13.0" }
