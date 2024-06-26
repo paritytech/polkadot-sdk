@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1719403348350,
+  "lastUpdate": 1719410162672,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -8694,6 +8694,53 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 2.956825667490209,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Lulu",
+            "username": "Morganamilo",
+            "email": "morgan@parity.io"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "7084463a49f2359dc2f378f5834c7252af02ed4d",
+          "message": "Update parity publish (#4878)\n\nCo-authored-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>",
+          "timestamp": "2024-06-26T12:20:47Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/7084463a49f2359dc2f378f5834c7252af02ed4d"
+        },
+        "date": 1719410133447,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63805.42,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52942.09999999999,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting",
+            "value": 10.166100785310004,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 7.39160927436004,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 3.348505258390227,
             "unit": "seconds"
           }
         ]
