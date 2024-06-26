@@ -26,6 +26,7 @@ use frame_support::{
 		DefensiveResult, OnUnbalanced,
 	},
 };
+use frame_system::Pallet as System;
 use pallet_broker::{
 	CoreAssignment, CoreIndex, CoretimeInterface, PartsOf57600, RCBlockNumberOf, Timeslice,
 };
@@ -38,7 +39,11 @@ use xcm_executor::traits::TransactAsset;
 pub struct StashToBurn;
 impl OnUnbalanced<Credit<AccountId, Balances>> for StashToBurn {
 	fn on_nonzero_unbalanced(amount: Credit<AccountId, Balances>) {
-		Balances::resolve(&BurnStashAccount::get(), amount).defensive_ok();
+		let acc = BurnStashAccount::get();
+		if !System::<Runtime>::account_exists(&acc) {
+			System::<Runtime>::inc_providers(&acc);
+		}
+		Balances::resolve(&acc, amount).defensive_ok();
 	}
 }
 
@@ -255,7 +260,8 @@ impl CoretimeInterface for CoretimeAllocator {
 
 	fn on_new_timeslice(_timeslice: Timeslice) {
 		let stash = BurnStashAccount::get();
-		let value = Balances::reducible_balance(&stash, Preservation::Preserve, Fortitude::Polite);
+		let value =
+			Balances::reducible_balance(&stash, Preservation::Expendable, Fortitude::Polite);
 
 		if value > 0 {
 			log::debug!(target: "runtime::coretime", "Going to burn {value} stashed tokens at RC");

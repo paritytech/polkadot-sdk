@@ -55,7 +55,7 @@ use frame_support::{
 	},
 	PalletId,
 };
-use frame_system::pallet_prelude::*;
+use frame_system::{pallet_prelude::*, Pallet as System};
 use polkadot_primitives::{CoreIndex, Id as ParaId};
 use sp_runtime::{
 	traits::{AccountIdConversion, One, SaturatedConversion},
@@ -395,8 +395,14 @@ where
 				WithdrawReasons::FEE,
 				existence_requirement,
 			)?;
-			// Consume the negative imbalance and deposit it into the pallet account.
-			T::Currency::resolve_creating(&Self::account_id(), amt);
+
+			// Consume the negative imbalance and deposit it into the pallet account. Make sure the
+			// account preserves even without the existential deposit.
+			let pot = &Self::account_id();
+			if !System::<T>::account_exists(&pot) {
+				System::<T>::inc_providers(&pot);
+			}
+			T::Currency::resolve_creating(&pot, amt);
 
 			// Add the amount to the current block's (index 0) revenue information.
 			Revenue::<T>::mutate(|bounded_revenue| {

@@ -18,6 +18,7 @@ use super::*;
 
 use crate::{
 	assigner_on_demand::{
+		self,
 		mock_helpers::GenesisConfigBuilder,
 		types::{QueueIndex, ReverseQueueIndex},
 		Error,
@@ -789,5 +790,49 @@ fn revenue_information_fetching_works() {
 		run_to_block(36, |_| None);
 		let revenue = OnDemandAssigner::claim_revenue_until(36);
 		assert_eq!(revenue, 150_000);
+	});
+}
+
+#[test]
+fn pot_account_is_immortal() {
+	new_test_ext(GenesisConfigBuilder::default().build()).execute_with(|| {
+		let para_a = ParaId::from(111);
+		let pot = OnDemandAssigner::account_id();
+		assert!(!System::account_exists(&pot));
+		schedule_blank_para(para_a, ParaKind::Parathread);
+		// Mock assigner sets max revenue history to 10.
+
+		run_to_block(10, |n| if n == 10 { Some(Default::default()) } else { None });
+		place_order_run_to_blocknumber(para_a, Some(12));
+		let purchase_revenue = Balances::free_balance(&pot);
+		assert!(purchase_revenue > 0);
+
+		run_to_block(15, |_| None);
+		let _imb = <Test as assigner_on_demand::Config>::Currency::withdraw(
+			&pot,
+			purchase_revenue,
+			WithdrawReasons::FEE,
+			ExistenceRequirement::AllowDeath,
+		);
+		assert_eq!(Balances::free_balance(&pot), 0);
+		assert!(System::account_exists(&pot));
+		assert_eq!(System::providers(&pot), 1);
+
+		// One more cycle to make sure providers are not increased on every transition from zero
+		run_to_block(20, |n| if n == 20 { Some(Default::default()) } else { None });
+		place_order_run_to_blocknumber(para_a, Some(22));
+		let purchase_revenue = Balances::free_balance(&pot);
+		assert!(purchase_revenue > 0);
+
+		run_to_block(25, |_| None);
+		let _imb = <Test as assigner_on_demand::Config>::Currency::withdraw(
+			&pot,
+			purchase_revenue,
+			WithdrawReasons::FEE,
+			ExistenceRequirement::AllowDeath,
+		);
+		assert_eq!(Balances::free_balance(&pot), 0);
+		assert!(System::account_exists(&pot));
+		assert_eq!(System::providers(&pot), 1);
 	});
 }
