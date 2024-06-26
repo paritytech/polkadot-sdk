@@ -8426,6 +8426,7 @@ name = "minimal-template-runtime"
 version = "0.0.0"
 dependencies = [
  "pallet-balances",
+ "pallet-contracts",
  "pallet-minimal-template",
  "pallet-sudo",
  "pallet-timestamp",

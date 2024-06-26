@@ -24,10 +24,13 @@
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
 use frame::{
-	deps::frame_support::{
-		genesis_builder_helper::{build_state, get_preset},
-		runtime,
-		weights::{FixedFee, NoFee},
+	deps::{
+		frame_support::{
+			genesis_builder_helper::{build_state, get_preset},
+			runtime,
+			weights::{FixedFee, NoFee},
+		},
+		frame_system::limits::BlockWeights,
 	},
 	prelude::*,
 	runtime::{
@@ -120,6 +123,10 @@ mod runtime {
 	/// A minimal pallet template.
 	#[runtime::pallet_index(5)]
 	pub type Template = pallet_minimal_template;
+
+	/// Provides the ability to deploy and interact with smart contracts.
+	#[runtime::pallet_index(6)]
+	pub type Contracts = pallet_contracts;
 }
 
 parameter_types! {
@@ -159,6 +166,19 @@ impl pallet_transaction_payment::Config for Runtime {
 	type LengthToFee = FixedFee<1, <Self as pallet_balances::Config>::Balance>;
 }
 
+parameter_types! {
+	pub ContractSchedule: pallet_contracts::Schedule<Runtime> = Default::default();
+}
+
+#[derive_impl(pallet_contracts::config_preludes::TestDefaultConfig)]
+impl pallet_contracts::Config for Runtime {
+	type AddressGenerator = pallet_contracts::DefaultAddressGenerator;
+	type CallStack = [pallet_contracts::Frame<Self>; 5];
+	type Currency = Balances;
+	type Schedule = ContractSchedule;
+	type Time = Timestamp;
+}
+
 // Implements the types required for the template pallet.
 impl pallet_minimal_template::Config for Runtime {}
 
@@ -169,6 +189,11 @@ type RuntimeExecutive =
 	Executive<Runtime, Block, frame_system::ChainContext<Runtime>, Runtime, AllPalletsWithSystem>;
 
 use pallet_transaction_payment::{FeeDetails, RuntimeDispatchInfo};
+
+type EventRecord = frame_system::EventRecord<
+	<Runtime as frame_system::Config>::RuntimeEvent,
+	<Runtime as frame_system::Config>::Hash,
+>;
 
 impl_runtime_apis! {
 	impl apis::Core<Block> for Runtime {
@@ -271,6 +296,82 @@ impl_runtime_apis! {
 		}
 	}
 
+	impl pallet_contracts::ContractsApi<Block, interface::AccountId, interface::Balance, interface::BlockNumber, interface::Hash, EventRecord> for Runtime
+	{
+		fn call(
+			origin: interface::AccountId,
+			dest: interface::AccountId,
+			value: interface::Balance,
+			gas_limit: Option<Weight>,
+			storage_deposit_limit: Option<interface::Balance>,
+			input_data: Vec<u8>,
+		) -> pallet_contracts::ContractExecResult<interface::Balance, EventRecord> {
+			let blockweights: BlockWeights = <Runtime as frame_system::Config>::BlockWeights::get();
+			let gas_limit = gas_limit.unwrap_or(blockweights.max_block);
+			Contracts::bare_call(
+				origin,
+				dest,
+				value,
+				gas_limit,
+				storage_deposit_limit,
+				input_data,
+				pallet_contracts::DebugInfo::UnsafeDebug,
+				pallet_contracts::CollectEvents::UnsafeCollect,
+				pallet_contracts::Determinism::Enforced,
+			)
+		}
+
+		fn instantiate(
+			origin: interface::AccountId,
+			value: interface::Balance,
+			gas_limit: Option<Weight>,
+			storage_deposit_limit: Option<interface::Balance>,
+			code: pallet_contracts::Code<interface::Hash>,
+			data: Vec<u8>,
+			salt: Vec<u8>,
+		) -> pallet_contracts::ContractInstantiateResult<interface::AccountId, interface::Balance, EventRecord>
+		{
+			let blockweights: BlockWeights = <Runtime as frame_system::Config>::BlockWeights::get();
+			let gas_limit = gas_limit.unwrap_or(blockweights.max_block);
+			Contracts::bare_instantiate(
+				origin,
+				value,
+				gas_limit,
+				storage_deposit_limit,
+				code,
+				data,
+				salt,
+				pallet_contracts::DebugInfo::UnsafeDebug,
+				pallet_contracts::CollectEvents::UnsafeCollect,
+			)
+		}
+
+		fn upload_code(
+			origin: interface::AccountId,
+			code: Vec<u8>,
+			storage_deposit_limit: Option<interface::Balance>,
+			determinism: pallet_contracts::Determinism,
+		) -> pallet_contracts::CodeUploadResult<interface::Hash, interface::Balance>
+		{
+			Contracts::bare_upload_code(
+				origin,
+				code,
+				storage_deposit_limit,
+				determinism,
+			)
+		}
+
+		fn get_storage(
+			address: interface::AccountId,
+			key: Vec<u8>,
+		) -> pallet_contracts::GetStorageResult {
+			Contracts::get_storage(
+				address,
+				key
+			)
+		}
+	}
+
 	impl sp_genesis_builder::GenesisBuilder<Block> for Runtime {
 		fn build_state(config: Vec<u8>) -> sp_genesis_builder::Result {
 			build_state::<RuntimeGenesisConfig>(config)
@@ -293,7 +394,7 @@ impl_runtime_apis! {
 // https://github.com/paritytech/substrate/issues/10579#issuecomment-1600537558
 pub mod interface {
 	use super::Runtime;
-	use frame::deps::frame_system;
+	use frame::{deps::frame_system, prelude::BlockNumberFor};
 
 	pub type Block = super::Block;
 	pub use frame::runtime::types_common::OpaqueBlock;
@@ -302,4 +403,5 @@ pub mod interface {
 	pub type Hash = <Runtime as frame_system::Config>::Hash;
 	pub type Balance = <Runtime as pallet_balances::Config>::Balance;
 	pub type MinimumBalance = <Runtime as pallet_balances::Config>::ExistentialDeposit;
+	pub type BlockNumber = BlockNumberFor<Runtime>;
 }
