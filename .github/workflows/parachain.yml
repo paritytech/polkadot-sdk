@@ -17,6 +17,62 @@ env:
   RUST_NIGHTLY: "2023-05-23"
 
 jobs:
+  format:
+    runs-on: snowbridge-runner
+    env:
+      CARGO_INCREMENTAL: 0
+      RUST_BACKTRACE: 1
+      RUSTFLAGS: -C debuginfo=1
+      SKIP_WASM_BUILD: 1
+      RUST_NIGHTLY_VERSION: nightly-2024-02-08
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          submodules: "true"
+      - uses: arduino/setup-protoc@v2
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+      - uses: actions/cache@v1
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: ${{ runner.os }}-cargo-${{ hashFiles('Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+      - uses: actions/setup-node@v4.0.0
+        with:
+          node-version: "18.x"
+          registry-url: "https://npm.pkg.github.com"
+          scope: "@paritytech"
+      - name: setup rust toolchain
+        run: |
+          rustup target add wasm32-unknown-unknown
+          curl -LO https://github.com/paritytech/rustc-rv32e-toolchain/releases/download/v1.1.0/rust-rve-nightly-2024-01-05-x86_64-unknown-linux-gnu.tar.zst
+          tar -I zstd -xf rust-rve-nightly-2024-01-05-x86_64-unknown-linux-gnu.tar.zst
+          mv rve-nightly ~/.rustup/toolchains/
+          rustup toolchain install nightly
+          rustup component add rustfmt --toolchain nightly
+          rustup show
+      - name: format
+        working-directory: bridges/snowbridge
+        run: cargo +nightly fmt -- --check
+      - name: install taplo
+        run: |
+          cargo install taplo-cli --locked
+      - name: taplo
+        run: taplo format --check --config .config/taplo.toml
+      - name: install zepter
+        run: |
+          cargo install zepter -f --locked
+      - name: zepter
+        run: zepter run check
+      - name: lint-markdown
+        run: |
+          npm install -g markdownlint-cli
+          markdownlint --version
+          markdownlint --config .github/.markdownlint.yaml --ignore target
+
   check:
     runs-on: snowbridge-runner
     env:
@@ -58,23 +114,6 @@ jobs:
         run: cargo check --workspace --all-features
       - name: clippy
         run: cargo clippy --all-features -- -D warnings
-      - name: format
-        run: cargo +nightly fmt --all -- --check
-      - name: install taplo
-        run: |
-          cargo install taplo-cli --locked
-      - name: taplo
-        run: taplo format --check --config .config/taplo.toml
-      - name: install zepter
-        run: |
-          cargo install zepter -f --locked
-      - name: zepter
-        run: zepter run check
-      - name: lint-markdown
-        run: |
-          npm install -g markdownlint-cli
-          markdownlint --version
-          markdownlint --config .github/.markdownlint.yaml --ignore target
 
   test:
     needs: check
