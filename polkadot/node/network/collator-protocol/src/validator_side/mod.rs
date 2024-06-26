@@ -1227,8 +1227,8 @@ where
 			fetch_collation(sender, state, pending_collation, collator_id).await?;
 		},
 		CollationStatus::Seconded if relay_parent_mode.is_enabled() => {
-			// Limit is not reached, it's allowed to second another
-			// collation.
+			// Limit is not reached (checked with `is_collations_limit_reached` before the match
+			// expression), it's allowed to second another collation.
 			fetch_collation(sender, state, pending_collation, collator_id).await?;
 		},
 		CollationStatus::Seconded => {
