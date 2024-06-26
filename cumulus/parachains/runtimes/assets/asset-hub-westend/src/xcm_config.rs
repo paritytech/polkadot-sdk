@@ -359,7 +359,7 @@ impl xcm_executor::Config for XcmConfig {
 	// as reserve locations (we trust the Bridge Hub to relay the message that a reserve is being
 	// held). Asset Hub may _act_ as a reserve location for WND and assets created
 	// under `pallet-assets`. Users must use teleport where allowed (e.g. WND with the Relay Chain).
-	type IsReserve = (bridging::to_rococo::RococoAssetFromAssetHubRococo,);
+	type IsReserve = (bridging::to_rococo::RococoOrEthereumAssetFromAssetHubRococo,);
 	type IsTeleporter = TrustedTeleporters;
 	type UniversalLocation = UniversalLocation;
 	type Barrier = Barrier;
@@ -569,7 +569,9 @@ pub mod bridging {
 			);
 
 			pub const RococoNetwork: NetworkId = NetworkId::Rococo;
+			pub const EthereumNetwork: NetworkId = NetworkId::Ethereum { chain_id: 11155111 };
 			pub RococoEcosystem: Location = Location::new(2, [GlobalConsensus(RococoNetwork::get())]);
+			pub EthereumEcosystem: Location = Location::new(2, [GlobalConsensus(EthereumNetwork::get())]);
 			pub AssetHubRococo: Location = Location::new(2, [
 				GlobalConsensus(RococoNetwork::get()),
 				Parachain(bp_asset_hub_rococo::ASSET_HUB_ROCOCO_PARACHAIN_ID)
@@ -606,9 +608,12 @@ pub mod bridging {
 			}
 		}
 
-		/// Allow any asset native to the Rococo ecosystem if it comes from Rococo Asset Hub.
-		pub type RococoAssetFromAssetHubRococo =
-			matching::RemoteAssetFromLocation<StartsWith<RococoEcosystem>, AssetHubRococo>;
+		/// Allow any asset native to the Rococo or Ethereum ecosystems if it comes from Rococo
+		/// Asset Hub.
+		pub type RococoOrEthereumAssetFromAssetHubRococo = matching::RemoteAssetFromLocation<
+			(StartsWith<RococoEcosystem>, StartsWith<EthereumEcosystem>),
+			AssetHubRococo,
+		>;
 
 		impl Contains<RuntimeCall> for ToRococoXcmRouter {
 			fn contains(call: &RuntimeCall) -> bool {
