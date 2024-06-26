@@ -80,12 +80,14 @@
   "assets": {
     "assets": [],
     "metadata": [],
-    "accounts": []
+    "accounts": [],
+    "next_asset_id": null
   },
   "poolAssets": {
     "assets": [],
     "metadata": [],
-    "accounts": []
+    "accounts": [],
+    "next_asset_id": null
   },
   "transactionStorage": {
     "byteFee": 10,
