@@ -14,7 +14,5 @@ doc:
       and update the imports from `use xcm_fee_payment_runtime_api::*` to `use xcm_runtime_api::*`.
 
 crates:
-  - name: xcm-fee-payment-runtime-api
-    bump: major
   - name: xcm-runtime-api
     bump: major
