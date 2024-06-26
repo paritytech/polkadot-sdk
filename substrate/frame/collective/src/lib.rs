@@ -41,7 +41,7 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use codec::{Decode, Encode, MaxEncodedLen};
+use codec::{Decode, Encode};
 use scale_info::TypeInfo;
 use sp_io::storage;
 use sp_runtime::{
@@ -134,9 +134,8 @@ impl DefaultVote for MoreThanMajorityThenPrimeDefaultVote {
 }
 
 /// Origin for the collective module.
-#[derive(PartialEq, Eq, Clone, RuntimeDebug, Encode, Decode, TypeInfo, MaxEncodedLen)]
-#[scale_info(skip_type_params(I))]
-#[codec(mel_bound(AccountId: MaxEncodedLen))]
+#[derive(PartialEq, Eq, Clone, RuntimeDebug)]
+#[frame_support::stored(skip(I), mel(AccountId))]
 pub enum RawOrigin<AccountId, I> {
 	/// It has been condoned by a given number of members of the collective from a given total.
 	Members(MemberCount, MemberCount),
