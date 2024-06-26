@@ -143,7 +143,7 @@ build-implementers-guide:
     - mkdir -p artifacts
     - mv polkadot/roadmap/implementers-guide/book artifacts/
 
-build-short-benchmark:
+build-frame-omni-bencher:
   stage: build
   extends:
     - .docker-env
@@ -151,10 +151,10 @@ build-short-benchmark:
     - .run-immediately
     - .collect-artifacts
   script:
-    - cargo build --profile release --locked --features=runtime-benchmarks,on-chain-release-build --bin polkadot --workspace
+    - cargo build --locked --release -p frame-omni-bencher
     - mkdir -p artifacts
-    - target/release/polkadot --version
-    - cp ./target/release/polkadot ./artifacts/
+    - target/release/frame-omni-bencher --version
+    - cp ./target/release/frame-omni-bencher ./artifacts/
 
 # build jobs from cumulus
 
@@ -262,6 +262,15 @@ build-runtime-contracts:
     - job: build-runtime-collectives
       artifacts: false
 
+build-runtime-people:
+  <<: *build-runtime-template
+  variables:
+    RUNTIME_PATH: "cumulus/parachains/runtimes/people"
+  # this is an artificial job dependency, for pipeline optimization using GitLab's DAGs
+  needs:
+    - job: build-runtime-assets
+      artifacts: false
+
 build-runtime-starters:
   <<: *build-runtime-template
   variables:
@@ -279,19 +288,6 @@ build-runtime-testing:
   needs:
     - job: build-runtime-starters
       artifacts: false
-
-build-short-benchmark-cumulus:
-  stage: build
-  extends:
-    - .docker-env
-    - .common-refs
-    - .run-immediately
-    - .collect-artifacts
-  script:
-    - cargo build --profile release --locked --features=runtime-benchmarks,on-chain-release-build -p polkadot-parachain-bin --bin polkadot-parachain --workspace
-    - mkdir -p artifacts
-    - target/release/polkadot-parachain --version
-    - cp ./target/release/polkadot-parachain ./artifacts/
 
 # substrate
 

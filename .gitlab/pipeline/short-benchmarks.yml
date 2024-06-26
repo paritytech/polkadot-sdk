@@ -3,18 +3,17 @@
 
 # Run all pallet benchmarks only once to check if there are any errors
 
-# run short-benchmarks for relay chain runtimes from polkadot
-
-short-benchmark-westend: &short-bench
+# run short-benchmarks for specified runtime with `frame-omni-bencher`
+.short-benchmark: &short-bench
   stage: short-benchmarks
   extends:
-    - .docker-env
     - .common-refs
+    - .docker-env
   needs:
-    - job: build-short-benchmark
+    - job: build-frame-omni-bencher
       artifacts: true
   variables:
-    RUNTIME: westend
+    PACKAGE_NAME: benchmarked-runtime-chain
     # Enable debug assertions since we are running optimized builds for testing
     # but still want to have debug assertions.
     RUSTFLAGS: "-C debug-assertions -D warnings"
@@ -24,77 +23,74 @@ short-benchmark-westend: &short-bench
   tags:
     - benchmark
   script:
-    - ./artifacts/polkadot benchmark pallet --chain $RUNTIME-dev --pallet "*" --extrinsic "*" --steps 2 --repeat 1
+    - RUNTIME_BLOB_NAME=$(echo $PACKAGE_NAME | sed 's/-/_/g').compact.compressed.wasm
+    - RUNTIME_BLOB_PATH=./target/release/wbuild/$PACKAGE_NAME/$RUNTIME_BLOB_NAME
+    - echo "Running short benchmarking for PACKAGE_NAME=$PACKAGE_NAME and RUNTIME_BLOB_PATH=$RUNTIME_BLOB_PATH"
+    - time cargo build --locked --quiet --release -p $PACKAGE_NAME --features runtime-benchmarks
+    - ls -lrt $RUNTIME_BLOB_PATH
+    - time ./artifacts/frame-omni-bencher v1 benchmark pallet --runtime $RUNTIME_BLOB_PATH --all --steps 2 --repeat 1
 
-# run short-benchmarks for system parachain runtimes from cumulus
-
-.short-benchmark-cumulus: &short-bench-cumulus
-  stage: short-benchmarks
-  extends:
-    - .common-refs
-    - .docker-env
-  needs:
-    - job: build-short-benchmark-cumulus
-      artifacts: true
+short-benchmark-westend-runtime:
+  <<: *short-bench
   variables:
-    RUNTIME_CHAIN: benchmarked-runtime-chain
-    # Enable debug assertions since we are running optimized builds for testing
-    # but still want to have debug assertions.
-    RUSTFLAGS: "-C debug-assertions -D warnings"
-    RUST_BACKTRACE: "full"
-    WASM_BUILD_NO_COLOR: 1
-    WASM_BUILD_RUSTFLAGS: "-C debug-assertions -D warnings"
-  tags:
-    - benchmark
-  script:
-    - ./artifacts/polkadot-parachain benchmark pallet --chain $RUNTIME_CHAIN --pallet "*" --extrinsic "*" --steps 2 --repeat 1
+    PACKAGE_NAME: westend-runtime
+
+short-benchmark-rococo-runtime:
+  <<: *short-bench
+  variables:
+    PACKAGE_NAME: rococo-runtime
 
 short-benchmark-asset-hub-rococo:
-  <<: *short-bench-cumulus
+  <<: *short-bench
   variables:
-    RUNTIME_CHAIN: asset-hub-rococo-dev
+    PACKAGE_NAME: asset-hub-rococo-runtime
 
 short-benchmark-asset-hub-westend:
-  <<: *short-bench-cumulus
+  <<: *short-bench
   variables:
-    RUNTIME_CHAIN: asset-hub-westend-dev
+    PACKAGE_NAME: asset-hub-westend-runtime
 
 short-benchmark-bridge-hub-rococo:
-  <<: *short-bench-cumulus
+  <<: *short-bench
   variables:
-    RUNTIME_CHAIN: bridge-hub-rococo-dev
+    PACKAGE_NAME: bridge-hub-rococo-runtime
 
 short-benchmark-bridge-hub-westend:
-  <<: *short-bench-cumulus
+  <<: *short-bench
   variables:
-    RUNTIME_CHAIN: bridge-hub-westend-dev
+    PACKAGE_NAME: bridge-hub-westend-runtime
 
 short-benchmark-collectives-westend:
-  <<: *short-bench-cumulus
+  <<: *short-bench
   variables:
-    RUNTIME_CHAIN: collectives-westend-dev
+    PACKAGE_NAME: collectives-westend-runtime
+
+short-benchmark-contracts-rococo-runtime:
+  <<: *short-bench
+  variables:
+    PACKAGE_NAME: contracts-rococo-runtime
 
 short-benchmark-coretime-rococo:
-  <<: *short-bench-cumulus
+  <<: *short-bench
   variables:
-    RUNTIME_CHAIN: coretime-rococo-dev
+    PACKAGE_NAME: coretime-rococo-runtime
 
 short-benchmark-coretime-westend:
-  <<: *short-bench-cumulus
+  <<: *short-bench
   variables:
-    RUNTIME_CHAIN: coretime-westend-dev
+    PACKAGE_NAME: coretime-westend-runtime
 
 short-benchmark-people-rococo:
-  <<: *short-bench-cumulus
+  <<: *short-bench
   variables:
-    RUNTIME_CHAIN: people-rococo-dev
+    PACKAGE_NAME: people-rococo-runtime
 
 short-benchmark-people-westend:
-  <<: *short-bench-cumulus
+  <<: *short-bench
   variables:
-    RUNTIME_CHAIN: people-westend-dev
+    PACKAGE_NAME: people-westend-runtime
 
 short-benchmark-glutton-westend:
-  <<: *short-bench-cumulus
+  <<: *short-bench
   variables:
-    RUNTIME_CHAIN: glutton-westend-dev-1300
+    PACKAGE_NAME: glutton-westend-runtime
