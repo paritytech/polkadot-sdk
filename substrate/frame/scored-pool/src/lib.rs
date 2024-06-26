@@ -101,15 +101,19 @@ mod tests;
 use codec::{FullCodec, MaxEncodedLen};
 use frame_support::{
 	ensure,
-	traits::{ChangeMembers, Currency, Get, InitializeMembers, ReservableCurrency},
+	traits::{
+		fungible::{self, Inspect as _, MutateFreeze as _},
+		tokens::Fortitude,
+		ChangeMembers, Get, InitializeMembers,
+	},
 	BoundedVec,
 };
 pub use pallet::*;
 use sp_runtime::traits::{AtLeast32Bit, StaticLookup, Zero};
 use sp_std::{fmt::Debug, prelude::*};
 
-type BalanceOf<T, I> =
-	<<T as Config<I>>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
+type BalanceOf<T> = <<T as Config>::Currency as fungible::Inspect<AccountIdOf<T>>>::Balance;
 type PoolT<T, I> = BoundedVec<
 	(<T as frame_system::Config>::AccountId, Option<<T as Config<I>>::Score>),
 	<T as Config<I>>::MaximumMembers,
@@ -140,7 +144,7 @@ pub mod pallet {
 	#[pallet::config]
 	pub trait Config<I: 'static = ()>: frame_system::Config {
 		/// The currency used for deposits.
-		type Currency: Currency<Self::AccountId> + ReservableCurrency<Self::AccountId>;
+		type Currency: fungible::MutateFreeze<Self::AccountId>;
 
 		/// Maximum members length allowed.
 		#[pallet::constant]
@@ -263,7 +267,7 @@ pub mod pallet {
 			// reserve balance for each candidate in the pool.
 			// panicking here is ok, since this just happens one time, pre-genesis.
 			pool.iter().for_each(|(who, _)| {
-				T::Currency::reserve(who, T::CandidateDeposit::get())
+				T::Currency::set_frozen(todo!(), &who, T::CandidateDeposit::get(), Fortitude::Polite)
 					.expect("balance too low to create candidacy");
 				<CandidateExists<T, I>>::insert(who, true);
 			});
@@ -311,7 +315,7 @@ pub mod pallet {
 			ensure!(!<CandidateExists<T, I>>::contains_key(&who), Error::<T, I>::AlreadyInPool);
 
 			let deposit = T::CandidateDeposit::get();
-			T::Currency::reserve(&who, deposit)?;
+			T::Currency::set_frozen(todo!(), &who, T::CandidateDeposit::get(), Fortitude::Polite)?;
 
 			// can be inserted as last element in pool, since entities with
 			// `None` are always sorted to the end.
@@ -486,7 +490,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
 		<CandidateExists<T, I>>::remove(&remove);
 
-		T::Currency::unreserve(&remove, T::CandidateDeposit::get());
+		T::Currency::decrease_frozen(todo!(), &remove, T::CandidateDeposit::get())?;
 
 		Self::deposit_event(Event::<T, I>::MemberRemoved);
 		Ok(())
