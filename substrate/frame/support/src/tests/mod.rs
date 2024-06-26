@@ -14,6 +14,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+#![allow(deprecated)]
 
 use super::*;
 use frame_support_procedural::import_section;
@@ -79,6 +80,10 @@ pub mod frame_system {
 		#[pallet::no_default_bounds]
 		type PalletInfo: crate::traits::PalletInfo;
 		type DbWeight: Get<crate::weights::RuntimeDbWeight>;
+		#[pallet::constant]
+		#[pallet::no_default]
+		#[deprecated = "this constant is deprecated"]
+		type ExampleConstant: Get<()>;
 	}
 
 	#[pallet::error]
@@ -118,15 +123,18 @@ pub mod frame_system {
 	pub type Data<T> = StorageMap<_, Twox64Concat, u32, u64, ValueQuery>;
 
 	#[pallet::storage]
+	#[deprecated(note = "test")]
 	pub type OptionLinkedMap<T> = StorageMap<_, Blake2_128Concat, u32, u32, OptionQuery>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn generic_data)]
+	#[deprecated(note = "test", since = "test")]
 	pub type GenericData<T: Config> =
 		StorageMap<_, Identity, BlockNumberFor<T>, BlockNumberFor<T>, ValueQuery>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn generic_data2)]
+	#[deprecated = "test"]
 	pub type GenericData2<T: Config> =
 		StorageMap<_, Blake2_128Concat, BlockNumberFor<T>, BlockNumberFor<T>, OptionQuery>;
 
@@ -246,6 +254,7 @@ mod runtime {
 impl Config for Runtime {
 	type Block = Block;
 	type AccountId = AccountId;
+	type ExampleConstant = ();
 }
 
 fn new_test_ext() -> TestExternalities {
@@ -603,7 +612,10 @@ fn expected_metadata() -> PalletStorageMetadataIR {
 				},
 				default: vec![0],
 				docs: vec![],
-				deprecation_info: sp_metadata_ir::DeprecationStatus::NotDeprecated,
+				deprecation_info: sp_metadata_ir::DeprecationStatus::Deprecated {
+					note: "test",
+					since: None,
+				},
 			},
 			StorageEntryMetadataIR {
 				name: "GenericData",
@@ -615,7 +627,10 @@ fn expected_metadata() -> PalletStorageMetadataIR {
 				},
 				default: vec![0, 0, 0, 0],
 				docs: vec![],
-				deprecation_info: sp_metadata_ir::DeprecationStatus::NotDeprecated,
+				deprecation_info: sp_metadata_ir::DeprecationStatus::Deprecated {
+					note: "test",
+					since: Some("test"),
+				},
 			},
 			StorageEntryMetadataIR {
 				name: "GenericData2",
@@ -627,7 +642,10 @@ fn expected_metadata() -> PalletStorageMetadataIR {
 				},
 				default: vec![0],
 				docs: vec![],
-				deprecation_info: sp_metadata_ir::DeprecationStatus::NotDeprecated,
+				deprecation_info: sp_metadata_ir::DeprecationStatus::Deprecated {
+					note: "test",
+					since: None,
+				},
 			},
 			StorageEntryMetadataIR {
 				name: "DataDM",
@@ -708,6 +726,25 @@ fn expected_metadata() -> PalletStorageMetadataIR {
 fn store_metadata() {
 	let metadata = Pallet::<Runtime>::storage_metadata();
 	pretty_assertions::assert_eq!(expected_metadata(), metadata);
+}
+
+#[test]
+fn constant_metadata() {
+	let metadata: Vec<sp_metadata_ir::PalletConstantMetadataIR> =
+		Pallet::<Runtime>::pallet_constants_metadata();
+	pretty_assertions::assert_eq!(
+		metadata,
+		vec![sp_metadata_ir::PalletConstantMetadataIR {
+			name: "ExampleConstant",
+			ty: scale_info::meta_type::<()>(),
+			value: vec![],
+			docs: vec![],
+			deprecation_info: sp_metadata_ir::DeprecationStatus::Deprecated {
+				note: "this constant is deprecated",
+				since: None
+			}
+		},]
+	);
 }
 
 parameter_types! {

@@ -71,7 +71,9 @@ sp_api::decl_runtime_apis! {
 		fn test(data: u64);
 		/// something_with_block.
 		fn something_with_block(block: Block) -> Block;
+		#[deprecated = "example"]
 		fn function_with_two_args(data: u64, block: Block);
+		#[deprecated(note = "example", since = "example")]
 		fn same_name();
 		#[deprecated(note = "example")]
 		fn wild_card(_: u32);
@@ -158,15 +160,21 @@ fn runtime_metadata() {
 					],
 					output: meta_type::<()>(),
 					docs: vec![],
-					deprecation_info: DeprecationStatus::NotDeprecated,
+					deprecation_info: DeprecationStatus::Deprecated {
+						note: "example",
+						since: None,
+					}
 				},
 				RuntimeApiMethodMetadataIR {
 					name: "same_name",
 					inputs: vec![],
 					output: meta_type::<()>(),
 					docs: vec![],
-					deprecation_info: DeprecationStatus::NotDeprecated,
-				},
+					deprecation_info: DeprecationStatus::Deprecated {
+						note: "example",
+						since: Some("example"),
+					}
+			},
 				RuntimeApiMethodMetadataIR {
 					name: "wild_card",
 					inputs: vec![RuntimeApiMethodParamMetadataIR::<MetaForm> {
