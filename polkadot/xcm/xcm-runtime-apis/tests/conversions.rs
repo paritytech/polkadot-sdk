@@ -27,7 +27,7 @@ use frame_support::{
 use mock::*;
 use sp_api::ProvideRuntimeApi;
 use xcm::prelude::*;
-use xcm_runtime_api::conversions::{
+use xcm_runtime_apis::conversions::{
 	Error as LocationToAccountApiError, LocationToAccountApi, LocationToAccountHelper,
 };
 
@@ -65,12 +65,12 @@ fn location_to_account_helper_with_multi_signature_works() {
 
 	// Test unknown conversion for `Here` location
 	assert_err!(
-			LocationToAccountHelper::<
+		LocationToAccountHelper::<
 			AccountIdForConversions,
 			LocationToAccountIdForConversions,
 		>::convert_location(Location::here().into_versioned()),
-			LocationToAccountApiError::Unsupported
-		);
+		LocationToAccountApiError::Unsupported
+	);
 
 	// Test known conversion for `Parent` location
 	assert_ok!(

@@ -44,7 +44,7 @@ use xcm_executor::{
 	XcmExecutor,
 };
 
-use xcm_runtime_api::{
+use xcm_runtime_apis::{
 	conversions::{Error as LocationToAccountApiError, LocationToAccountApi},
 	dry_run::{CallDryRunEffects, DryRunApi, Error as XcmDryRunApiError, XcmDryRunEffects},
 	fees::{Error as XcmPaymentApiError, XcmPaymentApi},

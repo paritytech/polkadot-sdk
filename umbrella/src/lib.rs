@@ -1565,8 +1565,8 @@ pub use xcm_emulator;
 pub use xcm_procedural;
 
 /// XCM runtime APIs.
-#[cfg(feature = "xcm-runtime-api")]
-pub use xcm_runtime_api;
+#[cfg(feature = "xcm-runtime-apis")]
+pub use xcm_runtime_apis;
 
 /// Test kit to simulate cross-chain message passing and XCM execution.
 #[cfg(feature = "xcm-simulator")]
