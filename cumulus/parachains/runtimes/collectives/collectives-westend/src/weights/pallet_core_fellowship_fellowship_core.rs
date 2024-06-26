@@ -170,15 +170,19 @@ impl<T: frame_system::Config> pallet_core_fellowship::WeightInfo for WeightInfo<
 			.saturating_add(T::DbWeight::get().reads(5))
 			.saturating_add(T::DbWeight::get().writes(6))
 	}
-	fn promote_fast(_r: u32) -> Weight {
-		// FAIL-CI
+	fn promote_fast(r: u32, ) -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `16931`
-		//  Estimated: `19894`
-		// Minimum execution time: 55_062_000 picoseconds.
-		Weight::from_parts(58_422_000, 19894)
-			.saturating_add(T::DbWeight::get().reads(5_u64))
-			.saturating_add(T::DbWeight::get().writes(6_u64))
+		//  Measured:  `16844`
+		//  Estimated: `19894 + r * (2489 ±0)`
+		// Minimum execution time: 45_065_000 picoseconds.
+		Weight::from_parts(34_090_392, 19894)
+			// Standard Error: 18_620
+			.saturating_add(Weight::from_parts(13_578_046, 0).saturating_mul(r.into()))
+			.saturating_add(T::DbWeight::get().reads(3_u64))
+			.saturating_add(T::DbWeight::get().reads((1_u64).saturating_mul(r.into())))
+			.saturating_add(T::DbWeight::get().writes(3_u64))
+			.saturating_add(T::DbWeight::get().writes((3_u64).saturating_mul(r.into())))
+			.saturating_add(Weight::from_parts(0, 2489).saturating_mul(r.into()))
 	}
 	/// Storage: `FellowshipCollective::Members` (r:1 w:0)
 	/// Proof: `FellowshipCollective::Members` (`max_values`: None, `max_size`: Some(42), added: 2517, mode: `MaxEncodedLen`)
