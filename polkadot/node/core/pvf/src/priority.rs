@@ -53,7 +53,7 @@ impl From<PvfExecution> for PreparePriority {
 pub enum ExecutePriority {
 	/// Low
 	Low,
-	/// Normall
+	/// Normal
 	Normal,
 	/// Critical
 	Critical,
