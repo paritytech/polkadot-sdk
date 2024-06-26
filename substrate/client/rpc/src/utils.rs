@@ -44,6 +44,7 @@ pub struct SubscriptionParams {
 #[derive(Debug, Clone)]
 struct InnerMetrics {
 	dropped_subscriptions: prometheus::CounterVec,
+	conn_buf_size: prometheus::CounterVec,
 }
 
 /// Metrics for dropped subscriptions.
@@ -63,8 +64,18 @@ impl SubscriptionMetrics {
 				),
 				&["method", "peer"],
 			)?;
+			let conn_buf_size = prometheus::CounterVec::new(
+				prometheus::Opts::new(
+					"substrate_rpc_buffer_capacity_exceeded",
+					"Keep track of many connection are getting backpressured",
+				),
+				&["ip", "max_capacity"],
+			)?;
+
 			registry.register(Box::new(dropped_subscriptions.clone()))?;
-			Ok(Self(Some(InnerMetrics { dropped_subscriptions })))
+			registry.register(Box::new(conn_buf_size.clone()))?;
+
+			Ok(Self(Some(InnerMetrics { dropped_subscriptions, conn_buf_size })))
 		} else {
 			Ok(Self(None))
 		}
@@ -81,6 +92,16 @@ impl SubscriptionMetrics {
 			metrics
 				.dropped_subscriptions
 				.with_label_values(&[method, &peer.to_string()])
+				.inc();
+		}
+	}
+
+	/// Register that a buffer capacity was exceeded.
+	pub fn register_buf_capacity_exceeded(&self, peer: IpAddr, max_capacity: usize) {
+		if let Some(metrics) = &self.0 {
+			metrics
+				.conn_buf_size
+				.with_label_values(&[&peer.to_string(), &max_capacity.to_string()])
 				.inc();
 		}
 	}
@@ -163,10 +184,31 @@ async fn inner_pipe_from_stream<S, T>(
 	S: Stream<Item = T> + Unpin + Send + 'static,
 	T: Serialize + Send + 'static,
 {
+	let SubscriptionParams { metrics, method, ip_addr, .. } = params;
+
+	let sink2 = sink.clone();
+	let metrics2 = metrics.clone();
+
+	tokio::spawn(async move {
+		let mut interval = tokio::time::interval(tokio::time::Duration::from_secs(60));
+
+		loop {
+			tokio::select! {
+				_ = interval.tick() => {
+					if sink2.capacity() == 0 {
+						metrics2.register_buf_capacity_exceeded(ip_addr, sink2.max_capacity());
+					}
+				}
+				_ = sink2.closed() => {
+					break;
+				}
+			};
+		}
+	});
+
 	let mut next_fut = Box::pin(Fuse::terminated());
 	let mut next_item = stream.next();
 	let closed = sink.closed();
-	let SubscriptionParams { metrics, method, ip_addr, .. } = params;
 
 	futures::pin_mut!(closed);
 

@@ -141,7 +141,7 @@ fn http_ok_response<S: Into<HttpBody>>(body: S) -> HttpResponse {
 }
 
 fn http_response<S: Into<HttpBody>>(status_code: StatusCode, body: S) -> HttpResponse {
-	hyper::Response::builder()
+	HttpResponse::builder()
 		.status(status_code)
 		.header(http::header::CONTENT_TYPE, HEADER_VALUE_JSON)
 		.body(body.into())
