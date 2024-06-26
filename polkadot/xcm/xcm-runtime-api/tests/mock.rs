@@ -413,11 +413,11 @@ impl sp_api::ProvideRuntimeApi<Block> for TestClient {
 }
 
 sp_api::mock_impl_runtime_apis! {
-	impl LocationToAccountApi<Block> for RuntimeApi {
-		fn convert_location(location: VersionedLocation) -> Result<Vec<u8>, LocationToAccountApiError> {
+	impl LocationToAccountApi<Block, AccountId> for RuntimeApi {
+		fn convert_location(location: VersionedLocation) -> Result<AccountId, LocationToAccountApiError> {
 			let location = location.try_into().map_err(|_| LocationToAccountApiError::VersionedConversionFailed)?;
-			let account_id = LocationToAccountId::convert_location(&location).ok_or(LocationToAccountApiError::Unsupported)?;
-			Ok(account_id.encode())
+			LocationToAccountId::convert_location(&location)
+				.ok_or(LocationToAccountApiError::Unsupported)
 		}
 	}
 

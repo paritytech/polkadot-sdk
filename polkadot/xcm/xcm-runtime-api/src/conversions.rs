@@ -23,7 +23,7 @@ use xcm_executor::traits::ConvertLocation;
 
 sp_api::decl_runtime_apis! {
 	/// API for useful conversions between XCM `Location` and `AccountId`.
-	pub trait LocationToAccountApi<AccountId> {
+	pub trait LocationToAccountApi<AccountId> where AccountId: Decode {
 		/// Converts `Location` to `AccountId`.
 		fn convert_location(location: VersionedLocation) -> Result<AccountId, Error>;
 	}
@@ -46,13 +46,11 @@ pub enum Error {
 pub struct LocationToAccountHelper<AccountId, Conversion>(
 	sp_std::marker::PhantomData<(AccountId, Conversion)>,
 );
-impl<AccountId: AsRef<[u8]>, Conversion: ConvertLocation<AccountId>>
+impl<AccountId: Decode, Conversion: ConvertLocation<AccountId>>
 	LocationToAccountHelper<AccountId, Conversion>
 {
-	pub fn convert_location(location: VersionedLocation) -> Result<sp_std::vec::Vec<u8>, Error> {
+	pub fn convert_location(location: VersionedLocation) -> Result<AccountId, Error> {
 		let location = location.try_into().map_err(|_| Error::VersionedConversionFailed)?;
-		Conversion::convert_location(&location)
-			.map(|account_id| account_id.as_ref().to_vec())
-			.ok_or(Error::Unsupported)
+		Conversion::convert_location(&location).ok_or(Error::Unsupported)
 	}
 }

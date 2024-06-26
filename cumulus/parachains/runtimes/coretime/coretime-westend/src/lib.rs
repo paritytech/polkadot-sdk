@@ -693,9 +693,9 @@ impl_runtime_apis! {
 		}
 	}
 
-	impl xcm_runtime_api::conversions::LocationToAccountApi<Block> for Runtime {
+	impl xcm_runtime_api::conversions::LocationToAccountApi<Block, AccountId> for Runtime {
 		fn convert_location(location: VersionedLocation) -> Result<
-			sp_std::vec::Vec<u8>,
+			AccountId,
 			xcm_runtime_api::conversions::Error
 		> {
 			xcm_runtime_api::conversions::LocationToAccountHelper::<

@@ -16,12 +16,12 @@
 
 mod mock;
 
-use codec::Encode;
 use frame_support::{
 	assert_err, assert_ok,
 	sp_runtime::{
 		testing::H256,
 		traits::{IdentifyAccount, Verify},
+		AccountId32, MultiSignature,
 	},
 };
 use mock::*;
@@ -50,14 +50,14 @@ fn convert_location_to_account_works() {
 			runtime_api
 				.convert_location(H256::zero(), VersionedLocation::from((Parent, Parachain(1000))))
 				.unwrap(),
-			1000_u64.encode()
+			1000_u64
 		);
 	})
 }
 
 #[test]
 fn location_to_account_helper_with_multi_signature_works() {
-	type Signature = frame_support::sp_runtime::MultiSignature;
+	type Signature = MultiSignature;
 	type AccountIdForConversions = <<Signature as Verify>::Signer as IdentifyAccount>::AccountId;
 	// We alias only `Location::parent()`
 	pub type LocationToAccountIdForConversions =
@@ -78,7 +78,6 @@ fn location_to_account_helper_with_multi_signature_works() {
 			AccountIdForConversions,
 			LocationToAccountIdForConversions,
 		>::convert_location(Location::parent().into_versioned()),
-		hex_literal::hex!("506172656e740000000000000000000000000000000000000000000000000000")
-				.to_vec()
+		AccountId32::from(hex_literal::hex!("506172656e740000000000000000000000000000000000000000000000000000"))
 	);
 }
