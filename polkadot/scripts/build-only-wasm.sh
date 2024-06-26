@@ -5,6 +5,13 @@
 set -e
 
 PROJECT_ROOT=`git rev-parse --show-toplevel`
+fl_cargo () {
+    if command -v forklift123 >/dev/null 2>&1; then
+        forklift cargo "$@";
+    else
+        cargo "$@";
+    fi
+}
 
 if [ "$#" -lt 1 ]; then
   echo "You need to pass the name of the crate you want to compile!"

@@ -21,7 +21,7 @@ workflow:
     - if: $CI_COMMIT_BRANCH
 
 variables:
-  CI_IMAGE: !reference [.ci-unified, variables, CI_IMAGE]
+  CI_IMAGE: europe-docker.pkg.dev/parity-build/ci-images/ci-unified:bullseye-1.77.0-2024-04-10-v20240515
   # BUILDAH_IMAGE is defined in group variables
   BUILDAH_COMMAND: "buildah --storage-driver overlay2"
   RELENG_SCRIPTS_BRANCH: "master"
@@ -119,26 +119,17 @@ default:
 #
 .forklift-cache:
   before_script:
+    - 'curl --header "PRIVATE-TOKEN: $FL_CI_GROUP_TOKEN" -o forklift  -L "${CI_API_V4_URL}/projects/676/packages/generic/forklift/${FL_FORKLIFT_VERSION}/forklift_${FL_FORKLIFT_VERSION}_linux_amd64"'
+    - chmod +x forklift
     - mkdir ~/.forklift
     - cp .forklift/config-gitlab.toml ~/.forklift/config.toml
     - cat .forklift/config-gitlab.toml > .forklift/config.toml
     - >
       if [ "$FORKLIFT_BYPASS" != "true" ]; then
-        echo "FORKLIFT_BYPASS not set"; 
-        if command -v forklift >/dev/null 2>&1; then
-          echo "forklift already exists"; 
-          forklift version
-        else
-          echo "forklift does not exist, downloading";
-          curl --header "PRIVATE-TOKEN: $FL_CI_GROUP_TOKEN" -o forklift  -L "${CI_API_V4_URL}/projects/676/packages/generic/forklift/${FL_FORKLIFT_VERSION}/forklift_${FL_FORKLIFT_VERSION}_linux_amd64"; 
-          chmod +x forklift;
-          export PATH=$PATH:$(pwd);
-          echo ${FL_FORKLIFT_VERSION};
-        fi
-        echo "Creating alias cargo='forklift cargo'"; 
-        shopt -s expand_aliases;
+        echo "FORKLIFT_BYPASS not set, creating alias cargo='forklift cargo'"; 
         alias cargo="forklift cargo";
       fi
+    - echo "FL_FORKLIFT_VERSION ${FL_FORKLIFT_VERSION}"
     #
 
 .common-refs:
@@ -224,12 +215,6 @@ include:
   - .gitlab/pipeline/test.yml
   # build jobs
   - .gitlab/pipeline/build.yml
-  # short-benchmarks jobs
-  - .gitlab/pipeline/short-benchmarks.yml
-  # publish jobs
-  - .gitlab/pipeline/publish.yml
-  # zombienet jobs
-  - .gitlab/pipeline/zombienet.yml
   # ci image
   - project: parity/infrastructure/ci_cd/shared
     ref: main
