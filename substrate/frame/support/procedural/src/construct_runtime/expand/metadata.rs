@@ -58,6 +58,7 @@ pub fn expand_runtime_metadata(
 					#attr
 				}
 			});
+
 			quote! {
 				#attr
 				#scrate::__private::metadata_ir::PalletMetadataIR {

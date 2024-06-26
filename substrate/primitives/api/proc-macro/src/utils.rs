@@ -142,14 +142,12 @@ pub fn extract_parameter_names_types_and_borrows(
 					generate_unique_pattern((*arg.pat).clone(), &mut generated_pattern_counter);
 				result.push((name, ty, borrow));
 			},
-			FnArg::Receiver(_) if matches!(allow_self, AllowSelfRefInParameters::No) => {
-				return Err(Error::new(input.span(), "`self` parameter not supported!"))
-			},
-			FnArg::Receiver(recv) => {
+			FnArg::Receiver(_) if matches!(allow_self, AllowSelfRefInParameters::No) =>
+				return Err(Error::new(input.span(), "`self` parameter not supported!")),
+			FnArg::Receiver(recv) =>
 				if recv.mutability.is_some() || recv.reference.is_none() {
 					return Err(Error::new(recv.span(), "Only `&self` is supported!"));
-				}
-			},
+				},
 		}
 	}
 
@@ -215,9 +213,8 @@ pub fn extract_block_type_from_trait_path(trait_: &Path) -> Result<&TypePath> {
 			let span = trait_.segments.last().as_ref().unwrap().span();
 			Err(Error::new(span, "Missing `Block` generic parameter."))
 		},
-		PathArguments::Parenthesized(_) => {
-			Err(Error::new(generics.arguments.span(), "Unexpected parentheses in path!"))
-		},
+		PathArguments::Parenthesized(_) =>
+			Err(Error::new(generics.arguments.span(), "Unexpected parentheses in path!")),
 	}
 }
 
@@ -302,8 +299,10 @@ fn parse_deprecated_meta(crate_: &TokenStream, attr: &syn::Attribute) -> Result<
 				}?;
 				if item.path.is_ident("note") {
 					acc.0.replace(value);
-				} else {
+				} else if item.path.is_ident("since") {
 					acc.1.replace(value);
+				} else {
+					();
 				};
 				Ok::<(Option<&syn::Lit>, Option<&syn::Lit>), Error>(acc)
 			})?;
@@ -402,21 +401,27 @@ mod tests {
 		let meta_list: Attribute = parse_quote!(#[deprecated(note = #FIRST)]);
 		let meta_list_with_since: Attribute =
 			parse_quote!(#[deprecated(note = #FIRST, since = #SECOND)]);
+		let extra_fields: Attribute =
+			parse_quote!(#[deprecated(note = #FIRST, since = #SECOND, extra = "Test")]);
 		assert_eq!(
-			get_deprecation(&quote! { crate }, &[simple]).unwrap(),
-			quote! {crate_::metadata_id::DeprecationStatus::DeprecatedWithoutNote}
+			get_deprecation(&quote! { crate }, &[simple]).unwrap().to_string(),
+			quote! { crate::metadata_ir::DeprecationStatus::DeprecatedWithoutNote }.to_string()
 		);
-		// assert_eq!(
-		// 	get_deprecation(&[simple_path]).unwrap(),
-		// 	DeprecationStatus::Deprecated { note: FIRST, since: None }
-		// );
-		// assert_eq!(
-		// 	get_deprecation(&[meta_list]).unwrap(),
-		// 	DeprecationStatus::Deprecated { note: FIRST, since: None }
-		// );
-		// assert_eq!(
-		// 	get_deprecation(&[meta_list_with_since]).unwrap(),
-		// 	DeprecationStatus::Deprecated { note: FIRST, since: Some(SECOND) }
-		// );
+		assert_eq!(
+			get_deprecation(&quote! { crate }, &[simple_path]).unwrap().to_string(),
+			quote! { crate::metadata_ir::DeprecationStatus::Deprecated { note: #FIRST, since: None } }.to_string()
+		);
+		assert_eq!(
+			get_deprecation(&quote! { crate }, &[meta_list]).unwrap().to_string(),
+			quote! { crate::metadata_ir::DeprecationStatus::Deprecated { note: #FIRST, since: None } }.to_string()
+		);
+		assert_eq!(
+			get_deprecation(&quote! { crate }, &[meta_list_with_since]).unwrap().to_string(),
+			quote! { crate::metadata_ir::DeprecationStatus::Deprecated { note: #FIRST, since: Some(#SECOND) }}.to_string()
+		);
+		assert_eq!(
+			get_deprecation(&quote! { crate }, &[extra_fields]).unwrap().to_string(),
+			quote! { crate::metadata_ir::DeprecationStatus::Deprecated { note: #FIRST, since: Some(#SECOND) }}.to_string()
+		);
 	}
 }
