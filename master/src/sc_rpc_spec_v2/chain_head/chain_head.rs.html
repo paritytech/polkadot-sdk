@@ -795,6 +795,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#644" id="644">644</a>
 <a href="#645" id="645">645</a>
 <a href="#646" id="646">646</a>
+<a href="#647" id="647">647</a>
+<a href="#648" id="648">648</a>
+<a href="#649" id="649">649</a>
+<a href="#650" id="650">650</a>
+<a href="#651" id="651">651</a>
+<a href="#652" id="652">652</a>
+<a href="#653" id="653">653</a>
+<a href="#654" id="654">654</a>
+<a href="#655" id="655">655</a>
+<a href="#656" id="656">656</a>
+<a href="#657" id="657">657</a>
+<a href="#658" id="658">658</a>
+<a href="#659" id="659">659</a>
+<a href="#660" id="660">660</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -833,7 +847,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>codec::Encode;
 <span class="kw">use </span>futures::{channel::oneshot, future::FutureExt};
 <span class="kw">use </span>jsonrpsee::{
-	core::async_trait, server::ResponsePayload, types::SubscriptionId, ConnectionDetails,
+	core::async_trait, server::ResponsePayload, types::SubscriptionId, ConnectionId, Extensions,
 	MethodResponseFuture, PendingSubscriptionSink, SubscriptionSink,
 };
 <span class="kw">use </span>log::debug;
@@ -1048,14 +1062,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">async fn </span>chain_head_unstable_body(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
-		connection_details: ConnectionDetails,
+		ext: <span class="kw-2">&amp;</span>Extensions,
 		follow_subscription: String,
 		hash: Block::Hash,
 	) -&gt; ResponsePayload&lt;<span class="lifetime">'static</span>, MethodResponse&gt; {
-		<span class="kw">if </span>!<span class="self">self
-			</span>.subscriptions
-			.contains_subscription(connection_details.id(), <span class="kw-2">&amp;</span>follow_subscription)
-		{
+		<span class="kw">let </span>conn_id = ext
+			.get::&lt;ConnectionId&gt;()
+			.copied()
+			.expect(<span class="string">"ConnectionId is always set by jsonrpsee; qed"</span>);
+
+		<span class="kw">if </span>!<span class="self">self</span>.subscriptions.contains_subscription(conn_id, <span class="kw-2">&amp;</span>follow_subscription) {
 			<span class="comment">// The spec says to return `LimitReached` if the follow subscription is invalid or
 			// stale.
 			</span><span class="kw">return </span>ResponsePayload::success(MethodResponse::LimitReached);
@@ -1132,14 +1148,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">async fn </span>chain_head_unstable_header(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
-		connection_details: ConnectionDetails,
+		ext: <span class="kw-2">&amp;</span>Extensions,
 		follow_subscription: String,
 		hash: Block::Hash,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;String&gt;, ChainHeadRpcError&gt; {
-		<span class="kw">if </span>!<span class="self">self
-			</span>.subscriptions
-			.contains_subscription(connection_details.id(), <span class="kw-2">&amp;</span>follow_subscription)
-		{
+		<span class="kw">let </span>conn_id = ext
+			.get::&lt;ConnectionId&gt;()
+			.copied()
+			.expect(<span class="string">"ConnectionId is always set by jsonrpsee; qed"</span>);
+
+		<span class="kw">if </span>!<span class="self">self</span>.subscriptions.contains_subscription(conn_id, <span class="kw-2">&amp;</span>follow_subscription) {
 			<span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>);
 		}
 
@@ -1168,16 +1186,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">async fn </span>chain_head_unstable_storage(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
-		connection_details: ConnectionDetails,
+		ext: <span class="kw-2">&amp;</span>Extensions,
 		follow_subscription: String,
 		hash: Block::Hash,
 		items: Vec&lt;StorageQuery&lt;String&gt;&gt;,
 		child_trie: <span class="prelude-ty">Option</span>&lt;String&gt;,
 	) -&gt; ResponsePayload&lt;<span class="lifetime">'static</span>, MethodResponse&gt; {
-		<span class="kw">if </span>!<span class="self">self
-			</span>.subscriptions
-			.contains_subscription(connection_details.id(), <span class="kw-2">&amp;</span>follow_subscription)
-		{
+		<span class="kw">let </span>conn_id = ext
+			.get::&lt;ConnectionId&gt;()
+			.copied()
+			.expect(<span class="string">"ConnectionId is always set by jsonrpsee; qed"</span>);
+
+		<span class="kw">if </span>!<span class="self">self</span>.subscriptions.contains_subscription(conn_id, <span class="kw-2">&amp;</span>follow_subscription) {
 			<span class="comment">// The spec says to return `LimitReached` if the follow subscription is invalid or
 			// stale.
 			</span><span class="kw">return </span>ResponsePayload::success(MethodResponse::LimitReached);
@@ -1249,7 +1269,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">async fn </span>chain_head_unstable_call(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
-		connection_details: ConnectionDetails,
+		ext: <span class="kw-2">&amp;</span>Extensions,
 		follow_subscription: String,
 		hash: Block::Hash,
 		function: String,
@@ -1260,10 +1280,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="prelude-val">Err</span>(err) =&gt; <span class="kw">return </span>ResponsePayload::error(err),
 		};
 
-		<span class="kw">if </span>!<span class="self">self
-			</span>.subscriptions
-			.contains_subscription(connection_details.id(), <span class="kw-2">&amp;</span>follow_subscription)
-		{
+		<span class="kw">let </span>conn_id = ext
+			.get::&lt;ConnectionId&gt;()
+			.copied()
+			.expect(<span class="string">"ConnectionId is always set by jsonrpsee; qed"</span>);
+
+		<span class="kw">if </span>!<span class="self">self</span>.subscriptions.contains_subscription(conn_id, <span class="kw-2">&amp;</span>follow_subscription) {
 			<span class="comment">// The spec says to return `LimitReached` if the follow subscription is invalid or
 			// stale.
 			</span><span class="kw">return </span>ResponsePayload::success(MethodResponse::LimitReached);
@@ -1327,14 +1349,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">async fn </span>chain_head_unstable_unpin(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
-		connection_details: ConnectionDetails,
+		ext: <span class="kw-2">&amp;</span>Extensions,
 		follow_subscription: String,
 		hash_or_hashes: ListOrValue&lt;Block::Hash&gt;,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;(), ChainHeadRpcError&gt; {
-		<span class="kw">if </span>!<span class="self">self
-			</span>.subscriptions
-			.contains_subscription(connection_details.id(), <span class="kw-2">&amp;</span>follow_subscription)
-		{
+		<span class="kw">let </span>conn_id = ext
+			.get::&lt;ConnectionId&gt;()
+			.copied()
+			.expect(<span class="string">"ConnectionId is always set by jsonrpsee; qed"</span>);
+
+		<span class="kw">if </span>!<span class="self">self</span>.subscriptions.contains_subscription(conn_id, <span class="kw-2">&amp;</span>follow_subscription) {
 			<span class="kw">return </span><span class="prelude-val">Ok</span>(());
 		}
 
@@ -1363,14 +1387,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">async fn </span>chain_head_unstable_continue(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
-		connection_details: ConnectionDetails,
+		ext: <span class="kw-2">&amp;</span>Extensions,
 		follow_subscription: String,
 		operation_id: String,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;(), ChainHeadRpcError&gt; {
-		<span class="kw">if </span>!<span class="self">self
-			</span>.subscriptions
-			.contains_subscription(connection_details.id(), <span class="kw-2">&amp;</span>follow_subscription)
-		{
+		<span class="kw">let </span>conn_id = ext
+			.get::&lt;ConnectionId&gt;()
+			.copied()
+			.expect(<span class="string">"ConnectionId is always set by jsonrpsee; qed"</span>);
+
+		<span class="kw">if </span>!<span class="self">self</span>.subscriptions.contains_subscription(conn_id, <span class="kw-2">&amp;</span>follow_subscription) {
 			<span class="kw">return </span><span class="prelude-val">Ok</span>(())
 		}
 
@@ -1389,14 +1415,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">async fn </span>chain_head_unstable_stop_operation(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
-		connection_details: ConnectionDetails,
+		ext: <span class="kw-2">&amp;</span>Extensions,
 		follow_subscription: String,
 		operation_id: String,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;(), ChainHeadRpcError&gt; {
-		<span class="kw">if </span>!<span class="self">self
-			</span>.subscriptions
-			.contains_subscription(connection_details.id(), <span class="kw-2">&amp;</span>follow_subscription)
-		{
+		<span class="kw">let </span>conn_id = ext
+			.get::&lt;ConnectionId&gt;()
+			.copied()
+			.expect(<span class="string">"ConnectionId is always set by jsonrpsee; qed"</span>);
+
+		<span class="kw">if </span>!<span class="self">self</span>.subscriptions.contains_subscription(conn_id, <span class="kw-2">&amp;</span>follow_subscription) {
 			<span class="kw">return </span><span class="prelude-val">Ok</span>(())
 		}
 

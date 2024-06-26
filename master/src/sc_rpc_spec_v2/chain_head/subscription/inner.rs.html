@@ -1604,6 +1604,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1453" id="1453">1453</a>
 <a href="#1454" id="1454">1454</a>
 <a href="#1455" id="1455">1455</a>
+<a href="#1456" id="1456">1456</a>
+<a href="#1457" id="1457">1457</a>
+<a href="#1458" id="1458">1458</a>
+<a href="#1459" id="1459">1459</a>
+<a href="#1460" id="1460">1460</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2452,6 +2457,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>tests {
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
+	<span class="kw">use </span>jsonrpsee::ConnectionId;
 	<span class="kw">use </span>sc_block_builder::BlockBuilderBuilder;
 	<span class="kw">use </span>sc_service::client::new_in_mem;
 	<span class="kw">use </span>sp_consensus::BlockOrigin;
@@ -3026,17 +3032,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				rpc_connections.clone(),
 			);
 
-		<span class="kw">let </span>reserved_sub_first = subscription_management.reserve_subscription(<span class="number">1</span>).unwrap();
-		<span class="kw">let </span><span class="kw-2">mut </span>reserved_sub_second = subscription_management.reserve_subscription(<span class="number">1</span>).unwrap();
+		<span class="kw">let </span>reserved_sub_first =
+			subscription_management.reserve_subscription(ConnectionId(<span class="number">1</span>)).unwrap();
+		<span class="kw">let </span><span class="kw-2">mut </span>reserved_sub_second =
+			subscription_management.reserve_subscription(ConnectionId(<span class="number">1</span>)).unwrap();
 		<span class="comment">// Subscriptions reserved but not yet populated.
 		</span><span class="macro">assert_eq!</span>(subs.read().subs.len(), <span class="number">0</span>);
 
 		<span class="comment">// Cannot reserve anymore.
-		</span><span class="macro">assert!</span>(subscription_management.reserve_subscription(<span class="number">1</span>).is_none());
+		</span><span class="macro">assert!</span>(subscription_management.reserve_subscription(ConnectionId(<span class="number">1</span>)).is_none());
 		<span class="comment">// Drop the first subscription.
 		</span>drop(reserved_sub_first);
 		<span class="comment">// Space is freed-up for the rpc connections.
-		</span><span class="kw">let </span><span class="kw-2">mut </span>reserved_sub_first = subscription_management.reserve_subscription(<span class="number">1</span>).unwrap();
+		</span><span class="kw">let </span><span class="kw-2">mut </span>reserved_sub_first =
+			subscription_management.reserve_subscription(ConnectionId(<span class="number">1</span>)).unwrap();
 
 		<span class="comment">// Insert subscriptions.
 		</span><span class="kw">let </span>_sub_data_first =
@@ -3051,7 +3060,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="comment">// Check that the subscription is removed.
 		</span><span class="macro">assert_eq!</span>(subs.read().subs.len(), <span class="number">1</span>);
 		<span class="comment">// Space is freed-up for the rpc connections.
-		</span><span class="kw">let </span>reserved_sub_first = subscription_management.reserve_subscription(<span class="number">1</span>).unwrap();
+		</span><span class="kw">let </span>reserved_sub_first =
+			subscription_management.reserve_subscription(ConnectionId(<span class="number">1</span>)).unwrap();
 
 		<span class="comment">// Drop all subscriptions.
 		</span>drop(reserved_sub_first);

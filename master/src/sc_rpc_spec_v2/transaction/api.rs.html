@@ -260,7 +260,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// This method is unstable and subject to change in the future.
 
-	</span><span class="attr">#[method(name = <span class="string">"transaction_v1_broadcast"</span>, raw_method)]
+	</span><span class="attr">#[method(name = <span class="string">"transaction_v1_broadcast"</span>, with_extensions)]
 	</span><span class="kw">async fn </span>broadcast(<span class="kw-2">&amp;</span><span class="self">self</span>, bytes: Bytes) -&gt; RpcResult&lt;<span class="prelude-ty">Option</span>&lt;String&gt;&gt;;
 
 	<span class="doccomment">/// Broadcast an extrinsic to the chain.
@@ -268,7 +268,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// # Unstable
 	///
 	/// This method is unstable and subject to change in the future.
-	</span><span class="attr">#[method(name = <span class="string">"transaction_v1_stop"</span>, raw_method)]
+	</span><span class="attr">#[method(name = <span class="string">"transaction_v1_stop"</span>, with_extensions)]
 	</span><span class="kw">async fn </span>stop_broadcast(<span class="kw-2">&amp;</span><span class="self">self</span>, operation_id: String) -&gt; <span class="prelude-ty">Result</span>&lt;(), ErrorBroadcast&gt;;
 }
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>

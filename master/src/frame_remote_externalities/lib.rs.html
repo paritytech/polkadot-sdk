@@ -1761,9 +1761,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1610" id="1610">1610</a>
 <a href="#1611" id="1611">1611</a>
 <a href="#1612" id="1612">1612</a>
-<a href="#1613" id="1613">1613</a>
-<a href="#1614" id="1614">1614</a>
-<a href="#1615" id="1615">1615</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1788,10 +1785,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="kw">use </span>codec::{Compact, Decode, Encode};
 <span class="kw">use </span>indicatif::{ProgressBar, ProgressStyle};
-<span class="kw">use </span>jsonrpsee::{
-	core::params::ArrayParams,
-	http_client::{HttpClient, HttpClientBuilder},
-};
+<span class="kw">use </span>jsonrpsee::{core::params::ArrayParams, http_client::HttpClient};
 <span class="kw">use </span>log::<span class="kw-2">*</span>;
 <span class="kw">use </span>serde::de::DeserializeOwned;
 <span class="kw">use </span>sp_core::{
@@ -1956,7 +1950,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			} <span class="kw">else </span>{
 				uri.clone()
 			};
-			<span class="kw">let </span>http_client = HttpClientBuilder::default()
+			<span class="kw">let </span>http_client = HttpClient::builder()
 				.max_request_size(u32::MAX)
 				.max_response_size(u32::MAX)
 				.request_timeout(std::time::Duration::from_secs(<span class="number">60 </span>* <span class="number">5</span>))

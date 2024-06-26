@@ -402,6 +402,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#251" id="251">251</a>
 <a href="#252" id="252">252</a>
 <a href="#253" id="253">253</a>
+<a href="#254" id="254">254</a>
+<a href="#255" id="255">255</a>
+<a href="#256" id="256">256</a>
+<a href="#257" id="257">257</a>
+<a href="#258" id="258">258</a>
+<a href="#259" id="259">259</a>
+<a href="#260" id="260">260</a>
+<a href="#261" id="261">261</a>
+<a href="#262" id="262">262</a>
+<a href="#263" id="263">263</a>
+<a href="#264" id="264">264</a>
+<a href="#265" id="265">265</a>
+<a href="#266" id="266">266</a>
+<a href="#267" id="267">267</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -427,16 +441,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub mod </span>middleware;
 <span class="kw">pub mod </span>utils;
 
-<span class="kw">use </span>std::{
-	convert::Infallible, error::Error <span class="kw">as </span>StdError, net::SocketAddr, num::NonZeroU32, time::Duration,
-};
+<span class="kw">use </span>std::{error::Error <span class="kw">as </span>StdError, net::SocketAddr, num::NonZeroU32, sync::Arc, time::Duration};
 
-<span class="kw">use </span>hyper::{
-	server::conn::AddrStream,
-	service::{make_service_fn, service_fn},
-};
 <span class="kw">use </span>jsonrpsee::{
-	server::{stop_channel, ws, PingConfig, StopHandle, TowerServiceBuilder},
+	core::BoxError,
+	server::{
+		serve_with_graceful_shutdown, stop_channel, ws, PingConfig, StopHandle, TowerServiceBuilder,
+	},
 	Methods, RpcModule,
 };
 <span class="kw">use </span>middleware::NodeHealthProxyLayer;
@@ -501,6 +512,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	metrics: <span class="prelude-ty">Option</span>&lt;RpcMetrics&gt;,
 	tokio_handle: tokio::runtime::Handle,
 	service_builder: TowerServiceBuilder&lt;RpcMiddleware, HttpMiddleware&gt;,
+	rate_limit_whitelisted_ips: Arc&lt;Vec&lt;IpNetwork&gt;&gt;,
 }
 
 <span class="doccomment">/// Start RPC server listening on given address.
@@ -528,8 +540,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		rate_limit_trust_proxy_headers,
 	} = config;
 
-	<span class="kw">let </span>std_listener = TcpListener::bind(addrs.as_slice()).<span class="kw">await</span><span class="question-mark">?</span>.into_std()<span class="question-mark">?</span>;
-	<span class="kw">let </span>local_addr = std_listener.local_addr().ok();
+	<span class="kw">let </span>listener = TcpListener::bind(addrs.as_slice()).<span class="kw">await</span><span class="question-mark">?</span>;
+	<span class="kw">let </span>local_addr = listener.local_addr().ok();
 	<span class="kw">let </span>host_filter = host_filtering(cors.is_some(), local_addr);
 
 	<span class="kw">let </span>http_middleware = tower::ServiceBuilder::new()
@@ -565,20 +577,38 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		methods: build_rpc_api(rpc_api).into(),
 		service_builder: builder.to_service_builder(),
 		metrics,
-		tokio_handle,
-		stop_handle: stop_handle.clone(),
+		tokio_handle: tokio_handle.clone(),
+		stop_handle,
+		rate_limit_whitelisted_ips: Arc::new(rate_limit_whitelisted_ips),
 	};
 
-	<span class="kw">let </span>make_service = make_service_fn(<span class="kw">move </span>|addr: <span class="kw-2">&amp;</span>AddrStream| {
-		<span class="kw">let </span>cfg = cfg.clone();
-		<span class="kw">let </span>rate_limit_whitelisted_ips = rate_limit_whitelisted_ips.clone();
-		<span class="kw">let </span>ip = addr.remote_addr().ip();
+	tokio_handle.spawn(<span class="kw">async move </span>{
+		<span class="kw">loop </span>{
+			<span class="kw">let </span>(sock, remote_addr) = <span class="macro">tokio::select! </span>{
+				res = listener.accept() =&gt; {
+					<span class="kw">match </span>res {
+						<span class="prelude-val">Ok</span>(s) =&gt; s,
+						<span class="prelude-val">Err</span>(e) =&gt; {
+							<span class="macro">log::debug!</span>(target: <span class="string">"rpc"</span>, <span class="string">"Failed to accept ipv4 connection: {:?}"</span>, e);
+							<span class="kw">continue</span>;
+						}
+					}
+				}
+				<span class="kw">_ </span>= cfg.stop_handle.clone().shutdown() =&gt; <span class="kw">break</span>,
+			};
 
-		<span class="kw">async move </span>{
-			<span class="kw">let </span>cfg = cfg.clone();
-			<span class="kw">let </span>rate_limit_whitelisted_ips = rate_limit_whitelisted_ips.clone();
+			<span class="kw">let </span>ip = remote_addr.ip();
+			<span class="kw">let </span>cfg2 = cfg.clone();
+			<span class="kw">let </span>svc = tower::service_fn(<span class="kw">move </span>|req: http::Request&lt;hyper::body::Incoming&gt;| {
+				<span class="kw">let </span>PerConnection {
+					methods,
+					service_builder,
+					metrics,
+					tokio_handle,
+					stop_handle,
+					rate_limit_whitelisted_ips,
+				} = cfg2.clone();
 
-			<span class="prelude-val">Ok</span>::&lt;<span class="kw">_</span>, Infallible&gt;(service_fn(<span class="kw">move </span>|req| {
 				<span class="kw">let </span>proxy_ip =
 					<span class="kw">if </span>rate_limit_trust_proxy_headers { get_proxy_ip(<span class="kw-2">&amp;</span>req) } <span class="kw">else </span>{ <span class="prelude-val">None </span>};
 
@@ -594,9 +624,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					}
 					rate_limit
 				};
-
-				<span class="kw">let </span>PerConnection { service_builder, metrics, tokio_handle, stop_handle, methods } =
-					cfg.clone();
 
 				<span class="kw">let </span>is_websocket = ws::is_upgrade_request(<span class="kw-2">&amp;</span>req);
 				<span class="kw">let </span>transport_label = <span class="kw">if </span>is_websocket { <span class="string">"ws" </span>} <span class="kw">else </span>{ <span class="string">"http" </span>};
@@ -617,7 +644,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 				<span class="kw">let </span>rpc_middleware =
 					RpcServiceBuilder::new().option_layer(middleware_layer.clone());
-
 				<span class="kw">let </span><span class="kw-2">mut </span>svc =
 					service_builder.set_rpc_middleware(rpc_middleware).build(methods, stop_handle);
 
@@ -634,17 +660,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						});
 					}
 
-					svc.call(req).<span class="kw">await
-				</span>}
-			}))
+					<span class="comment">// https://github.com/rust-lang/rust/issues/102211 the error type can't be inferred
+					// to be `Box&lt;dyn std::error::Error + Send + Sync&gt;` so we need to convert it to
+					// a concrete type as workaround.
+					</span>svc.call(req).<span class="kw">await</span>.map_err(|e| BoxError::from(e))
+				}
+			});
+
+			cfg.tokio_handle.spawn(serve_with_graceful_shutdown(
+				sock,
+				svc,
+				cfg.stop_handle.clone().shutdown(),
+			));
 		}
-	});
-
-	<span class="kw">let </span>server = hyper::Server::from_tcp(std_listener)<span class="question-mark">?</span>.serve(make_service);
-
-	tokio::spawn(<span class="kw">async move </span>{
-		<span class="kw">let </span>graceful = server.with_graceful_shutdown(<span class="kw">async move </span>{ stop_handle.shutdown().<span class="kw">await </span>});
-		<span class="kw">let _ </span>= graceful.<span class="kw">await</span>;
 	});
 
 	<span class="macro">log::info!</span>(

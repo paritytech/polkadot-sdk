@@ -407,6 +407,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#256" id="256">256</a>
 <a href="#257" id="257">257</a>
 <a href="#258" id="258">258</a>
+<a href="#259" id="259">259</a>
+<a href="#260" id="260">260</a>
+<a href="#261" id="261">261</a>
+<a href="#262" id="262">262</a>
+<a href="#263" id="263">263</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -539,8 +544,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						<span class="string">"Subscription buffer limit={} exceeded for subscription={} conn_id={}; dropping subscription"</span>,
 						buf.max_cap,
 						sink.method_name(),
-						sink.connection_id()
-					);
+						sink.connection_id().<span class="number">0
+					</span>);
 					<span class="kw">return
 				</span>}
 
@@ -598,7 +603,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">async fn </span>subscribe() -&gt; Subscription {
 		<span class="kw">let </span><span class="kw-2">mut </span>module = RpcModule::new(());
 		module
-			.register_subscription(<span class="string">"sub"</span>, <span class="string">"my_sub"</span>, <span class="string">"unsub"</span>, |<span class="kw">_</span>, pending, <span class="kw">_</span>| <span class="kw">async move </span>{
+			.register_subscription(<span class="string">"sub"</span>, <span class="string">"my_sub"</span>, <span class="string">"unsub"</span>, |<span class="kw">_</span>, pending, <span class="kw">_</span>, <span class="kw">_</span>| <span class="kw">async move </span>{
 				<span class="kw">let </span>stream = futures::stream::iter([<span class="number">0</span>; <span class="number">16</span>]);
 				pipe_from_stream(pending, stream).<span class="kw">await</span>;
 				<span class="prelude-val">Ok</span>(())
@@ -626,7 +631,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">let </span><span class="kw-2">mut </span>module = RpcModule::new(tx);
 		module
-			.register_subscription(<span class="string">"sub"</span>, <span class="string">"my_sub"</span>, <span class="string">"unsub"</span>, |<span class="kw">_</span>, pending, ctx| <span class="kw">async move </span>{
+			.register_subscription(<span class="string">"sub"</span>, <span class="string">"my_sub"</span>, <span class="string">"unsub"</span>, |<span class="kw">_</span>, pending, ctx, <span class="kw">_</span>| <span class="kw">async move </span>{
 				<span class="kw">let </span>stream = futures::stream::iter([<span class="number">0</span>; <span class="number">32</span>]);
 				pipe_from_stream(pending, stream).<span class="kw">await</span>;
 				<span class="kw">_ </span>= ctx.unbounded_send(());
@@ -648,16 +653,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">let </span><span class="kw-2">mut </span>module = RpcModule::new(notify_tx);
 		module
-			.register_subscription(<span class="string">"sub"</span>, <span class="string">"my_sub"</span>, <span class="string">"unsub"</span>, |<span class="kw">_</span>, pending, notify_tx| <span class="kw">async move </span>{
-				<span class="comment">// emulate empty stream for simplicity: otherwise we need some mechanism
-				// to sync buffer and channel send operations
-				</span><span class="kw">let </span>stream = futures::stream::empty::&lt;()&gt;();
-				<span class="comment">// this should exit immediately
-				</span>pipe_from_stream(pending, stream).<span class="kw">await</span>;
-				<span class="comment">// notify that the `pipe_from_stream` has returned
-				</span>notify_tx.notify_one();
-				<span class="prelude-val">Ok</span>(())
-			})
+			.register_subscription(
+				<span class="string">"sub"</span>,
+				<span class="string">"my_sub"</span>,
+				<span class="string">"unsub"</span>,
+				|<span class="kw">_</span>, pending, notify_tx, <span class="kw">_</span>| <span class="kw">async move </span>{
+					<span class="comment">// emulate empty stream for simplicity: otherwise we need some mechanism
+					// to sync buffer and channel send operations
+					</span><span class="kw">let </span>stream = futures::stream::empty::&lt;()&gt;();
+					<span class="comment">// this should exit immediately
+					</span>pipe_from_stream(pending, stream).<span class="kw">await</span>;
+					<span class="comment">// notify that the `pipe_from_stream` has returned
+					</span>notify_tx.notify_one();
+					<span class="prelude-val">Ok</span>(())
+				},
+			)
 			.unwrap();
 		module.subscribe(<span class="string">"sub"</span>, EmptyServerParams::new(), <span class="number">1</span>).<span class="kw">await</span>.unwrap();
 

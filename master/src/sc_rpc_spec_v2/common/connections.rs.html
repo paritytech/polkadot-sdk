@@ -411,6 +411,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#260" id="260">260</a>
 <a href="#261" id="261">261</a>
 <a href="#262" id="262">262</a>
+<a href="#263" id="263">263</a>
+<a href="#264" id="264">264</a>
+<a href="#265" id="265">265</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -608,69 +611,72 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>reserve_space() {
 		<span class="kw">let </span>rpc_connections = RpcConnections::new(<span class="number">2</span>);
-		<span class="kw">let </span>reserved = rpc_connections.reserve_space(<span class="number">1</span>);
+		<span class="kw">let </span>conn_id = ConnectionId(<span class="number">1</span>);
+		<span class="kw">let </span>reserved = rpc_connections.reserve_space(conn_id);
+
 		<span class="macro">assert!</span>(reserved.is_some());
-		<span class="macro">assert_eq!</span>(<span class="number">1</span>, rpc_connections.data.lock().get(<span class="kw-2">&amp;</span><span class="number">1</span>).unwrap().num_identifiers);
+		<span class="macro">assert_eq!</span>(<span class="number">1</span>, rpc_connections.data.lock().get(<span class="kw-2">&amp;</span>conn_id).unwrap().num_identifiers);
 		<span class="macro">assert_eq!</span>(rpc_connections.data.lock().len(), <span class="number">1</span>);
 
 		<span class="kw">let </span>reserved = reserved.unwrap();
 		<span class="kw">let </span>registered = reserved.register(<span class="string">"identifier1"</span>.to_string()).unwrap();
-		<span class="macro">assert!</span>(rpc_connections.contains_identifier(<span class="number">1</span>, <span class="string">"identifier1"</span>));
-		<span class="macro">assert_eq!</span>(<span class="number">1</span>, rpc_connections.data.lock().get(<span class="kw-2">&amp;</span><span class="number">1</span>).unwrap().num_identifiers);
+		<span class="macro">assert!</span>(rpc_connections.contains_identifier(conn_id, <span class="string">"identifier1"</span>));
+		<span class="macro">assert_eq!</span>(<span class="number">1</span>, rpc_connections.data.lock().get(<span class="kw-2">&amp;</span>conn_id).unwrap().num_identifiers);
 		drop(registered);
 
 		<span class="comment">// Data is dropped.
-		</span><span class="macro">assert!</span>(rpc_connections.data.lock().get(<span class="kw-2">&amp;</span><span class="number">1</span>).is_none());
+		</span><span class="macro">assert!</span>(rpc_connections.data.lock().get(<span class="kw-2">&amp;</span>conn_id).is_none());
 		<span class="macro">assert!</span>(rpc_connections.data.lock().is_empty());
 		<span class="comment">// Checks can still happen.
-		</span><span class="macro">assert!</span>(!rpc_connections.contains_identifier(<span class="number">1</span>, <span class="string">"identifier1"</span>));
+		</span><span class="macro">assert!</span>(!rpc_connections.contains_identifier(conn_id, <span class="string">"identifier1"</span>));
 	}
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>reserve_space_capacity_reached() {
 		<span class="kw">let </span>rpc_connections = RpcConnections::new(<span class="number">2</span>);
+		<span class="kw">let </span>conn_id = ConnectionId(<span class="number">1</span>);
 
 		<span class="comment">// Reserve identifier for connection 1.
-		</span><span class="kw">let </span>reserved = rpc_connections.reserve_space(<span class="number">1</span>);
+		</span><span class="kw">let </span>reserved = rpc_connections.reserve_space(conn_id);
 		<span class="macro">assert!</span>(reserved.is_some());
-		<span class="macro">assert_eq!</span>(<span class="number">1</span>, rpc_connections.data.lock().get(<span class="kw-2">&amp;</span><span class="number">1</span>).unwrap().num_identifiers);
+		<span class="macro">assert_eq!</span>(<span class="number">1</span>, rpc_connections.data.lock().get(<span class="kw-2">&amp;</span>conn_id).unwrap().num_identifiers);
 
 		<span class="comment">// Add identifier for connection 1.
 		</span><span class="kw">let </span>reserved = reserved.unwrap();
 		<span class="kw">let </span>registered = reserved.register(<span class="string">"identifier1"</span>.to_string()).unwrap();
-		<span class="macro">assert!</span>(rpc_connections.contains_identifier(<span class="number">1</span>, <span class="string">"identifier1"</span>));
-		<span class="macro">assert_eq!</span>(<span class="number">1</span>, rpc_connections.data.lock().get(<span class="kw-2">&amp;</span><span class="number">1</span>).unwrap().num_identifiers);
+		<span class="macro">assert!</span>(rpc_connections.contains_identifier(conn_id, <span class="string">"identifier1"</span>));
+		<span class="macro">assert_eq!</span>(<span class="number">1</span>, rpc_connections.data.lock().get(<span class="kw-2">&amp;</span>conn_id).unwrap().num_identifiers);
 
 		<span class="comment">// Reserve identifier for connection 1 again.
-		</span><span class="kw">let </span>reserved = rpc_connections.reserve_space(<span class="number">1</span>);
+		</span><span class="kw">let </span>reserved = rpc_connections.reserve_space(conn_id);
 		<span class="macro">assert!</span>(reserved.is_some());
-		<span class="macro">assert_eq!</span>(<span class="number">2</span>, rpc_connections.data.lock().get(<span class="kw-2">&amp;</span><span class="number">1</span>).unwrap().num_identifiers);
+		<span class="macro">assert_eq!</span>(<span class="number">2</span>, rpc_connections.data.lock().get(<span class="kw-2">&amp;</span>conn_id).unwrap().num_identifiers);
 
 		<span class="comment">// Add identifier for connection 1 again.
 		</span><span class="kw">let </span>reserved = reserved.unwrap();
 		<span class="kw">let </span>registered_second = reserved.register(<span class="string">"identifier2"</span>.to_string()).unwrap();
-		<span class="macro">assert!</span>(rpc_connections.contains_identifier(<span class="number">1</span>, <span class="string">"identifier2"</span>));
-		<span class="macro">assert_eq!</span>(<span class="number">2</span>, rpc_connections.data.lock().get(<span class="kw-2">&amp;</span><span class="number">1</span>).unwrap().num_identifiers);
+		<span class="macro">assert!</span>(rpc_connections.contains_identifier(conn_id, <span class="string">"identifier2"</span>));
+		<span class="macro">assert_eq!</span>(<span class="number">2</span>, rpc_connections.data.lock().get(<span class="kw-2">&amp;</span>conn_id).unwrap().num_identifiers);
 
 		<span class="comment">// Cannot reserve more identifiers.
-		</span><span class="kw">let </span>reserved = rpc_connections.reserve_space(<span class="number">1</span>);
+		</span><span class="kw">let </span>reserved = rpc_connections.reserve_space(conn_id);
 		<span class="macro">assert!</span>(reserved.is_none());
 
 		<span class="comment">// Drop the first identifier.
 		</span>drop(registered);
-		<span class="macro">assert_eq!</span>(<span class="number">1</span>, rpc_connections.data.lock().get(<span class="kw-2">&amp;</span><span class="number">1</span>).unwrap().num_identifiers);
-		<span class="macro">assert!</span>(rpc_connections.contains_identifier(<span class="number">1</span>, <span class="string">"identifier2"</span>));
-		<span class="macro">assert!</span>(!rpc_connections.contains_identifier(<span class="number">1</span>, <span class="string">"identifier1"</span>));
+		<span class="macro">assert_eq!</span>(<span class="number">1</span>, rpc_connections.data.lock().get(<span class="kw-2">&amp;</span>conn_id).unwrap().num_identifiers);
+		<span class="macro">assert!</span>(rpc_connections.contains_identifier(conn_id, <span class="string">"identifier2"</span>));
+		<span class="macro">assert!</span>(!rpc_connections.contains_identifier(conn_id, <span class="string">"identifier1"</span>));
 
 		<span class="comment">// Can reserve again after clearing the space.
-		</span><span class="kw">let </span>reserved = rpc_connections.reserve_space(<span class="number">1</span>);
+		</span><span class="kw">let </span>reserved = rpc_connections.reserve_space(conn_id);
 		<span class="macro">assert!</span>(reserved.is_some());
-		<span class="macro">assert_eq!</span>(<span class="number">2</span>, rpc_connections.data.lock().get(<span class="kw-2">&amp;</span><span class="number">1</span>).unwrap().num_identifiers);
+		<span class="macro">assert_eq!</span>(<span class="number">2</span>, rpc_connections.data.lock().get(<span class="kw-2">&amp;</span>conn_id).unwrap().num_identifiers);
 
 		<span class="comment">// Ensure data is cleared.
 		</span>drop(reserved);
 		drop(registered_second);
-		<span class="macro">assert!</span>(rpc_connections.data.lock().get(<span class="kw-2">&amp;</span><span class="number">1</span>).is_none());
+		<span class="macro">assert!</span>(rpc_connections.data.lock().get(<span class="kw-2">&amp;</span>conn_id).is_none());
 	}
 }
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>

@@ -336,8 +336,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#185" id="185">185</a>
 <a href="#186" id="186">186</a>
 <a href="#187" id="187">187</a>
-<a href="#188" id="188">188</a>
-<a href="#189" id="189">189</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -365,10 +363,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 };
 
 <span class="kw">use </span>forwarded_header_value::ForwardedHeaderValue;
-<span class="kw">use </span>hyper::{
-	header::{HeaderName, HeaderValue},
-	Request,
-};
+<span class="kw">use </span>http::header::{HeaderName, HeaderValue};
 <span class="kw">use </span>jsonrpsee::{server::middleware::http::HostFilterLayer, RpcModule};
 <span class="kw">use </span>tower_http::cors::{AllowOrigin, CorsLayer};
 
@@ -397,7 +392,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	available_methods.sort();
 
 	rpc_api
-		.register_method(<span class="string">"rpc_methods"</span>, <span class="kw">move </span>|<span class="kw">_</span>, <span class="kw">_</span>| {
+		.register_method(<span class="string">"rpc_methods"</span>, <span class="kw">move </span>|<span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>| {
 			<span class="macro">serde_json::json!</span>({
 				<span class="string">"methods"</span>: available_methods,
 			})
@@ -436,7 +431,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// 1. `Forwarded` header.
 /// 2. `X-Forwarded-For` header.
 /// 3. `X-Real-Ip`.
-</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>get_proxy_ip(req: <span class="kw-2">&amp;</span>Request&lt;hyper::Body&gt;) -&gt; <span class="prelude-ty">Option</span>&lt;IpAddr&gt; {
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>get_proxy_ip&lt;B&gt;(req: <span class="kw-2">&amp;</span>http::Request&lt;B&gt;) -&gt; <span class="prelude-ty">Option</span>&lt;IpAddr&gt; {
 	<span class="kw">if let </span><span class="prelude-val">Some</span>(ip) = req
 		.headers()
 		.get(<span class="kw-2">&amp;</span>FORWARDED)
@@ -473,9 +468,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">mod </span>tests {
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
 	<span class="kw">use </span>hyper::header::HeaderValue;
+	<span class="kw">use </span>jsonrpsee::server::{HttpBody, HttpRequest};
 
-	<span class="kw">fn </span>request() -&gt; hyper::Request&lt;hyper::Body&gt; {
-		hyper::Request::builder().body(hyper::Body::empty()).unwrap()
+	<span class="kw">fn </span>request() -&gt; http::Request&lt;HttpBody&gt; {
+		HttpRequest::builder().body(HttpBody::empty()).unwrap()
 	}
 
 	<span class="attr">#[test]

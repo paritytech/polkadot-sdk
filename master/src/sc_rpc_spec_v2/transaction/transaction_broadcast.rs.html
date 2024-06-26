@@ -465,6 +465,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#314" id="314">314</a>
 <a href="#315" id="315">315</a>
 <a href="#316" id="316">316</a>
+<a href="#317" id="317">317</a>
+<a href="#318" id="318">318</a>
+<a href="#319" id="319">319</a>
+<a href="#320" id="320">320</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -494,7 +498,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>futures_util::stream::AbortHandle;
 <span class="kw">use </span>jsonrpsee::{
 	core::{async_trait, RpcResult},
-	ConnectionDetails,
+	ConnectionId, Extensions,
 };
 <span class="kw">use </span>parking_lot::RwLock;
 <span class="kw">use </span>rand::{distributions::Alphanumeric, Rng};
@@ -588,19 +592,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	&lt;Pool::Block <span class="kw">as </span>BlockT&gt;::Hash: Unpin,
 	Client: HeaderBackend&lt;Pool::Block&gt; + BlockchainEvents&lt;Pool::Block&gt; + Send + Sync + <span class="lifetime">'static</span>,
 {
-	<span class="kw">async fn </span>broadcast(
-		<span class="kw-2">&amp;</span><span class="self">self</span>,
-		connection_details: ConnectionDetails,
-		bytes: Bytes,
-	) -&gt; RpcResult&lt;<span class="prelude-ty">Option</span>&lt;String&gt;&gt; {
+	<span class="kw">async fn </span>broadcast(<span class="kw-2">&amp;</span><span class="self">self</span>, ext: <span class="kw-2">&amp;</span>Extensions, bytes: Bytes) -&gt; RpcResult&lt;<span class="prelude-ty">Option</span>&lt;String&gt;&gt; {
 		<span class="kw">let </span>pool = <span class="self">self</span>.pool.clone();
+		<span class="kw">let </span>conn_id = ext
+			.get::&lt;ConnectionId&gt;()
+			.copied()
+			.expect(<span class="string">"ConnectionId is always set by jsonrpsee; qed"</span>);
 
 		<span class="comment">// The unique ID of this operation.
 		</span><span class="kw">let </span>id = <span class="self">self</span>.generate_unique_id();
 
 		<span class="comment">// Ensure that the connection has not reached the maximum number of active operations.
-		</span><span class="kw">let </span><span class="prelude-val">Some</span>(reserved_connection) = <span class="self">self</span>.rpc_connections.reserve_space(connection_details.id())
-		<span class="kw">else </span>{
+		</span><span class="kw">let </span><span class="prelude-val">Some</span>(reserved_connection) = <span class="self">self</span>.rpc_connections.reserve_space(conn_id) <span class="kw">else </span>{
 			<span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>)
 		};
 		<span class="kw">let </span><span class="prelude-val">Some</span>(reserved_identifier) = reserved_connection.register(id.clone()) <span class="kw">else </span>{
@@ -712,11 +715,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">async fn </span>stop_broadcast(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
-		connection_details: ConnectionDetails,
+		ext: <span class="kw-2">&amp;</span>Extensions,
 		operation_id: String,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;(), ErrorBroadcast&gt; {
+		<span class="kw">let </span>conn_id = ext
+			.get::&lt;ConnectionId&gt;()
+			.copied()
+			.expect(<span class="string">"ConnectionId is always set by jsonrpsee; qed"</span>);
+
 		<span class="comment">// The operation ID must correlate to the same connection ID.
-		</span><span class="kw">if </span>!<span class="self">self</span>.rpc_connections.contains_identifier(connection_details.id(), <span class="kw-2">&amp;</span>operation_id) {
+		</span><span class="kw">if </span>!<span class="self">self</span>.rpc_connections.contains_identifier(conn_id, <span class="kw-2">&amp;</span>operation_id) {
 			<span class="kw">return </span><span class="prelude-val">Err</span>(ErrorBroadcast::InvalidOperationID)
 		}
 

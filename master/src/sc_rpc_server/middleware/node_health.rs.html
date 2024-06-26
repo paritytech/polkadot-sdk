@@ -348,6 +348,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#197" id="197">197</a>
 <a href="#198" id="198">198</a>
 <a href="#199" id="199">199</a>
+<a href="#200" id="200">200</a>
+<a href="#201" id="201">201</a>
+<a href="#202" id="202">202</a>
+<a href="#203" id="203">203</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -377,8 +381,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">use </span>futures::future::FutureExt;
 <span class="kw">use </span>http::{HeaderValue, Method, StatusCode, Uri};
-<span class="kw">use </span>hyper::Body;
-<span class="kw">use </span>jsonrpsee::types::{Response <span class="kw">as </span>RpcResponse, ResponseSuccess <span class="kw">as </span>RpcResponseSuccess};
+<span class="kw">use </span>jsonrpsee::{
+	server::{HttpBody, HttpRequest, HttpResponse},
+	types::{Response <span class="kw">as </span>RpcResponse, ResponseSuccess <span class="kw">as </span>RpcResponseSuccess},
+};
 <span class="kw">use </span>tower::Service;
 
 <span class="kw">const </span>RPC_SYSTEM_HEALTH_CALL: <span class="kw-2">&amp;</span>str = <span class="string">r#"{"jsonrpc":"2.0","method":"system_health","id":0}"#</span>;
@@ -407,9 +413,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="kw">impl</span>&lt;S&gt; tower::Service&lt;http::Request&lt;Body&gt;&gt; <span class="kw">for </span>NodeHealthProxy&lt;S&gt;
+<span class="kw">impl</span>&lt;S&gt; tower::Service&lt;http::Request&lt;hyper::body::Incoming&gt;&gt; <span class="kw">for </span>NodeHealthProxy&lt;S&gt;
 <span class="kw">where
-	</span>S: Service&lt;http::Request&lt;Body&gt;, Response = http::Response&lt;Body&gt;&gt;,
+	</span>S: Service&lt;HttpRequest, Response = HttpResponse&gt;,
 	S::Response: <span class="lifetime">'static</span>,
 	S::Error: Into&lt;Box&lt;<span class="kw">dyn </span>Error + Send + Sync&gt;&gt; + <span class="lifetime">'static</span>,
 	S::Future: Send + <span class="lifetime">'static</span>,
@@ -423,7 +429,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="self">self</span>.<span class="number">0</span>.poll_ready(cx).map_err(Into::into)
 	}
 
-	<span class="kw">fn </span>call(<span class="kw-2">&amp;mut </span><span class="self">self</span>, <span class="kw-2">mut </span>req: http::Request&lt;Body&gt;) -&gt; <span class="self">Self</span>::Future {
+	<span class="kw">fn </span>call(<span class="kw-2">&amp;mut </span><span class="self">self</span>, req: http::Request&lt;hyper::body::Incoming&gt;) -&gt; <span class="self">Self</span>::Future {
+		<span class="kw">let </span><span class="kw-2">mut </span>req = req.map(|body| HttpBody::new(body));
 		<span class="kw">let </span>maybe_intercept = InterceptRequest::from_http(<span class="kw-2">&amp;</span>req);
 
 		<span class="comment">// Modify the request and proxy it to `system_health`
@@ -438,7 +445,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			req.headers_mut().insert(http::header::ACCEPT, HEADER_VALUE_JSON);
 
 			<span class="comment">// Adjust the body to reflect the method call.
-			</span>req = req.map(|<span class="kw">_</span>| Body::from(RPC_SYSTEM_HEALTH_CALL));
+			</span>req = req.map(|<span class="kw">_</span>| HttpBody::from(RPC_SYSTEM_HEALTH_CALL));
 		}
 
 		<span class="comment">// Call the inner service and get a future that resolves to the response.
@@ -449,7 +456,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="prelude-val">Ok</span>(<span class="kw">match </span>maybe_intercept {
 				InterceptRequest::Deny =&gt;
-					http_response(StatusCode::METHOD_NOT_ALLOWED, Body::empty()),
+					http_response(StatusCode::METHOD_NOT_ALLOWED, HttpBody::empty()),
 				InterceptRequest::No =&gt; res,
 				InterceptRequest::Health =&gt; {
 					<span class="kw">let </span>health = parse_rpc_response(res.into_body()).<span class="kw">await</span><span class="question-mark">?</span>;
@@ -458,7 +465,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				InterceptRequest::Readiness =&gt; {
 					<span class="kw">let </span>health = parse_rpc_response(res.into_body()).<span class="kw">await</span><span class="question-mark">?</span>;
 					<span class="kw">if </span>(!health.is_syncing &amp;&amp; health.peers &gt; <span class="number">0</span>) || !health.should_have_peers {
-						http_ok_response(Body::empty())
+						http_ok_response(HttpBody::empty())
 					} <span class="kw">else </span>{
 						http_internal_error()
 					}
@@ -483,27 +490,28 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub </span>should_have_peers: bool,
 }
 
-<span class="kw">fn </span>http_ok_response&lt;S: Into&lt;hyper::Body&gt;&gt;(body: S) -&gt; hyper::Response&lt;hyper::Body&gt; {
+<span class="kw">fn </span>http_ok_response&lt;S: Into&lt;HttpBody&gt;&gt;(body: S) -&gt; HttpResponse {
 	http_response(StatusCode::OK, body)
 }
 
-<span class="kw">fn </span>http_response&lt;S: Into&lt;hyper::Body&gt;&gt;(
-	status_code: StatusCode,
-	body: S,
-) -&gt; hyper::Response&lt;hyper::Body&gt; {
-	hyper::Response::builder()
+<span class="kw">fn </span>http_response&lt;S: Into&lt;HttpBody&gt;&gt;(status_code: StatusCode, body: S) -&gt; HttpResponse {
+	HttpResponse::builder()
 		.status(status_code)
 		.header(http::header::CONTENT_TYPE, HEADER_VALUE_JSON)
 		.body(body.into())
 		.expect(<span class="string">"Header is valid; qed"</span>)
 }
 
-<span class="kw">fn </span>http_internal_error() -&gt; hyper::Response&lt;hyper::Body&gt; {
-	http_response(hyper::StatusCode::INTERNAL_SERVER_ERROR, Body::empty())
+<span class="kw">fn </span>http_internal_error() -&gt; HttpResponse {
+	http_response(hyper::StatusCode::INTERNAL_SERVER_ERROR, HttpBody::empty())
 }
 
-<span class="kw">async fn </span>parse_rpc_response(body: Body) -&gt; <span class="prelude-ty">Result</span>&lt;Health, Box&lt;<span class="kw">dyn </span>Error + Send + Sync + <span class="lifetime">'static</span>&gt;&gt; {
-	<span class="kw">let </span>bytes = hyper::body::to_bytes(body).<span class="kw">await</span><span class="question-mark">?</span>;
+<span class="kw">async fn </span>parse_rpc_response(
+	body: HttpBody,
+) -&gt; <span class="prelude-ty">Result</span>&lt;Health, Box&lt;<span class="kw">dyn </span>Error + Send + Sync + <span class="lifetime">'static</span>&gt;&gt; {
+	<span class="kw">use </span>http_body_util::BodyExt;
+
+	<span class="kw">let </span>bytes = body.collect().<span class="kw">await</span><span class="question-mark">?</span>.to_bytes();
 
 	<span class="kw">let </span>raw_rp = serde_json::from_slice::&lt;RpcResponse&lt;Health&gt;&gt;(<span class="kw-2">&amp;</span>bytes)<span class="question-mark">?</span>;
 	<span class="kw">let </span>rp = RpcResponseSuccess::&lt;Health&gt;::try_from(raw_rp)<span class="question-mark">?</span>;
@@ -528,7 +536,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="kw">impl </span>InterceptRequest {
-	<span class="kw">fn </span>from_http(req: <span class="kw-2">&amp;</span>http::Request&lt;Body&gt;) -&gt; InterceptRequest {
+	<span class="kw">fn </span>from_http(req: <span class="kw-2">&amp;</span>HttpRequest) -&gt; InterceptRequest {
 		<span class="kw">match </span>req.uri().path() {
 			<span class="string">"/health" </span>=&gt;
 				<span class="kw">if </span>req.method() == http::Method::GET {

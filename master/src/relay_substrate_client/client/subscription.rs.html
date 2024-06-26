@@ -387,7 +387,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#236" id="236">236</a>
 <a href="#237" id="237">237</a>
 <a href="#238" id="238">238</a>
-<a href="#239" id="239">239</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2019-2021 Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
@@ -411,7 +410,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	stream::StreamExt,
 };
 <span class="kw">use </span>futures::{FutureExt, Stream};
-<span class="kw">use </span>jsonrpsee::core::ClientError;
 <span class="kw">use </span>sp_runtime::DeserializeOwned;
 <span class="kw">use </span>std::{
 	fmt::Debug,
@@ -533,7 +531,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Create new forwarded subscription.
 	</span><span class="kw">pub fn </span>new_forwarded(
 		desc: StreamDescription,
-		subscription: <span class="kw">impl </span>Stream&lt;Item = StdResult&lt;T, ClientError&gt;&gt; + Unpin + Send + <span class="lifetime">'static</span>,
+		subscription: <span class="kw">impl </span>Stream&lt;Item = StdResult&lt;T, serde_json::Error&gt;&gt; + Unpin + Send + <span class="lifetime">'static</span>,
 	) -&gt; <span class="self">Self </span>{
 		<span class="self">Self </span>{
 			desc: desc.clone(),

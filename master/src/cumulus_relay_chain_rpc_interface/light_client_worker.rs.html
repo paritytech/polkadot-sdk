@@ -465,7 +465,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="kw">use </span>futures::{channel::mpsc::Sender, prelude::<span class="kw-2">*</span>, stream::FuturesUnordered};
 <span class="kw">use </span>jsonrpsee::core::client::{
-	Client <span class="kw">as </span>JsonRpseeClient, ClientBuilder, ClientT, Error, ReceivedMessage, TransportReceiverT,
+	Client <span class="kw">as </span>JsonRpseeClient, ClientBuilder, ClientT, ReceivedMessage, TransportReceiverT,
 	TransportSenderT,
 };
 <span class="kw">use </span>smoldot_light::{ChainId, Client <span class="kw">as </span>SmoldotClient, JsonRpcResponses};
@@ -569,7 +569,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="kw">fn </span>handle_notification(
-	maybe_header: <span class="prelude-ty">Option</span>&lt;<span class="prelude-ty">Result</span>&lt;RelayHeader, Error&gt;&gt;,
+	maybe_header: <span class="prelude-ty">Option</span>&lt;<span class="prelude-ty">Result</span>&lt;RelayHeader, serde_json::Error&gt;&gt;,
 	senders: <span class="kw-2">&amp;mut </span>Vec&lt;Sender&lt;RelayHeader&gt;&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;(), ()&gt; {
 	<span class="kw">match </span>maybe_header {
