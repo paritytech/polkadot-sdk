@@ -19,9 +19,6 @@ targets = ["x86_64-unknown-linux-gnu"]
 forwarded-header-value = { workspace = true }
 futures = { workspace = true }
 governor = { workspace = true }
-http = "1.1"
-http-body-util = "0.1.2"
-hyper = "1.3"
 ip_network = { workspace = true }
 jsonrpsee = { features = ["server"], workspace = true }
 log = { workspace = true, default-features = true }
@@ -29,5 +26,11 @@ prometheus-endpoint = { workspace = true, default-features = true }
 serde = { workspace = true }
 serde_json = { workspace = true, default-features = true }
 tokio = { features = ["parking_lot"], workspace = true, default-features = true }
-tower = { version = "0.4.13", features = ["util"]}
+
+# Dependencies outside of the polkadot-sdk workspace
+# which requires hyper v1.0 and http v1.0
+http = "1.1"
+http-body-util = "0.1.2"
+hyper = "1.3"
+tower = { version = "0.4.13", features = ["util"] }
 tower-http = { version = "0.5.2", features = ["cors"] }
