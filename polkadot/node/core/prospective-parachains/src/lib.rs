@@ -28,7 +28,7 @@
 
 use std::collections::{HashMap, HashSet};
 
-use fragment_chain::{FragmentChain, PotentialAddition};
+use fragment_chain::FragmentChain;
 use futures::{channel::oneshot, prelude::*};
 
 use polkadot_node_subsystem::{
@@ -463,11 +463,12 @@ async fn handle_introduce_seconded_candidate<Context>(
 		persisted_validation_data: pvd,
 	} = request;
 
+	let candidate_hash = candidate.hash();
 	let Some(storage) = view.candidate_storage.get_mut(&para) else {
 		gum::warn!(
 			target: LOG_TARGET,
 			para_id = ?para,
-			candidate_hash = ?candidate.hash(),
+			?candidate_hash,
 			"Received seconded candidate for inactive para",
 		);
 
@@ -478,14 +479,45 @@ async fn handle_introduce_seconded_candidate<Context>(
 	let parent_head_hash = pvd.parent_head.hash();
 	let output_head_hash = Some(candidate.commitments.head_data.hash());
 
-	// We first introduce the candidate in the storage and then try to extend the chain.
-	// If the candidate gets included in the chain, we can keep it in storage.
-	// If it doesn't, check that it's still a potential candidate in at least one fragment chain.
-	// If it's not, we can remove it.
+	let mut add_to_storage = false;
+	for (relay_parent, leaf_data) in view.active_leaves.iter_mut() {
+		if let Some(chain) = leaf_data.fragment_chains.get_mut(&para) {
+			match chain.can_add_candidate_as_potential(
+				&storage,
+				&candidate_hash,
+				&candidate.descriptor.relay_parent,
+				parent_head_hash,
+				output_head_hash,
+			) {
+				true => {
+					gum::trace!(
+						target: LOG_TARGET,
+						para = ?para,
+						?relay_parent,
+						?candidate_hash,
+						"Added potential candidate to storage.",
+					);
 
-	let candidate_hash =
+					add_to_storage = true;
+				},
+				false => {
+					gum::trace!(
+						target: LOG_TARGET,
+						para = ?para,
+						?relay_parent,
+						"Not introducing a new candidate: {:?}",
+						candidate_hash
+					);
+				},
+			}
+		}
+	}
+
+	// If there is at least one leaf where this candidate can be added or potentially added in the
+	// future, add it to storage.
+	if add_to_storage {
 		match storage.add_candidate(candidate.clone(), pvd, CandidateState::Seconded) {
-			Ok(c) => c,
+			Ok(_) => {},
 			Err(CandidateStorageInsertionError::CandidateAlreadyKnown(_)) => {
 				gum::debug!(
 					target: LOG_TARGET,
@@ -512,66 +544,7 @@ async fn handle_introduce_seconded_candidate<Context>(
 				return
 			},
 		};
-
-	let mut keep_in_storage = false;
-	for (relay_parent, leaf_data) in view.active_leaves.iter_mut() {
-		if let Some(chain) = leaf_data.fragment_chains.get_mut(&para) {
-			gum::trace!(
-				target: LOG_TARGET,
-				para = ?para,
-				?relay_parent,
-				"Candidates in chain before trying to introduce a new one: {:?}",
-				chain.to_vec()
-			);
-			chain.extend_from_storage(&*storage);
-			if chain.contains_candidate(&candidate_hash) {
-				keep_in_storage = true;
-
-				gum::trace!(
-					target: LOG_TARGET,
-					?relay_parent,
-					para = ?para,
-					?candidate_hash,
-					"Added candidate to chain.",
-				);
-			} else {
-				match chain.can_add_candidate_as_potential(
-					&storage,
-					&candidate_hash,
-					&candidate.descriptor.relay_parent,
-					parent_head_hash,
-					output_head_hash,
-				) {
-					PotentialAddition::Anyhow => {
-						gum::trace!(
-							target: LOG_TARGET,
-							para = ?para,
-							?relay_parent,
-							?candidate_hash,
-							"Kept candidate as unconnected potential.",
-						);
-
-						keep_in_storage = true;
-					},
-					_ => {
-						gum::trace!(
-							target: LOG_TARGET,
-							para = ?para,
-							?relay_parent,
-							"Not introducing a new candidate: {:?}",
-							candidate_hash
-						);
-					},
-				}
-			}
-		}
-	}
-
-	// If there is at least one leaf where this candidate can be added or potentially added in the
-	// future, keep it in storage.
-	if !keep_in_storage {
-		storage.remove_candidate(&candidate_hash);
-
+	} else {
 		gum::debug!(
 			target: LOG_TARGET,
 			para = ?para,
@@ -580,7 +553,7 @@ async fn handle_introduce_seconded_candidate<Context>(
 		);
 	}
 
-	let _ = tx.send(keep_in_storage);
+	let _ = tx.send(add_to_storage);
 }
 
 #[overseer::contextbounds(ProspectiveParachains, prefix = self::overseer)]
@@ -624,6 +597,15 @@ async fn handle_candidate_backed<Context>(
 	}
 
 	storage.mark_backed(&candidate_hash);
+
+	// Now try repopulating the fragment chains.
+	for leaf_data in view.active_leaves.values_mut() {
+		if let Some(chain) = leaf_data.fragment_chains.get_mut(&para) {
+			chain.repopulate_chain(storage, &candidate_hash);
+
+			// TODO: log here the added candidates: chain.contains_candidate(candidate)
+		}
+	}
 }
 
 fn answer_get_backable_candidates(
@@ -687,7 +669,7 @@ fn answer_get_backable_candidates(
 	);
 
 	let backable_candidates: Vec<_> = chain
-		.find_backable_chain(ancestors.clone(), count, |candidate| storage.is_backed(candidate))
+		.find_backable_chain(ancestors.clone(), count)
 		.into_iter()
 		.filter_map(|child_hash| {
 			storage.relay_parent_of_candidate(&child_hash).map_or_else(
