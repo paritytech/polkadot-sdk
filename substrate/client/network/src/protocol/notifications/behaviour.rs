@@ -560,7 +560,13 @@ impl Notifications {
 					.iter()
 					.any(|(_, s)| matches!(s, ConnectionState::Opening)));
 
-				*entry.into_mut() = PeerState::Disabled { connections, backoff_until: None }
+				// Prevent opening another substream on the same set over the same connection right
+				// after it has been closed.
+				let ban_duration = Uniform::new(5, 10).sample(&mut rand::thread_rng());
+				*entry.into_mut() = PeerState::Disabled {
+					connections,
+					backoff_until: Some(Instant::now() + Duration::from_secs(ban_duration)),
+				};
 			},
 
 			// Incoming => Disabled.
@@ -856,7 +862,13 @@ impl Notifications {
 					*connec_state = ConnectionState::Closing;
 				}
 
-				*entry.into_mut() = PeerState::Disabled { connections, backoff_until: None }
+				// Prevent opening another substream on the same set over the same connection right
+				// after it has been closed.
+				let ban_duration = Uniform::new(5, 10).sample(&mut rand::thread_rng());
+				*entry.into_mut() = PeerState::Disabled {
+					connections,
+					backoff_until: Some(Instant::now() + Duration::from_secs(ban_duration)),
+				};
 			},
 
 			// Requested => Ø
