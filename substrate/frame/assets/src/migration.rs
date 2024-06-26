@@ -26,7 +26,7 @@ pub mod next_asset_id {
 	use super::*;
 	use sp_core::Get;
 
-	/// Set [`NextAssetId`] to the value of `ID`.
+	/// Set [`NextAssetId`] to the value of `ID` iff [`NextAssetId`] does not exist yet.
 	pub struct SetNextAssetId<ID, T: Config<I>, I: 'static = ()>(
 		core::marker::PhantomData<(ID, T, I)>,
 	);
@@ -36,7 +36,9 @@ pub mod next_asset_id {
 		ID: Get<T::AssetId>,
 	{
 		fn on_runtime_upgrade() -> frame_support::weights::Weight {
-			NextAssetId::<T, I>::put(ID::get());
+			if !NextAssetId::<T, I>::exists() {
+				NextAssetId::<T, I>::put(ID::get());
+			}
 			T::DbWeight::get().writes(1)
 		}
 	}
