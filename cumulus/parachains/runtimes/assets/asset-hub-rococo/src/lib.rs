@@ -56,6 +56,7 @@ use frame_support::{
 	construct_runtime, derive_impl,
 	dispatch::DispatchClass,
 	genesis_builder_helper::{build_state, get_preset},
+	migrations::FreezeChainOnFailedMigration,
 	ord_parameter_types, parameter_types,
 	traits::{
 		fungible, fungibles, tokens::imbalance::ResolveAssetTo, AsEnsureOriginWithArg, ConstBool,
@@ -63,7 +64,6 @@ use frame_support::{
 		TransformOrigin,
 	},
 	weights::{ConstantMultiplier, Weight, WeightToFee as _},
-	migrations::FreezeChainOnFailedMigration,
 	BoundedVec, PalletId,
 };
 use frame_system::{

@@ -152,8 +152,8 @@
 
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
-pub mod migration;
 pub mod foreign_assets_migration; // TODO: move to `migrations` mod
+pub mod migration;
 #[cfg(test)]
 pub mod mock;
 #[cfg(test)]
