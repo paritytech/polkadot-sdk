@@ -1,12 +1,12 @@
 //! Binaries for this test should be built with `fast-runtime` feature enabled:
 //! `cargo build -r -F fast-runtime -p polkadot-parachain-bin && \`
-//! `cargo build -r -F fast-runtime --bin polkadot --bin polkadot-execute-worker --bin polkadot-prepare-worker`
+//! `cargo build -r -F fast-runtime --bin polkadot --bin polkadot-execute-worker --bin
+//! polkadot-prepare-worker`
 //!
 //! Running with normal runtimes is possible but would take ages. Running fast relay runtime with
 //! normal parachain runtime WILL mess things up.
 
 use anyhow::anyhow;
-use tokio::time::Duration;
 use rococo::api::runtime_types::{
 	staging_xcm::v4::{
 		asset::{Asset, AssetId, Assets, Fungibility},
@@ -17,28 +17,33 @@ use rococo::api::runtime_types::{
 	xcm::{VersionedAssets, VersionedLocation},
 };
 use serde_json::json;
-use std::{fmt::Display, sync::{Arc, RwLock}};
+use std::{
+	fmt::Display,
+	sync::{Arc, RwLock},
+};
 use subxt::{
 	blocks::ExtrinsicEvents,
 	config::ExtrinsicParams,
 	events::StaticEvent,
 	tx::{Payload, Signer},
 	utils::AccountId32,
+	OnlineClient, PolkadotConfig,
 };
-use subxt::{OnlineClient, PolkadotConfig};
 use subxt_signer::sr25519::dev;
+use tokio::time::Duration;
 use zombienet_sdk::NetworkConfigBuilder;
 
 mod coretime_rococo;
 mod rococo;
 
-use coretime_rococo::api::runtime_types::pallet_broker::types::{
-	ConfigRecord as BrokerConfigRecord, Finality as BrokerFinality,
-};
 use coretime_rococo::api::{
-	self as coretime_api, runtime_types::sp_arithmetic::per_things::Perbill,
+	self as coretime_api,
+	broker::events as broker_events,
+	runtime_types::{
+		pallet_broker::types::{ConfigRecord as BrokerConfigRecord, Finality as BrokerFinality},
+		sp_arithmetic::per_things::Perbill,
+	},
 };
-use coretime_rococo::api::broker::events as broker_events;
 use rococo::{api as rococo_api, api::runtime_types::polkadot_parachain_primitives::primitives};
 
 type CoretimeRuntimeCall = coretime_api::runtime_types::coretime_rococo_runtime::RuntimeCall;
@@ -113,31 +118,19 @@ where
 				match event.variant_name() {
 					"Purchased" => log::trace!(
 						"{:#?}",
-						event
-							.as_event::<broker_events::Purchased>()
-							.unwrap()
-							.unwrap()
+						event.as_event::<broker_events::Purchased>().unwrap().unwrap()
 					),
 					"SaleInitialized" => log::trace!(
 						"{:#?}",
-						event
-							.as_event::<broker_events::SaleInitialized>()
-							.unwrap()
-							.unwrap()
+						event.as_event::<broker_events::SaleInitialized>().unwrap().unwrap()
 					),
 					"HistoryInitialized" => log::trace!(
 						"{:#?}",
-						event
-							.as_event::<broker_events::HistoryInitialized>()
-							.unwrap()
-							.unwrap()
+						event.as_event::<broker_events::HistoryInitialized>().unwrap().unwrap()
 					),
 					"CoreAssigned" => log::trace!(
 						"{:#?}",
-						event
-							.as_event::<broker_events::CoreAssigned>()
-							.unwrap()
-							.unwrap()
+						event.as_event::<broker_events::CoreAssigned>().unwrap().unwrap()
 					),
 					"Pooled" => log::trace!(
 						"{:#?}",
@@ -145,31 +138,19 @@ where
 					),
 					"ClaimsReady" => log::trace!(
 						"{:#?}",
-						event
-							.as_event::<broker_events::ClaimsReady>()
-							.unwrap()
-							.unwrap()
+						event.as_event::<broker_events::ClaimsReady>().unwrap().unwrap()
 					),
 					"RevenueClaimBegun" => log::trace!(
 						"{:#?}",
-						event
-							.as_event::<broker_events::RevenueClaimBegun>()
-							.unwrap()
-							.unwrap()
+						event.as_event::<broker_events::RevenueClaimBegun>().unwrap().unwrap()
 					),
 					"RevenueClaimItem" => log::trace!(
 						"{:#?}",
-						event
-							.as_event::<broker_events::RevenueClaimItem>()
-							.unwrap()
-							.unwrap()
+						event.as_event::<broker_events::RevenueClaimItem>().unwrap().unwrap()
 					),
 					"RevenueClaimPaid" => log::trace!(
 						"{:#?}",
-						event
-							.as_event::<broker_events::RevenueClaimPaid>()
-							.unwrap()
-							.unwrap()
+						event.as_event::<broker_events::RevenueClaimPaid>().unwrap().unwrap()
 					),
 					_ => (),
 				}
@@ -231,15 +212,15 @@ where
 // TODO: @s0me0ne-unkn0wn can we remove this fn
 #[allow(dead_code)]
 async fn balance<C: subxt::Config>(api: OnlineClient<C>, acc: &AccountId32) -> u128 {
-	api.storage().at_latest().await
-	.unwrap()
-	.fetch(&rococo_api::storage()
-		.balances()
-		.account(acc.clone())
-	).await
-	.unwrap()
-	.unwrap()
-	.free
+	api.storage()
+		.at_latest()
+		.await
+		.unwrap()
+		.fetch(&rococo_api::storage().balances().account(acc.clone()))
+		.await
+		.unwrap()
+		.unwrap()
+		.free
 }
 
 async fn push_tx_hard<Cll: Payload, Cfg: subxt::Config, Sgnr: Signer<Cfg>>(
@@ -517,8 +498,8 @@ async fn main() -> Result<(), anyhow::Error> {
 	total_issuance.1 += ON_DEMAND_BASE_FEE;
 
 	// As soon as the PC receives the tokens, it divides them half by half into system and private
-	// contributions (we have 3 cores, one is leased to Coretime itself, one is pooled by the system,
-	// and one is pooled by Alice).
+	// contributions (we have 3 cores, one is leased to Coretime itself, one is pooled by the
+	// system, and one is pooled by Alice).
 
 	// Now we're waiting for the moment when Alice may claim her revenue
 
@@ -570,8 +551,9 @@ async fn main() -> Result<(), anyhow::Error> {
 	assert_eq!(claim_paid.amount, ON_DEMAND_BASE_FEE / 2);
 
 	// As for the system revenue, it is teleported back to the RC and burnt there. Those burns are
-	// batched and are processed once a timeslice, after a new one starts. So we have to wait for two
-	// timeslice boundaries to pass to be sure the teleport has already happened somewhere in between.
+	// batched and are processed once a timeslice, after a new one starts. So we have to wait for
+	// two timeslice boundaries to pass to be sure the teleport has already happened somewhere in
+	// between.
 
 	let _: coretime_api::broker::events::SaleInitialized =
 		wait_for_para_event(para_events.clone(), "Broker", "SaleInitialized", |_| true).await;
