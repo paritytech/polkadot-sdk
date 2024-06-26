@@ -789,14 +789,14 @@ pub fn register_default_impl(attrs: TokenStream, tokens: TokenStream) -> TokenSt
 pub fn inject_runtime_type(_: TokenStream, tokens: TokenStream) -> TokenStream {
 	let item = tokens.clone();
 	let item = syn::parse_macro_input!(item as TraitItemType);
-	if item.ident != "RuntimeCall"
-		&& item.ident != "RuntimeEvent"
-		&& item.ident != "RuntimeTask"
-		&& item.ident != "RuntimeOrigin"
-		&& item.ident != "RuntimeHoldReason"
-		&& item.ident != "RuntimeFreezeReason"
-		&& item.ident != "RuntimeParameters"
-		&& item.ident != "PalletInfo"
+	if item.ident != "RuntimeCall" &&
+		item.ident != "RuntimeEvent" &&
+		item.ident != "RuntimeTask" &&
+		item.ident != "RuntimeOrigin" &&
+		item.ident != "RuntimeHoldReason" &&
+		item.ident != "RuntimeFreezeReason" &&
+		item.ident != "RuntimeParameters" &&
+		item.ident != "PalletInfo"
 	{
 		return syn::Error::new_spanned(
 			item,
