@@ -437,7 +437,9 @@ pub mod pallet {
 
 	impl<T: Config> Pallet<T> {
 		/// Get transaction storage information from outside of this pallet.
-		pub fn transaction_roots(block: BlockNumberFor<T>) -> Option<BoundedVec<TransactionInfo, T::MaxBlockTransactions>> {
+		pub fn transaction_roots(
+			block: BlockNumberFor<T>,
+		) -> Option<BoundedVec<TransactionInfo, T::MaxBlockTransactions>> {
 			Transactions::<T>::get(block)
 		}
 		/// Get ByteFee storage information from outside of this pallet.
