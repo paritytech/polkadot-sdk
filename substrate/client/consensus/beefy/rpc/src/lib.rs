@@ -204,7 +204,7 @@ mod tests {
 			finality_proof_stream,
 			best_block_stream,
 			sc_rpc::testing::test_executor(),
-			SubscriptionMetrics::disabled()
+			SubscriptionMetrics::disabled(),
 		)
 		.expect("Setting up the BEEFY RPC handler works");
 
