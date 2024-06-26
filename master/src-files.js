@@ -526,9 +526,9 @@ var srcIndex = new Map(JSON.parse('[\
 ["xcm_docs",["",[["cookbook",[["relay_token_transactor",[["parachain",[],["mod.rs","xcm_config.rs"]],["relay_chain",[],["mod.rs","xcm_config.rs"]]],["mod.rs","network.rs"]]],["mod.rs"]],["guides",[],["mod.rs"]]],["fundamentals.rs","glossary.rs","lib.rs"]]],\
 ["xcm_emulator",["",[],["lib.rs"]]],\
 ["xcm_executor_integration_tests",["",[],["lib.rs"]]],\
-["xcm_fee_payment_runtime_api",["",[],["dry_run.rs","fees.rs","lib.rs"]]],\
 ["xcm_fuzzer",["",[],["fuzz.rs","parachain.rs","relay_chain.rs"]]],\
 ["xcm_procedural",["",[],["builder_pattern.rs","lib.rs","v2.rs","v3.rs","v4.rs","weight_info.rs"]]],\
+["xcm_runtime_apis",["",[],["conversions.rs","dry_run.rs","fees.rs","lib.rs"]]],\
 ["xcm_simulator",["",[],["lib.rs","mock_message_queue.rs"]]],\
 ["xcm_simulator_example",["",[["parachain",[["xcm_config",[],["asset_transactor.rs","barrier.rs","constants.rs","location_converter.rs","mod.rs","origin_converter.rs","reserve.rs","teleporter.rs","weigher.rs"]]],["mod.rs"]],["relay_chain",[["xcm_config",[],["asset_transactor.rs","barrier.rs","constants.rs","location_converter.rs","mod.rs","origin_converter.rs","weigher.rs"]]],["mod.rs"]]],["lib.rs"]]],\
 ["zombienet_backchannel",["",[],["errors.rs","lib.rs"]]]\

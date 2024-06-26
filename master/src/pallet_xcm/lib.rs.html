@@ -3584,7 +3584,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	},
 	AssetsInHolding,
 };
-<span class="kw">use </span>xcm_fee_payment_runtime_api::{
+<span class="kw">use </span>xcm_runtime_apis::{
 	dry_run::{CallDryRunEffects, Error <span class="kw">as </span>XcmDryRunApiError, XcmDryRunEffects},
 	fees::Error <span class="kw">as </span>XcmPaymentApiError,
 };
@@ -5962,7 +5962,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// Returns not only the call result and events, but also the local XCM, if any,
 	/// and any XCMs forwarded to other locations.
-	/// Meant to be used in the `xcm_fee_payment_runtime_api::dry_run::DryRunApi` runtime API.
+	/// Meant to be used in the `xcm_runtime_apis::dry_run::DryRunApi` runtime API.
 	</span><span class="kw">pub fn </span>dry_run_call&lt;Runtime, Router, OriginCaller, RuntimeCall&gt;(
 		origin: OriginCaller,
 		call: RuntimeCall,
@@ -5994,7 +5994,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Dry-runs `xcm` with the given `origin_location`.
 	///
 	/// Returns execution result, events, and any forwarded XCMs to other locations.
-	/// Meant to be used in the `xcm_fee_payment_runtime_api::dry_run::DryRunApi` runtime API.
+	/// Meant to be used in the `xcm_runtime_apis::dry_run::DryRunApi` runtime API.
 	</span><span class="kw">pub fn </span>dry_run_xcm&lt;Runtime, Router, RuntimeCall, XcmConfig&gt;(
 		origin_location: VersionedLocation,
 		xcm: VersionedXcm&lt;RuntimeCall&gt;,

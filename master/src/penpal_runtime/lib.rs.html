@@ -1266,7 +1266,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	latest::prelude::{AssetId <span class="kw">as </span>AssetLocationId, BodyId},
 	VersionedAssetId, VersionedAssets, VersionedLocation, VersionedXcm,
 };
-<span class="kw">use </span>xcm_fee_payment_runtime_api::{
+<span class="kw">use </span>xcm_runtime_apis::{
 	dry_run::{CallDryRunEffects, Error <span class="kw">as </span>XcmDryRunApiError, XcmDryRunEffects},
 	fees::Error <span class="kw">as </span>XcmPaymentApiError,
 };
@@ -2028,7 +2028,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 	}
 
-	<span class="kw">impl </span>xcm_fee_payment_runtime_api::fees::XcmPaymentApi&lt;Block&gt; <span class="kw">for </span>Runtime {
+	<span class="kw">impl </span>xcm_runtime_apis::fees::XcmPaymentApi&lt;Block&gt; <span class="kw">for </span>Runtime {
 		<span class="kw">fn </span>query_acceptable_payment_assets(xcm_version: xcm::Version) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;VersionedAssetId&gt;, XcmPaymentApiError&gt; {
 			<span class="kw">let </span>acceptable_assets = <span class="macro">vec!</span>[AssetLocationId(xcm_config::RelayLocation::get())];
 			PolkadotXcm::query_acceptable_payment_assets(xcm_version, acceptable_assets)
@@ -2041,11 +2041,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					</span><span class="prelude-val">Ok</span>(WeightToFee::weight_to_fee(<span class="kw-2">&amp;</span>weight))
 				},
 				<span class="prelude-val">Ok</span>(asset_id) =&gt; {
-					<span class="macro">log::trace!</span>(target: <span class="string">"xcm::xcm_fee_payment_runtime_api"</span>, <span class="string">"query_weight_to_asset_fee - unhandled asset_id: {asset_id:?}!"</span>);
+					<span class="macro">log::trace!</span>(target: <span class="string">"xcm::xcm_runtime_apis"</span>, <span class="string">"query_weight_to_asset_fee - unhandled asset_id: {asset_id:?}!"</span>);
 					<span class="prelude-val">Err</span>(XcmPaymentApiError::AssetNotFound)
 				},
 				<span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; {
-					<span class="macro">log::trace!</span>(target: <span class="string">"xcm::xcm_fee_payment_runtime_api"</span>, <span class="string">"query_weight_to_asset_fee - failed to convert asset: {asset:?}!"</span>);
+					<span class="macro">log::trace!</span>(target: <span class="string">"xcm::xcm_runtime_apis"</span>, <span class="string">"query_weight_to_asset_fee - failed to convert asset: {asset:?}!"</span>);
 					<span class="prelude-val">Err</span>(XcmPaymentApiError::VersionedConversionFailed)
 				}
 			}
@@ -2060,7 +2060,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 	}
 
-	<span class="kw">impl </span>xcm_fee_payment_runtime_api::dry_run::DryRunApi&lt;Block, RuntimeCall, RuntimeEvent, OriginCaller&gt; <span class="kw">for </span>Runtime {
+	<span class="kw">impl </span>xcm_runtime_apis::dry_run::DryRunApi&lt;Block, RuntimeCall, RuntimeEvent, OriginCaller&gt; <span class="kw">for </span>Runtime {
 		<span class="kw">fn </span>dry_run_call(origin: OriginCaller, call: RuntimeCall) -&gt; <span class="prelude-ty">Result</span>&lt;CallDryRunEffects&lt;RuntimeEvent&gt;, XcmDryRunApiError&gt; {
 			<span class="kw">use </span>xcm_builder::InspectMessageQueues;
 			<span class="kw">use </span>xcm_executor::RecordXcm;

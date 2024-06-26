@@ -2042,6 +2042,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1891" id="1891">1891</a>
 <a href="#1892" id="1892">1892</a>
 <a href="#1893" id="1893">1893</a>
+<a href="#1894" id="1894">1894</a>
+<a href="#1895" id="1895">1895</a>
+<a href="#1896" id="1896">1896</a>
+<a href="#1897" id="1897">1897</a>
+<a href="#1898" id="1898">1898</a>
+<a href="#1899" id="1899">1899</a>
+<a href="#1900" id="1900">1900</a>
+<a href="#1901" id="1901">1901</a>
+<a href="#1902" id="1902">1902</a>
+<a href="#1903" id="1903">1903</a>
+<a href="#1904" id="1904">1904</a>
+<a href="#1905" id="1905">1905</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -2129,10 +2141,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">use </span>assets_common::{foreign_creators::ForeignCreators, matching::FromSiblingParachain};
 <span class="kw">use </span>polkadot_runtime_common::{BlockHashCount, SlowAdjustingFeeUpdate};
-<span class="kw">use </span>xcm::prelude::{VersionedAssetId, VersionedAssets, VersionedLocation, VersionedXcm};
-
-<span class="comment">// We exclude `Assets` since it's the name of a pallet
-</span><span class="kw">use </span>xcm::latest::prelude::AssetId;
+<span class="kw">use </span>xcm::{
+	latest::prelude::AssetId,
+	prelude::{VersionedAssetId, VersionedAssets, VersionedLocation, VersionedXcm},
+};
 
 <span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 </span><span class="kw">use </span>xcm::latest::prelude::{
@@ -2140,7 +2152,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	NetworkId, NonFungible, Parent, ParentThen, Response, XCM_VERSION,
 };
 
-<span class="kw">use </span>xcm_fee_payment_runtime_api::{
+<span class="kw">use </span>xcm_runtime_apis::{
 	dry_run::{CallDryRunEffects, Error <span class="kw">as </span>XcmDryRunApiError, XcmDryRunEffects},
 	fees::Error <span class="kw">as </span>XcmPaymentApiError,
 };
@@ -3394,7 +3406,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 	}
 
-	<span class="kw">impl </span>xcm_fee_payment_runtime_api::fees::XcmPaymentApi&lt;Block&gt; <span class="kw">for </span>Runtime {
+	<span class="kw">impl </span>xcm_runtime_apis::fees::XcmPaymentApi&lt;Block&gt; <span class="kw">for </span>Runtime {
 		<span class="kw">fn </span>query_acceptable_payment_assets(xcm_version: xcm::Version) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;VersionedAssetId&gt;, XcmPaymentApiError&gt; {
 			<span class="kw">let </span>acceptable_assets = <span class="macro">vec!</span>[AssetId(xcm_config::WestendLocation::get())];
 			PolkadotXcm::query_acceptable_payment_assets(xcm_version, acceptable_assets)
@@ -3407,11 +3419,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					</span><span class="prelude-val">Ok</span>(WeightToFee::weight_to_fee(<span class="kw-2">&amp;</span>weight))
 				},
 				<span class="prelude-val">Ok</span>(asset_id) =&gt; {
-					<span class="macro">log::trace!</span>(target: <span class="string">"xcm::xcm_fee_payment_runtime_api"</span>, <span class="string">"query_weight_to_asset_fee - unhandled asset_id: {asset_id:?}!"</span>);
+					<span class="macro">log::trace!</span>(target: <span class="string">"xcm::xcm_runtime_apis"</span>, <span class="string">"query_weight_to_asset_fee - unhandled asset_id: {asset_id:?}!"</span>);
 					<span class="prelude-val">Err</span>(XcmPaymentApiError::AssetNotFound)
 				},
 				<span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; {
-					<span class="macro">log::trace!</span>(target: <span class="string">"xcm::xcm_fee_payment_runtime_api"</span>, <span class="string">"query_weight_to_asset_fee - failed to convert asset: {asset:?}!"</span>);
+					<span class="macro">log::trace!</span>(target: <span class="string">"xcm::xcm_runtime_apis"</span>, <span class="string">"query_weight_to_asset_fee - failed to convert asset: {asset:?}!"</span>);
 					<span class="prelude-val">Err</span>(XcmPaymentApiError::VersionedConversionFailed)
 				}
 			}
@@ -3426,13 +3438,25 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 	}
 
-	<span class="kw">impl </span>xcm_fee_payment_runtime_api::dry_run::DryRunApi&lt;Block, RuntimeCall, RuntimeEvent, OriginCaller&gt; <span class="kw">for </span>Runtime {
+	<span class="kw">impl </span>xcm_runtime_apis::dry_run::DryRunApi&lt;Block, RuntimeCall, RuntimeEvent, OriginCaller&gt; <span class="kw">for </span>Runtime {
 		<span class="kw">fn </span>dry_run_call(origin: OriginCaller, call: RuntimeCall) -&gt; <span class="prelude-ty">Result</span>&lt;CallDryRunEffects&lt;RuntimeEvent&gt;, XcmDryRunApiError&gt; {
 			PolkadotXcm::dry_run_call::&lt;Runtime, xcm_config::XcmRouter, OriginCaller, RuntimeCall&gt;(origin, call)
 		}
 
 		<span class="kw">fn </span>dry_run_xcm(origin_location: VersionedLocation, xcm: VersionedXcm&lt;RuntimeCall&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;XcmDryRunEffects&lt;RuntimeEvent&gt;, XcmDryRunApiError&gt; {
 			PolkadotXcm::dry_run_xcm::&lt;Runtime, xcm_config::XcmRouter, RuntimeCall, xcm_config::XcmConfig&gt;(origin_location, xcm)
+		}
+	}
+
+	<span class="kw">impl </span>xcm_runtime_apis::conversions::LocationToAccountApi&lt;Block, AccountId&gt; <span class="kw">for </span>Runtime {
+		<span class="kw">fn </span>convert_location(location: VersionedLocation) -&gt; <span class="prelude-ty">Result</span>&lt;
+			AccountId,
+			xcm_runtime_apis::conversions::Error
+		&gt; {
+			xcm_runtime_apis::conversions::LocationToAccountHelper::&lt;
+				AccountId,
+				xcm_config::LocationToAccountId,
+			&gt;::convert_location(location)
 		}
 	}
 

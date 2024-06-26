@@ -977,30 +977,30 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 	}
 
-	<span class="kw">impl </span>xcm_fee_payment_runtime_api::fees::XcmPaymentApi&lt;Block&gt; <span class="kw">for </span>Runtime {
-		<span class="kw">fn </span>query_acceptable_payment_assets(<span class="kw">_</span>: xcm::Version) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;VersionedAssetId&gt;, xcm_fee_payment_runtime_api::fees::Error&gt; {
+	<span class="kw">impl </span>xcm_runtime_apis::fees::XcmPaymentApi&lt;Block&gt; <span class="kw">for </span>Runtime {
+		<span class="kw">fn </span>query_acceptable_payment_assets(<span class="kw">_</span>: xcm::Version) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;VersionedAssetId&gt;, xcm_runtime_apis::fees::Error&gt; {
 			<span class="macro">unimplemented!</span>()
 		}
 
-		<span class="kw">fn </span>query_weight_to_asset_fee(<span class="kw">_</span>: Weight, <span class="kw">_</span>: VersionedAssetId) -&gt; <span class="prelude-ty">Result</span>&lt;u128, xcm_fee_payment_runtime_api::fees::Error&gt; {
+		<span class="kw">fn </span>query_weight_to_asset_fee(<span class="kw">_</span>: Weight, <span class="kw">_</span>: VersionedAssetId) -&gt; <span class="prelude-ty">Result</span>&lt;u128, xcm_runtime_apis::fees::Error&gt; {
 			<span class="macro">unimplemented!</span>()
 		}
 
-		<span class="kw">fn </span>query_xcm_weight(<span class="kw">_</span>: VersionedXcm&lt;()&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;Weight, xcm_fee_payment_runtime_api::fees::Error&gt; {
+		<span class="kw">fn </span>query_xcm_weight(<span class="kw">_</span>: VersionedXcm&lt;()&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;Weight, xcm_runtime_apis::fees::Error&gt; {
 			<span class="macro">unimplemented!</span>()
 		}
 
-		<span class="kw">fn </span>query_delivery_fees(<span class="kw">_</span>: VersionedLocation, <span class="kw">_</span>: VersionedXcm&lt;()&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;VersionedAssets, xcm_fee_payment_runtime_api::fees::Error&gt; {
+		<span class="kw">fn </span>query_delivery_fees(<span class="kw">_</span>: VersionedLocation, <span class="kw">_</span>: VersionedXcm&lt;()&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;VersionedAssets, xcm_runtime_apis::fees::Error&gt; {
 			<span class="macro">unimplemented!</span>()
 		}
 	}
 
-	<span class="kw">impl </span>xcm_fee_payment_runtime_api::dry_run::DryRunApi&lt;Block, (), (), ()&gt; <span class="kw">for </span>Runtime {
-		<span class="kw">fn </span>dry_run_call(<span class="kw">_</span>: (), <span class="kw">_</span>: ()) -&gt; <span class="prelude-ty">Result</span>&lt;xcm_fee_payment_runtime_api::dry_run::CallDryRunEffects&lt;()&gt;, xcm_fee_payment_runtime_api::dry_run::Error&gt; {
+	<span class="kw">impl </span>xcm_runtime_apis::dry_run::DryRunApi&lt;Block, (), (), ()&gt; <span class="kw">for </span>Runtime {
+		<span class="kw">fn </span>dry_run_call(<span class="kw">_</span>: (), <span class="kw">_</span>: ()) -&gt; <span class="prelude-ty">Result</span>&lt;xcm_runtime_apis::dry_run::CallDryRunEffects&lt;()&gt;, xcm_runtime_apis::dry_run::Error&gt; {
 			<span class="macro">unimplemented!</span>()
 		}
 
-		<span class="kw">fn </span>dry_run_xcm(<span class="kw">_</span>: VersionedLocation, <span class="kw">_</span>: VersionedXcm&lt;()&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;xcm_fee_payment_runtime_api::dry_run::XcmDryRunEffects&lt;()&gt;, xcm_fee_payment_runtime_api::dry_run::Error&gt; {
+		<span class="kw">fn </span>dry_run_xcm(<span class="kw">_</span>: VersionedLocation, <span class="kw">_</span>: VersionedXcm&lt;()&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;xcm_runtime_apis::dry_run::XcmDryRunEffects&lt;()&gt;, xcm_runtime_apis::dry_run::Error&gt; {
 			<span class="macro">unimplemented!</span>()
 		}
 	}
