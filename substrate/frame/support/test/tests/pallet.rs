@@ -1820,9 +1820,9 @@ fn metadata() {
 		},
 	];
 
-	let empty_doc = pallets[0].event.as_ref().unwrap().ty.type_info().docs.is_empty()
-		&& pallets[0].error.as_ref().unwrap().ty.type_info().docs.is_empty()
-		&& pallets[0].calls.as_ref().unwrap().ty.type_info().docs.is_empty();
+	let empty_doc = pallets[0].event.as_ref().unwrap().ty.type_info().docs.is_empty() &&
+		pallets[0].error.as_ref().unwrap().ty.type_info().docs.is_empty() &&
+		pallets[0].calls.as_ref().unwrap().ty.type_info().docs.is_empty();
 
 	if cfg!(feature = "no-metadata-docs") {
 		assert!(empty_doc)
@@ -2402,8 +2402,8 @@ fn post_runtime_upgrade_detects_storage_version_issues() {
 
 		// The version isn't changed, we should detect it.
 		assert!(
-			Executive::try_runtime_upgrade(UpgradeCheckSelect::PreAndPost).unwrap_err()
-				== "On chain and in-code storage version do not match. Missing runtime upgrade?"
+			Executive::try_runtime_upgrade(UpgradeCheckSelect::PreAndPost).unwrap_err() ==
+				"On chain and in-code storage version do not match. Missing runtime upgrade?"
 					.into()
 		);
 	});
@@ -2433,9 +2433,10 @@ fn post_runtime_upgrade_detects_storage_version_issues() {
 		// any storage version "enabled".
 		assert!(
 			ExecutiveWithUpgradePallet4::try_runtime_upgrade(UpgradeCheckSelect::PreAndPost)
-				.unwrap_err() == "On chain storage version set, while the pallet \
+				.unwrap_err() ==
+				"On chain storage version set, while the pallet \
 				doesn't have the `#[pallet::storage_version(VERSION)]` attribute."
-				.into()
+					.into()
 		);
 	});
 }
@@ -2462,11 +2463,11 @@ fn test_dispatch_context() {
 fn test_call_feature_parsing() {
 	let call = pallet::Call::<Runtime>::check_for_dispatch_context {};
 	match call {
-		pallet::Call::<Runtime>::check_for_dispatch_context {}
-		| pallet::Call::<Runtime>::foo { .. }
-		| pallet::Call::foo_storage_layer { .. }
-		| pallet::Call::foo_index_out_of_order {}
-		| pallet::Call::foo_no_post_info {} => (),
+		pallet::Call::<Runtime>::check_for_dispatch_context {} |
+		pallet::Call::<Runtime>::foo { .. } |
+		pallet::Call::foo_storage_layer { .. } |
+		pallet::Call::foo_index_out_of_order {} |
+		pallet::Call::foo_no_post_info {} => (),
 		#[cfg(feature = "frame-feature-testing")]
 		pallet::Call::foo_feature_test {} => (),
 		pallet::Call::__Ignore(_, _) => (),
@@ -2477,11 +2478,11 @@ fn test_call_feature_parsing() {
 fn test_error_feature_parsing() {
 	let err = pallet::Error::<Runtime>::InsufficientProposersBalance;
 	match err {
-		pallet::Error::InsufficientProposersBalance
-		| pallet::Error::NonExistentStorageValue
-		| pallet::Error::Code(_)
-		| pallet::Error::Skipped(_)
-		| pallet::Error::CompactU8(_) => (),
+		pallet::Error::InsufficientProposersBalance |
+		pallet::Error::NonExistentStorageValue |
+		pallet::Error::Code(_) |
+		pallet::Error::Skipped(_) |
+		pallet::Error::CompactU8(_) => (),
 		#[cfg(feature = "frame-feature-testing")]
 		pallet::Error::FeatureTest => (),
 		pallet::Error::__Ignore(_, _) => (),
