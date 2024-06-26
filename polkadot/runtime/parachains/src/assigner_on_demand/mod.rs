@@ -637,10 +637,10 @@ where
 		let now = <frame_system::Pallet<T>>::block_number();
 		let mut amount: BalanceOf<T> = BalanceOf::<T>::zero();
 		Revenue::<T>::mutate(|revenue| {
-			while let Some(rev) = revenue.pop() {
-				let index = revenue.len() as u32;
+			while !revenue.is_empty() {
+				let index = (revenue.len() - 1) as u32;
 				if when > now.saturating_sub(index.into()) {
-					amount = amount.saturating_add(rev);
+					amount = amount.saturating_add(revenue.pop().defensive_unwrap_or(0u32.into()));
 				} else {
 					break
 				}
