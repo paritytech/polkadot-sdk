@@ -88,8 +88,8 @@ use sp_runtime::{
 	curve::PiecewiseLinear,
 	generic, impl_opaque_keys,
 	traits::{
-		BlakeTwo256, Block as BlockT, ConvertInto, Extrinsic as ExtrinsicT, IdentityLookup,
-		Keccak256, OpaqueKeys, SaturatedConversion, Verify,
+		AccountIdConversion, BlakeTwo256, Block as BlockT, ConvertInto, Extrinsic as ExtrinsicT,
+		IdentityLookup, Keccak256, OpaqueKeys, SaturatedConversion, Verify,
 	},
 	transaction_validity::{TransactionPriority, TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult, FixedU128, KeyTypeId, Perbill, Percent, Permill,
@@ -122,7 +122,12 @@ use sp_runtime::traits::Get;
 pub use sp_runtime::BuildStorage;
 
 /// Constant values used within the runtime.
-use westend_runtime_constants::{currency::*, fee::*, system_parachain::BROKER_ID, time::*};
+use westend_runtime_constants::{
+	currency::*,
+	fee::*,
+	system_parachain::{coretime::TIMESLICE_PERIOD, BROKER_ID},
+	time::*,
+};
 
 mod bag_thresholds;
 mod weights;
@@ -1185,7 +1190,16 @@ impl parachains_scheduler::Config for Runtime {
 
 parameter_types! {
 	pub const BrokerId: u32 = BROKER_ID;
+	pub const BrokerPalletId: PalletId = PalletId(*b"py/broke");
 	pub MaxXcmTransactWeight: Weight = Weight::from_parts(200_000_000, 20_000);
+}
+
+pub struct BrokerPot;
+impl Get<InteriorLocation> for BrokerPot {
+	fn get() -> InteriorLocation {
+		Junction::AccountId32 { network: None, id: BrokerPalletId::get().into_account_truncating() }
+			.into()
+	}
 }
 
 impl coretime::Config for Runtime {
@@ -1193,13 +1207,22 @@ impl coretime::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Currency = Balances;
 	type BrokerId = BrokerId;
+	type BrokerPotLocation = BrokerPot;
 	type WeightInfo = weights::runtime_parachains_coretime::WeightInfo<Runtime>;
 	type SendXcm = crate::xcm_config::XcmRouter;
+	type AssetTransactor = crate::xcm_config::LocalAssetTransactor;
+	type AccountToLocation = xcm_builder::AliasesIntoAccountId32<
+		xcm_config::ThisNetwork,
+		<Runtime as frame_system::Config>::AccountId,
+	>;
 	type MaxXcmTransactWeight = MaxXcmTransactWeight;
 }
 
 parameter_types! {
 	pub const OnDemandTrafficDefaultValue: FixedU128 = FixedU128::from_u32(1);
+	// Keep 2 timeslices worth of revenue information.
+	pub const MaxHistoricalRevenue: BlockNumber = 2 * TIMESLICE_PERIOD;
+	pub const OnDemandPalletId: PalletId = PalletId(*b"py/ondmd");
 }
 
 impl parachains_assigner_on_demand::Config for Runtime {
@@ -1207,6 +1230,8 @@ impl parachains_assigner_on_demand::Config for Runtime {
 	type Currency = Balances;
 	type TrafficDefaultValue = OnDemandTrafficDefaultValue;
 	type WeightInfo = weights::runtime_parachains_assigner_on_demand::WeightInfo<Runtime>;
+	type MaxHistoricalRevenue = MaxHistoricalRevenue;
+	type PalletId = OnDemandPalletId;
 }
 
 impl parachains_assigner_coretime::Config for Runtime {}
