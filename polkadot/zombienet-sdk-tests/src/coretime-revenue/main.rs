@@ -22,7 +22,7 @@ use rococo::api::runtime_types::{
 use serde_json::json;
 use std::{
 	fmt::Display,
-	sync::{Arc, RwLock},
+	sync::Arc,
 };
 use subxt::{
 	blocks::ExtrinsicEvents,
@@ -34,6 +34,7 @@ use subxt::{
 };
 use subxt_signer::sr25519::dev;
 use tokio::time::Duration;
+use tokio::sync::RwLock;
 use zombienet_sdk::NetworkConfigBuilder;
 
 mod coretime_rococo;
@@ -115,7 +116,7 @@ where
 			let event = event.unwrap();
 			log::debug!("Got event: {} :: {}", event.pallet_name(), event.variant_name());
 			{
-				events.write().unwrap().push((block.number().into(), event.clone()));
+				events.write().await.push((block.number().into(), event.clone()));
 			}
 			if event.pallet_name() == "Broker" {
 				match event.variant_name() {
@@ -169,7 +170,7 @@ async fn wait_for_para_event<C: subxt::Config + Clone, E: StaticEvent, P: Fn(&E)
 	predicate: P,
 ) -> E {
 	loop {
-		let mut events = events.write().unwrap();
+		let mut events = events.write().await;
 		if let Some(entry) = events.iter().find(|&e| {
 			e.1.pallet_name() == pallet &&
 				e.1.variant_name() == variant &&
