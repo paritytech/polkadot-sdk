@@ -20,9 +20,7 @@
 
 use crate::{
 	config::{NetworkConfiguration, ProtocolId},
-	multiaddr::Protocol,
 	peer_store::PeerStoreProvider,
-	Multiaddr,
 };
 
 use array_bytes::bytes2hex;
@@ -36,12 +34,13 @@ use litep2p::{
 			identify::{Config as IdentifyConfig, IdentifyEvent},
 			kademlia::{
 				Config as KademliaConfig, ConfigBuilder as KademliaConfigBuilder, KademliaEvent,
-				KademliaHandle, QueryId, Quorum, Record, RecordKey,
+				KademliaHandle, QueryId, Quorum, Record, RecordKey, RecordsType,
 			},
 			ping::{Config as PingConfig, PingEvent},
 		},
 		mdns::{Config as MdnsConfig, MdnsEvent},
 	},
+	types::multiaddr::{Multiaddr, Protocol},
 	PeerId, ProtocolName,
 };
 use parking_lot::RwLock;
@@ -124,8 +123,8 @@ pub enum DiscoveryEvent {
 		/// Query ID.
 		query_id: QueryId,
 
-		/// Record.
-		record: Record,
+		/// Records.
+		records: RecordsType,
 	},
 
 	/// Record was successfully stored on the DHT.
@@ -227,7 +226,7 @@ impl Discovery {
 		let (identify_config, identify_event_stream) = IdentifyConfig::new(
 			"/substrate/1.0".to_string(),
 			Some(user_agent),
-			config.public_addresses.clone(),
+			config.public_addresses.clone().into_iter().map(Into::into).collect(),
 		);
 
 		let (mdns_config, mdns_event_stream) = match config.transport {
@@ -266,7 +265,7 @@ impl Discovery {
 				duration_to_next_find_query: Duration::from_secs(1),
 				address_confirmations: LruMap::new(ByLength::new(8)),
 				allow_non_global_addresses: config.allow_non_globals_in_dht,
-				public_addresses: config.public_addresses.iter().cloned().collect(),
+				public_addresses: config.public_addresses.iter().cloned().map(Into::into).collect(),
 				next_kad_query: Some(Delay::new(KADEMLIA_QUERY_INTERVAL)),
 				local_protocols: HashSet::from_iter([kademlia_protocol_name(
 					genesis_hash,
@@ -461,16 +460,13 @@ impl Stream for Discovery {
 					peers: peers.into_iter().collect(),
 				}))
 			},
-			Poll::Ready(Some(KademliaEvent::GetRecordSuccess { query_id, record })) => {
+			Poll::Ready(Some(KademliaEvent::GetRecordSuccess { query_id, records })) => {
 				log::trace!(
 					target: LOG_TARGET,
-					"`GET_RECORD` succeeded for {query_id:?}: {record:?}",
+					"`GET_RECORD` succeeded for {query_id:?}: {records:?}",
 				);
 
-				return Poll::Ready(Some(DiscoveryEvent::GetRecordSuccess {
-					query_id,
-					record: record.record,
-				}));
+				return Poll::Ready(Some(DiscoveryEvent::GetRecordSuccess { query_id, records }));
 			},
 			Poll::Ready(Some(KademliaEvent::PutRecordSucess { query_id, key: _ })) =>
 				return Poll::Ready(Some(DiscoveryEvent::PutRecordSuccess { query_id })),
