@@ -22,7 +22,7 @@ mod call_builder;
 mod code;
 mod sandbox;
 use self::{
-	call_builder::{CallSetup, StackExt},
+	call_builder::CallSetup,
 	code::{body, ImportedMemory, Location, ModuleDefinition, WasmModule},
 	sandbox::Sandbox,
 };
@@ -182,24 +182,6 @@ fn caller_funding<T: Config>() -> BalanceOf<T> {
 	// Minting can overflow, so we can't abuse of the funding. This value happens to be big enough,
 	// but not too big to make the total supply overflow.
 	BalanceOf::<T>::max_value() / 10_000u32.into()
-}
-
-fn dummy_transient_storage<T: Config>(
-	ext: &mut StackExt<T>,
-	stor_size: u32,
-) -> Result<(), BenchmarkError> {
-	for i in 0u32.. {
-		let key =
-			Key::<T>::try_from_var(i.to_le_bytes().to_vec()).map_err(|_| "Key has wrong length")?;
-		if ext
-			.set_transient_storage(&key, Some(vec![42u8; stor_size as usize]), false)
-			.is_err()
-		{
-			ext.transient_storage().meter().clear();
-			break;
-		}
-	}
-	Ok(())
 }
 
 #[benchmarks(
@@ -1190,8 +1172,8 @@ mod benchmarks {
 
 		let mut setup = CallSetup::<T>::default();
 		let (mut ext, _) = setup.ext();
+		CallSetup::<T>::with_transient_storage(&mut ext);
 		let mut runtime = crate::wasm::Runtime::new(&mut ext, vec![]);
-		dummy_transient_storage::<T>(runtime.ext(), 1)?;
 		runtime.ext().transient_storage().start_transaction();
 		runtime
 			.ext()
@@ -1214,8 +1196,7 @@ mod benchmarks {
 			.map_err(|_| "Key has wrong length")?;
 		let value = vec![1u8; max_value_len as usize];
 		build_runtime!(runtime, memory: [ key.to_vec(), value.clone(), ]);
-
-		dummy_transient_storage::<T>(runtime.ext(), 1)?;
+		CallSetup::<T>::with_transient_storage(runtime.ext());
 		runtime
 			.ext()
 			.set_transient_storage(&key, Some(vec![42u8; max_value_len as usize]), false)
@@ -1246,8 +1227,7 @@ mod benchmarks {
 		let key = Key::<T>::try_from_var(vec![0u8; max_key_len as usize])
 			.map_err(|_| "Key has wrong length")?;
 		build_runtime!(runtime, memory: [ key.to_vec(), ]);
-
-		dummy_transient_storage::<T>(runtime.ext(), 1)?;
+		CallSetup::<T>::with_transient_storage(runtime.ext());
 		runtime
 			.ext()
 			.set_transient_storage(&key, Some(vec![42u8; max_value_len as usize]), false)
@@ -1272,7 +1252,7 @@ mod benchmarks {
 		let key = Key::<T>::try_from_var(vec![0u8; max_key_len as usize])
 			.map_err(|_| "Key has wrong length")?;
 		build_runtime!(runtime, memory: [ key.to_vec(), max_value_len.to_le_bytes(), vec![0u8; max_value_len as _], ]);
-		dummy_transient_storage::<T>(runtime.ext(), 1)?;
+		CallSetup::<T>::with_transient_storage(runtime.ext());
 		runtime
 			.ext()
 			.set_transient_storage(&key, Some(vec![42u8; max_value_len as usize]), false)
@@ -1307,7 +1287,7 @@ mod benchmarks {
 		let key = Key::<T>::try_from_var(vec![0u8; max_key_len as usize])
 			.map_err(|_| "Key has wrong length")?;
 		build_runtime!(runtime, memory: [ key.to_vec(), ]);
-		dummy_transient_storage::<T>(runtime.ext(), 1)?;
+		CallSetup::<T>::with_transient_storage(runtime.ext());
 		runtime
 			.ext()
 			.set_transient_storage(&key, Some(vec![42u8; max_value_len as usize]), false)
@@ -1335,7 +1315,7 @@ mod benchmarks {
 		let key = Key::<T>::try_from_var(vec![0u8; max_key_len as usize])
 			.map_err(|_| "Key has wrong length")?;
 		build_runtime!(runtime, memory: [ key.to_vec(), max_value_len.to_le_bytes(), vec![0u8; max_value_len as _], ]);
-		dummy_transient_storage::<T>(runtime.ext(), 1)?;
+		CallSetup::<T>::with_transient_storage(runtime.ext());
 		let value = vec![42u8; max_value_len as usize];
 		runtime
 			.ext()

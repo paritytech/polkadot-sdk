@@ -17,7 +17,7 @@
 
 use crate::{
 	benchmarking::{Contract, WasmModule},
-	exec::Stack,
+	exec::{Ext, Key, Stack},
 	storage::meter::Meter,
 	wasm::Runtime,
 	BalanceOf, Config, DebugBufferVec, Determinism, ExecReturnValue, GasMeter, Origin, Schedule,
@@ -158,6 +158,17 @@ where
 			self.debug_message.as_mut(),
 			self.determinism,
 		)
+	}
+
+	/// Add transient_storage
+	pub fn with_transient_storage(ext: &mut StackExt<T>) {
+		for i in 0u32.. {
+			let key = Key::<T>::try_from_var(i.to_le_bytes().to_vec()).unwrap();
+			if ext.set_transient_storage(&key, Some(Vec::new()), false).is_err() {
+				ext.transient_storage().meter().clear();
+				break;
+			}
+		}
 	}
 
 	/// Prepare a call to the module.

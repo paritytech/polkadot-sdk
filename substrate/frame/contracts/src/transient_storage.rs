@@ -26,12 +26,7 @@ use codec::Encode;
 use core::marker::PhantomData;
 use frame_support::DefaultNoBound;
 use sp_runtime::{DispatchError, DispatchResult};
-use sp_std::{
-	collections::btree_map::BTreeMap,
-	mem,
-	ops::Bound::{Included, Unbounded},
-	vec::Vec,
-};
+use sp_std::{collections::btree_map::BTreeMap, mem, vec::Vec};
 
 /// Meter entry tracks transaction allocations.
 #[derive(Default, Debug)]
@@ -109,9 +104,10 @@ impl<T: Config> StorageMeter<T> {
 	/// Start a transaction meter.
 	pub fn start(&mut self) {
 		let meter = self.top_meter();
-		let free = meter.limit - meter.amount;
+		let free = meter.limit.saturating_sub(meter.amount);
 		let transaction_limit = if !self.nested_meters.is_empty() {
-			// Allow use of (1 - 1/cost_value) of free storage for subsequent calls.
+			// Allow use of (1 - 1/STORAGE_FRACTION_DENOMINATOR) of free storage for subsequent
+			// calls.
 			free.saturating_sub(free.saturating_div(Self::STORAGE_FRACTION_DENOMINATOR))
 		} else {
 			free
@@ -207,14 +203,6 @@ impl Storage {
 		}
 	}
 
-	/// Get the storage keys for the account.
-	pub fn keys<'a>(&'a self, account: &'a [u8]) -> impl Iterator<Item = Vec<u8>> + 'a {
-		self.0
-			.range((Included(account.to_vec()), Unbounded))
-			.take_while(|(key, _)| key.starts_with(account))
-			.map(|(key, _)| key[account.len()..].to_vec())
-	}
-
 	fn storage_key(account: &[u8], key: &[u8]) -> Vec<u8> {
 		let mut storage_key = Vec::with_capacity(account.len() + key.len());
 		storage_key.extend_from_slice(&account);
@@ -232,7 +220,7 @@ impl Storage {
 /// On `rollback_transaction`, all entries are reverted up to the last checkpoint.
 pub struct TransientStorage<T: Config> {
 	// The storage and journal size is limited by the storage meter.
-	current: Storage,
+	storage: Storage,
 	journal: Journal,
 	// The size of the StorageMeter is limited by the stack depth.
 	meter: StorageMeter<T>,
@@ -243,7 +231,7 @@ pub struct TransientStorage<T: Config> {
 impl<T: Config> TransientStorage<T> {
 	pub fn new(memory_limit: u32) -> Self {
 		TransientStorage {
-			current: Default::default(),
+			storage: Default::default(),
 			journal: Journal::new(),
 			checkpoints: Default::default(),
 			meter: StorageMeter::new(memory_limit),
@@ -252,7 +240,7 @@ impl<T: Config> TransientStorage<T> {
 
 	/// Read the storage entry.
 	pub fn read(&self, account: &AccountIdOf<T>, key: &Key<T>) -> Option<Vec<u8>> {
-		self.current.read(&account.encode(), &key.hash())
+		self.storage.read(&account.encode(), &key.hash())
 	}
 
 	/// Write a value to storage.
@@ -291,7 +279,7 @@ impl<T: Config> TransientStorage<T> {
 				}
 				self.meter.charge(amount as _)?;
 			}
-			self.current.write(&account, &key, value);
+			self.storage.write(&account, &key, value);
 			// Update the journal.
 			self.journal.push(JournalEntry::new(&account, &key, prev_value.clone()));
 		}
@@ -301,18 +289,6 @@ impl<T: Config> TransientStorage<T> {
 			(false, Some(prev_value)) => WriteOutcome::Overwritten(prev_value.len() as _),
 			(true, Some(prev_value)) => WriteOutcome::Taken(prev_value),
 		})
-	}
-
-	/// Remove a contract, clearing all its storage entries.
-	pub fn remove(&mut self, account: &AccountIdOf<T>) {
-		let account = account.encode();
-		// Remove all account entries.
-		let keys = self.current.keys(&account).collect::<Vec<_>>();
-		for key in keys {
-			let prev_value = self.current.write(&account, &key, None);
-			// Update the journal.
-			self.journal.push(JournalEntry::new(&account, &key, prev_value));
-		}
 	}
 
 	/// Start a new nested transaction.
@@ -338,7 +314,7 @@ impl<T: Config> TransientStorage<T> {
 			.pop()
 			.expect("No open transient storage transaction that can be rolled back.");
 		self.meter.revert();
-		self.journal.rollback(&mut self.current, checkpoint);
+		self.journal.rollback(&mut self.storage, checkpoint);
 	}
 
 	/// Commit the last transaction started by `start_transaction`.
@@ -377,7 +353,7 @@ mod tests {
 			Ok(WriteOutcome::New)
 		);
 		assert_eq!(
-			storage.write(&ALICE, &Key::Fix([2; 32]), Some(vec![2]), false),
+			storage.write(&ALICE, &Key::Fix([2; 32]), Some(vec![2]), true),
 			Ok(WriteOutcome::New)
 		);
 		assert_eq!(
@@ -399,67 +375,63 @@ mod tests {
 		assert_eq!(storage.read(&ALICE, &Key::Fix([1; 32])), Some(vec![1]));
 		assert_eq!(storage.read(&ALICE, &Key::Fix([2; 32])), Some(vec![4, 5]));
 		assert_eq!(storage.read(&BOB, &Key::Fix([3; 32])), Some(vec![6, 7]));
+
+		assert_eq!(
+			storage.write(&BOB, &Key::Fix([3; 32]), Some(vec![]), true),
+			Ok(WriteOutcome::Taken(vec![6, 7]))
+		);
+		assert_eq!(storage.read(&BOB, &Key::Fix([3; 32])), Some(vec![]));
+
+		assert_eq!(
+			storage.write(&BOB, &Key::Fix([3; 32]), None, true),
+			Ok(WriteOutcome::Taken(vec![]))
+		);
+		assert_eq!(storage.read(&BOB, &Key::Fix([3; 32])), None);
 	}
 
 	#[test]
-	fn remove_transaction_works() {
-		let mut storage = TransientStorage::<Test>::new(1024);
+	fn read_write_with_var_sized_keys_works() {
+		let mut storage = TransientStorage::<Test>::new(2048);
 		assert_eq!(
-			storage.write(&ALICE, &Key::Fix([1; 32]), Some(vec![1]), false),
+			storage.write(
+				&ALICE,
+				&Key::<Test>::try_from_var([1; 64].to_vec()).unwrap(),
+				Some(vec![1]),
+				false
+			),
 			Ok(WriteOutcome::New)
 		);
 		assert_eq!(
-			storage.write(&ALICE, &Key::Fix([2; 32]), Some(vec![2]), false),
+			storage.write(
+				&BOB,
+				&Key::<Test>::try_from_var([2; 64].to_vec()).unwrap(),
+				Some(vec![2, 3]),
+				false
+			),
 			Ok(WriteOutcome::New)
 		);
 		assert_eq!(
-			storage.write(&BOB, &Key::Fix([1; 32]), Some(vec![3]), false),
-			Ok(WriteOutcome::New)
+			storage.read(&ALICE, &Key::<Test>::try_from_var([1; 64].to_vec()).unwrap()),
+			Some(vec![1])
 		);
-		storage.remove(&ALICE);
-		assert_eq!(storage.read(&ALICE, &Key::Fix([1; 32])), None);
-		assert_eq!(storage.read(&ALICE, &Key::Fix([2; 32])), None);
-		assert_eq!(storage.read(&BOB, &Key::Fix([1; 32])), Some(vec![3]));
-	}
-
-	#[test]
-	fn commit_remove_transaction_works() {
-		let mut storage = TransientStorage::<Test>::new(1024);
-		storage.start_transaction();
 		assert_eq!(
-			storage.write(&ALICE, &Key::Fix([1; 32]), Some(vec![1]), false),
-			Ok(WriteOutcome::New)
+			storage.read(&BOB, &Key::<Test>::try_from_var([2; 64].to_vec()).unwrap()),
+			Some(vec![2, 3])
 		);
-		storage.remove(&ALICE);
-		storage.commit_transaction();
-		assert_eq!(storage.read(&ALICE, &Key::Fix([1; 32])), None);
-
-		storage.start_transaction();
-		storage.start_transaction();
+		// Overwrite values.
 		assert_eq!(
-			storage.write(&ALICE, &Key::Fix([1; 32]), Some(vec![1]), false),
-			Ok(WriteOutcome::New)
+			storage.write(
+				&ALICE,
+				&Key::<Test>::try_from_var([1; 64].to_vec()).unwrap(),
+				Some(vec![4, 5]),
+				false
+			),
+			Ok(WriteOutcome::Overwritten(1))
 		);
-		storage.commit_transaction();
-		storage.remove(&ALICE);
-		storage.commit_transaction();
-		assert_eq!(storage.read(&ALICE, &Key::Fix([1; 32])), None);
-	}
-
-	#[test]
-	fn rollback_remove_transaction_works() {
-		let mut storage = TransientStorage::<Test>::new(1024);
-		storage.start_transaction();
 		assert_eq!(
-			storage.write(&ALICE, &Key::Fix([1; 32]), Some(vec![1]), false),
-			Ok(WriteOutcome::New)
+			storage.read(&ALICE, &Key::<Test>::try_from_var([1; 64].to_vec()).unwrap()),
+			Some(vec![4, 5])
 		);
-		storage.start_transaction();
-		storage.remove(&ALICE);
-		assert_eq!(storage.read(&ALICE, &Key::Fix([1; 32])), None);
-		storage.rollback_transaction();
-		storage.commit_transaction();
-		assert_eq!(storage.read(&ALICE, &Key::Fix([1; 32])), Some(vec![1]));
 	}
 
 	#[test]
@@ -550,7 +522,7 @@ mod tests {
 	}
 
 	#[test]
-	fn commit_rollback_in_nested_transaction_works() {
+	fn rollback_all_transactions_works() {
 		let mut storage = TransientStorage::<Test>::new(1024);
 		storage.start_transaction();
 		assert_eq!(
@@ -568,9 +540,9 @@ mod tests {
 			Ok(WriteOutcome::New)
 		);
 		storage.commit_transaction();
-		storage.rollback_transaction();
 		storage.commit_transaction();
-		assert_eq!(storage.read(&ALICE, &Key::Fix([1; 32])), Some(vec![1]));
+		storage.rollback_transaction();
+		assert_eq!(storage.read(&ALICE, &Key::Fix([1; 32])), None);
 		assert_eq!(storage.read(&BOB, &Key::Fix([1; 32])), None);
 		assert_eq!(storage.read(&CHARLIE, &Key::Fix([1; 32])), None);
 	}
@@ -578,7 +550,7 @@ mod tests {
 	#[test]
 	fn metering_transactions_works() {
 		// 192 bytes is the allocation overhead, plus 32 bytes for the account and 32 bytes for the
-		// key. Call stack size is 2, so free storage is divided by 2 with each frame.
+		// key. The first transaction can use all the available storage.
 		let mut storage = TransientStorage::<Test>::new((4096 + 256) * 2);
 		storage.start_transaction();
 		assert_eq!(

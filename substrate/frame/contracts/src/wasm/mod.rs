@@ -811,11 +811,6 @@ mod tests {
 		fn contract_info(&mut self) -> &mut crate::ContractInfo<Self::T> {
 			unimplemented!()
 		}
-		fn transient_storage(
-			&mut self,
-		) -> &mut crate::transient_storage::TransientStorage<Self::T> {
-			unimplemented!()
-		}
 		fn ecdsa_to_eth_address(&self, _pk: &[u8; 33]) -> Result<[u8; 20], ()> {
 			Ok([2u8; 20])
 		}
