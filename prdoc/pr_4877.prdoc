@@ -3,7 +3,7 @@ title: "Core-Fellowship: new promote_fast call"
 doc:
   - audience: Runtime User
     description: |
-      Adds the ability quickly promote someone within a collective by bypassing the promotion
+      Adds the ability to quickly promote someone within a collective by bypassing the promotion
       cooldown. This can help in special situations and comes with a new origin: `FastPromoteOrigin`.
 
 crates:
