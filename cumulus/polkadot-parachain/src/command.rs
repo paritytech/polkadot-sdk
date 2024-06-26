@@ -18,6 +18,7 @@ use crate::{
 	chain_spec,
 	chain_spec::GenericChainSpec,
 	cli::{Cli, RelayChainCli, Subcommand},
+	common::command::CmdRunner,
 	fake_runtime_api::{
 		asset_hub_polkadot_aura::RuntimeApi as AssetHubPolkadotRuntimeApi, aura::RuntimeApi,
 	},
@@ -382,146 +383,47 @@ impl SubstrateCli for RelayChainCli {
 	}
 }
 
-/// Creates partial components for the runtimes that are supported by the benchmarks.
-macro_rules! construct_partials {
-	($config:expr, |$partials:ident| $code:expr) => {
-		match $config.chain_spec.runtime()? {
-			Runtime::AssetHubPolkadot => {
-				let $partials = new_partial::<AssetHubPolkadotRuntimeApi, _>(
-					&$config,
-					crate::service::build_relay_to_aura_import_queue::<_, AssetHubPolkadotAuraId>,
-				)?;
-				$code
-			},
-			Runtime::AssetHub |
-			Runtime::BridgeHub(_) |
-			Runtime::Collectives |
-			Runtime::Coretime(_) |
-			Runtime::People(_) => {
-				let $partials = new_partial::<RuntimeApi, _>(
-					&$config,
-					crate::service::build_relay_to_aura_import_queue::<_, AuraId>,
-				)?;
-				$code
-			},
-			Runtime::Glutton | Runtime::Shell | Runtime::Seedling => {
-				let $partials = new_partial::<RuntimeApi, _>(
-					&$config,
-					crate::service::build_shell_import_queue,
-				)?;
-				$code
-			},
-			Runtime::ContractsRococo | Runtime::Penpal(_) => {
-				let $partials = new_partial::<RuntimeApi, _>(
-					&$config,
-					crate::service::build_aura_import_queue,
-				)?;
-				$code
-			},
-			Runtime::Omni(consensus) => match consensus {
-				Consensus::Aura => {
-					let $partials = new_partial::<RuntimeApi, _>(
-						&$config,
-						crate::service::build_aura_import_queue,
-					)?;
-					$code
-				},
-				Consensus::Relay => {
-					let $partials = new_partial::<RuntimeApi, _>(
-						&$config,
-						crate::service::build_shell_import_queue,
-					)?;
-					$code
-				},
-			},
-		}
-	};
-}
-
-macro_rules! construct_async_run {
-	(|$components:ident, $cli:ident, $cmd:ident, $config:ident| $( $code:tt )* ) => {{
-		let runner = $cli.create_runner($cmd)?;
-		match runner.config().chain_spec.runtime()? {
-			Runtime::AssetHubPolkadot => {
-				runner.async_run(|$config| {
-					let $components = new_partial::<AssetHubPolkadotRuntimeApi, _>(
-						&$config,
-						crate::service::build_relay_to_aura_import_queue::<_, AssetHubPolkadotAuraId>,
-					)?;
-					let task_manager = $components.task_manager;
-					{ $( $code )* }.map(|v| (v, task_manager))
-				})
-			},
-			Runtime::AssetHub |
-			Runtime::BridgeHub(_) |
-			Runtime::Collectives |
-			Runtime::Coretime(_) |
-			Runtime::People(_) => {
-				runner.async_run(|$config| {
-					let $components = new_partial::<RuntimeApi, _>(
-						&$config,
-						crate::service::build_relay_to_aura_import_queue::<_, AuraId>,
-					)?;
-					let task_manager = $components.task_manager;
-					{ $( $code )* }.map(|v| (v, task_manager))
-				})
-			},
-			Runtime::Shell |
-			Runtime::Seedling |
-			Runtime::Glutton => {
-				runner.async_run(|$config| {
-					let $components = new_partial::<RuntimeApi, _>(
-						&$config,
-						crate::service::build_shell_import_queue,
-					)?;
-					let task_manager = $components.task_manager;
-					{ $( $code )* }.map(|v| (v, task_manager))
-				})
-			}
-			Runtime::ContractsRococo | Runtime::Penpal(_) => {
-				runner.async_run(|$config| {
-					let $components = new_partial::<
-						RuntimeApi,
-						_,
-					>(
-						&$config,
-						crate::service::build_aura_import_queue,
-					)?;
-					let task_manager = $components.task_manager;
-					{ $( $code )* }.map(|v| (v, task_manager))
-				})
-			},
-			Runtime::Omni(consensus) => match consensus {
-				Consensus::Aura => {
-					runner.async_run(|$config| {
-						let $components = new_partial::<
-							RuntimeApi,
-							_,
-						>(
-							&$config,
-							crate::service::build_aura_import_queue,
-						)?;
-						let task_manager = $components.task_manager;
-						{ $( $code )* }.map(|v| (v, task_manager))
-					})
-				},
-				Consensus::Relay
-				 => {
-					runner.async_run(|$config| {
-						let $components = new_partial::<
-							RuntimeApi,
-							_,
-						>(
-							&$config,
-							crate::service::build_shell_import_queue,
-						)?;
-						let task_manager = $components.task_manager;
-						{ $( $code )* }.map(|v| (v, task_manager))
-					})
-				},
-			}
-		}
-	}}
+fn new_partial_from_config(
+	config: &sc_service::Configuration,
+) -> std::result::Result<Box<dyn CmdRunner<Block>>, sc_cli::Error> {
+	Ok(match config.chain_spec.runtime()? {
+		Runtime::AssetHubPolkadot => Box::new(
+			new_partial::<AssetHubPolkadotRuntimeApi, _>(
+				config,
+				crate::service::build_relay_to_aura_import_queue::<_, AssetHubPolkadotAuraId>,
+			)
+			.map_err(sc_cli::Error::Service)?,
+		),
+		Runtime::AssetHub |
+		Runtime::BridgeHub(_) |
+		Runtime::Collectives |
+		Runtime::Coretime(_) |
+		Runtime::People(_) => Box::new(
+			new_partial::<RuntimeApi, _>(
+				config,
+				crate::service::build_relay_to_aura_import_queue::<_, AuraId>,
+			)
+			.map_err(sc_cli::Error::Service)?,
+		),
+		Runtime::Glutton | Runtime::Shell | Runtime::Seedling => Box::new(
+			new_partial::<RuntimeApi, _>(config, crate::service::build_shell_import_queue)
+				.map_err(sc_cli::Error::Service)?,
+		),
+		Runtime::ContractsRococo | Runtime::Penpal(_) => Box::new(
+			new_partial::<RuntimeApi, _>(config, crate::service::build_aura_import_queue)
+				.map_err(sc_cli::Error::Service)?,
+		),
+		Runtime::Omni(consensus) => match consensus {
+			Consensus::Aura => Box::new(
+				new_partial::<RuntimeApi, _>(config, crate::service::build_aura_import_queue)
+					.map_err(sc_cli::Error::Service)?,
+			),
+			Consensus::Relay => Box::new(
+				new_partial::<RuntimeApi, _>(config, crate::service::build_shell_import_queue)
+					.map_err(sc_cli::Error::Service)?,
+			),
+		},
+	})
 }
 
 /// Parse command line arguments into service configuration.
@@ -534,28 +436,40 @@ pub fn run() -> Result<()> {
 			runner.sync_run(|config| cmd.run(config.chain_spec, config.network))
 		},
 		Some(Subcommand::CheckBlock(cmd)) => {
-			construct_async_run!(|components, cli, cmd, config| {
-				Ok(cmd.run(components.client, components.import_queue))
+			let runner = cli.create_runner(cmd)?;
+			runner.async_run(|config| {
+				let partials = new_partial_from_config(&config)?;
+				Ok(partials.prepare_check_block_cmd(cmd))
 			})
 		},
 		Some(Subcommand::ExportBlocks(cmd)) => {
-			construct_async_run!(|components, cli, cmd, config| {
-				Ok(cmd.run(components.client, config.database))
+			let runner = cli.create_runner(cmd)?;
+			runner.async_run(|config| {
+				let partials = new_partial_from_config(&config)?;
+				Ok(partials.prepare_export_blocks_cmd(cmd, config))
 			})
 		},
 		Some(Subcommand::ExportState(cmd)) => {
-			construct_async_run!(|components, cli, cmd, config| {
-				Ok(cmd.run(components.client, config.chain_spec))
+			let runner = cli.create_runner(cmd)?;
+			runner.async_run(|config| {
+				let partials = new_partial_from_config(&config)?;
+				Ok(partials.prepare_export_state_cmd(cmd, config))
 			})
 		},
 		Some(Subcommand::ImportBlocks(cmd)) => {
-			construct_async_run!(|components, cli, cmd, config| {
-				Ok(cmd.run(components.client, components.import_queue))
+			let runner = cli.create_runner(cmd)?;
+			runner.async_run(|config| {
+				let partials = new_partial_from_config(&config)?;
+				Ok(partials.prepare_import_blocks_cmd(cmd))
 			})
 		},
-		Some(Subcommand::Revert(cmd)) => construct_async_run!(|components, cli, cmd, config| {
-			Ok(cmd.run(components.client, components.backend, None))
-		}),
+		Some(Subcommand::Revert(cmd)) => {
+			let runner = cli.create_runner(cmd)?;
+			runner.async_run(|config| {
+				let partials = new_partial_from_config(&config)?;
+				Ok(partials.prepare_revert_cmd(cmd))
+			})
+		},
 		Some(Subcommand::PurgeChain(cmd)) => {
 			let runner = cli.create_runner(cmd)?;
 			let polkadot_cli = RelayChainCli::new(runner.config(), cli.relay_chain_args.iter());
@@ -573,8 +487,10 @@ pub fn run() -> Result<()> {
 		},
 		Some(Subcommand::ExportGenesisHead(cmd)) => {
 			let runner = cli.create_runner(cmd)?;
-			runner
-				.sync_run(|config| construct_partials!(config, |partials| cmd.run(partials.client)))
+			runner.sync_run(|config| {
+				let partials = new_partial_from_config(&config)?;
+				partials.run_export_genesis_head_cmd(cmd)
+			})
 		},
 		Some(Subcommand::ExportGenesisWasm(cmd)) => {
 			let runner = cli.create_runner(cmd)?;
@@ -595,16 +511,13 @@ pub fn run() -> Result<()> {
 					))
 				}),
 				BenchmarkCmd::Block(cmd) => runner.sync_run(|config| {
-					construct_partials!(config, |partials| cmd.run(partials.client))
+					let partials = new_partial_from_config(&config)?;
+					partials.run_benchmark_block_cmd(cmd)
 				}),
 				#[cfg(feature = "runtime-benchmarks")]
 				BenchmarkCmd::Storage(cmd) => runner.sync_run(|config| {
-					construct_partials!(config, |partials| {
-						let db = partials.backend.expose_db();
-						let storage = partials.backend.expose_storage();
-
-						cmd.run(config, partials.client.clone(), db, storage)
-					})
+					let partials = new_partial_from_config(&config)?;
+					partials.run_benchmark_storage_cmd(cmd, config)
 				}),
 				BenchmarkCmd::Machine(cmd) =>
 					runner.sync_run(|config| cmd.run(&config, SUBSTRATE_REFERENCE_HARDWARE.clone())),
