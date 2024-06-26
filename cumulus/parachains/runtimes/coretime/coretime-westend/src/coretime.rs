@@ -36,10 +36,10 @@ use westend_runtime_constants::system_parachain::coretime;
 use xcm::latest::prelude::*;
 use xcm_executor::traits::TransactAsset;
 
-pub struct StashToBurn;
-impl OnUnbalanced<Credit<AccountId, Balances>> for StashToBurn {
+pub struct BurnCoretimeRevenue;
+impl OnUnbalanced<Credit<AccountId, Balances>> for BurnCoretimeRevenue {
 	fn on_nonzero_unbalanced(amount: Credit<AccountId, Balances>) {
-		let acc = BurnStashAccount::get();
+		let acc = RevenueAccumulationAccount::get();
 		if !System::<Runtime>::account_exists(&acc) {
 			System::<Runtime>::inc_providers(&acc);
 		}
@@ -111,7 +111,7 @@ enum CoretimeProviderCalls {
 
 parameter_types! {
 	pub const BrokerPalletId: PalletId = PalletId(*b"py/broke");
-	pub BurnStashAccount: AccountId = BrokerPalletId::get().into_sub_account_truncating(b"burnstash");
+	pub RevenueAccumulationAccount: AccountId = BrokerPalletId::get().into_sub_account_truncating(b"burnstash");
 }
 
 /// Type that implements the `CoretimeInterface` for the allocation of Coretime. Meant to operate
@@ -259,7 +259,7 @@ impl CoretimeInterface for CoretimeAllocator {
 	}
 
 	fn on_new_timeslice(_timeslice: Timeslice) {
-		let stash = BurnStashAccount::get();
+		let stash = RevenueAccumulationAccount::get();
 		let value =
 			Balances::reducible_balance(&stash, Preservation::Expendable, Fortitude::Polite);
 
@@ -280,7 +280,7 @@ impl CoretimeInterface for CoretimeAllocator {
 impl pallet_broker::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Currency = Balances;
-	type OnRevenue = StashToBurn;
+	type OnRevenue = BurnCoretimeRevenue;
 	type TimeslicePeriod = ConstU32<{ coretime::TIMESLICE_PERIOD }>;
 	// We don't actually need any leases at launch but set to 10 in case we want to sudo some in.
 	type MaxLeasedCores = ConstU32<10>;
