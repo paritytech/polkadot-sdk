@@ -65,6 +65,21 @@ impl std::fmt::Display for WasmExecutionMethod {
 	}
 }
 
+/// How to output the result of the sanity weight check and what to do when it fails.
+#[derive(Debug, Clone, Copy, ValueEnum, PartialEq)]
+#[value(rename_all = "kebab-case")]
+pub enum SanityWeightCheck {
+	/// Prints the results in the terminal and on failing returns an error.
+	Error,
+	/// Prints the results in the terminal.
+	Warning,
+	/// Sanity weight check is ignored.
+	Ignore,
+}
+
+/// The default [`SanityWeightCheck`].
+pub const DEFAULT_SANITY_WEIGHT_CHECK: SanityWeightCheck = SanityWeightCheck::Warning;
+
 /// Converts the execution method and instantiation strategy command line arguments
 /// into an execution method which can be used internally.
 pub fn execution_method_from_cli(
