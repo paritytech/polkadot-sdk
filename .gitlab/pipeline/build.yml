@@ -156,6 +156,19 @@ build-short-benchmark:
     - target/release/polkadot --version
     - cp ./target/release/polkadot ./artifacts/
 
+build-zombienet-sdk-coretime-revenue:
+  stage: build
+  extends:
+    - .docker-env
+    - .common-refs
+    - .run-immediately
+    - .collect-artifacts
+  script:
+    - cargo build --release --target-dir /tmp/zombie-tests -p polkadot-zombienet-sdk-tests --bin coretime-revenue
+    - mkdir -p artifacts
+    - cp  /tmp/zombie-tests/release/coretime-revenue ./artifacts/
+
+
 # build jobs from cumulus
 
 build-linux-stable-cumulus:
