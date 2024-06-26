@@ -14,7 +14,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#![allow(deprecated)]
+#![allow(deprecated, clippy::deprecated_semver)]
 
 use super::*;
 use frame_support_procedural::import_section;

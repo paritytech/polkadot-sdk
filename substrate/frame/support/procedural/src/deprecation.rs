@@ -38,7 +38,6 @@ fn parse_deprecated_meta(path: &TokenStream, attr: &syn::Attribute) -> Result<To
 				} else if item.path.is_ident("since") {
 					acc.1.replace(value);
 				} else {
-					();
 				};
 				Ok::<(Option<&syn::Lit>, Option<&syn::Lit>), Error>(acc)
 			})?;

@@ -17,7 +17,6 @@
 
 use super::helper;
 use frame_support_procedural_tools::{get_doc_literals, is_using_frame_crate};
-use proc_macro::TokenStream;
 use quote::ToTokens;
 use syn::{spanned::Spanned, token, Token};
 
