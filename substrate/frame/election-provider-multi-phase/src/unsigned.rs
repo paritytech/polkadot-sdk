@@ -1445,7 +1445,7 @@ mod tests {
 				)
 				.unwrap();
 				let solution = RawSolution { solution: raw, score, round: MultiPhase::round() };
-				// 12 is not better than 12. We need score of atleast 13 to be accepted.
+				// 12 is not better than 12. We need score of at least 13 to be accepted.
 				assert_eq!(solution.score.minimal_stake, 12);
 				// submitting this will panic.
 				assert_noop!(
@@ -1483,7 +1483,7 @@ mod tests {
 				));
 
 				// trial 4: a solution who's minimal stake is 17, i.e. 4 better than the last
-				// soluton.
+				// solution.
 				let result = ElectionResult {
 					winners: vec![(10, 12)],
 					assignments: vec![
@@ -1813,7 +1813,7 @@ mod tests {
 
 			let encoded = pool.read().transactions[0].clone();
 			let extrinsic: Extrinsic = codec::Decode::decode(&mut &*encoded).unwrap();
-			let call = extrinsic.function;
+			let call = extrinsic.call;
 			assert!(matches!(call, RuntimeCall::MultiPhase(Call::submit_unsigned { .. })));
 		})
 	}
@@ -1830,7 +1830,7 @@ mod tests {
 
 			let encoded = pool.read().transactions[0].clone();
 			let extrinsic = Extrinsic::decode(&mut &*encoded).unwrap();
-			let call = match extrinsic.function {
+			let call = match extrinsic.call {
 				RuntimeCall::MultiPhase(call @ Call::submit_unsigned { .. }) => call,
 				_ => panic!("bad call: unexpected submission"),
 			};

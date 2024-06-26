@@ -20,8 +20,8 @@ use super::*;
 
 use always_assert::never;
 use bytes::Bytes;
+use codec::{Decode, DecodeAll};
 use net_protocol::filter_by_peer_version;
-use parity_scale_codec::{Decode, DecodeAll};
 use parking_lot::Mutex;
 
 use sc_network::{
@@ -262,7 +262,6 @@ async fn handle_validation_message<AD>(
 				}
 
 				metrics.on_peer_connected(peer_set, version);
-				metrics.note_peer_count(peer_set, version, peer_map.len());
 
 				shared.local_view.clone().unwrap_or(View::default())
 			};
@@ -320,8 +319,6 @@ async fn handle_validation_message<AD>(
 				let w = peer_map.remove(&peer).is_some();
 
 				metrics.on_peer_disconnected(peer_set, version);
-				metrics.note_peer_count(peer_set, version, peer_map.len());
-
 				w
 			};
 
@@ -524,7 +521,6 @@ async fn handle_collation_message<AD>(
 				}
 
 				metrics.on_peer_connected(peer_set, version);
-				metrics.note_peer_count(peer_set, version, peer_map.len());
 
 				shared.local_view.clone().unwrap_or(View::default())
 			};
@@ -575,7 +571,6 @@ async fn handle_collation_message<AD>(
 				let w = peer_map.remove(&peer).is_some();
 
 				metrics.on_peer_disconnected(peer_set, version);
-				metrics.note_peer_count(peer_set, version, peer_map.len());
 
 				w
 			};
@@ -832,6 +827,7 @@ where
 							&metrics,
 							&notification_sinks,
 						);
+						note_peers_count(&metrics, &shared);
 					}
 				}
 			},

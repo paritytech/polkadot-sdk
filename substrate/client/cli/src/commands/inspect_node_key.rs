@@ -79,7 +79,9 @@ impl InspectNodeKeyCmd {
 
 #[cfg(test)]
 mod tests {
-	use super::{super::GenerateNodeKeyCmd, *};
+	use crate::commands::generate_node_key::GenerateNodeKeyCmd;
+
+	use super::*;
 
 	#[test]
 	fn inspect_node_key() {
@@ -87,7 +89,7 @@ mod tests {
 		let path = path.to_str().unwrap();
 		let cmd = GenerateNodeKeyCmd::parse_from(&["generate-node-key", "--file", path]);
 
-		assert!(cmd.run().is_ok());
+		assert!(cmd.run("test", &String::from("test")).is_ok());
 
 		let cmd = InspectNodeKeyCmd::parse_from(&["inspect-node-key", "--file", path]);
 		assert!(cmd.run().is_ok());

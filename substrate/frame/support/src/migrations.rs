@@ -17,7 +17,7 @@
 
 use crate::{
 	defensive,
-	storage::transactional::with_transaction_opaque_err,
+	storage::{storage_prefix, transactional::with_transaction_opaque_err},
 	traits::{
 		Defensive, GetStorageVersion, NoStorageVersionSet, PalletInfoAccess, SafeMode,
 		StorageVersion,
@@ -41,19 +41,19 @@ use sp_std::{marker::PhantomData, vec::Vec};
 /// It takes 5 type parameters:
 /// - `From`: The version being upgraded from.
 /// - `To`: The version being upgraded to.
-/// - `Inner`: An implementation of `OnRuntimeUpgrade`.
+/// - `Inner`: An implementation of `UncheckedOnRuntimeUpgrade`.
 /// - `Pallet`: The Pallet being upgraded.
 /// - `Weight`: The runtime's RuntimeDbWeight implementation.
 ///
 /// When a [`VersionedMigration`] `on_runtime_upgrade`, `pre_upgrade`, or `post_upgrade` method is
 /// called, the on-chain version of the pallet is compared to `From`. If they match, the `Inner`
-/// equivalent is called and the pallets on-chain version is set to `To` after the migration.
-/// Otherwise, a warning is logged notifying the developer that the upgrade was a noop and should
-/// probably be removed.
+/// `UncheckedOnRuntimeUpgrade` is called and the pallets on-chain version is set to `To`
+/// after the migration. Otherwise, a warning is logged notifying the developer that the upgrade was
+/// a noop and should probably be removed.
 ///
-/// It is STRONGLY RECOMMENDED to write the unversioned migration logic in a private module and
-/// only export the versioned migration logic to prevent accidentally using the unversioned
-/// migration in any runtimes.
+/// By not bounding `Inner` with `OnRuntimeUpgrade`, we prevent developers from
+/// accidentally using the unchecked version of the migration in a runtime upgrade instead of
+/// [`VersionedMigration`].
 ///
 /// ### Examples
 /// ```ignore
@@ -71,9 +71,9 @@ use sp_std::{marker::PhantomData, vec::Vec};
 /// /// - https://internals.rust-lang.org/t/lang-team-minutes-private-in-public-rules/4504/40
 /// mod version_unchecked {
 /// 	use super::*;
-/// 	pub struct MigrateV5ToV6<T>(sp_std::marker::PhantomData<T>);
-/// 	impl<T: Config> OnRuntimeUpgrade for  VersionUncheckedMigrateV5ToV6<T> {
-/// 		// OnRuntimeUpgrade implementation...
+/// 	pub struct VersionUncheckedMigrateV5ToV6<T>(sp_std::marker::PhantomData<T>);
+/// 	impl<T: Config> UncheckedOnRuntimeUpgrade for VersionUncheckedMigrateV5ToV6<T> {
+/// 		// `UncheckedOnRuntimeUpgrade` implementation...
 /// 	}
 /// }
 ///
@@ -116,7 +116,7 @@ pub enum VersionedPostUpgradeData {
 impl<
 		const FROM: u16,
 		const TO: u16,
-		Inner: crate::traits::OnRuntimeUpgrade,
+		Inner: crate::traits::UncheckedOnRuntimeUpgrade,
 		Pallet: GetStorageVersion<InCodeStorageVersion = StorageVersion> + PalletInfoAccess,
 		DbWeight: Get<RuntimeDbWeight>,
 	> crate::traits::OnRuntimeUpgrade for VersionedMigration<FROM, TO, Inner, Pallet, DbWeight>
@@ -369,6 +369,118 @@ impl<P: Get<&'static str>, DbWeight: Get<RuntimeDbWeight>> frame_support::traits
 	}
 }
 
+/// `RemoveStorage` is a utility struct used to remove a storage item from a specific pallet.
+///
+/// This struct is generic over three parameters:
+/// - `P` is a type that implements the [`Get`] trait for a static string, representing the pallet's
+///   name.
+/// - `S` is a type that implements the [`Get`] trait for a static string, representing the storage
+///   name.
+/// - `DbWeight` is a type that implements the [`Get`] trait for [`RuntimeDbWeight`], providing the
+///   weight for database operations.
+///
+/// On runtime upgrade, the `on_runtime_upgrade` function will clear the storage from the specified
+/// storage, logging the number of keys removed. If the `try-runtime` feature is enabled, the
+/// `pre_upgrade` and `post_upgrade` functions can be used to verify the storage removal before and
+/// after the upgrade.
+///
+/// # Examples:
+/// ```ignore
+/// construct_runtime! {
+/// 	pub enum Runtime
+/// 	{
+/// 		System: frame_system = 0,
+///
+/// 		SomePallet: pallet_something = 1,
+///
+/// 		YourOtherPallets...
+/// 	}
+/// };
+///
+/// parameter_types! {
+/// 		pub const SomePallet: &'static str = "SomePallet";
+/// 		pub const StorageAccounts: &'static str = "Accounts";
+/// 		pub const StorageAccountCount: &'static str = "AccountCount";
+/// }
+///
+/// pub type Migrations = (
+/// 	RemoveStorage<SomePallet, StorageAccounts, RocksDbWeight>,
+/// 	RemoveStorage<SomePallet, StorageAccountCount, RocksDbWeight>,
+/// 	AnyOtherMigrations...
+/// );
+///
+/// pub type Executive = frame_executive::Executive<
+/// 	Runtime,
+/// 	Block,
+/// 	frame_system::ChainContext<Runtime>,
+/// 	Runtime,
+/// 	Migrations
+/// >;
+/// ```
+///
+/// WARNING: `RemoveStorage` has no guard rails preventing it from bricking the chain if the
+/// operation of removing storage for the given pallet would exceed the block weight limit.
+///
+/// If your storage has too many keys to be removed in a single block, it is advised to wait for
+/// a multi-block scheduler currently under development which will allow for removal of storage
+/// items (and performing other heavy migrations) over multiple blocks
+/// (see <https://github.com/paritytech/substrate/issues/13690>).
+pub struct RemoveStorage<P: Get<&'static str>, S: Get<&'static str>, DbWeight: Get<RuntimeDbWeight>>(
+	PhantomData<(P, S, DbWeight)>,
+);
+impl<P: Get<&'static str>, S: Get<&'static str>, DbWeight: Get<RuntimeDbWeight>>
+	frame_support::traits::OnRuntimeUpgrade for RemoveStorage<P, S, DbWeight>
+{
+	fn on_runtime_upgrade() -> frame_support::weights::Weight {
+		let hashed_prefix = storage_prefix(P::get().as_bytes(), S::get().as_bytes());
+		let keys_removed = match clear_prefix(&hashed_prefix, None) {
+			KillStorageResult::AllRemoved(value) => value,
+			KillStorageResult::SomeRemaining(value) => {
+				log::error!(
+					"`clear_prefix` failed to remove all keys for storage `{}` from pallet `{}`. THIS SHOULD NEVER HAPPEN! 🚨",
+					S::get(), P::get()
+				);
+				value
+			},
+		} as u64;
+
+		log::info!("Removed `{}` `{}` `{}` keys 🧹", keys_removed, P::get(), S::get());
+
+		DbWeight::get().reads_writes(keys_removed + 1, keys_removed)
+	}
+
+	#[cfg(feature = "try-runtime")]
+	fn pre_upgrade() -> Result<sp_std::vec::Vec<u8>, sp_runtime::TryRuntimeError> {
+		use crate::storage::unhashed::contains_prefixed_key;
+
+		let hashed_prefix = storage_prefix(P::get().as_bytes(), S::get().as_bytes());
+		match contains_prefixed_key(&hashed_prefix) {
+			true => log::info!("Found `{}` `{}` keys pre-removal 👀", P::get(), S::get()),
+			false => log::warn!(
+				"Migration RemoveStorage<{}, {}> can be removed (no keys found pre-removal).",
+				P::get(),
+				S::get()
+			),
+		};
+		Ok(Default::default())
+	}
+
+	#[cfg(feature = "try-runtime")]
+	fn post_upgrade(_state: sp_std::vec::Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
+		use crate::storage::unhashed::contains_prefixed_key;
+
+		let hashed_prefix = storage_prefix(P::get().as_bytes(), S::get().as_bytes());
+		match contains_prefixed_key(&hashed_prefix) {
+			true => {
+				log::error!("`{}` `{}` has keys remaining post-removal ❗", P::get(), S::get());
+				return Err("Keys remaining post-removal, this should never happen 🚨".into())
+			},
+			false => log::info!("No `{}` `{}` keys found post-removal 🎉", P::get(), S::get()),
+		};
+		Ok(())
+	}
+}
+
 /// A migration that can proceed in multiple steps.
 pub trait SteppedMigration {
 	/// The cursor type that stores the progress (aka. state) of this migration.
@@ -439,6 +551,16 @@ pub enum SteppedMigrationError {
 	InvalidCursor,
 	/// The migration encountered a permanent error and cannot continue.
 	Failed,
+}
+
+/// A generic migration identifier that can be used by MBMs.
+///
+/// It is not required that migrations use this identifier type, but it can help.
+#[derive(MaxEncodedLen, Encode, Decode)]
+pub struct MigrationId<const N: usize> {
+	pub pallet_id: [u8; N],
+	pub version_from: u8,
+	pub version_to: u8,
 }
 
 /// Notification handler for status updates regarding Multi-Block-Migrations.

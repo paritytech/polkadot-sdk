@@ -204,7 +204,7 @@ fn reports_if_an_offence_is_dup() {
 		assert_eq!(Offences::report_offence(vec![], test_offence.clone()), Ok(()));
 
 		// creating a new offence for the same authorities on the next slot
-		// should be considered a new offence and thefore not known
+		// should be considered a new offence and therefore not known
 		let test_offence_next_slot = offence(time_slot + 1, vec![0, 1]);
 		assert!(!<Offences as ReportOffence<_, _, Offence>>::is_known_offence(
 			&test_offence_next_slot.offenders,

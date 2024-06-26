@@ -1,0 +1,5 @@
+error: Invalid runtime::runtime, expected struct definition
+  --> tests/runtime_ui/runtime_struct.rs:21:5
+   |
+21 |     pub enum Runtime {}
+   |     ^^^

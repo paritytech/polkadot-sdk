@@ -18,8 +18,8 @@
 
 use super::Junction;
 use crate::v3::MultiLocation as NewMultiLocation;
+use codec::{Decode, Encode, MaxEncodedLen};
 use core::{mem, result};
-use parity_scale_codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 
 /// A relative path between state-bearing consensus systems.
@@ -176,7 +176,7 @@ impl MultiLocation {
 	}
 
 	/// Consumes `self` and returns a `MultiLocation` suffixed with `new`, or an `Err` with
-	/// theoriginal value of `self` in case of overflow.
+	/// the original value of `self` in case of overflow.
 	pub fn pushed_with_interior(self, new: Junction) -> result::Result<Self, (Self, Junction)> {
 		match self.interior.pushed_with(new) {
 			Ok(i) => Ok(MultiLocation { interior: i, parents: self.parents }),
@@ -883,7 +883,7 @@ impl TryFrom<MultiLocation> for Junctions {
 mod tests {
 	use super::{Ancestor, AncestorThen, Junctions::*, MultiLocation, Parent, ParentThen};
 	use crate::opaque::v2::{Junction::*, NetworkId::*};
-	use parity_scale_codec::{Decode, Encode};
+	use codec::{Decode, Encode};
 
 	#[test]
 	fn inverted_works() {

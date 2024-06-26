@@ -32,7 +32,7 @@ pub enum MultiAddress<AccountId, AccountIndex> {
 	Raw(Vec<u8>),
 	/// It's a 32 byte representation.
 	Address32([u8; 32]),
-	/// Its a 20 byte representation.
+	/// It's a 20 byte representation.
 	Address20([u8; 20]),
 }
 

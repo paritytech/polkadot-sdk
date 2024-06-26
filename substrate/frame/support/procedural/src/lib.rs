@@ -31,6 +31,7 @@ mod match_and_insert;
 mod no_bound;
 mod pallet;
 mod pallet_error;
+mod runtime;
 mod storage_alias;
 mod transactional;
 mod tt_macro;
@@ -79,6 +80,9 @@ fn counter_prefix(prefix: &str) -> String {
 }
 
 /// Construct a runtime, with the given name and the given pallets.
+///
+/// NOTE: A new version of this macro is available at `frame_support::runtime`. This macro will
+/// soon be deprecated. Please use the new macro instead.
 ///
 /// The parameters here are specific types for `Block`, `NodeBlock`, and `UncheckedExtrinsic`
 /// and the pallets that are used by the runtime.
@@ -136,7 +140,7 @@ fn counter_prefix(prefix: &str) -> String {
 ///   - `Call` - If the pallet has callable functions
 ///   - `Storage` - If the pallet uses storage
 ///   - `Event` or `Event<T>` (if the event is generic) - If the pallet emits events
-///   - `Origin` or `Origin<T>` (if the origin is generic) - If the pallet has instanciable origins
+///   - `Origin` or `Origin<T>` (if the origin is generic) - If the pallet has instantiable origins
 ///   - `Config` or `Config<T>` (if the config is generic) - If the pallet builds the genesis
 ///     storage with `GenesisConfig`
 ///   - `Inherent` - If the pallet provides/can check inherents.
@@ -165,7 +169,7 @@ fn counter_prefix(prefix: &str) -> String {
 ///   and `Event` are encoded, and to define the ModuleToIndex value.
 ///
 ///   if `= $n` is not given, then index is resolved in the same way as fieldless enum in Rust
-///   (i.e. incrementedly from previous index):
+///   (i.e. incrementally from previous index):
 ///   ```nocompile
 ///   pallet1 .. = 2,
 ///   pallet2 .., // Here pallet2 is given index 3
@@ -191,8 +195,7 @@ pub fn construct_runtime(input: TokenStream) -> TokenStream {
 ///
 /// ---
 ///
-/// Rust-Analyzer Users: Documentation for this macro can be found at
-/// `frame_support::pallet`.
+/// Documentation for this macro can be found at `frame_support::pallet`.
 #[proc_macro_attribute]
 pub fn pallet(attr: TokenStream, item: TokenStream) -> TokenStream {
 	pallet::pallet(attr, item)
@@ -289,8 +292,7 @@ pub fn transactional(attr: TokenStream, input: TokenStream) -> TokenStream {
 ///
 /// ---
 ///
-/// Rust-Analyzer Users: Documentation for this macro can be found at
-/// `frame_support::require_transactional`.
+/// Documentation for this macro can be found at `frame_support::require_transactional`.
 #[proc_macro_attribute]
 pub fn require_transactional(attr: TokenStream, input: TokenStream) -> TokenStream {
 	transactional::require_transactional(attr, input)
@@ -449,8 +451,7 @@ pub fn __create_tt_macro(input: TokenStream) -> TokenStream {
 ///
 /// ---
 ///
-/// Rust-Analyzer Users: Documentation for this macro can be found at
-/// `frame_support::pallet_macros::storage_alias`.
+/// Documentation for this macro can be found at `frame_support::pallet_macros::storage_alias`.
 #[proc_macro_attribute]
 pub fn storage_alias(attributes: TokenStream, input: TokenStream) -> TokenStream {
 	storage_alias::storage_alias(attributes.into(), input.into())
@@ -459,7 +460,7 @@ pub fn storage_alias(attributes: TokenStream, input: TokenStream) -> TokenStream
 }
 
 /// This attribute can be used to derive a full implementation of a trait based on a local partial
-/// impl and an external impl containing defaults that can be overriden in the local impl.
+/// impl and an external impl containing defaults that can be overridden in the local impl.
 ///
 /// For a full end-to-end example, see [below](#use-case-auto-derive-test-pallet-config-traits).
 ///
@@ -664,9 +665,9 @@ pub fn storage_alias(attributes: TokenStream, input: TokenStream) -> TokenStream
         "{}::macro_magic",
         match generate_access_from_frame_or_crate("frame-support") {
             Ok(path) => Ok(path),
-            Err(_) => generate_access_from_frame_or_crate("frame"),
+            Err(_) => generate_access_from_frame_or_crate("polkadot-sdk-frame"),
         }
-        .expect("Failed to find either `frame-support` or `frame` in `Cargo.toml` dependencies.")
+        .expect("Failed to find either `frame-support` or `polkadot-sdk-frame` in `Cargo.toml` dependencies.")
         .to_token_stream()
         .to_string()
     )
@@ -689,8 +690,7 @@ pub fn derive_impl(attrs: TokenStream, input: TokenStream) -> TokenStream {
 ///
 /// ---
 ///
-/// Rust-Analyzer Users: Documentation for this macro can be found at
-/// `frame_support::pallet_macros::no_default`.
+/// Documentation for this macro can be found at `frame_support::pallet_macros::no_default`.
 #[proc_macro_attribute]
 pub fn no_default(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
@@ -699,8 +699,7 @@ pub fn no_default(_: TokenStream, _: TokenStream) -> TokenStream {
 ///
 /// ---
 ///
-/// Rust-Analyzer Users: Documentation for this macro can be found at
-/// `frame_support::pallet_macros::no_default_bounds`.
+/// Documentation for this macro can be found at `frame_support::pallet_macros::no_default_bounds`.
 #[proc_macro_attribute]
 pub fn no_default_bounds(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
@@ -783,7 +782,7 @@ pub fn register_default_impl(attrs: TokenStream, tokens: TokenStream) -> TokenSt
 ///
 /// ---
 ///
-/// Rust-Analyzer Users: Documentation for this macro can be found at
+/// Documentation for this macro can be found at
 /// `frame_support::pallet_prelude::inject_runtime_type`.
 #[proc_macro_attribute]
 pub fn inject_runtime_type(_: TokenStream, tokens: TokenStream) -> TokenStream {
@@ -821,8 +820,7 @@ fn pallet_macro_stub() -> TokenStream {
 ///
 /// ---
 ///
-/// Rust-Analyzer Users: Documentation for this macro can be found at
-/// `frame_support::pallet_macros::config`.
+/// Documentation for this macro can be found at `frame_support::pallet_macros::config`.
 #[proc_macro_attribute]
 pub fn config(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
@@ -831,8 +829,7 @@ pub fn config(_: TokenStream, _: TokenStream) -> TokenStream {
 ///
 /// ---
 ///
-/// Rust-Analyzer Users: Documentation for this macro can be found at
-/// `frame_support::pallet_macros::constant`.
+/// Documentation for this macro can be found at `frame_support::pallet_macros::constant`.
 #[proc_macro_attribute]
 pub fn constant(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
@@ -841,8 +838,7 @@ pub fn constant(_: TokenStream, _: TokenStream) -> TokenStream {
 ///
 /// ---
 ///
-/// Rust-Analyzer Users: Documentation for this macro can be found at
-/// `frame_support::pallet_macros::constant_name`.
+/// Documentation for this macro can be found at `frame_support::pallet_macros::constant_name`.
 #[proc_macro_attribute]
 pub fn constant_name(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
@@ -851,7 +847,7 @@ pub fn constant_name(_: TokenStream, _: TokenStream) -> TokenStream {
 ///
 /// ---
 ///
-/// Rust-Analyzer Users: Documentation for this macro can be found at
+/// Documentation for this macro can be found at
 /// `frame_support::pallet_macros::disable_frame_system_supertrait_check`.
 #[proc_macro_attribute]
 pub fn disable_frame_system_supertrait_check(_: TokenStream, _: TokenStream) -> TokenStream {
@@ -861,8 +857,7 @@ pub fn disable_frame_system_supertrait_check(_: TokenStream, _: TokenStream) -> 
 ///
 /// ---
 ///
-/// Rust-Analyzer Users: Documentation for this macro can be found at
-/// `frame_support::pallet_macros::storage_version`.
+/// Documentation for this macro can be found at `frame_support::pallet_macros::storage_version`.
 #[proc_macro_attribute]
 pub fn storage_version(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
@@ -871,8 +866,7 @@ pub fn storage_version(_: TokenStream, _: TokenStream) -> TokenStream {
 ///
 /// ---
 ///
-/// Rust-Analyzer Users: Documentation for this macro can be found at
-/// `frame_support::pallet_macros::hooks`.
+/// Documentation for this macro can be found at `frame_support::pallet_macros::hooks`.
 #[proc_macro_attribute]
 pub fn hooks(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
@@ -881,8 +875,7 @@ pub fn hooks(_: TokenStream, _: TokenStream) -> TokenStream {
 ///
 /// ---
 ///
-/// Rust-Analyzer Users: Documentation for this macro can be found at
-/// `frame_support::pallet_macros::weight`.
+/// Documentation for this macro can be found at `frame_support::pallet_macros::weight`.
 #[proc_macro_attribute]
 pub fn weight(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
@@ -891,8 +884,7 @@ pub fn weight(_: TokenStream, _: TokenStream) -> TokenStream {
 ///
 /// ---
 ///
-/// Rust-Analyzer Users: Documentation for this macro can be found at
-/// `frame_support::pallet_macros::compact`.
+/// Documentation for this macro can be found at `frame_support::pallet_macros::compact`.
 #[proc_macro_attribute]
 pub fn compact(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
@@ -901,8 +893,7 @@ pub fn compact(_: TokenStream, _: TokenStream) -> TokenStream {
 ///
 /// ---
 ///
-/// Rust-Analyzer Users: Documentation for this macro can be found at
-/// `frame_support::pallet_macros::call`.
+/// Documentation for this macro can be found at `frame_support::pallet_macros::call`.
 #[proc_macro_attribute]
 pub fn call(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
@@ -913,8 +904,7 @@ pub fn call(_: TokenStream, _: TokenStream) -> TokenStream {
 ///
 /// ---
 ///
-/// Rust-Analyzer Users: Documentation for this macro can be found at
-/// `frame_support::pallet_macros::call_index`.
+/// Documentation for this macro can be found at `frame_support::pallet_macros::call_index`.
 #[proc_macro_attribute]
 pub fn call_index(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
@@ -923,9 +913,7 @@ pub fn call_index(_: TokenStream, _: TokenStream) -> TokenStream {
 ///
 /// ---
 ///
-/// Rust-Analyzer Users: Documentation for this macro can be found at
-///
-/// `frame_support::pallet_macros::feeless_if`.
+/// Documentation for this macro can be found at `frame_support::pallet_macros::feeless_if`.
 #[proc_macro_attribute]
 pub fn feeless_if(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
@@ -934,9 +922,7 @@ pub fn feeless_if(_: TokenStream, _: TokenStream) -> TokenStream {
 ///
 /// ---
 ///
-/// Rust-Analyzer Users: Documentation for this macro can be found at
-///
-/// `frame_support::pallet_macros::extra_constants`.
+/// Documentation for this macro can be found at `frame_support::pallet_macros::extra_constants`.
 #[proc_macro_attribute]
 pub fn extra_constants(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
@@ -945,8 +931,7 @@ pub fn extra_constants(_: TokenStream, _: TokenStream) -> TokenStream {
 ///
 /// ---
 ///
-/// Rust-Analyzer Users: Documentation for this macro can be found at
-/// `frame_support::pallet_macros::error`.
+/// Documentation for this macro can be found at `frame_support::pallet_macros::error`.
 #[proc_macro_attribute]
 pub fn error(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
@@ -955,8 +940,7 @@ pub fn error(_: TokenStream, _: TokenStream) -> TokenStream {
 ///
 /// ---
 ///
-/// Rust-Analyzer Users: Documentation for this macro can be found at
-/// `frame_support::pallet_macros::event`.
+/// Documentation for this macro can be found at `frame_support::pallet_macros::event`.
 #[proc_macro_attribute]
 pub fn event(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
@@ -965,8 +949,7 @@ pub fn event(_: TokenStream, _: TokenStream) -> TokenStream {
 ///
 /// ---
 ///
-/// Rust-Analyzer Users: Documentation for this macro can be found at
-/// `frame_support::pallet_macros::generate_deposit`.
+/// Documentation for this macro can be found at `frame_support::pallet_macros::generate_deposit`.
 #[proc_macro_attribute]
 pub fn generate_deposit(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
@@ -975,8 +958,7 @@ pub fn generate_deposit(_: TokenStream, _: TokenStream) -> TokenStream {
 ///
 /// ---
 ///
-/// Rust-Analyzer Users: Documentation for this macro can be found at
-/// `frame_support::pallet_macros::storage`.
+/// Documentation for this macro can be found at `frame_support::pallet_macros::storage`.
 #[proc_macro_attribute]
 pub fn storage(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
@@ -985,8 +967,7 @@ pub fn storage(_: TokenStream, _: TokenStream) -> TokenStream {
 ///
 /// ---
 ///
-/// Rust-Analyzer Users: Documentation for this macro can be found at
-/// `frame_support::pallet_macros::getter`.
+/// Documentation for this macro can be found at `frame_support::pallet_macros::getter`.
 #[proc_macro_attribute]
 pub fn getter(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
@@ -995,8 +976,7 @@ pub fn getter(_: TokenStream, _: TokenStream) -> TokenStream {
 ///
 /// ---
 ///
-/// Rust-Analyzer Users: Documentation for this macro can be found at
-/// `frame_support::pallet_macros::storage_prefix`.
+/// Documentation for this macro can be found at `frame_support::pallet_macros::storage_prefix`.
 #[proc_macro_attribute]
 pub fn storage_prefix(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
@@ -1005,8 +985,7 @@ pub fn storage_prefix(_: TokenStream, _: TokenStream) -> TokenStream {
 ///
 /// ---
 ///
-/// Rust-Analyzer Users: Documentation for this macro can be found at
-/// `frame_support::pallet_macros::unbounded`.
+/// Documentation for this macro can be found at `frame_support::pallet_macros::unbounded`.
 #[proc_macro_attribute]
 pub fn unbounded(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
@@ -1015,8 +994,7 @@ pub fn unbounded(_: TokenStream, _: TokenStream) -> TokenStream {
 ///
 /// ---
 ///
-/// Rust-Analyzer Users: Documentation for this macro can be found at
-/// `frame_support::pallet_macros::whitelist_storage`.
+/// Documentation for this macro can be found at `frame_support::pallet_macros::whitelist_storage`.
 #[proc_macro_attribute]
 pub fn whitelist_storage(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
@@ -1025,7 +1003,7 @@ pub fn whitelist_storage(_: TokenStream, _: TokenStream) -> TokenStream {
 ///
 /// ---
 ///
-/// Rust-Analyzer Users: Documentation for this macro can be found at
+/// Documentation for this macro can be found at
 /// `frame_support::pallet_macros::disable_try_decode_storage`.
 #[proc_macro_attribute]
 pub fn disable_try_decode_storage(_: TokenStream, _: TokenStream) -> TokenStream {
@@ -1035,8 +1013,7 @@ pub fn disable_try_decode_storage(_: TokenStream, _: TokenStream) -> TokenStream
 ///
 /// ---
 ///
-/// Rust-Analyzer Users: Documentation for this macro can be found at
-/// `frame_support::pallet_macros::type_value`.
+/// Documentation for this macro can be found at `frame_support::pallet_macros::type_value`.
 #[proc_macro_attribute]
 pub fn type_value(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
@@ -1045,8 +1022,7 @@ pub fn type_value(_: TokenStream, _: TokenStream) -> TokenStream {
 ///
 /// ---
 ///
-/// Rust-Analyzer Users: Documentation for this macro can be found at
-/// `frame_support::pallet_macros::genesis_config`.
+/// Documentation for this macro can be found at `frame_support::pallet_macros::genesis_config`.
 #[proc_macro_attribute]
 pub fn genesis_config(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
@@ -1055,8 +1031,7 @@ pub fn genesis_config(_: TokenStream, _: TokenStream) -> TokenStream {
 ///
 /// ---
 ///
-/// Rust-Analyzer Users: Documentation for this macro can be found at
-/// `frame_support::pallet_macros::genesis_build`.
+/// Documentation for this macro can be found at `frame_support::pallet_macros::genesis_build`.
 #[proc_macro_attribute]
 pub fn genesis_build(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
@@ -1065,8 +1040,7 @@ pub fn genesis_build(_: TokenStream, _: TokenStream) -> TokenStream {
 ///
 /// ---
 ///
-/// Rust-Analyzer Users: Documentation for this macro can be found at
-/// `frame_support::pallet_macros::inherent`.
+/// Documentation for this macro can be found at `frame_support::pallet_macros::inherent`.
 #[proc_macro_attribute]
 pub fn inherent(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
@@ -1075,8 +1049,7 @@ pub fn inherent(_: TokenStream, _: TokenStream) -> TokenStream {
 ///
 /// ---
 ///
-/// Rust-Analyzer Users: Documentation for this macro can be found at
-/// `frame_support::pallet_macros::validate_unsigned`.
+/// Documentation for this macro can be found at `frame_support::pallet_macros::validate_unsigned`.
 #[proc_macro_attribute]
 pub fn validate_unsigned(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
@@ -1085,8 +1058,7 @@ pub fn validate_unsigned(_: TokenStream, _: TokenStream) -> TokenStream {
 ///
 /// ---
 ///
-/// Rust-Analyzer Users: Documentation for this macro can be found at
-/// `frame_support::pallet_macros::origin`.
+/// Documentation for this macro can be found at `frame_support::pallet_macros::origin`.
 #[proc_macro_attribute]
 pub fn origin(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
@@ -1095,8 +1067,7 @@ pub fn origin(_: TokenStream, _: TokenStream) -> TokenStream {
 ///
 /// ---
 ///
-/// Rust-Analyzer Users: Documentation for this macro can be found at
-/// `frame_support::pallet_macros::composite_enum`.
+/// Documentation for this macro can be found at `frame_support::pallet_macros::composite_enum`.
 #[proc_macro_attribute]
 pub fn composite_enum(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
@@ -1180,9 +1151,9 @@ pub fn pallet_section(attr: TokenStream, tokens: TokenStream) -> TokenStream {
         "{}::macro_magic",
         match generate_access_from_frame_or_crate("frame-support") {
             Ok(path) => Ok(path),
-            Err(_) => generate_access_from_frame_or_crate("frame"),
+            Err(_) => generate_access_from_frame_or_crate("polkadot-sdk-frame"),
         }
-        .expect("Failed to find either `frame-support` or `frame` in `Cargo.toml` dependencies.")
+        .expect("Failed to find either `frame-support` or `polkadot-sdk-frame` in `Cargo.toml` dependencies.")
         .to_token_stream()
         .to_string()
     )
@@ -1218,6 +1189,16 @@ pub fn import_section(attr: TokenStream, tokens: TokenStream) -> TokenStream {
 		#internal_mod
 	}
 	.into()
+}
+
+///
+/// ---
+///
+/// **Rust-Analyzer users**: See the documentation of the Rust item in
+/// `frame_support::runtime`.
+#[proc_macro_attribute]
+pub fn runtime(attr: TokenStream, item: TokenStream) -> TokenStream {
+	runtime::runtime(attr, item)
 }
 
 /// Mark a module that contains dynamic parameters.
