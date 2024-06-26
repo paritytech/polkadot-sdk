@@ -645,19 +645,17 @@ pub mod pallet {
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn on_initialize(_n: BlockNumberFor<T>) -> Weight {
-			let context = ServiceQueuesContext::OnInitialize;
 			if let Some(weight_limit) = T::ServiceWeight::get() {
-				Self::service_queues(weight_limit, context)
+				Self::service_queues(weight_limit, ServiceQueuesContext::OnInitialize)
 			} else {
 				Weight::zero()
 			}
 		}
 
 		fn on_idle(_n: BlockNumberFor<T>, remaining_weight: Weight) -> Weight {
-			let context = ServiceQueuesContext::OnIdle;
 			if let Some(weight_limit) = T::IdleMaxServiceWeight::get() {
 				// Make use of the remaining weight to process enqueued messages.
-				Self::service_queues(weight_limit.min(remaining_weight), context)
+				Self::service_queues(weight_limit.min(remaining_weight), ServiceQueuesContext::OnIdle)
 			} else {
 				Weight::zero()
 			}
@@ -1573,13 +1571,10 @@ impl<T: Config> ServiceQueues for Pallet<T> {
 		let max_weight = Self::max_message_weight(weight_limit).unwrap_or_else(|| {
 			// throw defensive message when service_queues is called from on_initialize
 			// don't throw message when service_queues is called from on_idle
-			match context {
-				ServiceQueuesContext::OnInitialize => {
-					defensive!("Not enough weight to service a single message.");
-					Weight::zero()
-				},
-				ServiceQueuesContext::OnIdle => Weight::zero(),
+			if matches(context, ServiceQueuesContext::OnInitialize) {
+				defensive!("Not enough weight to service a single message.");
 			}
+			Weight::zero()
 		});
 
 		match with_service_mutex(|| {
