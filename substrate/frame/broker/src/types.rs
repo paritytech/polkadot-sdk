@@ -257,7 +257,7 @@ pub type LeasesRecordOf<T> = LeasesRecord<<T as Config>::MaxLeasedCores>;
 
 /// Record for On demand core sales.
 ///
-/// The blocknumber is the relay chain block height `when` the original request
+/// The blocknumber is the relay chain block height `until` which the original request
 /// for revenue was made.
 #[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 pub struct OnDemandRevenueRecord<RelayBlockNumber, RelayBalance> {
