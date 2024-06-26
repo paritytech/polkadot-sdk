@@ -1,3 +1,6 @@
+// Copyright (C) Parity Technologies (UK) Ltd.
+// SPDX-License-Identifier: Apache-2.0
+
 //! Binaries for this test should be built with `fast-runtime` feature enabled:
 //! `cargo build -r -F fast-runtime -p polkadot-parachain-bin && \`
 //! `cargo build -r -F fast-runtime --bin polkadot --bin polkadot-execute-worker --bin
