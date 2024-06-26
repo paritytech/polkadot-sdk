@@ -212,7 +212,7 @@ mod benchmarks {
 
 	/// Benchmark the `promote_fast` extrinsic to promote someone up to `r`.
 	#[benchmark]
-	fn promote_fast(_r: Linear<1, { T::MaxRank::get() as u32 }>) -> Result<(), BenchmarkError> {
+	fn promote_fast(r: Linear<1, { T::MaxRank::get() as u32 }>) -> Result<(), BenchmarkError> {
 		let r = r.try_into().expect("r is too large");
 		let member = make_member::<T, I>(0)?;
 
