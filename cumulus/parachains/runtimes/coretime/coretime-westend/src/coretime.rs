@@ -27,8 +27,7 @@ use frame_support::{
 	},
 };
 use pallet_broker::{
-	CoreAssignment, CoreIndex, CoretimeInterface, OnDemandRevenueRecord, PartsOf57600,
-	RCBlockNumberOf, RevenueInbox, Timeslice,
+	CoreAssignment, CoreIndex, CoretimeInterface, PartsOf57600, RCBlockNumberOf, Timeslice,
 };
 use parachains_common::{AccountId, Balance};
 use sp_runtime::traits::AccountIdConversion;
@@ -254,11 +253,6 @@ impl CoretimeInterface for CoretimeAllocator {
 		}
 	}
 
-	fn check_notify_revenue_info(
-	) -> Option<OnDemandRevenueRecord<RCBlockNumberOf<Self>, Self::Balance>> {
-		RevenueInbox::<Runtime>::take()
-	}
-
 	fn on_new_timeslice(_timeslice: Timeslice) {
 		let stash = BurnStashAccount::get();
 		let value = Balances::reducible_balance(&stash, Preservation::Preserve, Fortitude::Polite);
@@ -274,13 +268,6 @@ impl CoretimeInterface for CoretimeAllocator {
 				},
 			}
 		}
-	}
-
-	#[cfg(feature = "runtime-benchmarks")]
-	fn ensure_notify_revenue_info(
-		info: OnDemandRevenueRecord<RCBlockNumberOf<Self>, Self::Balance>,
-	) {
-		RevenueInbox::<Runtime>::put(info);
 	}
 }
 

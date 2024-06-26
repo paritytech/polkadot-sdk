@@ -2114,16 +2114,6 @@ impl CoretimeInterface for CoretimeProvider {
 		_end_hint: Option<u32>,
 	) {
 	}
-	fn check_notify_revenue_info(
-	) -> Option<OnDemandRevenueRecord<RCBlockNumberOf<Self>, Self::Balance>> {
-		RevenueInbox::<Runtime>::take()
-	}
-	#[cfg(feature = "runtime-benchmarks")]
-	fn ensure_notify_revenue_info(
-		info: OnDemandRevenueRecord<RCBlockNumberOf<Self>, Self::Balance>,
-	) {
-		RevenueInbox::<Runtime>::put(info);
-	}
 }
 
 impl pallet_broker::Config for Runtime {

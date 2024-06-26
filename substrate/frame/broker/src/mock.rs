@@ -124,18 +124,6 @@ impl CoretimeInterface for TestCoretimeProvider {
 		);
 		CoretimeTrace::mutate(|v| v.push(item));
 	}
-
-	fn check_notify_revenue_info(
-	) -> Option<OnDemandRevenueRecord<RCBlockNumberOf<Self>, Self::Balance>> {
-		RevenueInbox::<Test>::take()
-	}
-
-	#[cfg(feature = "runtime-benchmarks")]
-	fn ensure_notify_revenue_info(
-		info: OnDemandRevenueRecord<RCBlockNumberOf<Self>, Self::Balance>,
-	) {
-		RevenueInbox::<Test>::put(info);
-	}
 }
 
 impl TestCoretimeProvider {

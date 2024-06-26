@@ -95,9 +95,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	pub(crate) fn process_revenue() -> bool {
-		let Some(OnDemandRevenueRecord { until, amount }) =
-			T::Coretime::check_notify_revenue_info()
-		else {
+		let Some(OnDemandRevenueRecord { until, amount }) = RevenueInbox::<T>::take() else {
 			return false
 		};
 		let when: Timeslice =
