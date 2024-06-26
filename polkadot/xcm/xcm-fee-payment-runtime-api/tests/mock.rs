@@ -386,6 +386,7 @@ pub fn new_test_ext_with_balances_and_assets(
 			(1, "Relay Token".into(), "RLY".into(), 12),
 		],
 		accounts: assets,
+		next_asset_id: None,
 	}
 	.assimilate_storage(&mut t)
 	.unwrap();

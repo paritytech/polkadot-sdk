@@ -450,12 +450,15 @@ pub mod pallet {
 		ValueQuery,
 	>;
 
-	/// The asset ID to be used for the next asset creation, if any present. Otherwise, it has no
-	/// effect.
+	/// The asset ID enforced for the next asset creation, if any present. Otherwise, this storage
+	/// item has no effect.
 	///
-	/// The next asset ID can be set using the
-	/// [SetNextAssetId](`migration::next_asset_id::SetNextAssetId`) migration. For the auto-
-	/// incremented model, the [`crate::AutoIncAssetId`] callback can be used.
+	/// This can be useful for setting up constraints for IDs of the new assets. For example, by
+	/// providing an initial [`NextAssetId`] and using the [`crate::AutoIncAssetId`] callback, an
+	/// auto-increment model can be applied to all new asset IDs.
+	///
+	/// The initial next asset ID can be set using the [`GenesisConfig`] or the
+	/// [SetNextAssetId](`migration::next_asset_id::SetNextAssetId`) migration.
 	#[pallet::storage]
 	pub type NextAssetId<T: Config<I>, I: 'static = ()> = StorageValue<_, T::AssetId, OptionQuery>;
 
@@ -468,6 +471,13 @@ pub mod pallet {
 		pub metadata: Vec<(T::AssetId, Vec<u8>, Vec<u8>, u8)>,
 		/// Genesis accounts: id, account_id, balance
 		pub accounts: Vec<(T::AssetId, T::AccountId, T::Balance)>,
+		/// Genesis [`NextAssetId`].
+		///
+		/// Refer to the [`NextAssetId`] item for more information.
+		///
+		/// This does not enforce the asset ID for the [assets](`GenesisConfig::assets`) within the
+		/// genesis config. It sets the [`NextAssetId`] after they have been created.
+		pub next_asset_id: Option<T::AssetId>,
 	}
 
 	#[pallet::genesis_build]
@@ -528,6 +538,10 @@ pub mod pallet {
 					},
 				);
 				assert!(result.is_ok());
+			}
+
+			if let Some(next_asset_id) = &self.next_asset_id {
+				NextAssetId::<T, I>::put(next_asset_id);
 			}
 		}
 	}

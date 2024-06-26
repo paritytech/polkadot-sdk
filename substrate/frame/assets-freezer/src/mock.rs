@@ -140,6 +140,7 @@ pub fn new_test_ext(execute: impl FnOnce()) -> sp_io::TestExternalities {
 		},
 		system: Default::default(),
 		balances: Default::default(),
+		next_asset_id: None,
 	}
 	.build_storage()
 	.unwrap();

@@ -8,3 +8,11 @@ doc:
 crates:
   - name: pallet-assets
     bump: major
+  - name: staging-xcm-builder
+    bump: patch
+  - name: staging-xcm
+    bump: patch
+  - name: pallet-assets-freezer
+    bump: patch
+  - name: pallet-contracts
+    bump: patch
