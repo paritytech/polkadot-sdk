@@ -16,6 +16,7 @@
   "balances": {
     "balances": []
   },
+  "broker": {},
   "transactionPayment": {
     "multiplier": "1000000000000000000"
   },

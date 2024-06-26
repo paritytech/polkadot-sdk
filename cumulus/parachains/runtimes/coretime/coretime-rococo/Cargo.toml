@@ -199,4 +199,6 @@ try-runtime = [
 	"sp-runtime/try-runtime",
 ]
 
-fast-runtime = []
+fast-runtime = [
+	"rococo-runtime-constants/fast-runtime",
+]
