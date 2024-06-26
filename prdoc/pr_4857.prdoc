@@ -15,4 +15,4 @@ doc:
 
 crates:
   - name: xcm-runtime-api
-    bump: patch
+    bump: none
