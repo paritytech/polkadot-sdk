@@ -10,7 +10,7 @@
 //! normal parachain runtime WILL mess things up.
 
 use anyhow::anyhow;
-use rococo::api::runtime_types::{
+use rococo::runtime_types::{
 	staging_xcm::v4::{
 		asset::{Asset, AssetId, Assets, Fungibility},
 		junction::Junction,
@@ -37,10 +37,13 @@ use tokio::time::Duration;
 use tokio::sync::RwLock;
 use zombienet_sdk::NetworkConfigBuilder;
 
-mod coretime_rococo;
-mod rococo;
+#[subxt::subxt(runtime_metadata_insecure_url="wss://rococo-rpc.polkadot.io")]
+mod rococo {}
 
-use coretime_rococo::api::{
+#[subxt::subxt(runtime_metadata_insecure_url="wss://rococo-coretime-rpc.polkadot.io")]
+mod coretime_rococo {}
+
+use coretime_rococo::{
 	self as coretime_api,
 	broker::events as broker_events,
 	runtime_types::{
@@ -48,7 +51,7 @@ use coretime_rococo::api::{
 		sp_arithmetic::per_things::Perbill,
 	},
 };
-use rococo::{api as rococo_api, api::runtime_types::polkadot_parachain_primitives::primitives};
+use rococo::{self as rococo_api, runtime_types::polkadot_parachain_primitives::primitives};
 
 type CoretimeRuntimeCall = coretime_api::runtime_types::coretime_rococo_runtime::RuntimeCall;
 type CoretimeUtilityCall = coretime_api::runtime_types::pallet_utility::pallet::Call;
@@ -529,11 +532,6 @@ async fn main() -> Result<(), anyhow::Error> {
 	// Alice claims her revenue
 
 	log::info!("Alice is going to claim her revenue");
-
-	let relay_client: OnlineClient<PolkadotConfig> =
-		network.get_node("alice")?.wait_client().await?;
-	let para_client: OnlineClient<PolkadotConfig> =
-		network.get_node("coretime")?.wait_client().await?;
 
 	let r = push_tx_hard(
 		para_client.clone(),
