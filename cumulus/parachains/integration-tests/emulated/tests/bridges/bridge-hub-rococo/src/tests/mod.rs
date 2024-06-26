@@ -41,6 +41,11 @@ pub(crate) fn bridged_roc_at_ah_westend() -> Location {
 	Location::new(2, [GlobalConsensus(Rococo)])
 }
 
+// wWND
+pub(crate) fn bridged_wnd_at_ah_rococo() -> Location {
+	Location::new(2, [GlobalConsensus(Westend)])
+}
+
 // USDT and wUSDT
 pub(crate) fn usdt_at_ah_rococo() -> Location {
 	Location::new(0, [PalletInstance(ASSETS_PALLET_ID), GeneralIndex(USDT_ID.into())])
@@ -73,6 +78,12 @@ pub(crate) fn create_foreign_on_ah_westend(id: v3::Location, sufficient: bool) {
 	AssetHubWestend::force_create_foreign_asset(id, owner, sufficient, ASSET_MIN_BALANCE, vec![]);
 }
 
+pub(crate) fn foreign_balance_on_ah_rococo(id: v3::Location, who: &AccountId) -> u128 {
+	AssetHubRococo::execute_with(|| {
+		type Assets = <AssetHubRococo as AssetHubRococoPallet>::ForeignAssets;
+		<Assets as Inspect<_>>::balance(id, who)
+	})
+}
 pub(crate) fn foreign_balance_on_ah_westend(id: v3::Location, who: &AccountId) -> u128 {
 	AssetHubWestend::execute_with(|| {
 		type Assets = <AssetHubWestend as AssetHubWestendPallet>::ForeignAssets;
@@ -122,31 +133,6 @@ pub(crate) fn set_up_pool_with_wnd_on_ah_westend(foreign_asset: v3::Location) {
 			]
 		);
 	});
-}
-
-pub(crate) fn send_asset_from_asset_hub_rococo(
-	destination: Location,
-	(id, amount): (Location, u128),
-) -> DispatchResult {
-	let signed_origin =
-		<AssetHubRococo as Chain>::RuntimeOrigin::signed(AssetHubRococoSender::get().into());
-
-	let beneficiary: Location =
-		AccountId32Junction { network: None, id: AssetHubWestendReceiver::get().into() }.into();
-
-	let assets: Assets = (id, amount).into();
-	let fee_asset_item = 0;
-
-	AssetHubRococo::execute_with(|| {
-		<AssetHubRococo as AssetHubRococoPallet>::PolkadotXcm::limited_reserve_transfer_assets(
-			signed_origin,
-			bx!(destination.into()),
-			bx!(beneficiary.into()),
-			bx!(assets.into()),
-			fee_asset_item,
-			WeightLimit::Unlimited,
-		)
-	})
 }
 
 pub(crate) fn send_assets_from_asset_hub_rococo(
