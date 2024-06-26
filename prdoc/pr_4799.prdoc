@@ -16,7 +16,9 @@ doc:
         - Multiple possible panics in litep2p library eliminated.
 
 crates:
+  - name: sc-authority-discovery
+    bump: patch
   - name: sc-network
-    bump: minor
+    bump: patch
   - name: sc-network-types
-    bump: minor
+    bump: patch
