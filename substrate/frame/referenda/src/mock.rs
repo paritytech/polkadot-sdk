@@ -55,6 +55,43 @@ impl Contains<RuntimeCall> for BaseFilter {
 	}
 }
 
+// Tests that hooks for OnPollStatusChange are being observed
+#[derive(Clone, Encode, Decode, MaxEncodedLen)]
+pub enum PollStatusChangeType {
+	None,
+	Ongoing,
+	Completed,
+}
+
+#[frame_support::storage_alias]
+type StatusChangeCounterStorage<T: crate::Config<I>, I: 'static> = StorageMap<
+	crate::Pallet<T, I>,
+	frame_support::pallet_prelude::Blake2_128Concat,
+	PollStatusChangeType,
+	u32,
+	frame_support::pallet_prelude::ValueQuery,
+>;
+
+pub struct StatusChangeConsumer;
+impl StatusChangeConsumer {
+	pub(crate) fn count_for(t: PollStatusChangeType) -> u32 {
+		StatusChangeCounterStorage::<Test, ()>::get(t)
+	}
+}
+
+impl OnPollStatusChange<Tally, u64, u8, u32> for StatusChangeConsumer {
+	fn on_poll_status_change(_: u32, poll_status: &PollStatus<Tally, u64, u8>) {
+		let t = match poll_status {
+			PollStatus::None => PollStatusChangeType::None,
+			PollStatus::Ongoing(..) => PollStatusChangeType::Ongoing,
+			PollStatus::Completed(..) => PollStatusChangeType::Completed,
+		};
+
+		let count = StatusChangeCounterStorage::<Test, ()>::get(t.clone());
+		StatusChangeCounterStorage::<Test, ()>::insert(t, count + 1);
+	}
+}
+
 parameter_types! {
 	pub MaxWeight: Weight = Weight::from_parts(2_000_000_000_000, u64::MAX);
 }
@@ -215,6 +252,7 @@ impl Config for Test {
 	type AlarmInterval = AlarmInterval;
 	type Tracks = TestTracksInfo;
 	type Preimages = Preimage;
+	type OnPollStatusChange = StatusChangeConsumer;
 }
 pub struct ExtBuilder {}
 
