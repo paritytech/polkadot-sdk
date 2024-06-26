@@ -70,6 +70,10 @@ impl Decode for Data {
 		Ok(match b {
 			0 => Data::None,
 			n @ 1..=33 => {
+				log::debug!(
+					target: LOG_TARGET,
+					"xxx decode...",
+				);
 				let mut r: BoundedVec<_, _> = vec![0u8; n as usize - 1]
 					.try_into()
 					.expect("bound checked in match arm condition; qed");
@@ -90,6 +94,10 @@ impl Encode for Data {
 		match self {
 			Data::None => vec![0u8; 1],
 			Data::Raw(ref x) => {
+				log::debug!(
+					target: LOG_TARGET,
+					"xxx encode...",
+				);
 				let l = x.len().min(32);
 				let mut r = vec![l as u8 + 1; l + 1];
 				r[1..].copy_from_slice(&x[..l as usize]);
