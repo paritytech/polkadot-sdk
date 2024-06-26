@@ -66,7 +66,7 @@ use frame_system::{
 pub use pallet_balances::Call as BalancesCall;
 pub use pallet_glutton::Call as GluttonCall;
 pub use pallet_sudo::Call as SudoCall;
-pub use pallet_timestamp::Call as TimestampCall;
+pub use pallet_timestamp::{Call as TimestampCall, Now};
 #[cfg(any(feature = "std", test))]
 pub use sp_runtime::BuildStorage;
 pub use sp_runtime::{Perbill, Permill};
@@ -280,7 +280,7 @@ type ConsensusHook = cumulus_pallet_aura_ext::FixedVelocityConsensusHook<
 >;
 impl cumulus_pallet_parachain_system::Config for Runtime {
 	type WeightInfo = ();
-	type SelfParaId = ParachainId;
+	type SelfParaId = parachain_info::Pallet<Runtime>;
 	type RuntimeEvent = RuntimeEvent;
 	type OnSystemEvent = ();
 	type OutboundXcmpMessageSource = ();
@@ -294,17 +294,14 @@ impl cumulus_pallet_parachain_system::Config for Runtime {
 	type ConsensusHook = ConsensusHook;
 }
 
+impl parachain_info::Config for Runtime {}
+
 impl pallet_aura::Config for Runtime {
 	type AuthorityId = AuraId;
 	type DisabledValidators = ();
 	type MaxAuthorities = ConstU32<32>;
 	type AllowMultipleBlocksPerSlot = ConstBool<true>;
 	type SlotDuration = ConstU64<SLOT_DURATION>;
-}
-
-parameter_types! {
-	// will be set by test_pallet during genesis init
-	pub storage ParachainId: cumulus_primitives_core::ParaId = PARACHAIN_ID.into();
 }
 
 impl test_pallet::Config for Runtime {}
@@ -315,6 +312,7 @@ construct_runtime! {
 		System: frame_system,
 		ParachainSystem: cumulus_pallet_parachain_system,
 		Timestamp: pallet_timestamp,
+		ParachainInfo: parachain_info,
 		Balances: pallet_balances,
 		Sudo: pallet_sudo,
 		TransactionPayment: pallet_transaction_payment,
@@ -501,7 +499,7 @@ impl_runtime_apis! {
 
 	impl crate::GetLastTimestamp<Block> for Runtime {
 		fn get_last_timestamp() -> u64 {
-			Timestamp::now()
+			Now::<Runtime>::get()
 		}
 	}
 

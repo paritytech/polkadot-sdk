@@ -30,11 +30,11 @@ use frame_support::{
 	weights::Weight,
 };
 use frame_system::EnsureRoot;
-use rococo_runtime_constants::{currency::CENTS, system_parachain::*};
-use runtime_common::{
+use polkadot_runtime_common::{
 	xcm_sender::{ChildParachainRouter, ExponentialPrice},
 	ToAuthor,
 };
+use rococo_runtime_constants::{currency::CENTS, system_parachain::*};
 use sp_core::ConstU32;
 use xcm::latest::prelude::*;
 use xcm_builder::{
@@ -225,6 +225,7 @@ impl xcm_executor::Config for XcmConfig {
 	type HrmpNewChannelOpenRequestHandler = ();
 	type HrmpChannelAcceptedHandler = ();
 	type HrmpChannelClosingHandler = ();
+	type XcmRecorder = XcmPallet;
 }
 
 parameter_types! {

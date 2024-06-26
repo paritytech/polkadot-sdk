@@ -22,3 +22,4 @@ mod swap;
 mod teleport;
 mod treasury;
 mod treasury_asset_reward_pool;
+mod xcm_fee_estimation;

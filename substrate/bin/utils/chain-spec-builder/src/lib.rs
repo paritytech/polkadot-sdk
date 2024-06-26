@@ -120,12 +120,12 @@
 use std::{fs, path::PathBuf};
 
 use clap::{Parser, Subcommand};
-use sc_chain_spec::{GenericChainSpec, GenesisConfigBuilderRuntimeCaller};
+use sc_chain_spec::{ChainType, GenericChainSpec, GenesisConfigBuilderRuntimeCaller};
 use serde_json::Value;
 
 /// A utility to easily create a chain spec definition.
 #[derive(Debug, Parser)]
-#[command(rename_all = "kebab-case")]
+#[command(rename_all = "kebab-case", version, about)]
 pub struct ChainSpecBuilder {
 	#[command(subcommand)]
 	pub command: ChainSpecBuilderCmd,
@@ -143,6 +143,7 @@ pub enum ChainSpecBuilderCmd {
 	ConvertToRaw(ConvertToRawCmd),
 	ListPresets(ListPresetsCmd),
 	DisplayPreset(DisplayPresetCmd),
+	AddCodeSubstitute(AddCodeSubstituteCmd),
 }
 
 /// Create a new chain spec by interacting with the provided runtime wasm blob.
@@ -154,6 +155,9 @@ pub struct CreateCmd {
 	/// The chain id.
 	#[arg(long, short = 'i', default_value = "custom")]
 	chain_id: String,
+	/// The chain type.
+	#[arg(value_enum, short = 't', default_value = "live")]
+	chain_type: ChainType,
 	/// The path to runtime wasm blob.
 	#[arg(long, short)]
 	runtime_wasm_path: PathBuf,
@@ -206,12 +210,36 @@ struct NamedPresetCmd {
 ///
 /// The code field of the chain spec will be updated with the runtime provided in the
 /// command line. This operation supports both plain and raw formats.
+///
+/// This command does not update chain-spec file in-place. The result of this command will be stored
+/// in a file given as `-c/--chain-spec-path` command line argument.
 #[derive(Parser, Debug, Clone)]
 pub struct UpdateCodeCmd {
 	/// Chain spec to be updated.
+	///
+	/// Please note that the file will not be updated in-place.
 	pub input_chain_spec: PathBuf,
 	/// The path to new runtime wasm blob to be stored into chain-spec.
 	pub runtime_wasm_path: PathBuf,
+}
+
+/// Add a code substitute in the chain spec.
+///
+/// The `codeSubstitute` object of the chain spec will be updated with the block height as key and
+/// runtime code as value. This operation supports both plain and raw formats. The `codeSubstitute`
+/// field instructs the node to use the provided runtime code at the given block height. This is
+/// useful when the chain can not progress on its own due to a bug that prevents block-building.
+///
+/// Note: For parachains, the validation function on the relaychain needs to be adjusted too,
+/// otherwise blocks built using the substituted parachain runtime will be rejected.
+#[derive(Parser, Debug, Clone)]
+pub struct AddCodeSubstituteCmd {
+	/// Chain spec to be updated.
+	pub input_chain_spec: PathBuf,
+	/// New runtime wasm blob that should replace the existing code.
+	pub runtime_wasm_path: PathBuf,
+	/// The block height at which the code should be substituted.
+	pub block_height: u64,
 }
 
 /// Converts the given chain spec into the raw format.
@@ -256,10 +284,12 @@ pub fn generate_chain_spec_for_runtime(cmd: &CreateCmd) -> Result<String, String
 	let code = fs::read(cmd.runtime_wasm_path.as_path())
 		.map_err(|e| format!("wasm blob shall be readable {e}"))?;
 
+	let chain_type = &cmd.chain_type;
+
 	let builder = GenericChainSpec::<()>::builder(&code[..], Default::default())
 		.with_name(&cmd.chain_name[..])
 		.with_id(&cmd.chain_id[..])
-		.with_chain_type(sc_chain_spec::ChainType::Live);
+		.with_chain_type(chain_type.clone());
 
 	let builder = match cmd.action {
 		GenesisBuildAction::NamedPreset(NamedPresetCmd { ref preset_name }) =>

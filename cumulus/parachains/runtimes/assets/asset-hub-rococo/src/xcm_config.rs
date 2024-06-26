@@ -426,6 +426,7 @@ impl xcm_executor::Config for XcmConfig {
 	type HrmpNewChannelOpenRequestHandler = ();
 	type HrmpChannelAcceptedHandler = ();
 	type HrmpChannelClosingHandler = ();
+	type XcmRecorder = PolkadotXcm;
 }
 
 /// Converts a local signed origin into an XCM location.
@@ -700,8 +701,7 @@ pub mod bridging {
 							false => None,
 						}
 					});
-			assert!(alias.is_some(), "we expect here BridgeHubRococo to Westend mapping at least");
-			Some(alias.unwrap())
+			Some(alias.expect("we expect here BridgeHubRococo to Westend mapping at least"))
 		}
 	}
 }

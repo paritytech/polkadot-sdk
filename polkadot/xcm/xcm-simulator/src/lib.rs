@@ -16,6 +16,10 @@
 
 //! Test kit to simulate cross-chain message passing and XCM execution.
 
+/// Implementation of a simple message queue.
+/// Used for sending messages.
+pub mod mock_message_queue;
+
 pub use codec::Encode;
 pub use paste;
 

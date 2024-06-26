@@ -389,14 +389,27 @@ impl<
 		asset: Self::AssetId,
 		who: &AccountId,
 		amount: Self::Balance,
+		preservation: Preservation,
 		precision: Precision,
 		force: Fortitude,
 	) -> Result<Self::Balance, DispatchError> {
 		match Criterion::convert(asset) {
-			Left(a) =>
-				<Left as fungibles::Mutate<AccountId>>::burn_from(a, who, amount, precision, force),
-			Right(a) =>
-				<Right as fungibles::Mutate<AccountId>>::burn_from(a, who, amount, precision, force),
+			Left(a) => <Left as fungibles::Mutate<AccountId>>::burn_from(
+				a,
+				who,
+				amount,
+				preservation,
+				precision,
+				force,
+			),
+			Right(a) => <Right as fungibles::Mutate<AccountId>>::burn_from(
+				a,
+				who,
+				amount,
+				preservation,
+				precision,
+				force,
+			),
 		}
 	}
 	fn shelve(

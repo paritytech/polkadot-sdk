@@ -38,7 +38,6 @@ use crate::{
 			request_response::{RequestResponseConfig, RequestResponseProtocol},
 		},
 	},
-	multiaddr::{Multiaddr, Protocol},
 	peer_store::PeerStoreProvider,
 	protocol,
 	service::{
@@ -54,17 +53,23 @@ use futures::StreamExt;
 use libp2p::kad::RecordKey;
 use litep2p::{
 	config::ConfigBuilder,
-	crypto::ed25519::{Keypair, SecretKey},
+	crypto::ed25519::Keypair,
 	executor::Executor,
 	protocol::{
-		libp2p::{bitswap::Config as BitswapConfig, kademlia::QueryId},
+		libp2p::{
+			bitswap::Config as BitswapConfig,
+			kademlia::{QueryId, RecordsType},
+		},
 		request_response::ConfigBuilder as RequestResponseConfigBuilder,
 	},
 	transport::{
 		tcp::config::Config as TcpTransportConfig,
 		websocket::config::Config as WebSocketTransportConfig, Endpoint,
 	},
-	types::ConnectionId,
+	types::{
+		multiaddr::{Multiaddr, Protocol},
+		ConnectionId,
+	},
 	Error as Litep2pError, Litep2p, Litep2pEvent, ProtocolName as Litep2pProtocolName,
 };
 use parking_lot::RwLock;
@@ -81,7 +86,7 @@ use std::{
 	collections::{hash_map::Entry, HashMap, HashSet},
 	fs,
 	future::Future,
-	io, iter,
+	iter,
 	pin::Pin,
 	sync::{
 		atomic::{AtomicUsize, Ordering},
@@ -200,12 +205,12 @@ impl Litep2pNetworkBackend {
 					Protocol::Ip4(_),
 				) => match address.iter().find(|protocol| std::matches!(protocol, Protocol::P2p(_)))
 				{
-					Some(Protocol::P2p(multihash)) => PeerId::from_multihash(multihash)
+					Some(Protocol::P2p(multihash)) => PeerId::from_multihash(multihash.into())
 						.map_or(None, |peer| Some((peer, Some(address)))),
 					_ => None,
 				},
 				Some(Protocol::P2p(multihash)) =>
-					PeerId::from_multihash(multihash).map_or(None, |peer| Some((peer, None))),
+					PeerId::from_multihash(multihash.into()).map_or(None, |peer| Some((peer, None))),
 				_ => None,
 			})
 			.fold(HashMap::new(), |mut acc, (peer, maybe_address)| {
@@ -244,16 +249,9 @@ impl Litep2pNetworkBackend {
 impl Litep2pNetworkBackend {
 	/// Get `litep2p` keypair from `NodeKeyConfig`.
 	fn get_keypair(node_key: &NodeKeyConfig) -> Result<(Keypair, litep2p::PeerId), Error> {
-		let secret = libp2p::identity::Keypair::try_into_ed25519(node_key.clone().into_keypair()?)
-			.map_err(|error| {
-				log::error!(target: LOG_TARGET, "failed to convert to ed25519: {error:?}");
-				Error::Io(io::ErrorKind::InvalidInput.into())
-			})?
-			.secret();
+		let secret: litep2p::crypto::ed25519::SecretKey =
+			node_key.clone().into_keypair()?.secret().into();
 
-		let mut secret = secret.as_ref().iter().cloned().collect::<Vec<_>>();
-		let secret = SecretKey::from_bytes(&mut secret)
-			.map_err(|_| Error::Io(io::ErrorKind::InvalidInput.into()))?;
 		let local_identity = Keypair::from(secret);
 		let local_public = local_identity.public();
 		let local_peer_id = local_public.to_peer_id();
@@ -327,6 +325,8 @@ impl Litep2pNetworkBackend {
 			.listen_addresses
 			.iter()
 			.filter_map(|address| {
+				use sc_network_types::multiaddr::Protocol;
+
 				let mut iter = address.iter();
 
 				match iter.next() {
@@ -367,12 +367,12 @@ impl Litep2pNetworkBackend {
 
 		config_builder
 			.with_websocket(WebSocketTransportConfig {
-				listen_addresses: websocket.into_iter().flatten().collect(),
+				listen_addresses: websocket.into_iter().flatten().map(Into::into).collect(),
 				yamux_config: yamux_config.clone(),
 				..Default::default()
 			})
 			.with_tcp(TcpTransportConfig {
-				listen_addresses: tcp.into_iter().flatten().collect(),
+				listen_addresses: tcp.into_iter().flatten().map(Into::into).collect(),
 				yamux_config,
 				..Default::default()
 			})
@@ -522,6 +522,8 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 		// collect known addresses
 		let known_addresses: HashMap<litep2p::PeerId, Vec<Multiaddr>> =
 			known_addresses.into_iter().fold(HashMap::new(), |mut acc, (peer, address)| {
+				use sc_network_types::multiaddr::Protocol;
+
 				let address = match address.iter().last() {
 					Some(Protocol::Ws(_) | Protocol::Wss(_) | Protocol::Tcp(_)) =>
 						address.with(Protocol::P2p(peer.into())),
@@ -529,7 +531,7 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 					_ => return acc,
 				};
 
-				acc.entry(peer.into()).or_default().push(address);
+				acc.entry(peer.into()).or_default().push(address.into());
 				peer_store_handle.add_known_peer(peer);
 
 				acc
@@ -567,7 +569,7 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 			Litep2p::new(config_builder.build()).map_err(|error| Error::Litep2p(error))?;
 
 		let external_addresses: Arc<RwLock<HashSet<Multiaddr>>> = Arc::new(RwLock::new(
-			HashSet::from_iter(network_config.public_addresses.iter().cloned()),
+			HashSet::from_iter(network_config.public_addresses.iter().cloned().map(Into::into)),
 		));
 		litep2p.listen_addresses().for_each(|address| {
 			log::debug!(target: LOG_TARGET, "listening on: {address}");
@@ -713,7 +715,7 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 							protocol,
 							peers,
 						} => {
-							let peers = self.add_addresses(peers.into_iter());
+							let peers = self.add_addresses(peers.into_iter().map(Into::into));
 
 							match self.peerset_handles.get(&protocol) {
 								Some(handle) => {
@@ -722,9 +724,11 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 								None => log::warn!(target: LOG_TARGET, "protocol {protocol} doens't exist"),
 							};
 						}
-						NetworkServiceCommand::AddKnownAddress { peer, mut address } => {
+						NetworkServiceCommand::AddKnownAddress { peer, address } => {
+							let mut address: Multiaddr = address.into();
+
 							if !address.iter().any(|protocol| std::matches!(protocol, Protocol::P2p(_))) {
-								address.push(Protocol::P2p(peer.into()));
+								address.push(Protocol::P2p(litep2p::PeerId::from(peer).into()));
 							}
 
 							if self.litep2p.add_known_address(peer.into(), iter::once(address.clone())) == 0usize {
@@ -735,7 +739,7 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 							}
 						},
 						NetworkServiceCommand::SetReservedPeers { protocol, peers } => {
-							let peers = self.add_addresses(peers.into_iter());
+							let peers = self.add_addresses(peers.into_iter().map(Into::into));
 
 							match self.peerset_handles.get(&protocol) {
 								Some(handle) => {
@@ -795,23 +799,30 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 							self.peerstore_handle.add_known_peer(peer.into());
 						}
 					}
-					Some(DiscoveryEvent::GetRecordSuccess { query_id, record }) => {
+					Some(DiscoveryEvent::GetRecordSuccess { query_id, records }) => {
 						match self.pending_get_values.remove(&query_id) {
 							None => log::warn!(
 								target: LOG_TARGET,
 								"`GET_VALUE` succeeded for a non-existent query",
 							),
-							Some((_key, started)) => {
+							Some((key, started)) => {
 								log::trace!(
 									target: LOG_TARGET,
 									"`GET_VALUE` for {:?} ({query_id:?}) succeeded",
-									record.key,
+									key,
 								);
 
-								self.event_streams.send(Event::Dht(
-									DhtEvent::ValueFound(vec![
+								let value_found = match records {
+									RecordsType::LocalStore(record) => vec![
 										(libp2p::kad::RecordKey::new(&record.key), record.value)
-									])
+									],
+									RecordsType::Network(records) => records.into_iter().map(|peer_record| {
+										(libp2p::kad::RecordKey::new(&peer_record.record.key), peer_record.record.value)
+									}).collect(),
+								};
+
+								self.event_streams.send(Event::Dht(
+									DhtEvent::ValueFound(value_found)
 								));
 
 								if let Some(ref metrics) = self.metrics {
