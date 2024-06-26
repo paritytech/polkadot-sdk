@@ -18,13 +18,16 @@
 //! This migration is meant to upgrade the XCM version of asset locations from V3 to V4.
 //! It's only needed if the `AssetId` for this pallet is `VersionedLocation`
 
-use crate::pallet::{Asset, Config};
+use pallet_assets::{Asset, Config};
 use frame_support::{
 	migrations::{SteppedMigration, SteppedMigrationError},
 	pallet_prelude::PhantomData,
 	weights::WeightMeter,
 	Hashable,
 };
+
+#[cfg(test)]
+mod tests;
 
 // TODO: Move this further up.
 mod identifier {
@@ -45,9 +48,9 @@ use identifier::*;
 /// Storage aliases for on-chain storage types before running the migration.
 mod old {
 	use super::Config;
-	use crate::{
-		pallet::Pallet,
-		types::{AssetDetails, DepositBalanceOf},
+	use pallet_assets::{
+		Pallet,
+		AssetDetails, DepositBalanceOf,
 	};
 	use frame_support::{storage_alias, Blake2_128Concat};
 
@@ -65,9 +68,9 @@ mod old {
 	>;
 }
 
-pub struct MigrateForeignAssets<T: Config<I>, I: 'static>(PhantomData<(T, I)>);
+pub struct Migration<T: Config<I>, I: 'static>(PhantomData<(T, I)>);
 impl<T: Config<I, AssetId = xcm::v3::Location>, I: 'static> SteppedMigration
-	for MigrateForeignAssets<T, I>
+	for Migration<T, I>
 {
 	type Cursor = T::AssetId;
 	type Identifier = MigrationIdentifier;

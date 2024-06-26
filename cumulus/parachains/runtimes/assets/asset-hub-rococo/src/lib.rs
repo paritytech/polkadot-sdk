@@ -86,6 +86,9 @@ use xcm_config::{
 	TrustBackedAssetsConvertedConcreteId, TrustBackedAssetsPalletLocationV3,
 };
 
+#[cfg(test)]
+mod tests;
+
 #[cfg(any(feature = "std", test))]
 pub use sp_runtime::BuildStorage;
 
@@ -1789,65 +1792,4 @@ impl_runtime_apis! {
 cumulus_pallet_parachain_system::register_validate_block! {
 	Runtime = Runtime,
 	BlockExecutor = cumulus_pallet_aura_ext::BlockExecutor::<Runtime, Executive>,
-}
-
-#[cfg(test)]
-mod tests {
-	use super::*;
-	use crate::{CENTS, MILLICENTS};
-	use sp_runtime::traits::Zero;
-	use sp_weights::WeightToFee;
-	use testnet_parachains_constants::rococo::fee;
-
-	/// We can fit at least 1000 transfers in a block.
-	#[test]
-	fn sane_block_weight() {
-		use pallet_balances::WeightInfo;
-		let block = RuntimeBlockWeights::get().max_block;
-		let base = RuntimeBlockWeights::get().get(DispatchClass::Normal).base_extrinsic;
-		let transfer =
-			base + weights::pallet_balances::WeightInfo::<Runtime>::transfer_allow_death();
-
-		let fit = block.checked_div_per_component(&transfer).unwrap_or_default();
-		assert!(fit >= 1000, "{} should be at least 1000", fit);
-	}
-
-	/// The fee for one transfer is at most 1 CENT.
-	#[test]
-	fn sane_transfer_fee() {
-		use pallet_balances::WeightInfo;
-		let base = RuntimeBlockWeights::get().get(DispatchClass::Normal).base_extrinsic;
-		let transfer =
-			base + weights::pallet_balances::WeightInfo::<Runtime>::transfer_allow_death();
-
-		let fee: Balance = fee::WeightToFee::weight_to_fee(&transfer);
-		assert!(fee <= CENTS, "{} MILLICENTS should be at most 1000", fee / MILLICENTS);
-	}
-
-	/// Weight is being charged for both dimensions.
-	#[test]
-	fn weight_charged_for_both_components() {
-		let fee: Balance = fee::WeightToFee::weight_to_fee(&Weight::from_parts(10_000, 0));
-		assert!(!fee.is_zero(), "Charges for ref time");
-
-		let fee: Balance = fee::WeightToFee::weight_to_fee(&Weight::from_parts(0, 10_000));
-		assert_eq!(fee, CENTS, "10kb maps to CENT");
-	}
-
-	/// Filling up a block by proof size is at most 30 times more expensive than ref time.
-	///
-	/// This is just a sanity check.
-	#[test]
-	fn full_block_fee_ratio() {
-		let block = RuntimeBlockWeights::get().max_block;
-		let time_fee: Balance =
-			fee::WeightToFee::weight_to_fee(&Weight::from_parts(block.ref_time(), 0));
-		let proof_fee: Balance =
-			fee::WeightToFee::weight_to_fee(&Weight::from_parts(0, block.proof_size()));
-
-		let proof_o_time = proof_fee.checked_div(time_fee).unwrap_or_default();
-		assert!(proof_o_time <= 30, "{} should be at most 30", proof_o_time);
-		let time_o_proof = time_fee.checked_div(proof_fee).unwrap_or_default();
-		assert!(time_o_proof <= 30, "{} should be at most 30", time_o_proof);
-	}
 }

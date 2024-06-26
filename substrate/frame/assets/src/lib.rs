@@ -152,7 +152,6 @@
 
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
-pub mod foreign_assets_migration; // TODO: move to `migrations` mod
 pub mod migration;
 #[cfg(test)]
 pub mod mock;
@@ -374,7 +373,7 @@ pub mod pallet {
 
 	#[pallet::storage]
 	/// Details of an asset.
-	pub(super) type Asset<T: Config<I>, I: 'static = ()> = StorageMap<
+	pub type Asset<T: Config<I>, I: 'static = ()> = StorageMap<
 		_,
 		Blake2_128Concat,
 		T::AssetId,

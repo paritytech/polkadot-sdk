@@ -24,7 +24,7 @@ use frame_support::{
 };
 use sp_runtime::{traits::Convert, FixedPointNumber, FixedU128};
 
-pub(super) type DepositBalanceOf<T, I = ()> =
+pub type DepositBalanceOf<T, I = ()> =
 	<<T as Config<I>>::Currency as Currency<<T as SystemConfig>::AccountId>>::Balance;
 pub(super) type AssetAccountOf<T, I> = AssetAccount<
 	<T as Config<I>>::Balance,

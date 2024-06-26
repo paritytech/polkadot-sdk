@@ -1079,9 +1079,12 @@ version = "0.7.0"
 dependencies = [
  "cumulus-primitives-core",
  "frame-support",
+ "frame-system",
  "impl-trait-for-tuples",
  "log",
  "pallet-asset-conversion",
+ "pallet-assets",
+ "pallet-balances",
  "pallet-xcm",
  "parachains-common",
  "parity-scale-codec",
