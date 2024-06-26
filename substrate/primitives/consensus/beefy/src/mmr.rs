@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! BEEFY + MMR utilties.
+//! BEEFY + MMR utilities.
 //!
 //! While BEEFY can be used completely independently as an additional consensus gadget,
 //! it is designed around a main use case of bridging standalone networks together.
@@ -77,7 +77,7 @@ pub struct MmrLeaf<BlockNumber, Hash, MerkleRoot, ExtraData> {
 ///
 /// Given that adding new struct elements in SCALE is backward compatible (i.e. old format can be
 /// still decoded, the new fields will simply be ignored). We expect the major version to be bumped
-/// very rarely (hopefuly never).
+/// very rarely (hopefully never).
 #[derive(Debug, Default, PartialEq, Eq, Clone, Encode, Decode, TypeInfo)]
 pub struct MmrLeafVersion(u8);
 impl MmrLeafVersion {

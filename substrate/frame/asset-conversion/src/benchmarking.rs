@@ -24,7 +24,7 @@ use frame_support::{
 	assert_ok,
 	traits::{
 		fungible::NativeOrWithId,
-		fungibles::{Create, Inspect, Mutate},
+		fungibles::{Create, Inspect, Mutate, Refund},
 	},
 };
 use frame_system::RawOrigin as SystemOrigin;
@@ -75,12 +75,21 @@ where
 }
 
 /// Create the `asset` and mint the `amount` for the `caller`.
-fn create_asset<T: Config>(caller: &T::AccountId, asset: &T::AssetKind, amount: T::Balance)
-where
+fn create_asset<T: Config>(
+	caller: &T::AccountId,
+	asset: &T::AssetKind,
+	amount: T::Balance,
+	is_sufficient: bool,
+) where
 	T::Assets: Create<T::AccountId> + Mutate<T::AccountId>,
 {
 	if !T::Assets::asset_exists(asset.clone()) {
-		assert_ok!(T::Assets::create(asset.clone(), caller.clone(), true, T::Balance::one()));
+		assert_ok!(T::Assets::create(
+			asset.clone(),
+			caller.clone(),
+			is_sufficient,
+			T::Balance::one()
+		));
 	}
 	assert_ok!(T::Assets::mint_into(
 		asset.clone(),
@@ -141,8 +150,8 @@ where
 		T::Assets::minimum_balance(asset1.clone()),
 		T::Assets::minimum_balance(asset2.clone()),
 	);
-	create_asset::<T>(caller, asset1, liquidity1);
-	create_asset::<T>(caller, asset2, liquidity2);
+	create_asset::<T>(caller, asset1, liquidity1, true);
+	create_asset::<T>(caller, asset2, liquidity2, true);
 	let lp_token = AssetConversion::<T>::get_next_pool_asset_id();
 
 	mint_setup_fee_asset::<T>(caller, asset1, asset2, &lp_token);
@@ -172,8 +181,8 @@ mod benchmarks {
 	fn create_pool() {
 		let caller: T::AccountId = whitelisted_caller();
 		let (asset1, asset2) = T::BenchmarkHelper::create_pair(0, 1);
-		create_asset::<T>(&caller, &asset1, T::Assets::minimum_balance(asset1.clone()));
-		create_asset::<T>(&caller, &asset2, T::Assets::minimum_balance(asset2.clone()));
+		create_asset::<T>(&caller, &asset1, T::Assets::minimum_balance(asset1.clone()), true);
+		create_asset::<T>(&caller, &asset2, T::Assets::minimum_balance(asset2.clone()), true);
 
 		let lp_token = AssetConversion::<T>::get_next_pool_asset_id();
 		create_fee_asset::<T>(&caller);
@@ -356,6 +365,48 @@ mod benchmarks {
 
 		let actual_balance = T::Assets::balance(asset_out, &caller);
 		assert_eq!(actual_balance, init_caller_balance + T::Balance::one());
+	}
+
+	#[benchmark]
+	fn touch(n: Linear<0, 3>) {
+		let caller: T::AccountId = whitelisted_caller();
+		let (asset1, asset2) = T::BenchmarkHelper::create_pair(0, 1);
+		let pool_id = T::PoolLocator::pool_id(&asset1, &asset2).unwrap();
+		let pool_account = T::PoolLocator::address(&pool_id).unwrap();
+
+		create_fee_asset::<T>(&caller);
+		create_asset::<T>(&caller, &asset1, <T as Config>::Balance::one(), false);
+		create_asset::<T>(&caller, &asset2, <T as Config>::Balance::one(), false);
+		let lp_token = AssetConversion::<T>::get_next_pool_asset_id();
+		mint_setup_fee_asset::<T>(&caller, &asset1, &asset2, &lp_token);
+
+		assert_ok!(AssetConversion::<T>::create_pool(
+			SystemOrigin::Signed(caller.clone()).into(),
+			Box::new(asset1.clone()),
+			Box::new(asset2.clone())
+		));
+
+		if n > 0 &&
+			<T as Config>::Assets::deposit_held(asset1.clone(), pool_account.clone()).is_some()
+		{
+			let _ = <T as Config>::Assets::refund(asset1.clone(), pool_account.clone());
+		}
+		if n > 1 &&
+			<T as Config>::Assets::deposit_held(asset2.clone(), pool_account.clone()).is_some()
+		{
+			let _ = <T as Config>::Assets::refund(asset2.clone(), pool_account.clone());
+		}
+		if n > 2 &&
+			<T as Config>::PoolAssets::deposit_held(lp_token.clone(), pool_account.clone())
+				.is_some()
+		{
+			let _ = <T as Config>::PoolAssets::refund(lp_token, pool_account);
+		}
+
+		#[extrinsic_call]
+		_(SystemOrigin::Signed(caller.clone()), Box::new(asset1.clone()), Box::new(asset2.clone()));
+
+		assert_last_event::<T>(Event::Touched { pool_id, who: caller }.into());
 	}
 
 	impl_benchmark_test_suite!(AssetConversion, crate::mock::new_test_ext(), crate::mock::Test);

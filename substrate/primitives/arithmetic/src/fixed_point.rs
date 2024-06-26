@@ -568,7 +568,7 @@ macro_rules! implement_fixed {
 				let v = self.0 as u128;
 
 				// Want x' = sqrt(x) where x = n/D and x' = n'/D (D is fixed)
-				// Our prefered way is:
+				// Our preferred way is:
 				//   sqrt(n/D) = sqrt(nD / D^2) = sqrt(nD)/sqrt(D^2) = sqrt(nD)/D
 				//   ergo n' = sqrt(nD)
 				// but this requires nD to fit into our type.

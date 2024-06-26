@@ -163,7 +163,7 @@ pub fn make_dispute_message(
 	let invalid_vote =
 		make_explicit_signed(MOCK_VALIDATORS[invalid_validator.0 as usize], candidate_hash, false);
 	gum::trace!(
-		"Passed time for invald vote: {:#?}",
+		"Passed time for invalid vote: {:#?}",
 		Instant::now().saturating_duration_since(before_request)
 	);
 	DisputeMessage::from_signed_statements(

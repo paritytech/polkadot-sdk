@@ -55,8 +55,10 @@ use trie_db::proof::{generate_proof, verify_proof};
 pub use trie_db::{
 	nibble_ops,
 	node::{NodePlan, ValuePlan},
+	triedb::{TrieDBDoubleEndedIterator, TrieDBKeyDoubleEndedIterator},
 	CError, DBValue, Query, Recorder, Trie, TrieCache, TrieConfiguration, TrieDBIterator,
-	TrieDBKeyIterator, TrieDBRawIterator, TrieLayout, TrieMut, TrieRecorder,
+	TrieDBKeyIterator, TrieDBNodeDoubleEndedIterator, TrieDBRawIterator, TrieLayout, TrieMut,
+	TrieRecorder,
 };
 pub use trie_db::{proof::VerifyError, MerkleValue};
 /// The Substrate format implementation of `TrieStream`.
@@ -193,11 +195,11 @@ pub type MemoryDB<H> = memory_db::MemoryDB<H, memory_db::HashKey<H>, trie_db::DB
 /// Reexport from `hash_db`, with genericity set for `Hasher` trait.
 pub type GenericMemoryDB<H, KF> = memory_db::MemoryDB<H, KF, trie_db::DBValue>;
 
-/// Persistent trie database read-access interface for the a given hasher.
+/// Persistent trie database read-access interface for a given hasher.
 pub type TrieDB<'a, 'cache, L> = trie_db::TrieDB<'a, 'cache, L>;
 /// Builder for creating a [`TrieDB`].
 pub type TrieDBBuilder<'a, 'cache, L> = trie_db::TrieDBBuilder<'a, 'cache, L>;
-/// Persistent trie database write-access interface for the a given hasher.
+/// Persistent trie database write-access interface for a given hasher.
 pub type TrieDBMut<'a, L> = trie_db::TrieDBMut<'a, L>;
 /// Builder for creating a [`TrieDBMut`].
 pub type TrieDBMutBuilder<'a, L> = trie_db::TrieDBMutBuilder<'a, L>;
@@ -210,17 +212,17 @@ pub type TrieHash<L> = <<L as TrieLayout>::Hash as Hasher>::Out;
 pub mod trie_types {
 	use super::*;
 
-	/// Persistent trie database read-access interface for the a given hasher.
+	/// Persistent trie database read-access interface for a given hasher.
 	///
 	/// Read only V1 and V0 are compatible, thus we always use V1.
 	pub type TrieDB<'a, 'cache, H> = super::TrieDB<'a, 'cache, LayoutV1<H>>;
 	/// Builder for creating a [`TrieDB`].
 	pub type TrieDBBuilder<'a, 'cache, H> = super::TrieDBBuilder<'a, 'cache, LayoutV1<H>>;
-	/// Persistent trie database write-access interface for the a given hasher.
+	/// Persistent trie database write-access interface for a given hasher.
 	pub type TrieDBMutV0<'a, H> = super::TrieDBMut<'a, LayoutV0<H>>;
 	/// Builder for creating a [`TrieDBMutV0`].
 	pub type TrieDBMutBuilderV0<'a, H> = super::TrieDBMutBuilder<'a, LayoutV0<H>>;
-	/// Persistent trie database write-access interface for the a given hasher.
+	/// Persistent trie database write-access interface for a given hasher.
 	pub type TrieDBMutV1<'a, H> = super::TrieDBMut<'a, LayoutV1<H>>;
 	/// Builder for creating a [`TrieDBMutV1`].
 	pub type TrieDBMutBuilderV1<'a, H> = super::TrieDBMutBuilder<'a, LayoutV1<H>>;
@@ -326,7 +328,7 @@ pub fn read_trie_value<L: TrieLayout, DB: hash_db::HashDBRef<L::Hash, trie_db::D
 
 /// Read the [`trie_db::MerkleValue`] of the node that is the closest descendant for
 /// the provided key.
-pub fn read_trie_first_descedant_value<L: TrieLayout, DB>(
+pub fn read_trie_first_descendant_value<L: TrieLayout, DB>(
 	db: &DB,
 	root: &TrieHash<L>,
 	key: &[u8],
@@ -447,7 +449,7 @@ where
 
 /// Read the [`trie_db::MerkleValue`] of the node that is the closest descendant for
 /// the provided child key.
-pub fn read_child_trie_first_descedant_value<L: TrieConfiguration, DB>(
+pub fn read_child_trie_first_descendant_value<L: TrieConfiguration, DB>(
 	keyspace: &[u8],
 	db: &DB,
 	root: &TrieHash<L>,

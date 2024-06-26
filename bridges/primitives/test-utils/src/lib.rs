@@ -88,7 +88,7 @@ pub fn make_default_justification<H: HeaderT>(header: &H) -> GrandpaJustificatio
 /// Generate justifications in a way where we are able to tune the number of pre-commits
 /// and vote ancestries which are included in the justification.
 ///
-/// This is useful for benchmarkings where we want to generate valid justifications with
+/// This is useful for benchmarks where we want to generate valid justifications with
 /// a specific number of pre-commits (tuned with the number of "authorities") and/or a specific
 /// number of vote ancestries (tuned with the "votes" parameter).
 ///

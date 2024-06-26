@@ -19,7 +19,7 @@
 use crate::types::{ExtendedPeerInfo, SyncEvent, SyncEventStream, SyncStatus, SyncStatusProvider};
 
 use futures::{channel::oneshot, Stream};
-use libp2p::PeerId;
+use sc_network_types::PeerId;
 
 use sc_consensus::{BlockImportError, BlockImportStatus, JustificationSyncLink, Link};
 use sc_network::{NetworkBlock, NetworkSyncForkRequest};

@@ -327,7 +327,7 @@ impl RuntimeVersion {
 	///
 	/// For runtime with core api version less than 4,
 	/// V0 trie version will be applied to state.
-	/// Otherwhise, V1 trie version will be use.
+	/// Otherwise, V1 trie version will be use.
 	pub fn state_version(&self) -> StateVersion {
 		// If version > than 1, keep using latest version.
 		self.state_version.try_into().unwrap_or(StateVersion::V1)

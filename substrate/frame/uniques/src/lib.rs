@@ -1399,7 +1399,7 @@ pub mod pallet {
 				.map(|_| None)
 				.or_else(|origin| ensure_signed(origin).map(Some))?;
 
-			let details =
+			let mut details =
 				Collection::<T, I>::get(&collection).ok_or(Error::<T, I>::UnknownCollection)?;
 			if let Some(check_owner) = &maybe_check_owner {
 				ensure!(check_owner == &details.owner, Error::<T, I>::NoPermission);
@@ -1411,6 +1411,8 @@ pub mod pallet {
 
 				let deposit = metadata.take().ok_or(Error::<T, I>::UnknownCollection)?.deposit;
 				T::Currency::unreserve(&details.owner, deposit);
+				details.total_deposit.saturating_reduce(deposit);
+				Collection::<T, I>::insert(&collection, details);
 				Self::deposit_event(Event::CollectionMetadataCleared { collection });
 				Ok(())
 			})

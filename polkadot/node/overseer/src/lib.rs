@@ -71,8 +71,8 @@ use std::{
 
 use futures::{channel::oneshot, future::BoxFuture, select, Future, FutureExt, StreamExt};
 
-use client::{BlockImportNotification, BlockchainEvents, FinalityNotification};
 use polkadot_primitives::{Block, BlockNumber, Hash};
+use sc_client_api::{BlockImportNotification, BlockchainEvents, FinalityNotification};
 
 use self::messages::{BitfieldSigningMessage, PvfCheckerMessage};
 use polkadot_node_subsystem_types::messages::{
@@ -871,7 +871,7 @@ where
 			gum::trace!(
 				target: LOG_TARGET,
 				relay_parent = ?hash,
-				"Leaf got activated, notifying exterinal listeners"
+				"Leaf got activated, notifying external listeners"
 			);
 			for listener in listeners {
 				// it's fine if the listener is no longer interested

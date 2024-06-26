@@ -71,7 +71,7 @@ pub const MAX_AUTHORITIES_COUNT: u32 = 1_256;
 /// justifications with any additional headers in votes ancestry, so reasonable headers may
 /// be set to zero. But we assume that there may be small GRANDPA lags, so we're leaving some
 /// reserve here.
-pub const REASONABLE_HEADERS_IN_JUSTIFICATON_ANCESTRY: u32 = 2;
+pub const REASONABLE_HEADERS_IN_JUSTIFICATION_ANCESTRY: u32 = 2;
 
 /// Average header size in `votes_ancestries` field of justification on Polkadot-like
 /// chains.

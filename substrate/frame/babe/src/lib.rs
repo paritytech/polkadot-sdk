@@ -283,7 +283,7 @@ pub mod pallet {
 	/// entropy was fixed (i.e. it was known to chain observers). Since epochs are defined in
 	/// slots, which may be skipped, the block numbers may not line up with the slot numbers.
 	#[pallet::storage]
-	pub(super) type EpochStart<T: Config> =
+	pub type EpochStart<T: Config> =
 		StorageValue<_, (BlockNumberFor<T>, BlockNumberFor<T>), ValueQuery>;
 
 	/// How late the current block is compared to its parent.

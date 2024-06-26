@@ -90,7 +90,7 @@ pub enum Error {
 	DmqMqcHead(ReadEntryErr),
 	/// Relay dispatch queue cannot be extracted.
 	RelayDispatchQueueRemainingCapacity(ReadEntryErr),
-	/// The hrmp inress channel index cannot be extracted.
+	/// The hrmp ingress channel index cannot be extracted.
 	HrmpIngressChannelIndex(ReadEntryErr),
 	/// The hrmp egress channel index cannot be extracted.
 	HrmpEgressChannelIndex(ReadEntryErr),

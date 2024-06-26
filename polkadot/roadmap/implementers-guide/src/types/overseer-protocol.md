@@ -22,7 +22,7 @@ All subsystems have their own message types; all of them need to be able to list
 are currently two proposals for how to handle that with unified communication channels:
 
 1. Retaining the `OverseerSignal` definition above, add `enum FromOrchestra<T> {Signal(OverseerSignal), Message(T)}`.
-1. Add a generic varint to `OverseerSignal`: `Message(T)`.
+1. Add a generic variant to `OverseerSignal`: `Message(T)`.
 
 Either way, there will be some top-level type encapsulating messages from the overseer to each subsystem.
 
@@ -238,6 +238,9 @@ enum AvailabilityRecoveryMessage {
         CandidateReceipt,
         SessionIndex,
         Option<GroupIndex>, // Backing validator group to request the data directly from.
+        Option<CoreIndex>, /* A `CoreIndex` needs to be specified for the recovery process to
+		                    * prefer systematic chunk recovery. This is the core that the candidate
+                            * was occupying while pending availability. */
         ResponseChannel<Result<AvailableData, RecoveryError>>,
     ),
 }
