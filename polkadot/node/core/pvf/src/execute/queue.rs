@@ -621,39 +621,45 @@ pub fn start(
 
 struct Unscheduled {
 	unscheduled: HashMap<ExecutePriority, VecDeque<ExecuteJob>>,
-	priority_log: VecDeque<ExecutePriority>,
+	// Counter for (Low, Normal, Critical) priorities
+	priority_log: (u8, u8, u8),
 }
 
 impl Unscheduled {
 	/// The minimum number of items with normal priority that must be present,
 	/// regardless of the amount of critical priority items.
 	/// In percents.
-	const MIN_NORMAL_PRIORITY_PRESENCE: usize = 10;
+	const MIN_NORMAL_PRIORITY_PRESENCE: u8 = 10;
+	const MAX_LOG_SIZE: u8 = 10;
 
 	fn new() -> Self {
 		Self {
 			unscheduled: ExecutePriority::iter()
 				.map(|priority| (priority, VecDeque::new()))
 				.collect(),
-			priority_log: VecDeque::with_capacity(10),
+			priority_log: (0, 0, 0),
 		}
 	}
 
 	fn log_priority(&mut self, priority: ExecutePriority) {
-		if self.priority_log.len() == self.priority_log.capacity() {
-			let _ = self.priority_log.pop_front();
+		let (low, normal, critical) = &mut self.priority_log;
+		if (*low + *normal + *critical) > Self::MAX_LOG_SIZE {
+			(*low, *normal, *critical) = (0, 0, 0);
 		}
-		self.priority_log.push_back(priority);
+		match priority {
+			ExecutePriority::Low => *low += 1,
+			ExecutePriority::Normal => *normal += 1,
+			ExecutePriority::Critical => *critical += 1,
+		}
 	}
 
 	fn select_next_priority(&self) -> ExecutePriority {
-		let normal_count = self.priority_log.iter().filter(|v| v.is_normal()).count();
-		let normal_presense = if self.priority_log.len() == 0 {
-			100 // Do critical first
-		} else {
-			normal_count * 100 / self.priority_log.len()
-		};
-		let mut priority = if normal_presense < Self::MIN_NORMAL_PRIORITY_PRESENCE {
+		let (_, normal, critical) = self.priority_log;
+		// We do critical tasks first but ensure a minimum presence of normal tasks.
+		// Low priority tasks are processed only if other queues are empty.
+		let mut priority = if critical == 0 {
+			ExecutePriority::Critical // Do critical first, also avoids zero division
+		} else if normal * 100 / critical < Self::MIN_NORMAL_PRIORITY_PRESENCE {
 			ExecutePriority::Normal
 		} else {
 			ExecutePriority::Critical

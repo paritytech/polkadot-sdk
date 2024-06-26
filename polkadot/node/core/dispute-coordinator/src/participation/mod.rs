@@ -27,7 +27,7 @@ use futures_timer::Delay;
 
 use polkadot_node_primitives::ValidationResult;
 use polkadot_node_subsystem::{
-	messages::{AvailabilityRecoveryMessage, CandidateValidationMessage, PvfExecution},
+	messages::{AvailabilityRecoveryMessage, CandidateValidationMessage, PvfExecutionPriority},
 	overseer, ActiveLeavesUpdate, RecoveryError,
 };
 use polkadot_node_subsystem_util::runtime::get_validation_code_by_hash;
@@ -385,7 +385,7 @@ async fn participate(
 			candidate_receipt: req.candidate_receipt().clone(),
 			pov: available_data.pov,
 			executor_params: req.executor_params(),
-			exec_kind: PvfExecution::Dispute,
+			exec_kind: PvfExecutionPriority::Dispute,
 			response_sender: validation_tx,
 		})
 		.await;

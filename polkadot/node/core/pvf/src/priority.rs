@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use polkadot_node_subsystem::messages::PvfExecution;
+use polkadot_node_subsystem::messages::PvfExecutionPriority;
 
 /// A priority assigned to preparation of a PVF.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
@@ -38,12 +38,12 @@ impl PreparePriority {
 	}
 }
 
-impl From<PvfExecution> for PreparePriority {
-	fn from(priority: PvfExecution) -> Self {
+impl From<PvfExecutionPriority> for PreparePriority {
+	fn from(priority: PvfExecutionPriority) -> Self {
 		match priority {
-			PvfExecution::Backing => PreparePriority::Normal,
-			PvfExecution::Approval => PreparePriority::Critical,
-			PvfExecution::Dispute => PreparePriority::Critical,
+			PvfExecutionPriority::Backing => PreparePriority::Normal,
+			PvfExecutionPriority::Approval => PreparePriority::Critical,
+			PvfExecutionPriority::Dispute => PreparePriority::Critical,
 		}
 	}
 }
@@ -59,12 +59,12 @@ pub enum ExecutePriority {
 	Critical,
 }
 
-impl From<PvfExecution> for ExecutePriority {
-	fn from(priority: PvfExecution) -> Self {
+impl From<PvfExecutionPriority> for ExecutePriority {
+	fn from(priority: PvfExecutionPriority) -> Self {
 		match priority {
-			PvfExecution::Backing => ExecutePriority::Low,
-			PvfExecution::Approval => ExecutePriority::Normal,
-			PvfExecution::Dispute => ExecutePriority::Critical,
+			PvfExecutionPriority::Backing => ExecutePriority::Low,
+			PvfExecutionPriority::Approval => ExecutePriority::Normal,
+			PvfExecutionPriority::Dispute => ExecutePriority::Critical,
 		}
 	}
 }
