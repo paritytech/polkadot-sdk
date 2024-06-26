@@ -357,8 +357,8 @@ impl xcm_executor::Config for XcmConfig {
 	type OriginConverter = XcmOriginToTransactDispatchOrigin;
 	// Asset Hub trusts only particular, pre-configured bridged locations from a different consensus
 	// as reserve locations (we trust the Bridge Hub to relay the message that a reserve is being
-	// held). Asset Hub may _act_ as a reserve location for WND and assets created
-	// under `pallet-assets`. Users must use teleport where allowed (e.g. WND with the Relay Chain).
+	// held). On Westend Asset Hub, we allow Rococo Asset Hub to act as reserve for any asset native
+	// to the Rococo or Ethereum ecosystems.
 	type IsReserve = (bridging::to_rococo::RococoOrEthereumAssetFromAssetHubRococo,);
 	type IsTeleporter = TrustedTeleporters;
 	type UniversalLocation = UniversalLocation;
