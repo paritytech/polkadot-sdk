@@ -330,7 +330,20 @@ impl Collations {
 			self.claims_per_para.get(&para_id).copied().unwrap_or_default() >=
 				self.fetched_per_para.get(&para_id).copied().unwrap_or_default();
 
-		self.seconded_count >= seconded_limit || !respected_per_para_limit
+		let respected_seconding_limit = self.seconded_count < seconded_limit;
+
+		gum::trace!(
+			target: LOG_TARGET,
+			?para_id,
+			claims_per_para=?self.claims_per_para,
+			fetched_per_para=?self.fetched_per_para,
+			?seconded_limit,
+			?respected_per_para_limit,
+			?respected_seconding_limit,
+			"is_collations_limit_reached"
+		);
+
+		!(respected_seconding_limit && respected_per_para_limit)
 	}
 
 	/// Adds a new collation to the waiting queue for the relay parent. This function doesn't
@@ -357,6 +370,13 @@ impl Collations {
 		&mut self,
 		claims: &Vec<ParaId>,
 	) -> Option<(PendingCollation, CollatorId)> {
+		gum::trace!(
+			target: LOG_TARGET,
+			waiting_queue = ?self.waiting_queue,
+			claim_queue = ?claims,
+			"Pick a collation to fetch."
+		);
+
 		// Find the parachain(s) with the lowest score.
 		let mut lowest_score = None;
 		for (para_id, collations) in &mut self.waiting_queue {
@@ -366,6 +386,11 @@ impl Collations {
 				.copied()
 				.unwrap_or_default()
 				.saturating_div(self.claims_per_para.get(para_id).copied().unwrap_or_default());
+
+			// skip empty queues
+			if collations.is_empty() {
+				continue
+			}
 
 			match lowest_score {
 				Some((score, _)) if para_score < score =>

@@ -25,9 +25,6 @@ use polkadot_primitives::{
 };
 use rstest::rstest;
 
-const ASYNC_BACKING_PARAMETERS: AsyncBackingParams =
-	AsyncBackingParams { max_candidate_depth: 4, allowed_ancestry_len: 3 };
-
 fn get_parent_hash(hash: Hash) -> Hash {
 	Hash::from_low_u64_be(hash.to_low_u64_be() + 1)
 }
@@ -98,8 +95,9 @@ async fn assert_assign_incoming(
 pub(super) async fn update_view(
 	virtual_overseer: &mut VirtualOverseer,
 	test_state: &TestState,
-	new_view: Vec<(Hash, u32)>, // Hash and block number.
-	activated: u8,              // How many new heads does this update contain?
+	new_view: Vec<(Hash, u32)>,                // Hash and block number.
+	activated: u8,                             // How many new heads does this update contain?
+	async_backing_params: &AsyncBackingParams, // returned via the runtime api
 ) -> Option<AllMessages> {
 	let new_view: HashMap<Hash, u32> = HashMap::from_iter(new_view);
 
@@ -120,7 +118,7 @@ pub(super) async fn update_view(
 				parent,
 				RuntimeApiRequest::AsyncBackingParams(tx),
 			)) => {
-				tx.send(Ok(ASYNC_BACKING_PARAMETERS)).unwrap();
+				tx.send(Ok(async_backing_params.clone())).unwrap();
 				(parent, new_view.get(&parent).copied().expect("Unknown parent requested"))
 			}
 		);
@@ -134,7 +132,7 @@ pub(super) async fn update_view(
 		)
 		.await;
 
-		let min_number = leaf_number.saturating_sub(ASYNC_BACKING_PARAMETERS.allowed_ancestry_len);
+		let min_number = leaf_number.saturating_sub(async_backing_params.allowed_ancestry_len);
 
 		let ancestry_len = leaf_number + 1 - min_number;
 		let ancestry_hashes = std::iter::successors(Some(leaf_hash), |h| Some(get_parent_hash(*h)))
@@ -339,7 +337,14 @@ fn v1_advertisement_accepted_and_seconded() {
 		let head_b = Hash::from_low_u64_be(128);
 		let head_b_num: u32 = 0;
 
-		update_view(&mut virtual_overseer, &test_state, vec![(head_b, head_b_num)], 1).await;
+		update_view(
+			&mut virtual_overseer,
+			&test_state,
+			vec![(head_b, head_b_num)],
+			1,
+			&test_state.async_backing_params,
+		)
+		.await;
 
 		let peer_a = PeerId::random();
 
@@ -418,7 +423,14 @@ fn v1_advertisement_rejected_on_non_active_leave() {
 		let head_b = Hash::from_low_u64_be(128);
 		let head_b_num: u32 = 5;
 
-		update_view(&mut virtual_overseer, &test_state, vec![(head_b, head_b_num)], 1).await;
+		update_view(
+			&mut virtual_overseer,
+			&test_state,
+			vec![(head_b, head_b_num)],
+			1,
+			&test_state.async_backing_params,
+		)
+		.await;
 
 		let peer_a = PeerId::random();
 
@@ -468,7 +480,14 @@ fn accept_advertisements_from_implicit_view() {
 		let head_d = get_parent_hash(head_c);
 
 		// Activated leaf is `b`, but the collation will be based on `c`.
-		update_view(&mut virtual_overseer, &test_state, vec![(head_b, head_b_num)], 1).await;
+		update_view(
+			&mut virtual_overseer,
+			&test_state,
+			vec![(head_b, head_b_num)],
+			1,
+			&test_state.async_backing_params,
+		)
+		.await;
 
 		let peer_a = PeerId::random();
 		let peer_b = PeerId::random();
@@ -570,7 +589,14 @@ fn second_multiple_candidates_per_relay_parent() {
 		let head_c = Hash::from_low_u64_be(130);
 
 		// Activated leaf is `b`, but the collation will be based on `c`.
-		update_view(&mut virtual_overseer, &test_state, vec![(head_b, head_b_num)], 1).await;
+		update_view(
+			&mut virtual_overseer,
+			&test_state,
+			vec![(head_b, head_b_num)],
+			1,
+			&test_state.async_backing_params,
+		)
+		.await;
 
 		let peer_a = PeerId::random();
 
@@ -583,7 +609,7 @@ fn second_multiple_candidates_per_relay_parent() {
 		)
 		.await;
 
-		for i in 0..(ASYNC_BACKING_PARAMETERS.max_candidate_depth + 1) {
+		for i in 0..(test_state.async_backing_params.max_candidate_depth + 1) {
 			let mut candidate = dummy_candidate_receipt_bad_sig(head_c, Some(Default::default()));
 			candidate.descriptor.para_id = test_state.chain_ids[0];
 			candidate.descriptor.persisted_validation_data_hash = dummy_pvd().hash();
@@ -727,7 +753,14 @@ fn fetched_collation_sanity_check() {
 		let head_c = Hash::from_low_u64_be(130);
 
 		// Activated leaf is `b`, but the collation will be based on `c`.
-		update_view(&mut virtual_overseer, &test_state, vec![(head_b, head_b_num)], 1).await;
+		update_view(
+			&mut virtual_overseer,
+			&test_state,
+			vec![(head_b, head_b_num)],
+			1,
+			&test_state.async_backing_params,
+		)
+		.await;
 
 		let peer_a = PeerId::random();
 
@@ -831,7 +864,14 @@ fn sanity_check_invalid_parent_head_data() {
 		let head_c = Hash::from_low_u64_be(130);
 		let head_c_num = 3;
 
-		update_view(&mut virtual_overseer, &test_state, vec![(head_c, head_c_num)], 1).await;
+		update_view(
+			&mut virtual_overseer,
+			&test_state,
+			vec![(head_c, head_c_num)],
+			1,
+			&test_state.async_backing_params,
+		)
+		.await;
 
 		let peer_a = PeerId::random();
 
@@ -954,7 +994,14 @@ fn advertisement_spam_protection() {
 		let head_c = get_parent_hash(head_b);
 
 		// Activated leaf is `b`, but the collation will be based on `c`.
-		update_view(&mut virtual_overseer, &test_state, vec![(head_b, head_b_num)], 1).await;
+		update_view(
+			&mut virtual_overseer,
+			&test_state,
+			vec![(head_b, head_b_num)],
+			1,
+			&test_state.async_backing_params,
+		)
+		.await;
 
 		let peer_a = PeerId::random();
 		connect_and_declare_collator(
@@ -1032,7 +1079,14 @@ fn child_blocked_from_seconding_by_parent(#[case] valid_parent: bool) {
 		let head_c = Hash::from_low_u64_be(130);
 
 		// Activated leaf is `b`, but the collation will be based on `c`.
-		update_view(&mut virtual_overseer, &test_state, vec![(head_b, head_b_num)], 1).await;
+		update_view(
+			&mut virtual_overseer,
+			&test_state,
+			vec![(head_b, head_b_num)],
+			1,
+			&test_state.async_backing_params,
+		)
+		.await;
 
 		let peer_a = PeerId::random();
 

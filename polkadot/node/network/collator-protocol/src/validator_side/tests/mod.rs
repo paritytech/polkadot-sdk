@@ -42,8 +42,9 @@ use polkadot_node_subsystem::{
 use polkadot_node_subsystem_test_helpers as test_helpers;
 use polkadot_node_subsystem_util::{reputation::add_reputation, TimeoutExt};
 use polkadot_primitives::{
-	CandidateReceipt, CollatorPair, CoreIndex, CoreState, GroupIndex, GroupRotationInfo, HeadData,
-	OccupiedCore, PersistedValidationData, ScheduledCore, ValidatorId, ValidatorIndex,
+	AsyncBackingParams, CandidateReceipt, CollatorPair, CoreIndex, CoreState, GroupIndex,
+	GroupRotationInfo, HeadData, OccupiedCore, PersistedValidationData, ScheduledCore, ValidatorId,
+	ValidatorIndex,
 };
 use polkadot_primitives_test_helpers::{
 	dummy_candidate_descriptor, dummy_candidate_receipt_bad_sig, dummy_hash,
@@ -77,6 +78,7 @@ struct TestState {
 	group_rotation_info: GroupRotationInfo,
 	cores: Vec<CoreState>,
 	claim_queue: BTreeMap<CoreIndex, VecDeque<ParaId>>,
+	async_backing_params: AsyncBackingParams,
 }
 
 impl Default for TestState {
@@ -126,10 +128,23 @@ impl Default for TestState {
 			}),
 		];
 
+		let async_backing_params =
+			AsyncBackingParams { max_candidate_depth: 4, allowed_ancestry_len: 3 };
+
 		let mut claim_queue = BTreeMap::new();
-		claim_queue.insert(CoreIndex(0), [chain_ids[0]].into_iter().collect());
+		claim_queue.insert(
+			CoreIndex(0),
+			iter::repeat(chain_ids[0])
+				.take(async_backing_params.max_candidate_depth as usize + 1)
+				.collect(),
+		);
 		claim_queue.insert(CoreIndex(1), VecDeque::new());
-		claim_queue.insert(CoreIndex(2), [chain_ids[1]].into_iter().collect());
+		claim_queue.insert(
+			CoreIndex(2),
+			iter::repeat(chain_ids[1])
+				.take(async_backing_params.max_candidate_depth as usize + 1)
+				.collect(),
+		);
 
 		Self {
 			chain_ids,
@@ -140,6 +155,7 @@ impl Default for TestState {
 			group_rotation_info,
 			cores,
 			claim_queue,
+			async_backing_params,
 		}
 	}
 }
