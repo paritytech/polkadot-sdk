@@ -59,7 +59,7 @@ parameter_types! {
 	// see the `FEE_BOOST_PER_PARACHAIN_HEADER` constant get the meaning of this value
 	pub PriorityBoostPerParachainHeader: u64 = 1_396_340_903_540_903;
 	// see the `FEE_BOOST_PER_MESSAGE` constant to get the meaning of this value
-	pub PriorityBoostPerMessage: u64 = 2_222_542_612_942_613;
+	pub PriorityBoostPerMessage: u64 = 182_044_444_444_444;
 
 	pub AssetHubRococoParaId: cumulus_primitives_core::ParaId = bp_asset_hub_rococo::ASSET_HUB_ROCOCO_PARACHAIN_ID.into();
 	pub AssetHubWestendParaId: cumulus_primitives_core::ParaId = bp_asset_hub_westend::ASSET_HUB_WESTEND_PARACHAIN_ID.into();

@@ -30,10 +30,8 @@ bp-header-chain = { workspace = true, default-features = true }
 bp-parachains = { workspace = true, default-features = true }
 bp-polkadot-core = { workspace = true, default-features = true }
 bp-relayers = { workspace = true, default-features = true }
-bridge-runtime-common = { workspace = true, default-features = true }
 
 equivocation-detector = { workspace = true }
-finality-grandpa = { workspace = true, default-features = true }
 finality-relay = { workspace = true }
 parachains-relay = { workspace = true }
 relay-utils = { workspace = true }
