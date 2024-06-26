@@ -56,6 +56,7 @@ use frame_support::{
 	construct_runtime, derive_impl,
 	dispatch::DispatchClass,
 	genesis_builder_helper::{build_state, get_preset},
+	migrations::FreezeChainOnFailedMigration,
 	ord_parameter_types, parameter_types,
 	traits::{
 		fungible, fungibles, tokens::imbalance::ResolveAssetTo, AsEnsureOriginWithArg, ConstBool,
@@ -173,7 +174,24 @@ impl frame_system::Config for Runtime {
 	type SS58Prefix = SS58Prefix;
 	type OnSetCode = cumulus_pallet_parachain_system::ParachainSetCode<Self>;
 	type MaxConsumers = frame_support::traits::ConstU32<16>;
+	type SingleBlockMigrations = SingleBlockMigrations;
+	type MultiBlockMigrator = MultiBlockMigrator;
 }
+
+impl pallet_migrations::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type Migrations = MultiBlockMigrations;
+	type CursorMaxLen = ConstU32<256>;
+	type IdentifierMaxLen = ConstU32<256>;
+	type MigrationStatusHandler = ();
+	type FailedMigrationHandler = FreezeChainOnFailedMigration;
+	type MaxServiceWeight = ();
+	type WeightInfo = ();
+}
+
+type MultiBlockMigrations = (
+	pallet_assets::foreign_assets_migration::MigrateForeignAssets<Runtime, ForeignAssetsInstance>,
+);
 
 impl pallet_timestamp::Config for Runtime {
 	/// A timestamp: milliseconds since the unix epoch.
@@ -407,7 +425,7 @@ pub type ForeignAssetsInstance = pallet_assets::Instance2;
 impl pallet_assets::Config<ForeignAssetsInstance> for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Balance = Balance;
-	type AssetId = xcm::v3::Location;
+	type AssetId = xcm::v3::Location; // TODO: This is what I want to migrate to V4.
 	type AssetIdParameter = xcm::v3::Location;
 	type Currency = Balances;
 	type CreateOrigin = ForeignCreators<
@@ -939,6 +957,7 @@ construct_runtime!(
 		ParachainSystem: cumulus_pallet_parachain_system = 1,
 		Timestamp: pallet_timestamp = 3,
 		ParachainInfo: parachain_info = 4,
+		MultiBlockMigrator: pallet_migrations = 5,
 
 		// Monetary stuff.
 		Balances: pallet_balances = 10,
@@ -1009,8 +1028,8 @@ pub type SignedExtra = (
 pub type UncheckedExtrinsic =
 	generic::UncheckedExtrinsic<Address, RuntimeCall, Signature, SignedExtra>;
 /// Migrations to apply on runtime upgrade.
-#[allow(deprecated)]
-pub type Migrations = (
+pub type SingleBlockMigrations = (
+	pallet_collator_selection::migration::v1::MigrateToV1<Runtime>,
 	InitStorageVersions,
 	// unreleased
 	cumulus_pallet_xcmp_queue::migration::v4::MigrationToV4<Runtime>,
@@ -1084,7 +1103,7 @@ pub type Executive = frame_executive::Executive<
 	frame_system::ChainContext<Runtime>,
 	Runtime,
 	AllPalletsWithSystem,
-	Migrations,
+	(),
 >;
 
 #[cfg(feature = "runtime-benchmarks")]
