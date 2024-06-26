@@ -374,12 +374,9 @@ struct PerRelayParent {
 }
 
 impl PerRelayParent {
-	fn new(mode: ProspectiveParachainsMode) -> Self {
-		Self {
-			prospective_parachains_mode: mode,
-			assignment: GroupAssignments { current: vec![] },
-			collations: Collations::default(),
-		}
+	fn new(mode: ProspectiveParachainsMode, assignments: GroupAssignments) -> Self {
+		let collations = Collations::new(&assignments.current);
+		Self { prospective_parachains_mode: mode, assignment: assignments, collations }
 	}
 }
 
@@ -467,12 +464,11 @@ fn is_relay_parent_in_implicit_view(
 
 async fn assign_incoming<Sender>(
 	sender: &mut Sender,
-	group_assignment: &mut GroupAssignments,
 	current_assignments: &mut HashMap<ParaId, usize>,
 	keystore: &KeystorePtr,
 	relay_parent: Hash,
 	relay_parent_mode: ProspectiveParachainsMode,
-) -> Result<()>
+) -> Result<GroupAssignments>
 where
 	Sender: CollatorProtocolSenderTrait,
 {
@@ -499,7 +495,7 @@ where
 		rotation_info.core_for_group(group, cores.len())
 	} else {
 		gum::trace!(target: LOG_TARGET, ?relay_parent, "Not a validator");
-		return Ok(())
+		return Ok(GroupAssignments { current: Vec::new() })
 	};
 
 	let paras_now = match fetch_claim_queue(sender, relay_parent).await.map_err(Error::Runtime)? {
@@ -532,9 +528,7 @@ where
 		}
 	}
 
-	*group_assignment = GroupAssignments { current: paras_now.into_iter().collect() };
-
-	Ok(())
+	Ok(GroupAssignments { current: paras_now.into_iter().collect::<Vec<ParaId>>() })
 }
 
 fn remove_outgoing(
@@ -1107,7 +1101,10 @@ where
 		)
 		.map_err(AdvertisementError::Invalid)?;
 
-	if per_relay_parent.collations.is_seconded_limit_reached(relay_parent_mode) {
+	if per_relay_parent
+		.collations
+		.is_collations_limit_reached(relay_parent_mode, para_id)
+	{
 		return Err(AdvertisementError::SecondedLimitReached)
 	}
 
@@ -1199,7 +1196,7 @@ where
 		});
 
 	let collations = &mut per_relay_parent.collations;
-	if collations.is_seconded_limit_reached(relay_parent_mode) {
+	if collations.is_collations_limit_reached(relay_parent_mode, para_id) {
 		gum::trace!(
 			target: LOG_TARGET,
 			peer_id = ?peer_id,
@@ -1222,9 +1219,11 @@ where
 				?relay_parent,
 				"Added collation to the pending list"
 			);
-			collations.waiting_queue.push_back((pending_collation, collator_id));
+			collations.add_to_waiting_queue((pending_collation, collator_id));
 		},
 		CollationStatus::Waiting => {
+			// We were waiting for a collation to be advertised to us (we were idle) so we can fetch
+			// the new collation immediately
 			fetch_collation(sender, state, pending_collation, collator_id).await?;
 		},
 		CollationStatus::Seconded if relay_parent_mode.is_enabled() => {
@@ -1270,19 +1269,11 @@ where
 			state.span_per_relay_parent.insert(*leaf, per_leaf_span);
 		}
 
-		let mut per_relay_parent = PerRelayParent::new(mode);
-		assign_incoming(
-			sender,
-			&mut per_relay_parent.assignment,
-			&mut state.current_assignments,
-			keystore,
-			*leaf,
-			mode,
-		)
-		.await?;
+		let assignments =
+			assign_incoming(sender, &mut state.current_assignments, keystore, *leaf, mode).await?;
 
 		state.active_leaves.insert(*leaf, mode);
-		state.per_relay_parent.insert(*leaf, per_relay_parent);
+		state.per_relay_parent.insert(*leaf, PerRelayParent::new(mode, assignments));
 
 		if mode.is_enabled() {
 			state
@@ -1298,10 +1289,8 @@ where
 				.unwrap_or_default();
 			for block_hash in allowed_ancestry {
 				if let Entry::Vacant(entry) = state.per_relay_parent.entry(*block_hash) {
-					let mut per_relay_parent = PerRelayParent::new(mode);
-					assign_incoming(
+					let assignments = assign_incoming(
 						sender,
-						&mut per_relay_parent.assignment,
 						&mut state.current_assignments,
 						keystore,
 						*block_hash,
@@ -1309,7 +1298,7 @@ where
 					)
 					.await?;
 
-					entry.insert(per_relay_parent);
+					entry.insert(PerRelayParent::new(mode, assignments));
 				}
 			}
 		}
@@ -1665,6 +1654,10 @@ async fn run_inner<Context>(
 
 				let CollationEvent {collator_id, pending_collation, .. } = res.collation_event.clone();
 
+				state.per_relay_parent.get_mut(&pending_collation.relay_parent).map(|rp_state| {
+					rp_state.collations.note_fetched(pending_collation.para_id);
+				});
+
 				match kick_off_seconding(&mut ctx, &mut state, res).await {
 					Err(err) => {
 						gum::warn!(
@@ -1737,9 +1730,11 @@ async fn dequeue_next_collation_and_fetch<Context>(
 	previous_fetch: (CollatorId, Option<CandidateHash>),
 ) {
 	while let Some((next, id)) = state.per_relay_parent.get_mut(&relay_parent).and_then(|state| {
-		state
-			.collations
-			.get_next_collation_to_fetch(&previous_fetch, state.prospective_parachains_mode)
+		state.collations.get_next_collation_to_fetch(
+			&previous_fetch,
+			state.prospective_parachains_mode,
+			&state.assignment,
+		)
 	}) {
 		gum::debug!(
 			target: LOG_TARGET,
