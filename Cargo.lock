@@ -3719,6 +3719,7 @@ dependencies = [
  "cumulus-relay-chain-interface",
  "futures",
  "parity-scale-codec",
+ "parking_lot 0.12.1",
  "polkadot-node-primitives",
  "polkadot-node-subsystem",
  "polkadot-overseer",
