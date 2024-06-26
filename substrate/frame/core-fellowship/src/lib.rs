@@ -209,7 +209,7 @@ pub mod pallet {
 		/// rank to which it can promote.
 		type PromoteOrigin: EnsureOrigin<Self::RuntimeOrigin, Success = RankOf<Self, I>>;
 
-		/// The origin which has permission to "fast" promote a member by ignoring promotion periods
+		/// The origin that has permission to "fast" promote a member by ignoring promotion periods
 		/// and skipping ranks. The `Success` value is the maximum rank to which it can promote.
 		type FastPromoteOrigin: EnsureOrigin<Self::RuntimeOrigin, Success = RankOf<Self, I>>;
 
