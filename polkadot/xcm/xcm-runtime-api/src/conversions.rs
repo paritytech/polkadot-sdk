@@ -23,9 +23,9 @@ use xcm_executor::traits::ConvertLocation;
 
 sp_api::decl_runtime_apis! {
 	/// API for useful conversions between XCM `Location` and `AccountId`.
-	pub trait LocationToAccountApi {
+	pub trait LocationToAccountApi<AccountId> {
 		/// Converts `Location` to `AccountId`.
-		fn convert_location(location: VersionedLocation) -> Result<sp_std::vec::Vec<u8>, Error>;
+		fn convert_location(location: VersionedLocation) -> Result<AccountId, Error>;
 	}
 }
 
