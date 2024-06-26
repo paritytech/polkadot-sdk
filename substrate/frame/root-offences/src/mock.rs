@@ -200,11 +200,6 @@ impl ExtBuilder {
 
 		pallet_balances::GenesisConfig::<Test> {
 			balances: vec![
-				// controllers (still used in some tests. Soon to be deprecated).
-				(10, self.balance_factor * 50),
-				(20, self.balance_factor * 50),
-				(30, self.balance_factor * 50),
-				(40, self.balance_factor * 50),
 				// stashes
 				(11, self.balance_factor * 1000),
 				(21, self.balance_factor * 1000),
@@ -216,14 +211,14 @@ impl ExtBuilder {
 		.unwrap();
 
 		let stakers = vec![
-			// (stash, ctrl, stake, status)
+			// (stash, stake, status)
 			// these two will be elected in the default test where we elect 2.
-			(11, 11, 1000, StakerStatus::<AccountId>::Validator),
-			(21, 21, 1000, StakerStatus::<AccountId>::Validator),
+			(11, 1000, StakerStatus::<AccountId>::Validator),
+			(21, 1000, StakerStatus::<AccountId>::Validator),
 			// a loser validator
-			(31, 31, 500, StakerStatus::<AccountId>::Validator),
+			(31, 500, StakerStatus::<AccountId>::Validator),
 			// an idle validator
-			(41, 41, 1000, StakerStatus::<AccountId>::Idle),
+			(41, 1000, StakerStatus::<AccountId>::Idle),
 		];
 
 		let _ = pallet_staking::GenesisConfig::<Test> {

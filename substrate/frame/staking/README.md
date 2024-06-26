@@ -51,9 +51,6 @@ issues instructions on how funds shall be used.
 An account can become a bonded stash account using the
 [`bond`](https://docs.rs/pallet-staking/latest/pallet_staking/enum.Call.html#variant.bond) call.
 
-Stash accounts can update their associated controller back to their stash account using the
-[`set_controller`](https://docs.rs/pallet-staking/latest/pallet_staking/enum.Call.html#variant.set_controller) call.
-
 Note: Controller accounts are being deprecated in favor of proxy accounts, so it is no longer possible to set a unique
 address for a stash's controller.
 
