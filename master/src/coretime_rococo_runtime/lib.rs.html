@@ -1156,6 +1156,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1005" id="1005">1005</a>
 <a href="#1006" id="1006">1006</a>
 <a href="#1007" id="1007">1007</a>
+<a href="#1008" id="1008">1008</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -1275,6 +1276,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	cumulus_pallet_xcmp_queue::migration::v5::MigrateV4ToV5&lt;Runtime&gt;,
 	pallet_broker::migration::MigrateV0ToV1&lt;Runtime&gt;,
 	pallet_broker::migration::MigrateV1ToV2&lt;Runtime&gt;,
+	pallet_broker::migration::MigrateV2ToV3&lt;Runtime&gt;,
 	<span class="comment">// permanent
 	</span>pallet_xcm::migration::MigrateToLatestXcmVersion&lt;Runtime&gt;,
 );

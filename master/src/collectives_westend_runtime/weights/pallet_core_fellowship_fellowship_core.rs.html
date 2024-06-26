@@ -382,6 +382,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#231" id="231">231</a>
 <a href="#232" id="232">232</a>
 <a href="#233" id="233">233</a>
+<a href="#234" id="234">234</a>
+<a href="#235" id="235">235</a>
+<a href="#236" id="236">236</a>
+<a href="#237" id="237">237</a>
+<a href="#238" id="238">238</a>
+<a href="#239" id="239">239</a>
+<a href="#240" id="240">240</a>
+<a href="#241" id="241">241</a>
+<a href="#242" id="242">242</a>
+<a href="#243" id="243">243</a>
+<a href="#244" id="244">244</a>
+<a href="#245" id="245">245</a>
+<a href="#246" id="246">246</a>
+<a href="#247" id="247">247</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -553,6 +567,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.saturating_add(Weight::from_parts(<span class="number">0</span>, <span class="number">69046</span>))
 			.saturating_add(T::DbWeight::get().reads(<span class="number">5</span>))
 			.saturating_add(T::DbWeight::get().writes(<span class="number">6</span>))
+	}
+	<span class="kw">fn </span>promote_fast(r: u32, ) -&gt; Weight {
+		<span class="comment">// Proof Size summary in bytes:
+		//  Measured:  `16844`
+		//  Estimated: `19894 + r * (2489 ±0)`
+		// Minimum execution time: 45_065_000 picoseconds.
+		</span>Weight::from_parts(<span class="number">34_090_392</span>, <span class="number">19894</span>)
+			<span class="comment">// Standard Error: 18_620
+			</span>.saturating_add(Weight::from_parts(<span class="number">13_578_046</span>, <span class="number">0</span>).saturating_mul(r.into()))
+			.saturating_add(T::DbWeight::get().reads(<span class="number">3_u64</span>))
+			.saturating_add(T::DbWeight::get().reads((<span class="number">1_u64</span>).saturating_mul(r.into())))
+			.saturating_add(T::DbWeight::get().writes(<span class="number">3_u64</span>))
+			.saturating_add(T::DbWeight::get().writes((<span class="number">3_u64</span>).saturating_mul(r.into())))
+			.saturating_add(Weight::from_parts(<span class="number">0</span>, <span class="number">2489</span>).saturating_mul(r.into()))
 	}
 	<span class="doccomment">/// Storage: `FellowshipCollective::Members` (r:1 w:0)
 	/// Proof: `FellowshipCollective::Members` (`max_values`: None, `max_size`: Some(42), added: 2517, mode: `MaxEncodedLen`)

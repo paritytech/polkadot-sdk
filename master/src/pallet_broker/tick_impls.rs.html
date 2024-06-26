@@ -471,6 +471,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#320" id="320">320</a>
 <a href="#321" id="321">321</a>
 <a href="#322" id="322">322</a>
+<a href="#323" id="323">323</a>
+<a href="#324" id="324">324</a>
+<a href="#325" id="325">325</a>
+<a href="#326" id="326">326</a>
+<a href="#327" id="327">327</a>
+<a href="#328" id="328">328</a>
+<a href="#329" id="329">329</a>
+<a href="#330" id="330">330</a>
+<a href="#331" id="331">331</a>
+<a href="#332" id="332">332</a>
+<a href="#333" id="333">333</a>
+<a href="#334" id="334">334</a>
+<a href="#335" id="335">335</a>
+<a href="#336" id="336">336</a>
+<a href="#337" id="337">337</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -489,7 +504,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // limitations under the License.
 
 </span><span class="kw">use super</span>::<span class="kw-2">*</span>;
-<span class="kw">use </span>frame_support::{pallet_prelude::<span class="kw-2">*</span>, weights::WeightMeter};
+<span class="kw">use </span>frame_support::{pallet_prelude::<span class="kw-2">*</span>, traits::defensive_prelude::<span class="kw-2">*</span>, weights::WeightMeter};
 <span class="kw">use </span>sp_arithmetic::traits::{One, SaturatedConversion, Saturating, Zero};
 <span class="kw">use </span>sp_runtime::traits::ConvertBack;
 <span class="kw">use </span>sp_std::{vec, vec::Vec};
@@ -549,6 +564,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>rc_block = T::TimeslicePeriod::get() * status.last_timeslice.into();
 			T::Coretime::request_revenue_info_at(rc_block);
 			meter.consume(T::WeightInfo::request_revenue_info_at());
+			T::Coretime::on_new_timeslice(status.last_timeslice);
+			meter.consume(T::WeightInfo::on_new_timeslice());
 		}
 
 		Status::&lt;T&gt;::put(<span class="kw-2">&amp;</span>status);
@@ -566,15 +583,23 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>}
 
 	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>process_revenue() -&gt; bool {
-		<span class="kw">let </span><span class="prelude-val">Some</span>((until, amount)) = T::Coretime::check_notify_revenue_info() <span class="kw">else </span>{ <span class="kw">return </span><span class="bool-val">false </span>};
+		<span class="kw">let </span><span class="prelude-val">Some</span>(OnDemandRevenueRecord { until, amount }) = RevenueInbox::&lt;T&gt;::take() <span class="kw">else </span>{
+			<span class="kw">return </span><span class="bool-val">false
+		</span>};
 		<span class="kw">let </span>when: Timeslice =
 			(until / T::TimeslicePeriod::get()).saturating_sub(One::one()).saturated_into();
-		<span class="kw">let </span><span class="kw-2">mut </span>revenue = T::ConvertBalance::convert_back(amount);
+		<span class="kw">let </span><span class="kw-2">mut </span>revenue = T::ConvertBalance::convert_back(amount.clone());
 		<span class="kw">if </span>revenue.is_zero() {
 			<span class="self">Self</span>::deposit_event(Event::&lt;T&gt;::HistoryDropped { when, revenue });
 			InstaPoolHistory::&lt;T&gt;::remove(when);
 			<span class="kw">return </span><span class="bool-val">true
 		</span>}
+
+		<span class="macro">log::debug!</span>(
+			target: <span class="string">"pallet_broker::process_revenue"</span>,
+			<span class="string">"Received {amount:?} from RC, converted into {revenue:?} revenue"</span>,
+		);
+
 		<span class="kw">let </span><span class="kw-2">mut </span>r = InstaPoolHistory::&lt;T&gt;::get(when).unwrap_or_default();
 		<span class="kw">if </span>r.maybe_payout.is_some() {
 			<span class="self">Self</span>::deposit_event(Event::&lt;T&gt;::HistoryIgnored { when, revenue });
@@ -585,13 +610,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>system_payout = <span class="kw">if </span>!total_contrib.is_zero() {
 			<span class="kw">let </span>system_payout =
 				revenue.saturating_mul(r.system_contributions.into()) / total_contrib.into();
-			<span class="kw">let _ </span>= <span class="self">Self</span>::charge(<span class="kw-2">&amp;</span><span class="self">Self</span>::account_id(), system_payout);
+			<span class="self">Self</span>::charge(<span class="kw-2">&amp;</span><span class="self">Self</span>::account_id(), system_payout).defensive_ok();
 			revenue.saturating_reduce(system_payout);
 
 			system_payout
 		} <span class="kw">else </span>{
 			Zero::zero()
 		};
+
+		<span class="macro">log::debug!</span>(
+			target: <span class="string">"pallet_broker::process_revenue"</span>,
+			<span class="string">"Charged {system_payout:?} for system payouts, {revenue:?} remaining for private contributions"</span>,
+		);
 
 		<span class="kw">if </span>!revenue.is_zero() &amp;&amp; r.private_contributions &gt; <span class="number">0 </span>{
 			r.maybe_payout = <span class="prelude-val">Some</span>(revenue);

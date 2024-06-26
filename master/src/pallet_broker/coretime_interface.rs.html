@@ -282,21 +282,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#131" id="131">131</a>
 <a href="#132" id="132">132</a>
 <a href="#133" id="133">133</a>
-<a href="#134" id="134">134</a>
-<a href="#135" id="135">135</a>
-<a href="#136" id="136">136</a>
-<a href="#137" id="137">137</a>
-<a href="#138" id="138">138</a>
-<a href="#139" id="139">139</a>
-<a href="#140" id="140">140</a>
-<a href="#141" id="141">141</a>
-<a href="#142" id="142">142</a>
-<a href="#143" id="143">143</a>
-<a href="#144" id="144">144</a>
-<a href="#145" id="145">145</a>
-<a href="#146" id="146">146</a>
-<a href="#147" id="147">147</a>
-<a href="#148" id="148">148</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -322,7 +307,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>sp_arithmetic::traits::AtLeast32BitUnsigned;
 <span class="kw">use </span>sp_core::RuntimeDebug;
 <span class="kw">use </span>sp_runtime::traits::BlockNumberProvider;
-<span class="kw">use </span>sp_std::vec::Vec;
+<span class="kw">use </span>sp_std::{fmt::Debug, vec::Vec};
+
+<span class="kw">use </span><span class="kw">crate</span>::Timeslice;
 
 <span class="doccomment">/// Index of a Polkadot Core.
 </span><span class="kw">pub type </span>CoreIndex = u16;
@@ -361,7 +348,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">type </span>AccountId: Parameter;
 
 	<span class="doccomment">/// A (Relay-chain-side) balance.
-	</span><span class="kw">type </span>Balance: AtLeast32BitUnsigned;
+	</span><span class="kw">type </span>Balance: AtLeast32BitUnsigned + Encode + Decode + MaxEncodedLen + TypeInfo + Debug;
 
 	<span class="doccomment">/// A provider for the relay chain block number.
 	</span><span class="kw">type </span>RelayChainBlockNumberProvider: BlockNumberProvider;
@@ -406,22 +393,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		end_hint: <span class="prelude-ty">Option</span>&lt;RCBlockNumberOf&lt;<span class="self">Self</span>&gt;&gt;,
 	);
 
-	<span class="doccomment">/// Provide the amount of revenue accumulated from Instantaneous Coretime Sales from Relay-chain
-	/// block number `last_until` to `until`, not including `until` itself. `last_until` is defined
-	/// as being the `until` argument of the last `notify_revenue` message sent, or zero for the
-	/// first call. If `revenue` is `None`, this indicates that the information is no longer
-	/// available.
-	///
-	/// This explicitly disregards the possibility of multiple parachains requesting and being
-	/// notified of revenue information. The Relay-chain must be configured to ensure that only a
-	/// single revenue information destination exists.
-	</span><span class="kw">fn </span>check_notify_revenue_info() -&gt; <span class="prelude-ty">Option</span>&lt;(RCBlockNumberOf&lt;<span class="self">Self</span>&gt;, <span class="self">Self</span>::Balance)&gt;;
-
-	<span class="doccomment">/// Ensure that revenue information is updated to the provided value.
-	///
-	/// This is only used for benchmarking.
-	</span><span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
-	</span><span class="kw">fn </span>ensure_notify_revenue_info(when: RCBlockNumberOf&lt;<span class="self">Self</span>&gt;, revenue: <span class="self">Self</span>::Balance);
+	<span class="doccomment">/// A hook supposed to be called right after a new timeslice has begun. Likely to be used for
+	/// batching different matters happened during the timeslice that may benifit from batched
+	/// processing.
+	</span><span class="kw">fn </span>on_new_timeslice(_timeslice: Timeslice) {}
 }
 
 <span class="kw">impl </span>CoretimeInterface <span class="kw">for </span>() {
@@ -439,11 +414,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		_end_hint: <span class="prelude-ty">Option</span>&lt;RCBlockNumberOf&lt;<span class="self">Self</span>&gt;&gt;,
 	) {
 	}
-	<span class="kw">fn </span>check_notify_revenue_info() -&gt; <span class="prelude-ty">Option</span>&lt;(RCBlockNumberOf&lt;<span class="self">Self</span>&gt;, <span class="self">Self</span>::Balance)&gt; {
-		<span class="prelude-val">None
-	</span>}
-	<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
-	</span><span class="kw">fn </span>ensure_notify_revenue_info(_when: RCBlockNumberOf&lt;<span class="self">Self</span>&gt;, _revenue: <span class="self">Self</span>::Balance) {}
 }
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 

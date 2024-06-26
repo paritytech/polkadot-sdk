@@ -1194,6 +1194,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1043" id="1043">1043</a>
 <a href="#1044" id="1044">1044</a>
 <a href="#1045" id="1045">1045</a>
+<a href="#1046" id="1046">1046</a>
+<a href="#1047" id="1047">1047</a>
+<a href="#1048" id="1048">1048</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1905,6 +1908,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	) -&gt; DispatchResult {
 		<span class="macro">ensure!</span>(!Asset::&lt;T, I&gt;::contains_key(<span class="kw-2">&amp;</span>id), Error::&lt;T, I&gt;::InUse);
 		<span class="macro">ensure!</span>(!min_balance.is_zero(), Error::&lt;T, I&gt;::MinBalanceZero);
+		<span class="kw">if let </span><span class="prelude-val">Some</span>(next_id) = NextAssetId::&lt;T, I&gt;::get() {
+			<span class="macro">ensure!</span>(id == next_id, Error::&lt;T, I&gt;::BadAssetId);
+		}
 
 		Asset::&lt;T, I&gt;::insert(
 			<span class="kw-2">&amp;</span>id,

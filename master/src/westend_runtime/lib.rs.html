@@ -2840,6 +2840,31 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#2689" id="2689">2689</a>
 <a href="#2690" id="2690">2690</a>
 <a href="#2691" id="2691">2691</a>
+<a href="#2692" id="2692">2692</a>
+<a href="#2693" id="2693">2693</a>
+<a href="#2694" id="2694">2694</a>
+<a href="#2695" id="2695">2695</a>
+<a href="#2696" id="2696">2696</a>
+<a href="#2697" id="2697">2697</a>
+<a href="#2698" id="2698">2698</a>
+<a href="#2699" id="2699">2699</a>
+<a href="#2700" id="2700">2700</a>
+<a href="#2701" id="2701">2701</a>
+<a href="#2702" id="2702">2702</a>
+<a href="#2703" id="2703">2703</a>
+<a href="#2704" id="2704">2704</a>
+<a href="#2705" id="2705">2705</a>
+<a href="#2706" id="2706">2706</a>
+<a href="#2707" id="2707">2707</a>
+<a href="#2708" id="2708">2708</a>
+<a href="#2709" id="2709">2709</a>
+<a href="#2710" id="2710">2710</a>
+<a href="#2711" id="2711">2711</a>
+<a href="#2712" id="2712">2712</a>
+<a href="#2713" id="2713">2713</a>
+<a href="#2714" id="2714">2714</a>
+<a href="#2715" id="2715">2715</a>
+<a href="#2716" id="2716">2716</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -2930,8 +2955,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	curve::PiecewiseLinear,
 	generic, impl_opaque_keys,
 	traits::{
-		BlakeTwo256, Block <span class="kw">as </span>BlockT, ConvertInto, Extrinsic <span class="kw">as </span>ExtrinsicT, IdentityLookup,
-		Keccak256, OpaqueKeys, SaturatedConversion, Verify,
+		AccountIdConversion, BlakeTwo256, Block <span class="kw">as </span>BlockT, ConvertInto, Extrinsic <span class="kw">as </span>ExtrinsicT,
+		IdentityLookup, Keccak256, OpaqueKeys, SaturatedConversion, Verify,
 	},
 	transaction_validity::{TransactionPriority, TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult, FixedU128, KeyTypeId, Perbill, Percent, Permill,
@@ -2964,7 +2989,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub use </span>sp_runtime::BuildStorage;
 
 <span class="doccomment">/// Constant values used within the runtime.
-</span><span class="kw">use </span>westend_runtime_constants::{currency::<span class="kw-2">*</span>, fee::<span class="kw-2">*</span>, system_parachain::BROKER_ID, time::<span class="kw-2">*</span>};
+</span><span class="kw">use </span>westend_runtime_constants::{
+	currency::<span class="kw-2">*</span>,
+	fee::<span class="kw-2">*</span>,
+	system_parachain::{coretime::TIMESLICE_PERIOD, BROKER_ID},
+	time::<span class="kw-2">*</span>,
+};
 
 <span class="kw">mod </span>bag_thresholds;
 <span class="kw">mod </span>weights;
@@ -4027,7 +4057,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="macro">parameter_types! </span>{
 	<span class="kw">pub const </span>BrokerId: u32 = BROKER_ID;
+	<span class="kw">pub const </span>BrokerPalletId: PalletId = PalletId(<span class="kw-2">*</span><span class="string">b"py/broke"</span>);
 	<span class="kw">pub </span>MaxXcmTransactWeight: Weight = Weight::from_parts(<span class="number">200_000_000</span>, <span class="number">20_000</span>);
+}
+
+<span class="kw">pub struct </span>BrokerPot;
+<span class="kw">impl </span>Get&lt;InteriorLocation&gt; <span class="kw">for </span>BrokerPot {
+	<span class="kw">fn </span>get() -&gt; InteriorLocation {
+		Junction::AccountId32 { network: <span class="prelude-val">None</span>, id: BrokerPalletId::get().into_account_truncating() }
+			.into()
+	}
 }
 
 <span class="kw">impl </span>coretime::Config <span class="kw">for </span>Runtime {
@@ -4035,13 +4074,22 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
 	<span class="kw">type </span>Currency = Balances;
 	<span class="kw">type </span>BrokerId = BrokerId;
+	<span class="kw">type </span>BrokerPotLocation = BrokerPot;
 	<span class="kw">type </span>WeightInfo = weights::runtime_parachains_coretime::WeightInfo&lt;Runtime&gt;;
 	<span class="kw">type </span>SendXcm = <span class="kw">crate</span>::xcm_config::XcmRouter;
+	<span class="kw">type </span>AssetTransactor = <span class="kw">crate</span>::xcm_config::LocalAssetTransactor;
+	<span class="kw">type </span>AccountToLocation = xcm_builder::AliasesIntoAccountId32&lt;
+		xcm_config::ThisNetwork,
+		&lt;Runtime <span class="kw">as </span>frame_system::Config&gt;::AccountId,
+	&gt;;
 	<span class="kw">type </span>MaxXcmTransactWeight = MaxXcmTransactWeight;
 }
 
 <span class="macro">parameter_types! </span>{
 	<span class="kw">pub const </span>OnDemandTrafficDefaultValue: FixedU128 = FixedU128::from_u32(<span class="number">1</span>);
+	<span class="comment">// Keep 2 timeslices worth of revenue information.
+	</span><span class="kw">pub const </span>MaxHistoricalRevenue: BlockNumber = <span class="number">2 </span>* TIMESLICE_PERIOD;
+	<span class="kw">pub const </span>OnDemandPalletId: PalletId = PalletId(<span class="kw-2">*</span><span class="string">b"py/ondmd"</span>);
 }
 
 <span class="kw">impl </span>parachains_assigner_on_demand::Config <span class="kw">for </span>Runtime {
@@ -4049,6 +4097,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">type </span>Currency = Balances;
 	<span class="kw">type </span>TrafficDefaultValue = OnDemandTrafficDefaultValue;
 	<span class="kw">type </span>WeightInfo = weights::runtime_parachains_assigner_on_demand::WeightInfo&lt;Runtime&gt;;
+	<span class="kw">type </span>MaxHistoricalRevenue = MaxHistoricalRevenue;
+	<span class="kw">type </span>PalletId = OnDemandPalletId;
 }
 
 <span class="kw">impl </span>parachains_assigner_coretime::Config <span class="kw">for </span>Runtime {}

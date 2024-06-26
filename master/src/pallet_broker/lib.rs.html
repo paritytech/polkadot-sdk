@@ -964,6 +964,35 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#813" id="813">813</a>
 <a href="#814" id="814">814</a>
 <a href="#815" id="815">815</a>
+<a href="#816" id="816">816</a>
+<a href="#817" id="817">817</a>
+<a href="#818" id="818">818</a>
+<a href="#819" id="819">819</a>
+<a href="#820" id="820">820</a>
+<a href="#821" id="821">821</a>
+<a href="#822" id="822">822</a>
+<a href="#823" id="823">823</a>
+<a href="#824" id="824">824</a>
+<a href="#825" id="825">825</a>
+<a href="#826" id="826">826</a>
+<a href="#827" id="827">827</a>
+<a href="#828" id="828">828</a>
+<a href="#829" id="829">829</a>
+<a href="#830" id="830">830</a>
+<a href="#831" id="831">831</a>
+<a href="#832" id="832">832</a>
+<a href="#833" id="833">833</a>
+<a href="#834" id="834">834</a>
+<a href="#835" id="835">835</a>
+<a href="#836" id="836">836</a>
+<a href="#837" id="837">837</a>
+<a href="#838" id="838">838</a>
+<a href="#839" id="839">839</a>
+<a href="#840" id="840">840</a>
+<a href="#841" id="841">841</a>
+<a href="#842" id="842">842</a>
+<a href="#843" id="843">843</a>
+<a href="#844" id="844">844</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1023,7 +1052,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		pallet_prelude::{DispatchResult, DispatchResultWithPostInfo, <span class="kw-2">*</span>},
 		traits::{
 			fungible::{Balanced, Credit, Mutate},
-			EnsureOrigin, OnUnbalanced,
+			BuildGenesisConfig, EnsureOrigin, OnUnbalanced,
 		},
 		PalletId,
 	};
@@ -1031,7 +1060,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">use </span>sp_runtime::traits::{Convert, ConvertBack};
 	<span class="kw">use </span>sp_std::vec::Vec;
 
-	<span class="kw">const </span>STORAGE_VERSION: StorageVersion = StorageVersion::new(<span class="number">2</span>);
+	<span class="kw">const </span>STORAGE_VERSION: StorageVersion = StorageVersion::new(<span class="number">3</span>);
 
 	<span class="attr">#[pallet::pallet]
 	#[pallet::storage_version(STORAGE_VERSION)]
@@ -1139,6 +1168,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Received core count change from the relay chain.
 	</span><span class="attr">#[pallet::storage]
 	</span><span class="kw">pub type </span>CoreCountInbox&lt;T&gt; = StorageValue&lt;<span class="kw">_</span>, CoreIndex, OptionQuery&gt;;
+
+	<span class="doccomment">/// Received revenue info from the relay chain.
+	</span><span class="attr">#[pallet::storage]
+	</span><span class="kw">pub type </span>RevenueInbox&lt;T&gt; = StorageValue&lt;<span class="kw">_</span>, OnDemandRevenueRecordOf&lt;T&gt;, OptionQuery&gt;;
 
 	<span class="attr">#[pallet::event]
 	#[pallet::generate_deposit(<span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>deposit_event)]
@@ -1454,6 +1487,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span>NoClaimTimeslices,
 	}
 
+	<span class="attr">#[derive(frame_support::DefaultNoBound)]
+	#[pallet::genesis_config]
+	</span><span class="kw">pub struct </span>GenesisConfig&lt;T: Config&gt; {
+		<span class="attr">#[serde(skip)]
+		</span><span class="kw">pub </span>_config: sp_std::marker::PhantomData&lt;T&gt;,
+	}
+
+	<span class="attr">#[pallet::genesis_build]
+	</span><span class="kw">impl</span>&lt;T: Config&gt; BuildGenesisConfig <span class="kw">for </span>GenesisConfig&lt;T&gt; {
+		<span class="kw">fn </span>build(<span class="kw-2">&amp;</span><span class="self">self</span>) {
+			frame_system::Pallet::&lt;T&gt;::inc_providers(<span class="kw-2">&amp;</span>Pallet::&lt;T&gt;::account_id());
+		}
+	}
+
 	<span class="attr">#[pallet::hooks]
 	</span><span class="kw">impl</span>&lt;T: Config&gt; Hooks&lt;BlockNumberFor&lt;T&gt;&gt; <span class="kw">for </span>Pallet&lt;T&gt; {
 		<span class="kw">fn </span>on_initialize(_now: BlockNumberFor&lt;T&gt;) -&gt; Weight {
@@ -1767,6 +1814,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="kw">pub fn </span>notify_core_count(origin: OriginFor&lt;T&gt;, core_count: CoreIndex) -&gt; DispatchResult {
 			T::AdminOrigin::ensure_origin_or_root(origin)<span class="question-mark">?</span>;
 			<span class="self">Self</span>::do_notify_core_count(core_count)<span class="question-mark">?</span>;
+			<span class="prelude-val">Ok</span>(())
+		}
+
+		<span class="attr">#[pallet::call_index(<span class="number">20</span>)]
+		#[pallet::weight(T::WeightInfo::notify_revenue())]
+		</span><span class="kw">pub fn </span>notify_revenue(
+			origin: OriginFor&lt;T&gt;,
+			revenue: OnDemandRevenueRecordOf&lt;T&gt;,
+		) -&gt; DispatchResult {
+			T::AdminOrigin::ensure_origin_or_root(origin)<span class="question-mark">?</span>;
+			<span class="self">Self</span>::do_notify_revenue(revenue)<span class="question-mark">?</span>;
 			<span class="prelude-val">Ok</span>(())
 		}
 

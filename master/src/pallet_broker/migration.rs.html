@@ -295,6 +295,44 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#144" id="144">144</a>
 <a href="#145" id="145">145</a>
 <a href="#146" id="146">146</a>
+<a href="#147" id="147">147</a>
+<a href="#148" id="148">148</a>
+<a href="#149" id="149">149</a>
+<a href="#150" id="150">150</a>
+<a href="#151" id="151">151</a>
+<a href="#152" id="152">152</a>
+<a href="#153" id="153">153</a>
+<a href="#154" id="154">154</a>
+<a href="#155" id="155">155</a>
+<a href="#156" id="156">156</a>
+<a href="#157" id="157">157</a>
+<a href="#158" id="158">158</a>
+<a href="#159" id="159">159</a>
+<a href="#160" id="160">160</a>
+<a href="#161" id="161">161</a>
+<a href="#162" id="162">162</a>
+<a href="#163" id="163">163</a>
+<a href="#164" id="164">164</a>
+<a href="#165" id="165">165</a>
+<a href="#166" id="166">166</a>
+<a href="#167" id="167">167</a>
+<a href="#168" id="168">168</a>
+<a href="#169" id="169">169</a>
+<a href="#170" id="170">170</a>
+<a href="#171" id="171">171</a>
+<a href="#172" id="172">172</a>
+<a href="#173" id="173">173</a>
+<a href="#174" id="174">174</a>
+<a href="#175" id="175">175</a>
+<a href="#176" id="176">176</a>
+<a href="#177" id="177">177</a>
+<a href="#178" id="178">178</a>
+<a href="#179" id="179">179</a>
+<a href="#180" id="180">180</a>
+<a href="#181" id="181">181</a>
+<a href="#182" id="182">182</a>
+<a href="#183" id="183">183</a>
+<a href="#184" id="184">184</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -425,6 +463,36 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
+<span class="kw">mod </span>v3 {
+	<span class="kw">use super</span>::<span class="kw-2">*</span>;
+	<span class="kw">use </span>frame_system::Pallet <span class="kw">as </span>System;
+
+	<span class="kw">pub struct </span>MigrateToV3Impl&lt;T&gt;(PhantomData&lt;T&gt;);
+
+	<span class="kw">impl</span>&lt;T: Config&gt; UncheckedOnRuntimeUpgrade <span class="kw">for </span>MigrateToV3Impl&lt;T&gt; {
+		<span class="kw">fn </span>on_runtime_upgrade() -&gt; frame_support::weights::Weight {
+			<span class="kw">let </span>acc = Pallet::&lt;T&gt;::account_id();
+			System::&lt;T&gt;::inc_providers(<span class="kw-2">&amp;</span>acc);
+			<span class="comment">// calculate and return migration weights
+			</span>T::DbWeight::get().writes(<span class="number">1</span>)
+		}
+
+		<span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
+		</span><span class="kw">fn </span>pre_upgrade() -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, sp_runtime::TryRuntimeError&gt; {
+			<span class="prelude-val">Ok</span>(System::&lt;T&gt;::providers(<span class="kw-2">&amp;</span>Pallet::&lt;T&gt;::account_id()).encode())
+		}
+
+		<span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
+		</span><span class="kw">fn </span>post_upgrade(state: Vec&lt;u8&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), sp_runtime::TryRuntimeError&gt; {
+			<span class="kw">let </span>old_providers = u32::decode(<span class="kw-2">&amp;mut &amp;</span>state[..]).expect(<span class="string">"Known good"</span>);
+			<span class="kw">let </span>new_providers = System::&lt;T&gt;::providers(<span class="kw-2">&amp;</span>Pallet::&lt;T&gt;::account_id()) <span class="kw">as </span>u32;
+
+			<span class="macro">ensure!</span>(new_providers == old_providers + <span class="number">1</span>, <span class="string">"Providers count should increase by one"</span>);
+			<span class="prelude-val">Ok</span>(())
+		}
+	}
+}
+
 <span class="doccomment">/// Migrate the pallet storage from `0` to `1`.
 </span><span class="kw">pub type </span>MigrateV0ToV1&lt;T&gt; = frame_support::migrations::VersionedMigration&lt;
 	<span class="number">0</span>,
@@ -438,6 +506,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="number">1</span>,
 	<span class="number">2</span>,
 	v2::MigrateToV2Impl&lt;T&gt;,
+	Pallet&lt;T&gt;,
+	&lt;T <span class="kw">as </span>frame_system::Config&gt;::DbWeight,
+&gt;;
+
+<span class="kw">pub type </span>MigrateV2ToV3&lt;T&gt; = frame_support::migrations::VersionedMigration&lt;
+	<span class="number">2</span>,
+	<span class="number">3</span>,
+	v3::MigrateToV3Impl&lt;T&gt;,
 	Pallet&lt;T&gt;,
 	&lt;T <span class="kw">as </span>frame_system::Config&gt;::DbWeight,
 &gt;;

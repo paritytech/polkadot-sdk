@@ -1094,6 +1094,52 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#943" id="943">943</a>
 <a href="#944" id="944">944</a>
 <a href="#945" id="945">945</a>
+<a href="#946" id="946">946</a>
+<a href="#947" id="947">947</a>
+<a href="#948" id="948">948</a>
+<a href="#949" id="949">949</a>
+<a href="#950" id="950">950</a>
+<a href="#951" id="951">951</a>
+<a href="#952" id="952">952</a>
+<a href="#953" id="953">953</a>
+<a href="#954" id="954">954</a>
+<a href="#955" id="955">955</a>
+<a href="#956" id="956">956</a>
+<a href="#957" id="957">957</a>
+<a href="#958" id="958">958</a>
+<a href="#959" id="959">959</a>
+<a href="#960" id="960">960</a>
+<a href="#961" id="961">961</a>
+<a href="#962" id="962">962</a>
+<a href="#963" id="963">963</a>
+<a href="#964" id="964">964</a>
+<a href="#965" id="965">965</a>
+<a href="#966" id="966">966</a>
+<a href="#967" id="967">967</a>
+<a href="#968" id="968">968</a>
+<a href="#969" id="969">969</a>
+<a href="#970" id="970">970</a>
+<a href="#971" id="971">971</a>
+<a href="#972" id="972">972</a>
+<a href="#973" id="973">973</a>
+<a href="#974" id="974">974</a>
+<a href="#975" id="975">975</a>
+<a href="#976" id="976">976</a>
+<a href="#977" id="977">977</a>
+<a href="#978" id="978">978</a>
+<a href="#979" id="979">979</a>
+<a href="#980" id="980">980</a>
+<a href="#981" id="981">981</a>
+<a href="#982" id="982">982</a>
+<a href="#983" id="983">983</a>
+<a href="#984" id="984">984</a>
+<a href="#985" id="985">985</a>
+<a href="#986" id="986">986</a>
+<a href="#987" id="987">987</a>
+<a href="#988" id="988">988</a>
+<a href="#989" id="989">989</a>
+<a href="#990" id="990">990</a>
+<a href="#991" id="991">991</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1195,7 +1241,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="comment">// Assume Leases to be filled for worst case
 	</span>setup_leases::&lt;T&gt;(T::MaxLeasedCores::get(), <span class="number">1</span>, <span class="number">10</span>);
 
-	Broker::&lt;T&gt;::do_start_sales(<span class="number">10u32</span>.into(), MAX_CORE_COUNT.into())
+	Broker::&lt;T&gt;::do_start_sales(<span class="number">10_000_000u32</span>.into(), MAX_CORE_COUNT.into())
 		.map_err(|<span class="kw">_</span>| BenchmarkError::Weightless)<span class="question-mark">?</span>;
 
 	<span class="prelude-val">Ok</span>(T::MaxReservedCores::get()
@@ -1297,7 +1343,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">let </span>latest_region_begin = Broker::&lt;T&gt;::latest_timeslice_ready_to_commit(<span class="kw-2">&amp;</span>config);
 
-		<span class="kw">let </span>initial_price = <span class="number">10u32</span>.into();
+		<span class="kw">let </span>initial_price = <span class="number">10_000_000u32</span>.into();
 
 		<span class="kw">let </span>origin =
 			T::AdminOrigin::try_successful_origin().map_err(|<span class="kw">_</span>| BenchmarkError::Weightless)<span class="question-mark">?</span>;
@@ -1310,8 +1356,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			Event::SaleInitialized {
 				sale_start: <span class="number">2u32</span>.into(),
 				leadin_length: <span class="number">1u32</span>.into(),
-				start_price: <span class="number">1000u32</span>.into(),
-				end_price: <span class="number">10u32</span>.into(),
+				start_price: <span class="number">1_000_000_000u32</span>.into(),
+				end_price: <span class="number">10_000_000u32</span>.into(),
 				region_begin: latest_region_begin + config.region_length,
 				region_end: latest_region_begin + config.region_length * <span class="number">2</span>,
 				ideal_cores_sold: <span class="number">0</span>,
@@ -1336,13 +1382,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>caller: T::AccountId = whitelisted_caller();
 		T::Currency::set_balance(
 			<span class="kw-2">&amp;</span>caller.clone(),
-			T::Currency::minimum_balance().saturating_add(<span class="number">10u32</span>.into()),
+			T::Currency::minimum_balance().saturating_add(<span class="number">10_000_000u32</span>.into()),
 		);
 
 		<span class="attr">#[extrinsic_call]
-		</span><span class="kw">_</span>(RawOrigin::Signed(caller.clone()), <span class="number">10u32</span>.into());
+		</span><span class="kw">_</span>(RawOrigin::Signed(caller.clone()), <span class="number">10_000_000u32</span>.into());
 
-		<span class="macro">assert_eq!</span>(SaleInfo::&lt;T&gt;::get().unwrap().sellout_price, <span class="prelude-val">Some</span>(<span class="number">10u32</span>.into()));
+		<span class="macro">assert_eq!</span>(SaleInfo::&lt;T&gt;::get().unwrap().sellout_price, <span class="prelude-val">Some</span>(<span class="number">10_000_000u32</span>.into()));
 		assert_last_event::&lt;T&gt;(
 			Event::Purchased {
 				who: caller,
@@ -1351,7 +1397,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					core,
 					mask: CoreMask::complete(),
 				},
-				price: <span class="number">10u32</span>.into(),
+				price: <span class="number">10_000_000u32</span>.into(),
 				duration: <span class="number">3u32</span>.into(),
 			}
 			.into(),
@@ -1370,10 +1416,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>caller: T::AccountId = whitelisted_caller();
 		T::Currency::set_balance(
 			<span class="kw-2">&amp;</span>caller.clone(),
-			T::Currency::minimum_balance().saturating_add(<span class="number">20u32</span>.into()),
+			T::Currency::minimum_balance().saturating_add(<span class="number">20_000_000u32</span>.into()),
 		);
 
-		<span class="kw">let </span>region = Broker::&lt;T&gt;::do_purchase(caller.clone(), <span class="number">10u32</span>.into())
+		<span class="kw">let </span>region = Broker::&lt;T&gt;::do_purchase(caller.clone(), <span class="number">10_000_000u32</span>.into())
 			.map_err(|<span class="kw">_</span>| BenchmarkError::Weightless)<span class="question-mark">?</span>;
 
 		Broker::&lt;T&gt;::do_assign(region, <span class="prelude-val">None</span>, <span class="number">1001</span>, Final)
@@ -1399,10 +1445,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>caller: T::AccountId = whitelisted_caller();
 		T::Currency::set_balance(
 			<span class="kw-2">&amp;</span>caller.clone(),
-			T::Currency::minimum_balance().saturating_add(<span class="number">10u32</span>.into()),
+			T::Currency::minimum_balance().saturating_add(<span class="number">10_000_000u32</span>.into()),
 		);
 
-		<span class="kw">let </span>region = Broker::&lt;T&gt;::do_purchase(caller.clone(), <span class="number">10u32</span>.into())
+		<span class="kw">let </span>region = Broker::&lt;T&gt;::do_purchase(caller.clone(), <span class="number">10_000_000u32</span>.into())
 			.map_err(|<span class="kw">_</span>| BenchmarkError::Weightless)<span class="question-mark">?</span>;
 
 		<span class="kw">let </span>recipient: T::AccountId = account(<span class="string">"recipient"</span>, <span class="number">0</span>, SEED);
@@ -1432,10 +1478,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>caller: T::AccountId = whitelisted_caller();
 		T::Currency::set_balance(
 			<span class="kw-2">&amp;</span>caller.clone(),
-			T::Currency::minimum_balance().saturating_add(<span class="number">10u32</span>.into()),
+			T::Currency::minimum_balance().saturating_add(<span class="number">10_000_000u32</span>.into()),
 		);
 
-		<span class="kw">let </span>region = Broker::&lt;T&gt;::do_purchase(caller.clone(), <span class="number">10u32</span>.into())
+		<span class="kw">let </span>region = Broker::&lt;T&gt;::do_purchase(caller.clone(), <span class="number">10_000_000u32</span>.into())
 			.map_err(|<span class="kw">_</span>| BenchmarkError::Weightless)<span class="question-mark">?</span>;
 
 		<span class="attr">#[extrinsic_call]
@@ -1464,10 +1510,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>caller: T::AccountId = whitelisted_caller();
 		T::Currency::set_balance(
 			<span class="kw-2">&amp;</span>caller.clone(),
-			T::Currency::minimum_balance().saturating_add(<span class="number">10u32</span>.into()),
+			T::Currency::minimum_balance().saturating_add(<span class="number">10_000_000u32</span>.into()),
 		);
 
-		<span class="kw">let </span>region = Broker::&lt;T&gt;::do_purchase(caller.clone(), <span class="number">10u32</span>.into())
+		<span class="kw">let </span>region = Broker::&lt;T&gt;::do_purchase(caller.clone(), <span class="number">10_000_000u32</span>.into())
 			.map_err(|<span class="kw">_</span>| BenchmarkError::Weightless)<span class="question-mark">?</span>;
 
 		<span class="attr">#[extrinsic_call]
@@ -1500,10 +1546,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>caller: T::AccountId = whitelisted_caller();
 		T::Currency::set_balance(
 			<span class="kw-2">&amp;</span>caller.clone(),
-			T::Currency::minimum_balance().saturating_add(<span class="number">10u32</span>.into()),
+			T::Currency::minimum_balance().saturating_add(<span class="number">10_000_000u32</span>.into()),
 		);
 
-		<span class="kw">let </span>region = Broker::&lt;T&gt;::do_purchase(caller.clone(), <span class="number">10u32</span>.into())
+		<span class="kw">let </span>region = Broker::&lt;T&gt;::do_purchase(caller.clone(), <span class="number">10_000_000u32</span>.into())
 			.map_err(|<span class="kw">_</span>| BenchmarkError::Weightless)<span class="question-mark">?</span>;
 
 		<span class="attr">#[extrinsic_call]
@@ -1535,10 +1581,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>caller: T::AccountId = whitelisted_caller();
 		T::Currency::set_balance(
 			<span class="kw-2">&amp;</span>caller.clone(),
-			T::Currency::minimum_balance().saturating_add(<span class="number">10u32</span>.into()),
+			T::Currency::minimum_balance().saturating_add(<span class="number">10_000_000u32</span>.into()),
 		);
 
-		<span class="kw">let </span>region = Broker::&lt;T&gt;::do_purchase(caller.clone(), <span class="number">10u32</span>.into())
+		<span class="kw">let </span>region = Broker::&lt;T&gt;::do_purchase(caller.clone(), <span class="number">10_000_000u32</span>.into())
 			.map_err(|<span class="kw">_</span>| BenchmarkError::Weightless)<span class="question-mark">?</span>;
 
 		<span class="kw">let </span>recipient: T::AccountId = account(<span class="string">"recipient"</span>, <span class="number">0</span>, SEED);
@@ -1571,14 +1617,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>caller: T::AccountId = whitelisted_caller();
 		T::Currency::set_balance(
 			<span class="kw-2">&amp;</span>caller.clone(),
-			T::Currency::minimum_balance().saturating_add(<span class="number">10u32</span>.into()),
+			T::Currency::minimum_balance().saturating_add(<span class="number">10_000_000u32</span>.into()),
 		);
 		T::Currency::set_balance(
 			<span class="kw-2">&amp;</span>Broker::&lt;T&gt;::account_id(),
-			T::Currency::minimum_balance().saturating_add(<span class="number">200u32</span>.into()),
+			T::Currency::minimum_balance().saturating_add(<span class="number">200_000_000u32</span>.into()),
 		);
 
-		<span class="kw">let </span>region = Broker::&lt;T&gt;::do_purchase(caller.clone(), <span class="number">10u32</span>.into())
+		<span class="kw">let </span>region = Broker::&lt;T&gt;::do_purchase(caller.clone(), <span class="number">10_000_000u32</span>.into())
 			.map_err(|<span class="kw">_</span>| BenchmarkError::Weightless)<span class="question-mark">?</span>;
 
 		<span class="kw">let </span>recipient: T::AccountId = account(<span class="string">"recipient"</span>, <span class="number">0</span>, SEED);
@@ -1587,7 +1633,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		Broker::&lt;T&gt;::do_pool(region, <span class="prelude-val">None</span>, recipient.clone(), Final)
 			.map_err(|<span class="kw">_</span>| BenchmarkError::Weightless)<span class="question-mark">?</span>;
 
-		<span class="kw">let </span>revenue = <span class="number">10u32</span>.into();
+		<span class="kw">let </span>revenue = <span class="number">10_000_000u32</span>.into();
 		InstaPoolHistory::&lt;T&gt;::insert(
 			region.begin,
 			InstaPoolHistoryRecord {
@@ -1604,7 +1650,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		assert_last_event::&lt;T&gt;(
 			Event::RevenueClaimPaid {
 				who: recipient,
-				amount: <span class="number">200u32</span>.into(),
+				amount: <span class="number">200_000_000u32</span>.into(),
 				next: <span class="kw">if </span>m &lt; new_config_record::&lt;T&gt;().region_length {
 					<span class="prelude-val">Some</span>(RegionId {
 						begin: region.begin.saturating_add(m),
@@ -1630,11 +1676,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>caller: T::AccountId = whitelisted_caller();
 		T::Currency::set_balance(
 			<span class="kw-2">&amp;</span>caller.clone(),
-			T::Currency::minimum_balance().saturating_add(<span class="number">30u32</span>.into()),
+			T::Currency::minimum_balance().saturating_add(<span class="number">30_000_000u32</span>.into()),
 		);
 		T::Currency::set_balance(<span class="kw-2">&amp;</span>Broker::&lt;T&gt;::account_id(), T::Currency::minimum_balance());
 
-		<span class="kw">let </span>region = Broker::&lt;T&gt;::do_purchase(caller.clone(), <span class="number">10u32</span>.into())
+		<span class="kw">let </span>region = Broker::&lt;T&gt;::do_purchase(caller.clone(), <span class="number">10_000_000u32</span>.into())
 			.map_err(|<span class="kw">_</span>| BenchmarkError::Weightless)<span class="question-mark">?</span>;
 
 		<span class="kw">let </span>recipient: T::AccountId = account(<span class="string">"recipient"</span>, <span class="number">0</span>, SEED);
@@ -1645,10 +1691,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>beneficiary: RelayAccountIdOf&lt;T&gt; = account(<span class="string">"beneficiary"</span>, <span class="number">0</span>, SEED);
 
 		<span class="attr">#[extrinsic_call]
-		</span><span class="kw">_</span>(RawOrigin::Signed(caller.clone()), <span class="number">20u32</span>.into(), beneficiary.clone());
+		</span><span class="kw">_</span>(RawOrigin::Signed(caller.clone()), <span class="number">20_000_000u32</span>.into(), beneficiary.clone());
 
 		assert_last_event::&lt;T&gt;(
-			Event::CreditPurchased { who: caller, beneficiary, amount: <span class="number">20u32</span>.into() }.into(),
+			Event::CreditPurchased { who: caller, beneficiary, amount: <span class="number">20_000_000u32</span>.into() }
+				.into(),
 		);
 
 		<span class="prelude-val">Ok</span>(())
@@ -1664,10 +1711,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>caller: T::AccountId = whitelisted_caller();
 		T::Currency::set_balance(
 			<span class="kw-2">&amp;</span>caller.clone(),
-			T::Currency::minimum_balance().saturating_add(<span class="number">10u32</span>.into()),
+			T::Currency::minimum_balance().saturating_add(<span class="number">10_000_000u32</span>.into()),
 		);
 
-		<span class="kw">let </span>region = Broker::&lt;T&gt;::do_purchase(caller.clone(), <span class="number">10u32</span>.into())
+		<span class="kw">let </span>region = Broker::&lt;T&gt;::do_purchase(caller.clone(), <span class="number">10_000_000u32</span>.into())
 			.map_err(|<span class="kw">_</span>| BenchmarkError::Weightless)<span class="question-mark">?</span>;
 
 		advance_to::&lt;T&gt;(
@@ -1698,10 +1745,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>caller: T::AccountId = whitelisted_caller();
 		T::Currency::set_balance(
 			<span class="kw-2">&amp;</span>caller.clone(),
-			T::Currency::minimum_balance().saturating_add(<span class="number">10u32</span>.into()),
+			T::Currency::minimum_balance().saturating_add(<span class="number">10_000_000u32</span>.into()),
 		);
 
-		<span class="kw">let </span>region = Broker::&lt;T&gt;::do_purchase(caller.clone(), <span class="number">10u32</span>.into())
+		<span class="kw">let </span>region = Broker::&lt;T&gt;::do_purchase(caller.clone(), <span class="number">10_000_000u32</span>.into())
 			.map_err(|<span class="kw">_</span>| BenchmarkError::Weightless)<span class="question-mark">?</span>;
 
 		<span class="kw">let </span>recipient: T::AccountId = account(<span class="string">"recipient"</span>, <span class="number">0</span>, SEED);
@@ -1730,7 +1777,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>drop_history() -&gt; <span class="prelude-ty">Result</span>&lt;(), BenchmarkError&gt; {
 		setup_and_start_sale::&lt;T&gt;()<span class="question-mark">?</span>;
 		<span class="kw">let </span>when = <span class="number">5u32</span>.into();
-		<span class="kw">let </span>revenue = <span class="number">10u32</span>.into();
+		<span class="kw">let </span>revenue = <span class="number">10_000_000u32</span>.into();
 		<span class="kw">let </span>region_len = Configuration::&lt;T&gt;::get().unwrap().region_length;
 
 		advance_to::&lt;T&gt;(
@@ -1768,7 +1815,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">let </span>id = PotentialRenewalId { core, when };
 		<span class="kw">let </span>record = PotentialRenewalRecord {
-			price: <span class="number">1u32</span>.into(),
+			price: <span class="number">1_000_000u32</span>.into(),
 			completion: CompletionStatus::Complete(new_schedule()),
 		};
 		PotentialRenewals::&lt;T&gt;::insert(id, record);
@@ -1828,23 +1875,27 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>caller: T::AccountId = whitelisted_caller();
 		T::Currency::set_balance(
 			<span class="kw-2">&amp;</span>caller.clone(),
-			T::Currency::minimum_balance().saturating_add(<span class="number">30u32</span>.into()),
+			T::Currency::minimum_balance().saturating_add(<span class="number">30_000_000u32</span>.into()),
 		);
-		T::Currency::set_balance(<span class="kw-2">&amp;</span>Broker::&lt;T&gt;::account_id(), T::Currency::minimum_balance());
+		T::Currency::set_balance(
+			<span class="kw-2">&amp;</span>Broker::&lt;T&gt;::account_id(),
+			T::Currency::minimum_balance().saturating_add(<span class="number">90_000_000u32</span>.into()),
+		);
 
 		<span class="kw">let </span>timeslice_period: u32 = T::TimeslicePeriod::get().try_into().ok().unwrap();
 		<span class="kw">let </span>multiplicator = <span class="number">5</span>;
-		&lt;T::Coretime <span class="kw">as </span>CoretimeInterface&gt;::ensure_notify_revenue_info(
-			(timeslice_period * multiplicator).into(),
-			<span class="number">10u32</span>.into(),
-		);
+
+		RevenueInbox::&lt;T&gt;::put(OnDemandRevenueRecord {
+			until: (timeslice_period * multiplicator).into(),
+			amount: <span class="number">10_000_000u32</span>.into(),
+		});
 
 		<span class="kw">let </span>timeslice = multiplicator - <span class="number">1</span>;
 		InstaPoolHistory::&lt;T&gt;::insert(
 			timeslice,
 			InstaPoolHistoryRecord {
-				private_contributions: <span class="number">1u32</span>.into(),
-				system_contributions: <span class="number">9u32</span>.into(),
+				private_contributions: <span class="number">4u32</span>.into(),
+				system_contributions: <span class="number">6u32</span>.into(),
 				maybe_payout: <span class="prelude-val">None</span>,
 			},
 		);
@@ -1857,8 +1908,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		assert_last_event::&lt;T&gt;(
 			Event::ClaimsReady {
 				when: timeslice.into(),
-				system_payout: <span class="number">9u32</span>.into(),
-				private_payout: <span class="number">1u32</span>.into(),
+				system_payout: <span class="number">6_000_000u32</span>.into(),
+				private_payout: <span class="number">4_000_000u32</span>.into(),
 			}
 			.into(),
 		);
@@ -1872,7 +1923,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>config = new_config_record::&lt;T&gt;();
 
 		<span class="kw">let </span>now = frame_system::Pallet::&lt;T&gt;::block_number();
-		<span class="kw">let </span>end_price = <span class="number">10u32</span>.into();
+		<span class="kw">let </span>end_price = <span class="number">10_000_000u32</span>.into();
 		<span class="kw">let </span>commit_timeslice = Broker::&lt;T&gt;::latest_timeslice_ready_to_commit(<span class="kw-2">&amp;</span>config);
 		<span class="kw">let </span>sale = SaleInfoRecordOf::&lt;T&gt; {
 			sale_start: now,
@@ -1911,8 +1962,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			Event::SaleInitialized {
 				sale_start: <span class="number">2u32</span>.into(),
 				leadin_length: <span class="number">1u32</span>.into(),
-				start_price: <span class="number">1000u32</span>.into(),
-				end_price: <span class="number">10u32</span>.into(),
+				start_price: <span class="number">1_000_000_000u32</span>.into(),
+				end_price: <span class="number">10_000_000u32</span>.into(),
 				region_begin: sale.region_begin + config.region_length,
 				region_end: sale.region_end + config.region_length,
 				ideal_cores_sold: <span class="number">0</span>,
@@ -1985,6 +2036,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			T::Coretime::request_revenue_info_at(rc_block);
 		}
 	}
+
 	<span class="attr">#[benchmark]
 	</span><span class="kw">fn </span>notify_core_count() -&gt; <span class="prelude-ty">Result</span>&lt;(), BenchmarkError&gt; {
 		<span class="kw">let </span>admin_origin =
@@ -1994,6 +2046,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="kw">_</span>(admin_origin <span class="kw">as </span>T::RuntimeOrigin, <span class="number">100</span>);
 
 		<span class="macro">assert!</span>(CoreCountInbox::&lt;T&gt;::take().is_some());
+		<span class="prelude-val">Ok</span>(())
+	}
+
+	<span class="attr">#[benchmark]
+	</span><span class="kw">fn </span>notify_revenue() -&gt; <span class="prelude-ty">Result</span>&lt;(), BenchmarkError&gt; {
+		<span class="kw">let </span>admin_origin =
+			T::AdminOrigin::try_successful_origin().map_err(|<span class="kw">_</span>| BenchmarkError::Weightless)<span class="question-mark">?</span>;
+
+		<span class="attr">#[extrinsic_call]
+		</span><span class="kw">_</span>(
+			admin_origin <span class="kw">as </span>T::RuntimeOrigin,
+			OnDemandRevenueRecord { until: <span class="number">100u32</span>.into(), amount: <span class="number">100_000_000u32</span>.into() },
+		);
+
+		<span class="macro">assert!</span>(RevenueInbox::&lt;T&gt;::take().is_some());
 		<span class="prelude-val">Ok</span>(())
 	}
 
@@ -2031,6 +2098,31 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="attr">#[extrinsic_call]
 		</span><span class="kw">_</span>(admin_origin <span class="kw">as </span>T::RuntimeOrigin, <span class="number">1</span>, <span class="number">2</span>);
+
+		<span class="prelude-val">Ok</span>(())
+	}
+
+	<span class="attr">#[benchmark]
+	</span><span class="kw">fn </span>on_new_timeslice() -&gt; <span class="prelude-ty">Result</span>&lt;(), BenchmarkError&gt; {
+		setup_and_start_sale::&lt;T&gt;()<span class="question-mark">?</span>;
+
+		advance_to::&lt;T&gt;(<span class="number">2</span>);
+
+		<span class="kw">let </span>caller: T::AccountId = whitelisted_caller();
+		T::Currency::set_balance(
+			<span class="kw-2">&amp;</span>caller.clone(),
+			T::Currency::minimum_balance().saturating_add(u32::MAX.into()),
+		);
+
+		<span class="kw">let </span>_region = Broker::&lt;T&gt;::do_purchase(caller.clone(), (u32::MAX / <span class="number">2</span>).into())
+			.map_err(|<span class="kw">_</span>| BenchmarkError::Weightless)<span class="question-mark">?</span>;
+
+		<span class="kw">let </span>timeslice = Broker::&lt;T&gt;::current_timeslice();
+
+		<span class="attr">#[block]
+		</span>{
+			T::Coretime::on_new_timeslice(timeslice);
+		}
 
 		<span class="prelude-val">Ok</span>(())
 	}

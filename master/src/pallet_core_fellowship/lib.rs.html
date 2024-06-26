@@ -875,6 +875,48 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#724" id="724">724</a>
 <a href="#725" id="725">725</a>
 <a href="#726" id="726">726</a>
+<a href="#727" id="727">727</a>
+<a href="#728" id="728">728</a>
+<a href="#729" id="729">729</a>
+<a href="#730" id="730">730</a>
+<a href="#731" id="731">731</a>
+<a href="#732" id="732">732</a>
+<a href="#733" id="733">733</a>
+<a href="#734" id="734">734</a>
+<a href="#735" id="735">735</a>
+<a href="#736" id="736">736</a>
+<a href="#737" id="737">737</a>
+<a href="#738" id="738">738</a>
+<a href="#739" id="739">739</a>
+<a href="#740" id="740">740</a>
+<a href="#741" id="741">741</a>
+<a href="#742" id="742">742</a>
+<a href="#743" id="743">743</a>
+<a href="#744" id="744">744</a>
+<a href="#745" id="745">745</a>
+<a href="#746" id="746">746</a>
+<a href="#747" id="747">747</a>
+<a href="#748" id="748">748</a>
+<a href="#749" id="749">749</a>
+<a href="#750" id="750">750</a>
+<a href="#751" id="751">751</a>
+<a href="#752" id="752">752</a>
+<a href="#753" id="753">753</a>
+<a href="#754" id="754">754</a>
+<a href="#755" id="755">755</a>
+<a href="#756" id="756">756</a>
+<a href="#757" id="757">757</a>
+<a href="#758" id="758">758</a>
+<a href="#759" id="759">759</a>
+<a href="#760" id="760">760</a>
+<a href="#761" id="761">761</a>
+<a href="#762" id="762">762</a>
+<a href="#763" id="763">763</a>
+<a href="#764" id="764">764</a>
+<a href="#765" id="765">765</a>
+<a href="#766" id="766">766</a>
+<a href="#767" id="767">767</a>
+<a href="#768" id="768">768</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1085,6 +1127,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="doccomment">/// The origin which has permission to promote a member. The `Success` value is the maximum
 		/// rank to which it can promote.
 		</span><span class="kw">type </span>PromoteOrigin: EnsureOrigin&lt;<span class="self">Self</span>::RuntimeOrigin, Success = RankOf&lt;<span class="self">Self</span>, I&gt;&gt;;
+
+		<span class="doccomment">/// The origin that has permission to "fast" promote a member by ignoring promotion periods
+		/// and skipping ranks. The `Success` value is the maximum rank to which it can promote.
+		</span><span class="kw">type </span>FastPromoteOrigin: EnsureOrigin&lt;<span class="self">Self</span>::RuntimeOrigin, Success = RankOf&lt;<span class="self">Self</span>, I&gt;&gt;;
 
 		<span class="doccomment">/// The maximum size in bytes submitted evidence is allowed to be.
 		</span><span class="attr">#[pallet::constant]
@@ -1371,6 +1417,44 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="self">Self</span>::dispose_evidence(who.clone(), rank, <span class="prelude-val">Some</span>(to_rank));
 
 			<span class="self">Self</span>::deposit_event(Event::&lt;T, I&gt;::Promoted { who, to_rank });
+
+			<span class="prelude-val">Ok</span>(())
+		}
+
+		<span class="doccomment">/// Fast promotions can skip ranks and ignore the `min_promotion_period`.
+		///
+		/// This is useful for out-of-band promotions, hence it has its own `FastPromoteOrigin` to
+		/// be (possibly) more restrictive than `PromoteOrigin`. Note that the member must already
+		/// be inducted.
+		</span><span class="attr">#[pallet::weight(T::WeightInfo::promote_fast(<span class="kw-2">*</span>to_rank <span class="kw">as </span>u32))]
+		#[pallet::call_index(<span class="number">10</span>)]
+		</span><span class="kw">pub fn </span>promote_fast(
+			origin: OriginFor&lt;T&gt;,
+			who: T::AccountId,
+			to_rank: RankOf&lt;T, I&gt;,
+		) -&gt; DispatchResult {
+			<span class="kw">match </span>T::FastPromoteOrigin::try_origin(origin) {
+				<span class="prelude-val">Ok</span>(allow_rank) =&gt; <span class="macro">ensure!</span>(allow_rank &gt;= to_rank, Error::&lt;T, I&gt;::NoPermission),
+				<span class="prelude-val">Err</span>(origin) =&gt; ensure_root(origin)<span class="question-mark">?</span>,
+			}
+			<span class="macro">ensure!</span>(to_rank <span class="kw">as </span>u32 &lt;= T::MaxRank::get(), Error::&lt;T, I&gt;::InvalidRank);
+			<span class="kw">let </span>curr_rank = T::Members::rank_of(<span class="kw-2">&amp;</span>who).ok_or(Error::&lt;T, I&gt;::Unranked)<span class="question-mark">?</span>;
+			<span class="macro">ensure!</span>(to_rank &gt; curr_rank, Error::&lt;T, I&gt;::UnexpectedRank);
+
+			<span class="kw">let </span><span class="kw-2">mut </span>member = Member::&lt;T, I&gt;::get(<span class="kw-2">&amp;</span>who).ok_or(Error::&lt;T, I&gt;::NotTracked)<span class="question-mark">?</span>;
+			<span class="kw">let </span>now = frame_system::Pallet::&lt;T&gt;::block_number();
+			member.last_promotion = now;
+			member.last_proof = now;
+
+			<span class="kw">for </span>rank <span class="kw">in </span>(curr_rank + <span class="number">1</span>)..=to_rank {
+				T::Members::promote(<span class="kw-2">&amp;</span>who)<span class="question-mark">?</span>;
+
+				<span class="comment">// NOTE: We could factor this out, but it would destroy our invariants:
+				</span>Member::&lt;T, I&gt;::insert(<span class="kw-2">&amp;</span>who, <span class="kw-2">&amp;</span>member);
+
+				<span class="self">Self</span>::dispose_evidence(who.clone(), rank.saturating_sub(<span class="number">1</span>), <span class="prelude-val">Some</span>(rank));
+				<span class="self">Self</span>::deposit_event(Event::&lt;T, I&gt;::Promoted { who: who.clone(), to_rank: rank });
+			}
 
 			<span class="prelude-val">Ok</span>(())
 		}

@@ -316,6 +316,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#165" id="165">165</a>
 <a href="#166" id="166">166</a>
 <a href="#167" id="167">167</a>
+<a href="#168" id="168">168</a>
+<a href="#169" id="169">169</a>
+<a href="#170" id="170">170</a>
+<a href="#171" id="171">171</a>
+<a href="#172" id="172">172</a>
+<a href="#173" id="173">173</a>
+<a href="#174" id="174">174</a>
+<a href="#175" id="175">175</a>
+<a href="#176" id="176">176</a>
+<a href="#177" id="177">177</a>
+<a href="#178" id="178">178</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -434,6 +445,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// All system parachains of Westend.
 	</span><span class="kw">pub type </span>SystemParachains = IsChildSystemParachain&lt;Id&gt;;
+
+	<span class="doccomment">/// Coretime constants
+	</span><span class="kw">pub mod </span>coretime {
+		<span class="doccomment">/// Coretime timeslice period in blocks
+		/// WARNING: This constant is used accross chains, so additional care should be taken
+		/// when changing it.
+		</span><span class="attr">#[cfg(feature = <span class="string">"fast-runtime"</span>)]
+		</span><span class="kw">pub const </span>TIMESLICE_PERIOD: u32 = <span class="number">20</span>;
+		<span class="attr">#[cfg(not(feature = <span class="string">"fast-runtime"</span>))]
+		</span><span class="kw">pub const </span>TIMESLICE_PERIOD: u32 = <span class="number">80</span>;
+	}
 }
 
 <span class="doccomment">/// Westend Treasury pallet instance.
