@@ -277,7 +277,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="attr">#[async_trait::async_trait]
 </span><span class="kw">impl</span>&lt;Block: BlockT&gt; Verifier&lt;Block&gt; <span class="kw">for </span>VerifyNothing {
 	<span class="kw">async fn </span>verify(
-		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
+		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		params: BlockImportParams&lt;Block&gt;,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;BlockImportParams&lt;Block&gt;, String&gt; {
 		<span class="prelude-val">Ok</span>(params)

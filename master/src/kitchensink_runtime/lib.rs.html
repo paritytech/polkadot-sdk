@@ -5698,248 +5698,248 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub struct </span>Runtime;
 
 	<span class="attr">#[runtime::pallet_index(<span class="number">0</span>)]
-	</span><span class="kw">pub type </span>System = frame_system;
+	</span><span class="kw">pub type </span>System = frame_system::Pallet&lt;Runtime&gt;;
 
 	<span class="attr">#[runtime::pallet_index(<span class="number">1</span>)]
-	</span><span class="kw">pub type </span>Utility = pallet_utility;
+	</span><span class="kw">pub type </span>Utility = pallet_utility::Pallet&lt;Runtime&gt;;
 
 	<span class="attr">#[runtime::pallet_index(<span class="number">2</span>)]
-	</span><span class="kw">pub type </span>Babe = pallet_babe;
+	</span><span class="kw">pub type </span>Babe = pallet_babe::Pallet&lt;Runtime&gt;;
 
 	<span class="attr">#[runtime::pallet_index(<span class="number">3</span>)]
-	</span><span class="kw">pub type </span>Timestamp = pallet_timestamp;
+	</span><span class="kw">pub type </span>Timestamp = pallet_timestamp::Pallet&lt;Runtime&gt;;
 
 	<span class="comment">// Authorship must be before session in order to note author in the correct session and era
 	// for im-online and staking.
 	</span><span class="attr">#[runtime::pallet_index(<span class="number">4</span>)]
-	</span><span class="kw">pub type </span>Authorship = pallet_authorship;
+	</span><span class="kw">pub type </span>Authorship = pallet_authorship::Pallet&lt;Runtime&gt;;
 
 	<span class="attr">#[runtime::pallet_index(<span class="number">5</span>)]
-	</span><span class="kw">pub type </span>Indices = pallet_indices;
+	</span><span class="kw">pub type </span>Indices = pallet_indices::Pallet&lt;Runtime&gt;;
 
 	<span class="attr">#[runtime::pallet_index(<span class="number">6</span>)]
-	</span><span class="kw">pub type </span>Balances = pallet_balances;
+	</span><span class="kw">pub type </span>Balances = pallet_balances::Pallet&lt;Runtime&gt;;
 
 	<span class="attr">#[runtime::pallet_index(<span class="number">7</span>)]
-	</span><span class="kw">pub type </span>TransactionPayment = pallet_transaction_payment;
+	</span><span class="kw">pub type </span>TransactionPayment = pallet_transaction_payment::Pallet&lt;Runtime&gt;;
 
 	<span class="attr">#[runtime::pallet_index(<span class="number">8</span>)]
-	</span><span class="kw">pub type </span>AssetTxPayment = pallet_asset_tx_payment;
+	</span><span class="kw">pub type </span>AssetTxPayment = pallet_asset_tx_payment::Pallet&lt;Runtime&gt;;
 
 	<span class="attr">#[runtime::pallet_index(<span class="number">9</span>)]
-	</span><span class="kw">pub type </span>AssetConversionTxPayment = pallet_asset_conversion_tx_payment;
+	</span><span class="kw">pub type </span>AssetConversionTxPayment = pallet_asset_conversion_tx_payment::Pallet&lt;Runtime&gt;;
 
 	<span class="attr">#[runtime::pallet_index(<span class="number">10</span>)]
-	</span><span class="kw">pub type </span>ElectionProviderMultiPhase = pallet_election_provider_multi_phase;
+	</span><span class="kw">pub type </span>ElectionProviderMultiPhase = pallet_election_provider_multi_phase::Pallet&lt;Runtime&gt;;
 
 	<span class="attr">#[runtime::pallet_index(<span class="number">11</span>)]
-	</span><span class="kw">pub type </span>Staking = pallet_staking;
+	</span><span class="kw">pub type </span>Staking = pallet_staking::Pallet&lt;Runtime&gt;;
 
 	<span class="attr">#[runtime::pallet_index(<span class="number">12</span>)]
-	</span><span class="kw">pub type </span>Session = pallet_session;
+	</span><span class="kw">pub type </span>Session = pallet_session::Pallet&lt;Runtime&gt;;
 
 	<span class="attr">#[runtime::pallet_index(<span class="number">13</span>)]
-	</span><span class="kw">pub type </span>Democracy = pallet_democracy;
+	</span><span class="kw">pub type </span>Democracy = pallet_democracy::Pallet&lt;Runtime&gt;;
 
 	<span class="attr">#[runtime::pallet_index(<span class="number">14</span>)]
-	</span><span class="kw">pub type </span>Council = pallet_collective&lt;Instance1&gt;;
+	</span><span class="kw">pub type </span>Council = pallet_collective::Pallet&lt;Runtime, Instance1&gt;;
 
 	<span class="attr">#[runtime::pallet_index(<span class="number">15</span>)]
-	</span><span class="kw">pub type </span>TechnicalCommittee = pallet_collective&lt;Instance2&gt;;
+	</span><span class="kw">pub type </span>TechnicalCommittee = pallet_collective::Pallet&lt;Runtime, Instance2&gt;;
 
 	<span class="attr">#[runtime::pallet_index(<span class="number">16</span>)]
-	</span><span class="kw">pub type </span>Elections = pallet_elections_phragmen;
+	</span><span class="kw">pub type </span>Elections = pallet_elections_phragmen::Pallet&lt;Runtime&gt;;
 
 	<span class="attr">#[runtime::pallet_index(<span class="number">17</span>)]
-	</span><span class="kw">pub type </span>TechnicalMembership = pallet_membership&lt;Instance1&gt;;
+	</span><span class="kw">pub type </span>TechnicalMembership = pallet_membership::Pallet&lt;Runtime, Instance1&gt;;
 
 	<span class="attr">#[runtime::pallet_index(<span class="number">18</span>)]
-	</span><span class="kw">pub type </span>Grandpa = pallet_grandpa;
+	</span><span class="kw">pub type </span>Grandpa = pallet_grandpa::Pallet&lt;Runtime&gt;;
 
 	<span class="attr">#[runtime::pallet_index(<span class="number">19</span>)]
-	</span><span class="kw">pub type </span>Treasury = pallet_treasury;
+	</span><span class="kw">pub type </span>Treasury = pallet_treasury::Pallet&lt;Runtime&gt;;
 
 	<span class="attr">#[runtime::pallet_index(<span class="number">20</span>)]
-	</span><span class="kw">pub type </span>AssetRate = pallet_asset_rate;
+	</span><span class="kw">pub type </span>AssetRate = pallet_asset_rate::Pallet&lt;Runtime&gt;;
 
 	<span class="attr">#[runtime::pallet_index(<span class="number">21</span>)]
-	</span><span class="kw">pub type </span>Contracts = pallet_contracts;
+	</span><span class="kw">pub type </span>Contracts = pallet_contracts::Pallet&lt;Runtime&gt;;
 
 	<span class="attr">#[runtime::pallet_index(<span class="number">22</span>)]
-	</span><span class="kw">pub type </span>Sudo = pallet_sudo;
+	</span><span class="kw">pub type </span>Sudo = pallet_sudo::Pallet&lt;Runtime&gt;;
 
 	<span class="attr">#[runtime::pallet_index(<span class="number">23</span>)]
-	</span><span class="kw">pub type </span>ImOnline = pallet_im_online;
+	</span><span class="kw">pub type </span>ImOnline = pallet_im_online::Pallet&lt;Runtime&gt;;
 
 	<span class="attr">#[runtime::pallet_index(<span class="number">24</span>)]
-	</span><span class="kw">pub type </span>AuthorityDiscovery = pallet_authority_discovery;
+	</span><span class="kw">pub type </span>AuthorityDiscovery = pallet_authority_discovery::Pallet&lt;Runtime&gt;;
 
 	<span class="attr">#[runtime::pallet_index(<span class="number">25</span>)]
-	</span><span class="kw">pub type </span>Offences = pallet_offences;
+	</span><span class="kw">pub type </span>Offences = pallet_offences::Pallet&lt;Runtime&gt;;
 
 	<span class="attr">#[runtime::pallet_index(<span class="number">26</span>)]
-	</span><span class="kw">pub type </span>Historical = pallet_session_historical;
+	</span><span class="kw">pub type </span>Historical = pallet_session_historical::Pallet&lt;Runtime&gt;;
 
 	<span class="attr">#[runtime::pallet_index(<span class="number">27</span>)]
-	</span><span class="kw">pub type </span>RandomnessCollectiveFlip = pallet_insecure_randomness_collective_flip;
+	</span><span class="kw">pub type </span>RandomnessCollectiveFlip = pallet_insecure_randomness_collective_flip::Pallet&lt;Runtime&gt;;
 
 	<span class="attr">#[runtime::pallet_index(<span class="number">28</span>)]
-	</span><span class="kw">pub type </span>Identity = pallet_identity;
+	</span><span class="kw">pub type </span>Identity = pallet_identity::Pallet&lt;Runtime&gt;;
 
 	<span class="attr">#[runtime::pallet_index(<span class="number">29</span>)]
-	</span><span class="kw">pub type </span>Society = pallet_society;
+	</span><span class="kw">pub type </span>Society = pallet_society::Pallet&lt;Runtime&gt;;
 
 	<span class="attr">#[runtime::pallet_index(<span class="number">30</span>)]
-	</span><span class="kw">pub type </span>Recovery = pallet_recovery;
+	</span><span class="kw">pub type </span>Recovery = pallet_recovery::Pallet&lt;Runtime&gt;;
 
 	<span class="attr">#[runtime::pallet_index(<span class="number">31</span>)]
-	</span><span class="kw">pub type </span>Vesting = pallet_vesting;
+	</span><span class="kw">pub type </span>Vesting = pallet_vesting::Pallet&lt;Runtime&gt;;
 
 	<span class="attr">#[runtime::pallet_index(<span class="number">32</span>)]
-	</span><span class="kw">pub type </span>Scheduler = pallet_scheduler;
+	</span><span class="kw">pub type </span>Scheduler = pallet_scheduler::Pallet&lt;Runtime&gt;;
 
 	<span class="attr">#[runtime::pallet_index(<span class="number">33</span>)]
-	</span><span class="kw">pub type </span>Glutton = pallet_glutton;
+	</span><span class="kw">pub type </span>Glutton = pallet_glutton::Pallet&lt;Runtime&gt;;
 
 	<span class="attr">#[runtime::pallet_index(<span class="number">34</span>)]
-	</span><span class="kw">pub type </span>Preimage = pallet_preimage;
+	</span><span class="kw">pub type </span>Preimage = pallet_preimage::Pallet&lt;Runtime&gt;;
 
 	<span class="attr">#[runtime::pallet_index(<span class="number">35</span>)]
-	</span><span class="kw">pub type </span>Proxy = pallet_proxy;
+	</span><span class="kw">pub type </span>Proxy = pallet_proxy::Pallet&lt;Runtime&gt;;
 
 	<span class="attr">#[runtime::pallet_index(<span class="number">36</span>)]
-	</span><span class="kw">pub type </span>Multisig = pallet_multisig;
+	</span><span class="kw">pub type </span>Multisig = pallet_multisig::Pallet&lt;Runtime&gt;;
 
 	<span class="attr">#[runtime::pallet_index(<span class="number">37</span>)]
-	</span><span class="kw">pub type </span>Bounties = pallet_bounties;
+	</span><span class="kw">pub type </span>Bounties = pallet_bounties::Pallet&lt;Runtime&gt;;
 
 	<span class="attr">#[runtime::pallet_index(<span class="number">38</span>)]
-	</span><span class="kw">pub type </span>Tips = pallet_tips;
+	</span><span class="kw">pub type </span>Tips = pallet_tips::Pallet&lt;Runtime&gt;;
 
 	<span class="attr">#[runtime::pallet_index(<span class="number">39</span>)]
-	</span><span class="kw">pub type </span>Assets = pallet_assets&lt;Instance1&gt;;
+	</span><span class="kw">pub type </span>Assets = pallet_assets::Pallet&lt;Runtime, Instance1&gt;;
 
 	<span class="attr">#[runtime::pallet_index(<span class="number">40</span>)]
-	</span><span class="kw">pub type </span>PoolAssets = pallet_assets&lt;Instance2&gt;;
+	</span><span class="kw">pub type </span>PoolAssets = pallet_assets::Pallet&lt;Runtime, Instance2&gt;;
 
 	<span class="attr">#[runtime::pallet_index(<span class="number">41</span>)]
-	</span><span class="kw">pub type </span>Beefy = pallet_beefy;
+	</span><span class="kw">pub type </span>Beefy = pallet_beefy::Pallet&lt;Runtime&gt;;
 
 	<span class="comment">// MMR leaf construction must be after session in order to have a leaf's next_auth_set
 	// refer to block&lt;N&gt;. See issue polkadot-fellows/runtimes#160 for details.
 	</span><span class="attr">#[runtime::pallet_index(<span class="number">42</span>)]
-	</span><span class="kw">pub type </span>Mmr = pallet_mmr;
+	</span><span class="kw">pub type </span>Mmr = pallet_mmr::Pallet&lt;Runtime&gt;;
 
 	<span class="attr">#[runtime::pallet_index(<span class="number">43</span>)]
-	</span><span class="kw">pub type </span>MmrLeaf = pallet_beefy_mmr;
+	</span><span class="kw">pub type </span>MmrLeaf = pallet_beefy_mmr::Pallet&lt;Runtime&gt;;
 
 	<span class="attr">#[runtime::pallet_index(<span class="number">44</span>)]
-	</span><span class="kw">pub type </span>Lottery = pallet_lottery;
+	</span><span class="kw">pub type </span>Lottery = pallet_lottery::Pallet&lt;Runtime&gt;;
 
 	<span class="attr">#[runtime::pallet_index(<span class="number">45</span>)]
-	</span><span class="kw">pub type </span>Nis = pallet_nis;
+	</span><span class="kw">pub type </span>Nis = pallet_nis::Pallet&lt;Runtime&gt;;
 
 	<span class="attr">#[runtime::pallet_index(<span class="number">46</span>)]
-	</span><span class="kw">pub type </span>Uniques = pallet_uniques;
+	</span><span class="kw">pub type </span>Uniques = pallet_uniques::Pallet&lt;Runtime&gt;;
 
 	<span class="attr">#[runtime::pallet_index(<span class="number">47</span>)]
-	</span><span class="kw">pub type </span>Nfts = pallet_nfts;
+	</span><span class="kw">pub type </span>Nfts = pallet_nfts::Pallet&lt;Runtime&gt;;
 
 	<span class="attr">#[runtime::pallet_index(<span class="number">48</span>)]
-	</span><span class="kw">pub type </span>NftFractionalization = pallet_nft_fractionalization;
+	</span><span class="kw">pub type </span>NftFractionalization = pallet_nft_fractionalization::Pallet&lt;Runtime&gt;;
 
 	<span class="attr">#[runtime::pallet_index(<span class="number">49</span>)]
-	</span><span class="kw">pub type </span>Salary = pallet_salary;
+	</span><span class="kw">pub type </span>Salary = pallet_salary::Pallet&lt;Runtime&gt;;
 
 	<span class="attr">#[runtime::pallet_index(<span class="number">50</span>)]
-	</span><span class="kw">pub type </span>CoreFellowship = pallet_core_fellowship;
+	</span><span class="kw">pub type </span>CoreFellowship = pallet_core_fellowship::Pallet&lt;Runtime&gt;;
 
 	<span class="attr">#[runtime::pallet_index(<span class="number">51</span>)]
-	</span><span class="kw">pub type </span>TransactionStorage = pallet_transaction_storage;
+	</span><span class="kw">pub type </span>TransactionStorage = pallet_transaction_storage::Pallet&lt;Runtime&gt;;
 
 	<span class="attr">#[runtime::pallet_index(<span class="number">52</span>)]
-	</span><span class="kw">pub type </span>VoterList = pallet_bags_list&lt;Instance1&gt;;
+	</span><span class="kw">pub type </span>VoterList = pallet_bags_list::Pallet&lt;Runtime, Instance1&gt;;
 
 	<span class="attr">#[runtime::pallet_index(<span class="number">53</span>)]
-	</span><span class="kw">pub type </span>StateTrieMigration = pallet_state_trie_migration;
+	</span><span class="kw">pub type </span>StateTrieMigration = pallet_state_trie_migration::Pallet&lt;Runtime&gt;;
 
 	<span class="attr">#[runtime::pallet_index(<span class="number">54</span>)]
-	</span><span class="kw">pub type </span>ChildBounties = pallet_child_bounties;
+	</span><span class="kw">pub type </span>ChildBounties = pallet_child_bounties::Pallet&lt;Runtime&gt;;
 
 	<span class="attr">#[runtime::pallet_index(<span class="number">55</span>)]
-	</span><span class="kw">pub type </span>Referenda = pallet_referenda;
+	</span><span class="kw">pub type </span>Referenda = pallet_referenda::Pallet&lt;Runtime&gt;;
 
 	<span class="attr">#[runtime::pallet_index(<span class="number">56</span>)]
-	</span><span class="kw">pub type </span>Remark = pallet_remark;
+	</span><span class="kw">pub type </span>Remark = pallet_remark::Pallet&lt;Runtime&gt;;
 
 	<span class="attr">#[runtime::pallet_index(<span class="number">57</span>)]
-	</span><span class="kw">pub type </span>RootTesting = pallet_root_testing;
+	</span><span class="kw">pub type </span>RootTesting = pallet_root_testing::Pallet&lt;Runtime&gt;;
 
 	<span class="attr">#[runtime::pallet_index(<span class="number">58</span>)]
-	</span><span class="kw">pub type </span>ConvictionVoting = pallet_conviction_voting;
+	</span><span class="kw">pub type </span>ConvictionVoting = pallet_conviction_voting::Pallet&lt;Runtime&gt;;
 
 	<span class="attr">#[runtime::pallet_index(<span class="number">59</span>)]
-	</span><span class="kw">pub type </span>Whitelist = pallet_whitelist;
+	</span><span class="kw">pub type </span>Whitelist = pallet_whitelist::Pallet&lt;Runtime&gt;;
 
 	<span class="attr">#[runtime::pallet_index(<span class="number">60</span>)]
-	</span><span class="kw">pub type </span>AllianceMotion = pallet_collective&lt;Instance3&gt;;
+	</span><span class="kw">pub type </span>AllianceMotion = pallet_collective::Pallet&lt;Runtime, Instance3&gt;;
 
 	<span class="attr">#[runtime::pallet_index(<span class="number">61</span>)]
-	</span><span class="kw">pub type </span>Alliance = pallet_alliance;
+	</span><span class="kw">pub type </span>Alliance = pallet_alliance::Pallet&lt;Runtime&gt;;
 
 	<span class="attr">#[runtime::pallet_index(<span class="number">62</span>)]
-	</span><span class="kw">pub type </span>NominationPools = pallet_nomination_pools;
+	</span><span class="kw">pub type </span>NominationPools = pallet_nomination_pools::Pallet&lt;Runtime&gt;;
 
 	<span class="attr">#[runtime::pallet_index(<span class="number">63</span>)]
-	</span><span class="kw">pub type </span>RankedPolls = pallet_referenda&lt;Instance2&gt;;
+	</span><span class="kw">pub type </span>RankedPolls = pallet_referenda::Pallet&lt;Runtime, Instance2&gt;;
 
 	<span class="attr">#[runtime::pallet_index(<span class="number">64</span>)]
-	</span><span class="kw">pub type </span>RankedCollective = pallet_ranked_collective;
+	</span><span class="kw">pub type </span>RankedCollective = pallet_ranked_collective::Pallet&lt;Runtime&gt;;
 
 	<span class="attr">#[runtime::pallet_index(<span class="number">65</span>)]
-	</span><span class="kw">pub type </span>AssetConversion = pallet_asset_conversion;
+	</span><span class="kw">pub type </span>AssetConversion = pallet_asset_conversion::Pallet&lt;Runtime&gt;;
 
 	<span class="attr">#[runtime::pallet_index(<span class="number">66</span>)]
-	</span><span class="kw">pub type </span>FastUnstake = pallet_fast_unstake;
+	</span><span class="kw">pub type </span>FastUnstake = pallet_fast_unstake::Pallet&lt;Runtime&gt;;
 
 	<span class="attr">#[runtime::pallet_index(<span class="number">67</span>)]
-	</span><span class="kw">pub type </span>MessageQueue = pallet_message_queue;
+	</span><span class="kw">pub type </span>MessageQueue = pallet_message_queue::Pallet&lt;Runtime&gt;;
 
 	<span class="attr">#[runtime::pallet_index(<span class="number">68</span>)]
-	</span><span class="kw">pub type </span>Pov = frame_benchmarking_pallet_pov;
+	</span><span class="kw">pub type </span>Pov = frame_benchmarking_pallet_pov::Pallet&lt;Runtime&gt;;
 
 	<span class="attr">#[runtime::pallet_index(<span class="number">69</span>)]
-	</span><span class="kw">pub type </span>TxPause = pallet_tx_pause;
+	</span><span class="kw">pub type </span>TxPause = pallet_tx_pause::Pallet&lt;Runtime&gt;;
 
 	<span class="attr">#[runtime::pallet_index(<span class="number">70</span>)]
-	</span><span class="kw">pub type </span>SafeMode = pallet_safe_mode;
+	</span><span class="kw">pub type </span>SafeMode = pallet_safe_mode::Pallet&lt;Runtime&gt;;
 
 	<span class="attr">#[runtime::pallet_index(<span class="number">71</span>)]
-	</span><span class="kw">pub type </span>Statement = pallet_statement;
+	</span><span class="kw">pub type </span>Statement = pallet_statement::Pallet&lt;Runtime&gt;;
 
 	<span class="attr">#[runtime::pallet_index(<span class="number">72</span>)]
-	</span><span class="kw">pub type </span>MultiBlockMigrations = pallet_migrations;
+	</span><span class="kw">pub type </span>MultiBlockMigrations = pallet_migrations::Pallet&lt;Runtime&gt;;
 
 	<span class="attr">#[runtime::pallet_index(<span class="number">73</span>)]
-	</span><span class="kw">pub type </span>Broker = pallet_broker;
+	</span><span class="kw">pub type </span>Broker = pallet_broker::Pallet&lt;Runtime&gt;;
 
 	<span class="attr">#[runtime::pallet_index(<span class="number">74</span>)]
-	</span><span class="kw">pub type </span>TasksExample = pallet_example_tasks;
+	</span><span class="kw">pub type </span>TasksExample = pallet_example_tasks::Pallet&lt;Runtime&gt;;
 
 	<span class="attr">#[runtime::pallet_index(<span class="number">75</span>)]
-	</span><span class="kw">pub type </span>Mixnet = pallet_mixnet;
+	</span><span class="kw">pub type </span>Mixnet = pallet_mixnet::Pallet&lt;Runtime&gt;;
 
 	<span class="attr">#[runtime::pallet_index(<span class="number">76</span>)]
-	</span><span class="kw">pub type </span>Parameters = pallet_parameters;
+	</span><span class="kw">pub type </span>Parameters = pallet_parameters::Pallet&lt;Runtime&gt;;
 
 	<span class="attr">#[runtime::pallet_index(<span class="number">77</span>)]
-	</span><span class="kw">pub type </span>SkipFeelessPayment = pallet_skip_feeless_payment;
+	</span><span class="kw">pub type </span>SkipFeelessPayment = pallet_skip_feeless_payment::Pallet&lt;Runtime&gt;;
 
 	<span class="attr">#[runtime::pallet_index(<span class="number">78</span>)]
-	</span><span class="kw">pub type </span>PalletExampleMbms = pallet_example_mbm;
+	</span><span class="kw">pub type </span>PalletExampleMbms = pallet_example_mbm::Pallet&lt;Runtime&gt;;
 
 	<span class="attr">#[runtime::pallet_index(<span class="number">79</span>)]
-	</span><span class="kw">pub type </span>AssetConversionMigration = pallet_asset_conversion_ops;
+	</span><span class="kw">pub type </span>AssetConversionMigration = pallet_asset_conversion_ops::Pallet&lt;Runtime&gt;;
 }
 
 <span class="doccomment">/// The address format for describing accounts.

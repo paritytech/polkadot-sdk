@@ -821,6 +821,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#670" id="670">670</a>
 <a href="#671" id="671">671</a>
 <a href="#672" id="672">672</a>
+<a href="#673" id="673">673</a>
+<a href="#674" id="674">674</a>
+<a href="#675" id="675">675</a>
+<a href="#676" id="676">676</a>
+<a href="#677" id="677">677</a>
+<a href="#678" id="678">678</a>
+<a href="#679" id="679">679</a>
+<a href="#680" id="680">680</a>
+<a href="#681" id="681">681</a>
+<a href="#682" id="682">682</a>
+<a href="#683" id="683">683</a>
+<a href="#684" id="684">684</a>
+<a href="#685" id="685">685</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -855,9 +868,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use crate</span>::{
 	import_queue::{
 		buffered_link::{<span class="self">self</span>, BufferedLinkReceiver, BufferedLinkSender},
-		import_single_block_metered, BlockImportError, BlockImportStatus, BoxBlockImport,
-		BoxJustificationImport, ImportQueue, ImportQueueService, IncomingBlock, Link,
-		RuntimeOrigin, Verifier, LOG_TARGET,
+		import_single_block_metered, verify_single_block_metered, BlockImportError,
+		BlockImportStatus, BoxBlockImport, BoxJustificationImport, ImportQueue, ImportQueueService,
+		IncomingBlock, Link, RuntimeOrigin, SingleBlockVerificationOutcome, Verifier, LOG_TARGET,
 	},
 	metrics::Metrics,
 };
@@ -883,13 +896,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Instantiate a new basic queue, with given verifier.
 	///
 	/// This creates a background task, and calls `on_start` on the justification importer.
-	</span><span class="kw">pub fn </span>new&lt;V: <span class="lifetime">'static </span>+ Verifier&lt;B&gt;&gt;(
+	</span><span class="kw">pub fn </span>new&lt;V&gt;(
 		verifier: V,
 		block_import: BoxBlockImport&lt;B&gt;,
 		justification_import: <span class="prelude-ty">Option</span>&lt;BoxJustificationImport&lt;B&gt;&gt;,
 		spawner: <span class="kw-2">&amp;</span><span class="kw">impl </span>sp_core::traits::SpawnEssentialNamed,
 		prometheus_registry: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>Registry&gt;,
-	) -&gt; <span class="self">Self </span>{
+	) -&gt; <span class="self">Self
+	</span><span class="kw">where
+		</span>V: Verifier&lt;B&gt; + <span class="lifetime">'static</span>,
+	{
 		<span class="kw">let </span>(result_sender, result_port) = buffered_link::buffered_link(<span class="number">100_000</span>);
 
 		<span class="kw">let </span>metrics = prometheus_registry.and_then(|r| {
@@ -1075,7 +1091,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="kw">impl</span>&lt;B: BlockT&gt; BlockImportWorker&lt;B&gt; {
-	<span class="kw">fn </span>new&lt;V: <span class="lifetime">'static </span>+ Verifier&lt;B&gt;&gt;(
+	<span class="kw">fn </span>new&lt;V&gt;(
 		result_sender: BufferedLinkSender&lt;B&gt;,
 		verifier: V,
 		block_import: BoxBlockImport&lt;B&gt;,
@@ -1085,7 +1101,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">impl </span>Future&lt;Output = ()&gt; + Send,
 		TracingUnboundedSender&lt;worker_messages::ImportJustification&lt;B&gt;&gt;,
 		TracingUnboundedSender&lt;worker_messages::ImportBlocks&lt;B&gt;&gt;,
-	) {
+	)
+	<span class="kw">where
+		</span>V: Verifier&lt;B&gt; + <span class="lifetime">'static</span>,
+	{
 		<span class="kw">use </span>worker_messages::<span class="kw-2">*</span>;
 
 		<span class="kw">let </span>(justification_sender, <span class="kw-2">mut </span>justification_port) =
@@ -1242,16 +1261,23 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>import_result = <span class="kw">if </span>has_error {
 			<span class="prelude-val">Err</span>(BlockImportError::Cancelled)
 		} <span class="kw">else </span>{
-			<span class="comment">// The actual import.
-			</span>import_single_block_metered(
+			<span class="kw">let </span>verification_fut = verify_single_block_metered(
 				import_handle,
 				blocks_origin,
 				block,
 				verifier,
-				metrics.clone(),
-			)
-			.<span class="kw">await
-		</span>};
+				metrics.as_ref(),
+			);
+			<span class="kw">match </span>verification_fut.<span class="kw">await </span>{
+				<span class="prelude-val">Ok</span>(SingleBlockVerificationOutcome::Imported(import_status)) =&gt; <span class="prelude-val">Ok</span>(import_status),
+				<span class="prelude-val">Ok</span>(SingleBlockVerificationOutcome::Verified(import_parameters)) =&gt; {
+					<span class="comment">// The actual import.
+					</span>import_single_block_metered(import_handle, import_parameters, metrics.as_ref())
+						.<span class="kw">await
+				</span>},
+				<span class="prelude-val">Err</span>(e) =&gt; <span class="prelude-val">Err</span>(e),
+			}
+		};
 
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(metrics) = metrics.as_ref() {
 			metrics.report_import::&lt;B&gt;(<span class="kw-2">&amp;</span>import_result);
@@ -1317,7 +1343,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[async_trait::async_trait]
 	</span><span class="kw">impl </span>Verifier&lt;Block&gt; <span class="kw">for </span>() {
 		<span class="kw">async fn </span>verify(
-			<span class="kw-2">&amp;mut </span><span class="self">self</span>,
+			<span class="kw-2">&amp;</span><span class="self">self</span>,
 			block: BlockImportParams&lt;Block&gt;,
 		) -&gt; <span class="prelude-ty">Result</span>&lt;BlockImportParams&lt;Block&gt;, String&gt; {
 			<span class="prelude-val">Ok</span>(BlockImportParams::new(block.origin, block.header))
@@ -1329,7 +1355,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">type </span>Error = sp_consensus::Error;
 
 		<span class="kw">async fn </span>check_block(
-			<span class="kw-2">&amp;mut </span><span class="self">self</span>,
+			<span class="kw-2">&amp;</span><span class="self">self</span>,
 			_block: BlockCheckParams&lt;Block&gt;,
 		) -&gt; <span class="prelude-ty">Result</span>&lt;ImportResult, <span class="self">Self</span>::Error&gt; {
 			<span class="prelude-val">Ok</span>(ImportResult::imported(<span class="bool-val">false</span>))

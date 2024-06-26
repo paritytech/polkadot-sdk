@@ -1407,9 +1407,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1256" id="1256">1256</a>
 <a href="#1257" id="1257">1257</a>
 <a href="#1258" id="1258">1258</a>
-<a href="#1259" id="1259">1259</a>
-<a href="#1260" id="1260">1260</a>
-<a href="#1261" id="1261">1261</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1526,7 +1523,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="attr">#[async_trait::async_trait]
 </span><span class="kw">impl</span>&lt;B: BlockT&gt; Verifier&lt;B&gt; <span class="kw">for </span>PassThroughVerifier {
 	<span class="kw">async fn </span>verify(
-		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
+		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		<span class="kw-2">mut </span>block: BlockImportParams&lt;B&gt;,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;BlockImportParams&lt;B&gt;, String&gt; {
 		<span class="kw">if </span>block.fork_choice.is_none() {
@@ -1622,7 +1619,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">type </span>Error = ConsensusError;
 
 	<span class="kw">async fn </span>check_block(
-		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
+		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		block: BlockCheckParams&lt;Block&gt;,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;ImportResult, <span class="self">Self</span>::Error&gt; {
 		<span class="self">self</span>.client.check_block(block).<span class="kw">await
@@ -2012,7 +2009,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">type </span>Error = ConsensusError;
 
 	<span class="kw">async fn </span>check_block(
-		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
+		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		block: BlockCheckParams&lt;Block&gt;,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;ImportResult, <span class="self">Self</span>::Error&gt; {
 		<span class="self">self</span>.inner.check_block(block).<span class="kw">await
@@ -2034,10 +2031,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="attr">#[async_trait::async_trait]
 </span><span class="kw">impl</span>&lt;B: BlockT&gt; Verifier&lt;B&gt; <span class="kw">for </span>VerifierAdapter&lt;B&gt; {
-	<span class="kw">async fn </span>verify(
-		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
-		block: BlockImportParams&lt;B&gt;,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;BlockImportParams&lt;B&gt;, String&gt; {
+	<span class="kw">async fn </span>verify(<span class="kw-2">&amp;</span><span class="self">self</span>, block: BlockImportParams&lt;B&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;BlockImportParams&lt;B&gt;, String&gt; {
 		<span class="kw">let </span>hash = block.header.hash();
 		<span class="self">self</span>.verifier.lock().<span class="kw">await</span>.verify(block).<span class="kw">await</span>.map_err(|e| {
 			<span class="self">self</span>.failed_verifications.lock().insert(hash, e.clone());

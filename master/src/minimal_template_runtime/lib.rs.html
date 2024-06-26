@@ -555,27 +555,27 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Mandatory system pallet that should always be included in a FRAME runtime.
 	</span><span class="attr">#[runtime::pallet_index(<span class="number">0</span>)]
-	</span><span class="kw">pub type </span>System = frame_system;
+	</span><span class="kw">pub type </span>System = frame_system::Pallet&lt;Runtime&gt;;
 
 	<span class="doccomment">/// Provides a way for consensus systems to set and check the onchain time.
 	</span><span class="attr">#[runtime::pallet_index(<span class="number">1</span>)]
-	</span><span class="kw">pub type </span>Timestamp = pallet_timestamp;
+	</span><span class="kw">pub type </span>Timestamp = pallet_timestamp::Pallet&lt;Runtime&gt;;
 
 	<span class="doccomment">/// Provides the ability to keep track of balances.
 	</span><span class="attr">#[runtime::pallet_index(<span class="number">2</span>)]
-	</span><span class="kw">pub type </span>Balances = pallet_balances;
+	</span><span class="kw">pub type </span>Balances = pallet_balances::Pallet&lt;Runtime&gt;;
 
 	<span class="doccomment">/// Provides a way to execute privileged functions.
 	</span><span class="attr">#[runtime::pallet_index(<span class="number">3</span>)]
-	</span><span class="kw">pub type </span>Sudo = pallet_sudo;
+	</span><span class="kw">pub type </span>Sudo = pallet_sudo::Pallet&lt;Runtime&gt;;
 
 	<span class="doccomment">/// Provides the ability to charge for extrinsic execution.
 	</span><span class="attr">#[runtime::pallet_index(<span class="number">4</span>)]
-	</span><span class="kw">pub type </span>TransactionPayment = pallet_transaction_payment;
+	</span><span class="kw">pub type </span>TransactionPayment = pallet_transaction_payment::Pallet&lt;Runtime&gt;;
 
 	<span class="doccomment">/// A minimal pallet template.
 	</span><span class="attr">#[runtime::pallet_index(<span class="number">5</span>)]
-	</span><span class="kw">pub type </span>Template = pallet_minimal_template;
+	</span><span class="kw">pub type </span>Template = pallet_minimal_template::Pallet&lt;Runtime&gt;;
 }
 
 <span class="macro">parameter_types! </span>{

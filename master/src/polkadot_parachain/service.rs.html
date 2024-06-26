@@ -1088,25 +1088,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#937" id="937">937</a>
 <a href="#938" id="938">938</a>
 <a href="#939" id="939">939</a>
-<a href="#940" id="940">940</a>
-<a href="#941" id="941">941</a>
-<a href="#942" id="942">942</a>
-<a href="#943" id="943">943</a>
-<a href="#944" id="944">944</a>
-<a href="#945" id="945">945</a>
-<a href="#946" id="946">946</a>
-<a href="#947" id="947">947</a>
-<a href="#948" id="948">948</a>
-<a href="#949" id="949">949</a>
-<a href="#950" id="950">950</a>
-<a href="#951" id="951">951</a>
-<a href="#952" id="952">952</a>
-<a href="#953" id="953">953</a>
-<a href="#954" id="954">954</a>
-<a href="#955" id="955">955</a>
-<a href="#956" id="956">956</a>
-<a href="#957" id="957">957</a>
-<a href="#958" id="958">958</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -1607,43 +1588,26 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	.<span class="kw">await
 </span>}
 
-<span class="kw">enum </span>BuildOnAccess&lt;R&gt; {
-	Uninitialized(<span class="prelude-ty">Option</span>&lt;Box&lt;<span class="kw">dyn </span>FnOnce() -&gt; R + Send + Sync&gt;&gt;),
-	Initialized(R),
-}
-
-<span class="kw">impl</span>&lt;R&gt; BuildOnAccess&lt;R&gt; {
-	<span class="kw">fn </span>get_mut(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;mut </span>R {
-		<span class="kw">loop </span>{
-			<span class="kw">match </span><span class="self">self </span>{
-				<span class="self">Self</span>::Uninitialized(f) =&gt; {
-					<span class="kw-2">*</span><span class="self">self </span>= <span class="self">Self</span>::Initialized((f.take().unwrap())());
-				},
-				<span class="self">Self</span>::Initialized(<span class="kw-2">ref mut </span>r) =&gt; <span class="kw">return </span>r,
-			}
-		}
-	}
-}
-
 <span class="kw">struct </span>Verifier&lt;Client, AuraId&gt; {
 	client: Arc&lt;Client&gt;,
-	aura_verifier: BuildOnAccess&lt;Box&lt;<span class="kw">dyn </span>VerifierT&lt;Block&gt;&gt;&gt;,
+	aura_verifier: Box&lt;<span class="kw">dyn </span>VerifierT&lt;Block&gt;&gt;,
 	relay_chain_verifier: Box&lt;<span class="kw">dyn </span>VerifierT&lt;Block&gt;&gt;,
 	_phantom: PhantomData&lt;AuraId&gt;,
 }
 
 <span class="attr">#[async_trait::async_trait]
-</span><span class="kw">impl</span>&lt;Client, AuraId: AuraIdT&gt; VerifierT&lt;Block&gt; <span class="kw">for </span>Verifier&lt;Client, AuraId&gt;
+</span><span class="kw">impl</span>&lt;Client, AuraId&gt; VerifierT&lt;Block&gt; <span class="kw">for </span>Verifier&lt;Client, AuraId&gt;
 <span class="kw">where
-	</span>Client: sp_api::ProvideRuntimeApi&lt;Block&gt; + Send + Sync,
+	</span>Client: ProvideRuntimeApi&lt;Block&gt; + Send + Sync,
 	Client::Api: AuraRuntimeApi&lt;Block, AuraId&gt;,
+	AuraId: AuraIdT + Sync,
 {
 	<span class="kw">async fn </span>verify(
-		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
+		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		block_import: BlockImportParams&lt;Block&gt;,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;BlockImportParams&lt;Block&gt;, String&gt; {
 		<span class="kw">if </span><span class="self">self</span>.client.runtime_api().has_aura_api(<span class="kw-2">*</span>block_import.header.parent_hash()) {
-			<span class="self">self</span>.aura_verifier.get_mut().verify(block_import).<span class="kw">await
+			<span class="self">self</span>.aura_verifier.verify(block_import).<span class="kw">await
 		</span>} <span class="kw">else </span>{
 			<span class="self">self</span>.relay_chain_verifier.verify(block_import).<span class="kw">await
 		</span>}
@@ -1652,7 +1616,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Build the import queue for parachain runtimes that started with relay chain consensus and
 /// switched to aura.
-</span><span class="kw">pub fn </span>build_relay_to_aura_import_queue&lt;RuntimeApi, AuraId: AuraIdT&gt;(
+</span><span class="kw">pub fn </span>build_relay_to_aura_import_queue&lt;RuntimeApi, AuraId&gt;(
 	client: Arc&lt;ParachainClient&lt;RuntimeApi&gt;&gt;,
 	block_import: ParachainBlockImport&lt;RuntimeApi&gt;,
 	config: <span class="kw-2">&amp;</span>Configuration,
@@ -1662,38 +1626,35 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">where
 	</span>RuntimeApi: ConstructNodeRuntimeApi&lt;Block, ParachainClient&lt;RuntimeApi&gt;&gt;,
 	RuntimeApi::RuntimeApi: AuraRuntimeApi&lt;Block, AuraId&gt;,
+	AuraId: AuraIdT + Sync,
 {
 	<span class="kw">let </span>verifier_client = client.clone();
 
-	<span class="kw">let </span>aura_verifier = <span class="kw">move </span>|| {
-		Box::new(cumulus_client_consensus_aura::build_verifier::&lt;
-			&lt;AuraId <span class="kw">as </span>AppCrypto&gt;::Pair,
-			<span class="kw">_</span>,
-			<span class="kw">_</span>,
-			<span class="kw">_</span>,
-		&gt;(cumulus_client_consensus_aura::BuildVerifierParams {
-			client: verifier_client.clone(),
-			create_inherent_data_providers: <span class="kw">move </span>|parent_hash, <span class="kw">_</span>| {
-				<span class="kw">let </span>cidp_client = verifier_client.clone();
-				<span class="kw">async move </span>{
-					<span class="kw">let </span>slot_duration = cumulus_client_consensus_aura::slot_duration_at(
-						<span class="kw-2">&amp;*</span>cidp_client,
-						parent_hash,
-					)<span class="question-mark">?</span>;
-					<span class="kw">let </span>timestamp = sp_timestamp::InherentDataProvider::from_system_time();
+	<span class="kw">let </span>aura_verifier = cumulus_client_consensus_aura::build_verifier::&lt;
+		&lt;AuraId <span class="kw">as </span>AppCrypto&gt;::Pair,
+		<span class="kw">_</span>,
+		<span class="kw">_</span>,
+		<span class="kw">_</span>,
+	&gt;(cumulus_client_consensus_aura::BuildVerifierParams {
+		client: verifier_client.clone(),
+		create_inherent_data_providers: <span class="kw">move </span>|parent_hash, <span class="kw">_</span>| {
+			<span class="kw">let </span>cidp_client = verifier_client.clone();
+			<span class="kw">async move </span>{
+				<span class="kw">let </span>slot_duration =
+					cumulus_client_consensus_aura::slot_duration_at(<span class="kw-2">&amp;*</span>cidp_client, parent_hash)<span class="question-mark">?</span>;
+				<span class="kw">let </span>timestamp = sp_timestamp::InherentDataProvider::from_system_time();
 
-					<span class="kw">let </span>slot =
-								sp_consensus_aura::inherents::InherentDataProvider::from_timestamp_and_slot_duration(
-									<span class="kw-2">*</span>timestamp,
-									slot_duration,
-								);
+				<span class="kw">let </span>slot =
+					sp_consensus_aura::inherents::InherentDataProvider::from_timestamp_and_slot_duration(
+						<span class="kw-2">*</span>timestamp,
+						slot_duration,
+					);
 
-					<span class="prelude-val">Ok</span>((slot, timestamp))
-				}
-			},
-			telemetry: telemetry_handle,
-		})) <span class="kw">as </span>Box&lt;<span class="kw">_</span>&gt;
-	};
+				<span class="prelude-val">Ok</span>((slot, timestamp))
+			}
+		},
+		telemetry: telemetry_handle,
+	});
 
 	<span class="kw">let </span>relay_chain_verifier =
 		Box::new(RelayChainVerifier::new(client.clone(), |<span class="kw">_</span>, <span class="kw">_</span>| <span class="kw">async </span>{ <span class="prelude-val">Ok</span>(()) })) <span class="kw">as </span>Box&lt;<span class="kw">_</span>&gt;;
@@ -1701,7 +1662,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">let </span>verifier = Verifier {
 		client,
 		relay_chain_verifier,
-		aura_verifier: BuildOnAccess::Uninitialized(<span class="prelude-val">Some</span>(Box::new(aura_verifier))),
+		aura_verifier: Box::new(aura_verifier),
 		_phantom: PhantomData,
 	};
 
@@ -1741,7 +1702,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ///
 /// Uses the lookahead collator to support async backing.
 </span><span class="attr">#[sc_tracing::logging::prefix_logs_with(<span class="string">"Parachain"</span>)]
-</span><span class="kw">pub async fn </span>start_asset_hub_lookahead_node&lt;RuntimeApi, AuraId: AuraIdT, Net&gt;(
+</span><span class="kw">pub async fn </span>start_asset_hub_lookahead_node&lt;RuntimeApi, AuraId, Net&gt;(
 	parachain_config: Configuration,
 	polkadot_config: Configuration,
 	collator_options: CollatorOptions,
@@ -1753,6 +1714,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	RuntimeApi::RuntimeApi: AuraRuntimeApi&lt;Block, AuraId&gt;
 		+ pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi&lt;Block, Balance&gt;
 		+ substrate_frame_rpc_system::AccountNonceApi&lt;Block, AccountId, Nonce&gt;,
+	AuraId: AuraIdT + Sync,
 	Net: NetworkBackend&lt;Block, Hash&gt;,
 {
 	start_node_impl::&lt;RuntimeApi, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, Net&gt;(

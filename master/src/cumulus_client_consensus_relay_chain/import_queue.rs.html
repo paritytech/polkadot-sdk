@@ -335,7 +335,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	CIDP: CreateInherentDataProviders&lt;Block, ()&gt;,
 {
 	<span class="kw">async fn </span>verify(
-		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
+		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		<span class="kw-2">mut </span>block_params: BlockImportParams&lt;Block&gt;,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;BlockImportParams&lt;Block&gt;, String&gt; {
 		block_params.fork_choice = <span class="prelude-val">Some</span>(sc_consensus::ForkChoiceStrategy::Custom(

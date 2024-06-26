@@ -2792,6 +2792,29 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#2641" id="2641">2641</a>
 <a href="#2642" id="2642">2642</a>
 <a href="#2643" id="2643">2643</a>
+<a href="#2644" id="2644">2644</a>
+<a href="#2645" id="2645">2645</a>
+<a href="#2646" id="2646">2646</a>
+<a href="#2647" id="2647">2647</a>
+<a href="#2648" id="2648">2648</a>
+<a href="#2649" id="2649">2649</a>
+<a href="#2650" id="2650">2650</a>
+<a href="#2651" id="2651">2651</a>
+<a href="#2652" id="2652">2652</a>
+<a href="#2653" id="2653">2653</a>
+<a href="#2654" id="2654">2654</a>
+<a href="#2655" id="2655">2655</a>
+<a href="#2656" id="2656">2656</a>
+<a href="#2657" id="2657">2657</a>
+<a href="#2658" id="2658">2658</a>
+<a href="#2659" id="2659">2659</a>
+<a href="#2660" id="2660">2660</a>
+<a href="#2661" id="2661">2661</a>
+<a href="#2662" id="2662">2662</a>
+<a href="#2663" id="2663">2663</a>
+<a href="#2664" id="2664">2664</a>
+<a href="#2665" id="2665">2665</a>
+<a href="#2666" id="2666">2666</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -3302,7 +3325,30 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	construct_runtime, match_and_insert, transactional, PalletError, RuntimeDebugNoBound,
 };
 
-<span class="kw">pub use </span>frame_support_procedural::runtime;
+<span class="doccomment">/// Construct a runtime, with the given name and the given pallets.
+///
+/// # Example:
+</span><span class="attr">#[doc = <span class="macro">docify::embed!</span>(<span class="string">"src/tests/runtime.rs"</span>, runtime_macro)]
+</span><span class="doccomment">///
+/// # Supported Attributes:
+///
+/// ## Legacy Ordering
+///
+/// An optional attribute can be defined as #[frame_support::runtime(legacy_ordering)] to
+/// ensure that the order of hooks is same as the order of pallets (and not based on the
+/// pallet_index). This is to support legacy runtimes and should be avoided for new ones.
+///
+/// # Note
+///
+/// The population of the genesis storage depends on the order of pallets. So, if one of your
+/// pallets depends on another pallet, the pallet that is depended upon needs to come before
+/// the pallet depending on it.
+///
+/// # Type definitions
+///
+/// * The macro generates a type alias for each pallet to their `Pallet`. E.g. `type System =
+///   frame_system::Pallet&lt;Runtime&gt;`
+</span><span class="kw">pub use </span>frame_support_procedural::runtime;
 
 <span class="attr">#[doc(hidden)]
 </span><span class="kw">pub use </span>frame_support_procedural::{__create_tt_macro, __generate_dummy_part_checker};

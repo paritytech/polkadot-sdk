@@ -825,9 +825,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#674" id="674">674</a>
 <a href="#675" id="675">675</a>
 <a href="#676" id="676">676</a>
-<a href="#677" id="677">677</a>
-<a href="#678" id="678">678</a>
-<a href="#679" id="679">679</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1142,10 +1139,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 {
 	<span class="kw">type </span>Error = ConsensusError;
 
-	<span class="kw">async fn </span>check_block(
-		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
-		block: BlockCheckParams&lt;B&gt;,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;ImportResult, <span class="self">Self</span>::Error&gt; {
+	<span class="kw">async fn </span>check_block(<span class="kw-2">&amp;</span><span class="self">self</span>, block: BlockCheckParams&lt;B&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;ImportResult, <span class="self">Self</span>::Error&gt; {
 		<span class="self">self</span>.inner.check_block(block).<span class="kw">await</span>.map_err(Into::into)
 	}
 
@@ -1272,7 +1266,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	Algorithm::Difficulty: <span class="lifetime">'static </span>+ Send,
 {
 	<span class="kw">async fn </span>verify(
-		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
+		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		<span class="kw-2">mut </span>block: BlockImportParams&lt;B&gt;,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;BlockImportParams&lt;B&gt;, String&gt; {
 		<span class="kw">let </span>hash = block.header.hash();

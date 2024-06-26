@@ -469,6 +469,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#318" id="318">318</a>
 <a href="#319" id="319">319</a>
 <a href="#320" id="320">320</a>
+<a href="#321" id="321">321</a>
+<a href="#322" id="322">322</a>
+<a href="#323" id="323">323</a>
+<a href="#324" id="324">324</a>
+<a href="#325" id="325">325</a>
+<a href="#326" id="326">326</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -570,14 +576,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">for </span>pallet <span class="kw">in </span>definition.pallet_decls.iter() {
 		<span class="kw">let </span>pallet_path = <span class="kw-2">&amp;</span>pallet.path;
 		<span class="kw">let </span>pallet_name = <span class="kw-2">&amp;</span>pallet.name;
-		<span class="kw">let </span>pallet_instance = pallet.instance.as_ref().map(|instance| <span class="macro">quote::quote!</span>(&lt;#instance&gt;));
+		<span class="kw">let </span>runtime_param = <span class="kw-2">&amp;</span>pallet.runtime_param;
+		<span class="kw">let </span>pallet_segment_and_instance = <span class="kw">match </span>(<span class="kw-2">&amp;</span>pallet.pallet_segment, <span class="kw-2">&amp;</span>pallet.instance) {
+			(<span class="prelude-val">Some</span>(segment), <span class="prelude-val">Some</span>(instance)) =&gt; <span class="macro">quote::quote!</span>(::#segment&lt;#runtime_param, #instance&gt;),
+			(<span class="prelude-val">Some</span>(segment), <span class="prelude-val">None</span>) =&gt; <span class="macro">quote::quote!</span>(::#segment&lt;#runtime_param&gt;),
+			(<span class="prelude-val">None</span>, <span class="prelude-val">Some</span>(instance)) =&gt; <span class="macro">quote::quote!</span>(&lt;#instance&gt;),
+			(<span class="prelude-val">None</span>, <span class="prelude-val">None</span>) =&gt; <span class="macro">quote::quote!</span>(),
+		};
 		expansion = <span class="macro">quote::quote!</span>(
 			#<span class="macro">frame_support::__private::tt_call! </span>{
 				<span class="kw">macro </span>= [{ #pallet_path::tt_default_parts_v2 }]
 				your_tt_return = [{ #frame_support::__private::tt_return }]
 				~~&gt; #<span class="macro">frame_support::match_and_insert! </span>{
 					target = [{ #expansion }]
-					pattern = [{ #pallet_name = #pallet_path #pallet_instance  }]
+					pattern = [{ #pallet_name = #pallet_path #pallet_segment_and_instance }]
 				}
 			}
 		);

@@ -401,6 +401,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#250" id="250">250</a>
 <a href="#251" id="251">251</a>
 <a href="#252" id="252">252</a>
+<a href="#253" id="253">253</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -424,6 +425,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// should be thrown out and which ones should be kept.
 </span><span class="kw">use </span>codec::Codec;
 <span class="kw">use </span>cumulus_client_consensus_common::ParachainBlockImportMarker;
+<span class="kw">use </span>parking_lot::Mutex;
 <span class="kw">use </span>schnellru::{ByLength, LruMap};
 
 <span class="kw">use </span>sc_consensus::{
@@ -473,7 +475,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">struct </span>Verifier&lt;P, Client, Block, CIDP&gt; {
 	client: Arc&lt;Client&gt;,
 	create_inherent_data_providers: CIDP,
-	defender: NaiveEquivocationDefender,
+	defender: Mutex&lt;NaiveEquivocationDefender&gt;,
 	telemetry: <span class="prelude-ty">Option</span>&lt;TelemetryHandle&gt;,
 	_phantom: std::marker::PhantomData&lt;<span class="kw">fn</span>() -&gt; (Block, P)&gt;,
 }
@@ -491,7 +493,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	CIDP: CreateInherentDataProviders&lt;Block, ()&gt;,
 {
 	<span class="kw">async fn </span>verify(
-		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
+		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		<span class="kw-2">mut </span>block_params: BlockImportParams&lt;Block&gt;,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;BlockImportParams&lt;Block&gt;, String&gt; {
 		<span class="comment">// Skip checks that include execution, if being told so, or when importing only state.
@@ -540,7 +542,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					block_params.post_hash = <span class="prelude-val">Some</span>(post_hash);
 
 					<span class="comment">// Check for and reject egregious amounts of equivocations.
-					</span><span class="kw">if </span><span class="self">self</span>.defender.insert_and_check(slot) {
+					</span><span class="kw">if </span><span class="self">self</span>.defender.lock().insert_and_check(slot) {
 						<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">format!</span>(
 							<span class="string">"Rejecting block {:?} due to excessive equivocations at slot"</span>,
 							post_hash,
@@ -646,7 +648,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">let </span>verifier = Verifier::&lt;P, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>&gt; {
 		client,
 		create_inherent_data_providers,
-		defender: NaiveEquivocationDefender::default(),
+		defender: Mutex::new(NaiveEquivocationDefender::default()),
 		telemetry,
 		_phantom: std::marker::PhantomData,
 	};

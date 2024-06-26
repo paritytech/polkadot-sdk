@@ -773,13 +773,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">impl</span>&lt;Block, BI, BE&gt; BlockImport&lt;Block&gt; <span class="kw">for </span>ParachainBlockImport&lt;Block, BI, BE&gt;
 <span class="kw">where
 	</span>Block: BlockT,
-	BI: BlockImport&lt;Block&gt; + Send,
+	BI: BlockImport&lt;Block&gt; + Send + Sync,
 	BE: Backend&lt;Block&gt;,
 {
 	<span class="kw">type </span>Error = BI::Error;
 
 	<span class="kw">async fn </span>check_block(
-		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
+		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		block: sc_consensus::BlockCheckParams&lt;Block&gt;,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;sc_consensus::ImportResult, <span class="self">Self</span>::Error&gt; {
 		<span class="self">self</span>.inner.check_block(block).<span class="kw">await

@@ -740,7 +740,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	CIDP::InherentDataProviders: InherentDataProviderExt + Send + Sync,
 {
 	<span class="kw">async fn </span>verify(
-		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
+		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		<span class="kw-2">mut </span>block: BlockImportParams&lt;B&gt;,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;BlockImportParams&lt;B&gt;, String&gt; {
 		<span class="comment">// Skip checks that include execution, if being told so or when importing only state.

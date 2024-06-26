@@ -565,7 +565,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	C: HeaderBackend&lt;B&gt; + HeaderMetadata&lt;B, Error = sp_blockchain::Error&gt;,
 {
 	<span class="kw">async fn </span>verify(
-		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
+		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		<span class="kw-2">mut </span>import_params: BlockImportParams&lt;B&gt;,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;BlockImportParams&lt;B&gt;, String&gt; {
 		import_params.finalized = <span class="bool-val">false</span>;

@@ -500,6 +500,66 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#349" id="349">349</a>
 <a href="#350" id="350">350</a>
 <a href="#351" id="351">351</a>
+<a href="#352" id="352">352</a>
+<a href="#353" id="353">353</a>
+<a href="#354" id="354">354</a>
+<a href="#355" id="355">355</a>
+<a href="#356" id="356">356</a>
+<a href="#357" id="357">357</a>
+<a href="#358" id="358">358</a>
+<a href="#359" id="359">359</a>
+<a href="#360" id="360">360</a>
+<a href="#361" id="361">361</a>
+<a href="#362" id="362">362</a>
+<a href="#363" id="363">363</a>
+<a href="#364" id="364">364</a>
+<a href="#365" id="365">365</a>
+<a href="#366" id="366">366</a>
+<a href="#367" id="367">367</a>
+<a href="#368" id="368">368</a>
+<a href="#369" id="369">369</a>
+<a href="#370" id="370">370</a>
+<a href="#371" id="371">371</a>
+<a href="#372" id="372">372</a>
+<a href="#373" id="373">373</a>
+<a href="#374" id="374">374</a>
+<a href="#375" id="375">375</a>
+<a href="#376" id="376">376</a>
+<a href="#377" id="377">377</a>
+<a href="#378" id="378">378</a>
+<a href="#379" id="379">379</a>
+<a href="#380" id="380">380</a>
+<a href="#381" id="381">381</a>
+<a href="#382" id="382">382</a>
+<a href="#383" id="383">383</a>
+<a href="#384" id="384">384</a>
+<a href="#385" id="385">385</a>
+<a href="#386" id="386">386</a>
+<a href="#387" id="387">387</a>
+<a href="#388" id="388">388</a>
+<a href="#389" id="389">389</a>
+<a href="#390" id="390">390</a>
+<a href="#391" id="391">391</a>
+<a href="#392" id="392">392</a>
+<a href="#393" id="393">393</a>
+<a href="#394" id="394">394</a>
+<a href="#395" id="395">395</a>
+<a href="#396" id="396">396</a>
+<a href="#397" id="397">397</a>
+<a href="#398" id="398">398</a>
+<a href="#399" id="399">399</a>
+<a href="#400" id="400">400</a>
+<a href="#401" id="401">401</a>
+<a href="#402" id="402">402</a>
+<a href="#403" id="403">403</a>
+<a href="#404" id="404">404</a>
+<a href="#405" id="405">405</a>
+<a href="#406" id="406">406</a>
+<a href="#407" id="407">407</a>
+<a href="#408" id="408">408</a>
+<a href="#409" id="409">409</a>
+<a href="#410" id="410">410</a>
+<a href="#411" id="411">411</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -530,6 +590,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! queues to be instantiated simply.
 
 </span><span class="kw">use </span>log::{debug, trace};
+<span class="kw">use </span>std::{
+	fmt,
+	time::{Duration, Instant},
+};
 
 <span class="kw">use </span>sp_consensus::{error::Error <span class="kw">as </span>ConsensusError, BlockOrigin};
 <span class="kw">use </span>sp_runtime::{
@@ -595,11 +659,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Verify a justification of a block
 </span><span class="attr">#[async_trait::async_trait]
-</span><span class="kw">pub trait </span>Verifier&lt;B: BlockT&gt;: Send {
+</span><span class="kw">pub trait </span>Verifier&lt;B: BlockT&gt;: Send + Sync {
 	<span class="doccomment">/// Verify the given block data and return the `BlockImportParams` to
 	/// continue the block import process.
-	</span><span class="kw">async fn </span>verify(<span class="kw-2">&amp;mut </span><span class="self">self</span>, block: BlockImportParams&lt;B&gt;)
-		-&gt; <span class="prelude-ty">Result</span>&lt;BlockImportParams&lt;B&gt;, String&gt;;
+	</span><span class="kw">async fn </span>verify(<span class="kw-2">&amp;</span><span class="self">self</span>, block: BlockImportParams&lt;B&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;BlockImportParams&lt;B&gt;, String&gt;;
 }
 
 <span class="doccomment">/// Blocks import queue API.
@@ -668,16 +731,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Block import successful result.
 </span><span class="attr">#[derive(Debug, PartialEq)]
-</span><span class="kw">pub enum </span>BlockImportStatus&lt;N: std::fmt::Debug + PartialEq&gt; {
+</span><span class="kw">pub enum </span>BlockImportStatus&lt;BlockNumber: fmt::Debug + PartialEq&gt; {
 	<span class="doccomment">/// Imported known block.
-	</span>ImportedKnown(N, <span class="prelude-ty">Option</span>&lt;RuntimeOrigin&gt;),
+	</span>ImportedKnown(BlockNumber, <span class="prelude-ty">Option</span>&lt;RuntimeOrigin&gt;),
 	<span class="doccomment">/// Imported unknown block.
-	</span>ImportedUnknown(N, ImportedAux, <span class="prelude-ty">Option</span>&lt;RuntimeOrigin&gt;),
+	</span>ImportedUnknown(BlockNumber, ImportedAux, <span class="prelude-ty">Option</span>&lt;RuntimeOrigin&gt;),
 }
 
-<span class="kw">impl</span>&lt;N: std::fmt::Debug + PartialEq&gt; BlockImportStatus&lt;N&gt; {
+<span class="kw">impl</span>&lt;BlockNumber: fmt::Debug + PartialEq&gt; BlockImportStatus&lt;BlockNumber&gt; {
 	<span class="doccomment">/// Returns the imported block number.
-	</span><span class="kw">pub fn </span>number(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>N {
+	</span><span class="kw">pub fn </span>number(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>BlockNumber {
 		<span class="kw">match </span><span class="self">self </span>{
 			BlockImportStatus::ImportedKnown(n, <span class="kw">_</span>) |
 			BlockImportStatus::ImportedUnknown(n, <span class="kw">_</span>, <span class="kw">_</span>) =&gt; n,
@@ -726,44 +789,30 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	block: IncomingBlock&lt;B&gt;,
 	verifier: <span class="kw-2">&amp;mut </span>V,
 ) -&gt; BlockImportResult&lt;B&gt; {
-	import_single_block_metered(import_handle, block_origin, block, verifier, <span class="prelude-val">None</span>).<span class="kw">await
-</span>}
+	<span class="kw">match </span>verify_single_block_metered(import_handle, block_origin, block, verifier, <span class="prelude-val">None</span>).<span class="kw">await</span><span class="question-mark">? </span>{
+		SingleBlockVerificationOutcome::Imported(import_status) =&gt; <span class="prelude-val">Ok</span>(import_status),
+		SingleBlockVerificationOutcome::Verified(import_parameters) =&gt;
+			import_single_block_metered(import_handle, import_parameters, <span class="prelude-val">None</span>).<span class="kw">await</span>,
+	}
+}
 
-<span class="doccomment">/// Single block import function with metering.
-</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>import_single_block_metered&lt;B: BlockT, V: Verifier&lt;B&gt;&gt;(
-	import_handle: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>BlockImport&lt;B, Error = ConsensusError&gt;,
-	block_origin: BlockOrigin,
-	block: IncomingBlock&lt;B&gt;,
-	verifier: <span class="kw-2">&amp;mut </span>V,
-	metrics: <span class="prelude-ty">Option</span>&lt;Metrics&gt;,
-) -&gt; BlockImportResult&lt;B&gt; {
-	<span class="kw">let </span>peer = block.origin;
-
-	<span class="kw">let </span>(header, justifications) = <span class="kw">match </span>(block.header, block.justifications) {
-		(<span class="prelude-val">Some</span>(header), justifications) =&gt; (header, justifications),
-		(<span class="prelude-val">None</span>, <span class="kw">_</span>) =&gt; {
-			<span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>peer) = peer {
-				<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">"Header {} was not provided by {} "</span>, block.hash, peer);
-			} <span class="kw">else </span>{
-				<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">"Header {} was not provided "</span>, block.hash);
-			}
-			<span class="kw">return </span><span class="prelude-val">Err</span>(BlockImportError::IncompleteHeader(peer))
-		},
-	};
-
-	<span class="macro">trace!</span>(target: LOG_TARGET, <span class="string">"Header {} has {:?} logs"</span>, block.hash, header.digest().logs().len());
-
-	<span class="kw">let </span>number = <span class="kw-2">*</span>header.number();
-	<span class="kw">let </span>hash = block.hash;
-	<span class="kw">let </span>parent_hash = <span class="kw-2">*</span>header.parent_hash();
-
-	<span class="kw">let </span>import_handler = |import| <span class="kw">match </span>import {
+<span class="kw">fn </span>import_handler&lt;Block&gt;(
+	number: NumberFor&lt;Block&gt;,
+	hash: Block::Hash,
+	parent_hash: Block::Hash,
+	block_origin: <span class="prelude-ty">Option</span>&lt;RuntimeOrigin&gt;,
+	import: <span class="prelude-ty">Result</span>&lt;ImportResult, ConsensusError&gt;,
+) -&gt; <span class="prelude-ty">Result</span>&lt;BlockImportStatus&lt;NumberFor&lt;Block&gt;&gt;, BlockImportError&gt;
+<span class="kw">where
+	</span>Block: BlockT,
+{
+	<span class="kw">match </span>import {
 		<span class="prelude-val">Ok</span>(ImportResult::AlreadyInChain) =&gt; {
 			<span class="macro">trace!</span>(target: LOG_TARGET, <span class="string">"Block already in chain {}: {:?}"</span>, number, hash);
-			<span class="prelude-val">Ok</span>(BlockImportStatus::ImportedKnown(number, peer))
+			<span class="prelude-val">Ok</span>(BlockImportStatus::ImportedKnown(number, block_origin))
 		},
 		<span class="prelude-val">Ok</span>(ImportResult::Imported(aux)) =&gt;
-			<span class="prelude-val">Ok</span>(BlockImportStatus::ImportedUnknown(number, aux, peer)),
+			<span class="prelude-val">Ok</span>(BlockImportStatus::ImportedUnknown(number, aux, block_origin)),
 		<span class="prelude-val">Ok</span>(ImportResult::MissingState) =&gt; {
 			<span class="macro">debug!</span>(
 				target: LOG_TARGET,
@@ -780,15 +829,60 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		},
 		<span class="prelude-val">Ok</span>(ImportResult::KnownBad) =&gt; {
 			<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">"Peer gave us a bad block {}: {:?}"</span>, number, hash);
-			<span class="prelude-val">Err</span>(BlockImportError::BadBlock(peer))
+			<span class="prelude-val">Err</span>(BlockImportError::BadBlock(block_origin))
 		},
 		<span class="prelude-val">Err</span>(e) =&gt; {
 			<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">"Error importing block {}: {:?}: {}"</span>, number, hash, e);
 			<span class="prelude-val">Err</span>(BlockImportError::Other(e))
 		},
+	}
+}
+
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">enum </span>SingleBlockVerificationOutcome&lt;Block: BlockT&gt; {
+	<span class="doccomment">/// Block is already imported.
+	</span>Imported(BlockImportStatus&lt;NumberFor&lt;Block&gt;&gt;),
+	<span class="doccomment">/// Block is verified, but needs to be imported.
+	</span>Verified(SingleBlockImportParameters&lt;Block&gt;),
+}
+
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>SingleBlockImportParameters&lt;Block: BlockT&gt; {
+	import_block: BlockImportParams&lt;Block&gt;,
+	hash: Block::Hash,
+	block_origin: <span class="prelude-ty">Option</span>&lt;RuntimeOrigin&gt;,
+	verification_time: Duration,
+}
+
+<span class="doccomment">/// Single block import function with metering.
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>verify_single_block_metered&lt;B: BlockT, V: Verifier&lt;B&gt;&gt;(
+	import_handle: <span class="kw-2">&amp;</span><span class="kw">impl </span>BlockImport&lt;B, Error = ConsensusError&gt;,
+	block_origin: BlockOrigin,
+	block: IncomingBlock&lt;B&gt;,
+	verifier: <span class="kw-2">&amp;mut </span>V,
+	metrics: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>Metrics&gt;,
+) -&gt; <span class="prelude-ty">Result</span>&lt;SingleBlockVerificationOutcome&lt;B&gt;, BlockImportError&gt; {
+	<span class="kw">let </span>peer = block.origin;
+	<span class="kw">let </span>justifications = block.justifications;
+
+	<span class="kw">let </span><span class="prelude-val">Some</span>(header) = block.header <span class="kw">else </span>{
+		<span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>peer) = peer {
+			<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">"Header {} was not provided by {peer} "</span>, block.hash);
+		} <span class="kw">else </span>{
+			<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">"Header {} was not provided "</span>, block.hash);
+		}
+		<span class="kw">return </span><span class="prelude-val">Err</span>(BlockImportError::IncompleteHeader(peer))
 	};
 
-	<span class="kw">match </span>import_handler(
+	<span class="macro">trace!</span>(target: LOG_TARGET, <span class="string">"Header {} has {:?} logs"</span>, block.hash, header.digest().logs().len());
+
+	<span class="kw">let </span>number = <span class="kw-2">*</span>header.number();
+	<span class="kw">let </span>hash = block.hash;
+	<span class="kw">let </span>parent_hash = <span class="kw-2">*</span>header.parent_hash();
+
+	<span class="kw">match </span>import_handler::&lt;B&gt;(
+		number,
+		hash,
+		parent_hash,
+		peer,
 		import_handle
 			.check_block(BlockCheckParams {
 				hash,
@@ -801,10 +895,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.<span class="kw">await</span>,
 	)<span class="question-mark">? </span>{
 		BlockImportStatus::ImportedUnknown { .. } =&gt; (),
-		r =&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(r), <span class="comment">// Any other successful result means that the block is already imported.
-	</span>}
+		r =&gt; {
+			<span class="comment">// Any other successful result means that the block is already imported.
+			</span><span class="kw">return </span><span class="prelude-val">Ok</span>(SingleBlockVerificationOutcome::Imported(r))
+		},
+	}
 
-	<span class="kw">let </span>started = std::time::Instant::now();
+	<span class="kw">let </span>started = Instant::now();
 
 	<span class="kw">let </span><span class="kw-2">mut </span>import_block = BlockImportParams::new(block_origin, header);
 	import_block.body = block.body;
@@ -835,21 +932,44 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		} <span class="kw">else </span>{
 			<span class="macro">trace!</span>(target: LOG_TARGET, <span class="string">"Verifying {}({}) failed: {}"</span>, number, hash, msg);
 		}
-		<span class="kw">if let </span><span class="prelude-val">Some</span>(metrics) = metrics.as_ref() {
+		<span class="kw">if let </span><span class="prelude-val">Some</span>(metrics) = metrics {
 			metrics.report_verification(<span class="bool-val">false</span>, started.elapsed());
 		}
 		BlockImportError::VerificationFailed(peer, msg)
 	})<span class="question-mark">?</span>;
 
-	<span class="kw">if let </span><span class="prelude-val">Some</span>(metrics) = metrics.as_ref() {
-		metrics.report_verification(<span class="bool-val">true</span>, started.elapsed());
+	<span class="kw">let </span>verification_time = started.elapsed();
+	<span class="kw">if let </span><span class="prelude-val">Some</span>(metrics) = metrics {
+		metrics.report_verification(<span class="bool-val">true</span>, verification_time);
 	}
 
+	<span class="prelude-val">Ok</span>(SingleBlockVerificationOutcome::Verified(SingleBlockImportParameters {
+		import_block,
+		hash,
+		block_origin: peer,
+		verification_time,
+	}))
+}
+
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>import_single_block_metered&lt;Block: BlockT&gt;(
+	import_handle: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>BlockImport&lt;Block, Error = ConsensusError&gt;,
+	import_parameters: SingleBlockImportParameters&lt;Block&gt;,
+	metrics: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>Metrics&gt;,
+) -&gt; BlockImportResult&lt;Block&gt; {
+	<span class="kw">let </span>started = Instant::now();
+
+	<span class="kw">let </span>SingleBlockImportParameters { import_block, hash, block_origin, verification_time } =
+		import_parameters;
+
+	<span class="kw">let </span>number = <span class="kw-2">*</span>import_block.header.number();
+	<span class="kw">let </span>parent_hash = <span class="kw-2">*</span>import_block.header.parent_hash();
+
 	<span class="kw">let </span>imported = import_handle.import_block(import_block).<span class="kw">await</span>;
-	<span class="kw">if let </span><span class="prelude-val">Some</span>(metrics) = metrics.as_ref() {
-		metrics.report_verification_and_import(started.elapsed());
+	<span class="kw">if let </span><span class="prelude-val">Some</span>(metrics) = metrics {
+		metrics.report_verification_and_import(started.elapsed() + verification_time);
 	}
-	import_handler(imported)
+
+	import_handler::&lt;Block&gt;(number, hash, parent_hash, block_origin, imported)
 }
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
