@@ -26,7 +26,13 @@ pub mod pallet {
 	use frame_benchmarking::BenchmarkError;
 	use frame_support::{dispatch::GetDispatchInfo, pallet_prelude::Encode};
 	use sp_runtime::traits::Dispatchable;
-	use xcm::latest::{Asset, Assets, InteriorLocation, Junction, Location, NetworkId, Response};
+	use xcm::{
+		latest::{
+			Asset, AssetId, Assets, InteriorLocation, Junction, Junctions, Location, NetworkId,
+			Response,
+		},
+		v2::WeightLimit,
+	};
 
 	#[pallet::config]
 	pub trait Config<I: 'static = ()>: frame_system::Config + crate::Config {
@@ -104,6 +110,11 @@ pub mod pallet {
 				crate_version: <frame_system::Pallet<Self> as frame_support::traits::PalletInfoAccess>::crate_version(),
 			}
 		}
+
+		/// The worst case buy execution weight limit and
+		/// asset to trigger the Trader::buy_execution in the XCM executor
+		/// By default returns ((AssetId(Here.into()), 100_000_000u128), Unlimited)
+		fn worst_case_buy_execution() -> Result<(Asset, WeightLimit), BenchmarkError>;
 	}
 
 	#[pallet::pallet]
