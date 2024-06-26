@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1719410162672,
+  "lastUpdate": 1719425861472,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -8741,6 +8741,53 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 3.348505258390227,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Muharem",
+            "username": "muharem",
+            "email": "ismailov.m.h@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "929a273ae1ba647628c4ba6e2f8737e58b596d6a",
+          "message": "pallet assets: optional auto-increment for the asset ID (#4757)\n\nIntroduce an optional auto-increment setup for the IDs of new assets.\n\n---------\n\nCo-authored-by: joe petrowski <25483142+joepetrowski@users.noreply.github.com>\nCo-authored-by: Bastian Köcher <git@kchr.de>",
+          "timestamp": "2024-06-26T16:36:33Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/929a273ae1ba647628c4ba6e2f8737e58b596d6a"
+        },
+        "date": 1719425832619,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52939.8,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63786.27,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting",
+            "value": 9.473217807059948,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 2.8887178844701515,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 6.835994400470007,
             "unit": "seconds"
           }
         ]
