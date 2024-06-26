@@ -17,9 +17,9 @@
 //! XCM `Location` datatype.
 
 use super::{traits::Reanchorable, Junction, Junctions};
-use crate::{v3::MultiLocation as OldLocation, v5::Location as NewLocation, VersionedLocation};
+use crate::{v4::Location as OldLocation, VersionedLocation};
 use core::result;
-use codec::{Encode, Decode, MaxEncodedLen};
+use codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 
 /// A relative path between state-bearing consensus systems.
@@ -88,7 +88,7 @@ impl Location {
 
 	/// Consume `self` and return the equivalent `VersionedLocation` value.
 	pub const fn into_versioned(self) -> VersionedLocation {
-		VersionedLocation::V4(self)
+		VersionedLocation::V5(self)
 	}
 
 	/// Creates a new `Location` with 0 parents and a `Here` interior.
@@ -138,7 +138,7 @@ impl Location {
 	/// To be used when pattern matching, for example:
 	///
 	/// ```rust
-	/// # use staging_xcm::v4::{Junctions::*, Junction::*, Location};
+	/// # use staging_xcm::v5::{Junctions::*, Junction::*, Location};
 	/// fn get_parachain_id(loc: &Location) -> Option<u32> {
 	///     match loc.unpack() {
 	///         (0, [Parachain(id)]) => Some(*id),
@@ -273,7 +273,7 @@ impl Location {
 	///
 	/// # Example
 	/// ```rust
-	/// # use staging_xcm::v4::{Junctions::*, Junction::*, Location};
+	/// # use staging_xcm::v5::{Junctions::*, Junction::*, Location};
 	/// # fn main() {
 	/// let mut m = Location::new(1, [PalletInstance(3), OnlyChild]);
 	/// assert_eq!(
@@ -300,7 +300,7 @@ impl Location {
 	///
 	/// # Example
 	/// ```rust
-	/// # use staging_xcm::v4::{Junctions::*, Junction::*, Location, Parent};
+	/// # use staging_xcm::v5::{Junctions::*, Junction::*, Location, Parent};
 	/// # fn main() {
 	/// let mut m: Location = (Parent, Parachain(21), 69u64).into();
 	/// assert_eq!(m.append_with((Parent, PalletInstance(3))), Ok(()));
@@ -321,7 +321,7 @@ impl Location {
 	///
 	/// # Example
 	/// ```rust
-	/// # use staging_xcm::v4::{Junctions::*, Junction::*, Location, Parent};
+	/// # use staging_xcm::v5::{Junctions::*, Junction::*, Location, Parent};
 	/// # fn main() {
 	/// let mut m: Location = (Parent, Parachain(21), 69u64).into();
 	/// let r = m.appended_with((Parent, PalletInstance(3))).unwrap();
@@ -341,7 +341,7 @@ impl Location {
 	///
 	/// # Example
 	/// ```rust
-	/// # use staging_xcm::v4::{Junctions::*, Junction::*, Location, Parent};
+	/// # use staging_xcm::v5::{Junctions::*, Junction::*, Location, Parent};
 	/// # fn main() {
 	/// let mut m: Location = (Parent, Parent, PalletInstance(3)).into();
 	/// assert_eq!(m.prepend_with((Parent, Parachain(21), OnlyChild)), Ok(()));
@@ -390,7 +390,7 @@ impl Location {
 	///
 	/// # Example
 	/// ```rust
-	/// # use staging_xcm::v4::{Junctions::*, Junction::*, Location, Parent};
+	/// # use staging_xcm::v5::{Junctions::*, Junction::*, Location, Parent};
 	/// # fn main() {
 	/// let m: Location = (Parent, Parent, PalletInstance(3)).into();
 	/// let r = m.prepended_with((Parent, Parachain(21), OnlyChild)).unwrap();
@@ -489,24 +489,6 @@ impl TryFrom<OldLocation> for Location {
 	}
 }
 
-impl TryFrom<NewLocation> for Option<Location> {
-	type Error = ();
-	fn try_from(new: NewLocation) -> result::Result<Self, Self::Error> {
-		Ok(Some(Location::try_from(new)?))
-	}
-}
-
-impl TryFrom<NewLocation> for Location {
-	type Error = ();
-	fn try_from(new: NewLocation) -> result::Result<Self, ()> {
-		Ok(Location {
-			parents: new.parent_count(),
-			interior: new.interior().clone().try_into()?,
-		})
-	}
-}
-
-
 /// A unit struct which can be converted into a `Location` of `parents` value 1.
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug)]
 pub struct Parent;
@@ -552,11 +534,11 @@ impl From<[u8; 32]> for Location {
 	}
 }
 
-xcm_procedural::impl_conversion_functions_for_location_v4!();
+xcm_procedural::impl_conversion_functions_for_location_v5!();
 
 #[cfg(test)]
 mod tests {
-	use crate::v4::prelude::*;
+	use crate::v5::prelude::*;
 	use codec::{Decode, Encode};
 
 	#[test]
@@ -737,7 +719,7 @@ mod tests {
 
 	#[test]
 	fn conversion_from_other_types_works() {
-		use crate::v3;
+		use crate::v4;
 
 		fn takes_location<Arg: Into<Location>>(_arg: Arg) {}
 
@@ -756,10 +738,10 @@ mod tests {
 		takes_location(ParentThen([Parachain(75)].into()));
 		takes_location([Parachain(100), PalletInstance(3)]);
 
-		assert_eq!(v3::Location::from(v3::Junctions::Here).try_into(), Ok(Location::here()));
-		assert_eq!(v3::Location::from(v3::Parent).try_into(), Ok(Location::parent()));
+		assert_eq!(v4::Location::from(v4::Junctions::Here).try_into(), Ok(Location::here()));
+		assert_eq!(v4::Location::from(v4::Parent).try_into(), Ok(Location::parent()));
 		assert_eq!(
-			v3::Location::from((v3::Parent, v3::Parent, v3::Junction::GeneralIndex(42u128),))
+			v4::Location::from((v4::Parent, v4::Parent, v4::Junction::GeneralIndex(42u128),))
 				.try_into(),
 			Ok(Location { parents: 2, interior: [GeneralIndex(42u128)].into() }),
 		);

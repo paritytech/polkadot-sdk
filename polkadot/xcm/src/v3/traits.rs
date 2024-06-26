@@ -16,19 +16,17 @@
 
 //! Cross-Consensus Message format data structures.
 
-use crate::v2::Error as OldError;
-use codec::{Decode, Encode, MaxEncodedLen};
 use core::result;
 use scale_info::TypeInfo;
 
 pub use sp_weights::Weight;
 
-use super::*;
-
 // A simple trait to get the weight of some object.
 pub trait GetWeight<W> {
 	fn weight(&self) -> sp_weights::Weight;
 }
+
+use super::*;
 
 /// Error codes used in XCM. The first errors codes have explicit indices and are part of the XCM
 /// format. Those trailing are merely part of the XCM implementation; there is no expectation that
@@ -171,38 +169,6 @@ impl MaxEncodedLen for Error {
 		// TODO: max_encoded_len doesn't quite work here as it tries to take notice of the fields
 		// marked `codec(skip)`. We can hard-code it with the right answer for now.
 		1
-	}
-}
-
-impl TryFrom<OldError> for Error {
-	type Error = ();
-	fn try_from(old_error: OldError) -> result::Result<Error, ()> {
-		use OldError::*;
-		Ok(match old_error {
-			Overflow => Self::Overflow,
-			Unimplemented => Self::Unimplemented,
-			UntrustedReserveLocation => Self::UntrustedReserveLocation,
-			UntrustedTeleportLocation => Self::UntrustedTeleportLocation,
-			MultiLocationFull => Self::LocationFull,
-			MultiLocationNotInvertible => Self::LocationNotInvertible,
-			BadOrigin => Self::BadOrigin,
-			InvalidLocation => Self::InvalidLocation,
-			AssetNotFound => Self::AssetNotFound,
-			FailedToTransactAsset(s) => Self::FailedToTransactAsset(s),
-			NotWithdrawable => Self::NotWithdrawable,
-			LocationCannotHold => Self::LocationCannotHold,
-			ExceedsMaxMessageSize => Self::ExceedsMaxMessageSize,
-			DestinationUnsupported => Self::DestinationUnsupported,
-			Transport(s) => Self::Transport(s),
-			Unroutable => Self::Unroutable,
-			UnknownClaim => Self::UnknownClaim,
-			FailedToDecode => Self::FailedToDecode,
-			MaxWeightInvalid => Self::MaxWeightInvalid,
-			NotHoldingFees => Self::NotHoldingFees,
-			TooExpensive => Self::TooExpensive,
-			Trap(i) => Self::Trap(i),
-			_ => return Err(()),
-		})
 	}
 }
 

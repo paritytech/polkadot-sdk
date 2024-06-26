@@ -14,47 +14,45 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-//! Version 3 of the Cross-Consensus Message format data structures.
+//! Version 5 of the Cross-Consensus Message format data structures.
 
-use super::{
-	v4::{
-		Instruction as NewInstruction, PalletInfo as NewPalletInfo,
-		QueryResponseInfo as NewQueryResponseInfo, Response as NewResponse, Xcm as NewXcm,
-	},
+pub use super::v3::GetWeight;
+use super::v4::{
+	Instruction as OldInstruction, PalletInfo as OldPalletInfo,
+	QueryResponseInfo as OldQueryResponseInfo, Response as OldResponse, Xcm as OldXcm,
 };
 use crate::DoubleEncoded;
 use alloc::{vec, vec::Vec};
 use bounded_collections::{parameter_types, BoundedVec};
+use core::{fmt::Debug, result};
+use derivative::Derivative;
 use codec::{
 	self, decode_vec_with_len, Compact, Decode, Encode, Error as CodecError, Input as CodecInput,
 	MaxEncodedLen,
 };
-use core::{fmt::Debug, result};
-use derivative::Derivative;
 use scale_info::TypeInfo;
 
+mod asset;
 mod junction;
 pub(crate) mod junctions;
-mod multiasset;
-mod multilocation;
+mod location;
 mod traits;
 
+pub use asset::{
+	Asset, AssetFilter, AssetId, AssetInstance, Assets, Fungibility, WildAsset, WildFungibility,
+	MAX_ITEMS_IN_ASSETS,
+};
 pub use junction::{BodyId, BodyPart, Junction, NetworkId};
 pub use junctions::Junctions;
-pub use multiasset::{
-	AssetId, AssetInstance, Fungibility, MultiAsset, MultiAssetFilter, MultiAssets,
-	WildFungibility, WildMultiAsset, MAX_ITEMS_IN_MULTIASSETS,
-};
-pub use multilocation::{
-	Ancestor, AncestorThen, InteriorMultiLocation, Location, MultiLocation, Parent, ParentThen,
-};
+pub use location::{Ancestor, AncestorThen, InteriorLocation, Location, Parent, ParentThen};
 pub use traits::{
-	send_xcm, validate_send, Error, ExecuteXcm, GetWeight, Outcome, PreparedMessage, Result,
+	send_xcm, validate_send, Error, ExecuteXcm, Outcome, PreparedMessage, Reanchorable, Result,
 	SendError, SendResult, SendXcm, Weight, XcmHash,
 };
+// These parts of XCM v4 are unchanged in XCM v5, and are re-imported here.
+pub use super::v4::{MaybeErrorCode, OriginKind, WeightLimit};
 
-/// This module's XCM version.
-pub const VERSION: super::Version = 3;
+pub const VERSION: super::Version = 5;
 
 /// An identifier for a query.
 pub type QueryId = u64;
@@ -62,14 +60,10 @@ pub type QueryId = u64;
 #[derive(Derivative, Default, Encode, TypeInfo)]
 #[derivative(Clone(bound = ""), Eq(bound = ""), PartialEq(bound = ""), Debug(bound = ""))]
 #[codec(encode_bound())]
+#[codec(decode_bound())]
 #[scale_info(bounds(), skip_type_params(Call))]
-#[scale_info(replace_segment("staging_xcm", "xcm"))]
-#[cfg_attr(feature = "json-schema", derive(schemars::JsonSchema))]
 pub struct Xcm<Call>(pub Vec<Instruction<Call>>);
 
-/// The maximal number of instructions in an XCM before decoding fails.
-///
-/// This is a deliberate limit - not a technical one.
 pub const MAX_INSTRUCTIONS_TO_DECODE: u8 = 100;
 
 environmental::environmental!(instructions_count: u8);
@@ -85,7 +79,7 @@ impl<Call> Decode for Xcm<Call> {
 				}
 				Ok(())
 			})
-			.unwrap_or(Ok(()))?;
+			.expect("Called in `using` context and thus can not return `None`; qed")?;
 			let decoded_instructions = decode_vec_with_len(input, number_of_instructions as usize)?;
 			Ok(Self(decoded_instructions))
 		})
@@ -194,26 +188,24 @@ impl<Call> From<Xcm<Call>> for Vec<Instruction<Call>> {
 pub mod prelude {
 	mod contents {
 		pub use super::super::{
-			send_xcm, validate_send, Ancestor, AncestorThen,
-			AssetId::{self, *},
+			send_xcm, validate_send, Ancestor, AncestorThen, Asset,
+			AssetFilter::{self, *},
+			AssetId,
 			AssetInstance::{self, *},
-			BodyId, BodyPart, Error as XcmError, ExecuteXcm,
+			Assets, BodyId, BodyPart, Error as XcmError, ExecuteXcm,
 			Fungibility::{self, *},
-			GetWeight,
 			Instruction::*,
-			InteriorMultiLocation,
+			InteriorLocation,
 			Junction::{self, *},
-			Junctions::{self, *},
-			Location, MaybeErrorCode, MultiAsset,
-			MultiAssetFilter::{self, *},
-			MultiAssets, MultiLocation,
+			Junctions::{self, Here},
+			Location, MaybeErrorCode,
 			NetworkId::{self, *},
 			OriginKind, Outcome, PalletInfo, Parent, ParentThen, PreparedMessage, QueryId,
-			QueryResponseInfo, Response, Result as XcmResult, SendError, SendResult, SendXcm,
-			Weight,
+			QueryResponseInfo, Reanchorable, Response, Result as XcmResult, SendError, SendResult,
+			SendXcm, Weight,
 			WeightLimit::{self, *},
+			WildAsset::{self, *},
 			WildFungibility::{self, Fungible as WildFungible, NonFungible as WildNonFungible},
-			WildMultiAsset::{self, *},
 			XcmContext, XcmHash, XcmWeightInfo, VERSION as XCM_VERSION,
 		};
 	}
@@ -228,19 +220,14 @@ pub mod prelude {
 }
 
 parameter_types! {
-	#[cfg_attr(feature = "json-schema", derive(schemars::JsonSchema))]
 	pub MaxPalletNameLen: u32 = 48;
 	/// Maximum size of the encoded error code coming from a `Dispatch` result, used for
 	/// `MaybeErrorCode`. This is not (yet) enforced, so it's just an indication of expectation.
-	#[cfg_attr(feature = "json-schema", derive(schemars::JsonSchema))]
 	pub MaxDispatchErrorLen: u32 = 128;
-	#[cfg_attr(feature = "json-schema", derive(schemars::JsonSchema))]
 	pub MaxPalletsInfo: u32 = 64;
 }
 
 #[derive(Clone, Eq, PartialEq, Encode, Decode, Debug, TypeInfo, MaxEncodedLen)]
-#[scale_info(replace_segment("staging_xcm", "xcm"))]
-#[cfg_attr(feature = "json-schema", derive(schemars::JsonSchema))]
 pub struct PalletInfo {
 	#[codec(compact)]
 	pub index: u32,
@@ -252,6 +239,22 @@ pub struct PalletInfo {
 	pub minor: u32,
 	#[codec(compact)]
 	pub patch: u32,
+}
+
+impl TryInto<OldPalletInfo> for PalletInfo {
+	type Error = ();
+
+	fn try_into(self) -> result::Result<OldPalletInfo, Self::Error> {
+		OldPalletInfo::new(
+			self.index,
+			self.name.into_inner(),
+			self.module_name.into_inner(),
+			self.major,
+			self.minor,
+			self.patch,
+		)
+		.map_err(|_| ())
+	}
 }
 
 impl PalletInfo {
@@ -270,55 +273,13 @@ impl PalletInfo {
 	}
 }
 
-impl TryInto<NewPalletInfo> for PalletInfo {
-	type Error = ();
-
-	fn try_into(self) -> result::Result<NewPalletInfo, Self::Error> {
-		NewPalletInfo::new(
-			self.index,
-			self.name.into_inner(),
-			self.module_name.into_inner(),
-			self.major,
-			self.minor,
-			self.patch,
-		)
-		.map_err(|_| ())
-	}
-}
-
-#[derive(Clone, Eq, PartialEq, Encode, Decode, Debug, TypeInfo, MaxEncodedLen)]
-#[scale_info(replace_segment("staging_xcm", "xcm"))]
-#[cfg_attr(feature = "json-schema", derive(schemars::JsonSchema))]
-pub enum MaybeErrorCode {
-	Success,
-	Error(BoundedVec<u8, MaxDispatchErrorLen>),
-	TruncatedError(BoundedVec<u8, MaxDispatchErrorLen>),
-}
-
-impl From<Vec<u8>> for MaybeErrorCode {
-	fn from(v: Vec<u8>) -> Self {
-		match BoundedVec::try_from(v) {
-			Ok(error) => MaybeErrorCode::Error(error),
-			Err(error) => MaybeErrorCode::TruncatedError(BoundedVec::truncate_from(error)),
-		}
-	}
-}
-
-impl Default for MaybeErrorCode {
-	fn default() -> MaybeErrorCode {
-		MaybeErrorCode::Success
-	}
-}
-
 /// Response data to a query.
 #[derive(Clone, Eq, PartialEq, Encode, Decode, Debug, TypeInfo, MaxEncodedLen)]
-#[scale_info(replace_segment("staging_xcm", "xcm"))]
-#[cfg_attr(feature = "json-schema", derive(schemars::JsonSchema))]
 pub enum Response {
 	/// No response. Serves as a neutral default.
 	Null,
 	/// Some assets.
-	Assets(MultiAssets),
+	Assets(Assets),
 	/// The outcome of an XCM instruction.
 	ExecutionResult(Option<(u32, Error)>),
 	/// An XCM version.
@@ -335,12 +296,12 @@ impl Default for Response {
 	}
 }
 
-impl TryFrom<NewResponse> for Response {
+impl TryFrom<OldResponse> for Response {
 	type Error = ();
 
-	fn try_from(new: NewResponse) -> result::Result<Self, Self::Error> {
-		use NewResponse::*;
-		Ok(match new {
+	fn try_from(old: OldResponse) -> result::Result<Self, Self::Error> {
+		use OldResponse::*;
+		Ok(match old {
 			Null => Self::Null,
 			Assets(assets) => Self::Assets(assets.try_into()?),
 			ExecutionResult(result) =>
@@ -355,19 +316,16 @@ impl TryFrom<NewResponse> for Response {
 					BoundedVec::<PalletInfo, MaxPalletsInfo>::try_from(inner).map_err(|_| ())?,
 				)
 			},
-			DispatchResult(maybe_error) =>
-				Self::DispatchResult(maybe_error.try_into().map_err(|_| ())?),
+			DispatchResult(maybe_error) => Self::DispatchResult(maybe_error),
 		})
 	}
 }
 
 /// Information regarding the composition of a query response.
 #[derive(Clone, Eq, PartialEq, Encode, Decode, Debug, TypeInfo)]
-#[scale_info(replace_segment("staging_xcm", "xcm"))]
-#[cfg_attr(feature = "json-schema", derive(schemars::JsonSchema))]
 pub struct QueryResponseInfo {
 	/// The destination to which the query response message should be send.
-	pub destination: MultiLocation,
+	pub destination: Location,
 	/// The `query_id` field of the `QueryResponse` message.
 	#[codec(compact)]
 	pub query_id: QueryId,
@@ -375,77 +333,23 @@ pub struct QueryResponseInfo {
 	pub max_weight: Weight,
 }
 
-impl TryFrom<NewQueryResponseInfo> for QueryResponseInfo {
+impl TryFrom<OldQueryResponseInfo> for QueryResponseInfo {
 	type Error = ();
 
-	fn try_from(new: NewQueryResponseInfo) -> result::Result<Self, Self::Error> {
+	fn try_from(old: OldQueryResponseInfo) -> result::Result<Self, Self::Error> {
 		Ok(Self {
-			destination: new.destination.try_into()?,
-			query_id: new.query_id,
-			max_weight: new.max_weight,
+			destination: old.destination.try_into()?,
+			query_id: old.query_id,
+			max_weight: old.max_weight,
 		})
 	}
-}
-
-/// An optional weight limit.
-#[derive(Clone, Eq, PartialEq, Encode, Decode, Debug, TypeInfo)]
-#[scale_info(replace_segment("staging_xcm", "xcm"))]
-#[cfg_attr(feature = "json-schema", derive(schemars::JsonSchema))]
-pub enum WeightLimit {
-	/// No weight limit imposed.
-	Unlimited,
-	/// Weight limit imposed of the inner value.
-	Limited(Weight),
-}
-
-impl From<Option<Weight>> for WeightLimit {
-	fn from(x: Option<Weight>) -> Self {
-		match x {
-			Some(w) => WeightLimit::Limited(w),
-			None => WeightLimit::Unlimited,
-		}
-	}
-}
-
-impl From<WeightLimit> for Option<Weight> {
-	fn from(x: WeightLimit) -> Self {
-		match x {
-			WeightLimit::Limited(w) => Some(w),
-			WeightLimit::Unlimited => None,
-		}
-	}
-}
-
-/// Basically just the XCM (more general) version of `ParachainDispatchOrigin`.
-#[derive(Copy, Clone, Eq, PartialEq, Encode, Decode, Debug, TypeInfo)]
-#[scale_info(replace_segment("staging_xcm", "xcm"))]
-#[cfg_attr(feature = "json-schema", derive(schemars::JsonSchema))]
-pub enum OriginKind {
-	/// Origin should just be the native dispatch origin representation for the sender in the
-	/// local runtime framework. For Cumulus/Frame chains this is the `Parachain` or `Relay` origin
-	/// if coming from a chain, though there may be others if the `MultiLocation` XCM origin has a
-	/// primary/native dispatch origin form.
-	Native,
-
-	/// Origin should just be the standard account-based origin with the sovereign account of
-	/// the sender. For Cumulus/Frame chains, this is the `Signed` origin.
-	SovereignAccount,
-
-	/// Origin should be the super-user. For Cumulus/Frame chains, this is the `Root` origin.
-	/// This will not usually be an available option.
-	Superuser,
-
-	/// Origin should be interpreted as an XCM native origin and the `MultiLocation` should be
-	/// encoded directly in the dispatch origin unchanged. For Cumulus/Frame chains, this will be
-	/// the `pallet_xcm::Origin::Xcm` type.
-	Xcm,
 }
 
 /// Contextual data pertaining to a specific list of XCM instructions.
 #[derive(Clone, Eq, PartialEq, Encode, Decode, Debug)]
 pub struct XcmContext {
 	/// The current value of the Origin register of the `XCVM`.
-	pub origin: Option<MultiLocation>,
+	pub origin: Option<Location>,
 	/// The identity of the XCM; this may be a hash of its versioned encoding but could also be
 	/// a high-level identity set by an appropriate barrier.
 	pub message_id: XcmHash,
@@ -454,13 +358,6 @@ pub struct XcmContext {
 }
 
 impl XcmContext {
-	/// Constructor which sets the message ID to the supplied parameter and leaves the origin and
-	/// topic unset.
-	#[deprecated = "Use `with_message_id` instead."]
-	pub fn with_message_hash(message_id: XcmHash) -> XcmContext {
-		XcmContext { origin: None, message_id, topic: None }
-	}
-
 	/// Constructor which sets the message ID to the supplied parameter and leaves the origin and
 	/// topic unset.
 	pub fn with_message_id(message_id: XcmHash) -> XcmContext {
@@ -472,7 +369,7 @@ impl XcmContext {
 ///
 /// Consensus systems that may send and receive messages include blockchains and smart contracts.
 ///
-/// All messages are delivered from a known *origin*, expressed as a `MultiLocation`.
+/// All messages are delivered from a known *origin*, expressed as a `Location`.
 ///
 /// This is the inner XCM format and is version-sensitive. Messages are typically passed using the
 /// outer XCM format, known as `VersionedXcm`.
@@ -488,8 +385,6 @@ impl XcmContext {
 #[codec(encode_bound())]
 #[codec(decode_bound())]
 #[scale_info(bounds(), skip_type_params(Call))]
-#[scale_info(replace_segment("staging_xcm", "xcm"))]
-#[cfg_attr(feature = "json-schema", derive(schemars::JsonSchema))]
 pub enum Instruction<Call> {
 	/// Withdraw asset(s) (`assets`) from the ownership of `origin` and place them into the Holding
 	/// Register.
@@ -500,7 +395,7 @@ pub enum Instruction<Call> {
 	///
 	/// Errors:
 	#[builder(loads_holding)]
-	WithdrawAsset(MultiAssets),
+	WithdrawAsset(Assets),
 
 	/// Asset(s) (`assets`) have been received into the ownership of this system on the `origin`
 	/// system and equivalent derivatives should be placed into the Holding Register.
@@ -514,7 +409,7 @@ pub enum Instruction<Call> {
 	///
 	/// Errors:
 	#[builder(loads_holding)]
-	ReserveAssetDeposited(MultiAssets),
+	ReserveAssetDeposited(Assets),
 
 	/// Asset(s) (`assets`) have been destroyed on the `origin` system and equivalent assets should
 	/// be created and placed into the Holding Register.
@@ -528,7 +423,7 @@ pub enum Instruction<Call> {
 	///
 	/// Errors:
 	#[builder(loads_holding)]
-	ReceiveTeleportedAsset(MultiAssets),
+	ReceiveTeleportedAsset(Assets),
 
 	/// Respond with information that the local system is expecting.
 	///
@@ -552,7 +447,7 @@ pub enum Instruction<Call> {
 		query_id: QueryId,
 		response: Response,
 		max_weight: Weight,
-		querier: Option<MultiLocation>,
+		querier: Option<Location>,
 	},
 
 	/// Withdraw asset(s) (`assets`) from the ownership of `origin` and place equivalent assets
@@ -566,7 +461,7 @@ pub enum Instruction<Call> {
 	/// Kind: *Command*.
 	///
 	/// Errors:
-	TransferAsset { assets: MultiAssets, beneficiary: MultiLocation },
+	TransferAsset { assets: Assets, beneficiary: Location },
 
 	/// Withdraw asset(s) (`assets`) from the ownership of `origin` and place equivalent assets
 	/// under the ownership of `dest` within this consensus system (i.e. its sovereign account).
@@ -586,7 +481,7 @@ pub enum Instruction<Call> {
 	/// Kind: *Command*.
 	///
 	/// Errors:
-	TransferReserveAsset { assets: MultiAssets, dest: MultiLocation, xcm: Xcm<()> },
+	TransferReserveAsset { assets: Assets, dest: Location, xcm: Xcm<()> },
 
 	/// Apply the encoded transaction `call`, whose dispatch-origin should be `origin` as expressed
 	/// by the kind of origin `origin_kind`.
@@ -678,7 +573,7 @@ pub enum Instruction<Call> {
 	/// Kind: *Command*
 	///
 	/// Errors:
-	DescendOrigin(InteriorMultiLocation),
+	DescendOrigin(InteriorLocation),
 
 	/// Immediately report the contents of the Error Register to the given destination via XCM.
 	///
@@ -700,7 +595,7 @@ pub enum Instruction<Call> {
 	/// Kind: *Command*
 	///
 	/// Errors:
-	DepositAsset { assets: MultiAssetFilter, beneficiary: MultiLocation },
+	DepositAsset { assets: AssetFilter, beneficiary: Location },
 
 	/// Remove the asset(s) (`assets`) from the Holding Register and place equivalent assets under
 	/// the ownership of `dest` within this consensus system (i.e. deposit them into its sovereign
@@ -718,7 +613,7 @@ pub enum Instruction<Call> {
 	/// Kind: *Command*
 	///
 	/// Errors:
-	DepositReserveAsset { assets: MultiAssetFilter, dest: MultiLocation, xcm: Xcm<()> },
+	DepositReserveAsset { assets: AssetFilter, dest: Location, xcm: Xcm<()> },
 
 	/// Remove the asset(s) (`want`) from the Holding Register and replace them with alternative
 	/// assets.
@@ -735,7 +630,7 @@ pub enum Instruction<Call> {
 	/// Kind: *Command*
 	///
 	/// Errors:
-	ExchangeAsset { give: MultiAssetFilter, want: MultiAssets, maximal: bool },
+	ExchangeAsset { give: AssetFilter, want: Assets, maximal: bool },
 
 	/// Remove the asset(s) (`assets`) from holding and send a `WithdrawAsset` XCM message to a
 	/// reserve location.
@@ -751,7 +646,7 @@ pub enum Instruction<Call> {
 	/// Kind: *Command*
 	///
 	/// Errors:
-	InitiateReserveWithdraw { assets: MultiAssetFilter, reserve: MultiLocation, xcm: Xcm<()> },
+	InitiateReserveWithdraw { assets: AssetFilter, reserve: Location, xcm: Xcm<()> },
 
 	/// Remove the asset(s) (`assets`) from holding and send a `ReceiveTeleportedAsset` XCM message
 	/// to a `dest` location.
@@ -767,7 +662,7 @@ pub enum Instruction<Call> {
 	/// Kind: *Command*
 	///
 	/// Errors:
-	InitiateTeleport { assets: MultiAssetFilter, dest: MultiLocation, xcm: Xcm<()> },
+	InitiateTeleport { assets: AssetFilter, dest: Location, xcm: Xcm<()> },
 
 	/// Report to a given destination the contents of the Holding Register.
 	///
@@ -781,7 +676,7 @@ pub enum Instruction<Call> {
 	/// Kind: *Command*
 	///
 	/// Errors:
-	ReportHolding { response_info: QueryResponseInfo, assets: MultiAssetFilter },
+	ReportHolding { response_info: QueryResponseInfo, assets: AssetFilter },
 
 	/// Pay for the execution of some XCM `xcm` and `orders` with up to `weight`
 	/// picoseconds of execution time, paying for this with up to `fees` from the Holding Register.
@@ -794,7 +689,7 @@ pub enum Instruction<Call> {
 	/// Kind: *Command*
 	///
 	/// Errors:
-	BuyExecution { fees: MultiAsset, weight_limit: WeightLimit },
+	BuyExecution { fees: Asset, weight_limit: WeightLimit },
 
 	/// Refund any surplus weight previously bought with `BuyExecution`.
 	///
@@ -853,7 +748,7 @@ pub enum Instruction<Call> {
 	///
 	/// Errors:
 	#[builder(loads_holding)]
-	ClaimAsset { assets: MultiAssets, ticket: MultiLocation },
+	ClaimAsset { assets: Assets, ticket: Location },
 
 	/// Always throws an error of type `Trap`.
 	///
@@ -897,7 +792,7 @@ pub enum Instruction<Call> {
 	/// Kind: *Command*
 	///
 	/// Errors: *Infallible*
-	BurnAsset(MultiAssets),
+	BurnAsset(Assets),
 
 	/// Throw an error if Holding does not contain at least the given assets.
 	///
@@ -905,7 +800,7 @@ pub enum Instruction<Call> {
 	///
 	/// Errors:
 	/// - `ExpectationFalse`: If Holding Register does not contain the assets in the parameter.
-	ExpectAsset(MultiAssets),
+	ExpectAsset(Assets),
 
 	/// Ensure that the Origin Register equals some given value and throw an error if not.
 	///
@@ -913,7 +808,7 @@ pub enum Instruction<Call> {
 	///
 	/// Errors:
 	/// - `ExpectationFalse`: If Origin Register is not equal to the parameter.
-	ExpectOrigin(Option<MultiLocation>),
+	ExpectOrigin(Option<Location>),
 
 	/// Ensure that the Error Register equals some given value and throw an error if not.
 	///
@@ -1026,15 +921,15 @@ pub enum Instruction<Call> {
 	///   should be sent on arrival.
 	/// - `xcm`: The message to be exported.
 	///
-	/// As an example, to export a message for execution on Asset Hub (parachain #1000 in the
+	/// As an example, to export a message for execution on Statemine (parachain #1000 in the
 	/// Kusama network), you would call with `network: NetworkId::Kusama` and
-	/// `destination: X1(Parachain(1000))`. Alternatively, to export a message for execution on
-	/// Polkadot, you would call with `network: NetworkId:: Polkadot` and `destination: Here`.
+	/// `destination: [Parachain(1000)].into()`. Alternatively, to export a message for execution
+	/// on Polkadot, you would call with `network: NetworkId:: Polkadot` and `destination: Here`.
 	///
 	/// Kind: *Command*
 	///
 	/// Errors: *Fallible*.
-	ExportMessage { network: NetworkId, destination: InteriorMultiLocation, xcm: Xcm<()> },
+	ExportMessage { network: NetworkId, destination: InteriorLocation, xcm: Xcm<()> },
 
 	/// Lock the locally held asset and prevent further transfer or withdrawal.
 	///
@@ -1050,7 +945,7 @@ pub enum Instruction<Call> {
 	/// Kind: *Command*.
 	///
 	/// Errors:
-	LockAsset { asset: MultiAsset, unlocker: MultiLocation },
+	LockAsset { asset: Asset, unlocker: Location },
 
 	/// Remove the lock over `asset` on this chain and (if nothing else is preventing it) allow the
 	/// asset to be transferred.
@@ -1063,7 +958,7 @@ pub enum Instruction<Call> {
 	/// Kind: *Command*.
 	///
 	/// Errors:
-	UnlockAsset { asset: MultiAsset, target: MultiLocation },
+	UnlockAsset { asset: Asset, target: Location },
 
 	/// Asset (`asset`) has been locked on the `origin` system and may not be transferred. It may
 	/// only be unlocked with the receipt of the `UnlockAsset` instruction from this chain.
@@ -1078,7 +973,7 @@ pub enum Instruction<Call> {
 	/// Kind: *Trusted Indication*.
 	///
 	/// Errors:
-	NoteUnlockable { asset: MultiAsset, owner: MultiLocation },
+	NoteUnlockable { asset: Asset, owner: Location },
 
 	/// Send an `UnlockAsset` instruction to the `locker` for the given `asset`.
 	///
@@ -1092,7 +987,7 @@ pub enum Instruction<Call> {
 	/// Kind: *Command*.
 	///
 	/// Errors:
-	RequestUnlock { asset: MultiAsset, locker: MultiLocation },
+	RequestUnlock { asset: Asset, locker: Location },
 
 	/// Sets the Fees Mode Register.
 	///
@@ -1129,7 +1024,7 @@ pub enum Instruction<Call> {
 	/// Kind: *Command*
 	///
 	/// Errors: If the existing state would not allow such a change.
-	AliasOrigin(MultiLocation),
+	AliasOrigin(Location),
 
 	/// A directive to indicate that the origin expects free execution of the message.
 	///
@@ -1141,7 +1036,7 @@ pub enum Instruction<Call> {
 	/// Kind: *Indication*
 	///
 	/// Errors: If the given origin is `Some` and not equal to the current Origin register.
-	UnpaidExecution { weight_limit: WeightLimit, check_origin: Option<MultiLocation> },
+	UnpaidExecution { weight_limit: WeightLimit, check_origin: Option<Location> },
 }
 
 impl<Call> Xcm<Call> {
@@ -1302,20 +1197,20 @@ pub mod opaque {
 	pub type Instruction = super::Instruction<()>;
 }
 
-// Convert from a v4 XCM to a v3 XCM.
-impl<Call> TryFrom<NewXcm<Call>> for Xcm<Call> {
+// Convert from a v4 XCM to a v5 XCM
+impl<Call> TryFrom<OldXcm<Call>> for Xcm<Call> {
 	type Error = ();
-	fn try_from(new_xcm: NewXcm<Call>) -> result::Result<Self, Self::Error> {
-		Ok(Xcm(new_xcm.0.into_iter().map(TryInto::try_into).collect::<result::Result<_, _>>()?))
+	fn try_from(old_xcm: OldXcm<Call>) -> result::Result<Self, Self::Error> {
+		Ok(Xcm(old_xcm.0.into_iter().map(TryInto::try_into).collect::<result::Result<_, _>>()?))
 	}
 }
 
-// Convert from a v4 instruction to a v3 instruction.
-impl<Call> TryFrom<NewInstruction<Call>> for Instruction<Call> {
+// Convert from a v4 instruction to a v5 instruction
+impl<Call> TryFrom<OldInstruction<Call>> for Instruction<Call> {
 	type Error = ();
-	fn try_from(new_instruction: NewInstruction<Call>) -> result::Result<Self, Self::Error> {
-		use NewInstruction::*;
-		Ok(match new_instruction {
+	fn try_from(old_instruction: OldInstruction<Call>) -> result::Result<Self, Self::Error> {
+		use OldInstruction::*;
+		Ok(match old_instruction {
 			WithdrawAsset(assets) => Self::WithdrawAsset(assets.try_into()?),
 			ReserveAssetDeposited(assets) => Self::ReserveAssetDeposited(assets.try_into()?),
 			ReceiveTeleportedAsset(assets) => Self::ReceiveTeleportedAsset(assets.try_into()?),
@@ -1371,14 +1266,12 @@ impl<Call> TryFrom<NewInstruction<Call>> for Instruction<Call> {
 				Self::ExchangeAsset { give, want, maximal }
 			},
 			InitiateReserveWithdraw { assets, reserve, xcm } => {
-				// No `max_assets` here, so if there's a connt, then we cannot translate.
 				let assets = assets.try_into()?;
 				let reserve = reserve.try_into()?;
 				let xcm = xcm.try_into()?;
 				Self::InitiateReserveWithdraw { assets, reserve, xcm }
 			},
 			InitiateTeleport { assets, dest, xcm } => {
-				// No `max_assets` here, so if there's a connt, then we cannot translate.
 				let assets = assets.try_into()?;
 				let dest = dest.try_into()?;
 				let xcm = xcm.try_into()?;
@@ -1414,38 +1307,55 @@ impl<Call> TryFrom<NewInstruction<Call>> for Instruction<Call> {
 			UnsubscribeVersion => Self::UnsubscribeVersion,
 			BurnAsset(assets) => Self::BurnAsset(assets.try_into()?),
 			ExpectAsset(assets) => Self::ExpectAsset(assets.try_into()?),
-			ExpectOrigin(maybe_origin) =>
-				Self::ExpectOrigin(maybe_origin.map(|origin| origin.try_into()).transpose()?),
-			ExpectError(maybe_error) => Self::ExpectError(maybe_error),
+			ExpectOrigin(maybe_location) => Self::ExpectOrigin(
+				maybe_location.map(|location| location.try_into()).transpose().map_err(|_| ())?,
+			),
+			ExpectError(maybe_error) => Self::ExpectError(
+				maybe_error.map(|error| error.try_into()).transpose().map_err(|_| ())?,
+			),
 			ExpectTransactStatus(maybe_error_code) => Self::ExpectTransactStatus(maybe_error_code),
-			QueryPallet { module_name, response_info } =>
-				Self::QueryPallet { module_name, response_info: response_info.try_into()? },
+			QueryPallet { module_name, response_info } => Self::QueryPallet {
+				module_name,
+				response_info: response_info.try_into().map_err(|_| ())?,
+			},
 			ExpectPallet { index, name, module_name, crate_major, min_crate_minor } =>
 				Self::ExpectPallet { index, name, module_name, crate_major, min_crate_minor },
 			ReportTransactStatus(response_info) =>
-				Self::ReportTransactStatus(response_info.try_into()?),
+				Self::ReportTransactStatus(response_info.try_into().map_err(|_| ())?),
 			ClearTransactStatus => Self::ClearTransactStatus,
-			UniversalOrigin(junction) => Self::UniversalOrigin(junction.try_into()?),
+			UniversalOrigin(junction) =>
+				Self::UniversalOrigin(junction.try_into().map_err(|_| ())?),
 			ExportMessage { network, destination, xcm } => Self::ExportMessage {
 				network: network.into(),
-				destination: destination.try_into()?,
-				xcm: xcm.try_into()?,
+				destination: destination.try_into().map_err(|_| ())?,
+				xcm: xcm.try_into().map_err(|_| ())?,
 			},
-			LockAsset { asset, unlocker } =>
-				Self::LockAsset { asset: asset.try_into()?, unlocker: unlocker.try_into()? },
-			UnlockAsset { asset, target } =>
-				Self::UnlockAsset { asset: asset.try_into()?, target: target.try_into()? },
-			NoteUnlockable { asset, owner } =>
-				Self::NoteUnlockable { asset: asset.try_into()?, owner: owner.try_into()? },
-			RequestUnlock { asset, locker } =>
-				Self::RequestUnlock { asset: asset.try_into()?, locker: locker.try_into()? },
+			LockAsset { asset, unlocker } => Self::LockAsset {
+				asset: asset.try_into().map_err(|_| ())?,
+				unlocker: unlocker.try_into().map_err(|_| ())?,
+			},
+			UnlockAsset { asset, target } => Self::UnlockAsset {
+				asset: asset.try_into().map_err(|_| ())?,
+				target: target.try_into().map_err(|_| ())?,
+			},
+			NoteUnlockable { asset, owner } => Self::NoteUnlockable {
+				asset: asset.try_into().map_err(|_| ())?,
+				owner: owner.try_into().map_err(|_| ())?,
+			},
+			RequestUnlock { asset, locker } => Self::RequestUnlock {
+				asset: asset.try_into().map_err(|_| ())?,
+				locker: locker.try_into().map_err(|_| ())?,
+			},
 			SetFeesMode { jit_withdraw } => Self::SetFeesMode { jit_withdraw },
 			SetTopic(topic) => Self::SetTopic(topic),
 			ClearTopic => Self::ClearTopic,
-			AliasOrigin(location) => Self::AliasOrigin(location.try_into()?),
+			AliasOrigin(location) => Self::AliasOrigin(location.try_into().map_err(|_| ())?),
 			UnpaidExecution { weight_limit, check_origin } => Self::UnpaidExecution {
 				weight_limit,
-				check_origin: check_origin.map(|origin| origin.try_into()).transpose()?,
+				check_origin: check_origin
+					.map(|location| location.try_into())
+					.transpose()
+					.map_err(|_| ())?,
 			},
 		})
 	}
@@ -1454,6 +1364,114 @@ impl<Call> TryFrom<NewInstruction<Call>> for Instruction<Call> {
 #[cfg(test)]
 mod tests {
 	use super::{prelude::*, *};
+	use crate::v4::{
+		Junctions::Here as OldHere, AssetFilter as OldAssetFilter,
+		WildAsset as OldWildAsset,
+	};
+
+	#[test]
+	fn basic_roundtrip_works() {
+		let xcm = Xcm::<()>(vec![TransferAsset {
+			assets: (Here, 1u128).into(),
+			beneficiary: Here.into(),
+		}]);
+		let old_xcm = OldXcm::<()>(vec![OldInstruction::TransferAsset {
+			assets: (OldHere, 1u128).into(),
+			beneficiary: OldHere.into(),
+		}]);
+		assert_eq!(old_xcm, OldXcm::<()>::try_from(xcm.clone()).unwrap());
+		let new_xcm: Xcm<()> = old_xcm.try_into().unwrap();
+		assert_eq!(new_xcm, xcm);
+	}
+
+	#[test]
+	fn teleport_roundtrip_works() {
+		let xcm = Xcm::<()>(vec![
+			ReceiveTeleportedAsset((Here, 1u128).into()),
+			ClearOrigin,
+			DepositAsset { assets: Wild(AllCounted(1)), beneficiary: Here.into() },
+		]);
+		let old_xcm: OldXcm<()> = OldXcm::<()>(vec![
+			OldInstruction::ReceiveTeleportedAsset((OldHere, 1u128).into()),
+			OldInstruction::ClearOrigin,
+			OldInstruction::DepositAsset {
+				assets: crate::v4::AssetFilter::Wild(crate::v4::WildAsset::AllCounted(1)),
+				beneficiary: OldHere.into(),
+			},
+		]);
+		assert_eq!(old_xcm, OldXcm::<()>::try_from(xcm.clone()).unwrap());
+		let new_xcm: Xcm<()> = old_xcm.try_into().unwrap();
+		assert_eq!(new_xcm, xcm);
+	}
+
+	#[test]
+	fn reserve_deposit_roundtrip_works() {
+		let xcm = Xcm::<()>(vec![
+			ReserveAssetDeposited((Here, 1u128).into()),
+			ClearOrigin,
+			BuyExecution {
+				fees: (Here, 1u128).into(),
+				weight_limit: Some(Weight::from_parts(1, 1)).into(),
+			},
+			DepositAsset { assets: Wild(AllCounted(1)), beneficiary: Here.into() },
+		]);
+		let old_xcm = OldXcm::<()>(vec![
+			OldInstruction::ReserveAssetDeposited((OldHere, 1u128).into()),
+			OldInstruction::ClearOrigin,
+			OldInstruction::BuyExecution {
+				fees: (OldHere, 1u128).into(),
+				weight_limit: WeightLimit::Limited(Weight::from_parts(1, 1)),
+			},
+			OldInstruction::DepositAsset {
+				assets: crate::v4::AssetFilter::Wild(crate::v4::WildAsset::AllCounted(1)),
+				beneficiary: OldHere.into(),
+			},
+		]);
+		assert_eq!(old_xcm, OldXcm::<()>::try_from(xcm.clone()).unwrap());
+		let new_xcm: Xcm<()> = old_xcm.try_into().unwrap();
+		assert_eq!(new_xcm, xcm);
+	}
+
+	#[test]
+	fn deposit_asset_roundtrip_works() {
+		let xcm = Xcm::<()>(vec![
+			WithdrawAsset((Here, 1u128).into()),
+			DepositAsset { assets: Wild(AllCounted(1)), beneficiary: Here.into() },
+		]);
+		let old_xcm = OldXcm::<()>(vec![
+			OldInstruction::WithdrawAsset((OldHere, 1u128).into()),
+			OldInstruction::DepositAsset {
+				assets: OldAssetFilter::Wild(OldWildAsset::AllCounted(1)),
+				beneficiary: OldHere.into(),
+			},
+		]);
+		assert_eq!(old_xcm, OldXcm::<()>::try_from(xcm.clone()).unwrap());
+		let new_xcm: Xcm<()> = old_xcm.try_into().unwrap();
+		assert_eq!(new_xcm, xcm);
+	}
+
+	#[test]
+	fn deposit_reserve_asset_roundtrip_works() {
+		let xcm = Xcm::<()>(vec![
+			WithdrawAsset((Here, 1u128).into()),
+			DepositReserveAsset {
+				assets: Wild(AllCounted(1)),
+				dest: Here.into(),
+				xcm: Xcm::<()>(vec![]),
+			},
+		]);
+		let old_xcm = OldXcm::<()>(vec![
+			OldInstruction::WithdrawAsset((OldHere, 1u128).into()),
+			OldInstruction::DepositReserveAsset {
+				assets: OldAssetFilter::Wild(OldWildAsset::AllCounted(1)),
+				dest: OldHere.into(),
+				xcm: OldXcm::<()>(vec![]),
+			},
+		]);
+		assert_eq!(old_xcm, OldXcm::<()>::try_from(xcm.clone()).unwrap());
+		let new_xcm: Xcm<()> = old_xcm.try_into().unwrap();
+		assert_eq!(new_xcm, xcm);
+	}
 
 	#[test]
 	fn decoding_respects_limit() {

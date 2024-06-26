@@ -473,8 +473,9 @@ pub fn teleports_for_foreign_assets_works<
 			>(foreign_asset_id_location, 0, 0);
 			assert!(teleported_foreign_asset_amount > asset_minimum_asset_balance);
 
+			let v4_foreign_asset_id_location: xcm::v4::Location = foreign_asset_id_location.try_into().unwrap();
 			let foreign_asset_id_location_latest: Location =
-				foreign_asset_id_location.try_into().unwrap();
+				v4_foreign_asset_id_location.try_into().unwrap();
 
 			// 1. process received teleported assets from sibling parachain (foreign_para_id)
 			let xcm = Xcm(vec![

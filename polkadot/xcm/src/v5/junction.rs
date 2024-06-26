@@ -14,17 +14,93 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-//! Support data structures for `MultiLocation`, primarily the `Junction` datatype.
+//! Support data structures for `Location`, primarily the `Junction` datatype.
 
-use super::{Junctions, MultiLocation};
+use super::Location;
+pub use crate::v4::{BodyId, BodyPart};
 use crate::{
-	v4::{Junction as NewJunction, NetworkId as NewNetworkId},
+	v4::{Junction as OldJunction, NetworkId as OldNetworkId},
 	VersionedLocation,
 };
 use bounded_collections::{BoundedSlice, BoundedVec, ConstU32};
 use codec::{self, Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 use serde::{Deserialize, Serialize};
+
+/// A single item in a path to describe the relative location of a consensus system.
+///
+/// Each item assumes a pre-existing location as its context and is defined in terms of it.
+#[derive(
+	Copy,
+	Clone,
+	Eq,
+	PartialEq,
+	Ord,
+	PartialOrd,
+	Encode,
+	Decode,
+	Debug,
+	TypeInfo,
+	MaxEncodedLen,
+	Serialize,
+	Deserialize,
+)]
+pub enum Junction {
+	/// An indexed parachain belonging to and operated by the context.
+	///
+	/// Generally used when the context is a Polkadot Relay-chain.
+	Parachain(#[codec(compact)] u32),
+	/// A 32-byte identifier for an account of a specific network that is respected as a sovereign
+	/// endpoint within the context.
+	///
+	/// Generally used when the context is a Substrate-based chain.
+	AccountId32 { network: Option<NetworkId>, id: [u8; 32] },
+	/// An 8-byte index for an account of a specific network that is respected as a sovereign
+	/// endpoint within the context.
+	///
+	/// May be used when the context is a Frame-based chain and includes e.g. an indices pallet.
+	AccountIndex64 {
+		network: Option<NetworkId>,
+		#[codec(compact)]
+		index: u64,
+	},
+	/// A 20-byte identifier for an account of a specific network that is respected as a sovereign
+	/// endpoint within the context.
+	///
+	/// May be used when the context is an Ethereum or Bitcoin chain or smart-contract.
+	AccountKey20 { network: Option<NetworkId>, key: [u8; 20] },
+	/// An instanced, indexed pallet that forms a constituent part of the context.
+	///
+	/// Generally used when the context is a Frame-based chain.
+	PalletInstance(u8),
+	/// A non-descript index within the context location.
+	///
+	/// Usage will vary widely owing to its generality.
+	///
+	/// NOTE: Try to avoid using this and instead use a more specific item.
+	GeneralIndex(#[codec(compact)] u128),
+	/// A nondescript array datum, 32 bytes, acting as a key within the context
+	/// location.
+	///
+	/// Usage will vary widely owing to its generality.
+	///
+	/// NOTE: Try to avoid using this and instead use a more specific item.
+	// Note this is implemented as an array with a length rather than using `BoundedVec` owing to
+	// the bound for `Copy`.
+	GeneralKey { length: u8, data: [u8; 32] },
+	/// The unambiguous child.
+	///
+	/// Not currently used except as a fallback when deriving context.
+	OnlyChild,
+	/// A pluralistic body existing within consensus.
+	///
+	/// Typical to be used to represent a governance origin of a chain, but could in principle be
+	/// used to represent things such as multisigs also.
+	Plurality { id: BodyId, part: BodyPart },
+	/// A global network capable of externalizing its own consensus. This is not generally
+	/// meaningful outside of the universal level.
+	GlobalConsensus(NetworkId),
+}
 
 /// A global identifier of a data structure existing within consensus.
 ///
@@ -45,8 +121,6 @@ use serde::{Deserialize, Serialize};
 	Serialize,
 	Deserialize,
 )]
-#[cfg_attr(feature = "json-schema", derive(schemars::JsonSchema))]
-#[scale_info(replace_segment("staging_xcm", "xcm"))]
 pub enum NetworkId {
 	/// Network specified by the first 32 bytes of its genesis block.
 	ByGenesis([u8; 32]),
@@ -76,16 +150,16 @@ pub enum NetworkId {
 	PolkadotBulletin,
 }
 
-impl From<NewNetworkId> for Option<NetworkId> {
-	fn from(new: NewNetworkId) -> Self {
-		Some(NetworkId::from(new))
+impl From<OldNetworkId> for Option<NetworkId> {
+	fn from(old: OldNetworkId) -> Self {
+		Some(NetworkId::from(old))
 	}
 }
 
-impl From<NewNetworkId> for NetworkId {
-	fn from(new: NewNetworkId) -> Self {
-		use NewNetworkId::*;
-		match new {
+impl From<OldNetworkId> for NetworkId {
+	fn from(old: OldNetworkId) -> Self {
+		use OldNetworkId::*;
+		match old {
 			ByGenesis(hash) => Self::ByGenesis(hash),
 			ByFork { block_number, block_hash } => Self::ByFork { block_number, block_hash },
 			Polkadot => Self::Polkadot,
@@ -99,191 +173,6 @@ impl From<NewNetworkId> for NetworkId {
 			PolkadotBulletin => Self::PolkadotBulletin,
 		}
 	}
-}
-
-/// An identifier of a pluralistic body.
-#[derive(
-	Copy,
-	Clone,
-	Eq,
-	PartialEq,
-	Ord,
-	PartialOrd,
-	Encode,
-	Decode,
-	Debug,
-	TypeInfo,
-	MaxEncodedLen,
-	Serialize,
-	Deserialize,
-)]
-#[cfg_attr(feature = "json-schema", derive(schemars::JsonSchema))]
-#[scale_info(replace_segment("staging_xcm", "xcm"))]
-pub enum BodyId {
-	/// The only body in its context.
-	Unit,
-	/// A named body.
-	Moniker([u8; 4]),
-	/// An indexed body.
-	Index(#[codec(compact)] u32),
-	/// The unambiguous executive body (for Polkadot, this would be the Polkadot council).
-	Executive,
-	/// The unambiguous technical body (for Polkadot, this would be the Technical Committee).
-	Technical,
-	/// The unambiguous legislative body (for Polkadot, this could be considered the opinion of a
-	/// majority of lock-voters).
-	Legislative,
-	/// The unambiguous judicial body (this doesn't exist on Polkadot, but if it were to get a
-	/// "grand oracle", it may be considered as that).
-	Judicial,
-	/// The unambiguous defense body (for Polkadot, an opinion on the topic given via a public
-	/// referendum on the `staking_admin` track).
-	Defense,
-	/// The unambiguous administration body (for Polkadot, an opinion on the topic given via a
-	/// public referendum on the `general_admin` track).
-	Administration,
-	/// The unambiguous treasury body (for Polkadot, an opinion on the topic given via a public
-	/// referendum on the `treasurer` track).
-	Treasury,
-}
-
-/// A part of a pluralistic body.
-#[derive(
-	Copy,
-	Clone,
-	Eq,
-	PartialEq,
-	Ord,
-	PartialOrd,
-	Encode,
-	Decode,
-	Debug,
-	TypeInfo,
-	MaxEncodedLen,
-	Serialize,
-	Deserialize,
-)]
-#[cfg_attr(feature = "json-schema", derive(schemars::JsonSchema))]
-#[scale_info(replace_segment("staging_xcm", "xcm"))]
-pub enum BodyPart {
-	/// The body's declaration, under whatever means it decides.
-	Voice,
-	/// A given number of members of the body.
-	Members {
-		#[codec(compact)]
-		count: u32,
-	},
-	/// A given number of members of the body, out of some larger caucus.
-	Fraction {
-		#[codec(compact)]
-		nom: u32,
-		#[codec(compact)]
-		denom: u32,
-	},
-	/// No less than the given proportion of members of the body.
-	AtLeastProportion {
-		#[codec(compact)]
-		nom: u32,
-		#[codec(compact)]
-		denom: u32,
-	},
-	/// More than the given proportion of members of the body.
-	MoreThanProportion {
-		#[codec(compact)]
-		nom: u32,
-		#[codec(compact)]
-		denom: u32,
-	},
-}
-
-impl BodyPart {
-	/// Returns `true` if the part represents a strict majority (> 50%) of the body in question.
-	pub fn is_majority(&self) -> bool {
-		match self {
-			BodyPart::Fraction { nom, denom } if *nom * 2 > *denom => true,
-			BodyPart::AtLeastProportion { nom, denom } if *nom * 2 > *denom => true,
-			BodyPart::MoreThanProportion { nom, denom } if *nom * 2 >= *denom => true,
-			_ => false,
-		}
-	}
-}
-
-/// A single item in a path to describe the relative location of a consensus system.
-///
-/// Each item assumes a pre-existing location as its context and is defined in terms of it.
-#[derive(
-	Copy,
-	Clone,
-	Eq,
-	PartialEq,
-	Ord,
-	PartialOrd,
-	Encode,
-	Decode,
-	Debug,
-	TypeInfo,
-	MaxEncodedLen,
-	Serialize,
-	Deserialize,
-)]
-#[cfg_attr(feature = "json-schema", derive(schemars::JsonSchema))]
-#[scale_info(replace_segment("staging_xcm", "xcm"))]
-pub enum Junction {
-	/// An indexed parachain belonging to and operated by the context.
-	///
-	/// Generally used when the context is a Polkadot Relay-chain.
-	Parachain(#[codec(compact)] u32),
-	/// A 32-byte identifier for an account of a specific network that is respected as a sovereign
-	/// endpoint within the context.
-	///
-	/// Generally used when the context is a Substrate-based chain.
-	AccountId32 { network: Option<NetworkId>, id: [u8; 32] },
-	/// An 8-byte index for an account of a specific network that is respected as a sovereign
-	/// endpoint within the context.
-	///
-	/// May be used when the context is a Frame-based chain and includes e.g. an indices pallet.
-	AccountIndex64 {
-		network: Option<NetworkId>,
-		#[codec(compact)]
-		index: u64,
-	},
-	/// A 20-byte identifier for an account of a specific network that is respected as a sovereign
-	/// endpoint within the context.
-	///
-	/// May be used when the context is an Ethereum or Bitcoin chain or smart-contract.
-	AccountKey20 { network: Option<NetworkId>, key: [u8; 20] },
-	/// An instanced, indexed pallet that forms a constituent part of the context.
-	///
-	/// Generally used when the context is a Frame-based chain.
-	// TODO XCMv4 inner should be `Compact<u32>`.
-	PalletInstance(u8),
-	/// A non-descript index within the context location.
-	///
-	/// Usage will vary widely owing to its generality.
-	///
-	/// NOTE: Try to avoid using this and instead use a more specific item.
-	GeneralIndex(#[codec(compact)] u128),
-	/// A nondescript array datum, 32 bytes, acting as a key within the context
-	/// location.
-	///
-	/// Usage will vary widely owing to its generality.
-	///
-	/// NOTE: Try to avoid using this and instead use a more specific item.
-	// Note this is implemented as an array with a length rather than using `BoundedVec` owing to
-	// the bound for `Copy`.
-	GeneralKey { length: u8, data: [u8; 32] },
-	/// The unambiguous child.
-	///
-	/// Not currently used except as a fallback when deriving context.
-	OnlyChild,
-	/// A pluralistic body existing within consensus.
-	///
-	/// Typical to be used to represent a governance origin of a chain, but could in principle be
-	/// used to represent things such as multisigs also.
-	Plurality { id: BodyId, part: BodyPart },
-	/// A global network capable of externalizing its own consensus. This is not generally
-	/// meaningful outside of the universal level.
-	GlobalConsensus(NetworkId),
 }
 
 impl From<NetworkId> for Junction {
@@ -341,11 +230,10 @@ impl From<u128> for Junction {
 	}
 }
 
-impl TryFrom<NewJunction> for Junction {
+impl TryFrom<OldJunction> for Junction {
 	type Error = ();
-
-	fn try_from(value: NewJunction) -> Result<Self, Self::Error> {
-		use NewJunction::*;
+	fn try_from(value: OldJunction) -> Result<Self, ()> {
+		use OldJunction::*;
 		Ok(match value {
 			Parachain(id) => Self::Parachain(id),
 			AccountId32 { network: maybe_network, id } =>
@@ -365,25 +253,25 @@ impl TryFrom<NewJunction> for Junction {
 }
 
 impl Junction {
-	/// Convert `self` into a `MultiLocation` containing 0 parents.
+	/// Convert `self` into a `Location` containing 0 parents.
 	///
 	/// Similar to `Into::into`, except that this method can be used in a const evaluation context.
-	pub const fn into_location(self) -> MultiLocation {
-		MultiLocation { parents: 0, interior: Junctions::X1(self) }
+	pub fn into_location(self) -> Location {
+		Location::new(0, [self])
 	}
 
-	/// Convert `self` into a `MultiLocation` containing `n` parents.
+	/// Convert `self` into a `Location` containing `n` parents.
 	///
 	/// Similar to `Self::into_location`, with the added ability to specify the number of parent
 	/// junctions.
-	pub const fn into_exterior(self, n: u8) -> MultiLocation {
-		MultiLocation { parents: n, interior: Junctions::X1(self) }
+	pub fn into_exterior(self, n: u8) -> Location {
+		Location::new(n, [self])
 	}
 
 	/// Convert `self` into a `VersionedLocation` containing 0 parents.
 	///
 	/// Similar to `Into::into`, except that this method can be used in a const evaluation context.
-	pub const fn into_versioned(self) -> VersionedLocation {
+	pub fn into_versioned(self) -> VersionedLocation {
 		self.into_location().into_versioned()
 	}
 
@@ -398,3 +286,31 @@ impl Junction {
 		}
 	}
 }
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use alloc::vec;
+
+	#[test]
+	fn junction_round_trip_works() {
+		let j = Junction::GeneralKey { length: 32, data: [1u8; 32] };
+		let k = Junction::try_from(OldJunction::try_from(j).unwrap()).unwrap();
+		assert_eq!(j, k);
+
+		let j = OldJunction::GeneralKey { length: 32, data: [1u8; 32] };
+		let k = OldJunction::try_from(Junction::try_from(j).unwrap()).unwrap();
+		assert_eq!(j, k);
+
+		let j = Junction::from(BoundedVec::try_from(vec![1u8, 2, 3, 4]).unwrap());
+		let k = Junction::try_from(OldJunction::try_from(j).unwrap()).unwrap();
+		assert_eq!(j, k);
+		let s: BoundedSlice<_, _> = (&k).try_into().unwrap();
+		assert_eq!(s, &[1u8, 2, 3, 4][..]);
+
+		let j = OldJunction::GeneralKey { length: 32, data: [1u8; 32] };
+		let k = OldJunction::try_from(Junction::try_from(j).unwrap()).unwrap();
+		assert_eq!(j, k);
+	}
+}
+
