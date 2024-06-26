@@ -57,6 +57,7 @@ impl<T: frame_system::Config> pallet_bridge_messages::WeightInfo for WeightInfo<
 	/// Storage: `ParachainInfo::ParachainId` (r:1 w:0)
 	/// Proof: `ParachainInfo::ParachainId` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
 	fn receive_single_message_proof() -> Weight {
+		// TODO: regenerate
 		// Proof Size summary in bytes:
 		//  Measured:  `621`
 		//  Estimated: `52645`
