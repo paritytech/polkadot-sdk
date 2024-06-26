@@ -171,7 +171,7 @@ pub mod pallet {
 
 		fn on_finalize(n: BlockNumberFor<T>) {
 			assert!(
-				<ProofChecked<T>>::take() || {
+				ProofChecked::<T>::take() || {
 					// Proof is not required for early or empty blocks.
 					let number = frame_system::Pallet::<T>::block_number();
 					let period = StoragePeriod::<T>::get();
