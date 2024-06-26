@@ -26,12 +26,102 @@ pub(crate) fn asset_hub_westend_location() -> Location {
 		[GlobalConsensus(NetworkId::Westend), Parachain(AssetHubWestend::para_id().into())],
 	)
 }
-
 pub(crate) fn bridge_hub_westend_location() -> Location {
 	Location::new(
 		2,
 		[GlobalConsensus(NetworkId::Westend), Parachain(BridgeHubWestend::para_id().into())],
 	)
+}
+
+// ROC and wROC
+pub(crate) fn roc_at_ah_rococo() -> Location {
+	Parent.into()
+}
+pub(crate) fn bridged_roc_at_ah_westend() -> Location {
+	Location::new(2, [GlobalConsensus(Rococo)])
+}
+
+// USDT and wUSDT
+pub(crate) fn usdt_at_ah_rococo() -> Location {
+	Location::new(0, [PalletInstance(ASSETS_PALLET_ID), GeneralIndex(USDT_ID.into())])
+}
+pub(crate) fn bridged_usdt_at_ah_westend() -> Location {
+	Location::new(
+		2,
+		[
+			GlobalConsensus(Rococo),
+			Parachain(AssetHubRococo::para_id().into()),
+			PalletInstance(ASSETS_PALLET_ID),
+			GeneralIndex(USDT_ID.into()),
+		],
+	)
+}
+
+// wETH has same relative location on both Rococo and Westend AssetHubs
+pub(crate) fn weth_at_asset_hubs() -> Location {
+	Location::new(
+		2,
+		[
+			GlobalConsensus(NetworkId::Ethereum { chain_id: snowbridge::CHAIN_ID }),
+			AccountKey20 { network: None, key: snowbridge::WETH },
+		],
+	)
+}
+
+pub(crate) fn create_foreign_on_ah_westend(id: v3::Location, sufficient: bool) {
+	let owner = AssetHubWestend::account_id_of(ALICE);
+	AssetHubWestend::force_create_foreign_asset(id, owner, sufficient, ASSET_MIN_BALANCE, vec![]);
+}
+
+pub(crate) fn foreign_balance_on_ah_westend(id: v3::Location, who: &AccountId) -> u128 {
+	AssetHubWestend::execute_with(|| {
+		type Assets = <AssetHubWestend as AssetHubWestendPallet>::ForeignAssets;
+		<Assets as Inspect<_>>::balance(id, who)
+	})
+}
+
+// set up pool
+pub(crate) fn set_up_pool_with_wnd_on_ah_westend(foreign_asset: v3::Location) {
+	let wnd: v3::Location = v3::Parent.into();
+	AssetHubWestend::execute_with(|| {
+		type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
+		let owner = AssetHubWestendSender::get();
+		let signed_owner = <AssetHubWestend as Chain>::RuntimeOrigin::signed(owner.clone());
+
+		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::ForeignAssets::mint(
+			signed_owner.clone(),
+			foreign_asset.into(),
+			owner.clone().into(),
+			3_000_000_000_000,
+		));
+		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::AssetConversion::create_pool(
+			signed_owner.clone(),
+			Box::new(wnd),
+			Box::new(foreign_asset),
+		));
+		assert_expected_events!(
+			AssetHubWestend,
+			vec![
+				RuntimeEvent::AssetConversion(pallet_asset_conversion::Event::PoolCreated { .. }) => {},
+			]
+		);
+		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::AssetConversion::add_liquidity(
+			signed_owner.clone(),
+			Box::new(wnd),
+			Box::new(foreign_asset),
+			1_000_000_000_000,
+			2_000_000_000_000,
+			1,
+			1,
+			owner.into()
+		));
+		assert_expected_events!(
+			AssetHubWestend,
+			vec![
+				RuntimeEvent::AssetConversion(pallet_asset_conversion::Event::LiquidityAdded {..}) => {},
+			]
+		);
+	});
 }
 
 pub(crate) fn send_asset_from_asset_hub_rococo(
