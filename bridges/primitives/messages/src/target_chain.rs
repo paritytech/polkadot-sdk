@@ -172,13 +172,9 @@ impl<AccountId> DeliveryPayments<AccountId> for () {
 
 /// Structure that may be used in place of  `MessageDispatch` on chains,
 /// where inbound messages are forbidden.
-pub struct ForbidInboundMessages<MessagesProof, DispatchPayload>(
-	PhantomData<(MessagesProof, DispatchPayload)>,
-);
+pub struct ForbidInboundMessages<DispatchPayload>(PhantomData<DispatchPayload>);
 
-impl<MessagesProof, DispatchPayload: Decode> MessageDispatch
-	for ForbidInboundMessages<MessagesProof, DispatchPayload>
-{
+impl<DispatchPayload: Decode> MessageDispatch for ForbidInboundMessages<DispatchPayload> {
 	type DispatchPayload = DispatchPayload;
 	type DispatchLevelResult = ();
 

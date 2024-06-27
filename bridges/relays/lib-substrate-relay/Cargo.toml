@@ -25,7 +25,6 @@ strum = { features = ["derive"], workspace = true, default-features = true }
 thiserror = { workspace = true }
 
 # Bridge dependencies
-
 bp-header-chain = { workspace = true, default-features = true }
 bp-parachains = { workspace = true, default-features = true }
 bp-polkadot-core = { workspace = true, default-features = true }
@@ -46,7 +45,6 @@ bp-runtime = { workspace = true, default-features = true }
 bp-messages = { workspace = true, default-features = true }
 
 # Substrate Dependencies
-
 frame-support = { workspace = true, default-features = true }
 frame-system = { workspace = true, default-features = true }
 pallet-balances = { workspace = true, default-features = true }
@@ -56,5 +54,6 @@ sp-consensus-grandpa = { workspace = true, default-features = true }
 sp-runtime = { workspace = true, default-features = true }
 
 [dev-dependencies]
+scale-info = { features = ["derive"], workspace = true }
 pallet-transaction-payment = { workspace = true, default-features = true }
 relay-substrate-client = { features = ["test-helpers"], workspace = true }

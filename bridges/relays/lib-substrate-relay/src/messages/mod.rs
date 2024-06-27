@@ -455,7 +455,7 @@ macro_rules! generate_receive_message_proof_call_builder {
 				bp_runtime::paste::item! {
 					$bridge_messages($receive_messages_proof {
 						relayer_id_at_bridged_chain: relayer_id_at_source,
-						proof: proof.1,
+						proof: Box::new(proof.1),
 						messages_count: messages_count,
 						dispatch_weight: dispatch_weight,
 					})
@@ -668,4 +668,363 @@ where
 		},
 	)
 	.map_err(Into::into)
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use bp_messages::{
+		source_chain::FromBridgedChainMessagesDeliveryProof, UnrewardedRelayersState,
+	};
+	use relay_substrate_client::calls::{UtilityCall as MockUtilityCall, UtilityCall};
+
+	#[derive(codec::Decode, codec::Encode, Clone, Debug, PartialEq)]
+	pub enum RuntimeCall {
+		#[codec(index = 53)]
+		BridgeMessages(CodegenBridgeMessagesCall),
+		#[codec(index = 123)]
+		Utility(UtilityCall<RuntimeCall>),
+	}
+	pub type CodegenBridgeMessagesCall = bp_messages::BridgeMessagesCall<
+		u64,
+		Box<FromBridgedChainMessagesProof<mock::BridgedHeaderHash>>,
+		FromBridgedChainMessagesDeliveryProof<mock::BridgedHeaderHash>,
+	>;
+
+	impl From<MockUtilityCall<RuntimeCall>> for RuntimeCall {
+		fn from(value: MockUtilityCall<RuntimeCall>) -> RuntimeCall {
+			match value {
+				MockUtilityCall::batch_all(calls) =>
+					RuntimeCall::Utility(UtilityCall::<RuntimeCall>::batch_all(calls)),
+			}
+		}
+	}
+
+	#[test]
+	fn ensure_macro_compatibility_for_generate_receive_message_proof_call_builder() {
+		// data
+		let receive_messages_proof = FromBridgedChainMessagesProof {
+			bridged_header_hash: Default::default(),
+			storage: Default::default(),
+			lane: LaneId([0, 0, 0, 0]),
+			nonces_start: 0,
+			nonces_end: 0,
+		};
+		let account = 1234;
+		let messages_count = 0;
+		let dispatch_weight = Default::default();
+
+		// construct pallet Call directly
+		let pallet_receive_messages_proof =
+			pallet_bridge_messages::Call::<mock::TestRuntime>::receive_messages_proof {
+				relayer_id_at_bridged_chain: account.clone(),
+				proof: Box::new(receive_messages_proof.clone()),
+				messages_count,
+				dispatch_weight,
+			};
+
+		// construct mock enum Call
+		let mock_enum_receive_messages_proof = CodegenBridgeMessagesCall::receive_messages_proof {
+			relayer_id_at_bridged_chain: account.clone(),
+			proof: Box::new(receive_messages_proof.clone()),
+			messages_count,
+			dispatch_weight,
+		};
+
+		// now we should be able to use macro `generate_receive_message_proof_call_builder`
+		let relayer_call_builder_receive_messages_proof = relayer::ThisChainToBridgedChainMessageLaneReceiveMessagesProofCallBuilder::build_receive_messages_proof_call(
+			account,
+			(Default::default(), receive_messages_proof),
+			messages_count,
+			dispatch_weight,
+			false,
+		);
+
+		// ensure they are all equal
+		assert_eq!(
+			pallet_receive_messages_proof.encode(),
+			mock_enum_receive_messages_proof.encode()
+		);
+		match relayer_call_builder_receive_messages_proof {
+			RuntimeCall::BridgeMessages(call) => match call {
+				call @ CodegenBridgeMessagesCall::receive_messages_proof { .. } =>
+					assert_eq!(pallet_receive_messages_proof.encode(), call.encode()),
+				_ => panic!("Unexpected CodegenBridgeMessagesCall type"),
+			},
+			_ => panic!("Unexpected RuntimeCall type"),
+		};
+	}
+
+	#[test]
+	fn ensure_macro_compatibility_for_generate_receive_message_delivery_proof_call_builder() {
+		// data
+		let receive_messages_delivery_proof = FromBridgedChainMessagesDeliveryProof {
+			bridged_header_hash: Default::default(),
+			storage_proof: Default::default(),
+			lane: LaneId([0, 0, 0, 0]),
+		};
+		let relayers_state = UnrewardedRelayersState {
+			unrewarded_relayer_entries: 0,
+			messages_in_oldest_entry: 0,
+			total_messages: 0,
+			last_delivered_nonce: 0,
+		};
+
+		// construct pallet Call directly
+		let pallet_receive_messages_delivery_proof =
+			pallet_bridge_messages::Call::<mock::TestRuntime>::receive_messages_delivery_proof {
+				proof: receive_messages_delivery_proof.clone(),
+				relayers_state: relayers_state.clone(),
+			};
+
+		// construct mock enum Call
+		let mock_enum_receive_messages_delivery_proof =
+			CodegenBridgeMessagesCall::receive_messages_delivery_proof {
+				proof: receive_messages_delivery_proof.clone(),
+				relayers_state: relayers_state.clone(),
+			};
+
+		// now we should be able to use macro `generate_receive_message_proof_call_builder`
+		let relayer_call_builder_receive_messages_delivery_proof = relayer::ThisChainToBridgedChainMessageLaneReceiveMessagesDeliveryProofCallBuilder::build_receive_messages_delivery_proof_call(
+			(relayers_state, receive_messages_delivery_proof),
+			false,
+		);
+
+		// ensure they are all equal
+		assert_eq!(
+			pallet_receive_messages_delivery_proof.encode(),
+			mock_enum_receive_messages_delivery_proof.encode()
+		);
+		match relayer_call_builder_receive_messages_delivery_proof {
+			RuntimeCall::BridgeMessages(call) => match call {
+				call @ CodegenBridgeMessagesCall::receive_messages_delivery_proof { .. } =>
+					assert_eq!(pallet_receive_messages_delivery_proof.encode(), call.encode()),
+				_ => panic!("Unexpected CodegenBridgeMessagesCall type"),
+			},
+			_ => panic!("Unexpected RuntimeCall type"),
+		};
+	}
+
+	// mock runtime with `pallet_bridge_messages`
+	mod mock {
+		use super::super::*;
+		use bp_messages::target_chain::ForbidInboundMessages;
+		use bp_runtime::ChainId;
+		use frame_support::derive_impl;
+		use sp_core::H256;
+		use sp_runtime::{
+			generic, testing::Header as SubstrateHeader, traits::BlakeTwo256, StateVersion,
+		};
+
+		type Block = frame_system::mocking::MockBlock<TestRuntime>;
+		pub type SignedBlock = generic::SignedBlock<Block>;
+
+		frame_support::construct_runtime! {
+			pub enum TestRuntime
+			{
+				System: frame_system,
+				Messages: pallet_bridge_messages,
+			}
+		}
+
+		#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
+		impl frame_system::Config for TestRuntime {
+			type Block = Block;
+		}
+
+		impl pallet_bridge_messages::Config for TestRuntime {
+			type RuntimeEvent = RuntimeEvent;
+			type WeightInfo = ();
+			type ThisChain = ThisUnderlyingChain;
+			type BridgedChain = BridgedUnderlyingChain;
+			type BridgedHeaderChain = BridgedHeaderChain;
+			type ActiveOutboundLanes = ();
+			type OutboundPayload = Vec<u8>;
+			type InboundPayload = Vec<u8>;
+			type DeliveryPayments = ();
+			type DeliveryConfirmationPayments = ();
+			type OnMessagesDelivered = ();
+			type MessageDispatch = ForbidInboundMessages<Vec<u8>>;
+		}
+
+		pub struct ThisUnderlyingChain;
+
+		impl bp_runtime::Chain for ThisUnderlyingChain {
+			const ID: ChainId = *b"tuch";
+			type BlockNumber = u64;
+			type Hash = H256;
+			type Hasher = BlakeTwo256;
+			type Header = SubstrateHeader;
+			type AccountId = u64;
+			type Balance = u64;
+			type Nonce = u64;
+			type Signature = sp_runtime::MultiSignature;
+			const STATE_VERSION: StateVersion = StateVersion::V1;
+			fn max_extrinsic_size() -> u32 {
+				u32::MAX
+			}
+			fn max_extrinsic_weight() -> Weight {
+				Weight::MAX
+			}
+		}
+
+		impl bp_messages::ChainWithMessages for ThisUnderlyingChain {
+			const WITH_CHAIN_MESSAGES_PALLET_NAME: &'static str = "";
+			const MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX: MessageNonce = 16;
+			const MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX: MessageNonce = 1000;
+		}
+
+		pub struct BridgedUnderlyingChain;
+
+		pub type BridgedHeaderHash = H256;
+		pub type BridgedChainHeader = SubstrateHeader;
+
+		impl bp_runtime::Chain for BridgedUnderlyingChain {
+			const ID: ChainId = *b"bgdc";
+			type BlockNumber = u64;
+			type Hash = BridgedHeaderHash;
+			type Hasher = BlakeTwo256;
+			type Header = BridgedChainHeader;
+			type AccountId = u64;
+			type Balance = u64;
+			type Nonce = u64;
+			type Signature = sp_runtime::MultiSignature;
+			const STATE_VERSION: StateVersion = StateVersion::V1;
+			fn max_extrinsic_size() -> u32 {
+				4096
+			}
+			fn max_extrinsic_weight() -> Weight {
+				Weight::MAX
+			}
+		}
+
+		impl bp_messages::ChainWithMessages for BridgedUnderlyingChain {
+			const WITH_CHAIN_MESSAGES_PALLET_NAME: &'static str = "";
+			const MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX: MessageNonce = 16;
+			const MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX: MessageNonce = 1000;
+		}
+
+		pub struct BridgedHeaderChain;
+
+		impl bp_header_chain::HeaderChain<BridgedUnderlyingChain> for BridgedHeaderChain {
+			fn finalized_header_state_root(
+				_hash: HashOf<BridgedUnderlyingChain>,
+			) -> Option<HashOf<BridgedUnderlyingChain>> {
+				unreachable!()
+			}
+		}
+	}
+
+	// relayer configuration
+	mod relayer {
+		use super::*;
+		use crate::{
+			messages::{
+				tests::{mock, RuntimeCall},
+				SubstrateMessageLane,
+			},
+			UtilityPalletBatchCallBuilder,
+		};
+		use bp_runtime::UnderlyingChainProvider;
+		use relay_substrate_client::{MockedRuntimeUtilityPallet, SignParam, UnsignedTransaction};
+		use std::time::Duration;
+
+		#[derive(Clone)]
+		pub struct ThisChain;
+		impl UnderlyingChainProvider for ThisChain {
+			type Chain = mock::ThisUnderlyingChain;
+		}
+		impl relay_substrate_client::Chain for ThisChain {
+			const NAME: &'static str = "";
+			const BEST_FINALIZED_HEADER_ID_METHOD: &'static str = "";
+			const FREE_HEADERS_INTERVAL_METHOD: &'static str = "";
+			const AVERAGE_BLOCK_INTERVAL: Duration = Duration::from_millis(0);
+			type SignedBlock = mock::SignedBlock;
+			type Call = RuntimeCall;
+		}
+		impl relay_substrate_client::ChainWithTransactions for ThisChain {
+			type AccountKeyPair = sp_core::sr25519::Pair;
+			type SignedTransaction = ();
+
+			fn sign_transaction(
+				_: SignParam<Self>,
+				_: UnsignedTransaction<Self>,
+			) -> Result<Self::SignedTransaction, SubstrateError>
+			where
+				Self: Sized,
+			{
+				todo!()
+			}
+		}
+		impl relay_substrate_client::ChainWithMessages for ThisChain {
+			const WITH_CHAIN_RELAYERS_PALLET_NAME: Option<&'static str> = None;
+			const TO_CHAIN_MESSAGE_DETAILS_METHOD: &'static str = "";
+			const FROM_CHAIN_MESSAGE_DETAILS_METHOD: &'static str = "";
+		}
+		impl relay_substrate_client::ChainWithUtilityPallet for ThisChain {
+			type UtilityPallet = MockedRuntimeUtilityPallet<RuntimeCall>;
+		}
+
+		#[derive(Clone)]
+		pub struct BridgedChain;
+		impl UnderlyingChainProvider for BridgedChain {
+			type Chain = mock::BridgedUnderlyingChain;
+		}
+		impl relay_substrate_client::Chain for BridgedChain {
+			const NAME: &'static str = "";
+			const BEST_FINALIZED_HEADER_ID_METHOD: &'static str = "";
+			const FREE_HEADERS_INTERVAL_METHOD: &'static str = "";
+			const AVERAGE_BLOCK_INTERVAL: Duration = Duration::from_millis(0);
+			type SignedBlock = mock::SignedBlock;
+			type Call = RuntimeCall;
+		}
+		impl relay_substrate_client::ChainWithTransactions for BridgedChain {
+			type AccountKeyPair = sp_core::sr25519::Pair;
+			type SignedTransaction = ();
+
+			fn sign_transaction(
+				_: SignParam<Self>,
+				_: UnsignedTransaction<Self>,
+			) -> Result<Self::SignedTransaction, SubstrateError>
+			where
+				Self: Sized,
+			{
+				todo!()
+			}
+		}
+		impl relay_substrate_client::ChainWithMessages for BridgedChain {
+			const WITH_CHAIN_RELAYERS_PALLET_NAME: Option<&'static str> = None;
+			const TO_CHAIN_MESSAGE_DETAILS_METHOD: &'static str = "";
+			const FROM_CHAIN_MESSAGE_DETAILS_METHOD: &'static str = "";
+		}
+		impl relay_substrate_client::ChainWithUtilityPallet for BridgedChain {
+			type UtilityPallet = MockedRuntimeUtilityPallet<RuntimeCall>;
+		}
+
+		#[derive(Clone, Debug)]
+		pub struct ThisChainToBridgedChainMessageLane;
+		impl SubstrateMessageLane for ThisChainToBridgedChainMessageLane {
+			type SourceChain = ThisChain;
+			type TargetChain = BridgedChain;
+			type ReceiveMessagesProofCallBuilder =
+				ThisChainToBridgedChainMessageLaneReceiveMessagesProofCallBuilder;
+			type ReceiveMessagesDeliveryProofCallBuilder =
+				ThisChainToBridgedChainMessageLaneReceiveMessagesDeliveryProofCallBuilder;
+			type SourceBatchCallBuilder = UtilityPalletBatchCallBuilder<ThisChain>;
+			type TargetBatchCallBuilder = UtilityPalletBatchCallBuilder<BridgedChain>;
+		}
+
+		generate_receive_message_proof_call_builder!(
+			ThisChainToBridgedChainMessageLane,
+			ThisChainToBridgedChainMessageLaneReceiveMessagesProofCallBuilder,
+			RuntimeCall::BridgeMessages,
+			CodegenBridgeMessagesCall::receive_messages_proof
+		);
+		generate_receive_message_delivery_proof_call_builder!(
+			ThisChainToBridgedChainMessageLane,
+			ThisChainToBridgedChainMessageLaneReceiveMessagesDeliveryProofCallBuilder,
+			RuntimeCall::BridgeMessages,
+			CodegenBridgeMessagesCall::receive_messages_delivery_proof
+		);
+	}
 }

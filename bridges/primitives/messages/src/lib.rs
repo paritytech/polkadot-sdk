@@ -21,8 +21,8 @@
 
 use bp_header_chain::HeaderChainError;
 use bp_runtime::{
-	messages::MessageDispatchResult, AccountIdOf, BasicOperatingMode, Chain, HashOf, OperatingMode,
-	RangeInclusiveExt, StorageProofError, UnderlyingChainOf, UnderlyingChainProvider,
+	messages::MessageDispatchResult, BasicOperatingMode, Chain, OperatingMode, RangeInclusiveExt,
+	StorageProofError, UnderlyingChainOf, UnderlyingChainProvider,
 };
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::PalletError;
@@ -513,13 +513,6 @@ where
 	}
 	relayers_rewards
 }
-
-/// The `BridgeMessagesCall` used by a chain.
-pub type BridgeMessagesCallOf<C> = BridgeMessagesCall<
-	AccountIdOf<C>,
-	target_chain::FromBridgedChainMessagesProof<HashOf<C>>,
-	source_chain::FromBridgedChainMessagesDeliveryProof<HashOf<C>>,
->;
 
 /// A minimized version of `pallet-bridge-messages::Call` that can be used without a runtime.
 #[derive(Encode, Decode, Debug, PartialEq, Eq, Clone, TypeInfo)]

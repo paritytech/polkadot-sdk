@@ -21427,6 +21427,7 @@ dependencies = [
  "rbtag",
  "relay-substrate-client",
  "relay-utils",
+ "scale-info",
  "sp-consensus-grandpa",
  "sp-core",
  "sp-runtime",
