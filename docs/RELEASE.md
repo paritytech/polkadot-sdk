@@ -166,6 +166,6 @@ Describes how developers should merge bug and security fixes.
 4. It is merged into `master`.
 5. Developer opens a backport Pull Request into the `stable` branch.
 6. CI validates that there there are no obvious major SemVer change.
-7. Audit must be completed by now.
+7. Audit must be completed by now and feedback addressed.
 8. Gets merged into `stable`.
 9. Fix will be released in the next stable minor version at a two weeks cadence, or earlier in urgent cases.
