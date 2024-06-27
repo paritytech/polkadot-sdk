@@ -98,22 +98,21 @@ impl<
 }
 
 /// Accept an asset if it is native to `AssetsAllowedNetworks` and it is coming from
-/// `RemoteAssetHubLocation`.
-pub struct RemoteAssetFromLocation<AssetsAllowedNetworks, RemoteAssetHubLocation>(
-	sp_std::marker::PhantomData<(AssetsAllowedNetworks, RemoteAssetHubLocation)>,
+/// `OriginLocation`.
+pub struct RemoteAssetFromLocation<AssetsAllowedNetworks, OriginLocation>(
+	sp_std::marker::PhantomData<(AssetsAllowedNetworks, OriginLocation)>,
 );
-impl<AssetsAllowedNetworks: Contains<Location>, RemoteAssetHubLocation: Get<Location>>
-	ContainsPair<Asset, Location>
-	for RemoteAssetFromLocation<AssetsAllowedNetworks, RemoteAssetHubLocation>
+impl<AssetsAllowedNetworks: Contains<Location>, OriginLocation: Get<Location>>
+	ContainsPair<Asset, Location> for RemoteAssetFromLocation<AssetsAllowedNetworks, OriginLocation>
 {
 	fn contains(asset: &Asset, origin: &Location) -> bool {
-		let remote_asset_hub = RemoteAssetHubLocation::get();
-		// ensure `origin` is `RemoteAssetHubLocation`
-		if !remote_asset_hub.eq(origin) {
+		let expected_origin = OriginLocation::get();
+		// ensure `origin` is expected `OriginLocation`
+		if !expected_origin.eq(origin) {
 			log::trace!(
 				target: "xcm::contains",
 				"RemoteAssetFromLocation asset: {:?}, origin: {:?} is not from expected {:?}",
-				asset, origin, remote_asset_hub,
+				asset, origin, expected_origin,
 			);
 			return false
 		} else {
