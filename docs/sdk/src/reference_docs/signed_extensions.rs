@@ -5,7 +5,7 @@
 //!
 //! FRAME by default already provides the following signed extensions:
 //!
-//! - [`CheckGenesis`](frame_system::CheckGenesis): Ensures that a transaction was send for the same
+//! - [`CheckGenesis`](frame_system::CheckGenesis): Ensures that a transaction was sent for the same
 //!   network. Determined based on genesis.
 //!
 //! - [`CheckMortality`](frame_system::CheckMortality): Extends a transaction with a configurable
@@ -17,7 +17,7 @@
 //! - [`CheckNonce`](frame_system::CheckNonce): Extends a transaction with a nonce to prevent replay
 //!   of transactions and to provide ordering of transactions.
 //!
-//! - [`CheckSpecVersion`](frame_system::CheckSpecVersion): Ensures that a transaction was build for
+//! - [`CheckSpecVersion`](frame_system::CheckSpecVersion): Ensures that a transaction was built for
 //!   the currently active runtime.
 //!
 //! - [`CheckTxVersion`](frame_system::CheckTxVersion): Ensures that the transaction signer used the
