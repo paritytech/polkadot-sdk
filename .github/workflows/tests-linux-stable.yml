@@ -84,8 +84,8 @@ jobs:
       # Enable debug assertions since we are running optimized builds for testing
       # but still want to have debug assertions.
       RUSTFLAGS: "-Cdebug-assertions=y -Dwarnings -Cinstrument-coverage"
-    continue-on-error: true
-    strategy:      
+    strategy: 
+      fail-fast: false     
       matrix:
         ci_node_total: [3]
         ci_node_index: [1, 2, 3]      
@@ -93,4 +93,4 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
       - name: script
-        run: time cargo nextest run --workspace --locked --release --no-fail-fast --features try-runtime,experimental,riscv,ci-only-tests -E "!test(/.*benchmark.*/)" --partition count:${{ matrix.ci_node_index }}/${{ matrix.ci_node_total }}
+        run: time forklift cargo nextest run --workspace --locked --release --no-fail-fast --features try-runtime,experimental,riscv,ci-only-tests -E "!test(/.*benchmark.*/)" --partition count:${{ matrix.ci_node_index }}/${{ matrix.ci_node_total }}
