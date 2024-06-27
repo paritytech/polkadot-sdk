@@ -68,8 +68,6 @@ parameter_types! {
 type AllianceCollective = pallet_collective::Instance1;
 impl pallet_collective::Config<AllianceCollective> for Test {
 	type RuntimeOrigin = RuntimeOrigin;
-	type RuntimeHoldReason = RuntimeHoldReason;
-	type Currency = Balances;
 	type Proposal = RuntimeCall;
 	type RuntimeEvent = RuntimeEvent;
 	type MotionDuration = MotionDuration;
@@ -81,8 +79,7 @@ impl pallet_collective::Config<AllianceCollective> for Test {
 	type MaxProposalWeight = MaxProposalWeight;
 	type DisapproveOrigin = EnsureRoot<Self::AccountId>;
 	type KillOrigin = EnsureRoot<Self::AccountId>;
-	type ProposalDeposit = ();
-	type Slash = ();
+	type Consideration = ();
 }
 
 parameter_types! {

@@ -540,8 +540,6 @@ pub const ALLIANCE_MAX_MEMBERS: u32 = 100;
 type AllianceCollective = pallet_collective::Instance1;
 impl pallet_collective::Config<AllianceCollective> for Runtime {
 	type RuntimeOrigin = RuntimeOrigin;
-	type RuntimeHoldReason = RuntimeHoldReason;
-	type Currency = Balances;
 	type Proposal = RuntimeCall;
 	type RuntimeEvent = RuntimeEvent;
 	type MotionDuration = AllianceMotionDuration;
@@ -553,8 +551,7 @@ impl pallet_collective::Config<AllianceCollective> for Runtime {
 	type MaxProposalWeight = MaxProposalWeight;
 	type DisapproveOrigin = EnsureRoot<Self::AccountId>;
 	type KillOrigin = EnsureRoot<Self::AccountId>;
-	type ProposalDeposit = ();
-	type Slash = ();
+	type Consideration = ();
 }
 
 pub const MAX_FELLOWS: u32 = ALLIANCE_MAX_MEMBERS;

@@ -60,7 +60,7 @@ pub trait WeightInfo {
 	fn close_approved(b: u32, m: u32, p: u32, ) -> Weight;
 	fn disapprove_proposal(p: u32, ) -> Weight;
 	fn kill(d: u32, p: u32, ) -> Weight;
-	fn release_proposal_deposit(d: u32, ) -> Weight;
+	fn release_proposal_cost(d: u32, ) -> Weight;
 }
 
 /// Weights for `pallet_collective` using the Substrate node and recommended hardware.
@@ -148,8 +148,8 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Proof: `Balances::Holds` (`max_values`: None, `max_size`: Some(301), added: 2776, mode: `MaxEncodedLen`)
 	/// Storage: `Council::ProposalCount` (r:1 w:1)
 	/// Proof: `Council::ProposalCount` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
-	/// Storage: `Council::DepositOf` (r:0 w:1)
-	/// Proof: `Council::DepositOf` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `Council::CostOf` (r:0 w:1)
+	/// Proof: `Council::CostOf` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `Council::Voting` (r:0 w:1)
 	/// Proof: `Council::Voting` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// The range of component `b` is `[2, 1024]`.
@@ -328,8 +328,8 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().writes(3_u64))
 			.saturating_add(Weight::from_parts(0, 32).saturating_mul(p.into()))
 	}
-	/// Storage: `Council::DepositOf` (r:1 w:1)
-	/// Proof: `Council::DepositOf` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `Council::CostOf` (r:1 w:1)
+	/// Proof: `Council::CostOf` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `Balances::Holds` (r:1 w:1)
 	/// Proof: `Balances::Holds` (`max_values`: None, `max_size`: Some(301), added: 2776, mode: `MaxEncodedLen`)
 	/// Storage: `System::Account` (r:1 w:1)
@@ -361,14 +361,14 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	}
 	/// Storage: `Council::ProposalOf` (r:1 w:0)
 	/// Proof: `Council::ProposalOf` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	/// Storage: `Council::DepositOf` (r:1 w:1)
-	/// Proof: `Council::DepositOf` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `Council::CostOf` (r:1 w:1)
+	/// Proof: `Council::CostOf` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `System::Account` (r:1 w:1)
 	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
 	/// Storage: `Balances::Holds` (r:1 w:1)
 	/// Proof: `Balances::Holds` (`max_values`: None, `max_size`: Some(301), added: 2776, mode: `MaxEncodedLen`)
 	/// The range of component `d` is `[0, 1]`.
-	fn release_proposal_deposit(d: u32, ) -> Weight {
+	fn release_proposal_cost(d: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `1748 + d * (212 ±0)`
 		//  Estimated: `5213 + d * (1883 ±0)`
@@ -467,8 +467,8 @@ impl WeightInfo for () {
 	/// Proof: `Balances::Holds` (`max_values`: None, `max_size`: Some(301), added: 2776, mode: `MaxEncodedLen`)
 	/// Storage: `Council::ProposalCount` (r:1 w:1)
 	/// Proof: `Council::ProposalCount` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
-	/// Storage: `Council::DepositOf` (r:0 w:1)
-	/// Proof: `Council::DepositOf` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `Council::CostOf` (r:0 w:1)
+	/// Proof: `Council::CostOf` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `Council::Voting` (r:0 w:1)
 	/// Proof: `Council::Voting` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// The range of component `b` is `[2, 1024]`.
@@ -647,8 +647,8 @@ impl WeightInfo for () {
 			.saturating_add(RocksDbWeight::get().writes(3_u64))
 			.saturating_add(Weight::from_parts(0, 32).saturating_mul(p.into()))
 	}
-	/// Storage: `Council::DepositOf` (r:1 w:1)
-	/// Proof: `Council::DepositOf` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `Council::CostOf` (r:1 w:1)
+	/// Proof: `Council::CostOf` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `Balances::Holds` (r:1 w:1)
 	/// Proof: `Balances::Holds` (`max_values`: None, `max_size`: Some(301), added: 2776, mode: `MaxEncodedLen`)
 	/// Storage: `System::Account` (r:1 w:1)
@@ -680,14 +680,14 @@ impl WeightInfo for () {
 	}
 	/// Storage: `Council::ProposalOf` (r:1 w:0)
 	/// Proof: `Council::ProposalOf` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	/// Storage: `Council::DepositOf` (r:1 w:1)
-	/// Proof: `Council::DepositOf` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `Council::CostOf` (r:1 w:1)
+	/// Proof: `Council::CostOf` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `System::Account` (r:1 w:1)
 	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
 	/// Storage: `Balances::Holds` (r:1 w:1)
 	/// Proof: `Balances::Holds` (`max_values`: None, `max_size`: Some(301), added: 2776, mode: `MaxEncodedLen`)
 	/// The range of component `d` is `[0, 1]`.
-	fn release_proposal_deposit(d: u32, ) -> Weight {
+	fn release_proposal_cost(d: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `1748 + d * (212 ±0)`
 		//  Estimated: `5213 + d * (1883 ±0)`

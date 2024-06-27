@@ -48,7 +48,7 @@ fn id_to_remark_data(id: u32, length: usize) -> Vec<u8> {
 	id.to_le_bytes().into_iter().cycle().take(length).collect()
 }
 
-#[instance_benchmarks(where T: Config<I>, I: 'static, T::Currency: Mutate<T::AccountId>)]
+#[instance_benchmarks(where T: Config<I>, I: 'static)]
 mod benchmarks {
 	use super::*;
 
@@ -81,10 +81,7 @@ mod benchmarks {
 			// Length of the proposals should be irrelevant to `set_members`.
 			let length = 100;
 			for i in 0..p {
-				if let Some(deposit) = T::ProposalDeposit::get_deposit(i) {
-					let ed = T::Currency::minimum_balance();
-					T::Currency::mint_into(&caller, deposit + ed)?;
-				}
+				T::Consideration::ensure_successful(&caller, i);
 				// Proposals should be different so that different proposal hashes are generated
 				let proposal: T::Proposal =
 					SystemCall::<T>::remark { remark: id_to_remark_data(i, length) }.into();
@@ -234,15 +231,10 @@ mod benchmarks {
 			T::MaxMembers::get(),
 		)?;
 
-		let ed = T::Currency::minimum_balance();
-		T::Currency::mint_into(&caller, ed)?;
-
 		let threshold = m;
 		// Add previous proposals.
 		for i in 0..p - 1 {
-			if let Some(deposit) = T::ProposalDeposit::get_deposit(i) {
-				T::Currency::mint_into(&caller, deposit)?;
-			}
+			T::Consideration::ensure_successful(&caller, i);
 			// Proposals should be different so that different proposal hashes are generated
 			let proposal: T::Proposal =
 				SystemCall::<T>::remark { remark: id_to_remark_data(i, b as usize) }.into();
@@ -256,9 +248,7 @@ mod benchmarks {
 
 		assert_eq!(Proposals::<T, I>::get().len(), (p - 1) as usize);
 
-		if let Some(deposit) = T::ProposalDeposit::get_deposit(p) {
-			T::Currency::mint_into(&caller, deposit)?;
-		}
+		T::Consideration::ensure_successful(&caller, p);
 
 		let proposal: T::Proposal =
 			SystemCall::<T>::remark { remark: id_to_remark_data(p, b as usize) }.into();
@@ -304,18 +294,13 @@ mod benchmarks {
 			T::MaxMembers::get(),
 		)?;
 
-		let ed = T::Currency::minimum_balance();
-		T::Currency::mint_into(&proposer, ed)?;
-
 		// Threshold is 1 less than the number of members so that one person can vote nay
 		let threshold = m - 1;
 
 		// Add previous proposals
 		let mut last_hash = T::Hash::default();
 		for i in 0..p {
-			if let Some(deposit) = T::ProposalDeposit::get_deposit(i) {
-				T::Currency::mint_into(&proposer, deposit)?;
-			}
+			T::Consideration::ensure_successful(&proposer, i);
 			// Proposals should be different so that different proposal hashes are generated
 			let proposal: T::Proposal =
 				SystemCall::<T>::remark { remark: id_to_remark_data(i, b as usize) }.into();
@@ -395,18 +380,13 @@ mod benchmarks {
 			T::MaxMembers::get(),
 		)?;
 
-		let ed = T::Currency::minimum_balance();
-		T::Currency::mint_into(&proposer, ed)?;
-
 		// Threshold is total members so that one nay will disapprove the vote
 		let threshold = m;
 
 		// Add previous proposals
 		let mut last_hash = T::Hash::default();
 		for i in 0..p {
-			if let Some(deposit) = T::ProposalDeposit::get_deposit(i) {
-				T::Currency::mint_into(&proposer, deposit)?;
-			}
+			T::Consideration::ensure_successful(&proposer, i);
 			// Proposals should be different so that different proposal hashes are generated
 			let proposal: T::Proposal =
 				SystemCall::<T>::remark { remark: id_to_remark_data(i, bytes as usize) }.into();
@@ -488,18 +468,13 @@ mod benchmarks {
 			T::MaxMembers::get(),
 		)?;
 
-		let ed = T::Currency::minimum_balance();
-		T::Currency::mint_into(&caller, ed)?;
-
 		// Threshold is 2 so any two ayes will approve the vote
 		let threshold = 2;
 
 		// Add previous proposals
 		let mut last_hash = T::Hash::default();
 		for i in 0..p {
-			if let Some(deposit) = T::ProposalDeposit::get_deposit(i) {
-				T::Currency::mint_into(&caller, deposit)?;
-			}
+			T::Consideration::ensure_successful(&caller, i);
 			// Proposals should be different so that different proposal hashes are generated
 			let proposal: T::Proposal =
 				SystemCall::<T>::remark { remark: id_to_remark_data(i, b as usize) }.into();
@@ -588,18 +563,13 @@ mod benchmarks {
 			T::MaxMembers::get(),
 		)?;
 
-		let ed = T::Currency::minimum_balance();
-		T::Currency::mint_into(&caller, ed)?;
-
 		// Threshold is one less than total members so that two nays will disapprove the vote
 		let threshold = m - 1;
 
 		// Add proposals
 		let mut last_hash = T::Hash::default();
 		for i in 0..p {
-			if let Some(deposit) = T::ProposalDeposit::get_deposit(i) {
-				T::Currency::mint_into(&caller, deposit)?;
-			}
+			T::Consideration::ensure_successful(&caller, i);
 			// Proposals should be different so that different proposal hashes are generated
 			let proposal: T::Proposal =
 				SystemCall::<T>::remark { remark: id_to_remark_data(i, bytes as usize) }.into();
@@ -681,18 +651,13 @@ mod benchmarks {
 			T::MaxMembers::get(),
 		)?;
 
-		let ed = T::Currency::minimum_balance();
-		T::Currency::mint_into(&caller, ed)?;
-
 		// Threshold is two, so any two ayes will pass the vote
 		let threshold = 2;
 
 		// Add proposals
 		let mut last_hash = T::Hash::default();
 		for i in 0..p {
-			if let Some(deposit) = T::ProposalDeposit::get_deposit(i) {
-				T::Currency::mint_into(&caller, deposit)?;
-			}
+			T::Consideration::ensure_successful(&caller, i);
 			// Proposals should be different so that different proposal hashes are generated
 			let proposal: T::Proposal =
 				SystemCall::<T>::remark { remark: id_to_remark_data(i, b as usize) }.into();
@@ -762,18 +727,13 @@ mod benchmarks {
 			T::MaxMembers::get(),
 		)?;
 
-		let ed = T::Currency::minimum_balance();
-		T::Currency::mint_into(&caller, ed)?;
-
 		// Threshold is one less than total members so that two nays will disapprove the vote
 		let threshold = m - 1;
 
 		// Add proposals
 		let mut last_hash = T::Hash::default();
 		for i in 0..p {
-			if let Some(deposit) = T::ProposalDeposit::get_deposit(i) {
-				T::Currency::mint_into(&caller, deposit)?;
-			}
+			T::Consideration::ensure_successful(&caller, i);
 			// Proposals should be different so that different proposal hashes are generated
 			let proposal: T::Proposal =
 				SystemCall::<T>::remark { remark: id_to_remark_data(i, b as usize) }.into();
@@ -828,16 +788,10 @@ mod benchmarks {
 		// Threshold is one less than total members so that two nays will disapprove the vote
 		let threshold = m - 1;
 
-		let ed = T::Currency::minimum_balance();
-		T::Currency::mint_into(&caller, ed)?;
-
 		// Add proposals
 		let mut last_hash = T::Hash::default();
 		for i in 0..p {
-			// mint assets for the deposit.
-			if let Some(deposit) = T::ProposalDeposit::get_deposit(i) {
-				T::Currency::mint_into(&caller, deposit)?;
-			}
+			T::Consideration::ensure_successful(&caller, i);
 
 			// Proposals should be different so that different proposal hashes are generated
 			let proposal: T::Proposal =
@@ -855,7 +809,7 @@ mod benchmarks {
 		assert_eq!(Proposals::<T, I>::get().len(), p as usize);
 
 		if d == 0 {
-			DepositOf::<T, I>::remove(last_hash);
+			CostOf::<T, I>::remove(last_hash);
 		}
 
 		let origin =
@@ -867,23 +821,16 @@ mod benchmarks {
 		assert_eq!(Proposals::<T, I>::get().len(), (p - 1) as usize);
 		assert_last_event::<T, I>(Event::Killed { proposal_hash: last_hash }.into());
 		if d != 0 {
-			if let Some(deposit) = T::ProposalDeposit::get_deposit(p - 1) {
-				assert_has_event::<T, I>(
-					Event::ProposalDepositSlashed {
-						proposal_hash: last_hash,
-						who: caller,
-						amount: deposit,
-					}
-					.into(),
-				);
-			}
+			assert_has_event::<T, I>(
+				Event::ProposalCostBurned { proposal_hash: last_hash, who: caller }.into(),
+			);
 		}
 		Ok(())
 	}
 
 	// d: `0` - if deposit is not present and `1` otherwise.
 	#[benchmark]
-	fn release_proposal_deposit(d: Linear<0, 1>) -> Result<(), BenchmarkError> {
+	fn release_proposal_cost(d: Linear<0, 1>) -> Result<(), BenchmarkError> {
 		let m = 3;
 		let p = T::MaxProposals::get();
 		let b = MAX_BYTES;
@@ -904,17 +851,11 @@ mod benchmarks {
 			T::MaxMembers::get(),
 		)?;
 
-		let ed = T::Currency::minimum_balance();
-		T::Currency::mint_into(&caller, ed)?;
-
 		// Add proposals
 		let threshold = 2;
 		let mut last_hash = T::Hash::default();
 		for i in 0..p {
-			// mint assets for the deposit.
-			if let Some(deposit) = T::ProposalDeposit::get_deposit(i) {
-				T::Currency::mint_into(&caller, deposit)?;
-			}
+			T::Consideration::ensure_successful(&caller, i);
 
 			// Proposals should be different so that different proposal hashes are generated
 			let proposal: T::Proposal =
@@ -932,7 +873,7 @@ mod benchmarks {
 		assert_eq!(Proposals::<T, I>::get().len(), p as usize);
 
 		if d == 0 {
-			DepositOf::<T, I>::remove(last_hash);
+			CostOf::<T, I>::remove(last_hash);
 		}
 
 		assert_eq!(Proposals::<T, I>::get().len(), p as usize);
@@ -942,18 +883,11 @@ mod benchmarks {
 		#[extrinsic_call]
 		_(SystemOrigin::Signed(caller.clone()), last_hash);
 
-		assert_eq!(DepositOf::<T, I>::get(last_hash), None);
+		assert_eq!(CostOf::<T, I>::get(last_hash), None);
 		if d != 0 {
-			if let Some(deposit) = T::ProposalDeposit::get_deposit(p - 1) {
-				assert_last_event::<T, I>(
-					Event::ProposalDepositReleased {
-						proposal_hash: last_hash,
-						who: caller,
-						amount: deposit,
-					}
-					.into(),
-				);
-			}
+			assert_last_event::<T, I>(
+				Event::ProposalCostReleased { proposal_hash: last_hash, who: caller }.into(),
+			);
 		}
 		Ok(())
 	}

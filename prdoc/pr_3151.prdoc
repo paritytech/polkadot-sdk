@@ -16,4 +16,13 @@ doc:
 
 crates:
   - name: pallet-collective
+    bump: major
+  - name: frame-support
+    bump: major
+  - name: collectives-westend-runtime
+    bump: minor
+  - name: kitchensink-runtime
+    bump: minor
+  - name: pallet-alliance
+    bump: patch
 
