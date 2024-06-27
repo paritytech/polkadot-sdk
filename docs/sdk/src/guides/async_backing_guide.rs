@@ -82,7 +82,7 @@
 //! 	..
 //! }
 //! ```
-//! 
+//!
 //! 5. Configure `pallet_aura` in the runtime.
 //!
 //! - Set `AllowMultipleBlocksPerSlot` to `false` (don't worry, we will set it to `true` when we
@@ -99,9 +99,10 @@
 //! }
 //! ```
 //!
-//! 6. Update `sp_consensus_aura::AuraApi::slot_duration` in `sp_api::impl_runtime_apis` to match the constant `SLOT_DURATION`
+//! 6. Update `sp_consensus_aura::AuraApi::slot_duration` in `sp_api::impl_runtime_apis` to match
+//!    the constant `SLOT_DURATION`
 #![doc = docify::embed!("../../templates/parachain/runtime/src/apis.rs", impl_slot_duration)]
-//! 
+//!
 //! 7. Implement the `AuraUnincludedSegmentApi`, which allows the collator client to query its
 //!    runtime to determine whether it should author a block.
 //!
@@ -251,4 +252,3 @@
 
 #![deny(rustdoc::broken_intra_doc_links)]
 #![deny(rustdoc::private_intra_doc_links)]
-
