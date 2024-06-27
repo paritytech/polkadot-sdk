@@ -30,9 +30,9 @@ crates:
   - name: frame-support
     bump: major
   - name: collectives-westend-runtime
-    bump: minor
+    bump: major
   - name: kitchensink-runtime
-    bump: minor
+    bump: major
   - name: pallet-alliance
     bump: patch
   - name: pallet-preimage
