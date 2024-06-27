@@ -1101,10 +1101,11 @@ where
 		)
 		.map_err(AdvertisementError::Invalid)?;
 
-	if per_relay_parent
-		.collations
-		.is_collations_limit_reached(relay_parent_mode, para_id)
-	{
+	if per_relay_parent.collations.is_collations_limit_reached(
+		relay_parent_mode,
+		para_id,
+		&state.peer_data,
+	) {
 		return Err(AdvertisementError::SecondedLimitReached)
 	}
 
@@ -1196,7 +1197,7 @@ where
 		});
 
 	let collations = &mut per_relay_parent.collations;
-	if collations.is_collations_limit_reached(relay_parent_mode, para_id) {
+	if collations.is_collations_limit_reached(relay_parent_mode, para_id, &state.peer_data) {
 		gum::trace!(
 			target: LOG_TARGET,
 			peer_id = ?peer_id,

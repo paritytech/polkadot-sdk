@@ -28,7 +28,7 @@
 //!    └─▶Advertised ─▶ Pending ─▶ Fetched ─▶ Validated
 
 use std::{
-	collections::{BTreeMap, VecDeque},
+	collections::{BTreeMap, HashMap, HashSet, VecDeque},
 	future::Future,
 	pin::Pin,
 	task::Poll,
@@ -53,7 +53,7 @@ use tokio_util::sync::CancellationToken;
 
 use crate::{error::SecondingError, LOG_TARGET};
 
-use super::GroupAssignments;
+use super::{GroupAssignments, PeerData};
 
 /// Candidate supplied with a para head it's built on top of.
 #[derive(Debug, Copy, Clone, Hash, Eq, PartialEq)]
@@ -316,6 +316,7 @@ impl Collations {
 		&self,
 		relay_parent_mode: ProspectiveParachainsMode,
 		para_id: ParaId,
+		peer_data: &HashMap<PeerId, PeerData>,
 	) -> bool {
 		let seconded_limit =
 			if let ProspectiveParachainsMode::Enabled { max_candidate_depth, .. } =
@@ -326,9 +327,24 @@ impl Collations {
 				1
 			};
 
+		// All collators in `Collating` state for `para_id` we know about
+		let collators_for_para = peer_data
+			.iter()
+			.filter(|(_, data)| data.collating_para() == Some(para_id))
+			.filter_map(|(_, data)| data.collator_id())
+			.collect::<HashSet<_>>();
+
+		// If there is a pending fetch - count it
+		let pending_fetch = self
+			.fetching_from
+			.as_ref()
+			.map(|(collator_id, _)| if collators_for_para.contains(&collator_id) { 1 } else { 0 })
+			.unwrap_or(0);
+
+		// Successful fetches + a pending fetch < claim queue entries for `para_id`
 		let respected_per_para_limit =
 			self.claims_per_para.get(&para_id).copied().unwrap_or_default() >=
-				self.fetched_per_para.get(&para_id).copied().unwrap_or_default();
+				self.fetched_per_para.get(&para_id).copied().unwrap_or_default() + pending_fetch;
 
 		let respected_seconding_limit = self.seconded_count < seconded_limit;
 
@@ -337,6 +353,7 @@ impl Collations {
 			?para_id,
 			claims_per_para=?self.claims_per_para,
 			fetched_per_para=?self.fetched_per_para,
+			?pending_fetch,
 			?seconded_limit,
 			?respected_per_para_limit,
 			?respected_seconding_limit,
