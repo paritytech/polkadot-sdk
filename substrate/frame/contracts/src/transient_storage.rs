@@ -62,7 +62,7 @@ pub struct StorageMeter<T: Config> {
 
 impl<T: Config> StorageMeter<T> {
 	const STORAGE_FRACTION_DENOMINATOR: u32 = 16;
-
+	/// Create a new storage allocation meter.
 	pub fn new(memory_limit: u32) -> Self {
 		Self { root_meter: MeterEntry::new(memory_limit), ..Default::default() }
 	}
@@ -227,6 +227,7 @@ pub struct TransientStorage<T: Config> {
 }
 
 impl<T: Config> TransientStorage<T> {
+	/// Create new transient storage with the supplied memory limit.
 	pub fn new(memory_limit: u32) -> Self {
 		TransientStorage {
 			storage: Default::default(),
@@ -327,6 +328,7 @@ impl<T: Config> TransientStorage<T> {
 		self.meter.commit();
 	}
 
+	/// The storage allocation meter used for transaction metering.
 	#[cfg(any(test, feature = "runtime-benchmarks"))]
 	pub fn meter(&mut self) -> &mut StorageMeter<T> {
 		return &mut self.meter
@@ -343,15 +345,27 @@ impl<T: Config> TransientStorage<T> {
 #[cfg(test)]
 mod tests {
 
+	use core::u32::MAX;
+
 	use super::*;
 	use crate::{
 		tests::{Test, ALICE, BOB, CHARLIE},
 		Error,
 	};
 
+	fn allocation_size(
+		account: &AccountIdOf<Test>,
+		key: &Key<Test>,
+		value: Option<Vec<u8>>,
+	) -> u32 {
+		let mut storage: TransientStorage<Test> = TransientStorage::<Test>::new(MAX);
+		storage.write(account, key, value, false).expect("Could not write to storage.");
+		storage.meter().current_amount()
+	}
+
 	#[test]
 	fn read_write_works() {
-		let mut storage = TransientStorage::<Test>::new(2048);
+		let mut storage: TransientStorage<Test> = TransientStorage::<Test>::new(2048);
 		assert_eq!(
 			storage.write(&ALICE, &Key::Fix([1; 32]), Some(vec![1]), false),
 			Ok(WriteOutcome::New)
@@ -553,9 +567,9 @@ mod tests {
 
 	#[test]
 	fn metering_transactions_works() {
-		// 192 bytes is the allocation overhead, plus 32 bytes for the account and 32 bytes for the
-		// key. The first transaction can use all the available storage.
-		let mut storage = TransientStorage::<Test>::new((4096 + 256) * 2);
+		let size = allocation_size(&ALICE, &Key::Fix([1; 32]), Some(vec![1u8; 4096]));
+
+		let mut storage = TransientStorage::<Test>::new(size * 2);
 		storage.start_transaction();
 		assert_eq!(
 			storage.write(&ALICE, &Key::Fix([1; 32]), Some(vec![1u8; 4096]), false),
@@ -573,7 +587,8 @@ mod tests {
 
 	#[test]
 	fn metering_nested_transactions_works() {
-		let mut storage = TransientStorage::<Test>::new((4096 + 256) * 3);
+		let size = allocation_size(&ALICE, &Key::Fix([1; 32]), Some(vec![1u8; 4096]));
+		let mut storage = TransientStorage::<Test>::new(size * 3);
 
 		storage.start_transaction();
 		assert_eq!(
@@ -591,7 +606,8 @@ mod tests {
 
 	#[test]
 	fn metering_transaction_fails() {
-		let mut storage = TransientStorage::<Test>::new(4096);
+		let size = allocation_size(&ALICE, &Key::Fix([1; 32]), Some(vec![1u8; 4096]));
+		let mut storage = TransientStorage::<Test>::new(size - 1);
 		storage.start_transaction();
 		assert_eq!(
 			storage.write(&ALICE, &Key::Fix([1; 32]), Some(vec![1u8; 4096]), false),
@@ -603,7 +619,8 @@ mod tests {
 
 	#[test]
 	fn metering_nested_transactions_fails() {
-		let mut storage = TransientStorage::<Test>::new((4096 + 256) * 2);
+		let size = allocation_size(&ALICE, &Key::Fix([1; 32]), Some(vec![1u8; 4096]));
+		let mut storage = TransientStorage::<Test>::new(size * 2);
 
 		storage.start_transaction();
 		assert_eq!(
@@ -621,7 +638,8 @@ mod tests {
 
 	#[test]
 	fn metering_nested_transaction_with_rollback_works() {
-		let mut storage = TransientStorage::<Test>::new((4096 + 256) * 2);
+		let size = allocation_size(&ALICE, &Key::Fix([1; 32]), Some(vec![1u8; 4096]));
+		let mut storage = TransientStorage::<Test>::new(size * 2);
 
 		storage.start_transaction();
 		let limit = storage.meter.current_limit();
@@ -643,7 +661,8 @@ mod tests {
 
 	#[test]
 	fn metering_with_rollback_works() {
-		let mut storage = TransientStorage::<Test>::new((4096 + 256) * 5);
+		let size = allocation_size(&ALICE, &Key::Fix([1; 32]), Some(vec![1u8; 4096]));
+		let mut storage = TransientStorage::<Test>::new(size * 5);
 
 		storage.start_transaction();
 		assert_eq!(

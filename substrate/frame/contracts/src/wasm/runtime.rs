@@ -199,15 +199,15 @@ pub enum RuntimeCosts {
 	/// Weight of calling `seal_take_storage` for the given size.
 	TakeStorage(u32),
 	/// Weight of calling `seal_set_transient_storage`.
-	SetTransientStorage,
+	SetTransientStorage { old_bytes: u32, new_bytes: u32 },
 	/// Weight of calling `seal_clear_transient_storage` per cleared byte.
-	ClearTransientStorage,
+	ClearTransientStorage(u32),
 	/// Weight of calling `seal_contains_transient_storage` per byte of the checked item.
-	ContainsTransientStorage,
+	ContainsTransientStorage(u32),
 	/// Weight of calling `seal_get_transient_storage` with the specified size in storage.
-	GetTransientStorage,
+	GetTransientStorage(u32),
 	/// Weight of calling `seal_take_transient_storage` for the given size.
-	TakeTransientStorage,
+	TakeTransientStorage(u32),
 	/// Weight of calling `seal_transfer`.
 	Transfer,
 	/// Base weight of calling `seal_call`.
@@ -254,10 +254,17 @@ pub enum RuntimeCosts {
 	UnlockDelegateDependency,
 }
 
-macro_rules! cost_rollback {
-	// cost_rollback!(name, a, b, c) -> T::WeightInfo::name(a, b, c).saturating_add(T::WeightInfo::journal_rollback())
+macro_rules! cost_write {
+	// cost_rollback!(name, a, b, c) -> T::WeightInfo::name(a, b, c).saturating_add(T::WeightInfo::rollback_transient_storage()).saturating_add(T::WeightInfo::set_transient_storage_full().saturating_sub(T::WeightInfo::set_transient_storage_empty())
 	($name:ident $(, $arg:expr )*) => {
-		(T::WeightInfo::$name($( $arg ),*).saturating_add(T::WeightInfo::rollback_journal()))
+		(T::WeightInfo::$name($( $arg ),*).saturating_add(T::WeightInfo::rollback_transient_storage()).saturating_add(T::WeightInfo::set_transient_storage_full().saturating_sub(T::WeightInfo::set_transient_storage_empty())))
+	};
+}
+
+macro_rules! cost_read {
+	// cost_rollback!(name, a, b, c) -> T::WeightInfo::name(a, b, c).saturating_add(T::WeightInfo::get_transient_storage_full().saturating_sub(T::WeightInfo::get_transient_storage_empty())
+	($name:ident $(, $arg:expr )*) => {
+		(T::WeightInfo::$name($( $arg ),*).saturating_add(T::WeightInfo::get_transient_storage_full().saturating_sub(T::WeightInfo::get_transient_storage_empty())))
 	};
 }
 
@@ -312,11 +319,12 @@ impl<T: Config> Token<T> for RuntimeCosts {
 			ContainsStorage(len) => T::WeightInfo::seal_contains_storage(len),
 			GetStorage(len) => T::WeightInfo::seal_get_storage(len),
 			TakeStorage(len) => T::WeightInfo::seal_take_storage(len),
-			SetTransientStorage => cost_rollback!(seal_set_transient_storage),
-			ClearTransientStorage => cost_rollback!(seal_clear_transient_storage),
-			ContainsTransientStorage => T::WeightInfo::seal_contains_transient_storage(),
-			GetTransientStorage => T::WeightInfo::seal_get_transient_storage(),
-			TakeTransientStorage => cost_rollback!(seal_take_transient_storage),
+			SetTransientStorage { new_bytes, old_bytes } =>
+				cost_write!(seal_set_transient_storage, new_bytes, old_bytes),
+			ClearTransientStorage(len) => cost_write!(seal_clear_transient_storage, len),
+			ContainsTransientStorage(len) => cost_read!(seal_contains_transient_storage, len),
+			GetTransientStorage(len) => cost_read!(seal_get_transient_storage, len),
+			TakeTransientStorage(len) => cost_write!(seal_take_transient_storage, len),
 			Transfer => T::WeightInfo::seal_transfer(),
 			CallBase => T::WeightInfo::seal_call(0, 0),
 			DelegateCallBase => T::WeightInfo::seal_delegate_call(),
@@ -813,7 +821,7 @@ impl<'a, E: Ext + 'a> Runtime<'a, E> {
 		let key = self.decode_key(memory, key_type, key_ptr)?;
 		let outcome = self.ext.get_storage_size(&key);
 
-		self.adjust_gas(charged, RuntimeCosts::ClearStorage(outcome.unwrap_or(0)));
+		self.adjust_gas(charged, RuntimeCosts::ContainsStorage(outcome.unwrap_or(0)));
 		Ok(outcome.unwrap_or(SENTINEL))
 	}
 
@@ -826,13 +834,23 @@ impl<'a, E: Ext + 'a> Runtime<'a, E> {
 		value_len: u32,
 	) -> Result<u32, TrapReason> {
 		let max_size = self.ext.max_value_size();
-		self.charge_gas(RuntimeCosts::SetTransientStorage)?;
+		let charged = self.charge_gas(RuntimeCosts::SetTransientStorage {
+			new_bytes: value_len,
+			old_bytes: max_size,
+		})?;
 		if value_len > max_size {
 			return Err(Error::<E::T>::ValueTooLarge.into())
 		}
 		let key = self.decode_key(memory, key_type, key_ptr)?;
 		let value = Some(self.read_sandbox_memory(memory, value_ptr, value_len)?);
 		let write_outcome = self.ext.set_transient_storage(&key, value, false)?;
+		self.adjust_gas(
+			charged,
+			RuntimeCosts::SetTransientStorage {
+				new_bytes: value_len,
+				old_bytes: write_outcome.old_len(),
+			},
+		);
 		Ok(write_outcome.old_len_with_sentinel())
 	}
 
@@ -842,9 +860,12 @@ impl<'a, E: Ext + 'a> Runtime<'a, E> {
 		key_type: KeyType,
 		key_ptr: u32,
 	) -> Result<u32, TrapReason> {
-		self.charge_gas(RuntimeCosts::ClearTransientStorage)?;
+		let charged =
+			self.charge_gas(RuntimeCosts::ClearTransientStorage(self.ext.max_value_size()))?;
 		let key = self.decode_key(memory, key_type, key_ptr)?;
 		let outcome = self.ext.set_transient_storage(&key, None, false)?;
+
+		self.adjust_gas(charged, RuntimeCosts::ClearTransientStorage(outcome.old_len()));
 		Ok(outcome.old_len_with_sentinel())
 	}
 
@@ -856,11 +877,13 @@ impl<'a, E: Ext + 'a> Runtime<'a, E> {
 		out_ptr: u32,
 		out_len_ptr: u32,
 	) -> Result<ReturnErrorCode, TrapReason> {
-		self.charge_gas(RuntimeCosts::GetTransientStorage)?;
+		let charged =
+			self.charge_gas(RuntimeCosts::GetTransientStorage(self.ext.max_value_size()))?;
 		let key = self.decode_key(memory, key_type, key_ptr)?;
 		let outcome = self.ext.get_transient_storage(&key);
 
 		if let Some(value) = outcome {
+			self.adjust_gas(charged, RuntimeCosts::GetTransientStorage(value.len() as u32));
 			self.write_sandbox_output(
 				memory,
 				out_ptr,
@@ -871,6 +894,7 @@ impl<'a, E: Ext + 'a> Runtime<'a, E> {
 			)?;
 			Ok(ReturnErrorCode::Success)
 		} else {
+			self.adjust_gas(charged, RuntimeCosts::GetTransientStorage(0));
 			Ok(ReturnErrorCode::KeyNotFound)
 		}
 	}
@@ -881,9 +905,12 @@ impl<'a, E: Ext + 'a> Runtime<'a, E> {
 		key_type: KeyType,
 		key_ptr: u32,
 	) -> Result<u32, TrapReason> {
-		self.charge_gas(RuntimeCosts::ContainsTransientStorage)?;
+		let charged =
+			self.charge_gas(RuntimeCosts::ContainsTransientStorage(self.ext.max_value_size()))?;
 		let key = self.decode_key(memory, key_type, key_ptr)?;
 		let outcome = self.ext.get_transient_storage_size(&key);
+
+		self.adjust_gas(charged, RuntimeCosts::ContainsTransientStorage(outcome.unwrap_or(0)));
 		Ok(outcome.unwrap_or(SENTINEL))
 	}
 
@@ -895,11 +922,13 @@ impl<'a, E: Ext + 'a> Runtime<'a, E> {
 		out_ptr: u32,
 		out_len_ptr: u32,
 	) -> Result<ReturnErrorCode, TrapReason> {
-		self.charge_gas(RuntimeCosts::TakeTransientStorage)?;
+		let charged =
+			self.charge_gas(RuntimeCosts::TakeTransientStorage(self.ext.max_value_size()))?;
 		let key = self.decode_key(memory, key_type, key_ptr)?;
 		if let crate::storage::WriteOutcome::Taken(value) =
 			self.ext.set_transient_storage(&key, None, true)?
 		{
+			self.adjust_gas(charged, RuntimeCosts::TakeTransientStorage(value.len() as u32));
 			self.write_sandbox_output(
 				memory,
 				out_ptr,
@@ -910,6 +939,7 @@ impl<'a, E: Ext + 'a> Runtime<'a, E> {
 			)?;
 			Ok(ReturnErrorCode::Success)
 		} else {
+			self.adjust_gas(charged, RuntimeCosts::TakeTransientStorage(0));
 			Ok(ReturnErrorCode::KeyNotFound)
 		}
 	}
