@@ -26,6 +26,7 @@ use sp_runtime::traits::{Bounded, CheckedDiv, CheckedMul};
 
 use super::*;
 use crate::Pallet as Vesting;
+use super::{Vesting as VestingStorage};
 
 const SEED: u32 = 0;
 
@@ -291,7 +292,7 @@ benchmarks! {
 			"Vesting balance should equal sum locked of all schedules",
 		);
 		assert_eq!(
-			Vesting::<T>::vesting(&caller).unwrap().len(),
+			VestingStorage::<T>::get(&caller).unwrap().len(),
 			s as usize,
 			"There should be exactly max vesting schedules"
 		);
@@ -304,7 +305,7 @@ benchmarks! {
 		);
 		let expected_index = (s - 2) as usize;
 		assert_eq!(
-			Vesting::<T>::vesting(&caller).unwrap()[expected_index],
+			VestingStorage::<T>::get(&caller).unwrap()[expected_index],
 			expected_schedule
 		);
 		assert_eq!(
@@ -313,7 +314,7 @@ benchmarks! {
 			"Vesting balance should equal total locked of all schedules",
 		);
 		assert_eq!(
-			Vesting::<T>::vesting(&caller).unwrap().len(),
+			VestingStorage::<T>::get(&caller).unwrap().len(),
 			(s - 1) as usize,
 			"Schedule count should reduce by 1"
 		);
@@ -344,7 +345,7 @@ benchmarks! {
 			"Vesting balance should reflect that we are half way through all schedules duration",
 		);
 		assert_eq!(
-			Vesting::<T>::vesting(&caller).unwrap().len(),
+			VestingStorage::<T>::get(&caller).unwrap().len(),
 			s as usize,
 			"There should be exactly max vesting schedules"
 		);
@@ -359,12 +360,12 @@ benchmarks! {
 		);
 		let expected_index = (s - 2) as usize;
 		assert_eq!(
-			Vesting::<T>::vesting(&caller).unwrap()[expected_index],
+			VestingStorage::<T>::get(&caller).unwrap()[expected_index],
 			expected_schedule,
 			"New schedule is properly created and placed"
 		);
 		assert_eq!(
-			Vesting::<T>::vesting(&caller).unwrap()[expected_index],
+			VestingStorage::<T>::get(&caller).unwrap()[expected_index],
 			expected_schedule
 		);
 		assert_eq!(
@@ -373,7 +374,7 @@ benchmarks! {
 			"Vesting balance should equal half total locked of all schedules",
 		);
 		assert_eq!(
-			Vesting::<T>::vesting(&caller).unwrap().len(),
+			VestingStorage::<T>::get(&caller).unwrap().len(),
 			(s - 1) as usize,
 			"Schedule count should reduce by 1"
 		);
@@ -404,7 +405,7 @@ force_remove_vesting_schedule {
 	}: _(RawOrigin::Root, target_lookup, schedule_index)
 	verify {
 		assert_eq!(
-		Vesting::<T>::vesting(&target).unwrap().len(),
+		VestingStorage::<T>::get(&target).unwrap().len(),
 			schedule_index as usize,
 			"Schedule count should reduce by 1"
 		);
