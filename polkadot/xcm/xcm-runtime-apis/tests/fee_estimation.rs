@@ -16,11 +16,11 @@
 
 //! Tests for using both the XCM fee payment API and the dry-run API.
 
+use frame_support::sp_runtime::testing::H256;
 use frame_system::RawOrigin;
 use sp_api::ProvideRuntimeApi;
-use sp_runtime::testing::H256;
 use xcm::prelude::*;
-use xcm_fee_payment_runtime_api::{dry_run::DryRunApi, fees::XcmPaymentApi};
+use xcm_runtime_apis::{dry_run::DryRunApi, fees::XcmPaymentApi};
 
 mod mock;
 use mock::{
