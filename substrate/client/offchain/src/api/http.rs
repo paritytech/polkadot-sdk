@@ -27,12 +27,14 @@
 //! (i.e.: the socket should continue being processed) in the background even if the runtime isn't
 //! actively calling any function.
 
+use hyperv14 as hyper;
+
 use crate::api::timestamp;
 use bytes::buf::{Buf, Reader};
 use fnv::FnvHashMap;
 use futures::{channel::mpsc, future, prelude::*};
-use hyper::{client, Body, Client as HyperClient};
 use hyper_rustls::{HttpsConnector, HttpsConnectorBuilder};
+use hyper::{client, Body, Client as HyperClient};
 use once_cell::sync::Lazy;
 use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedReceiver, TracingUnboundedSender};
 use sp_core::offchain::{HttpError, HttpRequestId, HttpRequestStatus, Timestamp};
@@ -103,10 +105,10 @@ pub struct HttpApi {
 /// One active request within `HttpApi`.
 enum HttpApiRequest {
 	/// The request object is being constructed locally and not started yet.
-	NotDispatched(hyper::Request<hyper::Body>, hyper::body::Sender),
+	NotDispatched(hyperv14::Request<hyper::Body>, hyper::body::Sender),
 	/// The request has been dispatched and we're in the process of sending out the body (if the
 	/// field is `Some`) or waiting for a response (if the field is `None`).
-	Dispatched(Option<hyper::body::Sender>),
+	Dispatched(Option<hyperv14::body::Sender>),
 	/// Received a response.
 	Response(HttpApiRequestRp),
 	/// A request has been dispatched but the worker notified us of an error. We report this
