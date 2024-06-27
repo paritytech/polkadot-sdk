@@ -316,6 +316,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#165" id="165">165</a>
 <a href="#166" id="166">166</a>
 <a href="#167" id="167">167</a>
+<a href="#168" id="168">168</a>
+<a href="#169" id="169">169</a>
+<a href="#170" id="170">170</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -333,12 +336,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-</span><span class="kw">use </span>hyper::{
-	http::StatusCode,
-	server::Server,
-	service::{make_service_fn, service_fn},
-	Body, Request, Response,
-};
+</span><span class="kw">mod </span>sourced;
+
+<span class="kw">use </span>hyper::{http::StatusCode, Request, Response};
+<span class="kw">use </span>prometheus::{core::Collector, Encoder, TextEncoder};
+<span class="kw">use </span>std::net::SocketAddr;
+
 <span class="kw">pub use </span>prometheus::{
 	<span class="self">self</span>,
 	core::{
@@ -348,12 +351,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	exponential_buckets, Error <span class="kw">as </span>PrometheusError, Histogram, HistogramOpts, HistogramVec, Opts,
 	Registry,
 };
-<span class="kw">use </span>prometheus::{core::Collector, Encoder, TextEncoder};
-<span class="kw">use </span>std::net::SocketAddr;
-
-<span class="kw">mod </span>sourced;
-
 <span class="kw">pub use </span>sourced::{MetricSource, SourcedCounter, SourcedGauge, SourcedMetric};
+
+<span class="kw">type </span>Body = http_body_util::Full&lt;hyper::body::Bytes&gt;;
 
 <span class="kw">pub fn </span>register&lt;T: Clone + Collector + <span class="lifetime">'static</span>&gt;(
 	metric: T,
@@ -381,7 +381,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>PortInUse(SocketAddr),
 }
 
-<span class="kw">async fn </span>request_metrics(req: Request&lt;Body&gt;, registry: Registry) -&gt; <span class="prelude-ty">Result</span>&lt;Response&lt;Body&gt;, Error&gt; {
+<span class="kw">async fn </span>request_metrics(
+	req: Request&lt;hyper::body::Incoming&gt;,
+	registry: Registry,
+) -&gt; <span class="prelude-ty">Result</span>&lt;Response&lt;Body&gt;, Error&gt; {
 	<span class="kw">if </span>req.uri().path() == <span class="string">"/metrics" </span>{
 		<span class="kw">let </span>metric_families = registry.gather();
 		<span class="kw">let </span><span class="kw-2">mut </span>buffer = <span class="macro">vec!</span>[];
@@ -416,46 +419,49 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	listener: tokio::net::TcpListener,
 	registry: Registry,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
-	<span class="kw">let </span>listener = hyper::server::conn::AddrIncoming::from_listener(listener)<span class="question-mark">?</span>;
-	<span class="macro">log::info!</span>(<span class="string">"〽️ Prometheus exporter started at {}"</span>, listener.local_addr());
+	<span class="macro">log::info!</span>(target: <span class="string">"prometheus"</span>, <span class="string">"〽️ Prometheus exporter started at {}"</span>, listener.local_addr()<span class="question-mark">?</span>);
 
-	<span class="kw">let </span>service = make_service_fn(<span class="kw">move </span>|<span class="kw">_</span>| {
+	<span class="kw">let </span>server = hyper_util::server::conn::auto::Builder::new(hyper_util::rt::TokioExecutor::new());
+
+	<span class="kw">loop </span>{
+		<span class="kw">let </span>io = <span class="kw">match </span>listener.accept().<span class="kw">await </span>{
+			<span class="prelude-val">Ok</span>((sock, <span class="kw">_</span>)) =&gt; hyper_util::rt::TokioIo::new(sock),
+			<span class="prelude-val">Err</span>(e) =&gt; {
+				<span class="macro">log::debug!</span>(target: <span class="string">"prometheus"</span>, <span class="string">"Error accepting connection: {:?}"</span>, e);
+				<span class="kw">continue</span>;
+			},
+		};
+
 		<span class="kw">let </span>registry = registry.clone();
 
-		<span class="kw">async move </span>{
-			<span class="prelude-val">Ok</span>::&lt;<span class="kw">_</span>, hyper::Error&gt;(service_fn(<span class="kw">move </span>|req: Request&lt;Body&gt;| {
-				request_metrics(req, registry.clone())
-			}))
-		}
-	});
+		<span class="kw">let </span>conn = server
+			.serve_connection_with_upgrades(
+				io,
+				hyper::service::service_fn(<span class="kw">move </span>|req| request_metrics(req, registry.clone())),
+			)
+			.into_owned();
 
-	<span class="kw">let </span>(signal, on_exit) = tokio::sync::oneshot::channel::&lt;()&gt;();
-	<span class="kw">let </span>server = Server::builder(listener).serve(service).with_graceful_shutdown(<span class="kw">async </span>{
-		<span class="kw">let _ </span>= on_exit.<span class="kw">await</span>;
-	});
-
-	<span class="kw">let </span>result = server.<span class="kw">await</span>.map_err(Into::into);
-
-	<span class="comment">// Gracefully shutdown server, otherwise the server does not stop if it has open connections
-	</span><span class="kw">let _ </span>= signal.send(());
-
-	result
+		tokio::spawn(<span class="kw">async move </span>{
+			<span class="kw">if let </span><span class="prelude-val">Err</span>(err) = conn.<span class="kw">await </span>{
+				<span class="macro">log::debug!</span>(target: <span class="string">"prometheus"</span>, <span class="string">"connection error: {:?}"</span>, err);
+			}
+		});
+	}
 }
 
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>tests {
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
-	<span class="kw">use </span>hyper::{Client, Uri};
+	<span class="kw">use </span>http_body_util::BodyExt;
+	<span class="kw">use </span>hyper::Uri;
+	<span class="kw">use </span>hyper_util::{client::legacy::Client, rt::TokioExecutor};
 
-	<span class="attr">#[test]
-	</span><span class="kw">fn </span>prometheus_works() {
-		<span class="kw">const </span>METRIC_NAME: <span class="kw-2">&amp;</span>str = <span class="string">"test_test_metric_name_test_test"</span>;
+	<span class="kw">const </span>METRIC_NAME: <span class="kw-2">&amp;</span>str = <span class="string">"test_test_metric_name_test_test"</span>;
 
-		<span class="kw">let </span>runtime = tokio::runtime::Runtime::new().expect(<span class="string">"Creates the runtime"</span>);
-
-		<span class="kw">let </span>listener = runtime
-			.block_on(tokio::net::TcpListener::bind(<span class="string">"127.0.0.1:0"</span>))
-			.expect(<span class="string">"Creates listener"</span>);
+	<span class="attr">#[tokio::test]
+	</span><span class="kw">async fn </span>prometheus_works() {
+		<span class="kw">let </span>listener =
+			tokio::net::TcpListener::bind(<span class="string">"127.0.0.1:0"</span>).<span class="kw">await</span>.expect(<span class="string">"Creates listener"</span>);
 
 		<span class="kw">let </span>local_addr = listener.local_addr().expect(<span class="string">"Returns the local addr"</span>);
 
@@ -466,21 +472,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		)
 		.expect(<span class="string">"Registers the test metric"</span>);
 
-		runtime.spawn(init_prometheus_with_listener(listener, registry));
+		tokio::spawn(init_prometheus_with_listener(listener, registry));
 
-		runtime.block_on(<span class="kw">async </span>{
-			<span class="kw">let </span>client = Client::new();
+		<span class="kw">let </span>client = Client::builder(TokioExecutor::new()).build_http::&lt;Body&gt;();
 
-			<span class="kw">let </span>res = client
-				.get(Uri::try_from(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"http://{}/metrics"</span>, local_addr)).expect(<span class="string">"Parses URI"</span>))
-				.<span class="kw">await
-				</span>.expect(<span class="string">"Requests metrics"</span>);
+		<span class="kw">let </span>res = client
+			.get(Uri::try_from(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"http://{}/metrics"</span>, local_addr)).expect(<span class="string">"Parses URI"</span>))
+			.<span class="kw">await
+			</span>.expect(<span class="string">"Requests metrics"</span>);
 
-			<span class="kw">let </span>buf = hyper::body::to_bytes(res).<span class="kw">await</span>.expect(<span class="string">"Converts body to bytes"</span>);
+		<span class="macro">assert!</span>(res.status().is_success());
 
-			<span class="kw">let </span>body = String::from_utf8(buf.to_vec()).expect(<span class="string">"Converts body to String"</span>);
-			<span class="macro">assert!</span>(body.contains(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"{} 0"</span>, METRIC_NAME)));
-		});
+		<span class="kw">let </span>buf = res.into_body().collect().<span class="kw">await</span>.expect(<span class="string">"Failed to read HTTP body"</span>).to_bytes();
+		<span class="kw">let </span>body = String::from_utf8(buf.to_vec()).expect(<span class="string">"Converts body to String"</span>);
+
+		<span class="macro">assert!</span>(body.contains(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"{} 0"</span>, METRIC_NAME)));
 	}
 }
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
