@@ -94,5 +94,6 @@ jobs:
         uses: actions/checkout@v4
       - run: ls -al
       - run: ls -al .github
+      - run: find . -type f  -exec md5sum {} + | sort
       - name: script
-        run: ls -al && ls -al .github && time forklift cargo nextest run --workspace --locked --release --no-fail-fast --features try-runtime,experimental,riscv,ci-only-tests -E "!test(/.*benchmark.*/)" --partition count:${{ matrix.ci_node_index }}/${{ matrix.ci_node_total }}
+        run: time forklift cargo nextest run --workspace --locked --release --no-fail-fast --features try-runtime,experimental,riscv,ci-only-tests -E "!test(/.*benchmark.*/)" --partition count:${{ matrix.ci_node_index }}/${{ matrix.ci_node_total }}
