@@ -879,19 +879,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#728" id="728">728</a>
 <a href="#729" id="729">729</a>
 <a href="#730" id="730">730</a>
-<a href="#731" id="731">731</a>
-<a href="#732" id="732">732</a>
-<a href="#733" id="733">733</a>
-<a href="#734" id="734">734</a>
-<a href="#735" id="735">735</a>
-<a href="#736" id="736">736</a>
-<a href="#737" id="737">737</a>
-<a href="#738" id="738">738</a>
-<a href="#739" id="739">739</a>
-<a href="#740" id="740">740</a>
-<a href="#741" id="741">741</a>
-<a href="#742" id="742">742</a>
-<a href="#743" id="743">743</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1039,7 +1026,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Convert the recording to a [`StorageProof`].
 	///
-	/// In contrast to [`Self::drain_storage_proof`] this doesn't consumes and doesn't clears the
+	/// In contrast to [`Self::drain_storage_proof`] this doesn't consume and doesn't clear the
 	/// recordings.
 	///
 	/// Returns the [`StorageProof`].
@@ -1323,7 +1310,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>tests {
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
-	<span class="kw">use </span>trie_db::{Trie, TrieDBBuilder, TrieDBMutBuilder, TrieHash, TrieMut, TrieRecorder};
+	<span class="kw">use </span><span class="kw">crate</span>::tests::create_trie;
+	<span class="kw">use </span>trie_db::{Trie, TrieDBBuilder, TrieRecorder};
 
 	<span class="kw">type </span>MemoryDB = <span class="kw">crate</span>::MemoryDB&lt;sp_core::Blake2Hasher&gt;;
 	<span class="kw">type </span>Layout = <span class="kw">crate</span>::LayoutV1&lt;sp_core::Blake2Hasher&gt;;
@@ -1332,23 +1320,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">const </span>TEST_DATA: <span class="kw-2">&amp;</span>[(<span class="kw-2">&amp;</span>[u8], <span class="kw-2">&amp;</span>[u8])] =
 		<span class="kw-2">&amp;</span>[(<span class="string">b"key1"</span>, <span class="kw-2">&amp;</span>[<span class="number">1</span>; <span class="number">64</span>]), (<span class="string">b"key2"</span>, <span class="kw-2">&amp;</span>[<span class="number">2</span>; <span class="number">64</span>]), (<span class="string">b"key3"</span>, <span class="kw-2">&amp;</span>[<span class="number">3</span>; <span class="number">64</span>]), (<span class="string">b"key4"</span>, <span class="kw-2">&amp;</span>[<span class="number">4</span>; <span class="number">64</span>])];
 
-	<span class="kw">fn </span>create_trie() -&gt; (MemoryDB, TrieHash&lt;Layout&gt;) {
-		<span class="kw">let </span><span class="kw-2">mut </span>db = MemoryDB::default();
-		<span class="kw">let </span><span class="kw-2">mut </span>root = Default::default();
-
-		{
-			<span class="kw">let </span><span class="kw-2">mut </span>trie = TrieDBMutBuilder::&lt;Layout&gt;::new(<span class="kw-2">&amp;mut </span>db, <span class="kw-2">&amp;mut </span>root).build();
-			<span class="kw">for </span>(k, v) <span class="kw">in </span>TEST_DATA {
-				trie.insert(k, v).expect(<span class="string">"Inserts data"</span>);
-			}
-		}
-
-		(db, root)
-	}
-
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>recorder_works() {
-		<span class="kw">let </span>(db, root) = create_trie();
+		<span class="kw">let </span>(db, root) = create_trie::&lt;Layout&gt;(TEST_DATA);
 
 		<span class="kw">let </span>recorder = Recorder::default();
 
@@ -1392,7 +1366,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>recorder_transactions_rollback_work() {
-		<span class="kw">let </span>(db, root) = create_trie();
+		<span class="kw">let </span>(db, root) = create_trie::&lt;Layout&gt;(TEST_DATA);
 
 		<span class="kw">let </span>recorder = Recorder::default();
 		<span class="kw">let </span><span class="kw-2">mut </span>stats = <span class="macro">vec!</span>[RecorderStats::default()];
@@ -1441,7 +1415,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>recorder_transactions_commit_work() {
-		<span class="kw">let </span>(db, root) = create_trie();
+		<span class="kw">let </span>(db, root) = create_trie::&lt;Layout&gt;(TEST_DATA);
 
 		<span class="kw">let </span>recorder = Recorder::default();
 
@@ -1480,7 +1454,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>recorder_transactions_commit_and_rollback_work() {
-		<span class="kw">let </span>(db, root) = create_trie();
+		<span class="kw">let </span>(db, root) = create_trie::&lt;Layout&gt;(TEST_DATA);
 
 		<span class="kw">let </span>recorder = Recorder::default();
 
@@ -1539,7 +1513,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>recorder_transaction_accessed_keys_works() {
 		<span class="kw">let </span>key = TEST_DATA[<span class="number">0</span>].<span class="number">0</span>;
-		<span class="kw">let </span>(db, root) = create_trie();
+		<span class="kw">let </span>(db, root) = create_trie::&lt;Layout&gt;(TEST_DATA);
 
 		<span class="kw">let </span>recorder = Recorder::default();
 

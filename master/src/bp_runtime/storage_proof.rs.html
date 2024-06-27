@@ -392,35 +392,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#241" id="241">241</a>
 <a href="#242" id="242">242</a>
 <a href="#243" id="243">243</a>
-<a href="#244" id="244">244</a>
-<a href="#245" id="245">245</a>
-<a href="#246" id="246">246</a>
-<a href="#247" id="247">247</a>
-<a href="#248" id="248">248</a>
-<a href="#249" id="249">249</a>
-<a href="#250" id="250">250</a>
-<a href="#251" id="251">251</a>
-<a href="#252" id="252">252</a>
-<a href="#253" id="253">253</a>
-<a href="#254" id="254">254</a>
-<a href="#255" id="255">255</a>
-<a href="#256" id="256">256</a>
-<a href="#257" id="257">257</a>
-<a href="#258" id="258">258</a>
-<a href="#259" id="259">259</a>
-<a href="#260" id="260">260</a>
-<a href="#261" id="261">261</a>
-<a href="#262" id="262">262</a>
-<a href="#263" id="263">263</a>
-<a href="#264" id="264">264</a>
-<a href="#265" id="265">265</a>
-<a href="#266" id="266">266</a>
-<a href="#267" id="267">267</a>
-<a href="#268" id="268">268</a>
-<a href="#269" id="269">269</a>
-<a href="#270" id="270">270</a>
-<a href="#271" id="271">271</a>
-<a href="#272" id="272">272</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
@@ -444,14 +415,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>frame_support::PalletError;
 <span class="kw">use </span>hash_db::{HashDB, Hasher, EMPTY_PREFIX};
 <span class="kw">use </span>scale_info::TypeInfo;
-<span class="kw">use </span>sp_std::{boxed::Box, collections::btree_set::BTreeSet, vec::Vec};
+<span class="kw">use </span>sp_std::{boxed::Box, vec::Vec};
+<span class="kw">pub use </span>sp_trie::RawStorageProof;
 <span class="kw">use </span>sp_trie::{
-	read_trie_value, LayoutV1, MemoryDB, Recorder, StorageProof, Trie, TrieConfiguration,
+	accessed_nodes_tracker::{AccessedNodesTracker, Error <span class="kw">as </span>AccessedNodesTrackerError},
+	read_trie_value,
+	recorder_ext::RecorderExt,
+	LayoutV1, MemoryDB, Recorder, StorageProof, StorageProofError, Trie, TrieConfiguration,
 	TrieDBBuilder, TrieError, TrieHash,
 };
-
-<span class="doccomment">/// Raw storage proof type (just raw trie nodes).
-</span><span class="kw">pub type </span>RawStorageProof = Vec&lt;Vec&lt;u8&gt;&gt;;
 
 <span class="doccomment">/// Storage proof size requirements.
 ///
@@ -474,10 +446,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">where
 	</span>H: Hasher,
 {
-	proof_nodes_count: usize,
 	root: H::Out,
 	db: MemoryDB&lt;H&gt;,
-	recorder: Recorder&lt;LayoutV1&lt;H&gt;&gt;,
+	accessed_nodes_tracker: AccessedNodesTracker&lt;H::Out&gt;,
 }
 
 <span class="kw">impl</span>&lt;H&gt; StorageProofChecker&lt;H&gt;
@@ -488,52 +459,39 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// This returns an error if the given proof is invalid with respect to the given root.
 	</span><span class="kw">pub fn </span>new(root: H::Out, proof: RawStorageProof) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, Error&gt; {
-		<span class="comment">// 1. we don't want extra items in the storage proof
-		// 2. `StorageProof` is storing all trie nodes in the `BTreeSet`
-		//
-		// =&gt; someone could simply add duplicate items to the proof and we won't be
-		// able to detect that by just using `StorageProof`
-		//
-		// =&gt; let's check it when we are converting our "raw proof" into `StorageProof`
-		</span><span class="kw">let </span>proof_nodes_count = proof.len();
-		<span class="kw">let </span>proof = StorageProof::new(proof);
-		<span class="kw">if </span>proof_nodes_count != proof.iter_nodes().count() {
-			<span class="kw">return </span><span class="prelude-val">Err</span>(Error::DuplicateNodesInProof)
-		}
+		<span class="kw">let </span>proof = StorageProof::new_with_duplicate_nodes_check(proof)
+			.map_err(|e| Error::StorageProof(e.into()))<span class="question-mark">?</span>;
+
+		<span class="kw">let </span>recorder = AccessedNodesTracker::new(proof.len());
 
 		<span class="kw">let </span>db = proof.into_memory_db();
 		<span class="kw">if </span>!db.contains(<span class="kw-2">&amp;</span>root, EMPTY_PREFIX) {
 			<span class="kw">return </span><span class="prelude-val">Err</span>(Error::StorageRootMismatch)
 		}
 
-		<span class="kw">let </span>recorder = Recorder::default();
-		<span class="kw">let </span>checker = StorageProofChecker { proof_nodes_count, root, db, recorder };
-		<span class="prelude-val">Ok</span>(checker)
+		<span class="prelude-val">Ok</span>(StorageProofChecker { root, db, accessed_nodes_tracker: recorder })
 	}
 
 	<span class="doccomment">/// Returns error if the proof has some nodes that are left intact by previous `read_value`
 	/// calls.
-	</span><span class="kw">pub fn </span>ensure_no_unused_nodes(<span class="kw-2">mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
-		<span class="kw">let </span>visited_nodes = <span class="self">self
-			</span>.recorder
-			.drain()
-			.into_iter()
-			.map(|record| record.data)
-			.collect::&lt;BTreeSet&lt;<span class="kw">_</span>&gt;&gt;();
-		<span class="kw">let </span>visited_nodes_count = visited_nodes.len();
-		<span class="kw">if </span><span class="self">self</span>.proof_nodes_count == visited_nodes_count {
-			<span class="prelude-val">Ok</span>(())
-		} <span class="kw">else </span>{
-			<span class="prelude-val">Err</span>(Error::UnusedNodesInTheProof)
-		}
+	</span><span class="kw">pub fn </span>ensure_no_unused_nodes(<span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
+		<span class="self">self</span>.accessed_nodes_tracker
+			.ensure_no_unused_nodes()
+			.map_err(|e| Error::AccessedNodesTracker(e.into()))
 	}
 
 	<span class="doccomment">/// Reads a value from the available subset of storage. If the value cannot be read due to an
 	/// incomplete or otherwise invalid proof, this function returns an error.
 	</span><span class="kw">pub fn </span>read_value(<span class="kw-2">&amp;mut </span><span class="self">self</span>, key: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt;, Error&gt; {
 		<span class="comment">// LayoutV1 or LayoutV0 is identical for proof that only read values.
-		</span>read_trie_value::&lt;LayoutV1&lt;H&gt;, <span class="kw">_</span>&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>.db, <span class="kw-2">&amp;</span><span class="self">self</span>.root, key, <span class="prelude-val">Some</span>(<span class="kw-2">&amp;mut </span><span class="self">self</span>.recorder), <span class="prelude-val">None</span>)
-			.map_err(|<span class="kw">_</span>| Error::StorageValueUnavailable)
+		</span>read_trie_value::&lt;LayoutV1&lt;H&gt;, <span class="kw">_</span>&gt;(
+			<span class="kw-2">&amp;</span><span class="self">self</span>.db,
+			<span class="kw-2">&amp;</span><span class="self">self</span>.root,
+			key,
+			<span class="prelude-val">Some</span>(<span class="kw-2">&amp;mut </span><span class="self">self</span>.accessed_nodes_tracker),
+			<span class="prelude-val">None</span>,
+		)
+		.map_err(|<span class="kw">_</span>| Error::StorageValueUnavailable)
 	}
 
 	<span class="doccomment">/// Reads and decodes a value from the available subset of storage. If the value cannot be read
@@ -568,10 +526,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Storage proof related errors.
 </span><span class="attr">#[derive(Encode, Decode, Clone, Eq, PartialEq, PalletError, Debug, TypeInfo)]
 </span><span class="kw">pub enum </span>Error {
-	<span class="doccomment">/// Duplicate trie nodes are found in the proof.
-	</span>DuplicateNodesInProof,
-	<span class="doccomment">/// Unused trie nodes are found in the proof.
-	</span>UnusedNodesInTheProof,
+	<span class="doccomment">/// Error generated by the `AccessedNodesTrackerError`.
+	</span>AccessedNodesTracker(StrippableError&lt;AccessedNodesTrackerError&gt;),
+	<span class="doccomment">/// Error originating in the `storage_proof` module.
+	</span>StorageProof(StrippableError&lt;StorageProofError&gt;),
 	<span class="doccomment">/// Expected storage root is missing from the proof.
 	</span>StorageRootMismatch,
 	<span class="doccomment">/// Unable to reach expected storage value using provided trie nodes.
@@ -625,15 +583,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		trie.get(<span class="kw-2">&amp;</span>key)<span class="question-mark">?</span>;
 	}
 
-	<span class="comment">// recorder may record the same trie node multiple times and we don't want duplicate nodes
-	// in our proofs =&gt; let's deduplicate it by collecting to the BTreeSet first
-	</span><span class="prelude-val">Ok</span>(recorder
-		.drain()
-		.into_iter()
-		.map(|n| n.data.to_vec())
-		.collect::&lt;BTreeSet&lt;<span class="kw">_</span>&gt;&gt;()
-		.into_iter()
-		.collect())
+	<span class="prelude-val">Ok</span>(recorder.into_raw_storage_proof())
 }
 
 <span class="attr">#[cfg(test)]
@@ -667,30 +617,22 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="attr">#[test]
-	</span><span class="kw">fn </span>proof_with_duplicate_items_is_rejected() {
-		<span class="kw">let </span>(root, <span class="kw-2">mut </span>proof) = craft_valid_storage_proof();
-		proof.push(proof.first().unwrap().clone());
-
-		<span class="macro">assert_eq!</span>(
-			StorageProofChecker::&lt;sp_core::Blake2Hasher&gt;::new(root, proof).map(drop),
-			<span class="prelude-val">Err</span>(Error::DuplicateNodesInProof),
-		);
-	}
-
-	<span class="attr">#[test]
 	</span><span class="kw">fn </span>proof_with_unused_items_is_rejected() {
 		<span class="kw">let </span>(root, proof) = craft_valid_storage_proof();
 
 		<span class="kw">let </span><span class="kw-2">mut </span>checker =
 			StorageProofChecker::&lt;sp_core::Blake2Hasher&gt;::new(root, proof.clone()).unwrap();
-		checker.read_value(<span class="string">b"key1"</span>).unwrap();
+		checker.read_value(<span class="string">b"key1"</span>).unwrap().unwrap();
 		checker.read_value(<span class="string">b"key2"</span>).unwrap();
 		checker.read_value(<span class="string">b"key4"</span>).unwrap();
 		checker.read_value(<span class="string">b"key22"</span>).unwrap();
 		<span class="macro">assert_eq!</span>(checker.ensure_no_unused_nodes(), <span class="prelude-val">Ok</span>(()));
 
 		<span class="kw">let </span>checker = StorageProofChecker::&lt;sp_core::Blake2Hasher&gt;::new(root, proof).unwrap();
-		<span class="macro">assert_eq!</span>(checker.ensure_no_unused_nodes(), <span class="prelude-val">Err</span>(Error::UnusedNodesInTheProof));
+		<span class="macro">assert_eq!</span>(
+			checker.ensure_no_unused_nodes(),
+			<span class="prelude-val">Err</span>(Error::AccessedNodesTracker(AccessedNodesTrackerError::UnusedNodes.into()))
+		);
 	}
 }
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>

@@ -642,8 +642,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#491" id="491">491</a>
 <a href="#492" id="492">492</a>
 <a href="#493" id="493">493</a>
-<a href="#494" id="494">494</a>
-<a href="#495" id="495">495</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -683,21 +681,22 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 };
 <span class="kw">use </span>sp_session::{MembershipProof, ValidatorCount};
 <span class="kw">use </span>sp_staking::SessionIndex;
-<span class="kw">use </span>sp_std::prelude::<span class="kw-2">*</span>;
+<span class="kw">use </span>sp_std::{fmt::Debug, prelude::<span class="kw-2">*</span>};
 <span class="kw">use </span>sp_trie::{
 	trie_types::{TrieDBBuilder, TrieDBMutBuilderV0},
-	LayoutV0, MemoryDB, Recorder, Trie, TrieMut, EMPTY_PREFIX,
+	LayoutV0, MemoryDB, Recorder, StorageProof, Trie, TrieMut, TrieRecorder,
 };
 
 <span class="kw">use </span>frame_support::{
 	print,
 	traits::{KeyOwnerProofSystem, ValidatorSet, ValidatorSetWithIdentification},
-	Parameter,
+	Parameter, LOG_TARGET,
 };
 
 <span class="kw">use crate</span>::{<span class="self">self </span><span class="kw">as </span>pallet_session, Pallet <span class="kw">as </span>Session};
 
 <span class="kw">pub use </span>pallet::<span class="kw-2">*</span>;
+<span class="kw">use </span>sp_trie::{accessed_nodes_tracker::AccessedNodesTracker, recorder_ext::RecorderExt};
 
 <span class="attr">#[frame_support::pallet]
 </span><span class="kw">pub mod </span>pallet {
@@ -763,6 +762,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="prelude-val">Some</span>((new_start, end))
 			}
 		})
+	}
+
+	<span class="kw">fn </span>full_id_validators() -&gt; Vec&lt;(T::ValidatorId, T::FullIdentification)&gt; {
+		&lt;Session&lt;T&gt;&gt;::validators()
+			.into_iter()
+			.filter_map(|validator| {
+				T::FullIdentificationOf::convert(validator.clone())
+					.map(|full_id| (validator, full_id))
+			})
+			.collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;()
 	}
 }
 
@@ -910,35 +919,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="prelude-val">Ok</span>(ProvingTrie { db, root })
 	}
 
-	<span class="kw">fn </span>from_nodes(root: T::Hash, nodes: <span class="kw-2">&amp;</span>[Vec&lt;u8&gt;]) -&gt; <span class="self">Self </span>{
-		<span class="kw">use </span>sp_trie::HashDBT;
-
-		<span class="kw">let </span><span class="kw-2">mut </span>memory_db = MemoryDB::default();
-		<span class="kw">for </span>node <span class="kw">in </span>nodes {
-			HashDBT::insert(<span class="kw-2">&amp;mut </span>memory_db, EMPTY_PREFIX, <span class="kw-2">&amp;</span>node[..]);
-		}
-
-		ProvingTrie { db: memory_db, root }
+	<span class="kw">fn </span>from_proof(root: T::Hash, proof: StorageProof) -&gt; <span class="self">Self </span>{
+		ProvingTrie { db: proof.into_memory_db(), root }
 	}
 
 	<span class="doccomment">/// Prove the full verification data for a given key and key ID.
 	</span><span class="kw">pub fn </span>prove(<span class="kw-2">&amp;</span><span class="self">self</span>, key_id: KeyTypeId, key_data: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Option</span>&lt;Vec&lt;Vec&lt;u8&gt;&gt;&gt; {
 		<span class="kw">let </span><span class="kw-2">mut </span>recorder = Recorder::&lt;LayoutV0&lt;T::Hashing&gt;&gt;::new();
-		{
-			<span class="kw">let </span>trie =
-				TrieDBBuilder::new(<span class="kw-2">&amp;</span><span class="self">self</span>.db, <span class="kw-2">&amp;</span><span class="self">self</span>.root).with_recorder(<span class="kw-2">&amp;mut </span>recorder).build();
-			<span class="kw">let </span>val_idx = (key_id, key_data).using_encoded(|s| {
-				trie.get(s).ok()<span class="question-mark">?</span>.and_then(|raw| u32::decode(<span class="kw-2">&amp;mut &amp;*</span>raw).ok())
-			})<span class="question-mark">?</span>;
+		<span class="self">self</span>.query(key_id, key_data, <span class="prelude-val">Some</span>(<span class="kw-2">&amp;mut </span>recorder));
 
-			val_idx.using_encoded(|s| {
-				trie.get(s)
-					.ok()<span class="question-mark">?
-					</span>.and_then(|raw| &lt;IdentificationTuple&lt;T&gt;&gt;::decode(<span class="kw-2">&amp;mut &amp;*</span>raw).ok())
-			})<span class="question-mark">?</span>;
-		}
-
-		<span class="prelude-val">Some</span>(recorder.drain().into_iter().map(|r| r.data).collect())
+		<span class="prelude-val">Some</span>(recorder.into_raw_storage_proof())
 	}
 
 	<span class="doccomment">/// Access the underlying trie root.
@@ -946,10 +936,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw-2">&amp;</span><span class="self">self</span>.root
 	}
 
-	<span class="comment">// Check a proof contained within the current memory-db. Returns `None` if the
-	// nodes within the current `MemoryDB` are insufficient to query the item.
-	</span><span class="kw">fn </span>query(<span class="kw-2">&amp;</span><span class="self">self</span>, key_id: KeyTypeId, key_data: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Option</span>&lt;IdentificationTuple&lt;T&gt;&gt; {
-		<span class="kw">let </span>trie = TrieDBBuilder::new(<span class="kw-2">&amp;</span><span class="self">self</span>.db, <span class="kw-2">&amp;</span><span class="self">self</span>.root).build();
+	<span class="doccomment">/// Search for a key inside the proof.
+	</span><span class="kw">fn </span>query(
+		<span class="kw-2">&amp;</span><span class="self">self</span>,
+		key_id: KeyTypeId,
+		key_data: <span class="kw-2">&amp;</span>[u8],
+		recorder: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;mut </span><span class="kw">dyn </span>TrieRecorder&lt;T::Hash&gt;&gt;,
+	) -&gt; <span class="prelude-ty">Option</span>&lt;IdentificationTuple&lt;T&gt;&gt; {
+		<span class="kw">let </span>trie = TrieDBBuilder::new(<span class="kw-2">&amp;</span><span class="self">self</span>.db, <span class="kw-2">&amp;</span><span class="self">self</span>.root)
+			.with_optional_recorder(recorder)
+			.build();
+
 		<span class="kw">let </span>val_idx = (key_id, key_data)
 			.using_encoded(|s| trie.get(s))
 			.ok()<span class="question-mark">?
@@ -968,13 +965,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">fn </span>prove(key: (KeyTypeId, D)) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>::Proof&gt; {
 		<span class="kw">let </span>session = &lt;Session&lt;T&gt;&gt;::current_index();
-		<span class="kw">let </span>validators = &lt;Session&lt;T&gt;&gt;::validators()
-			.into_iter()
-			.filter_map(|validator| {
-				T::FullIdentificationOf::convert(validator.clone())
-					.map(|full_id| (validator, full_id))
-			})
-			.collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
+		<span class="kw">let </span>validators = <span class="self">Self</span>::full_id_validators();
 
 		<span class="kw">let </span>count = validators.len() <span class="kw">as </span>ValidatorCount;
 
@@ -989,30 +980,35 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="kw">fn </span>check_proof(key: (KeyTypeId, D), proof: <span class="self">Self</span>::Proof) -&gt; <span class="prelude-ty">Option</span>&lt;IdentificationTuple&lt;T&gt;&gt; {
-		<span class="kw">let </span>(id, data) = key;
-
-		<span class="kw">if </span>proof.session == &lt;Session&lt;T&gt;&gt;::current_index() {
-			&lt;Session&lt;T&gt;&gt;::key_owner(id, data.as_ref()).and_then(|owner| {
-				T::FullIdentificationOf::convert(owner.clone()).and_then(<span class="kw">move </span>|id| {
-					<span class="kw">let </span>count = &lt;Session&lt;T&gt;&gt;::validators().len() <span class="kw">as </span>ValidatorCount;
-
-					<span class="kw">if </span>count != proof.validator_count {
-						<span class="kw">return </span><span class="prelude-val">None
-					</span>}
-
-					<span class="prelude-val">Some</span>((owner, id))
-				})
-			})
-		} <span class="kw">else </span>{
-			<span class="kw">let </span>(root, count) = &lt;HistoricalSessions&lt;T&gt;&gt;::get(<span class="kw-2">&amp;</span>proof.session)<span class="question-mark">?</span>;
-
-			<span class="kw">if </span>count != proof.validator_count {
-				<span class="kw">return </span><span class="prelude-val">None
-			</span>}
-
-			<span class="kw">let </span>trie = ProvingTrie::&lt;T&gt;::from_nodes(root, <span class="kw-2">&amp;</span>proof.trie_nodes);
-			trie.query(id, data.as_ref())
+		<span class="kw">fn </span>print_error&lt;E: Debug&gt;(e: E) {
+			<span class="macro">log::error!</span>(
+				target: LOG_TARGET,
+				<span class="string">"Rejecting equivocation report because of key ownership proof error: {:?}"</span>, e
+			);
 		}
+
+		<span class="kw">let </span>(id, data) = key;
+		<span class="kw">let </span>(root, count) = <span class="kw">if </span>proof.session == &lt;Session&lt;T&gt;&gt;::current_index() {
+			<span class="kw">let </span>validators = <span class="self">Self</span>::full_id_validators();
+			<span class="kw">let </span>count = validators.len() <span class="kw">as </span>ValidatorCount;
+			<span class="kw">let </span>trie = ProvingTrie::&lt;T&gt;::generate_for(validators).ok()<span class="question-mark">?</span>;
+			(trie.root, count)
+		} <span class="kw">else </span>{
+			&lt;HistoricalSessions&lt;T&gt;&gt;::get(<span class="kw-2">&amp;</span>proof.session)<span class="question-mark">?
+		</span>};
+
+		<span class="kw">if </span>count != proof.validator_count {
+			<span class="kw">return </span><span class="prelude-val">None
+		</span>}
+
+		<span class="kw">let </span>proof = StorageProof::new_with_duplicate_nodes_check(proof.trie_nodes)
+			.map_err(print_error)
+			.ok()<span class="question-mark">?</span>;
+		<span class="kw">let </span><span class="kw-2">mut </span>accessed_nodes_tracker = AccessedNodesTracker::&lt;T::Hash&gt;::new(proof.len());
+		<span class="kw">let </span>trie = ProvingTrie::&lt;T&gt;::from_proof(root, proof);
+		<span class="kw">let </span>res = trie.query(id, data.as_ref(), <span class="prelude-val">Some</span>(<span class="kw-2">&amp;mut </span>accessed_nodes_tracker))<span class="question-mark">?</span>;
+		accessed_nodes_tracker.ensure_no_unused_nodes().map_err(print_error).ok()<span class="question-mark">?</span>;
+		<span class="prelude-val">Some</span>(res)
 	}
 }
 

@@ -1225,6 +1225,55 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1074" id="1074">1074</a>
 <a href="#1075" id="1075">1075</a>
 <a href="#1076" id="1076">1076</a>
+<a href="#1077" id="1077">1077</a>
+<a href="#1078" id="1078">1078</a>
+<a href="#1079" id="1079">1079</a>
+<a href="#1080" id="1080">1080</a>
+<a href="#1081" id="1081">1081</a>
+<a href="#1082" id="1082">1082</a>
+<a href="#1083" id="1083">1083</a>
+<a href="#1084" id="1084">1084</a>
+<a href="#1085" id="1085">1085</a>
+<a href="#1086" id="1086">1086</a>
+<a href="#1087" id="1087">1087</a>
+<a href="#1088" id="1088">1088</a>
+<a href="#1089" id="1089">1089</a>
+<a href="#1090" id="1090">1090</a>
+<a href="#1091" id="1091">1091</a>
+<a href="#1092" id="1092">1092</a>
+<a href="#1093" id="1093">1093</a>
+<a href="#1094" id="1094">1094</a>
+<a href="#1095" id="1095">1095</a>
+<a href="#1096" id="1096">1096</a>
+<a href="#1097" id="1097">1097</a>
+<a href="#1098" id="1098">1098</a>
+<a href="#1099" id="1099">1099</a>
+<a href="#1100" id="1100">1100</a>
+<a href="#1101" id="1101">1101</a>
+<a href="#1102" id="1102">1102</a>
+<a href="#1103" id="1103">1103</a>
+<a href="#1104" id="1104">1104</a>
+<a href="#1105" id="1105">1105</a>
+<a href="#1106" id="1106">1106</a>
+<a href="#1107" id="1107">1107</a>
+<a href="#1108" id="1108">1108</a>
+<a href="#1109" id="1109">1109</a>
+<a href="#1110" id="1110">1110</a>
+<a href="#1111" id="1111">1111</a>
+<a href="#1112" id="1112">1112</a>
+<a href="#1113" id="1113">1113</a>
+<a href="#1114" id="1114">1114</a>
+<a href="#1115" id="1115">1115</a>
+<a href="#1116" id="1116">1116</a>
+<a href="#1117" id="1117">1117</a>
+<a href="#1118" id="1118">1118</a>
+<a href="#1119" id="1119">1119</a>
+<a href="#1120" id="1120">1120</a>
+<a href="#1121" id="1121">1121</a>
+<a href="#1122" id="1122">1122</a>
+<a href="#1123" id="1123">1123</a>
+<a href="#1124" id="1124">1124</a>
+<a href="#1125" id="1125">1125</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1248,6 +1297,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="kw">extern crate </span>alloc;
 
+<span class="kw">pub mod </span>accessed_nodes_tracker;
 <span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">pub mod </span>cache;
 <span class="kw">mod </span>error;
@@ -1255,6 +1305,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">mod </span>node_header;
 <span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">pub mod </span>recorder;
+<span class="kw">pub mod </span>recorder_ext;
 <span class="kw">mod </span>storage_proof;
 <span class="kw">mod </span>trie_codec;
 <span class="kw">mod </span>trie_stream;
@@ -1273,7 +1324,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub use </span>memory_db::{prefixed_key, HashKey, KeyFunction, PrefixedKey};
 <span class="doccomment">/// The Substrate format implementation of `NodeCodec`.
 </span><span class="kw">pub use </span>node_codec::NodeCodec;
-<span class="kw">pub use </span>storage_proof::{CompactProof, StorageProof};
+<span class="kw">pub use </span>storage_proof::{CompactProof, StorageProof, StorageProofError};
 <span class="doccomment">/// Trie codec reexport, mainly child trie support
 /// for trie compact proof.
 </span><span class="kw">pub use </span>trie_codec::{decode_compact, encode_compact, Error <span class="kw">as </span>CompactProofError};
@@ -1290,6 +1341,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">pub use </span>trie_db::{proof::VerifyError, MerkleValue};
 <span class="doccomment">/// The Substrate format implementation of `TrieStream`.
 </span><span class="kw">pub use </span>trie_stream::TrieStream;
+
+<span class="doccomment">/// Raw storage proof type (just raw trie nodes).
+</span><span class="kw">pub type </span>RawStorageProof = Vec&lt;Vec&lt;u8&gt;&gt;;
 
 <span class="doccomment">/// substrate trie layout
 </span><span class="kw">pub struct </span>LayoutV0&lt;H&gt;(PhantomData&lt;H&gt;);
@@ -1842,6 +1896,50 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">type </span>LayoutV1 = <span class="kw">super</span>::LayoutV1&lt;Blake2Hasher&gt;;
 
 	<span class="kw">type </span>MemoryDBMeta&lt;H&gt; = memory_db::MemoryDB&lt;H, memory_db::HashKey&lt;H&gt;, trie_db::DBValue&gt;;
+
+	<span class="kw">pub fn </span>create_trie&lt;L: TrieLayout&gt;(
+		data: <span class="kw-2">&amp;</span>[(<span class="kw-2">&amp;</span>[u8], <span class="kw-2">&amp;</span>[u8])],
+	) -&gt; (MemoryDB&lt;L::Hash&gt;, trie_db::TrieHash&lt;L&gt;) {
+		<span class="kw">let </span><span class="kw-2">mut </span>db = MemoryDB::default();
+		<span class="kw">let </span><span class="kw-2">mut </span>root = Default::default();
+
+		{
+			<span class="kw">let </span><span class="kw-2">mut </span>trie = trie_db::TrieDBMutBuilder::&lt;L&gt;::new(<span class="kw-2">&amp;mut </span>db, <span class="kw-2">&amp;mut </span>root).build();
+			<span class="kw">for </span>(k, v) <span class="kw">in </span>data {
+				trie.insert(k, v).expect(<span class="string">"Inserts data"</span>);
+			}
+		}
+
+		<span class="kw">let </span><span class="kw-2">mut </span>recorder = Recorder::&lt;L&gt;::new();
+		{
+			<span class="kw">let </span>trie = trie_db::TrieDBBuilder::&lt;L&gt;::new(<span class="kw-2">&amp;mut </span>db, <span class="kw-2">&amp;mut </span>root)
+				.with_recorder(<span class="kw-2">&amp;mut </span>recorder)
+				.build();
+			<span class="kw">for </span>(k, _v) <span class="kw">in </span>data {
+				trie.get(k).unwrap();
+			}
+		}
+
+		(db, root)
+	}
+
+	<span class="kw">pub fn </span>create_storage_proof&lt;L: TrieLayout&gt;(
+		data: <span class="kw-2">&amp;</span>[(<span class="kw-2">&amp;</span>[u8], <span class="kw-2">&amp;</span>[u8])],
+	) -&gt; (RawStorageProof, trie_db::TrieHash&lt;L&gt;) {
+		<span class="kw">let </span>(db, root) = create_trie::&lt;L&gt;(data);
+
+		<span class="kw">let </span><span class="kw-2">mut </span>recorder = Recorder::&lt;L&gt;::new();
+		{
+			<span class="kw">let </span>trie = trie_db::TrieDBBuilder::&lt;L&gt;::new(<span class="kw-2">&amp;</span>db, <span class="kw-2">&amp;</span>root)
+				.with_recorder(<span class="kw-2">&amp;mut </span>recorder)
+				.build();
+			<span class="kw">for </span>(k, _v) <span class="kw">in </span>data {
+				trie.get(k).unwrap();
+			}
+		}
+
+		(recorder.drain().into_iter().map(|record| record.data).collect(), root)
+	}
 
 	<span class="kw">fn </span>hashed_null_node&lt;T: TrieConfiguration&gt;() -&gt; TrieHash&lt;T&gt; {
 		&lt;T::Codec <span class="kw">as </span>NodeCodecT&gt;::hashed_null_node()

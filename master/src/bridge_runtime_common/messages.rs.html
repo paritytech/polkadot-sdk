@@ -850,6 +850,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#699" id="699">699</a>
 <a href="#700" id="700">700</a>
 <a href="#701" id="701">701</a>
+<a href="#702" id="702">702</a>
+<a href="#703" id="703">703</a>
+<a href="#704" id="704">704</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
@@ -1247,6 +1250,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">use </span>codec::Encode;
 	<span class="kw">use </span>sp_core::H256;
 	<span class="kw">use </span>sp_runtime::traits::Header <span class="kw">as _</span>;
+	<span class="kw">use </span>sp_trie::accessed_nodes_tracker::Error <span class="kw">as </span>AccessedNodesTrackerError;
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>verify_chain_message_rejects_message_with_too_large_declared_weight() {
@@ -1393,7 +1397,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				target::verify_messages_proof::&lt;OnThisChainBridge&gt;(proof, <span class="number">10</span>)
 			},),
 			<span class="prelude-val">Err</span>(VerificationError::HeaderChain(HeaderChainError::StorageProof(
-				StorageProofError::DuplicateNodesInProof
+				StorageProofError::StorageProof(sp_trie::StorageProofError::DuplicateNodes.into())
 			))),
 		);
 	}
@@ -1405,7 +1409,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				proof.storage_proof.push(<span class="macro">vec!</span>[<span class="number">42</span>]);
 				target::verify_messages_proof::&lt;OnThisChainBridge&gt;(proof, <span class="number">10</span>)
 			},),
-			<span class="prelude-val">Err</span>(VerificationError::StorageProof(StorageProofError::UnusedNodesInTheProof)),
+			<span class="prelude-val">Err</span>(VerificationError::StorageProof(StorageProofError::AccessedNodesTracker(
+				AccessedNodesTrackerError::UnusedNodes.into()
+			))),
 		);
 	}
 

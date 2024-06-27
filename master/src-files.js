@@ -477,7 +477,7 @@ var srcIndex = new Map(JSON.parse('[\
 ["sp_tracing",["",[],["lib.rs","types.rs"]]],\
 ["sp_transaction_pool",["",[],["lib.rs","runtime_api.rs"]]],\
 ["sp_transaction_storage_proof",["",[],["lib.rs"]]],\
-["sp_trie",["",[["cache",[],["mod.rs","shared_cache.rs"]]],["error.rs","lib.rs","node_codec.rs","node_header.rs","proof_size_extension.rs","recorder.rs","storage_proof.rs","trie_codec.rs","trie_stream.rs"]]],\
+["sp_trie",["",[["cache",[],["mod.rs","shared_cache.rs"]]],["accessed_nodes_tracker.rs","error.rs","lib.rs","node_codec.rs","node_header.rs","proof_size_extension.rs","recorder.rs","recorder_ext.rs","storage_proof.rs","trie_codec.rs","trie_stream.rs"]]],\
 ["sp_version",["",[],["embed.rs","lib.rs"]]],\
 ["sp_version_proc_macro",["",[],["decl_runtime_version.rs","lib.rs"]]],\
 ["sp_wasm_interface",["",[],["lib.rs"]]],\
