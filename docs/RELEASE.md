@@ -160,9 +160,12 @@ Describes how developers should merge bug and security fixes.
 
 ### Steps
 
-1. Developer opens a Pull Request with a bug or security fix.
-2. The Pull Request is marked as priority fix.
-3. Audit happens with priority.
+1. Developer opens a Pull Request into `master` with a bug or security fix.
+2. The Pull Request is marked as priority-fix.
+3. Developer notifies the auditors of its relevance.
 4. It is merged into `master`.
-5. It is automatically back-ported to `stable`.
-6. The fix will be released in the next *Stable* release. In urgent cases, a release can happen earlier.
+5. Developer opens a backport Pull Request into the `stable` branch.
+6. CI validates that there there are no obvious major SemVer change.
+7. Audit must be completed by now.
+8. Gets merged into `stable`.
+9. Fix will be released in the next stable minor version at a two weeks cadence, or earlier in urgent cases.
