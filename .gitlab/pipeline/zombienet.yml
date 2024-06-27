@@ -4,6 +4,9 @@
     ZOMBIENET_IMAGE: "docker.io/paritytech/zombienet:v1.3.105"
     PUSHGATEWAY_URL: "http://zombienet-prometheus-pushgateway.managed-monitoring:9091/metrics/job/zombie-metrics"
     DEBUG: "zombie,zombie::network-node,zombie::kube::client::logs"
+    ZOMBIE_PROVIDER: "k8s"
+    RUST_LOG: "zombienet_orchestrator=debug"
+  timeout: 60m
 
 include:
   # substrate tests
