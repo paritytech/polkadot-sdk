@@ -200,7 +200,6 @@ pub mod pallet {
 
 	/// Information regarding the vesting of a given account.
 	#[pallet::storage]
-	#[pallet::getter(fn vesting)]
 	pub type Vesting<T: Config> = StorageMap<
 		_,
 		Blake2_128Concat,
