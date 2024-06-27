@@ -33,8 +33,8 @@ use crate::api::timestamp;
 use bytes::buf::{Buf, Reader};
 use fnv::FnvHashMap;
 use futures::{channel::mpsc, future, prelude::*};
-use hyper_rustls::{HttpsConnector, HttpsConnectorBuilder};
 use hyper::{client, Body, Client as HyperClient};
+use hyper_rustls::{HttpsConnector, HttpsConnectorBuilder};
 use once_cell::sync::Lazy;
 use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedReceiver, TracingUnboundedSender};
 use sp_core::offchain::{HttpError, HttpRequestId, HttpRequestStatus, Timestamp};
@@ -105,10 +105,10 @@ pub struct HttpApi {
 /// One active request within `HttpApi`.
 enum HttpApiRequest {
 	/// The request object is being constructed locally and not started yet.
-	NotDispatched(hyperv14::Request<hyper::Body>, hyper::body::Sender),
+	NotDispatched(hyper::Request<hyper::Body>, hyper::body::Sender),
 	/// The request has been dispatched and we're in the process of sending out the body (if the
 	/// field is `Some`) or waiting for a response (if the field is `None`).
-	Dispatched(Option<hyperv14::body::Sender>),
+	Dispatched(Option<hyper::body::Sender>),
 	/// Received a response.
 	Response(HttpApiRequestRp),
 	/// A request has been dispatched but the worker notified us of an error. We report this
