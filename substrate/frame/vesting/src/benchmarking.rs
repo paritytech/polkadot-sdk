@@ -24,9 +24,8 @@ use frame_support::assert_ok;
 use frame_system::{pallet_prelude::BlockNumberFor, Pallet as System, RawOrigin};
 use sp_runtime::traits::{Bounded, CheckedDiv, CheckedMul};
 
-use super::*;
+use super::{Vesting as VestingStorage, *};
 use crate::Pallet as Vesting;
-use super::{Vesting as VestingStorage};
 
 const SEED: u32 = 0;
 

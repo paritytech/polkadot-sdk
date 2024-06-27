@@ -1191,4 +1191,3 @@ fn remove_vesting_schedule() {
 		);
 	});
 }
-
