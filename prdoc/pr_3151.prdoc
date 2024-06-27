@@ -6,13 +6,23 @@ title: Dynamic deposit based on number of proposals
 doc:
   - audience: Runtime User
     description: |
-      Introduce a dynamic proposal deposit mechanism influenced by the total number of active proposals, with the option to set the deposit to none.
+      Introduce a dynamic proposal deposit mechanism influenced by the total number of active 
+      proposals, with the option to set the deposit to none.
 
-      This is achieved through the introduction of the `GetDeposit` trait, and the corresponding implementation should be supplied to the pallet's configuration. The pallet provides basic implementations for this trait.
+      The potential cost (e.g., balance hold) for proposal submission and storage is determined 
+      by the implementation of the `Consideration` trait. The footprint is defined as `proposal_count`, 
+      representing the total number of active proposals in the system, excluding the one currently 
+      being proposed. This cost may vary based on the proposal count. The pallet also offers various 
+      types to define a cost strategy based on the number of proposals.
+
       Two new calls are introduced:
-      - kill(origin, proposal_hash): the cancellation of a proposal, accompanied by the slashing of the associated deposit.
-      - release_proposal_deposit(origin, proposal_hash): the release of the deposit for a non-active proposal.
-      Additionally, benchmarks have been upgraded to benchmarks::v2.
+        - kill(origin, proposal_hash): the cancellation of a proposal, accompanied by the burning 
+        of the associated cost/consideration ticket.
+        - release_proposal_cost(origin, proposal_hash): the release of the cost for a non-active proposal.
+
+      Additionally change: 
+        - benchmarks have been upgraded to benchmarks::v2 for collective pallet;
+        - `ensure_successful` function added to the `Consideration` under `runtime-benchmarks` feature.
 
 crates:
   - name: pallet-collective

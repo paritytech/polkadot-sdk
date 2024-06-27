@@ -172,8 +172,8 @@ pub struct Votes<AccountId, BlockNumber> {
 
 /// Types implementing various cost strategies for a given proposal count.
 ///
-/// These types implement [`Convert`] trait and can be used with types like
-/// [HoldConsideration](`frame_support::traits::fungible::HoldConsideration`) implementing
+/// These types implement [Convert](sp_runtime::traits::Convert) trait and can be used with types
+/// like [HoldConsideration](`frame_support::traits::fungible::HoldConsideration`) implementing
 /// [Consideration](`frame_support::traits::Consideration`) trait.
 ///
 /// ### Example:
@@ -256,7 +256,7 @@ pub mod deposit {
 		}
 	}
 
-	/// Defines `Period` for supplied `Step` implementing [`GetDeposit`] trait.
+	/// Defines `Period` for supplied `Step` implementing [`Convert`] trait.
 	pub struct Stepped<Period, Step>(PhantomData<(Period, Step)>);
 	impl<Period, Step, Balance> Convert<u32, Balance> for Stepped<Period, Step>
 	where
@@ -270,7 +270,7 @@ pub mod deposit {
 		}
 	}
 
-	/// Defines `Delay` for supplied `Step` implementing [`GetDeposit`] trait.
+	/// Defines `Delay` for supplied `Step` implementing [`Convert`] trait.
 	pub struct Delayed<Delay, Deposit>(PhantomData<(Delay, Deposit)>);
 	impl<Delay, Deposit, Balance> Convert<u32, Balance> for Delayed<Delay, Deposit>
 	where
@@ -288,7 +288,7 @@ pub mod deposit {
 		}
 	}
 
-	/// Defines `Ceil` for supplied `Step` implementing [`GetDeposit`] trait.
+	/// Defines `Ceil` for supplied `Step` implementing [`Convert`] trait.
 	pub struct WithCeil<Ceil, Deposit>(PhantomData<(Ceil, Deposit)>);
 	impl<Ceil, Deposit, Balance> Convert<u32, Balance> for WithCeil<Ceil, Deposit>
 	where

@@ -29,7 +29,7 @@ sp-runtime = { workspace = true }
 sp-std = { workspace = true }
 
 [dev-dependencies]
-pallet-balances = { path = "../balances", default-features = false }
+pallet-balances = { workspace = true, default-features = false }
 
 [features]
 default = ["std"]
