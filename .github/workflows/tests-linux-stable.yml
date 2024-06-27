@@ -93,5 +93,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
       - run: ls -al
+      - run: ls -al .github
       - name: script
-        run: time forklift cargo nextest run --workspace --locked --release --no-fail-fast --features try-runtime,experimental,riscv,ci-only-tests -E "!test(/.*benchmark.*/)" --partition count:${{ matrix.ci_node_index }}/${{ matrix.ci_node_total }}
+        run: ls -al && ls -al .github && time forklift cargo nextest run --workspace --locked --release --no-fail-fast --features try-runtime,experimental,riscv,ci-only-tests -E "!test(/.*benchmark.*/)" --partition count:${{ matrix.ci_node_index }}/${{ matrix.ci_node_total }}
