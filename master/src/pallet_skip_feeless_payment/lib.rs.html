@@ -318,6 +318,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#167" id="167">167</a>
 <a href="#168" id="168">168</a>
 <a href="#169" id="169">169</a>
+<a href="#170" id="170">170</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -336,8 +337,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="doccomment">//! # Skip Feeless Payment Pallet
 //!
 //! This pallet allows runtimes that include it to skip payment of transaction fees for
-//! dispatchables marked by [`#[pallet::feeless_if]`](`macro@
-//! frame_support::pallet_prelude::feeless_if`).
+//! dispatchables marked by
+//! [`#[pallet::feeless_if]`](frame_support::pallet_prelude::feeless_if).
 //!
 //! ## Overview
 //!
@@ -350,8 +351,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! ## Integration
 //!
 //! This pallet wraps an existing transaction payment pallet. This means you should both pallets
-//! in your `construct_runtime` macro and include this pallet's
-//! [`SignedExtension`] ([`SkipCheckIfFeeless`]) that would accept the existing one as an argument.
+//! in your [`construct_runtime`](frame_support::construct_runtime) macro and
+//! include this pallet's [`SignedExtension`] ([`SkipCheckIfFeeless`]) that would accept the
+//! existing one as an argument.
 
 </span><span class="attr">#![cfg_attr(not(feature = <span class="string">"std"</span>), no_std)]
 
