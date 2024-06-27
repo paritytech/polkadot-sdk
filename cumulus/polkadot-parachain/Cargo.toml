@@ -95,7 +95,7 @@ substrate-state-trie-migration-rpc = { workspace = true, default-features = true
 
 # Polkadot
 # Use rococo-native as this is currently the default "local" relay chain
-polkadot-cli = { features = ["rococo-native"], workspace = true, default-features = true }
+polkadot-cli = { features = ["rococo-native", "westend-native"], workspace = true, default-features = true }
 polkadot-primitives = { workspace = true, default-features = true }
 polkadot-service = { workspace = true, default-features = true }
 xcm = { workspace = true, default-features = true }
@@ -171,4 +171,8 @@ try-runtime = [
 	"shell-runtime/try-runtime",
 	"sp-runtime/try-runtime",
 ]
-fast-runtime = ["bridge-hub-rococo-runtime/fast-runtime"]
+fast-runtime = [
+	"bridge-hub-rococo-runtime/fast-runtime",
+	"coretime-rococo-runtime/fast-runtime",
+	"coretime-westend-runtime/fast-runtime",
+]
