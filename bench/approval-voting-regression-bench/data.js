@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1719499670786,
+  "lastUpdate": 1719500868018,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -8857,6 +8857,53 @@ window.BENCHMARK_DATA = {
           "url": "https://github.com/paritytech/polkadot-sdk/commit/dee18249742c4abbf81fcca62b40a868a394c3d4"
         },
         "date": 1719499641863,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52941,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63798.530000000006,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting",
+            "value": 9.616864213319865,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 3.0183668817602296,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 6.92817120592005,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Branislav Kontur",
+            "username": "bkontur",
+            "email": "bkontur@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "dee18249742c4abbf81fcca62b40a868a394c3d4",
+          "message": "BridgeHubs fresh weights for bridging pallets (#4891)\n\nCo-authored-by: command-bot <>",
+          "timestamp": "2024-06-27T13:38:07Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/dee18249742c4abbf81fcca62b40a868a394c3d4"
+        },
+        "date": 1719500839064,
         "tool": "customSmallerIsBetter",
         "benches": [
           {
