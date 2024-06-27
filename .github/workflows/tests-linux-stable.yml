@@ -92,5 +92,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+      - run: ls -al
       - name: script
         run: time forklift cargo nextest run --workspace --locked --release --no-fail-fast --features try-runtime,experimental,riscv,ci-only-tests -E "!test(/.*benchmark.*/)" --partition count:${{ matrix.ci_node_index }}/${{ matrix.ci_node_total }}
