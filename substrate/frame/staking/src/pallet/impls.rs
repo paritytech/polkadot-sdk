@@ -955,6 +955,14 @@ impl<T: Config> Pallet<T> {
 							Perbill::from_rational(numerator, ERAS_UNTIL_WEIGHT_ZERO);
 						voter_weight = voter_weight_multiplier * voter_weight;
 					}
+					// if voter weight is zero, do not consider this voter for the snapshot.
+					if voter_weight.is_zero() {
+						log!(
+							debug,
+							"voter's weight is 0 after voter weight multiplier. skip this voter."
+						);
+						continue
+					}
 					/* VOTER WEIGHT MULTIPLIER END */
 
 					let voter = (voter, voter_weight, targets);
