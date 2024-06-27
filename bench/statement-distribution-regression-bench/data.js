@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1719501769574,
+  "lastUpdate": 1719509852531,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
@@ -3359,6 +3359,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "statement-distribution",
             "value": 0.03652288596999999,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Niklas Adolfsson",
+            "username": "niklasad1",
+            "email": "niklasadolfsson1@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "de41ae85ec600189c4621aaf9e58afc612f101f7",
+          "message": "chore(deps): upgrade prometheous server to hyper v1 (#4898)\n\nPartly fixes\nhttps://github.com/paritytech/polkadot-sdk/pull/4890#discussion_r1655548633\n\nStill the offchain API needs to be updated to hyper v1.0 and I opened an\nissue for it, it's using low-level http body features that have been\nremoved",
+          "timestamp": "2024-06-27T15:45:29Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/de41ae85ec600189c4621aaf9e58afc612f101f7"
+        },
+        "date": 1719509823774,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.40599999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 127.93799999999993,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.037637074750000006,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.046732126934000015,
             "unit": "seconds"
           }
         ]
