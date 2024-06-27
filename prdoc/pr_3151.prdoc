@@ -25,4 +25,6 @@ crates:
     bump: minor
   - name: pallet-alliance
     bump: patch
+  - name: pallet-preimage
+    bump: patch
 

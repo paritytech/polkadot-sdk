@@ -123,7 +123,8 @@ pub mod pallet {
 
 		/// A means of providing some cost while data is stored on-chain.
 		///
-		/// Should never return a `None`, implying no cost for a non-empty preimage.
+		/// Some cost is expected for any non-zero footprint. Therefore, the consideration should
+		/// not return `None` in such cases.
 		type Consideration: Consideration<Self::AccountId, Footprint>;
 	}
 
