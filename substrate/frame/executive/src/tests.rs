@@ -39,10 +39,17 @@ use frame_support::{
 	traits::{fungible, ConstU8, Currency, IsInherent, VariantCount, VariantCountOf},
 	weights::{ConstantMultiplier, IdentityFee, RuntimeDbWeight, Weight, WeightMeter, WeightToFee},
 };
-use frame_system::{pallet_prelude::*, ChainContext, LastRuntimeUpgrade, LastRuntimeUpgradeInfo};
+use frame_system::{
+	pallet_prelude::*, ChainContext, EventRecord, LastRuntimeUpgrade, LastRuntimeUpgradeInfo, Phase,
+};
 use pallet_balances::Call as BalancesCall;
 
 const TEST_KEY: &[u8] = b":test:key:";
+
+fn assert_execution_phase<T: frame_system::Config>(want: &Phase) {
+	let got = frame_system::ExecutionPhase::<T>::get().unwrap();
+	assert_eq!(want, &got, "Wrong execution phase");
+}
 
 #[frame_support::pallet(dev_mode)]
 mod custom {
@@ -65,8 +72,6 @@ mod custom {
 		fn on_idle(_: BlockNumberFor<T>, _: Weight) -> Weight {
 			Weight::from_parts(175, 0)
 		}
-
-		fn on_poll(_: BlockNumberFor<T>, _: &mut WeightMeter) {}
 
 		fn on_finalize(_: BlockNumberFor<T>) {}
 
@@ -181,27 +186,45 @@ mod custom2 {
 				!MockedSystemCallbacks::pre_inherent_called(),
 				"Pre inherent hook goes after on_initialize"
 			);
+			assert_execution_phase::<T>(&Phase::Initialization);
 
 			Weight::from_parts(0, 0)
+		}
+
+		fn on_poll(_: BlockNumberFor<T>, _: &mut WeightMeter) {
+			assert!(
+				MockedSystemCallbacks::pre_inherent_called(),
+				"Pre inherent hook goes before on_poll"
+			);
+			assert_execution_phase::<T>(&Phase::AfterInherent);
+			MockedSystemCallbacks::on_poll();
 		}
 
 		fn on_idle(_: BlockNumberFor<T>, _: Weight) -> Weight {
 			assert!(
 				MockedSystemCallbacks::post_transactions_called(),
-				"Post transactions hook goes before after on_idle"
+				"Post transactions hook goes before on_idle"
 			);
+			assert_execution_phase::<T>(&Phase::Finalization);
+
 			Weight::from_parts(0, 0)
 		}
 
 		fn on_finalize(_: BlockNumberFor<T>) {
 			assert!(
 				MockedSystemCallbacks::post_transactions_called(),
-				"Post transactions hook goes before after on_finalize"
+				"Post transactions hook goes before on_finalize"
 			);
+			assert_execution_phase::<T>(&Phase::Finalization);
 		}
 
 		fn on_runtime_upgrade() -> Weight {
 			sp_io::storage::set(super::TEST_KEY, "module".as_bytes());
+			assert!(
+				!frame_system::ExecutionPhase::<T>::exists(),
+				"Runtime upgrades do not have a phase"
+			);
+
 			Weight::from_parts(0, 0)
 		}
 	}
@@ -213,10 +236,22 @@ mod custom2 {
 			Ok(())
 		}
 
-		pub fn some_call(_: OriginFor<T>) -> DispatchResult {
+		pub fn some_call(origin: OriginFor<T>) -> DispatchResult {
+			frame_system::ensure_signed(origin)?;
 			assert!(MockedSystemCallbacks::post_inherent_called());
 			assert!(!MockedSystemCallbacks::post_transactions_called());
 			assert!(System::inherents_applied());
+
+			assert!(matches!(
+				frame_system::ExecutionPhase::<T>::get(),
+				Some(frame_system::Phase::ApplyExtrinsic(_))
+			));
+
+			Ok(())
+		}
+
+		pub fn assert_extrinsic_phase(_: OriginFor<T>, expected: u32) -> DispatchResult {
+			assert_execution_phase::<T>(&Phase::ApplyExtrinsic(expected));
 
 			Ok(())
 		}
@@ -242,6 +277,19 @@ mod custom2 {
 
 			Ok(())
 		}
+
+		#[pallet::weight((0, DispatchClass::Mandatory))]
+		pub fn assert_inherent_phase(_: OriginFor<T>, expected: u32) -> DispatchResult {
+			assert_execution_phase::<T>(&Phase::ApplyInherent(expected));
+
+			Ok(())
+		}
+
+		pub fn assert_optional_inherent_phase(_: OriginFor<T>, expected: u32) -> DispatchResult {
+			assert_execution_phase::<T>(&Phase::ApplyInherent(expected));
+
+			Ok(())
+		}
 	}
 
 	#[pallet::inherent]
@@ -257,7 +305,13 @@ mod custom2 {
 		}
 
 		fn is_inherent(call: &Self::Call) -> bool {
-			matches!(call, Call::<T>::inherent {} | Call::<T>::optional_inherent {})
+			matches!(
+				call,
+				Call::<T>::inherent {} |
+					Call::<T>::optional_inherent {} |
+					Call::<T>::assert_inherent_phase { .. } |
+					Call::<T>::assert_optional_inherent_phase { .. }
+			)
 		}
 	}
 
@@ -270,6 +324,8 @@ mod custom2 {
 			match call {
 				Call::allowed_unsigned { .. } |
 				Call::optional_inherent { .. } |
+				Call::assert_inherent_phase { .. } |
+				Call::assert_optional_inherent_phase { .. } |
 				Call::inherent { .. } => Ok(()),
 				_ => Err(UnknownTransaction::NoUnsignedValidator.into()),
 			}
@@ -408,6 +464,7 @@ type Executive = super::Executive<
 
 parameter_types! {
 	pub static SystemCallbacksCalled: u32 = 0;
+	pub static OnPollCalled: bool = false;
 }
 
 pub struct MockedSystemCallbacks;
@@ -417,6 +474,7 @@ impl PreInherents for MockedSystemCallbacks {
 		SystemCallbacksCalled::set(1);
 		// Change the storage to modify the root hash:
 		frame_support::storage::unhashed::put(b":pre_inherent", b"0");
+		assert_eq!(frame_system::ExecutionPhase::<Runtime>::get(), Some(Phase::Initialization));
 	}
 }
 
@@ -426,6 +484,18 @@ impl PostInherents for MockedSystemCallbacks {
 		SystemCallbacksCalled::set(2);
 		// Change the storage to modify the root hash:
 		frame_support::storage::unhashed::put(b":post_inherent", b"0");
+		assert_execution_phase::<Runtime>(&Phase::AfterInherent);
+	}
+}
+
+impl MockedSystemCallbacks {
+	fn on_poll() {
+		assert_eq!(SystemCallbacksCalled::get(), 2, "Goes after post inherents");
+		assert!(!OnPollCalled::get());
+		OnPollCalled::set(true);
+		// Change the storage to modify the root hash:
+		frame_support::storage::unhashed::put(b":on_poll", b"0");
+		assert_execution_phase::<Runtime>(&Phase::AfterInherent);
 	}
 }
 
@@ -435,6 +505,7 @@ impl PostTransactions for MockedSystemCallbacks {
 		SystemCallbacksCalled::set(3);
 		// Change the storage to modify the root hash:
 		frame_support::storage::unhashed::put(b":post_transaction", b"0");
+		assert_execution_phase::<Runtime>(&Phase::Finalization);
 	}
 }
 
@@ -451,11 +522,18 @@ impl MockedSystemCallbacks {
 		SystemCallbacksCalled::get() >= 3
 	}
 
+	fn on_poll_called() -> bool {
+		OnPollCalled::get()
+	}
+
 	fn reset() {
 		SystemCallbacksCalled::set(0);
+		OnPollCalled::set(false);
+
 		frame_support::storage::unhashed::kill(b":pre_inherent");
 		frame_support::storage::unhashed::kill(b":post_inherent");
 		frame_support::storage::unhashed::kill(b":post_transaction");
+		frame_support::storage::unhashed::kill(b":on_poll");
 	}
 }
 
@@ -522,6 +600,7 @@ fn new_test_ext(balance_factor: Balance) -> sp_io::TestExternalities {
 	let mut ext: sp_io::TestExternalities = t.into();
 	ext.execute_with(|| {
 		SystemCallbacksCalled::set(0);
+		MockedSystemCallbacks::reset();
 	});
 	ext
 }
@@ -539,13 +618,13 @@ fn block_import_works() {
 	block_import_works_inner(
 		new_test_ext_v0(1),
 		array_bytes::hex_n_into_unchecked(
-			"4826d3bdf87dbbc883d2ab274cbe272f58ed94a904619b59953e48294d1142d2",
+			"f05b567508a81d304c5af50f8f094fa649a2a83e754b6135e594b2794f6ced03",
 		),
 	);
 	block_import_works_inner(
 		new_test_ext(1),
 		array_bytes::hex_n_into_unchecked(
-			"d6b465f5a50c9f8d5a6edc0f01d285a6b19030f097d3aaf1649b7be81649f118",
+			"818340a561ee78f7b2dd1e16fb150bb5515958d90a34c69005a8a1bd4c694a4d",
 		),
 	);
 }
@@ -939,6 +1018,7 @@ fn all_weights_are_recorded_correctly() {
 
 		let block_number = 1;
 
+		frame_system::ExecutionPhase::<Runtime>::kill();
 		Executive::initialize_block(&Header::new_from_number(block_number));
 
 		// Reset the last runtime upgrade info, to make the second call to `on_runtime_upgrade`
@@ -947,20 +1027,21 @@ fn all_weights_are_recorded_correctly() {
 		MockedSystemCallbacks::reset();
 
 		// All weights that show up in the `initialize_block_impl`
-		let custom_runtime_upgrade_weight = CustomOnRuntimeUpgrade::on_runtime_upgrade();
-		let runtime_upgrade_weight =
-			<AllPalletsWithSystem as OnRuntimeUpgrade>::on_runtime_upgrade();
-		let on_initialize_weight =
-			<AllPalletsWithSystem as OnInitialize<u64>>::on_initialize(block_number);
+		frame_system::ExecutionPhase::<Runtime>::kill();
+		let custom_ra_weight = CustomOnRuntimeUpgrade::on_runtime_upgrade();
+
+		frame_system::ExecutionPhase::<Runtime>::kill();
+		let ra_weight = <AllPalletsWithSystem as OnRuntimeUpgrade>::on_runtime_upgrade();
+
+		frame_system::ExecutionPhase::<Runtime>::put(Phase::Initialization);
+		let init_weight = <AllPalletsWithSystem as OnInitialize<u64>>::on_initialize(block_number);
+
 		let base_block_weight = <Runtime as frame_system::Config>::BlockWeights::get().base_block;
 
 		// Weights are recorded correctly
 		assert_eq!(
 			frame_system::Pallet::<Runtime>::block_weight().total(),
-			custom_runtime_upgrade_weight +
-				runtime_upgrade_weight +
-				on_initialize_weight +
-				base_block_weight,
+			custom_ra_weight + ra_weight + init_weight + base_block_weight,
 		);
 	});
 }
@@ -1260,45 +1341,93 @@ fn callbacks_in_block_execution_works() {
 	callbacks_in_block_execution_works_inner(true);
 }
 
+/// Produces a block with `0..15` inherents and `0..15` transactions and runs tests on that.
 fn callbacks_in_block_execution_works_inner(mbms_active: bool) {
 	MbmActive::set(mbms_active);
 
-	for (n_in, n_tx) in (0..10usize).zip(0..10usize) {
+	for (n_in, n_tx) in (0..15usize).zip(0..15usize) {
 		let mut extrinsics = Vec::new();
+		let mut expected_events = Vec::<EventRecord<RuntimeEvent, H256>>::new();
 
 		let header = new_test_ext(10).execute_with(|| {
 			MockedSystemCallbacks::reset();
 			Executive::initialize_block(&Header::new_from_number(1));
 			assert_eq!(SystemCallbacksCalled::get(), 1);
+			assert_execution_phase::<Runtime>(&Phase::ApplyInherent(0));
 
 			for i in 0..n_in {
 				let xt = if i % 2 == 0 {
-					TestXt::new(RuntimeCall::Custom(custom::Call::inherent {}), None)
+					TestXt::new(
+						RuntimeCall::Custom2(custom2::Call::assert_inherent_phase {
+							expected: i as u32,
+						}),
+						None,
+					)
 				} else {
-					TestXt::new(RuntimeCall::Custom2(custom2::Call::optional_inherent {}), None)
+					TestXt::new(
+						RuntimeCall::Custom2(custom2::Call::assert_optional_inherent_phase {
+							expected: i as u32,
+						}),
+						None,
+					)
 				};
 				Executive::apply_extrinsic(xt.clone()).unwrap().unwrap();
+				assert_execution_phase::<Runtime>(&Phase::ApplyInherent(i as u32 + 1));
+
+				let class =
+					if i % 2 == 0 { DispatchClass::Mandatory } else { DispatchClass::Normal };
+
+				expected_events.push(EventRecord {
+					phase: Phase::ApplyInherent(extrinsics.len() as u32),
+					event: frame_system::Event::ExtrinsicSuccess {
+						dispatch_info: DispatchInfo {
+							weight: Weight::from_parts(12, 0),
+							class,
+							..Default::default()
+						},
+					}
+					.into(),
+					topics: vec![],
+				});
 				extrinsics.push(xt);
 			}
 
+			assert!(!MockedSystemCallbacks::on_poll_called());
 			for t in 0..n_tx {
 				let xt = TestXt::new(
-					RuntimeCall::Custom2(custom2::Call::some_call {}),
+					RuntimeCall::Custom2(custom2::Call::assert_extrinsic_phase {
+						expected: extrinsics.len() as u32,
+					}),
 					sign_extra(1, t as u64, 0),
 				);
 				// Extrinsics can be applied even when MBMs are active. Only the `execute_block`
 				// will reject it.
 				Executive::apply_extrinsic(xt.clone()).unwrap().unwrap();
+				assert_eq!(MockedSystemCallbacks::on_poll_called(), !mbms_active);
+
+				expected_events.push(EventRecord {
+					phase: Phase::ApplyExtrinsic(extrinsics.len() as u32),
+					event: frame_system::Event::ExtrinsicSuccess {
+						dispatch_info: DispatchInfo {
+							weight: Weight::from_parts(23, 0),
+							..Default::default()
+						},
+					}
+					.into(),
+					topics: vec![],
+				});
 				extrinsics.push(xt);
 			}
 
 			Executive::finalize_block()
 		});
-		assert_eq!(SystemCallbacksCalled::get(), 3);
+		assert!(MockedSystemCallbacks::post_inherent_called());
+		assert_eq!(MockedSystemCallbacks::on_poll_called(), !mbms_active);
 
 		new_test_ext(10).execute_with(|| {
+			MockedSystemCallbacks::reset();
 			let header = std::panic::catch_unwind(|| {
-				Executive::execute_block(Block::new(header, extrinsics));
+				Executive::execute_block(Block::new(header.clone(), extrinsics.clone()));
 			});
 
 			match header {
@@ -1306,16 +1435,24 @@ fn callbacks_in_block_execution_works_inner(mbms_active: bool) {
 					let err = e.downcast::<&str>().unwrap();
 					assert_eq!(*err, "Only inherents are allowed in this block");
 					assert!(
-						MbmActive::get() && n_tx > 0,
+						mbms_active && n_tx > 0,
 						"Transactions should be rejected when MBMs are active"
 					);
 				},
 				Ok(_) => {
 					assert_eq!(SystemCallbacksCalled::get(), 3);
+					assert_eq!(MockedSystemCallbacks::on_poll_called(), !mbms_active);
 					assert!(
-						!MbmActive::get() || n_tx == 0,
+						!mbms_active || n_tx == 0,
 						"MBMs should be deactivated after finalization"
 					);
+
+					// We cannot just check for equality, since there are also TX withdrawal events.
+					for expected in expected_events.iter() {
+						if !System::events().contains(&expected) {
+							assert_eq!(System::events(), expected_events, "Event missing");
+						}
+					}
 				},
 			}
 		});
@@ -1403,4 +1540,213 @@ fn is_inherent_works() {
 
 	let ext = TestXt::new(RuntimeCall::Custom2(custom2::Call::allowed_unsigned {}), None);
 	assert!(!Runtime::is_inherent(&ext), "Unsigned ext are not automatically inherents");
+}
+
+#[test]
+fn extrinsic_index_is_correct() {
+	let in1 = TestXt::new(
+		RuntimeCall::Custom2(custom2::Call::assert_inherent_phase { expected: 0 }),
+		None,
+	);
+	let in2 = TestXt::new(
+		RuntimeCall::Custom2(custom2::Call::assert_inherent_phase { expected: 1 }),
+		None,
+	);
+	let xt1 = TestXt::new(
+		RuntimeCall::Custom2(custom2::Call::assert_extrinsic_phase { expected: 2 }),
+		sign_extra(1, 0, 0),
+	);
+	let xt2 = TestXt::new(
+		RuntimeCall::Custom2(custom2::Call::assert_extrinsic_phase { expected: 3 }),
+		sign_extra(1, 1, 0),
+	);
+	let xt3 = TestXt::new(
+		RuntimeCall::Custom2(custom2::Call::assert_extrinsic_phase { expected: 4 }),
+		sign_extra(1, 2, 0),
+	);
+
+	let header = new_test_ext(1).execute_with(|| {
+		Executive::initialize_block(&Header::new_from_number(1));
+
+		Executive::apply_extrinsic(in1.clone()).unwrap().unwrap();
+		Executive::apply_extrinsic(in2.clone()).unwrap().unwrap();
+		Executive::apply_extrinsic(xt1.clone()).unwrap().unwrap();
+		Executive::apply_extrinsic(xt2.clone()).unwrap().unwrap();
+		Executive::apply_extrinsic(xt3.clone()).unwrap().unwrap();
+
+		Executive::finalize_block()
+	});
+
+	new_test_ext(1).execute_with(|| {
+		Executive::execute_block(Block::new(
+			header.clone(),
+			vec![in1.clone(), in2.clone(), xt1.clone(), xt2.clone(), xt3.clone()],
+		));
+	});
+
+	#[cfg(feature = "try-runtime")]
+	new_test_ext(1).execute_with(|| {
+		Executive::try_execute_block(
+			Block::new(header, vec![in1, in2, xt1, xt2, xt3]),
+			true,
+			true,
+			frame_try_runtime::TryStateSelect::All,
+		)
+		.unwrap();
+	});
+}
+
+// This case should already be covered by `callbacks_in_block_execution_works`, but anyway.
+#[test]
+fn single_extrinsic_phase_events_works() {
+	let xt1 = TestXt::new(RuntimeCall::Custom2(custom2::Call::some_call {}), sign_extra(1, 0, 0));
+
+	let (header, events) = new_test_ext(1).execute_with(|| {
+		Executive::initialize_block(&Header::new_from_number(1));
+		Executive::apply_extrinsic(xt1.clone()).unwrap().unwrap();
+		(Executive::finalize_block(), System::events())
+	});
+
+	let events2 = new_test_ext(1).execute_with(|| {
+		Executive::execute_block(Block::new(header.clone(), vec![xt1.clone()]));
+		System::events()
+	});
+
+	assert_eq!(events, events2);
+
+	#[cfg(feature = "try-runtime")]
+	{
+		let events3 = new_test_ext(1).execute_with(|| {
+			Executive::try_execute_block(
+				Block::new(header, vec![xt1]),
+				true,
+				true,
+				frame_try_runtime::TryStateSelect::All,
+			)
+			.unwrap();
+
+			System::events()
+		});
+
+		assert_eq!(events2, events3);
+	}
+
+	assert_eq!(
+		vec![
+			EventRecord {
+				phase: Phase::ApplyExtrinsic(0),
+				event: pallet_balances::Event::Withdraw { who: 1, amount: 19 }.into(),
+				topics: vec![],
+			},
+			EventRecord {
+				phase: Phase::ApplyExtrinsic(0),
+				event: frame_system::Event::ExtrinsicSuccess {
+					dispatch_info: DispatchInfo {
+						weight: Weight::from_parts(19, 0),
+						class: DispatchClass::Normal,
+						..Default::default()
+					},
+				}
+				.into(),
+				topics: vec![],
+			}
+		],
+		events,
+	);
+}
+
+// This case should already be covered by `callbacks_in_block_execution_works`, but anyway.
+#[test]
+fn simple_extrinsic_and_inherent_phase_events_works() {
+	let in1 = TestXt::new(RuntimeCall::Custom(custom::Call::inherent {}), None);
+	let xt1 = TestXt::new(RuntimeCall::Custom2(custom2::Call::some_call {}), sign_extra(1, 0, 0));
+
+	let (header, events) = new_test_ext(1).execute_with(|| {
+		Executive::initialize_block(&Header::new_from_number(1));
+		Executive::apply_extrinsic(in1.clone()).unwrap().unwrap();
+		Executive::apply_extrinsic(xt1.clone()).unwrap().unwrap();
+		(Executive::finalize_block(), System::events())
+	});
+
+	let events2 = new_test_ext(1).execute_with(|| {
+		Executive::execute_block(Block::new(header.clone(), vec![in1.clone(), xt1.clone()]));
+		System::events()
+	});
+
+	assert_eq!(events, events2);
+
+	#[cfg(feature = "try-runtime")]
+	{
+		let events3 = new_test_ext(1).execute_with(|| {
+			Executive::try_execute_block(
+				Block::new(header, vec![in1, xt1]),
+				true,
+				true,
+				frame_try_runtime::TryStateSelect::All,
+			)
+			.unwrap();
+
+			System::events()
+		});
+
+		assert_eq!(events2, events3);
+	}
+
+	assert_eq!(
+		vec![
+			EventRecord {
+				phase: Phase::ApplyInherent(0),
+				event: frame_system::Event::ExtrinsicSuccess {
+					dispatch_info: DispatchInfo {
+						weight: Weight::from_parts(8, 0),
+						class: DispatchClass::Mandatory,
+						..Default::default()
+					},
+				}
+				.into(),
+				topics: vec![],
+			},
+			EventRecord {
+				phase: Phase::ApplyExtrinsic(1),
+				event: pallet_balances::Event::Withdraw { who: 1, amount: 19 }.into(),
+				topics: vec![],
+			},
+			EventRecord {
+				phase: Phase::ApplyExtrinsic(1),
+				event: frame_system::Event::ExtrinsicSuccess {
+					dispatch_info: DispatchInfo {
+						weight: Weight::from_parts(19, 0),
+						class: DispatchClass::Normal,
+						..Default::default()
+					},
+				}
+				.into(),
+				topics: vec![],
+			},
+		],
+		events,
+	);
+}
+
+#[test]
+fn mbm_active_does_not_call_poll() {
+	mbm_active_does_not_call_poll_inner(false);
+	mbm_active_does_not_call_poll_inner(true);
+}
+
+fn mbm_active_does_not_call_poll_inner(mbms: bool) {
+	MbmActive::set(mbms);
+
+	let header = new_test_ext(1).execute_with(|| {
+		Executive::initialize_block(&Header::new_from_number(1));
+
+		let h = Executive::finalize_block();
+		assert_eq!(MockedSystemCallbacks::on_poll_called(), !mbms);
+		h
+	});
+
+	new_test_ext(1).execute_with(|| {
+		Executive::execute_block(Block::new(header, vec![]));
+		assert_eq!(MockedSystemCallbacks::on_poll_called(), !mbms);
+	});
 }

@@ -1,0 +1,12 @@
+title: "[FRAME] Execution phases ApplyInherent and AfterInherent"
+
+doc:
+  - audience: Runtime User
+    description: |
+      FRAME runtimes now have two additional execution phases; `ApplyInherent(u32)` and `AfterInherent`. These are used to distinct in what phase of a block some logic runs. Formerly, inherents would also use the `ApplyExtrinsic(u32)` phase and all logic that runs in hooks between inherent and extrinsic application did not have a dedicated phase.
+
+crates:
+  - name: frame-system
+    bump: major
+  - name: frame-executive
+    bump: major
