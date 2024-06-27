@@ -1,6 +1,6 @@
 [package]
 name = "asset-hub-rococo-runtime"
-version = "0.12.0"
+version = "0.12.3"
 authors.workspace = true
 edition.workspace = true
 description = "Rococo variant of Asset Hub parachain runtime"
@@ -39,7 +39,7 @@ pallet-proxy = { path = "../../../../../substrate/frame/proxy", default-features
 pallet-session = { path = "../../../../../substrate/frame/session", default-features = false, version = "29.0.0" }
 pallet-state-trie-migration = { path = "../../../../../substrate/frame/state-trie-migration", default-features = false, optional = true, version = "30.0.0" }
 pallet-timestamp = { path = "../../../../../substrate/frame/timestamp", default-features = false, version = "28.0.0" }
-pallet-transaction-payment = { path = "../../../../../substrate/frame/transaction-payment", default-features = false, version = "29.0.1" }
+pallet-transaction-payment = { path = "../../../../../substrate/frame/transaction-payment", default-features = false, version = "29.0.2" }
 pallet-transaction-payment-rpc-runtime-api = { path = "../../../../../substrate/frame/transaction-payment/rpc/runtime-api", default-features = false, version = "29.0.0" }
 pallet-uniques = { path = "../../../../../substrate/frame/uniques", default-features = false, version = "29.0.0" }
 pallet-utility = { path = "../../../../../substrate/frame/utility", default-features = false, version = "29.0.0" }
@@ -65,9 +65,9 @@ rococo-runtime-constants = { path = "../../../../../polkadot/runtime/rococo/cons
 pallet-xcm = { path = "../../../../../polkadot/xcm/pallet-xcm", default-features = false, version = "8.0.5" }
 pallet-xcm-benchmarks = { path = "../../../../../polkadot/xcm/pallet-xcm-benchmarks", default-features = false, optional = true, version = "8.0.2" }
 polkadot-parachain-primitives = { path = "../../../../../polkadot/parachain", default-features = false, version = "7.0.0" }
-polkadot-runtime-common = { path = "../../../../../polkadot/runtime/common", default-features = false, version = "8.0.2" }
+polkadot-runtime-common = { path = "../../../../../polkadot/runtime/common", default-features = false, version = "8.0.3" }
 xcm = { package = "staging-xcm", path = "../../../../../polkadot/xcm", default-features = false, version = "8.0.1" }
-xcm-builder = { package = "staging-xcm-builder", path = "../../../../../polkadot/xcm/xcm-builder", default-features = false, version = "8.0.2" }
+xcm-builder = { package = "staging-xcm-builder", path = "../../../../../polkadot/xcm/xcm-builder", default-features = false, version = "8.0.3" }
 xcm-executor = { package = "staging-xcm-executor", path = "../../../../../polkadot/xcm/xcm-executor", default-features = false, version = "8.0.2" }
 
 # Cumulus
@@ -79,9 +79,9 @@ cumulus-pallet-xcmp-queue = { path = "../../../../pallets/xcmp-queue", default-f
 cumulus-primitives-aura = { path = "../../../../primitives/aura", default-features = false, version = "0.8.0" }
 cumulus-primitives-core = { path = "../../../../primitives/core", default-features = false, version = "0.8.0" }
 cumulus-primitives-utility = { path = "../../../../primitives/utility", default-features = false, version = "0.8.1" }
-pallet-collator-selection = { path = "../../../../pallets/collator-selection", default-features = false, version = "10.0.2" }
+pallet-collator-selection = { path = "../../../../pallets/collator-selection", default-features = false, version = "10.0.3" }
 parachain-info = { package = "staging-parachain-info", path = "../../../pallets/parachain-info", default-features = false, version = "0.8.0" }
-parachains-common = { path = "../../../common", default-features = false, version = "8.0.0" }
+parachains-common = { path = "../../../common", default-features = false, version = "8.0.1" }
 testnet-parachains-constants = { path = "../../constants", default-features = false, features = ["rococo"], version = "1.0.0" }
 assets-common = { path = "../common", default-features = false, version = "0.8.0" }
 

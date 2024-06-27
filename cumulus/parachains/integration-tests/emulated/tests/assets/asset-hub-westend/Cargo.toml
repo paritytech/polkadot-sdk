@@ -23,14 +23,14 @@ pallet-assets = { path = "../../../../../../../substrate/frame/assets", default-
 pallet-asset-conversion = { path = "../../../../../../../substrate/frame/asset-conversion", default-features = false, version = "11.0.0" }
 pallet-treasury = { path = "../../../../../../../substrate/frame/treasury", default-features = false, version = "28.0.1" }
 pallet-message-queue = { path = "../../../../../../../substrate/frame/message-queue", default-features = false, version = "32.0.0" }
-polkadot-runtime-common = { version = "8.0.2", path = "../../../../../../../polkadot/runtime/common" }
+polkadot-runtime-common = { version = "8.0.3", path = "../../../../../../../polkadot/runtime/common" }
 xcm = { package = "staging-xcm", path = "../../../../../../../polkadot/xcm", default-features = false, version = "8.0.1" }
 xcm-executor = { package = "staging-xcm-executor", path = "../../../../../../../polkadot/xcm/xcm-executor", default-features = false, version = "8.0.2" }
 pallet-xcm = { path = "../../../../../../../polkadot/xcm/pallet-xcm", default-features = false, version = "8.0.5" }
-westend-runtime = { version = "8.0.0", path = "../../../../../../../polkadot/runtime/westend" }
-parachains-common = { version = "8.0.0", path = "../../../../../common" }
+westend-runtime = { version = "8.0.1", path = "../../../../../../../polkadot/runtime/westend" }
+parachains-common = { version = "8.0.1", path = "../../../../../common" }
 testnet-parachains-constants = { path = "../../../../../runtimes/constants", features = ["westend"], version = "1.0.0" }
-asset-hub-westend-runtime = { version = "0.16.0", path = "../../../../../runtimes/assets/asset-hub-westend" }
+asset-hub-westend-runtime = { version = "0.16.1", path = "../../../../../runtimes/assets/asset-hub-westend" }
 asset-test-utils = { version = "8.0.1", path = "../../../../../runtimes/assets/test-utils" }
 cumulus-pallet-xcmp-queue = { default-features = false, path = "../../../../../../pallets/xcmp-queue", version = "0.8.0" }
 cumulus-pallet-parachain-system = { default-features = false, path = "../../../../../../pallets/parachain-system", version = "0.8.1" }

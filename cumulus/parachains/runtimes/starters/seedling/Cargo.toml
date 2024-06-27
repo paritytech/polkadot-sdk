@@ -41,7 +41,7 @@ cumulus-pallet-solo-to-para = { path = "../../../../pallets/solo-to-para", defau
 cumulus-primitives-core = { path = "../../../../primitives/core", default-features = false, version = "0.8.0" }
 cumulus-primitives-timestamp = { path = "../../../../primitives/timestamp", default-features = false, version = "0.8.0" }
 parachain-info = { package = "staging-parachain-info", path = "../../../pallets/parachain-info", default-features = false, version = "0.8.0" }
-parachains-common = { path = "../../../common", default-features = false, version = "8.0.0" }
+parachains-common = { path = "../../../common", default-features = false, version = "8.0.1" }
 
 [build-dependencies]
 substrate-wasm-builder = { path = "../../../../../substrate/utils/wasm-builder", optional = true, version = "18.0.1" }

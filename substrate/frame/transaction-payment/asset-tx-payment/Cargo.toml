@@ -24,7 +24,7 @@ sp-std = { path = "../../../primitives/std", default-features = false, version =
 
 frame-support = { path = "../../support", default-features = false, version = "29.0.2" }
 frame-system = { path = "../../system", default-features = false, version = "29.0.0" }
-pallet-transaction-payment = { path = "..", default-features = false, version = "29.0.1" }
+pallet-transaction-payment = { path = "..", default-features = false, version = "29.0.2" }
 frame-benchmarking = { path = "../../benchmarking", default-features = false, optional = true, version = "29.0.0" }
 
 # Other dependencies

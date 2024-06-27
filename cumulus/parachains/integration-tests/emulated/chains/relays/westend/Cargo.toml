@@ -24,6 +24,6 @@ pallet-staking = { path = "../../../../../../../substrate/frame/staking", defaul
 # Polkadot
 polkadot-primitives = { path = "../../../../../../../polkadot/primitives", default-features = false, version = "8.0.1" }
 westend-runtime-constants = { path = "../../../../../../../polkadot/runtime/westend/constants", default-features = false, version = "8.0.0" }
-westend-runtime = { version = "8.0.0", path = "../../../../../../../polkadot/runtime/westend" }
-parachains-common = { version = "8.0.0", path = "../../../../../common" }
+westend-runtime = { version = "8.0.1", path = "../../../../../../../polkadot/runtime/westend" }
+parachains-common = { version = "8.0.1", path = "../../../../../common" }
 emulated-integration-tests-common = { path = "../../../common", default-features = false, version = "4.0.0" }

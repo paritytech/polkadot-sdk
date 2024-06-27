@@ -53,7 +53,7 @@ sp-runtime = { version = "32.0.0", path = "../../../substrate/primitives/runtime
 sp-session = { version = "28.0.0", path = "../../../substrate/primitives/session" }
 sp-storage = { version = "20.0.0", path = "../../../substrate/primitives/storage" }
 sp-transaction-pool = { version = "27.0.0", path = "../../../substrate/primitives/transaction-pool" }
-pallet-transaction-payment = { version = "29.0.1", path = "../../../substrate/frame/transaction-payment" }
+pallet-transaction-payment = { version = "29.0.2", path = "../../../substrate/frame/transaction-payment" }
 sp-timestamp = { version = "27.0.0", path = "../../../substrate/primitives/timestamp" }
 sp-consensus-babe = { version = "0.33.0", path = "../../../substrate/primitives/consensus/babe" }
 sp-state-machine = { version = "0.36.0", path = "../../../substrate/primitives/state-machine" }
@@ -105,8 +105,8 @@ rococo-runtime-constants = { path = "../../runtime/rococo/constants", optional =
 westend-runtime-constants = { path = "../../runtime/westend/constants", optional = true, version = "8.0.0" }
 
 # Polkadot Runtimes
-westend-runtime = { path = "../../runtime/westend", optional = true, version = "8.0.0" }
-rococo-runtime = { path = "../../runtime/rococo", optional = true, version = "8.0.0" }
+westend-runtime = { path = "../../runtime/westend", optional = true, version = "8.0.1" }
+rococo-runtime = { path = "../../runtime/rococo", optional = true, version = "8.0.1" }
 
 # Polkadot Subsystems
 polkadot-approval-distribution = { path = "../network/approval-distribution", optional = true, version = "8.0.0" }

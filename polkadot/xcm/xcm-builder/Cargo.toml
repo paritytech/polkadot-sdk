@@ -4,7 +4,7 @@ description = "Tools & types for building with XCM and its executor."
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
-version = "8.0.2"
+version = "8.0.3"
 
 [lints]
 workspace = true
@@ -22,7 +22,7 @@ sp-runtime = { path = "../../../substrate/primitives/runtime", default-features 
 sp-weights = { path = "../../../substrate/primitives/weights", default-features = false, version = "28.0.0" }
 frame-support = { path = "../../../substrate/frame/support", default-features = false, version = "29.0.2" }
 frame-system = { path = "../../../substrate/frame/system", default-features = false, version = "29.0.0" }
-pallet-transaction-payment = { path = "../../../substrate/frame/transaction-payment", default-features = false, version = "29.0.1" }
+pallet-transaction-payment = { path = "../../../substrate/frame/transaction-payment", default-features = false, version = "29.0.2" }
 log = { version = "0.4.17", default-features = false }
 
 # Polkadot dependencies

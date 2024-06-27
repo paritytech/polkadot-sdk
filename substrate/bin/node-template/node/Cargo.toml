@@ -44,7 +44,7 @@ sp-timestamp = { version = "27.0.0", path = "../../../primitives/timestamp" }
 sp-inherents = { version = "27.0.0", path = "../../../primitives/inherents" }
 sp-keyring = { version = "32.0.0", path = "../../../primitives/keyring" }
 frame-system = { version = "29.0.0", path = "../../../frame/system" }
-pallet-transaction-payment = { path = "../../../frame/transaction-payment", default-features = false, version = "29.0.1" }
+pallet-transaction-payment = { path = "../../../frame/transaction-payment", default-features = false, version = "29.0.2" }
 
 # These dependencies are used for the node template's RPCs
 jsonrpsee = { version = "0.20.3", features = ["server"] }

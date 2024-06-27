@@ -31,7 +31,7 @@ cumulus-pallet-xcmp-queue = { version = "0.8.0", path = "../../pallets/xcmp-queu
 cumulus-pallet-parachain-system = { version = "0.8.1", path = "../../pallets/parachain-system" }
 cumulus-primitives-parachain-inherent = { version = "0.8.0", path = "../../primitives/parachain-inherent" }
 cumulus-test-relay-sproof-builder = { version = "0.8.0", path = "../../test/relay-sproof-builder" }
-parachains-common = { version = "8.0.0", path = "../../parachains/common" }
+parachains-common = { version = "8.0.1", path = "../../parachains/common" }
 
 # Polkadot
 xcm = { package = "staging-xcm", path = "../../../polkadot/xcm", version = "8.0.1" }

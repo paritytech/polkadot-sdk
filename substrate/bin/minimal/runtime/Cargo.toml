@@ -23,7 +23,7 @@ frame-support = { path = "../../../frame/support", default-features = false, ver
 pallet-balances = { path = "../../../frame/balances", default-features = false, version = "29.0.2" }
 pallet-sudo = { path = "../../../frame/sudo", default-features = false, version = "29.0.0" }
 pallet-timestamp = { path = "../../../frame/timestamp", default-features = false, version = "28.0.0" }
-pallet-transaction-payment = { path = "../../../frame/transaction-payment", default-features = false, version = "29.0.1" }
+pallet-transaction-payment = { path = "../../../frame/transaction-payment", default-features = false, version = "29.0.2" }
 pallet-transaction-payment-rpc-runtime-api = { path = "../../../frame/transaction-payment/rpc/runtime-api", default-features = false, version = "29.0.0" }
 
 # genesis builder that allows us to interacto with runtime genesis config

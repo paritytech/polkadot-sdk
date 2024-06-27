@@ -25,11 +25,11 @@ pallet-asset-conversion = { path = "../../../../../substrate/frame/asset-convers
 # Polkadot
 pallet-xcm = { path = "../../../../../polkadot/xcm/pallet-xcm", default-features = false, version = "8.0.5" }
 xcm = { package = "staging-xcm", path = "../../../../../polkadot/xcm", default-features = false, version = "8.0.1" }
-xcm-builder = { package = "staging-xcm-builder", path = "../../../../../polkadot/xcm/xcm-builder", default-features = false, version = "8.0.2" }
+xcm-builder = { package = "staging-xcm-builder", path = "../../../../../polkadot/xcm/xcm-builder", default-features = false, version = "8.0.3" }
 xcm-executor = { package = "staging-xcm-executor", path = "../../../../../polkadot/xcm/xcm-executor", default-features = false, version = "8.0.2" }
 
 # Cumulus
-parachains-common = { path = "../../../common", default-features = false, version = "8.0.0" }
+parachains-common = { path = "../../../common", default-features = false, version = "8.0.1" }
 cumulus-primitives-core = { path = "../../../../primitives/core", default-features = false, version = "0.8.0" }
 
 [build-dependencies]

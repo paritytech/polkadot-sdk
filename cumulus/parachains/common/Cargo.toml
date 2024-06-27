@@ -1,6 +1,6 @@
 [package]
 name = "parachains-common"
-version = "8.0.0"
+version = "8.0.1"
 authors.workspace = true
 edition.workspace = true
 description = "Logic which is common to all parachain runtimes"
@@ -38,7 +38,7 @@ xcm = { package = "staging-xcm", path = "../../../polkadot/xcm", default-feature
 xcm-executor = { package = "staging-xcm-executor", path = "../../../polkadot/xcm/xcm-executor", default-features = false, version = "8.0.2" }
 
 # Cumulus
-pallet-collator-selection = { path = "../../pallets/collator-selection", default-features = false, version = "10.0.2" }
+pallet-collator-selection = { path = "../../pallets/collator-selection", default-features = false, version = "10.0.3" }
 cumulus-primitives-core = { path = "../../primitives/core", default-features = false, version = "0.8.0" }
 cumulus-primitives-utility = { path = "../../primitives/utility", default-features = false, version = "0.8.1" }
 parachain-info = { package = "staging-parachain-info", path = "../pallets/parachain-info", default-features = false, version = "0.8.0" }

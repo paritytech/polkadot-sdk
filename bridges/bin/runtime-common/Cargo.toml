@@ -36,7 +36,7 @@ pallet-bridge-relayers = { path = "../../modules/relayers", default-features = f
 
 frame-support = { path = "../../../substrate/frame/support", default-features = false, version = "29.0.2" }
 frame-system = { path = "../../../substrate/frame/system", default-features = false, version = "29.0.0" }
-pallet-transaction-payment = { path = "../../../substrate/frame/transaction-payment", default-features = false, version = "29.0.1" }
+pallet-transaction-payment = { path = "../../../substrate/frame/transaction-payment", default-features = false, version = "29.0.2" }
 pallet-utility = { path = "../../../substrate/frame/utility", default-features = false, version = "29.0.0" }
 sp-api = { path = "../../../substrate/primitives/api", default-features = false, version = "27.0.1" }
 sp-core = { path = "../../../substrate/primitives/core", default-features = false, version = "29.0.0" }
@@ -47,7 +47,7 @@ sp-trie = { path = "../../../substrate/primitives/trie", default-features = fals
 
 # Polkadot dependencies
 xcm = { package = "staging-xcm", path = "../../../polkadot/xcm", default-features = false, version = "8.0.1" }
-xcm-builder = { package = "staging-xcm-builder", path = "../../../polkadot/xcm/xcm-builder", default-features = false, version = "8.0.2" }
+xcm-builder = { package = "staging-xcm-builder", path = "../../../polkadot/xcm/xcm-builder", default-features = false, version = "8.0.3" }
 
 [dev-dependencies]
 bp-test-utils = { path = "../../primitives/test-utils" }

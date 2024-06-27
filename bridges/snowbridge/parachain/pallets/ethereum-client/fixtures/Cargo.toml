@@ -1,7 +1,7 @@
 [package]
 name = "snowbridge-pallet-ethereum-client-fixtures"
 description = "Snowbridge Ethereum Client Test Fixtures"
-version = "0.9.0"
+version = "0.9.1"
 authors = ["Snowfork <contact@snowfork.com>"]
 edition.workspace = true
 repository.workspace = true
@@ -21,8 +21,8 @@ sp-std = { path = "../../../../../../substrate/primitives/std", default-features
 frame-benchmarking = { path = "../../../../../../substrate/frame/benchmarking", default-features = false, optional = true, version = "29.0.0" }
 frame-support = { path = "../../../../../../substrate/frame/support", default-features = false, version = "29.0.2" }
 frame-system = { path = "../../../../../../substrate/frame/system", default-features = false, version = "29.0.0" }
-snowbridge-core = { path = "../../../primitives/core", default-features = false, version = "0.1.1" }
-snowbridge-beacon-primitives = { path = "../../../primitives/beacon", default-features = false, version = "0.1.0" }
+snowbridge-core = { path = "../../../primitives/core", default-features = false, version = "0.1.3" }
+snowbridge-beacon-primitives = { path = "../../../primitives/beacon", default-features = false, version = "0.1.2" }
 
 [features]
 default = ["std"]

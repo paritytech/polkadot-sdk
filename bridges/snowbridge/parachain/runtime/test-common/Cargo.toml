@@ -1,7 +1,7 @@
 [package]
 name = "snowbridge-runtime-test-common"
 description = "Snowbridge Runtime Tests"
-version = "0.1.0"
+version = "0.1.2"
 authors = ["Snowfork <contact@snowfork.com>"]
 edition = "2021"
 license = "Apache-2.0"
@@ -33,7 +33,7 @@ pallet-session = { path = "../../../../../substrate/frame/session", default-feat
 pallet-multisig = { path = "../../../../../substrate/frame/multisig", default-features = false, version = "29.0.0" }
 pallet-message-queue = { path = "../../../../../substrate/frame/message-queue", default-features = false, version = "32.0.0" }
 pallet-timestamp = { path = "../../../../../substrate/frame/timestamp", default-features = false, version = "28.0.0" }
-pallet-transaction-payment = { path = "../../../../../substrate/frame/transaction-payment", default-features = false, version = "29.0.1" }
+pallet-transaction-payment = { path = "../../../../../substrate/frame/transaction-payment", default-features = false, version = "29.0.2" }
 pallet-transaction-payment-rpc-runtime-api = { path = "../../../../../substrate/frame/transaction-payment/rpc/runtime-api", default-features = false, version = "29.0.0" }
 pallet-utility = { path = "../../../../../substrate/frame/utility", default-features = false, version = "29.0.0" }
 sp-api = { path = "../../../../../substrate/primitives/api", default-features = false, version = "27.0.1" }
@@ -57,9 +57,9 @@ pallet-xcm = { path = "../../../../../polkadot/xcm/pallet-xcm", default-features
 pallet-xcm-benchmarks = { path = "../../../../../polkadot/xcm/pallet-xcm-benchmarks", default-features = false, optional = true, version = "8.0.2" }
 polkadot-core-primitives = { path = "../../../../../polkadot/core-primitives", default-features = false, version = "8.0.0" }
 polkadot-parachain-primitives = { path = "../../../../../polkadot/parachain", default-features = false, version = "7.0.0" }
-polkadot-runtime-common = { path = "../../../../../polkadot/runtime/common", default-features = false, version = "8.0.2" }
+polkadot-runtime-common = { path = "../../../../../polkadot/runtime/common", default-features = false, version = "8.0.3" }
 xcm = { package = "staging-xcm", path = "../../../../../polkadot/xcm", default-features = false, version = "8.0.1" }
-xcm-builder = { package = "staging-xcm-builder", path = "../../../../../polkadot/xcm/xcm-builder", default-features = false, version = "8.0.2" }
+xcm-builder = { package = "staging-xcm-builder", path = "../../../../../polkadot/xcm/xcm-builder", default-features = false, version = "8.0.3" }
 xcm-executor = { package = "staging-xcm-executor", path = "../../../../../polkadot/xcm/xcm-executor", default-features = false, version = "8.0.2" }
 
 # Cumulus
@@ -70,19 +70,19 @@ cumulus-pallet-xcm = { path = "../../../../../cumulus/pallets/xcm", default-feat
 cumulus-pallet-xcmp-queue = { path = "../../../../../cumulus/pallets/xcmp-queue", default-features = false, features = ["bridging"], version = "0.8.0" }
 cumulus-primitives-core = { path = "../../../../../cumulus/primitives/core", default-features = false, version = "0.8.0" }
 cumulus-primitives-utility = { path = "../../../../../cumulus/primitives/utility", default-features = false, version = "0.8.1" }
-pallet-collator-selection = { path = "../../../../../cumulus/pallets/collator-selection", default-features = false, version = "10.0.2" }
+pallet-collator-selection = { path = "../../../../../cumulus/pallets/collator-selection", default-features = false, version = "10.0.3" }
 parachain-info = { package = "staging-parachain-info", path = "../../../../../cumulus/parachains/pallets/parachain-info", default-features = false, version = "0.8.0" }
-parachains-common = { path = "../../../../../cumulus/parachains/common", default-features = false, version = "8.0.0" }
+parachains-common = { path = "../../../../../cumulus/parachains/common", default-features = false, version = "8.0.1" }
 parachains-runtimes-test-utils = { path = "../../../../../cumulus/parachains/runtimes/test-utils", default-features = false, version = "8.0.0" }
 assets-common = { path = "../../../../../cumulus/parachains/runtimes/assets/common", default-features = false, version = "0.8.0" }
 
 # Ethereum Bridge (Snowbridge)
-snowbridge-core = { path = "../../primitives/core", default-features = false, version = "0.1.1" }
-snowbridge-beacon-primitives = { path = "../../primitives/beacon", default-features = false, version = "0.1.0" }
+snowbridge-core = { path = "../../primitives/core", default-features = false, version = "0.1.3" }
+snowbridge-beacon-primitives = { path = "../../primitives/beacon", default-features = false, version = "0.1.2" }
 snowbridge-router-primitives = { path = "../../primitives/router", default-features = false, version = "0.1.0" }
-snowbridge-pallet-ethereum-client = { path = "../../pallets/ethereum-client", default-features = false, version = "0.1.2" }
-snowbridge-pallet-ethereum-client-fixtures = { path = "../../pallets/ethereum-client/fixtures", default-features = false, version = "0.9.0" }
-snowbridge-pallet-inbound-queue = { path = "../../pallets/inbound-queue", default-features = false, version = "0.1.1" }
+snowbridge-pallet-ethereum-client = { path = "../../pallets/ethereum-client", default-features = false, version = "0.1.3" }
+snowbridge-pallet-ethereum-client-fixtures = { path = "../../pallets/ethereum-client/fixtures", default-features = false, version = "0.9.1" }
+snowbridge-pallet-inbound-queue = { path = "../../pallets/inbound-queue", default-features = false, version = "0.1.3" }
 snowbridge-pallet-outbound-queue = { path = "../../pallets/outbound-queue", default-features = false, version = "0.1.1" }
 snowbridge-outbound-queue-runtime-api = { path = "../../pallets/outbound-queue/runtime-api", default-features = false, version = "0.1.1" }
 snowbridge-pallet-system = { path = "../../pallets/system", default-features = false, version = "0.1.1" }

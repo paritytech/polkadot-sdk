@@ -22,7 +22,7 @@ sp-std = { path = "../../../primitives/std", default-features = false, version =
 frame-support = { path = "../../support", default-features = false, version = "29.0.2" }
 frame-system = { path = "../../system", default-features = false, version = "29.0.0" }
 pallet-asset-conversion = { path = "../../asset-conversion", default-features = false, version = "11.0.0" }
-pallet-transaction-payment = { path = "..", default-features = false, version = "29.0.1" }
+pallet-transaction-payment = { path = "..", default-features = false, version = "29.0.2" }
 codec = { package = "parity-scale-codec", version = "3.2.2", default-features = false, features = ["derive"] }
 scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
 

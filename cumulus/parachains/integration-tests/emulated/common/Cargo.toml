@@ -30,7 +30,7 @@ polkadot-primitives = { version = "8.0.1", path = "../../../../../polkadot/primi
 polkadot-runtime-parachains = { version = "8.0.3", path = "../../../../../polkadot/runtime/parachains" }
 xcm = { package = "staging-xcm", path = "../../../../../polkadot/xcm", version = "8.0.1" }
 pallet-xcm = { version = "8.0.5", path = "../../../../../polkadot/xcm/pallet-xcm" }
-parachains-common = { version = "8.0.0", path = "../../../common" }
+parachains-common = { version = "8.0.1", path = "../../../common" }
 cumulus-primitives-core = { version = "0.8.0", path = "../../../../primitives/core" }
 xcm-emulator = { version = "0.6.0", path = "../../../../xcm/xcm-emulator" }
 cumulus-pallet-xcmp-queue = { version = "0.8.0", path = "../../../../pallets/xcmp-queue" }

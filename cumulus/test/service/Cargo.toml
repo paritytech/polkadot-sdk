@@ -28,7 +28,7 @@ url = "2.4.0"
 tempfile = "3.8.0"
 frame-system = { version = "29.0.0", path = "../../../substrate/frame/system" }
 frame-system-rpc-runtime-api = { version = "27.0.0", path = "../../../substrate/frame/system/rpc/runtime-api" }
-pallet-transaction-payment = { version = "29.0.1", path = "../../../substrate/frame/transaction-payment" }
+pallet-transaction-payment = { version = "29.0.2", path = "../../../substrate/frame/transaction-payment" }
 sc-basic-authorship = { version = "0.35.0", path = "../../../substrate/client/basic-authorship" }
 sc-chain-spec = { version = "28.0.0", path = "../../../substrate/client/chain-spec" }
 sc-client-api = { version = "29.0.0", path = "../../../substrate/client/api" }
@@ -63,7 +63,7 @@ polkadot-cli = { version = "8.0.0", path = "../../../polkadot/cli" }
 polkadot-node-subsystem = { version = "8.0.0", path = "../../../polkadot/node/subsystem" }
 polkadot-overseer = { version = "8.0.0", path = "../../../polkadot/node/overseer" }
 cumulus-client-cli = { version = "0.8.0", path = "../../client/cli" }
-parachains-common = { version = "8.0.0", path = "../../parachains/common" }
+parachains-common = { version = "8.0.1", path = "../../parachains/common" }
 cumulus-client-consensus-common = { version = "0.8.0", path = "../../client/consensus/common" }
 cumulus-client-consensus-relay-chain = { version = "0.8.0", path = "../../client/consensus/relay-chain" }
 cumulus-client-parachain-inherent = { version = "0.2.0", path = "../../client/parachain-inherent" }

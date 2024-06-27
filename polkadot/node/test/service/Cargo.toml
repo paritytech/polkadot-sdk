@@ -22,7 +22,7 @@ polkadot-overseer = { version = "8.0.0", path = "../../overseer" }
 polkadot-primitives = { version = "8.0.1", path = "../../../primitives" }
 polkadot-parachain-primitives = { version = "7.0.0", path = "../../../parachain" }
 polkadot-rpc = { version = "8.0.0", path = "../../../rpc" }
-polkadot-runtime-common = { version = "8.0.2", path = "../../../runtime/common" }
+polkadot-runtime-common = { version = "8.0.3", path = "../../../runtime/common" }
 polkadot-service = { version = "8.0.0", path = "../../service" }
 polkadot-node-subsystem = { version = "8.0.0", path = "../../subsystem" }
 polkadot-node-primitives = { version = "8.0.0", path = "../../primitives" }
@@ -40,7 +40,7 @@ grandpa_primitives = { package = "sp-consensus-grandpa", path = "../../../../sub
 inherents = { package = "sp-inherents", path = "../../../../substrate/primitives/inherents", version = "27.0.0" }
 pallet-staking = { version = "29.0.3", path = "../../../../substrate/frame/staking" }
 pallet-balances = { version = "29.0.2", path = "../../../../substrate/frame/balances" }
-pallet-transaction-payment = { version = "29.0.1", path = "../../../../substrate/frame/transaction-payment" }
+pallet-transaction-payment = { version = "29.0.2", path = "../../../../substrate/frame/transaction-payment" }
 sc-chain-spec = { version = "28.0.0", path = "../../../../substrate/client/chain-spec" }
 sc-cli = { version = "0.37.0", path = "../../../../substrate/client/cli" }
 sc-client-api = { version = "29.0.0", path = "../../../../substrate/client/api" }

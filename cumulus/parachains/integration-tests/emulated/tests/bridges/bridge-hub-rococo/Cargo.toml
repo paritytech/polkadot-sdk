@@ -32,19 +32,19 @@ xcm-executor = { package = "staging-xcm-executor", path = "../../../../../../../
 # Bridges
 pallet-bridge-messages = { path = "../../../../../../../bridges/modules/messages", default-features = false, version = "0.8.0" }
 bp-messages = { path = "../../../../../../../bridges/primitives/messages", default-features = false, version = "0.8.0" }
-parachains-common = { version = "8.0.0", path = "../../../../../common" }
+parachains-common = { version = "8.0.1", path = "../../../../../common" }
 testnet-parachains-constants = { path = "../../../../../runtimes/constants", features = ["rococo"], version = "1.0.0" }
 cumulus-pallet-xcmp-queue = { path = "../../../../../../pallets/xcmp-queue", default-features = false, version = "0.8.0" }
-bridge-hub-rococo-runtime = { path = "../../../../../runtimes/bridge-hubs/bridge-hub-rococo", default-features = false, version = "0.6.0" }
+bridge-hub-rococo-runtime = { path = "../../../../../runtimes/bridge-hubs/bridge-hub-rococo", default-features = false, version = "0.6.2" }
 emulated-integration-tests-common = { path = "../../../common", default-features = false, version = "4.0.0" }
 rococo-westend-system-emulated-network = { version = "0.1.0", path = "../../../networks/rococo-westend-system" }
 rococo-system-emulated-network = { version = "0.1.0", path = "../../../networks/rococo-system" }
-asset-hub-rococo-runtime = { path = "../../../../../runtimes/assets/asset-hub-rococo", default-features = false, version = "0.12.0" }
+asset-hub-rococo-runtime = { path = "../../../../../runtimes/assets/asset-hub-rococo", default-features = false, version = "0.12.3" }
 
 # Snowbridge
-snowbridge-core = { path = "../../../../../../../bridges/snowbridge/parachain/primitives/core", default-features = false, version = "0.1.1" }
+snowbridge-core = { path = "../../../../../../../bridges/snowbridge/parachain/primitives/core", default-features = false, version = "0.1.3" }
 snowbridge-router-primitives = { path = "../../../../../../../bridges/snowbridge/parachain/primitives/router", default-features = false, version = "0.1.0" }
 snowbridge-pallet-system = { path = "../../../../../../../bridges/snowbridge/parachain/pallets/system", default-features = false, version = "0.1.1" }
 snowbridge-pallet-outbound-queue = { path = "../../../../../../../bridges/snowbridge/parachain/pallets/outbound-queue", default-features = false, version = "0.1.1" }
-snowbridge-pallet-inbound-queue = { path = "../../../../../../../bridges/snowbridge/parachain/pallets/inbound-queue", default-features = false, version = "0.1.1" }
-snowbridge-pallet-inbound-queue-fixtures = { version = "0.9.0", path = "../../../../../../../bridges/snowbridge/parachain/pallets/inbound-queue/fixtures" }
+snowbridge-pallet-inbound-queue = { path = "../../../../../../../bridges/snowbridge/parachain/pallets/inbound-queue", default-features = false, version = "0.1.3" }
+snowbridge-pallet-inbound-queue-fixtures = { version = "0.9.1", path = "../../../../../../../bridges/snowbridge/parachain/pallets/inbound-queue/fixtures" }
