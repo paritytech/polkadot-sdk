@@ -15,7 +15,7 @@ sp-runtime = { path = "../../../../../../../substrate/primitives/runtime", defau
 frame-support = { path = "../../../../../../../substrate/frame/support", default-features = false, version = "29.0.2" }
 pallet-balances = { path = "../../../../../../../substrate/frame/balances", default-features = false, version = "29.0.2" }
 pallet-message-queue = { path = "../../../../../../../substrate/frame/message-queue", default-features = false, version = "32.0.0" }
-pallet-identity = { path = "../../../../../../../substrate/frame/identity", default-features = false, version = "29.0.1" }
+pallet-identity = { path = "../../../../../../../substrate/frame/identity", default-features = false, version = "29.0.2" }
 
 # Polkadot
 xcm = { package = "staging-xcm", path = "../../../../../../../polkadot/xcm", default-features = false, version = "8.0.1" }
