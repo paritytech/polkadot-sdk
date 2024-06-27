@@ -83,6 +83,7 @@ jobs:
         partition: [1/3, 2/3, 3/3]
     container:
       image: ${{ needs.set-image.outputs.IMAGE }}
+      options: --privileged
     env:
       RUST_TOOLCHAIN: stable
       # Enable debug assertions since we are running optimized builds for testing
