@@ -72,6 +72,7 @@ jobs:
       - name: script
         run: time forklift cargo nextest run --workspace --features runtime-benchmarks benchmark --locked --cargo-profile testnet
 
+  #
   test-linux-stable:
     needs: [set-image, changes]
     runs-on: arc-runners-polkadot-sdk-beefy
@@ -94,9 +95,10 @@ jobs:
       - name: script
         run: >
           time cargo nextest run 
-          --workspace 
-          --locked 
-          --release 
-          --no-fail-fast 
-          --features try-runtime,experimental,riscv,ci-only-tests 
-          --partition count:${{ matrix.ci_node_index }}/${{ matrix.ci_node_total }}
+            --workspace 
+            --locked 
+            --release 
+            --no-fail-fast 
+            --features try-runtime,experimental,riscv,ci-only-tests 
+            -E "!test(/.*benchmark.*/)" 
+            --partition count:${{ matrix.ci_node_index }}/${{ matrix.ci_node_total }}
