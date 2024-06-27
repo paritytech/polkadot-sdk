@@ -570,6 +570,7 @@ pub mod bridging {
 
 			pub const WestendNetwork: NetworkId = NetworkId::Westend;
 			pub WestendEcosystem: Location = Location::new(2, [GlobalConsensus(WestendNetwork::get())]);
+			pub WndLocation: Location = Location::new(2, [GlobalConsensus(WestendNetwork::get())]);
 			pub AssetHubWestend: Location = Location::new(2, [
 				GlobalConsensus(WestendNetwork::get()),
 				Parachain(bp_asset_hub_westend::ASSET_HUB_WESTEND_PARACHAIN_ID)

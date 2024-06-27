@@ -571,6 +571,7 @@ pub mod bridging {
 			pub const RococoNetwork: NetworkId = NetworkId::Rococo;
 			pub const EthereumNetwork: NetworkId = NetworkId::Ethereum { chain_id: 11155111 };
 			pub RococoEcosystem: Location = Location::new(2, [GlobalConsensus(RococoNetwork::get())]);
+			pub RocLocation: Location = Location::new(2, [GlobalConsensus(RococoNetwork::get())]);
 			pub EthereumEcosystem: Location = Location::new(2, [GlobalConsensus(EthereumNetwork::get())]);
 			pub AssetHubRococo: Location = Location::new(2, [
 				GlobalConsensus(RococoNetwork::get()),
