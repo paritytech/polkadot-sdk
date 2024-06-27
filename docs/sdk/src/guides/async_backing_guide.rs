@@ -66,7 +66,7 @@
 //! - Define a `FixedVelocityConsensusHook` using our capacity, velocity, and relay slot duration
 //! constants. Use this to set the parachain system `ConsensusHook` property.
 #![doc = docify::embed!("../../templates/parachain/runtime/src/lib.rs", ConsensusHook)]
-//! ```rust
+//! ```ignore
 //! impl cumulus_pallet_parachain_system::Config for Runtime {
 //!     ..
 //!     type ConsensusHook = ConsensusHook;
@@ -108,7 +108,7 @@
 //!
 //!    - Add the dependency `cumulus-primitives-aura` to the `runtime/Cargo.toml` file for your
 //!      runtime
-//! ```rust
+//! ```ignore
 //! ..
 //! cumulus-primitives-aura = { path = "../../../../primitives/aura", default-features = false }
 //! ..
