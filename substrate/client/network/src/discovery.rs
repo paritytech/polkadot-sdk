@@ -55,20 +55,20 @@ use ip_network::IpNetwork;
 use libp2p::{
 	core::{Endpoint, Multiaddr},
 	kad::{
-		handler::KademliaHandler,
+		self,
 		record::store::{MemoryStore, RecordStore},
-		GetClosestPeersError, GetRecordOk, Kademlia, KademliaBucketInserts, KademliaConfig,
-		KademliaEvent, QueryId, QueryResult, Quorum, Record, RecordKey,
+		Behaviour as Kademlia, BucketInserts, Config as KademliaConfig, Event as KademliaEvent,
+		GetClosestPeersError, GetRecordOk, QueryId, QueryResult, Quorum, Record, RecordKey,
 	},
 	mdns::{self, tokio::Behaviour as TokioMdns},
 	multiaddr::Protocol,
 	swarm::{
 		behaviour::{
 			toggle::{Toggle, ToggleConnectionHandler},
-			DialFailure, FromSwarm, NewExternalAddr,
+			DialFailure, ExternalAddrConfirmed, FromSwarm,
 		},
-		ConnectionDenied, ConnectionId, DialError, NetworkBehaviour, PollParameters, THandler,
-		THandlerInEvent, THandlerOutEvent, ToSwarm,
+		ConnectionDenied, ConnectionId, DialError, NetworkBehaviour, PollParameters,
+		StreamProtocol, THandler, THandlerInEvent, THandlerOutEvent, ToSwarm,
 	},
 	PeerId,
 };
@@ -80,7 +80,7 @@ use std::{
 	collections::{hash_map::Entry, HashMap, HashSet, VecDeque},
 	num::NonZeroUsize,
 	task::{Context, Poll},
-	time::Duration,
+	time::{Duration, Instant},
 };
 
 /// Maximum number of known external addresses that we will cache.
@@ -105,8 +105,8 @@ pub struct DiscoveryConfig {
 	discovery_only_if_under_num: u64,
 	enable_mdns: bool,
 	kademlia_disjoint_query_paths: bool,
-	kademlia_protocol: Vec<u8>,
-	kademlia_legacy_protocol: Vec<u8>,
+	kademlia_protocol: Option<StreamProtocol>,
+	kademlia_legacy_protocol: Option<StreamProtocol>,
 	kademlia_replication_factor: NonZeroUsize,
 }
 
@@ -122,8 +122,8 @@ impl DiscoveryConfig {
 			discovery_only_if_under_num: std::u64::MAX,
 			enable_mdns: false,
 			kademlia_disjoint_query_paths: false,
-			kademlia_protocol: Vec::new(),
-			kademlia_legacy_protocol: Vec::new(),
+			kademlia_protocol: None,
+			kademlia_legacy_protocol: None,
 			kademlia_replication_factor: NonZeroUsize::new(DEFAULT_KADEMLIA_REPLICATION_FACTOR)
 				.expect("value is a constant; constant is non-zero; qed."),
 		}
@@ -179,8 +179,8 @@ impl DiscoveryConfig {
 		fork_id: Option<&str>,
 		protocol_id: &ProtocolId,
 	) -> &mut Self {
-		self.kademlia_protocol = kademlia_protocol_name(genesis_hash, fork_id);
-		self.kademlia_legacy_protocol = legacy_kademlia_protocol_name(protocol_id);
+		self.kademlia_protocol = Some(kademlia_protocol_name(genesis_hash, fork_id));
+		self.kademlia_legacy_protocol = Some(legacy_kademlia_protocol_name(protocol_id));
 		self
 	}
 
@@ -213,23 +213,31 @@ impl DiscoveryConfig {
 			kademlia_replication_factor,
 		} = self;
 
-		let kademlia = if !kademlia_protocol.is_empty() {
+		let kademlia = if let Some(ref kademlia_protocol) = kademlia_protocol {
 			let mut config = KademliaConfig::default();
 
 			config.set_replication_factor(kademlia_replication_factor);
 			// Populate kad with both the legacy and the new protocol names.
 			// Remove the legacy protocol:
 			// https://github.com/paritytech/polkadot-sdk/issues/504
-			let kademlia_protocols = [kademlia_protocol.clone(), kademlia_legacy_protocol];
+			let kademlia_protocols = if let Some(legacy_protocol) = kademlia_legacy_protocol {
+				vec![kademlia_protocol.clone(), legacy_protocol]
+			} else {
+				vec![kademlia_protocol.clone()]
+			};
 			config.set_protocol_names(kademlia_protocols.into_iter().map(Into::into).collect());
+
+			config.set_record_filtering(libp2p::kad::StoreInserts::FilterBoth);
+
 			// By default Kademlia attempts to insert all peers into its routing table once a
 			// dialing attempt succeeds. In order to control which peer is added, disable the
 			// auto-insertion and instead add peers manually.
-			config.set_kbucket_inserts(KademliaBucketInserts::Manual);
+			config.set_kbucket_inserts(BucketInserts::Manual);
 			config.disjoint_query_paths(kademlia_disjoint_query_paths);
 
 			let store = MemoryStore::new(local_peer_id);
 			let mut kad = Kademlia::with_config(local_peer_id, store, config);
+			kad.set_mode(Some(kad::Mode::Server));
 
 			for (peer_id, addr) in &permanent_addresses {
 				kad.add_address(peer_id, addr.clone());
@@ -320,7 +328,7 @@ pub struct DiscoveryBehaviour {
 	///
 	/// Remove when all nodes are upgraded to genesis hash and fork ID-based Kademlia:
 	/// <https://github.com/paritytech/polkadot-sdk/issues/504>.
-	kademlia_protocol: Vec<u8>,
+	kademlia_protocol: Option<StreamProtocol>,
 }
 
 impl DiscoveryBehaviour {
@@ -366,7 +374,7 @@ impl DiscoveryBehaviour {
 	pub fn add_self_reported_address(
 		&mut self,
 		peer_id: &PeerId,
-		supported_protocols: &[impl AsRef<[u8]>],
+		supported_protocols: &[StreamProtocol],
 		addr: Multiaddr,
 	) {
 		if let Some(kademlia) = self.kademlia.as_mut() {
@@ -383,10 +391,12 @@ impl DiscoveryBehaviour {
 			// Extract the chain-based Kademlia protocol from `kademlia.protocol_name()`
 			// when all nodes are upgraded to genesis hash and fork ID-based Kademlia:
 			// https://github.com/paritytech/polkadot-sdk/issues/504.
-			if !supported_protocols
-				.iter()
-				.any(|p| p.as_ref() == self.kademlia_protocol.as_slice())
-			{
+			if !supported_protocols.iter().any(|p| {
+				p == self
+					.kademlia_protocol
+					.as_ref()
+					.expect("kademlia protocol was checked above to be enabled; qed")
+			}) {
 				trace!(
 					target: "sub-libp2p",
 					"Ignoring self-reported address {} from {} as remote node is not part of the \
@@ -423,6 +433,30 @@ impl DiscoveryBehaviour {
 				warn!(target: "sub-libp2p", "Libp2p => Failed to put record: {:?}", e);
 				self.pending_events
 					.push_back(DiscoveryOut::ValuePutFailed(key.clone(), Duration::from_secs(0)));
+			}
+		}
+	}
+
+	/// Store a record in the Kademlia record store.
+	pub fn store_record(
+		&mut self,
+		record_key: RecordKey,
+		record_value: Vec<u8>,
+		publisher: Option<PeerId>,
+		expires: Option<Instant>,
+	) {
+		if let Some(k) = self.kademlia.as_mut() {
+			if let Err(err) = k.store_mut().put(Record {
+				key: record_key,
+				value: record_value,
+				publisher: publisher.map(|publisher| publisher.into()),
+				expires,
+			}) {
+				debug!(
+					target: "sub-libp2p",
+					"Failed to store record with key: {:?}",
+					err
+				);
 			}
 		}
 	}
@@ -476,7 +510,7 @@ impl DiscoveryBehaviour {
 #[derive(Debug)]
 pub enum DiscoveryOut {
 	/// A connection to a peer has been established but the peer has not been
-	/// added to the routing table because [`KademliaBucketInserts::Manual`] is
+	/// added to the routing table because [`BucketInserts::Manual`] is
 	/// configured. If the peer is to be included in the routing table, it must
 	/// be explicitly added via
 	/// [`DiscoveryBehaviour::add_self_reported_address`].
@@ -494,6 +528,14 @@ pub enum DiscoveryOut {
 	///
 	/// Returning the result grouped in (key, value) pairs as well as the request duration.
 	ValueFound(Vec<(RecordKey, Vec<u8>)>, Duration),
+
+	/// The DHT received a put record request.
+	PutRecordRequest(
+		RecordKey,
+		Vec<u8>,
+		Option<sc_network_types::PeerId>,
+		Option<std::time::Instant>,
+	),
 
 	/// The record requested was not found in the DHT.
 	///
@@ -517,8 +559,9 @@ pub enum DiscoveryOut {
 }
 
 impl NetworkBehaviour for DiscoveryBehaviour {
-	type ConnectionHandler = ToggleConnectionHandler<KademliaHandler<QueryId>>;
-	type OutEvent = DiscoveryOut;
+	type ConnectionHandler =
+		ToggleConnectionHandler<<Kademlia<MemoryStore> as NetworkBehaviour>::ConnectionHandler>;
+	type ToSwarm = DiscoveryOut;
 
 	fn handle_established_inbound_connection(
 		&mut self,
@@ -654,11 +697,11 @@ impl NetworkBehaviour for DiscoveryBehaviour {
 			FromSwarm::ListenerError(e) => {
 				self.kademlia.on_swarm_event(FromSwarm::ListenerError(e));
 			},
-			FromSwarm::ExpiredExternalAddr(e) => {
+			FromSwarm::ExternalAddrExpired(e) => {
 				// We intentionally don't remove the element from `known_external_addresses` in
 				// order to not print the log line again.
 
-				self.kademlia.on_swarm_event(FromSwarm::ExpiredExternalAddr(e));
+				self.kademlia.on_swarm_event(FromSwarm::ExternalAddrExpired(e));
 			},
 			FromSwarm::NewListener(e) => {
 				self.kademlia.on_swarm_event(FromSwarm::NewListener(e));
@@ -666,8 +709,18 @@ impl NetworkBehaviour for DiscoveryBehaviour {
 			FromSwarm::ExpiredListenAddr(e) => {
 				self.kademlia.on_swarm_event(FromSwarm::ExpiredListenAddr(e));
 			},
-			FromSwarm::NewExternalAddr(e @ NewExternalAddr { addr }) => {
-				let new_addr = addr.clone().with(Protocol::P2p(self.local_peer_id.into()));
+			FromSwarm::NewExternalAddrCandidate(e) => {
+				self.kademlia.on_swarm_event(FromSwarm::NewExternalAddrCandidate(e));
+			},
+			FromSwarm::AddressChange(e) => {
+				self.kademlia.on_swarm_event(FromSwarm::AddressChange(e));
+			},
+			FromSwarm::NewListenAddr(e) => {
+				self.kademlia.on_swarm_event(FromSwarm::NewListenAddr(e));
+				self.mdns.on_swarm_event(FromSwarm::NewListenAddr(e));
+			},
+			FromSwarm::ExternalAddrConfirmed(e @ ExternalAddrConfirmed { addr }) => {
+				let new_addr = addr.clone().with(Protocol::P2p(self.local_peer_id));
 
 				if Self::can_add_to_dht(addr) {
 					// NOTE: we might re-discover the same address multiple times
@@ -681,14 +734,7 @@ impl NetworkBehaviour for DiscoveryBehaviour {
 					}
 				}
 
-				self.kademlia.on_swarm_event(FromSwarm::NewExternalAddr(e));
-			},
-			FromSwarm::AddressChange(e) => {
-				self.kademlia.on_swarm_event(FromSwarm::AddressChange(e));
-			},
-			FromSwarm::NewListenAddr(e) => {
-				self.kademlia.on_swarm_event(FromSwarm::NewListenAddr(e));
-				self.mdns.on_swarm_event(FromSwarm::NewListenAddr(e));
+				self.kademlia.on_swarm_event(FromSwarm::ExternalAddrConfirmed(e));
 			},
 		}
 	}
@@ -706,7 +752,7 @@ impl NetworkBehaviour for DiscoveryBehaviour {
 		&mut self,
 		cx: &mut Context,
 		params: &mut impl PollParameters,
-	) -> Poll<ToSwarm<Self::OutEvent, THandlerInEvent<Self>>> {
+	) -> Poll<ToSwarm<Self::ToSwarm, THandlerInEvent<Self>>> {
 		// Immediately process the content of `discovered`.
 		if let Some(ev) = self.pending_events.pop_front() {
 			return Poll::Ready(ToSwarm::GenerateEvent(ev))
@@ -764,9 +810,20 @@ impl NetworkBehaviour for DiscoveryBehaviour {
 						let ev = DiscoveryOut::Discovered(peer);
 						return Poll::Ready(ToSwarm::GenerateEvent(ev))
 					},
-					KademliaEvent::PendingRoutablePeer { .. } |
-					KademliaEvent::InboundRequest { .. } => {
+					KademliaEvent::PendingRoutablePeer { .. } => {
 						// We are not interested in this event at the moment.
+					},
+					KademliaEvent::InboundRequest { request } => match request {
+						libp2p::kad::InboundRequest::PutRecord { record: Some(record), .. } =>
+							return Poll::Ready(ToSwarm::GenerateEvent(
+								DiscoveryOut::PutRecordRequest(
+									record.key,
+									record.value,
+									record.publisher.map(Into::into),
+									record.expires,
+								),
+							)),
+						_ => {},
 					},
 					KademliaEvent::OutboundQueryProgressed {
 						result: QueryResult::GetClosestPeers(res),
@@ -917,10 +974,17 @@ impl NetworkBehaviour for DiscoveryBehaviour {
 				ToSwarm::Dial { opts } => return Poll::Ready(ToSwarm::Dial { opts }),
 				ToSwarm::NotifyHandler { peer_id, handler, event } =>
 					return Poll::Ready(ToSwarm::NotifyHandler { peer_id, handler, event }),
-				ToSwarm::ReportObservedAddr { address, score } =>
-					return Poll::Ready(ToSwarm::ReportObservedAddr { address, score }),
 				ToSwarm::CloseConnection { peer_id, connection } =>
 					return Poll::Ready(ToSwarm::CloseConnection { peer_id, connection }),
+				ToSwarm::NewExternalAddrCandidate(observed) =>
+					return Poll::Ready(ToSwarm::NewExternalAddrCandidate(observed)),
+				ToSwarm::ExternalAddrConfirmed(addr) =>
+					return Poll::Ready(ToSwarm::ExternalAddrConfirmed(addr)),
+				ToSwarm::ExternalAddrExpired(addr) =>
+					return Poll::Ready(ToSwarm::ExternalAddrExpired(addr)),
+				ToSwarm::ListenOn { opts } => return Poll::Ready(ToSwarm::ListenOn { opts }),
+				ToSwarm::RemoveListener { id } =>
+					return Poll::Ready(ToSwarm::RemoveListener { id }),
 			}
 		}
 
@@ -933,8 +997,9 @@ impl NetworkBehaviour for DiscoveryBehaviour {
 							continue
 						}
 
-						self.pending_events
-							.extend(list.map(|(peer_id, _)| DiscoveryOut::Discovered(peer_id)));
+						self.pending_events.extend(
+							list.into_iter().map(|(peer_id, _)| DiscoveryOut::Discovered(peer_id)),
+						);
 						if let Some(ev) = self.pending_events.pop_front() {
 							return Poll::Ready(ToSwarm::GenerateEvent(ev))
 						}
@@ -944,13 +1009,19 @@ impl NetworkBehaviour for DiscoveryBehaviour {
 				ToSwarm::Dial { .. } => {
 					unreachable!("mDNS never dials!");
 				},
-				ToSwarm::NotifyHandler { event, .. } => match event {}, /* `event` is an */
-				// enum with no
-				// variant
-				ToSwarm::ReportObservedAddr { address, score } =>
-					return Poll::Ready(ToSwarm::ReportObservedAddr { address, score }),
+				// `event` is an enum with no variant
+				ToSwarm::NotifyHandler { event, .. } => match event {},
 				ToSwarm::CloseConnection { peer_id, connection } =>
 					return Poll::Ready(ToSwarm::CloseConnection { peer_id, connection }),
+				ToSwarm::NewExternalAddrCandidate(observed) =>
+					return Poll::Ready(ToSwarm::NewExternalAddrCandidate(observed)),
+				ToSwarm::ExternalAddrConfirmed(addr) =>
+					return Poll::Ready(ToSwarm::ExternalAddrConfirmed(addr)),
+				ToSwarm::ExternalAddrExpired(addr) =>
+					return Poll::Ready(ToSwarm::ExternalAddrExpired(addr)),
+				ToSwarm::ListenOn { opts } => return Poll::Ready(ToSwarm::ListenOn { opts }),
+				ToSwarm::RemoveListener { id } =>
+					return Poll::Ready(ToSwarm::RemoveListener { id }),
 			}
 		}
 
@@ -959,21 +1030,24 @@ impl NetworkBehaviour for DiscoveryBehaviour {
 }
 
 /// Legacy (fallback) Kademlia protocol name based on `protocol_id`.
-fn legacy_kademlia_protocol_name(id: &ProtocolId) -> Vec<u8> {
-	let mut v = vec![b'/'];
-	v.extend_from_slice(id.as_ref().as_bytes());
-	v.extend_from_slice(b"/kad");
-	v
+fn legacy_kademlia_protocol_name(id: &ProtocolId) -> StreamProtocol {
+	let name = format!("/{}/kad", id.as_ref());
+	StreamProtocol::try_from_owned(name).expect("protocol name is valid. qed")
 }
 
 /// Kademlia protocol name based on `genesis_hash` and `fork_id`.
-fn kademlia_protocol_name<Hash: AsRef<[u8]>>(genesis_hash: Hash, fork_id: Option<&str>) -> Vec<u8> {
+fn kademlia_protocol_name<Hash: AsRef<[u8]>>(
+	genesis_hash: Hash,
+	fork_id: Option<&str>,
+) -> StreamProtocol {
 	let genesis_hash_hex = bytes2hex("", genesis_hash.as_ref());
-	if let Some(fork_id) = fork_id {
-		format!("/{}/{}/kad", genesis_hash_hex, fork_id).as_bytes().into()
+	let name = if let Some(fork_id) = fork_id {
+		format!("/{genesis_hash_hex}/{fork_id}/kad")
 	} else {
-		format!("/{}/kad", genesis_hash_hex).as_bytes().into()
-	}
+		format!("/{genesis_hash_hex}/kad")
+	};
+
+	StreamProtocol::try_from_owned(name).expect("protocol name is valid. qed")
 }
 
 #[cfg(test)]
@@ -990,7 +1064,7 @@ mod tests {
 		},
 		identity::Keypair,
 		noise,
-		swarm::{Executor, Swarm, SwarmBuilder, SwarmEvent},
+		swarm::{Executor, Swarm, SwarmEvent},
 		yamux, Multiaddr,
 	};
 	use sp_core::hash::H256;
@@ -1036,7 +1110,8 @@ mod tests {
 				};
 
 				let runtime = tokio::runtime::Runtime::new().unwrap();
-				let mut swarm = SwarmBuilder::with_executor(
+				#[allow(deprecated)]
+				let mut swarm = libp2p::swarm::SwarmBuilder::with_executor(
 					transport,
 					behaviour,
 					keypair.public().to_peer_id(),
