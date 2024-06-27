@@ -301,6 +301,12 @@ pub mod common_strategies {
 	impl<RuntimeOrigin, Inner: DestroyStrategy> DestroyStrategy for WithOrigin<RuntimeOrigin, Inner> {
 		type Success = Inner::Success;
 	}
+	impl<RuntimeOrigin, Inner: StashStrategy> StashStrategy for WithOrigin<RuntimeOrigin, Inner> {
+		type Success = Inner::Success;
+	}
+	impl<RuntimeOrigin, Inner: RestoreStrategy> RestoreStrategy for WithOrigin<RuntimeOrigin, Inner> {
+		type Success = Inner::Success;
+	}
 
 	/// The JustDo represents the simplest strategy,
 	/// which doesn't require additional checks to perform the operation.
