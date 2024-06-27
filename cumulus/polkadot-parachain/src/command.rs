@@ -60,13 +60,10 @@ enum Runtime {
 	Shell,
 	Seedling,
 	AssetHubPolkadot,
-	AssetHubKusama,
-	AssetHubRococo,
-	AssetHubWestend,
+	AssetHub,
 	Penpal(ParaId),
 	ContractsRococo,
-	CollectivesPolkadot,
-	CollectivesWestend,
+	Collectives,
 	Glutton,
 	BridgeHub(chain_spec::bridge_hubs::BridgeHubRuntimeType),
 	Coretime(chain_spec::coretime::CoretimeRuntimeType),
@@ -110,20 +107,19 @@ fn runtime(id: &str) -> Runtime {
 		Runtime::Seedling
 	} else if id.starts_with("asset-hub-polkadot") | id.starts_with("statemint") {
 		Runtime::AssetHubPolkadot
-	} else if id.starts_with("asset-hub-kusama") | id.starts_with("statemine") {
-		Runtime::AssetHubKusama
-	} else if id.starts_with("asset-hub-rococo") {
-		Runtime::AssetHubRococo
-	} else if id.starts_with("asset-hub-westend") | id.starts_with("westmint") {
-		Runtime::AssetHubWestend
+	} else if id.starts_with("asset-hub-kusama") |
+		id.starts_with("statemine") |
+		id.starts_with("asset-hub-rococo") |
+		id.starts_with("asset-hub-westend") |
+		id.starts_with("westmint")
+	{
+		Runtime::AssetHub
 	} else if id.starts_with("penpal") {
 		Runtime::Penpal(para_id.unwrap_or(ParaId::new(0)))
 	} else if id.starts_with("contracts-rococo") {
 		Runtime::ContractsRococo
-	} else if id.starts_with("collectives-polkadot") {
-		Runtime::CollectivesPolkadot
-	} else if id.starts_with("collectives-westend") {
-		Runtime::CollectivesWestend
+	} else if id.starts_with("collectives-polkadot") || id.starts_with("collectives-westend") {
+		Runtime::Collectives
 	} else if id.starts_with(chain_spec::bridge_hubs::BridgeHubRuntimeType::ID_PREFIX) {
 		Runtime::BridgeHub(
 			id.parse::<chain_spec::bridge_hubs::BridgeHubRuntimeType>()
@@ -393,12 +389,9 @@ macro_rules! construct_partials {
 				)?;
 				$code
 			},
-			Runtime::AssetHubKusama |
-			Runtime::AssetHubRococo |
-			Runtime::AssetHubWestend |
+			Runtime::AssetHub |
 			Runtime::BridgeHub(_) |
-			Runtime::CollectivesPolkadot |
-			Runtime::CollectivesWestend |
+			Runtime::Collectives |
 			Runtime::Coretime(_) |
 			Runtime::People(_) => {
 				let $partials = new_partial::<RuntimeApi, _>(
@@ -455,12 +448,9 @@ macro_rules! construct_async_run {
 					{ $( $code )* }.map(|v| (v, task_manager))
 				})
 			},
-			Runtime::AssetHubKusama |
-			Runtime::AssetHubRococo |
-			Runtime::AssetHubWestend |
+			Runtime::AssetHub |
 			Runtime::BridgeHub(_) |
-			Runtime::CollectivesPolkadot |
-			Runtime::CollectivesWestend |
+			Runtime::Collectives |
 			Runtime::Coretime(_) |
 			Runtime::People(_) => {
 				runner.async_run(|$config| {
@@ -735,29 +725,25 @@ async fn start_node<Network: sc_network::NetworkBackend<Block, Hash>>(
 		.map(|r| r.0)
 		.map_err(Into::into),
 
-		Runtime::AssetHubRococo | Runtime::AssetHubWestend | Runtime::AssetHubKusama =>
-			crate::service::start_asset_hub_lookahead_node::<RuntimeApi, AuraId, Network>(
-				config,
-				polkadot_config,
-				collator_options,
-				id,
-				hwbench,
-			)
-			.await
-			.map(|r| r.0)
-			.map_err(Into::into),
+		Runtime::AssetHub => crate::service::start_asset_hub_lookahead_node::<
+			RuntimeApi,
+			AuraId,
+			Network,
+		>(config, polkadot_config, collator_options, id, hwbench)
+		.await
+		.map(|r| r.0)
+		.map_err(Into::into),
 
-		Runtime::CollectivesWestend | Runtime::CollectivesPolkadot =>
-			crate::service::start_generic_aura_lookahead_node::<Network>(
-				config,
-				polkadot_config,
-				collator_options,
-				id,
-				hwbench,
-			)
-			.await
-			.map(|r| r.0)
-			.map_err(Into::into),
+		Runtime::Collectives => crate::service::start_generic_aura_lookahead_node::<Network>(
+			config,
+			polkadot_config,
+			collator_options,
+			id,
+			hwbench,
+		)
+		.await
+		.map(|r| r.0)
+		.map_err(Into::into),
 
 		Runtime::Seedling | Runtime::Shell => crate::service::start_shell_node::<Network>(
 			config,
