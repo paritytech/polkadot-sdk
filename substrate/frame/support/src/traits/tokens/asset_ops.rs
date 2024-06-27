@@ -89,6 +89,10 @@ pub trait InspectMetadata<AssetKind, Strategy: MetadataInspectStrategy>:
 pub trait MetadataUpdateStrategy {
 	/// The type of metadata update to accept in the [`UpdateMetadata::update_metadata`] function.
 	type Update<'u>;
+
+	/// This type represents a successful asset metadata update.
+	/// It will be in the [`Result`] type of the [`UpdateMetadata::update_metadata`] function.
+	type Success;
 }
 
 /// A trait representing the ability of a certain asset kind to **update** its metadata information.
@@ -109,7 +113,7 @@ pub trait UpdateMetadata<AssetKind, Strategy: MetadataUpdateStrategy>:
 		id: &Self::Id,
 		strategy: Strategy,
 		update: Strategy::Update<'_>,
-	) -> DispatchResult;
+	) -> Result<Strategy::Success, DispatchError>;
 }
 
 /// A strategy for use in the [`Create`] implementations.
@@ -118,8 +122,8 @@ pub trait UpdateMetadata<AssetKind, Strategy: MetadataUpdateStrategy>:
 /// * [`Owned`](common_strategies::Owned)
 /// * [`Adminable`](common_strategies::Adminable)
 pub trait CreateStrategy {
-	/// This type represents successful asset creation.
-	/// It will be the return type of the [`Create::create`] function.
+	/// This type represents a successful asset creation.
+	/// It will be in the [`Result`] type of the [`Create::create`] function.
 	type Success;
 }
 
@@ -157,7 +161,11 @@ pub trait Create<AssetKind, Strategy: CreateStrategy> {
 /// The common transfer strategies are:
 /// * [`JustDo`](common_strategies::JustDo)
 /// * [`FromTo`](common_strategies::FromTo)
-pub trait TransferStrategy {}
+pub trait TransferStrategy {
+	/// This type represents a successful asset transfer.
+	/// It will be in the [`Result`] type of the [`Transfer::transfer`] function.
+	type Success;
+}
 
 /// A trait representing the ability of a certain asset kind to be transferred.
 ///
@@ -169,7 +177,7 @@ pub trait Transfer<AssetKind, Strategy: TransferStrategy>: AssetDefinition<Asset
 	/// Transfer the asset identified by the given `id` using the provided `strategy`.
 	///
 	/// The ID type is retrieved from the [`AssetDefinition`].
-	fn transfer(id: &Self::Id, strategy: Strategy) -> DispatchResult;
+	fn transfer(id: &Self::Id, strategy: Strategy) -> Result<Strategy::Success, DispatchError>;
 }
 
 /// A strategy for use in the [`Destroy`] implementations.
@@ -180,8 +188,8 @@ pub trait Transfer<AssetKind, Strategy: TransferStrategy>: AssetDefinition<Asset
 /// * [`WithWitness`](common_strategies::WithWitness)
 /// * [`IfOwnedByWithWitness`](common_strategies::IfOwnedByWithWitness)
 pub trait DestroyStrategy {
-	/// This type represents successful asset destruction.
-	/// It will be the return type of the [`Destroy::destroy`] function.
+	/// This type represents a successful asset destruction.
+	/// It will be in the [`Result`] type of the [`Destroy::destroy`] function.
 	type Success;
 }
 
@@ -203,7 +211,11 @@ pub trait Destroy<AssetKind, Strategy: DestroyStrategy>: AssetDefinition<AssetKi
 /// The common stash strategies are:
 /// * [`JustDo`](common_strategies::JustDo)
 /// * [`IfOwnedBy`](common_strategies::IfOwnedBy)
-pub trait StashStrategy {}
+pub trait StashStrategy {
+	/// This type represents a successful asset stashing.
+	/// It will be in the [`Result`] type of the [`Stash::stash`] function.
+	type Success;
+}
 
 /// A trait representing the ability of a certain asset kind to be stashed.
 ///
@@ -215,14 +227,18 @@ pub trait Stash<AssetKind, Strategy: StashStrategy>: AssetDefinition<AssetKind> 
 	/// Stash the asset identified by the given `id` using the provided `strategy`.
 	///
 	/// The ID type is retrieved from the [`AssetDefinition`].
-	fn stash(id: &Self::Id, strategy: Strategy) -> DispatchResult;
+	fn stash(id: &Self::Id, strategy: Strategy) -> Result<Strategy::Success, DispatchError>;
 }
 
 /// A strategy for use in the [`Restore`] implementations.
 /// The common restore strategies are:
 /// * [`JustDo`](common_strategies::JustDo)
 /// * [`IfRestorable`](common_strategies::IfRestorable)
-pub trait RestoreStrategy {}
+pub trait RestoreStrategy {
+	/// This type represents a successful asset restoration.
+	/// It will be in the [`Result`] type of the [`Restore::restore`] function.
+	type Success;
+}
 
 /// A trait representing the ability of a certain asset kind to be restored.
 ///
@@ -234,7 +250,7 @@ pub trait Restore<AssetKind, Strategy: RestoreStrategy>: AssetDefinition<AssetKi
 	/// Restore the asset identified by the given `id` using the provided `strategy`.
 	///
 	/// The ID type is retrieved from the [`AssetDefinition`].
-	fn restore(id: &Self::Id, strategy: Strategy) -> DispatchResult;
+	fn restore(id: &Self::Id, strategy: Strategy) -> Result<Strategy::Success, DispatchError>;
 }
 
 /// This modules contains the common asset kinds.
@@ -274,11 +290,14 @@ pub mod common_strategies {
 		for WithOrigin<RuntimeOrigin, Inner>
 	{
 		type Update<'u> = Inner::Update<'u>;
+		type Success = Inner::Success;
 	}
 	impl<RuntimeOrigin, Inner: CreateStrategy> CreateStrategy for WithOrigin<RuntimeOrigin, Inner> {
 		type Success = Inner::Success;
 	}
-	impl<RuntimeOrigin, Inner: TransferStrategy> TransferStrategy for WithOrigin<RuntimeOrigin, Inner> {}
+	impl<RuntimeOrigin, Inner: TransferStrategy> TransferStrategy for WithOrigin<RuntimeOrigin, Inner> {
+		type Success = Inner::Success;
+	}
 	impl<RuntimeOrigin, Inner: DestroyStrategy> DestroyStrategy for WithOrigin<RuntimeOrigin, Inner> {
 		type Success = Inner::Success;
 	}
@@ -301,12 +320,18 @@ pub mod common_strategies {
 			Self(())
 		}
 	}
-	impl<Params> TransferStrategy for JustDo<Params> {}
+	impl<Params> TransferStrategy for JustDo<Params> {
+		type Success = ();
+	}
 	impl<Params> DestroyStrategy for JustDo<Params> {
 		type Success = ();
 	}
-	impl<Params> StashStrategy for JustDo<Params> {}
-	impl<Params> RestoreStrategy for JustDo<Params> {}
+	impl<Params> StashStrategy for JustDo<Params> {
+		type Success = ();
+	}
+	impl<Params> RestoreStrategy for JustDo<Params> {
+		type Success = ();
+	}
 
 	/// The `Bytes` strategy represents raw metadata bytes.
 	/// It is both an [inspect](MetadataInspectStrategy) and [update](MetadataUpdateStrategy)
@@ -330,6 +355,7 @@ pub mod common_strategies {
 	}
 	impl<Flavor> MetadataUpdateStrategy for Bytes<Flavor> {
 		type Update<'u> = Option<&'u [u8]>;
+		type Success = ();
 	}
 
 	/// The `Ownership` [inspect](MetadataInspectStrategy) metadata strategy allows getting the
@@ -366,6 +392,7 @@ pub mod common_strategies {
 	}
 	impl<Flavor> MetadataUpdateStrategy for CanCreate<Flavor> {
 		type Update<'u> = bool;
+		type Success = ();
 	}
 
 	/// The `CanTransfer` strategy represents the ability to transfer an asset.
@@ -390,6 +417,7 @@ pub mod common_strategies {
 	}
 	impl<Flavor> MetadataUpdateStrategy for CanTransfer<Flavor> {
 		type Update<'u> = bool;
+		type Success = ();
 	}
 
 	/// The `CanDestroy` strategy represents the ability to destroy an asset.
@@ -414,6 +442,7 @@ pub mod common_strategies {
 	}
 	impl<Flavor> MetadataUpdateStrategy for CanDestroy<Flavor> {
 		type Update<'u> = bool;
+		type Success = ();
 	}
 
 	/// The `CanUpdateMetadata` strategy represents the ability to update the metadata of an asset.
@@ -439,6 +468,7 @@ pub mod common_strategies {
 	}
 	impl<Flavor> MetadataUpdateStrategy for CanUpdateMetadata<Flavor> {
 		type Update<'u> = bool;
+		type Success = ();
 	}
 
 	/// The `AutoId` is an ID assignment approach intended to be used in
@@ -561,7 +591,9 @@ pub mod common_strategies {
 	///
 	/// It accepts two parameters: `from` and `to` whom the asset should be transferred.
 	pub struct FromTo<Owner>(pub Owner, pub Owner);
-	impl<Owner> TransferStrategy for FromTo<Owner> {}
+	impl<Owner> TransferStrategy for FromTo<Owner> {
+		type Success = ();
+	}
 
 	/// The `IfOwnedBy` is both a [`destroy strategy`](DestroyStrategy)
 	/// and a [`stash strategy`](StashStrategy).
@@ -572,7 +604,9 @@ pub mod common_strategies {
 	impl<Owner> DestroyStrategy for IfOwnedBy<Owner> {
 		type Success = ();
 	}
-	impl<Owner> StashStrategy for IfOwnedBy<Owner> {}
+	impl<Owner> StashStrategy for IfOwnedBy<Owner> {
+		type Success = ();
+	}
 
 	/// The `IfRestorable` is a [`restore strategy`](RestoreStrategy).
 	///
@@ -581,7 +615,9 @@ pub mod common_strategies {
 	/// this strategy may reference a beneficiary account,
 	/// which should own the asset upon restoration.
 	pub struct IfRestorable<Params>(pub Params);
-	impl<Params> RestoreStrategy for IfRestorable<Params> {}
+	impl<Params> RestoreStrategy for IfRestorable<Params> {
+		type Success = ();
+	}
 
 	/// The `WithWitness` is a [`destroy strategy`](DestroyStrategy).
 	///

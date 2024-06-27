@@ -47,7 +47,7 @@ where
 	TransferOp: Transfer<Instance, Strategy>,
 	DestroyOp: AssetDefinition<Instance, Id = TransferOp::Id>,
 {
-	fn transfer(id: &Self::Id, strategy: Strategy) -> DispatchResult {
+	fn transfer(id: &Self::Id, strategy: Strategy) -> Result<Strategy::Success, DispatchError> {
 		TransferOp::transfer(id, strategy)
 	}
 }
