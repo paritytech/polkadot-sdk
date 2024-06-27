@@ -19,6 +19,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 forwarded-header-value = { workspace = true }
 futures = { workspace = true }
 governor = { workspace = true }
+http = { workspace = true }
 http-body-util = { workspace = true }
 ip_network = { workspace = true }
 jsonrpsee = { features = ["server"], workspace = true }
@@ -30,7 +31,6 @@ tokio = { features = ["parking_lot"], workspace = true, default-features = true 
 tower = { workspace = true, features = ["util"] }
 tower-http = { workspace = true, features = ["cors"] }
 
-# Dependencies outside of the polkadot-sdk workspace
-# which requires hyper v1 and http v1
-http = "1.1"
+# Dependencies outside the polkadot-sdk workspace
+# which requires hyper v1
 hyper = "1.3"
