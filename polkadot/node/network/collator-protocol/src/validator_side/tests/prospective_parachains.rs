@@ -118,7 +118,7 @@ pub(super) async fn update_view(
 				parent,
 				RuntimeApiRequest::AsyncBackingParams(tx),
 			)) => {
-				tx.send(Ok(async_backing_params.clone())).unwrap();
+				tx.send(Ok(*async_backing_params)).unwrap();
 				(parent, new_view.get(&parent).copied().expect("Unknown parent requested"))
 			}
 		);
