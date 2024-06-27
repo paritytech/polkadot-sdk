@@ -34,7 +34,7 @@ pub(crate) fn examples(executable_name: String) -> String {
    <bold>{0} --chain asset-hub-polkadot --sync warp -- --chain polkadot --sync warp</>
         Launch a warp-syncing full node of the <italic>Asset Hub</> parachain on the <italic>Polkadot</> Relay Chain.
 
-   <bold>{0} --chain asset-hub-kusama --sync warp --relay-chain-rpc-url ws://rpc.example.com -- --chain polkadot</>
+   <bold>{0} --chain asset-hub-kusama --sync warp --relay-chain-rpc-url ws://rpc.example.com -- --chain kusama</>
         Launch a warp-syncing full node of the <italic>Asset Hub</> parachain on the <italic>Kusama</> Relay Chain.
         Uses <italic>ws://rpc.example.com</> as remote relay chain node.
  "#,
