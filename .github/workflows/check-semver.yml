@@ -24,9 +24,10 @@ jobs:
 
       - name: Rust compilation prerequisites
         run: |
-          rustup default $(parity-publish semver --minimum-nightly-rust-version)
-          rustup target add wasm32-unknown-unknown --toolchain $(parity-publish semver --minimum-nightly-rust-version)
-          rustup component add rust-src --toolchain $(parity-publish semver --minimum-nightly-rust-version)
+          toolchain=nightly-2024-03-01
+          rustup default $toolchain
+          rustup target add wasm32-unknown-unknown --toolchain $toolchain
+          rustup component add rust-src --toolchain $toolchain
 
       - name: extra git setup
         run: |
@@ -39,7 +40,8 @@ jobs:
           export CARGO_TARGET_DIR=target
           export RUSTFLAGS='-A warnings -A missing_docs'
           export SKIP_WASM_BUILD=1
-          if ! parity-publish --color always prdoc --since old --validate prdoc/pr_$PR.prdoc -v; then
+          toolchain=$(parity-publish semver --minimum-nightly-rust-version)
+          if ! parity-publish --color always prdoc --since old --validate prdoc/pr_$PR.prdoc -v --toolchain nightly-2024-03-01; then
             cat <<EOF
           👋 Hello developer! The SemVer information that you declared in the prdoc file did not match what the CI detected.
 
