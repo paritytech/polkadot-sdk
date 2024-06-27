@@ -71,3 +71,32 @@ jobs:
         uses: actions/checkout@v4
       - name: script
         run: time forklift cargo nextest run --workspace --features runtime-benchmarks benchmark --locked --cargo-profile testnet
+
+  test-linux-stable:
+    needs: [set-image, changes]
+    runs-on: arc-runners-polkadot-sdk-beefy
+    timeout-minutes: 30
+    container:
+      image: ${{ needs.set-image.outputs.IMAGE }}
+    env:
+      RUST_TOOLCHAIN: stable
+      # Enable debug assertions since we are running optimized builds for testing
+      # but still want to have debug assertions.
+      RUSTFLAGS: "-Cdebug-assertions=y -Dwarnings -Cinstrument-coverage"
+    continue-on-error: true
+    strategy:      
+      matrix:
+        ci_node_total: [3]
+        ci_node_index: [1, 2, 3]      
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: script
+        run: >
+          time cargo nextest run \
+          --workspace \
+          --locked \
+          --release \
+          --no-fail-fast \
+          --features try-runtime,experimental,riscv,ci-only-tests \
+          --partition count:${{ matrix.ci_node_index }}/${{ matrix.ci_node_total }}
