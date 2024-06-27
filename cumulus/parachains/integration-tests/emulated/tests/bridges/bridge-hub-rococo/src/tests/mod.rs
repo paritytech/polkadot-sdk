@@ -67,6 +67,16 @@ pub(crate) fn weth_at_asset_hubs() -> Location {
 	)
 }
 
+pub(crate) fn create_foreign_on_ah_rococo(
+	id: v3::Location,
+	sufficient: bool,
+	prefund_accounts: Vec<(AccountId, u128)>,
+) {
+	let owner = AssetHubRococo::account_id_of(ALICE);
+	let min = ASSET_MIN_BALANCE;
+	AssetHubRococo::force_create_foreign_asset(id, owner, sufficient, min, prefund_accounts);
+}
+
 pub(crate) fn create_foreign_on_ah_westend(id: v3::Location, sufficient: bool) {
 	let owner = AssetHubWestend::account_id_of(ALICE);
 	AssetHubWestend::force_create_foreign_asset(id, owner, sufficient, ASSET_MIN_BALANCE, vec![]);

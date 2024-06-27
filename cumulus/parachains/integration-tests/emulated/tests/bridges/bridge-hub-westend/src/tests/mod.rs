@@ -47,7 +47,7 @@ pub(crate) fn bridged_roc_at_ah_westend() -> Location {
 
 // USDT and wUSDT
 pub(crate) fn usdt_at_ah_rococo() -> Location {
-	Location::new(2, [PalletInstance(ASSETS_PALLET_ID), GeneralIndex(USDT_ID.into())])
+	Location::new(0, [PalletInstance(ASSETS_PALLET_ID), GeneralIndex(USDT_ID.into())])
 }
 pub(crate) fn bridged_usdt_at_ah_westend() -> Location {
 	Location::new(
@@ -77,6 +77,16 @@ pub(crate) fn create_foreign_on_ah_rococo(id: v3::Location, sufficient: bool) {
 	AssetHubRococo::force_create_foreign_asset(id, owner, sufficient, ASSET_MIN_BALANCE, vec![]);
 }
 
+pub(crate) fn create_foreign_on_ah_westend(
+	id: v3::Location,
+	sufficient: bool,
+	prefund_accounts: Vec<(AccountId, u128)>,
+) {
+	let owner = AssetHubWestend::account_id_of(ALICE);
+	let min = ASSET_MIN_BALANCE;
+	AssetHubWestend::force_create_foreign_asset(id, owner, sufficient, min, prefund_accounts);
+}
+
 pub(crate) fn foreign_balance_on_ah_rococo(id: v3::Location, who: &AccountId) -> u128 {
 	AssetHubRococo::execute_with(|| {
 		type Assets = <AssetHubRococo as AssetHubRococoPallet>::ForeignAssets;
@@ -91,23 +101,36 @@ pub(crate) fn foreign_balance_on_ah_westend(id: v3::Location, who: &AccountId) -
 }
 
 // set up pool
-pub(crate) fn set_up_pool_with_roc_on_ah_rococo(foreign_asset: v3::Location) {
+pub(crate) fn set_up_pool_with_roc_on_ah_rococo(asset: v3::Location, is_foreign: bool) {
 	let roc: v3::Location = v3::Parent.into();
 	AssetHubRococo::execute_with(|| {
 		type RuntimeEvent = <AssetHubRococo as Chain>::RuntimeEvent;
 		let owner = AssetHubRococoSender::get();
 		let signed_owner = <AssetHubRococo as Chain>::RuntimeOrigin::signed(owner.clone());
 
-		assert_ok!(<AssetHubRococo as AssetHubRococoPallet>::ForeignAssets::mint(
-			signed_owner.clone(),
-			foreign_asset.into(),
-			owner.clone().into(),
-			3_000_000_000_000,
-		));
+		if is_foreign {
+			assert_ok!(<AssetHubRococo as AssetHubRococoPallet>::ForeignAssets::mint(
+				signed_owner.clone(),
+				asset.into(),
+				owner.clone().into(),
+				3_000_000_000_000,
+			));
+		} else {
+			let asset_id = match asset.interior.clone().split_last() {
+				(_, Some(v3::Junction::GeneralIndex(id))) => id as u32,
+				_ => unreachable!(),
+			};
+			assert_ok!(<AssetHubRococo as AssetHubRococoPallet>::Assets::mint(
+				signed_owner.clone(),
+				asset_id.into(),
+				owner.clone().into(),
+				3_000_000_000_000,
+			));
+		}
 		assert_ok!(<AssetHubRococo as AssetHubRococoPallet>::AssetConversion::create_pool(
 			signed_owner.clone(),
 			Box::new(roc),
-			Box::new(foreign_asset),
+			Box::new(asset),
 		));
 		assert_expected_events!(
 			AssetHubRococo,
@@ -118,7 +141,7 @@ pub(crate) fn set_up_pool_with_roc_on_ah_rococo(foreign_asset: v3::Location) {
 		assert_ok!(<AssetHubRococo as AssetHubRococoPallet>::AssetConversion::add_liquidity(
 			signed_owner.clone(),
 			Box::new(roc),
-			Box::new(foreign_asset),
+			Box::new(asset),
 			1_000_000_000_000,
 			2_000_000_000_000,
 			1,

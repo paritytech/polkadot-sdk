@@ -103,35 +103,21 @@ fn send_asset_from_penpal_rococo_through_local_asset_hub_to_westend_asset_hub(
 }
 
 #[test]
+/// Test transfer of ROC, USDT and wETH from AssetHub Rococo to AssetHub Westend.
+///
+/// This mix of assets should cover the whole range:
+/// - native assets: ROC,
+/// - trust-based assets: USDT (exists only on Rococo, Westend gets it from Rococo over bridge),
+/// - foreign asset / bridged asset (other bridge / Snowfork): wETH (bridged from Ethereum to Rococo
+///   over Snowbridge, then bridged over to Westend through this bridge).
 fn send_roc_usdt_and_weth_from_asset_hub_rococo_to_asset_hub_westend() {
 	let amount = ASSET_HUB_ROCOCO_ED * 1_000_000;
 	let sender = AssetHubRococoSender::get();
 	let receiver = AssetHubWestendReceiver::get();
 	let roc_at_asset_hub_rococo: v3::Location = roc_at_ah_rococo().try_into().unwrap();
-	let usdt_at_asset_hub_rococo = usdt_at_ah_rococo();
 	let bridged_roc_at_asset_hub_westend = bridged_roc_at_ah_westend().try_into().unwrap();
-	let bridged_usdt_at_asset_hub_westend = bridged_usdt_at_ah_westend().try_into().unwrap();
-	// wETH has same relative location on both Rococo and Westend AssetHubs
-	let bridged_weth_at_ah = weth_at_asset_hubs().try_into().unwrap();
-	// mint USDT in sender's account (USDT already created in genesis)
-	AssetHubRococo::mint_asset(
-		<AssetHubRococo as Chain>::RuntimeOrigin::signed(AssetHubRococoAssetOwner::get()),
-		USDT_ID,
-		sender.clone(),
-		amount * 2,
-	);
-	// create wETH and prefund sender's account
-	AssetHubRococo::force_create_foreign_asset(
-		bridged_weth_at_ah,
-		AssetHubRococo::account_id_of(ALICE),
-		true,
-		ASSET_MIN_BALANCE,
-		vec![(sender.clone(), amount * 2)],
-	);
-	create_foreign_on_ah_westend(bridged_roc_at_asset_hub_westend, true);
-	create_foreign_on_ah_westend(bridged_usdt_at_asset_hub_westend, true);
-	create_foreign_on_ah_westend(bridged_weth_at_ah, true);
 
+	create_foreign_on_ah_westend(bridged_roc_at_asset_hub_westend, true);
 	set_up_pool_with_wnd_on_ah_westend(bridged_roc_at_asset_hub_westend);
 
 	////////////////////////////////////////////////////////////
@@ -184,9 +170,26 @@ fn send_roc_usdt_and_weth_from_asset_hub_rococo_to_asset_hub_westend() {
 	// Reserve ROC balance is increased by sent amount
 	assert_eq!(rocs_in_reserve_on_ahr_after, rocs_in_reserve_on_ahr_before + amount);
 
-	///////////////////////////////////////////////////////////////////////
+	/////////////////////////////////////////////////////////////
 	// Now let's send over USDTs + wETH (and pay fees with USDT)
-	///////////////////////////////////////////////////////////////////////
+	/////////////////////////////////////////////////////////////
+
+	let usdt_at_asset_hub_rococo = usdt_at_ah_rococo();
+	let bridged_usdt_at_asset_hub_westend = bridged_usdt_at_ah_westend().try_into().unwrap();
+	// wETH has same relative location on both Rococo and Westend AssetHubs
+	let bridged_weth_at_ah = weth_at_asset_hubs().try_into().unwrap();
+
+	// mint USDT in sender's account (USDT already created in genesis)
+	AssetHubRococo::mint_asset(
+		<AssetHubRococo as Chain>::RuntimeOrigin::signed(AssetHubRococoAssetOwner::get()),
+		USDT_ID,
+		sender.clone(),
+		amount * 2,
+	);
+	// create wETH at src and dest and prefund sender's account
+	create_foreign_on_ah_rococo(bridged_weth_at_ah, true, vec![(sender.clone(), amount * 2)]);
+	create_foreign_on_ah_westend(bridged_weth_at_ah, true);
+	create_foreign_on_ah_westend(bridged_usdt_at_asset_hub_westend, true);
 	set_up_pool_with_wnd_on_ah_westend(bridged_usdt_at_asset_hub_westend);
 
 	let receiver_usdts_before =
@@ -222,7 +225,6 @@ fn send_roc_usdt_and_weth_from_asset_hub_rococo_to_asset_hub_westend() {
 	// verify hops (also advances the message through the hops)
 	assert_bridge_hub_rococo_message_accepted(true);
 	assert_bridge_hub_westend_message_received();
-
 	AssetHubWestend::execute_with(|| {
 		AssetHubWestend::assert_xcmp_queue_success(None);
 	});
@@ -239,19 +241,15 @@ fn send_roc_usdt_and_weth_from_asset_hub_rococo_to_asset_hub_westend() {
 }
 
 #[test]
-fn send_wnds_from_asset_hub_rococo_to_asset_hub_westend() {
+/// Send bridged WNDs "back" from AssetHub Rococo to AssetHub Westend.
+fn send_back_wnds_from_asset_hub_rococo_to_asset_hub_westend() {
 	let prefund_amount = 10_000_000_000_000u128;
 	let sender = AssetHubRococoSender::get();
 	let receiver = AssetHubWestendReceiver::get();
 	let wnd_at_asset_hub_rococo = bridged_wnd_at_ah_rococo();
 	let wnd_at_asset_hub_rococo_v3 = wnd_at_asset_hub_rococo.clone().try_into().unwrap();
-	AssetHubRococo::force_create_foreign_asset(
-		wnd_at_asset_hub_rococo_v3,
-		AssetHubRococo::account_id_of(ALICE),
-		true,
-		ASSET_MIN_BALANCE,
-		vec![(AssetHubRococoSender::get(), prefund_amount)],
-	);
+	let prefund_accounts = vec![(sender.clone(), prefund_amount)];
+	create_foreign_on_ah_rococo(wnd_at_asset_hub_rococo_v3, true, prefund_accounts);
 
 	// fund the AHR's SA on AHW with the WND tokens held in reserve
 	let sov_ahr_on_ahw = AssetHubWestend::sovereign_account_of_parachain_on_other_global_consensus(
@@ -299,8 +297,7 @@ fn send_wnds_from_asset_hub_rococo_to_asset_hub_westend() {
 	});
 
 	let sender_wnds_after = foreign_balance_on_ah_rococo(wnd_at_asset_hub_rococo_v3, &sender);
-	let receiver_wnds_after =
-		<AssetHubWestend as Chain>::account_data_of(AssetHubWestendReceiver::get()).free;
+	let receiver_wnds_after = <AssetHubWestend as Chain>::account_data_of(receiver).free;
 	let wnds_in_reserve_on_ahw_after =
 		<AssetHubWestend as Chain>::account_data_of(sov_ahr_on_ahw).free;
 
