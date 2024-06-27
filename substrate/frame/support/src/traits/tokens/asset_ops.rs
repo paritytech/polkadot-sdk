@@ -6,6 +6,8 @@
 //! * [`Create`]
 //! * [`Transfer`]
 //! * [`Destroy`]
+//! * [`Stash`]
+//! * [`Restore`]
 //!
 //! Also, all the operations above (except the `Create` operation) use
 //! the [`AssetDefinition`] to retrieve the `Id` type of the asset.
