@@ -40,8 +40,16 @@
 //!
 //! - [`SkipCheckIfFeeless`](pallet_skip_feeless_payment::SkipCheckIfFeeless): Allows transactions
 //!   to be processed without paying any fee. This requires that the `call` that should be
-//!   dispatched is augmented with the
-//!   [`feeless_if`](macro@frame_support::pallet_macros::feeless_if) attribute.
+//!   dispatched is augmented with the [`feeless_if`](frame_support::pallet_macros::feeless_if)
+//!   attribute.
+//!
+//! - [`CheckMetadataHash`](frame_metadata_hash_extension::CheckMetadataHash): Extends transactions
+//!   to include the so-called metadata hash. This is required by chains to support the generic
+//!   Ledger application and other similar offline wallets.
+//!
+//! - [`StorageWeightReclaim`](cumulus_primitives_storage_weight_reclaim::StorageWeightReclaim): A
+//!   signed extension for parachains that reclaims unused storage weight after executing a
+//!   transaction.
 //!
 //! For more information about these extensions, follow the link to the type documentation.
 //!
