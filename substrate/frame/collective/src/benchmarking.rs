@@ -810,6 +810,7 @@ mod benchmarks {
 		if d == 0 {
 			CostOf::<T, I>::remove(last_hash);
 		}
+		let cost_present = CostOf::<T, I>::get(last_hash).is_some();
 
 		let origin =
 			T::KillOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
@@ -819,7 +820,7 @@ mod benchmarks {
 
 		assert_eq!(Proposals::<T, I>::get().len(), (p - 1) as usize);
 		assert_last_event::<T, I>(Event::Killed { proposal_hash: last_hash }.into());
-		if d != 0 {
+		if cost_present {
 			assert_has_event::<T, I>(
 				Event::ProposalCostBurned { proposal_hash: last_hash, who: caller }.into(),
 			);
@@ -874,6 +875,7 @@ mod benchmarks {
 		if d == 0 {
 			CostOf::<T, I>::remove(last_hash);
 		}
+		let cost_present = CostOf::<T, I>::get(last_hash).is_some();
 
 		assert_eq!(Proposals::<T, I>::get().len(), p as usize);
 		let _ = Collective::<T, I>::remove_proposal(last_hash);
@@ -883,7 +885,7 @@ mod benchmarks {
 		_(SystemOrigin::Signed(caller.clone()), last_hash);
 
 		assert_eq!(CostOf::<T, I>::get(last_hash), None);
-		if d != 0 {
+		if cost_present {
 			assert_last_event::<T, I>(
 				Event::ProposalCostReleased { proposal_hash: last_hash, who: caller }.into(),
 			);
