@@ -17,7 +17,7 @@
 //! - [`CheckNonce`](frame_system::CheckNonce): Extends a transaction with a nonce to prevent replay
 //!   of transactions and to provide ordering of transactions.
 //!
-//! - [`CheckSpecVersion`](frame_system::CheckSpecVersion): Ensures that a transaction was build for
+//! - [`CheckSpecVersion`](frame_system::CheckSpecVersion): Ensures that a transaction was built for
 //!   the currently active runtime.
 //!
 //! - [`CheckTxVersion`](frame_system::CheckTxVersion): Ensures that the transaction signer used the
