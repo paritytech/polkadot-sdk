@@ -196,4 +196,6 @@ try-runtime = [
 	"sp-runtime/try-runtime",
 ]
 
-fast-runtime = []
+fast-runtime = [
+	"westend-runtime-constants/fast-runtime",
+]
