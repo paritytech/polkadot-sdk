@@ -1780,6 +1780,74 @@ fn asset_destroy_refund_existence_deposit() {
 }
 
 #[test]
+fn asset_id_cannot_be_reused() {
+	new_test_ext().execute_with(|| {
+		Balances::make_free_balance_be(&1, 100);
+		// Asset id can be reused till auto increment is not enabled.
+		assert_ok!(Assets::create(RuntimeOrigin::signed(1), 0, 1, 1));
+
+		assert_ok!(Assets::start_destroy(RuntimeOrigin::signed(1), 0));
+		assert_ok!(Assets::finish_destroy(RuntimeOrigin::signed(1), 0));
+
+		assert!(!Asset::<Test>::contains_key(0));
+
+		// Asset id `0` is reused.
+		assert_ok!(Assets::create(RuntimeOrigin::signed(1), 0, 1, 1));
+		assert!(Asset::<Test>::contains_key(0));
+
+		assert_ok!(Assets::start_destroy(RuntimeOrigin::signed(1), 0));
+		assert_ok!(Assets::finish_destroy(RuntimeOrigin::signed(1), 0));
+
+		assert!(!Asset::<Test>::contains_key(0));
+
+		// Enable auto increment. Next asset id must be 5.
+		pallet::NextAssetId::<Test>::put(5);
+
+		assert_noop!(Assets::create(RuntimeOrigin::signed(1), 0, 1, 1), Error::<Test>::BadAssetId);
+		assert_noop!(Assets::create(RuntimeOrigin::signed(1), 1, 1, 1), Error::<Test>::BadAssetId);
+		assert_noop!(
+			Assets::force_create(RuntimeOrigin::root(), 0, 1, false, 1),
+			Error::<Test>::BadAssetId
+		);
+		assert_noop!(
+			Assets::force_create(RuntimeOrigin::root(), 1, 1, true, 1),
+			Error::<Test>::BadAssetId
+		);
+
+		// Asset with id `5` is created.
+		assert_ok!(Assets::create(RuntimeOrigin::signed(1), 5, 1, 1));
+		assert!(Asset::<Test>::contains_key(5));
+
+		// Destroy asset with id `6`.
+		assert_ok!(Assets::start_destroy(RuntimeOrigin::signed(1), 5));
+		assert_ok!(Assets::finish_destroy(RuntimeOrigin::signed(1), 5));
+
+		assert!(!Asset::<Test>::contains_key(0));
+
+		// Asset id `5` cannot be reused.
+		assert_noop!(Assets::create(RuntimeOrigin::signed(1), 5, 1, 1), Error::<Test>::BadAssetId);
+
+		assert_ok!(Assets::create(RuntimeOrigin::signed(1), 6, 1, 1));
+		assert!(Asset::<Test>::contains_key(6));
+
+		// Destroy asset with id `6`.
+		assert_ok!(Assets::start_destroy(RuntimeOrigin::signed(1), 6));
+		assert_ok!(Assets::finish_destroy(RuntimeOrigin::signed(1), 6));
+
+		assert!(!Asset::<Test>::contains_key(6));
+
+		// Asset id `6` cannot be reused with force.
+		assert_noop!(
+			Assets::force_create(RuntimeOrigin::root(), 6, 1, false, 1),
+			Error::<Test>::BadAssetId
+		);
+
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 7, 1, false, 1));
+		assert!(Asset::<Test>::contains_key(7));
+	});
+}
+
+#[test]
 fn revoke_with_not_owner_or_already_revoked() {
 	new_test_ext().execute_with(|| {
 		let owner = 1;
@@ -2060,7 +2128,14 @@ fn live_and_lock_should_work_like_live() {
 		assert_eq!(Account::<Test>::get(&0, 3).unwrap().balance, 53);
 
 		assert_ok!(Assets::mint_into(0, &5, 10));
-		assert_ok!(Assets::burn_from(0, &5, 5, Precision::Exact, Fortitude::Polite));
+		assert_ok!(Assets::burn_from(
+			0,
+			&5,
+			5,
+			Preservation::Expendable,
+			Precision::Exact,
+			Fortitude::Polite
+		));
 		assert_ok!(Assets::shelve(0, &5, 2));
 		assert_ok!(Assets::restore(0, &5, 7));
 		assert_ok!(<Assets as Mutate<_>>::transfer(0, &5, &6, 10, Preservation::Expendable));

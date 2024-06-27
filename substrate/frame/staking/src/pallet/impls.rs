@@ -87,10 +87,12 @@ impl<T: Config> Pallet<T> {
 		StakingLedger::<T>::paired_account(Stash(stash.clone()))
 	}
 
-	/// Inspects and returns the corruption state of a ledger and bond, if any.
+	/// Inspects and returns the corruption state of a ledger and direct bond, if any.
 	///
 	/// Note: all operations in this method access directly the `Bonded` and `Ledger` storage maps
 	/// instead of using the [`StakingLedger`] API since the bond and/or ledger may be corrupted.
+	/// It is also meant to check state for direct bonds and may not work as expected for virtual
+	/// bonds.
 	pub(crate) fn inspect_bond_state(
 		stash: &T::AccountId,
 	) -> Result<LedgerIntegrityState, Error<T>> {
@@ -196,8 +198,9 @@ impl<T: Config> Pallet<T> {
 		}
 		let new_total = ledger.total;
 
+		let ed = T::Currency::minimum_balance();
 		let used_weight =
-			if ledger.unlocking.is_empty() && ledger.active < T::Currency::minimum_balance() {
+			if ledger.unlocking.is_empty() && (ledger.active < ed || ledger.active.is_zero()) {
 				// This account must have called `unbond()` with some value that caused the active
 				// portion to fall below existential deposit + will have no more unlocking chunks
 				// left. We can now safely remove all staking-related information.
@@ -1158,11 +1161,6 @@ impl<T: Config> Pallet<T> {
 	) -> Exposure<T::AccountId, BalanceOf<T>> {
 		EraInfo::<T>::get_full_exposure(era, account)
 	}
-
-	/// Whether `who` is a virtual staker whose funds are managed by another pallet.
-	pub(crate) fn is_virtual_staker(who: &T::AccountId) -> bool {
-		VirtualStakers::<T>::contains_key(who)
-	}
 }
 
 impl<T: Config> Pallet<T> {
@@ -1182,6 +1180,10 @@ impl<T: Config> Pallet<T> {
 
 	pub fn api_eras_stakers_page_count(era: EraIndex, account: T::AccountId) -> Page {
 		EraInfo::<T>::get_page_count(era, &account)
+	}
+
+	pub fn api_pending_rewards(era: EraIndex, account: T::AccountId) -> bool {
+		EraInfo::<T>::pending_rewards(era, &account)
 	}
 }
 
@@ -1876,6 +1878,11 @@ impl<T: Config> StakingInterface for Pallet<T> {
 				Err(Error::<T>::BadState.into())
 			},
 		}
+	}
+
+	/// Whether `who` is a virtual staker whose funds are managed by another pallet.
+	fn is_virtual_staker(who: &T::AccountId) -> bool {
+		VirtualStakers::<T>::contains_key(who)
 	}
 
 	fn slash_reward_fraction() -> Perbill {

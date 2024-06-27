@@ -1,0 +1,39 @@
+[package]
+name = "frame-metadata-hash-extension"
+version = "0.1.0"
+authors.workspace = true
+edition.workspace = true
+license = "Apache-2.0"
+homepage.workspace = true
+repository.workspace = true
+description = "FRAME signed extension for verifying the metadata hash"
+
+[dependencies]
+array-bytes = { workspace = true, default-features = true }
+codec = { features = ["derive"], workspace = true }
+scale-info = { features = ["derive", "serde"], workspace = true }
+sp-runtime = { features = ["serde"], workspace = true }
+frame-support = { workspace = true }
+frame-system = { workspace = true }
+log = { workspace = true }
+docify = { workspace = true }
+
+[dev-dependencies]
+substrate-wasm-builder = { features = ["metadata-hash"], workspace = true, default-features = true }
+substrate-test-runtime-client = { workspace = true }
+sp-api = { workspace = true, default-features = true }
+sp-transaction-pool = { workspace = true, default-features = true }
+merkleized-metadata = { workspace = true }
+frame-metadata = { features = ["current"], workspace = true, default-features = true }
+sp-tracing = { workspace = true, default-features = true }
+
+[features]
+default = ["std"]
+std = [
+	"codec/std",
+	"frame-support/std",
+	"frame-system/std",
+	"log/std",
+	"scale-info/std",
+	"sp-runtime/std",
+]

@@ -64,17 +64,6 @@ where
 		}
 	}
 
-	/// Checks if the current extrinsic can fit into the block with respect to block weight limits.
-	///
-	/// Upon successes, it returns the new block weight as a `Result`.
-	fn check_block_weight(
-		info: &DispatchInfoOf<T::RuntimeCall>,
-	) -> Result<crate::ConsumedWeight, TransactionValidityError> {
-		let maximum_weight = T::BlockWeights::get();
-		let all_weight = Pallet::<T>::block_weight();
-		calculate_consumed_weight::<T::RuntimeCall>(maximum_weight, all_weight, info)
-	}
-
 	/// Checks if the current extrinsic can fit into the block with respect to block length limits.
 	///
 	/// Upon successes, it returns the new block length as a `Result`.
@@ -113,7 +102,11 @@ where
 		len: usize,
 	) -> Result<(), TransactionValidityError> {
 		let next_len = Self::check_block_length(info, len)?;
-		let next_weight = Self::check_block_weight(info)?;
+
+		let all_weight = Pallet::<T>::block_weight();
+		let maximum_weight = T::BlockWeights::get();
+		let next_weight =
+			calculate_consumed_weight::<T::RuntimeCall>(&maximum_weight, all_weight, info, len)?;
 		Self::check_extrinsic_weight(info)?;
 
 		crate::AllExtrinsicsLen::<T>::put(next_len);
@@ -136,16 +129,23 @@ where
 	}
 }
 
+/// Checks if the current extrinsic can fit into the block with respect to block weight limits.
+///
+/// Upon successes, it returns the new block weight as a `Result`.
 pub fn calculate_consumed_weight<Call>(
-	maximum_weight: BlockWeights,
+	maximum_weight: &BlockWeights,
 	mut all_weight: crate::ConsumedWeight,
 	info: &DispatchInfoOf<Call>,
+	len: usize,
 ) -> Result<crate::ConsumedWeight, TransactionValidityError>
 where
 	Call: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
 {
-	let extrinsic_weight =
-		info.weight.saturating_add(maximum_weight.get(info.class).base_extrinsic);
+	// Also Consider extrinsic length as proof weight.
+	let extrinsic_weight = info
+		.weight
+		.saturating_add(maximum_weight.get(info.class).base_extrinsic)
+		.saturating_add(Weight::from_parts(0, len as u64));
 	let limit_per_class = maximum_weight.get(info.class);
 
 	// add the weight. If class is unlimited, use saturating add instead of checked one.
@@ -172,7 +172,7 @@ where
 				"Exceeded the per-class allowance.",
 			);
 
-			return Err(InvalidTransaction::ExhaustsResources.into())
+			return Err(InvalidTransaction::ExhaustsResources.into());
 		},
 		// There is no `max_total` limit (`None`),
 		// or we are below the limit.
@@ -190,7 +190,7 @@ where
 					"Total block weight is exceeded.",
 				);
 
-				return Err(InvalidTransaction::ExhaustsResources.into())
+				return Err(InvalidTransaction::ExhaustsResources.into());
 			},
 			// There is either no limit in reserved pool (`None`),
 			// or we are below the limit.
@@ -742,17 +742,118 @@ mod tests {
 
 		// when
 		assert_ok!(calculate_consumed_weight::<<Test as Config>::RuntimeCall>(
-			maximum_weight.clone(),
+			&maximum_weight,
 			all_weight.clone(),
-			&mandatory1
+			&mandatory1,
+			0
 		));
 		assert_err!(
 			calculate_consumed_weight::<<Test as Config>::RuntimeCall>(
-				maximum_weight,
+				&maximum_weight,
 				all_weight,
-				&mandatory2
+				&mandatory2,
+				0
 			),
 			InvalidTransaction::ExhaustsResources
 		);
+	}
+
+	#[test]
+	fn proof_size_includes_length() {
+		let maximum_weight = BlockWeights::builder()
+			.base_block(Weight::zero())
+			.for_class(DispatchClass::non_mandatory(), |w| {
+				w.base_extrinsic = Weight::zero();
+				w.max_total = Some(Weight::from_parts(20, 1000));
+			})
+			.for_class(DispatchClass::Mandatory, |w| {
+				w.base_extrinsic = Weight::zero();
+				w.max_total = Some(Weight::from_parts(20, 1000));
+			})
+			.build_or_panic();
+		let all_weight = crate::ConsumedWeight::new(|class| match class {
+			DispatchClass::Normal => Weight::from_parts(5, 0),
+			DispatchClass::Operational => Weight::from_parts(5, 0),
+			DispatchClass::Mandatory => Weight::from_parts(0, 0),
+		});
+
+		let normal = DispatchInfo {
+			weight: Weight::from_parts(5, 0),
+			class: DispatchClass::Normal,
+			..Default::default()
+		};
+
+		let mandatory = DispatchInfo {
+			weight: Weight::from_parts(5, 0),
+			class: DispatchClass::Mandatory,
+			..Default::default()
+		};
+
+		// Using 0 length extrinsics.
+		let consumed = calculate_consumed_weight::<<Test as Config>::RuntimeCall>(
+			&maximum_weight,
+			all_weight.clone(),
+			&normal,
+			0,
+		)
+		.unwrap();
+
+		assert_eq!(consumed.total().saturating_sub(all_weight.total()), normal.weight);
+
+		let consumed = calculate_consumed_weight::<<Test as Config>::RuntimeCall>(
+			&maximum_weight,
+			all_weight.clone(),
+			&mandatory,
+			0,
+		)
+		.unwrap();
+		assert_eq!(consumed.total().saturating_sub(all_weight.total()), mandatory.weight);
+
+		// Using non zero length extrinsics.
+		let consumed = calculate_consumed_weight::<<Test as Config>::RuntimeCall>(
+			&maximum_weight,
+			all_weight.clone(),
+			&normal,
+			100,
+		)
+		.unwrap();
+		// Must account for the len in the proof size
+		assert_eq!(
+			consumed.total().saturating_sub(all_weight.total()),
+			normal.weight.add_proof_size(100)
+		);
+
+		let consumed = calculate_consumed_weight::<<Test as Config>::RuntimeCall>(
+			&maximum_weight,
+			all_weight.clone(),
+			&mandatory,
+			100,
+		)
+		.unwrap();
+		// Must account for the len in the proof size
+		assert_eq!(
+			consumed.total().saturating_sub(all_weight.total()),
+			mandatory.weight.add_proof_size(100)
+		);
+
+		// Using oversized zero length extrinsics.
+		let consumed = calculate_consumed_weight::<<Test as Config>::RuntimeCall>(
+			&maximum_weight,
+			all_weight.clone(),
+			&normal,
+			2000,
+		);
+		// errors out
+		assert_eq!(consumed, Err(InvalidTransaction::ExhaustsResources.into()));
+
+		// Using oversized zero length extrinsics.
+		let consumed = calculate_consumed_weight::<<Test as Config>::RuntimeCall>(
+			&maximum_weight,
+			all_weight.clone(),
+			&mandatory,
+			2000,
+		);
+		// errors out
+		assert_eq!(consumed, Err(InvalidTransaction::ExhaustsResources.into()));
 	}
 }

@@ -50,9 +50,12 @@ use alloc::vec::Vec;
 use codec::{Codec, Decode, Encode};
 use core::fmt::{Debug, Display};
 use scale_info::TypeInfo;
-use sp_application_crypto::{AppCrypto, AppPublic, ByteArray, RuntimeAppPublic};
+use sp_application_crypto::{AppPublic, RuntimeAppPublic};
 use sp_core::H256;
-use sp_runtime::traits::{Hash, Keccak256, NumberFor};
+use sp_runtime::{
+	traits::{Hash, Keccak256, NumberFor},
+	OpaqueValue,
+};
 
 /// Key type for BEEFY module.
 pub const KEY_TYPE: sp_core::crypto::KeyTypeId = sp_application_crypto::key_types::BEEFY;
@@ -73,17 +76,13 @@ pub type BeefySignatureHasher = sp_runtime::traits::Keccak256;
 /// A trait bound which lists all traits which are required to be implemented by
 /// a BEEFY AuthorityId type in order to be able to be used in BEEFY Keystore
 pub trait AuthorityIdBound:
-	Codec
-	+ Debug
-	+ Clone
-	+ AsRef<[u8]>
-	+ ByteArray
+	Ord
 	+ AppPublic
-	+ AppCrypto
-	+ RuntimeAppPublic
 	+ Display
-	+ BeefyAuthorityId<BeefySignatureHasher>
+	+ BeefyAuthorityId<BeefySignatureHasher, Signature = Self::BoundedSignature>
 {
+	/// Necessary bounds on the Signature associated with the AuthorityId
+	type BoundedSignature: Debug + Eq + PartialEq + Clone + TypeInfo + Codec + Send + Sync;
 }
 
 /// BEEFY cryptographic types for ECDSA crypto
@@ -124,7 +123,9 @@ pub mod ecdsa_crypto {
 			}
 		}
 	}
-	impl AuthorityIdBound for AuthorityId {}
+	impl AuthorityIdBound for AuthorityId {
+		type BoundedSignature = Signature;
+	}
 }
 
 /// BEEFY cryptographic types for BLS crypto
@@ -165,7 +166,9 @@ pub mod bls_crypto {
 			BlsPair::verify(signature.as_inner_ref(), msg, self.as_inner_ref())
 		}
 	}
-	impl AuthorityIdBound for AuthorityId {}
+	impl AuthorityIdBound for AuthorityId {
+		type BoundedSignature = Signature;
+	}
 }
 
 /// BEEFY cryptographic types for (ECDSA,BLS) crypto pair
@@ -213,7 +216,9 @@ pub mod ecdsa_bls_crypto {
 		}
 	}
 
-	impl AuthorityIdBound for AuthorityId {}
+	impl AuthorityIdBound for AuthorityId {
+		type BoundedSignature = Signature;
+	}
 }
 
 /// The `ConsensusEngineId` of BEEFY.
@@ -306,14 +311,14 @@ pub struct VoteMessage<Number, Id, Signature> {
 /// BEEFY happens when a voter votes on the same round/block for different payloads.
 /// Proving is achieved by collecting the signed commitments of conflicting votes.
 #[derive(Clone, Debug, Decode, Encode, PartialEq, TypeInfo)]
-pub struct EquivocationProof<Number, Id, Signature> {
+pub struct DoubleVotingProof<Number, Id, Signature> {
 	/// The first vote in the equivocation.
 	pub first: VoteMessage<Number, Id, Signature>,
 	/// The second vote in the equivocation.
 	pub second: VoteMessage<Number, Id, Signature>,
 }
 
-impl<Number, Id, Signature> EquivocationProof<Number, Id, Signature> {
+impl<Number, Id, Signature> DoubleVotingProof<Number, Id, Signature> {
 	/// Returns the authority id of the equivocator.
 	pub fn offender_id(&self) -> &Id {
 		&self.first.id
@@ -347,7 +352,7 @@ where
 /// Verifies the equivocation proof by making sure that both votes target
 /// different blocks and that its signatures are valid.
 pub fn check_equivocation_proof<Number, Id, MsgHash>(
-	report: &EquivocationProof<Number, Id, <Id as RuntimeAppPublic>::Signature>,
+	report: &DoubleVotingProof<Number, Id, <Id as RuntimeAppPublic>::Signature>,
 ) -> bool
 where
 	Id: BeefyAuthorityId<MsgHash> + PartialEq,
@@ -399,21 +404,7 @@ impl<AuthorityId> OnNewValidatorSet<AuthorityId> for () {
 /// the runtime API boundary this type is unknown and as such we keep this
 /// opaque representation, implementors of the runtime API will have to make
 /// sure that all usages of `OpaqueKeyOwnershipProof` refer to the same type.
-#[derive(Decode, Encode, PartialEq, TypeInfo)]
-pub struct OpaqueKeyOwnershipProof(Vec<u8>);
-impl OpaqueKeyOwnershipProof {
-	/// Create a new `OpaqueKeyOwnershipProof` using the given encoded
-	/// representation.
-	pub fn new(inner: Vec<u8>) -> OpaqueKeyOwnershipProof {
-		OpaqueKeyOwnershipProof(inner)
-	}
-
-	/// Try to decode this `OpaqueKeyOwnershipProof` into the given concrete key
-	/// ownership proof type.
-	pub fn decode<T: Decode>(self) -> Option<T> {
-		codec::Decode::decode(&mut &self.0[..]).ok()
-	}
-}
+pub type OpaqueKeyOwnershipProof = OpaqueValue;
 
 sp_api::decl_runtime_apis! {
 	/// API necessary for BEEFY voters.
@@ -437,7 +428,7 @@ sp_api::decl_runtime_apis! {
 		/// hardcoded to return `None`). Only useful in an offchain context.
 		fn submit_report_equivocation_unsigned_extrinsic(
 			equivocation_proof:
-				EquivocationProof<NumberFor<Block>, AuthorityId, <AuthorityId as RuntimeAppPublic>::Signature>,
+				DoubleVotingProof<NumberFor<Block>, AuthorityId, <AuthorityId as RuntimeAppPublic>::Signature>,
 			key_owner_proof: OpaqueKeyOwnershipProof,
 		) -> Option<()>;
 

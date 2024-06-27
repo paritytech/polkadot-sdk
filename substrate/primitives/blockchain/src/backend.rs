@@ -21,14 +21,16 @@ use log::warn;
 use parking_lot::RwLock;
 use sp_runtime::{
 	generic::BlockId,
-	traits::{Block as BlockT, Header as HeaderT, NumberFor, Saturating},
+	traits::{Block as BlockT, CheckedSub, Header as HeaderT, NumberFor, Zero},
 	Justifications,
 };
-use std::collections::btree_set::BTreeSet;
+use std::collections::{btree_map::BTreeMap, btree_set::BTreeSet};
 
-use crate::header_metadata::HeaderMetadata;
-
-use crate::error::{Error, Result};
+use crate::{
+	error::{Error, Result},
+	header_metadata::{self, HeaderMetadata},
+	lowest_common_ancestor_multiblock, tree_route, TreeRoute,
+};
 
 /// Blockchain database header backend. Does not perform any validation.
 pub trait HeaderBackend<Block: BlockT>: Send + Sync {
@@ -89,60 +91,30 @@ pub trait HeaderBackend<Block: BlockT>: Send + Sync {
 pub trait ForkBackend<Block: BlockT>:
 	HeaderMetadata<Block> + HeaderBackend<Block> + Send + Sync
 {
-	/// Best effort to get all the header hashes that are part of the provided forks
-	/// starting only from the fork heads.
+	/// Returns block hashes for provided fork heads. It skips the fork if when blocks are missing
+	/// (e.g. warp-sync) and internal `tree_route` function fails.
 	///
-	/// The function tries to reconstruct the route from the fork head to the canonical chain.
-	/// If any of the hashes on the route can't be found in the db, the function won't be able
-	/// to reconstruct the route anymore. In this case it will give up expanding the current fork,
-	/// move on to the next ones and at the end it will return an error that also contains
-	/// the partially expanded forks.
+	/// Example:
+	///  G --- A1 --- A2 --- A3 --- A4           ( < fork1 )
+	///                       \-----C4 --- C5    ( < fork2 )
+	/// We finalize A3 and call expand_fork(C5). Result = (C5,C4).
 	fn expand_forks(
 		&self,
 		fork_heads: &[Block::Hash],
-	) -> std::result::Result<BTreeSet<Block::Hash>, (BTreeSet<Block::Hash>, Error)> {
-		let mut missing_blocks = vec![];
+	) -> std::result::Result<BTreeSet<Block::Hash>, Error> {
 		let mut expanded_forks = BTreeSet::new();
 		for fork_head in fork_heads {
-			let mut route_head = *fork_head;
-			// Insert stale blocks hashes until canonical chain is reached.
-			// If we reach a block that is already part of the `expanded_forks` we can stop
-			// processing the fork.
-			while expanded_forks.insert(route_head) {
-				match self.header_metadata(route_head) {
-					Ok(meta) => {
-						// If the parent is part of the canonical chain or there doesn't exist a
-						// block hash for the parent number (bug?!), we can abort adding blocks.
-						let parent_number = meta.number.saturating_sub(1u32.into());
-						match self.hash(parent_number) {
-							Ok(Some(parent_hash)) =>
-								if parent_hash == meta.parent {
-									break
-								},
-							Ok(None) | Err(_) => {
-								missing_blocks.push(BlockId::<Block>::Number(parent_number));
-								break
-							},
-						}
-
-						route_head = meta.parent;
-					},
-					Err(_e) => {
-						missing_blocks.push(BlockId::<Block>::Hash(route_head));
-						break
-					},
-				}
+			match tree_route(self, *fork_head, self.info().finalized_hash) {
+				Ok(tree_route) => {
+					for block in tree_route.retracted() {
+						expanded_forks.insert(block.hash);
+					}
+					continue
+				},
+				Err(_) => {
+					// There are cases when blocks are missing (e.g. warp-sync).
+				},
 			}
-		}
-
-		if !missing_blocks.is_empty() {
-			return Err((
-				expanded_forks,
-				Error::UnknownBlocks(format!(
-					"Missing stale headers {:?} while expanding forks {:?}.",
-					fork_heads, missing_blocks
-				)),
-			))
 		}
 
 		Ok(expanded_forks)
@@ -171,14 +143,6 @@ pub trait Backend<Block: BlockT>:
 	/// in other words, that have no children, are chain heads.
 	/// Results must be ordered best (longest, highest) chain first.
 	fn leaves(&self) -> Result<Vec<Block::Hash>>;
-
-	/// Returns displaced leaves after the given block would be finalized.
-	///
-	/// The returned leaves do not contain the leaves from the same height as `block_number`.
-	fn displaced_leaves_after_finalizing(
-		&self,
-		block_number: NumberFor<Block>,
-	) -> Result<Vec<Block::Hash>>;
 
 	/// Return hashes of all blocks that are children of the block with `parent_hash`.
 	fn children(&self, parent_hash: Block::Hash) -> Result<Vec<Block::Hash>>;
@@ -255,10 +219,100 @@ pub trait Backend<Block: BlockT>:
 	}
 
 	fn block_indexed_body(&self, hash: Block::Hash) -> Result<Option<Vec<Vec<u8>>>>;
+
+	/// Returns all leaves that will be displaced after the block finalization.
+	fn displaced_leaves_after_finalizing(
+		&self,
+		finalized_block_hash: Block::Hash,
+		finalized_block_number: NumberFor<Block>,
+	) -> std::result::Result<DisplacedLeavesAfterFinalization<Block>, Error> {
+		let mut result = DisplacedLeavesAfterFinalization::default();
+
+		let leaves = self.leaves()?;
+
+		// If we have only one leaf there are no forks, and we can return early.
+		if finalized_block_number == Zero::zero() || leaves.len() == 1 {
+			return Ok(result)
+		}
+
+		let first_leaf = leaves.first().ok_or(Error::Backend(
+			"Unable to find any leaves. This should not happen.".to_string(),
+		))?;
+		let leaf_block_header = self.expect_header(*first_leaf)?;
+
+		// If the distance between the leafs and the finalized block is large,  calculating
+		// tree routes can be very expensive. In that case, we will try to find the
+		// lowest common ancestor between all the leaves. The assumption here is that the forks are
+		// close to the tip and not long. So the LCA can be computed from the header cache. If the
+		// LCA is above the finalized block, we know that there are no displaced leaves by the
+		// finalization.
+		if leaf_block_header
+			.number()
+			.checked_sub(&finalized_block_number)
+			.unwrap_or(0u32.into()) >
+			header_metadata::LRU_CACHE_SIZE.into()
+		{
+			if let Some(lca) = lowest_common_ancestor_multiblock(self, leaves.clone())? {
+				if lca.number > finalized_block_number {
+					return Ok(result)
+				} else {
+					log::warn!("The distance between leafs and finalized block is large. Finalization can take a long time.");
+				}
+			};
+		}
+
+		// For each leaf determine whether it belongs to a non-canonical branch.
+		for leaf_hash in leaves {
+			let leaf_block_header = self.expect_header(leaf_hash)?;
+			let leaf_number = *leaf_block_header.number();
+
+			let leaf_tree_route = match tree_route(self, leaf_hash, finalized_block_hash) {
+				Ok(tree_route) => tree_route,
+				Err(Error::UnknownBlock(_)) => {
+					// Sometimes routes can't be calculated. E.g. after warp sync.
+					continue;
+				},
+				Err(e) => Err(e)?,
+			};
+
+			// Is it a stale fork?
+			let needs_pruning = leaf_tree_route.common_block().hash != finalized_block_hash;
+
+			if needs_pruning {
+				result.displaced_leaves.insert(leaf_hash, leaf_number);
+				result.tree_routes.insert(leaf_hash, leaf_tree_route);
+			}
+		}
+
+		Ok(result)
+	}
+}
+
+/// Result of  [`Backend::displaced_leaves_after_finalizing`].
+#[derive(Clone, Debug)]
+pub struct DisplacedLeavesAfterFinalization<Block: BlockT> {
+	/// A collection of hashes and block numbers for displaced leaves.
+	pub displaced_leaves: BTreeMap<Block::Hash, NumberFor<Block>>,
+
+	/// A collection of tree routes from the leaves to finalized block.
+	pub tree_routes: BTreeMap<Block::Hash, TreeRoute<Block>>,
+}
+
+impl<Block: BlockT> Default for DisplacedLeavesAfterFinalization<Block> {
+	fn default() -> Self {
+		Self { displaced_leaves: Default::default(), tree_routes: Default::default() }
+	}
+}
+
+impl<Block: BlockT> DisplacedLeavesAfterFinalization<Block> {
+	/// Returns a collection of hashes for the displaced leaves.
+	pub fn hashes(&self) -> impl Iterator<Item = Block::Hash> + '_ {
+		self.displaced_leaves.keys().cloned()
+	}
 }
 
 /// Blockchain info
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug, Eq, PartialEq, Clone)]
 pub struct Info<Block: BlockT> {
 	/// Best block hash.
 	pub best_hash: Block::Hash,
