@@ -116,7 +116,7 @@ pub(crate) fn set_up_pool_with_roc_on_ah_rococo(asset: v3::Location, is_foreign:
 				3_000_000_000_000,
 			));
 		} else {
-			let asset_id = match asset.interior.clone().split_last() {
+			let asset_id = match asset.interior.split_last() {
 				(_, Some(v3::Junction::GeneralIndex(id))) => id as u32,
 				_ => unreachable!(),
 			};
