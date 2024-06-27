@@ -184,6 +184,11 @@ impl UnverifiedStorageProof {
 		}
 		Ok(VerifiedStorageProof { db: trusted_db })
 	}
+
+	/// Getter for proof
+	pub fn proof(&self) -> &RawStorageProof {
+		&self.proof
+	}
 }
 
 impl Size for UnverifiedStorageProof {

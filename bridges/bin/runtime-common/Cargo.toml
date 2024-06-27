@@ -94,6 +94,7 @@ runtime-benchmarks = [
 	"pallet-bridge-relayers/runtime-benchmarks",
 	"pallet-utility/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
+	"sp-trie",
 	"xcm-builder/runtime-benchmarks",
 ]
 integrity-test = ["static_assertions"]
