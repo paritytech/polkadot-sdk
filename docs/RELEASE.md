@@ -161,7 +161,7 @@ Describes how developers should merge bug and security fixes.
 ### Steps
 
 1. Developer opens a Pull Request into `master` with a bug or security fix.
-2. The Pull Request is marked as priority-fix.
+2. The Pull Request is marked as priority fix.
 3. Developer notifies the auditors of its relevance.
 4. It is merged into `master`.
 5. Developer opens a backport Pull Request into the `stable` branch.
