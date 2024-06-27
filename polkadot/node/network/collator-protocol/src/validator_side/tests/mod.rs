@@ -135,14 +135,14 @@ impl Default for TestState {
 		claim_queue.insert(
 			CoreIndex(0),
 			iter::repeat(chain_ids[0])
-				.take(async_backing_params.max_candidate_depth as usize + 1)
+				.take(async_backing_params.allowed_ancestry_len as usize)
 				.collect(),
 		);
 		claim_queue.insert(CoreIndex(1), VecDeque::new());
 		claim_queue.insert(
 			CoreIndex(2),
 			iter::repeat(chain_ids[1])
-				.take(async_backing_params.max_candidate_depth as usize + 1)
+				.take(async_backing_params.allowed_ancestry_len as usize)
 				.collect(),
 		);
 
