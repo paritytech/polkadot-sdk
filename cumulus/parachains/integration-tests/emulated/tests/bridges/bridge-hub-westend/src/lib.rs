@@ -36,6 +36,7 @@ mod imports {
 		xcm_emulator::{
 			assert_expected_events, bx, Chain, Parachain as Para, RelayChain as Relay, TestExt,
 		},
+		ASSETS_PALLET_ID, USDT_ID,
 	};
 	pub use parachains_common::AccountId;
 	pub use rococo_westend_system_emulated_network::{

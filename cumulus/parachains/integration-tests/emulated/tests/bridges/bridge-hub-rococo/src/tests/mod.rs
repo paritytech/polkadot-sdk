@@ -21,16 +21,10 @@ mod snowbridge;
 mod teleport;
 
 pub(crate) fn asset_hub_westend_location() -> Location {
-	Location::new(
-		2,
-		[GlobalConsensus(NetworkId::Westend), Parachain(AssetHubWestend::para_id().into())],
-	)
+	Location::new(2, [GlobalConsensus(Westend), Parachain(AssetHubWestend::para_id().into())])
 }
 pub(crate) fn bridge_hub_westend_location() -> Location {
-	Location::new(
-		2,
-		[GlobalConsensus(NetworkId::Westend), Parachain(BridgeHubWestend::para_id().into())],
-	)
+	Location::new(2, [GlobalConsensus(Westend), Parachain(BridgeHubWestend::para_id().into())])
 }
 
 // ROC and wROC
@@ -67,7 +61,7 @@ pub(crate) fn weth_at_asset_hubs() -> Location {
 	Location::new(
 		2,
 		[
-			GlobalConsensus(NetworkId::Ethereum { chain_id: snowbridge::CHAIN_ID }),
+			GlobalConsensus(Ethereum { chain_id: snowbridge::CHAIN_ID }),
 			AccountKey20 { network: None, key: snowbridge::WETH },
 		],
 	)
@@ -142,7 +136,6 @@ pub(crate) fn send_assets_from_asset_hub_rococo(
 ) -> DispatchResult {
 	let signed_origin =
 		<AssetHubRococo as Chain>::RuntimeOrigin::signed(AssetHubRococoSender::get().into());
-
 	let beneficiary: Location =
 		AccountId32Junction { network: None, id: AssetHubWestendReceiver::get().into() }.into();
 
