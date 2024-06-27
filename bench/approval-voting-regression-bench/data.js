@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1719500868018,
+  "lastUpdate": 1719508953888,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -8929,6 +8929,53 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-distribution",
             "value": 6.92817120592005,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Niklas Adolfsson",
+            "username": "niklasad1",
+            "email": "niklasadolfsson1@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "de41ae85ec600189c4621aaf9e58afc612f101f7",
+          "message": "chore(deps): upgrade prometheous server to hyper v1 (#4898)\n\nPartly fixes\nhttps://github.com/paritytech/polkadot-sdk/pull/4890#discussion_r1655548633\n\nStill the offchain API needs to be updated to hyper v1.0 and I opened an\nissue for it, it's using low-level http body features that have been\nremoved",
+          "timestamp": "2024-06-27T15:45:29Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/de41ae85ec600189c4621aaf9e58afc612f101f7"
+        },
+        "date": 1719508924597,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63823.35,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52942.90000000001,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 3.6064868152801663,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 7.750918739249974,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 10.347348968209982,
             "unit": "seconds"
           }
         ]
