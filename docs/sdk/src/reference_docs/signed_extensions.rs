@@ -5,7 +5,7 @@
 //!
 //! FRAME by default already provides the following signed extensions:
 //!
-//! - [`CheckGenesis`](frame_system::CheckGenesis): Ensures that a transaction was send for the same
+//! - [`CheckGenesis`](frame_system::CheckGenesis): Ensures that a transaction was sent for the same
 //!   network. Determined based on genesis.
 //!
 //! - [`CheckMortality`](frame_system::CheckMortality): Extends a transaction with a configurable
