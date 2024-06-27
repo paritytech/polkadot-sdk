@@ -463,6 +463,11 @@ pub mod pallet {
 }
 
 impl<T: Config> Pallet<T> {
+	// Public function for accessing vesting storage
+	pub fn vesting(account: T::AccountId) -> Option<BoundedVec<VestingInfo<BalanceOf<T>, BlockNumberFor<T>>, MaxVestingSchedulesGet<T>>> {
+		Vesting::<T>::get(account)
+	}
+
 	// Create a new `VestingInfo`, based off of two other `VestingInfo`s.
 	// NOTE: We assume both schedules have had funds unlocked up through the current block.
 	fn merge_vesting_info(
