@@ -22,13 +22,12 @@ use frame_support::{
 	dispatch::Pays,
 	parameter_types,
 	traits::{
-		fungible::{Inspect, Mutate},
+		fungible::{HoldConsideration, Inspect, Mutate},
 		ConstU32, ConstU64, StorageVersion,
 	},
 	Hashable,
 };
 use frame_system::{EnsureRoot, EventRecord, Phase};
-use fungible::HoldConsideration;
 use sp_core::{ConstU128, H256};
 use sp_runtime::{
 	testing::Header,

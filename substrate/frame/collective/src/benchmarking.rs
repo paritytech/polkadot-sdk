@@ -27,7 +27,6 @@ use frame_benchmarking::{
 	v1::{account, whitelisted_caller},
 	v2::*,
 };
-use frame_support::traits::fungible::{Inspect, Mutate};
 use frame_system::{
 	pallet_prelude::BlockNumberFor, Call as SystemCall, Pallet as System, RawOrigin as SystemOrigin,
 };

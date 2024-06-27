@@ -56,10 +56,8 @@ use frame_support::{
 	},
 	ensure, impl_ensure_origin_with_arg_ignoring_arg,
 	traits::{
-		fungible,
-		fungible::{BalancedHold, Credit, MutateHold},
 		Backing, ChangeMembers, Consideration, EnsureOrigin, EnsureOriginWithArg, Get, GetBacking,
-		InitializeMembers, OnUnbalanced, StorageVersion,
+		InitializeMembers, StorageVersion,
 	},
 	weights::Weight,
 };
