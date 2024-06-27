@@ -330,8 +330,8 @@ pub trait Ext: sealing::Sealed {
 	fn contract_info(&mut self) -> &mut ContractInfo<Self::T>;
 
 	/// Get a mutable reference to the transient storage.
-	/// Useful in tests when it is sometimes necessary to modify and inspect the transient storage
-	/// directly.
+	/// Useful in benchmarks when it is sometimes necessary to modify and inspect the transient
+	/// storage directly.
 	#[cfg(feature = "runtime-benchmarks")]
 	fn transient_storage(&mut self) -> &mut TransientStorage<Self::T>;
 

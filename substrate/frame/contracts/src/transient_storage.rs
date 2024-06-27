@@ -77,23 +77,6 @@ impl<T: Config> StorageMeter<T> {
 		Ok(())
 	}
 
-	/// The allocated amount of memory inside the current transaction.
-	pub fn current_amount(&self) -> u32 {
-		self.top_meter().amount
-	}
-
-	/// The memory limit of the current transaction.
-	pub fn current_limit(&self) -> u32 {
-		self.top_meter().limit
-	}
-
-	/// The total allocated amount of memory.
-	pub fn total_amount(&self) -> u32 {
-		self.nested_meters
-			.iter()
-			.fold(self.root_meter.amount, |acc, e| acc.saturating_add(e.amount))
-	}
-
 	/// Revert a transaction meter.
 	pub fn revert(&mut self) {
 		self.nested_meters
@@ -104,14 +87,15 @@ impl<T: Config> StorageMeter<T> {
 	/// Start a transaction meter.
 	pub fn start(&mut self) {
 		let meter = self.top_meter();
-		let free = meter.limit.saturating_sub(meter.amount);
-		let transaction_limit = if !self.nested_meters.is_empty() {
+		let mut transaction_limit = meter.limit.saturating_sub(meter.amount);
+		if !self.nested_meters.is_empty() {
 			// Allow use of (1 - 1/STORAGE_FRACTION_DENOMINATOR) of free storage for subsequent
 			// calls.
-			free.saturating_sub(free.saturating_div(Self::STORAGE_FRACTION_DENOMINATOR))
-		} else {
-			free
-		};
+			transaction_limit = transaction_limit.saturating_sub(
+				transaction_limit.saturating_div(Self::STORAGE_FRACTION_DENOMINATOR),
+			);
+		}
+
 		self.nested_meters.push(MeterEntry::new(transaction_limit));
 	}
 
@@ -124,9 +108,31 @@ impl<T: Config> StorageMeter<T> {
 		self.top_meter_mut().absorb(transaction_meter)
 	}
 
+	/// Clear a transaction meter
+	#[cfg(any(test, feature = "runtime-benchmarks"))]
 	pub fn clear(&mut self) {
 		self.nested_meters.clear();
 		self.root_meter.amount = 0;
+	}
+
+	/// The allocated amount of memory inside the current transaction.
+	#[cfg(any(test, feature = "runtime-benchmarks"))]
+	pub fn current_amount(&self) -> u32 {
+		self.top_meter().amount
+	}
+
+	/// The memory limit of the current transaction.
+	#[cfg(any(test, feature = "runtime-benchmarks"))]
+	pub fn current_limit(&self) -> u32 {
+		self.top_meter().limit
+	}
+
+	/// The total allocated amount of memory.
+	#[cfg(any(test, feature = "runtime-benchmarks"))]
+	pub fn total_amount(&self) -> u32 {
+		self.nested_meters
+			.iter()
+			.fold(self.root_meter.amount, |acc, e| acc.saturating_add(e.amount))
 	}
 
 	fn top_meter_mut(&mut self) -> &mut MeterEntry {
@@ -321,6 +327,7 @@ impl<T: Config> TransientStorage<T> {
 		self.meter.commit();
 	}
 
+	#[cfg(any(test, feature = "runtime-benchmarks"))]
 	pub fn meter(&mut self) -> &mut StorageMeter<T> {
 		return &mut self.meter
 	}
