@@ -35,7 +35,6 @@ use sp_io::{
 	hashing::{blake2_128, twox_128, twox_64},
 	TestExternalities,
 };
-use sp_metadata_ir::DeprecationStatus;
 use sp_runtime::{
 	traits::{Dispatchable, Extrinsic as ExtrinsicT, SignaturePayload as SignaturePayloadT},
 	DispatchError, ModuleError,
@@ -1904,17 +1903,6 @@ fn metadata_versions() {
 }
 
 #[test]
-fn metadata_ir_pallet_runtime_deprecated() {
-	let ir = Runtime::metadata_ir();
-	let pallet = ir
-		.pallets
-		.iter()
-		.any(|pallet| matches!(pallet.deprecation_info, DeprecationStatus::DeprecatedWithoutNote));
-
-	assert!(pallet)
-}
-
-#[test]
 fn metadata_ir_pallet_runtime_docs() {
 	let ir = Runtime::metadata_ir();
 	let pallet = ir
@@ -2433,9 +2421,10 @@ fn post_runtime_upgrade_detects_storage_version_issues() {
 		// any storage version "enabled".
 		assert!(
 			ExecutiveWithUpgradePallet4::try_runtime_upgrade(UpgradeCheckSelect::PreAndPost)
-				.unwrap_err() == "On chain storage version set, while the pallet \
+				.unwrap_err() ==
+				"On chain storage version set, while the pallet \
 				doesn't have the `#[pallet::storage_version(VERSION)]` attribute."
-				.into()
+					.into()
 		);
 	});
 }
