@@ -341,7 +341,8 @@ zombienet-polkadot-coretime-revenue:
   needs:
     - job: build-zombienet-sdk-coretime-revenue
       artifacts: true
-  variables:
-    POLKADOT_IMAGE: ${ZOMBIENET_INTEGRATION_TEST_IMAGE}
+  before_script:
+    - !reference [".zombienet-polkadot-common", "before_script"]
+    - export POLKADOT_IMAGE="${ZOMBIENET_INTEGRATION_TEST_IMAGE}"
   script:
     - ./artifacts/coretime-revenue

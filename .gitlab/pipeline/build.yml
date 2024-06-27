@@ -163,9 +163,32 @@ build-zombienet-sdk-coretime-revenue:
     - .common-refs
     - .run-immediately
     - .collect-artifacts
+  needs:
+    - job: build-linux-stable
+      artifacts: true
+    - job: build-linux-stable-cumulus
+      artifacts: true
+
   script:
+    - cargo install subxt-cli
+    - ./artifacts/polkadot --chain rococo-local --rpc-port 9990 &
+    - POLKADOT_NODE_PID=$!
+    - ./artifacts/polkadot-parachain --chain coretime-rococo-local --rpc-port 9999 &
+    - CUMULUS_NODE_PID=$!
+    - sleep 10 # sleep a few seconds for boostrap
+    - subxt metadata --url localhost:9990 > rococo-local.scale
+    - subxt metadata --url localhost:9999 > coretime-rococo-local.scale
+    - kill ${POLKADOT_NODE_PID}
+    - kill ${CUMULUS_NODE_PID}
+    - mv rococo-local.scale polkadot/zombienet-sdk-tests/metadata-files
+    - mv coretime-rococo-local.scale polkadot/zombienet-sdk-tests/metadata-files
+    # ready to build
     - cargo build --release --target-dir /tmp/zombie-tests -p polkadot-zombienet-sdk-tests --bin coretime-revenue
     - mkdir -p artifacts
+    # remove artifacts
+    - rm ./artifacts/polkadot
+    - rm ./artifacts/polkadot-parachain
+    # add binary for tests
     - cp  /tmp/zombie-tests/release/coretime-revenue ./artifacts/
 
 

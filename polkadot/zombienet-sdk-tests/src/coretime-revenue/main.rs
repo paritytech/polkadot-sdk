@@ -10,6 +10,12 @@
 //! normal parachain runtime WILL mess things up.
 
 use anyhow::anyhow;
+#[subxt::subxt(runtime_metadata_path = "metadata-files/rococo-local.scale")]
+pub mod rococo {}
+
+#[subxt::subxt(runtime_metadata_path = "metadata-files/coretime-rococo-local.scale")]
+mod coretime_rococo {}
+
 use rococo::runtime_types::{
 	staging_xcm::v4::{
 		asset::{Asset, AssetId, Assets, Fungibility},
@@ -37,11 +43,11 @@ use tokio::time::Duration;
 use tokio::sync::RwLock;
 use zombienet_sdk::NetworkConfigBuilder;
 
-#[subxt::subxt(runtime_metadata_insecure_url="wss://rococo-rpc.polkadot.io")]
-mod rococo {}
+// #[subxt::subxt(runtime_metadata_insecure_url="wss://rococo-rpc.polkadot.io")]
+// mod rococo {}
 
-#[subxt::subxt(runtime_metadata_insecure_url="wss://rococo-coretime-rpc.polkadot.io")]
-mod coretime_rococo {}
+// #[subxt::subxt(runtime_metadata_insecure_url="wss://rococo-coretime-rpc.polkadot.io")]
+// mod coretime_rococo {}
 
 use coretime_rococo::{
 	self as coretime_api,
@@ -51,6 +57,7 @@ use coretime_rococo::{
 		sp_arithmetic::per_things::Perbill,
 	},
 };
+
 use rococo::{self as rococo_api, runtime_types::polkadot_parachain_primitives::primitives};
 
 type CoretimeRuntimeCall = coretime_api::runtime_types::coretime_rococo_runtime::RuntimeCall;
@@ -397,7 +404,9 @@ async fn main() -> Result<(), anyhow::Error> {
 						until: 1000,
 					}),
 					CoretimeRuntimeCall::Broker(CoretimeBrokerCall::start_sales {
-						end_price: 45_000_000,
+						// TODO: field doesn't exist
+						// end_price: 45_000_000,
+						initial_price: 45_000_000,
 						extra_cores: 2,
 					}),
 				],
