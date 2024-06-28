@@ -25,12 +25,10 @@ There are a few basic ground-rules for contributors (including the maintainer(s)
 
 ### In General
 
-A Pull Request (PR) needs to be reviewed and approved by project maintainers.
-If a change does not alter any logic (e.g. comments, dependencies, docs), then it may be tagged
+* A Pull Request (PR) needs to be reviewed and approved by project maintainers.
+* If a change does not alter any logic (e.g. comments, dependencies, docs), then it may be tagged
 `A1-insubstantial` and merged faster.
-If it is an urgent fix with no large change to logic, then it may be merged after a non-author
-contributor has reviewed it well and approved the review once CI is complete.
-No PR should be merged until all reviews' comments are addressed.
+* No PR should be merged until all reviews' comments are addressed.
 
 ### Labels
 
@@ -46,20 +44,8 @@ The set of labels and their description can be found [here](https://paritytech.g
 3. If you’re still working on your PR, please submit as “Draft”. Once a PR is ready for review change
    the status to “Open”, so that the maintainers get to review your PR. Generally PRs should sit for
    48 hours in order to garner feedback. It may be merged before if all relevant parties had a look at it.
-4. If you’re introducing a major change, that might impact the documentation please add the label
-   `T13-documentation`. The docs team will get in touch.
-5. If your PR changes files in these paths:
-
-   `polkadot` : `^runtime/polkadot`
-   `polkadot` : `^runtime/kusama`
-   `polkadot` : `^primitives/src/`
-   `polkadot` : `^runtime/common`
-   `substrate` : `^frame/`
-   `substrate` : `^primitives/`
-
-   It should be added to the [security audit board](https://github.com/orgs/paritytech/projects/103)
-   and will need to undergo an audit before merge.
-6. PRs will be able to be merged once all reviewers' comments are addressed and CI is successful.
+4. With respect to auditing, please see [AUDIT.md](../AUDIT.md). In general, merging to master can happen independent of audit. 
+5. PRs will be able to be merged once all reviewers' comments are addressed and CI is successful.
 
 **Noting breaking changes:**
 When breaking APIs, the PR description should mention what was changed alongside some examples on how
@@ -80,18 +66,16 @@ Reviews should finish with approval unless there are issues that would result in
 
 The reviewers are also responsible to check:
 
-1. if a changelog is necessary and attached
-1. the quality of information in the changelog file
-1. the PR has an impact on docs
-1. that the docs team was included in the review process of a docs update
+* if the PR description is well written to facilitate integration, in case it contains breaking changes.
+* the PR has an impact on docs.
 
 **Reviews may not be used as an effective veto for a PR because**:
 1. There exists a somewhat cleaner/better/faster way of accomplishing the same feature/fix.
 2. It does not fit well with some other contributors' longer-term vision for the project.
 
-## Documentation
+## `PRDoc`
 
-All Pull Requests must contain proper title & description.
+All Pull Requests must contain proper title & description, as described in [Pull Request Template](./PULL_REQUEST_TEMPLATE.md). Moreover, all pull requests must have a proper `prdoc` file attached.
 
 Some Pull Requests can be exempt of `prdoc` documentation, those must be labelled with
 [`R0-silent`](https://github.com/paritytech/labels/blob/main/ruled_labels/specs_polkadot-sdk.yaml#L89-L91).
@@ -116,8 +100,10 @@ and get in contact with the mentor offering their support on that larger task.
 If what you are looking for is an answer rather than proposing a new feature or fix, search
 [https://substrate.stackexchange.com](https://substrate.stackexchange.com/) to see if an post already
 exists, and ask if not. Please do not file support issues here.
+
 Before opening a new issue search to see if a similar one already exists and leave a comment that you
 also experienced this issue or add your specifics that are related to an existing issue.
+
 Please label issues with the following labels:
 1. `I*`  issue severity and type. EXACTLY ONE REQUIRED.
 2. `D*`  issue difficulty, suggesting the level of complexity this issue has. AT MOST ONE ALLOWED.
@@ -125,7 +111,7 @@ Please label issues with the following labels:
 
 ## Releases
 
-Declaring formal releases remains the prerogative of the project maintainer(s).
+Declaring formal releases remains the prerogative of the project maintainer(s). See [RELEASE.md](../RELEASE.md).
 
 ## UI tests
 
