@@ -17,11 +17,11 @@ doc:
 
 crates:
   - name: assets-common
-    bump: minor
+    bump: major
   - name: asset-hub-rococo-runtime
-    bump: minor
+    bump: major
   - name: asset-hub-westend-runtime
-    bump: minor
+    bump: major
   - name: asset-hub-rococo-emulated-chain
     bump: minor
   - name: asset-hub-rococo-integration-tests
@@ -31,5 +31,5 @@ crates:
   - name: bridge-hub-westend-integration-tests
     bump: minor
   - name: emulated-integration-tests-common
-    bump: patch
+    bump: minor
 
