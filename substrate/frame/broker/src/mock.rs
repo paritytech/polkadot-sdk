@@ -70,7 +70,6 @@ parameter_types! {
 	pub static CoretimeWorkplan: BTreeMap<(u32, CoreIndex), Vec<(CoreAssignment, PartsOf57600)>> = Default::default();
 	pub static CoretimeUsage: BTreeMap<CoreIndex, Vec<(CoreAssignment, PartsOf57600)>> = Default::default();
 	pub static CoretimeInPool: CoreMaskBitCount = 0;
-	pub static NotifyRevenueInfo: Vec<(u32, u64)> = Default::default();
 }
 
 pub struct TestCoretimeProvider;
@@ -90,11 +89,10 @@ impl CoretimeInterface for TestCoretimeProvider {
 			);
 		}
 
-		let when = when as u32;
 		let mut total = 0;
 		CoretimeSpending::mutate(|s| {
 			s.retain(|(n, a)| {
-				if *n < when {
+				if *n < when as u32 {
 					total += a;
 					false
 				} else {
@@ -102,7 +100,8 @@ impl CoretimeInterface for TestCoretimeProvider {
 				}
 			})
 		});
-		NotifyRevenueInfo::mutate(|s| s.insert(0, (when, total)));
+		mint_to_pot(total);
+		RevenueInbox::<Test>::put(OnDemandRevenueRecord { until: when, amount: total });
 	}
 	fn credit_account(who: Self::AccountId, amount: Self::Balance) {
 		CoretimeCredit::mutate(|c| c.entry(who).or_default().saturating_accrue(amount));
@@ -125,19 +124,13 @@ impl CoretimeInterface for TestCoretimeProvider {
 		);
 		CoretimeTrace::mutate(|v| v.push(item));
 	}
-	fn check_notify_revenue_info() -> Option<(RCBlockNumberOf<Self>, Self::Balance)> {
-		NotifyRevenueInfo::mutate(|s| s.pop()).map(|v| (v.0 as _, v.1))
-	}
-	#[cfg(feature = "runtime-benchmarks")]
-	fn ensure_notify_revenue_info(when: RCBlockNumberOf<Self>, revenue: Self::Balance) {
-		NotifyRevenueInfo::mutate(|s| s.push((when as u32, revenue)));
-	}
 }
+
 impl TestCoretimeProvider {
-	pub fn spend_instantaneous(who: u64, price: u64) -> Result<(), ()> {
-		let mut c = CoretimeCredit::get();
+	pub fn spend_instantaneous(_who: u64, price: u64) -> Result<(), ()> {
+		let c = CoretimeCredit::get();
 		ensure!(CoretimeInPool::get() > 0, ());
-		c.insert(who, c.get(&who).ok_or(())?.checked_sub(price).ok_or(())?);
+		// c.insert(who, c.get(&who).ok_or(())?.checked_sub(price).ok_or(())?);
 		CoretimeCredit::set(c);
 		CoretimeSpending::mutate(|v| {
 			v.push((RCBlockNumberProviderOf::<Self>::current_block_number() as u32, price))
@@ -221,6 +214,11 @@ pub fn advance_sale_period() {
 
 pub fn pot() -> u64 {
 	balance(Broker::account_id())
+}
+
+pub fn mint_to_pot(amount: u64) {
+	let imb = <Test as crate::Config>::Currency::issue(amount);
+	let _ = <Test as crate::Config>::Currency::resolve(&Broker::account_id(), imb);
 }
 
 pub fn revenue() -> u64 {
