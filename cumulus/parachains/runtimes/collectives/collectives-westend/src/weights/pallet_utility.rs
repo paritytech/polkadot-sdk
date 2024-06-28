@@ -98,4 +98,13 @@ impl<T: frame_system::Config> pallet_utility::WeightInfo for WeightInfo<T> {
 			// Standard Error: 1_395
 			.saturating_add(Weight::from_parts(5_000_971, 0).saturating_mul(c.into()))
 	}
+	// TODO: Should be regenerated. Current weight copied from `dispatch_as` call.
+	fn dispatch_as_account() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 9_255_000 picoseconds.
+		Weight::from_parts(9_683_000, 0)
+			.saturating_add(Weight::from_parts(0, 0))
+	}
 }
