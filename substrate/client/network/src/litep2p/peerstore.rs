@@ -47,7 +47,7 @@ pub const BANNED_THRESHOLD: i32 = 71 * (i32::MIN / 100);
 /// Relative decrement of a reputation value that is applied every second. I.e., for inverse
 /// decrement of 200 we decrease absolute value of the reputation by 1/200.
 ///
-/// This corresponds to a factor of `k = 0.955`, where k = 1 - 1 / INVERSE_DECREMENT.
+/// This corresponds to a factor of `k = 0.995`, where k = 1 - 1 / INVERSE_DECREMENT.
 ///
 /// It takes ~ `ln(0.5) / ln(k)` seconds to reduce the reputation by half, or 138.63 seconds for the
 /// values above.
