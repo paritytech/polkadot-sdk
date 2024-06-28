@@ -54,7 +54,6 @@ pub const BANNED_THRESHOLD: i32 = 71 * (i32::MIN / 100);
 ///
 /// In this setup:
 /// - `i32::MAX` becomes 0 in exactly 3544 seconds, or approximately 59 minutes
-/// - `i32::MIN` becomes 0 in exactly 3544 seconds, or approximately 59 minutes
 /// - `i32::MIN` escapes the banned threshold in 69 seconds
 const INVERSE_DECREMENT: i32 = 200;
 
