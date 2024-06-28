@@ -5434,12 +5434,14 @@ dependencies = [
 
 [[package]]
 name = "expander"
-version = "2.0.0"
+version = "2.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5f86a749cf851891866c10515ef6c299b5c69661465e9c3bbe7e07a2b77fb0f7"
+checksum = "e2c470c71d91ecbd179935b24170459e926382eaaa86b590b78814e180d8a8e2"
 dependencies = [
  "blake2 0.10.6",
+ "file-guard",
  "fs-err",
+ "prettyplease 0.2.12",
  "proc-macro2 1.0.82",
  "quote 1.0.35",
  "syn 2.0.61",
@@ -5571,6 +5573,16 @@ name = "fiat-crypto"
 version = "0.2.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "27573eac26f4dd11e2b1916c3fe1baa56407c83c71a773a8ba17ec0bca03b6b7"
+
+[[package]]
+name = "file-guard"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "21ef72acf95ec3d7dbf61275be556299490a245f017cf084bd23b4f68cf9407c"
+dependencies = [
+ "libc",
+ "winapi",
+]
 
 [[package]]
 name = "file-per-thread-logger"
@@ -9621,9 +9633,9 @@ checksum = "04744f49eae99ab78e0d5c0b603ab218f515ea8cfe5a456d7629ad883a3b6e7d"
 
 [[package]]
 name = "orchestra"
-version = "0.3.6"
+version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "92829eef0328a3d1cd22a02c0e51deb92a5362df3e7d21a4e9bdc38934694e66"
+checksum = "41f6bbacc8c189a3f2e45e0fd0436e5d97f194db888e721bdbc3973e7dbed4c2"
 dependencies = [
  "async-trait",
  "dyn-clonable",
@@ -9638,9 +9650,9 @@ dependencies = [
 
 [[package]]
 name = "orchestra-proc-macro"
-version = "0.3.6"
+version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1344346d5af32c95bbddea91b18a88cc83eac394192d20ef2fc4c40a74332355"
+checksum = "f7b1d40dd8f367db3c65bec8d3dd47d4a604ee8874480738f93191bddab4e0e0"
 dependencies = [
  "expander",
  "indexmap 2.2.3",

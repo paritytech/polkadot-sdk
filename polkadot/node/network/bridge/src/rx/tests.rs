@@ -545,6 +545,8 @@ async fn assert_sends_validation_event_to_all(
 	event: NetworkBridgeEvent<net_protocol::VersionedValidationProtocol>,
 	virtual_overseer: &mut TestSubsystemContextHandle<NetworkBridgeRxMessage>,
 ) {
+	let is_peer_view_change = matches!(event, NetworkBridgeEvent::PeerViewChange(..));
+
 	// Ordering must be consistent across:
 	// `fn dispatch_validation_event_to_all_unbounded`
 	// `dispatch_validation_events_to_all`
@@ -575,6 +577,15 @@ async fn assert_sends_validation_event_to_all(
 			GossipSupportMessage::NetworkBridgeUpdate(e)
 		) if e == event.focus().expect("could not focus message")
 	);
+
+	// Peer view changes sent with high priority.
+	if is_peer_view_change {
+		assert_eq!(
+			virtual_overseer.message_counter.with_high_priority(),
+			if is_peer_view_change { 4 } else { 0 }
+		);
+		virtual_overseer.message_counter.reset();
+	}
 }
 
 async fn assert_sends_collation_event_to_all(
