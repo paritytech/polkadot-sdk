@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"constant":["AFTER_HELP_EXAMPLE"],"enum":["Subcommand"],"struct":["Cli","RelayChainCli"]};
+window.SIDEBAR_ITEMS = {"enum":["Subcommand"],"struct":["Cli","RelayChainCli"]};

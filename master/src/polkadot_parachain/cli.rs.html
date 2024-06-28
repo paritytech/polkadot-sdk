@@ -276,6 +276,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#125" id="125">125</a>
 <a href="#126" id="126">126</a>
 <a href="#127" id="127">127</a>
+<a href="#128" id="128">128</a>
+<a href="#129" id="129">129</a>
+<a href="#130" id="130">130</a>
+<a href="#131" id="131">131</a>
+<a href="#132" id="132">132</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -292,7 +297,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see &lt;http://www.gnu.org/licenses/&gt;.
 
-</span><span class="kw">use </span>clap::{CommandFactory, FromArgMatches};
+</span><span class="kw">use </span>clap::{Command, CommandFactory, FromArgMatches};
+<span class="kw">use </span>sc_cli::SubstrateCli;
 <span class="kw">use </span>std::path::PathBuf;
 
 <span class="doccomment">/// Sub-commands supported by the collator.
@@ -336,22 +342,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>Benchmark(frame_benchmarking_cli::BenchmarkCmd),
 }
 
-<span class="kw">const </span>AFTER_HELP_EXAMPLE: <span class="kw-2">&amp;</span>str = <span class="macro">color_print::cstr!</span>(
-	<span class="string">r#"&lt;bold&gt;&lt;underline&gt;Examples:&lt;/&gt;&lt;/&gt;
-   &lt;bold&gt;polkadot-parachain --chain asset-hub-polkadot --sync warp -- --chain polkadot --sync warp&lt;/&gt;
-           Launch a warp-syncing full node of the &lt;italic&gt;Asset Hub&lt;/&gt; parachain on the &lt;italic&gt;Polkadot&lt;/&gt; Relay Chain.
-   &lt;bold&gt;polkadot-parachain --chain asset-hub-polkadot --sync warp --relay-chain-rpc-url ws://rpc.example.com -- --chain polkadot&lt;/&gt;
-           Launch a warp-syncing full node of the &lt;italic&gt;Asset Hub&lt;/&gt; parachain on the &lt;italic&gt;Polkadot&lt;/&gt; Relay Chain.
-           Uses &lt;italic&gt;ws://rpc.example.com&lt;/&gt; as remote relay chain node.
- "#
-</span>);
 <span class="attr">#[derive(Debug, clap::Parser)]
 #[command(
 	propagate_version = <span class="bool-val">true</span>,
 	args_conflicts_with_subcommands = <span class="bool-val">true</span>,
-	subcommand_negates_reqs = <span class="bool-val">true
-</span>)]
-#[clap(after_help = AFTER_HELP_EXAMPLE)]
+	subcommand_negates_reqs = <span class="bool-val">true</span>,
+	after_help = <span class="kw">crate</span>::examples(<span class="self">Self</span>::executable_name())
+)]
 </span><span class="kw">pub struct </span>Cli {
 	<span class="attr">#[command(subcommand)]
 	</span><span class="kw">pub </span>subcommand: <span class="prelude-ty">Option</span>&lt;Subcommand&gt;,
@@ -371,7 +368,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Relay chain arguments
 	</span><span class="attr">#[arg(raw = <span class="bool-val">true</span>)]
-	</span><span class="kw">pub </span>relaychain_args: Vec&lt;String&gt;,
+	</span><span class="kw">pub </span>relay_chain_args: Vec&lt;String&gt;,
 }
 
 <span class="attr">#[derive(Debug)]
@@ -387,12 +384,25 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="kw">impl </span>RelayChainCli {
+	<span class="kw">fn </span>polkadot_cmd() -&gt; Command {
+		<span class="kw">let </span>help_template = <span class="macro">color_print::cformat!</span>(
+			<span class="string">"The arguments that are passed to the relay chain node. \n\
+			\n\
+			&lt;bold&gt;&lt;underline&gt;RELAY_CHAIN_ARGS:&lt;/&gt;&lt;/&gt; \n\
+			{{options}}"</span>,
+		);
+
+		polkadot_cli::RunCmd::command()
+			.no_binary_name(<span class="bool-val">true</span>)
+			.help_template(help_template)
+	}
+
 	<span class="doccomment">/// Parse the relay chain CLI parameters using the parachain `Configuration`.
 	</span><span class="kw">pub fn </span>new&lt;<span class="lifetime">'a</span>&gt;(
 		para_config: <span class="kw-2">&amp;</span>sc_service::Configuration,
 		relay_chain_args: <span class="kw">impl </span>Iterator&lt;Item = <span class="kw-2">&amp;</span><span class="lifetime">'a </span>String&gt;,
 	) -&gt; <span class="self">Self </span>{
-		<span class="kw">let </span>polkadot_cmd = polkadot_cli::RunCmd::command().no_binary_name(<span class="bool-val">true</span>);
+		<span class="kw">let </span>polkadot_cmd = <span class="self">Self</span>::polkadot_cmd();
 		<span class="kw">let </span>matches = polkadot_cmd.get_matches_from(relay_chain_args);
 		<span class="kw">let </span>base = FromArgMatches::from_arg_matches(<span class="kw-2">&amp;</span>matches).unwrap_or_else(|e| e.exit());
 

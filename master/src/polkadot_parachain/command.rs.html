@@ -1221,6 +1221,60 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1070" id="1070">1070</a>
 <a href="#1071" id="1071">1071</a>
 <a href="#1072" id="1072">1072</a>
+<a href="#1073" id="1073">1073</a>
+<a href="#1074" id="1074">1074</a>
+<a href="#1075" id="1075">1075</a>
+<a href="#1076" id="1076">1076</a>
+<a href="#1077" id="1077">1077</a>
+<a href="#1078" id="1078">1078</a>
+<a href="#1079" id="1079">1079</a>
+<a href="#1080" id="1080">1080</a>
+<a href="#1081" id="1081">1081</a>
+<a href="#1082" id="1082">1082</a>
+<a href="#1083" id="1083">1083</a>
+<a href="#1084" id="1084">1084</a>
+<a href="#1085" id="1085">1085</a>
+<a href="#1086" id="1086">1086</a>
+<a href="#1087" id="1087">1087</a>
+<a href="#1088" id="1088">1088</a>
+<a href="#1089" id="1089">1089</a>
+<a href="#1090" id="1090">1090</a>
+<a href="#1091" id="1091">1091</a>
+<a href="#1092" id="1092">1092</a>
+<a href="#1093" id="1093">1093</a>
+<a href="#1094" id="1094">1094</a>
+<a href="#1095" id="1095">1095</a>
+<a href="#1096" id="1096">1096</a>
+<a href="#1097" id="1097">1097</a>
+<a href="#1098" id="1098">1098</a>
+<a href="#1099" id="1099">1099</a>
+<a href="#1100" id="1100">1100</a>
+<a href="#1101" id="1101">1101</a>
+<a href="#1102" id="1102">1102</a>
+<a href="#1103" id="1103">1103</a>
+<a href="#1104" id="1104">1104</a>
+<a href="#1105" id="1105">1105</a>
+<a href="#1106" id="1106">1106</a>
+<a href="#1107" id="1107">1107</a>
+<a href="#1108" id="1108">1108</a>
+<a href="#1109" id="1109">1109</a>
+<a href="#1110" id="1110">1110</a>
+<a href="#1111" id="1111">1111</a>
+<a href="#1112" id="1112">1112</a>
+<a href="#1113" id="1113">1113</a>
+<a href="#1114" id="1114">1114</a>
+<a href="#1115" id="1115">1115</a>
+<a href="#1116" id="1116">1116</a>
+<a href="#1117" id="1117">1117</a>
+<a href="#1118" id="1118">1118</a>
+<a href="#1119" id="1119">1119</a>
+<a href="#1120" id="1120">1120</a>
+<a href="#1121" id="1121">1121</a>
+<a href="#1122" id="1122">1122</a>
+<a href="#1123" id="1123">1123</a>
+<a href="#1124" id="1124">1124</a>
+<a href="#1125" id="1125">1125</a>
+<a href="#1126" id="1126">1126</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -1259,25 +1313,35 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>sp_runtime::traits::AccountIdConversion;
 <span class="kw">use </span>std::{net::SocketAddr, path::PathBuf};
 
+<span class="doccomment">/// The choice of consensus for the parachain omni-node.
+</span><span class="attr">#[derive(PartialEq, Eq, Debug, Default)]
+</span><span class="kw">pub enum </span>Consensus {
+	<span class="doccomment">/// Aura consensus.
+	</span><span class="attr">#[default]
+	</span>Aura,
+	<span class="doccomment">/// Use the relay chain consensus.
+	</span><span class="comment">// TODO: atm this is just a demonstration, not really reach-able. We can add it to the CLI,
+	// env, or the chain spec. Or, just don't, and when we properly refactor this mess we will
+	// re-introduce it.
+	</span><span class="attr">#[allow(unused)]
+	</span>Relay,
+}
+
 <span class="doccomment">/// Helper enum that is used for better distinction of different parachain/runtime configuration
 /// (it is based/calculated on ChainSpec's ID attribute)
-</span><span class="attr">#[derive(Debug, PartialEq, Default)]
+</span><span class="attr">#[derive(Debug, PartialEq)]
 </span><span class="kw">enum </span>Runtime {
-	<span class="doccomment">/// This is the default runtime (actually based on rococo)
-	</span><span class="attr">#[default]
-	</span>Default,
+	<span class="doccomment">/// None of the system-chain runtimes, rather the node will act agnostic to the runtime ie. be
+	/// an omni-node, and simply run a node with the given consensus algorithm.
+	</span>Omni(Consensus),
 	Shell,
 	Seedling,
 	AssetHubPolkadot,
-	AssetHubKusama,
-	AssetHubRococo,
-	AssetHubWestend,
+	AssetHub,
 	Penpal(ParaId),
 	ContractsRococo,
-	CollectivesPolkadot,
-	CollectivesWestend,
+	Collectives,
 	Glutton,
-	GluttonWestend,
 	BridgeHub(chain_spec::bridge_hubs::BridgeHubRuntimeType),
 	Coretime(chain_spec::coretime::CoretimeRuntimeType),
 	People(chain_spec::people::PeopleRuntimeType),
@@ -1320,20 +1384,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		Runtime::Seedling
 	} <span class="kw">else if </span>id.starts_with(<span class="string">"asset-hub-polkadot"</span>) | id.starts_with(<span class="string">"statemint"</span>) {
 		Runtime::AssetHubPolkadot
-	} <span class="kw">else if </span>id.starts_with(<span class="string">"asset-hub-kusama"</span>) | id.starts_with(<span class="string">"statemine"</span>) {
-		Runtime::AssetHubKusama
-	} <span class="kw">else if </span>id.starts_with(<span class="string">"asset-hub-rococo"</span>) {
-		Runtime::AssetHubRococo
-	} <span class="kw">else if </span>id.starts_with(<span class="string">"asset-hub-westend"</span>) | id.starts_with(<span class="string">"westmint"</span>) {
-		Runtime::AssetHubWestend
+	} <span class="kw">else if </span>id.starts_with(<span class="string">"asset-hub-kusama"</span>) |
+		id.starts_with(<span class="string">"statemine"</span>) |
+		id.starts_with(<span class="string">"asset-hub-rococo"</span>) |
+		id.starts_with(<span class="string">"asset-hub-westend"</span>) |
+		id.starts_with(<span class="string">"westmint"</span>)
+	{
+		Runtime::AssetHub
 	} <span class="kw">else if </span>id.starts_with(<span class="string">"penpal"</span>) {
 		Runtime::Penpal(para_id.unwrap_or(ParaId::new(<span class="number">0</span>)))
 	} <span class="kw">else if </span>id.starts_with(<span class="string">"contracts-rococo"</span>) {
 		Runtime::ContractsRococo
-	} <span class="kw">else if </span>id.starts_with(<span class="string">"collectives-polkadot"</span>) {
-		Runtime::CollectivesPolkadot
-	} <span class="kw">else if </span>id.starts_with(<span class="string">"collectives-westend"</span>) {
-		Runtime::CollectivesWestend
+	} <span class="kw">else if </span>id.starts_with(<span class="string">"collectives-polkadot"</span>) || id.starts_with(<span class="string">"collectives-westend"</span>) {
+		Runtime::Collectives
 	} <span class="kw">else if </span>id.starts_with(chain_spec::bridge_hubs::BridgeHubRuntimeType::ID_PREFIX) {
 		Runtime::BridgeHub(
 			id.parse::&lt;chain_spec::bridge_hubs::BridgeHubRuntimeType&gt;()
@@ -1343,15 +1406,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		Runtime::Coretime(
 			id.parse::&lt;chain_spec::coretime::CoretimeRuntimeType&gt;().expect(<span class="string">"Invalid value"</span>),
 		)
-	} <span class="kw">else if </span>id.starts_with(<span class="string">"glutton-westend"</span>) {
-		Runtime::GluttonWestend
 	} <span class="kw">else if </span>id.starts_with(<span class="string">"glutton"</span>) {
 		Runtime::Glutton
 	} <span class="kw">else if </span>id.starts_with(chain_spec::people::PeopleRuntimeType::ID_PREFIX) {
 		Runtime::People(id.parse::&lt;chain_spec::people::PeopleRuntimeType&gt;().expect(<span class="string">"Invalid value"</span>))
 	} <span class="kw">else </span>{
-		<span class="macro">log::warn!</span>(<span class="string">"No specific runtime was recognized for ChainSpec's id: '{}', so Runtime::default() will be used"</span>, id);
-		Runtime::default()
+		<span class="macro">log::warn!</span>(
+			<span class="string">"No specific runtime was recognized for ChainSpec's id: '{}', \
+			so Runtime::Omni(Consensus::Aura) will be used"</span>,
+			id
+		);
+		Runtime::Omni(Consensus::Aura)
 	}
 }
 
@@ -1497,55 +1562,34 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// (H/T to Phala for the idea)
 /// E.g. "penpal-kusama-2004" yields ("penpal-kusama", Some(2004))
 </span><span class="kw">fn </span>extract_parachain_id(id: <span class="kw-2">&amp;</span>str) -&gt; (<span class="kw-2">&amp;</span>str, <span class="kw-2">&amp;</span>str, <span class="prelude-ty">Option</span>&lt;ParaId&gt;) {
-	<span class="kw">const </span>ROCOCO_TEST_PARA_PREFIX: <span class="kw-2">&amp;</span>str = <span class="string">"penpal-rococo-"</span>;
-	<span class="kw">const </span>KUSAMA_TEST_PARA_PREFIX: <span class="kw-2">&amp;</span>str = <span class="string">"penpal-kusama-"</span>;
-	<span class="kw">const </span>POLKADOT_TEST_PARA_PREFIX: <span class="kw-2">&amp;</span>str = <span class="string">"penpal-polkadot-"</span>;
+	<span class="kw">let </span>para_prefixes = [
+		<span class="comment">// Penpal
+		</span><span class="string">"penpal-rococo-"</span>,
+		<span class="string">"penpal-kusama-"</span>,
+		<span class="string">"penpal-polkadot-"</span>,
+		<span class="comment">// Glutton Kusama
+		</span><span class="string">"glutton-kusama-dev-"</span>,
+		<span class="string">"glutton-kusama-local-"</span>,
+		<span class="string">"glutton-kusama-genesis-"</span>,
+		<span class="comment">// Glutton Westend
+		</span><span class="string">"glutton-westend-dev-"</span>,
+		<span class="string">"glutton-westend-local-"</span>,
+		<span class="string">"glutton-westend-genesis-"</span>,
+	];
 
-	<span class="kw">const </span>GLUTTON_PARA_DEV_PREFIX: <span class="kw-2">&amp;</span>str = <span class="string">"glutton-kusama-dev-"</span>;
-	<span class="kw">const </span>GLUTTON_PARA_LOCAL_PREFIX: <span class="kw-2">&amp;</span>str = <span class="string">"glutton-kusama-local-"</span>;
-	<span class="kw">const </span>GLUTTON_PARA_GENESIS_PREFIX: <span class="kw-2">&amp;</span>str = <span class="string">"glutton-kusama-genesis-"</span>;
+	<span class="kw">for </span>para_prefix <span class="kw">in </span>para_prefixes {
+		<span class="kw">if let </span><span class="prelude-val">Some</span>(suffix) = id.strip_prefix(para_prefix) {
+			<span class="kw">let </span>para_id: u32 = suffix.parse().expect(<span class="string">"Invalid parachain-id suffix"</span>);
+			<span class="kw">return </span>(<span class="kw-2">&amp;</span>id[..para_prefix.len() - <span class="number">1</span>], id, <span class="prelude-val">Some</span>(para_id.into()))
+		}
+	}
 
-	<span class="kw">const </span>GLUTTON_WESTEND_PARA_DEV_PREFIX: <span class="kw-2">&amp;</span>str = <span class="string">"glutton-westend-dev-"</span>;
-	<span class="kw">const </span>GLUTTON_WESTEND_PARA_LOCAL_PREFIX: <span class="kw-2">&amp;</span>str = <span class="string">"glutton-westend-local-"</span>;
-	<span class="kw">const </span>GLUTTON_WESTEND_PARA_GENESIS_PREFIX: <span class="kw-2">&amp;</span>str = <span class="string">"glutton-westend-genesis-"</span>;
-
-	<span class="kw">let </span>(norm_id, orig_id, para) = <span class="kw">if let </span><span class="prelude-val">Some</span>(suffix) = id.strip_prefix(ROCOCO_TEST_PARA_PREFIX) {
-		<span class="kw">let </span>para_id: u32 = suffix.parse().expect(<span class="string">"Invalid parachain-id suffix"</span>);
-		(<span class="kw-2">&amp;</span>id[..ROCOCO_TEST_PARA_PREFIX.len() - <span class="number">1</span>], id, <span class="prelude-val">Some</span>(para_id))
-	} <span class="kw">else if let </span><span class="prelude-val">Some</span>(suffix) = id.strip_prefix(KUSAMA_TEST_PARA_PREFIX) {
-		<span class="kw">let </span>para_id: u32 = suffix.parse().expect(<span class="string">"Invalid parachain-id suffix"</span>);
-		(<span class="kw-2">&amp;</span>id[..KUSAMA_TEST_PARA_PREFIX.len() - <span class="number">1</span>], id, <span class="prelude-val">Some</span>(para_id))
-	} <span class="kw">else if let </span><span class="prelude-val">Some</span>(suffix) = id.strip_prefix(POLKADOT_TEST_PARA_PREFIX) {
-		<span class="kw">let </span>para_id: u32 = suffix.parse().expect(<span class="string">"Invalid parachain-id suffix"</span>);
-		(<span class="kw-2">&amp;</span>id[..POLKADOT_TEST_PARA_PREFIX.len() - <span class="number">1</span>], id, <span class="prelude-val">Some</span>(para_id))
-	} <span class="kw">else if let </span><span class="prelude-val">Some</span>(suffix) = id.strip_prefix(GLUTTON_PARA_DEV_PREFIX) {
-		<span class="kw">let </span>para_id: u32 = suffix.parse().expect(<span class="string">"Invalid parachain-id suffix"</span>);
-		(<span class="kw-2">&amp;</span>id[..GLUTTON_PARA_DEV_PREFIX.len() - <span class="number">1</span>], id, <span class="prelude-val">Some</span>(para_id))
-	} <span class="kw">else if let </span><span class="prelude-val">Some</span>(suffix) = id.strip_prefix(GLUTTON_PARA_LOCAL_PREFIX) {
-		<span class="kw">let </span>para_id: u32 = suffix.parse().expect(<span class="string">"Invalid parachain-id suffix"</span>);
-		(<span class="kw-2">&amp;</span>id[..GLUTTON_PARA_LOCAL_PREFIX.len() - <span class="number">1</span>], id, <span class="prelude-val">Some</span>(para_id))
-	} <span class="kw">else if let </span><span class="prelude-val">Some</span>(suffix) = id.strip_prefix(GLUTTON_PARA_GENESIS_PREFIX) {
-		<span class="kw">let </span>para_id: u32 = suffix.parse().expect(<span class="string">"Invalid parachain-id suffix"</span>);
-		(<span class="kw-2">&amp;</span>id[..GLUTTON_PARA_GENESIS_PREFIX.len() - <span class="number">1</span>], id, <span class="prelude-val">Some</span>(para_id))
-	} <span class="kw">else if let </span><span class="prelude-val">Some</span>(suffix) = id.strip_prefix(GLUTTON_WESTEND_PARA_DEV_PREFIX) {
-		<span class="kw">let </span>para_id: u32 = suffix.parse().expect(<span class="string">"Invalid parachain-id suffix"</span>);
-		(<span class="kw-2">&amp;</span>id[..GLUTTON_WESTEND_PARA_DEV_PREFIX.len() - <span class="number">1</span>], id, <span class="prelude-val">Some</span>(para_id))
-	} <span class="kw">else if let </span><span class="prelude-val">Some</span>(suffix) = id.strip_prefix(GLUTTON_WESTEND_PARA_LOCAL_PREFIX) {
-		<span class="kw">let </span>para_id: u32 = suffix.parse().expect(<span class="string">"Invalid parachain-id suffix"</span>);
-		(<span class="kw-2">&amp;</span>id[..GLUTTON_WESTEND_PARA_LOCAL_PREFIX.len() - <span class="number">1</span>], id, <span class="prelude-val">Some</span>(para_id))
-	} <span class="kw">else if let </span><span class="prelude-val">Some</span>(suffix) = id.strip_prefix(GLUTTON_WESTEND_PARA_GENESIS_PREFIX) {
-		<span class="kw">let </span>para_id: u32 = suffix.parse().expect(<span class="string">"Invalid parachain-id suffix"</span>);
-		(<span class="kw-2">&amp;</span>id[..GLUTTON_WESTEND_PARA_GENESIS_PREFIX.len() - <span class="number">1</span>], id, <span class="prelude-val">Some</span>(para_id))
-	} <span class="kw">else </span>{
-		(id, id, <span class="prelude-val">None</span>)
-	};
-
-	(norm_id, orig_id, para.map(Into::into))
+	(id, id, <span class="prelude-val">None</span>)
 }
 
 <span class="kw">impl </span>SubstrateCli <span class="kw">for </span>Cli {
 	<span class="kw">fn </span>impl_name() -&gt; String {
-		<span class="string">"Polkadot parachain"</span>.into()
+		<span class="self">Self</span>::executable_name()
 	}
 
 	<span class="kw">fn </span>impl_version() -&gt; String {
@@ -1554,10 +1598,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">fn </span>description() -&gt; String {
 		<span class="macro">format!</span>(
-			<span class="string">"Polkadot parachain\n\nThe command-line arguments provided first will be \
-		passed to the parachain node, while the arguments provided after -- will be passed \
-		to the relaychain node.\n\n\
-		{} [parachain-args] -- [relaychain-args]"</span>,
+			<span class="string">"The command-line arguments provided first will be passed to the parachain node, \n\
+			and the arguments provided after -- will be passed to the relay chain node. \n\
+			\n\
+			Example: \n\
+			\n\
+			{} [parachain-args] -- [relay-chain-args]"</span>,
 			<span class="self">Self</span>::executable_name()
 		)
 	}
@@ -1581,34 +1627,28 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">impl </span>SubstrateCli <span class="kw">for </span>RelayChainCli {
 	<span class="kw">fn </span>impl_name() -&gt; String {
-		<span class="string">"Polkadot parachain"</span>.into()
+		Cli::impl_name()
 	}
 
 	<span class="kw">fn </span>impl_version() -&gt; String {
-		<span class="macro">env!</span>(<span class="string">"SUBSTRATE_CLI_IMPL_VERSION"</span>).into()
+		Cli::impl_version()
 	}
 
 	<span class="kw">fn </span>description() -&gt; String {
-		<span class="macro">format!</span>(
-			<span class="string">"Polkadot parachain\n\nThe command-line arguments provided first will be \
-		passed to the parachain node, while the arguments provided after -- will be passed \
-		to the relay chain node.\n\n\
-		{} [parachain-args] -- [relay_chain-args]"</span>,
-			<span class="self">Self</span>::executable_name()
-		)
+		Cli::description()
 	}
 
 	<span class="kw">fn </span>author() -&gt; String {
-		<span class="macro">env!</span>(<span class="string">"CARGO_PKG_AUTHORS"</span>).into()
+		Cli::author()
 	}
 
 	<span class="kw">fn </span>support_url() -&gt; String {
-		<span class="string">"https://github.com/paritytech/polkadot-sdk/issues/new"</span>.into()
+		Cli::support_url()
 	}
 
 	<span class="kw">fn </span>copyright_start_year() -&gt; i32 {
-		<span class="number">2017
-	</span>}
+		Cli::copyright_start_year()
+	}
 
 	<span class="kw">fn </span>load_spec(<span class="kw-2">&amp;</span><span class="self">self</span>, id: <span class="kw-2">&amp;</span>str) -&gt; std::result::Result&lt;Box&lt;<span class="kw">dyn </span>ChainSpec&gt;, String&gt; {
 		polkadot_cli::Cli::from_iter([RelayChainCli::executable_name()].iter()).load_spec(id)
@@ -1626,12 +1666,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				)<span class="question-mark">?</span>;
 				<span class="macro-nonterminal">$code
 			</span>},
-			Runtime::AssetHubKusama |
-			Runtime::AssetHubRococo |
-			Runtime::AssetHubWestend |
+			Runtime::AssetHub |
 			Runtime::BridgeHub(<span class="kw">_</span>) |
-			Runtime::CollectivesPolkadot |
-			Runtime::CollectivesWestend |
+			Runtime::Collectives |
 			Runtime::Coretime(<span class="kw">_</span>) |
 			Runtime::People(<span class="kw">_</span>) =&gt; {
 				<span class="kw">let </span><span class="macro-nonterminal">$partials </span>= new_partial::&lt;RuntimeApi, <span class="kw">_</span>&gt;(
@@ -1640,20 +1677,36 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				)<span class="question-mark">?</span>;
 				<span class="macro-nonterminal">$code
 			</span>},
-			Runtime::GluttonWestend | Runtime::Glutton | Runtime::Shell | Runtime::Seedling =&gt; {
+			Runtime::Glutton | Runtime::Shell | Runtime::Seedling =&gt; {
 				<span class="kw">let </span><span class="macro-nonterminal">$partials </span>= new_partial::&lt;RuntimeApi, <span class="kw">_</span>&gt;(
 					<span class="kw-2">&amp;</span><span class="macro-nonterminal">$config</span>,
 					<span class="kw">crate</span>::service::build_shell_import_queue,
 				)<span class="question-mark">?</span>;
 				<span class="macro-nonterminal">$code
 			</span>},
-			Runtime::ContractsRococo | Runtime::Penpal(<span class="kw">_</span>) | Runtime::Default =&gt; {
+			Runtime::ContractsRococo | Runtime::Penpal(<span class="kw">_</span>) =&gt; {
 				<span class="kw">let </span><span class="macro-nonterminal">$partials </span>= new_partial::&lt;RuntimeApi, <span class="kw">_</span>&gt;(
 					<span class="kw-2">&amp;</span><span class="macro-nonterminal">$config</span>,
 					<span class="kw">crate</span>::service::build_aura_import_queue,
 				)<span class="question-mark">?</span>;
 				<span class="macro-nonterminal">$code
 			</span>},
+			Runtime::Omni(consensus) =&gt; <span class="kw">match </span>consensus {
+				Consensus::Aura =&gt; {
+					<span class="kw">let </span><span class="macro-nonterminal">$partials </span>= new_partial::&lt;RuntimeApi, <span class="kw">_</span>&gt;(
+						<span class="kw-2">&amp;</span><span class="macro-nonterminal">$config</span>,
+						<span class="kw">crate</span>::service::build_aura_import_queue,
+					)<span class="question-mark">?</span>;
+					<span class="macro-nonterminal">$code
+				</span>},
+				Consensus::Relay =&gt; {
+					<span class="kw">let </span><span class="macro-nonterminal">$partials </span>= new_partial::&lt;RuntimeApi, <span class="kw">_</span>&gt;(
+						<span class="kw-2">&amp;</span><span class="macro-nonterminal">$config</span>,
+						<span class="kw">crate</span>::service::build_shell_import_queue,
+					)<span class="question-mark">?</span>;
+					<span class="macro-nonterminal">$code
+				</span>},
+			},
 		}
 	};
 }
@@ -1672,12 +1725,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					{ $( <span class="macro-nonterminal">$code </span>)* }.map(|v| (v, task_manager))
 				})
 			},
-			Runtime::AssetHubKusama |
-			Runtime::AssetHubRococo |
-			Runtime::AssetHubWestend |
+			Runtime::AssetHub |
 			Runtime::BridgeHub(<span class="kw">_</span>) |
-			Runtime::CollectivesPolkadot |
-			Runtime::CollectivesWestend |
+			Runtime::Collectives |
 			Runtime::Coretime(<span class="kw">_</span>) |
 			Runtime::People(<span class="kw">_</span>) =&gt; {
 				runner.async_run(|<span class="macro-nonterminal">$config</span>| {
@@ -1691,7 +1741,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			},
 			Runtime::Shell |
 			Runtime::Seedling |
-			Runtime::GluttonWestend |
 			Runtime::Glutton =&gt; {
 				runner.async_run(|<span class="macro-nonterminal">$config</span>| {
 					<span class="kw">let </span><span class="macro-nonterminal">$components </span>= new_partial::&lt;RuntimeApi, <span class="kw">_</span>&gt;(
@@ -1702,7 +1751,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					{ $( <span class="macro-nonterminal">$code </span>)* }.map(|v| (v, task_manager))
 				})
 			}
-			Runtime::ContractsRococo | Runtime::Penpal(<span class="kw">_</span>) | Runtime::Default =&gt; {
+			Runtime::ContractsRococo | Runtime::Penpal(<span class="kw">_</span>) =&gt; {
 				runner.async_run(|<span class="macro-nonterminal">$config</span>| {
 					<span class="kw">let </span><span class="macro-nonterminal">$components </span>= new_partial::&lt;
 						RuntimeApi,
@@ -1715,6 +1764,35 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					{ $( <span class="macro-nonterminal">$code </span>)* }.map(|v| (v, task_manager))
 				})
 			},
+			Runtime::Omni(consensus) =&gt; <span class="kw">match </span>consensus {
+				Consensus::Aura =&gt; {
+					runner.async_run(|<span class="macro-nonterminal">$config</span>| {
+						<span class="kw">let </span><span class="macro-nonterminal">$components </span>= new_partial::&lt;
+							RuntimeApi,
+							<span class="kw">_</span>,
+						&gt;(
+							<span class="kw-2">&amp;</span><span class="macro-nonterminal">$config</span>,
+							<span class="kw">crate</span>::service::build_aura_import_queue,
+						)<span class="question-mark">?</span>;
+						<span class="kw">let </span>task_manager = <span class="macro-nonterminal">$components</span>.task_manager;
+						{ $( <span class="macro-nonterminal">$code </span>)* }.map(|v| (v, task_manager))
+					})
+				},
+				Consensus::Relay
+				 =&gt; {
+					runner.async_run(|<span class="macro-nonterminal">$config</span>| {
+						<span class="kw">let </span><span class="macro-nonterminal">$components </span>= new_partial::&lt;
+							RuntimeApi,
+							<span class="kw">_</span>,
+						&gt;(
+							<span class="kw-2">&amp;</span><span class="macro-nonterminal">$config</span>,
+							<span class="kw">crate</span>::service::build_shell_import_queue,
+						)<span class="question-mark">?</span>;
+						<span class="kw">let </span>task_manager = <span class="macro-nonterminal">$components</span>.task_manager;
+						{ $( <span class="macro-nonterminal">$code </span>)* }.map(|v| (v, task_manager))
+					})
+				},
+			}
 		}
 	}}
 }
@@ -1753,7 +1831,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}),
 		<span class="prelude-val">Some</span>(Subcommand::PurgeChain(cmd)) =&gt; {
 			<span class="kw">let </span>runner = cli.create_runner(cmd)<span class="question-mark">?</span>;
-			<span class="kw">let </span>polkadot_cli = RelayChainCli::new(runner.config(), cli.relaychain_args.iter());
+			<span class="kw">let </span>polkadot_cli = RelayChainCli::new(runner.config(), cli.relay_chain_args.iter());
 
 			runner.sync_run(|config| {
 				<span class="kw">let </span>polkadot_config = SubstrateCli::create_configuration(
@@ -1822,7 +1900,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="prelude-val">Some</span>(Subcommand::Key(cmd)) =&gt; <span class="prelude-val">Ok</span>(cmd.run(<span class="kw-2">&amp;</span>cli)<span class="question-mark">?</span>),
 		<span class="prelude-val">None </span>=&gt; {
 			<span class="kw">let </span>runner = cli.create_runner(<span class="kw-2">&amp;</span>cli.run.normalize())<span class="question-mark">?</span>;
-			<span class="kw">let </span>polkadot_cli = RelayChainCli::new(runner.config(), cli.relaychain_args.iter());
+			<span class="kw">let </span>polkadot_cli = RelayChainCli::new(runner.config(), cli.relay_chain_args.iter());
 			<span class="kw">let </span>collator_options = cli.run.collator_options();
 
 			runner.run_node_until_exit(|config| <span class="kw">async move </span>{
@@ -1878,9 +1956,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					SubstrateCli::create_configuration(<span class="kw-2">&amp;</span>polkadot_cli, <span class="kw-2">&amp;</span>polkadot_cli, tokio_handle)
 						.map_err(|err| <span class="macro">format!</span>(<span class="string">"Relay chain argument error: {}"</span>, err))<span class="question-mark">?</span>;
 
-				<span class="macro">info!</span>(<span class="string">"Parachain id: {:?}"</span>, id);
-				<span class="macro">info!</span>(<span class="string">"Parachain Account: {}"</span>, parachain_account);
-				<span class="macro">info!</span>(<span class="string">"Is collating: {}"</span>, <span class="kw">if </span>config.role.is_authority() { <span class="string">"yes" </span>} <span class="kw">else </span>{ <span class="string">"no" </span>});
+				<span class="macro">info!</span>(<span class="string">"🪪 Parachain id: {:?}"</span>, id);
+				<span class="macro">info!</span>(<span class="string">"🧾 Parachain Account: {}"</span>, parachain_account);
+				<span class="macro">info!</span>(<span class="string">"✍️ Is collating: {}"</span>, <span class="kw">if </span>config.role.is_authority() { <span class="string">"yes" </span>} <span class="kw">else </span>{ <span class="string">"no" </span>});
 
 				<span class="kw">match </span>config.network.network_backend {
 					sc_network::config::NetworkBackendType::Libp2p =&gt;
@@ -1924,29 +2002,25 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span>.map(|r| r.<span class="number">0</span>)
 		.map_err(Into::into),
 
-		Runtime::AssetHubRococo | Runtime::AssetHubWestend | Runtime::AssetHubKusama =&gt;
-			<span class="kw">crate</span>::service::start_asset_hub_lookahead_node::&lt;RuntimeApi, AuraId, Network&gt;(
-				config,
-				polkadot_config,
-				collator_options,
-				id,
-				hwbench,
-			)
-			.<span class="kw">await
-			</span>.map(|r| r.<span class="number">0</span>)
-			.map_err(Into::into),
+		Runtime::AssetHub =&gt; <span class="kw">crate</span>::service::start_asset_hub_lookahead_node::&lt;
+			RuntimeApi,
+			AuraId,
+			Network,
+		&gt;(config, polkadot_config, collator_options, id, hwbench)
+		.<span class="kw">await
+		</span>.map(|r| r.<span class="number">0</span>)
+		.map_err(Into::into),
 
-		Runtime::CollectivesWestend | Runtime::CollectivesPolkadot =&gt;
-			<span class="kw">crate</span>::service::start_generic_aura_lookahead_node::&lt;Network&gt;(
-				config,
-				polkadot_config,
-				collator_options,
-				id,
-				hwbench,
-			)
-			.<span class="kw">await
-			</span>.map(|r| r.<span class="number">0</span>)
-			.map_err(Into::into),
+		Runtime::Collectives =&gt; <span class="kw">crate</span>::service::start_generic_aura_lookahead_node::&lt;Network&gt;(
+			config,
+			polkadot_config,
+			collator_options,
+			id,
+			hwbench,
+		)
+		.<span class="kw">await
+		</span>.map(|r| r.<span class="number">0</span>)
+		.map_err(Into::into),
 
 		Runtime::Seedling | Runtime::Shell =&gt; <span class="kw">crate</span>::service::start_shell_node::&lt;Network&gt;(
 			config,
@@ -2016,29 +2090,27 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 		.map_err(Into::into),
 
-		Runtime::Penpal(<span class="kw">_</span>) | Runtime::Default =&gt;
-			<span class="kw">crate</span>::service::start_rococo_parachain_node::&lt;Network&gt;(
-				config,
-				polkadot_config,
-				collator_options,
-				id,
-				hwbench,
-			)
-			.<span class="kw">await
-			</span>.map(|r| r.<span class="number">0</span>)
-			.map_err(Into::into),
+		Runtime::Penpal(<span class="kw">_</span>) =&gt; <span class="kw">crate</span>::service::start_rococo_parachain_node::&lt;Network&gt;(
+			config,
+			polkadot_config,
+			collator_options,
+			id,
+			hwbench,
+		)
+		.<span class="kw">await
+		</span>.map(|r| r.<span class="number">0</span>)
+		.map_err(Into::into),
 
-		Runtime::Glutton | Runtime::GluttonWestend =&gt;
-			<span class="kw">crate</span>::service::start_basic_lookahead_node::&lt;Network&gt;(
-				config,
-				polkadot_config,
-				collator_options,
-				id,
-				hwbench,
-			)
-			.<span class="kw">await
-			</span>.map(|r| r.<span class="number">0</span>)
-			.map_err(Into::into),
+		Runtime::Glutton =&gt; <span class="kw">crate</span>::service::start_basic_lookahead_node::&lt;Network&gt;(
+			config,
+			polkadot_config,
+			collator_options,
+			id,
+			hwbench,
+		)
+		.<span class="kw">await
+		</span>.map(|r| r.<span class="number">0</span>)
+		.map_err(Into::into),
 
 		Runtime::People(people_runtime_type) =&gt; <span class="kw">match </span>people_runtime_type {
 			chain_spec::people::PeopleRuntimeType::Kusama |
@@ -2062,6 +2134,30 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				</span>.map(|r| r.<span class="number">0</span>),
 		}
 		.map_err(Into::into),
+		Runtime::Omni(consensus) =&gt; <span class="kw">match </span>consensus {
+			<span class="comment">// rococo actually uses aura import and consensus, unlike most system chains that use
+			// relay to aura.
+			</span>Consensus::Aura =&gt; <span class="kw">crate</span>::service::start_rococo_parachain_node::&lt;Network&gt;(
+				config,
+				polkadot_config,
+				collator_options,
+				id,
+				hwbench,
+			)
+			.<span class="kw">await
+			</span>.map(|r| r.<span class="number">0</span>)
+			.map_err(Into::into),
+			Consensus::Relay =&gt; <span class="kw">crate</span>::service::start_shell_node::&lt;Network&gt;(
+				config,
+				polkadot_config,
+				collator_options,
+				id,
+				hwbench,
+			)
+			.<span class="kw">await
+			</span>.map(|r| r.<span class="number">0</span>)
+			.map_err(Into::into),
+		},
 	}
 }
 
@@ -2194,7 +2290,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">mod </span>tests {
 	<span class="kw">use crate</span>::{
 		chain_spec::{get_account_id_from_seed, get_from_seed},
-		command::{Runtime, RuntimeResolver},
+		command::{Consensus, Runtime, RuntimeResolver},
 	};
 	<span class="kw">use </span>sc_chain_spec::{ChainSpec, ChainSpecExtension, ChainSpecGroup, ChainType, Extension};
 	<span class="kw">use </span>serde::{Deserialize, Serialize};
@@ -2221,9 +2317,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">pub </span>attribute_z: u32,
 	}
 
-	<span class="kw">fn </span>store_configuration(dir: <span class="kw-2">&amp;</span>TempDir, spec: Box&lt;<span class="kw">dyn </span>ChainSpec&gt;) -&gt; PathBuf {
+	<span class="kw">fn </span>store_configuration(dir: <span class="kw-2">&amp;</span>TempDir, spec: <span class="kw-2">&amp;</span><span class="kw">dyn </span>ChainSpec) -&gt; PathBuf {
 		<span class="kw">let </span>raw_output = <span class="bool-val">true</span>;
-		<span class="kw">let </span>json = sc_service::chain_ops::build_spec(<span class="kw-2">&amp;*</span>spec, raw_output)
+		<span class="kw">let </span>json = sc_service::chain_ops::build_spec(spec, raw_output)
 			.expect(<span class="string">"Failed to build json string"</span>);
 		<span class="kw">let </span><span class="kw-2">mut </span>cfg_file_path = dir.path().to_path_buf();
 		cfg_file_path.push(spec.id());
@@ -2264,33 +2360,45 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">let </span>path = store_configuration(
 			<span class="kw-2">&amp;</span>temp_dir,
-			Box::new(create_default_with_extensions(<span class="string">"shell-1"</span>, Extensions1::default())),
+			<span class="kw-2">&amp;</span>create_default_with_extensions(<span class="string">"shell-1"</span>, Extensions1::default()),
 		);
 		<span class="macro">assert_eq!</span>(Runtime::Shell, path.runtime().unwrap());
 
 		<span class="kw">let </span>path = store_configuration(
 			<span class="kw-2">&amp;</span>temp_dir,
-			Box::new(create_default_with_extensions(<span class="string">"shell-2"</span>, Extensions2::default())),
+			<span class="kw-2">&amp;</span>create_default_with_extensions(<span class="string">"shell-2"</span>, Extensions2::default()),
 		);
 		<span class="macro">assert_eq!</span>(Runtime::Shell, path.runtime().unwrap());
 
 		<span class="kw">let </span>path = store_configuration(
 			<span class="kw-2">&amp;</span>temp_dir,
-			Box::new(create_default_with_extensions(<span class="string">"seedling"</span>, Extensions2::default())),
+			<span class="kw-2">&amp;</span>create_default_with_extensions(<span class="string">"seedling"</span>, Extensions2::default()),
 		);
 		<span class="macro">assert_eq!</span>(Runtime::Seedling, path.runtime().unwrap());
 
 		<span class="kw">let </span>path = store_configuration(
 			<span class="kw-2">&amp;</span>temp_dir,
-			Box::new(<span class="kw">crate</span>::chain_spec::rococo_parachain::rococo_parachain_local_config()),
+			<span class="kw-2">&amp;</span>create_default_with_extensions(<span class="string">"penpal-rococo-1000"</span>, Extensions2::default()),
 		);
-		<span class="macro">assert_eq!</span>(Runtime::Default, path.runtime().unwrap());
+		<span class="macro">assert_eq!</span>(Runtime::Penpal(<span class="number">1000</span>.into()), path.runtime().unwrap());
 
 		<span class="kw">let </span>path = store_configuration(
 			<span class="kw-2">&amp;</span>temp_dir,
-			Box::new(<span class="kw">crate</span>::chain_spec::contracts::contracts_rococo_local_config()),
+			<span class="kw-2">&amp;</span>create_default_with_extensions(<span class="string">"penpal-polkadot-2000"</span>, Extensions2::default()),
+		);
+		<span class="macro">assert_eq!</span>(Runtime::Penpal(<span class="number">2000</span>.into()), path.runtime().unwrap());
+
+		<span class="kw">let </span>path = store_configuration(
+			<span class="kw-2">&amp;</span>temp_dir,
+			<span class="kw-2">&amp;</span><span class="kw">crate</span>::chain_spec::contracts::contracts_rococo_local_config(),
 		);
 		<span class="macro">assert_eq!</span>(Runtime::ContractsRococo, path.runtime().unwrap());
+
+		<span class="kw">let </span>path = store_configuration(
+			<span class="kw-2">&amp;</span>temp_dir,
+			<span class="kw-2">&amp;</span><span class="kw">crate</span>::chain_spec::rococo_parachain::rococo_parachain_local_config(),
+		);
+		<span class="macro">assert_eq!</span>(Runtime::Omni(Consensus::Aura), path.runtime().unwrap());
 	}
 }
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
