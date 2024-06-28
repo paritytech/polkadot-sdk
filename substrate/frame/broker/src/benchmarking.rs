@@ -342,6 +342,10 @@ mod benches {
 		let region = Broker::<T>::do_purchase(caller.clone(), 10_000_000u32.into())
 			.map_err(|_| BenchmarkError::Weightless)?;
 
+		// Worst case has an existing provisional pool assignment.
+		Broker::<T>::do_pool(region, None, caller.clone(), Finality::Provisional)
+			.map_err(|_| BenchmarkError::Weightless)?;
+
 		#[extrinsic_call]
 		_(RawOrigin::Signed(caller), region, 2);
 
@@ -372,6 +376,10 @@ mod benches {
 		);
 
 		let region = Broker::<T>::do_purchase(caller.clone(), 10_000_000u32.into())
+			.map_err(|_| BenchmarkError::Weightless)?;
+
+		// Worst case has an existing provisional pool assignment.
+		Broker::<T>::do_pool(region, None, caller.clone(), Finality::Provisional)
 			.map_err(|_| BenchmarkError::Weightless)?;
 
 		#[extrinsic_call]
@@ -408,6 +416,10 @@ mod benches {
 		);
 
 		let region = Broker::<T>::do_purchase(caller.clone(), 10_000_000u32.into())
+			.map_err(|_| BenchmarkError::Weightless)?;
+
+		// Worst case has an existing provisional pool assignment.
+		Broker::<T>::do_pool(region, None, caller.clone(), Finality::Provisional)
 			.map_err(|_| BenchmarkError::Weightless)?;
 
 		#[extrinsic_call]
