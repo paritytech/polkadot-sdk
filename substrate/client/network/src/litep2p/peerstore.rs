@@ -369,7 +369,7 @@ mod tests {
 	#[test]
 	fn decaying_max_reputation_finally_yields_zero() {
 		const INITIAL_REPUTATION: i32 = i32::MAX;
-		const SECONDS: u64 = 1000;
+		const SECONDS: u64 = 3544;
 
 		let mut peer_info = PeerInfo::default();
 		peer_info.reputation = INITIAL_REPUTATION;
@@ -384,7 +384,7 @@ mod tests {
 	#[test]
 	fn decaying_min_reputation_finally_yields_zero() {
 		const INITIAL_REPUTATION: i32 = i32::MIN;
-		const SECONDS: u64 = 1000;
+		const SECONDS: u64 = 3544;
 
 		let mut peer_info = PeerInfo::default();
 		peer_info.reputation = INITIAL_REPUTATION;
