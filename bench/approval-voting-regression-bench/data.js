@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1719567654281,
+  "lastUpdate": 1719588067055,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -9070,6 +9070,53 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 3.8928016980501754,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Alexandru Vasile",
+            "username": "lexnv",
+            "email": "60601340+lexnv@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "aaf0443591b134a0da217d575161872796e75059",
+          "message": "network: Sync peerstore constants between libp2p and litep2p (#4906)\n\nCounterpart of: https://github.com/paritytech/polkadot-sdk/pull/4031\n\ncc @paritytech/networking\n\n---------\n\nSigned-off-by: Alexandru Vasile <alexandru.vasile@parity.io>\nCo-authored-by: Sebastian Kunert <skunert49@gmail.com>",
+          "timestamp": "2024-06-28T13:43:22Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/aaf0443591b134a0da217d575161872796e75059"
+        },
+        "date": 1719588037709,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52949.7,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63828.89,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 7.116056651830101,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 10.008501508239863,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 3.17539683521016,
             "unit": "seconds"
           }
         ]
