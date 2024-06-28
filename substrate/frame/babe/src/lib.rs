@@ -96,11 +96,11 @@ pub struct SameAuthoritiesForever;
 
 impl EpochChangeTrigger for SameAuthoritiesForever {
 	fn trigger<T: Config>(now: BlockNumberFor<T>) {
-		if <Pallet<T>>::should_epoch_change(now) {
+		if Pallet::<T>::should_epoch_change(now) {
 			let authorities = Authorities::<T>::get();
 			let next_authorities = authorities.clone();
 
-			<Pallet<T>>::enact_epoch_change(authorities, next_authorities, None);
+			Pallet::<T>::enact_epoch_change(authorities, next_authorities, None);
 		}
 	}
 }
@@ -645,7 +645,7 @@ impl<T: Config> Pallet<T> {
 		NextAuthorities::<T>::put(&next_authorities);
 
 		// Update the start blocks of the previous and new current epoch.
-		<EpochStart<T>>::mutate(|(previous_epoch_start_block, current_epoch_start_block)| {
+		EpochStart::<T>::mutate(|(previous_epoch_start_block, current_epoch_start_block)| {
 			*previous_epoch_start_block = sp_std::mem::take(current_epoch_start_block);
 			*current_epoch_start_block = <frame_system::Pallet<T>>::block_number();
 		});
