@@ -19,7 +19,11 @@
 
 use codec::Encode;
 use frame_support::{
-	construct_runtime, derive_impl, parameter_types,
+	construct_runtime, derive_impl, parameter_types, sp_runtime,
+	sp_runtime::{
+		traits::{Dispatchable, Get, IdentityLookup, MaybeEquivalence, TryConvert},
+		BuildStorage, SaturatedConversion,
+	},
 	traits::{
 		AsEnsureOriginWithArg, ConstU128, ConstU32, Contains, ContainsPair, Everything, Nothing,
 		OriginTrait,
@@ -28,10 +32,6 @@ use frame_support::{
 };
 use frame_system::{EnsureRoot, RawOrigin as SystemRawOrigin};
 use pallet_xcm::TestWeightInfo;
-use sp_runtime::{
-	traits::{Dispatchable, Get, IdentityLookup, MaybeEquivalence, TryConvert},
-	BuildStorage, SaturatedConversion,
-};
 use sp_std::{cell::RefCell, marker::PhantomData};
 use xcm::{prelude::*, Version as XcmVersion};
 use xcm_builder::{
@@ -44,7 +44,8 @@ use xcm_executor::{
 	XcmExecutor,
 };
 
-use xcm_fee_payment_runtime_api::{
+use xcm_runtime_apis::{
+	conversions::{Error as LocationToAccountApiError, LocationToAccountApi},
 	dry_run::{CallDryRunEffects, DryRunApi, Error as XcmDryRunApiError, XcmDryRunEffects},
 	fees::{Error as XcmPaymentApiError, XcmPaymentApi},
 };
@@ -352,6 +353,7 @@ impl pallet_xcm::Config for TestRuntime {
 	type WeightInfo = TestWeightInfo;
 }
 
+#[allow(dead_code)]
 pub fn new_test_ext_with_balances(balances: Vec<(AccountId, Balance)>) -> sp_io::TestExternalities {
 	let mut t = frame_system::GenesisConfig::<TestRuntime>::default().build_storage().unwrap();
 
@@ -364,6 +366,7 @@ pub fn new_test_ext_with_balances(balances: Vec<(AccountId, Balance)>) -> sp_io:
 	ext
 }
 
+#[allow(dead_code)]
 pub fn new_test_ext_with_balances_and_assets(
 	balances: Vec<(AccountId, Balance)>,
 	assets: Vec<(AssetIdForAssetsPallet, AccountId, Balance)>,
@@ -386,6 +389,7 @@ pub fn new_test_ext_with_balances_and_assets(
 			(1, "Relay Token".into(), "RLY".into(), 12),
 		],
 		accounts: assets,
+		next_asset_id: None,
 	}
 	.assimilate_storage(&mut t)
 	.unwrap();
@@ -410,6 +414,14 @@ impl sp_api::ProvideRuntimeApi<Block> for TestClient {
 }
 
 sp_api::mock_impl_runtime_apis! {
+	impl LocationToAccountApi<Block, AccountId> for RuntimeApi {
+		fn convert_location(location: VersionedLocation) -> Result<AccountId, LocationToAccountApiError> {
+			let location = location.try_into().map_err(|_| LocationToAccountApiError::VersionedConversionFailed)?;
+			LocationToAccountId::convert_location(&location)
+				.ok_or(LocationToAccountApiError::Unsupported)
+		}
+	}
+
 	impl XcmPaymentApi<Block> for RuntimeApi {
 		fn query_acceptable_payment_assets(xcm_version: XcmVersion) -> Result<Vec<VersionedAssetId>, XcmPaymentApiError> {
 			Ok(vec![
