@@ -59,6 +59,13 @@ const migrateIdentity = async (key, data, api) => {
 			}
 		});
 
+		let judgements = [];
+		decodedJson.judgements.forEach((judgement) => {
+			if (!('feePaid' in judgement[1])) {
+				judgements.push(judgement);
+			}
+		});
+
 		// Migrate `IdentityInfo` data to the new format:
 		// - remove `additional` field
 		// - add `discord` field
@@ -68,7 +75,7 @@ const migrateIdentity = async (key, data, api) => {
 			'(RegistrationNew, Option<Username>)',
 			[
 				{
-					judgements: decodedJson.judgements,
+					judgements: judgements,
 					deposit: 0,
 					info: {
 						display: decodedJson.info.display,
