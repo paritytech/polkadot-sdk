@@ -97,7 +97,7 @@ pub struct SameAuthoritiesForever;
 impl EpochChangeTrigger for SameAuthoritiesForever {
 	fn trigger<T: Config>(now: BlockNumberFor<T>) {
 		if <Pallet<T>>::should_epoch_change(now) {
-			let authorities = <Pallet<T>>::authorities();
+			let authorities = Authorities::<T>::get();
 			let next_authorities = authorities.clone();
 
 			<Pallet<T>>::enact_epoch_change(authorities, next_authorities, None);
@@ -358,7 +358,7 @@ pub mod pallet {
 						.and_then(|(authority, _)| {
 							let public = authority.as_inner_ref();
 							let transcript = sp_consensus_babe::make_vrf_transcript(
-								&Self::randomness(),
+								&Randomness::<T>::get(),
 								CurrentSlot::<T>::get(),
 								EpochIndex::<T>::get(),
 							);
@@ -500,7 +500,7 @@ impl<T: Config> FindAuthor<u32> for Pallet<T> {
 
 impl<T: Config> IsMember<AuthorityId> for Pallet<T> {
 	fn is_member(authority_id: &AuthorityId) -> bool {
-		<Pallet<T>>::authorities().iter().any(|id| &id.0 == authority_id)
+		Authorities::<T>::get().iter().any(|id| &id.0 == authority_id)
 	}
 }
 
@@ -578,7 +578,7 @@ impl<T: Config> Pallet<T> {
 	) {
 		// PRECONDITION: caller has done initialization and is guaranteed
 		// by the session module to be called before this.
-		debug_assert!(Self::initialized().is_some());
+		debug_assert!(Initialized::<T>::get().is_some());
 
 		if authorities.is_empty() {
 			log::warn!(target: LOG_TARGET, "Ignoring empty epoch change.");
@@ -691,8 +691,8 @@ impl<T: Config> Pallet<T> {
 			epoch_index: EpochIndex::<T>::get(),
 			start_slot: Self::current_epoch_start(),
 			duration: T::EpochDuration::get(),
-			authorities: Self::authorities().into_inner(),
-			randomness: Self::randomness(),
+			authorities: Authorities::<T>::get().into_inner(),
+			randomness: Randomness::<T>::get(),
 			config: EpochConfig::<T>::get()
 				.expect("EpochConfig is initialized in genesis; we never `take` or `kill` it; qed"),
 		}
@@ -769,8 +769,8 @@ impl<T: Config> Pallet<T> {
 		// we use the same values as genesis because we haven't collected any
 		// randomness yet.
 		let next = NextEpochDescriptor {
-			authorities: Self::authorities().into_inner(),
-			randomness: Self::randomness(),
+			authorities: Authorities::<T>::get().into_inner(),
+			randomness: Randomness::<T>::get(),
 		};
 
 		Self::deposit_consensus(ConsensusLog::NextEpochData(next));
@@ -779,7 +779,7 @@ impl<T: Config> Pallet<T> {
 	fn initialize(now: BlockNumberFor<T>) {
 		// since `initialize` can be called twice (e.g. if session module is present)
 		// let's ensure that we only do the initialization once per block
-		let initialized = Self::initialized().is_some();
+		let initialized = Initialized::<T>::get().is_some();
 		if initialized {
 			return
 		}
@@ -930,7 +930,7 @@ impl<T: Config> frame_support::traits::EstimateNextSessionRotation<BlockNumberFo
 
 impl<T: Config> frame_support::traits::Lateness<BlockNumberFor<T>> for Pallet<T> {
 	fn lateness(&self) -> BlockNumberFor<T> {
-		Self::lateness()
+		Lateness::<T>::get()
 	}
 }
 
