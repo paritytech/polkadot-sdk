@@ -10,7 +10,7 @@ doc:
        using the metadata. The runtime will ensure that the metadata used for this decoding process
        is correct and that the online wallet did not try to trick you.
 
-crates: |
+crates:
   - name: coretime-rococo-runtime
     bump: major
   - name: coretime-westend-runtime
