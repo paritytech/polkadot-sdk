@@ -63,6 +63,9 @@ use sp_arithmetic::traits::{Saturating, Zero};
 use sp_runtime::RuntimeDebug;
 use sp_std::{fmt::Debug, marker::PhantomData, prelude::*};
 
+#[cfg(any(feature = "try-runtime", test))]
+use sp_runtime::TryRuntimeError;
+
 use frame_support::{
 	defensive,
 	dispatch::DispatchResultWithPostInfo,
@@ -313,6 +316,14 @@ pub mod pallet {
 		TooSoon,
 	}
 
+	#[pallet::hooks]
+	impl<T: Config<I>, I: 'static> Hooks<BlockNumberFor<T>> for Pallet<T, I> {
+		#[cfg(feature = "try-runtime")]
+		fn try_state(_n: BlockNumberFor<T>) -> Result<(), TryRuntimeError> {
+			Self::do_try_state()
+		}
+	}
+
 	#[pallet::call]
 	impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		/// Bump the state of a member.
@@ -338,7 +349,7 @@ pub mod pallet {
 			};
 
 			if demotion_period.is_zero() {
-				return Err(Error::<T, I>::NothingDoing.into())
+				return Err(Error::<T, I>::NothingDoing.into());
 			}
 
 			let demotion_block = member.last_proof.saturating_add(demotion_period);
@@ -358,7 +369,7 @@ pub mod pallet {
 					Event::<T, I>::Offboarded { who }
 				};
 				Self::deposit_event(event);
-				return Ok(Pays::No.into())
+				return Ok(Pays::No.into());
 			}
 
 			Err(Error::<T, I>::NothingDoing.into())
@@ -674,6 +685,83 @@ pub mod pallet {
 				let e = Event::<T, I>::EvidenceJudged { who, wish, evidence, old_rank, new_rank };
 				Self::deposit_event(e);
 			}
+		}
+
+		/// Ensure the correctness of the state of this pallet
+		/// The following expectations must always apply.
+		///
+		/// ## Expectations:
+		///
+		/// `ranked_member`:
+		/// * members with zero demotion period should not submit an evidence with a wish to retain,
+		///   subsequently no promotion
+		/// available for max_rank() members.
+		///
+		/// `unranked_member`:
+		/// * evidence should only be submitted with a `Wish:Promotion`.
+		#[cfg(any(feature = "try-runtime", test))]
+		pub fn do_try_state() -> Result<(), TryRuntimeError> {
+			// Check invariants for each member tracked by the pallet
+			let params = Params::<T, I>::get();
+
+			for who in Member::<T, I>::iter_keys() {
+				if let Some(_) = Member::<T, I>::get(who.clone()) {
+					let rank =
+						T::Members::rank_of(&who).ok_or("Member not found in rank registry")?;
+
+					if rank > T::Members::min_rank() {
+						Self::check_ranked_member(rank, &who, params.clone())?;
+					} else {
+						Self::check_unranked_member(&who)?;
+					}
+				} else {
+					return Err(TryRuntimeError::Other("Member should exist, inconsistent mapping"));
+				}
+			}
+			Ok(())
+		}
+		#[cfg(any(feature = "try-runtime", test))]
+		fn check_ranked_member(
+			rank: RankOf<T, I>,
+			who: &T::AccountId,
+			params: ParamsOf<T, I>,
+		) -> Result<(), TryRuntimeError> {
+			let rank_index = Self::rank_to_index(rank).ok_or(Error::<T, I>::InvalidRank)?;
+			let demotion_period = params.demotion_period[rank_index];
+
+			// Determine if a demotion period is applicable
+			let demotion_period_applicable = demotion_period != Zero::zero();
+
+			// If member has evidence submitted, ensure it aligns with their rank and wish
+			if let Some((wish, _)) = MemberEvidence::<T, I>::get(&who) {
+				match wish {
+					Wish::Retention => {
+						ensure!(
+							demotion_period_applicable,
+							TryRuntimeError::Other(
+								"Member with no demotion period can not wish to retain"
+							)
+						);
+					},
+					Wish::Promotion => {
+						ensure!(
+							rank < <T as Config<I>>::MaxRank::get() as u16,
+							TryRuntimeError::Other("Member at max rank cannot be promoted")
+						);
+					},
+				}
+			}
+			Ok(())
+		}
+
+		#[cfg(any(feature = "try-runtime", test))]
+		fn check_unranked_member(who: &T::AccountId) -> Result<(), TryRuntimeError> {
+			if let Some((wish, _evidence)) = MemberEvidence::<T, I>::get(&who) {
+				if wish == Wish::Retention {
+					return Err(TryRuntimeError::Other("Rentention disallowed for Rank < 1"));
+				}
+			}
+			Ok(())
 		}
 	}
 
