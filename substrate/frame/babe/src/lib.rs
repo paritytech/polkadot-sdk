@@ -516,6 +516,47 @@ impl<T: Config> pallet_session::ShouldEndSession<BlockNumberFor<T>> for Pallet<T
 }
 
 impl<T: Config> Pallet<T> {
+	/// Public function to access epoch_index storage.
+	pub fn epoch_index() -> u64 {
+		EpochIndex::<T>::get()
+	}
+	/// Public function to access authorities storage.
+	pub fn authorities() ->  WeakBoundedVec<(AuthorityId, BabeAuthorityWeight), T::MaxAuthorities> {
+		Authorities::<T>::get()
+	}
+	/// Public function to access genesis_slot storage.
+	pub fn genesis_slot() ->  Slot {
+		GenesisSlot::<T>::get()
+	}
+	/// Public function to access current_slot storage.
+	pub fn current_slot() -> Slot {
+		CurrentSlot::<T>::get()
+	}
+	/// Public function to access randomness storage.
+	pub fn randomness() -> BabeRandomness {
+		Randomness::<T>::get()
+	}
+	/// Public function to access initialized storage.
+	pub fn initialized() -> Option<Option<PreDigest>> {
+		Initialized::<T>::get()
+	}
+	/// Public function to access author_vrf_randomness storage.
+	pub fn author_vrf_randomness() -> Option<BabeRandomness> {
+		AuthorVrfRandomness::<T>::get()
+	}
+	/// Public function to access lateness storage.
+	pub fn lateness() -> BlockNumberFor<T> {
+		Lateness::<T>::get()
+	}
+	/// Public function to access epoch_config storage.
+	pub fn epoch_config() -> Option<BabeEpochConfiguration> {
+		EpochConfig::<T>::get()
+	}
+	/// Public function to access skipped_epochs storage.
+	pub fn skipped_epochs() -> BoundedVec<(u64, SessionIndex), ConstU32<100>> {
+		SkippedEpochs::<T>::get()
+	}
+
 	/// Determine the BABE slot duration based on the Timestamp module configuration.
 	pub fn slot_duration() -> T::Moment {
 		// we double the minimum block-period so each author can always propose within
