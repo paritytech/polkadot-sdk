@@ -43,7 +43,7 @@ where
 
 #[test]
 fn check_vesting_status() {
-	ExtBuilder::default().existential_deposit(ED).build().execute_with(|| {
+	ExtBuilder::default().existential_deposit(ED).build_and_execute(|| {
 		let user1_free_balance = Balances::free_balance(&1);
 		let user2_free_balance = Balances::free_balance(&2);
 		let user12_free_balance = Balances::free_balance(&12);
@@ -102,7 +102,7 @@ fn check_vesting_status() {
 
 #[test]
 fn check_vesting_status_for_multi_schedule_account() {
-	ExtBuilder::default().existential_deposit(ED).build().execute_with(|| {
+	ExtBuilder::default().existential_deposit(ED).build_and_execute(|| {
 		assert_eq!(System::block_number(), 1);
 		let sched0 = VestingInfo::new(
 			ED * 20,
@@ -124,6 +124,7 @@ fn check_vesting_status_for_multi_schedule_account() {
 			0,
 		);
 		assert_ok!(Vesting::vested_transfer(Some(4).into(), 2, sched1));
+
 		// Free balance is equal to the two existing schedules total amount.
 		let free_balance = Balances::free_balance(&2);
 		assert_eq!(free_balance, ED * (10 + 20));
@@ -141,6 +142,7 @@ fn check_vesting_status_for_multi_schedule_account() {
 		assert_ok!(Vesting::vested_transfer(Some(4).into(), 2, sched2));
 
 		System::set_block_number(9);
+
 		// Free balance is equal to the 3 existing schedules total amount.
 		let free_balance = Balances::free_balance(&2);
 		assert_eq!(free_balance, ED * (10 + 20 + 30));
@@ -169,6 +171,7 @@ fn check_vesting_status_for_multi_schedule_account() {
 		// At block #35 sched2 fully unlocks and thus all schedules funds are unlocked.
 		System::set_block_number(35);
 		assert_eq!(Vesting::vesting_balance(&2), Some(0));
+
 		// Since we have not called any extrinsics that would unlock funds the schedules
 		// are still in storage,
 		assert_eq!(Vesting::vesting(&2).unwrap(), vec![sched0, sched1, sched2]);
@@ -179,7 +182,7 @@ fn check_vesting_status_for_multi_schedule_account() {
 
 #[test]
 fn unvested_balance_should_not_transfer() {
-	ExtBuilder::default().existential_deposit(10).build().execute_with(|| {
+	ExtBuilder::default().existential_deposit(10).build_and_execute(|| {
 		let user1_free_balance = Balances::free_balance(&1);
 		assert_eq!(user1_free_balance, 100); // Account 1 has free balance
 									 // Account 1 has only 5 units vested at block 1 (plus 50 unvested)
@@ -191,7 +194,7 @@ fn unvested_balance_should_not_transfer() {
 
 #[test]
 fn vested_balance_should_transfer() {
-	ExtBuilder::default().existential_deposit(10).build().execute_with(|| {
+	ExtBuilder::default().existential_deposit(10).build_and_execute(|| {
 		let user1_free_balance = Balances::free_balance(&1);
 		assert_eq!(user1_free_balance, 100); // Account 1 has free balance
 									 // Account 1 has only 5 units vested at block 1 (plus 50 unvested)
@@ -203,9 +206,10 @@ fn vested_balance_should_transfer() {
 
 #[test]
 fn vested_balance_should_transfer_with_multi_sched() {
-	ExtBuilder::default().existential_deposit(ED).build().execute_with(|| {
+	ExtBuilder::default().existential_deposit(ED).build_and_execute(|| {
 		let sched0 = VestingInfo::new(5 * ED, 128, 0);
 		assert_ok!(Vesting::vested_transfer(Some(13).into(), 1, sched0));
+
 		// Total 10*ED locked for all the schedules.
 		assert_eq!(Vesting::vesting(&1).unwrap(), vec![sched0, sched0]);
 
@@ -221,7 +225,7 @@ fn vested_balance_should_transfer_with_multi_sched() {
 
 #[test]
 fn non_vested_cannot_vest() {
-	ExtBuilder::default().existential_deposit(ED).build().execute_with(|| {
+	ExtBuilder::default().existential_deposit(ED).build_and_execute(|| {
 		assert!(!<VestingStorage<Test>>::contains_key(4));
 		assert_noop!(Vesting::vest(Some(4).into()), Error::<Test>::NotVesting);
 	});
@@ -229,7 +233,7 @@ fn non_vested_cannot_vest() {
 
 #[test]
 fn vested_balance_should_transfer_using_vest_other() {
-	ExtBuilder::default().existential_deposit(10).build().execute_with(|| {
+	ExtBuilder::default().existential_deposit(10).build_and_execute(|| {
 		let user1_free_balance = Balances::free_balance(&1);
 		assert_eq!(user1_free_balance, 100); // Account 1 has free balance
 									 // Account 1 has only 5 units vested at block 1 (plus 50 unvested)
@@ -241,7 +245,7 @@ fn vested_balance_should_transfer_using_vest_other() {
 
 #[test]
 fn vested_balance_should_transfer_using_vest_other_with_multi_sched() {
-	ExtBuilder::default().existential_deposit(ED).build().execute_with(|| {
+	ExtBuilder::default().existential_deposit(ED).build_and_execute(|| {
 		let sched0 = VestingInfo::new(5 * ED, 128, 0);
 		assert_ok!(Vesting::vested_transfer(Some(13).into(), 1, sched0));
 		// Total of 10*ED of locked for all the schedules.
@@ -259,7 +263,7 @@ fn vested_balance_should_transfer_using_vest_other_with_multi_sched() {
 
 #[test]
 fn non_vested_cannot_vest_other() {
-	ExtBuilder::default().existential_deposit(ED).build().execute_with(|| {
+	ExtBuilder::default().existential_deposit(ED).build_and_execute(|| {
 		assert!(!<VestingStorage<Test>>::contains_key(4));
 		assert_noop!(Vesting::vest_other(Some(3).into(), 4), Error::<Test>::NotVesting);
 	});
@@ -267,7 +271,7 @@ fn non_vested_cannot_vest_other() {
 
 #[test]
 fn extra_balance_should_transfer() {
-	ExtBuilder::default().existential_deposit(10).build().execute_with(|| {
+	ExtBuilder::default().existential_deposit(10).build_and_execute(|| {
 		assert_ok!(Balances::transfer_allow_death(Some(3).into(), 1, 100));
 		assert_ok!(Balances::transfer_allow_death(Some(3).into(), 2, 100));
 
@@ -292,7 +296,7 @@ fn extra_balance_should_transfer() {
 
 #[test]
 fn liquid_funds_should_transfer_with_delayed_vesting() {
-	ExtBuilder::default().existential_deposit(256).build().execute_with(|| {
+	ExtBuilder::default().existential_deposit(256).build_and_execute(|| {
 		let user12_free_balance = Balances::free_balance(&12);
 
 		assert_eq!(user12_free_balance, 2560); // Account 12 has free balance
@@ -314,7 +318,7 @@ fn liquid_funds_should_transfer_with_delayed_vesting() {
 
 #[test]
 fn vested_transfer_works() {
-	ExtBuilder::default().existential_deposit(256).build().execute_with(|| {
+	ExtBuilder::default().existential_deposit(256).build_and_execute(|| {
 		let user3_free_balance = Balances::free_balance(&3);
 		let user4_free_balance = Balances::free_balance(&4);
 		assert_eq!(user3_free_balance, 256 * 30);
@@ -328,6 +332,7 @@ fn vested_transfer_works() {
 			10,
 		);
 		assert_ok!(Vesting::vested_transfer(Some(3).into(), 4, new_vesting_schedule));
+
 		// Now account 4 should have vesting.
 		assert_eq!(Vesting::vesting(&4).unwrap(), vec![new_vesting_schedule]);
 		// Ensure the transfer happened correctly.
@@ -356,7 +361,7 @@ fn vested_transfer_works() {
 
 #[test]
 fn vested_transfer_correctly_fails() {
-	ExtBuilder::default().existential_deposit(ED).build().execute_with(|| {
+	ExtBuilder::default().existential_deposit(ED).build_and_execute(|| {
 		let user2_free_balance = Balances::free_balance(&2);
 		let user4_free_balance = Balances::free_balance(&4);
 		assert_eq!(user2_free_balance, ED * 20);
@@ -403,7 +408,7 @@ fn vested_transfer_correctly_fails() {
 
 #[test]
 fn vested_transfer_allows_max_schedules() {
-	ExtBuilder::default().existential_deposit(ED).build().execute_with(|| {
+	ExtBuilder::default().existential_deposit(ED).build_and_execute(|| {
 		let mut user_4_free_balance = Balances::free_balance(&4);
 		let max_schedules = <Test as Config>::MAX_VESTING_SCHEDULES;
 		let sched = VestingInfo::new(
@@ -444,7 +449,7 @@ fn vested_transfer_allows_max_schedules() {
 
 #[test]
 fn force_vested_transfer_works() {
-	ExtBuilder::default().existential_deposit(ED).build().execute_with(|| {
+	ExtBuilder::default().existential_deposit(ED).build_and_execute(|| {
 		let user3_free_balance = Balances::free_balance(&3);
 		let user4_free_balance = Balances::free_balance(&4);
 		assert_eq!(user3_free_balance, ED * 30);
@@ -497,7 +502,7 @@ fn force_vested_transfer_works() {
 
 #[test]
 fn force_vested_transfer_correctly_fails() {
-	ExtBuilder::default().existential_deposit(ED).build().execute_with(|| {
+	ExtBuilder::default().existential_deposit(ED).build_and_execute(|| {
 		let user2_free_balance = Balances::free_balance(&2);
 		let user4_free_balance = Balances::free_balance(&4);
 		assert_eq!(user2_free_balance, ED * 20);
@@ -548,7 +553,7 @@ fn force_vested_transfer_correctly_fails() {
 
 #[test]
 fn force_vested_transfer_allows_max_schedules() {
-	ExtBuilder::default().existential_deposit(ED).build().execute_with(|| {
+	ExtBuilder::default().existential_deposit(ED).build_and_execute(|| {
 		let mut user_4_free_balance = Balances::free_balance(&4);
 		let max_schedules = <Test as Config>::MAX_VESTING_SCHEDULES;
 		let sched = VestingInfo::new(
@@ -580,6 +585,7 @@ fn force_vested_transfer_allows_max_schedules() {
 		// Account 4 has fully vested when all the schedules end,
 		System::set_block_number(<Test as Config>::MinVestedTransfer::get() + 10);
 		assert_eq!(Vesting::vesting_balance(&4), Some(0));
+
 		// and after unlocking its schedules are removed from storage.
 		vest_and_assert_no_vesting::<Test>(4);
 	});
@@ -587,7 +593,7 @@ fn force_vested_transfer_allows_max_schedules() {
 
 #[test]
 fn merge_schedules_that_have_not_started() {
-	ExtBuilder::default().existential_deposit(ED).build().execute_with(|| {
+	ExtBuilder::default().existential_deposit(ED).build_and_execute(|| {
 		// Account 2 should already have a vesting schedule.
 		let sched0 = VestingInfo::new(
 			ED * 20,
@@ -599,9 +605,11 @@ fn merge_schedules_that_have_not_started() {
 
 		// Add a schedule that is identical to the one that already exists.
 		assert_ok!(Vesting::vested_transfer(Some(3).into(), 2, sched0));
+		assert_ok!(Vesting::do_try_state());
 		assert_eq!(Vesting::vesting(&2).unwrap(), vec![sched0, sched0]);
 		assert_eq!(Balances::usable_balance(&2), 0);
 		assert_ok!(Vesting::merge_schedules(Some(2).into(), 0, 1));
+		assert_ok!(Vesting::do_try_state());
 
 		// Since we merged identical schedules, the new schedule finishes at the same
 		// time as the original, just with double the amount.
@@ -619,7 +627,7 @@ fn merge_schedules_that_have_not_started() {
 #[test]
 fn merge_ongoing_schedules() {
 	// Merging two schedules that have started will vest both before merging.
-	ExtBuilder::default().existential_deposit(ED).build().execute_with(|| {
+	ExtBuilder::default().existential_deposit(ED).build_and_execute(|| {
 		// Account 2 should already have a vesting schedule.
 		let sched0 = VestingInfo::new(
 			ED * 20,
@@ -678,7 +686,7 @@ fn merge_ongoing_schedules() {
 fn merging_shifts_other_schedules_index() {
 	// Schedules being merged are filtered out, schedules to the right of any merged
 	// schedule shift left and the merged schedule is always last.
-	ExtBuilder::default().existential_deposit(ED).build().execute_with(|| {
+	ExtBuilder::default().existential_deposit(ED).build_and_execute(|| {
 		let sched0 = VestingInfo::new(
 			ED * 10,
 			ED, // Vesting over 10 blocks.
@@ -741,7 +749,7 @@ fn merging_shifts_other_schedules_index() {
 fn merge_ongoing_and_yet_to_be_started_schedules() {
 	// Merge an ongoing schedule that has had `vest` called and a schedule that has not already
 	// started.
-	ExtBuilder::default().existential_deposit(ED).build().execute_with(|| {
+	ExtBuilder::default().existential_deposit(ED).build_and_execute(|| {
 		// Account 2 should already have a vesting schedule.
 		let sched0 = VestingInfo::new(
 			ED * 20,
@@ -781,6 +789,7 @@ fn merge_ongoing_and_yet_to_be_started_schedules() {
 
 		// Merge the schedules before sched1 starts.
 		assert_ok!(Vesting::merge_schedules(Some(2).into(), 0, 1));
+
 		// After merging, the usable balance only changes by the amount sched0 vested since we
 		// last called `vest` (which is just 1 block). The usable balance is not affected by
 		// sched1 because it has not started yet.
@@ -808,7 +817,7 @@ fn merge_ongoing_and_yet_to_be_started_schedules() {
 fn merge_finished_and_ongoing_schedules() {
 	// If a schedule finishes by the current block we treat the ongoing schedule,
 	// without any alterations, as the merged one.
-	ExtBuilder::default().existential_deposit(ED).build().execute_with(|| {
+	ExtBuilder::default().existential_deposit(ED).build_and_execute(|| {
 		// Account 2 should already have a vesting schedule.
 		let sched0 = VestingInfo::new(
 			ED * 20,
@@ -870,7 +879,7 @@ fn merge_finished_and_ongoing_schedules() {
 #[test]
 fn merge_finishing_schedules_does_not_create_a_new_one() {
 	// If both schedules finish by the current block we don't create new one
-	ExtBuilder::default().existential_deposit(ED).build().execute_with(|| {
+	ExtBuilder::default().existential_deposit(ED).build_and_execute(|| {
 		// Account 2 should already have a vesting schedule.
 		let sched0 = VestingInfo::new(
 			ED * 20,
@@ -912,7 +921,7 @@ fn merge_finishing_schedules_does_not_create_a_new_one() {
 
 #[test]
 fn merge_finished_and_yet_to_be_started_schedules() {
-	ExtBuilder::default().existential_deposit(ED).build().execute_with(|| {
+	ExtBuilder::default().existential_deposit(ED).build_and_execute(|| {
 		// Account 2 should already have a vesting schedule.
 		let sched0 = VestingInfo::new(
 			ED * 20,
@@ -960,7 +969,7 @@ fn merge_finished_and_yet_to_be_started_schedules() {
 
 #[test]
 fn merge_schedules_throws_proper_errors() {
-	ExtBuilder::default().existential_deposit(ED).build().execute_with(|| {
+	ExtBuilder::default().existential_deposit(ED).build_and_execute(|| {
 		// Account 2 should already have a vesting schedule.
 		let sched0 = VestingInfo::new(
 			ED * 20,
@@ -1011,8 +1020,7 @@ fn generates_multiple_schedules_from_genesis_config() {
 	ExtBuilder::default()
 		.existential_deposit(ED)
 		.vesting_genesis_config(vesting_config)
-		.build()
-		.execute_with(|| {
+		.build_and_execute(|| {
 			let user1_sched1 = VestingInfo::new(5 * ED, 128, 0u64);
 			assert_eq!(Vesting::vesting(&1).unwrap(), vec![user1_sched1]);
 
@@ -1045,14 +1053,14 @@ fn multiple_schedules_from_genesis_config_errors() {
 
 #[test]
 fn build_genesis_has_storage_version_v1() {
-	ExtBuilder::default().existential_deposit(ED).build().execute_with(|| {
+	ExtBuilder::default().existential_deposit(ED).build_and_execute(|| {
 		assert_eq!(StorageVersion::<Test>::get(), Releases::V1);
 	});
 }
 
 #[test]
 fn merge_vesting_handles_per_block_0() {
-	ExtBuilder::default().existential_deposit(ED).build().execute_with(|| {
+	ExtBuilder::default().existential_deposit(ED).build_and_execute(|| {
 		let sched0 = VestingInfo::new(
 			ED, 0, // Vesting over 256 blocks.
 			1,
@@ -1131,7 +1139,7 @@ fn per_block_works() {
 // When an accounts free balance + schedule.locked is less than ED, the vested transfer will fail.
 #[test]
 fn vested_transfer_less_than_existential_deposit_fails() {
-	ExtBuilder::default().existential_deposit(4 * ED).build().execute_with(|| {
+	ExtBuilder::default().existential_deposit(4 * ED).build_and_execute(|| {
 		// MinVestedTransfer is less the ED.
 		assert!(
 			<Test as Config>::Currency::minimum_balance() >
@@ -1158,7 +1166,7 @@ fn vested_transfer_less_than_existential_deposit_fails() {
 
 #[test]
 fn remove_vesting_schedule() {
-	ExtBuilder::default().existential_deposit(ED).build().execute_with(|| {
+	ExtBuilder::default().existential_deposit(ED).build_and_execute(|| {
 		assert_eq!(Balances::free_balance(&3), 256 * 30);
 		assert_eq!(Balances::free_balance(&4), 256 * 40);
 		// Account 4 should not have any vesting yet.
@@ -1170,6 +1178,7 @@ fn remove_vesting_schedule() {
 			10,
 		);
 		assert_ok!(Vesting::vested_transfer(Some(3).into(), 4, new_vesting_schedule));
+
 		// Now account 4 should have vesting.
 		assert_eq!(Vesting::vesting(&4).unwrap(), vec![new_vesting_schedule]);
 		// Account 4 has 5 * 256 locked.
@@ -1190,4 +1199,58 @@ fn remove_vesting_schedule() {
 			Error::<Test>::InvalidScheduleParams
 		);
 	});
+}
+
+#[test]
+fn play_out_all_schedules() {
+	let vesting_config = vec![
+		// 5 * existential deposit locked.
+		(1, 0, 10, 5 * ED),
+		// 1 * existential deposit locked.
+		(2, 10, 20, 19 * ED),
+		// 2 * existential deposit locked.
+		(2, 10, 0, 18 * ED),
+		// 1 * existential deposit locked.
+		(12, 0, 20, 9 * ED),
+		// 2 * existential deposit locked.
+		(12, 10, 0, 8 * ED),
+		// 3 * existential deposit locked.
+		(12, 10, 20, 7 * ED),
+	];
+	ExtBuilder::default()
+		.existential_deposit(ED)
+		.vesting_genesis_config(vesting_config)
+		.build_and_execute(|| {
+			let user1_sched1 = VestingInfo::new(5 * ED, 128, 0u64);
+			assert_eq!(Vesting::vesting(&1).unwrap(), vec![user1_sched1]);
+
+			let user2_sched1 = VestingInfo::new(1 * ED, 12, 10u64);
+			let user2_sched2 = VestingInfo::new(2 * ED, 512, 10u64);
+			assert_eq!(Vesting::vesting(&2).unwrap(), vec![user2_sched1, user2_sched2]);
+
+			let user12_sched1 = VestingInfo::new(1 * ED, 12, 0u64);
+			let user12_sched2 = VestingInfo::new(2 * ED, 512, 10u64);
+			let user12_sched3 = VestingInfo::new(3 * ED, 38, 10u64);
+			assert_eq!(
+				Vesting::vesting(&12).unwrap(),
+				vec![user12_sched1, user12_sched2, user12_sched3]
+			);
+
+			// get the max ending block
+			let mut v: Vec<u64> = Vec::new();
+
+			v.push(user1_sched1.ending_block_as_balance::<Identity>());
+			v.push(user2_sched1.ending_block_as_balance::<Identity>());
+			v.push(user2_sched2.ending_block_as_balance::<Identity>());
+			v.push(user12_sched1.ending_block_as_balance::<Identity>());
+			v.push(user12_sched2.ending_block_as_balance::<Identity>());
+			v.push(user12_sched3.ending_block_as_balance::<Identity>());
+
+			// Loop through all schedules
+			let max_value = v.iter().max().unwrap_or(&380);
+			for i in 0..*max_value {
+				System::set_block_number(i);
+				assert_ok!(Vesting::do_try_state());
+			}
+		})
 }
