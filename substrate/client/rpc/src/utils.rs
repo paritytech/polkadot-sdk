@@ -357,7 +357,7 @@ mod tests {
 
 	#[tokio::test]
 	async fn subscription_replace_old_messages() {
-		let mut module = RpcModule::new(notify_tx);
+		let mut module = RpcModule::new(());
 		module
 			.register_subscription("sub", "my_sub", "unsub", |_, pending, _, _| async move {
 				// Send items 0..20 and ensure that only the last 3 are kept in the buffer.
@@ -371,9 +371,8 @@ mod tests {
 
 		let mut sub = module.subscribe("sub", EmptyServerParams::new(), 1).await.unwrap();
 
-		// This is a hack to ensure that the subscription
-		// has read all items from the stream but the implementation
-		// will wait send out the last 3 items and then close the subscription.
+		// This is a hack simulate a very slow client
+		// and all older messages are replaced.
 		tokio::time::sleep(std::time::Duration::from_secs(10)).await;
 
 		let mut res = Vec::new();

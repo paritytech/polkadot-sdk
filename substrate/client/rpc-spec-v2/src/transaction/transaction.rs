@@ -116,7 +116,7 @@ where
 						stream.filter_map(move |event| async move { handle_event(event) }).boxed();
 
 					// If the subscription is too slow older events will be overwritten.
-					sink.pipe_from_stream(stream.boxed(), RingBuffer::new(3)).await;
+					sink.pipe_from_stream(stream, RingBuffer::new(3)).await;
 				},
 				Err(err) => {
 					// We have not created an `Watcher` for the tx. Make sure the
