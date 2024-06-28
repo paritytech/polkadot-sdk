@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1719568552501,
+  "lastUpdate": 1719588694164,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
@@ -3485,6 +3485,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.04637313299600002,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Alexandru Vasile",
+            "username": "lexnv",
+            "email": "60601340+lexnv@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "aaf0443591b134a0da217d575161872796e75059",
+          "message": "network: Sync peerstore constants between libp2p and litep2p (#4906)\n\nCounterpart of: https://github.com/paritytech/polkadot-sdk/pull/4031\n\ncc @paritytech/networking\n\n---------\n\nSigned-off-by: Alexandru Vasile <alexandru.vasile@parity.io>\nCo-authored-by: Sebastian Kunert <skunert49@gmail.com>",
+          "timestamp": "2024-06-28T13:43:22Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/aaf0443591b134a0da217d575161872796e75059"
+        },
+        "date": 1719588664547,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 127.94999999999995,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 106.40399999999998,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.045780159236,
+            "unit": "seconds"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.035727389467999984,
             "unit": "seconds"
           }
         ]
