@@ -506,7 +506,7 @@ mod tests {
 		primitives::ExecReturnValue,
 		storage::WriteOutcome,
 		tests::{RuntimeCall, Test, ALICE, BOB},
-		transient_storage::{self, TransientStorage},
+		transient_storage::TransientStorage,
 		BalanceOf, CodeHash, Error, Origin, Pallet as Contracts,
 	};
 	use assert_matches::assert_matches;

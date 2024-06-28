@@ -963,6 +963,45 @@ fn storage_max_value_limit() {
 }
 
 #[test]
+fn transient_storage_work() {
+	let (code, _code_hash) = compile_module::<Test>("transient_storage").unwrap();
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+		let min_balance = Contracts::min_balance();
+		let addr = builder::bare_instantiate(Code::Upload(code))
+			.value(min_balance * 100)
+			.build_and_unwrap_account_id();
+
+		builder::bare_call(addr).build_and_unwrap_result();
+	});
+}
+
+#[test]
+fn transient_storage_limit_in_nested_call() {
+	let (wasm_caller, _code_hash_caller) =
+		compile_module::<Test>("create_transient_storage_and_call").unwrap();
+	let (wasm_callee, _code_hash_callee) = compile_module::<Test>("set_transient_storage").unwrap();
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+		let min_balance = Contracts::min_balance();
+
+		// Create both contracts: Constructors do nothing.
+		let addr_caller =
+			builder::bare_instantiate(Code::Upload(wasm_caller)).value(min_balance * 100).build_and_unwrap_account_id();
+		let addr_callee =
+			builder::bare_instantiate(Code::Upload(wasm_callee)).value(min_balance * 100).build_and_unwrap_account_id();
+
+		assert_err_ignore_postinfo!(
+			builder::call(addr_caller)
+				.data((10u32, &addr_callee, 10_000u32).encode())
+				.build(),
+			<Error<Test>>::OutOfTransientStorage,
+		);
+	});
+}
+
+#[test]
 fn deploy_and_call_other_contract() {
 	let (caller_wasm, _caller_code_hash) = compile_module::<Test>("caller_contract").unwrap();
 	let (callee_wasm, callee_code_hash) = compile_module::<Test>("return_with_data").unwrap();

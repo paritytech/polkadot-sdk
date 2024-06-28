@@ -109,7 +109,7 @@ impl<T: Config> StorageMeter<T> {
 	}
 
 	/// Clear a transaction meter
-	#[cfg(any(test, feature = "runtime-benchmarks"))]
+	#[cfg(feature = "runtime-benchmarks")]
 	pub fn clear(&mut self) {
 		self.nested_meters.clear();
 		self.root_meter.amount = 0;
