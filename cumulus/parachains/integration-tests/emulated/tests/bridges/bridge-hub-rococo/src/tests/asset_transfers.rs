@@ -277,7 +277,7 @@ fn send_back_wnds_from_asset_hub_rococo_to_asset_hub_westend() {
 	assert_eq!(sender_wnds_before, prefund_amount);
 	let receiver_wnds_before = <AssetHubWestend as Chain>::account_data_of(receiver.clone()).free;
 
-	// send WNDs, use them for fees
+	// send back WNDs, use them for fees
 	send_assets_over_bridge(|| {
 		let destination = asset_hub_westend_location();
 		let assets: Assets = (wnd_at_asset_hub_rococo, amount_to_send).into();
@@ -351,7 +351,7 @@ fn send_rocs_from_penpal_rococo_through_asset_hub_rococo_to_asset_hub_westend() 
 		let fees_id: AssetId = roc_at_rococo_parachains.clone().into();
 		let fees_transfer_type = TransferType::RemoteReserve(local_asset_hub.into());
 		let beneficiary: Location =
-			AccountId32Junction { network: None, id: AssetHubWestendReceiver::get().into() }.into();
+			AccountId32Junction { network: None, id: receiver.clone().into() }.into();
 		let custom_xcm_on_dest = Xcm::<()>(vec![DepositAsset {
 			assets: Wild(AllCounted(assets.len() as u32)),
 			beneficiary,
