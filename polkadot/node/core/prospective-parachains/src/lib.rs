@@ -73,7 +73,6 @@ const LOG_TARGET: &str = "parachain::prospective-parachains";
 struct RelayBlockViewData {
 	// Scheduling info for paras and upcoming paras.
 	fragment_chains: HashMap<ParaId, FragmentChain>,
-	pending_availability: HashSet<CandidateHash>,
 }
 
 struct View {
@@ -221,8 +220,6 @@ async fn handle_active_leaves_update<Context>(
 		let ancestry =
 			fetch_ancestry(&mut *ctx, &mut temp_header_cache, hash, allowed_ancestry_len).await?;
 
-		let mut all_pending_availability = HashSet::new();
-
 		// Find constraints.
 		let mut fragment_chains = HashMap::new();
 		for para in scheduled_paras {
@@ -242,8 +239,6 @@ async fn handle_active_leaves_update<Context>(
 
 				continue
 			};
-
-			all_pending_availability.extend(pending_availability.iter().map(|c| c.candidate_hash));
 
 			let pending_availability = preprocess_candidates_pending_availability(
 				ctx,
@@ -311,10 +306,7 @@ async fn handle_active_leaves_update<Context>(
 			fragment_chains.insert(para, chain);
 		}
 
-		view.active_leaves.insert(
-			hash,
-			RelayBlockViewData { fragment_chains, pending_availability: all_pending_availability },
-		);
+		view.active_leaves.insert(hash, RelayBlockViewData { fragment_chains });
 	}
 
 	if !update.deactivated.is_empty() {
@@ -332,32 +324,10 @@ fn prune_view_candidate_storage(view: &mut View, metrics: &Metrics) {
 	let mut live_candidates = HashSet::new();
 	let mut live_paras = HashSet::new();
 	for sub_view in active_leaves.values() {
-		live_candidates.extend(sub_view.pending_availability.iter().cloned());
-
 		for (para_id, fragment_chain) in &sub_view.fragment_chains {
 			live_candidates.extend(fragment_chain.to_vec());
+			live_candidates.extend(fragment_chain.unconnected());
 			live_paras.insert(*para_id);
-		}
-	}
-
-	let connected_candidates_count = live_candidates.len();
-	for (leaf, sub_view) in active_leaves.iter() {
-		for (para_id, fragment_chain) in &sub_view.fragment_chains {
-			if let Some(storage) = view.candidate_storage.get(para_id) {
-				let unconnected_potential =
-					fragment_chain.find_unconnected_potential_candidates(storage, None);
-				if !unconnected_potential.is_empty() {
-					gum::trace!(
-						target: LOG_TARGET,
-						?leaf,
-						"Keeping {} unconnected candidates for paraid {} in storage: {:?}",
-						unconnected_potential.len(),
-						para_id,
-						unconnected_potential
-					);
-				}
-				live_candidates.extend(unconnected_potential);
-			}
 		}
 	}
 
@@ -482,7 +452,7 @@ async fn handle_introduce_seconded_candidate<Context>(
 	let mut add_to_storage = false;
 	for (relay_parent, leaf_data) in view.active_leaves.iter_mut() {
 		if let Some(chain) = leaf_data.fragment_chains.get_mut(&para) {
-			match chain.can_add_candidate_as_potential(
+			match chain.add_candidate_as_potential(
 				&storage,
 				&candidate_hash,
 				&candidate.descriptor.relay_parent,
@@ -539,6 +509,7 @@ async fn handle_introduce_seconded_candidate<Context>(
 					para = ?para,
 					"Received seconded candidate had mismatching validation data",
 				);
+				// TODO: if this fails, we have an invalid candidate in the unconnected storage.
 
 				let _ = tx.send(false);
 				return
@@ -606,6 +577,8 @@ async fn handle_candidate_backed<Context>(
 			// TODO: log here the added candidates: chain.contains_candidate(candidate)
 		}
 	}
+
+	prune_view_candidate_storage(view, storage);
 }
 
 fn answer_get_backable_candidates(
