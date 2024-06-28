@@ -308,24 +308,21 @@ impl Collations {
 		}
 	}
 
-	/// Checks if another collation can be accepted. There are two limits:
-	/// 1. The number of collations that can be seconded.
-	/// 2. The number of collations that can be fetched per parachain. This is based on the number
-	///    of entries in the claim queue.
+	/// Checks if another collation can be accepted. The number of collations that can be fetched
+	/// per parachain is limited by the entries in the claim queue for the `ParaId` in question.
+	///
+	/// If prospective parachains mode is not enabled then we fall back to synchronous backing. In
+	/// this case there is a limit of 1 collation per relay parent.
 	pub(super) fn is_collations_limit_reached(
 		&self,
 		relay_parent_mode: ProspectiveParachainsMode,
 		para_id: ParaId,
 		peer_data: &HashMap<PeerId, PeerData>,
 	) -> bool {
-		let seconded_limit =
-			if let ProspectiveParachainsMode::Enabled { max_candidate_depth, .. } =
-				relay_parent_mode
-			{
-				max_candidate_depth + 1
-			} else {
-				1
-			};
+		if let ProspectiveParachainsMode::Disabled = relay_parent_mode {
+			// fallback to synchronous backing
+			return self.seconded_count >= 1
+		}
 
 		// All collators in `Collating` state for `para_id` we know about
 		let collators_for_para = peer_data
@@ -346,21 +343,17 @@ impl Collations {
 			self.claims_per_para.get(&para_id).copied().unwrap_or_default() >=
 				self.fetched_per_para.get(&para_id).copied().unwrap_or_default() + pending_fetch;
 
-		let respected_seconding_limit = self.seconded_count < seconded_limit;
-
 		gum::trace!(
 			target: LOG_TARGET,
 			?para_id,
 			claims_per_para=?self.claims_per_para,
 			fetched_per_para=?self.fetched_per_para,
 			?pending_fetch,
-			?seconded_limit,
 			?respected_per_para_limit,
-			?respected_seconding_limit,
 			"is_collations_limit_reached"
 		);
 
-		!(respected_seconding_limit && respected_per_para_limit)
+		!respected_per_para_limit
 	}
 
 	/// Adds a new collation to the waiting queue for the relay parent. This function doesn't

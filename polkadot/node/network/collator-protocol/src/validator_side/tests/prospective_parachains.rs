@@ -609,7 +609,7 @@ fn second_multiple_candidates_per_relay_parent() {
 		)
 		.await;
 
-		for i in 0..(test_state.async_backing_params.max_candidate_depth + 1) {
+		for i in 0..(test_state.async_backing_params.allowed_ancestry_len) {
 			let mut candidate = dummy_candidate_receipt_bad_sig(head_c, Some(Default::default()));
 			candidate.descriptor.para_id = test_state.chain_ids[0];
 			candidate.descriptor.persisted_validation_data_hash = dummy_pvd().hash();
@@ -694,16 +694,9 @@ fn second_multiple_candidates_per_relay_parent() {
 		)
 		.await;
 
-		// Reported because reached the limit of advertisements per relay parent.
-		assert_matches!(
-			overseer_recv(&mut virtual_overseer).await,
-			AllMessages::NetworkBridgeTx(
-				NetworkBridgeTxMessage::ReportPeer(ReportPeerMessage::Single(peer_id, rep)),
-			) => {
-				assert_eq!(peer_a, peer_id);
-				assert_eq!(rep.value, COST_UNEXPECTED_MESSAGE.cost_or_benefit());
-			}
-		);
+		// Rejected but not reported because reached the limit of advertisements for the para_id
+		test_helpers::Yield::new().await;
+		assert_matches!(virtual_overseer.recv().now_or_never(), None);
 
 		// By different peer too (not reported).
 		let pair_b = CollatorPair::generate().0;

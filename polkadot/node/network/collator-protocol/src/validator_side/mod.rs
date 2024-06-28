@@ -146,6 +146,7 @@ enum InsertAdvertisementError {
 	/// No prior declare message received.
 	UndeclaredCollator,
 	/// A limit for announcements per peer is reached.
+	#[allow(dead_code)]
 	PeerLimitReached,
 }
 
@@ -250,10 +251,7 @@ impl PeerData {
 							.advertisements
 							.insert(on_relay_parent, HashSet::from_iter(candidate_hash));
 					},
-					(
-						ProspectiveParachainsMode::Enabled { max_candidate_depth, .. },
-						candidate_hash,
-					) => {
+					(ProspectiveParachainsMode::Enabled { .. }, candidate_hash) => {
 						if let Some(candidate_hash) = candidate_hash {
 							if state
 								.advertisements
@@ -266,9 +264,6 @@ impl PeerData {
 							let candidates =
 								state.advertisements.entry(on_relay_parent).or_default();
 
-							if candidates.len() > max_candidate_depth {
-								return Err(InsertAdvertisementError::PeerLimitReached)
-							}
 							candidates.insert(candidate_hash);
 						} else {
 							if self.version != CollationVersion::V1 {
