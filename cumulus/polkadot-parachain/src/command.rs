@@ -23,6 +23,7 @@ use crate::{
 	},
 	service::{new_partial, Block, Hash},
 };
+#[cfg(feature = "runtime-benchmarks")]
 use cumulus_client_service::storage_proof_size::HostFunctions as ReclaimHostFunctions;
 use cumulus_primitives_core::ParaId;
 use frame_benchmarking_cli::{BenchmarkCmd, SUBSTRATE_REFERENCE_HARDWARE};
@@ -34,6 +35,8 @@ use sc_cli::{
 };
 use sc_service::config::{BasePath, PrometheusConfig};
 use sp_runtime::traits::AccountIdConversion;
+#[cfg(feature = "runtime-benchmarks")]
+use sp_runtime::traits::HashingFor;
 use std::{net::SocketAddr, path::PathBuf};
 
 /// The choice of consensus for the parachain omni-node.
@@ -110,6 +113,7 @@ fn runtime(id: &str) -> Runtime {
 	} else if id.starts_with("asset-hub-kusama") |
 		id.starts_with("statemine") |
 		id.starts_with("asset-hub-rococo") |
+		id.starts_with("rockmine") |
 		id.starts_with("asset-hub-westend") |
 		id.starts_with("westmint")
 	{
@@ -584,25 +588,15 @@ pub fn run() -> Result<()> {
 
 			// Switch on the concrete benchmark sub-command-
 			match cmd {
-				BenchmarkCmd::Pallet(cmd) =>
-					if cfg!(feature = "runtime-benchmarks") {
-						runner.sync_run(|config| cmd.run_with_spec::<sp_runtime::traits::HashingFor<Block>, ReclaimHostFunctions>(Some(config.chain_spec)))
-					} else {
-						Err("Benchmarking wasn't enabled when building the node. \
-				You can enable it with `--features runtime-benchmarks`."
-							.into())
-					},
+				#[cfg(feature = "runtime-benchmarks")]
+				BenchmarkCmd::Pallet(cmd) => runner.sync_run(|config| {
+					cmd.run_with_spec::<HashingFor<Block>, ReclaimHostFunctions>(Some(
+						config.chain_spec,
+					))
+				}),
 				BenchmarkCmd::Block(cmd) => runner.sync_run(|config| {
 					construct_partials!(config, |partials| cmd.run(partials.client))
 				}),
-				#[cfg(not(feature = "runtime-benchmarks"))]
-				BenchmarkCmd::Storage(_) =>
-					return Err(sc_cli::Error::Input(
-						"Compile with --features=runtime-benchmarks \
-						to enable storage benchmarks."
-							.into(),
-					)
-					.into()),
 				#[cfg(feature = "runtime-benchmarks")]
 				BenchmarkCmd::Storage(cmd) => runner.sync_run(|config| {
 					construct_partials!(config, |partials| {
@@ -617,7 +611,10 @@ pub fn run() -> Result<()> {
 				// NOTE: this allows the Client to leniently implement
 				// new benchmark commands without requiring a companion MR.
 				#[allow(unreachable_patterns)]
-				_ => Err("Benchmarking sub-command unsupported".into()),
+				_ => Err("Benchmarking sub-command unsupported or compilation feature missing. \
+					Make sure to compile with --features=runtime-benchmarks \
+					to enable all supported benchmarks."
+					.into()),
 			}
 		},
 		Some(Subcommand::Key(cmd)) => Ok(cmd.run(&cli)?),
@@ -645,25 +642,33 @@ pub fn run() -> Result<()> {
 
 					if old_path.exists() && new_path.exists() {
 						return Err(format!(
-							"Found legacy {} path {} and new asset-hub path {}. Delete one path such that only one exists.",
-							old_name, old_path.display(), new_path.display()
-						).into())
+							"Found legacy {} path {} and new Asset Hub path {}. \
+							Delete one path such that only one exists.",
+							old_name,
+							old_path.display(),
+							new_path.display()
+						)
+						.into())
 					}
 
 					if old_path.exists() {
 						std::fs::rename(old_path.clone(), new_path.clone())?;
 						info!(
-							"Statemint renamed to Asset Hub. The filepath with associated data on disk has been renamed from {} to {}.",
-							old_path.display(), new_path.display()
+							"{} was renamed to Asset Hub. The filepath with associated data on disk \
+							has been renamed from {} to {}.",
+							old_name,
+							old_path.display(),
+							new_path.display()
 						);
 					}
 				}
 
-				let hwbench = (!cli.no_hardware_benchmarks).then_some(
-					config.database.path().map(|database_path| {
+				let hwbench = (!cli.no_hardware_benchmarks)
+					.then_some(config.database.path().map(|database_path| {
 						let _ = std::fs::create_dir_all(database_path);
 						sc_sysinfo::gather_hwbench(Some(database_path))
-					})).flatten();
+					}))
+					.flatten();
 
 				let para_id = chain_spec::Extensions::try_get(&*config.chain_spec)
 					.map(|e| e.para_id)
@@ -672,7 +677,9 @@ pub fn run() -> Result<()> {
 				let id = ParaId::from(para_id);
 
 				let parachain_account =
-					AccountIdConversion::<polkadot_primitives::AccountId>::into_account_truncating(&id);
+					AccountIdConversion::<polkadot_primitives::AccountId>::into_account_truncating(
+						&id,
+					);
 
 				let tokio_handle = config.tokio_handle.clone();
 				let polkadot_config =
@@ -734,7 +741,10 @@ async fn start_node<Network: sc_network::NetworkBackend<Block, Hash>>(
 		.map(|r| r.0)
 		.map_err(Into::into),
 
-		Runtime::Collectives => crate::service::start_generic_aura_lookahead_node::<Network>(
+		Runtime::BridgeHub(_) |
+		Runtime::Collectives |
+		Runtime::Coretime(_) |
+		Runtime::People(_) => crate::service::start_generic_aura_lookahead_node::<Network>(
 			config,
 			polkadot_config,
 			collator_options,
@@ -767,52 +777,6 @@ async fn start_node<Network: sc_network::NetworkBackend<Block, Hash>>(
 		.map(|r| r.0)
 		.map_err(Into::into),
 
-		Runtime::BridgeHub(bridge_hub_runtime_type) => match bridge_hub_runtime_type {
-			chain_spec::bridge_hubs::BridgeHubRuntimeType::Polkadot |
-			chain_spec::bridge_hubs::BridgeHubRuntimeType::PolkadotLocal |
-			chain_spec::bridge_hubs::BridgeHubRuntimeType::Kusama |
-			chain_spec::bridge_hubs::BridgeHubRuntimeType::KusamaLocal |
-			chain_spec::bridge_hubs::BridgeHubRuntimeType::Westend |
-			chain_spec::bridge_hubs::BridgeHubRuntimeType::WestendLocal |
-			chain_spec::bridge_hubs::BridgeHubRuntimeType::WestendDevelopment |
-			chain_spec::bridge_hubs::BridgeHubRuntimeType::Rococo |
-			chain_spec::bridge_hubs::BridgeHubRuntimeType::RococoLocal |
-			chain_spec::bridge_hubs::BridgeHubRuntimeType::RococoDevelopment =>
-				crate::service::start_generic_aura_lookahead_node::<Network>(
-					config,
-					polkadot_config,
-					collator_options,
-					id,
-					hwbench,
-				)
-				.await
-				.map(|r| r.0),
-		}
-		.map_err(Into::into),
-
-		Runtime::Coretime(coretime_runtime_type) => match coretime_runtime_type {
-			chain_spec::coretime::CoretimeRuntimeType::Kusama |
-			chain_spec::coretime::CoretimeRuntimeType::KusamaLocal |
-			chain_spec::coretime::CoretimeRuntimeType::Polkadot |
-			chain_spec::coretime::CoretimeRuntimeType::PolkadotLocal |
-			chain_spec::coretime::CoretimeRuntimeType::Rococo |
-			chain_spec::coretime::CoretimeRuntimeType::RococoLocal |
-			chain_spec::coretime::CoretimeRuntimeType::RococoDevelopment |
-			chain_spec::coretime::CoretimeRuntimeType::Westend |
-			chain_spec::coretime::CoretimeRuntimeType::WestendLocal |
-			chain_spec::coretime::CoretimeRuntimeType::WestendDevelopment =>
-				crate::service::start_generic_aura_lookahead_node::<Network>(
-					config,
-					polkadot_config,
-					collator_options,
-					id,
-					hwbench,
-				)
-				.await
-				.map(|r| r.0),
-		}
-		.map_err(Into::into),
-
 		Runtime::Penpal(_) => crate::service::start_rococo_parachain_node::<Network>(
 			config,
 			polkadot_config,
@@ -835,28 +799,6 @@ async fn start_node<Network: sc_network::NetworkBackend<Block, Hash>>(
 		.map(|r| r.0)
 		.map_err(Into::into),
 
-		Runtime::People(people_runtime_type) => match people_runtime_type {
-			chain_spec::people::PeopleRuntimeType::Kusama |
-			chain_spec::people::PeopleRuntimeType::KusamaLocal |
-			chain_spec::people::PeopleRuntimeType::Polkadot |
-			chain_spec::people::PeopleRuntimeType::PolkadotLocal |
-			chain_spec::people::PeopleRuntimeType::Rococo |
-			chain_spec::people::PeopleRuntimeType::RococoLocal |
-			chain_spec::people::PeopleRuntimeType::RococoDevelopment |
-			chain_spec::people::PeopleRuntimeType::Westend |
-			chain_spec::people::PeopleRuntimeType::WestendLocal |
-			chain_spec::people::PeopleRuntimeType::WestendDevelopment =>
-				crate::service::start_generic_aura_lookahead_node::<Network>(
-					config,
-					polkadot_config,
-					collator_options,
-					id,
-					hwbench,
-				)
-				.await
-				.map(|r| r.0),
-		}
-		.map_err(Into::into),
 		Runtime::Omni(consensus) => match consensus {
 			// rococo actually uses aura import and consensus, unlike most system chains that use
 			// relay to aura.
@@ -870,6 +812,7 @@ async fn start_node<Network: sc_network::NetworkBackend<Block, Hash>>(
 			.await
 			.map(|r| r.0)
 			.map_err(Into::into),
+
 			Consensus::Relay => crate::service::start_shell_node::<Network>(
 				config,
 				polkadot_config,
