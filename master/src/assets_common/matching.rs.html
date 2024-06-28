@@ -377,7 +377,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // limitations under the License.
 
 </span><span class="kw">use </span>cumulus_primitives_core::ParaId;
-<span class="kw">use </span>frame_support::{pallet_prelude::Get, traits::ContainsPair};
+<span class="kw">use </span>frame_support::{
+	pallet_prelude::Get,
+	traits::{Contains, ContainsPair},
+};
 <span class="kw">use </span>xcm::prelude::<span class="kw-2">*</span>;
 
 <span class="kw">use </span>xcm_builder::ensure_is_remote;
@@ -457,36 +460,33 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="doccomment">/// Adapter verifies if it is allowed to receive `Asset` from `Location`.
-///
-/// Note: `Location` has to be from a different global consensus.
-</span><span class="kw">pub struct </span>IsTrustedBridgedReserveLocationForConcreteAsset&lt;UniversalLocation, Reserves&gt;(
-	sp_std::marker::PhantomData&lt;(UniversalLocation, Reserves)&gt;,
+<span class="doccomment">/// Accept an asset if it is native to `AssetsAllowedNetworks` and it is coming from
+/// `OriginLocation`.
+</span><span class="kw">pub struct </span>RemoteAssetFromLocation&lt;AssetsAllowedNetworks, OriginLocation&gt;(
+	sp_std::marker::PhantomData&lt;(AssetsAllowedNetworks, OriginLocation)&gt;,
 );
-<span class="kw">impl</span>&lt;UniversalLocation: Get&lt;InteriorLocation&gt;, Reserves: ContainsPair&lt;Asset, Location&gt;&gt;
-	ContainsPair&lt;Asset, Location&gt;
-	<span class="kw">for </span>IsTrustedBridgedReserveLocationForConcreteAsset&lt;UniversalLocation, Reserves&gt;
+<span class="kw">impl</span>&lt;AssetsAllowedNetworks: Contains&lt;Location&gt;, OriginLocation: Get&lt;Location&gt;&gt;
+	ContainsPair&lt;Asset, Location&gt; <span class="kw">for </span>RemoteAssetFromLocation&lt;AssetsAllowedNetworks, OriginLocation&gt;
 {
 	<span class="kw">fn </span>contains(asset: <span class="kw-2">&amp;</span>Asset, origin: <span class="kw-2">&amp;</span>Location) -&gt; bool {
-		<span class="kw">let </span>universal_source = UniversalLocation::get();
-		<span class="macro">log::trace!</span>(
-			target: <span class="string">"xcm::contains"</span>,
-			<span class="string">"IsTrustedBridgedReserveLocationForConcreteAsset asset: {:?}, origin: {:?}, universal_source: {:?}"</span>,
-			asset, origin, universal_source
-		);
-
-		<span class="comment">// check remote origin
-		</span><span class="kw">if </span>ensure_is_remote(universal_source.clone(), origin.clone()).is_err() {
+		<span class="kw">let </span>expected_origin = OriginLocation::get();
+		<span class="comment">// ensure `origin` is expected `OriginLocation`
+		</span><span class="kw">if </span>!expected_origin.eq(origin) {
 			<span class="macro">log::trace!</span>(
 				target: <span class="string">"xcm::contains"</span>,
-				<span class="string">"IsTrustedBridgedReserveLocationForConcreteAsset origin: {:?} is not remote to the universal_source: {:?}"</span>,
-				origin, universal_source
+				<span class="string">"RemoteAssetFromLocation asset: {:?}, origin: {:?} is not from expected {:?}"</span>,
+				asset, origin, expected_origin,
 			);
 			<span class="kw">return </span><span class="bool-val">false
-		</span>}
+		</span>} <span class="kw">else </span>{
+			<span class="macro">log::trace!</span>(
+				target: <span class="string">"xcm::contains"</span>,
+				<span class="string">"RemoteAssetFromLocation asset: {asset:?}, origin: {origin:?}"</span>,
+			);
+		}
 
-		<span class="comment">// check asset according to the configured reserve locations
-		</span>Reserves::contains(asset, origin)
+		<span class="comment">// ensure `asset` is from remote consensus listed in `AssetsAllowedNetworks`
+		</span>AssetsAllowedNetworks::contains(<span class="kw-2">&amp;</span>asset.id.<span class="number">0</span>)
 	}
 }
 

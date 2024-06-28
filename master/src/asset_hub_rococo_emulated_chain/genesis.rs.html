@@ -242,6 +242,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#91" id="91">91</a>
 <a href="#92" id="92">92</a>
 <a href="#93" id="93">93</a>
+<a href="#94" id="94">94</a>
+<a href="#95" id="95">95</a>
+<a href="#96" id="96">96</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -265,7 +268,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">use </span>emulated_integration_tests_common::{
 	accounts, build_genesis_storage, collators, get_account_id_from_seed,
 	PenpalSiblingSovereignAccount, PenpalTeleportableAssetLocation, RESERVABLE_ASSET_ID,
-	SAFE_XCM_VERSION,
+	SAFE_XCM_VERSION, USDT_ID,
 };
 <span class="kw">use </span>parachains_common::{AccountId, Balance};
 
@@ -312,7 +315,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			..Default::default()
 		},
 		assets: asset_hub_rococo_runtime::AssetsConfig {
-			assets: <span class="macro">vec!</span>[(RESERVABLE_ASSET_ID, AssetHubRococoAssetOwner::get(), <span class="bool-val">true</span>, ED)],
+			assets: <span class="macro">vec!</span>[
+				(RESERVABLE_ASSET_ID, AssetHubRococoAssetOwner::get(), <span class="bool-val">true</span>, ED),
+				(USDT_ID, AssetHubRococoAssetOwner::get(), <span class="bool-val">true</span>, ED),
+			],
 			..Default::default()
 		},
 		foreign_assets: asset_hub_rococo_runtime::ForeignAssetsConfig {

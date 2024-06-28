@@ -339,6 +339,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#188" id="188">188</a>
 <a href="#189" id="189">189</a>
 <a href="#190" id="190">190</a>
+<a href="#191" id="191">191</a>
+<a href="#192" id="192">192</a>
+<a href="#193" id="193">193</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -392,10 +395,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">type </span>AccountPublic = &lt;MultiSignature <span class="kw">as </span>Verify&gt;::Signer;
 
-<span class="comment">// This asset is added to AH as Asset and reserved transfer between Parachain and AH
+<span class="comment">// (trust-backed) Asset registered on AH and reserve-transferred between Parachain and AH
 </span><span class="kw">pub const </span>RESERVABLE_ASSET_ID: u32 = <span class="number">1</span>;
-<span class="comment">// This asset is added to AH as ForeignAsset and teleported between Penpal and AH
+<span class="comment">// ForeignAsset registered on AH and teleported between Penpal and AH
 </span><span class="kw">pub const </span>TELEPORTABLE_ASSET_ID: u32 = <span class="number">2</span>;
+
+<span class="comment">// USDT registered on AH as (trust-backed) Asset and reserve-transferred between Parachain and AH
+</span><span class="kw">pub const </span>USDT_ID: u32 = <span class="number">1984</span>;
 
 <span class="kw">pub const </span>PENPAL_ID: u32 = <span class="number">2000</span>;
 <span class="kw">pub const </span>ASSETS_PALLET_ID: u8 = <span class="number">50</span>;
