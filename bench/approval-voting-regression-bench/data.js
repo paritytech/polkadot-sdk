@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1719508953888,
+  "lastUpdate": 1719560063852,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -8976,6 +8976,53 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting",
             "value": 10.347348968209982,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Serban Iorga",
+            "username": "serban300",
+            "email": "serban@parity.io"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "18a6a56cf35590062792a7122404a1ca09ab7fe8",
+          "message": "Add `Runtime::OmniNode` variant to `polkadot-parachain` (#4805)\n\nAdding `Runtime::OmniNode` variant + small changes\n\n---------\n\nCo-authored-by: kianenigma <kian@parity.io>",
+          "timestamp": "2024-06-28T06:02:30Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/18a6a56cf35590062792a7122404a1ca09ab7fe8"
+        },
+        "date": 1719560035791,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63806.72000000001,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52942.90000000001,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 3.129595558990192,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 7.086575974659942,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 9.792857457609909,
             "unit": "seconds"
           }
         ]
