@@ -348,7 +348,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		Members::<T, I>::get()
 	}
 
-	/// The current prime member, if one exists
+	/// The current prime member, if one exists.
 	pub fn prime() -> Option<T::AccountId> {
 		Prime::<T, I>::get()
 	}
