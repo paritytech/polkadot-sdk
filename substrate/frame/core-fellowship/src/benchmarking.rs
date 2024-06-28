@@ -108,19 +108,19 @@ mod benchmarks {
 	fn bump_demote() -> Result<(), BenchmarkError> {
 		set_benchmark_params::<T, I>()?;
 
-		let member = make_member::<T, I>(2)?;
+		let member = make_member::<T, I>(1)?;
 
 		// Set it to the max value to ensure that any possible auto-demotion period has passed.
 		frame_system::Pallet::<T>::set_block_number(BlockNumberFor::<T>::max_value());
 		ensure_evidence::<T, I>(&member)?;
 		assert!(Member::<T, I>::contains_key(&member));
-		assert_eq!(T::Members::rank_of(&member), Some(2));
+		assert_eq!(T::Members::rank_of(&member), Some(1));
 
 		#[extrinsic_call]
 		CoreFellowship::<T, I>::bump(RawOrigin::Signed(member.clone()), member.clone());
 
 		assert!(Member::<T, I>::contains_key(&member));
-		assert_eq!(T::Members::rank_of(&member), Some(1));
+		assert_eq!(T::Members::rank_of(&member), Some(0));
 		assert!(!MemberEvidence::<T, I>::contains_key(&member));
 		Ok(())
 	}
@@ -157,16 +157,16 @@ mod benchmarks {
 		params.min_promotion_period = BoundedVec::try_from(vec![Zero::zero(); max_rank]).unwrap();
 		Params::<T, I>::put(&params);
 
-		let member = make_member::<T, I>(1)?;
+		let member = make_member::<T, I>(0)?;
 
 		// Set it to the max value to ensure that any possible auto-demotion period has passed.
 		frame_system::Pallet::<T>::set_block_number(BlockNumberFor::<T>::max_value());
 		ensure_evidence::<T, I>(&member)?;
 
 		#[extrinsic_call]
-		_(RawOrigin::Root, member.clone(), 2u8.into());
+		_(RawOrigin::Root, member.clone(), 1u8.into());
 
-		assert_eq!(T::Members::rank_of(&member), Some(2));
+		assert_eq!(T::Members::rank_of(&member), Some(1));
 		assert!(!MemberEvidence::<T, I>::contains_key(&member));
 		Ok(())
 	}
