@@ -343,7 +343,7 @@ pub mod pallet {
 }
 
 impl<T: Config<I>, I: 'static> Pallet<T, I> {
-	/// The current membership, stored as an ordered Vec
+	/// The current membership, stored as an ordered `Vec`.
 	pub fn members() -> BoundedVec<T::AccountId, T::MaxMembers> {
 		Members::<T, I>::get()
 	}
