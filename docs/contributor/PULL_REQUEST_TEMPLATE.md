@@ -9,26 +9,22 @@ delete this section and leave only the text under the "Description" heading.
 
 # Description
 
-*Please include a summary of the changes and the related issue. Please also include relevant motivation and context,
-including:*
+*A concise description of what your PR is doing, and what potential issue it is solving. Use [Github semantic linking](https://docs.github.com/en/issues/tracking-your-work-with-issues/linking-a-pull-request-to-an-issue#linking-a-pull-request-to-an-issue-using-a-keyword) to link the PR to an issue that must be closed once this is merged.*
 
-- What does this PR do?
-- Why are these changes needed?
-- How were these changes implemented and what do they affect?
+## Integration
 
-*Use [Github semantic
-linking](https://docs.github.com/en/issues/tracking-your-work-with-issues/linking-a-pull-request-to-an-issue#linking-a-pull-request-to-an-issue-using-a-keyword)
-to address any open issues this PR relates to or closes.*
+*In depth notes about how this PR should be integrated by downstream projects. This part is mandatory, and should be reviewed by reviewers, if the PR does NOT have the `Ro-Silent` label. In case of a `R0-Silent`, it can be ignored.* 
 
-Fixes # (issue number, *if applicable*)
+## Review Notes 
 
-Closes # (issue number, *if applicable*)
+*In depth notes about the **implenentation** details of your PR. This should be the main guide for reviewers to understand your approach and effectively review it. If length, use [`<summary>`](https://www.w3schools.com/tags/tag_summary.asp)*.
+
+*Include your leftover TODOs, if any, here.* 
 
 # Checklist
 
-- [ ] My PR includes a detailed description as outlined in the "Description" section above
-- [ ] My PR follows the [labeling requirements](CONTRIBUTING.md#Process) of this project (at minimum one label for `T`
-  required)
+- [ ] My PR includes a detailed description as outlined in the "Description" and its two subsections above.
+- [ ] My PR follows the [labeling requirements](CONTRIBUTING.md#Process) of this project (at minimum one label for `T` required)
 - [ ] I have made corresponding changes to the documentation (if applicable)
 - [ ] I have added tests that prove my fix is effective or that my feature works (if applicable)
 
