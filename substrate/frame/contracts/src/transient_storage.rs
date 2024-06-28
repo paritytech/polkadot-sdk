@@ -344,14 +344,12 @@ impl<T: Config> TransientStorage<T> {
 
 #[cfg(test)]
 mod tests {
-
-	use core::u32::MAX;
-
 	use super::*;
 	use crate::{
 		tests::{Test, ALICE, BOB, CHARLIE},
 		Error,
 	};
+	use core::u32::MAX;
 
 	fn allocation_size(
 		account: &AccountIdOf<Test>,
@@ -568,20 +566,23 @@ mod tests {
 	#[test]
 	fn metering_transactions_works() {
 		let size = allocation_size(&ALICE, &Key::Fix([1; 32]), Some(vec![1u8; 4096]));
-
 		let mut storage = TransientStorage::<Test>::new(size * 2);
 		storage.start_transaction();
 		assert_eq!(
 			storage.write(&ALICE, &Key::Fix([1; 32]), Some(vec![1u8; 4096]), false),
 			Ok(WriteOutcome::New)
 		);
+		let limit = storage.meter().current_limit();
 		storage.commit_transaction();
 
 		storage.start_transaction();
+		assert_eq!(storage.meter().current_limit() - storage.meter().current_amount(), size);
 		assert_eq!(
 			storage.write(&ALICE, &Key::Fix([2; 32]), Some(vec![1u8; 4096]), false),
 			Ok(WriteOutcome::New)
 		);
+		assert_eq!(storage.meter().current_limit(), limit - size);
+		assert_eq!(storage.meter().current_amount() * 2, storage.meter().total_amount());
 		storage.commit_transaction();
 	}
 
@@ -591,16 +592,21 @@ mod tests {
 		let mut storage = TransientStorage::<Test>::new(size * 3);
 
 		storage.start_transaction();
+		let limit = storage.meter().current_limit();
 		assert_eq!(
 			storage.write(&ALICE, &Key::Fix([1; 32]), Some(vec![1u8; 4096]), false),
 			Ok(WriteOutcome::New)
 		);
 		storage.start_transaction();
+		assert_eq!(storage.meter().total_amount(), size);
+		assert!(storage.meter().current_limit() < limit - size);
 		assert_eq!(
 			storage.write(&ALICE, &Key::Fix([2; 32]), Some(vec![1u8; 4096]), false),
 			Ok(WriteOutcome::New)
 		);
 		storage.commit_transaction();
+		assert_eq!(storage.meter().current_limit(), limit);
+		assert_eq!(storage.meter().total_amount(), storage.meter().current_amount());
 		storage.commit_transaction();
 	}
 
@@ -634,6 +640,7 @@ mod tests {
 		);
 		storage.commit_transaction();
 		storage.commit_transaction();
+		assert_eq!(storage.meter.total_amount(), size);
 	}
 
 	#[test]
@@ -656,6 +663,7 @@ mod tests {
 			storage.write(&ALICE, &Key::Fix([1; 32]), Some(vec![1u8; 4096]), false),
 			Ok(WriteOutcome::New)
 		);
+		assert_eq!(storage.meter().current_amount(), storage.meter().total_amount());
 		storage.commit_transaction();
 	}
 

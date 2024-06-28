@@ -20,8 +20,8 @@ use crate::{
 	exec::{Ext, Key, Stack},
 	storage::meter::Meter,
 	wasm::Runtime,
-	BalanceOf, Config, DebugBufferVec, Determinism, ExecReturnValue, GasMeter, Origin, Schedule,
-	TypeInfo, WasmBlob, Weight,
+	BalanceOf, Config, DebugBufferVec, Determinism, Error, ExecReturnValue, GasMeter, Origin,
+	Schedule, TypeInfo, WasmBlob, Weight,
 };
 use codec::{Encode, HasCompact};
 use core::fmt::Debug;
@@ -29,7 +29,7 @@ use frame_benchmarking::benchmarking;
 use sp_core::Get;
 use sp_std::prelude::*;
 
-pub type StackExt<'a, T> = Stack<'a, T, WasmBlob<T>>;
+type StackExt<'a, T> = Stack<'a, T, WasmBlob<T>>;
 
 /// A prepared contract call ready to be executed.
 pub struct PreparedCall<'a, T: Config> {
@@ -161,18 +161,23 @@ where
 	}
 
 	/// Add transient_storage
-	pub fn with_transient_storage(ext: &mut StackExt<T>) {
+	pub fn with_transient_storage(ext: &mut StackExt<T>) -> Result<(), &'static str> {
 		for i in 0u32.. {
 			let mut key_data = i.to_le_bytes().to_vec();
-			while key_data.first() == Some(&0) {
-				key_data.remove(0);
+			while key_data.last() == Some(&0) {
+				key_data.pop();
 			}
 			let key = Key::<T>::try_from_var(key_data).unwrap();
-			if ext.set_transient_storage(&key, Some(Vec::new()), false).is_err() {
-				ext.transient_storage().meter().clear();
-				break;
+			if let Err(e) = ext.set_transient_storage(&key, Some(Vec::new()), false) {
+				if e == Error::<T>::OutOfTransientStorage.into() {
+					ext.transient_storage().meter().clear();
+					break;
+				} else {
+					return Err("Initialization of the transient storage failed");
+				}
 			}
 		}
+		Ok(())
 	}
 
 	/// Prepare a call to the module.

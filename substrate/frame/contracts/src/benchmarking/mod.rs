@@ -1197,7 +1197,7 @@ mod benchmarks {
 
 		let mut setup = CallSetup::<T>::default();
 		let (mut ext, _) = setup.ext();
-		CallSetup::<T>::with_transient_storage(&mut ext);
+		CallSetup::<T>::with_transient_storage(&mut ext)?;
 		let mut runtime = crate::wasm::Runtime::new(&mut ext, vec![]);
 		let result;
 		#[block]
@@ -1247,7 +1247,7 @@ mod benchmarks {
 
 		let mut setup = CallSetup::<T>::default();
 		let (mut ext, _) = setup.ext();
-		CallSetup::<T>::with_transient_storage(&mut ext);
+		CallSetup::<T>::with_transient_storage(&mut ext)?;
 		let mut runtime = crate::wasm::Runtime::new(&mut ext, vec![]);
 		runtime
 			.ext()
@@ -1273,7 +1273,7 @@ mod benchmarks {
 
 		let mut setup = CallSetup::<T>::default();
 		let (mut ext, _) = setup.ext();
-		CallSetup::<T>::with_transient_storage(&mut ext);
+		CallSetup::<T>::with_transient_storage(&mut ext)?;
 		let mut runtime = crate::wasm::Runtime::new(&mut ext, vec![]);
 		runtime.ext().transient_storage().start_transaction();
 		runtime
