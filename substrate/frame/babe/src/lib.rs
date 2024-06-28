@@ -521,11 +521,11 @@ impl<T: Config> Pallet<T> {
 		EpochIndex::<T>::get()
 	}
 	/// Public function to access authorities storage.
-	pub fn authorities() ->  WeakBoundedVec<(AuthorityId, BabeAuthorityWeight), T::MaxAuthorities> {
+	pub fn authorities() -> WeakBoundedVec<(AuthorityId, BabeAuthorityWeight), T::MaxAuthorities> {
 		Authorities::<T>::get()
 	}
 	/// Public function to access genesis_slot storage.
-	pub fn genesis_slot() ->  Slot {
+	pub fn genesis_slot() -> Slot {
 		GenesisSlot::<T>::get()
 	}
 	/// Public function to access current_slot storage.

@@ -272,7 +272,8 @@ pub fn make_vrf_signature_and_randomness(
 	slot: Slot,
 	pair: &sp_consensus_babe::AuthorityPair,
 ) -> (VrfSignature, Randomness) {
-	let transcript = sp_consensus_babe::make_vrf_transcript(&pallet_babe::Randomness::<Test>::get(), slot, 0);
+	let transcript =
+		sp_consensus_babe::make_vrf_transcript(&pallet_babe::Randomness::<Test>::get(), slot, 0);
 
 	let randomness =
 		pair.as_ref().make_bytes(sp_consensus_babe::RANDOMNESS_VRF_CONTEXT, &transcript);

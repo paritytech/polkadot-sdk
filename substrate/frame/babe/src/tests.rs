@@ -1044,4 +1044,3 @@ fn skipping_over_epochs_works() {
 		assert_eq!(Babe::session_index_for_epoch(5), 3);
 	});
 }
-
