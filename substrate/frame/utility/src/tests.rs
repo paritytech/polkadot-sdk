@@ -30,6 +30,7 @@ use frame_support::{
 	traits::{ConstU64, Contains},
 	weights::Weight,
 };
+use frame_system::EnsureRoot;
 use pallet_collective::{EnsureProportionAtLeast, Instance1};
 use sp_runtime::{
 	traits::{BlakeTwo256, Dispatchable, Hash},
@@ -190,6 +191,9 @@ impl pallet_collective::Config<CouncilCollective> for Test {
 	type WeightInfo = ();
 	type SetMembersOrigin = frame_system::EnsureRoot<Self::AccountId>;
 	type MaxProposalWeight = MaxProposalWeight;
+	type DisapproveOrigin = EnsureRoot<Self::AccountId>;
+	type KillOrigin = EnsureRoot<Self::AccountId>;
+	type Consideration = ();
 }
 
 impl example::Config for Test {}

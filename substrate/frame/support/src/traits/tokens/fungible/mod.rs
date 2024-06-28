@@ -158,6 +158,8 @@ mod union_of;
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support_procedural::{CloneNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound};
 use scale_info::TypeInfo;
+#[cfg(feature = "runtime-benchmarks")]
+use sp_runtime::Saturating;
 use sp_std::marker::PhantomData;
 
 use super::{
@@ -204,8 +206,9 @@ pub struct FreezeConsideration<A, F, R, D, Fp>(F::Balance, PhantomData<fn() -> (
 where
 	F: MutateFreeze<A>;
 impl<
-		A: 'static,
-		F: 'static + MutateFreeze<A>,
+		A: 'static + Eq,
+		#[cfg(not(feature = "runtime-benchmarks"))] F: 'static + MutateFreeze<A>,
+		#[cfg(feature = "runtime-benchmarks")] F: 'static + MutateFreeze<A> + Mutate<A>,
 		R: 'static + Get<F::Id>,
 		D: 'static + Convert<Fp, F::Balance>,
 		Fp: 'static,
@@ -236,6 +239,10 @@ impl<
 	fn drop(self, who: &A) -> Result<(), DispatchError> {
 		F::decrease_frozen(&R::get(), who, self.0).map(|_| ())
 	}
+	#[cfg(feature = "runtime-benchmarks")]
+	fn ensure_successful(who: &A, fp: Fp) {
+		let _ = F::mint_into(who, F::minimum_balance().saturating_add(D::convert(fp)));
+	}
 }
 
 /// Consideration method using a `fungible` balance frozen as the cost exacted for the footprint.
@@ -258,8 +265,9 @@ pub struct HoldConsideration<A, F, R, D, Fp = Footprint>(
 where
 	F: MutateHold<A>;
 impl<
-		A: 'static,
-		F: 'static + MutateHold<A>,
+		A: 'static + Eq,
+		#[cfg(not(feature = "runtime-benchmarks"))] F: 'static + MutateHold<A>,
+		#[cfg(feature = "runtime-benchmarks")] F: 'static + MutateHold<A> + Mutate<A>,
 		R: 'static + Get<F::Reason>,
 		D: 'static + Convert<Fp, F::Balance>,
 		Fp: 'static,
@@ -293,6 +301,10 @@ impl<
 	fn burn(self, who: &A) {
 		let _ = F::burn_held(&R::get(), who, self.0, BestEffort, Force);
 	}
+	#[cfg(feature = "runtime-benchmarks")]
+	fn ensure_successful(who: &A, fp: Fp) {
+		let _ = F::mint_into(who, F::minimum_balance().saturating_add(D::convert(fp)));
+	}
 }
 
 /// Basic consideration method using a `fungible` balance frozen as the cost exacted for the
@@ -316,8 +328,9 @@ impl<
 #[codec(mel_bound())]
 pub struct LoneFreezeConsideration<A, Fx, Rx, D, Fp>(PhantomData<fn() -> (A, Fx, Rx, D, Fp)>);
 impl<
-		A: 'static,
-		Fx: 'static + MutateFreeze<A>,
+		A: 'static + Eq,
+		#[cfg(not(feature = "runtime-benchmarks"))] Fx: 'static + MutateFreeze<A>,
+		#[cfg(feature = "runtime-benchmarks")] Fx: 'static + MutateFreeze<A> + Mutate<A>,
 		Rx: 'static + Get<Fx::Id>,
 		D: 'static + Convert<Fp, Fx::Balance>,
 		Fp: 'static,
@@ -344,6 +357,10 @@ impl<
 	fn drop(self, who: &A) -> Result<(), DispatchError> {
 		Fx::thaw(&Rx::get(), who).map(|_| ())
 	}
+	#[cfg(feature = "runtime-benchmarks")]
+	fn ensure_successful(who: &A, fp: Fp) {
+		let _ = Fx::mint_into(who, Fx::minimum_balance().saturating_add(D::convert(fp)));
+	}
 }
 
 /// Basic consideration method using a `fungible` balance placed on hold as the cost exacted for the
@@ -367,8 +384,9 @@ impl<
 #[codec(mel_bound())]
 pub struct LoneHoldConsideration<A, Fx, Rx, D, Fp>(PhantomData<fn() -> (A, Fx, Rx, D, Fp)>);
 impl<
-		A: 'static,
-		F: 'static + MutateHold<A>,
+		A: 'static + Eq,
+		#[cfg(not(feature = "runtime-benchmarks"))] F: 'static + MutateHold<A>,
+		#[cfg(feature = "runtime-benchmarks")] F: 'static + MutateHold<A> + Mutate<A>,
 		R: 'static + Get<F::Reason>,
 		D: 'static + Convert<Fp, F::Balance>,
 		Fp: 'static,
@@ -397,5 +415,9 @@ impl<
 	}
 	fn burn(self, who: &A) {
 		let _ = F::burn_all_held(&R::get(), who, BestEffort, Force);
+	}
+	#[cfg(feature = "runtime-benchmarks")]
+	fn ensure_successful(who: &A, fp: Fp) {
+		let _ = F::mint_into(who, F::minimum_balance().saturating_add(D::convert(fp)));
 	}
 }
