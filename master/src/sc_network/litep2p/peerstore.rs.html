@@ -540,6 +540,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#389" id="389">389</a>
 <a href="#390" id="390">390</a>
 <a href="#391" id="391">391</a>
+<a href="#392" id="392">392</a>
+<a href="#393" id="393">393</a>
+<a href="#394" id="394">394</a>
+<a href="#395" id="395">395</a>
+<a href="#396" id="396">396</a>
+<a href="#397" id="397">397</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -584,14 +590,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">"sub-libp2p::peerstore"</span>;
 
 <span class="doccomment">/// We don't accept nodes whose reputation is under this value.
-</span><span class="kw">pub const </span>BANNED_THRESHOLD: i32 = <span class="number">82 </span>* (i32::MIN / <span class="number">100</span>);
+</span><span class="kw">pub const </span>BANNED_THRESHOLD: i32 = <span class="number">71 </span>* (i32::MIN / <span class="number">100</span>);
 
 <span class="doccomment">/// Relative decrement of a reputation value that is applied every second. I.e., for inverse
-/// decrement of 50 we decrease absolute value of the reputation by 1/50. This corresponds to a
-/// factor of `k = 0.98`. It takes ~ `ln(0.5) / ln(k)` seconds to reduce the reputation by half,
-/// or 34.3 seconds for the values above. In this setup the maximum allowed absolute value of
-/// `i32::MAX` becomes 0 in ~1100 seconds (actually less due to integer arithmetic).
-</span><span class="kw">const </span>INVERSE_DECREMENT: i32 = <span class="number">50</span>;
+/// decrement of 200 we decrease absolute value of the reputation by 1/200.
+///
+/// This corresponds to a factor of `k = 0.995`, where k = 1 - 1 / INVERSE_DECREMENT.
+///
+/// It takes ~ `ln(0.5) / ln(k)` seconds to reduce the reputation by half, or 138.63 seconds for the
+/// values above.
+///
+/// In this setup:
+/// - `i32::MAX` becomes 0 in exactly 3544 seconds, or approximately 59 minutes
+/// - `i32::MIN` escapes the banned threshold in 69 seconds
+</span><span class="kw">const </span>INVERSE_DECREMENT: i32 = <span class="number">200</span>;
 
 <span class="doccomment">/// Amount of time between the moment we last updated the [`PeerStore`] entry and the moment we
 /// remove it, once the reputation value reaches 0.
@@ -904,7 +916,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>decaying_max_reputation_finally_yields_zero() {
 		<span class="kw">const </span>INITIAL_REPUTATION: i32 = i32::MAX;
-		<span class="kw">const </span>SECONDS: u64 = <span class="number">1000</span>;
+		<span class="kw">const </span>SECONDS: u64 = <span class="number">3544</span>;
 
 		<span class="kw">let </span><span class="kw-2">mut </span>peer_info = PeerInfo::default();
 		peer_info.reputation = INITIAL_REPUTATION;
@@ -919,7 +931,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>decaying_min_reputation_finally_yields_zero() {
 		<span class="kw">const </span>INITIAL_REPUTATION: i32 = i32::MIN;
-		<span class="kw">const </span>SECONDS: u64 = <span class="number">1000</span>;
+		<span class="kw">const </span>SECONDS: u64 = <span class="number">3544</span>;
 
 		<span class="kw">let </span><span class="kw-2">mut </span>peer_info = PeerInfo::default();
 		peer_info.reputation = INITIAL_REPUTATION;
