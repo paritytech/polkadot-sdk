@@ -63,7 +63,7 @@ struct RuntimeVersion {
 	impl_version: u32,
 	apis: u8,
 	transaction_version: u32,
-	state_version: u8,
+	system_version: u8,
 }
 
 #[derive(Default, Debug)]
@@ -74,7 +74,7 @@ struct ParseRuntimeVersion {
 	spec_version: Option<u32>,
 	impl_version: Option<u32>,
 	transaction_version: Option<u32>,
-	state_version: Option<u8>,
+	system_version: Option<u8>,
 }
 
 impl ParseRuntimeVersion {
@@ -124,8 +124,8 @@ impl ParseRuntimeVersion {
 			parse_once(&mut self.impl_version, field_value, Self::parse_num_literal)?;
 		} else if field_name == "transaction_version" {
 			parse_once(&mut self.transaction_version, field_value, Self::parse_num_literal)?;
-		} else if field_name == "state_version" {
-			parse_once(&mut self.state_version, field_value, Self::parse_num_literal_u8)?;
+		} else if field_name == "system_version" {
+			parse_once(&mut self.system_version, field_value, Self::parse_num_literal_u8)?;
 		} else if field_name == "apis" {
 			// Intentionally ignored
 			//
@@ -198,7 +198,7 @@ impl ParseRuntimeVersion {
 			spec_version,
 			impl_version,
 			transaction_version,
-			state_version,
+			system_version,
 		} = self;
 
 		Ok(RuntimeVersion {
@@ -208,7 +208,7 @@ impl ParseRuntimeVersion {
 			spec_version: required!(spec_version),
 			impl_version: required!(impl_version),
 			transaction_version: required!(transaction_version),
-			state_version: required!(state_version),
+			system_version: required!(system_version),
 			apis: 0,
 		})
 	}
@@ -240,7 +240,7 @@ mod tests {
 			impl_version: 1,
 			apis: 0,
 			transaction_version: 2,
-			state_version: 1,
+			system_version: 1,
 		}
 		.encode();
 
@@ -255,7 +255,7 @@ mod tests {
 				impl_version: 1,
 				apis: Cow::Owned(vec![]),
 				transaction_version: 2,
-				state_version: 1,
+				system_version: 1,
 			},
 		);
 	}
