@@ -576,12 +576,12 @@ mod staking_integration {
 
 			// update_payee to self fails.
 			assert_noop!(
-				<Staking as StakingInterface>::update_payee(&200, &200),
+				<Staking as StakingInterface>::set_payee(&200, &200),
 				StakingError::<T>::RewardDestinationRestricted
 			);
 
 			// passing correct reward destination works
-			assert_ok!(<Staking as StakingInterface>::update_payee(&200, &201));
+			assert_ok!(<Staking as StakingInterface>::set_payee(&200, &201));
 
 			// amount is staked correctly
 			assert!(eq_stake(200, 100, 100));
@@ -716,6 +716,7 @@ mod staking_integration {
 mod pool_integration {
 	use super::*;
 	use pallet_nomination_pools::{BondExtra, BondedPools, PoolState};
+	use pallet_staking::RewardDestination;
 
 	#[test]
 	fn create_pool_test() {
@@ -1217,6 +1218,63 @@ mod pool_integration {
 		});
 	}
 
+	#[test]
+	fn existing_stakers_cannot_participate_in_pools() {
+		// Staking uses freezes while pools/delegated-staking uses holds. It is possible that funds
+		// frozen for staking, could be re-used to participate in pools. To avoid this, we can
+		// blacklist the stakers from participating in pools. See
+		// `pallet_nomination_pools::Config::Blacklist`.
+		ExtBuilder::default().build_and_execute(|| {
+			// GIVEN
+			// alice and a pool
+			let alice = 300;
+			fund(&alice, 1000);
+			fund(&200, 5000);
+			let pool_id = create_pool(200, 5000);
+
+			// WHEN
+			// alice directly stakes.
+			assert_ok!(Staking::bond(
+				RuntimeOrigin::signed(alice),
+				300,
+				RewardDestination::Account(alice)
+			));
+
+			// THEN
+			// alice cannot join the pool.
+			assert_noop!(
+				Pools::join(RawOrigin::Signed(alice).into(), 300, pool_id),
+				PoolsError::<T>::Blacklisted
+			);
+		});
+	}
+
+	#[test]
+	fn existing_pool_members_cannot_directly_stake() {
+		// Staking uses freezes while pools/delegated-staking uses holds. It is possible that funds
+		// frozen for staking, could be re-used to participate in pools. To avoid this, we can
+		// blacklist pool members from participating in staking. See
+		// `pallet_staking::Config::Blacklist`.
+		ExtBuilder::default().build_and_execute(|| {
+			// GIVEN
+			// alice and a pool
+			let alice = 300;
+			fund(&alice, 1000);
+			fund(&200, 5000);
+			let pool_id = create_pool(200, 5000);
+
+			// WHEN
+			// alice participates in a pool.
+			assert_ok!(Pools::join(RawOrigin::Signed(alice).into(), 300, pool_id));
+
+			// THEN
+			// alice cannot directly stake.
+			assert_noop!(
+				Staking::bond(RuntimeOrigin::signed(alice), 300, RewardDestination::Account(alice)),
+				StakingError::<T>::Blacklisted
+			);
+		});
+	}
 	fn create_pool(creator: AccountId, amount: Balance) -> u32 {
 		fund(&creator, amount * 2);
 		assert_ok!(Pools::create(

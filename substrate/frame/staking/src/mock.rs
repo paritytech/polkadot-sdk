@@ -25,8 +25,8 @@ use frame_election_provider_support::{
 use frame_support::{
 	assert_ok, derive_impl, ord_parameter_types, parameter_types,
 	traits::{
-		ConstU64, Currency, EitherOfDiverse, FindAuthor, Get, Hooks, Imbalance, LockableCurrency,
-		OnUnbalanced, OneSessionHandler, WithdrawReasons,
+		ConstU64, Contains, Currency, EitherOfDiverse, FindAuthor, Get, Hooks, Imbalance,
+		LockableCurrency, OnUnbalanced, OneSessionHandler, WithdrawReasons,
 	},
 	weights::constants::RocksDbWeight,
 };
@@ -241,6 +241,7 @@ parameter_types! {
 		(BalanceOf<Test>, BTreeMap<EraIndex, BalanceOf<Test>>) =
 		(Zero::zero(), BTreeMap::new());
 	pub static SlashObserver: BTreeMap<AccountId, BalanceOf<Test>> = BTreeMap::new();
+	pub static BlacklistedAccounts: Vec<AccountId> = Vec::new();
 }
 
 pub struct EventListenerMock;
@@ -255,6 +256,13 @@ impl OnStakingUpdate<AccountId, Balance> for EventListenerMock {
 		SlashObserver::mutate(|map| {
 			map.insert(*pool_account, map.get(pool_account).unwrap_or(&0) + total_slashed)
 		});
+	}
+}
+
+pub struct BlacklistMock;
+impl Contains<AccountId> for BlacklistMock {
+	fn contains(who: &AccountId) -> bool {
+		BlacklistedAccounts::get().contains(who)
 	}
 }
 
@@ -285,6 +293,7 @@ impl crate::pallet::pallet::Config for Test {
 	type MaxControllersInDeprecationBatch = MaxControllersInDeprecationBatch;
 	type EventListeners = EventListenerMock;
 	type DisablingStrategy = pallet_staking::UpToLimitDisablingStrategy<DISABLING_LIMIT_FACTOR>;
+	type Blacklist = BlacklistMock;
 }
 
 pub struct WeightedNominationsQuota<const MAX: u32>;
@@ -926,4 +935,14 @@ pub(crate) fn staking_events_since_last_call() -> Vec<crate::Event<Test>> {
 
 pub(crate) fn balances(who: &AccountId) -> (Balance, Balance) {
 	(Balances::free_balance(who), Balances::reserved_balance(who))
+}
+
+pub(crate) fn blacklist(who: &AccountId) {
+	if !BlacklistedAccounts::get().contains(who) {
+		BlacklistedAccounts::mutate(|l| l.push(*who));
+	}
+}
+
+pub(crate) fn remove_from_blacklist(who: &AccountId) {
+	BlacklistedAccounts::mutate(|l| l.retain(|x| x != who));
 }

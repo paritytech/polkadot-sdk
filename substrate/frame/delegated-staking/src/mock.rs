@@ -111,6 +111,7 @@ impl pallet_staking::Config for Runtime {
 	type VoterList = pallet_staking::UseNominatorsAndValidatorsMap<Self>;
 	type TargetList = pallet_staking::UseValidatorsMap<Self>;
 	type EventListeners = (Pools, DelegatedStaking);
+	type Blacklist = pallet_nomination_pools::AllPoolMembers<Self>;
 }
 
 parameter_types! {
@@ -160,6 +161,7 @@ impl pallet_nomination_pools::Config for Runtime {
 	type StakeAdapter =
 		pallet_nomination_pools::adapter::DelegateStake<Self, Staking, DelegatedStaking>;
 	type AdminOrigin = frame_system::EnsureRoot<Self::AccountId>;
+	type Blacklist = pallet_staking::AllStakers<Self>;
 }
 
 frame_support::construct_runtime!(

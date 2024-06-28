@@ -273,6 +273,7 @@ impl pallet_nomination_pools::Config for Runtime {
 	type MaxUnbonding = MaxUnbonding;
 	type MaxPointsToBalance = frame_support::traits::ConstU8<10>;
 	type AdminOrigin = frame_system::EnsureRoot<Self::AccountId>;
+	type Blacklist = pallet_staking::AllStakers<Self>;
 }
 
 parameter_types! {
@@ -307,6 +308,7 @@ impl pallet_staking::Config for Runtime {
 	type WeightInfo = pallet_staking::weights::SubstrateWeight<Runtime>;
 	type DisablingStrategy = pallet_staking::UpToLimitDisablingStrategy<SLASHING_DISABLING_FACTOR>;
 	type BenchmarkingConfig = pallet_staking::TestBenchmarkingConfig;
+	type Blacklist = pallet_nomination_pools::AllPoolMembers<Self>;
 }
 
 impl<LocalCall> frame_system::offchain::SendTransactionTypes<LocalCall> for Runtime
