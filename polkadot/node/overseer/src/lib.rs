@@ -496,7 +496,7 @@ pub struct Overseer<SupportsParachains> {
 		RuntimeApiMessage,
 		ProspectiveParachainsMessage,
 		ChainApiMessage,
-	])]
+	], can_receive_priority_messages)]
 	statement_distribution: StatementDistribution,
 
 	#[subsystem(AvailabilityDistributionMessage, sends: [
@@ -525,7 +525,7 @@ pub struct Overseer<SupportsParachains> {
 		RuntimeApiMessage,
 		NetworkBridgeTxMessage,
 		ProvisionerMessage,
-	])]
+	], can_receive_priority_messages)]
 	bitfield_distribution: BitfieldDistribution,
 
 	#[subsystem(ProvisionerMessage, sends: [
@@ -581,7 +581,7 @@ pub struct Overseer<SupportsParachains> {
 	#[subsystem(blocking, message_capacity: 64000, ApprovalDistributionMessage, sends: [
 		NetworkBridgeTxMessage,
 		ApprovalVotingMessage,
-	])]
+	], can_receive_priority_messages)]
 	approval_distribution: ApprovalDistribution,
 
 	#[subsystem(blocking, ApprovalVotingMessage, sends: [
@@ -600,7 +600,7 @@ pub struct Overseer<SupportsParachains> {
 		NetworkBridgeRxMessage, // TODO <https://github.com/paritytech/polkadot/issues/5626>
 		RuntimeApiMessage,
 		ChainSelectionMessage,
-	])]
+	], can_receive_priority_messages)]
 	gossip_support: GossipSupport,
 
 	#[subsystem(blocking, message_capacity: 32000, DisputeCoordinatorMessage, sends: [
