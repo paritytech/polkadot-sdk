@@ -13,7 +13,7 @@ delete this section and leave only the text under the "Description" heading.
 
 ## Integration
 
-*In depth notes about how this PR should be integrated by downstream projects. This part is mandatory, and should be reviewed by reviewers, if the PR does NOT have the `Ro-Silent` label. In case of a `R0-Silent`, it can be ignored.* 
+*In depth notes about how this PR should be integrated by downstream projects. This part is mandatory, and should be reviewed by reviewers, if the PR does NOT have the `R0-Silent` label. In case of a `R0-Silent`, it can be ignored.* 
 
 ## Review Notes 
 
