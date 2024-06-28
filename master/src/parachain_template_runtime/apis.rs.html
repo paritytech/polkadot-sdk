@@ -438,6 +438,22 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#287" id="287">287</a>
 <a href="#288" id="288">288</a>
 <a href="#289" id="289">289</a>
+<a href="#290" id="290">290</a>
+<a href="#291" id="291">291</a>
+<a href="#292" id="292">292</a>
+<a href="#293" id="293">293</a>
+<a href="#294" id="294">294</a>
+<a href="#295" id="295">295</a>
+<a href="#296" id="296">296</a>
+<a href="#297" id="297">297</a>
+<a href="#298" id="298">298</a>
+<a href="#299" id="299">299</a>
+<a href="#300" id="300">300</a>
+<a href="#301" id="301">301</a>
+<a href="#302" id="302">302</a>
+<a href="#303" id="303">303</a>
+<a href="#304" id="304">304</a>
+<a href="#305" id="305">305</a>
 </pre></div><pre class="rust"><code><span class="comment">// This is free and unencumbered software released into the public domain.
 //
 // Anyone is free to copy, modify, publish, use, compile, sell, or
@@ -487,10 +503,26 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	SLOT_DURATION, VERSION,
 };
 
+<span class="comment">// we move some impls outside so we can easily use them with `docify`.
+</span><span class="kw">impl </span>Runtime {
+	<span class="attr">#[docify::export]
+	</span><span class="kw">fn </span>impl_slot_duration() -&gt; sp_consensus_aura::SlotDuration {
+		sp_consensus_aura::SlotDuration::from_millis(SLOT_DURATION)
+	}
+
+	<span class="attr">#[docify::export]
+	</span><span class="kw">fn </span>impl_can_build_upon(
+		included_hash: &lt;Block <span class="kw">as </span>BlockT&gt;::Hash,
+		slot: cumulus_primitives_aura::Slot,
+	) -&gt; bool {
+		ConsensusHook::can_build_upon(included_hash, slot)
+	}
+}
+
 <span class="macro">impl_runtime_apis! </span>{
 	<span class="kw">impl </span>sp_consensus_aura::AuraApi&lt;Block, AuraId&gt; <span class="kw">for </span>Runtime {
 		<span class="kw">fn </span>slot_duration() -&gt; sp_consensus_aura::SlotDuration {
-			sp_consensus_aura::SlotDuration::from_millis(SLOT_DURATION)
+			Runtime::impl_slot_duration()
 		}
 
 		<span class="kw">fn </span>authorities() -&gt; Vec&lt;AuraId&gt; {
@@ -503,7 +535,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			included_hash: &lt;Block <span class="kw">as </span>BlockT&gt;::Hash,
 			slot: cumulus_primitives_aura::Slot,
 		) -&gt; bool {
-			ConsensusHook::can_build_upon(included_hash, slot)
+			Runtime::impl_can_build_upon(included_hash, slot)
 		}
 	}
 

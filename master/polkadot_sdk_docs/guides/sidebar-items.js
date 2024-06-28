@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":["enable_metadata_hash","enable_pov_reclaim","your_first_pallet","your_first_runtime"]};
+window.SIDEBAR_ITEMS = {"mod":["async_backing_guide","enable_metadata_hash","enable_pov_reclaim","your_first_pallet","your_first_runtime"]};

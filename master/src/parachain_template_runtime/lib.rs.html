@@ -448,6 +448,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#297" id="297">297</a>
 <a href="#298" id="298">298</a>
 <a href="#299" id="299">299</a>
+<a href="#300" id="300">300</a>
+<a href="#301" id="301">301</a>
+<a href="#302" id="302">302</a>
+<a href="#303" id="303">303</a>
+<a href="#304" id="304">304</a>
+<a href="#305" id="305">305</a>
+<a href="#306" id="306">306</a>
+<a href="#307" id="307">307</a>
+<a href="#308" id="308">308</a>
+<a href="#309" id="309">309</a>
+<a href="#310" id="310">310</a>
 </pre></div><pre class="rust"><code><span class="attr">#![cfg_attr(not(feature = <span class="string">"std"</span>), no_std)]
 </span><span class="comment">// `construct_runtime!` does a lot of recursion and requires us to increase the limit to 256.
 </span><span class="attr">#![recursion_limit = <span class="string">"256"</span>]
@@ -618,17 +629,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	state_version: <span class="number">1</span>,
 };
 
-<span class="doccomment">/// This determines the average expected block time that we are targeting.
-/// Blocks will be produced at a minimum duration defined by `SLOT_DURATION`.
-/// `SLOT_DURATION` is picked up by `pallet_timestamp` which is in turn picked
-/// up by `pallet_aura` to implement `fn slot_duration()`.
-///
-/// Change this to adjust the block time.
-</span><span class="kw">pub const </span>MILLISECS_PER_BLOCK: u64 = <span class="number">6000</span>;
+<span class="attr">#[docify::export]
+</span><span class="kw">mod </span>block_times {
+	<span class="doccomment">/// This determines the average expected block time that we are targeting. Blocks will be
+	/// produced at a minimum duration defined by `SLOT_DURATION`. `SLOT_DURATION` is picked up by
+	/// `pallet_timestamp` which is in turn picked up by `pallet_aura` to implement `fn
+	/// slot_duration()`.
+	///
+	/// Change this to adjust the block time.
+	</span><span class="kw">pub const </span>MILLISECS_PER_BLOCK: u64 = <span class="number">6000</span>;
 
-<span class="comment">// NOTE: Currently it is not possible to change the slot duration after the chain has started.
-//       Attempting to do so will brick block production.
-</span><span class="kw">pub const </span>SLOT_DURATION: u64 = MILLISECS_PER_BLOCK;
+	<span class="comment">// NOTE: Currently it is not possible to change the slot duration after the chain has started.
+	// Attempting to do so will brick block production.
+	</span><span class="kw">pub const </span>SLOT_DURATION: u64 = MILLISECS_PER_BLOCK;
+}
+<span class="kw">pub use </span>block_times::<span class="kw-2">*</span>;
 
 <span class="comment">// Time is measured by number of blocks.
 </span><span class="kw">pub const </span>MINUTES: BlockNumber = <span class="number">60_000 </span>/ (MILLISECS_PER_BLOCK <span class="kw">as </span>BlockNumber);
@@ -651,22 +666,28 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// `Operational` extrinsics.
 </span><span class="kw">const </span>NORMAL_DISPATCH_RATIO: Perbill = Perbill::from_percent(<span class="number">75</span>);
 
-<span class="doccomment">/// We allow for 2 seconds of compute with a 6 second average block time.
+<span class="attr">#[docify::export(max_block_weight)]
+</span><span class="doccomment">/// We allow for 2 seconds of compute with a 6 second average block time.
 </span><span class="kw">const </span>MAXIMUM_BLOCK_WEIGHT: Weight = Weight::from_parts(
 	WEIGHT_REF_TIME_PER_SECOND.saturating_mul(<span class="number">2</span>),
 	cumulus_primitives_core::relay_chain::MAX_POV_SIZE <span class="kw">as </span>u64,
 );
 
-<span class="doccomment">/// Maximum number of blocks simultaneously accepted by the Runtime, not yet included
-/// into the relay chain.
-</span><span class="kw">const </span>UNINCLUDED_SEGMENT_CAPACITY: u32 = <span class="number">3</span>;
-<span class="doccomment">/// How many parachain blocks are processed by the relay chain per parent. Limits the
-/// number of blocks authored per slot.
-</span><span class="kw">const </span>BLOCK_PROCESSING_VELOCITY: u32 = <span class="number">1</span>;
-<span class="doccomment">/// Relay chain slot duration, in milliseconds.
-</span><span class="kw">const </span>RELAY_CHAIN_SLOT_DURATION_MILLIS: u32 = <span class="number">6000</span>;
+<span class="attr">#[docify::export]
+</span><span class="kw">mod </span>async_backing_params {
+	<span class="doccomment">/// Maximum number of blocks simultaneously accepted by the Runtime, not yet included
+	/// into the relay chain.
+	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>UNINCLUDED_SEGMENT_CAPACITY: u32 = <span class="number">3</span>;
+	<span class="doccomment">/// How many parachain blocks are processed by the relay chain per parent. Limits the
+	/// number of blocks authored per slot.
+	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>BLOCK_PROCESSING_VELOCITY: u32 = <span class="number">1</span>;
+	<span class="doccomment">/// Relay chain slot duration, in milliseconds.
+	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>RELAY_CHAIN_SLOT_DURATION_MILLIS: u32 = <span class="number">6000</span>;
+}
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">use </span>async_backing_params::<span class="kw-2">*</span>;
 
-<span class="doccomment">/// Aura consensus hook
+<span class="attr">#[docify::export]
+</span><span class="doccomment">/// Aura consensus hook
 </span><span class="kw">type </span>ConsensusHook = cumulus_pallet_aura_ext::FixedVelocityConsensusHook&lt;
 	Runtime,
 	RELAY_CHAIN_SLOT_DURATION_MILLIS,
@@ -743,7 +764,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub type </span>TemplatePallet = pallet_parachain_template;
 }
 
-<span class="macro">cumulus_pallet_parachain_system::register_validate_block! </span>{
+<span class="attr">#[docify::export(register_validate_block)]
+</span><span class="macro">cumulus_pallet_parachain_system::register_validate_block! </span>{
 	Runtime = Runtime,
 	BlockExecutor = cumulus_pallet_aura_ext::BlockExecutor::&lt;Runtime, Executive&gt;,
 }
