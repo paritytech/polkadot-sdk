@@ -162,7 +162,7 @@ async fn tx_slow_client_replace_old_messages() {
 	// The subscription itself has a buffer of length 1 and no way to create
 	// it without a buffer.
 	//
-	// Then `transactionWatch` has its own buffer of length 1 which leads to
+	// Then `transactionWatch` has its own buffer of length 3 which leads to
 	// that it's limited to 5 items in the tests.
 	//
 	// 1. Send will complete immediately
