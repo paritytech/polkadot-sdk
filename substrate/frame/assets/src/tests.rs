@@ -823,21 +823,20 @@ fn transfer_all_works_2() {
 	});
 }
 
-// /// TODO: Cover this case once #3951 is merged
-// #[test]
-// fn transfer_all_works_3() {
-// 	new_test_ext().execute_with(|| {
-// 		// setup
-// 		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 0, 0, true, 100));
-//		assert_ok!(Assets::mint(RuntimeOrigin::signed(0), 0, 1, 200));
-// 		assert_ok!(AssetFreezer::set_frozen(&TestId::Foo, 0, &1, 10));
-// 		assert_ok!(Assets::mint(RuntimeOrigin::signed(0), 0, 2, 100));
-// 		// transfer all and allow death w/ reserved
-// 		assert_ok!(Assets::transfer_all(Some(1).into(), 0, 2, true));
-// 		assert_eq!(Assets::balance(0, &1), 110);
-// 		assert_eq!(Assets::balance(0, &2), 200);
-// 	});
-// }
+#[test]
+fn transfer_all_works_3() {
+	new_test_ext().execute_with(|| {
+		// setup
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 0, 0, true, 100));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(0), 0, 1, 210));
+		set_frozen_balance(0, 1, 10);
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(0), 0, 2, 100));
+		// transfer all and allow death w/ frozen
+		assert_ok!(Assets::transfer_all(Some(1).into(), 0, 2, false));
+		assert_eq!(Assets::balance(0, &1), 110);
+		assert_eq!(Assets::balance(0, &2), 200);
+	});
+}
 
 #[test]
 fn origin_guards_should_work() {

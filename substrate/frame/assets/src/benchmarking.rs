@@ -554,7 +554,7 @@ benchmarks_instance_pallet! {
 	}
 
 	transfer_all {
-		let amount = T::Balance::from(100u32);
+		let amount = T::Balance::from(2u32);
 		let (asset_id, caller, caller_lookup) = create_default_minted_asset::<T, I>(true, amount);
 		let target: T::AccountId = account("target", 0, SEED);
 		let target_lookup = T::Lookup::unlookup(target.clone());

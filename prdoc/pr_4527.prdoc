@@ -8,7 +8,7 @@ doc:
     description: |
       This PR introduces the `transfer_all` call for `pallet-assets`.
       The parameters are analog to the same call in `pallet-balances`.
-      This change shouldn't break the existing APIs.
+      This change is expected to be backwards-compatible.
       This change requires running benchmarkings to set accurate weights for
       the call.
   - audience: Runtime User
@@ -20,7 +20,7 @@ doc:
 
 crates:
   - name: pallet-assets
-    bump: minor
+    bump: major
   - name: asset-hub-rococo-runtime
     bump: minor
   - name: asset-hub-westend-runtime
