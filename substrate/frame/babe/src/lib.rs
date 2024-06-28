@@ -185,12 +185,10 @@ pub mod pallet {
 
 	/// Current epoch index.
 	#[pallet::storage]
-	#[pallet::getter(fn epoch_index)]
 	pub type EpochIndex<T> = StorageValue<_, u64, ValueQuery>;
 
 	/// Current epoch authorities.
 	#[pallet::storage]
-	#[pallet::getter(fn authorities)]
 	pub type Authorities<T: Config> = StorageValue<
 		_,
 		WeakBoundedVec<(AuthorityId, BabeAuthorityWeight), T::MaxAuthorities>,
@@ -200,12 +198,10 @@ pub mod pallet {
 	/// The slot at which the first epoch actually started. This is 0
 	/// until the first block of the chain.
 	#[pallet::storage]
-	#[pallet::getter(fn genesis_slot)]
 	pub type GenesisSlot<T> = StorageValue<_, Slot, ValueQuery>;
 
 	/// Current slot number.
 	#[pallet::storage]
-	#[pallet::getter(fn current_slot)]
 	pub type CurrentSlot<T> = StorageValue<_, Slot, ValueQuery>;
 
 	/// The epoch randomness for the *current* epoch.
@@ -222,7 +218,6 @@ pub mod pallet {
 	// array size because the metadata API currently doesn't resolve the
 	// variable to its underlying value.
 	#[pallet::storage]
-	#[pallet::getter(fn randomness)]
 	pub type Randomness<T> = StorageValue<_, BabeRandomness, ValueQuery>;
 
 	/// Pending epoch configuration change that will be applied when the next epoch is enacted.
@@ -266,7 +261,6 @@ pub mod pallet {
 	/// Temporary value (cleared at block finalization) which is `Some`
 	/// if per-block initialization has already been called for current block.
 	#[pallet::storage]
-	#[pallet::getter(fn initialized)]
 	pub(super) type Initialized<T> = StorageValue<_, Option<PreDigest>>;
 
 	/// This field should always be populated during block processing unless
@@ -274,7 +268,6 @@ pub mod pallet {
 	///
 	/// It is set in `on_finalize`, before it will contain the value from the last block.
 	#[pallet::storage]
-	#[pallet::getter(fn author_vrf_randomness)]
 	pub(super) type AuthorVrfRandomness<T> = StorageValue<_, Option<BabeRandomness>, ValueQuery>;
 
 	/// The block numbers when the last and current epoch have started, respectively `N-1` and
@@ -292,13 +285,11 @@ pub mod pallet {
 	/// on block finalization. Querying this storage entry outside of block
 	/// execution context should always yield zero.
 	#[pallet::storage]
-	#[pallet::getter(fn lateness)]
 	pub(super) type Lateness<T: Config> = StorageValue<_, BlockNumberFor<T>, ValueQuery>;
 
 	/// The configuration for the current epoch. Should never be `None` as it is initialized in
 	/// genesis.
 	#[pallet::storage]
-	#[pallet::getter(fn epoch_config)]
 	pub(super) type EpochConfig<T> = StorageValue<_, BabeEpochConfiguration>;
 
 	/// The configuration for the next epoch, `None` if the config will not change
@@ -315,7 +306,6 @@ pub mod pallet {
 	/// a validator was the owner of a given key on a given session, and what the
 	/// active epoch index was during that session.
 	#[pallet::storage]
-	#[pallet::getter(fn skipped_epochs)]
 	pub(super) type SkippedEpochs<T> =
 		StorageValue<_, BoundedVec<(u64, SessionIndex), ConstU32<100>>, ValueQuery>;
 
