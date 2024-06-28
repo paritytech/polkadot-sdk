@@ -11,6 +11,7 @@ publish = false
 workspace = true
 
 [dependencies]
+hex-literal = { workspace = true, default-features = true }
 
 # Substrate
 frame-support = { workspace = true }

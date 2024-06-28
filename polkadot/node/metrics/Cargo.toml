@@ -29,7 +29,9 @@ log = { workspace = true, default-features = true }
 [dev-dependencies]
 assert_cmd = { workspace = true }
 tempfile = { workspace = true }
-hyper = { features = ["http1", "tcp"], workspace = true }
+hyper-util = { features = ["client-legacy", "tokio"], workspace = true }
+hyper = { workspace = true }
+http-body-util = { workspace = true }
 tokio = { workspace = true, default-features = true }
 polkadot-test-service = { features = ["runtime-metrics"], workspace = true }
 substrate-test-utils = { workspace = true }
