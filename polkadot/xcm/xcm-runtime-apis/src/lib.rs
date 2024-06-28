@@ -14,19 +14,17 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-//! Runtime APIs for estimating xcm fee payment.
-//! This crate offers two APIs, one for estimating fees,
-//! which can be used for any type of message, and another one
-//! for returning the specific messages used for transfers, a common
-//! feature.
-//! Users of these APIs should call the transfers API and pass the result to the
-//! fees API.
+//! Various runtime APIs to support XCM processing and manipulation.
 
 #![cfg_attr(not(feature = "std"), no_std)]
+
+/// Exposes runtime APIs for various XCM-related conversions.
+pub mod conversions;
 
 /// Dry-run API.
 /// Given an extrinsic or an XCM program, it returns the outcome of its execution.
 pub mod dry_run;
+
 /// Fee estimation API.
 /// Given an XCM program, it will return the fees needed to execute it properly or send it.
 pub mod fees;
