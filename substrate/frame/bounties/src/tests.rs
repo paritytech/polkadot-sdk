@@ -167,18 +167,36 @@ impl Config<Instance1> for Test {
 type TreasuryError = pallet_treasury::Error<Test>;
 type TreasuryError1 = pallet_treasury::Error<Test, Instance1>;
 
-pub fn new_test_ext() -> sp_io::TestExternalities {
-	let mut ext: sp_io::TestExternalities = RuntimeGenesisConfig {
-		system: frame_system::GenesisConfig::default(),
-		balances: pallet_balances::GenesisConfig { balances: vec![(0, 100), (1, 98), (2, 1)] },
-		treasury: Default::default(),
-		treasury_1: Default::default(),
+pub struct ExtBuilder {}
+
+impl Default for ExtBuilder {
+	fn default() -> Self {
+		Self {}
 	}
-	.build_storage()
-	.unwrap()
-	.into();
-	ext.execute_with(|| System::set_block_number(1));
-	ext
+}
+
+impl ExtBuilder {
+	pub fn build(self) -> sp_io::TestExternalities {
+		let mut ext: sp_io::TestExternalities = RuntimeGenesisConfig {
+			system: frame_system::GenesisConfig::default(),
+			balances: pallet_balances::GenesisConfig { balances: vec![(0, 100), (1, 98), (2, 1)] },
+			treasury: Default::default(),
+			treasury_1: Default::default(),
+		}
+		.build_storage()
+		.unwrap()
+		.into();
+		ext.execute_with(|| System::set_block_number(1));
+		ext
+	}
+
+	pub fn build_and_execute(self, test: impl FnOnce() -> ()) {
+		self.build().execute_with(|| {
+			test();
+			Bounties::do_try_state().expect("All invariants must hold after a test");
+			Bounties1::do_try_state().expect("All invariants must hold after a test");
+		})
+	}
 }
 
 fn last_event() -> BountiesEvent<Test> {
@@ -192,7 +210,7 @@ fn last_event() -> BountiesEvent<Test> {
 
 #[test]
 fn genesis_config_works() {
-	new_test_ext().execute_with(|| {
+	ExtBuilder::default().build_and_execute(|| {
 		assert_eq!(Treasury::pot(), 0);
 		assert_eq!(Treasury::proposal_count(), 0);
 	});
@@ -200,7 +218,7 @@ fn genesis_config_works() {
 
 #[test]
 fn minting_works() {
-	new_test_ext().execute_with(|| {
+	ExtBuilder::default().build_and_execute(|| {
 		// Check that accumulate works when we have Some value in Dummy already.
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);
 		assert_eq!(Treasury::pot(), 100);
@@ -209,7 +227,7 @@ fn minting_works() {
 
 #[test]
 fn accepted_spend_proposal_ignored_outside_spend_period() {
-	new_test_ext().execute_with(|| {
+	ExtBuilder::default().build_and_execute(|| {
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);
 
 		assert_ok!({ Treasury::spend_local(RuntimeOrigin::root(), 100, 3) });
@@ -222,7 +240,7 @@ fn accepted_spend_proposal_ignored_outside_spend_period() {
 
 #[test]
 fn unused_pot_should_diminish() {
-	new_test_ext().execute_with(|| {
+	ExtBuilder::default().build_and_execute(|| {
 		let init_total_issuance = Balances::total_issuance();
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);
 		assert_eq!(Balances::total_issuance(), init_total_issuance + 100);
@@ -235,7 +253,7 @@ fn unused_pot_should_diminish() {
 
 #[test]
 fn accepted_spend_proposal_enacted_on_spend_period() {
-	new_test_ext().execute_with(|| {
+	ExtBuilder::default().build_and_execute(|| {
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);
 		assert_eq!(Treasury::pot(), 100);
 
@@ -249,7 +267,7 @@ fn accepted_spend_proposal_enacted_on_spend_period() {
 
 #[test]
 fn pot_underflow_should_not_diminish() {
-	new_test_ext().execute_with(|| {
+	ExtBuilder::default().build_and_execute(|| {
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);
 		assert_eq!(Treasury::pot(), 100);
 
@@ -269,7 +287,7 @@ fn pot_underflow_should_not_diminish() {
 // i.e. pot should not include existential deposit needed for account survival.
 #[test]
 fn treasury_account_doesnt_get_deleted() {
-	new_test_ext().execute_with(|| {
+	ExtBuilder::default().build_and_execute(|| {
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);
 		assert_eq!(Treasury::pot(), 100);
 		let treasury_balance = Balances::free_balance(&Treasury::account_id());
@@ -321,7 +339,7 @@ fn inexistent_account_works() {
 
 #[test]
 fn propose_bounty_works() {
-	new_test_ext().execute_with(|| {
+	ExtBuilder::default().build_and_execute(|| {
 		System::set_block_number(1);
 
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);
@@ -358,7 +376,7 @@ fn propose_bounty_works() {
 
 #[test]
 fn propose_bounty_validation_works() {
-	new_test_ext().execute_with(|| {
+	ExtBuilder::default().build_and_execute(|| {
 		System::set_block_number(1);
 
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);
@@ -387,7 +405,7 @@ fn propose_bounty_validation_works() {
 
 #[test]
 fn close_bounty_works() {
-	new_test_ext().execute_with(|| {
+	ExtBuilder::default().build_and_execute(|| {
 		System::set_block_number(1);
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);
 		assert_noop!(Bounties::close_bounty(RuntimeOrigin::root(), 0), Error::<Test>::InvalidIndex);
@@ -412,7 +430,7 @@ fn close_bounty_works() {
 
 #[test]
 fn approve_bounty_works() {
-	new_test_ext().execute_with(|| {
+	ExtBuilder::default().build_and_execute(|| {
 		System::set_block_number(1);
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);
 		assert_noop!(
@@ -473,7 +491,7 @@ fn approve_bounty_works() {
 
 #[test]
 fn assign_curator_works() {
-	new_test_ext().execute_with(|| {
+	ExtBuilder::default().build_and_execute(|| {
 		System::set_block_number(1);
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);
 
@@ -543,7 +561,7 @@ fn assign_curator_works() {
 
 #[test]
 fn unassign_curator_works() {
-	new_test_ext().execute_with(|| {
+	ExtBuilder::default().build_and_execute(|| {
 		System::set_block_number(1);
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);
 		assert_ok!(Bounties::propose_bounty(RuntimeOrigin::signed(0), 50, b"12345".to_vec()));
@@ -596,7 +614,7 @@ fn unassign_curator_works() {
 
 #[test]
 fn award_and_claim_bounty_works() {
-	new_test_ext().execute_with(|| {
+	ExtBuilder::default().build_and_execute(|| {
 		System::set_block_number(1);
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);
 		Balances::make_free_balance_be(&4, 10);
@@ -663,7 +681,7 @@ fn award_and_claim_bounty_works() {
 
 #[test]
 fn claim_handles_high_fee() {
-	new_test_ext().execute_with(|| {
+	ExtBuilder::default().build_and_execute(|| {
 		System::set_block_number(1);
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);
 		Balances::make_free_balance_be(&4, 30);
@@ -704,7 +722,7 @@ fn claim_handles_high_fee() {
 
 #[test]
 fn cancel_and_refund() {
-	new_test_ext().execute_with(|| {
+	ExtBuilder::default().build_and_execute(|| {
 		System::set_block_number(1);
 
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);
@@ -747,7 +765,7 @@ fn cancel_and_refund() {
 
 #[test]
 fn award_and_cancel() {
-	new_test_ext().execute_with(|| {
+	ExtBuilder::default().build_and_execute(|| {
 		System::set_block_number(1);
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);
 		assert_ok!(Bounties::propose_bounty(RuntimeOrigin::signed(0), 50, b"12345".to_vec()));
@@ -790,7 +808,7 @@ fn award_and_cancel() {
 
 #[test]
 fn expire_and_unassign() {
-	new_test_ext().execute_with(|| {
+	ExtBuilder::default().build_and_execute(|| {
 		System::set_block_number(1);
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);
 		assert_ok!(Bounties::propose_bounty(RuntimeOrigin::signed(0), 50, b"12345".to_vec()));
@@ -838,7 +856,7 @@ fn expire_and_unassign() {
 
 #[test]
 fn extend_expiry() {
-	new_test_ext().execute_with(|| {
+	ExtBuilder::default().build_and_execute(|| {
 		System::set_block_number(1);
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);
 		Balances::make_free_balance_be(&4, 10);
@@ -974,7 +992,7 @@ fn genesis_funding_works() {
 
 #[test]
 fn unassign_curator_self() {
-	new_test_ext().execute_with(|| {
+	ExtBuilder::default().build_and_execute(|| {
 		System::set_block_number(1);
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);
 		assert_ok!(Bounties::propose_bounty(RuntimeOrigin::signed(0), 50, b"12345".to_vec()));
@@ -1015,7 +1033,7 @@ fn unassign_curator_self() {
 fn accept_curator_handles_different_deposit_calculations() {
 	// This test will verify that a bounty with and without a fee results
 	// in a different curator deposit: one using the value, and one using the fee.
-	new_test_ext().execute_with(|| {
+	ExtBuilder::default().build_and_execute(|| {
 		// Case 1: With a fee
 		let user = 1;
 		let bounty_index = 0;
@@ -1092,7 +1110,7 @@ fn accept_curator_handles_different_deposit_calculations() {
 
 #[test]
 fn approve_bounty_works_second_instance() {
-	new_test_ext().execute_with(|| {
+	ExtBuilder::default().build_and_execute(|| {
 		// Set burn to 0 to make tracking funds easier.
 		Burn::set(Permill::from_percent(0));
 
@@ -1118,7 +1136,7 @@ fn approve_bounty_works_second_instance() {
 
 #[test]
 fn approve_bounty_insufficient_spend_limit_errors() {
-	new_test_ext().execute_with(|| {
+	ExtBuilder::default().build_and_execute(|| {
 		System::set_block_number(1);
 
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);
@@ -1136,7 +1154,7 @@ fn approve_bounty_insufficient_spend_limit_errors() {
 
 #[test]
 fn approve_bounty_instance1_insufficient_spend_limit_errors() {
-	new_test_ext().execute_with(|| {
+	ExtBuilder::default().build_and_execute(|| {
 		System::set_block_number(1);
 
 		Balances::make_free_balance_be(&Treasury1::account_id(), 101);
@@ -1154,7 +1172,7 @@ fn approve_bounty_instance1_insufficient_spend_limit_errors() {
 
 #[test]
 fn propose_curator_insufficient_spend_limit_errors() {
-	new_test_ext().execute_with(|| {
+	ExtBuilder::default().build_and_execute(|| {
 		System::set_block_number(1);
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);
 
@@ -1177,7 +1195,7 @@ fn propose_curator_insufficient_spend_limit_errors() {
 
 #[test]
 fn propose_curator_instance1_insufficient_spend_limit_errors() {
-	new_test_ext().execute_with(|| {
+	ExtBuilder::default().build_and_execute(|| {
 		System::set_block_number(1);
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);
 

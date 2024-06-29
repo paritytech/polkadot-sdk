@@ -231,5 +231,5 @@ benchmarks_instance_pallet! {
 		}
 	}
 
-	impl_benchmark_test_suite!(Bounties, crate::tests::new_test_ext(), crate::tests::Test)
+	impl_benchmark_test_suite!(Bounties, crate::tests::ExtBuilder::default().build(), crate::tests::Test)
 }
