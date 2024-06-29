@@ -52,6 +52,7 @@ use core::marker::PhantomData;
 /// Weight functions needed for `pallet_proxy`.
 pub trait WeightInfo {
 	fn proxy(p: u32, ) -> Weight;
+	fn proxy_propagate_error(p: u32, ) -> Weight;
 	fn proxy_announced(a: u32, p: u32, ) -> Weight;
 	fn remove_announcement(a: u32, p: u32, ) -> Weight;
 	fn reject_announcement(a: u32, p: u32, ) -> Weight;
@@ -74,6 +75,23 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Proof: `TxPause::PausedCalls` (`max_values`: None, `max_size`: Some(532), added: 3007, mode: `MaxEncodedLen`)
 	/// The range of component `p` is `[1, 31]`.
 	fn proxy(p: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `306 + p * (37 ±0)`
+		//  Estimated: `4706`
+		// Minimum execution time: 18_280_000 picoseconds.
+		Weight::from_parts(19_655_145, 4706)
+			// Standard Error: 2_345
+			.saturating_add(Weight::from_parts(36_306, 0).saturating_mul(p.into()))
+			.saturating_add(T::DbWeight::get().reads(3_u64))
+	}
+	/// Storage: `Proxy::Proxies` (r:1 w:0)
+	/// Proof: `Proxy::Proxies` (`max_values`: None, `max_size`: Some(1241), added: 3716, mode: `MaxEncodedLen`)
+	/// Storage: `SafeMode::EnteredUntil` (r:1 w:0)
+	/// Proof: `SafeMode::EnteredUntil` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
+	/// Storage: `TxPause::PausedCalls` (r:1 w:0)
+	/// Proof: `TxPause::PausedCalls` (`max_values`: None, `max_size`: Some(532), added: 3007, mode: `MaxEncodedLen`)
+	/// The range of component `p` is `[1, 31]`.
+	fn proxy_propagate_error(p: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `306 + p * (37 ±0)`
 		//  Estimated: `4706`
@@ -249,6 +267,23 @@ impl WeightInfo for () {
 	/// Proof: `TxPause::PausedCalls` (`max_values`: None, `max_size`: Some(532), added: 3007, mode: `MaxEncodedLen`)
 	/// The range of component `p` is `[1, 31]`.
 	fn proxy(p: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `306 + p * (37 ±0)`
+		//  Estimated: `4706`
+		// Minimum execution time: 18_280_000 picoseconds.
+		Weight::from_parts(19_655_145, 4706)
+			// Standard Error: 2_345
+			.saturating_add(Weight::from_parts(36_306, 0).saturating_mul(p.into()))
+			.saturating_add(RocksDbWeight::get().reads(3_u64))
+	}
+	/// Storage: `Proxy::Proxies` (r:1 w:0)
+	/// Proof: `Proxy::Proxies` (`max_values`: None, `max_size`: Some(1241), added: 3716, mode: `MaxEncodedLen`)
+	/// Storage: `SafeMode::EnteredUntil` (r:1 w:0)
+	/// Proof: `SafeMode::EnteredUntil` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
+	/// Storage: `TxPause::PausedCalls` (r:1 w:0)
+	/// Proof: `TxPause::PausedCalls` (`max_values`: None, `max_size`: Some(532), added: 3007, mode: `MaxEncodedLen`)
+	/// The range of component `p` is `[1, 31]`.
+	fn proxy_propagate_error(p: u32) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `306 + p * (37 ±0)`
 		//  Estimated: `4706`
