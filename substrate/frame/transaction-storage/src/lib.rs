@@ -349,7 +349,7 @@ pub mod pallet {
 
 	/// Collection of transaction metadata by block number.
 	#[pallet::storage]
-	pub(super) type Transactions<T: Config> = StorageMap<
+	pub type Transactions<T: Config> = StorageMap<
 		_,
 		Blake2_128Concat,
 		BlockNumberFor<T>,
@@ -359,30 +359,30 @@ pub mod pallet {
 
 	/// Count indexed chunks for each block.
 	#[pallet::storage]
-	pub(super) type ChunkCount<T: Config> =
+	pub type ChunkCount<T: Config> =
 		StorageMap<_, Blake2_128Concat, BlockNumberFor<T>, u32, ValueQuery>;
 
 	#[pallet::storage]
 	/// Storage fee per byte.
-	pub(super) type ByteFee<T: Config> = StorageValue<_, BalanceOf<T>>;
+	pub type ByteFee<T: Config> = StorageValue<_, BalanceOf<T>>;
 
 	#[pallet::storage]
 	/// Storage fee per transaction.
-	pub(super) type EntryFee<T: Config> = StorageValue<_, BalanceOf<T>>;
+	pub type EntryFee<T: Config> = StorageValue<_, BalanceOf<T>>;
 
 	/// Storage period for data in blocks. Should match `sp_storage_proof::DEFAULT_STORAGE_PERIOD`
 	/// for block authoring.
 	#[pallet::storage]
-	pub(super) type StoragePeriod<T: Config> = StorageValue<_, BlockNumberFor<T>, ValueQuery>;
+	pub type StoragePeriod<T: Config> = StorageValue<_, BlockNumberFor<T>, ValueQuery>;
 
 	// Intermediates
 	#[pallet::storage]
-	pub(super) type BlockTransactions<T: Config> =
+	pub type BlockTransactions<T: Config> =
 		StorageValue<_, BoundedVec<TransactionInfo, T::MaxBlockTransactions>, ValueQuery>;
 
 	/// Was the proof checked in this block?
 	#[pallet::storage]
-	pub(super) type ProofChecked<T: Config> = StorageValue<_, bool, ValueQuery>;
+	pub type ProofChecked<T: Config> = StorageValue<_, bool, ValueQuery>;
 
 	#[pallet::genesis_config]
 	pub struct GenesisConfig<T: Config> {
