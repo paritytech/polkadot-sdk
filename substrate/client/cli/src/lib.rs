@@ -199,17 +199,8 @@ pub trait SubstrateCli: Sized {
 	fn create_runner<T: CliConfiguration<DVC>, DVC: DefaultConfigurationValues>(
 		&self,
 		command: &T,
-	) -> error::Result<Runner<Self>> {
-		let tokio_runtime = build_runtime()?;
-
-		// `capture` needs to be called in a tokio context.
-		// Also capture them as early as possible.
-		let signals = tokio_runtime.block_on(async { Signals::capture() })?;
-
-		let config = command.create_configuration(self, tokio_runtime.handle().clone())?;
-
-		command.init(&Self::support_url(), &Self::impl_version(), |_, _| {}, &config)?;
-		Runner::new(config, tokio_runtime, signals)
+	) -> Result<Runner<Self>> {
+		self.create_runner_with_logger_hook(command, |_, _| {})
 	}
 
 	/// Create a runner for the command provided in argument. The `logger_hook` can be used to setup
@@ -231,11 +222,15 @@ pub trait SubstrateCli: Sized {
 	/// 	}
 	/// }
 	/// ```
-	fn create_runner_with_logger_hook<T: CliConfiguration, F>(
+	fn create_runner_with_logger_hook<
+		T: CliConfiguration<DVC>,
+		DVC: DefaultConfigurationValues,
+		F,
+	>(
 		&self,
 		command: &T,
 		logger_hook: F,
-	) -> error::Result<Runner<Self>>
+	) -> Result<Runner<Self>>
 	where
 		F: FnOnce(&mut LoggerBuilder, &Configuration),
 	{
