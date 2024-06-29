@@ -334,6 +334,39 @@ fn apply_pending_slash() {
 	});
 }
 
+#[test]
+fn allow_full_amount_to_be_delegated() {
+	ExtBuilder::default().build_and_execute(|| {
+		let agent: AccountId = 200;
+		let reward_acc: AccountId = 201;
+		let delegator: AccountId = 300;
+
+		// set intention to accept delegation.
+		fund(&agent, 1000);
+		assert_ok!(DelegatedStaking::register_agent(
+			RawOrigin::Signed(agent).into(),
+			reward_acc
+		));
+
+		// delegate to this account
+		fund(&delegator, 1000);
+		assert_ok!(DelegatedStaking::delegate_to_agent(
+			RawOrigin::Signed(delegator).into(),
+			agent,
+			1000
+		));
+
+		// verify
+		assert!(DelegatedStaking::is_agent(&agent));
+		assert_eq!(DelegatedStaking::stakeable_balance(Agent::from(agent)), 1000);
+		assert_eq!(
+			Balances::balance_on_hold(&HoldReason::StakingDelegation.into(), &delegator),
+			1000
+		);
+		assert_eq!(DelegatedStaking::held_balance_of(Delegator::from(delegator)), 1000);
+	});
+}
+
 /// Integration tests with pallet-staking.
 mod staking_integration {
 	use super::*;

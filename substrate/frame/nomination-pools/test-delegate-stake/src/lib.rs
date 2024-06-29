@@ -1113,8 +1113,9 @@ fn pool_migration_e2e() {
 		assert_eq!(Balances::total_balance(&21), pre_migrate_balance_21 + 10);
 
 		// MIGRATE 22
-		let pre_migrate_balance_22 = Balances::total_balance(&22);
 		assert_eq!(Balances::total_balance_on_hold(&22), 0);
+		// make balance of 22 as 0.
+		let _ = Balances::make_free_balance_be(&22, 0);
 
 		// migrate delegation for 22.
 		assert!(Pools::api_member_needs_delegate_migration(22));
@@ -1128,7 +1129,7 @@ fn pool_migration_e2e() {
 		);
 
 		// tokens moved to 22's account and held there.
-		assert_eq!(Balances::total_balance(&22), pre_migrate_balance_22 + 10);
+		assert_eq!(Balances::total_balance(&22), 10);
 		assert_eq!(Balances::total_balance_on_hold(&22), 10);
 
 		// withdraw fails since 22 only unbonds at era 8.
