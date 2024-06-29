@@ -24,8 +24,8 @@ use crate::justification::{
 	GrandpaJustification, JustificationVerificationContext, JustificationVerificationError,
 };
 use bp_runtime::{
-	BasicOperatingMode, Chain, HashOf, HasherOf, HeaderOf, RawStorageProof, StorageProofChecker,
-	StorageProofError, UnderlyingChainProvider,
+	BasicOperatingMode, BlockNumberOf, Chain, HashOf, HasherOf, HeaderOf, RawStorageProof,
+	StorageProofChecker, StorageProofError, UnderlyingChainProvider,
 };
 use codec::{Codec, Decode, Encode, EncodeLike, MaxEncodedLen};
 use core::{clone::Clone, cmp::Eq, default::Default, fmt::Debug};
@@ -35,7 +35,7 @@ use serde::{Deserialize, Serialize};
 use sp_consensus_grandpa::{
 	AuthorityList, ConsensusLog, ScheduledChange, SetId, GRANDPA_ENGINE_ID,
 };
-use sp_runtime::{traits::Header as HeaderT, Digest, RuntimeDebug};
+use sp_runtime::{traits::Header as HeaderT, Digest, RuntimeDebug, SaturatedConversion};
 use sp_std::{boxed::Box, vec::Vec};
 
 pub mod justification;
@@ -323,6 +323,68 @@ where
 	const MAX_MANDATORY_HEADER_SIZE: u32 =
 		<T::Chain as ChainWithGrandpa>::MAX_MANDATORY_HEADER_SIZE;
 	const AVERAGE_HEADER_SIZE: u32 = <T::Chain as ChainWithGrandpa>::AVERAGE_HEADER_SIZE;
+}
+
+/// Result of checking maximal expected submit finality proof call weight and size.
+#[derive(Debug)]
+pub struct SubmitFinalityProofCallExtras {
+	/// If true, the call weight is larger than what we have assumed.
+	///
+	/// We have some assumptions about headers and justifications of the bridged chain.
+	/// We know that if our assumptions are correct, then the call must not have the
+	/// weight above some limit. The fee paid for weight above that limit, is never refunded.
+	pub is_weight_limit_exceeded: bool,
+	/// Extra size (in bytes) that we assume are included in the call.
+	///
+	/// We have some assumptions about headers and justifications of the bridged chain.
+	/// We know that if our assumptions are correct, then the call must not have the
+	/// weight above some limit. The fee paid for bytes above that limit, is never refunded.
+	pub extra_size: u32,
+	/// A flag that is true if the header is the mandatory header that enacts new
+	/// authorities set.
+	pub is_mandatory_finality_target: bool,
+}
+
+/// Checks whether the given `header` and its finality `proof` fit the maximal expected
+/// call limits (size and weight). The submission may be refunded sometimes (see pallet
+/// configuration for details), but it should fit some limits. If the call has some extra
+/// weight and/or size included, though, we won't refund it or refund will be partial.
+pub fn submit_finality_proof_limits_extras<C: ChainWithGrandpa>(
+	header: &C::Header,
+	proof: &justification::GrandpaJustification<C::Header>,
+) -> SubmitFinalityProofCallExtras {
+	// the `submit_finality_proof` call will reject justifications with invalid, duplicate,
+	// unknown and extra signatures. It'll also reject justifications with less than necessary
+	// signatures. So we do not care about extra weight because of additional signatures here.
+	let precommits_len = proof.commit.precommits.len().saturated_into();
+	let required_precommits = precommits_len;
+
+	// the weight check is simple - we assume that there are no more than the `limit`
+	// headers in the ancestry proof
+	let votes_ancestries_len: u32 = proof.votes_ancestries.len().saturated_into();
+	let is_weight_limit_exceeded =
+		votes_ancestries_len > C::REASONABLE_HEADERS_IN_JUSTIFICATION_ANCESTRY;
+
+	// check if the `finality_target` is a mandatory header. If so, we are ready to refund larger
+	// size
+	let is_mandatory_finality_target =
+		GrandpaConsensusLogReader::<BlockNumberOf<C>>::find_scheduled_change(header.digest())
+			.is_some();
+
+	// we can estimate extra call size easily, without any additional significant overhead
+	let actual_call_size: u32 =
+		header.encoded_size().saturating_add(proof.encoded_size()).saturated_into();
+	let max_expected_call_size = max_expected_submit_finality_proof_arguments_size::<C>(
+		is_mandatory_finality_target,
+		required_precommits,
+	);
+	let extra_size = actual_call_size.saturating_sub(max_expected_call_size);
+
+	SubmitFinalityProofCallExtras {
+		is_weight_limit_exceeded,
+		extra_size,
+		is_mandatory_finality_target,
+	}
 }
 
 /// Returns maximal expected size of `submit_finality_proof` call arguments.

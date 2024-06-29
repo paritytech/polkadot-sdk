@@ -19,7 +19,7 @@
 
 use frame_support::{
 	assert_ok, parameter_types, traits,
-	traits::{Hooks, UnfilteredDispatchable},
+	traits::{Hooks, UnfilteredDispatchable, VariantCountOf},
 	weights::constants,
 };
 use frame_system::EnsureRoot;
@@ -90,7 +90,6 @@ pub(crate) type Moment = u32;
 impl frame_system::Config for Runtime {
 	type Block = Block;
 	type AccountData = pallet_balances::AccountData<Balance>;
-	type BlockHashCount = ConstU32<10>;
 }
 
 const NORMAL_DISPATCH_RATIO: Perbill = Perbill::from_percent(75);
@@ -103,20 +102,14 @@ parameter_types! {
 		);
 }
 
+#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Runtime {
-	type MaxLocks = traits::ConstU32<1024>;
-	type MaxReserves = ();
-	type ReserveIdentifier = [u8; 8];
-	type Balance = Balance;
-	type RuntimeEvent = RuntimeEvent;
-	type DustRemoval = ();
 	type ExistentialDeposit = ExistentialDeposit;
 	type AccountStore = System;
-	type MaxFreezes = traits::ConstU32<1>;
+	type MaxFreezes = VariantCountOf<RuntimeFreezeReason>;
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type RuntimeFreezeReason = RuntimeFreezeReason;
 	type FreezeIdentifier = RuntimeFreezeReason;
-	type WeightInfo = ();
 }
 
 impl pallet_timestamp::Config for Runtime {

@@ -34,7 +34,7 @@ use litep2p::{
 			identify::{Config as IdentifyConfig, IdentifyEvent},
 			kademlia::{
 				Config as KademliaConfig, ConfigBuilder as KademliaConfigBuilder, KademliaEvent,
-				KademliaHandle, QueryId, Quorum, Record, RecordKey,
+				KademliaHandle, QueryId, Quorum, Record, RecordKey, RecordsType,
 			},
 			ping::{Config as PingConfig, PingEvent},
 		},
@@ -123,8 +123,8 @@ pub enum DiscoveryEvent {
 		/// Query ID.
 		query_id: QueryId,
 
-		/// Record.
-		record: Record,
+		/// Records.
+		records: RecordsType,
 	},
 
 	/// Record was successfully stored on the DHT.
@@ -460,16 +460,13 @@ impl Stream for Discovery {
 					peers: peers.into_iter().collect(),
 				}))
 			},
-			Poll::Ready(Some(KademliaEvent::GetRecordSuccess { query_id, record })) => {
+			Poll::Ready(Some(KademliaEvent::GetRecordSuccess { query_id, records })) => {
 				log::trace!(
 					target: LOG_TARGET,
-					"`GET_RECORD` succeeded for {query_id:?}: {record:?}",
+					"`GET_RECORD` succeeded for {query_id:?}: {records:?}",
 				);
 
-				return Poll::Ready(Some(DiscoveryEvent::GetRecordSuccess {
-					query_id,
-					record: record.record,
-				}));
+				return Poll::Ready(Some(DiscoveryEvent::GetRecordSuccess { query_id, records }));
 			},
 			Poll::Ready(Some(KademliaEvent::PutRecordSucess { query_id, key: _ })) =>
 				return Poll::Ready(Some(DiscoveryEvent::PutRecordSuccess { query_id })),
