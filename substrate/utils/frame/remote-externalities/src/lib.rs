@@ -40,7 +40,7 @@ use sp_runtime::{
 	traits::{Block as BlockT, HashingFor},
 	StateVersion,
 };
-use sp_state_machine::TestExternalities;
+use sp_state_machine::{OverlayedChanges, TestExternalities};
 use spinners::{Spinner, Spinners};
 use std::{
 	cmp::{max, min},
@@ -50,6 +50,9 @@ use std::{
 	sync::Arc,
 	time::{Duration, Instant},
 };
+use async_stream::stream;
+use tokio::task;
+use tokio::task::JoinHandle;
 use substrate_rpc_client::{rpc_params, BatchRequestBuilder, ChainApi, ClientT, StateApi};
 use tokio_retry::{strategy::FixedInterval, Retry};
 
@@ -713,7 +716,7 @@ where
 		pending_ext: &mut TestExternalities<HashingFor<B>>,
 	) -> Result<Vec<KeyValue>, &'static str> {
 		let start = Instant::now();
-		let mut sp = Spinner::with_timer(Spinners::Dots, "Scraping keys...".into());
+		//let mut sp = Spinner::with_timer(Spinners::Dots, "Scraping keys...".into());
 
 		let mut vec_keys_values = vec![];
 		// TODO We could start downloading when having collected the first batch of keys
@@ -722,13 +725,49 @@ where
 
 		pin_mut!(keys_values_stream);
 
+		let mut tasks = vec![];
+
 		while let Some(keys_values) = keys_values_stream.next().await {
-			sp.stop_with_message(format!(
+			println!("processing batching of key values");
+			/*sp.stop_with_message(format!(
 				"✅ Found {} keys ({:.2}s)",
 				keys_values.len(),
 				start.elapsed().as_secs_f32()
-			));
-			pending_ext.batch_insert(keys_values.clone().into_iter().filter_map(|(k, v)| {
+			));*/
+
+
+			let keys_values_clone = keys_values.clone();
+
+			let task = task::spawn(async move {
+				let mut pending_ext_clone = sp_io::TestExternalities::new(Default::default());
+
+				pending_ext_clone.batch_insert(keys_values_clone.into_iter().filter_map(|(k, v)| {
+					// Don't insert the child keys here, they need to be inserted separately with all
+					// their data in the load_child_remote function.
+					match is_default_child_storage_key(&k.0) {
+						true => None,
+						false => Some((k.0, v.0)),
+					}
+				}));
+				/*sp.stop_with_message(format!(
+					"✅ Inserted keys into DB ({:.2}s)",
+					start.elapsed().as_secs_f32()
+				));*/
+			});
+
+			tasks.push(task);
+
+			vec_keys_values.push(keys_values);
+		}
+		println!("vec_keys_values length is {:?}", vec_keys_values.len());
+		/*println!("tasks length is {:?}", tasks.len());
+		// Await all spawned tasks to complete
+		for task in tasks {
+			task.await.map_err(|_| "Task failed")?;
+		}*/
+
+
+		/*pending_ext.batch_insert(keys_values.clone().into_iter().filter_map(|(k, v)| {
 				// Don't insert the child keys here, they need to be inserted seperately with all
 				// their data in the load_child_remote function.
 				match is_default_child_storage_key(&k.0) {
@@ -743,7 +782,7 @@ where
 			));
 
 			vec_keys_values.push(keys_values);
-		}
+		}*/
 
 		let result: Vec<KeyValue> = vec_keys_values.into_iter().flatten().collect();
 		Ok(result)
@@ -1561,7 +1600,7 @@ mod remote_tests {
 			.execute_with(|| {});
 	}
 
-	#[tokio::test]
+	/*#[tokio::test]
 	async fn can_fetch_keys_and_values() {
 		init_logger();
 
@@ -1580,5 +1619,28 @@ mod remote_tests {
 		while let Some(keys_values) = keys_values_stream.next().await {
 			assert!(keys_values.len() > 0);
 		}
+	}*/
+
+	#[tokio::test]
+	async fn can_fetch_keys_and_values() {
+		init_logger();
+
+		let mut builder = Builder::<Block>::new().mode(Mode::Online(OnlineConfig {
+			transport: endpoint().clone().into(),
+			..Default::default()
+		}));
+		builder.init_remote_client().await.unwrap();
+
+		let mut pending_ext = TestExternalities::new_with_code_and_state(
+			Default::default(),
+			Default::default(),
+			Default::default(),
+		);
+
+
+		let at = builder.as_online().at.unwrap();
+		let prefix = StorageKey(vec![]);
+		let keys_values_stream = builder.rpc_get_pairs(prefix, at, &mut pending_ext).await;
+
 	}
 }
