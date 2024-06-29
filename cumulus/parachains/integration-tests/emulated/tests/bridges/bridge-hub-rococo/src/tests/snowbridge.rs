@@ -34,10 +34,10 @@ use sp_runtime::{DispatchError::Token, TokenError::FundsUnavailable};
 use testnet_parachains_constants::rococo::snowbridge::EthereumNetwork;
 
 const INITIAL_FUND: u128 = 5_000_000_000 * ROCOCO_ED;
-const CHAIN_ID: u64 = 11155111;
+pub const CHAIN_ID: u64 = 11155111;
 const TREASURY_ACCOUNT: [u8; 32] =
 	hex!("6d6f646c70792f74727372790000000000000000000000000000000000000000");
-const WETH: [u8; 20] = hex!("87d1f7fdfEe7f651FaBc8bFCB6E086C278b77A7d");
+pub const WETH: [u8; 20] = hex!("87d1f7fdfEe7f651FaBc8bFCB6E086C278b77A7d");
 const ETHEREUM_DESTINATION_ADDRESS: [u8; 20] = hex!("44a57ee2f2FCcb85FDa2B0B18EBD0D8D2333700e");
 const INSUFFICIENT_XCM_FEE: u128 = 1000;
 const XCM_FEE: u128 = 4_000_000_000;
@@ -215,7 +215,7 @@ fn register_weth_token_from_ethereum_to_asset_hub() {
 
 		// Construct RegisterToken message and sent to inbound queue
 		let register_token_message = make_register_token_message();
-		send_inbound_message(register_token_message.clone()).unwrap();
+		assert_ok!(send_inbound_message(register_token_message.clone()));
 
 		assert_expected_events!(
 			BridgeHubRococo,
@@ -250,10 +250,10 @@ fn send_token_from_ethereum_to_asset_hub() {
 		type RuntimeEvent = <BridgeHubRococo as Chain>::RuntimeEvent;
 
 		// Construct RegisterToken message and sent to inbound queue
-		send_inbound_message(make_register_token_message()).unwrap();
+		assert_ok!(send_inbound_message(make_register_token_message()));
 
 		// Construct SendToken message and sent to inbound queue
-		send_inbound_message(make_send_token_message()).unwrap();
+		assert_ok!(send_inbound_message(make_send_token_message()));
 
 		// Check that the message was sent
 		assert_expected_events!(
@@ -332,14 +332,14 @@ fn send_token_from_ethereum_to_penpal() {
 		type RuntimeEvent = <BridgeHubRococo as Chain>::RuntimeEvent;
 
 		// Construct RegisterToken message and sent to inbound queue
-		send_inbound_message(make_register_token_message()).unwrap();
+		assert_ok!(send_inbound_message(make_register_token_message()));
 
 		// Construct SendToken message to AssetHub(only for increase the nonce as the same order in
 		// smoke test)
-		send_inbound_message(make_send_token_message()).unwrap();
+		assert_ok!(send_inbound_message(make_send_token_message()));
 
 		// Construct SendToken message and sent to inbound queue
-		send_inbound_message(make_send_token_to_penpal_message()).unwrap();
+		assert_ok!(send_inbound_message(make_send_token_to_penpal_message()));
 
 		assert_expected_events!(
 			BridgeHubRococo,
@@ -399,7 +399,7 @@ fn send_weth_asset_from_asset_hub_to_ethereum() {
 		type RuntimeEvent = <BridgeHubRococo as Chain>::RuntimeEvent;
 
 		// Construct RegisterToken message and sent to inbound queue
-		send_inbound_message(make_register_token_message()).unwrap();
+		assert_ok!(send_inbound_message(make_register_token_message()));
 
 		// Check that the register token message was sent using xcm
 		assert_expected_events!(
@@ -410,7 +410,7 @@ fn send_weth_asset_from_asset_hub_to_ethereum() {
 		);
 
 		// Construct SendToken message and sent to inbound queue
-		send_inbound_message(make_send_token_message()).unwrap();
+		assert_ok!(send_inbound_message(make_send_token_message()));
 
 		// Check that the send token message was sent using xcm
 		assert_expected_events!(
