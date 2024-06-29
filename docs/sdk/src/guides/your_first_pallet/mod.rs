@@ -626,7 +626,7 @@ pub mod pallet {
 		#[test]
 		fn transfer_works() {
 			StateBuilder::default().build_and_execute(|| {
-				// given the the initial state, when:
+				// given the initial state, when:
 				assert_ok!(Pallet::<Runtime>::transfer(RuntimeOrigin::signed(ALICE), BOB, 50));
 
 				// then:
@@ -648,7 +648,7 @@ pub mod pallet {
 		#[test]
 		fn transfer_from_non_existent_fails() {
 			StateBuilder::default().build_and_execute(|| {
-				// given the the initial state, when:
+				// given the initial state, when:
 				assert_err!(
 					Pallet::<Runtime>::transfer(RuntimeOrigin::signed(CHARLIE), ALICE, 10),
 					"NonExistentAccount"
@@ -769,7 +769,7 @@ pub mod pallet_v2 {
 				// the final assertion.
 				System::set_block_number(ALICE);
 
-				// given the the initial state, when:
+				// given the initial state, when:
 				assert_ok!(Pallet::<Runtime>::transfer(RuntimeOrigin::signed(ALICE), BOB, 50));
 
 				// then:
