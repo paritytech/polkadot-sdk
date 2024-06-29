@@ -57,7 +57,7 @@ use frame_support::{
 use sp_core::Get;
 use sp_runtime::{DispatchError, RuntimeDebug};
 use sp_std::prelude::*;
-use wasmi::{InstancePre, Linker, Memory, MemoryType, StackLimits, Store};
+use wasmi::{CompilationMode, InstancePre, Linker, Memory, MemoryType, StackLimits, Store};
 
 const BYTES_PER_PAGE: usize = 64 * 1024;
 
@@ -142,11 +142,6 @@ struct CodeLoadToken(u32);
 
 impl<T: Config> Token<T> for CodeLoadToken {
 	fn weight(&self) -> Weight {
-		// When loading the contract, we already covered the general costs of
-		// calling the storage but still need to account for the actual size of the
-		// contract code. This is why we subtract `T::*::(0)`. We need to do this at this
-		// point because when charging the general weight for calling the contract we don't know the
-		// size of the contract.
 		T::WeightInfo::call_with_code_per_byte(self.0)
 			.saturating_sub(T::WeightInfo::call_with_code_per_byte(0))
 	}
@@ -351,9 +346,9 @@ impl<T: Config> WasmBlob<T> {
 		mut store: Store<Runtime<E>>,
 		result: Result<(), wasmi::Error>,
 	) -> ExecResult {
-		let engine_consumed_total = store.fuel_consumed().expect("Fuel metering is enabled; qed");
+		let engine_fuel = store.get_fuel().expect("Fuel metering is enabled; qed");
 		let gas_meter = store.data_mut().ext().gas_meter_mut();
-		let _ = gas_meter.sync_from_executor(engine_consumed_total)?;
+		let _ = gas_meter.sync_from_executor(engine_fuel)?;
 		store.into_data().to_execution_result(result)
 	}
 
@@ -364,8 +359,13 @@ impl<T: Config> WasmBlob<T> {
 		input_data: Vec<u8>,
 	) -> (Func, Store<Runtime<E>>) {
 		use InstanceOrExecReturn::*;
-		match Self::prepare_execute(self, Runtime::new(ext, input_data), &ExportedFunction::Call)
-			.expect("Benchmark should provide valid module")
+		match Self::prepare_execute(
+			self,
+			Runtime::new(ext, input_data),
+			&ExportedFunction::Call,
+			CompilationMode::Eager,
+		)
+		.expect("Benchmark should provide valid module")
 		{
 			Instance((func, store)) => (func, store),
 			ExecReturn(_) => panic!("Expected Instance"),
@@ -376,6 +376,7 @@ impl<T: Config> WasmBlob<T> {
 		self,
 		runtime: Runtime<'a, E>,
 		function: &'a ExportedFunction,
+		compilation_mode: CompilationMode,
 	) -> PreExecResult<'a, E> {
 		let code = self.code.as_slice();
 		// Instantiate the Wasm module to the engine.
@@ -386,6 +387,7 @@ impl<T: Config> WasmBlob<T> {
 			self.code_info.determinism,
 			Some(StackLimits::default()),
 			LoadingMode::Unchecked,
+			compilation_mode,
 		)
 		.map_err(|err| {
 			log::debug!(target: LOG_TARGET, "failed to create wasmi module: {err:?}");
@@ -415,10 +417,10 @@ impl<T: Config> WasmBlob<T> {
 			.gas_meter_mut()
 			.gas_left()
 			.ref_time()
-			.checked_div(T::Schedule::get().instruction_weights.base as u64)
+			.checked_div(T::Schedule::get().ref_time_by_fuel())
 			.ok_or(Error::<T>::InvalidSchedule)?;
 		store
-			.add_fuel(fuel_limit)
+			.set_fuel(fuel_limit)
 			.expect("We've set up engine to fuel consuming mode; qed");
 
 		// Start function should already see the correct refcount in case it will be ever inspected.
@@ -464,7 +466,12 @@ impl<T: Config> Executable<T> for WasmBlob<T> {
 		input_data: Vec<u8>,
 	) -> ExecResult {
 		use InstanceOrExecReturn::*;
-		match Self::prepare_execute(self, Runtime::new(ext, input_data), function)? {
+		match Self::prepare_execute(
+			self,
+			Runtime::new(ext, input_data),
+			function,
+			CompilationMode::Lazy,
+		)? {
 			Instance((func, mut store)) => {
 				let result = func.call(&mut store, &[], &mut []);
 				Self::process_result(store, result)
@@ -545,6 +552,7 @@ mod tests {
 		value: u64,
 		data: Vec<u8>,
 		allows_reentry: bool,
+		read_only: bool,
 	}
 
 	#[derive(Debug, PartialEq, Eq)]
@@ -612,8 +620,9 @@ mod tests {
 			value: u64,
 			data: Vec<u8>,
 			allows_reentry: bool,
+			read_only: bool,
 		) -> Result<ExecReturnValue, ExecError> {
-			self.calls.push(CallEntry { to, value, data, allows_reentry });
+			self.calls.push(CallEntry { to, value, data, allows_reentry, read_only });
 			Ok(ExecReturnValue { flags: ReturnFlags::empty(), data: call_return_data() })
 		}
 		fn delegate_call(
@@ -645,15 +654,15 @@ mod tests {
 				ExecReturnValue { flags: ReturnFlags::empty(), data: Vec::new() },
 			))
 		}
-		fn set_code_hash(&mut self, hash: CodeHash<Self::T>) -> Result<(), DispatchError> {
+		fn set_code_hash(&mut self, hash: CodeHash<Self::T>) -> DispatchResult {
 			self.code_hashes.push(hash);
 			Ok(())
 		}
-		fn transfer(&mut self, to: &AccountIdOf<Self::T>, value: u64) -> Result<(), DispatchError> {
+		fn transfer(&mut self, to: &AccountIdOf<Self::T>, value: u64) -> DispatchResult {
 			self.transfers.push(TransferEntry { to: to.clone(), value });
 			Ok(())
 		}
-		fn terminate(&mut self, beneficiary: &AccountIdOf<Self::T>) -> Result<(), DispatchError> {
+		fn terminate(&mut self, beneficiary: &AccountIdOf<Self::T>) -> DispatchResult {
 			self.terminations.push(TerminationEntry { beneficiary: beneficiary.clone() });
 			Ok(())
 		}
@@ -787,26 +796,25 @@ mod tests {
 		fn nonce(&mut self) -> u64 {
 			995
 		}
-		fn increment_refcount(_code_hash: CodeHash<Self::T>) -> Result<(), DispatchError> {
+		fn increment_refcount(_code_hash: CodeHash<Self::T>) -> DispatchResult {
 			Ok(())
 		}
 		fn decrement_refcount(_code_hash: CodeHash<Self::T>) {}
-		fn lock_delegate_dependency(
-			&mut self,
-			code: CodeHash<Self::T>,
-		) -> Result<(), DispatchError> {
+		fn lock_delegate_dependency(&mut self, code: CodeHash<Self::T>) -> DispatchResult {
 			self.delegate_dependencies.borrow_mut().insert(code);
 			Ok(())
 		}
-		fn unlock_delegate_dependency(
-			&mut self,
-			code: &CodeHash<Self::T>,
-		) -> Result<(), DispatchError> {
+		fn unlock_delegate_dependency(&mut self, code: &CodeHash<Self::T>) -> DispatchResult {
 			self.delegate_dependencies.borrow_mut().remove(code);
 			Ok(())
 		}
+
 		fn locked_delegate_dependencies_count(&mut self) -> usize {
 			self.delegate_dependencies.borrow().len()
+		}
+
+		fn is_read_only(&self) -> bool {
+			false
 		}
 	}
 
@@ -989,7 +997,13 @@ mod tests {
 
 		assert_eq!(
 			&mock_ext.calls,
-			&[CallEntry { to: ALICE, value: 6, data: vec![1, 2, 3, 4], allows_reentry: true }]
+			&[CallEntry {
+				to: ALICE,
+				value: 6,
+				data: vec![1, 2, 3, 4],
+				allows_reentry: true,
+				read_only: false
+			}]
 		);
 	}
 
@@ -1086,7 +1100,13 @@ mod tests {
 
 		assert_eq!(
 			&mock_ext.calls,
-			&[CallEntry { to: ALICE, value: 0x2a, data: input, allows_reentry: false }]
+			&[CallEntry {
+				to: ALICE,
+				value: 0x2a,
+				data: input,
+				allows_reentry: false,
+				read_only: false
+			}]
 		);
 	}
 
@@ -1141,7 +1161,13 @@ mod tests {
 		assert_eq!(result.data, input);
 		assert_eq!(
 			&mock_ext.calls,
-			&[CallEntry { to: ALICE, value: 0x2a, data: input, allows_reentry: true }]
+			&[CallEntry {
+				to: ALICE,
+				value: 0x2a,
+				data: input,
+				allows_reentry: true,
+				read_only: false
+			}]
 		);
 	}
 
@@ -1188,7 +1214,13 @@ mod tests {
 		assert_eq!(result.data, call_return_data());
 		assert_eq!(
 			&mock_ext.calls,
-			&[CallEntry { to: ALICE, value: 0x2a, data: input, allows_reentry: false }]
+			&[CallEntry {
+				to: ALICE,
+				value: 0x2a,
+				data: input,
+				allows_reentry: false,
+				read_only: false
+			}]
 		);
 	}
 
@@ -1429,7 +1461,13 @@ mod tests {
 
 		assert_eq!(
 			&mock_ext.calls,
-			&[CallEntry { to: ALICE, value: 6, data: vec![1, 2, 3, 4], allows_reentry: true }]
+			&[CallEntry {
+				to: ALICE,
+				value: 6,
+				data: vec![1, 2, 3, 4],
+				allows_reentry: true,
+				read_only: false
+			}]
 		);
 	}
 
