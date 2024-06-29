@@ -498,43 +498,26 @@ pub async fn start_shell_node<Net: NetworkBackend<Block, Hash>>(
 	.await
 }
 
-enum BuildOnAccess<R> {
-	Uninitialized(Option<Box<dyn FnOnce() -> R + Send + Sync>>),
-	Initialized(R),
-}
-
-impl<R> BuildOnAccess<R> {
-	fn get_mut(&mut self) -> &mut R {
-		loop {
-			match self {
-				Self::Uninitialized(f) => {
-					*self = Self::Initialized((f.take().unwrap())());
-				},
-				Self::Initialized(ref mut r) => return r,
-			}
-		}
-	}
-}
-
 struct Verifier<Client, AuraId> {
 	client: Arc<Client>,
-	aura_verifier: BuildOnAccess<Box<dyn VerifierT<Block>>>,
+	aura_verifier: Box<dyn VerifierT<Block>>,
 	relay_chain_verifier: Box<dyn VerifierT<Block>>,
 	_phantom: PhantomData<AuraId>,
 }
 
 #[async_trait::async_trait]
-impl<Client, AuraId: AuraIdT> VerifierT<Block> for Verifier<Client, AuraId>
+impl<Client, AuraId> VerifierT<Block> for Verifier<Client, AuraId>
 where
-	Client: sp_api::ProvideRuntimeApi<Block> + Send + Sync,
+	Client: ProvideRuntimeApi<Block> + Send + Sync,
 	Client::Api: AuraRuntimeApi<Block, AuraId>,
+	AuraId: AuraIdT + Sync,
 {
 	async fn verify(
-		&mut self,
+		&self,
 		block_import: BlockImportParams<Block>,
 	) -> Result<BlockImportParams<Block>, String> {
 		if self.client.runtime_api().has_aura_api(*block_import.header.parent_hash()) {
-			self.aura_verifier.get_mut().verify(block_import).await
+			self.aura_verifier.verify(block_import).await
 		} else {
 			self.relay_chain_verifier.verify(block_import).await
 		}
@@ -543,7 +526,7 @@ where
 
 /// Build the import queue for parachain runtimes that started with relay chain consensus and
 /// switched to aura.
-pub fn build_relay_to_aura_import_queue<RuntimeApi, AuraId: AuraIdT>(
+pub fn build_relay_to_aura_import_queue<RuntimeApi, AuraId>(
 	client: Arc<ParachainClient<RuntimeApi>>,
 	block_import: ParachainBlockImport<RuntimeApi>,
 	config: &Configuration,
@@ -553,38 +536,35 @@ pub fn build_relay_to_aura_import_queue<RuntimeApi, AuraId: AuraIdT>(
 where
 	RuntimeApi: ConstructNodeRuntimeApi<Block, ParachainClient<RuntimeApi>>,
 	RuntimeApi::RuntimeApi: AuraRuntimeApi<Block, AuraId>,
+	AuraId: AuraIdT + Sync,
 {
 	let verifier_client = client.clone();
 
-	let aura_verifier = move || {
-		Box::new(cumulus_client_consensus_aura::build_verifier::<
-			<AuraId as AppCrypto>::Pair,
-			_,
-			_,
-			_,
-		>(cumulus_client_consensus_aura::BuildVerifierParams {
-			client: verifier_client.clone(),
-			create_inherent_data_providers: move |parent_hash, _| {
-				let cidp_client = verifier_client.clone();
-				async move {
-					let slot_duration = cumulus_client_consensus_aura::slot_duration_at(
-						&*cidp_client,
-						parent_hash,
-					)?;
-					let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
+	let aura_verifier = cumulus_client_consensus_aura::build_verifier::<
+		<AuraId as AppCrypto>::Pair,
+		_,
+		_,
+		_,
+	>(cumulus_client_consensus_aura::BuildVerifierParams {
+		client: verifier_client.clone(),
+		create_inherent_data_providers: move |parent_hash, _| {
+			let cidp_client = verifier_client.clone();
+			async move {
+				let slot_duration =
+					cumulus_client_consensus_aura::slot_duration_at(&*cidp_client, parent_hash)?;
+				let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
 
-					let slot =
-								sp_consensus_aura::inherents::InherentDataProvider::from_timestamp_and_slot_duration(
-									*timestamp,
-									slot_duration,
-								);
+				let slot =
+					sp_consensus_aura::inherents::InherentDataProvider::from_timestamp_and_slot_duration(
+						*timestamp,
+						slot_duration,
+					);
 
-					Ok((slot, timestamp))
-				}
-			},
-			telemetry: telemetry_handle,
-		})) as Box<_>
-	};
+				Ok((slot, timestamp))
+			}
+		},
+		telemetry: telemetry_handle,
+	});
 
 	let relay_chain_verifier =
 		Box::new(RelayChainVerifier::new(client.clone(), |_, _| async { Ok(()) })) as Box<_>;
@@ -592,7 +572,7 @@ where
 	let verifier = Verifier {
 		client,
 		relay_chain_verifier,
-		aura_verifier: BuildOnAccess::Uninitialized(Some(Box::new(aura_verifier))),
+		aura_verifier: Box::new(aura_verifier),
 		_phantom: PhantomData,
 	};
 
@@ -632,7 +612,7 @@ pub async fn start_generic_aura_lookahead_node<Net: NetworkBackend<Block, Hash>>
 ///
 /// Uses the lookahead collator to support async backing.
 #[sc_tracing::logging::prefix_logs_with("Parachain")]
-pub async fn start_asset_hub_lookahead_node<RuntimeApi, AuraId: AuraIdT, Net>(
+pub async fn start_asset_hub_lookahead_node<RuntimeApi, AuraId, Net>(
 	parachain_config: Configuration,
 	polkadot_config: Configuration,
 	collator_options: CollatorOptions,
@@ -644,6 +624,7 @@ where
 	RuntimeApi::RuntimeApi: AuraRuntimeApi<Block, AuraId>
 		+ pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block, Balance>
 		+ substrate_frame_rpc_system::AccountNonceApi<Block, AccountId, Nonce>,
+	AuraId: AuraIdT + Sync,
 	Net: NetworkBackend<Block, Hash>,
 {
 	start_node_impl::<RuntimeApi, _, _, _, Net>(
