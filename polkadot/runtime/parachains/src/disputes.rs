@@ -40,7 +40,7 @@ use sp_std::{cmp::Ordering, collections::btree_set::BTreeSet, prelude::*};
 
 #[cfg(test)]
 #[allow(unused_imports)]
-pub(crate) use self::tests::run_to_block;
+pub(crate) use self::tests::{make_dispute_concluding_against, run_to_block};
 
 pub mod slashing;
 #[cfg(test)]
@@ -229,6 +229,9 @@ pub trait DisputesHandler<BlockNumber: Ord> {
 		included_in: BlockNumber,
 	);
 
+	/// Get a list of disputes in a session that concluded invalid.
+	fn disputes_concluded_invalid(session: SessionIndex) -> BTreeSet<CandidateHash>;
+
 	/// Retrieve the included state of a given candidate in a particular session. If it
 	/// returns `Some`, then we have a local dispute for the given `candidate_hash`.
 	fn included_state(session: SessionIndex, candidate_hash: CandidateHash) -> Option<BlockNumber>;
@@ -269,6 +272,10 @@ impl<BlockNumber: Ord> DisputesHandler<BlockNumber> for () {
 		_statement_sets: &CheckedMultiDisputeStatementSet,
 	) -> Result<Vec<(SessionIndex, CandidateHash)>, DispatchError> {
 		Ok(Vec::new())
+	}
+
+	fn disputes_concluded_invalid(_session: SessionIndex) -> BTreeSet<CandidateHash> {
+		BTreeSet::new()
 	}
 
 	fn note_included(
@@ -318,6 +325,10 @@ where
 		statement_sets: &CheckedMultiDisputeStatementSet,
 	) -> Result<Vec<(SessionIndex, CandidateHash)>, DispatchError> {
 		pallet::Pallet::<T>::process_checked_multi_dispute_data(statement_sets)
+	}
+
+	fn disputes_concluded_invalid(session: SessionIndex) -> BTreeSet<CandidateHash> {
+		pallet::Pallet::<T>::disputes_concluded_invalid(session)
 	}
 
 	fn note_included(
@@ -555,7 +566,7 @@ enum VoteImportError {
 	MaliciousBacker,
 }
 
-#[derive(RuntimeDebug, Copy, Clone, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 enum VoteKind {
 	/// A backing vote that is counted as "for" vote in dispute resolution.
 	Backing,
@@ -948,7 +959,10 @@ impl<T: Config> Pallet<T> {
 		// Load session info to access validators
 		let session_info = match session_info::Sessions::<T>::get(set.session) {
 			Some(s) => s,
-			None => return StatementSetFilter::RemoveAll,
+			None => {
+				log::debug!(target: LOG_TARGET, "SessionInfo not found: {}", set.session);
+				return StatementSetFilter::RemoveAll
+			},
 		};
 
 		let config = configuration::ActiveConfig::<T>::get();
@@ -959,6 +973,7 @@ impl<T: Config> Pallet<T> {
 		let dispute_state = {
 			if let Some(dispute_state) = Disputes::<T>::get(&set.session, &set.candidate_hash) {
 				if dispute_state.concluded_at.as_ref().map_or(false, |c| c < &oldest_accepted) {
+					log::debug!(target: LOG_TARGET, "Dispute is ancient: {:?}", set.candidate_hash);
 					return StatementSetFilter::RemoveAll
 				}
 
@@ -986,6 +1001,7 @@ impl<T: Config> Pallet<T> {
 				let validator_public = match session_info.validators.get(*validator_index) {
 					None => {
 						filter.remove_index(i);
+						log::debug!(target: LOG_TARGET, "Invalid validator index in a dispute: {}", validator_index.0);
 						continue
 					},
 					Some(v) => v,
@@ -997,6 +1013,7 @@ impl<T: Config> Pallet<T> {
 					Ok(u) => u,
 					Err(_) => {
 						filter.remove_index(i);
+						log::debug!(target: LOG_TARGET, "Import of a dispute failed for validator: {}", validator_index.0);
 						continue
 					},
 				};
@@ -1022,7 +1039,7 @@ impl<T: Config> Pallet<T> {
 					// config.
 					config.approval_voting_params.max_approval_coalesce_count > 1,
 				) {
-					log::warn!("Failed to check dispute signature");
+					log::warn!(target: LOG_TARGET, "Failed to check dispute signature");
 
 					importer.undo(undo);
 					filter.remove_index(i);
@@ -1037,6 +1054,7 @@ impl<T: Config> Pallet<T> {
 		if summary.state.validators_for.count_ones() == 0 ||
 			summary.state.validators_against.count_ones() == 0
 		{
+			log::debug!(target: LOG_TARGET, "Rejected one-sided dispute");
 			return StatementSetFilter::RemoveAll
 		}
 
@@ -1044,6 +1062,7 @@ impl<T: Config> Pallet<T> {
 		if (summary.state.validators_for.clone() | &summary.state.validators_against).count_ones() <=
 			byzantine_threshold(summary.state.validators_for.len())
 		{
+			log::debug!(target: LOG_TARGET, "Rejected unconfirmed dispute");
 			return StatementSetFilter::RemoveAll
 		}
 
@@ -1215,12 +1234,13 @@ impl<T: Config> Pallet<T> {
 		let revert_to = included_in - One::one();
 
 		Included::<T>::insert(&session, &candidate_hash, revert_to);
+	}
 
-		if let Some(state) = Disputes::<T>::get(&session, candidate_hash) {
-			if has_supermajority_against(&state) {
-				Self::revert_and_freeze(revert_to);
-			}
-		}
+	pub(crate) fn disputes_concluded_invalid(session: SessionIndex) -> BTreeSet<CandidateHash> {
+		Disputes::<T>::iter_prefix(session)
+			.filter(|(_hash, state)| has_supermajority_against(state))
+			.map(|(hash, _state)| hash)
+			.collect()
 	}
 
 	pub(crate) fn included_state(
