@@ -729,7 +729,6 @@ async fn start_node<Network: sc_network::NetworkBackend<Block, Hash>>(
 			Network,
 		>(config, polkadot_config, collator_options, id, hwbench)
 		.await
-		.map(|r| r.0)
 		.map_err(Into::into),
 
 		Runtime::AssetHub => crate::service::start_asset_hub_lookahead_node::<
@@ -738,7 +737,6 @@ async fn start_node<Network: sc_network::NetworkBackend<Block, Hash>>(
 			Network,
 		>(config, polkadot_config, collator_options, id, hwbench)
 		.await
-		.map(|r| r.0)
 		.map_err(Into::into),
 
 		Runtime::BridgeHub(_) |
@@ -752,7 +750,6 @@ async fn start_node<Network: sc_network::NetworkBackend<Block, Hash>>(
 			hwbench,
 		)
 		.await
-		.map(|r| r.0)
 		.map_err(Into::into),
 
 		Runtime::Seedling | Runtime::Shell => crate::service::start_shell_node::<Network>(
@@ -763,7 +760,6 @@ async fn start_node<Network: sc_network::NetworkBackend<Block, Hash>>(
 			hwbench,
 		)
 		.await
-		.map(|r| r.0)
 		.map_err(Into::into),
 
 		Runtime::ContractsRococo => crate::service::start_contracts_rococo_node::<Network>(
@@ -774,7 +770,6 @@ async fn start_node<Network: sc_network::NetworkBackend<Block, Hash>>(
 			hwbench,
 		)
 		.await
-		.map(|r| r.0)
 		.map_err(Into::into),
 
 		Runtime::Penpal(_) => crate::service::start_rococo_parachain_node::<Network>(
@@ -785,7 +780,6 @@ async fn start_node<Network: sc_network::NetworkBackend<Block, Hash>>(
 			hwbench,
 		)
 		.await
-		.map(|r| r.0)
 		.map_err(Into::into),
 
 		Runtime::Glutton => crate::service::start_basic_lookahead_node::<Network>(
@@ -796,7 +790,6 @@ async fn start_node<Network: sc_network::NetworkBackend<Block, Hash>>(
 			hwbench,
 		)
 		.await
-		.map(|r| r.0)
 		.map_err(Into::into),
 
 		Runtime::Omni(consensus) => match consensus {
@@ -810,7 +803,6 @@ async fn start_node<Network: sc_network::NetworkBackend<Block, Hash>>(
 				hwbench,
 			)
 			.await
-			.map(|r| r.0)
 			.map_err(Into::into),
 
 			Consensus::Relay => crate::service::start_shell_node::<Network>(
@@ -821,7 +813,6 @@ async fn start_node<Network: sc_network::NetworkBackend<Block, Hash>>(
 				hwbench,
 			)
 			.await
-			.map(|r| r.0)
 			.map_err(Into::into),
 		},
 	}
