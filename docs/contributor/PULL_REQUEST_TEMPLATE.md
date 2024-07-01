@@ -17,7 +17,10 @@ delete this section and leave only the text under the "Description" heading.
 
 ## Review Notes 
 
-*In depth notes about the **implenentation** details of your PR. This should be the main guide for reviewers to understand your approach and effectively review it. If length, use [`<summary>`](https://www.w3schools.com/tags/tag_summary.asp)*.
+*In depth notes about the **implenentation** details of your PR. This should be the main guide for reviewers to understand your approach and effectively review it. If too long, use [`<details>`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/details)*.
+
+*Imagine that someone who is depending on the old code wants to integrate your new code and the only information that they get is this section.
+It helps to include example usage and default value here, with a `diff` code-block to show possibly integration.*
 
 *Include your leftover TODOs, if any, here.* 
 
