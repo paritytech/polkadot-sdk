@@ -22,12 +22,12 @@
 use bp_header_chain::justification::{required_justification_precommits, GrandpaJustification};
 use bp_parachains::parachain_head_storage_key_at_source;
 use bp_polkadot_core::parachains::{ParaHash, ParaHead, ParaHeadsProof, ParaId};
-use bp_runtime::record_all_trie_keys;
+use bp_runtime::UnverifiedStorageProof;
 use codec::Encode;
 use sp_consensus_grandpa::{AuthorityId, AuthoritySignature, AuthorityWeight, SetId};
 use sp_runtime::traits::{Header as HeaderT, One, Zero};
 use sp_std::prelude::*;
-use sp_trie::{trie_types::TrieDBMutBuilderV1, LayoutV1, MemoryDB, TrieMut};
+use sp_trie::{trie_types::TrieDBMutBuilderV1, MemoryDB, TrieMut};
 
 // Re-export all our test account utilities
 pub use keyring::*;
@@ -177,6 +177,7 @@ pub fn prepare_parachain_heads_proof<H: HeaderT>(
 	let mut parachains = Vec::with_capacity(heads.len());
 	let mut root = Default::default();
 	let mut mdb = MemoryDB::default();
+	let mut storage_keys = vec![];
 	{
 		let mut trie = TrieDBMutBuilderV1::<H::Hashing>::new(&mut mdb, &mut root).build();
 		for (parachain, head) in heads {
@@ -185,14 +186,15 @@ pub fn prepare_parachain_heads_proof<H: HeaderT>(
 			trie.insert(&storage_key.0, &head.encode())
 				.map_err(|_| "TrieMut::insert has failed")
 				.expect("TrieMut::insert should not fail in tests");
+			storage_keys.push(storage_key.0);
 			parachains.push((ParaId(parachain), head.hash()));
 		}
 	}
 
 	// generate storage proof to be delivered to This chain
-	let storage_proof = record_all_trie_keys::<LayoutV1<H::Hashing>, _>(&mdb, &root)
-		.map_err(|_| "record_all_trie_keys has failed")
-		.expect("record_all_trie_keys should not fail in benchmarks");
+	let storage_proof =
+		UnverifiedStorageProof::try_from_db::<H::Hashing, _>(&mdb, root, storage_keys)
+			.expect("UnverifiedStorageProof::try_from_db() should not fail in benchmarks");
 
 	(root, ParaHeadsProof { storage_proof }, parachains)
 }

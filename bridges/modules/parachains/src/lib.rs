@@ -30,7 +30,7 @@ pub use weights_ext::WeightInfoExt;
 use bp_header_chain::{HeaderChain, HeaderChainError};
 use bp_parachains::{parachain_head_storage_key_at_source, ParaInfo, ParaStoredHeaderData};
 use bp_polkadot_core::parachains::{ParaHash, ParaHead, ParaHeadsProof, ParaId};
-use bp_runtime::{Chain, HashOf, HeaderId, HeaderIdOf, Parachain, StorageProofError};
+use bp_runtime::{Chain, HashOf, HeaderId, HeaderIdOf, Parachain};
 use frame_support::{dispatch::PostDispatchInfo, DefaultNoBound};
 use pallet_bridge_grandpa::SubmitFinalityProofHelper;
 use sp_std::{marker::PhantomData, vec::Vec};
@@ -83,7 +83,7 @@ pub mod pallet {
 	};
 	use bp_runtime::{
 		BasicOperatingMode, BoundedStorageValue, OwnedBridgeModule, StorageDoubleMapKeyProvider,
-		StorageMapKeyProvider,
+		StorageMapKeyProvider, StorageProofError, VerifiedStorageProof,
 	};
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
@@ -448,8 +448,7 @@ pub mod pallet {
 				parachains.len() as _,
 			);
 
-			let mut is_updated_something = false;
-			let mut storage = GrandpaPalletOf::<T, I>::storage_proof_checker(
+			let mut storage = GrandpaPalletOf::<T, I>::verify_storage_proof(
 				relay_block_hash,
 				parachain_heads_proof.storage_proof,
 			)
@@ -541,7 +540,6 @@ pub mod pallet {
 							parachain_head_hash,
 						)?;
 
-						is_updated_something = true;
 						if is_free {
 							free_parachain_heads = free_parachain_heads + 1;
 						}
@@ -572,7 +570,7 @@ pub mod pallet {
 			// => treat this as an error
 			//
 			// (we can throw error here, because now all our calls are transactional)
-			storage.ensure_no_unused_nodes().map_err(|e| {
+			storage.ensure_no_unused_keys().map_err(|e| {
 				Error::<T, I>::HeaderChainStorageProof(HeaderChainError::StorageProof(e))
 			})?;
 
@@ -635,12 +633,12 @@ pub mod pallet {
 
 		/// Read parachain head from storage proof.
 		fn read_parachain_head(
-			storage: &mut bp_runtime::StorageProofChecker<RelayBlockHasher>,
+			storage: &mut VerifiedStorageProof,
 			parachain: ParaId,
 		) -> Result<Option<ParaHead>, StorageProofError> {
 			let parachain_head_key =
 				parachain_head_storage_key_at_source(T::ParasPalletName::get(), parachain);
-			storage.read_and_decode_value(parachain_head_key.0.as_ref())
+			storage.get_and_decode_optional(&parachain_head_key)
 		}
 
 		/// Try to update parachain head.
@@ -846,7 +844,7 @@ pub(crate) mod tests {
 	};
 	use bp_runtime::{
 		BasicOperatingMode, OwnedBridgeModuleError, StorageDoubleMapKeyProvider,
-		StorageMapKeyProvider,
+		StorageMapKeyProvider, StorageProofError,
 	};
 	use bp_test_utils::{
 		authority_list, generate_owned_bridge_module_tests, make_default_justification,
@@ -1579,7 +1577,7 @@ pub(crate) mod tests {
 			assert_noop!(
 				import_parachain_1_head(0, Default::default(), parachains, proof),
 				Error::<TestRuntime>::HeaderChainStorageProof(HeaderChainError::StorageProof(
-					StorageProofError::StorageRootMismatch
+					StorageProofError::InvalidProof
 				))
 			);
 		});

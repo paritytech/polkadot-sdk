@@ -37,7 +37,7 @@ use crate::{
 
 use async_std::sync::{Arc, Mutex, RwLock};
 use async_trait::async_trait;
-use bp_runtime::HeaderIdProvider;
+use bp_runtime::{HasherOf, HeaderIdProvider, UnverifiedStorageProof};
 use codec::Encode;
 use frame_support::weights::Weight;
 use futures::TryFutureExt;
@@ -635,16 +635,25 @@ impl<C: Chain> Client<C> for RpcClient<C> {
 		.map_err(|e| Error::failed_state_call::<C>(at, method_clone, arguments_clone, e))
 	}
 
-	async fn prove_storage(&self, at: HashOf<C>, keys: Vec<StorageKey>) -> Result<StorageProof> {
+	async fn prove_storage_with_root(
+		&self,
+		at: HashOf<C>,
+		state_root: HashOf<C>,
+		keys: Vec<StorageKey>,
+	) -> Result<UnverifiedStorageProof> {
 		let keys_clone = keys.clone();
-		self.jsonrpsee_execute(move |client| async move {
-			SubstrateStateClient::<C>::prove_storage(&*client, keys, Some(at))
-				.await
-				.map(|proof| StorageProof::new(proof.proof.into_iter().map(|b| b.0)))
-				.map_err(Into::into)
-		})
-		.await
-		.map_err(|e| Error::failed_to_prove_storage::<C>(at, keys_clone, e))
+		let read_proof = self
+			.jsonrpsee_execute(move |client| async move {
+				SubstrateStateClient::<C>::prove_storage(&*client, keys_clone, Some(at))
+					.await
+					.map(|proof| StorageProof::new(proof.proof.into_iter().map(|b| b.0)))
+					.map_err(Into::into)
+			})
+			.await
+			.map_err(|e| Error::failed_to_prove_storage::<C>(at, keys.clone(), e))?;
+
+		UnverifiedStorageProof::try_new::<HasherOf<C>>(read_proof, state_root, keys)
+			.map_err(|e| Error::Custom(format!("Error generating storage proof: {:?}", e)))
 	}
 }
 

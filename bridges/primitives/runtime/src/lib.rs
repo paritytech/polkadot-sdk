@@ -40,14 +40,10 @@ pub use chain::{
 };
 pub use frame_support::storage::storage_prefix as storage_value_final_key;
 use num_traits::{CheckedAdd, CheckedSub, One, SaturatingAdd, Zero};
-pub use storage_proof::{
-	record_all_keys as record_all_trie_keys, Error as StorageProofError,
-	ProofSize as StorageProofSize, RawStorageProof, StorageProofChecker,
-};
+#[cfg(feature = "test-helpers")]
+pub use storage_proof::{grow_storage_proof, grow_storage_value, UnverifiedStorageProofParams};
+pub use storage_proof::{StorageProofError, UnverifiedStorageProof, VerifiedStorageProof};
 pub use storage_types::BoundedStorageValue;
-
-#[cfg(feature = "std")]
-pub use storage_proof::craft_valid_storage_proof;
 
 pub mod extensions;
 pub mod messages;
@@ -459,38 +455,6 @@ macro_rules! generate_static_str_provider {
 			}
 		}
 	};
-}
-
-/// Error message that is only displayable in `std` environment.
-#[derive(Encode, Decode, Clone, Eq, PartialEq, PalletError, TypeInfo)]
-#[scale_info(skip_type_params(T))]
-pub struct StrippableError<T> {
-	_phantom_data: sp_std::marker::PhantomData<T>,
-	#[codec(skip)]
-	#[cfg(feature = "std")]
-	message: String,
-}
-
-impl<T: Debug> From<T> for StrippableError<T> {
-	fn from(_err: T) -> Self {
-		Self {
-			_phantom_data: Default::default(),
-			#[cfg(feature = "std")]
-			message: format!("{:?}", _err),
-		}
-	}
-}
-
-impl<T> Debug for StrippableError<T> {
-	#[cfg(feature = "std")]
-	fn fmt(&self, f: &mut sp_std::fmt::Formatter<'_>) -> sp_std::fmt::Result {
-		f.write_str(&self.message)
-	}
-
-	#[cfg(not(feature = "std"))]
-	fn fmt(&self, f: &mut sp_std::fmt::Formatter<'_>) -> sp_std::fmt::Result {
-		f.write_str("Stripped error")
-	}
 }
 
 /// A trait defining helper methods for `RangeInclusive` (start..=end)

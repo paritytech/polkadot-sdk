@@ -28,8 +28,8 @@ use bridge_hub_westend_runtime::{
 };
 use bridge_to_rococo_config::{
 	BridgeGrandpaRococoInstance, BridgeHubRococoChainId, BridgeHubRococoLocation,
-	BridgeParachainRococoInstance, WithBridgeHubRococoMessageBridge,
-	WithBridgeHubRococoMessagesInstance, XCM_LANE_FOR_ASSET_HUB_WESTEND_TO_ASSET_HUB_ROCOCO,
+	BridgeParachainRococoInstance, WithBridgeHubRococoMessagesInstance,
+	XCM_LANE_FOR_ASSET_HUB_WESTEND_TO_ASSET_HUB_ROCOCO,
 };
 use codec::{Decode, Encode};
 use frame_support::{dispatch::GetDispatchInfo, parameter_types, traits::ConstU8};
@@ -53,7 +53,6 @@ type RuntimeTestsAdapter = from_parachain::WithRemoteParachainHelperAdapter<
 	BridgeGrandpaRococoInstance,
 	BridgeParachainRococoInstance,
 	WithBridgeHubRococoMessagesInstance,
-	WithBridgeHubRococoMessageBridge,
 >;
 
 parameter_types! {

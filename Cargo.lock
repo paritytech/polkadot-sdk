@@ -2368,7 +2368,6 @@ dependencies = [
  "bp-xcm-bridge-hub-router",
  "frame-support",
  "frame-system",
- "hash-db",
  "log",
  "pallet-balances",
  "pallet-bridge-grandpa",
@@ -2379,8 +2378,6 @@ dependencies = [
  "pallet-utility",
  "parity-scale-codec",
  "scale-info",
- "sp-api",
- "sp-core",
  "sp-io",
  "sp-runtime",
  "sp-std 14.0.0",
@@ -8636,7 +8633,6 @@ dependencies = [
  "async-std",
  "async-trait",
  "bp-messages",
- "env_logger 0.11.3",
  "finality-relay",
  "futures",
  "hex",
@@ -10100,7 +10096,6 @@ dependencies = [
  "bp-header-chain",
  "bp-runtime",
  "bp-test-utils",
- "finality-grandpa",
  "frame-benchmarking",
  "frame-support",
  "frame-system",
@@ -10112,13 +10107,13 @@ dependencies = [
  "sp-io",
  "sp-runtime",
  "sp-std 14.0.0",
- "sp-trie",
 ]
 
 [[package]]
 name = "pallet-bridge-messages"
 version = "0.7.0"
 dependencies = [
+ "bp-header-chain",
  "bp-messages",
  "bp-runtime",
  "bp-test-utils",
@@ -10128,11 +10123,14 @@ dependencies = [
  "log",
  "num-traits",
  "pallet-balances",
+ "pallet-bridge-grandpa",
  "parity-scale-codec",
  "scale-info",
+ "sp-core",
  "sp-io",
  "sp-runtime",
  "sp-std 14.0.0",
+ "sp-trie",
 ]
 
 [[package]]
@@ -10155,7 +10153,6 @@ dependencies = [
  "sp-io",
  "sp-runtime",
  "sp-std 14.0.0",
- "sp-trie",
 ]
 
 [[package]]
@@ -16241,13 +16238,10 @@ dependencies = [
  "bp-runtime",
  "finality-relay",
  "frame-support",
- "frame-system",
  "futures",
  "jsonrpsee",
  "log",
  "num-traits",
- "pallet-balances",
- "pallet-bridge-messages",
  "pallet-transaction-payment",
  "pallet-transaction-payment-rpc-runtime-api",
  "pallet-utility",
@@ -21423,9 +21417,7 @@ dependencies = [
  "bp-polkadot-core",
  "bp-relayers",
  "bp-runtime",
- "bridge-runtime-common",
  "equivocation-detector",
- "finality-grandpa",
  "finality-relay",
  "frame-support",
  "frame-system",
@@ -21445,6 +21437,7 @@ dependencies = [
  "rbtag",
  "relay-substrate-client",
  "relay-utils",
+ "scale-info",
  "sp-consensus-grandpa",
  "sp-core",
  "sp-runtime",

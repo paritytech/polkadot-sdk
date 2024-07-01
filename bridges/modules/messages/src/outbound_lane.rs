@@ -18,16 +18,14 @@
 
 use crate::{Config, LOG_TARGET};
 
-use bp_messages::{DeliveredMessages, LaneId, MessageNonce, OutboundLaneData, UnrewardedRelayer};
-use codec::{Decode, Encode};
-use frame_support::{
-	weights::{RuntimeDbWeight, Weight},
-	BoundedVec, PalletError,
+use bp_messages::{
+	ChainWithMessages, DeliveredMessages, LaneId, MessageNonce, OutboundLaneData, UnrewardedRelayer,
 };
-use num_traits::Zero;
+use codec::{Decode, Encode};
+use frame_support::{traits::Get, BoundedVec, PalletError};
 use scale_info::TypeInfo;
 use sp_runtime::RuntimeDebug;
-use sp_std::collections::vec_deque::VecDeque;
+use sp_std::{collections::vec_deque::VecDeque, marker::PhantomData};
 
 /// Outbound lane storage.
 pub trait OutboundLaneStorage {
@@ -48,8 +46,17 @@ pub trait OutboundLaneStorage {
 	fn remove_message(&mut self, nonce: &MessageNonce);
 }
 
+/// Limit for the `StoredMessagePayload` vector.
+pub struct StoredMessagePayloadLimit<T, I>(PhantomData<(T, I)>);
+
+impl<T: Config<I>, I: 'static> Get<u32> for StoredMessagePayloadLimit<T, I> {
+	fn get() -> u32 {
+		T::BridgedChain::maximal_incoming_message_size()
+	}
+}
+
 /// Outbound message data wrapper that implements `MaxEncodedLen`.
-pub type StoredMessagePayload<T, I> = BoundedVec<u8, <T as Config<I>>::MaximalOutboundPayloadSize>;
+pub type StoredMessagePayload<T, I> = BoundedVec<u8, StoredMessagePayloadLimit<T, I>>;
 
 /// Result of messages receival confirmation.
 #[derive(Encode, Decode, RuntimeDebug, PartialEq, Eq, PalletError, TypeInfo)]
@@ -132,40 +139,16 @@ impl<S: OutboundLaneStorage> OutboundLane<S> {
 
 		ensure_unrewarded_relayers_are_correct(confirmed_messages.end, relayers)?;
 
+		// prune all confirmed messages
+		for nonce in confirmed_messages.begin..=confirmed_messages.end {
+			self.storage.remove_message(&nonce);
+		}
+
 		data.latest_received_nonce = confirmed_messages.end;
+		data.oldest_unpruned_nonce = data.latest_received_nonce.saturating_add(1);
 		self.storage.set_data(data);
 
 		Ok(Some(confirmed_messages))
-	}
-
-	/// Prune at most `max_messages_to_prune` already received messages.
-	///
-	/// Returns weight, consumed by messages pruning and lane state update.
-	pub fn prune_messages(
-		&mut self,
-		db_weight: RuntimeDbWeight,
-		mut remaining_weight: Weight,
-	) -> Weight {
-		let write_weight = db_weight.writes(1);
-		let two_writes_weight = write_weight + write_weight;
-		let mut spent_weight = Weight::zero();
-		let mut data = self.storage.data();
-		while remaining_weight.all_gte(two_writes_weight) &&
-			data.oldest_unpruned_nonce <= data.latest_received_nonce
-		{
-			self.storage.remove_message(&data.oldest_unpruned_nonce);
-
-			spent_weight += write_weight;
-			remaining_weight -= write_weight;
-			data.oldest_unpruned_nonce += 1;
-		}
-
-		if !spent_weight.is_zero() {
-			spent_weight += write_weight;
-			self.storage.set_data(data);
-		}
-
-		spent_weight
 	}
 }
 
@@ -204,13 +187,12 @@ fn ensure_unrewarded_relayers_are_correct<RelayerId>(
 mod tests {
 	use super::*;
 	use crate::{
-		mock::{
+		outbound_lane,
+		tests::mock::{
 			outbound_message_data, run_test, unrewarded_relayer, TestRelayer, TestRuntime,
 			REGULAR_PAYLOAD, TEST_LANE_ID,
 		},
-		outbound_lane,
 	};
-	use frame_support::weights::constants::RocksDbWeight;
 	use sp_std::ops::RangeInclusive;
 
 	fn unrewarded_relayers(
@@ -263,12 +245,43 @@ mod tests {
 			assert_eq!(lane.send_message(outbound_message_data(REGULAR_PAYLOAD)), 3);
 			assert_eq!(lane.storage.data().latest_generated_nonce, 3);
 			assert_eq!(lane.storage.data().latest_received_nonce, 0);
+			assert_eq!(lane.storage.data().oldest_unpruned_nonce, 1);
 			assert_eq!(
 				lane.confirm_delivery(3, 3, &unrewarded_relayers(1..=3)),
 				Ok(Some(delivered_messages(1..=3))),
 			);
 			assert_eq!(lane.storage.data().latest_generated_nonce, 3);
 			assert_eq!(lane.storage.data().latest_received_nonce, 3);
+			assert_eq!(lane.storage.data().oldest_unpruned_nonce, 4);
+		});
+	}
+
+	#[test]
+	fn confirm_partial_delivery_works() {
+		run_test(|| {
+			let mut lane = outbound_lane::<TestRuntime, _>(TEST_LANE_ID);
+			assert_eq!(lane.send_message(outbound_message_data(REGULAR_PAYLOAD)), 1);
+			assert_eq!(lane.send_message(outbound_message_data(REGULAR_PAYLOAD)), 2);
+			assert_eq!(lane.send_message(outbound_message_data(REGULAR_PAYLOAD)), 3);
+			assert_eq!(lane.storage.data().latest_generated_nonce, 3);
+			assert_eq!(lane.storage.data().latest_received_nonce, 0);
+			assert_eq!(lane.storage.data().oldest_unpruned_nonce, 1);
+
+			assert_eq!(
+				lane.confirm_delivery(3, 2, &unrewarded_relayers(1..=2)),
+				Ok(Some(delivered_messages(1..=2))),
+			);
+			assert_eq!(lane.storage.data().latest_generated_nonce, 3);
+			assert_eq!(lane.storage.data().latest_received_nonce, 2);
+			assert_eq!(lane.storage.data().oldest_unpruned_nonce, 3);
+
+			assert_eq!(
+				lane.confirm_delivery(3, 3, &unrewarded_relayers(3..=3)),
+				Ok(Some(delivered_messages(3..=3))),
+			);
+			assert_eq!(lane.storage.data().latest_generated_nonce, 3);
+			assert_eq!(lane.storage.data().latest_received_nonce, 3);
+			assert_eq!(lane.storage.data().oldest_unpruned_nonce, 4);
 		});
 	}
 
@@ -281,6 +294,7 @@ mod tests {
 			lane.send_message(outbound_message_data(REGULAR_PAYLOAD));
 			assert_eq!(lane.storage.data().latest_generated_nonce, 3);
 			assert_eq!(lane.storage.data().latest_received_nonce, 0);
+			assert_eq!(lane.storage.data().oldest_unpruned_nonce, 1);
 			assert_eq!(
 				lane.confirm_delivery(3, 3, &unrewarded_relayers(1..=3)),
 				Ok(Some(delivered_messages(1..=3))),
@@ -288,10 +302,12 @@ mod tests {
 			assert_eq!(lane.confirm_delivery(3, 3, &unrewarded_relayers(1..=3)), Ok(None),);
 			assert_eq!(lane.storage.data().latest_generated_nonce, 3);
 			assert_eq!(lane.storage.data().latest_received_nonce, 3);
+			assert_eq!(lane.storage.data().oldest_unpruned_nonce, 4);
 
 			assert_eq!(lane.confirm_delivery(1, 2, &unrewarded_relayers(1..=1)), Ok(None),);
 			assert_eq!(lane.storage.data().latest_generated_nonce, 3);
 			assert_eq!(lane.storage.data().latest_received_nonce, 3);
+			assert_eq!(lane.storage.data().oldest_unpruned_nonce, 4);
 		});
 	}
 
@@ -310,8 +326,8 @@ mod tests {
 				3,
 				&unrewarded_relayers(1..=1)
 					.into_iter()
-					.chain(unrewarded_relayers(2..=30).into_iter())
-					.chain(unrewarded_relayers(3..=3).into_iter())
+					.chain(unrewarded_relayers(2..=30))
+					.chain(unrewarded_relayers(3..=3))
 					.collect(),
 			),
 			Err(ReceptionConfirmationError::FailedToConfirmFutureMessages),
@@ -326,8 +342,8 @@ mod tests {
 				3,
 				&unrewarded_relayers(1..=1)
 					.into_iter()
-					.chain(unrewarded_relayers(2..=1).into_iter())
-					.chain(unrewarded_relayers(2..=3).into_iter())
+					.chain(unrewarded_relayers(2..=1))
+					.chain(unrewarded_relayers(2..=3))
 					.collect(),
 			),
 			Err(ReceptionConfirmationError::EmptyUnrewardedRelayerEntry),
@@ -341,63 +357,12 @@ mod tests {
 				3,
 				&unrewarded_relayers(1..=1)
 					.into_iter()
-					.chain(unrewarded_relayers(3..=3).into_iter())
-					.chain(unrewarded_relayers(2..=2).into_iter())
+					.chain(unrewarded_relayers(3..=3))
+					.chain(unrewarded_relayers(2..=2))
 					.collect(),
 			),
 			Err(ReceptionConfirmationError::NonConsecutiveUnrewardedRelayerEntries),
 		);
-	}
-
-	#[test]
-	fn prune_messages_works() {
-		run_test(|| {
-			let mut lane = outbound_lane::<TestRuntime, _>(TEST_LANE_ID);
-			// when lane is empty, nothing is pruned
-			assert_eq!(
-				lane.prune_messages(RocksDbWeight::get(), RocksDbWeight::get().writes(101)),
-				Weight::zero()
-			);
-			assert_eq!(lane.storage.data().oldest_unpruned_nonce, 1);
-			// when nothing is confirmed, nothing is pruned
-			lane.send_message(outbound_message_data(REGULAR_PAYLOAD));
-			lane.send_message(outbound_message_data(REGULAR_PAYLOAD));
-			lane.send_message(outbound_message_data(REGULAR_PAYLOAD));
-			assert!(lane.storage.message(&1).is_some());
-			assert!(lane.storage.message(&2).is_some());
-			assert!(lane.storage.message(&3).is_some());
-			assert_eq!(
-				lane.prune_messages(RocksDbWeight::get(), RocksDbWeight::get().writes(101)),
-				Weight::zero()
-			);
-			assert_eq!(lane.storage.data().oldest_unpruned_nonce, 1);
-			// after confirmation, some messages are received
-			assert_eq!(
-				lane.confirm_delivery(2, 2, &unrewarded_relayers(1..=2)),
-				Ok(Some(delivered_messages(1..=2))),
-			);
-			assert_eq!(
-				lane.prune_messages(RocksDbWeight::get(), RocksDbWeight::get().writes(101)),
-				RocksDbWeight::get().writes(3),
-			);
-			assert!(lane.storage.message(&1).is_none());
-			assert!(lane.storage.message(&2).is_none());
-			assert!(lane.storage.message(&3).is_some());
-			assert_eq!(lane.storage.data().oldest_unpruned_nonce, 3);
-			// after last message is confirmed, everything is pruned
-			assert_eq!(
-				lane.confirm_delivery(1, 3, &unrewarded_relayers(3..=3)),
-				Ok(Some(delivered_messages(3..=3))),
-			);
-			assert_eq!(
-				lane.prune_messages(RocksDbWeight::get(), RocksDbWeight::get().writes(101)),
-				RocksDbWeight::get().writes(2),
-			);
-			assert!(lane.storage.message(&1).is_none());
-			assert!(lane.storage.message(&2).is_none());
-			assert!(lane.storage.message(&3).is_none());
-			assert_eq!(lane.storage.data().oldest_unpruned_nonce, 4);
-		});
 	}
 
 	#[test]

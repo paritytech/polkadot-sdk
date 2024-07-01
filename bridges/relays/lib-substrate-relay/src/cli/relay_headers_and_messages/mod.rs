@@ -38,7 +38,7 @@ use futures::{FutureExt, TryFutureExt};
 
 use crate::{
 	cli::{bridge::MessagesCliBridge, DefaultClient, HexLaneId, PrometheusParams},
-	messages_lane::{MessagesRelayLimits, MessagesRelayParams},
+	messages::{MessagesRelayLimits, MessagesRelayParams},
 	on_demand::OnDemandRelay,
 	HeadersToRelay, TaggedAccount, TransactionParams,
 };
@@ -298,14 +298,14 @@ where
 			.collect::<Vec<_>>();
 		{
 			let common = self.mut_base().mut_common();
-			crate::messages_metrics::add_relay_balances_metrics::<_, Self::Right>(
+			crate::messages::metrics::add_relay_balances_metrics::<_, Self::Right>(
 				common.left.client.clone(),
 				&common.metrics_params,
 				&common.left.accounts,
 				&lanes,
 			)
 			.await?;
-			crate::messages_metrics::add_relay_balances_metrics::<_, Self::Left>(
+			crate::messages::metrics::add_relay_balances_metrics::<_, Self::Left>(
 				common.right.client.clone(),
 				&common.metrics_params,
 				&common.right.accounts,
@@ -318,7 +318,7 @@ where
 		let mut message_relays = Vec::with_capacity(lanes.len() * 2);
 		for lane in lanes {
 			let left_to_right_messages =
-				crate::messages_lane::run::<<Self::L2R as MessagesCliBridge>::MessagesLane, _, _>(
+				crate::messages::run::<<Self::L2R as MessagesCliBridge>::MessagesLane, _, _>(
 					self.left_to_right().messages_relay_params(
 						left_to_right_on_demand_headers.clone(),
 						right_to_left_on_demand_headers.clone(),
@@ -331,7 +331,7 @@ where
 			message_relays.push(left_to_right_messages);
 
 			let right_to_left_messages =
-				crate::messages_lane::run::<<Self::R2L as MessagesCliBridge>::MessagesLane, _, _>(
+				crate::messages::run::<<Self::R2L as MessagesCliBridge>::MessagesLane, _, _>(
 					self.right_to_left().messages_relay_params(
 						right_to_left_on_demand_headers.clone(),
 						left_to_right_on_demand_headers.clone(),
