@@ -886,7 +886,7 @@ fn instance_expand() {
 
 #[test]
 fn inherent_expand() {
-	use frame_support::{inherent::InherentData, traits::EnsureInherentsAreFirst};
+	use frame_support::inherent::InherentData;
 	use sp_core::Hasher;
 	use sp_runtime::{
 		traits::{BlakeTwo256, Block as _, Header},
@@ -980,80 +980,6 @@ fn inherent_expand() {
 	let mut inherent = InherentData::new();
 	inherent.put_data(*b"required", &true).unwrap();
 	assert!(inherent.check_extrinsics(&block).fatal_error());
-
-	let block = Block::new(
-		Header::new(
-			1,
-			BlakeTwo256::hash(b"test"),
-			BlakeTwo256::hash(b"test"),
-			BlakeTwo256::hash(b"test"),
-			Digest::default(),
-		),
-		vec![
-			UncheckedExtrinsic {
-				call: RuntimeCall::Example(pallet::Call::foo { foo: 1, bar: 1 }),
-				signature: None,
-			},
-			UncheckedExtrinsic {
-				call: RuntimeCall::Example(pallet::Call::foo_storage_layer { foo: 0 }),
-				signature: None,
-			},
-		],
-	);
-
-	assert!(Runtime::ensure_inherents_are_first(&block).is_ok());
-
-	let block = Block::new(
-		Header::new(
-			1,
-			BlakeTwo256::hash(b"test"),
-			BlakeTwo256::hash(b"test"),
-			BlakeTwo256::hash(b"test"),
-			Digest::default(),
-		),
-		vec![
-			UncheckedExtrinsic {
-				call: RuntimeCall::Example(pallet::Call::foo { foo: 1, bar: 1 }),
-				signature: None,
-			},
-			UncheckedExtrinsic {
-				call: RuntimeCall::Example(pallet::Call::foo_storage_layer { foo: 0 }),
-				signature: None,
-			},
-			UncheckedExtrinsic {
-				call: RuntimeCall::Example(pallet::Call::foo_no_post_info {}),
-				signature: None,
-			},
-		],
-	);
-
-	assert_eq!(Runtime::ensure_inherents_are_first(&block).err().unwrap(), 2);
-
-	let block = Block::new(
-		Header::new(
-			1,
-			BlakeTwo256::hash(b"test"),
-			BlakeTwo256::hash(b"test"),
-			BlakeTwo256::hash(b"test"),
-			Digest::default(),
-		),
-		vec![
-			UncheckedExtrinsic {
-				call: RuntimeCall::Example(pallet::Call::foo { foo: 1, bar: 1 }),
-				signature: None,
-			},
-			UncheckedExtrinsic {
-				call: RuntimeCall::Example(pallet::Call::foo { foo: 1, bar: 0 }),
-				signature: Some((1, Default::default())),
-			},
-			UncheckedExtrinsic {
-				call: RuntimeCall::Example(pallet::Call::foo_no_post_info {}),
-				signature: None,
-			},
-		],
-	);
-
-	assert_eq!(Runtime::ensure_inherents_are_first(&block).err().unwrap(), 2);
 }
 
 #[test]

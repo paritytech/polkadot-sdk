@@ -368,14 +368,14 @@ where
 }
 
 /// Implementation for unchecked extrinsic.
-impl<Address, Call, Signature, Extra> GetDispatchInfo
+impl<Address, Call: Decode, Signature, Extra> GetDispatchInfo
 	for UncheckedExtrinsic<Address, Call, Signature, Extra>
 where
 	Call: GetDispatchInfo,
 	Extra: SignedExtension,
 {
 	fn get_dispatch_info(&self) -> DispatchInfo {
-		self.function.get_dispatch_info()
+		self.get_or_decode_function().get_dispatch_info()
 	}
 }
 

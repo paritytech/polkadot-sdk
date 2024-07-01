@@ -1203,7 +1203,9 @@ mod tests {
 				CheckSubstrateCall {}
 					.validate(
 						&x,
-						&ExtrinsicBuilder::new_call_with_priority(16).build().function,
+						&ExtrinsicBuilder::new_call_with_priority(16)
+							.build()
+							.get_or_decode_function(),
 						&info,
 						len
 					)
@@ -1216,7 +1218,9 @@ mod tests {
 				CheckSubstrateCall {}
 					.validate(
 						&x,
-						&ExtrinsicBuilder::new_call_do_not_propagate().build().function,
+						&ExtrinsicBuilder::new_call_do_not_propagate()
+							.build()
+							.get_or_decode_function(),
 						&info,
 						len
 					)

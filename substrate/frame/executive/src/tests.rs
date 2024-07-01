@@ -1002,7 +1002,7 @@ fn calculating_storage_root_twice_works() {
 }
 
 #[test]
-#[should_panic(expected = "Invalid inherent position for extrinsic at index 1")]
+#[should_panic(expected = "ApplyExtrinsicsError::InvalidInherentPosition(1)")]
 fn invalid_inherent_position_fail() {
 	let xt1 = TestXt::new(
 		RuntimeCall::Balances(BalancesCall::transfer_allow_death { dest: 33, value: 0 }),
@@ -1046,7 +1046,9 @@ fn valid_inherents_position_works() {
 }
 
 #[test]
-#[should_panic(expected = "A call was labelled as mandatory, but resulted in an Error.")]
+#[should_panic(
+	expected = "ApplyExtrinsicsError::ApplyExtrinsic(TransactionValidityError::Invalid(InvalidTransaction::BadMandatory))"
+)]
 fn invalid_inherents_fail_block_execution() {
 	let xt1 = TestXt::new(RuntimeCall::Custom(custom::Call::inherent {}), sign_extra(1, 0, 0));
 
@@ -1093,7 +1095,7 @@ fn inherents_ok_while_exts_forbidden_works() {
 
 /// Refuses to import blocks with transactions during `OnlyInherents` mode.
 #[test]
-#[should_panic = "Only inherents are allowed in this block"]
+#[should_panic = "ApplyExtrinsicsError::OnlyInherentsAllowed"]
 fn transactions_in_only_inherents_block_errors() {
 	let xt1 = TestXt::new(RuntimeCall::Custom(custom::Call::inherent {}), None);
 	let xt2 = TestXt::new(call_transfer(33, 0), sign_extra(1, 0, 0));
@@ -1163,7 +1165,7 @@ fn try_execute_block_works() {
 /// Same as `extrinsic_while_exts_forbidden_errors` but using the try-runtime function.
 #[test]
 #[cfg(feature = "try-runtime")]
-#[should_panic = "Only inherents allowed"]
+#[should_panic = "Only inherents are allowed in the current block"]
 fn try_execute_tx_forbidden_errors() {
 	let xt1 = TestXt::new(RuntimeCall::Custom(custom::Call::inherent {}), None);
 	let xt2 = TestXt::new(call_transfer(33, 0), sign_extra(1, 0, 0));
@@ -1190,9 +1192,9 @@ fn try_execute_tx_forbidden_errors() {
 	});
 }
 
-/// Check that `ensure_inherents_are_first` reports the correct indices.
+/// Check that `apply_extrinsics` works correctly.
 #[test]
-fn ensure_inherents_are_first_works() {
+fn apply_extrinsics_work() {
 	let in1 = TestXt::new(RuntimeCall::Custom(custom::Call::inherent {}), None);
 	let in2 = TestXt::new(RuntimeCall::Custom2(custom2::Call::inherent {}), None);
 	let xt2 = TestXt::new(call_transfer(33, 0), sign_extra(1, 0, 0));
@@ -1204,50 +1206,83 @@ fn ensure_inherents_are_first_works() {
 	});
 
 	new_test_ext(1).execute_with(|| {
-		assert_ok!(Runtime::ensure_inherents_are_first(&Block::new(header.clone(), vec![]),), 0);
 		assert_ok!(
-			Runtime::ensure_inherents_are_first(&Block::new(header.clone(), vec![xt2.clone()]),),
-			0
+			Executive::apply_extrinsics(
+				Block::new(header.clone(), vec![]).extrinsics.into_iter(),
+				|_| { Ok(Ok(())) }
+			),
+			(0, 0)
 		);
 		assert_ok!(
-			Runtime::ensure_inherents_are_first(&Block::new(header.clone(), vec![in1.clone()])),
-			1
+			Executive::apply_extrinsics(
+				Block::new(header.clone(), vec![xt2.clone()]).extrinsics.into_iter(),
+				|_| { Ok(Ok(())) }
+			),
+			(0, 1)
 		);
 		assert_ok!(
-			Runtime::ensure_inherents_are_first(&Block::new(
-				header.clone(),
-				vec![in1.clone(), xt2.clone()]
-			),),
-			1
+			Executive::apply_extrinsics(
+				Block::new(header.clone(), vec![in1.clone()]).extrinsics.into_iter(),
+				|_| { Ok(Ok(())) }
+			),
+			(1, 1)
 		);
 		assert_ok!(
-			Runtime::ensure_inherents_are_first(&Block::new(
-				header.clone(),
-				vec![in2.clone(), in1.clone(), xt2.clone()]
-			),),
-			2
+			Executive::apply_extrinsics(
+				Block::new(header.clone(), vec![in1.clone(), xt2.clone()])
+					.extrinsics
+					.into_iter(),
+				|_| { Ok(Ok(())) }
+			),
+			(1, 2)
 		);
-
+		assert_ok!(
+			Executive::apply_extrinsics(
+				Block::new(header.clone(), vec![in2.clone(), in1.clone(), xt2.clone()])
+					.extrinsics
+					.into_iter(),
+				|_| { Ok(Ok(())) }
+			),
+			(2, 3)
+		);
 		assert_eq!(
-			Runtime::ensure_inherents_are_first(&Block::new(
-				header.clone(),
-				vec![xt2.clone(), in1.clone()]
-			),),
-			Err(1)
+			Executive::apply_extrinsics(
+				Block::new(header.clone(), vec![xt2.clone(), in1.clone()])
+					.extrinsics
+					.into_iter(),
+				|_| { Ok(Ok(())) }
+			),
+			Err(ApplyExtrinsicsError::InvalidInherentPosition(1))
 		);
 		assert_eq!(
-			Runtime::ensure_inherents_are_first(&Block::new(
-				header.clone(),
-				vec![xt2.clone(), xt2.clone(), in1.clone()]
-			),),
-			Err(2)
+			Executive::apply_extrinsics(
+				Block::new(header.clone(), vec![xt2.clone(), xt2.clone(), in1.clone()])
+					.extrinsics
+					.into_iter(),
+				|_| { Ok(Ok(())) }
+			),
+			Err(ApplyExtrinsicsError::InvalidInherentPosition(2))
 		);
 		assert_eq!(
-			Runtime::ensure_inherents_are_first(&Block::new(
-				header.clone(),
-				vec![xt2.clone(), xt2.clone(), xt2.clone(), in2.clone()]
-			),),
-			Err(3)
+			Executive::apply_extrinsics(
+				Block::new(
+					header.clone(),
+					vec![xt2.clone(), xt2.clone(), xt2.clone(), in2.clone()]
+				)
+				.extrinsics
+				.into_iter(),
+				|_| { Ok(Ok(())) }
+			),
+			Err(ApplyExtrinsicsError::InvalidInherentPosition(3))
+		);
+		assert_eq!(
+			Executive::apply_extrinsics(
+				Block::new(header.clone(), vec![in2.clone(), in1.clone(), xt2.clone()])
+					.extrinsics
+					.into_iter(),
+				|_| { Err(InvalidTransaction::Call.into()) }
+			),
+			Err(ApplyExtrinsicsError::ApplyExtrinsic(InvalidTransaction::Call.into()))
 		);
 	});
 }
@@ -1303,8 +1338,8 @@ fn callbacks_in_block_execution_works_inner(mbms_active: bool) {
 
 			match header {
 				Err(e) => {
-					let err = e.downcast::<&str>().unwrap();
-					assert_eq!(*err, "Only inherents are allowed in this block");
+					let err = e.downcast::<String>().unwrap();
+					assert_eq!(*err, "ApplyExtrinsicsError::OnlyInherentsAllowed");
 					assert!(
 						MbmActive::get() && n_tx > 0,
 						"Transactions should be rejected when MBMs are active"

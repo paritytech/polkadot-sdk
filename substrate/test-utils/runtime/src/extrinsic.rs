@@ -24,7 +24,7 @@ use crate::{
 use codec::Encode;
 use frame_metadata_hash_extension::CheckMetadataHash;
 use frame_system::{CheckNonce, CheckWeight};
-use sp_core::crypto::Pair as TraitPair;
+use sp_core::{crypto::Pair as TraitPair, sp_std::ops::Deref};
 use sp_keyring::AccountKeyring;
 use sp_runtime::{traits::SignedExtension, transaction_validity::TransactionPriority, Perbill};
 
@@ -63,15 +63,13 @@ impl Default for TransferData {
 impl TryFrom<&Extrinsic> for TransferData {
 	type Error = ();
 	fn try_from(uxt: &Extrinsic) -> Result<Self, Self::Error> {
-		match uxt {
-			Extrinsic {
-				function: RuntimeCall::Balances(BalancesCall::transfer_allow_death { dest, value }),
-				signature: Some((from, _, (CheckNonce(nonce), ..))),
-			} => Ok(TransferData { from: *from, to: *dest, amount: *value, nonce: *nonce }),
-			Extrinsic {
-				function: RuntimeCall::SubstrateTest(PalletCall::bench_call { transfer }),
-				signature: None,
-			} => Ok(transfer.clone()),
+		match (uxt.get_or_decode_function().deref(), &uxt.signature) {
+			(
+				RuntimeCall::Balances(BalancesCall::transfer_allow_death { dest, value }),
+				Some((from, _, (CheckNonce(nonce), ..))),
+			) => Ok(TransferData { from: *from, to: *dest, amount: *value, nonce: *nonce }),
+			(RuntimeCall::SubstrateTest(PalletCall::bench_call { transfer }), None) =>
+				Ok(transfer.clone()),
 			_ => Err(()),
 		}
 	}
