@@ -112,7 +112,7 @@ jobs:
   test-linux-stable:
     needs: [set-image, changes]
     if: ${{ needs.changes.outputs.rust }}
-    runs-on: arc-runners-polkadot-sdk-beefy
+    runs-on: arc-runners-polkadot-sdk-beefy-ubuntu
     timeout-minutes: 60
     strategy:
       fail-fast: false
