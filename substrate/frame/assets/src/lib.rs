@@ -1797,7 +1797,8 @@ pub mod pallet {
 		/// Revoke irreversibly Owner, Issuer, Admin, and Freezer privileges of the asset. Freeze
 		/// the metadata.
 		///
-		/// Warning: this action is irreversible.
+		/// Warning: This action is irreversible. Reinstating privileged roles would require an
+		/// action from `ForceOrigin`.
 		///
 		/// Origin must be either Signed and the sender should be the Owner of the asset `id` or
 		/// `ForceOrigin`.
