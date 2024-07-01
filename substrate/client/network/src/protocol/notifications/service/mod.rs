@@ -28,13 +28,13 @@ use crate::{
 		},
 	},
 	types::ProtocolName,
-	PeerId,
 };
 
 use futures::{
 	stream::{FuturesUnordered, Stream},
 	StreamExt,
 };
+use libp2p::PeerId;
 use parking_lot::Mutex;
 use tokio::sync::{mpsc, oneshot};
 use tokio_stream::wrappers::ReceiverStream;

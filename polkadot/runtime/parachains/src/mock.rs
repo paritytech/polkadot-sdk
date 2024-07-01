@@ -27,19 +27,20 @@ use crate::{
 	session_info, shared, ParaId,
 };
 use frame_support::pallet_prelude::*;
-use primitives::CoreIndex;
+use polkadot_primitives::CoreIndex;
 
+use codec::Decode;
 use frame_support::{
 	assert_ok, derive_impl, parameter_types,
 	traits::{
 		Currency, ProcessMessage, ProcessMessageError, ValidatorSet, ValidatorSetWithIdentification,
 	},
 	weights::{Weight, WeightMeter},
+	PalletId,
 };
 use frame_support_test::TestRandomness;
 use frame_system::limits;
-use parity_scale_codec::Decode;
-use primitives::{
+use polkadot_primitives::{
 	AuthorityDiscoveryId, Balance, BlockNumber, CandidateHash, Moment, SessionIndex, UpwardMessage,
 	ValidationCode, ValidatorIndex,
 };
@@ -57,7 +58,7 @@ use sp_std::{
 use std::collections::HashMap;
 use xcm::{
 	prelude::XcmVersion,
-	v4::{Assets, Location, SendError, SendResult, SendXcm, Xcm, XcmHash},
+	v4::{Assets, InteriorLocation, Location, SendError, SendResult, SendXcm, Xcm, XcmHash},
 	IntoVersion, VersionedXcm, WrapVersion,
 };
 
@@ -100,7 +101,6 @@ where
 }
 
 parameter_types! {
-	pub const BlockHashCount: u32 = 250;
 	pub static BlockWeights: frame_system::limits::BlockWeights =
 		frame_system::limits::BlockWeights::simple_max(
 			Weight::from_parts(4 * 1024 * 1024, u64::MAX),
@@ -125,7 +125,6 @@ impl frame_system::Config for Test {
 	type Lookup = IdentityLookup<u64>;
 	type Block = Block;
 	type RuntimeEvent = RuntimeEvent;
-	type BlockHashCount = BlockHashCount;
 	type Version = ();
 	type PalletInfo = PalletInfo;
 	type AccountData = pallet_balances::AccountData<u128>;
@@ -141,20 +140,11 @@ parameter_types! {
 	pub static ExistentialDeposit: u64 = 1;
 }
 
+#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Test {
-	type MaxLocks = ();
-	type MaxReserves = ();
-	type ReserveIdentifier = [u8; 8];
 	type Balance = Balance;
-	type RuntimeEvent = RuntimeEvent;
-	type DustRemoval = ();
 	type ExistentialDeposit = ExistentialDeposit;
 	type AccountStore = System;
-	type WeightInfo = ();
-	type RuntimeHoldReason = RuntimeHoldReason;
-	type RuntimeFreezeReason = RuntimeFreezeReason;
-	type FreezeIdentifier = ();
-	type MaxFreezes = ConstU32<0>;
 }
 
 parameter_types! {
@@ -402,17 +392,23 @@ impl pallet_message_queue::Config for Test {
 	type IdleMaxServiceWeight = ();
 }
 
+impl assigner_parachains::Config for Test {}
+
 parameter_types! {
 	pub const OnDemandTrafficDefaultValue: FixedU128 = FixedU128::from_u32(1);
+	// Production chains should keep this numbar around twice the
+	// defined Timeslice for Coretime.
+	pub const MaxHistoricalRevenue: BlockNumber = 2 * 5;
+	pub const OnDemandPalletId: PalletId = PalletId(*b"py/ondmd");
 }
-
-impl assigner_parachains::Config for Test {}
 
 impl assigner_on_demand::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type Currency = Balances;
 	type TrafficDefaultValue = OnDemandTrafficDefaultValue;
 	type WeightInfo = crate::assigner_on_demand::TestWeightInfo;
+	type MaxHistoricalRevenue = MaxHistoricalRevenue;
+	type PalletId = OnDemandPalletId;
 }
 
 impl assigner_coretime::Config for Test {}
@@ -420,6 +416,13 @@ impl assigner_coretime::Config for Test {}
 parameter_types! {
 	pub const BrokerId: u32 = 10u32;
 	pub MaxXcmTransactWeight: Weight = Weight::from_parts(10_000_000, 10_000);
+}
+
+pub struct BrokerPot;
+impl Get<InteriorLocation> for BrokerPot {
+	fn get() -> InteriorLocation {
+		unimplemented!()
+	}
 }
 
 impl coretime::Config for Test {
@@ -430,6 +433,9 @@ impl coretime::Config for Test {
 	type WeightInfo = crate::coretime::TestWeightInfo;
 	type SendXcm = DummyXcmSender;
 	type MaxXcmTransactWeight = MaxXcmTransactWeight;
+	type BrokerPotLocation = BrokerPot;
+	type AssetTransactor = ();
+	type AccountToLocation = ();
 }
 
 pub struct DummyXcmSender;

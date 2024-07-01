@@ -17,14 +17,13 @@
 use super::*;
 
 use bitvec::order::Lsb0;
-use parity_scale_codec::{Decode, Encode};
+use codec::{Decode, Encode};
 use polkadot_node_network_protocol::{
 	request_response::v2 as request_v2, v2::BackedCandidateManifest,
 };
 use polkadot_primitives_test_helpers::make_candidate;
-use sc_network::{
-	config::{IncomingRequest as RawIncomingRequest, OutgoingResponse as RawOutgoingResponse},
-	ProtocolName,
+use sc_network::config::{
+	IncomingRequest as RawIncomingRequest, OutgoingResponse as RawOutgoingResponse,
 };
 
 #[test]
@@ -1222,392 +1221,8 @@ fn disabled_validators_added_to_unwanted_mask() {
 	});
 }
 
-// We send a request to a peer and after receiving the response
-// we learn about a validator being disabled. We should filter out
-// the statement from the disabled validator when receiving it.
 #[test]
-fn when_validator_disabled_after_sending_the_request() {
-	let group_size = 3;
-	let config = TestConfig {
-		validator_count: 20,
-		group_size,
-		local_validator: LocalRole::Validator,
-		async_backing_params: None,
-	};
-
-	let relay_parent = Hash::repeat_byte(1);
-	let another_relay_parent = Hash::repeat_byte(2);
-	let peer_disabled_later = PeerId::random();
-	let peer_b = PeerId::random();
-
-	test_harness(config, |state, mut overseer| async move {
-		let local_validator = state.local.clone().unwrap();
-		let local_group_index = local_validator.group_index.unwrap();
-		let local_para = ParaId::from(local_group_index.0);
-		let other_group_validators = state.group_validators(local_group_index, true);
-		let index_disabled = other_group_validators[0];
-		let index_b = other_group_validators[1];
-
-		let test_leaf = state.make_dummy_leaf_with_disabled_validators(relay_parent, vec![]);
-		let test_leaf_disabled = state
-			.make_dummy_leaf_with_disabled_validators(another_relay_parent, vec![index_disabled]);
-
-		let (candidate, pvd) = make_candidate(
-			relay_parent,
-			1,
-			local_para,
-			test_leaf.para_data(local_para).head_data.clone(),
-			vec![4, 5, 6].into(),
-			Hash::repeat_byte(42).into(),
-		);
-		let candidate_hash = candidate.hash();
-
-		// peer A is in group, has relay parent in view and disabled later.
-		// peer B is in group, has relay parent in view.
-		{
-			connect_peer(
-				&mut overseer,
-				peer_disabled_later.clone(),
-				Some(vec![state.discovery_id(index_disabled)].into_iter().collect()),
-			)
-			.await;
-			connect_peer(
-				&mut overseer,
-				peer_b.clone(),
-				Some(vec![state.discovery_id(index_b)].into_iter().collect()),
-			)
-			.await;
-			send_peer_view_change(&mut overseer, peer_disabled_later.clone(), view![relay_parent])
-				.await;
-			send_peer_view_change(&mut overseer, peer_b.clone(), view![relay_parent]).await;
-		}
-
-		activate_leaf(&mut overseer, &test_leaf, &state, true, vec![]).await;
-
-		let seconded_disabled = state
-			.sign_statement(
-				index_disabled,
-				CompactStatement::Seconded(candidate_hash),
-				&SigningContext { parent_hash: relay_parent, session_index: 1 },
-			)
-			.as_unchecked()
-			.clone();
-
-		let seconded_b = state
-			.sign_statement(
-				index_b,
-				CompactStatement::Seconded(candidate_hash),
-				&SigningContext { parent_hash: relay_parent, session_index: 1 },
-			)
-			.as_unchecked()
-			.clone();
-		{
-			send_peer_message(
-				&mut overseer,
-				peer_b.clone(),
-				protocol_v2::StatementDistributionMessage::Statement(
-					relay_parent,
-					seconded_b.clone(),
-				),
-			)
-			.await;
-
-			assert_matches!(
-				overseer.recv().await,
-				AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::ReportPeer(ReportPeerMessage::Single(p, r)))
-					if p == peer_b && r == BENEFIT_VALID_STATEMENT_FIRST.into() => { }
-			);
-		}
-
-		// Send a request to peer and activate leaf when a validator is disabled;
-		// mock the response with a statement from disabled validator.
-		{
-			let statements = vec![seconded_disabled];
-			let mask = StatementFilter::blank(group_size);
-
-			assert_matches!(
-				overseer.recv().await,
-				AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::SendRequests(mut requests, IfDisconnected::ImmediateError)) => {
-					assert_eq!(requests.len(), 1);
-					assert_matches!(
-						requests.pop().unwrap(),
-						Requests::AttestedCandidateV2(outgoing) => {
-							assert_eq!(outgoing.peer, Recipient::Peer(peer_b));
-							assert_eq!(outgoing.payload.candidate_hash, candidate_hash);
-							assert_eq!(outgoing.payload.mask, mask);
-
-							activate_leaf(&mut overseer, &test_leaf_disabled, &state, false, vec![]).await;
-
-							let res = AttestedCandidateResponse {
-								candidate_receipt: candidate,
-								persisted_validation_data: pvd,
-								statements,
-							};
-							outgoing.pending_response.send(Ok((res.encode(), ProtocolName::from("")))).unwrap();
-						}
-					);
-				}
-			);
-
-			assert_matches!(
-				overseer.recv().await,
-				AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::ReportPeer(ReportPeerMessage::Single(p, r)))
-					if p == peer_b && r == BENEFIT_VALID_RESPONSE.into() => { }
-			);
-
-			assert_matches!(
-				overseer.recv().await,
-				AllMessages:: NetworkBridgeTx(
-					NetworkBridgeTxMessage::SendValidationMessage(
-						peers,
-						Versioned::V2(
-							protocol_v2::ValidationProtocol::StatementDistribution(
-								protocol_v2::StatementDistributionMessage::Statement(hash, statement),
-							),
-						),
-					)
-				) => {
-					assert_eq!(peers, vec![peer_disabled_later]);
-					assert_eq!(hash, relay_parent);
-					assert_eq!(statement, seconded_b);
-				}
-			);
-			answer_expected_hypothetical_membership_request(&mut overseer, vec![]).await;
-		}
-
-		overseer
-	});
-}
-
-#[test]
-fn no_response_for_grid_request_not_meeting_quorum() {
-	let validator_count = 6;
-	let group_size = 3;
-	let config = TestConfig {
-		validator_count,
-		group_size,
-		local_validator: LocalRole::Validator,
-		async_backing_params: None,
-	};
-
-	let relay_parent = Hash::repeat_byte(1);
-	let peer_a = PeerId::random();
-	let peer_b = PeerId::random();
-	let peer_c = PeerId::random();
-
-	test_harness(config, |mut state, mut overseer| async move {
-		let local_validator = state.local.clone().unwrap();
-		let local_group_index = local_validator.group_index.unwrap();
-		let local_para = ParaId::from(local_group_index.0);
-
-		let test_leaf = state.make_dummy_leaf_with_min_backing_votes(relay_parent, 2);
-
-		let (candidate, pvd) = make_candidate(
-			relay_parent,
-			1,
-			local_para,
-			test_leaf.para_data(local_para).head_data.clone(),
-			vec![4, 5, 6].into(),
-			Hash::repeat_byte(42).into(),
-		);
-		let candidate_hash = candidate.hash();
-
-		let other_group_validators = state.group_validators(local_group_index, true);
-		let target_group_validators =
-			state.group_validators((local_group_index.0 + 1).into(), true);
-		let v_a = other_group_validators[0];
-		let v_b = other_group_validators[1];
-		let v_c = target_group_validators[0];
-
-		// peer A is in group, has relay parent in view.
-		// peer B is in group, has no relay parent in view.
-		// peer C is not in group, has relay parent in view.
-		{
-			connect_peer(
-				&mut overseer,
-				peer_a.clone(),
-				Some(vec![state.discovery_id(v_a)].into_iter().collect()),
-			)
-			.await;
-
-			connect_peer(
-				&mut overseer,
-				peer_b.clone(),
-				Some(vec![state.discovery_id(v_b)].into_iter().collect()),
-			)
-			.await;
-
-			connect_peer(
-				&mut overseer,
-				peer_c.clone(),
-				Some(vec![state.discovery_id(v_c)].into_iter().collect()),
-			)
-			.await;
-
-			send_peer_view_change(&mut overseer, peer_a.clone(), view![relay_parent]).await;
-			send_peer_view_change(&mut overseer, peer_c.clone(), view![relay_parent]).await;
-		}
-
-		activate_leaf(&mut overseer, &test_leaf, &state, true, vec![]).await;
-
-		// Send gossip topology.
-		send_new_topology(&mut overseer, state.make_dummy_topology()).await;
-
-		// Confirm the candidate locally so that we don't send out requests.
-		{
-			let statement = state
-				.sign_full_statement(
-					local_validator.validator_index,
-					Statement::Seconded(candidate.clone()),
-					&SigningContext { parent_hash: relay_parent, session_index: 1 },
-					pvd.clone(),
-				)
-				.clone();
-
-			overseer
-				.send(FromOrchestra::Communication {
-					msg: StatementDistributionMessage::Share(relay_parent, statement),
-				})
-				.await;
-
-			assert_matches!(
-				overseer.recv().await,
-				AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::SendValidationMessage(peers, _)) if peers == vec![peer_a]
-			);
-
-			answer_expected_hypothetical_membership_request(&mut overseer, vec![]).await;
-		}
-
-		// Send enough statements to make candidate backable, make sure announcements are sent.
-
-		// Send statement from peer A.
-		{
-			let statement = state
-				.sign_statement(
-					v_a,
-					CompactStatement::Seconded(candidate_hash),
-					&SigningContext { parent_hash: relay_parent, session_index: 1 },
-				)
-				.as_unchecked()
-				.clone();
-
-			send_peer_message(
-				&mut overseer,
-				peer_a.clone(),
-				protocol_v2::StatementDistributionMessage::Statement(relay_parent, statement),
-			)
-			.await;
-
-			assert_matches!(
-				overseer.recv().await,
-				AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::ReportPeer(ReportPeerMessage::Single(p, r)))
-					if p == peer_a && r == BENEFIT_VALID_STATEMENT_FIRST.into() => { }
-			);
-		}
-
-		// Send statement from peer B.
-		let statement_b = state
-			.sign_statement(
-				v_b,
-				CompactStatement::Seconded(candidate_hash),
-				&SigningContext { parent_hash: relay_parent, session_index: 1 },
-			)
-			.as_unchecked()
-			.clone();
-		{
-			send_peer_message(
-				&mut overseer,
-				peer_b.clone(),
-				protocol_v2::StatementDistributionMessage::Statement(
-					relay_parent,
-					statement_b.clone(),
-				),
-			)
-			.await;
-
-			assert_matches!(
-				overseer.recv().await,
-				AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::ReportPeer(ReportPeerMessage::Single(p, r)))
-					if p == peer_b && r == BENEFIT_VALID_STATEMENT_FIRST.into() => { }
-			);
-
-			assert_matches!(
-				overseer.recv().await,
-				AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::SendValidationMessage(peers, _)) if peers == vec![peer_a]
-			);
-		}
-
-		// Send Backed notification.
-		{
-			overseer
-				.send(FromOrchestra::Communication {
-					msg: StatementDistributionMessage::Backed(candidate_hash),
-				})
-				.await;
-
-			assert_matches!(
-				overseer.recv().await,
-				AllMessages:: NetworkBridgeTx(
-					NetworkBridgeTxMessage::SendValidationMessage(
-						peers,
-						Versioned::V2(
-							protocol_v2::ValidationProtocol::StatementDistribution(
-								protocol_v2::StatementDistributionMessage::BackedCandidateManifest(manifest),
-							),
-						),
-					)
-				) => {
-					assert_eq!(peers, vec![peer_c]);
-					assert_eq!(manifest, BackedCandidateManifest {
-						relay_parent,
-						candidate_hash,
-						group_index: local_validator.group_index.unwrap(),
-						para_id: local_para,
-						parent_head_data_hash: pvd.parent_head.hash(),
-						statement_knowledge: StatementFilter {
-							seconded_in_group: bitvec::bitvec![u8, Lsb0; 1, 1, 1],
-							validated_in_group: bitvec::bitvec![u8, Lsb0; 0, 0, 0],
-						},
-					});
-				}
-			);
-
-			answer_expected_hypothetical_membership_request(&mut overseer, vec![]).await;
-		}
-
-		let mask = StatementFilter {
-			seconded_in_group: bitvec::bitvec![u8, Lsb0; 0, 0, 1],
-			validated_in_group: bitvec::bitvec![u8, Lsb0; 0, 0, 0],
-		};
-
-		let relay_2 = Hash::repeat_byte(2);
-		let disabled_validators = vec![v_a];
-		let leaf_2 = state.make_dummy_leaf_with_disabled_validators(relay_2, disabled_validators);
-		activate_leaf(&mut overseer, &leaf_2, &state, false, vec![]).await;
-
-		// Incoming request to local node. Local node should not send the response as v_a is
-		// disabled and hence the quorum is not reached.
-		{
-			let response = state
-				.send_request(
-					peer_c,
-					request_v2::AttestedCandidateRequest { candidate_hash: candidate.hash(), mask },
-				)
-				.await
-				.await;
-
-			assert!(
-				response.is_none(),
-				"We should not send a response as the quorum is not reached yet"
-			);
-		}
-
-		overseer
-	});
-}
-
-#[test]
-fn disabling_works_from_the_latest_state_not_relay_parent() {
+fn disabling_works_from_relay_parent_not_the_latest_state() {
 	let group_size = 3;
 	let config = TestConfig {
 		validator_count: 20,
@@ -1642,7 +1257,7 @@ fn disabling_works_from_the_latest_state_not_relay_parent() {
 		);
 		let candidate_1_hash = candidate_1.hash();
 
-		let (candidate_2, _) = make_candidate(
+		let (candidate_2, pvd_2) = make_candidate(
 			relay_1,
 			1,
 			local_para,
@@ -1651,6 +1266,16 @@ fn disabling_works_from_the_latest_state_not_relay_parent() {
 			Hash::repeat_byte(42).into(),
 		);
 		let candidate_2_hash = candidate_2.hash();
+
+		let (candidate_3, _) = make_candidate(
+			relay_2,
+			1,
+			local_para,
+			leaf_1.para_data(local_para).head_data.clone(),
+			vec![4, 5, 6, 7].into(),
+			Hash::repeat_byte(42).into(),
+		);
+		let candidate_3_hash = candidate_3.hash();
 
 		{
 			connect_peer(
@@ -1681,6 +1306,16 @@ fn disabling_works_from_the_latest_state_not_relay_parent() {
 			)
 			.as_unchecked()
 			.clone();
+
+		let seconded_3 = state
+			.sign_statement(
+				index_disabled,
+				CompactStatement::Seconded(candidate_3_hash),
+				&SigningContext { parent_hash: relay_2, session_index: 1 },
+			)
+			.as_unchecked()
+			.clone();
+
 		{
 			send_peer_message(
 				&mut overseer,
@@ -1730,6 +1365,48 @@ fn disabling_works_from_the_latest_state_not_relay_parent() {
 				&mut overseer,
 				peer_disabled.clone(),
 				protocol_v2::StatementDistributionMessage::Statement(relay_1, seconded_2.clone()),
+			)
+			.await;
+
+			assert_matches!(
+				overseer.recv().await,
+				AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::ReportPeer(ReportPeerMessage::Single(p, r)))
+					if p == peer_disabled && r == BENEFIT_VALID_STATEMENT_FIRST.into() => { }
+			);
+		}
+
+		{
+			handle_sent_request(
+				&mut overseer,
+				peer_disabled,
+				candidate_2_hash,
+				StatementFilter::blank(group_size),
+				candidate_2.clone(),
+				pvd_2.clone(),
+				vec![seconded_2.clone()],
+			)
+			.await;
+
+			assert_matches!(
+				overseer.recv().await,
+				AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::ReportPeer(ReportPeerMessage::Single(p, r)))
+					if p == peer_disabled && r == BENEFIT_VALID_STATEMENT.into() => { }
+			);
+
+			assert_matches!(
+				overseer.recv().await,
+				AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::ReportPeer(ReportPeerMessage::Single(p, r)))
+					if p == peer_disabled && r == BENEFIT_VALID_RESPONSE.into() => { }
+			);
+
+			answer_expected_hypothetical_membership_request(&mut overseer, vec![]).await;
+		}
+
+		{
+			send_peer_message(
+				&mut overseer,
+				peer_disabled.clone(),
+				protocol_v2::StatementDistributionMessage::Statement(relay_2, seconded_3.clone()),
 			)
 			.await;
 

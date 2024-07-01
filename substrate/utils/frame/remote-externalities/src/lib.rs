@@ -22,10 +22,7 @@
 
 use codec::{Compact, Decode, Encode};
 use indicatif::{ProgressBar, ProgressStyle};
-use jsonrpsee::{
-	core::params::ArrayParams,
-	http_client::{HttpClient, HttpClientBuilder},
-};
+use jsonrpsee::{core::params::ArrayParams, http_client::HttpClient};
 use log::*;
 use serde::de::DeserializeOwned;
 use sp_core::{
@@ -190,7 +187,7 @@ impl Transport {
 			} else {
 				uri.clone()
 			};
-			let http_client = HttpClientBuilder::default()
+			let http_client = HttpClient::builder()
 				.max_request_size(u32::MAX)
 				.max_response_size(u32::MAX)
 				.request_timeout(std::time::Duration::from_secs(60 * 5))
@@ -834,30 +831,51 @@ where
 	) -> Result<Vec<StorageKey>, &'static str> {
 		let retry_strategy =
 			FixedInterval::new(Self::KEYS_PAGE_RETRY_INTERVAL).take(Self::MAX_RETRIES);
-		let get_child_keys_closure = || {
-			#[allow(deprecated)]
-			substrate_rpc_client::ChildStateApi::storage_keys(
-				client,
-				PrefixedStorageKey::new(prefixed_top_key.as_ref().to_vec()),
-				child_prefix.clone(),
-				Some(at),
-			)
-		};
-		let child_keys =
-			Retry::spawn(retry_strategy, get_child_keys_closure).await.map_err(|e| {
-				error!(target: LOG_TARGET, "Error = {:?}", e);
-				"rpc child_get_keys failed."
-			})?;
+		let mut all_child_keys = Vec::new();
+		let mut start_key = None;
+
+		loop {
+			let get_child_keys_closure = || {
+				let top_key = PrefixedStorageKey::new(prefixed_top_key.0.clone());
+				substrate_rpc_client::ChildStateApi::storage_keys_paged(
+					client,
+					top_key,
+					Some(child_prefix.clone()),
+					Self::DEFAULT_KEY_DOWNLOAD_PAGE,
+					start_key.clone(),
+					Some(at),
+				)
+			};
+
+			let child_keys = Retry::spawn(retry_strategy.clone(), get_child_keys_closure)
+				.await
+				.map_err(|e| {
+					error!(target: LOG_TARGET, "Error = {:?}", e);
+					"rpc child_get_keys failed."
+				})?;
+
+			let keys_count = child_keys.len();
+			if keys_count == 0 {
+				break;
+			}
+
+			start_key = child_keys.last().cloned();
+			all_child_keys.extend(child_keys);
+
+			if keys_count < Self::DEFAULT_KEY_DOWNLOAD_PAGE as usize {
+				break;
+			}
+		}
 
 		debug!(
 			target: LOG_TARGET,
 			"[thread = {:?}] scraped {} child-keys of the child-bearing top key: {}",
 			std::thread::current().id(),
-			child_keys.len(),
+			all_child_keys.len(),
 			HexDisplay::from(prefixed_top_key)
 		);
 
-		Ok(child_keys)
+		Ok(all_child_keys)
 	}
 }
 
@@ -1362,7 +1380,7 @@ mod remote_tests {
 		init_logger();
 
 		// create an ext with children keys
-		let child_ext = Builder::<Block>::new()
+		let mut child_ext = Builder::<Block>::new()
 			.mode(Mode::Online(OnlineConfig {
 				transport: endpoint().clone().into(),
 				pallets: vec!["Proxy".to_owned()],
@@ -1375,7 +1393,7 @@ mod remote_tests {
 			.unwrap();
 
 		// create an ext without children keys
-		let ext = Builder::<Block>::new()
+		let mut ext = Builder::<Block>::new()
 			.mode(Mode::Online(OnlineConfig {
 				transport: endpoint().clone().into(),
 				pallets: vec!["Proxy".to_owned()],
