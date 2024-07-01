@@ -1107,6 +1107,7 @@ mod benches {
 		Ok(())
 	}
 
+	#[benchmark]
 	fn on_new_timeslice() -> Result<(), BenchmarkError> {
 		setup_and_start_sale::<T>()?;
 
