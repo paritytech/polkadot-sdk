@@ -192,6 +192,7 @@ pub(crate) fn new_test_ext() -> sp_io::TestExternalities {
 			(1, 10, 40000),
 			(1, 20, 40000),
 		],
+		next_asset_id: None,
 	}
 	.assimilate_storage(&mut t)
 	.unwrap();

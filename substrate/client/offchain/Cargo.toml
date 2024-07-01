@@ -22,7 +22,7 @@ codec = { features = ["derive"], workspace = true, default-features = true }
 fnv = { workspace = true }
 futures = { workspace = true }
 futures-timer = { workspace = true }
-hyper = { features = ["http2", "stream"], workspace = true, default-features = true }
+hyperv14 = { features = ["http2", "stream"], workspace = true, default-features = true }
 hyper-rustls = { features = ["http2"], workspace = true }
 num_cpus = { workspace = true }
 once_cell = { workspace = true }
