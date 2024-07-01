@@ -404,6 +404,7 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 	where
 		Self: Sized,
 	{
+		config.discovery_limit(u64::from(network_config.default_peers_set.out_peers) + 15);
 		let (keypair, local_peer_id) =
 			Self::get_keypair(&params.network_config.network_config.node_key)?;
 		let (cmd_tx, cmd_rx) = tracing_unbounded("mpsc_network_worker", 100_000);
@@ -552,6 +553,8 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 
 		// enable ipfs ping, identify and kademlia, and potentially mdns if user enabled it
 		let listen_addresses = Arc::new(Default::default());
+		let num_connected = Arc::new(Default::default());
+
 		let (discovery, ping_config, identify_config, kademlia_config, maybe_mdns_config) =
 			Discovery::new(
 				&network_config,
@@ -560,6 +563,7 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 				&params.protocol_id,
 				known_addresses.clone(),
 				Arc::clone(&listen_addresses),
+				Arc::clone(&num_connected),
 				Arc::clone(&peer_store_handle),
 			);
 
@@ -603,7 +607,6 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 		));
 
 		// register rest of the metrics now that `Litep2p` has been created
-		let num_connected = Arc::new(Default::default());
 		let bandwidth: Arc<dyn BandwidthSink> =
 			Arc::new(Litep2pBandwidthSink { sink: litep2p.bandwidth_sink() });
 
