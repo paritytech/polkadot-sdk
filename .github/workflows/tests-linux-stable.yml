@@ -121,7 +121,7 @@ jobs:
     container:
       image: ${{ needs.set-image.outputs.IMAGE }}
       # needed for tests that use unshare syscall
-      options: --privileged
+      # options: --privileged
     env:
       RUST_TOOLCHAIN: stable
       # Enable debug assertions since we are running optimized builds for testing
@@ -191,7 +191,7 @@ jobs:
     container:
       image: ${{ needs.set-image.outputs.IMAGE }}
       # needed for tests that use unshare syscall
-      options: --privileged
+      # options: --privileged
     env:
       RUST_TOOLCHAIN: stable
       # Enable debug assertions since we are running optimized builds for testing
