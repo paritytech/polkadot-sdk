@@ -18,11 +18,13 @@ use crate::{
 	chain_spec,
 	chain_spec::GenericChainSpec,
 	cli::{Cli, RelayChainCli, Subcommand},
-	common::command::CmdRunner,
 	fake_runtime_api::{
 		asset_hub_polkadot_aura::RuntimeApi as AssetHubPolkadotRuntimeApi, aura::RuntimeApi,
 	},
-	service::{new_partial, Block, Hash},
+	service::{
+		AssetHubLookaheadNode, BasicLookaheadNode, Block, ContractsRococoNode, DynNodeSpec,
+		GenericAuraLookaheadNode, Hash, RococoParachainNode, ShellNode,
+	},
 };
 #[cfg(feature = "runtime-benchmarks")]
 use cumulus_client_service::storage_proof_size::HostFunctions as ReclaimHostFunctions;
@@ -383,47 +385,35 @@ impl SubstrateCli for RelayChainCli {
 	}
 }
 
-fn new_partial_from_config(
+fn new_node_spec_with_network<Net: sc_network::NetworkBackend<Block, Hash>>(
 	config: &sc_service::Configuration,
-) -> std::result::Result<Box<dyn CmdRunner<Block>>, sc_cli::Error> {
+) -> std::result::Result<Box<dyn DynNodeSpec<Net>>, sc_cli::Error> {
 	Ok(match config.chain_spec.runtime()? {
-		Runtime::AssetHubPolkadot => Box::new(
-			new_partial::<AssetHubPolkadotRuntimeApi, _>(
-				config,
-				crate::service::build_relay_to_aura_import_queue::<_, AssetHubPolkadotAuraId>,
-			)
-			.map_err(sc_cli::Error::Service)?,
-		),
-		Runtime::AssetHub |
+		Runtime::AssetHubPolkadot => Box::new(AssetHubLookaheadNode::<
+			AssetHubPolkadotRuntimeApi,
+			AssetHubPolkadotAuraId,
+		>(Default::default())),
+		Runtime::AssetHub =>
+			Box::new(AssetHubLookaheadNode::<RuntimeApi, AuraId>(Default::default())),
 		Runtime::BridgeHub(_) |
 		Runtime::Collectives |
 		Runtime::Coretime(_) |
-		Runtime::People(_) => Box::new(
-			new_partial::<RuntimeApi, _>(
-				config,
-				crate::service::build_relay_to_aura_import_queue::<_, AuraId>,
-			)
-			.map_err(sc_cli::Error::Service)?,
-		),
-		Runtime::Glutton | Runtime::Shell | Runtime::Seedling => Box::new(
-			new_partial::<RuntimeApi, _>(config, crate::service::build_shell_import_queue)
-				.map_err(sc_cli::Error::Service)?,
-		),
-		Runtime::ContractsRococo | Runtime::Penpal(_) => Box::new(
-			new_partial::<RuntimeApi, _>(config, crate::service::build_aura_import_queue)
-				.map_err(sc_cli::Error::Service)?,
-		),
+		Runtime::People(_) => Box::new(GenericAuraLookaheadNode),
+		Runtime::Shell | Runtime::Seedling => Box::new(ShellNode),
+		Runtime::ContractsRococo => Box::new(ContractsRococoNode),
+		Runtime::Penpal(_) => Box::new(RococoParachainNode),
+		Runtime::Glutton => Box::new(BasicLookaheadNode),
 		Runtime::Omni(consensus) => match consensus {
-			Consensus::Aura => Box::new(
-				new_partial::<RuntimeApi, _>(config, crate::service::build_aura_import_queue)
-					.map_err(sc_cli::Error::Service)?,
-			),
-			Consensus::Relay => Box::new(
-				new_partial::<RuntimeApi, _>(config, crate::service::build_shell_import_queue)
-					.map_err(sc_cli::Error::Service)?,
-			),
+			Consensus::Aura => Box::new(RococoParachainNode),
+			Consensus::Relay => Box::new(ShellNode),
 		},
 	})
+}
+
+fn new_node_spec(
+	config: &sc_service::Configuration,
+) -> std::result::Result<Box<dyn DynNodeSpec<sc_network::Litep2pNetworkBackend>>, sc_cli::Error> {
+	new_node_spec_with_network(config)
 }
 
 /// Parse command line arguments into service configuration.
@@ -438,36 +428,36 @@ pub fn run() -> Result<()> {
 		Some(Subcommand::CheckBlock(cmd)) => {
 			let runner = cli.create_runner(cmd)?;
 			runner.async_run(|config| {
-				let partials = new_partial_from_config(&config)?;
-				Ok(partials.prepare_check_block_cmd(cmd))
+				let node = new_node_spec(&config)?;
+				node.prepare_check_block_cmd(config, cmd)
 			})
 		},
 		Some(Subcommand::ExportBlocks(cmd)) => {
 			let runner = cli.create_runner(cmd)?;
 			runner.async_run(|config| {
-				let partials = new_partial_from_config(&config)?;
-				Ok(partials.prepare_export_blocks_cmd(cmd, config))
+				let node = new_node_spec(&config)?;
+				node.prepare_export_blocks_cmd(config, cmd)
 			})
 		},
 		Some(Subcommand::ExportState(cmd)) => {
 			let runner = cli.create_runner(cmd)?;
 			runner.async_run(|config| {
-				let partials = new_partial_from_config(&config)?;
-				Ok(partials.prepare_export_state_cmd(cmd, config))
+				let node = new_node_spec(&config)?;
+				node.prepare_export_state_cmd(config, cmd)
 			})
 		},
 		Some(Subcommand::ImportBlocks(cmd)) => {
 			let runner = cli.create_runner(cmd)?;
 			runner.async_run(|config| {
-				let partials = new_partial_from_config(&config)?;
-				Ok(partials.prepare_import_blocks_cmd(cmd))
+				let node = new_node_spec(&config)?;
+				node.prepare_import_blocks_cmd(config, cmd)
 			})
 		},
 		Some(Subcommand::Revert(cmd)) => {
 			let runner = cli.create_runner(cmd)?;
 			runner.async_run(|config| {
-				let partials = new_partial_from_config(&config)?;
-				Ok(partials.prepare_revert_cmd(cmd))
+				let node = new_node_spec(&config)?;
+				node.prepare_revert_cmd(config, cmd)
 			})
 		},
 		Some(Subcommand::PurgeChain(cmd)) => {
@@ -488,8 +478,8 @@ pub fn run() -> Result<()> {
 		Some(Subcommand::ExportGenesisHead(cmd)) => {
 			let runner = cli.create_runner(cmd)?;
 			runner.sync_run(|config| {
-				let partials = new_partial_from_config(&config)?;
-				partials.run_export_genesis_head_cmd(cmd)
+				let node = new_node_spec(&config)?;
+				node.run_export_genesis_head_cmd(config, cmd)
 			})
 		},
 		Some(Subcommand::ExportGenesisWasm(cmd)) => {
@@ -511,13 +501,13 @@ pub fn run() -> Result<()> {
 					))
 				}),
 				BenchmarkCmd::Block(cmd) => runner.sync_run(|config| {
-					let partials = new_partial_from_config(&config)?;
-					partials.run_benchmark_block_cmd(cmd)
+					let node = new_node_spec(&config)?;
+					node.run_benchmark_block_cmd(config, cmd)
 				}),
 				#[cfg(feature = "runtime-benchmarks")]
 				BenchmarkCmd::Storage(cmd) => runner.sync_run(|config| {
-					let partials = new_partial_from_config(&config)?;
-					partials.run_benchmark_storage_cmd(cmd, config)
+					let node = new_node_spec(&config)?;
+					node.run_benchmark_storage_cmd(config, cmd)
 				}),
 				BenchmarkCmd::Machine(cmd) =>
 					runner.sync_run(|config| cmd.run(&config, SUBSTRATE_REFERENCE_HARDWARE.clone())),
@@ -628,6 +618,7 @@ pub fn run() -> Result<()> {
 	}
 }
 
+#[sc_tracing::logging::prefix_logs_with("Parachain")]
 async fn start_node<Network: sc_network::NetworkBackend<Block, Hash>>(
 	config: sc_service::Configuration,
 	polkadot_config: sc_service::Configuration,
@@ -635,100 +626,11 @@ async fn start_node<Network: sc_network::NetworkBackend<Block, Hash>>(
 	id: ParaId,
 	hwbench: Option<sc_sysinfo::HwBench>,
 ) -> Result<sc_service::TaskManager> {
-	match config.chain_spec.runtime()? {
-		Runtime::AssetHubPolkadot => crate::service::start_asset_hub_lookahead_node::<
-			AssetHubPolkadotRuntimeApi,
-			AssetHubPolkadotAuraId,
-			Network,
-		>(config, polkadot_config, collator_options, id, hwbench)
+	let node_spec = new_node_spec_with_network::<Network>(&config)?;
+	node_spec
+		.start_node(config, polkadot_config, collator_options, id, hwbench)
 		.await
-		.map_err(Into::into),
-
-		Runtime::AssetHub => crate::service::start_asset_hub_lookahead_node::<
-			RuntimeApi,
-			AuraId,
-			Network,
-		>(config, polkadot_config, collator_options, id, hwbench)
-		.await
-		.map_err(Into::into),
-
-		Runtime::BridgeHub(_) |
-		Runtime::Collectives |
-		Runtime::Coretime(_) |
-		Runtime::People(_) => crate::service::start_generic_aura_lookahead_node::<Network>(
-			config,
-			polkadot_config,
-			collator_options,
-			id,
-			hwbench,
-		)
-		.await
-		.map_err(Into::into),
-
-		Runtime::Seedling | Runtime::Shell => crate::service::start_shell_node::<Network>(
-			config,
-			polkadot_config,
-			collator_options,
-			id,
-			hwbench,
-		)
-		.await
-		.map_err(Into::into),
-
-		Runtime::ContractsRococo => crate::service::start_contracts_rococo_node::<Network>(
-			config,
-			polkadot_config,
-			collator_options,
-			id,
-			hwbench,
-		)
-		.await
-		.map_err(Into::into),
-
-		Runtime::Penpal(_) => crate::service::start_rococo_parachain_node::<Network>(
-			config,
-			polkadot_config,
-			collator_options,
-			id,
-			hwbench,
-		)
-		.await
-		.map_err(Into::into),
-
-		Runtime::Glutton => crate::service::start_basic_lookahead_node::<Network>(
-			config,
-			polkadot_config,
-			collator_options,
-			id,
-			hwbench,
-		)
-		.await
-		.map_err(Into::into),
-
-		Runtime::Omni(consensus) => match consensus {
-			// rococo actually uses aura import and consensus, unlike most system chains that use
-			// relay to aura.
-			Consensus::Aura => crate::service::start_rococo_parachain_node::<Network>(
-				config,
-				polkadot_config,
-				collator_options,
-				id,
-				hwbench,
-			)
-			.await
-			.map_err(Into::into),
-
-			Consensus::Relay => crate::service::start_shell_node::<Network>(
-				config,
-				polkadot_config,
-				collator_options,
-				id,
-				hwbench,
-			)
-			.await
-			.map_err(Into::into),
-		},
-	}
+		.map_err(Into::into)
 }
 
 impl DefaultConfigurationValues for RelayChainCli {

@@ -31,6 +31,15 @@ use sp_blockchain::{Error as BlockChainError, HeaderBackend, HeaderMetadata};
 /// A type representing all RPC extensions.
 pub type RpcExtension = jsonrpsee::RpcModule<()>;
 
+pub trait BuildRpcExtensions<Client, Backend, Pool> {
+	fn build_rpc_extensions(
+		deny_unsafe: DenyUnsafe,
+		client: Arc<Client>,
+		backend: Arc<Backend>,
+		pool: Arc<Pool>,
+	) -> sc_service::error::Result<jsonrpsee::RpcModule<()>>;
+}
+
 /// Full client dependencies
 pub struct FullDeps<C, P> {
 	/// The client instance to use.
