@@ -104,7 +104,7 @@ exists, and ask if not. Please do not file support issues here.
 Before opening a new issue search to see if a similar one already exists and leave a comment that you
 also experienced this issue or add your specifics that are related to an existing issue.
 
-Please label issues with the following labels:
+Please label issues with the following labels (only relevant for maintainer):
 1. `I*`  issue severity and type. EXACTLY ONE REQUIRED.
 2. `D*`  issue difficulty, suggesting the level of complexity this issue has. AT MOST ONE ALLOWED.
 3. `T*`  Issue topic. MULTIPLE ALLOWED.

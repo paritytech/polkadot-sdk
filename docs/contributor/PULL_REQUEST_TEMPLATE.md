@@ -28,6 +28,7 @@ It helps to include example usage and default value here, with a `diff` code-blo
 
 - [ ] My PR includes a detailed description as outlined in the "Description" and its two subsections above.
 - [ ] My PR follows the [labeling requirements](CONTRIBUTING.md#Process) of this project (at minimum one label for `T` required)
+    - External contributors: ask maintainers to put the right label on your PR.
 - [ ] I have made corresponding changes to the documentation (if applicable)
 - [ ] I have added tests that prove my fix is effective or that my feature works (if applicable)
 
