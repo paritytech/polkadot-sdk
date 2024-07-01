@@ -53,8 +53,6 @@ use tokio_util::sync::CancellationToken;
 
 use crate::{error::SecondingError, LOG_TARGET};
 
-use super::GroupAssignments;
-
 /// Candidate supplied with a para head it's built on top of.
 #[derive(Debug, Copy, Clone, Hash, Eq, PartialEq)]
 pub struct ProspectiveCandidate {
@@ -249,9 +247,9 @@ pub struct Collations {
 }
 
 impl Collations {
-	pub(super) fn new(assignments: &Vec<ParaId>) -> Self {
+	pub(super) fn new(claim_queue: &Vec<ParaId>) -> Self {
 		let mut claims_per_para = BTreeMap::new();
-		for para_id in assignments {
+		for para_id in claim_queue {
 			*claims_per_para.entry(*para_id).or_default() += 1;
 		}
 
@@ -285,7 +283,7 @@ impl Collations {
 		&mut self,
 		finished_one: &(CollatorId, Option<CandidateHash>),
 		relay_parent_mode: ProspectiveParachainsMode,
-		assignments: &GroupAssignments,
+		claim_queue: &Vec<ParaId>,
 	) -> Option<(PendingCollation, CollatorId)> {
 		// If finished one does not match waiting_collation, then we already dequeued another fetch
 		// to replace it.
@@ -310,7 +308,7 @@ impl Collations {
 			// `Waiting` so that we can fetch more collations. If async backing is disabled we can't
 			// fetch more than one collation per relay parent so `None` is returned.
 			CollationStatus::Seconded => None,
-			CollationStatus::Waiting => self.pick_a_collation_to_fetch(&assignments.current),
+			CollationStatus::Waiting => self.pick_a_collation_to_fetch(&claim_queue),
 			CollationStatus::WaitingOnValidation | CollationStatus::Fetching =>
 				unreachable!("We have reset the status above!"),
 		}
@@ -373,12 +371,12 @@ impl Collations {
 	/// picked.
 	fn pick_a_collation_to_fetch(
 		&mut self,
-		claims: &Vec<ParaId>,
+		claim_queue: &Vec<ParaId>,
 	) -> Option<(PendingCollation, CollatorId)> {
 		gum::trace!(
 			target: LOG_TARGET,
 			waiting_queue = ?self.waiting_queue,
-			claim_queue = ?claims,
+			?claim_queue,
 			"Pick a collation to fetch."
 		);
 
@@ -408,7 +406,7 @@ impl Collations {
 		}
 
 		if let Some((_, mut lowest_score)) = lowest_score {
-			for claim in claims {
+			for claim in claim_queue {
 				if let Some((_, collations)) = lowest_score.iter_mut().find(|(id, _)| *id == claim)
 				{
 					match collations.pop_front() {
