@@ -22,19 +22,11 @@
 //! 	2. A collator task that transforms the blocks into a collation and submits them to the relay
 //!     chain.
 //!
-//! This collator also builds additional blocks when the maximum backlog is not saturated.
-//! The size of the backlog is determined by invoking a runtime API. If that runtime API
-//! is not supported, this assumes a maximum backlog size of 1.
-//!
-//! This takes more advantage of asynchronous backing, though not complete advantage.
-//! When the backlog is not saturated, this approach lets the backlog temporarily 'catch up'
-//! with periods of higher throughput. When the backlog is saturated, we typically
-//! fall back to the limited cadence of a single parachain block per relay-chain block.
-//!
-//! Despite this, the fact that there is a backlog at all allows us to spend more time
-//! building the block, as there is some buffer before it can get posted to the relay-chain.
-//! The main limitation is block propagation time - i.e. the new blocks created by an author
-//! must be propagated to the next author before their turn.
+//! Blocks are built on every parachain slot if there is a core scheduled on the relay chain. At the
+//! beginning of each block building loop, we determine how many blocks we expect to build per relay
+//! chain block. The collator implementation then expects that we have that many cores scheduled
+//! during the relay chain block. After the block is built, the block builder task sends it to
+//! the collation task which compresses it and submits it to the collation-generation subsystem.
 
 use codec::Codec;
 use consensus_common::ParachainCandidate;

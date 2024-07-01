@@ -117,7 +117,7 @@ pub async fn find_potential_parents<B: BlockT>(
 	// Pending header and hash.
 	let maybe_pending = {
 		// Fetch the pending header from the relay chain. We use `OccupiedCoreAssumption::Included`
-		// so the candidate pending availability gets enacted before being returned to  us.
+		// so the candidate pending availability gets enacted before being returned to us.
 		let pending_header = relay_client
 			.persisted_validation_data(
 				params.relay_parent,
@@ -254,10 +254,19 @@ async fn fetch_included_from_relay_chain<B: BlockT>(
 	let included_hash = included_header.hash();
 	// If the included block is not locally known, we can't do anything.
 	match backend.blockchain().header(included_hash) {
-		Ok(None) | Err(_) => {
+		Ok(None) => {
 			tracing::warn!(
 				target: PARENT_SEARCH_LOG_TARGET,
 				%included_hash,
+				"Failed to get header for included block.",
+			);
+			return Ok(None)
+		},
+		Err(e) => {
+			tracing::warn!(
+				target: PARENT_SEARCH_LOG_TARGET,
+				%included_hash,
+				%e,
 				"Failed to get header for included block.",
 			);
 			return Ok(None)
@@ -360,7 +369,7 @@ pub fn search_child_branches_for_parents<Block: BlockT>(
 		let child_depth = entry.depth + 1;
 		let hash = entry.hash;
 
-		tracing::trace!(target: PARENT_SEARCH_LOG_TARGET, root_in_ancestry = is_potential && !is_pending && !is_included, ?hash, is_pending, is_included, "Checking potential parent.");
+		tracing::trace!(target: PARENT_SEARCH_LOG_TARGET, ?hash, is_potential, is_pending, is_included, "Checking potential parent.");
 		if is_potential {
 			potential_parents.push(entry);
 		}
