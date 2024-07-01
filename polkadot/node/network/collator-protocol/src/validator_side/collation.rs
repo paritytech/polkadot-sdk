@@ -306,7 +306,9 @@ impl Collations {
 		self.status.back_to_waiting(relay_parent_mode);
 
 		match self.status {
-			// We don't need to fetch any other collation when we already have seconded one.
+			// If async backing is enabled `back_to_waiting` will change `Seconded` state to
+			// `Waiting` so that we can fetch more collations. If async backing is disabled we can't
+			// fetch more than one collation per relay parent so `None` is returned.
 			CollationStatus::Seconded => None,
 			CollationStatus::Waiting => self.pick_a_collation_to_fetch(&assignments.current),
 			CollationStatus::WaitingOnValidation | CollationStatus::Fetching =>
@@ -330,7 +332,7 @@ impl Collations {
 			return self.seconded_count >= 1
 		}
 
-		// Successful fetches + a pending fetch < claim queue entries for `para_id`
+		// Successful fetches + pending fetches < claim queue entries for `para_id`
 		let respected_per_para_limit =
 			self.claims_per_para.get(&para_id).copied().unwrap_or_default() >
 				self.fetched_per_para.get(&para_id).copied().unwrap_or_default() +
@@ -412,7 +414,7 @@ impl Collations {
 					match collations.pop_front() {
 						Some(collation) => return Some(collation),
 						None => {
-							unreachable!("Collation can't be empty!")
+							unreachable!("Collation can't be empty because empty ones are skipped at the beginning of the loop.")
 						},
 					}
 				}
