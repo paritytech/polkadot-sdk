@@ -259,6 +259,17 @@ impl Litep2pNetworkBackend {
 		Ok((local_identity, local_peer_id))
 	}
 
+	/// Fetch the number of connected peers from the peerset handle and update
+	/// the atomic `num_connected` shared between the network backend.
+	fn fetch_connected_peers(&self) -> usize {
+		let num_connected_peers = self
+			.peerset_handles
+			.get(&self.block_announce_protocol)
+			.map_or(0usize, |handle| handle.connected_peers.load(Ordering::Relaxed));
+		self.num_connected.store(num_connected_peers, Ordering::Relaxed);
+		num_connected_peers
+	}
+
 	/// Configure transport protocols for `Litep2pNetworkBackend`.
 	fn configure_transport<B: BlockT + 'static, H: ExHashT>(
 		config: &FullNetworkConfiguration<B, H, Self>,
@@ -682,11 +693,7 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 		log::debug!(target: LOG_TARGET, "starting litep2p network backend");
 
 		loop {
-			let num_connected_peers = self
-				.peerset_handles
-				.get(&self.block_announce_protocol)
-				.map_or(0usize, |handle| handle.connected_peers.load(Ordering::Relaxed));
-			self.num_connected.store(num_connected_peers, Ordering::Relaxed);
+			self.fetch_connected_peers();
 
 			tokio::select! {
 				command = self.cmd_rx.next() => match command {
@@ -707,11 +714,10 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 							self.event_streams.push(tx);
 						}
 						NetworkServiceCommand::Status { tx } => {
+							let num_connected_peers = self.fetch_connected_peers();
+
 							let _ = tx.send(NetworkStatus {
-								num_connected_peers: self
-									.peerset_handles
-									.get(&self.block_announce_protocol)
-									.map_or(0usize, |handle| handle.connected_peers.load(Ordering::Relaxed)),
+								num_connected_peers,
 								total_bytes_inbound: self.litep2p.bandwidth_sink().inbound() as u64,
 								total_bytes_outbound: self.litep2p.bandwidth_sink().outbound() as u64,
 							});
