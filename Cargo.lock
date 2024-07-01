@@ -20999,6 +20999,7 @@ dependencies = [
  "clap 4.5.3",
  "log",
  "sc-chain-spec",
+ "serde",
  "serde_json",
  "sp-tracing 16.0.0",
 ]

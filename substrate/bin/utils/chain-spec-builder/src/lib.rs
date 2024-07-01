@@ -120,9 +120,12 @@
 use std::{fs, path::PathBuf};
 
 use clap::{Parser, Subcommand};
-use sc_chain_spec::{ChainType, GenericChainSpec, GenesisConfigBuilderRuntimeCaller};
+use sc_chain_spec::{
+	ChainSpecExtension, ChainSpecGroup, ChainType, GenericChainSpec,
+	GenesisConfigBuilderRuntimeCaller,
+};
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
-
 /// A utility to easily create a chain spec definition.
 #[derive(Debug, Parser)]
 #[command(rename_all = "kebab-case", version, about)]
@@ -158,6 +161,15 @@ pub struct CreateCmd {
 	/// The chain type.
 	#[arg(value_enum, short = 't', default_value = "live")]
 	chain_type: ChainType,
+	/// If you're generating a config for a parachain
+	#[arg(long, value_enum, default_value = "false")]
+	parachain: bool,
+	/// The para ID for your chain.
+	#[arg(value_enum, short = 'p', default_value = "100")]
+	para_id: u32,
+	/// The relay chain you wish to connect to.
+	#[arg(value_enum, short = 'c', default_value = "polkadot")]
+	relay_chain: String,
 	/// The path to runtime wasm blob.
 	#[arg(long, short)]
 	runtime_wasm_path: PathBuf,
@@ -279,17 +291,40 @@ pub struct VerifyCmd {
 	pub input_chain_spec: PathBuf,
 }
 
+/// The extensions for the [`ChainSpec`].
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ChainSpecGroup, ChainSpecExtension)]
+#[serde(deny_unknown_fields)]
+pub struct Extensions {
+	/// The relay chain of the Parachain.
+	pub relay_chain: Option<String>,
+	/// The id of the Parachain.
+	pub para_id: Option<u32>,
+}
+
 /// Processes `CreateCmd` and returns JSON version of `ChainSpec`.
 pub fn generate_chain_spec_for_runtime(cmd: &CreateCmd) -> Result<String, String> {
 	let code = fs::read(cmd.runtime_wasm_path.as_path())
 		.map_err(|e| format!("wasm blob shall be readable {e}"))?;
 
 	let chain_type = &cmd.chain_type;
-
-	let builder = GenericChainSpec::<()>::builder(&code[..], Default::default())
+	let relay_chain = &cmd.relay_chain;
+	let builder = match cmd.parachain {
+		true => GenericChainSpec::<Extensions>::builder(
+			&code[..],
+			Extensions { relay_chain: Some(relay_chain.to_string()), para_id: Some(cmd.para_id) },
+		)
 		.with_name(&cmd.chain_name[..])
 		.with_id(&cmd.chain_id[..])
-		.with_chain_type(chain_type.clone());
+		.with_chain_type(chain_type.clone()),
+
+		false => GenericChainSpec::<Extensions>::builder(
+			&code[..],
+			Extensions { relay_chain: None, para_id: None },
+		)
+		.with_name(&cmd.chain_name[..])
+		.with_id(&cmd.chain_id[..])
+		.with_chain_type(chain_type.clone()),
+	};
 
 	let builder = match cmd.action {
 		GenesisBuildAction::NamedPreset(NamedPresetCmd { ref preset_name }) =>

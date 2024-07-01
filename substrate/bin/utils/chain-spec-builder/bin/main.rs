@@ -26,9 +26,9 @@ use sc_chain_spec::{
 	GenesisConfigBuilderRuntimeCaller,
 };
 use staging_chain_spec_builder as chain_spec_builder;
-use std::fs;
+use std::{fs, path::Path};
 
-type ChainSpec = GenericChainSpec<(), ()>;
+type ChainSpec = GenericChainSpec<()>;
 
 //avoid error message escaping
 fn main() {
@@ -36,6 +36,14 @@ fn main() {
 		Err(e) => eprintln!("{}", format!("{e}")),
 		_ => {},
 	}
+}
+
+/// Extract any chain spec and convert it to JSON
+fn extract_chain_spec_json(input_chain_spec: &Path) -> Result<serde_json::Value, String> {
+	let chain_spec = &fs::read(input_chain_spec)
+		.map_err(|e| format!("Provided chain spec could not be read: {e}"))?;
+
+	serde_json::from_slice(&chain_spec).map_err(|e| format!("Conversion to json failed: {e}"))
 }
 
 fn inner_main() -> Result<(), String> {
@@ -53,11 +61,8 @@ fn inner_main() -> Result<(), String> {
 			ref input_chain_spec,
 			ref runtime_wasm_path,
 		}) => {
-			let chain_spec = ChainSpec::from_json_file(input_chain_spec.clone())?;
+			let mut chain_spec_json = extract_chain_spec_json(input_chain_spec.as_path())?;
 
-			let mut chain_spec_json =
-				serde_json::from_str::<serde_json::Value>(&chain_spec.as_json(false)?)
-					.map_err(|e| format!("Conversion to json failed: {e}"))?;
 			update_code_in_json_chain_spec(
 				&mut chain_spec_json,
 				&fs::read(runtime_wasm_path.as_path())
@@ -73,11 +78,7 @@ fn inner_main() -> Result<(), String> {
 			ref runtime_wasm_path,
 			block_height,
 		}) => {
-			let chain_spec = ChainSpec::from_json_file(input_chain_spec.clone())?;
-
-			let mut chain_spec_json =
-				serde_json::from_str::<serde_json::Value>(&chain_spec.as_json(false)?)
-					.map_err(|e| format!("Conversion to json failed: {e}"))?;
+			let mut chain_spec_json = extract_chain_spec_json(input_chain_spec.as_path())?;
 
 			set_code_substitute_in_json_chain_spec(
 				&mut chain_spec_json,
@@ -135,6 +136,6 @@ fn inner_main() -> Result<(), String> {
 				.map_err(|e| format!("getting default config from runtime should work: {e}"))?;
 			println!("{preset}");
 		},
-	};
+	}
 	Ok(())
 }
