@@ -161,7 +161,6 @@ pub enum WhereKind {
 pub struct WhereDefinition {
 	pub kind_span: Span,
 	pub kind: WhereKind,
-	pub _value: syn::TypePath,
 }
 
 impl Parse for WhereDefinition {
@@ -177,14 +176,10 @@ impl Parse for WhereDefinition {
 			return Err(lookahead.error())
 		};
 
-		Ok(Self {
-			kind_span,
-			kind,
-			_value: {
-				let _: Token![=] = input.parse()?;
-				input.parse()?
-			},
-		})
+		let _: Token![=] = input.parse()?;
+		let _: syn::TypePath = input.parse()?;
+
+		Ok(Self { kind_span, kind })
 	}
 }
 

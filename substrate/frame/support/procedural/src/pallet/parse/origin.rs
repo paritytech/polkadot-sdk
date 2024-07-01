@@ -25,15 +25,13 @@ use syn::spanned::Spanned;
 /// * `struct Origin`
 /// * `enum Origin`
 pub struct OriginDef {
-	/// The index of item in pallet module.
-	pub _index: usize,
 	pub is_generic: bool,
 	/// A set of usage of instance, must be check for consistency with trait.
 	pub instances: Vec<helper::InstanceUsage>,
 }
 
 impl OriginDef {
-	pub fn try_from(index: usize, item: &mut syn::Item) -> syn::Result<Self> {
+	pub fn try_from(_index: usize, item: &mut syn::Item) -> syn::Result<Self> {
 		let item_span = item.span();
 		let (vis, ident, generics) = match &item {
 			syn::Item::Enum(item) => (&item.vis, &item.ident, &item.generics),
@@ -65,6 +63,6 @@ impl OriginDef {
 			return Err(syn::Error::new(ident.span(), msg))
 		}
 
-		Ok(OriginDef { _index: index, is_generic, instances })
+		Ok(OriginDef { is_generic, instances })
 	}
 }

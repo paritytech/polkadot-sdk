@@ -87,8 +87,6 @@ pub mod keyword {
 }
 
 pub struct CompositeDef {
-	/// The index of the CompositeDef item in the pallet module.
-	pub _index: usize,
 	/// The composite keyword used (contains span).
 	pub composite_keyword: keyword::CompositeKeyword,
 	/// Name of the associated type.
@@ -104,7 +102,7 @@ pub struct CompositeDef {
 impl CompositeDef {
 	pub fn try_from(
 		attr_span: proc_macro2::Span,
-		index: usize,
+		_index: usize,
 		scrate: &syn::Path,
 		item: &mut syn::Item,
 	) -> syn::Result<Self> {
@@ -180,7 +178,6 @@ impl CompositeDef {
 			syn::parse2::<keyword::CompositeKeyword>(item.ident.to_token_stream())?;
 
 		Ok(CompositeDef {
-			_index: index,
 			composite_keyword,
 			attr_span,
 			generics: item.generics.clone(),

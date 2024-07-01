@@ -34,8 +34,8 @@ use syn::{
 	parse2,
 	spanned::Spanned,
 	token::{Bracket, Paren, PathSep, Pound},
-	Attribute, Error, Expr, Ident, ImplItem, ImplItemFn, ItemEnum, ItemImpl, LitInt, Path,
-	PathArguments, Result, TypePath,
+	Error, Expr, Ident, ImplItem, ImplItemFn, ItemEnum, ItemImpl, LitInt, Path, PathArguments,
+	Result, TypePath,
 };
 
 pub mod keywords {
@@ -180,7 +180,6 @@ pub struct TaskDef {
 	pub condition_attr: TaskConditionAttr,
 	pub list_attr: TaskListAttr,
 	pub weight_attr: TaskWeightAttr,
-	pub _normal_attrs: Vec<Attribute>,
 	pub item: ImplItemFn,
 	pub arg_names: Vec<Ident>,
 }
@@ -293,15 +292,7 @@ impl syn::parse::Parse for TaskDef {
 		let list_attr = list_attr.try_into().expect("we check the type above; QED");
 		let weight_attr = weight_attr.try_into().expect("we check the type above; QED");
 
-		Ok(TaskDef {
-			index_attr,
-			condition_attr,
-			list_attr,
-			weight_attr,
-			_normal_attrs,
-			item,
-			arg_names,
-		})
+		Ok(TaskDef { index_attr, condition_attr, list_attr, weight_attr, item, arg_names })
 	}
 }
 
