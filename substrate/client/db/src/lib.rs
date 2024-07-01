@@ -1801,10 +1801,10 @@ impl<Block: BlockT> Backend<Block> {
 		}
 
 		let new_displaced = self.blockchain.displaced_leaves_after_finalizing(f_hash, f_num)?;
-		let finalization_outcome =
-			FinalizationOutcome::new(new_displaced.displaced_leaves.clone().into_iter());
 
-		self.blockchain.leaves.write().remove_displaced_leaves(&finalization_outcome);
+		self.blockchain.leaves.write().remove_displaced_leaves(FinalizationOutcome::new(
+			new_displaced.displaced_leaves.iter().copied(),
+		));
 
 		self.prune_blocks(transaction, f_num, &new_displaced, current_transaction_justifications)?;
 
@@ -1858,11 +1858,9 @@ impl<Block: BlockT> Backend<Block> {
 		displaced: &DisplacedLeavesAfterFinalization<Block>,
 	) -> ClientResult<()> {
 		// Discard all blocks from displaced branches
-		for (_, tree_route) in displaced.tree_routes.iter() {
-			for r in tree_route.retracted() {
-				self.blockchain.insert_persisted_body_if_pinned(r.hash)?;
-				self.prune_block(transaction, BlockId::<Block>::hash(r.hash))?;
-			}
+		for &hash in displaced.displaced_blocks.iter() {
+			self.blockchain.insert_persisted_body_if_pinned(hash)?;
+			self.prune_block(transaction, BlockId::<Block>::hash(hash))?;
 		}
 		Ok(())
 	}
@@ -3136,91 +3134,87 @@ pub(crate) mod tests {
 		let d1 = insert_header(&backend, 2, b1, None, H256::from([3; 32]));
 		let d2 = insert_header(&backend, 3, d1, None, Default::default());
 		{
-			let lca = lowest_common_ancestor_multiblock(blockchain, vec![a3, b2]).unwrap().unwrap();
+			let lca = lowest_common_ancestor_multiblock(blockchain, &[a3, b2]).unwrap().unwrap();
 
 			assert_eq!(lca.hash, block0);
 			assert_eq!(lca.number, 0);
 		}
 
 		{
-			let lca = lowest_common_ancestor_multiblock(blockchain, vec![a1, a3]).unwrap().unwrap();
+			let lca = lowest_common_ancestor_multiblock(blockchain, &[a1, a3]).unwrap().unwrap();
 
 			assert_eq!(lca.hash, a1);
 			assert_eq!(lca.number, 1);
 		}
 
 		{
-			let lca = lowest_common_ancestor_multiblock(blockchain, vec![a3, a1]).unwrap().unwrap();
+			let lca = lowest_common_ancestor_multiblock(blockchain, &[a3, a1]).unwrap().unwrap();
 
 			assert_eq!(lca.hash, a1);
 			assert_eq!(lca.number, 1);
 		}
 
 		{
-			let lca = lowest_common_ancestor_multiblock(blockchain, vec![a2, a3]).unwrap().unwrap();
+			let lca = lowest_common_ancestor_multiblock(blockchain, &[a2, a3]).unwrap().unwrap();
 
 			assert_eq!(lca.hash, a2);
 			assert_eq!(lca.number, 2);
 		}
 
 		{
-			let lca = lowest_common_ancestor_multiblock(blockchain, vec![a2, a1]).unwrap().unwrap();
+			let lca = lowest_common_ancestor_multiblock(blockchain, &[a2, a1]).unwrap().unwrap();
 
 			assert_eq!(lca.hash, a1);
 			assert_eq!(lca.number, 1);
 		}
 
 		{
-			let lca = lowest_common_ancestor_multiblock(blockchain, vec![a2, a2]).unwrap().unwrap();
+			let lca = lowest_common_ancestor_multiblock(blockchain, &[a2, a2]).unwrap().unwrap();
 
 			assert_eq!(lca.hash, a2);
 			assert_eq!(lca.number, 2);
 		}
 
 		{
-			let lca = lowest_common_ancestor_multiblock(blockchain, vec![a3, d2, c2])
-				.unwrap()
-				.unwrap();
+			let lca =
+				lowest_common_ancestor_multiblock(blockchain, &[a3, d2, c2]).unwrap().unwrap();
 
 			assert_eq!(lca.hash, block0);
 			assert_eq!(lca.number, 0);
 		}
 
 		{
-			let lca = lowest_common_ancestor_multiblock(blockchain, vec![c2, d2, b2])
-				.unwrap()
-				.unwrap();
+			let lca =
+				lowest_common_ancestor_multiblock(blockchain, &[c2, d2, b2]).unwrap().unwrap();
 
 			assert_eq!(lca.hash, b1);
 			assert_eq!(lca.number, 1);
 		}
 
 		{
-			let lca = lowest_common_ancestor_multiblock(blockchain, vec![a1, a2, a3])
-				.unwrap()
-				.unwrap();
+			let lca =
+				lowest_common_ancestor_multiblock(blockchain, &[a1, a2, a3]).unwrap().unwrap();
 
 			assert_eq!(lca.hash, a1);
 			assert_eq!(lca.number, 1);
 		}
 
 		{
-			let lca = lowest_common_ancestor_multiblock(blockchain, vec![b1, b2, d1])
-				.unwrap()
-				.unwrap();
+			let lca =
+				lowest_common_ancestor_multiblock(blockchain, &[b1, b2, d1]).unwrap().unwrap();
 
 			assert_eq!(lca.hash, b1);
 			assert_eq!(lca.number, 1);
 		}
 
 		{
-			let lca = lowest_common_ancestor_multiblock(blockchain, vec![]);
+			let lca = lowest_common_ancestor_multiblock(blockchain, &[]);
 
 			assert_eq!(true, matches!(lca, Ok(None)));
 		}
 
 		{
-			let lca = lowest_common_ancestor_multiblock(blockchain, vec![a1]).unwrap().unwrap();
+			let lca = lowest_common_ancestor_multiblock(blockchain, &[a1]).unwrap().unwrap();
 
 			assert_eq!(lca.hash, a1);
 			assert_eq!(lca.number, 1);

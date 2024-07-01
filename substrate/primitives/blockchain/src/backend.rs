@@ -24,12 +24,12 @@ use sp_runtime::{
 	traits::{Block as BlockT, CheckedSub, Header as HeaderT, NumberFor, Zero},
 	Justifications,
 };
-use std::collections::{btree_map::BTreeMap, btree_set::BTreeSet};
+use std::collections::btree_set::BTreeSet;
 
 use crate::{
 	error::{Error, Result},
 	header_metadata::{self, HeaderMetadata},
-	lowest_common_ancestor_multiblock, tree_route, TreeRoute,
+	lowest_common_ancestor_multiblock, tree_route,
 };
 
 /// Blockchain database header backend. Does not perform any validation.
@@ -240,7 +240,7 @@ pub trait Backend<Block: BlockT>:
 		))?;
 		let leaf_block_header = self.expect_header(*first_leaf)?;
 
-		// If the distance between the leafs and the finalized block is large,  calculating
+		// If the distance between the leafs and the finalized block is large, calculating
 		// tree routes can be very expensive. In that case, we will try to find the
 		// lowest common ancestor between all the leaves. The assumption here is that the forks are
 		// close to the tip and not long. So the LCA can be computed from the header cache. If the
@@ -252,14 +252,20 @@ pub trait Backend<Block: BlockT>:
 			.unwrap_or(0u32.into()) >
 			header_metadata::LRU_CACHE_SIZE.into()
 		{
-			if let Some(lca) = lowest_common_ancestor_multiblock(self, leaves.clone())? {
+			if let Some(lca) = lowest_common_ancestor_multiblock(self, &leaves)? {
 				if lca.number > finalized_block_number {
 					return Ok(result)
 				} else {
-					log::warn!("The distance between leafs and finalized block is large. Finalization can take a long time.");
+					warn!(
+						"The distance between leafs and finalized block is large. Finalization \
+						can take a long time."
+					);
 				}
 			};
 		}
+
+		result.displaced_leaves.reserve_exact(leaves.len());
+		result.displaced_blocks.reserve_exact(leaves.len());
 
 		// For each leaf determine whether it belongs to a non-canonical branch.
 		for leaf_hash in leaves {
@@ -279,8 +285,13 @@ pub trait Backend<Block: BlockT>:
 			let needs_pruning = leaf_tree_route.common_block().hash != finalized_block_hash;
 
 			if needs_pruning {
-				result.displaced_leaves.insert(leaf_hash, leaf_number);
-				result.tree_routes.insert(leaf_hash, leaf_tree_route);
+				result.displaced_leaves.push((leaf_number, leaf_hash));
+				result.displaced_blocks.extend(
+					leaf_tree_route
+						.retracted()
+						.into_iter()
+						.map(|hash_and_number| hash_and_number.hash),
+				);
 			}
 		}
 
@@ -291,23 +302,23 @@ pub trait Backend<Block: BlockT>:
 /// Result of  [`Backend::displaced_leaves_after_finalizing`].
 #[derive(Clone, Debug)]
 pub struct DisplacedLeavesAfterFinalization<Block: BlockT> {
-	/// A collection of hashes and block numbers for displaced leaves.
-	pub displaced_leaves: BTreeMap<Block::Hash, NumberFor<Block>>,
+	/// A list of hashes and block numbers of displaced leaves.
+	pub displaced_leaves: Vec<(NumberFor<Block>, Block::Hash)>,
 
-	/// A collection of tree routes from the leaves to finalized block.
-	pub tree_routes: BTreeMap<Block::Hash, TreeRoute<Block>>,
+	/// A list of hashes displaced blocks from all displaced leaves.
+	pub displaced_blocks: Vec<Block::Hash>,
 }
 
 impl<Block: BlockT> Default for DisplacedLeavesAfterFinalization<Block> {
 	fn default() -> Self {
-		Self { displaced_leaves: Default::default(), tree_routes: Default::default() }
+		Self { displaced_leaves: Vec::new(), displaced_blocks: Vec::new() }
 	}
 }
 
 impl<Block: BlockT> DisplacedLeavesAfterFinalization<Block> {
 	/// Returns a collection of hashes for the displaced leaves.
 	pub fn hashes(&self) -> impl Iterator<Item = Block::Hash> + '_ {
-		self.displaced_leaves.keys().cloned()
+		self.displaced_leaves.iter().map(|(_, hash)| *hash)
 	}
 }
 
