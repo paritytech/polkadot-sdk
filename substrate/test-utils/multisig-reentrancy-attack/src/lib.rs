@@ -64,6 +64,8 @@ pub mod pallet {
 	use frame_support::{dispatch, pallet_prelude::*};
 	use frame_system::pallet_prelude::OriginFor;
 	use frame_support::traits::Currency;
+	use frame_system::ensure_signed;
+
 
 	pub use frame_system::{
 		pallet_prelude::BlockNumberFor, Config as SystemConfig, Pallet as SystemPallet,
@@ -115,8 +117,16 @@ pub mod pallet {
 
 		#[pallet::weight(10_000)]
 		pub fn create_accounts(origin: OriginFor<T>, amount: BalanceOf<T>) -> DispatchResult {
+			let mut SEED = [1u8; 32];
+			let sender = ensure_signed(origin)?;
 
-			
+            let current_block = <frame_system::Pallet<T>>::block_number();
+			// let account_1 = <frame_system::Pallet<T>>::account;
+
+			// let multi = Multisig::multi_account_id(&[1, 2, 3][..], 2);
+
+			// T::Currency::transfer(&sender, dest, value, existence_requirement);
+
 			Ok(())
 		}
 	}
