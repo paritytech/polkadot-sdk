@@ -81,6 +81,9 @@ fn counter_prefix(prefix: &str) -> String {
 
 /// Construct a runtime, with the given name and the given pallets.
 ///
+/// NOTE: A new version of this macro is available at `frame_support::runtime`. This macro will
+/// soon be deprecated. Please use the new macro instead.
+///
 /// The parameters here are specific types for `Block`, `NodeBlock`, and `UncheckedExtrinsic`
 /// and the pallets that are used by the runtime.
 /// `Block` is the block type that is used in the runtime and `NodeBlock` is the block type
@@ -1188,67 +1191,11 @@ pub fn import_section(attr: TokenStream, tokens: TokenStream) -> TokenStream {
 	.into()
 }
 
-/// Construct a runtime, with the given name and the given pallets.
 ///
-/// # Example:
+/// ---
 ///
-/// ```ignore
-/// #[frame_support::runtime]
-/// mod runtime {
-///   // The main runtime
-///   #[runtime::runtime]
-///   // Runtime Types to be generated
-///   #[runtime::derive(
-///       RuntimeCall,
-/// 	  RuntimeEvent,
-/// 	  RuntimeError,
-/// 	  RuntimeOrigin,
-/// 	  RuntimeFreezeReason,
-/// 	  RuntimeHoldReason,
-/// 	  RuntimeSlashReason,
-/// 	  RuntimeLockId,
-/// 	  RuntimeTask,
-///   )]
-///   pub struct Runtime;
-///
-///   #[runtime::pallet_index(0)]
-///   pub type System = frame_system;
-///
-///   #[runtime::pallet_index(1)]
-///   pub type Test = path::to::test;
-///
-///   // Pallet with instance.
-///   #[runtime::pallet_index(2)]
-///   pub type Test2_Instance1 = test2<Instance1>;
-///
-///   // Pallet with calls disabled.
-///   #[runtime::pallet_index(3)]
-///   #[runtime::disable_call]
-///   pub type Test3 = test3;
-///
-///   // Pallet with unsigned extrinsics disabled.
-///   #[runtime::pallet_index(4)]
-///   #[runtime::disable_unsigned]
-///   pub type Test4 = test4;
-/// }
-/// ```
-///
-/// # Legacy Ordering
-///
-/// An optional attribute can be defined as #[frame_support::runtime(legacy_ordering)] to
-/// ensure that the order of hooks is same as the order of pallets (and not based on the
-/// pallet_index). This is to support legacy runtimes and should be avoided for new ones.
-///
-/// # Note
-///
-/// The population of the genesis storage depends on the order of pallets. So, if one of your
-/// pallets depends on another pallet, the pallet that is depended upon needs to come before
-/// the pallet depending on it.
-///
-/// # Type definitions
-///
-/// * The macro generates a type alias for each pallet to their `Pallet`. E.g. `type System =
-///   frame_system::Pallet<Runtime>`
+/// **Rust-Analyzer users**: See the documentation of the Rust item in
+/// `frame_support::runtime`.
 #[proc_macro_attribute]
 pub fn runtime(attr: TokenStream, item: TokenStream) -> TokenStream {
 	runtime::runtime(attr, item)

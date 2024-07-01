@@ -47,14 +47,14 @@
 mod block_rules;
 mod call_executor;
 mod client;
+mod code_provider;
 mod notification_pinning;
 mod wasm_override;
 mod wasm_substitutes;
 
-pub use self::{
-	call_executor::LocalCallExecutor,
-	client::{Client, ClientConfig},
-};
+pub use call_executor::LocalCallExecutor;
+pub use client::{Client, ClientConfig};
+pub(crate) use code_provider::CodeProvider;
 
 #[cfg(feature = "test-helpers")]
 pub use self::client::{new_in_mem, new_with_backend};
