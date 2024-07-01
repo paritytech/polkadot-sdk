@@ -717,7 +717,7 @@ mod tests {
 		// construct pallet Call directly
 		let pallet_receive_messages_proof =
 			pallet_bridge_messages::Call::<mock::TestRuntime>::receive_messages_proof {
-				relayer_id_at_bridged_chain: account.clone(),
+				relayer_id_at_bridged_chain: account,
 				proof: Box::new(receive_messages_proof.clone()),
 				messages_count,
 				dispatch_weight,
@@ -725,7 +725,7 @@ mod tests {
 
 		// construct mock enum Call
 		let mock_enum_receive_messages_proof = CodegenBridgeMessagesCall::receive_messages_proof {
-			relayer_id_at_bridged_chain: account.clone(),
+			relayer_id_at_bridged_chain: account,
 			proof: Box::new(receive_messages_proof.clone()),
 			messages_count,
 			dispatch_weight,
