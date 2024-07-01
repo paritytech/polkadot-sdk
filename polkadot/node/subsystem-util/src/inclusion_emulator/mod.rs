@@ -11,6 +11,7 @@
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
 
+use polkadot_node_subsystem::messages::HypotheticalCandidate;
 /// # Overview
 ///
 /// A set of utilities for node-side code to emulate the logic the runtime uses for checking
@@ -118,8 +119,8 @@
 /// in practice at most once every few weeks.
 use polkadot_primitives::{
 	async_backing::Constraints as PrimitiveConstraints, BlockNumber, CandidateCommitments,
-	CollatorId, CollatorSignature, Hash, HeadData, Id as ParaId, PersistedValidationData,
-	UpgradeRestriction, ValidationCodeHash,
+	CandidateDescriptor, CandidateHash, CollatorId, CollatorSignature, Hash, HeadData,
+	Id as ParaId, PersistedValidationData, UpgradeRestriction, ValidationCodeHash,
 };
 use std::{collections::HashMap, sync::Arc};
 
@@ -708,6 +709,11 @@ impl Fragment {
 		&self.candidate
 	}
 
+	/// Get a cheap ref-counted copy of the underlying prospective candidate.
+	pub fn candidate_clone(&self) -> Arc<ProspectiveCandidate> {
+		self.candidate.clone()
+	}
+
 	/// Modifications to constraints based on the outputs of the candidate.
 	pub fn constraint_modifications(&self) -> &ConstraintModifications {
 		&self.modifications
@@ -795,6 +801,58 @@ fn validate_against_constraints(
 	constraints
 		.check_modifications(&modifications)
 		.map_err(FragmentValidityError::OutputsInvalid)
+}
+
+pub trait HypotheticalOrConcreteCandidate {
+	fn commitments(&self) -> Option<&CandidateCommitments>;
+	fn persisted_validation_data(&self) -> Option<&PersistedValidationData>;
+	fn validation_code_hash(&self) -> Option<&ValidationCodeHash>;
+	fn parent_head_data_hash(&self) -> Hash;
+	fn relay_parent(&self) -> Hash;
+}
+
+impl HypotheticalOrConcreteCandidate for HypotheticalCandidate {
+	fn commitments(&self) -> Option<&CandidateCommitments> {
+		self.commitments()
+	}
+
+	fn persisted_validation_data(&self) -> Option<&PersistedValidationData> {
+		self.persisted_validation_data()
+	}
+
+	fn validation_code_hash(&self) -> Option<&ValidationCodeHash> {
+		self.validation_code_hash()
+	}
+
+	fn parent_head_data_hash(&self) -> Hash {
+		self.parent_head_data_hash()
+	}
+
+	fn relay_parent(&self) -> Hash {
+		self.relay_parent()
+	}
+}
+
+impl HypotheticalOrConcreteCandidate for ProspectiveCandidate {
+	fn commitments(&self) -> Option<&CandidateCommitments> {
+		Some(&self.commitments)
+	}
+
+	fn persisted_validation_data(&self) -> Option<&PersistedValidationData> {
+		Some(&self.persisted_validation_data)
+	}
+
+	fn validation_code_hash(&self) -> Option<&ValidationCodeHash> {
+		Some(&self.validation_code_hash)
+	}
+
+	fn parent_head_data_hash(&self) -> Hash {
+		self.parent_head_data_hash()
+	}
+
+	fn relay_parent(&self) -> Hash {
+		self.relay_parent()
+	}
 }
 
 #[cfg(test)]
