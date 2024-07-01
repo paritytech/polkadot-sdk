@@ -61,7 +61,16 @@ pub const LOG_TARGET: &'static str = "runtime::reentrancy-attack";
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
-	use frame_support::pallet_prelude::*;
+	use frame_support::{dispatch, pallet_prelude::*};
+	use frame_system::pallet_prelude::OriginFor;
+	use frame_support::traits::Currency;
+
+	pub use frame_system::{
+		pallet_prelude::BlockNumberFor, Config as SystemConfig, Pallet as SystemPallet,
+	};
+
+	type BalanceOf<T> =
+	<<T as Config>::Currency as Currency<<T as SystemConfig>::AccountId>>::Balance;
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
@@ -94,11 +103,21 @@ pub mod pallet {
 	}
 
 	#[pallet::event]
-	pub enum Event<T: Config> {}
+	pub enum Event<T: Config> {
+		AccountsCreated(T::AccountId, T::AccountId),
+	}
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {}
 
 	#[pallet::call]
-	impl<T: Config> Pallet<T> {}
+	impl<T: Config> Pallet<T> {
+
+		#[pallet::weight(10_000)]
+		pub fn create_accounts(origin: OriginFor<T>, amount: BalanceOf<T>) -> DispatchResult {
+
+			
+			Ok(())
+		}
+	}
 }
