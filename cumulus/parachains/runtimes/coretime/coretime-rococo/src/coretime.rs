@@ -27,7 +27,9 @@ use frame_support::{
 	},
 };
 use frame_system::Pallet as System;
-use pallet_broker::{CoreAssignment, CoreIndex, CoretimeInterface, PartsOf57600, RCBlockNumberOf, TaskId};
+use pallet_broker::{
+	CoreAssignment, CoreIndex, CoretimeInterface, PartsOf57600, RCBlockNumberOf, TaskId,
+};
 use parachains_common::{AccountId, Balance};
 use rococo_runtime_constants::system_parachain::coretime;
 use sp_runtime::traits::{AccountIdConversion, MaybeConvert};

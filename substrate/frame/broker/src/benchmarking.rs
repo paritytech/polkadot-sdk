@@ -1019,7 +1019,7 @@ mod benches {
 		advance_to::<T>(2);
 
 		// We assume max auto renewals for worst case.
-		(0..T::MaxAutoRenewals::get()-1).try_for_each(|indx| -> Result<(), BenchmarkError> {
+		(0..T::MaxAutoRenewals::get() - 1).try_for_each(|indx| -> Result<(), BenchmarkError> {
 			let task = 1000 + indx;
 			let caller: T::AccountId = T::SovereignAccountOf::maybe_convert(task)
 				.expect("Failed to get sovereign account");
@@ -1077,7 +1077,7 @@ mod benches {
 		advance_to::<T>(2);
 
 		// We assume max auto renewals for worst case.
-		(0..T::MaxAutoRenewals::get()-1).try_for_each(|indx| -> Result<(), BenchmarkError> {
+		(0..T::MaxAutoRenewals::get() - 1).try_for_each(|indx| -> Result<(), BenchmarkError> {
 			let task = 1000 + indx;
 			let caller: T::AccountId = T::SovereignAccountOf::maybe_convert(task)
 				.expect("Failed to get sovereign account");
@@ -1097,14 +1097,14 @@ mod benches {
 			Ok(())
 		})?;
 
-		let caller: T::AccountId = T::SovereignAccountOf::maybe_convert(1000)
-			.expect("Failed to get sovereign account");
+		let caller: T::AccountId =
+			T::SovereignAccountOf::maybe_convert(1000).expect("Failed to get sovereign account");
 		#[extrinsic_call]
 		_(RawOrigin::Signed(caller), _core, 1000);
 
 		assert_last_event::<T>(Event::AutoRenewalDisabled { core: _core, task: 1000 }.into());
 
-    Ok(())
+		Ok(())
 	}
 
 	fn on_new_timeslice() -> Result<(), BenchmarkError> {

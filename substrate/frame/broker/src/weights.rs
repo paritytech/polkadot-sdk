@@ -77,8 +77,10 @@ pub trait WeightInfo {
 	fn process_core_schedule() -> Weight;
 	fn request_revenue_info_at() -> Weight;
 	fn notify_core_count() -> Weight;
+	fn notify_revenue() -> Weight;
 	fn do_tick_base() -> Weight;
 	fn swap_leases() -> Weight;
+	fn on_new_timeslice() -> Weight;
 	fn enable_auto_renew() -> Weight;
 	fn disable_auto_renew() -> Weight;
 }
@@ -447,6 +449,16 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		Weight::from_parts(1_513_000, 0)
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
+	/// Storage: `Broker::RevenueInbox` (r:0 w:1)
+	/// Proof: `Broker::RevenueInbox` (`max_values`: Some(1), `max_size`: Some(20), added: 515, mode: `MaxEncodedLen`)
+	fn notify_revenue() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 1_902_000 picoseconds.
+		Weight::from_parts(2_116_000, 0)
+			.saturating_add(T::DbWeight::get().writes(1_u64))
+	}
 	/// Storage: `Broker::Status` (r:1 w:1)
 	/// Proof: `Broker::Status` (`max_values`: Some(1), `max_size`: Some(18), added: 513, mode: `MaxEncodedLen`)
 	/// Storage: `Broker::Configuration` (r:1 w:0)
@@ -474,6 +486,13 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		Weight::from_parts(4_920_000, 1526)
 			.saturating_add(T::DbWeight::get().reads(1_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
+	}
+	fn on_new_timeslice() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 229_000 picoseconds.
+		Weight::from_parts(268_000, 0)
 	}
 	/// Storage: `Broker::SaleInfo` (r:1 w:1)
 	/// Proof: `Broker::SaleInfo` (`max_values`: Some(1), `max_size`: Some(57), added: 552, mode: `MaxEncodedLen`)
@@ -878,6 +897,16 @@ impl WeightInfo for () {
 		Weight::from_parts(1_513_000, 0)
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
+	/// Storage: `Broker::RevenueInbox` (r:0 w:1)
+	/// Proof: `Broker::RevenueInbox` (`max_values`: Some(1), `max_size`: Some(20), added: 515, mode: `MaxEncodedLen`)
+	fn notify_revenue() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 1_902_000 picoseconds.
+		Weight::from_parts(2_116_000, 0)
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
+	}
 	/// Storage: `Broker::Status` (r:1 w:1)
 	/// Proof: `Broker::Status` (`max_values`: Some(1), `max_size`: Some(18), added: 513, mode: `MaxEncodedLen`)
 	/// Storage: `Broker::Configuration` (r:1 w:0)
@@ -905,6 +934,13 @@ impl WeightInfo for () {
 		Weight::from_parts(4_920_000, 1526)
 			.saturating_add(RocksDbWeight::get().reads(1_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
+	}
+	fn on_new_timeslice() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 229_000 picoseconds.
+		Weight::from_parts(268_000, 0)
 	}
 	/// Storage: `Broker::SaleInfo` (r:1 w:1)
 	/// Proof: `Broker::SaleInfo` (`max_values`: Some(1), `max_size`: Some(57), added: 552, mode: `MaxEncodedLen`)

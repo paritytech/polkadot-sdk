@@ -873,6 +873,17 @@ pub mod pallet {
 			Ok(())
 		}
 
+		#[pallet::call_index(20)]
+		#[pallet::weight(T::WeightInfo::notify_revenue())]
+		pub fn notify_revenue(
+			origin: OriginFor<T>,
+			revenue: OnDemandRevenueRecordOf<T>,
+		) -> DispatchResult {
+			T::AdminOrigin::ensure_origin_or_root(origin)?;
+			Self::do_notify_revenue(revenue)?;
+			Ok(())
+		}
+
 		/// Extrinsic for enabling auto renewal.
 		///
 		/// Callable by the sovereign account of the task on the specified core. This account
@@ -883,8 +894,8 @@ pub mod pallet {
 		/// - `task`: The task for which we want to enable auto renewal.
 		/// - `workload_end_hint` parameter should be used when enabling auto-renewal for
 		/// the core which holds a legacy lease, as it would be inefficient to look it up otherwise.
-		#[pallet::call_index(20)]
-		#[pallet::weight(T::WeightInfo::notify_core_count())]
+		#[pallet::call_index(21)]
+		#[pallet::weight(T::WeightInfo::enable_auto_renew())]
 		pub fn enable_auto_renew(
 			origin: OriginFor<T>,
 			core: CoreIndex,
@@ -909,8 +920,8 @@ pub mod pallet {
 		/// - `origin`: Must be the sovereign account of the task.
 		/// - `core`: The core for which we want to disable auto renewal.
 		/// - `task`: The task for which we want to disable auto renewal.
-		#[pallet::call_index(21)]
-		#[pallet::weight(T::WeightInfo::notify_core_count())]
+		#[pallet::call_index(22)]
+		#[pallet::weight(T::WeightInfo::disable_auto_renew())]
 		pub fn disable_auto_renew(
 			origin: OriginFor<T>,
 			core: CoreIndex,
@@ -925,17 +936,6 @@ pub mod pallet {
 
 			Self::do_disable_auto_renew(core, task)?;
 
-      Ok(())
-		}
-
-		#[pallet::call_index(20)]
-		#[pallet::weight(T::WeightInfo::notify_revenue())]
-		pub fn notify_revenue(
-			origin: OriginFor<T>,
-			revenue: OnDemandRevenueRecordOf<T>,
-		) -> DispatchResult {
-			T::AdminOrigin::ensure_origin_or_root(origin)?;
-			Self::do_notify_revenue(revenue)?;
 			Ok(())
 		}
 
