@@ -64,7 +64,7 @@ use xcm_executor::{
 	},
 	AssetsInHolding,
 };
-use xcm_fee_payment_runtime_api::{
+use xcm_runtime_apis::{
 	dry_run::{CallDryRunEffects, Error as XcmDryRunApiError, XcmDryRunEffects},
 	fees::Error as XcmPaymentApiError,
 };
@@ -1376,7 +1376,7 @@ pub mod pallet {
 		/// - `assets`: The assets to be withdrawn. This should include the assets used to pay the
 		///   fee on the `dest` (and possibly reserve) chains.
 		/// - `assets_transfer_type`: The XCM `TransferType` used to transfer the `assets`.
-		/// - `remote_fees_id`: One of the included `assets` to be be used to pay fees.
+		/// - `remote_fees_id`: One of the included `assets` to be used to pay fees.
 		/// - `fees_transfer_type`: The XCM `TransferType` used to transfer the `fees` assets.
 		/// - `custom_xcm_on_dest`: The XCM to be executed on `dest` chain as the last step of the
 		///   transfer, which also determines what happens to the assets on the destination chain.
@@ -2442,7 +2442,7 @@ impl<T: Config> Pallet<T> {
 	///
 	/// Returns not only the call result and events, but also the local XCM, if any,
 	/// and any XCMs forwarded to other locations.
-	/// Meant to be used in the `xcm_fee_payment_runtime_api::dry_run::DryRunApi` runtime API.
+	/// Meant to be used in the `xcm_runtime_apis::dry_run::DryRunApi` runtime API.
 	pub fn dry_run_call<Runtime, Router, OriginCaller, RuntimeCall>(
 		origin: OriginCaller,
 		call: RuntimeCall,
@@ -2474,7 +2474,7 @@ impl<T: Config> Pallet<T> {
 	/// Dry-runs `xcm` with the given `origin_location`.
 	///
 	/// Returns execution result, events, and any forwarded XCMs to other locations.
-	/// Meant to be used in the `xcm_fee_payment_runtime_api::dry_run::DryRunApi` runtime API.
+	/// Meant to be used in the `xcm_runtime_apis::dry_run::DryRunApi` runtime API.
 	pub fn dry_run_xcm<Runtime, Router, RuntimeCall, XcmConfig>(
 		origin_location: VersionedLocation,
 		xcm: VersionedXcm<RuntimeCall>,
@@ -2515,6 +2515,21 @@ impl<T: Config> Pallet<T> {
 				.map(|record| record.event.clone())
 				.collect();
 		Ok(XcmDryRunEffects { forwarded_xcms, emitted_events: events, execution_result: result })
+	}
+
+	/// Given a list of asset ids, returns the correct API response for
+	/// `XcmPaymentApi::query_acceptable_payment_assets`.
+	///
+	/// The assets passed in have to be supported for fee payment.
+	pub fn query_acceptable_payment_assets(
+		version: xcm::Version,
+		asset_ids: Vec<AssetId>,
+	) -> Result<Vec<VersionedAssetId>, XcmPaymentApiError> {
+		Ok(asset_ids
+			.into_iter()
+			.map(|asset_id| VersionedAssetId::from(asset_id))
+			.filter_map(|asset_id| asset_id.into_version(version).ok())
+			.collect())
 	}
 
 	pub fn query_xcm_weight(message: VersionedXcm<()>) -> Result<Weight, XcmPaymentApiError> {

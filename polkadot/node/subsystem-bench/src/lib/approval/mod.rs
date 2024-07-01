@@ -40,12 +40,12 @@ use crate::{
 	usage::BenchmarkUsage,
 	NODE_UNDER_TEST,
 };
+use codec::{Decode, Encode};
 use colored::Colorize;
 use futures::channel::oneshot;
 use itertools::Itertools;
 use orchestra::TimeoutExt;
 use overseer::{metrics::Metrics as OverseerMetrics, MetricsTrait};
-use parity_scale_codec::{Decode, Encode};
 use polkadot_approval_distribution::ApprovalDistribution;
 use polkadot_node_core_approval_voting::{
 	time::{slot_number_to_tick, tick_to_slot_number, Clock, ClockExt, SystemClock},
@@ -60,7 +60,7 @@ use polkadot_node_subsystem_util::metrics::Metrics;
 use polkadot_overseer::Handle as OverseerHandleReal;
 use polkadot_primitives::{
 	BlockNumber, CandidateEvent, CandidateIndex, CandidateReceipt, Hash, Header, Slot,
-	ValidatorIndex,
+	ValidatorIndex, ASSIGNMENT_KEY_TYPE_ID,
 };
 use prometheus::Registry;
 use sc_keystore::LocalKeystore;
@@ -68,6 +68,7 @@ use sc_service::SpawnTaskHandle;
 use serde::{Deserialize, Serialize};
 use sp_consensus_babe::Epoch as BabeEpoch;
 use sp_core::H256;
+use sp_keystore::Keystore;
 use std::{
 	cmp::max,
 	collections::{HashMap, HashSet},
@@ -785,6 +786,12 @@ fn build_overseer(
 	let db: polkadot_node_subsystem_util::database::kvdb_impl::DbAdapter<kvdb_memorydb::InMemory> =
 		polkadot_node_subsystem_util::database::kvdb_impl::DbAdapter::new(db, &[]);
 	let keystore = LocalKeystore::in_memory();
+	keystore
+		.sr25519_generate_new(
+			ASSIGNMENT_KEY_TYPE_ID,
+			Some(state.test_authorities.key_seeds.get(NODE_UNDER_TEST as usize).unwrap().as_str()),
+		)
+		.unwrap();
 
 	let system_clock =
 		PastSystemClock::new(SystemClock {}, state.delta_tick_from_generated.clone());

@@ -106,7 +106,7 @@ fn setup_and_start_sale<T: Config>() -> Result<u16, BenchmarkError> {
 	// Assume Leases to be filled for worst case
 	setup_leases::<T>(T::MaxLeasedCores::get(), 1, 10);
 
-	Broker::<T>::do_start_sales(10u32.into(), MAX_CORE_COUNT.into())
+	Broker::<T>::do_start_sales(10_000_000u32.into(), MAX_CORE_COUNT.into())
 		.map_err(|_| BenchmarkError::Weightless)?;
 
 	Ok(T::MaxReservedCores::get()
@@ -208,7 +208,7 @@ mod benches {
 
 		let latest_region_begin = Broker::<T>::latest_timeslice_ready_to_commit(&config);
 
-		let initial_price = 10u32.into();
+		let initial_price = 10_000_000u32.into();
 
 		let origin =
 			T::AdminOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
@@ -221,8 +221,8 @@ mod benches {
 			Event::SaleInitialized {
 				sale_start: 2u32.into(),
 				leadin_length: 1u32.into(),
-				start_price: 1000u32.into(),
-				end_price: 10u32.into(),
+				start_price: 1_000_000_000u32.into(),
+				end_price: 10_000_000u32.into(),
 				region_begin: latest_region_begin + config.region_length,
 				region_end: latest_region_begin + config.region_length * 2,
 				ideal_cores_sold: 0,
@@ -247,13 +247,13 @@ mod benches {
 		let caller: T::AccountId = whitelisted_caller();
 		T::Currency::set_balance(
 			&caller.clone(),
-			T::Currency::minimum_balance().saturating_add(10u32.into()),
+			T::Currency::minimum_balance().saturating_add(10_000_000u32.into()),
 		);
 
 		#[extrinsic_call]
-		_(RawOrigin::Signed(caller.clone()), 10u32.into());
+		_(RawOrigin::Signed(caller.clone()), 10_000_000u32.into());
 
-		assert_eq!(SaleInfo::<T>::get().unwrap().sellout_price, Some(10u32.into()));
+		assert_eq!(SaleInfo::<T>::get().unwrap().sellout_price, Some(10_000_000u32.into()));
 		assert_last_event::<T>(
 			Event::Purchased {
 				who: caller,
@@ -262,7 +262,7 @@ mod benches {
 					core,
 					mask: CoreMask::complete(),
 				},
-				price: 10u32.into(),
+				price: 10_000_000u32.into(),
 				duration: 3u32.into(),
 			}
 			.into(),
@@ -281,10 +281,10 @@ mod benches {
 		let caller: T::AccountId = whitelisted_caller();
 		T::Currency::set_balance(
 			&caller.clone(),
-			T::Currency::minimum_balance().saturating_add(20u32.into()),
+			T::Currency::minimum_balance().saturating_add(20_000_000u32.into()),
 		);
 
-		let region = Broker::<T>::do_purchase(caller.clone(), 10u32.into())
+		let region = Broker::<T>::do_purchase(caller.clone(), 10_000_000u32.into())
 			.map_err(|_| BenchmarkError::Weightless)?;
 
 		Broker::<T>::do_assign(region, None, 1001, Final)
@@ -310,10 +310,10 @@ mod benches {
 		let caller: T::AccountId = whitelisted_caller();
 		T::Currency::set_balance(
 			&caller.clone(),
-			T::Currency::minimum_balance().saturating_add(10u32.into()),
+			T::Currency::minimum_balance().saturating_add(10_000_000u32.into()),
 		);
 
-		let region = Broker::<T>::do_purchase(caller.clone(), 10u32.into())
+		let region = Broker::<T>::do_purchase(caller.clone(), 10_000_000u32.into())
 			.map_err(|_| BenchmarkError::Weightless)?;
 
 		let recipient: T::AccountId = account("recipient", 0, SEED);
@@ -343,10 +343,10 @@ mod benches {
 		let caller: T::AccountId = whitelisted_caller();
 		T::Currency::set_balance(
 			&caller.clone(),
-			T::Currency::minimum_balance().saturating_add(10u32.into()),
+			T::Currency::minimum_balance().saturating_add(10_000_000u32.into()),
 		);
 
-		let region = Broker::<T>::do_purchase(caller.clone(), 10u32.into())
+		let region = Broker::<T>::do_purchase(caller.clone(), 10_000_000u32.into())
 			.map_err(|_| BenchmarkError::Weightless)?;
 
 		#[extrinsic_call]
@@ -375,10 +375,10 @@ mod benches {
 		let caller: T::AccountId = whitelisted_caller();
 		T::Currency::set_balance(
 			&caller.clone(),
-			T::Currency::minimum_balance().saturating_add(10u32.into()),
+			T::Currency::minimum_balance().saturating_add(10_000_000u32.into()),
 		);
 
-		let region = Broker::<T>::do_purchase(caller.clone(), 10u32.into())
+		let region = Broker::<T>::do_purchase(caller.clone(), 10_000_000u32.into())
 			.map_err(|_| BenchmarkError::Weightless)?;
 
 		#[extrinsic_call]
@@ -411,10 +411,10 @@ mod benches {
 		let caller: T::AccountId = whitelisted_caller();
 		T::Currency::set_balance(
 			&caller.clone(),
-			T::Currency::minimum_balance().saturating_add(10u32.into()),
+			T::Currency::minimum_balance().saturating_add(10_000_000u32.into()),
 		);
 
-		let region = Broker::<T>::do_purchase(caller.clone(), 10u32.into())
+		let region = Broker::<T>::do_purchase(caller.clone(), 10_000_000u32.into())
 			.map_err(|_| BenchmarkError::Weightless)?;
 
 		#[extrinsic_call]
@@ -446,10 +446,10 @@ mod benches {
 		let caller: T::AccountId = whitelisted_caller();
 		T::Currency::set_balance(
 			&caller.clone(),
-			T::Currency::minimum_balance().saturating_add(10u32.into()),
+			T::Currency::minimum_balance().saturating_add(10_000_000u32.into()),
 		);
 
-		let region = Broker::<T>::do_purchase(caller.clone(), 10u32.into())
+		let region = Broker::<T>::do_purchase(caller.clone(), 10_000_000u32.into())
 			.map_err(|_| BenchmarkError::Weightless)?;
 
 		let recipient: T::AccountId = account("recipient", 0, SEED);
@@ -482,14 +482,14 @@ mod benches {
 		let caller: T::AccountId = whitelisted_caller();
 		T::Currency::set_balance(
 			&caller.clone(),
-			T::Currency::minimum_balance().saturating_add(10u32.into()),
+			T::Currency::minimum_balance().saturating_add(10_000_000u32.into()),
 		);
 		T::Currency::set_balance(
 			&Broker::<T>::account_id(),
-			T::Currency::minimum_balance().saturating_add(200u32.into()),
+			T::Currency::minimum_balance().saturating_add(200_000_000u32.into()),
 		);
 
-		let region = Broker::<T>::do_purchase(caller.clone(), 10u32.into())
+		let region = Broker::<T>::do_purchase(caller.clone(), 10_000_000u32.into())
 			.map_err(|_| BenchmarkError::Weightless)?;
 
 		let recipient: T::AccountId = account("recipient", 0, SEED);
@@ -498,7 +498,7 @@ mod benches {
 		Broker::<T>::do_pool(region, None, recipient.clone(), Final)
 			.map_err(|_| BenchmarkError::Weightless)?;
 
-		let revenue = 10u32.into();
+		let revenue = 10_000_000u32.into();
 		InstaPoolHistory::<T>::insert(
 			region.begin,
 			InstaPoolHistoryRecord {
@@ -515,7 +515,7 @@ mod benches {
 		assert_last_event::<T>(
 			Event::RevenueClaimPaid {
 				who: recipient,
-				amount: 200u32.into(),
+				amount: 200_000_000u32.into(),
 				next: if m < new_config_record::<T>().region_length {
 					Some(RegionId {
 						begin: region.begin.saturating_add(m),
@@ -541,11 +541,11 @@ mod benches {
 		let caller: T::AccountId = whitelisted_caller();
 		T::Currency::set_balance(
 			&caller.clone(),
-			T::Currency::minimum_balance().saturating_add(30u32.into()),
+			T::Currency::minimum_balance().saturating_add(30_000_000u32.into()),
 		);
 		T::Currency::set_balance(&Broker::<T>::account_id(), T::Currency::minimum_balance());
 
-		let region = Broker::<T>::do_purchase(caller.clone(), 10u32.into())
+		let region = Broker::<T>::do_purchase(caller.clone(), 10_000_000u32.into())
 			.map_err(|_| BenchmarkError::Weightless)?;
 
 		let recipient: T::AccountId = account("recipient", 0, SEED);
@@ -556,10 +556,11 @@ mod benches {
 		let beneficiary: RelayAccountIdOf<T> = account("beneficiary", 0, SEED);
 
 		#[extrinsic_call]
-		_(RawOrigin::Signed(caller.clone()), 20u32.into(), beneficiary.clone());
+		_(RawOrigin::Signed(caller.clone()), 20_000_000u32.into(), beneficiary.clone());
 
 		assert_last_event::<T>(
-			Event::CreditPurchased { who: caller, beneficiary, amount: 20u32.into() }.into(),
+			Event::CreditPurchased { who: caller, beneficiary, amount: 20_000_000u32.into() }
+				.into(),
 		);
 
 		Ok(())
@@ -575,10 +576,10 @@ mod benches {
 		let caller: T::AccountId = whitelisted_caller();
 		T::Currency::set_balance(
 			&caller.clone(),
-			T::Currency::minimum_balance().saturating_add(10u32.into()),
+			T::Currency::minimum_balance().saturating_add(10_000_000u32.into()),
 		);
 
-		let region = Broker::<T>::do_purchase(caller.clone(), 10u32.into())
+		let region = Broker::<T>::do_purchase(caller.clone(), 10_000_000u32.into())
 			.map_err(|_| BenchmarkError::Weightless)?;
 
 		advance_to::<T>(
@@ -609,10 +610,10 @@ mod benches {
 		let caller: T::AccountId = whitelisted_caller();
 		T::Currency::set_balance(
 			&caller.clone(),
-			T::Currency::minimum_balance().saturating_add(10u32.into()),
+			T::Currency::minimum_balance().saturating_add(10_000_000u32.into()),
 		);
 
-		let region = Broker::<T>::do_purchase(caller.clone(), 10u32.into())
+		let region = Broker::<T>::do_purchase(caller.clone(), 10_000_000u32.into())
 			.map_err(|_| BenchmarkError::Weightless)?;
 
 		let recipient: T::AccountId = account("recipient", 0, SEED);
@@ -641,7 +642,7 @@ mod benches {
 	fn drop_history() -> Result<(), BenchmarkError> {
 		setup_and_start_sale::<T>()?;
 		let when = 5u32.into();
-		let revenue = 10u32.into();
+		let revenue = 10_000_000u32.into();
 		let region_len = Configuration::<T>::get().unwrap().region_length;
 
 		advance_to::<T>(
@@ -679,7 +680,7 @@ mod benches {
 
 		let id = PotentialRenewalId { core, when };
 		let record = PotentialRenewalRecord {
-			price: 1u32.into(),
+			price: 1_000_000u32.into(),
 			completion: CompletionStatus::Complete(new_schedule()),
 		};
 		PotentialRenewals::<T>::insert(id, record);
@@ -739,23 +740,27 @@ mod benches {
 		let caller: T::AccountId = whitelisted_caller();
 		T::Currency::set_balance(
 			&caller.clone(),
-			T::Currency::minimum_balance().saturating_add(30u32.into()),
+			T::Currency::minimum_balance().saturating_add(30_000_000u32.into()),
 		);
-		T::Currency::set_balance(&Broker::<T>::account_id(), T::Currency::minimum_balance());
+		T::Currency::set_balance(
+			&Broker::<T>::account_id(),
+			T::Currency::minimum_balance().saturating_add(90_000_000u32.into()),
+		);
 
 		let timeslice_period: u32 = T::TimeslicePeriod::get().try_into().ok().unwrap();
 		let multiplicator = 5;
-		<T::Coretime as CoretimeInterface>::ensure_notify_revenue_info(
-			(timeslice_period * multiplicator).into(),
-			10u32.into(),
-		);
+
+		RevenueInbox::<T>::put(OnDemandRevenueRecord {
+			until: (timeslice_period * multiplicator).into(),
+			amount: 10_000_000u32.into(),
+		});
 
 		let timeslice = multiplicator - 1;
 		InstaPoolHistory::<T>::insert(
 			timeslice,
 			InstaPoolHistoryRecord {
-				private_contributions: 1u32.into(),
-				system_contributions: 9u32.into(),
+				private_contributions: 4u32.into(),
+				system_contributions: 6u32.into(),
 				maybe_payout: None,
 			},
 		);
@@ -768,8 +773,8 @@ mod benches {
 		assert_last_event::<T>(
 			Event::ClaimsReady {
 				when: timeslice.into(),
-				system_payout: 9u32.into(),
-				private_payout: 1u32.into(),
+				system_payout: 6_000_000u32.into(),
+				private_payout: 4_000_000u32.into(),
 			}
 			.into(),
 		);
@@ -783,7 +788,7 @@ mod benches {
 		let config = new_config_record::<T>();
 
 		let now = frame_system::Pallet::<T>::block_number();
-		let end_price = 10u32.into();
+		let end_price = 10_000_000u32.into();
 		let commit_timeslice = Broker::<T>::latest_timeslice_ready_to_commit(&config);
 		let sale = SaleInfoRecordOf::<T> {
 			sale_start: now,
@@ -843,8 +848,8 @@ mod benches {
 			Event::SaleInitialized {
 				sale_start: 2u32.into(),
 				leadin_length: 1u32.into(),
-				start_price: 1000u32.into(),
-				end_price: 10u32.into(),
+				start_price: 1_000_000_000u32.into(),
+				end_price: 10_000_000u32.into(),
 				region_begin: sale.region_begin + config.region_length,
 				region_end: sale.region_end + config.region_length,
 				ideal_cores_sold: 0,
@@ -941,6 +946,7 @@ mod benches {
 			T::Coretime::request_revenue_info_at(rc_block);
 		}
 	}
+
 	#[benchmark]
 	fn notify_core_count() -> Result<(), BenchmarkError> {
 		let admin_origin =
@@ -950,6 +956,21 @@ mod benches {
 		_(admin_origin as T::RuntimeOrigin, 100);
 
 		assert!(CoreCountInbox::<T>::take().is_some());
+		Ok(())
+	}
+
+	#[benchmark]
+	fn notify_revenue() -> Result<(), BenchmarkError> {
+		let admin_origin =
+			T::AdminOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
+
+		#[extrinsic_call]
+		_(
+			admin_origin as T::RuntimeOrigin,
+			OnDemandRevenueRecord { until: 100u32.into(), amount: 100_000_000u32.into() },
+		);
+
+		assert!(RevenueInbox::<T>::take().is_some());
 		Ok(())
 	}
 
@@ -1082,6 +1103,30 @@ mod benches {
 		_(RawOrigin::Signed(caller), _core, 1000);
 
 		assert_last_event::<T>(Event::AutoRenewalDisabled { core: _core, task: 1000 }.into());
+
+    Ok(())
+	}
+
+	fn on_new_timeslice() -> Result<(), BenchmarkError> {
+		setup_and_start_sale::<T>()?;
+
+		advance_to::<T>(2);
+
+		let caller: T::AccountId = whitelisted_caller();
+		T::Currency::set_balance(
+			&caller.clone(),
+			T::Currency::minimum_balance().saturating_add(u32::MAX.into()),
+		);
+
+		let _region = Broker::<T>::do_purchase(caller.clone(), (u32::MAX / 2).into())
+			.map_err(|_| BenchmarkError::Weightless)?;
+
+		let timeslice = Broker::<T>::current_timeslice();
+
+		#[block]
+		{
+			T::Coretime::on_new_timeslice(timeslice);
+		}
 
 		Ok(())
 	}

@@ -114,13 +114,13 @@ pub fn parse_str_addr(addr_str: &str) -> Result<(PeerId, Multiaddr), ParseErr> {
 
 /// Splits a Multiaddress into a Multiaddress and PeerId.
 pub fn parse_addr(mut addr: Multiaddr) -> Result<(PeerId, Multiaddr), ParseErr> {
-	let who = match addr.pop() {
-		Some(multiaddr::Protocol::P2p(key)) =>
-			PeerId::from_multihash(key).map_err(|_| ParseErr::InvalidPeerId)?,
+	let multihash = match addr.pop() {
+		Some(multiaddr::Protocol::P2p(multihash)) => multihash,
 		_ => return Err(ParseErr::PeerIdMissing),
 	};
+	let peer_id = PeerId::from_multihash(multihash).map_err(|_| ParseErr::InvalidPeerId)?;
 
-	Ok((who, addr))
+	Ok((peer_id, addr))
 }
 
 /// Address of a node, including its identity.
