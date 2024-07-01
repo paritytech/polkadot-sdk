@@ -50,6 +50,7 @@ use polkadot_primitives_test_helpers::{
 	dummy_candidate_descriptor, dummy_candidate_receipt_bad_sig, dummy_hash,
 };
 
+mod collation;
 mod prospective_parachains;
 
 const ACTIVITY_TIMEOUT: Duration = Duration::from_millis(500);
@@ -83,10 +84,6 @@ struct TestState {
 
 impl Default for TestState {
 	fn default() -> Self {
-		let chain_a = ParaId::from(1);
-		let chain_b = ParaId::from(2);
-
-		let chain_ids = vec![chain_a, chain_b];
 		let relay_parent = Hash::repeat_byte(0x05);
 		let collators = iter::repeat(()).map(|_| CollatorPair::generate().0).take(5).collect();
 
@@ -109,10 +106,16 @@ impl Default for TestState {
 			GroupRotationInfo { session_start_block: 0, group_rotation_frequency: 1, now: 0 };
 
 		let cores = vec![
-			CoreState::Scheduled(ScheduledCore { para_id: chain_ids[0], collator: None }),
+			CoreState::Scheduled(ScheduledCore {
+				para_id: ParaId::from(Self::CHAIN_IDS[0]),
+				collator: None,
+			}),
 			CoreState::Free,
 			CoreState::Occupied(OccupiedCore {
-				next_up_on_available: Some(ScheduledCore { para_id: chain_ids[1], collator: None }),
+				next_up_on_available: Some(ScheduledCore {
+					para_id: ParaId::from(Self::CHAIN_IDS[1]),
+					collator: None,
+				}),
 				occupied_since: 0,
 				time_out_at: 1,
 				next_up_on_time_out: None,
@@ -121,33 +124,30 @@ impl Default for TestState {
 				candidate_hash: Default::default(),
 				candidate_descriptor: {
 					let mut d = dummy_candidate_descriptor(dummy_hash());
-					d.para_id = chain_ids[1];
+					d.para_id = ParaId::from(Self::CHAIN_IDS[1]);
 
 					d
 				},
 			}),
 		];
 
-		let async_backing_params =
-			AsyncBackingParams { max_candidate_depth: 4, allowed_ancestry_len: 3 };
-
 		let mut claim_queue = BTreeMap::new();
 		claim_queue.insert(
 			CoreIndex(0),
-			iter::repeat(chain_ids[0])
-				.take(async_backing_params.allowed_ancestry_len as usize)
+			iter::repeat(ParaId::from(Self::CHAIN_IDS[0]))
+				.take(Self::ASYNC_BACKING_PARAMS.allowed_ancestry_len as usize)
 				.collect(),
 		);
 		claim_queue.insert(CoreIndex(1), VecDeque::new());
 		claim_queue.insert(
 			CoreIndex(2),
-			iter::repeat(chain_ids[1])
-				.take(async_backing_params.allowed_ancestry_len as usize)
+			iter::repeat(ParaId::from(Self::CHAIN_IDS[1]))
+				.take(Self::ASYNC_BACKING_PARAMS.allowed_ancestry_len as usize)
 				.collect(),
 		);
 
 		Self {
-			chain_ids,
+			chain_ids: Self::CHAIN_IDS.map(|id| ParaId::from(id)).to_vec(),
 			relay_parent,
 			collators,
 			validator_public,
@@ -155,8 +155,49 @@ impl Default for TestState {
 			group_rotation_info,
 			cores,
 			claim_queue,
-			async_backing_params,
+			async_backing_params: Self::ASYNC_BACKING_PARAMS,
 		}
+	}
+}
+
+impl TestState {
+	const CHAIN_IDS: [u32; 2] = [1, 2];
+	const ASYNC_BACKING_PARAMS: AsyncBackingParams =
+		AsyncBackingParams { max_candidate_depth: 4, allowed_ancestry_len: 3 };
+
+	fn with_shared_core() -> Self {
+		let mut state = Self::default();
+
+		let cores = vec![
+			CoreState::Scheduled(ScheduledCore {
+				para_id: ParaId::from(Self::CHAIN_IDS[0]),
+				collator: None,
+			}),
+			CoreState::Free,
+		];
+
+		let mut claim_queue = BTreeMap::new();
+		claim_queue.insert(
+			CoreIndex(0),
+			VecDeque::from_iter(
+				[
+					ParaId::from(Self::CHAIN_IDS[0]),
+					ParaId::from(Self::CHAIN_IDS[1]),
+					ParaId::from(Self::CHAIN_IDS[0]),
+				]
+				.into_iter(),
+			),
+		);
+
+		assert!(
+			claim_queue.get(&CoreIndex(0)).unwrap().len() ==
+				Self::ASYNC_BACKING_PARAMS.allowed_ancestry_len as usize
+		);
+
+		state.cores = cores;
+		state.claim_queue = claim_queue;
+
+		state
 	}
 }
 

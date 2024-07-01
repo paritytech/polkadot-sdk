@@ -28,7 +28,7 @@
 //!    └─▶Advertised ─▶ Pending ─▶ Fetched ─▶ Validated
 
 use std::{
-	collections::{BTreeMap, HashMap, HashSet, VecDeque},
+	collections::{BTreeMap, VecDeque},
 	future::Future,
 	pin::Pin,
 	task::Poll,
@@ -53,7 +53,7 @@ use tokio_util::sync::CancellationToken;
 
 use crate::{error::SecondingError, LOG_TARGET};
 
-use super::{GroupAssignments, PeerData};
+use super::GroupAssignments;
 
 /// Candidate supplied with a para head it's built on top of.
 #[derive(Debug, Copy, Clone, Hash, Eq, PartialEq)]
@@ -228,8 +228,14 @@ pub struct Collations {
 	pub status: CollationStatus,
 	/// Collator we're fetching from, optionally which candidate was requested.
 	///
-	/// This is the currently last started fetch, which did not exceed `MAX_UNSHARED_DOWNLOAD_TIME`
-	/// yet.
+	/// This is the last fetch for the relay parent. The value is used in
+	/// `get_next_collation_to_fetch` (called from `dequeue_next_collation_and_fetch`) to determine
+	/// if the last fetched collation is the same as the one which just finished. If yes - another
+	/// collation should be fetched. If not - another fetch was already initiated and
+	/// `get_next_collation_to_fetch` will do nothing.
+	///
+	/// For the reasons above this value is not set to `None` when the fetch is done! Don't use it
+	/// to check if there is a pending fetch.
 	pub fetching_from: Option<(CollatorId, Option<CandidateHash>)>,
 	/// Collation that were advertised to us, but we did not yet fetch. Grouped by `ParaId`.
 	waiting_queue: BTreeMap<ParaId, VecDeque<(PendingCollation, CollatorId)>>,
@@ -317,38 +323,25 @@ impl Collations {
 		&self,
 		relay_parent_mode: ProspectiveParachainsMode,
 		para_id: ParaId,
-		peer_data: &HashMap<PeerId, PeerData>,
+		num_pending_fetches: usize,
 	) -> bool {
 		if let ProspectiveParachainsMode::Disabled = relay_parent_mode {
 			// fallback to synchronous backing
 			return self.seconded_count >= 1
 		}
 
-		// All collators in `Collating` state for `para_id` we know about
-		let collators_for_para = peer_data
-			.iter()
-			.filter(|(_, data)| data.collating_para() == Some(para_id))
-			.filter_map(|(_, data)| data.collator_id())
-			.collect::<HashSet<_>>();
-
-		// If there is a pending fetch - count it
-		let pending_fetch = self
-			.fetching_from
-			.as_ref()
-			.map(|(collator_id, _)| if collators_for_para.contains(&collator_id) { 1 } else { 0 })
-			.unwrap_or(0);
-
 		// Successful fetches + a pending fetch < claim queue entries for `para_id`
 		let respected_per_para_limit =
-			self.claims_per_para.get(&para_id).copied().unwrap_or_default() >=
-				self.fetched_per_para.get(&para_id).copied().unwrap_or_default() + pending_fetch;
+			self.claims_per_para.get(&para_id).copied().unwrap_or_default() >
+				self.fetched_per_para.get(&para_id).copied().unwrap_or_default() +
+					num_pending_fetches;
 
 		gum::trace!(
 			target: LOG_TARGET,
 			?para_id,
 			claims_per_para=?self.claims_per_para,
 			fetched_per_para=?self.fetched_per_para,
-			?pending_fetch,
+			?num_pending_fetches,
 			?respected_per_para_limit,
 			"is_collations_limit_reached"
 		);

@@ -325,6 +325,83 @@ async fn assert_persisted_validation_data(
 	}
 }
 
+async fn submit_second_and_assert(
+	virtual_overseer: &mut VirtualOverseer,
+	keystore: KeystorePtr,
+	para_id: ParaId,
+	relay_parent: Hash,
+	collator: PeerId,
+	candidate_head_data: HeadData,
+) {
+	let mut candidate = dummy_candidate_receipt_bad_sig(relay_parent, Some(Default::default()));
+	candidate.descriptor.para_id = para_id;
+	candidate.descriptor.persisted_validation_data_hash = dummy_pvd().hash();
+	let commitments = CandidateCommitments {
+		head_data: candidate_head_data,
+		horizontal_messages: Default::default(),
+		upward_messages: Default::default(),
+		new_validation_code: None,
+		processed_downward_messages: 0,
+		hrmp_watermark: 0,
+	};
+	candidate.commitments_hash = commitments.hash();
+
+	let candidate_hash = candidate.hash();
+	let parent_head_data_hash = Hash::zero();
+
+	advertise_collation(
+		virtual_overseer,
+		collator,
+		relay_parent,
+		Some((candidate_hash, parent_head_data_hash)),
+	)
+	.await;
+	assert_matches!(
+		overseer_recv(virtual_overseer).await,
+		AllMessages::CandidateBacking(
+			CandidateBackingMessage::CanSecond(request, tx),
+		) => {
+			assert_eq!(request.candidate_hash, candidate_hash);
+			assert_eq!(request.candidate_para_id, para_id);
+			assert_eq!(request.parent_head_data_hash, parent_head_data_hash);
+			tx.send(true).expect("receiving side should be alive");
+		}
+	);
+
+	let response_channel = assert_fetch_collation_request(
+		virtual_overseer,
+		relay_parent,
+		para_id,
+		Some(candidate_hash),
+	)
+	.await;
+
+	let pov = PoV { block_data: BlockData(vec![1]) };
+
+	response_channel
+		.send(Ok((
+			request_v2::CollationFetchingResponse::Collation(candidate.clone(), pov.clone())
+				.encode(),
+			ProtocolName::from(""),
+		)))
+		.expect("Sending response should succeed");
+
+	assert_candidate_backing_second(
+		virtual_overseer,
+		relay_parent,
+		para_id,
+		&pov,
+		CollationVersion::V2,
+	)
+	.await;
+
+	let candidate = CommittedCandidateReceipt { descriptor: candidate.descriptor, commitments };
+
+	send_seconded_statement(virtual_overseer, keystore.clone(), &candidate).await;
+
+	assert_collation_seconded(virtual_overseer, relay_parent, collator, CollationVersion::V2).await;
+}
+
 #[test]
 fn v1_advertisement_accepted_and_seconded() {
 	let test_state = TestState::default();
@@ -609,79 +686,17 @@ fn second_multiple_candidates_per_relay_parent() {
 		)
 		.await;
 
+		// `allowed_ancestry_len` equals the size of the claim queue
 		for i in 0..(test_state.async_backing_params.allowed_ancestry_len) {
-			let mut candidate = dummy_candidate_receipt_bad_sig(head_c, Some(Default::default()));
-			candidate.descriptor.para_id = test_state.chain_ids[0];
-			candidate.descriptor.persisted_validation_data_hash = dummy_pvd().hash();
-			let commitments = CandidateCommitments {
-				head_data: HeadData(vec![i as u8]),
-				horizontal_messages: Default::default(),
-				upward_messages: Default::default(),
-				new_validation_code: None,
-				processed_downward_messages: 0,
-				hrmp_watermark: 0,
-			};
-			candidate.commitments_hash = commitments.hash();
-
-			let candidate_hash = candidate.hash();
-			let parent_head_data_hash = Hash::zero();
-
-			advertise_collation(
+			submit_second_and_assert(
 				&mut virtual_overseer,
+				keystore.clone(),
+				ParaId::from(TestState::CHAIN_IDS[0]),
+				head_c,
 				peer_a,
-				head_c,
-				Some((candidate_hash, parent_head_data_hash)),
+				HeadData(vec![i as u8]),
 			)
 			.await;
-			assert_matches!(
-				overseer_recv(&mut virtual_overseer).await,
-				AllMessages::CandidateBacking(
-					CandidateBackingMessage::CanSecond(request, tx),
-				) => {
-					assert_eq!(request.candidate_hash, candidate_hash);
-					assert_eq!(request.candidate_para_id, test_state.chain_ids[0]);
-					assert_eq!(request.parent_head_data_hash, parent_head_data_hash);
-					tx.send(true).expect("receiving side should be alive");
-				}
-			);
-
-			let response_channel = assert_fetch_collation_request(
-				&mut virtual_overseer,
-				head_c,
-				test_state.chain_ids[0],
-				Some(candidate_hash),
-			)
-			.await;
-
-			let pov = PoV { block_data: BlockData(vec![1]) };
-
-			response_channel
-				.send(Ok((
-					request_v2::CollationFetchingResponse::Collation(
-						candidate.clone(),
-						pov.clone(),
-					)
-					.encode(),
-					ProtocolName::from(""),
-				)))
-				.expect("Sending response should succeed");
-
-			assert_candidate_backing_second(
-				&mut virtual_overseer,
-				head_c,
-				test_state.chain_ids[0],
-				&pov,
-				CollationVersion::V2,
-			)
-			.await;
-
-			let candidate =
-				CommittedCandidateReceipt { descriptor: candidate.descriptor, commitments };
-
-			send_seconded_statement(&mut virtual_overseer, keystore.clone(), &candidate).await;
-
-			assert_collation_seconded(&mut virtual_overseer, head_c, peer_a, CollationVersion::V2)
-				.await;
 		}
 
 		// No more advertisements can be made for this relay parent.
@@ -1352,6 +1367,220 @@ fn child_blocked_from_seconding_by_parent(#[case] valid_parent: bool) {
 			);
 		}
 
+		test_helpers::Yield::new().await;
+		assert_matches!(virtual_overseer.recv().now_or_never(), None);
+
+		virtual_overseer
+	});
+}
+
+#[test]
+fn collations_outside_limits_are_not_fetched() {
+	let test_state = TestState::with_shared_core();
+
+	test_harness(ReputationAggregator::new(|_| true), |test_harness| async move {
+		let TestHarness { mut virtual_overseer, keystore } = test_harness;
+
+		// Grandparent of head `a`.
+		let head_b = Hash::from_low_u64_be(128);
+		let head_b_num: u32 = 2;
+
+		update_view(
+			&mut virtual_overseer,
+			&test_state,
+			vec![(head_b, head_b_num)],
+			1,
+			&test_state.async_backing_params,
+		)
+		.await;
+
+		let peer_a = PeerId::random();
+		let pair_a = CollatorPair::generate().0;
+
+		connect_and_declare_collator(
+			&mut virtual_overseer,
+			peer_a,
+			pair_a.clone(),
+			test_state.chain_ids[0],
+			CollationVersion::V2,
+		)
+		.await;
+
+		let peer_b = PeerId::random();
+		let pair_b = CollatorPair::generate().0;
+
+		connect_and_declare_collator(
+			&mut virtual_overseer,
+			peer_b,
+			pair_b.clone(),
+			test_state.chain_ids[1],
+			CollationVersion::V2,
+		)
+		.await;
+
+		submit_second_and_assert(
+			&mut virtual_overseer,
+			keystore.clone(),
+			ParaId::from(TestState::CHAIN_IDS[0]),
+			head_b,
+			peer_a,
+			HeadData(vec![1 as u8]),
+		)
+		.await;
+
+		submit_second_and_assert(
+			&mut virtual_overseer,
+			keystore.clone(),
+			ParaId::from(TestState::CHAIN_IDS[1]),
+			head_b,
+			peer_b,
+			HeadData(vec![2 as u8]),
+		)
+		.await;
+
+		submit_second_and_assert(
+			&mut virtual_overseer,
+			keystore.clone(),
+			ParaId::from(TestState::CHAIN_IDS[0]),
+			head_b,
+			peer_a,
+			HeadData(vec![3 as u8]),
+		)
+		.await;
+
+		// No more advertisements can be made for this relay parent.
+
+		// verify for peer_a
+		let candidate_hash = CandidateHash(Hash::repeat_byte(0xAA));
+		advertise_collation(
+			&mut virtual_overseer,
+			peer_a,
+			head_b,
+			Some((candidate_hash, Hash::zero())),
+		)
+		.await;
+		test_helpers::Yield::new().await;
+		assert_matches!(virtual_overseer.recv().now_or_never(), None);
+
+		// verify for peer_b
+		let candidate_hash = CandidateHash(Hash::repeat_byte(0xBB));
+		advertise_collation(
+			&mut virtual_overseer,
+			peer_b,
+			head_b,
+			Some((candidate_hash, Hash::zero())),
+		)
+		.await;
+		test_helpers::Yield::new().await;
+		assert_matches!(virtual_overseer.recv().now_or_never(), None);
+
+		virtual_overseer
+	});
+}
+
+#[test]
+fn fair_collation_fetches() {
+	let test_state = TestState::with_shared_core();
+
+	test_harness(ReputationAggregator::new(|_| true), |test_harness| async move {
+		let TestHarness { mut virtual_overseer, keystore } = test_harness;
+
+		// Grandparent of head `a`.
+		let head_b = Hash::from_low_u64_be(128);
+		let head_b_num: u32 = 2;
+
+		update_view(
+			&mut virtual_overseer,
+			&test_state,
+			vec![(head_b, head_b_num)],
+			1,
+			&test_state.async_backing_params,
+		)
+		.await;
+
+		let peer_a = PeerId::random();
+		let pair_a = CollatorPair::generate().0;
+
+		connect_and_declare_collator(
+			&mut virtual_overseer,
+			peer_a,
+			pair_a.clone(),
+			test_state.chain_ids[0],
+			CollationVersion::V2,
+		)
+		.await;
+
+		let peer_b = PeerId::random();
+		let pair_b = CollatorPair::generate().0;
+
+		connect_and_declare_collator(
+			&mut virtual_overseer,
+			peer_b,
+			pair_b.clone(),
+			test_state.chain_ids[1],
+			CollationVersion::V2,
+		)
+		.await;
+
+		// `peer_a` sends two advertisements (its claim queue limit)
+		for i in 0..2u8 {
+			submit_second_and_assert(
+				&mut virtual_overseer,
+				keystore.clone(),
+				ParaId::from(TestState::CHAIN_IDS[0]),
+				head_b,
+				peer_a,
+				HeadData(vec![i]),
+			)
+			.await;
+		}
+
+		// `peer_a` sends another advertisement and it is ignored
+		let candidate_hash = CandidateHash(Hash::repeat_byte(0xAA));
+		advertise_collation(
+			&mut virtual_overseer,
+			peer_a,
+			head_b,
+			Some((candidate_hash, Hash::zero())),
+		)
+		.await;
+		test_helpers::Yield::new().await;
+		assert_matches!(virtual_overseer.recv().now_or_never(), None);
+
+		// `peer_b` should still be able to advertise its collation
+		submit_second_and_assert(
+			&mut virtual_overseer,
+			keystore.clone(),
+			ParaId::from(TestState::CHAIN_IDS[1]),
+			head_b,
+			peer_b,
+			HeadData(vec![0 as u8]),
+		)
+		.await;
+
+		// And no more advertisements can be made for this relay parent.
+
+		// verify for peer_a
+		let candidate_hash = CandidateHash(Hash::repeat_byte(0xBB));
+		advertise_collation(
+			&mut virtual_overseer,
+			peer_a,
+			head_b,
+			Some((candidate_hash, Hash::zero())),
+		)
+		.await;
+		test_helpers::Yield::new().await;
+		assert_matches!(virtual_overseer.recv().now_or_never(), None);
+
+		// verify for peer_b
+		let candidate_hash = CandidateHash(Hash::repeat_byte(0xCC));
+		advertise_collation(
+			&mut virtual_overseer,
+			peer_b,
+			head_b,
+			Some((candidate_hash, Hash::zero())),
+		)
+		.await;
 		test_helpers::Yield::new().await;
 		assert_matches!(virtual_overseer.recv().now_or_never(), None);
 

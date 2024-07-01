@@ -1099,7 +1099,7 @@ where
 	if per_relay_parent.collations.is_collations_limit_reached(
 		relay_parent_mode,
 		para_id,
-		&state.peer_data,
+		num_pending_collations_for_para_at_relay_parent(&state, para_id, relay_parent),
 	) {
 		return Err(AdvertisementError::SecondedLimitReached)
 	}
@@ -1169,6 +1169,9 @@ where
 		?relay_parent,
 		"Received advertise collation",
 	);
+
+	let num_pending_fetches =
+		num_pending_collations_for_para_at_relay_parent(&state, para_id, relay_parent);
 	let per_relay_parent = match state.per_relay_parent.get_mut(&relay_parent) {
 		Some(rp_state) => rp_state,
 		None => {
@@ -1192,7 +1195,7 @@ where
 		});
 
 	let collations = &mut per_relay_parent.collations;
-	if collations.is_collations_limit_reached(relay_parent_mode, para_id, &state.peer_data) {
+	if collations.is_collations_limit_reached(relay_parent_mode, para_id, num_pending_fetches) {
 		gum::trace!(
 			target: LOG_TARGET,
 			peer_id = ?peer_id,
@@ -2102,4 +2105,19 @@ async fn handle_collation_fetch_response(
 	};
 	state.metrics.on_request(metrics_result);
 	result
+}
+
+// Returns the number of pending fetches for `ParaId` at a specific relay parent.
+fn num_pending_collations_for_para_at_relay_parent(
+	state: &State,
+	para_id: ParaId,
+	relay_parent: Hash,
+) -> usize {
+	state
+		.collation_requests_cancel_handles
+		.iter()
+		.filter(|(pending_collation, _)| {
+			pending_collation.para_id == para_id && pending_collation.relay_parent == relay_parent
+		})
+		.count()
 }
