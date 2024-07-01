@@ -30,7 +30,7 @@ pub extern "C" fn deploy() {}
 pub extern "C" fn call() {
 	input!(len: u32, );
 
-	let buffer = [0u8; 16 * 1024 + 1];
+	let buffer = [0u8; 16 * 1024];
 	let data = &buffer[..len as usize];
 
 	// Place a garbage value in the transient storage, with the size specified by the call input.

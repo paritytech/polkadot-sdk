@@ -36,7 +36,7 @@ pub extern "C" fn call() {
 		callee: [u8; 32],
 	);
 
-	let data = [0u8; 16 * 1024 + 1];
+	let data = [0u8; 16 * 1024];
 	let value = &data[..len as usize];
 	api::set_transient_storage(buffer, value);
 

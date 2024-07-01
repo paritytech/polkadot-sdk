@@ -255,17 +255,27 @@ pub enum RuntimeCosts {
 }
 
 macro_rules! cost_write {
-	// cost_rollback!(name, a, b, c) -> T::WeightInfo::name(a, b, c).saturating_add(T::WeightInfo::rollback_transient_storage()).saturating_add(T::WeightInfo::set_transient_storage_full().saturating_sub(T::WeightInfo::set_transient_storage_empty())
+	// cost_write!(name, a, b, c) -> T::WeightInfo::name(a, b, c).saturating_add(T::WeightInfo::rollback_transient_storage())
+	// .saturating_add(T::WeightInfo::set_transient_storage_full().saturating_sub(T::WeightInfo::set_transient_storage_empty())
 	($name:ident $(, $arg:expr )*) => {
-		(T::WeightInfo::$name($( $arg ),*).saturating_add(T::WeightInfo::rollback_transient_storage()).saturating_add(T::WeightInfo::set_transient_storage_full().saturating_sub(T::WeightInfo::set_transient_storage_empty())))
+		(T::WeightInfo::$name($( $arg ),*).saturating_add(T::WeightInfo::rollback_transient_storage()).saturating_add(cost_write!(@storage_cost)))
 	};
+
+	(@storage_cost) => {
+        T::WeightInfo::set_transient_storage_full().saturating_sub(T::WeightInfo::set_transient_storage_empty())
+    };
 }
 
 macro_rules! cost_read {
-	// cost_rollback!(name, a, b, c) -> T::WeightInfo::name(a, b, c).saturating_add(T::WeightInfo::get_transient_storage_full().saturating_sub(T::WeightInfo::get_transient_storage_empty())
+	// cost_read!(name, a, b, c) -> T::WeightInfo::name(a, b, c).saturating_add(T::WeightInfo::get_transient_storage_full()
+	// .saturating_sub(T::WeightInfo::get_transient_storage_empty())
 	($name:ident $(, $arg:expr )*) => {
-		(T::WeightInfo::$name($( $arg ),*).saturating_add(T::WeightInfo::get_transient_storage_full().saturating_sub(T::WeightInfo::get_transient_storage_empty())))
+		(T::WeightInfo::$name($( $arg ),*).saturating_add(cost_read!(@storage_cost)))
 	};
+
+	(@storage_cost) => {
+        T::WeightInfo::get_transient_storage_full().saturating_sub(T::WeightInfo::get_transient_storage_empty())
+    };
 }
 
 macro_rules! cost_args {
