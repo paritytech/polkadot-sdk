@@ -1080,6 +1080,7 @@ dependencies = [
  "cumulus-primitives-core",
  "frame-support",
  "frame-system",
+ "hex-display",
  "impl-trait-for-tuples",
  "log",
  "pallet-asset-conversion",
@@ -1090,6 +1091,7 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "sp-api",
+ "sp-io",
  "sp-runtime",
  "sp-std 14.0.0",
  "staging-xcm",
@@ -6782,6 +6784,12 @@ name = "hex-conservative"
 version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "212ab92002354b4819390025006c897e8140934349e8635c9b077f47b4dcbd20"
+
+[[package]]
+name = "hex-display"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8b53d6a634507c5d9fdee77261ae54a8d1ff7887f5304389025b03c3292a1756"
 
 [[package]]
 name = "hex-literal"
@@ -15736,7 +15744,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "22505a5c94da8e3b7c2996394d1c933236c4d743e81a410bcca4e6989fc066a4"
 dependencies = [
  "bytes",
- "heck 0.4.1",
+ "heck 0.5.0",
  "itertools 0.11.0",
  "log",
  "multimap",

@@ -38,7 +38,7 @@ pub(super) type ExistenceReasonOf<T, I> =
 /// AssetStatus holds the current state of the asset. It could either be Live and available for use,
 /// or in a Destroying state.
 #[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug, MaxEncodedLen, TypeInfo)]
-pub(super) enum AssetStatus {
+pub enum AssetStatus {
 	/// The asset is active and able to be used.
 	Live,
 	/// Whether the asset is frozen for non-admin transfers.
@@ -51,30 +51,30 @@ pub(super) enum AssetStatus {
 #[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug, MaxEncodedLen, TypeInfo)]
 pub struct AssetDetails<Balance, AccountId, DepositBalance> {
 	/// Can change `owner`, `issuer`, `freezer` and `admin` accounts.
-	pub(super) owner: AccountId,
+	pub owner: AccountId,
 	/// Can mint tokens.
-	pub(super) issuer: AccountId,
+	pub issuer: AccountId,
 	/// Can thaw tokens, force transfers and burn tokens from any account.
-	pub(super) admin: AccountId,
+	pub admin: AccountId,
 	/// Can freeze tokens.
-	pub(super) freezer: AccountId,
+	pub freezer: AccountId,
 	/// The total supply across all accounts.
-	pub(super) supply: Balance,
+	pub supply: Balance,
 	/// The balance deposited for this asset. This pays for the data stored here.
-	pub(super) deposit: DepositBalance,
+	pub deposit: DepositBalance,
 	/// The ED for virtual accounts.
-	pub(super) min_balance: Balance,
+	pub min_balance: Balance,
 	/// If `true`, then any account with this asset is given a provider reference. Otherwise, it
 	/// requires a consumer reference.
-	pub(super) is_sufficient: bool,
+	pub is_sufficient: bool,
 	/// The total number of accounts.
-	pub(super) accounts: u32,
+	pub accounts: u32,
 	/// The total number of accounts for which we have placed a self-sufficient reference.
-	pub(super) sufficients: u32,
+	pub sufficients: u32,
 	/// The total number of approvals.
-	pub(super) approvals: u32,
+	pub approvals: u32,
 	/// The status of the asset
-	pub(super) status: AssetStatus,
+	pub status: AssetStatus,
 }
 
 /// Data concerning an approval.

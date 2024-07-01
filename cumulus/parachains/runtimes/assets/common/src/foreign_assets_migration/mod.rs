@@ -46,7 +46,7 @@ mod identifier {
 use identifier::*;
 
 /// Storage aliases for on-chain storage types before running the migration.
-mod old {
+pub mod old {
 	use super::Config;
 	use pallet_assets::{
 		Pallet,
@@ -68,11 +68,11 @@ mod old {
 	>;
 }
 
-pub struct Migration<T: Config<I>, I: 'static>(PhantomData<(T, I)>);
-impl<T: Config<I, AssetId = xcm::v3::Location>, I: 'static> SteppedMigration
+pub struct Migration<T: Config<I>, I: 'static = ()>(PhantomData<(T, I)>);
+impl<T: Config<I, AssetId = xcm::v4::Location>, I: 'static> SteppedMigration
 	for Migration<T, I>
 {
-	type Cursor = T::AssetId;
+	type Cursor = xcm::v3::Location;
 	type Identifier = MigrationIdentifier;
 
 	fn id() -> Self::Identifier {
@@ -81,11 +81,6 @@ impl<T: Config<I, AssetId = xcm::v3::Location>, I: 'static> SteppedMigration
 			version_from: 0,
 			version_to: 1,
 		}
-	}
-
-	// TODO: For now I'm letting it run forever, check.
-	fn max_steps() -> Option<u32> {
-		None
 	}
 
 	fn step(
@@ -101,11 +96,19 @@ impl<T: Config<I, AssetId = xcm::v3::Location>, I: 'static> SteppedMigration
 			old::Asset::<T, I>::iter()
 		};
 
-		if let Some((key, _value)) = iter.next() {
+		if let Some((key, value)) = iter.next() {
 			// If there is a next item in the iterator, migrate it.
-			Asset::<T, I>::remove(key);
-			// TODO: Insert the item with a V4 key.
-			// Return the processed key as the new cursor to continue the migration.
+			old::Asset::<T, I>::remove(key.clone());
+			// Most likely all locations will be able to be converted, but if they can't
+			// we log them to try again later.
+			let maybe_new_key: Result<xcm::v4::Location, _> = key.try_into();
+			if let Ok(new_key) = maybe_new_key {
+				Asset::<T, I>::insert(new_key.clone(), value);
+				log::info!(target: "migration", "Successfully migrated key: {:?}", new_key);
+			} else {
+				log::warn!(target: "migration", "{:?} couldn't be converted to V4", key);
+			}
+			// Return the key as the new cursor to continue the migration.
 			Ok(Some(key))
 		} else {
 			// Signal the migration is complete.

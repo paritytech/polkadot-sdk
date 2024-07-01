@@ -35,6 +35,10 @@ xcm-executor = { workspace = true }
 parachains-common = { workspace = true }
 cumulus-primitives-core = { workspace = true }
 
+[dev-dependencies]
+sp-io = { workspace = true }
+hex-display = "0.3.0"
+
 [build-dependencies]
 substrate-wasm-builder = { workspace = true, default-features = true }
 
@@ -58,6 +62,7 @@ std = [
 	"frame-system/std",
 	"pallet-assets/std",
 	"pallet-balances/std",
+	"sp-io/std",
 ]
 
 runtime-benchmarks = [
