@@ -93,7 +93,7 @@ impl<T: Config> Pallet<T> {
 	/// instead of using the [`StakingLedger`] API since the bond and/or ledger may be corrupted.
 	/// It is also meant to check state for direct bonds and may not work as expected for virtual
 	/// bonds.
-	pub(crate) fn inspect_bond_state(
+	pub fn inspect_bond_state(
 		stash: &T::AccountId,
 	) -> Result<LedgerIntegrityState, Error<T>> {
 		let lock = T::Currency::balance_locked(crate::STAKING_ID, &stash);

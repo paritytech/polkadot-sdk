@@ -2638,6 +2638,7 @@ mod remote_tests {
 		Builder, Mode, OfflineConfig, OnlineConfig, SnapshotConfig, Transport,
 	};
 	use std::env::var;
+	use pallet_staking::LedgerIntegrityState;
 
 	#[tokio::test]
 	async fn run_migrations() {
@@ -2666,6 +2667,45 @@ mod remote_tests {
 			.await
 			.unwrap();
 		ext.execute_with(|| Runtime::on_runtime_upgrade(UpgradeCheckSelect::PreAndPost));
+	}
+
+	#[tokio::test]
+	async fn inconsistent_ledger() {
+		use frame_support::{assert_ok, migrations::SteppedMigration, traits::TryState};
+		sp_tracing::try_init_simple();
+
+		let transport: Transport = var("WS").unwrap_or("ws://127.0.0.1:9900".to_string()).into();
+		let maybe_state_snapshot: Option<SnapshotConfig> = var("SNAP").map(|s| s.into()).ok();
+		let mut ext = Builder::<Block>::default()
+			.mode(if let Some(state_snapshot) = maybe_state_snapshot {
+				Mode::OfflineOrElseOnline(
+					OfflineConfig { state_snapshot: state_snapshot.clone() },
+					OnlineConfig {
+						transport,
+						state_snapshot: Some(state_snapshot),
+						pallets: vec!["staking".into(), "system".into(), "balances".into()],
+						..Default::default()
+					},
+				)
+			} else {
+				Mode::Online(OnlineConfig { transport, ..Default::default() })
+			})
+			.build()
+			.await
+			.unwrap();
+		ext.execute_with(|| {
+			pallet_staking::Bonded::<Runtime>::iter_keys().for_each(|k| {
+				if !pallet_staking::VirtualStakers::<Runtime>::contains_key(&k) {
+					let bond_state = pallet_staking::Pallet::<Runtime>::inspect_bond_state(&k).unwrap();
+					match bond_state {
+						LedgerIntegrityState::Ok => {}
+						_ => {
+							log::error!(target: "remote_test", "Error state: {:?} for {}", bond_state, k);
+						}
+					}
+				}
+			});
+		});
 	}
 }
 

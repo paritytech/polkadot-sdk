@@ -493,7 +493,7 @@ pub struct StakingLedger<T: Config> {
 
 /// State of a ledger with regards with its data and metadata integrity.
 #[derive(PartialEq, Debug)]
-enum LedgerIntegrityState {
+pub enum LedgerIntegrityState {
 	/// Ledger, bond and corresponding staking lock is OK.
 	Ok,
 	/// Ledger and/or bond is corrupted. This means that the bond has a ledger with a different
