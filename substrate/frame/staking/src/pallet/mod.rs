@@ -2068,7 +2068,7 @@ pub mod pallet {
 			maybe_total: Option<BalanceOf<T>>,
 			maybe_unlocking: Option<BoundedVec<UnlockChunk<BalanceOf<T>>, T::MaxUnlockingChunks>>,
 		) -> DispatchResult {
-			T::AdminOrigin::ensure_origin(origin)?;
+			// T::AdminOrigin::ensure_origin(origin)?;
 
 			// cannot restore ledger for virtual stakers.
 			ensure!(!Self::is_virtual_staker(&stash), Error::<T>::VirtualStakerNotAllowed);

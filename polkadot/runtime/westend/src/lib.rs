@@ -2634,11 +2634,11 @@ sp_api::impl_runtime_apis! {
 mod remote_tests {
 	use super::*;
 	use frame_try_runtime::{runtime_decl_for_try_runtime::TryRuntime, UpgradeCheckSelect};
+	use pallet_staking::LedgerIntegrityState;
 	use remote_externalities::{
 		Builder, Mode, OfflineConfig, OnlineConfig, SnapshotConfig, Transport,
 	};
 	use std::env::var;
-	use pallet_staking::LedgerIntegrityState;
 
 	#[tokio::test]
 	async fn run_migrations() {
@@ -2694,14 +2694,43 @@ mod remote_tests {
 			.await
 			.unwrap();
 		ext.execute_with(|| {
+			// create an account with some balance
+			let alice = AccountId::from([1u8; 32]);
+			use frame_support::traits::Currency;
+			let _ = Balances::deposit_creating(&alice, 100_000 * UNITS);
+
+			// RUN 1
 			pallet_staking::Bonded::<Runtime>::iter_keys().for_each(|k| {
 				if !pallet_staking::VirtualStakers::<Runtime>::contains_key(&k) {
-					let bond_state = pallet_staking::Pallet::<Runtime>::inspect_bond_state(&k).unwrap();
+					let bond_state =
+						pallet_staking::Pallet::<Runtime>::inspect_bond_state(&k).unwrap();
 					match bond_state {
 						LedgerIntegrityState::Ok => {}
 						_ => {
-							log::error!(target: "remote_test", "Error state: {:?} for {}", bond_state, k);
-						}
+							log::error!(target: "remote_test", "RUN1: Error state: {:?} for {}", bond_state, k);
+							// attempt to fix
+
+							let restore = pallet_staking::Pallet::<Runtime>::restore_ledger(
+								RuntimeOrigin::signed(alice.clone()).into(),
+								k,
+								None,
+								None,
+								None,
+							);
+
+							log::info!(target: "remote_test", "RUN1: Restore ledger result: {:?}", restore);
+						},
+					}
+				}
+			});
+
+			pallet_staking::Bonded::<Runtime>::iter_keys().for_each(|k| {
+				let bond_state =
+					pallet_staking::Pallet::<Runtime>::inspect_bond_state(&k).unwrap();
+				match bond_state {
+					LedgerIntegrityState::Ok => {}
+					_ => {
+						log::error!(target: "remote_test", "RUN2: Error state: {:?} for {}", bond_state, k);
 					}
 				}
 			});
