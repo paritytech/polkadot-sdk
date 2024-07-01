@@ -161,6 +161,9 @@ pub struct CreateCmd {
 	/// The chain type.
 	#[arg(value_enum, short = 't', default_value = "live")]
 	chain_type: ChainType,
+	/// If you're generating a config for a parachain
+	#[arg(long, value_enum, default_value = "false")]
+	parachain: bool,
 	/// The para ID for your chain.
 	#[arg(value_enum, short = 'p', default_value = "100")]
 	para_id: u32,
@@ -293,9 +296,9 @@ pub struct VerifyCmd {
 #[serde(deny_unknown_fields)]
 pub struct Extensions {
 	/// The relay chain of the Parachain.
-	pub relay_chain: String,
+	pub relay_chain: Option<String>,
 	/// The id of the Parachain.
-	pub para_id: u32,
+	pub para_id: Option<u32>,
 }
 
 /// Processes `CreateCmd` and returns JSON version of `ChainSpec`.
@@ -305,14 +308,23 @@ pub fn generate_chain_spec_for_runtime(cmd: &CreateCmd) -> Result<String, String
 
 	let chain_type = &cmd.chain_type;
 	let relay_chain = &cmd.relay_chain;
+	let builder = match cmd.parachain {
+		true => GenericChainSpec::<Extensions>::builder(
+			&code[..],
+			Extensions { relay_chain: Some(relay_chain.to_string()), para_id: Some(cmd.para_id) },
+		)
+		.with_name(&cmd.chain_name[..])
+		.with_id(&cmd.chain_id[..])
+		.with_chain_type(chain_type.clone()),
 
-	let builder = GenericChainSpec::<Extensions>::builder(
-		&code[..],
-		Extensions { relay_chain: relay_chain.to_string(), para_id: cmd.para_id },
-	)
-	.with_name(&cmd.chain_name[..])
-	.with_id(&cmd.chain_id[..])
-	.with_chain_type(chain_type.clone());
+		false => GenericChainSpec::<Extensions>::builder(
+			&code[..],
+			Extensions { relay_chain: None, para_id: None },
+		)
+		.with_name(&cmd.chain_name[..])
+		.with_id(&cmd.chain_id[..])
+		.with_chain_type(chain_type.clone()),
+	};
 
 	let builder = match cmd.action {
 		GenesisBuildAction::NamedPreset(NamedPresetCmd { ref preset_name }) =>
