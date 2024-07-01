@@ -51,7 +51,7 @@ use std::{
 	cmp,
 	collections::{HashMap, HashSet, VecDeque},
 	pin::Pin,
-	sync::Arc,
+	sync::{atomic::AtomicUsize, Arc},
 	task::{Context, Poll},
 	time::{Duration, Instant},
 };
@@ -195,6 +195,9 @@ pub struct Discovery {
 
 	/// Delay to next `FIND_NODE` query.
 	duration_to_next_find_query: Duration,
+
+	/// Number of connected peers as reported by the blocks announcement protocol.
+	num_connected_peers: Arc<AtomicUsize>,
 }
 
 /// Legacy (fallback) Kademlia protocol name based on `protocol_id`.
@@ -229,6 +232,7 @@ impl Discovery {
 		protocol_id: &ProtocolId,
 		known_peers: HashMap<PeerId, Vec<Multiaddr>>,
 		listen_addresses: Arc<RwLock<HashSet<Multiaddr>>>,
+		num_connected_peers: Arc<AtomicUsize>,
 		_peerstore_handle: Arc<dyn PeerStoreProvider>,
 	) -> (Self, PingConfig, IdentifyConfig, KademliaConfig, Option<MdnsConfig>) {
 		let (ping_config, ping_event_stream) = PingConfig::default();
@@ -282,12 +286,18 @@ impl Discovery {
 					genesis_hash,
 					fork_id,
 				)]),
+				num_connected_peers,
 			},
 			ping_config,
 			identify_config,
 			kademlia_config,
 			mdns_config,
 		)
+	}
+
+	/// Get number of connected peers.
+	fn num_connected_peers(&self) -> usize {
+		self.num_connected_peers.load(std::sync::atomic::Ordering::Relaxed)
 	}
 
 	/// Add known peer to `Kademlia`.
