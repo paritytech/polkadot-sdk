@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1719588694164,
+  "lastUpdate": 1719844541480,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
@@ -3527,6 +3527,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "statement-distribution",
             "value": 0.035727389467999984,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "polka.dom",
+            "username": "PolkadotDom",
+            "email": "polkadotdom@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "333f4c78109345debb5cf6e8c8b3fe75a7bbe3fb",
+          "message": "Remove getters from pallet-membership (#4840)\n\nAs per #3326 , removes pallet::getter macro usage from\npallet-membership. The syntax StorageItem::<T, I>::get() should be used\ninstead. Also converts some syntax to turbo and reimplements the removed\ngetters, following #223\n\ncc @muraca\n\n---------\n\nCo-authored-by: Dónal Murray <donalm@seadanda.dev>\nCo-authored-by: Kian Paimani <5588131+kianenigma@users.noreply.github.com>",
+          "timestamp": "2024-07-01T12:25:26Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/333f4c78109345debb5cf6e8c8b3fe75a7bbe3fb"
+        },
+        "date": 1719844512283,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.40199999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 127.92599999999993,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.03590812205599999,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.04550532966400003,
             "unit": "seconds"
           }
         ]
