@@ -1593,10 +1593,10 @@ impl<T: Config> Pallet<T> {
 			Either::Left(beneficiary),
 			assets,
 			assets_transfer_type,
-			FeesHandling::Batched { fees: fees.clone() },
+			FeesHandling::Batched { fees },
 			weight_limit,
 		)?;
-		Self::execute_xcm_transfer(origin, dest, local_xcm, remote_xcm, fees.id)
+		Self::execute_xcm_transfer(origin, dest, local_xcm, remote_xcm)
 	}
 
 	fn do_teleport_assets(
@@ -1635,10 +1635,10 @@ impl<T: Config> Pallet<T> {
 			Either::Left(beneficiary),
 			assets,
 			TransferType::Teleport,
-			FeesHandling::Batched { fees: fees.clone() },
+			FeesHandling::Batched { fees },
 			weight_limit,
 		)?;
-		Self::execute_xcm_transfer(origin_location, dest, local_xcm, remote_xcm, fees.id)
+		Self::execute_xcm_transfer(origin_location, dest, local_xcm, remote_xcm)
 	}
 
 	fn do_transfer_assets(
@@ -1651,11 +1651,11 @@ impl<T: Config> Pallet<T> {
 		fees_transfer_type: TransferType,
 		weight_limit: WeightLimit,
 	) -> DispatchResult {
-		let asset_for_fees = assets.get(fee_asset_index).ok_or(Error::<T>::Empty)?.clone();
 		// local and remote XCM programs to potentially handle fees separately
 		let fees = if fees_transfer_type == assets_transfer_type {
+			let fees = assets.get(fee_asset_index).ok_or(Error::<T>::Empty)?.clone();
 			// no need for custom fees instructions, fees are batched with assets
-			FeesHandling::Batched { fees: asset_for_fees.clone() }
+			FeesHandling::Batched { fees }
 		} else {
 			// Disallow _remote reserves_ unless assets & fees have same remote reserve (covered
 			// by branch above). The reason for this is that we'd need to send XCMs to separate
@@ -1704,7 +1704,7 @@ impl<T: Config> Pallet<T> {
 			fees,
 			weight_limit,
 		)?;
-		Self::execute_xcm_transfer(origin, dest, local_xcm, remote_xcm, asset_for_fees.id)
+		Self::execute_xcm_transfer(origin, dest, local_xcm, remote_xcm)
 	}
 
 	fn build_xcm_transfer_type(
@@ -1774,7 +1774,6 @@ impl<T: Config> Pallet<T> {
 		dest: Location,
 		mut local_xcm: Xcm<<T as Config>::RuntimeCall>,
 		remote_xcm: Option<Xcm<()>>,
-		asset_for_fees: AssetId,
 	) -> DispatchResult {
 		log::debug!(
 			target: "xcm::pallet_xcm::execute_xcm_transfer",
@@ -1805,7 +1804,7 @@ impl<T: Config> Pallet<T> {
 			let (ticket, price) = validate_send::<T::XcmRouter>(dest.clone(), remote_xcm.clone())
 				.map_err(Error::<T>::from)?;
 			if origin != Here.into_location() {
-				Self::charge_fees(origin.clone(), price, &asset_for_fees).map_err(|error| {
+				Self::charge_fees(origin.clone(), price).map_err(|error| {
 					log::error!(
 						target: "xcm::pallet_xcm::execute_xcm_transfer",
 						"Unable to charge fee with error {:?}", error
@@ -2429,8 +2428,7 @@ impl<T: Config> Pallet<T> {
 		log::debug!(target: "xcm::send_xcm", "dest: {:?}, message: {:?}", &dest, &message);
 		let (ticket, price) = validate_send::<T::XcmRouter>(dest, message)?;
 		if let Some(fee_payer) = maybe_fee_payer {
-			Self::charge_fees(fee_payer, price, &AssetId(Here.into()))
-				.map_err(|_| SendError::Fees)?;
+			Self::charge_fees(fee_payer, price).map_err(|_| SendError::Fees)?;
 		}
 		T::XcmRouter::deliver(ticket)
 	}
@@ -2669,8 +2667,8 @@ impl<T: Config> Pallet<T> {
 	/// Fails if:
 	/// - the `assets` are not known on this chain;
 	/// - the `assets` cannot be withdrawn with that location as the Origin.
-	fn charge_fees(location: Location, assets: Assets, asset_for_fees: &AssetId) -> DispatchResult {
-		T::XcmExecutor::charge_fees(location.clone(), assets.clone(), asset_for_fees)
+	fn charge_fees(location: Location, assets: Assets) -> DispatchResult {
+		T::XcmExecutor::charge_fees(location.clone(), assets.clone())
 			.map_err(|_| Error::<T>::FeesNotMet)?;
 		Self::deposit_event(Event::FeesPaid { paying: location, fees: assets });
 		Ok(())

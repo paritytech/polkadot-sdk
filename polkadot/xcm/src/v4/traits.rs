@@ -102,8 +102,7 @@ pub trait ExecuteXcm<Call> {
 
 	/// Deduct some `fees` to the sovereign account of the given `location` and place them as per
 	/// the convention for fees.
-	fn charge_fees(location: impl Into<Location>, fees: Assets, asset_for_fees: &AssetId)
-		-> Result;
+	fn charge_fees(location: impl Into<Location>, fees: Assets) -> Result;
 }
 
 pub enum Weightless {}
@@ -121,11 +120,7 @@ impl<C> ExecuteXcm<C> for () {
 	fn execute(_: impl Into<Location>, _: Self::Prepared, _: &mut XcmHash, _: Weight) -> Outcome {
 		unreachable!()
 	}
-	fn charge_fees(
-		_location: impl Into<Location>,
-		_fees: Assets,
-		_asset_for_fees: &AssetId,
-	) -> Result {
+	fn charge_fees(_location: impl Into<Location>, _fees: Assets) -> Result {
 		Err(Error::Unimplemented)
 	}
 }
