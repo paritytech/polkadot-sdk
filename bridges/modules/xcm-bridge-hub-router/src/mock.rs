@@ -18,7 +18,7 @@
 
 use crate as pallet_xcm_bridge_hub_router;
 
-use bp_xcm_bridge_hub_router::XcmChannelStatusProvider;
+use bp_xcm_bridge_hub::{BridgeId, LocalXcmChannelManager};
 use codec::Encode;
 use frame_support::{
 	construct_runtime, derive_impl, parameter_types,
@@ -44,7 +44,7 @@ construct_runtime! {
 	pub enum TestRuntime
 	{
 		System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
-		XcmBridgeHubRouter: pallet_xcm_bridge_hub_router::{Pallet, Storage},
+		XcmBridgeHubRouter: pallet_xcm_bridge_hub_router::{Pallet, Storage, Event<T>},
 	}
 }
 
@@ -72,9 +72,11 @@ impl frame_system::Config for TestRuntime {
 }
 
 impl pallet_xcm_bridge_hub_router::Config<()> for TestRuntime {
+	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = ();
 
 	type UniversalLocation = UniversalLocation;
+	type SiblingBridgeHubLocation = SiblingBridgeHubLocation;
 	type BridgedNetworkId = BridgedNetworkId;
 	type Bridges = NetworkExportTable<BridgeTable>;
 	type DestinationVersion =
@@ -82,7 +84,7 @@ impl pallet_xcm_bridge_hub_router::Config<()> for TestRuntime {
 
 	type BridgeHubOrigin = EnsureRoot<AccountId>;
 	type ToBridgeHubSender = TestToBridgeHubSender;
-	type WithBridgeHubChannel = TestWithBridgeHubChannel;
+	type LocalXcmChannelManager = TestLocalXcmChannelManager;
 
 	type ByteFee = ConstU128<BYTE_FEE>;
 	type FeeAsset = BridgeFeeAsset;
@@ -147,17 +149,32 @@ impl InspectMessageQueues for TestToBridgeHubSender {
 	}
 }
 
-pub struct TestWithBridgeHubChannel;
+pub struct TestLocalXcmChannelManager;
 
-impl TestWithBridgeHubChannel {
-	pub fn make_congested() {
-		frame_support::storage::unhashed::put(b"TestWithBridgeHubChannel.Congested", &true);
+impl TestLocalXcmChannelManager {
+	pub fn make_congested(with: &Location) {
+		frame_support::storage::unhashed::put(
+			&(b"TestLocalXcmChannelManager.Congested", with).encode()[..],
+			&true,
+		);
 	}
 }
 
-impl XcmChannelStatusProvider for TestWithBridgeHubChannel {
-	fn is_congested() -> bool {
-		frame_support::storage::unhashed::get_or_default(b"TestWithBridgeHubChannel.Congested")
+impl LocalXcmChannelManager for TestLocalXcmChannelManager {
+	type Error = ();
+
+	fn is_congested(with: &Location) -> bool {
+		frame_support::storage::unhashed::get_or_default(
+			&(b"TestLocalXcmChannelManager.Congested", with).encode()[..],
+		)
+	}
+
+	fn suspend_bridge(_with: &Location, _bridge: BridgeId) -> Result<(), Self::Error> {
+		Ok(())
+	}
+
+	fn resume_bridge(_with: &Location, _bridge: BridgeId) -> Result<(), Self::Error> {
+		Ok(())
 	}
 }
 
@@ -169,7 +186,12 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 
 /// Run pallet test.
 pub fn run_test<T>(test: impl FnOnce() -> T) -> T {
-	new_test_ext().execute_with(test)
+	new_test_ext().execute_with(|| {
+		System::set_block_number(1);
+		System::reset_events();
+
+		test()
+	})
 }
 
 pub(crate) fn fake_message_hash<T>(message: &Xcm<T>) -> XcmHash {

@@ -20,11 +20,9 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 pub use bp_header_chain::StoredHeaderData;
+pub use call_info::{BridgeParachainCall, SubmitParachainHeadsInfo};
 
-use bp_polkadot_core::{
-	parachains::{ParaHash, ParaHead, ParaHeadsProof, ParaId},
-	BlockNumber as RelayBlockNumber, Hash as RelayBlockHash,
-};
+use bp_polkadot_core::parachains::{ParaHash, ParaHead, ParaId};
 use bp_runtime::{
 	BlockNumberOf, Chain, HashOf, HeaderOf, Parachain, StorageDoubleMapKeyProvider,
 	StorageMapKeyProvider,
@@ -35,6 +33,15 @@ use scale_info::TypeInfo;
 use sp_core::storage::StorageKey;
 use sp_runtime::{traits::Header as HeaderT, RuntimeDebug};
 use sp_std::{marker::PhantomData, prelude::*};
+
+/// Block hash of the bridged relay chain.
+pub type RelayBlockHash = bp_polkadot_core::Hash;
+/// Block number of the bridged relay chain.
+pub type RelayBlockNumber = bp_polkadot_core::BlockNumber;
+/// Hasher of the bridged relay chain.
+pub type RelayBlockHasher = bp_polkadot_core::Hasher;
+
+mod call_info;
 
 /// Best known parachain head hash.
 #[derive(Clone, Decode, Encode, MaxEncodedLen, PartialEq, RuntimeDebug, TypeInfo)]
@@ -184,20 +191,4 @@ impl ParaStoredHeaderDataBuilder for C {
 
 		None
 	}
-}
-
-/// A minimized version of `pallet-bridge-parachains::Call` that can be used without a runtime.
-#[derive(Encode, Decode, Debug, PartialEq, Eq, Clone, TypeInfo)]
-#[allow(non_camel_case_types)]
-pub enum BridgeParachainCall {
-	/// `pallet-bridge-parachains::Call::submit_parachain_heads`
-	#[codec(index = 0)]
-	submit_parachain_heads {
-		/// Relay chain block, for which we have submitted the `parachain_heads_proof`.
-		at_relay_block: (RelayBlockNumber, RelayBlockHash),
-		/// Parachain identifiers and their head hashes.
-		parachains: Vec<(ParaId, ParaHash)>,
-		/// Parachain heads proof.
-		parachain_heads_proof: ParaHeadsProof,
-	},
 }

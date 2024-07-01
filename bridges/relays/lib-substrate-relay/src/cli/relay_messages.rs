@@ -37,8 +37,8 @@ use relay_utils::UniqueSaturatedInto;
 /// Messages relaying params.
 #[derive(StructOpt)]
 pub struct RelayMessagesParams {
-	/// Hex-encoded lane id that should be served by the relay. Defaults to `00000000`.
-	#[structopt(long, default_value = "00000000")]
+	/// Hex-encoded lane id that should be served by the relay.
+	#[structopt(long)]
 	lane: HexLaneId,
 	#[structopt(flatten)]
 	source: SourceConnectionParams,
@@ -59,8 +59,8 @@ pub struct RelayMessagesRangeParams {
 	/// This header must be previously proved to the target chain.
 	#[structopt(long)]
 	at_source_block: u128,
-	/// Hex-encoded lane id that should be served by the relay. Defaults to `00000000`.
-	#[structopt(long, default_value = "00000000")]
+	/// Hex-encoded lane id that should be served by the relay.
+	#[structopt(long)]
 	lane: HexLaneId,
 	/// Nonce (inclusive) of the first message to relay.
 	#[structopt(long)]

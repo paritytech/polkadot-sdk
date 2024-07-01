@@ -18,6 +18,7 @@
 
 use codec::{Decode, Encode};
 use rbtag::BuildInfo;
+use sp_core::H256;
 use structopt::StructOpt;
 use strum::{EnumString, VariantNames};
 
@@ -42,21 +43,19 @@ pub type DefaultClient<C> = relay_substrate_client::RpcWithCachingClient<C>;
 
 /// Lane id.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct HexLaneId(pub [u8; 4]);
+pub struct HexLaneId(pub H256);
 
 impl From<HexLaneId> for LaneId {
 	fn from(lane_id: HexLaneId) -> LaneId {
-		LaneId(lane_id.0)
+		LaneId::from_inner(lane_id.0)
 	}
 }
 
 impl std::str::FromStr for HexLaneId {
-	type Err = hex::FromHexError;
+	type Err = rustc_hex::FromHexError;
 
 	fn from_str(s: &str) -> Result<Self, Self::Err> {
-		let mut lane_id = [0u8; 4];
-		hex::decode_to_slice(s, &mut lane_id)?;
-		Ok(HexLaneId(lane_id))
+		Ok(HexLaneId(H256::from_str(s)?))
 	}
 }
 

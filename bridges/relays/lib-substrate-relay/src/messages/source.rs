@@ -659,7 +659,7 @@ mod tests {
 		}
 
 		let maybe_batches =
-			split_msgs_to_refine::<TestChain, TestChain>(Default::default(), msgs_to_refine);
+			split_msgs_to_refine::<TestChain, TestChain>(LaneId::new(1, 2), msgs_to_refine);
 		match expected_batches {
 			Ok(expected_batches) => {
 				let batches = maybe_batches.unwrap();

@@ -30,8 +30,8 @@ use crate::{
 		headers::OnDemandHeadersRelay, parachains::OnDemandParachainsRelay, OnDemandRelay,
 	},
 };
+use bp_parachains::{RelayBlockHash, RelayBlockHasher, RelayBlockNumber};
 use bp_polkadot_core::parachains::ParaHash;
-use pallet_bridge_parachains::{RelayBlockHash, RelayBlockHasher, RelayBlockNumber};
 use relay_substrate_client::{
 	AccountIdOf, AccountKeyPairOf, Chain, ChainWithRuntimeVersion, ChainWithTransactions, Client,
 	Parachain,

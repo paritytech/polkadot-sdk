@@ -57,7 +57,7 @@ pub fn verify_messages_proof<T: Config<I>, I: 'static>(
 	let nonces_range = nonces_start..=nonces_end;
 
 	// receiving proofs where end < begin is ok (if proof includes outbound lane state)
-	let messages_in_the_proof = nonces_range.checked_len().unwrap_or(0);
+	let messages_in_the_proof = nonces_range.saturating_len();
 	if messages_in_the_proof != MessageNonce::from(messages_count) {
 		return Err(VerificationError::MessagesCountMismatch)
 	}
@@ -91,11 +91,7 @@ pub fn verify_messages_proof<T: Config<I>, I: 'static>(
 		.ensure_no_unused_keys()
 		.map_err(VerificationError::StorageProof)?;
 
-	// We only support single lane messages in this generated_schema
-	let mut proved_messages = ProvedMessages::new();
-	proved_messages.insert(lane, proved_lane_messages);
-
-	Ok(proved_messages)
+	Ok((lane, proved_lane_messages))
 }
 
 /// Verify proof of This -> Bridged chain messages delivery.
@@ -169,6 +165,7 @@ mod tests {
 	};
 
 	use bp_header_chain::{HeaderChainError, StoredHeaderDataBuilder};
+	use bp_messages::LaneState;
 	use bp_runtime::{HeaderId, StorageProofError};
 	use codec::Encode;
 	use sp_runtime::traits::Header;
@@ -183,7 +180,7 @@ mod tests {
 		test: impl Fn(FromBridgedChainMessagesProof<BridgedHeaderHash>) -> R,
 	) -> R {
 		let (state_root, storage) = prepare_messages_storage_proof::<BridgedChain, ThisChain>(
-			TEST_LANE_ID,
+			test_lane_id(),
 			1..=nonces_end,
 			outbound_lane_data,
 			bp_runtime::UnverifiedStorageProofParams::default(),
@@ -215,7 +212,7 @@ mod tests {
 			test(FromBridgedChainMessagesProof {
 				bridged_header_hash,
 				storage,
-				lane: TEST_LANE_ID,
+				lane: test_lane_id(),
 				nonces_start: 1,
 				nonces_end,
 			})
@@ -388,6 +385,7 @@ mod tests {
 			using_messages_proof(
 				10,
 				Some(OutboundLaneData {
+					state: LaneState::Opened,
 					oldest_unpruned_nonce: 1,
 					latest_received_nonce: 1,
 					latest_generated_nonce: 1,
@@ -428,6 +426,7 @@ mod tests {
 			using_messages_proof(
 				0,
 				Some(OutboundLaneData {
+					state: LaneState::Opened,
 					oldest_unpruned_nonce: 1,
 					latest_received_nonce: 1,
 					latest_generated_nonce: 1,
@@ -438,19 +437,18 @@ mod tests {
 				false,
 				|proof| verify_messages_proof::<TestRuntime, ()>(proof, 0),
 			),
-			Ok(vec![(
-				TEST_LANE_ID,
+			Ok((
+				test_lane_id(),
 				ProvedLaneMessages {
 					lane_state: Some(OutboundLaneData {
+						state: LaneState::Opened,
 						oldest_unpruned_nonce: 1,
 						latest_received_nonce: 1,
 						latest_generated_nonce: 1,
 					}),
 					messages: Vec::new(),
 				},
-			)]
-			.into_iter()
-			.collect()),
+			)),
 		);
 	}
 
@@ -460,6 +458,7 @@ mod tests {
 			using_messages_proof(
 				1,
 				Some(OutboundLaneData {
+					state: LaneState::Opened,
 					oldest_unpruned_nonce: 1,
 					latest_received_nonce: 1,
 					latest_generated_nonce: 1,
@@ -470,22 +469,21 @@ mod tests {
 				false,
 				|proof| verify_messages_proof::<TestRuntime, ()>(proof, 1),
 			),
-			Ok(vec![(
-				TEST_LANE_ID,
+			Ok((
+				test_lane_id(),
 				ProvedLaneMessages {
 					lane_state: Some(OutboundLaneData {
+						state: LaneState::Opened,
 						oldest_unpruned_nonce: 1,
 						latest_received_nonce: 1,
 						latest_generated_nonce: 1,
 					}),
 					messages: vec![Message {
-						key: MessageKey { lane_id: TEST_LANE_ID, nonce: 1 },
+						key: MessageKey { lane_id: test_lane_id(), nonce: 1 },
 						payload: vec![42],
 					}],
 				},
-			)]
-			.into_iter()
-			.collect()),
+			))
 		);
 	}
 

@@ -16,11 +16,10 @@ log = { workspace = true }
 scale-info = { features = ["bit-vec", "derive", "serde"], workspace = true }
 
 # Bridge dependencies
-
 bp-xcm-bridge-hub-router = { workspace = true }
+bp-xcm-bridge-hub = { workspace = true }
 
 # Substrate Dependencies
-
 frame-benchmarking = { optional = true, workspace = true }
 frame-support = { workspace = true }
 frame-system = { workspace = true }
@@ -29,7 +28,6 @@ sp-runtime = { workspace = true }
 sp-std = { workspace = true }
 
 # Polkadot Dependencies
-
 xcm = { workspace = true }
 xcm-builder = { workspace = true }
 
@@ -41,6 +39,7 @@ sp-std = { workspace = true, default-features = true }
 default = ["std"]
 std = [
 	"bp-xcm-bridge-hub-router/std",
+	"bp-xcm-bridge-hub/std",
 	"codec/std",
 	"frame-benchmarking/std",
 	"frame-support/std",

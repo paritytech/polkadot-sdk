@@ -50,7 +50,6 @@ mod integrity_tests {}
 #[cfg(feature = "integrity-test")]
 mod integrity_tests {
 	use super::{compute_priority_boost, ItemCount};
-	use crate::extensions::refund_relayer_extension::RefundableParachainId;
 
 	use bp_messages::MessageNonce;
 	use bp_runtime::PreComputedSize;
@@ -239,12 +238,18 @@ mod integrity_tests {
 		/// almost the same priority if we'll add `tip_boost_per_header` tip to the `TX1`. We want
 		/// to be sure that if we add plain `PriorityBoostPerHeader` priority to `TX1`, the priority
 		/// will be close to `TX2` as well.
-		pub fn ensure_priority_boost_is_sane<Runtime, RefundableParachain, PriorityBoostPerHeader>(
+		pub fn ensure_priority_boost_is_sane<
+			Runtime,
+			ParachainsInstance,
+			Para,
+			PriorityBoostPerHeader,
+		>(
 			tip_boost_per_header: BalanceOf<Runtime>,
 		) where
 			Runtime: pallet_transaction_payment::Config
-				+ pallet_bridge_parachains::Config<RefundableParachain::Instance>,
-			RefundableParachain: RefundableParachainId,
+				+ pallet_bridge_parachains::Config<ParachainsInstance>,
+			ParachainsInstance: 'static,
+			Para: Parachain,
 			PriorityBoostPerHeader: Get<TransactionPriority>,
 			Runtime::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
 			BalanceOf<Runtime>: Send + Sync + FixedPointOperand,
@@ -263,7 +268,8 @@ mod integrity_tests {
 				|_n_headers, tip| {
 					estimate_parachain_header_submit_transaction_priority::<
 						Runtime,
-						RefundableParachain,
+						ParachainsInstance,
+						Para,
 					>(tip)
 				},
 			);
@@ -271,13 +277,18 @@ mod integrity_tests {
 
 		/// Estimate parachain header delivery transaction priority.
 		#[cfg(feature = "integrity-test")]
-		fn estimate_parachain_header_submit_transaction_priority<Runtime, RefundableParachain>(
+		fn estimate_parachain_header_submit_transaction_priority<
+			Runtime,
+			ParachainsInstance,
+			Para,
+		>(
 			tip: BalanceOf<Runtime>,
 		) -> TransactionPriority
 		where
 			Runtime: pallet_transaction_payment::Config
-				+ pallet_bridge_parachains::Config<RefundableParachain::Instance>,
-			RefundableParachain: RefundableParachainId,
+				+ pallet_bridge_parachains::Config<ParachainsInstance>,
+			ParachainsInstance: 'static,
+			Para: Parachain,
 			Runtime::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
 			BalanceOf<Runtime>: Send + Sync + FixedPointOperand,
 		{
@@ -287,14 +298,14 @@ mod integrity_tests {
 			let base_tx_size = 512;
 			// let's say we are relaying largest parachain headers and proof takes some more bytes
 			let tx_call_size = <Runtime as pallet_bridge_parachains::Config<
-				RefundableParachain::Instance,
+				ParachainsInstance,
 			>>::WeightInfo::expected_extra_storage_proof_size()
-			.saturating_add(RefundableParachain::BridgedChain::MAX_HEADER_SIZE);
+			.saturating_add(Para::MAX_HEADER_SIZE);
 
 			// finally we are able to estimate transaction size and weight
 			let transaction_size = base_tx_size.saturating_add(tx_call_size);
 			let transaction_weight = <Runtime as pallet_bridge_parachains::Config<
-				RefundableParachain::Instance,
+				ParachainsInstance,
 			>>::WeightInfo::submit_parachain_heads_weight(
 				Runtime::DbWeight::get(),
 				&PreComputedSize(transaction_size as _),
