@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1719844597696,
+  "lastUpdate": 1719851817092,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -9164,6 +9164,53 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 3.0942155780101643,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Yuri Volkov",
+            "username": "mutantcornholio",
+            "email": "0@mcornholio.ru"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "18228a9bdbe5b560a39a31810fdf2e3fba59a40d",
+          "message": "prdoc upgrade (#4918)\n\nCo-authored-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>",
+          "timestamp": "2024-07-01T14:54:21Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/18228a9bdbe5b560a39a31810fdf2e3fba59a40d"
+        },
+        "date": 1719851788043,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52939.2,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63807.619999999995,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting",
+            "value": 10.316156019210089,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 7.495429709099956,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 3.4135794316302444,
             "unit": "seconds"
           }
         ]
