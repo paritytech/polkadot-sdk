@@ -284,7 +284,7 @@ impl<Block: BlockT> Default for HeaderMetadataCache<Block> {
 
 impl<Block: BlockT> HeaderMetadataCache<Block> {
 	pub fn header_metadata(&self, hash: Block::Hash) -> Option<CachedHeaderMetadata<Block>> {
-		self.cache.write().get(&hash).cloned()
+		self.cache.read().get(&hash).cloned()
 	}
 
 	pub fn insert_header_metadata(&self, hash: Block::Hash, metadata: CachedHeaderMetadata<Block>) {
