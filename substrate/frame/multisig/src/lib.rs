@@ -36,9 +36,24 @@
 //! ### Dispatchable Functions
 //!
 //! * `as_multi` - Approve and if possible dispatch a call from a composite origin formed from a
-//!   number of signed origins.
+//!   number of signed origins. Can be also used to create the multisig operation.
 //! * `approve_as_multi` - Approve a call from a composite origin.
+//!   Can be also used to create the multisig operation.
 //! * `cancel_as_multi` - Cancel a call from a composite origin.
+//! * `cancel_as_multi_without_timepoint` - Cancel a call from a composite origin without providing a timepoint.
+//!
+//! ### Security
+//!
+//! Multisig operations are stored in a DoubleKeyMap, where the keys are `call_hash`
+//! and `id` (derived from threshold and signatories).
+//! `timepoint` acts as an identifier for otherwise would be indistinguishable multisig operations
+//! (e.g. a recurring payment with, say, threshold 2, signatories A, B, C, and the same `call_hash`),
+//! hence granting an additional layer of security.
+//! However, retrieving and providing the `timepoint` may become an arduous task from the UX perspective,
+//! for those who will not benefit from this extra security measure.
+//! `timepoint` is made optional to balance the tradeoff between UX and security.
+//! If `threshold`, `signatories` and `call_hash` together will be enough for your use-case to distinguish
+//! multisig operations, then you can opt-out of `timepoint`.
 
 // Ensure we're `no_std` when compiling for Wasm.
 #![cfg_attr(not(feature = "std"), no_std)]
@@ -109,7 +124,9 @@ where
 	MaxApprovals: Get<u32>,
 {
 	/// The extrinsic when the multisig operation was opened.
-	when: Timepoint<BlockNumber>,
+	/// `timepoint` is an optional extra security measure, which can be enabled by the creator of
+	/// the multisig during the creation by supplying a `timepoint` for the `maybe_when` field.
+	maybe_when: Option<Timepoint<BlockNumber>>,
 	/// The amount held in reserve of the `depositor`, to be returned once the operation ends.
 	deposit: Balance,
 	/// The account who opened it (i.e. the first to approve it).
@@ -169,7 +186,7 @@ pub mod pallet {
 	}
 
 	/// The in-code storage version.
-	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(2);
 
 	#[pallet::pallet]
 	#[pallet::storage_version(STORAGE_VERSION)]
@@ -206,12 +223,10 @@ pub mod pallet {
 		NotFound,
 		/// Only the account that originally created the multisig is able to cancel it.
 		NotOwner,
-		/// No timepoint was given, yet the multisig operation is already underway.
-		NoTimepoint,
 		/// A different timepoint was given to the multisig operation that is underway.
 		WrongTimepoint,
-		/// A timepoint was given, yet no multisig operation is underway.
-		UnexpectedTimepoint,
+		/// Timepoint security measure is enabled, yet no timepoint is provided for the dispatchable.
+		MissingTimepoint,
 		/// The maximum weight information provided was too low.
 		MaxWeightTooLow,
 		/// The data to be stored is already stored.
@@ -226,14 +241,14 @@ pub mod pallet {
 		/// A multisig operation has been approved by someone.
 		MultisigApproval {
 			approving: T::AccountId,
-			timepoint: Timepoint<BlockNumberFor<T>>,
+			timepoint: Option<Timepoint<BlockNumberFor<T>>>,
 			multisig: T::AccountId,
 			call_hash: CallHash,
 		},
 		/// A multisig operation has been executed.
 		MultisigExecuted {
 			approving: T::AccountId,
-			timepoint: Timepoint<BlockNumberFor<T>>,
+			timepoint: Option<Timepoint<BlockNumberFor<T>>>,
 			multisig: T::AccountId,
 			call_hash: CallHash,
 			result: DispatchResult,
@@ -241,7 +256,7 @@ pub mod pallet {
 		/// A multisig operation has been cancelled.
 		MultisigCancelled {
 			cancelling: T::AccountId,
-			timepoint: Timepoint<BlockNumberFor<T>>,
+			timepoint: Option<Timepoint<BlockNumberFor<T>>>,
 			multisig: T::AccountId,
 			call_hash: CallHash,
 		},
@@ -327,9 +342,17 @@ pub mod pallet {
 		/// - `threshold`: The total number of approvals for this dispatch before it is executed.
 		/// - `other_signatories`: The accounts (other than the sender) who can approve this
 		/// dispatch. May not be empty.
-		/// - `maybe_timepoint`: If this is the first approval, then this must be `None`. If it is
-		/// not the first approval, then it must be `Some`, with the timepoint (block number and
-		/// transaction index) of the first approval transaction.
+		/// - `maybe_timepoint`: Optional extra security measure for differentiating otherwise would be
+		/// indistinguishable multisig operations (i.e. recurring payments). To enable this feature, the
+		/// creator (the first approval) must supply `Some(timepoint)`. The provided timepoint value
+		/// will be ignored, because `timepoint` will be the block number and the index this multisig
+		/// is submitted at. Providing `Some(timepoint)` for the first approval just acts as a
+		/// flag that enables `timepoint` security measure.
+		/// For the multisigs that are created with `timepoint`, the following approvals must supply
+		/// the timepoint for that multisig.
+		/// For the multisigs that are NOT created with `timepoint`, the following approvals can provide `None`.
+		/// This function does not error if a `timepoint` is provided for a multisig that is created WITHOUT
+		/// `timepoint`, the provided value will be simply ignored.
 		/// - `call`: The call to be executed.
 		///
 		/// NOTE: Unless this is the final approval, you will generally want to use
@@ -393,9 +416,17 @@ pub mod pallet {
 		/// - `threshold`: The total number of approvals for this dispatch before it is executed.
 		/// - `other_signatories`: The accounts (other than the sender) who can approve this
 		/// dispatch. May not be empty.
-		/// - `maybe_timepoint`: If this is the first approval, then this must be `None`. If it is
-		/// not the first approval, then it must be `Some`, with the timepoint (block number and
-		/// transaction index) of the first approval transaction.
+		/// - `maybe_timepoint`: Optional extra security measure for differentiating otherwise would be
+		/// indistinguishable multisig operations (i.e. recurring payments). To enable this feature, the
+		/// creator (the first approval) must supply `Some(timepoint)`. The provided timepoint value
+		/// will be ignored, because `timepoint` will be the block number and the index this multisig
+		/// is submitted at. Providing `Some(timepoint)` for the first approval just acts as a
+		/// flag that enables `timepoint` security measure.
+		/// For the multisigs that are created with `timepoint`, the following approvals must supply
+		/// the timepoint for that multisig.
+		/// For the multisigs that are NOT created with `timepoint`, the following approvals can provide `None`.
+		/// This function does not error if a `timepoint` is provided for a multisig that is created WITHOUT
+		/// `timepoint`, the provided value will be simply ignored.
 		/// - `call_hash`: The hash of the call to be executed.
 		///
 		/// NOTE: If this is the final approval, you will want to use `as_multi` instead.
@@ -446,8 +477,11 @@ pub mod pallet {
 		/// - `threshold`: The total number of approvals for this dispatch before it is executed.
 		/// - `other_signatories`: The accounts (other than the sender) who can approve this
 		/// dispatch. May not be empty.
-		/// - `timepoint`: The timepoint (block number and transaction index) of the first approval
-		/// transaction for this dispatch.
+		/// - `timepoint`: The timepoint (block number and transaction index) of the first approval.
+		/// Timepoint serves as an additional layer of security. If the multisig is created without `timepoint`,
+		/// use `[`Pallet::cancel_as_multi_without_timepoint`]`
+		/// (`timepoint` parameter is not an `Option`, but instead there is another function
+		/// `cancel_as_multi_without_timepoint` due to preserve backwards compatibility).
 		/// - `call_hash`: The hash of the call to be executed.
 		///
 		/// ## Complexity
@@ -469,29 +503,23 @@ pub mod pallet {
 			call_hash: [u8; 32],
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-			ensure!(threshold >= 2, Error::<T>::MinimumThreshold);
-			let max_sigs = T::MaxSignatories::get() as usize;
-			ensure!(!other_signatories.is_empty(), Error::<T>::TooFewSignatories);
-			ensure!(other_signatories.len() < max_sigs, Error::<T>::TooManySignatories);
-			let signatories = Self::ensure_sorted_and_insert(other_signatories, who.clone())?;
+			Self::cancel(who, threshold, other_signatories, Some(timepoint), call_hash)
+		}
 
-			let id = Self::multi_account_id(&signatories, threshold);
-
-			let m = <Multisigs<T>>::get(&id, call_hash).ok_or(Error::<T>::NotFound)?;
-			ensure!(m.when == timepoint, Error::<T>::WrongTimepoint);
-			ensure!(m.depositor == who, Error::<T>::NotOwner);
-
-			let err_amount = T::Currency::unreserve(&m.depositor, m.deposit);
-			debug_assert!(err_amount.is_zero());
-			<Multisigs<T>>::remove(&id, &call_hash);
-
-			Self::deposit_event(Event::MultisigCancelled {
-				cancelling: who,
-				timepoint,
-				multisig: id,
-				call_hash,
-			});
-			Ok(())
+		/// Same as [`Pallet::cancel_as_multi`], but without a timepoint.
+		///
+		/// If the multisig is created with a `timepoint`, use [`Pallet::cancel_as_multi`],
+		/// if the multisig is created without a `timepoint`, use this function.
+		#[pallet::call_index(4)]
+		#[pallet::weight(T::WeightInfo::cancel_as_multi(other_signatories.len() as u32))]
+		pub fn cancel_as_multi_without_timepoint(
+			origin: OriginFor<T>,
+			threshold: u16,
+			other_signatories: Vec<T::AccountId>,
+			call_hash: [u8; 32],
+		) -> DispatchResult {
+			let who = ensure_signed(origin)?;
+			Self::cancel(who, threshold, other_signatories, None, call_hash)
 		}
 	}
 }
@@ -505,6 +533,45 @@ impl<T: Config> Pallet<T> {
 		let entropy = (b"modlpy/utilisuba", who, threshold).using_encoded(blake2_256);
 		Decode::decode(&mut TrailingZeroInput::new(entropy.as_ref()))
 			.expect("infinite length input; no invalid inputs for type; qed")
+	}
+
+	fn cancel(
+		who: T::AccountId,
+		threshold: u16,
+		other_signatories: Vec<T::AccountId>,
+		maybe_timepoint: Option<Timepoint<BlockNumberFor<T>>>,
+		call_hash: [u8; 32],
+	) -> DispatchResult {
+		ensure!(threshold >= 2, Error::<T>::MinimumThreshold);
+		let max_sigs = T::MaxSignatories::get() as usize;
+		ensure!(!other_signatories.is_empty(), Error::<T>::TooFewSignatories);
+		ensure!(other_signatories.len() < max_sigs, Error::<T>::TooManySignatories);
+		let signatories = Self::ensure_sorted_and_insert(other_signatories, who.clone())?;
+
+		let id = Self::multi_account_id(&signatories, threshold);
+
+		let m = <Multisigs<T>>::get(&id, call_hash).ok_or(Error::<T>::NotFound)?;
+		if let Some(when) = m.maybe_when {
+			// `timepoint` security measure is enabled for the multisig,
+			// the caller of the dispatchable should have provided a value for `timepoint`.
+			match maybe_timepoint {
+				Some(timepoint) => ensure!(when == timepoint, Error::<T>::WrongTimepoint),
+				None => return Err(Error::<T>::MissingTimepoint.into()),
+			}
+		}
+		ensure!(m.depositor == who, Error::<T>::NotOwner);
+
+		let err_amount = T::Currency::unreserve(&m.depositor, m.deposit);
+		debug_assert!(err_amount.is_zero());
+		<Multisigs<T>>::remove(&id, &call_hash);
+
+		Self::deposit_event(Event::MultisigCancelled {
+			cancelling: who,
+			timepoint: maybe_timepoint,
+			multisig: id,
+			call_hash,
+		});
+		Ok(())
 	}
 
 	fn operate(
@@ -535,9 +602,14 @@ impl<T: Config> Pallet<T> {
 
 		// Branch on whether the operation has already started or not.
 		if let Some(mut m) = <Multisigs<T>>::get(&id, call_hash) {
-			// Yes; ensure that the timepoint exists and agrees.
-			let timepoint = maybe_timepoint.ok_or(Error::<T>::NoTimepoint)?;
-			ensure!(m.when == timepoint, Error::<T>::WrongTimepoint);
+			if let Some(when) = m.maybe_when {
+				// `timepoint` security measure is enabled for the multisig,
+				// the caller of the dispatchable should have provided a value for `timepoint`.
+				match maybe_timepoint {
+					Some(timepoint) => ensure!(when == timepoint, Error::<T>::WrongTimepoint),
+					None => return Err(Error::<T>::MissingTimepoint.into()),
+				}
+			}
 
 			// Ensure that either we have not yet signed or that it is at threshold.
 			let mut approvals = m.approvals.len() as u16;
@@ -564,7 +636,7 @@ impl<T: Config> Pallet<T> {
 				let result = call.dispatch(RawOrigin::Signed(id.clone()).into());
 				Self::deposit_event(Event::MultisigExecuted {
 					approving: who,
-					timepoint,
+					timepoint: maybe_timepoint,
 					multisig: id,
 					call_hash,
 					result: result.map(|_| ()).map_err(|e| e.error),
@@ -590,7 +662,7 @@ impl<T: Config> Pallet<T> {
 					<Multisigs<T>>::insert(&id, call_hash, m);
 					Self::deposit_event(Event::MultisigApproval {
 						approving: who,
-						timepoint,
+						timepoint: maybe_timepoint,
 						multisig: id,
 						call_hash,
 					});
@@ -606,9 +678,6 @@ impl<T: Config> Pallet<T> {
 				Ok(Some(final_weight).into())
 			}
 		} else {
-			// Not yet started; there should be no timepoint given.
-			ensure!(maybe_timepoint.is_none(), Error::<T>::UnexpectedTimepoint);
-
 			// Just start the operation by recording it in storage.
 			let deposit = T::DepositBase::get() + T::DepositFactor::get() * threshold.into();
 
@@ -617,11 +686,16 @@ impl<T: Config> Pallet<T> {
 			let initial_approvals =
 				vec![who.clone()].try_into().map_err(|_| Error::<T>::TooManySignatories)?;
 
+			// to enable timepoint security measure, user may have supplied a
+			// timepoint during creation (the value of it does not matter),
+			// override the value with the current block number and index as the timepoint.
+			let maybe_when = maybe_timepoint.map(|_| Self::timepoint());
+
 			<Multisigs<T>>::insert(
 				&id,
 				call_hash,
 				Multisig {
-					when: Self::timepoint(),
+					maybe_when,
 					deposit,
 					depositor: who.clone(),
 					approvals: initial_approvals,
