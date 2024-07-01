@@ -616,7 +616,7 @@ pub mod pallet {
 			// key-value data. To ensure safety, a margin of 2x the raw key-value size is used.
 			let max_transient_storage_len = T::MaxTransientStorageLen::get()
 				.checked_mul(2)
-				.expect("MaxTransientStorageLen to big");
+				.expect("MaxTransientStorageLen is too large");
 			// Check that given configured `MaxCodeLen`, runtime heap memory limit can't be broken.
 			//
 			// In worst case, the decoded Wasm contract code would be `x16` times larger than the

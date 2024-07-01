@@ -162,7 +162,7 @@ where
 
 	/// Add transient_storage
 	pub fn with_transient_storage(ext: &mut StackExt<T>) -> Result<(), &'static str> {
-		for i in 0u32.. {
+		for i in 1u32.. {
 			let mut key_data = i.to_le_bytes().to_vec();
 			while key_data.last() == Some(&0) {
 				key_data.pop();

@@ -33,7 +33,7 @@ pub extern "C" fn call() {
 	let buffer = [0u8; 16 * 1024 + 1];
 	let data = &buffer[..len as usize];
 
-	// Place a garbage value in transient storage, the size of which is specified by the call input.
+	// Place a garbage value in the transient storage, with the size specified by the call input.
 	let mut key = [0u8; 32];
 	key[0] = 1;
 

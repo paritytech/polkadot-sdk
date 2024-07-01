@@ -15,8 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! This contract tests the storage APIs. It sets and clears storage values using the different
-//! versions of the storage APIs.
+//! This contract tests the transient storage APIs.
 #![no_std]
 #![no_main]
 

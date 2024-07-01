@@ -210,20 +210,20 @@ pub trait Ext: sealing::Sealed {
 		take_old: bool,
 	) -> Result<WriteOutcome, DispatchError>;
 
-	/// Returns the storage entry of the executing account by the given `key`.
+	/// Returns the transient storage entry of the executing account by the given `key`.
 	///
 	/// Returns `None` if the `key` wasn't previously set by `set_storage` or
 	/// was deleted.
 	fn get_transient_storage(&self, key: &Key<Self::T>) -> Option<Vec<u8>>;
 
-	/// Returns `Some(len)` (in bytes) if a storage item exists at `key`.
+	/// Returns `Some(len)` (in bytes) if a transient storage item exists at `key`.
 	///
 	/// Returns `None` if the `key` wasn't previously set by `set_storage` or
 	/// was deleted.
 	fn get_transient_storage_size(&self, key: &Key<Self::T>) -> Option<u32>;
 
-	/// Sets the storage entry by the given key to the specified value. If `value` is `None` then
-	/// the storage entry is deleted.
+	/// Sets the transient storage entry by the given key to the specified value. If `value` is
+	/// `None` then the storage entry is deleted.
 	fn set_transient_storage(
 		&mut self,
 		key: &Key<Self::T>,
@@ -1366,23 +1366,22 @@ where
 			return Err(Error::<T>::TerminatedWhileReentrant.into())
 		}
 		let frame = self.top_frame_mut();
-		let account_id = frame.account_id.clone();
 		let info = frame.terminate();
 		frame.nested_storage.terminate(&info, beneficiary.clone());
 
 		info.queue_trie_for_deletion();
-		ContractInfoOf::<T>::remove(&account_id);
+		ContractInfoOf::<T>::remove(&frame.account_id);
 		Self::decrement_refcount(info.code_hash);
 
 		for (code_hash, deposit) in info.delegate_dependencies() {
 			Self::decrement_refcount(*code_hash);
 			frame
 				.nested_storage
-				.charge_deposit(account_id.clone(), StorageDeposit::Refund(*deposit));
+				.charge_deposit(frame.account_id.clone(), StorageDeposit::Refund(*deposit));
 		}
 
 		Contracts::<T>::deposit_event(Event::Terminated {
-			contract: account_id,
+			contract: frame.account_id.clone(),
 			beneficiary: beneficiary.clone(),
 		});
 		Ok(())
@@ -3972,6 +3971,7 @@ mod tests {
 		// Call stack: BOB -> CHARLIE(success) -> BOB' (success)
 		let storage_key_1 = &Key::Fix([1; 32]);
 		let storage_key_2 = &Key::Fix([2; 32]);
+		let storage_key_3 = &Key::Fix([3; 32]);
 		let code_bob = MockLoader::insert(Call, |ctx, _| {
 			if ctx.input_data[0] == 0 {
 				assert_eq!(
@@ -3991,14 +3991,15 @@ mod tests {
 					exec_success()
 				);
 				assert_eq!(ctx.ext.get_transient_storage(storage_key_1), Some(vec![3]));
-				assert_eq!(ctx.ext.get_transient_storage(storage_key_2), Some(vec![4]));
+				assert_eq!(ctx.ext.get_transient_storage(storage_key_2), Some(vec![]));
+				assert_eq!(ctx.ext.get_transient_storage(storage_key_3), None);
 			} else {
 				assert_eq!(
 					ctx.ext.set_transient_storage(storage_key_1, Some(vec![3]), true),
 					Ok(WriteOutcome::Taken(vec![1, 2]))
 				);
 				assert_eq!(
-					ctx.ext.set_transient_storage(storage_key_2, Some(vec![4]), false),
+					ctx.ext.set_transient_storage(storage_key_2, Some(vec![]), false),
 					Ok(WriteOutcome::New)
 				);
 			}

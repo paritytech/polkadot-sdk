@@ -198,7 +198,7 @@ pub enum RuntimeCosts {
 	GetStorage(u32),
 	/// Weight of calling `seal_take_storage` for the given size.
 	TakeStorage(u32),
-	/// Weight of calling `seal_set_transient_storage`.
+	/// Weight of calling `seal_set_transient_storage` for the given storage item sizes.
 	SetTransientStorage { old_bytes: u32, new_bytes: u32 },
 	/// Weight of calling `seal_clear_transient_storage` per cleared byte.
 	ClearTransientStorage(u32),

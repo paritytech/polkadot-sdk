@@ -3064,7 +3064,6 @@ mod tests {
 		assert_eq!(&result.data[4..], &[0u8; 0]);
 	}
 
-	// transient_storage
 	#[test]
 	fn set_transient_storage_works() {
 		const CODE: &str = r#"

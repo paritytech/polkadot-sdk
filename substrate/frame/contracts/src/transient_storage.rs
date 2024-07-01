@@ -351,6 +351,7 @@ mod tests {
 	};
 	use core::u32::MAX;
 
+	// Calculate the allocation size for the given entry.
 	fn allocation_size(
 		account: &AccountIdOf<Test>,
 		key: &Key<Test>,
@@ -392,6 +393,7 @@ mod tests {
 		assert_eq!(storage.read(&ALICE, &Key::Fix([2; 32])), Some(vec![4, 5]));
 		assert_eq!(storage.read(&BOB, &Key::Fix([3; 32])), Some(vec![6, 7]));
 
+		// Check for an empty value.
 		assert_eq!(
 			storage.write(&BOB, &Key::Fix([3; 32]), Some(vec![]), true),
 			Ok(WriteOutcome::Taken(vec![6, 7]))
@@ -576,14 +578,15 @@ mod tests {
 		storage.commit_transaction();
 
 		storage.start_transaction();
+		assert_eq!(storage.meter().current_limit(), limit - size);
 		assert_eq!(storage.meter().current_limit() - storage.meter().current_amount(), size);
 		assert_eq!(
 			storage.write(&ALICE, &Key::Fix([2; 32]), Some(vec![1u8; 4096]), false),
 			Ok(WriteOutcome::New)
 		);
-		assert_eq!(storage.meter().current_limit(), limit - size);
-		assert_eq!(storage.meter().current_amount() * 2, storage.meter().total_amount());
+		assert_eq!(storage.meter().current_amount(), storage.meter().total_amount() - size);
 		storage.commit_transaction();
+		assert_eq!(storage.meter().total_amount(), size * 2);
 	}
 
 	#[test]
@@ -619,6 +622,7 @@ mod tests {
 			storage.write(&ALICE, &Key::Fix([1; 32]), Some(vec![1u8; 4096]), false),
 			Err(Error::<Test>::OutOfTransientStorage.into())
 		);
+		assert_eq!(storage.meter.current_amount(), 0);
 		storage.commit_transaction();
 		assert_eq!(storage.meter.total_amount(), 0);
 	}
@@ -690,7 +694,7 @@ mod tests {
 		);
 		storage.commit_transaction();
 		storage.rollback_transaction();
-		assert_eq!(amount, storage.meter.total_amount());
+		assert_eq!(storage.meter.total_amount(), amount);
 		storage.commit_transaction();
 	}
 }

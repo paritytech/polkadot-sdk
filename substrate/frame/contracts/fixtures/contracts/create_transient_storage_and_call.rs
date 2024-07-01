@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! This calls another contract as passed as its account id. It also creates some storage.
+//! This calls another contract as passed as its account id. It also creates some transient storage.
 #![no_std]
 #![no_main]
 
@@ -31,9 +31,9 @@ pub extern "C" fn deploy() {}
 pub extern "C" fn call() {
 	input!(
 		buffer,
+		len: u32,
 		input: [u8; 4],
 		callee: [u8; 32],
-		len: u32,
 	);
 
 	let data = [0u8; 16 * 1024 + 1];

@@ -978,7 +978,7 @@ fn transient_storage_work() {
 }
 
 #[test]
-fn transient_storage_limit_in_nested_call() {
+fn transient_storage_limit_in_call() {
 	let (wasm_caller, _code_hash_caller) =
 		compile_module::<Test>("create_transient_storage_and_call").unwrap();
 	let (wasm_callee, _code_hash_callee) = compile_module::<Test>("set_transient_storage").unwrap();
@@ -987,16 +987,30 @@ fn transient_storage_limit_in_nested_call() {
 		let min_balance = Contracts::min_balance();
 
 		// Create both contracts: Constructors do nothing.
-		let addr_caller =
-			builder::bare_instantiate(Code::Upload(wasm_caller)).value(min_balance * 100).build_and_unwrap_account_id();
-		let addr_callee =
-			builder::bare_instantiate(Code::Upload(wasm_callee)).value(min_balance * 100).build_and_unwrap_account_id();
+		let addr_caller = builder::bare_instantiate(Code::Upload(wasm_caller))
+			.value(min_balance * 100)
+			.build_and_unwrap_account_id();
+		let addr_callee = builder::bare_instantiate(Code::Upload(wasm_callee))
+			.value(min_balance * 100)
+			.build_and_unwrap_account_id();
+
+		// The transient storage limit is set to 4KB.
+		assert_ok!(builder::call(addr_caller.clone())
+			.data((1_000u32, 2_000u32, &addr_callee).encode())
+			.build(),);
+
+		assert_err_ignore_postinfo!(
+			builder::call(addr_caller.clone())
+				.data((5_000u32, 1_000u32, &addr_callee).encode())
+				.build(),
+			<Error<Test>>::OutOfTransientStorage,
+		);
 
 		assert_err_ignore_postinfo!(
 			builder::call(addr_caller)
-				.data((10u32, &addr_callee, 10_000u32).encode())
+				.data((1_000u32, 4_000u32, &addr_callee).encode())
 				.build(),
-			<Error<Test>>::OutOfTransientStorage,
+			<Error<Test>>::ContractTrapped
 		);
 	});
 }
