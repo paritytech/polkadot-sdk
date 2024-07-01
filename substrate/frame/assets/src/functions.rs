@@ -1059,7 +1059,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			Ok(()) => (),
 			Err(SetTeamError::AssetStatusLiveAndNoPrivileges) => log::error!(
 				target: LOG_TARGET,
-				"Operation failed because status is `LiveAndNoPrivileges`, but is was set to
+				"Operation failed because status is `LiveAndNoPrivileges`, but it was set to
 				`Live` before; qed"
 			),
 		}

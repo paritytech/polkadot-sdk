@@ -1473,7 +1473,7 @@ pub mod pallet {
 					Ok(()) => (),
 					Err(SetTeamError::AssetStatusLiveAndNoPrivileges) => log::error!(
 						target: LOG_TARGET,
-						"Operation failed because status is `LiveAndNoPrivileges`, but is was
+						"Operation failed because status is `LiveAndNoPrivileges`, but it was
 						set to `Live` or `Frozen` before; qed"
 					),
 				}
