@@ -196,6 +196,9 @@ pub struct Discovery {
 
 	/// Number of connected peers as reported by the blocks announcement protocol.
 	num_connected_peers: Arc<AtomicUsize>,
+
+	/// Number of active connections over which we interrupt the discovery process.
+	discovery_only_if_under_num: usize,
 }
 
 /// Legacy (fallback) Kademlia protocol name based on `protocol_id`.
@@ -231,6 +234,7 @@ impl Discovery {
 		known_peers: HashMap<PeerId, Vec<Multiaddr>>,
 		listen_addresses: Arc<RwLock<HashSet<Multiaddr>>>,
 		num_connected_peers: Arc<AtomicUsize>,
+		discovery_only_if_under_num: usize,
 		_peerstore_handle: Arc<dyn PeerStoreProvider>,
 	) -> (Self, PingConfig, IdentifyConfig, KademliaConfig, Option<MdnsConfig>) {
 		let (ping_config, ping_event_stream) = PingConfig::default();
@@ -285,6 +289,7 @@ impl Discovery {
 					fork_id,
 				)]),
 				num_connected_peers,
+				discovery_only_if_under_num,
 			},
 			ping_config,
 			identify_config,
@@ -456,18 +461,26 @@ impl Stream for Discovery {
 
 		if let Some(mut delay) = this.next_kad_query.take() {
 			while delay.poll_unpin(cx).is_ready() {
-				let peer = PeerId::random();
-				log::info!(target: LOG_TARGET, "start next kademlia query for {peer:?}");
+				let num_peers = this.num_connected_peers();
+				if num_peers < this.discovery_only_if_under_num {
+					let peer = PeerId::random();
+					log::info!(target: LOG_TARGET, "start next kademlia query for {peer:?}");
 
-				let started = this.kademlia_handle.try_find_node(peer).is_ok();
+					let started = this.kademlia_handle.try_find_node(peer).is_ok();
 
-				this.duration_to_next_find_query =
-					cmp::min(this.duration_to_next_find_query * 2, Duration::from_secs(60));
-				this.next_kad_query = Some(Delay::new(this.duration_to_next_find_query));
+					this.duration_to_next_find_query =
+						cmp::min(this.duration_to_next_find_query * 2, Duration::from_secs(60));
+					this.next_kad_query = Some(Delay::new(this.duration_to_next_find_query));
 
-				if started {
-					this.find_node_query_id = None;
-					return Poll::Ready(Some(DiscoveryEvent::RandomKademliaStarted))
+					if started {
+						this.find_node_query_id = None;
+						return Poll::Ready(Some(DiscoveryEvent::RandomKademliaStarted))
+					}
+				} else {
+					log::info!(
+						target: LOG_TARGET,
+						"discovery is disabled as we have {num_peers} connected peers."
+					);
 				}
 			}
 		}

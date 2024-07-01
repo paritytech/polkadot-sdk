@@ -404,7 +404,6 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 	where
 		Self: Sized,
 	{
-		config.discovery_limit(u64::from(network_config.default_peers_set.out_peers) + 15);
 		let (keypair, local_peer_id) =
 			Self::get_keypair(&params.network_config.network_config.node_key)?;
 		let (cmd_tx, cmd_rx) = tracing_unbounded("mpsc_network_worker", 100_000);
@@ -450,6 +449,9 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 		let known_addresses = params.network_config.known_addresses();
 		let peer_store_handle = params.network_config.peer_store_handle();
 		let executor = Arc::new(Litep2pExecutor { executor: params.executor });
+
+		let limit_discovery_under =
+			params.network_config.network_config.default_peers_set.out_peers as usize + 15;
 
 		let FullNetworkConfiguration {
 			notification_protocols,
@@ -564,6 +566,7 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 				known_addresses.clone(),
 				Arc::clone(&listen_addresses),
 				Arc::clone(&num_connected),
+				limit_discovery_under,
 				Arc::clone(&peer_store_handle),
 			);
 
