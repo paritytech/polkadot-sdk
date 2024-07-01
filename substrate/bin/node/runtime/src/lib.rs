@@ -572,6 +572,12 @@ impl pallet_transaction_payment::Config for Runtime {
 	>;
 }
 
+pub type AssetsFreezerInstance = pallet_assets_freezer::Instance1;
+impl pallet_assets_freezer::Config<AssetsFreezerInstance> for Runtime {
+	type RuntimeFreezeReason = RuntimeFreezeReason;
+	type RuntimeEvent = RuntimeEvent;
+}
+
 impl pallet_asset_tx_payment::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Fungibles = Assets;
@@ -1738,6 +1744,9 @@ impl pallet_asset_conversion::Config for Runtime {
 pub type NativeAndAssets =
 	UnionOf<Balances, Assets, NativeFromLeft, NativeOrWithId<u32>, AccountId>;
 
+pub type NativeAndAssetsFreezer =
+	UnionOf<Balances, AssetsFreezer, NativeFromLeft, NativeOrWithId<u32>, AccountId>;
+
 parameter_types! {
 	pub const StakingRewardsPalletId: PalletId = PalletId(*b"py/stkrd");
 }
@@ -1785,12 +1794,14 @@ impl EnsureOrigin<RuntimeOrigin> for AssetRewardsPermissionedOrigin {
 
 impl pallet_asset_rewards::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
+	type RuntimeFreezeReason = RuntimeFreezeReason;
 	type AssetId = NativeOrWithId<u32>;
 	type Balance = u128;
 	type Assets = NativeAndAssets;
 	type PalletId = StakingRewardsPalletId;
 	type CreatePoolOrigin = AssetRewardsPermissionedOrigin;
 	type WeightInfo = ();
+	type AssetsFreezer = NativeAndAssetsFreezer;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = AssetRewardsBenchmarkHelper;
 }
@@ -2546,6 +2557,9 @@ mod runtime {
 
 	#[runtime::pallet_index(80)]
 	pub type AssetRewards = pallet_asset_rewards;
+
+	#[runtime::pallet_index(81)]
+	pub type AssetsFreezer = pallet_assets_freezer::Pallet<Runtime, Instance1>;
 }
 
 /// The address format for describing accounts.

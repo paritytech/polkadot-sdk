@@ -31,6 +31,7 @@ sp-arithmetic = { path = "../../primitives/arithmetic", default-features = false
 [dev-dependencies]
 pallet-balances = { path = "../balances" }
 pallet-assets = { path = "../assets" }
+pallet-assets-freezer = { path = "../assets-freezer" }
 primitive-types = { version = "0.12.0", default-features = false, features = ["codec", "num-traits", "scale-info"] }
 
 [features]

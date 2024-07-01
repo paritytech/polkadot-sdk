@@ -43,7 +43,7 @@ use frame_support::{
 		fungible, fungibles,
 		tokens::{imbalance::ResolveAssetTo, nonfungibles_v2::Inspect},
 		AsEnsureOriginWithArg, ConstBool, ConstU128, ConstU32, ConstU64, ConstU8, EitherOfDiverse,
-		Equals, InstanceFilter, TransformOrigin,
+		Equals, InstanceFilter, PalletInfoAccess, TransformOrigin,
 	},
 	weights::{ConstantMultiplier, Weight, WeightToFee as _},
 	BoundedVec, PalletId,
@@ -208,8 +208,8 @@ impl pallet_balances::Config for Runtime {
 	type ReserveIdentifier = [u8; 8];
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type RuntimeFreezeReason = RuntimeFreezeReason;
-	type FreezeIdentifier = ();
-	type MaxFreezes = ConstU32<0>;
+	type FreezeIdentifier = RuntimeFreezeReason;
+	type MaxFreezes = ConstU32<50>;
 }
 
 parameter_types! {
@@ -330,10 +330,32 @@ pub type LocalAndForeignAssets = fungibles::UnionOf<
 	AccountId,
 >;
 
+/// Union fungibles implementation for `AssetsFreezer` and `ForeignAssetsFreezer`.
+pub type LocalAndForeignAssetsFreezer = fungibles::UnionOf<
+	AssetsFreezer,
+	ForeignAssetsFreezer,
+	LocalFromLeft<
+		AssetIdForTrustBackedAssetsConvert<TrustBackedAssetsPalletLocationV3, xcm::v3::Location>,
+		AssetIdForTrustBackedAssets,
+		xcm::v3::Location,
+	>,
+	xcm::v3::Location,
+	AccountId,
+>;
+
 /// Union fungibles implementation for [`LocalAndForeignAssets`] and `Balances`.
 pub type NativeAndNonPoolAssets = fungible::UnionOf<
 	Balances,
 	LocalAndForeignAssets,
+	TargetFromLeft<WestendLocationV3, xcm::v3::Location>,
+	xcm::v3::Location,
+	AccountId,
+>;
+
+/// Union fungibles implementation for [`LocalAndForeignAssetsFreezer`] and [`Balances`].
+pub type NativeAndNonPoolAssetsFreezer = fungible::UnionOf<
+	Balances,
+	LocalAndForeignAssetsFreezer,
 	TargetFromLeft<WestendLocationV3, xcm::v3::Location>,
 	xcm::v3::Location,
 	AccountId,
@@ -345,6 +367,21 @@ pub type NativeAndNonPoolAssets = fungible::UnionOf<
 pub type NativeAndAllAssets = fungibles::UnionOf<
 	PoolAssets,
 	NativeAndNonPoolAssets,
+	LocalFromLeft<
+		AssetIdForPoolAssetsConvert<PoolAssetsPalletLocationV3, xcm::v3::Location>,
+		AssetIdForPoolAssets,
+		xcm::v3::Location,
+	>,
+	xcm::v3::Location,
+	AccountId,
+>;
+
+/// Union fungibles implementation for [`PoolAssetsFreezer`] and [`NativeAndNonPoolAssetsFreezer`].
+///
+/// NOTE: Should be kept updated to include ALL balances and assets in the runtime.
+pub type NativeAndAllAssetsFreezer = fungibles::UnionOf<
+	PoolAssetsFreezer,
+	NativeAndNonPoolAssetsFreezer,
 	LocalFromLeft<
 		AssetIdForPoolAssetsConvert<PoolAssetsPalletLocationV3, xcm::v3::Location>,
 		AssetIdForPoolAssets,
@@ -422,6 +459,7 @@ impl pallet_asset_rewards::Config for Runtime {
 	type PalletId = AssetRewardsPalletId;
 	type Balance = Balance;
 	type Assets = NativeAndAllAssets;
+	type AssetsFreezer = NativeAndAllAssetsFreezer;
 	type AssetId = xcm::v3::Location;
 	type CreatePoolOrigin = EnsureWithSuccess<
 		EitherOfDiverse<
@@ -431,6 +469,7 @@ impl pallet_asset_rewards::Config for Runtime {
 		AccountId,
 		TreasurerBodyAccount,
 	>;
+	type RuntimeFreezeReason = RuntimeFreezeReason;
 	type WeightInfo = weights::pallet_asset_rewards::WeightInfo<Runtime>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = PalletAssetRewardsBenchmarkHelper;

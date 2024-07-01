@@ -44,6 +44,7 @@ construct_runtime!(
 		System: frame_system,
 		Balances: pallet_balances,
 		Assets: pallet_assets::<Instance1>,
+		AssetsFreezer: pallet_assets_freezer::<Instance1>,
 		StakingRewards: pallet_staking_rewards,
 	}
 );
@@ -66,10 +67,10 @@ impl pallet_balances::Config for MockRuntime {
 	type MaxLocks = ();
 	type MaxReserves = ConstU32<50>;
 	type ReserveIdentifier = [u8; 8];
-	type FreezeIdentifier = ();
-	type MaxFreezes = ();
+	type FreezeIdentifier = RuntimeFreezeReason;
+	type MaxFreezes = ConstU32<50>;
 	type RuntimeHoldReason = ();
-	type RuntimeFreezeReason = ();
+	type RuntimeFreezeReason = RuntimeFreezeReason;
 }
 
 impl pallet_assets::Config<Instance1> for MockRuntime {
@@ -87,7 +88,7 @@ impl pallet_assets::Config<Instance1> for MockRuntime {
 	type MetadataDepositPerByte = ConstU128<1>;
 	type ApprovalDeposit = ConstU128<1>;
 	type StringLimit = ConstU32<50>;
-	type Freezer = ();
+	type Freezer = AssetsFreezer;
 	type Extra = ();
 	type WeightInfo = ();
 	type CallbackHandle = ();
@@ -120,7 +121,17 @@ impl EnsureOrigin<RuntimeOrigin> for MockPermissionedOrigin {
 	}
 }
 
+/// Allow Freezes for the `Assets` pallet
+pub type AssetsFreezerInstance = pallet_assets_freezer::Instance1;
+impl pallet_assets_freezer::Config<AssetsFreezerInstance> for MockRuntime {
+	type RuntimeFreezeReason = RuntimeFreezeReason;
+	type RuntimeEvent = RuntimeEvent;
+}
+
 pub type NativeAndAssets = UnionOf<Balances, Assets, NativeFromLeft, NativeOrWithId<u32>, u128>;
+
+pub type NativeAndAssetsFreezer =
+	UnionOf<Balances, AssetsFreezer, NativeFromLeft, NativeOrWithId<u32>, u128>;
 
 #[cfg(feature = "runtime-benchmarks")]
 pub struct AssetRewardsBenchmarkHelper;
@@ -148,9 +159,11 @@ impl Config for MockRuntime {
 	type AssetId = NativeOrWithId<u32>;
 	type Balance = <Self as pallet_balances::Config>::Balance;
 	type Assets = NativeAndAssets;
+	type AssetsFreezer = NativeAndAssetsFreezer;
 	type PalletId = StakingRewardsPalletId;
 	type CreatePoolOrigin = MockPermissionedOrigin;
 	type WeightInfo = ();
+	type RuntimeFreezeReason = RuntimeFreezeReason;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = AssetRewardsBenchmarkHelper;
 }
@@ -161,7 +174,7 @@ pub(crate) fn new_test_ext() -> sp_io::TestExternalities {
 	pallet_assets::GenesisConfig::<MockRuntime, Instance1> {
 		// Genesis assets: id, owner, is_sufficient, min_balance
 		// pub assets: Vec<(T::AssetId, T::AccountId, bool, T::Balance)>,
-		assets: vec![(1, 1, true, 10000), (10, 1, true, 10000), (20, 1, true, 10000)],
+		assets: vec![(1, 1, true, 1), (10, 1, true, 1), (20, 1, true, 1)],
 		// Genesis metadata: id, name, symbol, decimals
 		// pub metadata: Vec<(T::AssetId, Vec<u8>, Vec<u8>, u8)>,
 		metadata: vec![

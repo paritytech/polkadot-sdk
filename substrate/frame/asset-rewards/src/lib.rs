@@ -83,6 +83,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use codec::{Decode, Encode, MaxEncodedLen};
+use frame_support::traits::fungibles::InspectFreeze;
 use frame_system::pallet_prelude::BlockNumberFor;
 pub use pallet::*;
 
@@ -165,7 +166,10 @@ pub mod pallet {
 	use super::*;
 	use frame_support::{
 		pallet_prelude::*,
-		traits::tokens::{AssetId, Preservation},
+		traits::{
+			fungibles::MutateFreeze,
+			tokens::{AssetId, Fortitude, Preservation},
+		},
 	};
 	use frame_system::pallet_prelude::*;
 	use sp_runtime::{
@@ -175,6 +179,14 @@ pub mod pallet {
 
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
+
+	/// A reason for the pallet placing a hold on funds.
+	#[pallet::composite_enum]
+	pub enum FreezeReason {
+		/// Funds are staked in the pallet.
+		#[codec(index = 0)]
+		Staked,
+	}
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
@@ -202,6 +214,17 @@ pub mod pallet {
 		/// rewards for staking.
 		type Assets: Inspect<Self::AccountId, AssetId = Self::AssetId, Balance = Self::Balance>
 			+ Mutate<Self::AccountId>;
+
+		/// Freezer for the Assets.
+		type AssetsFreezer: MutateFreeze<
+			Self::AccountId,
+			Id = Self::RuntimeFreezeReason,
+			AssetId = Self::AssetId,
+			Balance = Self::Balance,
+		>;
+
+		/// The overarching freeze reason.
+		type RuntimeFreezeReason: From<FreezeReason>;
 
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
@@ -320,6 +343,8 @@ pub mod pallet {
 		ExpiryBlockMustBeInTheFuture,
 		/// An amount overflowed.
 		Overflow,
+		/// Insufficient funds to create the freeze.
+		InsufficientFunds,
 	}
 
 	#[pallet::hooks]
@@ -422,7 +447,28 @@ pub mod pallet {
 				Self::update_pool_and_staker_rewards(&pool_info, &staker_info)?;
 
 			// Try to freeze the staker assets.
-			// TODO: (blocked https://github.com/paritytech/polkadot-sdk/issues/3342)
+			let reducible_balance = T::Assets::reducible_balance(
+				pool_info.staked_asset_id.clone(),
+				&caller,
+				Preservation::Expendable,
+				Fortitude::Force,
+			);
+
+			ensure!(reducible_balance >= amount, Error::<T>::InsufficientFunds);
+
+			// Can't use `extend_frozen` because it takes the max of the current and new
+			// amount instead of summing them.
+			let prev_frozen = T::AssetsFreezer::balance_frozen(
+				pool_info.staked_asset_id.clone(),
+				&FreezeReason::Staked.into(),
+				&caller,
+			);
+			T::AssetsFreezer::set_freeze(
+				pool_info.staked_asset_id.clone(),
+				&FreezeReason::Staked.into(),
+				&caller,
+				prev_frozen.checked_add(&amount).ok_or(Error::<T>::Overflow)?,
+			)?;
 
 			// Update Pools.
 			pool_info.total_tokens_staked =
@@ -461,7 +507,12 @@ pub mod pallet {
 			ensure!(staker_info.amount >= amount, Error::<T>::NotEnoughTokens);
 
 			// Unfreeze staker assets.
-			// TODO: (blocked https://github.com/paritytech/polkadot-sdk/issues/3342)
+			T::AssetsFreezer::decrease_frozen(
+				pool_info.staked_asset_id.clone(),
+				&FreezeReason::Staked.into(),
+				&caller,
+				amount,
+			)?;
 
 			// Update Pools.
 			pool_info.total_tokens_staked.saturating_reduce(amount);

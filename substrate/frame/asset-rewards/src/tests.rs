@@ -16,7 +16,14 @@
 // limitations under the License.
 
 use crate::{mock::*, *};
-use frame_support::{assert_err, assert_ok, hypothetically, traits::fungible::NativeOrWithId};
+use frame_support::{
+	assert_err, assert_ok, hypothetically,
+	traits::{
+		fungible::NativeOrWithId,
+		fungibles,
+		tokens::{Fortitude, Preservation},
+	},
+};
 use sp_runtime::{traits::BadOrigin, ArithmeticError, TokenError};
 
 const DEFAULT_STAKED_ASSET_ID: NativeOrWithId<u32> = NativeOrWithId::<u32>::WithId(1);
@@ -354,6 +361,12 @@ mod stake {
 			let user = 1;
 			create_default_pool();
 			let pool_id = 0;
+			let initial_balance = <Assets as fungibles::Inspect<u128>>::reducible_balance(
+				1,
+				&user,
+				Preservation::Expendable,
+				Fortitude::Force,
+			);
 
 			// User stakes tokens
 			assert_ok!(StakingRewards::stake(RuntimeOrigin::signed(user), pool_id, 1000));
@@ -370,7 +383,17 @@ mod stake {
 			// Check that the pool's total tokens staked is updated
 			assert_eq!(Pools::<MockRuntime>::get(pool_id).unwrap().total_tokens_staked, 1000);
 
-			// TODO: Check user's frozen balance is updated
+			// Check user's frozen balance is updated
+			assert_eq!(
+				<Assets as fungibles::Inspect<u128>>::reducible_balance(
+					1,
+					&user,
+					Preservation::Expendable,
+					Fortitude::Force,
+				),
+				// - extra 1 for ed
+				initial_balance - 1000 - 1
+			);
 
 			// User stakes more tokens
 			assert_ok!(StakingRewards::stake(RuntimeOrigin::signed(user), pool_id, 500));
@@ -382,12 +405,21 @@ mod stake {
 			);
 
 			// Check that the user's staked amount is updated
-			assert_eq!(PoolStakers::<MockRuntime>::get(pool_id, user).unwrap().amount, 1500);
+			assert_eq!(PoolStakers::<MockRuntime>::get(pool_id, user).unwrap().amount, 1000 + 500);
 
 			// Check that the pool's total tokens staked is updated
-			assert_eq!(Pools::<MockRuntime>::get(pool_id).unwrap().total_tokens_staked, 1500);
+			assert_eq!(Pools::<MockRuntime>::get(pool_id).unwrap().total_tokens_staked, 1000 + 500);
 
-			// TODO: Check user's frozen balance is updated
+			assert_eq!(
+				<Assets as fungibles::Inspect<u128>>::reducible_balance(
+					1,
+					&user,
+					Preservation::Expendable,
+					Fortitude::Force,
+				),
+				// - extra 1 for ed
+				initial_balance - 1500 - 1
+			);
 
 			// Event is emitted.
 			assert_eq!(events(), []);
@@ -407,7 +439,21 @@ mod stake {
 
 	#[test]
 	fn fails_for_insufficient_balance() {
-		// TODO: When freezing assets fails.
+		new_test_ext().execute_with(|| {
+			let user = 1;
+			create_default_pool();
+			let pool_id = 0;
+			let initial_balance = <Assets as fungibles::Inspect<u128>>::reducible_balance(
+				1,
+				&user,
+				Preservation::Expendable,
+				Fortitude::Force,
+			);
+			assert_err!(
+				StakingRewards::stake(RuntimeOrigin::signed(user), pool_id, initial_balance + 1),
+				Error::<MockRuntime>::InsufficientFunds
+			);
+		})
 	}
 }
 
