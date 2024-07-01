@@ -85,7 +85,7 @@ pub enum CandidateBackingMessage {
 	/// candidates of the same para that follow it in the input vector. In other words, assuming
 	/// candidates are supplied in dependency order, we must ensure that this dependency order is
 	/// preserved.
-	GetBackedCandidates(
+	GetBackableCandidates(
 		HashMap<ParaId, Vec<(CandidateHash, Hash)>>,
 		oneshot::Sender<HashMap<ParaId, Vec<BackedCandidate>>>,
 	),
