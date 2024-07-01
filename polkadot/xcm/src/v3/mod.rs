@@ -1477,7 +1477,7 @@ impl<Call> TryFrom<NewInstruction<Call>> for Instruction<Call> {
 			ClearTransactStatus => Self::ClearTransactStatus,
 			UniversalOrigin(junction) => Self::UniversalOrigin(junction.try_into()?),
 			ExportMessage { network, destination, xcm } => Self::ExportMessage {
-				network: network.into(),
+				network: network.try_into()?,
 				destination: destination.try_into()?,
 				xcm: xcm.try_into()?,
 			},

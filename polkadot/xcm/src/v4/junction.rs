@@ -149,6 +149,8 @@ pub enum NetworkId {
 	BitcoinCash,
 	/// The Polkadot Bulletin chain.
 	PolkadotBulletin,
+	/// The Paseo testnet Relay-chain.
+	Paseo,
 }
 
 impl From<OldNetworkId> for Option<NetworkId> {
