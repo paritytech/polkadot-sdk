@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1719851817092,
+  "lastUpdate": 1719869368602,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -9211,6 +9211,53 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 3.4135794316302444,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Kazunobu Ndong",
+            "username": "ndkazu",
+            "email": "33208377+ndkazu@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "18ed309a37036db8429665f1e91fb24ab312e646",
+          "message": "Pallet Name Customisation (#4806)\n\nAdded Instructions for pallet name customisation in the ReadMe\r\n\r\n---------\r\n\r\nSigned-off-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>\r\nCo-authored-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>\r\nCo-authored-by: Bastian Köcher <git@kchr.de>",
+          "timestamp": "2024-07-01T20:18:27Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/18ed309a37036db8429665f1e91fb24ab312e646"
+        },
+        "date": 1719869339051,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63833.29999999999,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52940,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting",
+            "value": 10.877469235229958,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 3.929156631030223,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 8.26009080095996,
             "unit": "seconds"
           }
         ]
