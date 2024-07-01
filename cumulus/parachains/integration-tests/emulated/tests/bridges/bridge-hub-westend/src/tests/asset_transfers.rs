@@ -390,6 +390,7 @@ fn send_wnds_from_penpal_westend_through_asset_hub_westend_to_asset_hub_rococo()
 		);
 	}
 
+	// process AHR incoming message and check events
 	AssetHubRococo::execute_with(|| {
 		type RuntimeEvent = <AssetHubRococo as Chain>::RuntimeEvent;
 		assert_expected_events!(
@@ -423,4 +424,122 @@ fn send_wnds_from_penpal_westend_through_asset_hub_westend_to_asset_hub_rococo()
 	// Reserve balance is increased by sent amount (less fess)
 	assert!(wnds_in_reserve_on_ahw_after > wnds_in_reserve_on_ahw_before);
 	assert!(wnds_in_reserve_on_ahw_after <= wnds_in_reserve_on_ahw_before + amount);
+}
+
+#[test]
+fn send_back_rocs_from_penpal_westend_through_asset_hub_westend_to_asset_hub_rococo() {
+	let roc_at_westend_parachains = bridged_roc_at_ah_westend();
+	let roc_at_westend_parachains_v3 = roc_at_westend_parachains.clone().try_into().unwrap();
+	let amount = ASSET_HUB_WESTEND_ED * 10_000_000;
+	let sender = PenpalBSender::get();
+	let receiver = AssetHubRococoReceiver::get();
+
+	// set up WNDs for transfer
+	let (wnd_at_westend_parachains, _) =
+		set_up_wnds_for_penpal_westend_through_ahw_to_ahr(&sender, amount);
+
+	// set up ROCs for transfer
+	let penpal_location = AssetHubWestend::sibling_location_of(PenpalB::para_id());
+	let sov_penpal_on_ahr = AssetHubWestend::sovereign_account_id_of(penpal_location);
+	let prefund_accounts = vec![(sov_penpal_on_ahr, amount * 2)];
+	create_foreign_on_ah_westend(roc_at_westend_parachains_v3, true, prefund_accounts);
+	let asset_owner: AccountId = AssetHubWestend::account_id_of(ALICE);
+	PenpalB::force_create_foreign_asset(
+		roc_at_westend_parachains.clone(),
+		asset_owner.clone(),
+		true,
+		ASSET_MIN_BALANCE,
+		vec![(sender.clone(), amount * 2)],
+	);
+
+	// fund the AHW's SA on AHR with the ROC tokens held in reserve
+	let sov_ahw_on_ahr = AssetHubRococo::sovereign_account_of_parachain_on_other_global_consensus(
+		NetworkId::Westend,
+		AssetHubWestend::para_id(),
+	);
+	AssetHubRococo::fund_accounts(vec![(sov_ahw_on_ahr.clone(), amount * 2)]);
+
+	// balances before
+	let sender_rocs_before = PenpalB::execute_with(|| {
+		type ForeignAssets = <PenpalB as PenpalBPallet>::ForeignAssets;
+		<ForeignAssets as Inspect<_>>::balance(roc_at_westend_parachains.clone().into(), &sender)
+	});
+	let receiver_rocs_before = <AssetHubRococo as Chain>::account_data_of(receiver.clone()).free;
+
+	// send ROCs over the bridge, WNDs only used to pay fees on local AH, pay with ROC on remote AH
+	{
+		let final_destination = asset_hub_rococo_location();
+		let intermediary_hop = PenpalB::sibling_location_of(AssetHubWestend::para_id());
+		let context = PenpalB::execute_with(|| PenpalUniversalLocation::get());
+
+		// what happens at final destination
+		let beneficiary = AccountId32Junction { network: None, id: receiver.clone().into() }.into();
+		// use ROC as fees on the final destination (AHW)
+		let remote_fees: Asset = (roc_at_westend_parachains.clone(), amount).into();
+		let remote_fees = remote_fees.reanchored(&final_destination, &context).unwrap();
+		// buy execution using ROCs, then deposit all remaining ROCs
+		let xcm_on_final_dest = Xcm::<()>(vec![
+			BuyExecution { fees: remote_fees, weight_limit: WeightLimit::Unlimited },
+			DepositAsset { assets: Wild(AllCounted(1)), beneficiary },
+		]);
+
+		// what happens at intermediary hop
+		// reanchor final dest (Asset Hub Rococo) to the view of hop (Asset Hub Westend)
+		let mut final_destination = final_destination.clone();
+		final_destination.reanchor(&intermediary_hop, &context).unwrap();
+		// reanchor ROCs to the view of hop (Asset Hub Westend)
+		let asset: Asset = (roc_at_westend_parachains.clone(), amount).into();
+		let asset = asset.reanchored(&intermediary_hop, &context).unwrap();
+		// on Asset Hub Westend, forward a request to withdraw ROCs from reserve on Asset Hub Rococo
+		let xcm_on_hop = Xcm::<()>(vec![InitiateReserveWithdraw {
+			assets: Definite(asset.into()), // ROCs
+			reserve: final_destination,     // AHR
+			xcm: xcm_on_final_dest,         // XCM to execute on AHR
+		}]);
+		// assets to send from Penpal and how they reach the intermediary hop
+		let assets: Assets = vec![
+			(roc_at_westend_parachains.clone(), amount).into(),
+			(wnd_at_westend_parachains.clone(), amount).into(),
+		]
+		.into();
+		let asset_transfer_type = TransferType::DestinationReserve;
+		let fees_id: AssetId = wnd_at_westend_parachains.into();
+		let fees_transfer_type = TransferType::DestinationReserve;
+
+		// initiate the transfer
+		send_assets_from_penpal_westend_through_westend_ah_to_rococo_ah(
+			intermediary_hop,
+			(assets, asset_transfer_type),
+			(fees_id, fees_transfer_type),
+			xcm_on_hop,
+		);
+	}
+
+	// process AHR incoming message and check events
+	AssetHubRococo::execute_with(|| {
+		type RuntimeEvent = <AssetHubRococo as Chain>::RuntimeEvent;
+		assert_expected_events!(
+			AssetHubRococo,
+			vec![
+				// issue WNDs on AHR
+				RuntimeEvent::Balances(pallet_balances::Event::Issued { .. }) => {},
+				// message processed successfully
+				RuntimeEvent::MessageQueue(
+					pallet_message_queue::Event::Processed { success: true, .. }
+				) => {},
+			]
+		);
+	});
+
+	let sender_rocs_after = PenpalB::execute_with(|| {
+		type ForeignAssets = <PenpalB as PenpalBPallet>::ForeignAssets;
+		<ForeignAssets as Inspect<_>>::balance(roc_at_westend_parachains.into(), &sender)
+	});
+	let receiver_rocs_after = <AssetHubRococo as Chain>::account_data_of(receiver).free;
+
+	// Sender's balance is reduced by sent "amount"
+	assert_eq!(sender_rocs_after, sender_rocs_before - amount);
+	// Receiver's balance is increased by no more than "amount"
+	assert!(receiver_rocs_after > receiver_rocs_before);
+	assert!(receiver_rocs_after <= receiver_rocs_before + amount);
 }
