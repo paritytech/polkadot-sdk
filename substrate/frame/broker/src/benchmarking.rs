@@ -997,6 +997,27 @@ mod benches {
 
 		advance_to::<T>(2);
 
+		// We assume max auto renewals for worst case.
+		(0..T::MaxAutoRenewals::get()-1).try_for_each(|indx| -> Result<(), BenchmarkError> {
+			let task = 1000 + indx;
+			let caller: T::AccountId = T::SovereignAccountOf::maybe_convert(task)
+				.expect("Failed to get sovereign account");
+			T::Currency::set_balance(
+				&caller.clone(),
+				T::Currency::minimum_balance().saturating_add(100u32.into()),
+			);
+
+			let region = Broker::<T>::do_purchase(caller.clone(), 10u32.into())
+				.map_err(|_| BenchmarkError::Weightless)?;
+
+			Broker::<T>::do_assign(region, None, task, Final)
+				.map_err(|_| BenchmarkError::Weightless)?;
+
+			Broker::<T>::do_enable_auto_renew(caller, region.core, task, Some(7))?;
+
+			Ok(())
+		})?;
+
 		let caller: T::AccountId =
 			T::SovereignAccountOf::maybe_convert(2001).expect("Failed to get sovereign account");
 		T::Currency::set_balance(
@@ -1004,15 +1025,15 @@ mod benches {
 			T::Currency::minimum_balance().saturating_add(100u32.into()),
 		);
 
+		// The region for which we benchmark enable auto renew.
 		let region = Broker::<T>::do_purchase(caller.clone(), 10u32.into())
 			.map_err(|_| BenchmarkError::Weightless)?;
-
 		Broker::<T>::do_assign(region, None, 2001, Final)
 			.map_err(|_| BenchmarkError::Weightless)?;
-		// advance to next bulk sale:
-		advance_to::<T>(6);
 
 		// The most 'intensive' path is when we renew the core upon enabling auto-renewal.
+		// Therefore, we advance to next bulk sale:
+		advance_to::<T>(6);
 
 		#[extrinsic_call]
 		_(RawOrigin::Signed(caller), region.core, 2001, None);
@@ -1034,26 +1055,33 @@ mod benches {
 
 		advance_to::<T>(2);
 
-		let caller: T::AccountId =
-			T::SovereignAccountOf::maybe_convert(2001).expect("Failed to get sovereign account");
-		T::Currency::set_balance(
-			&caller.clone(),
-			T::Currency::minimum_balance().saturating_add(100u32.into()),
-		);
+		// We assume max auto renewals for worst case.
+		(0..T::MaxAutoRenewals::get()-1).try_for_each(|indx| -> Result<(), BenchmarkError> {
+			let task = 1000 + indx;
+			let caller: T::AccountId = T::SovereignAccountOf::maybe_convert(task)
+				.expect("Failed to get sovereign account");
+			T::Currency::set_balance(
+				&caller.clone(),
+				T::Currency::minimum_balance().saturating_add(100u32.into()),
+			);
 
-		let region = Broker::<T>::do_purchase(caller.clone(), 10u32.into())
-			.map_err(|_| BenchmarkError::Weightless)?;
+			let region = Broker::<T>::do_purchase(caller.clone(), 10u32.into())
+				.map_err(|_| BenchmarkError::Weightless)?;
 
-		Broker::<T>::do_assign(region, None, 2001, Final)
-			.map_err(|_| BenchmarkError::Weightless)?;
+			Broker::<T>::do_assign(region, None, task, Final)
+				.map_err(|_| BenchmarkError::Weightless)?;
 
-		advance_to::<T>(6);
-		Broker::<T>::do_enable_auto_renew(caller.clone(), region.core, 2001, None)?;
+			Broker::<T>::do_enable_auto_renew(caller, region.core, task, Some(7))?;
 
+			Ok(())
+		})?;
+
+		let caller: T::AccountId = T::SovereignAccountOf::maybe_convert(1000)
+			.expect("Failed to get sovereign account");
 		#[extrinsic_call]
-		_(RawOrigin::Signed(caller), region.core, 2001);
+		_(RawOrigin::Signed(caller), _core, 1000);
 
-		assert_last_event::<T>(Event::AutoRenewalDisabled { core: region.core, task: 2001 }.into());
+		assert_last_event::<T>(Event::AutoRenewalDisabled { core: _core, task: 1000 }.into());
 
 		Ok(())
 	}

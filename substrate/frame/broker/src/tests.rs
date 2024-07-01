@@ -1482,7 +1482,7 @@ fn renewal_works_leases_ended_before_start_sales() {
 #[test]
 fn enable_auto_renew_works() {
 	TestExt::new().endow(1, 1000).limit_cores_offered(Some(10)).execute_with(|| {
-		assert_ok!(Broker::do_start_sales(100, 3));
+		assert_ok!(Broker::do_start_sales(100, 5));
 		advance_to(2);
 		let region_id = Broker::do_purchase(1, u64::max_value()).unwrap();
 		let record = Regions::<Test>::get(region_id).unwrap();
@@ -1533,6 +1533,16 @@ fn enable_auto_renew_works() {
 				AutoRenewalRecord { core: 1, task: 1002, next_renewal: 7 },
 				AutoRenewalRecord { core: 2, task: 1003, next_renewal: 7 },
 			]
+		);
+
+		// Ensure that we cannot enable more auto renewals than `MaxAutoRenewals`.
+		// We already enabled it for three cores, and the limit is set to 3.
+		let region_4 = Broker::do_purchase(1, u64::max_value()).unwrap();
+		assert_ok!(Broker::do_assign(region_4, Some(1), 1004, Final));
+
+		assert_noop!(
+			Broker::do_enable_auto_renew(1004, region_4.core, 1004, Some(7)),
+			Error::<Test>::TooManyAutoRenewals
 		);
 	});
 }

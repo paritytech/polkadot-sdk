@@ -208,7 +208,7 @@ impl crate::Config for Test {
 	type PalletId = TestBrokerId;
 	type AdminOrigin = EnsureOneOrRoot;
 	type SovereignAccountOf = SovereignAccountOf;
-	type MaxAutoRenewals = ConstU32<5>;
+	type MaxAutoRenewals = ConstU32<3>;
 	type PriceAdapter = CenterTargetPrice<BalanceOf<Self>>;
 }
 
