@@ -30,8 +30,8 @@ use xcm::latest::prelude::*;
 
 pub mod traits;
 use traits::{
-	validate_export, AssetExchange, AssetConversion, AssetLock, CallDispatcher, ClaimAssets, ConvertOrigin,
-	DropAssets, Enact, ExportXcm, FeeManager, FeeReason, HandleHrmpChannelAccepted,
+	validate_export, AssetConversion, AssetExchange, AssetLock, CallDispatcher, ClaimAssets,
+	ConvertOrigin, DropAssets, Enact, ExportXcm, FeeManager, FeeReason, HandleHrmpChannelAccepted,
 	HandleHrmpChannelClosing, HandleHrmpNewChannelOpenRequest, OnResponse, ProcessTransaction,
 	Properties, ShouldExecute, TransactAsset, VersionChangeNotifier, WeightBounds, WeightTrader,
 	XcmAssetTransfers,
@@ -255,7 +255,11 @@ impl<Config: config::Config> ExecuteXcm<Config::RuntimeCall> for XcmExecutor<Con
 		vm.post_process(xcm_weight)
 	}
 
-	fn charge_fees(origin: impl Into<Location>, fees: Assets, asset_for_fees: &AssetId) -> XcmResult {
+	fn charge_fees(
+		origin: impl Into<Location>,
+		fees: Assets,
+		asset_for_fees: &AssetId,
+	) -> XcmResult {
 		let origin = origin.into();
 		if !Config::FeeManager::is_waived(Some(&origin), FeeReason::ChargeFees) {
 			log::trace!(target: "xcm::charge_fees", "Fees: {:?}", fees);
@@ -263,18 +267,19 @@ impl<Config: config::Config> ExecuteXcm<Config::RuntimeCall> for XcmExecutor<Con
 			log::trace!(target: "xcm::charge_fees", "Asset for fees: {:?}", asset_for_fees);
 			// If no conversion can be made, we use the original asset even if it's not
 			// the desired one, as best effort.
-			let asset_to_withdraw = match Config::AssetConverter::convert_asset(&first, asset_for_fees) {
-				Ok(new_asset) => new_asset,
-				Err(error) => {
-					log::error!(
-						target: "xcm::charge_fees",
-						"Could not convert fees to {:?}. Error: {:?}",
-						asset_for_fees,
-						error,
-					);
-					first.clone()
-				},
-			};
+			let asset_to_withdraw =
+				match Config::AssetConverter::convert_asset(&first, asset_for_fees) {
+					Ok(new_asset) => new_asset,
+					Err(error) => {
+						log::error!(
+							target: "xcm::charge_fees",
+							"Could not convert fees to {:?}. Error: {:?}",
+							asset_for_fees,
+							error,
+						);
+						first.clone()
+					},
+				};
 			log::trace!(target: "xcm::charge_fees", "New asset: {:?}", asset_to_withdraw);
 			Config::AssetTransactor::withdraw_asset(&asset_to_withdraw, &origin, None)?;
 			Config::FeeManager::handle_fee(fees, None, FeeReason::ChargeFees);
@@ -389,7 +394,8 @@ impl<Config: config::Config> XcmExecutor<Config> {
 		// It should use `AssetConverter` to change it to USDC, for example.
 		// How it knows that is a mystery.
 		// `self.asset_for_fees` is not populated most of the time.
-		// `self.holding` can only have enough USDC if I do the same calculation before to park the fees.
+		// `self.holding` can only have enough USDC if I do the same calculation before to park the
+		// fees.
 		self.take_fee(fee, reason)?;
 		Config::XcmSender::deliver(ticket).map_err(Into::into)
 	}
@@ -499,10 +505,10 @@ impl<Config: config::Config> XcmExecutor<Config> {
 			}
 		} else {
 			// We try each item in holding.
-			// TODO: We don't need this if we had a way to tell the executor what asset we want to use
-			// for fees.
-			// Option 1: Always using a `BuyExecution` instruction, even locally where we would normally not use it.
-			// This has the downside of being a worse experience.
+			// TODO: We don't need this if we had a way to tell the executor what asset we want to
+			// use for fees.
+			// Option 1: Always using a `BuyExecution` instruction, even locally where we would
+			// normally not use it. This has the downside of being a worse experience.
 			// Option 2: Having an instruction that sets the asset to be used for fees.
 			// Can only do it on a new version.
 			// Option 3: Change the entrypoint `prepare_and_execute` to take the fee item.
@@ -512,9 +518,9 @@ impl<Config: config::Config> XcmExecutor<Config> {
 			// TODO: Might increase benchmarks too much. Should optimize for the average case.
 			let mut asset_for_fees = first.clone();
 			// Holding is empty when using jit withdrawal. Could remove it.
-			// It's not empty because of jit withdrawal, it's empty because it's taken from holding before sending.
-			// That's the problem jit withdrawal was solving, we need to "park" delivery fees in the same way we did
-			// for `DepositReserveAsset`.
+			// It's not empty because of jit withdrawal, it's empty because it's taken from holding
+			// before sending. That's the problem jit withdrawal was solving, we need to "park"
+			// delivery fees in the same way we did for `DepositReserveAsset`.
 			for asset in self.holding.fungible_assets_iter() {
 				log::trace!(target: "xcm", "Asset being tested to convert: {:?}", asset);
 				match Config::AssetConverter::convert_asset(&first, &asset.id) {
@@ -532,7 +538,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 							error,
 						);
 						continue;
-					}
+					},
 				}
 			}
 			asset_for_fees
@@ -541,11 +547,18 @@ impl<Config: config::Config> XcmExecutor<Config> {
 		// TODO: Remove `jit_withdrawal`, it makes this much harder.
 		let paid = if self.fees_mode.jit_withdraw {
 			let origin = self.origin_ref().ok_or(XcmError::BadOrigin)?;
-			Config::AssetTransactor::withdraw_asset(&actual_asset_to_use, origin, Some(&self.context))?;
+			Config::AssetTransactor::withdraw_asset(
+				&actual_asset_to_use,
+				origin,
+				Some(&self.context),
+			)?;
 			let swapped_asset = Config::AssetConverter::swap(&actual_asset_to_use, first)?;
 			vec![swapped_asset].into()
 		} else {
-			let assets = self.holding.try_take(actual_asset_to_use.clone().into()).map_err(|_| XcmError::NotHoldingFees)?;
+			let assets = self
+				.holding
+				.try_take(actual_asset_to_use.clone().into())
+				.map_err(|_| XcmError::NotHoldingFees)?;
 			let taken_asset = assets.into_assets_iter().next().ok_or(XcmError::AssetNotFound)?;
 			let swapped_asset = Config::AssetConverter::swap(&taken_asset, first)?;
 			vec![swapped_asset].into()
@@ -941,15 +954,17 @@ impl<Config: config::Config> XcmExecutor<Config> {
 					let asset_id = self.asset_for_fees.as_ref().unwrap_or(&first.id);
 					// TODO: Deal with this case.
 					// Need to make a test specifically for this.
-					let actual_asset_to_use_for_fees = match Config::AssetConverter::convert_asset(&first, asset_id) {
-						Ok(new_asset) => new_asset,
-						Err(error) => {
-							log::error!(target: "xcm::DepositReserveAsset", "What happened?");
-							first.clone()
-						},
-					};
+					let actual_asset_to_use_for_fees =
+						match Config::AssetConverter::convert_asset(&first, asset_id) {
+							Ok(new_asset) => new_asset,
+							Err(error) => {
+								log::error!(target: "xcm::DepositReserveAsset", "What happened?");
+								first.clone()
+							},
+						};
 					// set aside fee to be charged by XcmSender
-					let transport_fee = self.holding.saturating_take(actual_asset_to_use_for_fees.into());
+					let transport_fee =
+						self.holding.saturating_take(actual_asset_to_use_for_fees.into());
 
 					// now take assets to deposit (excluding transport_fee)
 					let deposited = self.holding.saturating_take(assets);

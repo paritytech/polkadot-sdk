@@ -2429,7 +2429,8 @@ impl<T: Config> Pallet<T> {
 		log::debug!(target: "xcm::send_xcm", "dest: {:?}, message: {:?}", &dest, &message);
 		let (ticket, price) = validate_send::<T::XcmRouter>(dest, message)?;
 		if let Some(fee_payer) = maybe_fee_payer {
-			Self::charge_fees(fee_payer, price, &AssetId(Here.into())).map_err(|_| SendError::Fees)?;
+			Self::charge_fees(fee_payer, price, &AssetId(Here.into()))
+				.map_err(|_| SendError::Fees)?;
 		}
 		T::XcmRouter::deliver(ticket)
 	}

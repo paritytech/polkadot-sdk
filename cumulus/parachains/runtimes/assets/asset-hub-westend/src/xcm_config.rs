@@ -22,9 +22,7 @@ use super::{
 };
 use assets_common::{
 	matching::{FromSiblingParachain, IsForeignConcreteAsset},
-	TrustBackedAssetsAsLocation,
-	SufficientAssetConverter,
-	SwapAssetConverter,
+	SufficientAssetConverter, SwapAssetConverter, TrustBackedAssetsAsLocation,
 };
 use core::marker::PhantomData;
 use frame_support::{
@@ -381,11 +379,7 @@ pub type PoolAssetsConverter = SwapAssetConverter<
 	Runtime,
 	crate::NativeAndAssets,
 	(
-		TrustBackedAssetsAsLocation<
-			TrustBackedAssetsPalletLocation,
-			Balance,
-			xcm::v3::Location,
-		>,
+		TrustBackedAssetsAsLocation<TrustBackedAssetsPalletLocation, Balance, xcm::v3::Location>,
 		ForeignAssetsConvertedConcreteId,
 	),
 	crate::AssetConversion,

@@ -320,12 +320,12 @@ fn reserve_transfer_sufficient_foreign_assets_from_system_para_to_para() {
 		vec![(sender.clone(), ASSET_HUB_WESTEND_ED * 10000)],
 	);
 
-	let assets: Assets = vec![
-		(
-			(Parent, Parent, GlobalConsensus(NetworkId::Rococo)),
-			asset_amount_to_send + fee_amount_to_send,
-		).into(),
-	].into();
+	let assets: Assets = vec![(
+		(Parent, Parent, GlobalConsensus(NetworkId::Rococo)),
+		asset_amount_to_send + fee_amount_to_send,
+	)
+		.into()]
+	.into();
 	// Just to be very clear we don't need to send any native asset.
 	assert_eq!(assets.len(), 1);
 	let fee_asset_index = 0;
@@ -362,18 +362,20 @@ fn reserve_transfer_sufficient_foreign_assets_from_system_para_to_para() {
 	let sender_balance_before = test.sender.balance;
 	let sender_foreign_assets_before = AssetHubWestend::execute_with(|| {
 		type Assets = <AssetHubWestend as AssetHubWestendPallet>::ForeignAssets;
-		<Assets as Inspect<_>>::balance(roc_at_westend_parachains.clone().try_into().unwrap(), &sender)
+		<Assets as Inspect<_>>::balance(
+			roc_at_westend_parachains.clone().try_into().unwrap(),
+			&sender,
+		)
 	});
 	let receiver_foreign_assets_before = PenpalA::execute_with(|| {
 		type ForeignAssets = <PenpalA as PenpalAPallet>::ForeignAssets;
-		<ForeignAssets as Inspect<_>>::balance(
-			roc_at_westend_parachains.clone(),
-			&receiver,
-		)
+		<ForeignAssets as Inspect<_>>::balance(roc_at_westend_parachains.clone(), &receiver)
 	});
 
 	// Set assertions and dispatchables
-	test.set_assertion::<AssetHubWestend>(system_para_to_para_sender_sufficient_foreign_asset_assertions);
+	test.set_assertion::<AssetHubWestend>(
+		system_para_to_para_sender_sufficient_foreign_asset_assertions,
+	);
 	test.set_assertion::<PenpalA>(system_para_to_para_receiver_assertions);
 	test.set_dispatchable::<AssetHubWestend>(ah_to_para_transfer_assets);
 	test.assert();
@@ -382,14 +384,14 @@ fn reserve_transfer_sufficient_foreign_assets_from_system_para_to_para() {
 	let sender_balance_after = test.sender.balance;
 	let sender_foreign_assets_after = AssetHubWestend::execute_with(|| {
 		type Assets = <AssetHubWestend as AssetHubWestendPallet>::ForeignAssets;
-		<Assets as Inspect<_>>::balance(roc_at_westend_parachains.clone().try_into().unwrap(), &sender)
+		<Assets as Inspect<_>>::balance(
+			roc_at_westend_parachains.clone().try_into().unwrap(),
+			&sender,
+		)
 	});
 	let receiver_foreign_assets_after = PenpalA::execute_with(|| {
 		type ForeignAssets = <PenpalA as PenpalAPallet>::ForeignAssets;
-		<ForeignAssets as Inspect<_>>::balance(
-			roc_at_westend_parachains.clone(),
-			&receiver,
-		)
+		<ForeignAssets as Inspect<_>>::balance(roc_at_westend_parachains.clone(), &receiver)
 	});
 
 	// The native asset balance is the same. They weren't send or used for fees.
@@ -767,8 +769,8 @@ fn transfer_foreign_assets_from_para_to_para_through_asset_hub() {
 	assert_eq!(sender_rocs_after, sender_rocs_before - roc_to_send);
 	// Sovereign accounts on reserve are changed accordingly
 	let delivery_fees_amount = 31_340_000_000; // TODO: Estimate this.
-	// Delivery fees stay in the sender chain, so the balance of the sender's
-	// sovereign account reflects this.
+										   // Delivery fees stay in the sender chain, so the balance of the sender's
+										   // sovereign account reflects this.
 	assert_eq!(
 		wnds_in_sender_reserve_on_ah_after,
 		wnds_in_sender_reserve_on_ah_before - wnd_to_send + delivery_fees_amount

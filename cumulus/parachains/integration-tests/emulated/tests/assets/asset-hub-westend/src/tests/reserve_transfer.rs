@@ -1181,11 +1181,7 @@ fn reserve_transfer_sufficient_assets_from_system_para_to_para() {
 	);
 	let system_para_foreign_asset_location = Location::new(
 		1,
-		[
-			Parachain(ASSET_HUB_ID),
-			PalletInstance(ASSETS_PALLET_ID),
-			GeneralIndex(asset_id.into()),
-		],
+		[Parachain(ASSET_HUB_ID), PalletInstance(ASSETS_PALLET_ID), GeneralIndex(asset_id.into())],
 	);
 
 	// Create sufficient foreign asset.
@@ -1197,12 +1193,12 @@ fn reserve_transfer_sufficient_assets_from_system_para_to_para() {
 		vec![],
 	);
 
-	let assets: Assets = vec![
-		(
-			(PalletInstance(ASSETS_PALLET_ID), GeneralIndex(asset_id.into())),
-			asset_amount_to_send + fee_amount_to_send,
-		).into(),
-	].into();
+	let assets: Assets = vec![(
+		(PalletInstance(ASSETS_PALLET_ID), GeneralIndex(asset_id.into())),
+		asset_amount_to_send + fee_amount_to_send,
+	)
+		.into()]
+	.into();
 	// Just to be very specific you don't need any native asset.
 	assert_eq!(assets.len(), 1);
 	let fee_asset_index = 0;
@@ -1280,8 +1276,8 @@ fn reserve_transfer_sufficient_assets_from_system_para_to_para() {
 // ================================================================================
 // ===== Reserve Transfers - Sufficient Asset - Parachain->AssetHub->Parachain ====
 // ================================================================================
-/// Reserve Transfers of a sufficient trust-backed asset from Parachain to Parachain (through Relay reserve) should
-/// work
+/// Reserve Transfers of a sufficient trust-backed asset from Parachain to Parachain (through Relay
+/// reserve) should work
 #[test]
 fn reserve_transfer_sufficient_asset_from_para_to_para_through_asset_hub() {
 	use penpal_runtime::xcm_config::ASSET_HUB_ID;
@@ -1293,7 +1289,8 @@ fn reserve_transfer_sufficient_asset_from_para_to_para_through_asset_hub() {
 	let fee_amount_to_send: Balance = WESTEND_ED * 10000;
 	let asset_owner = PenpalAssetOwner::get();
 	let sender_as_seen_by_asset_hub = AssetHubWestend::sibling_location_of(PenpalA::para_id());
-	let sov_of_sender_on_asset_hub = AssetHubWestend::sovereign_account_id_of(sender_as_seen_by_asset_hub);
+	let sov_of_sender_on_asset_hub =
+		AssetHubWestend::sovereign_account_id_of(sender_as_seen_by_asset_hub);
 
 	// Create sufficient asset.
 	let asset_id = 1984;
@@ -1306,11 +1303,7 @@ fn reserve_transfer_sufficient_asset_from_para_to_para_through_asset_hub() {
 	);
 	let system_para_foreign_asset_location = Location::new(
 		1,
-		[
-			Parachain(ASSET_HUB_ID),
-			PalletInstance(ASSETS_PALLET_ID),
-			GeneralIndex(asset_id.into()),
-		],
+		[Parachain(ASSET_HUB_ID), PalletInstance(ASSETS_PALLET_ID), GeneralIndex(asset_id.into())],
 	);
 
 	// Need to make sure account has enough for jit withdrawal of delivery fees.
@@ -1332,18 +1325,26 @@ fn reserve_transfer_sufficient_asset_from_para_to_para_through_asset_hub() {
 		vec![],
 	);
 
-	let assets: Assets = vec![
+	let assets: Assets = vec![(
 		(
-			(Parent, Parachain(ASSET_HUB_ID), PalletInstance(ASSETS_PALLET_ID), GeneralIndex(asset_id.into())),
-			asset_amount_to_send + fee_amount_to_send,
-		).into(),
-	].into();
+			Parent,
+			Parachain(ASSET_HUB_ID),
+			PalletInstance(ASSETS_PALLET_ID),
+			GeneralIndex(asset_id.into()),
+		),
+		asset_amount_to_send + fee_amount_to_send,
+	)
+		.into()]
+	.into();
 	// Just to be very specific you don't need any native asset.
 	assert_eq!(assets.len(), 1);
 	let fee_asset_index = 0;
 
 	// fund the Parachain Origin's SA on Relay Chain with the native tokens held in reserve
-	AssetHubWestend::fund_accounts(vec![(sov_of_sender_on_asset_hub.into(), asset_amount_to_send * 2)]);
+	AssetHubWestend::fund_accounts(vec![(
+		sov_of_sender_on_asset_hub.into(),
+		asset_amount_to_send * 2,
+	)]);
 
 	// Init values for Parachain Destination
 	let receiver = PenpalBReceiver::get();
@@ -1352,7 +1353,14 @@ fn reserve_transfer_sufficient_asset_from_para_to_para_through_asset_hub() {
 	let test_args = TestContext {
 		sender: sender.clone(),
 		receiver: receiver.clone(),
-		args: TestArgs::new_para(destination, receiver.clone(), asset_amount_to_send, assets, None, 0),
+		args: TestArgs::new_para(
+			destination,
+			receiver.clone(),
+			asset_amount_to_send,
+			assets,
+			None,
+			0,
+		),
 	};
 	let mut test = ParaToParaThroughAHTest::new(test_args);
 
@@ -1363,7 +1371,10 @@ fn reserve_transfer_sufficient_asset_from_para_to_para_through_asset_hub() {
 	});
 	let receiver_assets_before = PenpalB::execute_with(|| {
 		type ForeignAssets = <PenpalB as PenpalBPallet>::ForeignAssets;
-		<ForeignAssets as Inspect<_>>::balance(system_para_foreign_asset_location.clone(), &receiver)
+		<ForeignAssets as Inspect<_>>::balance(
+			system_para_foreign_asset_location.clone(),
+			&receiver,
+		)
 	});
 
 	// Set assertions and dispatchables
@@ -1371,7 +1382,9 @@ fn reserve_transfer_sufficient_asset_from_para_to_para_through_asset_hub() {
 	// test.set_assertion::<PenpalA>(para_to_para_through_hop_sender_assertions);
 	// test.set_assertion::<AssetHubWestend>(para_to_para_relay_hop_assertions);
 	// test.set_assertion::<PenpalB>(para_to_para_through_hop_receiver_assertions);
-	test.set_dispatchable::<PenpalA>(para_to_para_through_asset_hub_limited_reserve_transfer_assets);
+	test.set_dispatchable::<PenpalA>(
+		para_to_para_through_asset_hub_limited_reserve_transfer_assets,
+	);
 	test.assert();
 
 	// Query final balances
@@ -1397,10 +1410,13 @@ fn reserve_transfer_sufficient_asset_from_para_to_para_through_asset_hub() {
 fn reserve_transfer_pool_assets_from_system_para_to_para() {
 	let native_asset = RelayLocationV3::get();
 	let asset_id = 9999u32;
-	let pool_asset = xcm::v3::Location::new(0, [
-		xcm::v3::Junction::PalletInstance(ASSETS_PALLET_ID),
-		xcm::v3::Junction::GeneralIndex(asset_id.into())
-	]);
+	let pool_asset = xcm::v3::Location::new(
+		0,
+		[
+			xcm::v3::Junction::PalletInstance(ASSETS_PALLET_ID),
+			xcm::v3::Junction::GeneralIndex(asset_id.into()),
+		],
+	);
 	let penpal_location = AssetHubWestend::sibling_location_of(PenpalA::para_id());
 	let penpal_sov_account = AssetHubWestend::sovereign_account_id_of(penpal_location.clone());
 
@@ -1461,17 +1477,17 @@ fn reserve_transfer_pool_assets_from_system_para_to_para() {
 	});
 
 	let relay_asset_penpal_pov = Location::parent();
-	let custom_asset_penpal_pov = Location::new(1, [
-		Parachain(1000),
-		PalletInstance(ASSETS_PALLET_ID),
-		GeneralIndex(asset_id.into()),
-	]);
+	let custom_asset_penpal_pov = Location::new(
+		1,
+		[Parachain(1000), PalletInstance(ASSETS_PALLET_ID), GeneralIndex(asset_id.into())],
+	);
 	PenpalA::force_create_foreign_asset(
 		custom_asset_penpal_pov.clone(),
 		PenpalAssetOwner::get(),
 		false, // Asset not sufficient, has a pool to pay for fees.
 		1_000_000,
-		vec![(PenpalASender::get(), 10_000_000_000_000)], // We give it some funds to be able to add liquidity later.
+		vec![(PenpalASender::get(), 10_000_000_000_000)], /* We give it some funds to be able to
+		                                                   * add liquidity later. */
 	);
 
 	// Setup the pool between `native_penpal_asset` and `pool_asset` on PenpalA.
@@ -1498,7 +1514,8 @@ fn reserve_transfer_pool_assets_from_system_para_to_para() {
 			Box::new(relay_asset_penpal_pov),
 			Box::new(custom_asset_penpal_pov.clone()),
 			1_000_000_000_000,
-			3_000_000_000_000, // `custom_asset_penpal_pov` is worth a third of `relay_asset_penpal_pov`
+			3_000_000_000_000, /* `custom_asset_penpal_pov` is worth a third of
+			                    * `relay_asset_penpal_pov` */
 			0,
 			0,
 			PenpalASender::get().into()
@@ -1515,9 +1532,12 @@ fn reserve_transfer_pool_assets_from_system_para_to_para() {
 	let sender = AssetHubWestendSender::get();
 	let receiver = PenpalAReceiver::get();
 	let asset_amount_to_send = 1_000_000_000_000;
-	let assets: Assets = vec![
-		([PalletInstance(ASSETS_PALLET_ID), GeneralIndex(asset_id.into())], asset_amount_to_send).into(),
-	].into();
+	let assets: Assets = vec![(
+		[PalletInstance(ASSETS_PALLET_ID), GeneralIndex(asset_id.into())],
+		asset_amount_to_send,
+	)
+		.into()]
+	.into();
 
 	let test_args = TestContext {
 		sender: sender.clone(),
@@ -1528,7 +1548,7 @@ fn reserve_transfer_pool_assets_from_system_para_to_para() {
 			asset_amount_to_send,
 			assets,
 			None,
-			0
+			0,
 		),
 	};
 	let mut test = SystemParaToParaTest::new(test_args);

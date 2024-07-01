@@ -43,12 +43,13 @@ use frame_support::{
 	construct_runtime, derive_impl,
 	dispatch::DispatchClass,
 	genesis_builder_helper::{build_state, get_preset},
+	ord_parameter_types,
 	pallet_prelude::Weight,
-	parameter_types, ord_parameter_types,
+	parameter_types,
 	traits::{
-		AsEnsureOriginWithArg, ConstBool, ConstU32, ConstU64, ConstU128, ConstU8, Everything, TransformOrigin,
-		PalletInfoAccess,
-		tokens::{imbalance::ResolveAssetTo, fungible, fungibles},
+		tokens::{fungible, fungibles, imbalance::ResolveAssetTo},
+		AsEnsureOriginWithArg, ConstBool, ConstU128, ConstU32, ConstU64, ConstU8, Everything,
+		PalletInfoAccess, TransformOrigin,
 	},
 	weights::{
 		constants::WEIGHT_REF_TIME_PER_SECOND, ConstantMultiplier, FeePolynomial, WeightToFee as _,
@@ -58,8 +59,7 @@ use frame_support::{
 };
 use frame_system::{
 	limits::{BlockLength, BlockWeights},
-	EnsureRoot, EnsureSigned,
-	EnsureSignedBy,
+	EnsureRoot, EnsureSigned, EnsureSignedBy,
 };
 use parachains_common::{
 	impls::{AssetsToBlockAuthor, NonZeroIssuance},
@@ -71,7 +71,7 @@ pub use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
 use sp_runtime::{
 	create_runtime_str, generic, impl_opaque_keys,
-	traits::{AccountIdLookup, BlakeTwo256, Block as BlockT, AccountIdConversion, Dispatchable},
+	traits::{AccountIdConversion, AccountIdLookup, BlakeTwo256, Block as BlockT, Dispatchable},
 	transaction_validity::{TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult,
 };
@@ -549,7 +549,10 @@ pub type LocalAndForeignAssets = fungibles::UnionOf<
 	Assets,
 	ForeignAssets,
 	LocalFromLeft<
-		AssetIdForTrustBackedAssetsConvert<xcm_config::TrustBackedAssetsPalletLocation, xcm::latest::Location>,
+		AssetIdForTrustBackedAssetsConvert<
+			xcm_config::TrustBackedAssetsPalletLocation,
+			xcm::latest::Location,
+		>,
 		parachains_common::AssetIdForTrustBackedAssets,
 		xcm::latest::Location,
 	>,

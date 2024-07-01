@@ -25,16 +25,19 @@ pub mod runtime_api;
 
 use crate::matching::{LocalLocationPattern, ParentLocation};
 use core::marker::PhantomData;
-use frame_support::{ensure, traits::{Equals, EverythingBut, Get, tokens::ConversionToAssetBalance, fungibles}};
+use frame_support::{
+	ensure,
+	traits::{fungibles, tokens::ConversionToAssetBalance, Equals, EverythingBut, Get},
+};
+use pallet_asset_conversion::SwapCredit as SwapCreditT;
 use parachains_common::{AssetIdForTrustBackedAssets, CollectionId, ItemId};
+use sp_runtime::traits::{TryConvertInto, Zero};
 use sp_std::vec;
-use sp_runtime::traits::{Zero, TryConvertInto};
 use xcm::prelude::*;
 use xcm_builder::{
 	AsPrefixedGeneralIndex, MatchedConvertedConcreteId, StartsWith, WithLatestLocationConverter,
 };
-use xcm_executor::traits::{MatchesFungibles, AssetConversion};
-use pallet_asset_conversion::SwapCredit as SwapCreditT;
+use xcm_executor::traits::{AssetConversion, MatchesFungibles};
 
 /// `Location` vs `AssetIdForTrustBackedAssets` converter for `TrustBackedAssets`
 pub type AssetIdForTrustBackedAssetsConvert<TrustBackedAssetsPalletLocation, L = Location> =
@@ -136,18 +139,21 @@ pub type PoolAssetsConvertedConcreteId<PoolAssetsPalletLocation, Balance> =
 		TryConvertInto,
 	>;
 
-pub struct SufficientAssetConverter<Runtime, Matcher, BalanceConverter, AssetsInstance>(PhantomData<(Runtime, Matcher, BalanceConverter, AssetsInstance)>);
-impl<Runtime, Matcher, BalanceConverter, AssetsInstance> AssetConversion for SufficientAssetConverter<Runtime, Matcher, BalanceConverter, AssetsInstance>
+pub struct SufficientAssetConverter<Runtime, Matcher, BalanceConverter, AssetsInstance>(
+	PhantomData<(Runtime, Matcher, BalanceConverter, AssetsInstance)>,
+);
+impl<Runtime, Matcher, BalanceConverter, AssetsInstance> AssetConversion
+	for SufficientAssetConverter<Runtime, Matcher, BalanceConverter, AssetsInstance>
 where
 	Runtime: pallet_assets::Config<AssetsInstance>,
 	Matcher: MatchesFungibles<
 		<Runtime as pallet_assets::Config<AssetsInstance>>::AssetId,
-		<Runtime as pallet_assets::Config<AssetsInstance>>::Balance
+		<Runtime as pallet_assets::Config<AssetsInstance>>::Balance,
 	>,
 	BalanceConverter: ConversionToAssetBalance<
 		u128,
 		<Runtime as pallet_assets::Config<AssetsInstance>>::AssetId,
-		<Runtime as pallet_assets::Config<AssetsInstance>>::Balance
+		<Runtime as pallet_assets::Config<AssetsInstance>>::Balance,
 	>,
 	AssetsInstance: 'static,
 	<Runtime as pallet_assets::Config<AssetsInstance>>::Balance: Into<u128>,
@@ -155,15 +161,14 @@ where
 	fn convert_asset(asset: &Asset, asset_id: &AssetId) -> Result<Asset, XcmError> {
 		// TODO: Not the best still.
 		let desired_asset: Asset = (asset_id.clone(), 1u128).into(); // To comply with the interface.
-		let (local_asset_id, _) = Matcher::matches_fungibles(&desired_asset)
-			.map_err(|error| {
-				log::error!(
-					target: "xcm::SufficientAssetConverter::convert_asset",
-					"Could not map XCM asset {:?} to FRAME asset",
-					asset_id,
-				);
-				XcmError::AssetNotFound
-			})?;
+		let (local_asset_id, _) = Matcher::matches_fungibles(&desired_asset).map_err(|error| {
+			log::error!(
+				target: "xcm::SufficientAssetConverter::convert_asset",
+				"Could not map XCM asset {:?} to FRAME asset",
+				asset_id,
+			);
+			XcmError::AssetNotFound
+		})?;
 		log::trace!(target: "xcm::SufficientAssetConverter::convert_asset", "local asset id: {:?}", local_asset_id);
 		let Fungibility::Fungible(old_asset_amount) = asset.fun else {
 			log::error!(
@@ -182,29 +187,27 @@ where
 				);
 				XcmError::TooExpensive
 			})?;
-		let new_asset_amount: u128 = new_asset_amount.try_into()
-			.map_err(|error| {
-				log::error!(
-					target: "xcm::SufficientAssetConverter::convert_asset",
-					"Converting balance of {:?} to u128 would overflow",
-					desired_asset.id,
-				);
-				XcmError::Overflow
-			})?;
+		let new_asset_amount: u128 = new_asset_amount.try_into().map_err(|error| {
+			log::error!(
+				target: "xcm::SufficientAssetConverter::convert_asset",
+				"Converting balance of {:?} to u128 would overflow",
+				desired_asset.id,
+			);
+			XcmError::Overflow
+		})?;
 		Ok((desired_asset.id.clone(), new_asset_amount).into())
 	}
 
 	fn swap(give: &Asset, want: &Asset) -> Result<Asset, XcmError> {
 		// We need the matcher to select this implementation from the tuple.
-		let (fungibles_asset, balance) = Matcher::matches_fungibles(give)
-			.map_err(|error| {
-				log::error!(
-					target: "xcm::SufficientAssetConverter::swap",
-					"Could not map XCM asset {:?} to FRAME asset",
-					give,
-				);
-				XcmError::AssetNotFound
-			})?;
+		let (fungibles_asset, balance) = Matcher::matches_fungibles(give).map_err(|error| {
+			log::error!(
+				target: "xcm::SufficientAssetConverter::swap",
+				"Could not map XCM asset {:?} to FRAME asset",
+				give,
+			);
+			XcmError::AssetNotFound
+		})?;
 		// We don't do a swap, we just returned the asset we need for fees.
 		Ok(want.clone())
 	}
@@ -212,8 +215,11 @@ where
 
 /// Implementation of `AssetConverter` that pays delivery fees by swapping the given asset to the
 /// `Target` asset accepted for fees.
-pub struct SwapAssetConverter<Target, Runtime, Fungibles, Matcher, SwapCredit, AccountId>(PhantomData<(Target, Runtime, Fungibles, Matcher, SwapCredit, AccountId)>);
-impl<Target, Runtime, Fungibles, Matcher, SwapCredit, AccountId> AssetConversion for SwapAssetConverter<Target, Runtime, Fungibles, Matcher, SwapCredit, AccountId>
+pub struct SwapAssetConverter<Target, Runtime, Fungibles, Matcher, SwapCredit, AccountId>(
+	PhantomData<(Target, Runtime, Fungibles, Matcher, SwapCredit, AccountId)>,
+);
+impl<Target, Runtime, Fungibles, Matcher, SwapCredit, AccountId> AssetConversion
+	for SwapAssetConverter<Target, Runtime, Fungibles, Matcher, SwapCredit, AccountId>
 where
 	Target: Get<Fungibles::AssetId>,
 	Runtime: pallet_asset_conversion::Config<Balance = u128, AssetKind = Fungibles::AssetId>,
@@ -229,17 +235,16 @@ where
 	fn convert_asset(asset: &Asset, asset_id: &AssetId) -> Result<Asset, XcmError> {
 		// TODO: Not the best still.
 		let desired_asset: Asset = (asset_id.clone(), 1u128).into(); // To comply with the interface.
-		let (fungibles_asset, _) = Matcher::matches_fungibles(&desired_asset)
-			.map_err(|error| {
-				// Using `trace` instead of `error` since we expect this to happen
-				// when using multiple implementations in a tuple.
-				log::trace!(
-					target: "xcm::SwapAssetConverter::convert_asset",
-					"Could not map XCM asset {:?} to FRAME asset",
-					asset_id,
-				);
-				XcmError::AssetNotFound
-			})?;
+		let (fungibles_asset, _) = Matcher::matches_fungibles(&desired_asset).map_err(|error| {
+			// Using `trace` instead of `error` since we expect this to happen
+			// when using multiple implementations in a tuple.
+			log::trace!(
+				target: "xcm::SwapAssetConverter::convert_asset",
+				"Could not map XCM asset {:?} to FRAME asset",
+				asset_id,
+			);
+			XcmError::AssetNotFound
+		})?;
 		let Fungibility::Fungible(old_asset_amount) = asset.fun else {
 			// Using `trace` instead of `error` since this could happen if an
 			// implementation was added to pay fees with NFTs.
@@ -257,27 +262,28 @@ where
 			return Err(XcmError::FeesNotMet);
 		}
 
-		let new_asset_amount = pallet_asset_conversion::Pallet::<Runtime>::quote_price_tokens_for_exact_tokens(
-			fungibles_asset,
-			Target::get(),
-			old_asset_amount,
-			true,
-		).ok_or(XcmError::FeesNotMet)?;
+		let new_asset_amount =
+			pallet_asset_conversion::Pallet::<Runtime>::quote_price_tokens_for_exact_tokens(
+				fungibles_asset,
+				Target::get(),
+				old_asset_amount,
+				true,
+			)
+			.ok_or(XcmError::FeesNotMet)?;
 
 		Ok((asset_id.clone(), new_asset_amount).into())
 	}
 
 	fn swap(give: &Asset, want: &Asset) -> Result<Asset, XcmError> {
-		let (fungibles_asset, balance) = Matcher::matches_fungibles(&give)
-			.map_err(|error| {
-				log::trace!(
-					target: "xcm::SwapAssetConverter::convert_asset",
-					"Could not map XCM asset {:?} to FRAME asset. Error: {:?}",
-					give,
-					error,
-				);
-				XcmError::AssetNotFound
-			})?;
+		let (fungibles_asset, balance) = Matcher::matches_fungibles(&give).map_err(|error| {
+			log::trace!(
+				target: "xcm::SwapAssetConverter::convert_asset",
+				"Could not map XCM asset {:?} to FRAME asset. Error: {:?}",
+				give,
+				error,
+			);
+			XcmError::AssetNotFound
+		})?;
 		let Fungibility::Fungible(fee_amount) = want.fun else {
 			log::error!(
 				target: "xcm::SwapAssetConverter::convert_asset",
@@ -299,7 +305,8 @@ where
 			vec![swap_asset, Target::get()],
 			credit_in,
 			fee_amount,
-		).map_err(|(credit_in, _)| {
+		)
+		.map_err(|(credit_in, _)| {
 			drop(credit_in);
 			XcmError::FeesNotMet
 		})?;

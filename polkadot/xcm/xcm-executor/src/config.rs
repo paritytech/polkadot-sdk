@@ -15,8 +15,8 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use crate::traits::{
-	AssetExchange, AssetConversion, AssetLock, CallDispatcher, ClaimAssets, ConvertOrigin, DropAssets, ExportXcm,
-	FeeManager, HandleHrmpChannelAccepted, HandleHrmpChannelClosing,
+	AssetConversion, AssetExchange, AssetLock, CallDispatcher, ClaimAssets, ConvertOrigin,
+	DropAssets, ExportXcm, FeeManager, HandleHrmpChannelAccepted, HandleHrmpChannelClosing,
 	HandleHrmpNewChannelOpenRequest, OnResponse, ProcessTransaction, RecordXcm, ShouldExecute,
 	TransactAsset, VersionChangeNotifier, WeightBounds, WeightTrader,
 };
