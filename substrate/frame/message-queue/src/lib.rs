@@ -646,7 +646,7 @@ pub mod pallet {
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn on_initialize(_n: BlockNumberFor<T>) -> Weight {
 			if let Some(weight_limit) = T::ServiceWeight::get() {
-				Self::service_queues(weight_limit)
+				Self::service_queues(weight_limit, ServiceQueuesContext::OnInitialize)
 			} else {
 				Weight::zero()
 			}
@@ -655,7 +655,7 @@ pub mod pallet {
 		fn on_idle(_n: BlockNumberFor<T>, remaining_weight: Weight) -> Weight {
 			if let Some(weight_limit) = T::IdleMaxServiceWeight::get() {
 				// Make use of the remaining weight to process enqueued messages.
-				Self::service_queues(weight_limit.min(remaining_weight))
+				Self::service_queues(weight_limit.min(remaining_weight), ServiceQueuesContext::OnIdle)
 			} else {
 				Weight::zero()
 			}
@@ -772,6 +772,16 @@ enum MessageExecutionStatus {
 	/// called by a top-level function, or a transient error if it was already called in a nested
 	/// function.
 	StackLimitReached,
+}
+
+/// The context to pass to service_queues through on_idle and on_initialize hooks
+/// We don't want to throw the defensive message if called from on_idle hook
+#[derive(PartialEq)]
+enum ServiceQueuesContext {
+	/// Context of on_idle hook
+	OnIdle,
+	/// Context of on_initialize hook
+	OnInitialize,
 }
 
 impl<T: Config> Pallet<T> {
@@ -1554,12 +1564,17 @@ impl<T: Get<O>, O: Into<u32>> Get<u32> for IntoU32<T, O> {
 impl<T: Config> ServiceQueues for Pallet<T> {
 	type OverweightMessageAddress = (MessageOriginOf<T>, PageIndex, T::Size);
 
-	fn service_queues(weight_limit: Weight) -> Weight {
+	fn service_queues(weight_limit: Weight, context: ServiceQueuesContext) -> Weight {
 		let mut weight = WeightMeter::with_limit(weight_limit);
 
 		// Get the maximum weight that processing a single message may take:
 		let max_weight = Self::max_message_weight(weight_limit).unwrap_or_else(|| {
-			defensive!("Not enough weight to service a single message.");
+			// throw defensive message when service_queues is called from on_initialize
+			// it doesn't matter if there is not enough weight when called in the context of on_idle
+			// therefore, don't throw message when service_queues is called from on_idle
+			if matches(context, ServiceQueuesContext::OnInitialize) {
+				defensive!("Not enough weight to service a single message.");
+			}
 			Weight::zero()
 		});
 
