@@ -180,7 +180,7 @@ pub struct TaskDef {
 	pub condition_attr: TaskConditionAttr,
 	pub list_attr: TaskListAttr,
 	pub weight_attr: TaskWeightAttr,
-	pub normal_attrs: Vec<Attribute>,
+	pub _normal_attrs: Vec<Attribute>,
 	pub item: ImplItemFn,
 	pub arg_names: Vec<Ident>,
 }
@@ -190,7 +190,7 @@ impl syn::parse::Parse for TaskDef {
 		let item = input.parse::<ImplItemFn>()?;
 		// we only want to activate TaskAttrType parsing errors for tasks-related attributes,
 		// so we filter them here
-		let (task_attrs, normal_attrs) = partition_task_attrs(&item);
+		let (task_attrs, _normal_attrs) = partition_task_attrs(&item);
 
 		let task_attrs: Vec<TaskAttr> = task_attrs
 			.into_iter()
@@ -298,7 +298,7 @@ impl syn::parse::Parse for TaskDef {
 			condition_attr,
 			list_attr,
 			weight_attr,
-			normal_attrs,
+			_normal_attrs,
 			item,
 			arg_names,
 		})

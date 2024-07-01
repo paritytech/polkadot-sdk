@@ -88,7 +88,7 @@ pub mod keyword {
 
 pub struct CompositeDef {
 	/// The index of the CompositeDef item in the pallet module.
-	pub index: usize,
+	pub _index: usize,
 	/// The composite keyword used (contains span).
 	pub composite_keyword: keyword::CompositeKeyword,
 	/// Name of the associated type.
@@ -180,7 +180,7 @@ impl CompositeDef {
 			syn::parse2::<keyword::CompositeKeyword>(item.ident.to_token_stream())?;
 
 		Ok(CompositeDef {
-			index,
+			_index: index,
 			composite_keyword,
 			attr_span,
 			generics: item.generics.clone(),

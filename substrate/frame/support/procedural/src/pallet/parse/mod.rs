@@ -722,7 +722,6 @@ impl syn::parse::Parse for PalletAttr {
 #[derive(Clone)]
 pub struct InheritedCallWeightAttr {
 	pub typename: syn::Type,
-	pub span: proc_macro2::Span,
 }
 
 impl syn::parse::Parse for InheritedCallWeightAttr {
@@ -744,6 +743,6 @@ impl syn::parse::Parse for InheritedCallWeightAttr {
 			return Err(lookahead.error())
 		};
 
-		Ok(Self { typename: buffer.parse()?, span: input.span() })
+		Ok(Self { typename: buffer.parse()? })
 	}
 }

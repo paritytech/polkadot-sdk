@@ -63,7 +63,7 @@ pub struct ConfigDef {
 	/// The where clause on trait definition but modified so `Self` is `T`.
 	pub where_clause: Option<syn::WhereClause>,
 	/// The span of the pallet::config attribute.
-	pub attr_span: proc_macro2::Span,
+	pub _attr_span: proc_macro2::Span,
 	/// Whether a default sub-trait should be generated.
 	///
 	/// Contains default sub-trait items (instantiated by `#[pallet::config(with_default)]`).
@@ -484,7 +484,7 @@ impl ConfigDef {
 			consts_metadata,
 			has_event_type,
 			where_clause,
-			attr_span,
+			_attr_span: attr_span,
 			default_sub_trait,
 		})
 	}

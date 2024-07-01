@@ -21,7 +21,7 @@ use syn::spanned::Spanned;
 /// Definition for pallet genesis build implementation.
 pub struct GenesisBuildDef {
 	/// The index of item in pallet module.
-	pub index: usize,
+	pub _index: usize,
 	/// A set of usage of instance, must be check for consistency with trait.
 	pub instances: Option<Vec<helper::InstanceUsage>>,
 	/// The where_clause used.
@@ -56,6 +56,11 @@ impl GenesisBuildDef {
 		let instances =
 			helper::check_genesis_builder_usage(item_trait)?.map(|instances| vec![instances]);
 
-		Ok(Self { attr_span, index, instances, where_clause: item.generics.where_clause.clone() })
+		Ok(Self {
+			attr_span,
+			_index: index,
+			instances,
+			where_clause: item.generics.where_clause.clone(),
+		})
 	}
 }

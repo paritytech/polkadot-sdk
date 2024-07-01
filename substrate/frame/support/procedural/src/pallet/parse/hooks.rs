@@ -21,7 +21,7 @@ use syn::spanned::Spanned;
 /// Implementation of the pallet hooks.
 pub struct HooksDef {
 	/// The index of item in pallet.
-	pub index: usize,
+	pub _index: usize,
 	/// A set of usage of instance, must be check for consistency with trait.
 	pub instances: Vec<helper::InstanceUsage>,
 	/// The where_clause used.
@@ -77,7 +77,7 @@ impl HooksDef {
 
 		Ok(Self {
 			attr_span,
-			index,
+			_index: index,
 			instances,
 			has_runtime_upgrade,
 			where_clause: item.generics.where_clause.clone(),

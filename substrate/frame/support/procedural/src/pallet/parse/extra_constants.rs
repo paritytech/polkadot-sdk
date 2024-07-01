@@ -38,7 +38,7 @@ pub struct ExtraConstantsDef {
 	/// A set of usage of instance, must be check for consistency with trait.
 	pub instances: Vec<helper::InstanceUsage>,
 	/// The index of call item in pallet module.
-	pub index: usize,
+	pub _index: usize,
 	/// The extra constant defined.
 	pub extra_constants: Vec<ExtraConstantDef>,
 }
@@ -151,7 +151,7 @@ impl ExtraConstantsDef {
 		}
 
 		Ok(Self {
-			index,
+			_index: index,
 			instances,
 			where_clause: item.generics.where_clause.clone(),
 			extra_constants,

@@ -109,7 +109,7 @@ pub enum AllPalletsDeclaration {
 /// Declaration of a runtime with some pallet with implicit declaration of parts.
 #[derive(Debug, Clone)]
 pub struct ImplicitAllPalletsDeclaration {
-	pub name: Ident,
+	pub _name: Ident,
 	pub pallet_decls: Vec<PalletDeclaration>,
 	pub pallet_count: usize,
 }
@@ -123,7 +123,7 @@ pub struct ExplicitAllPalletsDeclaration {
 
 pub struct Def {
 	pub input: TokenStream2,
-	pub item: syn::ItemMod,
+	pub _item: syn::ItemMod,
 	pub runtime_struct: runtime_struct::RuntimeStructDef,
 	pub pallets: AllPalletsDeclaration,
 	pub runtime_types: Vec<RuntimeType>,
@@ -240,7 +240,7 @@ impl Def {
 		let decl_count = pallet_decls.len();
 		let pallets = if decl_count > 0 {
 			AllPalletsDeclaration::Implicit(ImplicitAllPalletsDeclaration {
-				name,
+				_name: name,
 				pallet_decls,
 				pallet_count: decl_count.saturating_add(pallets.len()),
 			})
@@ -250,7 +250,7 @@ impl Def {
 
 		let def = Def {
 			input,
-			item,
+			_item: item,
 			runtime_struct: runtime_struct.ok_or_else(|| {
 				syn::Error::new(item_span,
 					"Missing Runtime. Please add a struct inside the module and annotate it with `#[runtime::runtime]`"

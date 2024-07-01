@@ -29,11 +29,11 @@ pub struct TypeValueDef {
 	/// The type return by Get.
 	pub type_: Box<syn::Type>,
 	/// The block returning the value to get
-	pub block: Box<syn::Block>,
+	pub _block: Box<syn::Block>,
 	/// If type value is generic over `T` (or `T` and `I` for instantiable pallet)
 	pub is_generic: bool,
 	/// A set of usage of instance, must be check for consistency with config.
-	pub instances: Vec<helper::InstanceUsage>,
+	pub _instances: Vec<helper::InstanceUsage>,
 	/// The where clause of the function.
 	pub where_clause: Option<syn::WhereClause>,
 	/// The span of the pallet::type_value attribute.
@@ -113,9 +113,9 @@ impl TypeValueDef {
 			is_generic,
 			vis,
 			ident,
-			block,
+			_block: block,
 			type_,
-			instances,
+			_instances: instances,
 			where_clause,
 			docs,
 		})

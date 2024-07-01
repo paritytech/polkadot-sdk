@@ -21,7 +21,7 @@ use syn::spanned::Spanned;
 /// The definition of the pallet inherent implementation.
 pub struct InherentDef {
 	/// The index of inherent item in pallet module.
-	pub index: usize,
+	pub _index: usize,
 	/// A set of usage of instance, must be check for consistency with trait.
 	pub instances: Vec<helper::InstanceUsage>,
 }
@@ -55,6 +55,6 @@ impl InherentDef {
 			helper::check_impl_gen(&item.generics, item.impl_token.span())?,
 		];
 
-		Ok(InherentDef { index, instances })
+		Ok(InherentDef { _index: index, instances })
 	}
 }

@@ -23,7 +23,7 @@ pub struct PalletDeclaration {
 	/// The name of the pallet, e.g.`System` in `pub type System = frame_system`.
 	pub name: Ident,
 	/// Optional attributes tagged right above a pallet declaration.
-	pub attrs: Vec<Attribute>,
+	pub _attrs: Vec<Attribute>,
 	/// The path of the pallet, e.g. `frame_system` in `pub type System = frame_system`.
 	pub path: syn::Path,
 	/// The segment of the pallet, e.g. `Pallet` in `pub type System = frame_system::Pallet`.
@@ -91,7 +91,7 @@ impl PalletDeclaration {
 			};
 		}
 
-		Ok(Self { name, path, pallet_segment, runtime_param, instance, attrs: item.attrs.clone() })
+		Ok(Self { name, path, pallet_segment, runtime_param, instance, _attrs: item.attrs.clone() })
 	}
 }
 
