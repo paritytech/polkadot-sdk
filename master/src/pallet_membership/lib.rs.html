@@ -1010,6 +1010,38 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#859" id="859">859</a>
 <a href="#860" id="860">860</a>
 <a href="#861" id="861">861</a>
+<a href="#862" id="862">862</a>
+<a href="#863" id="863">863</a>
+<a href="#864" id="864">864</a>
+<a href="#865" id="865">865</a>
+<a href="#866" id="866">866</a>
+<a href="#867" id="867">867</a>
+<a href="#868" id="868">868</a>
+<a href="#869" id="869">869</a>
+<a href="#870" id="870">870</a>
+<a href="#871" id="871">871</a>
+<a href="#872" id="872">872</a>
+<a href="#873" id="873">873</a>
+<a href="#874" id="874">874</a>
+<a href="#875" id="875">875</a>
+<a href="#876" id="876">876</a>
+<a href="#877" id="877">877</a>
+<a href="#878" id="878">878</a>
+<a href="#879" id="879">879</a>
+<a href="#880" id="880">880</a>
+<a href="#881" id="881">881</a>
+<a href="#882" id="882">882</a>
+<a href="#883" id="883">883</a>
+<a href="#884" id="884">884</a>
+<a href="#885" id="885">885</a>
+<a href="#886" id="886">886</a>
+<a href="#887" id="887">887</a>
+<a href="#888" id="888">888</a>
+<a href="#889" id="889">889</a>
+<a href="#890" id="890">890</a>
+<a href="#891" id="891">891</a>
+<a href="#892" id="892">892</a>
+<a href="#893" id="893">893</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1107,13 +1139,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// The current membership, stored as an ordered Vec.
 	</span><span class="attr">#[pallet::storage]
-	#[pallet::getter(<span class="kw">fn </span>members)]
 	</span><span class="kw">pub type </span>Members&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static </span>= ()&gt; =
 		StorageValue&lt;<span class="kw">_</span>, BoundedVec&lt;T::AccountId, T::MaxMembers&gt;, ValueQuery&gt;;
 
 	<span class="doccomment">/// The current prime member, if one exists.
 	</span><span class="attr">#[pallet::storage]
-	#[pallet::getter(<span class="kw">fn </span>prime)]
 	</span><span class="kw">pub type </span>Prime&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static </span>= ()&gt; = StorageValue&lt;<span class="kw">_</span>, T::AccountId, OptionQuery&gt;;
 
 	<span class="attr">#[pallet::genesis_config]
@@ -1138,7 +1168,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span><span class="kw-2">mut </span>members = <span class="self">self</span>.members.clone();
 			members.sort();
 			T::MembershipInitialized::initialize_members(<span class="kw-2">&amp;</span>members);
-			&lt;Members&lt;T, I&gt;&gt;::put(members);
+			Members::&lt;T, I&gt;::put(members);
 		}
 	}
 
@@ -1183,14 +1213,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			T::AddOrigin::ensure_origin(origin)<span class="question-mark">?</span>;
 			<span class="kw">let </span>who = T::Lookup::lookup(who)<span class="question-mark">?</span>;
 
-			<span class="kw">let </span><span class="kw-2">mut </span>members = &lt;Members&lt;T, I&gt;&gt;::get();
+			<span class="kw">let </span><span class="kw-2">mut </span>members = Members::&lt;T, I&gt;::get();
 			<span class="kw">let </span>init_length = members.len();
 			<span class="kw">let </span>location = members.binary_search(<span class="kw-2">&amp;</span>who).err().ok_or(Error::&lt;T, I&gt;::AlreadyMember)<span class="question-mark">?</span>;
 			members
 				.try_insert(location, who.clone())
 				.map_err(|<span class="kw">_</span>| Error::&lt;T, I&gt;::TooManyMembers)<span class="question-mark">?</span>;
 
-			&lt;Members&lt;T, I&gt;&gt;::put(<span class="kw-2">&amp;</span>members);
+			Members::&lt;T, I&gt;::put(<span class="kw-2">&amp;</span>members);
 
 			T::MembershipChanged::change_members_sorted(<span class="kw-2">&amp;</span>[who], <span class="kw-2">&amp;</span>[], <span class="kw-2">&amp;</span>members[..]);
 
@@ -1211,12 +1241,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			T::RemoveOrigin::ensure_origin(origin)<span class="question-mark">?</span>;
 			<span class="kw">let </span>who = T::Lookup::lookup(who)<span class="question-mark">?</span>;
 
-			<span class="kw">let </span><span class="kw-2">mut </span>members = &lt;Members&lt;T, I&gt;&gt;::get();
+			<span class="kw">let </span><span class="kw-2">mut </span>members = Members::&lt;T, I&gt;::get();
 			<span class="kw">let </span>init_length = members.len();
 			<span class="kw">let </span>location = members.binary_search(<span class="kw-2">&amp;</span>who).ok().ok_or(Error::&lt;T, I&gt;::NotMember)<span class="question-mark">?</span>;
 			members.remove(location);
 
-			&lt;Members&lt;T, I&gt;&gt;::put(<span class="kw-2">&amp;</span>members);
+			Members::&lt;T, I&gt;::put(<span class="kw-2">&amp;</span>members);
 
 			T::MembershipChanged::change_members_sorted(<span class="kw-2">&amp;</span>[], <span class="kw-2">&amp;</span>[who], <span class="kw-2">&amp;</span>members[..]);
 			<span class="self">Self</span>::rejig_prime(<span class="kw-2">&amp;</span>members);
@@ -1245,13 +1275,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw">return </span><span class="prelude-val">Ok</span>(().into());
 			}
 
-			<span class="kw">let </span><span class="kw-2">mut </span>members = &lt;Members&lt;T, I&gt;&gt;::get();
+			<span class="kw">let </span><span class="kw-2">mut </span>members = Members::&lt;T, I&gt;::get();
 			<span class="kw">let </span>location = members.binary_search(<span class="kw-2">&amp;</span>remove).ok().ok_or(Error::&lt;T, I&gt;::NotMember)<span class="question-mark">?</span>;
 			<span class="kw">let _ </span>= members.binary_search(<span class="kw-2">&amp;</span>add).err().ok_or(Error::&lt;T, I&gt;::AlreadyMember)<span class="question-mark">?</span>;
 			members[location] = add.clone();
 			members.sort();
 
-			&lt;Members&lt;T, I&gt;&gt;::put(<span class="kw-2">&amp;</span>members);
+			Members::&lt;T, I&gt;::put(<span class="kw-2">&amp;</span>members);
 
 			T::MembershipChanged::change_members_sorted(<span class="kw-2">&amp;</span>[add], <span class="kw-2">&amp;</span>[remove], <span class="kw-2">&amp;</span>members[..]);
 			<span class="self">Self</span>::rejig_prime(<span class="kw-2">&amp;</span>members);
@@ -1272,7 +1302,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span><span class="kw-2">mut </span>members: BoundedVec&lt;T::AccountId, T::MaxMembers&gt; =
 				BoundedVec::try_from(members).map_err(|<span class="kw">_</span>| Error::&lt;T, I&gt;::TooManyMembers)<span class="question-mark">?</span>;
 			members.sort();
-			&lt;Members&lt;T, I&gt;&gt;::mutate(|m| {
+			Members::&lt;T, I&gt;::mutate(|m| {
 				T::MembershipChanged::set_members_sorted(<span class="kw-2">&amp;</span>members[..], m);
 				<span class="self">Self</span>::rejig_prime(<span class="kw-2">&amp;</span>members);
 				<span class="kw-2">*</span>m = members;
@@ -1300,14 +1330,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw">return </span><span class="prelude-val">Ok</span>(().into());
 			}
 
-			<span class="kw">let </span><span class="kw-2">mut </span>members = &lt;Members&lt;T, I&gt;&gt;::get();
+			<span class="kw">let </span><span class="kw-2">mut </span>members = Members::&lt;T, I&gt;::get();
 			<span class="kw">let </span>members_length = members.len() <span class="kw">as </span>u32;
 			<span class="kw">let </span>location = members.binary_search(<span class="kw-2">&amp;</span>remove).ok().ok_or(Error::&lt;T, I&gt;::NotMember)<span class="question-mark">?</span>;
 			<span class="kw">let _ </span>= members.binary_search(<span class="kw-2">&amp;</span>new).err().ok_or(Error::&lt;T, I&gt;::AlreadyMember)<span class="question-mark">?</span>;
 			members[location] = new.clone();
 			members.sort();
 
-			&lt;Members&lt;T, I&gt;&gt;::put(<span class="kw-2">&amp;</span>members);
+			Members::&lt;T, I&gt;::put(<span class="kw-2">&amp;</span>members);
 
 			T::MembershipChanged::change_members_sorted(
 				<span class="kw-2">&amp;</span>[new.clone()],
@@ -1335,7 +1365,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		) -&gt; DispatchResultWithPostInfo {
 			T::PrimeOrigin::ensure_origin(origin)<span class="question-mark">?</span>;
 			<span class="kw">let </span>who = T::Lookup::lookup(who)<span class="question-mark">?</span>;
-			<span class="kw">let </span>members = <span class="self">Self</span>::members();
+			<span class="kw">let </span>members = Members::&lt;T, I&gt;::get();
 			members.binary_search(<span class="kw-2">&amp;</span>who).ok().ok_or(Error::&lt;T, I&gt;::NotMember)<span class="question-mark">?</span>;
 			Prime::&lt;T, I&gt;::put(<span class="kw-2">&amp;</span>who);
 			T::MembershipChanged::set_prime(<span class="prelude-val">Some</span>(who));
@@ -1357,6 +1387,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt; Pallet&lt;T, I&gt; {
+	<span class="doccomment">/// The current membership, stored as an ordered `Vec`.
+	</span><span class="kw">pub fn </span>members() -&gt; BoundedVec&lt;T::AccountId, T::MaxMembers&gt; {
+		Members::&lt;T, I&gt;::get()
+	}
+
+	<span class="doccomment">/// The current prime member, if one exists.
+	</span><span class="kw">pub fn </span>prime() -&gt; <span class="prelude-ty">Option</span>&lt;T::AccountId&gt; {
+		Prime::&lt;T, I&gt;::get()
+	}
+
 	<span class="kw">fn </span>rejig_prime(members: <span class="kw-2">&amp;</span>[T::AccountId]) {
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(prime) = Prime::&lt;T, I&gt;::get() {
 			<span class="kw">match </span>members.binary_search(<span class="kw-2">&amp;</span>prime) {
@@ -1369,7 +1409,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt; Contains&lt;T::AccountId&gt; <span class="kw">for </span>Pallet&lt;T, I&gt; {
 	<span class="kw">fn </span>contains(t: <span class="kw-2">&amp;</span>T::AccountId) -&gt; bool {
-		<span class="self">Self</span>::members().binary_search(t).is_ok()
+		Members::&lt;T, I&gt;::get().binary_search(t).is_ok()
 	}
 }
 
@@ -1386,7 +1426,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt; SortedMembers&lt;T::AccountId&gt; <span class="kw">for </span>Pallet&lt;T, I&gt; {
 	<span class="kw">fn </span>sorted_members() -&gt; Vec&lt;T::AccountId&gt; {
-		<span class="self">Self</span>::members().to_vec()
+		Members::&lt;T, I&gt;::get().to_vec()
 	}
 
 	<span class="kw">fn </span>count() -&gt; usize {
@@ -1421,12 +1461,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>prime_origin = T::PrimeOrigin::try_successful_origin()
 			.expect(<span class="string">"PrimeOrigin has no successful origin required for the benchmark"</span>);
 
-		<span class="macro">assert_ok!</span>(&lt;Membership&lt;T, I&gt;&gt;::reset_members(reset_origin, members.clone()));
+		<span class="macro">assert_ok!</span>(Membership::&lt;T, I&gt;::reset_members(reset_origin, members.clone()));
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(prime) = prime.map(|i| members[i].clone()) {
 			<span class="kw">let </span>prime_lookup = T::Lookup::unlookup(prime);
-			<span class="macro">assert_ok!</span>(&lt;Membership&lt;T, I&gt;&gt;::set_prime(prime_origin, prime_lookup));
+			<span class="macro">assert_ok!</span>(Membership::&lt;T, I&gt;::set_prime(prime_origin, prime_lookup));
 		} <span class="kw">else </span>{
-			<span class="macro">assert_ok!</span>(&lt;Membership&lt;T, I&gt;&gt;::clear_prime(prime_origin));
+			<span class="macro">assert_ok!</span>(Membership::&lt;T, I&gt;::clear_prime(prime_origin));
 		}
 	}
 
@@ -1439,12 +1479,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>new_member = account::&lt;T::AccountId&gt;(<span class="string">"add"</span>, m, SEED);
 			<span class="kw">let </span>new_member_lookup = T::Lookup::unlookup(new_member.clone());
 		}: {
-			<span class="macro">assert_ok!</span>(&lt;Membership&lt;T, I&gt;&gt;::add_member(
+			<span class="macro">assert_ok!</span>(Membership::&lt;T, I&gt;::add_member(
 				T::AddOrigin::try_successful_origin().map_err(|<span class="kw">_</span>| BenchmarkError::Weightless)<span class="question-mark">?</span>,
 				new_member_lookup,
 			));
 		} verify {
-			<span class="macro">assert!</span>(&lt;Members&lt;T, I&gt;&gt;::get().contains(<span class="kw-2">&amp;</span>new_member));
+			<span class="macro">assert!</span>(Members::&lt;T, I&gt;::get().contains(<span class="kw-2">&amp;</span>new_member));
 			<span class="attr">#[cfg(test)] </span><span class="kw">crate</span>::tests::clean();
 		}
 
@@ -1459,14 +1499,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>to_remove = members.first().cloned().unwrap();
 			<span class="kw">let </span>to_remove_lookup = T::Lookup::unlookup(to_remove.clone());
 		}: {
-			<span class="macro">assert_ok!</span>(&lt;Membership&lt;T, I&gt;&gt;::remove_member(
+			<span class="macro">assert_ok!</span>(Membership::&lt;T, I&gt;::remove_member(
 				T::RemoveOrigin::try_successful_origin().map_err(|<span class="kw">_</span>| BenchmarkError::Weightless)<span class="question-mark">?</span>,
 				to_remove_lookup,
 			));
 		} verify {
-			<span class="macro">assert!</span>(!&lt;Members&lt;T, I&gt;&gt;::get().contains(<span class="kw-2">&amp;</span>to_remove));
+			<span class="macro">assert!</span>(!Members::&lt;T, I&gt;::get().contains(<span class="kw-2">&amp;</span>to_remove));
 			<span class="comment">// prime is rejigged
-			</span><span class="macro">assert!</span>(&lt;Prime&lt;T, I&gt;&gt;::get().is_some() &amp;&amp; T::MembershipChanged::get_prime().is_some());
+			</span><span class="macro">assert!</span>(Prime::&lt;T, I&gt;::get().is_some() &amp;&amp; T::MembershipChanged::get_prime().is_some());
 			<span class="attr">#[cfg(test)] </span><span class="kw">crate</span>::tests::clean();
 		}
 
@@ -1481,16 +1521,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>remove = members.first().cloned().unwrap();
 			<span class="kw">let </span>remove_lookup = T::Lookup::unlookup(remove.clone());
 		}: {
-			<span class="macro">assert_ok!</span>(&lt;Membership&lt;T, I&gt;&gt;::swap_member(
+			<span class="macro">assert_ok!</span>(Membership::&lt;T, I&gt;::swap_member(
 				T::SwapOrigin::try_successful_origin().map_err(|<span class="kw">_</span>| BenchmarkError::Weightless)<span class="question-mark">?</span>,
 				remove_lookup,
 				add_lookup,
 			));
 		} verify {
-			<span class="macro">assert!</span>(!&lt;Members&lt;T, I&gt;&gt;::get().contains(<span class="kw-2">&amp;</span>remove));
-			<span class="macro">assert!</span>(&lt;Members&lt;T, I&gt;&gt;::get().contains(<span class="kw-2">&amp;</span>add));
+			<span class="macro">assert!</span>(!Members::&lt;T, I&gt;::get().contains(<span class="kw-2">&amp;</span>remove));
+			<span class="macro">assert!</span>(Members::&lt;T, I&gt;::get().contains(<span class="kw-2">&amp;</span>add));
 			<span class="comment">// prime is rejigged
-			</span><span class="macro">assert!</span>(&lt;Prime&lt;T, I&gt;&gt;::get().is_some() &amp;&amp; T::MembershipChanged::get_prime().is_some());
+			</span><span class="macro">assert!</span>(Prime::&lt;T, I&gt;::get().is_some() &amp;&amp; T::MembershipChanged::get_prime().is_some());
 			<span class="attr">#[cfg(test)] </span><span class="kw">crate</span>::tests::clean();
 		}
 
@@ -1502,15 +1542,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			set_members::&lt;T, I&gt;(members.clone(), <span class="prelude-val">Some</span>(members.len() - <span class="number">1</span>));
 			<span class="kw">let </span><span class="kw-2">mut </span>new_members = (m..<span class="number">2</span><span class="kw-2">*</span>m).map(|i| account(<span class="string">"member"</span>, i, SEED)).collect::&lt;Vec&lt;T::AccountId&gt;&gt;();
 		}: {
-			<span class="macro">assert_ok!</span>(&lt;Membership&lt;T, I&gt;&gt;::reset_members(
+			<span class="macro">assert_ok!</span>(Membership::&lt;T, I&gt;::reset_members(
 				T::ResetOrigin::try_successful_origin().map_err(|<span class="kw">_</span>| BenchmarkError::Weightless)<span class="question-mark">?</span>,
 				new_members.clone(),
 			));
 		} verify {
 			new_members.sort();
-			<span class="macro">assert_eq!</span>(&lt;Members&lt;T, I&gt;&gt;::get(), new_members);
+			<span class="macro">assert_eq!</span>(Members::&lt;T, I&gt;::get(), new_members);
 			<span class="comment">// prime is rejigged
-			</span><span class="macro">assert!</span>(&lt;Prime&lt;T, I&gt;&gt;::get().is_some() &amp;&amp; T::MembershipChanged::get_prime().is_some());
+			</span><span class="macro">assert!</span>(Prime::&lt;T, I&gt;::get().is_some() &amp;&amp; T::MembershipChanged::get_prime().is_some());
 			<span class="attr">#[cfg(test)] </span><span class="kw">crate</span>::tests::clean();
 		}
 
@@ -1526,12 +1566,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>add_lookup = T::Lookup::unlookup(add.clone());
 			<span class="macro">whitelist!</span>(prime);
 		}: {
-			<span class="macro">assert_ok!</span>(&lt;Membership&lt;T, I&gt;&gt;::change_key(RawOrigin::Signed(prime.clone()).into(), add_lookup));
+			<span class="macro">assert_ok!</span>(Membership::&lt;T, I&gt;::change_key(RawOrigin::Signed(prime.clone()).into(), add_lookup));
 		} verify {
-			<span class="macro">assert!</span>(!&lt;Members&lt;T, I&gt;&gt;::get().contains(<span class="kw-2">&amp;</span>prime));
-			<span class="macro">assert!</span>(&lt;Members&lt;T, I&gt;&gt;::get().contains(<span class="kw-2">&amp;</span>add));
+			<span class="macro">assert!</span>(!Members::&lt;T, I&gt;::get().contains(<span class="kw-2">&amp;</span>prime));
+			<span class="macro">assert!</span>(Members::&lt;T, I&gt;::get().contains(<span class="kw-2">&amp;</span>add));
 			<span class="comment">// prime is rejigged
-			</span><span class="macro">assert_eq!</span>(&lt;Prime&lt;T, I&gt;&gt;::get().unwrap(), add);
+			</span><span class="macro">assert_eq!</span>(Prime::&lt;T, I&gt;::get().unwrap(), add);
 			<span class="attr">#[cfg(test)] </span><span class="kw">crate</span>::tests::clean();
 		}
 
@@ -1542,12 +1582,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>prime_lookup = T::Lookup::unlookup(prime.clone());
 			set_members::&lt;T, I&gt;(members, <span class="prelude-val">None</span>);
 		}: {
-			<span class="macro">assert_ok!</span>(&lt;Membership&lt;T, I&gt;&gt;::set_prime(
+			<span class="macro">assert_ok!</span>(Membership::&lt;T, I&gt;::set_prime(
 				T::PrimeOrigin::try_successful_origin().map_err(|<span class="kw">_</span>| BenchmarkError::Weightless)<span class="question-mark">?</span>,
 				prime_lookup,
 			));
 		} verify {
-			<span class="macro">assert!</span>(&lt;Prime&lt;T, I&gt;&gt;::get().is_some());
+			<span class="macro">assert!</span>(Prime::&lt;T, I&gt;::get().is_some());
 			<span class="macro">assert!</span>(&lt;T::MembershipChanged&gt;::get_prime().is_some());
 			<span class="attr">#[cfg(test)] </span><span class="kw">crate</span>::tests::clean();
 		}
@@ -1557,11 +1597,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>prime = members.last().cloned().unwrap();
 			set_members::&lt;T, I&gt;(members, <span class="prelude-val">None</span>);
 		}: {
-			<span class="macro">assert_ok!</span>(&lt;Membership&lt;T, I&gt;&gt;::clear_prime(
+			<span class="macro">assert_ok!</span>(Membership::&lt;T, I&gt;::clear_prime(
 				T::PrimeOrigin::try_successful_origin().map_err(|<span class="kw">_</span>| BenchmarkError::Weightless)<span class="question-mark">?</span>,
 			));
 		} verify {
-			<span class="macro">assert!</span>(&lt;Prime&lt;T, I&gt;&gt;::get().is_none());
+			<span class="macro">assert!</span>(Prime::&lt;T, I&gt;::get().is_none());
 			<span class="macro">assert!</span>(&lt;T::MembershipChanged&gt;::get_prime().is_none());
 			<span class="attr">#[cfg(test)] </span><span class="kw">crate</span>::tests::clean();
 		}
@@ -1678,7 +1718,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>query_membership_works() {
 		new_test_ext().execute_with(|| {
-			<span class="macro">assert_eq!</span>(Membership::members(), <span class="macro">vec!</span>[<span class="number">10</span>, <span class="number">20</span>, <span class="number">30</span>]);
+			<span class="macro">assert_eq!</span>(<span class="kw">crate</span>::Members::&lt;Test&gt;::get(), <span class="macro">vec!</span>[<span class="number">10</span>, <span class="number">20</span>, <span class="number">30</span>]);
 			<span class="macro">assert_eq!</span>(MEMBERS.with(|m| m.borrow().clone()), <span class="macro">vec!</span>[<span class="number">10</span>, <span class="number">20</span>, <span class="number">30</span>]);
 		});
 	}
@@ -1692,12 +1732,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				Error::&lt;Test, <span class="kw">_</span>&gt;::NotMember
 			);
 			<span class="macro">assert_ok!</span>(Membership::set_prime(RuntimeOrigin::signed(<span class="number">5</span>), <span class="number">20</span>));
-			<span class="macro">assert_eq!</span>(Membership::prime(), <span class="prelude-val">Some</span>(<span class="number">20</span>));
-			<span class="macro">assert_eq!</span>(PRIME.with(|m| <span class="kw-2">*</span>m.borrow()), Membership::prime());
+			<span class="macro">assert_eq!</span>(<span class="kw">crate</span>::Prime::&lt;Test&gt;::get(), <span class="prelude-val">Some</span>(<span class="number">20</span>));
+			<span class="macro">assert_eq!</span>(PRIME.with(|m| <span class="kw-2">*</span>m.borrow()), <span class="kw">crate</span>::Prime::&lt;Test&gt;::get());
 
 			<span class="macro">assert_ok!</span>(Membership::clear_prime(RuntimeOrigin::signed(<span class="number">5</span>)));
-			<span class="macro">assert_eq!</span>(Membership::prime(), <span class="prelude-val">None</span>);
-			<span class="macro">assert_eq!</span>(PRIME.with(|m| <span class="kw-2">*</span>m.borrow()), Membership::prime());
+			<span class="macro">assert_eq!</span>(<span class="kw">crate</span>::Prime::&lt;Test&gt;::get(), <span class="prelude-val">None</span>);
+			<span class="macro">assert_eq!</span>(PRIME.with(|m| <span class="kw-2">*</span>m.borrow()), <span class="kw">crate</span>::Prime::&lt;Test&gt;::get());
 		});
 	}
 
@@ -1710,8 +1750,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				Error::&lt;Test, <span class="kw">_</span>&gt;::AlreadyMember
 			);
 			<span class="macro">assert_ok!</span>(Membership::add_member(RuntimeOrigin::signed(<span class="number">1</span>), <span class="number">15</span>));
-			<span class="macro">assert_eq!</span>(Membership::members(), <span class="macro">vec!</span>[<span class="number">10</span>, <span class="number">15</span>, <span class="number">20</span>, <span class="number">30</span>]);
-			<span class="macro">assert_eq!</span>(MEMBERS.with(|m| m.borrow().clone()), Membership::members().to_vec());
+			<span class="macro">assert_eq!</span>(<span class="kw">crate</span>::Members::&lt;Test&gt;::get(), <span class="macro">vec!</span>[<span class="number">10</span>, <span class="number">15</span>, <span class="number">20</span>, <span class="number">30</span>]);
+			<span class="macro">assert_eq!</span>(
+				MEMBERS.with(|m| m.borrow().clone()),
+				<span class="kw">crate</span>::Members::&lt;Test&gt;::get().to_vec()
+			);
 		});
 	}
 
@@ -1725,10 +1768,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			);
 			<span class="macro">assert_ok!</span>(Membership::set_prime(RuntimeOrigin::signed(<span class="number">5</span>), <span class="number">20</span>));
 			<span class="macro">assert_ok!</span>(Membership::remove_member(RuntimeOrigin::signed(<span class="number">2</span>), <span class="number">20</span>));
-			<span class="macro">assert_eq!</span>(Membership::members(), <span class="macro">vec!</span>[<span class="number">10</span>, <span class="number">30</span>]);
-			<span class="macro">assert_eq!</span>(MEMBERS.with(|m| m.borrow().clone()), Membership::members().to_vec());
-			<span class="macro">assert_eq!</span>(Membership::prime(), <span class="prelude-val">None</span>);
-			<span class="macro">assert_eq!</span>(PRIME.with(|m| <span class="kw-2">*</span>m.borrow()), Membership::prime());
+			<span class="macro">assert_eq!</span>(<span class="kw">crate</span>::Members::&lt;Test&gt;::get(), <span class="macro">vec!</span>[<span class="number">10</span>, <span class="number">30</span>]);
+			<span class="macro">assert_eq!</span>(
+				MEMBERS.with(|m| m.borrow().clone()),
+				<span class="kw">crate</span>::Members::&lt;Test&gt;::get().to_vec()
+			);
+			<span class="macro">assert_eq!</span>(<span class="kw">crate</span>::Prime::&lt;Test&gt;::get(), <span class="prelude-val">None</span>);
+			<span class="macro">assert_eq!</span>(PRIME.with(|m| <span class="kw-2">*</span>m.borrow()), <span class="kw">crate</span>::Prime::&lt;Test&gt;::get());
 		});
 	}
 
@@ -1747,16 +1793,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="macro">assert_ok!</span>(Membership::set_prime(RuntimeOrigin::signed(<span class="number">5</span>), <span class="number">20</span>));
 			<span class="macro">assert_ok!</span>(Membership::swap_member(RuntimeOrigin::signed(<span class="number">3</span>), <span class="number">20</span>, <span class="number">20</span>));
-			<span class="macro">assert_eq!</span>(Membership::members(), <span class="macro">vec!</span>[<span class="number">10</span>, <span class="number">20</span>, <span class="number">30</span>]);
-			<span class="macro">assert_eq!</span>(Membership::prime(), <span class="prelude-val">Some</span>(<span class="number">20</span>));
-			<span class="macro">assert_eq!</span>(PRIME.with(|m| <span class="kw-2">*</span>m.borrow()), Membership::prime());
+			<span class="macro">assert_eq!</span>(<span class="kw">crate</span>::Members::&lt;Test&gt;::get(), <span class="macro">vec!</span>[<span class="number">10</span>, <span class="number">20</span>, <span class="number">30</span>]);
+			<span class="macro">assert_eq!</span>(<span class="kw">crate</span>::Prime::&lt;Test&gt;::get(), <span class="prelude-val">Some</span>(<span class="number">20</span>));
+			<span class="macro">assert_eq!</span>(PRIME.with(|m| <span class="kw-2">*</span>m.borrow()), <span class="kw">crate</span>::Prime::&lt;Test&gt;::get());
 
 			<span class="macro">assert_ok!</span>(Membership::set_prime(RuntimeOrigin::signed(<span class="number">5</span>), <span class="number">10</span>));
 			<span class="macro">assert_ok!</span>(Membership::swap_member(RuntimeOrigin::signed(<span class="number">3</span>), <span class="number">10</span>, <span class="number">25</span>));
-			<span class="macro">assert_eq!</span>(Membership::members(), <span class="macro">vec!</span>[<span class="number">20</span>, <span class="number">25</span>, <span class="number">30</span>]);
-			<span class="macro">assert_eq!</span>(MEMBERS.with(|m| m.borrow().clone()), Membership::members().to_vec());
-			<span class="macro">assert_eq!</span>(Membership::prime(), <span class="prelude-val">None</span>);
-			<span class="macro">assert_eq!</span>(PRIME.with(|m| <span class="kw-2">*</span>m.borrow()), Membership::prime());
+			<span class="macro">assert_eq!</span>(<span class="kw">crate</span>::Members::&lt;Test&gt;::get(), <span class="macro">vec!</span>[<span class="number">20</span>, <span class="number">25</span>, <span class="number">30</span>]);
+			<span class="macro">assert_eq!</span>(
+				MEMBERS.with(|m| m.borrow().clone()),
+				<span class="kw">crate</span>::Members::&lt;Test&gt;::get().to_vec()
+			);
+			<span class="macro">assert_eq!</span>(<span class="kw">crate</span>::Prime::&lt;Test&gt;::get(), <span class="prelude-val">None</span>);
+			<span class="macro">assert_eq!</span>(PRIME.with(|m| <span class="kw-2">*</span>m.borrow()), <span class="kw">crate</span>::Prime::&lt;Test&gt;::get());
 		});
 	}
 
@@ -1764,8 +1813,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>swap_member_works_that_does_not_change_order() {
 		new_test_ext().execute_with(|| {
 			<span class="macro">assert_ok!</span>(Membership::swap_member(RuntimeOrigin::signed(<span class="number">3</span>), <span class="number">10</span>, <span class="number">5</span>));
-			<span class="macro">assert_eq!</span>(Membership::members(), <span class="macro">vec!</span>[<span class="number">5</span>, <span class="number">20</span>, <span class="number">30</span>]);
-			<span class="macro">assert_eq!</span>(MEMBERS.with(|m| m.borrow().clone()), Membership::members().to_vec());
+			<span class="macro">assert_eq!</span>(<span class="kw">crate</span>::Members::&lt;Test&gt;::get(), <span class="macro">vec!</span>[<span class="number">5</span>, <span class="number">20</span>, <span class="number">30</span>]);
+			<span class="macro">assert_eq!</span>(
+				MEMBERS.with(|m| m.borrow().clone()),
+				<span class="kw">crate</span>::Members::&lt;Test&gt;::get().to_vec()
+			);
 		});
 	}
 
@@ -1793,10 +1845,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				Error::&lt;Test, <span class="kw">_</span>&gt;::AlreadyMember
 			);
 			<span class="macro">assert_ok!</span>(Membership::change_key(RuntimeOrigin::signed(<span class="number">10</span>), <span class="number">40</span>));
-			<span class="macro">assert_eq!</span>(Membership::members(), <span class="macro">vec!</span>[<span class="number">20</span>, <span class="number">30</span>, <span class="number">40</span>]);
-			<span class="macro">assert_eq!</span>(MEMBERS.with(|m| m.borrow().clone()), Membership::members().to_vec());
-			<span class="macro">assert_eq!</span>(Membership::prime(), <span class="prelude-val">Some</span>(<span class="number">40</span>));
-			<span class="macro">assert_eq!</span>(PRIME.with(|m| <span class="kw-2">*</span>m.borrow()), Membership::prime());
+			<span class="macro">assert_eq!</span>(<span class="kw">crate</span>::Members::&lt;Test&gt;::get(), <span class="macro">vec!</span>[<span class="number">20</span>, <span class="number">30</span>, <span class="number">40</span>]);
+			<span class="macro">assert_eq!</span>(
+				MEMBERS.with(|m| m.borrow().clone()),
+				<span class="kw">crate</span>::Members::&lt;Test&gt;::get().to_vec()
+			);
+			<span class="macro">assert_eq!</span>(<span class="kw">crate</span>::Prime::&lt;Test&gt;::get(), <span class="prelude-val">Some</span>(<span class="number">40</span>));
+			<span class="macro">assert_eq!</span>(PRIME.with(|m| <span class="kw-2">*</span>m.borrow()), <span class="kw">crate</span>::Prime::&lt;Test&gt;::get());
 		});
 	}
 
@@ -1804,8 +1859,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>change_key_works_that_does_not_change_order() {
 		new_test_ext().execute_with(|| {
 			<span class="macro">assert_ok!</span>(Membership::change_key(RuntimeOrigin::signed(<span class="number">10</span>), <span class="number">5</span>));
-			<span class="macro">assert_eq!</span>(Membership::members(), <span class="macro">vec!</span>[<span class="number">5</span>, <span class="number">20</span>, <span class="number">30</span>]);
-			<span class="macro">assert_eq!</span>(MEMBERS.with(|m| m.borrow().clone()), Membership::members().to_vec());
+			<span class="macro">assert_eq!</span>(<span class="kw">crate</span>::Members::&lt;Test&gt;::get(), <span class="macro">vec!</span>[<span class="number">5</span>, <span class="number">20</span>, <span class="number">30</span>]);
+			<span class="macro">assert_eq!</span>(
+				MEMBERS.with(|m| m.borrow().clone()),
+				<span class="kw">crate</span>::Members::&lt;Test&gt;::get().to_vec()
+			);
 		});
 	}
 
@@ -1826,16 +1884,22 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			);
 
 			<span class="macro">assert_ok!</span>(Membership::reset_members(RuntimeOrigin::signed(<span class="number">4</span>), <span class="macro">vec!</span>[<span class="number">20</span>, <span class="number">40</span>, <span class="number">30</span>]));
-			<span class="macro">assert_eq!</span>(Membership::members(), <span class="macro">vec!</span>[<span class="number">20</span>, <span class="number">30</span>, <span class="number">40</span>]);
-			<span class="macro">assert_eq!</span>(MEMBERS.with(|m| m.borrow().clone()), Membership::members().to_vec());
-			<span class="macro">assert_eq!</span>(Membership::prime(), <span class="prelude-val">Some</span>(<span class="number">20</span>));
-			<span class="macro">assert_eq!</span>(PRIME.with(|m| <span class="kw-2">*</span>m.borrow()), Membership::prime());
+			<span class="macro">assert_eq!</span>(<span class="kw">crate</span>::Members::&lt;Test&gt;::get(), <span class="macro">vec!</span>[<span class="number">20</span>, <span class="number">30</span>, <span class="number">40</span>]);
+			<span class="macro">assert_eq!</span>(
+				MEMBERS.with(|m| m.borrow().clone()),
+				<span class="kw">crate</span>::Members::&lt;Test&gt;::get().to_vec()
+			);
+			<span class="macro">assert_eq!</span>(<span class="kw">crate</span>::Prime::&lt;Test&gt;::get(), <span class="prelude-val">Some</span>(<span class="number">20</span>));
+			<span class="macro">assert_eq!</span>(PRIME.with(|m| <span class="kw-2">*</span>m.borrow()), <span class="kw">crate</span>::Prime::&lt;Test&gt;::get());
 
 			<span class="macro">assert_ok!</span>(Membership::reset_members(RuntimeOrigin::signed(<span class="number">4</span>), <span class="macro">vec!</span>[<span class="number">10</span>, <span class="number">40</span>, <span class="number">30</span>]));
-			<span class="macro">assert_eq!</span>(Membership::members(), <span class="macro">vec!</span>[<span class="number">10</span>, <span class="number">30</span>, <span class="number">40</span>]);
-			<span class="macro">assert_eq!</span>(MEMBERS.with(|m| m.borrow().clone()), Membership::members().to_vec());
-			<span class="macro">assert_eq!</span>(Membership::prime(), <span class="prelude-val">None</span>);
-			<span class="macro">assert_eq!</span>(PRIME.with(|m| <span class="kw-2">*</span>m.borrow()), Membership::prime());
+			<span class="macro">assert_eq!</span>(<span class="kw">crate</span>::Members::&lt;Test&gt;::get(), <span class="macro">vec!</span>[<span class="number">10</span>, <span class="number">30</span>, <span class="number">40</span>]);
+			<span class="macro">assert_eq!</span>(
+				MEMBERS.with(|m| m.borrow().clone()),
+				<span class="kw">crate</span>::Members::&lt;Test&gt;::get().to_vec()
+			);
+			<span class="macro">assert_eq!</span>(<span class="kw">crate</span>::Prime::&lt;Test&gt;::get(), <span class="prelude-val">None</span>);
+			<span class="macro">assert_eq!</span>(PRIME.with(|m| <span class="kw-2">*</span>m.borrow()), <span class="kw">crate</span>::Prime::&lt;Test&gt;::get());
 		});
 	}
 
