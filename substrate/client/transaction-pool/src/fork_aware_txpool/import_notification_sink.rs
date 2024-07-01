@@ -137,8 +137,9 @@ where
 	}
 
 	pub async fn add_view(&self, key: K, view: StreamOf<I>) {
-		//todo: unwrap?
-		self.ctrl.send(Command::AddView(key, view)).await.unwrap();
+		let _ = self.ctrl.send(Command::AddView(key.clone(), view)).await.map_err(|e| {
+			debug!(target: LOG_TARGET, "add_view {key:?} send message failed: {e}");
+		});
 	}
 
 	pub async fn event_stream(&self) -> EventStream<I> {

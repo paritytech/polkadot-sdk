@@ -23,7 +23,7 @@ use crate::{
 	LOG_TARGET,
 };
 use futures::{stream, StreamExt};
-use log::trace;
+use log::{debug, trace};
 use sc_transaction_pool_api::{TransactionStatus, TransactionStatusStream, TxIndex};
 use sp_runtime::traits::Block as BlockT;
 use std::{
@@ -71,7 +71,6 @@ where
 /// The listner allows to add and remove view's stream (per transaction).
 /// The listener allows also to invalidate and finalize transcation.
 pub struct MultiViewListener<ChainApi: graph::ChainApi> {
-	//todo: rwlock not needed here (mut?)
 	controllers:
 		tokio::sync::RwLock<HashMap<TxHash<ChainApi>, mpsc::Sender<ListenerAction<ChainApi>>>>,
 }
@@ -279,8 +278,8 @@ where
 		let mut controllers = self.controllers.write().await;
 		if let Some(tx) = controllers.get(&tx_hash) {
 			match tx.send(ListenerAction::AddView(block_hash, stream)).await {
-				Err(mpsc::error::SendError(e)) => {
-					trace!(target: LOG_TARGET, "[{:?}] add_view_watcher_for_tx: SendError: {:?}", tx_hash, e);
+				Err(e) => {
+					debug!(target: LOG_TARGET, "[{:?}] add_view_watcher_for_tx: send message failed: {:?}", tx_hash, e);
 					controllers.remove(&tx_hash);
 				},
 				Ok(_) => {},
@@ -290,17 +289,20 @@ where
 
 	/// Remove given view's stream from every transaction stream.
 	pub(crate) async fn remove_view(&self, block_hash: BlockHash<ChainApi>) {
-		let controllers = self.controllers.write().await;
+		let mut controllers = self.controllers.write().await;
+		let mut invalid_controllers = Vec::new();
 		for (tx_hash, sender) in controllers.iter() {
 			match sender.send(ListenerAction::RemoveView(block_hash)).await {
-				Err(mpsc::error::SendError(e)) => {
-					log::trace!(target: LOG_TARGET, "[{:?}] remove_view: SendError: {:?}", tx_hash, e);
-					// todo:
-					// controllers.remove(&tx_hash);
+				Err(e) => {
+					log::debug!(target: LOG_TARGET, "[{:?}] remove_view: send message failed: {:?}", tx_hash, e);
+					invalid_controllers.push(tx_hash.clone());
 				},
 				Ok(_) => {},
 			}
 		}
+		invalid_controllers.into_iter().for_each(|tx_hash| {
+			controllers.remove(&tx_hash);
+		});
 	}
 
 	/// Invalidate given transaction.
@@ -326,8 +328,8 @@ where
 			.await
 			.into_iter()
 			.for_each(|result| match result.0 {
-				Err(mpsc::error::SendError(e)) => {
-					trace!(target: LOG_TARGET, "invalidate_transaction: SendError: {:?}", e);
+				Err(e) => {
+					debug!(target: LOG_TARGET, "[{:?}] invalidate_transaction: send message failed: {:?}", result.1, e);
 					controllers.remove(&result.1);
 				},
 				Ok(_) => {},
@@ -348,8 +350,8 @@ where
 		if let Some(tx) = controllers.get(&tx_hash) {
 			trace!(target: LOG_TARGET, "[{:?}] finalize_transaction", tx_hash);
 			let result = tx.send(ListenerAction::FinalizeTransaction(block, idx)).await;
-			if result.is_err() {
-				trace!(target: LOG_TARGET, "finalize_transaction: SendError: {:?}", result.unwrap_err());
+			if let Err(e) = result {
+				debug!(target: LOG_TARGET, "[{:?}] finalize_transaction: send message failed: {:?}", tx_hash, e);
 				controllers.remove(&tx_hash);
 			}
 		};
