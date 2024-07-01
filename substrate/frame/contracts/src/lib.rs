@@ -224,7 +224,7 @@ pub struct Environment<T: Config> {
 pub struct ApiVersion(u16);
 impl Default for ApiVersion {
 	fn default() -> Self {
-		Self(4)
+		Self(5)
 	}
 }
 
@@ -389,6 +389,11 @@ pub mod pallet {
 		#[pallet::constant]
 		type MaxStorageKeyLen: Get<u32>;
 
+		/// The maximum length of the transient storage in bytes.
+		/// This includes keys, values, and previous entries used for storage rollback.
+		#[pallet::constant]
+		type MaxTransientStorageLen: Get<u32>;
+
 		/// The maximum number of delegate_dependencies that a contract can lock with
 		/// [`chain_extension::Ext::lock_delegate_dependency`].
 		#[pallet::constant]
@@ -409,11 +414,6 @@ pub mod pallet {
 		/// The maximum length of the debug buffer in bytes.
 		#[pallet::constant]
 		type MaxDebugBufferLen: Get<u32>;
-
-		/// The maximum length of the transient storage in bytes.
-		/// This includes keys, values, and previous entries used for storage rollback.
-		#[pallet::constant]
-		type MaxTransientStorageLen: Get<u32>;
 
 		/// Origin allowed to upload code.
 		///
