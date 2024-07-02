@@ -25,7 +25,7 @@ pub struct InherentDef {
 }
 
 impl InherentDef {
-	pub fn try_from(_index: usize, item: &mut syn::Item) -> syn::Result<Self> {
+	pub fn try_from(item: &mut syn::Item) -> syn::Result<Self> {
 		let item = if let syn::Item::Impl(item) = item {
 			item
 		} else {

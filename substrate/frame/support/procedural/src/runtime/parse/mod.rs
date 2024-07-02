@@ -159,8 +159,8 @@ impl Def {
 				helper::take_first_item_runtime_attr::<RuntimeAttr>(item)?
 			{
 				match runtime_attr {
-					RuntimeAttr::Runtime(span) if runtime_struct.is_none() => {
-						let p = runtime_struct::RuntimeStructDef::try_from(span, item)?;
+					RuntimeAttr::Runtime(_) if runtime_struct.is_none() => {
+						let p = runtime_struct::RuntimeStructDef::try_from(item)?;
 						runtime_struct = Some(p);
 					},
 					RuntimeAttr::Derive(_, types) if runtime_types.is_none() => {

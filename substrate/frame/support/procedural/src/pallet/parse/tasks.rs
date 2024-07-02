@@ -189,7 +189,7 @@ impl syn::parse::Parse for TaskDef {
 		let item = input.parse::<ImplItemFn>()?;
 		// we only want to activate TaskAttrType parsing errors for tasks-related attributes,
 		// so we filter them here
-		let (task_attrs, _normal_attrs) = partition_task_attrs(&item);
+		let task_attrs = partition_task_attrs(&item).0;
 
 		let task_attrs: Vec<TaskAttr> = task_attrs
 			.into_iter()

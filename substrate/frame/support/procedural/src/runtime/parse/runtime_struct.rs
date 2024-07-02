@@ -21,7 +21,7 @@ pub struct RuntimeStructDef {
 }
 
 impl RuntimeStructDef {
-	pub fn try_from(_attr_span: proc_macro2::Span, item: &mut syn::Item) -> syn::Result<Self> {
+	pub fn try_from(item: &mut syn::Item) -> syn::Result<Self> {
 		let item = if let syn::Item::Struct(item) = item {
 			item
 		} else {

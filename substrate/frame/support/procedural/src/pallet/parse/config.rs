@@ -323,7 +323,6 @@ pub fn replace_self_by_t(input: proc_macro2::TokenStream) -> proc_macro2::TokenS
 impl ConfigDef {
 	pub fn try_from(
 		frame_system: &syn::Path,
-		_attr_span: proc_macro2::Span,
 		index: usize,
 		item: &mut syn::Item,
 		enable_default: bool,

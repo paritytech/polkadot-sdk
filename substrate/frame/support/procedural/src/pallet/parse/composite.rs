@@ -102,7 +102,6 @@ pub struct CompositeDef {
 impl CompositeDef {
 	pub fn try_from(
 		attr_span: proc_macro2::Span,
-		_index: usize,
 		scrate: &syn::Path,
 		item: &mut syn::Item,
 	) -> syn::Result<Self> {
