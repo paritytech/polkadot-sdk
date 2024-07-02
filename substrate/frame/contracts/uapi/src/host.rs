@@ -292,6 +292,17 @@ pub trait HostFn {
 	/// Returns the size of the pre-existing value at the specified key if any.
 	fn clear_storage_v1(key: &[u8]) -> Option<u32>;
 
+	/// Clear the value at the given key in the contract transient storage.
+	///
+	/// # Parameters
+	///
+	/// - `key`: The storage key.
+	///
+	/// # Return
+	///
+	/// Returns the size of the pre-existing value at the specified key if any.
+	fn clear_transient_storage(key: &[u8]) -> Option<u32>;
+
 	/// Retrieve the code hash for a specified contract address.
 	///
 	/// # Parameters
@@ -323,6 +334,18 @@ pub trait HostFn {
 	///
 	/// Returns the size of the pre-existing value at the specified key if any.
 	fn contains_storage_v1(key: &[u8]) -> Option<u32>;
+
+	/// Checks whether there is a value stored under the given key in transient storage.
+	///
+	/// The key length must not exceed the maximum defined by the contracts module parameter.
+	///
+	/// # Parameters
+	/// - `key`: The storage key.
+	///
+	/// # Return
+	///
+	/// Returns the size of the pre-existing value at the specified key if any.
+	fn contains_transient_storage(key: &[u8]) -> Option<u32>;
 
 	/// Emit a custom debug message.
 	///
@@ -452,6 +475,19 @@ pub trait HostFn {
 	///
 	/// [KeyNotFound][`crate::ReturnErrorCode::KeyNotFound]
 	fn get_storage_v1(key: &[u8], output: &mut &mut [u8]) -> Result;
+
+	/// Retrieve the value under the given key from transient storage.
+	///
+	/// The key length must not exceed the maximum defined by the contracts module parameter.
+	///
+	/// # Parameters
+	/// - `key`: The storage key.
+	/// - `output`: A reference to the output data buffer to write the storage entry.
+	///
+	/// # Errors
+	///
+	/// [KeyNotFound][`crate::ReturnErrorCode::KeyNotFound]
+	fn get_transient_storage(key: &[u8], output: &mut &mut [u8]) -> Result;
 
 	hash_fn!(sha2_256, 32);
 	hash_fn!(keccak_256, 32);
@@ -673,6 +709,21 @@ pub trait HostFn {
 	/// Returns the size of the pre-existing value at the specified key if any.
 	fn set_storage_v2(key: &[u8], value: &[u8]) -> Option<u32>;
 
+	/// Set the value at the given key in the contract transient storage.
+	///
+	/// The key and value lengths must not exceed the maximums defined by the contracts module
+	/// parameters.
+	///
+	/// # Parameters
+	///
+	/// - `key`: The storage key.
+	/// - `encoded_value`: The storage value.
+	///
+	/// # Return
+	///
+	/// Returns the size of the pre-existing value at the specified key if any.
+	fn set_transient_storage(key: &[u8], value: &[u8]) -> Option<u32>;
+
 	/// Verify a sr25519 signature
 	///
 	/// # Parameters
@@ -695,6 +746,17 @@ pub trait HostFn {
 	///
 	/// [KeyNotFound][`crate::ReturnErrorCode::KeyNotFound]
 	fn take_storage(key: &[u8], output: &mut &mut [u8]) -> Result;
+
+	/// Retrieve and remove the value under the given key from transient storage.
+	///
+	/// # Parameters
+	/// - `key`: The storage key.
+	/// - `output`: A reference to the output data buffer to write the storage entry.
+	///
+	/// # Errors
+	///
+	/// [KeyNotFound][`crate::ReturnErrorCode::KeyNotFound]
+	fn take_transient_storage(key: &[u8], output: &mut &mut [u8]) -> Result;
 
 	/// Transfer some amount of funds into the specified account.
 	///
