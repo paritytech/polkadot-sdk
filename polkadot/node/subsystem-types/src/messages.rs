@@ -33,7 +33,7 @@ use polkadot_node_network_protocol::{
 };
 use polkadot_node_primitives::{
 	approval::{
-		v1::BlockApprovalMeta,
+		v1::{BlockApprovalMeta, DelayTranche},
 		v2::{CandidateBitfield, IndirectAssignmentCertV2, IndirectSignedApprovalVoteV2},
 	},
 	AvailableData, BabeEpoch, BlockWeight, CandidateVotes, CollationGenerationConfig,
@@ -964,16 +964,12 @@ pub struct HighestApprovedAncestorBlock {
 pub enum ApprovalVotingMessage {
 	/// Check if the assignment is valid and can be accepted by our view of the protocol.
 	/// Should not be sent unless the block hash is known.
-	CheckAndImportAssignment(
-		IndirectAssignmentCertV2,
-		CandidateBitfield,
-		oneshot::Sender<AssignmentCheckResult>,
-	),
+	CheckAndImportAssignment(IndirectAssignmentCertV2, CandidateBitfield, DelayTranche),
 	/// Check if the approval vote is valid and can be accepted by our view of the
 	/// protocol.
 	///
 	/// Should not be sent unless the block hash within the indirect vote is known.
-	CheckAndImportApproval(IndirectSignedApprovalVoteV2, oneshot::Sender<ApprovalCheckResult>),
+	CheckAndImportApproval(IndirectSignedApprovalVoteV2),
 	/// Returns the highest possible ancestor hash of the provided block hash which is
 	/// acceptable to vote on finality for.
 	/// The `BlockNumber` provided is the number of the block's ancestor which is the
