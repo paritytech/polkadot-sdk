@@ -212,13 +212,13 @@ pub trait Ext: sealing::Sealed {
 
 	/// Returns the transient storage entry of the executing account by the given `key`.
 	///
-	/// Returns `None` if the `key` wasn't previously set by `set_storage` or
+	/// Returns `None` if the `key` wasn't previously set by `set_transient_storage` or
 	/// was deleted.
 	fn get_transient_storage(&self, key: &Key<Self::T>) -> Option<Vec<u8>>;
 
 	/// Returns `Some(len)` (in bytes) if a transient storage item exists at `key`.
 	///
-	/// Returns `None` if the `key` wasn't previously set by `set_storage` or
+	/// Returns `None` if the `key` wasn't previously set by `set_transient_storage` or
 	/// was deleted.
 	fn get_transient_storage_size(&self, key: &Key<Self::T>) -> Option<u32>;
 
@@ -501,7 +501,7 @@ pub struct Stack<'a, T: Config, E> {
 	debug_message: Option<&'a mut DebugBufferVec<T>>,
 	/// The determinism requirement of this call stack.
 	determinism: Determinism,
-	/// Transient storage
+	/// Transient storage used to store data, which is kept for the duration of a transaction.
 	transient_storage: TransientStorage<T>,
 	/// No executable is held by the struct but influences its behaviour.
 	_phantom: PhantomData<E>,
@@ -826,7 +826,7 @@ where
 			frames: Default::default(),
 			debug_message,
 			determinism,
-			transient_storage: TransientStorage::new(T::MaxTransientStorageLen::get()),
+			transient_storage: TransientStorage::new(T::MaxTransientStorageSize::get()),
 			_phantom: Default::default(),
 		};
 

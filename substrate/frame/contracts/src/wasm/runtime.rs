@@ -258,10 +258,10 @@ macro_rules! cost_write {
 	// cost_write!(name, a, b, c) -> T::WeightInfo::name(a, b, c).saturating_add(T::WeightInfo::rollback_transient_storage())
 	// .saturating_add(T::WeightInfo::set_transient_storage_full().saturating_sub(T::WeightInfo::set_transient_storage_empty())
 	($name:ident $(, $arg:expr )*) => {
-		(T::WeightInfo::$name($( $arg ),*).saturating_add(T::WeightInfo::rollback_transient_storage()).saturating_add(cost_write!(@storage_cost)))
+		(T::WeightInfo::$name($( $arg ),*).saturating_add(T::WeightInfo::rollback_transient_storage()).saturating_add(cost_write!(@cost_storage)))
 	};
 
-	(@storage_cost) => {
+	(@cost_storage) => {
         T::WeightInfo::set_transient_storage_full().saturating_sub(T::WeightInfo::set_transient_storage_empty())
     };
 }
@@ -270,10 +270,10 @@ macro_rules! cost_read {
 	// cost_read!(name, a, b, c) -> T::WeightInfo::name(a, b, c).saturating_add(T::WeightInfo::get_transient_storage_full()
 	// .saturating_sub(T::WeightInfo::get_transient_storage_empty())
 	($name:ident $(, $arg:expr )*) => {
-		(T::WeightInfo::$name($( $arg ),*).saturating_add(cost_read!(@storage_cost)))
+		(T::WeightInfo::$name($( $arg ),*).saturating_add(cost_read!(@cost_storage)))
 	};
 
-	(@storage_cost) => {
+	(@cost_storage) => {
         T::WeightInfo::get_transient_storage_full().saturating_sub(T::WeightInfo::get_transient_storage_empty())
     };
 }

@@ -392,7 +392,7 @@ pub mod pallet {
 		/// The maximum length of the transient storage in bytes.
 		/// This includes keys, values, and previous entries used for storage rollback.
 		#[pallet::constant]
-		type MaxTransientStorageLen: Get<u32>;
+		type MaxTransientStorageSize: Get<u32>;
 
 		/// The maximum number of delegate_dependencies that a contract can lock with
 		/// [`chain_extension::Ext::lock_delegate_dependency`].
@@ -560,7 +560,7 @@ pub mod pallet {
 			type MaxDebugBufferLen = ConstU32<{ 2 * 1024 * 1024 }>;
 			type MaxDelegateDependencies = MaxDelegateDependencies;
 			type MaxStorageKeyLen = ConstU32<128>;
-			type MaxTransientStorageLen = ConstU32<{ 4 * 1024 }>;
+			type MaxTransientStorageSize = ConstU32<{ 4 * 1024 }>;
 			type Migrations = ();
 			type Time = Self;
 			type Randomness = Self;
@@ -614,9 +614,9 @@ pub mod pallet {
 				.expect("CallStack size is too big");
 			// Transient storage uses a BTreeMap, which has overhead compared to the raw size of
 			// key-value data. To ensure safety, a margin of 2x the raw key-value size is used.
-			let max_transient_storage_len = T::MaxTransientStorageLen::get()
+			let max_transient_storage_size = T::MaxTransientStorageSize::get()
 				.checked_mul(2)
-				.expect("MaxTransientStorageLen is too large");
+				.expect("MaxTransientStorageSize is too large");
 			// Check that given configured `MaxCodeLen`, runtime heap memory limit can't be broken.
 			//
 			// In worst case, the decoded Wasm contract code would be `x16` times larger than the
@@ -648,7 +648,7 @@ pub mod pallet {
 			// Hence the upper limit for the `MaxCodeLen` can be defined as follows:
 			let code_len_limit = max_runtime_mem
 				.saturating_div(2)
-				.saturating_sub(max_transient_storage_len)
+				.saturating_sub(max_transient_storage_size)
 				.saturating_div(max_call_depth)
 				.saturating_sub(max_heap_size)
 				.saturating_sub(MAX_STACK_SIZE)

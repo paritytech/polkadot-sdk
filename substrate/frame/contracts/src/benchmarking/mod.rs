@@ -1198,7 +1198,7 @@ mod benchmarks {
 
 		let mut setup = CallSetup::<T>::default();
 		let (mut ext, _) = setup.ext();
-		CallSetup::<T>::with_transient_storage(&mut ext, T::MaxTransientStorageLen::get())?;
+		CallSetup::<T>::with_transient_storage(&mut ext, T::MaxTransientStorageSize::get())?;
 		let mut runtime = crate::wasm::Runtime::new(&mut ext, vec![]);
 		runtime.ext().transient_storage().meter().current_mut().limit = u32::MAX;
 		let result;
@@ -1250,7 +1250,7 @@ mod benchmarks {
 
 		let mut setup = CallSetup::<T>::default();
 		let (mut ext, _) = setup.ext();
-		CallSetup::<T>::with_transient_storage(&mut ext, T::MaxTransientStorageLen::get())?;
+		CallSetup::<T>::with_transient_storage(&mut ext, T::MaxTransientStorageSize::get())?;
 		let mut runtime = crate::wasm::Runtime::new(&mut ext, vec![]);
 		runtime.ext().transient_storage().meter().current_mut().limit = u32::MAX;
 		runtime
@@ -1277,7 +1277,7 @@ mod benchmarks {
 
 		let mut setup = CallSetup::<T>::default();
 		let (mut ext, _) = setup.ext();
-		CallSetup::<T>::with_transient_storage(&mut ext, T::MaxTransientStorageLen::get())?;
+		CallSetup::<T>::with_transient_storage(&mut ext, T::MaxTransientStorageSize::get())?;
 		let mut runtime = crate::wasm::Runtime::new(&mut ext, vec![]);
 		runtime.ext().transient_storage().meter().current_mut().limit = u32::MAX;
 		runtime.ext().transient_storage().start_transaction();

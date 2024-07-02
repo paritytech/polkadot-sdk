@@ -38,14 +38,17 @@ pub struct MeterEntry {
 }
 
 impl MeterEntry {
+	/// Create a new entry.
 	pub fn new(limit: u32) -> Self {
 		Self { limit, amount: Default::default() }
 	}
 
+	/// Check if the allocated amount exceeds the limit.
 	pub fn exceeds_limit(&self, amount: u32) -> bool {
 		self.amount.saturating_add(amount) > self.limit
 	}
 
+	/// Absorb the allocation amount of the nested entry into the current entry.
 	pub fn absorb(&mut self, rhs: Self) {
 		self.amount = self.amount.saturating_add(rhs.amount)
 	}
@@ -220,12 +223,16 @@ impl<T: Config> TransientStorage<T> {
 		}
 	}
 
-	/// Read the storage entry.
+	/// Read the storage value. If the entry does not exist, `None` is returned.
 	pub fn read(&self, account: &AccountIdOf<T>, key: &Key<T>) -> Option<Vec<u8>> {
 		self.storage.read(&Self::storage_key(&account.encode(), &key.hash()))
 	}
 
 	/// Write a value to storage.
+	///
+	/// If the `value` is `None`, then the entry is removed. If `take` is true,
+	/// a [`WriteOutcome::Taken`] is returned instead of a [`WriteOutcome::Overwritten`].
+	/// If the entry did not exist, [`WriteOutcome::New`] is returned.
 	pub fn write(
 		&mut self,
 		account: &AccountIdOf<T>,
