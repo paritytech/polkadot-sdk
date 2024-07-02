@@ -216,7 +216,7 @@ fn limited_teleport_native_assets_back_from_system_para_to_relay_works() {
 }
 
 /// Limited Teleport of native asset from System Parachain to Relay Chain
-/// should't work when there is not enough balance in Relay Chain's `CheckAccount`
+/// shouldn't work when there is not enough balance in Relay Chain's `CheckAccount`
 #[test]
 fn limited_teleport_native_assets_from_system_para_to_relay_fails() {
 	// Init values for Relay Chain
