@@ -18,7 +18,7 @@
 
 /// A list of primitives introduced in v1.
 pub mod v1 {
-	use sp_consensus_babe as babe_primitives;
+	use sp_consensus_babe::{self as babe_primitives, SlotDuration};
 	pub use sp_consensus_babe::{
 		Randomness, Slot, VrfPreOutput, VrfProof, VrfSignature, VrfTranscript,
 	};
@@ -118,7 +118,7 @@ pub mod v1 {
 	}
 
 	/// Metadata about a block which is now live in the approval protocol.
-	#[derive(Debug)]
+	#[derive(Debug, Clone)]
 	pub struct BlockApprovalMeta {
 		/// The hash of the block.
 		pub hash: Hash,

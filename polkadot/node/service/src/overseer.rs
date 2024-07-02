@@ -58,6 +58,7 @@ pub use polkadot_network_bridge::{
 };
 pub use polkadot_node_collation_generation::CollationGenerationSubsystem;
 pub use polkadot_node_core_approval_voting::ApprovalVotingSubsystem;
+pub use polkadot_node_core_approval_voting_parallel::ApprovalVotingParallelSubsystem as ApprovalVotingRewriteSubsystem;
 pub use polkadot_node_core_av_store::AvailabilityStoreSubsystem;
 pub use polkadot_node_core_backing::CandidateBackingSubsystem;
 pub use polkadot_node_core_bitfield_signing::BitfieldSigningSubsystem;
@@ -203,6 +204,7 @@ pub fn validator_overseer_builder<Spawner, RuntimeClient>(
 		CollatorProtocolSubsystem,
 		ApprovalDistributionSubsystem,
 		ApprovalVotingSubsystem,
+		ApprovalVotingRewriteSubsystem,
 		GossipSupportSubsystem<AuthorityDiscoveryService>,
 		DisputeCoordinatorSubsystem,
 		DisputeDistributionSubsystem<AuthorityDiscoveryService>,
@@ -313,12 +315,20 @@ where
 			approval_voting_config.slot_duration_millis,
 		))
 		.approval_voting(ApprovalVotingSubsystem::with_config(
-			approval_voting_config,
+			approval_voting_config.clone(),
 			parachains_db.clone(),
 			keystore.clone(),
 			Box::new(sync_service.clone()),
 			Metrics::register(registry)?,
 			Arc::new(spawner.clone()),
+		))
+		.approval_voting_parallel(ApprovalVotingRewriteSubsystem::with_config(
+			approval_voting_config,
+			parachains_db.clone(),
+			keystore.clone(),
+			Box::new(sync_service.clone()),
+			Metrics::register(registry)?,
+			spawner.clone(),
 		))
 		.gossip_support(GossipSupportSubsystem::new(
 			keystore.clone(),
@@ -405,6 +415,7 @@ pub fn collator_overseer_builder<Spawner, RuntimeClient>(
 		DummySubsystem,
 		DummySubsystem,
 		DummySubsystem,
+		DummySubsystem,
 	>,
 	Error,
 >
@@ -479,6 +490,7 @@ where
 		.statement_distribution(DummySubsystem)
 		.approval_distribution(DummySubsystem)
 		.approval_voting(DummySubsystem)
+		.approval_voting_parallel(DummySubsystem)
 		.gossip_support(DummySubsystem)
 		.dispute_coordinator(DummySubsystem)
 		.dispute_distribution(DummySubsystem)

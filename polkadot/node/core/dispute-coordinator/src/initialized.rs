@@ -34,7 +34,8 @@ use polkadot_node_primitives::{
 };
 use polkadot_node_subsystem::{
 	messages::{
-		ApprovalVotingMessage, BlockDescription, ChainSelectionMessage, DisputeCoordinatorMessage,
+		approval_voting_parallel_enabled, ApprovalVotingMessage, ApprovalVotingParallelMessage,
+		BlockDescription, ChainSelectionMessage, DisputeCoordinatorMessage,
 		DisputeDistributionMessage, ImportStatementsResult,
 	},
 	overseer, ActivatedLeaf, ActiveLeavesUpdate, FromOrchestra, OverseerSignal, RuntimeApiError,
@@ -1059,9 +1060,21 @@ impl Initialized {
 				// 4. We are waiting (and blocking the whole subsystem) on a response right after -
 				// therefore even with all else failing we will never have more than
 				// one message in flight at any given time.
-				ctx.send_unbounded_message(
-					ApprovalVotingMessage::GetApprovalSignaturesForCandidate(candidate_hash, tx),
-				);
+				if approval_voting_parallel_enabled() {
+					ctx.send_unbounded_message(
+						ApprovalVotingParallelMessage::GetApprovalSignaturesForCandidate(
+							candidate_hash,
+							tx,
+						),
+					);
+				} else {
+					ctx.send_unbounded_message(
+						ApprovalVotingMessage::GetApprovalSignaturesForCandidate(
+							candidate_hash,
+							tx,
+						),
+					);
+				}
 				match rx.await {
 					Err(_) => {
 						gum::warn!(

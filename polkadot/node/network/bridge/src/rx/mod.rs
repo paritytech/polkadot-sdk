@@ -44,9 +44,10 @@ use polkadot_node_network_protocol::{
 use polkadot_node_subsystem::{
 	errors::SubsystemError,
 	messages::{
-		network_bridge_event::NewGossipTopology, ApprovalDistributionMessage,
-		BitfieldDistributionMessage, CollatorProtocolMessage, GossipSupportMessage,
-		NetworkBridgeEvent, NetworkBridgeRxMessage, StatementDistributionMessage,
+		approval_voting_parallel_enabled, network_bridge_event::NewGossipTopology,
+		ApprovalDistributionMessage, ApprovalVotingParallelMessage, BitfieldDistributionMessage,
+		CollatorProtocolMessage, GossipSupportMessage, NetworkBridgeEvent, NetworkBridgeRxMessage,
+		StatementDistributionMessage,
 	},
 	overseer, ActivatedLeaf, ActiveLeavesUpdate, FromOrchestra, OverseerSignal, SpawnedSubsystem,
 };
@@ -1140,7 +1141,13 @@ async fn dispatch_validation_events_to_all<I>(
 			.send_messages(event.focus().map(StatementDistributionMessage::from))
 			.await;
 		sender.send_messages(event.focus().map(BitfieldDistributionMessage::from)).await;
-		sender.send_messages(event.focus().map(ApprovalDistributionMessage::from)).await;
+		if approval_voting_parallel_enabled() {
+			sender
+				.send_messages(event.focus().map(ApprovalVotingParallelMessage::from))
+				.await;
+		} else {
+			sender.send_messages(event.focus().map(ApprovalDistributionMessage::from)).await;
+		}
 		sender.send_messages(event.focus().map(GossipSupportMessage::from)).await;
 	}
 }
