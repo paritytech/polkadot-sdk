@@ -1265,7 +1265,8 @@ fn reserve_transfer_sufficient_assets_from_system_para_to_para() {
 		)
 	});
 
-	// TODO: When we allow payment with different assets locally, this should be the same, since they aren't used for fees.
+	// TODO: When we allow payment with different assets locally, this should be the same, since
+	// they aren't used for fees.
 	assert!(sender_balance_before > sender_balance_after);
 	// The assets have been sent and used for fees.
 	assert!(sender_assets_after < sender_assets_before - asset_amount_to_send);
@@ -1309,7 +1310,8 @@ fn reserve_transfer_sufficient_asset_from_para_to_para_through_asset_hub() {
 	PenpalA::force_create_foreign_asset(
 		system_para_foreign_asset_location.clone(),
 		PenpalAssetOwner::get(),
-		false, // TODO: Doesn't matter if sufficient since we don't handle local delivery fee payment in other assets.
+		false, /* TODO: Doesn't matter if sufficient since we don't handle local delivery fee
+		        * payment in other assets. */
 		70_000,
 		vec![(sender.clone(), asset_amount_to_send + fee_amount_to_send)],
 	);
@@ -1601,7 +1603,8 @@ fn reserve_transfer_pool_assets_from_system_para_to_para() {
 		<ForeignAssets as Inspect<_>>::balance(custom_asset_penpal_pov, &receiver)
 	});
 
-	// TODO: When we allow payment with different assets locally, this should be the same, since they aren't used for fees.
+	// TODO: When we allow payment with different assets locally, this should be the same, since
+	// they aren't used for fees.
 	assert!(sender_after_native_balance < sender_initial_native_balance);
 	// Sender account's balance decreases.
 	assert_eq!(sender_after_balance, sender_initial_balance - asset_amount_to_send);
@@ -1731,7 +1734,9 @@ fn reserve_transfer_pool_assets_from_para_to_para_through_asset_hub() {
 			GeneralIndex(asset_id.into()),
 		),
 		asset_amount_to_send + fee_amount_to_send,
-	).into()].into();
+	)
+		.into()]
+	.into();
 	// Just to be very specific you don't need any native asset.
 	assert_eq!(assets.len(), 1);
 

@@ -391,7 +391,8 @@ fn reserve_transfer_sufficient_foreign_assets_from_system_para_to_para() {
 		<ForeignAssets as Inspect<_>>::balance(roc_at_westend_parachains.clone(), &receiver)
 	});
 
-	// TODO: When we allow payment with different assets locally, this should be the same, since they aren't used for fees.
+	// TODO: When we allow payment with different assets locally, this should be the same, since
+	// they aren't used for fees.
 	assert!(sender_balance_before > sender_balance_after);
 	// The assets have been sent and used for fees.
 	assert!(sender_foreign_assets_after < sender_foreign_assets_before - asset_amount_to_send);
