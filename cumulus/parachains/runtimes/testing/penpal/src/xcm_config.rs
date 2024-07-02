@@ -26,10 +26,10 @@ use super::{
 	AccountId, AllPalletsWithSystem, AssetId as AssetIdPalletAssets, Assets, Authorship, Balance,
 	Balances, CollatorSelection, ForeignAssets, ForeignAssetsInstance, NonZeroIssuance,
 	ParachainInfo, ParachainSystem, PolkadotXcm, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin,
-	TrustBackedAssetsInstance, WeightToFee, XcmpQueue,
+	WeightToFee, XcmpQueue,
 };
 use crate::{BaseDeliveryFee, FeeAssetId, TransactionByteFee};
-use assets_common::{SufficientAssetConverter, SwapAssetConverter, TrustBackedAssetsAsLocation};
+use assets_common::{SwapAssetConverter, TrustBackedAssetsAsLocation};
 use core::marker::PhantomData;
 use frame_support::{
 	parameter_types,
@@ -324,26 +324,6 @@ pub type TrustedTeleporters =
 pub type TrustBackedAssetsConvertedConcreteId =
 	assets_common::TrustBackedAssetsConvertedConcreteId<AssetsPalletLocation, Balance>;
 
-/// Asset converter for trust-backed assets.
-/// Used to convert assets marked as `sufficient` into the asset needed for fee payment.
-/// This type allows paying fees in `sufficient` trust backed-assets.
-pub type TrustBackedSufficientAssetsConverter = SufficientAssetConverter<
-	Runtime,
-	TrustBackedAssetsConvertedConcreteId,
-	pallet_assets::BalanceToAssetBalance<Balances, Runtime, ConvertInto, TrustBackedAssetsInstance>,
-	TrustBackedAssetsInstance,
->;
-
-/// Asset converter for foreign assets.
-/// Used to convert assets marked as `sufficient` into the asset needed for fee payment.
-/// This type allows paying fees in `sufficient` foreign assets.
-pub type ForeignSufficientAssetsConverter = SufficientAssetConverter<
-	Runtime,
-	ForeignAssetsConvertedConcreteId,
-	pallet_assets::BalanceToAssetBalance<Balances, Runtime, ConvertInto, ForeignAssetsInstance>,
-	ForeignAssetsInstance,
->;
-
 /// Asset converter for pool assets.
 /// Used to convert assets in pools to the asset required for fee payment.
 /// The pool must be between the first asset and the one required for fee payment.
@@ -430,11 +410,7 @@ impl xcm_executor::Config for XcmConfig {
 	type HrmpNewChannelOpenRequestHandler = ();
 	type HrmpChannelAcceptedHandler = ();
 	type HrmpChannelClosingHandler = ();
-	type AssetConverter = (
-		PoolAssetsConverter,
-		TrustBackedSufficientAssetsConverter,
-		ForeignSufficientAssetsConverter,
-	);
+	type AssetConverter = PoolAssetsConverter;
 	type XcmRecorder = PolkadotXcm;
 }
 

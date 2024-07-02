@@ -1152,266 +1152,6 @@ fn reserve_transfer_native_asset_from_para_to_para_through_relay() {
 	assert!(receiver_assets_after < receiver_assets_before + amount_to_send);
 }
 
-// =========================================================================
-// ======= Reserve Transfers - Sufficient Asset - AssetHub->Parachain ======
-// =========================================================================
-/// Reserve Transfers of a sufficient asset from System Parachain to Parachain should
-/// work without using any other token.
-#[test]
-fn reserve_transfer_sufficient_assets_from_system_para_to_para() {
-	use penpal_runtime::xcm_config::ASSET_HUB_ID;
-
-	let destination = AssetHubWestend::sibling_location_of(PenpalA::para_id());
-	let sov_penpal_on_ahr = AssetHubWestend::sovereign_account_id_of(destination.clone());
-	let sender = AssetHubWestendSender::get();
-	let fee_amount_to_send = ASSET_HUB_WESTEND_ED * 100;
-	let asset_amount_to_send = ASSET_HUB_WESTEND_ED * 100;
-	let asset_owner = AssetHubWestendAssetOwner::get();
-	let receiver = PenpalAReceiver::get();
-
-	// Create sufficient asset.
-	let asset_id = 1984;
-	AssetHubWestend::force_create_asset(
-		asset_id,
-		asset_owner,
-		true, // Mark it as sufficient.
-		70_000,
-		vec![(sender.clone(), ASSET_HUB_WESTEND_ED * 10000)],
-	);
-	let system_para_foreign_asset_location = Location::new(
-		1,
-		[Parachain(ASSET_HUB_ID), PalletInstance(ASSETS_PALLET_ID), GeneralIndex(asset_id.into())],
-	);
-
-	// Create sufficient foreign asset.
-	PenpalA::force_create_foreign_asset(
-		system_para_foreign_asset_location.clone(),
-		PenpalAssetOwner::get(),
-		true, // Mark it as sufficient.
-		70_000,
-		vec![],
-	);
-
-	let assets: Assets = vec![(
-		(PalletInstance(ASSETS_PALLET_ID), GeneralIndex(asset_id.into())),
-		asset_amount_to_send + fee_amount_to_send,
-	)
-		.into()]
-	.into();
-	// Just to be very specific you don't need any native asset.
-	assert_eq!(assets.len(), 1);
-	let fee_asset_index = 0;
-
-	// Create SA-of-Penpal-on-AHR with ED.
-	// This ED isn't reflected in any derivative in a PenpalA account.
-	AssetHubWestend::fund_accounts(vec![(sov_penpal_on_ahr.into(), ASSET_HUB_WESTEND_ED)]);
-
-	// The sender needs some Relay tokens to pay for delivery fees locally.
-	// TODO: Also allow payment with different assets locally, right now only works remotely.
-	// <AssetHubWestend as TestExt>::execute_with(|| {
-	// 	assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::Balances::force_set_balance(
-	// 		<AssetHubWestend as Chain>::RuntimeOrigin::root(),
-	// 		sender.clone().into(),
-	// 		ASSET_HUB_WESTEND_ED,
-	// 	));
-	// });
-
-	let para_test_args = TestContext {
-		sender: sender.clone(),
-		receiver: receiver.clone(),
-		args: TestArgs::new_para(
-			destination,
-			receiver.clone(),
-			asset_amount_to_send,
-			assets,
-			None,
-			fee_asset_index,
-		),
-	};
-	let mut test = SystemParaToParaTest::new(para_test_args);
-
-	// Query initial balances.
-	let sender_balance_before = test.sender.balance;
-	let sender_assets_before = AssetHubWestend::execute_with(|| {
-		type Assets = <AssetHubWestend as AssetHubWestendPallet>::Assets;
-		<Assets as Inspect<_>>::balance(asset_id, &sender)
-	});
-	let receiver_foreign_assets_before = PenpalA::execute_with(|| {
-		type ForeignAssets = <PenpalA as PenpalAPallet>::ForeignAssets;
-		<ForeignAssets as Inspect<_>>::balance(
-			system_para_foreign_asset_location.clone(),
-			&receiver,
-		)
-	});
-
-	// Set assertions and dispatchables
-	// TODO: Bring back assertions.
-	// test.set_assertion::<AssetHubWestend>(system_para_to_para_assets_sender_assertions);
-	// test.set_assertion::<PenpalA>(system_para_to_para_assets_receiver_assertions);
-	test.set_dispatchable::<AssetHubWestend>(system_para_to_para_reserve_transfer_assets);
-	test.assert();
-
-	// Query initial balances.
-	let sender_balance_after = test.sender.balance;
-	let sender_assets_after = AssetHubWestend::execute_with(|| {
-		type Assets = <AssetHubWestend as AssetHubWestendPallet>::Assets;
-		<Assets as Inspect<_>>::balance(asset_id, &sender)
-	});
-	let receiver_foreign_assets_after = PenpalA::execute_with(|| {
-		type ForeignAssets = <PenpalA as PenpalAPallet>::ForeignAssets;
-		<ForeignAssets as Inspect<_>>::balance(
-			system_para_foreign_asset_location.clone(),
-			&receiver,
-		)
-	});
-
-	// TODO: When we allow payment with different assets locally, this should be the same, since
-	// they aren't used for fees.
-	assert!(sender_balance_before > sender_balance_after);
-	// The assets have been sent and used for fees.
-	assert!(sender_assets_after < sender_assets_before - asset_amount_to_send);
-	assert!(receiver_foreign_assets_after > receiver_foreign_assets_before);
-}
-
-// ================================================================================
-// ===== Reserve Transfers - Sufficient Asset - Parachain->AssetHub->Parachain ====
-// ================================================================================
-/// Reserve Transfers of a sufficient trust-backed asset from Parachain to Parachain (through Relay
-/// reserve) should work
-#[test]
-fn reserve_transfer_sufficient_asset_from_para_to_para_through_asset_hub() {
-	use penpal_runtime::xcm_config::ASSET_HUB_ID;
-
-	// Init values for Parachain Origin
-	let destination = PenpalA::sibling_location_of(PenpalB::para_id());
-	let sender = PenpalASender::get();
-	let asset_amount_to_send: Balance = WESTEND_ED * 10000;
-	let fee_amount_to_send: Balance = WESTEND_ED * 10000;
-	let asset_owner = PenpalAssetOwner::get();
-	let sender_as_seen_by_asset_hub = AssetHubWestend::sibling_location_of(PenpalA::para_id());
-	let sov_of_sender_on_asset_hub =
-		AssetHubWestend::sovereign_account_id_of(sender_as_seen_by_asset_hub);
-
-	// Create sufficient asset.
-	let asset_id = 1984;
-	AssetHubWestend::force_create_asset(
-		asset_id,
-		asset_owner,
-		true, // Mark it as sufficient.
-		70_000,
-		vec![(sov_of_sender_on_asset_hub.clone(), asset_amount_to_send + fee_amount_to_send)],
-	);
-	let system_para_foreign_asset_location = Location::new(
-		1,
-		[Parachain(ASSET_HUB_ID), PalletInstance(ASSETS_PALLET_ID), GeneralIndex(asset_id.into())],
-	);
-
-	// Create sufficient foreign asset.
-	PenpalA::force_create_foreign_asset(
-		system_para_foreign_asset_location.clone(),
-		PenpalAssetOwner::get(),
-		false, /* TODO: Doesn't matter if sufficient since we don't handle local delivery fee
-		        * payment in other assets. */
-		70_000,
-		vec![(sender.clone(), asset_amount_to_send + fee_amount_to_send)],
-	);
-	PenpalB::force_create_foreign_asset(
-		system_para_foreign_asset_location.clone(),
-		PenpalAssetOwner::get(),
-		true, // Mark as sufficient.
-		70_000,
-		vec![],
-	);
-
-	let assets: Assets = vec![(
-		(
-			Parent,
-			Parachain(ASSET_HUB_ID),
-			PalletInstance(ASSETS_PALLET_ID),
-			GeneralIndex(asset_id.into()),
-		),
-		asset_amount_to_send + fee_amount_to_send,
-	)
-		.into()]
-	.into();
-	// Just to be very specific you don't need any native asset.
-	assert_eq!(assets.len(), 1);
-
-	// fund the Parachain Origin's SA on AssetHub with the native tokens held in reserve
-	AssetHubWestend::fund_accounts(vec![(
-		sov_of_sender_on_asset_hub.into(),
-		asset_amount_to_send * 2,
-	)]);
-
-	// Give the sender enough Relay tokens to pay for local delivery fees.
-	// TODO: When we support local delivery fee payment in other assets, we don't need this.
-	PenpalA::execute_with(|| {
-		assert_ok!(<PenpalA as PenpalAPallet>::ForeignAssets::mint(
-			<PenpalA as Chain>::RuntimeOrigin::signed(PenpalAssetOwner::get()),
-			Location::new(1, []),
-			sender.clone().into(),
-			10_000_000_000_000, // Big estimate to make it work.
-		));
-	});
-
-	// Init values for Parachain Destination
-	let receiver = PenpalBReceiver::get();
-
-	// Init Test
-	let fee_asset_index = 0;
-	let test_args = TestContext {
-		sender: sender.clone(),
-		receiver: receiver.clone(),
-		args: TestArgs::new_para(
-			destination,
-			receiver.clone(),
-			asset_amount_to_send,
-			assets,
-			None,
-			fee_asset_index,
-		),
-	};
-	let mut test = ParaToParaThroughAHTest::new(test_args);
-
-	// Query initial balances
-	let sender_assets_before = PenpalA::execute_with(|| {
-		type ForeignAssets = <PenpalA as PenpalAPallet>::ForeignAssets;
-		<ForeignAssets as Inspect<_>>::balance(system_para_foreign_asset_location.clone(), &sender)
-	});
-	let receiver_assets_before = PenpalB::execute_with(|| {
-		type ForeignAssets = <PenpalB as PenpalBPallet>::ForeignAssets;
-		<ForeignAssets as Inspect<_>>::balance(
-			system_para_foreign_asset_location.clone(),
-			&receiver,
-		)
-	});
-
-	// Set assertions and dispatchables
-	// TODO: Bring back assertions.
-	// test.set_assertion::<PenpalA>(para_to_para_through_hop_sender_assertions);
-	// test.set_assertion::<AssetHubWestend>(para_to_para_relay_hop_assertions);
-	// test.set_assertion::<PenpalB>(para_to_para_through_hop_receiver_assertions);
-	test.set_dispatchable::<PenpalA>(
-		para_to_para_through_asset_hub_limited_reserve_transfer_assets,
-	);
-	test.assert();
-
-	// Query final balances
-	let sender_assets_after = PenpalA::execute_with(|| {
-		type ForeignAssets = <PenpalA as PenpalAPallet>::ForeignAssets;
-		<ForeignAssets as Inspect<_>>::balance(system_para_foreign_asset_location.clone(), &sender)
-	});
-	let receiver_assets_after = PenpalB::execute_with(|| {
-		type ForeignAssets = <PenpalB as PenpalBPallet>::ForeignAssets;
-		<ForeignAssets as Inspect<_>>::balance(system_para_foreign_asset_location, &receiver)
-	});
-
-	// Sender's balance is reduced by amount sent plus delivery fees
-	assert!(sender_assets_after < sender_assets_before - asset_amount_to_send);
-	// Receiver's balance is increased
-	assert!(receiver_assets_after > receiver_assets_before);
-}
-
 // ===============================================================
 // ===== Reserve Transfers - Pool Asset - AssetHub->Parachain ====
 // ===============================================================
@@ -1713,7 +1453,7 @@ fn reserve_transfer_pool_assets_from_para_to_para_through_asset_hub() {
 	PenpalA::force_create_foreign_asset(
 		system_para_foreign_asset_location.clone(),
 		PenpalAssetOwner::get(),
-		false, // Asset not sufficient locally.
+		true, // Mark asset as sufficient.
 		70_000,
 		vec![(sender.clone(), asset_amount_to_send + fee_amount_to_send)],
 	);
@@ -1748,14 +1488,12 @@ fn reserve_transfer_pool_assets_from_para_to_para_through_asset_hub() {
 
 	// Give the sender enough Relay tokens to pay for local delivery fees.
 	// TODO: When we support local delivery fee payment in other assets, we don't need this.
-	PenpalA::execute_with(|| {
-		assert_ok!(<PenpalA as PenpalAPallet>::ForeignAssets::mint(
-			<PenpalA as Chain>::RuntimeOrigin::signed(PenpalAssetOwner::get()),
-			Location::new(1, []),
-			sender.clone().into(),
-			10_000_000_000_000, // Big estimate to make it work.
-		));
-	});
+	PenpalA::mint_foreign_asset(
+		<PenpalA as Chain>::RuntimeOrigin::signed(PenpalAssetOwner::get()),
+		RelayLocation::get(),
+		sender.clone(),
+		10_000_000_000_000, // Large estimate to make sure it works.
+	);
 
 	// Init values for Parachain Destination
 	let receiver = PenpalBReceiver::get();
@@ -1803,7 +1541,7 @@ fn reserve_transfer_pool_assets_from_para_to_para_through_asset_hub() {
 		<ForeignAssets as Inspect<_>>::balance(system_para_foreign_asset_location, &receiver)
 	});
 
-	// Sender's balance is reduced by amount sent plus delivery fees
+	// Sender's balance is reduced by amount
 	assert!(sender_assets_after < sender_assets_before - asset_amount_to_send);
 	// Receiver's balance is increased
 	assert!(receiver_assets_after > receiver_assets_before);
