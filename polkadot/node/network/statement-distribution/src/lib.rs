@@ -284,7 +284,14 @@ impl<R: rand::Rng> StatementDistributionSubsystem<R> {
 					);
 				},
 				MuxedMessage::Response(result) => {
-					v2::handle_response(&mut ctx, &mut state, result, &mut self.reputation).await;
+					v2::handle_response(
+						&mut ctx,
+						&mut state,
+						result,
+						&mut self.reputation,
+						&self.metrics,
+					)
+					.await;
 				},
 				MuxedMessage::RetryRequest(()) => {
 					// A pending request is ready to retry. This is only a signal to call
@@ -320,7 +327,8 @@ impl<R: rand::Rng> StatementDistributionSubsystem<R> {
 					let mode = prospective_parachains_mode(ctx.sender(), activated.hash).await?;
 					if let ProspectiveParachainsMode::Enabled { .. } = mode {
 						let res =
-							v2::handle_active_leaves_update(ctx, state, activated, mode).await;
+							v2::handle_active_leaves_update(ctx, state, activated, mode, &metrics)
+								.await;
 						// Regardless of the result of leaf activation, we always prune before
 						// handling it to avoid leaks.
 						v2::handle_deactivate_leaves(state, &deactivated);
@@ -370,6 +378,7 @@ impl<R: rand::Rng> StatementDistributionSubsystem<R> {
 							relay_parent,
 							statement,
 							&mut self.reputation,
+							&self.metrics,
 						)
 						.await?;
 					}
@@ -428,11 +437,24 @@ impl<R: rand::Rng> StatementDistributionSubsystem<R> {
 
 					if target.targets_current() {
 						// pass to v2.
-						v2::handle_network_update(ctx, state, event, &mut self.reputation).await;
+						v2::handle_network_update(
+							ctx,
+							state,
+							event,
+							&mut self.reputation,
+							&self.metrics,
+						)
+						.await;
 					}
 				},
 				StatementDistributionMessage::Backed(candidate_hash) => {
-					crate::v2::handle_backed_candidate_message(ctx, state, candidate_hash).await;
+					crate::v2::handle_backed_candidate_message(
+						ctx,
+						state,
+						candidate_hash,
+						&self.metrics,
+					)
+					.await;
 				},
 			},
 		}
