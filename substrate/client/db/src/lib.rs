@@ -2545,7 +2545,7 @@ pub(crate) mod tests {
 		backend::{Backend as BTrait, BlockImportOperation as Op},
 		blockchain::Backend as BLBTrait,
 	};
-	use sp_blockchain::{lowest_common_ancestor, lowest_common_ancestor_multiblock, tree_route};
+	use sp_blockchain::{lowest_common_ancestor, tree_route};
 	use sp_core::H256;
 	use sp_runtime::{
 		testing::{Block as RawBlock, ExtrinsicWrapper, Header},
@@ -3107,117 +3107,118 @@ pub(crate) mod tests {
 	}
 
 	#[test]
-	fn lowest_common_ancestors_multiblock_works() {
+	fn displaced_leaves_after_finalizing_works() {
 		let backend = Backend::<Block>::new_test(1000, 100);
 		let blockchain = backend.blockchain();
-		let block0 = insert_header(&backend, 0, Default::default(), None, Default::default());
+		let genesis_number = 0;
+		let genesis_hash =
+			insert_header(&backend, genesis_number, Default::default(), None, Default::default());
 
 		// fork from genesis: 3 prong.
 		// block 0 -> a1 -> a2 -> a3
-		//    |
-		//     -> b1 -> b2 -> c1 -> c2
-		//           |
-		//           -> d1 -> d2
-		let a1 = insert_header(&backend, 1, block0, None, Default::default());
-		let a2 = insert_header(&backend, 2, a1, None, Default::default());
-		let a3 = insert_header(&backend, 3, a2, None, Default::default());
+		//        \
+		//         -> b1 -> b2 -> c1 -> c2
+		//              \
+		//               -> d1 -> d2
+		let a1_number = 1;
+		let a1_hash = insert_header(&backend, a1_number, genesis_hash, None, Default::default());
+		let a2_number = 2;
+		let a2_hash = insert_header(&backend, a2_number, a1_hash, None, Default::default());
+		let a3_number = 3;
+		let a3_hash = insert_header(&backend, a3_number, a2_hash, None, Default::default());
+
+		{
+			let displaced = blockchain
+				.displaced_leaves_after_finalizing(genesis_hash, genesis_number)
+				.unwrap();
+			assert_eq!(displaced.displaced_leaves, vec![]);
+			assert_eq!(displaced.displaced_blocks, vec![]);
+		}
+		{
+			let displaced_a1 =
+				blockchain.displaced_leaves_after_finalizing(a1_hash, a1_number).unwrap();
+			assert_eq!(displaced_a1.displaced_leaves, vec![]);
+			assert_eq!(displaced_a1.displaced_blocks, vec![]);
+
+			let displaced_a2 =
+				blockchain.displaced_leaves_after_finalizing(a2_hash, a3_number).unwrap();
+			assert_eq!(displaced_a2.displaced_leaves, vec![]);
+			assert_eq!(displaced_a2.displaced_blocks, vec![]);
+
+			let displaced_a3 =
+				blockchain.displaced_leaves_after_finalizing(a3_hash, a3_number).unwrap();
+			assert_eq!(displaced_a3.displaced_leaves, vec![]);
+			assert_eq!(displaced_a3.displaced_blocks, vec![]);
+		}
 
 		// fork from genesis: 2 prong.
-		let b1 = insert_header(&backend, 1, block0, None, H256::from([1; 32]));
-		let b2 = insert_header(&backend, 2, b1, None, Default::default());
+		let b1_number = 1;
+		let b1_hash = insert_header(&backend, b1_number, genesis_hash, None, H256::from([1; 32]));
+		let b2_number = 2;
+		let b2_hash = insert_header(&backend, b2_number, b1_hash, None, Default::default());
 
 		// fork from b2.
-		let c1 = insert_header(&backend, 3, b2, None, H256::from([2; 32]));
-		let c2 = insert_header(&backend, 4, c1, None, Default::default());
+		let c1_number = 3;
+		let c1_hash = insert_header(&backend, c1_number, b2_hash, None, H256::from([2; 32]));
+		let c2_number = 4;
+		let c2_hash = insert_header(&backend, c2_number, c1_hash, None, Default::default());
 
 		// fork from b1.
-		let d1 = insert_header(&backend, 2, b1, None, H256::from([3; 32]));
-		let d2 = insert_header(&backend, 3, d1, None, Default::default());
-		{
-			let lca = lowest_common_ancestor_multiblock(blockchain, &[a3, b2]).unwrap().unwrap();
+		let d1_number = 2;
+		let d1_hash = insert_header(&backend, d1_number, b1_hash, None, H256::from([3; 32]));
+		let d2_number = 3;
+		let d2_hash = insert_header(&backend, d2_number, d1_hash, None, Default::default());
 
-			assert_eq!(lca.hash, block0);
-			assert_eq!(lca.number, 0);
+		{
+			let displaced_a1 =
+				blockchain.displaced_leaves_after_finalizing(a1_hash, a1_number).unwrap();
+			assert_eq!(
+				displaced_a1.displaced_leaves,
+				vec![(c2_number, c2_hash), (d2_number, d2_hash)]
+			);
+			let mut displaced_blocks = vec![b1_hash, b2_hash, c1_hash, c2_hash, d1_hash, d2_hash];
+			displaced_blocks.sort();
+			assert_eq!(displaced_a1.displaced_blocks, displaced_blocks);
+
+			let displaced_a2 =
+				blockchain.displaced_leaves_after_finalizing(a2_hash, a2_number).unwrap();
+			assert_eq!(displaced_a1.displaced_leaves, displaced_a2.displaced_leaves);
+			assert_eq!(displaced_a1.displaced_blocks, displaced_a2.displaced_blocks);
+
+			let displaced_a3 =
+				blockchain.displaced_leaves_after_finalizing(a3_hash, a3_number).unwrap();
+			assert_eq!(displaced_a1.displaced_leaves, displaced_a3.displaced_leaves);
+			assert_eq!(displaced_a1.displaced_blocks, displaced_a3.displaced_blocks);
 		}
-
 		{
-			let lca = lowest_common_ancestor_multiblock(blockchain, &[a1, a3]).unwrap().unwrap();
-
-			assert_eq!(lca.hash, a1);
-			assert_eq!(lca.number, 1);
+			let displaced =
+				blockchain.displaced_leaves_after_finalizing(b1_hash, b1_number).unwrap();
+			assert_eq!(displaced.displaced_leaves, vec![(a3_number, a3_hash)]);
+			let mut displaced_blocks = vec![a1_hash, a2_hash, a3_hash];
+			displaced_blocks.sort();
+			assert_eq!(displaced.displaced_blocks, displaced_blocks);
 		}
-
 		{
-			let lca = lowest_common_ancestor_multiblock(blockchain, &[a3, a1]).unwrap().unwrap();
-
-			assert_eq!(lca.hash, a1);
-			assert_eq!(lca.number, 1);
+			let displaced =
+				blockchain.displaced_leaves_after_finalizing(b2_hash, b2_number).unwrap();
+			assert_eq!(
+				displaced.displaced_leaves,
+				vec![(a3_number, a3_hash), (d2_number, d2_hash)]
+			);
+			let mut displaced_blocks = vec![a1_hash, a2_hash, a3_hash, d1_hash, d2_hash];
+			displaced_blocks.sort();
+			assert_eq!(displaced.displaced_blocks, displaced_blocks);
 		}
-
 		{
-			let lca = lowest_common_ancestor_multiblock(blockchain, &[a2, a3]).unwrap().unwrap();
-
-			assert_eq!(lca.hash, a2);
-			assert_eq!(lca.number, 2);
-		}
-
-		{
-			let lca = lowest_common_ancestor_multiblock(blockchain, &[a2, a1]).unwrap().unwrap();
-
-			assert_eq!(lca.hash, a1);
-			assert_eq!(lca.number, 1);
-		}
-
-		{
-			let lca = lowest_common_ancestor_multiblock(blockchain, &[a2, a2]).unwrap().unwrap();
-
-			assert_eq!(lca.hash, a2);
-			assert_eq!(lca.number, 2);
-		}
-
-		{
-			let lca =
-				lowest_common_ancestor_multiblock(blockchain, &[a3, d2, c2]).unwrap().unwrap();
-
-			assert_eq!(lca.hash, block0);
-			assert_eq!(lca.number, 0);
-		}
-
-		{
-			let lca =
-				lowest_common_ancestor_multiblock(blockchain, &[c2, d2, b2]).unwrap().unwrap();
-
-			assert_eq!(lca.hash, b1);
-			assert_eq!(lca.number, 1);
-		}
-
-		{
-			let lca =
-				lowest_common_ancestor_multiblock(blockchain, &[a1, a2, a3]).unwrap().unwrap();
-
-			assert_eq!(lca.hash, a1);
-			assert_eq!(lca.number, 1);
-		}
-
-		{
-			let lca =
-				lowest_common_ancestor_multiblock(blockchain, &[b1, b2, d1]).unwrap().unwrap();
-
-			assert_eq!(lca.hash, b1);
-			assert_eq!(lca.number, 1);
-		}
-
-		{
-			let lca = lowest_common_ancestor_multiblock(blockchain, &[]);
-
-			assert_eq!(true, matches!(lca, Ok(None)));
-		}
-
-		{
-			let lca = lowest_common_ancestor_multiblock(blockchain, &[a1]).unwrap().unwrap();
-
-			assert_eq!(lca.hash, a1);
-			assert_eq!(lca.number, 1);
+			let displaced =
+				blockchain.displaced_leaves_after_finalizing(c2_hash, c2_number).unwrap();
+			assert_eq!(
+				displaced.displaced_leaves,
+				vec![(a3_number, a3_hash), (d2_number, d2_hash)]
+			);
+			let mut displaced_blocks = vec![a1_hash, a2_hash, a3_hash, d1_hash, d2_hash];
+			displaced_blocks.sort();
+			assert_eq!(displaced.displaced_blocks, displaced_blocks);
 		}
 	}
 
