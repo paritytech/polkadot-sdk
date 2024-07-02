@@ -358,6 +358,8 @@ where
 			log::debug!(target:LOG_TARGET,"handle_finalized: retracted_views: {:?}", retracted_views.keys());
 		}
 
+		self.listener.remove_stale_controllers().await;
+
 		finalized_xts
 	}
 
