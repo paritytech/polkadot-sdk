@@ -28,7 +28,6 @@
 
 use std::collections::{HashMap, HashSet};
 
-use fragment_chain::{CandidateEntry, FragmentChain};
 use futures::{channel::oneshot, prelude::*};
 
 use polkadot_node_subsystem::{
@@ -54,7 +53,9 @@ use polkadot_primitives::{
 
 use crate::{
 	error::{FatalError, FatalResult, JfyiError, JfyiErrorResult, Result},
-	fragment_chain::{CandidateState, CandidateStorageInsertionError, Scope as FragmentChainScope},
+	fragment_chain::{
+		CandidateEntry, Error as FragmentChainError, FragmentChain, Scope as FragmentChainScope,
+	},
 };
 
 mod error;
@@ -264,14 +265,14 @@ async fn handle_active_leaves_update<Context>(
 
 			for c in pending_availability {
 				let candidate_hash = c.compact.candidate_hash;
-				let res = prev_candidate_storage.add_candidate(
+				let res = prev_candidate_storage.add_pending_availability_candidate(
+					candidate_hash,
 					c.candidate,
 					c.persisted_validation_data,
-					CandidateState::Backed,
 				);
 
 				match res {
-					Ok(_) | Err(CandidateStorageInsertionError::CandidateAlreadyKnown(_)) => {},
+					Ok(_) | Err(FragmentChainError::CandidateAlreadyKnown(_)) => {},
 					Err(err) => {
 						gum::warn!(
 							target: LOG_TARGET,
@@ -288,22 +289,34 @@ async fn handle_active_leaves_update<Context>(
 				compact_pending.push(c.compact);
 			}
 
-			let scope = FragmentChainScope::with_ancestors(
-				para,
+			let scope = match FragmentChainScope::with_ancestors(
 				block_info.clone(),
 				constraints,
 				compact_pending,
 				max_candidate_depth,
 				ancestry.iter().cloned(),
-			)
-			.expect("ancestors are provided in reverse order and correctly; qed");
-			// TODO: let's not panic here.
+			) {
+				Ok(scope) => scope,
+				Err(unexpected_ancestors) => {
+					gum::warn!(
+						target: LOG_TARGET,
+						para_id = ?para,
+						max_candidate_depth,
+						?ancestry,
+						leaf = ?hash,
+						"Relay chain ancestors have wrong order: {:?}",
+						unexpected_ancestors
+					);
+					continue
+				},
+			};
 
 			gum::trace!(
 				target: LOG_TARGET,
 				relay_parent = ?hash,
 				min_relay_parent = scope.earliest_relay_parent().number,
 				para_id = ?para,
+				ancestors = ?ancestry,
 				"Creating fragment chain"
 			);
 
@@ -313,8 +326,17 @@ async fn handle_active_leaves_update<Context>(
 				target: LOG_TARGET,
 				relay_parent = ?hash,
 				para_id = ?para,
-				"Populated fragment chain with {} candidates",
-				chain.len()
+				"Populated fragment chain with {} candidates: {:?}",
+				chain.len(),
+				chain.to_vec()
+			);
+
+			gum::trace!(
+				target: LOG_TARGET,
+				relay_parent = ?hash,
+				para_id = ?para,
+				"Potential candidate storage for para: {:?}",
+				chain.unconnected().map(|candidate| candidate.hash()).collect::<Vec<_>>()
 			);
 
 			fragment_chains.insert(para, chain);
@@ -333,7 +355,7 @@ async fn handle_active_leaves_update<Context>(
 struct ImportablePendingAvailability {
 	candidate: CommittedCandidateReceipt,
 	persisted_validation_data: PersistedValidationData,
-	compact: crate::fragment_chain::PendingAvailability,
+	compact: fragment_chain::PendingAvailability,
 }
 
 #[overseer::contextbounds(ProspectiveParachains, prefix = self::overseer)]
@@ -376,7 +398,7 @@ async fn preprocess_candidates_pending_availability<Context>(
 				relay_parent_number: relay_parent.number,
 				relay_parent_storage_root: relay_parent.storage_root,
 			},
-			compact: crate::fragment_chain::PendingAvailability {
+			compact: fragment_chain::PendingAvailability {
 				candidate_hash: pending.candidate_hash,
 				relay_parent,
 			},
@@ -404,60 +426,70 @@ async fn handle_introduce_seconded_candidate<Context>(
 		persisted_validation_data: pvd,
 	} = request;
 
-	// let Some(storage) = view.candidate_storage.get_mut(&para) else {
-	// 	gum::warn!(
-	// 		target: LOG_TARGET,
-	// 		para_id = ?para,
-	// 		?candidate_hash,
-	// 		"Received seconded candidate for inactive para",
-	// 	);
-
-	// 	let _ = tx.send(false);
-	// 	return
-	// }; // TODO: add this log somehow
-
 	let candidate_hash = candidate.hash();
-	let Ok(candidate_entry) =
-		CandidateEntry::new(candidate_hash, candidate, pvd, CandidateState::Seconded)
-	else {
-		// TODO: what if we add more error variants here?. replace this with a match.
-		gum::warn!(
-			target: LOG_TARGET,
-			para = ?para,
-			"Received seconded candidate had mismatching validation data",
-		);
+	let candidate_entry = match CandidateEntry::new_seconded(candidate_hash, candidate, pvd) {
+		Ok(candidate) => candidate,
+		Err(err) => {
+			gum::warn!(
+				target: LOG_TARGET,
+				para = ?para,
+				"Cannot add seconded candidate: {}",
+				err
+			);
 
-		let _ = tx.send(false);
-		return
+			let _ = tx.send(false);
+			return
+		},
 	};
 
 	let mut added = false;
-	for leaf_data in view.active_leaves.values_mut() {
+	let mut para_scheduled = false;
+	for (leaf, leaf_data) in view.active_leaves.iter_mut() {
 		if let Some(chain) = leaf_data.fragment_chains.get_mut(&para) {
+			para_scheduled = true;
+
 			match chain.try_adding_seconded_candidate(&candidate_entry) {
-				Ok(true) => {
-					added = true;
-				},
-				Err(CandidateStorageInsertionError::CandidateAlreadyKnown(_)) => {
+				Ok(()) => {
 					gum::debug!(
 						target: LOG_TARGET,
 						para = ?para,
+						relay_parent = ?leaf,
+						"Added seconded candidate {:?}",
+						candidate_hash
+					);
+					added = true;
+				},
+				Err(FragmentChainError::CandidateAlreadyKnown(_)) => {
+					gum::debug!(
+						target: LOG_TARGET,
+						para = ?para,
+						relay_parent = ?leaf,
 						"Attempting to introduce an already known candidate: {:?}",
 						candidate_hash
 					);
 					added = true;
 				},
-				Err(CandidateStorageInsertionError::PersistedValidationDataMismatch) => {
-					// We already checked for this.
-					let _ = tx.send(false);
-					return
-				},
-				// TODO: log
-				Ok(false) => {},
-				Err(CandidateStorageInsertionError::Cycle) => { // TODO: log
+				Err(err) => {
+					gum::debug!(
+						target: LOG_TARGET,
+						para = ?para,
+						relay_parent = ?leaf,
+						?candidate_hash,
+						"Cannot introduce seconded candidate: {}",
+						err
+					)
 				},
 			}
 		}
+	}
+
+	if !para_scheduled {
+		gum::warn!(
+			target: LOG_TARGET,
+			para_id = ?para,
+			?candidate_hash,
+			"Received seconded candidate for inactive para",
+		);
 	}
 
 	if !added {
@@ -479,46 +511,65 @@ async fn handle_candidate_backed<Context>(
 	para: ParaId,
 	candidate_hash: CandidateHash,
 ) {
-	// let Some(storage) = view.candidate_storage.get_mut(&para) else {
-	// 	gum::warn!(
-	// 		target: LOG_TARGET,
-	// 		para_id = ?para,
-	// 		?candidate_hash,
-	// 		"Received instruction to back a candidate for unscheduled para",
-	// 	);
-
-	// 	return
-	// };
-
-	// if !storage.contains(&candidate_hash) {
-	// 	gum::warn!(
-	// 		target: LOG_TARGET,
-	// 		para_id = ?para,
-	// 		?candidate_hash,
-	// 		"Received instruction to back unknown candidate",
-	// 	);
-
-	// 	return
-	// }
-
-	// if storage.is_backed(&candidate_hash) {
-	// 	gum::debug!(
-	// 		target: LOG_TARGET,
-	// 		para_id = ?para,
-	// 		?candidate_hash,
-	// 		"Received redundant instruction to mark candidate as backed",
-	// 	);
-
-	// 	return
-	// }
-	// TODO: add these logs back
-
-	// Now try repopulating the fragment chains.
-	for leaf_data in view.active_leaves.values_mut() {
+	// Repopulate the fragment chains.
+	let mut found_candidate = false;
+	let mut found_para = false;
+	for (leaf, leaf_data) in view.active_leaves.iter_mut() {
 		if let Some(chain) = leaf_data.fragment_chains.remove(&para) {
-			leaf_data.fragment_chains.insert(para, chain.candidate_backed(&candidate_hash));
-			// TODO: log here the added candidates: chain.contains_candidate(candidate)
+			found_para = true;
+			if chain.contains_candidate(&candidate_hash) {
+				gum::debug!(
+					target: LOG_TARGET,
+					para_id = ?para,
+					?candidate_hash,
+					"Received redundant instruction to mark as backed an already backed candidate",
+				);
+				found_candidate = true;
+			}
+
+			if chain.contains_unconnected_candidate(&candidate_hash) {
+				found_candidate = true;
+				let new_chain = chain.candidate_backed(&candidate_hash);
+
+				gum::trace!(
+					target: LOG_TARGET,
+					relay_parent = ?leaf,
+					para_id = ?para,
+					"Candidate chain for para: {:?}",
+					new_chain.to_vec()
+				);
+
+				gum::trace!(
+					target: LOG_TARGET,
+					relay_parent = ?leaf,
+					para_id = ?para,
+					"Potential candidate storage for para: {:?}",
+					new_chain.unconnected().map(|candidate| candidate.hash()).collect::<Vec<_>>()
+				);
+
+				leaf_data.fragment_chains.insert(para, new_chain);
+			}
 		}
+	}
+
+	if !found_para {
+		gum::warn!(
+			target: LOG_TARGET,
+			para_id = ?para,
+			?candidate_hash,
+			"Received instruction to back a candidate for unscheduled para",
+		);
+
+		return
+	}
+
+	if !found_candidate {
+		gum::warn!(
+			target: LOG_TARGET,
+			para_id = ?para,
+			?candidate_hash,
+			"Received instruction to back unknown candidate",
+		);
 	}
 }
 
@@ -554,32 +605,20 @@ fn answer_get_backable_candidates(
 		return
 	};
 
-	// let Some(storage) = view.candidate_storage.get(&para) else {
-	// 	gum::warn!(
-	// 		target: LOG_TARGET,
-	// 		?relay_parent,
-	// 		para_id = ?para,
-	// 		"No candidate storage for active para",
-	// 	);
-
-	// 	let _ = tx.send(vec![]);
-	// 	return
-	// };
-
-	// gum::trace!(
-	// 	target: LOG_TARGET,
-	// 	?relay_parent,
-	// 	para_id = ?para,
-	// 	"Candidate storage for para: {:?}",
-	// 	storage.candidates().map(|candidate| candidate.hash()).collect::<Vec<_>>()
-	// ); // TODO: add back these logs
-
 	gum::trace!(
 		target: LOG_TARGET,
 		?relay_parent,
 		para_id = ?para,
 		"Candidate chain for para: {:?}",
 		chain.to_vec()
+	);
+
+	gum::trace!(
+		target: LOG_TARGET,
+		?relay_parent,
+		para_id = ?para,
+		"Potential candidate storage for para: {:?}",
+		chain.unconnected().map(|candidate| candidate.hash()).collect::<Vec<_>>()
 	);
 
 	let backable_candidates = chain.find_backable_chain(ancestors.clone(), count);
@@ -628,9 +667,22 @@ fn answer_hypothetical_membership_request(
 			let para_id = &candidate.candidate_para();
 			let Some(fragment_chain) = leaf_view.fragment_chains.get(para_id) else { continue };
 
-			if fragment_chain.hypothetical_membership(candidate.clone()) {
-				membership.push(*active_leaf);
-			}
+			let res = fragment_chain.can_add_candidate_as_potential(candidate);
+			match res {
+				Err(FragmentChainError::CandidateAlreadyKnown(_)) | Ok(()) => {
+					membership.push(*active_leaf);
+				},
+				Err(err) => {
+					gum::debug!(
+						target: LOG_TARGET,
+						para = ?para_id,
+						leaf = ?active_leaf,
+						candidate = ?candidate.candidate_hash(),
+						"Candidate is not a hypothetical member: {:?}",
+						err
+					)
+				},
+			};
 		}
 	}
 

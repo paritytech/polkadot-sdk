@@ -119,8 +119,8 @@ use polkadot_node_subsystem::messages::HypotheticalCandidate;
 /// in practice at most once every few weeks.
 use polkadot_primitives::{
 	async_backing::Constraints as PrimitiveConstraints, BlockNumber, CandidateCommitments,
-	CandidateDescriptor, CandidateHash, CollatorId, CollatorSignature, Hash, HeadData,
-	Id as ParaId, PersistedValidationData, UpgradeRestriction, ValidationCodeHash,
+	CandidateHash, CollatorId, CollatorSignature, Hash, HeadData, Id as ParaId,
+	PersistedValidationData, UpgradeRestriction, ValidationCodeHash,
 };
 use std::{collections::HashMap, sync::Arc};
 
@@ -808,7 +808,9 @@ pub trait HypotheticalOrConcreteCandidate {
 	fn persisted_validation_data(&self) -> Option<&PersistedValidationData>;
 	fn validation_code_hash(&self) -> Option<&ValidationCodeHash>;
 	fn parent_head_data_hash(&self) -> Hash;
+	fn output_head_data_hash(&self) -> Option<Hash>;
 	fn relay_parent(&self) -> Hash;
+	fn candidate_hash(&self) -> CandidateHash;
 }
 
 impl HypotheticalOrConcreteCandidate for HypotheticalCandidate {
@@ -828,30 +830,16 @@ impl HypotheticalOrConcreteCandidate for HypotheticalCandidate {
 		self.parent_head_data_hash()
 	}
 
-	fn relay_parent(&self) -> Hash {
-		self.relay_parent()
-	}
-}
-
-impl HypotheticalOrConcreteCandidate for ProspectiveCandidate {
-	fn commitments(&self) -> Option<&CandidateCommitments> {
-		Some(&self.commitments)
-	}
-
-	fn persisted_validation_data(&self) -> Option<&PersistedValidationData> {
-		Some(&self.persisted_validation_data)
-	}
-
-	fn validation_code_hash(&self) -> Option<&ValidationCodeHash> {
-		Some(&self.validation_code_hash)
-	}
-
-	fn parent_head_data_hash(&self) -> Hash {
-		self.parent_head_data_hash()
+	fn output_head_data_hash(&self) -> Option<Hash> {
+		self.output_head_data_hash()
 	}
 
 	fn relay_parent(&self) -> Hash {
 		self.relay_parent()
+	}
+
+	fn candidate_hash(&self) -> CandidateHash {
+		self.candidate_hash()
 	}
 }
 
