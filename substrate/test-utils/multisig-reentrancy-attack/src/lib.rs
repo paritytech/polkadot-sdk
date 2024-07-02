@@ -15,34 +15,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! # Multisig pallet
-//! A pallet for doing multisig dispatch.
-//!
-//! - [`Config`]
-//! - [`Call`]
-//!
-//! ## Overview
-//!
-//! This pallet contains functionality for multi-signature dispatch, a (potentially) stateful
-//! operation, allowing multiple signed
-//! origins (accounts) to coordinate and dispatch a call from a well-known origin, derivable
-//! deterministically from the set of account IDs and the threshold number of accounts from the
-//! set that must approve it. In the case that the threshold is just one then this is a stateless
-//! operation. This is useful for multisig wallets where cryptographic threshold signatures are
-//! not available or desired.
-//!
-//! ## Interface
-//!
-//! ### Dispatchable Functions
-//!
-//! * `as_multi` - Approve and if possible dispatch a call from a composite origin formed from a
-//!   number of signed origins.
-//! * `approve_as_multi` - Approve a call from a composite origin.
-//! * `cancel_as_multi` - Cancel a call from a composite origin.
+//! # Pallet for simulation of reentrancy attack
 
 // Ensure we're `no_std` when compiling for Wasm.
 #![cfg_attr(not(feature = "std"), no_std)]
 
+pub use pallet::*;
+
+use crate::Config;
+use pallet_multisig::Config as MultisigConfig;
 
 use frame_support::{
 	dispatch::{
@@ -51,8 +32,8 @@ use frame_support::{
 	},
 	traits::ReservableCurrency,
 };
-use frame_system::pallet_prelude::BlockNumberFor;
 use sp_runtime::traits::Dispatchable;
+
 
 /// The log target of this pallet.
 pub const LOG_TARGET: &'static str = "runtime::reentrancy-attack";
@@ -75,7 +56,7 @@ pub mod pallet {
 	<<T as Config>::Currency as Currency<<T as SystemConfig>::AccountId>>::Balance;
 
 	#[pallet::config]
-	pub trait Config: frame_system::Config {
+	pub trait Config: frame_system::Config + pallet_multisig::Config {
 		/// The overarching event type.
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
@@ -120,8 +101,8 @@ pub mod pallet {
 			let mut SEED = [1u8; 32];
 			let sender = ensure_signed(origin)?;
 
-            let current_block = <frame_system::Pallet<T>>::block_number();
-			// let account_1 = <frame_system::Pallet<T>>::account;
+			let mut account_1: u64 = 1;
+			let mut account_2: u64 = 2;
 
 			// let multi = Multisig::multi_account_id(&[1, 2, 3][..], 2);
 

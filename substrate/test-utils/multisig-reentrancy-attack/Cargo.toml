@@ -19,7 +19,8 @@ targets = ["x86_64-unknown-linux-gnu"]
 codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false }
 scale-info = { version = "2.11.1", default-features = false, features = ["derive"] }
 frame-benchmarking = { path = "../../frame/benchmarking", default-features = false, optional = true }
-pallet-multisig = { path = "../../frame/multisig", default-features = false, optional = true }
+pallet-multisig = { path = "../../frame/multisig", default-features = true, optional = true }
+pallet-balances = { path = "../../frame/balances", default-features = true, optional = true }
 frame-support = { path = "../../frame/support", default-features = false }
 frame-system = { path = "../../frame/system", default-features = false }
 sp-io = { path = "../../primitives/io", default-features = false }
@@ -30,8 +31,7 @@ sp-std = { path = "../../primitives/std", default-features = false }
 log = { workspace = true }
 
 [dev-dependencies]
-pallet-balances = { path = "../../frame/balances" }
-pallet-multisig = { path = "../../frame/multisig" }
+
 
 [features]
 default = ["std"]
