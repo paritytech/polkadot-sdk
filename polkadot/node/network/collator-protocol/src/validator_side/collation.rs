@@ -242,14 +242,22 @@ pub struct Collations {
 	/// What collations were fetched so far for this relay parent.
 	fetched_per_para: BTreeMap<ParaId, usize>,
 	// Claims per `ParaId` for the assigned core at the relay parent. This information is obtained
-	// from the claim queue.
+	// from `GroupAssignments` which contains either the claim queue for the core or the `ParaId`
+	// of the parachain assigned to the core.
 	claims_per_para: BTreeMap<ParaId, usize>,
 }
 
 impl Collations {
-	pub(super) fn new(claim_queue: &Vec<ParaId>) -> Self {
+	/// `Collations` should work with and without claim queue support. To make this happen without
+	/// creating two parallel implementations instead of working with the claim queue directly it
+	/// uses `GroupAssignments`. If the runtime supports claim queue `GroupAssignments` contains the
+	/// claim queue for the core assigned to the (backing group of the) validator. If the runtime
+	/// doesn't support claim queue `GroupAssignments` contains only one entry - the `ParaId` of the
+	/// parachain assigned to the core. This way we can handle both cases with a single
+	/// implementation and avoid code duplication.
+	pub(super) fn new(group_assignments: &Vec<ParaId>) -> Self {
 		let mut claims_per_para = BTreeMap::new();
-		for para_id in claim_queue {
+		for para_id in group_assignments {
 			*claims_per_para.entry(*para_id).or_default() += 1;
 		}
 
@@ -283,7 +291,7 @@ impl Collations {
 		&mut self,
 		finished_one: &(CollatorId, Option<CandidateHash>),
 		relay_parent_mode: ProspectiveParachainsMode,
-		claim_queue: &Vec<ParaId>,
+		group_assignments: &Vec<ParaId>,
 	) -> Option<(PendingCollation, CollatorId)> {
 		// If finished one does not match waiting_collation, then we already dequeued another fetch
 		// to replace it.
@@ -308,14 +316,14 @@ impl Collations {
 			// `Waiting` so that we can fetch more collations. If async backing is disabled we can't
 			// fetch more than one collation per relay parent so `None` is returned.
 			CollationStatus::Seconded => None,
-			CollationStatus::Waiting => self.pick_a_collation_to_fetch(&claim_queue),
+			CollationStatus::Waiting => self.pick_a_collation_to_fetch(&group_assignments),
 			CollationStatus::WaitingOnValidation | CollationStatus::Fetching =>
 				unreachable!("We have reset the status above!"),
 		}
 	}
 
 	/// Checks if another collation can be accepted. The number of collations that can be fetched
-	/// per parachain is limited by the entries in the claim queue for the `ParaId` in question.
+	/// per parachain is limited by the entries in claim queue for the `ParaId` in question.
 	///
 	/// If prospective parachains mode is not enabled then we fall back to synchronous backing. In
 	/// this case there is a limit of 1 collation per relay parent.
@@ -371,14 +379,14 @@ impl Collations {
 	/// picked.
 	fn pick_a_collation_to_fetch(
 		&mut self,
-		claim_queue: &Vec<ParaId>,
+		group_assignments: &Vec<ParaId>,
 	) -> Option<(PendingCollation, CollatorId)> {
 		gum::trace!(
 			target: LOG_TARGET,
 			waiting_queue=?self.waiting_queue,
 			fetched_per_para=?self.fetched_per_para,
 			claims_per_para=?self.claims_per_para,
-			?claim_queue,
+			?group_assignments,
 			"Pick a collation to fetch."
 		);
 
@@ -411,7 +419,7 @@ impl Collations {
 		}
 
 		if let Some((_, mut lowest_score)) = lowest_score {
-			for claim in claim_queue {
+			for claim in group_assignments {
 				if let Some((_, collations)) = lowest_score.iter_mut().find(|(id, _)| *id == claim)
 				{
 					match collations.pop_front() {

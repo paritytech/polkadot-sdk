@@ -12818,6 +12818,7 @@ dependencies = [
  "sp-keyring",
  "sp-keystore",
  "sp-runtime",
+ "sp-tracing 16.0.0",
  "thiserror",
  "tokio-util",
  "tracing-gum",

@@ -39,6 +39,7 @@ sp-keyring = { path = "../../../../substrate/primitives/keyring" }
 sc-keystore = { path = "../../../../substrate/client/keystore" }
 sc-network = { path = "../../../../substrate/client/network" }
 codec = { package = "parity-scale-codec", version = "3.6.12", features = ["std"] }
+sp-tracing = { path = "../../../../substrate/primitives/tracing"}
 
 polkadot-node-subsystem-test-helpers = { path = "../../subsystem-test-helpers" }
 polkadot-primitives-test-helpers = { path = "../../../primitives/test-helpers" }
