@@ -214,8 +214,14 @@ where
 	}
 
 	pub(super) fn ready(&self, at: Block::Hash) -> Option<ReadyIteratorFor<ChainApi>> {
-		let maybe_ready = self.views.read().get(&at).map(|v| v.pool.validated_pool().ready());
-		let Some(ready) = maybe_ready else { return None };
+		let maybe_ready = self
+			.get_view_at(at, true)
+			.or_else(|| self.most_recent_view.read().map(|at| self.get_view_at(at, true)).flatten())
+			.map(|(v, _)| v.pool.validated_pool().ready());
+		let Some(ready) = maybe_ready else {
+			log::debug!(target: LOG_TARGET, "fatp::ready: None at {}", at);
+			return None
+		};
 		Some(Box::new(ready))
 	}
 
