@@ -1,9 +1,10 @@
 use polkadot_node_subsystem_util::runtime::ProspectiveParachainsMode;
-use polkadot_primitives::{CollatorId, Id as ParaId};
+use polkadot_primitives::{CandidateHash, CollatorId, Hash, Id as ParaId};
 
+use sc_network::PeerId;
 use sp_core::sr25519;
 
-use super::Collations;
+use super::{Collations, PendingCollation, ProspectiveCandidate};
 
 #[test]
 fn cant_add_more_than_claim_queue() {
@@ -70,8 +71,11 @@ fn collation_fetching_respects_claim_queue() {
 	let collator_id_b = CollatorId::from(sr25519::Public::from_raw([20u8; 32]));
 	let peer_b = PeerId::random();
 
-	let assignments = vec![para_a, para_b, para_a];
-	let mut collations = Collations::new(&assignments);
+	let claim_queue = vec![para_a, para_b, para_a];
+	let mut collations = Collations::new(&claim_queue);
+	let relay_parent_mode =
+		ProspectiveParachainsMode::Enabled { max_candidate_depth: 4, allowed_ancestry_len: 3 };
+
 	collations.fetching_from = None;
 
 	let relay_parent = Hash::repeat_byte(0x01);
@@ -119,10 +123,6 @@ fn collation_fetching_respects_claim_queue() {
 	collations.add_to_waiting_queue(collation_a2.clone());
 	collations.add_to_waiting_queue(collation_b1.clone());
 
-	let claim_queue = vec![para_a, para_b, para_a];
-	let relay_parent_mode =
-		ProspectiveParachainsMode::Enabled { max_candidate_depth: 4, allowed_ancestry_len: 3 };
-
 	assert_eq!(
 		Some(collation_a1.clone()),
 		collations.get_next_collation_to_fetch(
@@ -156,4 +156,3 @@ fn collation_fetching_respects_claim_queue() {
 	);
 	collations.note_fetched(collation_a2.0.para_id);
 }
-
