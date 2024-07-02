@@ -216,7 +216,7 @@ impl TestState {
 		// Test will fail if this does not happen until timeout.
 		let mut remaining_stores = self.valid_chunks.len();
 
-		let TestSubsystemContextHandle { tx, mut rx } = harness.virtual_overseer;
+		let TestSubsystemContextHandle { tx, mut rx, .. } = harness.virtual_overseer;
 
 		// Spawning necessary as incoming queue can only hold a single item, we don't want to dead
 		// lock ;-)
