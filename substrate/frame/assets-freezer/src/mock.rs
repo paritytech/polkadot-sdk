@@ -108,6 +108,7 @@ impl pallet_assets::Config for Test {
 	type Freezer = AssetsFreezer;
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = ();
+	type DepositDestinationOnRevocation = ();
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = ();
 }
