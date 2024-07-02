@@ -389,7 +389,7 @@ pub mod pallet {
 		#[pallet::constant]
 		type MaxStorageKeyLen: Get<u32>;
 
-		/// The maximum length of the transient storage in bytes.
+		/// The maximum size of the transient storage in bytes.
 		/// This includes keys, values, and previous entries used for storage rollback.
 		#[pallet::constant]
 		type MaxTransientStorageSize: Get<u32>;
