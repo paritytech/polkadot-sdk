@@ -67,7 +67,6 @@ where
 	L: primitives::FullLeaf + codec::Decode,
 {
 	fn get_elem(&self, pos: NodeIndex) -> mmr_lib::Result<Option<NodeOf<T, I, L>>> {
-		let leaves = NumberOfLeaves::<T, I>::get();
 		// Find out which leaf added node `pos` in the MMR.
 		let ancestor_leaf_idx = NodesUtils::leaf_index_that_added_node(pos);
 
@@ -86,7 +85,7 @@ where
 
 		// Fall through to searching node using fork-specific key.
 		let ancestor_parent_block_num =
-			Pallet::<T, I>::leaf_index_to_parent_block_num(ancestor_leaf_idx, leaves);
+			Pallet::<T, I>::leaf_index_to_parent_block_num(ancestor_leaf_idx);
 		let ancestor_parent_hash = T::BlockHashProvider::block_hash(ancestor_parent_block_num);
 		let temp_key = Pallet::<T, I>::node_temp_offchain_key(pos, ancestor_parent_hash);
 		debug!(

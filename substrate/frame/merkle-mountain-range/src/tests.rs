@@ -792,16 +792,28 @@ fn does_not_panic_when_generating_historical_proofs() {
 fn generating_and_verifying_ancestry_proofs_works_correctly() {
 	let _ = env_logger::try_init();
 	let mut ext = new_test_ext();
-	ext.execute_with(|| add_blocks(500));
+
+	let mut prev_roots = vec![];
+	ext.execute_with(|| {
+		for _ in 1..=500 {
+			add_blocks(1);
+			prev_roots.push(Pallet::<Test>::mmr_root())
+		}
+	});
 	ext.persist_offchain_overlay();
 	register_offchain_ext(&mut ext);
 
 	ext.execute_with(|| {
+		let root = Pallet::<Test>::mmr_root();
 		// Check that generating and verifying ancestry proofs works correctly
 		// for each previous block
-		for prev_block_number in 1..501 {
-			let proof = Pallet::<Test>::generate_ancestry_proof(prev_block_number, None).unwrap();
-			Pallet::<Test>::verify_ancestry_proof(proof).unwrap();
+		for prev_block_number in 1usize..=500 {
+			let proof =
+				Pallet::<Test>::generate_ancestry_proof(prev_block_number as u64, None).unwrap();
+			assert_eq!(
+				Pallet::<Test>::verify_ancestry_proof(root, proof),
+				Ok(prev_roots[prev_block_number - 1])
+			);
 		}
 
 		// Check that we can't generate ancestry proofs for a future block.

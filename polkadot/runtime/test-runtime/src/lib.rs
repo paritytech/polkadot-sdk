@@ -1015,7 +1015,7 @@ sp_api::impl_runtime_apis! {
 			None
 		}
 
-		fn submit_report_equivocation_unsigned_extrinsic(
+		fn submit_report_double_voting_unsigned_extrinsic(
 			_equivocation_proof: sp_consensus_beefy::DoubleVotingProof<
 				BlockNumber,
 				BeefyId,
