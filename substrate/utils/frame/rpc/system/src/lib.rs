@@ -109,7 +109,7 @@ where
 				Some(e.to_string()),
 			)
 		})?;
-		Ok(adjust_nonce(&*self.pool, account, nonce, best))
+		Ok(adjust_nonce(&*self.pool, account, nonce))
 	}
 
 	async fn dry_run(
@@ -176,17 +176,11 @@ where
 
 /// Adjust account nonce from state, so that tx with the nonce will be
 /// placed after all ready txpool transactions.
-fn adjust_nonce<P, AccountId, Nonce, Block>(
-	pool: &P,
-	account: AccountId,
-	nonce: Nonce,
-	best: <Block as traits::Block>::Hash,
-) -> Nonce
+fn adjust_nonce<P, AccountId, Nonce>(pool: &P, account: AccountId, nonce: Nonce) -> Nonce
 where
-	P: TransactionPool<Block = Block> + ?Sized,
+	P: TransactionPool + ?Sized,
 	AccountId: Clone + std::fmt::Display + Encode,
 	Nonce: Clone + std::fmt::Display + Encode + traits::AtLeast32Bit + 'static,
-	Block: traits::Block,
 {
 	log::debug!(target: "rpc", "State nonce for {}: {}", account, nonce);
 	// Now we need to query the transaction pool
@@ -197,22 +191,19 @@ where
 	// that matches the current one.
 	let mut current_nonce = nonce.clone();
 	let mut current_tag = (account.clone(), nonce).encode();
-
-	if let Some(ready) = pool.ready(best) {
-		for tx in ready {
-			log::debug!(
-				target: "rpc",
-				"Current nonce to {}, checking {} vs {:?}",
-				current_nonce,
-				HexDisplay::from(&current_tag),
-				tx.provides().iter().map(|x| format!("{}", HexDisplay::from(x))).collect::<Vec<_>>(),
-			);
-			// since transactions in `ready()` need to be ordered by nonce
-			// it's fine to continue with current iterator.
-			if tx.provides().get(0) == Some(&current_tag) {
-				current_nonce += traits::One::one();
-				current_tag = (account.clone(), current_nonce.clone()).encode();
-			}
+	for tx in pool.ready() {
+		log::debug!(
+			target: "rpc",
+			"Current nonce to {}, checking {} vs {:?}",
+			current_nonce,
+			HexDisplay::from(&current_tag),
+			tx.provides().iter().map(|x| format!("{}", HexDisplay::from(x))).collect::<Vec<_>>(),
+		);
+		// since transactions in `ready()` need to be ordered by nonce
+		// it's fine to continue with current iterator.
+		if tx.provides().get(0) == Some(&current_tag) {
+			current_nonce += traits::One::one();
+			current_tag = (account.clone(), current_nonce.clone()).encode();
 		}
 	}
 

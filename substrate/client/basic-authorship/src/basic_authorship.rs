@@ -416,8 +416,8 @@ where
 		let mut t2 =
 			futures_timer::Delay::new(deadline.saturating_duration_since((self.now)()) / 8).fuse();
 
-		let pending_iterator = select! {
-			res = t1 => Some(res),
+		let mut pending_iterator = select! {
+			res = t1 => res,
 			_ = t2 => {
 				warn!(target: LOG_TARGET,
 					"Timeout fired waiting for transaction pool at block #{} ({:?}). \
@@ -425,13 +425,8 @@ where
 					self.parent_number,
 					self.parent_hash,
 				);
-				//todo: unwrap
-				self.transaction_pool.ready(self.parent_hash)
+				self.transaction_pool.ready()
 			},
-		};
-
-		let Some(mut pending_iterator) = pending_iterator else {
-			return Ok(EndProposingReason::NoMoreTransactions);
 		};
 
 		let block_size_limit = block_size_limit.unwrap_or(self.default_block_size_limit);

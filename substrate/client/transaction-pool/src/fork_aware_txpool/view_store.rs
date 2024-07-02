@@ -213,26 +213,36 @@ where
 		})
 	}
 
-	pub(super) fn ready(&self, at: Block::Hash) -> Option<ReadyIteratorFor<ChainApi>> {
-		let maybe_ready = self
-			.get_view_at(at, true)
-			.or_else(|| self.most_recent_view.read().map(|at| self.get_view_at(at, true)).flatten())
+	pub(super) fn ready(&self) -> ReadyIteratorFor<ChainApi> {
+		let ready_iterator = self
+			.most_recent_view
+			.read()
+			.map(|at| self.get_view_at(at, true))
+			.flatten()
 			.map(|(v, _)| v.pool.validated_pool().ready());
-		let Some(ready) = maybe_ready else {
-			log::debug!(target: LOG_TARGET, "fatp::ready: None at {}", at);
-			return None
-		};
-		Some(Box::new(ready))
+
+		if let Some(ready_iterator) = ready_iterator {
+			return Box::new(ready_iterator)
+		} else {
+			return Box::new(std::iter::empty())
+		}
 	}
 
 	pub(super) fn futures(
 		&self,
-		at: Block::Hash,
-	) -> Option<Vec<graph::base_pool::Transaction<ExtrinsicHash<ChainApi>, Block::Extrinsic>>> {
-		self.views
+	) -> Vec<graph::base_pool::Transaction<ExtrinsicHash<ChainApi>, Block::Extrinsic>> {
+		let futures = self
+			.most_recent_view
 			.read()
-			.get(&at)
-			.map(|v| v.pool.validated_pool().pool.read().futures().cloned().collect())
+			.map(|at| self.get_view_at(at, true))
+			.flatten()
+			.map(|(v, _)| v.pool.validated_pool().pool.read().futures().cloned().collect());
+
+		if let Some(futures) = futures {
+			return futures
+		} else {
+			return Default::default()
+		}
 	}
 
 	pub(super) async fn finalize_route(

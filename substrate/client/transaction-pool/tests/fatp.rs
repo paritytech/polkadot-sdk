@@ -446,12 +446,12 @@ fn fatp_one_view_future_turns_to_ready_works() {
 
 	let xt0 = uxt(Alice, 201);
 	block_on(pool.submit_one(invalid_hash(), SOURCE, xt0.clone())).unwrap();
-	assert!(pool.ready(at).unwrap().count() == 0);
+	assert!(pool.ready().count() == 0);
 	assert_pool_status!(at, &pool, 0, 1);
 
 	let xt1 = uxt(Alice, 200);
 	block_on(pool.submit_one(invalid_hash(), SOURCE, xt1.clone())).unwrap();
-	let ready: Vec<_> = pool.ready(at).unwrap().map(|v| v.data.clone()).collect();
+	let ready: Vec<_> = pool.ready().map(|v| v.data.clone()).collect();
 	assert_eq!(ready, vec![xt1, xt0]);
 	assert_pool_status!(at, &pool, 2, 0);
 }
@@ -467,7 +467,7 @@ fn fatp_one_view_ready_gets_pruned() {
 
 	let xt0 = uxt(Alice, 200);
 	block_on(pool.submit_one(invalid_hash(), SOURCE, xt0.clone())).unwrap();
-	let pending: Vec<_> = pool.ready(block1).unwrap().map(|v| v.data.clone()).collect();
+	let pending: Vec<_> = pool.ready().map(|v| v.data.clone()).collect();
 	assert_eq!(pending, vec![xt0.clone()]);
 	assert_eq!(pool.status_all()[&block1].ready, 1);
 
@@ -476,7 +476,7 @@ fn fatp_one_view_ready_gets_pruned() {
 	let event = new_best_block_event(&pool, Some(block1), block2);
 	block_on(pool.maintain(event));
 	assert_pool_status!(block2, &pool, 0, 0);
-	assert!(pool.ready(block2).unwrap().count() == 0);
+	assert!(pool.ready().count() == 0);
 }
 
 #[test]
@@ -490,7 +490,7 @@ fn fatp_one_view_ready_turns_to_stale_works() {
 
 	let xt0 = uxt(Alice, 200);
 	block_on(pool.submit_one(invalid_hash(), SOURCE, xt0.clone())).unwrap();
-	let pending: Vec<_> = pool.ready(block1).unwrap().map(|v| v.data.clone()).collect();
+	let pending: Vec<_> = pool.ready().map(|v| v.data.clone()).collect();
 	assert_eq!(pending, vec![xt0.clone()]);
 	assert_eq!(pool.status_all()[&block1].ready, 1);
 
@@ -681,7 +681,7 @@ fn fatp_fork_reorg() {
 		.collect::<Vec<_>>();
 	expected.extend_from_slice(&[xt0, xt1, xt2]);
 
-	let ready_f13 = pool.ready(f13).unwrap().collect::<Vec<_>>();
+	let ready_f13 = pool.ready().collect::<Vec<_>>();
 	expected.iter().for_each(|e| {
 		assert!(ready_f13.iter().any(|v| v.data == *e));
 	});
@@ -741,6 +741,7 @@ fn fatp_fork_stale_switch_to_future() {
 		pool.submit_one(invalid_hash(), SOURCE, xt2.clone()),
 	];
 	let submission_results = block_on(futures::future::join_all(submissions));
+	let futures_f03 = pool.futures();
 
 	//xt2 should be stale
 	assert!(matches!(
@@ -755,9 +756,8 @@ fn fatp_fork_stale_switch_to_future() {
 	assert_pool_status!(f03, &pool, 0, 2);
 	assert_pool_status!(f13, &pool, 2, 1);
 
-	let futures_f03 = pool.futures(f03).unwrap();
-	let futures_f13 = pool.futures(f13).unwrap();
-	let ready_f13 = pool.ready(f13).unwrap().collect::<Vec<_>>();
+	let futures_f13 = pool.futures();
+	let ready_f13 = pool.ready().collect::<Vec<_>>();
 	assert!(futures_f13.iter().any(|v| v.data == xt2));
 	assert!(futures_f03.iter().any(|v| v.data == xt0));
 	assert!(futures_f03.iter().any(|v| v.data == xt1));

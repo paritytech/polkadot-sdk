@@ -364,14 +364,13 @@ where
 			.boxed()
 	}
 
-	fn ready(&self, _: <Self::Block as BlockT>::Hash) -> Option<ReadyIteratorFor<PoolApi>> {
-		Some(Box::new(self.pool.validated_pool().ready()))
+	fn ready(&self) -> ReadyIteratorFor<PoolApi> {
+		Box::new(self.pool.validated_pool().ready())
 	}
 
-	fn futures(&self, _: <Self::Block as BlockT>::Hash) -> Option<Vec<Self::InPoolTransaction>> {
+	fn futures(&self) -> Vec<Self::InPoolTransaction> {
 		let pool = self.pool.validated_pool().pool.read();
-
-		Some(pool.futures().cloned().collect::<Vec<_>>())
+		pool.futures().cloned().collect::<Vec<_>>()
 	}
 }
 
