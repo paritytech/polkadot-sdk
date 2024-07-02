@@ -31,7 +31,7 @@ use assets_common::{
 	foreign_creators::ForeignCreators,
 	local_and_foreign_assets::{LocalFromLeft, TargetFromLeft},
 	matching::{FromNetwork, FromSiblingParachain},
-	AssetIdForTrustBackedAssetsConvert,
+	AssetIdForPoolAssets, AssetIdForPoolAssetsConvert, AssetIdForTrustBackedAssetsConvert,
 };
 use cumulus_pallet_parachain_system::RelayNumberMonotonicallyIncreases;
 use cumulus_primitives_core::AggregateMessageOrigin;
@@ -44,6 +44,7 @@ use sp_runtime::{
 	ApplyExtrinsicResult, Permill,
 };
 use testnet_parachains_constants::rococo::snowbridge::EthereumNetwork;
+use xcm_executor::traits::ConvertLocation;
 
 use sp_std::prelude::*;
 #[cfg(feature = "std")]
@@ -67,7 +68,7 @@ use frame_support::{
 };
 use frame_system::{
 	limits::{BlockLength, BlockWeights},
-	EnsureRoot, EnsureSigned, EnsureSignedBy,
+	EnsureRoot, EnsureSigned, EnsureSignedBy, EnsureWithSuccess,
 };
 use pallet_asset_conversion_tx_payment::AssetConversionAdapter;
 use pallet_nfts::PalletFeatures;
@@ -81,8 +82,9 @@ use sp_runtime::{Perbill, RuntimeDebug};
 use testnet_parachains_constants::rococo::{consensus::*, currency::*, fee::WeightToFee, time::*};
 use xcm_config::{
 	ForeignAssetsConvertedConcreteId, ForeignCreatorsSovereignAccountOf, GovernanceLocation,
-	PoolAssetsConvertedConcreteId, TokenLocation, TokenLocationV3,
-	TrustBackedAssetsConvertedConcreteId, TrustBackedAssetsPalletLocationV3,
+	LocationToAccountId, PoolAssetsConvertedConcreteId, PoolAssetsPalletLocationV3,
+	RelayTreasuryLocation, TokenLocation, TokenLocationV3, TrustBackedAssetsConvertedConcreteId,
+	TrustBackedAssetsPalletLocationV3,
 };
 
 #[cfg(any(feature = "std", test))]
@@ -104,6 +106,9 @@ use xcm_runtime_apis::{
 	dry_run::{CallDryRunEffects, Error as XcmDryRunApiError, XcmDryRunEffects},
 	fees::Error as XcmPaymentApiError,
 };
+
+#[cfg(feature = "runtime-benchmarks")]
+use frame_support::traits::PalletInfoAccess;
 
 use weights::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight};
 
@@ -206,8 +211,8 @@ impl pallet_balances::Config for Runtime {
 	type ReserveIdentifier = [u8; 8];
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type RuntimeFreezeReason = RuntimeFreezeReason;
-	type FreezeIdentifier = ();
-	type MaxFreezes = ConstU32<0>;
+	type FreezeIdentifier = RuntimeFreezeReason;
+	type MaxFreezes = ConstU32<50>;
 }
 
 parameter_types! {
@@ -289,7 +294,7 @@ impl pallet_assets::Config<PoolAssetsInstance> for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Balance = Balance;
 	type RemoveItemsLimit = ConstU32<1000>;
-	type AssetId = u32;
+	type AssetId = AssetIdForPoolAssets;
 	type AssetIdParameter = u32;
 	type Currency = Balances;
 	type CreateOrigin =
@@ -330,11 +335,63 @@ pub type LocalAndForeignAssets = fungibles::UnionOf<
 	AccountId,
 >;
 
-/// Union fungibles implementation for [`LocalAndForeignAssets`] and `Balances`.
-pub type NativeAndAssets = fungible::UnionOf<
+/// Union fungibles implementation for `AssetsFreezer` and `ForeignAssetsFreezer`.
+pub type LocalAndForeignAssetsFreezer = fungibles::UnionOf<
+	AssetsFreezer,
+	ForeignAssetsFreezer,
+	LocalFromLeft<
+		AssetIdForTrustBackedAssetsConvert<TrustBackedAssetsPalletLocationV3, xcm::v3::Location>,
+		AssetIdForTrustBackedAssets,
+		xcm::v3::Location,
+	>,
+	xcm::v3::Location,
+	AccountId,
+>;
+
+/// Union fungibles implementation for [`LocalAndForeignAssets`] and [`Balances`].
+pub type NativeAndNonPoolAssets = fungible::UnionOf<
 	Balances,
 	LocalAndForeignAssets,
 	TargetFromLeft<TokenLocationV3, xcm::v3::Location>,
+	xcm::v3::Location,
+	AccountId,
+>;
+
+/// Union fungibles implementation for [`LocalAndForeignAssetsFreezer`] and [`Balances`].
+pub type NativeAndNonPoolAssetsFreezer = fungible::UnionOf<
+	Balances,
+	LocalAndForeignAssetsFreezer,
+	TargetFromLeft<TokenLocationV3, xcm::v3::Location>,
+	xcm::v3::Location,
+	AccountId,
+>;
+
+/// Union fungibles implementation for [`PoolAssets`] and [`NativeAndNonPoolAssets`].
+///
+/// NOTE: Should be kept updated to include ALL balances and assets in the runtime.
+pub type NativeAndAllAssets = fungibles::UnionOf<
+	PoolAssets,
+	NativeAndNonPoolAssets,
+	LocalFromLeft<
+		AssetIdForPoolAssetsConvert<PoolAssetsPalletLocationV3, xcm::v3::Location>,
+		AssetIdForPoolAssets,
+		xcm::v3::Location,
+	>,
+	xcm::v3::Location,
+	AccountId,
+>;
+
+/// Union fungibles implementation for [`PoolAssetsFreezer`] and [`NativeAndNonPoolAssetsFreezer`].
+///
+/// NOTE: Should be kept updated to include ALL balances and assets in the runtime.
+pub type NativeAndAllAssetsFreezer = fungibles::UnionOf<
+	PoolAssetsFreezer,
+	NativeAndNonPoolAssetsFreezer,
+	LocalFromLeft<
+		AssetIdForPoolAssetsConvert<PoolAssetsPalletLocationV3, xcm::v3::Location>,
+		AssetIdForPoolAssets,
+		xcm::v3::Location,
+	>,
 	xcm::v3::Location,
 	AccountId,
 >;
@@ -349,7 +406,7 @@ impl pallet_asset_conversion::Config for Runtime {
 	type Balance = Balance;
 	type HigherPrecisionBalance = sp_core::U256;
 	type AssetKind = xcm::v3::Location;
-	type Assets = NativeAndAssets;
+	type Assets = NativeAndNonPoolAssets;
 	type PoolId = (Self::AssetKind, Self::AssetKind);
 	type PoolLocator = pallet_asset_conversion::WithFirstAsset<
 		TokenLocationV3,
@@ -930,6 +987,52 @@ impl pallet_xcm_bridge_hub_router::Config<ToWestendXcmRouterInstance> for Runtim
 	type FeeAsset = xcm_config::bridging::XcmBridgeHubRouterFeeAssetId;
 }
 
+#[cfg(feature = "runtime-benchmarks")]
+pub struct PalletAssetRewardsBenchmarkHelper;
+
+#[cfg(feature = "runtime-benchmarks")]
+impl pallet_asset_rewards::benchmarking::BenchmarkHelper<xcm::v3::Location, AccountId>
+	for PalletAssetRewardsBenchmarkHelper
+{
+	fn to_asset_id(seed: u32) -> xcm::v3::Location {
+		// Any Location is fine for benchmarking.
+		xcm::v3::Location::ancestor(seed.try_into().unwrap())
+	}
+	fn to_account_id(seed: [u8; 32]) -> AccountId {
+		seed.into()
+	}
+	fn sufficient_asset() -> xcm::v3::Location {
+		xcm::v3::Junction::PalletInstance(<Balances as PalletInfoAccess>::index() as u8).into()
+	}
+}
+
+parameter_types! {
+	pub const AssetRewardsPalletId: PalletId = PalletId(*b"py/astrd");
+	pub const TreasurerBodyId: BodyId = BodyId::Treasury;
+	pub TreasurerBodyAccount: AccountId = LocationToAccountId::convert_location(&RelayTreasuryLocation::get()).unwrap();
+}
+
+impl pallet_asset_rewards::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type PalletId = AssetRewardsPalletId;
+	type Balance = Balance;
+	type Assets = NativeAndAllAssets;
+	type AssetsFreezer = NativeAndAllAssetsFreezer;
+	type AssetId = xcm::v3::Location;
+	type CreatePoolOrigin = EnsureWithSuccess<
+		EitherOfDiverse<
+			EnsureRoot<AccountId>,
+			EnsureXcm<IsVoiceOfBody<GovernanceLocation, TreasurerBodyId>>,
+		>,
+		AccountId,
+		TreasurerBodyAccount,
+	>;
+	type RuntimeFreezeReason = RuntimeFreezeReason;
+	type WeightInfo = weights::pallet_asset_rewards::WeightInfo<Runtime>;
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = PalletAssetRewardsBenchmarkHelper;
+}
+
 // Create the runtime by composing the FRAME pallets that were previously configured.
 construct_runtime!(
 	pub enum Runtime
@@ -974,9 +1077,12 @@ construct_runtime!(
 		NftFractionalization: pallet_nft_fractionalization = 54,
 		PoolAssets: pallet_assets::<Instance3> = 55,
 		AssetConversion: pallet_asset_conversion = 56,
+
 		AssetsFreezer: pallet_assets_freezer::<Instance1> = 57,
 		ForeignAssetsFreezer: pallet_assets_freezer::<Instance2> = 58,
 		PoolAssetsFreezer: pallet_assets_freezer::<Instance3> = 59,
+
+		AssetRewards: pallet_asset_rewards = 60,
 
 		// TODO: the pallet instance should be removed once all pools have migrated
 		// to the new account IDs.
@@ -1095,6 +1201,7 @@ mod benches {
 		[pallet_assets, Foreign]
 		[pallet_assets, Pool]
 		[pallet_asset_conversion, AssetConversion]
+		[pallet_asset_rewards, AssetRewards]
 		[pallet_balances, Balances]
 		[pallet_message_queue, MessageQueue]
 		[pallet_multisig, Multisig]

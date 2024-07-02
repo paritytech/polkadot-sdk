@@ -47,9 +47,9 @@ use frame_support::{
 			GetSalary, PayFromAccount,
 		},
 		AsEnsureOriginWithArg, ConstBool, ConstU128, ConstU16, ConstU32, Contains, Currency,
-		EitherOfDiverse, EnsureOriginWithArg, EqualPrivilegeOnly, Imbalance, InsideBoth,
-		InstanceFilter, KeyOwnerProofSystem, LinearStoragePrice, LockIdentifier, Nothing,
-		OnUnbalanced, VariantCountOf, WithdrawReasons,
+		EitherOfDiverse, EnsureOrigin, EnsureOriginWithArg, EqualPrivilegeOnly, Imbalance,
+		InsideBoth, InstanceFilter, KeyOwnerProofSystem, LinearStoragePrice, LockIdentifier,
+		Nothing, OnUnbalanced, VariantCountOf, WithdrawReasons,
 	},
 	weights::{
 		constants::{
@@ -570,6 +570,12 @@ impl pallet_transaction_payment::Config for Runtime {
 		MinimumMultiplier,
 		MaximumMultiplier,
 	>;
+}
+
+pub type AssetsFreezerInstance = pallet_assets_freezer::Instance1;
+impl pallet_assets_freezer::Config<AssetsFreezerInstance> for Runtime {
+	type RuntimeFreezeReason = RuntimeFreezeReason;
+	type RuntimeEvent = RuntimeEvent;
 }
 
 impl pallet_asset_tx_payment::Config for Runtime {
@@ -1735,6 +1741,71 @@ impl pallet_asset_conversion::Config for Runtime {
 	type BenchmarkHelper = ();
 }
 
+pub type NativeAndAssets =
+	UnionOf<Balances, Assets, NativeFromLeft, NativeOrWithId<u32>, AccountId>;
+
+pub type NativeAndAssetsFreezer =
+	UnionOf<Balances, AssetsFreezer, NativeFromLeft, NativeOrWithId<u32>, AccountId>;
+
+parameter_types! {
+	pub const StakingRewardsPalletId: PalletId = PalletId(*b"py/stkrd");
+}
+
+/// Benchmark Helper
+#[cfg(feature = "runtime-benchmarks")]
+pub struct AssetRewardsBenchmarkHelper;
+
+#[cfg(feature = "runtime-benchmarks")]
+impl pallet_asset_rewards::benchmarking::BenchmarkHelper<NativeOrWithId<u32>, AccountId>
+	for AssetRewardsBenchmarkHelper
+{
+	fn to_asset_id(seed: u32) -> NativeOrWithId<u32> {
+		if seed == 0 {
+			NativeOrWithId::<u32>::Native
+		} else {
+			NativeOrWithId::<u32>::WithId(seed)
+		}
+	}
+	fn to_account_id(seed: [u8; 32]) -> AccountId {
+		seed.into()
+	}
+	fn sufficient_asset() -> NativeOrWithId<u32> {
+		NativeOrWithId::<u32>::Native
+	}
+}
+
+/// Give Root Origin permission to create pools, and an acc id of 0.
+pub struct AssetRewardsPermissionedOrigin;
+impl EnsureOrigin<RuntimeOrigin> for AssetRewardsPermissionedOrigin {
+	type Success = <Runtime as frame_system::Config>::AccountId;
+
+	fn try_origin(origin: RuntimeOrigin) -> Result<Self::Success, RuntimeOrigin> {
+		match origin.clone().into() {
+			Ok(frame_system::RawOrigin::Root) => Ok([0u8; 32].into()),
+			_ => Err(origin),
+		}
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn try_successful_origin() -> Result<RuntimeOrigin, ()> {
+		Ok(RuntimeOrigin::root())
+	}
+}
+
+impl pallet_asset_rewards::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type RuntimeFreezeReason = RuntimeFreezeReason;
+	type AssetId = NativeOrWithId<u32>;
+	type Balance = u128;
+	type Assets = NativeAndAssets;
+	type PalletId = StakingRewardsPalletId;
+	type CreatePoolOrigin = AssetRewardsPermissionedOrigin;
+	type WeightInfo = ();
+	type AssetsFreezer = NativeAndAssetsFreezer;
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = AssetRewardsBenchmarkHelper;
+}
+
 impl pallet_asset_conversion_ops::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type PriorAccountIdConverter = pallet_asset_conversion::AccountIdConverterNoSeed<(
@@ -2470,7 +2541,13 @@ mod runtime {
 	pub type PalletExampleMbms = pallet_example_mbm::Pallet<Runtime>;
 
 	#[runtime::pallet_index(79)]
-	pub type AssetConversionMigration = pallet_asset_conversion_ops::Pallet<Runtime>;
+	pub type AssetConversionMigration = pallet_asset_conversion_ops;
+
+	#[runtime::pallet_index(80)]
+	pub type AssetRewards = pallet_asset_rewards;
+
+	#[runtime::pallet_index(81)]
+	pub type AssetsFreezer = pallet_assets_freezer::Pallet<Runtime, Instance1>;
 }
 
 /// The address format for describing accounts.
@@ -2584,6 +2661,7 @@ mod benches {
 		[tasks_example, TasksExample]
 		[pallet_democracy, Democracy]
 		[pallet_asset_conversion, AssetConversion]
+		[pallet_asset_rewards, AssetRewards]
 		[pallet_election_provider_multi_phase, ElectionProviderMultiPhase]
 		[pallet_election_provider_support_benchmarking, EPSBench::<Runtime>]
 		[pallet_elections_phragmen, Elections]

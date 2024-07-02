@@ -340,6 +340,10 @@ pub use pallet_alliance;
 #[cfg(feature = "pallet-asset-conversion")]
 pub use pallet_asset_conversion;
 
+/// FRAME asset conversion pallet.
+#[cfg(feature = "pallet-asset-rewards")]
+pub use pallet_asset_rewards;
+
 /// FRAME asset conversion pallet's operations suite.
 #[cfg(feature = "pallet-asset-conversion-ops")]
 pub use pallet_asset_conversion_ops;

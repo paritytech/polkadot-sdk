@@ -20,3 +20,4 @@ mod set_xcm_versions;
 mod swap;
 mod teleport;
 mod treasury;
+mod treasury_asset_reward_pool;
