@@ -30,7 +30,7 @@ use sp_std::{collections::btree_map::BTreeMap, mem, vec::Vec};
 
 /// Meter entry tracks transaction allocations.
 #[derive(Default, Debug)]
-struct MeterEntry {
+pub struct MeterEntry {
 	/// Allocations made in the current transaction.
 	pub amount: u32,
 	/// Allocations limit in the current transaction.
@@ -69,7 +69,7 @@ impl<T: Config> StorageMeter<T> {
 
 	/// Charge the allocated amount of transaction storage from the meter.
 	pub fn charge(&mut self, amount: u32) -> DispatchResult {
-		let meter = self.top_meter_mut();
+		let meter = self.current_mut();
 		if meter.exceeds_limit(amount) {
 			return Err(Error::<T>::OutOfTransientStorage.into());
 		}
@@ -86,7 +86,7 @@ impl<T: Config> StorageMeter<T> {
 
 	/// Start a transaction meter.
 	pub fn start(&mut self) {
-		let meter = self.top_meter();
+		let meter = self.current();
 		let mut transaction_limit = meter.limit.saturating_sub(meter.amount);
 		if !self.nested_meters.is_empty() {
 			// Allow use of (1 - 1/STORAGE_FRACTION_DENOMINATOR) of free storage for subsequent
@@ -105,26 +105,7 @@ impl<T: Config> StorageMeter<T> {
 			.nested_meters
 			.pop()
 			.expect("There is no nested meter that can be committed.");
-		self.top_meter_mut().absorb(transaction_meter)
-	}
-
-	/// Clear a transaction meter
-	#[cfg(feature = "runtime-benchmarks")]
-	pub fn clear(&mut self) {
-		self.nested_meters.clear();
-		self.root_meter.amount = 0;
-	}
-
-	/// The allocated amount of memory inside the current transaction.
-	#[cfg(any(test, feature = "runtime-benchmarks"))]
-	pub fn current_amount(&self) -> u32 {
-		self.top_meter().amount
-	}
-
-	/// The memory limit of the current transaction.
-	#[cfg(any(test, feature = "runtime-benchmarks"))]
-	pub fn current_limit(&self) -> u32 {
-		self.top_meter().limit
+		self.current_mut().absorb(transaction_meter)
 	}
 
 	/// The total allocated amount of memory.
@@ -135,11 +116,13 @@ impl<T: Config> StorageMeter<T> {
 			.fold(self.root_meter.amount, |acc, e| acc.saturating_add(e.amount))
 	}
 
-	fn top_meter_mut(&mut self) -> &mut MeterEntry {
+	/// A mutable reference to the current meter entry.
+	pub fn current_mut(&mut self) -> &mut MeterEntry {
 		self.nested_meters.last_mut().unwrap_or(&mut self.root_meter)
 	}
 
-	fn top_meter(&self) -> &MeterEntry {
+	/// A reference to the current meter entry.
+	pub fn current(&self) -> &MeterEntry {
 		self.nested_meters.last().unwrap_or(&self.root_meter)
 	}
 }
@@ -358,8 +341,10 @@ mod tests {
 		value: Option<Vec<u8>>,
 	) -> u32 {
 		let mut storage: TransientStorage<Test> = TransientStorage::<Test>::new(MAX);
-		storage.write(account, key, value, false).expect("Could not write to storage.");
-		storage.meter().current_amount()
+		storage
+			.write(account, key, value, false)
+			.expect("Could not write to transient storage.");
+		storage.meter().current().amount
 	}
 
 	#[test]
@@ -574,17 +559,17 @@ mod tests {
 			storage.write(&ALICE, &Key::Fix([1; 32]), Some(vec![1u8; 4096]), false),
 			Ok(WriteOutcome::New)
 		);
-		let limit = storage.meter().current_limit();
+		let limit = storage.meter().current().limit;
 		storage.commit_transaction();
 
 		storage.start_transaction();
-		assert_eq!(storage.meter().current_limit(), limit - size);
-		assert_eq!(storage.meter().current_limit() - storage.meter().current_amount(), size);
+		assert_eq!(storage.meter().current().limit, limit - size);
+		assert_eq!(storage.meter().current().limit - storage.meter().current().amount, size);
 		assert_eq!(
 			storage.write(&ALICE, &Key::Fix([2; 32]), Some(vec![1u8; 4096]), false),
 			Ok(WriteOutcome::New)
 		);
-		assert_eq!(storage.meter().current_amount(), storage.meter().total_amount() - size);
+		assert_eq!(storage.meter().current().amount, size);
 		storage.commit_transaction();
 		assert_eq!(storage.meter().total_amount(), size * 2);
 	}
@@ -595,21 +580,21 @@ mod tests {
 		let mut storage = TransientStorage::<Test>::new(size * 3);
 
 		storage.start_transaction();
-		let limit = storage.meter().current_limit();
+		let limit = storage.meter().current().limit;
 		assert_eq!(
 			storage.write(&ALICE, &Key::Fix([1; 32]), Some(vec![1u8; 4096]), false),
 			Ok(WriteOutcome::New)
 		);
 		storage.start_transaction();
 		assert_eq!(storage.meter().total_amount(), size);
-		assert!(storage.meter().current_limit() < limit - size);
+		assert!(storage.meter().current().limit < limit - size);
 		assert_eq!(
 			storage.write(&ALICE, &Key::Fix([2; 32]), Some(vec![1u8; 4096]), false),
 			Ok(WriteOutcome::New)
 		);
 		storage.commit_transaction();
-		assert_eq!(storage.meter().current_limit(), limit);
-		assert_eq!(storage.meter().total_amount(), storage.meter().current_amount());
+		assert_eq!(storage.meter().current().limit, limit);
+		assert_eq!(storage.meter().total_amount(), storage.meter().current().amount);
 		storage.commit_transaction();
 	}
 
@@ -622,7 +607,7 @@ mod tests {
 			storage.write(&ALICE, &Key::Fix([1; 32]), Some(vec![1u8; 4096]), false),
 			Err(Error::<Test>::OutOfTransientStorage.into())
 		);
-		assert_eq!(storage.meter.current_amount(), 0);
+		assert_eq!(storage.meter.current().amount, 0);
 		storage.commit_transaction();
 		assert_eq!(storage.meter.total_amount(), 0);
 	}
@@ -653,7 +638,7 @@ mod tests {
 		let mut storage = TransientStorage::<Test>::new(size * 2);
 
 		storage.start_transaction();
-		let limit = storage.meter.current_limit();
+		let limit = storage.meter.current().limit;
 		storage.start_transaction();
 		assert_eq!(
 			storage.write(&ALICE, &Key::Fix([2; 32]), Some(vec![1u8; 4096]), false),
@@ -662,12 +647,13 @@ mod tests {
 		storage.rollback_transaction();
 
 		assert_eq!(storage.meter.total_amount(), 0);
-		assert_eq!(storage.meter.current_limit(), limit);
+		assert_eq!(storage.meter.current().limit, limit);
 		assert_eq!(
 			storage.write(&ALICE, &Key::Fix([1; 32]), Some(vec![1u8; 4096]), false),
 			Ok(WriteOutcome::New)
 		);
-		assert_eq!(storage.meter().current_amount(), storage.meter().total_amount());
+		let amount = storage.meter().current().amount;
+		assert_eq!(storage.meter().total_amount(), amount);
 		storage.commit_transaction();
 	}
 

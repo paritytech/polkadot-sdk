@@ -1173,6 +1173,7 @@ mod benchmarks {
 		let mut setup = CallSetup::<T>::default();
 		let (mut ext, _) = setup.ext();
 		let mut runtime = crate::wasm::Runtime::new(&mut ext, vec![]);
+		runtime.ext().transient_storage().meter().current_mut().limit = u32::MAX;
 		let result;
 		#[block]
 		{
@@ -1197,8 +1198,9 @@ mod benchmarks {
 
 		let mut setup = CallSetup::<T>::default();
 		let (mut ext, _) = setup.ext();
-		CallSetup::<T>::with_transient_storage(&mut ext)?;
+		CallSetup::<T>::with_transient_storage(&mut ext, T::MaxTransientStorageLen::get())?;
 		let mut runtime = crate::wasm::Runtime::new(&mut ext, vec![]);
+		runtime.ext().transient_storage().meter().current_mut().limit = u32::MAX;
 		let result;
 		#[block]
 		{
@@ -1224,10 +1226,11 @@ mod benchmarks {
 		let mut setup = CallSetup::<T>::default();
 		let (mut ext, _) = setup.ext();
 		let mut runtime = crate::wasm::Runtime::new(&mut ext, vec![]);
+		runtime.ext().transient_storage().meter().current_mut().limit = u32::MAX;
 		runtime
 			.ext()
 			.set_transient_storage(&key, Some(vec![42u8; max_value_len as _]), false)
-			.map_err(|_| "Failed to write to storage during setup.")?;
+			.map_err(|_| "Failed to write to transient storage during setup.")?;
 		let result;
 		#[block]
 		{
@@ -1247,12 +1250,13 @@ mod benchmarks {
 
 		let mut setup = CallSetup::<T>::default();
 		let (mut ext, _) = setup.ext();
-		CallSetup::<T>::with_transient_storage(&mut ext)?;
+		CallSetup::<T>::with_transient_storage(&mut ext, T::MaxTransientStorageLen::get())?;
 		let mut runtime = crate::wasm::Runtime::new(&mut ext, vec![]);
+		runtime.ext().transient_storage().meter().current_mut().limit = u32::MAX;
 		runtime
 			.ext()
 			.set_transient_storage(&key, Some(vec![42u8; max_value_len as _]), false)
-			.map_err(|_| "Failed to write to storage during setup.")?;
+			.map_err(|_| "Failed to write to transient storage during setup.")?;
 		let result;
 		#[block]
 		{
@@ -1273,13 +1277,14 @@ mod benchmarks {
 
 		let mut setup = CallSetup::<T>::default();
 		let (mut ext, _) = setup.ext();
-		CallSetup::<T>::with_transient_storage(&mut ext)?;
+		CallSetup::<T>::with_transient_storage(&mut ext, T::MaxTransientStorageLen::get())?;
 		let mut runtime = crate::wasm::Runtime::new(&mut ext, vec![]);
+		runtime.ext().transient_storage().meter().current_mut().limit = u32::MAX;
 		runtime.ext().transient_storage().start_transaction();
 		runtime
 			.ext()
 			.set_transient_storage(&key, Some(vec![42u8; max_value_len as _]), false)
-			.map_err(|_| "Failed to write to storage during setup.")?;
+			.map_err(|_| "Failed to write to transient storage during setup.")?;
 		#[block]
 		{
 			runtime.ext().transient_storage().rollback_transaction();
@@ -1301,10 +1306,11 @@ mod benchmarks {
 			.map_err(|_| "Key has wrong length")?;
 		let value = vec![1u8; n as usize];
 		build_runtime!(runtime, memory: [ key.to_vec(), value.clone(), ]);
+		runtime.ext().transient_storage().meter().current_mut().limit = u32::MAX;
 		runtime
 			.ext()
 			.set_transient_storage(&key, Some(vec![42u8; o as usize]), false)
-			.map_err(|_| "Failed to write to storage during setup.")?;
+			.map_err(|_| "Failed to write to transient storage during setup.")?;
 
 		let result;
 		#[block]
@@ -1332,10 +1338,11 @@ mod benchmarks {
 		let key = Key::<T>::try_from_var(vec![0u8; max_key_len as usize])
 			.map_err(|_| "Key has wrong length")?;
 		build_runtime!(runtime, memory: [ key.to_vec(), ]);
+		runtime.ext().transient_storage().meter().current_mut().limit = u32::MAX;
 		runtime
 			.ext()
 			.set_transient_storage(&key, Some(vec![42u8; n as usize]), false)
-			.map_err(|_| "Failed to write to storage during setup.")?;
+			.map_err(|_| "Failed to write to transient storage during setup.")?;
 
 		let result;
 		#[block]
@@ -1357,10 +1364,11 @@ mod benchmarks {
 		let key = Key::<T>::try_from_var(vec![0u8; max_key_len as usize])
 			.map_err(|_| "Key has wrong length")?;
 		build_runtime!(runtime, memory: [ key.to_vec(), n.to_le_bytes(), vec![0u8; n as _], ]);
+		runtime.ext().transient_storage().meter().current_mut().limit = u32::MAX;
 		runtime
 			.ext()
 			.set_transient_storage(&key, Some(vec![42u8; n as usize]), false)
-			.map_err(|_| "Failed to write to storage during setup.")?;
+			.map_err(|_| "Failed to write to transient storage during setup.")?;
 
 		let out_ptr = max_key_len + 4;
 		let result;
@@ -1392,10 +1400,11 @@ mod benchmarks {
 		let key = Key::<T>::try_from_var(vec![0u8; max_key_len as usize])
 			.map_err(|_| "Key has wrong length")?;
 		build_runtime!(runtime, memory: [ key.to_vec(), ]);
+		runtime.ext().transient_storage().meter().current_mut().limit = u32::MAX;
 		runtime
 			.ext()
 			.set_transient_storage(&key, Some(vec![42u8; n as usize]), false)
-			.map_err(|_| "Failed to write to storage during setup.")?;
+			.map_err(|_| "Failed to write to transient storage during setup.")?;
 
 		let result;
 		#[block]
@@ -1421,11 +1430,12 @@ mod benchmarks {
 		let key = Key::<T>::try_from_var(vec![0u8; max_key_len as usize])
 			.map_err(|_| "Key has wrong length")?;
 		build_runtime!(runtime, memory: [ key.to_vec(), n.to_le_bytes(), vec![0u8; n as _], ]);
+		runtime.ext().transient_storage().meter().current_mut().limit = u32::MAX;
 		let value = vec![42u8; n as usize];
 		runtime
 			.ext()
 			.set_transient_storage(&key, Some(value.clone()), false)
-			.map_err(|_| "Failed to write to storage during setup.")?;
+			.map_err(|_| "Failed to write to transient storage during setup.")?;
 
 		let out_ptr = max_key_len + 4;
 		let result;

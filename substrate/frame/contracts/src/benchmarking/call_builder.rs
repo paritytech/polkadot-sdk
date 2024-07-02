@@ -161,7 +161,10 @@ where
 	}
 
 	/// Add transient_storage
-	pub fn with_transient_storage(ext: &mut StackExt<T>) -> Result<(), &'static str> {
+	pub fn with_transient_storage(ext: &mut StackExt<T>, size: u32) -> Result<(), &'static str> {
+		let amount = ext.transient_storage().meter().current().amount;
+		let limit = ext.transient_storage().meter().current().limit;
+		ext.transient_storage().meter().current_mut().limit = size;
 		for i in 1u32.. {
 			let mut key_data = i.to_le_bytes().to_vec();
 			while key_data.last() == Some(&0) {
@@ -169,8 +172,10 @@ where
 			}
 			let key = Key::<T>::try_from_var(key_data).unwrap();
 			if let Err(e) = ext.set_transient_storage(&key, Some(Vec::new()), false) {
+				// Restore previous settings.
+				ext.transient_storage().meter().current_mut().limit = limit;
+				ext.transient_storage().meter().current_mut().amount = amount;
 				if e == Error::<T>::OutOfTransientStorage.into() {
-					ext.transient_storage().meter().clear();
 					break;
 				} else {
 					return Err("Initialization of the transient storage failed");
