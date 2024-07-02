@@ -13,6 +13,7 @@ workspace = true
 async-trait = { workspace = true }
 codec = { features = ["derive"], workspace = true, default-features = true }
 futures = { workspace = true }
+parking_lot = { workspace = true }
 tracing = { workspace = true, default-features = true }
 schnellru = { workspace = true }
 
