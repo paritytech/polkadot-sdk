@@ -229,4 +229,4 @@ jobs:
         uses: actions/checkout@v4
       - name: script
         run: |
-          SKIP_WASM_BUILD=1 time cargo nextest run -p polkadot-node-core-pvf
+          SKIP_WASM_BUILD=1 time cargo nextest run -p polkadot-node-core-pvf --features ci-only-tests all_security_features_work
