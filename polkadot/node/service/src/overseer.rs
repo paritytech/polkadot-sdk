@@ -318,6 +318,7 @@ where
 			keystore.clone(),
 			Box::new(sync_service.clone()),
 			Metrics::register(registry)?,
+			Arc::new(spawner.clone()),
 		))
 		.gossip_support(GossipSupportSubsystem::new(
 			keystore.clone(),
