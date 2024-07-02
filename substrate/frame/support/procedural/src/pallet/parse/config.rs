@@ -62,8 +62,6 @@ pub struct ConfigDef {
 	pub has_event_type: bool,
 	/// The where clause on trait definition but modified so `Self` is `T`.
 	pub where_clause: Option<syn::WhereClause>,
-	/// The span of the pallet::config attribute.
-	pub attr_span: proc_macro2::Span,
 	/// Whether a default sub-trait should be generated.
 	///
 	/// Contains default sub-trait items (instantiated by `#[pallet::config(with_default)]`).
@@ -325,7 +323,6 @@ pub fn replace_self_by_t(input: proc_macro2::TokenStream) -> proc_macro2::TokenS
 impl ConfigDef {
 	pub fn try_from(
 		frame_system: &syn::Path,
-		attr_span: proc_macro2::Span,
 		index: usize,
 		item: &mut syn::Item,
 		enable_default: bool,
@@ -484,7 +481,6 @@ impl ConfigDef {
 			consts_metadata,
 			has_event_type,
 			where_clause,
-			attr_span,
 			default_sub_trait,
 		})
 	}
