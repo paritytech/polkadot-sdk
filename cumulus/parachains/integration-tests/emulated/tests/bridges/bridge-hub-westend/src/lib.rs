@@ -49,9 +49,12 @@ mod imports {
 		},
 		bridge_hub_westend_emulated_chain::{
 			genesis::ED as BRIDGE_HUB_WESTEND_ED,
-			BridgeHubWestendParaPallet as BridgeHubWestendPallet,
+			BridgeHubWestendParaPallet as BridgeHubWestendPallet, BridgeHubWestendXcmConfig,
 		},
-		penpal_emulated_chain::{PenpalAssetOwner, PenpalBParaPallet as PenpalBPallet},
+		penpal_emulated_chain::{
+			penpal_runtime::xcm_config::UniversalLocation as PenpalUniversalLocation,
+			PenpalAssetOwner, PenpalBParaPallet as PenpalBPallet,
+		},
 		westend_emulated_chain::WestendRelayPallet as WestendPallet,
 		AssetHubRococoPara as AssetHubRococo, AssetHubRococoParaReceiver as AssetHubRococoReceiver,
 		AssetHubRococoParaSender as AssetHubRococoSender, AssetHubWestendPara as AssetHubWestend,

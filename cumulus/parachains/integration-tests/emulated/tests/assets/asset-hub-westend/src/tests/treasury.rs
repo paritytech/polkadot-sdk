@@ -27,10 +27,7 @@ fn create_and_claim_treasury_spend() {
 	let treasury_location: Location = Location::new(1, PalletInstance(37));
 	// treasury account on a sibling parachain.
 	let treasury_account =
-		asset_hub_westend_runtime::xcm_config::LocationToAccountId::convert_location(
-			&treasury_location,
-		)
-		.unwrap();
+		ahw_xcm_config::LocationToAccountId::convert_location(&treasury_location).unwrap();
 	let asset_hub_location = Location::new(0, Parachain(AssetHubWestend::para_id().into()));
 	let root = <Westend as Chain>::RuntimeOrigin::root();
 	// asset kind to be spend from the treasury.
