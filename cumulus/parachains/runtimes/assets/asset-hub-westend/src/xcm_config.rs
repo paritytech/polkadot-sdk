@@ -22,7 +22,7 @@ use super::{
 };
 use assets_common::{
 	matching::{FromSiblingParachain, IsForeignConcreteAsset},
-	TrustBackedAssetsAsLocation,
+	SufficientAssetConverter, SwapAssetConverter, TrustBackedAssetsAsLocation,
 };
 use frame_support::{
 	parameter_types,
@@ -349,6 +349,42 @@ pub type TrustedTeleporters = (
 	IsForeignConcreteAsset<FromSiblingParachain<parachain_info::Pallet<Runtime>>>,
 );
 
+/// Asset converter for trust-backed assets.
+/// Used to convert assets marked as `sufficient` into the asset needed for fee payment.
+/// This type allows paying fees in `sufficient` trust backed-assets.
+pub type TrustBackedSufficientAssetsConverter = SufficientAssetConverter<
+	Runtime,
+	TrustBackedAssetsConvertedConcreteId,
+	pallet_assets::BalanceToAssetBalance<Balances, Runtime, ConvertInto, TrustBackedAssetsInstance>,
+	TrustBackedAssetsInstance,
+>;
+
+/// Asset converter for foreign assets.
+/// Used to convert assets marked as `sufficient` into the asset needed for fee payment.
+/// This type allows paying fees in `sufficient` foreign assets.
+pub type ForeignSufficientAssetsConverter = SufficientAssetConverter<
+	Runtime,
+	ForeignAssetsConvertedConcreteId,
+	pallet_assets::BalanceToAssetBalance<Balances, Runtime, ConvertInto, ForeignAssetsInstance>,
+	ForeignAssetsInstance,
+>;
+
+/// Asset converter for pool assets.
+/// Used to convert assets in pools to the asset required for fee payment.
+/// The pool must be between the first asset and the one required for fee payment.
+/// This type allows paying fees with any asset in a pool with the asset required for fee payment.
+pub type PoolAssetsConverter = SwapAssetConverter<
+	WestendLocationV3,
+	Runtime,
+	crate::NativeAndAssets,
+	(
+		TrustBackedAssetsAsLocation<TrustBackedAssetsPalletLocation, Balance, xcm::v3::Location>,
+		ForeignAssetsConvertedConcreteId,
+	),
+	crate::AssetConversion,
+	AccountId,
+>;
+
 pub struct XcmConfig;
 impl xcm_executor::Config for XcmConfig {
 	type RuntimeCall = RuntimeCall;
@@ -419,6 +455,11 @@ impl xcm_executor::Config for XcmConfig {
 			>,
 		>,
 	);
+	type AssetConverter = (
+		PoolAssetsConverter,
+		TrustBackedSufficientAssetsConverter,
+		ForeignSufficientAssetsConverter,
+	);
 	type ResponseHandler = PolkadotXcm;
 	type AssetTrap = PolkadotXcm;
 	type AssetClaims = PolkadotXcm;
@@ -426,6 +467,7 @@ impl xcm_executor::Config for XcmConfig {
 	type PalletInstancesInfo = AllPalletsWithSystem;
 	type MaxAssetsIntoHolding = MaxAssetsIntoHolding;
 	type AssetLocker = ();
+	// TODO: Might also use `AssetExchanger` instead of `AssetConverter` if API fits.
 	type AssetExchanger = ();
 	type FeeManager = XcmFeeManagerFromComponents<
 		WaivedLocations,

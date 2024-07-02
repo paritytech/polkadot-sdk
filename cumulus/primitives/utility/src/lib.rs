@@ -404,10 +404,22 @@ impl<
 		let first_asset: Asset =
 			payment.fungible.pop_first().ok_or(XcmError::AssetNotFound)?.into();
 		let (fungibles_asset, balance) = FungiblesAssetMatcher::matches_fungibles(&first_asset)
-			.map_err(|_| XcmError::AssetNotFound)?;
+			.map_err(|error| {
+				log::trace!(
+					target: "xcm::weight",
+					"SwapFirstAssetTrader::buy_weight asset {:?} didn't match. Error: {:?}",
+					first_asset,
+					error,
+				);
+				XcmError::AssetNotFound
+			})?;
 
 		let swap_asset = fungibles_asset.clone().into();
 		if Target::get().eq(&swap_asset) {
+			log::trace!(
+				target: "xcm::weight",
+				"SwapFirstAssetTrader::buy_weight Asset was same as Target, swap not needed.",
+			);
 			// current trader is not applicable.
 			return Err(XcmError::FeesNotMet)
 		}
@@ -421,8 +433,13 @@ impl<
 			credit_in,
 			fee,
 		)
-		.map_err(|(credit_in, _)| {
+		.map_err(|(credit_in, error)| {
 			drop(credit_in);
+			log::trace!(
+				target: "xcm::weight",
+				"SwapFirstAssetTrader::buy_weight swap couldn't be done. Error was: {:?}",
+				error,
+			);
 			XcmError::FeesNotMet
 		})?;
 

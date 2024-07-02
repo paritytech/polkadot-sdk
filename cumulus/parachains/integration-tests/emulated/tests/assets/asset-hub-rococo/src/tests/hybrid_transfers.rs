@@ -612,7 +612,7 @@ fn transfer_foreign_assets_from_para_to_para_through_asset_hub() {
 		<ForeignAssets as Inspect<_>>::balance(wnd_at_rococo_parachains, &receiver)
 	});
 
-	// Sender's balance is reduced by amount sent plus delivery fees
+	// Sender's balance is reduced by amount sent plus delivery fees.
 	assert!(sender_rocs_after < sender_rocs_before - roc_to_send);
 	assert_eq!(sender_wnds_after, sender_wnds_before - wnd_to_send);
 	// Sovereign accounts on reserve are changed accordingly
@@ -798,7 +798,7 @@ fn transfer_native_asset_from_relay_to_para_through_asset_hub() {
 		<ForeignAssets as Inspect<_>>::balance(relay_native_asset_location, &receiver)
 	});
 
-	// Sender's balance is reduced by amount sent plus delivery fees
+	// Sender's balance is reduced by amount sent plus delivery fees.
 	assert!(sender_balance_after < sender_balance_before - amount_to_send);
 	// SA on AH balance is increased
 	assert!(sov_penpal_on_ah_after > sov_penpal_on_ah_before);
