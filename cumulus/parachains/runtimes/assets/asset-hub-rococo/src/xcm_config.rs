@@ -23,6 +23,7 @@ use super::{
 use assets_common::{
 	matching::{FromNetwork, FromSiblingParachain, IsForeignConcreteAsset},
 	TrustBackedAssetsAsLocation,
+	SwapAssetConverter,
 };
 use frame_support::{
 	parameter_types,
@@ -329,6 +330,22 @@ pub type TrustedTeleporters = (
 	IsForeignConcreteAsset<FromSiblingParachain<parachain_info::Pallet<Runtime>>>,
 );
 
+/// Asset converter for pool assets.
+/// Used to convert assets in pools to the asset required for fee payment.
+/// The pool must be between the first asset and the one required for fee payment.
+/// This type allows paying fees with any asset in a pool with the asset required for fee payment.
+pub type PoolAssetsConverter = SwapAssetConverter<
+	TokenLocationV3,
+	Runtime,
+	crate::NativeAndAssets,
+	(
+		TrustBackedAssetsAsLocation<TrustBackedAssetsPalletLocation, Balance, xcm::v3::Location>,
+		ForeignAssetsConvertedConcreteId,
+	),
+	crate::AssetConversion,
+	AccountId,
+>;
+
 pub struct XcmConfig;
 impl xcm_executor::Config for XcmConfig {
 	type RuntimeCall = RuntimeCall;
@@ -426,7 +443,7 @@ impl xcm_executor::Config for XcmConfig {
 	type HrmpChannelAcceptedHandler = ();
 	type HrmpChannelClosingHandler = ();
 	type XcmRecorder = PolkadotXcm;
-	type AssetConverter = ();
+	type AssetConverter = PoolAssetsConverter;
 }
 
 /// Converts a local signed origin into an XCM location.
