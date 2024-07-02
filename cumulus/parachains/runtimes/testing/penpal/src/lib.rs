@@ -49,7 +49,7 @@ use frame_support::{
 	traits::{
 		tokens::{fungible, fungibles, imbalance::ResolveAssetTo},
 		AsEnsureOriginWithArg, ConstBool, ConstU128, ConstU32, ConstU64, ConstU8, Everything,
-		PalletInfoAccess, TransformOrigin,
+		TransformOrigin,
 	},
 	weights::{
 		constants::WEIGHT_REF_TIME_PER_SECOND, ConstantMultiplier, FeePolynomial, WeightToFee as _,

@@ -26,7 +26,6 @@ pub mod runtime_api;
 use crate::matching::{LocalLocationPattern, ParentLocation};
 use core::marker::PhantomData;
 use frame_support::{
-	ensure,
 	traits::{fungibles, tokens::ConversionToAssetBalance, Equals, EverythingBut, Get},
 };
 use pallet_asset_conversion::SwapCredit as SwapCreditT;
@@ -162,24 +161,25 @@ where
 		// TODO: Not the best still.
 		let desired_asset: Asset = (asset_id.clone(), 1u128).into(); // To comply with the interface.
 		let (local_asset_id, _) = Matcher::matches_fungibles(&desired_asset).map_err(|error| {
-			log::error!(
+			log::trace!(
 				target: "xcm::SufficientAssetConverter::convert_asset",
-				"Could not map XCM asset {:?} to FRAME asset",
+				"Could not map XCM asset {:?} to FRAME asset. Error: {:?}",
 				asset_id,
+				error,
 			);
 			XcmError::AssetNotFound
 		})?;
 		log::trace!(target: "xcm::SufficientAssetConverter::convert_asset", "local asset id: {:?}", local_asset_id);
 		let Fungibility::Fungible(old_asset_amount) = asset.fun else {
-			log::error!(
+			log::trace!(
 				target: "xcm::SufficientAssetConverter::convert_asset",
 				"Fee asset is not fungible",
 			);
 			return Err(XcmError::AssetNotFound);
 		};
 		let new_asset_amount = BalanceConverter::to_asset_balance(old_asset_amount, local_asset_id)
-			.map_err(|error| {
-				log::error!(
+			.map_err(|_| {
+				log::trace!(
 					target: "xcm::SufficientAssetConverter::convert_asset",
 					"Couldn't convert balance of {:?} to balance of {:?}",
 					asset.id,
@@ -187,7 +187,7 @@ where
 				);
 				XcmError::TooExpensive
 			})?;
-		let new_asset_amount: u128 = new_asset_amount.try_into().map_err(|error| {
+		let new_asset_amount: u128 = new_asset_amount.try_into().map_err(|_| {
 			log::error!(
 				target: "xcm::SufficientAssetConverter::convert_asset",
 				"Converting balance of {:?} to u128 would overflow",
@@ -200,10 +200,10 @@ where
 
 	fn swap(give: &Asset, want: &Asset) -> Result<Asset, XcmError> {
 		// We need the matcher to select this implementation from the tuple.
-		let (fungibles_asset, balance) = Matcher::matches_fungibles(give).map_err(|error| {
-			log::error!(
+		let _ = Matcher::matches_fungibles(give).map_err(|_| {
+			log::trace!(
 				target: "xcm::SufficientAssetConverter::swap",
-				"Could not map XCM asset {:?} to FRAME asset",
+				"Could not map XCM asset {:?} to FRAME asset.",
 				give,
 			);
 			XcmError::AssetNotFound
@@ -235,7 +235,7 @@ where
 	fn convert_asset(asset: &Asset, asset_id: &AssetId) -> Result<Asset, XcmError> {
 		// TODO: Not the best still.
 		let desired_asset: Asset = (asset_id.clone(), 1u128).into(); // To comply with the interface.
-		let (fungibles_asset, _) = Matcher::matches_fungibles(&desired_asset).map_err(|error| {
+		let (fungibles_asset, _) = Matcher::matches_fungibles(&desired_asset).map_err(|_| {
 			// Using `trace` instead of `error` since we expect this to happen
 			// when using multiple implementations in a tuple.
 			log::trace!(

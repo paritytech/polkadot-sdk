@@ -282,15 +282,12 @@ fn transfer_foreign_assets_from_asset_hub_to_para() {
 /// work without using any other token.
 #[test]
 fn reserve_transfer_sufficient_foreign_assets_from_system_para_to_para() {
-	use penpal_runtime::xcm_config::ASSET_HUB_ID;
-
 	let destination = AssetHubWestend::sibling_location_of(PenpalA::para_id());
 	let sov_penpal_on_ahr = AssetHubWestend::sovereign_account_id_of(destination.clone());
 	let sender = AssetHubWestendSender::get();
 	let fee_amount_to_send = ASSET_HUB_WESTEND_ED * 100;
 	let asset_amount_to_send = ASSET_HUB_WESTEND_ED * 100;
 	let asset_owner = AssetHubWestendAssetOwner::get();
-	let asset_owner_signer = <AssetHubWestend as Chain>::RuntimeOrigin::signed(asset_owner.clone());
 	let receiver = PenpalAReceiver::get();
 
 	let roc_at_westend_parachains = Location::new(2, GlobalConsensus(NetworkId::Rococo));
@@ -334,15 +331,15 @@ fn reserve_transfer_sufficient_foreign_assets_from_system_para_to_para() {
 	// This ED isn't reflected in any derivative in a PenpalA account.
 	AssetHubWestend::fund_accounts(vec![(sov_penpal_on_ahr.into(), ASSET_HUB_WESTEND_ED)]);
 
-	// We want to make sure the sender doesn't have ANY native asset other than ED, so we can make
-	// sure we are paying delivery fees with the sufficient asset.
-	AssetHubWestend::execute_with(|| {
-		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::Balances::force_set_balance(
-			<AssetHubWestend as Chain>::RuntimeOrigin::root(),
-			sender.clone().into(),
-			ASSET_HUB_WESTEND_ED,
-		));
-	});
+	// The sender needs some Relay tokens to pay for delivery fees locally.
+	// TODO: Also allow payment with different assets locally, right now only works remotely.
+	// AssetHubWestend::execute_with(|| {
+	// 	assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::Balances::force_set_balance(
+	// 		<AssetHubWestend as Chain>::RuntimeOrigin::root(),
+	// 		sender.clone().into(),
+	// 		ASSET_HUB_WESTEND_ED,
+	// 	));
+	// });
 
 	let para_test_args = TestContext {
 		sender: sender.clone(),
@@ -394,8 +391,8 @@ fn reserve_transfer_sufficient_foreign_assets_from_system_para_to_para() {
 		<ForeignAssets as Inspect<_>>::balance(roc_at_westend_parachains.clone(), &receiver)
 	});
 
-	// The native asset balance is the same. They weren't send or used for fees.
-	assert_eq!(sender_balance_before, sender_balance_after);
+	// TODO: When we allow payment with different assets locally, this should be the same, since they aren't used for fees.
+	assert!(sender_balance_before > sender_balance_after);
 	// The assets have been sent and used for fees.
 	assert!(sender_foreign_assets_after < sender_foreign_assets_before - asset_amount_to_send);
 	assert!(receiver_foreign_assets_after > receiver_foreign_assets_before);
@@ -406,7 +403,7 @@ pub fn system_para_to_para_sender_sufficient_foreign_asset_assertions(t: SystemP
 	AssetHubWestend::assert_xcm_pallet_attempted_complete(None);
 
 	let sov_account_of_dest = AssetHubWestend::sovereign_account_id_of(t.args.dest.clone());
-	for (index, asset) in t.args.assets.into_inner().into_iter().enumerate() {
+	for asset in t.args.assets.into_inner().into_iter() {
 		let expected_id = asset.id.0.clone().try_into().unwrap();
 		let asset_amount = if let Fungible(a) = asset.fun { Some(a) } else { None }.unwrap();
 		assert_expected_events!(
@@ -768,12 +765,9 @@ fn transfer_foreign_assets_from_para_to_para_through_asset_hub() {
 	assert!(sender_wnds_after < sender_wnds_before - wnd_to_send);
 	assert_eq!(sender_rocs_after, sender_rocs_before - roc_to_send);
 	// Sovereign accounts on reserve are changed accordingly
-	let delivery_fees_amount = 31_340_000_000; // TODO: Estimate this.
-										   // Delivery fees stay in the sender chain, so the balance of the sender's
-										   // sovereign account reflects this.
 	assert_eq!(
 		wnds_in_sender_reserve_on_ah_after,
-		wnds_in_sender_reserve_on_ah_before - wnd_to_send + delivery_fees_amount
+		wnds_in_sender_reserve_on_ah_before - wnd_to_send
 	);
 	assert_eq!(
 		rocs_in_sender_reserve_on_ah_after,

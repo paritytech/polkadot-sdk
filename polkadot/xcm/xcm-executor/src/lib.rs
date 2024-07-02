@@ -369,12 +369,6 @@ impl<Config: config::Config> XcmExecutor<Config> {
 			target: "xcm::send", "Sending msg: {msg:?}, to destination: {dest:?}, (reason: {reason:?})"
 		);
 		let (ticket, fee) = validate_send::<Config::XcmSender>(dest, msg)?;
-		// `take_fee` takes in the fee in DOT.
-		// It should use `AssetConverter` to change it to USDC, for example.
-		// How it knows that is a mystery.
-		// `self.asset_for_fees` is not populated most of the time.
-		// `self.holding` can only have enough USDC if I do the same calculation before to park the
-		// fees.
 		self.take_fee(fee, reason)?;
 		Config::XcmSender::deliver(ticket).map_err(Into::into)
 	}
@@ -476,7 +470,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 				// If we can't convert, then we return the original asset.
 				// It will error later in any case.
 				Err(error) => {
-					log::error!(
+					log::trace!(
 						target: "xcm::take_fee",
 						"Could not convert fees to {:?}. Error: {:?}",
 						asset_for_fees,

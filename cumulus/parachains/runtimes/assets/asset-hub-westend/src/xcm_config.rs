@@ -24,7 +24,6 @@ use assets_common::{
 	matching::{FromSiblingParachain, IsForeignConcreteAsset},
 	SufficientAssetConverter, SwapAssetConverter, TrustBackedAssetsAsLocation,
 };
-use core::marker::PhantomData;
 use frame_support::{
 	parameter_types,
 	traits::{
