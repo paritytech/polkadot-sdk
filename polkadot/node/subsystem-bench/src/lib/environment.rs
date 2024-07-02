@@ -347,7 +347,7 @@ impl TestEnvironment {
 				break
 			}
 			// Check value every 50ms.
-			tokio::time::sleep(std::time::Duration::from_millis(1000)).await;
+			tokio::time::sleep(std::time::Duration::from_millis(50)).await;
 		}
 	}
 
