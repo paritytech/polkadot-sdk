@@ -1732,7 +1732,7 @@ async fn dequeue_next_collation_and_fetch<Context>(
 		state.collations.get_next_collation_to_fetch(
 			&previous_fetch,
 			state.prospective_parachains_mode,
-			&state.assignment,
+			&state.assignment.current,
 		)
 	}) {
 		gum::debug!(

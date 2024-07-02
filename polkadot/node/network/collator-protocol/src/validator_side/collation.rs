@@ -375,7 +375,9 @@ impl Collations {
 	) -> Option<(PendingCollation, CollatorId)> {
 		gum::trace!(
 			target: LOG_TARGET,
-			waiting_queue = ?self.waiting_queue,
+			waiting_queue=?self.waiting_queue,
+			fetched_per_para=?self.fetched_per_para,
+			claims_per_para=?self.claims_per_para,
 			?claim_queue,
 			"Pick a collation to fetch."
 		);
@@ -387,8 +389,11 @@ impl Collations {
 				.fetched_per_para
 				.get(para_id)
 				.copied()
-				.unwrap_or_default()
-				.saturating_div(self.claims_per_para.get(para_id).copied().unwrap_or_default());
+				.map(|v| {
+					(v as f64) /
+						(self.claims_per_para.get(para_id).copied().unwrap_or_default() as f64)
+				})
+				.unwrap_or_default();
 
 			// skip empty queues
 			if collations.is_empty() {
