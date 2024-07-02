@@ -27,7 +27,12 @@
 //!    ┌──────────────────────────────────────────┐
 //!    └─▶Advertised ─▶ Pending ─▶ Fetched ─▶ Validated
 
-use std::{collections::VecDeque, future::Future, pin::Pin, task::Poll};
+use std::{
+	collections::{BTreeMap, VecDeque},
+	future::Future,
+	pin::Pin,
+	task::Poll,
+};
 
 use futures::{future::BoxFuture, FutureExt};
 use polkadot_node_network_protocol::{
@@ -216,25 +221,56 @@ impl CollationStatus {
 }
 
 /// Information about collations per relay parent.
-#[derive(Default)]
 pub struct Collations {
 	/// What is the current status in regards to a collation for this relay parent?
 	pub status: CollationStatus,
 	/// Collator we're fetching from, optionally which candidate was requested.
 	///
-	/// This is the currently last started fetch, which did not exceed `MAX_UNSHARED_DOWNLOAD_TIME`
-	/// yet.
+	/// This is the last fetch for the relay parent. The value is used in
+	/// `get_next_collation_to_fetch` (called from `dequeue_next_collation_and_fetch`) to determine
+	/// if the last fetched collation is the same as the one which just finished. If yes - another
+	/// collation should be fetched. If not - another fetch was already initiated and
+	/// `get_next_collation_to_fetch` will do nothing.
+	///
+	/// For the reasons above this value is not set to `None` when the fetch is done! Don't use it
+	/// to check if there is a pending fetch.
 	pub fetching_from: Option<(CollatorId, Option<CandidateHash>)>,
-	/// Collation that were advertised to us, but we did not yet fetch.
-	pub waiting_queue: VecDeque<(PendingCollation, CollatorId)>,
+	/// Collation that were advertised to us, but we did not yet fetch. Grouped by `ParaId`.
+	waiting_queue: BTreeMap<ParaId, VecDeque<(PendingCollation, CollatorId)>>,
 	/// How many collations have been seconded.
 	pub seconded_count: usize,
+	/// What collations were fetched so far for this relay parent.
+	fetched_per_para: BTreeMap<ParaId, usize>,
+	// Claims per `ParaId` for the assigned core at the relay parent. This information is obtained
+	// from the claim queue.
+	claims_per_para: BTreeMap<ParaId, usize>,
 }
 
 impl Collations {
+	pub(super) fn new(claim_queue: &Vec<ParaId>) -> Self {
+		let mut claims_per_para = BTreeMap::new();
+		for para_id in claim_queue {
+			*claims_per_para.entry(*para_id).or_default() += 1;
+		}
+
+		Self {
+			status: Default::default(),
+			fetching_from: None,
+			waiting_queue: Default::default(),
+			seconded_count: 0,
+			fetched_per_para: Default::default(),
+			claims_per_para,
+		}
+	}
+
 	/// Note a seconded collation for a given para.
 	pub(super) fn note_seconded(&mut self) {
 		self.seconded_count += 1
+	}
+
+	// Note a collation which has been successfully fetched.
+	pub(super) fn note_fetched(&mut self, para_id: ParaId) {
+		*self.fetched_per_para.entry(para_id).or_default() += 1
 	}
 
 	/// Returns the next collation to fetch from the `waiting_queue`.
@@ -247,6 +283,7 @@ impl Collations {
 		&mut self,
 		finished_one: &(CollatorId, Option<CandidateHash>),
 		relay_parent_mode: ProspectiveParachainsMode,
+		claim_queue: &Vec<ParaId>,
 	) -> Option<(PendingCollation, CollatorId)> {
 		// If finished one does not match waiting_collation, then we already dequeued another fetch
 		// to replace it.
@@ -267,33 +304,128 @@ impl Collations {
 		self.status.back_to_waiting(relay_parent_mode);
 
 		match self.status {
-			// We don't need to fetch any other collation when we already have seconded one.
+			// If async backing is enabled `back_to_waiting` will change `Seconded` state to
+			// `Waiting` so that we can fetch more collations. If async backing is disabled we can't
+			// fetch more than one collation per relay parent so `None` is returned.
 			CollationStatus::Seconded => None,
-			CollationStatus::Waiting =>
-				if self.is_seconded_limit_reached(relay_parent_mode) {
-					None
-				} else {
-					self.waiting_queue.pop_front()
-				},
+			CollationStatus::Waiting => self.pick_a_collation_to_fetch(&claim_queue),
 			CollationStatus::WaitingOnValidation | CollationStatus::Fetching =>
 				unreachable!("We have reset the status above!"),
 		}
 	}
 
-	/// Checks the limit of seconded candidates.
-	pub(super) fn is_seconded_limit_reached(
+	/// Checks if another collation can be accepted. The number of collations that can be fetched
+	/// per parachain is limited by the entries in the claim queue for the `ParaId` in question.
+	///
+	/// If prospective parachains mode is not enabled then we fall back to synchronous backing. In
+	/// this case there is a limit of 1 collation per relay parent.
+	pub(super) fn is_collations_limit_reached(
 		&self,
 		relay_parent_mode: ProspectiveParachainsMode,
+		para_id: ParaId,
+		num_pending_fetches: usize,
 	) -> bool {
-		let seconded_limit =
-			if let ProspectiveParachainsMode::Enabled { max_candidate_depth, .. } =
-				relay_parent_mode
-			{
-				max_candidate_depth + 1
-			} else {
-				1
-			};
-		self.seconded_count >= seconded_limit
+		if let ProspectiveParachainsMode::Disabled = relay_parent_mode {
+			// fallback to synchronous backing
+			return self.seconded_count >= 1
+		}
+
+		// Successful fetches + pending fetches < claim queue entries for `para_id`
+		let respected_per_para_limit =
+			self.claims_per_para.get(&para_id).copied().unwrap_or_default() >
+				self.fetched_per_para.get(&para_id).copied().unwrap_or_default() +
+					num_pending_fetches;
+
+		gum::trace!(
+			target: LOG_TARGET,
+			?para_id,
+			claims_per_para=?self.claims_per_para,
+			fetched_per_para=?self.fetched_per_para,
+			?num_pending_fetches,
+			?respected_per_para_limit,
+			"is_collations_limit_reached"
+		);
+
+		!respected_per_para_limit
+	}
+
+	/// Adds a new collation to the waiting queue for the relay parent. This function doesn't
+	/// perform any limits check. The caller (`enqueue_collation`) should assure that the collation
+	/// can be enqueued.
+	pub(super) fn add_to_waiting_queue(&mut self, collation: (PendingCollation, CollatorId)) {
+		self.waiting_queue.entry(collation.0.para_id).or_default().push_back(collation);
+	}
+
+	/// Picks a collation to fetch from the waiting queue.
+	/// When fetching collations we need to ensure that each parachain has got a fair core time
+	/// share depending on its assignments in the claim queue. This means that the number of
+	/// collations fetched per parachain should ideally be equal to (but not bigger than) the number
+	/// of claims for the particular parachain in the claim queue.
+	///
+	/// To achieve this each parachain with at an entry in the `waiting_queue` has got a score
+	/// calculated by dividing the number of fetched collations by the number of entries in the
+	/// claim queue. Lower the score means higher fetching priority. Note that if a parachain hasn't
+	/// got anything fetched at this relay parent it will have score 0 which means highest priority.
+	///
+	/// If two parachains has got the same score the one which is earlier in the claim queue will be
+	/// picked.
+	fn pick_a_collation_to_fetch(
+		&mut self,
+		claim_queue: &Vec<ParaId>,
+	) -> Option<(PendingCollation, CollatorId)> {
+		gum::trace!(
+			target: LOG_TARGET,
+			waiting_queue=?self.waiting_queue,
+			fetched_per_para=?self.fetched_per_para,
+			claims_per_para=?self.claims_per_para,
+			?claim_queue,
+			"Pick a collation to fetch."
+		);
+
+		// Find the parachain(s) with the lowest score.
+		let mut lowest_score = None;
+		for (para_id, collations) in &mut self.waiting_queue {
+			let para_score = self
+				.fetched_per_para
+				.get(para_id)
+				.copied()
+				.map(|v| {
+					(v as f64) /
+						(self.claims_per_para.get(para_id).copied().unwrap_or_default() as f64)
+				})
+				.unwrap_or_default();
+
+			// skip empty queues
+			if collations.is_empty() {
+				continue
+			}
+
+			match lowest_score {
+				Some((score, _)) if para_score < score =>
+					lowest_score = Some((para_score, vec![(para_id, collations)])),
+				Some((_, ref mut paras)) => {
+					paras.push((para_id, collations));
+				},
+				None => lowest_score = Some((para_score, vec![(para_id, collations)])),
+			}
+		}
+
+		if let Some((_, mut lowest_score)) = lowest_score {
+			for claim in claim_queue {
+				if let Some((_, collations)) = lowest_score.iter_mut().find(|(id, _)| *id == claim)
+				{
+					match collations.pop_front() {
+						Some(collation) => return Some(collation),
+						None => {
+							unreachable!("Collation can't be empty because empty ones are skipped at the beginning of the loop.")
+						},
+					}
+				}
+			}
+			unreachable!("All entries in waiting_queue should also be in claim queue")
+		} else {
+			None
+		}
 	}
 }
 
