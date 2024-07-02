@@ -18,6 +18,8 @@
 use crate::pallet::Def;
 
 /// * implement the individual traits using the Hooks trait
+/// * implement the `TryStateLogic` and `IdentifiableTryStateLogic` traits, that are strictly
+///   dependent on the `TryState` hook
 pub fn expand_hooks(def: &mut Def) -> proc_macro2::TokenStream {
 	let (where_clause, span, has_runtime_upgrade) = match def.hooks.as_ref() {
 		Some(hooks) => {
@@ -334,6 +336,28 @@ pub fn expand_hooks(def: &mut Def) -> proc_macro2::TokenStream {
 
 					err
 				})
+			}
+		}
+
+		// Implement `TryStateLogic<BlockNumber>` for `Pallet`
+		#[cfg(feature = "try-runtime")]
+		impl<#type_impl_gen> #frame_support::traits::TryStateLogic<#frame_system::pallet_prelude::BlockNumberFor<T>>
+			for #pallet_ident<#type_use_gen>
+			#where_clause
+		{
+			fn try_state(n: frame_system::pallet_prelude::BlockNumberFor<T>) -> Result<(), #frame_support::sp_runtime::TryRuntimeError> {
+				<Self as #frame_support::traits::TryState<#frame_system::pallet_prelude::BlockNumberFor::<T>>>::try_state(n, #frame_support::traits::TryStateSelect::All)
+			}
+		}
+
+		// Implement `IdentifiableTryStateLogic<BlockNumber>` for `Pallet`
+		#[cfg(feature = "try-runtime")]
+		impl<#type_impl_gen> #frame_support::traits::IdentifiableTryStateLogic<frame_system::pallet_prelude::BlockNumberFor<T>>
+			for #pallet_ident<#type_use_gen>
+			#where_clause
+		{
+			fn matches_id(id: &[u8]) -> bool {
+				<Self as #frame_support::pallet_prelude::PalletInfoAccess>::name().as_bytes() == id
 			}
 		}
 	)

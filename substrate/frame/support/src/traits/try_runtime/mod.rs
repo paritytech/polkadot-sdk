@@ -36,9 +36,9 @@ pub enum Select {
 	All,
 	/// Run a fixed number of them in a round robin manner.
 	RoundRobin(u32),
-	/// Run only pallets who's name matches the given list.
+	/// Run only logic whose identifier is included in the given list.
 	///
-	/// Pallet names are obtained from [`super::PalletInfoAccess`].
+	/// For pallets, their identifiers are obtained from [`super::PalletInfoAccess`].
 	Only(Vec<Vec<u8>>),
 }
 
@@ -145,29 +145,90 @@ impl core::str::FromStr for UpgradeCheckSelect {
 /// the storage items of your pallet.
 ///
 /// This hook should not alter any storage.
-pub trait TryState<BlockNumber> {
-	/// Execute the state checks.
-	fn try_state(_: BlockNumber, _: Select) -> Result<(), TryRuntimeError>;
+pub trait TryStateLogic<BlockNumber> {
+	fn try_state(_: BlockNumber) -> Result<(), TryRuntimeError>;
 }
 
 #[cfg_attr(all(not(feature = "tuples-96"), not(feature = "tuples-128")), impl_for_tuples(64))]
 #[cfg_attr(all(feature = "tuples-96", not(feature = "tuples-128")), impl_for_tuples(96))]
 #[cfg_attr(all(feature = "tuples-128"), impl_for_tuples(128))]
-impl<BlockNumber: Clone + sp_std::fmt::Debug + AtLeast32BitUnsigned> TryState<BlockNumber>
-	for Tuple
+impl<BlockNumber> TryStateLogic<BlockNumber> for Tuple
+where
+	BlockNumber: Clone + sp_std::fmt::Debug + AtLeast32BitUnsigned,
 {
-	for_tuples!( where #( Tuple: crate::traits::PalletInfoAccess )* );
+	fn try_state(n: BlockNumber) -> Result<(), TryRuntimeError> {
+		let mut errors = Vec::<TryRuntimeError>::new();
+
+		for_tuples!(#(
+			if let Err(err) = Tuple::try_state(n.clone()) {
+				errors.push(err);
+			}
+		)*);
+
+		Ok(())
+	}
+}
+
+/// Logic executed when `try-state` filters are provided in the `try-runtime` CLI.
+///
+/// Returning `true` for the provided ID will include this `try-state` logic in the overall tests
+/// performed.
+pub trait IdentifiableTryStateLogic<BlockNumber>: TryStateLogic<BlockNumber> {
+	fn matches_id(_id: &[u8]) -> bool;
+}
+
+#[cfg_attr(all(not(feature = "tuples-96"), not(feature = "tuples-128")), impl_for_tuples(64))]
+#[cfg_attr(all(feature = "tuples-96", not(feature = "tuples-128")), impl_for_tuples(96))]
+#[cfg_attr(all(feature = "tuples-128"), impl_for_tuples(128))]
+impl<BlockNumber> IdentifiableTryStateLogic<BlockNumber> for Tuple
+where
+	BlockNumber: Clone + sp_std::fmt::Debug + AtLeast32BitUnsigned,
+{
+	for_tuples!( where #( Tuple: TryStateLogic<BlockNumber> )* );
+	fn matches_id(id: &[u8]) -> bool {
+		for_tuples!( #( if Tuple::matches_id(id) { return true; } )* );
+		return false;
+	}
+}
+
+/// Execute some checks to ensure the internal state of a pallet is consistent.
+///
+/// Usually, these checks should check all of the invariants that are expected to be held on all of
+/// the storage items of your pallet.
+///
+/// This hook should not alter any storage.
+pub trait TryState<BlockNumber> {
+	/// Execute the state checks.
+	fn try_state(_: BlockNumber, _: Select) -> Result<(), TryRuntimeError>;
+}
+
+// Empty tuple never does anything.
+impl<BlockNumber> TryState<BlockNumber> for () {
+	fn try_state(_: BlockNumber, _: Select) -> Result<(), TryRuntimeError> {
+		Ok(())
+	}
+}
+
+// 2-element tuple calls first and then second, optionally filtering according to input.
+impl<BlockNumber, AllPallets, AdditionalHooks> TryState<BlockNumber>
+	for (AdditionalHooks, AllPallets)
+where
+	BlockNumber: Clone + sp_std::fmt::Debug + AtLeast32BitUnsigned,
+	AdditionalHooks: IdentifiableTryStateLogic<BlockNumber>,
+	AllPallets: IdentifiableTryStateLogic<BlockNumber>,
+{
 	fn try_state(n: BlockNumber, targets: Select) -> Result<(), TryRuntimeError> {
 		match targets {
 			Select::None => Ok(()),
 			Select::All => {
 				let mut errors = Vec::<TryRuntimeError>::new();
 
-				for_tuples!(#(
-					if let Err(err) = Tuple::try_state(n.clone(), targets.clone()) {
-						errors.push(err);
-					}
-				)*);
+				if let Err(err) = AdditionalHooks::try_state(n.clone()) {
+					errors.push(err);
+				}
+				if let Err(err) = AllPallets::try_state(n.clone()) {
+					errors.push(err);
+				}
 
 				if !errors.is_empty() {
 					log::error!(
@@ -193,35 +254,37 @@ impl<BlockNumber: Clone + sp_std::fmt::Debug + AtLeast32BitUnsigned> TryState<Bl
 				Ok(())
 			},
 			Select::RoundRobin(len) => {
-				let functions: &[fn(BlockNumber, Select) -> Result<(), TryRuntimeError>] =
-					&[for_tuples!(#( Tuple::try_state ),*)];
+				let functions: &[fn(BlockNumber) -> Result<(), TryRuntimeError>] =
+					&[AdditionalHooks::try_state, AllPallets::try_state];
 				let skip = n.clone() % (functions.len() as u32).into();
 				let skip: u32 =
 					skip.try_into().unwrap_or_else(|_| sp_runtime::traits::Bounded::max_value());
 				let mut result = Ok(());
 				for try_state_fn in functions.iter().cycle().skip(skip as usize).take(len as usize)
 				{
-					result = result.and(try_state_fn(n.clone(), targets.clone()));
+					result = result.and(try_state_fn(n.clone()));
 				}
 				result
 			},
-			Select::Only(ref pallet_names) => {
+			Select::Only(ref try_state_identifiers) => {
 				let try_state_fns: &[(
-					&'static str,
-					fn(BlockNumber, Select) -> Result<(), TryRuntimeError>,
-				)] = &[for_tuples!(
-					#( (<Tuple as crate::traits::PalletInfoAccess>::name(), Tuple::try_state) ),*
-				)];
+					fn(&[u8]) -> bool,
+					fn(BlockNumber) -> Result<(), TryRuntimeError>,
+				)] = &[
+					(AdditionalHooks::matches_id, AdditionalHooks::try_state),
+					(AllPallets::matches_id, AllPallets::try_state),
+				];
+
 				let mut result = Ok(());
-				pallet_names.iter().for_each(|pallet_name| {
-					if let Some((name, try_state_fn)) =
-						try_state_fns.iter().find(|(name, _)| name.as_bytes() == pallet_name)
+				try_state_identifiers.iter().for_each(|id| {
+					if let Some((_, try_state_fn)) =
+						try_state_fns.iter().find(|(eq_logic, _)| eq_logic(id.as_slice()))
 					{
-						result = result.and(try_state_fn(n.clone(), targets.clone()));
+						result = result.and(try_state_fn(n.clone()));
 					} else {
 						log::warn!(
-							"Pallet {:?} not found",
-							sp_std::str::from_utf8(pallet_name).unwrap_or_default()
+							"Try-state logic with identifier {:?} not found",
+							sp_std::str::from_utf8(id).unwrap_or_default()
 						);
 					}
 				});
@@ -229,5 +292,16 @@ impl<BlockNumber: Clone + sp_std::fmt::Debug + AtLeast32BitUnsigned> TryState<Bl
 				result
 			},
 		}
+	}
+}
+
+// 1-element tuple calls first tuple element and then empty tuple, which is a no-op
+impl<BlockNumber, T> TryState<BlockNumber> for (T,)
+where
+	BlockNumber: Clone + sp_std::fmt::Debug + AtLeast32BitUnsigned,
+	T: IdentifiableTryStateLogic<BlockNumber>,
+{
+	fn try_state(n: BlockNumber, targets: Select) -> Result<(), TryRuntimeError> {
+		<(T, ()) as TryState<BlockNumber>>::try_state(n, targets)
 	}
 }
