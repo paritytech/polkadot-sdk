@@ -233,6 +233,32 @@ fn generate_builder_impl(name: &Ident, data_enum: &DataEnum) -> Result<TokenStre
 		}
 	};
 
+	// Some operations are allowed after the holding register is loaded
+	let allowed_after_load_holding_methods: Vec<TokenStream2> = data_enum
+		.variants
+		.iter()
+		.filter(|variant| variant.ident == "ClearOrigin")
+		.map(|variant| {
+			let variant_name = &variant.ident;
+			let method_name_string = &variant_name.to_string().to_snake_case();
+			let method_name = syn::Ident::new(method_name_string, variant_name.span());
+			let docs = get_doc_comments(variant);
+			let method = match &variant.fields {
+				Fields::Unit => {
+					quote! {
+						#(#docs)*
+						pub fn #method_name(mut self) -> XcmBuilder<Call, LoadedHolding> {
+							self.instructions.push(#name::<Call>::#variant_name);
+							self
+						}
+					}
+				},
+				_ => return Err(Error::new_spanned(variant, "ClearOrigin should have no fields")),
+			};
+			Ok(method)
+		})
+		.collect::<std::result::Result<Vec<_>, _>>()?;
+
 	// Then we require fees to be paid
 	let buy_execution_method = data_enum
 		.variants
@@ -276,6 +302,7 @@ fn generate_builder_impl(name: &Ident, data_enum: &DataEnum) -> Result<TokenStre
 
 	let second_impl = quote! {
 		impl<Call> XcmBuilder<Call, LoadedHolding> {
+			#(#allowed_after_load_holding_methods)*
 			#buy_execution_method
 		}
 	};
