@@ -62,7 +62,7 @@ pub mod pallet {
 		PalletId,
 	};
 	use frame_system::pallet_prelude::*;
-	use sp_runtime::traits::{Convert, ConvertBack};
+	use sp_runtime::traits::{Convert, ConvertBack, MaybeConvert};
 	use sp_std::vec::Vec;
 
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(3);
@@ -99,6 +99,10 @@ pub mod pallet {
 		type ConvertBalance: Convert<BalanceOf<Self>, RelayBalanceOf<Self>>
 			+ ConvertBack<BalanceOf<Self>, RelayBalanceOf<Self>>;
 
+		/// Type used for getting the associated account of a task. This account is controlled by
+		/// the task itself.
+		type SovereignAccountOf: MaybeConvert<TaskId, Self::AccountId>;
+
 		/// Identifier from which the internal Pot is generated.
 		#[pallet::constant]
 		type PalletId: Get<PalletId>;
@@ -114,6 +118,9 @@ pub mod pallet {
 		/// Maximum number of system cores.
 		#[pallet::constant]
 		type MaxReservedCores: Get<u32>;
+
+		#[pallet::constant]
+		type MaxAutoRenewals: Get<u32>;
 	}
 
 	/// The current configuration of this pallet.
@@ -173,6 +180,13 @@ pub mod pallet {
 	/// Received core count change from the relay chain.
 	#[pallet::storage]
 	pub type CoreCountInbox<T> = StorageValue<_, CoreIndex, OptionQuery>;
+
+	/// Keeping track of cores which have auto-renewal enabled.
+	///
+	/// Sorted by `CoreIndex` to make the removal of cores from auto-renewal more efficient.
+	#[pallet::storage]
+	pub type AutoRenewals<T: Config> =
+		StorageValue<_, BoundedVec<AutoRenewalRecord, T::MaxAutoRenewals>, ValueQuery>;
 
 	/// Received revenue info from the relay chain.
 	#[pallet::storage]
@@ -424,6 +438,33 @@ pub mod pallet {
 			/// The core whose workload is no longer available to be renewed for `when`.
 			core: CoreIndex,
 		},
+		AutoRenewalEnabled {
+			/// The core for which the renewal was enabled.
+			core: CoreIndex,
+			/// The task for which the renewal was enabled.
+			task: TaskId,
+		},
+		AutoRenewalDisabled {
+			/// The core for which the renewal was disabled.
+			core: CoreIndex,
+			/// The task for which the renewal was disabled.
+			task: TaskId,
+		},
+		/// Failed to auto-renew a core, likely due to the payer account not being sufficiently
+		/// funded.
+		AutoRenewalFailed {
+			/// The core for which the renewal failed.
+			core: CoreIndex,
+			/// The account which was supposed to pay for renewal.
+			///
+			/// If `None` it indicates that we failed to get the sovereign account of a task.
+			payer: Option<T::AccountId>,
+		},
+		/// The auto-renewal limit has been reached upon renewing cores.
+		///
+		/// This should never happen, given that enable_auto_renew checks for this before enabling
+		/// auto-renewal.
+		AutoRenewalLimitReached,
 	}
 
 	#[pallet::error]
@@ -490,6 +531,16 @@ pub mod pallet {
 		InvalidConfig,
 		/// The revenue must be claimed for 1 or more timeslices.
 		NoClaimTimeslices,
+		/// The caller doesn't have the permission to enable or disable auto-renewal.
+		NoPermission,
+		/// We reached the limit for auto-renewals.
+		TooManyAutoRenewals,
+		/// Only cores which are assigned to a task can be auto-renewed.
+		NonTaskAutoRenewal,
+		/// Failed to get the sovereign account of a task.
+		SovereignAccountNotFound,
+		/// Attempted to disable auto-renewal for a core that didn't have it enabled.
+		AutoRenewalNotEnabled,
 	}
 
 	#[derive(frame_support::DefaultNoBound)]
@@ -830,6 +881,61 @@ pub mod pallet {
 		) -> DispatchResult {
 			T::AdminOrigin::ensure_origin_or_root(origin)?;
 			Self::do_notify_revenue(revenue)?;
+			Ok(())
+		}
+
+		/// Extrinsic for enabling auto renewal.
+		///
+		/// Callable by the sovereign account of the task on the specified core. This account
+		/// will be charged at the start of every bulk period for renewing core time.
+		///
+		/// - `origin`: Must be the sovereign account of the task
+		/// - `core`: The core to which the task to be renewed is currently assigned.
+		/// - `task`: The task for which we want to enable auto renewal.
+		/// - `workload_end_hint` parameter should be used when enabling auto-renewal for
+		/// the core which holds a legacy lease, as it would be inefficient to look it up otherwise.
+		#[pallet::call_index(21)]
+		#[pallet::weight(T::WeightInfo::enable_auto_renew())]
+		pub fn enable_auto_renew(
+			origin: OriginFor<T>,
+			core: CoreIndex,
+			task: TaskId,
+			workload_end_hint: Option<Timeslice>,
+		) -> DispatchResult {
+			let who = ensure_signed(origin)?;
+
+			let sovereign_account = T::SovereignAccountOf::maybe_convert(task)
+				.ok_or(Error::<T>::SovereignAccountNotFound)?;
+			// Only the sovereign account of a task can enable auto renewal for its own core.
+			ensure!(who == sovereign_account, Error::<T>::NoPermission);
+
+			Self::do_enable_auto_renew(sovereign_account, core, task, workload_end_hint)?;
+			Ok(())
+		}
+
+		/// Extrinsic for disabling auto renewal.
+		///
+		/// Callable by the sovereign account of the task on the specified core.
+		///
+		/// - `origin`: Must be the sovereign account of the task.
+		/// - `core`: The core for which we want to disable auto renewal.
+		/// - `task`: The task for which we want to disable auto renewal.
+		#[pallet::call_index(22)]
+		#[pallet::weight(T::WeightInfo::disable_auto_renew())]
+		pub fn disable_auto_renew(
+			origin: OriginFor<T>,
+			core: CoreIndex,
+			task: TaskId,
+		) -> DispatchResult {
+			let who = ensure_signed(origin)?;
+
+			let sovereign_account = T::SovereignAccountOf::maybe_convert(task)
+				.ok_or(Error::<T>::SovereignAccountNotFound)?;
+			// Only the sovereign account of the task can disable auto-renewal.
+			ensure!(who == sovereign_account, Error::<T>::NoPermission);
+
+			Self::do_disable_auto_renew(core, task)?;
+
 			Ok(())
 		}
 
