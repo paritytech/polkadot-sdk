@@ -213,7 +213,7 @@ pub fn go_to_block(n: u64, s: u64) {
 
 /// Slots will grow accordingly to blocks
 pub fn progress_to_block(n: u64) {
-	let mut slot = u64::from(Babe::current_slot()) + 1;
+	let mut slot = u64::from(CurrentSlot::<Test>::get()) + 1;
 	for i in System::block_number() + 1..=n {
 		go_to_block(i, slot);
 		slot += 1;
@@ -272,7 +272,8 @@ pub fn make_vrf_signature_and_randomness(
 	slot: Slot,
 	pair: &sp_consensus_babe::AuthorityPair,
 ) -> (VrfSignature, Randomness) {
-	let transcript = sp_consensus_babe::make_vrf_transcript(&Babe::randomness(), slot, 0);
+	let transcript =
+		sp_consensus_babe::make_vrf_transcript(&pallet_babe::Randomness::<Test>::get(), slot, 0);
 
 	let randomness =
 		pair.as_ref().make_bytes(sp_consensus_babe::RANDOMNESS_VRF_CONTEXT, &transcript);
