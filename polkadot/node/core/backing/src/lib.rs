@@ -89,8 +89,9 @@ use polkadot_node_subsystem::{
 		AvailabilityDistributionMessage, AvailabilityStoreMessage, CanSecondRequest,
 		CandidateBackingMessage, CandidateValidationMessage, CollatorProtocolMessage,
 		HypotheticalCandidate, HypotheticalMembershipRequest, IntroduceSecondedCandidateRequest,
-		ProspectiveParachainsMessage, ProvisionableData, ProvisionerMessage, RuntimeApiMessage,
-		RuntimeApiRequest, StatementDistributionMessage, StoreAvailableDataError,
+		ProspectiveParachainsMessage, ProvisionableData, ProvisionerMessage, PvfExecutionPriority,
+		RuntimeApiMessage, RuntimeApiRequest, StatementDistributionMessage,
+		StoreAvailableDataError,
 	},
 	overseer, ActiveLeavesUpdate, FromOrchestra, OverseerSignal, SpawnedSubsystem, SubsystemError,
 };
@@ -109,8 +110,8 @@ use polkadot_primitives::{
 	node_features::FeatureIndex, BackedCandidate, CandidateCommitments, CandidateHash,
 	CandidateReceipt, CommittedCandidateReceipt, CoreIndex, CoreState, ExecutorParams, GroupIndex,
 	GroupRotationInfo, Hash, Id as ParaId, IndexedVec, NodeFeatures, PersistedValidationData,
-	PvfExecKind, SessionIndex, SigningContext, ValidationCode, ValidatorId, ValidatorIndex,
-	ValidatorSignature, ValidityAttestation,
+	SessionIndex, SigningContext, ValidationCode, ValidatorId, ValidatorIndex, ValidatorSignature,
+	ValidityAttestation,
 };
 use polkadot_statement_table::{
 	generic::AttestedCandidate as TableAttestedCandidate,
@@ -633,7 +634,7 @@ async fn request_candidate_validation(
 			candidate_receipt,
 			pov,
 			executor_params,
-			exec_kind: PvfExecKind::Backing,
+			exec_kind: PvfExecutionPriority::Backing,
 			response_sender: tx,
 		})
 		.await;

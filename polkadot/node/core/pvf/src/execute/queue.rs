@@ -22,7 +22,7 @@ use crate::{
 	host::ResultSender,
 	metrics::Metrics,
 	worker_interface::{IdleWorker, WorkerHandle},
-	InvalidCandidate, PossiblyInvalidError, ValidationError, LOG_TARGET,
+	ExecutePriority, InvalidCandidate, PossiblyInvalidError, ValidationError, LOG_TARGET,
 };
 use futures::{
 	channel::{mpsc, oneshot},
@@ -37,7 +37,7 @@ use polkadot_node_core_pvf_common::{
 use polkadot_primitives::{ExecutorParams, ExecutorParamsHash};
 use slotmap::HopSlotMap;
 use std::{
-	collections::VecDeque,
+	collections::{HashMap, VecDeque},
 	fmt,
 	path::PathBuf,
 	time::{Duration, Instant},
@@ -71,6 +71,7 @@ pub struct PendingExecutionRequest {
 	pub params: Vec<u8>,
 	pub executor_params: ExecutorParams,
 	pub result_tx: ResultSender,
+	pub execute_priority: ExecutePriority,
 }
 
 struct ExecuteJob {
@@ -162,7 +163,7 @@ struct Queue {
 	security_status: SecurityStatus,
 
 	/// The queue of jobs that are waiting for a worker to pick up.
-	queue: VecDeque<ExecuteJob>,
+	unscheduled: Unscheduled,
 	workers: Workers,
 	mux: Mux,
 }
@@ -188,7 +189,7 @@ impl Queue {
 			security_status,
 			to_queue_rx,
 			from_queue_tx,
-			queue: VecDeque::new(),
+			unscheduled: Unscheduled::new(),
 			mux: Mux::new(),
 			workers: Workers {
 				running: HopSlotMap::with_capacity_and_key(10),
@@ -224,7 +225,10 @@ impl Queue {
 	fn try_assign_next_job(&mut self, finished_worker: Option<Worker>) {
 		// New jobs are always pushed to the tail of the queue; the one at its head is always
 		// the eldest one.
-		let eldest = if let Some(eldest) = self.queue.get(0) { eldest } else { return };
+
+		let Some((queue, priority)) = self.unscheduled.get_mut() else { return };
+
+		let eldest = if let Some(eldest) = queue.get(0) { eldest } else { return };
 
 		// By default, we're going to execute the eldest job on any worker slot available, even if
 		// we have to kill and re-spawn a worker
@@ -236,7 +240,7 @@ impl Queue {
 		if eldest.waiting_since.elapsed() < MAX_KEEP_WAITING {
 			if let Some(finished_worker) = finished_worker {
 				if let Some(worker_data) = self.workers.running.get(finished_worker) {
-					for (i, job) in self.queue.iter().enumerate() {
+					for (i, job) in queue.iter().enumerate() {
 						if worker_data.executor_params_hash == job.executor_params.hash() {
 							(worker, job_index) = (Some(finished_worker), i);
 							break
@@ -248,7 +252,7 @@ impl Queue {
 
 		if worker.is_none() {
 			// Try to obtain a worker for the job
-			worker = self.workers.find_available(self.queue[job_index].executor_params.hash());
+			worker = self.workers.find_available(queue[job_index].executor_params.hash());
 		}
 
 		if worker.is_none() {
@@ -266,13 +270,14 @@ impl Queue {
 			return
 		}
 
-		let job = self.queue.remove(job_index).expect("Job is just checked to be in queue; qed");
+		let job = queue.remove(job_index).expect("Job is just checked to be in queue; qed");
 
 		if let Some(worker) = worker {
 			assign(self, worker, job);
 		} else {
 			spawn_extra_worker(self, job);
 		}
+		self.unscheduled.log_priority(priority);
 	}
 }
 
@@ -293,8 +298,13 @@ async fn purge_dead(metrics: &Metrics, workers: &mut Workers) {
 
 fn handle_to_queue(queue: &mut Queue, to_queue: ToQueue) {
 	let ToQueue::Enqueue { artifact, pending_execution_request } = to_queue;
-	let PendingExecutionRequest { exec_timeout, params, executor_params, result_tx } =
-		pending_execution_request;
+	let PendingExecutionRequest {
+		exec_timeout,
+		params,
+		executor_params,
+		result_tx,
+		execute_priority,
+	} = pending_execution_request;
 	gum::debug!(
 		target: LOG_TARGET,
 		validation_code_hash = ?artifact.id.code_hash,
@@ -309,7 +319,7 @@ fn handle_to_queue(queue: &mut Queue, to_queue: ToQueue) {
 		result_tx,
 		waiting_since: Instant::now(),
 	};
-	queue.queue.push_back(job);
+	queue.unscheduled.add(job, execute_priority);
 	queue.try_assign_next_job(None);
 }
 
@@ -607,4 +617,158 @@ pub fn start(
 	)
 	.run();
 	(to_queue_tx, from_queue_rx, run)
+}
+
+struct Unscheduled {
+	unscheduled: HashMap<ExecutePriority, VecDeque<ExecuteJob>>,
+	// Counter for (Low, Normal, Critical) priorities
+	priority_log: (u8, u8, u8),
+}
+
+impl Unscheduled {
+	/// The minimum number of items with normal priority that must be present,
+	/// regardless of the amount of critical priority items.
+	/// In percents.
+	const MIN_NORMAL_PRIORITY_PRESENCE: u8 = 10;
+	const MAX_LOG_SIZE: u8 = 10;
+
+	fn new() -> Self {
+		Self {
+			unscheduled: ExecutePriority::iter()
+				.map(|priority| (priority, VecDeque::new()))
+				.collect(),
+			priority_log: (0, 0, 0),
+		}
+	}
+
+	fn log_priority(&mut self, priority: ExecutePriority) {
+		let (low, normal, critical) = &mut self.priority_log;
+		if (*low + *normal + *critical) > Self::MAX_LOG_SIZE {
+			(*low, *normal, *critical) = (0, 0, 0);
+		}
+		match priority {
+			ExecutePriority::Low => *low += 1,
+			ExecutePriority::Normal => *normal += 1,
+			ExecutePriority::Critical => *critical += 1,
+		}
+	}
+
+	fn select_next_priority(&self) -> ExecutePriority {
+		let (_, normal, critical) = self.priority_log;
+		// We do critical tasks first but ensure a minimum presence of normal tasks.
+		// Low priority tasks are processed only if other queues are empty.
+		let mut priority = if critical == 0 {
+			ExecutePriority::Critical // Do critical first, also avoids zero division
+		} else if normal * 100 / critical < Self::MIN_NORMAL_PRIORITY_PRESENCE {
+			ExecutePriority::Normal
+		} else {
+			ExecutePriority::Critical
+		};
+
+		while self.unscheduled.get(&priority).map_or(true, |v| v.is_empty()) {
+			let Some(lower) = priority.lower() else { break };
+			priority = lower;
+		}
+
+		priority
+	}
+
+	fn get_mut(&mut self) -> Option<(&mut VecDeque<ExecuteJob>, ExecutePriority)> {
+		let priority = self.select_next_priority();
+		self.unscheduled.get_mut(&priority).map(|jobs| (jobs, priority))
+	}
+
+	fn add(&mut self, job: ExecuteJob, priority: ExecutePriority) {
+		self.unscheduled.entry(priority).or_default().push_back(job);
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use crate::testing::artifact_id;
+	use std::time::Duration;
+
+	fn create_execution_job() -> ExecuteJob {
+		let (result_tx, _result_rx) = oneshot::channel();
+		ExecuteJob {
+			artifact: ArtifactPathId { id: artifact_id(0), path: PathBuf::new() },
+			exec_timeout: Duration::from_secs(10),
+			params: vec![],
+			executor_params: ExecutorParams::default(),
+			result_tx,
+			waiting_since: Instant::now(),
+		}
+	}
+
+	#[test]
+	fn test_unscheduled_add() {
+		let mut unscheduled = Unscheduled::new();
+
+		unscheduled.add(create_execution_job(), ExecutePriority::Low);
+		unscheduled.add(create_execution_job(), ExecutePriority::Normal);
+		unscheduled.add(create_execution_job(), ExecutePriority::Critical);
+
+		let low = unscheduled.unscheduled.get(&ExecutePriority::Low).unwrap();
+		let normal = unscheduled.unscheduled.get(&ExecutePriority::Normal).unwrap();
+		let critical = unscheduled.unscheduled.get(&ExecutePriority::Critical).unwrap();
+
+		assert_eq!(low.len(), 1);
+		assert_eq!(normal.len(), 1);
+		assert_eq!(critical.len(), 1);
+	}
+
+	#[test]
+	fn test_log_priority() {
+		let mut unscheduled = Unscheduled::new();
+
+		for _ in 0..15 {
+			unscheduled.log_priority(ExecutePriority::Normal);
+		}
+
+		assert_eq!(unscheduled.priority_log.len(), 10);
+		assert!(unscheduled.priority_log.iter().all(|&p| p == ExecutePriority::Normal));
+	}
+
+	#[test]
+	fn test_unscheduled_priority_selection() {
+		let mut unscheduled = Unscheduled::new();
+
+		unscheduled.add(create_execution_job(), ExecutePriority::Low);
+
+		let (queue, priority) = unscheduled.get_mut().unwrap();
+
+		// Returns low priority queue if no others
+		assert_eq!(priority, ExecutePriority::Low);
+		assert_eq!(queue.len(), 1);
+
+		for _ in 0..2 {
+			unscheduled.add(create_execution_job(), ExecutePriority::Normal);
+		}
+
+		let (queue, priority) = unscheduled.get_mut().unwrap();
+
+		// Returns normal priority queue
+		assert_eq!(priority, ExecutePriority::Normal);
+		assert_eq!(queue.len(), 2);
+
+		for _ in 0..3 {
+			unscheduled.add(create_execution_job(), ExecutePriority::Critical);
+		}
+		for _ in 0..10 {
+			unscheduled.log_priority(ExecutePriority::Critical);
+		}
+		let (queue, priority) = unscheduled.get_mut().unwrap();
+
+		// Returns normal priority queue because logged too many criticals
+		assert_eq!(priority, ExecutePriority::Normal);
+		assert_eq!(queue.len(), 2);
+
+		unscheduled.log_priority(ExecutePriority::Normal);
+		let (queue, priority) = unscheduled.get_mut().unwrap();
+
+		// Returns critical priority queue because logged enough normals
+		assert_eq!(priority, ExecutePriority::Critical);
+		assert_eq!(queue.len(), 3);
+	}
 }

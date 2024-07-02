@@ -24,14 +24,14 @@ use orchestra::async_trait;
 use std::time::Duration;
 
 use polkadot_node_primitives::{BlockData, PoV};
-use polkadot_node_subsystem_types::messages::CandidateValidationMessage;
+use polkadot_node_subsystem_types::messages::{CandidateValidationMessage, PvfExecutionPriority};
 use polkadot_overseer::{
 	self as overseer,
 	dummy::dummy_overseer_builder,
 	gen::{FromOrchestra, SpawnedSubsystem},
 	HeadSupportsParachains, SubsystemError,
 };
-use polkadot_primitives::{CandidateReceipt, Hash, PvfExecKind};
+use polkadot_primitives::{CandidateReceipt, Hash};
 use polkadot_primitives_test_helpers::{dummy_candidate_descriptor, dummy_hash};
 
 struct AlwaysSupportsParachains;
@@ -77,7 +77,7 @@ impl Subsystem1 {
 				candidate_receipt,
 				pov: PoV { block_data: BlockData(Vec::new()) }.into(),
 				executor_params: Default::default(),
-				exec_kind: PvfExecKind::Backing,
+				exec_kind: PvfExecutionPriority::Backing,
 				response_sender: tx,
 			};
 			ctx.send_message(msg).await;

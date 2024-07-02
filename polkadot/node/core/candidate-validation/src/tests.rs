@@ -377,7 +377,8 @@ impl ValidationBackend for MockValidateCandidateBackend {
 		_pvf: PvfPrepData,
 		_timeout: Duration,
 		_encoded_params: Vec<u8>,
-		_prepare_priority: polkadot_node_core_pvf::Priority,
+		_prepare_priority: polkadot_node_core_pvf::PreparePriority,
+		_execute_priority: polkadot_node_core_pvf::ExecutePriority,
 	) -> Result<WasmValidationResult, ValidationError> {
 		// This is expected to panic if called more times than expected, indicating an error in the
 		// test.
@@ -446,7 +447,7 @@ fn candidate_validation_ok_is_ok() {
 		candidate_receipt,
 		Arc::new(pov),
 		ExecutorParams::default(),
-		PvfExecKind::Backing,
+		PvfExecutionPriority::Backing,
 		&Default::default(),
 	))
 	.unwrap();
@@ -498,7 +499,7 @@ fn candidate_validation_bad_return_is_invalid() {
 		candidate_receipt,
 		Arc::new(pov),
 		ExecutorParams::default(),
-		PvfExecKind::Backing,
+		PvfExecutionPriority::Backing,
 		&Default::default(),
 	))
 	.unwrap();
@@ -579,7 +580,7 @@ fn candidate_validation_one_ambiguous_error_is_valid() {
 		candidate_receipt,
 		Arc::new(pov),
 		ExecutorParams::default(),
-		PvfExecKind::Approval,
+		PvfExecutionPriority::Approval,
 		&Default::default(),
 	))
 	.unwrap();
@@ -620,7 +621,7 @@ fn candidate_validation_multiple_ambiguous_errors_is_invalid() {
 		candidate_receipt,
 		Arc::new(pov),
 		ExecutorParams::default(),
-		PvfExecKind::Approval,
+		PvfExecutionPriority::Approval,
 		&Default::default(),
 	))
 	.unwrap();
@@ -632,7 +633,7 @@ fn candidate_validation_multiple_ambiguous_errors_is_invalid() {
 #[test]
 fn candidate_validation_retry_internal_errors() {
 	let v = candidate_validation_retry_on_error_helper(
-		PvfExecKind::Approval,
+		PvfExecutionPriority::Approval,
 		vec![
 			Err(InternalValidationError::HostCommunication("foo".into()).into()),
 			// Throw an AJD error, we should still retry again.
@@ -650,7 +651,7 @@ fn candidate_validation_retry_internal_errors() {
 #[test]
 fn candidate_validation_dont_retry_internal_errors() {
 	let v = candidate_validation_retry_on_error_helper(
-		PvfExecKind::Backing,
+		PvfExecutionPriority::Backing,
 		vec![
 			Err(InternalValidationError::HostCommunication("foo".into()).into()),
 			// Throw an AWD error, we should still retry again.
@@ -667,7 +668,7 @@ fn candidate_validation_dont_retry_internal_errors() {
 #[test]
 fn candidate_validation_retry_panic_errors() {
 	let v = candidate_validation_retry_on_error_helper(
-		PvfExecKind::Approval,
+		PvfExecutionPriority::Approval,
 		vec![
 			Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::JobError("foo".into()))),
 			// Throw an AWD error, we should still retry again.
@@ -684,7 +685,7 @@ fn candidate_validation_retry_panic_errors() {
 #[test]
 fn candidate_validation_dont_retry_panic_errors() {
 	let v = candidate_validation_retry_on_error_helper(
-		PvfExecKind::Backing,
+		PvfExecutionPriority::Backing,
 		vec![
 			Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::JobError("foo".into()))),
 			// Throw an AWD error, we should still retry again.
@@ -698,7 +699,7 @@ fn candidate_validation_dont_retry_panic_errors() {
 }
 
 fn candidate_validation_retry_on_error_helper(
-	exec_kind: PvfExecKind,
+	exec_kind: PvfExecutionPriority,
 	mock_errors: Vec<Result<WasmValidationResult, ValidationError>>,
 ) -> Result<ValidationResult, ValidationFailed> {
 	let validation_data = PersistedValidationData { max_pov_size: 1024, ..Default::default() };
@@ -776,7 +777,7 @@ fn candidate_validation_timeout_is_internal_error() {
 		candidate_receipt,
 		Arc::new(pov),
 		ExecutorParams::default(),
-		PvfExecKind::Backing,
+		PvfExecutionPriority::Backing,
 		&Default::default(),
 	));
 
@@ -821,7 +822,7 @@ fn candidate_validation_commitment_hash_mismatch_is_invalid() {
 		candidate_receipt,
 		Arc::new(pov),
 		ExecutorParams::default(),
-		PvfExecKind::Backing,
+		PvfExecutionPriority::Backing,
 		&Default::default(),
 	))
 	.unwrap();
@@ -873,7 +874,7 @@ fn candidate_validation_code_mismatch_is_invalid() {
 		candidate_receipt,
 		Arc::new(pov),
 		ExecutorParams::default(),
-		PvfExecKind::Backing,
+		PvfExecutionPriority::Backing,
 		&Default::default(),
 	))
 	.unwrap();
@@ -930,7 +931,7 @@ fn compressed_code_works() {
 		candidate_receipt,
 		Arc::new(pov),
 		ExecutorParams::default(),
-		PvfExecKind::Backing,
+		PvfExecutionPriority::Backing,
 		&Default::default(),
 	));
 
@@ -984,7 +985,7 @@ fn code_decompression_failure_is_error() {
 		candidate_receipt,
 		Arc::new(pov),
 		ExecutorParams::default(),
-		PvfExecKind::Backing,
+		PvfExecutionPriority::Backing,
 		&Default::default(),
 	));
 
@@ -1039,7 +1040,7 @@ fn pov_decompression_failure_is_invalid() {
 		candidate_receipt,
 		Arc::new(pov),
 		ExecutorParams::default(),
-		PvfExecKind::Backing,
+		PvfExecutionPriority::Backing,
 		&Default::default(),
 	));
 
@@ -1063,7 +1064,8 @@ impl ValidationBackend for MockPreCheckBackend {
 		_pvf: PvfPrepData,
 		_timeout: Duration,
 		_encoded_params: Vec<u8>,
-		_prepare_priority: polkadot_node_core_pvf::Priority,
+		_prepare_priority: polkadot_node_core_pvf::PreparePriority,
+		_execute_priority: polkadot_node_core_pvf::ExecutePriority,
 	) -> Result<WasmValidationResult, ValidationError> {
 		unreachable!()
 	}

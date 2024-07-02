@@ -160,7 +160,7 @@ pub enum CandidateValidationMessage {
 		/// Session's executor parameters
 		executor_params: ExecutorParams,
 		/// Execution kind, used for timeouts and retries (backing/approvals)
-		exec_kind: PvfExecKind,
+		exec_kind: PvfExecutionPriority,
 		/// The sending side of the response channel
 		response_sender: oneshot::Sender<Result<ValidationResult, ValidationFailed>>,
 	},
@@ -185,7 +185,7 @@ pub enum CandidateValidationMessage {
 		/// Session's executor parameters
 		executor_params: ExecutorParams,
 		/// Execution kind, used for timeouts and retries (backing/approvals)
-		exec_kind: PvfExecKind,
+		exec_kind: PvfExecutionPriority,
 		/// The sending side of the response channel
 		response_sender: oneshot::Sender<Result<ValidationResult, ValidationFailed>>,
 	},
@@ -202,6 +202,28 @@ pub enum CandidateValidationMessage {
 		/// The sending side of the response channel
 		response_sender: oneshot::Sender<PreCheckOutcome>,
 	},
+}
+
+/// Extends primitives::PvfExecKind to have a separate value for duspute requests
+/// which is important for prioritization.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PvfExecutionPriority {
+	/// For backing requests.
+	Backing,
+	/// For approval requests
+	Approval,
+	/// For dispute requests
+	Dispute,
+}
+
+impl From<PvfExecutionPriority> for PvfExecKind {
+	fn from(exec: PvfExecutionPriority) -> Self {
+		match exec {
+			PvfExecutionPriority::Backing => PvfExecKind::Backing,
+			PvfExecutionPriority::Approval => PvfExecKind::Approval,
+			PvfExecutionPriority::Dispute => PvfExecKind::Approval,
+		}
+	}
 }
 
 /// Messages received by the Collator Protocol subsystem.
