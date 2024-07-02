@@ -3862,7 +3862,13 @@ impl<T: Config> Pallet<T> {
 			return false
 		}
 
+		// if pool does not exist, return false.
+		if !BondedPools::<T>::contains_key(pool_id) {
+			return false
+		}
+
 		let pool_account = Self::generate_bonded_account(pool_id);
+
 		// true if pool is still not migrated to `DelegateStake`.
 		T::StakeAdapter::pool_strategy(Pool::from(pool_account)) !=
 			adapter::StakeStrategyType::Delegate

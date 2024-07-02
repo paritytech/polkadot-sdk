@@ -64,15 +64,18 @@ impl<T: Config> Delegation<T> {
 			)
 	}
 
-	/// Save self to storage. If the delegation amount is zero, remove the delegation.
-	pub(crate) fn update_or_kill(self, key: &T::AccountId) {
+	/// Save self to storage.
+	///
+	/// If the delegation amount is zero, remove the delegation and returns true.
+	pub(crate) fn update(self, key: &T::AccountId) -> bool {
 		// Clean up if no delegation left.
 		if self.amount == Zero::zero() {
 			<Delegators<T>>::remove(key);
-			return
+			return true
 		}
 
-		<Delegators<T>>::insert(key, self)
+		<Delegators<T>>::insert(key, self);
+		false
 	}
 }
 

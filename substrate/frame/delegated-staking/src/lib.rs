@@ -145,7 +145,7 @@ use frame_support::{
 			},
 			Balanced, Inspect as FunInspect, Mutate as FunMutate,
 		},
-		tokens::{fungible::Credit, Fortitude, Precision, Preservation},
+		tokens::{fungible::Credit, Fortitude, Precision, Preservation, Restriction},
 		Defensive, DefensiveOption, Imbalance, OnUnbalanced,
 	},
 };
@@ -370,7 +370,7 @@ pub mod pallet {
 			let agent = ensure_signed(origin)?;
 
 			// Ensure they have minimum delegation.
-			ensure!(amount >= T::Currency::minimum_balance(), Error::<T>::NotEnoughFunds);
+			// ensure!(amount >= T::Currency::minimum_balance(), Error::<T>::NotEnoughFunds);
 
 			// Ensure delegator is sane.
 			ensure!(!Self::is_agent(&delegator), Error::<T>::NotAllowed);
@@ -483,7 +483,8 @@ impl<T: Config> Pallet<T> {
 		let proxy_delegator = Self::generate_proxy_delegator(Agent::from(who.clone()));
 
 		// Keep proxy delegator alive until all funds are migrated.
-		frame_system::Pallet::<T>::inc_providers(&proxy_delegator.clone().get());
+		// TODO (ank4n) don't need it.
+		// frame_system::Pallet::<T>::inc_providers(&proxy_delegator.clone().get());
 
 		// Get current stake
 		let stake = T::CoreStaking::stake(who)?;
@@ -550,8 +551,6 @@ impl<T: Config> Pallet<T> {
 		let delegator = delegator.get();
 
 		let mut ledger = AgentLedger::<T>::get(&agent).ok_or(Error::<T>::NotAgent)?;
-		// try to hold the funds.
-		T::Currency::hold(&HoldReason::StakingDelegation.into(), &delegator, amount)?;
 
 		let new_delegation_amount =
 			if let Some(existing_delegation) = Delegation::<T>::get(&delegator) {
@@ -561,10 +560,15 @@ impl<T: Config> Pallet<T> {
 					.checked_add(&amount)
 					.ok_or(ArithmeticError::Overflow)?
 			} else {
+				// if this is the first time delegation, increment provider count.
+				frame_system::Pallet::<T>::inc_providers(&delegator);
 				amount
 			};
 
-		Delegation::<T>::new(&agent, new_delegation_amount).update_or_kill(&delegator);
+		// try to hold the funds.
+		T::Currency::hold(&HoldReason::StakingDelegation.into(), &delegator, amount)?;
+
+		let _ = Delegation::<T>::new(&agent, new_delegation_amount).update(&delegator);
 		ledger.total_delegated =
 			ledger.total_delegated.checked_add(&amount).ok_or(ArithmeticError::Overflow)?;
 		ledger.update(&agent);
@@ -636,7 +640,12 @@ impl<T: Config> Pallet<T> {
 			.defensive_ok_or(ArithmeticError::Overflow)?;
 
 		// remove delegator if nothing delegated anymore
-		delegation.update_or_kill(&delegator);
+		let delegation_killed = delegation.update(&delegator);
+
+		// if delegation killed, decrement provider count.
+		if delegation_killed {
+			frame_system::Pallet::<T>::dec_providers(&delegator);
+		}
 
 		let released = T::Currency::release(
 			&HoldReason::StakingDelegation.into(),
@@ -673,41 +682,37 @@ impl<T: Config> Pallet<T> {
 
 		let agent = source_delegation.agent.clone();
 		// update delegations
-		Delegation::<T>::new(&agent, amount).update_or_kill(&destination_delegator);
+		let _ = Delegation::<T>::new(&agent, amount).update(&destination_delegator);
+		frame_system::Pallet::<T>::inc_providers(&destination_delegator);
 
 		source_delegation.amount = source_delegation
 			.amount
 			.checked_sub(&amount)
 			.defensive_ok_or(Error::<T>::BadState)?;
 
-		source_delegation.update_or_kill(&source_delegator);
-
-		// release funds from source
-		let released = T::Currency::release(
-			&HoldReason::StakingDelegation.into(),
-			&source_delegator,
-			amount,
-			Precision::BestEffort,
-		)?;
-
-		defensive_assert!(released == amount, "hold should have been released fully");
+		let delegation_killed = source_delegation.update(&source_delegator);
+		// if delegation killed, decrement provider count.
+		if delegation_killed {
+			frame_system::Pallet::<T>::dec_providers(&source_delegator);
+		}
 
 		// transfer the released amount to `destination_delegator`.
-		let post_balance = T::Currency::transfer(
+		let _ = T::Currency::transfer_on_hold(
+			&HoldReason::StakingDelegation.into(),
 			&source_delegator,
 			&destination_delegator,
 			amount,
-			Preservation::Expendable,
-		)
-		.map_err(|_| Error::<T>::BadState)?;
+			Precision::Exact,
+			Restriction::OnHold,
+			Fortitude::Polite,
+		)?;
+
+		let post_balance_src = T::Currency::total_balance(&source_delegator);
 
 		// if balance is zero, clear provider for source (proxy) delegator.
-		if post_balance == Zero::zero() {
+		if post_balance_src == Zero::zero() {
 			let _ = frame_system::Pallet::<T>::dec_providers(&source_delegator).defensive();
 		}
-
-		// hold the funds again in the new delegator account.
-		T::Currency::hold(&HoldReason::StakingDelegation.into(), &destination_delegator, amount)?;
 
 		Self::deposit_event(Event::<T>::MigratedDelegation {
 			agent,
@@ -749,7 +754,8 @@ impl<T: Config> Pallet<T> {
 		agent_ledger.remove_slash(actual_slash).save();
 		delegation.amount =
 			delegation.amount.checked_sub(&actual_slash).ok_or(ArithmeticError::Overflow)?;
-		delegation.update_or_kill(&delegator);
+		// TODO(ank4n) See what to do
+		let _ = delegation.update(&delegator);
 
 		if let Some(reporter) = maybe_reporter {
 			let reward_payout: BalanceOf<T> = T::SlashRewardFraction::get() * actual_slash;
