@@ -18,7 +18,8 @@
 use crate::{
 	common::API_VERSION_ATTRIBUTE,
 	utils::{
-		extract_all_signature_types, extract_block_type_from_trait_path, extract_impl_trait,
+		extract_all_signature_types, extract_angle_bracketed_idents_from_type_path,
+		extract_block_type_from_trait_path, extract_impl_trait,
 		extract_parameter_names_types_and_borrows, generate_crate_access,
 		generate_runtime_mod_name_for_trait, parse_runtime_api_version, prefix_function_with_trait,
 		versioned_trait_name, AllowSelfRefInParameters, RequireQualifiedTraitPath,
@@ -35,6 +36,7 @@ use syn::{
 	parse::{Error, Parse, ParseStream, Result},
 	parse_macro_input, parse_quote,
 	spanned::Spanned,
+	visit::{self, Visit},
 	Attribute, Ident, ImplItem, ItemImpl, LitInt, LitStr, Path, Signature, Type, TypePath,
 };
 
@@ -803,6 +805,49 @@ fn generate_runtime_api_versions(impls: &[ItemImpl]) -> Result<TokenStream> {
 	))
 }
 
+/// Checks that a trait implementation is in the format we expect.
+struct CheckTraitImpl {
+	errors: Vec<Error>,
+}
+
+impl CheckTraitImpl {
+	/// Check the given trait implementation.
+	///
+	/// All errors will be collected in `self.errors`.
+	fn check(&mut self, trait_: &ItemImpl) {
+		visit::visit_item_impl(self, trait_)
+	}
+}
+
+impl<'ast> Visit<'ast> for CheckTraitImpl {
+	fn visit_type_path(&mut self, i: &'ast syn::TypePath) {
+		if extract_angle_bracketed_idents_from_type_path(i).iter().any(|i| *i == "Self") {
+			self.errors.push(Error::new(
+				i.span(),
+				"`Self` can not be used as a type argument in the scope of `impl_runtime_apis!`. Use `Runtime` instead.",
+			));
+		}
+
+		visit::visit_type_path(self, i)
+	}
+}
+
+/// Check all trait implementations are in the format we expect.
+fn check_trait_impls(impls: &[ItemImpl]) -> Result<()> {
+	let mut checker = CheckTraitImpl { errors: Vec::new() };
+
+	impls.iter().for_each(|i| checker.check(i));
+
+	if let Some(err) = checker.errors.pop() {
+		Err(checker.errors.into_iter().fold(err, |mut acc, e| {
+			acc.combine(e);
+			acc
+		}))
+	} else {
+		Ok(())
+	}
+}
+
 /// The implementation of the `impl_runtime_apis!` macro.
 pub fn impl_runtime_apis_impl(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
 	// Parse all impl blocks
@@ -814,6 +859,8 @@ pub fn impl_runtime_apis_impl(input: proc_macro::TokenStream) -> proc_macro::Tok
 }
 
 fn impl_runtime_apis_impl_inner(api_impls: &[ItemImpl]) -> Result<TokenStream> {
+	check_trait_impls(api_impls)?;
+
 	let dispatch_impl = generate_dispatch_function(api_impls)?;
 	let api_impls_for_runtime = generate_api_impl_for_runtime(api_impls)?;
 	let base_runtime_api = generate_runtime_api_base_structures()?;
