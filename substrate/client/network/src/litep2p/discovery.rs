@@ -168,8 +168,6 @@ pub struct Discovery {
 	_peerstore_handle: Arc<dyn PeerStoreProvider>,
 
 	/// Next Kademlia query for a random peer ID.
-	///
-	/// If `None`, there is currently a query pending.
 	next_kad_query: Option<Delay>,
 
 	/// Active `FIND_NODE` query if it exists.
@@ -447,30 +445,20 @@ impl Stream for Discovery {
 		}
 
 		if let Some(mut delay) = this.next_kad_query.take() {
-			match delay.poll_unpin(cx) {
-				Poll::Pending => {
-					this.next_kad_query = Some(delay);
-				},
-				Poll::Ready(()) => {
-					let peer = PeerId::random();
+			while delay.poll_unpin(cx).is_ready() {
+				let peer = PeerId::random();
+				log::trace!(target: LOG_TARGET, "start next kademlia query for {peer:?}");
 
-					log::trace!(target: LOG_TARGET, "start next kademlia query for {peer:?}");
+				let started = this.kademlia_handle.try_find_node(peer).is_ok();
 
-					match this.kademlia_handle.try_find_node(peer) {
-						Ok(query_id) => {
-							this.find_node_query_id = Some(query_id);
-							return Poll::Ready(Some(DiscoveryEvent::RandomKademliaStarted))
-						},
-						Err(()) => {
-							this.duration_to_next_find_query = cmp::min(
-								this.duration_to_next_find_query * 2,
-								Duration::from_secs(60),
-							);
-							this.next_kad_query =
-								Some(Delay::new(this.duration_to_next_find_query));
-						},
-					}
-				},
+				this.duration_to_next_find_query =
+					cmp::min(this.duration_to_next_find_query * 2, Duration::from_secs(60));
+				this.next_kad_query = Some(Delay::new(this.duration_to_next_find_query));
+
+				if started {
+					this.find_node_query_id = None;
+					return Poll::Ready(Some(DiscoveryEvent::RandomKademliaStarted))
+				}
 			}
 		}
 
@@ -482,8 +470,6 @@ impl Stream for Discovery {
 				// there is no need to add them again. The found peers must be registered to
 				// `Peerstore` so other protocols are aware of them through `Peerset`.
 				log::trace!(target: LOG_TARGET, "dht random walk yielded {} peers", peers.len());
-
-				this.next_kad_query = Some(Delay::new(KADEMLIA_QUERY_INTERVAL));
 
 				return Poll::Ready(Some(DiscoveryEvent::RoutingTableUpdate {
 					peers: peers.into_iter().map(|(peer, _)| peer).collect(),
@@ -506,17 +492,8 @@ impl Stream for Discovery {
 			},
 			Poll::Ready(Some(KademliaEvent::PutRecordSucess { query_id, key: _ })) =>
 				return Poll::Ready(Some(DiscoveryEvent::PutRecordSuccess { query_id })),
-			Poll::Ready(Some(KademliaEvent::QueryFailed { query_id })) => {
-				match this.find_node_query_id == Some(query_id) {
-					true => {
-						this.find_node_query_id = None;
-						this.duration_to_next_find_query =
-							cmp::min(this.duration_to_next_find_query * 2, Duration::from_secs(60));
-						this.next_kad_query = Some(Delay::new(this.duration_to_next_find_query));
-					},
-					false => return Poll::Ready(Some(DiscoveryEvent::QueryFailed { query_id })),
-				}
-			},
+			Poll::Ready(Some(KademliaEvent::QueryFailed { query_id })) =>
+				return Poll::Ready(Some(DiscoveryEvent::QueryFailed { query_id })),
 			Poll::Ready(Some(KademliaEvent::IncomingRecord { record })) => {
 				log::trace!(
 					target: LOG_TARGET,
