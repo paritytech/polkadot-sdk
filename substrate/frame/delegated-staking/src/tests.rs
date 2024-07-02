@@ -21,7 +21,7 @@ use super::*;
 use crate::mock::*;
 use frame_support::{assert_noop, assert_ok, traits::fungible::InspectHold};
 use pallet_nomination_pools::{Error as PoolsError, Event as PoolsEvent};
-use pallet_staking::Error as StakingError;
+use pallet_staking::{Error as StakingError, RewardDestination};
 use sp_staking::{Agent, DelegationInterface, Delegator, StakerStatus};
 
 #[test]
@@ -337,7 +337,6 @@ fn apply_pending_slash() {
 /// Integration tests with pallet-staking.
 mod staking_integration {
 	use super::*;
-	use pallet_staking::RewardDestination;
 	use sp_staking::Stake;
 
 	#[test]
@@ -1214,6 +1213,46 @@ mod pool_integration {
 			// for creator, 50% of stake should be slashed (250), 10% of which should go to reporter
 			// (25).
 			assert_eq!(Balances::free_balance(slash_reporter), 115 + 25);
+		});
+	}
+
+	#[test]
+	fn existing_pool_member_can_stake() {
+		// A pool member is able to stake directly since staking only uses free funds but once a
+		// staker, they cannot join/add extra bond to the pool. They can still withdraw funds.
+		ExtBuilder::default().build_and_execute(|| {
+			start_era(1);
+			// GIVEN: a pool.
+			fund(&200, 1000);
+			let pool_id = create_pool(200, 800);
+
+			// WHEN: delegator joins a pool
+			let delegator = 100;
+			fund(&delegator, 1000);
+			assert_ok!(Pools::join(RawOrigin::Signed(delegator).into(), 200, pool_id));
+
+			// THEN: they can still stake directly.
+			assert_ok!(Staking::bond(
+				RuntimeOrigin::signed(delegator),
+				500,
+				RewardDestination::Account(101)
+			));
+			assert_ok!(Staking::nominate(
+				RuntimeOrigin::signed(delegator),
+				vec![GENESIS_VALIDATOR]
+			));
+
+			// The delegator cannot add any extra bond to the pool anymore.
+			assert_noop!(
+				Pools::bond_extra(RawOrigin::Signed(delegator).into(), BondExtra::FreeBalance(100)),
+				Error::<T>::AlreadyStaking
+			);
+
+			// But they can unbond
+			assert_ok!(Pools::unbond(RawOrigin::Signed(delegator).into(), delegator, 50));
+			// and withdraw
+			start_era(4);
+			assert_ok!(Pools::withdraw_unbonded(RawOrigin::Signed(delegator).into(), delegator, 0));
 		});
 	}
 
