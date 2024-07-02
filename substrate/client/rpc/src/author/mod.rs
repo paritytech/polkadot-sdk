@@ -25,12 +25,14 @@ use std::sync::Arc;
 
 use crate::{
 	utils::{pipe_from_stream, spawn_subscription_task},
-	SubscriptionTaskExecutor,
+	SubscriptionMetrics, SubscriptionParams, SubscriptionTaskExecutor,
 };
 
 use codec::{Decode, Encode};
 use futures::TryFutureExt;
-use jsonrpsee::{core::async_trait, types::ErrorObject, PendingSubscriptionSink};
+use jsonrpsee::{
+	core::async_trait, types::ErrorObject, ConnectionId, Extensions, PendingSubscriptionSink,
+};
 use sc_rpc_api::DenyUnsafe;
 use sc_transaction_pool_api::{
 	error::IntoPoolError, BlockHash, InPoolTransaction, TransactionFor, TransactionPool,
@@ -59,6 +61,8 @@ pub struct Author<P, Client> {
 	deny_unsafe: DenyUnsafe,
 	/// Executor to spawn subscriptions.
 	executor: SubscriptionTaskExecutor,
+	/// Subscription metrics.
+	subscription_metrics: SubscriptionMetrics,
 }
 
 impl<P, Client> Author<P, Client> {
@@ -69,8 +73,9 @@ impl<P, Client> Author<P, Client> {
 		keystore: KeystorePtr,
 		deny_unsafe: DenyUnsafe,
 		executor: SubscriptionTaskExecutor,
+		subscription_metrics: SubscriptionMetrics,
 	) -> Self {
-		Author { client, pool, keystore, deny_unsafe, executor }
+		Author { client, pool, keystore, deny_unsafe, executor, subscription_metrics }
 	}
 }
 
@@ -177,7 +182,10 @@ where
 			.collect())
 	}
 
-	fn watch_extrinsic(&self, pending: PendingSubscriptionSink, xt: Bytes) {
+	fn watch_extrinsic(&self, pending: PendingSubscriptionSink, ext: &Extensions, xt: Bytes) {
+		let conn_id = *ext.get::<ConnectionId>().expect("ConnectionId is set");
+		let ip_addr = *ext.get::<std::net::IpAddr>().expect("IpAddr is set");
+
 		let best_block_hash = self.client.info().best_hash;
 		let dxt = match TransactionFor::<P>::decode(&mut &xt[..]).map_err(|e| Error::from(e)) {
 			Ok(dxt) => dxt,
@@ -193,6 +201,13 @@ where
 				.unwrap_or_else(|e| error::Error::Verification(Box::new(e)))
 		});
 
+		let params = SubscriptionParams {
+			method: "author_submitAndWatchExtrinsic",
+			ip_addr,
+			conn_id,
+			metrics: self.subscription_metrics.clone(),
+		};
+
 		let fut = async move {
 			let stream = match submit.await {
 				Ok(stream) => stream,
@@ -202,7 +217,7 @@ where
 				},
 			};
 
-			pipe_from_stream(pending, stream).await;
+			pipe_from_stream(pending, stream, params).await;
 		};
 
 		spawn_subscription_task(&self.executor, fut);

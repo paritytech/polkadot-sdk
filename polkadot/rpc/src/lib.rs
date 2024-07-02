@@ -142,6 +142,8 @@ where
 	let chain_name = chain_spec.name().to_string();
 	let genesis_hash = client.hash(0).ok().flatten().expect("Genesis block exists; qed");
 	let properties = chain_spec.properties();
+	// TODO: This should be a shared metrics instance.
+	let metrics = sc_rpc::SubscriptionMetrics::disabled();
 
 	io.merge(ChainSpec::new(chain_name, genesis_hash, properties).into_rpc())?;
 	io.merge(StateMigration::new(client.clone(), backend.clone(), deny_unsafe).into_rpc())?;
@@ -167,6 +169,7 @@ where
 			shared_voter_state,
 			justification_stream,
 			finality_provider,
+			metrics.clone(),
 		)
 		.into_rpc(),
 	)?;
@@ -179,6 +182,7 @@ where
 			beefy.beefy_finality_proof_stream,
 			beefy.beefy_best_block_stream,
 			beefy.subscription_executor,
+			metrics,
 		)?
 		.into_rpc(),
 	)?;
