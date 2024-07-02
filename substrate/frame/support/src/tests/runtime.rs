@@ -14,6 +14,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+#![allow(deprecated, clippy::deprecated_semver)]
 
 use super::{frame_system, Block};
 use crate::derive_impl;
@@ -81,6 +82,7 @@ impl pallet_with_instance::Config<pallet_with_instance::Instance2> for Runtime {
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Runtime {
 	type Block = Block;
+	type ExampleConstant = ();
 }
 
 #[docify::export(runtime_macro)]

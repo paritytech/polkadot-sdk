@@ -49,7 +49,7 @@ impl Pallet {
 				return Err(Error::new(
 					attr_span,
 					"Invalid pallet declaration, expected a path or a trait object",
-				))
+				));
 			};
 		}
 
