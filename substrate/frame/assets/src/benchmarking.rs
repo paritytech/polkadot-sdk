@@ -548,7 +548,7 @@ benchmarks_instance_pallet! {
 	}
 
 	block {
-		let (asset_id, caller, caller_lookup) = crfeate_default_minted_asset::<T, I>(true, 100u32.into());
+		let (asset_id, caller, caller_lookup) = create_default_minted_asset::<T, I>(true, 100u32.into());
 	}: _(SystemOrigin::Signed(caller.clone()), asset_id.clone(), caller_lookup)
 	verify {
 		assert_last_event::<T, I>(Event::Blocked { asset_id: asset_id.into(), who: caller }.into());
