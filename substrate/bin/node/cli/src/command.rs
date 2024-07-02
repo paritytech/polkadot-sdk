@@ -16,6 +16,8 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
+use polkadot_sdk::*;
+
 use super::benchmarking::{inherent_benchmark_data, RemarkBuilder, TransferKeepAliveBuilder};
 use crate::{
 	chain_spec, service,
@@ -107,7 +109,7 @@ pub fn run() -> Result<()> {
 							)
 						}
 
-						cmd.run::<HashingFor<Block>, sp_statement_store::runtime_api::HostFunctions>(config)
+						cmd.run_with_spec::<HashingFor<Block>, sp_statement_store::runtime_api::HostFunctions>(Some(config.chain_spec))
 					},
 					BenchmarkCmd::Block(cmd) => {
 						// ensure that we keep the task manager alive
@@ -215,18 +217,12 @@ pub fn run() -> Result<()> {
 					new_partial(&config, None)?;
 				let aux_revert = Box::new(|client: Arc<FullClient>, backend, blocks| {
 					sc_consensus_babe::revert(client.clone(), backend, blocks)?;
-					grandpa::revert(client, blocks)?;
+					sc_consensus_grandpa::revert(client, blocks)?;
 					Ok(())
 				});
 				Ok((cmd.run(client, backend, Some(aux_revert)), task_manager))
 			})
 		},
-		#[cfg(feature = "try-runtime")]
-		Some(Subcommand::TryRuntime) => Err(try_runtime_cli::DEPRECATION_NOTICE.into()),
-		#[cfg(not(feature = "try-runtime"))]
-		Some(Subcommand::TryRuntime) => Err("TryRuntime wasn't enabled when building the node. \
-				You can enable it with `--features try-runtime`."
-			.into()),
 		Some(Subcommand::ChainInfo(cmd)) => {
 			let runner = cli.create_runner(cmd)?;
 			runner.sync_run(|config| cmd.run::<Block>(&config))

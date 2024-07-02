@@ -26,7 +26,7 @@ use sp_core::{
 	storage::Storage,
 	traits::{CallContext, CodeExecutor, Externalities, FetchRuntimeCode, RuntimeCode},
 };
-use sp_genesis_builder::Result as BuildResult;
+use sp_genesis_builder::{PresetId, Result as BuildResult};
 use sp_state_machine::BasicExternalities;
 use std::borrow::Cow;
 
@@ -84,30 +84,46 @@ where
 	/// Returns a json representation of the default `RuntimeGenesisConfig` provided by the
 	/// `runtime`.
 	///
-	/// Calls [`GenesisBuilder::create_default_config`](sp_genesis_builder::GenesisBuilder::create_default_config) in the `runtime`.
+	/// Calls [`GenesisBuilder::get_preset`](sp_genesis_builder::GenesisBuilder::get_preset) in the
+	/// `runtime` with `None` argument.
 	pub fn get_default_config(&self) -> core::result::Result<Value, String> {
-		let mut t = BasicExternalities::new_empty();
-		let call_result = self
-			.call(&mut t, "GenesisBuilder_create_default_config", &[])
-			.map_err(|e| format!("wasm call error {e}"))?;
-		let default_config = Vec::<u8>::decode(&mut &call_result[..])
-			.map_err(|e| format!("scale codec error: {e}"))?;
-		Ok(from_slice(&default_config[..]).expect("returned value is json. qed."))
+		self.get_named_preset(None)
 	}
 
-	/// Builds `RuntimeGenesisConfig` from given json blob and returns the genesis state.
+	/// Returns a JSON blob representation of the builtin `GenesisConfig` identified by `id`.
 	///
-	/// Calls [`GenesisBuilder::build_config`](sp_genesis_builder::GenesisBuilder::build_config)
+	/// Calls [`GenesisBuilder::get_preset`](sp_genesis_builder::GenesisBuilder::get_preset)
 	/// provided by the `runtime`.
+	pub fn get_named_preset(&self, id: Option<&String>) -> core::result::Result<Value, String> {
+		let mut t = BasicExternalities::new_empty();
+		let call_result = self
+			.call(&mut t, "GenesisBuilder_get_preset", &id.encode())
+			.map_err(|e| format!("wasm call error {e}"))?;
+
+		let named_preset = Option::<Vec<u8>>::decode(&mut &call_result[..])
+			.map_err(|e| format!("scale codec error: {e}"))?;
+
+		if let Some(named_preset) = named_preset {
+			Ok(from_slice(&named_preset[..]).expect("returned value is json. qed."))
+		} else {
+			Err(format!("The preset with name {id:?} is not available."))
+		}
+	}
+
+	/// Calls [`sp_genesis_builder::GenesisBuilder::build_state`] provided by runtime.
 	pub fn get_storage_for_config(&self, config: Value) -> core::result::Result<Storage, String> {
 		let mut ext = BasicExternalities::new_empty();
 
+		let json_pretty_str = serde_json::to_string_pretty(&config)
+			.map_err(|e| format!("json to string failed: {e}"))?;
+
 		let call_result = self
-			.call(&mut ext, "GenesisBuilder_build_config", &config.to_string().encode())
+			.call(&mut ext, "GenesisBuilder_build_state", &json_pretty_str.encode())
 			.map_err(|e| format!("wasm call error {e}"))?;
 
 		BuildResult::decode(&mut &call_result[..])
-			.map_err(|e| format!("scale codec error: {e}"))??;
+			.map_err(|e| format!("scale codec error: {e}"))?
+			.map_err(|e| format!("{e} for blob:\n{}", json_pretty_str))?;
 
 		Ok(ext.into_storages())
 	}
@@ -137,6 +153,25 @@ where
 		crate::json_patch::merge(&mut config, patch);
 		self.get_storage_for_config(config)
 	}
+
+	pub fn get_storage_for_named_preset(
+		&self,
+		name: Option<&String>,
+	) -> core::result::Result<Storage, String> {
+		self.get_storage_for_patch(self.get_named_preset(name)?)
+	}
+
+	pub fn preset_names(&self) -> core::result::Result<Vec<PresetId>, String> {
+		let mut t = BasicExternalities::new_empty();
+		let call_result = self
+			.call(&mut t, "GenesisBuilder_preset_names", &vec![])
+			.map_err(|e| format!("wasm call error {e}"))?;
+
+		let preset_names = Vec::<PresetId>::decode(&mut &call_result[..])
+			.map_err(|e| format!("scale codec error: {e}"))?;
+
+		Ok(preset_names)
+	}
 }
 
 #[cfg(test)]
@@ -144,6 +179,17 @@ mod tests {
 	use super::*;
 	use serde_json::{from_str, json};
 	pub use sp_consensus_babe::{AllowedSlots, BabeEpochConfiguration};
+	pub use sp_genesis_builder::PresetId;
+
+	#[test]
+	fn list_presets_works() {
+		sp_tracing::try_init_simple();
+		let presets =
+			<GenesisConfigBuilderRuntimeCaller>::new(substrate_test_runtime::wasm_binary_unwrap())
+				.preset_names()
+				.unwrap();
+		assert_eq!(presets, vec![PresetId::from("foobar"), PresetId::from("staging"),]);
+	}
 
 	#[test]
 	fn get_default_config_works() {
@@ -152,6 +198,17 @@ mod tests {
 				.get_default_config()
 				.unwrap();
 		let expected = r#"{"babe": {"authorities": [], "epochConfig": {"allowed_slots": "PrimaryAndSecondaryVRFSlots", "c": [1, 4]}}, "balances": {"balances": []}, "substrateTest": {"authorities": []}, "system": {}}"#;
+		assert_eq!(from_str::<Value>(expected).unwrap(), config);
+	}
+
+	#[test]
+	fn get_named_preset_works() {
+		sp_tracing::try_init_simple();
+		let config =
+			<GenesisConfigBuilderRuntimeCaller>::new(substrate_test_runtime::wasm_binary_unwrap())
+				.get_named_preset(Some(&"foobar".to_string()))
+				.unwrap();
+		let expected = r#"{"foo":"bar"}"#;
 		assert_eq!(from_str::<Value>(expected).unwrap(), config);
 	}
 

@@ -1,0 +1,15 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Removed `pallet::getter` usage from the authority-discovery pallet
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      This PR removed `pallet::getter`s from `pallet-authority-discovery`s storage items.
+      When accessed inside the pallet, use the syntax `StorageItem::<T, I>::get()`.
+      When accessed outside the pallet, use the getters current_authorities() and next_authorities() instead.
+
+crates:
+  - name: pallet-authority-discovery
+    bump: major

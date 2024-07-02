@@ -155,6 +155,18 @@ impl<T> Convert<Perquintill, u32> for NoCounterpart<T> {
 	}
 }
 
+/// Setup the empty genesis state for benchmarking.
+pub trait BenchmarkSetup {
+	/// Create the counterpart asset. Should panic on error.
+	///
+	/// This is called prior to assuming that a counterpart balance exists.
+	fn create_counterpart_asset();
+}
+
+impl BenchmarkSetup for () {
+	fn create_counterpart_asset() {}
+}
+
 #[frame_support::pallet]
 pub mod pallet {
 	use super::{FunInspect, FunMutate};
@@ -297,6 +309,10 @@ pub mod pallet {
 		/// The maximum proportion which may be thawed and the period over which it is reset.
 		#[pallet::constant]
 		type ThawThrottle: Get<(Perquintill, BlockNumberFor<Self>)>;
+
+		/// Setup the state for benchmarking.
+		#[cfg(feature = "runtime-benchmarks")]
+		type BenchmarkSetup: crate::BenchmarkSetup;
 	}
 
 	#[pallet::pallet]
@@ -792,7 +808,7 @@ pub mod pallet {
 			ensure!(summary.thawed <= throttle, Error::<T>::Throttled);
 
 			let cp_amount = T::CounterpartAmount::convert(receipt.proportion);
-			T::Counterpart::burn_from(&who, cp_amount, Exact, Polite)?;
+			T::Counterpart::burn_from(&who, cp_amount, Expendable, Exact, Polite)?;
 
 			// Multiply the proportion it is by the total issued.
 			let our_account = Self::account_id();
@@ -881,6 +897,7 @@ pub mod pallet {
 			T::Counterpart::burn_from(
 				&who,
 				T::CounterpartAmount::convert(receipt.proportion),
+				Expendable,
 				Exact,
 				Polite,
 			)?;

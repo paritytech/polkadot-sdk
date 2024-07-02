@@ -27,7 +27,7 @@ use crate::{
 	common::events::StorageQuery,
 };
 use jsonrpsee::{proc_macros::rpc, server::ResponsePayload};
-use sp_rpc::list::ListOrValue;
+pub use sp_rpc::list::ListOrValue;
 
 #[rpc(client, server)]
 pub trait ChainHeadApi<Hash> {
@@ -37,15 +37,15 @@ pub trait ChainHeadApi<Hash> {
 	///
 	/// This method is unstable and subject to change in the future.
 	#[subscription(
-		name = "chainHead_unstable_follow" => "chainHead_unstable_followEvent",
-		unsubscribe = "chainHead_unstable_unfollow",
+		name = "chainHead_v1_follow" => "chainHead_v1_followEvent",
+		unsubscribe = "chainHead_v1_unfollow",
 		item = FollowEvent<Hash>,
 	)]
 	fn chain_head_unstable_follow(&self, with_runtime: bool);
 
 	/// Retrieves the body (list of transactions) of a pinned block.
 	///
-	/// This method should be seen as a complement to `chainHead_unstable_follow`,
+	/// This method should be seen as a complement to `chainHead_v1_follow`,
 	/// allowing the JSON-RPC client to retrieve more information about a block
 	/// that has been reported.
 	///
@@ -54,8 +54,8 @@ pub trait ChainHeadApi<Hash> {
 	/// # Unstable
 	///
 	/// This method is unstable and subject to change in the future.
-	#[method(name = "chainHead_unstable_body", blocking)]
-	fn chain_head_unstable_body(
+	#[method(name = "chainHead_v1_body", with_extensions)]
+	async fn chain_head_unstable_body(
 		&self,
 		follow_subscription: String,
 		hash: Hash,
@@ -63,7 +63,7 @@ pub trait ChainHeadApi<Hash> {
 
 	/// Retrieves the header of a pinned block.
 	///
-	/// This method should be seen as a complement to `chainHead_unstable_follow`,
+	/// This method should be seen as a complement to `chainHead_v1_follow`,
 	/// allowing the JSON-RPC client to retrieve more information about a block
 	/// that has been reported.
 	///
@@ -73,8 +73,8 @@ pub trait ChainHeadApi<Hash> {
 	/// # Unstable
 	///
 	/// This method is unstable and subject to change in the future.
-	#[method(name = "chainHead_unstable_header", blocking)]
-	fn chain_head_unstable_header(
+	#[method(name = "chainHead_v1_header", with_extensions)]
+	async fn chain_head_unstable_header(
 		&self,
 		follow_subscription: String,
 		hash: Hash,
@@ -85,8 +85,8 @@ pub trait ChainHeadApi<Hash> {
 	/// # Unstable
 	///
 	/// This method is unstable and subject to change in the future.
-	#[method(name = "chainHead_unstable_storage", blocking)]
-	fn chain_head_unstable_storage(
+	#[method(name = "chainHead_v1_storage", with_extensions)]
+	async fn chain_head_unstable_storage(
 		&self,
 		follow_subscription: String,
 		hash: Hash,
@@ -99,8 +99,8 @@ pub trait ChainHeadApi<Hash> {
 	/// # Unstable
 	///
 	/// This method is unstable and subject to change in the future.
-	#[method(name = "chainHead_unstable_call", blocking)]
-	fn chain_head_unstable_call(
+	#[method(name = "chainHead_v1_call", with_extensions)]
+	async fn chain_head_unstable_call(
 		&self,
 		follow_subscription: String,
 		hash: Hash,
@@ -118,8 +118,8 @@ pub trait ChainHeadApi<Hash> {
 	/// # Unstable
 	///
 	/// This method is unstable and subject to change in the future.
-	#[method(name = "chainHead_unstable_unpin", blocking)]
-	fn chain_head_unstable_unpin(
+	#[method(name = "chainHead_v1_unpin", with_extensions)]
+	async fn chain_head_unstable_unpin(
 		&self,
 		follow_subscription: String,
 		hash_or_hashes: ListOrValue<Hash>,
@@ -131,22 +131,22 @@ pub trait ChainHeadApi<Hash> {
 	/// # Unstable
 	///
 	/// This method is unstable and subject to change in the future.
-	#[method(name = "chainHead_unstable_continue", blocking)]
-	fn chain_head_unstable_continue(
+	#[method(name = "chainHead_v1_continue", with_extensions)]
+	async fn chain_head_unstable_continue(
 		&self,
 		follow_subscription: String,
 		operation_id: String,
 	) -> Result<(), Error>;
 
-	/// Stops an operation started with chainHead_unstable_body, chainHead_unstable_call, or
-	/// chainHead_unstable_storage. If the operation was still in progress, this interrupts it. If
+	/// Stops an operation started with chainHead_v1_body, chainHead_v1_call, or
+	/// chainHead_v1_storage. If the operation was still in progress, this interrupts it. If
 	/// the operation was already finished, this call has no effect.
 	///
 	/// # Unstable
 	///
 	/// This method is unstable and subject to change in the future.
-	#[method(name = "chainHead_unstable_stopOperation", blocking)]
-	fn chain_head_unstable_stop_operation(
+	#[method(name = "chainHead_v1_stopOperation", with_extensions)]
+	async fn chain_head_unstable_stop_operation(
 		&self,
 		follow_subscription: String,
 		operation_id: String,

@@ -16,10 +16,10 @@ pub use v1::MigrateToV1;
 pub mod v0 {
 	use crate::inclusion::{Config, Pallet};
 	use bitvec::{order::Lsb0 as BitOrderLsb0, vec::BitVec};
+	use codec::{Decode, Encode};
 	use frame_support::{storage_alias, Twox64Concat};
 	use frame_system::pallet_prelude::BlockNumberFor;
-	use parity_scale_codec::{Decode, Encode};
-	use primitives::{
+	use polkadot_primitives::{
 		AvailabilityBitfield, CandidateCommitments, CandidateDescriptor, CandidateHash, CoreIndex,
 		GroupIndex, Id as ParaId, ValidatorIndex,
 	};
@@ -73,21 +73,21 @@ mod v1 {
 		CandidatePendingAvailability as V1CandidatePendingAvailability, Config, Pallet,
 		PendingAvailability as V1PendingAvailability,
 	};
-	use frame_support::{traits::OnRuntimeUpgrade, weights::Weight};
+	use frame_support::{traits::UncheckedOnRuntimeUpgrade, weights::Weight};
 	use sp_core::Get;
 	use sp_std::{collections::vec_deque::VecDeque, vec::Vec};
 
+	#[cfg(feature = "try-runtime")]
+	use codec::{Decode, Encode};
 	#[cfg(feature = "try-runtime")]
 	use frame_support::{
 		ensure,
 		traits::{GetStorageVersion, StorageVersion},
 	};
-	#[cfg(feature = "try-runtime")]
-	use parity_scale_codec::{Decode, Encode};
 
 	pub struct VersionUncheckedMigrateToV1<T>(sp_std::marker::PhantomData<T>);
 
-	impl<T: Config> OnRuntimeUpgrade for VersionUncheckedMigrateToV1<T> {
+	impl<T: Config> UncheckedOnRuntimeUpgrade for VersionUncheckedMigrateToV1<T> {
 		#[cfg(feature = "try-runtime")]
 		fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::TryRuntimeError> {
 			log::trace!(target: crate::inclusion::LOG_TARGET, "Running pre_upgrade() for inclusion MigrateToV1");
@@ -216,16 +216,18 @@ mod tests {
 		},
 		mock::{new_test_ext, MockGenesisConfig, Test},
 	};
-	use frame_support::traits::OnRuntimeUpgrade;
-	use primitives::{AvailabilityBitfield, Id as ParaId};
-	use test_helpers::{dummy_candidate_commitments, dummy_candidate_descriptor, dummy_hash};
+	use frame_support::traits::UncheckedOnRuntimeUpgrade;
+	use polkadot_primitives::{AvailabilityBitfield, Id as ParaId};
+	use polkadot_primitives_test_helpers::{
+		dummy_candidate_commitments, dummy_candidate_descriptor, dummy_hash,
+	};
 
 	#[test]
 	fn migrate_to_v1() {
 		new_test_ext(MockGenesisConfig::default()).execute_with(|| {
 			// No data to migrate.
 			assert_eq!(
-				<VersionUncheckedMigrateToV1<Test> as OnRuntimeUpgrade>::on_runtime_upgrade(),
+				<VersionUncheckedMigrateToV1<Test> as UncheckedOnRuntimeUpgrade>::on_runtime_upgrade(),
 				Weight::zero()
 			);
 			assert!(V1PendingAvailability::<Test>::iter().next().is_none());
@@ -299,7 +301,7 @@ mod tests {
 
 			// For tests, db weight is zero.
 			assert_eq!(
-				<VersionUncheckedMigrateToV1<Test> as OnRuntimeUpgrade>::on_runtime_upgrade(),
+				<VersionUncheckedMigrateToV1<Test> as UncheckedOnRuntimeUpgrade>::on_runtime_upgrade(),
 				Weight::zero()
 			);
 

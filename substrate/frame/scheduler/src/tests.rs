@@ -1501,8 +1501,11 @@ fn scheduler_handles_periodic_unavailable_preimage() {
 		run_to_block(4);
 		assert_eq!(logger::log().len(), 1);
 
-		// Unnote the preimage
+		// As the public api doesn't support to remove a noted preimage, we need to first unnote it
+		// and then request it again. Basically this should not happen in real life (whatever you
+		// call real life;).
 		Preimage::unnote(&hash);
+		Preimage::request(&hash);
 
 		// Does not ever execute again.
 		run_to_block(100);
@@ -2285,9 +2288,18 @@ fn postponed_named_task_cannot_be_rescheduled() {
 
 		// Run to a very large block.
 		run_to_block(10);
+
 		// It was not executed.
 		assert!(logger::log().is_empty());
-		assert!(Preimage::is_requested(&hash));
+
+		// Preimage was not available
+		assert_eq!(
+			System::events().last().unwrap().event,
+			crate::Event::CallUnavailable { task: (4, 0), id: Some(name) }.into()
+		);
+
+		// So it should not be requested.
+		assert!(!Preimage::is_requested(&hash));
 		// Postponing removes the lookup.
 		assert!(!Lookup::<Test>::contains_key(name));
 
@@ -2307,11 +2319,12 @@ fn postponed_named_task_cannot_be_rescheduled() {
 		);
 
 		// Finally add the preimage.
-		assert_ok!(Preimage::note(call.encode().into()));
+		assert_ok!(Preimage::note_preimage(RuntimeOrigin::signed(0), call.encode()));
+
 		run_to_block(1000);
 		// It did not execute.
 		assert!(logger::log().is_empty());
-		assert!(Preimage::is_requested(&hash));
+		assert!(!Preimage::is_requested(&hash));
 
 		// Manually re-schedule the call by name does not work.
 		assert_err!(

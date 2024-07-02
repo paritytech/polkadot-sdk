@@ -25,6 +25,7 @@ mod imports {
 		prelude::{AccountId32 as AccountId32Junction, *},
 		v3::{self, NetworkId::Westend as WestendId},
 	};
+	pub use xcm_executor::traits::TransferType;
 
 	// Cumulus
 	pub use emulated_integration_tests_common::{
@@ -34,11 +35,13 @@ mod imports {
 		xcm_emulator::{
 			assert_expected_events, bx, Chain, Parachain as Para, RelayChain as Relay, TestExt,
 		},
+		ASSETS_PALLET_ID, USDT_ID,
 	};
 	pub use parachains_common::AccountId;
 	pub use rococo_westend_system_emulated_network::{
 		asset_hub_rococo_emulated_chain::{
-			genesis::ED as ASSET_HUB_ROCOCO_ED, AssetHubRococoParaPallet as AssetHubRococoPallet,
+			genesis::{AssetHubRococoAssetOwner, ED as ASSET_HUB_ROCOCO_ED},
+			AssetHubRococoParaPallet as AssetHubRococoPallet,
 		},
 		asset_hub_westend_emulated_chain::{
 			genesis::ED as ASSET_HUB_WESTEND_ED, AssetHubWestendParaPallet as AssetHubWestendPallet,
@@ -46,7 +49,7 @@ mod imports {
 		bridge_hub_rococo_emulated_chain::{
 			genesis::ED as BRIDGE_HUB_ROCOCO_ED, BridgeHubRococoParaPallet as BridgeHubRococoPallet,
 		},
-		penpal_emulated_chain::PenpalAParaPallet as PenpalAPallet,
+		penpal_emulated_chain::{PenpalAParaPallet as PenpalAPallet, PenpalAssetOwner},
 		rococo_emulated_chain::{genesis::ED as ROCOCO_ED, RococoRelayPallet as RococoPallet},
 		AssetHubRococoPara as AssetHubRococo, AssetHubRococoParaReceiver as AssetHubRococoReceiver,
 		AssetHubRococoParaSender as AssetHubRococoSender, AssetHubWestendPara as AssetHubWestend,

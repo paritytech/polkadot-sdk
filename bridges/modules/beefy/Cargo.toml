@@ -1,0 +1,63 @@
+[package]
+name = "pallet-bridge-beefy"
+version = "0.1.0"
+description = "Module implementing BEEFY on-chain light client used for bridging consensus of substrate-based chains."
+authors.workspace = true
+edition.workspace = true
+license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
+repository.workspace = true
+publish = false
+
+[lints]
+workspace = true
+
+[dependencies]
+codec = { workspace = true }
+log = { workspace = true }
+scale-info = { features = ["derive"], workspace = true }
+serde = { optional = true, workspace = true }
+
+# Bridge Dependencies
+
+bp-beefy = { workspace = true }
+bp-runtime = { workspace = true }
+
+# Substrate Dependencies
+
+frame-support = { workspace = true }
+frame-system = { workspace = true }
+sp-core = { workspace = true }
+sp-runtime = { workspace = true }
+sp-std = { workspace = true }
+
+[dev-dependencies]
+sp-consensus-beefy = { workspace = true, default-features = true }
+mmr-lib = { workspace = true }
+pallet-beefy-mmr = { workspace = true, default-features = true }
+pallet-mmr = { workspace = true, default-features = true }
+rand = { workspace = true, default-features = true }
+sp-io = { workspace = true, default-features = true }
+bp-test-utils = { workspace = true, default-features = true }
+
+[features]
+default = ["std"]
+std = [
+	"bp-beefy/std",
+	"bp-runtime/std",
+	"codec/std",
+	"frame-support/std",
+	"frame-system/std",
+	"log/std",
+	"scale-info/std",
+	"serde/std",
+	"sp-core/std",
+	"sp-runtime/std",
+	"sp-std/std",
+]
+try-runtime = [
+	"frame-support/try-runtime",
+	"frame-system/try-runtime",
+	"pallet-beefy-mmr/try-runtime",
+	"pallet-mmr/try-runtime",
+	"sp-runtime/try-runtime",
+]

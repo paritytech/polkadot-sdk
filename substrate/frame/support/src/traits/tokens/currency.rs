@@ -16,6 +16,9 @@
 // limitations under the License.
 
 //! The Currency trait and associated types.
+//!
+//! Note Currency and related traits are deprecated, instead
+//! [`fungible`](frame_support::traits::fungible) traits should be used.
 
 use super::{
 	imbalance::{Imbalance, SignedImbalance},

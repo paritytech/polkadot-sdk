@@ -790,7 +790,7 @@ pub trait HostFn {
 	///
 	/// # Parameters
 	///
-	/// - `dest`: The XCM destination, should be decodable as [MultiLocation](https://paritytech.github.io/polkadot-sdk/master/staging_xcm/enum.VersionedLocation.html),
+	/// - `dest`: The XCM destination, should be decodable as [VersionedLocation](https://paritytech.github.io/polkadot-sdk/master/staging_xcm/enum.VersionedLocation.html),
 	///   traps otherwise.
 	/// - `msg`: The message, should be decodable as a [VersionedXcm](https://paritytech.github.io/polkadot-sdk/master/staging_xcm/enum.VersionedXcm.html),
 	///   traps otherwise.
