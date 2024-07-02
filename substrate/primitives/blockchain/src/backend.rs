@@ -21,7 +21,7 @@ use log::warn;
 use parking_lot::RwLock;
 use sp_runtime::{
 	generic::BlockId,
-	traits::{Block as BlockT, Header as HeaderT, NumberFor, One, Zero},
+	traits::{Block as BlockT, Header as HeaderT, NumberFor, Zero},
 	Justifications,
 };
 use std::collections::{btree_set::BTreeSet, HashMap, VecDeque};
@@ -298,7 +298,7 @@ pub trait Backend<Block: BlockT>:
 						},
 					};
 
-				if current_header_metadata.number < finalized_chain_block_number + One::one() {
+				if current_header_metadata.number <= finalized_chain_block_number {
 					// Skip more blocks until we get all blocks on finalized chain until the height
 					// of the parent block
 					continue;
@@ -318,7 +318,7 @@ pub trait Backend<Block: BlockT>:
 
 		// There could be duplicates shared by multiple branches, clean them up
 		result.displaced_blocks.sort_unstable();
-		result.displaced_blocks.dedup_by_key(|hash| *hash);
+		result.displaced_blocks.dedup();
 
 		return Ok(result);
 	}
