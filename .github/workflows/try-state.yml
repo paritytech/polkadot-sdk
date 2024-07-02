@@ -1,0 +1,62 @@
+# Runs `try-state` on all live runtimes in `polkadot-sdk`
+
+name: Check try-state
+on:
+  push:
+    branches:
+      - liam-try-state-scheduled-checks
+  schedule:
+    # run once per day at midnight
+    - cron: "0 0 * * *"
+
+env:
+  # TODO: Replace this with paritytech/polkadot-sdk 'latest' release URL once 1.3.0 is published 
+  # with all runtime blobs.
+  RUNTIME_BASE_URL: https://github.com/liamaharon/polkadot-sdk/releases/download/polkadot-v1.2.0-with-runtime-builds-fixed.3
+  MATRIX_ROOM_ID: "!nbOkFmINBdBqqrfQYH:parity.io"
+
+jobs:
+  check_try_state:
+    strategy:
+      matrix:
+        runtime:
+          - { name: westend, file_name: DEV_DEBUG_BUILD__westend_runtime.compact.compressed.wasm, rpc: "wss://westend-try-runtime-node.parity-chains.parity.io:443" }
+          - { name: rococo, file_name: DEV_DEBUG_BUILD__rococo_runtime.compact.compressed.wasm, rpc: "wss://rococo-try-runtime-node.parity-chains.parity.io:443" }
+          - { name: westend_asset_hub, file_name: DEV_DEBUG_BUILD__asset_hub_westend_runtime.compact.compressed.wasm, rpc: "wss://westend-asset-hub-rpc.polkadot.io:443" }
+          - { name: rococo_bridge_hub, file_name: DEV_DEBUG_BUILD__bridge_hub_rococo_runtime.compact.compressed.wasm, rpc: "wss://rococo-bridge-hub-rpc.polkadot.io:443" }
+          - { name: rococo_contracts, file_name: DEV_DEBUG_BUILD__contracts_rococo_runtime.compact.compressed.wasm, rpc: "wss://rococo-contracts-rpc.polkadot.io:443" }
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v2
+    
+    - name:  Download and set up try-runtime binary
+      run: |
+        curl -sL https://github.com/paritytech/try-runtime-cli/releases/download/v0.4.0/try-runtime-x86_64-unknown-linux-musl -o try-runtime
+        chmod +x try-runtime
+
+    - name: Download runtime blob
+      run: |
+        curl -sL ${{ env.RUNTIME_BASE_URL }}/${{ matrix.runtime.file_name }} -o ${{ matrix.runtime.name }}
+
+    - name: Display structure of downloaded files
+      run: ls -R
+
+    - name: Check state
+      id: check_state
+      continue-on-error: true
+      run: | 
+        ./try-runtime \
+          --runtime ./${{ matrix.runtime.name }} \
+          execute-block \
+          live --uri ${{ matrix.runtime.rpc }}
+
+    - name: Send Matrix Alert
+      if: ${{ steps.check_state.outcome == 'failure' }}
+      uses: s3krit/matrix-message-action@70ad3fb812ee0e45ff8999d6af11cafad11a6ecf # v0.0.3
+      with:
+        room_id: ${{ env.MATRIX_ROOM_ID }}
+        access_token: ${{ secrets.MATRIX_TRY_RUNTIME_BOT_TOKEN }}
+        server: m.parity.io
+        message: |
+          @room Problem executing try-state for runtime ${{ matrix.runtime.name }}. Check the details here: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
