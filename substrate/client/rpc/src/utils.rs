@@ -61,7 +61,7 @@ impl<T> Default for BoundedVecDeque<T> {
 impl<T> BoundedVecDeque<T> {
 	/// Create a new bounded VecDeque.
 	pub fn new(cap: usize) -> Self {
-		Self { inner: VecDeque::with_capacity(cap), max_cap: DEFAULT_BUF_SIZE }
+		Self { inner: VecDeque::with_capacity(cap), max_cap: cap }
 	}
 }
 
