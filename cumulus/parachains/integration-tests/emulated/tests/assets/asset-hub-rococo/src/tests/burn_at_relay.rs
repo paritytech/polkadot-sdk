@@ -16,15 +16,15 @@
 use crate::imports::*;
 use emulated_integration_tests_common::accounts;
 
-/// Create asset and then remove privileges, this result in the burning of the deposit which must
-/// burn at the relay chain.
+/// Create asset and then remove privileges; this results in the burning of the deposit, which must
+/// burn at the Relay Chain.
 #[test]
 fn create_asset_remove_privileges_burn_deposit_at_relay() {
 	let owner = AssetHubRococo::account_id_of(accounts::CHARLIE);
 	let asset_id = 3939;
 
-	// We need first to teleport some balance so that it can be withdrawn later on the relay
-	// chain. Otherwise the asset is not withdrawable due to how genesis is setup.
+	// We need first to teleport some balance so that it can be withdrawn later on the Relay
+	// Chain. Otherwise the asset is not withdrawable due to how genesis is set up.
 	Rococo::execute_with(|| {
 		type XcmPallet = <Rococo as RococoPallet>::XcmPallet;
 
