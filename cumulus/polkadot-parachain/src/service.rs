@@ -950,7 +950,7 @@ type SyncCmdResult = sc_cli::Result<()>;
 type AsyncCmdResult<'a> =
 	sc_cli::Result<(Pin<Box<dyn Future<Output = SyncCmdResult> + 'a>>, TaskManager)>;
 
-pub trait DynNodeSpec<Net: NetworkBackend<Block, Hash>> {
+pub trait DynNodeSpec {
 	fn prepare_check_block_cmd(
 		self: Box<Self>,
 		config: Configuration,
@@ -1010,11 +1010,9 @@ pub trait DynNodeSpec<Net: NetworkBackend<Block, Hash>> {
 	) -> Pin<Box<dyn Future<Output = sc_service::error::Result<TaskManager>>>>;
 }
 
-#[async_trait::async_trait]
-impl<T, Net> DynNodeSpec<Net> for T
+impl<T> DynNodeSpec for T
 where
 	T: NodeSpec,
-	Net: NetworkBackend<Block, Hash>,
 {
 	fn prepare_check_block_cmd(
 		self: Box<Self>,
@@ -1100,12 +1098,23 @@ where
 		para_id: ParaId,
 		hwbench: Option<HwBench>,
 	) -> Pin<Box<dyn Future<Output = sc_service::error::Result<TaskManager>>>> {
-		<Self as NodeSpec>::start_node::<Net>(
-			parachain_config,
-			polkadot_config,
-			collator_options,
-			para_id,
-			hwbench,
-		)
+		match parachain_config.network.network_backend {
+			sc_network::config::NetworkBackendType::Libp2p =>
+				<Self as NodeSpec>::start_node::<sc_network::NetworkWorker<_, _>>(
+					parachain_config,
+					polkadot_config,
+					collator_options,
+					para_id,
+					hwbench,
+				),
+			sc_network::config::NetworkBackendType::Litep2p =>
+				<Self as NodeSpec>::start_node::<sc_network::Litep2pNetworkBackend>(
+					parachain_config,
+					polkadot_config,
+					collator_options,
+					para_id,
+					hwbench,
+				),
+		}
 	}
 }

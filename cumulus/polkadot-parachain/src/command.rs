@@ -23,7 +23,7 @@ use crate::{
 	},
 	service::{
 		AssetHubLookaheadNode, BasicLookaheadNode, Block, ContractsRococoNode, DynNodeSpec,
-		GenericAuraLookaheadNode, Hash, RococoParachainNode, ShellNode,
+		GenericAuraLookaheadNode, RococoParachainNode, ShellNode,
 	},
 };
 #[cfg(feature = "runtime-benchmarks")]
@@ -385,9 +385,9 @@ impl SubstrateCli for RelayChainCli {
 	}
 }
 
-fn new_node_spec_with_network<Net: sc_network::NetworkBackend<Block, Hash>>(
+fn new_node_spec(
 	config: &sc_service::Configuration,
-) -> std::result::Result<Box<dyn DynNodeSpec<Net>>, sc_cli::Error> {
+) -> std::result::Result<Box<dyn DynNodeSpec>, sc_cli::Error> {
 	Ok(match config.chain_spec.runtime()? {
 		Runtime::AssetHubPolkadot => Box::new(AssetHubLookaheadNode::<
 			AssetHubPolkadotRuntimeApi,
@@ -408,12 +408,6 @@ fn new_node_spec_with_network<Net: sc_network::NetworkBackend<Block, Hash>>(
 			Consensus::Relay => Box::new(ShellNode),
 		},
 	})
-}
-
-fn new_node_spec(
-	config: &sc_service::Configuration,
-) -> std::result::Result<Box<dyn DynNodeSpec<sc_network::Litep2pNetworkBackend>>, sc_cli::Error> {
-	new_node_spec_with_network(config)
 }
 
 /// Parse command line arguments into service configuration.
@@ -593,40 +587,21 @@ pub fn run() -> Result<()> {
 				info!("🧾 Parachain Account: {}", parachain_account);
 				info!("✍️ Is collating: {}", if config.role.is_authority() { "yes" } else { "no" });
 
-				match config.network.network_backend {
-					sc_network::config::NetworkBackendType::Libp2p =>
-						start_node::<sc_network::NetworkWorker<_, _>>(
-							config,
-							polkadot_config,
-							collator_options,
-							id,
-							hwbench,
-						)
-						.await,
-					sc_network::config::NetworkBackendType::Litep2p =>
-						start_node::<sc_network::Litep2pNetworkBackend>(
-							config,
-							polkadot_config,
-							collator_options,
-							id,
-							hwbench,
-						)
-						.await,
-				}
+				start_node(config, polkadot_config, collator_options, id, hwbench).await
 			})
 		},
 	}
 }
 
 #[sc_tracing::logging::prefix_logs_with("Parachain")]
-async fn start_node<Network: sc_network::NetworkBackend<Block, Hash>>(
+async fn start_node(
 	config: sc_service::Configuration,
 	polkadot_config: sc_service::Configuration,
 	collator_options: cumulus_client_cli::CollatorOptions,
 	id: ParaId,
 	hwbench: Option<sc_sysinfo::HwBench>,
 ) -> Result<sc_service::TaskManager> {
-	let node_spec = new_node_spec_with_network::<Network>(&config)?;
+	let node_spec = new_node_spec(&config)?;
 	node_spec
 		.start_node(config, polkadot_config, collator_options, id, hwbench)
 		.await
