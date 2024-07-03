@@ -75,20 +75,6 @@ impl From<sp_trie::accessed_nodes_tracker::Error> for StorageProofError {
 	}
 }
 
-/// For backwards compatibility (relaying), we need to support several proof types.
-/// This enum contains all supported storage proof types.
-pub enum StorageProofResult {
-	/// Raw proofs
-	Raw(RawStorageProof),
-}
-
-/// For backwards compatibility (relaying), we need to support several proof types.
-/// This enum contains all supported storage proof types which we can request.
-pub enum StorageProofRequest {
-	/// Raw proofs
-	Raw,
-}
-
 /// Raw storage proof type (just raw trie nodes).
 pub type RawStorageProof = sp_trie::RawStorageProof;
 

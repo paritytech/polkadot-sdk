@@ -132,6 +132,8 @@ pub fn verify_messages_delivery_proof<T: Config<I>, I: 'static>(
 	Ok((lane, inbound_lane_data))
 }
 
+/// Abstraction over storage proof manipulation, hiding implementation details of actual storage
+/// proofs.
 trait StorageProofAdapter<T: Config<I>, I: 'static> {
 	fn read_and_decode_mandatory_value<D: Decode>(
 		&mut self,

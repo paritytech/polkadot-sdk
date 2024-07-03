@@ -164,6 +164,24 @@ fn pallet_rejects_transactions_if_halted() {
 }
 
 #[test]
+fn receive_messages_fails_if_dispatcher_is_inactive() {
+	run_test(|| {
+		TestMessageDispatch::deactivate();
+		let proof = prepare_messages_proof(vec![message(1, REGULAR_PAYLOAD)], None);
+		assert_noop!(
+			Pallet::<TestRuntime>::receive_messages_proof(
+				RuntimeOrigin::signed(1),
+				TEST_RELAYER_A,
+				proof,
+				1,
+				REGULAR_PAYLOAD.declared_weight,
+			),
+			Error::<TestRuntime, ()>::MessageDispatchInactive,
+		);
+	});
+}
+
+#[test]
 fn pallet_rejects_new_messages_in_rejecting_outbound_messages_operating_mode() {
 	run_test(|| {
 		// send message first to be able to check that delivery_proof fails later
@@ -609,7 +627,7 @@ fn receive_messages_accepts_batch_with_message_with_invalid_payload() {
 }
 
 #[test]
-fn actual_dispatch_weight_does_not_overlow() {
+fn actual_dispatch_weight_does_not_overflow() {
 	run_test(|| {
 		let message1 = message(1, message_payload(0, u64::MAX / 2));
 		let message2 = message(2, message_payload(0, u64::MAX / 2));

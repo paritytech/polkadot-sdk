@@ -47,7 +47,6 @@ pub use storage_proof::{
 };
 pub use storage_proof::{
 	raw_storage_proof_size, RawStorageProof, StorageProofChecker, StorageProofError,
-	StorageProofRequest, StorageProofResult,
 };
 pub use storage_types::BoundedStorageValue;
 

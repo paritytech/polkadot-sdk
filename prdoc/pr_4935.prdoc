@@ -1,0 +1,27 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: "Bridges V2 refactoring backport and `pallet_bridge_messages` simplifications"
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      This introduces several simplifications to the pallet_bridge_messages::Config configuration.
+      Types like `BridgedChainId`, `MaxUnrewardedRelayerEntriesAtInboundLane`, `MaxUnconfirmedMessagesAtInboundLane`, `MaximalOutboundPayloadSize`,
+      `InboundRelayer`, `TargetHeaderChain`, and `SourceHeaderChain` were removed.
+      Now, you only need to provide specific bridging chain configurations for `ThisChain`, `BridgedChain`, and `BridgedHeaderChain`.
+
+      If you previously specified implementations for the bp_runtime::Chain* traits, those will fit here exactly, for example:
+      ```
+      	type ThisChain = bp_bridge_hub_rococo::BridgeHubRococo;
+	type BridgedChain = bp_bridge_hub_westend::BridgeHubWestend;
+	type BridgedHeaderChain = pallet_bridge_parachains::ParachainHeaders<
+		Runtime,
+		BridgeParachainWestendInstance,
+		bp_bridge_hub_westend::BridgeHubWestend,
+	>;
+      ```
+
+crates:
+  - name: pallet-bridge-messages
+    bump: major
