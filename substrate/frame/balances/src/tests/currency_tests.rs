@@ -402,10 +402,7 @@ fn reward_should_work() {
 		assert_eq!(
 			events(),
 			[
-				RuntimeEvent::Balances(crate::Event::Deposit {
-					who: 1,
-					amount: 10,
-				}),
+				RuntimeEvent::Balances(crate::Event::Deposit { who: 1, amount: 10 }),
 				RuntimeEvent::Balances(crate::Event::Issued { amount: 10 }),
 			]
 		);
