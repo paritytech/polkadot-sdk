@@ -203,7 +203,7 @@ impl<T: Config> EquivocationEvidenceFor<T> {
 		match self {
 			EquivocationEvidenceFor::DoubleVotingProof(equivocation_proof, _) => {
 				// Validate equivocation proof (check votes are different and signatures are valid).
-				if !sp_consensus_beefy::check_equivocation_proof(&equivocation_proof) {
+				if !sp_consensus_beefy::check_double_voting_proof(&equivocation_proof) {
 					return Err(Error::<T>::InvalidDoubleVotingProof);
 				}
 

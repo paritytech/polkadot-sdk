@@ -24,7 +24,7 @@ use frame_support::{
 	traits::{Currency, KeyOwnerProofSystem, OnInitialize},
 };
 use sp_consensus_beefy::{
-	check_equivocation_proof, ecdsa_crypto,
+	check_double_voting_proof, ecdsa_crypto,
 	known_payloads::MMR_ROOT_ID,
 	test_utils::{
 		generate_double_voting_proof, generate_fork_voting_proof,
@@ -231,7 +231,7 @@ fn should_sign_and_verify() {
 		(1, payload1.clone(), set_id, &BeefyKeyring::Bob),
 	);
 	// expect invalid equivocation proof
-	assert!(!check_equivocation_proof::<_, _, Keccak256>(&equivocation_proof));
+	assert!(!check_double_voting_proof::<_, _, Keccak256>(&equivocation_proof));
 
 	// generate an equivocation proof, with two votes in different rounds for
 	// different payloads signed by the same key
@@ -240,7 +240,7 @@ fn should_sign_and_verify() {
 		(2, payload2.clone(), set_id, &BeefyKeyring::Bob),
 	);
 	// expect invalid equivocation proof
-	assert!(!check_equivocation_proof::<_, _, Keccak256>(&equivocation_proof));
+	assert!(!check_double_voting_proof::<_, _, Keccak256>(&equivocation_proof));
 
 	// generate an equivocation proof, with two votes by different authorities
 	let equivocation_proof = generate_double_voting_proof(
@@ -248,7 +248,7 @@ fn should_sign_and_verify() {
 		(1, payload2.clone(), set_id, &BeefyKeyring::Bob),
 	);
 	// expect invalid equivocation proof
-	assert!(!check_equivocation_proof::<_, _, Keccak256>(&equivocation_proof));
+	assert!(!check_double_voting_proof::<_, _, Keccak256>(&equivocation_proof));
 
 	// generate an equivocation proof, with two votes in different set ids
 	let equivocation_proof = generate_double_voting_proof(
@@ -256,7 +256,7 @@ fn should_sign_and_verify() {
 		(1, payload2.clone(), set_id + 1, &BeefyKeyring::Bob),
 	);
 	// expect invalid equivocation proof
-	assert!(!check_equivocation_proof::<_, _, Keccak256>(&equivocation_proof));
+	assert!(!check_double_voting_proof::<_, _, Keccak256>(&equivocation_proof));
 
 	// generate an equivocation proof, with two votes in the same round for
 	// different payloads signed by the same key
@@ -266,7 +266,7 @@ fn should_sign_and_verify() {
 		(1, payload2, set_id, &BeefyKeyring::Bob),
 	);
 	// expect valid equivocation proof
-	assert!(check_equivocation_proof::<_, _, Keccak256>(&equivocation_proof));
+	assert!(check_double_voting_proof::<_, _, Keccak256>(&equivocation_proof));
 }
 
 trait ReportEquivocationFn:

@@ -374,7 +374,7 @@ where
 
 /// Verifies the equivocation proof by making sure that both votes target
 /// different blocks and that its signatures are valid.
-pub fn check_equivocation_proof<Number, Id, MsgHash>(
+pub fn check_double_voting_proof<Number, Id, MsgHash>(
 	report: &DoubleVotingProof<Number, Id, <Id as RuntimeAppPublic>::Signature>,
 ) -> bool
 where
