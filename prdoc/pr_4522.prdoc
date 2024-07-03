@@ -22,7 +22,7 @@ crates:
   - name: pallet-beefy
     bump: major
   - name: pallet-beefy-mmr
-    bump: major
+    bump: minor
   - name: pallet-mmr
     bump: major
   - name: sc-consensus-beefy
@@ -30,6 +30,8 @@ crates:
   - name: kitchensink-runtime
     bump: major
   - name: rococo-runtime
-    bump: major
+    bump: minor
   - name: westend-runtime
-    bump: major
+    bump: minor
+  - name: sp-consensus-beefy
+  - name: polkadot-service
