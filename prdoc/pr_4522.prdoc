@@ -26,7 +26,7 @@ crates:
   - name: pallet-mmr
     bump: major
   - name: sc-consensus-beefy
-    bump: minor
+    bump: patch
   - name: kitchensink-runtime
     bump: major
   - name: rococo-runtime
