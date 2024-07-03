@@ -794,9 +794,11 @@ async fn select_candidates(
 	relay_parent: Hash,
 	sender: &mut impl overseer::ProvisionerSenderTrait,
 ) -> Result<Vec<BackedCandidate>, Error> {
-	gum::trace!(target: LOG_TARGET,
+	gum::trace!(
+		target: LOG_TARGET,
 		leaf_hash=?relay_parent,
-		"before GetBackedCandidates");
+		"before GetBackedCandidates"
+	);
 
 	let selected_candidates = match prospective_parachains_mode {
 		ProspectiveParachainsMode::Enabled { .. } =>

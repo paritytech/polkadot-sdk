@@ -103,7 +103,7 @@ use polkadot_node_subsystem_util::inclusion_emulator::{
 };
 use polkadot_primitives::{
 	BlockNumber, CandidateCommitments, CandidateHash, CommittedCandidateReceipt, Hash, HeadData,
-	Id as ParaId, PersistedValidationData, ValidationCodeHash,
+	PersistedValidationData, ValidationCodeHash,
 };
 use thiserror::Error;
 
@@ -114,6 +114,8 @@ const EXTRA_UNCONNECTED_COUNT: usize = 10;
 pub(crate) enum Error {
 	#[error("Candidate already known: {0}")]
 	CandidateAlreadyKnown(CandidateHash),
+	#[error("Candidate already pending availability: {0}")]
+	CandidateAlreadyPendingAvailability(CandidateHash),
 	#[error("Candidate would introduce a zero-length cycle")]
 	ZeroLengthCycle,
 	#[error("Candidate would introduce a cycle")]
@@ -157,7 +159,7 @@ pub(crate) struct CandidateStorage {
 
 	// Index from head data hash to candidate hashes outputting that head data. Purely for
 	// efficiency when responding to `ProspectiveValidationDataRequest`s.
-	by_output_head: HashMap<Hash, CandidateHash>,
+	by_output_head: HashMap<Hash, HashSet<CandidateHash>>,
 
 	// Index from candidate hash to fragment node.
 	by_candidate_hash: HashMap<CandidateHash, CandidateEntry>,
@@ -181,42 +183,21 @@ impl CandidateStorage {
 		self.add_candidate_entry(entry)
 	}
 
-	fn add_candidate_entry(&mut self, candidate: CandidateEntry) -> Result<(), Error> {
+	pub fn add_candidate_entry(&mut self, candidate: CandidateEntry) -> Result<(), Error> {
 		let candidate_hash = candidate.candidate_hash;
 		if self.by_candidate_hash.contains_key(&candidate_hash) {
 			return Err(Error::CandidateAlreadyKnown(candidate_hash))
 		}
 
-		self.check_cycles_or_invalid_tree(
-			&candidate.parent_head_data_hash,
-			&candidate.output_head_data_hash,
-		)?;
-
 		self.by_parent_head
 			.entry(candidate.parent_head_data_hash)
 			.or_default()
 			.insert(candidate_hash);
-		self.by_output_head.insert(candidate.output_head_data_hash, candidate_hash);
+		self.by_output_head
+			.entry(candidate.output_head_data_hash)
+			.or_default()
+			.insert(candidate_hash);
 		self.by_candidate_hash.insert(candidate_hash, candidate);
-
-		Ok(())
-	}
-
-	fn check_cycles_or_invalid_tree(
-		&self,
-		parent_head_hash: &Hash,
-		output_head_hash: &Hash,
-	) -> Result<(), Error> {
-		// trivial 0-length cycle.
-		if parent_head_hash == output_head_hash {
-			return Err(Error::ZeroLengthCycle)
-		}
-
-		// multiple paths to the same state, which would break the tree
-		// assumption.
-		if self.by_output_head.contains_key(output_head_hash) {
-			return Err(Error::MultiplePaths)
-		}
 
 		Ok(())
 	}
@@ -231,7 +212,12 @@ impl CandidateStorage {
 				}
 			}
 
-			self.by_output_head.remove(&entry.output_head_data_hash);
+			if let Entry::Occupied(mut e) = self.by_output_head.entry(entry.output_head_data_hash) {
+				e.get_mut().remove(&candidate_hash);
+				if e.get().is_empty() {
+					e.remove();
+				}
+			}
 		}
 	}
 
@@ -257,6 +243,11 @@ impl CandidateStorage {
 		self.by_candidate_hash.values()
 	}
 
+	/// Return an iterator over the stored candidates.
+	pub fn into_candidates(self) -> impl Iterator<Item = CandidateEntry> {
+		self.by_candidate_hash.into_values()
+	}
+
 	/// Get head-data by hash.
 	fn head_data_by_hash(&self, hash: &Hash) -> Option<&HeadData> {
 		// First, search for candidates outputting this head data and extract the head data
@@ -266,6 +257,7 @@ impl CandidateStorage {
 		// from their persisted validation data if they exist.
 		self.by_output_head
 			.get(hash)
+			.and_then(|m| m.iter().next())
 			.and_then(|a_candidate| self.by_candidate_hash.get(a_candidate))
 			.map(|e| &e.candidate.commitments.head_data)
 			.or_else(|| {
@@ -317,6 +309,8 @@ enum CandidateState {
 pub enum CandidateEntryError {
 	#[error("Candidate does not match the persisted validation data provided alongside it")]
 	PersistedValidationDataMismatch,
+	#[error("Candidate is a zero-length cycle")]
+	ZeroLengthCycle,
 }
 
 #[derive(Debug, Clone)]
@@ -348,10 +342,17 @@ impl CandidateEntry {
 			return Err(CandidateEntryError::PersistedValidationDataMismatch)
 		}
 
+		let parent_head_data_hash = persisted_validation_data.parent_head.hash();
+		let output_head_data_hash = candidate.commitments.head_data.hash();
+
+		if parent_head_data_hash == output_head_data_hash {
+			return Err(CandidateEntryError::ZeroLengthCycle)
+		}
+
 		Ok(Self {
 			candidate_hash,
-			parent_head_data_hash: persisted_validation_data.parent_head.hash(),
-			output_head_data_hash: candidate.commitments.head_data.hash(),
+			parent_head_data_hash,
+			output_head_data_hash,
 			relay_parent: candidate.descriptor.relay_parent,
 			state,
 			candidate: Arc::new(ProspectiveCandidate {
@@ -753,6 +754,11 @@ impl FragmentChain {
 		candidate: &impl HypotheticalOrConcreteCandidate,
 	) -> Result<(), Error> {
 		let candidate_hash = candidate.candidate_hash();
+
+		if self.scope.get_pending_availability(&candidate_hash).is_some() {
+			return Err(Error::CandidateAlreadyPendingAvailability(candidate_hash))
+		}
+
 		if self.candidates.contains(&candidate_hash) || self.unconnected.contains(&candidate_hash) {
 			return Err(Error::CandidateAlreadyKnown(candidate_hash))
 		}
@@ -813,27 +819,14 @@ impl FragmentChain {
 		}
 	}
 
-	fn check_cycles_or_invalid_tree(
-		&self,
-		parent_head_hash: &Hash,
-		output_head_hash: &Hash,
-	) -> Result<(), Error> {
-		self.unconnected
-			.check_cycles_or_invalid_tree(parent_head_hash, output_head_hash)?;
-
-		// trivial 0-length cycle.
-		if parent_head_hash == output_head_hash {
-			return Err(Error::ZeroLengthCycle)
-		}
-
+	fn check_cycles_or_invalid_tree(&self, output_head_hash: &Hash) -> Result<(), Error> {
 		// this should catch a cycle where this candidate would point back to the parent of some
 		// candidate in the chain.
 		if self.by_parent_head.contains_key(output_head_hash) {
 			return Err(Error::Cycle)
 		}
 
-		// multiple paths to the same state, which would break the tree
-		// assumption.
+		// // multiple paths to the same state, which can't happen for a chain.
 		if self.by_output_head.contains_key(output_head_hash) {
 			return Err(Error::MultiplePaths)
 		}
@@ -852,6 +845,13 @@ impl FragmentChain {
 	) -> Result<(), Error> {
 		let relay_parent = candidate.relay_parent();
 		let parent_head_hash = candidate.parent_head_data_hash();
+
+		// trivial 0-length cycle.
+		if let Some(output_head_hash) = candidate.output_head_data_hash() {
+			if parent_head_hash == output_head_hash {
+				return Err(Error::ZeroLengthCycle)
+			}
+		}
 
 		let Some(relay_parent) = self.scope.ancestor(&relay_parent) else {
 			return Err(Error::RelayParentNotInScope)
@@ -876,11 +876,6 @@ impl FragmentChain {
 			}
 		}
 
-		// Check for cycles or invalid tree transitions.
-		if let Some(ref output_head_hash) = candidate.output_head_data_hash() {
-			self.check_cycles_or_invalid_tree(&parent_head_hash, output_head_hash)?;
-		}
-
 		let constraints = if let Some(parent_candidate) = self.by_output_head.get(&parent_head_hash)
 		{
 			let Some(parent_candidate) =
@@ -900,6 +895,11 @@ impl FragmentChain {
 			// now.
 			return Ok(())
 		};
+
+		// Check for cycles or invalid tree transitions.
+		if let Some(ref output_head_hash) = candidate.output_head_data_hash() {
+			self.check_cycles_or_invalid_tree(output_head_hash)?;
+		}
 
 		// We do additional checks for complete candidates.
 		if let (Some(commitments), Some(pvd), Some(validation_code_hash)) = (
@@ -937,10 +937,9 @@ impl FragmentChain {
 			for child_hash in children.iter() {
 				let Some(child) = storage.by_candidate_hash.get(child_hash) else { continue };
 
-				// Detected a cycle. Stop now to avoid looping forever.
-				// Remove the candidate that creates the cycle.
+				// Already visited this parent. Either is a cycle or multiple paths that lead to the
+				// same candidate. Either way, stop this branch to avoid looping forever.
 				if visited.contains(&child.output_head_data_hash) {
-					to_remove.push(*child_hash);
 					continue
 				}
 
@@ -1012,12 +1011,7 @@ impl FragmentChain {
 						return None
 					};
 
-					if self
-						.check_cycles_or_invalid_tree(
-							&candidate.parent_head_data_hash,
-							&candidate.output_head_data_hash,
-						)
-						.is_err()
+					if self.check_cycles_or_invalid_tree(&candidate.output_head_data_hash).is_err()
 					{
 						return None
 					}
@@ -1084,6 +1078,7 @@ impl FragmentChain {
 					))
 				});
 
+			// TODO: abstract the fork selection rule into a function.
 			let best_candidate = possible_children.min_by(|child1, child2| {
 				// Always pick a candidate pending availability as best.
 				if self.scope.get_pending_availability(&child1.1).is_some() {

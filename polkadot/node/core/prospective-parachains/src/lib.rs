@@ -28,6 +28,7 @@
 
 use std::collections::{HashMap, HashSet};
 
+use fragment_chain::CandidateStorage;
 use futures::{channel::oneshot, prelude::*};
 
 use polkadot_node_subsystem::{
@@ -192,6 +193,8 @@ async fn handle_active_leaves_update<Context>(
 		};
 
 		let scheduled_paras = fetch_upcoming_paras(&mut *ctx, hash).await?;
+		// TODO: here we actually need to take the full implicit view into account, for this to work
+		// with core sharing paras.
 
 		let block_info: RelayChainBlockInfo =
 			match fetch_block_info(&mut *ctx, &mut temp_header_cache, hash).await? {
@@ -230,7 +233,7 @@ async fn handle_active_leaves_update<Context>(
 		// Find constraints.
 		let mut fragment_chains = HashMap::new();
 		for para in scheduled_paras {
-			let mut prev_candidate_storage = prev_fragment_chains
+			let prev_candidate_storage = prev_fragment_chains
 				.map(|chains| {
 					chains
 						.fragment_chains
@@ -263,16 +266,20 @@ async fn handle_active_leaves_update<Context>(
 			.await?;
 			let mut compact_pending = Vec::with_capacity(pending_availability.len());
 
+			let mut new_storage = CandidateStorage::default();
+
 			for c in pending_availability {
 				let candidate_hash = c.compact.candidate_hash;
-				let res = prev_candidate_storage.add_pending_availability_candidate(
+				let res = new_storage.add_pending_availability_candidate(
 					candidate_hash,
 					c.candidate,
 					c.persisted_validation_data,
 				);
 
 				match res {
-					Ok(_) | Err(FragmentChainError::CandidateAlreadyKnown(_)) => {},
+					Ok(_) |
+					Err(FragmentChainError::CandidateAlreadyKnown(_)) |
+					Err(FragmentChainError::CandidateAlreadyPendingAvailability(_)) => {},
 					Err(err) => {
 						gum::warn!(
 							target: LOG_TARGET,
@@ -320,7 +327,16 @@ async fn handle_active_leaves_update<Context>(
 				"Creating fragment chain"
 			);
 
-			let chain = FragmentChain::populate(scope, &mut prev_candidate_storage);
+			// Add old candidates to the new storage only after we added the pending availability
+			// candidates. The pending candidates have higher priority and can conflict with the old
+			// candidates.
+			for candidate in prev_candidate_storage.into_candidates() {
+				// We need to swallow any potential errors here, as they can happen under normal
+				// operation, with candidates becoming out of scope for example.
+				let _ = new_storage.add_candidate_entry(candidate);
+			}
+
+			let chain = FragmentChain::populate(scope, &mut new_storage);
 
 			gum::trace!(
 				target: LOG_TARGET,
@@ -469,6 +485,16 @@ async fn handle_introduce_seconded_candidate<Context>(
 					);
 					added = true;
 				},
+				Err(FragmentChainError::CandidateAlreadyPendingAvailability(_)) => {
+					gum::debug!(
+						target: LOG_TARGET,
+						para = ?para,
+						relay_parent = ?leaf,
+						"Attempting to introduce a candidate which is already pending availability: {:?}",
+						candidate_hash
+					);
+					added = true;
+				},
 				Err(err) => {
 					gum::debug!(
 						target: LOG_TARGET,
@@ -523,6 +549,7 @@ async fn handle_candidate_backed<Context>(
 					para_id = ?para,
 					?candidate_hash,
 					"Received redundant instruction to mark as backed an already backed candidate",
+					// TODO: this can happen even if the candidate is not in chain.
 				);
 				found_candidate = true;
 			}
@@ -535,7 +562,7 @@ async fn handle_candidate_backed<Context>(
 					target: LOG_TARGET,
 					relay_parent = ?leaf,
 					para_id = ?para,
-					"Candidate chain for para: {:?}",
+					"Candidate backed. Candidate chain for para: {:?}",
 					new_chain.to_vec()
 				);
 
@@ -548,7 +575,10 @@ async fn handle_candidate_backed<Context>(
 				);
 
 				leaf_data.fragment_chains.insert(para, new_chain);
+				continue
 			}
+
+			leaf_data.fragment_chains.insert(para, chain);
 		}
 	}
 
@@ -564,7 +594,9 @@ async fn handle_candidate_backed<Context>(
 	}
 
 	if !found_candidate {
-		gum::warn!(
+		// This can be harmless. It can happen if we received a better backed candidate before and
+		// dropped this other candidate already.
+		gum::debug!(
 			target: LOG_TARGET,
 			para_id = ?para,
 			?candidate_hash,
