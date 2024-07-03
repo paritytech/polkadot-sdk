@@ -65,6 +65,7 @@ fn create_asset_remove_privileges_burn_deposit_at_relay() {
 		let original_total_issuance = Balances::total_issuance();
 
 		let deposit = new_reserved_balance - original_reserved_balance;
+		assert!(deposit != 0); // This ensures we are testing something.
 
 		assert_ok!(Assets::revoke_all_privileges(
 			<AssetHubRococo as Chain>::RuntimeOrigin::signed(owner.clone()),
