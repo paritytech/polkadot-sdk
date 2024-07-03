@@ -3191,8 +3191,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		CandidateBackingMessage::Statement(relay_parent, statement) =&gt; {
 			handle_statement_message(ctx, state, relay_parent, statement, metrics).<span class="kw">await</span><span class="question-mark">?</span>;
 		},
-		CandidateBackingMessage::GetBackedCandidates(requested_candidates, tx) =&gt;
-			handle_get_backed_candidates_message(state, requested_candidates, tx, metrics)<span class="question-mark">?</span>,
+		CandidateBackingMessage::GetBackableCandidates(requested_candidates, tx) =&gt;
+			handle_get_backable_candidates_message(state, requested_candidates, tx, metrics)<span class="question-mark">?</span>,
 		CandidateBackingMessage::CanSecond(request, tx) =&gt;
 			handle_can_second_request(ctx, state, request, tx).<span class="kw">await</span>,
 	}
@@ -4522,7 +4522,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="kw">fn </span>handle_get_backed_candidates_message(
+<span class="kw">fn </span>handle_get_backable_candidates_message(
 	state: <span class="kw-2">&amp;</span>State,
 	requested_candidates: HashMap&lt;ParaId, Vec&lt;(CandidateHash, Hash)&gt;&gt;,
 	tx: oneshot::Sender&lt;HashMap&lt;ParaId, Vec&lt;BackedCandidate&gt;&gt;&gt;,
