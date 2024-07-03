@@ -247,6 +247,23 @@ parameter_types! {
 #[dynamic_params(RuntimeParameters, pallet_parameters::Parameters::<Runtime>)]
 pub mod dynamic_params {
 	use super::*;
+
+	#[dynamic_pallet_params]
+	#[codec(index = 0)]
+	pub mod staking_reward_curve {
+		#[codec(index = 0)]
+		pub static MinInflation: u32 = 0_025_000;
+		#[codec(index = 1)]
+		pub static MaxInflation: u32 = 0_100_000;
+		#[codec(index = 2)]
+		pub static IdealStake: u32 = 0_500_000;
+		#[codec(index = 3)]
+		pub static Falloff: u32 = 0_050_000;
+		#[codec(index = 4)]
+		pub static MaxPieceCount: u32 = 40;
+		#[codec(index = 5)]
+		pub static TestPrecision: u32 = 0_005_000;
+	}
 }
 
 impl pallet_parameters::Config for Runtime {
@@ -266,9 +283,13 @@ impl EnsureOriginWithArg<RuntimeOrigin, RuntimeParametersKey> for DynamicParamet
 		origin: RuntimeOrigin,
 		key: &RuntimeParametersKey,
 	) -> Result<Self::Success, RuntimeOrigin> {
-		use crate::{dynamic_params::*, governance::*};
+		use crate::{dynamic_params::*, governance::*, RuntimeParametersKey::*};
 		// TODO: update to correct origin
-		frame_system::ensure_root(origin.clone()).map_err(|_| origin)
+
+		match key {
+			StakingRewardCurve(_) => frame_system::ensure_root(origin.clone()),
+		}
+		.map_err(|_| origin)
 	}
 }
 
@@ -629,12 +650,12 @@ impl pallet_bags_list::Config<VoterBagsListInstance> for Runtime {
 
 pallet_staking_reward_curve::build! {
 	const REWARD_CURVE: PiecewiseLinear<'static> = curve!(
-		min_inflation: 0_025_000,
-		max_inflation: 0_100_000,
-		ideal_stake: 0_500_000,
-		falloff: 0_050_000,
-		max_piece_count: 40,
-		test_precision: 0_005_000,
+		min_inflation: 0_025_000, // dynamic_params::staking_reward_curve::MinInflation,
+		max_inflation: 0_100_000, // dynamic_params::staking_reward_curve::MaxInflation::get(),
+		ideal_stake: 0_500_000, // dynamic_params::staking_reward_curve::IdealStake::get(),
+		falloff: 0_050_000, // dynamic_params::staking_reward_curve::Falloff::get(),
+		max_piece_count: 40, // dynamic_params::staking_reward_curve::MaxPieceCount::get(),
+		test_precision: 0_005_000, // dynamic_params::staking_reward_curve::TestPrecision::get(),
 	);
 }
 
