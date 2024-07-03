@@ -17,34 +17,34 @@ targets = ["x86_64-unknown-linux-gnu"]
 [dependencies]
 serde = { optional = true, workspace = true, default-features = true }
 serde_json = { optional = true, workspace = true, default-features = true }
-codec = { version = "3.6.12", package = "parity-scale-codec", default-features = false, features = ["derive"] }
-scale-info = { version = "2.9.0", default-features = false, features = ["derive"] }
-hex-literal = { version = "0.4.1", optional = true }
+codec = { features = ["derive"], workspace = true }
+scale-info = { features = ["derive"], workspace = true }
+hex-literal = { optional = true, workspace = true, default-features = true }
 log = { workspace = true }
 
-frame-benchmarking = { path = "../../../../substrate/frame/benchmarking", default-features = false, optional = true }
-frame-support = { path = "../../../../substrate/frame/support", default-features = false }
-frame-system = { path = "../../../../substrate/frame/system", default-features = false }
-sp-core = { path = "../../../../substrate/primitives/core", default-features = false }
-sp-std = { path = "../../../../substrate/primitives/std", default-features = false }
-sp-runtime = { path = "../../../../substrate/primitives/runtime", default-features = false }
-sp-io = { path = "../../../../substrate/primitives/io", default-features = false, optional = true }
+frame-benchmarking = { optional = true, workspace = true }
+frame-support = { workspace = true }
+frame-system = { workspace = true }
+sp-core = { workspace = true }
+sp-std = { workspace = true }
+sp-runtime = { workspace = true }
+sp-io = { optional = true, workspace = true }
 
-snowbridge-core = { path = "../../primitives/core", default-features = false }
-snowbridge-ethereum = { path = "../../primitives/ethereum", default-features = false }
-snowbridge-pallet-ethereum-client-fixtures = { path = "fixtures", default-features = false, optional = true }
-primitives = { package = "snowbridge-beacon-primitives", path = "../../primitives/beacon", default-features = false }
-static_assertions = { version = "1.1.0", default-features = false }
-pallet-timestamp = { path = "../../../../substrate/frame/timestamp", default-features = false, optional = true }
+snowbridge-core = { workspace = true }
+snowbridge-ethereum = { workspace = true }
+snowbridge-pallet-ethereum-client-fixtures = { optional = true, workspace = true }
+snowbridge-beacon-primitives = { workspace = true }
+static_assertions = { workspace = true }
+pallet-timestamp = { optional = true, workspace = true }
 
 [dev-dependencies]
-rand = "0.8.5"
-sp-keyring = { path = "../../../../substrate/primitives/keyring" }
+rand = { workspace = true, default-features = true }
+sp-keyring = { workspace = true, default-features = true }
 serde_json = { workspace = true, default-features = true }
-hex-literal = "0.4.1"
-pallet-timestamp = { path = "../../../../substrate/frame/timestamp" }
-snowbridge-pallet-ethereum-client-fixtures = { path = "fixtures" }
-sp-io = { path = "../../../../substrate/primitives/io" }
+hex-literal = { workspace = true, default-features = true }
+pallet-timestamp = { workspace = true, default-features = true }
+snowbridge-pallet-ethereum-client-fixtures = { workspace = true, default-features = true }
+sp-io = { workspace = true, default-features = true }
 serde = { workspace = true, default-features = true }
 
 [features]
@@ -62,9 +62,9 @@ std = [
 	"frame-system/std",
 	"log/std",
 	"pallet-timestamp/std",
-	"primitives/std",
 	"scale-info/std",
 	"serde",
+	"snowbridge-beacon-primitives/std",
 	"snowbridge-core/std",
 	"snowbridge-ethereum/std",
 	"snowbridge-pallet-ethereum-client-fixtures/std",

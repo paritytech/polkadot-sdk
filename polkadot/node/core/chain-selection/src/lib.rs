@@ -26,8 +26,8 @@ use polkadot_node_subsystem::{
 use polkadot_node_subsystem_util::database::Database;
 use polkadot_primitives::{BlockNumber, ConsensusLog, Hash, Header};
 
+use codec::Error as CodecError;
 use futures::{channel::oneshot, future::Either, prelude::*};
-use parity_scale_codec::Error as CodecError;
 
 use std::{
 	sync::Arc,
