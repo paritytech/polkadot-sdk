@@ -447,7 +447,7 @@ impl Stream for Discovery {
 		if let Some(mut delay) = this.next_kad_query.take() {
 			while delay.poll_unpin(cx).is_ready() {
 				let peer = PeerId::random();
-				log::trace!(target: LOG_TARGET, "start next kademlia query for {peer:?}");
+				log::info!(target: LOG_TARGET, "start next kademlia query for {peer:?}");
 
 				let started = this.kademlia_handle.try_find_node(peer).is_ok();
 
@@ -469,7 +469,7 @@ impl Stream for Discovery {
 				// the addresses are already inserted into the DHT and in `TransportManager` so
 				// there is no need to add them again. The found peers must be registered to
 				// `Peerstore` so other protocols are aware of them through `Peerset`.
-				log::trace!(target: LOG_TARGET, "dht random walk yielded {} peers", peers.len());
+				log::info!(target: LOG_TARGET, "dht random walk yielded {} peers", peers.len());
 
 				return Poll::Ready(Some(DiscoveryEvent::RoutingTableUpdate {
 					peers: peers.into_iter().map(|(peer, _)| peer).collect(),
@@ -483,7 +483,7 @@ impl Stream for Discovery {
 				}))
 			},
 			Poll::Ready(Some(KademliaEvent::GetRecordSuccess { query_id, records })) => {
-				log::trace!(
+				log::info!(
 					target: LOG_TARGET,
 					"`GET_RECORD` succeeded for {query_id:?}: {records:?}",
 				);
@@ -492,8 +492,10 @@ impl Stream for Discovery {
 			},
 			Poll::Ready(Some(KademliaEvent::PutRecordSucess { query_id, key: _ })) =>
 				return Poll::Ready(Some(DiscoveryEvent::PutRecordSuccess { query_id })),
-			Poll::Ready(Some(KademliaEvent::QueryFailed { query_id })) =>
-				return Poll::Ready(Some(DiscoveryEvent::QueryFailed { query_id })),
+			Poll::Ready(Some(KademliaEvent::QueryFailed { query_id })) => {
+				log::warn!(target: LOG_TARGET, "`GET_RECORD` failed for {query_id:?}");
+				return Poll::Ready(Some(DiscoveryEvent::QueryFailed { query_id }));
+			},
 			Poll::Ready(Some(KademliaEvent::IncomingRecord { record })) => {
 				log::trace!(
 					target: LOG_TARGET,
