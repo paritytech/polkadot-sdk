@@ -896,8 +896,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#745" id="745">745</a>
 <a href="#746" id="746">746</a>
 <a href="#747" id="747">747</a>
-<a href="#748" id="748">748</a>
-<a href="#749" id="749">749</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1009,10 +1007,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>pallet_attr: <span class="prelude-ty">Option</span>&lt;PalletAttr&gt; = helper::take_first_item_pallet_attr(item)<span class="question-mark">?</span>;
 
 			<span class="kw">match </span>pallet_attr {
-				<span class="prelude-val">Some</span>(PalletAttr::Config(span, with_default)) <span class="kw">if </span>config.is_none() =&gt;
+				<span class="prelude-val">Some</span>(PalletAttr::Config(<span class="kw">_</span>, with_default)) <span class="kw">if </span>config.is_none() =&gt;
 					config = <span class="prelude-val">Some</span>(config::ConfigDef::try_from(
 						<span class="kw-2">&amp;</span>frame_system,
-						span,
 						index,
 						item,
 						with_default,
@@ -1022,7 +1019,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					pallet_struct = <span class="prelude-val">Some</span>(p);
 				},
 				<span class="prelude-val">Some</span>(PalletAttr::Hooks(span)) <span class="kw">if </span>hooks.is_none() =&gt; {
-					<span class="kw">let </span>m = hooks::HooksDef::try_from(span, index, item)<span class="question-mark">?</span>;
+					<span class="kw">let </span>m = hooks::HooksDef::try_from(span, item)<span class="question-mark">?</span>;
 					hooks = <span class="prelude-val">Some</span>(m);
 				},
 				<span class="prelude-val">Some</span>(PalletAttr::RuntimeCall(cw, span)) <span class="kw">if </span>call.is_none() =&gt;
@@ -1062,27 +1059,27 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					genesis_config = <span class="prelude-val">Some</span>(g);
 				},
 				<span class="prelude-val">Some</span>(PalletAttr::GenesisBuild(span)) <span class="kw">if </span>genesis_build.is_none() =&gt; {
-					<span class="kw">let </span>g = genesis_build::GenesisBuildDef::try_from(span, index, item)<span class="question-mark">?</span>;
+					<span class="kw">let </span>g = genesis_build::GenesisBuildDef::try_from(span, item)<span class="question-mark">?</span>;
 					genesis_build = <span class="prelude-val">Some</span>(g);
 				},
 				<span class="prelude-val">Some</span>(PalletAttr::RuntimeOrigin(<span class="kw">_</span>)) <span class="kw">if </span>origin.is_none() =&gt;
-					origin = <span class="prelude-val">Some</span>(origin::OriginDef::try_from(index, item)<span class="question-mark">?</span>),
+					origin = <span class="prelude-val">Some</span>(origin::OriginDef::try_from(item)<span class="question-mark">?</span>),
 				<span class="prelude-val">Some</span>(PalletAttr::Inherent(<span class="kw">_</span>)) <span class="kw">if </span>inherent.is_none() =&gt;
-					inherent = <span class="prelude-val">Some</span>(inherent::InherentDef::try_from(index, item)<span class="question-mark">?</span>),
+					inherent = <span class="prelude-val">Some</span>(inherent::InherentDef::try_from(item)<span class="question-mark">?</span>),
 				<span class="prelude-val">Some</span>(PalletAttr::Storage(span)) =&gt;
 					storages.push(storage::StorageDef::try_from(span, index, item, dev_mode)<span class="question-mark">?</span>),
 				<span class="prelude-val">Some</span>(PalletAttr::ValidateUnsigned(<span class="kw">_</span>)) <span class="kw">if </span>validate_unsigned.is_none() =&gt; {
-					<span class="kw">let </span>v = validate_unsigned::ValidateUnsignedDef::try_from(index, item)<span class="question-mark">?</span>;
+					<span class="kw">let </span>v = validate_unsigned::ValidateUnsignedDef::try_from(item)<span class="question-mark">?</span>;
 					validate_unsigned = <span class="prelude-val">Some</span>(v);
 				},
 				<span class="prelude-val">Some</span>(PalletAttr::TypeValue(span)) =&gt;
 					type_values.push(type_value::TypeValueDef::try_from(span, index, item)<span class="question-mark">?</span>),
 				<span class="prelude-val">Some</span>(PalletAttr::ExtraConstants(<span class="kw">_</span>)) =&gt;
 					extra_constants =
-						<span class="prelude-val">Some</span>(extra_constants::ExtraConstantsDef::try_from(index, item)<span class="question-mark">?</span>),
+						<span class="prelude-val">Some</span>(extra_constants::ExtraConstantsDef::try_from(item)<span class="question-mark">?</span>),
 				<span class="prelude-val">Some</span>(PalletAttr::Composite(span)) =&gt; {
 					<span class="kw">let </span>composite =
-						composite::CompositeDef::try_from(span, index, <span class="kw-2">&amp;</span>frame_support, item)<span class="question-mark">?</span>;
+						composite::CompositeDef::try_from(span, <span class="kw-2">&amp;</span>frame_support, item)<span class="question-mark">?</span>;
 					<span class="kw">if </span>composites.iter().any(|def| {
 						<span class="kw">match </span>(<span class="kw-2">&amp;</span>def.composite_keyword, <span class="kw-2">&amp;</span>composite.composite_keyword) {
 							(
@@ -1622,7 +1619,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="attr">#[derive(Clone)]
 </span><span class="kw">pub struct </span>InheritedCallWeightAttr {
 	<span class="kw">pub </span>typename: syn::Type,
-	<span class="kw">pub </span>span: proc_macro2::Span,
 }
 
 <span class="kw">impl </span>syn::parse::Parse <span class="kw">for </span>InheritedCallWeightAttr {
@@ -1644,7 +1640,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">return </span><span class="prelude-val">Err</span>(lookahead.error())
 		};
 
-		<span class="prelude-val">Ok</span>(<span class="self">Self </span>{ typename: buffer.parse()<span class="question-mark">?</span>, span: input.span() })
+		<span class="prelude-val">Ok</span>(<span class="self">Self </span>{ typename: buffer.parse()<span class="question-mark">? </span>})
 	}
 }
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>

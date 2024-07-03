@@ -253,25 +253,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#102" id="102">102</a>
 <a href="#103" id="103">103</a>
 <a href="#104" id="104">104</a>
-<a href="#105" id="105">105</a>
-<a href="#106" id="106">106</a>
-<a href="#107" id="107">107</a>
-<a href="#108" id="108">108</a>
-<a href="#109" id="109">109</a>
-<a href="#110" id="110">110</a>
-<a href="#111" id="111">111</a>
-<a href="#112" id="112">112</a>
-<a href="#113" id="113">113</a>
-<a href="#114" id="114">114</a>
-<a href="#115" id="115">115</a>
-<a href="#116" id="116">116</a>
-<a href="#117" id="117">117</a>
-<a href="#118" id="118">118</a>
-<a href="#119" id="119">119</a>
-<a href="#120" id="120">120</a>
-<a href="#121" id="121">121</a>
-<a href="#122" id="122">122</a>
-<a href="#123" id="123">123</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -302,12 +283,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub </span>ident: syn::Ident,
 	<span class="doccomment">/// The type return by Get.
 	</span><span class="kw">pub </span>type_: Box&lt;syn::Type&gt;,
-	<span class="doccomment">/// The block returning the value to get
-	</span><span class="kw">pub </span>block: Box&lt;syn::Block&gt;,
 	<span class="doccomment">/// If type value is generic over `T` (or `T` and `I` for instantiable pallet)
 	</span><span class="kw">pub </span>is_generic: bool,
-	<span class="doccomment">/// A set of usage of instance, must be check for consistency with config.
-	</span><span class="kw">pub </span>instances: Vec&lt;helper::InstanceUsage&gt;,
 	<span class="doccomment">/// The where clause of the function.
 	</span><span class="kw">pub </span>where_clause: <span class="prelude-ty">Option</span>&lt;syn::WhereClause&gt;,
 	<span class="doccomment">/// The span of the pallet::type_value attribute.
@@ -364,7 +341,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">let </span>vis = item.vis.clone();
 		<span class="kw">let </span>ident = item.sig.ident.clone();
-		<span class="kw">let </span>block = item.block.clone();
 		<span class="kw">let </span>type_ = <span class="kw">match </span>item.sig.output.clone() {
 			syn::ReturnType::Type(<span class="kw">_</span>, type_) =&gt; type_,
 			syn::ReturnType::Default =&gt; {
@@ -373,26 +349,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			},
 		};
 
-		<span class="kw">let </span><span class="kw-2">mut </span>instances = <span class="macro">vec!</span>[];
-		<span class="kw">if let </span><span class="prelude-val">Some</span>(usage) = helper::check_type_value_gen(<span class="kw-2">&amp;</span>item.sig.generics, item.sig.span())<span class="question-mark">? </span>{
-			instances.push(usage);
-		}
+		helper::check_type_value_gen(<span class="kw-2">&amp;</span>item.sig.generics, item.sig.span())<span class="question-mark">?</span>;
 
 		<span class="kw">let </span>is_generic = item.sig.generics.type_params().count() &gt; <span class="number">0</span>;
 		<span class="kw">let </span>where_clause = item.sig.generics.where_clause.clone();
 
-		<span class="prelude-val">Ok</span>(TypeValueDef {
-			attr_span,
-			index,
-			is_generic,
-			vis,
-			ident,
-			block,
-			type_,
-			instances,
-			where_clause,
-			docs,
-		})
+		<span class="prelude-val">Ok</span>(TypeValueDef { attr_span, index, is_generic, vis, ident, type_, where_clause, docs })
 	}
 }
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>

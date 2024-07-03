@@ -228,13 +228,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#77" id="77">77</a>
 <a href="#78" id="78">78</a>
 <a href="#79" id="79">79</a>
-<a href="#80" id="80">80</a>
-<a href="#81" id="81">81</a>
-<a href="#82" id="82">82</a>
-<a href="#83" id="83">83</a>
-<a href="#84" id="84">84</a>
-<a href="#85" id="85">85</a>
-<a href="#86" id="86">86</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -257,8 +250,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Implementation of the pallet hooks.
 </span><span class="kw">pub struct </span>HooksDef {
-	<span class="doccomment">/// The index of item in pallet.
-	</span><span class="kw">pub </span>index: usize,
 	<span class="doccomment">/// A set of usage of instance, must be check for consistency with trait.
 	</span><span class="kw">pub </span>instances: Vec&lt;helper::InstanceUsage&gt;,
 	<span class="doccomment">/// The where_clause used.
@@ -270,11 +261,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="kw">impl </span>HooksDef {
-	<span class="kw">pub fn </span>try_from(
-		attr_span: proc_macro2::Span,
-		index: usize,
-		item: <span class="kw-2">&amp;mut </span>syn::Item,
-	) -&gt; syn::Result&lt;<span class="self">Self</span>&gt; {
+	<span class="kw">pub fn </span>try_from(attr_span: proc_macro2::Span, item: <span class="kw-2">&amp;mut </span>syn::Item) -&gt; syn::Result&lt;<span class="self">Self</span>&gt; {
 		<span class="kw">let </span>item = <span class="kw">if let </span>syn::Item::Impl(item) = item {
 			item
 		} <span class="kw">else </span>{
@@ -314,7 +301,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="prelude-val">Ok</span>(<span class="self">Self </span>{
 			attr_span,
-			index,
 			instances,
 			has_runtime_upgrade,
 			where_clause: item.generics.where_clause.clone(),

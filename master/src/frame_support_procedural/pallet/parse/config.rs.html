@@ -755,10 +755,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#604" id="604">604</a>
 <a href="#605" id="605">605</a>
 <a href="#606" id="606">606</a>
-<a href="#607" id="607">607</a>
-<a href="#608" id="608">608</a>
-<a href="#609" id="609">609</a>
-<a href="#610" id="610">610</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -823,8 +819,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub </span>has_event_type: bool,
 	<span class="doccomment">/// The where clause on trait definition but modified so `Self` is `T`.
 	</span><span class="kw">pub </span>where_clause: <span class="prelude-ty">Option</span>&lt;syn::WhereClause&gt;,
-	<span class="doccomment">/// The span of the pallet::config attribute.
-	</span><span class="kw">pub </span>attr_span: proc_macro2::Span,
 	<span class="doccomment">/// Whether a default sub-trait should be generated.
 	///
 	/// Contains default sub-trait items (instantiated by `#[pallet::config(with_default)]`).
@@ -1086,7 +1080,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">impl </span>ConfigDef {
 	<span class="kw">pub fn </span>try_from(
 		frame_system: <span class="kw-2">&amp;</span>syn::Path,
-		attr_span: proc_macro2::Span,
 		index: usize,
 		item: <span class="kw-2">&amp;mut </span>syn::Item,
 		enable_default: bool,
@@ -1245,7 +1238,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			consts_metadata,
 			has_event_type,
 			where_clause,
-			attr_span,
 			default_sub_trait,
 		})
 	}

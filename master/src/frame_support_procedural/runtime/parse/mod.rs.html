@@ -435,10 +435,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#284" id="284">284</a>
 <a href="#285" id="285">285</a>
 <a href="#286" id="286">286</a>
-<a href="#287" id="287">287</a>
-<a href="#288" id="288">288</a>
-<a href="#289" id="289">289</a>
-<a href="#290" id="290">290</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -550,7 +546,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Declaration of a runtime with some pallet with implicit declaration of parts.
 </span><span class="attr">#[derive(Debug, Clone)]
 </span><span class="kw">pub struct </span>ImplicitAllPalletsDeclaration {
-	<span class="kw">pub </span>name: Ident,
 	<span class="kw">pub </span>pallet_decls: Vec&lt;PalletDeclaration&gt;,
 	<span class="kw">pub </span>pallet_count: usize,
 }
@@ -564,7 +559,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">pub struct </span>Def {
 	<span class="kw">pub </span>input: TokenStream2,
-	<span class="kw">pub </span>item: syn::ItemMod,
 	<span class="kw">pub </span>runtime_struct: runtime_struct::RuntimeStructDef,
 	<span class="kw">pub </span>pallets: AllPalletsDeclaration,
 	<span class="kw">pub </span>runtime_types: Vec&lt;RuntimeType&gt;,
@@ -602,8 +596,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				helper::take_first_item_runtime_attr::&lt;RuntimeAttr&gt;(item)<span class="question-mark">?
 			</span>{
 				<span class="kw">match </span>runtime_attr {
-					RuntimeAttr::Runtime(span) <span class="kw">if </span>runtime_struct.is_none() =&gt; {
-						<span class="kw">let </span>p = runtime_struct::RuntimeStructDef::try_from(span, item)<span class="question-mark">?</span>;
+					RuntimeAttr::Runtime(<span class="kw">_</span>) <span class="kw">if </span>runtime_struct.is_none() =&gt; {
+						<span class="kw">let </span>p = runtime_struct::RuntimeStructDef::try_from(item)<span class="question-mark">?</span>;
 						runtime_struct = <span class="prelude-val">Some</span>(p);
 					},
 					RuntimeAttr::Derive(<span class="kw">_</span>, types) <span class="kw">if </span>runtime_types.is_none() =&gt; {
@@ -681,7 +675,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>decl_count = pallet_decls.len();
 		<span class="kw">let </span>pallets = <span class="kw">if </span>decl_count &gt; <span class="number">0 </span>{
 			AllPalletsDeclaration::Implicit(ImplicitAllPalletsDeclaration {
-				name,
 				pallet_decls,
 				pallet_count: decl_count.saturating_add(pallets.len()),
 			})
@@ -691,7 +684,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">let </span>def = Def {
 			input,
-			item,
 			runtime_struct: runtime_struct.ok_or_else(|| {
 				syn::Error::new(item_span,
 					<span class="string">"Missing Runtime. Please add a struct inside the module and annotate it with `#[runtime::runtime]`"

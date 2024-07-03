@@ -217,10 +217,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#66" id="66">66</a>
 <a href="#67" id="67">67</a>
 <a href="#68" id="68">68</a>
-<a href="#69" id="69">69</a>
-<a href="#70" id="70">70</a>
-<a href="#71" id="71">71</a>
-<a href="#72" id="72">72</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -248,16 +244,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// * `struct Origin`
 /// * `enum Origin`
 </span><span class="kw">pub struct </span>OriginDef {
-	<span class="doccomment">/// The index of item in pallet module.
-	</span><span class="kw">pub </span>index: usize,
-	<span class="kw">pub </span>has_instance: bool,
 	<span class="kw">pub </span>is_generic: bool,
 	<span class="doccomment">/// A set of usage of instance, must be check for consistency with trait.
 	</span><span class="kw">pub </span>instances: Vec&lt;helper::InstanceUsage&gt;,
 }
 
 <span class="kw">impl </span>OriginDef {
-	<span class="kw">pub fn </span>try_from(index: usize, item: <span class="kw-2">&amp;mut </span>syn::Item) -&gt; syn::Result&lt;<span class="self">Self</span>&gt; {
+	<span class="kw">pub fn </span>try_from(item: <span class="kw-2">&amp;mut </span>syn::Item) -&gt; syn::Result&lt;<span class="self">Self</span>&gt; {
 		<span class="kw">let </span>item_span = item.span();
 		<span class="kw">let </span>(vis, ident, generics) = <span class="kw">match </span><span class="kw-2">&amp;</span>item {
 			syn::Item::Enum(item) =&gt; (<span class="kw-2">&amp;</span>item.vis, <span class="kw-2">&amp;</span>item.ident, <span class="kw-2">&amp;</span>item.generics),
@@ -269,7 +262,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			},
 		};
 
-		<span class="kw">let </span>has_instance = generics.params.len() == <span class="number">2</span>;
 		<span class="kw">let </span>is_generic = !generics.params.is_empty();
 
 		<span class="kw">let </span><span class="kw-2">mut </span>instances = <span class="macro">vec!</span>[];
@@ -290,7 +282,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">return </span><span class="prelude-val">Err</span>(syn::Error::new(ident.span(), msg))
 		}
 
-		<span class="prelude-val">Ok</span>(OriginDef { index, has_instance, is_generic, instances })
+		<span class="prelude-val">Ok</span>(OriginDef { is_generic, instances })
 	}
 }
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>

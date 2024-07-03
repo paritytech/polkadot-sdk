@@ -336,10 +336,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#185" id="185">185</a>
 <a href="#186" id="186">186</a>
 <a href="#187" id="187">187</a>
-<a href="#188" id="188">188</a>
-<a href="#189" id="189">189</a>
-<a href="#190" id="190">190</a>
-<a href="#191" id="191">191</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -429,8 +425,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="kw">pub struct </span>CompositeDef {
-	<span class="doccomment">/// The index of the CompositeDef item in the pallet module.
-	</span><span class="kw">pub </span>index: usize,
 	<span class="doccomment">/// The composite keyword used (contains span).
 	</span><span class="kw">pub </span>composite_keyword: keyword::CompositeKeyword,
 	<span class="doccomment">/// Name of the associated type.
@@ -446,7 +440,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">impl </span>CompositeDef {
 	<span class="kw">pub fn </span>try_from(
 		attr_span: proc_macro2::Span,
-		index: usize,
 		scrate: <span class="kw-2">&amp;</span>syn::Path,
 		item: <span class="kw-2">&amp;mut </span>syn::Item,
 	) -&gt; syn::Result&lt;<span class="self">Self</span>&gt; {
@@ -522,7 +515,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			syn::parse2::&lt;keyword::CompositeKeyword&gt;(item.ident.to_token_stream())<span class="question-mark">?</span>;
 
 		<span class="prelude-val">Ok</span>(CompositeDef {
-			index,
 			composite_keyword,
 			attr_span,
 			generics: item.generics.clone(),

@@ -204,12 +204,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#53" id="53">53</a>
 <a href="#54" id="54">54</a>
 <a href="#55" id="55">55</a>
-<a href="#56" id="56">56</a>
-<a href="#57" id="57">57</a>
-<a href="#58" id="58">58</a>
-<a href="#59" id="59">59</a>
-<a href="#60" id="60">60</a>
-<a href="#61" id="61">61</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -232,8 +226,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Definition for pallet genesis build implementation.
 </span><span class="kw">pub struct </span>GenesisBuildDef {
-	<span class="doccomment">/// The index of item in pallet module.
-	</span><span class="kw">pub </span>index: usize,
 	<span class="doccomment">/// A set of usage of instance, must be check for consistency with trait.
 	</span><span class="kw">pub </span>instances: <span class="prelude-ty">Option</span>&lt;Vec&lt;helper::InstanceUsage&gt;&gt;,
 	<span class="doccomment">/// The where_clause used.
@@ -243,11 +235,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="kw">impl </span>GenesisBuildDef {
-	<span class="kw">pub fn </span>try_from(
-		attr_span: proc_macro2::Span,
-		index: usize,
-		item: <span class="kw-2">&amp;mut </span>syn::Item,
-	) -&gt; syn::Result&lt;<span class="self">Self</span>&gt; {
+	<span class="kw">pub fn </span>try_from(attr_span: proc_macro2::Span, item: <span class="kw-2">&amp;mut </span>syn::Item) -&gt; syn::Result&lt;<span class="self">Self</span>&gt; {
 		<span class="kw">let </span>item = <span class="kw">if let </span>syn::Item::Impl(item) = item {
 			item
 		} <span class="kw">else </span>{
@@ -268,7 +256,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>instances =
 			helper::check_genesis_builder_usage(item_trait)<span class="question-mark">?</span>.map(|instances| <span class="macro">vec!</span>[instances]);
 
-		<span class="prelude-val">Ok</span>(<span class="self">Self </span>{ attr_span, index, instances, where_clause: item.generics.where_clause.clone() })
+		<span class="prelude-val">Ok</span>(<span class="self">Self </span>{ attr_span, instances, where_clause: item.generics.where_clause.clone() })
 	}
 }
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>

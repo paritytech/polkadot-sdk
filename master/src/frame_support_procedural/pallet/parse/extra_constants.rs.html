@@ -302,13 +302,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#151" id="151">151</a>
 <a href="#152" id="152">152</a>
 <a href="#153" id="153">153</a>
-<a href="#154" id="154">154</a>
-<a href="#155" id="155">155</a>
-<a href="#156" id="156">156</a>
-<a href="#157" id="157">157</a>
-<a href="#158" id="158">158</a>
-<a href="#159" id="159">159</a>
-<a href="#160" id="160">160</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -348,8 +341,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub </span>where_clause: <span class="prelude-ty">Option</span>&lt;syn::WhereClause&gt;,
 	<span class="doccomment">/// A set of usage of instance, must be check for consistency with trait.
 	</span><span class="kw">pub </span>instances: Vec&lt;helper::InstanceUsage&gt;,
-	<span class="doccomment">/// The index of call item in pallet module.
-	</span><span class="kw">pub </span>index: usize,
 	<span class="doccomment">/// The extra constant defined.
 	</span><span class="kw">pub </span>extra_constants: Vec&lt;ExtraConstantDef&gt;,
 }
@@ -388,7 +379,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="kw">impl </span>ExtraConstantsDef {
-	<span class="kw">pub fn </span>try_from(index: usize, item: <span class="kw-2">&amp;mut </span>syn::Item) -&gt; syn::Result&lt;<span class="self">Self</span>&gt; {
+	<span class="kw">pub fn </span>try_from(item: <span class="kw-2">&amp;mut </span>syn::Item) -&gt; syn::Result&lt;<span class="self">Self</span>&gt; {
 		<span class="kw">let </span>item = <span class="kw">if let </span>syn::Item::Impl(item) = item {
 			item
 		} <span class="kw">else </span>{
@@ -461,12 +452,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			});
 		}
 
-		<span class="prelude-val">Ok</span>(<span class="self">Self </span>{
-			index,
-			instances,
-			where_clause: item.generics.where_clause.clone(),
-			extra_constants,
-		})
+		<span class="prelude-val">Ok</span>(<span class="self">Self </span>{ instances, where_clause: item.generics.where_clause.clone(), extra_constants })
 	}
 }
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>

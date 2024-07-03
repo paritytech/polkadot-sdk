@@ -1108,15 +1108,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#957" id="957">957</a>
 <a href="#958" id="958">958</a>
 <a href="#959" id="959">959</a>
-<a href="#960" id="960">960</a>
-<a href="#961" id="961">961</a>
-<a href="#962" id="962">962</a>
-<a href="#963" id="963">963</a>
-<a href="#964" id="964">964</a>
-<a href="#965" id="965">965</a>
-<a href="#966" id="966">966</a>
-<a href="#967" id="967">967</a>
-<a href="#968" id="968">968</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1153,8 +1144,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	parse2,
 	spanned::Spanned,
 	token::{Bracket, Paren, PathSep, Pound},
-	Attribute, Error, Expr, Ident, ImplItem, ImplItemFn, ItemEnum, ItemImpl, LitInt, Path,
-	PathArguments, <span class="prelude-ty">Result</span>, TypePath,
+	Error, Expr, Ident, ImplItem, ImplItemFn, ItemEnum, ItemImpl, LitInt, Path, PathArguments,
+	<span class="prelude-ty">Result</span>, TypePath,
 };
 
 <span class="kw">pub mod </span>keywords {
@@ -1299,7 +1290,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">pub </span>condition_attr: TaskConditionAttr,
 	<span class="kw">pub </span>list_attr: TaskListAttr,
 	<span class="kw">pub </span>weight_attr: TaskWeightAttr,
-	<span class="kw">pub </span>normal_attrs: Vec&lt;Attribute&gt;,
 	<span class="kw">pub </span>item: ImplItemFn,
 	<span class="kw">pub </span>arg_names: Vec&lt;Ident&gt;,
 }
@@ -1309,7 +1299,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>item = input.parse::&lt;ImplItemFn&gt;()<span class="question-mark">?</span>;
 		<span class="comment">// we only want to activate TaskAttrType parsing errors for tasks-related attributes,
 		// so we filter them here
-		</span><span class="kw">let </span>(task_attrs, normal_attrs) = partition_task_attrs(<span class="kw-2">&amp;</span>item);
+		</span><span class="kw">let </span>task_attrs = partition_task_attrs(<span class="kw-2">&amp;</span>item).<span class="number">0</span>;
 
 		<span class="kw">let </span>task_attrs: Vec&lt;TaskAttr&gt; = task_attrs
 			.into_iter()
@@ -1412,15 +1402,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>list_attr = list_attr.try_into().expect(<span class="string">"we check the type above; QED"</span>);
 		<span class="kw">let </span>weight_attr = weight_attr.try_into().expect(<span class="string">"we check the type above; QED"</span>);
 
-		<span class="prelude-val">Ok</span>(TaskDef {
-			index_attr,
-			condition_attr,
-			list_attr,
-			weight_attr,
-			normal_attrs,
-			item,
-			arg_names,
-		})
+		<span class="prelude-val">Ok</span>(TaskDef { index_attr, condition_attr, list_attr, weight_attr, item, arg_names })
 	}
 }
 

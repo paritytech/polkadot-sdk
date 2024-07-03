@@ -321,8 +321,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#170" id="170">170</a>
 <a href="#171" id="171">171</a>
 <a href="#172" id="172">172</a>
-<a href="#173" id="173">173</a>
-<a href="#174" id="174">174</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -340,15 +338,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-</span><span class="kw">use </span>syn::{Attribute, Ident, PathArguments};
+</span><span class="kw">use </span>syn::{Ident, PathArguments};
 
 <span class="doccomment">/// The declaration of a pallet.
 </span><span class="attr">#[derive(Debug, Clone)]
 </span><span class="kw">pub struct </span>PalletDeclaration {
 	<span class="doccomment">/// The name of the pallet, e.g.`System` in `pub type System = frame_system`.
 	</span><span class="kw">pub </span>name: Ident,
-	<span class="doccomment">/// Optional attributes tagged right above a pallet declaration.
-	</span><span class="kw">pub </span>attrs: Vec&lt;Attribute&gt;,
 	<span class="doccomment">/// The path of the pallet, e.g. `frame_system` in `pub type System = frame_system`.
 	</span><span class="kw">pub </span>path: syn::Path,
 	<span class="doccomment">/// The segment of the pallet, e.g. `Pallet` in `pub type System = frame_system::Pallet`.
@@ -416,7 +412,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			};
 		}
 
-		<span class="prelude-val">Ok</span>(<span class="self">Self </span>{ name, path, pallet_segment, runtime_param, instance, attrs: item.attrs.clone() })
+		<span class="prelude-val">Ok</span>(<span class="self">Self </span>{ name, path, pallet_segment, runtime_param, instance })
 	}
 }
 

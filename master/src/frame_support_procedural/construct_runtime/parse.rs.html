@@ -923,21 +923,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#772" id="772">772</a>
 <a href="#773" id="773">773</a>
 <a href="#774" id="774">774</a>
-<a href="#775" id="775">775</a>
-<a href="#776" id="776">776</a>
-<a href="#777" id="777">777</a>
-<a href="#778" id="778">778</a>
-<a href="#779" id="779">779</a>
-<a href="#780" id="780">780</a>
-<a href="#781" id="781">781</a>
-<a href="#782" id="782">782</a>
-<a href="#783" id="783">783</a>
-<a href="#784" id="784">784</a>
-<a href="#785" id="785">785</a>
-<a href="#786" id="786">786</a>
-<a href="#787" id="787">787</a>
-<a href="#788" id="788">788</a>
-<a href="#789" id="789">789</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1005,8 +990,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Declaration of a runtime with some pallet with implicit declaration of parts.
 </span><span class="attr">#[derive(Debug)]
 </span><span class="kw">pub struct </span>ImplicitRuntimeDeclaration {
-	<span class="kw">pub </span>name: Ident,
-	<span class="kw">pub </span>where_section: <span class="prelude-ty">Option</span>&lt;WhereSection&gt;,
 	<span class="kw">pub </span>pallets: Vec&lt;PalletDeclaration&gt;,
 }
 
@@ -1038,11 +1021,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">match </span>convert_pallets(pallets.content.inner.into_iter().collect())<span class="question-mark">? </span>{
 			PalletsConversion::Implicit(pallets) =&gt;
-				<span class="prelude-val">Ok</span>(RuntimeDeclaration::Implicit(ImplicitRuntimeDeclaration {
-					name,
-					where_section,
-					pallets,
-				})),
+				<span class="prelude-val">Ok</span>(RuntimeDeclaration::Implicit(ImplicitRuntimeDeclaration { pallets })),
 			PalletsConversion::Explicit(pallets) =&gt;
 				<span class="prelude-val">Ok</span>(RuntimeDeclaration::Explicit(ExplicitRuntimeDeclaration {
 					name,
@@ -1064,9 +1043,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="attr">#[derive(Debug)]
 </span><span class="kw">pub struct </span>WhereSection {
 	<span class="kw">pub </span>span: Span,
-	<span class="kw">pub </span>block: syn::TypePath,
-	<span class="kw">pub </span>node_block: syn::TypePath,
-	<span class="kw">pub </span>unchecked_extrinsic: syn::TypePath,
 }
 
 <span class="kw">impl </span>Parse <span class="kw">for </span>WhereSection {
@@ -1085,10 +1061,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span>}
 			input.parse::&lt;<span class="macro">Token!</span>[,]&gt;()<span class="question-mark">?</span>;
 		}
-		<span class="kw">let </span>block = remove_kind(input, WhereKind::Block, <span class="kw-2">&amp;mut </span>definitions)<span class="question-mark">?</span>.value;
-		<span class="kw">let </span>node_block = remove_kind(input, WhereKind::NodeBlock, <span class="kw-2">&amp;mut </span>definitions)<span class="question-mark">?</span>.value;
-		<span class="kw">let </span>unchecked_extrinsic =
-			remove_kind(input, WhereKind::UncheckedExtrinsic, <span class="kw-2">&amp;mut </span>definitions)<span class="question-mark">?</span>.value;
+		remove_kind(input, WhereKind::Block, <span class="kw-2">&amp;mut </span>definitions)<span class="question-mark">?</span>;
+		remove_kind(input, WhereKind::NodeBlock, <span class="kw-2">&amp;mut </span>definitions)<span class="question-mark">?</span>;
+		remove_kind(input, WhereKind::UncheckedExtrinsic, <span class="kw-2">&amp;mut </span>definitions)<span class="question-mark">?</span>;
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(WhereDefinition { <span class="kw-2">ref </span>kind_span, <span class="kw-2">ref </span>kind, .. }) = definitions.first() {
 			<span class="kw">let </span>msg = <span class="macro">format!</span>(
 				<span class="string">"`{:?}` was declared above. Please use exactly one declaration for `{:?}`."</span>,
@@ -1096,7 +1071,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			);
 			<span class="kw">return </span><span class="prelude-val">Err</span>(Error::new(<span class="kw-2">*</span>kind_span, msg))
 		}
-		<span class="prelude-val">Ok</span>(<span class="self">Self </span>{ span: input.span(), block, node_block, unchecked_extrinsic })
+		<span class="prelude-val">Ok</span>(<span class="self">Self </span>{ span: input.span() })
 	}
 }
 
@@ -1111,7 +1086,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub struct </span>WhereDefinition {
 	<span class="kw">pub </span>kind_span: Span,
 	<span class="kw">pub </span>kind: WhereKind,
-	<span class="kw">pub </span>value: syn::TypePath,
 }
 
 <span class="kw">impl </span>Parse <span class="kw">for </span>WhereDefinition {
@@ -1127,14 +1101,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">return </span><span class="prelude-val">Err</span>(lookahead.error())
 		};
 
-		<span class="prelude-val">Ok</span>(<span class="self">Self </span>{
-			kind_span,
-			kind,
-			value: {
-				<span class="kw">let _</span>: <span class="macro">Token!</span>[=] = input.parse()<span class="question-mark">?</span>;
-				input.parse()<span class="question-mark">?
-			</span>},
-		})
+		<span class="kw">let _</span>: <span class="macro">Token!</span>[=] = input.parse()<span class="question-mark">?</span>;
+		<span class="kw">let _</span>: syn::TypePath = input.parse()<span class="question-mark">?</span>;
+
+		<span class="prelude-val">Ok</span>(<span class="self">Self </span>{ kind_span, kind })
 	}
 }
 
