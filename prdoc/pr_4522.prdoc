@@ -19,9 +19,16 @@ doc:
 
 crates: 
   - name: pallet-beefy
+    bump: major
   - name: pallet-beefy-mmr
+    bump: major
   - name: pallet-mmr
+    bump: major
   - name: sc-consensus-beefy
+    bump: minor
   - name: kitchensink-runtime
+    bump: major
   - name: rococo-runtime
+    bump: major
   - name: westend-runtime
+    bump: major
