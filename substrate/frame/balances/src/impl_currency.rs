@@ -34,11 +34,12 @@ use frame_support::{
 };
 use frame_system::pallet_prelude::BlockNumberFor;
 pub use imbalances::{NegativeImbalance, PositiveImbalance};
+use sp_runtime::traits::Bounded;
 
 // wrapping these imbalances in a private module is necessary to ensure absolute privacy
 // of the inner member.
 mod imbalances {
-	use super::{result, Config, Imbalance, RuntimeDebug, Saturating, TryDrop, Zero};
+	use super::*;
 	use frame_support::traits::SameOrOther;
 	use sp_std::mem;
 
@@ -200,6 +201,9 @@ mod imbalances {
 		/// Basic drop handler will just square up the total issuance.
 		fn drop(&mut self) {
 			<super::TotalIssuance<T, I>>::mutate(|v| *v = v.saturating_add(self.0));
+			if !self.0.is_zero() {
+				Pallet::<T, I>::deposit_event(Event::<T, I>::Issued { amount: self.0 });
+			}
 		}
 	}
 
@@ -207,6 +211,9 @@ mod imbalances {
 		/// Basic drop handler will just square up the total issuance.
 		fn drop(&mut self) {
 			<super::TotalIssuance<T, I>>::mutate(|v| *v = v.saturating_sub(self.0));
+			if !self.0.is_zero() {
+				Pallet::<T, I>::deposit_event(Event::<T, I>::Rescinded { amount: self.0 });
+			}
 		}
 	}
 }
@@ -263,6 +270,8 @@ where
 				Zero::zero()
 			});
 		});
+
+		Pallet::<T, I>::deposit_event(Event::<T, I>::Rescinded { amount });
 		PositiveImbalance::new(amount)
 	}
 
@@ -279,6 +288,8 @@ where
 				Self::Balance::max_value()
 			})
 		});
+
+		Pallet::<T, I>::deposit_event(Event::<T, I>::Issued { amount });
 		NegativeImbalance::new(amount)
 	}
 
@@ -349,7 +360,7 @@ where
 				};
 				account.free.saturating_reduce(actual);
 				let remaining = value.saturating_sub(actual);
-				Ok((NegativeImbalance::new(actual), remaining))
+				Ok((NegativeImbalance::new(dbg!(actual)), remaining))
 			},
 		) {
 			Ok((imbalance, remaining)) => {
