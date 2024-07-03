@@ -242,8 +242,8 @@ pub struct Collations {
 	/// What collations were fetched so far for this relay parent.
 	fetched_per_para: BTreeMap<ParaId, usize>,
 	// Claims per `ParaId` for the assigned core at the relay parent. This information is obtained
-	// from `GroupAssignments` which contains either the claim queue for the core or the `ParaId`
-	// of the parachain assigned to the core.
+	// from `GroupAssignments` which contains either the claim queue (if runtime supports it) for
+	// the core or the `ParaId` of the parachain assigned to the core.
 	claims_per_para: BTreeMap<ParaId, usize>,
 	// Whether the runtime supports claim queue runtime api.
 	has_claim_queue: bool,
@@ -255,8 +255,7 @@ impl Collations {
 	/// uses `GroupAssignments`. If the runtime supports claim queue `GroupAssignments` contains the
 	/// claim queue for the core assigned to the (backing group of the) validator. If the runtime
 	/// doesn't support claim queue `GroupAssignments` contains only one entry - the `ParaId` of the
-	/// parachain assigned to the core. This way we can handle both cases with a single
-	/// implementation and avoid code duplication.
+	/// parachain assigned to the core.
 	pub(super) fn new(group_assignments: &Vec<ParaId>, has_claim_queue: bool) -> Self {
 		let mut claims_per_para = BTreeMap::new();
 		for para_id in group_assignments {
@@ -332,7 +331,7 @@ impl Collations {
 	/// this case there is a limit of 1 collation per relay parent.
 	///
 	/// If prospective parachains mode is enabled but claim queue is not supported then up to
-	/// `max_candidate_depth + 1` seconded collations are supported. In theory in this case if two
+	/// `max_candidate_depth + 1` seconded collations are accepted. In theory in this case if two
 	/// parachains are sharing a core no fairness is guaranteed between them and the faster one can
 	/// starve the slower one by exhausting the limit with its own advertisements. In practice this
 	/// should not happen because core sharing implies core time support which implies the claim
@@ -344,10 +343,29 @@ impl Collations {
 		num_pending_fetches: usize,
 	) -> bool {
 		match relay_parent_mode {
-			ProspectiveParachainsMode::Disabled => return self.seconded_count >= 1,
+			ProspectiveParachainsMode::Disabled => {
+				gum::trace!(
+					target: LOG_TARGET,
+					?para_id,
+					seconded_count=self.seconded_count,
+					"is_collations_limit_reached - ProspectiveParachainsMode::Disabled"
+				);
+
+				self.seconded_count >= 1
+			},
 			ProspectiveParachainsMode::Enabled { max_candidate_depth, allowed_ancestry_len: _ }
 				if !self.has_claim_queue =>
-				self.seconded_count >= max_candidate_depth + 1,
+			{
+				gum::trace!(
+					target: LOG_TARGET,
+					?para_id,
+					seconded_count=self.seconded_count,
+					max_candidate_depth,
+					"is_collations_limit_reached - ProspectiveParachainsMode::Enabled without claim queue support"
+				);
+
+				self.seconded_count >= max_candidate_depth + 1
+			},
 			ProspectiveParachainsMode::Enabled {
 				max_candidate_depth: _,
 				allowed_ancestry_len: _,
@@ -365,7 +383,7 @@ impl Collations {
 					fetched_per_para=?self.fetched_per_para,
 					?num_pending_fetches,
 					?respected_per_para_limit,
-					"is_collations_limit_reached"
+					"is_collations_limit_reached - ProspectiveParachainsMode::Enabled with claim queue support"
 				);
 
 				!respected_per_para_limit
@@ -375,7 +393,7 @@ impl Collations {
 
 	/// Adds a new collation to the waiting queue for the relay parent. This function doesn't
 	/// perform any limits check. The caller (`enqueue_collation`) should assure that the collation
-	/// can be enqueued.
+	/// limit is respected.
 	pub(super) fn add_to_waiting_queue(&mut self, collation: (PendingCollation, CollatorId)) {
 		self.waiting_queue.entry(collation.0.para_id).or_default().push_back(collation);
 	}
@@ -383,15 +401,14 @@ impl Collations {
 	/// Picks a collation to fetch from the waiting queue.
 	/// When fetching collations we need to ensure that each parachain has got a fair core time
 	/// share depending on its assignments in the claim queue. This means that the number of
-	/// collations fetched per parachain should ideally be equal to (but not bigger than) the number
-	/// of claims for the particular parachain in the claim queue.
+	/// collations fetched per parachain should ideally be equal to the number of claims for the
+	/// particular parachain in the claim queue.
 	///
 	/// To achieve this each parachain with at an entry in the `waiting_queue` has got a score
 	/// calculated by dividing the number of fetched collations by the number of entries in the
-	/// claim queue. Lower the score means higher fetching priority. Note that if a parachain hasn't
-	/// got anything fetched at this relay parent it will have score 0 which means highest priority.
-	///
-	/// If two parachains has got the same score the one which is earlier in the claim queue will be
+	/// claim queue. Lower score means higher fetching priority. Note that if a parachain hasn't got
+	/// anything fetched at this relay parent it will have score 0 which means highest priority. If
+	/// two parachains has got the same score the one which is earlier in the claim queue will be
 	/// picked.
 	///
 	/// If claim queue is not supported then `group_assignment` should contain just one element and
