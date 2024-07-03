@@ -1354,11 +1354,12 @@ fn reserve_transfer_pool_assets_from_system_para_to_para() {
 }
 
 // ==========================================================================
-// ===== Reserve Transfers - Pool Asset - Parachain->AssetHub->Parachain ====
+// == Reserve Transfers USDT - Parachain->AssetHub->Parachain - pay fees with USDT (asset conversion) ==
 // ==========================================================================
-// From Penpal A to Penpal B with AssetHub as the reserve.
+// Transfer USDT From Penpal A to Penpal B with AssetHub as the reserve, while paying fees using
+// USDT by making use of existing USDT pools on AssetHub and destination.
 #[test]
-fn reserve_transfer_pool_assets_from_para_to_para_through_asset_hub() {
+fn reserve_transfer_usdt_from_para_to_para_through_asset_hub() {
 	use penpal_runtime::xcm_config::ASSET_HUB_ID;
 
 	let destination = PenpalA::sibling_location_of(PenpalB::para_id());
