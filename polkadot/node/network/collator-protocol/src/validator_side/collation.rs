@@ -448,9 +448,10 @@ impl Collations {
 			match lowest_score {
 				Some((score, _)) if para_score < score =>
 					lowest_score = Some((para_score, vec![(para_id, collations)])),
-				Some((_, ref mut paras)) => {
+				Some((score, ref mut paras)) if score == para_score => {
 					paras.push((para_id, collations));
 				},
+				Some(_) => continue,
 				None => lowest_score = Some((para_score, vec![(para_id, collations)])),
 			}
 		}
