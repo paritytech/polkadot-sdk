@@ -725,25 +725,17 @@ async fn start_node<Network: sc_network::NetworkBackend<Block, Hash>>(
 		.map(|r| r.0)
 		.map_err(Into::into),
 
-		Runtime::AssetHub => crate::service::start_asset_hub_lookahead_node::<
-			RuntimeApi,
-			AuraId,
-			Network,
-		>(config, polkadot_config, collator_options, id, hwbench)
-		.await
-		.map(|r| r.0)
-		.map_err(Into::into),
-
-		Runtime::Collectives => crate::service::start_generic_aura_lookahead_node::<Network>(
-			config,
-			polkadot_config,
-			collator_options,
-			id,
-			hwbench,
-		)
-		.await
-		.map(|r| r.0)
-		.map_err(Into::into),
+		Runtime::AssetHub | Runtime::Collectives =>
+			crate::service::start_generic_aura_lookahead_node::<Network>(
+				config,
+				polkadot_config,
+				collator_options,
+				id,
+				hwbench,
+			)
+			.await
+			.map(|r| r.0)
+			.map_err(Into::into),
 
 		Runtime::Seedling | Runtime::Shell => crate::service::start_shell_node::<Network>(
 			config,
