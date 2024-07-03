@@ -91,6 +91,9 @@ const PVF_APPROVAL_EXECUTION_RETRY_DELAY: Duration = Duration::from_millis(200);
 // `ValidateFromChainState` messages awaiting data from the runtime
 const TASK_LIMIT: usize = 30;
 
+// How many PVFs per block we take to prepare themselves for the next session validation
+const PREPARE_VALIDATION_PER_BLOCK_LIMIT: usize = 1;
+
 /// Configuration for the candidate validation subsystem
 #[derive(Clone, Default)]
 pub struct Config {
@@ -460,6 +463,7 @@ where
 			},
 			_ => None,
 		})
+		.take(PREPARE_VALIDATION_PER_BLOCK_LIMIT)
 		.collect::<Vec<_>>();
 
 	let Ok(executor_params) = util::executor_params_at_relay_parent(relay_parent, sender).await
