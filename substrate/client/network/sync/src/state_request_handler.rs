@@ -96,6 +96,7 @@ struct SeenRequestsKey<B: BlockT> {
 	peer: PeerId,
 	block: B::Hash,
 	start: Vec<Vec<u8>>,
+	no_proof: bool,
 }
 
 #[allow(clippy::derived_hash_with_manual_eq)]
@@ -183,7 +184,12 @@ where
 		let request = StateRequest::decode(&payload[..])?;
 		let block: B::Hash = Decode::decode(&mut request.block.as_ref())?;
 
-		let key = SeenRequestsKey { peer: *peer, block, start: request.start.clone() };
+		let key = SeenRequestsKey {
+			peer: *peer,
+			block,
+			start: request.start.clone(),
+			no_proof: request.no_proof,
+		};
 
 		let mut reputation_changes = Vec::new();
 
