@@ -13,13 +13,13 @@ doc:
 
       If you previously specified implementations for the bp_runtime::Chain* traits, those will fit here exactly, for example:
       ```
-      	type ThisChain = bp_bridge_hub_rococo::BridgeHubRococo;
-	type BridgedChain = bp_bridge_hub_westend::BridgeHubWestend;
-	type BridgedHeaderChain = pallet_bridge_parachains::ParachainHeaders<
-		Runtime,
-		BridgeParachainWestendInstance,
-		bp_bridge_hub_westend::BridgeHubWestend,
-	>;
+      type ThisChain = bp_bridge_hub_rococo::BridgeHubRococo;
+      type BridgedChain = bp_bridge_hub_westend::BridgeHubWestend;
+      type BridgedHeaderChain = pallet_bridge_parachains::ParachainHeaders<
+            Runtime,
+            BridgeParachainWestendInstance,
+            bp_bridge_hub_westend::BridgeHubWestend,
+      >;
       ```
 
 crates:

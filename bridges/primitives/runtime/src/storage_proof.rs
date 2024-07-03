@@ -266,7 +266,7 @@ pub fn grow_storage_proof<L: TrieConfiguration>(
 pub fn record_all_keys<L: TrieConfiguration, DB>(
 	db: &DB,
 	root: &TrieHash<L>,
-) -> Result<RawStorageProof, Box<TrieError<L>>>
+) -> Result<RawStorageProof, sp_std::boxed::Box<TrieError<L>>>
 where
 	DB: hash_db::HashDBRef<L::Hash, trie_db::DBValue>,
 {
@@ -283,7 +283,7 @@ where
 /// Return valid storage proof and state root.
 ///
 /// NOTE: This should only be used for **testing**.
-#[cfg(feature = "test-helpers")]
+#[cfg(feature = "std")]
 pub fn craft_valid_storage_proof() -> (sp_core::H256, RawStorageProof) {
 	use sp_state_machine::{backend::Backend, prove_read, InMemoryBackend};
 
@@ -291,7 +291,7 @@ pub fn craft_valid_storage_proof() -> (sp_core::H256, RawStorageProof) {
 
 	// construct storage proof
 	let backend = <InMemoryBackend<sp_core::Blake2Hasher>>::from((
-		vec![
+		sp_std::vec![
 			(None, vec![(b"key1".to_vec(), Some(b"value1".to_vec()))]),
 			(None, vec![(b"key2".to_vec(), Some(b"value2".to_vec()))]),
 			(None, vec![(b"key3".to_vec(), Some(b"value3".to_vec()))]),
@@ -301,7 +301,7 @@ pub fn craft_valid_storage_proof() -> (sp_core::H256, RawStorageProof) {
 		],
 		state_version,
 	));
-	let root = backend.storage_root(std::iter::empty(), state_version).0;
+	let root = backend.storage_root(sp_std::iter::empty(), state_version).0;
 	let proof =
 		prove_read(backend, &[&b"key1"[..], &b"key2"[..], &b"key4"[..], &b"key22"[..]]).unwrap();
 
