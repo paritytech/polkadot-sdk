@@ -19,16 +19,17 @@ targets = ["x86_64-unknown-linux-gnu"]
 codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false }
 log = { workspace = true }
 scale-info = { version = "2.11.1", default-features = false, features = ["derive"] }
-frame-benchmarking = { path = "../../../substrate/frame/benchmarking", default-features = false, optional = true }
-frame-support = { path = "../../../substrate/frame/support", default-features = false }
-frame-system = { path = "../../../substrate/frame/system", default-features = false }
-sp-core = { path = "../../../substrate/primitives/core", default-features = false }
-sp-io = { path = "../../../substrate/primitives/io", default-features = false }
-sp-runtime = { path = "../../../substrate/primitives/runtime", default-features = false }
-sp-std = { path = "../../../substrate/primitives/std", default-features = false }
-xcm = { package = "staging-xcm", path = "..", default-features = false }
-xcm-builder = { package = "staging-xcm-builder", path = "../xcm-builder", default-features = false }
-xcm-executor = { package = "staging-xcm-executor", path = "../xcm-executor", default-features = false }
+frame-benchmarking = { optional = true, workspace = true }
+frame-support = { workspace = true }
+frame-system = { workspace = true }
+sp-core = { workspace = true }
+sp-io = { workspace = true }
+sp-runtime = { workspace = true }
+sp-std = { workspace = true }
+
+xcm = { workspace = true }
+xcm-executor = { workspace = true }
+xcm-builder = { workspace = true }
 
 [features]
 default = ["std"]
@@ -43,9 +44,9 @@ std = [
 	"sp-io/std",
 	"sp-runtime/std",
 	"sp-std/std",
-	"xcm/std",
 	"xcm-builder/std",
 	"xcm-executor/std",
+	"xcm/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
