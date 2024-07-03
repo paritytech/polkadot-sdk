@@ -1230,6 +1230,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1079" id="1079">1079</a>
 <a href="#1080" id="1080">1080</a>
 <a href="#1081" id="1081">1081</a>
+<a href="#1082" id="1082">1082</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1930,12 +1931,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.expect(<span class="string">"We can't handle unknown peers"</span>)
 			.clone();
 
-		<span class="self">self</span>.network
-			.send_message_from_peer(
-				<span class="kw-2">&amp;</span>peer_authority_id,
-				protocol_v3::ValidationProtocol::ApprovalDistribution(message.msg).into(),
-			)
-			.unwrap_or_else(|<span class="kw">_</span>| <span class="macro">panic!</span>(<span class="string">"Network should be up and running {:?}"</span>, sent_by));
+		<span class="kw">if let </span><span class="prelude-val">Err</span>(err) = <span class="self">self</span>.network.send_message_from_peer(
+			<span class="kw-2">&amp;</span>peer_authority_id,
+			protocol_v3::ValidationProtocol::ApprovalDistribution(message.msg).into(),
+		) {
+			<span class="macro">gum::warn!</span>(target: LOG_TARGET, <span class="question-mark">?</span>sent_by, <span class="question-mark">?</span>err, <span class="string">"Validator can not send message"</span>);
+		}
 	}
 
 	<span class="comment">// Queues a message to be sent by the peer identified by the `sent_by` value.
@@ -2226,11 +2227,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="string">"polkadot_parachain_subsystem_bounded_received"</span>,
 		<span class="prelude-val">Some</span>((<span class="string">"subsystem_name"</span>, <span class="string">"approval-distribution-subsystem"</span>)),
 		|value| {
-			<span class="macro">gum::info!</span>(target: LOG_TARGET, <span class="question-mark">?</span>value, <span class="question-mark">?</span>at_least_messages, <span class="string">"Waiting metric"</span>);
+			<span class="macro">gum::debug!</span>(target: LOG_TARGET, <span class="question-mark">?</span>value, <span class="question-mark">?</span>at_least_messages, <span class="string">"Waiting metric"</span>);
 			value &gt;= at_least_messages <span class="kw">as </span>f64
 		},
 	)
 	.<span class="kw">await</span>;
+
 	<span class="macro">gum::info!</span>(<span class="string">"Requesting approval votes ms"</span>);
 
 	<span class="kw">for </span>info <span class="kw">in </span><span class="kw-2">&amp;</span>state.blocks {
@@ -2270,7 +2272,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="string">"polkadot_parachain_subsystem_bounded_received"</span>,
 		<span class="prelude-val">Some</span>((<span class="string">"subsystem_name"</span>, <span class="string">"approval-distribution-subsystem"</span>)),
 		|value| {
-			<span class="macro">gum::info!</span>(target: LOG_TARGET, <span class="question-mark">?</span>value, <span class="question-mark">?</span>at_least_messages, <span class="string">"Waiting metric"</span>);
+			<span class="macro">gum::debug!</span>(target: LOG_TARGET, <span class="question-mark">?</span>value, <span class="question-mark">?</span>at_least_messages, <span class="string">"Waiting metric"</span>);
 			value &gt;= at_least_messages <span class="kw">as </span>f64
 		},
 	)
