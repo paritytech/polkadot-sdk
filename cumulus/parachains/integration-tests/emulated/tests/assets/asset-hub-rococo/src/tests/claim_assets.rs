@@ -17,13 +17,12 @@
 
 use crate::imports::*;
 
-use asset_hub_rococo_runtime::ExistentialDeposit;
 use emulated_integration_tests_common::test_chain_can_claim_assets;
 use xcm_executor::traits::DropAssets;
 
 #[test]
 fn assets_can_be_claimed() {
-	let amount = ExistentialDeposit::get();
+	let amount = AssetHubRococoExistentialDeposit::get();
 	let assets: Assets = (Parent, amount).into();
 
 	test_chain_can_claim_assets!(AssetHubRococo, RuntimeCall, NetworkId::Rococo, assets, amount);
