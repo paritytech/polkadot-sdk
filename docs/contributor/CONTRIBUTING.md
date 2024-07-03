@@ -4,18 +4,16 @@ The `Polkadot SDK` project is an **OPENISH Open Source Project**
 
 ## What?
 
-Individuals making significant and valuable contributions are given commit-access to the project.
-Contributions are done via pull-requests and need to be approved by the maintainers.
+Individuals making significant and valuable contributions are given commit-access to the project. Contributions are done
+via pull-requests and need to be approved by the maintainers.
 
 ## Rules
 
 There are a few basic ground-rules for contributors (including the maintainer(s) of the project):
 
-1. **No `--force` pushes** or modifying the master branch history in any way.
-   If you need to rebase, ensure you do it in your own repo. No rewriting of the history
-   after the code has been shared (e.g. through a Pull-Request).
-2. **Non-master branches**, prefixed with a short name moniker (e.g. `gav-my-feature`) must be
-   used for ongoing work.
+1. **No `--force` pushes** or modifying the master branch history in any way. If you need to rebase, ensure you do it in
+   your own repo. No rewriting of the history after the code has been shared (e.g. through a Pull-Request).
+2. **Non-master branches**, prefixed with a short name moniker (e.g. `gav-my-feature`) must be used for ongoing work.
 3. **All modifications** must be made in a **pull-request** to solicit feedback from other contributors.
 4. A pull-request **must not be merged until CI** has finished successfully.
 5. Contributors should adhere to the [house coding style](./STYLE_GUIDE.md).
@@ -26,8 +24,8 @@ There are a few basic ground-rules for contributors (including the maintainer(s)
 ### In General
 
 * A Pull Request (PR) needs to be reviewed and approved by project maintainers.
-* If a change does not alter any logic (e.g. comments, dependencies, docs), then it may be tagged
-`A1-insubstantial` and merged faster.
+* If a change does not alter any logic (e.g. comments, dependencies, docs), then it may be tagged `A1-insubstantial` and
+merged faster.
 * No PR should be merged until all reviews' comments are addressed.
 
 ### Labels
@@ -36,27 +34,26 @@ The set of labels and their description can be found [here](https://paritytech.g
 
 ### Process
 
-1. Please use our [Pull Request Template](./PULL_REQUEST_TEMPLATE.md) and make sure all relevant
-   information is reflected in your PR.
-2. Please tag each PR with minimum one `T*` label. The respective `T*` labels should signal the
-   component that was changed, they are also used by downstream users to track changes and to
-   include these changes properly into their own releases.
-3. If you’re still working on your PR, please submit as “Draft”. Once a PR is ready for review change
-   the status to “Open”, so that the maintainers get to review your PR. Generally PRs should sit for
-   48 hours in order to garner feedback. It may be merged before if all relevant parties had a look at it.
-4. With respect to auditing, please see [AUDIT.md](../AUDIT.md). In general, merging to master can happen independent of audit. 
+1. Please use our [Pull Request Template](./PULL_REQUEST_TEMPLATE.md) and make sure all relevant information is
+   reflected in your PR.
+2. Please tag each PR with minimum one `T*` label. The respective `T*` labels should signal the component that was
+   changed, they are also used by downstream users to track changes and to include these changes properly into their own
+   releases.
+3. If you’re still working on your PR, please submit as “Draft”. Once a PR is ready for review change the status to
+   “Open”, so that the maintainers get to review your PR. Generally PRs should sit for 48 hours in order to garner
+   feedback. It may be merged before if all relevant parties had a look at it.
+4. With respect to auditing, please see [AUDIT.md](../AUDIT.md). In general, merging to master can happen independent of
+   audit.
 5. PRs will be able to be merged once all reviewers' comments are addressed and CI is successful.
 
-**Noting breaking changes:**
-When breaking APIs, the PR description should mention what was changed alongside some examples on how
-to change the code to make it work/compile.
-It should also mention potential storage migrations and if they require some special setup aside adding
-it to the list of migrations in the runtime.
+**Noting breaking changes:** When breaking APIs, the PR description should mention what was changed alongside some
+examples on how to change the code to make it work/compile. It should also mention potential storage migrations and if
+they require some special setup aside adding it to the list of migrations in the runtime.
 
 ## Reviewing pull requests
 
-When reviewing a pull request, the end-goal is to suggest useful changes to the author.
-Reviews should finish with approval unless there are issues that would result in:
+When reviewing a pull request, the end-goal is to suggest useful changes to the author. Reviews should finish with
+approval unless there are issues that would result in:
 1. Buggy behavior.
 2. Undue maintenance burden.
 3. Breaking with house coding style.
@@ -75,7 +72,8 @@ The reviewers are also responsible to check:
 
 ## `PRDoc`
 
-All Pull Requests must contain proper title & description, as described in [Pull Request Template](./PULL_REQUEST_TEMPLATE.md). Moreover, all pull requests must have a proper `prdoc` file attached.
+All Pull Requests must contain proper title & description, as described in [Pull Request
+Template](./PULL_REQUEST_TEMPLATE.md). Moreover, all pull requests must have a proper `prdoc` file attached.
 
 Some Pull Requests can be exempt of `prdoc` documentation, those must be labelled with
 [`R0-silent`](https://github.com/paritytech/labels/blob/main/ruled_labels/specs_polkadot-sdk.yaml#L89-L91).
@@ -86,23 +84,24 @@ See more about `prdoc` [here](./prdoc.md)
 
 ## Helping out
 
-We use [labels](https://github.com/paritytech/polkadot-sdk/labels) to manage PRs and issues and communicate
-state of a PR. Please familiarise yourself with them. Best way to get started is to a pick a ticket tagged
-[easy](https://github.com/paritytech/polkadot-sdk/issues?q=is%3Aopen+is%3Aissue+label%3AD0-easy)
-or [medium](https://github.com/paritytech/polkadot-sdk/issues?q=is%3Aopen+is%3Aissue+label%3AD1-medium)
-and get going. Alternatively, look out for issues tagged [mentor](https://github.com/paritytech/polkadot-sdk/issues?q=is%3Aopen+is%3Aissue+label%3AC1-mentor)
-and get in contact with the mentor offering their support on that larger task.
+We use [labels](https://github.com/paritytech/polkadot-sdk/labels) to manage PRs and issues and communicate state of a
+PR. Please familiarise yourself with them. Best way to get started is to a pick a ticket tagged
+[easy](https://github.com/paritytech/polkadot-sdk/issues?q=is%3Aopen+is%3Aissue+label%3AD0-easy) or
+[medium](https://github.com/paritytech/polkadot-sdk/issues?q=is%3Aopen+is%3Aissue+label%3AD1-medium) and get going.
+Alternatively, look out for issues tagged
+[mentor](https://github.com/paritytech/polkadot-sdk/issues?q=is%3Aopen+is%3Aissue+label%3AC1-mentor) and get in contact
+with the mentor offering their support on that larger task.
 
 ****
 
 ### Issues
 
 If what you are looking for is an answer rather than proposing a new feature or fix, search
-[https://substrate.stackexchange.com](https://substrate.stackexchange.com/) to see if an post already
-exists, and ask if not. Please do not file support issues here.
+[https://substrate.stackexchange.com](https://substrate.stackexchange.com/) to see if an post already exists, and ask if
+not. Please do not file support issues here.
 
-Before opening a new issue search to see if a similar one already exists and leave a comment that you
-also experienced this issue or add your specifics that are related to an existing issue.
+Before opening a new issue search to see if a similar one already exists and leave a comment that you also experienced
+this issue or add your specifics that are related to an existing issue.
 
 Please label issues with the following labels (only relevant for maintainer):
 1. `I*`  issue severity and type. EXACTLY ONE REQUIRED.
@@ -115,19 +114,19 @@ Declaring formal releases remains the prerogative of the project maintainer(s). 
 
 ## UI tests
 
-UI tests are used for macros to ensure that the output of a macro doesn’t change and is in the expected format.
-These UI tests are sensible to any changes in the macro generated code or to switching the rust stable version.
-The tests are only run when the `RUN_UI_TESTS` environment variable is set. So, when the CI is for example complaining
-about failing UI tests and it is expected that they fail these tests need to be executed locally.
-To simplify the updating of the UI test output there is a script
-- `./scripts/update-ui-tests.sh`   to update the tests for a current rust version locally
-- `./scripts/update-ui-tests.sh 1.70` # to update the tests for a specific rust version locally
+UI tests are used for macros to ensure that the output of a macro doesn’t change and is in the expected format. These UI
+tests are sensible to any changes in the macro generated code or to switching the rust stable version. The tests are
+only run when the `RUN_UI_TESTS` environment variable is set. So, when the CI is for example complaining about failing
+UI tests and it is expected that they fail these tests need to be executed locally. To simplify the updating of the UI
+test output there is a script
+* `./scripts/update-ui-tests.sh`   to update the tests for a current rust version locally
+* `./scripts/update-ui-tests.sh 1.70` # to update the tests for a specific rust version locally
 
 Or if you have opened PR and you're member of `paritytech` - you can use command-bot to run the tests for you in CI:
-- `bot update-ui` - will run the tests for the current rust version
-- `bot update-ui latest --rust_version=1.70.0` - will run the tests for the specified rust version
-- `bot update-ui latest -v CMD_IMAGE=paritytech/ci-unified:bullseye-1.70.0-2023-05-23 --rust_version=1.70.0` -
-will run the tests for the specified rust version and specified image
+* `bot update-ui` - will run the tests for the current rust version
+* `bot update-ui latest --rust_version=1.70.0` - will run the tests for the specified rust version
+* `bot update-ui latest -v CMD_IMAGE=paritytech/ci-unified:bullseye-1.70.0-2023-05-23 --rust_version=1.70.0` - will run
+the tests for the specified rust version and specified image
 
 ## Feature Propagation
 
@@ -143,4 +142,5 @@ Start with comment in PR: `bot help` to see the list of available commands.
 ## Deprecating code
 
 When deprecating and removing code you need to be mindful of how this could impact downstream developers. In order to
-mitigate this impact, it is recommended to adhere to the steps outlined in the [Deprecation Checklist](./DEPRECATION_CHECKLIST.md).
+mitigate this impact, it is recommended to adhere to the steps outlined in the [Deprecation
+Checklist](./DEPRECATION_CHECKLIST.md).
