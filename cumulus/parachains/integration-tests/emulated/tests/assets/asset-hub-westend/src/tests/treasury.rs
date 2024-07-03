@@ -15,13 +15,13 @@
 
 use crate::imports::*;
 use emulated_integration_tests_common::accounts::{ALICE, BOB};
-use frame_support::traits::fungibles::{Create, Inspect, Mutate};
+use frame_support::traits::fungibles::{Inspect, Mutate};
 use polkadot_runtime_common::impls::VersionedLocatableAsset;
 use xcm_executor::traits::ConvertLocation;
 
 #[test]
 fn create_and_claim_treasury_spend() {
-	const ASSET_ID: u32 = 1984;
+	const ASSET_ID: u32 = 1984; // USDT already created at genesis.
 	const SPEND_AMOUNT: u128 = 1_000_000;
 	// treasury location from a sibling parachain.
 	let treasury_location: Location = Location::new(1, PalletInstance(37));
@@ -46,13 +46,7 @@ fn create_and_claim_treasury_spend() {
 	AssetHubWestend::execute_with(|| {
 		type Assets = <AssetHubWestend as AssetHubWestendPallet>::Assets;
 
-		// create an asset class and mint some assets to the treasury account.
-		assert_ok!(<Assets as Create<_>>::create(
-			ASSET_ID,
-			treasury_account.clone(),
-			true,
-			SPEND_AMOUNT / 2
-		));
+		// USDT already created at genesis.
 		assert_ok!(<Assets as Mutate<_>>::mint_into(ASSET_ID, &treasury_account, SPEND_AMOUNT * 4));
 		// beneficiary has zero balance.
 		assert_eq!(<Assets as Inspect<_>>::balance(ASSET_ID, &alice,), 0u128,);

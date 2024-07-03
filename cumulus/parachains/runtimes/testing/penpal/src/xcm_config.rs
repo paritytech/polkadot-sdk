@@ -273,6 +273,8 @@ pub const TELEPORTABLE_ASSET_ID: u32 = 2;
 pub const ASSETS_PALLET_ID: u8 = 50;
 pub const ASSET_HUB_ID: u32 = 1000;
 
+pub const USDT_ASSET_ID: u128 = 1984;
+
 parameter_types! {
 	/// The location that this chain recognizes as the Relay network's Asset Hub.
 	pub SystemAssetHubLocation: Location = Location::new(1, [Parachain(ASSET_HUB_ID)]);
@@ -289,6 +291,10 @@ parameter_types! {
 	pub LocalReservableFromAssetHub: Location = Location::new(
 		1,
 		[Parachain(ASSET_HUB_ID), PalletInstance(ASSETS_PALLET_ID), GeneralIndex(RESERVABLE_ASSET_ID.into())]
+	);
+	pub UsdtFromAssetHub: Location = Location::new(
+		1,
+		[Parachain(ASSET_HUB_ID), PalletInstance(ASSETS_PALLET_ID), GeneralIndex(USDT_ASSET_ID)],
 	);
 
 	/// The Penpal runtime is utilized for testing with various environment setups.
@@ -359,8 +365,6 @@ impl xcm_executor::Config for XcmConfig {
 	type Weigher = FixedWeightBounds<UnitWeightCost, RuntimeCall, MaxInstructions>;
 	type Trader = (
 		UsingComponents<WeightToFee, RelayLocation, AccountId, Balances, ToAuthor<Runtime>>,
-		// This trader allows to pay with `is_sufficient=true` "Foreign" assets from dedicated
-		// `pallet_assets` instance - `ForeignAssets`.
 		cumulus_primitives_utility::SwapFirstAssetTrader<
 			RelayLocation,
 			crate::AssetConversion,
@@ -376,17 +380,6 @@ impl xcm_executor::Config for XcmConfig {
 			),
 			ResolveAssetTo<StakingPot, crate::NativeAndAssets>,
 			AccountId,
-		>,
-		cumulus_primitives_utility::TakeFirstAssetTrader<
-			AccountId,
-			ForeignAssetFeeAsExistentialDepositMultiplierFeeCharger,
-			ForeignAssetsConvertedConcreteId,
-			ForeignAssets,
-			cumulus_primitives_utility::XcmFeesTo32ByteAccount<
-				ForeignFungiblesTransactor,
-				AccountId,
-				XcmAssetFeesReceiver,
-			>,
 		>,
 	);
 	type ResponseHandler = PolkadotXcm;

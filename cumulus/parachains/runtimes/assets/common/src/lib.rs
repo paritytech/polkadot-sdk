@@ -25,9 +25,7 @@ pub mod runtime_api;
 
 use crate::matching::{LocalLocationPattern, ParentLocation};
 use core::marker::PhantomData;
-use frame_support::traits::{
-	fungibles, Equals, EverythingBut, Get,
-};
+use frame_support::traits::{fungibles, Equals, EverythingBut, Get};
 use pallet_asset_conversion::SwapCredit as SwapCreditT;
 use parachains_common::{AssetIdForTrustBackedAssets, CollectionId, ItemId};
 use sp_runtime::traits::{TryConvertInto, Zero};

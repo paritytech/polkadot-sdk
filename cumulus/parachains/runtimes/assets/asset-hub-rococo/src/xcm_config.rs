@@ -22,8 +22,7 @@ use super::{
 };
 use assets_common::{
 	matching::{FromNetwork, FromSiblingParachain, IsForeignConcreteAsset},
-	TrustBackedAssetsAsLocation,
-	SwapAssetConverter,
+	SwapAssetConverter, TrustBackedAssetsAsLocation,
 };
 use frame_support::{
 	parameter_types,
