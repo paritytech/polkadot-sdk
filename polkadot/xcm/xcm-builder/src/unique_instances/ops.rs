@@ -4,9 +4,7 @@ use core::marker::PhantomData;
 use frame_support::traits::{
 	tokens::asset_ops::{
 		common_asset_kinds::Instance,
-		common_strategies::{
-			DeriveAndReportId, FromTo, IfOwnedBy, IfRestorable, Owned, PredefinedId,
-		},
+		common_strategies::{FromTo, IfOwnedBy, IfRestorable, Owned, PredefinedId},
 		AssetDefinition, Create, CreateStrategy, Destroy, DestroyStrategy, Restore, Stash,
 		Transfer, TransferStrategy,
 	},

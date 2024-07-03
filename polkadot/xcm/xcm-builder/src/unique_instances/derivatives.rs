@@ -4,8 +4,8 @@ use core::marker::PhantomData;
 use frame_support::{
 	ensure,
 	traits::tokens::asset_ops::{
-		common_asset_kinds::{Class, Instance},
-		common_strategies::{AutoId, DeriveAndReportId, FromTo, IfOwnedBy, IfRestorable, Owned},
+		common_asset_kinds::Instance,
+		common_strategies::{DeriveAndReportId, IfOwnedBy, Owned},
 		AssetDefinition, Create, Destroy,
 	},
 };

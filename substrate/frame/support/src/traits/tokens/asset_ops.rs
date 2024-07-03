@@ -22,7 +22,6 @@
 //! may supply additional parameters,
 //! and may define a return value type of the operation.
 
-use crate::dispatch::DispatchResult;
 use core::marker::PhantomData;
 use sp_runtime::DispatchError;
 use sp_std::vec::Vec;
