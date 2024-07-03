@@ -31,7 +31,7 @@ fn create_asset_remove_privileges_burn_deposit_at_relay() {
 		assert_ok!(XcmPallet::limited_teleport_assets(
 			<Rococo as Chain>::RuntimeOrigin::signed(Rococo::account_id_of(accounts::CHARLIE)),
 			bx!(Parachain(AssetHubRococo::para_id().into()).into()),
-			bx!(AsRef::<[u8; 32]>::as_ref(&owner).clone().into()),
+			bx!((*AsRef::<[u8; 32]>::as_ref(&owner)).into()),
 			bx!(Assets::from((Here, 1_000_000_000_000u128)).into()),
 			0,
 			WeightLimit::Unlimited,
