@@ -281,7 +281,10 @@ impl From<&ActiveLeafState> for ProspectiveParachainsMode {
 			ActiveLeafState::ProspectiveParachainsEnabled {
 				max_candidate_depth,
 				allowed_ancestry_len,
-			} => ProspectiveParachainsMode::Enabled { max_candidate_depth, allowed_ancestry_len },
+			} => ProspectiveParachainsMode::Enabled {
+				max_candidate_depth,
+				allowed_ancestry_len,
+			},
 		}
 	}
 }

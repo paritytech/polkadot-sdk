@@ -43,12 +43,13 @@ use polkadot_node_subsystem::{
 	messages::{
 		CanSecondRequest, CandidateBackingMessage, CollatorProtocolMessage, IfDisconnected,
 		NetworkBridgeEvent, NetworkBridgeTxMessage, ParentHeadData, ProspectiveParachainsMessage,
-		ProspectiveValidationDataRequest,
+		ProspectiveValidationDataRequest, RuntimeApiRequest,
 	},
 	overseer, CollatorProtocolSenderTrait, FromOrchestra, OverseerSignal, PerLeafSpan,
 };
 use polkadot_node_subsystem_util::{
 	backing_implicit_view::View as ImplicitView,
+	has_required_runtime,
 	reputation::{ReputationAggregator, REPUTATION_CHANGE_INTERVAL},
 	runtime::{prospective_parachains_mode, ProspectiveParachainsMode},
 	vstaging::fetch_claim_queue,
@@ -369,8 +370,12 @@ struct PerRelayParent {
 }
 
 impl PerRelayParent {
-	fn new(mode: ProspectiveParachainsMode, assignments: GroupAssignments) -> Self {
-		let collations = Collations::new(&assignments.current);
+	fn new(
+		mode: ProspectiveParachainsMode,
+		assignments: GroupAssignments,
+		has_claim_queue: bool,
+	) -> Self {
+		let collations = Collations::new(&assignments.current, has_claim_queue);
 		Self { prospective_parachains_mode: mode, assignment: assignments, collations }
 	}
 }
@@ -1262,6 +1267,9 @@ where
 
 	for leaf in added {
 		let mode = prospective_parachains_mode(sender, *leaf).await?;
+		let has_claim_queue_support =
+			has_required_runtime(sender, *leaf, RuntimeApiRequest::CLAIM_QUEUE_RUNTIME_REQUIREMENT)
+				.await;
 
 		if let Some(span) = view.span_per_head().get(leaf).cloned() {
 			let per_leaf_span = PerLeafSpan::new(span, "validator-side");
@@ -1272,7 +1280,9 @@ where
 			assign_incoming(sender, &mut state.current_assignments, keystore, *leaf, mode).await?;
 
 		state.active_leaves.insert(*leaf, mode);
-		state.per_relay_parent.insert(*leaf, PerRelayParent::new(mode, assignments));
+		state
+			.per_relay_parent
+			.insert(*leaf, PerRelayParent::new(mode, assignments, has_claim_queue_support));
 
 		if mode.is_enabled() {
 			state
@@ -1297,7 +1307,7 @@ where
 					)
 					.await?;
 
-					entry.insert(PerRelayParent::new(mode, assignments));
+					entry.insert(PerRelayParent::new(mode, assignments, has_claim_queue_support));
 				}
 			}
 		}

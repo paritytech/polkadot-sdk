@@ -245,6 +245,8 @@ pub struct Collations {
 	// from `GroupAssignments` which contains either the claim queue for the core or the `ParaId`
 	// of the parachain assigned to the core.
 	claims_per_para: BTreeMap<ParaId, usize>,
+	// Whether the runtime supports claim queue runtime api.
+	has_claim_queue: bool,
 }
 
 impl Collations {
@@ -255,7 +257,7 @@ impl Collations {
 	/// doesn't support claim queue `GroupAssignments` contains only one entry - the `ParaId` of the
 	/// parachain assigned to the core. This way we can handle both cases with a single
 	/// implementation and avoid code duplication.
-	pub(super) fn new(group_assignments: &Vec<ParaId>) -> Self {
+	pub(super) fn new(group_assignments: &Vec<ParaId>, has_claim_queue: bool) -> Self {
 		let mut claims_per_para = BTreeMap::new();
 		for para_id in group_assignments {
 			*claims_per_para.entry(*para_id).or_default() += 1;
@@ -268,6 +270,7 @@ impl Collations {
 			seconded_count: 0,
 			fetched_per_para: Default::default(),
 			claims_per_para,
+			has_claim_queue,
 		}
 	}
 
@@ -342,15 +345,12 @@ impl Collations {
 	) -> bool {
 		match relay_parent_mode {
 			ProspectiveParachainsMode::Disabled => return self.seconded_count >= 1,
-			ProspectiveParachainsMode::Enabled {
-				max_candidate_depth,
-				allowed_ancestry_len: _,
-				claim_queue_support,
-			} if !claim_queue_support => self.seconded_count >= max_candidate_depth + 1,
+			ProspectiveParachainsMode::Enabled { max_candidate_depth, allowed_ancestry_len: _ }
+				if !self.has_claim_queue =>
+				self.seconded_count >= max_candidate_depth + 1,
 			ProspectiveParachainsMode::Enabled {
 				max_candidate_depth: _,
 				allowed_ancestry_len: _,
-				claim_queue_support: _,
 			} => {
 				// Successful fetches + pending fetches < claim queue entries for `para_id`
 				let respected_per_para_limit =

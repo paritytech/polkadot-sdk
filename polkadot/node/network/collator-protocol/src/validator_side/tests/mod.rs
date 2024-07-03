@@ -564,6 +564,15 @@ async fn assert_async_backing_params_request(virtual_overseer: &mut VirtualOvers
 			tx.send(Err(ASYNC_BACKING_DISABLED_ERROR)).unwrap();
 		}
 	);
+	assert_matches!(
+		overseer_recv(virtual_overseer).await,
+		AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+			_,
+			RuntimeApiRequest::Version(tx),
+		)) => {
+			let _ = tx.send(Ok(RuntimeApiRequest::CLAIM_QUEUE_RUNTIME_REQUIREMENT));
+		}
+	);
 }
 
 // As we receive a relevant advertisement act on it and issue a collation request.
