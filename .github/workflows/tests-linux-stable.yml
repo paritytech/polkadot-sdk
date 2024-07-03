@@ -217,7 +217,8 @@ jobs:
   test-landlock:
     needs: [set-image, changes]
     if: ${{ needs.changes.outputs.rust }}
-    runs-on: arc-runners-polkadot-sdk-beefy-ubuntu
+    # runs-on: arc-runners-polkadot-sdk-beefy-ubuntu
+    runs-on: ubuntu-latest
     timeout-minutes: 60
     container:
       image: ${{ needs.set-image.outputs.IMAGE }}
