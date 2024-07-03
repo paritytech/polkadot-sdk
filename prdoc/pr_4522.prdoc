@@ -4,7 +4,9 @@
 title: Added runtime support for reporting BEEFY fork voting
 
 doc:
-  - audience: Runtime Dev | Runtime User
+  - audience:
+    - Runtime Dev
+    - Runtime User
     description: |
       This PR adds the `report_fork_voting`, `report_future_voting` extrinsics to `pallet-beefy`
       and renames the `report_equivocation` extrinsic to `report_double_voting`.
