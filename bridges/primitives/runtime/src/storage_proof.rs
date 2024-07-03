@@ -20,18 +20,16 @@ use frame_support::PalletError;
 use sp_core::RuntimeDebug;
 use sp_std::{default::Default, vec::Vec};
 use sp_trie::{
-	accessed_nodes_tracker::AccessedNodesTracker, read_trie_value, LayoutV1, MemoryDB,
-	StorageProof, TrieDBBuilder, TrieHash,
+	accessed_nodes_tracker::AccessedNodesTracker, read_trie_value, LayoutV1, MemoryDB, StorageProof,
 };
 
 use codec::{Decode, Encode};
 use hash_db::{HashDB, Hasher, EMPTY_PREFIX};
 use scale_info::TypeInfo;
 #[cfg(feature = "test-helpers")]
-use sp_trie::{recorder_ext::RecorderExt, Recorder, TrieError};
-use trie_db::Trie;
+use sp_trie::{recorder_ext::RecorderExt, Recorder, TrieDBBuilder, TrieError, TrieHash};
 #[cfg(feature = "test-helpers")]
-use trie_db::{TrieConfiguration, TrieDBMut};
+use trie_db::{Trie, TrieConfiguration, TrieDBMut};
 
 /// Errors that can occur when interacting with `UnverifiedStorageProof` and `VerifiedStorageProof`.
 #[derive(Clone, Encode, Decode, RuntimeDebug, PartialEq, Eq, PalletError, TypeInfo)]

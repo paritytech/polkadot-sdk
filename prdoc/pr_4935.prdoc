@@ -25,3 +25,51 @@ doc:
 crates:
   - name: pallet-bridge-messages
     bump: major
+  - bridge-runtime-common
+    bump: major
+  - name: bp-header-chain
+    bump: major
+  - name: bp-runtime
+    bump: major
+  - name: bp-messages
+    bump: major
+  - name: bp-polkadot-core
+    bump: minor
+  - name: bp-bridge-hub-kusama
+    bump: patch
+  - name: bp-bridge-hub-polkadot
+    bump: patch
+  - name: bp-bridge-hub-rococo
+    bump: patch
+  - name: bp-bridge-hub-westend
+    bump: patch
+  - name: bp-kusama
+    bump: patch
+  - name: bp-polkadot
+    bump: patch
+  - name: bp-polkadot-bulletin
+    bump: patch
+  - name: bp-rococo
+    bump: patch
+  - name: bp-test-utils
+    bump: patch
+  - name: bp-westend
+    bump: patch
+  - name: bridge-hub-test-utils
+    bump: patch
+  - name: pallet-bridge-grandpa
+    bump: patch
+  - name: pallet-bridge-parachains
+    bump: patch
+  - name: pallet-bridge-relayers
+    bump: patch
+  - name: pallet-xcm-bridge-hub
+    bump: patch
+  - name: asset-hub-rococo-runtime
+    bump: patch
+  - name: asset-hub-westend-runtime
+    bump: patch
+  - name: bridge-hub-rococo-runtime
+    bump: patch
+  - name: bridge-hub-westend-runtime
+    bump: patch
