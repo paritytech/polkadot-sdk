@@ -74,6 +74,9 @@ const MDNS_QUERY_INTERVAL: Duration = Duration::from_secs(30);
 /// Minimum number of confirmations received before an address is verified.
 const MIN_ADDRESS_CONFIRMATIONS: usize = 5;
 
+/// Maximum number of in-flight `FIND_NODE` queries.
+const MAX_INFLIGHT_FIND_NODE_QUERIES: usize = 16;
+
 /// Discovery events.
 #[derive(Debug)]
 pub enum DiscoveryEvent {
@@ -471,7 +474,9 @@ impl Stream for Discovery {
 			match delay.poll_unpin(cx) {
 				Poll::Ready(()) => {
 					let num_peers = this.num_connected_peers();
-					if num_peers < this.discovery_only_if_under_num {
+					if num_peers < this.discovery_only_if_under_num &&
+						this.find_node_queries.len() < MAX_INFLIGHT_FIND_NODE_QUERIES
+					{
 						let peer = PeerId::random();
 						log::debug!(target: LOG_TARGET, "start next kademlia query for {peer:?}");
 
@@ -490,7 +495,9 @@ impl Stream for Discovery {
 					} else {
 						log::debug!(
 							target: LOG_TARGET,
-							"discovery is disabled as we have {num_peers} connected peers."
+							"discovery is paused: {num_peers}/{} connected peers and in flight queries: {}/{MAX_INFLIGHT_FIND_NODE_QUERIES}",
+							this.discovery_only_if_under_num,
+							this.find_node_queries.len(),
 						);
 					}
 
