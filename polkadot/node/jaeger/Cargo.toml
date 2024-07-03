@@ -10,15 +10,15 @@ description = "Polkadot Jaeger primitives, but equally useful for Grafana/Tempo"
 workspace = true
 
 [dependencies]
-mick-jaeger = "0.1.8"
-lazy_static = "1.4"
-parking_lot = "0.12.1"
-polkadot-primitives = { path = "../../primitives" }
-polkadot-node-primitives = { path = "../primitives" }
-sc-network = { path = "../../../substrate/client/network" }
-sc-network-types = { path = "../../../substrate/client/network/types" }
-sp-core = { path = "../../../substrate/primitives/core" }
+mick-jaeger = { workspace = true }
+lazy_static = { workspace = true }
+parking_lot = { workspace = true, default-features = true }
+polkadot-primitives = { workspace = true, default-features = true }
+polkadot-node-primitives = { workspace = true, default-features = true }
+sc-network = { workspace = true, default-features = true }
+sc-network-types = { workspace = true, default-features = true }
+sp-core = { workspace = true, default-features = true }
 thiserror = { workspace = true }
-tokio = "1.37"
+tokio = { workspace = true, default-features = true }
 log = { workspace = true, default-features = true }
-parity-scale-codec = { version = "3.6.12", default-features = false }
+codec = { workspace = true }
