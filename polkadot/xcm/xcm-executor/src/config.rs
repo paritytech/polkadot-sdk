@@ -93,6 +93,8 @@ pub trait Config {
 
 	/// Configure the fees.
 	type FeeManager: FeeManager;
+	/// Convert one asset to the one used to pay for fees.
+	type AssetConverter: AssetConversion;
 
 	/// The method of exporting a message.
 	type MessageExporter: ExportXcm;
@@ -123,8 +125,6 @@ pub trait Config {
 	/// Allows optional logic execution for the `HrmpChannelClosing` XCM notification.
 	type HrmpChannelClosingHandler: HandleHrmpChannelClosing;
 
-	/// Allows converting a balance of one asset into another.
-	type AssetConverter: AssetConversion;
 	/// Allows recording the last executed XCM (used by dry-run runtime APIs).
 	type XcmRecorder: RecordXcm;
 }
