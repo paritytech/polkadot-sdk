@@ -62,6 +62,12 @@ const LOG_TARGET: &str = "sub-libp2p::discovery";
 /// Kademlia query interval.
 const KADEMLIA_QUERY_INTERVAL: Duration = Duration::from_secs(5);
 
+/// The convergence time between 2 `FIND_NODE` queries.
+///
+/// The time is exponentially increased after each query until it reaches 120 seconds.
+/// The time is reset to `KADEMLIA_QUERY_INTERVAL` after a failed query.
+const CONVERGENCE_QUERY_INTERVAL: Duration = Duration::from_secs(120);
+
 /// mDNS query interval.
 const MDNS_QUERY_INTERVAL: Duration = Duration::from_secs(30);
 
@@ -469,9 +475,10 @@ impl Stream for Discovery {
 
 						if let Ok(query_id) = this.kademlia_handle.try_find_node(peer) {
 							this.find_node_queries.insert(query_id, std::time::Instant::now());
+
 							this.duration_to_next_find_query = cmp::min(
 								this.duration_to_next_find_query * 2,
-								Duration::from_secs(60),
+								CONVERGENCE_QUERY_INTERVAL,
 							);
 							this.next_kad_query =
 								Some(Delay::new(this.duration_to_next_find_query));
@@ -486,7 +493,7 @@ impl Stream for Discovery {
 					}
 
 					this.duration_to_next_find_query =
-						cmp::min(this.duration_to_next_find_query * 2, Duration::from_secs(60));
+						cmp::min(this.duration_to_next_find_query * 2, CONVERGENCE_QUERY_INTERVAL);
 					this.next_kad_query = Some(Delay::new(this.duration_to_next_find_query));
 				},
 				Poll::Pending => {
@@ -526,7 +533,10 @@ impl Stream for Discovery {
 				return Poll::Ready(Some(DiscoveryEvent::PutRecordSuccess { query_id })),
 			Poll::Ready(Some(KademliaEvent::QueryFailed { query_id })) => {
 				if let Some(instant) = this.find_node_queries.remove(&query_id) {
-					log::warn!(target: LOG_TARGET, "`GET_RECORD` failed for {query_id:?} in {:?}", instant.elapsed());
+					this.duration_to_next_find_query = KADEMLIA_QUERY_INTERVAL;
+					this.next_kad_query = Some(Delay::new(this.duration_to_next_find_query));
+
+					log::warn!(target: LOG_TARGET, "dht random walk failed for {query_id:?} in {:?}", instant.elapsed());
 				}
 
 				return Poll::Ready(Some(DiscoveryEvent::QueryFailed { query_id }));
