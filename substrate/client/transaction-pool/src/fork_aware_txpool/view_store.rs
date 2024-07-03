@@ -125,7 +125,7 @@ where
 		let tx_hash = self.api.hash_and_length(&xt).0;
 		let Some(external_watcher) = self.listener.create_external_watcher_for_tx(tx_hash).await
 		else {
-			return Err(PoolError::AlreadyImported(Box::new(tx_hash.clone())).into())
+			return Err(PoolError::AlreadyImported(Box::new(tx_hash)).into())
 		};
 		let results = {
 			let views = self.views.read();

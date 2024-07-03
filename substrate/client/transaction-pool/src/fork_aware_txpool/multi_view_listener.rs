@@ -300,7 +300,7 @@ where
 			match sender.unbounded_send(ControllerCommand::RemoveView(block_hash)) {
 				Err(e) => {
 					log::debug!(target: LOG_TARGET, "[{:?}] remove_view: send message failed: {:?}", tx_hash, e);
-					invalid_controllers.push(tx_hash.clone());
+					invalid_controllers.push(*tx_hash);
 				},
 				Ok(_) => {},
 			}
@@ -456,7 +456,7 @@ mod tests {
 		let events1 = vec![TransactionStatus::Future];
 
 		let tx_hash = H256::repeat_byte(0x0a);
-		let mut external_watcher = listener.create_external_watcher_for_tx(tx_hash).await.unwrap();
+		let external_watcher = listener.create_external_watcher_for_tx(tx_hash).await.unwrap();
 		let handle = tokio::spawn(async move { external_watcher.collect::<Vec<_>>().await });
 
 		let view_stream0 = futures::stream::iter(events0.clone());
