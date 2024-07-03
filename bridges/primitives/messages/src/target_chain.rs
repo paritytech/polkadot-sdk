@@ -18,7 +18,7 @@
 
 use crate::{LaneId, Message, MessageKey, MessageNonce, MessagePayload, OutboundLaneData};
 
-use bp_runtime::{messages::MessageDispatchResult, Size, UnverifiedStorageProof};
+use bp_runtime::{messages::MessageDispatchResult, raw_storage_proof_size, RawStorageProof, Size};
 use codec::{Decode, Encode, Error as CodecError};
 use frame_support::weights::Weight;
 use scale_info::TypeInfo;
@@ -41,8 +41,8 @@ use sp_std::{collections::btree_map::BTreeMap, fmt::Debug, marker::PhantomData, 
 pub struct FromBridgedChainMessagesProof<BridgedHeaderHash> {
 	/// Hash of the finalized bridged header the proof is for.
 	pub bridged_header_hash: BridgedHeaderHash,
-	/// The proved storage containing the messages being delivered.
-	pub storage: UnverifiedStorageProof,
+	/// A storage trie proof of messages being delivered.
+	pub storage_proof: RawStorageProof,
 	/// Messages in this proof are sent over this lane.
 	pub lane: LaneId,
 	/// Nonce of the first message being delivered.
@@ -53,7 +53,8 @@ pub struct FromBridgedChainMessagesProof<BridgedHeaderHash> {
 
 impl<BridgedHeaderHash> Size for FromBridgedChainMessagesProof<BridgedHeaderHash> {
 	fn size(&self) -> u32 {
-		self.storage.size()
+		use frame_support::sp_runtime::SaturatedConversion;
+		raw_storage_proof_size(&self.storage_proof).saturated_into()
 	}
 }
 

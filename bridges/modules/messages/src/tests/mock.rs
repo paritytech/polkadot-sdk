@@ -470,7 +470,7 @@ pub fn prepare_messages_proof(
 	let lane = messages.first().unwrap().key.lane_id;
 	let nonces_start = messages.first().unwrap().key.nonce;
 	let nonces_end = messages.last().unwrap().key.nonce;
-	let (storage_root, storage) = prepare_messages_storage_proof::<BridgedChain, ThisChain>(
+	let (storage_root, storage_proof) = prepare_messages_storage_proof::<BridgedChain, ThisChain>(
 		TEST_LANE_ID,
 		nonces_start..=nonces_end,
 		outbound_lane_data,
@@ -491,7 +491,7 @@ pub fn prepare_messages_proof(
 
 	Box::new(FromBridgedChainMessagesProof::<BridgedHeaderHash> {
 		bridged_header_hash,
-		storage,
+		storage_proof,
 		lane,
 		nonces_start,
 		nonces_end,

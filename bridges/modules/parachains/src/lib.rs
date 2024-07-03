@@ -28,11 +28,12 @@ pub use weights::WeightInfo;
 pub use weights_ext::WeightInfoExt;
 
 use bp_header_chain::{HeaderChain, HeaderChainError};
-use bp_parachains::{parachain_head_storage_key_at_source, ParaInfo, ParaStoredHeaderData};
+use bp_parachains::{ParaInfo, ParaStoredHeaderData};
 use bp_polkadot_core::parachains::{ParaHash, ParaHead, ParaHeadsProof, ParaId};
 use bp_runtime::{Chain, HashOf, HeaderId, HeaderIdOf, Parachain};
 use frame_support::{dispatch::PostDispatchInfo, DefaultNoBound};
 use pallet_bridge_grandpa::SubmitFinalityProofHelper;
+use proofs::{ParachainsStorageProofAdapter, StorageProofAdapter};
 use sp_std::{marker::PhantomData, vec::Vec};
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -55,6 +56,7 @@ pub mod benchmarking;
 mod call_ext;
 #[cfg(test)]
 mod mock;
+mod proofs;
 
 /// The target that will be used when publishing logs related to this pallet.
 pub const LOG_TARGET: &str = "runtime::bridge-parachains";
@@ -83,7 +85,7 @@ pub mod pallet {
 	};
 	use bp_runtime::{
 		BasicOperatingMode, BoundedStorageValue, OwnedBridgeModule, StorageDoubleMapKeyProvider,
-		StorageMapKeyProvider, StorageProofError, VerifiedStorageProof,
+		StorageMapKeyProvider,
 	};
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
@@ -448,14 +450,15 @@ pub mod pallet {
 				parachains.len() as _,
 			);
 
-			let mut storage = GrandpaPalletOf::<T, I>::verify_storage_proof(
-				relay_block_hash,
-				parachain_heads_proof.storage_proof,
-			)
-			.map_err(Error::<T, I>::HeaderChainStorageProof)?;
+			let mut storage: ParachainsStorageProofAdapter<T, I> =
+				ParachainsStorageProofAdapter::try_new_with_verified_storage_proof(
+					relay_block_hash,
+					parachain_heads_proof.storage_proof,
+				)
+				.map_err(Error::<T, I>::HeaderChainStorageProof)?;
 
 			for (parachain, parachain_head_hash) in parachains {
-				let parachain_head = match Self::read_parachain_head(&mut storage, parachain) {
+				let parachain_head = match storage.read_parachain_head(parachain) {
 					Ok(Some(parachain_head)) => parachain_head,
 					Ok(None) => {
 						log::trace!(
@@ -629,16 +632,6 @@ pub mod pallet {
 		/// Get parachain head data with given hash.
 		pub fn parachain_head(parachain: ParaId, hash: ParaHash) -> Option<ParaStoredHeaderData> {
 			ImportedParaHeads::<T, I>::get(parachain, hash).map(|h| h.into_inner())
-		}
-
-		/// Read parachain head from storage proof.
-		fn read_parachain_head(
-			storage: &mut VerifiedStorageProof,
-			parachain: ParaId,
-		) -> Result<Option<ParaHead>, StorageProofError> {
-			let parachain_head_key =
-				parachain_head_storage_key_at_source(T::ParasPalletName::get(), parachain);
-			storage.get_and_decode_optional(&parachain_head_key)
 		}
 
 		/// Try to update parachain head.
@@ -1577,7 +1570,7 @@ pub(crate) mod tests {
 			assert_noop!(
 				import_parachain_1_head(0, Default::default(), parachains, proof),
 				Error::<TestRuntime>::HeaderChainStorageProof(HeaderChainError::StorageProof(
-					StorageProofError::InvalidProof
+					StorageProofError::StorageRootMismatch
 				))
 			);
 		});

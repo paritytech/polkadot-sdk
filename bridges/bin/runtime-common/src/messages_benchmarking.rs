@@ -84,7 +84,7 @@ where
 	MI: 'static,
 {
 	// prepare storage proof
-	let (state_root, storage) =
+	let (state_root, storage_proof) =
 		prepare_messages_storage_proof::<BridgedChainOf<R, MI>, ThisChainOf<R, MI>>(
 			params.lane,
 			params.message_nonces.clone(),
@@ -103,7 +103,7 @@ where
 	(
 		FromBridgedChainMessagesProof {
 			bridged_header_hash,
-			storage,
+			storage_proof,
 			lane: params.lane,
 			nonces_start: *params.message_nonces.start(),
 			nonces_end: *params.message_nonces.end(),
@@ -131,7 +131,7 @@ where
 	BridgedChainOf<R, MI>: Chain<Hash = ParaHash> + Parachain,
 {
 	// prepare storage proof
-	let (state_root, storage) =
+	let (state_root, storage_proof) =
 		prepare_messages_storage_proof::<BridgedChainOf<R, MI>, ThisChainOf<R, MI>>(
 			params.lane,
 			params.message_nonces.clone(),
@@ -151,7 +151,7 @@ where
 	(
 		FromBridgedChainMessagesProof {
 			bridged_header_hash,
-			storage,
+			storage_proof,
 			lane: params.lane,
 			nonces_start: *params.message_nonces.start(),
 			nonces_end: *params.message_nonces.end(),

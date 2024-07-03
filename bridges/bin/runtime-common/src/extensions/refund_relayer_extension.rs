@@ -1144,7 +1144,7 @@ pub(crate) mod tests {
 			relayer_id_at_bridged_chain: relayer_account_at_bridged_chain(),
 			proof: Box::new(FromBridgedChainMessagesProof {
 				bridged_header_hash: Default::default(),
-				storage: Default::default(),
+				storage_proof: Default::default(),
 				lane: TestLaneId::get(),
 				nonces_start: pallet_bridge_messages::InboundLanes::<TestRuntime>::get(
 					TEST_LANE_ID,

@@ -18,14 +18,18 @@
 
 use crate::{BridgedChainOf, BridgedHeaderChainOf, Config};
 
-use bp_header_chain::HeaderChain;
+use bp_header_chain::{HeaderChain, HeaderChainError};
 use bp_messages::{
 	source_chain::FromBridgedChainMessagesDeliveryProof,
 	target_chain::{FromBridgedChainMessagesProof, ProvedLaneMessages, ProvedMessages},
 	ChainWithMessages, InboundLaneData, LaneId, Message, MessageKey, MessageNonce, MessagePayload,
 	OutboundLaneData, VerificationError,
 };
-use bp_runtime::{HashOf, RangeInclusiveExt, VerifiedStorageProof};
+use bp_runtime::{
+	HashOf, HasherOf, RangeInclusiveExt, RawStorageProof, StorageProofChecker, StorageProofError,
+	UnverifiedStorageProof, VerifiedStorageProof,
+};
+use codec::Decode;
 use sp_std::vec::Vec;
 
 /// 'Parsed' message delivery proof - inbound lane id and its state.
@@ -46,14 +50,17 @@ pub fn verify_messages_proof<T: Config<I>, I: 'static>(
 ) -> Result<ProvedMessages<Message>, VerificationError> {
 	let FromBridgedChainMessagesProof {
 		bridged_header_hash,
-		storage,
+		storage_proof,
 		lane,
 		nonces_start,
 		nonces_end,
 	} = proof;
-	let storage = BridgedHeaderChainOf::<T, I>::verify_storage_proof(bridged_header_hash, storage)
+	let mut parser: StorageProofCheckerAdapter<T, I> =
+		MessagesStorageProofAdapter::try_new_with_verified_storage_proof(
+			bridged_header_hash,
+			storage_proof,
+		)
 		.map_err(VerificationError::HeaderChain)?;
-	let mut parser = StorageAdapter::<T, I> { storage, _dummy: Default::default() };
 	let nonces_range = nonces_start..=nonces_end;
 
 	// receiving proofs where end < begin is ok (if proof includes outbound lane state)
@@ -69,14 +76,18 @@ pub fn verify_messages_proof<T: Config<I>, I: 'static>(
 	let mut messages = Vec::with_capacity(messages_in_the_proof as _);
 	for nonce in nonces_range {
 		let message_key = MessageKey { lane_id: lane, nonce };
-		let message_payload = parser.read_and_decode_message_payload(&message_key)?;
+		let message_payload = parser
+			.read_and_decode_message_payload(&message_key)
+			.map_err(VerificationError::MessageStorage)?;
 		messages.push(Message { key: message_key, payload: message_payload });
 	}
 
 	// Now let's check if proof contains outbound lane state proof. It is optional, so
 	// we simply ignore `read_value` errors and missing value.
 	let proved_lane_messages = ProvedLaneMessages {
-		lane_state: parser.read_and_decode_outbound_lane_data(&lane)?,
+		lane_state: parser
+			.read_and_decode_outbound_lane_data(&lane)
+			.map_err(VerificationError::OutboundLaneStorage)?,
 		messages,
 	};
 
@@ -86,10 +97,7 @@ pub fn verify_messages_proof<T: Config<I>, I: 'static>(
 	}
 
 	// Check that the storage proof doesn't have any untouched keys.
-	parser
-		.storage
-		.ensure_no_unused_keys()
-		.map_err(VerificationError::StorageProof)?;
+	parser.ensure_no_unused_keys().map_err(VerificationError::StorageProof)?;
 
 	// We only support single lane messages in this generated_schema
 	let mut proved_messages = ProvedMessages::new();
@@ -103,24 +111,64 @@ pub fn verify_messages_delivery_proof<T: Config<I>, I: 'static>(
 	proof: FromBridgedChainMessagesDeliveryProof<HashOf<BridgedChainOf<T, I>>>,
 ) -> Result<ParsedMessagesDeliveryProofFromBridgedChain<T>, VerificationError> {
 	let FromBridgedChainMessagesDeliveryProof { bridged_header_hash, storage_proof, lane } = proof;
-	let mut storage =
-		T::BridgedHeaderChain::verify_storage_proof(bridged_header_hash, storage_proof)
-			.map_err(VerificationError::HeaderChain)?;
+	let mut parser: StorageProofCheckerAdapter<T, I> =
+		MessagesStorageProofAdapter::try_new_with_verified_storage_proof(
+			bridged_header_hash,
+			storage_proof,
+		)
+		.map_err(VerificationError::HeaderChain)?;
 	// Messages delivery proof is just proof of single storage key read => any error
 	// is fatal.
 	let storage_inbound_lane_data_key = bp_messages::storage_keys::inbound_lane_data_key(
 		T::ThisChain::WITH_CHAIN_MESSAGES_PALLET_NAME,
 		&lane,
 	);
-	let inbound_lane_data = storage
-		.get_and_decode_mandatory(&storage_inbound_lane_data_key)
+	let inbound_lane_data = parser
+		.read_and_decode_mandatory_value(&storage_inbound_lane_data_key)
 		.map_err(VerificationError::InboundLaneStorage)?;
 
 	// check that the storage proof doesn't have any untouched trie nodes
-	storage.ensure_no_unused_keys().map_err(VerificationError::StorageProof)?;
+	parser.ensure_no_unused_keys().map_err(VerificationError::StorageProof)?;
 
 	Ok((lane, inbound_lane_data))
 }
+
+trait StorageProofAdapter<T: Config<I>, I: 'static> {
+	fn read_and_decode_mandatory_value<D: Decode>(
+		&mut self,
+		key: &impl AsRef<[u8]>,
+	) -> Result<D, StorageProofError>;
+	fn read_and_decode_optional_value<D: Decode>(
+		&mut self,
+		key: &impl AsRef<[u8]>,
+	) -> Result<Option<D>, StorageProofError>;
+	fn ensure_no_unused_keys(self) -> Result<(), StorageProofError>;
+
+	fn read_and_decode_outbound_lane_data(
+		&mut self,
+		lane_id: &LaneId,
+	) -> Result<Option<OutboundLaneData>, StorageProofError> {
+		let storage_outbound_lane_data_key = bp_messages::storage_keys::outbound_lane_data_key(
+			T::ThisChain::WITH_CHAIN_MESSAGES_PALLET_NAME,
+			lane_id,
+		);
+		self.read_and_decode_optional_value(&storage_outbound_lane_data_key)
+	}
+
+	fn read_and_decode_message_payload(
+		&mut self,
+		message_key: &MessageKey,
+	) -> Result<MessagePayload, StorageProofError> {
+		let storage_message_key = bp_messages::storage_keys::message_key(
+			T::ThisChain::WITH_CHAIN_MESSAGES_PALLET_NAME,
+			&message_key.lane_id,
+			message_key.nonce,
+		);
+		self.read_and_decode_mandatory_value(&storage_message_key)
+	}
+}
+
+type MessagesStorageProofAdapter<T, I> = StorageProofCheckerAdapter<T, I>;
 
 struct StorageAdapter<T, I> {
 	storage: VerifiedStorageProof,
@@ -128,32 +176,70 @@ struct StorageAdapter<T, I> {
 }
 
 impl<T: Config<I>, I: 'static> StorageAdapter<T, I> {
-	fn read_and_decode_outbound_lane_data(
-		&mut self,
-		lane_id: &LaneId,
-	) -> Result<Option<OutboundLaneData>, VerificationError> {
-		let storage_outbound_lane_data_key = bp_messages::storage_keys::outbound_lane_data_key(
-			T::ThisChain::WITH_CHAIN_MESSAGES_PALLET_NAME,
-			lane_id,
-		);
+	fn try_new_with_verified_storage_proof(
+		bridged_header_hash: HashOf<BridgedChainOf<T, I>>,
+		storage_proof: UnverifiedStorageProof,
+	) -> Result<Self, HeaderChainError> {
+		BridgedHeaderChainOf::<T, I>::verify_storage_proof(bridged_header_hash, storage_proof)
+			.map(|storage| StorageAdapter::<T, I> { storage, _dummy: Default::default() })
+	}
+}
 
-		self.storage
-			.get_and_decode_optional(&storage_outbound_lane_data_key)
-			.map_err(VerificationError::OutboundLaneStorage)
+impl<T: Config<I>, I: 'static> StorageProofAdapter<T, I> for StorageAdapter<T, I> {
+	fn read_and_decode_optional_value<D: Decode>(
+		&mut self,
+		key: &impl AsRef<[u8]>,
+	) -> Result<Option<D>, StorageProofError> {
+		self.storage.get_and_decode_optional(&key)
 	}
 
-	fn read_and_decode_message_payload(
+	fn read_and_decode_mandatory_value<D: Decode>(
 		&mut self,
-		message_key: &MessageKey,
-	) -> Result<MessagePayload, VerificationError> {
-		let storage_message_key = bp_messages::storage_keys::message_key(
-			T::ThisChain::WITH_CHAIN_MESSAGES_PALLET_NAME,
-			&message_key.lane_id,
-			message_key.nonce,
-		);
-		self.storage
-			.get_and_decode_mandatory(&storage_message_key)
-			.map_err(VerificationError::MessageStorage)
+		key: &impl AsRef<[u8]>,
+	) -> Result<D, StorageProofError> {
+		self.storage.get_and_decode_mandatory(&key)
+	}
+
+	fn ensure_no_unused_keys(self) -> Result<(), StorageProofError> {
+		self.storage.ensure_no_unused_keys()
+	}
+}
+
+struct StorageProofCheckerAdapter<T: Config<I>, I: 'static> {
+	storage: StorageProofChecker<HasherOf<BridgedChainOf<T, I>>>,
+	_dummy: sp_std::marker::PhantomData<(T, I)>,
+}
+
+impl<T: Config<I>, I: 'static> StorageProofCheckerAdapter<T, I> {
+	fn try_new_with_verified_storage_proof(
+		bridged_header_hash: HashOf<BridgedChainOf<T, I>>,
+		storage_proof: RawStorageProof,
+	) -> Result<Self, HeaderChainError> {
+		BridgedHeaderChainOf::<T, I>::verify_raw_storage_proof(bridged_header_hash, storage_proof)
+			.map(|storage| StorageProofCheckerAdapter::<T, I> {
+				storage,
+				_dummy: Default::default(),
+			})
+	}
+}
+
+impl<T: Config<I>, I: 'static> StorageProofAdapter<T, I> for StorageProofCheckerAdapter<T, I> {
+	fn read_and_decode_optional_value<D: Decode>(
+		&mut self,
+		key: &impl AsRef<[u8]>,
+	) -> Result<Option<D>, StorageProofError> {
+		self.storage.read_and_decode_opt_value(key.as_ref())
+	}
+
+	fn read_and_decode_mandatory_value<D: Decode>(
+		&mut self,
+		key: &impl AsRef<[u8]>,
+	) -> Result<D, StorageProofError> {
+		self.storage.read_and_decode_mandatory_value(key.as_ref())
+	}
+
+	fn ensure_no_unused_keys(self) -> Result<(), StorageProofError> {
+		self.storage.ensure_no_unused_nodes()
 	}
 }
 
@@ -168,7 +254,7 @@ mod tests {
 		mock::*,
 	};
 
-	use bp_header_chain::{HeaderChainError, StoredHeaderDataBuilder};
+	use bp_header_chain::StoredHeaderDataBuilder;
 	use bp_runtime::{HeaderId, StorageProofError};
 	use codec::Encode;
 	use sp_runtime::traits::Header;
@@ -182,7 +268,7 @@ mod tests {
 		add_unused_key: bool,
 		test: impl Fn(FromBridgedChainMessagesProof<BridgedHeaderHash>) -> R,
 	) -> R {
-		let (state_root, storage) = prepare_messages_storage_proof::<BridgedChain, ThisChain>(
+		let (state_root, storage_proof) = prepare_messages_storage_proof::<BridgedChain, ThisChain>(
 			TEST_LANE_ID,
 			1..=nonces_end,
 			outbound_lane_data,
@@ -214,7 +300,7 @@ mod tests {
 			);
 			test(FromBridgedChainMessagesProof {
 				bridged_header_hash,
-				storage,
+				storage_proof,
 				lane: TEST_LANE_ID,
 				nonces_start: 1,
 				nonces_end,
@@ -305,7 +391,7 @@ mod tests {
 				}
 			),
 			Err(VerificationError::HeaderChain(HeaderChainError::StorageProof(
-				StorageProofError::InvalidProof
+				StorageProofError::StorageRootMismatch
 			))),
 		);
 	}
@@ -323,7 +409,7 @@ mod tests {
 				|proof| { verify_messages_proof::<TestRuntime, ()>(proof, 10) },
 			),
 			Err(VerificationError::HeaderChain(HeaderChainError::StorageProof(
-				StorageProofError::InvalidProof
+				StorageProofError::DuplicateNodes
 			))),
 		);
 	}

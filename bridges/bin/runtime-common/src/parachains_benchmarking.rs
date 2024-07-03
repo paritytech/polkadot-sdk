@@ -22,13 +22,12 @@ use crate::messages_benchmarking::insert_header_to_grandpa_pallet;
 
 use bp_parachains::parachain_head_storage_key_at_source;
 use bp_polkadot_core::parachains::{ParaHash, ParaHead, ParaHeadsProof, ParaId};
-use bp_runtime::{grow_storage_value, Chain, UnverifiedStorageProof, UnverifiedStorageProofParams};
+use bp_runtime::{grow_storage_value, record_all_trie_keys, Chain, UnverifiedStorageProofParams};
 use codec::Encode;
-use frame_support::{sp_runtime::StateVersion, traits::Get};
-use pallet_bridge_grandpa::BridgedChain;
+use frame_support::traits::Get;
 use pallet_bridge_parachains::{RelayBlockHash, RelayBlockHasher, RelayBlockNumber};
 use sp_std::prelude::*;
-use sp_trie::{LayoutV0, LayoutV1, MemoryDB, TrieConfiguration, TrieDBMutBuilder, TrieMut};
+use sp_trie::{trie_types::TrieDBMutBuilderV1, LayoutV1, MemoryDB, TrieMut};
 
 /// Prepare proof of messages for the `receive_messages_proof` call.
 ///
@@ -46,33 +45,6 @@ where
 	<R as pallet_bridge_grandpa::Config<R::BridgesGrandpaPalletInstance>>::BridgedChain:
 		Chain<BlockNumber = RelayBlockNumber, Hash = RelayBlockHash>,
 {
-	match <BridgedChain<R, R::BridgesGrandpaPalletInstance> as Chain>::STATE_VERSION {
-		StateVersion::V0 => do_prepare_parachain_heads_proof::<R, PI, LayoutV0<RelayBlockHasher>>(
-			parachains,
-			parachain_head_size,
-			proof_params,
-		),
-		StateVersion::V1 => do_prepare_parachain_heads_proof::<R, PI, LayoutV1<RelayBlockHasher>>(
-			parachains,
-			parachain_head_size,
-			proof_params,
-		),
-	}
-}
-
-fn do_prepare_parachain_heads_proof<R, PI, L>(
-	parachains: &[ParaId],
-	parachain_head_size: u32,
-	proof_params: UnverifiedStorageProofParams,
-) -> (RelayBlockNumber, RelayBlockHash, ParaHeadsProof, Vec<(ParaId, ParaHash)>)
-where
-	R: pallet_bridge_parachains::Config<PI>
-		+ pallet_bridge_grandpa::Config<R::BridgesGrandpaPalletInstance>,
-	PI: 'static,
-	<R as pallet_bridge_grandpa::Config<R::BridgesGrandpaPalletInstance>>::BridgedChain:
-		Chain<BlockNumber = RelayBlockNumber, Hash = RelayBlockHash>,
-	L: TrieConfiguration<Hash = RelayBlockHasher>,
-{
 	let parachain_head = ParaHead(vec![0u8; parachain_head_size as usize]);
 
 	// insert all heads to the trie
@@ -81,7 +53,8 @@ where
 	let mut state_root = Default::default();
 	let mut mdb = MemoryDB::default();
 	{
-		let mut trie = TrieDBMutBuilder::<L>::new(&mut mdb, &mut state_root).build();
+		let mut trie =
+			TrieDBMutBuilderV1::<RelayBlockHasher>::new(&mut mdb, &mut state_root).build();
 
 		// insert parachain heads
 		for (i, parachain) in parachains.into_iter().enumerate() {
@@ -95,18 +68,100 @@ where
 			trie.insert(&storage_key.0, &leaf_data)
 				.map_err(|_| "TrieMut::insert has failed")
 				.expect("TrieMut::insert should not fail in benchmarks");
-			storage_keys.push(storage_key.0);
+			storage_keys.push(storage_key);
 			parachain_heads.push((*parachain, parachain_head.hash()))
 		}
 	}
 
 	// generate heads storage proof
-	let storage_proof =
-		UnverifiedStorageProof::try_from_db::<L::Hash, _>(&mdb, state_root, storage_keys)
-			.expect("UnverifiedStorageProof::try_from_db() should not fail in benchmarks");
+	let proof = record_all_trie_keys::<LayoutV1<RelayBlockHasher>, _>(&mdb, &state_root)
+		.map_err(|_| "record_all_trie_keys has failed")
+		.expect("record_all_trie_keys should not fail in benchmarks");
 
 	let (relay_block_number, relay_block_hash) =
 		insert_header_to_grandpa_pallet::<R, R::BridgesGrandpaPalletInstance>(state_root);
 
-	(relay_block_number, relay_block_hash, ParaHeadsProof { storage_proof }, parachain_heads)
+	(relay_block_number, relay_block_hash, ParaHeadsProof { storage_proof: proof }, parachain_heads)
 }
+
+// TODO: for compact proof
+// /// Prepare proof of messages for the `receive_messages_proof` call.
+// ///
+// /// In addition to returning valid messages proof, environment is prepared to verify this message
+// /// proof.
+// pub fn prepare_parachain_heads_proof_compact<R, PI>(
+// 	parachains: &[ParaId],
+// 	parachain_head_size: u32,
+// 	proof_params: UnverifiedStorageProofParams,
+// ) -> (RelayBlockNumber, RelayBlockHash, ParaHeadsProof, Vec<(ParaId, ParaHash)>)
+// where
+// 	R: pallet_bridge_parachains::Config<PI>
+// 		+ pallet_bridge_grandpa::Config<R::BridgesGrandpaPalletInstance>,
+// 	PI: 'static,
+// 	<R as pallet_bridge_grandpa::Config<R::BridgesGrandpaPalletInstance>>::BridgedChain:
+// 		Chain<BlockNumber = RelayBlockNumber, Hash = RelayBlockHash>,
+// {
+// 	match <BridgedChain<R, R::BridgesGrandpaPalletInstance> as Chain>::STATE_VERSION {
+// 		StateVersion::V0 => do_prepare_parachain_heads_proof::<R, PI, LayoutV0<RelayBlockHasher>>(
+// 			parachains,
+// 			parachain_head_size,
+// 			proof_params,
+// 		),
+// 		StateVersion::V1 => do_prepare_parachain_heads_proof::<R, PI, LayoutV1<RelayBlockHasher>>(
+// 			parachains,
+// 			parachain_head_size,
+// 			proof_params,
+// 		),
+// 	}
+// }
+//
+// fn do_prepare_parachain_heads_proof<R, PI, L>(
+// 	parachains: &[ParaId],
+// 	parachain_head_size: u32,
+// 	proof_params: UnverifiedStorageProofParams,
+// ) -> (RelayBlockNumber, RelayBlockHash, ParaHeadsProof, Vec<(ParaId, ParaHash)>)
+// where
+// 	R: pallet_bridge_parachains::Config<PI>
+// 		+ pallet_bridge_grandpa::Config<R::BridgesGrandpaPalletInstance>,
+// 	PI: 'static,
+// 	<R as pallet_bridge_grandpa::Config<R::BridgesGrandpaPalletInstance>>::BridgedChain:
+// 		Chain<BlockNumber = RelayBlockNumber, Hash = RelayBlockHash>,
+// 	L: TrieConfiguration<Hash = RelayBlockHasher>,
+// {
+// 	let parachain_head = ParaHead(vec![0u8; parachain_head_size as usize]);
+//
+// 	// insert all heads to the trie
+// 	let mut parachain_heads = Vec::with_capacity(parachains.len());
+// 	let mut storage_keys = Vec::with_capacity(parachains.len());
+// 	let mut state_root = Default::default();
+// 	let mut mdb = MemoryDB::default();
+// 	{
+// 		let mut trie = TrieDBMutBuilder::<L>::new(&mut mdb, &mut state_root).build();
+//
+// 		// insert parachain heads
+// 		for (i, parachain) in parachains.into_iter().enumerate() {
+// 			let storage_key =
+// 				parachain_head_storage_key_at_source(R::ParasPalletName::get(), *parachain);
+// 			let leaf_data = if i == 0 {
+// 				grow_storage_value(parachain_head.encode(), &proof_params)
+// 			} else {
+// 				parachain_head.encode()
+// 			};
+// 			trie.insert(&storage_key.0, &leaf_data)
+// 				.map_err(|_| "TrieMut::insert has failed")
+// 				.expect("TrieMut::insert should not fail in benchmarks");
+// 			storage_keys.push(storage_key.0);
+// 			parachain_heads.push((*parachain, parachain_head.hash()))
+// 		}
+// 	}
+//
+// 	// generate heads storage proof
+// 	let storage_proof =
+// 		UnverifiedStorageProof::try_from_db::<L::Hash, _>(&mdb, state_root, storage_keys)
+// 			.expect("UnverifiedStorageProof::try_from_db() should not fail in benchmarks");
+//
+// 	let (relay_block_number, relay_block_hash) =
+// 		insert_header_to_grandpa_pallet::<R, R::BridgesGrandpaPalletInstance>(state_root);
+//
+// 	(relay_block_number, relay_block_hash, ParaHeadsProof { storage_proof }, parachain_heads)
+// }

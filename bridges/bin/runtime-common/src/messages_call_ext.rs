@@ -404,7 +404,7 @@ mod tests {
 				dispatch_weight: frame_support::weights::Weight::zero(),
 				proof: Box::new(FromBridgedChainMessagesProof {
 					bridged_header_hash: Default::default(),
-					storage: Default::default(),
+					storage_proof: Default::default(),
 					lane: LaneId([0, 0, 0, 0]),
 					nonces_start,
 					nonces_end,
