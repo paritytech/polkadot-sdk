@@ -179,6 +179,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#28" id="28">28</a>
 <a href="#29" id="29">29</a>
 <a href="#30" id="30">30</a>
+<a href="#31" id="31">31</a>
+<a href="#32" id="32">32</a>
+<a href="#33" id="33">33</a>
+<a href="#34" id="34">34</a>
+<a href="#35" id="35">35</a>
+<a href="#36" id="36">36</a>
+<a href="#37" id="37">37</a>
+<a href="#38" id="38">38</a>
+<a href="#39" id="39">39</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -200,9 +209,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	assert_expected_events, bx, Chain, RelayChain <span class="kw">as </span>Relay, TestExt,
 };
 <span class="kw">pub use </span>westend_system_emulated_network::{
-	asset_hub_westend_emulated_chain::AssetHubWestendParaPallet <span class="kw">as </span>AssetHubWestendPallet,
-	collectives_westend_emulated_chain::CollectivesWestendParaPallet <span class="kw">as </span>CollectivesWestendPallet,
-	westend_emulated_chain::WestendRelayPallet <span class="kw">as </span>WestendPallet,
+	asset_hub_westend_emulated_chain::{
+		asset_hub_westend_runtime::xcm_config::LocationToAccountId <span class="kw">as </span>AssetHubLocationToAccountId,
+		AssetHubWestendParaPallet <span class="kw">as </span>AssetHubWestendPallet,
+	},
+	collectives_westend_emulated_chain::{
+		collectives_westend_runtime::fellowship <span class="kw">as </span>collectives_fellowship,
+		CollectivesWestendParaPallet <span class="kw">as </span>CollectivesWestendPallet,
+	},
+	westend_emulated_chain::{
+		westend_runtime::{governance <span class="kw">as </span>westend_governance, OriginCaller <span class="kw">as </span>WestendOriginCaller},
+		WestendRelayPallet <span class="kw">as </span>WestendPallet,
+	},
 	AssetHubWestendPara <span class="kw">as </span>AssetHubWestend, CollectivesWestendPara <span class="kw">as </span>CollectivesWestend,
 	WestendRelay <span class="kw">as </span>Westend,
 };

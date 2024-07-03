@@ -245,6 +245,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#94" id="94">94</a>
 <a href="#95" id="95">95</a>
 <a href="#96" id="96">96</a>
+<a href="#97" id="97">97</a>
+<a href="#98" id="98">98</a>
+<a href="#99" id="99">99</a>
+<a href="#100" id="100">100</a>
+<a href="#101" id="101">101</a>
+<a href="#102" id="102">102</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -293,15 +299,33 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">pub use </span>parachains_common::{AccountId, Balance};
 	<span class="kw">pub use </span>westend_system_emulated_network::{
 		asset_hub_westend_emulated_chain::{
+			asset_hub_westend_runtime::{
+				xcm_config::{
+					<span class="self">self </span><span class="kw">as </span>ahw_xcm_config, WestendLocation <span class="kw">as </span>RelayLocation,
+					XcmConfig <span class="kw">as </span>AssetHubWestendXcmConfig,
+				},
+				AssetConversionOrigin <span class="kw">as </span>AssetHubWestendAssetConversionOrigin,
+			},
 			genesis::{AssetHubWestendAssetOwner, ED <span class="kw">as </span>ASSET_HUB_WESTEND_ED},
 			AssetHubWestendParaPallet <span class="kw">as </span>AssetHubWestendPallet,
 		},
 		collectives_westend_emulated_chain::CollectivesWestendParaPallet <span class="kw">as </span>CollectivesWestendPallet,
 		penpal_emulated_chain::{
+			penpal_runtime::xcm_config::{
+				CustomizableAssetFromSystemAssetHub <span class="kw">as </span>PenpalCustomizableAssetFromSystemAssetHub,
+				LocalReservableFromAssetHub <span class="kw">as </span>PenpalLocalReservableFromAssetHub,
+				LocalTeleportableToAssetHub <span class="kw">as </span>PenpalLocalTeleportableToAssetHub,
+			},
 			PenpalAParaPallet <span class="kw">as </span>PenpalAPallet, PenpalAssetOwner,
 			PenpalBParaPallet <span class="kw">as </span>PenpalBPallet,
 		},
-		westend_emulated_chain::{genesis::ED <span class="kw">as </span>WESTEND_ED, WestendRelayPallet <span class="kw">as </span>WestendPallet},
+		westend_emulated_chain::{
+			genesis::ED <span class="kw">as </span>WESTEND_ED,
+			westend_runtime::xcm_config::{
+				UniversalLocation <span class="kw">as </span>WestendUniversalLocation, XcmConfig <span class="kw">as </span>WestendXcmConfig,
+			},
+			WestendRelayPallet <span class="kw">as </span>WestendPallet,
+		},
 		AssetHubWestendPara <span class="kw">as </span>AssetHubWestend,
 		AssetHubWestendParaReceiver <span class="kw">as </span>AssetHubWestendReceiver,
 		AssetHubWestendParaSender <span class="kw">as </span>AssetHubWestendSender,
@@ -311,18 +335,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		PenpalAParaReceiver <span class="kw">as </span>PenpalAReceiver, PenpalAParaSender <span class="kw">as </span>PenpalASender,
 		PenpalBPara <span class="kw">as </span>PenpalB, PenpalBParaReceiver <span class="kw">as </span>PenpalBReceiver, WestendRelay <span class="kw">as </span>Westend,
 		WestendRelayReceiver <span class="kw">as </span>WestendReceiver, WestendRelaySender <span class="kw">as </span>WestendSender,
-	};
-
-	<span class="comment">// Runtimes
-	</span><span class="kw">pub use </span>asset_hub_westend_runtime::xcm_config::{
-		WestendLocation <span class="kw">as </span>RelayLocation, XcmConfig <span class="kw">as </span>AssetHubWestendXcmConfig,
-	};
-	<span class="kw">pub use </span>penpal_runtime::xcm_config::{
-		LocalReservableFromAssetHub <span class="kw">as </span>PenpalLocalReservableFromAssetHub,
-		LocalTeleportableToAssetHub <span class="kw">as </span>PenpalLocalTeleportableToAssetHub,
-	};
-	<span class="kw">pub use </span>westend_runtime::xcm_config::{
-		UniversalLocation <span class="kw">as </span>WestendUniversalLocation, XcmConfig <span class="kw">as </span>WestendXcmConfig,
 	};
 
 	<span class="kw">pub const </span>ASSET_ID: u32 = <span class="number">3</span>;

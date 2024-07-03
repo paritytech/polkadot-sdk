@@ -217,6 +217,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#66" id="66">66</a>
 <a href="#67" id="67">67</a>
 <a href="#68" id="68">68</a>
+<a href="#69" id="69">69</a>
+<a href="#70" id="70">70</a>
+<a href="#71" id="71">71</a>
+<a href="#72" id="72">72</a>
+<a href="#73" id="73">73</a>
+<a href="#74" id="74">74</a>
+<a href="#75" id="75">75</a>
+<a href="#76" id="76">76</a>
+<a href="#77" id="77">77</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -259,6 +268,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">pub use </span>parachains_common::AccountId;
 	<span class="kw">pub use </span>rococo_westend_system_emulated_network::{
 		asset_hub_rococo_emulated_chain::{
+			asset_hub_rococo_runtime::xcm_config <span class="kw">as </span>ahr_xcm_config,
 			genesis::{AssetHubRococoAssetOwner, ED <span class="kw">as </span>ASSET_HUB_ROCOCO_ED},
 			AssetHubRococoParaPallet <span class="kw">as </span>AssetHubRococoPallet,
 		},
@@ -266,9 +276,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			genesis::ED <span class="kw">as </span>ASSET_HUB_WESTEND_ED, AssetHubWestendParaPallet <span class="kw">as </span>AssetHubWestendPallet,
 		},
 		bridge_hub_rococo_emulated_chain::{
-			genesis::ED <span class="kw">as </span>BRIDGE_HUB_ROCOCO_ED, BridgeHubRococoParaPallet <span class="kw">as </span>BridgeHubRococoPallet,
+			genesis::ED <span class="kw">as </span>BRIDGE_HUB_ROCOCO_ED,
+			BridgeHubRococoParaPallet <span class="kw">as </span>BridgeHubRococoPallet, BridgeHubRococoRuntimeOrigin,
+			BridgeHubRococoXcmConfig, EthereumBeaconClient, EthereumInboundQueue,
 		},
-		penpal_emulated_chain::{PenpalAParaPallet <span class="kw">as </span>PenpalAPallet, PenpalAssetOwner},
+		penpal_emulated_chain::{
+			penpal_runtime::xcm_config::{
+				CustomizableAssetFromSystemAssetHub <span class="kw">as </span>PenpalCustomizableAssetFromSystemAssetHub,
+				UniversalLocation <span class="kw">as </span>PenpalUniversalLocation,
+			},
+			PenpalAParaPallet <span class="kw">as </span>PenpalAPallet, PenpalAssetOwner,
+		},
 		rococo_emulated_chain::{genesis::ED <span class="kw">as </span>ROCOCO_ED, RococoRelayPallet <span class="kw">as </span>RococoPallet},
 		AssetHubRococoPara <span class="kw">as </span>AssetHubRococo, AssetHubRococoParaReceiver <span class="kw">as </span>AssetHubRococoReceiver,
 		AssetHubRococoParaSender <span class="kw">as </span>AssetHubRococoSender, AssetHubWestendPara <span class="kw">as </span>AssetHubWestend,

@@ -218,6 +218,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#67" id="67">67</a>
 <a href="#68" id="68">68</a>
 <a href="#69" id="69">69</a>
+<a href="#70" id="70">70</a>
+<a href="#71" id="71">71</a>
+<a href="#72" id="72">72</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -269,9 +272,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		},
 		bridge_hub_westend_emulated_chain::{
 			genesis::ED <span class="kw">as </span>BRIDGE_HUB_WESTEND_ED,
-			BridgeHubWestendParaPallet <span class="kw">as </span>BridgeHubWestendPallet,
+			BridgeHubWestendParaPallet <span class="kw">as </span>BridgeHubWestendPallet, BridgeHubWestendXcmConfig,
 		},
-		penpal_emulated_chain::{PenpalAssetOwner, PenpalBParaPallet <span class="kw">as </span>PenpalBPallet},
+		penpal_emulated_chain::{
+			penpal_runtime::xcm_config::UniversalLocation <span class="kw">as </span>PenpalUniversalLocation,
+			PenpalAssetOwner, PenpalBParaPallet <span class="kw">as </span>PenpalBPallet,
+		},
 		westend_emulated_chain::WestendRelayPallet <span class="kw">as </span>WestendPallet,
 		AssetHubRococoPara <span class="kw">as </span>AssetHubRococo, AssetHubRococoParaReceiver <span class="kw">as </span>AssetHubRococoReceiver,
 		AssetHubRococoParaSender <span class="kw">as </span>AssetHubRococoSender, AssetHubWestendPara <span class="kw">as </span>AssetHubWestend,

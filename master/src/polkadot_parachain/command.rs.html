@@ -1267,14 +1267,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1116" id="1116">1116</a>
 <a href="#1117" id="1117">1117</a>
 <a href="#1118" id="1118">1118</a>
-<a href="#1119" id="1119">1119</a>
-<a href="#1120" id="1120">1120</a>
-<a href="#1121" id="1121">1121</a>
-<a href="#1122" id="1122">1122</a>
-<a href="#1123" id="1123">1123</a>
-<a href="#1124" id="1124">1124</a>
-<a href="#1125" id="1125">1125</a>
-<a href="#1126" id="1126">1126</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -2002,25 +1994,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span>.map(|r| r.<span class="number">0</span>)
 		.map_err(Into::into),
 
-		Runtime::AssetHub =&gt; <span class="kw">crate</span>::service::start_asset_hub_lookahead_node::&lt;
-			RuntimeApi,
-			AuraId,
-			Network,
-		&gt;(config, polkadot_config, collator_options, id, hwbench)
-		.<span class="kw">await
-		</span>.map(|r| r.<span class="number">0</span>)
-		.map_err(Into::into),
-
-		Runtime::Collectives =&gt; <span class="kw">crate</span>::service::start_generic_aura_lookahead_node::&lt;Network&gt;(
-			config,
-			polkadot_config,
-			collator_options,
-			id,
-			hwbench,
-		)
-		.<span class="kw">await
-		</span>.map(|r| r.<span class="number">0</span>)
-		.map_err(Into::into),
+		Runtime::AssetHub | Runtime::Collectives =&gt;
+			<span class="kw">crate</span>::service::start_generic_aura_lookahead_node::&lt;Network&gt;(
+				config,
+				polkadot_config,
+				collator_options,
+				id,
+				hwbench,
+			)
+			.<span class="kw">await
+			</span>.map(|r| r.<span class="number">0</span>)
+			.map_err(Into::into),
 
 		Runtime::Seedling | Runtime::Shell =&gt; <span class="kw">crate</span>::service::start_shell_node::&lt;Network&gt;(
 			config,

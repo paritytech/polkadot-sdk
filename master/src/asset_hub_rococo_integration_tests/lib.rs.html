@@ -241,6 +241,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#90" id="90">90</a>
 <a href="#91" id="91">91</a>
 <a href="#92" id="92">92</a>
+<a href="#93" id="93">93</a>
+<a href="#94" id="94">94</a>
+<a href="#95" id="95">95</a>
+<a href="#96" id="96">96</a>
+<a href="#97" id="97">97</a>
+<a href="#98" id="98">98</a>
+<a href="#99" id="99">99</a>
+<a href="#100" id="100">100</a>
+<a href="#101" id="101">101</a>
+<a href="#102" id="102">102</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -289,32 +299,42 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">pub use </span>parachains_common::Balance;
 	<span class="kw">pub use </span>rococo_system_emulated_network::{
 		asset_hub_rococo_emulated_chain::{
+			asset_hub_rococo_runtime::{
+				xcm_config::{
+					<span class="self">self </span><span class="kw">as </span>ahr_xcm_config, TokenLocation <span class="kw">as </span>RelayLocation,
+					XcmConfig <span class="kw">as </span>AssetHubRococoXcmConfig,
+				},
+				AssetConversionOrigin <span class="kw">as </span>AssetHubRococoAssetConversionOrigin,
+			},
 			genesis::{AssetHubRococoAssetOwner, ED <span class="kw">as </span>ASSET_HUB_ROCOCO_ED},
 			AssetHubRococoParaPallet <span class="kw">as </span>AssetHubRococoPallet,
 		},
 		penpal_emulated_chain::{
+			penpal_runtime::xcm_config::{
+				CustomizableAssetFromSystemAssetHub <span class="kw">as </span>PenpalCustomizableAssetFromSystemAssetHub,
+				LocalReservableFromAssetHub <span class="kw">as </span>PenpalLocalReservableFromAssetHub,
+				LocalTeleportableToAssetHub <span class="kw">as </span>PenpalLocalTeleportableToAssetHub,
+			},
 			PenpalAParaPallet <span class="kw">as </span>PenpalAPallet, PenpalAssetOwner,
 			PenpalBParaPallet <span class="kw">as </span>PenpalBPallet, ED <span class="kw">as </span>PENPAL_ED,
 		},
-		rococo_emulated_chain::{genesis::ED <span class="kw">as </span>ROCOCO_ED, RococoRelayPallet <span class="kw">as </span>RococoPallet},
+		rococo_emulated_chain::{
+			genesis::ED <span class="kw">as </span>ROCOCO_ED,
+			rococo_runtime::{
+				governance <span class="kw">as </span>rococo_governance,
+				xcm_config::{
+					UniversalLocation <span class="kw">as </span>RococoUniversalLocation, XcmConfig <span class="kw">as </span>RococoXcmConfig,
+				},
+				OriginCaller <span class="kw">as </span>RococoOriginCaller,
+			},
+			RococoRelayPallet <span class="kw">as </span>RococoPallet,
+		},
 		AssetHubRococoPara <span class="kw">as </span>AssetHubRococo, AssetHubRococoParaReceiver <span class="kw">as </span>AssetHubRococoReceiver,
 		AssetHubRococoParaSender <span class="kw">as </span>AssetHubRococoSender, BridgeHubRococoPara <span class="kw">as </span>BridgeHubRococo,
 		BridgeHubRococoParaReceiver <span class="kw">as </span>BridgeHubRococoReceiver, PenpalAPara <span class="kw">as </span>PenpalA,
 		PenpalAParaReceiver <span class="kw">as </span>PenpalAReceiver, PenpalAParaSender <span class="kw">as </span>PenpalASender,
 		PenpalBPara <span class="kw">as </span>PenpalB, PenpalBParaReceiver <span class="kw">as </span>PenpalBReceiver, RococoRelay <span class="kw">as </span>Rococo,
 		RococoRelayReceiver <span class="kw">as </span>RococoReceiver, RococoRelaySender <span class="kw">as </span>RococoSender,
-	};
-
-	<span class="comment">// Runtimes
-	</span><span class="kw">pub use </span>asset_hub_rococo_runtime::xcm_config::{
-		TokenLocation <span class="kw">as </span>RelayLocation, XcmConfig <span class="kw">as </span>AssetHubRococoXcmConfig,
-	};
-	<span class="kw">pub use </span>penpal_runtime::xcm_config::{
-		LocalReservableFromAssetHub <span class="kw">as </span>PenpalLocalReservableFromAssetHub,
-		LocalTeleportableToAssetHub <span class="kw">as </span>PenpalLocalTeleportableToAssetHub,
-	};
-	<span class="kw">pub use </span>rococo_runtime::xcm_config::{
-		UniversalLocation <span class="kw">as </span>RococoUniversalLocation, XcmConfig <span class="kw">as </span>RococoXcmConfig,
 	};
 
 	<span class="kw">pub const </span>ASSET_ID: u32 = <span class="number">3</span>;

@@ -1018,76 +1018,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#867" id="867">867</a>
 <a href="#868" id="868">868</a>
 <a href="#869" id="869">869</a>
-<a href="#870" id="870">870</a>
-<a href="#871" id="871">871</a>
-<a href="#872" id="872">872</a>
-<a href="#873" id="873">873</a>
-<a href="#874" id="874">874</a>
-<a href="#875" id="875">875</a>
-<a href="#876" id="876">876</a>
-<a href="#877" id="877">877</a>
-<a href="#878" id="878">878</a>
-<a href="#879" id="879">879</a>
-<a href="#880" id="880">880</a>
-<a href="#881" id="881">881</a>
-<a href="#882" id="882">882</a>
-<a href="#883" id="883">883</a>
-<a href="#884" id="884">884</a>
-<a href="#885" id="885">885</a>
-<a href="#886" id="886">886</a>
-<a href="#887" id="887">887</a>
-<a href="#888" id="888">888</a>
-<a href="#889" id="889">889</a>
-<a href="#890" id="890">890</a>
-<a href="#891" id="891">891</a>
-<a href="#892" id="892">892</a>
-<a href="#893" id="893">893</a>
-<a href="#894" id="894">894</a>
-<a href="#895" id="895">895</a>
-<a href="#896" id="896">896</a>
-<a href="#897" id="897">897</a>
-<a href="#898" id="898">898</a>
-<a href="#899" id="899">899</a>
-<a href="#900" id="900">900</a>
-<a href="#901" id="901">901</a>
-<a href="#902" id="902">902</a>
-<a href="#903" id="903">903</a>
-<a href="#904" id="904">904</a>
-<a href="#905" id="905">905</a>
-<a href="#906" id="906">906</a>
-<a href="#907" id="907">907</a>
-<a href="#908" id="908">908</a>
-<a href="#909" id="909">909</a>
-<a href="#910" id="910">910</a>
-<a href="#911" id="911">911</a>
-<a href="#912" id="912">912</a>
-<a href="#913" id="913">913</a>
-<a href="#914" id="914">914</a>
-<a href="#915" id="915">915</a>
-<a href="#916" id="916">916</a>
-<a href="#917" id="917">917</a>
-<a href="#918" id="918">918</a>
-<a href="#919" id="919">919</a>
-<a href="#920" id="920">920</a>
-<a href="#921" id="921">921</a>
-<a href="#922" id="922">922</a>
-<a href="#923" id="923">923</a>
-<a href="#924" id="924">924</a>
-<a href="#925" id="925">925</a>
-<a href="#926" id="926">926</a>
-<a href="#927" id="927">927</a>
-<a href="#928" id="928">928</a>
-<a href="#929" id="929">929</a>
-<a href="#930" id="930">930</a>
-<a href="#931" id="931">931</a>
-<a href="#932" id="932">932</a>
-<a href="#933" id="933">933</a>
-<a href="#934" id="934">934</a>
-<a href="#935" id="935">935</a>
-<a href="#936" id="936">936</a>
-<a href="#937" id="937">937</a>
-<a href="#938" id="938">938</a>
-<a href="#939" id="939">939</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -1104,8 +1034,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see &lt;http://www.gnu.org/licenses/&gt;.
 
-</span><span class="kw">use </span>codec::Decode;
-<span class="kw">use </span>cumulus_client_cli::CollatorOptions;
+</span><span class="kw">use </span>cumulus_client_cli::CollatorOptions;
 <span class="kw">use </span>cumulus_client_collator::service::CollatorService;
 <span class="kw">use </span>cumulus_client_consensus_aura::collators::lookahead::{<span class="self">self </span><span class="kw">as </span>aura, Params <span class="kw">as </span>AuraParams};
 <span class="kw">use </span>cumulus_client_consensus_common::ParachainBlockImport <span class="kw">as </span>TParachainBlockImport;
@@ -1135,7 +1064,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>cumulus_client_consensus_relay_chain::Verifier <span class="kw">as </span>RelayChainVerifier;
 <span class="kw">use </span>futures::prelude::<span class="kw-2">*</span>;
 <span class="kw">use </span>prometheus_endpoint::Registry;
-<span class="kw">use </span>sc_client_api::Backend <span class="kw">as </span>ClientApiBackend;
+<span class="kw">use </span>sc_client_api::BlockchainEvents;
 <span class="kw">use </span>sc_consensus::{
 	import_queue::{BasicQueue, Verifier <span class="kw">as </span>VerifierT},
 	BlockImportParams, ImportQueue,
@@ -1145,14 +1074,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>sc_network_sync::SyncingService;
 <span class="kw">use </span>sc_service::{Configuration, PartialComponents, TFullBackend, TFullClient, TaskManager};
 <span class="kw">use </span>sc_telemetry::{Telemetry, TelemetryHandle, TelemetryWorker, TelemetryWorkerHandle};
-<span class="kw">use </span>sp_api::{ConstructRuntimeApi, ProvideRuntimeApi};
-<span class="kw">use </span>sp_blockchain::HeaderBackend;
-<span class="kw">use </span>sp_core::traits::SpawnEssentialNamed;
+<span class="kw">use </span>sp_api::{ApiExt, ConstructRuntimeApi, ProvideRuntimeApi};
+<span class="kw">use </span>sp_consensus_aura::AuraApi;
 <span class="kw">use </span>sp_keystore::KeystorePtr;
-<span class="kw">use </span>sp_runtime::{
-	app_crypto::AppCrypto,
-	traits::{Block <span class="kw">as </span>BlockT, Header <span class="kw">as </span>HeaderT},
-};
+<span class="kw">use </span>sp_runtime::{app_crypto::AppCrypto, traits::Header <span class="kw">as </span>HeaderT};
 <span class="kw">use </span>std::{marker::PhantomData, sync::Arc, time::Duration};
 
 <span class="kw">use </span>polkadot_primitives::CollatorPair;
@@ -1513,7 +1438,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span>para_id,
 		build_parachain_rpc_extensions::&lt;FakeRuntimeApi&gt;,
 		build_aura_import_queue,
-		start_lookahead_aura_consensus,
+		start_lookahead_aura_consensus::&lt;<span class="kw">_</span>, AuraId&gt;,
 		hwbench,
 	)
 	.<span class="kw">await
@@ -1690,7 +1615,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span>para_id,
 		build_parachain_rpc_extensions::&lt;FakeRuntimeApi&gt;,
 		build_relay_to_aura_import_queue::&lt;<span class="kw">_</span>, AuraId&gt;,
-		start_lookahead_aura_consensus,
+		start_lookahead_aura_consensus::&lt;<span class="kw">_</span>, AuraId&gt;,
 		hwbench,
 	)
 	.<span class="kw">await
@@ -1725,108 +1650,41 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span>para_id,
 		build_parachain_rpc_extensions::&lt;RuntimeApi&gt;,
 		build_relay_to_aura_import_queue::&lt;<span class="kw">_</span>, AuraId&gt;,
-		|client,
-		 block_import,
-		 prometheus_registry,
-		 telemetry,
-		 task_manager,
-		 relay_chain_interface,
-		 transaction_pool,
-		 sync_oracle,
-		 keystore,
-		 relay_chain_slot_duration,
-		 para_id,
-		 collator_key,
-		 overseer_handle,
-		 announce_block,
-		 backend| {
-			<span class="kw">let </span>relay_chain_interface2 = relay_chain_interface.clone();
-
-			<span class="kw">let </span>collator_service = CollatorService::new(
-				client.clone(),
-				Arc::new(task_manager.spawn_handle()),
-				announce_block,
-				client.clone(),
-			);
-
-			<span class="kw">let </span>spawner = task_manager.spawn_handle();
-
-			<span class="kw">let </span>proposer_factory = sc_basic_authorship::ProposerFactory::with_proof_recording(
-				spawner,
-				client.clone(),
-				transaction_pool,
-				prometheus_registry,
-				telemetry.clone(),
-			);
-
-			<span class="kw">let </span>collation_future = Box::pin(<span class="kw">async move </span>{
-				<span class="comment">// Start collating with the `shell` runtime while waiting for an upgrade to an Aura
-				// compatible runtime.
-				</span><span class="kw">let </span><span class="kw-2">mut </span>request_stream = cumulus_client_collator::relay_chain_driven::init(
-					collator_key.clone(),
-					para_id,
-					overseer_handle.clone(),
-				)
-				.<span class="kw">await</span>;
-				<span class="kw">while let </span><span class="prelude-val">Some</span>(request) = request_stream.next().<span class="kw">await </span>{
-					<span class="kw">let </span>pvd = request.persisted_validation_data().clone();
-					<span class="kw">let </span>last_head_hash =
-						<span class="kw">match </span>&lt;Block <span class="kw">as </span>BlockT&gt;::Header::decode(<span class="kw-2">&amp;mut &amp;</span>pvd.parent_head.<span class="number">0</span>[..]) {
-							<span class="prelude-val">Ok</span>(header) =&gt; header.hash(),
-							<span class="prelude-val">Err</span>(e) =&gt; {
-								<span class="macro">log::error!</span>(<span class="string">"Could not decode the head data: {e}"</span>);
-								request.complete(<span class="prelude-val">None</span>);
-								<span class="kw">continue
-							</span>},
-						};
-
-					<span class="comment">// Check if we have upgraded to an Aura compatible runtime and transition if
-					// necessary.
-					</span><span class="kw">if </span>client.runtime_api().has_aura_api(last_head_hash) {
-						<span class="comment">// Respond to this request before transitioning to Aura.
-						</span>request.complete(<span class="prelude-val">None</span>);
-						<span class="kw">break
-					</span>}
-				}
-
-				<span class="comment">// Move to Aura consensus.
-				</span><span class="kw">let </span>proposer = Proposer::new(proposer_factory);
-
-				<span class="kw">let </span>params = AuraParams {
-					create_inherent_data_providers: <span class="kw">move </span>|<span class="kw">_</span>, ()| <span class="kw">async move </span>{ <span class="prelude-val">Ok</span>(()) },
-					block_import,
-					para_client: client.clone(),
-					para_backend: backend,
-					relay_client: relay_chain_interface2,
-					code_hash_provider: <span class="kw">move </span>|block_hash| {
-						client.code_at(block_hash).ok().map(|c| ValidationCode::from(c).hash())
-					},
-					sync_oracle,
-					keystore,
-					collator_key,
-					para_id,
-					overseer_handle,
-					relay_chain_slot_duration,
-					proposer,
-					collator_service,
-					authoring_duration: Duration::from_millis(<span class="number">1500</span>),
-					reinitialize: <span class="bool-val">true</span>, <span class="comment">/* we need to always re-initialize for asset-hub moving
-					                     * to aura */
-				</span>};
-
-				aura::run::&lt;Block, &lt;AuraId <span class="kw">as </span>AppCrypto&gt;::Pair, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>&gt;(params)
-					.<span class="kw">await
-			</span>});
-
-			<span class="kw">let </span>spawner = task_manager.spawn_essential_handle();
-			spawner.spawn_essential(<span class="string">"cumulus-asset-hub-collator"</span>, <span class="prelude-val">None</span>, collation_future);
-
-			<span class="prelude-val">Ok</span>(())
-		},
+		start_lookahead_aura_consensus::&lt;RuntimeApi, AuraId&gt;,
 		hwbench,
 	)
 	.<span class="kw">await
 </span>}
+
+<span class="doccomment">/// Wait for the Aura runtime API to appear on chain.
+/// This is useful for chains that started out without Aura. Components that
+/// are depending on Aura functionality will wait until Aura appears in the runtime.
+</span><span class="kw">async fn </span>wait_for_aura&lt;RuntimeApi, AuraId&gt;(client: Arc&lt;ParachainClient&lt;RuntimeApi&gt;&gt;)
+<span class="kw">where
+	</span>RuntimeApi: ConstructNodeRuntimeApi&lt;Block, ParachainClient&lt;RuntimeApi&gt;&gt;,
+	RuntimeApi::RuntimeApi: AuraRuntimeApi&lt;Block, AuraId&gt;,
+	AuraId: AuraIdT + Sync,
+{
+	<span class="kw">let </span>finalized_hash = client.chain_info().finalized_hash;
+	<span class="kw">if </span>client
+		.runtime_api()
+		.has_api::&lt;<span class="kw">dyn </span>AuraApi&lt;Block, AuraId&gt;&gt;(finalized_hash)
+		.unwrap_or(<span class="bool-val">false</span>)
+	{
+		<span class="kw">return</span>;
+	};
+
+	<span class="kw">let </span><span class="kw-2">mut </span>stream = client.finality_notification_stream();
+	<span class="kw">while let </span><span class="prelude-val">Some</span>(notification) = stream.next().<span class="kw">await </span>{
+		<span class="kw">let </span>has_aura_api = client
+			.runtime_api()
+			.has_api::&lt;<span class="kw">dyn </span>AuraApi&lt;Block, AuraId&gt;&gt;(notification.hash)
+			.unwrap_or(<span class="bool-val">false</span>);
+		<span class="kw">if </span>has_aura_api {
+			<span class="kw">return</span>;
+		}
+	}
+}
 
 <span class="doccomment">/// Start relay-chain consensus that is free for all. Everyone can submit a block, the relay-chain
 /// decides what is backed and included.
@@ -1901,7 +1759,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// Start consensus using the lookahead aura collator.
-</span><span class="kw">fn </span>start_lookahead_aura_consensus&lt;RuntimeApi&gt;(
+</span><span class="kw">fn </span>start_lookahead_aura_consensus&lt;RuntimeApi, AuraId&gt;(
 	client: Arc&lt;ParachainClient&lt;RuntimeApi&gt;&gt;,
 	block_import: ParachainBlockImport&lt;RuntimeApi&gt;,
 	prometheus_registry: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>Registry&gt;,
@@ -1921,12 +1779,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">where
 	</span>RuntimeApi: ConstructNodeRuntimeApi&lt;Block, ParachainClient&lt;RuntimeApi&gt;&gt;,
 	RuntimeApi::RuntimeApi: AuraRuntimeApi&lt;Block, AuraId&gt;,
+	AuraId: AuraIdT + Sync,
 {
-	<span class="kw">let </span>info = backend.blockchain().info();
-	<span class="kw">if </span>!client.runtime_api().has_aura_api(info.finalized_hash) {
-		<span class="kw">return </span><span class="prelude-val">Err</span>(sc_service::error::Error::Other(<span class="string">"Missing aura runtime APIs"</span>.to_string()));
-	}
-
 	<span class="kw">let </span>proposer_factory = sc_basic_authorship::ProposerFactory::with_proof_recording(
 		task_manager.spawn_handle(),
 		client.clone(),
@@ -1948,8 +1802,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		para_client: client.clone(),
 		para_backend: backend,
 		relay_client: relay_chain_interface,
-		code_hash_provider: <span class="kw">move </span>|block_hash| {
-			client.code_at(block_hash).ok().map(|c| ValidationCode::from(c).hash())
+		code_hash_provider: {
+			<span class="kw">let </span>client = client.clone();
+			<span class="kw">move </span>|block_hash| {
+				client.code_at(block_hash).ok().map(|c| ValidationCode::from(c).hash())
+			}
 		},
 		sync_oracle,
 		keystore,
@@ -1963,7 +1820,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		reinitialize: <span class="bool-val">false</span>,
 	};
 
-	<span class="kw">let </span>fut = aura::run::&lt;Block, &lt;AuraId <span class="kw">as </span>AppCrypto&gt;::Pair, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>&gt;(params);
+	<span class="kw">let </span>fut = <span class="kw">async move </span>{
+		wait_for_aura(client).<span class="kw">await</span>;
+		aura::run::&lt;Block, &lt;AuraId <span class="kw">as </span>AppCrypto&gt;::Pair, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>&gt;(params).<span class="kw">await</span>;
+	};
 	task_manager.spawn_essential_handle().spawn(<span class="string">"aura"</span>, <span class="prelude-val">None</span>, fut);
 
 	<span class="prelude-val">Ok</span>(())
@@ -1987,7 +1847,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span>para_id,
 		|<span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>| <span class="prelude-val">Ok</span>(RpcModule::new(())),
 		build_relay_to_aura_import_queue::&lt;<span class="kw">_</span>, AuraId&gt;,
-		start_lookahead_aura_consensus,
+		start_lookahead_aura_consensus::&lt;<span class="kw">_</span>, AuraId&gt;,
 		hwbench,
 	)
 	.<span class="kw">await
@@ -2009,7 +1869,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span>para_id,
 		build_contracts_rpc_extensions,
 		build_aura_import_queue,
-		start_lookahead_aura_consensus,
+		start_lookahead_aura_consensus::&lt;<span class="kw">_</span>, AuraId&gt;,
 		hwbench,
 	)
 	.<span class="kw">await

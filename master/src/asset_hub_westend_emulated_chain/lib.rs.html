@@ -210,6 +210,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#59" id="59">59</a>
 <a href="#60" id="60">60</a>
 <a href="#61" id="61">61</a>
+<a href="#62" id="62">62</a>
+<a href="#63" id="63">63</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -225,7 +227,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-</span><span class="kw">pub mod </span>genesis;
+</span><span class="kw">pub use </span>asset_hub_westend_runtime;
+
+<span class="kw">pub mod </span>genesis;
 
 <span class="comment">// Substrate
 </span><span class="kw">use </span>frame_support::traits::OnInitialize;

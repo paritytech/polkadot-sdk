@@ -723,6 +723,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#572" id="572">572</a>
 <a href="#573" id="573">573</a>
 <a href="#574" id="574">574</a>
+<a href="#575" id="575">575</a>
+<a href="#576" id="576">576</a>
+<a href="#577" id="577">577</a>
+<a href="#578" id="578">578</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -870,6 +874,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="doccomment">/// Record.
 		</span>record: Record,
 	},
+
+	<span class="doccomment">/// Started a random Kademlia query.
+	</span>RandomKademliaStarted,
 }
 
 <span class="doccomment">/// Discovery.
@@ -1181,6 +1188,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="kw">match </span>this.kademlia_handle.try_find_node(peer) {
 						<span class="prelude-val">Ok</span>(query_id) =&gt; {
 							this.find_node_query_id = <span class="prelude-val">Some</span>(query_id);
+							<span class="kw">return </span>Poll::Ready(<span class="prelude-val">Some</span>(DiscoveryEvent::RandomKademliaStarted))
 						},
 						<span class="prelude-val">Err</span>(()) =&gt; {
 							this.duration_to_next_find_query = cmp::min(
