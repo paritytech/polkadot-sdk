@@ -13,11 +13,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-mod claim_assets;
-mod hybrid_transfers;
-mod reserve_transfer;
-mod send;
-mod set_xcm_versions;
-mod swap;
-mod teleport;
-mod treasury;
+//! Tests related to claiming assets trapped during XCM execution.
+
+use crate::imports::*;
+
+use bridge_hub_westend_runtime::ExistentialDeposit;
+use emulated_integration_tests_common::test_chain_can_claim_assets;
+use xcm_executor::traits::DropAssets;
+
+#[test]
+fn assets_can_be_claimed() {
+	let amount = ExistentialDeposit::get();
+	let assets: Assets = (Parent, amount).into();
+
+	test_chain_can_claim_assets!(AssetHubWestend, RuntimeCall, NetworkId::Westend, assets, amount);
+}
