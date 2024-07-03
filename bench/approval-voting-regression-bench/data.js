@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1720004462466,
+  "lastUpdate": 1720009933545,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -9327,6 +9327,53 @@ window.BENCHMARK_DATA = {
           "url": "https://github.com/paritytech/polkadot-sdk/commit/98ce675a6bfafa145dd6be74c95d7768917392c1"
         },
         "date": 1720004433338,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63825.26000000001,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52942.2,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting",
+            "value": 10.362603871530029,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 7.903096430520078,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 3.630073009030224,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "gupnik",
+            "username": "gupnik",
+            "email": "mail.guptanikhil@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "e5791a56dcc35e308a80985cc3b6b7f2ed1eb6ec",
+          "message": "Fixes warnings in `frame-support-procedural` crate (#4915)\n\nThis PR fixes the unused warnings in `frame-support-procedural` crate,\nraised by the latest stable rust release.",
+          "timestamp": "2024-07-03T11:32:25Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/e5791a56dcc35e308a80985cc3b6b7f2ed1eb6ec"
+        },
+        "date": 1720009904870,
         "tool": "customSmallerIsBetter",
         "benches": [
           {
