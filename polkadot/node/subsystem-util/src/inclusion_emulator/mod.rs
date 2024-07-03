@@ -803,13 +803,22 @@ fn validate_against_constraints(
 		.map_err(FragmentValidityError::OutputsInvalid)
 }
 
+/// Trait for a hypothetical or concrete candidate, as needed when assessing the validity of a
+/// potential candidate.
 pub trait HypotheticalOrConcreteCandidate {
+	/// Return a reference to the candidate commitments, if present.
 	fn commitments(&self) -> Option<&CandidateCommitments>;
+	/// Return a reference to the persisted validation data, if present.
 	fn persisted_validation_data(&self) -> Option<&PersistedValidationData>;
+	/// Return a reference to the validation code hash, if present.
 	fn validation_code_hash(&self) -> Option<&ValidationCodeHash>;
+	/// Return the parent head hash.
 	fn parent_head_data_hash(&self) -> Hash;
+	/// Return the output head hash, if present.
 	fn output_head_data_hash(&self) -> Option<Hash>;
+	/// Return the relay parent hash.
 	fn relay_parent(&self) -> Hash;
+	/// Return the candidate hash.
 	fn candidate_hash(&self) -> CandidateHash;
 }
 
