@@ -78,7 +78,7 @@ struct TestState {
 	validator_groups: Vec<Vec<ValidatorIndex>>,
 	group_rotation_info: GroupRotationInfo,
 	cores: Vec<CoreState>,
-	claim_queue: BTreeMap<CoreIndex, VecDeque<ParaId>>,
+	claim_queue: Option<BTreeMap<CoreIndex, VecDeque<ParaId>>>,
 	async_backing_params: AsyncBackingParams,
 }
 
@@ -154,7 +154,7 @@ impl Default for TestState {
 			validator_groups,
 			group_rotation_info,
 			cores,
-			claim_queue,
+			claim_queue: Some(claim_queue),
 			async_backing_params: Self::ASYNC_BACKING_PARAMS,
 		}
 	}
@@ -195,7 +195,21 @@ impl TestState {
 		);
 
 		state.cores = cores;
-		state.claim_queue = claim_queue;
+		state.claim_queue = Some(claim_queue);
+
+		state
+	}
+
+	fn without_claim_queue() -> Self {
+		let mut state = Self::default();
+		state.claim_queue = None;
+		state.cores = vec![
+			CoreState::Scheduled(ScheduledCore {
+				para_id: ParaId::from(Self::CHAIN_IDS[0]),
+				collator: None,
+			}),
+			CoreState::Free,
+		];
 
 		state
 	}
@@ -350,7 +364,16 @@ async fn respond_to_core_info_queries(
 			_,
 			RuntimeApiRequest::ClaimQueue(tx),
 		)) => {
-			let _ = tx.send(Ok(test_state.claim_queue.clone()));
+			match test_state.claim_queue {
+				Some(ref claim_queue) => {
+					let _ = tx.send(Ok(claim_queue.clone()));
+				},
+				None => {
+					let _ = tx.send(Err(RuntimeApiError::NotSupported { runtime_api_name: "doesnt_matter" }));
+				}
+
+			}
+
 		}
 	);
 }

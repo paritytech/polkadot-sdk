@@ -76,19 +76,28 @@ async fn assert_assign_incoming(
 			parent,
 			RuntimeApiRequest::Version(tx),
 		)) if parent == hash => {
-			let _ = tx.send(Ok(RuntimeApiRequest::CLAIM_QUEUE_RUNTIME_REQUIREMENT));
+			match test_state.claim_queue {
+				Some(_) => {
+					let _ = tx.send(Ok(RuntimeApiRequest::CLAIM_QUEUE_RUNTIME_REQUIREMENT));
+				},
+				None => {
+					let _ = tx.send(Ok(RuntimeApiRequest::CLAIM_QUEUE_RUNTIME_REQUIREMENT - 1));
+				}
+			}
 		}
 	);
 
-	assert_matches!(
-		overseer_recv(virtual_overseer).await,
-		AllMessages::RuntimeApi(RuntimeApiMessage::Request(
-			parent,
-			RuntimeApiRequest::ClaimQueue(tx),
-		)) if parent == hash => {
-			let _ = tx.send(Ok(test_state.claim_queue.clone()));
-		}
-	);
+	if let Some(claim_queue) = &test_state.claim_queue {
+		assert_matches!(
+			overseer_recv(virtual_overseer).await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+				parent,
+				RuntimeApiRequest::ClaimQueue(tx),
+			)) if parent == hash => {
+				let _ = tx.send(Ok(claim_queue.clone()));
+			}
+		);
+	}
 }
 
 /// Handle a view update.
@@ -1577,6 +1586,97 @@ fn fair_collation_fetches() {
 		advertise_collation(
 			&mut virtual_overseer,
 			peer_b,
+			head_b,
+			Some((candidate_hash, Hash::zero())),
+		)
+		.await;
+		test_helpers::Yield::new().await;
+		assert_matches!(virtual_overseer.recv().now_or_never(), None);
+
+		virtual_overseer
+	});
+}
+
+#[test]
+fn collation_fetches_without_claimqueue() {
+	let test_state = TestState::without_claim_queue();
+
+	test_harness(ReputationAggregator::new(|_| true), |test_harness| async move {
+		let TestHarness { mut virtual_overseer, keystore } = test_harness;
+
+		// Grandparent of head `a`.
+		let head_b = Hash::from_low_u64_be(128);
+		let head_b_num: u32 = 2;
+
+		update_view(
+			&mut virtual_overseer,
+			&test_state,
+			vec![(head_b, head_b_num)],
+			1,
+			&test_state.async_backing_params,
+		)
+		.await;
+
+		let peer_a = PeerId::random();
+		let pair_a = CollatorPair::generate().0;
+
+		connect_and_declare_collator(
+			&mut virtual_overseer,
+			peer_a,
+			pair_a.clone(),
+			test_state.chain_ids[0],
+			CollationVersion::V2,
+		)
+		.await;
+
+		let peer_b = PeerId::random();
+		let pair_b = CollatorPair::generate().0;
+
+		// connect an unneeded collator
+		connect_and_declare_collator(
+			&mut virtual_overseer,
+			peer_b,
+			pair_b.clone(),
+			test_state.chain_ids[1],
+			CollationVersion::V2,
+		)
+		.await;
+		assert_matches!(
+				overseer_recv(&mut virtual_overseer).await,
+				AllMessages::NetworkBridgeTx(
+				NetworkBridgeTxMessage::ReportPeer(ReportPeerMessage::Single(peer_id, _)),
+			) => {
+				assert_eq!(peer_id, peer_b);
+			}
+		);
+		assert_matches!(
+				overseer_recv(&mut virtual_overseer).await,
+				AllMessages::NetworkBridgeTx(
+				NetworkBridgeTxMessage::DisconnectPeer(peer_id, peer_set)
+			) => {
+				assert_eq!(peer_id, peer_b);
+				assert_eq!(peer_set, PeerSet::Collation);
+			}
+		);
+
+		// in fallback mode up to `max_candidate_depth` collations are accepted
+		for i in 0..test_state.async_backing_params.max_candidate_depth {
+			submit_second_and_assert(
+				&mut virtual_overseer,
+				keystore.clone(),
+				ParaId::from(TestState::CHAIN_IDS[0]),
+				head_b,
+				peer_a,
+				HeadData(vec![i as u8]),
+			)
+			.await;
+		}
+
+		// `peer_a` sends another advertisement and it is ignored
+		let candidate_hash = CandidateHash(Hash::repeat_byte(0xAA));
+		advertise_collation(
+			&mut virtual_overseer,
+			peer_a,
 			head_b,
 			Some((candidate_hash, Hash::zero())),
 		)
