@@ -222,7 +222,7 @@ pub trait Ext: sealing::Sealed {
 	/// was deleted.
 	fn get_transient_storage_size(&self, key: &Key<Self::T>) -> Option<u32>;
 
-	/// Sets the transient storage entry by the given key to the specified value. If `value` is
+	/// Sets the transient storage entry for the given key to the specified value. If `value` is
 	/// `None` then the storage entry is deleted.
 	fn set_transient_storage(
 		&mut self,
