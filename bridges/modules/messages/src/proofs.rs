@@ -27,7 +27,6 @@ use bp_messages::{
 };
 use bp_runtime::{
 	HashOf, HasherOf, RangeInclusiveExt, RawStorageProof, StorageProofChecker, StorageProofError,
-	UnverifiedStorageProof, VerifiedStorageProof,
 };
 use codec::Decode;
 use sp_std::vec::Vec;
@@ -168,43 +167,10 @@ trait StorageProofAdapter<T: Config<I>, I: 'static> {
 	}
 }
 
+/// Actual storage proof adapter for messages proofs.
 type MessagesStorageProofAdapter<T, I> = StorageProofCheckerAdapter<T, I>;
 
-struct StorageAdapter<T, I> {
-	storage: VerifiedStorageProof,
-	_dummy: sp_std::marker::PhantomData<(T, I)>,
-}
-
-impl<T: Config<I>, I: 'static> StorageAdapter<T, I> {
-	fn try_new_with_verified_storage_proof(
-		bridged_header_hash: HashOf<BridgedChainOf<T, I>>,
-		storage_proof: UnverifiedStorageProof,
-	) -> Result<Self, HeaderChainError> {
-		BridgedHeaderChainOf::<T, I>::verify_storage_proof(bridged_header_hash, storage_proof)
-			.map(|storage| StorageAdapter::<T, I> { storage, _dummy: Default::default() })
-	}
-}
-
-impl<T: Config<I>, I: 'static> StorageProofAdapter<T, I> for StorageAdapter<T, I> {
-	fn read_and_decode_optional_value<D: Decode>(
-		&mut self,
-		key: &impl AsRef<[u8]>,
-	) -> Result<Option<D>, StorageProofError> {
-		self.storage.get_and_decode_optional(&key)
-	}
-
-	fn read_and_decode_mandatory_value<D: Decode>(
-		&mut self,
-		key: &impl AsRef<[u8]>,
-	) -> Result<D, StorageProofError> {
-		self.storage.get_and_decode_mandatory(&key)
-	}
-
-	fn ensure_no_unused_keys(self) -> Result<(), StorageProofError> {
-		self.storage.ensure_no_unused_keys()
-	}
-}
-
+/// A `StorageProofAdapter` implementation for raw storage proofs.
 struct StorageProofCheckerAdapter<T: Config<I>, I: 'static> {
 	storage: StorageProofChecker<HasherOf<BridgedChainOf<T, I>>>,
 	_dummy: sp_std::marker::PhantomData<(T, I)>,
@@ -215,11 +181,9 @@ impl<T: Config<I>, I: 'static> StorageProofCheckerAdapter<T, I> {
 		bridged_header_hash: HashOf<BridgedChainOf<T, I>>,
 		storage_proof: RawStorageProof,
 	) -> Result<Self, HeaderChainError> {
-		BridgedHeaderChainOf::<T, I>::verify_raw_storage_proof(bridged_header_hash, storage_proof)
-			.map(|storage| StorageProofCheckerAdapter::<T, I> {
-				storage,
-				_dummy: Default::default(),
-			})
+		BridgedHeaderChainOf::<T, I>::verify_storage_proof(bridged_header_hash, storage_proof).map(
+			|storage| StorageProofCheckerAdapter::<T, I> { storage, _dummy: Default::default() },
+		)
 	}
 }
 

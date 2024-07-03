@@ -25,8 +25,7 @@ use crate::justification::{
 };
 use bp_runtime::{
 	BasicOperatingMode, BlockNumberOf, Chain, HashOf, HasherOf, HeaderOf, RawStorageProof,
-	StorageProofChecker, StorageProofError, UnderlyingChainProvider, UnverifiedStorageProof,
-	VerifiedStorageProof,
+	StorageProofChecker, StorageProofError, UnderlyingChainProvider,
 };
 use codec::{Codec, Decode, Encode, EncodeLike, MaxEncodedLen};
 use core::{clone::Clone, cmp::Eq, default::Default, fmt::Debug};
@@ -80,19 +79,8 @@ pub trait HeaderChain<C: Chain> {
 	/// Returns state (storage) root of given finalized header.
 	fn finalized_header_state_root(header_hash: HashOf<C>) -> Option<HashOf<C>>;
 
-	/// Get a `VerifiedStorageProof` starting from an `UnverifiedStorageProof`.
-	fn verify_storage_proof(
-		header_hash: HashOf<C>,
-		db: UnverifiedStorageProof,
-	) -> Result<VerifiedStorageProof, HeaderChainError> {
-		let state_root = Self::finalized_header_state_root(header_hash)
-			.ok_or(HeaderChainError::UnknownHeader)?;
-		db.verify::<HasherOf<C>>(C::STATE_VERSION, &state_root)
-			.map_err(HeaderChainError::StorageProof)
-	}
-
 	/// Get storage proof checker using finalized header.
-	fn verify_raw_storage_proof(
+	fn verify_storage_proof(
 		header_hash: HashOf<C>,
 		storage_proof: RawStorageProof,
 	) -> Result<StorageProofChecker<HasherOf<C>>, HeaderChainError> {

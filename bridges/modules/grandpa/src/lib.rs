@@ -834,7 +834,7 @@ mod tests {
 		System, TestBridgedChain, TestHeader, TestNumber, TestRuntime, MAX_BRIDGED_AUTHORITIES,
 	};
 	use bp_header_chain::BridgeGrandpaCall;
-	use bp_runtime::{BasicOperatingMode, UnverifiedStorageProof};
+	use bp_runtime::BasicOperatingMode;
 	use bp_test_utils::{
 		authority_list, generate_owned_bridge_module_tests, make_default_justification,
 		make_justification_for_header, JustificationGeneratorParams, ALICE, BOB,
@@ -1459,10 +1459,7 @@ mod tests {
 	#[test]
 	fn parse_finalized_storage_accepts_valid_proof() {
 		run_test(|| {
-			let (state_root, storage_proof) = UnverifiedStorageProof::try_from_entries::<
-				sp_core::Blake2Hasher,
-			>(Default::default(), &[(b"key1".to_vec(), None)])
-			.expect("UnverifiedStorageProof::try_from_entries() shouldn't fail in tests");
+			let (state_root, storage_proof) = bp_runtime::craft_valid_storage_proof();
 
 			let mut header = test_header(2);
 			header.set_state_root(state_root);
