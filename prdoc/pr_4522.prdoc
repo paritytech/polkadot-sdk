@@ -30,8 +30,10 @@ crates:
   - name: kitchensink-runtime
     bump: major
   - name: rococo-runtime
-    bump: minor
+    bump: major
   - name: westend-runtime
-    bump: minor
+    bump: major
   - name: sp-consensus-beefy
+    bump: major
   - name: polkadot-service
+    bump: patch
