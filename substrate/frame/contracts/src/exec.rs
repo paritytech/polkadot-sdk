@@ -210,7 +210,7 @@ pub trait Ext: sealing::Sealed {
 		take_old: bool,
 	) -> Result<WriteOutcome, DispatchError>;
 
-	/// Returns the transient storage entry of the executing account by the given `key`.
+	/// Returns the transient storage entry of the executing account for the given `key`.
 	///
 	/// Returns `None` if the `key` wasn't previously set by `set_transient_storage` or
 	/// was deleted.
