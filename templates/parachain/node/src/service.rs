@@ -12,6 +12,7 @@ use parachain_template_runtime::{
 
 // Cumulus Imports
 use cumulus_client_collator::service::CollatorService;
+#[docify::export(lookahead_collator)]
 use cumulus_client_consensus_aura::collators::lookahead::{self as aura, Params as AuraParams};
 use cumulus_client_consensus_common::ParachainBlockImport as TParachainBlockImport;
 use cumulus_client_consensus_proposer::Proposer;
@@ -20,6 +21,7 @@ use cumulus_client_service::{
 	BuildNetworkParams, CollatorSybilResistance, DARecoveryProfile, ParachainHostFunctions,
 	StartRelayChainTasksParams,
 };
+#[docify::export(cumulus_primitives)]
 use cumulus_primitives_core::{
 	relay_chain::{CollatorPair, ValidationCode},
 	ParaId,

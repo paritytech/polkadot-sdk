@@ -16,7 +16,7 @@
 // limitations under the License.
 
 use futures::FutureExt;
-use runtime::{self, interface::OpaqueBlock as Block, RuntimeApi};
+use minimal_template_runtime::{interface::OpaqueBlock as Block, RuntimeApi};
 use sc_client_api::backend::Backend;
 use sc_executor::WasmExecutor;
 use sc_service::{error::Error as ServiceError, Configuration, TaskManager};
