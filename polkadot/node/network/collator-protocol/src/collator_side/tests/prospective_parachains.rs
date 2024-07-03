@@ -58,6 +58,16 @@ async fn update_view(
 			}
 		);
 
+		assert_matches!(
+			overseer_recv(virtual_overseer).await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+				_,
+				RuntimeApiRequest::Version(tx),
+			)) => {
+				let _ = tx.send(Ok(RuntimeApiRequest::CLAIM_QUEUE_RUNTIME_REQUIREMENT));
+			}
+		);
+
 		let min_number = leaf_number.saturating_sub(ASYNC_BACKING_PARAMETERS.allowed_ancestry_len);
 
 		let ancestry_len = leaf_number + 1 - min_number;
@@ -93,6 +103,16 @@ async fn update_view(
 					)
 				) => {
 					tx.send(Ok(ASYNC_BACKING_PARAMETERS)).unwrap();
+				}
+			);
+
+			assert_matches!(
+				overseer_recv(virtual_overseer).await,
+				AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+					_,
+					RuntimeApiRequest::Version(tx),
+				)) => {
+					let _ = tx.send(Ok(RuntimeApiRequest::CLAIM_QUEUE_RUNTIME_REQUIREMENT));
 				}
 			);
 

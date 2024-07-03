@@ -38,11 +38,12 @@ use polkadot_primitives::{
 };
 
 use crate::{
-	request_async_backing_params, request_availability_cores, request_candidate_events,
-	request_from_runtime, request_key_ownership_proof, request_on_chain_votes,
-	request_session_executor_params, request_session_index_for_child, request_session_info,
-	request_submit_report_dispute_lost, request_unapplied_slashes, request_validation_code_by_hash,
-	request_validator_groups, vstaging::get_disabled_validators_with_fallback,
+	has_required_runtime, request_async_backing_params, request_availability_cores,
+	request_candidate_events, request_from_runtime, request_key_ownership_proof,
+	request_on_chain_votes, request_session_executor_params, request_session_index_for_child,
+	request_session_info, request_submit_report_dispute_lost, request_unapplied_slashes,
+	request_validation_code_by_hash, request_validator_groups,
+	vstaging::get_disabled_validators_with_fallback,
 };
 
 /// Errors that can happen on runtime fetches.
@@ -481,6 +482,8 @@ pub enum ProspectiveParachainsMode {
 		/// How many ancestors of a relay parent are allowed to build candidates on top
 		/// of.
 		allowed_ancestry_len: usize,
+		/// Whether or not the runtime supports claim queue.
+		claim_queue_support: bool,
 	},
 }
 
@@ -488,6 +491,14 @@ impl ProspectiveParachainsMode {
 	/// Returns `true` if mode is enabled, `false` otherwise.
 	pub fn is_enabled(&self) -> bool {
 		matches!(self, ProspectiveParachainsMode::Enabled { .. })
+	}
+
+	/// Returns true if ProspectiveParachainsMode is enabled and has got claim queue support
+	pub fn has_claim_queue_support(&self) -> bool {
+		match self {
+			ProspectiveParachainsMode::Enabled { claim_queue_support, .. } => *claim_queue_support,
+			ProspectiveParachainsMode::Disabled => false,
+		}
 	}
 }
 
@@ -515,9 +526,16 @@ where
 		Ok(ProspectiveParachainsMode::Disabled)
 	} else {
 		let AsyncBackingParams { max_candidate_depth, allowed_ancestry_len } = result?;
+		let claim_queue_support = has_required_runtime(
+			sender,
+			relay_parent,
+			RuntimeApiRequest::CLAIM_QUEUE_RUNTIME_REQUIREMENT,
+		)
+		.await;
 		Ok(ProspectiveParachainsMode::Enabled {
 			max_candidate_depth: max_candidate_depth as _,
 			allowed_ancestry_len: allowed_ancestry_len as _,
+			claim_queue_support,
 		})
 	}
 }

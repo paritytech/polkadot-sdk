@@ -327,34 +327,50 @@ impl Collations {
 	///
 	/// If prospective parachains mode is not enabled then we fall back to synchronous backing. In
 	/// this case there is a limit of 1 collation per relay parent.
+	///
+	/// If prospective parachains mode is enabled but claim queue is not supported then up to
+	/// `max_candidate_depth + 1` seconded collations are supported. In theory in this case if two
+	/// parachains are sharing a core no fairness is guaranteed between them and the faster one can
+	/// starve the slower one by exhausting the limit with its own advertisements. In practice this
+	/// should not happen because core sharing implies core time support which implies the claim
+	/// queue is available.
 	pub(super) fn is_collations_limit_reached(
 		&self,
 		relay_parent_mode: ProspectiveParachainsMode,
 		para_id: ParaId,
 		num_pending_fetches: usize,
 	) -> bool {
-		if let ProspectiveParachainsMode::Disabled = relay_parent_mode {
-			// fallback to synchronous backing
-			return self.seconded_count >= 1
+		match relay_parent_mode {
+			ProspectiveParachainsMode::Disabled => return self.seconded_count >= 1,
+			ProspectiveParachainsMode::Enabled {
+				max_candidate_depth,
+				allowed_ancestry_len: _,
+				claim_queue_support,
+			} if !claim_queue_support => self.seconded_count >= max_candidate_depth + 1,
+			ProspectiveParachainsMode::Enabled {
+				max_candidate_depth: _,
+				allowed_ancestry_len: _,
+				claim_queue_support: _,
+			} => {
+				// Successful fetches + pending fetches < claim queue entries for `para_id`
+				let respected_per_para_limit =
+					self.claims_per_para.get(&para_id).copied().unwrap_or_default() >
+						self.fetched_per_para.get(&para_id).copied().unwrap_or_default() +
+							num_pending_fetches;
+
+				gum::trace!(
+					target: LOG_TARGET,
+					?para_id,
+					claims_per_para=?self.claims_per_para,
+					fetched_per_para=?self.fetched_per_para,
+					?num_pending_fetches,
+					?respected_per_para_limit,
+					"is_collations_limit_reached"
+				);
+
+				!respected_per_para_limit
+			},
 		}
-
-		// Successful fetches + pending fetches < claim queue entries for `para_id`
-		let respected_per_para_limit =
-			self.claims_per_para.get(&para_id).copied().unwrap_or_default() >
-				self.fetched_per_para.get(&para_id).copied().unwrap_or_default() +
-					num_pending_fetches;
-
-		gum::trace!(
-			target: LOG_TARGET,
-			?para_id,
-			claims_per_para=?self.claims_per_para,
-			fetched_per_para=?self.fetched_per_para,
-			?num_pending_fetches,
-			?respected_per_para_limit,
-			"is_collations_limit_reached"
-		);
-
-		!respected_per_para_limit
 	}
 
 	/// Adds a new collation to the waiting queue for the relay parent. This function doesn't
@@ -377,6 +393,10 @@ impl Collations {
 	///
 	/// If two parachains has got the same score the one which is earlier in the claim queue will be
 	/// picked.
+	///
+	/// If claim queue is not supported then `group_assignment` should contain just one element and
+	/// the score won't matter. In this case collations will be fetched in the order they were
+	/// received.
 	fn pick_a_collation_to_fetch(
 		&mut self,
 		group_assignments: &Vec<ParaId>,

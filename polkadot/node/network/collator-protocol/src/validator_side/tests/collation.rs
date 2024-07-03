@@ -13,8 +13,11 @@ fn cant_add_more_than_claim_queue() {
 	let para_a = ParaId::from(1);
 	let para_b = ParaId::from(2);
 	let assignments = vec![para_a, para_b, para_a];
-	let relay_parent_mode =
-		ProspectiveParachainsMode::Enabled { max_candidate_depth: 4, allowed_ancestry_len: 3 };
+	let relay_parent_mode = ProspectiveParachainsMode::Enabled {
+		max_candidate_depth: 4,
+		allowed_ancestry_len: 3,
+		claim_queue_support: true,
+	};
 
 	let mut collations = Collations::new(&assignments);
 
@@ -51,8 +54,11 @@ fn pending_fetches_are_counted() {
 	let collator_id_a = CollatorId::from(sr25519::Public::from_raw([10u8; 32]));
 	let para_b = ParaId::from(2);
 	let assignments = vec![para_a, para_b, para_a];
-	let relay_parent_mode =
-		ProspectiveParachainsMode::Enabled { max_candidate_depth: 4, allowed_ancestry_len: 3 };
+	let relay_parent_mode = ProspectiveParachainsMode::Enabled {
+		max_candidate_depth: 4,
+		allowed_ancestry_len: 3,
+		claim_queue_support: true,
+	};
 
 	let mut collations = Collations::new(&assignments);
 	collations.fetching_from = Some((collator_id_a, None));
@@ -79,8 +85,11 @@ fn collation_fetching_respects_claim_queue() {
 
 	let claim_queue = vec![para_a, para_b, para_a];
 	let mut collations = Collations::new(&claim_queue);
-	let relay_parent_mode =
-		ProspectiveParachainsMode::Enabled { max_candidate_depth: 4, allowed_ancestry_len: 3 };
+	let relay_parent_mode = ProspectiveParachainsMode::Enabled {
+		max_candidate_depth: 4,
+		allowed_ancestry_len: 3,
+		claim_queue_support: true,
+	};
 
 	collations.fetching_from = None;
 
@@ -173,8 +182,11 @@ fn collation_fetching_fallback_works() {
 
 	let claim_queue = vec![para_a];
 	let mut collations = Collations::new(&claim_queue);
-	let relay_parent_mode =
-		ProspectiveParachainsMode::Enabled { max_candidate_depth: 4, allowed_ancestry_len: 3 };
+	let relay_parent_mode = ProspectiveParachainsMode::Enabled {
+		max_candidate_depth: 4,
+		allowed_ancestry_len: 3,
+		claim_queue_support: false,
+	};
 
 	collations.fetching_from = None;
 
@@ -206,6 +218,7 @@ fn collation_fetching_fallback_works() {
 		collator_id_a.clone(),
 	);
 
+	// Collations will be fetched in the order they were added
 	collations.add_to_waiting_queue(collation_a1.clone());
 	collations.add_to_waiting_queue(collation_a2.clone());
 
@@ -246,8 +259,11 @@ fn collation_fetching_prefer_entries_earlier_in_claim_queue() {
 
 	let claim_queue = vec![para_a, para_b, para_a, para_b];
 	let mut collations = Collations::new(&claim_queue);
-	let relay_parent_mode =
-		ProspectiveParachainsMode::Enabled { max_candidate_depth: 5, allowed_ancestry_len: 4 };
+	let relay_parent_mode = ProspectiveParachainsMode::Enabled {
+		max_candidate_depth: 5,
+		allowed_ancestry_len: 4,
+		claim_queue_support: true,
+	};
 
 	collations.fetching_from = None;
 
