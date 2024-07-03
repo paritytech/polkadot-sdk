@@ -823,6 +823,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#672" id="672">672</a>
 <a href="#673" id="673">673</a>
 <a href="#674" id="674">674</a>
+<a href="#675" id="675">675</a>
+<a href="#676" id="676">676</a>
+<a href="#677" id="677">677</a>
+<a href="#678" id="678">678</a>
+<a href="#679" id="679">679</a>
+<a href="#680" id="680">680</a>
+<a href="#681" id="681">681</a>
+<a href="#682" id="682">682</a>
+<a href="#683" id="683">683</a>
+<a href="#684" id="684">684</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1005,7 +1015,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// This has the insecure enumerable hash function since the key itself is already
 	/// guaranteed to be a secure hash.
 	</span><span class="attr">#[pallet::storage]
-	#[pallet::getter(<span class="kw">fn </span>tips)]
 	</span><span class="kw">pub type </span>Tips&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static </span>= ()&gt; = StorageMap&lt;
 		<span class="kw">_</span>,
 		Twox64Concat,
@@ -1017,7 +1026,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Simple preimage lookup from the reason's hash to the original data. Again, has an
 	/// insecure enumerable hash since the key is guaranteed to be the result of a secure hash.
 	</span><span class="attr">#[pallet::storage]
-	#[pallet::getter(<span class="kw">fn </span>reasons)]
 	</span><span class="kw">pub type </span>Reasons&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static </span>= ()&gt; =
 		StorageMap&lt;<span class="kw">_</span>, Identity, T::Hash, Vec&lt;u8&gt;, OptionQuery&gt;;
 
@@ -1317,7 +1325,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt; Pallet&lt;T, I&gt; {
 	<span class="comment">// Add public immutables and private mutables.
 
-	</span><span class="doccomment">/// The account ID of the treasury pot.
+	</span><span class="doccomment">/// Access tips storage from outside
+	</span><span class="kw">pub fn </span>tips(
+		hash: T::Hash,
+	) -&gt; <span class="prelude-ty">Option</span>&lt;OpenTip&lt;T::AccountId, BalanceOf&lt;T, I&gt;, BlockNumberFor&lt;T&gt;, T::Hash&gt;&gt; {
+		Tips::&lt;T, I&gt;::get(hash)
+	}
+
+	<span class="doccomment">/// Access reasons storage from outside
+	</span><span class="kw">pub fn </span>reasons(hash: T::Hash) -&gt; <span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt; {
+		Reasons::&lt;T, I&gt;::get(hash)
+	}
+
+	<span class="doccomment">/// The account ID of the treasury pot.
 	///
 	/// This actually does computation. If you need to keep using it, then make sure you cache the
 	/// value and only call this once.
