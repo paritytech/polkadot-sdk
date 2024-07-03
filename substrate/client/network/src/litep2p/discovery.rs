@@ -170,8 +170,8 @@ pub struct Discovery {
 	/// Next Kademlia query for a random peer ID.
 	next_kad_query: Option<Delay>,
 
-	/// Active `FIND_NODE` query if it exists.
-	find_node_query_id: Option<QueryId>,
+	/// Active `FIND_NODE` queries.
+	find_node_queries: HashMap<QueryId, std::time::Instant>,
 
 	/// Pending events.
 	pending_events: VecDeque<DiscoveryEvent>,
@@ -277,7 +277,7 @@ impl Discovery {
 				kademlia_handle,
 				_peerstore_handle,
 				listen_addresses,
-				find_node_query_id: None,
+				find_node_queries: HashMap::new(),
 				pending_events: VecDeque::new(),
 				duration_to_next_find_query: Duration::from_secs(1),
 				address_confirmations: LruMap::new(ByLength::new(8)),
@@ -460,39 +460,53 @@ impl Stream for Discovery {
 		}
 
 		if let Some(mut delay) = this.next_kad_query.take() {
-			while delay.poll_unpin(cx).is_ready() {
-				let num_peers = this.num_connected_peers();
-				if num_peers < this.discovery_only_if_under_num {
-					let peer = PeerId::random();
-					log::info!(target: LOG_TARGET, "start next kademlia query for {peer:?}");
+			match delay.poll_unpin(cx) {
+				Poll::Ready(()) => {
+					let num_peers = this.num_connected_peers();
+					if num_peers < this.discovery_only_if_under_num {
+						let peer = PeerId::random();
+						log::info!(target: LOG_TARGET, "start next kademlia query for {peer:?}");
 
-					let started = this.kademlia_handle.try_find_node(peer).is_ok();
+						if let Ok(query_id) = this.kademlia_handle.try_find_node(peer) {
+							this.find_node_queries.insert(query_id, std::time::Instant::now());
+							this.duration_to_next_find_query = cmp::min(
+								this.duration_to_next_find_query * 2,
+								Duration::from_secs(60),
+							);
+							this.next_kad_query =
+								Some(Delay::new(this.duration_to_next_find_query));
 
-					if started {
-						this.find_node_query_id = None;
-						return Poll::Ready(Some(DiscoveryEvent::RandomKademliaStarted))
+							return Poll::Ready(Some(DiscoveryEvent::RandomKademliaStarted))
+						}
+					} else {
+						log::info!(
+							target: LOG_TARGET,
+							"discovery is disabled as we have {num_peers} connected peers."
+						);
 					}
-				} else {
-					log::info!(
-						target: LOG_TARGET,
-						"discovery is disabled as we have {num_peers} connected peers."
-					);
-				}
-			}
 
-			this.duration_to_next_find_query =
-				cmp::min(this.duration_to_next_find_query * 2, Duration::from_secs(60));
-			this.next_kad_query = Some(Delay::new(this.duration_to_next_find_query));
+					this.duration_to_next_find_query =
+						cmp::min(this.duration_to_next_find_query * 2, Duration::from_secs(60));
+					this.next_kad_query = Some(Delay::new(this.duration_to_next_find_query));
+				},
+				Poll::Pending => {
+					this.next_kad_query = Some(delay);
+				},
+			}
 		}
 
 		match Pin::new(&mut this.kademlia_handle).poll_next(cx) {
 			Poll::Pending => {},
 			Poll::Ready(None) => return Poll::Ready(None),
-			Poll::Ready(Some(KademliaEvent::FindNodeSuccess { peers, .. })) => {
+			Poll::Ready(Some(KademliaEvent::FindNodeSuccess { peers, query_id, .. })) => {
 				// the addresses are already inserted into the DHT and in `TransportManager` so
 				// there is no need to add them again. The found peers must be registered to
 				// `Peerstore` so other protocols are aware of them through `Peerset`.
 				log::info!(target: LOG_TARGET, "dht random walk yielded {} peers", peers.len());
+
+				if let Some(instant) = this.find_node_queries.remove(&query_id) {
+					log::info!(target: LOG_TARGET, "dht random walk yielded {} peers {query_id:?} in {:?}", peers.len(), instant.elapsed());
+				}
 
 				return Poll::Ready(Some(DiscoveryEvent::RoutingTableUpdate {
 					peers: peers.into_iter().map(|(peer, _)| peer).collect(),
@@ -506,17 +520,15 @@ impl Stream for Discovery {
 				}))
 			},
 			Poll::Ready(Some(KademliaEvent::GetRecordSuccess { query_id, records })) => {
-				log::info!(
-					target: LOG_TARGET,
-					"`GET_RECORD` succeeded for {query_id:?}: {records:?}",
-				);
-
 				return Poll::Ready(Some(DiscoveryEvent::GetRecordSuccess { query_id, records }));
 			},
 			Poll::Ready(Some(KademliaEvent::PutRecordSucess { query_id, key: _ })) =>
 				return Poll::Ready(Some(DiscoveryEvent::PutRecordSuccess { query_id })),
 			Poll::Ready(Some(KademliaEvent::QueryFailed { query_id })) => {
-				log::warn!(target: LOG_TARGET, "`GET_RECORD` failed for {query_id:?}");
+				if let Some(instant) = this.find_node_queries.remove(&query_id) {
+					log::warn!(target: LOG_TARGET, "`GET_RECORD` failed for {query_id:?} in {:?}", instant.elapsed());
+				}
+
 				return Poll::Ready(Some(DiscoveryEvent::QueryFailed { query_id }));
 			},
 			Poll::Ready(Some(KademliaEvent::IncomingRecord { record })) => {
