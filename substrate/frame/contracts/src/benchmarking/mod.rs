@@ -1278,7 +1278,6 @@ mod benchmarks {
 	// s: size of salt in bytes
 	#[benchmark(pov_mode = Measured)]
 	fn seal_instantiate(
-		t: Linear<0, 1>,
 		i: Linear<0, { (code::max_pages::<T>() - 1) * 64 * 1024 }>,
 		s: Linear<0, { (code::max_pages::<T>() - 1) * 64 * 1024 }>,
 	) -> Result<(), BenchmarkError> {
@@ -1286,7 +1285,7 @@ mod benchmarks {
 		let hash_bytes = hash.encode();
 		let hash_len = hash_bytes.len() as u32;
 
-		let value: BalanceOf<T> = t.into();
+		let value: BalanceOf<T> = 1u32.into();
 		let value_bytes = value.encode();
 		let value_len = value_bytes.len() as u32;
 
@@ -1341,6 +1340,7 @@ mod benchmarks {
 
 		assert_ok!(result);
 		assert!(ContractInfoOf::<T>::get(&addr).is_some());
+		assert_eq!(T::Currency::balance(&addr), Pallet::<T>::min_balance() + value);
 		Ok(())
 	}
 
