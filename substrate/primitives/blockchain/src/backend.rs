@@ -128,6 +128,32 @@ where
 {
 }
 
+struct MinimalBlockMetadata<Block: BlockT> {
+	number: NumberFor<Block>,
+	hash: Block::Hash,
+	parent: Block::Hash,
+}
+
+impl<Block> Clone for MinimalBlockMetadata<Block>
+where
+	Block: BlockT,
+{
+	fn clone(&self) -> Self {
+		Self { number: self.number, hash: self.hash, parent: self.parent }
+	}
+}
+
+impl<Block> Copy for MinimalBlockMetadata<Block> where Block: BlockT {}
+
+impl<Block> From<&CachedHeaderMetadata<Block>> for MinimalBlockMetadata<Block>
+where
+	Block: BlockT,
+{
+	fn from(value: &CachedHeaderMetadata<Block>) -> Self {
+		Self { number: value.number, hash: value.hash, parent: value.parent }
+	}
+}
+
 /// Blockchain database backend. Does not perform any validation.
 pub trait Backend<Block: BlockT>:
 	HeaderBackend<Block> + HeaderMetadata<Block, Error = Error>
@@ -236,11 +262,12 @@ pub trait Backend<Block: BlockT>:
 		// Store hashes of finalized blocks for quick checking later, the last block if the
 		// finalized one
 		let mut finalized_chain = VecDeque::new();
-		finalized_chain.push_front(self.header_metadata(finalized_block_hash)?);
+		finalized_chain
+			.push_front(MinimalBlockMetadata::from(&self.header_metadata(finalized_block_hash)?));
 
 		// Local cache is a performance optimization in case of finalized block deep below the
 		// tip of the chain with a lot of leaves above finalized block
-		let mut local_cache = HashMap::<Block::Hash, CachedHeaderMetadata<Block>>::new();
+		let mut local_cache = HashMap::<Block::Hash, MinimalBlockMetadata<Block>>::new();
 
 		let mut result = DisplacedLeavesAfterFinalization {
 			displaced_leaves: Vec::with_capacity(leaves.len()),
@@ -249,7 +276,8 @@ pub trait Backend<Block: BlockT>:
 		let mut displaced_blocks_candidates = Vec::new();
 
 		for leaf_hash in leaves {
-			let mut current_header_metadata = self.header_metadata(leaf_hash)?;
+			let mut current_header_metadata =
+				MinimalBlockMetadata::from(&self.header_metadata(leaf_hash)?);
 			let leaf_number = current_header_metadata.number;
 
 			// Collect all block hashes until the height of the finalized block
@@ -260,13 +288,14 @@ pub trait Backend<Block: BlockT>:
 				let parent_hash = current_header_metadata.parent;
 				match local_cache.get(&parent_hash) {
 					Some(metadata_header) => {
-						current_header_metadata = metadata_header.clone();
+						current_header_metadata = *metadata_header;
 					},
 					None => {
-						current_header_metadata = self.header_metadata(parent_hash)?;
+						current_header_metadata =
+							MinimalBlockMetadata::from(&self.header_metadata(parent_hash)?);
 						// Cache locally in case more branches above finalized block reference
 						// the same block hash
-						local_cache.insert(parent_hash, current_header_metadata.clone());
+						local_cache.insert(parent_hash, current_header_metadata);
 					},
 				}
 			}
@@ -289,11 +318,11 @@ pub trait Backend<Block: BlockT>:
 					match finalized_chain.iter().rev().nth(distance_from_finalized as usize) {
 						Some(header) => (header.number, header.hash),
 						None => {
-							let header = self.header_metadata(
+							let metadata = MinimalBlockMetadata::from(&self.header_metadata(
 								finalized_chain.front().expect("Not empty; qed").parent,
-							)?;
-							let result = (header.number, header.hash);
-							finalized_chain.push_front(header);
+							)?);
+							let result = (metadata.number, metadata.hash);
+							finalized_chain.push_front(metadata);
 							result
 						},
 					};
@@ -312,7 +341,8 @@ pub trait Backend<Block: BlockT>:
 
 				// Store displaced block and look deeper for block on finalized chain
 				result.displaced_blocks.push(parent_hash);
-				current_header_metadata = self.header_metadata(parent_hash)?;
+				current_header_metadata =
+					MinimalBlockMetadata::from(&self.header_metadata(parent_hash)?);
 			}
 		}
 
