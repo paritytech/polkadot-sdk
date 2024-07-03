@@ -360,7 +360,7 @@ where
 				};
 				account.free.saturating_reduce(actual);
 				let remaining = value.saturating_sub(actual);
-				Ok((NegativeImbalance::new(dbg!(actual)), remaining))
+				Ok((NegativeImbalance::new(actual), remaining))
 			},
 		) {
 			Ok((imbalance, remaining)) => {
