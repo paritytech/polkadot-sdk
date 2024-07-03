@@ -304,6 +304,28 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#153" id="153">153</a>
 <a href="#154" id="154">154</a>
 <a href="#155" id="155">155</a>
+<a href="#156" id="156">156</a>
+<a href="#157" id="157">157</a>
+<a href="#158" id="158">158</a>
+<a href="#159" id="159">159</a>
+<a href="#160" id="160">160</a>
+<a href="#161" id="161">161</a>
+<a href="#162" id="162">162</a>
+<a href="#163" id="163">163</a>
+<a href="#164" id="164">164</a>
+<a href="#165" id="165">165</a>
+<a href="#166" id="166">166</a>
+<a href="#167" id="167">167</a>
+<a href="#168" id="168">168</a>
+<a href="#169" id="169">169</a>
+<a href="#170" id="170">170</a>
+<a href="#171" id="171">171</a>
+<a href="#172" id="172">172</a>
+<a href="#173" id="173">173</a>
+<a href="#174" id="174">174</a>
+<a href="#175" id="175">175</a>
+<a href="#176" id="176">176</a>
+<a href="#177" id="177">177</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -324,12 +346,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="attr">#[cfg(feature = <span class="string">"bls-experimental"</span>)]
 </span><span class="kw">use </span><span class="kw">crate</span>::ecdsa_bls_crypto;
 <span class="kw">use crate</span>::{
-	ecdsa_crypto, AuthorityIdBound, BeefySignatureHasher, Commitment, DoubleVotingProof, Payload,
-	ValidatorSetId, VoteMessage,
+	ecdsa_crypto, AuthorityIdBound, BeefySignatureHasher, Commitment, DoubleVotingProof,
+	ForkVotingProof, FutureBlockVotingProof, Payload, ValidatorSetId, VoteMessage,
 };
 <span class="kw">use </span>sp_application_crypto::{AppCrypto, AppPair, RuntimeAppPublic, Wraps};
 <span class="kw">use </span>sp_core::{ecdsa, Pair};
-<span class="kw">use </span>sp_runtime::traits::Hash;
+<span class="kw">use </span>sp_runtime::traits::{BlockNumber, Hash, Header <span class="kw">as </span>HeaderT};
 
 <span class="kw">use </span>codec::Encode;
 <span class="kw">use </span>std::{collections::HashMap, marker::PhantomData};
@@ -442,22 +464,44 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="doccomment">/// Create a new `EquivocationProof` based on given arguments.
-</span><span class="kw">pub fn </span>generate_equivocation_proof(
+<span class="doccomment">/// Create a new `VoteMessage` from commitment primitives and keyring
+</span><span class="kw">pub fn </span>signed_vote&lt;Number: BlockNumber&gt;(
+	block_number: Number,
+	payload: Payload,
+	validator_set_id: ValidatorSetId,
+	keyring: <span class="kw-2">&amp;</span>Keyring&lt;ecdsa_crypto::AuthorityId&gt;,
+) -&gt; VoteMessage&lt;Number, ecdsa_crypto::Public, ecdsa_crypto::Signature&gt; {
+	<span class="kw">let </span>commitment = Commitment { validator_set_id, block_number, payload };
+	<span class="kw">let </span>signature = keyring.sign(<span class="kw-2">&amp;</span>commitment.encode());
+	VoteMessage { commitment, id: keyring.public(), signature }
+}
+
+<span class="doccomment">/// Create a new `DoubleVotingProof` based on given arguments.
+</span><span class="kw">pub fn </span>generate_double_voting_proof(
 	vote1: (u64, Payload, ValidatorSetId, <span class="kw-2">&amp;</span>Keyring&lt;ecdsa_crypto::AuthorityId&gt;),
 	vote2: (u64, Payload, ValidatorSetId, <span class="kw-2">&amp;</span>Keyring&lt;ecdsa_crypto::AuthorityId&gt;),
 ) -&gt; DoubleVotingProof&lt;u64, ecdsa_crypto::Public, ecdsa_crypto::Signature&gt; {
-	<span class="kw">let </span>signed_vote = |block_number: u64,
-	                   payload: Payload,
-	                   validator_set_id: ValidatorSetId,
-	                   keyring: <span class="kw-2">&amp;</span>Keyring&lt;ecdsa_crypto::AuthorityId&gt;| {
-		<span class="kw">let </span>commitment = Commitment { validator_set_id, block_number, payload };
-		<span class="kw">let </span>signature = keyring.sign(<span class="kw-2">&amp;</span>commitment.encode());
-		VoteMessage { commitment, id: keyring.public(), signature }
-	};
 	<span class="kw">let </span>first = signed_vote(vote1.<span class="number">0</span>, vote1.<span class="number">1</span>, vote1.<span class="number">2</span>, vote1.<span class="number">3</span>);
 	<span class="kw">let </span>second = signed_vote(vote2.<span class="number">0</span>, vote2.<span class="number">1</span>, vote2.<span class="number">2</span>, vote2.<span class="number">3</span>);
 	DoubleVotingProof { first, second }
+}
+
+<span class="doccomment">/// Create a new `ForkVotingProof` based on vote &amp; canonical header.
+</span><span class="kw">pub fn </span>generate_fork_voting_proof&lt;Header: HeaderT&lt;Number = u64&gt;, AncestryProof&gt;(
+	vote: (u64, Payload, ValidatorSetId, <span class="kw-2">&amp;</span>Keyring&lt;ecdsa_crypto::AuthorityId&gt;),
+	ancestry_proof: AncestryProof,
+	header: Header,
+) -&gt; ForkVotingProof&lt;Header, ecdsa_crypto::Public, AncestryProof&gt; {
+	<span class="kw">let </span>signed_vote = signed_vote(vote.<span class="number">0</span>, vote.<span class="number">1</span>, vote.<span class="number">2</span>, vote.<span class="number">3</span>);
+	ForkVotingProof { vote: signed_vote, ancestry_proof, header }
+}
+
+<span class="doccomment">/// Create a new `ForkVotingProof` based on vote &amp; canonical header.
+</span><span class="kw">pub fn </span>generate_future_block_voting_proof(
+	vote: (u64, Payload, ValidatorSetId, <span class="kw-2">&amp;</span>Keyring&lt;ecdsa_crypto::AuthorityId&gt;),
+) -&gt; FutureBlockVotingProof&lt;u64, ecdsa_crypto::Public&gt; {
+	<span class="kw">let </span>signed_vote = signed_vote(vote.<span class="number">0</span>, vote.<span class="number">1</span>, vote.<span class="number">2</span>, vote.<span class="number">3</span>);
+	FutureBlockVotingProof { vote: signed_vote }
 }
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 

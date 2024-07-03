@@ -573,6 +573,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#422" id="422">422</a>
 <a href="#423" id="423">423</a>
 <a href="#424" id="424">424</a>
+<a href="#425" id="425">425</a>
+<a href="#426" id="426">426</a>
+<a href="#427" id="427">427</a>
+<a href="#428" id="428">428</a>
+<a href="#429" id="429">429</a>
+<a href="#430" id="430">430</a>
+<a href="#431" id="431">431</a>
+<a href="#432" id="432">432</a>
+<a href="#433" id="433">433</a>
+<a href="#434" id="434">434</a>
+<a href="#435" id="435">435</a>
+<a href="#436" id="436">436</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -857,6 +869,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
+<span class="doccomment">/// Stateless ancestry proof verification.
+</span><span class="kw">pub fn </span>verify_ancestry_proof&lt;H, L&gt;(
+	root: H::Output,
+	ancestry_proof: primitives::AncestryProof&lt;H::Output&gt;,
+) -&gt; <span class="prelude-ty">Result</span>&lt;H::Output, Error&gt;
+<span class="kw">where
+	</span>H: traits::Hash,
+	L: primitives::FullLeaf,
+{
+	mmr::verify_ancestry_proof::&lt;H, L&gt;(root, ancestry_proof)
+		.map_err(|<span class="kw">_</span>| Error::Verify.log_debug((<span class="string">"The ancestry proof is incorrect."</span>, root)))
+}
+
 <span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt; Pallet&lt;T, I&gt; {
 	<span class="doccomment">/// Build offchain key from `parent_hash` of block that originally added node `pos` to MMR.
 	///
@@ -878,17 +903,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="doccomment">/// Provide the parent number for the block that added `leaf_index` to the MMR.
-	</span><span class="kw">fn </span>leaf_index_to_parent_block_num(
-		leaf_index: LeafIndex,
-		leaves_count: LeafIndex,
-	) -&gt; BlockNumberFor&lt;T&gt; {
+	</span><span class="kw">fn </span>leaf_index_to_parent_block_num(leaf_index: LeafIndex) -&gt; BlockNumberFor&lt;T&gt; {
 		<span class="comment">// leaves are zero-indexed and were added one per block since pallet activation,
 		// while block numbers are one-indexed, so block number that added `leaf_idx` is:
 		// `block_num = block_num_when_pallet_activated + leaf_idx + 1`
 		// `block_num = (current_block_num - leaves_count) + leaf_idx + 1`
 		// `parent_block_num = current_block_num - leaves_count + leaf_idx`.
 		</span>&lt;frame_system::Pallet&lt;T&gt;&gt;::block_number()
-			.saturating_sub(leaves_count.saturated_into())
+			.saturating_sub(<span class="self">Self</span>::mmr_leaves().saturated_into())
 			.saturating_add(leaf_index.saturated_into())
 	}
 
@@ -903,6 +925,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		)<span class="question-mark">?</span>;
 
 		utils::block_num_to_leaf_index::&lt;HeaderFor&lt;T&gt;&gt;(block_num, first_mmr_block)
+	}
+
+	<span class="doccomment">/// Convert a block number into a leaf index.
+	</span><span class="kw">pub fn </span>block_num_to_leaf_count(block_num: BlockNumberFor&lt;T&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;LeafIndex, Error&gt;
+	<span class="kw">where
+		</span>T: frame_system::Config,
+	{
+		<span class="kw">let </span>leaf_index = <span class="self">Self</span>::block_num_to_leaf_index(block_num)<span class="question-mark">?</span>;
+		<span class="prelude-val">Ok</span>(leaf_index.saturating_add(<span class="number">1</span>))
 	}
 
 	<span class="doccomment">/// Generate an MMR proof for the given `block_numbers`.
@@ -922,8 +953,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="kw">let </span>best_known_block_number =
 			best_known_block_number.unwrap_or_else(|| &lt;frame_system::Pallet&lt;T&gt;&gt;::block_number());
 
-		<span class="kw">let </span>leaves_count =
-			<span class="self">Self</span>::block_num_to_leaf_index(best_known_block_number)<span class="question-mark">?</span>.saturating_add(<span class="number">1</span>);
+		<span class="kw">let </span>leaf_count = <span class="self">Self</span>::block_num_to_leaf_count(best_known_block_number)<span class="question-mark">?</span>;
 
 		<span class="comment">// we need to translate the block_numbers into leaf indices.
 		</span><span class="kw">let </span>leaf_indices = block_numbers
@@ -933,7 +963,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			})
 			.collect::&lt;<span class="prelude-ty">Result</span>&lt;Vec&lt;LeafIndex&gt;, <span class="kw">_</span>&gt;&gt;()<span class="question-mark">?</span>;
 
-		<span class="kw">let </span>mmr: ModuleMmr&lt;mmr::storage::OffchainStorage, T, I&gt; = mmr::Mmr::new(leaves_count);
+		<span class="kw">let </span>mmr: ModuleMmr&lt;mmr::storage::OffchainStorage, T, I&gt; = mmr::Mmr::new(leaf_count);
 		mmr.generate_proof(leaf_indices)
 	}
 
@@ -949,7 +979,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	) -&gt; <span class="prelude-ty">Result</span>&lt;(), primitives::Error&gt; {
 		<span class="kw">if </span>proof.leaf_count &gt; NumberOfLeaves::&lt;T, I&gt;::get() ||
 			proof.leaf_count == <span class="number">0 </span>||
-			(proof.items.len().saturating_add(leaves.len())) <span class="kw">as </span>u64 &gt; proof.leaf_count
+			proof.items.len().saturating_add(leaves.len()) <span class="kw">as </span>u64 &gt; proof.leaf_count
 		{
 			<span class="kw">return </span><span class="prelude-val">Err</span>(primitives::Error::Verify
 				.log_debug(<span class="string">"The proof has incorrect number of leaves or proof items."</span>))
@@ -972,24 +1002,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="kw">let </span>best_known_block_number =
 			best_known_block_number.unwrap_or_else(|| &lt;frame_system::Pallet&lt;T&gt;&gt;::block_number());
 
-		<span class="kw">let </span>leaf_count = <span class="self">Self</span>::block_num_to_leaf_index(best_known_block_number)<span class="question-mark">?</span>.saturating_add(<span class="number">1</span>);
-		<span class="kw">let </span>prev_leaf_count = <span class="self">Self</span>::block_num_to_leaf_index(prev_block_number)<span class="question-mark">?</span>.saturating_add(<span class="number">1</span>);
+		<span class="kw">let </span>leaf_count = <span class="self">Self</span>::block_num_to_leaf_count(best_known_block_number)<span class="question-mark">?</span>;
+		<span class="kw">let </span>prev_leaf_count = <span class="self">Self</span>::block_num_to_leaf_count(prev_block_number)<span class="question-mark">?</span>;
 
 		<span class="kw">let </span>mmr: ModuleMmr&lt;mmr::storage::OffchainStorage, T, I&gt; = mmr::Mmr::new(leaf_count);
 		mmr.generate_ancestry_proof(prev_leaf_count)
 	}
 
 	<span class="kw">pub fn </span>verify_ancestry_proof(
+		root: HashOf&lt;T, I&gt;,
 		ancestry_proof: primitives::AncestryProof&lt;HashOf&lt;T, I&gt;&gt;,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
-		<span class="kw">let </span>mmr: ModuleMmr&lt;mmr::storage::OffchainStorage, T, I&gt; =
-			mmr::Mmr::new(ancestry_proof.leaf_count);
-		<span class="kw">let </span>is_valid = mmr.verify_ancestry_proof(ancestry_proof)<span class="question-mark">?</span>;
-		<span class="kw">if </span>is_valid {
-			<span class="prelude-val">Ok</span>(())
-		} <span class="kw">else </span>{
-			<span class="prelude-val">Err</span>(Error::Verify.log_debug(<span class="string">"The ancestry proof is incorrect."</span>))
-		}
+	) -&gt; <span class="prelude-ty">Result</span>&lt;HashOf&lt;T, I&gt;, Error&gt; {
+		verify_ancestry_proof::&lt;HashingOf&lt;T, I&gt;, LeafOf&lt;T, I&gt;&gt;(root, ancestry_proof)
 	}
 
 	<span class="doccomment">/// Return the on-chain MMR root hash.

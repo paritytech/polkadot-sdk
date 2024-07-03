@@ -404,8 +404,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#253" id="253">253</a>
 <a href="#254" id="254">254</a>
 <a href="#255" id="255">255</a>
-<a href="#256" id="256">256</a>
-<a href="#257" id="257">257</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -468,6 +466,42 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		.map_err(|e| Error::Verify.log_debug(e))
 }
 
+<span class="kw">pub fn </span>verify_ancestry_proof&lt;H, L&gt;(
+	root: H::Output,
+	ancestry_proof: primitives::AncestryProof&lt;H::Output&gt;,
+) -&gt; <span class="prelude-ty">Result</span>&lt;H::Output, Error&gt;
+<span class="kw">where
+	</span>H: sp_runtime::traits::Hash,
+	L: primitives::FullLeaf,
+{
+	<span class="kw">let </span>mmr_size = NodesUtils::new(ancestry_proof.leaf_count).size();
+
+	<span class="kw">let </span>prev_peaks_proof = mmr_lib::NodeMerkleProof::&lt;Node&lt;H, L&gt;, Hasher&lt;H, L&gt;&gt;::new(
+		mmr_size,
+		ancestry_proof
+			.items
+			.into_iter()
+			.map(|(index, hash)| (index, Node::Hash(hash)))
+			.collect(),
+	);
+
+	<span class="kw">let </span>raw_ancestry_proof = mmr_lib::AncestryProof::&lt;Node&lt;H, L&gt;, Hasher&lt;H, L&gt;&gt; {
+		prev_peaks: ancestry_proof.prev_peaks.into_iter().map(|hash| Node::Hash(hash)).collect(),
+		prev_size: mmr_lib::helper::leaf_index_to_mmr_size(ancestry_proof.prev_leaf_count - <span class="number">1</span>),
+		proof: prev_peaks_proof,
+	};
+
+	<span class="kw">let </span>prev_root = mmr_lib::ancestry_proof::bagging_peaks_hashes::&lt;Node&lt;H, L&gt;, Hasher&lt;H, L&gt;&gt;(
+		raw_ancestry_proof.prev_peaks.clone(),
+	)
+	.map_err(|e| Error::Verify.log_debug(e))<span class="question-mark">?</span>;
+	raw_ancestry_proof
+		.verify_ancestor(Node::Hash(root), prev_root.clone())
+		.map_err(|e| Error::Verify.log_debug(e))<span class="question-mark">?</span>;
+
+	<span class="prelude-val">Ok</span>(prev_root.hash())
+}
+
 <span class="doccomment">/// A wrapper around an MMR library to expose limited functionality.
 ///
 /// Available functions depend on the storage kind ([Runtime](crate::mmr::storage::RuntimeStorage)
@@ -524,44 +558,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.collect();
 		<span class="kw">let </span>root = <span class="self">self</span>.mmr.get_root().map_err(|e| Error::GetRoot.log_error(e))<span class="question-mark">?</span>;
 		p.verify(root, leaves_positions_and_data)
-			.map_err(|e| Error::Verify.log_debug(e))
-	}
-
-	<span class="kw">pub fn </span>verify_ancestry_proof(
-		<span class="kw-2">&amp;</span><span class="self">self</span>,
-		ancestry_proof: primitives::AncestryProof&lt;HashOf&lt;T, I&gt;&gt;,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;bool, Error&gt; {
-		<span class="kw">let </span>prev_peaks_proof =
-			mmr_lib::NodeMerkleProof::&lt;NodeOf&lt;T, I, L&gt;, Hasher&lt;HashingOf&lt;T, I&gt;, L&gt;&gt;::new(
-				<span class="self">self</span>.mmr.mmr_size(),
-				ancestry_proof
-					.items
-					.into_iter()
-					.map(|(index, hash)| (index, Node::Hash(hash)))
-					.collect(),
-			);
-
-		<span class="kw">let </span>raw_ancestry_proof = mmr_lib::AncestryProof::&lt;
-			NodeOf&lt;T, I, L&gt;,
-			Hasher&lt;HashingOf&lt;T, I&gt;, L&gt;,
-		&gt; {
-			prev_peaks: ancestry_proof
-				.prev_peaks
-				.into_iter()
-				.map(|hash| Node::Hash(hash))
-				.collect(),
-			prev_size: mmr_lib::helper::leaf_index_to_mmr_size(ancestry_proof.prev_leaf_count - <span class="number">1</span>),
-			proof: prev_peaks_proof,
-		};
-
-		<span class="kw">let </span>prev_root = mmr_lib::ancestry_proof::bagging_peaks_hashes::&lt;
-			NodeOf&lt;T, I, L&gt;,
-			Hasher&lt;HashingOf&lt;T, I&gt;, L&gt;,
-		&gt;(raw_ancestry_proof.prev_peaks.clone())
-		.map_err(|e| Error::Verify.log_debug(e))<span class="question-mark">?</span>;
-		<span class="kw">let </span>root = <span class="self">self</span>.mmr.get_root().map_err(|e| Error::GetRoot.log_error(e))<span class="question-mark">?</span>;
-		raw_ancestry_proof
-			.verify_ancestor(root, prev_root)
 			.map_err(|e| Error::Verify.log_debug(e))
 	}
 

@@ -205,6 +205,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#54" id="54">54</a>
 <a href="#55" id="55">55</a>
 <a href="#56" id="56">56</a>
+<a href="#57" id="57">57</a>
+<a href="#58" id="58">58</a>
+<a href="#59" id="59">59</a>
+<a href="#60" id="60">60</a>
+<a href="#61" id="61">61</a>
+<a href="#62" id="62">62</a>
+<a href="#63" id="63">63</a>
+<a href="#64" id="64">64</a>
+<a href="#65" id="65">65</a>
+<a href="#66" id="66">66</a>
+<a href="#67" id="67">67</a>
+<a href="#68" id="68">68</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -231,7 +243,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 };
 
 <span class="kw">impl </span><span class="kw">crate</span>::WeightInfo <span class="kw">for </span>() {
-	<span class="kw">fn </span>report_equivocation(validator_count: u32, max_nominators_per_validator: u32) -&gt; Weight {
+	<span class="kw">fn </span>report_voting_equivocation(
+		votes_count: u32,
+		validator_count: u32,
+		max_nominators_per_validator: u32,
+	) -&gt; Weight {
 		<span class="comment">// we take the validator set count from the membership proof to
 		// calculate the weight but we set a floor of 100 validators.
 		</span><span class="kw">let </span>validator_count = validator_count.max(<span class="number">100</span>) <span class="kw">as </span>u64;
@@ -244,7 +260,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			)
 			.saturating_add(DbWeight::get().reads(<span class="number">5</span>))
 			<span class="comment">// check equivocation proof
-			</span>.saturating_add(Weight::from_parts(<span class="number">95u64 </span>* WEIGHT_REF_TIME_PER_MICROS, <span class="number">0</span>))
+			</span>.saturating_add(Weight::from_parts(
+				(<span class="number">50u64 </span>* WEIGHT_REF_TIME_PER_MICROS).saturating_mul(votes_count <span class="kw">as </span>u64),
+				<span class="number">0</span>,
+			))
 			<span class="comment">// report offence
 			</span>.saturating_add(Weight::from_parts(<span class="number">110u64 </span>* WEIGHT_REF_TIME_PER_MICROS, <span class="number">0</span>))
 			.saturating_add(Weight::from_parts(
@@ -255,6 +274,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.saturating_add(DbWeight::get().writes(<span class="number">10 </span>+ <span class="number">3 </span>* max_nominators_per_validator <span class="kw">as </span>u64))
 			<span class="comment">// fetching set id -&gt; session index mappings
 			</span>.saturating_add(DbWeight::get().reads(<span class="number">2</span>))
+	}
+
+	<span class="comment">// TODO: Calculate
+	</span><span class="kw">fn </span>report_fork_voting(_validator_count: u32, _max_nominators_per_validator: u32) -&gt; Weight {
+		Weight::MAX
 	}
 
 	<span class="kw">fn </span>set_new_genesis() -&gt; Weight {

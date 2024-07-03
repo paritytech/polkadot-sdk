@@ -3443,6 +3443,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#3292" id="3292">3292</a>
 <a href="#3293" id="3293">3293</a>
 <a href="#3294" id="3294">3294</a>
+<a href="#3295" id="3295">3295</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -5993,6 +5994,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">type </span>MaxNominators = ConstU32&lt;<span class="number">0</span>&gt;;
 	<span class="kw">type </span>MaxSetIdSessionEntries = BeefySetIdSessionEntries;
 	<span class="kw">type </span>OnNewValidatorSet = MmrLeaf;
+	<span class="kw">type </span>AncestryHelper = MmrLeaf;
 	<span class="kw">type </span>WeightInfo = ();
 	<span class="kw">type </span>KeyOwnerProof = &lt;Historical <span class="kw">as </span>KeyOwnerProofSystem&lt;(KeyTypeId, BeefyId)&gt;&gt;::Proof;
 	<span class="kw">type </span>EquivocationReportSystem =
@@ -6477,7 +6479,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 	}
 
-	<span class="attr">#[api_version(<span class="number">3</span>)]
+	<span class="attr">#[api_version(<span class="number">4</span>)]
 	</span><span class="kw">impl </span>sp_consensus_beefy::BeefyApi&lt;Block, BeefyId&gt; <span class="kw">for </span>Runtime {
 		<span class="kw">fn </span>beefy_genesis() -&gt; <span class="prelude-ty">Option</span>&lt;BlockNumber&gt; {
 			pallet_beefy::GenesisBlock::&lt;Runtime&gt;::get()
@@ -6487,7 +6489,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			Beefy::validator_set()
 		}
 
-		<span class="kw">fn </span>submit_report_equivocation_unsigned_extrinsic(
+		<span class="kw">fn </span>submit_report_double_voting_unsigned_extrinsic(
 			equivocation_proof: sp_consensus_beefy::DoubleVotingProof&lt;
 				BlockNumber,
 				BeefyId,
@@ -6497,7 +6499,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		) -&gt; <span class="prelude-ty">Option</span>&lt;()&gt; {
 			<span class="kw">let </span>key_owner_proof = key_owner_proof.decode()<span class="question-mark">?</span>;
 
-			Beefy::submit_unsigned_equivocation_report(
+			Beefy::submit_unsigned_double_voting_report(
 				equivocation_proof,
 				key_owner_proof,
 			)

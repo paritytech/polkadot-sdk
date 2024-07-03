@@ -314,7 +314,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Returns a decoded payload value under given `id`.
 	///
-	/// In case the value is not there or it cannot be decoded does not match `None` is returned.
+	/// In case the value is not there, or it cannot be decoded `None` is returned.
 	</span><span class="kw">pub fn </span>get_decoded&lt;T: Decode&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, id: <span class="kw-2">&amp;</span>BeefyPayloadId) -&gt; <span class="prelude-ty">Option</span>&lt;T&gt; {
 		<span class="self">self</span>.get_raw(id).and_then(|raw| T::decode(<span class="kw-2">&amp;mut &amp;</span>raw[..]).ok())
 	}

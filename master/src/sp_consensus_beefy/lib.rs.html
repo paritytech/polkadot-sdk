@@ -699,6 +699,48 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#548" id="548">548</a>
 <a href="#549" id="549">549</a>
 <a href="#550" id="550">550</a>
+<a href="#551" id="551">551</a>
+<a href="#552" id="552">552</a>
+<a href="#553" id="553">553</a>
+<a href="#554" id="554">554</a>
+<a href="#555" id="555">555</a>
+<a href="#556" id="556">556</a>
+<a href="#557" id="557">557</a>
+<a href="#558" id="558">558</a>
+<a href="#559" id="559">559</a>
+<a href="#560" id="560">560</a>
+<a href="#561" id="561">561</a>
+<a href="#562" id="562">562</a>
+<a href="#563" id="563">563</a>
+<a href="#564" id="564">564</a>
+<a href="#565" id="565">565</a>
+<a href="#566" id="566">566</a>
+<a href="#567" id="567">567</a>
+<a href="#568" id="568">568</a>
+<a href="#569" id="569">569</a>
+<a href="#570" id="570">570</a>
+<a href="#571" id="571">571</a>
+<a href="#572" id="572">572</a>
+<a href="#573" id="573">573</a>
+<a href="#574" id="574">574</a>
+<a href="#575" id="575">575</a>
+<a href="#576" id="576">576</a>
+<a href="#577" id="577">577</a>
+<a href="#578" id="578">578</a>
+<a href="#579" id="579">579</a>
+<a href="#580" id="580">580</a>
+<a href="#581" id="581">581</a>
+<a href="#582" id="582">582</a>
+<a href="#583" id="583">583</a>
+<a href="#584" id="584">584</a>
+<a href="#585" id="585">585</a>
+<a href="#586" id="586">586</a>
+<a href="#587" id="587">587</a>
+<a href="#588" id="588">588</a>
+<a href="#589" id="589">589</a>
+<a href="#590" id="590">590</a>
+<a href="#591" id="591">591</a>
+<a href="#592" id="592">592</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -754,7 +796,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>sp_application_crypto::{AppPublic, RuntimeAppPublic};
 <span class="kw">use </span>sp_core::H256;
 <span class="kw">use </span>sp_runtime::{
-	traits::{Hash, Keccak256, NumberFor},
+	traits::{Hash, Header <span class="kw">as </span>HeaderT, Keccak256, NumberFor},
 	OpaqueValue,
 };
 
@@ -1008,8 +1050,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub </span>signature: Signature,
 }
 
-<span class="doccomment">/// Proof of voter misbehavior on a given set id. Misbehavior/equivocation in
-/// BEEFY happens when a voter votes on the same round/block for different payloads.
+<span class="doccomment">/// Proof showing that an authority voted twice in the same round.
+///
+/// One type of misbehavior in BEEFY happens when an authority votes in the same round/block
+/// for different payloads.
 /// Proving is achieved by collecting the signed commitments of conflicting votes.
 </span><span class="attr">#[derive(Clone, Debug, Decode, Encode, PartialEq, TypeInfo)]
 </span><span class="kw">pub struct </span>DoubleVotingProof&lt;Number, Id, Signature&gt; {
@@ -1034,6 +1078,27 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
+<span class="doccomment">/// Proof showing that an authority voted for a non-canonical chain.
+///
+/// Proving is achieved by providing a proof that contains relevant info about the canonical chain
+/// at `commitment.block_number`. The `commitment` can be checked against this info.
+</span><span class="attr">#[derive(Clone, Debug, Decode, Encode, PartialEq, TypeInfo)]
+</span><span class="kw">pub struct </span>ForkVotingProof&lt;Header: HeaderT, Id: RuntimeAppPublic, AncestryProof&gt; {
+	<span class="doccomment">/// The equivocated vote.
+	</span><span class="kw">pub </span>vote: VoteMessage&lt;Header::Number, Id, Id::Signature&gt;,
+	<span class="doccomment">/// Proof containing info about the canonical chain at `commitment.block_number`.
+	</span><span class="kw">pub </span>ancestry_proof: AncestryProof,
+	<span class="doccomment">/// The header of the block where the ancestry proof was generated
+	</span><span class="kw">pub </span>header: Header,
+}
+
+<span class="doccomment">/// Proof showing that an authority voted for a future block.
+</span><span class="attr">#[derive(Clone, Debug, Decode, Encode, PartialEq, TypeInfo)]
+</span><span class="kw">pub struct </span>FutureBlockVotingProof&lt;Number, Id: RuntimeAppPublic&gt; {
+	<span class="doccomment">/// The equivocated vote.
+	</span><span class="kw">pub </span>vote: VoteMessage&lt;Number, Id, Id::Signature&gt;,
+}
+
 <span class="doccomment">/// Check a commitment signature by encoding the commitment and
 /// verifying the provided signature using the expected authority id.
 </span><span class="kw">pub fn </span>check_commitment_signature&lt;Number, Id, MsgHash&gt;(
@@ -1052,7 +1117,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Verifies the equivocation proof by making sure that both votes target
 /// different blocks and that its signatures are valid.
-</span><span class="kw">pub fn </span>check_equivocation_proof&lt;Number, Id, MsgHash&gt;(
+</span><span class="kw">pub fn </span>check_double_voting_proof&lt;Number, Id, MsgHash&gt;(
 	report: <span class="kw-2">&amp;</span>DoubleVotingProof&lt;Number, Id, &lt;Id <span class="kw">as </span>RuntimeAppPublic&gt;::Signature&gt;,
 ) -&gt; bool
 <span class="kw">where
@@ -1099,6 +1164,25 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">fn </span>on_new_validator_set(<span class="kw">_</span>: <span class="kw-2">&amp;</span>ValidatorSet&lt;AuthorityId&gt;, <span class="kw">_</span>: <span class="kw-2">&amp;</span>ValidatorSet&lt;AuthorityId&gt;) {}
 }
 
+<span class="doccomment">/// Hook containing helper methods for proving/checking commitment canonicity.
+</span><span class="kw">pub trait </span>AncestryHelper&lt;Header: HeaderT&gt; {
+	<span class="doccomment">/// Type containing proved info about the canonical chain at a certain height.
+	</span><span class="kw">type </span>Proof: Clone + Debug + Decode + Encode + PartialEq + TypeInfo;
+	<span class="doccomment">/// The data needed for validating the proof.
+	</span><span class="kw">type </span>ValidationContext;
+
+	<span class="doccomment">/// Extract the validation context from the provided header.
+	</span><span class="kw">fn </span>extract_validation_context(header: Header) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>::ValidationContext&gt;;
+
+	<span class="doccomment">/// Check if a commitment is pointing to a header on a non-canonical chain
+	/// against a canonicity proof generated at the same header height.
+	</span><span class="kw">fn </span>is_non_canonical(
+		commitment: <span class="kw-2">&amp;</span>Commitment&lt;Header::Number&gt;,
+		proof: <span class="self">Self</span>::Proof,
+		context: <span class="self">Self</span>::ValidationContext,
+	) -&gt; bool;
+}
+
 <span class="doccomment">/// An opaque type used to represent the key ownership proof at the runtime API
 /// boundary. The inner value is an encoded representation of the actual key
 /// ownership proof which will be parameterized when defining the runtime. At
@@ -1109,7 +1193,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="macro">sp_api::decl_runtime_apis! </span>{
 	<span class="doccomment">/// API necessary for BEEFY voters.
-	</span><span class="attr">#[api_version(<span class="number">3</span>)]
+	</span><span class="attr">#[api_version(<span class="number">4</span>)]
 	</span><span class="kw">pub trait </span>BeefyApi&lt;AuthorityId&gt; <span class="kw">where
 		</span>AuthorityId : Codec + RuntimeAppPublic,
 	{
@@ -1119,15 +1203,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="doccomment">/// Return the current active BEEFY validator set
 		</span><span class="kw">fn </span>validator_set() -&gt; <span class="prelude-ty">Option</span>&lt;ValidatorSet&lt;AuthorityId&gt;&gt;;
 
-		<span class="doccomment">/// Submits an unsigned extrinsic to report an equivocation. The caller
-		/// must provide the equivocation proof and a key ownership proof
+		<span class="doccomment">/// Submits an unsigned extrinsic to report a double voting equivocation. The caller
+		/// must provide the double voting proof and a key ownership proof
 		/// (should be obtained using `generate_key_ownership_proof`). The
 		/// extrinsic will be unsigned and should only be accepted for local
 		/// authorship (not to be broadcast to the network). This method returns
 		/// `None` when creation of the extrinsic fails, e.g. if equivocation
 		/// reporting is disabled for the given runtime (i.e. this method is
 		/// hardcoded to return `None`). Only useful in an offchain context.
-		</span><span class="kw">fn </span>submit_report_equivocation_unsigned_extrinsic(
+		</span><span class="kw">fn </span>submit_report_double_voting_unsigned_extrinsic(
 			equivocation_proof:
 				DoubleVotingProof&lt;NumberFor&lt;Block&gt;, AuthorityId, &lt;AuthorityId <span class="kw">as </span>RuntimeAppPublic&gt;::Signature&gt;,
 			key_owner_proof: OpaqueKeyOwnershipProof,

@@ -385,7 +385,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#234" id="234">234</a>
 <a href="#235" id="235">235</a>
 <a href="#236" id="236">236</a>
-<a href="#237" id="237">237</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -455,7 +454,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	L: primitives::FullLeaf + codec::Decode,
 {
 	<span class="kw">fn </span>get_elem(<span class="kw-2">&amp;</span><span class="self">self</span>, pos: NodeIndex) -&gt; mmr_lib::Result&lt;<span class="prelude-ty">Option</span>&lt;NodeOf&lt;T, I, L&gt;&gt;&gt; {
-		<span class="kw">let </span>leaves = NumberOfLeaves::&lt;T, I&gt;::get();
 		<span class="comment">// Find out which leaf added node `pos` in the MMR.
 		</span><span class="kw">let </span>ancestor_leaf_idx = NodesUtils::leaf_index_that_added_node(pos);
 
@@ -474,7 +472,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="comment">// Fall through to searching node using fork-specific key.
 		</span><span class="kw">let </span>ancestor_parent_block_num =
-			Pallet::&lt;T, I&gt;::leaf_index_to_parent_block_num(ancestor_leaf_idx, leaves);
+			Pallet::&lt;T, I&gt;::leaf_index_to_parent_block_num(ancestor_leaf_idx);
 		<span class="kw">let </span>ancestor_parent_hash = T::BlockHashProvider::block_hash(ancestor_parent_block_num);
 		<span class="kw">let </span>temp_key = Pallet::&lt;T, I&gt;::node_temp_offchain_key(pos, ancestor_parent_hash);
 		<span class="macro">debug!</span>(

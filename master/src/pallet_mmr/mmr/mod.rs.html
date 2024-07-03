@@ -216,7 +216,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>sp_mmr_primitives::{mmr_lib, DataOrHash, FullLeaf};
 <span class="kw">use </span>sp_runtime::traits;
 
-<span class="kw">pub use </span><span class="self">self</span>::mmr::{verify_leaves_proof, Mmr};
+<span class="kw">pub use </span><span class="self">self</span>::mmr::{verify_ancestry_proof, verify_leaves_proof, Mmr};
 
 <span class="doccomment">/// Node type for runtime `T`.
 </span><span class="kw">pub type </span>NodeOf&lt;T, I, L&gt; = Node&lt;&lt;T <span class="kw">as </span><span class="kw">crate</span>::Config&lt;I&gt;&gt;::Hashing, L&gt;;
