@@ -18,7 +18,7 @@
 use codec::Encode;
 use scale_info::{
 	form::{Form, MetaForm, PortableForm},
-	prelude::vec::Vec,
+	prelude::{collections::BTreeMap, vec::Vec},
 	IntoPortable, MetaType, Registry,
 };
 
@@ -138,6 +138,10 @@ pub struct PalletMetadataIR<T: Form = MetaForm> {
 	pub index: u8,
 	/// Pallet documentation.
 	pub docs: Vec<T::String>,
+	/// Deprecation info
+	pub deprecation_info: DeprecationStatus<T>,
+	/// Deprecation info for events and errors
+	pub deprecation_table: BTreeMap<T::Type, DeprecationStatus<T>>,
 }
 
 impl IntoPortable for PalletMetadataIR {
@@ -153,6 +157,16 @@ impl IntoPortable for PalletMetadataIR {
 			error: self.error.map(|error| error.into_portable(registry)),
 			index: self.index,
 			docs: registry.map_into_portable(self.docs),
+			deprecation_info: self.deprecation_info.into_portable(registry),
+			deprecation_table: self
+				.deprecation_table
+				.into_iter()
+				.map(|(k, v)| {
+					let key = registry.register_type(&k);
+					let value = v.into_portable(registry);
+					(key, value)
+				})
+				.collect(),
 		}
 	}
 }

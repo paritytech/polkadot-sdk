@@ -123,6 +123,7 @@ mod runtime {
 	// Ensure that the runtime does not export the calls from the pallet
 	#[runtime::pallet_index(4)]
 	#[runtime::disable_call]
+	#[deprecated = "example"]
 	pub type PalletWithDisabledCall = pallet_with_disabled_call::Pallet<Runtime>;
 
 	// Ensure that the runtime does not export the unsigned calls from the pallet

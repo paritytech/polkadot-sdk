@@ -120,7 +120,6 @@ pub struct ExplicitAllPalletsDeclaration {
 	pub name: Ident,
 	pub pallets: Vec<Pallet>,
 }
-
 pub struct Def {
 	pub input: TokenStream2,
 	pub item: syn::ItemMod,

@@ -28,6 +28,7 @@ pub fn expand_runtime_metadata(
 	extrinsic: &TokenStream,
 	system_path: &PalletPath,
 ) -> TokenStream {
+	let frame_support = crate::generate_access_from_frame_or_crate("frame-support").unwrap();
 	let pallets = pallet_declarations
 		.iter()
 		.filter_map(|pallet_declaration| {
@@ -58,7 +59,9 @@ pub fn expand_runtime_metadata(
 					#attr
 				}
 			});
-
+			let deprecation_info =
+				crate::deprecation::get_deprecation(&quote! { #frame_support }, &decl.attrs)
+					.expect("Correctly parse deprecation attributes");
 			quote! {
 				#attr
 				#scrate::__private::metadata_ir::PalletMetadataIR {
@@ -70,6 +73,7 @@ pub fn expand_runtime_metadata(
 					constants: #constants,
 					error: #errors,
 					docs: #docs,
+					deprecation_info: #deprecation_info,
 				}
 			}
 		})
