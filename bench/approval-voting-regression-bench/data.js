@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1719869368602,
+  "lastUpdate": 1719999855534,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -9258,6 +9258,53 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-distribution",
             "value": 8.26009080095996,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Alexandru Gheorghe",
+            "username": "alexggh",
+            "email": "49718502+alexggh@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "62b955e98d36e4cfce680fddc967e3821b83c994",
+          "message": "Fix markdown lint step (#4933)\n\nCI required markdown step seems to start failing after\nhttps://github.com/paritytech/polkadot-sdk/pull/4806\n\nSigned-off-by: Alexandru Gheorghe <alexandru.gheorghe@parity.io>",
+          "timestamp": "2024-07-03T08:03:41Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/62b955e98d36e4cfce680fddc967e3821b83c994"
+        },
+        "date": 1719999826142,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52941.09999999999,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63825.990000000005,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 7.7953943783599255,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 10.6556158168498,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 3.6514709665902645,
             "unit": "seconds"
           }
         ]
