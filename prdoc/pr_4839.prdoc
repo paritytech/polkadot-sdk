@@ -11,4 +11,4 @@ doc:
 
 crates:
   - name: pallet-insecure-randomness-collective-flip
-    bump: minor
+    bump: patch
