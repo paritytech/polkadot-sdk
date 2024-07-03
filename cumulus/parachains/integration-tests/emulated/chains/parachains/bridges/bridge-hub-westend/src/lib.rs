@@ -15,6 +15,8 @@
 
 pub mod genesis;
 
+pub use bridge_hub_westend_runtime::xcm_config::XcmConfig as BridgeHubWestendXcmConfig;
+
 // Substrate
 use frame_support::traits::OnInitialize;
 
