@@ -431,6 +431,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#280" id="280">280</a>
 <a href="#281" id="281">281</a>
 <a href="#282" id="282">282</a>
+<a href="#283" id="283">283</a>
+<a href="#284" id="284">284</a>
+<a href="#285" id="285">285</a>
+<a href="#286" id="286">286</a>
+<a href="#287" id="287">287</a>
+<a href="#288" id="288">288</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -493,7 +499,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //!     impl&lt;T: Config&gt; Pallet&lt;T&gt; {
 //!         #[pallet::weight(0)]
 //!         pub fn random_module_example(origin: OriginFor&lt;T&gt;) -&gt; DispatchResult {
-//!             let _random_value = &lt;pallet_insecure_randomness_collective_flip::Pallet&lt;T&gt;&gt;::random(&amp;b"my context"[..]);
+//!             let _random_value = pallet_insecure_randomness_collective_flip::Pallet::&lt;T&gt;::random(&amp;b"my context"[..]);
 //!             Ok(())
 //!         }
 //!     }
@@ -534,9 +540,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[pallet::hooks]
 	</span><span class="kw">impl</span>&lt;T: Config&gt; Hooks&lt;BlockNumberFor&lt;T&gt;&gt; <span class="kw">for </span>Pallet&lt;T&gt; {
 		<span class="kw">fn </span>on_initialize(block_number: BlockNumberFor&lt;T&gt;) -&gt; Weight {
-			<span class="kw">let </span>parent_hash = &lt;frame_system::Pallet&lt;T&gt;&gt;::parent_hash();
+			<span class="kw">let </span>parent_hash = frame_system::Pallet::&lt;T&gt;::parent_hash();
 
-			&lt;RandomMaterial&lt;T&gt;&gt;::mutate(|<span class="kw-2">ref mut </span>values| {
+			RandomMaterial::&lt;T&gt;::mutate(|<span class="kw-2">ref mut </span>values| {
 				<span class="kw">if </span>values.try_push(parent_hash).is_err() {
 					<span class="kw">let </span>index = block_number_to_index::&lt;T&gt;(block_number);
 					values[index] = parent_hash;
@@ -551,9 +557,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// is arranged as a ring buffer with `block_number % 81` being the index into the `Vec` of
 	/// the oldest hash.
 	</span><span class="attr">#[pallet::storage]
-	#[pallet::getter(<span class="kw">fn </span>random_material)]
-	</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">type </span>RandomMaterial&lt;T: Config&gt; =
+	</span><span class="kw">pub type </span>RandomMaterial&lt;T: Config&gt; =
 		StorageValue&lt;<span class="kw">_</span>, BoundedVec&lt;T::Hash, ConstU32&lt;RANDOM_MATERIAL_LEN&gt;&gt;, ValueQuery&gt;;
+
+	<span class="kw">impl</span>&lt;T: Config&gt; Pallet&lt;T&gt; {
+		<span class="doccomment">/// Gets the random material storage value
+		</span><span class="kw">pub fn </span>random_material() -&gt; BoundedVec&lt;T::Hash, ConstU32&lt;RANDOM_MATERIAL_LEN&gt;&gt; {
+			RandomMaterial::&lt;T&gt;::get()
+		}
+	}
 }
 
 <span class="kw">impl</span>&lt;T: Config&gt; Randomness&lt;T::Hash, BlockNumberFor&lt;T&gt;&gt; <span class="kw">for </span>Pallet&lt;T&gt; {
@@ -568,10 +580,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// and mean that all bits of the resulting value are entirely manipulatable by the author of
 	/// the parent block, who can determine the value of `parent_hash`.
 	</span><span class="kw">fn </span>random(subject: <span class="kw-2">&amp;</span>[u8]) -&gt; (T::Hash, BlockNumberFor&lt;T&gt;) {
-		<span class="kw">let </span>block_number = &lt;frame_system::Pallet&lt;T&gt;&gt;::block_number();
+		<span class="kw">let </span>block_number = frame_system::Pallet::&lt;T&gt;::block_number();
 		<span class="kw">let </span>index = block_number_to_index::&lt;T&gt;(block_number);
 
-		<span class="kw">let </span>hash_series = &lt;RandomMaterial&lt;T&gt;&gt;::get();
+		<span class="kw">let </span>hash_series = RandomMaterial::&lt;T&gt;::get();
 		<span class="kw">let </span>seed = <span class="kw">if </span>!hash_series.is_empty() {
 			<span class="comment">// Always the case after block 1 is initialized.
 			</span>hash_series
@@ -659,7 +671,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			setup_blocks(<span class="number">38</span>);
 
-			<span class="kw">let </span>random_material = CollectiveFlip::random_material();
+			<span class="kw">let </span>random_material = RandomMaterial::&lt;Test&gt;::get();
 
 			<span class="macro">assert_eq!</span>(random_material.len(), <span class="number">38</span>);
 			<span class="macro">assert_eq!</span>(random_material[<span class="number">0</span>], genesis_hash);
@@ -673,7 +685,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			setup_blocks(<span class="number">81</span>);
 
-			<span class="kw">let </span>random_material = CollectiveFlip::random_material();
+			<span class="kw">let </span>random_material = RandomMaterial::&lt;Test&gt;::get();
 
 			<span class="macro">assert_eq!</span>(random_material.len(), <span class="number">81</span>);
 			<span class="macro">assert_ne!</span>(random_material[<span class="number">0</span>], random_material[<span class="number">1</span>]);
@@ -688,7 +700,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			setup_blocks(<span class="number">162</span>);
 
-			<span class="kw">let </span>random_material = CollectiveFlip::random_material();
+			<span class="kw">let </span>random_material = RandomMaterial::&lt;Test&gt;::get();
 
 			<span class="macro">assert_eq!</span>(random_material.len(), <span class="number">81</span>);
 			<span class="macro">assert_ne!</span>(random_material[<span class="number">0</span>], random_material[<span class="number">1</span>]);
@@ -709,7 +721,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="macro">assert_eq!</span>(known_since, <span class="number">162 </span>- RANDOM_MATERIAL_LEN <span class="kw">as </span>u64);
 			<span class="macro">assert_ne!</span>(random, H256::zero());
-			<span class="macro">assert!</span>(!CollectiveFlip::random_material().contains(<span class="kw-2">&amp;</span>random));
+			<span class="macro">assert!</span>(!RandomMaterial::&lt;Test&gt;::get().contains(<span class="kw-2">&amp;</span>random));
 		});
 	}
 }
