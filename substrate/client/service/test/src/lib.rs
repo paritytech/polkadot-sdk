@@ -504,9 +504,8 @@ pub fn sync<E, Fb, F, B, ExF, U>(
 	)
 	.expect("failed to submit extrinsic");
 
-	network.run_until_all_full(move |_index, service| {
-		service.transaction_pool().ready(best_block).unwrap().count() == 1
-	});
+	network
+		.run_until_all_full(move |_index, service| service.transaction_pool().ready().count() == 1);
 }
 
 pub fn consensus<E, Fb, F>(
