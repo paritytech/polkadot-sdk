@@ -12,6 +12,7 @@ doc:
       and renames the `report_equivocation` extrinsic to `report_double_voting`.
       `report_fork_voting` can't be called yet, since it uses `Weight::MAX` weight. We will
       add benchmarks for it and set the proper weight in a future PR.
+      Also a new `AncestryHelper` associated trait was added to `pallet_beefy::Config`.
   - audience: Node Dev
     description: |
       This PR renames the `submit_report_equivocation_unsigned_extrinsic` in `BeefyApi` to
