@@ -473,7 +473,7 @@ impl Stream for Discovery {
 					let num_peers = this.num_connected_peers();
 					if num_peers < this.discovery_only_if_under_num {
 						let peer = PeerId::random();
-						log::info!(target: LOG_TARGET, "start next kademlia query for {peer:?}");
+						log::debug!(target: LOG_TARGET, "start next kademlia query for {peer:?}");
 
 						if let Ok(query_id) = this.kademlia_handle.try_find_node(peer) {
 							this.find_node_queries.insert(query_id, std::time::Instant::now());
@@ -488,7 +488,7 @@ impl Stream for Discovery {
 							return Poll::Ready(Some(DiscoveryEvent::RandomKademliaStarted))
 						}
 					} else {
-						log::info!(
+						log::debug!(
 							target: LOG_TARGET,
 							"discovery is disabled as we have {num_peers} connected peers."
 						);
@@ -511,12 +511,11 @@ impl Stream for Discovery {
 				// the addresses are already inserted into the DHT and in `TransportManager` so
 				// there is no need to add them again. The found peers must be registered to
 				// `Peerstore` so other protocols are aware of them through `Peerset`.
-				log::trace!(target: LOG_TARGET, "dht random walk yielded {} peers", peers.len());
-
-				this.next_kad_query = Some(Delay::new(KADEMLIA_QUERY_INTERVAL));
 
 				if let Some(instant) = this.find_node_queries.remove(&query_id) {
-					log::info!(target: LOG_TARGET, "dht random walk yielded {} peers {query_id:?} in {:?}", peers.len(), instant.elapsed());
+					log::trace!(target: LOG_TARGET, "dht random walk yielded {} peers for {query_id:?} in {:?}", peers.len(), instant.elapsed());
+				} else {
+					log::trace!(target: LOG_TARGET, "dht random walk yielded {} peers for {query_id:?}", peers.len());
 				}
 
 				return Poll::Ready(Some(DiscoveryEvent::RoutingTableUpdate {
@@ -545,7 +544,7 @@ impl Stream for Discovery {
 					this.duration_to_next_find_query = KADEMLIA_QUERY_INTERVAL;
 					this.next_kad_query = Some(Delay::new(this.duration_to_next_find_query));
 
-					log::warn!(target: LOG_TARGET, "dht random walk failed for {query_id:?} in {:?}", instant.elapsed());
+					log::debug!(target: LOG_TARGET, "dht random walk failed for {query_id:?} in {:?}", instant.elapsed());
 				}
 
 				return Poll::Ready(Some(DiscoveryEvent::QueryFailed { query_id }));
