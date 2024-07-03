@@ -25,7 +25,7 @@ doc:
 crates:
   - name: pallet-bridge-messages
     bump: major
-  - bridge-runtime-common
+  - name: bridge-runtime-common
     bump: major
   - name: bp-header-chain
     bump: major
