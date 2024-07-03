@@ -37,7 +37,7 @@ use crate::{
 
 use async_std::sync::{Arc, Mutex, RwLock};
 use async_trait::async_trait;
-use bp_runtime::{HasherOf, HeaderIdProvider, UnverifiedStorageProof};
+use bp_runtime::HeaderIdProvider;
 use codec::Encode;
 use frame_support::weights::Weight;
 use futures::TryFutureExt;
@@ -52,7 +52,10 @@ use sp_core::{
 	storage::{StorageData, StorageKey},
 	Bytes, Hasher, Pair,
 };
-use sp_runtime::transaction_validity::{TransactionSource, TransactionValidity};
+use sp_runtime::{
+	traits::Header,
+	transaction_validity::{TransactionSource, TransactionValidity},
+};
 use sp_trie::StorageProof;
 use sp_version::RuntimeVersion;
 use std::{cmp::Ordering, future::Future, marker::PhantomData};
@@ -635,12 +638,13 @@ impl<C: Chain> Client<C> for RpcClient<C> {
 		.map_err(|e| Error::failed_state_call::<C>(at, method_clone, arguments_clone, e))
 	}
 
-	async fn prove_storage_with_root(
+	async fn prove_storage(
 		&self,
 		at: HashOf<C>,
-		state_root: HashOf<C>,
 		keys: Vec<StorageKey>,
-	) -> Result<UnverifiedStorageProof> {
+	) -> Result<(StorageProof, HashOf<C>)> {
+		let state_root = *self.header_by_hash(at).await?.state_root();
+
 		let keys_clone = keys.clone();
 		let read_proof = self
 			.jsonrpsee_execute(move |client| async move {
@@ -652,8 +656,7 @@ impl<C: Chain> Client<C> for RpcClient<C> {
 			.await
 			.map_err(|e| Error::failed_to_prove_storage::<C>(at, keys.clone(), e))?;
 
-		UnverifiedStorageProof::try_new::<HasherOf<C>>(read_proof, state_root, keys)
-			.map_err(|e| Error::Custom(format!("Error generating storage proof: {:?}", e)))
+		Ok((read_proof, state_root))
 	}
 }
 

@@ -22,7 +22,7 @@ use crate::{
 };
 
 use async_trait::async_trait;
-use bp_runtime::{StorageDoubleMapKeyProvider, StorageMapKeyProvider, UnverifiedStorageProof};
+use bp_runtime::{StorageDoubleMapKeyProvider, StorageMapKeyProvider};
 use codec::{Decode, Encode};
 use frame_support::weights::Weight;
 use sp_core::{
@@ -30,6 +30,7 @@ use sp_core::{
 	Bytes, Pair,
 };
 use sp_runtime::{traits::Header as _, transaction_validity::TransactionValidity};
+use sp_trie::StorageProof;
 use sp_version::RuntimeVersion;
 use std::fmt::Debug;
 
@@ -224,22 +225,10 @@ pub trait Client<C: Chain>: 'static + Send + Sync + Clone + Debug {
 		})
 	}
 
-	/// Returns storage proof of given storage keys.
-	async fn prove_storage_with_root(
-		&self,
-		at: HashOf<C>,
-		state_root: HashOf<C>,
-		keys: Vec<StorageKey>,
-	) -> Result<UnverifiedStorageProof>;
-
-	/// Returns storage proof of given storage keys.
+	/// Returns storage proof of given storage keys and state root.
 	async fn prove_storage(
 		&self,
 		at: HashOf<C>,
 		keys: Vec<StorageKey>,
-	) -> Result<UnverifiedStorageProof> {
-		let root = *self.header_by_hash(at).await?.state_root();
-
-		self.prove_storage_with_root(at, root, keys).await
-	}
+	) -> Result<(StorageProof, HashOf<C>)>;
 }

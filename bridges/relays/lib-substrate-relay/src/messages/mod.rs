@@ -643,7 +643,7 @@ where
 				Weight::zero(),
 				FromBridgedChainMessagesProof {
 					bridged_header_hash: Default::default(),
-					storage: Default::default(),
+					storage_proof: Default::default(),
 					lane: Default::default(),
 					nonces_start: 1,
 					nonces_end: messages as u64,
@@ -705,7 +705,7 @@ mod tests {
 		// data
 		let receive_messages_proof = FromBridgedChainMessagesProof {
 			bridged_header_hash: Default::default(),
-			storage: Default::default(),
+			storage_proof: Default::default(),
 			lane: LaneId([0, 0, 0, 0]),
 			nonces_start: 0,
 			nonces_end: 0,

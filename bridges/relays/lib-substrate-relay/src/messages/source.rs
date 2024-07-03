@@ -336,10 +336,11 @@ where
 			));
 		}
 
-		let storage = self.source_client.prove_storage(id.hash(), storage_keys.clone()).await?;
+		let storage_proof =
+			self.source_client.prove_storage(id.hash(), storage_keys.clone()).await?;
 		let proof = FromBridgedChainMessagesProof {
 			bridged_header_hash: id.1,
-			storage,
+			storage_proof,
 			lane: self.lane_id,
 			nonces_start: *nonces.start(),
 			nonces_end: *nonces.end(),
