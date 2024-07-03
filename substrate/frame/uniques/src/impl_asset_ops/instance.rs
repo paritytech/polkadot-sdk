@@ -79,7 +79,7 @@ impl<T: Config<I>, I: 'static>
 		let Owned { owner, id_assignment, .. } = strategy;
 		let (collection, item) = id_assignment.params;
 
-		Self::do_mint(collection.clone(), item.clone(), owner, |_| Ok(()))?;
+		Self::do_mint(collection.clone(), item, owner, |_| Ok(()))?;
 
 		Ok((collection, item))
 	}
