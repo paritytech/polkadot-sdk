@@ -105,7 +105,7 @@ impl<T: Config<I>, I: 'static>
 
 		let signer = ensure_signed(origin)?;
 
-		Self::do_mint(collection.clone(), item.clone(), owner, |collection_details| {
+		Self::do_mint(collection.clone(), item, owner, |collection_details| {
 			ensure!(collection_details.issuer == signer, Error::<T, I>::NoPermission);
 			Ok(())
 		})?;

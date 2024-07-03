@@ -1,6 +1,5 @@
 use core::marker::PhantomData;
 use frame_support::traits::tokens::asset_ops::{
-	self,
 	common_asset_kinds::Instance,
 	common_strategies::{DeriveAndReportId, FromTo, IfOwnedBy, Owned, PredefinedId},
 	AssetDefinition, Create, Destroy, Transfer,
