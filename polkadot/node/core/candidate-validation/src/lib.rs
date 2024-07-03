@@ -260,7 +260,7 @@ async fn run<Context>(
 	ctx.spawn_blocking("pvf-validation-host", task.boxed())?;
 
 	let mut tasks = FuturesUnordered::new();
-	let mut prepare_state = PrepareForValidationState::default();
+	let mut prepare_state = PrepareValidationState::default();
 
 	loop {
 		loop {
@@ -268,7 +268,7 @@ async fn run<Context>(
 				comm = ctx.recv().fuse() => {
 					match comm {
 						Ok(FromOrchestra::Signal(OverseerSignal::ActiveLeaves(update))) => {
-							maybe_prepare_for_validation(ctx.sender(), keystore.clone(), validation_host.clone(), update, &mut prepare_state).await;
+							maybe_prepare_validation(ctx.sender(), keystore.clone(), validation_host.clone(), update, &mut prepare_state).await;
 						},
 						Ok(FromOrchestra::Signal(OverseerSignal::BlockFinalized(..))) => {},
 						Ok(FromOrchestra::Signal(OverseerSignal::Conclude)) => return Ok(()),
@@ -309,19 +309,19 @@ async fn run<Context>(
 }
 
 #[derive(Default)]
-struct PrepareForValidationState {
+struct PrepareValidationState {
 	session_index: Option<SessionIndex>,
 	is_next_session_authority: bool,
 	// PVF host won't prepare the same code hash twice, so here we just avoid extra communication
 	already_prepared_code_hashes: HashSet<ValidationCodeHash>,
 }
 
-async fn maybe_prepare_for_validation<Sender>(
+async fn maybe_prepare_validation<Sender>(
 	sender: &mut Sender,
 	keystore: KeystorePtr,
 	validation_host: ValidationHost,
 	update: ActiveLeavesUpdate,
-	state: &mut PrepareForValidationState,
+	state: &mut PrepareValidationState,
 ) where
 	Sender: SubsystemSender<RuntimeApiMessage>,
 {
