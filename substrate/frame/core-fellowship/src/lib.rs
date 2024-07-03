@@ -209,6 +209,10 @@ pub mod pallet {
 		/// rank to which it can promote.
 		type PromoteOrigin: EnsureOrigin<Self::RuntimeOrigin, Success = RankOf<Self, I>>;
 
+		/// The origin that has permission to "fast" promote a member by ignoring promotion periods
+		/// and skipping ranks. The `Success` value is the maximum rank to which it can promote.
+		type FastPromoteOrigin: EnsureOrigin<Self::RuntimeOrigin, Success = RankOf<Self, I>>;
+
 		/// The maximum size in bytes submitted evidence is allowed to be.
 		#[pallet::constant]
 		type EvidenceSize: Get<u32>;
@@ -494,6 +498,44 @@ pub mod pallet {
 			Self::dispose_evidence(who.clone(), rank, Some(to_rank));
 
 			Self::deposit_event(Event::<T, I>::Promoted { who, to_rank });
+
+			Ok(())
+		}
+
+		/// Fast promotions can skip ranks and ignore the `min_promotion_period`.
+		///
+		/// This is useful for out-of-band promotions, hence it has its own `FastPromoteOrigin` to
+		/// be (possibly) more restrictive than `PromoteOrigin`. Note that the member must already
+		/// be inducted.
+		#[pallet::weight(T::WeightInfo::promote_fast(*to_rank as u32))]
+		#[pallet::call_index(10)]
+		pub fn promote_fast(
+			origin: OriginFor<T>,
+			who: T::AccountId,
+			to_rank: RankOf<T, I>,
+		) -> DispatchResult {
+			match T::FastPromoteOrigin::try_origin(origin) {
+				Ok(allow_rank) => ensure!(allow_rank >= to_rank, Error::<T, I>::NoPermission),
+				Err(origin) => ensure_root(origin)?,
+			}
+			ensure!(to_rank as u32 <= T::MaxRank::get(), Error::<T, I>::InvalidRank);
+			let curr_rank = T::Members::rank_of(&who).ok_or(Error::<T, I>::Unranked)?;
+			ensure!(to_rank > curr_rank, Error::<T, I>::UnexpectedRank);
+
+			let mut member = Member::<T, I>::get(&who).ok_or(Error::<T, I>::NotTracked)?;
+			let now = frame_system::Pallet::<T>::block_number();
+			member.last_promotion = now;
+			member.last_proof = now;
+
+			for rank in (curr_rank + 1)..=to_rank {
+				T::Members::promote(&who)?;
+
+				// NOTE: We could factor this out, but it would destroy our invariants:
+				Member::<T, I>::insert(&who, &member);
+
+				Self::dispose_evidence(who.clone(), rank.saturating_sub(1), Some(rank));
+				Self::deposit_event(Event::<T, I>::Promoted { who: who.clone(), to_rank: rank });
+			}
 
 			Ok(())
 		}
