@@ -1,0 +1,39 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Support different assets for delivery fees
+
+doc:
+  - audience: Runtime User
+    description: |
+      We now support different assets for delivery fees.
+      This means reserve asset transfers from one parachain to another going through AssetHub
+      no longer need DOT/KSM to pay for delivery fees on AssetHub.
+      They work as long as there is any asset which has a pool with DOT/KSM on AssetHub.
+      Right now paying delivery fees with a different asset locally is not supported, but it will
+      be in the future.
+      This PR supports different assets for remote delivery fees.
+  - audience: Runtime Dev
+    description: |
+      In order to support different assets for delivery fees, a new config item was added: AssetConverter.
+      This was needed to support this use case with the least amount of breaking changes.
+      It can be set to `()` if you don't want to support paying delivery fees with different assets.
+      Otherwise, it can be set to something like the `SwapAssetConverter` in this PR.
+
+crates:
+  - name: staging-xcm-executor
+    bump: major
+  - name: asset-hub-westend-runtime
+    bump: minor
+  - name: asset-hub-rococo-runtime
+    bump: minor
+  - name: bridge-hub-rococo-runtime
+    bump: minor
+  - name: people-rococo-runtime
+    bump: minor
+  - name: penpal-runtime
+    bump: minor
+  - name: cumulus-primitives-utility
+    bump: minor
+  - name: assets-common
+    bump: minor
