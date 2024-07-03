@@ -177,14 +177,11 @@ impl TransactionPool for MiddlewarePool {
 		self.inner_pool.ready_at(at)
 	}
 
-	fn ready(
-		&self,
-		at: Self::Hash,
-	) -> Option<Box<dyn ReadyTransactions<Item = Arc<Self::InPoolTransaction>> + Send>> {
-		self.inner_pool.ready(at)
+	fn ready(&self) -> Box<dyn ReadyTransactions<Item = Arc<Self::InPoolTransaction>> + Send> {
+		self.inner_pool.ready()
 	}
 
-	fn futures(&self, at: Self::Hash) -> Option<Vec<Self::InPoolTransaction>> {
-		self.inner_pool.futures(at)
+	fn futures(&self) -> Vec<Self::InPoolTransaction> {
+		self.inner_pool.futures()
 	}
 }

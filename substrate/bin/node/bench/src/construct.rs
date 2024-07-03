@@ -274,10 +274,7 @@ impl sc_transaction_pool_api::TransactionPool for Transactions {
 		Box::pin(futures::future::ready(iter))
 	}
 
-	fn ready(
-		&self,
-		_at: Self::Hash,
-	) -> Option<Box<dyn ReadyTransactions<Item = Arc<Self::InPoolTransaction>> + Send>> {
+	fn ready(&self) -> Box<dyn ReadyTransactions<Item = Arc<Self::InPoolTransaction>> + Send> {
 		unimplemented!()
 	}
 
@@ -285,7 +282,7 @@ impl sc_transaction_pool_api::TransactionPool for Transactions {
 		Default::default()
 	}
 
-	fn futures(&self, _at: Self::Hash) -> Option<Vec<Self::InPoolTransaction>> {
+	fn futures(&self) -> Vec<Self::InPoolTransaction> {
 		unimplemented!()
 	}
 
