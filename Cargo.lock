@@ -805,7 +805,6 @@ name = "asset-hub-rococo-integration-tests"
 version = "1.0.0"
 dependencies = [
  "assert_matches",
- "asset-hub-rococo-runtime",
  "asset-test-utils",
  "cumulus-pallet-parachain-system",
  "emulated-integration-tests-common",
@@ -819,9 +818,7 @@ dependencies = [
  "pallet-xcm",
  "parachains-common",
  "parity-scale-codec",
- "penpal-runtime",
  "polkadot-runtime-common",
- "rococo-runtime",
  "rococo-runtime-constants",
  "rococo-system-emulated-network",
  "sp-runtime",
@@ -933,7 +930,6 @@ name = "asset-hub-westend-integration-tests"
 version = "1.0.0"
 dependencies = [
  "assert_matches",
- "asset-hub-westend-runtime",
  "asset-test-utils",
  "cumulus-pallet-parachain-system",
  "cumulus-pallet-xcmp-queue",
@@ -951,14 +947,12 @@ dependencies = [
  "pallet-xcm",
  "parachains-common",
  "parity-scale-codec",
- "penpal-runtime",
  "polkadot-runtime-common",
  "sp-core",
  "sp-keyring",
  "sp-runtime",
  "staging-xcm",
  "staging-xcm-executor",
- "westend-runtime",
  "westend-system-emulated-network",
  "xcm-runtime-apis",
 ]
@@ -2063,8 +2057,6 @@ dependencies = [
 name = "bridge-hub-rococo-integration-tests"
 version = "1.0.0"
 dependencies = [
- "asset-hub-rococo-runtime",
- "bridge-hub-rococo-runtime",
  "cumulus-pallet-xcmp-queue",
  "emulated-integration-tests-common",
  "frame-support",
@@ -2248,10 +2240,10 @@ dependencies = [
 name = "bridge-hub-westend-integration-tests"
 version = "1.0.0"
 dependencies = [
- "bridge-hub-westend-runtime",
  "cumulus-pallet-xcmp-queue",
  "emulated-integration-tests-common",
  "frame-support",
+ "hex-literal",
  "pallet-asset-conversion",
  "pallet-assets",
  "pallet-balances",
@@ -2892,8 +2884,6 @@ name = "collectives-westend-integration-tests"
 version = "1.0.0"
 dependencies = [
  "assert_matches",
- "asset-hub-westend-runtime",
- "collectives-westend-runtime",
  "cumulus-pallet-parachain-system",
  "cumulus-pallet-xcmp-queue",
  "emulated-integration-tests-common",
@@ -2912,7 +2902,6 @@ dependencies = [
  "staging-xcm",
  "staging-xcm-executor",
  "testnet-parachains-constants",
- "westend-runtime",
  "westend-runtime-constants",
  "westend-system-emulated-network",
 ]
@@ -3296,6 +3285,7 @@ dependencies = [
  "cumulus-primitives-utility",
  "frame-benchmarking",
  "frame-executive",
+ "frame-metadata-hash-extension",
  "frame-support",
  "frame-system",
  "frame-system-benchmarking",
@@ -3362,6 +3352,7 @@ dependencies = [
  "cumulus-primitives-utility",
  "frame-benchmarking",
  "frame-executive",
+ "frame-metadata-hash-extension",
  "frame-support",
  "frame-system",
  "frame-system-benchmarking",
@@ -12568,9 +12559,7 @@ dependencies = [
  "pallet-message-queue",
  "parachains-common",
  "parity-scale-codec",
- "people-rococo-runtime",
  "polkadot-runtime-common",
- "rococo-runtime",
  "rococo-runtime-constants",
  "rococo-system-emulated-network",
  "sp-runtime",
@@ -12669,12 +12658,10 @@ dependencies = [
  "pallet-message-queue",
  "parachains-common",
  "parity-scale-codec",
- "people-westend-runtime",
  "polkadot-runtime-common",
  "sp-runtime",
  "staging-xcm",
  "staging-xcm-executor",
- "westend-runtime",
  "westend-runtime-constants",
  "westend-system-emulated-network",
 ]
