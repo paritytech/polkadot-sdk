@@ -21441,6 +21441,7 @@ dependencies = [
  "sp-consensus-grandpa",
  "sp-core",
  "sp-runtime",
+ "sp-trie",
  "structopt",
  "strum 0.26.2",
  "thiserror",

@@ -29,7 +29,7 @@ pub use weights_ext::WeightInfoExt;
 
 use bp_header_chain::{HeaderChain, HeaderChainError};
 use bp_parachains::{ParaInfo, ParaStoredHeaderData};
-use bp_polkadot_core::parachains::{ParaHash, ParaHead, ParaHeadsProof, ParaId};
+use bp_polkadot_core::parachains::{ParaHash, ParaHeadsProof, ParaId};
 use bp_runtime::{Chain, HashOf, HeaderId, HeaderIdOf, Parachain};
 use frame_support::{dispatch::PostDispatchInfo, DefaultNoBound};
 use pallet_bridge_grandpa::SubmitFinalityProofHelper;
@@ -792,6 +792,7 @@ impl<T: Config<I>, I: 'static, C: Parachain<Hash = ParaHash>> HeaderChain<C>
 pub fn initialize_for_benchmarks<T: Config<I>, I: 'static, PC: Parachain<Hash = ParaHash>>(
 	header: HeaderOf<PC>,
 ) {
+	use bp_polkadot_core::parachains::ParaHead;
 	use bp_runtime::HeaderIdProvider;
 	use sp_runtime::traits::Header;
 
@@ -835,6 +836,7 @@ pub(crate) mod tests {
 	use bp_parachains::{
 		BestParaHeadHash, BridgeParachainCall, ImportedParaHeadsKeyProvider, ParasInfoKeyProvider,
 	};
+	use bp_polkadot_core::parachains::ParaHead;
 	use bp_runtime::{
 		BasicOperatingMode, OwnedBridgeModuleError, StorageDoubleMapKeyProvider,
 		StorageMapKeyProvider, StorageProofError,

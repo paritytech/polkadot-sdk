@@ -127,3 +127,17 @@ impl<Call> BatchCallBuilder<Call> for () {
 		unreachable!("never called, because ()::new_builder() returns None; qed")
 	}
 }
+
+/// Module for handling storage proofs compatibility.
+pub mod proofs {
+	use bp_runtime::{HashOf, RawStorageProof};
+	use relay_substrate_client::Chain;
+	use sp_trie::StorageProof;
+
+	/// Converts proof to `RawStorageProof` type.
+	pub fn to_raw_storage_proof<SourceChain: Chain>(
+		proof: (StorageProof, HashOf<SourceChain>),
+	) -> RawStorageProof {
+		proof.0.into_iter_nodes().collect()
+	}
+}

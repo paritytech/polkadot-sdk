@@ -25,6 +25,7 @@ use crate::{
 		SubstrateMessageLane,
 	},
 	on_demand::OnDemandRelay,
+	proofs::to_raw_storage_proof,
 	TransactionParams,
 };
 
@@ -340,7 +341,7 @@ where
 			self.source_client.prove_storage(id.hash(), storage_keys.clone()).await?;
 		let proof = FromBridgedChainMessagesProof {
 			bridged_header_hash: id.1,
-			storage_proof,
+			storage_proof: to_raw_storage_proof::<P::SourceChain>(storage_proof),
 			lane: self.lane_id,
 			nonces_start: *nonces.start(),
 			nonces_end: *nonces.end(),
