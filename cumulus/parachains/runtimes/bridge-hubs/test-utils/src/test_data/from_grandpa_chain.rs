@@ -196,7 +196,7 @@ where
 
 	let message_proof = FromBridgedChainMessagesProof {
 		bridged_header_hash: header.hash(),
-		storage: storage_proof,
+		storage_proof,
 		lane: lane_id,
 		nonces_start: message_nonce,
 		nonces_end: message_nonce,
