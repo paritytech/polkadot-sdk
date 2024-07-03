@@ -251,9 +251,13 @@ fn collation_fetching_prefer_entries_earlier_in_claim_queue() {
 	let collator_id_b = CollatorId::from(sr25519::Public::from_raw([20u8; 32]));
 	let peer_b = PeerId::random();
 
-	let claim_queue = vec![para_a, para_b, para_a, para_b];
+	let para_c = ParaId::from(3);
+	let collator_id_c = CollatorId::from(sr25519::Public::from_raw([30u8; 32]));
+	let peer_c = PeerId::random();
+
+	let claim_queue = vec![para_a, para_b, para_a, para_b, para_c, para_c];
 	let relay_parent_mode =
-		ProspectiveParachainsMode::Enabled { max_candidate_depth: 5, allowed_ancestry_len: 4 };
+		ProspectiveParachainsMode::Enabled { max_candidate_depth: 6, allowed_ancestry_len: 5 };
 	let claim_queue_support = true;
 
 	let mut collations = Collations::new(&claim_queue, claim_queue_support);
@@ -313,7 +317,35 @@ fn collation_fetching_prefer_entries_earlier_in_claim_queue() {
 		collator_id_b.clone(),
 	);
 
-	// Despite the order here the fetches should be a1, b1, a2, b2
+	let collation_c1 = (
+		PendingCollation::new(
+			relay_parent,
+			para_c,
+			&peer_c,
+			Some(ProspectiveCandidate {
+				candidate_hash: CandidateHash(Hash::repeat_byte(5)),
+				parent_head_data_hash: Hash::repeat_byte(5),
+			}),
+		),
+		collator_id_c.clone(),
+	);
+
+	let collation_c2 = (
+		PendingCollation::new(
+			relay_parent,
+			para_c,
+			&peer_c,
+			Some(ProspectiveCandidate {
+				candidate_hash: CandidateHash(Hash::repeat_byte(6)),
+				parent_head_data_hash: Hash::repeat_byte(6),
+			}),
+		),
+		collator_id_c.clone(),
+	);
+
+	// Despite the order here the fetches should be a1, b1, c1, a2, b2, c2
+	collations.add_to_waiting_queue(collation_c1.clone());
+	collations.add_to_waiting_queue(collation_c2.clone());
 	collations.add_to_waiting_queue(collation_b1.clone());
 	collations.add_to_waiting_queue(collation_b2.clone());
 	collations.add_to_waiting_queue(collation_a1.clone());
@@ -342,6 +374,17 @@ fn collation_fetching_prefer_entries_earlier_in_claim_queue() {
 	collations.note_fetched(collation_b1.0.para_id);
 
 	assert_eq!(
+		Some(collation_c1.clone()),
+		collations.get_next_collation_to_fetch(
+			// doesn't matter since `fetching_from` is `None`
+			&(collator_id_a.clone(), Some(CandidateHash(Hash::repeat_byte(0)))),
+			relay_parent_mode.clone(),
+			&claim_queue,
+		)
+	);
+	collations.note_fetched(collation_c1.0.para_id);
+
+	assert_eq!(
 		Some(collation_a2.clone()),
 		collations.get_next_collation_to_fetch(
 			// doesn't matter since `fetching_from` is `None`
@@ -362,4 +405,15 @@ fn collation_fetching_prefer_entries_earlier_in_claim_queue() {
 		)
 	);
 	collations.note_fetched(collation_b2.0.para_id);
+
+	assert_eq!(
+		Some(collation_c2.clone()),
+		collations.get_next_collation_to_fetch(
+			// doesn't matter since `fetching_from` is `None`
+			&(collator_id_a.clone(), Some(CandidateHash(Hash::repeat_byte(0)))),
+			relay_parent_mode.clone(),
+			&claim_queue,
+		)
+	);
+	collations.note_fetched(collation_c2.0.para_id);
 }
