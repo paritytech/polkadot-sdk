@@ -995,10 +995,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#844" id="844">844</a>
 <a href="#845" id="845">845</a>
 <a href="#846" id="846">846</a>
-<a href="#847" id="847">847</a>
-<a href="#848" id="848">848</a>
-<a href="#849" id="849">849</a>
-<a href="#850" id="850">850</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1824,10 +1820,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	) -&gt; <span class="prelude-ty">Result</span>&lt;(), sp_runtime::TryRuntimeError&gt; {
 		<span class="kw">let </span><span class="kw-2">mut </span>delegation_aggregation = BTreeMap::&lt;T::AccountId, BalanceOf&lt;T&gt;&gt;::new();
 		<span class="kw">for </span>(delegator, delegation) <span class="kw">in </span>delegations.iter() {
-			<span class="macro">ensure!</span>(
-				T::CoreStaking::status(delegator).is_err(),
-				<span class="string">"delegator should not be directly staked"
-			</span>);
 			<span class="macro">ensure!</span>(!<span class="self">Self</span>::is_agent(delegator), <span class="string">"delegator cannot be an agent"</span>);
 
 			delegation_aggregation
