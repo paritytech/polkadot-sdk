@@ -20,11 +20,12 @@
 
 use crate::LOG_TARGET;
 use futures::{
-	channel::mpsc::{channel, Receiver, Sender},
+	channel::mpsc::{channel, Receiver as EventStream, Sender as ExternalSink},
 	stream::{self, Fuse, StreamExt},
 	Future, FutureExt,
 };
 use log::{debug, trace};
+use sc_utils::mpsc;
 use std::{
 	collections::HashSet,
 	fmt::{self, Debug, Formatter},
@@ -36,7 +37,9 @@ use tokio::sync::RwLock;
 use tokio_stream::StreamMap;
 
 type StreamOf<I> = Pin<Box<dyn futures::Stream<Item = I> + Send>>;
-type EventStream<I> = Receiver<I>;
+
+type Controller<T> = mpsc::TracingUnboundedSender<T>;
+type CommandReceiver<T> = mpsc::TracingUnboundedReceiver<T>;
 
 enum Command<K, I: Send + Sync> {
 	AddView(K, StreamOf<I>),
@@ -52,7 +55,7 @@ impl<K, I: Send + Sync> Debug for Command<K, I> {
 
 struct MulitSinksContext<K, I: Send + Sync> {
 	stream_map: Fuse<StreamMap<K, StreamOf<I>>>,
-	controller: tokio::sync::mpsc::Receiver<Command<K, I>>,
+	controller: Fuse<CommandReceiver<Command<K, I>>>,
 }
 
 impl<K, I> MulitSinksContext<K, I>
@@ -60,20 +63,21 @@ where
 	K: Send + Debug + Unpin + Clone + Default + Hash + Eq + 'static,
 	I: Send + Sync + 'static + PartialEq + Eq + Hash + Clone + Debug,
 {
-	fn event_stream() -> (StreamOf<I>, tokio::sync::mpsc::Sender<Command<K, I>>) {
-		let (sender, receiver) = tokio::sync::mpsc::channel::<Command<K, I>>(32);
+	fn event_stream() -> (StreamOf<I>, Controller<Command<K, I>>) {
+		let (sender, receiver) =
+			sc_utils::mpsc::tracing_unbounded::<Command<K, I>>("import-notification-sink", 16);
 
 		let mut stream_map: StreamMap<K, StreamOf<I>> = StreamMap::new();
 		//note: do not terminate stream-map if input streams are all done:
 		stream_map.insert(Default::default(), stream::pending().boxed());
 
-		let ctx = Self { stream_map: stream_map.fuse(), controller: receiver };
+		let ctx = Self { stream_map: stream_map.fuse(), controller: receiver.fuse() };
 
 		let stream_map = futures::stream::unfold(ctx, |mut ctx| async move {
 			loop {
 				tokio::select! {
 					biased;
-					cmd = ctx.controller.recv() => {
+					cmd = ctx.controller.next() => {
 						match cmd {
 							Some(Command::AddView(key,stream)) => {
 								debug!(target: LOG_TARGET,"Command::addView {key:?}");
@@ -99,8 +103,8 @@ where
 
 #[derive(Clone)]
 pub struct MultiViewImportNotificationSink<K, I: Send + Sync> {
-	ctrl: tokio::sync::mpsc::Sender<Command<K, I>>,
-	external_sinks: Arc<RwLock<Vec<Sender<I>>>>,
+	ctrl: Controller<Command<K, I>>,
+	external_sinks: Arc<RwLock<Vec<ExternalSink<I>>>>,
 	filter: Arc<RwLock<HashSet<I>>>,
 }
 
@@ -126,8 +130,9 @@ where
 					if filter.write().await.insert(event.clone()) {
 						for sink in &mut *external_sinks.write().await {
 							debug!(target: LOG_TARGET, "[{:?}] import_sink_worker sending out imported", event);
-							//todo: log/handle error
-							let _ = sink.try_send(event.clone());
+							let _ = sink.try_send(event.clone()).map_err(|e| {
+								debug!(target: LOG_TARGET, "import_sink_worker sending message failed: {e}");
+							});
 						}
 					}
 				}
@@ -137,8 +142,9 @@ where
 	}
 
 	pub async fn add_view(&self, key: K, view: StreamOf<I>) {
-		//todo: unwrap?
-		self.ctrl.send(Command::AddView(key, view)).await.unwrap();
+		let _ = self.ctrl.unbounded_send(Command::AddView(key.clone(), view)).map_err(|e| {
+			debug!(target: LOG_TARGET, "add_view {key:?} send message failed: {e}");
+		});
 	}
 
 	pub async fn event_stream(&self) -> EventStream<I> {
@@ -173,7 +179,7 @@ mod tests {
 
 	struct View<I: Send + Sync> {
 		scenario: Vec<Event<I>>,
-		sinks: Arc<RwLock<Vec<Sender<I>>>>,
+		sinks: Arc<RwLock<Vec<ExternalSink<I>>>>,
 	}
 
 	impl<I: Send + Sync + 'static + Clone + Debug> View<I> {

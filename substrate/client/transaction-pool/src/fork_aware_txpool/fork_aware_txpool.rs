@@ -676,12 +676,12 @@ where
 		pending
 	}
 
-	fn ready(&self, at: <Self::Block as BlockT>::Hash) -> Option<ReadyIteratorFor<ChainApi>> {
-		self.view_store.ready(at)
+	fn ready(&self) -> ReadyIteratorFor<ChainApi> {
+		self.view_store.ready()
 	}
 
-	fn futures(&self, at: <Self::Block as BlockT>::Hash) -> Option<Vec<Self::InPoolTransaction>> {
-		self.view_store.futures(at)
+	fn futures(&self) -> Vec<Self::InPoolTransaction> {
+		self.view_store.futures()
 	}
 }
 

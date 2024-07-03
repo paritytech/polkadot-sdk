@@ -100,24 +100,6 @@ impl<Client, Block> FullChainApi<Client, Block> {
 		let receiver = Arc::new(Mutex::new(receiver));
 		spawn_validation_pool_task("transaction-pool-task-0", receiver.clone(), spawner);
 		spawn_validation_pool_task("transaction-pool-task-1", receiver.clone(), spawner);
-		// spawn_validation_pool_task("transaction-pool-task-2", receiver.clone(), spawner);
-		// spawn_validation_pool_task("transaction-pool-task-3", receiver.clone(), spawner);
-		// spawn_validation_pool_task("transaction-pool-task-4", receiver.clone(), spawner);
-		// spawn_validation_pool_task("transaction-pool-task-5", receiver.clone(), spawner);
-		// spawn_validation_pool_task("transaction-pool-task-6", receiver.clone(), spawner);
-		// spawn_validation_pool_task("transaction-pool-task-7", receiver.clone(), spawner);
-		// spawn_validation_pool_task("transaction-pool-task-8", receiver.clone(), spawner);
-		// spawn_validation_pool_task("transaction-pool-task-9", receiver.clone(), spawner);
-		// spawn_validation_pool_task("transaction-pool-task-10", receiver.clone(), spawner);
-		// spawn_validation_pool_task("transaction-pool-task-11", receiver.clone(), spawner);
-		// spawn_validation_pool_task("transaction-pool-task-12", receiver.clone(), spawner);
-		// spawn_validation_pool_task("transaction-pool-task-13", receiver.clone(), spawner);
-		// spawn_validation_pool_task("transaction-pool-task-14", receiver.clone(), spawner);
-		// spawn_validation_pool_task("transaction-pool-task-15", receiver.clone(), spawner);
-		// spawn_validation_pool_task("transaction-pool-task-16", receiver.clone(), spawner);
-		// spawn_validation_pool_task("transaction-pool-task-17", receiver.clone(), spawner);
-		// spawn_validation_pool_task("transaction-pool-task-18", receiver.clone(), spawner);
-		// spawn_validation_pool_task("transaction-pool-task-19", receiver.clone(), spawner);
 
 		FullChainApi { client, validation_pool: sender, _marker: Default::default(), metrics }
 	}

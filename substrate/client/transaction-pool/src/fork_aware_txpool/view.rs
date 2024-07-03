@@ -274,11 +274,11 @@ where
 		}
 
 		log::debug!(target:LOG_TARGET, "view::revalidate_later: sending revalidation result at {}", self.at.hash);
-		let result = revalidation_result_tx
+		if let Err(e) = revalidation_result_tx
 			.send(RevalidationResult { invalid_hashes, revalidated })
-			.await;
-		if result.is_err() {
-			log::trace!(target:LOG_TARGET, "view::revalidate_later: sending revalidation_result at {} failed {:?}", self.at.hash, result);
+			.await
+		{
+			log::debug!(target:LOG_TARGET, "view::revalidate_later: sending revalidation_result at {} failed {:?}", self.at.hash, e);
 		}
 	}
 
@@ -331,9 +331,8 @@ where
 		} = revalidation_worker_channels;
 
 		if let Some(finish_revalidation_request_tx) = finish_revalidation_request_tx {
-			let result = finish_revalidation_request_tx.send(()).await;
-			if result.is_err() {
-				log::trace!(target:LOG_TARGET, "view::finish_revalidation: sending cancellation request at {} failed {:?}", self.at.hash, result);
+			if let Err(e) = finish_revalidation_request_tx.send(()).await {
+				log::trace!(target:LOG_TARGET, "view::finish_revalidation: sending cancellation request at {} failed {:?}", self.at.hash, e);
 			}
 		}
 

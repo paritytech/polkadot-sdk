@@ -23,40 +23,43 @@ use crate::{
 	LOG_TARGET,
 };
 use futures::{stream, StreamExt};
-use log::trace;
+use log::{debug, trace};
 use sc_transaction_pool_api::{TransactionStatus, TransactionStatusStream, TxIndex};
+use sc_utils::mpsc;
 use sp_runtime::traits::Block as BlockT;
 use std::{
 	collections::{HashMap, HashSet},
 	pin::Pin,
 };
-use tokio::sync::mpsc;
 use tokio_stream::StreamMap;
+
+type Controller<T> = mpsc::TracingUnboundedSender<T>;
+type CommandReceiver<T> = mpsc::TracingUnboundedReceiver<T>;
 
 /// The stream of transaction events.
 ///
 /// It can represent both view's stream and external watcher stream.
 pub type TxStatusStream<T> = Pin<Box<TransactionStatusStream<TxHash<T>, BlockHash<T>>>>;
 
-enum ListenerAction<ChainApi: graph::ChainApi> {
+enum ControllerCommand<ChainApi: graph::ChainApi> {
 	AddView(BlockHash<ChainApi>, TxStatusStream<ChainApi>),
 	RemoveView(BlockHash<ChainApi>),
 	InvalidateTransaction,
 	FinalizeTransaction(BlockHash<ChainApi>, TxIndex),
 }
 
-impl<ChainApi> std::fmt::Debug for ListenerAction<ChainApi>
+impl<ChainApi> std::fmt::Debug for ControllerCommand<ChainApi>
 where
 	ChainApi: graph::ChainApi,
 {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 		match self {
-			ListenerAction::AddView(h, _) => write!(f, "ListenerAction::AddView({})", h),
-			ListenerAction::RemoveView(h) => write!(f, "ListenerAction::RemoveView({})", h),
-			ListenerAction::InvalidateTransaction => {
+			ControllerCommand::AddView(h, _) => write!(f, "ListenerAction::AddView({})", h),
+			ControllerCommand::RemoveView(h) => write!(f, "ListenerAction::RemoveView({})", h),
+			ControllerCommand::InvalidateTransaction => {
 				write!(f, "ListenerAction::InvalidateTransaction")
 			},
-			ListenerAction::FinalizeTransaction(h, i) => {
+			ControllerCommand::FinalizeTransaction(h, i) => {
 				write!(f, "ListenerAction::FinalizeTransaction({},{})", h, i)
 			},
 		}
@@ -71,19 +74,19 @@ where
 /// The listner allows to add and remove view's stream (per transaction).
 /// The listener allows also to invalidate and finalize transcation.
 pub struct MultiViewListener<ChainApi: graph::ChainApi> {
-	//todo: rwlock not needed here (mut?)
 	controllers:
-		tokio::sync::RwLock<HashMap<TxHash<ChainApi>, mpsc::Sender<ListenerAction<ChainApi>>>>,
+		tokio::sync::RwLock<HashMap<TxHash<ChainApi>, Controller<ControllerCommand<ChainApi>>>>,
 }
 
 /// External watcher context.
 ///
-/// Aggregates and implements the logic of converting single view's events to the external events.
-/// This context is used to unfold external watcher stream.
+/// Aggregates and implements the logic of converting single view's events to the external
+/// events. This context is used to unfold external watcher stream.
+use futures::stream::Fuse;
 struct ExternalWatcherContext<ChainApi: graph::ChainApi> {
 	tx_hash: TxHash<ChainApi>,
 	fused: futures::stream::Fuse<StreamMap<BlockHash<ChainApi>, TxStatusStream<ChainApi>>>,
-	rx: mpsc::Receiver<ListenerAction<ChainApi>>,
+	rx: Fuse<CommandReceiver<ControllerCommand<ChainApi>>>,
 	terminate: bool,
 	future_seen: bool,
 	ready_seen: bool,
@@ -97,7 +100,10 @@ impl<ChainApi: graph::ChainApi> ExternalWatcherContext<ChainApi>
 where
 	<<ChainApi as graph::ChainApi>::Block as BlockT>::Hash: Unpin,
 {
-	fn new(tx_hash: TxHash<ChainApi>, rx: mpsc::Receiver<ListenerAction<ChainApi>>) -> Self {
+	fn new(
+		tx_hash: TxHash<ChainApi>,
+		rx: Fuse<CommandReceiver<ControllerCommand<ChainApi>>>,
+	) -> Self {
 		let mut stream_map: StreamMap<BlockHash<ChainApi>, TxStatusStream<ChainApi>> =
 			StreamMap::new();
 		stream_map.insert(Default::default(), stream::pending().boxed());
@@ -214,12 +220,10 @@ where
 
 		trace!(target: LOG_TARGET, "[{:?}] create_external_watcher_for_tx", tx_hash);
 
-		//todo: bounded?
-		let (tx, rx) = mpsc::channel(32);
-		//todo: controllers cannot grow - remove staff at some point!
+		let (tx, rx) = mpsc::tracing_unbounded("txpool-multi-view-listener", 32);
 		self.controllers.write().await.insert(tx_hash, tx);
 
-		let ctx = ExternalWatcherContext::new(tx_hash, rx);
+		let ctx = ExternalWatcherContext::new(tx_hash, rx.fuse());
 
 		Some(
 			futures::stream::unfold(ctx, |mut ctx| async move {
@@ -238,22 +242,22 @@ where
 							return Some((status, ctx));
 						}
 					},
-					cmd = ctx.rx.recv() => {
+					cmd = ctx.rx.next() => {
 						log::trace!(target: LOG_TARGET, "[{:?}] select::rx views:{:?}", ctx.tx_hash, ctx.fused.get_ref().keys().collect::<Vec<_>>());
 						match cmd {
-							Some(ListenerAction::AddView(h,stream)) => {
+							Some(ControllerCommand::AddView(h,stream)) => {
 								ctx.add_stream(h, stream);
 							},
-							Some(ListenerAction::RemoveView(h)) => {
+							Some(ControllerCommand::RemoveView(h)) => {
 								ctx.remove_view(h);
 							},
-							Some(ListenerAction::InvalidateTransaction) => {
+							Some(ControllerCommand::InvalidateTransaction) => {
 								if ctx.handle_invalidate_transaction() {
 									log::debug!(target: LOG_TARGET, "[{:?}] sending out: Invalid", ctx.tx_hash);
 									return Some((TransactionStatus::Invalid, ctx))
 								}
 							},
-							Some(ListenerAction::FinalizeTransaction(block, index)) => {
+							Some(ControllerCommand::FinalizeTransaction(block, index)) => {
 								log::debug!(target: LOG_TARGET, "[{:?}] sending out: Finalized", ctx.tx_hash);
 								ctx.terminate = true;
 								return Some((TransactionStatus::Finalized((block, index)), ctx))
@@ -278,9 +282,9 @@ where
 	) {
 		let mut controllers = self.controllers.write().await;
 		if let Some(tx) = controllers.get(&tx_hash) {
-			match tx.send(ListenerAction::AddView(block_hash, stream)).await {
-				Err(mpsc::error::SendError(e)) => {
-					trace!(target: LOG_TARGET, "[{:?}] add_view_watcher_for_tx: SendError: {:?}", tx_hash, e);
+			match tx.unbounded_send(ControllerCommand::AddView(block_hash, stream)) {
+				Err(e) => {
+					debug!(target: LOG_TARGET, "[{:?}] add_view_watcher_for_tx: send message failed: {:?}", tx_hash, e);
 					controllers.remove(&tx_hash);
 				},
 				Ok(_) => {},
@@ -290,48 +294,40 @@ where
 
 	/// Remove given view's stream from every transaction stream.
 	pub(crate) async fn remove_view(&self, block_hash: BlockHash<ChainApi>) {
-		let controllers = self.controllers.write().await;
+		let mut controllers = self.controllers.write().await;
+		let mut invalid_controllers = Vec::new();
 		for (tx_hash, sender) in controllers.iter() {
-			match sender.send(ListenerAction::RemoveView(block_hash)).await {
-				Err(mpsc::error::SendError(e)) => {
-					log::trace!(target: LOG_TARGET, "[{:?}] remove_view: SendError: {:?}", tx_hash, e);
-					// todo:
-					// controllers.remove(&tx_hash);
+			match sender.unbounded_send(ControllerCommand::RemoveView(block_hash)) {
+				Err(e) => {
+					log::debug!(target: LOG_TARGET, "[{:?}] remove_view: send message failed: {:?}", tx_hash, e);
+					invalid_controllers.push(tx_hash.clone());
 				},
 				Ok(_) => {},
 			}
 		}
+		invalid_controllers.into_iter().for_each(|tx_hash| {
+			controllers.remove(&tx_hash);
+		});
 	}
 
 	/// Invalidate given transaction.
 	///
 	/// This will send invalidated event to the external watcher.
 	pub(crate) async fn invalidate_transactions(&self, invalid_hashes: Vec<TxHash<ChainApi>>) {
-		use futures::future::FutureExt;
 		let mut controllers = self.controllers.write().await;
 
-		let futs = invalid_hashes.into_iter().filter_map(|tx_hash| {
+		for tx_hash in invalid_hashes {
 			if let Some(tx) = controllers.get(&tx_hash) {
 				trace!(target: LOG_TARGET, "[{:?}] invalidate_transaction", tx_hash);
-				Some(
-					tx.send(ListenerAction::InvalidateTransaction)
-						.map(move |result| (result, tx_hash)),
-				)
-			} else {
-				None
+				match tx.unbounded_send(ControllerCommand::InvalidateTransaction) {
+					Err(e) => {
+						debug!(target: LOG_TARGET, "[{:?}] invalidate_transaction: send message failed: {:?}", tx_hash, e);
+						controllers.remove(&tx_hash);
+					},
+					Ok(_) => {},
+				}
 			}
-		});
-
-		futures::future::join_all(futs)
-			.await
-			.into_iter()
-			.for_each(|result| match result.0 {
-				Err(mpsc::error::SendError(e)) => {
-					trace!(target: LOG_TARGET, "invalidate_transaction: SendError: {:?}", e);
-					controllers.remove(&result.1);
-				},
-				Ok(_) => {},
-			});
+		}
 	}
 
 	/// Finalize given transaction at given block.
@@ -347,12 +343,18 @@ where
 
 		if let Some(tx) = controllers.get(&tx_hash) {
 			trace!(target: LOG_TARGET, "[{:?}] finalize_transaction", tx_hash);
-			let result = tx.send(ListenerAction::FinalizeTransaction(block, idx)).await;
-			if result.is_err() {
-				trace!(target: LOG_TARGET, "finalize_transaction: SendError: {:?}", result.unwrap_err());
+			let result = tx.unbounded_send(ControllerCommand::FinalizeTransaction(block, idx));
+			if let Err(e) = result {
+				debug!(target: LOG_TARGET, "[{:?}] finalize_transaction: send message failed: {:?}", tx_hash, e);
 				controllers.remove(&tx_hash);
 			}
 		};
+	}
+
+	/// Removes stale controllers
+	pub(crate) async fn remove_stale_controllers(&self) {
+		let mut controllers = self.controllers.write().await;
+		controllers.retain(|_, c| !c.is_closed());
 	}
 }
 
@@ -379,12 +381,13 @@ mod tests {
 
 		let tx_hash = H256::repeat_byte(0x0a);
 		let external_watcher = listener.create_external_watcher_for_tx(tx_hash).await.unwrap();
+		let handle = tokio::spawn(async move { external_watcher.collect::<Vec<_>>().await });
 
 		let view_stream = futures::stream::iter(events.clone());
 
 		listener.add_view_watcher_for_tx(tx_hash, block_hash, view_stream.boxed()).await;
 
-		let out = external_watcher.collect::<Vec<_>>().await;
+		let out = handle.await.unwrap();
 		assert_eq!(out, events);
 		log::info!("out: {:#?}", out);
 	}
@@ -414,6 +417,8 @@ mod tests {
 		let view_stream0 = futures::stream::iter(events0.clone());
 		let view_stream1 = futures::stream::iter(events1.clone());
 
+		let handle = tokio::spawn(async move { external_watcher.collect::<Vec<_>>().await });
+
 		listener
 			.add_view_watcher_for_tx(tx_hash, block_hash0, view_stream0.boxed())
 			.await;
@@ -421,7 +426,8 @@ mod tests {
 			.add_view_watcher_for_tx(tx_hash, block_hash1, view_stream1.boxed())
 			.await;
 
-		let out = external_watcher.collect::<Vec<_>>().await;
+		let out = handle.await.unwrap();
+
 		log::info!("out: {:#?}", out);
 		assert!(out.iter().all(|v| vec![
 			TransactionStatus::Future,
@@ -450,7 +456,8 @@ mod tests {
 		let events1 = vec![TransactionStatus::Future];
 
 		let tx_hash = H256::repeat_byte(0x0a);
-		let external_watcher = listener.create_external_watcher_for_tx(tx_hash).await.unwrap();
+		let mut external_watcher = listener.create_external_watcher_for_tx(tx_hash).await.unwrap();
+		let handle = tokio::spawn(async move { external_watcher.collect::<Vec<_>>().await });
 
 		let view_stream0 = futures::stream::iter(events0.clone());
 		let view_stream1 = futures::stream::iter(events1.clone());
@@ -464,7 +471,7 @@ mod tests {
 
 		listener.invalidate_transactions(vec![tx_hash]).await;
 
-		let out = external_watcher.collect::<Vec<_>>().await;
+		let out = handle.await.unwrap();
 		log::info!("out: {:#?}", out);
 		assert!(out.iter().all(|v| vec![
 			TransactionStatus::Future,
@@ -499,6 +506,9 @@ mod tests {
 		let external_watcher_tx0 = listener.create_external_watcher_for_tx(tx0_hash).await.unwrap();
 		let external_watcher_tx1 = listener.create_external_watcher_for_tx(tx1_hash).await.unwrap();
 
+		let handle0 = tokio::spawn(async move { external_watcher_tx0.collect::<Vec<_>>().await });
+		let handle1 = tokio::spawn(async move { external_watcher_tx1.collect::<Vec<_>>().await });
+
 		let view0_tx0_stream = futures::stream::iter(events0_tx0.clone());
 		let view0_tx1_stream = futures::stream::iter(events0_tx1.clone());
 
@@ -521,8 +531,9 @@ mod tests {
 		listener.invalidate_transactions(vec![tx0_hash]).await;
 		listener.invalidate_transactions(vec![tx1_hash]).await;
 
-		let out_tx0 = external_watcher_tx0.collect::<Vec<_>>().await;
-		let out_tx1 = external_watcher_tx1.collect::<Vec<_>>().await;
+		let out_tx0 = handle0.await.unwrap();
+		let out_tx1 = handle1.await.unwrap();
+
 		log::info!("out_tx0: {:#?}", out_tx0);
 		log::info!("out_tx1: {:#?}", out_tx1);
 		assert!(out_tx0.iter().all(|v| vec![
@@ -561,8 +572,14 @@ mod tests {
 		let tx_hash = H256::repeat_byte(0x0a);
 		let external_watcher = listener.create_external_watcher_for_tx(tx_hash).await.unwrap();
 
+		//views will keep transaction valid, invalidation shall not happen
 		let view_stream0 = futures::stream::iter(events0.clone()).chain(stream::pending().boxed());
 		let view_stream1 = futures::stream::iter(events1.clone()).chain(stream::pending().boxed());
+
+		let handle = tokio::spawn(async move {
+			// views are still there, we need to fetch 3 events
+			external_watcher.take(3).collect::<Vec<_>>().await
+		});
 
 		listener
 			.add_view_watcher_for_tx(tx_hash, block_hash0, view_stream0.boxed())
@@ -573,8 +590,7 @@ mod tests {
 
 		listener.invalidate_transactions(vec![tx_hash]).await;
 
-		// stream is pending, we need to fetch 3 events
-		let out = external_watcher.take(3).collect::<Vec<_>>().await;
+		let out = handle.await.unwrap();
 		log::info!("out: {:#?}", out);
 
 		// invalid shall not be sent
@@ -597,6 +613,7 @@ mod tests {
 
 		let tx_hash = H256::repeat_byte(0x0a);
 		let external_watcher = listener.create_external_watcher_for_tx(tx_hash).await.unwrap();
+		let handle = tokio::spawn(async move { external_watcher.collect::<Vec<_>>().await });
 
 		let view_stream0 = futures::stream::iter(events0.clone()).chain(stream::pending().boxed());
 
@@ -608,7 +625,7 @@ mod tests {
 			.add_view_watcher_for_tx(tx_hash, block_hash0, view_stream0.boxed())
 			.await;
 
-		let out = external_watcher.collect::<Vec<_>>().await;
+		let out = handle.await.unwrap();
 		log::info!("out: {:#?}", out);
 
 		assert!(out.iter().all(|v| vec![TransactionStatus::Invalid].contains(v)));

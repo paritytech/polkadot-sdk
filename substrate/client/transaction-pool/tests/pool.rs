@@ -830,7 +830,6 @@ fn resubmit_tx_of_fork_that_is_not_part_of_retracted() {
 
 #[test]
 fn resubmit_from_retracted_fork() {
-	let any_hash = Hash::default();
 	let api = TestApi::empty();
 	// starting block A1 (last finalized.)
 	api.push_block(1, vec![], true);
@@ -920,7 +919,7 @@ fn resubmit_from_retracted_fork() {
 		header
 	};
 
-	let ready = pool.ready(any_hash).unwrap().map(|t| t.data.encode()).collect::<BTreeSet<_>>();
+	let ready = pool.ready().map(|t| t.data.encode()).collect::<BTreeSet<_>>();
 	let expected_ready = vec![tx3, tx4, tx5].iter().map(Encode::encode).collect::<BTreeSet<_>>();
 	assert_eq!(expected_ready, ready);
 
@@ -928,7 +927,7 @@ fn resubmit_from_retracted_fork() {
 	block_on(pool.maintain(event));
 
 	assert_eq!(pool.status().ready, 3);
-	let ready = pool.ready(any_hash).unwrap().map(|t| t.data.encode()).collect::<BTreeSet<_>>();
+	let ready = pool.ready().map(|t| t.data.encode()).collect::<BTreeSet<_>>();
 	let expected_ready = vec![tx0, tx1, tx2].iter().map(Encode::encode).collect::<BTreeSet<_>>();
 	assert_eq!(expected_ready, ready);
 }

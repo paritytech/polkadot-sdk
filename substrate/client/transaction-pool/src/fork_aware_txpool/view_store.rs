@@ -24,7 +24,7 @@ use parking_lot::RwLock;
 use std::{collections::HashMap, sync::Arc, time::Instant};
 
 use crate::graph::ExtrinsicHash;
-use sc_transaction_pool_api::{PoolStatus, TransactionSource};
+use sc_transaction_pool_api::{error::Error as PoolError, PoolStatus, TransactionSource};
 
 use super::multi_view_listener::{MultiViewListener, TxStatusStream};
 use crate::{ReadyIteratorFor, LOG_TARGET};
@@ -123,7 +123,10 @@ where
 		xt: Block::Extrinsic,
 	) -> Result<TxStatusStream<ChainApi>, ChainApi::Error> {
 		let tx_hash = self.api.hash_and_length(&xt).0;
-		let external_watcher = self.listener.create_external_watcher_for_tx(tx_hash).await;
+		let Some(external_watcher) = self.listener.create_external_watcher_for_tx(tx_hash).await
+		else {
+			return Err(PoolError::AlreadyImported(Box::new(tx_hash.clone())).into())
+		};
 		let results = {
 			let views = self.views.read();
 			let futs = views
@@ -133,18 +136,18 @@ where
 					let xt = xt.clone();
 
 					async move {
-						let result = view.submit_and_watch(source, xt).await;
-						if let Ok(watcher) = result {
-							self.listener
-								.add_view_watcher_for_tx(
-									tx_hash,
-									view.at.hash,
-									watcher.into_stream().boxed(),
-								)
-								.await;
-							Ok(())
-						} else {
-							Err(result.unwrap_err())
+						match view.submit_and_watch(source, xt).await {
+							Ok(watcher) => {
+								self.listener
+									.add_view_watcher_for_tx(
+										tx_hash,
+										view.at.hash,
+										watcher.into_stream().boxed(),
+									)
+									.await;
+								Ok(())
+							},
+							Err(e) => Err(e),
 						}
 					}
 				})
@@ -164,7 +167,7 @@ where
 			return Err(err);
 		};
 
-		Ok(external_watcher.unwrap())
+		Ok(external_watcher)
 	}
 
 	pub(super) fn status(&self) -> HashMap<Block::Hash, PoolStatus> {
@@ -210,20 +213,36 @@ where
 		})
 	}
 
-	pub(super) fn ready(&self, at: Block::Hash) -> Option<ReadyIteratorFor<ChainApi>> {
-		let maybe_ready = self.views.read().get(&at).map(|v| v.pool.validated_pool().ready());
-		let Some(ready) = maybe_ready else { return None };
-		Some(Box::new(ready))
+	pub(super) fn ready(&self) -> ReadyIteratorFor<ChainApi> {
+		let ready_iterator = self
+			.most_recent_view
+			.read()
+			.map(|at| self.get_view_at(at, true))
+			.flatten()
+			.map(|(v, _)| v.pool.validated_pool().ready());
+
+		if let Some(ready_iterator) = ready_iterator {
+			return Box::new(ready_iterator)
+		} else {
+			return Box::new(std::iter::empty())
+		}
 	}
 
 	pub(super) fn futures(
 		&self,
-		at: Block::Hash,
-	) -> Option<Vec<graph::base_pool::Transaction<ExtrinsicHash<ChainApi>, Block::Extrinsic>>> {
-		self.views
+	) -> Vec<graph::base_pool::Transaction<ExtrinsicHash<ChainApi>, Block::Extrinsic>> {
+		let futures = self
+			.most_recent_view
 			.read()
-			.get(&at)
-			.map(|v| v.pool.validated_pool().pool.read().futures().cloned().collect())
+			.map(|at| self.get_view_at(at, true))
+			.flatten()
+			.map(|(v, _)| v.pool.validated_pool().pool.read().futures().cloned().collect());
+
+		if let Some(futures) = futures {
+			return futures
+		} else {
+			return Default::default()
+		}
 	}
 
 	pub(super) async fn finalize_route(
@@ -354,6 +373,8 @@ where
 
 			log::debug!(target:LOG_TARGET,"handle_finalized: retracted_views: {:?}", retracted_views.keys());
 		}
+
+		self.listener.remove_stale_controllers().await;
 
 		finalized_xts
 	}

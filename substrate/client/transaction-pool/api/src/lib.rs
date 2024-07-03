@@ -295,10 +295,7 @@ pub trait TransactionPool: Send + Sync {
 	>;
 
 	/// Get an iterator for ready transactions ordered by priority.
-	fn ready(
-		&self,
-		at: <Self::Block as BlockT>::Hash,
-	) -> Option<Box<dyn ReadyTransactions<Item = Arc<Self::InPoolTransaction>> + Send>>;
+	fn ready(&self) -> Box<dyn ReadyTransactions<Item = Arc<Self::InPoolTransaction>> + Send>;
 
 	// *** Block production
 	/// Remove transactions identified by given hashes (and dependent transactions) from the pool.
@@ -306,7 +303,7 @@ pub trait TransactionPool: Send + Sync {
 
 	// *** logging
 	/// Get futures transaction list.
-	fn futures(&self, at: <Self::Block as BlockT>::Hash) -> Option<Vec<Self::InPoolTransaction>>;
+	fn futures(&self) -> Vec<Self::InPoolTransaction>;
 
 	/// Returns pool status.
 	fn status(&self) -> PoolStatus;
