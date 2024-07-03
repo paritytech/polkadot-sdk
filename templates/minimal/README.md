@@ -39,10 +39,10 @@ packages required to compile this template - please take note of the Rust compil
 
 ## Customization
 
-In case you would like to change the pallet's name from  `pallet-minimal-template` to `pallet-test`, 
+In case you would like to change the pallet's name from  `pallet-minimal-template` to `pallet-test`,
 you would need to implement the following changes:
 * Change the pallet folder name from `template` to `test` for consistency
-* Also for consistency, in `/runtime/src/lib.rs`, change from `pub type Template` to `pub type Test`, 
+* Also for consistency, in `/runtime/src/lib.rs`, change from `pub type Template` to `pub type Test`,
 and don't forget to also customize the corresponding comments.
 * Change  `pallet-minimal-template` to `pallet-test` in the following files:
     * `/runtime/Cargo.toml`
