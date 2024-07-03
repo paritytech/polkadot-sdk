@@ -468,10 +468,6 @@ impl Stream for Discovery {
 
 					let started = this.kademlia_handle.try_find_node(peer).is_ok();
 
-					this.duration_to_next_find_query =
-						cmp::min(this.duration_to_next_find_query * 2, Duration::from_secs(60));
-					this.next_kad_query = Some(Delay::new(this.duration_to_next_find_query));
-
 					if started {
 						this.find_node_query_id = None;
 						return Poll::Ready(Some(DiscoveryEvent::RandomKademliaStarted))
@@ -483,6 +479,10 @@ impl Stream for Discovery {
 					);
 				}
 			}
+
+			this.duration_to_next_find_query =
+				cmp::min(this.duration_to_next_find_query * 2, Duration::from_secs(60));
+			this.next_kad_query = Some(Delay::new(this.duration_to_next_find_query));
 		}
 
 		match Pin::new(&mut this.kademlia_handle).poll_next(cx) {
