@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1719869664822,
+  "lastUpdate": 1720000150899,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -16171,6 +16171,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "bitfield-distribution",
             "value": 0.02217996676666666,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Alexandru Gheorghe",
+            "username": "alexggh",
+            "email": "49718502+alexggh@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "62b955e98d36e4cfce680fddc967e3821b83c994",
+          "message": "Fix markdown lint step (#4933)\n\nCI required markdown step seems to start failing after\nhttps://github.com/paritytech/polkadot-sdk/pull/4806\n\nSigned-off-by: Alexandru Gheorghe <alexandru.gheorghe@parity.io>",
+          "timestamp": "2024-07-03T08:03:41Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/62b955e98d36e4cfce680fddc967e3821b83c994"
+        },
+        "date": 1720000122820,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.022617161833333333,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.18358253399333332,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.012442081293333343,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.014570278573333333,
             "unit": "seconds"
           }
         ]
