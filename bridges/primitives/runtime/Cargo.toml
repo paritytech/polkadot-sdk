@@ -26,7 +26,7 @@ frame-system = { workspace = true }
 sp-core = { workspace = true }
 sp-io = { workspace = true }
 sp-runtime = { features = ["serde"], workspace = true }
-sp-state-machine = { workspace = true }
+sp-state-machine = { optional = true, workspace = true }
 sp-std = { workspace = true }
 sp-trie = { workspace = true }
 trie-db = { workspace = true }
@@ -48,9 +48,9 @@ std = [
 	"sp-core/std",
 	"sp-io/std",
 	"sp-runtime/std",
-	"sp-state-machine/std",
+	"sp-state-machine?/std",
 	"sp-std/std",
 	"sp-trie/std",
 	"trie-db/std",
 ]
-test-helpers = []
+test-helpers = ["sp-state-machine"]
