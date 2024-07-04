@@ -21,8 +21,8 @@ use super::{
 	XcmpQueue,
 };
 use assets_common::{
-	matching::{FromSiblingParachain, IsForeignConcreteAsset},
-	SwapAssetConverter, TrustBackedAssetsAsLocation,
+	matching::{FromSiblingParachain, IsForeignConcreteAsset, ParentLocation},
+	TrustBackedAssetsAsLocation,
 };
 use frame_support::{
 	parameter_types,
@@ -42,20 +42,20 @@ use parachains_common::{
 };
 use polkadot_parachain_primitives::primitives::Sibling;
 use polkadot_runtime_common::xcm_sender::ExponentialPrice;
-use sp_runtime::traits::{AccountIdConversion, ConvertInto};
+use sp_runtime::traits::{AccountIdConversion, ConvertInto, TryConvertInto};
 use xcm::latest::prelude::*;
 use xcm_builder::{
 	AccountId32Aliases, AllowExplicitUnpaidExecutionFrom, AllowHrmpNotificationsFromRelayChain,
 	AllowKnownQueryResponses, AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom,
 	DenyReserveTransferToRelayChain, DenyThenTry, DescribeFamily, DescribePalletTerminal,
 	EnsureXcmOrigin, FrameTransactionalProcessor, FungibleAdapter, FungiblesAdapter,
-	GlobalConsensusParachainConvertsFor, HashedDescription, IsConcrete, LocalMint,
-	NetworkExportTableItem, NoChecking, NonFungiblesAdapter, ParentAsSuperuser, ParentIsPreset,
-	RelayChainAsNative, SiblingParachainAsNative, SiblingParachainConvertsVia,
-	SignedAccountId32AsNative, SignedToAccountId32, SovereignSignedViaLocation, StartsWith,
-	StartsWithExplicitGlobalConsensus, TakeWeightCredit, TrailingSetTopicAsId, UsingComponents,
-	WeightInfoBounds, WithComputedOrigin, WithUniqueTopic, XcmFeeManagerFromComponents,
-	XcmFeeToAccount,
+	FungiblesPoolAdapter, GlobalConsensusParachainConvertsFor, HashedDescription, IsConcrete,
+	LocalMint, MatchedConvertedConcreteId, NetworkExportTableItem, NoChecking, NonFungiblesAdapter,
+	ParentAsSuperuser, ParentIsPreset, RelayChainAsNative, SiblingParachainAsNative,
+	SiblingParachainConvertsVia, SignedAccountId32AsNative, SignedToAccountId32,
+	SovereignSignedViaLocation, StartsWith, StartsWithExplicitGlobalConsensus, TakeWeightCredit,
+	TrailingSetTopicAsId, UsingComponents, WeightInfoBounds, WithComputedOrigin,
+	WithLatestLocationConverter, WithUniqueTopic, XcmFeeManagerFromComponents, XcmFeeToAccount,
 };
 use xcm_executor::XcmExecutor;
 
@@ -353,15 +353,20 @@ pub type TrustedTeleporters = (
 /// Used to convert assets in pools to the asset required for fee payment.
 /// The pool must be between the first asset and the one required for fee payment.
 /// This type allows paying fees with any asset in a pool with the asset required for fee payment.
-pub type PoolAssetsConverter = SwapAssetConverter<
-	WestendLocationV3,
-	Runtime,
+pub type PoolAssetsExchanger = FungiblesPoolAdapter<
+	crate::AssetConversion,
 	crate::NativeAndAssets,
 	(
 		TrustBackedAssetsAsLocation<TrustBackedAssetsPalletLocation, Balance, xcm::v3::Location>,
 		ForeignAssetsConvertedConcreteId,
+		MatchedConvertedConcreteId<
+			xcm::v3::Location,
+			Balance,
+			Equals<ParentLocation>,
+			WithLatestLocationConverter<xcm::v3::Location>,
+			TryConvertInto,
+		>, // Adding this back in to match on relay token.
 	),
-	crate::AssetConversion,
 	AccountId,
 >;
 
@@ -435,7 +440,6 @@ impl xcm_executor::Config for XcmConfig {
 			>,
 		>,
 	);
-	type AssetConverter = PoolAssetsConverter;
 	type ResponseHandler = PolkadotXcm;
 	type AssetTrap = PolkadotXcm;
 	type AssetClaims = PolkadotXcm;
@@ -443,8 +447,7 @@ impl xcm_executor::Config for XcmConfig {
 	type PalletInstancesInfo = AllPalletsWithSystem;
 	type MaxAssetsIntoHolding = MaxAssetsIntoHolding;
 	type AssetLocker = ();
-	// TODO: Might also use `AssetExchanger` instead of `AssetConverter` if API fits.
-	type AssetExchanger = ();
+	type AssetExchanger = PoolAssetsExchanger;
 	type FeeManager = XcmFeeManagerFromComponents<
 		WaivedLocations,
 		XcmFeeToAccount<Self::AssetTransactor, AccountId, TreasuryAccount>,

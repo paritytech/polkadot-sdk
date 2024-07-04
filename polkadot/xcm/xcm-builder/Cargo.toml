@@ -23,12 +23,14 @@ sp-weights = { workspace = true }
 frame-support = { workspace = true }
 frame-system = { workspace = true }
 pallet-transaction-payment = { workspace = true }
+pallet-asset-conversion = { workspace = true }
 log = { workspace = true }
 
 # Polkadot dependencies
 polkadot-parachain-primitives = { workspace = true }
 
 [dev-dependencies]
+env_logger = { workspace = true }
 primitive-types = { workspace = true, default-features = true }
 pallet-balances = { workspace = true, default-features = true }
 pallet-xcm = { workspace = true, default-features = true }
@@ -54,6 +56,7 @@ runtime-benchmarks = [
 	"polkadot-test-runtime/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",
+	"pallet-asset-conversion/runtime-benchmarks",
 ]
 std = [
 	"codec/std",
@@ -70,4 +73,5 @@ std = [
 	"sp-weights/std",
 	"xcm-executor/std",
 	"xcm/std",
+	"pallet-asset-conversion/std",
 ]

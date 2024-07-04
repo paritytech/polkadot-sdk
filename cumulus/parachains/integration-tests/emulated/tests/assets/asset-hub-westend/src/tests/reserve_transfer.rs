@@ -1157,7 +1157,7 @@ fn reserve_transfer_native_asset_from_para_to_para_through_relay() {
 // ===============================================================
 #[test]
 fn reserve_transfer_pool_assets_from_system_para_to_para() {
-	let native_asset = RelayLocationV3::get();
+	let native_asset = westend_system_emulated_network::asset_hub_westend_emulated_chain::asset_hub_westend_runtime::xcm_config::WestendLocationV3::get();
 	let asset_id = 9999u32;
 	let pool_asset = xcm::v3::Location::new(
 		0,
@@ -1360,7 +1360,7 @@ fn reserve_transfer_pool_assets_from_system_para_to_para() {
 // USDT by making use of existing USDT pools on AssetHub and destination.
 #[test]
 fn reserve_transfer_usdt_from_para_to_para_through_asset_hub() {
-	use penpal_runtime::xcm_config::ASSET_HUB_ID;
+	use westend_system_emulated_network::penpal_emulated_chain::penpal_runtime::xcm_config::ASSET_HUB_ID;
 
 	let destination = PenpalA::sibling_location_of(PenpalB::para_id());
 	let sender = PenpalASender::get();
@@ -1393,7 +1393,7 @@ fn reserve_transfer_usdt_from_para_to_para_through_asset_hub() {
 	});
 
 	// We create a pool between USDT and WND in AssetHub.
-	let native_asset = RelayLocationV3::get();
+	let native_asset = westend_system_emulated_network::asset_hub_westend_emulated_chain::asset_hub_westend_runtime::xcm_config::WestendLocationV3::get();
 	let pool_asset = xcm::v3::Location::new(
 		0,
 		[
@@ -1497,7 +1497,7 @@ fn reserve_transfer_usdt_from_para_to_para_through_asset_hub() {
 		);
 	});
 
-	let usdt_from_asset_hub = penpal_runtime::xcm_config::UsdtFromAssetHub::get();
+	let usdt_from_asset_hub = westend_system_emulated_network::penpal_emulated_chain::penpal_runtime::xcm_config::UsdtFromAssetHub::get();
 
 	PenpalA::execute_with(|| {
 		use frame_support::traits::tokens::fungibles::Mutate;

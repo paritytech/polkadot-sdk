@@ -58,28 +58,3 @@ impl FeeManager for () {
 
 	fn handle_fee(_: Assets, _: Option<&XcmContext>, _: FeeReason) {}
 }
-
-/// Not about exchanging assets, just converting an amount of one
-/// into one of another.
-/// Used for paying fees in different assets.
-pub trait AssetConversion {
-	/// Convert `asset` to the specified `asset_id`.
-	/// If the conversion can be done, the returned Asset
-	/// has the specified `asset_id` and a new balance.
-	/// If it can't be converted, an error is returned.
-	fn convert_asset(asset: &Asset, asset_id: &AssetId) -> Result<Asset, XcmError>;
-	/// Swaps `give` for `want`.
-	/// Returns the newly swapped `Asset`, an error, or the same asset if `give == want`.
-	/// The `Asset` returned should be the same as the `asset` passed in to `convert_asset`.
-	fn swap(give: &Asset, want: &Asset) -> Result<Asset, XcmError>;
-}
-
-impl AssetConversion for () {
-	fn convert_asset(asset: &Asset, _: &AssetId) -> Result<Asset, XcmError> {
-		Ok(asset.clone())
-	}
-
-	fn swap(give: &Asset, _: &Asset) -> Result<Asset, XcmError> {
-		Ok(give.clone())
-	}
-}

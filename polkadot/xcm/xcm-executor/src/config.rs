@@ -15,8 +15,8 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use crate::traits::{
-	AssetConversion, AssetExchange, AssetLock, CallDispatcher, ClaimAssets, ConvertOrigin,
-	DropAssets, ExportXcm, FeeManager, HandleHrmpChannelAccepted, HandleHrmpChannelClosing,
+	AssetExchange, AssetLock, CallDispatcher, ClaimAssets, ConvertOrigin, DropAssets, ExportXcm,
+	FeeManager, HandleHrmpChannelAccepted, HandleHrmpChannelClosing,
 	HandleHrmpNewChannelOpenRequest, OnResponse, ProcessTransaction, RecordXcm, ShouldExecute,
 	TransactAsset, VersionChangeNotifier, WeightBounds, WeightTrader,
 };
@@ -93,8 +93,6 @@ pub trait Config {
 
 	/// Configure the fees.
 	type FeeManager: FeeManager;
-	/// Convert one asset to the one used to pay for fees.
-	type AssetConverter: AssetConversion;
 
 	/// The method of exporting a message.
 	type MessageExporter: ExportXcm;

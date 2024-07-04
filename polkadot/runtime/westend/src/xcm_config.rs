@@ -222,7 +222,6 @@ impl xcm_executor::Config for XcmConfig {
 	type HrmpNewChannelOpenRequestHandler = ();
 	type HrmpChannelAcceptedHandler = ();
 	type HrmpChannelClosingHandler = ();
-	type AssetConverter = ();
 	type XcmRecorder = XcmPallet;
 }
 

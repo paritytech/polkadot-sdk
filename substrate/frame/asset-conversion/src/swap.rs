@@ -112,6 +112,30 @@ pub trait SwapCredit<AccountId> {
 	) -> Result<(Self::Credit, Self::Credit), (Self::Credit, DispatchError)>;
 }
 
+/// Trait providing methods for quoting the exchange price between different asset classes.
+pub trait QuoteExchangePrice {
+	/// Measure units of the asset classes for quoting.
+	type Balance: Balance;
+	/// Kind of assets that are going to be quoted.
+	type AssetKind;
+
+	/// Provides the amount of `asset2` exchangeable for an exact amount of `asset1`.
+	fn quote_price_exact_tokens_for_tokens(
+		asset1: Self::AssetKind,
+		asset2: Self::AssetKind,
+		amount: Self::Balance,
+		include_fee: bool,
+	) -> Option<Self::Balance>;
+
+	/// Provides the amount of `asset1` exchangeable for an exact amount of `asset2`.
+	fn quote_price_tokens_for_exact_tokens(
+		asset1: Self::AssetKind,
+		asset2: Self::AssetKind,
+		amount: Self::Balance,
+		include_fee: bool,
+	) -> Option<Self::Balance>;
+}
+
 impl<T: Config> Swap<T::AccountId> for Pallet<T> {
 	type Balance = T::Balance;
 	type AssetKind = T::AssetKind;
@@ -208,5 +232,28 @@ impl<T: Config> SwapCredit<T::AccountId> for Pallet<T> {
 		})
 		// should never map an error since `with_transaction` above never returns it.
 		.map_err(|_| (Self::Credit::zero(credit_asset), DispatchError::Corruption))?
+	}
+}
+
+impl<T: Config> QuoteExchangePrice for Pallet<T> {
+	type Balance = T::Balance;
+	type AssetKind = T::AssetKind;
+
+	fn quote_price_exact_tokens_for_tokens(
+		asset1: T::AssetKind,
+		asset2: T::AssetKind,
+		amount: T::Balance,
+		include_fee: bool,
+	) -> Option<T::Balance> {
+		Self::quote_price_exact_tokens_for_tokens(asset1, asset2, amount, include_fee)
+	}
+
+	fn quote_price_tokens_for_exact_tokens(
+		asset1: T::AssetKind,
+		asset2: T::AssetKind,
+		amount: T::Balance,
+		include_fee: bool,
+	) -> Option<T::Balance> {
+		Self::quote_price_tokens_for_exact_tokens(asset1, asset2, amount, include_fee)
 	}
 }

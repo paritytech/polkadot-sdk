@@ -21086,10 +21086,12 @@ name = "staging-xcm-builder"
 version = "7.0.0"
 dependencies = [
  "assert_matches",
+ "env_logger 0.11.3",
  "frame-support",
  "frame-system",
  "impl-trait-for-tuples",
  "log",
+ "pallet-asset-conversion",
  "pallet-assets",
  "pallet-balances",
  "pallet-salary",

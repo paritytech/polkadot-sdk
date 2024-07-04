@@ -37,6 +37,15 @@ pub trait AssetExchange {
 		want: &Assets,
 		maximal: bool,
 	) -> Result<AssetsInHolding, AssetsInHolding>;
+
+	/// Handler for quoting the exchange price of two assets.
+	///
+	/// - `asset1` The first asset.
+	/// - `asset2` The second asset.
+	/// - `maximal`: If `true`, then all of `asset1` should be used.
+	fn quote_exchange_price(_asset1: &Asset, _asset2: &Asset, _maximal: bool) -> Option<u128> {
+		None
+	}
 }
 
 #[impl_trait_for_tuples::impl_for_tuples(30)]

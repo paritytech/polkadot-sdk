@@ -29,7 +29,7 @@ use super::{
 	WeightToFee, XcmpQueue,
 };
 use crate::{BaseDeliveryFee, FeeAssetId, TransactionByteFee};
-use assets_common::{SwapAssetConverter, TrustBackedAssetsAsLocation};
+use assets_common::TrustBackedAssetsAsLocation;
 use core::marker::PhantomData;
 use frame_support::{
 	parameter_types,
@@ -50,8 +50,8 @@ use xcm_builder::{
 	AccountId32Aliases, AllowHrmpNotificationsFromRelayChain, AllowKnownQueryResponses,
 	AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom, AsPrefixedGeneralIndex,
 	ConvertedConcreteId, EnsureXcmOrigin, FixedWeightBounds, FrameTransactionalProcessor,
-	FungibleAdapter, FungiblesAdapter, IsConcrete, LocalMint, NativeAsset, NoChecking,
-	ParentAsSuperuser, ParentIsPreset, RelayChainAsNative, SiblingParachainAsNative,
+	FungibleAdapter, FungiblesAdapter, FungiblesPoolAdapter, IsConcrete, LocalMint, NativeAsset,
+	NoChecking, ParentAsSuperuser, ParentIsPreset, RelayChainAsNative, SiblingParachainAsNative,
 	SiblingParachainConvertsVia, SignedAccountId32AsNative, SignedToAccountId32,
 	SovereignSignedViaLocation, StartsWith, TakeWeightCredit, TrailingSetTopicAsId,
 	UsingComponents, WithComputedOrigin, WithUniqueTopic, XcmFeeManagerFromComponents,
@@ -334,9 +334,8 @@ pub type TrustBackedAssetsConvertedConcreteId =
 /// Used to convert assets in pools to the asset required for fee payment.
 /// The pool must be between the first asset and the one required for fee payment.
 /// This type allows paying fees with any asset in a pool with the asset required for fee payment.
-pub type PoolAssetsConverter = SwapAssetConverter<
-	RelayLocation,
-	Runtime,
+pub type PoolAssetsExchanger = FungiblesPoolAdapter<
+	crate::AssetConversion,
 	crate::NativeAndAssets,
 	(
 		TrustBackedAssetsAsLocation<
@@ -346,7 +345,6 @@ pub type PoolAssetsConverter = SwapAssetConverter<
 		>,
 		ForeignAssetsConvertedConcreteId,
 	),
-	crate::AssetConversion,
 	AccountId,
 >;
 
@@ -389,7 +387,7 @@ impl xcm_executor::Config for XcmConfig {
 	type PalletInstancesInfo = AllPalletsWithSystem;
 	type MaxAssetsIntoHolding = MaxAssetsIntoHolding;
 	type AssetLocker = ();
-	type AssetExchanger = ();
+	type AssetExchanger = PoolAssetsExchanger;
 	type FeeManager = XcmFeeManagerFromComponents<
 		(),
 		XcmFeeToAccount<Self::AssetTransactor, AccountId, TreasuryAccount>,
@@ -403,7 +401,6 @@ impl xcm_executor::Config for XcmConfig {
 	type HrmpNewChannelOpenRequestHandler = ();
 	type HrmpChannelAcceptedHandler = ();
 	type HrmpChannelClosingHandler = ();
-	type AssetConverter = PoolAssetsConverter;
 	type XcmRecorder = PolkadotXcm;
 }
 
