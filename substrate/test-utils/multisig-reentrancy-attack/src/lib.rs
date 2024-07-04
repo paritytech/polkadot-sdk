@@ -21,7 +21,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 pub use pallet::*;
-pub use pallet_multisig::{self as multisig, Call as MultisigCall};
+pub use pallet_multisig::{self as Multisig, Call as MultisigCall};
 
 
 use frame_support::{
@@ -113,9 +113,18 @@ pub mod pallet {
 
 			let mut account_1: u64 = 1;
 			let mut account_2: u64 = 2;
-
 			// let multi = Multisig::multi_account_id(&[1, 2, 3][..], 2);
 			// pallet_multisig::
+
+            // Call the as_multi function from the pallet_multisig pallet
+            // Multisig::Pallet::<T>::as_multi(
+            //     frame_system::RawOrigin::Signed(sender).into(),
+            //     2,
+            //     vec![2],
+            //     None,
+            //     Some,
+            //     Weight::zero(),
+            // );
 			// T::Currency::transfer(&sender, dest, value, existence_requirement);
 
 			Ok(())
