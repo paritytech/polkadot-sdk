@@ -25,7 +25,7 @@ use crate::{
 use codec::Encode;
 use core::marker::PhantomData;
 use frame_support::DefaultNoBound;
-use sp_runtime::{DispatchError, DispatchResult};
+use sp_runtime::{DispatchError, DispatchResult, Saturating};
 use sp_std::{collections::btree_map::BTreeMap, mem, vec::Vec};
 
 /// Meter entry tracks transaction allocations.
@@ -39,18 +39,18 @@ pub struct MeterEntry {
 
 impl MeterEntry {
 	/// Create a new entry.
-	pub fn new(limit: u32) -> Self {
+	fn new(limit: u32) -> Self {
 		Self { limit, amount: Default::default() }
 	}
 
 	/// Check if the allocated amount exceeds the limit.
-	pub fn exceeds_limit(&self, amount: u32) -> bool {
+	fn exceeds_limit(&self, amount: u32) -> bool {
 		self.amount.saturating_add(amount) > self.limit
 	}
 
 	/// Absorb the allocation amount of the nested entry into the current entry.
-	pub fn absorb(&mut self, rhs: Self) {
-		self.amount = self.amount.saturating_add(rhs.amount)
+	fn absorb(&mut self, rhs: Self) {
+		self.amount.saturating_accrue(rhs.amount)
 	}
 }
 
@@ -66,12 +66,12 @@ pub struct StorageMeter<T: Config> {
 impl<T: Config> StorageMeter<T> {
 	const STORAGE_FRACTION_DENOMINATOR: u32 = 16;
 	/// Create a new storage allocation meter.
-	pub fn new(memory_limit: u32) -> Self {
+	fn new(memory_limit: u32) -> Self {
 		Self { root_meter: MeterEntry::new(memory_limit), ..Default::default() }
 	}
 
 	/// Charge the allocated amount of transaction storage from the meter.
-	pub fn charge(&mut self, amount: u32) -> DispatchResult {
+	fn charge(&mut self, amount: u32) -> DispatchResult {
 		let meter = self.current_mut();
 		if meter.exceeds_limit(amount) {
 			return Err(Error::<T>::OutOfTransientStorage.into());
@@ -81,20 +81,20 @@ impl<T: Config> StorageMeter<T> {
 	}
 
 	/// Revert a transaction meter.
-	pub fn revert(&mut self) {
+	fn revert(&mut self) {
 		self.nested_meters
 			.pop()
 			.expect("There is no nested meter that can be reverted.");
 	}
 
 	/// Start a transaction meter.
-	pub fn start(&mut self) {
+	fn start(&mut self) {
 		let meter = self.current();
 		let mut transaction_limit = meter.limit.saturating_sub(meter.amount);
 		if !self.nested_meters.is_empty() {
 			// Allow use of (1 - 1/STORAGE_FRACTION_DENOMINATOR) of free storage for subsequent
 			// calls.
-			transaction_limit = transaction_limit.saturating_sub(
+			transaction_limit.saturating_reduce(
 				transaction_limit.saturating_div(Self::STORAGE_FRACTION_DENOMINATOR),
 			);
 		}
@@ -103,7 +103,7 @@ impl<T: Config> StorageMeter<T> {
 	}
 
 	/// Commit a transaction meter.
-	pub fn commit(&mut self) {
+	fn commit(&mut self) {
 		let transaction_meter = self
 			.nested_meters
 			.pop()
@@ -112,8 +112,8 @@ impl<T: Config> StorageMeter<T> {
 	}
 
 	/// The total allocated amount of memory.
-	#[cfg(any(test, feature = "runtime-benchmarks"))]
-	pub fn total_amount(&self) -> u32 {
+	#[cfg(test)]
+	fn total_amount(&self) -> u32 {
 		self.nested_meters
 			.iter()
 			.fold(self.root_meter.amount, |acc, e| acc.saturating_add(e.amount))
@@ -138,12 +138,12 @@ struct JournalEntry {
 
 impl JournalEntry {
 	/// Create a new change.
-	pub fn new(key: Vec<u8>, prev_value: Option<Vec<u8>>) -> Self {
+	fn new(key: Vec<u8>, prev_value: Option<Vec<u8>>) -> Self {
 		Self { key, prev_value }
 	}
 
 	/// Revert the change.
-	pub fn revert(self, storage: &mut Storage) {
+	fn revert(self, storage: &mut Storage) {
 		storage.write(&self.key, self.prev_value);
 	}
 }
@@ -153,22 +153,22 @@ struct Journal(Vec<JournalEntry>);
 
 impl Journal {
 	/// Create a new journal.
-	pub fn new() -> Self {
+	fn new() -> Self {
 		Self(Default::default())
 	}
 
 	/// Add a change to the journal.
-	pub fn push(&mut self, entry: JournalEntry) {
+	fn push(&mut self, entry: JournalEntry) {
 		self.0.push(entry);
 	}
 
 	/// Length of the journal.
-	pub fn len(&self) -> usize {
+	fn len(&self) -> usize {
 		self.0.len()
 	}
 
 	/// Roll back all journal changes until the chackpoint
-	pub fn rollback(&mut self, storage: &mut Storage, checkpoint: usize) {
+	fn rollback(&mut self, storage: &mut Storage, checkpoint: usize) {
 		self.0.drain(checkpoint..).rev().for_each(|entry| entry.revert(storage));
 	}
 }
@@ -179,12 +179,12 @@ struct Storage(BTreeMap<Vec<u8>, Vec<u8>>);
 
 impl Storage {
 	/// Read the storage entry.
-	pub fn read(&self, key: &Vec<u8>) -> Option<Vec<u8>> {
+	fn read(&self, key: &Vec<u8>) -> Option<Vec<u8>> {
 		self.0.get(key).cloned()
 	}
 
 	/// Write the storage entry.
-	pub fn write(&mut self, key: &Vec<u8>, value: Option<Vec<u8>>) -> Option<Vec<u8>> {
+	fn write(&mut self, key: &Vec<u8>, value: Option<Vec<u8>>) -> Option<Vec<u8>> {
 		if let Some(value) = value {
 			// Insert storage entry.
 			self.0.insert(key.clone(), value)
@@ -261,8 +261,7 @@ impl<T: Config> TransientStorage<T> {
 					// If there was no previous value, a new entry is added to storage (BTreeMap)
 					// containing a Vec for the key and a Vec for the value. The value was already
 					// included in the amount.
-					amount =
-						amount.saturating_add(key_len).saturating_add(mem::size_of::<Vec<u8>>());
+					amount.saturating_accrue(key_len.saturating_add(mem::size_of::<Vec<u8>>()));
 				}
 				self.meter.charge(amount as _)?;
 			}
