@@ -24,7 +24,7 @@ use frame_support::traits::{
 };
 use pallet_treasury::TreasuryAccountId;
 use polkadot_primitives::Balance;
-use sp_runtime::{traits::TryConvert, Perquintill, RuntimeDebug};
+use sp_runtime::{traits::{TryConvert, Saturating}, Perquintill, RuntimeDebug};
 use xcm::VersionedLocation;
 
 /// Logic for the author to get a portion of fees.
@@ -67,6 +67,53 @@ where
 	}
 }
 
+pub struct EraPayoutParams {
+	pub total_staked: Balance,
+	pub total_stakable: Balance,
+	pub ideal_stake: Perquintill,
+	pub max_annual_inflation: Perquintill,
+	pub min_annual_inflation: Perquintill,
+	pub falloff: Perquintill,
+	pub period_fraction: Perquintill,
+	pub legacy_auction_proportion: Option<Perquintill>,
+}
+
+pub fn relay_era_payout(params: EraPayoutParams) -> (Balance, Balance) {
+	let EraPayoutParams {
+		total_staked,
+		total_stakable,
+		ideal_stake,
+		max_annual_inflation,
+		min_annual_inflation,
+		falloff,
+		period_fraction,
+		legacy_auction_proportion,
+	} = params;
+
+	let delta_annual_inflation = max_annual_inflation.saturating_sub(min_annual_inflation);
+
+	let ideal_stake = ideal_stake.saturating_sub(legacy_auction_proportion.unwrap_or_default());
+
+	let stake = Perquintill::from_rational(total_staked, total_stakable);
+	let adjustment = pallet_staking_reward_fn::compute_inflation(stake, ideal_stake, falloff);
+	let staking_inflation =
+		min_annual_inflation.saturating_add(delta_annual_inflation * adjustment);
+
+	let max_payout = period_fraction * max_annual_inflation * total_stakable;
+	let staking_payout = (period_fraction * staking_inflation) * total_stakable;
+	let rest = max_payout.saturating_sub(staking_payout);
+
+	let other_issuance = total_stakable.saturating_sub(total_staked);
+	if total_staked > other_issuance {
+		let _cap_rest = Perquintill::from_rational(other_issuance, total_staked) * staking_payout;
+		// We don't do anything with this, but if we wanted to, we could introduce a cap on the
+		// treasury amount with: `rest = rest.min(cap_rest);`
+	}
+	(staking_payout, rest)
+}
+
+
+#[deprecated = "use relay_era_payout instead which supports dynamic parameters"]
 pub fn era_payout(
 	total_staked: Balance,
 	total_stakable: Balance,
