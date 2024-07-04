@@ -136,7 +136,6 @@ pub type PoolAssetsConvertedConcreteId<PoolAssetsPalletLocation, Balance> =
 mod tests {
 	use super::*;
 	use sp_runtime::traits::MaybeEquivalence;
-	use xcm::prelude::*;
 	use xcm_builder::{StartsWithExplicitGlobalConsensus, WithLatestLocationConverter};
 	use xcm_executor::traits::{Error as MatchError, MatchesFungibles};
 

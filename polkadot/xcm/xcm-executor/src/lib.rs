@@ -80,7 +80,9 @@ pub struct XcmExecutor<Config: config::Config> {
 	appendix_weight: Weight,
 	transact_status: MaybeErrorCode,
 	fees_mode: FeesMode,
-	asset_for_fees: Option<Asset>,
+	/// Asset provided in `BuyExecution` instruction (if any) in current XCM program. Same asset
+	/// will be used for paying any potential delivery fees incurred by current XCM program.
+	asset_used_for_fees: Option<Asset>,
 	_config: PhantomData<Config>,
 }
 
@@ -311,7 +313,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 			appendix_weight: Weight::zero(),
 			transact_status: Default::default(),
 			fees_mode: FeesMode { jit_withdraw: false },
-			asset_for_fees: None,
+			asset_used_for_fees: None,
 			_config: PhantomData,
 		}
 	}
@@ -460,21 +462,22 @@ impl<Config: config::Config> XcmExecutor<Config> {
 		);
 		let asset_needed_for_fees = fees.get(0).ok_or(XcmError::AssetNotFound)?;
 		// If `BuyExecution` was called, we know we can try to use that asset for fees.
-		let asset_to_pay_for_fees = if let Some(asset_for_fees) = &self.asset_for_fees {
-			if asset_for_fees.id != asset_needed_for_fees.id {
+		let asset_to_pay_for_fees = if let Some(asset_used_for_fees) = &self.asset_used_for_fees {
+			if asset_used_for_fees.id != asset_needed_for_fees.id {
 				match Config::AssetExchanger::quote_exchange_price(
-					&asset_for_fees,
+					&asset_used_for_fees,
 					&asset_needed_for_fees,
 					false,
 				) {
-					Some(necessary_amount) => (asset_for_fees.id.clone(), necessary_amount).into(),
+					Some(necessary_amount) =>
+						(asset_used_for_fees.id.clone(), necessary_amount).into(),
 					// If we can't convert, then we return the original asset.
 					// It will error later in any case.
 					None => {
 						log::trace!(
 							target: "xcm::take_fee",
 							"Could not convert fees to {:?}",
-							asset_for_fees,
+							asset_used_for_fees,
 						);
 						asset_needed_for_fees.clone()
 					},
@@ -933,9 +936,9 @@ impl<Config: config::Config> XcmExecutor<Config> {
 						validate_send::<Config::XcmSender>(dest.clone(), Xcm(message_to_weigh))?;
 					let asset_needed_for_fees = fee.get(0).ok_or(XcmError::AssetNotFound)?;
 					log::trace!(target: "xcm::DepositReserveAsset", "Asset needed to pay for fees: {:?}", asset_needed_for_fees);
-					log::trace!(target: "xcm::DepositReserveAsset", "Asset wanted to pay for fees: {:?}", self.asset_for_fees);
+					log::trace!(target: "xcm::DepositReserveAsset", "Asset wanted to pay for fees: {:?}", self.asset_used_for_fees);
 					let asset_to_pay_for_fees =
-						self.asset_for_fees.as_ref().unwrap_or(&asset_needed_for_fees);
+						self.asset_used_for_fees.as_ref().unwrap_or(&asset_needed_for_fees);
 					let actual_asset_to_use_for_fees =
 						if asset_to_pay_for_fees.id != asset_needed_for_fees.id {
 							// Get the correct amount of asset_to_pay_for_fees.
@@ -1056,8 +1059,8 @@ impl<Config: config::Config> XcmExecutor<Config> {
 				let old_holding = self.holding.clone();
 				// Save the asset being used for execution fees, so we later know what should be
 				// used for delivery fees.
-				self.asset_for_fees = Some(fees.clone());
-				log::trace!(target: "xcm::executor::BuyExecution", "Asset for fees: {:?}", self.asset_for_fees);
+				self.asset_used_for_fees = Some(fees.clone());
+				log::trace!(target: "xcm::executor::BuyExecution", "Asset for fees: {:?}", self.asset_used_for_fees);
 				// pay for `weight` using up to `fees` of the holding register.
 				let max_fee =
 					self.holding.try_take(fees.into()).map_err(|_| XcmError::NotHoldingFees)?;
