@@ -157,7 +157,7 @@ impl Journal {
 		Self(Default::default())
 	}
 
-	/// Add a chenge to the journal.
+	/// Add a change to the journal.
 	pub fn push(&mut self, entry: JournalEntry) {
 		self.0.push(entry);
 	}
