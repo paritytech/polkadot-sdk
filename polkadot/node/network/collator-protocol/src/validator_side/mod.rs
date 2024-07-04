@@ -521,7 +521,6 @@ where
 			false,
 		),
 	};
-
 	let paras_now = paras_now.unwrap_or_else(|| VecDeque::new());
 
 	for para_id in paras_now.iter() {

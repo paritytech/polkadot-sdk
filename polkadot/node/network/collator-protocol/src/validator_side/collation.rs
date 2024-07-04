@@ -247,17 +247,21 @@ pub struct Collations {
 	claims_per_para: BTreeMap<ParaId, usize>,
 	// Represents the claim queue at the relay parent. The `bool` field indicates if a candidate
 	// was fetched for the `ParaId` at the position in question. In other words - if the claim is
-	// 'satisfied'. If the claim queue is not avaliable `claim_queue_state` will be `None`.
+	// 'satisfied'. If the claim queue is not available `claim_queue_state` will be `None`.
 	claim_queue_state: Option<Vec<(bool, ParaId)>>,
 }
 
 impl Collations {
-	/// `Collations` should work with and without claim queue support. To make this happen without
-	/// creating two parallel implementations instead of working with the claim queue directly it
-	/// uses `GroupAssignments`. If the runtime supports claim queue `GroupAssignments` contains the
-	/// claim queue for the core assigned to the (backing group of the) validator. If the runtime
-	/// doesn't support claim queue `GroupAssignments` contains only one entry - the `ParaId` of the
-	/// parachain assigned to the core.
+	/// `Collations` should work with and without claim queue support. If the claim queue runtime
+	/// api is available `GroupAssignments` the claim queue. If not - group assignments will contain
+	/// just one item (what's scheduled on the core).
+	///
+	/// Some of the logic in `Collations` relies on the claim queue and if it is not available
+	/// fallbacks to another logic. For this reason `Collations` needs to know if claim queue is
+	/// available or not.
+	///
+	/// Once claim queue runtime api is released everywhere this logic won't be needed anymore and
+	/// can be cleaned up.
 	pub(super) fn new(group_assignments: &Vec<ParaId>, has_claim_queue: bool) -> Self {
 		let mut claims_per_para = BTreeMap::new();
 		let mut claim_queue_state = Vec::with_capacity(group_assignments.len());
@@ -362,7 +366,7 @@ impl Collations {
 	/// parachains are sharing a core no fairness is guaranteed between them and the faster one can
 	/// starve the slower one by exhausting the limit with its own advertisements. In practice this
 	/// should not happen because core sharing implies core time support which implies the claim
-	/// queue is available.
+	/// queue being available.
 	pub(super) fn is_collations_limit_reached(
 		&self,
 		relay_parent_mode: ProspectiveParachainsMode,
@@ -441,6 +445,10 @@ impl Collations {
 	/// If claim queue is not supported then `group_assignment` should contain just one element and
 	/// the score won't matter. In this case collations will be fetched in the order they were
 	/// received.
+	///
+	/// Note: `group_assignments` is needed just for the fall back logic. It should be removed once
+	/// claim queue runtime api is released everywhere since it will be redundant - claim queue will
+	/// already be available in `self.claim_queue_state`.
 	fn pick_a_collation_to_fetch(
 		&mut self,
 		group_assignments: &Vec<ParaId>,
@@ -457,7 +465,7 @@ impl Collations {
 
 		let claim_queue_state = match self.claim_queue_state.as_mut() {
 			Some(cqs) => cqs,
-			// Fallback if claim queue is not avaliable. There is only one assignment in
+			// Fallback if claim queue is not available. There is only one assignment in
 			// `group_assignments` so fetch the first advertisement for it and return.
 			None =>
 				if let Some(assigned_para_id) = group_assignments.first() {
