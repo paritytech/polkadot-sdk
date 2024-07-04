@@ -107,6 +107,7 @@ use polkadot_primitives::{
 };
 use thiserror::Error;
 
+// TODO: fix this.
 const EXTRA_UNCONNECTED_COUNT: usize = 10;
 
 /// Fragment chain related errors.
@@ -144,6 +145,12 @@ pub(crate) enum Error {
 	CandidateEntry(#[from] CandidateEntryError),
 	#[error("RelayParentNotInScope")]
 	RelayParentNotInScope,
+}
+
+/// The rule for selecting between two backed candidate forks, when adding to the chain.
+/// All validators should adhere to this rule.
+fn fork_selection_rule(hash1: &CandidateHash, hash2: &CandidateHash) -> Ordering {
+	hash1.cmp(hash2)
 }
 
 /// Stores candidates and information about them such as their relay-parents and their backing
@@ -612,6 +619,15 @@ impl FragmentChain {
 		self.unconnected.candidates()
 	}
 
+	/// Return whether this candidate is backed in this chain or the unconnected storage.
+	pub fn is_candidate_backed(&self, hash: &CandidateHash) -> bool {
+		self.candidates.contains(hash) ||
+			matches!(
+				self.unconnected.by_candidate_hash.get(hash),
+				Some(candidate) if candidate.state == CandidateState::Backed
+			)
+	}
+
 	pub fn as_candidate_storage(&self) -> CandidateStorage {
 		let mut storage = self.unconnected.clone();
 
@@ -871,7 +887,7 @@ impl FragmentChain {
 
 			// If the candidate is backed and in the current chain, accept only a candidate with
 			// a lower hash.
-			if other_candidate < &candidate.candidate_hash() {
+			if fork_selection_rule(other_candidate, &candidate.candidate_hash()) == Ordering::Less {
 				return Err(Error::ForkChoiceRule)
 			}
 		}
@@ -1078,17 +1094,18 @@ impl FragmentChain {
 					))
 				});
 
-			// TODO: abstract the fork selection rule into a function.
-			let best_candidate = possible_children.min_by(|child1, child2| {
-				// Always pick a candidate pending availability as best.
-				if self.scope.get_pending_availability(&child1.1).is_some() {
-					Ordering::Less
-				} else if self.scope.get_pending_availability(&child2.1).is_some() {
-					Ordering::Greater
-				} else {
-					child1.1.cmp(&child2.1)
-				}
-			});
+			let best_candidate =
+				possible_children.min_by(|(_, ref child1, _, _), (_, ref child2, _, _)| {
+					// Always pick a candidate pending availability as best.
+					if self.scope.get_pending_availability(child1).is_some() {
+						Ordering::Less
+					} else if self.scope.get_pending_availability(child2).is_some() {
+						Ordering::Greater
+					} else {
+						// Otherwise, use the fork selection rule.
+						fork_selection_rule(child1, child2)
+					}
+				});
 
 			if let Some((fragment, candidate_hash, output_head_data_hash, parent_head_data_hash)) =
 				best_candidate
@@ -1119,12 +1136,13 @@ impl FragmentChain {
 		}
 	}
 
-	pub fn candidate_backed(mut self, newly_backed_candidate: &CandidateHash) -> Self {
-		if !self.unconnected.mark_backed(newly_backed_candidate) {
-			return self
+	pub fn candidate_backed(&self, newly_backed_candidate: &CandidateHash) -> Option<Self> {
+		let mut old_storage = self.as_candidate_storage();
+
+		if !old_storage.mark_backed(newly_backed_candidate) {
+			return None
 		}
 
-		let mut old_storage = self.as_candidate_storage();
-		Self::populate(self.scope, &mut old_storage)
+		Some(Self::populate(self.scope.clone(), &mut old_storage))
 	}
 }

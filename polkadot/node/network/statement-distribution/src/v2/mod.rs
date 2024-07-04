@@ -2199,6 +2199,10 @@ async fn fragment_chain_update_inner<Context>(
 		Some(h) => h,
 	};
 
+	if hypotheticals.is_empty() {
+		return
+	}
+
 	// 2. find out which are in the frontier
 	gum::debug!(
 		target: LOG_TARGET,

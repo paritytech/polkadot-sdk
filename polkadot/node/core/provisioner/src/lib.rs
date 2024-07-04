@@ -273,7 +273,7 @@ async fn handle_communication<Context>(
 				let span = state.span.child("provisionable-data");
 				let _timer = metrics.time_provisionable_data();
 
-				gum::trace!(target: LOG_TARGET, ?relay_parent, "Received provisionable data.");
+				gum::trace!(target: LOG_TARGET, ?relay_parent, "Received provisionable data: {:?}", &data);
 
 				note_provisionable_data(state, &span, data);
 			}

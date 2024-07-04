@@ -139,9 +139,9 @@ async fn run_iteration<Context>(
 			FromOrchestra::Signal(OverseerSignal::BlockFinalized(..)) => {},
 			FromOrchestra::Communication { msg } => match msg {
 				ProspectiveParachainsMessage::IntroduceSecondedCandidate(request, tx) =>
-					handle_introduce_seconded_candidate(&mut *ctx, view, request, tx, metrics).await,
+					handle_introduce_seconded_candidate(view, request, tx, metrics).await,
 				ProspectiveParachainsMessage::CandidateBacked(para, candidate_hash) =>
-					handle_candidate_backed(&mut *ctx, view, para, candidate_hash).await,
+					handle_candidate_backed(view, para, candidate_hash).await,
 				ProspectiveParachainsMessage::GetBackableCandidates(
 					relay_parent,
 					para,
@@ -192,12 +192,10 @@ async fn handle_active_leaves_update<Context>(
 			return Ok(())
 		};
 
-		let scheduled_paras = fetch_upcoming_paras(&mut *ctx, hash).await?;
-		// TODO: here we actually need to take the full implicit view into account, for this to work
-		// with core sharing paras.
+		let scheduled_paras = fetch_upcoming_paras(ctx, hash).await?;
 
 		let block_info: RelayChainBlockInfo =
-			match fetch_block_info(&mut *ctx, &mut temp_header_cache, hash).await? {
+			match fetch_block_info(ctx, &mut temp_header_cache, hash).await? {
 				None => {
 					gum::warn!(
 						target: LOG_TARGET,
@@ -220,7 +218,7 @@ async fn handle_active_leaves_update<Context>(
 			allowed_ancestry_len
 		};
 		let mut ancestry =
-			fetch_ancestry(&mut *ctx, &mut temp_header_cache, hash, requested_ancestry_len).await?;
+			fetch_ancestry(ctx, &mut temp_header_cache, hash, requested_ancestry_len).await?;
 
 		let prev_fragment_chains =
 			ancestry.first().and_then(|prev_leaf| view.active_leaves.get(&prev_leaf.hash));
@@ -243,7 +241,7 @@ async fn handle_active_leaves_update<Context>(
 				})
 				.unwrap_or_default();
 
-			let backing_state = fetch_backing_state(&mut *ctx, hash, para).await?;
+			let backing_state = fetch_backing_state(ctx, hash, para).await?;
 
 			let Some((constraints, pending_availability)) = backing_state else {
 				// This indicates a runtime conflict of some kind.
@@ -426,9 +424,7 @@ async fn preprocess_candidates_pending_availability<Context>(
 	Ok(importable)
 }
 
-#[overseer::contextbounds(ProspectiveParachains, prefix = self::overseer)]
-async fn handle_introduce_seconded_candidate<Context>(
-	_ctx: &mut Context,
+async fn handle_introduce_seconded_candidate(
 	view: &mut View,
 	request: IntroduceSecondedCandidateRequest,
 	tx: oneshot::Sender<bool>,
@@ -530,40 +526,31 @@ async fn handle_introduce_seconded_candidate<Context>(
 	let _ = tx.send(added);
 }
 
-#[overseer::contextbounds(ProspectiveParachains, prefix = self::overseer)]
-async fn handle_candidate_backed<Context>(
-	_ctx: &mut Context,
-	view: &mut View,
-	para: ParaId,
-	candidate_hash: CandidateHash,
-) {
+async fn handle_candidate_backed(view: &mut View, para: ParaId, candidate_hash: CandidateHash) {
 	// Repopulate the fragment chains.
 	let mut found_candidate = false;
 	let mut found_para = false;
 	for (leaf, leaf_data) in view.active_leaves.iter_mut() {
-		if let Some(chain) = leaf_data.fragment_chains.remove(&para) {
+		if let Some(chain) = leaf_data.fragment_chains.get_mut(&para) {
 			found_para = true;
-			if chain.contains_candidate(&candidate_hash) {
+			if chain.is_candidate_backed(&candidate_hash) {
 				gum::debug!(
 					target: LOG_TARGET,
 					para_id = ?para,
 					?candidate_hash,
 					"Received redundant instruction to mark as backed an already backed candidate",
-					// TODO: this can happen even if the candidate is not in chain.
 				);
 				found_candidate = true;
-			}
-
-			if chain.contains_unconnected_candidate(&candidate_hash) {
+			} else if chain.contains_unconnected_candidate(&candidate_hash) {
 				found_candidate = true;
-				let new_chain = chain.candidate_backed(&candidate_hash);
+				let maybe_new_chain = chain.candidate_backed(&candidate_hash);
 
 				gum::trace!(
 					target: LOG_TARGET,
 					relay_parent = ?leaf,
 					para_id = ?para,
 					"Candidate backed. Candidate chain for para: {:?}",
-					new_chain.to_vec()
+					maybe_new_chain.as_ref().unwrap_or(chain).to_vec()
 				);
 
 				gum::trace!(
@@ -571,14 +558,13 @@ async fn handle_candidate_backed<Context>(
 					relay_parent = ?leaf,
 					para_id = ?para,
 					"Potential candidate storage for para: {:?}",
-					new_chain.unconnected().map(|candidate| candidate.hash()).collect::<Vec<_>>()
+					maybe_new_chain.as_ref().unwrap_or(chain).unconnected().map(|candidate| candidate.hash()).collect::<Vec<_>>()
 				);
 
-				leaf_data.fragment_chains.insert(para, new_chain);
-				continue
+				if let Some(new_chain) = maybe_new_chain {
+					*chain = new_chain;
+				}
 			}
-
-			leaf_data.fragment_chains.insert(para, chain);
 		}
 	}
 
