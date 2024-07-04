@@ -171,8 +171,8 @@ pub use impl_currency::{NegativeImbalance, PositiveImbalance};
 use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{
-		AtLeast32BitUnsigned, CheckedAdd, CheckedSub, MaybeSerializeDeserialize,
-		Saturating, StaticLookup, Zero,
+		AtLeast32BitUnsigned, CheckedAdd, CheckedSub, MaybeSerializeDeserialize, Saturating,
+		StaticLookup, Zero,
 	},
 	ArithmeticError, DispatchError, FixedPointOperand, Perbill, RuntimeDebug, TokenError,
 };
