@@ -116,8 +116,9 @@ pub async fn find_potential_parents<B: BlockT>(
 
 	// Pending header and hash.
 	let maybe_pending = {
-		// Fetch the most recent pending header from the relay chain. We use `OccupiedCoreAssumption::Included`
-		// so the candidate pending availability gets enacted before being returned to us.
+		// Fetch the most recent pending header from the relay chain. We use
+		// `OccupiedCoreAssumption::Included` so the candidate pending availability gets enacted
+		// before being returned to us.
 		let pending_header = relay_client
 			.persisted_validation_data(
 				params.relay_parent,
@@ -372,7 +373,15 @@ pub fn search_child_branches_for_parents<Block: BlockT>(
 		let child_depth = entry.depth + 1;
 		let hash = entry.hash;
 
-		tracing::trace!(target: PARENT_SEARCH_LOG_TARGET, ?hash, is_potential, is_pending, is_included, "Checking potential parent.");
+		tracing::trace!(
+			target: PARENT_SEARCH_LOG_TARGET,
+			?hash,
+			is_potential,
+			is_pending,
+			is_included,
+			"Checking potential parent."
+		);
+
 		if is_potential {
 			potential_parents.push(entry);
 		}
