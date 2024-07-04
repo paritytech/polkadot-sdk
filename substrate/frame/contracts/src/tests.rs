@@ -996,11 +996,12 @@ fn transient_storage_limit_in_call() {
 			.value(min_balance * 100)
 			.build_and_unwrap_account_id();
 
+		let storage_value_size = 1000;
 		MaxTransientStorageSize::set(4 * 1024);
 		// Call contracts with storage values within the limit.
 		// Caller and Callee contracts each set a transient storage value of size 1000.
 		assert_ok!(builder::call(addr_caller.clone())
-			.data((1_000u32, 1_000u32, &addr_callee).encode())
+			.data((storage_value_size, storage_value_size, &addr_callee).encode())
 			.build(),);
 
 		MaxTransientStorageSize::set(512);
@@ -1008,7 +1009,7 @@ fn transient_storage_limit_in_call() {
 		// Limit exceeded in the caller contract.
 		assert_err_ignore_postinfo!(
 			builder::call(addr_caller.clone())
-				.data((1_000u32, 1_000u32, &addr_callee).encode())
+				.data((storage_value_size, storage_value_size, &addr_callee).encode())
 				.build(),
 			<Error<Test>>::OutOfTransientStorage,
 		);
@@ -1018,7 +1019,7 @@ fn transient_storage_limit_in_call() {
 		// Limit exceeded in the callee contract.
 		assert_err_ignore_postinfo!(
 			builder::call(addr_caller)
-				.data((1_000u32, 1_000u32, &addr_callee).encode())
+				.data((storage_value_size, storage_value_size, &addr_callee).encode())
 				.build(),
 			<Error<Test>>::ContractTrapped
 		);
