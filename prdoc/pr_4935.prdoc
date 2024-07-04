@@ -34,29 +34,29 @@ crates:
   - name: bp-messages
     bump: major
   - name: bp-polkadot-core
-    bump: minor
+    bump: patch
   - name: bp-bridge-hub-kusama
-    bump: patch
+    bump: minor
   - name: bp-bridge-hub-polkadot
-    bump: patch
+    bump: minor
   - name: bp-bridge-hub-rococo
-    bump: patch
+    bump: minor
   - name: bp-bridge-hub-westend
-    bump: patch
+    bump: minor
   - name: bp-kusama
-    bump: patch
+    bump: minor
   - name: bp-polkadot
-    bump: patch
+    bump: minor
   - name: bp-polkadot-bulletin
-    bump: patch
+    bump: minor
   - name: bp-rococo
-    bump: patch
+    bump: minor
   - name: bp-test-utils
     bump: patch
   - name: bp-westend
-    bump: patch
+    bump: minor
   - name: bridge-hub-test-utils
-    bump: patch
+    bump: major
   - name: pallet-bridge-grandpa
     bump: patch
   - name: pallet-bridge-parachains
@@ -70,6 +70,6 @@ crates:
   - name: asset-hub-westend-runtime
     bump: patch
   - name: bridge-hub-rococo-runtime
-    bump: patch
+    bump: major
   - name: bridge-hub-westend-runtime
-    bump: patch
+    bump: major

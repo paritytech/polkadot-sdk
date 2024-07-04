@@ -403,7 +403,7 @@ where
 	) -> CallOf<P::TargetChain> {
 		let call: CallOf<P::TargetChain> = BridgeMessagesCall::<R, I>::receive_messages_proof {
 			relayer_id_at_bridged_chain: relayer_id_at_source,
-			proof: Box::new(proof.1),
+			proof: proof.1.into(),
 			messages_count,
 			dispatch_weight,
 		}
@@ -455,7 +455,7 @@ macro_rules! generate_receive_message_proof_call_builder {
 				bp_runtime::paste::item! {
 					$bridge_messages($receive_messages_proof {
 						relayer_id_at_bridged_chain: relayer_id_at_source,
-						proof: Box::new(proof.1),
+						proof: proof.1.into(),
 						messages_count: messages_count,
 						dispatch_weight: dispatch_weight,
 					})
@@ -496,7 +496,7 @@ where
 	) -> CallOf<P::SourceChain> {
 		let call: CallOf<P::SourceChain> =
 			BridgeMessagesCall::<R, I>::receive_messages_delivery_proof {
-				proof: proof.1,
+				proof: proof.1.into(),
 				relayers_state: proof.0,
 			}
 			.into();
@@ -718,7 +718,7 @@ mod tests {
 		let pallet_receive_messages_proof =
 			pallet_bridge_messages::Call::<mock::TestRuntime>::receive_messages_proof {
 				relayer_id_at_bridged_chain: account,
-				proof: Box::new(receive_messages_proof.clone()),
+				proof: receive_messages_proof.clone().into(),
 				messages_count,
 				dispatch_weight,
 			};
@@ -726,7 +726,7 @@ mod tests {
 		// construct mock enum Call
 		let mock_enum_receive_messages_proof = CodegenBridgeMessagesCall::receive_messages_proof {
 			relayer_id_at_bridged_chain: account,
-			proof: Box::new(receive_messages_proof.clone()),
+			proof: receive_messages_proof.clone().into(),
 			messages_count,
 			dispatch_weight,
 		};
