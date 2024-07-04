@@ -46,6 +46,7 @@ default = ["std"]
 runtime-benchmarks = [
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
+	"pallet-asset-conversion/runtime-benchmarks",
 	"pallet-assets/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
 	"pallet-salary/runtime-benchmarks",
@@ -56,13 +57,13 @@ runtime-benchmarks = [
 	"polkadot-test-runtime/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",
-	"pallet-asset-conversion/runtime-benchmarks",
 ]
 std = [
 	"codec/std",
 	"frame-support/std",
 	"frame-system/std",
 	"log/std",
+	"pallet-asset-conversion/std",
 	"pallet-transaction-payment/std",
 	"polkadot-parachain-primitives/std",
 	"scale-info/std",
@@ -73,5 +74,4 @@ std = [
 	"sp-weights/std",
 	"xcm-executor/std",
 	"xcm/std",
-	"pallet-asset-conversion/std",
 ]

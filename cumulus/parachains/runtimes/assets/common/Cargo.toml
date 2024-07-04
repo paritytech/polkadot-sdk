@@ -43,8 +43,9 @@ std = [
 	"cumulus-primitives-core/std",
 	"frame-support/std",
 	"log/std",
-	"pallet-assets/std",
 	"pallet-asset-conversion/std",
+	"pallet-assets/std",
+	"pallet-assets/std",
 	"pallet-xcm/std",
 	"parachains-common/std",
 	"scale-info/std",
@@ -54,18 +55,17 @@ std = [
 	"xcm-builder/std",
 	"xcm-executor/std",
 	"xcm/std",
-	"pallet-assets/std",
 ]
 
 runtime-benchmarks = [
 	"cumulus-primitives-core/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
-	"pallet-assets/runtime-benchmarks",
 	"pallet-asset-conversion/runtime-benchmarks",
+	"pallet-assets/runtime-benchmarks",
+	"pallet-assets/runtime-benchmarks",
 	"pallet-xcm/runtime-benchmarks",
 	"parachains-common/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",
-	"pallet-assets/runtime-benchmarks",
 ]
