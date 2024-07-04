@@ -74,6 +74,9 @@ fn run_to_block(
 		Paras::initializer_initialize(b + 1);
 		Scheduler::initializer_initialize(b + 1);
 
+		// Update the spot traffic and revenue on every block.
+		OnDemandAssigner::on_initialize(b + 1);
+
 		// In the real runtime this is expected to be called by the `InclusionInherent` pallet.
 		Scheduler::free_cores_and_fill_claim_queue(BTreeMap::new(), b + 1);
 	}

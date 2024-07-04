@@ -14,7 +14,6 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
-use codec::Decode;
 use cumulus_client_cli::CollatorOptions;
 use cumulus_client_collator::service::CollatorService;
 use cumulus_client_consensus_aura::collators::{
@@ -48,7 +47,7 @@ pub use parachains_common::{AccountId, AuraId, Balance, Block, Hash, Nonce};
 use cumulus_client_consensus_relay_chain::Verifier as RelayChainVerifier;
 use futures::prelude::*;
 use prometheus_endpoint::Registry;
-use sc_client_api::Backend as ClientApiBackend;
+use sc_client_api::BlockchainEvents;
 use sc_consensus::{
 	import_queue::{BasicQueue, Verifier as VerifierT},
 	BlockImportParams, ImportQueue,
@@ -57,14 +56,10 @@ use sc_executor::{HeapAllocStrategy, WasmExecutor, DEFAULT_HEAP_ALLOC_STRATEGY};
 use sc_network::{config::FullNetworkConfiguration, service::traits::NetworkBackend, NetworkBlock};
 use sc_service::{Configuration, PartialComponents, TFullBackend, TFullClient, TaskManager};
 use sc_telemetry::{Telemetry, TelemetryHandle, TelemetryWorker, TelemetryWorkerHandle};
-use sp_api::{ConstructRuntimeApi, ProvideRuntimeApi};
-use sp_blockchain::HeaderBackend;
-use sp_core::traits::SpawnEssentialNamed;
+use sp_api::{ApiExt, ConstructRuntimeApi, ProvideRuntimeApi};
+use sp_consensus_aura::AuraApi;
 use sp_keystore::KeystorePtr;
-use sp_runtime::{
-	app_crypto::AppCrypto,
-	traits::{Block as BlockT, Header as HeaderT},
-};
+use sp_runtime::{app_crypto::AppCrypto, traits::Header as HeaderT};
 use std::{marker::PhantomData, sync::Arc, time::Duration};
 
 use polkadot_primitives::CollatorPair;
@@ -504,43 +499,26 @@ pub async fn start_shell_node<Net: NetworkBackend<Block, Hash>>(
 	.await
 }
 
-enum BuildOnAccess<R> {
-	Uninitialized(Option<Box<dyn FnOnce() -> R + Send + Sync>>),
-	Initialized(R),
-}
-
-impl<R> BuildOnAccess<R> {
-	fn get_mut(&mut self) -> &mut R {
-		loop {
-			match self {
-				Self::Uninitialized(f) => {
-					*self = Self::Initialized((f.take().unwrap())());
-				},
-				Self::Initialized(ref mut r) => return r,
-			}
-		}
-	}
-}
-
 struct Verifier<Client, AuraId> {
 	client: Arc<Client>,
-	aura_verifier: BuildOnAccess<Box<dyn VerifierT<Block>>>,
+	aura_verifier: Box<dyn VerifierT<Block>>,
 	relay_chain_verifier: Box<dyn VerifierT<Block>>,
 	_phantom: PhantomData<AuraId>,
 }
 
 #[async_trait::async_trait]
-impl<Client, AuraId: AuraIdT> VerifierT<Block> for Verifier<Client, AuraId>
+impl<Client, AuraId> VerifierT<Block> for Verifier<Client, AuraId>
 where
-	Client: sp_api::ProvideRuntimeApi<Block> + Send + Sync,
+	Client: ProvideRuntimeApi<Block> + Send + Sync,
 	Client::Api: AuraRuntimeApi<Block, AuraId>,
+	AuraId: AuraIdT + Sync,
 {
 	async fn verify(
-		&mut self,
+		&self,
 		block_import: BlockImportParams<Block>,
 	) -> Result<BlockImportParams<Block>, String> {
 		if self.client.runtime_api().has_aura_api(*block_import.header.parent_hash()) {
-			self.aura_verifier.get_mut().verify(block_import).await
+			self.aura_verifier.verify(block_import).await
 		} else {
 			self.relay_chain_verifier.verify(block_import).await
 		}
@@ -549,7 +527,7 @@ where
 
 /// Build the import queue for parachain runtimes that started with relay chain consensus and
 /// switched to aura.
-pub fn build_relay_to_aura_import_queue<RuntimeApi, AuraId: AuraIdT>(
+pub fn build_relay_to_aura_import_queue<RuntimeApi, AuraId>(
 	client: Arc<ParachainClient<RuntimeApi>>,
 	block_import: ParachainBlockImport<RuntimeApi>,
 	config: &Configuration,
@@ -559,38 +537,35 @@ pub fn build_relay_to_aura_import_queue<RuntimeApi, AuraId: AuraIdT>(
 where
 	RuntimeApi: ConstructNodeRuntimeApi<Block, ParachainClient<RuntimeApi>>,
 	RuntimeApi::RuntimeApi: AuraRuntimeApi<Block, AuraId>,
+	AuraId: AuraIdT + Sync,
 {
 	let verifier_client = client.clone();
 
-	let aura_verifier = move || {
-		Box::new(cumulus_client_consensus_aura::build_verifier::<
-			<AuraId as AppCrypto>::Pair,
-			_,
-			_,
-			_,
-		>(cumulus_client_consensus_aura::BuildVerifierParams {
-			client: verifier_client.clone(),
-			create_inherent_data_providers: move |parent_hash, _| {
-				let cidp_client = verifier_client.clone();
-				async move {
-					let slot_duration = cumulus_client_consensus_aura::slot_duration_at(
-						&*cidp_client,
-						parent_hash,
-					)?;
-					let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
+	let aura_verifier = cumulus_client_consensus_aura::build_verifier::<
+		<AuraId as AppCrypto>::Pair,
+		_,
+		_,
+		_,
+	>(cumulus_client_consensus_aura::BuildVerifierParams {
+		client: verifier_client.clone(),
+		create_inherent_data_providers: move |parent_hash, _| {
+			let cidp_client = verifier_client.clone();
+			async move {
+				let slot_duration =
+					cumulus_client_consensus_aura::slot_duration_at(&*cidp_client, parent_hash)?;
+				let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
 
-					let slot =
-								sp_consensus_aura::inherents::InherentDataProvider::from_timestamp_and_slot_duration(
-									*timestamp,
-									slot_duration,
-								);
+				let slot =
+					sp_consensus_aura::inherents::InherentDataProvider::from_timestamp_and_slot_duration(
+						*timestamp,
+						slot_duration,
+					);
 
-					Ok((slot, timestamp))
-				}
-			},
-			telemetry: telemetry_handle,
-		})) as Box<_>
-	};
+				Ok((slot, timestamp))
+			}
+		},
+		telemetry: telemetry_handle,
+	});
 
 	let relay_chain_verifier =
 		Box::new(RelayChainVerifier::new(client.clone(), |_, _| async { Ok(()) })) as Box<_>;
@@ -598,7 +573,7 @@ where
 	let verifier = Verifier {
 		client,
 		relay_chain_verifier,
-		aura_verifier: BuildOnAccess::Uninitialized(Some(Box::new(aura_verifier))),
+		aura_verifier: Box::new(aura_verifier),
 		_phantom: PhantomData,
 	};
 
@@ -644,7 +619,7 @@ pub async fn start_generic_aura_async_backing_node<Net: NetworkBackend<Block, Ha
 ///
 /// Uses the lookahead collator to support async backing.
 #[sc_tracing::logging::prefix_logs_with("Parachain")]
-pub async fn start_asset_hub_async_backing_node<RuntimeApi, AuraId: AuraIdT, Net>(
+pub async fn start_asset_hub_async_backing_node<RuntimeApi, AuraId, Net>(
 	parachain_config: Configuration,
 	polkadot_config: Configuration,
 	collator_options: CollatorOptions,
@@ -657,6 +632,7 @@ where
 	RuntimeApi::RuntimeApi: AuraRuntimeApi<Block, AuraId>
 		+ pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block, Balance>
 		+ substrate_frame_rpc_system::AccountNonceApi<Block, AccountId, Nonce>,
+	AuraId: AuraIdT + Sync,
 	Net: NetworkBackend<Block, Hash>,
 {
 	start_node_impl::<RuntimeApi, _, _, _, Net>(
@@ -667,154 +643,40 @@ where
 		para_id,
 		build_parachain_rpc_extensions::<RuntimeApi>,
 		build_relay_to_aura_import_queue::<_, AuraId>,
-		|client,
-		 block_import,
-		 prometheus_registry,
-		 telemetry,
-		 task_manager,
-		 relay_chain_interface,
-		 transaction_pool,
-		 keystore,
-		 relay_chain_slot_duration,
-		 para_id,
-		 collator_key,
-		 overseer_handle,
-		 announce_block,
-		 backend| {
-			let relay_chain_interface2 = relay_chain_interface.clone();
-
-			let collator_service = CollatorService::new(
-				client.clone(),
-				Arc::new(task_manager.spawn_handle()),
-				announce_block,
-				client.clone(),
-			);
-
-			let spawner = task_manager.spawn_handle();
-
-			let proposer_factory = sc_basic_authorship::ProposerFactory::with_proof_recording(
-				spawner,
-				client.clone(),
-				transaction_pool,
-				prometheus_registry,
-				telemetry.clone(),
-			);
-
-			let essential_spawner = task_manager.spawn_essential_handle();
-			let collation_future = Box::pin(async move {
-				// Start collating with the `shell` runtime while waiting for an upgrade to an Aura
-				// compatible runtime.
-				let mut request_stream = cumulus_client_collator::relay_chain_driven::init(
-					collator_key.clone(),
-					para_id,
-					overseer_handle.clone(),
-				)
-				.await;
-				while let Some(request) = request_stream.next().await {
-					let pvd = request.persisted_validation_data().clone();
-					let last_head_hash =
-						match <Block as BlockT>::Header::decode(&mut &pvd.parent_head.0[..]) {
-							Ok(header) => header.hash(),
-							Err(e) => {
-								log::error!("Could not decode the head data: {e}");
-								request.complete(None);
-								continue
-							},
-						};
-
-					// Check if we have upgraded to an Aura compatible runtime and transition if
-					// necessary.
-					if client.runtime_api().has_aura_api(last_head_hash) {
-						// Respond to this request before transitioning to Aura.
-						request.complete(None);
-						break
-					}
-				}
-
-				// Move to Aura consensus.
-				let proposer = Proposer::new(proposer_factory);
-				if use_experimental_slot_based {
-					let client_for_aura = client.clone();
-					let params = SlotBasedParams {
-						create_inherent_data_providers: move |_, ()| async move { Ok(()) },
-						block_import,
-						para_client: client.clone(),
-						para_backend: backend.clone(),
-						relay_client: relay_chain_interface,
-						code_hash_provider: move |block_hash| {
-							client_for_aura
-								.code_at(block_hash)
-								.ok()
-								.map(|c| ValidationCode::from(c).hash())
-						},
-						keystore,
-						collator_key,
-						para_id,
-						relay_chain_slot_duration,
-						proposer,
-						collator_service,
-						authoring_duration: Duration::from_millis(2000),
-						reinitialize: false,
-						slot_drift: Duration::from_secs(1),
-					};
-
-					let (collation_future, block_builder_future) = slot_based::run::<
-						Block,
-						<AuraId as AppCrypto>::Pair,
-						_,
-						_,
-						_,
-						_,
-						_,
-						_,
-						_,
-						_,
-					>(params);
-					essential_spawner.spawn_essential(
-						"block-builder-task",
-						Some("parachain-block-authoring"),
-						Box::pin(collation_future),
-					);
-					block_builder_future.await;
-				} else {
-					let params = AuraParams {
-						create_inherent_data_providers: move |_, ()| async move { Ok(()) },
-						block_import,
-						para_client: client.clone(),
-						para_backend: backend,
-						relay_client: relay_chain_interface2,
-						code_hash_provider: move |block_hash| {
-							client.code_at(block_hash).ok().map(|c| ValidationCode::from(c).hash())
-						},
-						keystore,
-						collator_key,
-						para_id,
-						overseer_handle,
-						relay_chain_slot_duration,
-						proposer,
-						collator_service,
-						authoring_duration: Duration::from_millis(1500),
-						reinitialize: true, /* we need to always re-initialize for asset-hub
-						                     * moving to aura */
-					};
-
-					aura::run::<Block, <AuraId as AppCrypto>::Pair, _, _, _, _, _, _, _, _>(params)
-						.await
-				};
-			});
-
-			let spawner = task_manager.spawn_essential_handle();
-			spawner.spawn_essential(
-				"cumulus-asset-hub-collator",
-				Some("parachain-block-authoring"),
-				collation_future,
-			);
-
-			Ok(())
-		},
+		start_lookahead_aura_consensus::<RuntimeApi, AuraId>,
 		hwbench,
 	)
 	.await
+}
+
+/// Wait for the Aura runtime API to appear on chain.
+/// This is useful for chains that started out without Aura. Components that
+/// are depending on Aura functionality will wait until Aura appears in the runtime.
+async fn wait_for_aura<RuntimeApi, AuraId>(client: Arc<ParachainClient<RuntimeApi>>)
+where
+	RuntimeApi: ConstructNodeRuntimeApi<Block, ParachainClient<RuntimeApi>>,
+	RuntimeApi::RuntimeApi: AuraRuntimeApi<Block, AuraId>,
+	AuraId: AuraIdT + Sync,
+{
+	let finalized_hash = client.chain_info().finalized_hash;
+	if client
+		.runtime_api()
+		.has_api::<dyn AuraApi<Block, AuraId>>(finalized_hash)
+		.unwrap_or(false)
+	{
+		return;
+	};
+
+	let mut stream = client.finality_notification_stream();
+	while let Some(notification) = stream.next().await {
+		let has_aura_api = client
+			.runtime_api()
+			.has_api::<dyn AuraApi<Block, AuraId>>(notification.hash)
+			.unwrap_or(false);
+		if has_aura_api {
+			return;
+		}
+	}
 }
 
 /// Start relay-chain consensus that is free for all. Everyone can submit a block, the relay-chain
@@ -889,7 +751,7 @@ fn start_relay_chain_consensus(
 }
 
 /// Start consensus using the lookahead aura collator.
-fn start_lookahead_aura_consensus<RuntimeApi>(
+fn start_lookahead_aura_consensus<RuntimeApi, AuraId>(
 	client: Arc<ParachainClient<RuntimeApi>>,
 	block_import: ParachainBlockImport<RuntimeApi>,
 	prometheus_registry: Option<&Registry>,
@@ -908,12 +770,8 @@ fn start_lookahead_aura_consensus<RuntimeApi>(
 where
 	RuntimeApi: ConstructNodeRuntimeApi<Block, ParachainClient<RuntimeApi>>,
 	RuntimeApi::RuntimeApi: AuraRuntimeApi<Block, AuraId>,
+	AuraId: AuraIdT + Sync,
 {
-	let info = backend.blockchain().info();
-	if !client.runtime_api().has_aura_api(info.finalized_hash) {
-		return Err(sc_service::error::Error::Other("Missing aura runtime APIs".to_string()));
-	}
-
 	let proposer_factory = sc_basic_authorship::ProposerFactory::with_proof_recording(
 		task_manager.spawn_handle(),
 		client.clone(),
@@ -935,8 +793,11 @@ where
 		para_client: client.clone(),
 		para_backend: backend,
 		relay_client: relay_chain_interface,
-		code_hash_provider: move |block_hash| {
-			client.code_at(block_hash).ok().map(|c| ValidationCode::from(c).hash())
+		code_hash_provider: {
+			let client = client.clone();
+			move |block_hash| {
+				client.code_at(block_hash).ok().map(|c| ValidationCode::from(c).hash())
+			}
 		},
 		keystore,
 		collator_key,
@@ -949,7 +810,10 @@ where
 		reinitialize: false,
 	};
 
-	let fut = aura::run::<Block, <AuraId as AppCrypto>::Pair, _, _, _, _, _, _, _, _>(params);
+	let fut = async move {
+		wait_for_aura(client).await;
+		aura::run::<Block, <AuraId as AppCrypto>::Pair, _, _, _, _, _, _, _, _>(params).await;
+	};
 	task_manager.spawn_essential_handle().spawn("aura", None, fut);
 
 	Ok(())
