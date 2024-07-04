@@ -9,5 +9,7 @@ doc:
 crates:
 - name: sc-client-api
   bump: major
+- name: sc-client-db
+  bump: major
 - name: sp-blockchain
   bump: major
