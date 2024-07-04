@@ -18,9 +18,7 @@ use crate::{
 	chain_spec,
 	chain_spec::GenericChainSpec,
 	cli::{Cli, RelayChainCli, Subcommand},
-	fake_runtime_api::{
-		asset_hub_polkadot_aura::RuntimeApi as AssetHubPolkadotRuntimeApi, aura::RuntimeApi,
-	},
+	fake_runtime_api::asset_hub_polkadot_aura::RuntimeApi as AssetHubPolkadotRuntimeApi,
 	service::{
 		AssetHubLookaheadNode, BasicLookaheadNode, Block, ContractsRococoNode, DynNodeSpec,
 		GenericAuraLookaheadNode, RococoParachainNode, ShellNode,
@@ -31,7 +29,7 @@ use cumulus_client_service::storage_proof_size::HostFunctions as ReclaimHostFunc
 use cumulus_primitives_core::ParaId;
 use frame_benchmarking_cli::{BenchmarkCmd, SUBSTRATE_REFERENCE_HARDWARE};
 use log::info;
-use parachains_common::{AssetHubPolkadotAuraId, AuraId};
+use parachains_common::AssetHubPolkadotAuraId;
 use sc_cli::{
 	ChainSpec, CliConfiguration, DefaultConfigurationValues, ImportParams, KeystoreParams,
 	NetworkParams, Result, SharedParams, SubstrateCli,
@@ -393,8 +391,7 @@ fn new_node_spec(
 			AssetHubPolkadotRuntimeApi,
 			AssetHubPolkadotAuraId,
 		>(Default::default())),
-		Runtime::AssetHub =>
-			Box::new(AssetHubLookaheadNode::<RuntimeApi, AuraId>(Default::default())),
+		Runtime::AssetHub |
 		Runtime::BridgeHub(_) |
 		Runtime::Collectives |
 		Runtime::Coretime(_) |
