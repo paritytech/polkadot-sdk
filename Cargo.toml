@@ -1351,6 +1351,8 @@ zstd = { version = "0.12.4", default-features = false }
 # Polkadot runtime requires unwinding.
 panic = "unwind"
 opt-level = 3
+debug = true
+
 
 # make sure dev builds with backtrace do not slow us down
 [profile.dev.package.backtrace]
