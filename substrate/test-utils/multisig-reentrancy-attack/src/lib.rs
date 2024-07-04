@@ -21,6 +21,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 pub use pallet::*;
+pub use pallet_multisig::{self as multisig, Call as MultisigCall};
 
 
 use frame_support::{
@@ -36,14 +37,17 @@ use sp_runtime::traits::Dispatchable;
 /// The log target of this pallet.
 pub const LOG_TARGET: &'static str = "runtime::reentrancy-attack";
 
-// frame_support::construct_runtime!(
-// 	pub enum Runtime {
-// 		System: frame_system,
-// 		// Timestamp: pallet_timestamp,
-// 		Balances: pallet_balances,
-// 		// Multisig: pallet_multisig,
-// 	}
-// );
+
+// impl pallet_multisig::Config for Runtime {
+// 	type RuntimeEvent = RuntimeEvent;
+// 	// type Currency = dyn frame_support::traits::Currency<AccountId>;
+// 	// type RuntimeCall = Self::RuntimeCall;
+// 	type DepositBase = Self::DepositBase;
+// 	type DepositFactor = Self::DepositFactor;
+// 	type MaxSignatories = Self::MaxSignatories;
+// 	type WeightInfo = ();
+// }
+
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -111,7 +115,7 @@ pub mod pallet {
 			let mut account_2: u64 = 2;
 
 			// let multi = Multisig::multi_account_id(&[1, 2, 3][..], 2);
-
+			// pallet_multisig::
 			// T::Currency::transfer(&sender, dest, value, existence_requirement);
 
 			Ok(())
