@@ -298,13 +298,9 @@ async fn build_relay_parent_ancestry(
 		let Some(header) = relay_client.header(RBlockId::hash(current_rp)).await? else { break };
 
 		let session = relay_client.session_index_for_child(current_rp).await?;
-		if let Some(required_session) = required_session {
+		if required_session.get_or_insert(session) != &session {
 			// Respect the relay-chain rule not to cross session boundaries.
-			if session != required_session {
-				break
-			}
-		} else {
-			required_session = Some(session);
+			break;
 		}
 
 		ancestry.push((current_rp, *header.state_root()));
