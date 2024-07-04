@@ -26,6 +26,7 @@ use sp_runtime::{generic, traits::BlakeTwo256, BuildStorage};
 
 pub use self::frame_system::{pallet_prelude::*, Config, Pallet};
 
+mod custom_default_config;
 mod inject_runtime_type;
 mod runtime;
 mod storage_alias;
