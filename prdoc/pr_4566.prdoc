@@ -16,7 +16,7 @@ doc:
 
 crates:
   - name: pallet-contracts
-    bump: minor
+    bump: major
   - name: pallet-contracts-uapi
     bump: minor
   - name: contracts-rococo-runtime

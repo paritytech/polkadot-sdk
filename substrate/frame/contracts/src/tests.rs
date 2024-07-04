@@ -411,6 +411,7 @@ parameter_types! {
 	pub static DepositPerByte: BalanceOf<Test> = 1;
 	pub const DepositPerItem: BalanceOf<Test> = 2;
 	pub static MaxDelegateDependencies: u32 = 32;
+	pub static MaxTransientStorageSize: u32 = 4 * 1024;
 
 	pub static CodeHashLockupDepositPercent: Perbill = Perbill::from_percent(0);
 	// We need this one set high enough for running benchmarks.
@@ -504,6 +505,7 @@ impl Config for Test {
 	type Migrations = crate::migration::codegen::BenchMigrations;
 	type CodeHashLockupDepositPercent = CodeHashLockupDepositPercent;
 	type MaxDelegateDependencies = MaxDelegateDependencies;
+	type MaxTransientStorageSize = MaxTransientStorageSize;
 	type Debug = TestDebug;
 }
 
@@ -994,21 +996,29 @@ fn transient_storage_limit_in_call() {
 			.value(min_balance * 100)
 			.build_and_unwrap_account_id();
 
-		// The transient storage limit is set to 4KB.
+		MaxTransientStorageSize::set(4 * 1024);
+		// Call contracts with storage values within the limit.
+		// Caller and Callee contracts each set a transient storage value of size 1000.
 		assert_ok!(builder::call(addr_caller.clone())
-			.data((1_000u32, 2_000u32, &addr_callee).encode())
+			.data((1_000u32, 1_000u32, &addr_callee).encode())
 			.build(),);
 
+		MaxTransientStorageSize::set(512);
+		// Call a contract with a storage value that is too large.
+		// Limit exceeded in the caller contract.
 		assert_err_ignore_postinfo!(
 			builder::call(addr_caller.clone())
-				.data((5_000u32, 1_000u32, &addr_callee).encode())
+				.data((1_000u32, 1_000u32, &addr_callee).encode())
 				.build(),
 			<Error<Test>>::OutOfTransientStorage,
 		);
 
+		MaxTransientStorageSize::set(1536);
+		// Call a contract with a storage value that is too large.
+		// Limit exceeded in the callee contract.
 		assert_err_ignore_postinfo!(
 			builder::call(addr_caller)
-				.data((1_000u32, 4_000u32, &addr_callee).encode())
+				.data((1_000u32, 1_000u32, &addr_callee).encode())
 				.build(),
 			<Error<Test>>::ContractTrapped
 		);

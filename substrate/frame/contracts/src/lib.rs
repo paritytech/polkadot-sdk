@@ -560,7 +560,7 @@ pub mod pallet {
 			type MaxDebugBufferLen = ConstU32<{ 2 * 1024 * 1024 }>;
 			type MaxDelegateDependencies = MaxDelegateDependencies;
 			type MaxStorageKeyLen = ConstU32<128>;
-			type MaxTransientStorageSize = ConstU32<{ 4 * 1024 }>;
+			type MaxTransientStorageSize = ConstU32<{ 1 * 1024 * 1024 }>;
 			type Migrations = ();
 			type Time = Self;
 			type Randomness = Self;
