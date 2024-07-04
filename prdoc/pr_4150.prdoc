@@ -29,6 +29,42 @@ doc:
 crates:
   - name: pallet-assets
     bump: major
+  - name: staging-xcm-builder
+    bump: none
+  - name: pallet-xcm
+    bump: none
+  - name: pallet-asset-conversion
+    bump: none
+  - name: pallet-asset-tx-payment
+    bump: none
+  - name: rococo-parachain-runtime
+    bump: major
+    note: |
+      In `Assets`, assets status can now be "live and no privileges", and there is a new call
+      `revoke_all_privileges`.
+  - name: pallet-asset-conversion-tx-payment
+    bump: none
+  - name: pallet-assets-freezer
+    bump: none
+  - name: pallet-contracts-mock-network
+    bump: none
+  - name: pallet-nft-fractionalization
+    bump: none
+  - name: asset-hub-rococo-runtime
+    bump: major
+    note: |
+      In `TrustBackedAssets`, `PoolAssets` and `ForeignAssets`, assets status can now be
+      "live and no privileges", and there is a new call `revoke_all_privileges`.
+  - name: asset-hub-westend-runtime
+    bump: major
+    note: |
+      In `TrustBackedAssets`, `PoolAssets` and `ForeignAssets`, assets status can now be
+      "live and no privileges", and there is a new call `revoke_all_privileges`.
+  - name: penpal-runtime
+    bump: major
+    note: |
+      In `ForeignAssets` and `Assets`, assets status can now be "live and no privileges", and there
+      is a new call `revoke_all_privileges`.
 
 migrations:
   runtime:

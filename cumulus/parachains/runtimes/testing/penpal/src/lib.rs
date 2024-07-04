@@ -139,6 +139,8 @@ pub type UncheckedExtrinsic =
 pub type Migrations = (
 	pallet_balances::migration::MigrateToTrackInactive<Runtime, xcm_config::CheckingAccount>,
 	pallet_collator_selection::migration::v1::MigrateToV1<Runtime>,
+	pallet_assets::migration::v2::MigrateV1ToV2<Runtime, pallet_assets::Instance1>,
+	pallet_assets::migration::v2::MigrateV1ToV2<Runtime, pallet_assets::Instance2>,
 );
 
 /// Executive: handles dispatch to the various modules.
