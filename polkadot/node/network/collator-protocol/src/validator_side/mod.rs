@@ -43,13 +43,12 @@ use polkadot_node_subsystem::{
 	messages::{
 		CanSecondRequest, CandidateBackingMessage, CollatorProtocolMessage, IfDisconnected,
 		NetworkBridgeEvent, NetworkBridgeTxMessage, ParentHeadData, ProspectiveParachainsMessage,
-		ProspectiveValidationDataRequest, RuntimeApiRequest,
+		ProspectiveValidationDataRequest,
 	},
 	overseer, CollatorProtocolSenderTrait, FromOrchestra, OverseerSignal, PerLeafSpan,
 };
 use polkadot_node_subsystem_util::{
 	backing_implicit_view::View as ImplicitView,
-	has_required_runtime,
 	reputation::{ReputationAggregator, REPUTATION_CHANGE_INTERVAL},
 	runtime::{prospective_parachains_mode, ProspectiveParachainsMode},
 	vstaging::fetch_claim_queue,
@@ -462,13 +461,16 @@ fn is_relay_parent_in_implicit_view(
 	}
 }
 
+// Returns the group assignments for the validator and bool indicating if they are obtained from the
+// claim queue or not. The latter is used to handle the fall back case when the claim queue api is
+// not available in the runtime.
 async fn assign_incoming<Sender>(
 	sender: &mut Sender,
 	current_assignments: &mut HashMap<ParaId, usize>,
 	keystore: &KeystorePtr,
 	relay_parent: Hash,
 	relay_parent_mode: ProspectiveParachainsMode,
-) -> Result<GroupAssignments>
+) -> Result<(GroupAssignments, bool)>
 where
 	Sender: CollatorProtocolSenderTrait,
 {
@@ -495,25 +497,32 @@ where
 		rotation_info.core_for_group(group, cores.len())
 	} else {
 		gum::trace!(target: LOG_TARGET, ?relay_parent, "Not a validator");
-		return Ok(GroupAssignments { current: Vec::new() })
+		return Ok((GroupAssignments { current: Vec::new() }, false))
 	};
 
-	let paras_now = match fetch_claim_queue(sender, relay_parent).await.map_err(Error::Runtime)? {
+	let (paras_now, has_claim_queue) = match fetch_claim_queue(sender, relay_parent)
+		.await
+		.map_err(Error::Runtime)?
+	{
 		// Runtime supports claim queue - use it
 		//
 		// `relay_parent_mode` is not examined here because if the runtime supports claim queue
 		// then it supports async backing params too (`ASYNC_BACKING_STATE_RUNTIME_REQUIREMENT`
 		// < `CLAIM_QUEUE_RUNTIME_REQUIREMENT`).
-		Some(mut claim_queue) => claim_queue.0.remove(&core_now),
+		Some(mut claim_queue) => (claim_queue.0.remove(&core_now), true),
 		// Claim queue is not supported by the runtime - use availability cores instead.
-		None => cores.get(core_now.0 as usize).and_then(|c| match c {
-			CoreState::Occupied(core) if relay_parent_mode.is_enabled() =>
-				core.next_up_on_available.as_ref().map(|c| [c.para_id].into_iter().collect()),
-			CoreState::Scheduled(core) => Some([core.para_id].into_iter().collect()),
-			CoreState::Occupied(_) | CoreState::Free => None,
-		}),
-	}
-	.unwrap_or_else(|| VecDeque::new());
+		None => (
+			cores.get(core_now.0 as usize).and_then(|c| match c {
+				CoreState::Occupied(core) if relay_parent_mode.is_enabled() =>
+					core.next_up_on_available.as_ref().map(|c| [c.para_id].into_iter().collect()),
+				CoreState::Scheduled(core) => Some([core.para_id].into_iter().collect()),
+				CoreState::Occupied(_) | CoreState::Free => None,
+			}),
+			false,
+		),
+	};
+
+	let paras_now = paras_now.unwrap_or_else(|| VecDeque::new());
 
 	for para_id in paras_now.iter() {
 		let entry = current_assignments.entry(*para_id).or_default();
@@ -528,7 +537,10 @@ where
 		}
 	}
 
-	Ok(GroupAssignments { current: paras_now.into_iter().collect::<Vec<ParaId>>() })
+	Ok((
+		GroupAssignments { current: paras_now.into_iter().collect::<Vec<ParaId>>() },
+		has_claim_queue,
+	))
 }
 
 fn remove_outgoing(
@@ -1267,16 +1279,13 @@ where
 
 	for leaf in added {
 		let mode = prospective_parachains_mode(sender, *leaf).await?;
-		let has_claim_queue_support =
-			has_required_runtime(sender, *leaf, RuntimeApiRequest::CLAIM_QUEUE_RUNTIME_REQUIREMENT)
-				.await;
 
 		if let Some(span) = view.span_per_head().get(leaf).cloned() {
 			let per_leaf_span = PerLeafSpan::new(span, "validator-side");
 			state.span_per_relay_parent.insert(*leaf, per_leaf_span);
 		}
 
-		let assignments =
+		let (assignments, has_claim_queue_support) =
 			assign_incoming(sender, &mut state.current_assignments, keystore, *leaf, mode).await?;
 
 		state.active_leaves.insert(*leaf, mode);
@@ -1298,7 +1307,7 @@ where
 				.unwrap_or_default();
 			for block_hash in allowed_ancestry {
 				if let Entry::Vacant(entry) = state.per_relay_parent.entry(*block_hash) {
-					let assignments = assign_incoming(
+					let (assignments, has_claim_queue_support) = assign_incoming(
 						sender,
 						&mut state.current_assignments,
 						keystore,

@@ -132,23 +132,6 @@ pub(super) async fn update_view(
 			}
 		);
 
-		assert_matches!(
-			overseer_recv(virtual_overseer).await,
-			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
-				_,
-				RuntimeApiRequest::Version(tx),
-			)) => {
-				match test_state.claim_queue {
-					Some(_) => {
-						let _ = tx.send(Ok(RuntimeApiRequest::CLAIM_QUEUE_RUNTIME_REQUIREMENT));
-					},
-					None => {
-						let _ = tx.send(Ok(RuntimeApiRequest::CLAIM_QUEUE_RUNTIME_REQUIREMENT - 1));
-					}
-				}
-			}
-		);
-
 		assert_assign_incoming(
 			virtual_overseer,
 			test_state,
