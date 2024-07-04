@@ -22,8 +22,6 @@
 
 pub use pallet::*;
 
-use crate::Config;
-use pallet_multisig::Config as MultisigConfig;
 
 use frame_support::{
 	dispatch::{
@@ -38,6 +36,14 @@ use sp_runtime::traits::Dispatchable;
 /// The log target of this pallet.
 pub const LOG_TARGET: &'static str = "runtime::reentrancy-attack";
 
+// frame_support::construct_runtime!(
+// 	pub enum Runtime {
+// 		System: frame_system,
+// 		// Timestamp: pallet_timestamp,
+// 		Balances: pallet_balances,
+// 		// Multisig: pallet_multisig,
+// 	}
+// );
 
 #[frame_support::pallet]
 pub mod pallet {

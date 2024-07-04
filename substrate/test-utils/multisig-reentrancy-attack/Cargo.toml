@@ -19,7 +19,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false }
 scale-info = { version = "2.11.1", default-features = false, features = ["derive"] }
 frame-benchmarking = { path = "../../frame/benchmarking", default-features = false, optional = true }
-pallet-multisig = { path = "../../frame/multisig", default-features = true, optional = true }
+pallet-multisig = { path = "../../frame/multisig", workspace = true, default-features = true, optional = true }
 pallet-balances = { path = "../../frame/balances", default-features = true, optional = true }
 frame-support = { path = "../../frame/support", default-features = false }
 frame-system = { path = "../../frame/system", default-features = false }
@@ -42,6 +42,7 @@ std = [
 	"frame-system/std",
 	"log/std",
 	"pallet-balances/std",
+	"pallet-multisig/std",
 	"scale-info/std",
 	"sp-io/std",
 	"sp-runtime/std",
@@ -52,11 +53,13 @@ runtime-benchmarks = [
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
+	"pallet-multisig/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 ]
 try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
 	"pallet-balances/try-runtime",
+	"pallet-multisig/try-runtime",
 	"sp-runtime/try-runtime",
 ]
