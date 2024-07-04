@@ -76,7 +76,7 @@ impl<T: Config> StorageMeter<T> {
 		if meter.exceeds_limit(amount) {
 			return Err(Error::<T>::OutOfTransientStorage.into());
 		}
-		meter.amount = meter.amount.saturating_add(amount);
+		meter.amount.saturating_accrue(amount);
 		Ok(())
 	}
 
