@@ -165,7 +165,7 @@ async fn handle_active_leaves_update<Context>(
 	ctx: &mut Context,
 	view: &mut View,
 	update: ActiveLeavesUpdate,
-	metrics: &Metrics,
+	_metrics: &Metrics,
 ) -> JfyiErrorResult<()> {
 	// 1. clean up inactive leaves
 	// 2. determine all scheduled paras at the new block
