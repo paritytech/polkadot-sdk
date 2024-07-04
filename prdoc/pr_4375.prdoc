@@ -15,10 +15,11 @@ doc:
       This PR supports different assets for remote delivery fees.
   - audience: Runtime Dev
     description: |
-      In order to support different assets for delivery fees, a new config item was added: AssetConverter.
-      This was needed to support this use case with the least amount of breaking changes.
-      It can be set to `()` if you don't want to support paying delivery fees with different assets.
-      Otherwise, it can be set to something like the `SwapAssetConverter` in this PR.
+      In order to support different assets for delivery fees, the existing AssetExchanger config item
+      was leveraged.
+      This config item allows exchanging assets and quoting exchange prices.
+      An adapter was added to `xcm-builder` to make it compatible with `pallet-asset-conversion`:
+      `FungiblesPoolAdapter`.
 
 crates:
   - name: staging-xcm-executor
