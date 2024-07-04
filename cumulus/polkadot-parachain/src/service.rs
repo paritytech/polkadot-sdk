@@ -824,6 +824,7 @@ where
 
 	Ok(())
 }
+
 /// Start consensus using the lookahead aura collator.
 fn start_slot_based_aura_consensus<RuntimeApi, AuraId>(
 	client: Arc<ParachainClient<RuntimeApi>>,

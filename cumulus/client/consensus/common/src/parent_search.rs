@@ -116,7 +116,7 @@ pub async fn find_potential_parents<B: BlockT>(
 
 	// Pending header and hash.
 	let maybe_pending = {
-		// Fetch the pending header from the relay chain. We use `OccupiedCoreAssumption::Included`
+		// Fetch the most recent pending header from the relay chain. We use `OccupiedCoreAssumption::Included`
 		// so the candidate pending availability gets enacted before being returned to us.
 		let pending_header = relay_client
 			.persisted_validation_data(
@@ -345,7 +345,14 @@ pub fn search_child_branches_for_parents<Block: BlockT>(
 			.map_or(true, |route| route.enacted().iter().any(|x| x.hash == hash))
 	};
 
-	tracing::trace!(target: PARENT_SEARCH_LOG_TARGET, ?included_hash, included_num = ?included_header.number(), ?pending_hash , ?rp_ancestry, "Searching relay chain ancestry.");
+	tracing::trace!(
+		target: PARENT_SEARCH_LOG_TARGET,
+		?included_hash,
+		included_num = ?included_header.number(),
+		?pending_hash ,
+		?rp_ancestry,
+		"Searching relay chain ancestry."
+	);
 	while let Some(entry) = frontier.pop() {
 		let is_pending = pending_hash.as_ref().map_or(false, |h| &entry.hash == h);
 		let is_included = included_hash == entry.hash;

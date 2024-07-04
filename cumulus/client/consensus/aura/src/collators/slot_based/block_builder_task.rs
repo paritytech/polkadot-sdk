@@ -90,8 +90,11 @@ pub struct BuilderTaskParams<
 	/// Slot duration of the relay chain
 	pub relay_chain_slot_duration: Duration,
 	/// Drift every slot by this duration.
-	/// This can be used to shift slots in relation to relay chain slots,
-	/// making it less likely to to encounter unlucky notification arrival timings.
+	/// This is a time quantity that is subtracted from the actual timestamp when computing
+	/// the time left to enter a new slot. In practice, this *left-shifts* the clock time with the intent
+	/// to keep our "clock" slightly behind the relay chain one and thus reducing the likelihood of
+	/// encountering unfavorable notification arrival timings (i.e. we don't want to wait for relay
+	/// chain notifications because we woke up too early).
 	pub slot_drift: Duration,
 }
 
@@ -114,7 +117,7 @@ fn duration_now() -> Duration {
 	use std::time::SystemTime;
 	let now = SystemTime::now();
 	now.duration_since(SystemTime::UNIX_EPOCH).unwrap_or_else(|e| {
-		panic!("Current time {:?} is before unix epoch. Something is wrong: {:?}", now, e)
+		panic!("Current time {:?} is before Unix epoch. Something is wrong: {:?}", now, e)
 	})
 }
 
