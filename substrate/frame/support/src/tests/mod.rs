@@ -27,6 +27,7 @@ use sp_runtime::{generic, traits::BlakeTwo256, BuildStorage};
 pub use self::frame_system::{pallet_prelude::*, Config, Pallet};
 
 mod inject_runtime_type;
+mod runtime;
 mod storage_alias;
 mod tasks;
 
@@ -220,12 +221,25 @@ type Header = generic::Header<BlockNumber, BlakeTwo256>;
 type UncheckedExtrinsic = generic::UncheckedExtrinsic<u32, RuntimeCall, (), ()>;
 type Block = generic::Block<Header, UncheckedExtrinsic>;
 
-crate::construct_runtime!(
-	pub enum Runtime
-	{
-		System: self::frame_system,
-	}
-);
+#[crate::runtime]
+mod runtime {
+	#[runtime::runtime]
+	#[runtime::derive(
+		RuntimeCall,
+		RuntimeEvent,
+		RuntimeError,
+		RuntimeOrigin,
+		RuntimeFreezeReason,
+		RuntimeHoldReason,
+		RuntimeSlashReason,
+		RuntimeLockId,
+		RuntimeTask
+	)]
+	pub struct Runtime;
+
+	#[runtime::pallet_index(0)]
+	pub type System = self::frame_system;
+}
 
 #[crate::derive_impl(self::frame_system::config_preludes::TestDefaultConfig as self::frame_system::DefaultConfig)]
 impl Config for Runtime {
