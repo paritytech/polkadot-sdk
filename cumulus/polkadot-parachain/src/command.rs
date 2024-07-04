@@ -868,6 +868,7 @@ async fn start_node<Network: sc_network::NetworkBackend<Block, Hash>>(
 				polkadot_config,
 				collator_options,
 				id,
+				use_experimental_slot_based,
 				hwbench,
 			)
 			.await

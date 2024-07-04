@@ -412,9 +412,9 @@ pub async fn start_rococo_parachain_node<Net: NetworkBackend<Block, Hash>>(
 	hwbench: Option<sc_sysinfo::HwBench>,
 ) -> sc_service::error::Result<(TaskManager, Arc<ParachainClient<FakeRuntimeApi>>)> {
 	let consensus_starter = if use_experimental_slot_based {
-		start_slot_based_aura_consensus
+		start_slot_based_aura_consensus::<_, AuraId>
 	} else {
-		start_lookahead_aura_consensus
+		start_lookahead_aura_consensus::<_, AuraId>
 	};
 	start_node_impl::<FakeRuntimeApi, _, _, _, Net>(
 		parachain_config,
@@ -595,9 +595,9 @@ pub async fn start_generic_aura_async_backing_node<Net: NetworkBackend<Block, Ha
 	hwbench: Option<sc_sysinfo::HwBench>,
 ) -> sc_service::error::Result<(TaskManager, Arc<ParachainClient<FakeRuntimeApi>>)> {
 	let consensus_starter = if use_experimental_slot_based {
-		start_slot_based_aura_consensus
+		start_slot_based_aura_consensus::<_, AuraId>
 	} else {
-		start_lookahead_aura_consensus
+		start_lookahead_aura_consensus::<_, AuraId>
 	};
 	start_node_impl::<FakeRuntimeApi, _, _, _, Net>(
 		parachain_config,
@@ -635,15 +635,21 @@ where
 	AuraId: AuraIdT + Sync,
 	Net: NetworkBackend<Block, Hash>,
 {
+	let consensus_starter = if use_experimental_slot_based {
+		start_slot_based_aura_consensus::<_, AuraId>
+	} else {
+		start_lookahead_aura_consensus::<_, AuraId>
+	};
+
 	start_node_impl::<RuntimeApi, _, _, _, Net>(
 		parachain_config,
 		polkadot_config,
 		collator_options,
 		CollatorSybilResistance::Resistant, // Aura
 		para_id,
-		build_parachain_rpc_extensions::<RuntimeApi>,
+		build_parachain_rpc_extensions,
 		build_relay_to_aura_import_queue::<_, AuraId>,
-		start_lookahead_aura_consensus::<RuntimeApi, AuraId>,
+		consensus_starter,
 		hwbench,
 	)
 	.await
@@ -819,14 +825,14 @@ where
 	Ok(())
 }
 /// Start consensus using the lookahead aura collator.
-fn start_slot_based_aura_consensus(
-	client: Arc<ParachainClient<FakeRuntimeApi>>,
-	block_import: ParachainBlockImport<FakeRuntimeApi>,
+fn start_slot_based_aura_consensus<RuntimeApi, AuraId>(
+	client: Arc<ParachainClient<RuntimeApi>>,
+	block_import: ParachainBlockImport<RuntimeApi>,
 	prometheus_registry: Option<&Registry>,
 	telemetry: Option<TelemetryHandle>,
 	task_manager: &TaskManager,
 	relay_chain_interface: Arc<dyn RelayChainInterface>,
-	transaction_pool: Arc<sc_transaction_pool::FullPool<Block, ParachainClient<FakeRuntimeApi>>>,
+	transaction_pool: Arc<sc_transaction_pool::FullPool<Block, ParachainClient<RuntimeApi>>>,
 	keystore: KeystorePtr,
 	relay_chain_slot_duration: Duration,
 	para_id: ParaId,
@@ -834,7 +840,12 @@ fn start_slot_based_aura_consensus(
 	_overseer_handle: OverseerHandle,
 	announce_block: Arc<dyn Fn(Hash, Option<Vec<u8>>) + Send + Sync>,
 	backend: Arc<ParachainBackend>,
-) -> Result<(), sc_service::Error> {
+) -> Result<(), sc_service::Error>
+where
+	RuntimeApi: ConstructNodeRuntimeApi<Block, ParachainClient<RuntimeApi>>,
+	RuntimeApi::RuntimeApi: AuraRuntimeApi<Block, AuraId>,
+	AuraId: AuraIdT + Sync,
+{
 	let proposer_factory = sc_basic_authorship::ProposerFactory::with_proof_recording(
 		task_manager.spawn_handle(),
 		client.clone(),
@@ -900,9 +911,9 @@ pub async fn start_basic_async_backing_node<Net: NetworkBackend<Block, Hash>>(
 	hwbench: Option<sc_sysinfo::HwBench>,
 ) -> sc_service::error::Result<(TaskManager, Arc<ParachainClient<FakeRuntimeApi>>)> {
 	let consensus_starter = if use_experimental_slot_based {
-		start_slot_based_aura_consensus
+		start_slot_based_aura_consensus::<_, AuraId>
 	} else {
-		start_lookahead_aura_consensus
+		start_lookahead_aura_consensus::<_, AuraId>
 	};
 	start_node_impl::<FakeRuntimeApi, _, _, _, Net>(
 		parachain_config,
@@ -928,9 +939,9 @@ pub async fn start_contracts_rococo_node<Net: NetworkBackend<Block, Hash>>(
 	hwbench: Option<sc_sysinfo::HwBench>,
 ) -> sc_service::error::Result<(TaskManager, Arc<ParachainClient<FakeRuntimeApi>>)> {
 	let consensus_starter = if use_experimental_slot_based {
-		start_slot_based_aura_consensus
+		start_slot_based_aura_consensus::<_, AuraId>
 	} else {
-		start_lookahead_aura_consensus
+		start_lookahead_aura_consensus::<_, AuraId>
 	};
 	start_node_impl::<FakeRuntimeApi, _, _, _, Net>(
 		parachain_config,
