@@ -91,10 +91,10 @@ pub struct BuilderTaskParams<
 	pub relay_chain_slot_duration: Duration,
 	/// Drift every slot by this duration.
 	/// This is a time quantity that is subtracted from the actual timestamp when computing
-	/// the time left to enter a new slot. In practice, this *left-shifts* the clock time with the intent
-	/// to keep our "clock" slightly behind the relay chain one and thus reducing the likelihood of
-	/// encountering unfavorable notification arrival timings (i.e. we don't want to wait for relay
-	/// chain notifications because we woke up too early).
+	/// the time left to enter a new slot. In practice, this *left-shifts* the clock time with the
+	/// intent to keep our "clock" slightly behind the relay chain one and thus reducing the
+	/// likelihood of encountering unfavorable notification arrival timings (i.e. we don't want to
+	/// wait for relay chain notifications because we woke up too early).
 	pub slot_drift: Duration,
 }
 
