@@ -59,9 +59,12 @@ pub fn expand_runtime_metadata(
 					#attr
 				}
 			});
-			let deprecation_info =
-				crate::deprecation::get_deprecation(&quote! { #frame_support }, &decl.attrs)
-					.expect("Correctly parse deprecation attributes");
+			let deprecation_info = {
+				let path = &decl.path;
+				let instance = decl.instance.as_ref().into_iter();
+
+				quote! { #path::Pallet::<#runtime #(, #path::#instance)*>::deprecation_info() }
+			};
 			quote! {
 				#attr
 				#scrate::__private::metadata_ir::PalletMetadataIR {
@@ -224,9 +227,7 @@ fn expand_pallet_metadata_events(
 
 		quote! {
 			Some(
-				#scrate::__private::metadata_ir::PalletEventMetadataIR {
-					ty: #scrate::__private::scale_info::meta_type::<#pallet_event>()
-				}
+				#pallet_event::deprecation_info()
 			)
 		}
 	} else {

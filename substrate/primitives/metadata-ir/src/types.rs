@@ -19,7 +19,7 @@ use codec::Encode;
 use scale_info::{
 	form::{Form, MetaForm, PortableForm},
 	prelude::{collections::BTreeMap, vec::Vec},
-	IntoPortable, MetaType, Registry,
+	IntoPortable, Registry,
 };
 
 /// The intermediate representation for the runtime metadata.
@@ -140,8 +140,6 @@ pub struct PalletMetadataIR<T: Form = MetaForm> {
 	pub docs: Vec<T::String>,
 	/// Deprecation info
 	pub deprecation_info: DeprecationStatus<T>,
-	/// Deprecation info for events and errors
-	pub deprecation_table: BTreeMap<T::Type, DeprecationStatus<T>>,
 }
 
 impl IntoPortable for PalletMetadataIR {
@@ -158,15 +156,6 @@ impl IntoPortable for PalletMetadataIR {
 			index: self.index,
 			docs: registry.map_into_portable(self.docs),
 			deprecation_info: self.deprecation_info.into_portable(registry),
-			deprecation_table: self
-				.deprecation_table
-				.into_iter()
-				.map(|(k, v)| {
-					let key = registry.register_type(&k);
-					let value = v.into_portable(registry);
-					(key, value)
-				})
-				.collect(),
 		}
 	}
 }
@@ -354,19 +343,29 @@ impl IntoPortable for StorageEntryTypeIR {
 pub struct PalletCallMetadataIR<T: Form = MetaForm> {
 	/// The corresponding enum type for the pallet call.
 	pub ty: T::Type,
+	/// Deprecation status of the pallet call itself
+	pub deprecation_info: DeprecationStatus<T>,
+	/// Deprecation status of the call indexes
+	pub deprecated_indexes: BTreeMap<usize, DeprecationStatus<T>>,
 }
 
 impl IntoPortable for PalletCallMetadataIR {
 	type Output = PalletCallMetadataIR<PortableForm>;
 
 	fn into_portable(self, registry: &mut Registry) -> Self::Output {
-		PalletCallMetadataIR { ty: registry.register_type(&self.ty) }
-	}
-}
-
-impl From<MetaType> for PalletCallMetadataIR {
-	fn from(ty: MetaType) -> Self {
-		Self { ty }
+		PalletCallMetadataIR {
+			ty: registry.register_type(&self.ty),
+			deprecated_indexes: self
+				.deprecated_indexes
+				.into_iter()
+				.map(|(k, v)| {
+					let key = k;
+					let value = v.into_portable(registry);
+					(key, value)
+				})
+				.collect(),
+			deprecation_info: self.deprecation_info.into_portable(registry),
+		}
 	}
 }
 
@@ -375,19 +374,29 @@ impl From<MetaType> for PalletCallMetadataIR {
 pub struct PalletEventMetadataIR<T: Form = MetaForm> {
 	/// The Event type.
 	pub ty: T::Type,
+	/// Deprecation status of the event itself
+	pub deprecation_info: DeprecationStatus<T>,
+	/// Deprecation status of the variants
+	pub deprecated_variants: BTreeMap<T::String, DeprecationStatus<T>>,
 }
 
 impl IntoPortable for PalletEventMetadataIR {
 	type Output = PalletEventMetadataIR<PortableForm>;
 
 	fn into_portable(self, registry: &mut Registry) -> Self::Output {
-		PalletEventMetadataIR { ty: registry.register_type(&self.ty) }
-	}
-}
-
-impl From<MetaType> for PalletEventMetadataIR {
-	fn from(ty: MetaType) -> Self {
-		Self { ty }
+		PalletEventMetadataIR {
+			ty: registry.register_type(&self.ty),
+			deprecated_variants: self
+				.deprecated_variants
+				.into_iter()
+				.map(|(k, v)| {
+					let key = k.into_portable(registry);
+					let value = v.into_portable(registry);
+					(key, value)
+				})
+				.collect(),
+			deprecation_info: self.deprecation_info.into_portable(registry),
+		}
 	}
 }
 
@@ -425,19 +434,29 @@ impl IntoPortable for PalletConstantMetadataIR {
 pub struct PalletErrorMetadataIR<T: Form = MetaForm> {
 	/// The error type information.
 	pub ty: T::Type,
+	/// Deprecation status of the error itself
+	pub deprecation_info: DeprecationStatus<T>,
+	/// Deprecation status of the variants
+	pub deprecated_variants: BTreeMap<T::String, DeprecationStatus<T>>,
 }
 
 impl IntoPortable for PalletErrorMetadataIR {
 	type Output = PalletErrorMetadataIR<PortableForm>;
 
 	fn into_portable(self, registry: &mut Registry) -> Self::Output {
-		PalletErrorMetadataIR { ty: registry.register_type(&self.ty) }
-	}
-}
-
-impl From<MetaType> for PalletErrorMetadataIR {
-	fn from(ty: MetaType) -> Self {
-		Self { ty }
+		PalletErrorMetadataIR {
+			ty: registry.register_type(&self.ty),
+			deprecated_variants: self
+				.deprecated_variants
+				.into_iter()
+				.map(|(k, v)| {
+					let key = k.into_portable(registry);
+					let value = v.into_portable(registry);
+					(key, value)
+				})
+				.collect(),
+			deprecation_info: self.deprecation_info.into_portable(registry),
+		}
 	}
 }
 

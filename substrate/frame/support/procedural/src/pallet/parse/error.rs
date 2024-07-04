@@ -56,6 +56,8 @@ pub struct ErrorDef {
 	pub error: keyword::Error,
 	/// The span of the pallet::error attribute.
 	pub attr_span: proc_macro2::Span,
+	/// Attributes
+	pub attrs: Vec<syn::Attribute>,
 }
 
 impl ErrorDef {
@@ -110,6 +112,6 @@ impl ErrorDef {
 			})
 			.collect::<Result<_, _>>()?;
 
-		Ok(ErrorDef { attr_span, index, variants, instances, error })
+		Ok(ErrorDef { attr_span, index, variants, instances, error, attrs: item.attrs.clone() })
 	}
 }

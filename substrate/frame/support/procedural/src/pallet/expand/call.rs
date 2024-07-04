@@ -245,6 +245,33 @@ pub fn expand_call(def: &mut Def) -> proc_macro2::TokenStream {
 			}
 		});
 
+	let deprecation_status = if let Some(call) = def.call.as_ref() {
+		crate::deprecation::get_deprecation(&quote::quote! {#frame_support}, &call.attrs)
+			.expect("Correctly parse deprecation attributes")
+	} else {
+		quote::quote! { #frame_support::__private::metadata_ir::DeprecationStatus::NotDeprecated }
+	};
+
+	let default_deprecation_info =
+		quote::quote! { #frame_support::__private::metadata_ir::DeprecationStatus::NotDeprecated }
+			.to_string();
+
+	let indexes: Vec<proc_macro2::TokenStream> = methods
+		.iter()
+		.filter_map(|x| {
+			let key = x.call_index;
+			let deprecation_status =
+				crate::deprecation::get_deprecation(&quote::quote! {#frame_support}, &x.attrs)
+					.expect("Correctly parse deprecation attributes");
+			if deprecation_status.to_string() == default_deprecation_info {
+				None
+			} else {
+				Some(quote::quote! { (#key, #deprecation_status) })
+			}
+		})
+		.collect();
+
+	let indexes = quote::quote! { #frame_support::__private::scale_info::prelude::collections::BTreeMap::from([#( #indexes),*]) };
 	quote::quote_spanned!(span =>
 		#[doc(hidden)]
 		mod warnings {
@@ -445,7 +472,11 @@ pub fn expand_call(def: &mut Def) -> proc_macro2::TokenStream {
 			#[allow(dead_code)]
 			#[doc(hidden)]
 			pub fn call_functions() -> #frame_support::__private::metadata_ir::PalletCallMetadataIR {
-				#frame_support::__private::scale_info::meta_type::<#call_ident<#type_use_gen>>().into()
+				#frame_support::__private::metadata_ir::PalletCallMetadataIR  {
+					ty: #frame_support::__private::scale_info::meta_type::<#call_ident<#type_use_gen>>(),
+					deprecation_info: #deprecation_status,
+					deprecated_indexes: #indexes,
+				}
 			}
 		}
 	)

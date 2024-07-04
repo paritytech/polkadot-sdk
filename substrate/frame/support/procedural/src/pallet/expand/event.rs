@@ -96,6 +96,31 @@ pub fn expand_event(def: &mut Def) -> proc_macro2::TokenStream {
 		event_item.variants.push(variant);
 	}
 
+	let deprecation_status =
+		crate::deprecation::get_deprecation(&quote::quote! {#frame_support}, &event.attrs)
+			.expect("Correctly parse deprecation attributes");
+
+	let default_deprecation_info =
+		quote::quote! { #frame_support::__private::metadata_ir::DeprecationStatus::NotDeprecated }
+			.to_string();
+
+	let variants: Vec<proc_macro2::TokenStream> = event_item
+		.variants
+		.iter()
+		.filter_map(|x| {
+			let key = x.ident.to_string();
+			let deprecation_status =
+				crate::deprecation::get_deprecation(&quote::quote! {#frame_support}, &x.attrs)
+					.expect("Correctly parse deprecation attributes");
+			if deprecation_status.to_string() == default_deprecation_info {
+				None
+			} else {
+				Some(quote::quote! { (#key, #deprecation_status) })
+			}
+		})
+		.collect();
+
+	let variants = quote::quote! { #frame_support::__private::scale_info::prelude::collections::BTreeMap::from([#( #variants),*]) };
 	if get_doc_literals(&event_item.attrs).is_empty() {
 		event_item
 			.attrs
@@ -169,6 +194,18 @@ pub fn expand_event(def: &mut Def) -> proc_macro2::TokenStream {
 
 		impl<#event_impl_gen> From<#event_ident<#event_use_gen>> for () #event_where_clause {
 			fn from(_: #event_ident<#event_use_gen>) {}
+		}
+
+		impl<#event_impl_gen> #event_ident<#event_use_gen>  #event_where_clause {
+			#[allow(dead_code)]
+			#[doc(hidden)]
+			pub fn deprecation_info() -> #frame_support::__private::metadata_ir::PalletEventMetadataIR {
+				#frame_support::__private::metadata_ir::PalletEventMetadataIR {
+					ty: #frame_support::__private::scale_info::meta_type::<#event_ident<#event_use_gen>>(),
+					deprecation_info: #deprecation_status,
+					deprecated_variants: #variants
+				}
+			}
 		}
 	)
 }

@@ -102,6 +102,32 @@ pub fn expand_error(def: &mut Def) -> proc_macro2::TokenStream {
 
 	let capture_docs = if cfg!(feature = "no-metadata-docs") { "never" } else { "always" };
 
+	let deprecation_status =
+		crate::deprecation::get_deprecation(&quote::quote! {#frame_support}, &error.attrs)
+			.expect("Correctly parse deprecation attributes");
+
+	let default_deprecation_info =
+		quote::quote! { #frame_support::__private::metadata_ir::DeprecationStatus::NotDeprecated }
+			.to_string();
+
+	let variants: Vec<proc_macro2::TokenStream> = error_item
+		.variants
+		.iter()
+		.filter_map(|x| {
+			let key = x.ident.to_string();
+			let deprecation_status =
+				crate::deprecation::get_deprecation(&quote::quote! {#frame_support}, &x.attrs)
+					.expect("Correctly parse deprecation attributes");
+			if deprecation_status.to_string() == default_deprecation_info {
+				None
+			} else {
+				Some(quote::quote! { (#key, #deprecation_status) })
+			}
+		})
+		.collect();
+
+	let variants = quote::quote! { #frame_support::__private::scale_info::prelude::collections::BTreeMap::from([#( #variants),*]) };
+
 	// derive TypeInfo for error metadata
 	error_item.attrs.push(syn::parse_quote! {
 		#[derive(
@@ -187,5 +213,17 @@ pub fn expand_error(def: &mut Def) -> proc_macro2::TokenStream {
 		}
 
 		pub use #error_token_unique_id as tt_error_token;
+
+		impl<#type_impl_gen> #error_ident<#type_use_gen> #config_where_clause {
+			#[allow(dead_code)]
+			#[doc(hidden)]
+			pub fn deprecation_info() -> #frame_support::__private::metadata_ir::PalletErrorMetadataIR {
+				#frame_support::__private::metadata_ir::PalletErrorMetadataIR {
+					ty: #frame_support::__private::scale_info::meta_type::<#error_ident<#type_use_gen>>(),
+					deprecation_info: #deprecation_status,
+					deprecated_variants: #variants
+				}
+			}
+		}
 	)
 }
