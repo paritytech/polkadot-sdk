@@ -29,9 +29,9 @@ use frame_support::{
 	parameter_types,
 	traits::{
 		fungible::HoldConsideration, tokens::UnityOrOuterConversion, ConstU32, Contains, EitherOf,
-		EitherOfDiverse, EnsureOriginWithArg, EverythingBut, FromContains, InstanceFilter,
-		KeyOwnerProofSystem, LinearStoragePrice, ProcessMessage, ProcessMessageError,
-		VariantCountOf, WithdrawReasons,
+		EitherOfDiverse, EnsureOrigin, EnsureOriginWithArg, EverythingBut, FromContains,
+		InstanceFilter, KeyOwnerProofSystem, LinearStoragePrice, ProcessMessage,
+		ProcessMessageError, VariantCountOf, WithdrawReasons,
 	},
 	weights::{ConstantMultiplier, WeightMeter, WeightToFee as _},
 	PalletId,
@@ -39,6 +39,7 @@ use frame_support::{
 use frame_system::{EnsureRoot, EnsureSigned};
 use pallet_grandpa::{fg_primitives, AuthorityId as GrandpaId};
 use pallet_identity::legacy::IdentityInfo;
+use pallet_nis::WithMaximumOf;
 use pallet_session::historical as session_historical;
 use pallet_transaction_payment::{FeeDetails, FungibleAdapter, RuntimeDispatchInfo};
 use polkadot_primitives::{
@@ -47,15 +48,15 @@ use polkadot_primitives::{
 	GroupRotationInfo, Hash, Id as ParaId, InboundDownwardMessage, InboundHrmpMessage, Moment,
 	NodeFeatures, Nonce, OccupiedCoreAssumption, PersistedValidationData, PvfCheckStatement,
 	ScrapedOnChainVotes, SessionInfo, Signature, ValidationCode, ValidationCodeHash, ValidatorId,
-	ValidatorIndex, ValidatorSignature, PARACHAIN_KEY_TYPE_ID,
+	ValidatorIndex, ValidatorSignature, LOWEST_PUBLIC_ID, PARACHAIN_KEY_TYPE_ID,
 };
 use polkadot_runtime_common::{
 	assigned_slots, auctions, crowdloan,
 	elections::OnChainAccuracy,
 	identity_migrator, impl_runtime_weights,
 	impls::{
-		ContainsParts, LocatableAssetConverter, ToAuthor, VersionedLocatableAsset,
-		VersionedLocationConverter,
+		relay_era_payout, ContainsParts, EraPayoutParams, LocatableAssetConverter, ToAuthor,
+		VersionedLocatableAsset, VersionedLocationConverter,
 	},
 	paras_registrar, paras_sudo_wrapper, prod_or_fast, slots,
 	traits::{Leaser, OnSwap},
@@ -250,19 +251,35 @@ pub mod dynamic_params {
 
 	#[dynamic_pallet_params]
 	#[codec(index = 0)]
-	pub mod staking_reward_curve {
+	pub mod nis {
+		use super::*;
+
 		#[codec(index = 0)]
-		pub static MinInflation: u32 = 0_025_000;
+		pub static Target: Perquintill = Perquintill::zero();
+
 		#[codec(index = 1)]
-		pub static MaxInflation: u32 = 0_100_000;
+		pub static MinBid: Balance = 100 * UNITS;
+	}
+
+	#[dynamic_pallet_params]
+	#[codec(index = 1)]
+	pub mod inflation {
+		// TODO: should these values be updated to match the new inflation pallet?
+		#[codec(index = 0)]
+		pub static MinInflation: Perquintill = Perquintill::from_rational(25u64, 1000u64);
+
+		#[codec(index = 1)]
+		pub static MaxInflation: Perquintill = Perquintill::from_rational(100u64, 1000u64);
+
 		#[codec(index = 2)]
-		pub static IdealStake: u32 = 0_500_000;
+		pub static IdealStake: Perquintill = Perquintill::from_rational(500u64, 1000u64);
+
 		#[codec(index = 3)]
-		pub static Falloff: u32 = 0_050_000;
+		pub static Falloff: Perquintill = Perquintill::from_rational(50u64, 1000u64);
+
+		// TODO: what should be the default here?
 		#[codec(index = 4)]
-		pub static MaxPieceCount: u32 = 40;
-		#[codec(index = 5)]
-		pub static TestPrecision: u32 = 0_005_000;
+		pub static UseAuctionSlots: bool = false;
 	}
 }
 
@@ -287,7 +304,9 @@ impl EnsureOriginWithArg<RuntimeOrigin, RuntimeParametersKey> for DynamicParamet
 		// TODO: update to correct origin
 
 		match key {
-			StakingRewardCurve(_) => frame_system::ensure_root(origin.clone()),
+			Nis(nis::ParametersKey::MinBid(_)) => StakingAdmin::ensure_origin(origin.clone()),
+			Nis(nis::ParametersKey::Target(_)) => GeneralAdmin::ensure_origin(origin.clone()),
+			Inflation(_) => frame_system::ensure_root(origin.clone()),
 		}
 		.map_err(|_| origin)
 	}
@@ -648,15 +667,79 @@ impl pallet_bags_list::Config<VoterBagsListInstance> for Runtime {
 	type Score = sp_npos_elections::VoteWeight;
 }
 
-pallet_staking_reward_curve::build! {
-	const REWARD_CURVE: PiecewiseLinear<'static> = curve!(
-		min_inflation: 0_025_000, // dynamic_params::staking_reward_curve::MinInflation,
-		max_inflation: 0_100_000, // dynamic_params::staking_reward_curve::MaxInflation::get(),
-		ideal_stake: 0_500_000, // dynamic_params::staking_reward_curve::IdealStake::get(),
-		falloff: 0_050_000, // dynamic_params::staking_reward_curve::Falloff::get(),
-		max_piece_count: 40, // dynamic_params::staking_reward_curve::MaxPieceCount::get(),
-		test_precision: 0_005_000, // dynamic_params::staking_reward_curve::TestPrecision::get(),
-	);
+// parameter_types! {
+// 	pub const NisBasePeriod: BlockNumber = 30 * DAYS;
+// 	pub MinReceipt: Perquintill = Perquintill::from_rational(1u64, 10_000_000u64);
+// 	pub const IntakePeriod: BlockNumber = 5 * MINUTES;
+// 	pub MaxIntakeWeight: Weight = MAXIMUM_BLOCK_WEIGHT / 10;
+// 	pub const ThawThrottle: (Perquintill, BlockNumber) = (Perquintill::from_percent(25), 5);
+// 	pub const NisPalletId: PalletId = PalletId(*b"py/nis  ");
+// }
+
+// impl pallet_nis::Config for Runtime {
+// 	type WeightInfo = weights::pallet_nis::WeightInfo<Runtime>;
+// 	type RuntimeEvent = RuntimeEvent;
+// 	type Currency = Balances;
+// 	type CurrencyBalance = Balance;
+// 	type FundOrigin = frame_system::EnsureSigned<AccountId>;
+// 	type Counterpart = NisCounterpartBalances;
+// 	type CounterpartAmount = WithMaximumOf<ConstU128<21_000_000_000_000_000_000u128>>;
+// 	type Deficit = (); // Mint
+// 	type IgnoredIssuance = ();
+// 	type Target = dynamic_params::nis::Target;
+// 	type PalletId = NisPalletId;
+// 	type QueueCount = ConstU32<300>;
+// 	type MaxQueueLen = ConstU32<1000>;
+// 	type FifoQueueLen = ConstU32<250>;
+// 	type BasePeriod = NisBasePeriod;
+// 	type MinBid = dynamic_params::nis::MinBid;
+// 	type MinReceipt = MinReceipt;
+// 	type IntakePeriod = IntakePeriod;
+// 	type MaxIntakeWeight = MaxIntakeWeight;
+// 	type ThawThrottle = ThawThrottle;
+// 	type RuntimeHoldReason = RuntimeHoldReason;
+// 	#[cfg(feature = "runtime-benchmarks")]
+// 	type BenchmarkSetup = ();
+// }
+
+pub struct EraPayout;
+impl pallet_staking::EraPayout<Balance> for EraPayout {
+	fn era_payout(
+		total_staked: Balance,
+		_total_issuance: Balance,
+		era_duration_millis: u64,
+	) -> (Balance, Balance) {
+		let auctioned_slots: u64 = 0;
+		// TODO: figure out if using parachains here makes sense
+		// // all para-ids that are currently active.
+		// let auctioned_slots = Paras::parachains()
+		// 	.into_iter()
+		// 	// all active para-ids that do not belong to a system chain is the number
+		// 	// of parachains that we should take into account for inflation.
+		// 	.filter(|i| *i >= LOWEST_PUBLIC_ID)
+		// 	.count() as u64;
+		const MAX_ANNUAL_INFLATION: Perquintill = Perquintill::from_percent(10);
+		const MILLISECONDS_PER_YEAR: u64 = 1000 * 3600 * 24 * 36525 / 100;
+
+		let use_auctioned_slots = dynamic_params::inflation::UseAuctionSlots::get();
+		let params = EraPayoutParams {
+			total_staked,
+			// TODO: update this to use NIS issuance
+			total_stakable: 1,
+			// total_stakable: Nis::issuance().other,
+			ideal_stake: dynamic_params::inflation::IdealStake::get(),
+			max_annual_inflation: dynamic_params::inflation::MaxInflation::get(),
+			min_annual_inflation: dynamic_params::inflation::MinInflation::get(),
+			falloff: dynamic_params::inflation::Falloff::get(),
+			period_fraction: Perquintill::from_rational(era_duration_millis, MILLISECONDS_PER_YEAR),
+			legacy_auction_proportion: if use_auctioned_slots {
+				Some(Perquintill::from_rational(auctioned_slots.min(60), 200))
+			} else {
+				None
+			},
+		};
+		relay_era_payout(params)
+	}
 }
 
 parameter_types! {
@@ -666,7 +749,6 @@ parameter_types! {
 	pub const BondingDuration: sp_staking::EraIndex = 2;
 	// 1 era in which slashes can be cancelled (6 hours).
 	pub const SlashDeferDuration: sp_staking::EraIndex = 1;
-	pub const RewardCurve: &'static PiecewiseLinear<'static> = &REWARD_CURVE;
 	pub const MaxExposurePageSize: u32 = 64;
 	// Note: this is not really correct as Max Nominators is (MaxExposurePageSize * page_count) but
 	// this is an unbounded number. We just set it to a reasonably high value, 1 full page
@@ -690,7 +772,7 @@ impl pallet_staking::Config for Runtime {
 	type SlashDeferDuration = SlashDeferDuration;
 	type AdminOrigin = EitherOf<EnsureRoot<AccountId>, StakingAdmin>;
 	type SessionInterface = Self;
-	type EraPayout = pallet_staking::ConvertCurve<RewardCurve>;
+	type EraPayout = EraPayout;
 	type MaxExposurePageSize = MaxExposurePageSize;
 	type NextNewSession = Session;
 	type ElectionProvider = ElectionProviderMultiPhase;
@@ -1530,6 +1612,11 @@ mod runtime {
 	pub type Historical = session_historical;
 	#[runtime::pallet_index(70)]
 	pub type Parameters = pallet_parameters;
+	// NIS pallet.
+	// #[runtime::pallet_index(71)]
+	// pub type Nis = pallet_nis;
+	// #[runtime::pallet_index(72)]
+	// pub type NisCounterpartBalances = pallet_balances::Instance2;
 
 	#[runtime::pallet_index(8)]
 	pub type Session = pallet_session;
