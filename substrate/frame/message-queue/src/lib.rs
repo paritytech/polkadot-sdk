@@ -1569,13 +1569,7 @@ impl<T: Config> ServiceQueues for Pallet<T> {
 
 		// Get the maximum weight that processing a single message may take:
 		let max_weight = Self::max_message_weight(weight_limit).unwrap_or_else(|| {
-			// throw defensive message when service_queues is called from on_initialize
-			// it doesn't matter if there is not enough weight when called in the context of on_idle
-			// therefore, don't throw message when service_queues is called from on_idle
-			if matches(context, ServiceQueuesContext::OnInitialize) {
-				defensive!("Not enough weight to service a single message.");
-			}
-			Weight::zero()
+			check_queue_context(context);
 		});
 
 		match with_service_mutex(|| {
@@ -1643,6 +1637,16 @@ impl<T: Config> ServiceQueues for Pallet<T> {
 				_ => ExecuteOverweightError::Other,
 			},
 		)
+	}
+
+	// Check the message queue context for on_idle and on_initialize status
+	// throw defensive message in `on_initialize` status
+	// don't throw defensive message in `on_idle` status
+	fn check_queue_context(context: ServiceQueuesContext) -> Weight {
+		if matches(context, ServiceQueuesContext::OnInitialize) {
+			defensive!("Not enough weight to service a single message.");
+		}
+		Weight::zero()
 	}
 }
 
