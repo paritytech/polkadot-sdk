@@ -20,6 +20,11 @@ doc:
       This config item allows exchanging assets and quoting exchange prices.
       An adapter was added to `xcm-builder` to make it compatible with `pallet-asset-conversion`:
       `FungiblesPoolAdapter`.
+      The new functionality in the executor pays delivery fees using only one asset, which might be
+      swapped to the correct one.
+      If you have a custom XcmRouter that returns more than one asset needed for delivery fees, then know
+      that only the first one will be used.
+      No XcmRouter provided by the SDK returns more than one asset.
 
 crates:
   - name: staging-xcm-executor
