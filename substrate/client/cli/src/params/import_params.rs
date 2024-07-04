@@ -83,7 +83,7 @@ pub struct ImportParams {
 
 	/// DEPRECATED: switch to `--trie-cache-size`.
 	#[arg(long)]
-	state_cache_size: Option<usize>,
+	pub state_cache_size: Option<usize>,
 }
 
 impl ImportParams {
