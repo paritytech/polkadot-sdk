@@ -70,7 +70,6 @@ use bp_runtime::{
 };
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{dispatch::PostDispatchInfo, ensure, fail, traits::Get, DefaultNoBound};
-use sp_runtime::traits::UniqueSaturatedFrom;
 use sp_std::{marker::PhantomData, prelude::*};
 
 mod inbound_lane;
@@ -151,40 +150,6 @@ pub mod pallet {
 		type OwnerStorage = PalletOwner<T, I>;
 		type OperatingMode = MessagesOperatingMode;
 		type OperatingModeStorage = PalletOperatingMode<T, I>;
-	}
-
-	#[pallet::hooks]
-	impl<T: Config<I>, I: 'static> Hooks<BlockNumberFor<T>> for Pallet<T, I>
-	where
-		u32: TryFrom<BlockNumberFor<T>>,
-	{
-		fn on_idle(_block: BlockNumberFor<T>, remaining_weight: Weight) -> Weight {
-			// we'll need at least to read outbound lane state, kill a message and update lane state
-			let db_weight = T::DbWeight::get();
-			if !remaining_weight.all_gte(db_weight.reads_writes(1, 2)) {
-				return Weight::zero()
-			}
-
-			// messages from lane with index `i` in `ActiveOutboundLanes` are pruned when
-			// `System::block_number() % lanes.len() == i`. Otherwise we need to read lane states on
-			// every block, wasting the whole `remaining_weight` for nothing and causing starvation
-			// of the last lane pruning
-			let active_lanes = T::ActiveOutboundLanes::get();
-			let active_lanes_len = (active_lanes.len() as u32).into();
-			let active_lane_index = u32::unique_saturated_from(
-				frame_system::Pallet::<T>::block_number() % active_lanes_len,
-			);
-			let active_lane_id = active_lanes[active_lane_index as usize];
-
-			// first db read - outbound lane state
-			let mut active_lane = outbound_lane::<T, I>(active_lane_id);
-			let mut used_weight = db_weight.reads(1);
-			// and here we'll have writes
-			used_weight += active_lane.prune_messages(db_weight, remaining_weight - used_weight);
-
-			// we already checked we have enough `remaining_weight` to cover this `used_weight`
-			used_weight
-		}
 	}
 
 	#[pallet::call]
