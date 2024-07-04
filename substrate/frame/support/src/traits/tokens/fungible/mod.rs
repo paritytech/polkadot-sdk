@@ -58,8 +58,9 @@
 //!   3 holds for 100 units, the account can spend its funds for any reason down to 300 units, at
 //!   which point the holds will start to come into play.
 //!
-//! - **Frozen Balance**: A freeze on a specified amount of an account's free balance until a
-//!   specified block number.
+//! - **Frozen Balance**: A freeze on a specified amount of an account's balance. There's no 
+//!   restriction preventing an account from freezing over its available balance. This amount still
+//!   belongs to the account holder, but cannot be spent.
 //!
 //!   Multiple freezes always operate over the same funds, so they "overlay" rather than
 //!   "stack". This means that if an account has 3 freezes for 100 units, the account can spend its
