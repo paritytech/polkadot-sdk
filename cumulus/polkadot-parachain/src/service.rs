@@ -28,9 +28,6 @@ use cumulus_client_service::{
 };
 use cumulus_primitives_core::{relay_chain::ValidationCode, ParaId};
 use cumulus_relay_chain_interface::{OverseerHandle, RelayChainInterface};
-use sc_rpc::DenyUnsafe;
-
-use jsonrpsee::RpcModule;
 
 use crate::{
 	common::{
@@ -38,11 +35,11 @@ use crate::{
 		ConstructNodeRuntimeApi,
 	},
 	fake_runtime_api::aura::RuntimeApi as FakeRuntimeApi,
-	rpc,
 	rpc::BuildRpcExtensions,
 };
 pub use parachains_common::{AccountId, AuraId, Balance, Block, Hash, Nonce};
 
+use crate::rpc::{BuildEmptyRpcExtensions, BuildParachainRpcExtensions};
 use frame_benchmarking_cli::BlockCmd;
 #[cfg(any(feature = "runtime-benchmarks"))]
 use frame_benchmarking_cli::StorageCmd;
@@ -78,7 +75,7 @@ type HostFunctions = (
 
 pub type ParachainClient<RuntimeApi> = TFullClient<Block, RuntimeApi, WasmExecutor<HostFunctions>>;
 
-type ParachainBackend = TFullBackend<Block>;
+pub type ParachainBackend = TFullBackend<Block>;
 
 type ParachainBlockImport<RuntimeApi> =
 	TParachainBlockImport<Block, Arc<ParachainClient<RuntimeApi>>, ParachainBackend>;
@@ -93,7 +90,7 @@ pub type Service<RuntimeApi> = PartialComponents<
 	(ParachainBlockImport<RuntimeApi>, Option<Telemetry>, Option<TelemetryWorkerHandle>),
 >;
 
-pub trait BuildImportQueue<RuntimeApi> {
+pub(crate) trait BuildImportQueue<RuntimeApi> {
 	fn build_import_queue(
 		client: Arc<ParachainClient<RuntimeApi>>,
 		block_import: ParachainBlockImport<RuntimeApi>,
@@ -103,7 +100,7 @@ pub trait BuildImportQueue<RuntimeApi> {
 	) -> sc_service::error::Result<DefaultImportQueue<Block>>;
 }
 
-pub trait StartConsensus<RuntimeApi>
+pub(crate) trait StartConsensus<RuntimeApi>
 where
 	RuntimeApi: ConstructNodeRuntimeApi<Block, ParachainClient<RuntimeApi>>,
 {
@@ -126,7 +123,7 @@ where
 	) -> Result<(), sc_service::Error>;
 }
 
-pub trait NodeSpec {
+pub(crate) trait NodeSpec {
 	type RuntimeApi: ConstructNodeRuntimeApi<Block, ParachainClient<Self::RuntimeApi>>;
 
 	type BuildImportQueue: BuildImportQueue<Self::RuntimeApi> + 'static;
@@ -370,61 +367,8 @@ pub trait NodeSpec {
 	}
 }
 
-/// Build the import queue for Aura-based runtimes.
-pub struct BuildAuraImportQueue<RuntimeApi>(PhantomData<RuntimeApi>);
-
-impl BuildImportQueue<FakeRuntimeApi> for BuildAuraImportQueue<FakeRuntimeApi> {
-	fn build_import_queue(
-		client: Arc<ParachainClient<FakeRuntimeApi>>,
-		block_import: ParachainBlockImport<FakeRuntimeApi>,
-		config: &Configuration,
-		telemetry_handle: Option<TelemetryHandle>,
-		task_manager: &TaskManager,
-	) -> sc_service::error::Result<DefaultImportQueue<Block>> {
-		let slot_duration = cumulus_client_consensus_aura::slot_duration(&*client)?;
-
-		cumulus_client_consensus_aura::import_queue::<
-			sp_consensus_aura::sr25519::AuthorityPair,
-			_,
-			_,
-			_,
-			_,
-			_,
-		>(cumulus_client_consensus_aura::ImportQueueParams {
-			block_import,
-			client,
-			create_inherent_data_providers: move |_, _| async move {
-				let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
-
-				let slot =
-					sp_consensus_aura::inherents::InherentDataProvider::from_timestamp_and_slot_duration(
-						*timestamp,
-						slot_duration,
-					);
-
-				Ok((slot, timestamp))
-			},
-			registry: config.prometheus_registry(),
-			spawner: &task_manager.spawn_essential_handle(),
-			telemetry: telemetry_handle,
-		})
-		.map_err(Into::into)
-	}
-}
-
-pub struct RococoParachainNode;
-
-impl NodeSpec for RococoParachainNode {
-	type RuntimeApi = FakeRuntimeApi;
-	type BuildImportQueue = BuildAuraImportQueue<Self::RuntimeApi>;
-	type BuildRpcExtensions = BuildParachainRpcExtensions<Self::RuntimeApi>;
-	type StartConsensus = StartLookaheadAuraConsensus<Self::RuntimeApi, AuraId>;
-
-	const SYBIL_RESISTANCE: CollatorSybilResistance = CollatorSybilResistance::Resistant;
-}
-
 /// Build the import queue for the shell runtime.
-pub struct BuildShellImportQueue<RuntimeApi>(PhantomData<RuntimeApi>);
+pub(crate) struct BuildShellImportQueue<RuntimeApi>(PhantomData<RuntimeApi>);
 
 impl BuildImportQueue<FakeRuntimeApi> for BuildShellImportQueue<FakeRuntimeApi> {
 	fn build_import_queue(
@@ -445,74 +389,7 @@ impl BuildImportQueue<FakeRuntimeApi> for BuildShellImportQueue<FakeRuntimeApi> 
 	}
 }
 
-pub struct BuildParachainRpcExtensions<RuntimeApi>(PhantomData<RuntimeApi>);
-
-impl<RuntimeApi>
-	BuildRpcExtensions<
-		ParachainClient<RuntimeApi>,
-		ParachainBackend,
-		sc_transaction_pool::FullPool<Block, ParachainClient<RuntimeApi>>,
-	> for BuildParachainRpcExtensions<RuntimeApi>
-where
-	RuntimeApi: ConstructNodeRuntimeApi<Block, ParachainClient<RuntimeApi>> + Send + Sync + 'static,
-	RuntimeApi::RuntimeApi: pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block, Balance>
-		+ substrate_frame_rpc_system::AccountNonceApi<Block, AccountId, Nonce>,
-{
-	fn build_rpc_extensions(
-		deny_unsafe: DenyUnsafe,
-		client: Arc<ParachainClient<RuntimeApi>>,
-		backend: Arc<ParachainBackend>,
-		pool: Arc<sc_transaction_pool::FullPool<Block, ParachainClient<RuntimeApi>>>,
-	) -> sc_service::error::Result<RpcModule<()>> {
-		let deps = rpc::FullDeps { client, pool, deny_unsafe };
-
-		rpc::create_full(deps, backend).map_err(Into::into)
-	}
-}
-
-pub struct BuildContractsRpcExtensions;
-
-impl
-	BuildRpcExtensions<
-		ParachainClient<FakeRuntimeApi>,
-		ParachainBackend,
-		sc_transaction_pool::FullPool<Block, ParachainClient<FakeRuntimeApi>>,
-	> for BuildContractsRpcExtensions
-{
-	fn build_rpc_extensions(
-		deny_unsafe: DenyUnsafe,
-		client: Arc<ParachainClient<FakeRuntimeApi>>,
-		_backend: Arc<ParachainBackend>,
-		pool: Arc<sc_transaction_pool::FullPool<Block, ParachainClient<FakeRuntimeApi>>>,
-	) -> sc_service::error::Result<RpcModule<()>> {
-		let deps = crate::rpc::FullDeps { client: client.clone(), pool: pool.clone(), deny_unsafe };
-
-		crate::rpc::create_contracts_rococo(deps).map_err(Into::into)
-	}
-}
-
-pub struct BuildEmptyRpcExtensions<RuntimeApi>(PhantomData<RuntimeApi>);
-
-impl<RuntimeApi>
-	BuildRpcExtensions<
-		ParachainClient<RuntimeApi>,
-		ParachainBackend,
-		sc_transaction_pool::FullPool<Block, ParachainClient<RuntimeApi>>,
-	> for BuildEmptyRpcExtensions<RuntimeApi>
-where
-	RuntimeApi: ConstructNodeRuntimeApi<Block, ParachainClient<RuntimeApi>> + Send + Sync + 'static,
-{
-	fn build_rpc_extensions(
-		_deny_unsafe: DenyUnsafe,
-		_client: Arc<ParachainClient<RuntimeApi>>,
-		_backend: Arc<ParachainBackend>,
-		_pool: Arc<sc_transaction_pool::FullPool<Block, ParachainClient<RuntimeApi>>>,
-	) -> sc_service::error::Result<RpcModule<()>> {
-		Ok(RpcModule::new(()))
-	}
-}
-
-pub struct ShellNode;
+pub(crate) struct ShellNode;
 
 impl NodeSpec for ShellNode {
 	type RuntimeApi = FakeRuntimeApi;
@@ -551,7 +428,9 @@ where
 
 /// Build the import queue for parachain runtimes that started with relay chain consensus and
 /// switched to aura.
-pub struct BuildRelayToAuraImportQueue<RuntimeApi, AuraId>(PhantomData<(RuntimeApi, AuraId)>);
+pub(crate) struct BuildRelayToAuraImportQueue<RuntimeApi, AuraId>(
+	PhantomData<(RuntimeApi, AuraId)>,
+);
 
 impl<RuntimeApi, AuraId> BuildImportQueue<RuntimeApi>
 	for BuildRelayToAuraImportQueue<RuntimeApi, AuraId>
@@ -615,19 +494,17 @@ where
 /// Uses the lookahead collator to support async backing.
 ///
 /// Start an aura powered parachain node. Some system chains use this.
-pub struct GenericAuraLookaheadNode;
+pub(crate) struct GenericAuraLookaheadNode<RuntimeApi, AuraId>(
+	pub PhantomData<(RuntimeApi, AuraId)>,
+);
 
-impl NodeSpec for GenericAuraLookaheadNode {
-	type RuntimeApi = FakeRuntimeApi;
-	type BuildImportQueue = BuildRelayToAuraImportQueue<Self::RuntimeApi, AuraId>;
-	type BuildRpcExtensions = BuildParachainRpcExtensions<Self::RuntimeApi>;
-	type StartConsensus = StartLookaheadAuraConsensus<Self::RuntimeApi, AuraId>;
-	const SYBIL_RESISTANCE: CollatorSybilResistance = CollatorSybilResistance::Resistant;
+impl<RuntimeApi, AuraId> Default for GenericAuraLookaheadNode<RuntimeApi, AuraId> {
+	fn default() -> Self {
+		Self(Default::default())
+	}
 }
 
-pub struct AssetHubLookaheadNode<RuntimeApi, AuraId>(pub PhantomData<(RuntimeApi, AuraId)>);
-
-impl<RuntimeApi, AuraId> NodeSpec for AssetHubLookaheadNode<RuntimeApi, AuraId>
+impl<RuntimeApi, AuraId> NodeSpec for GenericAuraLookaheadNode<RuntimeApi, AuraId>
 where
 	RuntimeApi: ConstructNodeRuntimeApi<Block, ParachainClient<RuntimeApi>>,
 	RuntimeApi::RuntimeApi: AuraRuntimeApi<Block, AuraId>
@@ -642,31 +519,9 @@ where
 	const SYBIL_RESISTANCE: CollatorSybilResistance = CollatorSybilResistance::Resistant;
 }
 
-/// Wait for the Aura runtime API to appear on chain.
-/// This is useful for chains that started out without Aura. Components that
-/// are depending on Aura functionality will wait until Aura appears in the runtime.
-async fn wait_for_aura<RuntimeApi, AuraId>(client: Arc<ParachainClient<RuntimeApi>>)
-where
-	RuntimeApi: ConstructNodeRuntimeApi<Block, ParachainClient<RuntimeApi>>,
-	RuntimeApi::RuntimeApi: AuraRuntimeApi<Block, AuraId>,
-	AuraId: AuraIdT + Sync,
-{
-	let finalized_hash = client.chain_info().finalized_hash;
-	if client.runtime_api().has_aura_api(finalized_hash) {
-		return;
-	};
-
-	let mut stream = client.finality_notification_stream();
-	while let Some(notification) = stream.next().await {
-		if client.runtime_api().has_aura_api(notification.hash) {
-			return;
-		}
-	}
-}
-
 /// Start relay-chain consensus that is free for all. Everyone can submit a block, the relay-chain
 /// decides what is backed and included.
-pub struct StartRelayChainConsensus;
+pub(crate) struct StartRelayChainConsensus;
 
 impl StartConsensus<FakeRuntimeApi> for StartRelayChainConsensus {
 	fn start_consensus(
@@ -740,8 +595,32 @@ impl StartConsensus<FakeRuntimeApi> for StartRelayChainConsensus {
 	}
 }
 
+/// Wait for the Aura runtime API to appear on chain.
+/// This is useful for chains that started out without Aura. Components that
+/// are depending on Aura functionality will wait until Aura appears in the runtime.
+async fn wait_for_aura<RuntimeApi, AuraId>(client: Arc<ParachainClient<RuntimeApi>>)
+where
+	RuntimeApi: ConstructNodeRuntimeApi<Block, ParachainClient<RuntimeApi>>,
+	RuntimeApi::RuntimeApi: AuraRuntimeApi<Block, AuraId>,
+	AuraId: AuraIdT + Sync,
+{
+	let finalized_hash = client.chain_info().finalized_hash;
+	if client.runtime_api().has_aura_api(finalized_hash) {
+		return;
+	};
+
+	let mut stream = client.finality_notification_stream();
+	while let Some(notification) = stream.next().await {
+		if client.runtime_api().has_aura_api(notification.hash) {
+			return;
+		}
+	}
+}
+
 /// Start consensus using the lookahead aura collator.
-pub struct StartLookaheadAuraConsensus<RuntimeApi, AuraId>(PhantomData<(RuntimeApi, AuraId)>);
+pub(crate) struct StartLookaheadAuraConsensus<RuntimeApi, AuraId>(
+	PhantomData<(RuntimeApi, AuraId)>,
+);
 
 impl<RuntimeApi, AuraId> StartConsensus<RuntimeApi>
 	for StartLookaheadAuraConsensus<RuntimeApi, AuraId>
@@ -820,23 +699,12 @@ where
 /// Start an aura powered parachain node which uses the lookahead collator to support async backing.
 /// This node is basic in the sense that its runtime api doesn't include common contents such as
 /// transaction payment. Used for aura glutton.
-pub struct BasicLookaheadNode;
+pub(crate) struct BasicLookaheadNode;
 
 impl NodeSpec for BasicLookaheadNode {
 	type RuntimeApi = FakeRuntimeApi;
 	type BuildImportQueue = BuildRelayToAuraImportQueue<Self::RuntimeApi, AuraId>;
 	type BuildRpcExtensions = BuildEmptyRpcExtensions<Self::RuntimeApi>;
-	type StartConsensus = StartLookaheadAuraConsensus<Self::RuntimeApi, AuraId>;
-	const SYBIL_RESISTANCE: CollatorSybilResistance = CollatorSybilResistance::Resistant;
-}
-
-/// Start a parachain node for Rococo Contracts.
-pub struct ContractsRococoNode;
-
-impl NodeSpec for ContractsRococoNode {
-	type RuntimeApi = FakeRuntimeApi;
-	type BuildImportQueue = BuildAuraImportQueue<Self::RuntimeApi>;
-	type BuildRpcExtensions = BuildContractsRpcExtensions;
 	type StartConsensus = StartLookaheadAuraConsensus<Self::RuntimeApi, AuraId>;
 	const SYBIL_RESISTANCE: CollatorSybilResistance = CollatorSybilResistance::Resistant;
 }
@@ -859,7 +727,7 @@ type SyncCmdResult = sc_cli::Result<()>;
 type AsyncCmdResult<'a> =
 	sc_cli::Result<(Pin<Box<dyn Future<Output = SyncCmdResult> + 'a>>, TaskManager)>;
 
-pub trait DynNodeSpec {
+pub(crate) trait DynNodeSpec {
 	fn prepare_check_block_cmd(
 		self: Box<Self>,
 		config: Configuration,

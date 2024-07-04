@@ -14,22 +14,24 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
+#[cfg(feature = "runtime-benchmarks")]
+use crate::service::Block;
 use crate::{
 	chain_spec,
 	chain_spec::GenericChainSpec,
 	cli::{Cli, RelayChainCli, Subcommand},
-	fake_runtime_api::asset_hub_polkadot_aura::RuntimeApi as AssetHubPolkadotRuntimeApi,
-	service::{
-		AssetHubLookaheadNode, BasicLookaheadNode, Block, ContractsRococoNode, DynNodeSpec,
-		GenericAuraLookaheadNode, RococoParachainNode, ShellNode,
+	fake_runtime_api::{
+		asset_hub_polkadot_aura::RuntimeApi as AssetHubPolkadotRuntimeApi,
+		aura::RuntimeApi as AuraRuntimeApi,
 	},
+	service::{BasicLookaheadNode, DynNodeSpec, GenericAuraLookaheadNode, ShellNode},
 };
 #[cfg(feature = "runtime-benchmarks")]
 use cumulus_client_service::storage_proof_size::HostFunctions as ReclaimHostFunctions;
 use cumulus_primitives_core::ParaId;
 use frame_benchmarking_cli::{BenchmarkCmd, SUBSTRATE_REFERENCE_HARDWARE};
 use log::info;
-use parachains_common::AssetHubPolkadotAuraId;
+use parachains_common::{AssetHubPolkadotAuraId, AuraId};
 use sc_cli::{
 	ChainSpec, CliConfiguration, DefaultConfigurationValues, ImportParams, KeystoreParams,
 	NetworkParams, Result, SharedParams, SubstrateCli,
@@ -387,21 +389,22 @@ fn new_node_spec(
 	config: &sc_service::Configuration,
 ) -> std::result::Result<Box<dyn DynNodeSpec>, sc_cli::Error> {
 	Ok(match config.chain_spec.runtime()? {
-		Runtime::AssetHubPolkadot => Box::new(AssetHubLookaheadNode::<
+		Runtime::AssetHubPolkadot => Box::new(GenericAuraLookaheadNode::<
 			AssetHubPolkadotRuntimeApi,
 			AssetHubPolkadotAuraId,
-		>(Default::default())),
+		>::default()),
 		Runtime::AssetHub |
 		Runtime::BridgeHub(_) |
 		Runtime::Collectives |
 		Runtime::Coretime(_) |
-		Runtime::People(_) => Box::new(GenericAuraLookaheadNode),
+		Runtime::People(_) |
+		Runtime::ContractsRococo |
+		Runtime::Penpal(_) => Box::new(GenericAuraLookaheadNode::<AuraRuntimeApi, AuraId>::default()),
 		Runtime::Shell | Runtime::Seedling => Box::new(ShellNode),
-		Runtime::ContractsRococo => Box::new(ContractsRococoNode),
-		Runtime::Penpal(_) => Box::new(RococoParachainNode),
 		Runtime::Glutton => Box::new(BasicLookaheadNode),
 		Runtime::Omni(consensus) => match consensus {
-			Consensus::Aura => Box::new(RococoParachainNode),
+			Consensus::Aura =>
+				Box::new(GenericAuraLookaheadNode::<AuraRuntimeApi, AuraId>::default()),
 			Consensus::Relay => Box::new(ShellNode),
 		},
 	})
@@ -502,8 +505,6 @@ pub fn run() -> Result<()> {
 				}),
 				BenchmarkCmd::Machine(cmd) =>
 					runner.sync_run(|config| cmd.run(&config, SUBSTRATE_REFERENCE_HARDWARE.clone())),
-				// NOTE: this allows the Client to leniently implement
-				// new benchmark commands without requiring a companion MR.
 				#[allow(unreachable_patterns)]
 				_ => Err("Benchmarking sub-command unsupported or compilation feature missing. \
 					Make sure to compile with --features=runtime-benchmarks \
