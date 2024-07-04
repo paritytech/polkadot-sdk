@@ -107,44 +107,41 @@ use polkadot_primitives::{
 };
 use thiserror::Error;
 
-// TODO: fix this.
-const EXTRA_UNCONNECTED_COUNT: usize = 10;
-
 /// Fragment chain related errors.
 #[derive(Debug, Clone, PartialEq, Error)]
 pub(crate) enum Error {
-	#[error("Candidate already known: {0}")]
-	CandidateAlreadyKnown(CandidateHash),
-	#[error("Candidate already pending availability: {0}")]
-	CandidateAlreadyPendingAvailability(CandidateHash),
-	#[error("Candidate would introduce a zero-length cycle")]
+	#[error("Candidate already known")]
+	CandidateAlreadyKnown,
+	#[error("Candidate is already pending availability")]
+	CandidateAlreadyPendingAvailability,
+	#[error("Candidate's parent head is equal to its output head. Would introduce a cycle.")]
 	ZeroLengthCycle,
 	#[error("Candidate would introduce a cycle")]
 	Cycle,
-	#[error("Candidate would introduce two paths to the same state")]
+	#[error("Candidate would introduce two paths to the same output state")]
 	MultiplePaths,
-	#[error("Attempting to directly introduce a Backed candidate. It should first be introduced as Seconded: {0}")]
-	IntroduceBackedCandidate(CandidateHash),
-	#[error("Too many candidates")]
-	TooManyCandidates,
-	#[error("RelayParentPrecedesCandidatePendingAvailability")]
-	RelayParentPrecedesCandidatePendingAvailability,
-	#[error("ForkWithCandidatePendingAvailability")]
-	ForkWithCandidatePendingAvailability,
-	#[error("ForkChoiceRule")]
-	ForkChoiceRule,
-	#[error("ParentCandidateNotFound")]
+	#[error("Attempting to directly introduce a Backed candidate. It should first be introduced as Seconded")]
+	IntroduceBackedCandidate,
+	#[error("Current backed candidate chain reached the `max_candidate_depth + 1` limit")]
+	ChainTooLong,
+	#[error("Relay parent {0:?} of the candidate precedes the relay parent {0:?} of a pending availability candidate")]
+	RelayParentPrecedesCandidatePendingAvailability(Hash, Hash),
+	#[error("Candidate would introduce a fork with a pending availability candidate: {0:?}")]
+	ForkWithCandidatePendingAvailability(CandidateHash),
+	#[error("Fork selection rule favours another candidate: {0:?}")]
+	ForkChoiceRule(CandidateHash),
+	#[error("Could not find parent of the candidate")]
 	ParentCandidateNotFound,
-	#[error("ComputeConstraints: {0:?}")]
+	#[error("Could not compute candidate constraints: {0:?}")]
 	ComputeConstraints(inclusion_emulator::ModificationError),
-	#[error("CheckAgainstConstraints: {0:?}")]
+	#[error("Candidate violates constraints: {0:?}")]
 	CheckAgainstConstraints(inclusion_emulator::FragmentValidityError),
-	#[error("RelayParentMovedBackwards")]
+	#[error("Relay parent would move backwards from the latest candidate in the chain")]
 	RelayParentMovedBackwards,
-	#[error("CandidateEntry: {0}")]
+	#[error(transparent)]
 	CandidateEntry(#[from] CandidateEntryError),
-	#[error("RelayParentNotInScope")]
-	RelayParentNotInScope,
+	#[error("Relay parent {0:?} not in scope. Earliest relay parent allowed {0:?}")]
+	RelayParentNotInScope(Hash, Hash),
 }
 
 /// The rule for selecting between two backed candidate forks, when adding to the chain.
@@ -193,7 +190,7 @@ impl CandidateStorage {
 	pub fn add_candidate_entry(&mut self, candidate: CandidateEntry) -> Result<(), Error> {
 		let candidate_hash = candidate.candidate_hash;
 		if self.by_candidate_hash.contains_key(&candidate_hash) {
-			return Err(Error::CandidateAlreadyKnown(candidate_hash))
+			return Err(Error::CandidateAlreadyKnown)
 		}
 
 		self.by_parent_head
@@ -296,6 +293,7 @@ impl CandidateStorage {
 			})
 	}
 
+	#[cfg(test)]
 	fn len(&self) -> usize {
 		self.by_candidate_hash.len()
 	}
@@ -316,7 +314,7 @@ enum CandidateState {
 pub enum CandidateEntryError {
 	#[error("Candidate does not match the persisted validation data provided alongside it")]
 	PersistedValidationDataMismatch,
-	#[error("Candidate is a zero-length cycle")]
+	#[error("Candidate's parent head is equal to its output head. Would introduce a cycle")]
 	ZeroLengthCycle,
 }
 
@@ -772,17 +770,11 @@ impl FragmentChain {
 		let candidate_hash = candidate.candidate_hash();
 
 		if self.scope.get_pending_availability(&candidate_hash).is_some() {
-			return Err(Error::CandidateAlreadyPendingAvailability(candidate_hash))
+			return Err(Error::CandidateAlreadyPendingAvailability)
 		}
 
 		if self.candidates.contains(&candidate_hash) || self.unconnected.contains(&candidate_hash) {
-			return Err(Error::CandidateAlreadyKnown(candidate_hash))
-		}
-
-		if (self.chain.len() + self.unconnected.len()) >
-			(self.scope.max_depth + EXTRA_UNCONNECTED_COUNT)
-		{
-			return Err(Error::TooManyCandidates)
+			return Err(Error::CandidateAlreadyKnown)
 		}
 
 		self.check_potential(candidate)
@@ -793,7 +785,7 @@ impl FragmentChain {
 		candidate: &CandidateEntry,
 	) -> Result<(), Error> {
 		if candidate.state == CandidateState::Backed {
-			return Err(Error::IntroduceBackedCandidate(candidate.candidate_hash));
+			return Err(Error::IntroduceBackedCandidate);
 		}
 
 		let res = self.can_add_candidate_as_potential(&candidate);
@@ -821,7 +813,6 @@ impl FragmentChain {
 			let res = self.can_add_candidate_as_potential(&candidate);
 
 			match res {
-				Err(Error::TooManyCandidates) => break,
 				Ok(()) => {
 					// This clone is cheap because the expensive stuff is wrapped in an Arc
 					let Ok(()) = self.unconnected.add_candidate_entry(candidate.clone()) else {
@@ -842,7 +833,7 @@ impl FragmentChain {
 			return Err(Error::Cycle)
 		}
 
-		// // multiple paths to the same state, which can't happen for a chain.
+		// multiple paths to the same state, which can't happen for a chain.
 		if self.by_output_head.contains_key(output_head_hash) {
 			return Err(Error::MultiplePaths)
 		}
@@ -870,41 +861,54 @@ impl FragmentChain {
 		}
 
 		let Some(relay_parent) = self.scope.ancestor(&relay_parent) else {
-			return Err(Error::RelayParentNotInScope)
+			return Err(Error::RelayParentNotInScope(
+				relay_parent,
+				self.scope.earliest_relay_parent().hash,
+			))
 		};
-		let earliest_rp = self.earliest_relay_parent_pending_availability();
-		if relay_parent.number < earliest_rp.number {
-			return Err(Error::RelayParentPrecedesCandidatePendingAvailability) // relay parent moved
-			                                                          // backwards.
+		let earliest_rp_of_pending_availability = self.earliest_relay_parent_pending_availability();
+		// relay parent moved backwards.
+		if relay_parent.number < earliest_rp_of_pending_availability.number {
+			return Err(Error::RelayParentPrecedesCandidatePendingAvailability(
+				relay_parent.hash,
+				earliest_rp_of_pending_availability.hash,
+			))
 		}
 
 		// Check if it's a fork with a backed candidate.
 		if let Some(other_candidate) = self.by_parent_head.get(&parent_head_hash) {
 			if self.scope().get_pending_availability(other_candidate).is_some() {
 				// Cannot accept a fork with a candidate pending availability.
-				return Err(Error::ForkWithCandidatePendingAvailability)
+				return Err(Error::ForkWithCandidatePendingAvailability(*other_candidate))
 			}
 
 			// If the candidate is backed and in the current chain, accept only a candidate with
 			// a lower hash.
 			if fork_selection_rule(other_candidate, &candidate.candidate_hash()) == Ordering::Less {
-				return Err(Error::ForkChoiceRule)
+				return Err(Error::ForkChoiceRule(*other_candidate))
 			}
 		}
 
 		let constraints = if let Some(parent_candidate) = self.by_output_head.get(&parent_head_hash)
 		{
-			let Some(parent_candidate) =
-				self.chain.iter().find(|c| &c.candidate_hash == parent_candidate)
+			let Some(parent_candidate_index) =
+				self.chain.iter().position(|c| &c.candidate_hash == parent_candidate)
 			else {
+				// Should never really happen.
 				return Err(Error::ParentCandidateNotFound)
 			};
+
+			if parent_candidate_index > self.scope.max_depth {
+				return Err(Error::ChainTooLong)
+			}
+
+			let parent_candidate = &self.chain[parent_candidate_index];
 			self.scope
 				.base_constraints
 				.apply_modifications(&parent_candidate.cumulative_modifications)
 				.map_err(Error::ComputeConstraints)?
-		// Check if it builds on the latest included candidate
 		} else if self.scope.base_constraints.required_parent.hash() == parent_head_hash {
+			// It builds on the latest included candidate.
 			self.scope.base_constraints.clone()
 		} else {
 			// If the parent is not yet part of the chain, there's nothing else we can check for
@@ -931,8 +935,9 @@ impl FragmentChain {
 				pvd,
 			)
 			.map_err(Error::CheckAgainstConstraints)?;
-		// Otherwise, at least check the relay parent progresses.
+		// TODO: make sure this checks the relay parent to not move backwards.
 		} else if relay_parent.number < constraints.min_relay_parent_number {
+			// Otherwise, at least check the relay parent progresses.
 			return Err(Error::RelayParentMovedBackwards)
 		}
 

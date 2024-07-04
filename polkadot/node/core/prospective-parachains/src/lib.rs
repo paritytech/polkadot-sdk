@@ -70,7 +70,7 @@ use self::metrics::Metrics;
 const LOG_TARGET: &str = "parachain::prospective-parachains";
 
 struct RelayBlockViewData {
-	// Scheduling info for paras and upcoming paras.
+	// The fragment chains for current and upcoming scheduled paras.
 	fragment_chains: HashMap<ParaId, FragmentChain>,
 }
 
@@ -167,10 +167,14 @@ async fn handle_active_leaves_update<Context>(
 	update: ActiveLeavesUpdate,
 	_metrics: &Metrics,
 ) -> JfyiErrorResult<()> {
-	// 1. clean up inactive leaves
-	// 2. determine all scheduled paras at the new block
-	// 3. construct new fragment chain for each para for each new leaf
-	// 4. prune candidate storage.
+	// For each active leaf:
+	// - determine the scheduled paras
+	// - pre-populate the candidate storage with pending availability candidates and candidates from
+	//   the parent leaf.
+	// - populate the fragment chain
+	//
+	// Only then, clean up inactive leaves. They must be cleaned only after new leaves are
+	// processed, because we may reuse their candidates.
 
 	let mut temp_header_cache = HashMap::new();
 	for activated in update.activated.into_iter() {
@@ -228,9 +232,9 @@ async fn handle_active_leaves_update<Context>(
 			ancestry.clear();
 		}
 
-		// Find constraints.
 		let mut fragment_chains = HashMap::new();
 		for para in scheduled_paras {
+			// Get the candidate storage of the parent leaf, if present.
 			let prev_candidate_storage = prev_fragment_chains
 				.map(|chains| {
 					chains
@@ -241,8 +245,8 @@ async fn handle_active_leaves_update<Context>(
 				})
 				.unwrap_or_default();
 
+			// Find constraints and pending availability candidates.
 			let backing_state = fetch_backing_state(ctx, hash, para).await?;
-
 			let Some((constraints, pending_availability)) = backing_state else {
 				// This indicates a runtime conflict of some kind.
 				gum::debug!(
@@ -276,8 +280,8 @@ async fn handle_active_leaves_update<Context>(
 
 				match res {
 					Ok(_) |
-					Err(FragmentChainError::CandidateAlreadyKnown(_)) |
-					Err(FragmentChainError::CandidateAlreadyPendingAvailability(_)) => {},
+					Err(FragmentChainError::CandidateAlreadyKnown) |
+					Err(FragmentChainError::CandidateAlreadyPendingAvailability) => {},
 					Err(err) => {
 						gum::warn!(
 							target: LOG_TARGET,
@@ -334,6 +338,7 @@ async fn handle_active_leaves_update<Context>(
 				let _ = new_storage.add_candidate_entry(candidate);
 			}
 
+			// Finally, populate the fragment chain.
 			let chain = FragmentChain::populate(scope, &mut new_storage);
 
 			gum::trace!(
@@ -471,7 +476,7 @@ async fn handle_introduce_seconded_candidate(
 					);
 					added = true;
 				},
-				Err(FragmentChainError::CandidateAlreadyKnown(_)) => {
+				Err(FragmentChainError::CandidateAlreadyKnown) => {
 					gum::debug!(
 						target: LOG_TARGET,
 						para = ?para,
@@ -481,7 +486,7 @@ async fn handle_introduce_seconded_candidate(
 					);
 					added = true;
 				},
-				Err(FragmentChainError::CandidateAlreadyPendingAvailability(_)) => {
+				Err(FragmentChainError::CandidateAlreadyPendingAvailability) => {
 					gum::debug!(
 						target: LOG_TARGET,
 						para = ?para,
@@ -527,7 +532,6 @@ async fn handle_introduce_seconded_candidate(
 }
 
 async fn handle_candidate_backed(view: &mut View, para: ParaId, candidate_hash: CandidateHash) {
-	// Repopulate the fragment chains.
 	let mut found_candidate = false;
 	let mut found_para = false;
 	for (leaf, leaf_data) in view.active_leaves.iter_mut() {
@@ -543,6 +547,7 @@ async fn handle_candidate_backed(view: &mut View, para: ParaId, candidate_hash: 
 				found_candidate = true;
 			} else if chain.contains_unconnected_candidate(&candidate_hash) {
 				found_candidate = true;
+				// Now that a candidate was backed, attempt to recreate the fragment chain.
 				let maybe_new_chain = chain.candidate_backed(&candidate_hash);
 
 				gum::trace!(
@@ -561,6 +566,7 @@ async fn handle_candidate_backed(view: &mut View, para: ParaId, candidate_hash: 
 					maybe_new_chain.as_ref().unwrap_or(chain).unconnected().map(|candidate| candidate.hash()).collect::<Vec<_>>()
 				);
 
+				// Replace the old chain with the new one.
 				if let Some(new_chain) = maybe_new_chain {
 					*chain = new_chain;
 				}
@@ -687,16 +693,19 @@ fn answer_hypothetical_membership_request(
 
 			let res = fragment_chain.can_add_candidate_as_potential(candidate);
 			match res {
-				Err(FragmentChainError::CandidateAlreadyKnown(_)) | Ok(()) => {
+				Err(FragmentChainError::CandidateAlreadyKnown) | Ok(()) => {
 					membership.push(*active_leaf);
 				},
+				// This will also match if the candidate is already pending availability.
+				// In this case, we don't need to validate it again or distribute its statements.
+				// It's already on chain.
 				Err(err) => {
 					gum::debug!(
 						target: LOG_TARGET,
 						para = ?para_id,
 						leaf = ?active_leaf,
 						candidate = ?candidate.candidate_hash(),
-						"Candidate is not a hypothetical member: {:?}",
+						"Candidate is not a hypothetical member: {}",
 						err
 					)
 				},
@@ -727,12 +736,7 @@ fn answer_prospective_validation_data_request(
 	request: ProspectiveValidationDataRequest,
 	tx: oneshot::Sender<Option<PersistedValidationData>>,
 ) {
-	// 1. Try to get the head-data from the candidate store if known.
-	// 2. Otherwise, it might exist as the base in some relay-parent and we can find it by iterating
-	//    fragment chains.
-	// 3. Otherwise, it is unknown.
-	// 4. Also try to find the relay parent block info by scanning fragment chains.
-	// 5. If head data and relay parent block info are found - success. Otherwise, failure.
+	// Try getting the needed data from any fragment chain.
 
 	let (mut head_data, parent_head_data_hash) = match request.parent_head_data {
 		ParentHeadData::OnlyHash(parent_head_data_hash) => (None, parent_head_data_hash),
