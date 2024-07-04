@@ -98,6 +98,7 @@ fn receive_messages_delivery_proof() {
 			last_delivered_nonce: 1,
 		},
 	));
+	assert_ok!(Pallet::<TestRuntime>::do_try_state());
 
 	assert_eq!(
 		System::<TestRuntime>::events(),
@@ -159,6 +160,7 @@ fn pallet_rejects_transactions_if_halted() {
 			),
 			Error::<TestRuntime, ()>::BridgeModule(bp_runtime::OwnedBridgeModuleError::Halted),
 		);
+		assert_ok!(Pallet::<TestRuntime>::do_try_state());
 	});
 }
 
@@ -219,6 +221,7 @@ fn pallet_rejects_new_messages_in_rejecting_outbound_messages_operating_mode() {
 				last_delivered_nonce: 1,
 			},
 		));
+		assert_ok!(Pallet::<TestRuntime>::do_try_state());
 	});
 }
 
@@ -394,10 +397,14 @@ fn receive_messages_proof_rejects_proof_with_too_many_messages() {
 #[test]
 fn receive_messages_delivery_proof_works() {
 	run_test(|| {
+		assert_eq!(OutboundLanes::<TestRuntime, ()>::get(TEST_LANE_ID).latest_received_nonce, 0);
+		assert_eq!(OutboundLanes::<TestRuntime, ()>::get(TEST_LANE_ID).oldest_unpruned_nonce, 1);
+
 		send_regular_message(TEST_LANE_ID);
 		receive_messages_delivery_proof();
 
-		assert_eq!(OutboundLanes::<TestRuntime, ()>::get(TEST_LANE_ID).latest_received_nonce, 1,);
+		assert_eq!(OutboundLanes::<TestRuntime, ()>::get(TEST_LANE_ID).latest_received_nonce, 1);
+		assert_eq!(OutboundLanes::<TestRuntime, ()>::get(TEST_LANE_ID).oldest_unpruned_nonce, 2);
 	});
 }
 
@@ -427,6 +434,7 @@ fn receive_messages_delivery_proof_rewards_relayers() {
 			},
 		);
 		assert_ok!(result);
+		assert_ok!(Pallet::<TestRuntime>::do_try_state());
 		assert_eq!(
 			result.unwrap().actual_weight.unwrap(),
 			TestWeightInfo::receive_messages_delivery_proof_weight(
@@ -466,6 +474,7 @@ fn receive_messages_delivery_proof_rewards_relayers() {
 			},
 		);
 		assert_ok!(result);
+		assert_ok!(Pallet::<TestRuntime>::do_try_state());
 		// even though the pre-dispatch weight was for two messages, the actual weight is
 		// for single message only
 		assert_eq!(
