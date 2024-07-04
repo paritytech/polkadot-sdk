@@ -245,8 +245,10 @@ pub struct Collations {
 	// from `GroupAssignments` which contains either the claim queue (if runtime supports it) for
 	// the core or the `ParaId` of the parachain assigned to the core.
 	claims_per_para: BTreeMap<ParaId, usize>,
-	// Whether the runtime supports claim queue runtime api.
-	has_claim_queue: bool,
+	// Represents the claim queue at the relay parent. The `bool` field indicates if a candidate
+	// was fetched for the `ParaId` at the position in question. In other words - if the claim is
+	// 'satisfied'. If the claim queue is not avaliable `claim_queue_state` will be `None`.
+	claim_queue_state: Option<Vec<(bool, ParaId)>>,
 }
 
 impl Collations {
@@ -258,9 +260,17 @@ impl Collations {
 	/// parachain assigned to the core.
 	pub(super) fn new(group_assignments: &Vec<ParaId>, has_claim_queue: bool) -> Self {
 		let mut claims_per_para = BTreeMap::new();
+		let mut claim_queue_state = Vec::with_capacity(group_assignments.len());
+
 		for para_id in group_assignments {
 			*claims_per_para.entry(*para_id).or_default() += 1;
+			claim_queue_state.push((false, *para_id));
 		}
+
+		// Not optimal but if the claim queue is not available `group_assignments` will have just
+		// one element. Can be fixed once claim queue api is released everywhere and the fallback
+		// code is cleaned up.
+		let claim_queue_state = if has_claim_queue { Some(claim_queue_state) } else { None };
 
 		Self {
 			status: Default::default(),
@@ -269,7 +279,7 @@ impl Collations {
 			seconded_count: 0,
 			fetched_per_para: Default::default(),
 			claims_per_para,
-			has_claim_queue,
+			claim_queue_state,
 		}
 	}
 
@@ -280,7 +290,22 @@ impl Collations {
 
 	// Note a collation which has been successfully fetched.
 	pub(super) fn note_fetched(&mut self, para_id: ParaId) {
-		*self.fetched_per_para.entry(para_id).or_default() += 1
+		// update the number of fetched collations for the para_id
+		*self.fetched_per_para.entry(para_id).or_default() += 1;
+
+		// and the claim queue state
+		if let Some(claim_queue_state) = self.claim_queue_state.as_mut() {
+			for (satisfied, assignment) in claim_queue_state {
+				if *satisfied {
+					continue
+				}
+
+				if assignment == &para_id {
+					*satisfied = true;
+					break
+				}
+			}
+		}
 	}
 
 	/// Returns the next collation to fetch from the `waiting_queue`.
@@ -356,7 +381,7 @@ impl Collations {
 				self.seconded_count >= 1
 			},
 			ProspectiveParachainsMode::Enabled { max_candidate_depth, allowed_ancestry_len: _ }
-				if !self.has_claim_queue =>
+				if !self.claim_queue_state.is_some() =>
 			{
 				gum::trace!(
 					target: LOG_TARGET,
@@ -430,50 +455,43 @@ impl Collations {
 			"Pick a collation to fetch."
 		);
 
-		if !self.has_claim_queue {
-			if let Some(assigned_para_id) = group_assignments.first() {
-				return self
-					.waiting_queue
-					.get_mut(assigned_para_id)
-					.map(|collations| collations.pop_front())
-					.flatten()
-			} else {
-				unreachable!("Group assignments should contain at least one element.")
-			}
-		}
+		let claim_queue_state = match self.claim_queue_state.as_mut() {
+			Some(cqs) => cqs,
+			// Fallback if claim queue is not avaliable. There is only one assignment in
+			// `group_assignments` so fetch the first advertisement for it and return.
+			None =>
+				if let Some(assigned_para_id) = group_assignments.first() {
+					return self
+						.waiting_queue
+						.get_mut(assigned_para_id)
+						.map(|collations| collations.pop_front())
+						.flatten()
+				} else {
+					unreachable!("Group assignments should contain at least one element.")
+				},
+		};
 
-		let mut claim_queue_state = Vec::with_capacity(group_assignments.len());
-		let mut fetched_per_para = self.fetched_per_para.clone();
 		let mut pending_fetches = pending_fetches.clone();
 
-		for assignment in group_assignments {
-			if let Some(fetched) = fetched_per_para.get_mut(assignment) {
-				if *fetched > 0 {
-					claim_queue_state.push((true, assignment));
-					*fetched -= 1;
-					continue;
-				}
-			}
-
-			if let Some(pending_fetches) = pending_fetches.get_mut(assignment) {
-				if *pending_fetches > 0 {
-					claim_queue_state.push((true, assignment));
-					*pending_fetches -= 1;
-					continue;
-				}
-			}
-
-			claim_queue_state.push((false, assignment));
-		}
-
-		for (fulfilled, assignment) in &mut claim_queue_state {
+		for (fulfilled, assignment) in claim_queue_state {
+			// if this assignment has been already fulfilled - move on
 			if *fulfilled {
 				continue
 			}
 
+			// if there is a pending fetch for this assignment, we should consider it satisfied and
+			// proceed with the next
+			if let Some(pending_fetch) = pending_fetches.get_mut(assignment) {
+				if *pending_fetch > 0 {
+					*pending_fetch -= 1;
+					continue
+				}
+			}
+
+			// we have found and unfulfilled assignment - try to fulfill it
 			if let Some(collations) = self.waiting_queue.get_mut(assignment) {
 				if let Some(collation) = collations.pop_front() {
-					*fulfilled = true;
+					// we don't mark the entry as fulfilled because it is considered pending
 					return Some(collation)
 				}
 			}
