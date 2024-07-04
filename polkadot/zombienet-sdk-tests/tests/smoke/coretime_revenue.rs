@@ -9,6 +9,7 @@
 //! Running with normal runtimes is possible but would take ages. Running fast relay runtime with
 //! normal parachain runtime WILL mess things up.
 
+
 use anyhow::anyhow;
 #[subxt::subxt(runtime_metadata_path = "metadata-files/rococo-local.scale")]
 pub mod rococo {}
@@ -42,12 +43,6 @@ use subxt_signer::sr25519::dev;
 use tokio::time::Duration;
 use tokio::sync::RwLock;
 use zombienet_sdk::NetworkConfigBuilder;
-
-// #[subxt::subxt(runtime_metadata_insecure_url="wss://rococo-rpc.polkadot.io")]
-// mod rococo {}
-
-// #[subxt::subxt(runtime_metadata_insecure_url="wss://rococo-coretime-rpc.polkadot.io")]
-// mod coretime_rococo {}
 
 use coretime_rococo::{
 	self as coretime_api,
@@ -264,8 +259,8 @@ where
 	}
 }
 
-#[tokio::main]
-async fn main() -> Result<(), anyhow::Error> {
+#[tokio::test]
+async fn coretime_revenue_test() -> Result<(), anyhow::Error> {
 	env_logger::init_from_env(
 		env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
 	);
@@ -499,6 +494,8 @@ async fn main() -> Result<(), anyhow::Error> {
 	// 	log::info!("RELAY EVENT {} :: {}", e.pallet_name(), e.variant_name());
 	// }
 
+	println!("a");
+
 	let order = r
 		.find_first::<rococo_api::on_demand_assignment_provider::events::OnDemandOrderPlaced>()?
 		.unwrap();
@@ -580,4 +577,10 @@ async fn main() -> Result<(), anyhow::Error> {
 	log::info!("Test finished successfuly");
 
 	Ok(())
+}
+
+
+#[test]
+fn demo() {
+	assert!(true);
 }
