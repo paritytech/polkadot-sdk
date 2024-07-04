@@ -19,7 +19,7 @@ use futures::{
 };
 use futures_timer::Delay;
 use std::{
-	collections::{hash_map::Entry, HashMap, HashSet, VecDeque},
+	collections::{hash_map::Entry, BTreeMap, HashMap, HashSet, VecDeque},
 	future::Future,
 	time::{Duration, Instant},
 };
@@ -1738,13 +1738,16 @@ async fn dequeue_next_collation_and_fetch<Context>(
 	// The collator we tried to fetch from last, optionally which candidate.
 	previous_fetch: (CollatorId, Option<CandidateHash>),
 ) {
-	while let Some((next, id)) = state.per_relay_parent.get_mut(&relay_parent).and_then(|state| {
-		state.collations.get_next_collation_to_fetch(
-			&previous_fetch,
-			state.prospective_parachains_mode,
-			&state.assignment.current,
-		)
-	}) {
+	let pending_collations = pending_collations_per_para_at_relay_parent(state, relay_parent);
+	while let Some((next, id)) =
+		state.per_relay_parent.get_mut(&relay_parent).and_then(|rp_state| {
+			rp_state.collations.get_next_collation_to_fetch(
+				&previous_fetch,
+				rp_state.prospective_parachains_mode,
+				&rp_state.assignment.current,
+				&pending_collations,
+			)
+		}) {
 		gum::debug!(
 			target: LOG_TARGET,
 			?relay_parent,
@@ -2117,7 +2120,7 @@ async fn handle_collation_fetch_response(
 	result
 }
 
-// Returns the number of pending fetches for `ParaId` at a specific relay parent.
+// Returns the number of pending fetches for `ParaId` at the specified relay parent.
 fn num_pending_collations_for_para_at_relay_parent(
 	state: &State,
 	para_id: ParaId,
@@ -2130,4 +2133,19 @@ fn num_pending_collations_for_para_at_relay_parent(
 			pending_collation.para_id == para_id && pending_collation.relay_parent == relay_parent
 		})
 		.count()
+}
+
+// Returns the number of pending fetches for each `ParaId` at the specified relay parent.
+fn pending_collations_per_para_at_relay_parent(
+	state: &State,
+	relay_parent: Hash,
+) -> BTreeMap<ParaId, usize> {
+	state
+		.collation_requests_cancel_handles
+		.iter()
+		.filter(|(col, _)| col.relay_parent == relay_parent)
+		.fold(BTreeMap::new(), |mut res, (col, _)| {
+			*res.entry(col.para_id).or_default() += 1;
+			res
+		})
 }

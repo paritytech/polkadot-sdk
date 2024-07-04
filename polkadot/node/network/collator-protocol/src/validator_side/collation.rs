@@ -294,6 +294,7 @@ impl Collations {
 		finished_one: &(CollatorId, Option<CandidateHash>),
 		relay_parent_mode: ProspectiveParachainsMode,
 		group_assignments: &Vec<ParaId>,
+		pending_fetches: &BTreeMap<ParaId, usize>,
 	) -> Option<(PendingCollation, CollatorId)> {
 		// If finished one does not match waiting_collation, then we already dequeued another fetch
 		// to replace it.
@@ -318,7 +319,8 @@ impl Collations {
 			// `Waiting` so that we can fetch more collations. If async backing is disabled we can't
 			// fetch more than one collation per relay parent so `None` is returned.
 			CollationStatus::Seconded => None,
-			CollationStatus::Waiting => self.pick_a_collation_to_fetch(&group_assignments),
+			CollationStatus::Waiting =>
+				self.pick_a_collation_to_fetch(&group_assignments, pending_fetches),
 			CollationStatus::WaitingOnValidation | CollationStatus::Fetching =>
 				unreachable!("We have reset the status above!"),
 		}
@@ -417,6 +419,7 @@ impl Collations {
 	fn pick_a_collation_to_fetch(
 		&mut self,
 		group_assignments: &Vec<ParaId>,
+		pending_fetches: &BTreeMap<ParaId, usize>,
 	) -> Option<(PendingCollation, CollatorId)> {
 		gum::trace!(
 			target: LOG_TARGET,
@@ -427,51 +430,56 @@ impl Collations {
 			"Pick a collation to fetch."
 		);
 
-		// Find the parachain(s) with the lowest score.
-		let mut lowest_score = None;
-		for (para_id, collations) in &mut self.waiting_queue {
-			let para_score = self
-				.fetched_per_para
-				.get(para_id)
-				.copied()
-				.map(|v| {
-					(v as f64) /
-						(self.claims_per_para.get(para_id).copied().unwrap_or_default() as f64)
-				})
-				.unwrap_or_default();
+		if !self.has_claim_queue {
+			if let Some(assigned_para_id) = group_assignments.first() {
+				return self
+					.waiting_queue
+					.get_mut(assigned_para_id)
+					.map(|collations| collations.pop_front())
+					.flatten()
+			} else {
+				unreachable!("Group assignments should contain at least one element.")
+			}
+		}
 
-			// skip empty queues
-			if collations.is_empty() {
+		let mut claim_queue_state = Vec::with_capacity(group_assignments.len());
+		let mut fetched_per_para = self.fetched_per_para.clone();
+		let mut pending_fetches = pending_fetches.clone();
+
+		for assignment in group_assignments {
+			if let Some(fetched) = fetched_per_para.get_mut(assignment) {
+				if *fetched > 0 {
+					claim_queue_state.push((true, assignment));
+					*fetched -= 1;
+					continue;
+				}
+			}
+
+			if let Some(pending_fetches) = pending_fetches.get_mut(assignment) {
+				if *pending_fetches > 0 {
+					claim_queue_state.push((true, assignment));
+					*pending_fetches -= 1;
+					continue;
+				}
+			}
+
+			claim_queue_state.push((false, assignment));
+		}
+
+		for (fulfilled, assignment) in &mut claim_queue_state {
+			if *fulfilled {
 				continue
 			}
 
-			match lowest_score {
-				Some((score, _)) if para_score < score =>
-					lowest_score = Some((para_score, vec![(para_id, collations)])),
-				Some((score, ref mut paras)) if score == para_score => {
-					paras.push((para_id, collations));
-				},
-				Some(_) => continue,
-				None => lowest_score = Some((para_score, vec![(para_id, collations)])),
+			if let Some(collations) = self.waiting_queue.get_mut(assignment) {
+				if let Some(collation) = collations.pop_front() {
+					*fulfilled = true;
+					return Some(collation)
+				}
 			}
 		}
 
-		if let Some((_, mut lowest_score)) = lowest_score {
-			for claim in group_assignments {
-				if let Some((_, collations)) = lowest_score.iter_mut().find(|(id, _)| *id == claim)
-				{
-					match collations.pop_front() {
-						Some(collation) => return Some(collation),
-						None => {
-							unreachable!("Collation can't be empty because empty ones are skipped at the beginning of the loop.")
-						},
-					}
-				}
-			}
-			unreachable!("All entries in waiting_queue should also be in claim queue")
-		} else {
-			None
-		}
+		None
 	}
 }
 

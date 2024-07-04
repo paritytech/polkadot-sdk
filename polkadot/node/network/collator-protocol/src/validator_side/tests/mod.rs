@@ -570,7 +570,7 @@ async fn assert_async_backing_params_request(virtual_overseer: &mut VirtualOvers
 			_,
 			RuntimeApiRequest::Version(tx),
 		)) => {
-			let _ = tx.send(Ok(RuntimeApiRequest::CLAIM_QUEUE_RUNTIME_REQUIREMENT));
+			let _ = tx.send(Ok(RuntimeApiRequest::ASYNC_BACKING_STATE_RUNTIME_REQUIREMENT - 1));
 		}
 	);
 }
