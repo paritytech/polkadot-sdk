@@ -1443,7 +1443,7 @@ mod tests {
 	}
 
 	#[test]
-	fn verify_vec_db_storage_rejects_unknown_header() {
+	fn verify_storage_proof_rejects_unknown_header() {
 		run_test(|| {
 			assert_noop!(
 				Pallet::<TestRuntime>::verify_storage_proof(

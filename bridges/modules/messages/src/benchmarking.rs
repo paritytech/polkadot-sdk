@@ -494,7 +494,6 @@ mod benchmarks {
 	// * inbound lane already has state, so it needs to be read and decoded;
 	// * message is **SUCCESSFULLY** dispatched;
 	// * message requires all heavy checks done by dispatcher.
-	// #[benchmark(extra)]
 	#[benchmark]
 	fn receive_single_n_bytes_message_proof_with_dispatch(
 		/// Proof size in KB
