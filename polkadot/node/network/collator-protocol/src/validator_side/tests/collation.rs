@@ -157,7 +157,7 @@ fn collation_fetching_respects_claim_queue() {
 		collations.get_next_collation_to_fetch(
 			// doesn't matter since `fetching_from` is `None`
 			&(collator_id_a.clone(), Some(CandidateHash(Hash::repeat_byte(0)))),
-			relay_parent_mode.clone(),
+			relay_parent_mode,
 			&claim_queue,
 			&pending
 		)
@@ -169,7 +169,7 @@ fn collation_fetching_respects_claim_queue() {
 		collations.get_next_collation_to_fetch(
 			// doesn't matter since `fetching_from` is `None`
 			&(collator_id_a.clone(), Some(CandidateHash(Hash::repeat_byte(0)))),
-			relay_parent_mode.clone(),
+			relay_parent_mode,
 			&claim_queue,
 			&pending
 		)
@@ -181,7 +181,7 @@ fn collation_fetching_respects_claim_queue() {
 		collations.get_next_collation_to_fetch(
 			// doesn't matter since `fetching_from` is `None`
 			&(collator_id_a.clone(), Some(CandidateHash(Hash::repeat_byte(0)))),
-			relay_parent_mode.clone(),
+			relay_parent_mode,
 			&claim_queue,
 			&pending
 		)
@@ -244,7 +244,7 @@ fn collation_fetching_fallback_works() {
 		collations.get_next_collation_to_fetch(
 			// doesn't matter since `fetching_from` is `None`
 			&(collator_id_a.clone(), Some(CandidateHash(Hash::repeat_byte(0)))),
-			relay_parent_mode.clone(),
+			relay_parent_mode,
 			&claim_queue,
 			&pending,
 		)
@@ -256,7 +256,7 @@ fn collation_fetching_fallback_works() {
 		collations.get_next_collation_to_fetch(
 			// doesn't matter since `fetching_from` is `None`
 			&(collator_id_a.clone(), Some(CandidateHash(Hash::repeat_byte(0)))),
-			relay_parent_mode.clone(),
+			relay_parent_mode,
 			&claim_queue,
 			&pending,
 		)
@@ -382,7 +382,7 @@ fn collation_fetching_prefer_entries_earlier_in_claim_queue() {
 		collations.get_next_collation_to_fetch(
 			// doesn't matter since `fetching_from` is `None`
 			&(collator_id_a.clone(), Some(CandidateHash(Hash::repeat_byte(0)))),
-			relay_parent_mode.clone(),
+			relay_parent_mode,
 			&claim_queue,
 			&pending,
 		)
@@ -394,7 +394,7 @@ fn collation_fetching_prefer_entries_earlier_in_claim_queue() {
 		collations.get_next_collation_to_fetch(
 			// doesn't matter since `fetching_from` is `None`
 			&(collator_id_a.clone(), Some(CandidateHash(Hash::repeat_byte(0)))),
-			relay_parent_mode.clone(),
+			relay_parent_mode,
 			&claim_queue,
 			&pending,
 		)
@@ -406,7 +406,7 @@ fn collation_fetching_prefer_entries_earlier_in_claim_queue() {
 		collations.get_next_collation_to_fetch(
 			// doesn't matter since `fetching_from` is `None`
 			&(collator_id_a.clone(), Some(CandidateHash(Hash::repeat_byte(0)))),
-			relay_parent_mode.clone(),
+			relay_parent_mode,
 			&claim_queue,
 			&pending,
 		)
@@ -418,7 +418,7 @@ fn collation_fetching_prefer_entries_earlier_in_claim_queue() {
 		collations.get_next_collation_to_fetch(
 			// doesn't matter since `fetching_from` is `None`
 			&(collator_id_a.clone(), Some(CandidateHash(Hash::repeat_byte(0)))),
-			relay_parent_mode.clone(),
+			relay_parent_mode,
 			&claim_queue,
 			&pending,
 		)
@@ -430,7 +430,7 @@ fn collation_fetching_prefer_entries_earlier_in_claim_queue() {
 		collations.get_next_collation_to_fetch(
 			// doesn't matter since `fetching_from` is `None`
 			&(collator_id_a.clone(), Some(CandidateHash(Hash::repeat_byte(0)))),
-			relay_parent_mode.clone(),
+			relay_parent_mode,
 			&claim_queue,
 			&pending,
 		)
@@ -442,7 +442,7 @@ fn collation_fetching_prefer_entries_earlier_in_claim_queue() {
 		collations.get_next_collation_to_fetch(
 			// doesn't matter since `fetching_from` is `None`
 			&(collator_id_a.clone(), Some(CandidateHash(Hash::repeat_byte(0)))),
-			relay_parent_mode.clone(),
+			relay_parent_mode,
 			&claim_queue,
 			&pending,
 		)
@@ -564,7 +564,7 @@ fn collation_fetching_fills_holes_in_claim_queue() {
 		collations.get_next_collation_to_fetch(
 			// doesn't matter since `fetching_from` is `None`
 			&(collator_id_a.clone(), Some(CandidateHash(Hash::repeat_byte(0)))),
-			relay_parent_mode.clone(),
+			relay_parent_mode,
 			&claim_queue,
 			&pending,
 		)
@@ -576,7 +576,7 @@ fn collation_fetching_fills_holes_in_claim_queue() {
 		collations.get_next_collation_to_fetch(
 			// doesn't matter since `fetching_from` is `None`
 			&(collator_id_a.clone(), Some(CandidateHash(Hash::repeat_byte(0)))),
-			relay_parent_mode.clone(),
+			relay_parent_mode,
 			&claim_queue,
 			&pending,
 		)
@@ -591,7 +591,7 @@ fn collation_fetching_fills_holes_in_claim_queue() {
 		collations.get_next_collation_to_fetch(
 			// doesn't matter since `fetching_from` is `None`
 			&(collator_id_a.clone(), Some(CandidateHash(Hash::repeat_byte(0)))),
-			relay_parent_mode.clone(),
+			relay_parent_mode,
 			&claim_queue,
 			&pending,
 		)
@@ -603,7 +603,7 @@ fn collation_fetching_fills_holes_in_claim_queue() {
 		collations.get_next_collation_to_fetch(
 			// doesn't matter since `fetching_from` is `None`
 			&(collator_id_a.clone(), Some(CandidateHash(Hash::repeat_byte(0)))),
-			relay_parent_mode.clone(),
+			relay_parent_mode,
 			&claim_queue,
 			&pending,
 		)
@@ -618,7 +618,7 @@ fn collation_fetching_fills_holes_in_claim_queue() {
 		collations.get_next_collation_to_fetch(
 			// doesn't matter since `fetching_from` is `None`
 			&(collator_id_a.clone(), Some(CandidateHash(Hash::repeat_byte(0)))),
-			relay_parent_mode.clone(),
+			relay_parent_mode,
 			&claim_queue,
 			&pending,
 		)
@@ -630,7 +630,7 @@ fn collation_fetching_fills_holes_in_claim_queue() {
 		collations.get_next_collation_to_fetch(
 			// doesn't matter since `fetching_from` is `None`
 			&(collator_id_a.clone(), Some(CandidateHash(Hash::repeat_byte(0)))),
-			relay_parent_mode.clone(),
+			relay_parent_mode,
 			&claim_queue,
 			&pending,
 		)
@@ -721,7 +721,7 @@ fn collation_fetching_takes_in_account_pending_items() {
 		collations.get_next_collation_to_fetch(
 			// doesn't matter since `fetching_from` is `None`
 			&(collator_id_a.clone(), Some(CandidateHash(Hash::repeat_byte(0)))),
-			relay_parent_mode.clone(),
+			relay_parent_mode,
 			&claim_queue,
 			&BTreeMap::from([(para_a, 1)]),
 		)
@@ -736,7 +736,7 @@ fn collation_fetching_takes_in_account_pending_items() {
 		collations.get_next_collation_to_fetch(
 			// doesn't matter since `fetching_from` is `None`
 			&(collator_id_a.clone(), Some(CandidateHash(Hash::repeat_byte(0)))),
-			relay_parent_mode.clone(),
+			relay_parent_mode,
 			&claim_queue,
 			&BTreeMap::from([(para_b, 1)]),
 		)
@@ -750,7 +750,7 @@ fn collation_fetching_takes_in_account_pending_items() {
 		collations.get_next_collation_to_fetch(
 			// doesn't matter since `fetching_from` is `None`
 			&(collator_id_a.clone(), Some(CandidateHash(Hash::repeat_byte(0)))),
-			relay_parent_mode.clone(),
+			relay_parent_mode,
 			&claim_queue,
 			&BTreeMap::new(),
 		)

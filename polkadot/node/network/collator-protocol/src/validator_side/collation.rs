@@ -395,7 +395,7 @@ impl Collations {
 					"is_collations_limit_reached - ProspectiveParachainsMode::Enabled without claim queue support"
 				);
 
-				self.seconded_count >= max_candidate_depth + 1
+				self.seconded_count > max_candidate_depth
 			},
 			ProspectiveParachainsMode::Enabled {
 				max_candidate_depth: _,
@@ -472,8 +472,7 @@ impl Collations {
 					return self
 						.waiting_queue
 						.get_mut(assigned_para_id)
-						.map(|collations| collations.pop_front())
-						.flatten()
+						.and_then(|collations| collations.pop_front())
 				} else {
 					unreachable!("Group assignments should contain at least one element.")
 				},
