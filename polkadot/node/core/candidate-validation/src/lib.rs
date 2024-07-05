@@ -91,9 +91,6 @@ const PVF_APPROVAL_EXECUTION_RETRY_DELAY: Duration = Duration::from_millis(200);
 // `ValidateFromChainState` messages awaiting data from the runtime
 const TASK_LIMIT: usize = 30;
 
-// How many PVFs per block we take to prepare themselves for the next session validation
-const PREPARE_VALIDATION_PER_BLOCK_LIMIT: usize = 1;
-
 /// Configuration for the candidate validation subsystem
 #[derive(Clone, Default)]
 pub struct Config {
@@ -311,12 +308,24 @@ async fn run<Context>(
 	}
 }
 
-#[derive(Default)]
 struct PrepareValidationState {
 	session_index: Option<SessionIndex>,
 	is_next_session_authority: bool,
 	// PVF host won't prepare the same code hash twice, so here we just avoid extra communication
 	already_prepared_code_hashes: HashSet<ValidationCodeHash>,
+	// How many PVFs per block we take to prepare themselves for the next session validation
+	per_block_limit: usize,
+}
+
+impl Default for PrepareValidationState {
+	fn default() -> Self {
+		Self {
+			session_index: None,
+			is_next_session_authority: false,
+			already_prepared_code_hashes: HashSet::new(),
+			per_block_limit: 1,
+		}
+	}
 }
 
 async fn maybe_prepare_validation<Sender>(
@@ -349,6 +358,7 @@ async fn maybe_prepare_validation<Sender>(
 			validation_backend,
 			leaf.hash,
 			&state.already_prepared_code_hashes,
+			state.per_block_limit,
 		)
 		.await;
 		state.already_prepared_code_hashes.extend(code_hashes.unwrap_or_default());
@@ -438,6 +448,7 @@ async fn prepare_pvfs_for_backed_candidates<Sender>(
 	mut validation_backend: impl ValidationBackend,
 	relay_parent: Hash,
 	already_prepared: &HashSet<ValidationCodeHash>,
+	per_block_limit: usize,
 ) -> Option<Vec<ValidationCodeHash>>
 where
 	Sender: SubsystemSender<RuntimeApiMessage>,
@@ -463,7 +474,7 @@ where
 			},
 			_ => None,
 		})
-		.take(PREPARE_VALIDATION_PER_BLOCK_LIMIT)
+		.take(per_block_limit)
 		.collect::<Vec<_>>();
 
 	let Ok(executor_params) = util::executor_params_at_relay_parent(relay_parent, sender).await

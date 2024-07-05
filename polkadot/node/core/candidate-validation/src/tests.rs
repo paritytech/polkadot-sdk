@@ -1338,7 +1338,10 @@ fn dummy_active_leaves_update(hash: Hash) -> ActiveLeavesUpdate {
 	}
 }
 
-fn dummy_candidate_backed(relay_parent: Hash) -> CandidateEvent {
+fn dummy_candidate_backed(
+	relay_parent: Hash,
+	validation_code_hash: ValidationCodeHash,
+) -> CandidateEvent {
 	let zeros = dummy_hash();
 	let descriptor = CandidateDescriptor {
 		para_id: ParaId::from(0_u32),
@@ -1349,7 +1352,7 @@ fn dummy_candidate_backed(relay_parent: Hash) -> CandidateEvent {
 		erasure_root: zeros,
 		signature: dummy_collator_signature(),
 		para_head: zeros,
-		validation_code_hash: zeros.into(),
+		validation_code_hash,
 	};
 
 	CandidateEvent::CandidateBacked(
@@ -1419,7 +1422,7 @@ fn prepares_pvfs_for_next_session_if_golden_path() {
 		assert_matches!(
 			ctx_handle.recv().await,
 			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::CandidateEvents(tx))) => {
-				let _ = tx.send(Ok(vec![dummy_candidate_backed(activated_hash)]));
+				let _ = tx.send(Ok(vec![dummy_candidate_backed(activated_hash, dummy_hash().into())]));
 			}
 		);
 
@@ -1579,4 +1582,171 @@ fn does_not_prepare_pvfs_if_a_validator_in_current_session() {
 	assert_eq!(backend.heads_up_call_count.load(Ordering::SeqCst), 0);
 	assert!(state.session_index.is_some());
 	assert!(!state.is_next_session_authority);
+}
+
+#[test]
+fn prepares_limited_number_of_pvfs() {
+	let pool = TaskExecutor::new();
+	let (mut ctx, mut ctx_handle) =
+		polkadot_node_subsystem_test_helpers::make_subsystem_context::<AllMessages, _>(pool);
+
+	let keystore = alice_keystore();
+	let backend = MockHeadsUp::default();
+	let activated_hash = Hash::random();
+	let update = dummy_active_leaves_update(activated_hash);
+	let mut state = PrepareValidationState { per_block_limit: 2, ..Default::default() };
+
+	let check_fut =
+		maybe_prepare_validation(ctx.sender(), keystore, backend.clone(), update, &mut state);
+
+	let test_fut = async move {
+		assert_matches!(
+			ctx_handle.recv().await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionIndexForChild(tx))) => {
+				let _ = tx.send(Ok(1));
+			}
+		);
+
+		assert_matches!(
+			ctx_handle.recv().await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::Authorities(tx))) => {
+				let _ = tx.send(Ok(vec![Sr25519Keyring::Alice.public().into()]));
+			}
+		);
+
+		assert_matches!(
+			ctx_handle.recv().await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionInfo(index, tx))) => {
+				assert_eq!(index, 1);
+				let _ = tx.send(Ok(Some(dummy_session_info(vec![Sr25519Keyring::Bob.public().into()]))));
+			}
+		);
+
+		assert_matches!(
+			ctx_handle.recv().await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::CandidateEvents(tx))) => {
+				let candidates = vec![
+					dummy_candidate_backed(activated_hash, ValidationCode(vec![0; 16]).hash()),
+					dummy_candidate_backed(activated_hash, ValidationCode(vec![1; 16]).hash()),
+					dummy_candidate_backed(activated_hash, ValidationCode(vec![2; 16]).hash()),
+				];
+				let _ = tx.send(Ok(candidates));
+			}
+		);
+
+		assert_matches!(
+			ctx_handle.recv().await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionIndexForChild(tx))) => {
+				let _ = tx.send(Ok(1));
+			}
+		);
+
+		assert_matches!(
+			ctx_handle.recv().await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionExecutorParams(index, tx))) => {
+				assert_eq!(index, 1);
+				let _ = tx.send(Ok(Some(ExecutorParams::default())));
+			}
+		);
+
+		assert_matches!(
+			ctx_handle.recv().await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::ValidationCodeByHash(hash, tx))) => {
+				assert_eq!(hash, ValidationCode(vec![0; 16]).hash());
+				let _ = tx.send(Ok(Some(ValidationCode(Vec::new()))));
+			}
+		);
+
+		assert_matches!(
+			ctx_handle.recv().await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::ValidationCodeByHash(hash, tx))) => {
+				assert_eq!(hash, ValidationCode(vec![1; 16]).hash());
+				let _ = tx.send(Ok(Some(ValidationCode(Vec::new()))));
+			}
+		);
+	};
+
+	let test_fut = future::join(test_fut, check_fut);
+	executor::block_on(test_fut);
+
+	assert_eq!(backend.heads_up_call_count.load(Ordering::SeqCst), 1);
+	assert!(state.session_index.is_some());
+	assert!(state.is_next_session_authority);
+	assert_eq!(state.already_prepared_code_hashes.len(), 2);
+}
+
+#[test]
+fn doesn_not_prepare_already_prepared_pvfs() {
+	let pool = TaskExecutor::new();
+	let (mut ctx, mut ctx_handle) =
+		polkadot_node_subsystem_test_helpers::make_subsystem_context::<AllMessages, _>(pool);
+
+	let keystore = alice_keystore();
+	let backend = MockHeadsUp::default();
+	let activated_hash = Hash::random();
+	let update = dummy_active_leaves_update(activated_hash);
+	let mut state = PrepareValidationState {
+		session_index: Some(1),
+		is_next_session_authority: true,
+		per_block_limit: 2,
+		already_prepared_code_hashes: HashSet::from_iter(vec![
+			ValidationCode(vec![0; 16]).hash(),
+			ValidationCode(vec![1; 16]).hash(),
+		]),
+	};
+
+	let check_fut =
+		maybe_prepare_validation(ctx.sender(), keystore, backend.clone(), update, &mut state);
+
+	let test_fut = async move {
+		assert_matches!(
+			ctx_handle.recv().await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionIndexForChild(tx))) => {
+				let _ = tx.send(Ok(1));
+			}
+		);
+
+		assert_matches!(
+			ctx_handle.recv().await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::CandidateEvents(tx))) => {
+				let candidates = vec![
+					dummy_candidate_backed(activated_hash, ValidationCode(vec![0; 16]).hash()),
+					dummy_candidate_backed(activated_hash, ValidationCode(vec![1; 16]).hash()),
+					dummy_candidate_backed(activated_hash, ValidationCode(vec![2; 16]).hash()),
+				];
+				let _ = tx.send(Ok(candidates));
+			}
+		);
+
+		assert_matches!(
+			ctx_handle.recv().await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionIndexForChild(tx))) => {
+				let _ = tx.send(Ok(1));
+			}
+		);
+
+		assert_matches!(
+			ctx_handle.recv().await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionExecutorParams(index, tx))) => {
+				assert_eq!(index, 1);
+				let _ = tx.send(Ok(Some(ExecutorParams::default())));
+			}
+		);
+
+		assert_matches!(
+			ctx_handle.recv().await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::ValidationCodeByHash(hash, tx))) => {
+				assert_eq!(hash, ValidationCode(vec![2; 16]).hash());
+				let _ = tx.send(Ok(Some(ValidationCode(Vec::new()))));
+			}
+		);
+	};
+
+	let test_fut = future::join(test_fut, check_fut);
+	executor::block_on(test_fut);
+
+	assert_eq!(backend.heads_up_call_count.load(Ordering::SeqCst), 1);
+	assert!(state.session_index.is_some());
+	assert!(state.is_next_session_authority);
+	assert_eq!(state.already_prepared_code_hashes.len(), 3);
 }
