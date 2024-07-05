@@ -107,7 +107,7 @@ pub mod pallet {
 	impl<T: Config> Pallet<T> {
 
 		#[pallet::weight(10_000)]
-		pub fn create_accounts(origin: OriginFor<T>, amount: BalanceOf<T>, account: T::AccountId,) -> DispatchResult {
+		pub fn create_accounts(origin: OriginFor<T>, amount: BalanceOf<T>, account: T::AccountId, call: Box<<T as pallet_multisig::Config>::RuntimeCall>) -> DispatchResult {
 			let mut SEED = [1u8; 32];
 			let sender = ensure_signed(origin)?;
 
