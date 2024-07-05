@@ -171,7 +171,7 @@ pub mod pallet {
 		/// An \[account\] has cancelled a previous delegation operation.
 		Undelegated(T::AccountId),
 		/// An account that has voted
-		VoteEnacted { who: T::AccountId, vote: AccountVote<BalanceOf<T, I>> },
+		Voted { who: T::AccountId, vote: AccountVote<BalanceOf<T, I>> },
 		/// A vote that been removed
 		VoteRemoved { who: T::AccountId, vote: AccountVote<BalanceOf<T, I>> },
 	}
@@ -431,7 +431,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				// Extend the lock to `balance` (rather than setting it) since we don't know what
 				// other votes are in place.
 				Self::extend_lock(who, &class, vote.balance());
-				Self::deposit_event(Event::VoteEnacted { who: who.clone(), vote });
+				Self::deposit_event(Event::Voted { who: who.clone(), vote });
 				Ok(())
 			})
 		})
