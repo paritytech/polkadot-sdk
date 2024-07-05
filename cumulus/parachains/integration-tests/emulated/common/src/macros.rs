@@ -132,6 +132,184 @@ macro_rules! test_parachain_is_trusted_teleporter {
 }
 
 #[macro_export]
+macro_rules! test_relay_is_trusted_teleporter {
+	( $sender_relay:ty, $sender_xcm_config:ty, vec![$( $receiver_para:ty ),+], ($assets:expr, $amount:expr) ) => {
+		$crate::macros::paste::paste! {
+			// init Origin variables
+			let sender = [<$sender_relay Sender>]::get();
+			let mut relay_sender_balance_before =
+				<$sender_relay as $crate::macros::Chain>::account_data_of(sender.clone()).free;
+			let origin = <$sender_relay as $crate::macros::Chain>::RuntimeOrigin::signed(sender.clone());
+			let fee_asset_item = 0;
+			let weight_limit = $crate::macros::WeightLimit::Unlimited;
+
+			$(
+				{
+					// init Destination variables
+					let receiver = [<$receiver_para Receiver>]::get();
+					let para_receiver_balance_before =
+						<$receiver_para as $crate::macros::Chain>::account_data_of(receiver.clone()).free;
+					let para_destination =
+						<$sender_relay>::child_location_of(<$receiver_para>::para_id());
+					let beneficiary: Location =
+						$crate::macros::AccountId32 { network: None, id: receiver.clone().into() }.into();
+
+					// Send XCM message from Relay
+					<$sender_relay>::execute_with(|| {
+						assert_ok!(<$sender_relay as [<$sender_relay Pallet>]>::XcmPallet::limited_teleport_assets(
+							origin.clone(),
+							bx!(para_destination.clone().into()),
+							bx!(beneficiary.clone().into()),
+							bx!($assets.clone().into()),
+							fee_asset_item,
+							weight_limit.clone(),
+						));
+
+						type RuntimeEvent = <$sender_relay as $crate::macros::Chain>::RuntimeEvent;
+
+						assert_expected_events!(
+							$sender_relay,
+							vec![
+								RuntimeEvent::XcmPallet(
+									$crate::macros::pallet_xcm::Event::Attempted { outcome: Outcome::Complete { .. } }
+								) => {},
+								RuntimeEvent::Balances(
+									$crate::macros::pallet_balances::Event::Burned { who: sender, amount }
+								) => {},
+								RuntimeEvent::XcmPallet(
+									$crate::macros::pallet_xcm::Event::Sent { .. }
+								) => {},
+							]
+						);
+					});
+
+					// Receive XCM message in Destination Parachain
+					<$receiver_para>::execute_with(|| {
+						type RuntimeEvent = <$receiver_para as $crate::macros::Chain>::RuntimeEvent;
+
+						assert_expected_events!(
+							$receiver_para,
+							vec![
+								RuntimeEvent::Balances(
+									$crate::macros::pallet_balances::Event::Minted { who: receiver, .. }
+								) => {},
+								RuntimeEvent::MessageQueue(
+									$crate::macros::pallet_message_queue::Event::Processed { success: true, .. }
+								) => {},
+							]
+						);
+					});
+
+					// Check if balances are updated accordingly in Origin and Parachain
+					let relay_sender_balance_after =
+						<$sender_relay as $crate::macros::Chain>::account_data_of(sender.clone()).free;
+					let para_receiver_balance_after =
+						<$receiver_para as $crate::macros::Chain>::account_data_of(receiver.clone()).free;
+					let delivery_fees = <$sender_relay>::execute_with(|| {
+						$crate::macros::asset_test_utils::xcm_helpers::teleport_assets_delivery_fees::<
+							<$sender_xcm_config as xcm_executor::Config>::XcmSender,
+						>($assets.clone(), fee_asset_item, weight_limit.clone(), beneficiary, para_destination)
+					});
+
+					assert_eq!(relay_sender_balance_before - $amount - delivery_fees, relay_sender_balance_after);
+					assert!(para_receiver_balance_after > para_receiver_balance_before);
+
+					// Update sender balance
+					relay_sender_balance_before = <$sender_relay as $crate::macros::Chain>::account_data_of(sender.clone()).free;
+				}
+			)+
+		}
+	};
+}
+
+#[macro_export]
+macro_rules! test_parachain_is_trusted_teleporter_for_relay {
+	( $sender_para:ty, $sender_xcm_config:ty, $receiver_relay:ty, $amount:expr ) => {
+		$crate::macros::paste::paste! {
+			// init Origin variables
+			let sender = [<$sender_para Sender>]::get();
+			let mut para_sender_balance_before =
+				<$sender_para as $crate::macros::Chain>::account_data_of(sender.clone()).free;
+			let origin = <$sender_para as $crate::macros::Chain>::RuntimeOrigin::signed(sender.clone());
+			let assets: Assets = (Parent, $amount).into();
+			let fee_asset_item = 0;
+			let weight_limit = $crate::macros::WeightLimit::Unlimited;
+
+			// init Destination variables
+			let receiver = [<$receiver_relay Receiver>]::get();
+			let relay_receiver_balance_before =
+				<$receiver_relay as $crate::macros::Chain>::account_data_of(receiver.clone()).free;
+			let relay_destination: Location = Parent.into();
+			let beneficiary: Location =
+				$crate::macros::AccountId32 { network: None, id: receiver.clone().into() }.into();
+
+			// Send XCM message from Parachain
+			<$sender_para>::execute_with(|| {
+				assert_ok!(<$sender_para as [<$sender_para Pallet>]>::PolkadotXcm::limited_teleport_assets(
+					origin.clone(),
+					bx!(relay_destination.clone().into()),
+					bx!(beneficiary.clone().into()),
+					bx!(assets.clone().into()),
+					fee_asset_item,
+					weight_limit.clone(),
+				));
+
+				type RuntimeEvent = <$sender_para as $crate::macros::Chain>::RuntimeEvent;
+
+				assert_expected_events!(
+					$sender_para,
+					vec![
+						RuntimeEvent::PolkadotXcm(
+							$crate::macros::pallet_xcm::Event::Attempted { outcome: Outcome::Complete { .. } }
+						) => {},
+						RuntimeEvent::Balances(
+							$crate::macros::pallet_balances::Event::Burned { who: sender, amount }
+						) => {},
+						RuntimeEvent::PolkadotXcm(
+							$crate::macros::pallet_xcm::Event::Sent { .. }
+						) => {},
+					]
+				);
+			});
+
+			// Receive XCM message in Destination Parachain
+			<$receiver_relay>::execute_with(|| {
+				type RuntimeEvent = <$receiver_relay as $crate::macros::Chain>::RuntimeEvent;
+
+				assert_expected_events!(
+					$receiver_relay,
+					vec![
+						RuntimeEvent::Balances(
+							$crate::macros::pallet_balances::Event::Minted { who: receiver, .. }
+						) => {},
+						RuntimeEvent::MessageQueue(
+							$crate::macros::pallet_message_queue::Event::Processed { success: true, .. }
+						) => {},
+					]
+				);
+			});
+
+			// Check if balances are updated accordingly in Origin and Relay Chain
+			let para_sender_balance_after =
+				<$sender_para as $crate::macros::Chain>::account_data_of(sender.clone()).free;
+			let relay_receiver_balance_after =
+				<$receiver_relay as $crate::macros::Chain>::account_data_of(receiver.clone()).free;
+			let delivery_fees = <$sender_para>::execute_with(|| {
+				$crate::macros::asset_test_utils::xcm_helpers::teleport_assets_delivery_fees::<
+					<$sender_xcm_config as xcm_executor::Config>::XcmSender,
+				>(assets, fee_asset_item, weight_limit.clone(), beneficiary, relay_destination)
+			});
+
+			assert_eq!(para_sender_balance_before - $amount - delivery_fees, para_sender_balance_after);
+			assert!(relay_receiver_balance_after > relay_receiver_balance_before);
+
+			// Update sender balance
+			para_sender_balance_before = <$sender_para as $crate::macros::Chain>::account_data_of(sender.clone()).free;
+		}
+	};
+}
+
+#[macro_export]
 macro_rules! test_chain_can_claim_assets {
 	( $sender_para:ty, $runtime_call:ty, $network_id:expr, $assets:expr, $amount:expr ) => {
 		$crate::macros::paste::paste! {
