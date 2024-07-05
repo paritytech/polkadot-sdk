@@ -1360,10 +1360,10 @@ fn dummy_candidate_backed(relay_parent: Hash) -> CandidateEvent {
 	)
 }
 
-fn dummy_session_info(id: ValidatorId) -> SessionInfo {
+fn dummy_session_info(discovery_keys: Vec<AuthorityDiscoveryId>) -> SessionInfo {
 	SessionInfo {
-		validators: IndexedVec::<ValidatorIndex, ValidatorId>::from(vec![id; 5]),
-		discovery_keys: vec![],
+		validators: IndexedVec::<ValidatorIndex, ValidatorId>::from(vec![]),
+		discovery_keys,
 		assignment_keys: vec![],
 		validator_groups: Default::default(),
 		n_cores: 4u32,
@@ -1412,7 +1412,7 @@ fn prepares_pvfs_for_next_session_if_golden_path() {
 			ctx_handle.recv().await,
 			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionInfo(index, tx))) => {
 				assert_eq!(index, 1);
-				let _ = tx.send(Ok(Some(dummy_session_info(Sr25519Keyring::Alice.public().into()))));
+				let _ = tx.send(Ok(Some(dummy_session_info(vec![Sr25519Keyring::Bob.public().into()]))));
 			}
 		);
 
@@ -1451,4 +1451,132 @@ fn prepares_pvfs_for_next_session_if_golden_path() {
 	executor::block_on(test_fut);
 
 	assert_eq!(backend.heads_up_call_count.load(Ordering::SeqCst), 1);
+	assert!(state.session_index.is_some());
+	assert!(state.is_next_session_authority);
+}
+
+#[test]
+fn does_not_prepare_pvfs_if_no_new_session() {
+	let pool = TaskExecutor::new();
+	let (mut ctx, mut ctx_handle) =
+		polkadot_node_subsystem_test_helpers::make_subsystem_context::<AllMessages, _>(pool);
+
+	let keystore = alice_keystore();
+	let backend = MockHeadsUp::default();
+	let activated_hash = Hash::random();
+	let update = dummy_active_leaves_update(activated_hash);
+	let mut state = PrepareValidationState { session_index: Some(1), ..Default::default() };
+
+	let check_fut =
+		maybe_prepare_validation(ctx.sender(), keystore, backend.clone(), update, &mut state);
+
+	let test_fut = async move {
+		assert_matches!(
+			ctx_handle.recv().await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionIndexForChild(tx))) => {
+				let _ = tx.send(Ok(1));
+			}
+		);
+	};
+
+	let test_fut = future::join(test_fut, check_fut);
+	executor::block_on(test_fut);
+
+	assert_eq!(backend.heads_up_call_count.load(Ordering::SeqCst), 0);
+	assert!(state.session_index.is_some());
+	assert!(!state.is_next_session_authority);
+}
+
+#[test]
+fn does_not_prepare_pvfs_if_not_a_validator_in_next_session() {
+	let pool = TaskExecutor::new();
+	let (mut ctx, mut ctx_handle) =
+		polkadot_node_subsystem_test_helpers::make_subsystem_context::<AllMessages, _>(pool);
+
+	let keystore = alice_keystore();
+	let backend = MockHeadsUp::default();
+	let activated_hash = Hash::random();
+	let update = dummy_active_leaves_update(activated_hash);
+	let mut state = PrepareValidationState::default();
+
+	let check_fut =
+		maybe_prepare_validation(ctx.sender(), keystore, backend.clone(), update, &mut state);
+
+	let test_fut = async move {
+		assert_matches!(
+			ctx_handle.recv().await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionIndexForChild(tx))) => {
+				let _ = tx.send(Ok(1));
+			}
+		);
+
+		assert_matches!(
+			ctx_handle.recv().await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::Authorities(tx))) => {
+				let _ = tx.send(Ok(vec![Sr25519Keyring::Bob.public().into()]));
+			}
+		);
+
+		assert_matches!(
+			ctx_handle.recv().await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionInfo(index, tx))) => {
+				assert_eq!(index, 1);
+				let _ = tx.send(Ok(Some(dummy_session_info(vec![Sr25519Keyring::Bob.public().into()]))));
+			}
+		);
+	};
+
+	let test_fut = future::join(test_fut, check_fut);
+	executor::block_on(test_fut);
+
+	assert_eq!(backend.heads_up_call_count.load(Ordering::SeqCst), 0);
+	assert!(state.session_index.is_some());
+	assert!(!state.is_next_session_authority);
+}
+
+#[test]
+fn does_not_prepare_pvfs_if_a_validator_in_current_session() {
+	let pool = TaskExecutor::new();
+	let (mut ctx, mut ctx_handle) =
+		polkadot_node_subsystem_test_helpers::make_subsystem_context::<AllMessages, _>(pool);
+
+	let keystore = alice_keystore();
+	let backend = MockHeadsUp::default();
+	let activated_hash = Hash::random();
+	let update = dummy_active_leaves_update(activated_hash);
+	let mut state = PrepareValidationState::default();
+
+	let check_fut =
+		maybe_prepare_validation(ctx.sender(), keystore, backend.clone(), update, &mut state);
+
+	let test_fut = async move {
+		assert_matches!(
+			ctx_handle.recv().await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionIndexForChild(tx))) => {
+				let _ = tx.send(Ok(1));
+			}
+		);
+
+		assert_matches!(
+			ctx_handle.recv().await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::Authorities(tx))) => {
+				let _ = tx.send(Ok(vec![Sr25519Keyring::Alice.public().into()]));
+			}
+		);
+
+		assert_matches!(
+			ctx_handle.recv().await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionInfo(index, tx))) => {
+				assert_eq!(index, 1);
+				let _ = tx.send(Ok(Some(dummy_session_info(vec![Sr25519Keyring::Alice.public().into()]))));
+			}
+		);
+	};
+
+	let test_fut = future::join(test_fut, check_fut);
+	executor::block_on(test_fut);
+
+	assert_eq!(backend.heads_up_call_count.load(Ordering::SeqCst), 0);
+	assert!(state.session_index.is_some());
+	assert!(!state.is_next_session_authority);
 }
