@@ -281,8 +281,8 @@ where
 	}
 
 	/// Checks if there is a view at the tip of the fork with given hash.
-	pub fn has_view(&self, hash: Block::Hash) -> bool {
-		self.view_store.views.read().get(&hash).is_some()
+	pub fn has_view(&self, hash: &Block::Hash) -> bool {
+		self.view_store.views.read().contains_key(hash)
 	}
 
 	/// Returns numbder of unwatched and watched transactions in internal mempool.
@@ -732,7 +732,7 @@ where
 			},
 		};
 
-		if self.view_store.views.read().contains_key(&hash_and_number.hash) {
+		if self.has_view(&hash_and_number.hash) {
 			log::debug!(
 				target: LOG_TARGET,
 				"view already exists for block: {:?}",
