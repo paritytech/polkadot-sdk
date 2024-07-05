@@ -382,6 +382,13 @@ fn full_native_block_import_works() {
 			},
 			EventRecord {
 				phase: Phase::ApplyExtrinsic(1),
+				event: RuntimeEvent::Balances(pallet_balances::Event::Rescinded {
+					amount: fees * 2 / 10,
+				}),
+				topics: vec![],
+			},
+			EventRecord {
+				phase: Phase::ApplyExtrinsic(1),
 				event: RuntimeEvent::TransactionPayment(
 					pallet_transaction_payment::Event::TransactionFeePaid {
 						who: alice().into(),
@@ -462,6 +469,13 @@ fn full_native_block_import_works() {
 				phase: Phase::ApplyExtrinsic(1),
 				event: RuntimeEvent::Treasury(pallet_treasury::Event::Deposit {
 					value: fees * 8 / 10,
+				}),
+				topics: vec![],
+			},
+			EventRecord {
+				phase: Phase::ApplyExtrinsic(1),
+				event: RuntimeEvent::Balances(pallet_balances::Event::Rescinded {
+					amount: fees * 2 / 10,
 				}),
 				topics: vec![],
 			},
