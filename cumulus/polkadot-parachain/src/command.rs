@@ -24,7 +24,7 @@ use crate::{
 		asset_hub_polkadot_aura::RuntimeApi as AssetHubPolkadotRuntimeApi,
 		aura::RuntimeApi as AuraRuntimeApi,
 	},
-	service::{BasicLookaheadNode, DynNodeSpec, GenericAuraLookaheadNode, ShellNode},
+	service::{BasicLookaheadNode, DynNodeSpec, GenericAuraAsyncBackingNode, ShellNode},
 };
 #[cfg(feature = "runtime-benchmarks")]
 use cumulus_client_service::storage_proof_size::HostFunctions as ReclaimHostFunctions;
@@ -389,7 +389,7 @@ fn new_node_spec(
 	config: &sc_service::Configuration,
 ) -> std::result::Result<Box<dyn DynNodeSpec>, sc_cli::Error> {
 	Ok(match config.chain_spec.runtime()? {
-		Runtime::AssetHubPolkadot => Box::new(GenericAuraLookaheadNode::<
+		Runtime::AssetHubPolkadot => Box::new(GenericAuraAsyncBackingNode::<
 			AssetHubPolkadotRuntimeApi,
 			AssetHubPolkadotAuraId,
 		>::default()),
@@ -399,12 +399,12 @@ fn new_node_spec(
 		Runtime::Coretime(_) |
 		Runtime::People(_) |
 		Runtime::ContractsRococo |
-		Runtime::Penpal(_) => Box::new(GenericAuraLookaheadNode::<AuraRuntimeApi, AuraId>::default()),
+		Runtime::Penpal(_) => Box::new(GenericAuraAsyncBackingNode::<AuraRuntimeApi, AuraId>::default()),
 		Runtime::Shell | Runtime::Seedling => Box::new(ShellNode),
 		Runtime::Glutton => Box::new(BasicLookaheadNode),
 		Runtime::Omni(consensus) => match consensus {
 			Consensus::Aura =>
-				Box::new(GenericAuraLookaheadNode::<AuraRuntimeApi, AuraId>::default()),
+				Box::new(GenericAuraAsyncBackingNode::<AuraRuntimeApi, AuraId>::default()),
 			Consensus::Relay => Box::new(ShellNode),
 		},
 	})
@@ -585,7 +585,15 @@ pub fn run() -> Result<()> {
 				info!("🧾 Parachain Account: {}", parachain_account);
 				info!("✍️ Is collating: {}", if config.role.is_authority() { "yes" } else { "no" });
 
-				start_node(config, polkadot_config, collator_options, id, hwbench).await
+				start_node(
+					config,
+					polkadot_config,
+					collator_options,
+					id,
+					cli.experimental_use_slot_based,
+					hwbench,
+				)
+				.await
 			})
 		},
 	}
@@ -597,6 +605,7 @@ async fn start_node(
 	polkadot_config: sc_service::Configuration,
 	collator_options: cumulus_client_cli::CollatorOptions,
 	id: ParaId,
+	use_experimental_slot_based: bool,
 	hwbench: Option<sc_sysinfo::HwBench>,
 ) -> Result<sc_service::TaskManager> {
 	let node_spec = new_node_spec(&config)?;

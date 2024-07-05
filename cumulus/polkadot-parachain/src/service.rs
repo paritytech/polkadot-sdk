@@ -16,7 +16,10 @@
 
 use cumulus_client_cli::{CollatorOptions, ExportGenesisHeadCommand};
 use cumulus_client_collator::service::CollatorService;
-use cumulus_client_consensus_aura::collators::lookahead::{self as aura, Params as AuraParams};
+use cumulus_client_consensus_aura::collators::{
+	lookahead::{self as aura, Params as AuraParams},
+	slot_based::{self as slot_based, Params as SlotBasedParams},
+};
 use cumulus_client_consensus_common::ParachainBlockImport as TParachainBlockImport;
 use cumulus_client_consensus_proposer::Proposer;
 use cumulus_client_consensus_relay_chain::Verifier as RelayChainVerifier;
@@ -54,7 +57,6 @@ use sc_consensus::{
 };
 use sc_executor::{HeapAllocStrategy, WasmExecutor, DEFAULT_HEAP_ALLOC_STRATEGY};
 use sc_network::{config::FullNetworkConfiguration, service::traits::NetworkBackend, NetworkBlock};
-use sc_network_sync::SyncingService;
 use sc_service::{Configuration, Error, PartialComponents, TFullBackend, TFullClient, TaskManager};
 use sc_sysinfo::HwBench;
 use sc_telemetry::{Telemetry, TelemetryHandle, TelemetryWorker, TelemetryWorkerHandle};
@@ -112,7 +114,6 @@ where
 		task_manager: &TaskManager,
 		relay_chain_interface: Arc<dyn RelayChainInterface>,
 		transaction_pool: Arc<sc_transaction_pool::FullPool<Block, ParachainClient<RuntimeApi>>>,
-		sync_oracle: Arc<SyncingService<Block>>,
 		keystore: KeystorePtr,
 		relay_chain_slot_duration: Duration,
 		para_id: ParaId,
@@ -337,7 +338,7 @@ pub(crate) trait NodeSpec {
 				import_queue: import_queue_service,
 				relay_chain_slot_duration,
 				recovery_handle: Box::new(overseer_handle.clone()),
-				sync_service: sync_service.clone(),
+				sync_service,
 			})?;
 
 			if validator {
@@ -349,7 +350,6 @@ pub(crate) trait NodeSpec {
 					&task_manager,
 					relay_chain_interface.clone(),
 					transaction_pool,
-					sync_service.clone(),
 					params.keystore_container.keystore(),
 					relay_chain_slot_duration,
 					para_id,
@@ -494,17 +494,17 @@ where
 /// Uses the lookahead collator to support async backing.
 ///
 /// Start an aura powered parachain node. Some system chains use this.
-pub(crate) struct GenericAuraLookaheadNode<RuntimeApi, AuraId>(
+pub(crate) struct GenericAuraAsyncBackingNode<RuntimeApi, AuraId>(
 	pub PhantomData<(RuntimeApi, AuraId)>,
 );
 
-impl<RuntimeApi, AuraId> Default for GenericAuraLookaheadNode<RuntimeApi, AuraId> {
+impl<RuntimeApi, AuraId> Default for GenericAuraAsyncBackingNode<RuntimeApi, AuraId> {
 	fn default() -> Self {
 		Self(Default::default())
 	}
 }
 
-impl<RuntimeApi, AuraId> NodeSpec for GenericAuraLookaheadNode<RuntimeApi, AuraId>
+impl<RuntimeApi, AuraId> NodeSpec for GenericAuraAsyncBackingNode<RuntimeApi, AuraId>
 where
 	RuntimeApi: ConstructNodeRuntimeApi<Block, ParachainClient<RuntimeApi>>,
 	RuntimeApi::RuntimeApi: AuraRuntimeApi<Block, AuraId>
@@ -532,7 +532,6 @@ impl StartConsensus<FakeRuntimeApi> for StartRelayChainConsensus {
 		task_manager: &TaskManager,
 		relay_chain_interface: Arc<dyn RelayChainInterface>,
 		transaction_pool: Arc<FullPool<Block, ParachainClient<FakeRuntimeApi>>>,
-		_sync_oracle: Arc<SyncingService<Block>>,
 		_keystore: KeystorePtr,
 		_relay_chain_slot_duration: Duration,
 		para_id: ParaId,
@@ -595,6 +594,88 @@ impl StartConsensus<FakeRuntimeApi> for StartRelayChainConsensus {
 	}
 }
 
+/// Start consensus using the lookahead aura collator.
+pub(crate) struct StartSlotBasedAuraConsensus<RuntimeApi, AuraId>(
+	PhantomData<(RuntimeApi, AuraId)>,
+);
+
+impl<RuntimeApi, AuraId> StartConsensus<RuntimeApi>
+	for StartSlotBasedAuraConsensus<RuntimeApi, AuraId>
+where
+	RuntimeApi: ConstructNodeRuntimeApi<Block, ParachainClient<RuntimeApi>>,
+	RuntimeApi::RuntimeApi: AuraRuntimeApi<Block, AuraId>,
+	AuraId: AuraIdT + Sync,
+{
+	fn start_consensus(
+		client: Arc<ParachainClient<RuntimeApi>>,
+		block_import: ParachainBlockImport<RuntimeApi>,
+		prometheus_registry: Option<&Registry>,
+		telemetry: Option<TelemetryHandle>,
+		task_manager: &TaskManager,
+		relay_chain_interface: Arc<dyn RelayChainInterface>,
+		transaction_pool: Arc<FullPool<Block, ParachainClient<RuntimeApi>>>,
+		keystore: KeystorePtr,
+		relay_chain_slot_duration: Duration,
+		para_id: ParaId,
+		collator_key: CollatorPair,
+		_overseer_handle: OverseerHandle,
+		announce_block: Arc<dyn Fn(Hash, Option<Vec<u8>>) + Send + Sync>,
+		backend: Arc<ParachainBackend>,
+	) -> Result<(), Error> {
+		let proposer_factory = sc_basic_authorship::ProposerFactory::with_proof_recording(
+			task_manager.spawn_handle(),
+			client.clone(),
+			transaction_pool,
+			prometheus_registry,
+			telemetry.clone(),
+		);
+
+		let proposer = Proposer::new(proposer_factory);
+		let collator_service = CollatorService::new(
+			client.clone(),
+			Arc::new(task_manager.spawn_handle()),
+			announce_block,
+			client.clone(),
+		);
+
+		let client_for_aura = client.clone();
+		let params = SlotBasedParams {
+			create_inherent_data_providers: move |_, ()| async move { Ok(()) },
+			block_import,
+			para_client: client.clone(),
+			para_backend: backend.clone(),
+			relay_client: relay_chain_interface,
+			code_hash_provider: move |block_hash| {
+				client_for_aura.code_at(block_hash).ok().map(|c| ValidationCode::from(c).hash())
+			},
+			keystore,
+			collator_key,
+			para_id,
+			relay_chain_slot_duration,
+			proposer,
+			collator_service,
+			authoring_duration: Duration::from_millis(2000),
+			reinitialize: false,
+			slot_drift: Duration::from_secs(1),
+		};
+
+		let (collation_future, block_builder_future) =
+			slot_based::run::<Block, <AuraId as AppCrypto>::Pair, _, _, _, _, _, _, _, _>(params);
+
+		task_manager.spawn_essential_handle().spawn(
+			"collation-task",
+			Some("parachain-block-authoring"),
+			collation_future,
+		);
+		task_manager.spawn_essential_handle().spawn(
+			"block-builder-task",
+			Some("parachain-block-authoring"),
+			block_builder_future,
+		);
+		Ok(())
+	}
+}
+
 /// Wait for the Aura runtime API to appear on chain.
 /// This is useful for chains that started out without Aura. Components that
 /// are depending on Aura functionality will wait until Aura appears in the runtime.
@@ -637,7 +718,6 @@ where
 		task_manager: &TaskManager,
 		relay_chain_interface: Arc<dyn RelayChainInterface>,
 		transaction_pool: Arc<FullPool<Block, ParachainClient<RuntimeApi>>>,
-		sync_oracle: Arc<SyncingService<Block>>,
 		keystore: KeystorePtr,
 		relay_chain_slot_duration: Duration,
 		para_id: ParaId,
@@ -673,7 +753,6 @@ where
 					client.code_at(block_hash).ok().map(|c| ValidationCode::from(c).hash())
 				}
 			},
-			sync_oracle,
 			keystore,
 			collator_key,
 			para_id,
@@ -687,8 +766,7 @@ where
 
 		let fut = async move {
 			wait_for_aura(client).await;
-			aura::run::<Block, <AuraId as AppCrypto>::Pair, _, _, _, _, _, _, _, _, _>(params)
-				.await;
+			aura::run::<Block, <AuraId as AppCrypto>::Pair, _, _, _, _, _, _, _, _>(params).await;
 		};
 		task_manager.spawn_essential_handle().spawn("aura", None, fut);
 
