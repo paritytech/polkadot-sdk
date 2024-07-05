@@ -109,6 +109,10 @@ impl AssetExchange for TestAssetExchanger {
 	) -> Result<AssetsInHolding, AssetsInHolding> {
 		Ok(want.clone().into())
 	}
+
+	fn quote_exchange_price(_: &Asset, _: &Asset, _: bool) -> Option<u128> {
+		None
+	}
 }
 
 pub struct TestPalletsInfo;

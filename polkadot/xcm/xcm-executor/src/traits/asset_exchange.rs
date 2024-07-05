@@ -43,9 +43,7 @@ pub trait AssetExchange {
 	/// - `asset1` The first asset.
 	/// - `asset2` The second asset.
 	/// - `maximal`: If `true`, then all of `asset1` should be used.
-	fn quote_exchange_price(_asset1: &Asset, _asset2: &Asset, _maximal: bool) -> Option<u128> {
-		None
-	}
+	fn quote_exchange_price(asset1: &Asset, asset2: &Asset, maximal: bool) -> Option<u128>;
 }
 
 #[impl_trait_for_tuples::impl_for_tuples(30)]
@@ -63,5 +61,15 @@ impl AssetExchange for Tuple {
 			};
 		)* );
 		Err(give)
+	}
+
+	fn quote_exchange_price(asset1: &Asset, asset2: &Asset, maximal: bool) -> Option<u128> {
+		for_tuples!( #(
+			match Tuple::quote_exchange_price(asset1, asset2, maximal) {
+				Some(amount) => return Some(amount),
+				None => {}
+			}
+		)* );
+		None
 	}
 }
