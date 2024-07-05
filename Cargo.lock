@@ -20018,6 +20018,7 @@ dependencies = [
  "schnellru",
  "sp-api",
  "sp-consensus",
+ "sp-core",
  "sp-database",
  "sp-runtime",
  "sp-state-machine",
