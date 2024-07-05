@@ -437,11 +437,15 @@ pub trait CliConfiguration<DCV: DefaultConfigurationValues = ()>: Sized {
 	///
 	/// By default this is retrieved from `NodeKeyParams` if it is available. Otherwise its
 	/// `NodeKeyConfig::default()`.
-	fn node_key(&self, net_config_dir: &PathBuf) -> Result<NodeKeyConfig> {
+	fn node_key(
+		&self,
+		net_config_dir: &PathBuf,
+		require_key_for_authority: bool,
+	) -> Result<NodeKeyConfig> {
 		let is_dev = self.is_dev()?;
 		let role = self.role(is_dev)?;
 		self.node_key_params()
-			.map(|x| x.node_key(net_config_dir, role, is_dev))
+			.map(|x| x.node_key(net_config_dir, role, is_dev, require_key_for_authority))
 			.unwrap_or_else(|| Ok(Default::default()))
 	}
 
@@ -490,7 +494,8 @@ pub trait CliConfiguration<DCV: DefaultConfigurationValues = ()>: Sized {
 				Database::ParityDb
 			},
 		);
-		let node_key = self.node_key(&net_config_dir)?;
+		let node_key =
+			self.node_key(&net_config_dir, cli.enforce_network_key_exists_when_authority())?;
 		let role = self.role(is_dev)?;
 		let max_runtime_instances = self.max_runtime_instances()?.unwrap_or(8);
 		let is_validator = role.is_authority();

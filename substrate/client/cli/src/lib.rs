@@ -250,4 +250,9 @@ pub trait SubstrateCli: Sized {
 		command.init(&Self::support_url(), &Self::impl_version(), logger_hook, &config)?;
 		Runner::new(config, tokio_runtime, signals)
 	}
+
+	/// Returns if a node should enforce the presence of a node key for authorities.
+	fn enforce_network_key_exists_when_authority(&self) -> bool {
+		false
+	}
 }

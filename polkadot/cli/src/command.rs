@@ -153,6 +153,11 @@ impl SubstrateCli for Cli {
 			},
 		})
 	}
+
+	// Enforce the presence of a network key if the node is started as an authorithy.
+	fn enforce_network_key_exists_when_authority(&self) -> bool {
+		true
+	}
 }
 
 fn set_default_ss58_version(spec: &Box<dyn polkadot_service::ChainSpec>) {

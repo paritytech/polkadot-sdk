@@ -105,6 +105,7 @@ impl NodeKeyParams {
 		net_config_dir: &PathBuf,
 		role: Role,
 		is_dev: bool,
+		require_key_for_authority: bool,
 	) -> error::Result<NodeKeyConfig> {
 		Ok(match self.node_key_type {
 			NodeKeyType::Ed25519 => {
@@ -116,8 +117,9 @@ impl NodeKeyParams {
 						.clone()
 						.unwrap_or_else(|| net_config_dir.join(NODE_KEY_ED25519_FILE));
 					if !self.unsafe_force_node_key_generation &&
-						role.is_authority() && !is_dev &&
-						!key_path.exists()
+						require_key_for_authority &&
+						role.is_authority() &&
+						!is_dev && !key_path.exists()
 					{
 						return Err(Error::NetworkKeyNotFound(key_path))
 					}
@@ -166,12 +168,14 @@ mod tests {
 					node_key_file: None,
 					unsafe_force_node_key_generation: false,
 				};
-				params.node_key(net_config_dir, Role::Authority, false).and_then(|c| match c {
-					NodeKeyConfig::Ed25519(sc_network::config::Secret::Input(ref ski))
-						if node_key_type == NodeKeyType::Ed25519 && &sk[..] == ski.as_ref() =>
-						Ok(()),
-					_ => Err(error::Error::Input("Unexpected node key config".into())),
-				})
+				params.node_key(net_config_dir, Role::Authority, false, true).and_then(
+					|c| match c {
+						NodeKeyConfig::Ed25519(sc_network::config::Secret::Input(ref ski))
+							if node_key_type == NodeKeyType::Ed25519 && &sk[..] == ski.as_ref() =>
+							Ok(()),
+						_ => Err(error::Error::Input("Unexpected node key config".into())),
+					},
+				)
 			})
 		}
 
@@ -189,7 +193,7 @@ mod tests {
 			};
 
 			let node_key = params
-				.node_key(&PathBuf::from("not-used"), Role::Authority, false)
+				.node_key(&PathBuf::from("not-used"), Role::Authority, false, true)
 				.expect("Creates node key config")
 				.into_keypair()
 				.expect("Creates node key pair");
@@ -238,7 +242,7 @@ mod tests {
 					let dir = PathBuf::from(net_config_dir.clone());
 					let typ = params.node_key_type;
 					let role = role.clone();
-					params.node_key(net_config_dir, role, is_dev).and_then(move |c| match c {
+					params.node_key(net_config_dir, role, is_dev, true).and_then(move |c| match c {
 						NodeKeyConfig::Ed25519(sc_network::config::Secret::File(ref f))
 							if typ == NodeKeyType::Ed25519 &&
 								f == &dir.join(NODE_KEY_ED25519_FILE) =>
