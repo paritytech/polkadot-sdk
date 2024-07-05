@@ -58,14 +58,17 @@
 //!   3 holds for 100 units, the account can spend its funds for any reason down to 300 units, at
 //!   which point the holds will start to come into play.
 //!
-//! - **Frozen Balance**: A freeze on a specified amount of an account's balance. There's no 
-//!   restriction preventing an account from freezing over its available balance. This amount still
-//!   belongs to the account holder, but cannot be spent.
+//! - **Frozen Balance**: A freeze on a specified amount of an account's balance. This amount is 
+//!   set aside and cannot be spent by the account holder.  
 //!
 //!   Multiple freezes always operate over the same funds, so they "overlay" rather than
 //!   "stack". This means that if an account has 3 freezes for 100 units, the account can spend its
 //!   funds for any reason down to 100 units, at which point the freezes will start to come into
 //!   play.
+//!   
+//!   It's important to note that the frozen balance can exceed the total balance of the account.
+//!   In such cases, the account cannot spend any fund as all its balance is frozen; the excess
+//!   frozen amount does not belong to the account, only the lock does.
 //!
 //! - **Minimum Balance (a.k.a. Existential Deposit, a.k.a. ED)**: The minimum balance required to
 //!   create or keep an account open. This is to prevent "dust accounts" from filling storage. When
