@@ -81,7 +81,6 @@ pallet-scheduler = { workspace = true }
 pallet-session = { workspace = true }
 pallet-society = { workspace = true }
 pallet-staking = { workspace = true }
-pallet-staking-reward-curve = { workspace = true, default-features = true }
 pallet-staking-runtime-api = { workspace = true }
 pallet-delegated-staking = { workspace = true }
 pallet-state-trie-migration = { workspace = true }
