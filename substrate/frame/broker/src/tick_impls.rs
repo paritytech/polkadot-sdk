@@ -16,7 +16,7 @@
 // limitations under the License.
 
 use super::*;
-use frame_support::{pallet_prelude::*, weights::WeightMeter};
+use frame_support::{pallet_prelude::*, traits::defensive_prelude::*, weights::WeightMeter};
 use sp_arithmetic::traits::{One, SaturatedConversion, Saturating, Zero};
 use sp_runtime::traits::ConvertBack;
 use sp_std::{vec, vec::Vec};
@@ -76,6 +76,8 @@ impl<T: Config> Pallet<T> {
 			let rc_block = T::TimeslicePeriod::get() * status.last_timeslice.into();
 			T::Coretime::request_revenue_info_at(rc_block);
 			meter.consume(T::WeightInfo::request_revenue_info_at());
+			T::Coretime::on_new_timeslice(status.last_timeslice);
+			meter.consume(T::WeightInfo::on_new_timeslice());
 		}
 
 		Status::<T>::put(&status);
@@ -93,15 +95,23 @@ impl<T: Config> Pallet<T> {
 	}
 
 	pub(crate) fn process_revenue() -> bool {
-		let Some((until, amount)) = T::Coretime::check_notify_revenue_info() else { return false };
+		let Some(OnDemandRevenueRecord { until, amount }) = RevenueInbox::<T>::take() else {
+			return false
+		};
 		let when: Timeslice =
 			(until / T::TimeslicePeriod::get()).saturating_sub(One::one()).saturated_into();
-		let mut revenue = T::ConvertBalance::convert_back(amount);
+		let mut revenue = T::ConvertBalance::convert_back(amount.clone());
 		if revenue.is_zero() {
 			Self::deposit_event(Event::<T>::HistoryDropped { when, revenue });
 			InstaPoolHistory::<T>::remove(when);
 			return true
 		}
+
+		log::debug!(
+			target: "pallet_broker::process_revenue",
+			"Received {amount:?} from RC, converted into {revenue:?} revenue",
+		);
+
 		let mut r = InstaPoolHistory::<T>::get(when).unwrap_or_default();
 		if r.maybe_payout.is_some() {
 			Self::deposit_event(Event::<T>::HistoryIgnored { when, revenue });
@@ -112,13 +122,18 @@ impl<T: Config> Pallet<T> {
 		let system_payout = if !total_contrib.is_zero() {
 			let system_payout =
 				revenue.saturating_mul(r.system_contributions.into()) / total_contrib.into();
-			let _ = Self::charge(&Self::account_id(), system_payout);
+			Self::charge(&Self::account_id(), system_payout).defensive_ok();
 			revenue.saturating_reduce(system_payout);
 
 			system_payout
 		} else {
 			Zero::zero()
 		};
+
+		log::debug!(
+			target: "pallet_broker::process_revenue",
+			"Charged {system_payout:?} for system payouts, {revenue:?} remaining for private contributions",
+		);
 
 		if !revenue.is_zero() && r.private_contributions > 0 {
 			r.maybe_payout = Some(revenue);
