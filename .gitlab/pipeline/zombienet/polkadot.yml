@@ -345,4 +345,5 @@ zombienet-polkadot-coretime-revenue:
     - !reference [".zombienet-polkadot-common", "before_script"]
     - export POLKADOT_IMAGE="${ZOMBIENET_INTEGRATION_TEST_IMAGE}"
   script:
-    - ./artifacts/coretime-revenue
+    - mv ./artifacts/metadata-files/* polkadot/zombienet-sdk-tests/metadata-files
+    - cargo test -p polkadot-zombienet-sdk-tests smoke::coretime_revenue::coretime_revenue_test --features zombie-metadata  -- --exact
