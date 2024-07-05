@@ -203,8 +203,12 @@ fn maybe_compact_and_compress_wasm(
 	// profile is `Debug`, because the blob built in `Debug` profile is too slow for normal
 	// development activities.
 	let (compact_compressed_blob_path, compact_blob_path) = if profile.wants_compact() {
-		let (compressed, compact_blob_path) =
-			compact_wasm_file(project, profile, blob_name, bloaty_blob_binary.wasm_binary_bloaty_path());
+		let (compact_blob_path, compressed) = compact_wasm_file(
+			project,
+			profile,
+			blob_name,
+			bloaty_blob_binary.wasm_binary_bloaty_path(),
+		);
 		(compressed, compact_blob_path)
 	} else {
 		(None, None)
