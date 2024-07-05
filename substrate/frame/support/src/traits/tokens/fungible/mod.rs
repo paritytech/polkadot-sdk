@@ -58,8 +58,8 @@
 //!   3 holds for 100 units, the account can spend its funds for any reason down to 300 units, at
 //!   which point the holds will start to come into play.
 //!
-//! - **Frozen Balance**: A freeze on a specified amount of an account's balance. This amount is 
-//!   set aside and cannot be spent by the account holder.  
+//! - **Frozen Balance**: A freeze on a specified amount of an account's balance. Tokens that 
+//!   are frozen cannot be transferred.
 //!
 //!   Multiple freezes always operate over the same funds, so they "overlay" rather than
 //!   "stack". This means that if an account has 3 freezes for 100 units, the account can spend its
