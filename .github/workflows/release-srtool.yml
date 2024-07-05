@@ -78,20 +78,20 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Prepare build options
+        run: |
+          BUILD_OPTIONS=""
+          if [[ ${{ matrix.chain }} == 'asset-hub-rococo' || ${{ matrix.chain }} == 'asset-hub-westend' || ${{ matrix.chain }} == 'rococo' || ${{ matrix.chain }} == 'westend' ]]; then
+            BUILD_OPTIONS=${{ inputs.build_opts }}
+          fi
+
+          echo "BUILD_OPTIONS=${BUILD_OPTIONS}" >> $GITHUB_ENV
+
       - name: Srtool build
-        if: ${{ matrix.chain != 'asset-hub-rococo' || matrix.chain != 'asset-hub-westend' || matrix.chain != 'rococo' || matrix.chain != 'westend' }}
         id: srtool_build
         uses: chevdor/srtool-actions@v0.9.2
-        with:
-          chain: ${{ matrix.chain }}
-          runtime_dir: ${{ matrix.runtime_dir }}
-
-      - name: Srtool build with options
-        if: ${{ matrix.chain == 'asset-hub-rococo' || matrix.chain == 'asset-hub-westend' || matrix.chain == 'rococo' || matrix.chain == 'westend' }}
-        id: srtool_build_with_opts
-        uses: chevdor/srtool-actions@v0.9.2
         env:
-          BUILD_OPTS: ${{ inputs.build_opts }}
+          BUILD_OPTS: ${{ github.env.BUILD_OPTIONS }}
         with:
           chain: ${{ matrix.chain }}
           runtime_dir: ${{ matrix.runtime_dir }}
