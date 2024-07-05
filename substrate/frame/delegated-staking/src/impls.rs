@@ -32,6 +32,12 @@ impl<T: Config> DelegationInterface for Pallet<T> {
 			.ok()
 	}
 
+	fn agent_transferable_balance(agent: Agent<Self::AccountId>) -> Option<Self::Balance> {
+		AgentLedgerOuter::<T>::get(&agent.get())
+			.map(|a| a.ledger.unclaimed_withdrawals)
+			.ok()
+	}
+
 	fn delegator_balance(delegator: Delegator<Self::AccountId>) -> Option<Self::Balance> {
 		Delegation::<T>::get(&delegator.get()).map(|d| d.amount)
 	}
