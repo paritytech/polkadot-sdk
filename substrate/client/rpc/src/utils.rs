@@ -203,7 +203,7 @@ impl Subscription {
 				// New item from the stream
 				Either::Right((Either::Right((Some(v), n)), c)) => {
 					if buf.push(v).is_err() {
-						log::warn!(
+						log::debug!(
 							target: "rpc",
 							"Subscription buffer full for subscription={} conn_id={}; dropping subscription",
 							self.0.method_name(),
