@@ -18,41 +18,56 @@
 //!
 //! # Overview
 //!
-//! This module exposes two main types: [`FragmentChain`] and [`CandidateStorage`] which are meant
-//! to be used in close conjunction. Each fragment chain is associated with a particular
-//! relay-parent and each node in the chain represents a candidate. Each parachain has a single
-//! candidate storage, but can have one chain for each relay chain block in the view.
-//! Therefore, the same candidate can be present in multiple fragment chains of a parachain. One of
-//! the purposes of the candidate storage is to deduplicate the large candidate data that is being
-//! referenced from multiple fragment chains.
+//! The main type exposed by this module is the [`FragmentChain`].
 //!
-//! A chain has an associated [`Scope`] which defines limits on candidates within the chain.
-//! Candidates themselves have their own [`Constraints`] which are either the constraints from the
-//! scope, or, if there are previous nodes in the chain, a modified version of the previous
-//! candidate's constraints.
+//! Each fragment chain is associated with a particular relay-parent (an active leaf) and has a
+//! [`Scope`], which contains the allowed relay parents (up to `allowed_ancestry_len`), the pending
+//! availability candidates and base constraints derived from the latest included candidate. Each
+//! parachain has a single `FragmentChain` for each active leaf where it's scheduled.
 //!
-//! Another use of the `CandidateStorage` is to keep a record of candidates which may not be yet
-//! included in any chain, but which may become part of a chain in the future. This is needed for
-//! elastic scaling, so that we may parallelise the backing process across different groups. As long
-//! as some basic constraints are not violated by an unconnected candidate (like the relay parent
-//! being in scope), we proceed with the backing process, hoping that its predecessors will be
-//! backed soon enough. This is commonly called a potential candidate. Note that not all potential
-//! candidates will be maintained in the CandidateStorage. The total number of connected + potential
-//! candidates will be at most max_candidate_depth + 1.
+//! A fragment chain consists mainly of the current best backable chain (we'll call this the best
+//! chain) and a storage of unconnected potential candidates (we'll call this the unconnected
+//! storage).
+//!
+//! The best chain contains all the candidates pending availability and a subsequent chain
+//! of candidates that have reached the backing quorum and are better than any other backable forks
+//! according to the fork selection rule (more on this rule later). It has a length of size at most
+//! `max_candidate_depth + 1`.
+//!
+//! The unconnected storage keeps a record of seconded/backable candidates that may be
+//! added to the best chain in the future.
+//!	Once a candidate is seconded, it becomes part of this unconnected storage.
+//! Only after it is backed it may be added to the best chain (but not neccessarily). It's only
+//! added if it builds on the latest candidate in the chain and if there isn't a better backable
+//! candidate according to the fork selection rule.
+//!
+//! An important thing to note is that the candidates present in the unconnected storage may have
+//! any/no relationship between them. In other words, they may form N trees and may even form
+//! cycles. This is needed so that we may begin validating candidates for which we don't yet know
+//! their parent (so we may parallelise the backing process across different groups for elastic
+//! scaling) and so that we accept parachain forks.
+//!
+//! We accept parachain forks only until reaching the backing quorum. After that, we assume all
+//! validators pick the same fork accroding to the fork selection rule. If we decided to not accept
+//! parachain forks, candidates could end up getting only half of the backing votes or even less
+//! (for forks of larger arity). This would affect the validator rewards. Still, we don't guarantee
+//! that a fork-producing parachains will be able to fully use elastic scaling.
+//!
+//! Once a candidate is backed and becomes part of the best chain, we can trim from the
+//! unconnected storage candidates which constitute forks on the best chain and no longer have
+//! potential.
 //!
 //! This module also makes use of types provided by the Inclusion Emulator module, such as
 //! [`Fragment`] and [`Constraints`]. These perform the actual job of checking for validity of
 //! prospective fragments.
 //!
-//! # Parachain forks
+//! # Fork choice rule
 //!
-//! Parachains are expected to not create forks, hence the use of fragment chains as opposed to
-//! fragment trees. If parachains do create forks, their performance in regards to async backing and
-//! elastic scaling will suffer, because different validators will have different views of the
-//! future.
+//! The motivation for the fork choice rule is described in the previous chapter.
 //!
-//! This is a compromise we can make - collators which want to use async backing and elastic scaling
-//! need to cooperate for the highest throughput.
+//! The current rule is: choose the candidate with the lower candidate hash.
+//! The candidate hash is quite random and finding a candidate with a lower hash in order to favour
+//! it would essentially mean solving a proof of work problem.
 //!
 //! # Parachain cycles
 //!
@@ -65,23 +80,40 @@
 //!      resolved by having candidates reference their parent by candidate hash.
 //!
 //! However, dealing with cycles increases complexity during the backing/inclusion process for no
-//! practical reason. Therefore, fragment chains will not accept such candidates.
+//! practical reason.
+//! These cycles may be accepted by fragment chains while candidates are part of the unconnected
+//! storage, but they will definitely not make it to the best chain.
 //!
 //! On the other hand, enforcing that a parachain will NEVER be acyclic would be very complicated
 //! (looping through the entire parachain's history on every new candidate or changing the candidate
 //! receipt to reference the parent's candidate hash).
 //!
+//! Therefore, we don't provide a guarantee that a cycle-producing parachain will work (although in
+//! practice they probably will if the cycle length is larger than the number of assigned cores
+//! multiplied by two).
+//!
 //! # Spam protection
 //!
-//! As long as the [`CandidateStorage`] has bounded input on the number of candidates supplied,
-//! [`FragmentChain`] complexity is bounded. This means that higher-level code needs to be selective
-//! about limiting the amount of candidates that are considered.
+//! As long as the supplied number of candidates is bounded, [`FragmentChain`] complexity is
+//! bounded. This means that higher-level code needs to be selective about limiting the amount of
+//! candidates that are considered.
+//!
+//! Practically speaking, the collator-protocol will not allow more than `max_candidate_depth + 1`
+//! collations to be fetched at a relay parent and statement-distribution will not allow more than
+//! `max_candidate_depth + 1` seconded candidates at a relay parent per each validator in the
+//! backing group. Considering the `allowed_ancestry_len` configuration value, the number of
+//! candidates in a `FragmentChain` (including its unconnected storage) should not exceed:
+//!
+//! `allowed_ancestry_len * (max_candidate_depth + 1) * backing_group_size`.
 //!
 //! The code in this module is not designed for speed or efficiency, but conceptual simplicity.
 //! Our assumption is that the amount of candidates and parachains we consider will be reasonably
 //! bounded and in practice will not exceed a few thousand at any time. This naive implementation
 //! will still perform fairly well under these conditions, despite being somewhat wasteful of
 //! memory.
+//!
+//! Still, the expensive candidate data (CandidateCommitments) are wrapped in an `Arc` and shared
+//! across fragment chains of the same para on different active leaves.
 
 #[cfg(test)]
 mod tests;
