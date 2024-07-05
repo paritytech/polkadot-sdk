@@ -112,47 +112,6 @@ pub fn relay_era_payout(params: EraPayoutParams) -> (Balance, Balance) {
 	(staking_payout, rest)
 }
 
-
-#[deprecated = "use relay_era_payout instead which supports dynamic parameters"]
-pub fn era_payout(
-	total_staked: Balance,
-	total_stakable: Balance,
-	max_annual_inflation: Perquintill,
-	period_fraction: Perquintill,
-	auctioned_slots: u64,
-) -> (Balance, Balance) {
-	use pallet_staking_reward_fn::compute_inflation;
-	use sp_runtime::traits::Saturating;
-
-	let min_annual_inflation = Perquintill::from_rational(25u64, 1000u64);
-	let delta_annual_inflation = max_annual_inflation.saturating_sub(min_annual_inflation);
-
-	// 30% reserved for up to 60 slots.
-	let auction_proportion = Perquintill::from_rational(auctioned_slots.min(60), 200u64);
-
-	// Therefore the ideal amount at stake (as a percentage of total issuance) is 75% less the
-	// amount that we expect to be taken up with auctions.
-	let ideal_stake = Perquintill::from_percent(75).saturating_sub(auction_proportion);
-
-	let stake = Perquintill::from_rational(total_staked, total_stakable);
-	let falloff = Perquintill::from_percent(5);
-	let adjustment = compute_inflation(stake, ideal_stake, falloff);
-	let staking_inflation =
-		min_annual_inflation.saturating_add(delta_annual_inflation * adjustment);
-
-	let max_payout = period_fraction * max_annual_inflation * total_stakable;
-	let staking_payout = (period_fraction * staking_inflation) * total_stakable;
-	let rest = max_payout.saturating_sub(staking_payout);
-
-	let other_issuance = total_stakable.saturating_sub(total_staked);
-	if total_staked > other_issuance {
-		let _cap_rest = Perquintill::from_rational(other_issuance, total_staked) * staking_payout;
-		// We don't do anything with this, but if we wanted to, we could introduce a cap on the
-		// treasury amount with: `rest = rest.min(cap_rest);`
-	}
-	(staking_payout, rest)
-}
-
 /// Versioned locatable asset type which contains both an XCM `location` and `asset_id` to identify
 /// an asset which exists on some chain.
 #[derive(
@@ -471,13 +430,34 @@ mod tests {
 	}
 
 	#[test]
-	fn era_payout_should_give_sensible_results() {
+	fn relay_era_payout_should_give_sensible_results() {
+		let params = EraPayoutParams {
+			total_staked: 75,
+			total_stakable: 100,
+			ideal_stake: Perquintill::from_percent(75),
+			max_annual_inflation: Perquintill::from_percent(10),
+			min_annual_inflation: Perquintill::from_rational(25u64, 1000u64),
+			falloff: Perquintill::from_percent(5),
+			period_fraction: Perquintill::one(),
+			legacy_auction_proportion: None,
+		};
 		assert_eq!(
-			era_payout(75, 100, Perquintill::from_percent(10), Perquintill::one(), 0,),
+			relay_era_payout(params),
 			(10, 0)
 		);
+
+		let params = EraPayoutParams {
+			total_staked: 80,
+			total_stakable: 100,
+			ideal_stake: Perquintill::from_percent(75),
+			max_annual_inflation: Perquintill::from_percent(10),
+			min_annual_inflation: Perquintill::from_rational(25u64, 1000u64),
+			falloff: Perquintill::from_percent(5),
+			period_fraction: Perquintill::one(),
+			legacy_auction_proportion: None,
+		};
 		assert_eq!(
-			era_payout(80, 100, Perquintill::from_percent(10), Perquintill::one(), 0,),
+			relay_era_payout(params),
 			(6, 4)
 		);
 	}
