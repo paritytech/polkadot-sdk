@@ -38,7 +38,7 @@ use sp_trie::{LayoutV0, LayoutV1, MemoryDB, TrieConfiguration, TrieDBMutBuilder,
 ///
 /// In addition to returning valid messages proof, environment is prepared to verify this message
 /// proof.
-pub fn prepare_parachain_heads_proof_compact<R, PI>(
+pub fn prepare_parachain_heads_proof<R, PI>(
 	parachains: &[ParaId],
 	parachain_head_size: u32,
 	proof_params: UnverifiedStorageProofParams,

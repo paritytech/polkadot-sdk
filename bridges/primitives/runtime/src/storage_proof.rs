@@ -22,20 +22,20 @@ use frame_support::{
 	PalletError,
 };
 use sp_core::RuntimeDebug;
-use sp_std::{default::Default, vec::Vec};
+use sp_std::{default::Default, vec, vec::Vec};
 use sp_trie::{
 	accessed_nodes_tracker::AccessedNodesTracker, generate_trie_proof, read_trie_value,
-	verify_trie_proof, LayoutV0, LayoutV1, MemoryDB, StorageProof,
+	verify_trie_proof, LayoutV0, LayoutV1, MemoryDB, StorageProof, Trie, TrieDBBuilder, TrieHash,
 };
 
 use codec::{Decode, Encode};
 use hash_db::{HashDB, Hasher, EMPTY_PREFIX};
 use scale_info::TypeInfo;
 #[cfg(feature = "test-helpers")]
-use sp_trie::{recorder_ext::RecorderExt, Recorder, TrieDBBuilder, TrieError, TrieHash};
+use sp_trie::{recorder_ext::RecorderExt, Recorder, TrieError};
 use trie_db::DBValue;
 #[cfg(feature = "test-helpers")]
-use trie_db::{Trie, TrieConfiguration, TrieDBMut};
+use trie_db::{TrieConfiguration, TrieDBMut};
 
 use crate::Size;
 
@@ -317,7 +317,21 @@ impl UnverifiedStorageProof {
 				verify_trie_proof::<LayoutV1<H>, _, _, _>(state_root, &self.proof, &self.db),
 		}
 		.map_err(|e| {
-			log::warn!(target: "bridge-storage-proofs", "UnverifiedStorageProof::verify error: {e:?}");
+			log::warn!(
+				target:
+				"bridge-storage-proofs", "UnverifiedStorageProof::verify error: {:?}",
+				match e {
+					sp_trie::VerifyError::DuplicateKey(_) => "DuplicateKey",
+					sp_trie::VerifyError::ExtraneousNode => "ExtraneousNode",
+					sp_trie::VerifyError::ExtraneousValue(_) => "ExtraneousValue",
+					sp_trie::VerifyError::ExtraneousHashReference(_) => "ExtraneousHashReference",
+					sp_trie::VerifyError::InvalidChildReference(_) => "InvalidChildReference",
+					sp_trie::VerifyError::ValueMismatch(_) => "ValueMismatch",
+					sp_trie::VerifyError::IncompleteProof => "IncompleteProof",
+					sp_trie::VerifyError::RootMismatch(_) => "RootMismatch",
+					sp_trie::VerifyError::DecodeError(_) => "DecodeError",
+				}
+			);
 			StorageProofError::InvalidProof
 		})?;
 
