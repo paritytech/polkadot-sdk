@@ -404,6 +404,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#253" id="253">253</a>
 <a href="#254" id="254">254</a>
 <a href="#255" id="255">255</a>
+<a href="#256" id="256">256</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -485,6 +486,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		cumulus_test_service::chain_spec::get_chain_spec_with_extra_endowed(
 			<span class="prelude-val">None</span>,
 			<span class="self">self</span>.endowed_accounts.clone(),
+			cumulus_test_runtime::WASM_BINARY.expect(<span class="string">"WASM binary not compiled!"</span>),
 		)
 		.build_storage()
 		.expect(<span class="string">"Builds test runtime genesis storage"</span>)

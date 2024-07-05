@@ -1302,6 +1302,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1151" id="1151">1151</a>
 <a href="#1152" id="1152">1152</a>
 <a href="#1153" id="1153">1153</a>
+<a href="#1154" id="1154">1154</a>
+<a href="#1155" id="1155">1155</a>
+<a href="#1156" id="1156">1156</a>
+<a href="#1157" id="1157">1157</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1509,7 +1513,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	) -&gt; Proposer&lt;Block, C, A, PR&gt; {
 		<span class="kw">let </span>parent_hash = parent_header.hash();
 
-		<span class="macro">info!</span>(<span class="string">"🙌 Starting consensus session on top of parent {:?}"</span>, parent_hash);
+		<span class="macro">info!</span>(
+			<span class="string">"🙌 Starting consensus session on top of parent {:?} (#{})"</span>,
+			parent_hash,
+			parent_header.number()
+		);
 
 		<span class="kw">let </span>proposer = Proposer::&lt;<span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, PR&gt; {
 			spawn_handle: <span class="self">self</span>.spawn_handle.clone(),

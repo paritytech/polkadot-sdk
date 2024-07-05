@@ -542,6 +542,30 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#391" id="391">391</a>
 <a href="#392" id="392">392</a>
 <a href="#393" id="393">393</a>
+<a href="#394" id="394">394</a>
+<a href="#395" id="395">395</a>
+<a href="#396" id="396">396</a>
+<a href="#397" id="397">397</a>
+<a href="#398" id="398">398</a>
+<a href="#399" id="399">399</a>
+<a href="#400" id="400">400</a>
+<a href="#401" id="401">401</a>
+<a href="#402" id="402">402</a>
+<a href="#403" id="403">403</a>
+<a href="#404" id="404">404</a>
+<a href="#405" id="405">405</a>
+<a href="#406" id="406">406</a>
+<a href="#407" id="407">407</a>
+<a href="#408" id="408">408</a>
+<a href="#409" id="409">409</a>
+<a href="#410" id="410">410</a>
+<a href="#411" id="411">411</a>
+<a href="#412" id="412">412</a>
+<a href="#413" id="413">413</a>
+<a href="#414" id="414">414</a>
+<a href="#415" id="415">415</a>
+<a href="#416" id="416">416</a>
+<a href="#417" id="417">417</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -700,15 +724,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="prelude-val">Ok</span>((paras_inherent_data, other_inherent_data))
 	}
 
-	<span class="doccomment">/// Propose, seal, and import a block, packaging it into a collation.
-	///
-	/// Provide the slot to build at as well as any other necessary pre-digest logs,
-	/// the inherent data, and the proposal duration and PoV size limits.
-	///
-	/// The Aura pre-digest should not be explicitly provided and is set internally.
-	///
-	/// This does not announce the collation to the parachain network or the relay chain.
-	</span><span class="kw">pub async fn </span>collate(
+	<span class="doccomment">/// Build and import a parachain block on the given parent header, using the given slot claim.
+	</span><span class="kw">pub async fn </span>build_block_and_import(
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
 		parent_header: <span class="kw-2">&amp;</span>Block::Header,
 		slot_claim: <span class="kw-2">&amp;</span>SlotClaim&lt;P::Public&gt;,
@@ -716,10 +733,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		inherent_data: (ParachainInherentData, InherentData),
 		proposal_duration: Duration,
 		max_pov_size: usize,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;
-		<span class="prelude-ty">Option</span>&lt;(Collation, ParachainBlockData&lt;Block&gt;, Block::Hash)&gt;,
-		Box&lt;<span class="kw">dyn </span>Error + Send + <span class="lifetime">'static</span>&gt;,
-	&gt; {
+	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;ParachainCandidate&lt;Block&gt;&gt;, Box&lt;<span class="kw">dyn </span>Error + Send + <span class="lifetime">'static</span>&gt;&gt; {
 		<span class="kw">let </span><span class="kw-2">mut </span>digest = additional_pre_digest.into().unwrap_or_default();
 		digest.push(slot_claim.pre_digest.clone());
 
@@ -749,7 +763,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		)
 		.map_err(|e| e <span class="kw">as </span>Box&lt;<span class="kw">dyn </span>Error + Send&gt;)<span class="question-mark">?</span>;
 
-		<span class="kw">let </span>post_hash = sealed_importable.post_hash();
 		<span class="kw">let </span>block = Block::new(
 			sealed_importable.post_header(),
 			sealed_importable
@@ -764,11 +777,46 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.map_err(|e| Box::new(e) <span class="kw">as </span>Box&lt;<span class="kw">dyn </span>Error + Send&gt;)
 			.<span class="kw">await</span><span class="question-mark">?</span>;
 
-		<span class="kw">if let </span><span class="prelude-val">Some</span>((collation, block_data)) = <span class="self">self</span>.collator_service.build_collation(
-			parent_header,
-			post_hash,
-			ParachainCandidate { block, proof: proposal.proof },
-		) {
+		<span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(ParachainCandidate { block, proof: proposal.proof }))
+	}
+
+	<span class="doccomment">/// Propose, seal, import a block and packaging it into a collation.
+	///
+	/// Provide the slot to build at as well as any other necessary pre-digest logs,
+	/// the inherent data, and the proposal duration and PoV size limits.
+	///
+	/// The Aura pre-digest should not be explicitly provided and is set internally.
+	///
+	/// This does not announce the collation to the parachain network or the relay chain.
+	</span><span class="kw">pub async fn </span>collate(
+		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
+		parent_header: <span class="kw-2">&amp;</span>Block::Header,
+		slot_claim: <span class="kw-2">&amp;</span>SlotClaim&lt;P::Public&gt;,
+		additional_pre_digest: <span class="kw">impl </span>Into&lt;<span class="prelude-ty">Option</span>&lt;Vec&lt;DigestItem&gt;&gt;&gt;,
+		inherent_data: (ParachainInherentData, InherentData),
+		proposal_duration: Duration,
+		max_pov_size: usize,
+	) -&gt; <span class="prelude-ty">Result</span>&lt;
+		<span class="prelude-ty">Option</span>&lt;(Collation, ParachainBlockData&lt;Block&gt;, Block::Hash)&gt;,
+		Box&lt;<span class="kw">dyn </span>Error + Send + <span class="lifetime">'static</span>&gt;,
+	&gt; {
+		<span class="kw">let </span>maybe_candidate = <span class="self">self
+			</span>.build_block_and_import(
+				parent_header,
+				slot_claim,
+				additional_pre_digest,
+				inherent_data,
+				proposal_duration,
+				max_pov_size,
+			)
+			.<span class="kw">await</span><span class="question-mark">?</span>;
+
+		<span class="kw">let </span><span class="prelude-val">Some</span>(candidate) = maybe_candidate <span class="kw">else </span>{ <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>) };
+
+		<span class="kw">let </span>hash = candidate.block.header().hash();
+		<span class="kw">if let </span><span class="prelude-val">Some</span>((collation, block_data)) =
+			<span class="self">self</span>.collator_service.build_collation(parent_header, hash, candidate)
+		{
 			<span class="macro">tracing::info!</span>(
 				target: <span class="kw">crate</span>::LOG_TARGET,
 				<span class="string">"PoV size {{ header: {}kb, extrinsics: {}kb, storage_proof: {}kb }}"</span>,
@@ -785,7 +833,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				);
 			}
 
-			<span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>((collation, block_data, post_hash)))
+			<span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>((collation, block_data, hash)))
 		} <span class="kw">else </span>{
 			<span class="prelude-val">Err</span>(Box::&lt;<span class="kw">dyn </span>Error + Send + Sync&gt;::from(<span class="string">"Unable to produce collation"</span>)
 				<span class="kw">as </span>Box&lt;<span class="kw">dyn </span>Error + Send&gt;)

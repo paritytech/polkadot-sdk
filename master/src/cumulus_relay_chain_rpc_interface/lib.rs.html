@@ -404,6 +404,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#253" id="253">253</a>
 <a href="#254" id="254">254</a>
 <a href="#255" id="255">255</a>
+<a href="#256" id="256">256</a>
+<a href="#257" id="257">257</a>
+<a href="#258" id="258">258</a>
+<a href="#259" id="259">259</a>
+<a href="#260" id="260">260</a>
+<a href="#261" id="261">261</a>
+<a href="#262" id="262">262</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -430,7 +437,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	InboundDownwardMessage, ParaId, PersistedValidationData,
 };
 <span class="kw">use </span>cumulus_relay_chain_interface::{
-	PHeader, RelayChainError, RelayChainInterface, RelayChainResult,
+	BlockNumber, CoreState, PHeader, RelayChainError, RelayChainInterface, RelayChainResult,
 };
 <span class="kw">use </span>futures::{FutureExt, Stream, StreamExt};
 <span class="kw">use </span>polkadot_overseer::Handle;
@@ -657,6 +664,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">async fn </span>version(<span class="kw-2">&amp;</span><span class="self">self</span>, relay_parent: RelayHash) -&gt; RelayChainResult&lt;RuntimeVersion&gt; {
 		<span class="self">self</span>.rpc_client.runtime_version(relay_parent).<span class="kw">await
+	</span>}
+
+	<span class="kw">async fn </span>availability_cores(
+		<span class="kw-2">&amp;</span><span class="self">self</span>,
+		relay_parent: RelayHash,
+	) -&gt; RelayChainResult&lt;Vec&lt;CoreState&lt;RelayHash, BlockNumber&gt;&gt;&gt; {
+		<span class="self">self</span>.rpc_client.parachain_host_availability_cores(relay_parent).<span class="kw">await
 	</span>}
 }
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>

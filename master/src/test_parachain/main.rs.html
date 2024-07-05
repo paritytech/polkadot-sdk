@@ -299,6 +299,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#148" id="148">148</a>
 <a href="#149" id="149">149</a>
 <a href="#150" id="150">150</a>
+<a href="#151" id="151">151</a>
+<a href="#152" id="152">152</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -419,6 +421,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 								consensus,
 								collator_options,
 								<span class="bool-val">true</span>,
+								cli.experimental_use_slot_based,
 							)
 							.<span class="kw">await</span>,
 						sc_network::config::NetworkBackendType::Litep2p =&gt;
@@ -436,6 +439,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 								consensus,
 								collator_options,
 								<span class="bool-val">true</span>,
+								cli.experimental_use_slot_based,
 							)
 							.<span class="kw">await</span>,
 					}

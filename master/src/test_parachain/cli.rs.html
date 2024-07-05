@@ -451,6 +451,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#300" id="300">300</a>
 <a href="#301" id="301">301</a>
 <a href="#302" id="302">302</a>
+<a href="#303" id="303">303</a>
+<a href="#304" id="304">304</a>
+<a href="#305" id="305">305</a>
+<a href="#306" id="306">306</a>
+<a href="#307" id="307">307</a>
+<a href="#308" id="308">308</a>
+<a href="#309" id="309">309</a>
+<a href="#310" id="310">310</a>
+<a href="#311" id="311">311</a>
+<a href="#312" id="312">312</a>
+<a href="#313" id="313">313</a>
+<a href="#314" id="314">314</a>
+<a href="#315" id="315">315</a>
+<a href="#316" id="316">316</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -503,6 +517,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[arg(long)]
 	</span><span class="kw">pub </span>fail_pov_recovery: bool,
+
+	<span class="doccomment">/// EXPERIMENTAL: Use slot-based collator which can handle elastic scaling.
+	///
+	/// Use with care, this flag is unstable and subject to change.
+	</span><span class="attr">#[arg(long)]
+	</span><span class="kw">pub </span>experimental_use_slot_based: bool,
 }
 
 <span class="attr">#[derive(Debug, clap::Subcommand)]
@@ -706,8 +726,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">fn </span>load_spec(<span class="kw-2">&amp;</span><span class="self">self</span>, id: <span class="kw-2">&amp;</span>str) -&gt; std::result::Result&lt;Box&lt;<span class="kw">dyn </span>sc_service::ChainSpec&gt;, String&gt; {
 		<span class="prelude-val">Ok</span>(<span class="kw">match </span>id {
-			<span class="string">"" </span>=&gt;
-				Box::new(cumulus_test_service::get_chain_spec(<span class="prelude-val">Some</span>(ParaId::from(<span class="number">2000</span>)))) <span class="kw">as </span>Box&lt;<span class="kw">_</span>&gt;,
+			<span class="string">"" </span>=&gt; {
+				<span class="macro">tracing::info!</span>(<span class="string">"Using default test service chain spec."</span>);
+				Box::new(cumulus_test_service::get_chain_spec(<span class="prelude-val">Some</span>(ParaId::from(<span class="number">2000</span>)))) <span class="kw">as </span>Box&lt;<span class="kw">_</span>&gt;
+			},
+			<span class="string">"elastic-scaling" </span>=&gt; {
+				<span class="macro">tracing::info!</span>(<span class="string">"Using elastic-scaling chain spec."</span>);
+				Box::new(cumulus_test_service::get_elastic_scaling_chain_spec(<span class="prelude-val">Some</span>(ParaId::from(
+					<span class="number">2100</span>,
+				)))) <span class="kw">as </span>Box&lt;<span class="kw">_</span>&gt;
+			},
 			path =&gt; {
 				<span class="kw">let </span>chain_spec =
 					cumulus_test_service::chain_spec::ChainSpec::from_json_file(path.into())<span class="question-mark">?</span>;

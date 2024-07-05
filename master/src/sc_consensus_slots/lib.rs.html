@@ -1423,8 +1423,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">mod </span>slots;
 
 <span class="kw">pub use </span>aux_schema::{check_equivocation, MAX_SLOT_CAPACITY, PRUNING_BOUND};
-<span class="kw">pub use </span>slots::SlotInfo;
 <span class="kw">use </span>slots::Slots;
+<span class="kw">pub use </span>slots::{time_until_next_slot, SlotInfo};
 
 <span class="kw">use </span>futures::{future::Either, Future, TryFutureExt};
 <span class="kw">use </span>futures_timer::Delay;

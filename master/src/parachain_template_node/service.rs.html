@@ -557,12 +557,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#406" id="406">406</a>
 <a href="#407" id="407">407</a>
 <a href="#408" id="408">408</a>
-<a href="#409" id="409">409</a>
-<a href="#410" id="410">410</a>
-<a href="#411" id="411">411</a>
-<a href="#412" id="412">412</a>
-<a href="#413" id="413">413</a>
-<a href="#414" id="414">414</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Service and ServiceFactory implementation. Specialized wrapper over substrate service.
 
 </span><span class="comment">// std
@@ -600,7 +594,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>sc_consensus::ImportQueue;
 <span class="kw">use </span>sc_executor::{HeapAllocStrategy, WasmExecutor, DEFAULT_HEAP_ALLOC_STRATEGY};
 <span class="kw">use </span>sc_network::NetworkBlock;
-<span class="kw">use </span>sc_network_sync::SyncingService;
 <span class="kw">use </span>sc_service::{Configuration, PartialComponents, TFullBackend, TFullClient, TaskManager};
 <span class="kw">use </span>sc_telemetry::{Telemetry, TelemetryHandle, TelemetryWorker, TelemetryWorkerHandle};
 <span class="kw">use </span>sc_transaction_pool_api::OffchainTransactionPoolFactory;
@@ -737,7 +730,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	task_manager: <span class="kw-2">&amp;</span>TaskManager,
 	relay_chain_interface: Arc&lt;<span class="kw">dyn </span>RelayChainInterface&gt;,
 	transaction_pool: Arc&lt;sc_transaction_pool::FullPool&lt;Block, ParachainClient&gt;&gt;,
-	sync_oracle: Arc&lt;SyncingService&lt;Block&gt;&gt;,
 	keystore: KeystorePtr,
 	relay_chain_slot_duration: Duration,
 	para_id: ParaId,
@@ -771,7 +763,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		code_hash_provider: <span class="kw">move </span>|block_hash| {
 			client.code_at(block_hash).ok().map(|c| ValidationCode::from(c).hash())
 		},
-		sync_oracle,
 		keystore,
 		collator_key,
 		para_id,
@@ -782,11 +773,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		authoring_duration: Duration::from_millis(<span class="number">2000</span>),
 		reinitialize: <span class="bool-val">false</span>,
 	};
-
-	<span class="kw">let </span>fut =
-		aura::run::&lt;Block, sp_consensus_aura::sr25519::AuthorityPair, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>&gt;(
-			params,
-		);
+	<span class="kw">let </span>fut = aura::run::&lt;Block, sp_consensus_aura::sr25519::AuthorityPair, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>&gt;(
+		params,
+	);
 	task_manager.spawn_essential_handle().spawn(<span class="string">"aura"</span>, <span class="prelude-val">None</span>, fut);
 
 	<span class="prelude-val">Ok</span>(())
@@ -963,7 +952,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw-2">&amp;</span>task_manager,
 			relay_chain_interface,
 			transaction_pool,
-			sync_service,
 			params.keystore_container.keystore(),
 			relay_chain_slot_duration,
 			para_id,

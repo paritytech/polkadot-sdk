@@ -281,6 +281,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#130" id="130">130</a>
 <a href="#131" id="131">131</a>
 <a href="#132" id="132">132</a>
+<a href="#133" id="133">133</a>
+<a href="#134" id="134">134</a>
+<a href="#135" id="135">135</a>
+<a href="#136" id="136">136</a>
+<a href="#137" id="137">137</a>
+<a href="#138" id="138">138</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -355,6 +361,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[command(flatten)]
 	</span><span class="kw">pub </span>run: cumulus_client_cli::RunCmd,
+
+	<span class="doccomment">/// EXPERIMENTAL: Use slot-based collator which can handle elastic scaling.
+	///
+	/// Use with care, this flag is unstable and subject to change.
+	</span><span class="attr">#[arg(long)]
+	</span><span class="kw">pub </span>experimental_use_slot_based: bool,
 
 	<span class="doccomment">/// Disable automatic hardware benchmarks.
 	///

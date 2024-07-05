@@ -1018,6 +1018,109 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#867" id="867">867</a>
 <a href="#868" id="868">868</a>
 <a href="#869" id="869">869</a>
+<a href="#870" id="870">870</a>
+<a href="#871" id="871">871</a>
+<a href="#872" id="872">872</a>
+<a href="#873" id="873">873</a>
+<a href="#874" id="874">874</a>
+<a href="#875" id="875">875</a>
+<a href="#876" id="876">876</a>
+<a href="#877" id="877">877</a>
+<a href="#878" id="878">878</a>
+<a href="#879" id="879">879</a>
+<a href="#880" id="880">880</a>
+<a href="#881" id="881">881</a>
+<a href="#882" id="882">882</a>
+<a href="#883" id="883">883</a>
+<a href="#884" id="884">884</a>
+<a href="#885" id="885">885</a>
+<a href="#886" id="886">886</a>
+<a href="#887" id="887">887</a>
+<a href="#888" id="888">888</a>
+<a href="#889" id="889">889</a>
+<a href="#890" id="890">890</a>
+<a href="#891" id="891">891</a>
+<a href="#892" id="892">892</a>
+<a href="#893" id="893">893</a>
+<a href="#894" id="894">894</a>
+<a href="#895" id="895">895</a>
+<a href="#896" id="896">896</a>
+<a href="#897" id="897">897</a>
+<a href="#898" id="898">898</a>
+<a href="#899" id="899">899</a>
+<a href="#900" id="900">900</a>
+<a href="#901" id="901">901</a>
+<a href="#902" id="902">902</a>
+<a href="#903" id="903">903</a>
+<a href="#904" id="904">904</a>
+<a href="#905" id="905">905</a>
+<a href="#906" id="906">906</a>
+<a href="#907" id="907">907</a>
+<a href="#908" id="908">908</a>
+<a href="#909" id="909">909</a>
+<a href="#910" id="910">910</a>
+<a href="#911" id="911">911</a>
+<a href="#912" id="912">912</a>
+<a href="#913" id="913">913</a>
+<a href="#914" id="914">914</a>
+<a href="#915" id="915">915</a>
+<a href="#916" id="916">916</a>
+<a href="#917" id="917">917</a>
+<a href="#918" id="918">918</a>
+<a href="#919" id="919">919</a>
+<a href="#920" id="920">920</a>
+<a href="#921" id="921">921</a>
+<a href="#922" id="922">922</a>
+<a href="#923" id="923">923</a>
+<a href="#924" id="924">924</a>
+<a href="#925" id="925">925</a>
+<a href="#926" id="926">926</a>
+<a href="#927" id="927">927</a>
+<a href="#928" id="928">928</a>
+<a href="#929" id="929">929</a>
+<a href="#930" id="930">930</a>
+<a href="#931" id="931">931</a>
+<a href="#932" id="932">932</a>
+<a href="#933" id="933">933</a>
+<a href="#934" id="934">934</a>
+<a href="#935" id="935">935</a>
+<a href="#936" id="936">936</a>
+<a href="#937" id="937">937</a>
+<a href="#938" id="938">938</a>
+<a href="#939" id="939">939</a>
+<a href="#940" id="940">940</a>
+<a href="#941" id="941">941</a>
+<a href="#942" id="942">942</a>
+<a href="#943" id="943">943</a>
+<a href="#944" id="944">944</a>
+<a href="#945" id="945">945</a>
+<a href="#946" id="946">946</a>
+<a href="#947" id="947">947</a>
+<a href="#948" id="948">948</a>
+<a href="#949" id="949">949</a>
+<a href="#950" id="950">950</a>
+<a href="#951" id="951">951</a>
+<a href="#952" id="952">952</a>
+<a href="#953" id="953">953</a>
+<a href="#954" id="954">954</a>
+<a href="#955" id="955">955</a>
+<a href="#956" id="956">956</a>
+<a href="#957" id="957">957</a>
+<a href="#958" id="958">958</a>
+<a href="#959" id="959">959</a>
+<a href="#960" id="960">960</a>
+<a href="#961" id="961">961</a>
+<a href="#962" id="962">962</a>
+<a href="#963" id="963">963</a>
+<a href="#964" id="964">964</a>
+<a href="#965" id="965">965</a>
+<a href="#966" id="966">966</a>
+<a href="#967" id="967">967</a>
+<a href="#968" id="968">968</a>
+<a href="#969" id="969">969</a>
+<a href="#970" id="970">970</a>
+<a href="#971" id="971">971</a>
+<a href="#972" id="972">972</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -1036,7 +1139,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="kw">use </span>cumulus_client_cli::CollatorOptions;
 <span class="kw">use </span>cumulus_client_collator::service::CollatorService;
-<span class="kw">use </span>cumulus_client_consensus_aura::collators::lookahead::{<span class="self">self </span><span class="kw">as </span>aura, Params <span class="kw">as </span>AuraParams};
+<span class="kw">use </span>cumulus_client_consensus_aura::collators::{
+	lookahead::{<span class="self">self </span><span class="kw">as </span>aura, Params <span class="kw">as </span>AuraParams},
+	slot_based::{<span class="self">self </span><span class="kw">as </span>slot_based, Params <span class="kw">as </span>SlotBasedParams},
+};
 <span class="kw">use </span>cumulus_client_consensus_common::ParachainBlockImport <span class="kw">as </span>TParachainBlockImport;
 <span class="kw">use </span>cumulus_client_consensus_proposer::Proposer;
 <span class="attr">#[allow(deprecated)]
@@ -1071,7 +1177,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 };
 <span class="kw">use </span>sc_executor::{HeapAllocStrategy, WasmExecutor, DEFAULT_HEAP_ALLOC_STRATEGY};
 <span class="kw">use </span>sc_network::{config::FullNetworkConfiguration, service::traits::NetworkBackend, NetworkBlock};
-<span class="kw">use </span>sc_network_sync::SyncingService;
 <span class="kw">use </span>sc_service::{Configuration, PartialComponents, TFullBackend, TFullClient, TaskManager};
 <span class="kw">use </span>sc_telemetry::{Telemetry, TelemetryHandle, TelemetryWorker, TelemetryWorkerHandle};
 <span class="kw">use </span>sp_api::{ApiExt, ConstructRuntimeApi, ProvideRuntimeApi};
@@ -1234,7 +1339,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw-2">&amp;</span>TaskManager,
 		Arc&lt;<span class="kw">dyn </span>RelayChainInterface&gt;,
 		Arc&lt;sc_transaction_pool::FullPool&lt;Block, ParachainClient&lt;RuntimeApi&gt;&gt;&gt;,
-		Arc&lt;SyncingService&lt;Block&gt;&gt;,
 		KeystorePtr,
 		Duration,
 		ParaId,
@@ -1368,7 +1472,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw-2">&amp;</span>task_manager,
 			relay_chain_interface.clone(),
 			transaction_pool,
-			sync_service.clone(),
 			params.keystore_container.keystore(),
 			relay_chain_slot_duration,
 			para_id,
@@ -1428,8 +1531,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	polkadot_config: Configuration,
 	collator_options: CollatorOptions,
 	para_id: ParaId,
+	use_experimental_slot_based: bool,
 	hwbench: <span class="prelude-ty">Option</span>&lt;sc_sysinfo::HwBench&gt;,
 ) -&gt; sc_service::error::Result&lt;(TaskManager, Arc&lt;ParachainClient&lt;FakeRuntimeApi&gt;&gt;)&gt; {
+	<span class="kw">let </span>consensus_starter = <span class="kw">if </span>use_experimental_slot_based {
+		start_slot_based_aura_consensus::&lt;<span class="kw">_</span>, AuraId&gt;
+	} <span class="kw">else </span>{
+		start_lookahead_aura_consensus::&lt;<span class="kw">_</span>, AuraId&gt;
+	};
 	start_node_impl::&lt;FakeRuntimeApi, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, Net&gt;(
 		parachain_config,
 		polkadot_config,
@@ -1438,7 +1547,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span>para_id,
 		build_parachain_rpc_extensions::&lt;FakeRuntimeApi&gt;,
 		build_aura_import_queue,
-		start_lookahead_aura_consensus::&lt;<span class="kw">_</span>, AuraId&gt;,
+		consensus_starter,
 		hwbench,
 	)
 	.<span class="kw">await
@@ -1600,13 +1709,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Uses the lookahead collator to support async backing.
 ///
 /// Start an aura powered parachain node. Some system chains use this.
-</span><span class="kw">pub async fn </span>start_generic_aura_lookahead_node&lt;Net: NetworkBackend&lt;Block, Hash&gt;&gt;(
+</span><span class="kw">pub async fn </span>start_generic_aura_async_backing_node&lt;Net: NetworkBackend&lt;Block, Hash&gt;&gt;(
 	parachain_config: Configuration,
 	polkadot_config: Configuration,
 	collator_options: CollatorOptions,
 	para_id: ParaId,
+	use_experimental_slot_based: bool,
 	hwbench: <span class="prelude-ty">Option</span>&lt;sc_sysinfo::HwBench&gt;,
 ) -&gt; sc_service::error::Result&lt;(TaskManager, Arc&lt;ParachainClient&lt;FakeRuntimeApi&gt;&gt;)&gt; {
+	<span class="kw">let </span>consensus_starter = <span class="kw">if </span>use_experimental_slot_based {
+		start_slot_based_aura_consensus::&lt;<span class="kw">_</span>, AuraId&gt;
+	} <span class="kw">else </span>{
+		start_lookahead_aura_consensus::&lt;<span class="kw">_</span>, AuraId&gt;
+	};
 	start_node_impl::&lt;FakeRuntimeApi, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, Net&gt;(
 		parachain_config,
 		polkadot_config,
@@ -1615,7 +1730,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span>para_id,
 		build_parachain_rpc_extensions::&lt;FakeRuntimeApi&gt;,
 		build_relay_to_aura_import_queue::&lt;<span class="kw">_</span>, AuraId&gt;,
-		start_lookahead_aura_consensus::&lt;<span class="kw">_</span>, AuraId&gt;,
+		consensus_starter,
 		hwbench,
 	)
 	.<span class="kw">await
@@ -1627,11 +1742,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ///
 /// Uses the lookahead collator to support async backing.
 </span><span class="attr">#[sc_tracing::logging::prefix_logs_with(<span class="string">"Parachain"</span>)]
-</span><span class="kw">pub async fn </span>start_asset_hub_lookahead_node&lt;RuntimeApi, AuraId, Net&gt;(
+</span><span class="kw">pub async fn </span>start_asset_hub_async_backing_node&lt;RuntimeApi, AuraId, Net&gt;(
 	parachain_config: Configuration,
 	polkadot_config: Configuration,
 	collator_options: CollatorOptions,
 	para_id: ParaId,
+	use_experimental_slot_based: bool,
 	hwbench: <span class="prelude-ty">Option</span>&lt;sc_sysinfo::HwBench&gt;,
 ) -&gt; sc_service::error::Result&lt;(TaskManager, Arc&lt;ParachainClient&lt;RuntimeApi&gt;&gt;)&gt;
 <span class="kw">where
@@ -1642,15 +1758,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	AuraId: AuraIdT + Sync,
 	Net: NetworkBackend&lt;Block, Hash&gt;,
 {
+	<span class="kw">let </span>consensus_starter = <span class="kw">if </span>use_experimental_slot_based {
+		start_slot_based_aura_consensus::&lt;<span class="kw">_</span>, AuraId&gt;
+	} <span class="kw">else </span>{
+		start_lookahead_aura_consensus::&lt;<span class="kw">_</span>, AuraId&gt;
+	};
+
 	start_node_impl::&lt;RuntimeApi, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, Net&gt;(
 		parachain_config,
 		polkadot_config,
 		collator_options,
 		CollatorSybilResistance::Resistant, <span class="comment">// Aura
 		</span>para_id,
-		build_parachain_rpc_extensions::&lt;RuntimeApi&gt;,
+		build_parachain_rpc_extensions,
 		build_relay_to_aura_import_queue::&lt;<span class="kw">_</span>, AuraId&gt;,
-		start_lookahead_aura_consensus::&lt;RuntimeApi, AuraId&gt;,
+		consensus_starter,
 		hwbench,
 	)
 	.<span class="kw">await
@@ -1696,7 +1818,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	task_manager: <span class="kw-2">&amp;</span>TaskManager,
 	relay_chain_interface: Arc&lt;<span class="kw">dyn </span>RelayChainInterface&gt;,
 	transaction_pool: Arc&lt;sc_transaction_pool::FullPool&lt;Block, ParachainClient&lt;FakeRuntimeApi&gt;&gt;&gt;,
-	_sync_oracle: Arc&lt;SyncingService&lt;Block&gt;&gt;,
 	_keystore: KeystorePtr,
 	_relay_chain_slot_duration: Duration,
 	para_id: ParaId,
@@ -1767,7 +1888,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	task_manager: <span class="kw-2">&amp;</span>TaskManager,
 	relay_chain_interface: Arc&lt;<span class="kw">dyn </span>RelayChainInterface&gt;,
 	transaction_pool: Arc&lt;sc_transaction_pool::FullPool&lt;Block, ParachainClient&lt;RuntimeApi&gt;&gt;&gt;,
-	sync_oracle: Arc&lt;SyncingService&lt;Block&gt;&gt;,
 	keystore: KeystorePtr,
 	relay_chain_slot_duration: Duration,
 	para_id: ParaId,
@@ -1808,7 +1928,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				client.code_at(block_hash).ok().map(|c| ValidationCode::from(c).hash())
 			}
 		},
-		sync_oracle,
 		keystore,
 		collator_key,
 		para_id,
@@ -1822,23 +1941,104 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">let </span>fut = <span class="kw">async move </span>{
 		wait_for_aura(client).<span class="kw">await</span>;
-		aura::run::&lt;Block, &lt;AuraId <span class="kw">as </span>AppCrypto&gt;::Pair, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>&gt;(params).<span class="kw">await</span>;
+		aura::run::&lt;Block, &lt;AuraId <span class="kw">as </span>AppCrypto&gt;::Pair, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>&gt;(params).<span class="kw">await</span>;
 	};
 	task_manager.spawn_essential_handle().spawn(<span class="string">"aura"</span>, <span class="prelude-val">None</span>, fut);
 
 	<span class="prelude-val">Ok</span>(())
 }
 
+<span class="doccomment">/// Start consensus using the lookahead aura collator.
+</span><span class="kw">fn </span>start_slot_based_aura_consensus&lt;RuntimeApi, AuraId&gt;(
+	client: Arc&lt;ParachainClient&lt;RuntimeApi&gt;&gt;,
+	block_import: ParachainBlockImport&lt;RuntimeApi&gt;,
+	prometheus_registry: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>Registry&gt;,
+	telemetry: <span class="prelude-ty">Option</span>&lt;TelemetryHandle&gt;,
+	task_manager: <span class="kw-2">&amp;</span>TaskManager,
+	relay_chain_interface: Arc&lt;<span class="kw">dyn </span>RelayChainInterface&gt;,
+	transaction_pool: Arc&lt;sc_transaction_pool::FullPool&lt;Block, ParachainClient&lt;RuntimeApi&gt;&gt;&gt;,
+	keystore: KeystorePtr,
+	relay_chain_slot_duration: Duration,
+	para_id: ParaId,
+	collator_key: CollatorPair,
+	_overseer_handle: OverseerHandle,
+	announce_block: Arc&lt;<span class="kw">dyn </span>Fn(Hash, <span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt;) + Send + Sync&gt;,
+	backend: Arc&lt;ParachainBackend&gt;,
+) -&gt; <span class="prelude-ty">Result</span>&lt;(), sc_service::Error&gt;
+<span class="kw">where
+	</span>RuntimeApi: ConstructNodeRuntimeApi&lt;Block, ParachainClient&lt;RuntimeApi&gt;&gt;,
+	RuntimeApi::RuntimeApi: AuraRuntimeApi&lt;Block, AuraId&gt;,
+	AuraId: AuraIdT + Sync,
+{
+	<span class="kw">let </span>proposer_factory = sc_basic_authorship::ProposerFactory::with_proof_recording(
+		task_manager.spawn_handle(),
+		client.clone(),
+		transaction_pool,
+		prometheus_registry,
+		telemetry.clone(),
+	);
+
+	<span class="kw">let </span>proposer = Proposer::new(proposer_factory);
+	<span class="kw">let </span>collator_service = CollatorService::new(
+		client.clone(),
+		Arc::new(task_manager.spawn_handle()),
+		announce_block,
+		client.clone(),
+	);
+
+	<span class="kw">let </span>client_for_aura = client.clone();
+	<span class="kw">let </span>params = SlotBasedParams {
+		create_inherent_data_providers: <span class="kw">move </span>|<span class="kw">_</span>, ()| <span class="kw">async move </span>{ <span class="prelude-val">Ok</span>(()) },
+		block_import,
+		para_client: client.clone(),
+		para_backend: backend.clone(),
+		relay_client: relay_chain_interface,
+		code_hash_provider: <span class="kw">move </span>|block_hash| {
+			client_for_aura.code_at(block_hash).ok().map(|c| ValidationCode::from(c).hash())
+		},
+		keystore,
+		collator_key,
+		para_id,
+		relay_chain_slot_duration,
+		proposer,
+		collator_service,
+		authoring_duration: Duration::from_millis(<span class="number">2000</span>),
+		reinitialize: <span class="bool-val">false</span>,
+		slot_drift: Duration::from_secs(<span class="number">1</span>),
+	};
+
+	<span class="kw">let </span>(collation_future, block_builder_future) =
+		slot_based::run::&lt;Block, &lt;AuraId <span class="kw">as </span>AppCrypto&gt;::Pair, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>&gt;(params);
+
+	task_manager.spawn_essential_handle().spawn(
+		<span class="string">"collation-task"</span>,
+		<span class="prelude-val">Some</span>(<span class="string">"parachain-block-authoring"</span>),
+		collation_future,
+	);
+	task_manager.spawn_essential_handle().spawn(
+		<span class="string">"block-builder-task"</span>,
+		<span class="prelude-val">Some</span>(<span class="string">"parachain-block-authoring"</span>),
+		block_builder_future,
+	);
+	<span class="prelude-val">Ok</span>(())
+}
+
 <span class="doccomment">/// Start an aura powered parachain node which uses the lookahead collator to support async backing.
 /// This node is basic in the sense that its runtime api doesn't include common contents such as
 /// transaction payment. Used for aura glutton.
-</span><span class="kw">pub async fn </span>start_basic_lookahead_node&lt;Net: NetworkBackend&lt;Block, Hash&gt;&gt;(
+</span><span class="kw">pub async fn </span>start_basic_async_backing_node&lt;Net: NetworkBackend&lt;Block, Hash&gt;&gt;(
 	parachain_config: Configuration,
 	polkadot_config: Configuration,
 	collator_options: CollatorOptions,
 	para_id: ParaId,
+	use_experimental_slot_based: bool,
 	hwbench: <span class="prelude-ty">Option</span>&lt;sc_sysinfo::HwBench&gt;,
 ) -&gt; sc_service::error::Result&lt;(TaskManager, Arc&lt;ParachainClient&lt;FakeRuntimeApi&gt;&gt;)&gt; {
+	<span class="kw">let </span>consensus_starter = <span class="kw">if </span>use_experimental_slot_based {
+		start_slot_based_aura_consensus::&lt;<span class="kw">_</span>, AuraId&gt;
+	} <span class="kw">else </span>{
+		start_lookahead_aura_consensus::&lt;<span class="kw">_</span>, AuraId&gt;
+	};
 	start_node_impl::&lt;FakeRuntimeApi, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, Net&gt;(
 		parachain_config,
 		polkadot_config,
@@ -1847,7 +2047,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span>para_id,
 		|<span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>| <span class="prelude-val">Ok</span>(RpcModule::new(())),
 		build_relay_to_aura_import_queue::&lt;<span class="kw">_</span>, AuraId&gt;,
-		start_lookahead_aura_consensus::&lt;<span class="kw">_</span>, AuraId&gt;,
+		consensus_starter,
 		hwbench,
 	)
 	.<span class="kw">await
@@ -1859,8 +2059,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	polkadot_config: Configuration,
 	collator_options: CollatorOptions,
 	para_id: ParaId,
+	use_experimental_slot_based: bool,
 	hwbench: <span class="prelude-ty">Option</span>&lt;sc_sysinfo::HwBench&gt;,
 ) -&gt; sc_service::error::Result&lt;(TaskManager, Arc&lt;ParachainClient&lt;FakeRuntimeApi&gt;&gt;)&gt; {
+	<span class="kw">let </span>consensus_starter = <span class="kw">if </span>use_experimental_slot_based {
+		start_slot_based_aura_consensus::&lt;<span class="kw">_</span>, AuraId&gt;
+	} <span class="kw">else </span>{
+		start_lookahead_aura_consensus::&lt;<span class="kw">_</span>, AuraId&gt;
+	};
 	start_node_impl::&lt;FakeRuntimeApi, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, Net&gt;(
 		parachain_config,
 		polkadot_config,
@@ -1869,7 +2075,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span>para_id,
 		build_contracts_rpc_extensions,
 		build_aura_import_queue,
-		start_lookahead_aura_consensus::&lt;<span class="kw">_</span>, AuraId&gt;,
+		consensus_starter,
 		hwbench,
 	)
 	.<span class="kw">await

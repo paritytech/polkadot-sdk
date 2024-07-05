@@ -1267,6 +1267,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1116" id="1116">1116</a>
 <a href="#1117" id="1117">1117</a>
 <a href="#1118" id="1118">1118</a>
+<a href="#1119" id="1119">1119</a>
+<a href="#1120" id="1120">1120</a>
+<a href="#1121" id="1121">1121</a>
+<a href="#1122" id="1122">1122</a>
+<a href="#1123" id="1123">1123</a>
+<a href="#1124" id="1124">1124</a>
+<a href="#1125" id="1125">1125</a>
+<a href="#1126" id="1126">1126</a>
+<a href="#1127" id="1127">1127</a>
+<a href="#1128" id="1128">1128</a>
+<a href="#1129" id="1129">1129</a>
+<a href="#1130" id="1130">1130</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -1959,6 +1971,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 							polkadot_config,
 							collator_options,
 							id,
+							cli.experimental_use_slot_based,
 							hwbench,
 						)
 						.<span class="kw">await</span>,
@@ -1968,6 +1981,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 							polkadot_config,
 							collator_options,
 							id,
+							cli.experimental_use_slot_based,
 							hwbench,
 						)
 						.<span class="kw">await</span>,
@@ -1982,24 +1996,27 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	polkadot_config: sc_service::Configuration,
 	collator_options: cumulus_client_cli::CollatorOptions,
 	id: ParaId,
+	use_experimental_slot_based: bool,
 	hwbench: <span class="prelude-ty">Option</span>&lt;sc_sysinfo::HwBench&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;sc_service::TaskManager&gt; {
 	<span class="kw">match </span>config.chain_spec.runtime()<span class="question-mark">? </span>{
-		Runtime::AssetHubPolkadot =&gt; <span class="kw">crate</span>::service::start_asset_hub_lookahead_node::&lt;
-			AssetHubPolkadotRuntimeApi,
-			AssetHubPolkadotAuraId,
-			Network,
-		&gt;(config, polkadot_config, collator_options, id, hwbench)
-		.<span class="kw">await
-		</span>.map(|r| r.<span class="number">0</span>)
-		.map_err(Into::into),
+		Runtime::AssetHubPolkadot =&gt;
+			<span class="kw">crate</span>::service::start_asset_hub_async_backing_node::&lt;
+				AssetHubPolkadotRuntimeApi,
+				AssetHubPolkadotAuraId,
+				Network,
+			&gt;(config, polkadot_config, collator_options, id, use_experimental_slot_based, hwbench)
+			.<span class="kw">await
+			</span>.map(|r| r.<span class="number">0</span>)
+			.map_err(Into::into),
 
 		Runtime::AssetHub | Runtime::Collectives =&gt;
-			<span class="kw">crate</span>::service::start_generic_aura_lookahead_node::&lt;Network&gt;(
+			<span class="kw">crate</span>::service::start_generic_aura_async_backing_node::&lt;Network&gt;(
 				config,
 				polkadot_config,
 				collator_options,
 				id,
+				use_experimental_slot_based,
 				hwbench,
 			)
 			.<span class="kw">await
@@ -2022,6 +2039,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			polkadot_config,
 			collator_options,
 			id,
+			use_experimental_slot_based,
 			hwbench,
 		)
 		.<span class="kw">await
@@ -2039,11 +2057,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			chain_spec::bridge_hubs::BridgeHubRuntimeType::Rococo |
 			chain_spec::bridge_hubs::BridgeHubRuntimeType::RococoLocal |
 			chain_spec::bridge_hubs::BridgeHubRuntimeType::RococoDevelopment =&gt;
-				<span class="kw">crate</span>::service::start_generic_aura_lookahead_node::&lt;Network&gt;(
+				<span class="kw">crate</span>::service::start_generic_aura_async_backing_node::&lt;Network&gt;(
 					config,
 					polkadot_config,
 					collator_options,
 					id,
+					use_experimental_slot_based,
 					hwbench,
 				)
 				.<span class="kw">await
@@ -2062,11 +2081,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			chain_spec::coretime::CoretimeRuntimeType::Westend |
 			chain_spec::coretime::CoretimeRuntimeType::WestendLocal |
 			chain_spec::coretime::CoretimeRuntimeType::WestendDevelopment =&gt;
-				<span class="kw">crate</span>::service::start_generic_aura_lookahead_node::&lt;Network&gt;(
+				<span class="kw">crate</span>::service::start_generic_aura_async_backing_node::&lt;Network&gt;(
 					config,
 					polkadot_config,
 					collator_options,
 					id,
+					use_experimental_slot_based,
 					hwbench,
 				)
 				.<span class="kw">await
@@ -2079,17 +2099,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			polkadot_config,
 			collator_options,
 			id,
+			use_experimental_slot_based,
 			hwbench,
 		)
 		.<span class="kw">await
 		</span>.map(|r| r.<span class="number">0</span>)
 		.map_err(Into::into),
 
-		Runtime::Glutton =&gt; <span class="kw">crate</span>::service::start_basic_lookahead_node::&lt;Network&gt;(
+		Runtime::Glutton =&gt; <span class="kw">crate</span>::service::start_basic_async_backing_node::&lt;Network&gt;(
 			config,
 			polkadot_config,
 			collator_options,
 			id,
+			use_experimental_slot_based,
 			hwbench,
 		)
 		.<span class="kw">await
@@ -2107,11 +2129,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			chain_spec::people::PeopleRuntimeType::Westend |
 			chain_spec::people::PeopleRuntimeType::WestendLocal |
 			chain_spec::people::PeopleRuntimeType::WestendDevelopment =&gt;
-				<span class="kw">crate</span>::service::start_generic_aura_lookahead_node::&lt;Network&gt;(
+				<span class="kw">crate</span>::service::start_generic_aura_async_backing_node::&lt;Network&gt;(
 					config,
 					polkadot_config,
 					collator_options,
 					id,
+					use_experimental_slot_based,
 					hwbench,
 				)
 				.<span class="kw">await
@@ -2126,6 +2149,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				polkadot_config,
 				collator_options,
 				id,
+				use_experimental_slot_based,
 				hwbench,
 			)
 			.<span class="kw">await

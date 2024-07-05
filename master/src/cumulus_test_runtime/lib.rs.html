@@ -679,6 +679,22 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#528" id="528">528</a>
 <a href="#529" id="529">529</a>
 <a href="#530" id="530">530</a>
+<a href="#531" id="531">531</a>
+<a href="#532" id="532">532</a>
+<a href="#533" id="533">533</a>
+<a href="#534" id="534">534</a>
+<a href="#535" id="535">535</a>
+<a href="#536" id="536">536</a>
+<a href="#537" id="537">537</a>
+<a href="#538" id="538">538</a>
+<a href="#539" id="539">539</a>
+<a href="#540" id="540">540</a>
+<a href="#541" id="541">541</a>
+<a href="#542" id="542">542</a>
+<a href="#543" id="543">543</a>
+<a href="#544" id="544">544</a>
+<a href="#545" id="545">545</a>
+<a href="#546" id="546">546</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -706,6 +722,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">pub mod </span>wasm_spec_version_incremented {
 	<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 	</span><span class="macro">include!</span>(<span class="macro">concat!</span>(<span class="macro">env!</span>(<span class="string">"OUT_DIR"</span>), <span class="string">"/wasm_binary_spec_version_incremented.rs"</span>));
+}
+
+<span class="kw">pub mod </span>elastic_scaling {
+	<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
+	</span><span class="macro">include!</span>(<span class="macro">concat!</span>(<span class="macro">env!</span>(<span class="string">"OUT_DIR"</span>), <span class="string">"/wasm_binary_elastic_scaling.rs"</span>));
 }
 
 <span class="kw">mod </span>test_pallet;
@@ -764,8 +785,23 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// The para-id used in this runtime.
 </span><span class="kw">pub const </span>PARACHAIN_ID: u32 = <span class="number">100</span>;
 
-<span class="kw">const </span>UNINCLUDED_SEGMENT_CAPACITY: u32 = <span class="number">3</span>;
-<span class="kw">const </span>BLOCK_PROCESSING_VELOCITY: u32 = <span class="number">1</span>;
+<span class="attr">#[cfg(not(feature = <span class="string">"elastic-scaling"</span>))]
+</span><span class="kw">const </span>UNINCLUDED_SEGMENT_CAPACITY: u32 = <span class="number">4</span>;
+<span class="attr">#[cfg(not(feature = <span class="string">"elastic-scaling"</span>))]
+</span><span class="kw">const </span>BLOCK_PROCESSING_VELOCITY: u32 = <span class="number">1</span>;
+
+<span class="attr">#[cfg(feature = <span class="string">"elastic-scaling"</span>)]
+</span><span class="kw">const </span>UNINCLUDED_SEGMENT_CAPACITY: u32 = <span class="number">7</span>;
+<span class="attr">#[cfg(feature = <span class="string">"elastic-scaling"</span>)]
+</span><span class="kw">const </span>BLOCK_PROCESSING_VELOCITY: u32 = <span class="number">4</span>;
+
+<span class="attr">#[cfg(not(feature = <span class="string">"elastic-scaling"</span>))]
+</span><span class="kw">pub const </span>MILLISECS_PER_BLOCK: u64 = <span class="number">6000</span>;
+<span class="attr">#[cfg(feature = <span class="string">"elastic-scaling"</span>)]
+</span><span class="kw">pub const </span>MILLISECS_PER_BLOCK: u64 = <span class="number">2000</span>;
+
+<span class="kw">pub const </span>SLOT_DURATION: u64 = MILLISECS_PER_BLOCK;
+
 <span class="kw">const </span>RELAY_CHAIN_SLOT_DURATION_MILLIS: u32 = <span class="number">6000</span>;
 
 <span class="comment">// The only difference between the two declarations below is the `spec_version`. With the
@@ -806,10 +842,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	transaction_version: <span class="number">1</span>,
 	state_version: <span class="number">1</span>,
 };
-
-<span class="kw">pub const </span>MILLISECS_PER_BLOCK: u64 = <span class="number">6000</span>;
-
-<span class="kw">pub const </span>SLOT_DURATION: u64 = MILLISECS_PER_BLOCK;
 
 <span class="kw">pub const </span>EPOCH_DURATION_IN_BLOCKS: u32 = <span class="number">10 </span>* MINUTES;
 

@@ -649,6 +649,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#498" id="498">498</a>
 <a href="#499" id="499">499</a>
 <a href="#500" id="500">500</a>
+<a href="#501" id="501">501</a>
+<a href="#502" id="502">502</a>
+<a href="#503" id="503">503</a>
+<a href="#504" id="504">504</a>
+<a href="#505" id="505">505</a>
+<a href="#506" id="506">506</a>
+<a href="#507" id="507">507</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -670,9 +677,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>async_trait::async_trait;
 <span class="kw">use </span>cumulus_primitives_core::{
 	relay_chain::{
-		runtime_api::ParachainHost, Block <span class="kw">as </span>PBlock, BlockId, CommittedCandidateReceipt,
-		Hash <span class="kw">as </span>PHash, Header <span class="kw">as </span>PHeader, InboundHrmpMessage, OccupiedCoreAssumption, SessionIndex,
-		ValidationCodeHash, ValidatorId,
+		runtime_api::ParachainHost, Block <span class="kw">as </span>PBlock, BlockId, BlockNumber,
+		CommittedCandidateReceipt, CoreState, Hash <span class="kw">as </span>PHash, Header <span class="kw">as </span>PHeader, InboundHrmpMessage,
+		OccupiedCoreAssumption, SessionIndex, ValidationCodeHash, ValidatorId,
 	},
 	InboundDownwardMessage, ParaId, PersistedValidationData,
 };
@@ -905,6 +912,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					notification.is_new_best.then_some(notification.header)
 				});
 		<span class="prelude-val">Ok</span>(Box::pin(notifications_stream))
+	}
+
+	<span class="kw">async fn </span>availability_cores(
+		<span class="kw-2">&amp;</span><span class="self">self</span>,
+		relay_parent: PHash,
+	) -&gt; RelayChainResult&lt;Vec&lt;CoreState&lt;PHash, BlockNumber&gt;&gt;&gt; {
+		<span class="prelude-val">Ok</span>(<span class="self">self</span>.full_client.runtime_api().availability_cores(relay_parent)<span class="question-mark">?</span>)
 	}
 
 	<span class="kw">async fn </span>candidates_pending_availability(

@@ -54,8 +54,8 @@ var srcIndex = new Map(JSON.parse('[\
 ["coretime_westend_runtime",["",[["weights",[["xcm",[],["mod.rs","pallet_xcm_benchmarks_fungible.rs","pallet_xcm_benchmarks_generic.rs"]]],["block_weights.rs","cumulus_pallet_parachain_system.rs","cumulus_pallet_xcmp_queue.rs","extrinsic_weights.rs","frame_system.rs","mod.rs","pallet_balances.rs","pallet_broker.rs","pallet_collator_selection.rs","pallet_message_queue.rs","pallet_multisig.rs","pallet_session.rs","pallet_timestamp.rs","pallet_utility.rs","pallet_xcm.rs","paritydb_weights.rs","rocksdb_weights.rs"]]],["coretime.rs","lib.rs","xcm_config.rs"]]],\
 ["cumulus_client_cli",["",[],["lib.rs"]]],\
 ["cumulus_client_collator",["",[],["lib.rs","service.rs"]]],\
-["cumulus_client_consensus_aura",["",[["collators",[],["basic.rs","lookahead.rs","mod.rs"]]],["collator.rs","equivocation_import_queue.rs","import_queue.rs","lib.rs"]]],\
-["cumulus_client_consensus_common",["",[],["import_queue.rs","level_monitor.rs","lib.rs","parachain_consensus.rs"]]],\
+["cumulus_client_consensus_aura",["",[["collators",[["slot_based",[],["block_builder_task.rs","collation_task.rs","mod.rs"]]],["basic.rs","lookahead.rs","mod.rs"]]],["collator.rs","equivocation_import_queue.rs","import_queue.rs","lib.rs"]]],\
+["cumulus_client_consensus_common",["",[],["import_queue.rs","level_monitor.rs","lib.rs","parachain_consensus.rs","parent_search.rs"]]],\
 ["cumulus_client_consensus_proposer",["",[],["lib.rs"]]],\
 ["cumulus_client_consensus_relay_chain",["",[],["import_queue.rs","lib.rs"]]],\
 ["cumulus_client_network",["",[],["lib.rs"]]],\

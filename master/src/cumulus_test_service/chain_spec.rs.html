@@ -299,6 +299,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#148" id="148">148</a>
 <a href="#149" id="149">149</a>
 <a href="#150" id="150">150</a>
+<a href="#151" id="151">151</a>
+<a href="#152" id="152">152</a>
+<a href="#153" id="153">153</a>
+<a href="#154" id="154">154</a>
+<a href="#155" id="155">155</a>
+<a href="#156" id="156">156</a>
+<a href="#157" id="157">157</a>
+<a href="#158" id="158">158</a>
+<a href="#159" id="159">159</a>
+<a href="#160" id="160">160</a>
+<a href="#161" id="161">161</a>
+<a href="#162" id="162">162</a>
+<a href="#163" id="163">163</a>
+<a href="#164" id="164">164</a>
+<a href="#165" id="165">165</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -367,9 +382,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub fn </span>get_chain_spec_with_extra_endowed(
 	id: <span class="prelude-ty">Option</span>&lt;ParaId&gt;,
 	extra_endowed_accounts: Vec&lt;AccountId&gt;,
+	code: <span class="kw-2">&amp;</span>[u8],
 ) -&gt; ChainSpec {
 	ChainSpec::builder(
-		cumulus_test_runtime::WASM_BINARY.expect(<span class="string">"WASM binary was not built, please build it!"</span>),
+		code,
 		Extensions { para_id: id.unwrap_or(cumulus_test_runtime::PARACHAIN_ID.into()).into() },
 	)
 	.with_name(<span class="string">"Local Testnet"</span>)
@@ -384,7 +400,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Get the chain spec for a specific parachain ID.
 </span><span class="kw">pub fn </span>get_chain_spec(id: <span class="prelude-ty">Option</span>&lt;ParaId&gt;) -&gt; ChainSpec {
-	get_chain_spec_with_extra_endowed(id, Default::default())
+	get_chain_spec_with_extra_endowed(
+		id,
+		Default::default(),
+		cumulus_test_runtime::WASM_BINARY.expect(<span class="string">"WASM binary was not built, please build it!"</span>),
+	)
+}
+
+<span class="doccomment">/// Get the chain spec for a specific parachain ID.
+</span><span class="kw">pub fn </span>get_elastic_scaling_chain_spec(id: <span class="prelude-ty">Option</span>&lt;ParaId&gt;) -&gt; ChainSpec {
+	get_chain_spec_with_extra_endowed(
+		id,
+		Default::default(),
+		cumulus_test_runtime::elastic_scaling::WASM_BINARY
+			.expect(<span class="string">"WASM binary was not built, please build it!"</span>),
+	)
 }
 
 <span class="doccomment">/// Local testnet genesis for testing.

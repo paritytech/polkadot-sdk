@@ -1116,6 +1116,57 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#965" id="965">965</a>
 <a href="#966" id="966">966</a>
 <a href="#967" id="967">967</a>
+<a href="#968" id="968">968</a>
+<a href="#969" id="969">969</a>
+<a href="#970" id="970">970</a>
+<a href="#971" id="971">971</a>
+<a href="#972" id="972">972</a>
+<a href="#973" id="973">973</a>
+<a href="#974" id="974">974</a>
+<a href="#975" id="975">975</a>
+<a href="#976" id="976">976</a>
+<a href="#977" id="977">977</a>
+<a href="#978" id="978">978</a>
+<a href="#979" id="979">979</a>
+<a href="#980" id="980">980</a>
+<a href="#981" id="981">981</a>
+<a href="#982" id="982">982</a>
+<a href="#983" id="983">983</a>
+<a href="#984" id="984">984</a>
+<a href="#985" id="985">985</a>
+<a href="#986" id="986">986</a>
+<a href="#987" id="987">987</a>
+<a href="#988" id="988">988</a>
+<a href="#989" id="989">989</a>
+<a href="#990" id="990">990</a>
+<a href="#991" id="991">991</a>
+<a href="#992" id="992">992</a>
+<a href="#993" id="993">993</a>
+<a href="#994" id="994">994</a>
+<a href="#995" id="995">995</a>
+<a href="#996" id="996">996</a>
+<a href="#997" id="997">997</a>
+<a href="#998" id="998">998</a>
+<a href="#999" id="999">999</a>
+<a href="#1000" id="1000">1000</a>
+<a href="#1001" id="1001">1001</a>
+<a href="#1002" id="1002">1002</a>
+<a href="#1003" id="1003">1003</a>
+<a href="#1004" id="1004">1004</a>
+<a href="#1005" id="1005">1005</a>
+<a href="#1006" id="1006">1006</a>
+<a href="#1007" id="1007">1007</a>
+<a href="#1008" id="1008">1008</a>
+<a href="#1009" id="1009">1009</a>
+<a href="#1010" id="1010">1010</a>
+<a href="#1011" id="1011">1011</a>
+<a href="#1012" id="1012">1012</a>
+<a href="#1013" id="1013">1013</a>
+<a href="#1014" id="1014">1014</a>
+<a href="#1015" id="1015">1015</a>
+<a href="#1016" id="1016">1016</a>
+<a href="#1017" id="1017">1017</a>
+<a href="#1018" id="1018">1018</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -1143,7 +1194,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">use </span>cumulus_client_collator::service::CollatorService;
 <span class="kw">use </span>cumulus_client_consensus_aura::{
-	collators::lookahead::{<span class="self">self </span><span class="kw">as </span>aura, Params <span class="kw">as </span>AuraParams},
+	collators::{
+		lookahead::{<span class="self">self </span><span class="kw">as </span>aura, Params <span class="kw">as </span>AuraParams},
+		slot_based::{<span class="self">self </span><span class="kw">as </span>slot_based, Params <span class="kw">as </span>SlotBasedParams},
+	},
 	ImportQueueParams,
 };
 <span class="kw">use </span>cumulus_client_consensus_proposer::Proposer;
@@ -1163,7 +1217,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>cumulus_client_consensus_common::{
 	ParachainBlockImport <span class="kw">as </span>TParachainBlockImport, ParachainCandidate, ParachainConsensus,
 };
-<span class="kw">use </span>cumulus_client_pov_recovery::RecoveryHandle;
+<span class="kw">use </span>cumulus_client_pov_recovery::{RecoveryDelayRange, RecoveryHandle};
 <span class="attr">#[allow(deprecated)]
 </span><span class="kw">use </span>cumulus_client_service::old_consensus;
 <span class="kw">use </span>cumulus_client_service::{
@@ -1422,7 +1476,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Start a node with the given parachain `Configuration` and relay chain `Configuration`.
 ///
 /// This is the actual implementation that is abstract over the executor and the runtime api.
-</span><span class="attr">#[sc_tracing::logging::prefix_logs_with(parachain_config.network.node_name.as_str())]
+</span><span class="attr">#[sc_tracing::logging::prefix_logs_with(<span class="string">"Parachain"</span>)]
 </span><span class="kw">pub async fn </span>start_node_impl&lt;RB, Net: NetworkBackend&lt;Block, Hash&gt;&gt;(
 	parachain_config: Configuration,
 	collator_key: <span class="prelude-ty">Option</span>&lt;CollatorPair&gt;,
@@ -1434,6 +1488,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	consensus: Consensus,
 	collator_options: CollatorOptions,
 	proof_recording_during_import: bool,
+	use_slot_based_collator: bool,
 ) -&gt; sc_service::error::Result&lt;(
 	TaskManager,
 	Arc&lt;Client&gt;,
@@ -1527,7 +1582,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	} <span class="kw">else </span>{
 		Box::new(overseer_handle.clone())
 	};
-	<span class="kw">let </span>is_collator = collator_key.is_some();
 	<span class="kw">let </span>relay_chain_slot_duration = Duration::from_secs(<span class="number">6</span>);
 
 	start_relay_chain_tasks(StartRelayChainTasksParams {
@@ -1536,11 +1590,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		para_id,
 		relay_chain_interface: relay_chain_interface.clone(),
 		task_manager: <span class="kw-2">&amp;mut </span>task_manager,
-		da_recovery_profile: <span class="kw">if </span>is_collator {
-			DARecoveryProfile::Collator
-		} <span class="kw">else </span>{
-			DARecoveryProfile::FullNode
-		},
+		<span class="comment">// Increase speed of recovery for testing purposes.
+		</span>da_recovery_profile: DARecoveryProfile::Other(RecoveryDelayRange {
+			min: Duration::from_secs(<span class="number">1</span>),
+			max: Duration::from_secs(<span class="number">5</span>),
+		}),
 		import_queue: import_queue_service,
 		relay_chain_slot_duration,
 		recovery_handle,
@@ -1579,29 +1633,72 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			);
 
 			<span class="kw">let </span>client_for_aura = client.clone();
-			<span class="kw">let </span>params = AuraParams {
-				create_inherent_data_providers: <span class="kw">move </span>|<span class="kw">_</span>, ()| <span class="kw">async move </span>{ <span class="prelude-val">Ok</span>(()) },
-				block_import,
-				para_client: client.clone(),
-				para_backend: backend.clone(),
-				relay_client: relay_chain_interface,
-				code_hash_provider: <span class="kw">move </span>|block_hash| {
-					client_for_aura.code_at(block_hash).ok().map(|c| ValidationCode::from(c).hash())
-				},
-				sync_oracle: sync_service,
-				keystore,
-				collator_key,
-				para_id,
-				overseer_handle,
-				relay_chain_slot_duration,
-				proposer,
-				collator_service,
-				authoring_duration: Duration::from_millis(<span class="number">2000</span>),
-				reinitialize: <span class="bool-val">false</span>,
-			};
 
-			<span class="kw">let </span>fut = aura::run::&lt;Block, AuthorityPair, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>&gt;(params);
-			task_manager.spawn_essential_handle().spawn(<span class="string">"aura"</span>, <span class="prelude-val">None</span>, fut);
+			<span class="kw">if </span>use_slot_based_collator {
+				<span class="macro">tracing::info!</span>(target: LOG_TARGET, <span class="string">"Starting block authoring with slot based authoring."</span>);
+				<span class="kw">let </span>params = SlotBasedParams {
+					create_inherent_data_providers: <span class="kw">move </span>|<span class="kw">_</span>, ()| <span class="kw">async move </span>{ <span class="prelude-val">Ok</span>(()) },
+					block_import,
+					para_client: client.clone(),
+					para_backend: backend.clone(),
+					relay_client: relay_chain_interface,
+					code_hash_provider: <span class="kw">move </span>|block_hash| {
+						client_for_aura
+							.code_at(block_hash)
+							.ok()
+							.map(|c| ValidationCode::from(c).hash())
+					},
+					keystore,
+					collator_key,
+					para_id,
+					relay_chain_slot_duration,
+					proposer,
+					collator_service,
+					authoring_duration: Duration::from_millis(<span class="number">2000</span>),
+					reinitialize: <span class="bool-val">false</span>,
+					slot_drift: Duration::from_secs(<span class="number">1</span>),
+				};
+
+				<span class="kw">let </span>(collation_future, block_builer_future) =
+					slot_based::run::&lt;Block, AuthorityPair, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>&gt;(params);
+				task_manager.spawn_essential_handle().spawn(
+					<span class="string">"collation-task"</span>,
+					<span class="prelude-val">None</span>,
+					collation_future,
+				);
+				task_manager.spawn_essential_handle().spawn(
+					<span class="string">"block-builder-task"</span>,
+					<span class="prelude-val">None</span>,
+					block_builer_future,
+				);
+			} <span class="kw">else </span>{
+				<span class="macro">tracing::info!</span>(target: LOG_TARGET, <span class="string">"Starting block authoring with lookahead collator."</span>);
+				<span class="kw">let </span>params = AuraParams {
+					create_inherent_data_providers: <span class="kw">move </span>|<span class="kw">_</span>, ()| <span class="kw">async move </span>{ <span class="prelude-val">Ok</span>(()) },
+					block_import,
+					para_client: client.clone(),
+					para_backend: backend.clone(),
+					relay_client: relay_chain_interface,
+					code_hash_provider: <span class="kw">move </span>|block_hash| {
+						client_for_aura
+							.code_at(block_hash)
+							.ok()
+							.map(|c| ValidationCode::from(c).hash())
+					},
+					keystore,
+					collator_key,
+					para_id,
+					overseer_handle,
+					relay_chain_slot_duration,
+					proposer,
+					collator_service,
+					authoring_duration: Duration::from_millis(<span class="number">2000</span>),
+					reinitialize: <span class="bool-val">false</span>,
+				};
+
+				<span class="kw">let </span>fut = aura::run::&lt;Block, AuthorityPair, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>&gt;(params);
+				task_manager.spawn_essential_handle().spawn(<span class="string">"aura"</span>, <span class="prelude-val">None</span>, fut);
+			}
 		}
 	}
 
@@ -1838,6 +1935,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						<span class="self">self</span>.consensus,
 						collator_options,
 						<span class="self">self</span>.record_proof_during_import,
+						<span class="bool-val">false</span>,
 					)
 					.<span class="kw">await
 					</span>.expect(<span class="string">"could not create Cumulus test service"</span>),
@@ -1853,6 +1951,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						<span class="self">self</span>.consensus,
 						collator_options,
 						<span class="self">self</span>.record_proof_during_import,
+						<span class="bool-val">false</span>,
 					)
 					.<span class="kw">await
 					</span>.expect(<span class="string">"could not create Cumulus test service"</span>),
@@ -1884,8 +1983,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">let </span>root = base_path.path().join(<span class="macro">format!</span>(<span class="string">"cumulus_test_service_{}"</span>, key));
 	<span class="kw">let </span>role = <span class="kw">if </span>is_collator { Role::Authority } <span class="kw">else </span>{ Role::Full };
 	<span class="kw">let </span>key_seed = key.to_seed();
-	<span class="kw">let </span><span class="kw-2">mut </span>spec =
-		Box::new(chain_spec::get_chain_spec_with_extra_endowed(<span class="prelude-val">Some</span>(para_id), endowed_accounts));
+	<span class="kw">let </span><span class="kw-2">mut </span>spec = Box::new(chain_spec::get_chain_spec_with_extra_endowed(
+		<span class="prelude-val">Some</span>(para_id),
+		endowed_accounts,
+		cumulus_test_runtime::WASM_BINARY.expect(<span class="string">"WASM binary was not built, please build it!"</span>),
+	));
 
 	<span class="kw">let </span><span class="kw-2">mut </span>storage = spec.as_storage_builder().build_storage().expect(<span class="string">"could not build storage"</span>);
 

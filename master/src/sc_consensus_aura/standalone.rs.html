@@ -532,7 +532,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">use </span>codec::Codec;
 
-<span class="kw">use </span>sc_client_api::{backend::AuxStore, UsageProvider};
+<span class="kw">use </span>sc_client_api::UsageProvider;
 <span class="kw">use </span>sp_api::{Core, ProvideRuntimeApi};
 <span class="kw">use </span>sp_application_crypto::{AppCrypto, AppPublic};
 <span class="kw">use </span>sp_blockchain::Result <span class="kw">as </span>CResult;
@@ -556,7 +556,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">where
 	</span>A: Codec,
 	B: BlockT,
-	C: AuxStore + ProvideRuntimeApi&lt;B&gt; + UsageProvider&lt;B&gt;,
+	C: ProvideRuntimeApi&lt;B&gt; + UsageProvider&lt;B&gt;,
 	C::Api: AuraApi&lt;B, A&gt;,
 {
 	slot_duration_at(client, client.usage_info().chain.best_hash)
@@ -567,7 +567,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">where
 	</span>A: Codec,
 	B: BlockT,
-	C: AuxStore + ProvideRuntimeApi&lt;B&gt;,
+	C: ProvideRuntimeApi&lt;B&gt;,
 	C::Api: AuraApi&lt;B, A&gt;,
 {
 	client.runtime_api().slot_duration(block_hash).map_err(|err| err.into())
