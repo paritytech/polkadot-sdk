@@ -278,7 +278,7 @@ impl Contains<Location> for AmbassadorEntities {
 pub struct SecretaryEntities;
 impl Contains<Location> for SecretaryEntities {
 	fn contains(location: &Location) -> bool {
-		matches!(location.unpack(), (1, [Parachain(1001), PalletInstance(94)]))
+		matches!(location.unpack(), (1, [Parachain(1001), PalletInstance(93)]))
 	}
 }
 

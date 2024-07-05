@@ -30,14 +30,11 @@ pub mod origins;
 mod tracks;
 
 use super::*;
-use crate::{
-	fellowship::{ranks::DAN_3, FellowshipCollectiveInstance},
-	xcm_config::{FellowshipAdminBodyId, LocationToAccountId, WndAssetHub},
-};
+use crate::xcm_config::{FellowshipAdminBodyId, LocationToAccountId, WndAssetHub};
 use frame_support::traits::{tokens::GetSalary, EitherOf, EitherOfDiverse, MapSuccess};
 use frame_system::EnsureRootWithSuccess;
 pub use origins::pallet_origins as pallet_secretary_origins;
-use origins::pallet_origins::Secretary;
+use origins::pallet_origins::EnsureSecretary;
 use sp_core::ConstU128;
 use sp_runtime::traits::{ConstU16, ConvertToValue, Identity, Replace, ReplaceWithDefault};
 use xcm::prelude::*;
@@ -76,7 +73,10 @@ type ApproveOrigin = EitherOf<
 /// of members of the Secretary Collective.
 type OpenGovOrSecretaryOrFellow = EitherOfDiverse<
 	EitherOfDiverse<EnsureRoot<AccountId>, Fellows>,
-	EitherOfDiverse<Secretary, EnsureXcm<IsVoiceOfBody<GovernanceLocation, FellowshipAdminBodyId>>>,
+	EitherOfDiverse<
+		EnsureSecretary,
+		EnsureXcm<IsVoiceOfBody<GovernanceLocation, FellowshipAdminBodyId>>,
+	>,
 >;
 
 /// Origins of:
@@ -130,47 +130,10 @@ impl pallet_ranked_collective::Config<SecretaryCollectiveInstance> for Runtime {
 	type ExchangeOrigin = OpenGovOrFellow;
 	type Polls = SecretaryReferenda;
 	type MinRankOfClass = Identity;
-	type MemberSwappedHandler = (crate::SecretaryCore, crate::SecretarySalary);
+	type MemberSwappedHandler = crate::SecretarySalary;
 	type VoteWeight = pallet_ranked_collective::Geometric;
 	#[cfg(feature = "runtime-benchmarks")]
-	type BenchmarkSetup = (crate::SecretaryCore, crate::SecretarySalary);
-}
-
-pub type SecretaryCoreInstance = pallet_core_fellowship::Instance3;
-
-impl pallet_core_fellowship::Config<SecretaryCoreInstance> for Runtime {
-	type WeightInfo = (); // TODO weights::pallet_core_fellowship_secretary_core::WeightInfo<Runtime>;
-	type RuntimeEvent = RuntimeEvent;
-	type Members = pallet_ranked_collective::Pallet<Runtime, SecretaryCollectiveInstance>;
-	type Balance = Balance;
-	type ParamsOrigin = OpenGovOrFellow;
-	// Induction is by any of:
-	// - Root;
-	// - FellowshipAdmin (i.e. token holder referendum);
-	// - A single Member of the Technical Fellowship, rank 3 and above;
-	// - A single member of the Secretary Collective.
-	type InductOrigin = EitherOfDiverse<
-		EitherOfDiverse<
-			EnsureRoot<AccountId>,
-			EnsureXcm<IsVoiceOfBody<GovernanceLocation, FellowshipAdminBodyId>>,
-		>,
-		EitherOfDiverse<
-			pallet_ranked_collective::EnsureMember<
-				Runtime,
-				FellowshipCollectiveInstance,
-				{ DAN_3 },
-			>,
-			pallet_ranked_collective::EnsureMember<
-				Runtime,
-				SecretaryCollectiveInstance,
-				{ ranks::SECRETARY },
-			>,
-		>,
-	>;
-	type ApproveOrigin = ApproveOrigin;
-	type PromoteOrigin = ApproveOrigin;
-	type EvidenceSize = ConstU32<65536>;
-	type MaxRank = ConstU32<1>;
+	type BenchmarkSetup = crate::SecretarySalary;
 }
 
 pub type SecretarySalaryInstance = pallet_salary::Instance3;
@@ -178,7 +141,7 @@ pub type SecretarySalaryInstance = pallet_salary::Instance3;
 parameter_types! {
 	// The interior location on AssetHub for the paying account. This is the Secretary Salary
 	// pallet instance. This sovereign account will need funding.
-	pub SecretarySalaryInteriorLocation: InteriorLocation = PalletInstance(94).into();
+	pub SecretarySalaryInteriorLocation: InteriorLocation = PalletInstance(93).into();
 }
 
 /// [`PayOverXcm`] setup to pay the Secretary salary on the AssetHub in USDT.
@@ -197,7 +160,7 @@ pub struct SalaryForRank;
 impl GetSalary<u16, AccountId, Balance> for SalaryForRank {
 	fn get_salary(rank: u16, _who: &AccountId) -> Balance {
 		if rank == 1 {
-			1000
+			100 * CENTS
 		} else {
 			0
 		}
@@ -223,10 +186,10 @@ impl pallet_salary::Config<SecretarySalaryInstance> for Runtime {
 	type Salary = frame_support::traits::tokens::ConvertRank<
 		crate::impls::benchmarks::RankToSalary<Balances>,
 	>;
-	// 15 days to register for a salary payment.
-	type RegistrationPeriod = ConstU32<{ 15 * DAYS }>;
-	// 15 days to claim the salary payment.
-	type PayoutPeriod = ConstU32<{ 15 * DAYS }>;
+	// 6 hours to register for a salary payment.
+	type RegistrationPeriod = ConstU32<{ 6 * HOURS }>;
+	// 6 hours to claim the salary payment.
+	type PayoutPeriod = ConstU32<{ 6 * HOURS }>;
 	// Total monthly salary budget.
-	type Budget = ConstU128<{ 10_000 * DOLLARS }>;
+	type Budget = ConstU128<{ 10 * DOLLARS }>;
 }
