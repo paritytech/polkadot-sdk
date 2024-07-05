@@ -124,20 +124,12 @@ impl frame_system::Config for Test {
 	type Block = Block;
 	type AccountData = pallet_balances::AccountData<Balance>;
 }
+#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Test {
 	type MaxLocks = frame_support::traits::ConstU32<1024>;
-	type MaxReserves = ();
-	type ReserveIdentifier = [u8; 8];
 	type Balance = Balance;
-	type RuntimeEvent = RuntimeEvent;
-	type DustRemoval = ();
 	type ExistentialDeposit = ExistentialDeposit;
 	type AccountStore = System;
-	type WeightInfo = ();
-	type FreezeIdentifier = ();
-	type MaxFreezes = ();
-	type RuntimeHoldReason = ();
-	type RuntimeFreezeReason = ();
 }
 
 sp_runtime::impl_opaque_keys! {
@@ -269,19 +261,15 @@ impl OnStakingUpdate<AccountId, Balance> for EventListenerMock {
 // Disabling threshold for `UpToLimitDisablingStrategy`
 pub(crate) const DISABLING_LIMIT_FACTOR: usize = 3;
 
+#[derive_impl(crate::config_preludes::TestDefaultConfig)]
 impl crate::pallet::pallet::Config for Test {
 	type Currency = Balances;
-	type CurrencyBalance = <Self as pallet_balances::Config>::Balance;
 	type UnixTime = Timestamp;
-	type CurrencyToVote = ();
 	type RewardRemainder = RewardRemainderMock;
-	type RuntimeEvent = RuntimeEvent;
-	type Slash = ();
 	type Reward = MockReward;
 	type SessionsPerEra = SessionsPerEra;
 	type SlashDeferDuration = SlashDeferDuration;
 	type AdminOrigin = EnsureOneOrRoot;
-	type BondingDuration = BondingDuration;
 	type SessionInterface = Self;
 	type EraPayout = ConvertCurve<RewardCurve>;
 	type NextNewSession = Session;
@@ -296,8 +284,6 @@ impl crate::pallet::pallet::Config for Test {
 	type HistoryDepth = HistoryDepth;
 	type MaxControllersInDeprecationBatch = MaxControllersInDeprecationBatch;
 	type EventListeners = EventListenerMock;
-	type BenchmarkingConfig = TestBenchmarkingConfig;
-	type WeightInfo = ();
 	type DisablingStrategy = pallet_staking::UpToLimitDisablingStrategy<DISABLING_LIMIT_FACTOR>;
 }
 

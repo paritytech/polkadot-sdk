@@ -62,9 +62,9 @@ use super::{
 };
 use alloc::{vec, vec::Vec};
 use bounded_collections::{ConstU32, WeakBoundedVec};
+use codec::{self, Decode, Encode, MaxEncodedLen};
 use core::{fmt::Debug, result};
 use derivative::Derivative;
-use parity_scale_codec::{self, Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 
 mod junction;
@@ -237,7 +237,7 @@ pub enum BodyPart {
 		#[codec(compact)]
 		denom: u32,
 	},
-	/// More than than the given proportion of members of the body.
+	/// More than the given proportion of members of the body.
 	MoreThanProportion {
 		#[codec(compact)]
 		nom: u32,
