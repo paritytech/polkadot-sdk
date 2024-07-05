@@ -322,7 +322,7 @@ struct PrepareValidationState {
 async fn maybe_prepare_validation<Sender>(
 	sender: &mut Sender,
 	keystore: KeystorePtr,
-	validation_host: ValidationHost,
+	validation_backend: impl ValidationBackend,
 	update: ActiveLeavesUpdate,
 	state: &mut PrepareValidationState,
 ) where
@@ -346,7 +346,7 @@ async fn maybe_prepare_validation<Sender>(
 	if state.is_next_session_authority {
 		let code_hashes = prepare_pvfs_for_backed_candidates(
 			sender,
-			validation_host,
+			validation_backend,
 			leaf.hash,
 			&state.already_prepared_code_hashes,
 		)
