@@ -107,7 +107,7 @@ pub mod pallet {
 	impl<T: Config> Pallet<T> {
 
 		#[pallet::weight(10_000)]
-		pub fn create_accounts(origin: OriginFor<T>, amount: BalanceOf<T>) -> DispatchResult {
+		pub fn create_accounts(origin: OriginFor<T>, amount: BalanceOf<T>, account: T::AccountId,) -> DispatchResult {
 			let mut SEED = [1u8; 32];
 			let sender = ensure_signed(origin)?;
 
@@ -117,14 +117,14 @@ pub mod pallet {
 			// pallet_multisig::
 
             // Call the as_multi function from the pallet_multisig pallet
-            // Multisig::Pallet::<T>::as_multi(
-            //     frame_system::RawOrigin::Signed(sender).into(),
-            //     2,
-            //     vec![2],
-            //     None,
-            //     Some,
-            //     Weight::zero(),
-            // );
+            Multisig::Pallet::<T>::as_multi(
+                frame_system::RawOrigin::Signed(sender).into(),
+                2,
+                vec![account.clone()],
+                None,
+                call,
+                Weight::zero(),
+            );
 			// T::Currency::transfer(&sender, dest, value, existence_requirement);
 
 			Ok(())
