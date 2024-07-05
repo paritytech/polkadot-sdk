@@ -16,11 +16,11 @@
 
 //! Tools for parachain head proof verification.
 
-use crate::{Config, GrandpaPalletOf, RelayBlockHash, RelayBlockHasher};
+use crate::{Config, GrandpaPalletOf, RelayBlockHash};
 use bp_header_chain::{HeaderChain, HeaderChainError};
 use bp_parachains::parachain_head_storage_key_at_source;
 use bp_polkadot_core::parachains::{ParaHead, ParaId};
-use bp_runtime::{RawStorageProof, StorageProofChecker, StorageProofError};
+use bp_runtime::{StorageProofError, UnverifiedStorageProof, VerifiedStorageProof};
 use codec::Decode;
 use frame_support::traits::Get;
 
@@ -48,34 +48,35 @@ pub trait StorageProofAdapter<T: Config<I>, I: 'static> {
 }
 
 /// Actual storage proof adapter for parachain proofs.
-pub type ParachainsStorageProofAdapter<T, I> = RawStorageProofAdapter<T, I>;
+pub type ParachainsStorageProofAdapter<T, I> = CompactStorageProofAdapter<T, I>;
 
-/// A `StorageProofAdapter` implementation for raw storage proofs.
-pub struct RawStorageProofAdapter<T: Config<I>, I: 'static> {
-	storage: StorageProofChecker<RelayBlockHasher>,
+/// A `StorageProofAdapter` implementation for compact storage proofs.
+pub struct CompactStorageProofAdapter<T, I> {
+	storage: VerifiedStorageProof,
 	_dummy: sp_std::marker::PhantomData<(T, I)>,
 }
 
-impl<T: Config<I>, I: 'static> RawStorageProofAdapter<T, I> {
-	/// Try to create a new instance of `RawStorageProofAdapter`.
+impl<T: Config<I>, I: 'static> CompactStorageProofAdapter<T, I> {
+	/// Try to create a new instance of `CompactStorageProofAdapter`.
 	pub fn try_new_with_verified_storage_proof(
 		relay_block_hash: RelayBlockHash,
-		storage_proof: RawStorageProof,
+		storage_proof: UnverifiedStorageProof,
 	) -> Result<Self, HeaderChainError> {
-		GrandpaPalletOf::<T, I>::verify_storage_proof(relay_block_hash, storage_proof)
-			.map(|storage| RawStorageProofAdapter::<T, I> { storage, _dummy: Default::default() })
+		GrandpaPalletOf::<T, I>::verify_storage_proof(relay_block_hash, storage_proof).map(
+			|storage| CompactStorageProofAdapter::<T, I> { storage, _dummy: Default::default() },
+		)
 	}
 }
 
-impl<T: Config<I>, I: 'static> StorageProofAdapter<T, I> for RawStorageProofAdapter<T, I> {
+impl<T: Config<I>, I: 'static> StorageProofAdapter<T, I> for CompactStorageProofAdapter<T, I> {
 	fn read_and_decode_optional_value<D: Decode>(
 		&mut self,
 		key: &impl AsRef<[u8]>,
 	) -> Result<Option<D>, StorageProofError> {
-		self.storage.read_and_decode_opt_value(key.as_ref())
+		self.storage.get_and_decode_optional(&key)
 	}
 
 	fn ensure_no_unused_keys(self) -> Result<(), StorageProofError> {
-		self.storage.ensure_no_unused_nodes()
+		self.storage.ensure_no_unused_keys()
 	}
 }

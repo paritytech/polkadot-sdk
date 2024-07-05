@@ -18,7 +18,7 @@
 
 use crate::{LaneId, Message, MessageKey, MessageNonce, MessagePayload, OutboundLaneData};
 
-use bp_runtime::{messages::MessageDispatchResult, raw_storage_proof_size, RawStorageProof, Size};
+use bp_runtime::{messages::MessageDispatchResult, Size, UnverifiedStorageProof};
 use codec::{Decode, Encode, Error as CodecError};
 use frame_support::weights::Weight;
 use scale_info::TypeInfo;
@@ -42,7 +42,7 @@ pub struct FromBridgedChainMessagesProof<BridgedHeaderHash> {
 	/// Hash of the finalized bridged header the proof is for.
 	pub bridged_header_hash: BridgedHeaderHash,
 	/// A storage trie proof of messages being delivered.
-	pub storage_proof: RawStorageProof,
+	pub storage_proof: UnverifiedStorageProof,
 	/// Messages in this proof are sent over this lane.
 	pub lane: LaneId,
 	/// Nonce of the first message being delivered.
@@ -53,8 +53,7 @@ pub struct FromBridgedChainMessagesProof<BridgedHeaderHash> {
 
 impl<BridgedHeaderHash> Size for FromBridgedChainMessagesProof<BridgedHeaderHash> {
 	fn size(&self) -> u32 {
-		use frame_support::sp_runtime::SaturatedConversion;
-		raw_storage_proof_size(&self.storage_proof).saturated_into()
+		self.storage_proof.size()
 	}
 }
 
