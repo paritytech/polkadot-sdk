@@ -496,6 +496,7 @@ where
 			},
 			Ok(BlockStatus::KnownBad) => {
 				info!(
+					target: LOG_TARGET,
 					"💔 New peer {peer_id} with known bad best block {best_hash} ({best_number})."
 				);
 				Err(BadPeer(peer_id, rep::BAD_BLOCK))
