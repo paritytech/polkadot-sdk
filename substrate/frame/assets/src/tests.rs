@@ -1808,7 +1808,8 @@ fn increasing_or_decreasing_destroying_asset_should_not_work() {
 		assert_eq!(Assets::can_withdraw(0, &1, 10), WithdrawConsequence::<_>::UnknownAsset);
 		assert_eq!(Assets::can_increase(0, &1, 10, false), DepositConsequence::UnknownAsset);
 		assert_eq!(Assets::can_decrease(0, &1, 10, false), WithdrawConsequence::<_>::UnknownAsset);
-});
+	});
+}
 
 fn asset_id_cannot_be_reused() {
 	new_test_ext().execute_with(|| {
