@@ -115,38 +115,28 @@ where
 	}
 
 	pub(super) fn watched_xts(&self) -> impl Iterator<Item = Block::Extrinsic> {
-		log::debug!(target: LOG_TARGET, "xxx+ xts {}", line!());
-		let r = self
-			.xts2
+		self.xts2
 			.read()
 			.values()
 			.filter_map(|x| x.is_watched().then(|| x.tx.clone()))
 			.collect::<Vec<_>>()
-			.into_iter();
-		log::debug!(target: LOG_TARGET, "xxx- xts {}", line!());
-		r
+			.into_iter()
 	}
 
 	pub(super) fn len(&self) -> (usize, usize) {
-		log::debug!(target: LOG_TARGET, "xxx+ xts {}", line!());
-		let xts = self.xts2.read();
-		log::debug!(target: LOG_TARGET, "xxx- xts {}", line!());
-		let watched_count = xts.values().filter(|x| x.is_watched()).count();
-		(xts.len() - watched_count, watched_count)
+		let xts2 = self.xts2.read();
+		let watched_count = xts2.values().filter(|x| x.is_watched()).count();
+		(xts2.len() - watched_count, watched_count)
 	}
 
 	pub(super) fn push_unwatched(&self, xt: Block::Extrinsic) {
 		let hash = self.api.hash_and_length(&xt).0;
 		let unwatched = Arc::from(TxInMemPool::unwatched(xt));
-		log::debug!(target: LOG_TARGET, "xxx+ xts {}", line!());
 		self.xts2.write().entry(hash).or_insert(unwatched);
-		log::debug!(target: LOG_TARGET, "xxx- xts {}", line!());
 	}
 
 	pub(super) fn extend_unwatched(&self, xts: Vec<Block::Extrinsic>) {
-		log::debug!(target: LOG_TARGET, "xxx+ xts {}", line!());
 		let mut xts2 = self.xts2.write();
-		log::debug!(target: LOG_TARGET, "xxx- xts {}", line!());
 		xts.into_iter().for_each(|xt| {
 			let hash = self.api.hash_and_length(&xt).0;
 			let unwatched = Arc::from(TxInMemPool::unwatched(xt));
@@ -157,27 +147,19 @@ where
 	pub(super) fn push_watched(&self, xt: Block::Extrinsic) {
 		let hash = self.api.hash_and_length(&xt).0;
 		let watched = Arc::from(TxInMemPool::watched(xt));
-		log::debug!(target: LOG_TARGET, "xxx+ xts {}", line!());
 		self.xts2.write().entry(hash).or_insert(watched);
-		log::debug!(target: LOG_TARGET, "xxx- xts {}", line!());
 	}
 
 	pub(super) fn clone_unwatched(&self) -> Vec<Block::Extrinsic> {
-		log::debug!(target: LOG_TARGET, "xxx+ xts {}", line!());
-		let r = self
-			.xts2
+		self.xts2
 			.read()
 			.values()
 			.filter_map(|x| (!x.is_watched()).then(|| x.tx.clone()))
-			.collect::<Vec<_>>();
-		log::debug!(target: LOG_TARGET, "xxx+ xts {}", line!());
-		r
+			.collect::<Vec<_>>()
 	}
 
 	pub(super) fn remove_watched(&self, xt: &Block::Extrinsic) {
-		log::debug!(target: LOG_TARGET, "xxx+ xts {}", line!());
 		self.xts2.write().retain(|_, t| t.tx != *xt);
-		log::debug!(target: LOG_TARGET, "xxx- xts {}", line!());
 	}
 
 	//returns vec of invalid hashes

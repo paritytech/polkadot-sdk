@@ -77,9 +77,7 @@ where
 	) -> HashMap<Block::Hash, Vec<Result<ExtrinsicHash<ChainApi>, ChainApi::Error>>> {
 		log::debug!(target: LOG_TARGET, "vs::submit_at++ {}", line!());
 		let results = {
-			log::debug!(target: LOG_TARGET, "vs::submit_at+ {}", line!());
 			let views = self.views.read();
-			log::debug!(target: LOG_TARGET, "vs::submit_at- {}", line!());
 			let futs = views
 				.iter()
 				.map(|(_, view)| {
