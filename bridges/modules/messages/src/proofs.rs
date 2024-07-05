@@ -54,7 +54,7 @@ pub fn verify_messages_proof<T: Config<I>, I: 'static>(
 		nonces_start,
 		nonces_end,
 	} = proof;
-	let mut parser: StorageProofCheckerAdapter<T, I> =
+	let mut parser: MessagesStorageProofAdapter<T, I> =
 		MessagesStorageProofAdapter::try_new_with_verified_storage_proof(
 			bridged_header_hash,
 			storage_proof,
@@ -110,7 +110,7 @@ pub fn verify_messages_delivery_proof<T: Config<I>, I: 'static>(
 	proof: FromBridgedChainMessagesDeliveryProof<HashOf<BridgedChainOf<T, I>>>,
 ) -> Result<ParsedMessagesDeliveryProofFromBridgedChain<T>, VerificationError> {
 	let FromBridgedChainMessagesDeliveryProof { bridged_header_hash, storage_proof, lane } = proof;
-	let mut parser: StorageProofCheckerAdapter<T, I> =
+	let mut parser: MessagesStorageProofAdapter<T, I> =
 		MessagesStorageProofAdapter::try_new_with_verified_storage_proof(
 			bridged_header_hash,
 			storage_proof,
