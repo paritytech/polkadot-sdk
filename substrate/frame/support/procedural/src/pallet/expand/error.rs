@@ -217,7 +217,7 @@ pub fn expand_error(def: &mut Def) -> proc_macro2::TokenStream {
 		impl<#type_impl_gen> #error_ident<#type_use_gen> #config_where_clause {
 			#[allow(dead_code)]
 			#[doc(hidden)]
-			pub fn deprecation_info() -> #frame_support::__private::metadata_ir::PalletErrorMetadataIR {
+			pub fn error_metadata() -> #frame_support::__private::metadata_ir::PalletErrorMetadataIR {
 				#frame_support::__private::metadata_ir::PalletErrorMetadataIR {
 					ty: #frame_support::__private::scale_info::meta_type::<#error_ident<#type_use_gen>>(),
 					deprecation_info: #deprecation_status,

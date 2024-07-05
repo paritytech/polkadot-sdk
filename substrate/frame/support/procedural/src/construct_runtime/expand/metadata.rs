@@ -28,7 +28,6 @@ pub fn expand_runtime_metadata(
 	extrinsic: &TokenStream,
 	system_path: &PalletPath,
 ) -> TokenStream {
-	let frame_support = crate::generate_access_from_frame_or_crate("frame-support").unwrap();
 	let pallets = pallet_declarations
 		.iter()
 		.filter_map(|pallet_declaration| {
@@ -47,7 +46,7 @@ pub fn expand_runtime_metadata(
 			let index = &decl.index;
 			let storage = expand_pallet_metadata_storage(&filtered_names, runtime, decl);
 			let calls = expand_pallet_metadata_calls(&filtered_names, runtime, decl);
-			let event = expand_pallet_metadata_events(&filtered_names, runtime, scrate, decl);
+			let event = expand_pallet_metadata_events(&filtered_names, runtime, decl);
 			let constants = expand_pallet_metadata_constants(runtime, decl);
 			let errors = expand_pallet_metadata_errors(runtime, decl);
 			let docs = expand_pallet_metadata_docs(runtime, decl);
@@ -207,7 +206,6 @@ fn expand_pallet_metadata_calls(
 fn expand_pallet_metadata_events(
 	filtered_names: &[&'static str],
 	runtime: &Ident,
-	scrate: &TokenStream,
 	decl: &Pallet,
 ) -> TokenStream {
 	if filtered_names.contains(&"Event") {
@@ -227,7 +225,7 @@ fn expand_pallet_metadata_events(
 
 		quote! {
 			Some(
-				#pallet_event::deprecation_info()
+				#pallet_event::event_metadata()
 			)
 		}
 	} else {

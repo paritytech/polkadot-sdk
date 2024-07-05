@@ -83,7 +83,7 @@ pub fn expand_pallet_struct(def: &mut Def) -> proc_macro2::TokenStream {
 			impl<#type_impl_gen> #pallet_ident<#type_use_gen> #config_where_clause {
 				#[doc(hidden)]
 				pub fn error_metadata() -> Option<#frame_support::__private::metadata_ir::PalletErrorMetadataIR> {
-					Some(<#error_ident<#type_use_gen>>::deprecation_info())
+					Some(<#error_ident<#type_use_gen>>::error_metadata())
 				}
 			}
 		)

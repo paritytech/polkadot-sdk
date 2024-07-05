@@ -199,7 +199,7 @@ pub fn expand_event(def: &mut Def) -> proc_macro2::TokenStream {
 		impl<#event_impl_gen> #event_ident<#event_use_gen>  #event_where_clause {
 			#[allow(dead_code)]
 			#[doc(hidden)]
-			pub fn deprecation_info() -> #frame_support::__private::metadata_ir::PalletEventMetadataIR {
+			pub fn event_metadata() -> #frame_support::__private::metadata_ir::PalletEventMetadataIR {
 				#frame_support::__private::metadata_ir::PalletEventMetadataIR {
 					ty: #frame_support::__private::scale_info::meta_type::<#event_ident<#event_use_gen>>(),
 					deprecation_info: #deprecation_status,
