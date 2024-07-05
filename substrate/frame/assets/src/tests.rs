@@ -1811,6 +1811,7 @@ fn increasing_or_decreasing_destroying_asset_should_not_work() {
 	});
 }
 
+#[test]
 fn asset_id_cannot_be_reused() {
 	new_test_ext().execute_with(|| {
 		Balances::make_free_balance_be(&1, 100);
