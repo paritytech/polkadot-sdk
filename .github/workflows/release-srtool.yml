@@ -82,7 +82,7 @@ jobs:
         run: |
           BUILD_OPTIONS=""
           if [[ ${{ matrix.chain }} == 'asset-hub-rococo' || ${{ matrix.chain }} == 'asset-hub-westend' || ${{ matrix.chain }} == 'rococo' || ${{ matrix.chain }} == 'westend' ]]; then
-            BUILD_OPTIONS=${{ inputs.build_opts }}
+            BUILD_OPTIONS="${{ inputs.build_opts }}"
           fi
 
           echo "BUILD_OPTIONS=${BUILD_OPTIONS}" >> $GITHUB_ENV
