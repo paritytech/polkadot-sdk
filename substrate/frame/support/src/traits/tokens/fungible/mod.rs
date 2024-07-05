@@ -67,8 +67,8 @@
 //!   play.
 //!   
 //!   It's important to note that the frozen balance can exceed the total balance of the account.
-//!   In such cases, the account cannot spend any fund as all its balance is frozen; the excess
-//!   frozen amount does not belong to the account, only the lock does.
+//!   In such cases, the account cannot spend any fund and the excess frozen amount doesn't 
+//!   actually belong to the account, only the lock does.
 //!
 //! - **Minimum Balance (a.k.a. Existential Deposit, a.k.a. ED)**: The minimum balance required to
 //!   create or keep an account open. This is to prevent "dust accounts" from filling storage. When
