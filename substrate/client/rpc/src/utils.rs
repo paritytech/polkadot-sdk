@@ -146,7 +146,7 @@ impl PendingSubscription {
 				Either::Left((Ok(sink), _)) => break sink,
 				Either::Right((Some(msg), f)) => {
 					if buf.push(msg).is_err() {
-						log::warn!(target: "rpc", "Subscription::accept buffer full for subscription={method} conn_id={conn_id}; dropping subscription");
+						log::debug!(target: "rpc", "Subscription::accept buffer full for subscription={method} conn_id={conn_id}; dropping subscription");
 						return
 					}
 					accept_fut = f;
