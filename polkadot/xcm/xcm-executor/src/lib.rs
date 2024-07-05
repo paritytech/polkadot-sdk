@@ -460,7 +460,10 @@ impl<Config: config::Config> XcmExecutor<Config> {
 			self.fees_mode,
 			reason,
 		);
-		let asset_needed_for_fees = fees.get(0).ok_or(XcmError::AssetNotFound)?;
+		let asset_needed_for_fees = match fees.get(0) {
+			Some(fee) => fee,
+			None => return Ok(()), // No delivery fees need to be paid.
+		};
 		// If `BuyExecution` was called, we know we can try to use that asset for fees.
 		let asset_to_pay_for_fees = if let Some(asset_used_for_fees) = &self.asset_used_for_fees {
 			if asset_used_for_fees.id != asset_needed_for_fees.id {
@@ -934,39 +937,43 @@ impl<Config: config::Config> XcmExecutor<Config> {
 					message_to_weigh.extend(xcm.0.clone().into_iter());
 					let (_, fee) =
 						validate_send::<Config::XcmSender>(dest.clone(), Xcm(message_to_weigh))?;
-					let asset_needed_for_fees = fee.get(0).ok_or(XcmError::AssetNotFound)?;
-					log::trace!(target: "xcm::DepositReserveAsset", "Asset needed to pay for fees: {:?}", asset_needed_for_fees);
-					log::trace!(target: "xcm::DepositReserveAsset", "Asset wanted to pay for fees: {:?}", self.asset_used_for_fees);
-					let asset_to_pay_for_fees =
-						self.asset_used_for_fees.as_ref().unwrap_or(&asset_needed_for_fees);
-					let actual_asset_to_use_for_fees =
-						if asset_to_pay_for_fees.id != asset_needed_for_fees.id {
-							// Get the correct amount of asset_to_pay_for_fees.
-							match Config::AssetExchanger::quote_exchange_price(
-								&asset_to_pay_for_fees,
-								&asset_needed_for_fees,
-								false,
-							) {
-								Some(necessary_amount) =>
-									(asset_to_pay_for_fees.id.clone(), necessary_amount).into(),
-								None => {
-									log::trace!(
-										target: "xcm::take_fee",
-										"Could not convert fees to {:?}",
-										asset_to_pay_for_fees,
-									);
-									asset_needed_for_fees.clone()
-								},
-							}
-						} else {
-							asset_needed_for_fees.clone()
-						};
-					// set aside fee to be charged by XcmSender
-					let transport_fee =
-						self.holding.saturating_take(actual_asset_to_use_for_fees.into());
-					log::trace!(target: "xcm::DepositReserveAsset", "Transport fee: {:?}", transport_fee);
-
+					let maybe_delivery_fee = if let Some(asset_needed_for_fees) = fee.get(0) {
+						log::trace!(target: "xcm::DepositReserveAsset", "Asset needed to pay for fees: {:?}", asset_needed_for_fees);
+						log::trace!(target: "xcm::DepositReserveAsset", "Asset wanted to pay for fees: {:?}", self.asset_used_for_fees);
+						let asset_to_pay_for_fees =
+							self.asset_used_for_fees.as_ref().unwrap_or(&asset_needed_for_fees);
+						let actual_asset_to_use_for_fees =
+							if asset_to_pay_for_fees.id != asset_needed_for_fees.id {
+								// Get the correct amount of asset_to_pay_for_fees.
+								match Config::AssetExchanger::quote_exchange_price(
+									&asset_to_pay_for_fees,
+									&asset_needed_for_fees,
+									false,
+								) {
+									Some(necessary_amount) =>
+										(asset_to_pay_for_fees.id.clone(), necessary_amount).into(),
+									None => {
+										log::trace!(
+											target: "xcm::take_fee",
+											"Could not convert fees to {:?}",
+											asset_to_pay_for_fees,
+										);
+										asset_needed_for_fees.clone()
+									},
+								}
+							} else {
+								asset_needed_for_fees.clone()
+							};
+						// set aside fee to be charged by XcmSender
+						let delivery_fee =
+							self.holding.saturating_take(actual_asset_to_use_for_fees.into());
+						log::trace!(target: "xcm::DepositReserveAsset", "Transport fee: {:?}", delivery_fee);
+						Some(delivery_fee)
+					} else {
+						None
+					};
 					// now take assets to deposit (excluding transport_fee)
+					// TODO: We should be taking `assets - transport_fee`
 					let deposited = self.holding.saturating_take(assets);
 					log::trace!(target: "xcm::DepositReserveAsset", "Assets except transport fee: {:?}", deposited);
 					for asset in deposited.assets_iter() {
@@ -978,8 +985,10 @@ impl<Config: config::Config> XcmExecutor<Config> {
 					let assets = Self::reanchored(deposited, &dest, None);
 					let mut message = vec![ReserveAssetDeposited(assets), ClearOrigin];
 					message.extend(xcm.0.into_iter());
-					// put back transport_fee in holding register to be charged by XcmSender
-					self.holding.subsume_assets(transport_fee);
+					// put back delivery_fee in holding register to be charged by XcmSender
+					if let Some(delivery_fee) = maybe_delivery_fee {
+						self.holding.subsume_assets(delivery_fee);
+					}
 					self.send(dest, Xcm(message), FeeReason::DepositReserveAsset)?;
 					Ok(())
 				});
