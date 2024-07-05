@@ -396,7 +396,6 @@ pub fn search_child_branches_for_parents<Block: BlockT>(
 
 			let aligned_with_pending = parent_aligned_with_pending &&
 				(pending_distance.map_or(true, |dist| child_depth > dist) ||
-					pending_hash.as_ref().map_or(true, |h| &child == h) ||
 					is_child_pending(child));
 
 			if ignore_alternative_branches && !aligned_with_pending {
