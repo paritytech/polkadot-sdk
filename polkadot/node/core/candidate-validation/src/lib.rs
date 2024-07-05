@@ -539,6 +539,13 @@ where
 		return None
 	};
 
+	gum::debug!(
+		target: LOG_TARGET,
+		?relay_parent,
+		?processed_code_hashes,
+		"Prepared PVF for the next session",
+	);
+
 	Some(processed_code_hashes)
 }
 
