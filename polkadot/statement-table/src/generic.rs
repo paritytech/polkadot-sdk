@@ -30,12 +30,12 @@ use std::{
 	hash::Hash,
 };
 
-use primitives::{
+use polkadot_primitives::{
 	effective_minimum_backing_votes, ValidatorSignature,
 	ValidityAttestation as PrimitiveValidityAttestation,
 };
 
-use parity_scale_codec::{Decode, Encode};
+use codec::{Decode, Encode};
 const LOG_TARGET: &str = "parachain::statement-table";
 
 /// Context for the statement table.

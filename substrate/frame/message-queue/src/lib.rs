@@ -765,6 +765,13 @@ enum MessageExecutionStatus {
 	Processed,
 	/// The message was processed and resulted in a, possibly permanent, error.
 	Unprocessable { permanent: bool },
+	/// The stack depth limit was reached.
+	///
+	/// We cannot just return `Unprocessable` in this case, because the processability of the
+	/// message depends on how the function was called. This may be a permanent error if it was
+	/// called by a top-level function, or a transient error if it was already called in a nested
+	/// function.
+	StackLimitReached,
 }
 
 impl<T: Config> Pallet<T> {
@@ -984,7 +991,8 @@ impl<T: Config> Pallet<T> {
 			// additional overweight event being deposited.
 		) {
 			Overweight | InsufficientWeight => Err(Error::<T>::InsufficientWeight),
-			Unprocessable { permanent: false } => Err(Error::<T>::TemporarilyUnprocessable),
+			StackLimitReached | Unprocessable { permanent: false } =>
+				Err(Error::<T>::TemporarilyUnprocessable),
 			Unprocessable { permanent: true } | Processed => {
 				page.note_processed_at_pos(pos);
 				book_state.message_count.saturating_dec();
@@ -1250,7 +1258,7 @@ impl<T: Config> Pallet<T> {
 		let is_processed = match res {
 			InsufficientWeight => return ItemExecutionStatus::Bailed,
 			Unprocessable { permanent: false } => return ItemExecutionStatus::NoProgress,
-			Processed | Unprocessable { permanent: true } => true,
+			Processed | Unprocessable { permanent: true } | StackLimitReached => true,
 			Overweight => false,
 		};
 
@@ -1460,6 +1468,10 @@ impl<T: Config> Pallet<T> {
 				// Permanent error - drop
 				Self::deposit_event(Event::<T>::ProcessingFailed { id: id.into(), origin, error });
 				MessageExecutionStatus::Unprocessable { permanent: true }
+			},
+			Err(error @ StackLimitReached) => {
+				Self::deposit_event(Event::<T>::ProcessingFailed { id: id.into(), origin, error });
+				MessageExecutionStatus::StackLimitReached
 			},
 			Ok(success) => {
 				// Success

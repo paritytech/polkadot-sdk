@@ -67,7 +67,7 @@ use sp_inherents::CreateInherentDataProviders;
 use sp_keystore::KeystorePtr;
 use sp_runtime::traits::{Block as BlockT, Header as HeaderT, Member};
 use sp_timestamp::Timestamp;
-use std::{convert::TryFrom, sync::Arc, time::Duration};
+use std::{sync::Arc, time::Duration};
 
 use crate::collator::{self as collator_util, SlotClaim};
 
@@ -363,13 +363,11 @@ where
 					Ok(x) => x,
 				};
 
-				let validation_code_hash = match params.code_hash_provider.code_hash_at(parent_hash)
-				{
-					None => {
-						tracing::error!(target: crate::LOG_TARGET, ?parent_hash, "Could not fetch validation code hash");
-						break
-					},
-					Some(v) => v,
+				let Some(validation_code_hash) =
+					params.code_hash_provider.code_hash_at(parent_hash)
+				else {
+					tracing::error!(target: crate::LOG_TARGET, ?parent_hash, "Could not fetch validation code hash");
+					break
 				};
 
 				super::check_validation_code_or_log(

@@ -33,10 +33,11 @@ use xcm::prelude::*;
 use xcm_builder::{
 	AccountId32Aliases, AllowKnownQueryResponses, AllowSubscriptionsFrom,
 	AllowTopLevelPaidExecutionFrom, Case, ChildParachainAsNative, ChildParachainConvertsVia,
-	ChildSystemParachainAsSuperuser, DescribeAllTerminal, FixedRateOfFungible, FixedWeightBounds,
-	FrameTransactionalProcessor, FungibleAdapter, FungiblesAdapter, HashedDescription, IsConcrete,
-	MatchedConvertedConcreteId, NoChecking, SignedAccountId32AsNative, SignedToAccountId32,
-	SovereignSignedViaLocation, TakeWeightCredit, XcmFeeManagerFromComponents, XcmFeeToAccount,
+	ChildSystemParachainAsSuperuser, DescribeAllTerminal, EnsureDecodableXcm, FixedRateOfFungible,
+	FixedWeightBounds, FrameTransactionalProcessor, FungibleAdapter, FungiblesAdapter,
+	HashedDescription, IsConcrete, MatchedConvertedConcreteId, NoChecking,
+	SignedAccountId32AsNative, SignedToAccountId32, SovereignSignedViaLocation, TakeWeightCredit,
+	XcmFeeManagerFromComponents, XcmFeeToAccount,
 };
 use xcm_executor::{
 	traits::{Identity, JustTry},
@@ -237,10 +238,6 @@ impl SendXcm for TestPaidForPara3000SendXcm {
 	}
 }
 
-parameter_types! {
-	pub const BlockHashCount: u64 = 250;
-}
-
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
 	type RuntimeOrigin = RuntimeOrigin;
@@ -252,7 +249,6 @@ impl frame_system::Config for Test {
 	type Lookup = IdentityLookup<Self::AccountId>;
 	type Block = Block;
 	type RuntimeEvent = RuntimeEvent;
-	type BlockHashCount = BlockHashCount;
 	type BlockWeights = ();
 	type BlockLength = ();
 	type Version = ();
@@ -270,24 +266,13 @@ impl frame_system::Config for Test {
 
 parameter_types! {
 	pub ExistentialDeposit: Balance = 1;
-	pub const MaxLocks: u32 = 50;
-	pub const MaxReserves: u32 = 50;
 }
 
+#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Test {
-	type MaxLocks = MaxLocks;
 	type Balance = Balance;
-	type RuntimeEvent = RuntimeEvent;
-	type DustRemoval = ();
 	type ExistentialDeposit = ExistentialDeposit;
 	type AccountStore = System;
-	type WeightInfo = ();
-	type MaxReserves = MaxReserves;
-	type ReserveIdentifier = [u8; 8];
-	type RuntimeHoldReason = RuntimeHoldReason;
-	type RuntimeFreezeReason = RuntimeFreezeReason;
-	type FreezeIdentifier = ();
-	type MaxFreezes = ConstU32<0>;
 }
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -413,7 +398,7 @@ parameter_types! {
 		)),
 	};
 	pub const AnyNetwork: Option<NetworkId> = None;
-	pub UniversalLocation: InteriorLocation = Here;
+	pub UniversalLocation: InteriorLocation = GlobalConsensus(ByGenesis([0; 32])).into();
 	pub UnitWeightCost: u64 = 1_000;
 	pub CheckingAccount: AccountId = XcmPallet::check_account();
 }
@@ -488,7 +473,8 @@ pub type Barrier = (
 	AllowSubscriptionsFrom<Everything>,
 );
 
-pub type XcmRouter = (TestPaidForPara3000SendXcm, TestSendXcmErrX8, TestSendXcm);
+pub type XcmRouter =
+	EnsureDecodableXcm<(TestPaidForPara3000SendXcm, TestSendXcmErrX8, TestSendXcm)>;
 
 pub struct XcmConfig;
 impl xcm_executor::Config for XcmConfig {
@@ -529,6 +515,7 @@ impl xcm_executor::Config for XcmConfig {
 	type HrmpNewChannelOpenRequestHandler = ();
 	type HrmpChannelAcceptedHandler = ();
 	type HrmpChannelClosingHandler = ();
+	type XcmRecorder = XcmPallet;
 }
 
 pub type LocalOriginToLocation = SignedToAccountId32<RuntimeOrigin, AccountId, AnyNetwork>;

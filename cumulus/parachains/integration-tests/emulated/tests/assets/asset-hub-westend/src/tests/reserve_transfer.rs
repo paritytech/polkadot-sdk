@@ -574,7 +574,7 @@ fn reserve_transfer_native_asset_from_relay_to_para() {
 	let sender = WestendSender::get();
 	let amount_to_send: Balance = WESTEND_ED * 1000;
 
-	// Init values fot Parachain
+	// Init values for Parachain
 	let relay_native_asset_location = RelayLocation::get();
 	let receiver = PenpalAReceiver::get();
 

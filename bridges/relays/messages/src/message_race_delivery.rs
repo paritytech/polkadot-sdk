@@ -19,7 +19,7 @@ use async_trait::async_trait;
 use futures::stream::FusedStream;
 
 use bp_messages::{MessageNonce, UnrewardedRelayersState, Weight};
-use relay_utils::FailedClient;
+use relay_utils::{FailedClient, TrackedTransactionStatus, TransactionTracker};
 
 use crate::{
 	message_lane::{MessageLane, SourceHeaderIdOf, TargetHeaderIdOf},
@@ -75,6 +75,69 @@ pub async fn run<P: MessageLane>(
 		},
 	)
 	.await
+}
+
+/// Relay range of messages.
+pub async fn relay_messages_range<P: MessageLane>(
+	source_client: impl MessageLaneSourceClient<P>,
+	target_client: impl MessageLaneTargetClient<P>,
+	at: SourceHeaderIdOf<P>,
+	range: RangeInclusive<MessageNonce>,
+	outbound_state_proof_required: bool,
+) -> Result<(), ()> {
+	// compute cumulative dispatch weight of all messages in given range
+	let dispatch_weight = source_client
+		.generated_message_details(at.clone(), range.clone())
+		.await
+		.map_err(|e| {
+			log::error!(
+				target: "bridge",
+				"Failed to get generated message details at {:?} for messages {:?}: {:?}",
+				at,
+				range,
+				e,
+			);
+		})?
+		.values()
+		.fold(Weight::zero(), |total, details| total.saturating_add(details.dispatch_weight));
+	// prepare messages proof
+	let (at, range, proof) = source_client
+		.prove_messages(
+			at.clone(),
+			range.clone(),
+			MessageProofParameters { outbound_state_proof_required, dispatch_weight },
+		)
+		.await
+		.map_err(|e| {
+			log::error!(
+				target: "bridge",
+				"Failed to generate messages proof at {:?} for messages {:?}: {:?}",
+				at,
+				range,
+				e,
+			);
+		})?;
+	// submit messages proof to the target node
+	let tx_tracker = target_client
+		.submit_messages_proof(None, at, range.clone(), proof)
+		.await
+		.map_err(|e| {
+			log::error!(
+				target: "bridge",
+				"Failed to submit messages proof for messages {:?}: {:?}",
+				range,
+				e,
+			);
+		})?
+		.tx_tracker;
+
+	match tx_tracker.wait().await {
+		TrackedTransactionStatus::Finalized(_) => Ok(()),
+		TrackedTransactionStatus::Lost => {
+			log::error!("Transaction with messages {:?} is considered lost", range,);
+			Err(())
+		},
+	}
 }
 
 /// Message delivery race.

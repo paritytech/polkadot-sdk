@@ -186,7 +186,7 @@ impl OperationState {
 	/// Stops the operation if `waitingForContinue` event was emitted for the associated
 	/// operation ID.
 	///
-	/// Returns nothing in accordance with `chainHead_unstable_stopOperation`.
+	/// Returns nothing in accordance with `chainHead_v1_stopOperation`.
 	pub fn stop_operation(&self) {
 		// `waitingForContinue` not generated.
 		if !self.shared_state.requested_continue.load(std::sync::atomic::Ordering::Acquire) {
@@ -846,6 +846,7 @@ impl<Block: BlockT, BE: Backend<Block>> SubscriptionsInner<Block, BE> {
 #[cfg(test)]
 mod tests {
 	use super::*;
+	use jsonrpsee::ConnectionId;
 	use sc_block_builder::BlockBuilderBuilder;
 	use sc_service::client::new_in_mem;
 	use sp_consensus::BlockOrigin;
@@ -864,7 +865,7 @@ mod tests {
 		Arc<Client<sc_client_api::in_mem::Backend<Block>>>,
 	) {
 		let backend = Arc::new(sc_client_api::in_mem::Backend::new());
-		let executor = substrate_test_runtime_client::new_native_or_wasm_executor();
+		let executor = substrate_test_runtime_client::WasmExecutor::default();
 		let client_config = sc_service::ClientConfig::default();
 		let genesis_block_builder = sc_service::GenesisBlockBuilder::new(
 			&substrate_test_runtime_client::GenesisParameters::default().genesis_storage(),
@@ -1420,17 +1421,20 @@ mod tests {
 				rpc_connections.clone(),
 			);
 
-		let reserved_sub_first = subscription_management.reserve_subscription(1).unwrap();
-		let mut reserved_sub_second = subscription_management.reserve_subscription(1).unwrap();
+		let reserved_sub_first =
+			subscription_management.reserve_subscription(ConnectionId(1)).unwrap();
+		let mut reserved_sub_second =
+			subscription_management.reserve_subscription(ConnectionId(1)).unwrap();
 		// Subscriptions reserved but not yet populated.
 		assert_eq!(subs.read().subs.len(), 0);
 
 		// Cannot reserve anymore.
-		assert!(subscription_management.reserve_subscription(1).is_none());
+		assert!(subscription_management.reserve_subscription(ConnectionId(1)).is_none());
 		// Drop the first subscription.
 		drop(reserved_sub_first);
 		// Space is freed-up for the rpc connections.
-		let mut reserved_sub_first = subscription_management.reserve_subscription(1).unwrap();
+		let mut reserved_sub_first =
+			subscription_management.reserve_subscription(ConnectionId(1)).unwrap();
 
 		// Insert subscriptions.
 		let _sub_data_first =
@@ -1445,7 +1449,8 @@ mod tests {
 		// Check that the subscription is removed.
 		assert_eq!(subs.read().subs.len(), 1);
 		// Space is freed-up for the rpc connections.
-		let reserved_sub_first = subscription_management.reserve_subscription(1).unwrap();
+		let reserved_sub_first =
+			subscription_management.reserve_subscription(ConnectionId(1)).unwrap();
 
 		// Drop all subscriptions.
 		drop(reserved_sub_first);

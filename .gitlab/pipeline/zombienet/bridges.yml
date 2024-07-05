@@ -55,9 +55,9 @@ zombienet-bridges-0001-asset-transfer-works:
     - /home/nonroot/bridges-polkadot-sdk/bridges/testing/run-new-test.sh 0001-asset-transfer --docker
     - echo "Done"
 
-zombienet-bridges-0002-mandatory-headers-synced-while-idle:
+zombienet-bridges-0002-free-headers-synced-while-idle:
   extends:
     - .zombienet-bridges-common
   script:
-    - /home/nonroot/bridges-polkadot-sdk/bridges/testing/run-new-test.sh 0002-mandatory-headers-synced-while-idle --docker
+    - /home/nonroot/bridges-polkadot-sdk/bridges/testing/run-new-test.sh 0002-free-headers-synced-while-idle --docker
     - echo "Done"

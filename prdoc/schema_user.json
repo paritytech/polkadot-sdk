@@ -140,6 +140,9 @@
           "bump": {
             "$ref": "#/$defs/semver_bump"
           },
+          "validate": {
+            "$ref": "#/$defs/semver_validate"
+          },
           "note": {
             "type": "string"
           }
@@ -183,6 +186,11 @@
           "description"
         ]
       },
+      "semver_validate": {
+        "type": "boolean",
+        "description": "Whether or not to validate the specified semver bump.",
+        "default": true
+      },
       "semver_bump": {
         "description": "The type of bump to apply to the crate version according to Cargo SemVer: https://doc.rust-lang.org/cargo/reference/semver.html. Please check docs/RELEASE.md for more information.",
         "oneOf": [
@@ -200,12 +208,17 @@
             "const": "patch",
             "title": "Patch",
             "description": "A bump to the third leftmost non-zero digit of the version number."
+          },
+          {
+            "const": "none",
+            "title": "None",
+            "description": "This change requires no SemVer bump (e.g. change was a test)."
           }
         ]
       },
       "doc": {
         "type": "object",
-        "description": "You have the the option to provide different description of your PR for different audiences.",
+        "description": "You have the option to provide different description of your PR for different audiences.",
         "additionalProperties": false,
         "properties": {
           "audience": {

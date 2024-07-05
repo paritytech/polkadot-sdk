@@ -21,6 +21,7 @@ use ansi_term::Colour;
 use regex::Regex;
 use std::fmt::{self, Write};
 use tracing::{Event, Level, Subscriber};
+use tracing_log::NormalizeEvent;
 use tracing_subscriber::{
 	fmt::{format, time::FormatTime, FmtContext, FormatEvent, FormatFields},
 	registry::LookupSpan,
@@ -60,10 +61,12 @@ where
 		N: for<'a> FormatFields<'a> + 'static,
 	{
 		let mut writer = &mut ControlCodeSanitizer::new(!self.enable_color, writer);
+		let normalized_meta = event.normalized_metadata();
+		let meta = normalized_meta.as_ref().unwrap_or_else(|| event.metadata());
 		time::write(&self.timer, &mut format::Writer::new(&mut writer), self.enable_color)?;
 
 		if self.display_level {
-			let fmt_level = FmtLevel::new(event.metadata().level(), self.enable_color);
+			let fmt_level = FmtLevel::new(meta.level(), self.enable_color);
 			write!(writer, "{} ", fmt_level)?;
 		}
 
@@ -81,7 +84,7 @@ where
 		}
 
 		if self.display_target {
-			write!(writer, "{}: ", event.metadata().target())?;
+			write!(writer, "{}: ", meta.target())?;
 		}
 
 		// Custom code to display node name

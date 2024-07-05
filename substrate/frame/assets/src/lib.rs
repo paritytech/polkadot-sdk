@@ -174,6 +174,7 @@ use sp_runtime::{
 };
 use sp_std::prelude::*;
 
+use core::marker::PhantomData;
 use frame_support::{
 	dispatch::DispatchResult,
 	ensure,
@@ -182,7 +183,7 @@ use frame_support::{
 	traits::{
 		tokens::{fungibles, DepositConsequence, WithdrawConsequence},
 		BalanceStatus::Reserved,
-		Currency, EnsureOriginWithArg, ReservableCurrency, StoredMap,
+		Currency, EnsureOriginWithArg, Incrementable, ReservableCurrency, StoredMap,
 	},
 };
 use frame_system::Config as SystemConfig;
@@ -206,8 +207,37 @@ pub trait AssetsCallback<AssetId, AccountId> {
 	}
 }
 
-/// Empty implementation in case no callbacks are required.
-impl<AssetId, AccountId> AssetsCallback<AssetId, AccountId> for () {}
+#[impl_trait_for_tuples::impl_for_tuples(10)]
+impl<AssetId, AccountId> AssetsCallback<AssetId, AccountId> for Tuple {
+	fn created(id: &AssetId, owner: &AccountId) -> Result<(), ()> {
+		for_tuples!( #( Tuple::created(id, owner)?; )* );
+		Ok(())
+	}
+
+	fn destroyed(id: &AssetId) -> Result<(), ()> {
+		for_tuples!( #( Tuple::destroyed(id)?; )* );
+		Ok(())
+	}
+}
+
+/// Auto-increment the [`NextAssetId`] when an asset is created.
+///
+/// This has not effect if the [`NextAssetId`] value is not present.
+pub struct AutoIncAssetId<T, I = ()>(PhantomData<(T, I)>);
+impl<T: Config<I>, I> AssetsCallback<T::AssetId, T::AccountId> for AutoIncAssetId<T, I>
+where
+	T::AssetId: Incrementable,
+{
+	fn created(_: &T::AssetId, _: &T::AccountId) -> Result<(), ()> {
+		let Some(next_id) = NextAssetId::<T, I>::get() else {
+			// Auto increment for the asset id is not enabled.
+			return Ok(());
+		};
+		let next_id = next_id.increment().ok_or(())?;
+		NextAssetId::<T, I>::put(next_id);
+		Ok(())
+	}
+}
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -361,6 +391,11 @@ pub mod pallet {
 		type Extra: Member + Parameter + Default + MaxEncodedLen;
 
 		/// Callback methods for asset state change (e.g. asset created or destroyed)
+		///
+		/// Types implementing the [`AssetsCallback`] can be chained when listed together as a
+		/// tuple.
+		/// The [`AutoIncAssetId`] callback, in conjunction with the [`NextAssetId`], can be
+		/// used to set up auto-incrementing asset IDs for this collection.
 		type CallbackHandle: AssetsCallback<Self::AssetId, Self::AccountId>;
 
 		/// Weight information for extrinsics in this pallet.
@@ -415,6 +450,18 @@ pub mod pallet {
 		ValueQuery,
 	>;
 
+	/// The asset ID enforced for the next asset creation, if any present. Otherwise, this storage
+	/// item has no effect.
+	///
+	/// This can be useful for setting up constraints for IDs of the new assets. For example, by
+	/// providing an initial [`NextAssetId`] and using the [`crate::AutoIncAssetId`] callback, an
+	/// auto-increment model can be applied to all new asset IDs.
+	///
+	/// The initial next asset ID can be set using the [`GenesisConfig`] or the
+	/// [SetNextAssetId](`migration::next_asset_id::SetNextAssetId`) migration.
+	#[pallet::storage]
+	pub type NextAssetId<T: Config<I>, I: 'static = ()> = StorageValue<_, T::AssetId, OptionQuery>;
+
 	#[pallet::genesis_config]
 	#[derive(frame_support::DefaultNoBound)]
 	pub struct GenesisConfig<T: Config<I>, I: 'static = ()> {
@@ -424,6 +471,13 @@ pub mod pallet {
 		pub metadata: Vec<(T::AssetId, Vec<u8>, Vec<u8>, u8)>,
 		/// Genesis accounts: id, account_id, balance
 		pub accounts: Vec<(T::AssetId, T::AccountId, T::Balance)>,
+		/// Genesis [`NextAssetId`].
+		///
+		/// Refer to the [`NextAssetId`] item for more information.
+		///
+		/// This does not enforce the asset ID for the [assets](`GenesisConfig::assets`) within the
+		/// genesis config. It sets the [`NextAssetId`] after they have been created.
+		pub next_asset_id: Option<T::AssetId>,
 	}
 
 	#[pallet::genesis_build]
@@ -484,6 +538,10 @@ pub mod pallet {
 					},
 				);
 				assert!(result.is_ok());
+			}
+
+			if let Some(next_asset_id) = &self.next_asset_id {
+				NextAssetId::<T, I>::put(next_asset_id);
 			}
 		}
 	}
@@ -571,6 +629,10 @@ pub mod pallet {
 		Touched { asset_id: T::AssetId, who: T::AccountId, depositor: T::AccountId },
 		/// Some account `who` was blocked.
 		Blocked { asset_id: T::AssetId, who: T::AccountId },
+		/// Some assets were deposited (e.g. for transaction fees).
+		Deposited { asset_id: T::AssetId, who: T::AccountId, amount: T::Balance },
+		/// Some assets were withdrawn from the account (e.g. for transaction fees).
+		Withdrawn { asset_id: T::AssetId, who: T::AccountId, amount: T::Balance },
 	}
 
 	#[pallet::error]
@@ -618,6 +680,8 @@ pub mod pallet {
 		NotFrozen,
 		/// Callback action resulted in error
 		CallbackFailed,
+		/// The asset ID must be equal to the [`NextAssetId`].
+		BadAssetId,
 	}
 
 	#[pallet::call(weight(<T as Config<I>>::WeightInfo))]
@@ -632,7 +696,7 @@ pub mod pallet {
 		///
 		/// Parameters:
 		/// - `id`: The identifier of the new asset. This must not be currently in use to identify
-		/// an existing asset.
+		/// an existing asset. If [`NextAssetId`] is set, then this must be equal to it.
 		/// - `admin`: The admin of this class of assets. The admin is the initial address of each
 		/// member of the asset class's admin team.
 		/// - `min_balance`: The minimum balance of this new asset that any single account must
@@ -654,6 +718,10 @@ pub mod pallet {
 
 			ensure!(!Asset::<T, I>::contains_key(&id), Error::<T, I>::InUse);
 			ensure!(!min_balance.is_zero(), Error::<T, I>::MinBalanceZero);
+
+			if let Some(next_id) = NextAssetId::<T, I>::get() {
+				ensure!(id == next_id, Error::<T, I>::BadAssetId);
+			}
 
 			let deposit = T::AssetDeposit::get();
 			T::Currency::reserve(&owner, deposit)?;
@@ -694,7 +762,7 @@ pub mod pallet {
 		/// Unlike `create`, no funds are reserved.
 		///
 		/// - `id`: The identifier of the new asset. This must not be currently in use to identify
-		/// an existing asset.
+		/// an existing asset. If [`NextAssetId`] is set, then this must be equal to it.
 		/// - `owner`: The owner of this class of assets. The owner has full superuser permissions
 		/// over this asset, but may later change and configure the permissions using
 		/// `transfer_ownership` and `set_team`.
@@ -987,7 +1055,7 @@ pub mod pallet {
 			let d = Asset::<T, I>::get(&id).ok_or(Error::<T, I>::Unknown)?;
 			ensure!(
 				d.status == AssetStatus::Live || d.status == AssetStatus::Frozen,
-				Error::<T, I>::AssetNotLive
+				Error::<T, I>::IncorrectStatus
 			);
 			ensure!(origin == d.freezer, Error::<T, I>::NoPermission);
 			let who = T::Lookup::lookup(who)?;
@@ -1024,7 +1092,7 @@ pub mod pallet {
 			let details = Asset::<T, I>::get(&id).ok_or(Error::<T, I>::Unknown)?;
 			ensure!(
 				details.status == AssetStatus::Live || details.status == AssetStatus::Frozen,
-				Error::<T, I>::AssetNotLive
+				Error::<T, I>::IncorrectStatus
 			);
 			ensure!(origin == details.admin, Error::<T, I>::NoPermission);
 			let who = T::Lookup::lookup(who)?;
@@ -1113,7 +1181,7 @@ pub mod pallet {
 
 			Asset::<T, I>::try_mutate(id.clone(), |maybe_details| {
 				let details = maybe_details.as_mut().ok_or(Error::<T, I>::Unknown)?;
-				ensure!(details.status == AssetStatus::Live, Error::<T, I>::LiveAsset);
+				ensure!(details.status == AssetStatus::Live, Error::<T, I>::AssetNotLive);
 				ensure!(origin == details.owner, Error::<T, I>::NoPermission);
 				if details.owner == owner {
 					return Ok(())
@@ -1644,7 +1712,7 @@ pub mod pallet {
 			let origin = ensure_signed(origin)?;
 			let who = T::Lookup::lookup(who)?;
 			let id: T::AssetId = id.into();
-			Self::do_refund_other(id, &who, &origin)
+			Self::do_refund_other(id, &who, Some(origin))
 		}
 
 		/// Disallow further unprivileged transfers of an asset `id` to and from an account `who`.
@@ -1669,7 +1737,7 @@ pub mod pallet {
 			let d = Asset::<T, I>::get(&id).ok_or(Error::<T, I>::Unknown)?;
 			ensure!(
 				d.status == AssetStatus::Live || d.status == AssetStatus::Frozen,
-				Error::<T, I>::AssetNotLive
+				Error::<T, I>::IncorrectStatus
 			);
 			ensure!(origin == d.freezer, Error::<T, I>::NoPermission);
 			let who = T::Lookup::lookup(who)?;
@@ -1697,7 +1765,9 @@ pub mod pallet {
 
 		fn should_touch(asset: T::AssetId, who: &T::AccountId) -> bool {
 			match Asset::<T, I>::get(&asset) {
+				// refer to the [`Self::new_account`] function for more details.
 				Some(info) if info.is_sufficient => false,
+				Some(_) if frame_system::Pallet::<T>::can_accrue_consumers(who, 2) => false,
 				Some(_) => !Account::<T, I>::contains_key(asset, who),
 				_ => true,
 			}

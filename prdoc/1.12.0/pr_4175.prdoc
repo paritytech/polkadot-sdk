@@ -1,0 +1,13 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: "Snowbridge: deposit extra fee to beneficiary on Asset Hub"
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Snowbridge transfers arriving on Asset Hub will deposit both asset and fees to beneficiary so the fees will not get trapped. 
+      Another benefit is when fees left more than ED, could be used to create the beneficiary account in case it does not exist on asset hub.
+
+crates:
+  - name: snowbridge-router-primitives

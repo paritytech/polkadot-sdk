@@ -24,7 +24,7 @@ The command below allows building a Linux binary without having to even install 
 docker run --rm -it \
     -w /polkadot-sdk \
     -v $(pwd):/polkadot-sdk \
-    paritytech/ci-unified:bullseye-1.75.0-2024-01-22-v20240222 \
+    docker.io/paritytech/ci-unified:bullseye-1.77.0-2024-04-10-v20240408 \
     cargo build --release --locked -p polkadot-parachain-bin --bin polkadot-parachain
 sudo chown -R $(id -u):$(id -g) target/
 ```

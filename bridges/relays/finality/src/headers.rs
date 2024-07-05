@@ -16,10 +16,11 @@
 
 use crate::{
 	finality_loop::SyncInfo, finality_proofs::FinalityProofsBuf, Error, FinalitySyncPipeline,
-	SourceClient, SourceHeader, TargetClient,
+	HeadersToRelay, SourceClient, SourceHeader, TargetClient,
 };
 
 use bp_header_chain::FinalityProof;
+use num_traits::Saturating;
 use std::cmp::Ordering;
 
 /// Unjustified headers container. Ordered by header number.
@@ -50,9 +51,13 @@ pub enum JustifiedHeaderSelector<P: FinalitySyncPipeline> {
 }
 
 impl<P: FinalitySyncPipeline> JustifiedHeaderSelector<P> {
+	/// Selects last header with persistent justification, missing from the target and matching
+	/// the `headers_to_relay` criteria.
 	pub(crate) async fn new<SC: SourceClient<P>, TC: TargetClient<P>>(
 		source_client: &SC,
 		info: &SyncInfo<P>,
+		headers_to_relay: HeadersToRelay,
+		free_headers_interval: Option<P::Number>,
 	) -> Result<Self, Error<P, SC::Error, TC::Error>> {
 		let mut unjustified_headers = Vec::new();
 		let mut maybe_justified_header = None;
@@ -70,12 +75,19 @@ impl<P: FinalitySyncPipeline> JustifiedHeaderSelector<P> {
 					return Ok(Self::Mandatory(JustifiedHeader { header, proof }))
 				},
 				(true, None) => return Err(Error::MissingMandatoryFinalityProof(header.number())),
-				(false, Some(proof)) => {
+				(false, Some(proof))
+					if need_to_relay::<P>(
+						info,
+						headers_to_relay,
+						free_headers_interval,
+						&header,
+					) =>
+				{
 					log::trace!(target: "bridge", "Header {:?} has persistent finality proof", header_number);
 					unjustified_headers.clear();
 					maybe_justified_header = Some(JustifiedHeader { header, proof });
 				},
-				(false, None) => {
+				_ => {
 					unjustified_headers.push(header);
 				},
 			}
@@ -97,6 +109,7 @@ impl<P: FinalitySyncPipeline> JustifiedHeaderSelector<P> {
 		})
 	}
 
+	/// Returns selected mandatory header if we have seen one. Otherwise returns `None`.
 	pub fn select_mandatory(self) -> Option<JustifiedHeader<P>> {
 		match self {
 			JustifiedHeaderSelector::Mandatory(header) => Some(header),
@@ -104,7 +117,15 @@ impl<P: FinalitySyncPipeline> JustifiedHeaderSelector<P> {
 		}
 	}
 
-	pub fn select(self, buf: &FinalityProofsBuf<P>) -> Option<JustifiedHeader<P>> {
+	/// Tries to improve previously selected header using ephemeral
+	/// justifications stream.
+	pub fn select(
+		self,
+		info: &SyncInfo<P>,
+		headers_to_relay: HeadersToRelay,
+		free_headers_interval: Option<P::Number>,
+		buf: &FinalityProofsBuf<P>,
+	) -> Option<JustifiedHeader<P>> {
 		let (unjustified_headers, maybe_justified_header) = match self {
 			JustifiedHeaderSelector::Mandatory(justified_header) => return Some(justified_header),
 			JustifiedHeaderSelector::Regular(unjustified_headers, justified_header) =>
@@ -122,7 +143,14 @@ impl<P: FinalitySyncPipeline> JustifiedHeaderSelector<P> {
 			(maybe_finality_proof, maybe_unjustified_header)
 		{
 			match finality_proof.target_header_number().cmp(&unjustified_header.number()) {
-				Ordering::Equal => {
+				Ordering::Equal
+					if need_to_relay::<P>(
+						info,
+						headers_to_relay,
+						free_headers_interval,
+						&unjustified_header,
+					) =>
+				{
 					log::trace!(
 						target: "bridge",
 						"Managed to improve selected {} finality proof {:?} to {:?}.",
@@ -134,6 +162,10 @@ impl<P: FinalitySyncPipeline> JustifiedHeaderSelector<P> {
 						header: unjustified_header.clone(),
 						proof: finality_proof.clone(),
 					})
+				},
+				Ordering::Equal => {
+					maybe_finality_proof = finality_proofs_iter.next();
+					maybe_unjustified_header = unjustified_headers_iter.next();
 				},
 				Ordering::Less => maybe_unjustified_header = unjustified_headers_iter.next(),
 				Ordering::Greater => {
@@ -152,6 +184,27 @@ impl<P: FinalitySyncPipeline> JustifiedHeaderSelector<P> {
 	}
 }
 
+/// Returns true if we want to relay header `header_number`.
+fn need_to_relay<P: FinalitySyncPipeline>(
+	info: &SyncInfo<P>,
+	headers_to_relay: HeadersToRelay,
+	free_headers_interval: Option<P::Number>,
+	header: &P::Header,
+) -> bool {
+	match headers_to_relay {
+		HeadersToRelay::All => true,
+		HeadersToRelay::Mandatory => header.is_mandatory(),
+		HeadersToRelay::Free =>
+			header.is_mandatory() ||
+				free_headers_interval
+					.map(|free_headers_interval| {
+						header.number().saturating_sub(info.best_number_at_target) >=
+							free_headers_interval
+					})
+					.unwrap_or(false),
+	}
+}
+
 #[cfg(test)]
 mod tests {
 	use super::*;
@@ -159,13 +212,22 @@ mod tests {
 
 	#[test]
 	fn select_better_recent_finality_proof_works() {
+		let info = SyncInfo {
+			best_number_at_source: 10,
+			best_number_at_target: 5,
+			is_using_same_fork: true,
+		};
+
 		// if there are no unjustified headers, nothing is changed
 		let finality_proofs_buf =
 			FinalityProofsBuf::<TestFinalitySyncPipeline>::new(vec![TestFinalityProof(5)]);
 		let justified_header =
 			JustifiedHeader { header: TestSourceHeader(false, 2, 2), proof: TestFinalityProof(2) };
 		let selector = JustifiedHeaderSelector::Regular(vec![], justified_header.clone());
-		assert_eq!(selector.select(&finality_proofs_buf), Some(justified_header));
+		assert_eq!(
+			selector.select(&info, HeadersToRelay::All, None, &finality_proofs_buf),
+			Some(justified_header)
+		);
 
 		// if there are no buffered finality proofs, nothing is changed
 		let finality_proofs_buf = FinalityProofsBuf::<TestFinalitySyncPipeline>::new(vec![]);
@@ -175,7 +237,10 @@ mod tests {
 			vec![TestSourceHeader(false, 5, 5)],
 			justified_header.clone(),
 		);
-		assert_eq!(selector.select(&finality_proofs_buf), Some(justified_header));
+		assert_eq!(
+			selector.select(&info, HeadersToRelay::All, None, &finality_proofs_buf),
+			Some(justified_header)
+		);
 
 		// if there's no intersection between recent finality proofs and unjustified headers,
 		// nothing is changed
@@ -189,7 +254,10 @@ mod tests {
 			vec![TestSourceHeader(false, 9, 9), TestSourceHeader(false, 10, 10)],
 			justified_header.clone(),
 		);
-		assert_eq!(selector.select(&finality_proofs_buf), Some(justified_header));
+		assert_eq!(
+			selector.select(&info, HeadersToRelay::All, None, &finality_proofs_buf),
+			Some(justified_header)
+		);
 
 		// if there's intersection between recent finality proofs and unjustified headers, but there
 		// are no proofs in this intersection, nothing is changed
@@ -207,7 +275,10 @@ mod tests {
 			],
 			justified_header.clone(),
 		);
-		assert_eq!(selector.select(&finality_proofs_buf), Some(justified_header));
+		assert_eq!(
+			selector.select(&info, HeadersToRelay::All, None, &finality_proofs_buf),
+			Some(justified_header)
+		);
 
 		// if there's intersection between recent finality proofs and unjustified headers and
 		// there's a proof in this intersection:
@@ -228,10 +299,62 @@ mod tests {
 			justified_header,
 		);
 		assert_eq!(
-			selector.select(&finality_proofs_buf),
+			selector.select(&info, HeadersToRelay::All, None, &finality_proofs_buf),
 			Some(JustifiedHeader {
 				header: TestSourceHeader(false, 9, 9),
 				proof: TestFinalityProof(9)
+			})
+		);
+
+		// when only free headers needs to be relayed and there are no free headers
+		let finality_proofs_buf = FinalityProofsBuf::<TestFinalitySyncPipeline>::new(vec![
+			TestFinalityProof(7),
+			TestFinalityProof(9),
+		]);
+		let selector = JustifiedHeaderSelector::None(vec![
+			TestSourceHeader(false, 8, 8),
+			TestSourceHeader(false, 9, 9),
+			TestSourceHeader(false, 10, 10),
+		]);
+		assert_eq!(
+			selector.select(&info, HeadersToRelay::Free, Some(7), &finality_proofs_buf),
+			None,
+		);
+
+		// when only free headers needs to be relayed, mandatory header may be selected
+		let finality_proofs_buf = FinalityProofsBuf::<TestFinalitySyncPipeline>::new(vec![
+			TestFinalityProof(6),
+			TestFinalityProof(9),
+		]);
+		let selector = JustifiedHeaderSelector::None(vec![
+			TestSourceHeader(false, 8, 8),
+			TestSourceHeader(true, 9, 9),
+			TestSourceHeader(false, 10, 10),
+		]);
+		assert_eq!(
+			selector.select(&info, HeadersToRelay::Free, Some(7), &finality_proofs_buf),
+			Some(JustifiedHeader {
+				header: TestSourceHeader(true, 9, 9),
+				proof: TestFinalityProof(9)
+			})
+		);
+
+		// when only free headers needs to be relayed and there is free header
+		let finality_proofs_buf = FinalityProofsBuf::<TestFinalitySyncPipeline>::new(vec![
+			TestFinalityProof(7),
+			TestFinalityProof(9),
+			TestFinalityProof(14),
+		]);
+		let selector = JustifiedHeaderSelector::None(vec![
+			TestSourceHeader(false, 7, 7),
+			TestSourceHeader(false, 10, 10),
+			TestSourceHeader(false, 14, 14),
+		]);
+		assert_eq!(
+			selector.select(&info, HeadersToRelay::Free, Some(7), &finality_proofs_buf),
+			Some(JustifiedHeader {
+				header: TestSourceHeader(false, 14, 14),
+				proof: TestFinalityProof(14)
 			})
 		);
 	}

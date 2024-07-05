@@ -74,7 +74,9 @@ mod imports {
 		LocalReservableFromAssetHub as PenpalLocalReservableFromAssetHub,
 		LocalTeleportableToAssetHub as PenpalLocalTeleportableToAssetHub,
 	};
-	pub use westend_runtime::xcm_config::XcmConfig as WestendXcmConfig;
+	pub use westend_runtime::xcm_config::{
+		UniversalLocation as WestendUniversalLocation, XcmConfig as WestendXcmConfig,
+	};
 
 	pub const ASSET_ID: u32 = 3;
 	pub const ASSET_MIN_BALANCE: u128 = 1000;
@@ -87,6 +89,7 @@ mod imports {
 	pub type ParaToSystemParaTest = Test<PenpalA, AssetHubWestend>;
 	pub type ParaToParaThroughRelayTest = Test<PenpalA, PenpalB, Westend>;
 	pub type ParaToParaThroughAHTest = Test<PenpalA, PenpalB, AssetHubWestend>;
+	pub type RelayToParaThroughAHTest = Test<Westend, PenpalA, AssetHubWestend>;
 }
 
 #[cfg(test)]

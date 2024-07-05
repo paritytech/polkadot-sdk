@@ -71,6 +71,7 @@ pub trait SubmitParachainHeadsCallBuilder<P: SubstrateParachainsPipeline>:
 		at_relay_block: HeaderIdOf<P::SourceRelayChain>,
 		parachains: Vec<(ParaId, ParaHash)>,
 		parachain_heads_proof: ParaHeadsProof,
+		is_free_execution_expected: bool,
 	) -> CallOf<P::TargetChain>;
 }
 
@@ -97,6 +98,7 @@ where
 		at_relay_block: HeaderIdOf<P::SourceRelayChain>,
 		parachains: Vec<(ParaId, ParaHash)>,
 		parachain_heads_proof: ParaHeadsProof,
+		_is_free_execution_expected: bool,
 	) -> CallOf<P::TargetChain> {
 		BridgeParachainsCall::<R, I>::submit_parachain_heads {
 			at_relay_block: (at_relay_block.0, at_relay_block.1),

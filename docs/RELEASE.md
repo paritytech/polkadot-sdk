@@ -45,7 +45,7 @@ variable.
 
 ## Westend & Rococo
 
-For the these networks, in addition to incrementing the `Cargo.toml` version we also increment the `spec_version` and
+For these networks, in addition to incrementing the `Cargo.toml` version we also increment the `spec_version` and
 sometimes the `transaction_version`. The spec version is also following the node version. Its schema is: `M_mmm_ppp` and
 for example `1_002_000` is the node release `1.2.0`. This versioning has no further meaning, and is only done to map
 from an on chain `spec_version` easily to the release in this repository.  

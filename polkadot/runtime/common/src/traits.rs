@@ -20,7 +20,7 @@ use frame_support::{
 	dispatch::DispatchResult,
 	traits::{Currency, ReservableCurrency},
 };
-use primitives::{HeadData, Id as ParaId, ValidationCode};
+use polkadot_primitives::{HeadData, Id as ParaId, ValidationCode};
 use sp_std::vec::*;
 
 /// Parachain registration API.
@@ -56,7 +56,7 @@ pub trait Registrar {
 	/// Remove any lock on the para registration.
 	fn remove_lock(id: ParaId);
 
-	/// Register a Para ID under control of `who`. Registration may be be
+	/// Register a Para ID under control of `who`. Registration may be
 	/// delayed by session rotation.
 	fn register(
 		who: Self::AccountId,
