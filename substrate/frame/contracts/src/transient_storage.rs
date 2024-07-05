@@ -83,7 +83,8 @@ impl<T: Config> StorageMeter<T> {
 	/// Revert a transaction meter.
 	fn revert(&mut self) {
 		self.nested_meters.pop().expect(
-			"A call to revert a meter must be preceded by a corresponding call to start a meter.",
+			"A call to revert a meter must be preceded by a corresponding call to start a meter;
+			the code within this crate makes sure that this is always the case; qed",
 		);
 	}
 
@@ -105,7 +106,8 @@ impl<T: Config> StorageMeter<T> {
 	/// Commit a transaction meter.
 	fn commit(&mut self) {
 		let transaction_meter = self.nested_meters.pop().expect(
-			"A call to commit a meter must be preceded by a corresponding call to start a meter.",
+			"A call to commit a meter must be preceded by a corresponding call to start a meter;
+			the code within this crate makes sure that this is always the case; qed",
 		);
 		self.current_mut().absorb(transaction_meter)
 	}
@@ -296,7 +298,10 @@ impl<T: Config> TransientStorage<T> {
 		let checkpoint = self
 			.checkpoints
 			.pop()
-			.expect("A call to rollback_transaction must be preceded by a corresponding call to start_transaction.");
+			.expect(
+				"A call to rollback_transaction must be preceded by a corresponding call to start_transaction;
+				the code within this crate makes sure that this is always the case; qed"
+			);
 		self.meter.revert();
 		self.journal.rollback(&mut self.storage, checkpoint);
 	}
@@ -311,7 +316,10 @@ impl<T: Config> TransientStorage<T> {
 	pub fn commit_transaction(&mut self) {
 		self.checkpoints
 			.pop()
-			.expect("A call to commit_transaction must be preceded by a corresponding call to start_transaction.");
+			.expect(
+				"A call to commit_transaction must be preceded by a corresponding call to start_transaction;
+				the code within this crate makes sure that this is always the case; qed"
+			);
 		self.meter.commit();
 	}
 
