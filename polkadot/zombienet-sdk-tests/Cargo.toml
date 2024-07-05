@@ -25,4 +25,9 @@ serde_json = "1.0.114"
 parity-scale-codec = { version = "3.6.9", features = ["derive"] }
 
 [features]
-metadata = []
+zombie-metadata = []
+
+[build-dependencies]
+substrate-build-script-utils = { workspace = true, default-features = true }
+subwasmlib = {git = "https://github.com/chevdor/subwasm", rev = "v0.21.3" }
+md5 = "0.7"

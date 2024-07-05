@@ -494,7 +494,6 @@ async fn coretime_revenue_test() -> Result<(), anyhow::Error> {
 	// 	log::info!("RELAY EVENT {} :: {}", e.pallet_name(), e.variant_name());
 	// }
 
-	println!("a");
 
 	let order = r
 		.find_first::<rococo_api::on_demand_assignment_provider::events::OnDemandOrderPlaced>()?
@@ -577,10 +576,4 @@ async fn coretime_revenue_test() -> Result<(), anyhow::Error> {
 	log::info!("Test finished successfuly");
 
 	Ok(())
-}
-
-
-#[test]
-fn demo() {
-	assert!(true);
 }

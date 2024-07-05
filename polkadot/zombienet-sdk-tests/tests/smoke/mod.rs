@@ -1,3 +1,3 @@
 
-#[cfg(feature = "metadata")]
+#[cfg(feature = "zombie-metadata")]
 mod coretime_revenue;
