@@ -75,8 +75,11 @@ where
 		source: TransactionSource,
 		xts: impl IntoIterator<Item = Block::Extrinsic> + Clone,
 	) -> HashMap<Block::Hash, Vec<Result<ExtrinsicHash<ChainApi>, ChainApi::Error>>> {
+		log::debug!(target: LOG_TARGET, "vs::submit_at++ {}", line!());
 		let results = {
+			log::debug!(target: LOG_TARGET, "vs::submit_at+ {}", line!());
 			let views = self.views.read();
+			log::debug!(target: LOG_TARGET, "vs::submit_at- {}", line!());
 			let futs = views
 				.iter()
 				.map(|(_, view)| {
@@ -91,8 +94,10 @@ where
 				.collect::<Vec<_>>();
 			futs
 		};
+		log::debug!(target: LOG_TARGET, "vs::submit_at {}", line!());
 		let results = futures::future::join_all(results).await;
 
+		log::debug!(target: LOG_TARGET, "vs::submit_at-- {}", line!());
 		HashMap::<_, _>::from_iter(results.into_iter())
 	}
 
@@ -380,6 +385,7 @@ where
 	}
 
 	pub(crate) async fn finish_background_revalidations(&self) {
+		log::debug!(target:LOG_TARGET,"starting finish_background_revalidations");
 		let start = Instant::now();
 		let futures = {
 			let views = self.views.read();

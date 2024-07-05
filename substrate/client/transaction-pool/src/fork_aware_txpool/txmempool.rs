@@ -115,28 +115,38 @@ where
 	}
 
 	pub(super) fn watched_xts(&self) -> impl Iterator<Item = Block::Extrinsic> {
-		self.xts2
+		log::debug!(target: LOG_TARGET, "xxx+ xts {}", line!());
+		let r = self
+			.xts2
 			.read()
 			.values()
 			.filter_map(|x| x.is_watched().then(|| x.tx.clone()))
 			.collect::<Vec<_>>()
-			.into_iter()
+			.into_iter();
+		log::debug!(target: LOG_TARGET, "xxx- xts {}", line!());
+		r
 	}
 
 	pub(super) fn len(&self) -> (usize, usize) {
+		log::debug!(target: LOG_TARGET, "xxx+ xts {}", line!());
 		let xts = self.xts2.read();
-		let watched_count = self.xts2.read().values().filter(|x| x.is_watched()).count();
+		log::debug!(target: LOG_TARGET, "xxx- xts {}", line!());
+		let watched_count = xts.values().filter(|x| x.is_watched()).count();
 		(xts.len() - watched_count, watched_count)
 	}
 
 	pub(super) fn push_unwatched(&self, xt: Block::Extrinsic) {
 		let hash = self.api.hash_and_length(&xt).0;
 		let unwatched = Arc::from(TxInMemPool::unwatched(xt));
+		log::debug!(target: LOG_TARGET, "xxx+ xts {}", line!());
 		self.xts2.write().entry(hash).or_insert(unwatched);
+		log::debug!(target: LOG_TARGET, "xxx- xts {}", line!());
 	}
 
 	pub(super) fn extend_unwatched(&self, xts: Vec<Block::Extrinsic>) {
+		log::debug!(target: LOG_TARGET, "xxx+ xts {}", line!());
 		let mut xts2 = self.xts2.write();
+		log::debug!(target: LOG_TARGET, "xxx- xts {}", line!());
 		xts.into_iter().for_each(|xt| {
 			let hash = self.api.hash_and_length(&xt).0;
 			let unwatched = Arc::from(TxInMemPool::unwatched(xt));
@@ -147,23 +157,32 @@ where
 	pub(super) fn push_watched(&self, xt: Block::Extrinsic) {
 		let hash = self.api.hash_and_length(&xt).0;
 		let watched = Arc::from(TxInMemPool::watched(xt));
+		log::debug!(target: LOG_TARGET, "xxx+ xts {}", line!());
 		self.xts2.write().entry(hash).or_insert(watched);
+		log::debug!(target: LOG_TARGET, "xxx- xts {}", line!());
 	}
 
 	pub(super) fn clone_unwatched(&self) -> Vec<Block::Extrinsic> {
-		self.xts2
+		log::debug!(target: LOG_TARGET, "xxx+ xts {}", line!());
+		let r = self
+			.xts2
 			.read()
 			.values()
 			.filter_map(|x| (!x.is_watched()).then(|| x.tx.clone()))
-			.collect::<Vec<_>>()
+			.collect::<Vec<_>>();
+		log::debug!(target: LOG_TARGET, "xxx+ xts {}", line!());
+		r
 	}
 
 	pub(super) fn remove_watched(&self, xt: &Block::Extrinsic) {
+		log::debug!(target: LOG_TARGET, "xxx+ xts {}", line!());
 		self.xts2.write().retain(|_, t| t.tx != *xt);
+		log::debug!(target: LOG_TARGET, "xxx- xts {}", line!());
 	}
 
 	//returns vec of invalid hashes
 	async fn validate_array(&self, finalized_block: HashAndNumber<Block>) -> Vec<Block::Hash> {
+		log::debug!(target: LOG_TARGET, "validate_array at:{:?} {}", finalized_block, line!());
 		let count = self.xts2.read().len();
 		let start = Instant::now();
 
@@ -188,12 +207,14 @@ where
 			})
 			.take(1000);
 
+		log::debug!(target: LOG_TARGET, "validate_array {}", line!());
 		let futs = input.into_iter().map(|(xt_hash, xt)| {
 			self.api
 				.validate_transaction(finalized_block.hash, xt.source, xt.tx.clone())
 				.map(move |validation_result| (xt_hash, xt, validation_result))
 		});
 		let validation_results = futures::future::join_all(futs).await;
+		log::debug!(target: LOG_TARGET, "validate_array {}", line!());
 
 		let duration = start.elapsed();
 
@@ -233,12 +254,15 @@ where
 		log::info!(target: LOG_TARGET, "purge_finalized_transactions count:{:?}", finalized_xts.len());
 		log_xt_debug!(target: LOG_TARGET, finalized_xts, "[{:?}] purged finalized transactions");
 		self.xts2.write().retain(|hash, _| !finalized_xts.contains(&hash));
+		log::info!(target: LOG_TARGET, "purge_finalized_transactions done");
 	}
 
 	pub(super) async fn purge_transactions(&self, finalized_block: HashAndNumber<Block>) {
+		log::debug!(target: LOG_TARGET, "purge_transactions at:{:?}", finalized_block);
 		let invalid_hashes = self.validate_array(finalized_block.clone()).await;
 
 		self.xts2.write().retain(|hash, _| !invalid_hashes.contains(&hash));
 		self.listener.invalidate_transactions(invalid_hashes).await;
+		log::debug!(target: LOG_TARGET, "purge_transactions at:{:?} done", finalized_block);
 	}
 }

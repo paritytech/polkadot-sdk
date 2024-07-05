@@ -136,6 +136,10 @@ where
 				log::warn!(target: LOG_TARGET, "revalidation_queue::revalidate_later: Failed to update background worker: {:?}", e);
 			}
 		} else {
+			log::debug!(
+				target: LOG_TARGET,
+				"revalidation_queue::revalidate_later: no background worker...",
+			);
 			view.revalidate_later(finish_revalidation_worker_channels).await
 		}
 	}
@@ -164,6 +168,10 @@ where
 				log::warn!(target: LOG_TARGET, "Failed to update background worker: {:?}", e);
 			}
 		} else {
+			log::debug!(
+				target: LOG_TARGET,
+				"revalidation_queue::revalidate_later: no background worker...",
+			);
 			mempool.purge_transactions(finalized_hash).await
 		}
 	}
