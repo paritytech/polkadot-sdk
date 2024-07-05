@@ -15,8 +15,8 @@ futures = { workspace = true }
 futures-timer = { workspace = true }
 gum = { workspace = true, default-features = true }
 
-sp-keystore = { path = "../../../../substrate/primitives/keystore" }
-sp-application-crypto = { path = "../../../../substrate/primitives/application-crypto" }
+sp-keystore = { workspace = true }
+sp-application-crypto = { workspace = true }
 sp-maybe-compressed-blob = { workspace = true, default-features = true }
 codec = { features = ["bit-vec", "derive"], workspace = true }
 
