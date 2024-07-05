@@ -107,8 +107,9 @@ pub fn expand_event(def: &mut Def) -> proc_macro2::TokenStream {
 	let variants: Vec<proc_macro2::TokenStream> = event_item
 		.variants
 		.iter()
-		.filter_map(|x| {
-			let key = x.ident.to_string();
+		.enumerate()
+		.filter_map(|(index, x)| {
+			let key = index;
 			let deprecation_status =
 				crate::deprecation::get_deprecation(&quote::quote! {#frame_support}, &x.attrs)
 					.expect("Correctly parse deprecation attributes");

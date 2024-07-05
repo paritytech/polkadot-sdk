@@ -377,7 +377,7 @@ pub struct PalletEventMetadataIR<T: Form = MetaForm> {
 	/// Deprecation status of the event itself
 	pub deprecation_info: DeprecationStatus<T>,
 	/// Deprecation status of the variants
-	pub deprecated_variants: BTreeMap<T::String, DeprecationStatus<T>>,
+	pub deprecated_variants: BTreeMap<usize, DeprecationStatus<T>>,
 }
 
 impl IntoPortable for PalletEventMetadataIR {
@@ -390,9 +390,8 @@ impl IntoPortable for PalletEventMetadataIR {
 				.deprecated_variants
 				.into_iter()
 				.map(|(k, v)| {
-					let key = k.into_portable(registry);
 					let value = v.into_portable(registry);
-					(key, value)
+					(k, value)
 				})
 				.collect(),
 			deprecation_info: self.deprecation_info.into_portable(registry),
@@ -437,7 +436,7 @@ pub struct PalletErrorMetadataIR<T: Form = MetaForm> {
 	/// Deprecation status of the error itself
 	pub deprecation_info: DeprecationStatus<T>,
 	/// Deprecation status of the variants
-	pub deprecated_variants: BTreeMap<T::String, DeprecationStatus<T>>,
+	pub deprecated_variants: BTreeMap<usize, DeprecationStatus<T>>,
 }
 
 impl IntoPortable for PalletErrorMetadataIR {
@@ -450,9 +449,8 @@ impl IntoPortable for PalletErrorMetadataIR {
 				.deprecated_variants
 				.into_iter()
 				.map(|(k, v)| {
-					let key = k.into_portable(registry);
 					let value = v.into_portable(registry);
-					(key, value)
+					(k, value)
 				})
 				.collect(),
 			deprecation_info: self.deprecation_info.into_portable(registry),
