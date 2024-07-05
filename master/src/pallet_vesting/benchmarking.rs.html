@@ -593,7 +593,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>frame_system::{pallet_prelude::BlockNumberFor, Pallet <span class="kw">as </span>System, RawOrigin};
 <span class="kw">use </span>sp_runtime::traits::{Bounded, CheckedDiv, CheckedMul};
 
-<span class="kw">use super</span>::<span class="kw-2">*</span>;
+<span class="kw">use super</span>::{Vesting <span class="kw">as </span>VestingStorage, <span class="kw-2">*</span>};
 <span class="kw">use </span><span class="kw">crate</span>::Pallet <span class="kw">as </span>Vesting;
 
 <span class="kw">const </span>SEED: u32 = <span class="number">0</span>;
@@ -860,7 +860,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="string">"Vesting balance should equal sum locked of all schedules"</span>,
 		);
 		<span class="macro">assert_eq!</span>(
-			Vesting::&lt;T&gt;::vesting(<span class="kw-2">&amp;</span>caller).unwrap().len(),
+			VestingStorage::&lt;T&gt;::get(<span class="kw-2">&amp;</span>caller).unwrap().len(),
 			s <span class="kw">as </span>usize,
 			<span class="string">"There should be exactly max vesting schedules"
 		</span>);
@@ -873,7 +873,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		);
 		<span class="kw">let </span>expected_index = (s - <span class="number">2</span>) <span class="kw">as </span>usize;
 		<span class="macro">assert_eq!</span>(
-			Vesting::&lt;T&gt;::vesting(<span class="kw-2">&amp;</span>caller).unwrap()[expected_index],
+			VestingStorage::&lt;T&gt;::get(<span class="kw-2">&amp;</span>caller).unwrap()[expected_index],
 			expected_schedule
 		);
 		<span class="macro">assert_eq!</span>(
@@ -882,7 +882,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="string">"Vesting balance should equal total locked of all schedules"</span>,
 		);
 		<span class="macro">assert_eq!</span>(
-			Vesting::&lt;T&gt;::vesting(<span class="kw-2">&amp;</span>caller).unwrap().len(),
+			VestingStorage::&lt;T&gt;::get(<span class="kw-2">&amp;</span>caller).unwrap().len(),
 			(s - <span class="number">1</span>) <span class="kw">as </span>usize,
 			<span class="string">"Schedule count should reduce by 1"
 		</span>);
@@ -913,7 +913,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="string">"Vesting balance should reflect that we are half way through all schedules duration"</span>,
 		);
 		<span class="macro">assert_eq!</span>(
-			Vesting::&lt;T&gt;::vesting(<span class="kw-2">&amp;</span>caller).unwrap().len(),
+			VestingStorage::&lt;T&gt;::get(<span class="kw-2">&amp;</span>caller).unwrap().len(),
 			s <span class="kw">as </span>usize,
 			<span class="string">"There should be exactly max vesting schedules"
 		</span>);
@@ -928,12 +928,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		);
 		<span class="kw">let </span>expected_index = (s - <span class="number">2</span>) <span class="kw">as </span>usize;
 		<span class="macro">assert_eq!</span>(
-			Vesting::&lt;T&gt;::vesting(<span class="kw-2">&amp;</span>caller).unwrap()[expected_index],
+			VestingStorage::&lt;T&gt;::get(<span class="kw-2">&amp;</span>caller).unwrap()[expected_index],
 			expected_schedule,
 			<span class="string">"New schedule is properly created and placed"
 		</span>);
 		<span class="macro">assert_eq!</span>(
-			Vesting::&lt;T&gt;::vesting(<span class="kw-2">&amp;</span>caller).unwrap()[expected_index],
+			VestingStorage::&lt;T&gt;::get(<span class="kw-2">&amp;</span>caller).unwrap()[expected_index],
 			expected_schedule
 		);
 		<span class="macro">assert_eq!</span>(
@@ -942,7 +942,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="string">"Vesting balance should equal half total locked of all schedules"</span>,
 		);
 		<span class="macro">assert_eq!</span>(
-			Vesting::&lt;T&gt;::vesting(<span class="kw-2">&amp;</span>caller).unwrap().len(),
+			VestingStorage::&lt;T&gt;::get(<span class="kw-2">&amp;</span>caller).unwrap().len(),
 			(s - <span class="number">1</span>) <span class="kw">as </span>usize,
 			<span class="string">"Schedule count should reduce by 1"
 		</span>);
@@ -973,7 +973,7 @@ force_remove_vesting_schedule {
 	}: <span class="kw">_</span>(RawOrigin::Root, target_lookup, schedule_index)
 	verify {
 		<span class="macro">assert_eq!</span>(
-		Vesting::&lt;T&gt;::vesting(<span class="kw-2">&amp;</span>target).unwrap().len(),
+		VestingStorage::&lt;T&gt;::get(<span class="kw-2">&amp;</span>target).unwrap().len(),
 			schedule_index <span class="kw">as </span>usize,
 			<span class="string">"Schedule count should reduce by 1"
 		</span>);
