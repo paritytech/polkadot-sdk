@@ -28,18 +28,18 @@ doc:
 
 crates:
   - name: staging-xcm-executor
-    bump: major
+    bump: minor
   - name: asset-hub-westend-runtime
     bump: minor
   - name: asset-hub-rococo-runtime
     bump: minor
-  - name: bridge-hub-rococo-runtime
-    bump: minor
-  - name: people-rococo-runtime
-    bump: minor
   - name: penpal-runtime
-    bump: minor
+    bump: major
   - name: cumulus-primitives-utility
-    bump: minor
+    bump: patch
   - name: assets-common
+    bump: patch
+  - name: staging-xcm-builder
+    bump: minor
+  - name: pallet-asset-conversion
     bump: minor
