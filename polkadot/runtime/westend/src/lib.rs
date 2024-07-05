@@ -39,7 +39,6 @@ use frame_support::{
 use frame_system::{EnsureRoot, EnsureSigned};
 use pallet_grandpa::{fg_primitives, AuthorityId as GrandpaId};
 use pallet_identity::legacy::IdentityInfo;
-use pallet_nis::WithMaximumOf;
 use pallet_session::historical as session_historical;
 use pallet_transaction_payment::{FeeDetails, FungibleAdapter, RuntimeDispatchInfo};
 use polkadot_primitives::{
@@ -667,40 +666,6 @@ impl pallet_bags_list::Config<VoterBagsListInstance> for Runtime {
 	type Score = sp_npos_elections::VoteWeight;
 }
 
-// parameter_types! {
-// 	pub const NisBasePeriod: BlockNumber = 30 * DAYS;
-// 	pub MinReceipt: Perquintill = Perquintill::from_rational(1u64, 10_000_000u64);
-// 	pub const IntakePeriod: BlockNumber = 5 * MINUTES;
-// 	pub MaxIntakeWeight: Weight = MAXIMUM_BLOCK_WEIGHT / 10;
-// 	pub const ThawThrottle: (Perquintill, BlockNumber) = (Perquintill::from_percent(25), 5);
-// 	pub const NisPalletId: PalletId = PalletId(*b"py/nis  ");
-// }
-
-// impl pallet_nis::Config for Runtime {
-// 	type WeightInfo = weights::pallet_nis::WeightInfo<Runtime>;
-// 	type RuntimeEvent = RuntimeEvent;
-// 	type Currency = Balances;
-// 	type CurrencyBalance = Balance;
-// 	type FundOrigin = frame_system::EnsureSigned<AccountId>;
-// 	type Counterpart = NisCounterpartBalances;
-// 	type CounterpartAmount = WithMaximumOf<ConstU128<21_000_000_000_000_000_000u128>>;
-// 	type Deficit = (); // Mint
-// 	type IgnoredIssuance = ();
-// 	type Target = dynamic_params::nis::Target;
-// 	type PalletId = NisPalletId;
-// 	type QueueCount = ConstU32<300>;
-// 	type MaxQueueLen = ConstU32<1000>;
-// 	type FifoQueueLen = ConstU32<250>;
-// 	type BasePeriod = NisBasePeriod;
-// 	type MinBid = dynamic_params::nis::MinBid;
-// 	type MinReceipt = MinReceipt;
-// 	type IntakePeriod = IntakePeriod;
-// 	type MaxIntakeWeight = MaxIntakeWeight;
-// 	type ThawThrottle = ThawThrottle;
-// 	type RuntimeHoldReason = RuntimeHoldReason;
-// 	#[cfg(feature = "runtime-benchmarks")]
-// 	type BenchmarkSetup = ();
-// }
 
 pub struct EraPayout;
 impl pallet_staking::EraPayout<Balance> for EraPayout {
@@ -709,31 +674,19 @@ impl pallet_staking::EraPayout<Balance> for EraPayout {
 		_total_issuance: Balance,
 		era_duration_millis: u64,
 	) -> (Balance, Balance) {
-		let auctioned_slots: u64 = 0;
-		// TODO: figure out if using parachains here makes sense
-		// // all para-ids that are currently active.
-		// let auctioned_slots = Paras::parachains()
-		// 	.into_iter()
-		// 	// all active para-ids that do not belong to a system chain is the number
-		// 	// of parachains that we should take into account for inflation.
-		// 	.filter(|i| *i >= LOWEST_PUBLIC_ID)
-		// 	.count() as u64;
-		const MAX_ANNUAL_INFLATION: Perquintill = Perquintill::from_percent(10);
 		const MILLISECONDS_PER_YEAR: u64 = 1000 * 3600 * 24 * 36525 / 100;
 
 		let use_auctioned_slots = dynamic_params::inflation::UseAuctionSlots::get();
 		let params = EraPayoutParams {
 			total_staked,
-			// TODO: update this to use NIS issuance
-			total_stakable: 1,
-			// total_stakable: Nis::issuance().other,
+			total_stakable: Balances::total_issuance(),
 			ideal_stake: dynamic_params::inflation::IdealStake::get(),
 			max_annual_inflation: dynamic_params::inflation::MaxInflation::get(),
 			min_annual_inflation: dynamic_params::inflation::MinInflation::get(),
 			falloff: dynamic_params::inflation::Falloff::get(),
 			period_fraction: Perquintill::from_rational(era_duration_millis, MILLISECONDS_PER_YEAR),
 			legacy_auction_proportion: if use_auctioned_slots {
-				Some(Perquintill::from_rational(auctioned_slots.min(60), 200))
+				Some(Perquintill::from_rational(60u64, 200u64))
 			} else {
 				None
 			},
@@ -1612,11 +1565,6 @@ mod runtime {
 	pub type Historical = session_historical;
 	#[runtime::pallet_index(70)]
 	pub type Parameters = pallet_parameters;
-	// NIS pallet.
-	// #[runtime::pallet_index(71)]
-	// pub type Nis = pallet_nis;
-	// #[runtime::pallet_index(72)]
-	// pub type NisCounterpartBalances = pallet_balances::Instance2;
 
 	#[runtime::pallet_index(8)]
 	pub type Session = pallet_session;
