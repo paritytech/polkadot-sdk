@@ -18,6 +18,6 @@ crates:
   - name: pallet-contracts
     bump: major
   - name: pallet-contracts-uapi
-    bump: minor
+    bump: major
   - name: contracts-rococo-runtime
     bump: minor

@@ -1163,13 +1163,17 @@ mod benchmarks {
 		Ok(())
 	}
 
+	// We use both full and empty benchmarks here instead of benchmarking transient_storage
+	// (BTreeMap) directly. This approach is necessary because benchmarking this BTreeMap is very
+	// slow. Additionally, we use linear regression for our benchmarks, and the BTreeMap's log(n)
+	// complexity can introduce approximation errors.
 	#[benchmark(pov_mode = Ignored)]
 	fn set_transient_storage_empty() -> Result<(), BenchmarkError> {
 		let max_value_len = T::Schedule::get().limits.payload_len;
 		let max_key_len = T::MaxStorageKeyLen::get();
 		let key = Key::<T>::try_from_var(vec![0u8; max_key_len as usize])
 			.map_err(|_| "Key has wrong length")?;
-
+		let value = Some(vec![42u8; max_value_len as _]);
 		let mut setup = CallSetup::<T>::default();
 		let (mut ext, _) = setup.ext();
 		let mut runtime = crate::wasm::Runtime::new(&mut ext, vec![]);
@@ -1177,11 +1181,7 @@ mod benchmarks {
 		let result;
 		#[block]
 		{
-			result = runtime.ext().set_transient_storage(
-				&key,
-				Some(vec![42u8; max_value_len as _]),
-				false,
-			);
+			result = runtime.ext().set_transient_storage(&key, value, false);
 		}
 
 		assert_eq!(result, Ok(WriteOutcome::New));
@@ -1195,7 +1195,7 @@ mod benchmarks {
 		let max_key_len = T::MaxStorageKeyLen::get();
 		let key = Key::<T>::try_from_var(vec![0u8; max_key_len as usize])
 			.map_err(|_| "Key has wrong length")?;
-
+		let value = Some(vec![42u8; max_value_len as _]);
 		let mut setup = CallSetup::<T>::default();
 		let (mut ext, _) = setup.ext();
 		CallSetup::<T>::with_transient_storage(&mut ext, T::MaxTransientStorageSize::get())?;
@@ -1204,11 +1204,7 @@ mod benchmarks {
 		let result;
 		#[block]
 		{
-			result = runtime.ext().set_transient_storage(
-				&key,
-				Some(vec![42u8; max_value_len as _]),
-				false,
-			);
+			result = runtime.ext().set_transient_storage(&key, value, false);
 		}
 
 		assert_eq!(result, Ok(WriteOutcome::New));
