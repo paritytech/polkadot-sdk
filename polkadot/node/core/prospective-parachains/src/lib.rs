@@ -339,7 +339,7 @@ async fn handle_active_leaves_update<Context>(
 			}
 
 			// Finally, populate the fragment chain.
-			let chain = FragmentChain::populate(scope, &mut new_storage);
+			let chain = FragmentChain::populate(scope, new_storage);
 
 			gum::trace!(
 				target: LOG_TARGET,
