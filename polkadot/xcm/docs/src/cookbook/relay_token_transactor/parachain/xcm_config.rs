@@ -152,7 +152,7 @@ impl pallet_xcm::Config for Runtime {
 	// We turn off sending for these tests
 	type SendXcmOrigin = EnsureXcmOrigin<RuntimeOrigin, ()>;
 	type XcmRouter = super::super::network::ParachainXcmRouter<MessageQueue>; // Provided by xcm-simulator
-																		  // Anyone can execute XCM programs
+																		   // Anyone can execute XCM programs
 	type ExecuteXcmOrigin = EnsureXcmOrigin<RuntimeOrigin, LocalOriginToLocation>;
 	// We execute any type of program
 	type XcmExecuteFilter = Everything;
