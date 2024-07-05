@@ -165,29 +165,33 @@ where
 	//returns vec of invalid hashes
 	async fn validate_array(&self, finalized_block: HashAndNumber<Block>) -> Vec<Block::Hash> {
 		log::debug!(target: LOG_TARGET, "validate_array at:{:?} {}", finalized_block, line!());
-		let count = self.xts2.read().len();
 		let start = Instant::now();
 
-		let input = self
-			.xts2
-			.read()
-			.clone()
-			.into_iter()
-			.sorted_by(|a, b| {
-				Ord::cmp(
-					&a.1.validated_at.load(atomic::Ordering::Relaxed),
-					&b.1.validated_at.load(atomic::Ordering::Relaxed),
-				)
-			})
-			//todo: add const
-			//todo: add threshold (min revalidated, but older than e.g. 10 blocks)
-			//threshold ~~> finality period?
-			//count ~~> 25% of block?
-			.filter(|xt| {
-				let finalized_block_number = finalized_block.number.into().as_u64();
-				xt.1.validated_at.load(atomic::Ordering::Relaxed) + 10 < finalized_block_number
-			})
-			.take(1000);
+		let (count, input) = {
+			let xts2 = self.xts2.read();
+
+			(
+				xts2.len(),
+				xts2.clone()
+					.into_iter()
+					.sorted_by(|a, b| {
+						Ord::cmp(
+							&a.1.validated_at.load(atomic::Ordering::Relaxed),
+							&b.1.validated_at.load(atomic::Ordering::Relaxed),
+						)
+					})
+					//todo: add const
+					//todo: add threshold (min revalidated, but older than e.g. 10 blocks)
+					//threshold ~~> finality period?
+					//count ~~> 25% of block?
+					.filter(|xt| {
+						let finalized_block_number = finalized_block.number.into().as_u64();
+						xt.1.validated_at.load(atomic::Ordering::Relaxed) + 10 <
+							finalized_block_number
+					})
+					.take(1000),
+			)
+		};
 
 		log::debug!(target: LOG_TARGET, "validate_array {}", line!());
 		let futs = input.into_iter().map(|(xt_hash, xt)| {
