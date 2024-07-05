@@ -250,20 +250,7 @@ pub mod dynamic_params {
 
 	#[dynamic_pallet_params]
 	#[codec(index = 0)]
-	pub mod nis {
-		use super::*;
-
-		#[codec(index = 0)]
-		pub static Target: Perquintill = Perquintill::zero();
-
-		#[codec(index = 1)]
-		pub static MinBid: Balance = 100 * UNITS;
-	}
-
-	#[dynamic_pallet_params]
-	#[codec(index = 1)]
 	pub mod inflation {
-		// TODO: should these values be updated to match the new inflation pallet?
 		#[codec(index = 0)]
 		pub static MinInflation: Perquintill = Perquintill::from_rational(25u64, 1000u64);
 
@@ -276,7 +263,6 @@ pub mod dynamic_params {
 		#[codec(index = 3)]
 		pub static Falloff: Perquintill = Perquintill::from_rational(50u64, 1000u64);
 
-		// TODO: what should be the default here?
 		#[codec(index = 4)]
 		pub static UseAuctionSlots: bool = false;
 	}
@@ -288,6 +274,7 @@ impl pallet_parameters::Config for Runtime {
 	type AdminOrigin = DynamicParameterOrigin;
 	// TODO: add benchmarking and update weight info
 	type WeightInfo = ();
+	// type WeightInfo = weights::pallet_parameters::WeightInfo<Runtime>;
 }
 
 /// Defines what origin can modify which dynamic parameters.
@@ -300,11 +287,8 @@ impl EnsureOriginWithArg<RuntimeOrigin, RuntimeParametersKey> for DynamicParamet
 		key: &RuntimeParametersKey,
 	) -> Result<Self::Success, RuntimeOrigin> {
 		use crate::{dynamic_params::*, governance::*, RuntimeParametersKey::*};
-		// TODO: update to correct origin
 
 		match key {
-			Nis(nis::ParametersKey::MinBid(_)) => StakingAdmin::ensure_origin(origin.clone()),
-			Nis(nis::ParametersKey::Target(_)) => GeneralAdmin::ensure_origin(origin.clone()),
 			Inflation(_) => frame_system::ensure_root(origin.clone()),
 		}
 		.map_err(|_| origin)
@@ -1845,6 +1829,7 @@ mod benches {
 		[pallet_multisig, Multisig]
 		[pallet_nomination_pools, NominationPoolsBench::<Runtime>]
 		[pallet_offences, OffencesBench::<Runtime>]
+		[pallet_parameters, Parameters]
 		[pallet_preimage, Preimage]
 		[pallet_proxy, Proxy]
 		[pallet_recovery, Recovery]
