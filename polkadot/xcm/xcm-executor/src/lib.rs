@@ -460,6 +460,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 			self.fees_mode,
 			reason,
 		);
+		// We only ever use the first asset from `fees`.
 		let asset_needed_for_fees = match fees.get(0) {
 			Some(fee) => fee,
 			None => return Ok(()), // No delivery fees need to be paid.
@@ -492,7 +493,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 			asset_needed_for_fees.clone()
 		};
 		log::trace!(target: "xcm::fees", "Actual asset for fees: {:?}", asset_to_pay_for_fees);
-		let paid = if self.fees_mode.jit_withdraw {
+		let assets_to_swap = if self.fees_mode.jit_withdraw {
 			let origin = self.origin_ref().ok_or(XcmError::BadOrigin)?;
 			Config::AssetTransactor::withdraw_asset(
 				&asset_to_pay_for_fees,
@@ -500,56 +501,37 @@ impl<Config: config::Config> XcmExecutor<Config> {
 				Some(&self.context),
 			)?;
 			log::trace!(target: "xcm::fees", "Asset needed for fees: {:?}", asset_needed_for_fees);
-			if asset_to_pay_for_fees.id != asset_needed_for_fees.id {
-				// TODO: This should be only one asset.
-				let swapped_asset: Assets = Config::AssetExchanger::exchange_asset(
-					self.origin_ref(),
-					asset_to_pay_for_fees.into(),
-					&asset_needed_for_fees.clone().into(),
-					false,
-				)
-				.map_err(|given_assets| {
-					log::error!(
-						target: "xcm::fees",
-						"Swap was deemed necessary but couldn't be done. Given assets: {:?}.",
-						given_assets,
-					);
-					XcmError::FeesNotMet
-				})?
-				.into();
-				swapped_asset
-			} else {
-				vec![asset_to_pay_for_fees].into()
-			}
+			asset_to_pay_for_fees.clone().into()
 		} else {
 			let assets = self
 				.holding
 				.try_take(asset_to_pay_for_fees.clone().into())
 				.map_err(|_| XcmError::NotHoldingFees)?;
 			log::trace!(target: "xcm::fees", "Assets taken from holding to pay transport fee: {:?}", assets);
-			// TODO: This should be only one asset.
-			if asset_to_pay_for_fees.id != asset_needed_for_fees.id {
-				let swapped_asset: Assets = Config::AssetExchanger::exchange_asset(
-					self.origin_ref(),
-					assets,
-					&asset_needed_for_fees.clone().into(),
-					false,
-				)
-				.map_err(|given_assets| {
-					log::error!(
-						target: "xcm::fees",
-						"Swap was deemed necessary but couldn't be done. Given assets: {:?}.",
-						given_assets,
-					);
-					XcmError::FeesNotMet
-				})?
-				.into();
-				swapped_asset
-			} else {
-				vec![asset_to_pay_for_fees].into()
-			}
+			let mut iter = assets.fungible_assets_iter();
+			let asset = iter.next().ok_or(XcmError::NotHoldingFees)?;
+			asset.into()
 		};
-		// TODO: There should be a way to remove the swap duplication.
+		let paid = if asset_to_pay_for_fees.id != asset_needed_for_fees.id {
+			let swapped_asset: Assets = Config::AssetExchanger::exchange_asset(
+				self.origin_ref(),
+				assets_to_swap,
+				&asset_needed_for_fees.clone().into(),
+				false,
+			)
+			.map_err(|given_assets| {
+				log::error!(
+					target: "xcm::fees",
+					"Swap was deemed necessary but couldn't be done. Given assets: {:?}.",
+					given_assets,
+				);
+				XcmError::FeesNotMet
+			})?
+			.into();
+			swapped_asset
+		} else {
+			vec![asset_to_pay_for_fees].into()
+		};
 		Config::FeeManager::handle_fee(paid, Some(&self.context), reason);
 		Ok(())
 	}
