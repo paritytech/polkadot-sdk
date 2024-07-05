@@ -806,7 +806,6 @@ name = "asset-hub-rococo-integration-tests"
 version = "1.0.0"
 dependencies = [
  "assert_matches",
- "asset-hub-rococo-runtime",
  "asset-test-utils",
  "cumulus-pallet-parachain-system",
  "emulated-integration-tests-common",
@@ -820,9 +819,7 @@ dependencies = [
  "pallet-xcm",
  "parachains-common",
  "parity-scale-codec",
- "penpal-runtime",
  "polkadot-runtime-common",
- "rococo-runtime",
  "rococo-runtime-constants",
  "rococo-system-emulated-network",
  "sp-runtime 31.0.1",
@@ -934,7 +931,6 @@ name = "asset-hub-westend-integration-tests"
 version = "1.0.0"
 dependencies = [
  "assert_matches",
- "asset-hub-westend-runtime",
  "asset-test-utils",
  "cumulus-pallet-parachain-system",
  "cumulus-pallet-xcmp-queue",
@@ -952,14 +948,12 @@ dependencies = [
  "pallet-xcm",
  "parachains-common",
  "parity-scale-codec",
- "penpal-runtime",
  "polkadot-runtime-common",
  "sp-core 28.0.0",
  "sp-keyring",
  "sp-runtime 31.0.1",
  "staging-xcm",
  "staging-xcm-executor",
- "westend-runtime",
  "westend-system-emulated-network",
  "xcm-runtime-apis",
 ]
@@ -2156,8 +2150,6 @@ dependencies = [
 name = "bridge-hub-rococo-integration-tests"
 version = "1.0.0"
 dependencies = [
- "asset-hub-rococo-runtime",
- "bridge-hub-rococo-runtime",
  "cumulus-pallet-xcmp-queue",
  "emulated-integration-tests-common",
  "frame-support",
@@ -2341,10 +2333,10 @@ dependencies = [
 name = "bridge-hub-westend-integration-tests"
 version = "1.0.0"
 dependencies = [
- "bridge-hub-westend-runtime",
  "cumulus-pallet-xcmp-queue",
  "emulated-integration-tests-common",
  "frame-support",
+ "hex-literal",
  "pallet-asset-conversion",
  "pallet-assets",
  "pallet-balances",
@@ -3022,8 +3014,6 @@ name = "collectives-westend-integration-tests"
 version = "1.0.0"
 dependencies = [
  "assert_matches",
- "asset-hub-westend-runtime",
- "collectives-westend-runtime",
  "cumulus-pallet-parachain-system",
  "cumulus-pallet-xcmp-queue",
  "emulated-integration-tests-common",
@@ -3042,7 +3032,6 @@ dependencies = [
  "staging-xcm",
  "staging-xcm-executor",
  "testnet-parachains-constants",
- "westend-runtime",
  "westend-runtime-constants",
  "westend-system-emulated-network",
 ]
@@ -3468,6 +3457,7 @@ dependencies = [
  "cumulus-primitives-utility",
  "frame-benchmarking",
  "frame-executive",
+ "frame-metadata-hash-extension",
  "frame-support",
  "frame-system",
  "frame-system-benchmarking",
@@ -3534,6 +3524,7 @@ dependencies = [
  "cumulus-primitives-utility",
  "frame-benchmarking",
  "frame-executive",
+ "frame-metadata-hash-extension",
  "frame-support",
  "frame-system",
  "frame-system-benchmarking",
@@ -3944,6 +3935,7 @@ dependencies = [
  "sc-consensus-babe",
  "sc-consensus-slots",
  "sc-telemetry",
+ "sc-utils",
  "schnellru",
  "sp-api 26.0.0",
  "sp-application-crypto 30.0.0",
@@ -3958,6 +3950,7 @@ dependencies = [
  "sp-state-machine 0.35.0",
  "sp-timestamp",
  "substrate-prometheus-endpoint",
+ "tokio",
  "tracing",
 ]
 
@@ -4078,7 +4071,6 @@ dependencies = [
  "cumulus-test-relay-sproof-builder",
  "parity-scale-codec",
  "sc-client-api",
- "scale-info",
  "sp-api 26.0.0",
  "sp-crypto-hashing 0.1.0",
  "sp-inherents",
@@ -4505,15 +4497,8 @@ dependencies = [
  "cumulus-relay-chain-interface",
  "cumulus-relay-chain-rpc-interface",
  "futures",
- "parking_lot 0.12.3",
- "polkadot-availability-recovery",
- "polkadot-collator-protocol",
  "polkadot-core-primitives",
  "polkadot-network-bridge",
- "polkadot-node-collation-generation",
- "polkadot-node-core-chain-api",
- "polkadot-node-core-prospective-parachains",
- "polkadot-node-core-runtime-api",
  "polkadot-node-network-protocol",
  "polkadot-node-subsystem-util",
  "polkadot-overseer",
@@ -4707,7 +4692,6 @@ dependencies = [
  "polkadot-test-service",
  "portpicker",
  "rand",
- "rococo-parachain-runtime",
  "sc-basic-authorship",
  "sc-block-builder",
  "sc-chain-spec",
@@ -4732,7 +4716,6 @@ dependencies = [
  "sp-blockchain",
  "sp-consensus",
  "sp-consensus-aura",
- "sp-consensus-grandpa",
  "sp-core 28.0.0",
  "sp-io 30.0.0",
  "sp-keyring",
@@ -13311,9 +13294,7 @@ dependencies = [
  "pallet-message-queue",
  "parachains-common",
  "parity-scale-codec",
- "people-rococo-runtime",
  "polkadot-runtime-common",
- "rococo-runtime",
  "rococo-runtime-constants",
  "rococo-system-emulated-network",
  "sp-runtime 31.0.1",
@@ -13412,12 +13393,10 @@ dependencies = [
  "pallet-message-queue",
  "parachains-common",
  "parity-scale-codec",
- "people-westend-runtime",
  "polkadot-runtime-common",
  "sp-runtime 31.0.1",
  "staging-xcm",
  "staging-xcm-executor",
- "westend-runtime",
  "westend-runtime-constants",
  "westend-system-emulated-network",
 ]
@@ -14455,7 +14434,9 @@ dependencies = [
  "bs58 0.5.1",
  "futures",
  "futures-timer",
- "hyper 0.14.29",
+ "http-body-util",
+ "hyper 1.4.0",
+ "hyper-util",
  "log",
  "parity-scale-codec",
  "polkadot-primitives",
@@ -15367,6 +15348,8 @@ dependencies = [
  "frame-system",
  "kitchensink-runtime",
  "minimal-template-runtime",
+ "pallet-asset-conversion-tx-payment",
+ "pallet-asset-tx-payment",
  "pallet-assets",
  "pallet-aura",
  "pallet-authorship",
@@ -15385,6 +15368,7 @@ dependencies = [
  "pallet-proxy",
  "pallet-referenda",
  "pallet-scheduler",
+ "pallet-skip-feeless-payment",
  "pallet-timestamp",
  "pallet-transaction-payment",
  "pallet-uniques",
@@ -23542,7 +23526,9 @@ dependencies = [
 name = "substrate-prometheus-endpoint"
 version = "0.17.0"
 dependencies = [
- "hyper 0.14.29",
+ "http-body-util",
+ "hyper 1.4.0",
+ "hyper-util",
  "log",
  "prometheus",
  "thiserror",

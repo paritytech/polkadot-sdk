@@ -35,10 +35,21 @@ mod imports {
 	};
 	pub use parachains_common::Balance;
 	pub use westend_system_emulated_network::{
+		self,
 		people_westend_emulated_chain::{
-			genesis::ED as PEOPLE_WESTEND_ED, PeopleWestendParaPallet as PeopleWestendPallet,
+			genesis::ED as PEOPLE_WESTEND_ED,
+			people_westend_runtime::{people, xcm_config::XcmConfig as PeopleWestendXcmConfig},
+			PeopleWestendParaPallet as PeopleWestendPallet,
 		},
-		westend_emulated_chain::{genesis::ED as WESTEND_ED, WestendRelayPallet as WestendPallet},
+		westend_emulated_chain::{
+			genesis::ED as WESTEND_ED,
+			westend_runtime::{
+				xcm_config::XcmConfig as WestendXcmConfig, BasicDeposit, ByteDeposit,
+				MaxAdditionalFields, MaxSubAccounts, RuntimeOrigin as WestendOrigin,
+				SubAccountDeposit,
+			},
+			WestendRelayPallet as WestendPallet,
+		},
 		PeopleWestendPara as PeopleWestend, PeopleWestendParaReceiver as PeopleWestendReceiver,
 		PeopleWestendParaSender as PeopleWestendSender, WestendRelay as Westend,
 		WestendRelayReceiver as WestendReceiver, WestendRelaySender as WestendSender,
