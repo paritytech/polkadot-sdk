@@ -191,6 +191,7 @@ impl<Cursor, BlockNumber> From<ActiveCursor<Cursor, BlockNumber>>
 
 /// Points to the currently active migration and its inner cursor.
 #[derive(Debug, Clone, Eq, PartialEq, Encode, Decode, scale_info::TypeInfo, MaxEncodedLen)]
+#[cfg_attr(feature = "runtime-benchmarks", derive(Default))]
 pub struct ActiveCursor<Cursor, BlockNumber> {
 	/// The index of the migration in the MBM tuple.
 	pub index: u32,
@@ -212,6 +213,7 @@ impl<Cursor, BlockNumber> ActiveCursor<Cursor, BlockNumber> {
 		self.index.saturating_inc();
 		self.inner_cursor = None;
 		self.started_at = current_block;
+		self.took_steps = 0;
 	}
 }
 
@@ -610,7 +612,7 @@ impl<T: Config> Pallet<T> {
 		}
 
 		let migrations = T::Migrations::len();
-		log::debug!("Onboarding {migrations} new MBM migrations");
+		log::debug!("Onboarding {migrations} new MB migrations");
 
 		if migrations > 0 {
 			// Set the cursor to the first migration:
@@ -680,7 +682,7 @@ impl<T: Config> Pallet<T> {
 	/// - `ControlFlow::Continue`: Continue in the *current* block with the given cursor.
 	fn exec_migration(
 		mut cursor: ActiveCursorOf<T>,
-		is_first: bool,
+		mut is_first: bool,
 		meter: &mut WeightMeter,
 	) -> Option<ControlFlow<ActiveCursorOf<T>, ActiveCursorOf<T>>> {
 		// The differences between the single branches' weights is not that big. And since we do
@@ -732,8 +734,9 @@ impl<T: Config> Pallet<T> {
 				return None
 			};
 
-			let took_blocks = System::<T>::block_number().saturating_sub(cursor.started_at); // FAIL-CI add 1
-			let took_steps = cursor.took_steps.saturating_add(1);
+			let took_blocks = System::<T>::block_number().saturating_sub(cursor.started_at);
+			cursor.took_steps.saturating_inc();
+			let took_steps = cursor.took_steps;
 
 			match next_cursor {
 				Ok(Some(next_cursor)) => {
@@ -762,9 +765,7 @@ impl<T: Config> Pallet<T> {
 						Self::upgrade_failed(Some(cursor.index));
 						return None
 					} else {
-						// A migration cannot progress more than one step per block, we therefore
-						// break.
-						return Some(ControlFlow::Break(cursor))
+						// this is the only continue path
 					}
 				},
 				Ok(None) => {
@@ -788,6 +789,7 @@ impl<T: Config> Pallet<T> {
 						Self::upgrade_failed(Some(cursor.index));
 						return None
 					} else {
+						cursor.took_steps.saturating_dec();
 						// Retry and hope that there is more weight in the next block.
 						return Some(ControlFlow::Break(cursor))
 					}
@@ -802,6 +804,7 @@ impl<T: Config> Pallet<T> {
 					return None
 				},
 			}
+			is_first = false;
 		}
 	}
 

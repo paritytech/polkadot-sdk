@@ -472,7 +472,7 @@ pub trait FailedMigrationHandler {
 	/// Infallibly handle a failed runtime migration.
 	///
 	/// Gets passed in the optional index of the migration in the batch that caused the failure.
-	/// Returning `None` means that no automatic handling should take place and the callee decides
+	/// Returning `Ignore` means that no automatic handling should take place and the callee decides
 	/// in the implementation what to do.
 	fn failed(migration: Option<u32>) -> FailedMigrationHandling;
 }

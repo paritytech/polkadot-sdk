@@ -47,13 +47,15 @@ pub enum MockedMigrationKind {
 use MockedMigrationKind::*; // C style
 
 /// Creates a migration identifier with a specific `kind` and `steps`.
-pub fn mocked_id(kind: MockedMigrationKind, steps: u32) -> MockedIdentifier {
-	(b"MockedMigration", kind, steps).encode().try_into().unwrap()
+pub fn mocked_id(kind: MockedMigrationKind, max_blocks: u32, max_steps: u32) -> MockedIdentifier {
+	(b"MockedMigration", kind, max_blocks, max_steps).encode().try_into().unwrap()
 }
 
 frame_support::parameter_types! {
 	/// The configs for the migrations to run.
-	storage MIGRATIONS: Vec<(MockedMigrationKind, u32)> = vec![];
+	storage MIGRATIONS: Vec<(MockedMigrationKind, u32, u32)> = vec![];
+	/// Weight for a single step of a mocked migration.
+	storage MockedStepWeight: Weight = Weight::zero();
 }
 
 /// Allows to set the migrations to run at runtime instead of compile-time.
@@ -67,35 +69,53 @@ impl SteppedMigrations for MockedMigrations {
 
 	fn nth_id(n: u32) -> Option<Vec<u8>> {
 		let k = MIGRATIONS::get().get(n as usize).copied();
-		k.map(|(kind, steps)| mocked_id(kind, steps).into_inner())
+		k.map(|(kind, max_blocks, max_steps)| mocked_id(kind, max_blocks, max_steps).into_inner())
 	}
 
 	fn nth_step(
 		n: u32,
 		cursor: Option<Vec<u8>>,
-		_meter: &mut WeightMeter,
+		meter: &mut WeightMeter,
 	) -> Option<Result<Option<Vec<u8>>, SteppedMigrationError>> {
-		let (kind, steps) = MIGRATIONS::get()[n as usize];
+		if meter.try_consume(MockedStepWeight::get()).is_err() {
+			return Some(Err(SteppedMigrationError::InsufficientWeight {
+				required: MockedStepWeight::get(),
+			}))
+		}
+		let (kind, max_blocks, max_steps) = MIGRATIONS::get()[n as usize];
 
-		let mut count: u32 =
-			cursor.as_ref().and_then(|c| Decode::decode(&mut &c[..]).ok()).unwrap_or(0);
-		log::debug!("MockedMigration: Step {count} vs max {steps}");
-		if count != steps || matches!(kind, TimeoutAfter) {
-			count += 1;
-			return Some(Ok(Some(count.encode())))
+		let (mut took_steps, mut took_blocks): (u32, u32) = cursor
+			.as_ref()
+			.and_then(|c| Decode::decode(&mut &c[..]).ok())
+			.unwrap_or_default();
+		took_steps += 1;
+		took_blocks += 1;
+		log::debug!(
+			"MockedMigration: Steps {:?} vs max {:?}",
+			(took_blocks, took_steps),
+			(max_blocks, max_steps)
+		);
+		if (took_steps < max_steps && took_blocks < max_blocks) || matches!(kind, TimeoutAfter) {
+			return Some(Ok(Some((took_blocks, took_steps).encode())))
 		}
 
 		Some(match kind {
 			SucceedAfter => {
-				log::debug!("MockedMigration: Succeeded after {} steps", count);
+				log::debug!(
+					"MockedMigration: Succeeded after {:?} steps",
+					(took_blocks, took_steps)
+				);
 				Ok(None)
 			},
 			HighWeightAfter(required) => {
-				log::debug!("MockedMigration: Not enough weight after {} steps", count);
+				log::debug!(
+					"MockedMigration: Not enough weight after {:?} steps",
+					(took_blocks, took_steps)
+				);
 				Err(SteppedMigrationError::InsufficientWeight { required })
 			},
 			FailAfter => {
-				log::debug!("MockedMigration: Failed after {} steps", count);
+				log::debug!("MockedMigration: Failed after {:?} steps", (took_blocks, took_steps));
 				Err(SteppedMigrationError::Failed)
 			},
 			TimeoutAfter => unreachable!(),
@@ -111,12 +131,15 @@ impl SteppedMigrations for MockedMigrations {
 		Self::nth_step(n, cursor, meter)
 	}
 
-	fn nth_max_steps(_n: u32) -> Option<Option<u32>> {
-		Some(None) // FAIL-CI
+	fn nth_max_steps(n: u32) -> Option<Option<u32>> {
+		MIGRATIONS::get().get(n as usize).map(|(_, _, s)| {
+			debug_assert!(*s > 0, "MockedMigration: nth_max_steps should be > 0");
+			Some(*s)
+		})
 	}
 
 	fn nth_max_blocks(n: u32) -> Option<Option<u32>> {
-		MIGRATIONS::get().get(n as usize).map(|(_, s)| Some(*s))
+		MIGRATIONS::get().get(n as usize).map(|(_, s, _)| Some(*s))
 	}
 
 	fn cursor_max_encoded_len() -> usize {
@@ -130,17 +153,21 @@ impl SteppedMigrations for MockedMigrations {
 
 impl MockedMigrations {
 	/// Set the migrations to run.
-	pub fn set(migrations: Vec<(MockedMigrationKind, u32)>) {
+	pub fn set(migrations: Vec<(MockedMigrationKind, u32, u32)>) {
 		MIGRATIONS::set(&migrations);
+	}
+
+	pub fn set_step_weight(weight: Weight) {
+		MockedStepWeight::set(&weight);
 	}
 }
 
 impl crate::MockedMigrations for MockedMigrations {
-	fn set_fail_after(steps: u32) {
-		MIGRATIONS::set(&vec![(FailAfter, steps)]);
+	fn set_fail_after(max_steps: u32) {
+		MIGRATIONS::set(&vec![(FailAfter, u32::MAX, max_steps)]);
 	}
 
-	fn set_success_after(steps: u32) {
-		MIGRATIONS::set(&vec![(SucceedAfter, steps)]);
+	fn set_success_after(max_steps: u32) {
+		MIGRATIONS::set(&vec![(SucceedAfter, u32::MAX, max_steps)]);
 	}
 }
