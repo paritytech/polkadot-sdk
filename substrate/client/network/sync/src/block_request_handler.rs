@@ -202,6 +202,10 @@ where
 		while let Some(request) = self.request_receiver.next().await {
 			let IncomingRequest { peer, payload, pending_response } = request;
 
+			log::info!(target: LOG_TARGET, "Received block request from {peer} simulating sleep!");
+			tokio::time::sleep(Duration::from_secs(20)).await;
+			log::info!(target: LOG_TARGET, "Finished sleeping for block request from {peer}!");
+
 			match self.handle_request(payload, pending_response, &peer) {
 				Ok(()) => debug!(target: LOG_TARGET, "Handled block request from {}.", peer),
 				Err(e) => debug!(

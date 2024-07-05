@@ -473,6 +473,11 @@ where
 
 	/// Notify syncing state machine that a new sync peer has connected.
 	pub fn add_peer(&mut self, peer_id: PeerId, best_hash: B::Hash, best_number: NumberFor<B>) {
+		info!(
+			target: LOG_TARGET,
+			"New peer {peer_id} with best hash {best_hash} ({best_number})",
+		);
+
 		match self.add_peer_inner(peer_id, best_hash, best_number) {
 			Ok(Some(request)) =>
 				self.actions.push(ChainSyncAction::SendBlockRequest { peer_id, request }),
@@ -491,7 +496,7 @@ where
 		// There is nothing sync can get from the node that has no blockchain data.
 		match self.block_status(&best_hash) {
 			Err(e) => {
-				debug!(target: LOG_TARGET, "Error reading blockchain: {e}");
+				error!(target: LOG_TARGET, "Error reading blockchain: {e}");
 				Err(BadPeer(peer_id, rep::BLOCKCHAIN_READ_ERROR))
 			},
 			Ok(BlockStatus::KnownBad) => {
@@ -521,22 +526,26 @@ where
 						self.best_queued_hash,
 						self.best_queued_number
 					);
-					self.peers.insert(
+
+					let peer_sync = PeerSync {
 						peer_id,
-						PeerSync {
-							peer_id,
-							common_number: self.best_queued_number,
-							best_hash,
-							best_number,
-							state: PeerSyncState::Available,
-						},
+						common_number: self.best_queued_number,
+						best_hash,
+						best_number,
+						state: PeerSyncState::Available,
+					};
+					info!(
+						target: LOG_TARGET,
+						"Inserting peer {peer_id} with state {peer_sync:?} (without ancestor search)",
 					);
+
+					self.peers.insert(peer_id, peer_sync);
 					return Ok(None)
 				}
 
 				// If we are at genesis, just start downloading.
 				let (state, req) = if self.best_queued_number.is_zero() {
-					debug!(
+					info!(
 						target: LOG_TARGET,
 						"New peer {peer_id} with best hash {best_hash} ({best_number}).",
 					);
@@ -545,7 +554,7 @@ where
 				} else {
 					let common_best = std::cmp::min(self.best_queued_number, best_number);
 
-					debug!(
+					info!(
 						target: LOG_TARGET,
 						"New peer {} with unknown best hash {} ({}), searching for common ancestor.",
 						peer_id,
@@ -564,16 +573,19 @@ where
 				};
 
 				self.allowed_requests.add(&peer_id);
-				self.peers.insert(
+				let peer_sync = PeerSync {
 					peer_id,
-					PeerSync {
-						peer_id,
-						common_number: Zero::zero(),
-						best_hash,
-						best_number,
-						state,
-					},
+					common_number: Zero::zero(),
+					best_hash,
+					best_number,
+					state,
+				};
+				info!(
+					target: LOG_TARGET,
+					"Inserting peer {peer_id} with state {peer_sync:?}",
 				);
+
+				self.peers.insert(peer_id, peer_sync);
 
 				Ok(req)
 			},
@@ -584,16 +596,18 @@ where
 					target: LOG_TARGET,
 					"New peer {peer_id} with known best hash {best_hash} ({best_number}).",
 				);
-				self.peers.insert(
+				let peer_sync = PeerSync {
 					peer_id,
-					PeerSync {
-						peer_id,
-						common_number: std::cmp::min(self.best_queued_number, best_number),
-						best_hash,
-						best_number,
-						state: PeerSyncState::Available,
-					},
+					common_number: std::cmp::min(self.best_queued_number, best_number),
+					best_hash,
+					best_number,
+					state: PeerSyncState::Available,
+				};
+				info!(
+					target: LOG_TARGET,
+					"Inserting peer {peer_id} with state {peer_sync:?} (InChainPruned)",
 				);
+				self.peers.insert(peer_id, peer_sync);
 				self.allowed_requests.add(&peer_id);
 				Ok(None)
 			},
@@ -1142,6 +1156,8 @@ where
 		if let Some(gap_sync) = &mut self.gap_sync {
 			gap_sync.blocks.clear_peer_download(peer_id)
 		}
+
+		info!(target: LOG_TARGET, "Peer {peer_id} disconnected. Removed from internal mappings");
 		self.peers.remove(peer_id);
 		self.extra_justifications.peer_disconnected(peer_id);
 		self.allowed_requests.set_all();
@@ -1336,9 +1352,9 @@ where
 					// Peers that were downloading justifications
 					// should be kept in that state.
 					// We make sure our common number is at least something we have.
-					trace!(
+					info!(
 						target: LOG_TARGET,
-						"Keeping peer {} after restart, updating common number from={} => to={} (our best).",
+						"Keeping peer {} after restart, updating common number from={} => to={} (our best). state = {peer_sync:?}",
 						peer_id,
 						peer_sync.common_number,
 						self.best_queued_number,
