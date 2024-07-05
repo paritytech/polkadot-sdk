@@ -48,9 +48,12 @@ impl frame_system::Config for Test {
 	type Block = Block;
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Origin;
+
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub enum TestPollState {
-	Ongoing(TallyOf<Test>, Rank),
+	Ongoing(TallyOf<Test>, Rank, Origin),
 	Completed(u64, bool),
 }
 use TestPollState::*;
@@ -59,7 +62,7 @@ parameter_types! {
 	pub static Polls: BTreeMap<u8, TestPollState> = vec![
 		(1, Completed(1, true)),
 		(2, Completed(2, false)),
-		(3, Ongoing(Tally::from_parts(0, 0, 0), 1)),
+		(3, Ongoing(Tally::from_parts(0, 0, 0), 1, Origin)),
 	].into_iter().collect();
 }
 
@@ -69,13 +72,14 @@ impl Polling<TallyOf<Test>> for TestPolls {
 	type Votes = Votes;
 	type Moment = u64;
 	type Class = Class;
+	type Origin = Origin;
 	fn classes() -> Vec<Self::Class> {
 		vec![0, 1, 2]
 	}
-	fn as_ongoing(index: u8) -> Option<(TallyOf<Test>, Self::Class)> {
+	fn as_ongoing(index: u8) -> Option<(TallyOf<Test>, Self::Class, Self::Origin)> {
 		Polls::get().remove(&index).and_then(|x| {
-			if let TestPollState::Ongoing(t, c) = x {
-				Some((t, c))
+			if let TestPollState::Ongoing(t, c, o) = x {
+				Some((t, c, o))
 			} else {
 				None
 			}
@@ -83,13 +87,13 @@ impl Polling<TallyOf<Test>> for TestPolls {
 	}
 	fn access_poll<R>(
 		index: Self::Index,
-		f: impl FnOnce(PollStatus<&mut TallyOf<Test>, Self::Moment, Self::Class>) -> R,
+		f: impl FnOnce(PollStatus<&mut TallyOf<Test>, Self::Moment, Self::Class, &Self::Origin>) -> R,
 	) -> R {
 		let mut polls = Polls::get();
 		let entry = polls.get_mut(&index);
 		let r = match entry {
-			Some(Ongoing(ref mut tally_mut_ref, class)) =>
-				f(PollStatus::Ongoing(tally_mut_ref, *class)),
+			Some(Ongoing(ref mut tally_mut_ref, class, origin)) =>
+				f(PollStatus::Ongoing(tally_mut_ref, *class, &origin)),
 			Some(Completed(when, succeeded)) => f(PollStatus::Completed(*when, *succeeded)),
 			None => f(PollStatus::None),
 		};
@@ -99,14 +103,14 @@ impl Polling<TallyOf<Test>> for TestPolls {
 	fn try_access_poll<R>(
 		index: Self::Index,
 		f: impl FnOnce(
-			PollStatus<&mut TallyOf<Test>, Self::Moment, Self::Class>,
+			PollStatus<&mut TallyOf<Test>, Self::Moment, Self::Class, &Self::Origin>,
 		) -> Result<R, DispatchError>,
 	) -> Result<R, DispatchError> {
 		let mut polls = Polls::get();
 		let entry = polls.get_mut(&index);
 		let r = match entry {
-			Some(Ongoing(ref mut tally_mut_ref, class)) =>
-				f(PollStatus::Ongoing(tally_mut_ref, *class)),
+			Some(Ongoing(ref mut tally_mut_ref, class, origin)) =>
+				f(PollStatus::Ongoing(tally_mut_ref, *class, &origin)),
 			Some(Completed(when, succeeded)) => f(PollStatus::Completed(*when, *succeeded)),
 			None => f(PollStatus::None),
 		}?;
@@ -118,7 +122,7 @@ impl Polling<TallyOf<Test>> for TestPolls {
 	fn create_ongoing(class: Self::Class) -> Result<Self::Index, ()> {
 		let mut polls = Polls::get();
 		let i = polls.keys().rev().next().map_or(0, |x| x + 1);
-		polls.insert(i, Ongoing(Tally::new(class), class));
+		polls.insert(i, Ongoing(Tally::new(class), class, Origin));
 		Polls::set(polls);
 		Ok(i)
 	}
