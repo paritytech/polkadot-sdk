@@ -494,17 +494,35 @@ where
 /// Uses the lookahead collator to support async backing.
 ///
 /// Start an aura powered parachain node. Some system chains use this.
-pub(crate) struct GenericAuraAsyncBackingNode<RuntimeApi, AuraId>(
-	pub PhantomData<(RuntimeApi, AuraId)>,
+pub(crate) struct AuraNode<RuntimeApi, AuraId, StartConsensus>(
+	pub PhantomData<(RuntimeApi, AuraId, StartConsensus)>,
 );
 
-impl<RuntimeApi, AuraId> Default for GenericAuraAsyncBackingNode<RuntimeApi, AuraId> {
+impl<RuntimeApi, AuraId, StartConsensus> Default for AuraNode<RuntimeApi, AuraId, StartConsensus> {
 	fn default() -> Self {
 		Self(Default::default())
 	}
 }
 
-impl<RuntimeApi, AuraId> NodeSpec for GenericAuraAsyncBackingNode<RuntimeApi, AuraId>
+impl<RuntimeApi, AuraId, StartConsensus> NodeSpec for AuraNode<RuntimeApi, AuraId, StartConsensus>
+where
+	RuntimeApi: ConstructNodeRuntimeApi<Block, ParachainClient<RuntimeApi>>,
+	RuntimeApi::RuntimeApi: AuraRuntimeApi<Block, AuraId>
+		+ pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block, Balance>
+		+ substrate_frame_rpc_system::AccountNonceApi<Block, AccountId, Nonce>,
+	AuraId: AuraIdT + Sync,
+	StartConsensus: self::StartConsensus<RuntimeApi> + 'static,
+{
+	type RuntimeApi = RuntimeApi;
+	type BuildImportQueue = BuildRelayToAuraImportQueue<RuntimeApi, AuraId>;
+	type BuildRpcExtensions = BuildParachainRpcExtensions<RuntimeApi>;
+	type StartConsensus = StartConsensus;
+	const SYBIL_RESISTANCE: CollatorSybilResistance = CollatorSybilResistance::Resistant;
+}
+
+pub fn new_aura_node_spec<RuntimeApi, AuraId>(
+	use_experimental_slot_based: bool,
+) -> Box<dyn DynNodeSpec>
 where
 	RuntimeApi: ConstructNodeRuntimeApi<Block, ParachainClient<RuntimeApi>>,
 	RuntimeApi::RuntimeApi: AuraRuntimeApi<Block, AuraId>
@@ -512,11 +530,18 @@ where
 		+ substrate_frame_rpc_system::AccountNonceApi<Block, AccountId, Nonce>,
 	AuraId: AuraIdT + Sync,
 {
-	type RuntimeApi = RuntimeApi;
-	type BuildImportQueue = BuildRelayToAuraImportQueue<RuntimeApi, AuraId>;
-	type BuildRpcExtensions = BuildParachainRpcExtensions<RuntimeApi>;
-	type StartConsensus = StartLookaheadAuraConsensus<RuntimeApi, AuraId>;
-	const SYBIL_RESISTANCE: CollatorSybilResistance = CollatorSybilResistance::Resistant;
+	match use_experimental_slot_based {
+		true => Box::new(AuraNode::<
+			RuntimeApi,
+			AuraId,
+			StartSlotBasedAuraConsensus<RuntimeApi, AuraId>,
+		>::default()),
+		false => Box::new(AuraNode::<
+			RuntimeApi,
+			AuraId,
+			StartLookaheadAuraConsensus<RuntimeApi, AuraId>,
+		>::default()),
+	}
 }
 
 /// Start relay-chain consensus that is free for all. Everyone can submit a block, the relay-chain

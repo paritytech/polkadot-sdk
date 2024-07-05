@@ -24,7 +24,7 @@ use crate::{
 		asset_hub_polkadot_aura::RuntimeApi as AssetHubPolkadotRuntimeApi,
 		aura::RuntimeApi as AuraRuntimeApi,
 	},
-	service::{BasicLookaheadNode, DynNodeSpec, GenericAuraAsyncBackingNode, ShellNode},
+	service::{new_aura_node_spec, BasicLookaheadNode, DynNodeSpec, ShellNode},
 };
 #[cfg(feature = "runtime-benchmarks")]
 use cumulus_client_service::storage_proof_size::HostFunctions as ReclaimHostFunctions;
@@ -387,24 +387,25 @@ impl SubstrateCli for RelayChainCli {
 
 fn new_node_spec(
 	config: &sc_service::Configuration,
+	use_experimental_slot_based: bool,
 ) -> std::result::Result<Box<dyn DynNodeSpec>, sc_cli::Error> {
 	Ok(match config.chain_spec.runtime()? {
-		Runtime::AssetHubPolkadot => Box::new(GenericAuraAsyncBackingNode::<
+		Runtime::AssetHubPolkadot => new_aura_node_spec::<
 			AssetHubPolkadotRuntimeApi,
 			AssetHubPolkadotAuraId,
-		>::default()),
+		>(use_experimental_slot_based),
 		Runtime::AssetHub |
 		Runtime::BridgeHub(_) |
 		Runtime::Collectives |
 		Runtime::Coretime(_) |
 		Runtime::People(_) |
 		Runtime::ContractsRococo |
-		Runtime::Penpal(_) => Box::new(GenericAuraAsyncBackingNode::<AuraRuntimeApi, AuraId>::default()),
+		Runtime::Penpal(_) => new_aura_node_spec::<AuraRuntimeApi, AuraId>(use_experimental_slot_based),
 		Runtime::Shell | Runtime::Seedling => Box::new(ShellNode),
 		Runtime::Glutton => Box::new(BasicLookaheadNode),
 		Runtime::Omni(consensus) => match consensus {
 			Consensus::Aura =>
-				Box::new(GenericAuraAsyncBackingNode::<AuraRuntimeApi, AuraId>::default()),
+				new_aura_node_spec::<AuraRuntimeApi, AuraId>(use_experimental_slot_based),
 			Consensus::Relay => Box::new(ShellNode),
 		},
 	})
@@ -422,35 +423,35 @@ pub fn run() -> Result<()> {
 		Some(Subcommand::CheckBlock(cmd)) => {
 			let runner = cli.create_runner(cmd)?;
 			runner.async_run(|config| {
-				let node = new_node_spec(&config)?;
+				let node = new_node_spec(&config, cli.experimental_use_slot_based)?;
 				node.prepare_check_block_cmd(config, cmd)
 			})
 		},
 		Some(Subcommand::ExportBlocks(cmd)) => {
 			let runner = cli.create_runner(cmd)?;
 			runner.async_run(|config| {
-				let node = new_node_spec(&config)?;
+				let node = new_node_spec(&config, cli.experimental_use_slot_based)?;
 				node.prepare_export_blocks_cmd(config, cmd)
 			})
 		},
 		Some(Subcommand::ExportState(cmd)) => {
 			let runner = cli.create_runner(cmd)?;
 			runner.async_run(|config| {
-				let node = new_node_spec(&config)?;
+				let node = new_node_spec(&config, cli.experimental_use_slot_based)?;
 				node.prepare_export_state_cmd(config, cmd)
 			})
 		},
 		Some(Subcommand::ImportBlocks(cmd)) => {
 			let runner = cli.create_runner(cmd)?;
 			runner.async_run(|config| {
-				let node = new_node_spec(&config)?;
+				let node = new_node_spec(&config, cli.experimental_use_slot_based)?;
 				node.prepare_import_blocks_cmd(config, cmd)
 			})
 		},
 		Some(Subcommand::Revert(cmd)) => {
 			let runner = cli.create_runner(cmd)?;
 			runner.async_run(|config| {
-				let node = new_node_spec(&config)?;
+				let node = new_node_spec(&config, cli.experimental_use_slot_based)?;
 				node.prepare_revert_cmd(config, cmd)
 			})
 		},
@@ -472,7 +473,7 @@ pub fn run() -> Result<()> {
 		Some(Subcommand::ExportGenesisHead(cmd)) => {
 			let runner = cli.create_runner(cmd)?;
 			runner.sync_run(|config| {
-				let node = new_node_spec(&config)?;
+				let node = new_node_spec(&config, cli.experimental_use_slot_based)?;
 				node.run_export_genesis_head_cmd(config, cmd)
 			})
 		},
@@ -495,12 +496,12 @@ pub fn run() -> Result<()> {
 					))
 				}),
 				BenchmarkCmd::Block(cmd) => runner.sync_run(|config| {
-					let node = new_node_spec(&config)?;
+					let node = new_node_spec(&config, cli.experimental_use_slot_based)?;
 					node.run_benchmark_block_cmd(config, cmd)
 				}),
 				#[cfg(feature = "runtime-benchmarks")]
 				BenchmarkCmd::Storage(cmd) => runner.sync_run(|config| {
-					let node = new_node_spec(&config)?;
+					let node = new_node_spec(&config, cli.experimental_use_slot_based)?;
 					node.run_benchmark_storage_cmd(config, cmd)
 				}),
 				BenchmarkCmd::Machine(cmd) =>
@@ -608,7 +609,7 @@ async fn start_node(
 	use_experimental_slot_based: bool,
 	hwbench: Option<sc_sysinfo::HwBench>,
 ) -> Result<sc_service::TaskManager> {
-	let node_spec = new_node_spec(&config)?;
+	let node_spec = new_node_spec(&config, use_experimental_slot_based)?;
 	node_spec
 		.start_node(config, polkadot_config, collator_options, id, hwbench)
 		.await
