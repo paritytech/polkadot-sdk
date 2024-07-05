@@ -82,9 +82,9 @@ impl<T: Config> StorageMeter<T> {
 
 	/// Revert a transaction meter.
 	fn revert(&mut self) {
-		self.nested_meters
-			.pop()
-			.expect("There is no nested meter that can be reverted.");
+		self.nested_meters.pop().expect(
+			"A call to revert a meter must be preceded by a corresponding call to start a meter.",
+		);
 	}
 
 	/// Start a transaction meter.
@@ -104,10 +104,9 @@ impl<T: Config> StorageMeter<T> {
 
 	/// Commit a transaction meter.
 	fn commit(&mut self) {
-		let transaction_meter = self
-			.nested_meters
-			.pop()
-			.expect("There is no nested meter that can be committed.");
+		let transaction_meter = self.nested_meters.pop().expect(
+			"A call to commit a meter must be preceded by a corresponding call to start a meter.",
+		);
 		self.current_mut().absorb(transaction_meter)
 	}
 
@@ -297,7 +296,7 @@ impl<T: Config> TransientStorage<T> {
 		let checkpoint = self
 			.checkpoints
 			.pop()
-			.expect("No open transient storage transaction that can be rolled back.");
+			.expect("A call to rollback_transaction must be preceded by a corresponding call to start_transaction.");
 		self.meter.revert();
 		self.journal.rollback(&mut self.storage, checkpoint);
 	}
@@ -312,7 +311,7 @@ impl<T: Config> TransientStorage<T> {
 	pub fn commit_transaction(&mut self) {
 		self.checkpoints
 			.pop()
-			.expect("No open transient storage transaction that can be committed.");
+			.expect("A call to commit_transaction must be preceded by a corresponding call to start_transaction.");
 		self.meter.commit();
 	}
 
