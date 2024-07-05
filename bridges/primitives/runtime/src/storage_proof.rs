@@ -279,7 +279,6 @@ impl UnverifiedStorageProof {
 		DB: hash_db::HashDBRef<H, DBValue>,
 	{
 		use sp_std::collections::btree_set::BTreeSet;
-		use trie_db::Recorder;
 
 		let mut recorder = Recorder::<LayoutV1<H>>::new();
 		let trie = TrieDBBuilder::<LayoutV1<H>>::new(db, &root)
