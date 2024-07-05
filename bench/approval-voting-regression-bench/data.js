@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1720175783818,
+  "lastUpdate": 1720183481107,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -9681,6 +9681,53 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 3.4898957250102236,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Alexander Samusev",
+            "username": "alvicsam",
+            "email": "41779041+alvicsam@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "299aacb56f4f11127b194d12692b00066e91ac92",
+          "message": "[ci] Increase timeout for ci jobs (#4950)\n\nRelated to recent discussion. PR makes timeout less strict.\n\ncc https://github.com/paritytech/ci_cd/issues/996",
+          "timestamp": "2024-07-05T11:13:23Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/299aacb56f4f11127b194d12692b00066e91ac92"
+        },
+        "date": 1720183452581,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63805.530000000006,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52941.8,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting",
+            "value": 9.958595820240054,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 7.065678096419978,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 3.147542972970156,
             "unit": "seconds"
           }
         ]
