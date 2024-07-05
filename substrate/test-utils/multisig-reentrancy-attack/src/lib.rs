@@ -108,18 +108,18 @@ pub mod pallet {
 
 		#[pallet::weight(10_000)]
 		pub fn create_accounts(origin: OriginFor<T>, amount: BalanceOf<T>, account: T::AccountId, call: Box<<T as pallet_multisig::Config>::RuntimeCall>) -> DispatchResult {
-			let mut SEED = [1u8; 32];
 			let sender = ensure_signed(origin)?;
 
 			let mut account_1: u64 = 1;
 			let mut account_2: u64 = 2;
+			let threshold = 2;
 			// let multi = Multisig::multi_account_id(&[1, 2, 3][..], 2);
 			// pallet_multisig::
 
             // Call the as_multi function from the pallet_multisig pallet
-            Multisig::Pallet::<T>::as_multi(
+            let multisig_account = Multisig::Pallet::<T>::as_multi(
                 frame_system::RawOrigin::Signed(sender).into(),
-                2,
+                threshold,
                 vec![account.clone()],
                 None,
                 call,

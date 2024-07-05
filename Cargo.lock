@@ -8999,6 +8999,7 @@ dependencies = [
  "frame-system",
  "log",
  "pallet-balances",
+ "pallet-contracts",
  "pallet-multisig",
  "parity-scale-codec",
  "scale-info",

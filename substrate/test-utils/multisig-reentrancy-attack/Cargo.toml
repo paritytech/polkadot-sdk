@@ -21,6 +21,7 @@ scale-info = { version = "2.11.1", default-features = false, features = ["derive
 frame-benchmarking = { path = "../../frame/benchmarking", default-features = false, optional = true }
 pallet-multisig = { path = "../../frame/multisig", workspace = true, default-features = true, optional = true }
 pallet-balances = { path = "../../frame/balances", default-features = true, optional = true }
+pallet-contracts = { path = "../../frame/contracts", default-features = true, optional = true }
 frame-support = { path = "../../frame/support", default-features = false }
 frame-system = { path = "../../frame/system", default-features = false }
 sp-io = { path = "../../primitives/io", default-features = false }
@@ -43,6 +44,7 @@ std = [
 	"log/std",
 	"pallet-balances/std",
 	"pallet-multisig/std",
+	"pallet-contracts/std",
 	"scale-info/std",
 	"sp-io/std",
 	"sp-runtime/std",
@@ -54,6 +56,7 @@ runtime-benchmarks = [
 	"frame-system/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
 	"pallet-multisig/runtime-benchmarks",
+	"pallet-contracts/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 ]
 try-runtime = [
@@ -61,5 +64,6 @@ try-runtime = [
 	"frame-system/try-runtime",
 	"pallet-balances/try-runtime",
 	"pallet-multisig/try-runtime",
+	"pallet-contracts/try-runtime",
 	"sp-runtime/try-runtime",
 ]
