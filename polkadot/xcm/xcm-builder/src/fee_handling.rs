@@ -17,7 +17,7 @@
 use core::marker::PhantomData;
 use frame_support::traits::{Contains, Get};
 use xcm::prelude::*;
-use xcm_executor::traits::{FeeManager, FeeReason, TransactAsset};
+use xcm_executor::traits::{FeeManager, FeeReason, IntoLocation, TransactAsset};
 
 /// Handles the fees that are taken by certain XCM instructions.
 pub trait HandleFee {
@@ -70,12 +70,13 @@ impl<WaivedLocations: Contains<Location>, FeeHandler: HandleFee> FeeManager
 
 /// Try to deposit the given fee in the specified account.
 /// Burns the fee in case of a failure.
-pub fn deposit_or_burn_fee<AssetTransactor: TransactAsset, AccountId: Clone + Into<[u8; 32]>>(
+pub fn deposit_or_burn_fee<AssetTransactor: TransactAsset, AccountId: Clone + IntoLocation>(
 	fee: Assets,
 	context: Option<&XcmContext>,
 	receiver: AccountId,
 ) {
-	let dest = AccountId32 { network: None, id: receiver.into() }.into();
+	// let dest = AccountId32 { network: None, id: receiver.into() }.into();
+	let dest = receiver.into_location();
 	for asset in fee.into_inner() {
 		if let Err(e) = AssetTransactor::deposit_asset(&asset, &dest, context) {
 			log::trace!(
@@ -100,7 +101,7 @@ pub struct XcmFeeToAccount<AssetTransactor, AccountId, ReceiverAccount>(
 
 impl<
 		AssetTransactor: TransactAsset,
-		AccountId: Clone + Into<[u8; 32]>,
+		AccountId: Clone + IntoLocation,
 		ReceiverAccount: Get<AccountId>,
 	> HandleFee for XcmFeeToAccount<AssetTransactor, AccountId, ReceiverAccount>
 {
