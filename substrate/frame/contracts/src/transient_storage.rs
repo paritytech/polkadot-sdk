@@ -240,11 +240,10 @@ impl<T: Config> TransientStorage<T> {
 		value: Option<Vec<u8>>,
 		take: bool,
 	) -> Result<WriteOutcome, DispatchError> {
-		let prev_value = self.read(account, key);
+		let key = Self::storage_key(&account.encode(), &key.hash());
+		let prev_value = self.storage.read(&key);
 		// Skip if the same value is being set.
 		if prev_value != value {
-			let key = Self::storage_key(&account.encode(), &key.hash());
-
 			// Calculate the allocation size.
 			if let Some(value) = &value {
 				// Charge the key, value and journal entry.
