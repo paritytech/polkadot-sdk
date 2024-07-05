@@ -15,3 +15,5 @@ crates:
     bump: patch
   - name: polkadot-node-core-candidate-validation
     bump: major
+  - name: polkadot-node-core-pvf-common
+    bump: minor
