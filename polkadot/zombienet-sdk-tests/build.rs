@@ -1,3 +1,6 @@
+// Copyright (C) Parity Technologies (UK) Ltd.
+// SPDX-License-Identifier: Apache-2.0
+
 use std::{
 	env, fs, path,
 	path::{Path, PathBuf},
@@ -41,13 +44,15 @@ fn find_wasm(chain: &str) -> Option<PathBuf> {
 	});
 
 	debug_output!("profile is : {:?}", profile);
-	profile.map(|profile| PathBuf::from(&format!(
+	profile.map(|profile| {
+		PathBuf::from(&format!(
 			"{}/target/{}/wbuild/{}/{}.wasm",
 			manifest_path,
 			profile,
 			&package,
 			replace_dashes(&package)
-		)))
+		))
+	})
 }
 
 // based on https://gist.github.com/s0me0ne-unkn0wn/bbd83fe32ce10327086adbf13e750eec
@@ -90,13 +95,12 @@ fn fetch_metadata_file(chain: &str, output_path: &Path) {
 		debug_output!("metadata file to use (from env): {}\n", path_to_use);
 		let metadata_file = PathBuf::from(&path_to_use);
 		fs::copy(metadata_file, output_path).unwrap();
-		// fs copy
 	} else if let Some(exisiting_wasm) = find_wasm(chain) {
 		debug_output!("exisiting wasm: {:?}", exisiting_wasm);
 		// generate metadata
 		generate_metadata_file(&exisiting_wasm, output_path);
 	} else {
-		// build it
+		// build runtime
 		let wasm_path = build_wasm(chain);
 		debug_output!("created wasm: {:?}", wasm_path);
 		// genetate metadata
