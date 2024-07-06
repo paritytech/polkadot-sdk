@@ -102,6 +102,8 @@ fn generate_chain_spec() {
 	  "id": "custom",
 	  "chainType": "Live",
 	  "bootNodes": [],
+	  "relay_chain": null,
+	  "para_id": null,
 	  "telemetryEndpoints": null,
 	  "protocolId": null,
 	  "properties": null,
