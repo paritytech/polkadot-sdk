@@ -5,7 +5,7 @@ description = "Zomebienet-sdk tests."
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
-build = "build.rs"
+publish = false
 
 [dependencies]
 env_logger = "0.11.2"

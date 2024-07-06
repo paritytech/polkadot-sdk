@@ -9188,12 +9188,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "md5"
-version = "0.7.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "490cc448043f947bae3cbee9c203358d62dbee0db12107a74be5c30ccfd09771"
-
-[[package]]
 name = "memchr"
 version = "2.7.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -15883,7 +15877,6 @@ dependencies = [
  "anyhow",
  "env_logger 0.11.3",
  "log",
- "md5",
  "parity-scale-codec",
  "serde",
  "serde_json",
@@ -21727,7 +21720,7 @@ dependencies = [
 [[package]]
 name = "sp-crypto-ec-utils"
 version = "0.10.0"
-source = "git+https://github.com/paritytech/polkadot-sdk#e44f61af440316f4050f69df024fe964ffcd9346"
+source = "git+https://github.com/paritytech/polkadot-sdk#221eddc90cd1efc4fc3c822ce5ccf289272fb41d"
 dependencies = [
  "ark-bls12-377",
  "ark-bls12-377-ext",
@@ -21823,7 +21816,7 @@ dependencies = [
 [[package]]
 name = "sp-debug-derive"
 version = "14.0.0"
-source = "git+https://github.com/paritytech/polkadot-sdk#e44f61af440316f4050f69df024fe964ffcd9346"
+source = "git+https://github.com/paritytech/polkadot-sdk#221eddc90cd1efc4fc3c822ce5ccf289272fb41d"
 dependencies = [
  "proc-macro2 1.0.86",
  "quote 1.0.36",
@@ -21842,7 +21835,7 @@ dependencies = [
 [[package]]
 name = "sp-externalities"
 version = "0.25.0"
-source = "git+https://github.com/paritytech/polkadot-sdk#e44f61af440316f4050f69df024fe964ffcd9346"
+source = "git+https://github.com/paritytech/polkadot-sdk#221eddc90cd1efc4fc3c822ce5ccf289272fb41d"
 dependencies = [
  "environmental",
  "parity-scale-codec",
@@ -22322,7 +22315,7 @@ dependencies = [
 [[package]]
 name = "sp-runtime-interface"
 version = "24.0.0"
-source = "git+https://github.com/paritytech/polkadot-sdk#e44f61af440316f4050f69df024fe964ffcd9346"
+source = "git+https://github.com/paritytech/polkadot-sdk#221eddc90cd1efc4fc3c822ce5ccf289272fb41d"
 dependencies = [
  "bytes",
  "impl-trait-for-tuples",
@@ -22393,7 +22386,7 @@ dependencies = [
 [[package]]
 name = "sp-runtime-interface-proc-macro"
 version = "17.0.0"
-source = "git+https://github.com/paritytech/polkadot-sdk#e44f61af440316f4050f69df024fe964ffcd9346"
+source = "git+https://github.com/paritytech/polkadot-sdk#221eddc90cd1efc4fc3c822ce5ccf289272fb41d"
 dependencies = [
  "Inflector",
  "expander",
@@ -22604,7 +22597,7 @@ checksum = "12f8ee986414b0a9ad741776762f4083cd3a5128449b982a3919c4df36874834"
 [[package]]
 name = "sp-std"
 version = "14.0.0"
-source = "git+https://github.com/paritytech/polkadot-sdk#e44f61af440316f4050f69df024fe964ffcd9346"
+source = "git+https://github.com/paritytech/polkadot-sdk#221eddc90cd1efc4fc3c822ce5ccf289272fb41d"
 
 [[package]]
 name = "sp-storage"
@@ -22620,7 +22613,7 @@ dependencies = [
 [[package]]
 name = "sp-storage"
 version = "19.0.0"
-source = "git+https://github.com/paritytech/polkadot-sdk#e44f61af440316f4050f69df024fe964ffcd9346"
+source = "git+https://github.com/paritytech/polkadot-sdk#221eddc90cd1efc4fc3c822ce5ccf289272fb41d"
 dependencies = [
  "impl-serde",
  "parity-scale-codec",
@@ -22705,7 +22698,7 @@ dependencies = [
 [[package]]
 name = "sp-tracing"
 version = "16.0.0"
-source = "git+https://github.com/paritytech/polkadot-sdk#e44f61af440316f4050f69df024fe964ffcd9346"
+source = "git+https://github.com/paritytech/polkadot-sdk#221eddc90cd1efc4fc3c822ce5ccf289272fb41d"
 dependencies = [
  "parity-scale-codec",
  "tracing",
@@ -22931,7 +22924,7 @@ dependencies = [
 [[package]]
 name = "sp-wasm-interface"
 version = "20.0.0"
-source = "git+https://github.com/paritytech/polkadot-sdk#e44f61af440316f4050f69df024fe964ffcd9346"
+source = "git+https://github.com/paritytech/polkadot-sdk#221eddc90cd1efc4fc3c822ce5ccf289272fb41d"
 dependencies = [
  "impl-trait-for-tuples",
  "log",
@@ -24568,9 +24561,9 @@ dependencies = [
 
 [[package]]
 name = "tinyvec"
-version = "1.6.1"
+version = "1.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c55115c6fbe2d2bef26eb09ad74bde02d8255476fc0c7b515ef09fbb35742d82"
+checksum = "ce6b6a2fb3a985e99cebfaefa9faa3024743da73304ca1c683a36429613d3d22"
 dependencies = [
  "tinyvec_macros",
 ]
@@ -27166,9 +27159,9 @@ dependencies = [
 
 [[package]]
 name = "zstd-sys"
-version = "2.0.11+zstd.1.5.6"
+version = "2.0.12+zstd.1.5.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "75652c55c0b6f3e6f12eb786fe1bc960396bf05a1eb3bf1f3691c3610ac2e6d4"
+checksum = "0a4e40c320c3cb459d9a9ff6de98cff88f4751ee9275d140e2be94a2b74e4c13"
 dependencies = [
  "cc",
  "pkg-config",
