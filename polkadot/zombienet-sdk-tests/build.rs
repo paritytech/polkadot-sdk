@@ -18,7 +18,7 @@ macro_rules! debug_output {
 }
 
 fn replace_dashes(k: &str) -> String {
-	k.replace("-", "_")
+	k.replace('-', '_')
 }
 
 fn make_env_key(k: &str) -> String {
@@ -28,7 +28,7 @@ fn make_env_key(k: &str) -> String {
 fn find_wasm(chain: &str) -> Option<PathBuf> {
 	const PROFILES: [&str; 2] = ["release", "testnet"];
 	let manifest_path = env::var("CARGO_WORKSPACE_ROOT_DIR").unwrap();
-	let manifest_path = manifest_path.strip_suffix("/").unwrap();
+	let manifest_path = manifest_path.strip_suffix('/').unwrap();
 	debug_output!("manifest_path is  : {}", manifest_path);
 	let package = format!("{chain}-runtime");
 	let profile = PROFILES.into_iter().find(|p| {
