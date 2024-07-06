@@ -276,12 +276,10 @@ pub mod pallet {
 
 	/// Number of proposals that have been made.
 	#[pallet::storage]
-	#[pallet::getter(fn proposal_count)]
 	pub(crate) type ProposalCount<T, I = ()> = StorageValue<_, ProposalIndex, ValueQuery>;
 
 	/// Proposals that have been made.
 	#[pallet::storage]
-	#[pallet::getter(fn proposals)]
 	pub type Proposals<T: Config<I>, I: 'static = ()> = StorageMap<
 		_,
 		Twox64Concat,
@@ -297,7 +295,6 @@ pub mod pallet {
 
 	/// Proposal indices that have been approved but not yet awarded.
 	#[pallet::storage]
-	#[pallet::getter(fn approvals)]
 	pub type Approvals<T: Config<I>, I: 'static = ()> =
 		StorageValue<_, BoundedVec<ProposalIndex, T::MaxApprovals>, ValueQuery>;
 
