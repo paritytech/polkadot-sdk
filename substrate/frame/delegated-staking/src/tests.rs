@@ -343,10 +343,7 @@ fn allow_full_amount_to_be_delegated() {
 
 		// set intention to accept delegation.
 		fund(&agent, 1000);
-		assert_ok!(DelegatedStaking::register_agent(
-			RawOrigin::Signed(agent).into(),
-			reward_acc
-		));
+		assert_ok!(DelegatedStaking::register_agent(RawOrigin::Signed(agent).into(), reward_acc));
 
 		// delegate to this account
 		fund(&delegator, 1000);
@@ -741,6 +738,69 @@ mod staking_integration {
 				DelegatedStaking::migrate_delegation(RawOrigin::Signed(200).into(), 305, 1),
 				Error::<T>::NotEnoughFunds
 			);
+		});
+	}
+
+	#[test]
+	fn accounts_are_cleaned_up() {
+		ExtBuilder::default().build_and_execute(|| {
+			let agent: AccountId = 200;
+			let reward_acc: AccountId = 201;
+			let delegator: AccountId = 300;
+
+			// set intention to accept delegation.
+			fund(&agent, 1000);
+
+			// Agent is provided since it has balance > ED.
+			assert_eq!(System::providers(&agent), 1);
+			assert_ok!(DelegatedStaking::register_agent(
+				RawOrigin::Signed(agent).into(),
+				reward_acc
+			));
+			// becoming an agent adds another provider.
+			assert_eq!(System::providers(&agent), 2);
+
+			// delegate to this account
+			fund(&delegator, 1000);
+			// account has one provider since its funded.
+			assert_eq!(System::providers(&delegator), 1);
+			assert_ok!(DelegatedStaking::delegate_to_agent(
+				RawOrigin::Signed(delegator).into(),
+				agent,
+				500
+			));
+			// delegator has an extra provider now.
+			assert_eq!(System::providers(&delegator), 2);
+			// all 1000 tokens including ED can be held.
+			assert_ok!(DelegatedStaking::delegate_to_agent(
+				RawOrigin::Signed(delegator).into(),
+				agent,
+				500
+			));
+			// free balance dropping below ED will reduce a provider, but it still has one provider
+			// left.
+			assert_eq!(System::providers(&delegator), 1);
+
+			// withdraw all delegation
+			assert_ok!(Staking::unbond(RawOrigin::Signed(agent).into(), 1000));
+			start_era(4);
+			assert_ok!(Staking::withdraw_unbonded(RawOrigin::Signed(agent).into(), 0));
+			assert_ok!(DelegatedStaking::release_delegation(
+				RawOrigin::Signed(agent).into(),
+				delegator,
+				1000,
+				0
+			));
+
+			// agent and delegator provider is decremented.
+			assert_eq!(System::providers(&delegator), 1);
+			assert_eq!(System::providers(&agent), 1);
+
+			// if we transfer all funds, providers are removed.
+			assert_ok!(Balances::transfer_all(RawOrigin::Signed(delegator).into(), 1337, false));
+			assert_ok!(Balances::transfer_all(RawOrigin::Signed(agent).into(), 1337, false));
+			assert_eq!(System::providers(&delegator), 0);
+			assert_eq!(System::providers(&agent), 0);
 		});
 	}
 }

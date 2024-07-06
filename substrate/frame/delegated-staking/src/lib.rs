@@ -369,9 +369,6 @@ pub mod pallet {
 		) -> DispatchResult {
 			let agent = ensure_signed(origin)?;
 
-			// Ensure they have minimum delegation.
-			// ensure!(amount >= T::Currency::minimum_balance(), Error::<T>::NotEnoughFunds);
-
 			// Ensure delegator is sane.
 			ensure!(!Self::is_agent(&delegator), Error::<T>::NotAllowed);
 			ensure!(!Self::is_delegator(&delegator), Error::<T>::NotAllowed);
@@ -482,10 +479,6 @@ impl<T: Config> Pallet<T> {
 		// transferred to actual delegator.
 		let proxy_delegator = Self::generate_proxy_delegator(Agent::from(who.clone()));
 
-		// Keep proxy delegator alive until all funds are migrated.
-		// TODO (ank4n) don't need it.
-		// frame_system::Pallet::<T>::inc_providers(&proxy_delegator.clone().get());
-
 		// Get current stake
 		let stake = T::CoreStaking::stake(who)?;
 
@@ -560,7 +553,8 @@ impl<T: Config> Pallet<T> {
 					.checked_add(&amount)
 					.ok_or(ArithmeticError::Overflow)?
 			} else {
-				// if this is the first time delegation, increment provider count.
+				// if this is the first time delegation, increment provider count. This ensures that
+				// amount including existential deposit can be held.
 				frame_system::Pallet::<T>::inc_providers(&delegator);
 				amount
 			};
@@ -598,7 +592,7 @@ impl<T: Config> Pallet<T> {
 
 		// if we do not already have enough funds to be claimed, try withdraw some more.
 		// keep track if we killed the staker in the process.
-		let stash_killed = if agent_ledger.ledger.unclaimed_withdrawals < amount {
+		let maybe_stash_killed = if agent_ledger.ledger.unclaimed_withdrawals < amount {
 			// withdraw account.
 			let killed = T::CoreStaking::withdraw_unbonded(agent.clone(), num_slashing_spans)
 				.map_err(|_| Error::<T>::WithdrawFailed)?;
@@ -612,14 +606,15 @@ impl<T: Config> Pallet<T> {
 		// if we still do not have enough funds to release, abort.
 		ensure!(agent_ledger.ledger.unclaimed_withdrawals >= amount, Error::<T>::NotEnoughFunds);
 
-		// Claim withdraw from agent. Kill agent if no delegation left.
-		// TODO: Ideally if there is a register, there should be an unregister that should
-		// clean up the agent. Can be improved in future.
+		// Withdraw funds from agent.
+		// If agent is killed, we ensure it is killed in `CoreStaking` as well.
 		if agent_ledger.remove_unclaimed_withdraw(amount)?.update_or_kill()? {
-			match stash_killed {
+			// TODO: Ideally if there is a register, there should be an unregister that should
+			// clean up the agent. Can be improved in future.
+			match maybe_stash_killed {
 				Some(killed) => {
 					// this implies we did a `CoreStaking::withdraw` before release. Ensure
-					// we killed the staker as well.
+					// the staker is killed as well.
 					ensure!(killed, Error::<T>::BadState);
 				},
 				None => {
@@ -639,14 +634,6 @@ impl<T: Config> Pallet<T> {
 			.checked_sub(&amount)
 			.defensive_ok_or(ArithmeticError::Overflow)?;
 
-		// remove delegator if nothing delegated anymore
-		let delegation_killed = delegation.update(&delegator);
-
-		// if delegation killed, decrement provider count.
-		if delegation_killed {
-			frame_system::Pallet::<T>::dec_providers(&delegator);
-		}
-
 		let released = T::Currency::release(
 			&HoldReason::StakingDelegation.into(),
 			&delegator,
@@ -655,6 +642,12 @@ impl<T: Config> Pallet<T> {
 		)?;
 
 		defensive_assert!(released == amount, "hold should have been released fully");
+
+		// update delegation.
+		if delegation.update(&delegator) {
+			// remove provider for delegator if no delegation left.
+			let _ = frame_system::Pallet::<T>::dec_providers(&delegator).defensive();
+		}
 
 		Self::deposit_event(Event::<T>::Released { agent, delegator, amount });
 
@@ -683,18 +676,14 @@ impl<T: Config> Pallet<T> {
 		let agent = source_delegation.agent.clone();
 		// update delegations
 		let _ = Delegation::<T>::new(&agent, amount).update(&destination_delegator);
+		// Provide for the delegator account. This ensures that amount including existential deposit
+		// can be held.
 		frame_system::Pallet::<T>::inc_providers(&destination_delegator);
 
 		source_delegation.amount = source_delegation
 			.amount
 			.checked_sub(&amount)
 			.defensive_ok_or(Error::<T>::BadState)?;
-
-		let delegation_killed = source_delegation.update(&source_delegator);
-		// if delegation killed, decrement provider count.
-		if delegation_killed {
-			frame_system::Pallet::<T>::dec_providers(&source_delegator);
-		}
 
 		// transfer the released amount to `destination_delegator`.
 		let _ = T::Currency::transfer_on_hold(
@@ -707,10 +696,9 @@ impl<T: Config> Pallet<T> {
 			Fortitude::Polite,
 		)?;
 
-		let post_balance_src = T::Currency::total_balance(&source_delegator);
-
-		// if balance is zero, clear provider for source (proxy) delegator.
-		if post_balance_src == Zero::zero() {
+		// update source delegation.
+		if source_delegation.update(&source_delegator) {
+			// remove provider for delegator if no delegation left.
 			let _ = frame_system::Pallet::<T>::dec_providers(&source_delegator).defensive();
 		}
 
@@ -804,18 +792,21 @@ impl<T: Config> Pallet<T> {
 		ledgers: BTreeMap<T::AccountId, AgentLedger<T>>,
 	) -> Result<(), sp_runtime::TryRuntimeError> {
 		for (agent, ledger) in ledgers {
-			ensure!(
-				matches!(
-					T::CoreStaking::status(&agent).expect("agent should be bonded"),
-					sp_staking::StakerStatus::Nominator(_) | sp_staking::StakerStatus::Idle
-				),
-				"agent should be bonded and not validator"
-			);
+			let staked_value = ledger.stakeable_balance();
+
+			if !staked_value.is_zero() {
+				ensure!(
+					matches!(
+						T::CoreStaking::status(&agent).expect("agent should be bonded"),
+						sp_staking::StakerStatus::Nominator(_) | sp_staking::StakerStatus::Idle
+					),
+					"agent should be bonded and not validator"
+				);
+			}
 
 			ensure!(
 				ledger.stakeable_balance() >=
-					T::CoreStaking::total_stake(&agent)
-						.expect("agent should exist as a nominator"),
+					T::CoreStaking::total_stake(&agent).unwrap_or_default(),
 				"Cannot stake more than balance"
 			);
 		}
