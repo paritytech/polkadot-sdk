@@ -1,3 +1,5 @@
+// This file is part of Substrate.
+
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -605,6 +607,7 @@ impl<T: Config> Pallet<T> {
 	) {
 		Proxies::<T>::get(account)
 	}
+
 	/// Public function to announcements storage.
 	pub fn announcements(
 		account: T::AccountId,
@@ -614,6 +617,7 @@ impl<T: Config> Pallet<T> {
 	) {
 		Announcements::<T>::get(account)
 	}
+
 	/// Calculate the address of an pure account.
 	///
 	/// - `who`: The spawner account.
