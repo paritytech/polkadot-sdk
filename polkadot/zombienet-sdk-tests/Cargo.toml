@@ -5,12 +5,7 @@ description = "Zomebienet-sdk tests."
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
-
 build = "build.rs"
-
-# [[bin]]
-# name = "coretime-revenue"
-# path = "src/coretime-revenue/main.rs"
 
 [dependencies]
 env_logger = "0.11.2"
@@ -29,5 +24,4 @@ zombie-metadata = []
 
 [build-dependencies]
 substrate-build-script-utils = { workspace = true, default-features = true }
-subwasmlib = {git = "https://github.com/chevdor/subwasm", rev = "v0.21.3" }
-md5 = "0.7"
+subwasmlib = { git = "https://github.com/chevdor/subwasm", rev = "v0.21.3" }

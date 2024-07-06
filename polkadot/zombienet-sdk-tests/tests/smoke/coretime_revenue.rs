@@ -9,7 +9,6 @@
 //! Running with normal runtimes is possible but would take ages. Running fast relay runtime with
 //! normal parachain runtime WILL mess things up.
 
-
 use anyhow::anyhow;
 #[subxt::subxt(runtime_metadata_path = "metadata-files/rococo-local.scale")]
 pub mod rococo {}
@@ -27,10 +26,7 @@ use rococo::runtime_types::{
 	xcm::{VersionedAssets, VersionedLocation},
 };
 use serde_json::json;
-use std::{
-	fmt::Display,
-	sync::Arc,
-};
+use std::{fmt::Display, sync::Arc};
 use subxt::{
 	blocks::ExtrinsicEvents,
 	config::ExtrinsicParams,
@@ -40,8 +36,7 @@ use subxt::{
 	OnlineClient, PolkadotConfig,
 };
 use subxt_signer::sr25519::dev;
-use tokio::time::Duration;
-use tokio::sync::RwLock;
+use tokio::{sync::RwLock, time::Duration};
 use zombienet_sdk::NetworkConfigBuilder;
 
 use coretime_rococo::{
@@ -493,7 +488,6 @@ async fn coretime_revenue_test() -> Result<(), anyhow::Error> {
 	// 	let e = e?;
 	// 	log::info!("RELAY EVENT {} :: {}", e.pallet_name(), e.variant_name());
 	// }
-
 
 	let order = r
 		.find_first::<rococo_api::on_demand_assignment_provider::events::OnDemandOrderPlaced>()?

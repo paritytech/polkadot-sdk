@@ -1,10 +1,10 @@
-use std::fs;
-use std::env;
-use std::path;
-use std::path::{PathBuf, Path};
-use std::process::Command;
+use std::{
+	env, fs, path,
+	path::{Path, PathBuf},
+	process::Command,
+};
 
-use subwasmlib::{source::Source, Subwasm, OutputFormat};
+use subwasmlib::{source::Source, OutputFormat, Subwasm};
 
 macro_rules! debug_output {
     ($($tokens: tt)*) => {
@@ -15,106 +15,120 @@ macro_rules! debug_output {
 }
 
 fn replace_dashes(k: &str) -> String {
-    k.replace("-", "_")
+	k.replace("-", "_")
 }
 
 fn make_env_key(k: &str) -> String {
-    replace_dashes(&k.to_ascii_uppercase())
+	replace_dashes(&k.to_ascii_uppercase())
 }
 
 fn find_wasm(chain: &str) -> Option<PathBuf> {
-    const PROFILES: [&str; 2] = ["release", "testnet"];
-    let manifest_path = env::var("CARGO_WORKSPACE_ROOT_DIR").unwrap();
-    let manifest_path = manifest_path.strip_suffix("/").unwrap();
-    debug_output!("manifest_path is  : {}", manifest_path);
-    let package = format!("{chain}-runtime");
-    let profile = PROFILES.into_iter().find(|p| {
-        let full_path = format!("{}/target/{}/wbuild/{}/{}.wasm", manifest_path, p, &package, replace_dashes(&package));
-        debug_output!("checking wasm at : {}", full_path);
-        match path::PathBuf::from(&full_path).try_exists() {
-            Ok(true) => true,
-            _ => false
-        }
-    });
+	const PROFILES: [&str; 2] = ["release", "testnet"];
+	let manifest_path = env::var("CARGO_WORKSPACE_ROOT_DIR").unwrap();
+	let manifest_path = manifest_path.strip_suffix("/").unwrap();
+	debug_output!("manifest_path is  : {}", manifest_path);
+	let package = format!("{chain}-runtime");
+	let profile = PROFILES.into_iter().find(|p| {
+		let full_path = format!(
+			"{}/target/{}/wbuild/{}/{}.wasm",
+			manifest_path,
+			p,
+			&package,
+			replace_dashes(&package)
+		);
+		debug_output!("checking wasm at : {}", full_path);
+		matches!(path::PathBuf::from(&full_path).try_exists(), Ok(true))
+	});
 
-    debug_output!("profile is : {:?}", profile);
-    if let Some(profile) = profile {
-        Some(PathBuf::from(&format!("{}/target/{}/wbuild/{}/{}.wasm", manifest_path, profile, &package, replace_dashes(&package))))
-    } else {
-        None
-    }
+	debug_output!("profile is : {:?}", profile);
+	profile.map(|profile| PathBuf::from(&format!(
+			"{}/target/{}/wbuild/{}/{}.wasm",
+			manifest_path,
+			profile,
+			&package,
+			replace_dashes(&package)
+		)))
 }
 
 // based on https://gist.github.com/s0me0ne-unkn0wn/bbd83fe32ce10327086adbf13e750eec
 fn build_wasm(chain: &str) -> PathBuf {
-    let package = format!("{chain}-runtime");
+	let package = format!("{chain}-runtime");
 
 	let cargo = env::var("CARGO").unwrap();
 	let target = env::var("TARGET").unwrap();
 	let out_dir = env::var("OUT_DIR").unwrap();
 	let target_dir = format!("{}/runtimes", out_dir);
- 	let args = vec!["build", "-p", &package, "--profile", "release", "--target", &target, "--target-dir", &target_dir];
-    debug_output!("building metadata with args: {}", args.join(" "));
+	let args = vec![
+		"build",
+		"-p",
+		&package,
+		"--profile",
+		"release",
+		"--target",
+		&target,
+		"--target-dir",
+		&target_dir,
+	];
+	debug_output!("building metadata with args: {}", args.join(" "));
 	Command::new(cargo).args(&args).status().unwrap();
 
-    PathBuf::from(&format!("{target_dir}/{}.wasm", replace_dashes(&package)))
+	PathBuf::from(&format!("{target_dir}/{}.wasm", replace_dashes(&package)))
 }
 
 fn generate_metadata_file(wasm_path: &Path, output_path: &Path) {
-    let source = Source::from_options(Some(wasm_path.to_path_buf()), None, None, None).unwrap();
-    let subwasm = Subwasm::new(&source.try_into().unwrap()).unwrap();
-    let mut output_file = std::fs::File::create(&output_path).unwrap();
-    subwasm.write_metadata(OutputFormat::Scale , None, &mut output_file).unwrap();
+	let source = Source::from_options(Some(wasm_path.to_path_buf()), None, None, None).unwrap();
+	let subwasm = Subwasm::new(&source.try_into().unwrap()).unwrap();
+	let mut output_file = std::fs::File::create(output_path).unwrap();
+	subwasm.write_metadata(OutputFormat::Scale, None, &mut output_file).unwrap();
 }
 
 fn fetch_metadata_file(chain: &str, output_path: &Path) {
-    // First check if we have an explicit path to use
-    let env_key = format!("{}_METADATA_FILE", make_env_key(chain));
+	// First check if we have an explicit path to use
+	let env_key = format!("{}_METADATA_FILE", make_env_key(chain));
 
-    if let Ok(path_to_use) = env::var(env_key) {
-        debug_output!( "metadata file to use (from env): {}\n", path_to_use);
-        let metadata_file = PathBuf::from(&path_to_use);
-        fs::copy(metadata_file, output_path).unwrap();
-        // fs copy
-    } else if let Some(exisiting_wasm) = find_wasm(chain) {
-        debug_output!("exisiting wasm: {:?}", exisiting_wasm);
-        // generate metadata
-        generate_metadata_file(&exisiting_wasm, output_path);
-    } else {
-        // build it
-        let wasm_path = build_wasm(chain);
-        debug_output!("created wasm: {:?}", wasm_path);
-        // genetate metadata
-        generate_metadata_file(&wasm_path, output_path);
-    }
+	if let Ok(path_to_use) = env::var(env_key) {
+		debug_output!("metadata file to use (from env): {}\n", path_to_use);
+		let metadata_file = PathBuf::from(&path_to_use);
+		fs::copy(metadata_file, output_path).unwrap();
+		// fs copy
+	} else if let Some(exisiting_wasm) = find_wasm(chain) {
+		debug_output!("exisiting wasm: {:?}", exisiting_wasm);
+		// generate metadata
+		generate_metadata_file(&exisiting_wasm, output_path);
+	} else {
+		// build it
+		let wasm_path = build_wasm(chain);
+		debug_output!("created wasm: {:?}", wasm_path);
+		// genetate metadata
+		generate_metadata_file(&wasm_path, output_path);
+	}
 }
 
 fn main() {
+	// Ensure we have the needed metadata files in place to run zombienet tests
+	let manifest_path = env::var("CARGO_MANIFEST_DIR").unwrap();
+	const METADATA_DIR: &str = "metadata-files";
+	const CHAINS: [&str; 2] = ["rococo", "coretime-rococo"];
 
-    // Ensure we have the needed metadata files in place to run zombienet tests
-    let manifest_path = env::var("CARGO_MANIFEST_DIR").unwrap();
-    const METADATA_DIR: &str = "metadata-files";
-    const CHAINS: [&str; 2] = ["rococo", "coretime-rococo"];
+	let metadata_path = format!("{manifest_path}/{METADATA_DIR}");
 
-    let metadata_path = format!("{manifest_path}/{METADATA_DIR}");
+	for chain in CHAINS {
+		let full_path = format!("{metadata_path}/{chain}-local.scale");
+		let output_path = path::PathBuf::from(&full_path);
 
-    for chain in CHAINS {
-        let full_path = format!("{metadata_path}/{chain}-local.scale");
-        let output_path = path::PathBuf::from(&full_path);
+		debug_output!("1");
+		match output_path.try_exists() {
+			Ok(true) => {
+				debug_output!("got: {}", full_path);
+			},
+			_ => {
+				debug_output!("needs: {}", full_path);
+				fetch_metadata_file(chain, &output_path);
+			},
+		};
+	}
 
-        debug_output!("1");
-        match output_path.try_exists() {
-            Ok(true) => {
-                debug_output!("got: {}", full_path);
-            },
-            _ => {
-                debug_output!("needs: {}", full_path);
-                fetch_metadata_file(chain, &output_path);
-            }
-        };
-    }
-
-    substrate_build_script_utils::generate_cargo_keys();
+	substrate_build_script_utils::generate_cargo_keys();
 	substrate_build_script_utils::rerun_if_git_head_changed();
-    println!("cargo:rerun-if-changed={}",metadata_path);
+	println!("cargo:rerun-if-changed={}", metadata_path);
 }
