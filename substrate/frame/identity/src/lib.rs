@@ -109,6 +109,7 @@ use frame_support::{
 	traits::{BalanceStatus, Currency, Get, OnUnbalanced, ReservableCurrency, StorageVersion},
 	BoundedVec,
 };
+use frame_system::pallet_prelude::*;
 pub use pallet::*;
 use sp_runtime::traits::{
 	AppendZerosInput, Hash, IdentifyAccount, Saturating, StaticLookup, Verify, Zero,
@@ -118,7 +119,6 @@ pub use types::{
 	Data, IdentityInformationProvider, Judgement, RegistrarIndex, RegistrarInfo, Registration,
 };
 pub use weights::WeightInfo;
-use frame_system::pallet_prelude::*;
 
 type BalanceOf<T> =
 	<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
@@ -1194,7 +1194,12 @@ impl<T: Config> Pallet<T> {
 	/// registration, second is the account's primary username.
 	///
 	/// TWOX-NOTE: OK ― `AccountId` is a secure hash.
-	pub fn identity(who: T::AccountId) -> Option<(Registration<BalanceOf<T>, T::MaxRegistrars, T::IdentityInformation>, Option<Username<T>>)> {
+	pub fn identity(
+		who: T::AccountId,
+	) -> Option<(
+		Registration<BalanceOf<T>, T::MaxRegistrars, T::IdentityInformation>,
+		Option<Username<T>>,
+	)> {
 		IdentityOf::<T>::get(who)
 	}
 
@@ -1209,7 +1214,9 @@ impl<T: Config> Pallet<T> {
 	/// The first item is the deposit, the second is a vector of the accounts.
 	///
 	/// TWOX-NOTE: OK ― `AccountId` is a secure hash.
-	pub fn subs_of(who: T::AccountId) -> (BalanceOf<T>, BoundedVec<T::AccountId, T::MaxSubAccounts>) {
+	pub fn subs_of(
+		who: T::AccountId,
+	) -> (BalanceOf<T>, BoundedVec<T::AccountId, T::MaxSubAccounts>) {
 		SubsOf::<T>::get(who)
 	}
 
@@ -1217,7 +1224,16 @@ impl<T: Config> Pallet<T> {
 	/// special origin (likely a council motion).
 	///
 	/// The index into this can be cast to `RegistrarIndex` to get a valid value.
-	pub fn registrars() -> BoundedVec< Option< RegistrarInfo< BalanceOf<T>, T::AccountId, <T::IdentityInformation as IdentityInformationProvider>::FieldsIdentifier, >, >, T::MaxRegistrars, > {
+	pub fn registrars() -> BoundedVec<
+		Option<
+			RegistrarInfo<
+				BalanceOf<T>,
+				T::AccountId,
+				<T::IdentityInformation as IdentityInformationProvider>::FieldsIdentifier,
+			>,
+		>,
+		T::MaxRegistrars,
+	> {
 		Registrars::<T>::get()
 	}
 
@@ -1241,7 +1257,9 @@ impl<T: Config> Pallet<T> {
 	/// [`Call::accept_username`].
 	///
 	/// First tuple item is the account and second is the acceptance deadline.
-	pub fn preapproved_usernames(username: Username<T>) -> Option<(T::AccountId, BlockNumberFor<T>)> {
+	pub fn preapproved_usernames(
+		username: Username<T>,
+	) -> Option<(T::AccountId, BlockNumberFor<T>)> {
 		PendingUsernames::<T>::get(username)
 	}
 
