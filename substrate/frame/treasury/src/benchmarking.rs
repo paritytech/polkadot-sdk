@@ -130,7 +130,7 @@ mod benchmarks {
 			T::SpendOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
 		let (_, value, beneficiary_lookup) = setup_proposal::<T, _>(SEED);
 		Treasury::<T, _>::spend_local(origin, value, beneficiary_lookup)?;
-		let proposal_id = Treasury::<T, _>::proposal_count() - 1;
+		let proposal_id = ProposalCount::<T, _>::get() - 1;
 		let reject_origin =
 			T::RejectOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
 
