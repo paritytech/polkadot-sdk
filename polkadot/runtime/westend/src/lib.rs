@@ -2673,6 +2673,7 @@ mod remote_tests {
 
 	#[tokio::test]
 	async fn delegate_stake_migration() {
+		// Intended to be run only manually.
 		if var("RUN_MIGRATION_TESTS").is_err() {
 			return;
 		}
@@ -2723,35 +2724,58 @@ mod remote_tests {
 				}
 			});
 
+			// member migration stats
+			let mut success = 0;
+			let mut members_below_ed = 0;
+			let mut direct_stakers = 0;
+			let mut unexpected_errors = 0;
+
 			// iterate over all pool members
-			pallet_nomination_pools::PoolMembers::<Runtime>::iter_keys().for_each(|k| {
+			pallet_nomination_pools::PoolMembers::<Runtime>::iter().for_each(|(k, member)| {
 				if pallet_nomination_pools::Pallet::<Runtime>::api_member_needs_delegate_migration(
 					k.clone(),
 				) {
+					// reasons migrations can fail:
 					let is_direct_staker = pallet_staking::Bonded::<Runtime>::contains_key(&k);
+					let member_balance_below_ed = member.total_balance() < ExistentialDeposit::get();
+
 					let migration = pallet_nomination_pools::Pallet::<Runtime>::migrate_delegation(
 						RuntimeOrigin::signed(alice.clone()).into(),
 						sp_runtime::MultiAddress::Id(k.clone()),
 					);
 
-					if is_direct_staker {
+					if member_balance_below_ed {
+						// if the member has balance below ED, the migration should fail.
+						members_below_ed += 1;
+						assert_eq!(
+							migration.unwrap_err(),
+							pallet_nomination_pools::Error::<Runtime>::MinimumBondNotMet.into()
+						);
+					} else if is_direct_staker {
 						// if the member is a direct staker, the migration should fail until pool
 						// member unstakes all funds from pallet-staking.
+						direct_stakers += 1;
 						assert_eq!(
 							migration.unwrap_err(),
 							pallet_delegated_staking::Error::<Runtime>::AlreadyStaking.into()
 						);
 					} else if migration.is_err() {
-						// migration can fail if the member has less than the existential deposit.
-						// we try funding them with the existential deposit and retry migration.
-						let _ = Balances::deposit_creating(&k, EXISTENTIAL_DEPOSIT);
-						assert_ok!(pallet_nomination_pools::Pallet::<Runtime>::migrate_delegation(
-							RuntimeOrigin::signed(alice.clone()).into(),
-							sp_runtime::MultiAddress::Id(k.clone()),
-						));
+						unexpected_errors += 1;
+						log::error!(target: "remote_test", "Unexpected error {:?} while migrating {:?}", migration.unwrap_err(), k);
+					} else {
+						success += 1;
 					}
 				}
 			});
+
+			log::info!(
+				target: "remote_test",
+				"Migration stats: success: {}, members_below_ed: {}, direct_stakers: {}, unexpected_errors: {}",
+				success,
+				members_below_ed,
+				direct_stakers,
+				unexpected_errors
+			);
 		});
 	}
 }

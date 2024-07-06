@@ -2928,9 +2928,12 @@ pub mod pallet {
 			);
 
 			let pool_contribution = member.total_balance();
-			ensure!(pool_contribution >= MinJoinBond::<T>::get(), Error::<T>::MinimumBondNotMet);
-			// the member must have some contribution to be migrated.
-			ensure!(pool_contribution > Zero::zero(), Error::<T>::AlreadyMigrated);
+			// ensure the pool contribution is greater than the existential deposit otherwise we
+			// cannot transfer funds to member account.
+			ensure!(
+				pool_contribution >= T::Currency::minimum_balance(),
+				Error::<T>::MinimumBondNotMet
+			);
 
 			let delegation =
 				T::StakeAdapter::member_delegation_balance(Member::from(member_account.clone()));
@@ -3900,6 +3903,15 @@ impl<T: Config> Pallet<T> {
 				// to be migrated.
 				delegated_balance.is_none() && !member_balance.is_zero()
 			})
+			.unwrap_or_default()
+	}
+
+	/// Contribution of the member in the pool.
+	///
+	/// Includes balance that is unbonding currently.
+	pub fn api_member_total_balance(who: T::AccountId) -> BalanceOf<T> {
+		PoolMembers::<T>::get(who.clone())
+			.map(|m| m.total_balance())
 			.unwrap_or_default()
 	}
 }

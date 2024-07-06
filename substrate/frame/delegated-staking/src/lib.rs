@@ -666,14 +666,14 @@ impl<T: Config> Pallet<T> {
 		let mut source_delegation =
 			Delegators::<T>::get(&source_delegator).defensive_ok_or(Error::<T>::BadState)?;
 
-		// some checks that must have already been checked before.
+		// ensure source has enough funds to migrate.
 		ensure!(source_delegation.amount >= amount, Error::<T>::NotEnoughFunds);
 		debug_assert!(
 			!Self::is_delegator(&destination_delegator) && !Self::is_agent(&destination_delegator)
 		);
 
 		let agent = source_delegation.agent.clone();
-		// update delegations
+		// create a new delegation for destination delegator.
 		let _ = Delegation::<T>::new(&agent, amount).update(&destination_delegator);
 		// Provide for the delegator account. This ensures that amount including existential deposit
 		// can be held.
@@ -684,7 +684,10 @@ impl<T: Config> Pallet<T> {
 			.checked_sub(&amount)
 			.defensive_ok_or(Error::<T>::BadState)?;
 
-		// transfer the released amount to `destination_delegator`.
+		// ensure amount is greater than ED otherwise transfer would fail.
+		ensure!(amount >= T::Currency::minimum_balance(), Error::<T>::NotEnoughFunds);
+
+		// transfer the held amount in `source_delegator` to `destination_delegator`.
 		let _ = T::Currency::transfer_on_hold(
 			&HoldReason::StakingDelegation.into(),
 			&source_delegator,
@@ -741,8 +744,11 @@ impl<T: Config> Pallet<T> {
 		agent_ledger.remove_slash(actual_slash).save();
 		delegation.amount =
 			delegation.amount.checked_sub(&actual_slash).ok_or(ArithmeticError::Overflow)?;
-		// TODO(ank4n) See what to do
-		let _ = delegation.update(&delegator);
+
+		if delegation.update(&delegator) {
+			// remove provider for delegator if no delegation left.
+			let _ = frame_system::Pallet::<T>::dec_providers(&delegator).defensive();
+		}
 
 		if let Some(reporter) = maybe_reporter {
 			let reward_payout: BalanceOf<T> = T::SlashRewardFraction::get() * actual_slash;
