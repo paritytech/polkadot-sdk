@@ -330,7 +330,7 @@ pub mod pallet {
 	impl<T: Config<I>, I: 'static> BuildGenesisConfig for GenesisConfig<T, I> {
 		fn build(&self) {
 			// Create Treasury account
-			let account_id = <Pallet<T, I>>::account_id();
+			let account_id = Pallet::<T, I>::account_id();
 			let min = T::Currency::minimum_balance();
 			if T::Currency::free_balance(&account_id) < min {
 				let _ = T::Currency::make_free_balance_be(&account_id, min);
@@ -798,7 +798,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		let account_id = Self::account_id();
 
 		let mut missed_any = false;
-		let mut imbalance = <PositiveImbalanceOf<T, I>>::zero();
+		let mut imbalance = PositiveImbalanceOf::<T, I>::zero();
 		let proposals_len = Approvals::<T, I>::mutate(|v| {
 			let proposals_approvals_len = v.len() as u32;
 			v.retain(|&index| {
@@ -806,7 +806,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				if let Some(p) = Proposals::<T, I>::get(index) {
 					if p.value <= budget_remaining {
 						budget_remaining -= p.value;
-						<Proposals<T, I>>::remove(index);
+						Proposals::<T, I>::remove(index);
 
 						// return their deposit.
 						let err_amount = T::Currency::unreserve(&p.proposer, p.bond);
@@ -977,6 +977,6 @@ where
 {
 	type Type = <R as frame_system::Config>::AccountId;
 	fn get() -> Self::Type {
-		<crate::Pallet<R>>::account_id()
+		crate::Pallet::<R>::account_id()
 	}
 }

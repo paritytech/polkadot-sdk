@@ -78,7 +78,7 @@ fn create_approved_proposals<T: Config<I>, I: 'static>(n: u32) -> Result<(), &'s
 		let (_, value, lookup) = setup_proposal::<T, I>(i);
 		Treasury::<T, I>::spend_local(origin.clone(), value, lookup)?;
 	}
-	ensure!(<Approvals<T, I>>::get().len() == n as usize, "Not all approved");
+	ensure!(Approvals::<T, I>::get().len() == n as usize, "Not all approved");
 	Ok(())
 }
 
