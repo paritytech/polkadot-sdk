@@ -4688,6 +4688,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#4537" id="4537">4537</a>
 <a href="#4538" id="4538">4538</a>
 <a href="#4539" id="4539">4539</a>
+<a href="#4540" id="4540">4540</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -6047,7 +6048,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="prelude-val">Ok</span>(())
 	}
 
-	<span class="kw">fn </span>finalize_block_with_transaction(
+	<span class="doccomment">/// `remove_displaced` can be set to `false` if this is not the last of many subsequent calls
+	/// for performance reasons.
+	</span><span class="kw">fn </span>finalize_block_with_transaction(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		transaction: <span class="kw-2">&amp;mut </span>Transaction&lt;DbHash&gt;,
 		hash: Block::Hash,
@@ -6055,6 +6058,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		last_finalized: <span class="prelude-ty">Option</span>&lt;Block::Hash&gt;,
 		justification: <span class="prelude-ty">Option</span>&lt;Justification&gt;,
 		current_transaction_justifications: <span class="kw-2">&amp;mut </span>HashMap&lt;Block::Hash, Justification&gt;,
+		remove_displaced: bool,
 	) -&gt; ClientResult&lt;MetaUpdate&lt;Block&gt;&gt; {
 		<span class="comment">// TODO: ensure best chain contains this block.
 		</span><span class="kw">let </span>number = <span class="kw-2">*</span>header.number();
@@ -6067,6 +6071,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			hash,
 			with_state,
 			current_transaction_justifications,
+			remove_displaced,
 		)<span class="question-mark">?</span>;
 
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(justification) = justification {
@@ -6144,7 +6149,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">let </span><span class="kw-2">mut </span>current_transaction_justifications: HashMap&lt;Block::Hash, Justification&gt; =
 			HashMap::new();
-		<span class="kw">for </span>(block_hash, justification) <span class="kw">in </span>operation.finalized_blocks {
+		<span class="kw">let </span><span class="kw-2">mut </span>finalized_blocks = operation.finalized_blocks.into_iter().peekable();
+		<span class="kw">while let </span><span class="prelude-val">Some</span>((block_hash, justification)) = finalized_blocks.next() {
 			<span class="kw">let </span>block_header = <span class="self">self</span>.blockchain.expect_header(block_hash)<span class="question-mark">?</span>;
 			meta_updates.push(<span class="self">self</span>.finalize_block_with_transaction(
 				<span class="kw-2">&amp;mut </span>transaction,
@@ -6153,6 +6159,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="prelude-val">Some</span>(last_finalized_hash),
 				justification,
 				<span class="kw-2">&amp;mut </span>current_transaction_justifications,
+				finalized_blocks.peek().is_none(),
 			)<span class="question-mark">?</span>);
 			last_finalized_hash = block_hash;
 			last_finalized_num = <span class="kw-2">*</span>block_header.number();
@@ -6332,6 +6339,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					hash,
 					operation.commit_state,
 					<span class="kw-2">&amp;mut </span>current_transaction_justifications,
+					<span class="bool-val">true</span>,
 				)<span class="question-mark">?</span>;
 			} <span class="kw">else </span>{
 				<span class="comment">// canonicalize blocks which are old enough, regardless of finality.
@@ -6456,9 +6464,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="prelude-val">Ok</span>(())
 	}
 
-	<span class="comment">// write stuff to a transaction after a new block is finalized.
-	// this canonicalizes finalized blocks. Fails if called with a block which
-	// was not a child of the last finalized block.
+	<span class="comment">// Write stuff to a transaction after a new block is finalized. This canonicalizes finalized
+	// blocks. Fails if called with a block which was not a child of the last finalized block.
+	</span><span class="doccomment">/// `remove_displaced` can be set to `false` if this is not the last of many subsequent calls
+	/// for performance reasons.
 	</span><span class="kw">fn </span>note_finalized(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		transaction: <span class="kw-2">&amp;mut </span>Transaction&lt;DbHash&gt;,
@@ -6466,6 +6475,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		f_hash: Block::Hash,
 		with_state: bool,
 		current_transaction_justifications: <span class="kw-2">&amp;mut </span>HashMap&lt;Block::Hash, Justification&gt;,
+		remove_displaced: bool,
 	) -&gt; ClientResult&lt;()&gt; {
 		<span class="kw">let </span>f_num = <span class="kw-2">*</span>f_header.number();
 
@@ -6490,13 +6500,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			apply_state_commit(transaction, commit);
 		}
 
-		<span class="kw">let </span>new_displaced = <span class="self">self</span>.blockchain.displaced_leaves_after_finalizing(f_hash, f_num)<span class="question-mark">?</span>;
-		<span class="kw">let </span>finalization_outcome =
-			FinalizationOutcome::new(new_displaced.displaced_leaves.clone().into_iter());
+		<span class="kw">if </span>remove_displaced {
+			<span class="kw">let </span>new_displaced = <span class="self">self</span>.blockchain.displaced_leaves_after_finalizing(f_hash, f_num)<span class="question-mark">?</span>;
 
-		<span class="self">self</span>.blockchain.leaves.write().remove_displaced_leaves(<span class="kw-2">&amp;</span>finalization_outcome);
+			<span class="self">self</span>.blockchain.leaves.write().remove_displaced_leaves(FinalizationOutcome::new(
+				new_displaced.displaced_leaves.iter().copied(),
+			));
 
-		<span class="self">self</span>.prune_blocks(transaction, f_num, <span class="kw-2">&amp;</span>new_displaced, current_transaction_justifications)<span class="question-mark">?</span>;
+			<span class="kw">if </span>!<span class="macro">matches!</span>(<span class="self">self</span>.blocks_pruning, BlocksPruning::KeepAll) {
+				<span class="self">self</span>.prune_displaced_branches(transaction, <span class="kw-2">&amp;</span>new_displaced)<span class="question-mark">?</span>;
+			}
+		}
+
+		<span class="self">self</span>.prune_blocks(transaction, f_num, current_transaction_justifications)<span class="question-mark">?</span>;
 
 		<span class="prelude-val">Ok</span>(())
 	}
@@ -6505,39 +6521,29 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		transaction: <span class="kw-2">&amp;mut </span>Transaction&lt;DbHash&gt;,
 		finalized_number: NumberFor&lt;Block&gt;,
-		displaced: <span class="kw-2">&amp;</span>DisplacedLeavesAfterFinalization&lt;Block&gt;,
 		current_transaction_justifications: <span class="kw-2">&amp;mut </span>HashMap&lt;Block::Hash, Justification&gt;,
 	) -&gt; ClientResult&lt;()&gt; {
-		<span class="kw">match </span><span class="self">self</span>.blocks_pruning {
-			BlocksPruning::KeepAll =&gt; {},
-			BlocksPruning::Some(blocks_pruning) =&gt; {
-				<span class="comment">// Always keep the last finalized block
-				</span><span class="kw">let </span>keep = std::cmp::max(blocks_pruning, <span class="number">1</span>);
-				<span class="kw">if </span>finalized_number &gt;= keep.into() {
-					<span class="kw">let </span>number = finalized_number.saturating_sub(keep.into());
+		<span class="kw">if let </span>BlocksPruning::Some(blocks_pruning) = <span class="self">self</span>.blocks_pruning {
+			<span class="comment">// Always keep the last finalized block
+			</span><span class="kw">let </span>keep = std::cmp::max(blocks_pruning, <span class="number">1</span>);
+			<span class="kw">if </span>finalized_number &gt;= keep.into() {
+				<span class="kw">let </span>number = finalized_number.saturating_sub(keep.into());
 
-					<span class="comment">// Before we prune a block, check if it is pinned
-					</span><span class="kw">if let </span><span class="prelude-val">Some</span>(hash) = <span class="self">self</span>.blockchain.hash(number)<span class="question-mark">? </span>{
-						<span class="self">self</span>.blockchain.insert_persisted_body_if_pinned(hash)<span class="question-mark">?</span>;
+				<span class="comment">// Before we prune a block, check if it is pinned
+				</span><span class="kw">if let </span><span class="prelude-val">Some</span>(hash) = <span class="self">self</span>.blockchain.hash(number)<span class="question-mark">? </span>{
+					<span class="self">self</span>.blockchain.insert_persisted_body_if_pinned(hash)<span class="question-mark">?</span>;
 
-						<span class="comment">// If the block was finalized in this transaction, it will not be in the db
-						// yet.
-						</span><span class="kw">if let </span><span class="prelude-val">Some</span>(justification) =
-							current_transaction_justifications.remove(<span class="kw-2">&amp;</span>hash)
-						{
-							<span class="self">self</span>.blockchain.insert_justifications_if_pinned(hash, justification);
-						} <span class="kw">else </span>{
-							<span class="self">self</span>.blockchain.insert_persisted_justifications_if_pinned(hash)<span class="question-mark">?</span>;
-						}
-					};
+					<span class="comment">// If the block was finalized in this transaction, it will not be in the db
+					// yet.
+					</span><span class="kw">if let </span><span class="prelude-val">Some</span>(justification) = current_transaction_justifications.remove(<span class="kw-2">&amp;</span>hash) {
+						<span class="self">self</span>.blockchain.insert_justifications_if_pinned(hash, justification);
+					} <span class="kw">else </span>{
+						<span class="self">self</span>.blockchain.insert_persisted_justifications_if_pinned(hash)<span class="question-mark">?</span>;
+					}
+				};
 
-					<span class="self">self</span>.prune_block(transaction, BlockId::&lt;Block&gt;::number(number))<span class="question-mark">?</span>;
-				}
-				<span class="self">self</span>.prune_displaced_branches(transaction, displaced)<span class="question-mark">?</span>;
-			},
-			BlocksPruning::KeepFinalized =&gt; {
-				<span class="self">self</span>.prune_displaced_branches(transaction, displaced)<span class="question-mark">?</span>;
-			},
+				<span class="self">self</span>.prune_block(transaction, BlockId::&lt;Block&gt;::number(number))<span class="question-mark">?</span>;
+			}
 		}
 		<span class="prelude-val">Ok</span>(())
 	}
@@ -6548,11 +6554,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		displaced: <span class="kw-2">&amp;</span>DisplacedLeavesAfterFinalization&lt;Block&gt;,
 	) -&gt; ClientResult&lt;()&gt; {
 		<span class="comment">// Discard all blocks from displaced branches
-		</span><span class="kw">for </span>(<span class="kw">_</span>, tree_route) <span class="kw">in </span>displaced.tree_routes.iter() {
-			<span class="kw">for </span>r <span class="kw">in </span>tree_route.retracted() {
-				<span class="self">self</span>.blockchain.insert_persisted_body_if_pinned(r.hash)<span class="question-mark">?</span>;
-				<span class="self">self</span>.prune_block(transaction, BlockId::&lt;Block&gt;::hash(r.hash))<span class="question-mark">?</span>;
-			}
+		</span><span class="kw">for </span><span class="kw-2">&amp;</span>hash <span class="kw">in </span>displaced.displaced_blocks.iter() {
+			<span class="self">self</span>.blockchain.insert_persisted_body_if_pinned(hash)<span class="question-mark">?</span>;
+			<span class="self">self</span>.prune_block(transaction, BlockId::&lt;Block&gt;::hash(hash))<span class="question-mark">?</span>;
 		}
 		<span class="prelude-val">Ok</span>(())
 	}
@@ -6800,6 +6804,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="prelude-val">None</span>,
 			justification,
 			<span class="kw-2">&amp;mut </span>current_transaction_justifications,
+			<span class="bool-val">true</span>,
 		)<span class="question-mark">?</span>;
 
 		<span class="self">self</span>.storage.db.commit(transaction)<span class="question-mark">?</span>;
@@ -7237,7 +7242,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		backend::{Backend <span class="kw">as </span>BTrait, BlockImportOperation <span class="kw">as </span>Op},
 		blockchain::Backend <span class="kw">as </span>BLBTrait,
 	};
-	<span class="kw">use </span>sp_blockchain::{lowest_common_ancestor, lowest_common_ancestor_multiblock, tree_route};
+	<span class="kw">use </span>sp_blockchain::{lowest_common_ancestor, tree_route};
 	<span class="kw">use </span>sp_core::H256;
 	<span class="kw">use </span>sp_runtime::{
 		testing::{Block <span class="kw">as </span>RawBlock, ExtrinsicWrapper, Header},
@@ -7799,121 +7804,118 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="attr">#[test]
-	</span><span class="kw">fn </span>lowest_common_ancestors_multiblock_works() {
+	</span><span class="kw">fn </span>displaced_leaves_after_finalizing_works() {
 		<span class="kw">let </span>backend = Backend::&lt;Block&gt;::new_test(<span class="number">1000</span>, <span class="number">100</span>);
 		<span class="kw">let </span>blockchain = backend.blockchain();
-		<span class="kw">let </span>block0 = insert_header(<span class="kw-2">&amp;</span>backend, <span class="number">0</span>, Default::default(), <span class="prelude-val">None</span>, Default::default());
+		<span class="kw">let </span>genesis_number = <span class="number">0</span>;
+		<span class="kw">let </span>genesis_hash =
+			insert_header(<span class="kw-2">&amp;</span>backend, genesis_number, Default::default(), <span class="prelude-val">None</span>, Default::default());
 
 		<span class="comment">// fork from genesis: 3 prong.
 		// block 0 -&gt; a1 -&gt; a2 -&gt; a3
-		//    |
-		//     -&gt; b1 -&gt; b2 -&gt; c1 -&gt; c2
-		//           |
-		//           -&gt; d1 -&gt; d2
-		</span><span class="kw">let </span>a1 = insert_header(<span class="kw-2">&amp;</span>backend, <span class="number">1</span>, block0, <span class="prelude-val">None</span>, Default::default());
-		<span class="kw">let </span>a2 = insert_header(<span class="kw-2">&amp;</span>backend, <span class="number">2</span>, a1, <span class="prelude-val">None</span>, Default::default());
-		<span class="kw">let </span>a3 = insert_header(<span class="kw-2">&amp;</span>backend, <span class="number">3</span>, a2, <span class="prelude-val">None</span>, Default::default());
+		//        \
+		//         -&gt; b1 -&gt; b2 -&gt; c1 -&gt; c2
+		//              \
+		//               -&gt; d1 -&gt; d2
+		</span><span class="kw">let </span>a1_number = <span class="number">1</span>;
+		<span class="kw">let </span>a1_hash = insert_header(<span class="kw-2">&amp;</span>backend, a1_number, genesis_hash, <span class="prelude-val">None</span>, Default::default());
+		<span class="kw">let </span>a2_number = <span class="number">2</span>;
+		<span class="kw">let </span>a2_hash = insert_header(<span class="kw-2">&amp;</span>backend, a2_number, a1_hash, <span class="prelude-val">None</span>, Default::default());
+		<span class="kw">let </span>a3_number = <span class="number">3</span>;
+		<span class="kw">let </span>a3_hash = insert_header(<span class="kw-2">&amp;</span>backend, a3_number, a2_hash, <span class="prelude-val">None</span>, Default::default());
+
+		{
+			<span class="kw">let </span>displaced = blockchain
+				.displaced_leaves_after_finalizing(genesis_hash, genesis_number)
+				.unwrap();
+			<span class="macro">assert_eq!</span>(displaced.displaced_leaves, <span class="macro">vec!</span>[]);
+			<span class="macro">assert_eq!</span>(displaced.displaced_blocks, <span class="macro">vec!</span>[]);
+		}
+		{
+			<span class="kw">let </span>displaced_a1 =
+				blockchain.displaced_leaves_after_finalizing(a1_hash, a1_number).unwrap();
+			<span class="macro">assert_eq!</span>(displaced_a1.displaced_leaves, <span class="macro">vec!</span>[]);
+			<span class="macro">assert_eq!</span>(displaced_a1.displaced_blocks, <span class="macro">vec!</span>[]);
+
+			<span class="kw">let </span>displaced_a2 =
+				blockchain.displaced_leaves_after_finalizing(a2_hash, a3_number).unwrap();
+			<span class="macro">assert_eq!</span>(displaced_a2.displaced_leaves, <span class="macro">vec!</span>[]);
+			<span class="macro">assert_eq!</span>(displaced_a2.displaced_blocks, <span class="macro">vec!</span>[]);
+
+			<span class="kw">let </span>displaced_a3 =
+				blockchain.displaced_leaves_after_finalizing(a3_hash, a3_number).unwrap();
+			<span class="macro">assert_eq!</span>(displaced_a3.displaced_leaves, <span class="macro">vec!</span>[]);
+			<span class="macro">assert_eq!</span>(displaced_a3.displaced_blocks, <span class="macro">vec!</span>[]);
+		}
 
 		<span class="comment">// fork from genesis: 2 prong.
-		</span><span class="kw">let </span>b1 = insert_header(<span class="kw-2">&amp;</span>backend, <span class="number">1</span>, block0, <span class="prelude-val">None</span>, H256::from([<span class="number">1</span>; <span class="number">32</span>]));
-		<span class="kw">let </span>b2 = insert_header(<span class="kw-2">&amp;</span>backend, <span class="number">2</span>, b1, <span class="prelude-val">None</span>, Default::default());
+		</span><span class="kw">let </span>b1_number = <span class="number">1</span>;
+		<span class="kw">let </span>b1_hash = insert_header(<span class="kw-2">&amp;</span>backend, b1_number, genesis_hash, <span class="prelude-val">None</span>, H256::from([<span class="number">1</span>; <span class="number">32</span>]));
+		<span class="kw">let </span>b2_number = <span class="number">2</span>;
+		<span class="kw">let </span>b2_hash = insert_header(<span class="kw-2">&amp;</span>backend, b2_number, b1_hash, <span class="prelude-val">None</span>, Default::default());
 
 		<span class="comment">// fork from b2.
-		</span><span class="kw">let </span>c1 = insert_header(<span class="kw-2">&amp;</span>backend, <span class="number">3</span>, b2, <span class="prelude-val">None</span>, H256::from([<span class="number">2</span>; <span class="number">32</span>]));
-		<span class="kw">let </span>c2 = insert_header(<span class="kw-2">&amp;</span>backend, <span class="number">4</span>, c1, <span class="prelude-val">None</span>, Default::default());
+		</span><span class="kw">let </span>c1_number = <span class="number">3</span>;
+		<span class="kw">let </span>c1_hash = insert_header(<span class="kw-2">&amp;</span>backend, c1_number, b2_hash, <span class="prelude-val">None</span>, H256::from([<span class="number">2</span>; <span class="number">32</span>]));
+		<span class="kw">let </span>c2_number = <span class="number">4</span>;
+		<span class="kw">let </span>c2_hash = insert_header(<span class="kw-2">&amp;</span>backend, c2_number, c1_hash, <span class="prelude-val">None</span>, Default::default());
 
 		<span class="comment">// fork from b1.
-		</span><span class="kw">let </span>d1 = insert_header(<span class="kw-2">&amp;</span>backend, <span class="number">2</span>, b1, <span class="prelude-val">None</span>, H256::from([<span class="number">3</span>; <span class="number">32</span>]));
-		<span class="kw">let </span>d2 = insert_header(<span class="kw-2">&amp;</span>backend, <span class="number">3</span>, d1, <span class="prelude-val">None</span>, Default::default());
-		{
-			<span class="kw">let </span>lca = lowest_common_ancestor_multiblock(blockchain, <span class="macro">vec!</span>[a3, b2]).unwrap().unwrap();
+		</span><span class="kw">let </span>d1_number = <span class="number">2</span>;
+		<span class="kw">let </span>d1_hash = insert_header(<span class="kw-2">&amp;</span>backend, d1_number, b1_hash, <span class="prelude-val">None</span>, H256::from([<span class="number">3</span>; <span class="number">32</span>]));
+		<span class="kw">let </span>d2_number = <span class="number">3</span>;
+		<span class="kw">let </span>d2_hash = insert_header(<span class="kw-2">&amp;</span>backend, d2_number, d1_hash, <span class="prelude-val">None</span>, Default::default());
 
-			<span class="macro">assert_eq!</span>(lca.hash, block0);
-			<span class="macro">assert_eq!</span>(lca.number, <span class="number">0</span>);
+		{
+			<span class="kw">let </span>displaced_a1 =
+				blockchain.displaced_leaves_after_finalizing(a1_hash, a1_number).unwrap();
+			<span class="macro">assert_eq!</span>(
+				displaced_a1.displaced_leaves,
+				<span class="macro">vec!</span>[(c2_number, c2_hash), (d2_number, d2_hash)]
+			);
+			<span class="kw">let </span><span class="kw-2">mut </span>displaced_blocks = <span class="macro">vec!</span>[b1_hash, b2_hash, c1_hash, c2_hash, d1_hash, d2_hash];
+			displaced_blocks.sort();
+			<span class="macro">assert_eq!</span>(displaced_a1.displaced_blocks, displaced_blocks);
+
+			<span class="kw">let </span>displaced_a2 =
+				blockchain.displaced_leaves_after_finalizing(a2_hash, a2_number).unwrap();
+			<span class="macro">assert_eq!</span>(displaced_a1.displaced_leaves, displaced_a2.displaced_leaves);
+			<span class="macro">assert_eq!</span>(displaced_a1.displaced_blocks, displaced_a2.displaced_blocks);
+
+			<span class="kw">let </span>displaced_a3 =
+				blockchain.displaced_leaves_after_finalizing(a3_hash, a3_number).unwrap();
+			<span class="macro">assert_eq!</span>(displaced_a1.displaced_leaves, displaced_a3.displaced_leaves);
+			<span class="macro">assert_eq!</span>(displaced_a1.displaced_blocks, displaced_a3.displaced_blocks);
 		}
-
 		{
-			<span class="kw">let </span>lca = lowest_common_ancestor_multiblock(blockchain, <span class="macro">vec!</span>[a1, a3]).unwrap().unwrap();
-
-			<span class="macro">assert_eq!</span>(lca.hash, a1);
-			<span class="macro">assert_eq!</span>(lca.number, <span class="number">1</span>);
+			<span class="kw">let </span>displaced =
+				blockchain.displaced_leaves_after_finalizing(b1_hash, b1_number).unwrap();
+			<span class="macro">assert_eq!</span>(displaced.displaced_leaves, <span class="macro">vec!</span>[(a3_number, a3_hash)]);
+			<span class="kw">let </span><span class="kw-2">mut </span>displaced_blocks = <span class="macro">vec!</span>[a1_hash, a2_hash, a3_hash];
+			displaced_blocks.sort();
+			<span class="macro">assert_eq!</span>(displaced.displaced_blocks, displaced_blocks);
 		}
-
 		{
-			<span class="kw">let </span>lca = lowest_common_ancestor_multiblock(blockchain, <span class="macro">vec!</span>[a3, a1]).unwrap().unwrap();
-
-			<span class="macro">assert_eq!</span>(lca.hash, a1);
-			<span class="macro">assert_eq!</span>(lca.number, <span class="number">1</span>);
+			<span class="kw">let </span>displaced =
+				blockchain.displaced_leaves_after_finalizing(b2_hash, b2_number).unwrap();
+			<span class="macro">assert_eq!</span>(
+				displaced.displaced_leaves,
+				<span class="macro">vec!</span>[(a3_number, a3_hash), (d2_number, d2_hash)]
+			);
+			<span class="kw">let </span><span class="kw-2">mut </span>displaced_blocks = <span class="macro">vec!</span>[a1_hash, a2_hash, a3_hash, d1_hash, d2_hash];
+			displaced_blocks.sort();
+			<span class="macro">assert_eq!</span>(displaced.displaced_blocks, displaced_blocks);
 		}
-
 		{
-			<span class="kw">let </span>lca = lowest_common_ancestor_multiblock(blockchain, <span class="macro">vec!</span>[a2, a3]).unwrap().unwrap();
-
-			<span class="macro">assert_eq!</span>(lca.hash, a2);
-			<span class="macro">assert_eq!</span>(lca.number, <span class="number">2</span>);
-		}
-
-		{
-			<span class="kw">let </span>lca = lowest_common_ancestor_multiblock(blockchain, <span class="macro">vec!</span>[a2, a1]).unwrap().unwrap();
-
-			<span class="macro">assert_eq!</span>(lca.hash, a1);
-			<span class="macro">assert_eq!</span>(lca.number, <span class="number">1</span>);
-		}
-
-		{
-			<span class="kw">let </span>lca = lowest_common_ancestor_multiblock(blockchain, <span class="macro">vec!</span>[a2, a2]).unwrap().unwrap();
-
-			<span class="macro">assert_eq!</span>(lca.hash, a2);
-			<span class="macro">assert_eq!</span>(lca.number, <span class="number">2</span>);
-		}
-
-		{
-			<span class="kw">let </span>lca = lowest_common_ancestor_multiblock(blockchain, <span class="macro">vec!</span>[a3, d2, c2])
-				.unwrap()
-				.unwrap();
-
-			<span class="macro">assert_eq!</span>(lca.hash, block0);
-			<span class="macro">assert_eq!</span>(lca.number, <span class="number">0</span>);
-		}
-
-		{
-			<span class="kw">let </span>lca = lowest_common_ancestor_multiblock(blockchain, <span class="macro">vec!</span>[c2, d2, b2])
-				.unwrap()
-				.unwrap();
-
-			<span class="macro">assert_eq!</span>(lca.hash, b1);
-			<span class="macro">assert_eq!</span>(lca.number, <span class="number">1</span>);
-		}
-
-		{
-			<span class="kw">let </span>lca = lowest_common_ancestor_multiblock(blockchain, <span class="macro">vec!</span>[a1, a2, a3])
-				.unwrap()
-				.unwrap();
-
-			<span class="macro">assert_eq!</span>(lca.hash, a1);
-			<span class="macro">assert_eq!</span>(lca.number, <span class="number">1</span>);
-		}
-
-		{
-			<span class="kw">let </span>lca = lowest_common_ancestor_multiblock(blockchain, <span class="macro">vec!</span>[b1, b2, d1])
-				.unwrap()
-				.unwrap();
-
-			<span class="macro">assert_eq!</span>(lca.hash, b1);
-			<span class="macro">assert_eq!</span>(lca.number, <span class="number">1</span>);
-		}
-
-		{
-			<span class="kw">let </span>lca = lowest_common_ancestor_multiblock(blockchain, <span class="macro">vec!</span>[]);
-
-			<span class="macro">assert_eq!</span>(<span class="bool-val">true</span>, <span class="macro">matches!</span>(lca, <span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>)));
-		}
-
-		{
-			<span class="kw">let </span>lca = lowest_common_ancestor_multiblock(blockchain, <span class="macro">vec!</span>[a1]).unwrap().unwrap();
-
-			<span class="macro">assert_eq!</span>(lca.hash, a1);
-			<span class="macro">assert_eq!</span>(lca.number, <span class="number">1</span>);
+			<span class="kw">let </span>displaced =
+				blockchain.displaced_leaves_after_finalizing(c2_hash, c2_number).unwrap();
+			<span class="macro">assert_eq!</span>(
+				displaced.displaced_leaves,
+				<span class="macro">vec!</span>[(a3_number, a3_hash), (d2_number, d2_hash)]
+			);
+			<span class="kw">let </span><span class="kw-2">mut </span>displaced_blocks = <span class="macro">vec!</span>[a1_hash, a2_hash, a3_hash, d1_hash, d2_hash];
+			displaced_blocks.sort();
+			<span class="macro">assert_eq!</span>(displaced.displaced_blocks, displaced_blocks);
 		}
 	}
 
