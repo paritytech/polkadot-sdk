@@ -40,7 +40,7 @@ use std::{fmt::Debug, time::Duration};
 pub type SignedBlockOf<C> = <C as Chain>::SignedBlock;
 
 /// Substrate-based chain from minimal relay-client point of view.
-pub trait Chain: ChainBase + Clone {
+pub trait Chain: ChainBase + Clone + Debug {
 	/// Chain name.
 	const NAME: &'static str;
 	/// Name of the runtime API method that is returning best known finalized header number

@@ -28,15 +28,15 @@ use crate::{
 		SubstrateMessageLane,
 	},
 	on_demand::OnDemandRelay,
-	proofs::to_raw_storage_proof,
+	proofs::FromBridgedChainMessagesDeliveryProof,
 	TransactionParams,
 };
 
 use async_std::sync::Arc;
 use async_trait::async_trait;
 use bp_messages::{
-	source_chain::FromBridgedChainMessagesDeliveryProof, storage_keys::inbound_lane_data_key,
-	ChainWithMessages as _, InboundLaneData, LaneId, MessageNonce, UnrewardedRelayersState,
+	storage_keys::inbound_lane_data_key, ChainWithMessages as _, InboundLaneData, LaneId,
+	MessageNonce, UnrewardedRelayersState,
 };
 use messages_relay::{
 	message_lane::{MessageLane, SourceHeaderIdOf, TargetHeaderIdOf},
@@ -52,7 +52,7 @@ use std::{convert::TryFrom, ops::RangeInclusive};
 
 /// Message receiving proof returned by the target Substrate node.
 pub type SubstrateMessagesDeliveryProof<C> =
-	(UnrewardedRelayersState, FromBridgedChainMessagesDeliveryProof<HashOf<C>>);
+	(UnrewardedRelayersState, FromBridgedChainMessagesDeliveryProof<C>);
 
 /// Substrate client as Substrate messages target.
 pub struct SubstrateMessagesTarget<P: SubstrateMessageLane, SourceClnt, TargetClnt> {
@@ -241,7 +241,7 @@ where
 			self.target_client.prove_storage(id.hash(), storage_keys.clone()).await?;
 		let proof = FromBridgedChainMessagesDeliveryProof {
 			bridged_header_hash: id.1,
-			storage_proof: to_raw_storage_proof::<P::TargetChain>(storage_proof),
+			storage_proof: storage_proof.into(),
 			lane: self.lane_id,
 		};
 		Ok((id, (relayers_state, proof)))

@@ -130,14 +130,118 @@ impl<Call> BatchCallBuilder<Call> for () {
 
 /// Module for handling storage proofs compatibility.
 pub mod proofs {
-	use bp_runtime::{HashOf, RawStorageProof};
+	use bp_messages::{LaneId, MessageNonce};
+	use bp_runtime::{HashOf, HasherOf, RawStorageProof, UnverifiedStorageProof};
+	use frame_support::pallet_prelude::{Decode, Encode, TypeInfo};
 	use relay_substrate_client::Chain;
+	use sp_core::storage::StorageKey;
 	use sp_trie::StorageProof;
 
-	/// Converts proof to `RawStorageProof` type.
-	pub fn to_raw_storage_proof<SourceChain: Chain>(
-		proof: (StorageProof, HashOf<SourceChain>),
-	) -> RawStorageProof {
-		proof.0.into_iter_nodes().collect()
+	/// Represents generic proof, that can be converted to different storage proof types.
+	#[derive(Clone, Debug)]
+	pub struct Proof<SourceChain: Chain> {
+		/// Storage proof itself.
+		pub storage_proof: StorageProof,
+		/// Storage proof keys.
+		pub storage_keys: Vec<StorageKey>,
+		/// State root
+		pub state_root: HashOf<SourceChain>,
+	}
+
+	impl<SourceChain: Chain> From<(StorageProof, Vec<StorageKey>, HashOf<SourceChain>)>
+		for Proof<SourceChain>
+	{
+		fn from(value: (StorageProof, Vec<StorageKey>, HashOf<SourceChain>)) -> Self {
+			Self { storage_proof: value.0, storage_keys: value.1, state_root: value.2 }
+		}
+	}
+
+	impl<SourceChain: Chain> TryInto<RawStorageProof> for Proof<SourceChain> {
+		type Error = ();
+
+		fn try_into(self) -> Result<RawStorageProof, Self::Error> {
+			Ok(self.storage_proof.into_iter_nodes().collect())
+		}
+	}
+
+	impl<SourceChain: Chain> TryInto<UnverifiedStorageProof> for Proof<SourceChain> {
+		type Error = ();
+
+		fn try_into(self) -> Result<UnverifiedStorageProof, Self::Error> {
+			let Self { storage_proof, storage_keys, state_root } = self;
+
+			UnverifiedStorageProof::try_new::<HasherOf<SourceChain>>(
+				storage_proof,
+				state_root,
+				storage_keys,
+			)
+			.map_err(|e| {
+				log::error!(
+					target: "bridge",
+					"Failed to create `UnverifiedStorageProof` with error: {e:?}"
+				);
+				()
+			})
+		}
+	}
+
+	/// Stub that represents `bp_messages::target_chain::FromBridgedChainMessagesProof` but with
+	/// a generic storage proof, allowing the `ReceiveMessagesProofCallBuilder` implementation to
+	/// decide what kind of storage proof to use.
+	#[derive(Clone, Debug)]
+	pub struct FromBridgedChainMessagesProof<C: Chain> {
+		/// Hash of the finalized bridged header the proof is for.
+		pub bridged_header_hash: HashOf<C>,
+		/// A storage trie proof of messages being delivered.
+		pub storage_proof: Proof<C>,
+		/// Messages in this proof are sent over this lane.
+		pub lane: LaneId,
+		/// Nonce of the first message being delivered.
+		pub nonces_start: MessageNonce,
+		/// Nonce of the last message being delivered.
+		pub nonces_end: MessageNonce,
+	}
+
+	impl<C: Chain> TryFrom<FromBridgedChainMessagesProof<C>>
+		for bp_messages::target_chain::FromBridgedChainMessagesProof<HashOf<C>>
+	{
+		type Error = ();
+
+		fn try_from(value: FromBridgedChainMessagesProof<C>) -> Result<Self, Self::Error> {
+			Ok(bp_messages::target_chain::FromBridgedChainMessagesProof {
+				bridged_header_hash: value.bridged_header_hash,
+				storage_proof: value.storage_proof.try_into()?,
+				lane: value.lane,
+				nonces_start: value.nonces_start,
+				nonces_end: value.nonces_end,
+			})
+		}
+	}
+
+	/// Stub that represents `bp_messages::source_chain::FromBridgedChainMessagesDeliveryProof` but
+	/// with a generic storage proof, allowing the `ReceiveMessagesDeliveryProofCallBuilder`
+	/// implementation to decide what kind of storage proof to use.
+	#[derive(Clone, Debug)]
+	pub struct FromBridgedChainMessagesDeliveryProof<C: Chain> {
+		/// Hash of the bridge header the proof is for.
+		pub bridged_header_hash: HashOf<C>,
+		/// Storage trie proof generated for [`Self::bridged_header_hash`].
+		pub storage_proof: Proof<C>,
+		/// Lane id of which messages were delivered and the proof is for.
+		pub lane: LaneId,
+	}
+
+	impl<C: Chain> TryFrom<FromBridgedChainMessagesDeliveryProof<C>>
+		for bp_messages::source_chain::FromBridgedChainMessagesDeliveryProof<HashOf<C>>
+	{
+		type Error = ();
+
+		fn try_from(value: FromBridgedChainMessagesDeliveryProof<C>) -> Result<Self, Self::Error> {
+			Ok(bp_messages::source_chain::FromBridgedChainMessagesDeliveryProof {
+				bridged_header_hash: value.bridged_header_hash,
+				storage_proof: value.storage_proof.try_into()?,
+				lane: value.lane,
+			})
+		}
 	}
 }
