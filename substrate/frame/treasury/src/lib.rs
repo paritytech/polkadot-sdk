@@ -788,18 +788,22 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	pub fn account_id() -> T::AccountId {
 		T::PalletId::get().into_account_truncating()
 	}
-	/// Public function to proposals storage.
-	pub fn proposals(index: ProposalIndex) -> Option<Proposal<T::AccountId, BalanceOf<T, I>>> {
-		Proposals::<T, I>::get(index)
-	}
+
 	/// Public function to proposal_count storage.
 	pub fn proposal_count() -> ProposalIndex {
 		ProposalCount::<T, I>::get()
 	}
-	/// Public function to proposal_count storage.
+
+	/// Public function to proposals storage.
+	pub fn proposals(index: ProposalIndex) -> Option<Proposal<T::AccountId, BalanceOf<T, I>>> {
+		Proposals::<T, I>::get(index)
+	}
+
+	/// Public function to approvals storage.
 	pub fn approvals() -> BoundedVec<ProposalIndex, T::MaxApprovals> {
 		Approvals::<T, I>::get()
 	}
+
 	/// Spend some money! returns number of approvals before spend.
 	pub fn spend_funds() -> Weight {
 		let mut total_weight = Weight::zero();
