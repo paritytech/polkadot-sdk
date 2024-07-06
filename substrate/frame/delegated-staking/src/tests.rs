@@ -681,6 +681,9 @@ mod staking_integration {
 				DelegatedStaking::generate_proxy_delegator(Agent::from(200)).get();
 
 			assert_ok!(DelegatedStaking::migrate_to_agent(RawOrigin::Signed(200).into(), 201));
+			// after migration, funds are moved to proxy delegator, still a provider exists.
+			assert_eq!(System::providers(&200), 1);
+			assert_eq!(Balances::free_balance(200), 0);
 
 			// verify all went well
 			let mut expected_proxy_delegated_amount = agent_amount;
@@ -702,14 +705,15 @@ mod staking_integration {
 			let delegator_share = agent_amount / 4;
 			for delegator in 300..304 {
 				assert_eq!(Balances::free_balance(delegator), 0);
-				// fund them with ED
-				fund(&delegator, ExistentialDeposit::get());
-				// migrate 1/4th amount into each delegator
+				assert_eq!(System::providers(&delegator), 0);
+
+				// No pre-balance needed to migrate delegator.
 				assert_ok!(DelegatedStaking::migrate_delegation(
 					RawOrigin::Signed(200).into(),
 					delegator,
 					delegator_share
 				));
+				assert_eq!(System::providers(&delegator), 1);
 				assert_eq!(
 					Balances::balance_on_hold(&HoldReason::StakingDelegation.into(), &delegator),
 					delegator_share

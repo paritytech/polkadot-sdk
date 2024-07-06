@@ -500,7 +500,6 @@ impl<T: Config> Pallet<T> {
 		T::CoreStaking::update_payee(who, reward_account)?;
 		// delegate all transferred funds back to agent.
 		Self::do_delegate(proxy_delegator, Agent::from(who.clone()), amount_to_transfer)?;
-
 		// if the transferred/delegated amount was greater than the stake, mark the extra as
 		// unclaimed withdrawal.
 		let unclaimed_withdraws = amount_to_transfer
