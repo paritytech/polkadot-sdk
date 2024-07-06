@@ -35,7 +35,7 @@
 //!	```bash
 //! chain-spec-builder create -r runtime.wasm default
 //! ```
-//!
+//! 
 //! _Note:_ [`GenesisBuilder::get_preset`][sp-genesis-builder-get-preset] runtime function is
 //! called.
 //!
@@ -46,7 +46,7 @@
 //! ```bash
 //! chain-spec-builder display-preset -r runtime.wasm
 //! ```
-//!
+//! 
 //! _Note:_ [`GenesisBuilder::get_preset`][sp-genesis-builder-get-preset] runtime function is called.
 //!
 //! ##### Display the `GenesisConfig` preset with given name
@@ -55,7 +55,7 @@
 //! ```bash
 //! chain-spec-builder display-preset -r runtime.wasm -p "staging"
 //! ```
-//!
+//! 
 //! _Note:_ [`GenesisBuilder::get_preset`][sp-genesis-builder-get-preset] runtime function is called.
 //!
 //! ##### List the names of `GenesisConfig` presets provided by runtime.
@@ -64,7 +64,7 @@
 //! ```bash
 //! chain-spec-builder list-presets -r runtime.wasm
 //! ```
-//!
+//! 
 //! _Note:_ [`GenesisBuilder::preset_names`][sp-genesis-builder-list] runtime function is called.
 //!
 //! ##### Generate chain spec using runtime provided genesis config preset.
@@ -74,7 +74,7 @@
 //! ```bash
 //! chain-spec-builder create -r runtime.wasm named-preset "staging"
 //! ```
-//!
+//! 
 //! _Note:_ [`GenesisBuilder::get_preset`][sp-genesis-builder-get-preset] and [`GenesisBuilder::build_state`][sp-genesis-builder-build] runtime functions are called.
 //!
 //! ##### Generate raw storage chain spec using genesis config patch.
@@ -84,7 +84,7 @@
 //! ```bash
 //! chain-spec-builder create -s -r runtime.wasm patch patch.json
 //! ```
-//!
+//! 
 //! _Note:_ [`GenesisBuilder::build_state`][sp-genesis-builder-build] runtime function is called.
 //!
 //! ##### Generate raw storage chain spec using full genesis config.
@@ -93,19 +93,19 @@
 //! ```bash
 //! chain-spec-builder create -s -r runtime.wasm full full-genesis-config.json
 //! ```
-//!
+//! 
 //! _Note_: [`GenesisBuilder::build_state`][sp-genesis-builder-build] runtime function is called.
 //!
 //! ##### Generate human readable chain spec using provided genesis config patch.
 //! ```bash
 //! chain-spec-builder create -r runtime.wasm patch patch.json
 //! ```
-//!
+//! 
 //! ##### Generate human readable chain spec using provided full genesis config.
 //! ```bash
 //! chain-spec-builder create -r runtime.wasm full full-genesis-config.json
 //! ```
-//!
+//! 
 //! ##### Extra tools.
 //! The `chain-spec-builder` provides also some extra utilities: [`VerifyCmd`], [`ConvertToRawCmd`],
 //! [`UpdateCodeCmd`].
@@ -117,17 +117,14 @@
 //! [sp-genesis-builder-list]: ../sp_genesis_builder/trait.GenesisBuilder.html#method.preset_names
 //! [sp-genesis-builder-get-preset]: ../sp_genesis_builder/trait.GenesisBuilder.html#method.get_preset
 
-use std::{ fs, path::PathBuf };
+use std::{fs, path::PathBuf};
 
-use clap::{ Parser, Subcommand };
+use clap::{Parser, Subcommand};
 use sc_chain_spec::{
-	ChainSpecExtension,
-	ChainSpecGroup,
-	ChainType,
-	GenericChainSpec,
+	ChainSpecExtension, ChainSpecGroup, ChainType, GenericChainSpec,
 	GenesisConfigBuilderRuntimeCaller,
 };
-use serde::{ Deserialize, Serialize };
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 /// A utility to easily create a chain spec definition.
 #[derive(Debug, Parser)]
@@ -295,7 +292,9 @@ pub struct VerifyCmd {
 }
 
 /// The extensions for the [`ChainSpec`].
-#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize, ChainSpecGroup, ChainSpecExtension)]
+#[derive(
+	Default, Debug, Clone, PartialEq, Serialize, Deserialize, ChainSpecGroup, ChainSpecExtension,
+)]
 #[serde(deny_unknown_fields)]
 pub struct Extensions {
 	/// The relay chain of the Parachain.
@@ -306,58 +305,48 @@ pub struct Extensions {
 
 /// Processes `CreateCmd` and returns JSON version of `ChainSpec`.
 pub fn generate_chain_spec_for_runtime(cmd: &CreateCmd) -> Result<String, String> {
-	let code = fs
-		::read(cmd.runtime_wasm_path.as_path())
+	let code = fs::read(cmd.runtime_wasm_path.as_path())
 		.map_err(|e| format!("wasm blob shall be readable {e}"))?;
 
 	let chain_type = &cmd.chain_type;
 	let relay_chain = &cmd.relay_chain;
-	let builder = GenericChainSpec::<Extensions>
-		::builder(&code[..], if cmd.parachain {
+	let builder = GenericChainSpec::<Extensions>::builder(
+		&code[..],
+		if cmd.parachain {
 			Extensions { relay_chain: Some(relay_chain.to_string()), para_id: Some(cmd.para_id) }
 		} else {
 			Extensions::default()
-		})
-		.with_name(&cmd.chain_name[..])
-		.with_id(&cmd.chain_id[..])
-		.with_chain_type(chain_type.clone());
+		},
+	)
+	.with_name(&cmd.chain_name[..])
+	.with_id(&cmd.chain_id[..])
+	.with_chain_type(chain_type.clone());
 
 	let builder = match cmd.action {
 		GenesisBuildAction::NamedPreset(NamedPresetCmd { ref preset_name }) =>
 			builder.with_genesis_config_preset_name(&preset_name),
 		GenesisBuildAction::Patch(PatchCmd { ref patch_path }) => {
-			let patch = fs
-				::read(patch_path.as_path())
+			let patch = fs::read(patch_path.as_path())
 				.map_err(|e| format!("patch file {patch_path:?} shall be readable: {e}"))?;
-			builder.with_genesis_config_patch(
-				serde_json
-					::from_slice::<Value>(&patch[..])
-					.map_err(|e|
-						format!("patch file {patch_path:?} shall contain a valid json: {e}")
-					)?
-			)
-		}
+			builder.with_genesis_config_patch(serde_json::from_slice::<Value>(&patch[..]).map_err(
+				|e| format!("patch file {patch_path:?} shall contain a valid json: {e}"),
+			)?)
+		},
 		GenesisBuildAction::Full(FullCmd { ref config_path }) => {
-			let config = fs
-				::read(config_path.as_path())
+			let config = fs::read(config_path.as_path())
 				.map_err(|e| format!("config file {config_path:?} shall be readable: {e}"))?;
-			builder.with_genesis_config(
-				serde_json
-					::from_slice::<Value>(&config[..])
-					.map_err(|e|
-						format!("config file {config_path:?} shall contain a valid json: {e}")
-					)?
-			)
-		}
+			builder.with_genesis_config(serde_json::from_slice::<Value>(&config[..]).map_err(
+				|e| format!("config file {config_path:?} shall contain a valid json: {e}"),
+			)?)
+		},
 		GenesisBuildAction::Default(DefaultCmd {}) => {
-			let caller: GenesisConfigBuilderRuntimeCaller = GenesisConfigBuilderRuntimeCaller::new(
-				&code[..]
-			);
+			let caller: GenesisConfigBuilderRuntimeCaller =
+				GenesisConfigBuilderRuntimeCaller::new(&code[..]);
 			let default_config = caller
 				.get_default_config()
 				.map_err(|e| format!("getting default config from runtime should work: {e}"))?;
 			builder.with_genesis_config(default_config)
-		}
+		},
 	};
 
 	let chain_spec = builder.build();
@@ -368,7 +357,7 @@ pub fn generate_chain_spec_for_runtime(cmd: &CreateCmd) -> Result<String, String
 			chain_spec.as_json(true)?;
 			println!("Genesis config verification: OK");
 			chain_spec.as_json(false)
-		}
+		},
 		(false, false) => chain_spec.as_json(false),
 	}
 }
