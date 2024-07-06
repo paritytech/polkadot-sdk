@@ -68,7 +68,8 @@
 //!   
 //!   It's important to note that the frozen balance can exceed the total balance of the account.
 //!   This is useful, eg, in cases where you want to prevent a user from transferring any fund. In
-//!   such a case, setting the frozen balance to `Balance::MAX` would serve that purpose effectively.
+//!   such a case, setting the frozen balance to `Balance::MAX` would serve that purpose
+//! effectively.
 //!
 //! - **Minimum Balance (a.k.a. Existential Deposit, a.k.a. ED)**: The minimum balance required to
 //!   create or keep an account open. This is to prevent "dust accounts" from filling storage. When
