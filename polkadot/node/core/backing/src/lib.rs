@@ -827,8 +827,8 @@ async fn handle_communication<Context>(
 		CandidateBackingMessage::Statement(relay_parent, statement) => {
 			handle_statement_message(ctx, state, relay_parent, statement, metrics).await?;
 		},
-		CandidateBackingMessage::GetBackedCandidates(requested_candidates, tx) =>
-			handle_get_backed_candidates_message(state, requested_candidates, tx, metrics)?,
+		CandidateBackingMessage::GetBackableCandidates(requested_candidates, tx) =>
+			handle_get_backable_candidates_message(state, requested_candidates, tx, metrics)?,
 		CandidateBackingMessage::CanSecond(request, tx) =>
 			handle_can_second_request(ctx, state, request, tx).await,
 	}
@@ -2158,7 +2158,7 @@ async fn handle_statement_message<Context>(
 	}
 }
 
-fn handle_get_backed_candidates_message(
+fn handle_get_backable_candidates_message(
 	state: &State,
 	requested_candidates: HashMap<ParaId, Vec<(CandidateHash, Hash)>>,
 	tx: oneshot::Sender<HashMap<ParaId, Vec<BackedCandidate>>>,

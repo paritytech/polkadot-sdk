@@ -822,7 +822,7 @@ async fn select_candidates(
 
 	// now get the backed candidates corresponding to these candidate receipts
 	let (tx, rx) = oneshot::channel();
-	sender.send_unbounded_message(CandidateBackingMessage::GetBackedCandidates(
+	sender.send_unbounded_message(CandidateBackingMessage::GetBackableCandidates(
 		selected_candidates.clone(),
 		tx,
 	));

@@ -36,5 +36,8 @@ pub mod your_first_runtime;
 /// How to enable storage weight reclaiming in a parachain node and runtime.
 pub mod enable_pov_reclaim;
 
+/// How to enable Async Backing on parachain projects that started in 2023 or before.
+pub mod async_backing_guide;
+
 /// How to enable metadata hash verification in the runtime.
 pub mod enable_metadata_hash;

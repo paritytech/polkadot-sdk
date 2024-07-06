@@ -45,33 +45,20 @@ pub struct RemoveOutcome<H, N> {
 }
 
 /// Removed leaves after a finalization action.
-pub struct FinalizationOutcome<H, N> {
-	removed: BTreeMap<Reverse<N>, Vec<H>>,
+pub struct FinalizationOutcome<I, H, N>
+where
+	I: Iterator<Item = (N, H)>,
+{
+	removed: I,
 }
 
-impl<H: Copy, N: Ord> FinalizationOutcome<H, N> {
-	/// Merge with another. This should only be used for displaced items that
-	/// are produced within one transaction of each other.
-	pub fn merge(&mut self, mut other: Self) {
-		// this will ignore keys that are in duplicate, however
-		// if these are actually produced correctly via the leaf-set within
-		// one transaction, then there will be no overlap in the keys.
-		self.removed.append(&mut other.removed);
-	}
-
-	/// Iterate over all displaced leaves.
-	pub fn leaves(&self) -> impl Iterator<Item = &H> {
-		self.removed.values().flatten()
-	}
-
+impl<I, H: Ord, N: Ord> FinalizationOutcome<I, H, N>
+where
+	I: Iterator<Item = (N, H)>,
+{
 	/// Constructor
-	pub fn new(new_displaced: impl Iterator<Item = (H, N)>) -> Self {
-		let mut removed = BTreeMap::<Reverse<N>, Vec<H>>::new();
-		for (hash, number) in new_displaced {
-			removed.entry(Reverse(number)).or_default().push(hash);
-		}
-
-		FinalizationOutcome { removed }
+	pub fn new(new_displaced: I) -> Self {
+		FinalizationOutcome { removed: new_displaced }
 	}
 }
 
@@ -86,7 +73,7 @@ pub struct LeafSet<H, N> {
 impl<H, N> LeafSet<H, N>
 where
 	H: Clone + PartialEq + Decode + Encode,
-	N: std::fmt::Debug + Clone + AtLeast32Bit + Decode + Encode,
+	N: std::fmt::Debug + Copy + AtLeast32Bit + Decode + Encode,
 {
 	/// Construct a new, blank leaf set.
 	pub fn new() -> Self {
@@ -117,13 +104,13 @@ where
 		let number = Reverse(number);
 
 		let removed = if number.0 != N::zero() {
-			let parent_number = Reverse(number.0.clone() - N::one());
+			let parent_number = Reverse(number.0 - N::one());
 			self.remove_leaf(&parent_number, &parent_hash).then(|| parent_hash)
 		} else {
 			None
 		};
 
-		self.insert_leaf(number.clone(), hash.clone());
+		self.insert_leaf(number, hash.clone());
 
 		ImportOutcome { inserted: LeafSetItem { hash, number }, removed }
 	}
@@ -150,7 +137,7 @@ where
 
 		let inserted = parent_hash.and_then(|parent_hash| {
 			if number.0 != N::zero() {
-				let parent_number = Reverse(number.0.clone() - N::one());
+				let parent_number = Reverse(number.0 - N::one());
 				self.insert_leaf(parent_number, parent_hash.clone());
 				Some(parent_hash)
 			} else {
@@ -162,11 +149,12 @@ where
 	}
 
 	/// Remove all leaves displaced by the last block finalization.
-	pub fn remove_displaced_leaves(&mut self, displaced_leaves: &FinalizationOutcome<H, N>) {
-		for (number, hashes) in &displaced_leaves.removed {
-			for hash in hashes.iter() {
-				self.remove_leaf(number, hash);
-			}
+	pub fn remove_displaced_leaves<I>(&mut self, displaced_leaves: FinalizationOutcome<I, H, N>)
+	where
+		I: Iterator<Item = (N, H)>,
+	{
+		for (number, hash) in displaced_leaves.removed {
+			self.remove_leaf(&Reverse(number), &hash);
 		}
 	}
 
@@ -186,13 +174,13 @@ where
 		let items = self
 			.storage
 			.iter()
-			.flat_map(|(number, hashes)| hashes.iter().map(move |h| (h.clone(), number.clone())))
+			.flat_map(|(number, hashes)| hashes.iter().map(move |h| (h.clone(), *number)))
 			.collect::<Vec<_>>();
 
-		for (hash, number) in &items {
+		for (hash, number) in items {
 			if number.0 > best_number {
 				assert!(
-					self.remove_leaf(number, hash),
+					self.remove_leaf(&number, &hash),
 					"item comes from an iterator over storage; qed",
 				);
 			}
@@ -207,7 +195,7 @@ where
 		// we need to make sure that the best block exists in the leaf set as
 		// this is an invariant of regular block import.
 		if !leaves_contains_best {
-			self.insert_leaf(best_number.clone(), best_hash.clone());
+			self.insert_leaf(best_number, best_hash.clone());
 		}
 	}
 
@@ -229,7 +217,7 @@ where
 		column: u32,
 		prefix: &[u8],
 	) {
-		let leaves: Vec<_> = self.storage.iter().map(|(n, h)| (n.0.clone(), h.clone())).collect();
+		let leaves: Vec<_> = self.storage.iter().map(|(n, h)| (n.0, h.clone())).collect();
 		tx.set_from_vec(column, prefix, leaves.encode());
 	}
 
@@ -274,7 +262,7 @@ where
 
 	/// Returns the highest leaf and all hashes associated to it.
 	pub fn highest_leaf(&self) -> Option<(N, &[H])> {
-		self.storage.iter().next().map(|(k, v)| (k.0.clone(), &v[..]))
+		self.storage.iter().next().map(|(k, v)| (k.0, &v[..]))
 	}
 }
 
@@ -286,13 +274,13 @@ pub struct Undo<'a, H: 'a, N: 'a> {
 impl<'a, H: 'a, N: 'a> Undo<'a, H, N>
 where
 	H: Clone + PartialEq + Decode + Encode,
-	N: std::fmt::Debug + Clone + AtLeast32Bit + Decode + Encode,
+	N: std::fmt::Debug + Copy + AtLeast32Bit + Decode + Encode,
 {
 	/// Undo an imported block by providing the import operation outcome.
 	/// No additional operations should be performed between import and undo.
 	pub fn undo_import(&mut self, outcome: ImportOutcome<H, N>) {
 		if let Some(removed_hash) = outcome.removed {
-			let removed_number = Reverse(outcome.inserted.number.0.clone() - N::one());
+			let removed_number = Reverse(outcome.inserted.number.0 - N::one());
 			self.inner.insert_leaf(removed_number, removed_hash);
 		}
 		self.inner.remove_leaf(&outcome.inserted.number, &outcome.inserted.hash);
@@ -302,7 +290,7 @@ where
 	/// No additional operations should be performed between remove and undo.
 	pub fn undo_remove(&mut self, outcome: RemoveOutcome<H, N>) {
 		if let Some(inserted_hash) = outcome.inserted {
-			let inserted_number = Reverse(outcome.removed.number.0.clone() - N::one());
+			let inserted_number = Reverse(outcome.removed.number.0 - N::one());
 			self.inner.remove_leaf(&inserted_number, &inserted_hash);
 		}
 		self.inner.insert_leaf(outcome.removed.number, outcome.removed.hash);
@@ -310,8 +298,13 @@ where
 
 	/// Undo a finalization operation by providing the displaced leaves.
 	/// No additional operations should be performed between finalization and undo.
-	pub fn undo_finalization(&mut self, mut outcome: FinalizationOutcome<H, N>) {
-		self.inner.storage.append(&mut outcome.removed);
+	pub fn undo_finalization<I>(&mut self, outcome: FinalizationOutcome<I, H, N>)
+	where
+		I: Iterator<Item = (N, H)>,
+	{
+		for (number, hash) in outcome.removed {
+			self.inner.storage.entry(Reverse(number)).or_default().push(hash);
+		}
 	}
 }
 

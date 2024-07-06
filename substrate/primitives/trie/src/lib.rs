@@ -21,6 +21,7 @@
 
 extern crate alloc;
 
+pub mod accessed_nodes_tracker;
 #[cfg(feature = "std")]
 pub mod cache;
 mod error;
@@ -28,6 +29,7 @@ mod node_codec;
 mod node_header;
 #[cfg(feature = "std")]
 pub mod recorder;
+pub mod recorder_ext;
 mod storage_proof;
 mod trie_codec;
 mod trie_stream;
@@ -46,7 +48,7 @@ use hash_db::{Hasher, Prefix};
 pub use memory_db::{prefixed_key, HashKey, KeyFunction, PrefixedKey};
 /// The Substrate format implementation of `NodeCodec`.
 pub use node_codec::NodeCodec;
-pub use storage_proof::{CompactProof, StorageProof};
+pub use storage_proof::{CompactProof, StorageProof, StorageProofError};
 /// Trie codec reexport, mainly child trie support
 /// for trie compact proof.
 pub use trie_codec::{decode_compact, encode_compact, Error as CompactProofError};
@@ -63,6 +65,9 @@ pub use trie_db::{
 pub use trie_db::{proof::VerifyError, MerkleValue};
 /// The Substrate format implementation of `TrieStream`.
 pub use trie_stream::TrieStream;
+
+/// Raw storage proof type (just raw trie nodes).
+pub type RawStorageProof = Vec<Vec<u8>>;
 
 /// substrate trie layout
 pub struct LayoutV0<H>(PhantomData<H>);
@@ -615,6 +620,50 @@ mod tests {
 	type LayoutV1 = super::LayoutV1<Blake2Hasher>;
 
 	type MemoryDBMeta<H> = memory_db::MemoryDB<H, memory_db::HashKey<H>, trie_db::DBValue>;
+
+	pub fn create_trie<L: TrieLayout>(
+		data: &[(&[u8], &[u8])],
+	) -> (MemoryDB<L::Hash>, trie_db::TrieHash<L>) {
+		let mut db = MemoryDB::default();
+		let mut root = Default::default();
+
+		{
+			let mut trie = trie_db::TrieDBMutBuilder::<L>::new(&mut db, &mut root).build();
+			for (k, v) in data {
+				trie.insert(k, v).expect("Inserts data");
+			}
+		}
+
+		let mut recorder = Recorder::<L>::new();
+		{
+			let trie = trie_db::TrieDBBuilder::<L>::new(&mut db, &mut root)
+				.with_recorder(&mut recorder)
+				.build();
+			for (k, _v) in data {
+				trie.get(k).unwrap();
+			}
+		}
+
+		(db, root)
+	}
+
+	pub fn create_storage_proof<L: TrieLayout>(
+		data: &[(&[u8], &[u8])],
+	) -> (RawStorageProof, trie_db::TrieHash<L>) {
+		let (db, root) = create_trie::<L>(data);
+
+		let mut recorder = Recorder::<L>::new();
+		{
+			let trie = trie_db::TrieDBBuilder::<L>::new(&db, &root)
+				.with_recorder(&mut recorder)
+				.build();
+			for (k, _v) in data {
+				trie.get(k).unwrap();
+			}
+		}
+
+		(recorder.drain().into_iter().map(|record| record.data).collect(), root)
+	}
 
 	fn hashed_null_node<T: TrieConfiguration>() -> TrieHash<T> {
 		<T::Codec as NodeCodecT>::hashed_null_node()

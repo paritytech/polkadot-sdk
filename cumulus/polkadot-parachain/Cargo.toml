@@ -120,7 +120,7 @@ substrate-build-script-utils = { workspace = true, default-features = true }
 assert_cmd = { workspace = true }
 nix = { features = ["signal"], workspace = true }
 tempfile = { workspace = true }
-tokio = { features = ["macros", "parking_lot", "time"], workspace = true, default-features = true }
+tokio = { version = "1.32.0", features = ["macros", "parking_lot", "time"] }
 wait-timeout = { workspace = true }
 
 [features]

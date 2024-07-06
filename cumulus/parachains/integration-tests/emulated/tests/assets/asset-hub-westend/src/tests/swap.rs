@@ -17,10 +17,8 @@ use crate::imports::*;
 
 #[test]
 fn swap_locally_on_chain_using_local_assets() {
-	let asset_native = Box::new(
-		v3::Location::try_from(asset_hub_westend_runtime::xcm_config::WestendLocation::get())
-			.expect("conversion works"),
-	);
+	let asset_native =
+		Box::new(v3::Location::try_from(RelayLocation::get()).expect("conversion works"));
 	let asset_one = Box::new(v3::Location {
 		parents: 0,
 		interior: [
@@ -229,12 +227,12 @@ fn swap_locally_on_chain_using_foreign_assets() {
 
 #[test]
 fn cannot_create_pool_from_pool_assets() {
-	let asset_native = asset_hub_westend_runtime::xcm_config::WestendLocation::get();
-	let mut asset_one = asset_hub_westend_runtime::xcm_config::PoolAssetsPalletLocation::get();
+	let asset_native = RelayLocation::get();
+	let mut asset_one = ahw_xcm_config::PoolAssetsPalletLocation::get();
 	asset_one.append_with(GeneralIndex(ASSET_ID.into())).expect("pool assets");
 
 	AssetHubWestend::execute_with(|| {
-		let pool_owner_account_id = asset_hub_westend_runtime::AssetConversionOrigin::get();
+		let pool_owner_account_id = AssetHubWestendAssetConversionOrigin::get();
 
 		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::PoolAssets::create(
 			<AssetHubWestend as Chain>::RuntimeOrigin::signed(pool_owner_account_id.clone()),
@@ -264,9 +262,7 @@ fn cannot_create_pool_from_pool_assets() {
 
 #[test]
 fn pay_xcm_fee_with_some_asset_swapped_for_native() {
-	let asset_native =
-		v3::Location::try_from(asset_hub_westend_runtime::xcm_config::WestendLocation::get())
-			.expect("conversion works");
+	let asset_native = v3::Location::try_from(RelayLocation::get()).expect("conversion works");
 	let asset_one = xcm::v3::Location {
 		parents: 0,
 		interior: [

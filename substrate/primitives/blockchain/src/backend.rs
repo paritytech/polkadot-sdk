@@ -21,15 +21,15 @@ use log::warn;
 use parking_lot::RwLock;
 use sp_runtime::{
 	generic::BlockId,
-	traits::{Block as BlockT, CheckedSub, Header as HeaderT, NumberFor, Zero},
+	traits::{Block as BlockT, Header as HeaderT, NumberFor, Zero},
 	Justifications,
 };
-use std::collections::{btree_map::BTreeMap, btree_set::BTreeSet};
+use std::collections::{btree_set::BTreeSet, HashMap, VecDeque};
 
 use crate::{
 	error::{Error, Result},
-	header_metadata::{self, HeaderMetadata},
-	lowest_common_ancestor_multiblock, tree_route, TreeRoute,
+	header_metadata::HeaderMetadata,
+	tree_route, CachedHeaderMetadata,
 };
 
 /// Blockchain database header backend. Does not perform any validation.
@@ -126,6 +126,32 @@ where
 	Block: BlockT,
 	T: HeaderMetadata<Block> + HeaderBackend<Block> + Send + Sync,
 {
+}
+
+struct MinimalBlockMetadata<Block: BlockT> {
+	number: NumberFor<Block>,
+	hash: Block::Hash,
+	parent: Block::Hash,
+}
+
+impl<Block> Clone for MinimalBlockMetadata<Block>
+where
+	Block: BlockT,
+{
+	fn clone(&self) -> Self {
+		Self { number: self.number, hash: self.hash, parent: self.parent }
+	}
+}
+
+impl<Block> Copy for MinimalBlockMetadata<Block> where Block: BlockT {}
+
+impl<Block> From<&CachedHeaderMetadata<Block>> for MinimalBlockMetadata<Block>
+where
+	Block: BlockT,
+{
+	fn from(value: &CachedHeaderMetadata<Block>) -> Self {
+		Self { number: value.number, hash: value.hash, parent: value.parent }
+	}
 }
 
 /// Blockchain database backend. Does not perform any validation.
@@ -226,88 +252,128 @@ pub trait Backend<Block: BlockT>:
 		finalized_block_hash: Block::Hash,
 		finalized_block_number: NumberFor<Block>,
 	) -> std::result::Result<DisplacedLeavesAfterFinalization<Block>, Error> {
-		let mut result = DisplacedLeavesAfterFinalization::default();
-
 		let leaves = self.leaves()?;
 
 		// If we have only one leaf there are no forks, and we can return early.
 		if finalized_block_number == Zero::zero() || leaves.len() == 1 {
-			return Ok(result)
+			return Ok(DisplacedLeavesAfterFinalization::default())
 		}
 
-		let first_leaf = leaves.first().ok_or(Error::Backend(
-			"Unable to find any leaves. This should not happen.".to_string(),
-		))?;
-		let leaf_block_header = self.expect_header(*first_leaf)?;
+		// Store hashes of finalized blocks for quick checking later, the last block if the
+		// finalized one
+		let mut finalized_chain = VecDeque::new();
+		finalized_chain
+			.push_front(MinimalBlockMetadata::from(&self.header_metadata(finalized_block_hash)?));
 
-		// If the distance between the leafs and the finalized block is large,  calculating
-		// tree routes can be very expensive. In that case, we will try to find the
-		// lowest common ancestor between all the leaves. The assumption here is that the forks are
-		// close to the tip and not long. So the LCA can be computed from the header cache. If the
-		// LCA is above the finalized block, we know that there are no displaced leaves by the
-		// finalization.
-		if leaf_block_header
-			.number()
-			.checked_sub(&finalized_block_number)
-			.unwrap_or(0u32.into()) >
-			header_metadata::LRU_CACHE_SIZE.into()
-		{
-			if let Some(lca) = lowest_common_ancestor_multiblock(self, leaves.clone())? {
-				if lca.number > finalized_block_number {
-					return Ok(result)
-				} else {
-					log::warn!("The distance between leafs and finalized block is large. Finalization can take a long time.");
-				}
-			};
-		}
+		// Local cache is a performance optimization in case of finalized block deep below the
+		// tip of the chain with a lot of leaves above finalized block
+		let mut local_cache = HashMap::<Block::Hash, MinimalBlockMetadata<Block>>::new();
 
-		// For each leaf determine whether it belongs to a non-canonical branch.
+		let mut result = DisplacedLeavesAfterFinalization {
+			displaced_leaves: Vec::with_capacity(leaves.len()),
+			displaced_blocks: Vec::with_capacity(leaves.len()),
+		};
+		let mut displaced_blocks_candidates = Vec::new();
+
 		for leaf_hash in leaves {
-			let leaf_block_header = self.expect_header(leaf_hash)?;
-			let leaf_number = *leaf_block_header.number();
+			let mut current_header_metadata =
+				MinimalBlockMetadata::from(&self.header_metadata(leaf_hash)?);
+			let leaf_number = current_header_metadata.number;
 
-			let leaf_tree_route = match tree_route(self, leaf_hash, finalized_block_hash) {
-				Ok(tree_route) => tree_route,
-				Err(Error::UnknownBlock(_)) => {
-					// Sometimes routes can't be calculated. E.g. after warp sync.
+			// Collect all block hashes until the height of the finalized block
+			displaced_blocks_candidates.clear();
+			while current_header_metadata.number > finalized_block_number {
+				displaced_blocks_candidates.push(current_header_metadata.hash);
+
+				let parent_hash = current_header_metadata.parent;
+				match local_cache.get(&parent_hash) {
+					Some(metadata_header) => {
+						current_header_metadata = *metadata_header;
+					},
+					None => {
+						current_header_metadata =
+							MinimalBlockMetadata::from(&self.header_metadata(parent_hash)?);
+						// Cache locally in case more branches above finalized block reference
+						// the same block hash
+						local_cache.insert(parent_hash, current_header_metadata);
+					},
+				}
+			}
+
+			// If points back to the finalized header then nothing left to do, this leaf will be
+			// checked again later
+			if current_header_metadata.hash == finalized_block_hash {
+				continue;
+			}
+
+			// Otherwise the whole leaf branch needs to be pruned, track it all the way to the
+			// point of branching from the finalized chain
+			result.displaced_leaves.push((leaf_number, leaf_hash));
+			result.displaced_blocks.extend(displaced_blocks_candidates.drain(..));
+			result.displaced_blocks.push(current_header_metadata.hash);
+			// Collect the rest of the displaced blocks of leaf branch
+			for distance_from_finalized in 1_u32.. {
+				// Find block at `distance_from_finalized` from finalized block
+				let (finalized_chain_block_number, finalized_chain_block_hash) =
+					match finalized_chain.iter().rev().nth(distance_from_finalized as usize) {
+						Some(header) => (header.number, header.hash),
+						None => {
+							let metadata = MinimalBlockMetadata::from(&self.header_metadata(
+								finalized_chain.front().expect("Not empty; qed").parent,
+							)?);
+							let result = (metadata.number, metadata.hash);
+							finalized_chain.push_front(metadata);
+							result
+						},
+					};
+
+				if current_header_metadata.number <= finalized_chain_block_number {
+					// Skip more blocks until we get all blocks on finalized chain until the height
+					// of the parent block
 					continue;
-				},
-				Err(e) => Err(e)?,
-			};
+				}
 
-			// Is it a stale fork?
-			let needs_pruning = leaf_tree_route.common_block().hash != finalized_block_hash;
+				let parent_hash = current_header_metadata.parent;
+				if finalized_chain_block_hash == parent_hash {
+					// Reached finalized chain, nothing left to do
+					break;
+				}
 
-			if needs_pruning {
-				result.displaced_leaves.insert(leaf_hash, leaf_number);
-				result.tree_routes.insert(leaf_hash, leaf_tree_route);
+				// Store displaced block and look deeper for block on finalized chain
+				result.displaced_blocks.push(parent_hash);
+				current_header_metadata =
+					MinimalBlockMetadata::from(&self.header_metadata(parent_hash)?);
 			}
 		}
 
-		Ok(result)
+		// There could be duplicates shared by multiple branches, clean them up
+		result.displaced_blocks.sort_unstable();
+		result.displaced_blocks.dedup();
+
+		return Ok(result);
 	}
 }
 
 /// Result of  [`Backend::displaced_leaves_after_finalizing`].
 #[derive(Clone, Debug)]
 pub struct DisplacedLeavesAfterFinalization<Block: BlockT> {
-	/// A collection of hashes and block numbers for displaced leaves.
-	pub displaced_leaves: BTreeMap<Block::Hash, NumberFor<Block>>,
+	/// A list of hashes and block numbers of displaced leaves.
+	pub displaced_leaves: Vec<(NumberFor<Block>, Block::Hash)>,
 
-	/// A collection of tree routes from the leaves to finalized block.
-	pub tree_routes: BTreeMap<Block::Hash, TreeRoute<Block>>,
+	/// A list of hashes displaced blocks from all displaced leaves.
+	pub displaced_blocks: Vec<Block::Hash>,
 }
 
 impl<Block: BlockT> Default for DisplacedLeavesAfterFinalization<Block> {
 	fn default() -> Self {
-		Self { displaced_leaves: Default::default(), tree_routes: Default::default() }
+		Self { displaced_leaves: Vec::new(), displaced_blocks: Vec::new() }
 	}
 }
 
 impl<Block: BlockT> DisplacedLeavesAfterFinalization<Block> {
 	/// Returns a collection of hashes for the displaced leaves.
 	pub fn hashes(&self) -> impl Iterator<Item = Block::Hash> + '_ {
-		self.displaced_leaves.keys().cloned()
+		self.displaced_leaves.iter().map(|(_, hash)| *hash)
 	}
 }
 

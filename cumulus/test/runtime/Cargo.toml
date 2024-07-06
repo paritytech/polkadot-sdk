@@ -93,3 +93,4 @@ std = [
 	"substrate-wasm-builder",
 ]
 increment-spec-version = []
+elastic-scaling = []

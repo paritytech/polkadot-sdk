@@ -27,6 +27,8 @@
 //! (i.e.: the socket should continue being processed) in the background even if the runtime isn't
 //! actively calling any function.
 
+use hyperv14 as hyper;
+
 use crate::api::timestamp;
 use bytes::buf::{Buf, Reader};
 use fnv::FnvHashMap;

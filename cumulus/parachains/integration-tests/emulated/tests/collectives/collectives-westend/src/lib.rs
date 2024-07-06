@@ -19,9 +19,18 @@ pub use emulated_integration_tests_common::xcm_emulator::{
 	assert_expected_events, bx, Chain, RelayChain as Relay, TestExt,
 };
 pub use westend_system_emulated_network::{
-	asset_hub_westend_emulated_chain::AssetHubWestendParaPallet as AssetHubWestendPallet,
-	collectives_westend_emulated_chain::CollectivesWestendParaPallet as CollectivesWestendPallet,
-	westend_emulated_chain::WestendRelayPallet as WestendPallet,
+	asset_hub_westend_emulated_chain::{
+		asset_hub_westend_runtime::xcm_config::LocationToAccountId as AssetHubLocationToAccountId,
+		AssetHubWestendParaPallet as AssetHubWestendPallet,
+	},
+	collectives_westend_emulated_chain::{
+		collectives_westend_runtime::fellowship as collectives_fellowship,
+		CollectivesWestendParaPallet as CollectivesWestendPallet,
+	},
+	westend_emulated_chain::{
+		westend_runtime::{governance as westend_governance, OriginCaller as WestendOriginCaller},
+		WestendRelayPallet as WestendPallet,
+	},
 	AssetHubWestendPara as AssetHubWestend, CollectivesWestendPara as CollectivesWestend,
 	WestendRelay as Westend,
 };

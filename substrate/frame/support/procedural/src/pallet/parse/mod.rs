@@ -109,10 +109,9 @@ impl Def {
 			let pallet_attr: Option<PalletAttr> = helper::take_first_item_pallet_attr(item)?;
 
 			match pallet_attr {
-				Some(PalletAttr::Config(span, with_default)) if config.is_none() =>
+				Some(PalletAttr::Config(_, with_default)) if config.is_none() =>
 					config = Some(config::ConfigDef::try_from(
 						&frame_system,
-						span,
 						index,
 						item,
 						with_default,
@@ -122,7 +121,7 @@ impl Def {
 					pallet_struct = Some(p);
 				},
 				Some(PalletAttr::Hooks(span)) if hooks.is_none() => {
-					let m = hooks::HooksDef::try_from(span, index, item)?;
+					let m = hooks::HooksDef::try_from(span, item)?;
 					hooks = Some(m);
 				},
 				Some(PalletAttr::RuntimeCall(cw, span)) if call.is_none() =>
@@ -162,27 +161,27 @@ impl Def {
 					genesis_config = Some(g);
 				},
 				Some(PalletAttr::GenesisBuild(span)) if genesis_build.is_none() => {
-					let g = genesis_build::GenesisBuildDef::try_from(span, index, item)?;
+					let g = genesis_build::GenesisBuildDef::try_from(span, item)?;
 					genesis_build = Some(g);
 				},
 				Some(PalletAttr::RuntimeOrigin(_)) if origin.is_none() =>
-					origin = Some(origin::OriginDef::try_from(index, item)?),
+					origin = Some(origin::OriginDef::try_from(item)?),
 				Some(PalletAttr::Inherent(_)) if inherent.is_none() =>
-					inherent = Some(inherent::InherentDef::try_from(index, item)?),
+					inherent = Some(inherent::InherentDef::try_from(item)?),
 				Some(PalletAttr::Storage(span)) =>
 					storages.push(storage::StorageDef::try_from(span, index, item, dev_mode)?),
 				Some(PalletAttr::ValidateUnsigned(_)) if validate_unsigned.is_none() => {
-					let v = validate_unsigned::ValidateUnsignedDef::try_from(index, item)?;
+					let v = validate_unsigned::ValidateUnsignedDef::try_from(item)?;
 					validate_unsigned = Some(v);
 				},
 				Some(PalletAttr::TypeValue(span)) =>
 					type_values.push(type_value::TypeValueDef::try_from(span, index, item)?),
 				Some(PalletAttr::ExtraConstants(_)) =>
 					extra_constants =
-						Some(extra_constants::ExtraConstantsDef::try_from(index, item)?),
+						Some(extra_constants::ExtraConstantsDef::try_from(item)?),
 				Some(PalletAttr::Composite(span)) => {
 					let composite =
-						composite::CompositeDef::try_from(span, index, &frame_support, item)?;
+						composite::CompositeDef::try_from(span, &frame_support, item)?;
 					if composites.iter().any(|def| {
 						match (&def.composite_keyword, &composite.composite_keyword) {
 							(
@@ -722,7 +721,6 @@ impl syn::parse::Parse for PalletAttr {
 #[derive(Clone)]
 pub struct InheritedCallWeightAttr {
 	pub typename: syn::Type,
-	pub span: proc_macro2::Span,
 }
 
 impl syn::parse::Parse for InheritedCallWeightAttr {
@@ -744,6 +742,6 @@ impl syn::parse::Parse for InheritedCallWeightAttr {
 			return Err(lookahead.error())
 		};
 
-		Ok(Self { typename: buffer.parse()?, span: input.span() })
+		Ok(Self { typename: buffer.parse()? })
 	}
 }

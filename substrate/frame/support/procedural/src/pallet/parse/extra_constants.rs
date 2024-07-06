@@ -37,8 +37,6 @@ pub struct ExtraConstantsDef {
 	pub where_clause: Option<syn::WhereClause>,
 	/// A set of usage of instance, must be check for consistency with trait.
 	pub instances: Vec<helper::InstanceUsage>,
-	/// The index of call item in pallet module.
-	pub index: usize,
 	/// The extra constant defined.
 	pub extra_constants: Vec<ExtraConstantDef>,
 }
@@ -77,7 +75,7 @@ impl syn::parse::Parse for ExtraConstAttr {
 }
 
 impl ExtraConstantsDef {
-	pub fn try_from(index: usize, item: &mut syn::Item) -> syn::Result<Self> {
+	pub fn try_from(item: &mut syn::Item) -> syn::Result<Self> {
 		let item = if let syn::Item::Impl(item) = item {
 			item
 		} else {
@@ -150,11 +148,6 @@ impl ExtraConstantsDef {
 			});
 		}
 
-		Ok(Self {
-			index,
-			instances,
-			where_clause: item.generics.where_clause.clone(),
-			extra_constants,
-		})
+		Ok(Self { instances, where_clause: item.generics.where_clause.clone(), extra_constants })
 	}
 }

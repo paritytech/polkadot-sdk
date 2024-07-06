@@ -34,7 +34,7 @@ jobs:
     needs: [set-image, changes]
     if: ${{ needs.changes.outputs.rust }}
     runs-on: arc-runners-polkadot-sdk-beefy
-    timeout-minutes: 30
+    timeout-minutes: 60
     container:
       image: ${{ needs.set-image.outputs.IMAGE }}
     env:
@@ -53,7 +53,7 @@ jobs:
     needs: [set-image, changes]
     if: ${{ needs.changes.outputs.rust }}
     runs-on: arc-runners-polkadot-sdk-beefy
-    timeout-minutes: 30
+    timeout-minutes: 60
     container:
       image: ${{ needs.set-image.outputs.IMAGE }}
     continue-on-error: true # this rarely triggers in practice
@@ -78,7 +78,7 @@ jobs:
     needs: [set-image, changes]
     if: ${{ needs.changes.outputs.rust }}
     runs-on: arc-runners-polkadot-sdk-beefy
-    timeout-minutes: 30
+    timeout-minutes: 60
     container:
       image: ${{ needs.set-image.outputs.IMAGE }}
     env:

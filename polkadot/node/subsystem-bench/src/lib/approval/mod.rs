@@ -698,12 +698,12 @@ impl PeerMessageProducer {
 			.expect("We can't handle unknown peers")
 			.clone();
 
-		self.network
-			.send_message_from_peer(
-				&peer_authority_id,
-				protocol_v3::ValidationProtocol::ApprovalDistribution(message.msg).into(),
-			)
-			.unwrap_or_else(|_| panic!("Network should be up and running {:?}", sent_by));
+		if let Err(err) = self.network.send_message_from_peer(
+			&peer_authority_id,
+			protocol_v3::ValidationProtocol::ApprovalDistribution(message.msg).into(),
+		) {
+			gum::warn!(target: LOG_TARGET, ?sent_by, ?err, "Validator can not send message");
+		}
 	}
 
 	// Queues a message to be sent by the peer identified by the `sent_by` value.
@@ -994,11 +994,12 @@ pub async fn bench_approvals_run(
 		"polkadot_parachain_subsystem_bounded_received",
 		Some(("subsystem_name", "approval-distribution-subsystem")),
 		|value| {
-			gum::info!(target: LOG_TARGET, ?value, ?at_least_messages, "Waiting metric");
+			gum::debug!(target: LOG_TARGET, ?value, ?at_least_messages, "Waiting metric");
 			value >= at_least_messages as f64
 		},
 	)
 	.await;
+
 	gum::info!("Requesting approval votes ms");
 
 	for info in &state.blocks {
@@ -1038,7 +1039,7 @@ pub async fn bench_approvals_run(
 		"polkadot_parachain_subsystem_bounded_received",
 		Some(("subsystem_name", "approval-distribution-subsystem")),
 		|value| {
-			gum::info!(target: LOG_TARGET, ?value, ?at_least_messages, "Waiting metric");
+			gum::debug!(target: LOG_TARGET, ?value, ?at_least_messages, "Waiting metric");
 			value >= at_least_messages as f64
 		},
 	)

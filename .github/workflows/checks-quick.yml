@@ -20,7 +20,7 @@ jobs:
     # However, env variables don't work for forks: https://github.com/orgs/community/discussions/44322
     # This workaround sets the container image for each job using 'set-image' job output.
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
     outputs:
       IMAGE: ${{ steps.set_image.outputs.IMAGE }}
     steps:
@@ -30,7 +30,7 @@ jobs:
         run: cat .github/env >> $GITHUB_OUTPUT
   fmt:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
     needs: [set-image]
     container:
       image: ${{ needs.set-image.outputs.IMAGE }}
@@ -40,7 +40,7 @@ jobs:
         run: cargo +nightly fmt --all -- --check
   check-dependency-rules:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
       - name: check dependency rules
@@ -49,7 +49,7 @@ jobs:
           ../.gitlab/ensure-deps.sh
   check-rust-feature-propagation:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
     needs: [set-image]
     container:
       image: ${{ needs.set-image.outputs.IMAGE }}
@@ -65,7 +65,7 @@ jobs:
           time zepter run check
   test-rust-features:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
     needs: [set-image]
     container:
       image: ${{ needs.set-image.outputs.IMAGE }}
@@ -75,7 +75,7 @@ jobs:
         run: bash .gitlab/rust-features.sh .
   check-toml-format:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
     needs: [set-image]
     container:
       image: ${{ needs.set-image.outputs.IMAGE }}
@@ -87,7 +87,7 @@ jobs:
           echo "Please run `taplo format --config .config/taplo.toml` to fix any toml formatting issues"
   check-workspace:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.0 (22. Sep 2023)
       - name: install python deps
@@ -104,7 +104,7 @@ jobs:
         run: python3 .github/scripts/deny-git-deps.py .
   check-markdown:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
     steps:
       - name: Checkout sources
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
@@ -127,7 +127,7 @@ jobs:
           markdownlint --config "$CONFIG" --ignore target .
   check-umbrella:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
     needs: [set-image]
     container:
       image: ${{ needs.set-image.outputs.IMAGE }}

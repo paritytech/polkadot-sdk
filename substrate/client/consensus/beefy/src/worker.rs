@@ -1039,7 +1039,7 @@ pub(crate) mod tests {
 		ecdsa_crypto, known_payloads,
 		known_payloads::MMR_ROOT_ID,
 		mmr::MmrRootProvider,
-		test_utils::{generate_equivocation_proof, Keyring},
+		test_utils::{generate_double_voting_proof, Keyring},
 		ConsensusLog, Payload, SignedCommitment,
 	};
 	use sp_runtime::traits::{Header as HeaderT, One};
@@ -1586,7 +1586,7 @@ pub(crate) mod tests {
 		let payload2 = Payload::from_single_entry(MMR_ROOT_ID, vec![128]);
 
 		// generate an equivocation proof, with Bob as perpetrator
-		let good_proof = generate_equivocation_proof(
+		let good_proof = generate_double_voting_proof(
 			(block_num, payload1.clone(), set_id, &Keyring::Bob),
 			(block_num, payload2.clone(), set_id, &Keyring::Bob),
 		);
@@ -1618,7 +1618,7 @@ pub(crate) mod tests {
 		assert!(api_alice.reported_equivocations.as_ref().unwrap().lock().is_empty());
 
 		// now let's try reporting a self-equivocation
-		let self_proof = generate_equivocation_proof(
+		let self_proof = generate_double_voting_proof(
 			(block_num, payload1.clone(), set_id, &Keyring::Alice),
 			(block_num, payload2.clone(), set_id, &Keyring::Alice),
 		);

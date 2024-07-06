@@ -1,7 +1,7 @@
 name: Command Bench
 
-on: 
-  workflow_dispatch: 
+on:
+  workflow_dispatch:
     inputs:
       pr:
         description: Number of the Pull Request
@@ -76,9 +76,8 @@ on:
           - starters
           - testing
 
-
 jobs:
-  set-image:     
+  set-image:
     runs-on: ubuntu-latest
     outputs:
       IMAGE: ${{ steps.set_image.outputs.IMAGE }}
