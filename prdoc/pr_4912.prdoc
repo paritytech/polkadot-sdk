@@ -8,6 +8,7 @@ doc:
     description: |
       This PR removed `pallet::getter`s from `pallet-babe`s storage items.
       When accessed inside the pallet, use the syntax `StorageItem::<T>::get()`.
+      When accessed outside the pallet, use the public functions of storage.
 
 crates:
   - name: pallet-babe
