@@ -118,6 +118,7 @@ pub use types::{
 	Data, IdentityInformationProvider, Judgement, RegistrarIndex, RegistrarInfo, Registration,
 };
 pub use weights::WeightInfo;
+use frame_system::pallet_prelude::*;
 
 type BalanceOf<T> =
 	<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
@@ -130,7 +131,6 @@ type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup
 pub mod pallet {
 	use super::*;
 	use frame_support::pallet_prelude::*;
-	use frame_system::pallet_prelude::*;
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
@@ -1190,6 +1190,61 @@ pub mod pallet {
 }
 
 impl<T: Config> Pallet<T> {
+	/// Information that is pertinent to identify the entity behind an account. First item is the
+	/// registration, second is the account's primary username.
+	///
+	/// TWOX-NOTE: OK ― `AccountId` is a secure hash.
+	pub fn identity(who: T::AccountId) -> Option<(Registration<BalanceOf<T>, T::MaxRegistrars, T::IdentityInformation>, Option<Username<T>>)> {
+		IdentityOf::<T>::get(who)
+	}
+
+	/// The super-identity of an alternative "sub" identity together with its name, within that
+	/// context. If the account is not some other account's sub-identity, then just `None`.
+	pub fn super_of(who: T::AccountId) -> Option<(T::AccountId, Data)> {
+		SuperOf::<T>::get(who)
+	}
+
+	/// Alternative "sub" identities of this account.
+	///
+	/// The first item is the deposit, the second is a vector of the accounts.
+	///
+	/// TWOX-NOTE: OK ― `AccountId` is a secure hash.
+	pub fn subs_of(who: T::AccountId) -> (BalanceOf<T>, BoundedVec<T::AccountId, T::MaxSubAccounts>) {
+		SubsOf::<T>::get(who)
+	}
+
+	/// The set of registrars. Not expected to get very big as can only be added through a
+	/// special origin (likely a council motion).
+	///
+	/// The index into this can be cast to `RegistrarIndex` to get a valid value.
+	pub fn registrars() -> BoundedVec< Option< RegistrarInfo< BalanceOf<T>, T::AccountId, <T::IdentityInformation as IdentityInformationProvider>::FieldsIdentifier, >, >, T::MaxRegistrars, > {
+		Registrars::<T>::get()
+	}
+
+	/// A map of the accounts who are authorized to grant usernames.
+	pub fn authority(who: T::AccountId) -> Option<AuthorityPropertiesOf<T>> {
+		UsernameAuthorities::<T>::get(who)
+	}
+
+	/// Reverse lookup from `username` to the `AccountId` that has registered it. The value should
+	/// be a key in the `IdentityOf` map, but it may not if the user has cleared their identity.
+	///
+	/// Multiple usernames may map to the same `AccountId`, but `IdentityOf` will only map to one
+	/// primary username.
+	pub fn username(username: Username<T>) -> Option<T::AccountId> {
+		AccountOfUsername::<T>::get(username)
+	}
+
+	/// Usernames that an authority has granted, but that the account controller has not confirmed
+	/// that they want it. Used primarily in cases where the `AccountId` cannot provide a signature
+	/// because they are a pure proxy, multisig, etc. In order to confirm it, they should call
+	/// [`Call::accept_username`].
+	///
+	/// First tuple item is the account and second is the acceptance deadline.
+	pub fn preapproved_usernames(username: Username<T>) -> Option<(T::AccountId, BlockNumberFor<T>)> {
+		PendingUsernames::<T>::get(username)
+	}
+
 	/// Get the subs of an account.
 	pub fn subs(who: &T::AccountId) -> Vec<(T::AccountId, Data)> {
 		SubsOf::<T>::get(who)
