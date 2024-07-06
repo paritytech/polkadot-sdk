@@ -1,4 +1,3 @@
-
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -596,6 +595,20 @@ pub mod pallet {
 }
 
 impl<T: Config> Pallet<T> {
+	/// Public function to proxies storage.
+	pub fn proxies() -> (
+		BoundedVec<ProxyDefinition<T::AccountId, T::ProxyType, BlockNumberFor<T>>, T::MaxProxies>,
+		BalanceOf<T>,
+	) {
+		Proxies::<T>::get()
+	}
+	/// Public function to announcements storage.
+	pub fn announcements() -> (
+		BoundedVec<Announcement<T::AccountId, CallHashOf<T>, BlockNumberFor<T>>, T::MaxPending>,
+		BalanceOf<T>,
+	) {
+		Announcements::<T>::get()
+	}
 	/// Calculate the address of an pure account.
 	///
 	/// - `who`: The spawner account.
