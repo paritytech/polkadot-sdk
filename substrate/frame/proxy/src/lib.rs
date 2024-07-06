@@ -1,4 +1,3 @@
-// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
@@ -568,7 +567,6 @@ pub mod pallet {
 	/// The set of account proxies. Maps the account which has delegated to the accounts
 	/// which are being delegated to, together with the amount held on deposit.
 	#[pallet::storage]
-	#[pallet::getter(fn proxies)]
 	pub type Proxies<T: Config> = StorageMap<
 		_,
 		Twox64Concat,
@@ -585,7 +583,6 @@ pub mod pallet {
 
 	/// The announcements made by the proxy (key).
 	#[pallet::storage]
-	#[pallet::getter(fn announcements)]
 	pub type Announcements<T: Config> = StorageMap<
 		_,
 		Twox64Concat,
