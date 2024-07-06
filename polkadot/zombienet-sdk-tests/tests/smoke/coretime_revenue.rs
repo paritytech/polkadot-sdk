@@ -101,6 +101,18 @@ async fn assert_total_issuance(
 
 type ParaEvents<C> = Arc<RwLock<Vec<(u64, subxt::events::EventDetails<C>)>>>;
 
+macro_rules! trace_event {
+	($event:ident : $mod:ident => $($ev:ident),*) => {
+		match $event.variant_name() {
+			$(
+				stringify!($ev) =>
+					log::trace!("{:#?}", $event.as_event::<$mod::$ev>().unwrap().unwrap()),
+			)*
+			_ => ()
+		}
+	};
+}
+
 async fn para_watcher<C: subxt::Config + Clone>(api: OnlineClient<C>, events: ParaEvents<C>)
 where
 	<C::Header as subxt::config::Header>::Number: Display,
@@ -116,48 +128,14 @@ where
 			let event = event.unwrap();
 			log::debug!("Got event: {} :: {}", event.pallet_name(), event.variant_name());
 			{
-				events.write().await.push((block.number().into(), event.clone()));
+				events.write().unwrap().push((block.number().into(), event.clone()));
 			}
+
 			if event.pallet_name() == "Broker" {
-				match event.variant_name() {
-					"Purchased" => log::trace!(
-						"{:#?}",
-						event.as_event::<broker_events::Purchased>().unwrap().unwrap()
-					),
-					"SaleInitialized" => log::trace!(
-						"{:#?}",
-						event.as_event::<broker_events::SaleInitialized>().unwrap().unwrap()
-					),
-					"HistoryInitialized" => log::trace!(
-						"{:#?}",
-						event.as_event::<broker_events::HistoryInitialized>().unwrap().unwrap()
-					),
-					"CoreAssigned" => log::trace!(
-						"{:#?}",
-						event.as_event::<broker_events::CoreAssigned>().unwrap().unwrap()
-					),
-					"Pooled" => log::trace!(
-						"{:#?}",
-						event.as_event::<broker_events::Pooled>().unwrap().unwrap()
-					),
-					"ClaimsReady" => log::trace!(
-						"{:#?}",
-						event.as_event::<broker_events::ClaimsReady>().unwrap().unwrap()
-					),
-					"RevenueClaimBegun" => log::trace!(
-						"{:#?}",
-						event.as_event::<broker_events::RevenueClaimBegun>().unwrap().unwrap()
-					),
-					"RevenueClaimItem" => log::trace!(
-						"{:#?}",
-						event.as_event::<broker_events::RevenueClaimItem>().unwrap().unwrap()
-					),
-					"RevenueClaimPaid" => log::trace!(
-						"{:#?}",
-						event.as_event::<broker_events::RevenueClaimPaid>().unwrap().unwrap()
-					),
-					_ => (),
-				}
+				trace_event!(event: broker_events =>
+					Purchased, SaleInitialized, HistoryInitialized, CoreAssigned, Pooled,
+					ClaimsReady, RevenueClaimBegun,	RevenueClaimItem, RevenueClaimPaid
+				);
 			}
 		}
 	}
@@ -213,47 +191,6 @@ where
 	}
 }
 
-// TODO: @s0me0ne-unkn0wn can we remove this fn
-#[allow(dead_code)]
-async fn balance<C: subxt::Config>(api: OnlineClient<C>, acc: &AccountId32) -> u128 {
-	api.storage()
-		.at_latest()
-		.await
-		.unwrap()
-		.fetch(&rococo_api::storage().balances().account(acc.clone()))
-		.await
-		.unwrap()
-		.unwrap()
-		.free
-}
-
-async fn push_tx_hard<Cll: Payload, Cfg: subxt::Config, Sgnr: Signer<Cfg>>(
-	cli: OnlineClient<Cfg>,
-	call: &Cll,
-	signer: &Sgnr,
-) -> ExtrinsicEvents<Cfg>
-where
-	<Cfg::ExtrinsicParams as ExtrinsicParams<Cfg>>::Params: Default,
-{
-	loop {
-		match cli.tx().sign_and_submit_then_watch_default(call, signer).await {
-			Ok(txp) => match txp.wait_for_finalized_success().await {
-				Ok(events) => return events,
-				Err(e) => {
-					log::error!("Transaction not finalized successfuly, retrying: {e:?}");
-					tokio::time::sleep(Duration::from_secs(1)).await;
-					continue
-				},
-			},
-			Err(e) => {
-				log::error!("Retrying transaction: {e:?}");
-				tokio::time::sleep(Duration::from_secs(1)).await;
-				continue
-			},
-		}
-	}
-}
-
 #[tokio::test]
 async fn coretime_revenue_test() -> Result<(), anyhow::Error> {
 	env_logger::init_from_env(
@@ -289,10 +226,11 @@ async fn coretime_revenue_test() -> Result<(), anyhow::Error> {
 	let spawn_fn = zombienet_sdk::environment::get_spawn_fn();
 	let network = spawn_fn(config).await?;
 
-	let relay_client: OnlineClient<PolkadotConfig> =
-		network.get_node("alice")?.wait_client().await?;
-	let para_client: OnlineClient<PolkadotConfig> =
-		network.get_node("coretime")?.wait_client().await?;
+	let relay_node = network.get_node("alice")?;
+	let para_node = network.get_node("coretime")?;
+
+	let relay_client: OnlineClient<PolkadotConfig> = relay_node.wait_client().await?;
+	let para_client: OnlineClient<PolkadotConfig> = para_node.wait_client().await?;
 
 	// Get total issuance on both sides
 	let mut total_issuance = get_total_issuance(relay_client.clone(), para_client.clone()).await;
@@ -303,22 +241,20 @@ async fn coretime_revenue_test() -> Result<(), anyhow::Error> {
 	let alice_acc = AccountId32(alice.public_key().0);
 
 	let bob = dev::bob();
-	// TODO: @s0me0ne-unkn0wn not used
-	let _bob_acc = AccountId32(bob.public_key().0);
 
 	let para_events: ParaEvents<PolkadotConfig> = Arc::new(RwLock::new(Vec::new()));
-	let p_api = para_client.clone();
+	let p_api = para_node.wait_client().await?;
 	let p_events = para_events.clone();
 
 	let _subscriber = tokio::spawn(async move {
 		para_watcher(p_api, p_events).await;
 	});
 
-	let api = para_client.clone();
+	let api: OnlineClient<PolkadotConfig> = para_node.wait_client().await?;
 	let _s1 = tokio::spawn(async move {
 		ti_watcher(api, "PARA").await;
 	});
-	let api = relay_client.clone();
+	let api: OnlineClient<PolkadotConfig> = relay_node.wait_client().await?;
 	let _s2 = tokio::spawn(async move {
 		ti_watcher(api, "RELAY").await;
 	});
@@ -327,29 +263,30 @@ async fn coretime_revenue_test() -> Result<(), anyhow::Error> {
 
 	// Teleport some Alice's tokens to the Coretime chain. Although her account is pre-funded on
 	// the PC, that is still neccessary to bootstrap RC's `CheckedAccount`.
-	push_tx_hard(
-		relay_client.clone(),
-		&rococo_api::tx().xcm_pallet().teleport_assets(
-			VersionedLocation::V4(Location {
-				parents: 0,
-				interior: Junctions::X1([Junction::Parachain(1005)]),
-			}),
-			VersionedLocation::V4(Location {
-				parents: 0,
-				interior: Junctions::X1([Junction::AccountId32 {
-					network: None,
-					id: alice.public_key().0,
-				}]),
-			}),
-			VersionedAssets::V4(Assets(vec![Asset {
-				id: AssetId(Location { parents: 0, interior: Junctions::Here }),
-				fun: Fungibility::Fungible(1_500_000_000),
-			}])),
-			0,
-		),
-		&alice,
-	)
-	.await;
+	relay_client
+		.tx()
+		.sign_and_submit_default(
+			&rococo_api::tx().xcm_pallet().teleport_assets(
+				VersionedLocation::V4(Location {
+					parents: 0,
+					interior: Junctions::X1([Junction::Parachain(1005)]),
+				}),
+				VersionedLocation::V4(Location {
+					parents: 0,
+					interior: Junctions::X1([Junction::AccountId32 {
+						network: None,
+						id: alice.public_key().0,
+					}]),
+				}),
+				VersionedAssets::V4(Assets(vec![Asset {
+					id: AssetId(Location { parents: 0, interior: Junctions::Here }),
+					fun: Fungibility::Fungible(1_500_000_000),
+				}])),
+				0,
+			),
+			&alice,
+		)
+		.await?;
 
 	wait_for_para_event(
 		para_events.clone(),
@@ -368,42 +305,41 @@ async fn coretime_revenue_test() -> Result<(), anyhow::Error> {
 
 	// Initialize broker and start sales
 
-	push_tx_hard(
-		para_client.clone(),
-		&coretime_api::tx()
-			.sudo()
-			.sudo(CoretimeRuntimeCall::Utility(CoretimeUtilityCall::batch {
-				calls: vec![
-					CoretimeRuntimeCall::Broker(CoretimeBrokerCall::configure {
-						config: BrokerConfigRecord {
-							advance_notice: 5,
-							interlude_length: 1,
-							leadin_length: 1,
-							region_length: 1,
-							ideal_bulk_proportion: Perbill(100),
-							limit_cores_offered: None,
-							renewal_bump: Perbill(10),
-							contribution_timeout: 5,
-						},
-					}),
-					CoretimeRuntimeCall::Broker(CoretimeBrokerCall::request_core_count {
-						core_count: 3,
-					}),
-					CoretimeRuntimeCall::Broker(CoretimeBrokerCall::set_lease {
-						task: 1005,
-						until: 1000,
-					}),
-					CoretimeRuntimeCall::Broker(CoretimeBrokerCall::start_sales {
-						// TODO: @s0me0ne-unkn0wn field doesn't exist
-						// end_price: 45_000_000,
-						initial_price: 45_000_000,
-						extra_cores: 2,
-					}),
-				],
-			})),
-		&alice,
-	)
-	.await;
+	para_client
+		.tx()
+		.sign_and_submit_default(
+			&coretime_api::tx().sudo().sudo(CoretimeRuntimeCall::Utility(
+				CoretimeUtilityCall::batch {
+					calls: vec![
+						CoretimeRuntimeCall::Broker(CoretimeBrokerCall::configure {
+							config: BrokerConfigRecord {
+								advance_notice: 5,
+								interlude_length: 1,
+								leadin_length: 1,
+								region_length: 1,
+								ideal_bulk_proportion: Perbill(100),
+								limit_cores_offered: None,
+								renewal_bump: Perbill(10),
+								contribution_timeout: 5,
+							},
+						}),
+						CoretimeRuntimeCall::Broker(CoretimeBrokerCall::request_core_count {
+							core_count: 3,
+						}),
+						CoretimeRuntimeCall::Broker(CoretimeBrokerCall::set_lease {
+							task: 1005,
+							until: 1000,
+						}),
+						CoretimeRuntimeCall::Broker(CoretimeBrokerCall::start_sales {
+							end_price: 45_000_000,
+							extra_cores: 2,
+						}),
+					],
+				},
+			)),
+			&alice,
+		)
+		.await?;
 
 	log::info!("Waiting for a full-length sale to begin");
 
@@ -423,14 +359,20 @@ async fn coretime_revenue_test() -> Result<(), anyhow::Error> {
 
 	log::info!("Alice is going to buy a region");
 
-	let r = push_tx_hard(
-		para_client.clone(),
-		&coretime_api::tx().broker().purchase(1_000_000_000),
-		&alice,
+	para_client
+		.tx()
+		.sign_and_submit_default(&coretime_api::tx().broker().purchase(1_000_000_000), &alice)
+		.await?;
+
+	let purchase = wait_for_para_event(
+		para_events.clone(),
+		"Broker",
+		"Purchased",
+		|e: &broker_events::Purchased| e.who == alice_acc,
 	)
 	.await;
 
-	let purchase = r.find_first::<broker_events::Purchased>()?.unwrap();
+	let region_begin = purchase.region_id.begin;
 
 	// Somewhere below this point, the revenue from this sale will be teleported to the RC and burnt
 	// on both chains. Let's account that but not assert just yet.
@@ -442,18 +384,25 @@ async fn coretime_revenue_test() -> Result<(), anyhow::Error> {
 
 	log::info!("Alice is going to put the region into the pool");
 
-	let r = push_tx_hard(
-		para_client.clone(),
-		&coretime_api::tx().broker().pool(
-			purchase.region_id,
-			alice_acc.clone(),
-			BrokerFinality::Final,
-		),
-		&alice,
+	para_client
+		.tx()
+		.sign_and_submit_default(
+			&coretime_api::tx().broker().pool(
+				purchase.region_id,
+				alice_acc.clone(),
+				BrokerFinality::Final,
+			),
+			&alice,
+		)
+		.await?;
+
+	let pooled = wait_for_para_event(
+		para_events.clone(),
+		"Broker",
+		"Pooled",
+		|e: &broker_events::Pooled| e.region_id.begin == region_begin,
 	)
 	.await;
-
-	let pooled = r.find_first::<broker_events::Pooled>()?.unwrap();
 
 	// Wait until the beginning of the timeslice where the region belongs to
 
@@ -475,19 +424,17 @@ async fn coretime_revenue_test() -> Result<(), anyhow::Error> {
 
 	log::info!("Bob is going to buy an on-demand core");
 
-	let r = push_tx_hard(
-		relay_client.clone(),
-		&rococo_api::tx()
-			.on_demand_assignment_provider()
-			.place_order_allow_death(100_000_000, primitives::Id(100)),
-		&bob,
-	)
-	.await;
-
-	// for e in r.iter() {
-	// 	let e = e?;
-	// 	log::info!("RELAY EVENT {} :: {}", e.pallet_name(), e.variant_name());
-	// }
+	let r = relay_client
+		.tx()
+		.sign_and_submit_then_watch_default(
+			&rococo_api::tx()
+				.on_demand_assignment_provider()
+				.place_order_allow_death(100_000_000, primitives::Id(100)),
+			&bob,
+		)
+		.await?
+		.wait_for_finalized_success()
+		.await?;
 
 	let order = r
 		.find_first::<rococo_api::on_demand_assignment_provider::events::OnDemandOrderPlaced>()?
@@ -532,22 +479,23 @@ async fn coretime_revenue_test() -> Result<(), anyhow::Error> {
 
 	log::info!("Alice is going to claim her revenue");
 
-	let r = push_tx_hard(
-		para_client.clone(),
-		&coretime_api::tx().broker().claim_revenue(pooled.region_id, pooled.duration),
-		&alice,
+	para_client
+		.tx()
+		.sign_and_submit_default(
+			&coretime_api::tx().broker().claim_revenue(pooled.region_id, pooled.duration),
+			&alice,
+		)
+		.await?;
+
+	let claim_paid = wait_for_para_event(
+		para_events.clone(),
+		"Broker",
+		"RevenueClaimPaid",
+		|e: &broker_events::RevenueClaimPaid| e.who == alice_acc,
 	)
 	.await;
 
-	let claim_paid = r.find_first::<broker_events::RevenueClaimPaid>()?.unwrap();
-
-	// let claim_paid = wait_for_para_event(
-	// 	para_events.clone(),
-	// 	"Broker",
-	// 	"RevenueClaimPaid",
-	// 	|e: &broker_events::RevenueClaimPaid| e.who == alice_acc,
-	// )
-	// .await;
+	log::info!("Revenue claimed, waiting for 2 timeslices until the system revenue is burnt");
 
 	assert_eq!(claim_paid.amount, ON_DEMAND_BASE_FEE / 2);
 
