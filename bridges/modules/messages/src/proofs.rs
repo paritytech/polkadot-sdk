@@ -26,7 +26,7 @@ use bp_messages::{
 	OutboundLaneData, VerificationError,
 };
 use bp_runtime::{
-	HashOf, HasherOf, RangeInclusiveExt, RawStorageProof, StorageProofChecker, StorageProofError,
+	HashOf, RangeInclusiveExt, StorageProofError, UnverifiedStorageProof, VerifiedStorageProof,
 };
 use codec::Decode;
 use sp_std::vec::Vec;
@@ -170,42 +170,41 @@ trait StorageProofAdapter<T: Config<I>, I: 'static> {
 }
 
 /// Actual storage proof adapter for messages proofs.
-type MessagesStorageProofAdapter<T, I> = StorageProofCheckerAdapter<T, I>;
+type MessagesStorageProofAdapter<T, I> = StorageAdapter<T, I>;
 
-/// A `StorageProofAdapter` implementation for raw storage proofs.
-struct StorageProofCheckerAdapter<T: Config<I>, I: 'static> {
-	storage: StorageProofChecker<HasherOf<BridgedChainOf<T, I>>>,
+/// A `StorageProofAdapter` implementation for compact storage proofs.
+struct StorageAdapter<T, I> {
+	storage: VerifiedStorageProof,
 	_dummy: sp_std::marker::PhantomData<(T, I)>,
 }
 
-impl<T: Config<I>, I: 'static> StorageProofCheckerAdapter<T, I> {
+impl<T: Config<I>, I: 'static> StorageAdapter<T, I> {
 	fn try_new_with_verified_storage_proof(
 		bridged_header_hash: HashOf<BridgedChainOf<T, I>>,
-		storage_proof: RawStorageProof,
+		storage_proof: UnverifiedStorageProof,
 	) -> Result<Self, HeaderChainError> {
-		BridgedHeaderChainOf::<T, I>::verify_storage_proof(bridged_header_hash, storage_proof).map(
-			|storage| StorageProofCheckerAdapter::<T, I> { storage, _dummy: Default::default() },
-		)
+		BridgedHeaderChainOf::<T, I>::verify_storage_proof(bridged_header_hash, storage_proof)
+			.map(|storage| StorageAdapter::<T, I> { storage, _dummy: Default::default() })
 	}
 }
 
-impl<T: Config<I>, I: 'static> StorageProofAdapter<T, I> for StorageProofCheckerAdapter<T, I> {
+impl<T: Config<I>, I: 'static> StorageProofAdapter<T, I> for StorageAdapter<T, I> {
 	fn read_and_decode_optional_value<D: Decode>(
 		&mut self,
 		key: &impl AsRef<[u8]>,
 	) -> Result<Option<D>, StorageProofError> {
-		self.storage.read_and_decode_opt_value(key.as_ref())
+		self.storage.get_and_decode_optional(&key)
 	}
 
 	fn read_and_decode_mandatory_value<D: Decode>(
 		&mut self,
 		key: &impl AsRef<[u8]>,
 	) -> Result<D, StorageProofError> {
-		self.storage.read_and_decode_mandatory_value(key.as_ref())
+		self.storage.get_and_decode_mandatory(&key)
 	}
 
 	fn ensure_no_unused_keys(self) -> Result<(), StorageProofError> {
-		self.storage.ensure_no_unused_nodes()
+		self.storage.ensure_no_unused_keys()
 	}
 }
 
@@ -357,7 +356,7 @@ mod tests {
 				}
 			),
 			Err(VerificationError::HeaderChain(HeaderChainError::StorageProof(
-				StorageProofError::StorageRootMismatch
+				StorageProofError::InvalidProof
 			))),
 		);
 	}
@@ -375,7 +374,7 @@ mod tests {
 				|proof| { verify_messages_proof::<TestRuntime, ()>(proof, 10) },
 			),
 			Err(VerificationError::HeaderChain(HeaderChainError::StorageProof(
-				StorageProofError::DuplicateNodes
+				StorageProofError::InvalidProof
 			))),
 		);
 	}

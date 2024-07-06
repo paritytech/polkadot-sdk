@@ -25,7 +25,7 @@ use crate::{
 		SubstrateMessageLane,
 	},
 	on_demand::OnDemandRelay,
-	proofs::to_raw_storage_proof,
+	proofs::FromBridgedChainMessagesProof,
 	TransactionParams,
 };
 
@@ -33,7 +33,6 @@ use async_std::sync::Arc;
 use async_trait::async_trait;
 use bp_messages::{
 	storage_keys::{operating_mode_key, outbound_lane_data_key},
-	target_chain::FromBridgedChainMessagesProof,
 	ChainWithMessages as _, InboundMessageDetails, LaneId, MessageNonce, MessagePayload,
 	MessagesOperatingMode, OutboundLaneData, OutboundMessageDetails,
 };
@@ -60,7 +59,7 @@ use std::ops::RangeInclusive;
 /// Intermediate message proof returned by the source Substrate node. Includes everything
 /// required to submit to the target node: cumulative dispatch weight of bundled messages and
 /// the proof itself.
-pub type SubstrateMessagesProof<C> = (Weight, FromBridgedChainMessagesProof<HashOf<C>>);
+pub type SubstrateMessagesProof<C> = (Weight, FromBridgedChainMessagesProof<C>);
 type MessagesToRefine<'a> = Vec<(MessagePayload, &'a mut OutboundMessageDetails)>;
 
 /// Substrate client as Substrate messages source.
@@ -341,7 +340,7 @@ where
 			self.source_client.prove_storage(id.hash(), storage_keys.clone()).await?;
 		let proof = FromBridgedChainMessagesProof {
 			bridged_header_hash: id.1,
-			storage_proof: to_raw_storage_proof::<P::SourceChain>(storage_proof),
+			storage_proof: storage_proof.into(),
 			lane: self.lane_id,
 			nonces_start: *nonces.start(),
 			nonces_end: *nonces.end(),

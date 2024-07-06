@@ -466,7 +466,7 @@ impl<C: Chain, B: Client<C>> Client<C> for CachingClient<C, B> {
 		&self,
 		at: HashOf<C>,
 		keys: Vec<StorageKey>,
-	) -> Result<(StorageProof, HashOf<C>)> {
+	) -> Result<(StorageProof, Vec<StorageKey>, HashOf<C>)> {
 		self.backend.prove_storage(at, keys).await
 	}
 }

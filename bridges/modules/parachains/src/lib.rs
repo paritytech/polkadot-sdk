@@ -1572,7 +1572,7 @@ pub(crate) mod tests {
 			assert_noop!(
 				import_parachain_1_head(0, Default::default(), parachains, proof),
 				Error::<TestRuntime>::HeaderChainStorageProof(HeaderChainError::StorageProof(
-					StorageProofError::StorageRootMismatch
+					StorageProofError::InvalidProof
 				))
 			);
 		});

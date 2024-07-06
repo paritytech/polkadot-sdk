@@ -230,5 +230,5 @@ pub trait Client<C: Chain>: 'static + Send + Sync + Clone + Debug {
 		&self,
 		at: HashOf<C>,
 		keys: Vec<StorageKey>,
-	) -> Result<(StorageProof, HashOf<C>)>;
+	) -> Result<(StorageProof, Vec<StorageKey>, HashOf<C>)>;
 }

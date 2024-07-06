@@ -21,12 +21,13 @@ use bp_messages::{
 	MessagePayload, OutboundLaneData,
 };
 use bp_runtime::{
-	grow_storage_value, record_all_trie_keys, AccountIdOf, Chain, HashOf, HasherOf,
-	RawStorageProof, UnverifiedStorageProofParams,
+	grow_storage_value, AccountIdOf, Chain, HashOf, HasherOf, RangeInclusiveExt,
+	UnverifiedStorageProof, UnverifiedStorageProofParams,
 };
 use codec::Encode;
+use frame_support::sp_runtime::StateVersion;
 use sp_std::{ops::RangeInclusive, prelude::*};
-use sp_trie::{trie_types::TrieDBMutBuilderV1, LayoutV1, MemoryDB, TrieMut};
+use sp_trie::{LayoutV0, LayoutV1, MemoryDB, TrieConfiguration, TrieDBMutBuilder, TrieMut};
 
 /// Dummy message generation function.
 pub fn generate_dummy_message(_: MessageNonce) -> MessagePayload {
@@ -57,18 +58,93 @@ pub fn prepare_messages_storage_proof<BridgedChain: Chain, ThisChain: ChainWithM
 	encode_outbound_lane_data: impl Fn(&OutboundLaneData) -> Vec<u8>,
 	add_duplicate_key: bool,
 	add_unused_key: bool,
-) -> (HashOf<BridgedChain>, RawStorageProof)
+) -> (HashOf<BridgedChain>, UnverifiedStorageProof)
 where
 	HashOf<BridgedChain>: Copy + Default,
 {
+	match BridgedChain::STATE_VERSION {
+		StateVersion::V0 => do_prepare_messages_storage_proof::<
+			BridgedChain,
+			ThisChain,
+			LayoutV0<HasherOf<BridgedChain>>,
+		>(
+			lane,
+			message_nonces,
+			outbound_lane_data,
+			proof_params,
+			generate_message,
+			encode_message,
+			encode_outbound_lane_data,
+			add_duplicate_key,
+			add_unused_key,
+		),
+		StateVersion::V1 => do_prepare_messages_storage_proof::<
+			BridgedChain,
+			ThisChain,
+			LayoutV1<HasherOf<BridgedChain>>,
+		>(
+			lane,
+			message_nonces,
+			outbound_lane_data,
+			proof_params,
+			generate_message,
+			encode_message,
+			encode_outbound_lane_data,
+			add_duplicate_key,
+			add_unused_key,
+		),
+	}
+}
+
+/// Prepare storage proof that proves given messages delivery.
+pub fn prepare_message_delivery_storage_proof<BridgedChain: Chain, ThisChain: ChainWithMessages>(
+	lane: LaneId,
+	inbound_lane_data: InboundLaneData<AccountIdOf<ThisChain>>,
+	proof_params: UnverifiedStorageProofParams,
+) -> (HashOf<BridgedChain>, UnverifiedStorageProof)
+where
+	HashOf<BridgedChain>: Copy + Default,
+{
+	match BridgedChain::STATE_VERSION {
+		StateVersion::V0 => do_prepare_message_delivery_storage_proof::<
+			BridgedChain,
+			ThisChain,
+			LayoutV0<HasherOf<BridgedChain>>,
+		>(lane, inbound_lane_data, proof_params),
+		StateVersion::V1 => do_prepare_message_delivery_storage_proof::<
+			BridgedChain,
+			ThisChain,
+			LayoutV1<HasherOf<BridgedChain>>,
+		>(lane, inbound_lane_data, proof_params),
+	}
+}
+
+/// Prepare storage proof of given messages.
+///
+/// Returns state trie root and nodes with prepared messages.
+#[allow(clippy::too_many_arguments)]
+fn do_prepare_messages_storage_proof<BridgedChain: Chain, ThisChain: ChainWithMessages, L>(
+	lane: LaneId,
+	message_nonces: RangeInclusive<MessageNonce>,
+	outbound_lane_data: Option<OutboundLaneData>,
+	proof_params: UnverifiedStorageProofParams,
+	generate_message: impl Fn(MessageNonce) -> MessagePayload,
+	encode_message: impl Fn(MessageNonce, &MessagePayload) -> Option<Vec<u8>>,
+	encode_outbound_lane_data: impl Fn(&OutboundLaneData) -> Vec<u8>,
+	add_duplicate_key: bool,
+	add_unused_key: bool,
+) -> (HashOf<BridgedChain>, UnverifiedStorageProof)
+where
+	L: TrieConfiguration<Hash = HasherOf<BridgedChain>>,
+	HashOf<BridgedChain>: Copy + Default,
+{
 	// prepare Bridged chain storage with messages and (optionally) outbound lane state
-	let message_count = message_nonces.end().saturating_sub(*message_nonces.start()) + 1;
+	let message_count = message_nonces.saturating_len();
 	let mut storage_keys = Vec::with_capacity(message_count as usize + 1);
 	let mut root = Default::default();
 	let mut mdb = MemoryDB::default();
 	{
-		let mut trie =
-			TrieDBMutBuilderV1::<HasherOf<BridgedChain>>::new(&mut mdb, &mut root).build();
+		let mut trie = TrieDBMutBuilder::<L>::new(&mut mdb, &mut root).build();
 
 		// insert messages
 		for (i, nonce) in message_nonces.into_iter().enumerate() {
@@ -107,37 +183,39 @@ where
 				.expect("TrieMut::insert should not fail in benchmarks");
 			storage_keys.push(storage_key);
 		}
+
+		if add_duplicate_key {
+			let duplicate_key = storage_keys.last().unwrap().clone();
+			storage_keys.push(duplicate_key);
+		}
+
+		if add_unused_key {
+			let storage_key = b"unused_key".to_vec();
+			trie.insert(&storage_key, b"unused_value")
+				.map_err(|_| "TrieMut::insert has failed")
+				.expect("TrieMut::insert should not fail in benchmarks");
+			storage_keys.push(storage_key);
+		}
 	}
 
 	// generate storage proof to be delivered to This chain
-	let mut storage_proof =
-		record_all_trie_keys::<LayoutV1<HasherOf<BridgedChain>>, _>(&mdb, &root)
-			.map_err(|_| "record_all_trie_keys has failed")
-			.expect("record_all_trie_keys should not fail in benchmarks");
+	let storage =
+		UnverifiedStorageProof::try_from_db::<HasherOf<BridgedChain>, _>(&mdb, root, storage_keys)
+			.expect("UnverifiedStorageProof::try_from_db() should not fail in benchmarks");
 
-	if add_duplicate_key {
-		assert!(!storage_proof.is_empty());
-		let node = storage_proof.pop().unwrap();
-		storage_proof.push(node.clone());
-		storage_proof.push(node);
-	}
-
-	if add_unused_key {
-		storage_proof.push(b"unused_value".to_vec());
-	}
-
-	(root, storage_proof)
+	(root, storage)
 }
 
 /// Prepare storage proof of given messages delivery.
 ///
-/// Returns state trie root and nodes with prepared messages.
-pub fn prepare_message_delivery_storage_proof<BridgedChain: Chain, ThisChain: ChainWithMessages>(
+/// Returns state trie root and partial storage trie.
+fn do_prepare_message_delivery_storage_proof<BridgedChain: Chain, ThisChain: ChainWithMessages, L>(
 	lane: LaneId,
 	inbound_lane_data: InboundLaneData<AccountIdOf<ThisChain>>,
 	proof_params: UnverifiedStorageProofParams,
-) -> (HashOf<BridgedChain>, RawStorageProof)
+) -> (HashOf<BridgedChain>, UnverifiedStorageProof)
 where
+	L: TrieConfiguration<Hash = HasherOf<BridgedChain>>,
 	HashOf<BridgedChain>: Copy + Default,
 {
 	// prepare Bridged chain storage with inbound lane state
@@ -146,8 +224,7 @@ where
 	let mut root = Default::default();
 	let mut mdb = MemoryDB::default();
 	{
-		let mut trie =
-			TrieDBMutBuilderV1::<HasherOf<BridgedChain>>::new(&mut mdb, &mut root).build();
+		let mut trie = TrieDBMutBuilder::<L>::new(&mut mdb, &mut root).build();
 		let inbound_lane_data = grow_storage_value(inbound_lane_data.encode(), &proof_params);
 		trie.insert(&storage_key, &inbound_lane_data)
 			.map_err(|_| "TrieMut::insert has failed")
@@ -155,9 +232,11 @@ where
 	}
 
 	// generate storage proof to be delivered to This chain
-	let storage_proof = record_all_trie_keys::<LayoutV1<HasherOf<BridgedChain>>, _>(&mdb, &root)
-		.map_err(|_| "record_all_trie_keys has failed")
-		.expect("record_all_trie_keys should not fail in benchmarks");
-
-	(root, storage_proof)
+	let storage = UnverifiedStorageProof::try_from_db::<HasherOf<BridgedChain>, _>(
+		&mdb,
+		root,
+		vec![storage_key],
+	)
+	.expect("UnverifiedStorageProof::try_from_db() should not fail in benchmarks");
+	(root, storage)
 }

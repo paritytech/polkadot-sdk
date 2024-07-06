@@ -18,7 +18,7 @@
 
 use crate::{LaneId, MessageNonce, UnrewardedRelayer};
 
-use bp_runtime::{raw_storage_proof_size, RawStorageProof, Size};
+use bp_runtime::{Size, UnverifiedStorageProof};
 use codec::{Decode, Encode};
 use scale_info::TypeInfo;
 use sp_core::RuntimeDebug;
@@ -43,15 +43,14 @@ pub struct FromBridgedChainMessagesDeliveryProof<BridgedHeaderHash> {
 	/// Hash of the bridge header the proof is for.
 	pub bridged_header_hash: BridgedHeaderHash,
 	/// Storage trie proof generated for [`Self::bridged_header_hash`].
-	pub storage_proof: RawStorageProof,
+	pub storage_proof: UnverifiedStorageProof,
 	/// Lane id of which messages were delivered and the proof is for.
 	pub lane: LaneId,
 }
 
 impl<BridgedHeaderHash> Size for FromBridgedChainMessagesDeliveryProof<BridgedHeaderHash> {
 	fn size(&self) -> u32 {
-		use frame_support::sp_runtime::SaturatedConversion;
-		raw_storage_proof_size(&self.storage_proof).saturated_into()
+		self.storage_proof.size()
 	}
 }
 

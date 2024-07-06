@@ -642,7 +642,7 @@ impl<C: Chain> Client<C> for RpcClient<C> {
 		&self,
 		at: HashOf<C>,
 		keys: Vec<StorageKey>,
-	) -> Result<(StorageProof, HashOf<C>)> {
+	) -> Result<(StorageProof, Vec<StorageKey>, HashOf<C>)> {
 		let state_root = *self.header_by_hash(at).await?.state_root();
 
 		let keys_clone = keys.clone();
@@ -656,7 +656,7 @@ impl<C: Chain> Client<C> for RpcClient<C> {
 			.await
 			.map_err(|e| Error::failed_to_prove_storage::<C>(at, keys.clone(), e))?;
 
-		Ok((read_proof, state_root))
+		Ok((read_proof, keys, state_root))
 	}
 }
 

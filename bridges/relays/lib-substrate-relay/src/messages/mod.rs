@@ -26,9 +26,7 @@ use crate::{
 };
 
 use async_std::sync::Arc;
-use bp_messages::{
-	target_chain::FromBridgedChainMessagesProof, ChainWithMessages as _, LaneId, MessageNonce,
-};
+use bp_messages::{ChainWithMessages as _, LaneId, MessageNonce};
 use bp_runtime::{
 	AccountIdOf, Chain as _, EncodedOrDecodedCall, HeaderIdOf, TransactionEra, WeightExtraOps,
 };
@@ -641,9 +639,14 @@ where
 			params.source_transaction_params.signer.public().into(),
 			(
 				Weight::zero(),
-				FromBridgedChainMessagesProof {
+				crate::proofs::FromBridgedChainMessagesProof {
 					bridged_header_hash: Default::default(),
-					storage_proof: Default::default(),
+					storage_proof: (
+						sp_trie::StorageProof::empty(),
+						Default::default(),
+						Default::default(),
+					)
+						.into(),
 					lane: Default::default(),
 					nonces_start: 1,
 					nonces_end: messages as u64,
@@ -673,10 +676,10 @@ where
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use bp_messages::{
-		source_chain::FromBridgedChainMessagesDeliveryProof, UnrewardedRelayersState,
-	};
+	use crate::proofs::Proof;
+	use bp_messages::UnrewardedRelayersState;
 	use relay_substrate_client::calls::{UtilityCall as MockUtilityCall, UtilityCall};
+	use sp_trie::StorageProof;
 
 	#[derive(codec::Decode, codec::Encode, Clone, Debug, PartialEq)]
 	pub enum RuntimeCall {
@@ -687,8 +690,8 @@ mod tests {
 	}
 	pub type CodegenBridgeMessagesCall = bp_messages::BridgeMessagesCall<
 		u64,
-		Box<FromBridgedChainMessagesProof<mock::BridgedHeaderHash>>,
-		FromBridgedChainMessagesDeliveryProof<mock::BridgedHeaderHash>,
+		Box<bp_messages::target_chain::FromBridgedChainMessagesProof<mock::BridgedHeaderHash>>,
+		bp_messages::source_chain::FromBridgedChainMessagesDeliveryProof<mock::BridgedHeaderHash>,
 	>;
 
 	impl From<MockUtilityCall<RuntimeCall>> for RuntimeCall {
@@ -929,7 +932,7 @@ mod tests {
 		use relay_substrate_client::{MockedRuntimeUtilityPallet, SignParam, UnsignedTransaction};
 		use std::time::Duration;
 
-		#[derive(Clone)]
+		#[derive(Clone, Debug)]
 		pub struct ThisChain;
 		impl UnderlyingChainProvider for ThisChain {
 			type Chain = mock::ThisUnderlyingChain;
@@ -965,7 +968,7 @@ mod tests {
 			type UtilityPallet = MockedRuntimeUtilityPallet<RuntimeCall>;
 		}
 
-		#[derive(Clone)]
+		#[derive(Clone, Debug)]
 		pub struct BridgedChain;
 		impl UnderlyingChainProvider for BridgedChain {
 			type Chain = mock::BridgedUnderlyingChain;
