@@ -192,9 +192,9 @@ pub enum CollationStatus {
 	/// We are waiting for a collation to be advertised to us.
 	Waiting,
 	/// We are currently fetching a collation.
-	Fetching,
+	Fetching(ParaId),
 	/// We are waiting that a collation is being validated.
-	WaitingOnValidation,
+	WaitingOnValidation(ParaId),
 	/// We have seconded a collation.
 	Seconded,
 }
@@ -237,10 +237,8 @@ pub struct Collations {
 	pub fetching_from: Option<(CollatorId, Option<CandidateHash>)>,
 	/// Collation that were advertised to us, but we did not yet fetch. Grouped by `ParaId`.
 	waiting_queue: BTreeMap<ParaId, VecDeque<(PendingCollation, CollatorId)>>,
-	/// How many collations have been seconded.
-	pub seconded_count: usize,
-	/// What collations were fetched so far for this relay parent.
-	fetched_per_para: BTreeMap<ParaId, usize>,
+	/// How many collations have been seconded per `ParaId`.
+	seconded_per_para: BTreeMap<ParaId, usize>,
 	// Claims per `ParaId` for the assigned core at the relay parent. This information is obtained
 	// from `GroupAssignments` which contains either the claim queue (if runtime supports it) for
 	// the core or the `ParaId` of the parachain assigned to the core.
@@ -280,22 +278,15 @@ impl Collations {
 			status: Default::default(),
 			fetching_from: None,
 			waiting_queue: Default::default(),
-			seconded_count: 0,
-			fetched_per_para: Default::default(),
+			seconded_per_para: Default::default(),
 			claims_per_para,
 			claim_queue_state,
 		}
 	}
 
 	/// Note a seconded collation for a given para.
-	pub(super) fn note_seconded(&mut self) {
-		self.seconded_count += 1
-	}
-
-	// Note a collation which has been successfully fetched.
-	pub(super) fn note_fetched(&mut self, para_id: ParaId) {
-		// update the number of fetched collations for the para_id
-		*self.fetched_per_para.entry(para_id).or_default() += 1;
+	pub(super) fn note_seconded(&mut self, para_id: ParaId) {
+		*self.seconded_per_para.entry(para_id).or_default() += 1;
 
 		// and the claim queue state
 		if let Some(claim_queue_state) = self.claim_queue_state.as_mut() {
@@ -323,7 +314,6 @@ impl Collations {
 		finished_one: &(CollatorId, Option<CandidateHash>),
 		relay_parent_mode: ProspectiveParachainsMode,
 		group_assignments: &Vec<ParaId>,
-		pending_fetches: &BTreeMap<ParaId, usize>,
 	) -> Option<(PendingCollation, CollatorId)> {
 		// If finished one does not match waiting_collation, then we already dequeued another fetch
 		// to replace it.
@@ -348,14 +338,13 @@ impl Collations {
 			// `Waiting` so that we can fetch more collations. If async backing is disabled we can't
 			// fetch more than one collation per relay parent so `None` is returned.
 			CollationStatus::Seconded => None,
-			CollationStatus::Waiting =>
-				self.pick_a_collation_to_fetch(&group_assignments, pending_fetches),
-			CollationStatus::WaitingOnValidation | CollationStatus::Fetching =>
+			CollationStatus::Waiting => self.pick_a_collation_to_fetch(&group_assignments),
+			CollationStatus::WaitingOnValidation(_) | CollationStatus::Fetching(_) =>
 				unreachable!("We have reset the status above!"),
 		}
 	}
 
-	/// Checks if another collation can be accepted. The number of collations that can be fetched
+	/// Checks if another collation can be accepted. The number of collations that can be seconded
 	/// per parachain is limited by the entries in claim queue for the `ParaId` in question.
 	///
 	/// If prospective parachains mode is not enabled then we fall back to synchronous backing. In
@@ -371,18 +360,20 @@ impl Collations {
 		&self,
 		relay_parent_mode: ProspectiveParachainsMode,
 		para_id: ParaId,
-		num_pending_fetches: usize,
 	) -> bool {
+		let seconded_for_para = *self.seconded_per_para.get(&para_id).unwrap_or(&0);
+		let pending_for_para = self.pending_for_para(para_id);
+
 		match relay_parent_mode {
 			ProspectiveParachainsMode::Disabled => {
 				gum::trace!(
 					target: LOG_TARGET,
 					?para_id,
-					seconded_count=self.seconded_count,
+					seconded_per_para=?self.seconded_per_para,
 					"is_collations_limit_reached - ProspectiveParachainsMode::Disabled"
 				);
 
-				self.seconded_count >= 1
+				seconded_for_para >= 1
 			},
 			ProspectiveParachainsMode::Enabled { max_candidate_depth, allowed_ancestry_len: _ }
 				if !self.claim_queue_state.is_some() =>
@@ -390,12 +381,12 @@ impl Collations {
 				gum::trace!(
 					target: LOG_TARGET,
 					?para_id,
-					seconded_count=self.seconded_count,
+					seconded_per_para=?self.seconded_per_para,
 					max_candidate_depth,
 					"is_collations_limit_reached - ProspectiveParachainsMode::Enabled without claim queue support"
 				);
 
-				self.seconded_count > max_candidate_depth
+				seconded_for_para > max_candidate_depth
 			},
 			ProspectiveParachainsMode::Enabled {
 				max_candidate_depth: _,
@@ -404,15 +395,14 @@ impl Collations {
 				// Successful fetches + pending fetches < claim queue entries for `para_id`
 				let respected_per_para_limit =
 					self.claims_per_para.get(&para_id).copied().unwrap_or_default() >
-						self.fetched_per_para.get(&para_id).copied().unwrap_or_default() +
-							num_pending_fetches;
+						seconded_for_para + pending_for_para;
 
 				gum::trace!(
 					target: LOG_TARGET,
 					?para_id,
 					claims_per_para=?self.claims_per_para,
-					fetched_per_para=?self.fetched_per_para,
-					?num_pending_fetches,
+					seconded_per_para=?self.seconded_per_para,
+					?pending_for_para,
 					?respected_per_para_limit,
 					"is_collations_limit_reached - ProspectiveParachainsMode::Enabled with claim queue support"
 				);
@@ -432,15 +422,12 @@ impl Collations {
 	/// Picks a collation to fetch from the waiting queue.
 	/// When fetching collations we need to ensure that each parachain has got a fair core time
 	/// share depending on its assignments in the claim queue. This means that the number of
-	/// collations fetched per parachain should ideally be equal to the number of claims for the
+	/// collations seconded per parachain should ideally be equal to the number of claims for the
 	/// particular parachain in the claim queue.
 	///
-	/// To achieve this each parachain with at an entry in the `waiting_queue` has got a score
-	/// calculated by dividing the number of fetched collations by the number of entries in the
-	/// claim queue. Lower score means higher fetching priority. Note that if a parachain hasn't got
-	/// anything fetched at this relay parent it will have score 0 which means highest priority. If
-	/// two parachains has got the same score the one which is earlier in the claim queue will be
-	/// picked.
+	/// To achieve this each seconded collation is mapped to an entry from the claim queue. The next
+	/// fetch is the first unsatisfied entry from the claim queue for which there is an
+	/// advertisement.
 	///
 	/// If claim queue is not supported then `group_assignment` should contain just one element and
 	/// the score won't matter. In this case collations will be fetched in the order they were
@@ -452,12 +439,10 @@ impl Collations {
 	fn pick_a_collation_to_fetch(
 		&mut self,
 		group_assignments: &Vec<ParaId>,
-		pending_fetches: &BTreeMap<ParaId, usize>,
 	) -> Option<(PendingCollation, CollatorId)> {
 		gum::trace!(
 			target: LOG_TARGET,
 			waiting_queue=?self.waiting_queue,
-			fetched_per_para=?self.fetched_per_para,
 			claims_per_para=?self.claims_per_para,
 			?group_assignments,
 			"Pick a collation to fetch."
@@ -478,7 +463,12 @@ impl Collations {
 				},
 		};
 
-		let mut pending_fetches = pending_fetches.clone();
+		let mut pending_for_para = match self.status {
+			CollationStatus::Waiting => None,
+			CollationStatus::Fetching(para_id) => Some(para_id),
+			CollationStatus::WaitingOnValidation(para_id) => Some(para_id),
+			CollationStatus::Seconded => None,
+		};
 
 		for (fulfilled, assignment) in claim_queue_state {
 			// if this assignment has been already fulfilled - move on
@@ -488,9 +478,10 @@ impl Collations {
 
 			// if there is a pending fetch for this assignment, we should consider it satisfied and
 			// proceed with the next
-			if let Some(pending_fetch) = pending_fetches.get_mut(assignment) {
-				if *pending_fetch > 0 {
-					*pending_fetch -= 1;
+			if let Some(pending_for) = pending_for_para {
+				if pending_for == *assignment {
+					// the pending item should be used only once
+					pending_for_para = None;
 					continue
 				}
 			}
@@ -505,6 +496,17 @@ impl Collations {
 		}
 
 		None
+	}
+
+	// Returns the number of pending collations for the specified `ParaId`. This function should
+	// return either 0 or 1.
+	fn pending_for_para(&self, para_id: ParaId) -> usize {
+		match self.status {
+			CollationStatus::Fetching(pending_para_id) if pending_para_id == para_id => 1,
+			CollationStatus::WaitingOnValidation(pending_para_id) if pending_para_id == para_id =>
+				1,
+			_ => 0,
+		}
 	}
 }
 

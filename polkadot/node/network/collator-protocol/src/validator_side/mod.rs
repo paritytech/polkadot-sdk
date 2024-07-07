@@ -19,7 +19,7 @@ use futures::{
 };
 use futures_timer::Delay;
 use std::{
-	collections::{hash_map::Entry, BTreeMap, HashMap, HashSet, VecDeque},
+	collections::{hash_map::Entry, HashMap, HashSet, VecDeque},
 	future::Future,
 	time::{Duration, Instant},
 };
@@ -751,7 +751,7 @@ async fn request_collation(
 
 	let maybe_candidate_hash =
 		prospective_candidate.as_ref().map(ProspectiveCandidate::candidate_hash);
-	per_relay_parent.collations.status = CollationStatus::Fetching;
+	per_relay_parent.collations.status = CollationStatus::Fetching(para_id);
 	per_relay_parent
 		.collations
 		.fetching_from
@@ -1112,11 +1112,10 @@ where
 		)
 		.map_err(AdvertisementError::Invalid)?;
 
-	if per_relay_parent.collations.is_collations_limit_reached(
-		relay_parent_mode,
-		para_id,
-		num_pending_collations_for_para_at_relay_parent(&state, para_id, relay_parent),
-	) {
+	if per_relay_parent
+		.collations
+		.is_collations_limit_reached(relay_parent_mode, para_id)
+	{
 		return Err(AdvertisementError::SecondedLimitReached)
 	}
 
@@ -1186,8 +1185,6 @@ where
 		"Received advertise collation",
 	);
 
-	let num_pending_fetches =
-		num_pending_collations_for_para_at_relay_parent(&state, para_id, relay_parent);
 	let per_relay_parent = match state.per_relay_parent.get_mut(&relay_parent) {
 		Some(rp_state) => rp_state,
 		None => {
@@ -1211,7 +1208,7 @@ where
 		});
 
 	let collations = &mut per_relay_parent.collations;
-	if collations.is_collations_limit_reached(relay_parent_mode, para_id, num_pending_fetches) {
+	if collations.is_collations_limit_reached(relay_parent_mode, para_id) {
 		gum::trace!(
 			target: LOG_TARGET,
 			peer_id = ?peer_id,
@@ -1226,7 +1223,7 @@ where
 		PendingCollation::new(relay_parent, para_id, &peer_id, prospective_candidate);
 
 	match collations.status {
-		CollationStatus::Fetching | CollationStatus::WaitingOnValidation => {
+		CollationStatus::Fetching(_) | CollationStatus::WaitingOnValidation(_) => {
 			gum::trace!(
 				target: LOG_TARGET,
 				peer_id = ?peer_id,
@@ -1501,8 +1498,9 @@ async fn process_msg<Context>(
 			if let Some(CollationEvent { collator_id, pending_collation, .. }) =
 				state.fetched_candidates.remove(&fetched_collation)
 			{
-				let PendingCollation { relay_parent, peer_id, prospective_candidate, .. } =
-					pending_collation;
+				let PendingCollation {
+					relay_parent, peer_id, prospective_candidate, para_id, ..
+				} = pending_collation;
 				note_good_collation(
 					&mut state.reputation,
 					ctx.sender(),
@@ -1523,7 +1521,7 @@ async fn process_msg<Context>(
 
 				if let Some(rp_state) = state.per_relay_parent.get_mut(&parent) {
 					rp_state.collations.status = CollationStatus::Seconded;
-					rp_state.collations.note_seconded();
+					rp_state.collations.note_seconded(para_id);
 				}
 
 				// See if we've unblocked other collations for seconding.
@@ -1671,10 +1669,6 @@ async fn run_inner<Context>(
 
 				let CollationEvent {collator_id, pending_collation, .. } = res.collation_event.clone();
 
-				state.per_relay_parent.get_mut(&pending_collation.relay_parent).map(|rp_state| {
-					rp_state.collations.note_fetched(pending_collation.para_id);
-				});
-
 				match kick_off_seconding(&mut ctx, &mut state, res).await {
 					Err(err) => {
 						gum::warn!(
@@ -1746,14 +1740,12 @@ async fn dequeue_next_collation_and_fetch<Context>(
 	// The collator we tried to fetch from last, optionally which candidate.
 	previous_fetch: (CollatorId, Option<CandidateHash>),
 ) {
-	let pending_collations = pending_collations_per_para_at_relay_parent(state, relay_parent);
 	while let Some((next, id)) =
 		state.per_relay_parent.get_mut(&relay_parent).and_then(|rp_state| {
 			rp_state.collations.get_next_collation_to_fetch(
 				&previous_fetch,
 				rp_state.prospective_parachains_mode,
 				&rp_state.assignment.current,
-				&pending_collations,
 			)
 		}) {
 		gum::debug!(
@@ -1938,6 +1930,8 @@ async fn kick_off_seconding<Context>(
 			maybe_parent_head.and_then(|head| maybe_parent_head_hash.map(|hash| (head, hash))),
 		)?;
 
+		let para_id = candidate_receipt.descriptor().para_id;
+
 		ctx.send_message(CandidateBackingMessage::Second(
 			relay_parent,
 			candidate_receipt,
@@ -1947,7 +1941,7 @@ async fn kick_off_seconding<Context>(
 		.await;
 		// There's always a single collation being fetched at any moment of time.
 		// In case of a failure, we reset the status back to waiting.
-		collations.status = CollationStatus::WaitingOnValidation;
+		collations.status = CollationStatus::WaitingOnValidation(para_id);
 
 		entry.insert(collation_event);
 		Ok(true)
@@ -2126,34 +2120,4 @@ async fn handle_collation_fetch_response(
 	};
 	state.metrics.on_request(metrics_result);
 	result
-}
-
-// Returns the number of pending fetches for `ParaId` at the specified relay parent.
-fn num_pending_collations_for_para_at_relay_parent(
-	state: &State,
-	para_id: ParaId,
-	relay_parent: Hash,
-) -> usize {
-	state
-		.collation_requests_cancel_handles
-		.iter()
-		.filter(|(pending_collation, _)| {
-			pending_collation.para_id == para_id && pending_collation.relay_parent == relay_parent
-		})
-		.count()
-}
-
-// Returns the number of pending fetches for each `ParaId` at the specified relay parent.
-fn pending_collations_per_para_at_relay_parent(
-	state: &State,
-	relay_parent: Hash,
-) -> BTreeMap<ParaId, usize> {
-	state
-		.collation_requests_cancel_handles
-		.iter()
-		.filter(|(col, _)| col.relay_parent == relay_parent)
-		.fold(BTreeMap::new(), |mut res, (col, _)| {
-			*res.entry(col.para_id).or_default() += 1;
-			res
-		})
 }
