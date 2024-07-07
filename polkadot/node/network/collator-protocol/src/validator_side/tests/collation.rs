@@ -38,28 +38,28 @@ fn cant_add_more_than_claim_queue() {
 	let mut collations = Collations::new(&assignments, claim_queue_support);
 
 	// first collation for `para_a` is in the limit
-	assert!(!collations.is_collations_limit_reached(relay_parent_mode, para_a, 0,));
+	assert!(!collations.is_seconded_limit_reached(relay_parent_mode, para_a, 0,));
 	collations.note_fetched(para_a);
 	// and `para_b` is not affected
-	assert!(!collations.is_collations_limit_reached(relay_parent_mode, para_b, 0));
+	assert!(!collations.is_seconded_limit_reached(relay_parent_mode, para_b, 0));
 
 	// second collation for `para_a` is also in the limit
-	assert!(!collations.is_collations_limit_reached(relay_parent_mode, para_a, 0));
+	assert!(!collations.is_seconded_limit_reached(relay_parent_mode, para_a, 0));
 	collations.note_fetched(para_a);
 
 	// `para_b`` is still not affected
-	assert!(!collations.is_collations_limit_reached(relay_parent_mode, para_b, 0));
+	assert!(!collations.is_seconded_limit_reached(relay_parent_mode, para_b, 0));
 
 	// third collation for `para_a`` will be above the limit
-	assert!(collations.is_collations_limit_reached(relay_parent_mode, para_a, 0));
+	assert!(collations.is_seconded_limit_reached(relay_parent_mode, para_a, 0));
 
 	// one fetch for b
-	assert!(!collations.is_collations_limit_reached(relay_parent_mode, para_b, 0));
+	assert!(!collations.is_seconded_limit_reached(relay_parent_mode, para_b, 0));
 	collations.note_fetched(para_b);
 
 	// and now both paras are over limit
-	assert!(collations.is_collations_limit_reached(relay_parent_mode, para_a, 0));
-	assert!(collations.is_collations_limit_reached(relay_parent_mode, para_b, 0));
+	assert!(collations.is_seconded_limit_reached(relay_parent_mode, para_a, 0));
+	assert!(collations.is_seconded_limit_reached(relay_parent_mode, para_b, 0));
 }
 
 #[test]
@@ -78,11 +78,11 @@ fn pending_fetches_are_counted() {
 	collations.fetching_from = Some((collator_id_a, None));
 
 	// first collation for `para_a` is in the limit
-	assert!(!collations.is_collations_limit_reached(relay_parent_mode, para_a, 1));
+	assert!(!collations.is_seconded_limit_reached(relay_parent_mode, para_a, 1));
 	collations.note_fetched(para_a);
 
 	// second collation for `para_a`` is not in the limit due to the pending fetch
-	assert!(collations.is_collations_limit_reached(relay_parent_mode, para_a, 1));
+	assert!(collations.is_seconded_limit_reached(relay_parent_mode, para_a, 1));
 }
 
 #[test]

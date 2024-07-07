@@ -1114,7 +1114,7 @@ where
 
 	if per_relay_parent
 		.collations
-		.is_collations_limit_reached(relay_parent_mode, para_id)
+		.is_seconded_limit_reached(relay_parent_mode, para_id)
 	{
 		return Err(AdvertisementError::SecondedLimitReached)
 	}
@@ -1208,7 +1208,7 @@ where
 		});
 
 	let collations = &mut per_relay_parent.collations;
-	if collations.is_collations_limit_reached(relay_parent_mode, para_id) {
+	if collations.is_seconded_limit_reached(relay_parent_mode, para_id) {
 		gum::trace!(
 			target: LOG_TARGET,
 			peer_id = ?peer_id,
@@ -1239,7 +1239,7 @@ where
 			fetch_collation(sender, state, pending_collation, collator_id).await?;
 		},
 		CollationStatus::Seconded if relay_parent_mode.is_enabled() => {
-			// Limit is not reached (checked with `is_collations_limit_reached` before the match
+			// Limit is not reached (checked with `is_seconded_limit_reached` before the match
 			// expression), it's allowed to second another collation.
 			fetch_collation(sender, state, pending_collation, collator_id).await?;
 		},

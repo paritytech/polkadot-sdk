@@ -356,7 +356,7 @@ impl Collations {
 	/// starve the slower one by exhausting the limit with its own advertisements. In practice this
 	/// should not happen because core sharing implies core time support which implies the claim
 	/// queue being available.
-	pub(super) fn is_collations_limit_reached(
+	pub(super) fn is_seconded_limit_reached(
 		&self,
 		relay_parent_mode: ProspectiveParachainsMode,
 		para_id: ParaId,
@@ -370,7 +370,7 @@ impl Collations {
 					target: LOG_TARGET,
 					?para_id,
 					seconded_per_para=?self.seconded_per_para,
-					"is_collations_limit_reached - ProspectiveParachainsMode::Disabled"
+					"is_seconded_limit_reached - ProspectiveParachainsMode::Disabled"
 				);
 
 				seconded_for_para >= 1
@@ -383,7 +383,7 @@ impl Collations {
 					?para_id,
 					seconded_per_para=?self.seconded_per_para,
 					max_candidate_depth,
-					"is_collations_limit_reached - ProspectiveParachainsMode::Enabled without claim queue support"
+					"is_seconded_limit_reached - ProspectiveParachainsMode::Enabled without claim queue support"
 				);
 
 				seconded_for_para > max_candidate_depth
@@ -404,7 +404,7 @@ impl Collations {
 					seconded_per_para=?self.seconded_per_para,
 					?pending_for_para,
 					?respected_per_para_limit,
-					"is_collations_limit_reached - ProspectiveParachainsMode::Enabled with claim queue support"
+					"is_seconded_limit_reached - ProspectiveParachainsMode::Enabled with claim queue support"
 				);
 
 				!respected_per_para_limit
