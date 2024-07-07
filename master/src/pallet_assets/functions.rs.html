@@ -1197,6 +1197,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1046" id="1046">1046</a>
 <a href="#1047" id="1047">1047</a>
 <a href="#1048" id="1048">1048</a>
+<a href="#1049" id="1049">1049</a>
+<a href="#1050" id="1050">1050</a>
+<a href="#1051" id="1051">1051</a>
+<a href="#1052" id="1052">1052</a>
+<a href="#1053" id="1053">1053</a>
+<a href="#1054" id="1054">1054</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1331,6 +1337,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="prelude-val">Some</span>(details) =&gt; details,
 			<span class="prelude-val">None </span>=&gt; <span class="kw">return </span>DepositConsequence::UnknownAsset,
 		};
+		<span class="kw">if </span>details.status == AssetStatus::Destroying {
+			<span class="kw">return </span>DepositConsequence::UnknownAsset
+		}
 		<span class="kw">if </span>increase_supply &amp;&amp; details.supply.checked_add(<span class="kw-2">&amp;</span>amount).is_none() {
 			<span class="kw">return </span>DepositConsequence::Overflow
 		}
@@ -1373,6 +1382,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 		<span class="kw">if </span>details.status == AssetStatus::Frozen {
 			<span class="kw">return </span>Frozen
+		}
+		<span class="kw">if </span>details.status == AssetStatus::Destroying {
+			<span class="kw">return </span>UnknownAsset
 		}
 		<span class="kw">if </span>amount.is_zero() {
 			<span class="kw">return </span>Success
