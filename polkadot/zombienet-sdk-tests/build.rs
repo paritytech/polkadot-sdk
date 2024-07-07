@@ -18,7 +18,7 @@ macro_rules! debug_output {
 }
 
 fn replace_dashes(k: &str) -> String {
-	k.replace('-', '_')
+	k.replace('-', "_")
 }
 
 fn make_env_key(k: &str) -> String {
