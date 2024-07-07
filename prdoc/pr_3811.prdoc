@@ -3,10 +3,7 @@ title: "Chill and Full Unbond in [pallet_staking]"
 doc:
   - audience: Runtime Dev
     description: |
-      Introduces a new `full_unbond` extrinsic to forcefully chill and unbond the full value
-      bonded
-
-      It also modifies the `unbond` extrinsic by forcefully chilling and unbonding the full value
+      Modifies the `unbond` extrinsic by forcefully chilling and unbonding the full value
       if the value to be unbonded is the total of what is bonded
 
 crates:

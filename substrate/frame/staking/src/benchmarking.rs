@@ -962,33 +962,6 @@ benchmarks! {
 		assert_eq!(Staking::<T>::inspect_bond_state(&stash), Ok(LedgerIntegrityState::Ok));
 	}
 
-	full_unbond {
-		// clean up any existing state.
-		clear_validators_and_nominators::<T>();
-
-		// setup the worst case list scenario.
-		let total_issuance = T::Currency::total_issuance();
-		// the weight the nominator will start at. The value used here is expected to be
-		// significantly higher than the first position in a list (e.g. the first bag threshold).
-		let origin_weight = BalanceOf::<T>::try_from(952_994_955_240_703u128)
-			.map_err(|_| "balance expected to be a u128")
-			.unwrap();
-		let scenario = ListScenario::<T>::new(origin_weight, false)?;
-
-		let stash = scenario.origin_stash1.clone();
-		let controller = scenario.origin_controller1.clone();
-		let ledger = Ledger::<T>::get(&controller).ok_or("ledger not created before")?;
-		let original_bonded: BalanceOf<T> = ledger.active;
-
-		whitelist_account!(controller);
-	}: _(RawOrigin::Signed(controller.clone()))
-	verify {
-		let ledger = Ledger::<T>::get(&controller).ok_or("ledger not created after")?;
-		let new_bonded: BalanceOf<T> = ledger.active;
-		assert!(new_bonded == BalanceOf::<T>::try_from(0u128).map_err(|_| "balance expected to be a u128")
-			.unwrap());
-	}
-
 	impl_benchmark_test_suite!(
 		Staking,
 		crate::mock::ExtBuilder::default().has_stakers(true),
