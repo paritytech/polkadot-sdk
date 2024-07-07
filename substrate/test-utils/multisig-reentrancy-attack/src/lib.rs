@@ -22,6 +22,7 @@
 
 pub use pallet::*;
 pub use pallet_multisig::{self as Multisig, Call as MultisigCall};
+pub use pallet_contracts::{self as Contracts, Call as ContractsCall};
 
 
 use frame_support::{
