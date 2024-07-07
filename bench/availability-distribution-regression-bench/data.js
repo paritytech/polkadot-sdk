@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1720303821549,
+  "lastUpdate": 1720359069652,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -16795,6 +16795,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.01491694296666667,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Muharem",
+            "username": "muharem",
+            "email": "ismailov.m.h@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "f7dd85d053dc44ee0a6851e7e507083f31b01bd3",
+          "message": "Assets: can_decrease/increase for destroying asset is not successful (#3286)\n\nFunctions `can_decrease` and `can_increase` do not return successful\nconsequence results for assets undergoing destruction; instead, they\nreturn the `UnknownAsset` consequence variant.\n\nThis update aligns their behavior with similar functions, such as\n`reducible_balance`, `increase_balance`, `decrease_balance`, and `burn`,\nwhich return an `AssetNotLive` error for assets in the process of being\ndestroyed.",
+          "timestamp": "2024-07-07T11:45:16Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/f7dd85d053dc44ee0a6851e7e507083f31b01bd3"
+        },
+        "date": 1720359039869,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02255321806,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.011874200113333334,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.013974309506666671,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.18021878217999998,
             "unit": "seconds"
           }
         ]
