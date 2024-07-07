@@ -22,7 +22,11 @@ use crate::{mock::*, Error};
 use frame_support::{
 	assert_noop, assert_ok,
 	dispatch::GetDispatchInfo,
-	traits::{fungibles::InspectEnumerable, tokens::Preservation::Protect, Currency},
+	traits::{
+		fungibles::InspectEnumerable,
+		tokens::{Preservation::Protect, Provenance},
+		Currency,
+	},
 };
 use pallet_balances::Error as BalancesError;
 use sp_io::storage;
@@ -1775,6 +1779,35 @@ fn asset_destroy_refund_existence_deposit() {
 		assert_eq!(Balances::reserved_balance(&account2), 0);
 		assert_eq!(Balances::reserved_balance(&account3), 0);
 		assert_eq!(Balances::reserved_balance(&admin), 0);
+	});
+}
+
+#[test]
+fn increasing_or_decreasing_destroying_asset_should_not_work() {
+	new_test_ext().execute_with(|| {
+		use frame_support::traits::fungibles::Inspect;
+
+		let admin = 1;
+		let admin_origin = RuntimeOrigin::signed(admin);
+
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 0, admin, true, 1));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), 0, 1, 100));
+		assert_eq!(Assets::balance(0, 1), 100);
+
+		assert_eq!(Assets::can_deposit(0, &1, 10, Provenance::Extant), DepositConsequence::Success);
+		assert_eq!(Assets::can_withdraw(0, &1, 10), WithdrawConsequence::<_>::Success);
+		assert_eq!(Assets::can_increase(0, &1, 10, false), DepositConsequence::Success);
+		assert_eq!(Assets::can_decrease(0, &1, 10, false), WithdrawConsequence::<_>::Success);
+
+		assert_ok!(Assets::start_destroy(admin_origin, 0));
+
+		assert_eq!(
+			Assets::can_deposit(0, &1, 10, Provenance::Extant),
+			DepositConsequence::UnknownAsset
+		);
+		assert_eq!(Assets::can_withdraw(0, &1, 10), WithdrawConsequence::<_>::UnknownAsset);
+		assert_eq!(Assets::can_increase(0, &1, 10, false), DepositConsequence::UnknownAsset);
+		assert_eq!(Assets::can_decrease(0, &1, 10, false), WithdrawConsequence::<_>::UnknownAsset);
 	});
 }
 
