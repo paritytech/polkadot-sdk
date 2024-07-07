@@ -2334,6 +2334,10 @@ sp_api::impl_runtime_apis! {
 		fn member_needs_delegate_migration(member: AccountId) -> bool {
 			NominationPools::api_member_needs_delegate_migration(member)
 		}
+
+		fn member_total_balance(member: AccountId) -> Balance {
+			NominationPools::api_member_total_balance(member)
+		}
 	}
 
 	impl pallet_staking_runtime_api::StakingApi<Block, Balance, AccountId> for Runtime {
