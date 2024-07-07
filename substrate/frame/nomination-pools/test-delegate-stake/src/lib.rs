@@ -25,8 +25,8 @@ use frame_support::{
 };
 use mock::*;
 use pallet_nomination_pools::{
-	BondExtra, BondedPools, Error as PoolsError, Event as PoolsEvent, LastPoolId, PoolMember,
-	PoolMembers, PoolState,
+	BondExtra, BondedPools, CommissionChangeRate, ConfigOp, Error as PoolsError,
+	Event as PoolsEvent, LastPoolId, PoolMember, PoolMembers, PoolState,
 };
 use pallet_staking::{
 	CurrentEra, Error as StakingError, Event as StakingEvent, Payee, RewardDestination,
@@ -34,7 +34,7 @@ use pallet_staking::{
 
 use pallet_delegated_staking::{Error as DelegatedStakingError, Event as DelegatedStakingEvent};
 
-use sp_runtime::{bounded_btree_map, traits::Zero};
+use sp_runtime::{bounded_btree_map, traits::Zero, Perbill};
 use sp_staking::Agent;
 
 #[test]
@@ -1230,17 +1230,72 @@ fn disable_pool_operations_on_non_migrated() {
 
 		// pool is pending migration.
 		assert!(Pools::api_pool_needs_delegate_migration(1));
-		// cannot join a pool that is pending migration.
+
+		// ensure pool mutation is not allowed until pool is migrated.
 		assert_noop!(
 			Pools::join(RuntimeOrigin::signed(21), 10, 1),
 			PoolsError::<Runtime>::NotMigrated
 		);
-		// cannot unbond from a pool that is pending migration.
 		assert_noop!(
-			Pools::pool_withdraw_unbonded(RuntimeOrigin::signed(20), 1, 0),
+			Pools::pool_withdraw_unbonded(RuntimeOrigin::signed(10), 1, 0),
+			PoolsError::<Runtime>::NotMigrated
+		);
+		assert_noop!(
+			Pools::nominate(RuntimeOrigin::signed(10), 1, vec![1, 2, 3]),
+			PoolsError::<Runtime>::NotMigrated
+		);
+		assert_noop!(
+			Pools::set_state(RuntimeOrigin::signed(10), 1, PoolState::Blocked),
+			PoolsError::<Runtime>::NotMigrated
+		);
+		assert_noop!(
+			Pools::set_metadata(RuntimeOrigin::signed(10), 1, vec![1, 1]),
+			PoolsError::<Runtime>::NotMigrated
+		);
+		assert_noop!(
+			Pools::update_roles(
+				RuntimeOrigin::signed(10),
+				1,
+				ConfigOp::Set(5),
+				ConfigOp::Set(6),
+				ConfigOp::Set(7)
+			),
+			PoolsError::<Runtime>::NotMigrated
+		);
+		assert_noop!(
+			Pools::chill(RuntimeOrigin::signed(10), 1),
+			PoolsError::<Runtime>::NotMigrated
+		);
+		assert_noop!(
+			Pools::set_commission(RuntimeOrigin::signed(10), 1, None),
+			PoolsError::<Runtime>::NotMigrated
+		);
+		assert_noop!(
+			Pools::set_commission_max(RuntimeOrigin::signed(10), 1, Zero::zero()),
+			PoolsError::<Runtime>::NotMigrated
+		);
+		assert_noop!(
+			Pools::set_commission_change_rate(
+				RuntimeOrigin::signed(10),
+				1,
+				CommissionChangeRate { max_increase: Perbill::from_percent(1), min_delay: 2_u64 }
+			),
+			PoolsError::<Runtime>::NotMigrated
+		);
+		assert_noop!(
+			Pools::claim_commission(RuntimeOrigin::signed(10), 1),
+			PoolsError::<Runtime>::NotMigrated
+		);
+		assert_noop!(
+			Pools::adjust_pool_deposit(RuntimeOrigin::signed(10), 1),
+			PoolsError::<Runtime>::NotMigrated
+		);
+		assert_noop!(
+			Pools::set_commission_claim_permission(RuntimeOrigin::signed(10), 1, None),
 			PoolsError::<Runtime>::NotMigrated
 		);
 
+		// migrate the pool.
 		assert_ok!(Pools::migrate_pool_to_delegate_stake(RuntimeOrigin::signed(10), 1));
 		assert_eq!(
 			delegated_staking_events_since_last_call(),
@@ -1252,21 +1307,28 @@ fn disable_pool_operations_on_non_migrated() {
 			},]
 		);
 
-		// `bond_extra` for 20 **before** the migration would fail.
+		// member is pending migration.
+		assert!(Pools::api_member_needs_delegate_migration(20));
+
+		// ensure member mutation is not allowed until member's delegation is migrated.
 		assert_noop!(
 			Pools::bond_extra(RuntimeOrigin::signed(20), BondExtra::FreeBalance(5)),
 			PoolsError::<Runtime>::NotMigrated
 		);
-
-		// cannot claim payout either.
+		assert_noop!(
+			Pools::bond_extra_other(RuntimeOrigin::signed(10), 20, BondExtra::Rewards),
+			PoolsError::<Runtime>::NotMigrated
+		);
 		assert_noop!(
 			Pools::claim_payout(RuntimeOrigin::signed(20)),
 			PoolsError::<Runtime>::NotMigrated
 		);
-
-		// cannot unbond
 		assert_noop!(
 			Pools::unbond(RuntimeOrigin::signed(20), 20, 5),
+			PoolsError::<Runtime>::NotMigrated
+		);
+		assert_noop!(
+			Pools::withdraw_unbonded(RuntimeOrigin::signed(20), 20, 0),
 			PoolsError::<Runtime>::NotMigrated
 		);
 
