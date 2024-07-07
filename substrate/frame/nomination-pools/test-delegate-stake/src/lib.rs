@@ -1218,15 +1218,11 @@ fn disable_pool_operations_on_non_migrated() {
 
 		assert_eq!(
 			staking_events_since_last_call(),
-			vec![
-				StakingEvent::Bonded { stash: POOL1_BONDED, amount: 10 },
-			]
+			vec![StakingEvent::Bonded { stash: POOL1_BONDED, amount: 10 },]
 		);
 		assert_eq!(
 			pool_events_since_last_call(),
-			vec![
-				PoolsEvent::Bonded { member: 20, pool_id: 1, bonded: 10, joined: true },
-			]
+			vec![PoolsEvent::Bonded { member: 20, pool_id: 1, bonded: 10, joined: true },]
 		);
 
 		// we reset the adapter to `DelegateStake`.
@@ -1235,18 +1231,44 @@ fn disable_pool_operations_on_non_migrated() {
 		// pool is pending migration.
 		assert!(Pools::api_pool_needs_delegate_migration(1));
 		// cannot join a pool that is pending migration.
-		assert_noop!(Pools::join(RuntimeOrigin::signed(21), 10, 1), PoolsError::<Runtime>::NotMigrated);
+		assert_noop!(
+			Pools::join(RuntimeOrigin::signed(21), 10, 1),
+			PoolsError::<Runtime>::NotMigrated
+		);
+		// cannot unbond from a pool that is pending migration.
+		assert_noop!(
+			Pools::pool_withdraw_unbonded(RuntimeOrigin::signed(20), 1, 0),
+			PoolsError::<Runtime>::NotMigrated
+		);
 
 		assert_ok!(Pools::migrate_pool_to_delegate_stake(RuntimeOrigin::signed(10), 1));
 		assert_eq!(
 			delegated_staking_events_since_last_call(),
-			vec![
-				DelegatedStakingEvent::Delegated { agent: POOL1_BONDED, delegator: DelegatedStaking::generate_proxy_delegator(Agent::from(POOL1_BONDED)).get(), amount: 50 + 10 },
-			]
+			vec![DelegatedStakingEvent::Delegated {
+				agent: POOL1_BONDED,
+				delegator: DelegatedStaking::generate_proxy_delegator(Agent::from(POOL1_BONDED))
+					.get(),
+				amount: 50 + 10
+			},]
 		);
 
 		// `bond_extra` for 20 **before** the migration would fail.
-		assert_noop!(Pools::bond_extra(RuntimeOrigin::signed(20), BondExtra::FreeBalance(5)), PoolsError::<Runtime>::NotMigrated);
+		assert_noop!(
+			Pools::bond_extra(RuntimeOrigin::signed(20), BondExtra::FreeBalance(5)),
+			PoolsError::<Runtime>::NotMigrated
+		);
+
+		// cannot claim payout either.
+		assert_noop!(
+			Pools::claim_payout(RuntimeOrigin::signed(20)),
+			PoolsError::<Runtime>::NotMigrated
+		);
+
+		// cannot unbond
+		assert_noop!(
+			Pools::unbond(RuntimeOrigin::signed(20), 20, 5),
+			PoolsError::<Runtime>::NotMigrated
+		);
 
 		// migrate 20
 		assert_ok!(Pools::migrate_delegation(RuntimeOrigin::signed(10), 20));
@@ -1255,16 +1277,12 @@ fn disable_pool_operations_on_non_migrated() {
 
 		assert_eq!(
 			staking_events_since_last_call(),
-			vec![
-				StakingEvent::Bonded { stash: POOL1_BONDED, amount: 5 },
-			]
+			vec![StakingEvent::Bonded { stash: POOL1_BONDED, amount: 5 },]
 		);
 
 		assert_eq!(
 			pool_events_since_last_call(),
-			vec![
-				PoolsEvent::Bonded { member: 20, pool_id: 1, bonded: 5, joined: false },
-			]
+			vec![PoolsEvent::Bonded { member: 20, pool_id: 1, bonded: 5, joined: false },]
 		);
 
 		assert_eq!(
