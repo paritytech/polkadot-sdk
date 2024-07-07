@@ -6,9 +6,9 @@ title: Secretary Program
 doc:
   - audience: Runtime User
     description: |
-      The Secretary Collective is an on-chain body comprising a single rank, Secretary, with the function to oversee the activities of the Polkadot Technical Fellowship. 
-      The Secretary is responsible for ensuring that the Fellowship's activities are carried out efficiently and in accordance with established protocols.
-      This role includes monitoring, reporting, and providing guidance to the Fellowship to help achieve its goals within the Polkadot ecosystem.
+      The Secretary Collective is an on-chain body comprising a single rank, Secretary, with the function to oversee the activities of the various on-chain Collectives. 
+      The Secretary is responsible for ensuring that activities are carried out efficiently and in accordance with established protocols.
+      This role includes monitoring, reporting, and providing guidance to help achieve its goals within the ecosystem.
 
 crates:
   - name: collectives-westend-runtime

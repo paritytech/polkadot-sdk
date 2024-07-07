@@ -53,7 +53,7 @@ use westend_runtime_constants::time::HOURS;
 use xcm::prelude::*;
 use xcm_builder::{AliasesIntoAccountId32, PayOverXcm};
 
-use crate::secretary::{SecretaryCollectiveInstance, ranks::SECRETARY};
+use crate::secretary::{ranks::SECRETARY, SecretaryCollectiveInstance};
 
 #[cfg(feature = "runtime-benchmarks")]
 use crate::impls::benchmarks::{OpenHrmpChannel, PayWithEnsure};
