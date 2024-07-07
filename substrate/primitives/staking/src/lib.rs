@@ -530,7 +530,8 @@ pub trait DelegationInterface {
 
 	/// Delegate funds to `Agent`.
 	///
-	/// Only used for the initial delegation. Use [`Self::delegate_extra`] to add more delegation.
+	/// Only used for the first delegation to the agent. Use [`Self::delegate_extra`] if agent has
+	/// already some delegations.
 	fn delegate(
 		delegator: Delegator<Self::AccountId>,
 		agent: Agent<Self::AccountId>,
@@ -540,7 +541,7 @@ pub trait DelegationInterface {
 
 	/// Add more delegation to the `Agent`.
 	///
-	/// If this is the first delegation, use [`Self::delegate`] instead.
+	/// If this is the first delegation to this `Agent`, use [`Self::delegate`] instead.
 	fn delegate_extra(
 		delegator: Delegator<Self::AccountId>,
 		agent: Agent<Self::AccountId>,

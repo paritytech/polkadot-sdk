@@ -999,7 +999,6 @@ fn pool_migration_e2e() {
 		LegacyAdapter::set(false);
 
 		// cannot migrate the member delegation unless pool is migrated first.
-		assert!(!Pools::api_member_needs_delegate_migration(20));
 		assert_noop!(
 			Pools::migrate_delegation(RuntimeOrigin::signed(10), 20),
 			PoolsError::<Runtime>::NotMigrated
@@ -1180,6 +1179,103 @@ fn pool_migration_e2e() {
 					amount: 10
 				},
 				DelegatedStakingEvent::Released { agent: POOL1_BONDED, delegator: 22, amount: 5 }
+			]
+		);
+	})
+}
+
+#[test]
+fn disable_pool_operations_on_non_migrated() {
+	new_test_ext().execute_with(|| {
+		LegacyAdapter::set(true);
+		assert_eq!(Balances::minimum_balance(), 5);
+		assert_eq!(Staking::current_era(), None);
+
+		// create the pool with TransferStake strategy.
+		assert_ok!(Pools::create(RuntimeOrigin::signed(10), 50, 10, 10, 10));
+		assert_eq!(LastPoolId::<Runtime>::get(), 1);
+
+		// have the pool nominate.
+		assert_ok!(Pools::nominate(RuntimeOrigin::signed(10), 1, vec![1, 2, 3]));
+
+		assert_eq!(
+			staking_events_since_last_call(),
+			vec![StakingEvent::Bonded { stash: POOL1_BONDED, amount: 50 }]
+		);
+		assert_eq!(
+			pool_events_since_last_call(),
+			vec![
+				PoolsEvent::Created { depositor: 10, pool_id: 1 },
+				PoolsEvent::Bonded { member: 10, pool_id: 1, bonded: 50, joined: true },
+			]
+		);
+
+		let pre_20 = Balances::free_balance(20);
+		assert_ok!(Pools::join(RuntimeOrigin::signed(20), 10, 1));
+
+		// verify members balance is moved to pool.
+		assert_eq!(Balances::free_balance(20), pre_20 - 10);
+
+		assert_eq!(
+			staking_events_since_last_call(),
+			vec![
+				StakingEvent::Bonded { stash: POOL1_BONDED, amount: 10 },
+			]
+		);
+		assert_eq!(
+			pool_events_since_last_call(),
+			vec![
+				PoolsEvent::Bonded { member: 20, pool_id: 1, bonded: 10, joined: true },
+			]
+		);
+
+		// we reset the adapter to `DelegateStake`.
+		LegacyAdapter::set(false);
+
+		// pool is pending migration.
+		assert!(Pools::api_pool_needs_delegate_migration(1));
+		// cannot join a pool that is pending migration.
+		assert_noop!(Pools::join(RuntimeOrigin::signed(21), 10, 1), PoolsError::<Runtime>::NotMigrated);
+
+		assert_ok!(Pools::migrate_pool_to_delegate_stake(RuntimeOrigin::signed(10), 1));
+		assert_eq!(
+			delegated_staking_events_since_last_call(),
+			vec![
+				DelegatedStakingEvent::Delegated { agent: POOL1_BONDED, delegator: DelegatedStaking::generate_proxy_delegator(Agent::from(POOL1_BONDED)).get(), amount: 50 + 10 },
+			]
+		);
+
+		// `bond_extra` for 20 **before** the migration would fail.
+		assert_noop!(Pools::bond_extra(RuntimeOrigin::signed(20), BondExtra::FreeBalance(5)), PoolsError::<Runtime>::NotMigrated);
+
+		// migrate 20
+		assert_ok!(Pools::migrate_delegation(RuntimeOrigin::signed(10), 20));
+		// now `bond_extra` for 20 works.
+		assert_ok!(Pools::bond_extra(RuntimeOrigin::signed(20), BondExtra::FreeBalance(5)));
+
+		assert_eq!(
+			staking_events_since_last_call(),
+			vec![
+				StakingEvent::Bonded { stash: POOL1_BONDED, amount: 5 },
+			]
+		);
+
+		assert_eq!(
+			pool_events_since_last_call(),
+			vec![
+				PoolsEvent::Bonded { member: 20, pool_id: 1, bonded: 5, joined: false },
+			]
+		);
+
+		assert_eq!(
+			delegated_staking_events_since_last_call(),
+			vec![
+				DelegatedStakingEvent::MigratedDelegation {
+					agent: POOL1_BONDED,
+					delegator: 20,
+					amount: 10
+				},
+				DelegatedStakingEvent::Delegated { agent: POOL1_BONDED, delegator: 20, amount: 5 },
 			]
 		);
 	})

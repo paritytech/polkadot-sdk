@@ -2001,6 +2001,8 @@ pub mod pallet {
 			pool_id: PoolId,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
+			// ensure pool is not in an un-migrated state.
+			ensure!(!Self::api_pool_needs_delegate_migration(pool_id), Error::<T>::NotMigrated);
 
 			ensure!(amount >= MinJoinBond::<T>::get(), Error::<T>::MinimumBondNotMet);
 			// If a member already exists that means they already belong to a pool
@@ -3333,6 +3335,11 @@ impl<T: Config> Pallet<T> {
 		let (mut member, mut bonded_pool, mut reward_pool) =
 			Self::get_member_with_pools(&member_account)?;
 
+		// ensure pool is not in an un-migrated state.
+		ensure!(!Self::api_pool_needs_delegate_migration(bonded_pool.id), Error::<T>::NotMigrated);
+		// ensure member is not in an un-migrated state.
+		ensure!(!Self::api_member_needs_delegate_migration(member_account.clone()), Error::<T>::NotMigrated);
+
 		// payout related stuff: we must claim the payouts, and updated recorded payout data
 		// before updating the bonded pool points, similar to that of `join` transaction.
 		reward_pool.update_records(
@@ -3890,10 +3897,10 @@ impl<T: Config> Pallet<T> {
 
 		PoolMembers::<T>::get(who.clone())
 			.map(|pool_member| {
-				if Self::api_pool_needs_delegate_migration(pool_member.pool_id) {
-					// the pool needs to be migrated before members can be migrated.
-					return false
-				}
+				// if Self::api_pool_needs_delegate_migration(pool_member.pool_id) {
+				// 	// the pool needs to be migrated before members can be migrated.
+				// 	return false
+				// }
 
 				let member_balance = pool_member.total_balance();
 				let delegated_balance =

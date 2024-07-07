@@ -36,7 +36,7 @@ impl<T: Config> DelegationInterface for Pallet<T> {
 		Delegation::<T>::get(&delegator.get()).map(|d| d.amount)
 	}
 
-	/// Delegate funds to an `Agent`.
+	/// Register a new `Agent` and delegate funds to it.
 	fn delegate(
 		who: Delegator<Self::AccountId>,
 		agent: Agent<Self::AccountId>,
