@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1720303523811,
+  "lastUpdate": 1720358769925,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -9822,6 +9822,53 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 2.99002942807018,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Muharem",
+            "username": "muharem",
+            "email": "ismailov.m.h@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "f7dd85d053dc44ee0a6851e7e507083f31b01bd3",
+          "message": "Assets: can_decrease/increase for destroying asset is not successful (#3286)\n\nFunctions `can_decrease` and `can_increase` do not return successful\nconsequence results for assets undergoing destruction; instead, they\nreturn the `UnknownAsset` consequence variant.\n\nThis update aligns their behavior with similar functions, such as\n`reducible_balance`, `increase_balance`, `decrease_balance`, and `burn`,\nwhich return an `AssetNotLive` error for assets in the process of being\ndestroyed.",
+          "timestamp": "2024-07-07T11:45:16Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/f7dd85d053dc44ee0a6851e7e507083f31b01bd3"
+        },
+        "date": 1720358740029,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63837.729999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52938,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 3.9416755993002384,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 8.37718658348014,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 11.229155979800066,
             "unit": "seconds"
           }
         ]
