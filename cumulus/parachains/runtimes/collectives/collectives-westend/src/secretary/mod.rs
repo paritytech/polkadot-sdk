@@ -132,6 +132,7 @@ impl pallet_ranked_collective::Config<SecretaryCollectiveInstance> for Runtime {
 	type MinRankOfClass = Identity;
 	type MemberSwappedHandler = crate::SecretarySalary;
 	type VoteWeight = pallet_ranked_collective::Geometric;
+	type MaxMemberCount = ();
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkSetup = crate::SecretarySalary;
 }
