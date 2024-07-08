@@ -611,6 +611,8 @@ where
 
 	// todo: probably API change to:
 	// status(Hash) -> Option<PoolStatus>
+	//
+	// todo: move to ViewStore
 	fn status(&self) -> PoolStatus {
 		self.view_store
 			.most_recent_view
@@ -682,6 +684,104 @@ where
 
 	fn futures(&self) -> Vec<Self::InPoolTransaction> {
 		self.view_store.futures()
+	}
+
+	/// Returns best effort set of ready transactions for given block, without executing full
+	/// maintain process
+	//todo: better naming?
+	fn ready_light(&self, at: Block::Hash) -> PolledIterator<ChainApi> {
+		let start = Instant::now();
+		log::info!( target: LOG_TARGET, "fatp::ready_light {:?}", at);
+
+		let Ok(block_number) = self.api.resolve_block_number(at) else {
+			let empty: ReadyIteratorFor<ChainApi> = Box::new(std::iter::empty());
+			return Box::pin(async { empty })
+		};
+
+		let (best_view, best_tree_route) = {
+			let views = self.view_store.views.read();
+			let retracted_views = self.view_store.retracted_views.read();
+			let mut best_tree_route = None;
+			let mut best_view = None;
+			let mut best_enacted_len = usize::MAX;
+			for v in views.values().chain(retracted_views.values()) {
+				let tree_route = self.api.tree_route(v.at.hash, at);
+				if let Ok(tree_route) = tree_route {
+					log::info!( target: LOG_TARGET, "fatp::ready_light {} tree_route from: {} e:{} r:{}", at,v.at.hash,tree_route.enacted().len(), tree_route.retracted().len());
+					if tree_route.retracted().is_empty() &&
+						tree_route.enacted().len() < best_enacted_len
+					{
+						best_enacted_len = tree_route.enacted().len();
+						best_view = Some(v.clone());
+						best_tree_route = Some(tree_route);
+					}
+				}
+			}
+			(best_view, best_tree_route)
+		};
+
+		let api = self.api.clone();
+
+		Box::pin(async move {
+			if let (Some(best_tree_route), Some(best_view)) = (best_tree_route, best_view) {
+				let tmp_view = View::new_from_other(
+					&best_view,
+					&HashAndNumber { hash: at, number: block_number },
+				);
+
+				let mut all_extrinsics = vec![];
+
+				for h in best_tree_route.enacted() {
+					let extrinsics = api
+						.block_body(h.hash)
+						.await
+						.unwrap_or_else(|e| {
+							log::warn!(target: LOG_TARGET, "Compute ready light transactions: error request: {}", e);
+							None
+						})
+						.unwrap_or_default()
+						.into_iter()
+						.map(|t| api.hash_and_length(&t).0);
+					all_extrinsics.extend(extrinsics);
+				}
+
+				let before_count = tmp_view.pool.validated_pool().ready().count();
+				// tmp_view.pool.validated_pool().remove_invalid(&all_extrinsics[..]);
+
+				// todo: do we need to send ready event? (that requires registering all listener for
+				// every txs). But maybe we only use transactions already imported to ready. No new
+				// tags appear so future txs shall not promoted.
+				// ++ todo: add light_prune?
+				let in_pool_tags = tmp_view.pool.validated_pool().extrinsics_tags(&all_extrinsics);
+
+				let mut tags = Vec::new();
+				for i in in_pool_tags {
+					match i {
+						// reuse the tags for extrinsics that were found in the pool
+						Some(t) => tags.extend(t),
+						None => {},
+					}
+				}
+				let _ = tmp_view.pool.validated_pool().prune_tags(tags);
+				// --
+
+				let after_count = tmp_view.pool.validated_pool().ready().count();
+				log::info!( target: LOG_TARGET,
+					"fatp::ready_light {} from {} before: {} removed: {} after: {} took:{:?}",
+					at,
+					best_view.at.hash,
+					before_count,
+					all_extrinsics.len(),
+					after_count,
+					start.elapsed()
+				);
+				Box::new(tmp_view.pool.validated_pool().ready())
+			} else {
+				let empty: ReadyIteratorFor<ChainApi> = Box::new(std::iter::empty());
+				log::info!( target: LOG_TARGET, "fatp::ready_light {} -> empty, took:{:?}", at, start.elapsed());
+				empty
+			}
+		})
 	}
 }
 
@@ -815,13 +915,21 @@ where
 		let xts = self.mempool.clone_unwatched();
 
 		if !xts.is_empty() {
+			let unwatched_count = xts.len();
+			let xts = xts
+				.into_iter()
+				.filter(|tx| !view.pool.validated_pool().pool.read().is_imported(&self.hash_of(tx)))
+				.collect::<Vec<_>>();
+			let filtered_count = xts.len();
 			//todo: internal checked banned: not required any more?
 			let _ = view.submit_many(source, xts).await;
+			log::info!(target: LOG_TARGET, "update_view_pool: at {:?} unwatched {}/{}", view.at.hash, filtered_count, unwatched_count);
 		}
 		let view = Arc::from(view);
 
-		//todo: some filtering can be applied - do not submit all txs, only those which are not in
-		//the pool (meaning: future + ready). Also add some stats and review them.
+		//todo: txs from blocks on tree_route(from finalized, to at).enecated() shall be used for
+		//filtering (they are already invalid)
+		//todo: hash computed multiple times
 		let results = self
 			.mempool
 			.watched_xts()
@@ -829,7 +937,12 @@ where
 				let view = view.clone();
 				async move {
 					let tx_hash = self.hash_of(&t);
-					let result = view.submit_and_watch(source, t.clone()).await;
+					let result = if view.pool.validated_pool().pool.read().is_imported(&tx_hash)
+					{
+						Err(Error::AlreadyImported(Box::new(tx_hash)).into())
+					} else {
+						view.submit_and_watch(source, t.clone()).await
+					};
 					let result = result.map_or_else(
 						|error| {
 							let error = error.into_pool_error();
@@ -898,6 +1011,8 @@ where
 			.collect::<Vec<_>>();
 
 		let results = future::join_all(results).await;
+
+		log::info!(target: LOG_TARGET, "update_view_pool: at {:?} watched {}/{}", view.at.hash, results.len(), self.mempool_len().1);
 
 		// if there are no views yet, and a single newly created view is reporting error, just send
 		// out the invalid event, and remove transaction.
@@ -1081,6 +1196,10 @@ where
 	<Block as BlockT>::Hash: Unpin,
 {
 	async fn maintain(&self, event: ChainEvent<Self::Block>) {
+		if matches!(event, ChainEvent::NewBlock { .. }) {
+			return
+		}
+
 		let start = Instant::now();
 
 		self.view_store.finish_background_revalidations().await;

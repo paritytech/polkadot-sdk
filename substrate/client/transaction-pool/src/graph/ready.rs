@@ -162,6 +162,7 @@ impl<Hash: hash::Hash + Member + Serialize, Ex> ReadyTransactions<Hash, Ex> {
 	/// In such case the entire subgraph of transactions that depend on the reported one will be
 	/// skipped.
 	pub fn get(&self) -> BestIterator<Hash, Ex> {
+		log::info!(target:LOG_TARGET, "ReadyTransactions::get: best:{} ready:{}", self.best.len(), self.ready.len());
 		BestIterator {
 			all: self.ready.clone_map(),
 			best: self.best.clone(),

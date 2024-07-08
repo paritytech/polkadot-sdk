@@ -412,9 +412,10 @@ where
 		let mut skipped = 0;
 		let mut unqueue_invalid = Vec::new();
 
+		let delay = deadline.saturating_duration_since((self.now)()) / 8;
 		let mut t1 = self.transaction_pool.ready_at(self.parent_hash).fuse();
-		let mut t2 =
-			futures_timer::Delay::new(deadline.saturating_duration_since((self.now)()) / 8).fuse();
+		let mut t2 = futures_timer::Delay::new(delay).fuse();
+		debug!(target: LOG_TARGET, "Wait for maintain at {:?} allowed delay: {:?}", self.parent_hash, delay);
 
 		let mut pending_iterator = select! {
 			res = t1 => res,
@@ -425,7 +426,7 @@ where
 					self.parent_number,
 					self.parent_hash,
 				);
-				self.transaction_pool.ready()
+				self.transaction_pool.ready_light(self.parent_hash).await
 			},
 		};
 
@@ -575,12 +576,22 @@ where
 		};
 
 		info!(
+			"🎁 Prepared block for proposing at {} ({} ms) [hash: {:?}; parent_hash: {}; extrinsics_count: {}",
+			block.header().number(),
+			block_took.as_millis(),
+			<Block as BlockT>::Hash::from(block.header().hash()),
+			block.header().parent_hash(),
+			extrinsics.len()
+		);
+
+		debug!(
 			"🎁 Prepared block for proposing at {} ({} ms) [hash: {:?}; parent_hash: {}; {extrinsics_summary}",
 			block.header().number(),
 			block_took.as_millis(),
 			<Block as BlockT>::Hash::from(block.header().hash()),
 			block.header().parent_hash(),
 		);
+
 		telemetry!(
 			self.telemetry;
 			CONSENSUS_INFO;
