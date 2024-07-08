@@ -689,8 +689,9 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 			self.num_connected.store(num_connected_peers, Ordering::Relaxed);
 
 			if let Some(metrics) = self.metrics.as_ref() {
-				let peer_store_status = self.peer_store_handle.status();
+				let peer_store_status = self.peerstore_handle.status();
 				metrics.peerset_num_discovered.set(peer_store_status.num_known_peers as u64);
+				metrics.peerset_num_banned_peers.set(peer_store_status.num_banned_peers as u64);
 			}
 
 			tokio::select! {

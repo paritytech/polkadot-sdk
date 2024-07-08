@@ -80,6 +80,7 @@ pub struct Metrics {
 	pub kbuckets_num_nodes: GaugeVec<U64>,
 	pub listeners_local_addresses: Gauge<U64>,
 	pub listeners_errors_total: Counter<U64>,
+	pub peerset_num_banned_peers: Gauge<U64>,
 	pub peerset_num_discovered: Gauge<U64>,
 	pub pending_connections: Gauge<U64>,
 	pub pending_connections_errors_total: CounterVec<U64>,
@@ -168,6 +169,10 @@ impl Metrics {
 			listeners_errors_total: prometheus::register(Counter::new(
 				"substrate_sub_libp2p_listeners_errors_total",
 				"Total number of non-fatal errors reported by a listener"
+			)?, registry)?,
+			peerset_num_banned_peers: prometheus::register(Gauge::new(
+				"substrate_sub_libp2p_peerset_num_banned_peers",
+				"Number of banned peers stored in the peerset manager"
 			)?, registry)?,
 			peerset_num_discovered: prometheus::register(Gauge::new(
 				"substrate_sub_libp2p_peerset_num_discovered",
