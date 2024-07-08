@@ -160,9 +160,8 @@ pub struct ItemDeposit<DepositBalance, AccountId> {
 }
 
 /// Information about the collection's metadata.
-#[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug, Default, TypeInfo, MaxEncodedLen)]
-#[scale_info(skip_type_params(StringLimit))]
-#[codec(mel_bound(Deposit: MaxEncodedLen))]
+#[derive(Clone, Eq, PartialEq, RuntimeDebug, Default)]
+#[frame_support::stored(skip(StringLimit), mel(Deposit))]
 pub struct CollectionMetadata<Deposit, StringLimit: Get<u32>> {
 	/// The balance deposited for this metadata.
 	///
@@ -175,8 +174,8 @@ pub struct CollectionMetadata<Deposit, StringLimit: Get<u32>> {
 }
 
 /// Information about the item's metadata.
-#[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug, Default, TypeInfo, MaxEncodedLen)]
-#[scale_info(skip_type_params(StringLimit))]
+#[derive(Clone, Eq, PartialEq, RuntimeDebug, Default)]
+#[frame_support::stored(skip(StringLimit), mel(Deposit))]
 pub struct ItemMetadata<Deposit, StringLimit: Get<u32>> {
 	/// The balance deposited for this metadata.
 	///

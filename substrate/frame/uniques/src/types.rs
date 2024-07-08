@@ -100,9 +100,8 @@ pub struct ItemDetails<AccountId, DepositBalance> {
 	pub(super) deposit: DepositBalance,
 }
 
-#[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug, Default, TypeInfo, MaxEncodedLen)]
-#[scale_info(skip_type_params(StringLimit))]
-#[codec(mel_bound(DepositBalance: MaxEncodedLen))]
+#[derive(Clone, Eq, PartialEq, RuntimeDebug, Default)]
+#[frame_support::stored(skip(StringLimit), mel(DepositBalance))]
 pub struct CollectionMetadata<DepositBalance, StringLimit: Get<u32>> {
 	/// The balance deposited for this metadata.
 	///
@@ -116,9 +115,8 @@ pub struct CollectionMetadata<DepositBalance, StringLimit: Get<u32>> {
 	pub(super) is_frozen: bool,
 }
 
-#[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug, Default, TypeInfo, MaxEncodedLen)]
-#[scale_info(skip_type_params(StringLimit))]
-#[codec(mel_bound(DepositBalance: MaxEncodedLen))]
+#[derive(Clone, Eq, PartialEq, RuntimeDebug, Default)]
+#[frame_support::stored(skip(StringLimit), mel(DepositBalance))]
 pub struct ItemMetadata<DepositBalance, StringLimit: Get<u32>> {
 	/// The balance deposited for this metadata.
 	///
