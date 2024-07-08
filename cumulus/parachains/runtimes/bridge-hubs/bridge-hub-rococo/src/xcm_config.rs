@@ -49,10 +49,10 @@ use xcm_builder::{
 	AllowHrmpNotificationsFromRelayChain, AllowKnownQueryResponses, AllowSubscriptionsFrom,
 	AllowTopLevelPaidExecutionFrom, DenyReserveTransferToRelayChain, DenyThenTry, EnsureXcmOrigin,
 	FrameTransactionalProcessor, FungibleAdapter, HandleFee, IsConcrete, ParentAsSuperuser,
-	ParentIsPreset, RelayChainAsNative, SiblingParachainAsNative, SiblingParachainConvertsVia,
-	SignedAccountId32AsNative, SignedToAccountId32, SovereignSignedViaLocation, TakeWeightCredit,
-	TrailingSetTopicAsId, UsingComponents, WeightInfoBounds, WithComputedOrigin, WithUniqueTopic,
-	XcmFeeToAccount,
+	ParentIsPreset, RelayChainAsNative, SendXcmFeeToAccount, SiblingParachainAsNative,
+	SiblingParachainConvertsVia, SignedAccountId32AsNative, SignedToAccountId32,
+	SovereignSignedViaLocation, TakeWeightCredit, TrailingSetTopicAsId, UsingComponents,
+	WeightInfoBounds, WithComputedOrigin, WithUniqueTopic,
 };
 use xcm_executor::{
 	traits::{FeeManager, FeeReason, FeeReason::Export, TransactAsset},
@@ -223,7 +223,7 @@ impl xcm_executor::Config for XcmConfig {
 				Self::AssetTransactor,
 				crate::EthereumOutboundQueue,
 			>,
-			XcmFeeToAccount<Self::AssetTransactor, AccountId, TreasuryAccount>,
+			SendXcmFeeToAccount<Self::AssetTransactor, TreasuryAccount>,
 		),
 	>;
 	type MessageExporter = (
@@ -354,30 +354,33 @@ impl<
 				match asset.fun {
 					Fungible(total_fee) => {
 						let source_fee = total_fee / 2;
-						deposit_or_burn_fee::<AssetTransactor, _>(
+						deposit_or_burn_fee::<AssetTransactor>(
 							Asset { id: asset.id.clone(), fun: Fungible(source_fee) }.into(),
 							maybe_context,
-							source_para_account.clone(),
+							AccountId32 { network: None, id: source_para_account.clone().into() }
+								.into(),
 						);
 
 						let dest_fee = total_fee - source_fee;
-						deposit_or_burn_fee::<AssetTransactor, _>(
+						deposit_or_burn_fee::<AssetTransactor>(
 							Asset { id: asset.id, fun: Fungible(dest_fee) }.into(),
 							maybe_context,
-							dest_para_account.clone(),
+							AccountId32 { network: None, id: dest_para_account.clone().into() }
+								.into(),
 						);
 					},
 					NonFungible(_) => {
-						deposit_or_burn_fee::<AssetTransactor, _>(
+						deposit_or_burn_fee::<AssetTransactor>(
 							asset.into(),
 							maybe_context,
-							source_para_account.clone(),
+							AccountId32 { network: None, id: source_para_account.clone().into() }
+								.into(),
 						);
 					},
 				}
 			}
 
-			return Assets::new()
+			return Assets::new();
 		}
 
 		fee
@@ -393,7 +396,7 @@ impl<WaivedLocations: Contains<Location>, FeeHandler: HandleFee> FeeManager
 	fn is_waived(origin: Option<&Location>, fee_reason: FeeReason) -> bool {
 		let Some(loc) = origin else { return false };
 		if let Export { network, destination: Here } = fee_reason {
-			return !(network == EthereumNetwork::get())
+			return !(network == EthereumNetwork::get());
 		}
 		WaivedLocations::contains(loc)
 	}
