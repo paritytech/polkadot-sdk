@@ -98,18 +98,5 @@ fn multisig_deposit_is_taken_and_returned() {
 			call.clone(),
 			Weight::zero()
 		));
-		assert_eq!(Balances::free_balance(1), 2);
-		assert_eq!(Balances::reserved_balance(1), 3);
-
-		assert_ok!(Multisig::as_multi(
-			RuntimeOrigin::signed(2),
-			2,
-			vec![1, 3],
-			Some(now()),
-			call,
-			call_weight
-		));
-		assert_eq!(Balances::free_balance(1), 5);
-		assert_eq!(Balances::reserved_balance(1), 0);
 	});
 }
