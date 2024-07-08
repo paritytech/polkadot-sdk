@@ -1020,7 +1020,7 @@ where
 	}
 
 	fn report_peer(&self, peer_id: sc_network_types::PeerId, cost_benefit: ReputationChange) {
-		self.peer_store_handle.clone().report_peer(peer_id, cost_benefit);
+		self.peer_store_handle.report_peer(peer_id, cost_benefit);
 	}
 
 	fn peer_reputation(&self, peer_id: &sc_network_types::PeerId) -> i32 {
