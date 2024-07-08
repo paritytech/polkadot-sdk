@@ -261,6 +261,7 @@ impl PeerInfo {
 struct PeerStoreInner {
 	peers: HashMap<PeerId, PeerInfo>,
 	protocols: Vec<Arc<dyn ProtocolHandle>>,
+	num_banned_peers: usize,
 }
 
 impl PeerStoreInner {
@@ -289,7 +290,7 @@ impl PeerStoreInner {
 		let peer_info = self.peers.entry(peer_id).or_default();
 		peer_info.add_reputation(change.value);
 
-		if peer_info.reputation < BANNED_THRESHOLD {
+		if peer_info.is_banned() {
 			self.protocols.iter().for_each(|handle| handle.disconnect_peer(peer_id.into()));
 
 			log::warn!(
@@ -360,8 +361,16 @@ impl PeerStoreInner {
 
 		// Retain only entries with non-zero reputation values or not expired ones.
 		let now = Instant::now();
-		self.peers
-			.retain(|_, info| info.reputation != 0 || info.last_updated + FORGET_AFTER > now);
+		let mut num_banned_peers = 0;
+		self.peers.retain(|_, info| {
+			if info.is_banned() {
+				num_banned_peers += 1;
+			}
+
+			info.reputation != 0 || info.last_updated + FORGET_AFTER > now
+		});
+
+		self.num_banned_peers = num_banned_peers;
 	}
 
 	fn add_known_peer(&mut self, peer_id: PeerId) {
@@ -397,6 +406,7 @@ impl PeerStore {
 					.map(|peer_id| (peer_id, PeerInfo::default()))
 					.collect(),
 				protocols: Vec::new(),
+				num_banned_peers: 0,
 			})),
 		}
 	}
@@ -441,7 +451,7 @@ impl PeerStoreT for PeerStore {
 
 #[cfg(test)]
 mod tests {
-	use super::PeerInfo;
+	use super::{PeerInfo, PeerStore, PeerStoreProvider};
 
 	#[test]
 	fn decaying_zero_reputation_yields_zero() {
@@ -507,5 +517,36 @@ mod tests {
 
 		peer_info.decay_reputation(SECONDS / 2);
 		assert_eq!(peer_info.reputation, 0);
+	}
+
+	#[test]
+	fn report_banned_peers() {
+		let peer_a = sc_network_types::PeerId::random();
+		let peer_b = sc_network_types::PeerId::random();
+		let peer_c = sc_network_types::PeerId::random();
+
+		let peerstore = PeerStore::new(vec![peer_a, peer_b, peer_c]);
+		let handle = peerstore.handle();
+
+		// Check initial state.
+		let status = handle.status();
+		assert_eq!(status.num_known_peers, 3);
+		assert_eq!(status.num_banned_peers, 0);
+
+		// Report 2 peers with a negative reputation.
+		handle.report_peer(
+			peer_a,
+			sc_network_common::types::ReputationChange { value: i32::MIN, reason: "test".into() },
+		);
+		handle.report_peer(
+			peer_b,
+			sc_network_common::types::ReputationChange { value: i32::MIN, reason: "test".into() },
+		);
+		// Advance time to propagate banned peers.
+		handle.progress_time(1);
+
+		let status = handle.status();
+		assert_eq!(status.num_known_peers, 3);
+		assert_eq!(status.num_banned_peers, 2);
 	}
 }

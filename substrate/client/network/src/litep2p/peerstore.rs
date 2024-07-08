@@ -22,7 +22,7 @@
 //! such as their addresses, reputations, supported protocols etc.
 
 use crate::{
-	peer_store::{PeerStoreProvider, ProtocolHandle},
+	peer_store::{PeerStoreProvider, PeerStoreStatus, ProtocolHandle},
 	service::traits::PeerStore,
 	ObservedRole, ReputationChange,
 };
