@@ -20529,6 +20529,7 @@ dependencies = [
  "sp-tracing 16.0.0",
  "sp-weights",
  "substrate-test-runtime-client",
+ "tracing",
  "zstd 0.12.4",
 ]
 
@@ -21505,7 +21506,6 @@ dependencies = [
  "frame-system",
  "frame-system-rpc-runtime-api",
  "futures",
- "hex-literal",
  "log",
  "pallet-babe",
  "pallet-balances",
@@ -21543,6 +21543,7 @@ dependencies = [
  "sp-version",
  "substrate-test-runtime-client",
  "substrate-wasm-builder",
+ "tracing",
  "trie-db",
 ]
 
