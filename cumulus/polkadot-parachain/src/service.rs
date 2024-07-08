@@ -521,7 +521,7 @@ where
 }
 
 pub fn new_aura_node_spec<RuntimeApi, AuraId>(
-	use_experimental_slot_based: bool,
+	use_slot_based_consensus: bool,
 ) -> Box<dyn DynNodeSpec>
 where
 	RuntimeApi: ConstructNodeRuntimeApi<Block, ParachainClient<RuntimeApi>>,
@@ -530,17 +530,18 @@ where
 		+ substrate_frame_rpc_system::AccountNonceApi<Block, AccountId, Nonce>,
 	AuraId: AuraIdT + Sync,
 {
-	match use_experimental_slot_based {
-		true => Box::new(AuraNode::<
+	if use_slot_based_consensus {
+		Box::new(AuraNode::<
 			RuntimeApi,
 			AuraId,
 			StartSlotBasedAuraConsensus<RuntimeApi, AuraId>,
-		>::default()),
-		false => Box::new(AuraNode::<
+		>::default())
+	} else {
+		Box::new(AuraNode::<
 			RuntimeApi,
 			AuraId,
 			StartLookaheadAuraConsensus<RuntimeApi, AuraId>,
-		>::default()),
+		>::default())
 	}
 }
 
