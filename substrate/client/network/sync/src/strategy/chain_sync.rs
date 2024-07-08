@@ -98,7 +98,15 @@ const MAJOR_SYNC_BLOCKS: u8 = 5;
 /// (ie not having enough resources available to handle the requests); or because it is malicious.
 const MAX_DISCONNECTED_PEERS_STATE: u32 = 512;
 
-const DISCONNECTED_PEER_BACKOFF_SECONDS: u64 = 60;
+/// The time we are going to backoff a peer that has disconnected with an inflight request.
+///
+/// The backoff time is calculated as `num_disconnects * DISCONNECTED_PEER_BACKOFF_SECONDS`.
+/// This is to prevent submitting a request to a peer that has disconnected because it could not
+/// keep up with the number of requests.
+///
+/// The peer will disconnect due to the keep-alive timeout, however disconnections without
+/// an inflight request are not tracked.
+const DISCONNECTED_PEER_BACKOFF_SECONDS: u64 = 30;
 
 mod rep {
 	use sc_network::ReputationChange as Rep;
