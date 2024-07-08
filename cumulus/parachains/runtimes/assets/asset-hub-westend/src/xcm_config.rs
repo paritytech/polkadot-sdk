@@ -51,11 +51,10 @@ use xcm_builder::{
 	EnsureXcmOrigin, FrameTransactionalProcessor, FungibleAdapter, FungiblesAdapter,
 	GlobalConsensusParachainConvertsFor, HashedDescription, IsConcrete, LocalMint,
 	NetworkExportTableItem, NoChecking, NonFungiblesAdapter, ParentAsSuperuser, ParentIsPreset,
-	RelayChainAsNative, SiblingParachainAsNative, SiblingParachainConvertsVia,
+	RelayChainAsNative, SendXcmFeeToAccount, SiblingParachainAsNative, SiblingParachainConvertsVia,
 	SignedAccountId32AsNative, SignedToAccountId32, SovereignSignedViaLocation, StartsWith,
 	StartsWithExplicitGlobalConsensus, TakeWeightCredit, TrailingSetTopicAsId, UsingComponents,
 	WeightInfoBounds, WithComputedOrigin, WithUniqueTopic, XcmFeeManagerFromComponents,
-	XcmFeeToAccount,
 };
 use xcm_executor::XcmExecutor;
 
@@ -261,9 +260,9 @@ impl Contains<Location> for FellowshipEntities {
 	fn contains(location: &Location) -> bool {
 		matches!(
 			location.unpack(),
-			(1, [Parachain(1001), Plurality { id: BodyId::Technical, .. }]) |
-				(1, [Parachain(1001), PalletInstance(64)]) |
-				(1, [Parachain(1001), PalletInstance(65)])
+			(1, [Parachain(1001), Plurality { id: BodyId::Technical, .. }])
+				| (1, [Parachain(1001), PalletInstance(64)])
+				| (1, [Parachain(1001), PalletInstance(65)])
 		)
 	}
 }
@@ -429,7 +428,7 @@ impl xcm_executor::Config for XcmConfig {
 	type AssetExchanger = ();
 	type FeeManager = XcmFeeManagerFromComponents<
 		WaivedLocations,
-		XcmFeeToAccount<Self::AssetTransactor, AccountId, TreasuryAccount>,
+		SendXcmFeeToAccount<Self::AssetTransactor, TreasuryAccount>,
 	>;
 	type MessageExporter = ();
 	type UniversalAliases = (bridging::to_rococo::UniversalAliases,);

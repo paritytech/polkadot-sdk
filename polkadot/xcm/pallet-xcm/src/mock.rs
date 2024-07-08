@@ -37,7 +37,7 @@ use xcm_builder::{
 	FixedWeightBounds, FrameTransactionalProcessor, FungibleAdapter, FungiblesAdapter,
 	HashedDescription, IsConcrete, MatchedConvertedConcreteId, NoChecking,
 	SignedAccountId32AsNative, SignedToAccountId32, SovereignSignedViaLocation, TakeWeightCredit,
-	XcmFeeManagerFromComponents, XcmFeeToAccount,
+	XcmFeeManagerFromComponents, XcmSendFeeToAccount,
 };
 use xcm_executor::{
 	traits::{Identity, JustTry},
@@ -222,10 +222,10 @@ impl SendXcm for TestPaidForPara3000SendXcm {
 	) -> SendResult<(Location, Xcm<()>)> {
 		if let Some(dest) = dest.as_ref() {
 			if !dest.eq(&Para3000Location::get()) {
-				return Err(SendError::NotApplicable)
+				return Err(SendError::NotApplicable);
 			}
 		} else {
-			return Err(SendError::NotApplicable)
+			return Err(SendError::NotApplicable);
 		}
 
 		let pair = (dest.take().unwrap(), msg.take().unwrap());
@@ -504,7 +504,7 @@ impl xcm_executor::Config for XcmConfig {
 	type MaxAssetsIntoHolding = MaxAssetsIntoHolding;
 	type FeeManager = XcmFeeManagerFromComponents<
 		EverythingBut<XcmFeesNotWaivedLocations>,
-		XcmFeeToAccount<Self::AssetTransactor, AccountId, XcmFeesTargetAccount>,
+		SendXcmFeeToAccount<Self::AssetTransactor, XcmFeesTargetAccount>,
 	>;
 	type MessageExporter = ();
 	type UniversalAliases = Nothing;

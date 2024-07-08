@@ -47,11 +47,11 @@ use xcm_builder::{
 	AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom, AsPrefixedGeneralIndex,
 	ConvertedConcreteId, EnsureXcmOrigin, FixedWeightBounds, FrameTransactionalProcessor,
 	FungibleAdapter, FungiblesAdapter, IsConcrete, LocalMint, NativeAsset, NoChecking,
-	ParentAsSuperuser, ParentIsPreset, RelayChainAsNative, SiblingParachainAsNative,
-	SiblingParachainConvertsVia, SignedAccountId32AsNative, SignedToAccountId32,
-	SovereignSignedViaLocation, StartsWith, TakeWeightCredit, TrailingSetTopicAsId,
-	UsingComponents, WithComputedOrigin, WithUniqueTopic, XcmFeeManagerFromComponents,
-	XcmFeeToAccount,
+	ParentAsSuperuser, ParentIsPreset, RelayChainAsNative, SendXcmFeeToAccount,
+	SiblingParachainAsNative, SiblingParachainConvertsVia, SignedAccountId32AsNative,
+	SignedToAccountId32, SovereignSignedViaLocation, StartsWith, TakeWeightCredit,
+	TrailingSetTopicAsId, UsingComponents, WithComputedOrigin, WithUniqueTopic,
+	XcmFeeManagerFromComponents,
 };
 use xcm_executor::{traits::JustTry, XcmExecutor};
 
@@ -238,8 +238,8 @@ where
 {
 	fn contains(asset: &Asset, origin: &Location) -> bool {
 		let loc = Origin::get();
-		&loc == origin &&
-			matches!(asset, Asset { id: AssetId(asset_loc), fun: Fungible(_a) }
+		&loc == origin
+			&& matches!(asset, Asset { id: AssetId(asset_loc), fun: Fungible(_a) }
 			if asset_loc.starts_with(&Prefix::get()))
 	}
 }
@@ -251,8 +251,8 @@ pub struct NativeAssetFrom<T>(PhantomData<T>);
 impl<T: Get<Location>> ContainsPair<Asset, Location> for NativeAssetFrom<T> {
 	fn contains(asset: &Asset, origin: &Location) -> bool {
 		let loc = T::get();
-		&loc == origin &&
-			matches!(asset, Asset { id: AssetId(asset_loc), fun: Fungible(_a) }
+		&loc == origin
+			&& matches!(asset, Asset { id: AssetId(asset_loc), fun: Fungible(_a) }
 			if *asset_loc == Location::from(Parent))
 	}
 }
@@ -298,8 +298,8 @@ impl<AssetLocation: Get<Location>, Origin: Get<Location>> ContainsPair<Asset, Lo
 {
 	fn contains(asset: &Asset, origin: &Location) -> bool {
 		log::trace!(target: "xcm::contains", "AssetFromChain asset: {:?}, origin: {:?}", asset, origin);
-		*origin == Origin::get() &&
-			matches!(asset.id.clone(), AssetId(id) if id == AssetLocation::get())
+		*origin == Origin::get()
+			&& matches!(asset.id.clone(), AssetId(id) if id == AssetLocation::get())
 	}
 }
 
@@ -351,7 +351,7 @@ impl xcm_executor::Config for XcmConfig {
 	type AssetExchanger = ();
 	type FeeManager = XcmFeeManagerFromComponents<
 		(),
-		XcmFeeToAccount<Self::AssetTransactor, AccountId, TreasuryAccount>,
+		SendXcmFeeToAccount<Self::AssetTransactor, TreasuryAccount>,
 	>;
 	type MessageExporter = ();
 	type UniversalAliases = Nothing;
