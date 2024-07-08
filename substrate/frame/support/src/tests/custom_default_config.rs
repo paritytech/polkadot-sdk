@@ -44,7 +44,6 @@ pub mod custom_config_prelude {
 	}
 }
 
-#[docify::export]
 #[test]
 fn derive_impl_works_with_custom_default_config() {
 	struct DummyRuntime;
