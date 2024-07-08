@@ -75,7 +75,11 @@ fn build_wasm(chain: &str) -> PathBuf {
 		&target_dir,
 	];
 	debug_output!("building metadata with args: {}", args.join(" "));
-	Command::new(cargo).args(&args).status().unwrap();
+	Command::new(cargo)
+		.env_remove("SKIP_WASM_BUILD") // force build to get the metadata
+		.args(&args)
+		.status()
+		.unwrap();
 
 	let wasm_path = &format!(
 		"{target_dir}/{target}/release/wbuild/{}/{}.wasm",
@@ -114,6 +118,11 @@ fn fetch_metadata_file(chain: &str, output_path: &Path) {
 }
 
 fn main() {
+	if env::var("CARGO_FEATURE_ZOMBIE_METADATA").is_err() {
+		debug_output!("zombie-metadata feature not enabled, not need to check metadata files.");
+		return;
+	}
+
 	// Ensure we have the needed metadata files in place to run zombienet tests
 	let manifest_path = env::var("CARGO_MANIFEST_DIR").unwrap();
 	const METADATA_DIR: &str = "metadata-files";
@@ -125,7 +134,6 @@ fn main() {
 		let full_path = format!("{metadata_path}/{chain}-local.scale");
 		let output_path = path::PathBuf::from(&full_path);
 
-		debug_output!("1");
 		match output_path.try_exists() {
 			Ok(true) => {
 				debug_output!("got: {}", full_path);
