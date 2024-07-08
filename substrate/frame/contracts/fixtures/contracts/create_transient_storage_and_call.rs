@@ -38,6 +38,7 @@ pub extern "C" fn call() {
 
 	let data = [0u8; 16 * 1024];
 	let value = &data[..len as usize];
+	#[allow(deprecated)]
 	api::set_transient_storage(buffer, value);
 
 	// Call the callee

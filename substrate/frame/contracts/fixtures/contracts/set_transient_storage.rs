@@ -37,5 +37,6 @@ pub extern "C" fn call() {
 	let mut key = [0u8; 32];
 	key[0] = 1;
 
+	#[allow(deprecated)]
 	api::set_transient_storage(&key, data);
 }

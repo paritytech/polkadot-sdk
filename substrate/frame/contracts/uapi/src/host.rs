@@ -301,6 +301,9 @@ pub trait HostFn {
 	/// # Return
 	///
 	/// Returns the size of the pre-existing value at the specified key if any.
+	#[deprecated(
+		note = "Unstable function. Behaviour can change without further notice. Use only for testing."
+	)]
 	fn clear_transient_storage(key: &[u8]) -> Option<u32>;
 
 	/// Retrieve the code hash for a specified contract address.
@@ -345,6 +348,9 @@ pub trait HostFn {
 	/// # Return
 	///
 	/// Returns the size of the pre-existing value at the specified key if any.
+	#[deprecated(
+		note = "Unstable function. Behaviour can change without further notice. Use only for testing."
+	)]
 	fn contains_transient_storage(key: &[u8]) -> Option<u32>;
 
 	/// Emit a custom debug message.
@@ -487,6 +493,9 @@ pub trait HostFn {
 	/// # Errors
 	///
 	/// [KeyNotFound][`crate::ReturnErrorCode::KeyNotFound]
+	#[deprecated(
+		note = "Unstable function. Behaviour can change without further notice. Use only for testing."
+	)]
 	fn get_transient_storage(key: &[u8], output: &mut &mut [u8]) -> Result;
 
 	hash_fn!(sha2_256, 32);
@@ -722,6 +731,9 @@ pub trait HostFn {
 	/// # Return
 	///
 	/// Returns the size of the pre-existing value at the specified key if any.
+	#[deprecated(
+		note = "Unstable function. Behaviour can change without further notice. Use only for testing."
+	)]
 	fn set_transient_storage(key: &[u8], value: &[u8]) -> Option<u32>;
 
 	/// Verify a sr25519 signature
@@ -756,6 +768,9 @@ pub trait HostFn {
 	/// # Errors
 	///
 	/// [KeyNotFound][`crate::ReturnErrorCode::KeyNotFound]
+	#[deprecated(
+		note = "Unstable function. Behaviour can change without further notice. Use only for testing."
+	)]
 	fn take_transient_storage(key: &[u8], output: &mut &mut [u8]) -> Result;
 
 	/// Transfer some amount of funds into the specified account.
