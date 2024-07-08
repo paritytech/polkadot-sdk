@@ -143,7 +143,7 @@ async fn wait_for_para_event<C: subxt::Config + Clone, E: StaticEvent, P: Fn(&E)
 	predicate: P,
 ) -> E {
 	loop {
-		let mut events = events.write().await;
+		let mut events = events.write().unwrap();
 		if let Some(entry) = events.iter().find(|&e| {
 			e.1.pallet_name() == pallet &&
 				e.1.variant_name() == variant &&
