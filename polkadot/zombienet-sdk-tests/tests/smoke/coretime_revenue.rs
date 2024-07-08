@@ -26,17 +26,12 @@ use rococo::runtime_types::{
 	xcm::{VersionedAssets, VersionedLocation},
 };
 use serde_json::json;
-use std::{fmt::Display, sync::Arc};
-use subxt::{
-	blocks::ExtrinsicEvents,
-	config::ExtrinsicParams,
-	events::StaticEvent,
-	tx::{Payload, Signer},
-	utils::AccountId32,
-	OnlineClient, PolkadotConfig,
+use std::{
+	fmt::Display,
+	sync::{Arc, RwLock},
 };
+use subxt::{events::StaticEvent, utils::AccountId32, OnlineClient, PolkadotConfig};
 use subxt_signer::sr25519::dev;
-use tokio::{sync::RwLock, time::Duration};
 use zombienet_sdk::NetworkConfigBuilder;
 
 use coretime_rococo::{
