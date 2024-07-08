@@ -196,7 +196,7 @@ pub fn expand_event(def: &mut Def) -> proc_macro2::TokenStream {
 			fn from(_: #event_ident<#event_use_gen>) {}
 		}
 
-		impl<#event_impl_gen> #event_ident<#event_use_gen> #completed_where_clause {
+		impl<#event_impl_gen> #event_ident<#event_use_gen> #event_where_clause {
 			#[allow(dead_code)]
 			#[doc(hidden)]
 			pub fn event_metadata<W: #frame_support::__private::scale_info::TypeInfo + 'static>() -> #frame_support::__private::metadata_ir::PalletEventMetadataIR {

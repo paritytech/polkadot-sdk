@@ -287,8 +287,7 @@ pub fn expand_pallet_struct(def: &mut Def) -> proc_macro2::TokenStream {
 		#storage_info
 		#whitelisted_storage_keys_impl
 
-		impl<#type_impl_gen> #pallet_ident<#type_use_gen>
-		#config_where_clause {
+		impl<#type_use_gen> #pallet_ident<#type_use_gen> {
 			#[allow(dead_code)]
 			#[doc(hidden)]
 			pub fn deprecation_info() -> #frame_support::__private::metadata_ir::DeprecationStatus {
