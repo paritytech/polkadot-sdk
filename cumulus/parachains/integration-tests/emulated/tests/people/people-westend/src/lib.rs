@@ -46,7 +46,7 @@ mod imports {
 			westend_runtime::{
 				xcm_config::XcmConfig as WestendXcmConfig, BasicDeposit, ByteDeposit,
 				MaxAdditionalFields, MaxSubAccounts, RuntimeOrigin as WestendOrigin,
-				SubAccountDeposit,
+				SubAccountDeposit, Runtime as WestendRuntime,
 			},
 			WestendRelayPallet as WestendPallet,
 		},
