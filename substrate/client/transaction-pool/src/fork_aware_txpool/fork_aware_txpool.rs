@@ -1240,10 +1240,6 @@ where
 	<Block as BlockT>::Hash: Unpin,
 {
 	async fn maintain(&self, event: ChainEvent<Self::Block>) {
-		if matches!(event, ChainEvent::NewBlock { .. }) {
-			return
-		}
-
 		let start = Instant::now();
 
 		self.view_store.finish_background_revalidations().await;
@@ -1287,7 +1283,7 @@ where
 		};
 
 		match event {
-			ChainEvent::NewBestBlock { .. } | ChainEvent::NewBlock { .. } => {},
+			ChainEvent::NewBestBlock { .. } => {},
 			ChainEvent::Finalized { hash, ref tree_route } => {
 				self.handle_finalized(hash, tree_route).await;
 

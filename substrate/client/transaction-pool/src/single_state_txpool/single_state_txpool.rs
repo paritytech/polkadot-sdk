@@ -759,10 +759,6 @@ where
 	PoolApi: 'static + graph::ChainApi<Block = Block>,
 {
 	async fn maintain(&self, event: ChainEvent<Self::Block>) {
-		if matches!(event, ChainEvent::NewBlock { .. }) {
-			return
-		}
-
 		let prev_finalized_block = self.enactment_state.lock().recent_finalized_block();
 		let compute_tree_route = |from, to| -> Result<TreeRoute<Block>, String> {
 			match self.api.tree_route(from, to) {
