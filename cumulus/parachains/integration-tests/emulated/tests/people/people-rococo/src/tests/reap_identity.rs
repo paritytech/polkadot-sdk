@@ -42,16 +42,9 @@ use crate::imports::*;
 use frame_support::BoundedVec;
 use pallet_balances::Event as BalancesEvent;
 use pallet_identity::{legacy::IdentityInfo, Data, Event as IdentityEvent, IdentityOf, SubsOf};
-use people_rococo_runtime::{
-	people::{
-		BasicDeposit as BasicDepositParachain, ByteDeposit as ByteDepositParachain,
-		IdentityInfo as IdentityInfoParachain, SubAccountDeposit as SubAccountDepositParachain,
-	},
-	Runtime as PeopleRuntime,
-};
-use rococo_runtime::{
-	BasicDeposit, ByteDeposit, MaxAdditionalFields, MaxSubAccounts, Runtime as RococoRuntime,
-	RuntimeOrigin as RococoOrigin, SubAccountDeposit,
+use people::{
+	BasicDeposit as BasicDepositParachain, ByteDeposit as ByteDepositParachain,
+	IdentityInfo as IdentityInfoParachain, SubAccountDeposit as SubAccountDepositParachain,
 };
 use rococo_runtime_constants::currency::*;
 use rococo_system_emulated_network::{
