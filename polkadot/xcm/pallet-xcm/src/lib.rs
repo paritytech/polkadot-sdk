@@ -64,7 +64,7 @@ use xcm_executor::{
 	},
 	AssetsInHolding,
 };
-use xcm_fee_payment_runtime_api::{
+use xcm_runtime_apis::{
 	dry_run::{CallDryRunEffects, Error as XcmDryRunApiError, XcmDryRunEffects},
 	fees::Error as XcmPaymentApiError,
 };
@@ -2442,7 +2442,7 @@ impl<T: Config> Pallet<T> {
 	///
 	/// Returns not only the call result and events, but also the local XCM, if any,
 	/// and any XCMs forwarded to other locations.
-	/// Meant to be used in the `xcm_fee_payment_runtime_api::dry_run::DryRunApi` runtime API.
+	/// Meant to be used in the `xcm_runtime_apis::dry_run::DryRunApi` runtime API.
 	pub fn dry_run_call<Runtime, Router, OriginCaller, RuntimeCall>(
 		origin: OriginCaller,
 		call: RuntimeCall,
@@ -2474,7 +2474,7 @@ impl<T: Config> Pallet<T> {
 	/// Dry-runs `xcm` with the given `origin_location`.
 	///
 	/// Returns execution result, events, and any forwarded XCMs to other locations.
-	/// Meant to be used in the `xcm_fee_payment_runtime_api::dry_run::DryRunApi` runtime API.
+	/// Meant to be used in the `xcm_runtime_apis::dry_run::DryRunApi` runtime API.
 	pub fn dry_run_xcm<Runtime, Router, RuntimeCall, XcmConfig>(
 		origin_location: VersionedLocation,
 		xcm: VersionedXcm<RuntimeCall>,

@@ -14,7 +14,8 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
-use clap::{CommandFactory, FromArgMatches};
+use clap::{Command, CommandFactory, FromArgMatches};
+use sc_cli::SubstrateCli;
 use std::path::PathBuf;
 
 /// Sub-commands supported by the collator.
@@ -58,28 +59,25 @@ pub enum Subcommand {
 	Benchmark(frame_benchmarking_cli::BenchmarkCmd),
 }
 
-const AFTER_HELP_EXAMPLE: &str = color_print::cstr!(
-	r#"<bold><underline>Examples:</></>
-   <bold>polkadot-parachain --chain asset-hub-polkadot --sync warp -- --chain polkadot --sync warp</>
-           Launch a warp-syncing full node of the <italic>Asset Hub</> parachain on the <italic>Polkadot</> Relay Chain.
-   <bold>polkadot-parachain --chain asset-hub-polkadot --sync warp --relay-chain-rpc-url ws://rpc.example.com -- --chain polkadot</>
-           Launch a warp-syncing full node of the <italic>Asset Hub</> parachain on the <italic>Polkadot</> Relay Chain.
-           Uses <italic>ws://rpc.example.com</> as remote relay chain node.
- "#
-);
 #[derive(Debug, clap::Parser)]
 #[command(
 	propagate_version = true,
 	args_conflicts_with_subcommands = true,
-	subcommand_negates_reqs = true
+	subcommand_negates_reqs = true,
+	after_help = crate::examples(Self::executable_name())
 )]
-#[clap(after_help = AFTER_HELP_EXAMPLE)]
 pub struct Cli {
 	#[command(subcommand)]
 	pub subcommand: Option<Subcommand>,
 
 	#[command(flatten)]
 	pub run: cumulus_client_cli::RunCmd,
+
+	/// EXPERIMENTAL: Use slot-based collator which can handle elastic scaling.
+	///
+	/// Use with care, this flag is unstable and subject to change.
+	#[arg(long)]
+	pub experimental_use_slot_based: bool,
 
 	/// Disable automatic hardware benchmarks.
 	///
@@ -93,7 +91,7 @@ pub struct Cli {
 
 	/// Relay chain arguments
 	#[arg(raw = true)]
-	pub relaychain_args: Vec<String>,
+	pub relay_chain_args: Vec<String>,
 }
 
 #[derive(Debug)]
@@ -109,12 +107,25 @@ pub struct RelayChainCli {
 }
 
 impl RelayChainCli {
+	fn polkadot_cmd() -> Command {
+		let help_template = color_print::cformat!(
+			"The arguments that are passed to the relay chain node. \n\
+			\n\
+			<bold><underline>RELAY_CHAIN_ARGS:</></> \n\
+			{{options}}",
+		);
+
+		polkadot_cli::RunCmd::command()
+			.no_binary_name(true)
+			.help_template(help_template)
+	}
+
 	/// Parse the relay chain CLI parameters using the parachain `Configuration`.
 	pub fn new<'a>(
 		para_config: &sc_service::Configuration,
 		relay_chain_args: impl Iterator<Item = &'a String>,
 	) -> Self {
-		let polkadot_cmd = polkadot_cli::RunCmd::command().no_binary_name(true);
+		let polkadot_cmd = Self::polkadot_cmd();
 		let matches = polkadot_cmd.get_matches_from(relay_chain_args);
 		let base = FromArgMatches::from_arg_matches(&matches).unwrap_or_else(|e| e.exit());
 
