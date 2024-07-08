@@ -112,8 +112,8 @@ std = [
 	"sp-trie/std",
 	"sp-version/std",
 	"substrate-wasm-builder",
-	"trie-db/std",
 	"tracing/std",
+	"trie-db/std",
 ]
 
 # Special feature to disable logging
