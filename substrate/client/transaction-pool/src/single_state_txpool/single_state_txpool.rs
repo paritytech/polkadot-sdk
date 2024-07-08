@@ -31,6 +31,7 @@ use futures::{
 	channel::oneshot,
 	future::{self, ready},
 	prelude::*,
+	Future, FutureExt,
 };
 use parking_lot::Mutex;
 use std::{
@@ -38,6 +39,7 @@ use std::{
 	pin::Pin,
 	sync::Arc,
 };
+use tokio::select;
 
 use crate::graph::{ExtrinsicHash, IsValidator};
 use sc_transaction_pool_api::{
@@ -235,6 +237,34 @@ where
 	pub fn api(&self) -> &PoolApi {
 		&self.api
 	}
+
+	async fn ready_at_with_timeout_internal(
+		&self,
+		at: Block::Hash,
+		timeout: std::time::Duration,
+	) -> PolledIterator<PoolApi> {
+		let timeout = futures_timer::Delay::new(timeout);
+		let fall_back_ready = async { Some(self.ready()) };
+
+		let maybe_ready = async {
+			select! {
+				ready = self.ready_at(at) => Some(ready),
+				_ = timeout => {
+					None
+				}
+			}
+		};
+
+		let results = futures::future::join(maybe_ready.boxed(), fall_back_ready.boxed()).await;
+
+		Box::pin(async {
+			if let Some(ready) = results.0 {
+				ready
+			} else {
+				results.1.expect("Fallback value is always Some. qed")
+			}
+		})
+	}
 }
 
 impl<PoolApi, Block> TransactionPool for BasicPool<PoolApi, Block>
@@ -371,6 +401,14 @@ where
 	fn futures(&self) -> Vec<Self::InPoolTransaction> {
 		let pool = self.pool.validated_pool().pool.read();
 		pool.futures().cloned().collect::<Vec<_>>()
+	}
+
+	fn ready_at_with_timeout(
+		&self,
+		at: <Self::Block as BlockT>::Hash,
+		timeout: std::time::Duration,
+	) -> PolledIterator<PoolApi> {
+		futures::executor::block_on(self.ready_at_with_timeout_internal(at, timeout))
 	}
 }
 

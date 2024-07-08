@@ -25,7 +25,6 @@ use futures::{
 	channel::oneshot,
 	future,
 	future::{Future, FutureExt},
-	select,
 };
 use log::{debug, error, info, trace, warn};
 use sc_block_builder::{BlockBuilderApi, BlockBuilderBuilder};
@@ -416,22 +415,9 @@ where
 		let mut skipped = 0;
 		let mut unqueue_invalid = Vec::new();
 
-		let mut t1 = self.transaction_pool.ready_at(self.parent_hash).fuse();
-		let mut t2 =
-			futures_timer::Delay::new(deadline.saturating_duration_since((self.now)()) / 8).fuse();
-
-		let mut pending_iterator = select! {
-			res = t1 => res,
-			_ = t2 => {
-				warn!(target: LOG_TARGET,
-					"Timeout fired waiting for transaction pool at block #{} ({:?}). \
-					Proceeding with production.",
-					self.parent_number,
-					self.parent_hash,
-				);
-				self.transaction_pool.ready()
-			},
-		};
+		let delay = deadline.saturating_duration_since((self.now)()) / 8;
+		let mut pending_iterator =
+			self.transaction_pool.ready_at_with_timeout(self.parent_hash, delay).await;
 
 		let block_size_limit = block_size_limit.unwrap_or(self.default_block_size_limit);
 
@@ -579,12 +565,22 @@ where
 		};
 
 		info!(
+			"🎁 Prepared block for proposing at {} ({} ms) [hash: {:?}; parent_hash: {}; extrinsics_count: {}",
+			block.header().number(),
+			block_took.as_millis(),
+			<Block as BlockT>::Hash::from(block.header().hash()),
+			block.header().parent_hash(),
+			extrinsics.len()
+		);
+
+		debug!(
 			"🎁 Prepared block for proposing at {} ({} ms) [hash: {:?}; parent_hash: {}; {extrinsics_summary}",
 			block.header().number(),
 			block_took.as_millis(),
 			<Block as BlockT>::Hash::from(block.header().hash()),
 			block.header().parent_hash(),
 		);
+
 		telemetry!(
 			self.telemetry;
 			CONSENSUS_INFO;

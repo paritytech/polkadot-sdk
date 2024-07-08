@@ -23,6 +23,9 @@ def ensure_dir_exists(dir_name):
         print(f"Directory '{dir_name}' already exists.")
 
 def parse_line(line, patterns):
+    if "[Relaychain]" in line:
+        return None
+
     for pattern in patterns:
         if pattern["guard"] in line:
             match = re.match(pattern["regex"], line)
@@ -86,8 +89,8 @@ def main():
         },
         {
             "type": "txpool_maintain",
-            "regex": "(\d{4}-\d{2}-\d{2}) (\d{2}:\d{2}:\d{2}\.\d{3})  INFO.*txpool: maintain: txs:\((\d+), (\d+)\) views:\[(\d+);.*\] event:(NewBestBlock|Finalized) {.*}  took:(\d+\.\d+)([µms]+)",
-            "guard": "txpool: maintain:",
+            "regex": "(\d{4}-\d{2}-\d{2}) (\d{2}:\d{2}:\d{2}\.\d{3})  INFO.*txpool:.*maintain: txs:\((\d+), (\d+)\) views:\[(\d+);.*\] event:(NewBestBlock|Finalized) {.*}  took:(\d+\.\d+)([µms]+)",
+            "guard": "maintain: txs:",
             "column_names": ["date", "time", "unwatched_txs", "watched_txs", "views_count", "event", "duration"],
             "extract_data": lambda match: (
                     match.group(1),
@@ -95,7 +98,7 @@ def main():
                     match.group(3),
                     match.group(4),
                     match.group(5),
-                    1 if match.group(6) == "NewBestBlock" else 2,
+                    2 if match.group(6) == "Finalized" else 1,
                     convert_to_microseconds(match.group(7), match.group(8))
                 )
         },
@@ -142,8 +145,18 @@ def main():
                     match.group(2),
                     0
                 )
+        },
+        {
+            "type": "submit_one",
+            "regex": r'^(\d{4}-\d{2}-\d{2}) (\d{2}:\d{2}:\d{2}\.\d{3}) DEBUG.*fatp::submit_one.*',
+            "guard": "fatp::submit_one",
+            "column_names": ["date", "time", "value"],
+            "extract_data": lambda match: (
+                    match.group(1),
+                    match.group(2),
+                    1
+                )
         }
-         
     ]
     
     log_file_path = sys.argv[1]

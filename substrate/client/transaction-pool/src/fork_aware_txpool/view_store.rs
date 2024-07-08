@@ -217,6 +217,16 @@ where
 	}
 
 	pub(super) fn ready(&self) -> ReadyIteratorFor<ChainApi> {
+		// let views = self.views.read();
+		// let most_filled_view = views.values().max_by(|x, y| {
+		// 	x.pool
+		// 		.validated_pool()
+		// 		.ready()
+		// 		.count()
+		// 		.cmp(&y.pool.validated_pool().ready().count())
+		// });
+		//
+		// let ready_iterator = most_filled_view.map(|v| v.pool.validated_pool().ready());
 		let ready_iterator = self
 			.most_recent_view
 			.read()

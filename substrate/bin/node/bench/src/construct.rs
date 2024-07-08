@@ -305,4 +305,19 @@ impl sc_transaction_pool_api::TransactionPool for Transactions {
 	fn ready_transaction(&self, _hash: &TxHash<Self>) -> Option<Arc<Self::InPoolTransaction>> {
 		unimplemented!()
 	}
+
+	fn ready_at_with_timeout(
+		&self,
+		_at: Self::Hash,
+		_timeout: std::time::Duration,
+	) -> Pin<
+		Box<
+			dyn Future<
+					Output = Box<dyn ReadyTransactions<Item = Arc<Self::InPoolTransaction>> + Send>,
+				> + Send
+				+ '_,
+		>,
+	> {
+		unimplemented!()
+	}
 }
