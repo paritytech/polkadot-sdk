@@ -241,7 +241,7 @@ mod tests {
 	use bls377::{Pair as Bls377Pair, Signature as Bls377Signature};
 	use bls381::{Pair as Bls381Pair, Signature as Bls381Signature};
 
-    fn default_phrase_should_be_used<E: BlsBound>() {	
+	fn default_phrase_should_be_used<E: BlsBound>() {
 		assert_eq!(
 			Pair::<E>::from_string("//Alice///password", None).unwrap().public(),
 			Pair::<E>::from_string(&format!("{}//Alice", DEV_PHRASE), Some("password"))
@@ -251,33 +251,49 @@ mod tests {
 	}
 
 	#[test]
-        fn default_phrase_should_be_used_for_bls377() {
-	   default_phrase_should_be_used::<bls377::BlsEngine>();
+	fn default_phrase_should_be_used_for_bls377() {
+		default_phrase_should_be_used::<bls377::BlsEngine>();
 	}
 
-    
 	#[test]
-        fn default_phrase_should_be_used_for_bls381() {
-	   default_phrase_should_be_used::<bls381::BlsEngine>();
+	fn default_phrase_should_be_used_for_bls381() {
+		default_phrase_should_be_used::<bls381::BlsEngine>();
 	}
 
-	// #[test]
-	// fn seed_and_derive_should_work() {
-	// 	let seed = array_bytes::hex2array_unchecked(
-	// 		"9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60",
-	// 	);
-	// 	let pair = Pair::from_seed(&seed);
-	// 	// we are using hash-to-field so this is not going to work
-	// 	// assert_eq!(pair.seed(), seed);
-	// 	let path = vec![DeriveJunction::Hard([0u8; 32])];
-	// 	let derived = pair.derive(path.into_iter(), None).ok().unwrap().0;
-	// 	assert_eq!(
-	// 		derived.to_raw_vec(),
-	// 		array_bytes::hex2array_unchecked::<_, 32>(
-	// 			"3a0626d095148813cd1642d38254f1cfff7eb8cc1a2fc83b2a135377c3554c12"
-	// 		)
-	// 	);
-	// }
+	fn seed_and_derive_should_work<E: BlsBound>() -> Vec<u8> {
+		let seed = array_bytes::hex2array_unchecked(
+			"9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60",
+		);
+		let pair = Pair::<E>::from_seed(&seed);
+		// we are using hash-to-field so this is not going to work
+		// assert_eq!(pair.seed(), seed);
+		let path = vec![DeriveJunction::Hard([0u8; 32])];
+		let derived = pair.derive(path.into_iter(), None).ok().unwrap().0;
+		println!("derived is: {:?}", array_bytes::bytes2hex("", derived.to_raw_vec()));
+		derived.to_raw_vec()
+	}
+
+	#[test]
+	fn seed_and_derive_should_work_for_bls377() {
+		let derived_as_raw_vector = seed_and_derive_should_work::<bls377::BlsEngine>();
+		assert_eq!(
+			derived_as_raw_vector,
+			array_bytes::hex2array_unchecked::<_, 32>(
+				"3a0626d095148813cd1642d38254f1cfff7eb8cc1a2fc83b2a135377c3554c12"
+			)
+		);
+	}
+
+	#[test]
+	fn seed_and_derive_should_work_for_bls381() {
+		let derived_as_raw_vector = seed_and_derive_should_work::<bls381::BlsEngine>();
+		assert_eq!(
+			derived_as_raw_vector,
+			array_bytes::hex2array_unchecked::<_, 32>(
+				"bb6ac58be00d3c7ae5608ca64180b5af628e79b58592b6067136bb46255cea27"
+			)
+		);
+	}
 
 	// #[test]
 	// fn test_vector_should_work() {
