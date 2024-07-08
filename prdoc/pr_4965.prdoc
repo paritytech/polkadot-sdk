@@ -12,5 +12,5 @@ doc:
       3. Usage of `derive_impl` at the actual impl site pointing to this default implementation
 
 crates:
-  - name: frame-support-procedural
-    bump: patch
+  - name: frame-support
+    bump: none
