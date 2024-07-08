@@ -60,6 +60,7 @@ use sp_runtime::{
 	},
 	EncodedJustification, Justifications,
 };
+use std::time::Duration;
 
 use std::{
 	collections::{HashMap, HashSet},
@@ -96,6 +97,8 @@ const MAJOR_SYNC_BLOCKS: u8 = 5;
 /// The peer may disconnect because it cannot keep up with the number of requests
 /// (ie not having enough resources available to handle the requests); or because it is malicious.
 const MAX_DISCONNECTED_PEERS_STATE: u32 = 512;
+
+const DISCONNECTED_PEER_BACKOFF_SECONDS: u64 = 60;
 
 mod rep {
 	use sc_network::ReputationChange as Rep;
@@ -251,15 +254,101 @@ pub enum ChainSyncMode {
 	},
 }
 
+struct Peers<B: BlockT> {
+	/// The active peers that we are using to sync and their PeerSync status
+	active_peers: HashMap<PeerId, PeerSync<B>>,
+	/// Peers that had an in-flight request and are now disconnected.
+	disconnected_peers: LruMap<PeerId, DisconnectedPeerState>,
+}
+
+impl<B: BlockT> Peers<B> {
+	fn default() -> Self {
+		Self {
+			active_peers: HashMap::default(),
+			disconnected_peers: LruMap::new(ByLength::new(MAX_DISCONNECTED_PEERS_STATE)),
+		}
+	}
+
+	fn insert(&mut self, peer_id: PeerId, peer_sync: PeerSync<B>) {
+		self.active_peers.insert(peer_id, peer_sync);
+	}
+
+	fn remove(&mut self, peer_id: &PeerId) {
+		let Some(peer_state) = self.active_peers.remove(peer_id) else { return };
+
+		// Keep track only of peers that have inflight requests.
+		if !peer_state.state.is_downloading() {
+			return
+		}
+
+		match self.disconnected_peers.get(peer_id) {
+			Some(state) => {
+				debug!(
+					target: LOG_TARGET,
+					"Peer {peer_id} disconnected {} times.", state.num_disconnects
+				);
+				let num_disconnects = state.num_disconnects + 1;
+				self.disconnected_peers.insert(
+					*peer_id,
+					DisconnectedPeerState {
+						num_disconnects,
+						last_disconnect: std::time::Instant::now(),
+					},
+				);
+			},
+			None => {
+				self.disconnected_peers.insert(
+					*peer_id,
+					DisconnectedPeerState {
+						num_disconnects: 1,
+						last_disconnect: std::time::Instant::now(),
+					},
+				);
+			},
+		}
+	}
+
+	fn active_peers_mut(&mut self) -> impl Iterator<Item = (&PeerId, &mut PeerSync<B>)> {
+		let disconnected_peers = &mut self.disconnected_peers;
+
+		self.active_peers.iter_mut().filter(|(peer_id, peer)| {
+			peer.state.is_available() &&
+				!Self::should_backoff_disconnected_peer(disconnected_peers, peer_id)
+		})
+	}
+
+	fn should_backoff_disconnected_peer(
+		disconnected_peers: &mut LruMap<PeerId, DisconnectedPeerState>,
+		peer_id: &PeerId,
+	) -> bool {
+		let Some(state) = disconnected_peers.get(peer_id) else {
+			return false;
+		};
+
+		let elapsed = state.last_disconnect.elapsed();
+
+		let disconnected_backoff =
+			Duration::from_secs(DISCONNECTED_PEER_BACKOFF_SECONDS * state.num_disconnects);
+
+		if elapsed < disconnected_backoff {
+			debug!(
+				target: LOG_TARGET,
+				"Backoff disconnected peer {peer_id} for {}s",
+				disconnected_backoff.as_secs() - elapsed.as_secs(),
+			);
+			return true
+		}
+		false
+	}
+}
+
 /// The main data structure which contains all the state for a chains
 /// active syncing strategy.
 pub struct ChainSync<B: BlockT, Client> {
 	/// Chain client.
 	client: Arc<Client>,
 	/// The active peers that we are using to sync and their PeerSync status
-	peers: HashMap<PeerId, PeerSync<B>>,
-	/// Peers that had an in-flight request and are now disconnected.
-	disconnected_peers: LruMap<PeerId, DisconnectedPeerState>,
+	peers: Peers<B>,
 	/// A `BlockCollection` of blocks that are being downloaded from peers
 	blocks: BlockCollection<B>,
 	/// The best block number in our queue of blocks to import
@@ -361,7 +450,7 @@ pub(crate) enum PeerSyncState<B: BlockT> {
 
 struct DisconnectedPeerState {
 	/// The total number of disconnects.
-	num_disconnects: u32,
+	num_disconnects: u64,
 	/// The time at the last disconnect.
 	last_disconnect: std::time::Instant,
 }
@@ -407,8 +496,7 @@ where
 	) -> Result<Self, ClientError> {
 		let mut sync = Self {
 			client,
-			peers: HashMap::default(),
-			disconnected_peers: LruMap::new(ByLength::new(MAX_DISCONNECTED_PEERS_STATE)),
+			peers: Peers::default(),
 			blocks: BlockCollection::new(),
 			best_queued_hash: Default::default(),
 			best_queued_number: Zero::zero(),
@@ -476,7 +564,7 @@ where
 		SyncStatus {
 			state: sync_state,
 			best_seen_block,
-			num_peers: self.peers.len() as u32,
+			num_peers: self.peers.active_peers.len() as u32,
 			num_connected_peers: 0u32,
 			queued_blocks: self.queue_blocks.len() as u32,
 			state_sync: self.state_sync.as_ref().map(|s| s.progress()),
@@ -499,7 +587,7 @@ where
 
 	/// Get the number of peers known to the syncing state machine.
 	pub fn num_peers(&self) -> usize {
-		self.peers.len()
+		self.peers.active_peers.len()
 	}
 
 	/// Notify syncing state machine that a new sync peer has connected.
@@ -664,6 +752,7 @@ where
 		if peers.is_empty() {
 			peers = self
 				.peers
+				.active_peers
 				.iter()
 				// Only request blocks from peers who are ahead or on a par.
 				.filter(|(_, peer)| peer.best_number >= number)
@@ -689,7 +778,7 @@ where
 
 		trace!(target: LOG_TARGET, "Downloading requested old fork {hash:?}");
 		for peer_id in &peers {
-			if let Some(peer) = self.peers.get_mut(peer_id) {
+			if let Some(peer) = self.peers.active_peers.get_mut(peer_id) {
 				if let PeerSyncState::AncestorSearch { .. } = peer.state {
 					continue
 				}
@@ -719,7 +808,9 @@ where
 	) -> Result<(), BadPeer> {
 		self.downloaded_blocks += response.blocks.len();
 		let mut gap = false;
-		let new_blocks: Vec<IncomingBlock<B>> = if let Some(peer) = self.peers.get_mut(peer_id) {
+		let new_blocks: Vec<IncomingBlock<B>> = if let Some(peer) =
+			self.peers.active_peers.get_mut(peer_id)
+		{
 			let mut blocks = response.blocks;
 			if request.as_ref().map_or(false, |r| r.direction == Direction::Descending) {
 				trace!(target: LOG_TARGET, "Reversing incoming block list");
@@ -968,7 +1059,7 @@ where
 		peer_id: PeerId,
 		response: BlockResponse<B>,
 	) -> Result<(), BadPeer> {
-		let peer = if let Some(peer) = self.peers.get_mut(&peer_id) {
+		let peer = if let Some(peer) = self.peers.active_peers.get_mut(&peer_id) {
 			peer
 		} else {
 			error!(
@@ -1041,9 +1132,13 @@ where
 		});
 
 		if let ChainSyncMode::LightState { skip_proofs, .. } = &self.mode {
-			if self.state_sync.is_none() && !self.peers.is_empty() && self.queue_blocks.is_empty() {
+			if self.state_sync.is_none() &&
+				!self.peers.active_peers.is_empty() &&
+				self.queue_blocks.is_empty()
+			{
 				// Finalized a recent block.
-				let mut heads: Vec<_> = self.peers.values().map(|peer| peer.best_number).collect();
+				let mut heads: Vec<_> =
+					self.peers.active_peers.values().map(|peer| peer.best_number).collect();
 				heads.sort();
 				let median = heads[heads.len() / 2];
 				if number + STATE_SYNC_FINALITY_THRESHOLD.saturated_into() >= median {
@@ -1091,7 +1186,7 @@ where
 		let ancient_parent = parent_status == BlockStatus::InChainPruned;
 
 		let known = self.is_known(&hash);
-		let peer = if let Some(peer) = self.peers.get_mut(&peer_id) {
+		let peer = if let Some(peer) = self.peers.active_peers.get_mut(&peer_id) {
 			peer
 		} else {
 			error!(target: LOG_TARGET, "💔 Called `on_validated_block_announce` with a bad peer ID {peer_id}");
@@ -1173,36 +1268,7 @@ where
 			gap_sync.blocks.clear_peer_download(peer_id)
 		}
 
-		if let Some(peer_state) = self.peers.remove(peer_id) {
-			// Keep track only of peers that have inflight requests.
-			if peer_state.state.is_downloading() {
-				match self.disconnected_peers.get(peer_id) {
-					Some(state) => {
-						debug!(
-							target: LOG_TARGET,
-							"Peer {peer_id} disconnected {} times.", state.num_disconnects
-						);
-						let num_disconnects = state.num_disconnects + 1;
-						self.disconnected_peers.insert(
-							*peer_id,
-							DisconnectedPeerState {
-								num_disconnects,
-								last_disconnect: std::time::Instant::now(),
-							},
-						);
-					},
-					None => {
-						self.disconnected_peers.insert(
-							*peer_id,
-							DisconnectedPeerState {
-								num_disconnects: 1,
-								last_disconnect: std::time::Instant::now(),
-							},
-						);
-					},
-				}
-			}
-		}
+		self.peers.remove(peer_id);
 
 		self.extra_justifications.peer_disconnected(peer_id);
 		self.allowed_requests.set_all();
@@ -1250,7 +1316,8 @@ where
 
 	/// Returns the median seen block number.
 	fn median_seen(&self) -> Option<NumberFor<B>> {
-		let mut best_seens = self.peers.values().map(|p| p.best_number).collect::<Vec<_>>();
+		let mut best_seens =
+			self.peers.active_peers.values().map(|p| p.best_number).collect::<Vec<_>>();
 
 		if best_seens.is_empty() {
 			None
@@ -1318,7 +1385,7 @@ where
 	}
 
 	fn update_peer_common_number(&mut self, peer_id: &PeerId, new_common: NumberFor<B>) {
-		if let Some(peer) = self.peers.get_mut(peer_id) {
+		if let Some(peer) = self.peers.active_peers.get_mut(peer_id) {
 			peer.update_common_number(new_common);
 		}
 	}
@@ -1340,7 +1407,7 @@ where
 			self.best_queued_number = number;
 			self.best_queued_hash = *hash;
 			// Update common blocks
-			for (n, peer) in self.peers.iter_mut() {
+			for (n, peer) in self.peers.active_peers.iter_mut() {
 				if let PeerSyncState::AncestorSearch { .. } = peer.state {
 					// Wait for ancestry search to complete first.
 					continue
@@ -1377,7 +1444,7 @@ where
 			self.best_queued_number,
 			self.best_queued_hash,
 		);
-		let old_peers = std::mem::take(&mut self.peers);
+		let old_peers = std::mem::take(&mut self.peers.active_peers);
 
 		old_peers.into_iter().for_each(|(peer_id, mut peer_sync)| {
 			match peer_sync.state {
@@ -1476,6 +1543,7 @@ where
 	/// Is any peer downloading the given hash?
 	fn is_already_downloading(&self, hash: &B::Hash) -> bool {
 		self.peers
+			.active_peers
 			.iter()
 			.any(|(_, p)| p.state == PeerSyncState::DownloadingStale(*hash))
 	}
@@ -1555,7 +1623,7 @@ where
 
 	/// Get justification requests scheduled by sync to be sent out.
 	fn justification_requests(&mut self) -> Vec<(PeerId, BlockRequest<B>)> {
-		let peers = &mut self.peers;
+		let peers = &mut self.peers.active_peers;
 		let mut matcher = self.extra_justifications.matcher();
 		std::iter::from_fn(move || {
 			if let Some((peer, request)) = matcher.next(peers) {
@@ -1604,9 +1672,9 @@ where
 		let max_blocks_per_request = self.max_blocks_per_request;
 		let gap_sync = &mut self.gap_sync;
 		self.peers
-			.iter_mut()
+			.active_peers_mut()
 			.filter_map(move |(&id, peer)| {
-				if !peer.state.is_available() || !allowed_requests.contains(&id) {
+				if !allowed_requests.contains(&id) {
 					return None
 				}
 
@@ -1706,19 +1774,24 @@ where
 		if self.allowed_requests.is_empty() {
 			return None
 		}
+
 		if self.state_sync.is_some() &&
-			self.peers.iter().any(|(_, peer)| peer.state == PeerSyncState::DownloadingState)
+			self.peers
+				.active_peers
+				.iter()
+				.any(|(_, peer)| peer.state == PeerSyncState::DownloadingState)
 		{
 			// Only one pending state request is allowed.
 			return None
 		}
+
 		if let Some(sync) = &self.state_sync {
 			if sync.is_complete() {
 				return None
 			}
 
-			for (id, peer) in self.peers.iter_mut() {
-				if peer.state.is_available() && peer.common_number >= sync.target_number() {
+			for (id, peer) in self.peers.active_peers_mut() {
+				if peer.common_number >= sync.target_number() {
 					peer.state = PeerSyncState::DownloadingState;
 					let request = sync.next_request();
 					trace!(target: LOG_TARGET, "New StateRequest for {}: {:?}", id, request);
@@ -1745,7 +1818,7 @@ where
 			BadPeer(*peer_id, rep::BAD_RESPONSE)
 		})?;
 
-		if let Some(peer) = self.peers.get_mut(peer_id) {
+		if let Some(peer) = self.peers.active_peers.get_mut(peer_id) {
 			if let PeerSyncState::DownloadingState = peer.state {
 				peer.state = PeerSyncState::Available;
 				self.allowed_requests.set_all();
