@@ -1,5 +1,8 @@
 name: Release - Publish draft
 
+env:
+  LOGGING_NAME_SUFFIX: "logging"
+
 on:
   push:
     tags:
@@ -26,7 +29,15 @@ jobs:
     uses: "./.github/workflows/release-srtool.yml"
     with:
        excluded_runtimes: "substrate-test bp cumulus-test kitchensink minimal-template parachain-template penpal polkadot-test seedling shell frame-try sp solochain-template"
-       build_opts: "--features metadata-hash"
+       build_opts: "--features on-chain-release-build"
+       name_suffix: ""
+
+  build-runtimes-with-logging:
+    uses: "./.github/workflows/release-srtool.yml"
+    with:
+       excluded_runtimes: "substrate-test bp cumulus-test kitchensink minimal-template parachain-template penpal polkadot-test seedling shell frame-try sp solochain-template"
+       build_opts: ""
+       name_suffix: "-${{ github.env.LOGGING_NAME_SUFFIX }}"
 
   build-binaries:
     runs-on: ubuntu-latest
@@ -146,6 +157,27 @@ jobs:
           >>$GITHUB_ENV echo ASSET=$(find ${{ matrix.chain }}-runtime -name '*.compact.compressed.wasm')
           >>$GITHUB_ENV echo SPEC=$(<${JSON} jq -r .runtimes.compact.subwasm.core_version.specVersion)
 
+  publish-runtimes-with-logging:
+    needs: [ build-runtimes-with-logging, publish-release-draft ]
+    continue-on-error: true
+    runs-on: ubuntu-latest
+    strategy:
+      matrix: ${{ fromJSON(needs.build-runtimes-with-logging.outputs.published_runtimes) }}
+
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac # v4.0.0
+
+      - name: Download artifacts
+        uses: actions/download-artifact@c850b930e6ba138125429b7e5c93fc707a7f8427 # v4.1.4
+
+      - name: Get runtime info
+        env:
+          JSON: release-notes-context/${{ matrix.chain }}-runtime-${{ env.LOGGING_NAME_SUFFIX }}/${{ matrix.chain }}-srtool-digest.json
+        run: |
+          >>$GITHUB_ENV echo ASSET=$(find ${{ matrix.chain }}-runtime-${{ env.LOGGING_NAME_SUFFIX }} -name '*.compact.compressed.wasm')
+          >>$GITHUB_ENV echo SPEC=$(<${JSON} jq -r .runtimes.compact.subwasm.core_version.specVersion)
+
       - name: Upload compressed ${{ matrix.chain }} v${{ env.SPEC }} wasm
         if: ${{ matrix.chain  != 'rococo-parachain' }}
         uses: actions/upload-release-asset@e8f9f06c4b078e705bd2ea027f0926603fc9b4d5 #v1.0.2
@@ -154,7 +186,7 @@ jobs:
         with:
           upload_url: ${{ needs.publish-release-draft.outputs.asset_upload_url }}
           asset_path: ${{ env.ASSET }}
-          asset_name: ${{ matrix.chain }}_runtime-v${{ env.SPEC }}.compact.compressed.wasm
+          asset_name: ${{ matrix.chain }}_runtime-v${{ env.SPEC }}-${{ env.LOGGING_NAME_SUFFIX }}.compact.compressed.wasm
           asset_content_type: application/wasm
 
   publish-binaries:
