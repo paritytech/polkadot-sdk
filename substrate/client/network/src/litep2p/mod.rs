@@ -688,6 +688,11 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 				.map_or(0usize, |handle| handle.connected_peers.load(Ordering::Relaxed));
 			self.num_connected.store(num_connected_peers, Ordering::Relaxed);
 
+			if let Some(metrics) = self.metrics.as_ref() {
+				let peer_store_status = self.peer_store_handle.status();
+				metrics.peerset_num_discovered.set(peer_store_status.num_known_peers as u64);
+			}
+
 			tokio::select! {
 				command = self.cmd_rx.next() => match command {
 					None => return,
