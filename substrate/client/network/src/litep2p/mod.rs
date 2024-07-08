@@ -171,6 +171,11 @@ pub struct Litep2pNetworkBackend {
 	/// This is used to update metrics and network status.
 	num_sync_connected: Arc<AtomicUsize>,
 
+	/// Number of uniquely connected peers.
+	///
+	/// This is used to instruct the discovery about the number of connected peers.
+	num_uniquely_connected: Arc<AtomicUsize>,
+
 	/// Connected peers.
 	peers: HashMap<litep2p::PeerId, ConnectionContext>,
 
@@ -557,7 +562,7 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 
 		// enable ipfs ping, identify and kademlia, and potentially mdns if user enabled it
 		let listen_addresses = Arc::new(Default::default());
-		let num_sync_connected = Arc::new(Default::default());
+		let num_uniquely_connected = Arc::new(Default::default());
 
 		let (discovery, ping_config, identify_config, kademlia_config, maybe_mdns_config) =
 			Discovery::new(
@@ -567,7 +572,7 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 				&params.protocol_id,
 				known_addresses.clone(),
 				Arc::clone(&listen_addresses),
-				Arc::clone(&num_sync_connected),
+				Arc::clone(&num_uniquely_connected),
 				limit_discovery_under,
 				Arc::clone(&peer_store_handle),
 			);
@@ -615,6 +620,7 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 		let bandwidth: Arc<dyn BandwidthSink> =
 			Arc::new(Litep2pBandwidthSink { sink: litep2p.bandwidth_sink() });
 
+		let num_sync_connected = Arc::new(Default::default());
 		if let Some(registry) = &params.metrics_registry {
 			MetricSources::register(registry, bandwidth, Arc::clone(&num_sync_connected))?;
 		}
@@ -625,6 +631,7 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 			metrics,
 			peerset_handles: notif_protocols,
 			num_sync_connected,
+			num_uniquely_connected,
 			discovery,
 			pending_put_values: HashMap::new(),
 			pending_get_values: HashMap::new(),
@@ -702,6 +709,7 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 
 		loop {
 			self.fetch_sync_connected_peers();
+			self.num_uniquely_connected.store(self.peers.len(), Ordering::Relaxed);
 
 			tokio::select! {
 				command = self.cmd_rx.next() => match command {
