@@ -107,12 +107,6 @@ pub trait PeerStoreProvider: Debug + Send + Sync {
 		ignored: HashSet<sc_network_types::PeerId>,
 	) -> Vec<sc_network_types::PeerId>;
 
-	/// Get the number of known peers.
-	///
-	/// This number might not include some connected peers in rare cases when their reputation
-	/// was not updated for one hour, because their entries in [`PeerStore`] were dropped.
-	fn num_known_peers(&self) -> usize;
-
 	/// Add known peer.
 	fn add_known_peer(&self, peer_id: sc_network_types::PeerId);
 
@@ -169,10 +163,6 @@ impl PeerStoreProvider for PeerStoreHandle {
 			.iter()
 			.map(|peer_id| peer_id.into())
 			.collect()
-	}
-
-	fn num_known_peers(&self) -> usize {
-		self.inner.lock().peers.len()
 	}
 
 	fn add_known_peer(&self, peer_id: sc_network_types::PeerId) {

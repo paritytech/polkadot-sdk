@@ -1420,9 +1420,9 @@ where
 			{
 				metrics.kademlia_records_sizes_total.set(num_entries as u64);
 			}
-			metrics
-				.peerset_num_discovered
-				.set(self.peer_store_handle.num_known_peers() as u64);
+			let peer_store_status = self.peer_store_handle.status();
+
+			metrics.peerset_num_discovered.set(peer_store_status.num_known_peers as u64);
 			metrics.pending_connections.set(
 				Swarm::network_info(&self.network_service).connection_counters().num_pending()
 					as u64,

@@ -239,14 +239,6 @@ impl PeerStoreProvider for PeerstoreHandle {
 			.collect::<Vec<_>>()
 	}
 
-	/// Get the number of known peers.
-	///
-	/// This number might not include some connected peers in rare cases when their reputation
-	/// was not updated for one hour, because their entries in [`PeerStore`] were dropped.
-	fn num_known_peers(&self) -> usize {
-		self.0.lock().peers.len()
-	}
-
 	/// Add known peer.
 	fn add_known_peer(&self, peer: PeerId) {
 		self.0.lock().peers.entry(peer).or_default().last_updated = Instant::now();
