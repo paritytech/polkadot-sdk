@@ -322,13 +322,14 @@ pub trait TransactionPool: Send + Sync {
 	/// Return specific ready transaction by hash, if there is one.
 	fn ready_transaction(&self, hash: &TxHash<Self>) -> Option<Arc<Self::InPoolTransaction>>;
 
-	/// Returns best effort set of ready transactions for given block, without executing full
-	/// maintain process
-	// todo: this is experimental, probably best way to handle this is to add a method that timeouts
-	// internally in txpool instread of in block builder.
-	fn ready_light(
+	/// Returns set of ready transaction at given block within given timeout.
+	///
+	/// If timeout is internally hit then best effort set of ready transactions for given block,
+	/// without executing full maintain process.
+	fn ready_at_with_timeout(
 		&self,
-		_at: <Self::Block as BlockT>::Hash,
+		at: <Self::Block as BlockT>::Hash,
+		timeout: std::time::Duration,
 	) -> Pin<
 		Box<
 			dyn Future<
@@ -336,9 +337,7 @@ pub trait TransactionPool: Send + Sync {
 				> + Send
 				+ '_,
 		>,
-	> {
-		Box::pin(async { self.ready() })
-	}
+	>;
 }
 
 /// An iterator of ready transactions.

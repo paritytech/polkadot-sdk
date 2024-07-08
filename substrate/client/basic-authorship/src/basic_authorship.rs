@@ -25,7 +25,6 @@ use futures::{
 	channel::oneshot,
 	future,
 	future::{Future, FutureExt},
-	select,
 };
 use log::{debug, error, info, trace, warn};
 use sc_block_builder::{BlockBuilderApi, BlockBuilderBuilder};
@@ -413,22 +412,8 @@ where
 		let mut unqueue_invalid = Vec::new();
 
 		let delay = deadline.saturating_duration_since((self.now)()) / 8;
-		let mut t1 = self.transaction_pool.ready_at(self.parent_hash).fuse();
-		let mut t2 = futures_timer::Delay::new(delay).fuse();
-		debug!(target: LOG_TARGET, "Wait for maintain at {:?} allowed delay: {:?}", self.parent_hash, delay);
-
-		let mut pending_iterator = select! {
-			res = t1 => res,
-			_ = t2 => {
-				warn!(target: LOG_TARGET,
-					"Timeout fired waiting for transaction pool at block #{} ({:?}). \
-					Proceeding with production.",
-					self.parent_number,
-					self.parent_hash,
-				);
-				self.transaction_pool.ready_light(self.parent_hash).await
-			},
-		};
+		let mut pending_iterator =
+			self.transaction_pool.ready_at_with_timeout(self.parent_hash, delay).await;
 
 		let block_size_limit = block_size_limit.unwrap_or(self.default_block_size_limit);
 

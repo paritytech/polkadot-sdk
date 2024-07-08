@@ -184,4 +184,19 @@ impl TransactionPool for MiddlewarePool {
 	fn futures(&self) -> Vec<Self::InPoolTransaction> {
 		self.inner_pool.futures()
 	}
+
+	fn ready_at_with_timeout(
+		&self,
+		at: <Self::Block as BlockT>::Hash,
+		_timeout: std::time::Duration,
+	) -> Pin<
+		Box<
+			dyn Future<
+					Output = Box<dyn ReadyTransactions<Item = Arc<Self::InPoolTransaction>> + Send>,
+				> + Send
+				+ '_,
+		>,
+	> {
+		self.inner_pool.ready_at(at)
+	}
 }

@@ -42,6 +42,7 @@ use std::{
 	pin::Pin,
 	sync::Arc,
 };
+use tokio::select;
 
 use crate::graph::{ExtrinsicHash, IsValidator};
 use futures::FutureExt;
@@ -290,6 +291,139 @@ where
 	/// Intended for use in unit tests.
 	pub fn mempool_len(&self) -> (usize, usize) {
 		self.mempool.len()
+	}
+
+	/// Returns best effort set of ready transactions for given block, without executing full
+	/// maintain process
+	//todo: better naming?
+	fn ready_light(&self, at: Block::Hash) -> PolledIterator<ChainApi> {
+		let start = Instant::now();
+		log::info!( target: LOG_TARGET, "fatp::ready_light {:?}", at);
+
+		let Ok(block_number) = self.api.resolve_block_number(at) else {
+			let empty: ReadyIteratorFor<ChainApi> = Box::new(std::iter::empty());
+			return Box::pin(async { empty })
+		};
+
+		let (best_view, best_tree_route) = {
+			let views = self.view_store.views.read();
+			let retracted_views = self.view_store.retracted_views.read();
+			let mut best_tree_route = None;
+			let mut best_view = None;
+			let mut best_enacted_len = usize::MAX;
+			for v in views.values().chain(retracted_views.values()) {
+				let tree_route = self.api.tree_route(v.at.hash, at);
+				if let Ok(tree_route) = tree_route {
+					log::info!( target: LOG_TARGET, "fatp::ready_light {} tree_route from: {} e:{} r:{}", at,v.at.hash,tree_route.enacted().len(), tree_route.retracted().len());
+					if tree_route.retracted().is_empty() &&
+						tree_route.enacted().len() < best_enacted_len
+					{
+						best_enacted_len = tree_route.enacted().len();
+						best_view = Some(v.clone());
+						best_tree_route = Some(tree_route);
+					}
+				}
+			}
+			(best_view, best_tree_route)
+		};
+
+		let api = self.api.clone();
+
+		Box::pin(async move {
+			if let (Some(best_tree_route), Some(best_view)) = (best_tree_route, best_view) {
+				let tmp_view = View::new_from_other(
+					&best_view,
+					&HashAndNumber { hash: at, number: block_number },
+				);
+
+				let mut all_extrinsics = vec![];
+
+				for h in best_tree_route.enacted() {
+					let extrinsics = api
+						.block_body(h.hash)
+						.await
+						.unwrap_or_else(|e| {
+							log::warn!(target: LOG_TARGET, "Compute ready light transactions: error request: {}", e);
+							None
+						})
+						.unwrap_or_default()
+						.into_iter()
+						.map(|t| api.hash_and_length(&t).0);
+					all_extrinsics.extend(extrinsics);
+				}
+
+				let before_count = tmp_view.pool.validated_pool().ready().count();
+				// tmp_view.pool.validated_pool().remove_invalid(&all_extrinsics[..]);
+
+				// todo: do we need to send ready event? (that requires registering all listener for
+				// every txs). But maybe we only use transactions already imported to ready. No new
+				// tags appear so future txs shall not promoted.
+				// ++ todo: add light_prune?
+				let in_pool_tags = tmp_view.pool.validated_pool().extrinsics_tags(&all_extrinsics);
+
+				let mut tags = Vec::new();
+				for i in in_pool_tags {
+					match i {
+						// reuse the tags for extrinsics that were found in the pool
+						Some(t) => tags.extend(t),
+						None => {},
+					}
+				}
+				let _ = tmp_view.pool.validated_pool().prune_tags(tags);
+				// --
+
+				let after_count = tmp_view.pool.validated_pool().ready().count();
+				log::info!( target: LOG_TARGET,
+					"fatp::ready_light {} from {} before: {} removed: {} after: {} took:{:?}",
+					at,
+					best_view.at.hash,
+					before_count,
+					all_extrinsics.len(),
+					after_count,
+					start.elapsed()
+				);
+				Box::new(tmp_view.pool.validated_pool().ready())
+			} else {
+				let empty: ReadyIteratorFor<ChainApi> = Box::new(std::iter::empty());
+				log::info!( target: LOG_TARGET, "fatp::ready_light {} -> empty, took:{:?}", at, start.elapsed());
+				empty
+			}
+		})
+	}
+
+	async fn ready_at_with_timeout_internal(
+		&self,
+		at: Block::Hash,
+		timeout: std::time::Duration,
+	) -> PolledIterator<ChainApi> {
+		log::debug!(target: LOG_TARGET, "fatp::ready_at_with_timeout at {:?} allowed delay: {:?}", at, timeout);
+
+		let timeout = futures_timer::Delay::new(timeout);
+		let fall_back_ready = self.ready_light(at).map(|ready| Some(ready));
+
+		let maybe_ready = async {
+			select! {
+				ready = self.ready_at(at) => Some(ready),
+				_ = timeout => {
+					log::warn!(target: LOG_TARGET,
+						"Timeout fired waiting for transaction pool at block: ({:?}). \
+						Proceeding with production.",
+						at,
+					);
+					None
+				}
+			}
+		};
+
+		let results = futures::future::join(maybe_ready.boxed(), fall_back_ready.boxed()).await;
+
+		Box::pin(async {
+			if let Some(ready) = results.0 {
+				ready
+			} else {
+				results.1.expect("Fallback value is always Some. qed")
+			}
+		})
 	}
 }
 
@@ -686,102 +820,12 @@ where
 		self.view_store.futures()
 	}
 
-	/// Returns best effort set of ready transactions for given block, without executing full
-	/// maintain process
-	//todo: better naming?
-	fn ready_light(&self, at: Block::Hash) -> PolledIterator<ChainApi> {
-		let start = Instant::now();
-		log::info!( target: LOG_TARGET, "fatp::ready_light {:?}", at);
-
-		let Ok(block_number) = self.api.resolve_block_number(at) else {
-			let empty: ReadyIteratorFor<ChainApi> = Box::new(std::iter::empty());
-			return Box::pin(async { empty })
-		};
-
-		let (best_view, best_tree_route) = {
-			let views = self.view_store.views.read();
-			let retracted_views = self.view_store.retracted_views.read();
-			let mut best_tree_route = None;
-			let mut best_view = None;
-			let mut best_enacted_len = usize::MAX;
-			for v in views.values().chain(retracted_views.values()) {
-				let tree_route = self.api.tree_route(v.at.hash, at);
-				if let Ok(tree_route) = tree_route {
-					log::info!( target: LOG_TARGET, "fatp::ready_light {} tree_route from: {} e:{} r:{}", at,v.at.hash,tree_route.enacted().len(), tree_route.retracted().len());
-					if tree_route.retracted().is_empty() &&
-						tree_route.enacted().len() < best_enacted_len
-					{
-						best_enacted_len = tree_route.enacted().len();
-						best_view = Some(v.clone());
-						best_tree_route = Some(tree_route);
-					}
-				}
-			}
-			(best_view, best_tree_route)
-		};
-
-		let api = self.api.clone();
-
-		Box::pin(async move {
-			if let (Some(best_tree_route), Some(best_view)) = (best_tree_route, best_view) {
-				let tmp_view = View::new_from_other(
-					&best_view,
-					&HashAndNumber { hash: at, number: block_number },
-				);
-
-				let mut all_extrinsics = vec![];
-
-				for h in best_tree_route.enacted() {
-					let extrinsics = api
-						.block_body(h.hash)
-						.await
-						.unwrap_or_else(|e| {
-							log::warn!(target: LOG_TARGET, "Compute ready light transactions: error request: {}", e);
-							None
-						})
-						.unwrap_or_default()
-						.into_iter()
-						.map(|t| api.hash_and_length(&t).0);
-					all_extrinsics.extend(extrinsics);
-				}
-
-				let before_count = tmp_view.pool.validated_pool().ready().count();
-				// tmp_view.pool.validated_pool().remove_invalid(&all_extrinsics[..]);
-
-				// todo: do we need to send ready event? (that requires registering all listener for
-				// every txs). But maybe we only use transactions already imported to ready. No new
-				// tags appear so future txs shall not promoted.
-				// ++ todo: add light_prune?
-				let in_pool_tags = tmp_view.pool.validated_pool().extrinsics_tags(&all_extrinsics);
-
-				let mut tags = Vec::new();
-				for i in in_pool_tags {
-					match i {
-						// reuse the tags for extrinsics that were found in the pool
-						Some(t) => tags.extend(t),
-						None => {},
-					}
-				}
-				let _ = tmp_view.pool.validated_pool().prune_tags(tags);
-				// --
-
-				let after_count = tmp_view.pool.validated_pool().ready().count();
-				log::info!( target: LOG_TARGET,
-					"fatp::ready_light {} from {} before: {} removed: {} after: {} took:{:?}",
-					at,
-					best_view.at.hash,
-					before_count,
-					all_extrinsics.len(),
-					after_count,
-					start.elapsed()
-				);
-				Box::new(tmp_view.pool.validated_pool().ready())
-			} else {
-				let empty: ReadyIteratorFor<ChainApi> = Box::new(std::iter::empty());
-				log::info!( target: LOG_TARGET, "fatp::ready_light {} -> empty, took:{:?}", at, start.elapsed());
-				empty
-			}
-		})
+	fn ready_at_with_timeout(
+		&self,
+		at: <Self::Block as BlockT>::Hash,
+		timeout: std::time::Duration,
+	) -> PolledIterator<ChainApi> {
+		futures::executor::block_on(self.ready_at_with_timeout_internal(at, timeout))
 	}
 }
 
