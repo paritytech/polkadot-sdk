@@ -391,7 +391,7 @@ where
 		})
 	}
 
-	async fn ready_at_with_timeout_internal(
+	fn ready_at_with_timeout_internal(
 		&self,
 		at: Block::Hash,
 		timeout: std::time::Duration,
@@ -400,10 +400,11 @@ where
 
 		let timeout = futures_timer::Delay::new(timeout);
 		let fall_back_ready = self.ready_light(at).map(|ready| Some(ready));
+		let ready_at = self.ready_at(at);
 
-		let maybe_ready = async {
+		let maybe_ready = async move {
 			select! {
-				ready = self.ready_at(at) => Some(ready),
+				ready = ready_at => Some(ready),
 				_ = timeout => {
 					log::warn!(target: LOG_TARGET,
 						"Timeout fired waiting for transaction pool at block: ({:?}). \
@@ -415,9 +416,8 @@ where
 			}
 		};
 
-		let results = futures::future::join(maybe_ready.boxed(), fall_back_ready.boxed()).await;
-
 		Box::pin(async {
+			let results = futures::future::join(maybe_ready.boxed(), fall_back_ready.boxed()).await;
 			if let Some(ready) = results.0 {
 				ready
 			} else {
@@ -825,7 +825,7 @@ where
 		at: <Self::Block as BlockT>::Hash,
 		timeout: std::time::Duration,
 	) -> PolledIterator<ChainApi> {
-		futures::executor::block_on(self.ready_at_with_timeout_internal(at, timeout))
+		self.ready_at_with_timeout_internal(at, timeout)
 	}
 }
 

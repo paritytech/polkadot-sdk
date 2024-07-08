@@ -238,26 +238,30 @@ where
 		&self.api
 	}
 
-	async fn ready_at_with_timeout_internal(
+	fn ready_at_with_timeout_internal(
 		&self,
 		at: Block::Hash,
 		timeout: std::time::Duration,
 	) -> PolledIterator<PoolApi> {
 		let timeout = futures_timer::Delay::new(timeout);
-		let fall_back_ready = async { Some(self.ready()) };
+		let ready_at = self.ready_at(at);
+
+		let fall_back_ready = {
+			let ready = self.ready();
+			async move { Some(ready) }
+		};
 
 		let maybe_ready = async {
 			select! {
-				ready = self.ready_at(at) => Some(ready),
+				ready = ready_at => Some(ready),
 				_ = timeout => {
 					None
 				}
 			}
 		};
 
-		let results = futures::future::join(maybe_ready.boxed(), fall_back_ready.boxed()).await;
-
-		Box::pin(async {
+		Box::pin(async move {
+			let results = futures::future::join(maybe_ready.boxed(), fall_back_ready.boxed()).await;
 			if let Some(ready) = results.0 {
 				ready
 			} else {
@@ -408,7 +412,7 @@ where
 		at: <Self::Block as BlockT>::Hash,
 		timeout: std::time::Duration,
 	) -> PolledIterator<PoolApi> {
-		futures::executor::block_on(self.ready_at_with_timeout_internal(at, timeout))
+		self.ready_at_with_timeout_internal(at, timeout)
 	}
 }
 
