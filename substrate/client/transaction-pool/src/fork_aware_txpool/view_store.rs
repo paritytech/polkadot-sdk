@@ -373,7 +373,7 @@ where
 			let mut retracted_views = self.retracted_views.write();
 			retracted_views.retain(|_, v| match finalized_number {
 				Err(_) | Ok(None) => false,
-				Ok(Some(n)) => v.at.number > n,
+				Ok(Some(n)) => v.at.number >= n,
 			});
 
 			log::debug!(target:LOG_TARGET,"handle_finalized: retracted_views: {:?}", retracted_views.keys());
