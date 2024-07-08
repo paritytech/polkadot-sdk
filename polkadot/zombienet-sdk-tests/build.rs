@@ -77,7 +77,8 @@ fn build_wasm(chain: &str) -> PathBuf {
 	debug_output!("building metadata with args: {}", args.join(" "));
 	Command::new(cargo).args(&args).status().unwrap();
 
-	PathBuf::from(&format!("{target_dir}/{}.wasm", replace_dashes(&package)))
+	let wasm_path = &format!("{target_dir}/{target}/release/wbuild/{}/{}.wasm", &package, replace_dashes(&package));
+	PathBuf::from(wasm_path)
 }
 
 fn generate_metadata_file(wasm_path: &Path, output_path: &Path) {
