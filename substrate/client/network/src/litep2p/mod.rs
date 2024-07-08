@@ -261,7 +261,7 @@ impl Litep2pNetworkBackend {
 
 	/// Fetch the number of connected peers from the peerset handle and update
 	/// the atomic `num_connected` shared between the network backend.
-	fn fetch_connected_peers(&self) -> usize {
+	fn fetch_sync_connected_peers(&self) -> usize {
 		let num_sync_connected = self
 			.peerset_handles
 			.get(&self.block_announce_protocol)
@@ -699,7 +699,7 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 		log::debug!(target: LOG_TARGET, "starting litep2p network backend");
 
 		loop {
-			self.fetch_connected_peers();
+			self.fetch_sync_connected_peers();
 
 			tokio::select! {
 				command = self.cmd_rx.next() => match command {
@@ -720,7 +720,7 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 							self.event_streams.push(tx);
 						}
 						NetworkServiceCommand::Status { tx } => {
-							let num_connected_peers = self.fetch_connected_peers();
+							let num_connected_peers = self.fetch_sync_connected_peers();
 
 							let _ = tx.send(NetworkStatus {
 								num_connected_peers,
