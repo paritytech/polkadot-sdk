@@ -49,6 +49,7 @@ use sc_network_common::sync::message::{
 	BlockAnnounce, BlockAttributes, BlockData, BlockRequest, BlockResponse, Direction, FromBlock,
 };
 use sc_network_types::PeerId;
+use schnellru::{ByLength, LruMap};
 use sp_arithmetic::traits::Saturating;
 use sp_blockchain::{Error as ClientError, HeaderBackend, HeaderMetadata};
 use sp_consensus::{BlockOrigin, BlockStatus};
@@ -88,6 +89,13 @@ const STATE_SYNC_FINALITY_THRESHOLD: u32 = 8;
 /// the ancestor search to not waste time doing that when we are
 /// so far behind.
 const MAJOR_SYNC_BLOCKS: u8 = 5;
+
+/// The maximum number of disconnected peers to keep track of.
+///
+/// When a peer disconnects, we must keep track if it was in the middle of a request.
+/// The peer may disconnect because it cannot keep up with the number of requests
+/// (ie not having enough resources available to handle the requests); or because it is malicious.
+const MAX_DISCONNECTED_PEERS_STATE: u32 = 512;
 
 mod rep {
 	use sc_network::ReputationChange as Rep;
@@ -250,6 +258,8 @@ pub struct ChainSync<B: BlockT, Client> {
 	client: Arc<Client>,
 	/// The active peers that we are using to sync and their PeerSync status
 	peers: HashMap<PeerId, PeerSync<B>>,
+	/// Peers that had an in-flight request and are now disconnected.
+	disconnected_peers: LruMap<PeerId, DisconnectedPeerState>,
 	/// A `BlockCollection` of blocks that are being downloaded from peers
 	blocks: BlockCollection<B>,
 	/// The best block number in our queue of blocks to import
@@ -349,9 +359,29 @@ pub(crate) enum PeerSyncState<B: BlockT> {
 	DownloadingGap(NumberFor<B>),
 }
 
+struct DisconnectedPeerState {
+	/// The total number of disconnects.
+	num_disconnects: u32,
+	/// The time at the last disconnect.
+	last_disconnect: std::time::Instant,
+}
+
 impl<B: BlockT> PeerSyncState<B> {
+	/// Checks if the peer is available for new requests.
 	pub fn is_available(&self) -> bool {
 		matches!(self, Self::Available)
+	}
+
+	/// Checks if the peer is busy with downloading data.
+	pub fn is_downloading(&self) -> bool {
+		matches!(
+			self,
+			Self::DownloadingNew(_) |
+				Self::DownloadingStale(_) |
+				Self::DownloadingJustification(_) |
+				Self::DownloadingState |
+				Self::DownloadingGap(_)
+		)
 	}
 }
 
@@ -377,7 +407,8 @@ where
 	) -> Result<Self, ClientError> {
 		let mut sync = Self {
 			client,
-			peers: HashMap::new(),
+			peers: HashMap::default(),
+			disconnected_peers: LruMap::new(ByLength::new(MAX_DISCONNECTED_PEERS_STATE)),
 			blocks: BlockCollection::new(),
 			best_queued_hash: Default::default(),
 			best_queued_number: Zero::zero(),
@@ -1141,7 +1172,38 @@ where
 		if let Some(gap_sync) = &mut self.gap_sync {
 			gap_sync.blocks.clear_peer_download(peer_id)
 		}
-		self.peers.remove(peer_id);
+
+		if let Some(peer_state) = self.peers.remove(peer_id) {
+			// Keep track only of peers that have inflight requests.
+			if peer_state.state.is_downloading() {
+				match self.disconnected_peers.get(peer_id) {
+					Some(state) => {
+						debug!(
+							target: LOG_TARGET,
+							"Peer {peer_id} disconnected {} times.", state.num_disconnects
+						);
+						let num_disconnects = state.num_disconnects + 1;
+						self.disconnected_peers.insert(
+							*peer_id,
+							DisconnectedPeerState {
+								num_disconnects,
+								last_disconnect: std::time::Instant::now(),
+							},
+						);
+					},
+					None => {
+						self.disconnected_peers.insert(
+							*peer_id,
+							DisconnectedPeerState {
+								num_disconnects: 1,
+								last_disconnect: std::time::Instant::now(),
+							},
+						);
+					},
+				}
+			}
+		}
+
 		self.extra_justifications.peer_disconnected(peer_id);
 		self.allowed_requests.set_all();
 		self.fork_targets.retain(|_, target| {
