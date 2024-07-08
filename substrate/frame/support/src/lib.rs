@@ -942,6 +942,16 @@ pub mod pallet_prelude {
 	/// verbatim to the combined impl.
 	#[doc = docify::embed!("src/tests/inject_runtime_type.rs", derive_impl_works_with_no_aggregated_types)]
 	pub use frame_support_procedural::inject_runtime_type;
+	/// Provides a mechanism to register a default implementation for a given trait. This can then
+	/// be used in tandem with `[`#[derive_impl(..)]`](`frame_support::derive_impl`)` to generate
+	/// the combined impl for the trait.
+	/// 
+	/// In the context of `FRAME` pallets, this is generally used to register the default 
+	/// implementation of the `DefaultConfig` trait generated via 
+	/// `[`#[pallet::config(with_default)]`](`frame_support::pallet_macros::config`)`.
+	/// 
+	/// However, this can also be used to register custom default configuration of any pallet.
+	#[doc = docify::embed!("src/tests/custom_default_config.rs", custom_config_prelude)]
 	pub use frame_support_procedural::register_default_impl;
 	pub use scale_info::TypeInfo;
 	pub use sp_inherents::MakeFatalError;
