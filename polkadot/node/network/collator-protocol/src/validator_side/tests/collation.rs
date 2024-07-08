@@ -622,3 +622,35 @@ fn collation_fetching_fills_holes_in_claim_queue() {
 	);
 	collations.note_seconded(collation_b2.0.para_id);
 }
+
+#[test]
+fn collations_fetching_respects_seconded_limit() {
+	sp_tracing::init_for_tests();
+
+	let para_a = ParaId::from(1);
+	let collator_id_a = CollatorId::from(sr25519::Public::from_raw([10u8; 32]));
+
+	let para_b = ParaId::from(2);
+
+	let claim_queue = vec![para_a, para_b, para_a];
+	let relay_parent_mode =
+		ProspectiveParachainsMode::Enabled { max_candidate_depth: 7, allowed_ancestry_len: 6 };
+	let claim_queue_support = true;
+
+	let mut collations = Collations::new(&claim_queue, claim_queue_support);
+	collations.fetching_from = None;
+	collations.status = CollationStatus::Fetching(para_a); //para_a is pending
+
+	collations.note_seconded(para_a);
+	collations.note_seconded(para_a);
+
+	assert_eq!(
+		None,
+		collations.get_next_collation_to_fetch(
+			// doesn't matter since `fetching_from` is `None`
+			&(collator_id_a.clone(), Some(CandidateHash(Hash::repeat_byte(0)))),
+			relay_parent_mode,
+			&claim_queue,
+		)
+	);
+}
