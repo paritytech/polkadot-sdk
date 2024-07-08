@@ -111,6 +111,21 @@ test-linux-stable-codecov:
       fi
 
   #
+single-test-fl:
+  stage: test
+  extends:
+    - .docker-env
+    - .common-refs
+    - .run-immediately
+    # - .pipeline-stopper-artifacts
+  variables:
+    RUST_TOOLCHAIN: stable
+    # Enable debug assertions since we are running optimized builds for testing
+    # but still want to have debug assertions.
+    RUSTFLAGS: "-Cdebug-assertions=y -Dwarnings"
+  parallel: 5
+  script:
+    - cargo test -p frame-metadata-hash-extension ensure_check_metadata_works_on_real_extrinsics
 
 test-linux-stable:
   stage: test
