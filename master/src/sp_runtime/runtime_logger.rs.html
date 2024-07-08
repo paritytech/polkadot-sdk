@@ -249,6 +249,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#98" id="98">98</a>
 <a href="#99" id="99">99</a>
 <a href="#100" id="100">100</a>
+<a href="#101" id="101">101</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -317,16 +318,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>tests {
 	<span class="kw">use </span>sp_api::ProvideRuntimeApi;
-	<span class="kw">use </span>std::{env, str::FromStr};
+	<span class="kw">use </span>std::env;
 	<span class="kw">use </span>substrate_test_runtime_client::{
 		runtime::TestAPI, DefaultTestClientBuilderExt, TestClientBuilder, TestClientBuilderExt,
 	};
 
 	<span class="attr">#[test]
-	</span><span class="kw">fn </span>ensure_runtime_logger_respects_host_max_log_level() {
+	</span><span class="kw">fn </span>ensure_runtime_logger_works() {
 		<span class="kw">if </span>env::var(<span class="string">"RUN_TEST"</span>).is_ok() {
 			sp_tracing::try_init_simple();
-			log::set_max_level(log::LevelFilter::from_str(<span class="kw-2">&amp;</span>env::var(<span class="string">"RUST_LOG"</span>).unwrap()).unwrap());
 
 			<span class="kw">let </span>client = TestClientBuilder::new().build();
 			<span class="kw">let </span>runtime_api = client.runtime_api();
@@ -334,17 +334,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				.do_trace_log(client.chain_info().genesis_hash)
 				.expect(<span class="string">"Logging should not fail"</span>);
 		} <span class="kw">else </span>{
-			<span class="kw">for </span>(level, should_print) <span class="kw">in </span><span class="kw-2">&amp;</span>[(<span class="string">"trace"</span>, <span class="bool-val">true</span>), (<span class="string">"info"</span>, <span class="bool-val">false</span>)] {
+			<span class="kw">for </span>(level, should_print) <span class="kw">in </span><span class="kw-2">&amp;</span>[(<span class="string">"test=trace"</span>, <span class="bool-val">true</span>), (<span class="string">"info"</span>, <span class="bool-val">false</span>)] {
 				<span class="kw">let </span>executable = std::env::current_exe().unwrap();
 				<span class="kw">let </span>output = std::process::Command::new(executable)
 					.env(<span class="string">"RUN_TEST"</span>, <span class="string">"1"</span>)
 					.env(<span class="string">"RUST_LOG"</span>, level)
-					.args(<span class="kw-2">&amp;</span>[<span class="string">"--nocapture"</span>, <span class="string">"ensure_runtime_logger_respects_host_max_log_level"</span>])
+					.args(<span class="kw-2">&amp;</span>[<span class="string">"--nocapture"</span>, <span class="string">"ensure_runtime_logger_works"</span>])
 					.output()
 					.unwrap();
 
 				<span class="kw">let </span>output = String::from_utf8(output.stderr).unwrap();
 				<span class="macro">assert!</span>(output.contains(<span class="string">"Hey I'm runtime"</span>) == <span class="kw-2">*</span>should_print);
+				<span class="macro">assert!</span>(output.contains(<span class="string">"THIS IS TRACING"</span>) == <span class="kw-2">*</span>should_print);
+				<span class="macro">assert!</span>(output.contains(<span class="string">"Hey, I'm tracing"</span>) == <span class="kw-2">*</span>should_print);
 			}
 		}
 	}

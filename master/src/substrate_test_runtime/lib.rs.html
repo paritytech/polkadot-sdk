@@ -1678,6 +1678,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1527" id="1527">1527</a>
 <a href="#1528" id="1528">1528</a>
 <a href="#1529" id="1529">1529</a>
+<a href="#1530" id="1530">1530</a>
+<a href="#1531" id="1531">1531</a>
+<a href="#1532" id="1532">1532</a>
+<a href="#1533" id="1533">1533</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2276,7 +2280,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 
 		<span class="kw">fn </span>do_trace_log() {
-			<span class="macro">log::trace!</span>(<span class="string">"Hey I'm runtime"</span>);
+			<span class="macro">log::trace!</span>(target: <span class="string">"test"</span>, <span class="string">"Hey I'm runtime"</span>);
+
+			<span class="kw">let </span>data = <span class="string">"THIS IS TRACING"</span>;
+
+			<span class="macro">tracing::trace!</span>(target: <span class="string">"test"</span>, %data, <span class="string">"Hey, I'm tracing"</span>);
 		}
 
 		<span class="kw">fn </span>verify_ed25519(sig: ed25519::Signature, public: ed25519::Public, message: Vec&lt;u8&gt;) -&gt; bool {
