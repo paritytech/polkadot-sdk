@@ -167,6 +167,8 @@ pub struct Litep2pNetworkBackend {
 	discovery: Discovery,
 
 	/// Number of connected peers over the block announce protocol.
+	///
+	/// This is used to update metrics and network status.
 	num_sync_connected: Arc<AtomicUsize>,
 
 	/// Connected peers.
