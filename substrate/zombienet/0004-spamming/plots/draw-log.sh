@@ -112,7 +112,6 @@ plot \
 file="$WDIR/validate_transaction.csv"
 set origin 0.0,y_position
 y_position = y_position - height
-set yrange [0:1000]
 plot \
   file using "time":"duration" with points pt 2 lc rgb "blue" axes x1y1 title "validate_transaction"
 unset yrange
