@@ -546,6 +546,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#395" id="395">395</a>
 <a href="#396" id="396">396</a>
 <a href="#397" id="397">397</a>
+<a href="#398" id="398">398</a>
+<a href="#399" id="399">399</a>
+<a href="#400" id="400">400</a>
+<a href="#401" id="401">401</a>
+<a href="#402" id="402">402</a>
+<a href="#403" id="403">403</a>
+<a href="#404" id="404">404</a>
+<a href="#405" id="405">405</a>
+<a href="#406" id="406">406</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -633,6 +642,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="self">self</span>.reputation &lt; BANNED_THRESHOLD
 	}
 
+	<span class="kw">fn </span>add_reputation(<span class="kw-2">&amp;mut </span><span class="self">self</span>, increment: i32) {
+		<span class="self">self</span>.reputation = <span class="self">self</span>.reputation.saturating_add(increment);
+		<span class="self">self</span>.bump_last_updated();
+	}
+
 	<span class="kw">fn </span>decay_reputation(<span class="kw-2">&amp;mut </span><span class="self">self</span>, seconds_passed: u64) {
 		<span class="comment">// Note that decaying the reputation value happens "on its own",
 		// so we don't do `bump_last_updated()`.
@@ -650,6 +664,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw">break
 			</span>}
 		}
+	}
+
+	<span class="kw">fn </span>bump_last_updated(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
+		<span class="self">self</span>.last_updated = Instant::now();
 	}
 }
 
@@ -717,7 +735,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">match </span>lock.peers.get_mut(<span class="kw-2">&amp;</span>peer) {
 			<span class="prelude-val">Some</span>(info) =&gt; {
-				info.reputation = info.reputation.saturating_add(reputation_change.value);
+				info.add_reputation(reputation_change.value);
 			},
 			<span class="prelude-val">None </span>=&gt; {
 				lock.peers.insert(
