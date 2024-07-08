@@ -225,7 +225,7 @@ fn expand_pallet_metadata_events(
 
 		quote! {
 			Some(
-				#pallet_event::event_metadata()
+				#pallet_event::event_metadata::<#pallet_event>()
 			)
 		}
 	} else {

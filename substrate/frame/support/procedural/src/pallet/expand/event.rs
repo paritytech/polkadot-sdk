@@ -71,7 +71,6 @@ pub fn expand_event(def: &mut Def) -> proc_macro2::TokenStream {
 	let frame_support = &def.frame_support;
 	let event_use_gen = &event.gen_kind.type_use_gen(event.attr_span);
 	let event_impl_gen = &event.gen_kind.type_impl_gen(event.attr_span);
-
 	let event_item = {
 		let item = &mut def.item.content.as_mut().expect("Checked by def parser").1[event.index];
 		if let syn::Item::Enum(item) = item {
@@ -197,12 +196,12 @@ pub fn expand_event(def: &mut Def) -> proc_macro2::TokenStream {
 			fn from(_: #event_ident<#event_use_gen>) {}
 		}
 
-		impl<#event_impl_gen> #event_ident<#event_use_gen>  #event_where_clause {
+		impl<#event_impl_gen> #event_ident<#event_use_gen> #completed_where_clause {
 			#[allow(dead_code)]
 			#[doc(hidden)]
-			pub fn event_metadata() -> #frame_support::__private::metadata_ir::PalletEventMetadataIR {
+			pub fn event_metadata<W: #frame_support::__private::scale_info::TypeInfo + 'static>() -> #frame_support::__private::metadata_ir::PalletEventMetadataIR {
 				#frame_support::__private::metadata_ir::PalletEventMetadataIR {
-					ty: #frame_support::__private::scale_info::meta_type::<#event_ident<#event_use_gen>>(),
+					ty: #frame_support::__private::scale_info::meta_type::<W>(),
 					deprecation_info: #deprecation_status,
 					deprecated_variants: #variants
 				}
