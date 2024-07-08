@@ -180,7 +180,11 @@ impl PeerStoreProvider for PeerStoreHandle {
 	}
 
 	fn status(&self) -> PeerStoreStatus {
-		PeerStoreStatus { num_known_peers: 0, num_banned_peers: 0 }
+		let inner = self.inner.lock();
+		PeerStoreStatus {
+			num_known_peers: inner.peers.len(),
+			num_banned_peers: inner.num_banned_peers,
+		}
 	}
 }
 
@@ -525,7 +529,8 @@ mod tests {
 		let peer_b = sc_network_types::PeerId::random();
 		let peer_c = sc_network_types::PeerId::random();
 
-		let peerstore = PeerStore::new(vec![peer_a, peer_b, peer_c]);
+		let peerstore =
+			PeerStore::new(vec![peer_a, peer_b, peer_c].into_iter().map(Into::into).collect());
 		let handle = peerstore.handle();
 
 		// Check initial state.
@@ -543,7 +548,7 @@ mod tests {
 			sc_network_common::types::ReputationChange { value: i32::MIN, reason: "test".into() },
 		);
 		// Advance time to propagate banned peers.
-		handle.progress_time(1);
+		handle.inner.lock().progress_time(1);
 
 		let status = handle.status();
 		assert_eq!(status.num_known_peers, 3);
