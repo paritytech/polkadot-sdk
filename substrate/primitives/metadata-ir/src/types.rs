@@ -346,7 +346,7 @@ pub struct PalletCallMetadataIR<T: Form = MetaForm> {
 	/// Deprecation status of the pallet call itself
 	pub deprecation_info: DeprecationStatus<T>,
 	/// Deprecation status of the call indexes
-	pub deprecated_indexes: BTreeMap<usize, DeprecationStatus<T>>,
+	pub deprecated_indexes: BTreeMap<u8, DeprecationStatus<T>>,
 }
 
 impl IntoPortable for PalletCallMetadataIR {
@@ -377,7 +377,7 @@ pub struct PalletEventMetadataIR<T: Form = MetaForm> {
 	/// Deprecation status of the event itself
 	pub deprecation_info: DeprecationStatus<T>,
 	/// Deprecation status of the variants
-	pub deprecated_variants: BTreeMap<usize, DeprecationStatus<T>>,
+	pub deprecated_variants: BTreeMap<u8, DeprecationStatus<T>>,
 }
 
 impl IntoPortable for PalletEventMetadataIR {
@@ -436,7 +436,7 @@ pub struct PalletErrorMetadataIR<T: Form = MetaForm> {
 	/// Deprecation status of the error itself
 	pub deprecation_info: DeprecationStatus<T>,
 	/// Deprecation status of the variants
-	pub deprecated_variants: BTreeMap<usize, DeprecationStatus<T>>,
+	pub deprecated_variants: BTreeMap<u8, DeprecationStatus<T>>,
 }
 
 impl IntoPortable for PalletErrorMetadataIR {
