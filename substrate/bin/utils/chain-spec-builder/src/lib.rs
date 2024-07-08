@@ -291,7 +291,7 @@ pub struct VerifyCmd {
 	pub input_chain_spec: PathBuf,
 }
 
-/// The extensions for the [`ChainSpec`].
+/// The extensions for the [`GenericChainSpec`].
 #[derive(
 	Default, Debug, Clone, PartialEq, Serialize, Deserialize, ChainSpecGroup, ChainSpecExtension,
 )]
