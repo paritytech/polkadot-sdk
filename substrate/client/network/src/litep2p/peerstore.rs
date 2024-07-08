@@ -243,6 +243,10 @@ impl PeerStoreProvider for PeerstoreHandle {
 	fn add_known_peer(&self, peer: PeerId) {
 		self.0.lock().peers.entry(peer).or_default().last_updated = Instant::now();
 	}
+
+	fn status(&self) -> PeerStoreStatus {
+		PeerStoreStatus { num_known_peers: 0, num_banned_peers: 0 }
+	}
 }
 
 /// `Peerstore` handle for testing.

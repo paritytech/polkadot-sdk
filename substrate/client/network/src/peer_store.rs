@@ -65,6 +65,18 @@ pub trait ProtocolHandle: Debug + Send + Sync {
 	fn disconnect_peer(&self, peer_id: sc_network_types::PeerId);
 }
 
+/// Get the status of the peer store.
+///
+/// This is used for monitoring purposes.
+pub struct PeerStoreStatus {
+	/// Number of known peers part of the peer store.
+	///
+	/// This number might not include some connected peers in rare cases when their reputation
+	/// was not updated for one hour, because their entries in [`PeerStore`] were dropped.
+	pub num_known_peers: usize,
+	/// Number of banned peers.
+	pub num_banned_peers: usize,
+}
 /// Trait providing peer reputation management and connection candidates.
 pub trait PeerStoreProvider: Debug + Send + Sync {
 	/// Check whether the peer is banned.
@@ -103,6 +115,9 @@ pub trait PeerStoreProvider: Debug + Send + Sync {
 
 	/// Add known peer.
 	fn add_known_peer(&self, peer_id: sc_network_types::PeerId);
+
+	/// Get the status of the peer store.
+	fn status(&self) -> PeerStoreStatus;
 }
 
 /// Actual implementation of peer reputations and connection candidates provider.
@@ -162,6 +177,10 @@ impl PeerStoreProvider for PeerStoreHandle {
 
 	fn add_known_peer(&self, peer_id: sc_network_types::PeerId) {
 		self.inner.lock().add_known_peer(peer_id.into());
+	}
+
+	fn status(&self) -> PeerStoreStatus {
+		PeerStoreStatus { num_known_peers: 0, num_banned_peers: 0 }
 	}
 }
 
