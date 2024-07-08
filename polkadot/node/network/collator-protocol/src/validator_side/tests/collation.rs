@@ -150,9 +150,9 @@ fn collation_fetching_respects_claim_queue() {
 		collator_id_b.clone(),
 	);
 
+	collations.add_to_waiting_queue(collation_b1.clone());
 	collations.add_to_waiting_queue(collation_a1.clone());
 	collations.add_to_waiting_queue(collation_a2.clone());
-	collations.add_to_waiting_queue(collation_b1.clone());
 
 	assert_eq!(
 		Some(collation_a1.clone()),
@@ -366,7 +366,7 @@ fn collation_fetching_prefer_entries_earlier_in_claim_queue() {
 		collator_id_c.clone(),
 	);
 
-	// Despite the order here the fetches should be a1, b1, c1, a2, b2, c2
+	// Despite the order here the fetches should follow the claim queue
 	collations.add_to_waiting_queue(collation_c1.clone());
 	collations.add_to_waiting_queue(collation_c2.clone());
 	collations.add_to_waiting_queue(collation_b1.clone());
@@ -546,7 +546,6 @@ fn collation_fetching_fills_holes_in_claim_queue() {
 		collator_id_c.clone(),
 	);
 
-	// Despite the order here the fetches should be a1, b1, c1, a2, b2, c2
 	collations.add_to_waiting_queue(collation_c1.clone());
 	collations.add_to_waiting_queue(collation_a1.clone());
 
@@ -561,6 +560,7 @@ fn collation_fetching_fills_holes_in_claim_queue() {
 	);
 	collations.note_seconded(collation_a1.0.para_id);
 
+	// fetch c1 since there is nothing better to fetch
 	assert_eq!(
 		Some(collation_c1.clone()),
 		collations.get_next_collation_to_fetch(
@@ -572,6 +572,7 @@ fn collation_fetching_fills_holes_in_claim_queue() {
 	);
 	collations.note_seconded(collation_c1.0.para_id);
 
+	// b1 should be prioritized since there is a hole in the claim queue
 	collations.add_to_waiting_queue(collation_c2.clone());
 	collations.add_to_waiting_queue(collation_b1.clone());
 
@@ -597,6 +598,7 @@ fn collation_fetching_fills_holes_in_claim_queue() {
 	);
 	collations.note_seconded(collation_c2.0.para_id);
 
+	// same with a2
 	collations.add_to_waiting_queue(collation_b2.clone());
 	collations.add_to_waiting_queue(collation_a2.clone());
 

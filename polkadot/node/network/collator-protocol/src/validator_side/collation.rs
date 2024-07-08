@@ -244,7 +244,7 @@ pub struct Collations {
 	// the core or the `ParaId` of the parachain assigned to the core.
 	claims_per_para: BTreeMap<ParaId, usize>,
 	// Represents the claim queue at the relay parent. The `bool` field indicates if a candidate
-	// was fetched for the `ParaId` at the position in question. In other words - if the claim is
+	// was seconded for the `ParaId` at the position in question. In other words - if the claim is
 	// 'satisfied'. If the claim queue is not available `claim_queue_state` will be `None`.
 	claim_queue_state: Option<Vec<(bool, ParaId)>>,
 }
@@ -362,7 +362,6 @@ impl Collations {
 		para_id: ParaId,
 	) -> bool {
 		let seconded_for_para = *self.seconded_per_para.get(&para_id).unwrap_or(&0);
-		let pending_for_para = self.pending_for_para(para_id);
 
 		match relay_parent_mode {
 			ProspectiveParachainsMode::Disabled => {
@@ -392,7 +391,8 @@ impl Collations {
 				max_candidate_depth: _,
 				allowed_ancestry_len: _,
 			} => {
-				// Successful fetches + pending fetches < claim queue entries for `para_id`
+				let pending_for_para = self.pending_for_para(para_id);
+
 				let respected_per_para_limit =
 					self.claims_per_para.get(&para_id).copied().unwrap_or_default() >
 						seconded_for_para + pending_for_para;
