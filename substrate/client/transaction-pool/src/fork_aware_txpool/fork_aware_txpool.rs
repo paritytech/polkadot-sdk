@@ -228,7 +228,7 @@ where
 			MultiViewImportNotificationSink::new_with_worker();
 
 		//todo: error handling?
-		//todo: is it a really god idea? (revalidation_task may be quite heavy)
+		//todo: is it a really good idea? (revalidation_task may be quite heavy)
 		let combined_tasks = async move {
 			tokio::select! {
 				_ = revalidation_task => {},
@@ -760,6 +760,7 @@ where
 	/// Consumers of this stream should use the `ready` method to actually get the
 	/// pending transactions in the right order.
 	fn import_notification_stream(&self) -> ImportNotificationStream<ExtrinsicHash<ChainApi>> {
+		//todo: can we do better, block_on smells like problems...
 		futures::executor::block_on(self.import_notification_sink.event_stream())
 	}
 
@@ -767,10 +768,8 @@ where
 		self.api().hash_and_length(xt).0
 	}
 
-	fn on_broadcasted(&self, _propagations: HashMap<TxHash<Self>, Vec<String>>) {
-		// todo !!!
-		// self.pool.validated_pool().on_broadcasted(propagations)
-		// unimplemented!()
+	fn on_broadcasted(&self, propagations: HashMap<TxHash<Self>, Vec<String>>) {
+		self.view_store.listener.transactions_broadcasted(propagations);
 	}
 
 	// todo: api change: we probably should have at here?
@@ -1044,8 +1043,7 @@ where
 								tx_hash,
 								view.at.hash,
 								watcher.into_stream().boxed(),
-							)
-							.await;
+							);
 						Ok(())
 					} else {
 						result.map(|_| ())
@@ -1065,7 +1063,7 @@ where
 				match result {
 					Err((Error::TemporarilyBanned | Error::AlreadyImported(_), ..)) => {},
 					Err((Error::InvalidTransaction(_), tx_hash, tx)) => {
-						self.view_store.listener.invalidate_transactions(vec![tx_hash]).await;
+						self.view_store.listener.invalidate_transactions(vec![tx_hash]);
 						self.mempool.remove_watched(&tx);
 					},
 

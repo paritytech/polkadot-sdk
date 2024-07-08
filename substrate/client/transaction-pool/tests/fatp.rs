@@ -195,7 +195,8 @@ mod test_chain_with_forks {
 //Add some more tests:
 // - view.ready iterator
 // - stale transaction submission when there is single view only (expect error)
-// - stale transaction submission when there are more views (expect ok)
+// - stale transaction submission when there are more views (expect ok if tx is ok for at least one
+//   view)
 // - view count (e.g. same new block notified twice)
 // - invalid with many views (different cases)
 //
@@ -2551,4 +2552,8 @@ fn fatp_ready_txs_are_provided_in_valid_order() {
 	// block_on(pool.maintain(event));
 	// assert_pool_status!(header03b.hash(), &pool, 0, 1);
 }
+
 //todo: add test: check len of filter after finalization (!)
+//todo: broadcasted test?
+//todo: ready_at_with_timeout
+//todo: invalid txs on all views (should return invalid)

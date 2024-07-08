@@ -245,6 +245,6 @@ where
 		let invalid_hashes = self.validate_array(finalized_block.clone()).await;
 
 		self.xts2.write().retain(|hash, _| !invalid_hashes.contains(&hash));
-		self.listener.invalidate_transactions(invalid_hashes).await;
+		self.listener.invalidate_transactions(invalid_hashes);
 	}
 }
