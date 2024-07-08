@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1720430394593,
+  "lastUpdate": 1720455569197,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -9916,6 +9916,53 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-distribution",
             "value": 7.389962483969967,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Bastian Köcher",
+            "username": "bkchr",
+            "email": "git@kchr.de"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "7290042ad4975e9d42633f228e331f286397025e",
+          "message": "Make `tracing::log` work in the runtime (#4863)\n\nCo-authored-by: command-bot <>",
+          "timestamp": "2024-07-08T14:19:25Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/7290042ad4975e9d42633f228e331f286397025e"
+        },
+        "date": 1720455540944,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63806.4,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52941.2,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 7.491269379810073,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 3.3872929645502543,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 10.267455673890009,
             "unit": "seconds"
           }
         ]
