@@ -1867,6 +1867,7 @@ impl pallet_core_fellowship::Config for Runtime {
 	type InductOrigin = pallet_core_fellowship::EnsureInducted<Runtime, (), 1>;
 	type ApproveOrigin = EnsureRootWithSuccess<AccountId, ConstU16<9>>;
 	type PromoteOrigin = EnsureRootWithSuccess<AccountId, ConstU16<9>>;
+	type FastPromoteOrigin = Self::PromoteOrigin;
 	type EvidenceSize = ConstU32<16_384>;
 	type MaxRank = ConstU32<9>;
 }
@@ -2096,10 +2097,6 @@ impl OnUnbalanced<Credit<AccountId, Balances>> for IntoAuthor {
 	}
 }
 
-parameter_types! {
-	pub storage CoretimeRevenue: Option<(BlockNumber, Balance)> = None;
-}
-
 pub struct CoretimeProvider;
 impl CoretimeInterface for CoretimeProvider {
 	type AccountId = AccountId;
@@ -2114,15 +2111,6 @@ impl CoretimeInterface for CoretimeProvider {
 		_assignment: Vec<(CoreAssignment, PartsOf57600)>,
 		_end_hint: Option<u32>,
 	) {
-	}
-	fn check_notify_revenue_info() -> Option<(u32, Self::Balance)> {
-		let revenue = CoretimeRevenue::get();
-		CoretimeRevenue::set(&None);
-		revenue
-	}
-	#[cfg(feature = "runtime-benchmarks")]
-	fn ensure_notify_revenue_info(when: u32, revenue: Self::Balance) {
-		CoretimeRevenue::set(&Some((when, revenue)));
 	}
 }
 
@@ -2560,6 +2548,7 @@ impl pallet_beefy::Config for Runtime {
 	type MaxNominators = ConstU32<0>;
 	type MaxSetIdSessionEntries = BeefySetIdSessionEntries;
 	type OnNewValidatorSet = MmrLeaf;
+	type AncestryHelper = MmrLeaf;
 	type WeightInfo = ();
 	type KeyOwnerProof = <Historical as KeyOwnerProofSystem<(KeyTypeId, BeefyId)>>::Proof;
 	type EquivocationReportSystem =
@@ -3044,7 +3033,7 @@ impl_runtime_apis! {
 		}
 	}
 
-	#[api_version(3)]
+	#[api_version(4)]
 	impl sp_consensus_beefy::BeefyApi<Block, BeefyId> for Runtime {
 		fn beefy_genesis() -> Option<BlockNumber> {
 			pallet_beefy::GenesisBlock::<Runtime>::get()
@@ -3054,7 +3043,7 @@ impl_runtime_apis! {
 			Beefy::validator_set()
 		}
 
-		fn submit_report_equivocation_unsigned_extrinsic(
+		fn submit_report_double_voting_unsigned_extrinsic(
 			equivocation_proof: sp_consensus_beefy::DoubleVotingProof<
 				BlockNumber,
 				BeefyId,
@@ -3064,7 +3053,7 @@ impl_runtime_apis! {
 		) -> Option<()> {
 			let key_owner_proof = key_owner_proof.decode()?;
 
-			Beefy::submit_unsigned_equivocation_report(
+			Beefy::submit_unsigned_double_voting_report(
 				equivocation_proof,
 				key_owner_proof,
 			)
