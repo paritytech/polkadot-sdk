@@ -166,8 +166,8 @@ pub struct Litep2pNetworkBackend {
 	/// Discovery.
 	discovery: Discovery,
 
-	/// Number of connected peers.
-	num_connected: Arc<AtomicUsize>,
+	/// Number of connected peers over the block announce protocol.
+	num_sync_connected: Arc<AtomicUsize>,
 
 	/// Connected peers.
 	peers: HashMap<litep2p::PeerId, ConnectionContext>,
@@ -262,12 +262,12 @@ impl Litep2pNetworkBackend {
 	/// Fetch the number of connected peers from the peerset handle and update
 	/// the atomic `num_connected` shared between the network backend.
 	fn fetch_connected_peers(&self) -> usize {
-		let num_connected_peers = self
+		let num_sync_connected = self
 			.peerset_handles
 			.get(&self.block_announce_protocol)
 			.map_or(0usize, |handle| handle.connected_peers.load(Ordering::Relaxed));
-		self.num_connected.store(num_connected_peers, Ordering::Relaxed);
-		num_connected_peers
+		self.num_sync_connected.store(num_sync_connected, Ordering::Relaxed);
+		num_sync_connected
 	}
 
 	/// Configure transport protocols for `Litep2pNetworkBackend`.
@@ -555,7 +555,7 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 
 		// enable ipfs ping, identify and kademlia, and potentially mdns if user enabled it
 		let listen_addresses = Arc::new(Default::default());
-		let num_connected = Arc::new(Default::default());
+		let num_sync_connected = Arc::new(Default::default());
 
 		let (discovery, ping_config, identify_config, kademlia_config, maybe_mdns_config) =
 			Discovery::new(
@@ -565,7 +565,7 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 				&params.protocol_id,
 				known_addresses.clone(),
 				Arc::clone(&listen_addresses),
-				Arc::clone(&num_connected),
+				Arc::clone(&num_sync_connected),
 				limit_discovery_under,
 				Arc::clone(&peer_store_handle),
 			);
@@ -614,7 +614,7 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 			Arc::new(Litep2pBandwidthSink { sink: litep2p.bandwidth_sink() });
 
 		if let Some(registry) = &params.metrics_registry {
-			MetricSources::register(registry, bandwidth, Arc::clone(&num_connected))?;
+			MetricSources::register(registry, bandwidth, Arc::clone(&num_sync_connected))?;
 		}
 
 		Ok(Self {
@@ -622,7 +622,7 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 			cmd_rx,
 			metrics,
 			peerset_handles: notif_protocols,
-			num_connected,
+			num_sync_connected,
 			discovery,
 			pending_put_values: HashMap::new(),
 			pending_get_values: HashMap::new(),
