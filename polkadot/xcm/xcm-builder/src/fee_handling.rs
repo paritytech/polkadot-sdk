@@ -17,7 +17,7 @@
 use core::marker::PhantomData;
 use frame_support::traits::{Contains, Get};
 use xcm::prelude::*;
-use xcm_executor::traits::{FeeManager, FeeReason, IntoLocation, TransactAsset};
+use xcm_executor::traits::{FeeManager, FeeReason, TransactAsset};
 
 /// Handles the fees that are taken by certain XCM instructions.
 pub trait HandleFee {
@@ -70,13 +70,12 @@ impl<WaivedLocations: Contains<Location>, FeeHandler: HandleFee> FeeManager
 
 /// Try to deposit the given fee in the specified account.
 /// Burns the fee in case of a failure.
-pub fn deposit_or_burn_fee<AssetTransactor: TransactAsset, AccountId: Clone + IntoLocation>(
+pub fn deposit_or_burn_fee<AssetTransactor: TransactAsset, AccountId: Clone + Into<[u8; 32]>>(
 	fee: Assets,
 	context: Option<&XcmContext>,
 	receiver: AccountId,
 ) {
-	// let dest = AccountId32 { network: None, id: receiver.into() }.into();
-	let dest = receiver.into_location();
+	let dest = AccountId32 { network: None, id: receiver.into() }.into();
 	for asset in fee.into_inner() {
 		if let Err(e) = AssetTransactor::deposit_asset(&asset, &dest, context) {
 			log::trace!(
@@ -101,7 +100,7 @@ pub struct XcmFeeToAccount<AssetTransactor, AccountId, ReceiverAccount>(
 
 impl<
 		AssetTransactor: TransactAsset,
-		AccountId: Clone + IntoLocation,
+		AccountId: Clone + Into<[u8; 32]>,
 		ReceiverAccount: Get<AccountId>,
 	> HandleFee for XcmFeeToAccount<AssetTransactor, AccountId, ReceiverAccount>
 {
@@ -109,5 +108,57 @@ impl<
 		deposit_or_burn_fee::<AssetTransactor, _>(fee, context, ReceiverAccount::get());
 
 		Assets::new()
+	}
+}
+
+/// A `HandleFee` implementation that simply deposits the fees into a specific on-chain
+/// `ReceiverAccount`.
+///
+/// It reuses the `AssetTransactor` configured on the XCM executor to deposit fee assets. If
+/// the `AssetTransactor` returns an error while calling `deposit_asset`, then a warning will be
+/// logged and the fee burned.
+///
+/// `ReceiverAccount` should implement `Get<Location>`.
+///
+/// In case you need to implement `Get<Location>` for a custom type,
+/// below is an example code piece for such a case:
+/// ```rust
+/// impl Get<Location> for TreasuryAccount {
+///     fn get() -> Location {
+///         const ID: PalletId = PalletId(*b"py/trsry");
+///         AccountIdConversion::<AccountId>::into_account_truncating(&ID).into()
+///     }
+/// }
+/// ```
+pub struct SendXcmFeeToAccount<AssetTransactor, ReceiverAccount>(
+	PhantomData<(AssetTransactor, ReceiverAccount)>,
+);
+
+impl<AssetTransactor: TransactAsset, ReceiverAccount: Get<Location>> HandleFee
+	for SendXcmFeeToAccount<AssetTransactor, ReceiverAccount>
+{
+	fn handle_fee(fee: Assets, context: Option<&XcmContext>, _reason: FeeReason) -> Assets {
+		deposit_or_burn_xcm_fee::<AssetTransactor>(fee, context, ReceiverAccount::get());
+
+		Assets::new()
+	}
+}
+
+/// Try to deposit the given fee in the specified account.
+/// Burns the fee in case of a failure.
+pub fn deposit_or_burn_xcm_fee<AssetTransactor: TransactAsset>(
+	fee: Assets,
+	context: Option<&XcmContext>,
+	dest: Location,
+) {
+	for asset in fee.into_inner() {
+		if let Err(e) = AssetTransactor::deposit_asset(&asset, &dest, context) {
+			log::trace!(
+				target: "xcm::fees",
+				"`AssetTransactor::deposit_asset` returned error: {:?}. Burning fee: {:?}. \
+				They might be burned.",
+				e, asset,
+			);
+		}
 	}
 }

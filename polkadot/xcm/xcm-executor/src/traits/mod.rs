@@ -17,9 +17,7 @@
 //! Various traits used in configuring the executor.
 
 mod conversion;
-pub use conversion::{
-	CallDispatcher, ConvertLocation, ConvertOrigin, IntoLocation, WithOriginFilter,
-};
+pub use conversion::{CallDispatcher, ConvertLocation, ConvertOrigin, WithOriginFilter};
 mod drop_assets;
 pub use drop_assets::{ClaimAssets, DropAssets};
 mod asset_exchange;

@@ -15,7 +15,7 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use frame_support::traits::{Contains, OriginTrait};
-use sp_runtime::{traits::Dispatchable, AccountId32, DispatchErrorWithPostInfo};
+use sp_runtime::{traits::Dispatchable, DispatchErrorWithPostInfo};
 use sp_std::{marker::PhantomData, result::Result};
 use xcm::latest::prelude::*;
 
@@ -143,15 +143,5 @@ impl<Call: Dispatchable> CallDispatcher<Call> for Call {
 		origin: Call::RuntimeOrigin,
 	) -> Result<Call::PostInfo, DispatchErrorWithPostInfo<Call::PostInfo>> {
 		call.dispatch(origin)
-	}
-}
-
-pub trait IntoLocation {
-	fn into_location(self) -> Location;
-}
-
-impl IntoLocation for AccountId32 {
-	fn into_location(self) -> Location {
-		xcm::v4::Junction::AccountId32 { network: None, id: self.into() }.into()
 	}
 }
