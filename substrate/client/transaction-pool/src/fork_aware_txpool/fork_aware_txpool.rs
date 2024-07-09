@@ -204,7 +204,7 @@ where
 				revalidation_queue: Arc::from(view_revalidation::RevalidationQueue::new()),
 				import_notification_sink,
 				options: graph::Options::default(),
-				is_validator: false.into()
+				is_validator: false.into(),
 			},
 			import_notification_sink_task,
 		)
@@ -253,7 +253,7 @@ where
 			revalidation_queue: Arc::from(revalidation_queue),
 			import_notification_sink,
 			options,
-			is_validator
+			is_validator,
 		}
 	}
 
@@ -300,7 +300,8 @@ where
 	/// Returns best effort set of ready transactions for given block, without executing full
 	/// maintain process.
 	///
-	/// If maintain was already performed the ready iterator for existing, unmodified view is returned.
+	/// If maintain was already performed the ready iterator for existing, unmodified view is
+	/// returned.
 	fn ready_light(&self, at: Block::Hash) -> PolledIterator<ChainApi> {
 		let start = Instant::now();
 		log::info!( target: LOG_TARGET, "fatp::ready_light {:?}", at);
@@ -905,8 +906,10 @@ where
 		};
 
 		//we need to capture all import notifiication from the very beginning
-		self.import_notification_sink
-			.add_view(view.at.hash, view.pool.validated_pool().import_notification_stream().boxed());
+		self.import_notification_sink.add_view(
+			view.at.hash,
+			view.pool.validated_pool().import_notification_stream().boxed(),
+		);
 
 		let start = Instant::now();
 		self.update_view(&mut view).await;
