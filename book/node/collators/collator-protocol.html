@@ -147,6 +147,11 @@
                 <div id="content" class="content">
                     <main>
                         <h1 id="collator-protocol"><a class="header" href="#collator-protocol">Collator Protocol</a></h1>
+<blockquote>
+<p>NOTE: This module has suffered changes for the elastic scaling implementation. As a result, parts of this document may
+be out of date and will be updated at a later time. Issue tracking the update:
+https://github.com/paritytech/polkadot-sdk/issues/3699</p>
+</blockquote>
 <p>The Collator Protocol implements the network protocol by which collators and validators communicate. It is used by
 collators to distribute collations to validators and used by validators to accept collations by collators.</p>
 <p>Collator-to-Validator networking is more difficult than Validator-to-Validator networking because the set of possible
@@ -265,7 +270,7 @@ seconding any of its received candidates, reducing throughput.</li>
 behaved poorly (whether recently or historically) and subsequently only verify the PoV for the most suitable of
 collations.</li>
 </ul>
-<footer id="last-change">Last change: 2023-09-04, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/a30092ab42">a30092ab42</a></footer>
+<footer id="last-change">Last change: 2024-07-09, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/2f0e5a61b7">2f0e5a61b7</a></footer>
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">

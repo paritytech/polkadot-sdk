@@ -147,6 +147,11 @@
                 <div id="content" class="content">
                     <main>
                         <h1 id="candidate-backing"><a class="header" href="#candidate-backing">Candidate Backing</a></h1>
+<blockquote>
+<p>NOTE: This module has suffered changes for the elastic scaling implementation. As a result, parts of this document may
+be out of date and will be updated at a later time. Issue tracking the update:
+https://github.com/paritytech/polkadot-sdk/issues/3699</p>
+</blockquote>
 <p>The Candidate Backing subsystem ensures every parablock considered for relay block inclusion has been seconded by at
 least one validator, and approved by a quorum. Parablocks for which not enough validators will assert correctness are
 discarded. If the block later proves invalid, the initial backers are slashable; this gives Polkadot a rational threat
@@ -291,7 +296,7 @@ therefore we need to retry with other backing validators in that case.</p>
 <p>Create a <code>(sender, receiver)</code> pair. Dispatch a <code>CandidateValidationMessage::Validate(validation function, candidate, pov, BACKING_EXECUTION_TIMEOUT, sender)</code> and listen on the receiver for a response.</p>
 <h3 id="distribute-signed-statement"><a class="header" href="#distribute-signed-statement">Distribute Signed Statement</a></h3>
 <p>Dispatch a <a href="../../types/overseer-protocol.html#statement-distribution-message"><code>StatementDistributionMessage</code></a><code>::Share(relay_parent, SignedFullStatementWithPVD)</code>.</p>
-<footer id="last-change">Last change: 2023-09-04, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/a30092ab42">a30092ab42</a></footer>
+<footer id="last-change">Last change: 2024-07-09, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/2f0e5a61b7">2f0e5a61b7</a></footer>
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">

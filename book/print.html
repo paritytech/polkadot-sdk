@@ -2549,6 +2549,11 @@ which no longer exist under paras.</li>
 </li>
 </ul>
 <footer id="last-change">Last change: 2024-05-27, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/89b67bc69e">89b67bc69e</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="inclusion-pallet"><a class="header" href="#inclusion-pallet">Inclusion Pallet</a></h1>
+<blockquote>
+<p>NOTE: This module has suffered changes for the elastic scaling implementation. As a result, parts of this document may
+be out of date and will be updated at a later time. Issue tracking the update:
+https://github.com/paritytech/polkadot-sdk/issues/3699</p>
+</blockquote>
 <p>The inclusion module is responsible for inclusion and availability of scheduled parachains. It also manages the UMP
 dispatch queue of each parachain.</p>
 <h2 id="storage-6"><a class="header" href="#storage-6">Storage</a></h2>
@@ -2762,7 +2767,12 @@ in <code>well_known_keys</code> in order to facilitate oraclisation on to the pa
 </ol>
 </li>
 </ul>
-<footer id="last-change">Last change: 2024-04-12, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/2dfe5f745c">2dfe5f745c</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="parainherent"><a class="header" href="#parainherent"><code>ParaInherent</code></a></h1>
+<footer id="last-change">Last change: 2024-07-09, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/2f0e5a61b7">2f0e5a61b7</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="parainherent"><a class="header" href="#parainherent"><code>ParaInherent</code></a></h1>
+<blockquote>
+<p>NOTE: This module has suffered changes for the elastic scaling implementation. As a result, parts of this document may
+be out of date and will be updated at a later time. Issue tracking the update:
+https://github.com/paritytech/polkadot-sdk/issues/3699</p>
+</blockquote>
 <p>This module is responsible for providing all data given to the runtime by the block author to the various parachains
 modules. The entry-point is mandatory, in that it must be invoked exactly once within every block, and it is also
 &quot;inherent&quot;, in that it is provided with no origin by the block author. The data within it carries its own
@@ -2844,7 +2854,7 @@ backed candidate may end up with votes count less than <code>minimum_backing_vot
 In this case the whole candidate is dropped otherwise it will be rejected by <code>process_candidates</code> from pallet inclusion.
 All checks related to backed candidates are implemented in <code>sanitize_backed_candidates</code> and
 <code>filter_backed_statements_from_disabled_validators</code>.</p>
-<footer id="last-change">Last change: 2024-03-26, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/002d9260f9">002d9260f9</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="dmp-pallet"><a class="header" href="#dmp-pallet">DMP Pallet</a></h1>
+<footer id="last-change">Last change: 2024-07-09, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/2f0e5a61b7">2f0e5a61b7</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="dmp-pallet"><a class="header" href="#dmp-pallet">DMP Pallet</a></h1>
 <p>A module responsible for Downward Message Processing (DMP). See <a href="runtime/../messaging.html">Messaging Overview</a> for more details.</p>
 <h2 id="storage-8"><a class="header" href="#storage-8">Storage</a></h2>
 <p>Storage layout required for implementation of DMP.</p>
@@ -4338,6 +4348,11 @@ pub struct CollationGenerationConfig {
 </li>
 </ul>
 <footer id="last-change">Last change: 2023-09-04, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/a30092ab42">a30092ab42</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="collator-protocol"><a class="header" href="#collator-protocol">Collator Protocol</a></h1>
+<blockquote>
+<p>NOTE: This module has suffered changes for the elastic scaling implementation. As a result, parts of this document may
+be out of date and will be updated at a later time. Issue tracking the update:
+https://github.com/paritytech/polkadot-sdk/issues/3699</p>
+</blockquote>
 <p>The Collator Protocol implements the network protocol by which collators and validators communicate. It is used by
 collators to distribute collations to validators and used by validators to accept collations by collators.</p>
 <p>Collator-to-Validator networking is more difficult than Validator-to-Validator networking because the set of possible
@@ -4456,7 +4471,7 @@ seconding any of its received candidates, reducing throughput.</li>
 behaved poorly (whether recently or historically) and subsequently only verify the PoV for the most suitable of
 collations.</li>
 </ul>
-<footer id="last-change">Last change: 2023-09-04, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/a30092ab42">a30092ab42</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="backing-subsystems"><a class="header" href="#backing-subsystems">Backing Subsystems</a></h1>
+<footer id="last-change">Last change: 2024-07-09, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/2f0e5a61b7">2f0e5a61b7</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="backing-subsystems"><a class="header" href="#backing-subsystems">Backing Subsystems</a></h1>
 <p>The backing subsystems, when conceived as a black box, receive an arbitrary quantity of parablock candidates and
 associated proofs of validity from arbitrary untrusted collators. From these, they produce a bounded quantity of
 backable candidates which relay chain block authors may choose to include in a subsequent block.</p>
@@ -4471,6 +4486,11 @@ statements.</li>
 appropriate PoV.</li>
 </ul>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="candidate-backing"><a class="header" href="#candidate-backing">Candidate Backing</a></h1>
+<blockquote>
+<p>NOTE: This module has suffered changes for the elastic scaling implementation. As a result, parts of this document may
+be out of date and will be updated at a later time. Issue tracking the update:
+https://github.com/paritytech/polkadot-sdk/issues/3699</p>
+</blockquote>
 <p>The Candidate Backing subsystem ensures every parablock considered for relay block inclusion has been seconded by at
 least one validator, and approved by a quorum. Parablocks for which not enough validators will assert correctness are
 discarded. If the block later proves invalid, the initial backers are slashable; this gives Polkadot a rational threat
@@ -4615,7 +4635,12 @@ therefore we need to retry with other backing validators in that case.</p>
 <p>Create a <code>(sender, receiver)</code> pair. Dispatch a <code>CandidateValidationMessage::Validate(validation function, candidate, pov, BACKING_EXECUTION_TIMEOUT, sender)</code> and listen on the receiver for a response.</p>
 <h3 id="distribute-signed-statement"><a class="header" href="#distribute-signed-statement">Distribute Signed Statement</a></h3>
 <p>Dispatch a <a href="node/backing/../../types/overseer-protocol.html#statement-distribution-message"><code>StatementDistributionMessage</code></a><code>::Share(relay_parent, SignedFullStatementWithPVD)</code>.</p>
-<footer id="last-change">Last change: 2023-09-04, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/a30092ab42">a30092ab42</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="prospective-parachains"><a class="header" href="#prospective-parachains">Prospective Parachains</a></h1>
+<footer id="last-change">Last change: 2024-07-09, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/2f0e5a61b7">2f0e5a61b7</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="prospective-parachains"><a class="header" href="#prospective-parachains">Prospective Parachains</a></h1>
+<blockquote>
+<p>NOTE: This module has suffered changes for the elastic scaling implementation. As a result, parts of this document may
+be out of date and will be updated at a later time. Issue tracking the update:
+https://github.com/paritytech/polkadot-sdk/issues/3699</p>
+</blockquote>
 <h2 id="overview"><a class="header" href="#overview">Overview</a></h2>
 <p><strong>Purpose:</strong> Tracks and handles prospective parachain fragments and informs
 other backing-stage subsystems of work to be done.</p>
@@ -4797,7 +4822,7 @@ anchored to.</li>
 <li><strong>Scope:</strong> The scope of a fragment tree, defining limits on nodes
 within the tree.</li>
 </ul>
-<footer id="last-change">Last change: 2024-05-13, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/d36da12e3c">d36da12e3c</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="statement-distribution"><a class="header" href="#statement-distribution">Statement Distribution</a></h1>
+<footer id="last-change">Last change: 2024-07-09, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/2f0e5a61b7">2f0e5a61b7</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="statement-distribution"><a class="header" href="#statement-distribution">Statement Distribution</a></h1>
 <p>This subsystem is responsible for distributing signed statements that we have generated and forwarding statements
 generated by our peers. Received candidate receipts and statements are passed to the <a href="node/backing/candidate-backing.html">Candidate Backing
 subsystem</a> to handle producing local statements. On receiving
@@ -8015,6 +8040,11 @@ attackers potentially sensitive data unnecessarily? And even if everything else
 is locked down, env vars can potentially provide a source of randomness (see
 point 1, &quot;Consensus faults&quot; above).</p>
 <footer id="last-change">Last change: 2024-02-28, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/426136671a">426136671a</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="provisioner"><a class="header" href="#provisioner">Provisioner</a></h1>
+<blockquote>
+<p>NOTE: This module has suffered changes for the elastic scaling implementation. As a result, parts of this document may
+be out of date and will be updated at a later time. Issue tracking the update:
+https://github.com/paritytech/polkadot-sdk/issues/3699</p>
+</blockquote>
 <p>Relay chain block authorship authority is governed by BABE and is beyond the scope of the Overseer and the rest of the
 subsystems. That said, ultimately the block author needs to select a set of backable parachain candidates and other
 consensus data, and assemble a block from them. This subsystem is responsible for providing the necessary data to all
@@ -8289,7 +8319,7 @@ availability from a particular validator's perspective. Each bit in the bitfield
 </ul>
 </li>
 </ul>
-<footer id="last-change">Last change: 2024-02-06, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/7df1ae3b81">7df1ae3b81</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="network-bridge"><a class="header" href="#network-bridge">Network Bridge</a></h1>
+<footer id="last-change">Last change: 2024-07-09, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/2f0e5a61b7">2f0e5a61b7</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="network-bridge"><a class="header" href="#network-bridge">Network Bridge</a></h1>
 <p>One of the main features of the overseer/subsystem duality is to avoid shared ownership of resources and to communicate
 via message-passing. However, implementing each networking subsystem as its own network protocol brings a fair share of
 challenges.</p>

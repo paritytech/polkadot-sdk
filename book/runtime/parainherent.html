@@ -147,6 +147,11 @@
                 <div id="content" class="content">
                     <main>
                         <h1 id="parainherent"><a class="header" href="#parainherent"><code>ParaInherent</code></a></h1>
+<blockquote>
+<p>NOTE: This module has suffered changes for the elastic scaling implementation. As a result, parts of this document may
+be out of date and will be updated at a later time. Issue tracking the update:
+https://github.com/paritytech/polkadot-sdk/issues/3699</p>
+</blockquote>
 <p>This module is responsible for providing all data given to the runtime by the block author to the various parachains
 modules. The entry-point is mandatory, in that it must be invoked exactly once within every block, and it is also
 &quot;inherent&quot;, in that it is provided with no origin by the block author. The data within it carries its own
@@ -228,7 +233,7 @@ backed candidate may end up with votes count less than <code>minimum_backing_vot
 In this case the whole candidate is dropped otherwise it will be rejected by <code>process_candidates</code> from pallet inclusion.
 All checks related to backed candidates are implemented in <code>sanitize_backed_candidates</code> and
 <code>filter_backed_statements_from_disabled_validators</code>.</p>
-<footer id="last-change">Last change: 2024-03-26, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/002d9260f9">002d9260f9</a></footer>
+<footer id="last-change">Last change: 2024-07-09, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/2f0e5a61b7">2f0e5a61b7</a></footer>
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">

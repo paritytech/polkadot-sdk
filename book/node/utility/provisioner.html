@@ -147,6 +147,11 @@
                 <div id="content" class="content">
                     <main>
                         <h1 id="provisioner"><a class="header" href="#provisioner">Provisioner</a></h1>
+<blockquote>
+<p>NOTE: This module has suffered changes for the elastic scaling implementation. As a result, parts of this document may
+be out of date and will be updated at a later time. Issue tracking the update:
+https://github.com/paritytech/polkadot-sdk/issues/3699</p>
+</blockquote>
 <p>Relay chain block authorship authority is governed by BABE and is beyond the scope of the Overseer and the rest of the
 subsystems. That said, ultimately the block author needs to select a set of backable parachain candidates and other
 consensus data, and assemble a block from them. This subsystem is responsible for providing the necessary data to all
@@ -421,7 +426,7 @@ availability from a particular validator's perspective. Each bit in the bitfield
 </ul>
 </li>
 </ul>
-<footer id="last-change">Last change: 2024-02-06, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/7df1ae3b81">7df1ae3b81</a></footer>
+<footer id="last-change">Last change: 2024-07-09, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/2f0e5a61b7">2f0e5a61b7</a></footer>
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
