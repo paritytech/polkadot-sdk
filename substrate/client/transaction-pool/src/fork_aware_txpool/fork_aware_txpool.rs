@@ -942,6 +942,42 @@ where
 		Some(view)
 	}
 
+	async fn extrinsics_included_since_finalized(&self, at: Block::Hash) -> HashSet<TxHash<Self>> {
+		let start = Instant::now();
+		let recent_finalized_block = self.enactment_state.lock().recent_finalized_block();
+
+		let Ok(tree_route) = self.api.tree_route(recent_finalized_block, at) else {
+			return Default::default()
+		};
+
+		let api = self.api.clone();
+		let mut all_extrinsics = HashSet::new();
+
+		for h in tree_route.enacted().iter().rev().skip(1) {
+			api.block_body(h.hash)
+				.await
+				.unwrap_or_else(|e| {
+					log::warn!(target: LOG_TARGET, "Compute ready light transactions: error request: {}", e);
+					None
+				})
+				.unwrap_or_default()
+				.into_iter()
+				.map(|t| api.hash_and_length(&t).0)
+				.for_each(|tx_hash| {
+					all_extrinsics.insert(tx_hash);
+				});
+		}
+
+		log::info!( target: LOG_TARGET,
+			"fatp::extrinsics_included_since_finalized {} from {} count: {} took:{:?}",
+			at,
+			recent_finalized_block,
+			all_extrinsics.len(),
+			start.elapsed()
+		);
+		all_extrinsics
+	}
+
 	//todo: maybe move to ViewManager
 	async fn update_view(&self, view: &View<ChainApi>) {
 		log::debug!(
@@ -954,6 +990,9 @@ where
 		//todo: source?
 		let source = TransactionSource::External;
 
+		//this could be collected/cached in view
+		let included_xts = self.extrinsics_included_since_finalized(view.at.hash).await;
+
 		//todo this clone is not neccessary, try to use iterators
 		let xts = self.mempool.clone_unwatched();
 
@@ -961,7 +1000,10 @@ where
 			let unwatched_count = xts.len();
 			let xts = xts
 				.into_iter()
-				.filter(|tx| !view.pool.validated_pool().pool.read().is_imported(&self.hash_of(tx)))
+				.filter(|tx| {
+					!view.pool.validated_pool().pool.read().is_imported(&self.hash_of(&tx))
+				})
+				.filter(|tx| !included_xts.contains(&self.hash_of(&tx)))
 				.collect::<Vec<_>>();
 			let filtered_count = xts.len();
 			//todo: internal checked banned: not required any more?
@@ -970,17 +1012,20 @@ where
 		}
 		let view = Arc::from(view);
 
-		//todo: txs from blocks on tree_route(from finalized, to at).enecated() shall be used for
-		//filtering (they are already invalid)
+		let included_xts = Arc::from(included_xts);
 		//todo: hash computed multiple times
+		//todo: maybe we don't need to register listener in view? We could use
+		// multi_view_listner.transcation_in_block
+
 		let results = self
 			.mempool
 			.watched_xts()
 			.map(|t| {
 				let view = view.clone();
+				let included_xts = included_xts.clone();
 				async move {
 					let tx_hash = self.hash_of(&t);
-					let result = if view.pool.validated_pool().pool.read().is_imported(&tx_hash)
+					let result = if view.pool.validated_pool().pool.read().is_imported(&tx_hash) || included_xts.contains(&tx_hash)
 					{
 						Err(Error::AlreadyImported(Box::new(tx_hash)).into())
 					} else {
