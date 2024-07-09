@@ -74,7 +74,9 @@ impl<WaivedLocations: Contains<Location>, FeeHandler: HandleFee> FeeManager
 /// It reuses the `AssetTransactor` configured on the XCM executor to deposit fee assets. If
 /// the `AssetTransactor` returns an error while calling `deposit_asset`, then a warning will be
 /// logged and the fee burned.
-#[deprecated(note = "`XcmFeeToAccount` will be removed in ???. Use `SendXcmFeeToAccount` instead.")]
+#[deprecated(
+	note = "`XcmFeeToAccount` will be removed in January 2025. Use `SendXcmFeeToAccount` instead."
+)]
 pub struct XcmFeeToAccount<AssetTransactor, AccountId, ReceiverAccount>(
 	PhantomData<(AssetTransactor, AccountId, ReceiverAccount)>,
 );
