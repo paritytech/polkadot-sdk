@@ -134,14 +134,16 @@ where
 	}
 
 	fn trigger(&mut self, at: <Block as BlockT>::Hash, ready_iterator: impl Fn() -> T) {
-		log::info!( target: LOG_TARGET,
-			"fatp::trigger {at:?} pending keys: {:?}",
-			self.pollers.keys());
+		log::debug!( target: LOG_TARGET, "fatp::trigger {at:?} pending keys: {:?}", self.pollers.keys());
 		let Some(pollers) = self.pollers.remove(&at) else { return };
 		pollers.into_iter().for_each(|p| {
 			log::info!(target: LOG_TARGET, "trigger ready signal at block {}", at);
 			let _ = p.send(ready_iterator());
 		});
+	}
+
+	fn remove_cancelled(&mut self) {
+		self.pollers.retain(|_, v| v.iter().any(|sender| !sender.is_canceled()));
 	}
 }
 
@@ -295,7 +297,6 @@ where
 
 	/// Returns best effort set of ready transactions for given block, without executing full
 	/// maintain process
-	//todo: better naming?
 	fn ready_light(&self, at: Block::Hash) -> PolledIterator<ChainApi> {
 		let start = Instant::now();
 		log::info!( target: LOG_TARGET, "fatp::ready_light {:?}", at);
@@ -396,7 +397,7 @@ where
 		at: Block::Hash,
 		timeout: std::time::Duration,
 	) -> PolledIterator<ChainApi> {
-		log::debug!(target: LOG_TARGET, "fatp::ready_at_with_timeout at {:?} allowed delay: {:?}", at, timeout);
+		log::info!(target: LOG_TARGET, "fatp::ready_at_with_timeout at {:?} allowed delay: {:?}", at, timeout);
 
 		let timeout = futures_timer::Delay::new(timeout);
 		let fall_back_ready = self.ready_light(at).map(|ready| Some(ready));
@@ -807,7 +808,8 @@ where
 			.boxed();
 		log::info!( target: LOG_TARGET,
 			"fatp::ready_at {at:?} pending keys: {:?}",
-			self.ready_poll.lock().pollers.keys());
+			self.ready_poll.lock().pollers.keys()
+		);
 		pending
 	}
 
@@ -1227,8 +1229,7 @@ where
 			log::debug!(target: LOG_TARGET, "purge_transactions_later skipped, cannot find block number {finalized_number:?}");
 		}
 
-		//todo:
-		//delete old keys in ReadyPoll.pollers (little memleak possible)
+		self.ready_poll.lock().remove_cancelled();
 		log::debug!(target: LOG_TARGET, "handle_finalized a:{:?}", self.views_len());
 	}
 
