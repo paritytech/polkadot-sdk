@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1720520154270,
+  "lastUpdate": 1720534301426,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -10104,6 +10104,53 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting",
             "value": 9.763205755850091,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Alin Dima",
+            "username": "alindima",
+            "email": "alin@parity.io"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "2f0e5a61b7739ff0f41ba124653b45ce269dee7e",
+          "message": "add notices to the implementer's guide docs that changed for elastic scaling (#4983)\n\nThe update is tracked by:\nhttps://github.com/paritytech/polkadot-sdk/issues/3699\n\nHowever, this is not worth doing at this point since it will change in\nthe future for phase 2 of the implementation.\n\nStill, it's useful to let people know that the information is not the\nmost up to date.",
+          "timestamp": "2024-07-09T11:36:07Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/2f0e5a61b7739ff0f41ba124653b45ce269dee7e"
+        },
+        "date": 1720534271513,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63841.829999999994,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52941.09999999999,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 3.6779079421002647,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 7.8598901578800495,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 10.67828677357984,
             "unit": "seconds"
           }
         ]
