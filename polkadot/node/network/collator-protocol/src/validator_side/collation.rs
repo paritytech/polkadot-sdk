@@ -148,6 +148,9 @@ pub fn fetched_collation_sanity_check(
 		.prospective_candidate
 		.map_or(false, |pc| pc.candidate_hash() != fetched.hash())
 	{
+		// Note: it's important that we check for this and punish a collator that advertises a false
+		// candidate hash, because it can be misused to prioritise a specific collation, according
+		// to the fork choice rule in Prospective Parachains.
 		Err(SecondingError::CandidateHashMismatch)
 	} else if maybe_parent_head_and_hash.map_or(false, |(head, hash)| head.hash() != hash) {
 		Err(SecondingError::ParentHeadDataMismatch)
