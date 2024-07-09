@@ -31,6 +31,7 @@ use cumulus_client_service::{
 };
 use cumulus_primitives_core::{relay_chain::ValidationCode, ParaId};
 use cumulus_relay_chain_interface::{OverseerHandle, RelayChainInterface};
+use sc_transaction_pool::TransactionPoolImpl;
 
 use crate::{
 	common::{
@@ -60,7 +61,6 @@ use sc_network::{config::FullNetworkConfiguration, service::traits::NetworkBacke
 use sc_service::{Configuration, Error, PartialComponents, TFullBackend, TFullClient, TaskManager};
 use sc_sysinfo::HwBench;
 use sc_telemetry::{Telemetry, TelemetryHandle, TelemetryWorker, TelemetryWorkerHandle};
-use sc_transaction_pool::FullPool;
 use sp_api::ProvideRuntimeApi;
 use sp_keystore::KeystorePtr;
 use sp_runtime::{app_crypto::AppCrypto, traits::Header as HeaderT};
@@ -88,7 +88,7 @@ pub type Service<RuntimeApi> = PartialComponents<
 	ParachainBackend,
 	(),
 	sc_consensus::DefaultImportQueue<Block>,
-	sc_transaction_pool::TransactionPoolImpl<Block, ParachainClient<RuntimeApi>>,
+	TransactionPoolImpl<Block, ParachainClient<RuntimeApi>>,
 	(ParachainBlockImport<RuntimeApi>, Option<Telemetry>, Option<TelemetryWorkerHandle>),
 >;
 
@@ -113,7 +113,7 @@ where
 		telemetry: Option<TelemetryHandle>,
 		task_manager: &TaskManager,
 		relay_chain_interface: Arc<dyn RelayChainInterface>,
-		transaction_pool: Arc<sc_transaction_pool::FullPool<Block, ParachainClient<RuntimeApi>>>,
+		transaction_pool: Arc<TransactionPoolImpl<Block, ParachainClient<RuntimeApi>>>,
 		keystore: KeystorePtr,
 		relay_chain_slot_duration: Duration,
 		para_id: ParaId,
@@ -132,7 +132,7 @@ pub(crate) trait NodeSpec {
 	type BuildRpcExtensions: BuildRpcExtensions<
 			ParachainClient<Self::RuntimeApi>,
 			ParachainBackend,
-			sc_transaction_pool::FullPool<Block, ParachainClient<Self::RuntimeApi>>,
+			TransactionPoolImpl<Block, ParachainClient<Self::RuntimeApi>>,
 		> + 'static;
 
 	type StartConsensus: StartConsensus<Self::RuntimeApi> + 'static;
@@ -183,13 +183,14 @@ pub(crate) trait NodeSpec {
 			telemetry
 		});
 
-		let transaction_pool = sc_transaction_pool::BasicPool::new_full(
-			config.transaction_pool.clone(),
-			config.role.is_authority().into(),
-			config.prometheus_registry(),
-			task_manager.spawn_essential_handle(),
-			client.clone(),
-		);
+		let transaction_pool = sc_transaction_pool::Builder::new()
+			.with_options(config.transaction_pool.clone())
+			.build(
+				config.role.is_authority().into(),
+				config.prometheus_registry(),
+				task_manager.spawn_essential_handle(),
+				client.clone(),
+			);
 
 		let block_import = ParachainBlockImport::new(client.clone(), backend.clone());
 
@@ -555,7 +556,7 @@ impl StartConsensus<FakeRuntimeApi> for StartRelayChainConsensus {
 		telemetry: Option<TelemetryHandle>,
 		task_manager: &TaskManager,
 		relay_chain_interface: Arc<dyn RelayChainInterface>,
-		transaction_pool: Arc<FullPool<Block, ParachainClient<FakeRuntimeApi>>>,
+		transaction_pool: Arc<TransactionPoolImpl<Block, ParachainClient<FakeRuntimeApi>>>,
 		_keystore: KeystorePtr,
 		_relay_chain_slot_duration: Duration,
 		para_id: ParaId,
@@ -637,7 +638,7 @@ where
 		telemetry: Option<TelemetryHandle>,
 		task_manager: &TaskManager,
 		relay_chain_interface: Arc<dyn RelayChainInterface>,
-		transaction_pool: Arc<FullPool<Block, ParachainClient<RuntimeApi>>>,
+		transaction_pool: Arc<TransactionPoolImpl<Block, ParachainClient<RuntimeApi>>>,
 		keystore: KeystorePtr,
 		relay_chain_slot_duration: Duration,
 		para_id: ParaId,
@@ -741,7 +742,7 @@ where
 		telemetry: Option<TelemetryHandle>,
 		task_manager: &TaskManager,
 		relay_chain_interface: Arc<dyn RelayChainInterface>,
-		transaction_pool: Arc<FullPool<Block, ParachainClient<RuntimeApi>>>,
+		transaction_pool: Arc<TransactionPoolImpl<Block, ParachainClient<RuntimeApi>>>,
 		keystore: KeystorePtr,
 		relay_chain_slot_duration: Duration,
 		para_id: ParaId,

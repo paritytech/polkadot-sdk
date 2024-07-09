@@ -50,7 +50,7 @@ impl<RuntimeApi>
 	BuildRpcExtensions<
 		ParachainClient<RuntimeApi>,
 		ParachainBackend,
-		sc_transaction_pool::FullPool<Block, ParachainClient<RuntimeApi>>,
+		sc_transaction_pool::TransactionPoolImpl<Block, ParachainClient<RuntimeApi>>,
 	> for BuildEmptyRpcExtensions<RuntimeApi>
 where
 	RuntimeApi: ConstructNodeRuntimeApi<Block, ParachainClient<RuntimeApi>> + Send + Sync + 'static,
@@ -59,7 +59,7 @@ where
 		_deny_unsafe: DenyUnsafe,
 		_client: Arc<ParachainClient<RuntimeApi>>,
 		_backend: Arc<ParachainBackend>,
-		_pool: Arc<sc_transaction_pool::FullPool<Block, ParachainClient<RuntimeApi>>>,
+		_pool: Arc<sc_transaction_pool::TransactionPoolImpl<Block, ParachainClient<RuntimeApi>>>,
 	) -> sc_service::error::Result<RpcExtension> {
 		Ok(RpcExtension::new(()))
 	}
@@ -71,7 +71,7 @@ impl<RuntimeApi>
 	BuildRpcExtensions<
 		ParachainClient<RuntimeApi>,
 		ParachainBackend,
-		sc_transaction_pool::FullPool<Block, ParachainClient<RuntimeApi>>,
+		sc_transaction_pool::TransactionPoolImpl<Block, ParachainClient<RuntimeApi>>,
 	> for BuildParachainRpcExtensions<RuntimeApi>
 where
 	RuntimeApi: ConstructNodeRuntimeApi<Block, ParachainClient<RuntimeApi>> + Send + Sync + 'static,
@@ -82,7 +82,7 @@ where
 		deny_unsafe: DenyUnsafe,
 		client: Arc<ParachainClient<RuntimeApi>>,
 		backend: Arc<ParachainBackend>,
-		pool: Arc<sc_transaction_pool::FullPool<Block, ParachainClient<RuntimeApi>>>,
+		pool: Arc<sc_transaction_pool::TransactionPoolImpl<Block, ParachainClient<RuntimeApi>>>,
 	) -> sc_service::error::Result<RpcExtension> {
 		let build = || -> Result<RpcExtension, Box<dyn std::error::Error + Send + Sync>> {
 			let mut module = RpcExtension::new(());
