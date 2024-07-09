@@ -348,8 +348,8 @@ async fn handle_active_leaves_update<Context>(
 				relay_parent = ?hash,
 				para_id = ?para,
 				"Populated fragment chain with {} candidates: {:?}",
-				chain.len(),
-				chain.to_vec()
+				chain.best_chain_len(),
+				chain.best_chain_vec()
 			);
 
 			gum::trace!(
@@ -375,7 +375,7 @@ async fn handle_active_leaves_update<Context>(
 		let mut unconnected = 0;
 		for RelayBlockViewData { fragment_chains } in view.active_leaves.values() {
 			for chain in fragment_chains.values() {
-				connected += chain.len();
+				connected += chain.best_chain_len();
 				unconnected += chain.unconnected_len();
 			}
 		}
@@ -577,7 +577,7 @@ async fn handle_candidate_backed(
 					relay_parent = ?leaf,
 					para_id = ?para,
 					"Candidate backed. Candidate chain for para: {:?}",
-					maybe_new_chain.as_ref().unwrap_or(chain).to_vec()
+					maybe_new_chain.as_ref().unwrap_or(chain).best_chain_vec()
 				);
 
 				gum::trace!(
@@ -656,7 +656,7 @@ fn answer_get_backable_candidates(
 		?relay_parent,
 		para_id = ?para,
 		"Candidate chain for para: {:?}",
-		chain.to_vec()
+		chain.best_chain_vec()
 	);
 
 	gum::trace!(
