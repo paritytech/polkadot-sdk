@@ -268,7 +268,7 @@ where
 	}
 
 	/// Provides a number of views at the tips of the forks.
-	pub fn views_len(&self) -> usize {
+	pub fn views_count(&self) -> usize {
 		self.view_store.views.read().len()
 	}
 
@@ -276,7 +276,7 @@ where
 	///
 	/// Provides block number, count of ready, count of future transactions for every view. It is
 	/// suitable for printing log information.
-	fn views_numbers(&self) -> Vec<(NumberFor<Block>, usize, usize)> {
+	fn views_stats(&self) -> Vec<(NumberFor<Block>, usize, usize)> {
 		self.view_store
 			.views
 			.read()
@@ -646,7 +646,7 @@ where
 		xts: Vec<TransactionFor<Self>>,
 	) -> PoolFuture<Vec<Result<TxHash<Self>, Self::Error>>, Self::Error> {
 		let view_store = self.view_store.clone();
-		log::info!(target: LOG_TARGET, "fatp::submit_at count:{} views:{}", xts.len(), self.views_len());
+		log::info!(target: LOG_TARGET, "fatp::submit_at count:{} views:{}", xts.len(), self.views_count());
 		log_xt_debug!(target: LOG_TARGET, xts.iter().map(|xt| self.tx_hash(xt)), "[{:?}] fatp::submit_at");
 		self.mempool.extend_unwatched(xts.clone());
 		let xts = xts.clone();
@@ -676,7 +676,7 @@ where
 		source: TransactionSource,
 		xt: TransactionFor<Self>,
 	) -> PoolFuture<TxHash<Self>, Self::Error> {
-		log::debug!(target: LOG_TARGET, "[{:?}] fatp::submit_one views:{}", self.tx_hash(&xt), self.views_len());
+		log::debug!(target: LOG_TARGET, "[{:?}] fatp::submit_one views:{}", self.tx_hash(&xt), self.views_count());
 		// todo:
 		// self.metrics.report(|metrics| metrics.submitted_transactions.inc());
 		self.mempool.push_unwatched(xt.clone());
@@ -709,7 +709,7 @@ where
 		source: TransactionSource,
 		xt: TransactionFor<Self>,
 	) -> PoolFuture<Pin<Box<TransactionStatusStreamFor<Self>>>, Self::Error> {
-		log::debug!(target: LOG_TARGET, "[{:?}] fatp::submit_and_watch views:{}", self.tx_hash(&xt), self.views_len());
+		log::debug!(target: LOG_TARGET, "[{:?}] fatp::submit_and_watch views:{}", self.tx_hash(&xt), self.views_count());
 		self.mempool.push_watched(xt.clone());
 
 		// todo:
@@ -966,7 +966,7 @@ where
 			"update_view: {:?} xts:{:?} v:{}",
 			view.at,
 			self.mempool.len(),
-			self.views_len()
+			self.views_count()
 		);
 		//todo: source?
 		let source = TransactionSource::External;
@@ -1192,7 +1192,7 @@ where
 		log::info!(target: LOG_TARGET, "handle_finalized {finalized_number:?} tree_route: {tree_route:?}");
 
 		let finalized_xts = self.view_store.handle_finalized(finalized_hash, tree_route).await;
-		log::debug!(target: LOG_TARGET, "handle_finalized b:{:?}", self.views_len());
+		log::debug!(target: LOG_TARGET, "handle_finalized b:{:?}", self.views_count());
 
 		self.mempool.purge_finalized_transactions(&finalized_xts).await;
 		self.import_notification_sink.clean_filter(&finalized_xts);
@@ -1209,13 +1209,14 @@ where
 		}
 
 		self.ready_poll.lock().remove_cancelled();
-		log::debug!(target: LOG_TARGET, "handle_finalized a:{:?}", self.views_len());
+		log::debug!(target: LOG_TARGET, "handle_finalized a:{:?}", self.views_count());
 	}
 
 	fn tx_hash(&self, xt: &TransactionFor<Self>) -> TxHash<Self> {
 		self.api.hash_and_length(xt).0
 	}
 
+	// use for verirfaction - only for debugging purposes
 	async fn verify(&self) {
 		log::info!(target:LOG_TARGET, "fatp::verify++");
 
@@ -1322,8 +1323,8 @@ where
 			target: LOG_TARGET,
 			"maintain: txs:{:?} views:[{};{:?}] event:{event:?}  took:{:?}",
 			self.mempool_len(),
-			self.views_len(),
-			self.views_numbers(),
+			self.views_count(),
+			self.views_stats(),
 			start.elapsed()
 		);
 
