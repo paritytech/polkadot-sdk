@@ -1379,6 +1379,60 @@ impl<T: Config> SnapshotWrapper<T> {
 }
 
 impl<T: Config> Pallet<T> {
+	/// Internal counter for the number of rounds.
+	///
+	/// This is useful for de-duplication of transactions submitted to the pool, and general
+	/// diagnostics of the pallet.
+	///
+	/// This is merely incremented once per every time that an upstream `elect` is called.
+	pub fn round() -> u32 {
+		Round::<T>::get()
+	}
+
+	/// Current phase.
+	pub fn current_phase() -> Phase<BlockNumberFor<T>> {
+		CurrentPhase::<T>::get()
+	}
+
+	/// Current best solution, signed or unsigned, queued to be returned upon `elect`.
+	///
+	/// Always sorted by score.
+	pub fn queued_solution() -> Option<ReadySolution<T::AccountId, T::MaxWinners>> {
+		QueuedSolution::<T>::get()
+	}
+
+	/// Snapshot data of the round.
+	///
+	/// This is created at the beginning of the signed phase and cleared upon calling `elect`.
+	/// Note: This storage type must only be mutated through [`SnapshotWrapper`].
+	pub fn snapshot() -> Option<RoundSnapshot<T::AccountId, VoterOf<T>>> {
+		Snapshot::<T>::get()
+	}
+
+	/// Desired number of targets to elect for this round.
+	///
+	/// Only exists when [`Snapshot`] is present.
+	/// Note: This storage type must only be mutated through [`SnapshotWrapper`].
+	pub fn desired_targets() -> Option<u32> {
+		DesiredTargets::<T>::get()
+	}
+
+	/// The metadata of the [`RoundSnapshot`]
+	///
+	/// Only exists when [`Snapshot`] is present.
+	/// Note: This storage type must only be mutated through [`SnapshotWrapper`].
+	pub fn snapshot_metadata() -> Option<SolutionOrSnapshotSize> {
+		SnapshotMetadata::<T>::get()
+	}
+
+	/// The minimum score that each 'untrusted' solution must attain in order to be considered
+	/// feasible.
+	///
+	/// Can be set via `set_minimum_untrusted_score`.
+	pub fn minimum_untrusted_score() -> Option<ElectionScore> {
+		MinimumUntrustedScore::<T>::get()
+	}
+
 	/// Internal logic of the offchain worker, to be executed only when the offchain lock is
 	/// acquired with success.
 	fn do_synchronized_offchain_worker(now: BlockNumberFor<T>) {
