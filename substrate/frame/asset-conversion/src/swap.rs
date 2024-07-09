@@ -119,7 +119,7 @@ pub trait QuoteExchangePrice {
 	/// Kind of assets that are going to be quoted.
 	type AssetKind;
 
-	/// Provides the amount of `asset2` exchangeable for an exact amount of `asset1`.
+	/// Provides the amount of `asset2` exchangeable for an exact `amount` of `asset1`.
 	fn quote_price_exact_tokens_for_tokens(
 		asset1: Self::AssetKind,
 		asset2: Self::AssetKind,

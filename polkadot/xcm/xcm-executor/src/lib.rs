@@ -80,9 +80,9 @@ pub struct XcmExecutor<Config: config::Config> {
 	appendix_weight: Weight,
 	transact_status: MaybeErrorCode,
 	fees_mode: FeesMode,
-	/// Asset provided in `BuyExecution` instruction (if any) in current XCM program. Same asset
-	/// will be used for paying any potential delivery fees incurred by current XCM program.
-	asset_used_for_fees: Option<Asset>,
+	/// Id of asset provided in `BuyExecution` instruction (if any) in current XCM program. Same asset
+	/// type will be used for paying any potential delivery fees incurred by current XCM program.
+	asset_used_for_fees: Option<AssetId>,
 	_config: PhantomData<Config>,
 }
 
@@ -920,8 +920,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 					let (_, fee) =
 						validate_send::<Config::XcmSender>(dest.clone(), Xcm(message_to_weigh))?;
 					let maybe_delivery_fee = if let Some(asset_needed_for_fees) = fee.get(0) {
-						log::trace!(target: "xcm::DepositReserveAsset", "Asset needed to pay for fees: {:?}", asset_needed_for_fees);
-						log::trace!(target: "xcm::DepositReserveAsset", "Asset wanted to pay for fees: {:?}", self.asset_used_for_fees);
+						log::trace!(target: "xcm::DepositReserveAsset", "Asset provided to pay for fees {:?}, asset required for transport fees: {:?}", self.asset_used_for_fees, asset_needed_for_fees);
 						let asset_to_pay_for_fees =
 							self.asset_used_for_fees.as_ref().unwrap_or(&asset_needed_for_fees);
 						let actual_asset_to_use_for_fees =

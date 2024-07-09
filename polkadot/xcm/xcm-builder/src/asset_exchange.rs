@@ -104,9 +104,8 @@ where
 				give.clone()
 			})?;
 
-		log::trace!(target: "xcm", "Credit out: {:?}", credit_out.peek());
-		log::trace!(target: "xcm", "Credit change: {:?}", credit_change.peek());
-		assert!(credit_change.peek() == Zero::zero());
+		log::trace!(target: "xcm", "Credit out: {:?}, Credit change: {:?}", credit_out.peek(), credit_change.peek());
+		debug_assert!(credit_change.peek() == Zero::zero());
 
 		let resulting_asset: Asset = (want_asset.id.clone(), credit_out.peek()).into();
 		Ok(resulting_asset.into())
