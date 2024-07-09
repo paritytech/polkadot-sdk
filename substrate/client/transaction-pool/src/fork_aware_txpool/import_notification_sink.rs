@@ -33,7 +33,7 @@ use std::{
 	pin::Pin,
 	sync::Arc,
 };
-use tokio::sync::RwLock;
+use parking_lot::RwLock;
 use tokio_stream::StreamMap;
 
 type StreamOf<I> = Pin<Box<dyn futures::Stream<Item = I> + Send>>;
@@ -127,8 +127,8 @@ where
 				let external_sinks = external_sinks.clone();
 				let filter = filter.clone();
 				async move {
-					if filter.write().await.insert(event.clone()) {
-						for sink in &mut *external_sinks.write().await {
+					if filter.write().insert(event.clone()) {
+						for sink in &mut *external_sinks.write() {
 							debug!(target: LOG_TARGET, "[{:?}] import_sink_worker sending out imported", event);
 							let _ = sink.try_send(event.clone()).map_err(|e| {
 								debug!(target: LOG_TARGET, "import_sink_worker sending message failed: {e}");
@@ -141,21 +141,21 @@ where
 		(ctrl, f)
 	}
 
-	pub async fn add_view(&self, key: K, view: StreamOf<I>) {
+	pub fn add_view(&self, key: K, view: StreamOf<I>) {
 		let _ = self.ctrl.unbounded_send(Command::AddView(key.clone(), view)).map_err(|e| {
 			debug!(target: LOG_TARGET, "add_view {key:?} send message failed: {e}");
 		});
 	}
 
-	pub async fn event_stream(&self) -> EventStream<I> {
+	pub fn event_stream(&self) -> EventStream<I> {
 		const CHANNEL_BUFFER_SIZE: usize = 1024;
 		let (sender, receiver) = channel(CHANNEL_BUFFER_SIZE);
-		self.external_sinks.write().await.push(sender);
+		self.external_sinks.write().push(sender);
 		receiver
 	}
 
-	pub async fn clean_filter(&self, items_to_be_removed: &Vec<I>) {
-		self.filter.write().await.retain(|v| !items_to_be_removed.contains(v));
+	pub fn clean_filter(&self, items_to_be_removed: &Vec<I>) {
+		self.filter.write().retain(|v| !items_to_be_removed.contains(v));
 	}
 }
 
@@ -192,7 +192,7 @@ mod tests {
 
 		async fn event_stream(&self) -> EventStream<I> {
 			let (sender, receiver) = channel(32);
-			self.sinks.write().await.push(sender);
+			self.sinks.write().push(sender);
 			receiver
 		}
 
@@ -202,14 +202,14 @@ mod tests {
 			tokio::spawn(async move {
 				loop {
 					if scenario.is_empty() {
-						for sink in &mut *sinks.write().await {
+						for sink in &mut *sinks.write() {
 							sink.close_channel();
 						}
 						break;
 					};
 					let x = scenario.remove(0);
 					tokio::time::sleep(Duration::from_millis(x.delay)).await;
-					for sink in &mut *sinks.write().await {
+					for sink in &mut *sinks.write() {
 						sink.try_send(x.value.clone()).unwrap();
 					}
 				}
@@ -225,7 +225,7 @@ mod tests {
 
 		let j0 = tokio::spawn(runnable);
 
-		let stream = ctrl.event_stream().await;
+		let stream = ctrl.event_stream();
 
 		let mut v1 = View::new(vec![(0, 1), (0, 2), (0, 3)]);
 		let mut v2 = View::new(vec![(0, 1), (0, 2), (0, 6)]);
@@ -239,9 +239,9 @@ mod tests {
 		let o2 = v2.event_stream().await.boxed();
 		let o3 = v3.event_stream().await.boxed();
 
-		ctrl.add_view(1000, o1).await;
-		ctrl.add_view(2000, o2).await;
-		ctrl.add_view(3000, o3).await;
+		ctrl.add_view(1000, o1);
+		ctrl.add_view(2000, o2);
+		ctrl.add_view(3000, o3);
 
 		let out = stream.take(4).collect::<Vec<_>>().await;
 		assert!(out.iter().all(|v| vec![1, 2, 3, 6].contains(v)));
@@ -258,7 +258,7 @@ mod tests {
 
 		let j0 = tokio::spawn(runnable);
 
-		let stream = ctrl.event_stream().await;
+		let stream = ctrl.event_stream();
 
 		let mut v1 = View::new(vec![(10, 1), (10, 2), (10, 3)]);
 		let mut v2 = View::new(vec![(20, 1), (20, 2), (20, 6)]);
@@ -272,15 +272,15 @@ mod tests {
 		let o2 = v2.event_stream().await.boxed();
 		let o3 = v3.event_stream().await.boxed();
 
-		ctrl.add_view(1000, o1).await;
-		ctrl.add_view(2000, o2).await;
+		ctrl.add_view(1000, o1);
+		ctrl.add_view(2000, o2);
 
 		let j4 = {
 			let ctrl = ctrl.clone();
 			tokio::spawn(async move {
 				tokio::time::sleep(Duration::from_millis(70)).await;
-				ctrl.clean_filter(&vec![1, 3]).await;
-				ctrl.add_view(3000, o3.boxed()).await;
+				ctrl.clean_filter(&vec![1, 3]);
+				ctrl.add_view(3000, o3.boxed());
 			})
 		};
 
@@ -299,8 +299,8 @@ mod tests {
 
 		let j0 = tokio::spawn(runnable);
 
-		let stream0 = ctrl.event_stream().await;
-		let stream1 = ctrl.event_stream().await;
+		let stream0 = ctrl.event_stream();
+		let stream1 = ctrl.event_stream();
 
 		let mut v1 = View::new(vec![(0, 1), (0, 2), (0, 3)]);
 		let mut v2 = View::new(vec![(0, 1), (0, 2), (0, 6)]);
@@ -314,9 +314,9 @@ mod tests {
 		let o2 = v2.event_stream().await.boxed();
 		let o3 = v3.event_stream().await.boxed();
 
-		ctrl.add_view(1000, o1).await;
-		ctrl.add_view(2000, o2).await;
-		ctrl.add_view(3000, o3).await;
+		ctrl.add_view(1000, o1);
+		ctrl.add_view(2000, o2);
+		ctrl.add_view(3000, o3);
 
 		let out0 = stream0.take(4).collect::<Vec<_>>().await;
 		let out1 = stream1.take(4).collect::<Vec<_>>().await;

@@ -740,8 +740,7 @@ where
 	/// Consumers of this stream should use the `ready` method to actually get the
 	/// pending transactions in the right order.
 	fn import_notification_stream(&self) -> ImportNotificationStream<ExtrinsicHash<ChainApi>> {
-		//todo: can we do better, block_on smells like problems...
-		futures::executor::block_on(self.import_notification_sink.event_stream())
+		self.import_notification_sink.event_stream()
 	}
 
 	fn hash_of(&self, xt: &TransactionFor<Self>) -> TxHash<Self> {
@@ -905,8 +904,7 @@ where
 
 		//we need to capture all import notifiication from the very beginning
 		self.import_notification_sink
-			.add_view(view.at.hash, view.pool.validated_pool().import_notification_stream().boxed())
-			.await;
+			.add_view(view.at.hash, view.pool.validated_pool().import_notification_stream().boxed());
 
 		let start = Instant::now();
 		self.update_view(&mut view).await;
@@ -1195,7 +1193,7 @@ where
 		log::debug!(target: LOG_TARGET, "handle_finalized b:{:?}", self.views_len());
 
 		self.mempool.purge_finalized_transactions(&finalized_xts).await;
-		self.import_notification_sink.clean_filter(&finalized_xts).await;
+		self.import_notification_sink.clean_filter(&finalized_xts);
 
 		if let Ok(Some(finalized_number)) = finalized_number {
 			self.revalidation_queue
