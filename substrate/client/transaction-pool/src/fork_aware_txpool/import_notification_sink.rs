@@ -25,6 +25,7 @@ use futures::{
 	Future, FutureExt,
 };
 use log::{debug, trace};
+use parking_lot::RwLock;
 use sc_utils::mpsc;
 use std::{
 	collections::HashSet,
@@ -33,7 +34,6 @@ use std::{
 	pin::Pin,
 	sync::Arc,
 };
-use parking_lot::RwLock;
 use tokio_stream::StreamMap;
 
 type StreamOf<I> = Pin<Box<dyn futures::Stream<Item = I> + Send>>;
