@@ -11,6 +11,6 @@ doc:
 
 crates:
   - name: pallet-election-provider-multi-phase
-    bump: major
+    bump: minor
   - name: pallet-election-provider-e2e-test
     bump: minor
