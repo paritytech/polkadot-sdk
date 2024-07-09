@@ -67,7 +67,7 @@ fn ptr_or_sentinel(data: &Option<&[u8]>) -> *const u8 {
 pub enum HostFnImpl {}
 
 /// Defines all the host apis implemented by both wasm and RISC-V vms.
-pub trait HostFn {
+pub trait HostFn: private::Sealed {
 	/// Returns the number of times specified contract exists on the call stack. Delegated calls are
 	/// not counted as separate calls.
 	///
@@ -880,4 +880,9 @@ pub trait HostFn {
 		note = "Unstable function. Behaviour can change without further notice. Use only for testing."
 	)]
 	fn xcm_send(dest: &[u8], msg: &[u8], output: &mut [u8; 32]) -> Result;
+}
+
+mod private {
+	pub trait Sealed {}
+	impl Sealed for super::HostFnImpl {}
 }
