@@ -37,7 +37,7 @@ jobs:
     with:
        excluded_runtimes: "substrate-test bp cumulus-test kitchensink minimal-template parachain-template penpal polkadot-test seedling shell frame-try sp solochain-template"
        build_opts: ""
-       name_suffix: "-${{ github.env.LOGGING_NAME_SUFFIX }}"
+       name_suffix: "-${LOGGING_NAME_SUFFIX}"
 
   build-binaries:
     runs-on: ubuntu-latest
@@ -156,6 +156,17 @@ jobs:
         run: |
           >>$GITHUB_ENV echo ASSET=$(find ${{ matrix.chain }}-runtime -name '*.compact.compressed.wasm')
           >>$GITHUB_ENV echo SPEC=$(<${JSON} jq -r .runtimes.compact.subwasm.core_version.specVersion)
+
+      - name: Upload compressed ${{ matrix.chain }} v${{ env.SPEC }} wasm
+        if: ${{ matrix.chain  != 'rococo-parachain' }}
+        uses: actions/upload-release-asset@e8f9f06c4b078e705bd2ea027f0926603fc9b4d5 #v1.0.2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.publish-release-draft.outputs.asset_upload_url }}
+          asset_path: ${{ env.ASSET }}
+          asset_name: ${{ matrix.chain }}_runtime-v${{ env.SPEC }}.compact.compressed.wasm
+          asset_content_type: application/wasm
 
   publish-runtimes-with-logging:
     needs: [ build-runtimes-with-logging, publish-release-draft ]
