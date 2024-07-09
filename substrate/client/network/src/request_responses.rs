@@ -51,7 +51,7 @@ use libp2p::{
 		ConnectionDenied, ConnectionId, NetworkBehaviour, PollParameters, THandler,
 		THandlerInEvent, THandlerOutEvent, ToSwarm,
 	},
-	PeerId,
+	PeerId, 
 };
 
 use std::{
@@ -62,9 +62,43 @@ use std::{
 	sync::Arc,
 	task::{Context, Poll},
 	time::{Duration, Instant},
+	fmt::{Display,Formatter},
+	fmt,
 };
 
 pub use libp2p::request_response::{Config, InboundFailure, OutboundFailure, RequestId};
+
+/// Adding a custom OutBoundFailure, not depending on libp2p
+#[derive(Debug, thiserror::Error)]
+#[allow(missing_docs)]
+pub enum CustomOutboundFailure{
+	DialFailure,
+    Timeout,
+    ConnectionClosed,
+    UnsupportedProtocols,
+}
+
+/// Implement Display trait
+impl Display for CustomOutboundFailure{
+	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result{
+		match self {
+			CustomOutboundFailure::DialFailure => write!(f, "DialFailure"),
+			CustomOutboundFailure::Timeout => write!(f, "Timeout"),
+			CustomOutboundFailure::ConnectionClosed => write!(f, "ConnectionClosed"),
+			CustomOutboundFailure::UnsupportedProtocols => write!(f, "UnsupportedProtocols"),
+		}
+	}
+}
+
+/// In preparation for a CustomOutBoundFailure Event 
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub struct OutboundRequestId(u64);
+
+impl fmt::Display for OutboundRequestId {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
 
 /// Error in a request.
 #[derive(Debug, thiserror::Error)]
@@ -248,6 +282,12 @@ pub enum Event {
 		/// Reputation changes.
 		changes: Vec<ReputationChange>,
 	},
+
+	/*CustomOutboundFailure {
+		peer: PeerId,
+        request_id: OutboundRequestId,
+        error: CustomOutboundFailure,
+	}*/
 }
 
 /// Combination of a protocol name and a request id.

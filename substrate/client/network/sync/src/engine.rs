@@ -47,7 +47,6 @@ use futures::{
 	future::{BoxFuture, Fuse},
 	FutureExt, StreamExt,
 };
-use sc_network::request_responses::OutboundFailure;
 use log::{debug, error, trace, warn};
 use prometheus_endpoint::{
 	register, Counter, Gauge, MetricSource, Opts, PrometheusError, Registry, SourcedGauge, U64,
@@ -61,7 +60,7 @@ use sc_consensus::{import_queue::ImportQueueService, IncomingBlock};
 use sc_network::{
 	config::{FullNetworkConfiguration, NotificationHandshake, ProtocolId, SetConfig},
 	peer_store::PeerStoreProvider,
-	request_responses::{IfDisconnected, RequestFailure},
+	request_responses::{IfDisconnected, RequestFailure, OutboundFailure},
 	service::{
 		traits::{Direction, NotificationConfig, NotificationEvent, ValidationResult},
 		NotificationMetrics,
