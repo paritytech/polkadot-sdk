@@ -948,7 +948,7 @@ pub mod pallet_prelude {
 	///
 	/// In the context of `FRAME` pallets, this is generally used to register the default
 	/// implementation of the `DefaultConfig` trait generated via
-	/// `[`#[pallet::config(with_default)]`](`frame_support::pallet_macros::config`)`.
+	/// [`#[pallet::config(with_default)]`](frame_support::pallet_macros::config).
 	///
 	/// However, this can also be used to register custom default configuration of any pallet.
 	#[doc = docify::embed!("src/tests/custom_default_config.rs", custom_config_prelude)]
