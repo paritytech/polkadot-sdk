@@ -65,3 +65,8 @@ where
 {
 	type BoundedRuntimeApi = T::RuntimeApi;
 }
+
+/// Extra args that are passed when creating a new node spec.
+pub struct NodeExtraArgs {
+	pub use_slot_based_consensus: bool,
+}
