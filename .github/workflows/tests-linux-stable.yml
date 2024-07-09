@@ -94,7 +94,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
       - name: update forklift
-        run: curl -o forklift -L https://github.com/paritytech/forklift/releases/download/0.13.1-alpha/forklift_0.13.1-alpha_linux_amd64
-      - run: chmod +x forklift && ./forklift version
+        run: curl -o .forklift/forklift -L https://github.com/paritytech/forklift/releases/download/0.13.1-alpha/forklift_0.13.1-alpha_linux_amd64
+      - run: chmod +x .forklift/forklift && .forklift/forklift version
       - name: script
-        run: time ./forklift cargo nextest run --workspace --locked --release --no-fail-fast --features try-runtime,experimental,riscv,ci-only-tests -E "!test(/.*benchmark.*/)" --partition count:${{ matrix.ci_node_index }}/${{ matrix.ci_node_total }}
+        run: time ./.forklift/forklift cargo nextest run --workspace --locked --release --no-fail-fast --features try-runtime,experimental,riscv,ci-only-tests -E "!test(/.*benchmark.*/)" --partition count:${{ matrix.ci_node_index }}/${{ matrix.ci_node_total }}
