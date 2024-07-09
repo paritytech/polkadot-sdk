@@ -11,7 +11,7 @@ doc:
       ```rust
       let xcm = Xcm::builder()
           .withdraw_asset((Parent, 100u128))
-          .clear_origin
+          .clear_origin()
           .buy_execution((Parent, 1u128))
           .deposit_asset(All, [0u8; 32])
           .build();
