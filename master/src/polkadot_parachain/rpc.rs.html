@@ -248,15 +248,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#97" id="97">97</a>
 <a href="#98" id="98">98</a>
 <a href="#99" id="99">99</a>
-<a href="#100" id="100">100</a>
-<a href="#101" id="101">101</a>
-<a href="#102" id="102">102</a>
-<a href="#103" id="103">103</a>
-<a href="#104" id="104">104</a>
-<a href="#105" id="105">105</a>
-<a href="#106" id="106">106</a>
-<a href="#107" id="107">107</a>
-<a href="#108" id="108">108</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -277,93 +268,84 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="attr">#![warn(missing_docs)]
 
-</span><span class="kw">use </span>std::sync::Arc;
-
+</span><span class="kw">use crate</span>::{
+	common::ConstructNodeRuntimeApi,
+	service::{ParachainBackend, ParachainClient},
+};
+<span class="kw">use </span>pallet_transaction_payment_rpc::{TransactionPayment, TransactionPaymentApiServer};
 <span class="kw">use </span>parachains_common::{AccountId, Balance, Block, Nonce};
-<span class="kw">use </span>sc_client_api::AuxStore;
-<span class="kw">pub use </span>sc_rpc::DenyUnsafe;
-<span class="kw">use </span>sc_transaction_pool_api::TransactionPool;
-<span class="kw">use </span>sp_api::ProvideRuntimeApi;
-<span class="kw">use </span>sp_block_builder::BlockBuilder;
-<span class="kw">use </span>sp_blockchain::{Error <span class="kw">as </span>BlockChainError, HeaderBackend, HeaderMetadata};
+<span class="kw">use </span>sc_rpc::{
+	dev::{Dev, DevApiServer},
+	DenyUnsafe,
+};
+<span class="kw">use </span>std::{marker::PhantomData, sync::Arc};
+<span class="kw">use </span>substrate_frame_rpc_system::{System, SystemApiServer};
+<span class="kw">use </span>substrate_state_trie_migration_rpc::{StateMigration, StateMigrationApiServer};
 
 <span class="doccomment">/// A type representing all RPC extensions.
 </span><span class="kw">pub type </span>RpcExtension = jsonrpsee::RpcModule&lt;()&gt;;
 
-<span class="doccomment">/// Full client dependencies
-</span><span class="kw">pub struct </span>FullDeps&lt;C, P&gt; {
-	<span class="doccomment">/// The client instance to use.
-	</span><span class="kw">pub </span>client: Arc&lt;C&gt;,
-	<span class="doccomment">/// Transaction pool instance.
-	</span><span class="kw">pub </span>pool: Arc&lt;P&gt;,
-	<span class="doccomment">/// Whether to deny unsafe calls
-	</span><span class="kw">pub </span>deny_unsafe: DenyUnsafe,
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">trait </span>BuildRpcExtensions&lt;Client, Backend, Pool&gt; {
+	<span class="kw">fn </span>build_rpc_extensions(
+		deny_unsafe: DenyUnsafe,
+		client: Arc&lt;Client&gt;,
+		backend: Arc&lt;Backend&gt;,
+		pool: Arc&lt;Pool&gt;,
+	) -&gt; sc_service::error::Result&lt;RpcExtension&gt;;
 }
 
-<span class="doccomment">/// Instantiate all RPC extensions.
-</span><span class="kw">pub fn </span>create_full&lt;C, P, B&gt;(
-	deps: FullDeps&lt;C, P&gt;,
-	backend: Arc&lt;B&gt;,
-) -&gt; <span class="prelude-ty">Result</span>&lt;RpcExtension, Box&lt;<span class="kw">dyn </span>std::error::Error + Send + Sync&gt;&gt;
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>BuildEmptyRpcExtensions&lt;RuntimeApi&gt;(PhantomData&lt;RuntimeApi&gt;);
+
+<span class="kw">impl</span>&lt;RuntimeApi&gt;
+	BuildRpcExtensions&lt;
+		ParachainClient&lt;RuntimeApi&gt;,
+		ParachainBackend,
+		sc_transaction_pool::FullPool&lt;Block, ParachainClient&lt;RuntimeApi&gt;&gt;,
+	&gt; <span class="kw">for </span>BuildEmptyRpcExtensions&lt;RuntimeApi&gt;
 <span class="kw">where
-	</span>C: ProvideRuntimeApi&lt;Block&gt;
-		+ HeaderBackend&lt;Block&gt;
-		+ AuxStore
-		+ HeaderMetadata&lt;Block, Error = BlockChainError&gt;
-		+ Send
-		+ Sync
-		+ <span class="lifetime">'static</span>,
-	C::Api: substrate_frame_rpc_system::AccountNonceApi&lt;Block, AccountId, Nonce&gt;,
-	C::Api: pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi&lt;Block, Balance&gt;,
-	C::Api: BlockBuilder&lt;Block&gt;,
-	P: TransactionPool + Sync + Send + <span class="lifetime">'static</span>,
-	B: sc_client_api::Backend&lt;Block&gt; + Send + Sync + <span class="lifetime">'static</span>,
-	B::State: sc_client_api::backend::StateBackend&lt;sp_runtime::traits::HashingFor&lt;Block&gt;&gt;,
+	</span>RuntimeApi: ConstructNodeRuntimeApi&lt;Block, ParachainClient&lt;RuntimeApi&gt;&gt; + Send + Sync + <span class="lifetime">'static</span>,
 {
-	<span class="kw">use </span>pallet_transaction_payment_rpc::{TransactionPayment, TransactionPaymentApiServer};
-	<span class="kw">use </span>substrate_frame_rpc_system::{System, SystemApiServer};
-	<span class="kw">use </span>substrate_state_trie_migration_rpc::{StateMigration, StateMigrationApiServer};
-
-	<span class="kw">let </span><span class="kw-2">mut </span>module = RpcExtension::new(());
-	<span class="kw">let </span>FullDeps { client, pool, deny_unsafe } = deps;
-
-	module.merge(System::new(client.clone(), pool, deny_unsafe).into_rpc())<span class="question-mark">?</span>;
-	module.merge(TransactionPayment::new(client.clone()).into_rpc())<span class="question-mark">?</span>;
-	module.merge(StateMigration::new(client, backend, deny_unsafe).into_rpc())<span class="question-mark">?</span>;
-
-	<span class="prelude-val">Ok</span>(module)
+	<span class="kw">fn </span>build_rpc_extensions(
+		_deny_unsafe: DenyUnsafe,
+		_client: Arc&lt;ParachainClient&lt;RuntimeApi&gt;&gt;,
+		_backend: Arc&lt;ParachainBackend&gt;,
+		_pool: Arc&lt;sc_transaction_pool::FullPool&lt;Block, ParachainClient&lt;RuntimeApi&gt;&gt;&gt;,
+	) -&gt; sc_service::error::Result&lt;RpcExtension&gt; {
+		<span class="prelude-val">Ok</span>(RpcExtension::new(()))
+	}
 }
 
-<span class="doccomment">/// Instantiate all RPCs we want at the contracts-rococo chain.
-</span><span class="kw">pub fn </span>create_contracts_rococo&lt;C, P&gt;(
-	deps: FullDeps&lt;C, P&gt;,
-) -&gt; <span class="prelude-ty">Result</span>&lt;RpcExtension, Box&lt;<span class="kw">dyn </span>std::error::Error + Send + Sync&gt;&gt;
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>BuildParachainRpcExtensions&lt;RuntimeApi&gt;(PhantomData&lt;RuntimeApi&gt;);
+
+<span class="kw">impl</span>&lt;RuntimeApi&gt;
+	BuildRpcExtensions&lt;
+		ParachainClient&lt;RuntimeApi&gt;,
+		ParachainBackend,
+		sc_transaction_pool::FullPool&lt;Block, ParachainClient&lt;RuntimeApi&gt;&gt;,
+	&gt; <span class="kw">for </span>BuildParachainRpcExtensions&lt;RuntimeApi&gt;
 <span class="kw">where
-	</span>C: ProvideRuntimeApi&lt;Block&gt;
-		+ sc_client_api::BlockBackend&lt;Block&gt;
-		+ HeaderBackend&lt;Block&gt;
-		+ AuxStore
-		+ HeaderMetadata&lt;Block, Error = BlockChainError&gt;
-		+ Send
-		+ Sync
-		+ <span class="lifetime">'static</span>,
-	C::Api: substrate_frame_rpc_system::AccountNonceApi&lt;Block, AccountId, Nonce&gt;,
-	C::Api: pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi&lt;Block, Balance&gt;,
-	C::Api: BlockBuilder&lt;Block&gt;,
-	P: TransactionPool + Sync + Send + <span class="lifetime">'static</span>,
+	</span>RuntimeApi: ConstructNodeRuntimeApi&lt;Block, ParachainClient&lt;RuntimeApi&gt;&gt; + Send + Sync + <span class="lifetime">'static</span>,
+	RuntimeApi::RuntimeApi: pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi&lt;Block, Balance&gt;
+		+ substrate_frame_rpc_system::AccountNonceApi&lt;Block, AccountId, Nonce&gt;,
 {
-	<span class="kw">use </span>pallet_transaction_payment_rpc::{TransactionPayment, TransactionPaymentApiServer};
-	<span class="kw">use </span>sc_rpc::dev::{Dev, DevApiServer};
-	<span class="kw">use </span>substrate_frame_rpc_system::{System, SystemApiServer};
+	<span class="kw">fn </span>build_rpc_extensions(
+		deny_unsafe: DenyUnsafe,
+		client: Arc&lt;ParachainClient&lt;RuntimeApi&gt;&gt;,
+		backend: Arc&lt;ParachainBackend&gt;,
+		pool: Arc&lt;sc_transaction_pool::FullPool&lt;Block, ParachainClient&lt;RuntimeApi&gt;&gt;&gt;,
+	) -&gt; sc_service::error::Result&lt;RpcExtension&gt; {
+		<span class="kw">let </span>build = || -&gt; <span class="prelude-ty">Result</span>&lt;RpcExtension, Box&lt;<span class="kw">dyn </span>std::error::Error + Send + Sync&gt;&gt; {
+			<span class="kw">let </span><span class="kw-2">mut </span>module = RpcExtension::new(());
 
-	<span class="kw">let </span><span class="kw-2">mut </span>module = RpcExtension::new(());
-	<span class="kw">let </span>FullDeps { client, pool, deny_unsafe } = deps;
+			module.merge(System::new(client.clone(), pool, deny_unsafe).into_rpc())<span class="question-mark">?</span>;
+			module.merge(TransactionPayment::new(client.clone()).into_rpc())<span class="question-mark">?</span>;
+			module.merge(StateMigration::new(client.clone(), backend, deny_unsafe).into_rpc())<span class="question-mark">?</span>;
+			module.merge(Dev::new(client, deny_unsafe).into_rpc())<span class="question-mark">?</span>;
 
-	module.merge(System::new(client.clone(), pool, deny_unsafe).into_rpc())<span class="question-mark">?</span>;
-	module.merge(TransactionPayment::new(client.clone()).into_rpc())<span class="question-mark">?</span>;
-	module.merge(Dev::new(client, deny_unsafe).into_rpc())<span class="question-mark">?</span>;
-
-	<span class="prelude-val">Ok</span>(module)
+			<span class="prelude-val">Ok</span>(module)
+		};
+		build().map_err(Into::into)
+	}
 }
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 

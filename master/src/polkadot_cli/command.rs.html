@@ -843,7 +843,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>F: FnOnce(<span class="kw-2">&amp;mut </span>sc_cli::LoggerBuilder, <span class="kw-2">&amp;</span>sc_service::Configuration),
 {
 	<span class="kw">let </span>runner = cli
-		.create_runner_with_logger_hook::&lt;sc_cli::RunCmd, F&gt;(<span class="kw-2">&amp;</span>cli.run.base, logger_hook)
+		.create_runner_with_logger_hook::&lt;<span class="kw">_</span>, <span class="kw">_</span>, F&gt;(<span class="kw-2">&amp;</span>cli.run.base, logger_hook)
 		.map_err(Error::from)<span class="question-mark">?</span>;
 	<span class="kw">let </span>chain_spec = <span class="kw-2">&amp;</span>runner.config().chain_spec;
 

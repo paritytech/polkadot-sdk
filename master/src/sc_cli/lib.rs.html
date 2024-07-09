@@ -397,11 +397,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#246" id="246">246</a>
 <a href="#247" id="247">247</a>
 <a href="#248" id="248">248</a>
-<a href="#249" id="249">249</a>
-<a href="#250" id="250">250</a>
-<a href="#251" id="251">251</a>
-<a href="#252" id="252">252</a>
-<a href="#253" id="253">253</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -462,11 +457,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Implementation version.
 	///
-	/// By default this will look like this:
+	/// By default, it will look like this:
 	///
 	/// `2.0.0-b950f731c`
 	///
-	/// Where the hash is the short commit hash of the commit of in the Git repository.
+	/// Where the hash is the short hash of the commit in the Git repository.
 	</span><span class="kw">fn </span>impl_version() -&gt; String;
 
 	<span class="doccomment">/// Executable file name.
@@ -603,17 +598,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>create_runner&lt;T: CliConfiguration&lt;DVC&gt;, DVC: DefaultConfigurationValues&gt;(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		command: <span class="kw-2">&amp;</span>T,
-	) -&gt; error::Result&lt;Runner&lt;<span class="self">Self</span>&gt;&gt; {
-		<span class="kw">let </span>tokio_runtime = build_runtime()<span class="question-mark">?</span>;
-
-		<span class="comment">// `capture` needs to be called in a tokio context.
-		// Also capture them as early as possible.
-		</span><span class="kw">let </span>signals = tokio_runtime.block_on(<span class="kw">async </span>{ Signals::capture() })<span class="question-mark">?</span>;
-
-		<span class="kw">let </span>config = command.create_configuration(<span class="self">self</span>, tokio_runtime.handle().clone())<span class="question-mark">?</span>;
-
-		command.init(<span class="kw-2">&amp;</span><span class="self">Self</span>::support_url(), <span class="kw-2">&amp;</span><span class="self">Self</span>::impl_version(), |<span class="kw">_</span>, <span class="kw">_</span>| {}, <span class="kw-2">&amp;</span>config)<span class="question-mark">?</span>;
-		Runner::new(config, tokio_runtime, signals)
+	) -&gt; <span class="prelude-ty">Result</span>&lt;Runner&lt;<span class="self">Self</span>&gt;&gt; {
+		<span class="self">self</span>.create_runner_with_logger_hook(command, |<span class="kw">_</span>, <span class="kw">_</span>| {})
 	}
 
 	<span class="doccomment">/// Create a runner for the command provided in argument. The `logger_hook` can be used to setup
@@ -635,11 +621,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// 	}
 	/// }
 	/// ```
-	</span><span class="kw">fn </span>create_runner_with_logger_hook&lt;T: CliConfiguration, F&gt;(
+	</span><span class="kw">fn </span>create_runner_with_logger_hook&lt;
+		T: CliConfiguration&lt;DVC&gt;,
+		DVC: DefaultConfigurationValues,
+		F,
+	&gt;(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		command: <span class="kw-2">&amp;</span>T,
 		logger_hook: F,
-	) -&gt; error::Result&lt;Runner&lt;<span class="self">Self</span>&gt;&gt;
+	) -&gt; <span class="prelude-ty">Result</span>&lt;Runner&lt;<span class="self">Self</span>&gt;&gt;
 	<span class="kw">where
 		</span>F: FnOnce(<span class="kw-2">&amp;mut </span>LoggerBuilder, <span class="kw-2">&amp;</span>Configuration),
 	{

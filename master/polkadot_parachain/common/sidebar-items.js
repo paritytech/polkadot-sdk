@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":["aura"],"trait":["ConstructNodeRuntimeApi","NodeRuntimeApi"]};
+window.SIDEBAR_ITEMS = {"mod":["aura"],"struct":["NodeExtraArgs"],"trait":["ConstructNodeRuntimeApi","NodeRuntimeApi"]};

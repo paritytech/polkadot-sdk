@@ -287,6 +287,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#136" id="136">136</a>
 <a href="#137" id="137">137</a>
 <a href="#138" id="138">138</a>
+<a href="#139" id="139">139</a>
+<a href="#140" id="140">140</a>
+<a href="#141" id="141">141</a>
+<a href="#142" id="142">142</a>
+<a href="#143" id="143">143</a>
+<a href="#144" id="144">144</a>
+<a href="#145" id="145">145</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -303,7 +310,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see &lt;http://www.gnu.org/licenses/&gt;.
 
-</span><span class="kw">use </span>clap::{Command, CommandFactory, FromArgMatches};
+</span><span class="kw">use </span><span class="kw">crate</span>::common::NodeExtraArgs;
+<span class="kw">use </span>clap::{Command, CommandFactory, FromArgMatches};
 <span class="kw">use </span>sc_cli::SubstrateCli;
 <span class="kw">use </span>std::path::PathBuf;
 
@@ -381,6 +389,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Relay chain arguments
 	</span><span class="attr">#[arg(raw = <span class="bool-val">true</span>)]
 	</span><span class="kw">pub </span>relay_chain_args: Vec&lt;String&gt;,
+}
+
+<span class="kw">impl </span>Cli {
+	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>node_extra_args(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; NodeExtraArgs {
+		NodeExtraArgs { use_slot_based_consensus: <span class="self">self</span>.experimental_use_slot_based }
+	}
 }
 
 <span class="attr">#[derive(Debug)]
