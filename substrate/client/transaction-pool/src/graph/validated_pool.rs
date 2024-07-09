@@ -86,17 +86,18 @@ pub type ValidatedTransactionFor<B> =
 	ValidatedTransaction<ExtrinsicHash<B>, ExtrinsicFor<B>, <B as ChainApi>::Error>;
 
 /// A closure that returns true if the local node is a validator that can author blocks.
-pub struct IsValidator(Box<dyn Fn() -> bool + Send + Sync>);
+#[derive(Clone)]
+pub struct IsValidator(Arc<Box<dyn Fn() -> bool + Send + Sync>>);
 
 impl From<bool> for IsValidator {
 	fn from(is_validator: bool) -> Self {
-		Self(Box::new(move || is_validator))
+		Self(Arc::new(Box::new(move || is_validator)))
 	}
 }
 
 impl From<Box<dyn Fn() -> bool + Send + Sync>> for IsValidator {
 	fn from(is_validator: Box<dyn Fn() -> bool + Send + Sync>) -> Self {
-		Self(is_validator)
+		Self(Arc::new(is_validator))
 	}
 }
 
@@ -111,20 +112,11 @@ pub struct ValidatedPool<B: ChainApi> {
 	rotator: PoolRotator<ExtrinsicHash<B>>,
 }
 
-//todo: cleanup this
-fn xxxx_is_validator() -> bool {
-	log::error!(target:LOG_TARGET, "xxx: is_validator: todo!!");
-	false
-}
-
 impl<B: ChainApi> Clone for ValidatedPool<B> {
 	fn clone(&self) -> Self {
-		//todo: cleanup this
-		let pp: Box<dyn Fn() -> bool + Send + Sync> = Box::from(xxxx_is_validator);
 		Self {
-			//todo: review this. What is really needed in validation pool (aka view)?
 			api: self.api.clone(),
-			is_validator: IsValidator::from(pp),
+			is_validator: self.is_validator.clone(),
 			options: self.options.clone(),
 			listener: Default::default(),
 			pool: RwLock::from(self.pool.read().clone()),

@@ -170,8 +170,8 @@ where
 	import_notification_sink:
 		MultiViewImportNotificationSink<Block::Hash, graph::ExtrinsicHash<ChainApi>>,
 	options: Options,
+	is_validator: IsValidator,
 	// todo: this are coming from ValidatedPool, some of them maybe needed here
-	// is_validator: IsValidator,
 	// rotator: PoolRotator<ExtrinsicHash<B>>,
 }
 
@@ -204,6 +204,7 @@ where
 				revalidation_queue: Arc::from(view_revalidation::RevalidationQueue::new()),
 				import_notification_sink,
 				options: graph::Options::default(),
+				is_validator: false.into()
 			},
 			import_notification_sink_task,
 		)
@@ -214,7 +215,7 @@ where
 	/// The txpool essential tasks are spawned using provided spawner.
 	pub fn new_with_background_queue(
 		options: graph::Options,
-		_is_validator: IsValidator,
+		is_validator: IsValidator,
 		pool_api: Arc<ChainApi>,
 		// todo: prometheus: Option<&PrometheusRegistry>,
 		spawner: impl SpawnEssentialNamed,
@@ -252,6 +253,7 @@ where
 			revalidation_queue: Arc::from(revalidation_queue),
 			import_notification_sink,
 			options,
+			is_validator
 		}
 	}
 
