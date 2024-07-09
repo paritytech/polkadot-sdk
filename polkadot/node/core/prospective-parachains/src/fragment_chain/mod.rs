@@ -323,7 +323,6 @@ impl CandidateStorage {
 			})
 	}
 
-	#[cfg(test)]
 	fn len(&self) -> usize {
 		self.by_candidate_hash.len()
 	}
@@ -646,6 +645,11 @@ impl FragmentChain {
 	/// Returns the number of candidates in the best backable chain.
 	pub fn len(&self) -> usize {
 		self.candidates.len()
+	}
+
+	/// Returns the number of candidates in unconnected potential storage.
+	pub fn unconnected_len(&self) -> usize {
+		self.unconnected.len()
 	}
 
 	/// Whether the candidate is part of the best backable chain.

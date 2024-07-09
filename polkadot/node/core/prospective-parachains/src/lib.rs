@@ -141,7 +141,7 @@ async fn run_iteration<Context>(
 				ProspectiveParachainsMessage::IntroduceSecondedCandidate(request, tx) =>
 					handle_introduce_seconded_candidate(view, request, tx, metrics).await,
 				ProspectiveParachainsMessage::CandidateBacked(para, candidate_hash) =>
-					handle_candidate_backed(view, para, candidate_hash).await,
+					handle_candidate_backed(view, para, candidate_hash, metrics).await,
 				ProspectiveParachainsMessage::GetBackableCandidates(
 					relay_parent,
 					para,
@@ -165,7 +165,7 @@ async fn handle_active_leaves_update<Context>(
 	ctx: &mut Context,
 	view: &mut View,
 	update: ActiveLeavesUpdate,
-	_metrics: &Metrics,
+	metrics: &Metrics,
 ) -> JfyiErrorResult<()> {
 	// For each active leaf:
 	// - determine the scheduled paras
@@ -175,6 +175,8 @@ async fn handle_active_leaves_update<Context>(
 	//
 	// Only then, clean up inactive leaves. They must be cleaned only after new leaves are
 	// processed, because we may reuse their candidates.
+
+	let _timer = metrics.time_handle_active_leaves_update();
 
 	let mut temp_header_cache = HashMap::new();
 	for activated in update.activated.into_iter() {
@@ -368,6 +370,19 @@ async fn handle_active_leaves_update<Context>(
 		view.active_leaves.remove(deactivated);
 	}
 
+	if metrics.0.is_some() {
+		let mut connected = 0;
+		let mut unconnected = 0;
+		for RelayBlockViewData { fragment_chains } in view.active_leaves.values() {
+			for chain in fragment_chains.values() {
+				connected += chain.len();
+				unconnected += chain.unconnected_len();
+			}
+		}
+
+		metrics.record_candidate_count(connected as u64, unconnected as u64);
+	}
+
 	Ok(())
 }
 
@@ -531,7 +546,14 @@ async fn handle_introduce_seconded_candidate(
 	let _ = tx.send(added);
 }
 
-async fn handle_candidate_backed(view: &mut View, para: ParaId, candidate_hash: CandidateHash) {
+async fn handle_candidate_backed(
+	view: &mut View,
+	para: ParaId,
+	candidate_hash: CandidateHash,
+	metrics: &Metrics,
+) {
+	let _timer = metrics.time_candidate_backed();
+
 	let mut found_candidate = false;
 	let mut found_para = false;
 	for (leaf, leaf_data) in view.active_leaves.iter_mut() {
