@@ -1197,8 +1197,8 @@ mod benchmarks {
 			.map_err(|_| "Key has wrong length")?;
 		let value = Some(vec![42u8; max_value_len as _]);
 		let mut setup = CallSetup::<T>::default();
+		setup.set_transient_storage_size(T::MaxTransientStorageSize::get());
 		let (mut ext, _) = setup.ext();
-		CallSetup::<T>::with_transient_storage(&mut ext, T::MaxTransientStorageSize::get())?;
 		let mut runtime = crate::wasm::Runtime::new(&mut ext, vec![]);
 		runtime.ext().transient_storage().meter().current_mut().limit = u32::MAX;
 		let result;
@@ -1245,8 +1245,8 @@ mod benchmarks {
 			.map_err(|_| "Key has wrong length")?;
 
 		let mut setup = CallSetup::<T>::default();
+		setup.set_transient_storage_size(T::MaxTransientStorageSize::get());
 		let (mut ext, _) = setup.ext();
-		CallSetup::<T>::with_transient_storage(&mut ext, T::MaxTransientStorageSize::get())?;
 		let mut runtime = crate::wasm::Runtime::new(&mut ext, vec![]);
 		runtime.ext().transient_storage().meter().current_mut().limit = u32::MAX;
 		runtime
@@ -1272,8 +1272,8 @@ mod benchmarks {
 			.map_err(|_| "Key has wrong length")?;
 
 		let mut setup = CallSetup::<T>::default();
+		setup.set_transient_storage_size(T::MaxTransientStorageSize::get());
 		let (mut ext, _) = setup.ext();
-		CallSetup::<T>::with_transient_storage(&mut ext, T::MaxTransientStorageSize::get())?;
 		let mut runtime = crate::wasm::Runtime::new(&mut ext, vec![]);
 		runtime.ext().transient_storage().meter().current_mut().limit = u32::MAX;
 		runtime.ext().transient_storage().start_transaction();
