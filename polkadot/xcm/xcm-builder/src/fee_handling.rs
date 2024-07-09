@@ -81,6 +81,7 @@ pub struct XcmFeeToAccount<AssetTransactor, AccountId, ReceiverAccount>(
 	PhantomData<(AssetTransactor, AccountId, ReceiverAccount)>,
 );
 
+#[allow(deprecated)]
 impl<
 		AssetTransactor: TransactAsset,
 		AccountId: Clone + Into<[u8; 32]>,
