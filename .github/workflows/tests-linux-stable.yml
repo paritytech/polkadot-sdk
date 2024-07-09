@@ -95,5 +95,6 @@ jobs:
         uses: actions/checkout@v4
       - name: update forklift
         run: /builds/download-forklift.sh -v 0.13.1-alpha -p ./forklift/
+      - run: forklift version
       - name: script
         run: time forklift cargo nextest run --workspace --locked --release --no-fail-fast --features try-runtime,experimental,riscv,ci-only-tests -E "!test(/.*benchmark.*/)" --partition count:${{ matrix.ci_node_index }}/${{ matrix.ci_node_total }}
