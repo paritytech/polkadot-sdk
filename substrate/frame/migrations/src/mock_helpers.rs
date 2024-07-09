@@ -84,18 +84,19 @@ impl SteppedMigrations for MockedMigrations {
 		}
 		let (kind, max_blocks, max_steps) = MIGRATIONS::get()[n as usize];
 
-		let (mut took_steps, mut took_blocks): (u32, u32) = cursor
+		let (mut took_blocks, mut took_steps): (u32, u32) = cursor
 			.as_ref()
 			.and_then(|c| Decode::decode(&mut &c[..]).ok())
 			.unwrap_or_default();
+
 		took_steps += 1;
-		took_blocks += 1;
+
 		log::debug!(
 			"MockedMigration: Steps {:?} vs max {:?}",
 			(took_blocks, took_steps),
 			(max_blocks, max_steps)
 		);
-		if (took_steps < max_steps && took_blocks < max_blocks) || matches!(kind, TimeoutAfter) {
+		if (took_steps < max_steps) || matches!(kind, TimeoutAfter) {
 			return Some(Ok(Some((took_blocks, took_steps).encode())))
 		}
 
@@ -152,7 +153,7 @@ impl SteppedMigrations for MockedMigrations {
 }
 
 impl MockedMigrations {
-	/// Set the migrations to run.
+	/// Set the migrations to run in the form `(Kind, max_blocks, max_steps)`.
 	pub fn set(migrations: Vec<(MockedMigrationKind, u32, u32)>) {
 		MIGRATIONS::set(&migrations);
 	}

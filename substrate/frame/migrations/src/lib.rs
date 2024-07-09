@@ -567,7 +567,11 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// Clears the `Historic` set.
+		/// Clears the `Historic` set that prevents re-execution of past migrations.
+		///
+		/// This should only be called once the migrations have been removed from the code of the
+		/// runtime. Calling this function and then enacting a runtime upgrade that contains a
+		/// migration again would result in the migration to execute again.
 		///
 		/// `map_cursor` must be set to the last value that was returned by the
 		/// `HistoricCleared` event. The first time `None` can be used. `limit` must be chosen in a
@@ -752,7 +756,7 @@ impl<T: Config> Pallet<T> {
 						took_steps,
 					});
 					cursor.inner_cursor = Some(bound_next_cursor);
-					cursor.took_steps = took_steps;
+					cursor.took_steps = took_steps; // TODO noop
 
 					if max_blocks.map_or(false, |max| took_blocks > max.into()) ||
 						max_steps.map_or(false, |max| took_steps > max.into())
@@ -789,6 +793,7 @@ impl<T: Config> Pallet<T> {
 						Self::upgrade_failed(Some(cursor.index));
 						return None
 					} else {
+						// It should have reverted since we used `nth_transactional_step`.
 						cursor.took_steps.saturating_dec();
 						// Retry and hope that there is more weight in the next block.
 						return Some(ControlFlow::Break(cursor))

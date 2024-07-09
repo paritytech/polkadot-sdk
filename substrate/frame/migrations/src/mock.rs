@@ -47,10 +47,6 @@ impl frame_system::Config for Test {
 	type MultiBlockMigrator = Migrations;
 }
 
-frame_support::parameter_types! {
-	pub const MaxServiceWeight: Weight = Weight::MAX.div(10);
-}
-
 #[derive_impl(crate::config_preludes::TestDefaultConfig)]
 impl crate::Config for Test {
 	#[cfg(feature = "runtime-benchmarks")]
