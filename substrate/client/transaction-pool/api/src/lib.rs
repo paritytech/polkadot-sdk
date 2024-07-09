@@ -324,8 +324,8 @@ pub trait TransactionPool: Send + Sync {
 
 	/// Returns set of ready transaction at given block within given timeout.
 	///
-	/// If timeout is internally hit then best effort set of ready transactions for given block,
-	/// without executing full maintain process.
+	/// If the timeout is hit during method execution then the best effort set of ready transactions for given block,
+	/// without executing full maintain process is returned.
 	fn ready_at_with_timeout(
 		&self,
 		at: <Self::Block as BlockT>::Hash,
@@ -364,11 +364,6 @@ impl<T> ReadyTransactions for std::iter::Empty<T> {
 /// Events that the transaction pool listens for.
 #[derive(Debug)]
 pub enum ChainEvent<B: BlockT> {
-	/// New block have been added to the chain.
-	NewBlock {
-		/// Hash of the block.
-		hash: B::Hash,
-	},
 	/// New best block have been added to the chain.
 	NewBestBlock {
 		/// Hash of the block.
@@ -391,9 +386,7 @@ impl<B: BlockT> ChainEvent<B> {
 	/// Returns the block hash associated to the event.
 	pub fn hash(&self) -> B::Hash {
 		match self {
-			Self::NewBlock { hash, .. } |
-			Self::NewBestBlock { hash, .. } |
-			Self::Finalized { hash, .. } => *hash,
+			Self::NewBestBlock { hash, .. } | Self::Finalized { hash, .. } => *hash,
 		}
 	}
 

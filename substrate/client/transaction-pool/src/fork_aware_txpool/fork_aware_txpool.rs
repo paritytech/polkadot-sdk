@@ -134,14 +134,16 @@ where
 	}
 
 	fn trigger(&mut self, at: <Block as BlockT>::Hash, ready_iterator: impl Fn() -> T) {
-		log::info!( target: LOG_TARGET,
-			"fatp::trigger {at:?} pending keys: {:?}",
-			self.pollers.keys());
+		log::debug!( target: LOG_TARGET, "fatp::trigger {at:?} pending keys: {:?}", self.pollers.keys());
 		let Some(pollers) = self.pollers.remove(&at) else { return };
 		pollers.into_iter().for_each(|p| {
 			log::info!(target: LOG_TARGET, "trigger ready signal at block {}", at);
 			let _ = p.send(ready_iterator());
 		});
+	}
+
+	fn remove_cancelled(&mut self) {
+		self.pollers.retain(|_, v| v.iter().any(|sender| !sender.is_canceled()));
 	}
 }
 
@@ -168,8 +170,8 @@ where
 	import_notification_sink:
 		MultiViewImportNotificationSink<Block::Hash, graph::ExtrinsicHash<ChainApi>>,
 	options: Options,
+	is_validator: IsValidator,
 	// todo: this are coming from ValidatedPool, some of them maybe needed here
-	// is_validator: IsValidator,
 	// rotator: PoolRotator<ExtrinsicHash<B>>,
 }
 
@@ -202,6 +204,7 @@ where
 				revalidation_queue: Arc::from(view_revalidation::RevalidationQueue::new()),
 				import_notification_sink,
 				options: graph::Options::default(),
+				is_validator: false.into()
 			},
 			import_notification_sink_task,
 		)
@@ -212,7 +215,7 @@ where
 	/// The txpool essential tasks are spawned using provided spawner.
 	pub fn new_with_background_queue(
 		options: graph::Options,
-		_is_validator: IsValidator,
+		is_validator: IsValidator,
 		pool_api: Arc<ChainApi>,
 		// todo: prometheus: Option<&PrometheusRegistry>,
 		spawner: impl SpawnEssentialNamed,
@@ -228,7 +231,7 @@ where
 			MultiViewImportNotificationSink::new_with_worker();
 
 		//todo: error handling?
-		//todo: is it a really god idea? (revalidation_task may be quite heavy)
+		//todo: is it a really good idea? (revalidation_task may be quite heavy)
 		let combined_tasks = async move {
 			tokio::select! {
 				_ = revalidation_task => {},
@@ -250,6 +253,7 @@ where
 			revalidation_queue: Arc::from(revalidation_queue),
 			import_notification_sink,
 			options,
+			is_validator
 		}
 	}
 
@@ -264,7 +268,7 @@ where
 	}
 
 	/// Provides a number of views at the tips of the forks.
-	pub fn views_len(&self) -> usize {
+	pub fn views_count(&self) -> usize {
 		self.view_store.views.read().len()
 	}
 
@@ -272,7 +276,7 @@ where
 	///
 	/// Provides block number, count of ready, count of future transactions for every view. It is
 	/// suitable for printing log information.
-	fn views_numbers(&self) -> Vec<(NumberFor<Block>, usize, usize)> {
+	fn views_stats(&self) -> Vec<(NumberFor<Block>, usize, usize)> {
 		self.view_store
 			.views
 			.read()
@@ -294,8 +298,9 @@ where
 	}
 
 	/// Returns best effort set of ready transactions for given block, without executing full
-	/// maintain process
-	//todo: better naming?
+	/// maintain process.
+	///
+	/// If maintain was already performed the ready iterator for existing, unmodified view is returned.
 	fn ready_light(&self, at: Block::Hash) -> PolledIterator<ChainApi> {
 		let start = Instant::now();
 		log::info!( target: LOG_TARGET, "fatp::ready_light {:?}", at);
@@ -321,6 +326,10 @@ where
 						best_enacted_len = tree_route.enacted().len();
 						best_view = Some(v.clone());
 						best_tree_route = Some(tree_route);
+
+						if best_enacted_len == 0 {
+							break
+						}
 					}
 				}
 			}
@@ -352,13 +361,7 @@ where
 					all_extrinsics.extend(extrinsics);
 				}
 
-				let before_count = tmp_view.pool.validated_pool().ready().count();
-				// tmp_view.pool.validated_pool().remove_invalid(&all_extrinsics[..]);
-
-				// todo: do we need to send ready event? (that requires registering all listener for
-				// every txs). But maybe we only use transactions already imported to ready. No new
-				// tags appear so future txs shall not promoted.
-				// ++ todo: add light_prune?
+				let before_count = tmp_view.pool.validated_pool().status().ready;
 				let in_pool_tags = tmp_view.pool.validated_pool().extrinsics_tags(&all_extrinsics);
 
 				let mut tags = Vec::new();
@@ -370,11 +373,10 @@ where
 					}
 				}
 				let _ = tmp_view.pool.validated_pool().prune_tags(tags);
-				// --
 
-				let after_count = tmp_view.pool.validated_pool().ready().count();
+				let after_count = tmp_view.pool.validated_pool().status().ready;
 				log::info!( target: LOG_TARGET,
-					"fatp::ready_light {} from {} before: {} removed: {} after: {} took:{:?}",
+					"fatp::ready_light {} from {} before: {} to be removed: {} after: {} took:{:?}",
 					at,
 					best_view.at.hash,
 					before_count,
@@ -391,19 +393,20 @@ where
 		})
 	}
 
-	async fn ready_at_with_timeout_internal(
+	fn ready_at_with_timeout_internal(
 		&self,
 		at: Block::Hash,
 		timeout: std::time::Duration,
 	) -> PolledIterator<ChainApi> {
-		log::debug!(target: LOG_TARGET, "fatp::ready_at_with_timeout at {:?} allowed delay: {:?}", at, timeout);
+		log::info!(target: LOG_TARGET, "fatp::ready_at_with_timeout at {:?} allowed delay: {:?}", at, timeout);
 
 		let timeout = futures_timer::Delay::new(timeout);
 		let fall_back_ready = self.ready_light(at).map(|ready| Some(ready));
+		let ready_at = self.ready_at(at);
 
-		let maybe_ready = async {
+		let maybe_ready = async move {
 			select! {
-				ready = self.ready_at(at) => Some(ready),
+				ready = ready_at => Some(ready),
 				_ = timeout => {
 					log::warn!(target: LOG_TARGET,
 						"Timeout fired waiting for transaction pool at block: ({:?}). \
@@ -415,9 +418,8 @@ where
 			}
 		};
 
-		let results = futures::future::join(maybe_ready.boxed(), fall_back_ready.boxed()).await;
-
 		Box::pin(async {
+			let results = futures::future::join(maybe_ready.boxed(), fall_back_ready.boxed()).await;
 			if let Some(ready) = results.0 {
 				ready
 			} else {
@@ -644,7 +646,7 @@ where
 		xts: Vec<TransactionFor<Self>>,
 	) -> PoolFuture<Vec<Result<TxHash<Self>, Self::Error>>, Self::Error> {
 		let view_store = self.view_store.clone();
-		log::info!(target: LOG_TARGET, "fatp::submit_at count:{} views:{}", xts.len(), self.views_len());
+		log::info!(target: LOG_TARGET, "fatp::submit_at count:{} views:{}", xts.len(), self.views_count());
 		log_xt_debug!(target: LOG_TARGET, xts.iter().map(|xt| self.tx_hash(xt)), "[{:?}] fatp::submit_at");
 		self.mempool.extend_unwatched(xts.clone());
 		let xts = xts.clone();
@@ -674,7 +676,7 @@ where
 		source: TransactionSource,
 		xt: TransactionFor<Self>,
 	) -> PoolFuture<TxHash<Self>, Self::Error> {
-		log::debug!(target: LOG_TARGET, "[{:?}] fatp::submit_one views:{}", self.tx_hash(&xt), self.views_len());
+		log::debug!(target: LOG_TARGET, "[{:?}] fatp::submit_one views:{}", self.tx_hash(&xt), self.views_count());
 		// todo:
 		// self.metrics.report(|metrics| metrics.submitted_transactions.inc());
 		self.mempool.push_unwatched(xt.clone());
@@ -707,7 +709,7 @@ where
 		source: TransactionSource,
 		xt: TransactionFor<Self>,
 	) -> PoolFuture<Pin<Box<TransactionStatusStreamFor<Self>>>, Self::Error> {
-		log::debug!(target: LOG_TARGET, "[{:?}] fatp::submit_and_watch views:{}", self.tx_hash(&xt), self.views_len());
+		log::debug!(target: LOG_TARGET, "[{:?}] fatp::submit_and_watch views:{}", self.tx_hash(&xt), self.views_count());
 		self.mempool.push_watched(xt.clone());
 
 		// todo:
@@ -717,36 +719,16 @@ where
 		async move { view_store.submit_and_watch(at, source, xt).await }.boxed()
 	}
 
-	// todo: api change? we need block hash here (assuming we need it at all).
+	// todo: api change? we need block hash here (assuming we need it at all - could be useful for
+	// verification for debuggin purposes).
 	fn remove_invalid(&self, hashes: &[TxHash<Self>]) -> Vec<Arc<Self::InPoolTransaction>> {
+		log::info!(target: LOG_TARGET, "fatp::remove_invalid {}", hashes.len());
 		log_xt_debug!(target:LOG_TARGET, hashes, "[{:?}] fatp::remove_invalid");
-
-		//revlidate check: what hash shall be used here?
-		// for tx in ready {
-		// 	let validation_result = self
-		// 		.api
-		// 		.validate_transaction(block_hash, TransactionSource::External, tx.data.clone())
-		// 		.await;
-		// 	log::debug!(target:LOG_TARGET, "[{:?}] is ready in view {:?} validation result {:?}",
-		// tx.hash, block_hash, validation_result); }
-
-		//todo:
-		// let removed = self.pool.validated_pool().remove_invalid(hashes);
-		// removed
-
-		//todo:
-		// self.metrics
-		// 	.report(|metrics| metrics.validations_invalid.inc_by(removed.len() as u64));
-
-		// todo: what to do here?
-		// unimplemented!()
 		Default::default()
 	}
 
-	// todo: probably API change to:
+	// todo: api change?
 	// status(Hash) -> Option<PoolStatus>
-	//
-	// todo: move to ViewStore
 	fn status(&self) -> PoolStatus {
 		self.view_store
 			.most_recent_view
@@ -760,17 +742,15 @@ where
 	/// Consumers of this stream should use the `ready` method to actually get the
 	/// pending transactions in the right order.
 	fn import_notification_stream(&self) -> ImportNotificationStream<ExtrinsicHash<ChainApi>> {
-		futures::executor::block_on(self.import_notification_sink.event_stream())
+		self.import_notification_sink.event_stream()
 	}
 
 	fn hash_of(&self, xt: &TransactionFor<Self>) -> TxHash<Self> {
 		self.api().hash_and_length(xt).0
 	}
 
-	fn on_broadcasted(&self, _propagations: HashMap<TxHash<Self>, Vec<String>>) {
-		// todo !!!
-		// self.pool.validated_pool().on_broadcasted(propagations)
-		// unimplemented!()
+	fn on_broadcasted(&self, propagations: HashMap<TxHash<Self>, Vec<String>>) {
+		self.view_store.listener.transactions_broadcasted(propagations);
 	}
 
 	// todo: api change: we probably should have at here?
@@ -808,7 +788,8 @@ where
 			.boxed();
 		log::info!( target: LOG_TARGET,
 			"fatp::ready_at {at:?} pending keys: {:?}",
-			self.ready_poll.lock().pollers.keys());
+			self.ready_poll.lock().pollers.keys()
+		);
 		pending
 	}
 
@@ -825,7 +806,7 @@ where
 		at: <Self::Block as BlockT>::Hash,
 		timeout: std::time::Duration,
 	) -> PolledIterator<ChainApi> {
-		futures::executor::block_on(self.ready_at_with_timeout_internal(at, timeout))
+		self.ready_at_with_timeout_internal(at, timeout)
 	}
 }
 
@@ -925,8 +906,7 @@ where
 
 		//we need to capture all import notifiication from the very beginning
 		self.import_notification_sink
-			.add_view(view.at.hash, view.pool.validated_pool().import_notification_stream().boxed())
-			.await;
+			.add_view(view.at.hash, view.pool.validated_pool().import_notification_stream().boxed());
 
 		let start = Instant::now();
 		self.update_view(&mut view).await;
@@ -943,6 +923,42 @@ where
 		Some(view)
 	}
 
+	async fn extrinsics_included_since_finalized(&self, at: Block::Hash) -> HashSet<TxHash<Self>> {
+		let start = Instant::now();
+		let recent_finalized_block = self.enactment_state.lock().recent_finalized_block();
+
+		let Ok(tree_route) = self.api.tree_route(recent_finalized_block, at) else {
+			return Default::default()
+		};
+
+		let api = self.api.clone();
+		let mut all_extrinsics = HashSet::new();
+
+		for h in tree_route.enacted().iter().rev().skip(1) {
+			api.block_body(h.hash)
+				.await
+				.unwrap_or_else(|e| {
+					log::warn!(target: LOG_TARGET, "Compute ready light transactions: error request: {}", e);
+					None
+				})
+				.unwrap_or_default()
+				.into_iter()
+				.map(|t| api.hash_and_length(&t).0)
+				.for_each(|tx_hash| {
+					all_extrinsics.insert(tx_hash);
+				});
+		}
+
+		log::info!( target: LOG_TARGET,
+			"fatp::extrinsics_included_since_finalized {} from {} count: {} took:{:?}",
+			at,
+			recent_finalized_block,
+			all_extrinsics.len(),
+			start.elapsed()
+		);
+		all_extrinsics
+	}
+
 	//todo: maybe move to ViewManager
 	async fn update_view(&self, view: &View<ChainApi>) {
 		log::debug!(
@@ -950,10 +966,13 @@ where
 			"update_view: {:?} xts:{:?} v:{}",
 			view.at,
 			self.mempool.len(),
-			self.views_len()
+			self.views_count()
 		);
 		//todo: source?
 		let source = TransactionSource::External;
+
+		//this could be collected/cached in view
+		let included_xts = self.extrinsics_included_since_finalized(view.at.hash).await;
 
 		//todo this clone is not neccessary, try to use iterators
 		let xts = self.mempool.clone_unwatched();
@@ -962,7 +981,10 @@ where
 			let unwatched_count = xts.len();
 			let xts = xts
 				.into_iter()
-				.filter(|tx| !view.pool.validated_pool().pool.read().is_imported(&self.hash_of(tx)))
+				.filter(|tx| {
+					!view.pool.validated_pool().pool.read().is_imported(&self.hash_of(&tx))
+				})
+				.filter(|tx| !included_xts.contains(&self.hash_of(&tx)))
 				.collect::<Vec<_>>();
 			let filtered_count = xts.len();
 			//todo: internal checked banned: not required any more?
@@ -971,17 +993,20 @@ where
 		}
 		let view = Arc::from(view);
 
-		//todo: txs from blocks on tree_route(from finalized, to at).enecated() shall be used for
-		//filtering (they are already invalid)
+		let included_xts = Arc::from(included_xts);
 		//todo: hash computed multiple times
+		//todo: maybe we don't need to register listener in view? We could use
+		// multi_view_listner.transcation_in_block
+
 		let results = self
 			.mempool
 			.watched_xts()
 			.map(|t| {
 				let view = view.clone();
+				let included_xts = included_xts.clone();
 				async move {
 					let tx_hash = self.hash_of(&t);
-					let result = if view.pool.validated_pool().pool.read().is_imported(&tx_hash)
+					let result = if view.pool.validated_pool().pool.read().is_imported(&tx_hash) || included_xts.contains(&tx_hash)
 					{
 						Err(Error::AlreadyImported(Box::new(tx_hash)).into())
 					} else {
@@ -1044,8 +1069,7 @@ where
 								tx_hash,
 								view.at.hash,
 								watcher.into_stream().boxed(),
-							)
-							.await;
+							);
 						Ok(())
 					} else {
 						result.map(|_| ())
@@ -1065,7 +1089,7 @@ where
 				match result {
 					Err((Error::TemporarilyBanned | Error::AlreadyImported(_), ..)) => {},
 					Err((Error::InvalidTransaction(_), tx_hash, tx)) => {
-						self.view_store.listener.invalidate_transactions(vec![tx_hash]).await;
+						self.view_store.listener.invalidate_transactions(vec![tx_hash]);
 						self.mempool.remove_watched(&tx);
 					},
 
@@ -1168,10 +1192,10 @@ where
 		log::info!(target: LOG_TARGET, "handle_finalized {finalized_number:?} tree_route: {tree_route:?}");
 
 		let finalized_xts = self.view_store.handle_finalized(finalized_hash, tree_route).await;
-		log::debug!(target: LOG_TARGET, "handle_finalized b:{:?}", self.views_len());
+		log::debug!(target: LOG_TARGET, "handle_finalized b:{:?}", self.views_count());
 
 		self.mempool.purge_finalized_transactions(&finalized_xts).await;
-		self.import_notification_sink.clean_filter(&finalized_xts).await;
+		self.import_notification_sink.clean_filter(&finalized_xts);
 
 		if let Ok(Some(finalized_number)) = finalized_number {
 			self.revalidation_queue
@@ -1184,15 +1208,15 @@ where
 			log::debug!(target: LOG_TARGET, "purge_transactions_later skipped, cannot find block number {finalized_number:?}");
 		}
 
-		//todo:
-		//delete old keys in ReadyPoll.pollers (little memleak possible)
-		log::debug!(target: LOG_TARGET, "handle_finalized a:{:?}", self.views_len());
+		self.ready_poll.lock().remove_cancelled();
+		log::debug!(target: LOG_TARGET, "handle_finalized a:{:?}", self.views_count());
 	}
 
 	fn tx_hash(&self, xt: &TransactionFor<Self>) -> TxHash<Self> {
 		self.api.hash_and_length(xt).0
 	}
 
+	// use for verirfaction - only for debugging purposes
 	async fn verify(&self) {
 		log::info!(target:LOG_TARGET, "fatp::verify++");
 
@@ -1240,10 +1264,6 @@ where
 	<Block as BlockT>::Hash: Unpin,
 {
 	async fn maintain(&self, event: ChainEvent<Self::Block>) {
-		if matches!(event, ChainEvent::NewBlock { .. }) {
-			return
-		}
-
 		let start = Instant::now();
 
 		self.view_store.finish_background_revalidations().await;
@@ -1287,7 +1307,7 @@ where
 		};
 
 		match event {
-			ChainEvent::NewBestBlock { .. } | ChainEvent::NewBlock { .. } => {},
+			ChainEvent::NewBestBlock { .. } => {},
 			ChainEvent::Finalized { hash, ref tree_route } => {
 				self.handle_finalized(hash, tree_route).await;
 
@@ -1303,8 +1323,8 @@ where
 			target: LOG_TARGET,
 			"maintain: txs:{:?} views:[{};{:?}] event:{event:?}  took:{:?}",
 			self.mempool_len(),
-			self.views_len(),
-			self.views_numbers(),
+			self.views_count(),
+			self.views_stats(),
 			start.elapsed()
 		);
 

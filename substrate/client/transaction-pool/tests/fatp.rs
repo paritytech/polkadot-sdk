@@ -195,7 +195,8 @@ mod test_chain_with_forks {
 //Add some more tests:
 // - view.ready iterator
 // - stale transaction submission when there is single view only (expect error)
-// - stale transaction submission when there are more views (expect ok)
+// - stale transaction submission when there are more views (expect ok if tx is ok for at least one
+//   view)
 // - view count (e.g. same new block notified twice)
 // - invalid with many views (different cases)
 //
@@ -600,7 +601,7 @@ fn fatp_linear_progress() {
 	block_on(pool.maintain(event));
 
 	//note: we only keep tip of the fork
-	assert_eq!(pool.views_len(), 1);
+	assert_eq!(pool.views_count(), 1);
 	assert_pool_status!(f13, &pool, 1, 0);
 }
 
@@ -800,7 +801,7 @@ fn fatp_fork_no_xts_ready_switch_to_future() {
 	block_on(pool.maintain(event));
 
 	// f03 still dangling
-	assert_eq!(pool.views_len(), 2);
+	assert_eq!(pool.views_count(), 2);
 
 	// wait 10 blocks for revalidation and 1 extra for applying revalidation results
 	let mut prev_header = forks[1][2].clone();
@@ -944,7 +945,7 @@ fn fatp_linear_progress_finalization() {
 	let event = new_best_block_event(&pool, Some(f00), f12);
 	block_on(pool.maintain(event));
 	assert_pool_status!(f12, &pool, 0, 1);
-	assert_eq!(pool.views_len(), 1);
+	assert_eq!(pool.views_count(), 1);
 
 	log::info!(target:LOG_TARGET, "stats: {:#?}", pool.status_all());
 
@@ -953,7 +954,7 @@ fn fatp_linear_progress_finalization() {
 
 	log::info!(target:LOG_TARGET, "stats: {:#?}", pool.status_all());
 
-	assert_eq!(pool.views_len(), 1);
+	assert_eq!(pool.views_count(), 1);
 	assert_pool_status!(f14, &pool, 1, 0);
 }
 
@@ -983,7 +984,7 @@ fn fatp_fork_finalization_removes_stale_views() {
 	block_on(pool.maintain(event));
 
 	//only views at the tip of forks are kept
-	assert_eq!(pool.views_len(), 2);
+	assert_eq!(pool.views_count(), 2);
 
 	log::info!(target:LOG_TARGET, "stats: {:#?}", pool.status_all());
 
@@ -992,11 +993,11 @@ fn fatp_fork_finalization_removes_stale_views() {
 	log::info!(target:LOG_TARGET, "stats: {:#?}", pool.status_all());
 	// note: currently the pruning views only cleans views with block number less then finalized
 	// blcock. views with higher number on other forks are not cleaned (will be done in next round).
-	assert_eq!(pool.views_len(), 2);
+	assert_eq!(pool.views_count(), 2);
 
 	let event = ChainEvent::Finalized { hash: f04, tree_route: Arc::from(vec![]) };
 	block_on(pool.maintain(event));
-	assert_eq!(pool.views_len(), 1);
+	assert_eq!(pool.views_count(), 1);
 }
 
 #[test]
@@ -1462,7 +1463,7 @@ fn fatp_watcher_in_block_across_many_blocks() {
 	let _ = block_on(pool.submit_and_watch(invalid_hash(), SOURCE, xt2.clone())).unwrap();
 	//note 1: transaction is not submitted to views that are not at the tip of the fork
 	//note 2: only views at tip of the fork are kept
-	assert_eq!(pool.views_len(), 1);
+	assert_eq!(pool.views_count(), 1);
 	assert_pool_status!(header02.hash(), &pool, 3, 0);
 
 	let header03 = api.push_block(3, vec![xt0.clone()], true);
@@ -2551,4 +2552,8 @@ fn fatp_ready_txs_are_provided_in_valid_order() {
 	// block_on(pool.maintain(event));
 	// assert_pool_status!(header03b.hash(), &pool, 0, 1);
 }
+
 //todo: add test: check len of filter after finalization (!)
+//todo: broadcasted test?
+//todo: ready_at_with_timeout
+//todo: invalid txs on all views (should return invalid)

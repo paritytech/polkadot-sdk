@@ -126,8 +126,7 @@ where
 		xt: Block::Extrinsic,
 	) -> Result<TxStatusStream<ChainApi>, ChainApi::Error> {
 		let tx_hash = self.api.hash_and_length(&xt).0;
-		let Some(external_watcher) = self.listener.create_external_watcher_for_tx(tx_hash).await
-		else {
+		let Some(external_watcher) = self.listener.create_external_watcher_for_tx(tx_hash) else {
 			return Err(PoolError::AlreadyImported(Box::new(tx_hash)).into())
 		};
 		let results = {
@@ -141,13 +140,11 @@ where
 					async move {
 						match view.submit_and_watch(source, xt).await {
 							Ok(watcher) => {
-								self.listener
-									.add_view_watcher_for_tx(
-										tx_hash,
-										view.at.hash,
-										watcher.into_stream().boxed(),
-									)
-									.await;
+								self.listener.add_view_watcher_for_tx(
+									tx_hash,
+									view.at.hash,
+									watcher.into_stream().boxed(),
+								);
 								Ok(())
 							},
 							Err(e) => Err(e),
@@ -281,14 +278,12 @@ where
 				.map(|e| self.api.hash_and_length(e).0)
 				.collect::<Vec<_>>();
 
-			let futs = extrinsics
+			extrinsics
 				.iter()
 				.enumerate()
-				.map(|(i, tx_hash)| self.listener.finalize_transaction(*tx_hash, *block, i))
-				.collect::<Vec<_>>();
+				.for_each(|(i, tx_hash)| self.listener.finalize_transaction(*tx_hash, *block, i));
 
 			finalized_transactions.extend(extrinsics);
-			future::join_all(futs).await;
 		}
 
 		finalized_transactions
@@ -338,7 +333,7 @@ where
 			log::debug!(target:LOG_TARGET,"insert_new_view: retracted_views: {:?}", self.retracted_views.read().keys());
 		}
 		for hash in &views_to_be_removed {
-			self.listener.remove_view(*hash).await;
+			self.listener.remove_view(*hash);
 		}
 	}
 
@@ -381,13 +376,13 @@ where
 			let mut retracted_views = self.retracted_views.write();
 			retracted_views.retain(|_, v| match finalized_number {
 				Err(_) | Ok(None) => false,
-				Ok(Some(n)) => v.at.number > n,
+				Ok(Some(n)) => v.at.number >= n,
 			});
 
 			log::debug!(target:LOG_TARGET,"handle_finalized: retracted_views: {:?}", retracted_views.keys());
 		}
 
-		self.listener.remove_stale_controllers().await;
+		self.listener.remove_stale_controllers();
 
 		finalized_xts
 	}

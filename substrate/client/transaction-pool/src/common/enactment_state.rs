@@ -177,8 +177,7 @@ where
 	/// fallback when tree_route cannot be computed.
 	pub fn force_update(&mut self, event: &ChainEvent<Block>) {
 		match event {
-			ChainEvent::NewBlock { hash, .. } | ChainEvent::NewBestBlock { hash, .. } =>
-				self.recent_best_block = *hash,
+			ChainEvent::NewBestBlock { hash, .. } => self.recent_best_block = *hash,
 			ChainEvent::Finalized { hash, .. } => self.recent_finalized_block = *hash,
 		};
 		log::debug!(
