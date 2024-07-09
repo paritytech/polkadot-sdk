@@ -14,6 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
+use crate::common::NodeExtraArgs;
 use clap::{Command, CommandFactory, FromArgMatches};
 use sc_cli::SubstrateCli;
 use std::path::PathBuf;
@@ -73,6 +74,12 @@ pub struct Cli {
 	#[command(flatten)]
 	pub run: cumulus_client_cli::RunCmd,
 
+	/// EXPERIMENTAL: Use slot-based collator which can handle elastic scaling.
+	///
+	/// Use with care, this flag is unstable and subject to change.
+	#[arg(long)]
+	pub experimental_use_slot_based: bool,
+
 	/// Disable automatic hardware benchmarks.
 	///
 	/// By default these benchmarks are automatically ran at startup and measure
@@ -86,6 +93,12 @@ pub struct Cli {
 	/// Relay chain arguments
 	#[arg(raw = true)]
 	pub relay_chain_args: Vec<String>,
+}
+
+impl Cli {
+	pub(crate) fn node_extra_args(&self) -> NodeExtraArgs {
+		NodeExtraArgs { use_slot_based_consensus: self.experimental_use_slot_based }
+	}
 }
 
 #[derive(Debug)]
