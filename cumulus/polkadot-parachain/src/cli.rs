@@ -14,6 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
+use crate::common::NodeExtraArgs;
 use clap::{Command, CommandFactory, FromArgMatches};
 use sc_cli::SubstrateCli;
 use std::path::PathBuf;
@@ -60,15 +61,6 @@ pub enum Subcommand {
 }
 
 #[derive(Debug, clap::Parser)]
-pub struct ExtraArgs {
-	/// EXPERIMENTAL: Use slot-based collator which can handle elastic scaling.
-	///
-	/// Use with care, this flag is unstable and subject to change.
-	#[arg(long)]
-	pub experimental_use_slot_based: bool,
-}
-
-#[derive(Debug, clap::Parser)]
 #[command(
 	propagate_version = true,
 	args_conflicts_with_subcommands = true,
@@ -82,8 +74,11 @@ pub struct Cli {
 	#[command(flatten)]
 	pub run: cumulus_client_cli::RunCmd,
 
-	#[command(flatten)]
-	pub extra_args: ExtraArgs,
+	/// EXPERIMENTAL: Use slot-based collator which can handle elastic scaling.
+	///
+	/// Use with care, this flag is unstable and subject to change.
+	#[arg(long)]
+	pub experimental_use_slot_based: bool,
 
 	/// Disable automatic hardware benchmarks.
 	///
@@ -98,6 +93,12 @@ pub struct Cli {
 	/// Relay chain arguments
 	#[arg(raw = true)]
 	pub relay_chain_args: Vec<String>,
+}
+
+impl Cli {
+	pub(crate) fn node_extra_args(&self) -> NodeExtraArgs {
+		NodeExtraArgs { use_slot_based_consensus: self.experimental_use_slot_based }
+	}
 }
 
 #[derive(Debug)]

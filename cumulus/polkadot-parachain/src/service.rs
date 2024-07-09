@@ -35,12 +35,12 @@ use cumulus_relay_chain_interface::{OverseerHandle, RelayChainInterface};
 use crate::{
 	common::{
 		aura::{AuraIdT, AuraRuntimeApi},
-		ConstructNodeRuntimeApi,
+		ConstructNodeRuntimeApi, NodeExtraArgs,
 	},
 	fake_runtime_api::aura::RuntimeApi as FakeRuntimeApi,
 	rpc::BuildRpcExtensions,
 };
-pub use parachains_common::{AccountId, AuraId, Balance, Block, Hash, Nonce};
+pub use parachains_common::{AccountId, Balance, Block, Hash, Nonce};
 
 use crate::rpc::{BuildEmptyRpcExtensions, BuildParachainRpcExtensions};
 use frame_benchmarking_cli::BlockCmd;
@@ -520,9 +520,7 @@ where
 	const SYBIL_RESISTANCE: CollatorSybilResistance = CollatorSybilResistance::Resistant;
 }
 
-pub fn new_aura_node_spec<RuntimeApi, AuraId>(
-	use_slot_based_consensus: bool,
-) -> Box<dyn DynNodeSpec>
+pub fn new_aura_node_spec<RuntimeApi, AuraId>(extra_args: NodeExtraArgs) -> Box<dyn DynNodeSpec>
 where
 	RuntimeApi: ConstructNodeRuntimeApi<Block, ParachainClient<RuntimeApi>>,
 	RuntimeApi::RuntimeApi: AuraRuntimeApi<Block, AuraId>
@@ -530,7 +528,7 @@ where
 		+ substrate_frame_rpc_system::AccountNonceApi<Block, AccountId, Nonce>,
 	AuraId: AuraIdT + Sync,
 {
-	if use_slot_based_consensus {
+	if extra_args.use_slot_based_consensus {
 		Box::new(AuraNode::<
 			RuntimeApi,
 			AuraId,
@@ -798,19 +796,6 @@ where
 
 		Ok(())
 	}
-}
-
-/// Start an aura powered parachain node which uses the lookahead collator to support async backing.
-/// This node is basic in the sense that its runtime api doesn't include common contents such as
-/// transaction payment. Used for aura glutton.
-pub(crate) struct BasicLookaheadNode;
-
-impl NodeSpec for BasicLookaheadNode {
-	type RuntimeApi = FakeRuntimeApi;
-	type BuildImportQueue = BuildRelayToAuraImportQueue<Self::RuntimeApi, AuraId>;
-	type BuildRpcExtensions = BuildEmptyRpcExtensions<Self::RuntimeApi>;
-	type StartConsensus = StartLookaheadAuraConsensus<Self::RuntimeApi, AuraId>;
-	const SYBIL_RESISTANCE: CollatorSybilResistance = CollatorSybilResistance::Resistant;
 }
 
 /// Checks that the hardware meets the requirements and print a warning otherwise.
