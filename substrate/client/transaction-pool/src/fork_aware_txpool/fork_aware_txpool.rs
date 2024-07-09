@@ -296,7 +296,9 @@ where
 	}
 
 	/// Returns best effort set of ready transactions for given block, without executing full
-	/// maintain process
+	/// maintain process.
+	///
+	/// If maintain was already performed the ready iterator for existing, unmodified view is returned.
 	fn ready_light(&self, at: Block::Hash) -> PolledIterator<ChainApi> {
 		let start = Instant::now();
 		log::info!( target: LOG_TARGET, "fatp::ready_light {:?}", at);
@@ -718,36 +720,16 @@ where
 		async move { view_store.submit_and_watch(at, source, xt).await }.boxed()
 	}
 
-	// todo: api change? we need block hash here (assuming we need it at all).
+	// todo: api change? we need block hash here (assuming we need it at all - could be useful for
+	// verification for debuggin purposes).
 	fn remove_invalid(&self, hashes: &[TxHash<Self>]) -> Vec<Arc<Self::InPoolTransaction>> {
+		log::info!(target: LOG_TARGET, "fatp::remove_invalid {}", hashes.len());
 		log_xt_debug!(target:LOG_TARGET, hashes, "[{:?}] fatp::remove_invalid");
-
-		//revlidate check: what hash shall be used here?
-		// for tx in ready {
-		// 	let validation_result = self
-		// 		.api
-		// 		.validate_transaction(block_hash, TransactionSource::External, tx.data.clone())
-		// 		.await;
-		// 	log::debug!(target:LOG_TARGET, "[{:?}] is ready in view {:?} validation result {:?}",
-		// tx.hash, block_hash, validation_result); }
-
-		//todo:
-		// let removed = self.pool.validated_pool().remove_invalid(hashes);
-		// removed
-
-		//todo:
-		// self.metrics
-		// 	.report(|metrics| metrics.validations_invalid.inc_by(removed.len() as u64));
-
-		// todo: what to do here?
-		// unimplemented!()
 		Default::default()
 	}
 
-	// todo: probably API change to:
+	// todo: api change?
 	// status(Hash) -> Option<PoolStatus>
-	//
-	// todo: move to ViewStore
 	fn status(&self) -> PoolStatus {
 		self.view_store
 			.most_recent_view

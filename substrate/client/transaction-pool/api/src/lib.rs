@@ -324,8 +324,8 @@ pub trait TransactionPool: Send + Sync {
 
 	/// Returns set of ready transaction at given block within given timeout.
 	///
-	/// If timeout is internally hit then best effort set of ready transactions for given block,
-	/// without executing full maintain process.
+	/// If the timeout is hit during method execution then the best effort set of ready transactions for given block,
+	/// without executing full maintain process is returned.
 	fn ready_at_with_timeout(
 		&self,
 		at: <Self::Block as BlockT>::Hash,
