@@ -108,6 +108,9 @@ const MAX_DISCONNECTED_PEERS_STATE: u32 = 512;
 /// an inflight request are not tracked.
 const DISCONNECTED_PEER_BACKOFF_SECONDS: u64 = 30;
 
+/// Maximum number of disconnects with a request in flight before a peer is banned.
+const MAX_NUM_DISCONNECTS: u64 = 3;
+
 mod rep {
 	use sc_network::ReputationChange as Rep;
 	/// Reputation change when a peer sent us a message that led to a
@@ -116,7 +119,7 @@ mod rep {
 
 	/// Reputation change when a peer sent us a status message with a different
 	/// genesis than us.
-	pub const GENESIS_MISMATCH: Rep = Rep::new(i32::MIN, "Genesis mismatch");
+	pub const GENESIS_MISMATCH: Rep = Rep::new_fatal("Genesis mismatch");
 
 	/// Reputation change for peers which send us a block with an incomplete header.
 	pub const INCOMPLETE_HEADER: Rep = Rep::new(-(1 << 20), "Incomplete header");
@@ -141,6 +144,10 @@ mod rep {
 
 	/// Peer response data does not have requested bits.
 	pub const BAD_RESPONSE: Rep = Rep::new(-(1 << 12), "Incomplete response");
+
+	/// Peer disconnected too many times with an inflight request.
+	pub const DISCONNECTED_TOO_MANY_TIMES: Rep =
+		Rep::new_fatal("Slow peer with too many disconnects");
 }
 
 struct Metrics {
@@ -281,12 +288,14 @@ impl<B: BlockT> Peers<B> {
 		self.active_peers.insert(peer_id, peer_sync);
 	}
 
-	fn remove(&mut self, peer_id: &PeerId) {
-		let Some(peer_state) = self.active_peers.remove(peer_id) else { return };
+	/// Returns a bad peer reputation if the peer is disconnected too many times with an inflight
+	/// request.
+	fn remove(&mut self, peer_id: &PeerId) -> Option<BadPeer> {
+		let Some(peer_state) = self.active_peers.remove(peer_id) else { return None };
 
 		// Keep track only of peers that have inflight requests.
 		if !peer_state.state.is_downloading() {
-			return
+			return None
 		}
 
 		match self.disconnected_peers.get(peer_id) {
@@ -296,6 +305,7 @@ impl<B: BlockT> Peers<B> {
 					"Peer {peer_id} disconnected {} times.", state.num_disconnects
 				);
 				let num_disconnects = state.num_disconnects + 1;
+
 				self.disconnected_peers.insert(
 					*peer_id,
 					DisconnectedPeerState {
@@ -303,6 +313,17 @@ impl<B: BlockT> Peers<B> {
 						last_disconnect: std::time::Instant::now(),
 					},
 				);
+
+				if num_disconnects >= MAX_NUM_DISCONNECTS {
+					debug!(
+						target: LOG_TARGET,
+						"Disconnecting peer {peer_id} due to too many disconnects.",
+					);
+
+					Some(BadPeer(*peer_id, rep::DISCONNECTED_TOO_MANY_TIMES))
+				} else {
+					None
+				}
 			},
 			None => {
 				self.disconnected_peers.insert(
@@ -312,6 +333,7 @@ impl<B: BlockT> Peers<B> {
 						last_disconnect: std::time::Instant::now(),
 					},
 				);
+				None
 			},
 		}
 	}
@@ -1276,7 +1298,9 @@ where
 			gap_sync.blocks.clear_peer_download(peer_id)
 		}
 
-		self.peers.remove(peer_id);
+		if let Some(bad_peer) = self.peers.remove(peer_id) {
+			self.actions.push(ChainSyncAction::DropPeer(bad_peer));
+		}
 
 		self.extra_justifications.peer_disconnected(peer_id);
 		self.allowed_requests.set_all();
