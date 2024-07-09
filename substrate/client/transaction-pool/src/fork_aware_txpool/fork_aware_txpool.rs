@@ -324,6 +324,10 @@ where
 						best_enacted_len = tree_route.enacted().len();
 						best_view = Some(v.clone());
 						best_tree_route = Some(tree_route);
+
+						if best_enacted_len == 0 {
+							break
+						}
 					}
 				}
 			}
@@ -355,13 +359,7 @@ where
 					all_extrinsics.extend(extrinsics);
 				}
 
-				let before_count = tmp_view.pool.validated_pool().ready().count();
-				// tmp_view.pool.validated_pool().remove_invalid(&all_extrinsics[..]);
-
-				// todo: do we need to send ready event? (that requires registering all listener for
-				// every txs). But maybe we only use transactions already imported to ready. No new
-				// tags appear so future txs shall not promoted.
-				// ++ todo: add light_prune?
+				let before_count = tmp_view.pool.validated_pool().status().ready;
 				let in_pool_tags = tmp_view.pool.validated_pool().extrinsics_tags(&all_extrinsics);
 
 				let mut tags = Vec::new();
@@ -373,11 +371,10 @@ where
 					}
 				}
 				let _ = tmp_view.pool.validated_pool().prune_tags(tags);
-				// --
 
-				let after_count = tmp_view.pool.validated_pool().ready().count();
+				let after_count = tmp_view.pool.validated_pool().status().ready;
 				log::info!( target: LOG_TARGET,
-					"fatp::ready_light {} from {} before: {} removed: {} after: {} took:{:?}",
+					"fatp::ready_light {} from {} before: {} to be removed: {} after: {} took:{:?}",
 					at,
 					best_view.at.hash,
 					before_count,
