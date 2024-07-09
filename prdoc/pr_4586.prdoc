@@ -12,3 +12,11 @@ doc:
 crates:
   - name: pallet-identity
     bump: minor
+  - name: pallet-alliance
+    bump: none
+  - name: kitchensink-runtime
+    bump: none
+  - name: people-rococo-integration-tests
+    bump: none
+  - name: people-westend-integration-tests
+    bump: none
