@@ -1833,7 +1833,10 @@ impl<T: Config> Pallet<T> {
 				// no custom fees instructions, they are batched together with `assets` transfer;
 				// BuyExecution happens after receiving all `assets`
 				let reanchored_fees =
-					fees.reanchored(&dest, &context).map_err(|_| Error::<T>::CannotReanchor)?;
+					fees.reanchored(&dest, &context).map_err(|e| {
+						log::error!(target: "xcm::pallet_xcm::add_fees_to_xcm", "Failed to re-anchor fees: {:?}", e);
+						Error::<T>::CannotReanchor
+					})?;
 				// buy execution using `fees` batched together with above `reanchored_assets`
 				remote.inner_mut().push(BuyExecution { fees: reanchored_fees, weight_limit });
 			},
@@ -1898,7 +1901,10 @@ impl<T: Config> Pallet<T> {
 		let mut reanchored_assets = assets.clone();
 		reanchored_assets
 			.reanchor(&dest, &context)
-			.map_err(|_| Error::<T>::CannotReanchor)?;
+			.map_err(|e| {
+				log::error!(target: "xcm::pallet_xcm::local_reserve_transfer_programs", "Failed to re-anchor assets: {:?}", e);
+				Error::<T>::CannotReanchor
+			})?;
 
 		// XCM instructions to be executed on local chain
 		let mut local_execute_xcm = Xcm(vec![
@@ -1941,7 +1947,10 @@ impl<T: Config> Pallet<T> {
 		let reanchored_fees = fees
 			.clone()
 			.reanchored(&dest, &context)
-			.map_err(|_| Error::<T>::CannotReanchor)?;
+			.map_err(|e| {
+				log::error!(target: "xcm::pallet_xcm::destination_reserve_fees_instructions", "Failed to re-anchor fees: {:?}", e);
+				Error::<T>::CannotReanchor
+			})?;
 		let fees: Assets = fees.into();
 
 		let local_execute_xcm = Xcm(vec![
@@ -1979,7 +1988,10 @@ impl<T: Config> Pallet<T> {
 		let mut reanchored_assets = assets.clone();
 		reanchored_assets
 			.reanchor(&dest, &context)
-			.map_err(|_| Error::<T>::CannotReanchor)?;
+			.map_err(|e| {
+				log::error!(target: "xcm::pallet_xcm::destination_reserve_transfer_programs", "Failed to re-anchor assets: {:?}", e);
+				Error::<T>::CannotReanchor
+			})?;
 
 		// XCM instructions to be executed on local chain
 		let mut local_execute_xcm = Xcm(vec![
@@ -2033,13 +2045,22 @@ impl<T: Config> Pallet<T> {
 		// identifies fee item as seen by `reserve` - to be used at reserve chain
 		let reserve_fees = fees_half_1
 			.reanchored(&reserve, &context)
-			.map_err(|_| Error::<T>::CannotReanchor)?;
+			.map_err(|e| {
+				log::error!(target: "xcm::pallet_xcm::remote_reserve_transfer_program", "Failed to re-anchor reserve_fees: {:?}", e);
+				Error::<T>::CannotReanchor
+			})?;
 		// identifies fee item as seen by `dest` - to be used at destination chain
 		let dest_fees = fees_half_2
 			.reanchored(&dest, &context)
-			.map_err(|_| Error::<T>::CannotReanchor)?;
+			.map_err(|e| {
+				log::error!(target: "xcm::pallet_xcm::remote_reserve_transfer_program", "Failed to re-anchor dest_fees: {:?}", e);
+				Error::<T>::CannotReanchor
+			})?;
 		// identifies `dest` as seen by `reserve`
-		let dest = dest.reanchored(&reserve, &context).map_err(|_| Error::<T>::CannotReanchor)?;
+		let dest = dest.reanchored(&reserve, &context).map_err(|e| {
+			log::error!(target: "xcm::pallet_xcm::remote_reserve_transfer_program", "Failed to re-anchor dest: {:?}", e);
+			Error::<T>::CannotReanchor
+		})?;
 		// xcm to be executed at dest
 		let mut xcm_on_dest =
 			Xcm(vec![BuyExecution { fees: dest_fees, weight_limit: weight_limit.clone() }]);
@@ -2081,7 +2102,10 @@ impl<T: Config> Pallet<T> {
 		let reanchored_fees = fees
 			.clone()
 			.reanchored(&dest, &context)
-			.map_err(|_| Error::<T>::CannotReanchor)?;
+			.map_err(|e| {
+				log::error!(target: "xcm::pallet_xcm::teleport_fees_instructions", "Failed to re-anchor fees: {:?}", e);
+				Error::<T>::CannotReanchor
+			})?;
 
 		// XcmContext irrelevant in teleports checks
 		let dummy_context =
@@ -2095,7 +2119,10 @@ impl<T: Config> Pallet<T> {
 			&fees,
 			&dummy_context,
 		)
-		.map_err(|_| Error::<T>::CannotCheckOutTeleport)?;
+		.map_err(|e| {
+			log::error!(target: "xcm::pallet_xcm::teleport_fees_instructions", "Failed to teleport fees: {:?}", e);
+			Error::<T>::CannotCheckOutTeleport
+		})?;
 		// safe to do this here, we're in a transactional call that will be reverted on any
 		// errors down the line
 		<T::XcmExecutor as XcmAssetTransfers>::AssetTransactor::check_out(
@@ -2140,7 +2167,10 @@ impl<T: Config> Pallet<T> {
 		let mut reanchored_assets = assets.clone();
 		reanchored_assets
 			.reanchor(&dest, &context)
-			.map_err(|_| Error::<T>::CannotReanchor)?;
+			.map_err(|e| {
+				log::error!(target: "xcm::pallet_xcm::teleport_assets_program", "Failed to re-anchor asset: {:?}", e);
+				Error::<T>::CannotReanchor
+			})?;
 
 		// XcmContext irrelevant in teleports checks
 		let dummy_context =
@@ -2155,7 +2185,10 @@ impl<T: Config> Pallet<T> {
 				asset,
 				&dummy_context,
 			)
-			.map_err(|_| Error::<T>::CannotCheckOutTeleport)?;
+			.map_err(|e| {
+				log::error!(target: "xcm::pallet_xcm::teleport_assets_program", "Failed to teleport asset: {:?}", e);
+				Error::<T>::CannotCheckOutTeleport
+			})?;
 		}
 		for asset in assets.inner() {
 			// safe to do this here, we're in a transactional call that will be reverted on any
@@ -2428,7 +2461,10 @@ impl<T: Config> Pallet<T> {
 		log::debug!(target: "xcm::send_xcm", "dest: {:?}, message: {:?}", &dest, &message);
 		let (ticket, price) = validate_send::<T::XcmRouter>(dest, message)?;
 		if let Some(fee_payer) = maybe_fee_payer {
-			Self::charge_fees(fee_payer, price).map_err(|_| SendError::Fees)?;
+			Self::charge_fees(fee_payer, price).map_err(|e| {
+				log::error!(target: "xcm::pallet_xcm::send_xcm", "Charging fees failed: {:?}", e);
+				SendError::Fees
+			})?;
 		}
 		T::XcmRouter::deliver(ticket)
 	}
@@ -2534,7 +2570,10 @@ impl<T: Config> Pallet<T> {
 
 	pub fn query_xcm_weight(message: VersionedXcm<()>) -> Result<Weight, XcmPaymentApiError> {
 		let message = Xcm::<()>::try_from(message)
-			.map_err(|_| XcmPaymentApiError::VersionedConversionFailed)?;
+			.map_err(|e| {
+				log::error!(target: "xcm::pallet_xcm::query_xcm_weight", "Failed to convert versioned `message`: {:?}", e);
+				XcmPaymentApiError::VersionedConversionFailed
+			})?;
 
 		T::Weigher::weight(&mut message.into()).map_err(|()| {
 			log::error!(target: "xcm::pallet_xcm::query_xcm_weight", "Error when querying XCM weight");
@@ -2550,10 +2589,16 @@ impl<T: Config> Pallet<T> {
 
 		let destination = destination
 			.try_into()
-			.map_err(|_| XcmPaymentApiError::VersionedConversionFailed)?;
+			.map_err(|e| {
+				log::error!(target: "xcm::pallet_xcm::query_delivery_fees", "Failed to convert versioned `destination`: {:?}", e);
+				XcmPaymentApiError::VersionedConversionFailed
+			})?;
 
 		let message =
-			message.try_into().map_err(|_| XcmPaymentApiError::VersionedConversionFailed)?;
+			message.try_into().map_err(|e| {
+				log::error!(target: "xcm::pallet_xcm::query_delivery_fees", "Failed to convert versioned `message`: {:?}", e);
+				XcmPaymentApiError::VersionedConversionFailed
+			})?;
 
 		let (_, fees) = validate_send::<T::XcmRouter>(destination, message).map_err(|error| {
 			log::error!(target: "xcm::pallet_xcm::query_delivery_fees", "Error when querying delivery fees: {:?}", error);
@@ -2562,7 +2607,10 @@ impl<T: Config> Pallet<T> {
 
 		VersionedAssets::from(fees)
 			.into_version(result_version)
-			.map_err(|_| XcmPaymentApiError::VersionedConversionFailed)
+			.map_err(|e| {
+				log::error!(target: "xcm::pallet_xcm::query_delivery_fees", "Failed to convert fees into version: {:?}", e);
+				XcmPaymentApiError::VersionedConversionFailed
+			})
 	}
 
 	/// Create a new expectation of a query response with the querier being here.
