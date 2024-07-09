@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1720520454084,
+  "lastUpdate": 1720534596580,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -17107,6 +17107,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-distribution",
             "value": 0.012368279106666666,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Alin Dima",
+            "username": "alindima",
+            "email": "alin@parity.io"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "2f0e5a61b7739ff0f41ba124653b45ce269dee7e",
+          "message": "add notices to the implementer's guide docs that changed for elastic scaling (#4983)\n\nThe update is tracked by:\nhttps://github.com/paritytech/polkadot-sdk/issues/3699\n\nHowever, this is not worth doing at this point since it will change in\nthe future for phase 2 of the implementation.\n\nStill, it's useful to let people know that the information is not the\nmost up to date.",
+          "timestamp": "2024-07-09T11:36:07Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/2f0e5a61b7739ff0f41ba124653b45ce269dee7e"
+        },
+        "date": 1720534567162,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.16963447079333335,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.012090423746666669,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.021881113706666667,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010081780780000008,
             "unit": "seconds"
           }
         ]
