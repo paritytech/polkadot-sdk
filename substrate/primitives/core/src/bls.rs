@@ -295,27 +295,47 @@ mod tests {
 		);
 	}
 
-	// #[test]
-	// fn test_vector_should_work() {
-	// 	let pair = Pair::from_seed(&array_bytes::hex2array_unchecked(
-	// 		"9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60",
-	// 	));
-	// 	let public = pair.public();
-	// 	assert_eq!(
-	// 		public,
-	// 		Public::unchecked_from(array_bytes::hex2array_unchecked(
-	// 			"7a84ca8ce4c37c93c95ecee6a3c0c9a7b9c225093cf2f12dc4f69cbfb847ef9424a18f5755d5a742247d386ff2aabb806bcf160eff31293ea9616976628f77266c8a8cc1d8753be04197bd6cdd8c5c87a148f782c4c1568d599b48833fd539001e580cff64bbc71850605433fcd051f3afc3b74819786f815ffb5272030a8d03e5df61e6183f8fd8ea85f26defa83400"
-	// 		))
-	// 	);
-	// 	let message = b"";
-	// 	let signature =
-	// array_bytes::hex2array_unchecked("d1e3013161991e142d8751017d4996209c2ff8a9ee160f373733eda3b4b785ba6edce9f45f87104bbe07aa6aa6eb2780aa705efb2c13d3b317d6409d159d23bdc7cdd5c2a832d1551cf49d811d49c901495e527dbd532e3a462335ce2686009104aba7bc11c5b22be78f3198d2727a0b"
-	// );
-	// 	let signature = Signature::unchecked_from(signature);
-	// 	assert!(pair.sign(&message[..]) == signature);
-	// 	assert!(Pair::verify(&signature, &message[..], &public));
-	// }
+	fn test_vector_should_work<E: BlsBound>(
+		hex_expected_pub_key: &str,
+		hex_expected_signature: &str,
+	) {
+		let pair = Pair::<E>::from_seed(&array_bytes::hex2array_unchecked(
+			"9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60",
+		));
 
+		let public = pair.public();
+		let public_bytes: &[u8] = public.as_ref();
+		println!("pub key is: {:?}", array_bytes::bytes2hex("", public_bytes));
+		assert_eq!(
+			public,
+			Public::unchecked_from(array_bytes::hex2array_unchecked(hex_expected_pub_key))
+		);
+		let message = b"";
+		let signature = array_bytes::hex2array_unchecked(hex_expected_signature);
+
+		let expected_signature = Signature::unchecked_from(signature);
+		let signature = pair.sign(&message[..]);
+		let signature_bytes: &[u8] = signature.as_ref();
+		println!("signature is: {:?}", array_bytes::bytes2hex("", signature_bytes));
+		assert!(signature == expected_signature);
+		assert!(Pair::verify(&signature, &message[..], &public));
+	}
+
+	#[test]
+	fn test_vector_should_work_for_bls377() {
+		test_vector_should_work::<bls377::BlsEngine>(
+	    "7a84ca8ce4c37c93c95ecee6a3c0c9a7b9c225093cf2f12dc4f69cbfb847ef9424a18f5755d5a742247d386ff2aabb806bcf160eff31293ea9616976628f77266c8a8cc1d8753be04197bd6cdd8c5c87a148f782c4c1568d599b48833fd539001e580cff64bbc71850605433fcd051f3afc3b74819786f815ffb5272030a8d03e5df61e6183f8fd8ea85f26defa83400",
+	    "d1e3013161991e142d8751017d4996209c2ff8a9ee160f373733eda3b4b785ba6edce9f45f87104bbe07aa6aa6eb2780aa705efb2c13d3b317d6409d159d23bdc7cdd5c2a832d1551cf49d811d49c901495e527dbd532e3a462335ce2686009104aba7bc11c5b22be78f3198d2727a0b"
+	    )
+	}
+
+	#[test]
+	fn test_vector_should_work_for_bls381() {
+		test_vector_should_work::<bls381::BlsEngine>(
+	    "88ff6c3a32542bc85f2adf1c490a929b7fcee50faeb95af9a036349390e9b3ea7326247c4fc4ebf88050688fd6265de0806284eec09ba0949f5df05dc93a787a14509749f36e4a0981bb748d953435483740907bb5c2fe8ffd97e8509e1a038b05fb08488db628ea0638b8d48c3ddf62ed437edd8b23d5989d6c65820fc70f80fb39b486a3766813e021124aec29a566",
+	    "8c29473f44ac4f0a8ac4dc8c8da09adf9d2faa2dbe0cfdce3ce7c920714196a1b7bf48dc05048e453c161ebc2db9f44fae060b3be77e14e66d1a5262f14d3da0c3a18e650018761a7402b31abc7dd803d466bdcb71bc28c77eb73c610cbff53c00130b79116831e520a04a8ef6630e6f"
+	    )
+	}
 	// #[test]
 	// fn test_vector_by_string_should_work() {
 	// 	let pair = Pair::from_string(
