@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1720520755290,
+  "lastUpdate": 1720534894702,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
@@ -13691,6 +13691,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.1786377161333333,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Francisco Aguirre",
+            "username": "franciscoaguirre",
+            "email": "franciscoaguirreperez@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "9403a5d40214b0d223c87c8d7b13139672edfe95",
+          "message": "Add `MAX_INSTRUCTIONS_TO_DECODE` to XCMv2 (#4978)\n\nIt was added to v4 and v3 but was missing from v2",
+          "timestamp": "2024-07-09T13:49:01Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/9403a5d40214b0d223c87c8d7b13139672edfe95"
+        },
+        "date": 1720534865683,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 13.020804292866663,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.19224703880000002,
             "unit": "seconds"
           }
         ]
