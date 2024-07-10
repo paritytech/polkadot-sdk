@@ -58,13 +58,18 @@
 //!   3 holds for 100 units, the account can spend its funds for any reason down to 300 units, at
 //!   which point the holds will start to come into play.
 //!
-//! - **Frozen Balance**: A freeze on a specified amount of an account's free balance until a
-//!   specified block number.
+//! - **Frozen Balance**: A freeze on a specified amount of an account's balance. Tokens that are
+//!   frozen cannot be transferred.
 //!
 //!   Multiple freezes always operate over the same funds, so they "overlay" rather than
 //!   "stack". This means that if an account has 3 freezes for 100 units, the account can spend its
 //!   funds for any reason down to 100 units, at which point the freezes will start to come into
 //!   play.
+//!   
+//!   It's important to note that the frozen balance can exceed the total balance of the account.
+//!   This is useful, eg, in cases where you want to prevent a user from transferring any fund. In
+//!   such a case, setting the frozen balance to `Balance::MAX` would serve that purpose
+//! effectively.
 //!
 //! - **Minimum Balance (a.k.a. Existential Deposit, a.k.a. ED)**: The minimum balance required to
 //!   create or keep an account open. This is to prevent "dust accounts" from filling storage. When
