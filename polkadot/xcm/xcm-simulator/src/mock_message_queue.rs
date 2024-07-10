@@ -89,6 +89,10 @@ pub mod pallet {
 			ParachainId::<T>::put(para_id);
 		}
 
+		pub fn parachain_id() -> ParaId {
+			ParachainId::<T>::get()
+		}
+
 		fn handle_xcmp_message(
 			sender: ParaId,
 			_sent_at: RelayBlockNumber,
