@@ -132,6 +132,9 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			Some(details) => details,
 			None => return DepositConsequence::UnknownAsset,
 		};
+		if details.status == AssetStatus::Destroying {
+			return DepositConsequence::UnknownAsset
+		}
 		if increase_supply && details.supply.checked_add(&amount).is_none() {
 			return DepositConsequence::Overflow
 		}
@@ -174,6 +177,9 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		}
 		if details.status == AssetStatus::Frozen {
 			return Frozen
+		}
+		if details.status == AssetStatus::Destroying {
+			return UnknownAsset
 		}
 		if amount.is_zero() {
 			return Success
@@ -723,6 +729,9 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	) -> DispatchResult {
 		ensure!(!Asset::<T, I>::contains_key(&id), Error::<T, I>::InUse);
 		ensure!(!min_balance.is_zero(), Error::<T, I>::MinBalanceZero);
+		if let Some(next_id) = NextAssetId::<T, I>::get() {
+			ensure!(id == next_id, Error::<T, I>::BadAssetId);
+		}
 
 		Asset::<T, I>::insert(
 			&id,
