@@ -44,6 +44,7 @@
 //!   that are callable by end users, from the outer world.
 //! - [Events](frame::pallet_macros::event), allowing a pallet to emit events.
 //! - [Errors](frame::pallet_macros::error), allowing a pallet to emit well-formed errors.
+//! - [Runtime](frame::runtime::prelude::runtime)
 //!
 //! Some of these pallet components resemble the building blocks of a smart contract. While both
 //! models are programming state transition functions of blockchains, there are crucial differences

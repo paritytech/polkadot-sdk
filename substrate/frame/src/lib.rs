@@ -154,6 +154,9 @@ pub mod runtime {
 		/// Macro to amalgamate the runtime into `struct Runtime`.
 		pub use frame_support::construct_runtime;
 
+		/// V2 Macro to amalgamate the runtime into `struct Runtime`.
+		pub use frame_support::runtime;
+
 		/// Macro to easily derive the `Config` trait of various pallet for `Runtime`.
 		pub use frame_support::derive_impl;
 

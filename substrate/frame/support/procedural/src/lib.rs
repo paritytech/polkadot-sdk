@@ -1191,11 +1191,29 @@ pub fn import_section(attr: TokenStream, tokens: TokenStream) -> TokenStream {
 	.into()
 }
 
+/// Construct a runtime, with the given name and the given pallets.
 ///
-/// ---
+/// # Example:
+#[doc = docify::embed!("examples/runtime.rs", runtime_macro)]
 ///
-/// **Rust-Analyzer users**: See the documentation of the Rust item in
-/// `frame_support::runtime`.
+/// # Supported Attributes:
+///
+/// ## Legacy Ordering
+///
+/// An optional attribute can be defined as #[frame_support::runtime(legacy_ordering)] to
+/// ensure that the order of hooks is same as the order of pallets (and not based on the
+/// pallet_index). This is to support legacy runtimes and should be avoided for new ones.
+///
+/// # Note
+///
+/// The population of the genesis storage depends on the order of pallets. So, if one of your
+/// pallets depends on another pallet, the pallet that is depended upon needs to come before
+/// the pallet depending on it.
+///
+/// # Type definitions
+///
+/// * The macro generates a type alias for each pallet to their `Pallet`. E.g. `type System =
+///   frame_system::Pallet<Runtime>`
 #[proc_macro_attribute]
 pub fn runtime(attr: TokenStream, item: TokenStream) -> TokenStream {
 	runtime::runtime(attr, item)
