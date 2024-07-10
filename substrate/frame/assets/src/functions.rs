@@ -186,22 +186,31 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			return Frozen
 		}
 		if let Some(rest) = account.balance.checked_sub(&amount) {
-			if let Some(frozen) = T::Freezer::frozen_balance(id.clone(), who) {
-				match frozen.checked_add(&details.min_balance) {
-					Some(required) if rest < required => return Frozen,
-					None => return Overflow,
-					_ => {},
-				}
-			}
+			match (
+				T::Holder::held_balance(id.clone(), who),
+				T::Freezer::frozen_balance(id.clone(), who),
+			) {
+				(None, None) =>
+					if rest < details.min_balance {
+						if keep_alive {
+							WouldDie
+						} else {
+							ReducedToZero(rest)
+						}
+					} else {
+						Success
+					},
+				(maybe_held, maybe_frozen) => {
+					let frozen = maybe_frozen.unwrap_or_default();
+					let held = maybe_held.unwrap_or_default();
 
-			if rest < details.min_balance {
-				if keep_alive {
-					WouldDie
-				} else {
-					ReducedToZero(rest)
-				}
-			} else {
-				Success
+					let required = frozen.saturating_sub(held).max(details.min_balance);
+					if rest < required {
+						return Frozen
+					}
+
+					Success
+				},
 			}
 		} else {
 			BalanceLow
@@ -221,25 +230,20 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		let account = Account::<T, I>::get(&id, who).ok_or(Error::<T, I>::NoAccount)?;
 		ensure!(!account.status.is_frozen(), Error::<T, I>::Frozen);
 
-		let frozen = T::Freezer::frozen_balance(id.clone(), who).unwrap_or_default();
-		let amount = if let Some(held) = T::Holder::held_balance(id, who) {
-			let untouchable = frozen
-				.saturating_sub(held)
-				.checked_add(&details.min_balance)
-				.ok_or(ArithmeticError::Overflow)?;
-			account.balance.saturating_sub(untouchable)
-		} else {
-			let required = if frozen > Zero::zero() {
-				frozen.checked_add(&details.min_balance).ok_or(ArithmeticError::Overflow)?
-			} else {
-				if keep_alive {
-					details.min_balance
-				} else {
-					Zero::zero()
-				}
-			};
-			account.balance.saturating_sub(required)
+		let untouchable = match (
+			T::Holder::held_balance(id.clone(), who),
+			T::Freezer::frozen_balance(id.clone(), who),
+			keep_alive,
+		) {
+			(None, None, true) => details.min_balance,
+			(None, None, false) => Zero::zero(),
+			(maybe_held, maybe_frozen, _) => {
+				let held = maybe_held.unwrap_or_default();
+				let frozen = maybe_frozen.unwrap_or_default();
+				frozen.saturating_sub(held).max(details.min_balance)
+			},
 		};
+		let amount = account.balance.saturating_sub(untouchable);
 
 		Ok(amount.min(details.supply))
 	}

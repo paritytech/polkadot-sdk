@@ -1299,9 +1299,9 @@ fn freezer_should_work() {
 		// freeze 50 of it.
 		set_frozen_balance(0, 1, 50);
 
-		assert_ok!(Assets::transfer(RuntimeOrigin::signed(1), 0, 2, 20));
-		// cannot transfer another 21 away as this would take the non-frozen balance (30) to below
-		// the minimum balance (10).
+		assert_ok!(Assets::transfer(RuntimeOrigin::signed(1), 0, 2, 30));
+		// cannot transfer another 21 away as this would take the spendable balance (30) to below
+		// zero.
 		assert_noop!(
 			Assets::transfer(RuntimeOrigin::signed(1), 0, 2, 21),
 			Error::<Test>::BalanceLow
@@ -1324,7 +1324,7 @@ fn freezer_should_work() {
 
 		// and if we clear it, we can remove the account completely.
 		clear_frozen_balance(0, 1);
-		assert_ok!(Assets::transfer(RuntimeOrigin::signed(1), 0, 2, 50));
+		assert_ok!(Assets::transfer(RuntimeOrigin::signed(1), 0, 2, 49));
 		assert_eq!(hooks(), vec![Hook::Died(0, 1)]);
 	});
 }
