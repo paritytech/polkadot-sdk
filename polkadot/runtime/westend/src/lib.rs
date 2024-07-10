@@ -29,7 +29,7 @@ use frame_support::{
 	parameter_types,
 	traits::{
 		fungible::HoldConsideration, tokens::UnityOrOuterConversion, ConstU32, Contains, EitherOf,
-		EitherOfDiverse, EnsureOrigin, EnsureOriginWithArg, EverythingBut, FromContains,
+		EitherOfDiverse, EnsureOriginWithArg, EverythingBut, FromContains,
 		InstanceFilter, KeyOwnerProofSystem, LinearStoragePrice, ProcessMessage,
 		ProcessMessageError, VariantCountOf, WithdrawReasons,
 	},
@@ -87,7 +87,6 @@ use sp_consensus_beefy::{
 use sp_core::{ConstU8, OpaqueMetadata, RuntimeDebug, H256};
 use sp_runtime::{
 	create_runtime_str,
-	curve::PiecewiseLinear,
 	generic, impl_opaque_keys,
 	traits::{
 		AccountIdConversion, BlakeTwo256, Block as BlockT, ConvertInto, Extrinsic as ExtrinsicT,
@@ -268,6 +267,17 @@ pub mod dynamic_params {
 	}
 }
 
+
+#[cfg(feature = "runtime-benchmarks")]
+impl Default for RuntimeParameters {
+	fn default() -> Self {
+		RuntimeParameters::Inflation(dynamic_params::inflation::Parameters::MinInflation(
+			dynamic_params::inflation::MinInflation,
+			Some(Perquintill::from_rational(25u64, 1000u64)),
+		))
+	}
+}
+
 impl pallet_parameters::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type RuntimeParameters = RuntimeParameters;
@@ -286,12 +296,18 @@ impl EnsureOriginWithArg<RuntimeOrigin, RuntimeParametersKey> for DynamicParamet
 		origin: RuntimeOrigin,
 		key: &RuntimeParametersKey,
 	) -> Result<Self::Success, RuntimeOrigin> {
-		use crate::{dynamic_params::*, governance::*, RuntimeParametersKey::*};
+		use crate::RuntimeParametersKey::*;
 
 		match key {
 			Inflation(_) => frame_system::ensure_root(origin.clone()),
 		}
 		.map_err(|_| origin)
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn try_successful_origin(_key: &RuntimeParametersKey) -> Result<RuntimeOrigin, ()> {
+		// Provide the origin for the parameter returned by `Default`:
+		Ok(RuntimeOrigin::root())
 	}
 }
 
