@@ -18,6 +18,7 @@
 
 //! Substrate single state transaction pool implementation.
 
+mod metrics;
 mod revalidation;
 pub(crate) mod single_state_txpool;
 

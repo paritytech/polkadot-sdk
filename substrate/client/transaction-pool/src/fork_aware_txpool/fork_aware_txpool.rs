@@ -40,7 +40,10 @@ use sp_runtime::transaction_validity::InvalidTransaction;
 use std::{
 	collections::{HashMap, HashSet},
 	pin::Pin,
-	sync::Arc,
+	sync::{
+		atomic::{AtomicUsize, Ordering},
+		Arc,
+	},
 };
 use tokio::select;
 
@@ -61,7 +64,7 @@ use std::time::Instant;
 pub use super::import_notification_sink::ImportNotificationTask;
 use super::{
 	import_notification_sink::MultiViewImportNotificationSink,
-	multi_view_listener::MultiViewListener,
+	metrics::MetricsLink as PrometheusMetrics, multi_view_listener::MultiViewListener,
 };
 use crate::{fork_aware_txpool::view_revalidation, PolledIterator, ReadyIteratorFor, LOG_TARGET};
 use prometheus_endpoint::Registry as PrometheusRegistry;
@@ -99,7 +102,7 @@ where
 			options,
 			is_validator,
 			pool_api,
-			//todo: add prometheus,
+			prometheus,
 			spawner,
 			client.usage_info().chain.best_number,
 			client.usage_info().chain.best_hash,
@@ -163,7 +166,7 @@ where
 
 	view_store: Arc<ViewStore<ChainApi, Block>>,
 	ready_poll: Arc<Mutex<ReadyPoll<ReadyIteratorFor<ChainApi>, Block>>>,
-	// todo: metrics
+	metrics: PrometheusMetrics,
 	enactment_state: Arc<Mutex<EnactmentState<Block>>>,
 	revalidation_queue: Arc<view_revalidation::RevalidationQueue<ChainApi, Block>>,
 
@@ -193,7 +196,11 @@ where
 
 		(
 			Self {
-				mempool: Arc::from(TxMemPool::new(pool_api.clone(), listener.clone())),
+				mempool: Arc::from(TxMemPool::new(
+					pool_api.clone(),
+					listener.clone(),
+					Default::default(),
+				)),
 				api: pool_api.clone(),
 				view_store: Arc::new(ViewStore::new(pool_api, listener)),
 				ready_poll: Arc::from(Mutex::from(ReadyPoll::new())),
@@ -205,6 +212,7 @@ where
 				import_notification_sink,
 				options: graph::Options::default(),
 				is_validator: false.into(),
+				metrics: Default::default(),
 			},
 			import_notification_sink_task,
 		)
@@ -217,12 +225,13 @@ where
 		options: graph::Options,
 		is_validator: IsValidator,
 		pool_api: Arc<ChainApi>,
-		// todo: prometheus: Option<&PrometheusRegistry>,
+		prometheus: Option<&PrometheusRegistry>,
 		spawner: impl SpawnEssentialNamed,
 		_best_block_number: NumberFor<Block>,
 		best_block_hash: Block::Hash,
 		finalized_hash: Block::Hash,
 	) -> Self {
+		let metrics = PrometheusMetrics::new(prometheus);
 		let listener = Arc::from(MultiViewListener::new());
 		let (revalidation_queue, revalidation_task) =
 			view_revalidation::RevalidationQueue::new_with_worker();
@@ -242,7 +251,7 @@ where
 		spawner.spawn_essential("txpool-background", Some("transaction-pool"), combined_tasks);
 
 		Self {
-			mempool: Arc::from(TxMemPool::new(pool_api.clone(), listener.clone())),
+			mempool: Arc::from(TxMemPool::new(pool_api.clone(), listener.clone(), metrics.clone())),
 			api: pool_api.clone(),
 			view_store: Arc::new(ViewStore::new(pool_api, listener)),
 			ready_poll: Arc::from(Mutex::from(ReadyPoll::new())),
@@ -253,6 +262,7 @@ where
 			revalidation_queue: Arc::from(revalidation_queue),
 			import_notification_sink,
 			options,
+			metrics,
 			is_validator,
 		}
 	}
@@ -270,6 +280,11 @@ where
 	/// Provides a number of views at the tips of the forks.
 	pub fn views_count(&self) -> usize {
 		self.view_store.views.read().len()
+	}
+
+	/// Provides a number of views at the tips of the forks.
+	pub fn retracted_views_count(&self) -> usize {
+		self.view_store.retracted_views.read().len()
 	}
 
 	/// Provides internal views statistics.
@@ -652,6 +667,9 @@ where
 		self.mempool.extend_unwatched(xts.clone());
 		let xts = xts.clone();
 
+		self.metrics
+			.report(|metrics| metrics.submitted_transactions.inc_by(xts.len() as u64));
+
 		if view_store.is_empty() {
 			return future::ready(Ok(xts
 				.iter()
@@ -659,10 +677,6 @@ where
 				.collect()))
 			.boxed()
 		}
-
-		// todo:
-		// self.metrics
-		// 	.report(|metrics| metrics.submitted_transactions.inc_by(xts.len() as u64));
 
 		async move {
 			let mut results_map = view_store.submit_at(source, xts).await;
@@ -678,9 +692,8 @@ where
 		xt: TransactionFor<Self>,
 	) -> PoolFuture<TxHash<Self>, Self::Error> {
 		log::debug!(target: LOG_TARGET, "[{:?}] fatp::submit_one views:{}", self.tx_hash(&xt), self.views_count());
-		// todo:
-		// self.metrics.report(|metrics| metrics.submitted_transactions.inc());
 		self.mempool.push_unwatched(xt.clone());
+		self.metrics.report(|metrics| metrics.submitted_transactions.inc());
 
 		// assume that transaction may be valid, will be validated later.
 		let view_store = self.view_store.clone();
@@ -712,9 +725,7 @@ where
 	) -> PoolFuture<Pin<Box<TransactionStatusStreamFor<Self>>>, Self::Error> {
 		log::debug!(target: LOG_TARGET, "[{:?}] fatp::submit_and_watch views:{}", self.tx_hash(&xt), self.views_count());
 		self.mempool.push_watched(xt.clone());
-
-		// todo:
-		// self.metrics.report(|metrics| metrics.submitted_transactions.inc());
+		self.metrics.report(|metrics| metrics.submitted_transactions.inc());
 
 		let view_store = self.view_store.clone();
 		async move { view_store.submit_and_watch(at, source, xt).await }.boxed()
@@ -723,8 +734,14 @@ where
 	// todo: api change? we need block hash here (assuming we need it at all - could be useful for
 	// verification for debuggin purposes).
 	fn remove_invalid(&self, hashes: &[TxHash<Self>]) -> Vec<Arc<Self::InPoolTransaction>> {
-		log::info!(target: LOG_TARGET, "fatp::remove_invalid {}", hashes.len());
-		log_xt_debug!(target:LOG_TARGET, hashes, "[{:?}] fatp::remove_invalid");
+		if !hashes.is_empty() {
+			log::info!(target: LOG_TARGET, "fatp::remove_invalid {}", hashes.len());
+			log_xt_debug!(target:LOG_TARGET, hashes, "[{:?}] fatp::remove_invalid");
+			let _ = hashes
+				.len()
+				.try_into()
+				.map(|v| self.metrics.report(|metrics| metrics.removed_invalid_txs.inc_by(v)));
+		}
 		Default::default()
 	}
 
@@ -902,7 +919,7 @@ where
 			}
 			view
 		} else {
-			View::new(self.api.clone(), at.clone(), self.options.clone())
+			View::new(self.api.clone(), at.clone(), self.options.clone(), self.metrics.clone())
 		};
 
 		//we need to capture all import notifiication from the very beginning
@@ -980,6 +997,7 @@ where
 		//todo this clone is not neccessary, try to use iterators
 		let xts = self.mempool.clone_unwatched();
 
+		let mut all_submitted_count = 0;
 		if !xts.is_empty() {
 			let unwatched_count = xts.len();
 			let xts = xts
@@ -989,10 +1007,10 @@ where
 				})
 				.filter(|tx| !included_xts.contains(&self.hash_of(&tx)))
 				.collect::<Vec<_>>();
-			let filtered_count = xts.len();
+			all_submitted_count = xts.len();
 			//todo: internal checked banned: not required any more?
 			let _ = view.submit_many(source, xts).await;
-			log::info!(target: LOG_TARGET, "update_view_pool: at {:?} unwatched {}/{}", view.at.hash, filtered_count, unwatched_count);
+			log::info!(target: LOG_TARGET, "update_view_pool: at {:?} unwatched {}/{}", view.at.hash, all_submitted_count, unwatched_count);
 		}
 		let view = Arc::from(view);
 
@@ -1000,6 +1018,7 @@ where
 		//todo: hash computed multiple times
 		//todo: maybe we don't need to register listener in view? We could use
 		// multi_view_listner.transcation_in_block
+		let submitted_count = Arc::from(AtomicUsize::new(0));
 
 		let results = self
 			.mempool
@@ -1007,12 +1026,14 @@ where
 			.map(|t| {
 				let view = view.clone();
 				let included_xts = included_xts.clone();
+				let submitted_count = submitted_count.clone();
 				async move {
 					let tx_hash = self.hash_of(&t);
 					let result = if view.pool.validated_pool().pool.read().is_imported(&tx_hash) || included_xts.contains(&tx_hash)
 					{
 						Err(Error::AlreadyImported(Box::new(tx_hash)).into())
 					} else {
+						submitted_count.fetch_add(1, Ordering::Relaxed);
 						view.submit_and_watch(source, t.clone()).await
 					};
 					let result = result.map_or_else(
@@ -1082,8 +1103,14 @@ where
 			.collect::<Vec<_>>();
 
 		let results = future::join_all(results).await;
+		let submitted_count = submitted_count.load(Ordering::Relaxed);
 
-		log::info!(target: LOG_TARGET, "update_view_pool: at {:?} watched {}/{}", view.at.hash, results.len(), self.mempool_len().1);
+		log::info!(target: LOG_TARGET, "update_view_pool: at {:?} watched {}/{}", view.at.hash, submitted_count, self.mempool_len().1);
+
+		all_submitted_count += submitted_count;
+		let _ = all_submitted_count
+			.try_into()
+			.map(|v| self.metrics.report(|metrics| metrics.submitted_from_mempool_txs.inc_by(v)));
 
 		// if there are no views yet, and a single newly created view is reporting error, just send
 		// out the invalid event, and remove transaction.
@@ -1129,10 +1156,6 @@ where
 			pruned_log.extend(enacted_log);
 		});
 
-		// todo: metrics (does pruned makes sense?)
-		// self.metrics
-		// 	.report(|metrics| metrics.block_transactions_pruned.inc_by(pruned_log.len() as u64));
-
 		//resubmit
 		{
 			let mut resubmit_transactions = Vec::new();
@@ -1171,10 +1194,9 @@ where
 					!contains
 				}));
 
-				// todo: metrics (does resubmit makes sense?)
-				// self.metrics.report(|metrics| {
-				// 	metrics.block_transactions_resubmitted.inc_by(resubmitted_to_report)
-				// });
+				self.metrics.report(|metrics| {
+					metrics.resubmitted_retracted_txs.inc_by(resubmitted_to_report)
+				});
 			}
 
 			let _ = view
@@ -1192,13 +1214,17 @@ where
 
 	async fn handle_finalized(&self, finalized_hash: Block::Hash, tree_route: &[Block::Hash]) {
 		let finalized_number = self.api.block_id_to_number(&BlockId::Hash(finalized_hash));
-		log::info!(target: LOG_TARGET, "handle_finalized {finalized_number:?} tree_route: {tree_route:?}");
+		log::info!(target: LOG_TARGET, "handle_finalized {finalized_number:?} tree_route: {tree_route:?} views_count:{}", self.views_count());
 
 		let finalized_xts = self.view_store.handle_finalized(finalized_hash, tree_route).await;
-		log::debug!(target: LOG_TARGET, "handle_finalized b:{:?}", self.views_count());
 
 		self.mempool.purge_finalized_transactions(&finalized_xts).await;
 		self.import_notification_sink.clean_filter(&finalized_xts);
+
+		let _ = finalized_xts
+			.len()
+			.try_into()
+			.map(|v| self.metrics.report(|metrics| metrics.finalized_txs.inc_by(v)));
 
 		if let Ok(Some(finalized_number)) = finalized_number {
 			self.revalidation_queue
@@ -1212,7 +1238,7 @@ where
 		}
 
 		self.ready_poll.lock().remove_cancelled();
-		log::debug!(target: LOG_TARGET, "handle_finalized a:{:?}", self.views_count());
+		log::debug!(target: LOG_TARGET, "handle_finalized after views_count:{:?}", self.views_count());
 	}
 
 	fn tx_hash(&self, xt: &TransactionFor<Self>) -> TxHash<Self> {
@@ -1322,14 +1348,27 @@ where
 			},
 		}
 
+		let maintain_duration = start.elapsed();
+
 		log::info!(
 			target: LOG_TARGET,
 			"maintain: txs:{:?} views:[{};{:?}] event:{event:?}  took:{:?}",
 			self.mempool_len(),
 			self.views_count(),
 			self.views_stats(),
-			start.elapsed()
+			maintain_duration
 		);
+
+		self.metrics.report(|metrics| {
+			let (unwatched, watched) = self.mempool_len();
+			let _ = (
+				self.views_count().try_into().map(|v| metrics.active_views.set(v)),
+				self.retracted_views_count().try_into().map(|v| metrics.inactive_views.set(v)),
+				watched.try_into().map(|v| metrics.watched_txs.set(v)),
+				unwatched.try_into().map(|v| metrics.unwatched_txs.set(v)),
+			);
+			metrics.maintain_duration.observe(maintain_duration.as_secs_f64());
+		});
 
 		// self.verify().await;
 

@@ -21,21 +21,19 @@
 //! The View represents the state of the transaction pool at given block. The view is created when
 //! new block is notified to transaction pool. Views are removed on finalization.
 
+use super::metrics::MetricsLink as PrometheusMetrics;
 use crate::{
 	graph::{
 		self, watcher::Watcher, ExtrinsicFor, ExtrinsicHash, ValidatedTransaction,
 		ValidatedTransactionFor,
 	},
-	log_xt_debug,
+	log_xt_debug, LOG_TARGET,
 };
-use std::{collections::HashMap, sync::Arc, time::Instant};
-
 use parking_lot::Mutex;
 use sc_transaction_pool_api::{PoolStatus, TransactionSource};
-use sp_runtime::{traits::Block as BlockT, transaction_validity::TransactionValidityError};
-
-use crate::LOG_TARGET;
 use sp_blockchain::HashAndNumber;
+use sp_runtime::{traits::Block as BlockT, transaction_validity::TransactionValidityError};
+use std::{collections::HashMap, sync::Arc, time::Instant};
 
 pub(super) struct RevalidationResult<ChainApi: graph::ChainApi> {
 	revalidated: HashMap<ExtrinsicHash<ChainApi>, ValidatedTransactionFor<ChainApi>>,
@@ -105,6 +103,7 @@ pub(super) struct View<ChainApi: graph::ChainApi> {
 
 	/// Endpoints of communication channel with background worker.
 	revalidation_worker_channels: Mutex<Option<FinishRevalidationLocalChannels<ChainApi>>>,
+	metrics: PrometheusMetrics,
 }
 
 impl<ChainApi> View<ChainApi>
@@ -117,11 +116,13 @@ where
 		api: Arc<ChainApi>,
 		at: HashAndNumber<ChainApi::Block>,
 		options: graph::Options,
+		metrics: PrometheusMetrics,
 	) -> Self {
 		Self {
 			pool: graph::Pool::new(options, true.into(), api),
 			at,
 			revalidation_worker_channels: Mutex::from(None),
+			metrics,
 		}
 	}
 
@@ -131,6 +132,7 @@ where
 			at: at.clone(),
 			pool: self.pool.deep_clone(),
 			revalidation_worker_channels: Mutex::from(None),
+			metrics: self.metrics.clone(),
 		}
 	}
 
@@ -229,13 +231,17 @@ where
 			}
 		}
 
+		let revalidation_duration = start.elapsed();
+		self.metrics.report(|metrics| {
+			metrics.view_revalidation_duration.observe(revalidation_duration.as_secs_f64());
+		});
 		log::info!(
 			target:LOG_TARGET,
 			"view::revalidate_later: at {:?} count: {}/{} took {:?}",
 			self.at.hash,
 			validation_results.len(),
 			batch_len,
-			start.elapsed()
+			revalidation_duration
 		);
 		log_xt_debug!(data:tuple, target:LOG_TARGET, validation_results.iter().map(|x| (x.1, &x.0)), "[{:?}] view::revalidate_later result: {:?}");
 
@@ -341,9 +347,23 @@ where
 			let revalidated_len = revalidation_result.revalidated.len();
 			let validated_pool = self.pool.validated_pool();
 			validated_pool.remove_invalid(&revalidation_result.invalid_hashes);
-			if revalidation_result.revalidated.len() > 0 {
+			if revalidated_len > 0 {
 				self.pool.resubmit(revalidation_result.revalidated);
 			}
+
+			self.metrics.report(|metrics| {
+				let _ = (
+					revalidation_result
+						.invalid_hashes
+						.len()
+						.try_into()
+						.map(|v| metrics.view_revalidation_invalid_txs.inc_by(v)),
+					revalidated_len
+						.try_into()
+						.map(|v| metrics.view_revalidation_resubmitted_txs.inc_by(v)),
+				);
+			});
+
 			log::info!(
 				target:LOG_TARGET,
 				"view::finish_revalidation: applying revalidation result invalid: {} revalidated: {} at {:?} took {:?}",
