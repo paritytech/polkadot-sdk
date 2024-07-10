@@ -29,8 +29,8 @@ use sp_api::ApiError;
 use cumulus_primitives_core::relay_chain::BlockId;
 pub use cumulus_primitives_core::{
 	relay_chain::{
-		CommittedCandidateReceipt, Hash as PHash, Header as PHeader, InboundHrmpMessage,
-		OccupiedCoreAssumption, SessionIndex, ValidationCodeHash, ValidatorId,
+		BlockNumber, CommittedCandidateReceipt, CoreState, Hash as PHash, Header as PHeader,
+		InboundHrmpMessage, OccupiedCoreAssumption, SessionIndex, ValidationCodeHash, ValidatorId,
 	},
 	InboundDownwardMessage, ParaId, PersistedValidationData,
 };
@@ -217,6 +217,14 @@ pub trait RelayChainInterface: Send + Sync {
 
 	/// Get the runtime version of the relay chain.
 	async fn version(&self, relay_parent: PHash) -> RelayChainResult<RuntimeVersion>;
+
+	/// Yields information on all availability cores as relevant to the child block.
+	///
+	/// Cores are either free, scheduled or occupied. Free cores can have paras assigned to them.
+	async fn availability_cores(
+		&self,
+		relay_parent: PHash,
+	) -> RelayChainResult<Vec<CoreState<PHash, BlockNumber>>>;
 }
 
 #[async_trait]
@@ -335,6 +343,13 @@ where
 		(**self)
 			.validation_code_hash(relay_parent, para_id, occupied_core_assumption)
 			.await
+	}
+
+	async fn availability_cores(
+		&self,
+		relay_parent: PHash,
+	) -> RelayChainResult<Vec<CoreState<PHash, BlockNumber>>> {
+		(**self).availability_cores(relay_parent).await
 	}
 
 	async fn candidates_pending_availability(
