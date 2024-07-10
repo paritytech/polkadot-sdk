@@ -247,21 +247,28 @@ parameter_types! {
 pub mod dynamic_params {
 	use super::*;
 
+	/// Parameters used to calculate era payouts, see [`polkadot_runtime_common::impls::EraPayoutParams`].
 	#[dynamic_pallet_params]
 	#[codec(index = 0)]
 	pub mod inflation {
+		/// Minimum inflation rate used to calculate era payouts.
 		#[codec(index = 0)]
 		pub static MinInflation: Perquintill = Perquintill::from_rational(25u64, 1000u64);
 
+		/// Maximum inflation rate used to calculate era payouts.
 		#[codec(index = 1)]
 		pub static MaxInflation: Perquintill = Perquintill::from_rational(100u64, 1000u64);
 
+		/// Ideal stake ratio used to calculate era payouts.
 		#[codec(index = 2)]
 		pub static IdealStake: Perquintill = Perquintill::from_rational(500u64, 1000u64);
 
+		/// Falloff used to calculate era payouts.
 		#[codec(index = 3)]
 		pub static Falloff: Perquintill = Perquintill::from_rational(50u64, 1000u64);
 
+		/// Whether to use auction slots or not in the calculation of era payouts. If set to true,
+		/// the `legacy_auction_proportion` of 60% will be used in the calculation of era payouts.
 		#[codec(index = 4)]
 		pub static UseAuctionSlots: bool = false;
 	}

@@ -68,13 +68,21 @@ where
 }
 
 pub struct EraPayoutParams {
+	/// Total staked amount.
 	pub total_staked: Balance,
+	/// Total stakable amount.
 	pub total_stakable: Balance,
+	/// Ideal stake ratio, which is deducted by `legacy_auction_proportion` if not `None`.
 	pub ideal_stake: Perquintill,
+	/// Maximum inflation rate.
 	pub max_annual_inflation: Perquintill,
+	/// Minimum inflation rate.
 	pub min_annual_inflation: Perquintill,
+	/// Falloff used to calculate era payouts.
 	pub falloff: Perquintill,
+	/// Fraction of the era period used to calculate era payouts.
 	pub period_fraction: Perquintill,
+	/// Legacy auction proportion, which substracts from `ideal_stake` if not `None`.
 	pub legacy_auction_proportion: Option<Perquintill>,
 }
 
