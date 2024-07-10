@@ -14,8 +14,6 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use polkadot_node_subsystem::messages::PvfExecutionPriority;
-
 /// A priority assigned to preparation of a PVF.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum PreparePriority {
@@ -35,58 +33,5 @@ impl PreparePriority {
 	/// Returns `true` if `self` is `Critical`
 	pub fn is_critical(self) -> bool {
 		self == PreparePriority::Critical
-	}
-}
-
-impl From<PvfExecutionPriority> for PreparePriority {
-	fn from(priority: PvfExecutionPriority) -> Self {
-		match priority {
-			PvfExecutionPriority::Backing => PreparePriority::Normal,
-			PvfExecutionPriority::Approval => PreparePriority::Critical,
-			PvfExecutionPriority::Dispute => PreparePriority::Critical,
-		}
-	}
-}
-
-/// A priority assigned to execution of a PVF.
-#[derive(Debug, Hash, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
-pub enum ExecutePriority {
-	/// Low
-	Low,
-	/// Normal
-	Normal,
-	/// Critical
-	Critical,
-}
-
-impl From<PvfExecutionPriority> for ExecutePriority {
-	fn from(priority: PvfExecutionPriority) -> Self {
-		match priority {
-			PvfExecutionPriority::Backing => ExecutePriority::Low,
-			PvfExecutionPriority::Approval => ExecutePriority::Normal,
-			PvfExecutionPriority::Dispute => ExecutePriority::Critical,
-		}
-	}
-}
-
-impl ExecutePriority {
-	/// Returns an iterator over the variants of `ExecutePriority` in order from `Low` to
-	/// `Critical`.
-	pub fn iter() -> impl Iterator<Item = ExecutePriority> {
-		[Self::Low, Self::Normal, Self::Critical].iter().copied()
-	}
-
-	/// Returns the next lower priority level, or `None` if `self` is `Low`.
-	pub fn lower(&self) -> Option<Self> {
-		match self {
-			Self::Critical => Some(Self::Normal),
-			Self::Normal => Some(Self::Low),
-			Self::Low => None,
-		}
-	}
-
-	/// Returns `true` if `self` is `Normal`
-	pub fn is_normal(&self) -> bool {
-		*self == Self::Normal
 	}
 }

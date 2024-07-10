@@ -160,7 +160,7 @@ pub enum CandidateValidationMessage {
 		/// Session's executor parameters
 		executor_params: ExecutorParams,
 		/// Execution kind, used for timeouts and retries (backing/approvals)
-		exec_kind: PvfExecutionPriority,
+		exec_kind: PvfExecPriority,
 		/// The sending side of the response channel
 		response_sender: oneshot::Sender<Result<ValidationResult, ValidationFailed>>,
 	},
@@ -185,7 +185,7 @@ pub enum CandidateValidationMessage {
 		/// Session's executor parameters
 		executor_params: ExecutorParams,
 		/// Execution kind, used for timeouts and retries (backing/approvals)
-		exec_kind: PvfExecutionPriority,
+		exec_kind: PvfExecPriority,
 		/// The sending side of the response channel
 		response_sender: oneshot::Sender<Result<ValidationResult, ValidationFailed>>,
 	},
@@ -206,22 +206,44 @@ pub enum CandidateValidationMessage {
 
 /// Extends primitives::PvfExecKind to have a separate value for duspute requests
 /// which is important for prioritization.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum PvfExecutionPriority {
-	/// For backing requests.
-	Backing,
-	/// For approval requests
-	Approval,
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum PvfExecPriority {
 	/// For dispute requests
 	Dispute,
+	/// For approval requests
+	Approval,
+	/// For backing requests from system parachains.
+	BackingSystem,
+	/// For backing requests.
+	Backing,
 }
 
-impl From<PvfExecutionPriority> for PvfExecKind {
-	fn from(exec: PvfExecutionPriority) -> Self {
+impl From<PvfExecPriority> for PvfExecKind {
+	fn from(exec: PvfExecPriority) -> Self {
 		match exec {
-			PvfExecutionPriority::Backing => PvfExecKind::Backing,
-			PvfExecutionPriority::Approval => PvfExecKind::Approval,
-			PvfExecutionPriority::Dispute => PvfExecKind::Approval,
+			PvfExecPriority::Dispute => PvfExecKind::Approval,
+			PvfExecPriority::Approval => PvfExecKind::Approval,
+			PvfExecPriority::BackingSystem => PvfExecKind::Backing,
+			PvfExecPriority::Backing => PvfExecKind::Backing,
+		}
+	}
+}
+
+impl PvfExecPriority {
+	/// Returns an iterator over the variants of `PvfExecPriorityKind` in order
+	pub fn iter() -> impl Iterator<Item = PvfExecPriority> {
+		[Self::Dispute, Self::Approval, Self::BackingSystem, Self::Backing]
+			.iter()
+			.copied()
+	}
+
+	/// Returns the next lower priority level, or `None` if no more levels.
+	pub fn lower(&self) -> Option<Self> {
+		match self {
+			Self::Dispute => Some(Self::Approval),
+			Self::Approval => Some(Self::BackingSystem),
+			Self::BackingSystem => Some(Self::Backing),
+			Self::Backing => None,
 		}
 	}
 }

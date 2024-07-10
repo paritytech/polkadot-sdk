@@ -110,7 +110,7 @@ pub use host::{
 	PREPARE_BINARY_NAME,
 };
 pub use metrics::Metrics;
-pub use priority::{ExecutePriority, PreparePriority};
+pub use priority::PreparePriority;
 pub use worker_interface::{framed_recv, framed_send, JOB_TIMEOUT_WALL_CLOCK_FACTOR};
 
 // Re-export some common types.

@@ -22,7 +22,7 @@ use crate::{
 	host::ResultSender,
 	metrics::Metrics,
 	worker_interface::{IdleWorker, WorkerHandle},
-	ExecutePriority, InvalidCandidate, PossiblyInvalidError, ValidationError, LOG_TARGET,
+	InvalidCandidate, PossiblyInvalidError, ValidationError, LOG_TARGET,
 };
 use futures::{
 	channel::{mpsc, oneshot},
@@ -34,7 +34,9 @@ use polkadot_node_core_pvf_common::{
 	execute::{JobResponse, WorkerError, WorkerResponse},
 	SecurityStatus,
 };
+use polkadot_node_subsystem::messages::PvfExecPriority;
 use polkadot_primitives::{ExecutorParams, ExecutorParamsHash};
+use rand::Rng;
 use slotmap::HopSlotMap;
 use std::{
 	collections::{HashMap, VecDeque},
@@ -71,7 +73,7 @@ pub struct PendingExecutionRequest {
 	pub params: Vec<u8>,
 	pub executor_params: ExecutorParams,
 	pub result_tx: ResultSender,
-	pub execute_priority: ExecutePriority,
+	pub execute_priority: PvfExecPriority,
 }
 
 struct ExecuteJob {
@@ -226,7 +228,8 @@ impl Queue {
 		// New jobs are always pushed to the tail of the queue; the one at its head is always
 		// the eldest one.
 
-		let Some((queue, priority)) = self.unscheduled.get_mut() else { return };
+		let priority = self.unscheduled.select_next_priority(is_probable);
+		let Some(queue) = self.unscheduled.get_mut(priority) else { return };
 
 		let eldest = if let Some(eldest) = queue.get(0) { eldest } else { return };
 
@@ -277,7 +280,6 @@ impl Queue {
 		} else {
 			spawn_extra_worker(self, job);
 		}
-		self.unscheduled.log_priority(priority);
 	}
 }
 
@@ -620,66 +622,87 @@ pub fn start(
 }
 
 struct Unscheduled {
-	unscheduled: HashMap<ExecutePriority, VecDeque<ExecuteJob>>,
-	// Counter for (Low, Normal, Critical) priorities
-	priority_log: (u8, u8, u8),
+	unscheduled: HashMap<PvfExecPriority, VecDeque<ExecuteJob>>,
+}
+
+fn is_probable(probability: u8) -> bool {
+	let mut rng = rand::thread_rng();
+	let n: u8 = rng.gen_range(0..100);
+	n <= probability
 }
 
 impl Unscheduled {
-	/// The minimum number of items with normal priority that must be present,
-	/// regardless of the amount of critical priority items.
-	/// In percents.
-	const MIN_NORMAL_PRIORITY_PRESENCE: u8 = 10;
-	const MAX_LOG_SIZE: u8 = 10;
+	// A threshold reaching which we prioritize approval jobs
+	const REGULAR_JOBS_THRESHOLD: usize = 12;
 
 	fn new() -> Self {
 		Self {
-			unscheduled: ExecutePriority::iter()
+			unscheduled: PvfExecPriority::iter()
 				.map(|priority| (priority, VecDeque::new()))
 				.collect(),
-			priority_log: (0, 0, 0),
 		}
 	}
 
-	fn log_priority(&mut self, priority: ExecutePriority) {
-		let (low, normal, critical) = &mut self.priority_log;
-		if (*low + *normal + *critical) > Self::MAX_LOG_SIZE {
-			(*low, *normal, *critical) = (0, 0, 0);
-		}
-		match priority {
-			ExecutePriority::Low => *low += 1,
-			ExecutePriority::Normal => *normal += 1,
-			ExecutePriority::Critical => *critical += 1,
-		}
-	}
+	fn select_next_priority<F>(&self, is_probable: F) -> PvfExecPriority
+	where
+		F: Fn(u8) -> bool,
+	{
+		let mut priority = self.next_priority(is_probable);
 
-	fn select_next_priority(&self) -> ExecutePriority {
-		let (_, normal, critical) = self.priority_log;
-		// We do critical tasks first but ensure a minimum presence of normal tasks.
-		// Low priority tasks are processed only if other queues are empty.
-		let mut priority = if critical == 0 {
-			ExecutePriority::Critical // Do critical first, also avoids zero division
-		} else if normal * 100 / critical < Self::MIN_NORMAL_PRIORITY_PRESENCE {
-			ExecutePriority::Normal
-		} else {
-			ExecutePriority::Critical
-		};
-
-		while self.unscheduled.get(&priority).map_or(true, |v| v.is_empty()) {
-			let Some(lower) = priority.lower() else { break };
-			priority = lower;
+		while !self.has_pending(priority) {
+			let Some(p) = priority.lower() else { break };
+			priority = p;
 		}
 
 		priority
 	}
 
-	fn get_mut(&mut self) -> Option<(&mut VecDeque<ExecuteJob>, ExecutePriority)> {
-		let priority = self.select_next_priority();
-		self.unscheduled.get_mut(&priority).map(|jobs| (jobs, priority))
+	fn next_priority<F>(&self, is_probable: F) -> PvfExecPriority
+	where
+		F: Fn(u8) -> bool,
+	{
+		use PvfExecPriority::*;
+
+		if self.has_pending(Dispute) && is_probable(70) {
+			return Dispute
+		}
+
+		if !self.has_pending(Backing) && !self.has_pending(BackingSystem) {
+			return Approval
+		}
+
+		if self.regular_jobs_count() > Self::REGULAR_JOBS_THRESHOLD && is_probable(87) {
+			return Approval
+		}
+
+		if is_probable(75) {
+			return BackingSystem
+		}
+
+		return Backing
 	}
 
-	fn add(&mut self, job: ExecuteJob, priority: ExecutePriority) {
+	// Number of jobs in all queues excluding disputes
+	fn regular_jobs_count(&self) -> usize {
+		let mut count = 0;
+		for (priority, queue) in self.unscheduled.iter() {
+			if *priority != PvfExecPriority::Dispute {
+				count += queue.len();
+			}
+		}
+		count
+	}
+
+	fn get_mut(&mut self, priority: PvfExecPriority) -> Option<&mut VecDeque<ExecuteJob>> {
+		self.unscheduled.get_mut(&priority)
+	}
+
+	fn add(&mut self, job: ExecuteJob, priority: PvfExecPriority) {
 		self.unscheduled.entry(priority).or_default().push_back(job);
+	}
+
+	fn has_pending(&self, kind: PvfExecPriority) -> bool {
+		!self.unscheduled.get(&kind).unwrap_or(&VecDeque::new()).is_empty()
 	}
 }
 
@@ -705,70 +728,76 @@ mod tests {
 	fn test_unscheduled_add() {
 		let mut unscheduled = Unscheduled::new();
 
-		unscheduled.add(create_execution_job(), ExecutePriority::Low);
-		unscheduled.add(create_execution_job(), ExecutePriority::Normal);
-		unscheduled.add(create_execution_job(), ExecutePriority::Critical);
+		PvfExecPriority::iter().for_each(|priority| {
+			unscheduled.add(create_execution_job(), priority);
+		});
 
-		let low = unscheduled.unscheduled.get(&ExecutePriority::Low).unwrap();
-		let normal = unscheduled.unscheduled.get(&ExecutePriority::Normal).unwrap();
-		let critical = unscheduled.unscheduled.get(&ExecutePriority::Critical).unwrap();
-
-		assert_eq!(low.len(), 1);
-		assert_eq!(normal.len(), 1);
-		assert_eq!(critical.len(), 1);
+		PvfExecPriority::iter().for_each(|priority| {
+			let queue = unscheduled.unscheduled.get(&priority).unwrap();
+			assert_eq!(queue.len(), 1);
+		});
 	}
 
 	#[test]
-	fn test_log_priority() {
+	fn test_unscheduled_select_next_priority() {
+		use PvfExecPriority::*;
+
+		// With disputes
 		let mut unscheduled = Unscheduled::new();
+		unscheduled.add(create_execution_job(), Approval);
+		unscheduled.add(create_execution_job(), Backing);
+		unscheduled.add(create_execution_job(), BackingSystem);
+		unscheduled.add(create_execution_job(), Dispute);
 
-		for _ in 0..15 {
-			unscheduled.log_priority(ExecutePriority::Normal);
+		// Do disputes with probability 70%
+		assert_eq!(unscheduled.select_next_priority(|p| p == 70), Dispute);
+		assert_eq!(unscheduled.select_next_priority(|_| false), Backing);
+
+		// Without disputes and backing
+		unscheduled.get_mut(Dispute).unwrap().clear();
+		unscheduled.get_mut(BackingSystem).unwrap().clear();
+		unscheduled.get_mut(Backing).unwrap().clear();
+
+		// Do approval
+		assert_eq!(unscheduled.select_next_priority(|_| false), Approval);
+
+		// But if no approvals
+		unscheduled.get_mut(Approval).unwrap().clear();
+
+		// Fallback to Backing as the lowest value
+		assert_eq!(unscheduled.select_next_priority(|_| true), Backing);
+
+		// With long queue
+		for _ in 0..Unscheduled::REGULAR_JOBS_THRESHOLD {
+			unscheduled.add(create_execution_job(), Approval);
+		}
+		unscheduled.add(create_execution_job(), BackingSystem);
+		unscheduled.add(create_execution_job(), Backing);
+
+		// Do approval with probability 87%
+		assert_eq!(unscheduled.select_next_priority(|p| p == 87), Approval);
+		assert_eq!(unscheduled.select_next_priority(|_| false), Backing);
+
+		// But if no approvals
+		unscheduled.get_mut(Approval).unwrap().clear();
+		for _ in 0..Unscheduled::REGULAR_JOBS_THRESHOLD {
+			unscheduled.add(create_execution_job(), BackingSystem);
 		}
 
-		assert_eq!(unscheduled.priority_log.len(), 10);
-		assert!(unscheduled.priority_log.iter().all(|&p| p == ExecutePriority::Normal));
-	}
+		// Fallback to next not empty queue priority
+		assert_eq!(unscheduled.select_next_priority(|_| true), BackingSystem);
 
-	#[test]
-	fn test_unscheduled_priority_selection() {
-		let mut unscheduled = Unscheduled::new();
+		// Otherwise
+		unscheduled.get_mut(Approval).unwrap().clear();
 
-		unscheduled.add(create_execution_job(), ExecutePriority::Low);
+		// Do system parachains backing with probability 75%
+		assert_eq!(unscheduled.select_next_priority(|p| p == 75), BackingSystem);
+		assert_eq!(unscheduled.select_next_priority(|_| false), Backing);
 
-		let (queue, priority) = unscheduled.get_mut().unwrap();
+		// But if no system parachains backing
+		unscheduled.get_mut(BackingSystem).unwrap().clear();
 
-		// Returns low priority queue if no others
-		assert_eq!(priority, ExecutePriority::Low);
-		assert_eq!(queue.len(), 1);
-
-		for _ in 0..2 {
-			unscheduled.add(create_execution_job(), ExecutePriority::Normal);
-		}
-
-		let (queue, priority) = unscheduled.get_mut().unwrap();
-
-		// Returns normal priority queue
-		assert_eq!(priority, ExecutePriority::Normal);
-		assert_eq!(queue.len(), 2);
-
-		for _ in 0..3 {
-			unscheduled.add(create_execution_job(), ExecutePriority::Critical);
-		}
-		for _ in 0..10 {
-			unscheduled.log_priority(ExecutePriority::Critical);
-		}
-		let (queue, priority) = unscheduled.get_mut().unwrap();
-
-		// Returns normal priority queue because logged too many criticals
-		assert_eq!(priority, ExecutePriority::Normal);
-		assert_eq!(queue.len(), 2);
-
-		unscheduled.log_priority(ExecutePriority::Normal);
-		let (queue, priority) = unscheduled.get_mut().unwrap();
-
-		// Returns critical priority queue because logged enough normals
-		assert_eq!(priority, ExecutePriority::Critical);
-		assert_eq!(queue.len(), 3);
+		// Fallback to next not empty queue priority
+		assert_eq!(unscheduled.select_next_priority(|_| true), Backing);
 	}
 }

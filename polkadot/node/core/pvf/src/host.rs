@@ -24,7 +24,7 @@ use crate::{
 	artifacts::{ArtifactId, ArtifactPathId, ArtifactState, Artifacts, ArtifactsCleanupConfig},
 	execute::{self, PendingExecutionRequest},
 	metrics::Metrics,
-	prepare, ExecutePriority, PreparePriority, SecurityStatus, ValidationError, LOG_TARGET,
+	prepare, PreparePriority, SecurityStatus, ValidationError, LOG_TARGET,
 };
 use always_assert::never;
 use futures::{
@@ -36,7 +36,7 @@ use polkadot_node_core_pvf_common::{
 	prepare::PrepareSuccess,
 	pvf::PvfPrepData,
 };
-use polkadot_node_subsystem::{SubsystemError, SubsystemResult};
+use polkadot_node_subsystem::{messages::PvfExecPriority, SubsystemError, SubsystemResult};
 use polkadot_parachain_primitives::primitives::ValidationResult;
 use std::{
 	collections::HashMap,
@@ -110,7 +110,7 @@ impl ValidationHost {
 		exec_timeout: Duration,
 		params: Vec<u8>,
 		priority: PreparePriority,
-		execute_priority: ExecutePriority,
+		execute_priority: PvfExecPriority,
 		result_tx: ResultSender,
 	) -> Result<(), String> {
 		self.to_host_tx
@@ -151,7 +151,7 @@ struct ExecutePvfInputs {
 	exec_timeout: Duration,
 	params: Vec<u8>,
 	priority: PreparePriority,
-	execute_priority: ExecutePriority,
+	execute_priority: PvfExecPriority,
 	result_tx: ResultSender,
 }
 
@@ -1258,7 +1258,7 @@ pub(crate) mod tests {
 			TEST_EXECUTION_TIMEOUT,
 			b"pvf1".to_vec(),
 			PreparePriority::Normal,
-			ExecutePriority::Normal,
+			PvfExecPriority::Backing,
 			result_tx,
 		)
 		.await
@@ -1270,7 +1270,7 @@ pub(crate) mod tests {
 			TEST_EXECUTION_TIMEOUT,
 			b"pvf1".to_vec(),
 			PreparePriority::Critical,
-			ExecutePriority::Normal,
+			PvfExecPriority::Backing,
 			result_tx,
 		)
 		.await
@@ -1282,7 +1282,7 @@ pub(crate) mod tests {
 			TEST_EXECUTION_TIMEOUT,
 			b"pvf2".to_vec(),
 			PreparePriority::Normal,
-			ExecutePriority::Normal,
+			PvfExecPriority::Backing,
 			result_tx,
 		)
 		.await
@@ -1424,7 +1424,7 @@ pub(crate) mod tests {
 			TEST_EXECUTION_TIMEOUT,
 			b"pvf2".to_vec(),
 			PreparePriority::Critical,
-			ExecutePriority::Normal,
+			PvfExecPriority::Backing,
 			result_tx,
 		)
 		.await
@@ -1472,7 +1472,7 @@ pub(crate) mod tests {
 			TEST_EXECUTION_TIMEOUT,
 			b"pvf2".to_vec(),
 			PreparePriority::Critical,
-			ExecutePriority::Normal,
+			PvfExecPriority::Backing,
 			result_tx,
 		)
 		.await
@@ -1575,7 +1575,7 @@ pub(crate) mod tests {
 			TEST_EXECUTION_TIMEOUT,
 			b"pvf".to_vec(),
 			PreparePriority::Critical,
-			ExecutePriority::Normal,
+			PvfExecPriority::Backing,
 			result_tx,
 		)
 		.await
@@ -1606,7 +1606,7 @@ pub(crate) mod tests {
 			TEST_EXECUTION_TIMEOUT,
 			b"pvf".to_vec(),
 			PreparePriority::Critical,
-			ExecutePriority::Normal,
+			PvfExecPriority::Backing,
 			result_tx_2,
 		)
 		.await
@@ -1629,7 +1629,7 @@ pub(crate) mod tests {
 			TEST_EXECUTION_TIMEOUT,
 			b"pvf".to_vec(),
 			PreparePriority::Critical,
-			ExecutePriority::Normal,
+			PvfExecPriority::Backing,
 			result_tx_3,
 		)
 		.await
@@ -1680,7 +1680,7 @@ pub(crate) mod tests {
 			TEST_EXECUTION_TIMEOUT,
 			b"pvf".to_vec(),
 			PreparePriority::Critical,
-			ExecutePriority::Normal,
+			PvfExecPriority::Backing,
 			result_tx,
 		)
 		.await
@@ -1711,7 +1711,7 @@ pub(crate) mod tests {
 			TEST_EXECUTION_TIMEOUT,
 			b"pvf".to_vec(),
 			PreparePriority::Critical,
-			ExecutePriority::Normal,
+			PvfExecPriority::Backing,
 			result_tx_2,
 		)
 		.await
@@ -1734,7 +1734,7 @@ pub(crate) mod tests {
 			TEST_EXECUTION_TIMEOUT,
 			b"pvf".to_vec(),
 			PreparePriority::Critical,
-			ExecutePriority::Normal,
+			PvfExecPriority::Backing,
 			result_tx_3,
 		)
 		.await
@@ -1801,7 +1801,7 @@ pub(crate) mod tests {
 			TEST_EXECUTION_TIMEOUT,
 			b"pvf1".to_vec(),
 			PreparePriority::Normal,
-			ExecutePriority::Normal,
+			PvfExecPriority::Backing,
 			result_tx,
 		)
 		.await
