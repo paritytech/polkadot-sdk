@@ -132,8 +132,8 @@ pub mod pallet {
 		fn batched_calls_limit() -> u32 {
 			let allocator_limit = sp_core::MAX_POSSIBLE_ALLOCATION;
 			let call_size = ((sp_std::mem::size_of::<<T as Config>::RuntimeCall>() as u32 +
-				CALL_ALIGN - 1) /
-				CALL_ALIGN) * CALL_ALIGN;
+				CALL_ALIGN - 1) / CALL_ALIGN) *
+				CALL_ALIGN;
 			// The margin to take into account vec doubling capacity.
 			let margin_factor = 3;
 
