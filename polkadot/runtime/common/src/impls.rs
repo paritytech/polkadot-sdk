@@ -24,7 +24,10 @@ use frame_support::traits::{
 };
 use pallet_treasury::TreasuryAccountId;
 use polkadot_primitives::Balance;
-use sp_runtime::{traits::{TryConvert, Saturating}, Perquintill, RuntimeDebug};
+use sp_runtime::{
+	traits::{Saturating, TryConvert},
+	Perquintill, RuntimeDebug,
+};
 use xcm::VersionedLocation;
 
 /// Logic for the author to get a portion of fees.
@@ -493,10 +496,7 @@ mod tests {
 			period_fraction: Perquintill::one(),
 			legacy_auction_proportion: None,
 		};
-		assert_eq!(
-			relay_era_payout(params),
-			(10, 0)
-		);
+		assert_eq!(relay_era_payout(params), (10, 0));
 
 		let params = EraPayoutParams {
 			total_staked: 80,
@@ -508,9 +508,63 @@ mod tests {
 			period_fraction: Perquintill::one(),
 			legacy_auction_proportion: None,
 		};
+		assert_eq!(relay_era_payout(params), (6, 4));
+	}
+
+	#[test]
+	fn relay_era_payout_should_give_same_results_as_era_payout() {
+        let total_staked = 1_000_000;
+        let total_stakable = 2_000_000;
+        let max_annual_inflation = Perquintill::from_percent(10);
+        let period_fraction = Perquintill::from_percent(25);
+        let auctioned_slots = 30;
+
+        let params = EraPayoutParams {
+            total_staked,
+            total_stakable,
+            ideal_stake: Perquintill::from_percent(75),
+            max_annual_inflation,
+            min_annual_inflation: Perquintill::from_rational(25u64, 1000u64),
+            falloff: Perquintill::from_percent(5),
+            period_fraction,
+            legacy_auction_proportion: Some(Perquintill::from_rational(auctioned_slots.min(60), 200u64)),
+        };
 		assert_eq!(
 			relay_era_payout(params),
-			(6, 4)
+			era_payout(
+				total_staked,
+				total_stakable,
+				max_annual_inflation,
+				period_fraction,
+				auctioned_slots,
+			),
+		);
+
+		let total_staked = 1_900_000;
+        let total_stakable = 2_000_000;
+        let auctioned_slots = 60;
+
+
+        let params = EraPayoutParams {
+            total_staked,
+            total_stakable,
+            ideal_stake: Perquintill::from_percent(75),
+            max_annual_inflation,
+            min_annual_inflation: Perquintill::from_rational(25u64, 1000u64),
+            falloff: Perquintill::from_percent(5),
+            period_fraction,
+            legacy_auction_proportion: Some(Perquintill::from_rational(auctioned_slots.min(60), 200u64)),
+        };
+
+		assert_eq!(
+			era_payout(
+				total_staked,
+				total_stakable,
+				max_annual_inflation,
+				period_fraction,
+				auctioned_slots,
+			),
+			relay_era_payout(params),
 		);
 	}
 }
