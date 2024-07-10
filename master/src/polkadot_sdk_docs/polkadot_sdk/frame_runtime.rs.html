@@ -322,8 +322,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#171" id="171">171</a>
 <a href="#172" id="172">172</a>
 <a href="#173" id="173">173</a>
-<a href="#174" id="174">174</a>
-<a href="#175" id="175">175</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! # FRAME
 //!
 //! ```no_compile
@@ -413,16 +411,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! * writing a runtime in pure Rust, as done in [this template](https://github.com/JoshOrndorff/frameless-node-template).
 //! * writing a runtime in AssemblyScript,as explored in [this project](https://github.com/LimeChain/subsembly).
 
-</span><span class="kw">use </span>frame::prelude::<span class="kw-2">*</span>;
-
-<span class="doccomment">/// A FRAME based pallet. This `mod` is the entry point for everything else. All
+/// A FRAME based pallet. This `mod` is the entry point for everything else. All
 /// `#[pallet::xxx]` macros must be defined in this `mod`. Although, frame also provides an
 /// experimental feature to break these parts into different `mod`s. See [`pallet_examples`] for
 /// more.
 </span><span class="attr">#[docify::export]
 #[frame::pallet(dev_mode)]
 </span><span class="kw">pub mod </span>pallet {
-	<span class="kw">use super</span>::<span class="kw-2">*</span>;
+	<span class="kw">use </span>frame::prelude::<span class="kw-2">*</span>;
 
 	<span class="doccomment">/// The configuration trait of a pallet. Mandatory. Allows a pallet to receive types at a
 	/// later point from the runtime that wishes to contain it. It allows the pallet to be

@@ -210,6 +210,14 @@ automatically include the trait bound <code>Config</code>.</p>
     </span><span class="attr">#[pallet::storage]
     </span><span class="kw">pub type </span>Baz&lt;T&gt; = StorageMap&lt;Hasher = Blake2_128Concat, Key = u32, Value = u32&gt;;
 }</code></pre></div>
+<h4 id="value-trait-bounds"><a class="doc-anchor" href="#value-trait-bounds">§</a>Value Trait Bounds</h4>
+<p>To use a type as the value of a storage type, be it <code>StorageValue</code>, <code>StorageMap</code> or
+anything else, you need to meet a number of trait bound constraints.</p>
+<p>See: <a href="https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/reference_docs/frame_storage_derives/index.html">https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/reference_docs/frame_storage_derives/index.html</a>.</p>
+<p>Notably, all value types need to implement <code>Encode</code>, <code>Decode</code>, <code>MaxEncodedLen</code> and
+<code>TypeInfo</code>, and possibly <code>Default</code>, if
+<a href="../storage/types/struct.ValueQuery.html" title="struct frame_support::storage::types::ValueQuery"><code>ValueQuery</code></a> is used, explained in the
+next section.</p>
 <h4 id="querykind"><a class="doc-anchor" href="#querykind">§</a>QueryKind</h4>
 <p>Every storage type mentioned above has a generic type called
 <a href="../storage/types/trait.QueryKindTrait.html" title="trait frame_support::storage::types::QueryKindTrait"><code>QueryKind</code></a> that determines its

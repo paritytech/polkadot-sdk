@@ -183,38 +183,36 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#32" id="32">32</a>
 <a href="#33" id="33">33</a>
 <a href="#34" id="34">34</a>
-<a href="#35" id="35">35</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Benchmarking setup for pallet-template
 </span><span class="attr">#![cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
-</span><span class="kw">use super</span>::<span class="kw-2">*</span>;
 
-<span class="attr">#[allow(unused)]
-</span><span class="kw">use </span><span class="kw">crate</span>::Pallet <span class="kw">as </span>Template;
+</span><span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="kw">use </span>frame_benchmarking::v2::<span class="kw-2">*</span>;
-<span class="kw">use </span>frame_system::RawOrigin;
 
 <span class="attr">#[benchmarks]
 </span><span class="kw">mod </span>benchmarks {
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
+	<span class="attr">#[cfg(test)]
+	</span><span class="kw">use </span><span class="kw">crate</span>::pallet::Pallet <span class="kw">as </span>Template;
+	<span class="kw">use </span>frame_system::RawOrigin;
 
 	<span class="attr">#[benchmark]
 	</span><span class="kw">fn </span>do_something() {
-		<span class="kw">let </span>value = <span class="number">100u32</span>;
 		<span class="kw">let </span>caller: T::AccountId = whitelisted_caller();
 		<span class="attr">#[extrinsic_call]
-		</span>do_something(RawOrigin::Signed(caller), value);
+		</span>do_something(RawOrigin::Signed(caller), <span class="number">100</span>);
 
-		<span class="macro">assert_eq!</span>(Something::&lt;T&gt;::get(), <span class="prelude-val">Some</span>(value));
+		<span class="macro">assert_eq!</span>(Something::&lt;T&gt;::get().map(|v| v.block_number), <span class="prelude-val">Some</span>(<span class="number">100u32</span>.into()));
 	}
 
 	<span class="attr">#[benchmark]
 	</span><span class="kw">fn </span>cause_error() {
-		Something::&lt;T&gt;::put(<span class="number">100u32</span>);
+		Something::&lt;T&gt;::put(CompositeStruct { block_number: <span class="number">100u32</span>.into() });
 		<span class="kw">let </span>caller: T::AccountId = whitelisted_caller();
 		<span class="attr">#[extrinsic_call]
 		</span>cause_error(RawOrigin::Signed(caller));
 
-		<span class="macro">assert_eq!</span>(Something::&lt;T&gt;::get(), <span class="prelude-val">Some</span>(<span class="number">101u32</span>));
+		<span class="macro">assert_eq!</span>(Something::&lt;T&gt;::get().map(|v| v.block_number), <span class="prelude-val">Some</span>(<span class="number">101u32</span>.into()));
 	}
 
 	<span class="macro">impl_benchmark_test_suite!</span>(Template, <span class="kw">crate</span>::mock::new_test_ext(), <span class="kw">crate</span>::mock::Test);

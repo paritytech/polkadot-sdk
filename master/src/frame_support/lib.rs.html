@@ -2815,6 +2815,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#2664" id="2664">2664</a>
 <a href="#2665" id="2665">2665</a>
 <a href="#2666" id="2666">2666</a>
+<a href="#2667" id="2667">2667</a>
+<a href="#2668" id="2668">2668</a>
+<a href="#2669" id="2669">2669</a>
+<a href="#2670" id="2670">2670</a>
+<a href="#2671" id="2671">2671</a>
+<a href="#2672" id="2672">2672</a>
+<a href="#2673" id="2673">2673</a>
+<a href="#2674" id="2674">2674</a>
+<a href="#2675" id="2675">2675</a>
+<a href="#2676" id="2676">2676</a>
+<a href="#2677" id="2677">2677</a>
+<a href="#2678" id="2678">2678</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -5113,6 +5125,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///     pub type Baz&lt;T&gt; = StorageMap&lt;Hasher = Blake2_128Concat, Key = u32, Value = u32&gt;;
 	/// }
 	/// ```
+	///
+	/// ### Value Trait Bounds
+	///
+	/// To use a type as the value of a storage type, be it `StorageValue`, `StorageMap` or
+	/// anything else, you need to meet a number of trait bound constraints.
+	///
+	/// See: &lt;https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/reference_docs/frame_storage_derives/index.html&gt;.
+	///
+	/// Notably, all value types need to implement `Encode`, `Decode`, `MaxEncodedLen` and
+	/// `TypeInfo`, and possibly `Default`, if
+	/// [`ValueQuery`](frame_support::storage::types::ValueQuery) is used, explained in the
+	/// next section.
 	///
 	/// ### QueryKind
 	///

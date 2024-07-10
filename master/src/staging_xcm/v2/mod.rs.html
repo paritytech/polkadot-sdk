@@ -1308,6 +1308,69 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1157" id="1157">1157</a>
 <a href="#1158" id="1158">1158</a>
 <a href="#1159" id="1159">1159</a>
+<a href="#1160" id="1160">1160</a>
+<a href="#1161" id="1161">1161</a>
+<a href="#1162" id="1162">1162</a>
+<a href="#1163" id="1163">1163</a>
+<a href="#1164" id="1164">1164</a>
+<a href="#1165" id="1165">1165</a>
+<a href="#1166" id="1166">1166</a>
+<a href="#1167" id="1167">1167</a>
+<a href="#1168" id="1168">1168</a>
+<a href="#1169" id="1169">1169</a>
+<a href="#1170" id="1170">1170</a>
+<a href="#1171" id="1171">1171</a>
+<a href="#1172" id="1172">1172</a>
+<a href="#1173" id="1173">1173</a>
+<a href="#1174" id="1174">1174</a>
+<a href="#1175" id="1175">1175</a>
+<a href="#1176" id="1176">1176</a>
+<a href="#1177" id="1177">1177</a>
+<a href="#1178" id="1178">1178</a>
+<a href="#1179" id="1179">1179</a>
+<a href="#1180" id="1180">1180</a>
+<a href="#1181" id="1181">1181</a>
+<a href="#1182" id="1182">1182</a>
+<a href="#1183" id="1183">1183</a>
+<a href="#1184" id="1184">1184</a>
+<a href="#1185" id="1185">1185</a>
+<a href="#1186" id="1186">1186</a>
+<a href="#1187" id="1187">1187</a>
+<a href="#1188" id="1188">1188</a>
+<a href="#1189" id="1189">1189</a>
+<a href="#1190" id="1190">1190</a>
+<a href="#1191" id="1191">1191</a>
+<a href="#1192" id="1192">1192</a>
+<a href="#1193" id="1193">1193</a>
+<a href="#1194" id="1194">1194</a>
+<a href="#1195" id="1195">1195</a>
+<a href="#1196" id="1196">1196</a>
+<a href="#1197" id="1197">1197</a>
+<a href="#1198" id="1198">1198</a>
+<a href="#1199" id="1199">1199</a>
+<a href="#1200" id="1200">1200</a>
+<a href="#1201" id="1201">1201</a>
+<a href="#1202" id="1202">1202</a>
+<a href="#1203" id="1203">1203</a>
+<a href="#1204" id="1204">1204</a>
+<a href="#1205" id="1205">1205</a>
+<a href="#1206" id="1206">1206</a>
+<a href="#1207" id="1207">1207</a>
+<a href="#1208" id="1208">1208</a>
+<a href="#1209" id="1209">1209</a>
+<a href="#1210" id="1210">1210</a>
+<a href="#1211" id="1211">1211</a>
+<a href="#1212" id="1212">1212</a>
+<a href="#1213" id="1213">1213</a>
+<a href="#1214" id="1214">1214</a>
+<a href="#1215" id="1215">1215</a>
+<a href="#1216" id="1216">1216</a>
+<a href="#1217" id="1217">1217</a>
+<a href="#1218" id="1218">1218</a>
+<a href="#1219" id="1219">1219</a>
+<a href="#1220" id="1220">1220</a>
+<a href="#1221" id="1221">1221</a>
+<a href="#1222" id="1222">1222</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -1372,7 +1435,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 };
 <span class="kw">use </span>alloc::{vec, vec::Vec};
 <span class="kw">use </span>bounded_collections::{ConstU32, WeakBoundedVec};
-<span class="kw">use </span>codec::{<span class="self">self</span>, Decode, Encode, MaxEncodedLen};
+<span class="kw">use </span>codec::{
+	<span class="self">self</span>, decode_vec_with_len, Compact, Decode, Encode, Error <span class="kw">as </span>CodecError, Input <span class="kw">as </span>CodecInput,
+	MaxEncodedLen,
+};
 <span class="kw">use </span>core::{fmt::Debug, result};
 <span class="kw">use </span>derivative::Derivative;
 <span class="kw">use </span>scale_info::TypeInfo;
@@ -1588,13 +1654,38 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub type </span>QueryId = u64;
 
 <span class="doccomment">/// DEPRECATED. Please use XCMv3 or XCMv4 instead.
-</span><span class="attr">#[derive(Derivative, Default, Encode, Decode, TypeInfo)]
+</span><span class="attr">#[derive(Derivative, Default, Encode, TypeInfo)]
 #[derivative(Clone(bound = <span class="string">""</span>), Eq(bound = <span class="string">""</span>), PartialEq(bound = <span class="string">""</span>), Debug(bound = <span class="string">""</span>))]
 #[codec(encode_bound())]
 #[codec(decode_bound())]
 #[scale_info(bounds(), skip_type_params(RuntimeCall))]
 #[scale_info(replace_segment(<span class="string">"staging_xcm"</span>, <span class="string">"xcm"</span>))]
 </span><span class="kw">pub struct </span>Xcm&lt;RuntimeCall&gt;(<span class="kw">pub </span>Vec&lt;Instruction&lt;RuntimeCall&gt;&gt;);
+
+<span class="macro">environmental::environmental!</span>(instructions_count: u8);
+
+<span class="kw">impl</span>&lt;Call&gt; Decode <span class="kw">for </span>Xcm&lt;Call&gt; {
+	<span class="kw">fn </span>decode&lt;I: CodecInput&gt;(input: <span class="kw-2">&amp;mut </span>I) -&gt; core::result::Result&lt;<span class="self">Self</span>, CodecError&gt; {
+		instructions_count::using_once(<span class="kw-2">&amp;mut </span><span class="number">0</span>, || {
+			<span class="kw">let </span>number_of_instructions: u32 = &lt;Compact&lt;u32&gt;&gt;::decode(input)<span class="question-mark">?</span>.into();
+			instructions_count::with(|count| {
+				<span class="kw-2">*</span>count = count.saturating_add(number_of_instructions <span class="kw">as </span>u8);
+				<span class="kw">if </span><span class="kw-2">*</span>count &gt; MAX_INSTRUCTIONS_TO_DECODE {
+					<span class="kw">return </span><span class="prelude-val">Err</span>(CodecError::from(<span class="string">"Max instructions exceeded"</span>))
+				}
+				<span class="prelude-val">Ok</span>(())
+			})
+			.unwrap_or(<span class="prelude-val">Ok</span>(()))<span class="question-mark">?</span>;
+			<span class="kw">let </span>decoded_instructions = decode_vec_with_len(input, number_of_instructions <span class="kw">as </span>usize)<span class="question-mark">?</span>;
+			<span class="prelude-val">Ok</span>(<span class="self">Self</span>(decoded_instructions))
+		})
+	}
+}
+
+<span class="doccomment">/// The maximal number of instructions in an XCM before decoding fails.
+///
+/// This is a deliberate limit - not a technical one.
+</span><span class="kw">pub const </span>MAX_INSTRUCTIONS_TO_DECODE: u8 = <span class="number">100</span>;
 
 <span class="kw">impl</span>&lt;RuntimeCall&gt; Xcm&lt;RuntimeCall&gt; {
 	<span class="doccomment">/// Create an empty instance.
@@ -2465,6 +2556,41 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw">return </span><span class="prelude-val">Err</span>(());
 			},
 		})
+	}
+}
+
+<span class="attr">#[cfg(test)]
+</span><span class="kw">mod </span>tests {
+	<span class="kw">use super</span>::{prelude::<span class="kw-2">*</span>, <span class="kw-2">*</span>};
+
+	<span class="attr">#[test]
+	</span><span class="kw">fn </span>decoding_respects_limit() {
+		<span class="kw">let </span>max_xcm = Xcm::&lt;()&gt;(<span class="macro">vec!</span>[ClearOrigin; MAX_INSTRUCTIONS_TO_DECODE <span class="kw">as </span>usize]);
+		<span class="kw">let </span>encoded = max_xcm.encode();
+		<span class="macro">assert!</span>(Xcm::&lt;()&gt;::decode(<span class="kw-2">&amp;mut &amp;</span>encoded[..]).is_ok());
+
+		<span class="kw">let </span>big_xcm = Xcm::&lt;()&gt;(<span class="macro">vec!</span>[ClearOrigin; MAX_INSTRUCTIONS_TO_DECODE <span class="kw">as </span>usize + <span class="number">1</span>]);
+		<span class="kw">let </span>encoded = big_xcm.encode();
+		<span class="macro">assert!</span>(Xcm::&lt;()&gt;::decode(<span class="kw-2">&amp;mut &amp;</span>encoded[..]).is_err());
+
+		<span class="kw">let </span>nested_xcm = Xcm::&lt;()&gt;(<span class="macro">vec!</span>[
+			DepositReserveAsset {
+				assets: All.into(),
+				dest: Here.into(),
+				xcm: max_xcm,
+				max_assets: <span class="number">1</span>,
+			};
+			(MAX_INSTRUCTIONS_TO_DECODE / <span class="number">2</span>) <span class="kw">as </span>usize
+		]);
+		<span class="kw">let </span>encoded = nested_xcm.encode();
+		<span class="macro">assert!</span>(Xcm::&lt;()&gt;::decode(<span class="kw-2">&amp;mut &amp;</span>encoded[..]).is_err());
+
+		<span class="kw">let </span>even_more_nested_xcm = Xcm::&lt;()&gt;(<span class="macro">vec!</span>[SetAppendix(nested_xcm); <span class="number">64</span>]);
+		<span class="kw">let </span>encoded = even_more_nested_xcm.encode();
+		<span class="macro">assert_eq!</span>(encoded.len(), <span class="number">345730</span>);
+		<span class="comment">// This should not decode since the limit is 100
+		</span><span class="macro">assert_eq!</span>(MAX_INSTRUCTIONS_TO_DECODE, <span class="number">100</span>, <span class="string">"precondition"</span>);
+		<span class="macro">assert!</span>(Xcm::&lt;()&gt;::decode(<span class="kw-2">&amp;mut &amp;</span>encoded[..]).is_err());
 	}
 }
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>

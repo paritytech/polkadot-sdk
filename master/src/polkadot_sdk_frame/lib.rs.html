@@ -526,6 +526,36 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#375" id="375">375</a>
 <a href="#376" id="376">376</a>
 <a href="#377" id="377">377</a>
+<a href="#378" id="378">378</a>
+<a href="#379" id="379">379</a>
+<a href="#380" id="380">380</a>
+<a href="#381" id="381">381</a>
+<a href="#382" id="382">382</a>
+<a href="#383" id="383">383</a>
+<a href="#384" id="384">384</a>
+<a href="#385" id="385">385</a>
+<a href="#386" id="386">386</a>
+<a href="#387" id="387">387</a>
+<a href="#388" id="388">388</a>
+<a href="#389" id="389">389</a>
+<a href="#390" id="390">390</a>
+<a href="#391" id="391">391</a>
+<a href="#392" id="392">392</a>
+<a href="#393" id="393">393</a>
+<a href="#394" id="394">394</a>
+<a href="#395" id="395">395</a>
+<a href="#396" id="396">396</a>
+<a href="#397" id="397">397</a>
+<a href="#398" id="398">398</a>
+<a href="#399" id="399">399</a>
+<a href="#400" id="400">400</a>
+<a href="#401" id="401">401</a>
+<a href="#402" id="402">402</a>
+<a href="#403" id="403">403</a>
+<a href="#404" id="404">404</a>
+<a href="#405" id="405">405</a>
+<a href="#406" id="406">406</a>
+<a href="#407" id="407">407</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -558,13 +588,43 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! &gt; **F**ramework for **R**untime **A**ggregation of **M**odularized **E**ntities: Substrate's
 //! &gt; State Transition Function (Runtime) Framework.
 //!
+//! //! ## Usage
+//!
+//! The main intended use of this crate is for it to be imported with its preludes:
+//!
+//! ```
+//! # use polkadot_sdk_frame as frame;
+//! #[frame::pallet]
+//! pub mod pallet {
+//! 	# use polkadot_sdk_frame as frame;
+//! 	use frame::prelude::*;
+//! 	// ^^ using the prelude!
+//!
+//! 	#[pallet::config]
+//! 	pub trait Config: frame_system::Config {}
+//!
+//! 	#[pallet::pallet]
+//! 	pub struct Pallet&lt;T&gt;(_);
+//! }
+//!
+//! pub mod tests {
+//! 	# use polkadot_sdk_frame as frame;
+//! 	use frame::testing_prelude::*;
+//! }
+//!
+//! pub mod runtime {
+//! 	# use polkadot_sdk_frame as frame;
+//! 	use frame::runtime::prelude::*;
+//! }
+//! ```
+//!
+//! See: [`prelude`], [`testing_prelude`] and [`runtime::prelude`].
+//!
+//! Please note that this crate can only be imported as `polkadot-sdk-frame` or `frame`.
+//!
 //! ## Documentation
 //!
 //! See [`polkadot_sdk::frame`](../polkadot_sdk_docs/polkadot_sdk/frame_runtime/index.html).
-//!
-//! ## WARNING: Experimental
-//!
-//! **This crate and all of its content is experimental, and should not yet be used in production.**
 //!
 //! ## Underlying dependencies
 //!
@@ -574,9 +634,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! In short, this crate only re-exports types and traits from multiple sources. All of these
 //! sources are listed (and re-exported again) in [`deps`].
 //!
-//! ## Usage
+//! ## WARNING: Experimental
 //!
-//! Please note that this crate can only be imported as `polkadot-sdk-frame` or `frame`.
+//! **This crate and all of its content is experimental, and should not yet be used in production.**
 
 </span><span class="attr">#![cfg_attr(not(feature = <span class="string">"std"</span>), no_std)]
 #![cfg(feature = <span class="string">"experimental"</span>)]
