@@ -19,10 +19,10 @@ use super::Config;
 use crate::{derive_impl, pallet_prelude::inject_runtime_type};
 use static_assertions::assert_type_eq_all;
 
-#[docify::export]
 pub mod custom_config_prelude {
 	use super::*;
 
+	#[docify::export(custom_default_trait)]
 	pub trait CustomDefaultConfigProvider {
 		type AccountId;
 		type RuntimeOrigin;
@@ -32,6 +32,7 @@ pub mod custom_config_prelude {
 
 	pub struct CustomDefaultConfig;
 
+	#[docify::export(custom_default_impl)]
 	#[crate::register_default_impl(CustomDefaultConfig)]
 	impl CustomDefaultConfigProvider for CustomDefaultConfig {
 		type AccountId = u16;
@@ -44,6 +45,7 @@ pub mod custom_config_prelude {
 	}
 }
 
+#[docify::export(custom_default_derive)]
 #[test]
 fn derive_impl_works_with_custom_default_config() {
 	struct DummyRuntime;
