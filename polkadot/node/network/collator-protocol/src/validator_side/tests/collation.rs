@@ -14,7 +14,6 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use polkadot_node_subsystem_util::runtime::ProspectiveParachainsMode;
 use polkadot_primitives::{CandidateHash, CollatorId, Hash, Id as ParaId};
 
 use sc_network::PeerId;
@@ -31,35 +30,34 @@ fn cant_add_more_than_claim_queue() {
 	let para_a = ParaId::from(1);
 	let para_b = ParaId::from(2);
 	let assignments = vec![para_a, para_b, para_a];
-	let relay_parent_mode =
-		ProspectiveParachainsMode::Enabled { max_candidate_depth: 4, allowed_ancestry_len: 3 };
+	let max_candidate_depth = 4;
 	let claim_queue_support = true;
 
 	let mut collations = Collations::new(&assignments, claim_queue_support);
 
 	// first collation for `para_a` is in the limit
-	assert!(!collations.is_seconded_limit_reached(relay_parent_mode, para_a));
+	assert!(!collations.is_seconded_limit_reached(max_candidate_depth, para_a));
 	collations.note_seconded(para_a);
 	// and `para_b` is not affected
-	assert!(!collations.is_seconded_limit_reached(relay_parent_mode, para_b));
+	assert!(!collations.is_seconded_limit_reached(max_candidate_depth, para_b));
 
 	// second collation for `para_a` is also in the limit
-	assert!(!collations.is_seconded_limit_reached(relay_parent_mode, para_a));
+	assert!(!collations.is_seconded_limit_reached(max_candidate_depth, para_a));
 	collations.note_seconded(para_a);
 
 	// `para_b`` is still not affected
-	assert!(!collations.is_seconded_limit_reached(relay_parent_mode, para_b));
+	assert!(!collations.is_seconded_limit_reached(max_candidate_depth, para_b));
 
 	// third collation for `para_a`` will be above the limit
-	assert!(collations.is_seconded_limit_reached(relay_parent_mode, para_a));
+	assert!(collations.is_seconded_limit_reached(max_candidate_depth, para_a));
 
 	// one fetch for b
-	assert!(!collations.is_seconded_limit_reached(relay_parent_mode, para_b));
+	assert!(!collations.is_seconded_limit_reached(max_candidate_depth, para_b));
 	collations.note_seconded(para_b);
 
 	// and now both paras are over limit
-	assert!(collations.is_seconded_limit_reached(relay_parent_mode, para_a));
-	assert!(collations.is_seconded_limit_reached(relay_parent_mode, para_b));
+	assert!(collations.is_seconded_limit_reached(max_candidate_depth, para_a));
+	assert!(collations.is_seconded_limit_reached(max_candidate_depth, para_b));
 }
 
 #[test]
@@ -69,22 +67,21 @@ fn pending_fetches_are_counted() {
 	let para_a = ParaId::from(1);
 	let para_b = ParaId::from(2);
 	let assignments = vec![para_a, para_b, para_a];
-	let relay_parent_mode =
-		ProspectiveParachainsMode::Enabled { max_candidate_depth: 4, allowed_ancestry_len: 3 };
+	let max_candidate_depth = 4;
 	let claim_queue_support = true;
 
 	let mut collations = Collations::new(&assignments, claim_queue_support);
 	collations.status = CollationStatus::Fetching(para_a); //para_a is pending
 
 	// first collation for `para_a` is in the limit
-	assert!(!collations.is_seconded_limit_reached(relay_parent_mode, para_a));
+	assert!(!collations.is_seconded_limit_reached(max_candidate_depth, para_a));
 	collations.note_seconded(para_a);
 
 	// second collation for `para_a` is not in the limit due to the pending fetch
-	assert!(collations.is_seconded_limit_reached(relay_parent_mode, para_a));
+	assert!(collations.is_seconded_limit_reached(max_candidate_depth, para_a));
 
 	// a collation for `para_b` is accepted since the pending fetch is for `para_a`
-	assert!(!collations.is_seconded_limit_reached(relay_parent_mode, para_b));
+	assert!(!collations.is_seconded_limit_reached(max_candidate_depth, para_b));
 }
 
 #[test]
@@ -100,8 +97,6 @@ fn collation_fetching_respects_claim_queue() {
 	let peer_b = PeerId::random();
 
 	let claim_queue = vec![para_a, para_b, para_a];
-	let relay_parent_mode =
-		ProspectiveParachainsMode::Enabled { max_candidate_depth: 4, allowed_ancestry_len: 3 };
 	let claim_queue_support = true;
 
 	let mut collations = Collations::new(&claim_queue, claim_queue_support);
@@ -159,7 +154,6 @@ fn collation_fetching_respects_claim_queue() {
 		collations.get_next_collation_to_fetch(
 			// doesn't matter since `fetching_from` is `None`
 			&(collator_id_a.clone(), Some(CandidateHash(Hash::repeat_byte(0)))),
-			relay_parent_mode,
 			&claim_queue,
 		)
 	);
@@ -170,7 +164,6 @@ fn collation_fetching_respects_claim_queue() {
 		collations.get_next_collation_to_fetch(
 			// doesn't matter since `fetching_from` is `None`
 			&(collator_id_a.clone(), Some(CandidateHash(Hash::repeat_byte(0)))),
-			relay_parent_mode,
 			&claim_queue,
 		)
 	);
@@ -181,7 +174,6 @@ fn collation_fetching_respects_claim_queue() {
 		collations.get_next_collation_to_fetch(
 			// doesn't matter since `fetching_from` is `None`
 			&(collator_id_a.clone(), Some(CandidateHash(Hash::repeat_byte(0)))),
-			relay_parent_mode,
 			&claim_queue,
 		)
 	);
@@ -197,8 +189,6 @@ fn collation_fetching_fallback_works() {
 	let peer_a = PeerId::random();
 
 	let claim_queue = vec![para_a];
-	let relay_parent_mode =
-		ProspectiveParachainsMode::Enabled { max_candidate_depth: 4, allowed_ancestry_len: 3 };
 	let claim_queue_support = false;
 
 	let mut collations = Collations::new(&claim_queue, claim_queue_support);
@@ -243,7 +233,6 @@ fn collation_fetching_fallback_works() {
 		collations.get_next_collation_to_fetch(
 			// doesn't matter since `fetching_from` is `None`
 			&(collator_id_a.clone(), Some(CandidateHash(Hash::repeat_byte(0)))),
-			relay_parent_mode,
 			&claim_queue,
 		)
 	);
@@ -254,7 +243,6 @@ fn collation_fetching_fallback_works() {
 		collations.get_next_collation_to_fetch(
 			// doesn't matter since `fetching_from` is `None`
 			&(collator_id_a.clone(), Some(CandidateHash(Hash::repeat_byte(0)))),
-			relay_parent_mode,
 			&claim_queue,
 		)
 	);
@@ -278,8 +266,6 @@ fn collation_fetching_prefer_entries_earlier_in_claim_queue() {
 	let peer_c = PeerId::random();
 
 	let claim_queue = vec![para_a, para_b, para_a, para_b, para_c, para_c];
-	let relay_parent_mode =
-		ProspectiveParachainsMode::Enabled { max_candidate_depth: 7, allowed_ancestry_len: 6 };
 	let claim_queue_support = true;
 
 	let mut collations = Collations::new(&claim_queue, claim_queue_support);
@@ -379,7 +365,6 @@ fn collation_fetching_prefer_entries_earlier_in_claim_queue() {
 		collations.get_next_collation_to_fetch(
 			// doesn't matter since `fetching_from` is `None`
 			&(collator_id_a.clone(), Some(CandidateHash(Hash::repeat_byte(0)))),
-			relay_parent_mode,
 			&claim_queue,
 		)
 	);
@@ -390,7 +375,6 @@ fn collation_fetching_prefer_entries_earlier_in_claim_queue() {
 		collations.get_next_collation_to_fetch(
 			// doesn't matter since `fetching_from` is `None`
 			&(collator_id_a.clone(), Some(CandidateHash(Hash::repeat_byte(0)))),
-			relay_parent_mode,
 			&claim_queue,
 		)
 	);
@@ -401,7 +385,6 @@ fn collation_fetching_prefer_entries_earlier_in_claim_queue() {
 		collations.get_next_collation_to_fetch(
 			// doesn't matter since `fetching_from` is `None`
 			&(collator_id_a.clone(), Some(CandidateHash(Hash::repeat_byte(0)))),
-			relay_parent_mode,
 			&claim_queue,
 		)
 	);
@@ -412,7 +395,6 @@ fn collation_fetching_prefer_entries_earlier_in_claim_queue() {
 		collations.get_next_collation_to_fetch(
 			// doesn't matter since `fetching_from` is `None`
 			&(collator_id_a.clone(), Some(CandidateHash(Hash::repeat_byte(0)))),
-			relay_parent_mode,
 			&claim_queue,
 		)
 	);
@@ -423,7 +405,6 @@ fn collation_fetching_prefer_entries_earlier_in_claim_queue() {
 		collations.get_next_collation_to_fetch(
 			// doesn't matter since `fetching_from` is `None`
 			&(collator_id_a.clone(), Some(CandidateHash(Hash::repeat_byte(0)))),
-			relay_parent_mode,
 			&claim_queue,
 		)
 	);
@@ -434,7 +415,6 @@ fn collation_fetching_prefer_entries_earlier_in_claim_queue() {
 		collations.get_next_collation_to_fetch(
 			// doesn't matter since `fetching_from` is `None`
 			&(collator_id_a.clone(), Some(CandidateHash(Hash::repeat_byte(0)))),
-			relay_parent_mode,
 			&claim_queue,
 		)
 	);
@@ -458,8 +438,6 @@ fn collation_fetching_fills_holes_in_claim_queue() {
 	let peer_c = PeerId::random();
 
 	let claim_queue = vec![para_a, para_b, para_a, para_b, para_c, para_c];
-	let relay_parent_mode =
-		ProspectiveParachainsMode::Enabled { max_candidate_depth: 7, allowed_ancestry_len: 6 };
 	let claim_queue_support = true;
 
 	let mut collations = Collations::new(&claim_queue, claim_queue_support);
@@ -554,7 +532,6 @@ fn collation_fetching_fills_holes_in_claim_queue() {
 		collations.get_next_collation_to_fetch(
 			// doesn't matter since `fetching_from` is `None`
 			&(collator_id_a.clone(), Some(CandidateHash(Hash::repeat_byte(0)))),
-			relay_parent_mode,
 			&claim_queue,
 		)
 	);
@@ -566,7 +543,6 @@ fn collation_fetching_fills_holes_in_claim_queue() {
 		collations.get_next_collation_to_fetch(
 			// doesn't matter since `fetching_from` is `None`
 			&(collator_id_a.clone(), Some(CandidateHash(Hash::repeat_byte(0)))),
-			relay_parent_mode,
 			&claim_queue,
 		)
 	);
@@ -581,7 +557,6 @@ fn collation_fetching_fills_holes_in_claim_queue() {
 		collations.get_next_collation_to_fetch(
 			// doesn't matter since `fetching_from` is `None`
 			&(collator_id_a.clone(), Some(CandidateHash(Hash::repeat_byte(0)))),
-			relay_parent_mode,
 			&claim_queue,
 		)
 	);
@@ -592,7 +567,6 @@ fn collation_fetching_fills_holes_in_claim_queue() {
 		collations.get_next_collation_to_fetch(
 			// doesn't matter since `fetching_from` is `None`
 			&(collator_id_a.clone(), Some(CandidateHash(Hash::repeat_byte(0)))),
-			relay_parent_mode,
 			&claim_queue,
 		)
 	);
@@ -607,7 +581,6 @@ fn collation_fetching_fills_holes_in_claim_queue() {
 		collations.get_next_collation_to_fetch(
 			// doesn't matter since `fetching_from` is `None`
 			&(collator_id_a.clone(), Some(CandidateHash(Hash::repeat_byte(0)))),
-			relay_parent_mode,
 			&claim_queue,
 		)
 	);
@@ -618,7 +591,6 @@ fn collation_fetching_fills_holes_in_claim_queue() {
 		collations.get_next_collation_to_fetch(
 			// doesn't matter since `fetching_from` is `None`
 			&(collator_id_a.clone(), Some(CandidateHash(Hash::repeat_byte(0)))),
-			relay_parent_mode,
 			&claim_queue,
 		)
 	);
@@ -635,8 +607,6 @@ fn collations_fetching_respects_seconded_limit() {
 	let para_b = ParaId::from(2);
 
 	let claim_queue = vec![para_a, para_b, para_a];
-	let relay_parent_mode =
-		ProspectiveParachainsMode::Enabled { max_candidate_depth: 7, allowed_ancestry_len: 6 };
 	let claim_queue_support = true;
 
 	let mut collations = Collations::new(&claim_queue, claim_queue_support);
@@ -651,7 +621,6 @@ fn collations_fetching_respects_seconded_limit() {
 		collations.get_next_collation_to_fetch(
 			// doesn't matter since `fetching_from` is `None`
 			&(collator_id_a.clone(), Some(CandidateHash(Hash::repeat_byte(0)))),
-			relay_parent_mode,
 			&claim_queue,
 		)
 	);
