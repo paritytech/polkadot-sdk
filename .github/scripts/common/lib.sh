@@ -445,7 +445,7 @@ get_latest_release_tag() {
     printf $latest_release_tag
 }
 
-function get_polkadot_nide_version_from_code() {
+function get_polkadot_node_version_from_code() {
    # list all the files with node version
   git grep -e "\(NODE_VERSION[^=]*= \)\".*\"" |
   # fetch only the one we need
