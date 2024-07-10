@@ -10,21 +10,21 @@ description = "Collator-side subsystem that handles incoming candidate submissio
 workspace = true
 
 [dependencies]
-futures = "0.3.30"
-gum = { package = "tracing-gum", path = "../gum" }
-polkadot-erasure-coding = { path = "../../erasure-coding" }
-polkadot-node-primitives = { path = "../primitives" }
-polkadot-node-subsystem = { path = "../subsystem" }
-polkadot-node-subsystem-util = { path = "../subsystem-util" }
-polkadot-primitives = { path = "../../primitives" }
-sp-core = { path = "../../../substrate/primitives/core" }
-sp-maybe-compressed-blob = { path = "../../../substrate/primitives/maybe-compressed-blob" }
+futures = { workspace = true }
+gum = { workspace = true, default-features = true }
+polkadot-erasure-coding = { workspace = true, default-features = true }
+polkadot-node-primitives = { workspace = true, default-features = true }
+polkadot-node-subsystem = { workspace = true, default-features = true }
+polkadot-node-subsystem-util = { workspace = true, default-features = true }
+polkadot-primitives = { workspace = true, default-features = true }
+sp-core = { workspace = true, default-features = true }
+sp-maybe-compressed-blob = { workspace = true, default-features = true }
 thiserror = { workspace = true }
-parity-scale-codec = { version = "3.6.12", default-features = false, features = ["bit-vec", "derive"] }
+codec = { features = ["bit-vec", "derive"], workspace = true }
 
 [dev-dependencies]
-polkadot-node-subsystem-test-helpers = { path = "../subsystem-test-helpers" }
-test-helpers = { package = "polkadot-primitives-test-helpers", path = "../../primitives/test-helpers" }
-assert_matches = "1.4.0"
-rstest = "0.18.2"
-sp-keyring = { path = "../../../substrate/primitives/keyring" }
+polkadot-node-subsystem-test-helpers = { workspace = true }
+polkadot-primitives-test-helpers = { workspace = true }
+assert_matches = { workspace = true }
+rstest = { workspace = true }
+sp-keyring = { workspace = true, default-features = true }

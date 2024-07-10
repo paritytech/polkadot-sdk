@@ -430,16 +430,7 @@ pub const MAX_POSSIBLE_ALLOCATION: u32 = 33554432; // 2^25 bytes, 32 MiB
 macro_rules! generate_feature_enabled_macro {
 	( $macro_name:ident, $feature_name:meta, $d:tt ) => {
 		$crate::paste::paste!{
-			/// Enable/disable the given code depending on
-			#[doc = concat!("`", stringify!($feature_name), "`")]
-			/// being enabled for the crate or not.
 			///
-			/// # Example
-			///
-			/// ```nocompile
-			/// // Will add the code depending on the feature being enabled or not.
-			#[doc = concat!(stringify!($macro_name), "!( println!(\"Hello\") )")]
-			/// ```
 			#[cfg($feature_name)]
 			#[macro_export]
 			macro_rules! [<_ $macro_name>] {
@@ -448,6 +439,13 @@ macro_rules! generate_feature_enabled_macro {
 				}
 			}
 
+			///
+ 			#[cfg(not($feature_name))]
+			#[macro_export]
+			macro_rules! [<_ $macro_name>] {
+				( $d ( $d input:tt )* ) => {};
+			}
+
 			/// Enable/disable the given code depending on
 			#[doc = concat!("`", stringify!($feature_name), "`")]
 			/// being enabled for the crate or not.
@@ -458,15 +456,8 @@ macro_rules! generate_feature_enabled_macro {
 			/// // Will add the code depending on the feature being enabled or not.
 			#[doc = concat!(stringify!($macro_name), "!( println!(\"Hello\") )")]
 			/// ```
-			#[cfg(not($feature_name))]
-			#[macro_export]
-			macro_rules! [<_ $macro_name>] {
-				( $d ( $d input:tt )* ) => {};
-			}
-
-			// Work around for: <https://github.com/rust-lang/rust/pull/52234>
-			#[doc(hidden)]
-			pub use [<_ $macro_name>] as $macro_name;
+			// https://github.com/rust-lang/rust/pull/52234			
+ 			pub use [<_ $macro_name>] as $macro_name;
 		}
 	};
 }

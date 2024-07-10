@@ -355,29 +355,12 @@ parameter_types! {
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::pallet::Config for Runtime {
-	type BaseCallFilter = frame_support::traits::Everything;
 	type BlockWeights = RuntimeBlockWeights;
-	type BlockLength = ();
-	type RuntimeOrigin = RuntimeOrigin;
-	type RuntimeCall = RuntimeCall;
 	type Nonce = Nonce;
-	type Hash = H256;
-	type Hashing = Hashing;
 	type AccountId = AccountId;
 	type Lookup = sp_runtime::traits::IdentityLookup<Self::AccountId>;
 	type Block = Block;
-	type RuntimeEvent = RuntimeEvent;
-	type BlockHashCount = ConstU64<2400>;
-	type DbWeight = ();
-	type Version = ();
-	type PalletInfo = PalletInfo;
 	type AccountData = pallet_balances::AccountData<Balance>;
-	type OnNewAccount = ();
-	type OnKilledAccount = ();
-	type SystemWeightInfo = ();
-	type SS58Prefix = ();
-	type OnSetCode = ();
-	type MaxConsumers = ConstU32<16>;
 }
 
 pub mod currency {
@@ -613,7 +596,11 @@ impl_runtime_apis! {
 		}
 
 		fn do_trace_log() {
-			log::trace!("Hey I'm runtime");
+			log::trace!(target: "test", "Hey I'm runtime");
+
+			let data = "THIS IS TRACING";
+
+			tracing::trace!(target: "test", %data, "Hey, I'm tracing");
 		}
 
 		fn verify_ed25519(sig: ed25519::Signature, public: ed25519::Public, message: Vec<u8>) -> bool {
@@ -891,7 +878,7 @@ pub mod storage_key_generator {
 		sp_crypto_hashing::twox_64(x).iter().chain(x.iter()).cloned().collect()
 	}
 
-	/// Generate the hashed storage keys from the raw literals. These keys are expected to be be in
+	/// Generate the hashed storage keys from the raw literals. These keys are expected to be in
 	/// storage with given substrate-test runtime.
 	pub fn generate_expected_storage_hashed_keys(custom_heap_pages: bool) -> Vec<String> {
 		let mut literals: Vec<&[u8]> = vec![b":code", b":extrinsic_index"];

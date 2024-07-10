@@ -11,44 +11,37 @@ workspace = true
 
 [dependencies]
 # polkadot deps
-polkadot-primitives = { path = "../../../polkadot/primitives" }
-polkadot-core-primitives = { path = "../../../polkadot/core-primitives" }
-polkadot-overseer = { path = "../../../polkadot/node/overseer" }
-polkadot-node-subsystem-util = { path = "../../../polkadot/node/subsystem-util" }
-polkadot-node-network-protocol = { path = "../../../polkadot/node/network/protocol" }
+polkadot-primitives = { workspace = true, default-features = true }
+polkadot-core-primitives = { workspace = true, default-features = true }
+polkadot-overseer = { workspace = true, default-features = true }
+polkadot-node-subsystem-util = { workspace = true, default-features = true }
+polkadot-node-network-protocol = { workspace = true, default-features = true }
 
-polkadot-availability-recovery = { path = "../../../polkadot/node/network/availability-recovery" }
-polkadot-collator-protocol = { path = "../../../polkadot/node/network/collator-protocol" }
-polkadot-network-bridge = { path = "../../../polkadot/node/network/bridge" }
-polkadot-node-collation-generation = { path = "../../../polkadot/node/collation-generation" }
-polkadot-node-core-runtime-api = { path = "../../../polkadot/node/core/runtime-api" }
-polkadot-node-core-chain-api = { path = "../../../polkadot/node/core/chain-api" }
-polkadot-node-core-prospective-parachains = { path = "../../../polkadot/node/core/prospective-parachains" }
-polkadot-service = { path = "../../../polkadot/node/service" }
+polkadot-network-bridge = { workspace = true, default-features = true }
+polkadot-service = { workspace = true, default-features = true }
 
 # substrate deps
-sc-authority-discovery = { path = "../../../substrate/client/authority-discovery" }
-sc-network = { path = "../../../substrate/client/network" }
-sc-network-common = { path = "../../../substrate/client/network/common" }
-sc-service = { path = "../../../substrate/client/service" }
-sc-client-api = { path = "../../../substrate/client/api" }
-substrate-prometheus-endpoint = { path = "../../../substrate/utils/prometheus" }
-sc-tracing = { path = "../../../substrate/client/tracing" }
-sc-utils = { path = "../../../substrate/client/utils" }
-sp-api = { path = "../../../substrate/primitives/api" }
-sp-consensus-babe = { path = "../../../substrate/primitives/consensus/babe" }
-sp-consensus = { path = "../../../substrate/primitives/consensus/common" }
-sp-runtime = { path = "../../../substrate/primitives/runtime" }
-sp-blockchain = { path = "../../../substrate/primitives/blockchain" }
-tokio = { version = "1.32.0", features = ["macros"] }
+sc-authority-discovery = { workspace = true, default-features = true }
+sc-network = { workspace = true, default-features = true }
+sc-network-common = { workspace = true, default-features = true }
+sc-service = { workspace = true, default-features = true }
+sc-client-api = { workspace = true, default-features = true }
+prometheus-endpoint = { workspace = true, default-features = true }
+sc-tracing = { workspace = true, default-features = true }
+sc-utils = { workspace = true, default-features = true }
+sp-api = { workspace = true, default-features = true }
+sp-consensus-babe = { workspace = true, default-features = true }
+sp-consensus = { workspace = true, default-features = true }
+sp-runtime = { workspace = true, default-features = true }
+sp-blockchain = { workspace = true, default-features = true }
+tokio = { features = ["macros"], workspace = true, default-features = true }
 
 # cumulus deps
-cumulus-relay-chain-interface = { path = "../relay-chain-interface" }
-cumulus-relay-chain-rpc-interface = { path = "../relay-chain-rpc-interface" }
-cumulus-primitives-core = { path = "../../primitives/core" }
+cumulus-relay-chain-interface = { workspace = true, default-features = true }
+cumulus-relay-chain-rpc-interface = { workspace = true, default-features = true }
+cumulus-primitives-core = { workspace = true, default-features = true }
 
-array-bytes = "6.2.2"
-tracing = "0.1.37"
-async-trait = "0.1.79"
-futures = "0.3.28"
-parking_lot = "0.12.1"
+array-bytes = { workspace = true, default-features = true }
+tracing = { workspace = true, default-features = true }
+async-trait = { workspace = true }
+futures = { workspace = true }
