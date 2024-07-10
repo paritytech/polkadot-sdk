@@ -27,20 +27,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      # - name: Get release product
-      #   id: get_rel_product
-      #   shell: bash
-      #   run: |
-      #     current_branch=$(git branch --show-current)
-      #     echo "Current branch: $current_branch"
-      #     if [[ "$current_branch" =~ "release-polkadot" ]]; then
-      #       echo "product=polkadot" >> $GITHUB_OUTPUT
-      #     elif [[ "$current_branch" =~ "release-cumulus" ]]; then
-      #       echo "product=polkadot-parachain" >> $GITHUB_OUTPUT
-      #     fi
-
-
-      - name: Compute next rc tag for polkadot
+      - name: Compute next rc tag
         # if: ${{ steps.get_rel_product.outputs.product == 'polkadot' }}
         id: compute_tag
         shell: bash
@@ -49,8 +36,7 @@ jobs:
 
           # Get last rc tag if exists, else set it to {version}-rc1
           # TODO: find a way to get latest release tag
-          version=$(get_polkadot_node_version_from_code)
-          #version=$(get_version_from_ghref ${GITHUB_REF})
+          version=v$(get_polkadot_node_version_from_code)
           echo "$version"
           echo "version=$version" >> $GITHUB_OUTPUT
 
@@ -65,28 +51,6 @@ jobs:
             echo "first_rc=true" >> $GITHUB_OUTPUT
           fi
 
-      # - name: Compute next rc tag for polkadot-parachain
-      #   if: ${{ steps.get_rel_product.outputs.product == 'polkadot-parachain' }}
-      #   id: compute_tag_cumulus
-      #   shell: bash
-      #   run: |
-      #     . ./.github/scripts/common/lib.sh
-
-      #     # Get last rc tag if exists, else set it to polkadot-parachains-{version}-rc1
-      #     version=$(get_version_from_ghref ${GITHUB_REF})
-      #     echo "$version"
-      #     echo "version=$version" >> $GITHUB_OUTPUT
-
-      #     last_rc=$(get_latest_rc_tag $version polkadot-parachain)
-      #     if [ -n "$last_rc" ]; then
-      #       suffix=$(increment_rc_tag $last_rc)
-      #       echo "new_tag=polkadot-parachains-$version-rc$suffix" >> $GITHUB_OUTPUT
-      #       echo "first_rc=false" >> $GITHUB_OUTPUT
-      #     else
-      #       echo "new_tag=polkadot-parachain-$version-rc1" >> $GITHUB_OUTPUT
-      #       echo "first_rc=true" >> $GITHUB_OUTPUT
-      #     fi
-
       - name: Apply new tag
         uses: tvdias/github-tagger@ed7350546e3e503b5e942dffd65bc8751a95e49d # v0.0.2
         with:
@@ -95,16 +59,6 @@ jobs:
           # RELEASE_BRANCH_TOKEN requires public_repo OAuth scope
           repo-token: "${{ secrets.RELEASE_BRANCH_TOKEN }}"
           tag: ${{ steps.compute_tag.outputs.new_tag }}
-
-      # - id: create-issue
-      #   uses: JasonEtco/create-an-issue@e27dddc79c92bc6e4562f268fffa5ed752639abd # v2.9.1
-      #   # Only create the issue if it's the first release candidate
-      #   if: steps.compute_tag.outputs.first_rc == 'true'
-      #   env:
-      #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      #     VERSION: ${{ steps.compute_tag.outputs.version }}
-      #   with:
-      #     filename: .github/ISSUE_TEMPLATE/release.md
 
       - name: Send Matrix message to ${{ matrix.channel.name }}
         uses: s3krit/matrix-message-action@70ad3fb812ee0e45ff8999d6af11cafad11a6ecf # v0.0.3
