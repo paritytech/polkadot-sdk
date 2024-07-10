@@ -2491,18 +2491,19 @@ fn test_error_feature_parsing() {
 fn pallet_metadata() {
 	use sp_metadata_ir::DeprecationStatus;
 	let pallets = Runtime::metadata_ir().pallets;
-
+	let example = pallets[0].clone();
+	let example2 = pallets[1].clone();
 	{
 		// Example2 pallet is deprecated
-		let meta = pallets[1].clone();
+		let meta = example2;
 		assert_eq!(
-			DeprecationStatus::Deprecated { note: "test", since: None },
-			meta.deprecation_info
+			&DeprecationStatus::Deprecated { note: "test", since: None },
+			&meta.deprecation_info
 		)
 	}
 	{
 		// Example pallet calls is fully and partially deprecated
-		let meta = pallets[0].calls.clone().unwrap();
+		let meta = &example.calls.unwrap();
 		assert_eq!(
 			DeprecationStatus::Deprecated { note: "test", since: None },
 			meta.deprecation_info
@@ -2514,7 +2515,7 @@ fn pallet_metadata() {
 	}
 	{
 		// Example pallet errors are partially and fully deprecated
-		let meta = pallets[0].error.clone().unwrap();
+		let meta = &example.error.unwrap();
 		assert_eq!(
 			DeprecationStatus::Deprecated { note: "test", since: None },
 			meta.deprecation_info
@@ -2526,7 +2527,7 @@ fn pallet_metadata() {
 	}
 	{
 		// Example pallet events are partially and fully deprecated
-		let meta = pallets[0].event.clone().unwrap();
+		let meta = example.event.unwrap();
 		assert_eq!(
 			DeprecationStatus::Deprecated { note: "test", since: None },
 			meta.deprecation_info
