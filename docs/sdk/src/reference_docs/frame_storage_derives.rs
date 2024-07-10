@@ -131,6 +131,8 @@
 //! - [`frame::prelude::PartialEqNoBound`]
 //! - [`frame::prelude::EqNoBound`]
 //! - [`frame::prelude::CloneNoBound`]
+//! - [`frame::prelude::PartialOrdNoBound`]
+//! - [`frame::prelude::OrdNoBound`]
 //!
 //! The above traits are almost certainly needed for your tests: To print your type, assert equality
 //! or clone it.
@@ -144,9 +146,15 @@
 //! 	# pub trait Config: frame_system::Config {}
 //! 	# #[pallet::pallet]
 //! 	# pub struct Pallet<T>(_);
-//! 	#[derive(codec::Encode, codec::Decode, codec::MaxEncodedLen, scale_info::TypeInfo,
-//! DefaultNoBound)] 	#[scale_info(skip_type_params(T))]
-//! 	pub struct NewType<T: Config>(BlockNumberFor<T>);
+//! 	#[derive(
+//! 		codec::Encode,
+//! 		codec::Decode,
+//! 		codec::MaxEncodedLen,
+//! 		scale_info::TypeInfo,
+//! 		DefaultNoBound
+//!		)]
+//! 	#[scale_info(skip_type_params(T))]
+//! 	pub struct NewType<T:Config>(BlockNumberFor<T>);
 //!
 //! 	#[pallet::storage]
 //! 	pub type Something<T: Config> = StorageValue<_, NewType<T>, ValueQuery>;
