@@ -3973,6 +3973,12 @@ impl<T: Config> Pallet<T> {
 			.map(|m| m.total_balance())
 			.unwrap_or_default()
 	}
+
+	/// Total balance contributed to the pool.
+	pub fn api_pool_balance(pool_id: PoolId) -> BalanceOf<T> {
+		T::StakeAdapter::total_balance(Pool::from(Self::generate_bonded_account(pool_id)))
+			.unwrap_or_default()
+	}
 }
 
 impl<T: Config> sp_staking::OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
