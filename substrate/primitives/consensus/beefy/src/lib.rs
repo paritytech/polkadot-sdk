@@ -428,6 +428,13 @@ pub trait AncestryHelper<Header: HeaderT> {
 	/// The data needed for validating the proof.
 	type ValidationContext;
 
+	/// Generates a proof that the `prev_block_number` is part of the canonical chain at
+	/// `best_known_block_number`.
+	fn generate_proof(
+		prev_block_number: Header::Number,
+		best_known_block_number: Option<Header::Number>,
+	) -> Option<Self::Proof>;
+
 	/// Extract the validation context from the provided header.
 	fn extract_validation_context(header: Header) -> Option<Self::ValidationContext>;
 
@@ -489,6 +496,13 @@ sp_api::decl_runtime_apis! {
 			set_id: ValidatorSetId,
 			authority_id: AuthorityId,
 		) -> Option<OpaqueKeyOwnershipProof>;
+
+		/// Generates a proof that the `prev_block_number` is part of the canonical chain at
+		/// `best_known_block_number`.
+		fn generate_ancestry_proof(
+			prev_block_number: NumberFor<Block>,
+			best_known_block_number: Option<NumberFor<Block>>,
+		) -> Option<OpaqueValue>;
 	}
 
 }

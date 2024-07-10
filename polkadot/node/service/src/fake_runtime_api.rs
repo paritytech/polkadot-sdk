@@ -258,6 +258,13 @@ sp_api::impl_runtime_apis! {
 		) -> Option<sp_consensus_beefy::OpaqueKeyOwnershipProof> {
 			unimplemented!()
 		}
+
+		fn generate_ancestry_proof(
+			_: BlockNumber,
+			_: Option<BlockNumber>,
+		) -> Option<sp_runtime::OpaqueValue> {
+			unimplemented!()
+		}
 	}
 
 	impl sp_mmr_primitives::MmrApi<Block, Hash, BlockNumber> for Runtime {

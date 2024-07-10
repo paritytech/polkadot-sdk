@@ -2089,6 +2089,17 @@ sp_api::impl_runtime_apis! {
 				.map(|p| p.encode())
 				.map(sp_consensus_beefy::OpaqueKeyOwnershipProof::new)
 		}
+
+		fn generate_ancestry_proof(
+			prev_block_number: BlockNumber,
+			best_known_block_number: Option<BlockNumber>,
+		) -> Option<sp_runtime::OpaqueValue> {
+			use sp_consensus_beefy::AncestryHelper;
+
+			MmrLeaf::generate_proof(prev_block_number, best_known_block_number)
+				.map(|p| p.encode())
+				.map(sp_runtime::OpaqueValue::new)
+		}
 	}
 
 	#[api_version(2)]
