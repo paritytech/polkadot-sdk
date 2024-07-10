@@ -103,7 +103,7 @@ impl fmt::Display for OutboundRequestId {
 /// Error in a request.
 #[derive(Debug, thiserror::Error)]
 #[allow(missing_docs)]
-pub enum RequestFailure {
+pub enum RequestFailure{
 	#[error("We are not currently connected to the requested peer.")]
 	NotConnected,
 	#[error("Given protocol hasn't been registered.")]
@@ -114,6 +114,8 @@ pub enum RequestFailure {
 	Obsolete,
 	#[error("Problem on the network: {0}")]
 	Network(OutboundFailure),
+	#[error("Problem on the network: {0}")]
+	Network2(CustomOutboundFailure),
 }
 
 /// Configuration for a single request-response protocol.

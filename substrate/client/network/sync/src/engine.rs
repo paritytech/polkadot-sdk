@@ -60,7 +60,7 @@ use sc_consensus::{import_queue::ImportQueueService, IncomingBlock};
 use sc_network::{
 	config::{FullNetworkConfiguration, NotificationHandshake, ProtocolId, SetConfig},
 	peer_store::PeerStoreProvider,
-	request_responses::{IfDisconnected, RequestFailure, OutboundFailure},
+	request_responses::{IfDisconnected, RequestFailure, CustomOutboundFailure},
 	service::{
 		traits::{Direction, NotificationConfig, NotificationEvent, ValidationResult},
 		NotificationMetrics,
@@ -1271,18 +1271,19 @@ where
 			Ok(Err(e)) => {
 				debug!(target: LOG_TARGET, "Request to peer {peer_id:?} failed: {e:?}.");
 
+				// Using Our custom type Network2(CustomOutboundFailure)
 				match e {
-					RequestFailure::Network(OutboundFailure::Timeout) => {
+					RequestFailure::Network2(CustomOutboundFailure::Timeout) => {
 						self.network_service.report_peer(peer_id, rep::TIMEOUT);
 						self.network_service
 							.disconnect_peer(peer_id, self.block_announce_protocol_name.clone());
 					},
-					RequestFailure::Network(OutboundFailure::UnsupportedProtocols) => {
+					RequestFailure::Network2(CustomOutboundFailure::UnsupportedProtocols) => {
 						self.network_service.report_peer(peer_id, rep::BAD_PROTOCOL);
 						self.network_service
 							.disconnect_peer(peer_id, self.block_announce_protocol_name.clone());
 					},
-					RequestFailure::Network(OutboundFailure::DialFailure) => {
+					RequestFailure::Network2(CustomOutboundFailure::DialFailure) => {
 						self.network_service
 							.disconnect_peer(peer_id, self.block_announce_protocol_name.clone());
 					},
@@ -1291,7 +1292,7 @@ where
 						self.network_service
 							.disconnect_peer(peer_id, self.block_announce_protocol_name.clone());
 					},
-					RequestFailure::Network(OutboundFailure::ConnectionClosed) |
+					RequestFailure::Network2(CustomOutboundFailure::ConnectionClosed) |
 					RequestFailure::NotConnected => {
 						self.network_service
 							.disconnect_peer(peer_id, self.block_announce_protocol_name.clone());
@@ -1306,6 +1307,8 @@ where
 								response receiver.",
 						);
 					},
+					//If OutboundFailure is used, 
+					RequestFailure::Network(_) => {debug_assert!(false, "Don't use deprecated Network");},
 				}
 			},
 			Err(oneshot::Canceled) => {
