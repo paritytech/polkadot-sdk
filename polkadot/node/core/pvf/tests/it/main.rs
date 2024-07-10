@@ -25,6 +25,7 @@ use polkadot_node_core_pvf::{
 	PossiblyInvalidError, PrepareError, PrepareJobKind, PvfPrepData, ValidationError,
 	ValidationHost, JOB_TIMEOUT_WALL_CLOCK_FACTOR,
 };
+use polkadot_node_subsystem::messages::PvfExecPriority;
 use polkadot_parachain_primitives::primitives::{BlockData, ValidationParams, ValidationResult};
 use polkadot_primitives::{ExecutorParam, ExecutorParams, PvfExecKind, PvfPrepKind};
 
@@ -124,7 +125,7 @@ impl TestHost {
 				TEST_EXECUTION_TIMEOUT,
 				params.encode(),
 				polkadot_node_core_pvf::PreparePriority::Normal,
-				polkadot_node_core_pvf::ExecutePriority::Normal,
+				PvfExecPriority::Backing,
 				result_tx,
 			)
 			.await

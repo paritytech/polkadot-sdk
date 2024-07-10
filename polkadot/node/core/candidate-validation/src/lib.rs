@@ -660,7 +660,7 @@ async fn validate_candidate_exhaustive(
 	let result = match exec_kind {
 		// Retry is disabled to reduce the chance of nondeterministic blocks getting backed and
 		// honest backers getting slashed.
-		PvfExecPriority::Backing => {
+		PvfExecPriority::Backing | PvfExecPriority::BackingSystem => {
 			let prep_timeout = pvf_prep_timeout(&executor_params, PvfPrepKind::Prepare);
 			let exec_timeout = pvf_exec_timeout(&executor_params, exec_kind.into());
 			let pvf = PvfPrepData::from_code(
@@ -775,7 +775,7 @@ trait ValidationBackend {
 		// The priority for the preparation job.
 		prepare_priority: polkadot_node_core_pvf::PreparePriority,
 		// The priority for the preparation job.
-		execute_priority: polkadot_node_core_pvf::ExecutePriority,
+		execute_priority: PvfExecPriority,
 	) -> Result<WasmValidationResult, ValidationError>;
 
 	/// Tries executing a PVF. Will retry once if an error is encountered that may have
@@ -796,7 +796,7 @@ trait ValidationBackend {
 		// The priority for the preparation job.
 		prepare_priority: polkadot_node_core_pvf::PreparePriority,
 		// The priority for the preparation job.
-		execute_priority: polkadot_node_core_pvf::ExecutePriority,
+		execute_priority: PvfExecPriority,
 	) -> Result<WasmValidationResult, ValidationError> {
 		let prep_timeout = pvf_prep_timeout(&executor_params, PvfPrepKind::Prepare);
 		// Construct the PVF a single time, since it is an expensive operation. Cloning it is cheap.
@@ -922,7 +922,7 @@ impl ValidationBackend for ValidationHost {
 		// The priority for the preparation job.
 		prepare_priority: polkadot_node_core_pvf::PreparePriority,
 		// The priority for the preparation job.
-		execute_priority: polkadot_node_core_pvf::ExecutePriority,
+		execute_priority: PvfExecPriority,
 	) -> Result<WasmValidationResult, ValidationError> {
 		let (tx, rx) = oneshot::channel();
 		if let Err(err) = self
