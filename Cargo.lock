@@ -967,6 +967,7 @@ dependencies = [
  "bp-asset-hub-westend",
  "bp-bridge-hub-rococo",
  "bp-bridge-hub-westend",
+ "collectives-westend-runtime-constants",
  "cumulus-pallet-aura-ext",
  "cumulus-pallet-parachain-system",
  "cumulus-pallet-session-benchmarking",
@@ -2871,6 +2872,7 @@ name = "collectives-westend-emulated-chain"
 version = "0.0.0"
 dependencies = [
  "collectives-westend-runtime",
+ "collectives-westend-runtime-constants",
  "cumulus-primitives-core",
  "emulated-integration-tests-common",
  "frame-support",
@@ -2910,6 +2912,7 @@ dependencies = [
 name = "collectives-westend-runtime"
 version = "3.0.0"
 dependencies = [
+ "collectives-westend-runtime-constants",
  "cumulus-pallet-aura-ext",
  "cumulus-pallet-parachain-system",
  "cumulus-pallet-session-benchmarking",
@@ -2982,6 +2985,10 @@ dependencies = [
  "westend-runtime-constants",
  "xcm-runtime-apis",
 ]
+
+[[package]]
+name = "collectives-westend-runtime-constants"
+version = "1.0.0"
 
 [[package]]
 name = "color-eyre"

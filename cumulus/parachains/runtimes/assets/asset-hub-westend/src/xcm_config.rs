@@ -59,6 +59,9 @@ use xcm_builder::{
 };
 use xcm_executor::XcmExecutor;
 
+use westend_runtime_constants::system_parachain;
+use collectives_westend_runtime_constants;
+
 parameter_types! {
 	pub const WestendLocation: Location = Location::parent();
 	pub const WestendLocationV3: xcm::v3::Location = xcm::v3::Location::parent();
@@ -261,9 +264,9 @@ impl Contains<Location> for FellowshipEntities {
 	fn contains(location: &Location) -> bool {
 		matches!(
 			location.unpack(),
-			(1, [Parachain(1001), Plurality { id: BodyId::Technical, .. }]) |
-				(1, [Parachain(1001), PalletInstance(64)]) |
-				(1, [Parachain(1001), PalletInstance(65)])
+			(1, [Parachain(COLLECTIVES_ID), Plurality { id: BodyId::Technical, .. }]) |
+				(1, [Parachain(COLLECTIVES_ID), PalletInstance(FELLOWSHIP_SALARY_PALLET_INDEX)]) |
+				(1, [Parachain(COLLECTIVES_ID), PalletInstance(FELLOWSHIP_TREASURY_PALLET_INDEX)])
 		)
 	}
 }
@@ -271,14 +274,14 @@ impl Contains<Location> for FellowshipEntities {
 pub struct AmbassadorEntities;
 impl Contains<Location> for AmbassadorEntities {
 	fn contains(location: &Location) -> bool {
-		matches!(location.unpack(), (1, [Parachain(1001), PalletInstance(74)]))
+		matches!(location.unpack(), (1, [Parachain(COLLECTIVES_ID), PalletInstance(AMBASSADOR_SALARY_PALLET_INDEX)]))
 	}
 }
 
 pub struct SecretaryEntities;
 impl Contains<Location> for SecretaryEntities {
 	fn contains(location: &Location) -> bool {
-		matches!(location.unpack(), (1, [Parachain(1001), PalletInstance(93)]))
+		matches!(location.unpack(), (1, [Parachain(COLLECTIVES_ID), PalletInstance(SECRETARY_SALARY_PALLET_INDEX)]))
 	}
 }
 

@@ -87,6 +87,7 @@ parachain-info = { workspace = true }
 parachains-common = { workspace = true }
 testnet-parachains-constants = { features = ["westend"], workspace = true }
 assets-common = { workspace = true }
+collectives-westend-runtime-constants = { workspace = true }
 
 # Bridges
 pallet-xcm-bridge-hub-router = { workspace = true }
