@@ -184,7 +184,7 @@ jobs:
 
       - name: Get runtime info
         env:
-          JSON: release-notes-context/${{ matrix.chain }}-runtime-${{ env.LOGGING_NAME_SUFFIX }}/${{ matrix.chain }}-srtool-digest.json
+          JSON: release-notes-context/${{ matrix.chain }}-runtime/${{ matrix.chain }}-srtool-digest.json
         run: |
           >>$GITHUB_ENV echo ASSET=$(find ${{ matrix.chain }}-runtime-${{ env.LOGGING_NAME_SUFFIX }} -name '*.compact.compressed.wasm')
           >>$GITHUB_ENV echo SPEC=$(<${JSON} jq -r .runtimes.compact.subwasm.core_version.specVersion)
