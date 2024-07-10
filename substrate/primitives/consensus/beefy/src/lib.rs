@@ -349,6 +349,19 @@ pub struct ForkVotingProof<Header: HeaderT, Id: RuntimeAppPublic, AncestryProof>
 	pub header: Header,
 }
 
+impl<Header: HeaderT, Id: RuntimeAppPublic> ForkVotingProof<Header, Id, OpaqueValue> {
+	/// Try to decode the `AncestryProof`.
+	pub fn try_into<AncestryProof: Decode>(
+		self,
+	) -> Option<ForkVotingProof<Header, Id, AncestryProof>> {
+		Some(ForkVotingProof::<Header, Id, AncestryProof> {
+			vote: self.vote,
+			ancestry_proof: self.ancestry_proof.decode()?,
+			header: self.header,
+		})
+	}
+}
+
 /// Proof showing that an authority voted for a future block.
 #[derive(Clone, Debug, Decode, Encode, PartialEq, TypeInfo)]
 pub struct FutureBlockVotingProof<Number, Id: RuntimeAppPublic> {
@@ -478,6 +491,20 @@ sp_api::decl_runtime_apis! {
 		fn submit_report_double_voting_unsigned_extrinsic(
 			equivocation_proof:
 				DoubleVotingProof<NumberFor<Block>, AuthorityId, <AuthorityId as RuntimeAppPublic>::Signature>,
+			key_owner_proof: OpaqueKeyOwnershipProof,
+		) -> Option<()>;
+
+		/// Submits an unsigned extrinsic to report a fork voting equivocation. The caller
+		/// must provide the fork voting proof (the ancestry proof should be obtained using
+		/// `generate_ancestry_proof`) and a key ownership proof (should be obtained using
+		/// `generate_key_ownership_proof`). The extrinsic will be unsigned and should only
+		/// be accepted for local authorship (not to be broadcast to the network). This method
+		/// returns `None` when creation of the extrinsic fails, e.g. if equivocation
+		/// reporting is disabled for the given runtime (i.e. this method is
+		/// hardcoded to return `None`). Only useful in an offchain context.
+		fn submit_report_fork_voting_unsigned_extrinsic(
+			equivocation_proof:
+				ForkVotingProof<Block::Header, AuthorityId, OpaqueValue>,
 			key_owner_proof: OpaqueKeyOwnershipProof,
 		) -> Option<()>;
 

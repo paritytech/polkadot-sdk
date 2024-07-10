@@ -1026,6 +1026,18 @@ sp_api::impl_runtime_apis! {
 			None
 		}
 
+		fn submit_report_fork_voting_unsigned_extrinsic(
+			_equivocation_proof:
+				sp_consensus_beefy::ForkVotingProof<
+					<Block as BlockT>::Header,
+					BeefyId,
+					sp_runtime::OpaqueValue
+				>,
+			_key_owner_proof: sp_consensus_beefy::OpaqueKeyOwnershipProof,
+		) -> Option<()> {
+			None
+		}
+
 		fn generate_key_ownership_proof(
 			_set_id: sp_consensus_beefy::ValidatorSetId,
 			_authority_id: BeefyId,
