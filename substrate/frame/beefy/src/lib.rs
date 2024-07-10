@@ -572,6 +572,19 @@ impl<T: Config> Pallet<T> {
 		.ok()
 	}
 
+	/// Submits an extrinsic to report a future block voting equivocation. This method will create
+	/// an unsigned extrinsic with a call to `report_future_block_voting_unsigned` and
+	/// will push the transaction to the pool. Only useful in an offchain context.
+	pub fn submit_unsigned_future_block_voting_report(
+		equivocation_proof: FutureBlockVotingProof<BlockNumberFor<T>, T::BeefyId>,
+		key_owner_proof: T::KeyOwnerProof,
+	) -> Option<()> {
+		T::EquivocationReportSystem::publish_evidence(
+			EquivocationEvidenceFor::FutureBlockVotingProof(equivocation_proof, key_owner_proof),
+		)
+		.ok()
+	}
+
 	fn change_authorities(
 		new: BoundedVec<T::BeefyId, T::MaxAuthorities>,
 		queued: BoundedVec<T::BeefyId, T::MaxAuthorities>,

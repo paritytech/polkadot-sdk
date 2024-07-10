@@ -508,6 +508,20 @@ sp_api::decl_runtime_apis! {
 			key_owner_proof: OpaqueKeyOwnershipProof,
 		) -> Option<()>;
 
+		/// Submits an unsigned extrinsic to report a future block voting equivocation. The caller
+		/// must provide the future block voting proof and a key ownership proof
+		/// (should be obtained using `generate_key_ownership_proof`).
+		/// The extrinsic will be unsigned and should only be accepted for local
+		/// authorship (not to be broadcast to the network). This method returns
+		/// `None` when creation of the extrinsic fails, e.g. if equivocation
+		/// reporting is disabled for the given runtime (i.e. this method is
+		/// hardcoded to return `None`). Only useful in an offchain context.
+		fn submit_report_future_block_voting_unsigned_extrinsic(
+			equivocation_proof:
+				FutureBlockVotingProof<NumberFor<Block>, AuthorityId>,
+			key_owner_proof: OpaqueKeyOwnershipProof,
+		) -> Option<()>;
+
 		/// Generates a proof of key ownership for the given authority in the
 		/// given set. An example usage of this module is coupled with the
 		/// session historical module to prove that a given authority key is
