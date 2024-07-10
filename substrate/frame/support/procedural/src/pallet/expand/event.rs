@@ -102,25 +102,37 @@ pub fn expand_event(def: &mut Def) -> proc_macro2::TokenStream {
 	let default_deprecation_info =
 		quote::quote! { #frame_support::__private::metadata_ir::DeprecationStatus::NotDeprecated }
 			.to_string();
-
-	let variants: Vec<proc_macro2::TokenStream> = event_item
-		.variants
-		.iter()
-		.enumerate()
-		.filter_map(|(index, x)| {
-			let key = index as u8;
-			let deprecation_status =
-				crate::deprecation::get_deprecation(&quote::quote! {#frame_support}, &x.attrs)
+	let deprecation = {
+		if deprecation_status.to_string() == default_deprecation_info {
+			let indexes: Vec<proc_macro2::TokenStream> = event_item
+				.variants
+				.iter()
+				.enumerate()
+				.filter_map(|(key, x)| {
+					let key = key as u8;
+					let deprecation_status = crate::deprecation::get_deprecation(
+						&quote::quote! {#frame_support},
+						&x.attrs,
+					)
 					.expect("Correctly parse deprecation attributes");
-			if deprecation_status.to_string() == default_deprecation_info {
-				None
+					if deprecation_status.to_string() == default_deprecation_info {
+						None
+					} else {
+						Some(quote::quote! { (#key, #deprecation_status) })
+					}
+				})
+				.collect();
+			if indexes.is_empty() {
+				quote::quote! { #frame_support::__private::metadata_ir::DeprecationInfo::NotDeprecated }
 			} else {
-				Some(quote::quote! { (#key, #deprecation_status) })
+				let indexes = quote::quote! { #frame_support::__private::scale_info::prelude::collections::BTreeMap::from([#( #indexes),*]) };
+				quote::quote! { #frame_support::__private::metadata_ir::DeprecationInfo::PartiallyDeprecated(#indexes) }
 			}
-		})
-		.collect();
+		} else {
+			quote::quote! { #frame_support::__private::metadata_ir::DeprecationInfo::FullyDeprecated(#deprecation_status) }
+		}
+	};
 
-	let variants = quote::quote! { #frame_support::__private::scale_info::prelude::collections::BTreeMap::from([#( #variants),*]) };
 	if get_doc_literals(&event_item.attrs).is_empty() {
 		event_item
 			.attrs
@@ -202,8 +214,7 @@ pub fn expand_event(def: &mut Def) -> proc_macro2::TokenStream {
 			pub fn event_metadata<W: #frame_support::__private::scale_info::TypeInfo + 'static>() -> #frame_support::__private::metadata_ir::PalletEventMetadataIR {
 				#frame_support::__private::metadata_ir::PalletEventMetadataIR {
 					ty: #frame_support::__private::scale_info::meta_type::<W>(),
-					deprecation_info: #deprecation_status,
-					deprecated_variants: #variants
+					deprecation_info: #deprecation,
 				}
 			}
 		}

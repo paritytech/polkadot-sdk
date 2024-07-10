@@ -343,10 +343,8 @@ impl IntoPortable for StorageEntryTypeIR {
 pub struct PalletCallMetadataIR<T: Form = MetaForm> {
 	/// The corresponding enum type for the pallet call.
 	pub ty: T::Type,
-	/// Deprecation status of the pallet call itself
-	pub deprecation_info: DeprecationStatus<T>,
-	/// Deprecation status of the call indexes
-	pub deprecated_indexes: BTreeMap<u8, DeprecationStatus<T>>,
+	/// Deprecation status of the pallet call
+	pub deprecation_info: DeprecationInfo<T>,
 }
 
 impl IntoPortable for PalletCallMetadataIR {
@@ -355,15 +353,6 @@ impl IntoPortable for PalletCallMetadataIR {
 	fn into_portable(self, registry: &mut Registry) -> Self::Output {
 		PalletCallMetadataIR {
 			ty: registry.register_type(&self.ty),
-			deprecated_indexes: self
-				.deprecated_indexes
-				.into_iter()
-				.map(|(k, v)| {
-					let key = k;
-					let value = v.into_portable(registry);
-					(key, value)
-				})
-				.collect(),
 			deprecation_info: self.deprecation_info.into_portable(registry),
 		}
 	}
@@ -374,10 +363,8 @@ impl IntoPortable for PalletCallMetadataIR {
 pub struct PalletEventMetadataIR<T: Form = MetaForm> {
 	/// The Event type.
 	pub ty: T::Type,
-	/// Deprecation status of the event itself
-	pub deprecation_info: DeprecationStatus<T>,
-	/// Deprecation status of the variants
-	pub deprecated_variants: BTreeMap<u8, DeprecationStatus<T>>,
+	/// Deprecation info of the event
+	pub deprecation_info: DeprecationInfo<T>,
 }
 
 impl IntoPortable for PalletEventMetadataIR {
@@ -386,14 +373,6 @@ impl IntoPortable for PalletEventMetadataIR {
 	fn into_portable(self, registry: &mut Registry) -> Self::Output {
 		PalletEventMetadataIR {
 			ty: registry.register_type(&self.ty),
-			deprecated_variants: self
-				.deprecated_variants
-				.into_iter()
-				.map(|(k, v)| {
-					let value = v.into_portable(registry);
-					(k, value)
-				})
-				.collect(),
 			deprecation_info: self.deprecation_info.into_portable(registry),
 		}
 	}
@@ -433,10 +412,8 @@ impl IntoPortable for PalletConstantMetadataIR {
 pub struct PalletErrorMetadataIR<T: Form = MetaForm> {
 	/// The error type information.
 	pub ty: T::Type,
-	/// Deprecation status of the error itself
-	pub deprecation_info: DeprecationStatus<T>,
-	/// Deprecation status of the variants
-	pub deprecated_variants: BTreeMap<u8, DeprecationStatus<T>>,
+	/// Deprecation info
+	pub deprecation_info: DeprecationInfo<T>,
 }
 
 impl IntoPortable for PalletErrorMetadataIR {
@@ -445,14 +422,6 @@ impl IntoPortable for PalletErrorMetadataIR {
 	fn into_portable(self, registry: &mut Registry) -> Self::Output {
 		PalletErrorMetadataIR {
 			ty: registry.register_type(&self.ty),
-			deprecated_variants: self
-				.deprecated_variants
-				.into_iter()
-				.map(|(k, v)| {
-					let value = v.into_portable(registry);
-					(k, value)
-				})
-				.collect(),
 			deprecation_info: self.deprecation_info.into_portable(registry),
 		}
 	}
@@ -522,6 +491,35 @@ impl IntoPortable for DeprecationStatus {
 			},
 			Self::DeprecatedWithoutNote => DeprecationStatus::DeprecatedWithoutNote,
 			Self::NotDeprecated => DeprecationStatus::NotDeprecated,
+		}
+	}
+}
+/// Deprecation info for an enums/errors/calls.
+/// Denotes full/partial deprecation of the typ
+#[derive(Clone, PartialEq, Eq, Encode, Debug)]
+pub enum DeprecationInfo<T: Form = MetaForm> {
+	/// Type is not deprecated
+	NotDeprecated,
+	/// Entry is fully deprecated.
+	FullyDeprecated(DeprecationStatus<T>),
+	/// Entry is partially deprecated.
+	/// For Errors and Events this means that only some of the variants are deprecated
+	/// For Calls oncly certain call indexes are deprecated
+	PartiallyDeprecated(BTreeMap<u8, DeprecationStatus<T>>),
+}
+impl IntoPortable for DeprecationInfo {
+	type Output = DeprecationInfo<PortableForm>;
+
+	fn into_portable(self, registry: &mut Registry) -> Self::Output {
+		match self {
+			Self::PartiallyDeprecated(entries) => {
+				let entries =
+					entries.into_iter().map(|(k, entry)| (k, entry.into_portable(registry)));
+				DeprecationInfo::PartiallyDeprecated(entries.collect())
+			},
+			Self::FullyDeprecated(deprecation) =>
+				DeprecationInfo::FullyDeprecated(deprecation.into_portable(registry)),
+			Self::NotDeprecated => DeprecationInfo::NotDeprecated,
 		}
 	}
 }

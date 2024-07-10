@@ -109,26 +109,36 @@ pub fn expand_error(def: &mut Def) -> proc_macro2::TokenStream {
 	let default_deprecation_info =
 		quote::quote! { #frame_support::__private::metadata_ir::DeprecationStatus::NotDeprecated }
 			.to_string();
-
-	let variants: Vec<proc_macro2::TokenStream> = error_item
-		.variants
-		.iter()
-		.enumerate()
-		.filter_map(|(index, x)| {
-			let key = index as u8;
-			let deprecation_status =
-				crate::deprecation::get_deprecation(&quote::quote! {#frame_support}, &x.attrs)
+	let deprecation = {
+		if deprecation_status.to_string() == default_deprecation_info {
+			let indexes: Vec<proc_macro2::TokenStream> = error_item
+				.variants
+				.iter()
+				.enumerate()
+				.filter_map(|(key, x)| {
+					let key = key as u8;
+					let deprecation_status = crate::deprecation::get_deprecation(
+						&quote::quote! {#frame_support},
+						&x.attrs,
+					)
 					.expect("Correctly parse deprecation attributes");
-			if deprecation_status.to_string() == default_deprecation_info {
-				None
+					if deprecation_status.to_string() == default_deprecation_info {
+						None
+					} else {
+						Some(quote::quote! { (#key, #deprecation_status) })
+					}
+				})
+				.collect();
+			if indexes.is_empty() {
+				quote::quote! { #frame_support::__private::metadata_ir::DeprecationInfo::NotDeprecated }
 			} else {
-				Some(quote::quote! { (#key, #deprecation_status) })
+				let indexes = quote::quote! { #frame_support::__private::scale_info::prelude::collections::BTreeMap::from([#( #indexes),*]) };
+				quote::quote! { #frame_support::__private::metadata_ir::DeprecationInfo::PartiallyDeprecated(#indexes) }
 			}
-		})
-		.collect();
-
-	let variants = quote::quote! { #frame_support::__private::scale_info::prelude::collections::BTreeMap::from([#( #variants),*]) };
-
+		} else {
+			quote::quote! { #frame_support::__private::metadata_ir::DeprecationInfo::FullyDeprecated(#deprecation_status) }
+		}
+	};
 	// derive TypeInfo for error metadata
 	error_item.attrs.push(syn::parse_quote! {
 		#[derive(
@@ -221,8 +231,7 @@ pub fn expand_error(def: &mut Def) -> proc_macro2::TokenStream {
 			pub fn error_metadata() -> #frame_support::__private::metadata_ir::PalletErrorMetadataIR {
 				#frame_support::__private::metadata_ir::PalletErrorMetadataIR {
 					ty: #frame_support::__private::scale_info::meta_type::<#error_ident<#type_use_gen>>(),
-					deprecation_info: #deprecation_status,
-					deprecated_variants: #variants
+					deprecation_info: #deprecation,
 				}
 			}
 		}

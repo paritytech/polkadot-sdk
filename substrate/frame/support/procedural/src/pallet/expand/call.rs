@@ -255,23 +255,34 @@ pub fn expand_call(def: &mut Def) -> proc_macro2::TokenStream {
 	let default_deprecation_info =
 		quote::quote! { #frame_support::__private::metadata_ir::DeprecationStatus::NotDeprecated }
 			.to_string();
-
-	let indexes: Vec<proc_macro2::TokenStream> = methods
-		.iter()
-		.filter_map(|x| {
-			let key = x.call_index;
-			let deprecation_status =
-				crate::deprecation::get_deprecation(&quote::quote! {#frame_support}, &x.attrs)
+	let deprecation = {
+		if deprecation_status.to_string() == default_deprecation_info {
+			let indexes: Vec<proc_macro2::TokenStream> = methods
+				.iter()
+				.filter_map(|x| {
+					let key = x.call_index;
+					let deprecation_status = crate::deprecation::get_deprecation(
+						&quote::quote! {#frame_support},
+						&x.attrs,
+					)
 					.expect("Correctly parse deprecation attributes");
-			if deprecation_status.to_string() == default_deprecation_info {
-				None
+					if deprecation_status.to_string() == default_deprecation_info {
+						None
+					} else {
+						Some(quote::quote! { (#key, #deprecation_status) })
+					}
+				})
+				.collect();
+			if indexes.is_empty() {
+				quote::quote! { #frame_support::__private::metadata_ir::DeprecationInfo::NotDeprecated }
 			} else {
-				Some(quote::quote! { (#key, #deprecation_status) })
+				let indexes = quote::quote! { #frame_support::__private::scale_info::prelude::collections::BTreeMap::from([#( #indexes),*]) };
+				quote::quote! { #frame_support::__private::metadata_ir::DeprecationInfo::PartiallyDeprecated(#indexes) }
 			}
-		})
-		.collect();
-
-	let indexes = quote::quote! { #frame_support::__private::scale_info::prelude::collections::BTreeMap::from([#( #indexes),*]) };
+		} else {
+			quote::quote! { #frame_support::__private::metadata_ir::DeprecationInfo::FullyDeprecated(#deprecation_status) }
+		}
+	};
 	quote::quote_spanned!(span =>
 		#[doc(hidden)]
 		mod warnings {
@@ -474,8 +485,7 @@ pub fn expand_call(def: &mut Def) -> proc_macro2::TokenStream {
 			pub fn call_functions() -> #frame_support::__private::metadata_ir::PalletCallMetadataIR {
 				#frame_support::__private::metadata_ir::PalletCallMetadataIR  {
 					ty: #frame_support::__private::scale_info::meta_type::<#call_ident<#type_use_gen>>(),
-					deprecation_info: #deprecation_status,
-					deprecated_indexes: #indexes,
+					deprecation_info: #deprecation,
 				}
 			}
 		}

@@ -208,7 +208,6 @@ pub mod pallet {
 	}
 
 	#[pallet::call]
-	#[deprecated = "test"]
 	impl<T: Config> Pallet<T>
 	where
 		T::AccountId: From<SomeType1> + From<SomeType3> + SomeAssociation1,
@@ -274,7 +273,6 @@ pub mod pallet {
 
 	#[pallet::error]
 	#[derive(PartialEq, Eq)]
-	#[deprecated = "test"]
 	pub enum Error<T> {
 		/// error doc comment put in metadata
 		InsufficientProposersBalance,
@@ -2489,52 +2487,53 @@ fn test_error_feature_parsing() {
 
 #[test]
 fn pallet_metadata() {
-	use sp_metadata_ir::DeprecationStatus;
+	use sp_metadata_ir::{DeprecationInfo, DeprecationStatus};
 	let pallets = Runtime::metadata_ir().pallets;
 	let example = pallets[0].clone();
 	let example2 = pallets[1].clone();
 	{
 		// Example2 pallet is deprecated
-		let meta = example2;
 		assert_eq!(
 			&DeprecationStatus::Deprecated { note: "test", since: None },
-			&meta.deprecation_info
+			&example2.deprecation_info
 		)
 	}
 	{
 		// Example pallet calls is fully and partially deprecated
 		let meta = &example.calls.unwrap();
 		assert_eq!(
-			DeprecationStatus::Deprecated { note: "test", since: None },
+			DeprecationInfo::PartiallyDeprecated(BTreeMap::from([(
+				0,
+				DeprecationStatus::Deprecated { note: "test", since: None }
+			)])),
 			meta.deprecation_info
-		);
-		assert_eq!(
-			BTreeMap::from([(0, DeprecationStatus::Deprecated { note: "test", since: None })]),
-			meta.deprecated_indexes
 		)
 	}
 	{
 		// Example pallet errors are partially and fully deprecated
 		let meta = &example.error.unwrap();
 		assert_eq!(
-			DeprecationStatus::Deprecated { note: "test", since: None },
+			DeprecationInfo::PartiallyDeprecated(BTreeMap::from([(
+				2,
+				DeprecationStatus::Deprecated { note: "test", since: None }
+			)])),
 			meta.deprecation_info
-		);
-		assert_eq!(
-			BTreeMap::from([(2, DeprecationStatus::Deprecated { note: "test", since: None })]),
-			meta.deprecated_variants
 		)
 	}
 	{
 		// Example pallet events are partially and fully deprecated
 		let meta = example.event.unwrap();
 		assert_eq!(
-			DeprecationStatus::Deprecated { note: "test", since: None },
+			DeprecationInfo::FullyDeprecated(DeprecationStatus::Deprecated {
+				note: "test",
+				since: None
+			}),
 			meta.deprecation_info
 		);
-		assert_eq!(
-			BTreeMap::from([(2, DeprecationStatus::Deprecated { note: "test", since: None })]),
-			meta.deprecated_variants
-		)
+	}
+	{
+		// Example2 pallet events are not deprecated
+		let meta = example2.event.unwrap();
+		assert_eq!(DeprecationInfo::NotDeprecated, meta.deprecation_info);
 	}
 }
