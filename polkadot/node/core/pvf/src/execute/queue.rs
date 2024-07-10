@@ -625,10 +625,11 @@ struct Unscheduled {
 	unscheduled: HashMap<PvfExecPriority, VecDeque<ExecuteJob>>,
 }
 
-fn is_probable(probability: u8) -> bool {
+// Return a bool with a probability of numerator/100 of being true,
+// which means the numerator can't be more than 100
+fn is_probable(numerator: u32) -> bool {
 	let mut rng = rand::thread_rng();
-	let n: u8 = rng.gen_range(0..100);
-	n <= probability
+	rng.gen_ratio(numerator, 100)
 }
 
 impl Unscheduled {

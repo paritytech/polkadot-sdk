@@ -14,6 +14,8 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
+use polkadot_node_subsystem::messages::PvfExecPriority;
+
 /// A priority assigned to preparation of a PVF.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum PreparePriority {
@@ -33,5 +35,16 @@ impl PreparePriority {
 	/// Returns `true` if `self` is `Critical`
 	pub fn is_critical(self) -> bool {
 		self == PreparePriority::Critical
+	}
+}
+
+impl From<PvfExecPriority> for PreparePriority {
+	fn from(priority: PvfExecPriority) -> Self {
+		match priority {
+			PvfExecPriority::Dispute => PreparePriority::Critical,
+			PvfExecPriority::Approval => PreparePriority::Critical,
+			PvfExecPriority::BackingSystem => PreparePriority::Normal,
+			PvfExecPriority::Backing => PreparePriority::Normal,
+		}
 	}
 }

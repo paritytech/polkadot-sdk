@@ -671,13 +671,7 @@ async fn validate_candidate_exhaustive(
 			);
 
 			validation_backend
-				.validate_candidate(
-					pvf,
-					exec_timeout,
-					params.encode(),
-					exec_kind.into(),
-					exec_kind.into(),
-				)
+				.validate_candidate(pvf, exec_timeout, params.encode(), exec_kind.into(), exec_kind)
 				.await
 		},
 		PvfExecPriority::Approval | PvfExecPriority::Dispute =>
@@ -689,7 +683,7 @@ async fn validate_candidate_exhaustive(
 					executor_params,
 					PVF_APPROVAL_EXECUTION_RETRY_DELAY,
 					exec_kind.into(),
-					exec_kind.into(),
+					exec_kind,
 				)
 				.await,
 	};
