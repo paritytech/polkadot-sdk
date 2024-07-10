@@ -254,6 +254,10 @@ pub enum RuntimeCosts {
 	UnlockDelegateDependency,
 }
 
+// For the function that modifies the storage, the benchmarks are done with one item in the
+// transient_storage (BTreeMap). To consider the worst-case scenario, the weight of the overhead of
+// writing to a full BTreeMap should be included. On top of that, the rollback weight is added,
+// which is the worst scenario.
 macro_rules! cost_write {
 	// cost_write!(name, a, b, c) -> T::WeightInfo::name(a, b, c).saturating_add(T::WeightInfo::rollback_transient_storage())
 	// .saturating_add(T::WeightInfo::set_transient_storage_full().saturating_sub(T::WeightInfo::set_transient_storage_empty())
