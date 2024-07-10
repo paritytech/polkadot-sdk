@@ -470,7 +470,7 @@ pub type OpaqueKeyOwnershipProof = OpaqueValue;
 
 sp_api::decl_runtime_apis! {
 	/// API necessary for BEEFY voters.
-	#[api_version(4)]
+	#[api_version(5)]
 	pub trait BeefyApi<AuthorityId> where
 		AuthorityId : Codec + RuntimeAppPublic,
 	{

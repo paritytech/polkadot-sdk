@@ -2053,7 +2053,7 @@ sp_api::impl_runtime_apis! {
 		}
 	}
 
-	#[api_version(4)]
+	#[api_version(5)]
 	impl sp_consensus_beefy::BeefyApi<Block, BeefyId> for Runtime {
 		fn beefy_genesis() -> Option<BlockNumber> {
 			pallet_beefy::GenesisBlock::<Runtime>::get()
