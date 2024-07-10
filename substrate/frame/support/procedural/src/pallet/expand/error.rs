@@ -115,7 +115,7 @@ pub fn expand_error(def: &mut Def) -> proc_macro2::TokenStream {
 		.iter()
 		.enumerate()
 		.filter_map(|(index, x)| {
-			let key = index;
+			let key = index as u8;
 			let deprecation_status =
 				crate::deprecation::get_deprecation(&quote::quote! {#frame_support}, &x.attrs)
 					.expect("Correctly parse deprecation attributes");
