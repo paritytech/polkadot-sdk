@@ -60,11 +60,12 @@ impl PeopleRuntimeType {
 
 	pub fn load_config(&self) -> Result<Box<dyn ChainSpec>, String> {
 		match self {
-			PeopleRuntimeType::Kusama => Ok(Box::new(GenericChainSpec::from_json_bytes(
+			PeopleRuntimeType::Kusama => ok(Box::new(GenericChainSpec::from_json_bytes(
 				&include_bytes!("../../chain-specs/people-kusama.json")[..],
 			)?)),
-			PeopleRuntimeType::Polkadot =>
-				todo!("Generate chain-spec: ../../chain-specs/people-polkadot.json"),
+			PeopleRuntimeType::Polkadot => ok(Box::new(GenericChainSpec::from_json_bytes(
+				&include_bytes!("../../chain-specs/people-polkadot.json")[..],
+			)?)),
 			PeopleRuntimeType::Rococo => Ok(Box::new(GenericChainSpec::from_json_bytes(
 				&include_bytes!("../../chain-specs/people-rococo.json")[..],
 			)?)),
