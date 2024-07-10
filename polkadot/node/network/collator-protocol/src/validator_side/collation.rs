@@ -42,9 +42,7 @@ use polkadot_node_network_protocol::{
 };
 use polkadot_node_primitives::PoV;
 use polkadot_node_subsystem::jaeger;
-use polkadot_node_subsystem_util::{
-	metrics::prometheus::prometheus::HistogramTimer, runtime::ProspectiveParachainsMode,
-};
+use polkadot_node_subsystem_util::metrics::prometheus::prometheus::HistogramTimer;
 use polkadot_primitives::{
 	CandidateHash, CandidateReceipt, CollatorId, Hash, HeadData, Id as ParaId,
 	PersistedValidationData,
@@ -207,16 +205,9 @@ impl Default for CollationStatus {
 
 impl CollationStatus {
 	/// Downgrades to `Waiting`, but only if `self != Seconded`.
-	fn back_to_waiting(&mut self, relay_parent_mode: ProspectiveParachainsMode) {
-		match self {
-			Self::Seconded =>
-				if relay_parent_mode.is_enabled() {
-					// With async backing enabled it's allowed to
-					// second more candidates.
-					*self = Self::Waiting
-				},
-			_ => *self = Self::Waiting,
-		}
+	fn back_to_waiting(&mut self) {
+		// With async backing it's allowed to second more candidates.
+		*self = Self::Waiting
 	}
 }
 
@@ -312,7 +303,6 @@ impl Collations {
 	pub(super) fn get_next_collation_to_fetch(
 		&mut self,
 		finished_one: &(CollatorId, Option<CandidateHash>),
-		relay_parent_mode: ProspectiveParachainsMode,
 		group_assignments: &Vec<ParaId>,
 	) -> Option<(PendingCollation, CollatorId)> {
 		// If finished one does not match waiting_collation, then we already dequeued another fetch
@@ -331,7 +321,7 @@ impl Collations {
 				return None
 			}
 		}
-		self.status.back_to_waiting(relay_parent_mode);
+		self.status.back_to_waiting();
 
 		match self.status {
 			// If async backing is enabled `back_to_waiting` will change `Seconded` state to
@@ -358,58 +348,40 @@ impl Collations {
 	/// queue being available.
 	pub(super) fn is_seconded_limit_reached(
 		&self,
-		relay_parent_mode: ProspectiveParachainsMode,
+		max_candidate_depth: u32,
 		para_id: ParaId,
 	) -> bool {
 		let seconded_for_para = *self.seconded_per_para.get(&para_id).unwrap_or(&0);
 
-		match relay_parent_mode {
-			ProspectiveParachainsMode::Disabled => {
-				gum::trace!(
-					target: LOG_TARGET,
-					?para_id,
-					seconded_per_para=?self.seconded_per_para,
-					"is_seconded_limit_reached - ProspectiveParachainsMode::Disabled"
-				);
+		if !self.claim_queue_state.is_some() {
+			gum::trace!(
+				target: LOG_TARGET,
+				?para_id,
+				seconded_per_para=?self.seconded_per_para,
+				max_candidate_depth,
+				"is_seconded_limit_reached - no claim queue support"
+			);
 
-				seconded_for_para >= 1
-			},
-			ProspectiveParachainsMode::Enabled { max_candidate_depth, allowed_ancestry_len: _ }
-				if !self.claim_queue_state.is_some() =>
-			{
-				gum::trace!(
-					target: LOG_TARGET,
-					?para_id,
-					seconded_per_para=?self.seconded_per_para,
-					max_candidate_depth,
-					"is_seconded_limit_reached - ProspectiveParachainsMode::Enabled without claim queue support"
-				);
-
-				seconded_for_para > max_candidate_depth
-			},
-			ProspectiveParachainsMode::Enabled {
-				max_candidate_depth: _,
-				allowed_ancestry_len: _,
-			} => {
-				let pending_for_para = self.pending_for_para(para_id);
-
-				let respected_per_para_limit =
-					self.claims_per_para.get(&para_id).copied().unwrap_or_default() >
-						seconded_for_para + pending_for_para;
-
-				gum::trace!(
-					target: LOG_TARGET,
-					?para_id,
-					claims_per_para=?self.claims_per_para,
-					seconded_per_para=?self.seconded_per_para,
-					?pending_for_para,
-					?respected_per_para_limit,
-					"is_seconded_limit_reached - ProspectiveParachainsMode::Enabled with claim queue support"
-				);
-
-				!respected_per_para_limit
-			},
+			return seconded_for_para > max_candidate_depth as usize;
 		}
+
+		let pending_for_para = self.pending_for_para(para_id);
+
+		let respected_per_para_limit =
+			self.claims_per_para.get(&para_id).copied().unwrap_or_default() >
+				seconded_for_para + pending_for_para;
+
+		gum::trace!(
+			target: LOG_TARGET,
+			?para_id,
+			claims_per_para=?self.claims_per_para,
+			seconded_per_para=?self.seconded_per_para,
+			?pending_for_para,
+			?respected_per_para_limit,
+			"is_seconded_limit_reached - with claim queue support"
+		);
+
+		!respected_per_para_limit
 	}
 
 	/// Adds a new collation to the waiting queue for the relay parent. This function doesn't

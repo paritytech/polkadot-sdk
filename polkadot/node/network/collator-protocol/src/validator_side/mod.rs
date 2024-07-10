@@ -50,12 +50,13 @@ use polkadot_node_subsystem::{
 use polkadot_node_subsystem_util::{
 	backing_implicit_view::View as ImplicitView,
 	reputation::{ReputationAggregator, REPUTATION_CHANGE_INTERVAL},
-	runtime::{prospective_parachains_mode, ProspectiveParachainsMode},
+	request_async_backing_params,
+	runtime::recv_runtime,
 	vstaging::fetch_claim_queue,
 };
 use polkadot_primitives::{
-	CandidateHash, CollatorId, CoreState, Hash, HeadData, Id as ParaId, OccupiedCoreAssumption,
-	PersistedValidationData,
+	AsyncBackingParams, CandidateHash, CollatorId, CoreState, Hash, HeadData, Id as ParaId,
+	OccupiedCoreAssumption, PersistedValidationData,
 };
 
 use crate::error::{Error, FetchError, Result, SecondingError};
@@ -163,8 +164,7 @@ impl PeerData {
 	fn update_view(
 		&mut self,
 		implicit_view: &ImplicitView,
-		active_leaves: &HashMap<Hash, ProspectiveParachainsMode>,
-		per_relay_parent: &HashMap<Hash, PerRelayParent>,
+		active_leaves: &HashMap<Hash, AsyncBackingParams>,
 		new_view: View,
 	) {
 		let old_view = std::mem::replace(&mut self.view, new_view);
@@ -172,18 +172,12 @@ impl PeerData {
 			for removed in old_view.difference(&self.view) {
 				// Remove relay parent advertisements if it went out
 				// of our (implicit) view.
-				let keep = per_relay_parent
-					.get(removed)
-					.map(|s| {
-						is_relay_parent_in_implicit_view(
-							removed,
-							s.prospective_parachains_mode,
-							implicit_view,
-							active_leaves,
-							peer_state.para_id,
-						)
-					})
-					.unwrap_or(false);
+				let keep = is_relay_parent_in_implicit_view(
+					removed,
+					implicit_view,
+					active_leaves,
+					peer_state.para_id,
+				);
 
 				if !keep {
 					peer_state.advertisements.remove(&removed);
@@ -196,8 +190,7 @@ impl PeerData {
 	fn prune_old_advertisements(
 		&mut self,
 		implicit_view: &ImplicitView,
-		active_leaves: &HashMap<Hash, ProspectiveParachainsMode>,
-		per_relay_parent: &HashMap<Hash, PerRelayParent>,
+		active_leaves: &HashMap<Hash, AsyncBackingParams>,
 	) {
 		if let PeerState::Collating(ref mut peer_state) = self.state {
 			peer_state.advertisements.retain(|hash, _| {
@@ -205,15 +198,12 @@ impl PeerData {
 				// - Relay parent is an active leaf
 				// - It belongs to allowed ancestry under some leaf
 				// Discard otherwise.
-				per_relay_parent.get(hash).map_or(false, |s| {
-					is_relay_parent_in_implicit_view(
-						hash,
-						s.prospective_parachains_mode,
-						implicit_view,
-						active_leaves,
-						peer_state.para_id,
-					)
-				})
+				is_relay_parent_in_implicit_view(
+					hash,
+					implicit_view,
+					active_leaves,
+					peer_state.para_id,
+				)
 			});
 		}
 	}
@@ -224,17 +214,15 @@ impl PeerData {
 	fn insert_advertisement(
 		&mut self,
 		on_relay_parent: Hash,
-		relay_parent_mode: ProspectiveParachainsMode,
 		candidate_hash: Option<CandidateHash>,
 		implicit_view: &ImplicitView,
-		active_leaves: &HashMap<Hash, ProspectiveParachainsMode>,
+		active_leaves: &HashMap<Hash, AsyncBackingParams>,
 	) -> std::result::Result<(CollatorId, ParaId), InsertAdvertisementError> {
 		match self.state {
 			PeerState::Connected(_) => Err(InsertAdvertisementError::UndeclaredCollator),
 			PeerState::Collating(ref mut state) => {
 				if !is_relay_parent_in_implicit_view(
 					&on_relay_parent,
-					relay_parent_mode,
 					implicit_view,
 					active_leaves,
 					state.para_id,
@@ -242,47 +230,34 @@ impl PeerData {
 					return Err(InsertAdvertisementError::OutOfOurView)
 				}
 
-				match (relay_parent_mode, candidate_hash) {
-					(ProspectiveParachainsMode::Disabled, candidate_hash) => {
-						if state.advertisements.contains_key(&on_relay_parent) {
-							return Err(InsertAdvertisementError::Duplicate)
-						}
-						state
-							.advertisements
-							.insert(on_relay_parent, HashSet::from_iter(candidate_hash));
-					},
-					(ProspectiveParachainsMode::Enabled { .. }, candidate_hash) => {
-						if let Some(candidate_hash) = candidate_hash {
-							if state
-								.advertisements
-								.get(&on_relay_parent)
-								.map_or(false, |candidates| candidates.contains(&candidate_hash))
-							{
-								return Err(InsertAdvertisementError::Duplicate)
-							}
+				if let Some(candidate_hash) = candidate_hash {
+					if state
+						.advertisements
+						.get(&on_relay_parent)
+						.map_or(false, |candidates| candidates.contains(&candidate_hash))
+					{
+						return Err(InsertAdvertisementError::Duplicate)
+					}
 
-							let candidates =
-								state.advertisements.entry(on_relay_parent).or_default();
+					let candidates = state.advertisements.entry(on_relay_parent).or_default();
 
-							candidates.insert(candidate_hash);
-						} else {
-							if self.version != CollationVersion::V1 {
-								gum::error!(
-									target: LOG_TARGET,
-									"Programming error, `candidate_hash` can not be `None` \
-									 for non `V1` networking.",
-								);
-							}
+					candidates.insert(candidate_hash);
+				} else {
+					if self.version != CollationVersion::V1 {
+						gum::error!(
+							target: LOG_TARGET,
+							"Programming error, `candidate_hash` can not be `None` \
+							 for non `V1` networking.",
+						);
+					}
 
-							if state.advertisements.contains_key(&on_relay_parent) {
-								return Err(InsertAdvertisementError::Duplicate)
-							}
-							state
-								.advertisements
-								.insert(on_relay_parent, HashSet::from_iter(candidate_hash));
-						};
-					},
-				}
+					if state.advertisements.contains_key(&on_relay_parent) {
+						return Err(InsertAdvertisementError::Duplicate)
+					}
+					state
+						.advertisements
+						.insert(on_relay_parent, HashSet::from_iter(candidate_hash));
+				};
 
 				state.last_active = Instant::now();
 				Ok((state.collator_id.clone(), state.para_id))
@@ -363,19 +338,19 @@ struct GroupAssignments {
 }
 
 struct PerRelayParent {
-	prospective_parachains_mode: ProspectiveParachainsMode,
+	async_backing_params: AsyncBackingParams,
 	assignment: GroupAssignments,
 	collations: Collations,
 }
 
 impl PerRelayParent {
 	fn new(
-		mode: ProspectiveParachainsMode,
+		async_backing_params: AsyncBackingParams,
 		assignments: GroupAssignments,
 		has_claim_queue: bool,
 	) -> Self {
 		let collations = Collations::new(&assignments.current, has_claim_queue);
-		Self { prospective_parachains_mode: mode, assignment: assignments, collations }
+		Self { async_backing_params, assignment: assignments, collations }
 	}
 }
 
@@ -396,7 +371,7 @@ struct State {
 	/// support prospective parachains. This mapping works as a replacement for
 	/// [`polkadot_node_network_protocol::View`] and can be dropped once the transition
 	/// to asynchronous backing is done.
-	active_leaves: HashMap<Hash, ProspectiveParachainsMode>,
+	active_leaves: HashMap<Hash, AsyncBackingParams>,
 
 	/// State tracked per relay parent.
 	per_relay_parent: HashMap<Hash, PerRelayParent>,
@@ -444,21 +419,16 @@ struct State {
 
 fn is_relay_parent_in_implicit_view(
 	relay_parent: &Hash,
-	relay_parent_mode: ProspectiveParachainsMode,
 	implicit_view: &ImplicitView,
-	active_leaves: &HashMap<Hash, ProspectiveParachainsMode>,
+	active_leaves: &HashMap<Hash, AsyncBackingParams>,
 	para_id: ParaId,
 ) -> bool {
-	match relay_parent_mode {
-		ProspectiveParachainsMode::Disabled => active_leaves.contains_key(relay_parent),
-		ProspectiveParachainsMode::Enabled { .. } => active_leaves.iter().any(|(hash, mode)| {
-			mode.is_enabled() &&
-				implicit_view
-					.known_allowed_relay_parents_under(hash, Some(para_id))
-					.unwrap_or_default()
-					.contains(relay_parent)
-		}),
-	}
+	active_leaves.iter().any(|(hash, _)| {
+		implicit_view
+			.known_allowed_relay_parents_under(hash, Some(para_id))
+			.unwrap_or_default()
+			.contains(relay_parent)
+	})
 }
 
 // Returns the group assignments for the validator and bool indicating if they are obtained from the
@@ -469,7 +439,6 @@ async fn assign_incoming<Sender>(
 	current_assignments: &mut HashMap<ParaId, usize>,
 	keystore: &KeystorePtr,
 	relay_parent: Hash,
-	relay_parent_mode: ProspectiveParachainsMode,
 ) -> Result<(GroupAssignments, bool)>
 where
 	Sender: CollatorProtocolSenderTrait,
@@ -505,18 +474,14 @@ where
 		.map_err(Error::Runtime)?
 	{
 		// Runtime supports claim queue - use it
-		//
-		// `relay_parent_mode` is not examined here because if the runtime supports claim queue
-		// then it supports async backing params too (`ASYNC_BACKING_STATE_RUNTIME_REQUIREMENT`
-		// < `CLAIM_QUEUE_RUNTIME_REQUIREMENT`).
 		Some(mut claim_queue) => (claim_queue.0.remove(&core_now), true),
 		// Claim queue is not supported by the runtime - use availability cores instead.
 		None => (
 			cores.get(core_now.0 as usize).and_then(|c| match c {
-				CoreState::Occupied(core) if relay_parent_mode.is_enabled() =>
+				CoreState::Occupied(core) =>
 					core.next_up_on_available.as_ref().map(|c| [c.para_id].into_iter().collect()),
 				CoreState::Scheduled(core) => Some([core.para_id].into_iter().collect()),
-				CoreState::Occupied(_) | CoreState::Free => None,
+				CoreState::Free => None,
 			}),
 			false,
 		),
@@ -663,12 +628,7 @@ fn handle_peer_view_change(state: &mut State, peer_id: PeerId, view: View) {
 		None => return,
 	};
 
-	peer_data.update_view(
-		&state.implicit_view,
-		&state.active_leaves,
-		&state.per_relay_parent,
-		view,
-	);
+	peer_data.update_view(&state.implicit_view, &state.active_leaves, view);
 	state.collation_requests_cancel_handles.retain(|pc, handle| {
 		let keep = pc.peer_id != peer_id || peer_data.has_advertised(&pc.relay_parent, None);
 		if !keep {
@@ -1089,7 +1049,6 @@ where
 		.get(&relay_parent)
 		.ok_or(AdvertisementError::RelayParentUnknown)?;
 
-	let relay_parent_mode = per_relay_parent.prospective_parachains_mode;
 	let assignment = &per_relay_parent.assignment;
 
 	let collator_para_id =
@@ -1105,17 +1064,16 @@ where
 	let (collator_id, para_id) = peer_data
 		.insert_advertisement(
 			relay_parent,
-			relay_parent_mode,
 			candidate_hash,
 			&state.implicit_view,
 			&state.active_leaves,
 		)
 		.map_err(AdvertisementError::Invalid)?;
 
-	if per_relay_parent
-		.collations
-		.is_seconded_limit_reached(relay_parent_mode, para_id)
-	{
+	if per_relay_parent.collations.is_seconded_limit_reached(
+		per_relay_parent.async_backing_params.max_candidate_depth,
+		para_id,
+	) {
 		return Err(AdvertisementError::SecondedLimitReached)
 	}
 
@@ -1123,15 +1081,14 @@ where
 		// Check if backing subsystem allows to second this candidate.
 		//
 		// This is also only important when async backing or elastic scaling is enabled.
-		let seconding_not_allowed = relay_parent_mode.is_enabled() &&
-			!can_second(
-				sender,
-				collator_para_id,
-				relay_parent,
-				candidate_hash,
-				parent_head_data_hash,
-			)
-			.await;
+		let seconding_not_allowed = !can_second(
+			sender,
+			collator_para_id,
+			relay_parent,
+			candidate_hash,
+			parent_head_data_hash,
+		)
+		.await;
 
 		if seconding_not_allowed {
 			return Err(AdvertisementError::BlockedByBacking)
@@ -1200,7 +1157,6 @@ where
 			return Ok(())
 		},
 	};
-	let relay_parent_mode = per_relay_parent.prospective_parachains_mode;
 	let prospective_candidate =
 		prospective_candidate.map(|(candidate_hash, parent_head_data_hash)| ProspectiveCandidate {
 			candidate_hash,
@@ -1208,7 +1164,10 @@ where
 		});
 
 	let collations = &mut per_relay_parent.collations;
-	if collations.is_seconded_limit_reached(relay_parent_mode, para_id) {
+	if collations.is_seconded_limit_reached(
+		per_relay_parent.async_backing_params.max_candidate_depth,
+		para_id,
+	) {
 		gum::trace!(
 			target: LOG_TARGET,
 			peer_id = ?peer_id,
@@ -1238,20 +1197,10 @@ where
 			// the new collation immediately
 			fetch_collation(sender, state, pending_collation, collator_id).await?;
 		},
-		CollationStatus::Seconded if relay_parent_mode.is_enabled() => {
+		CollationStatus::Seconded => {
 			// Limit is not reached (checked with `is_seconded_limit_reached` before the match
 			// expression), it's allowed to second another collation.
 			fetch_collation(sender, state, pending_collation, collator_id).await?;
-		},
-		CollationStatus::Seconded => {
-			gum::trace!(
-				target: LOG_TARGET,
-				peer_id = ?peer_id,
-				%para_id,
-				?relay_parent,
-				?relay_parent_mode,
-				"A collation has already been seconded",
-			);
 		},
 	}
 
@@ -1274,7 +1223,8 @@ where
 	let added = view.iter().filter(|h| !current_leaves.contains_key(h));
 
 	for leaf in added {
-		let mode = prospective_parachains_mode(sender, *leaf).await?;
+		let async_backing_params =
+			recv_runtime(request_async_backing_params(*leaf, sender).await).await?;
 
 		if let Some(span) = view.span_per_head().get(leaf).cloned() {
 			let per_leaf_span = PerLeafSpan::new(span, "validator-side");
@@ -1282,52 +1232,46 @@ where
 		}
 
 		let (assignments, has_claim_queue_support) =
-			assign_incoming(sender, &mut state.current_assignments, keystore, *leaf, mode).await?;
+			assign_incoming(sender, &mut state.current_assignments, keystore, *leaf).await?;
 
-		state.active_leaves.insert(*leaf, mode);
+		state.active_leaves.insert(*leaf, async_backing_params);
+		state.per_relay_parent.insert(
+			*leaf,
+			PerRelayParent::new(async_backing_params, assignments, has_claim_queue_support),
+		);
+
 		state
-			.per_relay_parent
-			.insert(*leaf, PerRelayParent::new(mode, assignments, has_claim_queue_support));
+			.implicit_view
+			.activate_leaf(sender, *leaf)
+			.await
+			.map_err(Error::ImplicitViewFetchError)?;
 
-		if mode.is_enabled() {
-			state
-				.implicit_view
-				.activate_leaf(sender, *leaf)
-				.await
-				.map_err(Error::ImplicitViewFetchError)?;
+		// Order is always descending.
+		let allowed_ancestry = state
+			.implicit_view
+			.known_allowed_relay_parents_under(leaf, None)
+			.unwrap_or_default();
+		for block_hash in allowed_ancestry {
+			if let Entry::Vacant(entry) = state.per_relay_parent.entry(*block_hash) {
+				let (assignments, has_claim_queue_support) =
+					assign_incoming(sender, &mut state.current_assignments, keystore, *block_hash)
+						.await?;
 
-			// Order is always descending.
-			let allowed_ancestry = state
-				.implicit_view
-				.known_allowed_relay_parents_under(leaf, None)
-				.unwrap_or_default();
-			for block_hash in allowed_ancestry {
-				if let Entry::Vacant(entry) = state.per_relay_parent.entry(*block_hash) {
-					let (assignments, has_claim_queue_support) = assign_incoming(
-						sender,
-						&mut state.current_assignments,
-						keystore,
-						*block_hash,
-						mode,
-					)
-					.await?;
-
-					entry.insert(PerRelayParent::new(mode, assignments, has_claim_queue_support));
-				}
+				entry.insert(PerRelayParent::new(
+					async_backing_params,
+					assignments,
+					has_claim_queue_support,
+				));
 			}
 		}
 	}
 
-	for (removed, mode) in removed {
+	for (removed, _) in removed {
 		state.active_leaves.remove(removed);
 		// If the leaf is deactivated it still may stay in the view as a part
 		// of implicit ancestry. Only update the state after the hash is actually
 		// pruned from the block info storage.
-		let pruned = if mode.is_enabled() {
-			state.implicit_view.deactivate_leaf(*removed)
-		} else {
-			vec![*removed]
-		};
+		let pruned = state.implicit_view.deactivate_leaf(*removed);
 
 		for removed in pruned {
 			if let Some(per_relay_parent) = state.per_relay_parent.remove(&removed) {
@@ -1358,11 +1302,7 @@ where
 	});
 
 	for (peer_id, peer_data) in state.peer_data.iter_mut() {
-		peer_data.prune_old_advertisements(
-			&state.implicit_view,
-			&state.active_leaves,
-			&state.per_relay_parent,
-		);
+		peer_data.prune_old_advertisements(&state.implicit_view, &state.active_leaves);
 
 		// Disconnect peers who are not relevant to our current or next para.
 		//
@@ -1742,11 +1682,9 @@ async fn dequeue_next_collation_and_fetch<Context>(
 ) {
 	while let Some((next, id)) =
 		state.per_relay_parent.get_mut(&relay_parent).and_then(|rp_state| {
-			rp_state.collations.get_next_collation_to_fetch(
-				&previous_fetch,
-				rp_state.prospective_parachains_mode,
-				&rp_state.assignment.current,
-			)
+			rp_state
+				.collations
+				.get_next_collation_to_fetch(&previous_fetch, &rp_state.assignment.current)
 		}) {
 		gum::debug!(
 			target: LOG_TARGET,
@@ -1852,9 +1790,7 @@ async fn kick_off_seconding<Context>(
 			collation_event.collator_protocol_version,
 			collation_event.pending_collation.prospective_candidate,
 		) {
-			(CollationVersion::V2, Some(ProspectiveCandidate { parent_head_data_hash, .. }))
-				if per_relay_parent.prospective_parachains_mode.is_enabled() =>
-			{
+			(CollationVersion::V2, Some(ProspectiveCandidate { parent_head_data_hash, .. })) => {
 				let pvd = request_prospective_validation_data(
 					ctx.sender(),
 					relay_parent,
@@ -1867,7 +1803,7 @@ async fn kick_off_seconding<Context>(
 				(pvd, maybe_parent_head_data, Some(parent_head_data_hash))
 			},
 			// Support V2 collators without async backing enabled.
-			(CollationVersion::V2, Some(_)) | (CollationVersion::V1, _) => {
+			(CollationVersion::V1, _) => {
 				let pvd = request_persisted_validation_data(
 					ctx.sender(),
 					candidate_receipt.descriptor().relay_parent,
