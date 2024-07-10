@@ -71,7 +71,6 @@ impl ShouldExecute for Tuple {
 						%barrier,
 						"pass barrier",
 					);
-							
 					return Ok(())
 				},
 				Err(error) => {
