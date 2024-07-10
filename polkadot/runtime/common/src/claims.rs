@@ -16,6 +16,7 @@
 
 //! Pallet to process claims from Ethereum addresses.
 
+use codec::{Decode, Encode};
 use frame_support::{
 	ensure,
 	traits::{Currency, Get, IsSubType, VestingSchedule},
@@ -23,8 +24,7 @@ use frame_support::{
 	DefaultNoBound,
 };
 pub use pallet::*;
-use parity_scale_codec::{Decode, Encode};
-use primitives::ValidityError;
+use polkadot_primitives::ValidityError;
 use scale_info::TypeInfo;
 use serde::{self, Deserialize, Deserializer, Serialize, Serializer};
 use sp_io::{crypto::secp256k1_ecdsa_recover, hashing::keccak_256};
@@ -699,7 +699,7 @@ mod tests {
 	use hex_literal::hex;
 	use secp_utils::*;
 
-	use parity_scale_codec::Encode;
+	use codec::Encode;
 	// The testing primitives are very useful for avoiding having to work with signatures
 	// or public keys. `u64` is used as the `AccountId` and no `Signature`s are required.
 	use crate::claims;
@@ -708,7 +708,7 @@ mod tests {
 		assert_err, assert_noop, assert_ok, derive_impl,
 		dispatch::{GetDispatchInfo, Pays},
 		ord_parameter_types, parameter_types,
-		traits::{ConstU32, ExistenceRequirement, WithdrawReasons},
+		traits::{ExistenceRequirement, WithdrawReasons},
 	};
 	use pallet_balances;
 	use sp_runtime::{
@@ -738,24 +738,9 @@ mod tests {
 		type MaxConsumers = frame_support::traits::ConstU32<16>;
 	}
 
-	parameter_types! {
-		pub const ExistentialDeposit: u64 = 1;
-	}
-
+	#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 	impl pallet_balances::Config for Test {
-		type Balance = u64;
-		type RuntimeEvent = RuntimeEvent;
-		type DustRemoval = ();
-		type ExistentialDeposit = ExistentialDeposit;
 		type AccountStore = System;
-		type MaxLocks = ();
-		type MaxReserves = ();
-		type ReserveIdentifier = [u8; 8];
-		type WeightInfo = ();
-		type RuntimeHoldReason = RuntimeHoldReason;
-		type RuntimeFreezeReason = RuntimeFreezeReason;
-		type FreezeIdentifier = ();
-		type MaxFreezes = ConstU32<1>;
 	}
 
 	parameter_types! {

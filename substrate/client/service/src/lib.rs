@@ -76,7 +76,7 @@ pub use config::{
 };
 pub use sc_chain_spec::{
 	ChainSpec, ChainType, Extension as ChainSpecExtension, GenericChainSpec, NoExtension,
-	Properties, RuntimeGenesis,
+	Properties,
 };
 
 pub use sc_consensus::ImportQueue;
@@ -137,7 +137,7 @@ pub struct PartialComponents<Client, Backend, SelectChain, ImportQueue, Transact
 	pub backend: Arc<Backend>,
 	/// The chain task manager.
 	pub task_manager: TaskManager,
-	/// A keystore container instance..
+	/// A keystore container instance.
 	pub keystore_container: KeystoreContainer,
 	/// A chain selection algorithm instance.
 	pub select_chain: SelectChain,
