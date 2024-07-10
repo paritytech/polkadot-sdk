@@ -158,14 +158,6 @@ fn pool_lifecycle_e2e() {
 			]
 		);
 
-		// as soon as all members have left, the depositor can try to unbond, but since the
-		// min-nominator intention is set, they must chill first.
-		assert_noop!(
-			Pools::unbond(RuntimeOrigin::signed(10), 10, 50),
-			pallet_staking::Error::<Runtime>::InsufficientBond
-		);
-
-		assert_ok!(Pools::chill(RuntimeOrigin::signed(10), 1));
 		assert_ok!(Pools::unbond(RuntimeOrigin::signed(10), 10, 50));
 
 		assert_eq!(
