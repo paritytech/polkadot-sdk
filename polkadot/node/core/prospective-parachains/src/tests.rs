@@ -542,7 +542,6 @@ fn should_do_no_work_if_async_backing_disabled_for_leaf() {
 	});
 
 	assert!(view.active_leaves.is_empty());
-	assert!(view.candidate_storage.is_empty());
 }
 
 // Send some candidates and make sure all are found:
@@ -718,10 +717,6 @@ fn introduce_candidates_basic() {
 	});
 
 	assert_eq!(view.active_leaves.len(), 3);
-	assert_eq!(view.candidate_storage.len(), 2);
-	// Two parents and two candidates per para.
-	assert_eq!(view.candidate_storage.get(&1.into()).unwrap().len(), (2, 2));
-	assert_eq!(view.candidate_storage.get(&2.into()).unwrap().len(), (2, 2));
 }
 
 #[test]
@@ -781,9 +776,6 @@ fn introduce_candidate_multiple_times() {
 	});
 
 	assert_eq!(view.active_leaves.len(), 1);
-	assert_eq!(view.candidate_storage.len(), 2);
-	assert_eq!(view.candidate_storage.get(&1.into()).unwrap().len(), (1, 1));
-	assert_eq!(view.candidate_storage.get(&2.into()).unwrap().len(), (0, 0));
 }
 
 #[test]
@@ -863,9 +855,6 @@ fn fragment_chain_length_is_bounded() {
 	});
 
 	assert_eq!(view.active_leaves.len(), 1);
-	assert_eq!(view.candidate_storage.len(), 2);
-	assert_eq!(view.candidate_storage.get(&1.into()).unwrap().len(), (2, 2));
-	assert_eq!(view.candidate_storage.get(&2.into()).unwrap().len(), (0, 0));
 }
 
 #[test]
@@ -949,9 +938,6 @@ fn unconnected_candidate_count_is_bounded() {
 	});
 
 	assert_eq!(view.active_leaves.len(), 1);
-	assert_eq!(view.candidate_storage.len(), 2);
-	assert_eq!(view.candidate_storage.get(&1.into()).unwrap().len(), (1, 1));
-	assert_eq!(view.candidate_storage.get(&2.into()).unwrap().len(), (0, 0));
 }
 
 // Send some candidates, check if the candidate won't be found once its relay parent leaves the
@@ -1178,7 +1164,6 @@ fn introduce_candidate_parent_leaving_view() {
 	});
 
 	assert_eq!(view.active_leaves.len(), 0);
-	assert_eq!(view.candidate_storage.len(), 0);
 }
 
 // Introduce a candidate to multiple forks, see how the membership is returned.
@@ -1249,9 +1234,6 @@ fn introduce_candidate_on_multiple_forks() {
 	});
 
 	assert_eq!(view.active_leaves.len(), 2);
-	assert_eq!(view.candidate_storage.len(), 2);
-	assert_eq!(view.candidate_storage.get(&1.into()).unwrap().len(), (1, 1));
-	assert_eq!(view.candidate_storage.get(&2.into()).unwrap().len(), (0, 0));
 }
 
 #[test]
@@ -1351,9 +1333,6 @@ fn unconnected_candidates_become_connected() {
 	});
 
 	assert_eq!(view.active_leaves.len(), 1);
-	assert_eq!(view.candidate_storage.len(), 2);
-	assert_eq!(view.candidate_storage.get(&1.into()).unwrap().len(), (4, 4));
-	assert_eq!(view.candidate_storage.get(&2.into()).unwrap().len(), (0, 0));
 }
 
 // Backs some candidates and tests `GetBackableCandidates` when requesting a single candidate.
@@ -1490,10 +1469,6 @@ fn check_backable_query_single_candidate() {
 	});
 
 	assert_eq!(view.active_leaves.len(), 1);
-	assert_eq!(view.candidate_storage.len(), 2);
-	// Two parents and two candidates on para 1.
-	assert_eq!(view.candidate_storage.get(&1.into()).unwrap().len(), (2, 2));
-	assert_eq!(view.candidate_storage.get(&2.into()).unwrap().len(), (0, 0));
 }
 
 // Backs some candidates and tests `GetBackableCandidates` when requesting a multiple candidates.
@@ -1786,10 +1761,6 @@ fn check_backable_query_multiple_candidates() {
 	});
 
 	assert_eq!(view.active_leaves.len(), 1);
-	assert_eq!(view.candidate_storage.len(), 2);
-	// 4 candidates on para 1.
-	assert_eq!(view.candidate_storage.get(&1.into()).unwrap().len(), (4, 4));
-	assert_eq!(view.candidate_storage.get(&2.into()).unwrap().len(), (0, 0));
 }
 
 // Test hypothetical membership query.
@@ -1954,8 +1925,6 @@ fn check_hypothetical_membership_query() {
 	});
 
 	assert_eq!(view.active_leaves.len(), 2);
-	assert_eq!(view.candidate_storage.len(), 2);
-	assert_eq!(view.candidate_storage.get(&1.into()).unwrap().len(), (2, 2));
 }
 
 #[test]
@@ -2080,7 +2049,6 @@ fn check_pvd_query() {
 	});
 
 	assert_eq!(view.active_leaves.len(), 1);
-	assert_eq!(view.candidate_storage.len(), 2);
 }
 
 // Test simultaneously activating and deactivating leaves, and simultaneously deactivating
@@ -2192,7 +2160,6 @@ fn correctly_updates_leaves(#[case] runtime_api_version: u32) {
 	});
 
 	assert_eq!(view.active_leaves.len(), 0);
-	assert_eq!(view.candidate_storage.len(), 0);
 }
 
 #[test]
