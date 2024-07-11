@@ -15,15 +15,15 @@
 
 //! Tests related to claiming assets trapped during XCM execution.
 
-// use crate::imports::*;
+use crate::imports::*;
 
-// use emulated_integration_tests_common::test_chain_can_claim_assets;
-// use xcm_executor::traits::DropAssets;
+use emulated_integration_tests_common::test_chain_can_claim_assets;
+use xcm_executor::traits::DropAssets;
 
-// #[test]
-// fn assets_can_be_claimed() {
-// 	let amount = CoretimeRococoExistentialDeposit::get();
-// 	let assets: Assets = (Parent, amount).into();
+#[test]
+fn assets_can_be_claimed() {
+	let amount = CoretimeRococoExistentialDeposit::get();
+	let assets: Assets = (Parent, amount).into();
 
-// 	test_chain_can_claim_assets!(CoretimeRococo, RuntimeCall, NetworkId::Rococo, assets, amount);
-// }
+	test_chain_can_claim_assets!(CoretimeRococo, RuntimeCall, NetworkId::Rococo, assets, amount);
+}

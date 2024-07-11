@@ -24,5 +24,4 @@ xcm-executor = { workspace = true }
 
 # Cumulus
 emulated-integration-tests-common = { workspace = true }
-parachains-common = { workspace = true, default-features = true }
 rococo-system-emulated-network = { workspace = true }

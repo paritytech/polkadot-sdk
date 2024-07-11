@@ -3280,7 +3280,6 @@ dependencies = [
  "pallet-balances",
  "pallet-identity",
  "pallet-message-queue",
- "parachains-common",
  "polkadot-runtime-common",
  "rococo-runtime-constants",
  "rococo-system-emulated-network",
