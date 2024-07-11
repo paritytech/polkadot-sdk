@@ -463,7 +463,13 @@ impl<Config: config::Config> XcmExecutor<Config> {
 			}
 			fee
 		} else {
-			self.holding.try_take(fee.into()).map_err(|_| XcmError::NotHoldingFees)?.into()
+			self.holding
+				.try_take(fee.into())
+				.map_err(|e| {
+					log::error!(target: "xcm::xcm_executor::take_fee", "Failed to take payable fees: {:?}", e);
+					XcmError::NotHoldingFees
+				})?
+				.into()
 		};
 		Config::FeeManager::handle_fee(paid, Some(&self.context), reason);
 		Ok(())
@@ -477,8 +483,10 @@ impl<Config: config::Config> XcmExecutor<Config> {
 		Ok(match local_querier {
 			None => None,
 			Some(q) => Some(
-				q.reanchored(&destination, &Config::UniversalLocation::get())
-					.map_err(|_| XcmError::ReanchorFailed)?,
+				q.reanchored(&destination, &Config::UniversalLocation::get()).map_err(|e| {
+					log::error!(target: "xcm::xcm_executor::to_querier", "Failed to re-anchorn local_querier: {:?}", e);
+					XcmError::ReanchorFailed
+				})?,
 			),
 		})
 	}
@@ -805,7 +813,10 @@ impl<Config: config::Config> XcmExecutor<Config> {
 				.as_mut()
 				.ok_or(XcmError::BadOrigin)?
 				.append_with(who)
-				.map_err(|_| XcmError::LocationFull),
+				.map_err(|e| {
+					log::error!(target: "xcm::process_instruction::descend_origin", "Failed to append Location: {:?}", e);
+					XcmError::LocationFull
+				}),
 			ClearOrigin => {
 				self.context.origin = None;
 				Ok(())
@@ -947,7 +958,10 @@ impl<Config: config::Config> XcmExecutor<Config> {
 				let old_holding = self.holding.clone();
 				// pay for `weight` using up to `fees` of the holding register.
 				let max_fee =
-					self.holding.try_take(fees.into()).map_err(|_| XcmError::NotHoldingFees)?;
+					self.holding.try_take(fees.into()).map_err(|e| {
+						log::error!(target: "xcm::process_instruction::buy_execution", "Failed to take payable fees from holding: {:?}", e);
+						XcmError::NotHoldingFees
+					})?;
 				let result = || -> Result<(), XcmError> {
 					let unspent = self.trader.buy_weight(weight, max_fee, &self.context)?;
 					self.holding.subsume_assets(unspent);
@@ -1010,7 +1024,10 @@ impl<Config: config::Config> XcmExecutor<Config> {
 				Ok(())
 			},
 			ExpectAsset(assets) =>
-				self.holding.ensure_contains(&assets).map_err(|_| XcmError::ExpectationFalse),
+				self.holding.ensure_contains(&assets).map_err(|e| {
+					log::error!(target: "xcm::process_instruction::expect_asset", "Holding contains no asset: {:?}", e);
+					XcmError::ExpectationFalse
+				}),
 			ExpectOrigin(origin) => {
 				ensure!(self.context.origin == origin, XcmError::ExpectationFalse);
 				Ok(())
@@ -1132,9 +1149,10 @@ impl<Config: config::Config> XcmExecutor<Config> {
 					let (remote_asset, context) = Self::try_reanchor(asset.clone(), &unlocker)?;
 					let lock_ticket =
 						Config::AssetLocker::prepare_lock(unlocker.clone(), asset, origin.clone())?;
-					let owner = origin
-						.reanchored(&unlocker, &context)
-						.map_err(|_| XcmError::ReanchorFailed)?;
+					let owner = origin.reanchored(&unlocker, &context).map_err(|e| {
+						log::error!(target: "xcm::xcm_executor::process_instruction", "Failed to re-anchor: {:?}", e);
+						XcmError::ReanchorFailed
+					})?;
 					let msg = Xcm::<()>(vec![NoteUnlockable { asset: remote_asset, owner }]);
 					let (ticket, price) = validate_send::<Config::XcmSender>(unlocker, msg)?;
 					self.take_fee(price, FeeReason::LockAsset)?;
