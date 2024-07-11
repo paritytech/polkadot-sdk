@@ -646,7 +646,7 @@ impl Unscheduled {
 
 	fn select_next_priority<F>(&self, is_probable: F) -> PvfExecPriority
 	where
-		F: Fn(u8) -> bool,
+		F: Fn(u32) -> bool,
 	{
 		let mut priority = self.next_priority(is_probable);
 
@@ -660,7 +660,7 @@ impl Unscheduled {
 
 	fn next_priority<F>(&self, is_probable: F) -> PvfExecPriority
 	where
-		F: Fn(u8) -> bool,
+		F: Fn(u32) -> bool,
 	{
 		use PvfExecPriority::*;
 
