@@ -32,7 +32,7 @@ use pallet_staking::{
 	CurrentEra, Error as StakingError, Event as StakingEvent, Payee, RewardDestination,
 };
 
-use pallet_delegated_staking::{Error as DelegatedStakingError, Event as DelegatedStakingEvent};
+use pallet_delegated_staking::Event as DelegatedStakingEvent;
 
 use sp_runtime::{bounded_btree_map, traits::Zero, Perbill};
 use sp_staking::Agent;
@@ -1030,13 +1030,17 @@ fn pool_migration_e2e() {
 
 		// move to era 5 when 20 can withdraw unbonded funds.
 		CurrentEra::<Runtime>::set(Some(5));
-		// Unbond works even without claiming delegation. Lets unbond 22.
-		assert_ok!(Pools::unbond(RuntimeOrigin::signed(22), 22, 5));
+
+		// Cannot unbond without claiming delegation. Lets unbond 22.
+		assert_noop!(
+			Pools::unbond(RuntimeOrigin::signed(22), 22, 5),
+			PoolsError::<Runtime>::NotMigrated
+		);
 
 		// withdraw fails for 20 before claiming delegation
 		assert_noop!(
 			Pools::withdraw_unbonded(RuntimeOrigin::signed(20), 20, 10),
-			DelegatedStakingError::<Runtime>::NotDelegator
+			PoolsError::<Runtime>::NotMigrated
 		);
 
 		let pre_claim_balance_20 = Balances::total_balance(&20);
@@ -1059,17 +1063,11 @@ fn pool_migration_e2e() {
 
 		assert_eq!(
 			staking_events_since_last_call(),
-			vec![
-				StakingEvent::Unbonded { stash: POOL1_BONDED, amount: 5 },
-				StakingEvent::Withdrawn { stash: POOL1_BONDED, amount: 5 }
-			]
+			vec![StakingEvent::Withdrawn { stash: POOL1_BONDED, amount: 5 }]
 		);
 		assert_eq!(
 			pool_events_since_last_call(),
-			vec![
-				PoolsEvent::Unbonded { member: 22, pool_id: 1, balance: 5, points: 5, era: 8 },
-				PoolsEvent::Withdrawn { member: 20, pool_id: 1, balance: 5, points: 5 },
-			]
+			vec![PoolsEvent::Withdrawn { member: 20, pool_id: 1, balance: 5, points: 5 },]
 		);
 		assert_eq!(
 			delegated_staking_events_since_last_call(),
@@ -1131,14 +1129,17 @@ fn pool_migration_e2e() {
 		assert_eq!(Balances::total_balance(&22), 10);
 		assert_eq!(Balances::total_balance_on_hold(&22), 10);
 
-		// withdraw fails since 22 only unbonds at era 8.
+		// unbond 22 should work now
+		assert_ok!(Pools::unbond(RuntimeOrigin::signed(22), 22, 5));
+
+		// withdraw fails since 22 only unbonds after era 9.
 		assert_noop!(
 			Pools::withdraw_unbonded(RuntimeOrigin::signed(22), 22, 5),
 			PoolsError::<Runtime>::CannotWithdrawAny
 		);
 
 		// go to era when 22 can unbond
-		CurrentEra::<Runtime>::set(Some(10));
+		CurrentEra::<Runtime>::set(Some(9));
 
 		// withdraw works now
 		assert_ok!(Pools::withdraw_unbonded(RuntimeOrigin::signed(22), 22, 10));
@@ -1151,6 +1152,7 @@ fn pool_migration_e2e() {
 			staking_events_since_last_call(),
 			vec![
 				StakingEvent::Withdrawn { stash: POOL1_BONDED, amount: 10 },
+				StakingEvent::Unbonded { stash: POOL1_BONDED, amount: 5 },
 				StakingEvent::Withdrawn { stash: POOL1_BONDED, amount: 5 }
 			]
 		);
@@ -1161,6 +1163,7 @@ fn pool_migration_e2e() {
 				PoolsEvent::Withdrawn { member: 21, pool_id: 1, balance: 10, points: 10 },
 				// 21 was fully unbonding and removed from pool.
 				PoolsEvent::MemberRemoved { member: 21, pool_id: 1 },
+				PoolsEvent::Unbonded { member: 22, pool_id: 1, balance: 5, points: 5, era: 9 },
 				PoolsEvent::Withdrawn { member: 22, pool_id: 1, balance: 5, points: 5 },
 			]
 		);
