@@ -29,4 +29,6 @@ pub trait ParachainsPipeline: 'static + Clone + Debug + Send + Sync {
 	type SourceParachain: Parachain;
 	/// Target chain (either relay or para) which wants to know about new parachain heads.
 	type TargetChain: Chain;
+	/// Proof that is generated and submitted by this pipeline.
+	type Proof: Debug + Clone + Send + Sync;
 }

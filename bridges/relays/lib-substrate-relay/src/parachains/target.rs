@@ -20,6 +20,7 @@ use crate::{
 	parachains::{
 		ParachainsPipelineAdapter, SubmitParachainHeadsCallBuilder, SubstrateParachainsPipeline,
 	},
+	proofs::ParaHeadsProof,
 	TransactionParams,
 };
 
@@ -28,7 +29,7 @@ use bp_parachains::{
 	ImportedParaHeadsKeyProvider, ParaInfo, ParaStoredHeaderData, ParasInfoKeyProvider,
 };
 use bp_polkadot_core::{
-	parachains::{ParaHash, ParaHeadsProof, ParaId},
+	parachains::{ParaHash, ParaId},
 	BlockNumber as RelayBlockNumber,
 };
 use bp_runtime::{
@@ -210,7 +211,7 @@ where
 		&self,
 		at_relay_block: HeaderIdOf<P::SourceRelayChain>,
 		updated_head_hash: ParaHash,
-		proof: ParaHeadsProof,
+		proof: ParaHeadsProof<P::SourceRelayChain>,
 		is_free_execution_expected: bool,
 	) -> Result<Self::TransactionTracker, Self::Error> {
 		let transaction_params = self.transaction_params.clone();
@@ -219,7 +220,13 @@ where
 			vec![(ParaId(P::SourceParachain::PARACHAIN_ID), updated_head_hash)],
 			proof,
 			is_free_execution_expected,
-		);
+		)
+		.map_err(|_| {
+			SubstrateError::Custom(
+				"Failed to `build_submit_parachain_heads_call` for `submit_parachain_head_proof`"
+					.into(),
+			)
+		})?;
 		self.target_client
 			.submit_and_watch_signed_extrinsic(
 				&transaction_params.signer,

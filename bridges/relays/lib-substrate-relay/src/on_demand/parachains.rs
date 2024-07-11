@@ -226,12 +226,19 @@ where
 		// and finally - prove parachain head
 		let (para_proof, para_hash) =
 			parachains_source.prove_parachain_head(proved_relay_block).await?;
-		calls.push(P::SubmitParachainHeadsCallBuilder::build_submit_parachain_heads_call(
-			proved_relay_block,
-			vec![(para_id, para_hash)],
-			para_proof,
-			false,
-		));
+		calls.push(
+			P::SubmitParachainHeadsCallBuilder::build_submit_parachain_heads_call(
+				proved_relay_block,
+				vec![(para_id, para_hash)],
+				para_proof,
+				false,
+			)
+			.map_err(|_| {
+				SubstrateError::Custom(
+					"Failed to `build_submit_parachain_heads_call` for `prove_header`".into(),
+				)
+			})?,
+		);
 
 		Ok((proved_parachain_block, calls))
 	}

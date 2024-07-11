@@ -28,7 +28,7 @@ use crate::{
 		SubstrateMessageLane,
 	},
 	on_demand::OnDemandRelay,
-	proofs::FromBridgedChainMessagesDeliveryProof,
+	proofs::{FromBridgedChainMessagesDeliveryProof, ProofConversionError},
 	TransactionParams,
 };
 
@@ -44,7 +44,7 @@ use messages_relay::{
 };
 use relay_substrate_client::{
 	AccountIdOf, AccountKeyPairOf, BalanceOf, CallOf, Chain, Client, Error as SubstrateError,
-	HashOf, TransactionEra, TransactionTracker, UnsignedTransaction,
+	TransactionEra, TransactionTracker, UnsignedTransaction,
 };
 use relay_utils::relay_loop::Client as RelayClient;
 use sp_core::Pair;
@@ -259,7 +259,8 @@ where
 			proof.1.nonces_start..=proof.1.nonces_end,
 			proof,
 			maybe_batch_tx.is_none(),
-		);
+		)
+		.map_err(|_| SubstrateError::Custom("Failed to `make_messages_delivery_call`".into()))?;
 		let final_call = match maybe_batch_tx {
 			Some(batch_tx) => batch_tx.append_call_and_build(messages_proof_call),
 			None => messages_proof_call,
@@ -310,7 +311,7 @@ fn make_messages_delivery_call<P: SubstrateMessageLane>(
 	nonces: RangeInclusive<MessageNonce>,
 	proof: SubstrateMessagesProof<P::SourceChain>,
 	trace_call: bool,
-) -> CallOf<P::TargetChain> {
+) -> Result<CallOf<P::TargetChain>, ProofConversionError> {
 	let messages_count = nonces.end() - nonces.start() + 1;
 	let dispatch_weight = proof.0;
 	P::ReceiveMessagesProofCallBuilder::build_receive_messages_proof_call(

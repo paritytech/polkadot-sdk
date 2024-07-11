@@ -17,8 +17,9 @@
 //! Types and functions intended to ease adding of new Substrate -> Substrate
 //! parachain finality proofs synchronization pipelines.
 
+use crate::proofs::{ParaHeadsProof, ProofConversionError};
 use async_trait::async_trait;
-use bp_polkadot_core::parachains::{ParaHash, ParaHeadsProof, ParaId};
+use bp_polkadot_core::parachains::{ParaHash, ParaId};
 use pallet_bridge_parachains::{
 	Call as BridgeParachainsCall, Config as BridgeParachainsConfig, RelayBlockHash,
 	RelayBlockHasher, RelayBlockNumber,
@@ -59,6 +60,7 @@ impl<P: SubstrateParachainsPipeline> ParachainsPipeline for ParachainsPipelineAd
 	type SourceParachain = P::SourceParachain;
 	type SourceRelayChain = P::SourceRelayChain;
 	type TargetChain = P::TargetChain;
+	type Proof = ParaHeadsProof<P::SourceRelayChain>;
 }
 
 /// Different ways of building `submit_parachain_heads` calls.
@@ -70,9 +72,9 @@ pub trait SubmitParachainHeadsCallBuilder<P: SubstrateParachainsPipeline>:
 	fn build_submit_parachain_heads_call(
 		at_relay_block: HeaderIdOf<P::SourceRelayChain>,
 		parachains: Vec<(ParaId, ParaHash)>,
-		parachain_heads_proof: ParaHeadsProof,
+		parachain_heads_proof: ParaHeadsProof<P::SourceRelayChain>,
 		is_free_execution_expected: bool,
-	) -> CallOf<P::TargetChain>;
+	) -> Result<CallOf<P::TargetChain>, ProofConversionError>;
 }
 
 /// Building `submit_parachain_heads` call when you have direct access to the target
@@ -97,14 +99,14 @@ where
 	fn build_submit_parachain_heads_call(
 		at_relay_block: HeaderIdOf<P::SourceRelayChain>,
 		parachains: Vec<(ParaId, ParaHash)>,
-		parachain_heads_proof: ParaHeadsProof,
+		parachain_heads_proof: ParaHeadsProof<P::SourceRelayChain>,
 		_is_free_execution_expected: bool,
-	) -> CallOf<P::TargetChain> {
-		BridgeParachainsCall::<R, I>::submit_parachain_heads {
+	) -> Result<CallOf<P::TargetChain>, ProofConversionError> {
+		Ok(BridgeParachainsCall::<R, I>::submit_parachain_heads {
 			at_relay_block: (at_relay_block.0, at_relay_block.1),
 			parachains,
-			parachain_heads_proof,
+			parachain_heads_proof: parachain_heads_proof.try_into()?,
 		}
-		.into()
+		.into())
 	}
 }

@@ -132,7 +132,6 @@ impl<Call> BatchCallBuilder<Call> for () {
 pub mod proofs {
 	use bp_messages::{LaneId, MessageNonce};
 	use bp_runtime::{HashOf, HasherOf, RawStorageProof, UnverifiedStorageProof};
-	use frame_support::pallet_prelude::{Decode, Encode, TypeInfo};
 	use relay_substrate_client::Chain;
 	use sp_core::storage::StorageKey;
 	use sp_trie::StorageProof;
@@ -157,7 +156,7 @@ pub mod proofs {
 	}
 
 	impl<SourceChain: Chain> TryInto<RawStorageProof> for Proof<SourceChain> {
-		type Error = ();
+		type Error = ProofConversionError;
 
 		fn try_into(self) -> Result<RawStorageProof, Self::Error> {
 			Ok(self.storage_proof.into_iter_nodes().collect())
@@ -165,7 +164,7 @@ pub mod proofs {
 	}
 
 	impl<SourceChain: Chain> TryInto<UnverifiedStorageProof> for Proof<SourceChain> {
-		type Error = ();
+		type Error = ProofConversionError;
 
 		fn try_into(self) -> Result<UnverifiedStorageProof, Self::Error> {
 			let Self { storage_proof, storage_keys, state_root } = self;
@@ -205,7 +204,7 @@ pub mod proofs {
 	impl<C: Chain> TryFrom<FromBridgedChainMessagesProof<C>>
 		for bp_messages::target_chain::FromBridgedChainMessagesProof<HashOf<C>>
 	{
-		type Error = ();
+		type Error = ProofConversionError;
 
 		fn try_from(value: FromBridgedChainMessagesProof<C>) -> Result<Self, Self::Error> {
 			Ok(bp_messages::target_chain::FromBridgedChainMessagesProof {
@@ -234,7 +233,7 @@ pub mod proofs {
 	impl<C: Chain> TryFrom<FromBridgedChainMessagesDeliveryProof<C>>
 		for bp_messages::source_chain::FromBridgedChainMessagesDeliveryProof<HashOf<C>>
 	{
-		type Error = ();
+		type Error = ProofConversionError;
 
 		fn try_from(value: FromBridgedChainMessagesDeliveryProof<C>) -> Result<Self, Self::Error> {
 			Ok(bp_messages::source_chain::FromBridgedChainMessagesDeliveryProof {
@@ -244,4 +243,25 @@ pub mod proofs {
 			})
 		}
 	}
+
+	/// Stub that represents `use bp_polkadot_core::parachains::ParaHeadsProof` but
+	/// with a generic storage proof.
+	#[derive(Clone, Debug)]
+	pub struct ParaHeadsProof<C: Chain> {
+		/// Storage proof of finalized parachain heads.
+		pub storage_proof: Proof<C>,
+	}
+
+	impl<C: Chain> TryFrom<ParaHeadsProof<C>> for bp_polkadot_core::parachains::ParaHeadsProof {
+		type Error = ProofConversionError;
+
+		fn try_from(value: ParaHeadsProof<C>) -> Result<Self, Self::Error> {
+			Ok(bp_polkadot_core::parachains::ParaHeadsProof {
+				storage_proof: value.storage_proof.try_into()?,
+			})
+		}
+	}
+
+	/// Type represents error for various `TryInto` implementations for `Proof`
+	pub type ProofConversionError = ();
 }

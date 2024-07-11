@@ -18,7 +18,7 @@ use crate::{parachains_loop_metrics::ParachainsLoopMetrics, ParachainsPipeline};
 
 use async_trait::async_trait;
 use bp_polkadot_core::{
-	parachains::{ParaHash, ParaHeadsProof, ParaId},
+	parachains::{ParaHash, ParaId},
 	BlockNumber as RelayBlockNumber,
 };
 use futures::{
@@ -30,7 +30,7 @@ use relay_utils::{
 	metrics::MetricsParams, relay_loop::Client as RelayClient, FailedClient,
 	TrackedTransactionStatus, TransactionTracker,
 };
-use std::{future::Future, pin::Pin, task::Poll};
+use std::{fmt::Debug, future::Future, pin::Pin, task::Poll};
 
 /// Parachain header availability at a certain chain.
 #[derive(Clone, Copy, Debug)]
@@ -84,7 +84,7 @@ pub trait SourceClient<P: ParachainsPipeline>: RelayClient {
 	async fn prove_parachain_head(
 		&self,
 		at_block: HeaderIdOf<P::SourceRelayChain>,
-	) -> Result<(ParaHeadsProof, ParaHash), Self::Error>;
+	) -> Result<(P::Proof, ParaHash), Self::Error>;
 }
 
 /// Target client used in parachain heads synchronization loop.
@@ -123,7 +123,7 @@ pub trait TargetClient<P: ParachainsPipeline>: RelayClient {
 		&self,
 		at_source_block: HeaderIdOf<P::SourceRelayChain>,
 		para_head_hash: ParaHash,
-		proof: ParaHeadsProof,
+		proof: P::Proof,
 		is_free_execution_expected: bool,
 	) -> Result<Self::TransactionTracker, Self::Error>;
 }
@@ -707,6 +707,7 @@ mod tests {
 		type SourceRelayChain = TestChain;
 		type SourceParachain = TestParachain;
 		type TargetChain = TestChain;
+		type Proof = bp_polkadot_core::parachains::ParaHeadsProof;
 	}
 
 	#[derive(Clone, Debug)]
@@ -816,11 +817,14 @@ mod tests {
 		async fn prove_parachain_head(
 			&self,
 			at_block: HeaderIdOf<TestChain>,
-		) -> Result<(ParaHeadsProof, ParaHash), TestError> {
+		) -> Result<(bp_polkadot_core::parachains::ParaHeadsProof, ParaHash), TestError> {
 			let head_result =
 				SourceClient::<TestParachainsPipeline>::parachain_head(self, at_block).await?;
 			let head = head_result.as_available().unwrap();
-			let proof = (ParaHeadsProof { storage_proof: Default::default() }, head.hash());
+			let proof = (
+				bp_polkadot_core::parachains::ParaHeadsProof { storage_proof: Default::default() },
+				head.hash(),
+			);
 			self.data.lock().await.source_proof.clone().map(|_| proof)
 		}
 	}
@@ -857,7 +861,7 @@ mod tests {
 			&self,
 			at_source_block: HeaderIdOf<TestChain>,
 			_updated_parachain_head: ParaHash,
-			_proof: ParaHeadsProof,
+			_proof: bp_polkadot_core::parachains::ParaHeadsProof,
 			_is_free_execution_expected: bool,
 		) -> Result<TestTransactionTracker, Self::Error> {
 			let mut data = self.data.lock().await;

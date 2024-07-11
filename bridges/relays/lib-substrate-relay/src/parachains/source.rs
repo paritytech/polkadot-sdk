@@ -18,12 +18,12 @@
 
 use crate::{
 	parachains::{ParachainsPipelineAdapter, SubstrateParachainsPipeline},
-	proofs::to_raw_storage_proof,
+	proofs::ParaHeadsProof,
 };
 use async_std::sync::{Arc, Mutex};
 use async_trait::async_trait;
 use bp_parachains::parachain_head_storage_key_at_source;
-use bp_polkadot_core::parachains::{ParaHash, ParaHead, ParaHeadsProof, ParaId};
+use bp_polkadot_core::parachains::{ParaHash, ParaHead, ParaId};
 use bp_runtime::HeaderIdProvider;
 use codec::Decode;
 use parachains_relay::parachains_loop::{AvailableHeader, SourceClient};
@@ -151,7 +151,7 @@ where
 	async fn prove_parachain_head(
 		&self,
 		at_block: HeaderIdOf<P::SourceRelayChain>,
-	) -> Result<(ParaHeadsProof, ParaHash), Self::Error> {
+	) -> Result<(ParaHeadsProof<P::SourceRelayChain>, ParaHash), Self::Error> {
 		let parachain = ParaId(P::SourceParachain::PARACHAIN_ID);
 		let storage_key =
 			parachain_head_storage_key_at_source(P::SourceRelayChain::PARAS_PALLET_NAME, parachain);
@@ -177,11 +177,6 @@ where
 			})?;
 		let parachain_head_hash = parachain_head.hash();
 
-		Ok((
-			ParaHeadsProof {
-				storage_proof: to_raw_storage_proof::<P::SourceRelayChain>(storage_proof),
-			},
-			parachain_head_hash,
-		))
+		Ok((ParaHeadsProof { storage_proof: storage_proof.into() }, parachain_head_hash))
 	}
 }

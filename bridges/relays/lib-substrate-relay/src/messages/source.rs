@@ -358,7 +358,12 @@ where
 			P::ReceiveMessagesDeliveryProofCallBuilder::build_receive_messages_delivery_proof_call(
 				proof,
 				maybe_batch_tx.is_none(),
-			);
+			)
+			.map_err(|_| {
+				SubstrateError::Custom(
+					"Failed to `build_receive_messages_delivery_proof_call`".into(),
+				)
+			})?;
 		let final_call = match maybe_batch_tx {
 			Some(batch_tx) => batch_tx.append_call_and_build(messages_proof_call),
 			None => messages_proof_call,

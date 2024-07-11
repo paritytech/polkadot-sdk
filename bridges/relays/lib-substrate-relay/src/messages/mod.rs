@@ -22,6 +22,7 @@ use crate::{
 		target::{SubstrateMessagesDeliveryProof, SubstrateMessagesTarget},
 	},
 	on_demand::OnDemandRelay,
+	proofs::ProofConversionError,
 	BatchCallBuilder, BatchCallBuilderConstructor, TransactionParams,
 };
 
@@ -374,7 +375,7 @@ pub trait ReceiveMessagesProofCallBuilder<P: SubstrateMessageLane> {
 		messages_count: u32,
 		dispatch_weight: Weight,
 		trace_call: bool,
-	) -> CallOf<P::TargetChain>;
+	) -> Result<CallOf<P::TargetChain>, ()>;
 }
 
 /// Building `receive_messages_proof` call when you have direct access to the target
@@ -398,10 +399,10 @@ where
 		messages_count: u32,
 		dispatch_weight: Weight,
 		trace_call: bool,
-	) -> CallOf<P::TargetChain> {
+	) -> Result<CallOf<P::TargetChain>, ProofConversionError> {
 		let call: CallOf<P::TargetChain> = BridgeMessagesCall::<R, I>::receive_messages_proof {
 			relayer_id_at_bridged_chain: relayer_id_at_source,
-			proof: proof.1.into(),
+			proof: Box::new(proof.1.try_into()?),
 			messages_count,
 			dispatch_weight,
 		}
@@ -420,7 +421,7 @@ where
 				P::TargetChain::max_extrinsic_size(),
 			);
 		}
-		call
+		Ok(call)
 	}
 }
 
@@ -447,17 +448,19 @@ macro_rules! generate_receive_message_proof_call_builder {
 				messages_count: u32,
 				dispatch_weight: bp_messages::Weight,
 				_trace_call: bool,
-			) -> relay_substrate_client::CallOf<
+			) -> Result<relay_substrate_client::CallOf<
 				<$pipeline as $crate::messages::SubstrateMessageLane>::TargetChain
-			> {
-				bp_runtime::paste::item! {
-					$bridge_messages($receive_messages_proof {
-						relayer_id_at_bridged_chain: relayer_id_at_source,
-						proof: proof.1.into(),
-						messages_count: messages_count,
-						dispatch_weight: dispatch_weight,
-					})
-				}
+			>, ProofConversionError> {
+				Ok(
+					bp_runtime::paste::item! {
+						$bridge_messages($receive_messages_proof {
+							relayer_id_at_bridged_chain: relayer_id_at_source,
+							proof: Box::new(proof.1.try_into().expect("TODO: add result")),
+							messages_count: messages_count,
+							dispatch_weight: dispatch_weight,
+						})
+					}
+				)
 			}
 		}
 	};
@@ -470,7 +473,7 @@ pub trait ReceiveMessagesDeliveryProofCallBuilder<P: SubstrateMessageLane> {
 	fn build_receive_messages_delivery_proof_call(
 		proof: SubstrateMessagesDeliveryProof<P::TargetChain>,
 		trace_call: bool,
-	) -> CallOf<P::SourceChain>;
+	) -> Result<CallOf<P::SourceChain>, ProofConversionError>;
 }
 
 /// Building `receive_messages_delivery_proof` call when you have direct access to the source
@@ -491,10 +494,10 @@ where
 	fn build_receive_messages_delivery_proof_call(
 		proof: SubstrateMessagesDeliveryProof<P::TargetChain>,
 		trace_call: bool,
-	) -> CallOf<P::SourceChain> {
+	) -> Result<CallOf<P::SourceChain>, ProofConversionError> {
 		let call: CallOf<P::SourceChain> =
 			BridgeMessagesCall::<R, I>::receive_messages_delivery_proof {
-				proof: proof.1.into(),
+				proof: proof.1.try_into()?,
 				relayers_state: proof.0,
 			}
 			.into();
@@ -512,7 +515,7 @@ where
 				P::SourceChain::max_extrinsic_size(),
 			);
 		}
-		call
+		Ok(call)
 	}
 }
 
@@ -534,14 +537,16 @@ macro_rules! generate_receive_message_delivery_proof_call_builder {
 					<$pipeline as $crate::messages::SubstrateMessageLane>::TargetChain
 				>,
 				_trace_call: bool,
-			) -> relay_substrate_client::CallOf<
+			) -> Result<relay_substrate_client::CallOf<
 				<$pipeline as $crate::messages::SubstrateMessageLane>::SourceChain
-			> {
+			>, ProofConversionError> {
 				bp_runtime::paste::item! {
-					$bridge_messages($receive_messages_delivery_proof {
-						proof: proof.1,
-						relayers_state: proof.0
-					})
+					Ok(
+						$bridge_messages($receive_messages_delivery_proof {
+							proof: proof.1.try_into()?,
+							relayers_state: proof.0
+						})
+					)
 				}
 			}
 		}
@@ -655,7 +660,8 @@ where
 			messages,
 			Weight::zero(),
 			false,
-		);
+		)
+		.map_err(|_| anyhow::format_err!("Failed to `build_receive_messages_proof_call`"))?;
 	P::TargetChain::sign_transaction(
 		SignParam {
 			spec_version: 0,
@@ -676,19 +682,17 @@ where
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::proofs::Proof;
 	use bp_messages::UnrewardedRelayersState;
 	use relay_substrate_client::calls::{UtilityCall as MockUtilityCall, UtilityCall};
-	use sp_trie::StorageProof;
 
 	#[derive(codec::Decode, codec::Encode, Clone, Debug, PartialEq)]
 	pub enum RuntimeCall {
 		#[codec(index = 53)]
-		BridgeMessages(CodegenBridgeMessagesCall),
+		BridgeMessages(ActualBridgeMessagesCall),
 		#[codec(index = 123)]
 		Utility(UtilityCall<RuntimeCall>),
 	}
-	pub type CodegenBridgeMessagesCall = bp_messages::BridgeMessagesCall<
+	pub type ActualBridgeMessagesCall = bp_messages::BridgeMessagesCall<
 		u64,
 		Box<bp_messages::target_chain::FromBridgedChainMessagesProof<mock::BridgedHeaderHash>>,
 		bp_messages::source_chain::FromBridgedChainMessagesDeliveryProof<mock::BridgedHeaderHash>,
@@ -706,9 +710,10 @@ mod tests {
 	#[test]
 	fn ensure_macro_compatibility_for_generate_receive_message_proof_call_builder() {
 		// data
-		let receive_messages_proof = FromBridgedChainMessagesProof {
+		let receive_messages_proof = crate::proofs::FromBridgedChainMessagesProof {
 			bridged_header_hash: Default::default(),
-			storage_proof: Default::default(),
+			storage_proof: (sp_trie::StorageProof::empty(), Default::default(), Default::default())
+				.into(),
 			lane: LaneId([0, 0, 0, 0]),
 			nonces_start: 0,
 			nonces_end: 0,
@@ -721,27 +726,30 @@ mod tests {
 		let pallet_receive_messages_proof =
 			pallet_bridge_messages::Call::<mock::TestRuntime>::receive_messages_proof {
 				relayer_id_at_bridged_chain: account,
-				proof: receive_messages_proof.clone().into(),
+				proof: Box::new(
+					receive_messages_proof.clone().try_into().expect("conversion works"),
+				),
 				messages_count,
 				dispatch_weight,
 			};
 
 		// construct mock enum Call
-		let mock_enum_receive_messages_proof = CodegenBridgeMessagesCall::receive_messages_proof {
+		let mock_enum_receive_messages_proof = ActualBridgeMessagesCall::receive_messages_proof {
 			relayer_id_at_bridged_chain: account,
-			proof: receive_messages_proof.clone().into(),
+			proof: Box::new(receive_messages_proof.clone().try_into().expect("conversion works")),
 			messages_count,
 			dispatch_weight,
 		};
 
 		// now we should be able to use macro `generate_receive_message_proof_call_builder`
-		let relayer_call_builder_receive_messages_proof = relayer::ThisChainToBridgedChainMessageLaneReceiveMessagesProofCallBuilder::build_receive_messages_proof_call(
+		let relayer_call_builder_receive_messages_proof =
+	relayer::ThisChainToBridgedChainMessageLaneReceiveMessagesProofCallBuilder::build_receive_messages_proof_call(
 			account,
 			(Default::default(), receive_messages_proof),
 			messages_count,
 			dispatch_weight,
 			false,
-		);
+		).expect("`build_receive_messages_proof_call` works");
 
 		// ensure they are all equal
 		assert_eq!(
@@ -750,7 +758,7 @@ mod tests {
 		);
 		match relayer_call_builder_receive_messages_proof {
 			RuntimeCall::BridgeMessages(call) => match call {
-				call @ CodegenBridgeMessagesCall::receive_messages_proof { .. } =>
+				call @ ActualBridgeMessagesCall::receive_messages_proof { .. } =>
 					assert_eq!(pallet_receive_messages_proof.encode(), call.encode()),
 				_ => panic!("Unexpected CodegenBridgeMessagesCall type"),
 			},
@@ -761,11 +769,17 @@ mod tests {
 	#[test]
 	fn ensure_macro_compatibility_for_generate_receive_message_delivery_proof_call_builder() {
 		// data
-		let receive_messages_delivery_proof = FromBridgedChainMessagesDeliveryProof {
-			bridged_header_hash: Default::default(),
-			storage_proof: Default::default(),
-			lane: LaneId([0, 0, 0, 0]),
-		};
+		let receive_messages_delivery_proof =
+			crate::proofs::FromBridgedChainMessagesDeliveryProof {
+				bridged_header_hash: Default::default(),
+				storage_proof: (
+					sp_trie::StorageProof::empty(),
+					Default::default(),
+					Default::default(),
+				)
+					.into(),
+				lane: LaneId([0, 0, 0, 0]),
+			};
 		let relayers_state = UnrewardedRelayersState {
 			unrewarded_relayer_entries: 0,
 			messages_in_oldest_entry: 0,
@@ -774,24 +788,30 @@ mod tests {
 		};
 
 		// construct pallet Call directly
-		let pallet_receive_messages_delivery_proof =
-			pallet_bridge_messages::Call::<mock::TestRuntime>::receive_messages_delivery_proof {
-				proof: receive_messages_delivery_proof.clone(),
-				relayers_state: relayers_state.clone(),
-			};
+		let pallet_receive_messages_delivery_proof = pallet_bridge_messages::Call::<
+			mock::TestRuntime,
+		>::receive_messages_delivery_proof {
+			proof: receive_messages_delivery_proof.clone().try_into().expect("conversion works"),
+			relayers_state: relayers_state.clone(),
+		};
 
 		// construct mock enum Call
 		let mock_enum_receive_messages_delivery_proof =
-			CodegenBridgeMessagesCall::receive_messages_delivery_proof {
-				proof: receive_messages_delivery_proof.clone(),
+			ActualBridgeMessagesCall::receive_messages_delivery_proof {
+				proof: receive_messages_delivery_proof
+					.clone()
+					.try_into()
+					.expect("conversion works"),
 				relayers_state: relayers_state.clone(),
 			};
 
 		// now we should be able to use macro `generate_receive_message_proof_call_builder`
-		let relayer_call_builder_receive_messages_delivery_proof = relayer::ThisChainToBridgedChainMessageLaneReceiveMessagesDeliveryProofCallBuilder::build_receive_messages_delivery_proof_call(
+		let relayer_call_builder_receive_messages_delivery_proof =
+			relayer::ThisChainToBridgedChainMessageLaneReceiveMessagesDeliveryProofCallBuilder
+				::build_receive_messages_delivery_proof_call(
 			(relayers_state, receive_messages_delivery_proof),
 			false,
-		);
+	).expect("`build_receive_messages_delivery_proof_call` works");
 
 		// ensure they are all equal
 		assert_eq!(
@@ -800,7 +820,7 @@ mod tests {
 		);
 		match relayer_call_builder_receive_messages_delivery_proof {
 			RuntimeCall::BridgeMessages(call) => match call {
-				call @ CodegenBridgeMessagesCall::receive_messages_delivery_proof { .. } =>
+				call @ ActualBridgeMessagesCall::receive_messages_delivery_proof { .. } =>
 					assert_eq!(pallet_receive_messages_delivery_proof.encode(), call.encode()),
 				_ => panic!("Unexpected CodegenBridgeMessagesCall type"),
 			},
@@ -1021,13 +1041,13 @@ mod tests {
 			ThisChainToBridgedChainMessageLane,
 			ThisChainToBridgedChainMessageLaneReceiveMessagesProofCallBuilder,
 			RuntimeCall::BridgeMessages,
-			CodegenBridgeMessagesCall::receive_messages_proof
+			ActualBridgeMessagesCall::receive_messages_proof
 		);
 		generate_receive_message_delivery_proof_call_builder!(
 			ThisChainToBridgedChainMessageLane,
 			ThisChainToBridgedChainMessageLaneReceiveMessagesDeliveryProofCallBuilder,
 			RuntimeCall::BridgeMessages,
-			CodegenBridgeMessagesCall::receive_messages_delivery_proof
+			ActualBridgeMessagesCall::receive_messages_delivery_proof
 		);
 	}
 }
