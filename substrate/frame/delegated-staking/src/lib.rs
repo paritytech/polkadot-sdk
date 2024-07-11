@@ -150,11 +150,12 @@ use frame_support::{
 	},
 };
 use sp_runtime::{
-	traits::{AccountIdConversion, CheckedAdd, CheckedSub, Zero},
+	traits::{AccountIdConversion, CheckedAdd, CheckedSub, Zero, TrailingZeroInput},
 	ArithmeticError, DispatchResult, Perbill, RuntimeDebug, Saturating,
 };
 use sp_staking::{Agent, Delegator, EraIndex, StakingInterface, StakingUnchecked};
 use sp_std::{convert::TryInto, prelude::*};
+use sp_io::hashing::blake2_256;
 
 pub type BalanceOf<T> =
 	<<T as Config>::Currency as FunInspect<<T as frame_system::Config>::AccountId>>::Balance;
@@ -437,7 +438,9 @@ impl<T: Config> Pallet<T> {
 
 	/// Derive a (keyless) pot account from the given agent account and account type.
 	fn sub_account(account_type: AccountType, acc: T::AccountId) -> T::AccountId {
-		T::PalletId::get().into_sub_account_truncating((account_type, acc.clone()))
+		let entropy = (T::PalletId::get(), acc, account_type).using_encoded(blake2_256);
+		Decode::decode(&mut TrailingZeroInput::new(entropy.as_ref()))
+			.expect("infinite length input; no invalid inputs for type; qed")
 	}
 
 	/// Held balance of a delegator.
