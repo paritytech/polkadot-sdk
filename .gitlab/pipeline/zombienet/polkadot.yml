@@ -339,7 +339,7 @@ zombienet-polkadot-coretime-revenue:
   extends:
     - .zombienet-polkadot-common
   needs:
-    - job: build-zombienet-sdk-coretime-revenue
+    - job: build-polkadot-zombienet-tests
       artifacts: true
   before_script:
     - !reference [".zombienet-polkadot-common", "before_script"]
