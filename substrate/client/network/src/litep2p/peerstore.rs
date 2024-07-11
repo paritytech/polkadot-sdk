@@ -22,7 +22,7 @@
 //! such as their addresses, reputations, supported protocols etc.
 
 use crate::{
-	peer_store::{PeerStoreProvider, PeerStoreStatus, ProtocolHandle},
+	peer_store::{PeerStoreProvider, ProtocolHandle},
 	service::{metrics::PeerSetMetrics, traits::PeerStore},
 	ObservedRole, ReputationChange,
 };
@@ -246,11 +246,6 @@ impl PeerStoreProvider for PeerstoreHandle {
 	/// Add known peer.
 	fn add_known_peer(&self, peer: PeerId) {
 		self.0.lock().peers.entry(peer).or_default().last_updated = Instant::now();
-	}
-
-	fn status(&self) -> PeerStoreStatus {
-		let inner = self.0.lock();
-		PeerStoreStatus { num_known_peers: inner.peers.len(), num_banned_peers: 0 }
 	}
 }
 
