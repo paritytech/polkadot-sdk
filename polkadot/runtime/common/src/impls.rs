@@ -71,6 +71,8 @@ pub struct EraPayoutParams {
 	/// Total staked amount.
 	pub total_staked: Balance,
 	/// Total stakable amount.
+	///
+	/// Usually, this is equal to the total issuance, except if a large part of the issuance is locked in another sub-system. 
 	pub total_stakable: Balance,
 	/// Ideal stake ratio, which is deducted by `legacy_auction_proportion` if not `None`.
 	pub ideal_stake: Perquintill,
