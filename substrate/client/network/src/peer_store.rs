@@ -19,7 +19,7 @@
 //! [`PeerStore`] manages peer reputations and provides connection candidates to
 //! [`crate::protocol_controller::ProtocolController`].
 
-use crate::service::traits::PeerStore as PeerStoreT;
+use crate::service::{metrics::PeerSetMetrics, traits::PeerStore as PeerStoreT};
 
 use libp2p::PeerId;
 use log::trace;
@@ -171,10 +171,7 @@ impl PeerStoreProvider for PeerStoreHandle {
 
 	fn status(&self) -> PeerStoreStatus {
 		let inner = self.inner.lock();
-		PeerStoreStatus {
-			num_known_peers: inner.peers.len(),
-			num_banned_peers: inner.num_banned_peers,
-		}
+		PeerStoreStatus { num_known_peers: inner.peers.len(), num_banned_peers: 0 }
 	}
 }
 
@@ -255,7 +252,7 @@ impl PeerInfo {
 struct PeerStoreInner {
 	peers: HashMap<PeerId, PeerInfo>,
 	protocols: Vec<Arc<dyn ProtocolHandle>>,
-	num_banned_peers: usize,
+	metrics: Option<PeerSetMetrics>,
 }
 
 impl PeerStoreInner {
@@ -355,7 +352,7 @@ impl PeerStoreInner {
 
 		// Retain only entries with non-zero reputation values or not expired ones.
 		let now = Instant::now();
-		let mut num_banned_peers = 0;
+		let mut num_banned_peers: u64 = 0;
 		self.peers.retain(|_, info| {
 			if info.is_banned() {
 				num_banned_peers += 1;
@@ -364,7 +361,10 @@ impl PeerStoreInner {
 			info.reputation != 0 || info.last_updated + FORGET_AFTER > now
 		});
 
-		self.num_banned_peers = num_banned_peers;
+		if let Some(metrics) = &self.metrics {
+			metrics.num_discovered.set(self.peers.len() as u64);
+			metrics.num_banned_peers.set(num_banned_peers);
+		}
 	}
 
 	fn add_known_peer(&mut self, peer_id: PeerId) {
@@ -400,7 +400,7 @@ impl PeerStore {
 					.map(|peer_id| (peer_id, PeerInfo::default()))
 					.collect(),
 				protocols: Vec::new(),
-				num_banned_peers: 0,
+				metrics: None,
 			})),
 		}
 	}
