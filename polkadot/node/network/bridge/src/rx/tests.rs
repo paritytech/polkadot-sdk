@@ -545,11 +545,6 @@ async fn assert_sends_validation_event_to_all(
 	event: NetworkBridgeEvent<net_protocol::VersionedValidationProtocol>,
 	virtual_overseer: &mut TestSubsystemContextHandle<NetworkBridgeRxMessage>,
 ) {
-	let is_prioritized = matches!(
-		event,
-		NetworkBridgeEvent::PeerConnected(..) | NetworkBridgeEvent::PeerViewChange(..)
-	);
-
 	// Ordering must be consistent across:
 	// `fn dispatch_validation_event_to_all_unbounded`
 	// `dispatch_validation_events_to_all`
@@ -580,15 +575,6 @@ async fn assert_sends_validation_event_to_all(
 			GossipSupportMessage::NetworkBridgeUpdate(e)
 		) if e == event.focus().expect("could not focus message")
 	);
-
-	// Peer view changes sent with high priority.
-	if is_prioritized {
-		assert_eq!(
-			virtual_overseer.message_counter.with_high_priority(),
-			if is_prioritized { 4 } else { 0 }
-		);
-		virtual_overseer.message_counter.reset();
-	}
 }
 
 async fn assert_sends_collation_event_to_all(
@@ -894,6 +880,8 @@ fn peer_view_updates_sent_via_overseer() {
 				&mut virtual_overseer,
 			)
 			.await;
+
+			assert_eq!(virtual_overseer.message_counter.with_high_priority(), 8);
 		}
 
 		network_handle
@@ -909,6 +897,7 @@ fn peer_view_updates_sent_via_overseer() {
 			&mut virtual_overseer,
 		)
 		.await;
+		assert_eq!(virtual_overseer.message_counter.with_high_priority(), 12);
 		virtual_overseer
 	});
 }
@@ -944,6 +933,8 @@ fn peer_messages_sent_via_overseer() {
 				&mut virtual_overseer,
 			)
 			.await;
+
+			assert_eq!(virtual_overseer.message_counter.with_high_priority(), 8);
 		}
 
 		let approval_distribution_message =
@@ -1022,6 +1013,8 @@ fn peer_disconnect_from_just_one_peerset() {
 				&mut virtual_overseer,
 			)
 			.await;
+
+			assert_eq!(virtual_overseer.message_counter.with_high_priority(), 8);
 		}
 
 		{
@@ -1108,6 +1101,8 @@ fn relays_collation_protocol_messages() {
 				&mut virtual_overseer,
 			)
 			.await;
+
+			assert_eq!(virtual_overseer.message_counter.with_high_priority(), 8);
 		}
 
 		{
@@ -1215,6 +1210,8 @@ fn different_views_on_different_peer_sets() {
 				&mut virtual_overseer,
 			)
 			.await;
+
+			assert_eq!(virtual_overseer.message_counter.with_high_priority(), 8);
 		}
 
 		{
@@ -1260,6 +1257,8 @@ fn different_views_on_different_peer_sets() {
 			&mut virtual_overseer,
 		)
 		.await;
+
+		assert_eq!(virtual_overseer.message_counter.with_high_priority(), 12);
 
 		assert_sends_collation_event_to_all(
 			NetworkBridgeEvent::PeerViewChange(peer, view_b.clone()),
@@ -1495,6 +1494,8 @@ fn network_protocol_versioning_subsystem_msg() {
 				&mut virtual_overseer,
 			)
 			.await;
+
+			assert_eq!(virtual_overseer.message_counter.with_high_priority(), 8);
 		}
 
 		let approval_distribution_message =
