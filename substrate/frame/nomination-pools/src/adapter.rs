@@ -361,9 +361,9 @@ impl<
 	}
 
 	fn transferable_balance(pool_account: Pool<Self::AccountId>) -> BalanceOf<T> {
-		Delegation::agent_transferable_balance(pool_account.clone().into())
+		Delegation::agent_balance(pool_account.clone().into())
 			// pool should always be an agent.
-			.defensive_unwrap_or_default()
+			.saturating_sub(Self::active_stake(pool_account))
 	}
 
 	fn total_balance(pool_account: Pool<Self::AccountId>) -> Option<BalanceOf<T>> {

@@ -525,10 +525,6 @@ pub trait DelegationInterface {
 	/// This takes into account any pending slashes to `Agent` against the delegated balance.
 	fn agent_balance(agent: Agent<Self::AccountId>) -> Option<Self::Balance>;
 
-	/// Returns the total amount of funds that is unbonded and can be withdrawn from the `Agent`
-	/// account. `None` if not an `Agent`.
-	fn agent_transferable_balance(agent: Agent<Self::AccountId>) -> Option<Self::Balance>;
-
 	/// Returns the total amount of funds delegated. `None` if not a `Delegator`.
 	fn delegator_balance(delegator: Delegator<Self::AccountId>) -> Option<Self::Balance>;
 
