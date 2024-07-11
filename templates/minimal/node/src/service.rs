@@ -98,9 +98,9 @@ pub fn new_partial(config: &Configuration) -> Result<Service, ServiceError> {
 		client,
 		backend,
 		task_manager,
-		import_queue,
 		keystore_container,
 		select_chain,
+		import_queue,
 		transaction_pool,
 		other: (telemetry),
 	})

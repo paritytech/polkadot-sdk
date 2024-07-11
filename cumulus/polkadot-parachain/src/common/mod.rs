@@ -18,14 +18,20 @@
 
 #![warn(missing_docs)]
 
-pub mod aura;
+pub mod parachain;
 
+use crate::rpc::RpcExtension;
 use cumulus_primitives_core::CollectCollationInfo;
+use sc_consensus::{BoxBlockImport, DefaultImportQueue};
+use sc_rpc::DenyUnsafe;
+use sc_service::{error::Result as ServiceResult, Configuration, TaskManager};
+use sc_telemetry::TelemetryHandle;
 use sp_api::{ApiExt, CallApiAt, ConstructRuntimeApi, Metadata};
 use sp_block_builder::BlockBuilder;
 use sp_runtime::traits::Block as BlockT;
 use sp_session::SessionKeys;
 use sp_transaction_pool::runtime_api::TaggedTransactionQueue;
+use std::sync::Arc;
 
 /// Convenience trait that defines the basic bounds for the `RuntimeApi` of a parachain node.
 pub trait NodeRuntimeApi<Block: BlockT>:
@@ -69,4 +75,23 @@ where
 /// Extra args that are passed when creating a new node spec.
 pub struct NodeExtraArgs {
 	pub use_slot_based_consensus: bool,
+}
+
+pub trait BuildImportQueue<Block: BlockT, Client> {
+	fn build_import_queue(
+		client: Arc<Client>,
+		block_import: BoxBlockImport<Block>,
+		config: &Configuration,
+		telemetry_handle: Option<TelemetryHandle>,
+		task_manager: &TaskManager,
+	) -> ServiceResult<DefaultImportQueue<Block>>;
+}
+
+pub trait BuildRpcExtensions<Client, Backend, Pool> {
+	fn build_rpc_extensions(
+		deny_unsafe: DenyUnsafe,
+		client: Arc<Client>,
+		backend: Arc<Backend>,
+		pool: Arc<Pool>,
+	) -> ServiceResult<RpcExtension>;
 }
