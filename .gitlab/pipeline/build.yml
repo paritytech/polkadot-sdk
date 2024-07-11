@@ -156,7 +156,7 @@ build-short-benchmark:
     - target/release/polkadot --version
     - cp ./target/release/polkadot ./artifacts/
 
-build-zombienet-sdk-coretime-revenue:
+build-polkadot-zombienet-tests:
   stage: build
   extends:
     - .docker-env
@@ -170,10 +170,9 @@ build-zombienet-sdk-coretime-revenue:
       artifacts: true
 
   script:
-    - cargo build -p polkadot-zombienet-sdk-tests --features zombie-metadata
+    - cargo nextest --manifest-path polkadot/zombienet-sdk-tests/Cargo.toml archive --features zombie-metadata --archive-file polkadot-zombienet-tests.tar.zst
     - mkdir -p artifacts
-    # add metadata files
-    - cp -r polkadot/zombienet-sdk-tests/metadata-files ./artifacts/
+    - cp polkadot-zombienet-tests.tar.zst ./artifacts
 
 
 # build jobs from cumulus
