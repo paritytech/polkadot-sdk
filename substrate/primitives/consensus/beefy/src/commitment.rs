@@ -476,7 +476,6 @@ mod tests {
 		//when
 		let encoded = codec::Encode::encode(&ecdsa_and_bls_signed);
 		let decoded = TestBlsSignedCommitment::decode(&mut &*encoded);
-		println!("encoded: {:?}", array_bytes::bytes2hex("", encoded.clone()));
 
 		// then
 		assert_eq!(decoded, Ok(ecdsa_and_bls_signed));

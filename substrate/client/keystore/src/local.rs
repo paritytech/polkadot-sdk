@@ -418,7 +418,7 @@ impl Keystore for LocalKeystore {
 			Ok(sig)
 		}
 
-				fn ecdsa_bls381_public_keys(&self, key_type: KeyTypeId) -> Vec<ecdsa_bls381::Public> {
+			fn ecdsa_bls381_public_keys(&self, key_type: KeyTypeId) -> Vec<ecdsa_bls381::Public> {
 			self.public_keys::<ecdsa_bls381::Pair>(key_type)
 		}
 

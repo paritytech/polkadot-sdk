@@ -313,7 +313,6 @@ mod tests {
 		let expected_signature = Signature::unchecked_from(signature);
 		let signature = pair.sign(&message[..]);
 		let signature_bytes: &[u8] = signature.as_ref();
-		println!("signature is: {:?}", array_bytes::bytes2hex("", signature_bytes));
 		assert!(signature == expected_signature);
 		assert!(Pair::verify(&signature, &message[..], &public));
 	}
@@ -374,10 +373,6 @@ mod tests {
 		assert!(!Pair::verify(&signature, b"Something else", &public));
 		let public_bytes: &[u8] = public.as_ref();
 		let signature_bytes: &[u8] = signature.as_ref();
-		println!(
-			"pub,signature is: {:?}",
-			(array_bytes::bytes2hex("", public_bytes), array_bytes::bytes2hex("", signature_bytes))
-		);
 		(array_bytes::bytes2hex("", public_bytes), array_bytes::bytes2hex("", signature_bytes))
 	}
 

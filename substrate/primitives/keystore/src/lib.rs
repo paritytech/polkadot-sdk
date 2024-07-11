@@ -38,7 +38,7 @@ use alloc::{string::String, sync::Arc, vec::Vec};
 /// Keystore error
 #[derive(Debug)]
 pub enum Error {
-	/// Pub1lic key type is not supported
+	/// Public key type is not supported
 	KeyNotSupported(KeyTypeId),
 	/// Validation error
 	ValidationError(String),
