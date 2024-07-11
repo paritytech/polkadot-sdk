@@ -22,9 +22,9 @@
 // of null length parent storage key).
 
 use codec::{Codec, Decode, Encode};
+use alloc::vec::Vec;
 pub use sp_core::storage::{ChildInfo, ChildType, StateVersion};
 pub use sp_io::{KillStorageResult, MultiRemovalResults};
-use sp_std::prelude::*;
 
 /// Return the value of the item in storage under `key`, or `None` if there is no explicit entry.
 pub fn get<T: Decode + Sized>(child_info: &ChildInfo, key: &[u8]) -> Option<T> {

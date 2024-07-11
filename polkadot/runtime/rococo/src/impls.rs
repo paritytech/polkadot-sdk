@@ -21,7 +21,8 @@ use frame_system::RawOrigin;
 use polkadot_primitives::Balance;
 use polkadot_runtime_common::identity_migrator::{OnReapIdentity, WeightInfo};
 use rococo_runtime_constants::currency::*;
-use sp_std::{marker::PhantomData, prelude::*};
+use core::marker::PhantomData;
+use alloc::{boxed::Box, vec};
 use xcm::{latest::prelude::*, VersionedLocation, VersionedXcm};
 use xcm_executor::traits::TransactAsset;
 

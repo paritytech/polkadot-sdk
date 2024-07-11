@@ -29,7 +29,6 @@ use crate::{
 use codec::{Decode, DecodeAll, FullCodec};
 use impl_trait_for_tuples::impl_for_tuples;
 use sp_core::Get;
-use sp_std::prelude::*;
 
 /// Decode the entire data under the given storage type.
 ///
@@ -82,8 +81,8 @@ impl core::fmt::Display for TryDecodeEntireStorageError {
 		write!(
 			f,
 			"`{}::{}` key `{}` is undecodable",
-			&sp_std::str::from_utf8(&self.info.pallet_name).unwrap_or("<invalid>"),
-			&sp_std::str::from_utf8(&self.info.storage_name).unwrap_or("<invalid>"),
+			&alloc::str::from_utf8(&self.info.pallet_name).unwrap_or("<invalid>"),
+			&alloc::str::from_utf8(&self.info.storage_name).unwrap_or("<invalid>"),
 			array_bytes::bytes2hex("0x", &self.key)
 		)
 	}

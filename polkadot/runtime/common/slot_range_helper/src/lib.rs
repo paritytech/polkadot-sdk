@@ -22,7 +22,7 @@ pub use codec::{Decode, Encode};
 pub use enumn::N;
 pub use paste;
 pub use sp_runtime::traits::CheckedSub;
-pub use sp_std::{ops::Add, result};
+pub use core::{ops::Add, result};
 
 /// This macro generates a `SlotRange` enum of arbitrary length for use in the Slot Auction
 /// mechanism on Polkadot.

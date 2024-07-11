@@ -38,7 +38,8 @@ use sp_runtime::{
 	traits::{Hash, Saturating, Zero},
 	BoundedBTreeMap, DispatchError, DispatchResult, RuntimeDebug,
 };
-use sp_std::{marker::PhantomData, prelude::*};
+use core::marker::PhantomData;
+use alloc::vec::Vec;
 
 use self::meter::Diff;
 

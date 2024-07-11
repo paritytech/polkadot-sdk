@@ -41,8 +41,7 @@ use crate::{
 	Never,
 };
 use codec::{Decode, Encode, EncodeLike, FullCodec};
-#[cfg(not(feature = "std"))]
-use sp_std::prelude::*;
+use alloc::vec::Vec;
 
 /// Generator for `StorageNMap` used by `decl_storage` and storage types.
 ///
@@ -465,6 +464,7 @@ mod test_iterators {
 		},
 	};
 	use codec::Encode;
+	use alloc::vec;
 
 	#[test]
 	fn n_map_iter_from() {

@@ -55,6 +55,8 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
 pub use pallet::*;
 pub mod weights;
 
@@ -93,7 +95,8 @@ pub mod pallet {
 		self,
 		traits::{Saturating, Zero},
 	};
-	use sp_std::{ops::Deref, prelude::*};
+	use core::ops::Deref;
+	use alloc::{vec, vec::Vec};
 
 	pub(crate) type BalanceOf<T> =
 		<<T as Config>::Currency as Inspect<<T as frame_system::Config>::AccountId>>::Balance;
@@ -169,11 +172,11 @@ pub mod pallet {
 		pub(crate) child_items: u32,
 
 		#[codec(skip)]
-		pub(crate) _ph: sp_std::marker::PhantomData<T>,
+		pub(crate) _ph: core::marker::PhantomData<T>,
 	}
 
-	impl<Size: Get<u32>> sp_std::fmt::Debug for Progress<Size> {
-		fn fmt(&self, f: &mut sp_std::fmt::Formatter<'_>) -> sp_std::fmt::Result {
+	impl<Size: Get<u32>> core::fmt::Debug for Progress<Size> {
+		fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
 			match self {
 				Progress::ToStart => f.write_str("To start"),
 				Progress::LastKey(key) => write!(f, "Last: {:?}", HexDisplay::from(key.deref())),
@@ -182,8 +185,8 @@ pub mod pallet {
 		}
 	}
 
-	impl<T: Config> sp_std::fmt::Debug for MigrationTask<T> {
-		fn fmt(&self, f: &mut sp_std::fmt::Formatter<'_>) -> sp_std::fmt::Result {
+	impl<T: Config> core::fmt::Debug for MigrationTask<T> {
+		fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
 			f.debug_struct("MigrationTask")
 				.field("top", &self.progress_top)
 				.field("child", &self.progress_child)
@@ -954,7 +957,7 @@ pub mod pallet {
 mod benchmarks {
 	use super::{pallet::Pallet as StateTrieMigration, *};
 	use frame_support::traits::fungible::{Inspect, Mutate};
-	use sp_std::prelude::*;
+	use alloc::vec;
 
 	// The size of the key seemingly makes no difference in the read/write time, so we make it
 	// constant.
@@ -1080,7 +1083,7 @@ mod benchmarks {
 		process_top_key {
 			let v in 1 .. (4 * 1024 * 1024);
 
-			let value = sp_std::vec![1u8; v as usize];
+			let value = alloc::vec![1u8; v as usize];
 			sp_io::storage::set(KEY, &value);
 		}: {
 			let data = sp_io::storage::get(KEY).unwrap();
@@ -1108,6 +1111,7 @@ mod mock {
 		H256,
 	};
 	use sp_runtime::{traits::Header as _, BuildStorage, StorageChild};
+	use alloc::{vec, vec::Vec};
 
 	type Block = frame_system::mocking::MockBlockU32<Test>;
 

@@ -25,7 +25,8 @@ use codec::{Decode, Encode};
 use cumulus_primitives_core::{relay_chain, ParaId};
 use scale_info::TypeInfo;
 use sp_runtime::RuntimeDebug;
-use sp_std::{collections::btree_map::BTreeMap, marker::PhantomData};
+use alloc::collections::btree_map::BTreeMap;
+use core::marker::PhantomData;
 
 /// Constraints on outbound HRMP channel.
 #[derive(Clone, RuntimeDebug)]
@@ -399,6 +400,7 @@ pub(crate) fn size_after_included<H: PartialEq>(included_hash: H, segment: &[Anc
 mod tests {
 	use super::*;
 	use assert_matches::assert_matches;
+	use alloc::{vec, vec::Vec};
 
 	#[test]
 	fn outbound_limits_constructed_correctly() {

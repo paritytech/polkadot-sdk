@@ -19,7 +19,7 @@
 
 use frame_support::traits::{fungible, fungibles, misc::TryDrop};
 use sp_core::TypedGet;
-use sp_std::marker::PhantomData;
+use core::marker::PhantomData;
 
 /// Handler for when some currency "account" decreased in balance for
 /// some reason.

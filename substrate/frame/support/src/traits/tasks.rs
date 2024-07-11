@@ -21,7 +21,8 @@
 use codec::FullCodec;
 use scale_info::TypeInfo;
 use sp_runtime::DispatchError;
-use sp_std::{fmt::Debug, iter::Iterator, vec, vec::IntoIter};
+use core::{fmt::Debug, iter::Iterator};
+use alloc::{vec, vec::IntoIter};
 use sp_weights::Weight;
 
 /// Contain's re-exports of all the supporting types for the [`Task`] trait. Used in the macro
@@ -31,7 +32,8 @@ pub mod __private {
 	pub use codec::FullCodec;
 	pub use scale_info::TypeInfo;
 	pub use sp_runtime::DispatchError;
-	pub use sp_std::{fmt::Debug, iter::Iterator, vec, vec::IntoIter};
+	pub use core::{fmt::Debug, iter::Iterator};
+	pub use alloc::{vec, vec::IntoIter};
 	pub use sp_weights::Weight;
 }
 

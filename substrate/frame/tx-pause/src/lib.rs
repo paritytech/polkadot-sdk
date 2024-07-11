@@ -79,6 +79,8 @@ pub mod mock;
 mod tests;
 pub mod weights;
 
+extern crate alloc;
+
 use frame_support::{
 	dispatch::GetDispatchInfo,
 	pallet_prelude::*,
@@ -87,7 +89,7 @@ use frame_support::{
 };
 use frame_system::pallet_prelude::*;
 use sp_runtime::{traits::Dispatchable, DispatchResult};
-use sp_std::prelude::*;
+use alloc::vec::Vec;
 
 pub use pallet::*;
 pub use weights::*;

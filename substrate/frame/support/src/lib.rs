@@ -33,6 +33,9 @@
 #[doc(hidden)]
 extern crate self as frame_support;
 
+#[doc(hidden)]
+pub extern crate alloc;
+
 /// Private exports that are being used by macros.
 ///
 /// The exports are not stable and should not be relied on.
@@ -61,6 +64,7 @@ pub mod __private {
 	pub use sp_std;
 	pub use sp_tracing;
 	pub use tt_call::*;
+	pub use alloc;
 }
 
 #[macro_use]
@@ -261,7 +265,7 @@ macro_rules! parameter_types {
 	) => (
 		$( #[ $attr ] )*
 		$vis struct $name $(
-			< $($ty_params),* >( $($crate::__private::sp_std::marker::PhantomData<$ty_params>),* )
+			< $($ty_params),* >( $(core::marker::PhantomData<$ty_params>),* )
 		)?;
 		$crate::parameter_types!(IMPL_CONST $name , $type , $value $( $(, $ty_params)* )?);
 		$crate::parameter_types!( $( $rest )* );
@@ -273,7 +277,7 @@ macro_rules! parameter_types {
 	) => (
 		$( #[ $attr ] )*
 		$vis struct $name $(
-			< $($ty_params),* >( $($crate::__private::sp_std::marker::PhantomData<$ty_params>),* )
+			< $($ty_params),* >( $(core::marker::PhantomData<$ty_params>),* )
 		)?;
 		$crate::parameter_types!(IMPL $name, $type, $value $( $(, $ty_params)* )?);
 		$crate::parameter_types!( $( $rest )* );
@@ -285,7 +289,7 @@ macro_rules! parameter_types {
 	) => (
 		$( #[ $attr ] )*
 		$vis struct $name $(
-			< $($ty_params),* >( $($crate::__private::sp_std::marker::PhantomData<$ty_params>),* )
+			< $($ty_params),* >( $(core::marker::PhantomData<$ty_params>),* )
 		)?;
 		$crate::parameter_types!(IMPL_STORAGE $name, $type, $value $( $(, $ty_params)* )?);
 		$crate::parameter_types!( $( $rest )* );
@@ -468,7 +472,7 @@ macro_rules! ord_parameter_types {
 	(IMPL $name:ident , $type:ty , $value:expr) => {
 		impl $crate::traits::SortedMembers<$type> for $name {
 			fn contains(t: &$type) -> bool { &$value == t }
-			fn sorted_members() -> $crate::__private::sp_std::prelude::Vec<$type> { vec![$value] }
+			fn sorted_members() -> $crate::alloc::vec::Vec<$type> { vec![$value] }
 			fn count() -> usize { 1 }
 			#[cfg(feature = "runtime-benchmarks")]
 			fn add(_: &$type) {}
@@ -499,7 +503,7 @@ macro_rules! runtime_print {
 }
 
 /// Print out the debuggable type.
-pub fn debug(data: &impl sp_std::fmt::Debug) {
+pub fn debug(data: &impl core::fmt::Debug) {
 	runtime_print!("{:?}", data);
 }
 
@@ -954,7 +958,7 @@ pub mod pallet_prelude {
 		},
 		DispatchError, RuntimeDebug, MAX_MODULE_ERROR_ENCODED_SIZE,
 	};
-	pub use sp_std::marker::PhantomData;
+	pub use core::marker::PhantomData;
 	pub use sp_weights::Weight;
 }
 
@@ -1285,7 +1289,7 @@ pub mod pallet_macros {
 	/// # 	use frame_support::pallet_prelude::*;
 	/// # 	use frame_support::inherent::IsFatalError;
 	/// # 	use sp_timestamp::InherentError;
-	/// # 	use sp_std::result;
+	/// # 	use core::result;
 	/// #
 	/// 	// Example inherent identifier
 	/// 	pub const INHERENT_IDENTIFIER: InherentIdentifier = *b"timstap0";
@@ -1911,7 +1915,7 @@ pub mod pallet_macros {
 	/// Field types in enum variants must also implement [`frame_support::PalletError`],
 	/// otherwise the pallet will fail to compile. Rust primitive types have already
 	/// implemented the [`frame_support::PalletError`] trait along with some commonly used
-	/// stdlib types such as [`Option`] and [`sp_std::marker::PhantomData`], and hence
+	/// stdlib types such as [`Option`] and [`core::marker::PhantomData`], and hence
 	/// in most use cases, a manual implementation is not necessary and is discouraged.
 	///
 	/// The generic `T` must not bound anything and a `where` clause is not allowed. That said,

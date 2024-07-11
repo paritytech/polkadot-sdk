@@ -25,7 +25,7 @@ use super::*;
 use crate as pallet_message_queue;
 use frame_support::{derive_impl, parameter_types};
 use sp_runtime::BuildStorage;
-use sp_std::collections::btree_map::BTreeMap;
+use alloc::collections::btree_map::BTreeMap;
 
 type Block = frame_system::mocking::MockBlock<Test>;
 

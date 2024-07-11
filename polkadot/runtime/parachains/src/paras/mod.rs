@@ -127,7 +127,8 @@ use sp_runtime::{
 	traits::{AppVerify, One, Saturating},
 	DispatchResult, SaturatedConversion,
 };
-use sp_std::{cmp, collections::btree_set::BTreeSet, mem, prelude::*};
+use alloc::{collections::btree_set::BTreeSet, vec::Vec};
+use core::{cmp, mem};
 
 use serde::{Deserialize, Serialize};
 
@@ -863,7 +864,7 @@ pub mod pallet {
 	#[derive(DefaultNoBound)]
 	pub struct GenesisConfig<T: Config> {
 		#[serde(skip)]
-		pub _config: sp_std::marker::PhantomData<T>,
+		pub _config: core::marker::PhantomData<T>,
 		pub paras: Vec<(ParaId, ParaGenesisArgs)>,
 	}
 

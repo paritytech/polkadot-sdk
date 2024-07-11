@@ -25,7 +25,7 @@ use frame_support::{
 	weights::WeightMeter,
 };
 use frame_system::{pallet_prelude::BlockNumberFor, RawOrigin};
-use sp_std::{prelude::*, vec};
+use alloc::vec;
 
 use crate::Pallet as Scheduler;
 use frame_system::{Call as SystemCall, EventRecord};

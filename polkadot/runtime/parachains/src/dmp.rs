@@ -54,7 +54,8 @@ use sp_runtime::{
 	traits::{BlakeTwo256, Hash as HashT, SaturatedConversion},
 	FixedU128, Saturating,
 };
-use sp_std::{fmt, prelude::*};
+use core::fmt;
+use alloc::vec::Vec;
 use xcm::latest::SendError;
 
 pub use pallet::*;

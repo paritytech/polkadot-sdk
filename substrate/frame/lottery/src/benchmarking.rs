@@ -32,6 +32,7 @@ use frame_support::{
 };
 use frame_system::RawOrigin;
 use sp_runtime::traits::{Bounded, Zero};
+use alloc::{boxed::Box, vec};
 
 // Set up and start a lottery
 fn setup_lottery<T: Config>(repeat: bool) -> Result<(), &'static str> {

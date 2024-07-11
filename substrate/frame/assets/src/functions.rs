@@ -19,6 +19,7 @@
 
 use super::*;
 use frame_support::{defensive, traits::Get, BoundedVec};
+use alloc::vec;
 
 #[must_use]
 pub(super) enum DeadConsequence {
@@ -35,20 +36,20 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	/// Return the extra "sid-car" data for `id`/`who`, or `None` if the account doesn't exist.
 	pub fn adjust_extra(
 		id: T::AssetId,
-		who: impl sp_std::borrow::Borrow<T::AccountId>,
+		who: impl core::borrow::Borrow<T::AccountId>,
 	) -> Option<ExtraMutator<T, I>> {
 		ExtraMutator::maybe_new(id, who)
 	}
 
 	/// Get the asset `id` balance of `who`, or zero if the asset-account doesn't exist.
-	pub fn balance(id: T::AssetId, who: impl sp_std::borrow::Borrow<T::AccountId>) -> T::Balance {
+	pub fn balance(id: T::AssetId, who: impl core::borrow::Borrow<T::AccountId>) -> T::Balance {
 		Self::maybe_balance(id, who).unwrap_or_default()
 	}
 
 	/// Get the asset `id` balance of `who` if the asset-account exists.
 	pub fn maybe_balance(
 		id: T::AssetId,
-		who: impl sp_std::borrow::Borrow<T::AccountId>,
+		who: impl core::borrow::Borrow<T::AccountId>,
 	) -> Option<T::Balance> {
 		Account::<T, I>::get(id, who.borrow()).map(|a| a.balance)
 	}

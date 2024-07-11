@@ -33,6 +33,7 @@ use sp_runtime::{
 	traits::{Bounded, IdentifyAccount, One},
 	MultiSignature, MultiSigner,
 };
+use alloc::{vec, vec::Vec};
 
 const SEED: u32 = 0;
 

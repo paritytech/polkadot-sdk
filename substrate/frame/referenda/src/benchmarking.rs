@@ -29,6 +29,7 @@ use frame_support::{
 };
 use frame_system::RawOrigin;
 use sp_runtime::traits::Bounded as ArithBounded;
+use alloc::{vec, vec::Vec};
 
 const SEED: u32 = 0;
 
@@ -632,7 +633,7 @@ benchmarks_instance_pallet! {
 	}
 
 	set_some_metadata {
-		use sp_std::borrow::Cow;
+		use alloc::borrow::Cow;
 		let origin = T::SubmitOrigin::try_successful_origin(&RawOrigin::Root.into())
 			.expect("SubmitOrigin has no successful origin required for the benchmark");
 		let index = create_referendum::<T, I>(origin.clone());
@@ -643,7 +644,7 @@ benchmarks_instance_pallet! {
 	}
 
 	clear_metadata {
-		use sp_std::borrow::Cow;
+		use alloc::borrow::Cow;
 		let origin = T::SubmitOrigin::try_successful_origin(&RawOrigin::Root.into())
 			.expect("SubmitOrigin has no successful origin required for the benchmark");
 		let index = create_referendum::<T, I>(origin.clone());

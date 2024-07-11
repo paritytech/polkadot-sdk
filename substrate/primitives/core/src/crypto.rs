@@ -28,13 +28,14 @@ use scale_info::TypeInfo;
 pub use secrecy::{ExposeSecret, SecretString};
 use sp_runtime_interface::pass_by::PassByInner;
 #[doc(hidden)]
-pub use sp_std::ops::Deref;
+pub use core::ops::Deref;
 #[cfg(all(not(feature = "std"), feature = "serde"))]
-use sp_std::{
-	alloc::{format, string::String},
+use alloc::{
+	format, string::String,
 	vec,
 };
-use sp_std::{hash::Hash, str, vec::Vec};
+use core::hash::Hash;
+use alloc::{str, vec::Vec};
 pub use ss58_registry::{from_known_address_format, Ss58AddressFormat, Ss58AddressFormatRegistry};
 /// Trait to zeroize a memory buffer.
 pub use zeroize::Zeroize;
@@ -245,8 +246,8 @@ pub enum PublicError {
 }
 
 #[cfg(feature = "std")]
-impl sp_std::fmt::Debug for PublicError {
-	fn fmt(&self, f: &mut sp_std::fmt::Formatter<'_>) -> sp_std::fmt::Result {
+impl core::fmt::Debug for PublicError {
+	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
 		// Just use the `Display` implementation
 		write!(f, "{}", self)
 	}
@@ -587,8 +588,8 @@ impl std::fmt::Display for AccountId32 {
 	}
 }
 
-impl sp_std::fmt::Debug for AccountId32 {
-	fn fmt(&self, f: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
+impl core::fmt::Debug for AccountId32 {
+	fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
 		#[cfg(feature = "serde")]
 		{
 			let s = self.to_ss58check();
@@ -624,7 +625,7 @@ impl<'de> serde::Deserialize<'de> for AccountId32 {
 }
 
 #[cfg(feature = "std")]
-impl sp_std::str::FromStr for AccountId32 {
+impl std::str::FromStr for AccountId32 {
 	type Err = &'static str;
 
 	fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -786,7 +787,7 @@ pub struct SecretUri {
 	pub junctions: Vec<DeriveJunction>,
 }
 
-impl sp_std::str::FromStr for SecretUri {
+impl alloc::str::FromStr for SecretUri {
 	type Err = SecretStringError;
 
 	fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -925,7 +926,7 @@ pub trait Pair: CryptoType + Sized {
 		s: &str,
 		password_override: Option<&str>,
 	) -> Result<(Self, Option<Self::Seed>), SecretStringError> {
-		use sp_std::str::FromStr;
+		use alloc::str::FromStr;
 		let SecretUri { junctions, phrase, password } = SecretUri::from_str(s)?;
 		let password =
 			password_override.or_else(|| password.as_ref().map(|p| p.expose_secret().as_str()));

@@ -83,7 +83,7 @@ pub mod pallet {
 	use frame_system::pallet_prelude::*;
 	use scale_info::prelude::{format, string::String};
 	use sp_runtime::traits::{One, Zero};
-	use sp_std::{fmt::Display, prelude::*};
+	use core::fmt::Display;
 
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);

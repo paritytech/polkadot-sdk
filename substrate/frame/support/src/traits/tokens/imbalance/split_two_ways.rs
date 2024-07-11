@@ -19,7 +19,7 @@
 
 use super::super::imbalance::{Imbalance, OnUnbalanced};
 use sp_runtime::traits::Saturating;
-use sp_std::{marker::PhantomData, ops::Div};
+use core::{marker::PhantomData, ops::Div};
 
 /// Split an unbalanced amount two ways between a common divisor.
 pub struct SplitTwoWays<Balance, Imbalance, Target1, Target2, const PART1: u32, const PART2: u32>(

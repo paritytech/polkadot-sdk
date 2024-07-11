@@ -60,11 +60,12 @@ mod tests;
 pub mod migrations;
 pub mod weights;
 
+extern crate alloc;
+
 use sp_runtime::{
 	traits::{AccountIdConversion, BadOrigin, Hash, StaticLookup, TrailingZeroInput, Zero},
 	Percent, RuntimeDebug,
 };
-use sp_std::prelude::*;
 
 use codec::{Decode, Encode};
 use frame_support::{
@@ -76,6 +77,7 @@ use frame_support::{
 	Parameter,
 };
 use frame_system::pallet_prelude::BlockNumberFor;
+use alloc::{vec, vec::Vec};
 
 #[cfg(any(feature = "try-runtime", test))]
 use sp_runtime::TryRuntimeError;

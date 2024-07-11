@@ -19,6 +19,7 @@
 
 use super::{Pallet as TxPause, *};
 use frame_benchmarking::v2::*;
+use alloc::vec;
 
 #[benchmarks]
 mod benchmarks {

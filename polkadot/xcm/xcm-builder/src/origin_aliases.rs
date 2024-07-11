@@ -17,7 +17,7 @@
 //! Implementation for `ContainsPair<Location, Location>`.
 
 use frame_support::traits::{Contains, ContainsPair};
-use sp_std::marker::PhantomData;
+use core::marker::PhantomData;
 use xcm::latest::prelude::*;
 
 /// Alias a Foreign `AccountId32` with a local `AccountId32` if the foreign `AccountId32` matches

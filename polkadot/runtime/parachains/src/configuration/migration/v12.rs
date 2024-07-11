@@ -26,7 +26,7 @@ use frame_system::pallet_prelude::BlockNumberFor;
 use polkadot_primitives::vstaging::SchedulerParams;
 use sp_core::Get;
 use sp_staking::SessionIndex;
-use sp_std::vec::Vec;
+use alloc::vec::Vec;
 
 type V12HostConfiguration<BlockNumber> = configuration::HostConfiguration<BlockNumber>;
 
@@ -68,7 +68,7 @@ pub type MigrateToV12<T> = VersionedMigration<
 	<T as frame_system::Config>::DbWeight,
 >;
 
-pub struct UncheckedMigrateToV12<T>(sp_std::marker::PhantomData<T>);
+pub struct UncheckedMigrateToV12<T>(core::marker::PhantomData<T>);
 
 impl<T: Config> UncheckedOnRuntimeUpgrade for UncheckedMigrateToV12<T> {
 	#[cfg(feature = "try-runtime")]

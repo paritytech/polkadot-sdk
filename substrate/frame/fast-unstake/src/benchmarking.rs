@@ -28,7 +28,7 @@ use frame_support::{
 use frame_system::RawOrigin;
 use sp_runtime::traits::Zero;
 use sp_staking::{EraIndex, StakingInterface};
-use sp_std::prelude::*;
+use alloc::{vec, vec::Vec};
 
 const USER_SEED: u32 = 0;
 

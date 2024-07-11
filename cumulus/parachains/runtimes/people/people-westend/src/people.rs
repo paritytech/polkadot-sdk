@@ -28,7 +28,6 @@ use sp_runtime::{
 	traits::{AccountIdConversion, Verify},
 	RuntimeDebug,
 };
-use sp_std::prelude::*;
 
 parameter_types! {
 	//   27 | Min encoded size of `Registration`

@@ -30,7 +30,7 @@ use frame_support::{
 	},
 };
 use sp_runtime::traits::Bounded;
-use sp_std::collections::btree_map::BTreeMap;
+use alloc::{collections::btree_map::BTreeMap, vec::Vec};
 
 use crate::Pallet as ConvictionVoting;
 

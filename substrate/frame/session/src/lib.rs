@@ -115,6 +115,8 @@ mod mock;
 mod tests;
 pub mod weights;
 
+extern crate alloc;
+
 use codec::{Decode, MaxEncodedLen};
 use frame_support::{
 	dispatch::DispatchResult,
@@ -132,11 +134,11 @@ use sp_runtime::{
 	ConsensusEngineId, DispatchError, KeyTypeId, Permill, RuntimeAppPublic,
 };
 use sp_staking::SessionIndex;
-use sp_std::{
+use core::{
 	marker::PhantomData,
 	ops::{Rem, Sub},
-	prelude::*,
 };
+use alloc::{boxed::Box, vec::Vec};
 
 pub use pallet::*;
 pub use weights::WeightInfo;
@@ -917,7 +919,7 @@ impl<T: Config> frame_support::traits::DisabledValidators for Pallet<T> {
 /// Wraps the author-scraping logic for consensus engines that can recover
 /// the canonical index of an author. This then transforms it into the
 /// registering account-ID of that session key index.
-pub struct FindAccountFromAuthorIndex<T, Inner>(sp_std::marker::PhantomData<(T, Inner)>);
+pub struct FindAccountFromAuthorIndex<T, Inner>(core::marker::PhantomData<(T, Inner)>);
 
 impl<T: Config, Inner: FindAuthor<u32>> FindAuthor<T::ValidatorId>
 	for FindAccountFromAuthorIndex<T, Inner>

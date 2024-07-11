@@ -26,7 +26,7 @@ use hex_literal::hex;
 use rand::Rng;
 use relay_chain::HrmpChannelId;
 use sp_core::H256;
-use sp_std::num::NonZeroU32;
+use alloc::num::NonZeroU32;
 
 #[test]
 #[should_panic]

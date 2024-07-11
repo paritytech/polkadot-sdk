@@ -22,6 +22,7 @@ use frame_benchmarking::v2::*;
 use frame_support::traits::Hooks;
 use frame_system::RawOrigin;
 use xcm::v3::MAX_INSTRUCTIONS_TO_DECODE;
+use alloc::vec;
 
 #[benchmarks]
 mod benchmarks {

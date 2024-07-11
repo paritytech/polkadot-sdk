@@ -47,10 +47,15 @@ use polkadot_primitives::{
 use scale_info::TypeInfo;
 use sp_runtime::{traits::One, DispatchError, SaturatedConversion, Saturating};
 #[cfg(feature = "std")]
-use sp_std::fmt;
-use sp_std::{
-	collections::{btree_map::BTreeMap, btree_set::BTreeSet, vec_deque::VecDeque},
-	prelude::*,
+use core::fmt;
+use alloc::{
+	collections::{
+		btree_map::BTreeMap,
+		btree_set::BTreeSet,
+		vec_deque::VecDeque,
+	},
+	vec,
+	vec::Vec,
 };
 
 pub use pallet::*;

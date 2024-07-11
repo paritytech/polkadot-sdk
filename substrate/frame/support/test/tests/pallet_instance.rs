@@ -33,7 +33,7 @@ use sp_io::{
 	TestExternalities,
 };
 use sp_runtime::{DispatchError, ModuleError};
-use sp_std::any::TypeId;
+use core::any::TypeId;
 
 #[frame_support::pallet(dev_mode)]
 pub mod pallet {
@@ -194,7 +194,7 @@ pub mod pallet {
 	#[derive(frame_support::DefaultNoBound)]
 	pub struct GenesisConfig<T: Config<I>, I: 'static = ()> {
 		#[serde(skip)]
-		_config: sp_std::marker::PhantomData<(T, I)>,
+		_config: core::marker::PhantomData<(T, I)>,
 		_myfield: u32,
 	}
 

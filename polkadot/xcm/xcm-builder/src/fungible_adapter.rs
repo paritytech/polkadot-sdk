@@ -27,7 +27,7 @@ use frame_support::traits::{
 	},
 	Get,
 };
-use sp_std::{marker::PhantomData, prelude::*, result};
+use core::{marker::PhantomData, result};
 use xcm::latest::prelude::*;
 use xcm_executor::{
 	traits::{ConvertLocation, Error as MatchError, MatchesFungible, TransactAsset},

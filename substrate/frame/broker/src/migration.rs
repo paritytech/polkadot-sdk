@@ -25,7 +25,7 @@ use sp_runtime::Saturating;
 #[cfg(feature = "try-runtime")]
 use frame_support::ensure;
 #[cfg(feature = "try-runtime")]
-use sp_std::vec::Vec;
+use alloc::vec::Vec;
 
 mod v1 {
 	use super::*;

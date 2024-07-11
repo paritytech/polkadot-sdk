@@ -39,8 +39,7 @@ use frame_system::pallet_prelude::*;
 use pallet_broker::CoreAssignment;
 use polkadot_primitives::CoreIndex;
 use sp_runtime::traits::{One, Saturating};
-
-use sp_std::prelude::*;
+use alloc::{vec, vec::Vec};
 
 pub use pallet::*;
 

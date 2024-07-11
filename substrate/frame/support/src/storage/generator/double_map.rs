@@ -21,7 +21,7 @@ use crate::{
 	Never,
 };
 use codec::{Decode, Encode, EncodeLike, FullCodec, FullEncode};
-use sp_std::prelude::*;
+use alloc::vec::Vec;
 
 /// Generator for `StorageDoubleMap` used by `decl_storage`.
 ///
@@ -517,6 +517,7 @@ mod test_iterators {
 		},
 	};
 	use codec::Encode;
+	use alloc::vec;
 
 	#[test]
 	fn double_map_iter_from() {

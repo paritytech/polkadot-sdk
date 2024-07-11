@@ -30,7 +30,7 @@ use secp256k1::{
 	Message, PublicKey, SecretKey, SECP256K1,
 };
 #[cfg(not(feature = "std"))]
-use sp_std::vec::Vec;
+use alloc::vec::Vec;
 
 /// An identifier used to match public keys against ecdsa keys
 pub const CRYPTO_ID: CryptoTypeId = CryptoTypeId(*b"ecds");

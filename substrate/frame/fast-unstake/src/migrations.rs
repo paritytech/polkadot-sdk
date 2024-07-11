@@ -23,14 +23,14 @@ pub mod v1 {
 		weights::Weight,
 	};
 	use sp_staking::EraIndex;
-	use sp_std::prelude::*;
+	use alloc::vec::Vec;
 
 	#[cfg(feature = "try-runtime")]
 	use frame_support::ensure;
 	#[cfg(feature = "try-runtime")]
 	use sp_runtime::TryRuntimeError;
 
-	pub struct MigrateToV1<T>(sp_std::marker::PhantomData<T>);
+	pub struct MigrateToV1<T>(core::marker::PhantomData<T>);
 	impl<T: Config> OnRuntimeUpgrade for MigrateToV1<T> {
 		fn on_runtime_upgrade() -> Weight {
 			let current = Pallet::<T>::in_code_storage_version();

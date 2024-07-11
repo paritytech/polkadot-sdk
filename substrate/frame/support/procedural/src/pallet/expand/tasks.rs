@@ -159,7 +159,7 @@ impl ToTokens for TasksDef {
 		let task_fn_names = self.tasks.iter().map(|task| &task.item.sig.ident);
 		let task_arg_names = self.tasks.iter().map(|task| &task.arg_names).collect::<Vec<_>>();
 
-		let sp_std = quote!(#scrate::__private::sp_std);
+		let alloc = quote!(#scrate::__private::alloc);
 		let impl_generics = &self.item_impl.generics;
 		tokens.extend(quote! {
 			impl #impl_generics #enum_use
@@ -169,13 +169,13 @@ impl ToTokens for TasksDef {
 
 			impl #impl_generics #scrate::traits::Task for #enum_use
 			{
-				type Enumeration = #sp_std::vec::IntoIter<#enum_use>;
+				type Enumeration = #alloc::vec::IntoIter<#enum_use>;
 
 				fn iter() -> Self::Enumeration {
-					let mut all_tasks = #sp_std::vec![];
+					let mut all_tasks = #alloc::vec![];
 					#(all_tasks
 						.extend(#task_iters.map(|(#(#task_arg_names),*)| #enum_ident::#task_fn_idents { #(#task_arg_names: #task_arg_names.clone()),* })
-						.collect::<#sp_std::vec::Vec<_>>());
+						.collect::<#alloc::vec::Vec<_>>());
 					)*
 					all_tasks.into_iter()
 				}

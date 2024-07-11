@@ -37,11 +37,13 @@ mod mock;
 mod tests;
 pub mod weights;
 
+extern crate alloc;
+
 use sp_runtime::{
 	traits::{BadOrigin, Hash, Saturating},
 	Perbill,
 };
-use sp_std::{borrow::Cow, prelude::*};
+use alloc::{borrow::Cow, vec::Vec};
 
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{

@@ -41,7 +41,7 @@ use polkadot_runtime_common::xcm_sender::ExponentialPrice;
 use snowbridge_runtime_common::XcmExportFeeToSibling;
 use sp_core::Get;
 use sp_runtime::traits::AccountIdConversion;
-use sp_std::marker::PhantomData;
+use core::marker::PhantomData;
 use testnet_parachains_constants::rococo::snowbridge::EthereumNetwork;
 use xcm::latest::prelude::*;
 use xcm_builder::{

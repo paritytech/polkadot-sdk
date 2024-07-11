@@ -21,7 +21,7 @@ use frame_support::{
 };
 use pallet_alliance::{ProposalIndex, ProposalProvider};
 use sp_runtime::DispatchError;
-use sp_std::{cmp::Ordering, marker::PhantomData, prelude::*};
+use core::{cmp::Ordering, marker::PhantomData};
 
 type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
 

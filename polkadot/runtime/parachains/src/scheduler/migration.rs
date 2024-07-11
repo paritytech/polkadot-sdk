@@ -21,6 +21,7 @@ use frame_support::{
 	migrations::VersionedMigration, pallet_prelude::ValueQuery, storage_alias,
 	traits::UncheckedOnRuntimeUpgrade, weights::Weight,
 };
+use alloc::vec::Vec;
 
 /// Old/legacy assignment representation (v0).
 ///
@@ -164,7 +165,7 @@ mod v1 {
 	}
 
 	/// Migration to V1
-	pub struct UncheckedMigrateToV1<T>(sp_std::marker::PhantomData<T>);
+	pub struct UncheckedMigrateToV1<T>(core::marker::PhantomData<T>);
 	impl<T: Config> UncheckedOnRuntimeUpgrade for UncheckedMigrateToV1<T> {
 		fn on_runtime_upgrade() -> Weight {
 			let mut weight: Weight = Weight::zero();
@@ -301,7 +302,7 @@ mod v2 {
 	}
 
 	/// Migration to V2
-	pub struct UncheckedMigrateToV2<T>(sp_std::marker::PhantomData<T>);
+	pub struct UncheckedMigrateToV2<T>(core::marker::PhantomData<T>);
 
 	impl<T: Config> UncheckedOnRuntimeUpgrade for UncheckedMigrateToV2<T> {
 		fn on_runtime_upgrade() -> Weight {

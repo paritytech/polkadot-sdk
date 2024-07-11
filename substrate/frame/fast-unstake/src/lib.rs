@@ -112,6 +112,8 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
 pub use pallet::*;
 
 #[cfg(test)]
@@ -157,7 +159,7 @@ pub mod pallet {
 	use frame_system::pallet_prelude::*;
 	use sp_runtime::{traits::Zero, DispatchResult};
 	use sp_staking::{EraIndex, StakingInterface};
-	use sp_std::{prelude::*, vec::Vec};
+	use alloc::vec::Vec;
 	pub use weights::WeightInfo;
 
 	#[cfg(feature = "try-runtime")]

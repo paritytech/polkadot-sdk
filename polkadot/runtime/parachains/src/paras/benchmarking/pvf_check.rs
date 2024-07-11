@@ -21,6 +21,7 @@ use frame_support::assert_ok;
 use frame_system::RawOrigin;
 use polkadot_primitives::{HeadData, Id as ParaId, ValidationCode, ValidatorId, ValidatorIndex};
 use sp_application_crypto::RuntimeAppPublic;
+use alloc::{vec, vec::Vec};
 
 // Constants for the benchmarking
 const SESSION_INDEX: SessionIndex = 1;

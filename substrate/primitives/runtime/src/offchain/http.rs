@@ -54,9 +54,7 @@ use sp_core::{
 	},
 	RuntimeDebug,
 };
-#[cfg(not(feature = "std"))]
-use sp_std::prelude::vec;
-use sp_std::{prelude::Vec, str};
+use alloc::{vec, vec::Vec, str};
 
 /// Request method (HTTP verb)
 #[derive(Clone, PartialEq, Eq, RuntimeDebug)]

@@ -31,7 +31,7 @@ use crate::{
 };
 use codec::{Decode, Encode};
 use sp_runtime::TokenError;
-use sp_std::prelude::*;
+use alloc::vec::Vec;
 
 /// Trait for providing an interface to a read-only NFT-like item.
 pub trait Inspect<AccountId> {
@@ -207,7 +207,7 @@ pub struct ItemOf<
 	F: nonfungibles::Inspect<AccountId>,
 	A: Get<<F as nonfungibles::Inspect<AccountId>>::CollectionId>,
 	AccountId,
->(sp_std::marker::PhantomData<(F, A, AccountId)>);
+>(core::marker::PhantomData<(F, A, AccountId)>);
 
 impl<
 		F: nonfungibles::Inspect<AccountId>,

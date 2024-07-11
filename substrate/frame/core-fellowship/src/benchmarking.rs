@@ -25,6 +25,7 @@ use crate::Pallet as CoreFellowship;
 use frame_benchmarking::v2::*;
 use frame_system::{pallet_prelude::BlockNumberFor, RawOrigin};
 use sp_arithmetic::traits::Bounded;
+use alloc::{boxed::Box, vec};
 
 const SEED: u32 = 0;
 

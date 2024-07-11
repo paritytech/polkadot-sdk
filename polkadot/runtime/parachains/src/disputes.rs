@@ -36,7 +36,8 @@ use sp_runtime::{
 	traits::{AppVerify, One, Saturating, Zero},
 	DispatchError, RuntimeDebug, SaturatedConversion,
 };
-use sp_std::{cmp::Ordering, collections::btree_set::BTreeSet, prelude::*};
+use alloc::{collections::btree_set::BTreeSet, vec::Vec};
+use core::cmp::Ordering;
 
 #[cfg(test)]
 #[allow(unused_imports)]

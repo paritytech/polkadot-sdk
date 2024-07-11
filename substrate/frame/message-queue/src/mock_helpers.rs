@@ -23,6 +23,7 @@
 
 use crate::*;
 use frame_support::traits::Defensive;
+use alloc::vec::Vec;
 
 /// Converts `Self` into a `Weight` by using `Self` for all components.
 pub trait IntoWeight {

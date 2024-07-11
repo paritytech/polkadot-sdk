@@ -36,6 +36,7 @@ use sp_core::Get;
 use sp_keyring::AccountKeyring::*;
 use sp_runtime::{traits::Header as HeaderT, AccountId32};
 use xcm::latest::prelude::*;
+use alloc::{boxed::Box, vec};
 
 /// Helper trait to test bridges with remote GRANDPA chain.
 ///
@@ -61,7 +62,7 @@ pub trait WithRemoteGrandpaChainHelper {
 
 /// Adapter struct that implements [`WithRemoteGrandpaChainHelper`].
 pub struct WithRemoteGrandpaChainHelperAdapter<Runtime, AllPalletsWithoutSystem, GPI, MPI>(
-	sp_std::marker::PhantomData<(Runtime, AllPalletsWithoutSystem, GPI, MPI)>,
+	core::marker::PhantomData<(Runtime, AllPalletsWithoutSystem, GPI, MPI)>,
 );
 
 impl<Runtime, AllPalletsWithoutSystem, GPI, MPI> WithRemoteGrandpaChainHelper

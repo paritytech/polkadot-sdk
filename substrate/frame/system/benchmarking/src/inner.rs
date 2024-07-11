@@ -23,7 +23,7 @@ use frame_support::{dispatch::DispatchClass, storage, traits::Get};
 use frame_system::{Call, Pallet as System, RawOrigin};
 use sp_core::storage::well_known_keys;
 use sp_runtime::traits::Hash;
-use sp_std::{prelude::*, vec};
+use alloc::{vec, vec::Vec};
 
 pub struct Pallet<T: Config>(System<T>);
 pub trait Config: frame_system::Config {

@@ -46,12 +46,12 @@ use polkadot_primitives::{
 	CoreIndex, GroupIndex, GroupRotationInfo, Id as ParaId, ScheduledCore, ValidatorIndex,
 };
 use sp_runtime::traits::One;
-use sp_std::{
+use alloc::{
 	collections::{
 		btree_map::{self, BTreeMap},
 		vec_deque::VecDeque,
 	},
-	prelude::*,
+	vec::Vec,
 };
 
 pub mod common;
@@ -314,7 +314,7 @@ impl<T: Config> Pallet<T> {
 				.into_iter()
 				.filter(|(freed_index, _)| (freed_index.0 as usize) < c_len)
 				.for_each(|(freed_index, freed_reason)| {
-					match sp_std::mem::replace(
+					match core::mem::replace(
 						&mut cores[freed_index.0 as usize],
 						CoreOccupied::Free,
 					) {
@@ -569,7 +569,7 @@ impl<T: Config> Pallet<T> {
 	fn push_occupied_cores_to_assignment_provider() {
 		AvailabilityCores::<T>::mutate(|cores| {
 			for core in cores.iter_mut() {
-				match sp_std::mem::replace(core, CoreOccupied::Free) {
+				match core::mem::replace(core, CoreOccupied::Free) {
 					CoreOccupied::Free => continue,
 					CoreOccupied::Paras(entry) => {
 						Self::maybe_push_assignment(entry);

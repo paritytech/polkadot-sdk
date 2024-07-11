@@ -28,6 +28,8 @@ mod mock;
 #[cfg(test)]
 mod tests;
 
+extern crate alloc;
+
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{
 	dispatch::GetDispatchInfo,
@@ -38,7 +40,8 @@ use frame_support::{
 	},
 };
 use sp_runtime::traits::{BlakeTwo256, Dispatchable, Hash, One, Saturating, Zero};
-use sp_std::{prelude::*, result};
+use core::result;
+use alloc::vec::Vec;
 use sp_transaction_storage_proof::{
 	encode_index, random_chunk, InherentError, TransactionStorageProof, CHUNK_SIZE,
 	INHERENT_IDENTIFIER,

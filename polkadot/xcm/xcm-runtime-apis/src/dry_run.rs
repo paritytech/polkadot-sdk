@@ -20,7 +20,7 @@
 
 use codec::{Decode, Encode};
 use frame_support::pallet_prelude::{DispatchResultWithPostInfo, TypeInfo};
-use sp_std::vec::Vec;
+use alloc::vec::Vec;
 use xcm::prelude::*;
 
 /// Effects of dry-running an extrinsic.

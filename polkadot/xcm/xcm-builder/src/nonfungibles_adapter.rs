@@ -21,7 +21,7 @@ use frame_support::{
 	ensure,
 	traits::{tokens::nonfungibles, Get},
 };
-use sp_std::{marker::PhantomData, prelude::*, result};
+use core::{marker::PhantomData, result};
 use xcm::latest::prelude::*;
 use xcm_executor::traits::{
 	ConvertLocation, Error as MatchError, MatchesNonFungibles, TransactAsset,

@@ -37,8 +37,8 @@ use sp_runtime::{
 	traits::{Convert, Saturating, Zero},
 	FixedPointNumber, FixedPointOperand, FixedU128, Percent, RuntimeDebug,
 };
-use sp_std::{
-	cmp::Ordering,
+use core::cmp::Ordering;
+use alloc::{
 	collections::{btree_map::BTreeMap, btree_set::BTreeSet},
 	vec::Vec,
 };

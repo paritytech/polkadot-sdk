@@ -23,6 +23,7 @@ use std::fmt;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
+use alloc::vec::Vec;
 use crate::{
 	codec::{Codec, Decode, Encode},
 	traits::{
@@ -32,7 +33,6 @@ use crate::{
 	Justifications,
 };
 use sp_core::RuntimeDebug;
-use sp_std::prelude::*;
 
 /// Something to identify a block.
 #[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]

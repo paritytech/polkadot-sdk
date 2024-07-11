@@ -20,6 +20,8 @@
 #![warn(missing_docs)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
+pub extern crate alloc;
+
 pub use sp_core::crypto::{key_types, CryptoTypeId, DeriveJunction, KeyTypeId, Ss58Codec};
 #[doc(hidden)]
 pub use sp_core::crypto::{DeriveError, Pair, SecretStringError};
@@ -38,7 +40,9 @@ pub use scale_info;
 #[cfg(feature = "serde")]
 pub use serde;
 #[doc(hidden)]
-pub use sp_std::{ops::Deref, vec::Vec};
+pub use core::ops::Deref;
+#[doc(hidden)]
+pub use alloc::vec::Vec;
 
 #[cfg(feature = "bandersnatch-experimental")]
 pub mod bandersnatch;
@@ -170,7 +174,7 @@ macro_rules! app_crypto_pair_common {
 			fn public(&self) -> Self::Public {
 				Public(self.0.public())
 			}
-			fn to_raw_vec(&self) -> $crate::Vec<u8> {
+			fn to_raw_vec(&self) -> $crate::alloc::vec::Vec<u8> {
 				self.0.to_raw_vec()
 			}
 		}
@@ -357,7 +361,7 @@ macro_rules! app_crypto_public_common {
 #[doc(hidden)]
 pub mod module_format_string_prelude {
 	#[cfg(all(not(feature = "std"), feature = "serde"))]
-	pub use sp_std::alloc::{format, string::String};
+	pub use alloc::{format, string::String};
 	#[cfg(feature = "std")]
 	pub use std::{format, string::String};
 }
@@ -523,10 +527,10 @@ macro_rules! app_crypto_signature_common {
 			}
 		}
 
-		impl TryFrom<$crate::Vec<u8>> for Signature {
+		impl TryFrom<$crate::alloc::vec::Vec<u8>> for Signature {
 			type Error = ();
 
-			fn try_from(data: $crate::Vec<u8>) -> Result<Self, Self::Error> {
+			fn try_from(data: $crate::alloc::vec::Vec<u8>) -> Result<Self, Self::Error> {
 				Self::try_from(&data[..])
 			}
 		}

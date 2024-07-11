@@ -33,7 +33,7 @@ use sp_runtime::{
 	transaction_validity::TransactionValidityError,
 	DispatchResult,
 };
-use sp_std::marker::PhantomData;
+use core::marker::PhantomData;
 
 const LOG_TARGET: &'static str = "runtime::storage_reclaim";
 
@@ -206,7 +206,7 @@ mod tests {
 	};
 	use frame_system::{BlockWeight, CheckWeight};
 	use sp_runtime::{AccountId32, BuildStorage};
-	use sp_std::marker::PhantomData;
+	use core::marker::PhantomData;
 	use sp_trie::proof_size_extension::ProofSizeExt;
 
 	type Test = cumulus_test_runtime::Runtime;

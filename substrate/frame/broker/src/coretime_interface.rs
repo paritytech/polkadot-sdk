@@ -23,7 +23,8 @@ use scale_info::TypeInfo;
 use sp_arithmetic::traits::AtLeast32BitUnsigned;
 use sp_core::RuntimeDebug;
 use sp_runtime::traits::BlockNumberProvider;
-use sp_std::{fmt::Debug, vec::Vec};
+use alloc::vec::Vec;
+use core::fmt::Debug;
 
 use crate::Timeslice;
 

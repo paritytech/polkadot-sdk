@@ -101,6 +101,9 @@ mod tests;
 mod types;
 pub mod weights;
 
+extern crate alloc;
+
+use alloc::{boxed::Box, vec::Vec};
 use crate::types::{AuthorityPropertiesOf, Suffix, Username};
 use codec::Encode;
 use frame_support::{
@@ -113,7 +116,6 @@ pub use pallet::*;
 use sp_runtime::traits::{
 	AppendZerosInput, Hash, IdentifyAccount, Saturating, StaticLookup, Verify, Zero,
 };
-use sp_std::prelude::*;
 pub use types::{
 	Data, IdentityInformationProvider, Judgement, RegistrarIndex, RegistrarInfo, Registration,
 };

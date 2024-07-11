@@ -18,7 +18,7 @@
 //! Operation on unhashed runtime storage.
 
 use codec::{Decode, Encode};
-use sp_std::prelude::*;
+use alloc::vec::Vec;
 
 /// Return the value of the item in storage under `key`, or `None` if there is no explicit entry.
 pub fn get<T: Decode + Sized>(key: &[u8]) -> Option<T> {

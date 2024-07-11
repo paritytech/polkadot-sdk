@@ -19,6 +19,7 @@
 
 use super::*;
 use frame_support::{storage_alias, traits::OnRuntimeUpgrade};
+use alloc::vec::Vec;
 
 #[cfg(feature = "try-runtime")]
 use frame_support::ensure;

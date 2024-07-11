@@ -28,7 +28,7 @@ pub mod test {
 	use crate::Twox128;
 	use frame_support::traits::{ConstU32, Get};
 	use sp_io::TestExternalities;
-	use sp_std::collections::btree_set::BTreeSet;
+	use alloc::collections::btree_set::BTreeSet;
 
 	#[crate::storage_alias]
 	type Foo = StorageValue<Prefix, BoundedBTreeSet<u32, ConstU32<7>>>;

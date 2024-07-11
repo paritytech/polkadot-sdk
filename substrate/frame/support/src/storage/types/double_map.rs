@@ -30,7 +30,7 @@ use codec::{Decode, Encode, EncodeLike, FullCodec, MaxEncodedLen};
 use frame_support::storage::StorageDecodeNonDedupLength;
 use sp_arithmetic::traits::SaturatedConversion;
 use sp_metadata_ir::{StorageEntryMetadataIR, StorageEntryTypeIR};
-use sp_std::prelude::*;
+use alloc::{vec, vec::Vec};
 
 /// A type representing a *double map* in storage. This structure associates a pair of keys with a
 /// value of a specified type stored on-chain.

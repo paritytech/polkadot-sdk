@@ -20,11 +20,11 @@ use frame_support::traits::{Get, GetStorageVersion, UncheckedOnRuntimeUpgrade};
 #[cfg(feature = "try-runtime")]
 use frame_support::ensure;
 #[cfg(feature = "try-runtime")]
-use sp_std::vec::Vec;
+use alloc::vec::Vec;
 
 pub mod v1 {
 	use super::*;
-	pub struct VersionUncheckedMigrateToV1<T>(sp_std::marker::PhantomData<T>);
+	pub struct VersionUncheckedMigrateToV1<T>(core::marker::PhantomData<T>);
 	impl<T: Config> UncheckedOnRuntimeUpgrade for VersionUncheckedMigrateToV1<T> {
 		#[cfg(feature = "try-runtime")]
 		fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::TryRuntimeError> {

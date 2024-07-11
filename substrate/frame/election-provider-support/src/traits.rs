@@ -22,7 +22,8 @@ use codec::Encode;
 use scale_info::TypeInfo;
 use sp_arithmetic::traits::{Bounded, UniqueSaturatedInto};
 use sp_npos_elections::{ElectionScore, Error, EvaluateSupport};
-use sp_std::{fmt::Debug, prelude::*};
+use core::fmt::Debug;
+use alloc::vec::Vec;
 
 /// An opaque index-based, NPoS solution type.
 pub trait NposSolution

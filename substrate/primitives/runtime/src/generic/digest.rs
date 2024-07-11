@@ -20,9 +20,8 @@
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 #[cfg(all(not(feature = "std"), feature = "serde"))]
-use sp_std::alloc::format;
-
-use sp_std::prelude::*;
+use alloc::format;
+use alloc::vec::Vec;
 
 use crate::{
 	codec::{Decode, Encode, Error, Input},

@@ -22,7 +22,7 @@ use frame_support::{
 };
 use pallet_fast_unstake::{Pallet as FastUnstake, *};
 use pallet_staking::*;
-use sp_std::{collections::btree_set::BTreeSet, prelude::*};
+use alloc::collections::btree_set::BTreeSet;
 
 /// register all inactive nominators for fast-unstake, and progress until they have all been
 /// processed.

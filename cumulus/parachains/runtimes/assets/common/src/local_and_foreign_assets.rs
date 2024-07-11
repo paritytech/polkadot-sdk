@@ -19,7 +19,7 @@ use sp_runtime::{
 	Either,
 	Either::{Left, Right},
 };
-use sp_std::marker::PhantomData;
+use core::marker::PhantomData;
 use xcm::latest::Location;
 
 /// Converts a given [`Location`] to [`Either::Left`] when equal to `Target`, or

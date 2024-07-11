@@ -25,6 +25,7 @@ use frame_benchmarking::{account, benchmarks_instance_pallet, whitelisted_caller
 use frame_system::RawOrigin;
 
 use sp_runtime::traits::Bounded;
+use alloc::vec;
 
 use crate::Pallet as Society;
 

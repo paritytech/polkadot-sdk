@@ -87,6 +87,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![cfg_attr(feature = "runtime-benchmarks", recursion_limit = "1024")]
 
+extern crate alloc;
 mod address;
 mod benchmarking;
 mod exec;
@@ -138,7 +139,7 @@ use sp_runtime::{
 	traits::{Convert, Dispatchable, Saturating, StaticLookup, Zero},
 	DispatchError, RuntimeDebug,
 };
-use sp_std::{fmt::Debug, prelude::*};
+use core::fmt::Debug;
 
 pub use crate::{
 	address::{AddressGenerator, DefaultAddressGenerator},

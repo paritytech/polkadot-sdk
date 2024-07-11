@@ -26,6 +26,7 @@ use frame_benchmarking::v1::{
 };
 use frame_system::{pallet_prelude::BlockNumberFor, RawOrigin};
 use sp_runtime::traits::Bounded;
+use alloc::{vec, vec::Vec};
 
 use crate::Pallet as Bounties;
 use pallet_treasury::Pallet as Treasury;

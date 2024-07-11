@@ -29,7 +29,7 @@ use codec::{Decode, Encode, EncodeLike, FullCodec, MaxEncodedLen};
 use frame_support::storage::StorageDecodeNonDedupLength;
 use sp_arithmetic::traits::SaturatedConversion;
 use sp_metadata_ir::{StorageEntryMetadataIR, StorageEntryTypeIR};
-use sp_std::prelude::*;
+use alloc::{vec, vec::Vec};
 
 /// A type representing a *value* in storage. A *storage value* is a single value of a given type
 /// stored on-chain.

@@ -22,7 +22,7 @@ use frame_support::{
 	dispatch::{DispatchErrorWithPostInfo, WithPostDispatchInfo},
 	pallet_prelude::DispatchError,
 };
-use sp_std::boxed::Box;
+use alloc::boxed::Box;
 use xcm::prelude::*;
 pub use xcm_executor::traits::QueryHandler;
 

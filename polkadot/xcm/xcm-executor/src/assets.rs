@@ -15,11 +15,8 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use sp_runtime::{traits::Saturating, RuntimeDebug};
-use sp_std::{
-	collections::{btree_map::BTreeMap, btree_set::BTreeSet},
-	mem,
-	prelude::*,
-};
+use alloc::{collections::{btree_map::BTreeMap, btree_set::BTreeSet}, vec::Vec};
+use core::mem;
 use xcm::latest::{
 	Asset, AssetFilter, AssetId, AssetInstance, Assets,
 	Fungibility::{Fungible, NonFungible},
@@ -521,6 +518,8 @@ impl AssetsInHolding {
 mod tests {
 	use super::*;
 	use xcm::latest::prelude::*;
+	use alloc::vec;
+
 	#[allow(non_snake_case)]
 	/// Concrete fungible constructor
 	fn CF(amount: u128) -> Asset {

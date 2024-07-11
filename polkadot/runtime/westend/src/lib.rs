@@ -20,6 +20,8 @@
 // `#[frame_support::runtime]!` does a lot of recursion and requires us to increase the limit.
 #![recursion_limit = "512"]
 
+extern crate alloc;
+
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_election_provider_support::{bounds::ElectionBoundsBuilder, onchain, SequentialPhragmen};
 use frame_support::{
@@ -95,9 +97,9 @@ use sp_runtime::{
 	ApplyExtrinsicResult, FixedU128, KeyTypeId, Perbill, Percent, Permill,
 };
 use sp_staking::SessionIndex;
-use sp_std::{
+use alloc::{
 	collections::{btree_map::BTreeMap, vec_deque::VecDeque},
-	prelude::*,
+	vec, vec::Vec
 };
 #[cfg(any(feature = "std", test))]
 use sp_version::NativeVersion;
@@ -1802,7 +1804,7 @@ sp_api::impl_runtime_apis! {
 			Runtime::metadata_at_version(version)
 		}
 
-		fn metadata_versions() -> sp_std::vec::Vec<u32> {
+		fn metadata_versions() -> alloc::vec::Vec<u32> {
 			Runtime::metadata_versions()
 		}
 	}
@@ -2419,6 +2421,8 @@ sp_api::impl_runtime_apis! {
 			impl pallet_election_provider_support_benchmarking::Config for Runtime {}
 
 			use xcm_config::{AssetHub, TokenLocation};
+
+			use alloc::boxed::Box;
 
 			parameter_types! {
 				pub ExistentialDepositAsset: Option<Asset> = Some((

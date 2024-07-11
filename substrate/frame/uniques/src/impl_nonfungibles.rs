@@ -24,7 +24,7 @@ use frame_support::{
 	BoundedSlice,
 };
 use sp_runtime::{DispatchError, DispatchResult};
-use sp_std::prelude::*;
+use alloc::vec::Vec;
 
 impl<T: Config<I>, I: 'static> Inspect<<T as SystemConfig>::AccountId> for Pallet<T, I> {
 	type ItemId = T::ItemId;

@@ -22,10 +22,7 @@
 
 use codec::Encode;
 use pallet_transaction_payment::FungibleAdapter;
-use sp_std::{
-	collections::{btree_map::BTreeMap, vec_deque::VecDeque},
-	prelude::*,
-};
+use alloc::collections::{btree_map::BTreeMap, vec_deque::VecDeque};
 
 use polkadot_runtime_parachains::{
 	assigner_parachains as parachains_assigner_parachains,
@@ -793,7 +790,7 @@ sp_api::impl_runtime_apis! {
 			Runtime::metadata_at_version(version)
 		}
 
-		fn metadata_versions() -> sp_std::vec::Vec<u32> {
+		fn metadata_versions() -> alloc::vec::Vec<u32> {
 			Runtime::metadata_versions()
 		}
 	}

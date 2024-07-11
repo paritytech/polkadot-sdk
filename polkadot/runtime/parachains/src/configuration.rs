@@ -31,7 +31,7 @@ use polkadot_primitives::{
 	MAX_POV_SIZE, ON_DEMAND_MAX_QUEUE_MAX_SIZE,
 };
 use sp_runtime::{traits::Zero, Perbill, Percent};
-use sp_std::prelude::*;
+use alloc::vec::Vec;
 
 #[cfg(test)]
 mod tests;
@@ -345,7 +345,7 @@ pub enum InconsistentError<BlockNumber> {
 
 impl<BlockNumber> HostConfiguration<BlockNumber>
 where
-	BlockNumber: Zero + PartialOrd + sp_std::fmt::Debug + Clone + From<u32>,
+	BlockNumber: Zero + PartialOrd + core::fmt::Debug + Clone + From<u32>,
 {
 	/// Checks that this instance is consistent with the requirements on each individual member.
 	///
@@ -1469,7 +1469,7 @@ impl<T: Config> Pallet<T> {
 
 /// The implementation of `Get<(u32, u32)>` which reads `ActiveConfig` and returns `P` percent of
 /// `hrmp_channel_max_message_size` / `hrmp_channel_max_capacity`.
-pub struct ActiveConfigHrmpChannelSizeAndCapacityRatio<T, P>(sp_std::marker::PhantomData<(T, P)>);
+pub struct ActiveConfigHrmpChannelSizeAndCapacityRatio<T, P>(core::marker::PhantomData<(T, P)>);
 impl<T: crate::hrmp::pallet::Config, P: Get<Percent>> Get<(u32, u32)>
 	for ActiveConfigHrmpChannelSizeAndCapacityRatio<T, P>
 {

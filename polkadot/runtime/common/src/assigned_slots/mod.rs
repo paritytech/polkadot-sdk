@@ -41,7 +41,7 @@ use polkadot_runtime_parachains::{
 };
 use scale_info::TypeInfo;
 use sp_runtime::traits::{One, Saturating, Zero};
-use sp_std::prelude::*;
+use alloc::vec::Vec;
 
 const LOG_TARGET: &str = "runtime::assigned_slots";
 

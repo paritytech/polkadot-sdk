@@ -39,7 +39,7 @@ use sp_runtime::{
 	offchain::storage::{MutateStorageError, StorageValueRef},
 	DispatchError, SaturatedConversion,
 };
-use sp_std::prelude::*;
+use alloc::{boxed::Box, vec::Vec};
 
 /// Storage key used to store the last block number at which offchain worker ran.
 pub(crate) const OFFCHAIN_LAST_BLOCK: &[u8] = b"parity/multi-phase-unsigned-election";
@@ -396,14 +396,14 @@ impl<T: Config> Pallet<T> {
 /// Configurations for a miner that comes with this pallet.
 pub trait MinerConfig {
 	/// The account id type.
-	type AccountId: Ord + Clone + codec::Codec + sp_std::fmt::Debug;
+	type AccountId: Ord + Clone + codec::Codec + core::fmt::Debug;
 	/// The solution that the miner is mining.
 	type Solution: codec::Codec
 		+ Default
 		+ PartialEq
 		+ Eq
 		+ Clone
-		+ sp_std::fmt::Debug
+		+ core::fmt::Debug
 		+ Ord
 		+ NposSolution
 		+ TypeInfo;
@@ -428,7 +428,7 @@ pub trait MinerConfig {
 }
 
 /// A base miner, suitable to be used for both signed and unsigned submissions.
-pub struct Miner<T: MinerConfig>(sp_std::marker::PhantomData<T>);
+pub struct Miner<T: MinerConfig>(core::marker::PhantomData<T>);
 impl<T: MinerConfig> Miner<T> {
 	/// Same as [`Pallet::mine_solution`], but the input snapshot data must be given.
 	pub fn mine_solution_with_snapshot<S>(
@@ -505,7 +505,7 @@ impl<T: MinerConfig> Miner<T> {
 							stake
 						})
 						.unwrap_or_default();
-					sp_std::cmp::Reverse(stake)
+					core::cmp::Reverse(stake)
 				},
 			);
 
@@ -1026,6 +1026,7 @@ mod tests {
 		traits::{Dispatchable, ValidateUnsigned, Zero},
 		ModuleError, PerU16,
 	};
+	use alloc::vec;
 
 	type Assignment = crate::unsigned::Assignment<Runtime>;
 

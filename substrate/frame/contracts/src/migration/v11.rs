@@ -27,7 +27,9 @@ use codec::{Decode, Encode};
 use frame_support::{pallet_prelude::*, storage_alias, weights::WeightMeter, DefaultNoBound};
 #[cfg(feature = "try-runtime")]
 use sp_runtime::TryRuntimeError;
-use sp_std::{marker::PhantomData, prelude::*};
+use core::marker::PhantomData;
+use alloc::vec::Vec;
+
 mod v10 {
 	use super::*;
 

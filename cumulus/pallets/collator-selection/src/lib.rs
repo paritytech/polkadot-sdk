@@ -81,6 +81,8 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
 use core::marker::PhantomData;
 use frame_support::traits::TypedGet;
 pub use pallet::*;
@@ -118,7 +120,7 @@ pub mod pallet {
 		RuntimeDebug,
 	};
 	use sp_staking::SessionIndex;
-	use sp_std::vec::Vec;
+	use alloc::vec::Vec;
 
 	/// The in-code storage version.
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(2);
@@ -244,7 +246,7 @@ pub mod pallet {
 			let duplicate_invulnerables = self
 				.invulnerables
 				.iter()
-				.collect::<sp_std::collections::btree_set::BTreeSet<_>>();
+				.collect::<alloc::collections::btree_set::BTreeSet<_>>();
 			assert!(
 				duplicate_invulnerables.len() == self.invulnerables.len(),
 				"duplicate invulnerables in genesis."

@@ -21,7 +21,7 @@ use frame_support::{
 	traits::{Currency, ReservableCurrency},
 };
 use polkadot_primitives::{HeadData, Id as ParaId, ValidationCode};
-use sp_std::vec::*;
+use alloc::vec::*;
 
 /// Parachain registration API.
 pub trait Registrar {

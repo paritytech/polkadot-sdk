@@ -18,7 +18,7 @@
 
 use polkadot_primitives::Id as ParaId;
 use sp_runtime::traits::BadOrigin;
-use sp_std::result;
+use core::result;
 
 pub use pallet::*;
 

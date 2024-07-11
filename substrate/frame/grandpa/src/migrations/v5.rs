@@ -24,7 +24,8 @@ use frame_support::{
 	weights::Weight,
 };
 use sp_consensus_grandpa::AuthorityList;
-use sp_std::{marker::PhantomData, vec::Vec};
+use alloc::vec::Vec;
+use core::marker::PhantomData;
 
 const GRANDPA_AUTHORITIES_KEY: &[u8] = b":grandpa_authorities";
 

@@ -37,7 +37,7 @@ use polkadot_primitives::{
 	ValidatorId, ValidatorIndex, ValidatorSignature,
 };
 use sp_runtime::traits::One;
-use sp_std::{collections::btree_map::BTreeMap, prelude::*};
+use alloc::{collections::btree_map::BTreeMap, vec, vec::Vec};
 
 /// Implementation for the `validators` function of the runtime API.
 pub fn validators<T: initializer::Config>() -> Vec<ValidatorId> {

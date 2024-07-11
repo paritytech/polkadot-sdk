@@ -22,7 +22,7 @@ use frame_support::{
 use pallet_message_queue::OnQueueChanged;
 use scale_info::TypeInfo;
 use snowbridge_core::ChannelId;
-use sp_std::{marker::PhantomData, prelude::*};
+use core::marker::PhantomData;
 use xcm::v4::{Junction, Location};
 
 /// The aggregate origin of an inbound message.

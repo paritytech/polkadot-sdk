@@ -19,6 +19,7 @@
 use crate::*;
 use cumulus_primitives_core::ListChannelInfos;
 use frame_support::{pallet_prelude::*, traits::UncheckedOnRuntimeUpgrade};
+use alloc::vec::Vec;
 
 /// Configs needed to run the V5 migration.
 pub trait V5Config: Config {

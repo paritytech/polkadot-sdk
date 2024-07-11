@@ -56,8 +56,8 @@ use frame_support::{
 };
 use sp_core::Get;
 use sp_runtime::{DispatchError, RuntimeDebug};
-use sp_std::prelude::*;
 use wasmi::{CompilationMode, InstancePre, Linker, Memory, MemoryType, StackLimits, Store};
+use alloc::vec::Vec;
 
 const BYTES_PER_PAGE: usize = 64 * 1024;
 

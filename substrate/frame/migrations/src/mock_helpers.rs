@@ -26,7 +26,7 @@ use frame_support::{
 };
 use sp_core::ConstU32;
 use sp_runtime::BoundedVec;
-use sp_std::{vec, vec::Vec};
+use alloc::{vec, vec::Vec};
 
 /// Opaque identifier of a migration.
 pub type MockedIdentifier = BoundedVec<u8, ConstU32<256>>;

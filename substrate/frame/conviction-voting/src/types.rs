@@ -26,7 +26,7 @@ use sp_runtime::{
 	traits::{Saturating, Zero},
 	RuntimeDebug,
 };
-use sp_std::{fmt::Debug, marker::PhantomData};
+use core::{fmt::Debug, marker::PhantomData};
 
 use super::*;
 use crate::{AccountVote, Conviction, Vote};

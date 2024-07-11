@@ -15,7 +15,7 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use frame_support::traits::ProcessMessageError;
-use sp_std::result::Result;
+use core::result::Result;
 use xcm::latest::{Instruction, Location, Weight, XcmHash};
 
 /// Properties of an XCM message and its imminent execution.

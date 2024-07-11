@@ -37,7 +37,8 @@ use sp_runtime::{
 	traits::{Saturating, Zero},
 	DispatchError, FixedPointNumber, FixedU128,
 };
-use sp_std::{fmt::Debug, marker::PhantomData, vec::Vec};
+use alloc::vec::Vec;
+use core::{fmt::Debug, marker::PhantomData};
 
 /// Deposit that uses the native fungible's balance type.
 pub type DepositOf<T> = Deposit<BalanceOf<T>>;

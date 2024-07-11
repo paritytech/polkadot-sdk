@@ -23,7 +23,7 @@ use frame_support::{
 	weights::Weight,
 };
 use sp_runtime::traits::{Bounded, Zero};
-use sp_std::{prelude::*, vec};
+use alloc::{vec, vec::Vec};
 use xcm::latest::{prelude::*, MAX_ITEMS_IN_ASSETS};
 use xcm_executor::traits::{ConvertLocation, FeeReason, TransactAsset};
 
@@ -37,7 +37,7 @@ benchmarks_instance_pallet! {
 			>::Balance
 			as
 			TryInto<u128>
-		>::Error: sp_std::fmt::Debug,
+		>::Error: core::fmt::Debug,
 	}
 
 	withdraw_asset {

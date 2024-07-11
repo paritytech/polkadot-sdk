@@ -22,7 +22,7 @@ use crate::{
 	RuntimeDebug,
 };
 use scale_info::TypeInfo;
-use sp_std::prelude::*;
+use alloc::{vec, vec::Vec};
 
 /// Priority for a transaction. Additive. Higher is better.
 pub type TransactionPriority = u64;

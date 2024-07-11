@@ -25,6 +25,7 @@ use frame_support::{
 	traits::{EnqueueMessage, StorageVersion, UncheckedOnRuntimeUpgrade},
 	weights::{constants::WEIGHT_REF_TIME_PER_MILLIS, Weight},
 };
+use alloc::vec::Vec;
 
 /// The in-code storage version.
 pub const STORAGE_VERSION: StorageVersion = StorageVersion::new(5);

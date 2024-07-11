@@ -41,7 +41,7 @@ use sp_runtime::{
 	Perbill,
 };
 use sp_staking::EraIndex;
-use sp_std::{vec, vec::Vec};
+use alloc::{vec, vec::Vec};
 // `frame_benchmarking::benchmarks!` macro needs this
 use pallet_nomination_pools::Call;
 

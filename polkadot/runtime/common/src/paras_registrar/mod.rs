@@ -34,7 +34,8 @@ use polkadot_runtime_parachains::{
 	paras::{self, ParaGenesisArgs, UpgradeStrategy},
 	Origin, ParaLifecycle,
 };
-use sp_std::{prelude::*, result};
+use core::result;
+use alloc::{vec, vec::Vec};
 
 use crate::traits::{OnSwap, Registrar};
 use codec::{Decode, Encode};
@@ -210,7 +211,7 @@ pub mod pallet {
 	#[pallet::genesis_config]
 	pub struct GenesisConfig<T: Config> {
 		#[serde(skip)]
-		pub _config: sp_std::marker::PhantomData<T>,
+		pub _config: core::marker::PhantomData<T>,
 		pub next_free_para_id: ParaId,
 	}
 
@@ -735,7 +736,7 @@ mod tests {
 		transaction_validity::TransactionPriority,
 		BuildStorage, Perbill,
 	};
-	use sp_std::collections::btree_map::BTreeMap;
+	use alloc::collections::btree_map::BTreeMap;
 
 	type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 	type Block = frame_system::mocking::MockBlockU32<Test>;

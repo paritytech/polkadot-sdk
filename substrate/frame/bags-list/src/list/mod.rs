@@ -34,12 +34,14 @@ use frame_support::{
 };
 use scale_info::TypeInfo;
 use sp_runtime::traits::{Bounded, Zero};
-use sp_std::{
+use alloc::{
 	boxed::Box,
 	collections::{btree_map::BTreeMap, btree_set::BTreeSet},
+	vec::Vec,
+};
+use core::{
 	iter,
 	marker::PhantomData,
-	prelude::*,
 };
 
 #[cfg(any(test, feature = "try-runtime", feature = "fuzz"))]
@@ -274,7 +276,7 @@ impl<T: Config<I>, I: 'static> List<T, I> {
 
 		let start_node = Node::<T, I>::get(start).ok_or(ListError::NodeNotFound)?;
 		let start_node_upper = start_node.bag_upper;
-		let start_bag = sp_std::iter::successors(start_node.next(), |prev| prev.next());
+		let start_bag = core::iter::successors(start_node.next(), |prev| prev.next());
 
 		let thresholds = T::BagThresholds::get();
 		let idx = thresholds.partition_point(|&threshold| start_node_upper > threshold);
@@ -341,7 +343,7 @@ impl<T: Config<I>, I: 'static> List<T, I> {
 		if !Self::contains(id) {
 			return Err(ListError::NodeNotFound)
 		}
-		let _ = Self::remove_many(sp_std::iter::once(id));
+		let _ = Self::remove_many(core::iter::once(id));
 		Ok(())
 	}
 
@@ -591,7 +593,7 @@ impl<T: Config<I>, I: 'static> List<T, I> {
 			Box::new(iter)
 		} else {
 			// otherwise, insert it here.
-			Box::new(iter.chain(sp_std::iter::once(T::Score::max_value())))
+			Box::new(iter.chain(core::iter::once(T::Score::max_value())))
 		};
 
 		iter.filter_map(|t| {
@@ -673,7 +675,7 @@ impl<T: Config<I>, I: 'static> Bag<T, I> {
 
 	/// Iterate over the nodes in this bag.
 	pub(crate) fn iter(&self) -> impl Iterator<Item = Node<T, I>> {
-		sp_std::iter::successors(self.head(), |prev| prev.next())
+		core::iter::successors(self.head(), |prev| prev.next())
 	}
 
 	/// Insert a new id into this bag.
@@ -804,7 +806,7 @@ impl<T: Config<I>, I: 'static> Bag<T, I> {
 	#[cfg(feature = "std")]
 	#[allow(dead_code)]
 	pub fn std_iter(&self) -> impl Iterator<Item = Node<T, I>> {
-		sp_std::iter::successors(self.head(), |prev| prev.next())
+		core::iter::successors(self.head(), |prev| prev.next())
 	}
 }
 

@@ -21,7 +21,7 @@
 use polkadot_sdk::*;
 
 use codec::Codec;
-use sp_std::vec::Vec;
+use alloc::vec::Vec;
 
 sp_api::decl_runtime_apis! {
 	pub trait AssetsApi<AccountId, AssetBalance, AssetId>

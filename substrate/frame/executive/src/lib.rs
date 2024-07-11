@@ -174,7 +174,7 @@ use sp_runtime::{
 	transaction_validity::{TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult, ExtrinsicInclusionMode,
 };
-use sp_std::{marker::PhantomData, prelude::*};
+use core::marker::PhantomData;
 
 #[cfg(feature = "try-runtime")]
 use ::{

@@ -34,11 +34,8 @@ pub use frame_support::{
 	sp_runtime::{traits::Dispatchable, DispatchError, DispatchErrorWithPostInfo},
 	traits::{Contains, Get, IsInVec},
 };
-pub use sp_std::{
-	cell::{Cell, RefCell},
-	collections::{btree_map::BTreeMap, btree_set::BTreeSet},
-	fmt::Debug,
-};
+pub use alloc::collections::{btree_map::BTreeMap, btree_set::BTreeSet};
+pub use core::{cell::{Cell, RefCell}, fmt::Debug};
 pub use xcm::latest::{prelude::*, QueryId, Weight};
 use xcm_executor::traits::{Properties, QueryHandler, QueryResponseStatus};
 pub use xcm_executor::{

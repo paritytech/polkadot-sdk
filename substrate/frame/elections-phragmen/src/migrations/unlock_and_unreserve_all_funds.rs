@@ -28,7 +28,7 @@ use frame_support::{
 };
 use sp_core::Get;
 use sp_runtime::traits::Zero;
-use sp_std::{collections::btree_map::BTreeMap, vec::Vec};
+use alloc::{collections::btree_map::BTreeMap, vec::Vec};
 
 const LOG_TARGET: &str = "elections_phragmen::migrations::unlock_and_unreserve_all_funds";
 
@@ -93,7 +93,7 @@ type Voting<T: UnlockConfig> = StorageMap<
 /// The pallet should be made inoperable before this migration is run.
 ///
 /// (See also [`RemovePallet`][frame_support::migrations::RemovePallet])
-pub struct UnlockAndUnreserveAllFunds<T: UnlockConfig>(sp_std::marker::PhantomData<T>);
+pub struct UnlockAndUnreserveAllFunds<T: UnlockConfig>(core::marker::PhantomData<T>);
 
 impl<T: UnlockConfig> UnlockAndUnreserveAllFunds<T> {
 	/// Calculates and returns the total amounts deposited and staked by each account in the context
@@ -188,7 +188,7 @@ where
 	#[cfg(feature = "try-runtime")]
 	fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::TryRuntimeError> {
 		use codec::Encode;
-		use sp_std::collections::btree_set::BTreeSet;
+		use alloc::collections::btree_set::BTreeSet;
 
 		// Get staked and deposited balances as reported by this pallet.
 		let (account_deposited_sums, account_staked_sums, _) =

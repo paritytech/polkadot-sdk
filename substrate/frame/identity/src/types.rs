@@ -29,7 +29,8 @@ use sp_runtime::{
 	traits::{Member, Zero},
 	RuntimeDebug,
 };
-use sp_std::{fmt::Debug, iter::once, ops::Add, prelude::*};
+use core::{fmt::Debug, iter::once, ops::Add};
+use alloc::{vec, vec::Vec};
 
 /// An identifier for a single name registrar/identity verification service.
 pub type RegistrarIndex = u32;
@@ -65,7 +66,7 @@ impl Data {
 }
 
 impl Decode for Data {
-	fn decode<I: codec::Input>(input: &mut I) -> sp_std::result::Result<Self, codec::Error> {
+	fn decode<I: codec::Input>(input: &mut I) -> core::result::Result<Self, codec::Error> {
 		let b = input.read_byte()?;
 		Ok(match b {
 			0 => Data::None,
@@ -295,7 +296,7 @@ impl<
 		IdentityInfo: IdentityInformationProvider,
 	> Decode for Registration<Balance, MaxJudgements, IdentityInfo>
 {
-	fn decode<I: codec::Input>(input: &mut I) -> sp_std::result::Result<Self, codec::Error> {
+	fn decode<I: codec::Input>(input: &mut I) -> core::result::Result<Self, codec::Error> {
 		let (judgements, deposit, info) = Decode::decode(&mut AppendZerosInput::new(input))?;
 		Ok(Self { judgements, deposit, info })
 	}

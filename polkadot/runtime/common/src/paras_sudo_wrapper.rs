@@ -26,7 +26,7 @@ use polkadot_runtime_parachains::{
 	paras::{self, AssignCoretime, ParaGenesisArgs},
 	ParaLifecycle,
 };
-use sp_std::boxed::Box;
+use alloc::boxed::Box;
 
 #[frame_support::pallet]
 pub mod pallet {

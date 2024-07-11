@@ -19,11 +19,9 @@
 use crate::configuration::{Config, Pallet};
 use frame_support::pallet_prelude::*;
 use frame_system::pallet_prelude::BlockNumberFor;
-use sp_std::vec::Vec;
+use alloc::vec::Vec;
 
 use polkadot_primitives::{AsyncBackingParams, Balance, ExecutorParams, SessionIndex};
-#[cfg(feature = "try-runtime")]
-use sp_std::prelude::*;
 
 #[derive(codec::Encode, codec::Decode, Debug, Clone)]
 pub struct V6HostConfiguration<BlockNumber> {

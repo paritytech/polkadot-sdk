@@ -19,7 +19,7 @@
 use codec::{Decode, FullCodec, MaxEncodedLen};
 use frame_support::traits::{ProcessMessage, ProcessMessageError};
 use scale_info::TypeInfo;
-use sp_std::{fmt::Debug, marker::PhantomData};
+use core::{fmt::Debug, marker::PhantomData};
 use sp_weights::{Weight, WeightMeter};
 use xcm::prelude::*;
 
@@ -125,6 +125,7 @@ mod tests {
 	};
 	use polkadot_test_runtime::*;
 	use xcm::{v3, v4, VersionedXcm};
+	use alloc::vec;
 
 	const ORIGIN: Junction = Junction::OnlyChild;
 	/// The processor to use for tests.

@@ -28,7 +28,8 @@ use pallet_broker::{CoreAssignment, CoreIndex as BrokerCoreIndex};
 use polkadot_primitives::{Balance, BlockNumber, CoreIndex, Id as ParaId};
 use sp_arithmetic::traits::SaturatedConversion;
 use sp_runtime::traits::TryConvert;
-use sp_std::{prelude::*, result};
+use core::result;
+use alloc::{vec, vec::Vec};
 use xcm::{
 	prelude::{send_xcm, Instruction, Junction, Location, OriginKind, SendXcm, WeightLimit, Xcm},
 	v4::{

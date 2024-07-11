@@ -26,6 +26,7 @@ use frame_election_provider_support::ScoreProvider;
 use frame_support::{assert_ok, traits::Get};
 use frame_system::RawOrigin as SystemOrigin;
 use sp_runtime::traits::One;
+use alloc::{vec, vec::Vec};
 
 benchmarks_instance_pallet! {
 	rebag_non_terminal {

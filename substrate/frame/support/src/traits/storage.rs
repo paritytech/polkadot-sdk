@@ -27,7 +27,7 @@ use sp_runtime::{
 	traits::{Convert, Member, Saturating},
 	DispatchError, RuntimeDebug,
 };
-use sp_std::{collections::btree_set::BTreeSet, prelude::*};
+use alloc::{collections::btree_set::BTreeSet, vec, vec::Vec};
 
 /// An instance of a pallet in the storage.
 ///

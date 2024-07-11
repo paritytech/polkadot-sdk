@@ -29,7 +29,7 @@ use scale_info::TypeInfo;
 use sp_arithmetic::traits::Zero;
 use sp_core::{Get, TypedGet};
 use sp_runtime::{DispatchError, DispatchResult};
-use sp_std::collections::btree_map::BTreeMap;
+use alloc::collections::btree_map::BTreeMap;
 
 parameter_types! {
 	static TestAssetOf: BTreeMap<(u32, Vec<u8>), Vec<u8>> = Default::default();

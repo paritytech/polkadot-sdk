@@ -28,7 +28,7 @@ use sp_runtime::{
 	traits::SignedExtension,
 	DispatchError, RuntimeDebug,
 };
-use sp_std::fmt;
+use core::fmt;
 use sp_weights::Weight;
 
 /// The return type of a `Dispatchable` in frame. When returned explicitly from
@@ -220,14 +220,14 @@ pub trait OneOrMany<T> {
 }
 
 impl OneOrMany<DispatchClass> for DispatchClass {
-	type Iter = sp_std::iter::Once<DispatchClass>;
+	type Iter = core::iter::Once<DispatchClass>;
 	fn into_iter(self) -> Self::Iter {
-		sp_std::iter::once(self)
+		core::iter::once(self)
 	}
 }
 
 impl<'a> OneOrMany<DispatchClass> for &'a [DispatchClass] {
-	type Iter = sp_std::iter::Cloned<sp_std::slice::Iter<'a, DispatchClass>>;
+	type Iter = core::iter::Cloned<core::slice::Iter<'a, DispatchClass>>;
 	fn into_iter(self) -> Self::Iter {
 		self.iter().cloned()
 	}

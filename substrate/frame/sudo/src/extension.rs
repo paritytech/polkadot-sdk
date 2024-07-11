@@ -26,7 +26,7 @@ use sp_runtime::{
 		UnknownTransaction, ValidTransaction,
 	},
 };
-use sp_std::{fmt, marker::PhantomData};
+use core::{fmt, marker::PhantomData};
 
 /// Ensure that signed transactions are only valid if they are signed by sudo account.
 ///

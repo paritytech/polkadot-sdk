@@ -28,7 +28,7 @@ use polkadot_primitives::{
 	ApprovalVotingParams, AsyncBackingParams, ExecutorParams, NodeFeatures, SessionIndex,
 	LEGACY_MIN_BACKING_VOTES, ON_DEMAND_DEFAULT_QUEUE_MAX_SIZE,
 };
-use sp_std::vec::Vec;
+use alloc::vec::Vec;
 
 use polkadot_core_primitives::Balance;
 use sp_arithmetic::Perbill;
@@ -177,7 +177,7 @@ pub type MigrateToV11<T> = VersionedMigration<
 	<T as frame_system::Config>::DbWeight,
 >;
 
-pub struct UncheckedMigrateToV11<T>(sp_std::marker::PhantomData<T>);
+pub struct UncheckedMigrateToV11<T>(core::marker::PhantomData<T>);
 impl<T: Config> UncheckedOnRuntimeUpgrade for UncheckedMigrateToV11<T> {
 	#[cfg(feature = "try-runtime")]
 	fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::TryRuntimeError> {

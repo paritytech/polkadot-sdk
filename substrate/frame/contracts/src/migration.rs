@@ -75,10 +75,9 @@ use frame_support::{
 	weights::WeightMeter,
 };
 use sp_runtime::Saturating;
-use sp_std::marker::PhantomData;
+use core::marker::PhantomData;
 
 #[cfg(feature = "try-runtime")]
-use sp_std::prelude::*;
 
 #[cfg(feature = "try-runtime")]
 use sp_runtime::TryRuntimeError;

@@ -62,7 +62,7 @@ use sp_runtime::{
 	traits::{Extrinsic as ExtrinsicT, IdentifyAccount, One},
 	RuntimeDebug,
 };
-use sp_std::{collections::btree_set::BTreeSet, prelude::*};
+use alloc::{boxed::Box, collections::btree_set::BTreeSet, vec::Vec};
 
 /// Marker struct used to flag using all supported keys to sign a payload.
 pub struct ForAll {}
@@ -76,7 +76,7 @@ pub struct ForAny {}
 /// utility function can be used. However, this struct is used by `Signer`
 /// to submit a signed transactions providing the signature along with the call.
 pub struct SubmitTransaction<T: SendTransactionTypes<OverarchingCall>, OverarchingCall> {
-	_phantom: sp_std::marker::PhantomData<(T, OverarchingCall)>,
+	_phantom: core::marker::PhantomData<(T, OverarchingCall)>,
 }
 
 impl<T, LocalCall> SubmitTransaction<T, LocalCall>
@@ -115,7 +115,7 @@ where
 #[derive(RuntimeDebug)]
 pub struct Signer<T: SigningTypes, C: AppCrypto<T::Public, T::Signature>, X = ForAny> {
 	accounts: Option<Vec<T::Public>>,
-	_phantom: sp_std::marker::PhantomData<(X, C)>,
+	_phantom: core::marker::PhantomData<(X, C)>,
 }
 
 impl<T: SigningTypes, C: AppCrypto<T::Public, T::Signature>, X> Default for Signer<T, C, X> {

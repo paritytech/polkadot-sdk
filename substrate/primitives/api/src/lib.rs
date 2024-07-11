@@ -70,6 +70,8 @@
 // Make doc tests happy
 extern crate self as sp_api;
 
+extern crate alloc;
+
 /// Private exports used by the macros.
 ///
 /// This is seen as internal API and can change at any point.
@@ -103,7 +105,8 @@ pub mod __private {
 		transaction_validity::TransactionValidity,
 		ExtrinsicInclusionMode, RuntimeString, TransactionOutcome,
 	};
-	pub use sp_std::{mem, slice, vec};
+	pub use core::{mem, slice};
+	pub use alloc::vec;
 	pub use sp_version::{create_apis_vec, ApiId, ApisVec, RuntimeVersion};
 
 	#[cfg(all(any(target_arch = "riscv32", target_arch = "riscv64"), substrate_runtime))]
@@ -833,7 +836,7 @@ decl_runtime_apis! {
 		/// Returns the supported metadata versions.
 		///
 		/// This can be used to call `metadata_at_version`.
-		fn metadata_versions() -> sp_std::vec::Vec<u32>;
+		fn metadata_versions() -> alloc::vec::Vec<u32>;
 	}
 }
 

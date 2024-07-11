@@ -24,7 +24,7 @@ use frame_support::{
 	Twox64Concat,
 };
 use sp_staking::offence::OnOffenceHandler;
-use sp_std::vec::Vec;
+use alloc::vec::Vec;
 
 #[cfg(feature = "try-runtime")]
 use frame_support::ensure;
@@ -49,7 +49,7 @@ pub mod v1 {
 
 	use super::*;
 
-	pub struct MigrateToV1<T>(sp_std::marker::PhantomData<T>);
+	pub struct MigrateToV1<T>(core::marker::PhantomData<T>);
 	impl<T: Config> OnRuntimeUpgrade for MigrateToV1<T> {
 		#[cfg(feature = "try-runtime")]
 		fn pre_upgrade() -> Result<Vec<u8>, TryRuntimeError> {

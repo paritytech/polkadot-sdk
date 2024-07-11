@@ -27,7 +27,8 @@ use crate::{
 use codec::{Decode, Encode, EncodeLike, FullCodec, FullEncode};
 use sp_core::storage::ChildInfo;
 use sp_runtime::generic::{Digest, DigestItem};
-use sp_std::{collections::btree_set::BTreeSet, marker::PhantomData, prelude::*};
+use alloc::{collections::btree_set::BTreeSet, vec::Vec};
+use core::marker::PhantomData;
 
 pub use self::{
 	stream_iter::StorageStreamIter,

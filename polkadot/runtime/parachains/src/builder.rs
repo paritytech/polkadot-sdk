@@ -39,9 +39,9 @@ use sp_runtime::{
 	traits::{Header as HeaderT, One, TrailingZeroInput, Zero},
 	RuntimeAppPublic,
 };
-use sp_std::{
+use alloc::{
 	collections::{btree_map::BTreeMap, btree_set::BTreeSet, vec_deque::VecDeque},
-	prelude::Vec,
+	vec::Vec,
 	vec,
 };
 
@@ -112,7 +112,7 @@ pub(crate) struct BenchBuilder<T: paras_inherent::Config> {
 	fill_claimqueue: bool,
 	/// Cores which should not be available when being populated with pending candidates.
 	unavailable_cores: Vec<u32>,
-	_phantom: sp_std::marker::PhantomData<T>,
+	_phantom: core::marker::PhantomData<T>,
 }
 
 /// Paras inherent `enter` benchmark scenario.
@@ -143,7 +143,7 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 			code_upgrade: None,
 			fill_claimqueue: true,
 			unavailable_cores: vec![],
-			_phantom: sp_std::marker::PhantomData::<T>,
+			_phantom: core::marker::PhantomData::<T>,
 		}
 	}
 

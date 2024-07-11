@@ -35,10 +35,8 @@ use pallet_balances::Error as BalancesError;
 use polkadot_primitives::{
 	BlockNumber, SessionIndex, ValidationCode, ON_DEMAND_MAX_QUEUE_MAX_SIZE,
 };
-use sp_std::{
-	cmp::{Ord, Ordering},
-	collections::btree_map::BTreeMap,
-};
+use core::cmp::{Ord, Ordering};
+use alloc::collections::btree_map::BTreeMap;
 
 fn schedule_blank_para(id: ParaId, parakind: ParaKind) {
 	let validation_code: ValidationCode = vec![1, 2, 3].into();

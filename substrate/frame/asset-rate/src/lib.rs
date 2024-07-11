@@ -59,6 +59,8 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
 use frame_support::traits::{
 	fungible::Inspect,
 	tokens::{ConversionFromAssetBalance, ConversionToAssetBalance},
@@ -67,7 +69,7 @@ use sp_runtime::{
 	traits::{CheckedDiv, Zero},
 	FixedPointNumber, FixedU128,
 };
-use sp_std::boxed::Box;
+use alloc::boxed::Box;
 
 pub use pallet::*;
 pub use weights::WeightInfo;

@@ -24,7 +24,7 @@ use frame_support::{
 	pallet_prelude::ValueQuery, traits::StorageVersion, weights::Weight, Twox64Concat,
 };
 use sp_runtime::RuntimeDebug;
-use sp_std::prelude::*;
+use alloc::vec::Vec;
 
 #[derive(Encode, Decode, Clone, Default, RuntimeDebug, PartialEq)]
 struct SeatHolder<AccountId, Balance> {

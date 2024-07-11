@@ -22,7 +22,7 @@ use frame_support::{
 	traits::Get,
 	weights::{constants::RocksDbWeight, Weight},
 };
-use sp_std::marker::PhantomData;
+use core::marker::PhantomData;
 
 // The weight info trait for `pallet_collator_selection`.
 pub trait WeightInfo {

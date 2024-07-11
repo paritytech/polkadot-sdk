@@ -19,7 +19,7 @@
 use crate::{configuration, inclusion, initializer, scheduler};
 use polkadot_primitives::{CommittedCandidateReceipt, CoreIndex, Id as ParaId};
 use sp_runtime::traits::One;
-use sp_std::{
+use alloc::{
 	collections::{btree_map::BTreeMap, vec_deque::VecDeque},
 	vec::Vec,
 };

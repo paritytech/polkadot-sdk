@@ -31,11 +31,12 @@ use sp_runtime::{
 	traits::{AccountIdConversion, BlakeTwo256, Hash as HashT, UniqueSaturatedInto, Zero},
 	ArithmeticError,
 };
-use sp_std::{
+use alloc::{
 	collections::{btree_map::BTreeMap, btree_set::BTreeSet},
-	fmt, mem,
-	prelude::*,
+	vec,
+	vec::Vec,
 };
+use core::{fmt, mem};
 
 pub use pallet::*;
 
@@ -487,7 +488,7 @@ pub mod pallet {
 	#[derive(DefaultNoBound)]
 	pub struct GenesisConfig<T: Config> {
 		#[serde(skip)]
-		_config: sp_std::marker::PhantomData<T>,
+		_config: core::marker::PhantomData<T>,
 		preopen_hrmp_channels: Vec<(ParaId, ParaId, u32, u32)>,
 	}
 

@@ -28,7 +28,6 @@ use polkadot_primitives::{
 	RuntimeMetricLabelValues, RuntimeMetricOp, RuntimeMetricUpdate,
 };
 
-use sp_std::prelude::*;
 
 /// Holds a set of counters that have different values for their labels,
 /// like Prometheus `CounterVec`.

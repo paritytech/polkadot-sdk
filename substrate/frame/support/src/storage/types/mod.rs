@@ -20,7 +20,7 @@
 
 use codec::FullCodec;
 use sp_metadata_ir::{StorageEntryMetadataIR, StorageEntryModifierIR};
-use sp_std::prelude::*;
+use alloc::vec::Vec;
 
 mod counted_map;
 mod counted_nmap;
@@ -93,7 +93,7 @@ where
 }
 
 /// Implements [`QueryKindTrait`] with `Query` type being `Result<Value, PalletError>`.
-pub struct ResultQuery<Error>(sp_std::marker::PhantomData<Error>);
+pub struct ResultQuery<Error>(core::marker::PhantomData<Error>);
 impl<Value, Error, OnEmpty> QueryKindTrait<Value, OnEmpty> for ResultQuery<Error>
 where
 	Value: FullCodec + 'static,

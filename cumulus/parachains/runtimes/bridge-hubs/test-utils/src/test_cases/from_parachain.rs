@@ -38,6 +38,7 @@ use sp_core::Get;
 use sp_keyring::AccountKeyring::*;
 use sp_runtime::{traits::Header as HeaderT, AccountId32};
 use xcm::latest::prelude::*;
+use alloc::{boxed::Box, vec};
 
 /// Helper trait to test bridges with remote parachain.
 ///
@@ -66,7 +67,7 @@ pub trait WithRemoteParachainHelper {
 
 /// Adapter struct that implements `WithRemoteParachainHelper`.
 pub struct WithRemoteParachainHelperAdapter<Runtime, AllPalletsWithoutSystem, GPI, PPI, MPI>(
-	sp_std::marker::PhantomData<(Runtime, AllPalletsWithoutSystem, GPI, PPI, MPI)>,
+	core::marker::PhantomData<(Runtime, AllPalletsWithoutSystem, GPI, PPI, MPI)>,
 );
 
 impl<Runtime, AllPalletsWithoutSystem, GPI, PPI, MPI> WithRemoteParachainHelper

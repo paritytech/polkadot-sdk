@@ -59,7 +59,7 @@ mod enter {
 	use frame_system::limits;
 	use polkadot_primitives::{vstaging::SchedulerParams, AvailabilityBitfield, UncheckedSigned};
 	use sp_runtime::Perbill;
-	use sp_std::collections::btree_map::BTreeMap;
+	use alloc::collections::btree_map::BTreeMap;
 
 	struct TestConfig {
 		dispute_statements: BTreeMap<u32, u32>,
@@ -1745,7 +1745,7 @@ mod sanitizers {
 			util::{make_persisted_validation_data, make_persisted_validation_data_with_parent},
 		};
 		use polkadot_primitives::ValidationCode;
-		use sp_std::collections::vec_deque::VecDeque;
+		use alloc::collections::vec_deque::VecDeque;
 
 		use super::*;
 

@@ -27,7 +27,7 @@ use frame_support::{
 	},
 };
 use sp_runtime::traits::{SaturatedConversion, Saturating, Zero};
-use sp_std::{marker::PhantomData, result::Result};
+use core::{marker::PhantomData, result::Result};
 use xcm::latest::{prelude::*, GetWeight, Weight};
 use xcm_executor::{
 	traits::{WeightBounds, WeightTrader},

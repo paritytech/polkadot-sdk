@@ -19,7 +19,7 @@
 use crate::{CandidateHash, SessionIndex, ValidatorId, ValidatorIndex};
 use codec::{Decode, Encode};
 use scale_info::TypeInfo;
-use sp_std::{collections::btree_map::BTreeMap, vec::Vec};
+use alloc::{collections::btree_map::BTreeMap, vec::Vec};
 
 /// The kind of the dispute offence.
 #[derive(PartialEq, Eq, Clone, Copy, Encode, Decode, TypeInfo, Debug)]

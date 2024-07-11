@@ -180,7 +180,7 @@ mod benchmarks {
 		traits::{Bounded, Hash, StaticLookup},
 		Saturating,
 	};
-	use sp_std::{boxed::Box, vec::Vec, *};
+	use alloc::{boxed::Box, vec, vec::Vec};
 
 	const SEED: u32 = 0;
 

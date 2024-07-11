@@ -75,7 +75,7 @@ mod v1 {
 	};
 	use frame_support::{traits::UncheckedOnRuntimeUpgrade, weights::Weight};
 	use sp_core::Get;
-	use sp_std::{collections::vec_deque::VecDeque, vec::Vec};
+	use alloc::{collections::vec_deque::VecDeque, vec::Vec};
 
 	#[cfg(feature = "try-runtime")]
 	use codec::{Decode, Encode};
@@ -85,7 +85,7 @@ mod v1 {
 		traits::{GetStorageVersion, StorageVersion},
 	};
 
-	pub struct VersionUncheckedMigrateToV1<T>(sp_std::marker::PhantomData<T>);
+	pub struct VersionUncheckedMigrateToV1<T>(core::marker::PhantomData<T>);
 
 	impl<T: Config> UncheckedOnRuntimeUpgrade for VersionUncheckedMigrateToV1<T> {
 		#[cfg(feature = "try-runtime")]

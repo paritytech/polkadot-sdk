@@ -19,6 +19,7 @@
 
 use crate::*;
 use frame_support::pallet_prelude::*;
+use alloc::vec::Vec;
 
 impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	/// Sets the metadata for a specific item within a collection.

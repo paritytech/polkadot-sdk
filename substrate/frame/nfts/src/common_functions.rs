@@ -19,6 +19,7 @@
 
 use crate::*;
 use frame_support::pallet_prelude::*;
+use alloc::vec::Vec;
 
 impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	/// Get the owner of the item, if the item exists.

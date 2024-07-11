@@ -26,6 +26,7 @@ use frame_support::{
 		Provenance::{self, Minted},
 	},
 };
+use alloc::vec::Vec;
 
 use super::*;
 

@@ -98,6 +98,8 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
 use codec::{Decode, Encode};
 use frame_support::{
 	traits::{
@@ -115,7 +117,8 @@ use sp_runtime::{
 	DispatchError, Perbill, RuntimeDebug,
 };
 use sp_staking::currency_to_vote::CurrencyToVote;
-use sp_std::{cmp::Ordering, prelude::*};
+use core::cmp::Ordering;
+use alloc::{vec, vec::Vec};
 
 #[cfg(any(feature = "try-runtime", test))]
 use sp_runtime::TryRuntimeError;

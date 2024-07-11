@@ -18,7 +18,7 @@
 
 use codec::{Decode, Encode};
 use frame_support::pallet_prelude::TypeInfo;
-use sp_std::vec::Vec;
+use alloc::vec::Vec;
 use sp_weights::Weight;
 use xcm::{Version, VersionedAssetId, VersionedAssets, VersionedLocation, VersionedXcm};
 

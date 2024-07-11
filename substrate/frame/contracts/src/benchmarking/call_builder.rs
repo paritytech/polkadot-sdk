@@ -27,7 +27,7 @@ use codec::{Encode, HasCompact};
 use core::fmt::Debug;
 use frame_benchmarking::benchmarking;
 use sp_core::Get;
-use sp_std::prelude::*;
+use alloc::{vec, vec::Vec};
 
 type StackExt<'a, T> = Stack<'a, T, WasmBlob<T>>;
 
