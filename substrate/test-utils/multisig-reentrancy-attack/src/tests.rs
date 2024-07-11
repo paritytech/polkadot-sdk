@@ -42,7 +42,6 @@ frame_support::construct_runtime!(
 impl frame_system::Config for Test {
 	type Block = Block;
 	type AccountData = pallet_balances::AccountData<u64>;
-	// This pallet wishes to overwrite this.
 	type BaseCallFilter = TestBaseCallFilter;
 }
 
