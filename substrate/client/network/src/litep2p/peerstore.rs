@@ -42,14 +42,20 @@ use std::{
 const LOG_TARGET: &str = "sub-libp2p::peerstore";
 
 /// We don't accept nodes whose reputation is under this value.
-pub const BANNED_THRESHOLD: i32 = 82 * (i32::MIN / 100);
+pub const BANNED_THRESHOLD: i32 = 71 * (i32::MIN / 100);
 
 /// Relative decrement of a reputation value that is applied every second. I.e., for inverse
-/// decrement of 50 we decrease absolute value of the reputation by 1/50. This corresponds to a
-/// factor of `k = 0.98`. It takes ~ `ln(0.5) / ln(k)` seconds to reduce the reputation by half,
-/// or 34.3 seconds for the values above. In this setup the maximum allowed absolute value of
-/// `i32::MAX` becomes 0 in ~1100 seconds (actually less due to integer arithmetic).
-const INVERSE_DECREMENT: i32 = 50;
+/// decrement of 200 we decrease absolute value of the reputation by 1/200.
+///
+/// This corresponds to a factor of `k = 0.995`, where k = 1 - 1 / INVERSE_DECREMENT.
+///
+/// It takes ~ `ln(0.5) / ln(k)` seconds to reduce the reputation by half, or 138.63 seconds for the
+/// values above.
+///
+/// In this setup:
+/// - `i32::MAX` becomes 0 in exactly 3544 seconds, or approximately 59 minutes
+/// - `i32::MIN` escapes the banned threshold in 69 seconds
+const INVERSE_DECREMENT: i32 = 200;
 
 /// Amount of time between the moment we last updated the [`PeerStore`] entry and the moment we
 /// remove it, once the reputation value reaches 0.
@@ -79,6 +85,11 @@ impl PeerInfo {
 		self.reputation < BANNED_THRESHOLD
 	}
 
+	fn add_reputation(&mut self, increment: i32) {
+		self.reputation = self.reputation.saturating_add(increment);
+		self.bump_last_updated();
+	}
+
 	fn decay_reputation(&mut self, seconds_passed: u64) {
 		// Note that decaying the reputation value happens "on its own",
 		// so we don't do `bump_last_updated()`.
@@ -96,6 +107,10 @@ impl PeerInfo {
 				break
 			}
 		}
+	}
+
+	fn bump_last_updated(&mut self) {
+		self.last_updated = Instant::now();
 	}
 }
 
@@ -163,7 +178,7 @@ impl PeerStoreProvider for PeerstoreHandle {
 
 		match lock.peers.get_mut(&peer) {
 			Some(info) => {
-				info.reputation = info.reputation.saturating_add(reputation_change.value);
+				info.add_reputation(reputation_change.value);
 			},
 			None => {
 				lock.peers.insert(
@@ -362,7 +377,7 @@ mod tests {
 	#[test]
 	fn decaying_max_reputation_finally_yields_zero() {
 		const INITIAL_REPUTATION: i32 = i32::MAX;
-		const SECONDS: u64 = 1000;
+		const SECONDS: u64 = 3544;
 
 		let mut peer_info = PeerInfo::default();
 		peer_info.reputation = INITIAL_REPUTATION;
@@ -377,7 +392,7 @@ mod tests {
 	#[test]
 	fn decaying_min_reputation_finally_yields_zero() {
 		const INITIAL_REPUTATION: i32 = i32::MIN;
-		const SECONDS: u64 = 1000;
+		const SECONDS: u64 = 3544;
 
 		let mut peer_info = PeerInfo::default();
 		peer_info.reputation = INITIAL_REPUTATION;

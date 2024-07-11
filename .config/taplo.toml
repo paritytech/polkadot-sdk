@@ -33,3 +33,10 @@ keys = ["build"]
 
 [rule.formatting]
 reorder_arrays = false
+
+[[rule]]
+include = ["Cargo.toml"]
+keys = ["workspace.dependencies"]
+
+[rule.formatting]
+reorder_keys = true
