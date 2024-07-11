@@ -19,7 +19,7 @@
 //! Mocked components for tests.
 
 use crate::{
-	peer_store::{PeerStoreProvider, PeerStoreStatus, ProtocolHandle},
+	peer_store::{PeerStoreProvider, ProtocolHandle},
 	ReputationChange,
 };
 
@@ -68,10 +68,6 @@ impl PeerStoreProvider for MockPeerStore {
 	}
 
 	fn add_known_peer(&self, _peer_id: PeerId) {
-		unimplemented!()
-	}
-
-	fn status(&self) -> PeerStoreStatus {
 		unimplemented!()
 	}
 }

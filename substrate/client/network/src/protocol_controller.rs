@@ -857,7 +857,7 @@ impl ProtocolController {
 mod tests {
 	use super::*;
 	use crate::{
-		peer_store::{PeerStoreProvider, PeerStoreStatus, ProtocolHandle as ProtocolHandleT},
+		peer_store::{PeerStoreProvider, ProtocolHandle as ProtocolHandleT},
 		ReputationChange,
 	};
 	use libp2p::PeerId;
@@ -879,7 +879,6 @@ mod tests {
 			fn peer_role(&self, peer_id: &sc_network_types::PeerId) -> Option<ObservedRole>;
 			fn outgoing_candidates(&self, count: usize, ignored: HashSet<sc_network_types::PeerId>) -> Vec<sc_network_types::PeerId>;
 			fn add_known_peer(&self, peer_id: sc_network_types::PeerId);
-			fn status(&self) -> PeerStoreStatus;
 		}
 	}
 
