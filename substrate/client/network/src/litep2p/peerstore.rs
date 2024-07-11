@@ -23,7 +23,7 @@
 
 use crate::{
 	peer_store::{PeerStoreProvider, PeerStoreStatus, ProtocolHandle},
-	service::traits::PeerStore,
+	service::{metrics::PeerSetMetrics, traits::PeerStore},
 	ObservedRole, ReputationChange,
 };
 
@@ -109,7 +109,7 @@ impl PeerInfo {
 pub struct PeerstoreHandleInner {
 	peers: HashMap<PeerId, PeerInfo>,
 	protocols: Vec<Arc<dyn ProtocolHandle>>,
-	num_banned_peers: usize,
+	metrics: Option<PeerSetMetrics>,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -150,7 +150,10 @@ impl PeerstoreHandle {
 			info.reputation != 0 || info.last_updated + FORGET_AFTER > now
 		});
 
-		lock.num_banned_peers = num_banned_peers;
+		if let Some(metrics) = &lock.metrics {
+			metrics.num_discovered.set(lock.peers.len() as u64);
+			metrics.num_banned_peers.set(num_banned_peers);
+		}
 	}
 }
 
@@ -246,10 +249,7 @@ impl PeerStoreProvider for PeerstoreHandle {
 
 	fn status(&self) -> PeerStoreStatus {
 		let inner = self.0.lock();
-		PeerStoreStatus {
-			num_known_peers: inner.peers.len(),
-			num_banned_peers: inner.num_banned_peers,
-		}
+		PeerStoreStatus { num_known_peers: inner.peers.len(), num_banned_peers: 0 }
 	}
 }
 
@@ -273,7 +273,7 @@ impl Peerstore {
 		let peerstore_inner = PeerstoreHandleInner {
 			peers: bootnodes.into_iter().map(|peer_id| (peer_id, PeerInfo::default())).collect(),
 			protocols: Vec::new(),
-			num_banned_peers: 0,
+			metrics: None,
 		};
 
 		let peerstore_handle = PeerstoreHandle(Arc::new(Mutex::new(peerstore_inner)));
