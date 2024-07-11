@@ -15,6 +15,19 @@ prompt() {
     done
 }
 
+prompt_default_yes() {
+    while true; do
+        echo "$1 [Y/n]"
+        read yn
+        case $yn in
+            [Yy]* ) return 0;;  # Yes, return 0 (true)
+            [Nn]* ) return 1;;  # No, return 1 (false)
+            "" ) return 0;;     # Default to yes if user just presses Enter
+            * ) echo "Please answer yes or no.";;
+        esac
+    done
+}
+
 cat <<EOF
 
  Welcome to the
@@ -38,11 +51,11 @@ if [ "$os_name" = "Darwin" ]; then
     if command -v brew >/dev/null 2>&1; then
         echo "\n✅︎🍺 Homebrew already installed."
     else
-        if prompt "\n🍺 Homebrew is not installed. Install it?"; then
+        if prompt_default_yes "\n🍺 Homebrew is not installed. Install it?"; then
             echo "🍺 Installing Homebrew."
             /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install.sh)"
         else
-            echo "Aborting."
+            echo "❌ Cannot continue without homebrew. Aborting."
             exit 1
         fi
     fi
@@ -50,9 +63,13 @@ if [ "$os_name" = "Darwin" ]; then
     brew update
     if command -v git >/dev/null 2>&1; then
         echo "\n✅︎🍺 git already installed."
-    else 
-        echo "\n🍺 We will need git to be installed, installing."
-        brew install git
+    else
+        if prompt_default_yes "\n🍺 git seems to be missing but we will need it; install git?"; then
+            brew install git
+        else
+            echo "❌ Cannot continue without git. Aborting."
+            exit 1
+        fi
     fi
 
     if prompt "\n🍺 Install cmake, openssl and protobuf?"; then
@@ -96,7 +113,7 @@ fi
 if command -v rustc >/dev/null 2>&1; then
     echo "\n✅︎🦀 Rust already installed."
 else
-    if prompt "\n🦀 Rust is not installed. Install it?"; then
+    if prompt_default_yes "\n🦀 Rust is not installed. Install it?"; then
         echo "🦀 Installing via rustup."
         curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
     else
@@ -106,7 +123,7 @@ else
 fi
 
 # Ensure that we have wasm support
-if prompt "\n🦀 Setup the Rust environment (e.g. WASM support)?"; then
+if prompt_default_yes "\n🦀 Setup the Rust environment (e.g. WASM support)?"; then
     echo "🦀 Setting up Rust environment."
     rustup default stable
     rustup update
@@ -122,5 +139,9 @@ else
 fi
 cd minimal-template
 
-echo "\n⚙️ And finally, let's compile and get the node up and running."
-cargo run --release -- --dev
+echo "\n⚙️ Let's compile the node."
+cargo build --release
+
+if prompt_default_yes "\n🚀 Everything ready to go, let's run the node?"; then
+    cargo run --release -- --dev
+fi
