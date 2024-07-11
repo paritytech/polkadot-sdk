@@ -348,4 +348,4 @@ zombienet-polkadot-coretime-revenue:
   # we want to use `--no-capture` in zombienet tests.
     - unset NEXTEST_FAILURE_OUTPUT
     - unset NEXTEST_SUCCESS_OUTPUT
-    - cargo nextest run --archive-file polkadot-zombienet-tests.tar.zst --no-capture -- smoke::coretime_revenue::coretime_revenue_test
+    - cargo nextest run --archive-file ./artifacts/polkadot-zombienet-tests.tar.zst --no-capture -- smoke::coretime_revenue::coretime_revenue_test
