@@ -100,8 +100,7 @@ impl MetricsRegistrant for Metrics {
 				Histogram::with_opts(histogram_opts!(
 					"substrate_sub_txpool_maintain_duration_seconds",
 					"Histogram of maintain durations.",
-					//todo: shall be 13:
-					linear_buckets(0.0, 0.025, 121).unwrap()
+					linear_buckets(0.0, 0.25, 13).unwrap()
 				))?,
 				registry,
 			)?,
@@ -144,8 +143,7 @@ impl MetricsRegistrant for Metrics {
 				Histogram::with_opts(histogram_opts!(
 					"substrate_sub_txpool_view_revalidation_duration_seconds",
 					"Histogram of view revalidation durations.",
-					//todo: shall be 13:
-					linear_buckets(0.0, 0.025, 121).unwrap()
+					linear_buckets(0.0, 0.25, 13).unwrap()
 				))?,
 				registry,
 			)?,
