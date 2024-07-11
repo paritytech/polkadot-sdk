@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1720636151621,
+  "lastUpdate": 1720711160422,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
@@ -13775,6 +13775,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 13.00779246036667,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Javier Bullrich",
+            "username": "Bullrich",
+            "email": "javier@bullrich.dev"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "6dd777ffe62cff936e04a76134ccf07de9dee429",
+          "message": "fixed cmd bot commenting not working (#5000)\n\nFixed the mentioned issue:\nhttps://github.com/paritytech/command-bot/issues/113#issuecomment-2222277552\n\nNow it will properly comment when the old bot gets triggered.",
+          "timestamp": "2024-07-11T13:02:14Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/6dd777ffe62cff936e04a76134ccf07de9dee429"
+        },
+        "date": 1720711130749,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 13.176581682400002,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.20053501526666667,
             "unit": "seconds"
           }
         ]
