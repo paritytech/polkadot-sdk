@@ -101,16 +101,16 @@ bridge-runtime-common = { workspace = true }
 bridge-hub-common = { workspace = true }
 
 # Ethereum Bridge (Snowbridge)
-snowbridge-beacon-primitives = { path = "../../../../../bridges/snowbridge/primitives/beacon", default-features = false }
-snowbridge-pallet-system = { path = "../../../../../bridges/snowbridge/pallets/system", default-features = false }
-snowbridge-system-runtime-api = { path = "../../../../../bridges/snowbridge/pallets/system/runtime-api", default-features = false }
-snowbridge-core = { path = "../../../../../bridges/snowbridge/primitives/core", default-features = false }
-snowbridge-pallet-ethereum-client = { path = "../../../../../bridges/snowbridge/pallets/ethereum-client", default-features = false }
-snowbridge-pallet-inbound-queue = { path = "../../../../../bridges/snowbridge/pallets/inbound-queue", default-features = false }
-snowbridge-pallet-outbound-queue = { path = "../../../../../bridges/snowbridge/pallets/outbound-queue", default-features = false }
-snowbridge-outbound-queue-runtime-api = { path = "../../../../../bridges/snowbridge/pallets/outbound-queue/runtime-api", default-features = false }
-snowbridge-router-primitives = { path = "../../../../../bridges/snowbridge/primitives/router", default-features = false }
-snowbridge-runtime-common = { path = "../../../../../bridges/snowbridge/runtime/runtime-common", default-features = false }
+snowbridge-beacon-primitives = { workspace = true }
+snowbridge-pallet-system = { workspace = true }
+snowbridge-system-runtime-api = { workspace = true }
+snowbridge-core = { workspace = true }
+snowbridge-pallet-ethereum-client = { workspace = true }
+snowbridge-pallet-inbound-queue = { workspace = true }
+snowbridge-pallet-outbound-queue = { workspace = true}
+snowbridge-outbound-queue-runtime-api = { workspace = true }
+snowbridge-router-primitives = { workspace = true }
+snowbridge-runtime-common = { workspace = true }
 
 
 [dev-dependencies]
@@ -179,6 +179,16 @@ std = [
 	"polkadot-runtime-common/std",
 	"scale-info/std",
 	"serde",
+	"snowbridge-beacon-primitives/std",
+	"snowbridge-core/std",
+	"snowbridge-outbound-queue-runtime-api/std",
+	"snowbridge-pallet-ethereum-client/std",
+	"snowbridge-pallet-inbound-queue/std",
+	"snowbridge-pallet-outbound-queue/std",
+	"snowbridge-pallet-system/std",
+	"snowbridge-router-primitives/std",
+	"snowbridge-runtime-common/std",
+	"snowbridge-system-runtime-api/std",
 	"sp-api/std",
 	"sp-block-builder/std",
 	"sp-consensus-aura/std",
@@ -234,40 +244,48 @@ runtime-benchmarks = [
 	"xcm-builder/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",
 	"xcm-runtime-apis/runtime-benchmarks",
+	"snowbridge-core/runtime-benchmarks",
+	"snowbridge-pallet-ethereum-client/runtime-benchmarks",
+	"snowbridge-pallet-inbound-queue/runtime-benchmarks",
+	"snowbridge-pallet-outbound-queue/runtime-benchmarks",
+	"snowbridge-pallet-system/runtime-benchmarks",
+	"snowbridge-router-primitives/runtime-benchmarks",
+	"snowbridge-runtime-common/runtime-benchmarks",
+	"snowbridge-runtime-test-common/runtime-benchmarks",
 ]
 
 try-runtime = [
-    "cumulus-pallet-aura-ext/try-runtime",
-    "cumulus-pallet-parachain-system/try-runtime",
-    "cumulus-pallet-xcm/try-runtime",
-    "cumulus-pallet-xcmp-queue/try-runtime",
-    "frame-executive/try-runtime",
-    "frame-support/try-runtime",
-    "frame-system/try-runtime",
-    "frame-try-runtime/try-runtime",
-    "pallet-aura/try-runtime",
-    "pallet-authorship/try-runtime",
-    "pallet-balances/try-runtime",
-    "pallet-bridge-grandpa/try-runtime",
-    "pallet-bridge-messages/try-runtime",
-    "pallet-bridge-parachains/try-runtime",
-    "pallet-bridge-relayers/try-runtime",
-    "pallet-collator-selection/try-runtime",
-    "pallet-message-queue/try-runtime",
-    "pallet-multisig/try-runtime",
-    "pallet-session/try-runtime",
-    "pallet-timestamp/try-runtime",
-    "pallet-transaction-payment/try-runtime",
-    "pallet-utility/try-runtime",
-    "pallet-xcm-bridge-hub/try-runtime",
-    "pallet-xcm/try-runtime",
-    "parachain-info/try-runtime",
-    "polkadot-runtime-common/try-runtime",
-    "snowbridge-pallet-ethereum-client/try-runtime",
-    "snowbridge-pallet-inbound-queue/try-runtime",
-    "snowbridge-pallet-outbound-queue/try-runtime",
-    "snowbridge-pallet-system/try-runtime",
-    "sp-runtime/try-runtime",
+	"cumulus-pallet-aura-ext/try-runtime",
+	"cumulus-pallet-parachain-system/try-runtime",
+	"cumulus-pallet-xcm/try-runtime",
+	"cumulus-pallet-xcmp-queue/try-runtime",
+	"frame-executive/try-runtime",
+	"frame-support/try-runtime",
+	"frame-system/try-runtime",
+	"frame-try-runtime/try-runtime",
+	"pallet-aura/try-runtime",
+	"pallet-authorship/try-runtime",
+	"pallet-balances/try-runtime",
+	"pallet-bridge-grandpa/try-runtime",
+	"pallet-bridge-messages/try-runtime",
+	"pallet-bridge-parachains/try-runtime",
+	"pallet-bridge-relayers/try-runtime",
+	"pallet-collator-selection/try-runtime",
+	"pallet-message-queue/try-runtime",
+	"pallet-multisig/try-runtime",
+	"pallet-session/try-runtime",
+	"pallet-timestamp/try-runtime",
+	"pallet-transaction-payment/try-runtime",
+	"pallet-utility/try-runtime",
+	"pallet-xcm-bridge-hub/try-runtime",
+	"pallet-xcm/try-runtime",
+	"parachain-info/try-runtime",
+	"polkadot-runtime-common/try-runtime",
+	"snowbridge-pallet-ethereum-client/try-runtime",
+	"snowbridge-pallet-inbound-queue/try-runtime",
+	"snowbridge-pallet-outbound-queue/try-runtime",
+	"snowbridge-pallet-system/try-runtime",
+	"sp-runtime/try-runtime",
 ]
 
 # A feature that should be enabled when the runtime should be built for on-chain
