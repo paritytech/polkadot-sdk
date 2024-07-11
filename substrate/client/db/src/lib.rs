@@ -3147,7 +3147,6 @@ pub(crate) mod tests {
 		// The situation looks like this:
 		// g -> <unimported> -> a3 -> a4
 		// Basically there is a gap of unimported blocks at some point in the chain.
-
 		let backend = Backend::<Block>::new_test(1000, 100);
 		let blockchain = backend.blockchain();
 		let genesis_number = 0;
@@ -3169,6 +3168,7 @@ pub(crate) mod tests {
 		{
 			let displaced =
 				blockchain.displaced_leaves_after_finalizing(a3_hash, a3_number).unwrap();
+			assert_eq!(blockchain.leaves().unwrap(), vec![a4_hash, genesis_hash]);
 			assert_eq!(displaced.displaced_leaves, vec![(genesis_number, genesis_hash)]);
 			assert_eq!(displaced.displaced_blocks, vec![]);
 		}
@@ -3176,12 +3176,13 @@ pub(crate) mod tests {
 		{
 			let displaced =
 				blockchain.displaced_leaves_after_finalizing(a4_hash, a4_number).unwrap();
+			assert_eq!(blockchain.leaves().unwrap(), vec![a4_hash, genesis_hash]);
 			assert_eq!(displaced.displaced_leaves, vec![(genesis_number, genesis_hash)]);
 			assert_eq!(displaced.displaced_blocks, vec![]);
 		}
 
 		// Import block a1 which has the genesis block as parent.
-		// g -> a1 -> <unimported> -> a3 -> a4
+		// g -> a1 -> <unimported> -> a3(f) -> a4
 		let a1_number = 1;
 		let a1_hash = insert_disconnected_header(
 			&backend,
@@ -3193,8 +3194,68 @@ pub(crate) mod tests {
 		{
 			let displaced =
 				blockchain.displaced_leaves_after_finalizing(a3_hash, a3_number).unwrap();
-			assert_eq!(displaced.displaced_leaves, vec![(a1_number, a1_hash)]);
+			assert_eq!(blockchain.leaves().unwrap(), vec![a4_hash, a1_hash]);
+			assert_eq!(displaced.displaced_leaves, vec![]);
 			assert_eq!(displaced.displaced_blocks, vec![]);
+		}
+
+		// Import block a1 which has the genesis block as parent.
+		// g -> a1 -> <unimported> -> a3(f) -> a4
+		//  \-> b1
+		let b1_number = 1;
+		let b1_hash = insert_disconnected_header(
+			&backend,
+			b1_number,
+			genesis_hash,
+			H256::from([124; 32]),
+			false,
+		);
+		{
+			let displaced =
+				blockchain.displaced_leaves_after_finalizing(a3_hash, a3_number).unwrap();
+			assert_eq!(blockchain.leaves().unwrap(), vec![a4_hash, a1_hash, b1_hash]);
+			assert_eq!(displaced.displaced_leaves, vec![]);
+			assert_eq!(displaced.displaced_blocks, vec![]);
+		}
+
+		// If branch of b blocks is higher in number than a branch, we
+		// should still not prune disconnected leafs.
+		// g -> a1 -> <unimported> -> a3(f) -> a4
+		//  \-> b1 -> b2 ----------> b3 ----> b4 -> b5
+		let b2_number = 2;
+		let b2_hash =
+			insert_disconnected_header(&backend, b2_number, b1_hash, H256::from([40; 32]), false);
+		let b3_number = 3;
+		let b3_hash =
+			insert_disconnected_header(&backend, b3_number, b2_hash, H256::from([41; 32]), false);
+		let b4_number = 4;
+		let b4_hash =
+			insert_disconnected_header(&backend, b4_number, b3_hash, H256::from([42; 32]), false);
+		let b5_number = 5;
+		let b5_hash =
+			insert_disconnected_header(&backend, b5_number, b4_hash, H256::from([43; 32]), false);
+		{
+			let displaced =
+				blockchain.displaced_leaves_after_finalizing(a3_hash, a3_number).unwrap();
+			assert_eq!(blockchain.leaves().unwrap(), vec![b5_hash, a4_hash, a1_hash]);
+			assert_eq!(displaced.displaced_leaves, vec![]);
+			assert_eq!(displaced.displaced_blocks, vec![]);
+		}
+
+		// Even though there is a disconnect, diplace should still detect
+		// branches above the block gap.
+		//                              /-> c4
+		// g -> a1 -> <unimported> -> a3 -> a4(f)
+		//  \-> b1 -> b2 ----------> b3 -> b4 -> b5
+		let c4_number = 4;
+		let c4_hash =
+			insert_disconnected_header(&backend, c4_number, a3_hash, H256::from([44; 32]), false);
+		{
+			let displaced =
+				blockchain.displaced_leaves_after_finalizing(a4_hash, a4_number).unwrap();
+			assert_eq!(blockchain.leaves().unwrap(), vec![b5_hash, a4_hash, c4_hash, a1_hash]);
+			assert_eq!(displaced.displaced_leaves, vec![(c4_number, c4_hash)]);
+			assert_eq!(displaced.displaced_blocks, vec![c4_hash]);
 		}
 	}
 	#[test]
