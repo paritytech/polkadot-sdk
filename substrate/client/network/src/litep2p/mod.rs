@@ -166,11 +166,6 @@ pub struct Litep2pNetworkBackend {
 	/// Discovery.
 	discovery: Discovery,
 
-	/// Number of connected peers over the block announce protocol.
-	///
-	/// This is used to update metrics and network status.
-	num_sync_connected: Arc<AtomicUsize>,
-
 	/// Number of uniquely connected peers.
 	///
 	/// This is used to instruct the discovery about the number of connected peers.
@@ -264,17 +259,6 @@ impl Litep2pNetworkBackend {
 		let local_peer_id = local_public.to_peer_id();
 
 		Ok((local_identity, local_peer_id))
-	}
-
-	/// Fetch the number of connected peers from the peerset handle and update
-	/// the atomic `num_connected` shared between the network backend.
-	fn fetch_sync_connected_peers(&self) -> usize {
-		let num_sync_connected = self
-			.peerset_handles
-			.get(&self.block_announce_protocol)
-			.map_or(0usize, |handle| handle.connected_peers.load(Ordering::Relaxed));
-		self.num_sync_connected.store(num_sync_connected, Ordering::Relaxed);
-		num_sync_connected
 	}
 
 	/// Configure transport protocols for `Litep2pNetworkBackend`.
@@ -473,6 +457,7 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 		// to the protocol's `Peerset` together with the protocol name to allow other subsystems
 		// of Polkadot SDK to control connectivity of the notification protocol
 		let block_announce_protocol = params.block_announce_config.protocol_name().clone();
+		let num_sync_connected = params.block_announce_config.handle.connected_peers.clone();
 		let mut notif_protocols = HashMap::from_iter([(
 			params.block_announce_config.protocol_name().clone(),
 			params.block_announce_config.handle,
@@ -620,7 +605,6 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 		let bandwidth: Arc<dyn BandwidthSink> =
 			Arc::new(Litep2pBandwidthSink { sink: litep2p.bandwidth_sink() });
 
-		let num_sync_connected = Arc::new(Default::default());
 		if let Some(registry) = &params.metrics_registry {
 			MetricSources::register(registry, bandwidth, Arc::clone(&num_sync_connected))?;
 		}
@@ -630,7 +614,6 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 			cmd_rx,
 			metrics,
 			peerset_handles: notif_protocols,
-			num_sync_connected,
 			num_uniquely_connected,
 			discovery,
 			pending_put_values: HashMap::new(),
@@ -708,7 +691,6 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 		log::debug!(target: LOG_TARGET, "starting litep2p network backend");
 
 		loop {
-			self.fetch_sync_connected_peers();
 			self.num_uniquely_connected.store(self.peers.len(), Ordering::Relaxed);
 
 			tokio::select! {
@@ -730,7 +712,10 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 							self.event_streams.push(tx);
 						}
 						NetworkServiceCommand::Status { tx } => {
-							let num_connected_peers = self.fetch_sync_connected_peers();
+							let num_connected_peers = self
+								.peerset_handles
+								.get(&self.block_announce_protocol)
+								.map_or(0usize, |handle| handle.connected_peers.load(Ordering::Relaxed));
 
 							let _ = tx.send(NetworkStatus {
 								num_connected_peers,
