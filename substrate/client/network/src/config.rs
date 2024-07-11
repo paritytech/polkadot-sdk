@@ -790,11 +790,14 @@ pub struct FullNetworkConfiguration<B: BlockT + 'static, H: ExHashT, N: NetworkB
 
 	/// Handle to [`PeerStore`](crate::peer_store::PeerStore).
 	peer_store_handle: Arc<dyn PeerStoreProvider>,
+
+	/// Registry for recording prometheus metrics to.
+	pub metrics_registry: Option<Registry>,
 }
 
 impl<B: BlockT + 'static, H: ExHashT, N: NetworkBackend<B, H>> FullNetworkConfiguration<B, H, N> {
 	/// Create new [`FullNetworkConfiguration`].
-	pub fn new(network_config: &NetworkConfiguration) -> Self {
+	pub fn new(network_config: &NetworkConfiguration, metrics_registry: Option<Registry>) -> Self {
 		let bootnodes = network_config.boot_nodes.iter().map(|bootnode| bootnode.peer_id).collect();
 		let peer_store = N::peer_store(bootnodes);
 		let peer_store_handle = peer_store.handle();
@@ -805,6 +808,7 @@ impl<B: BlockT + 'static, H: ExHashT, N: NetworkBackend<B, H>> FullNetworkConfig
 			notification_protocols: Vec::new(),
 			request_response_protocols: Vec::new(),
 			network_config: network_config.clone(),
+			metrics_registry,
 		}
 	}
 
