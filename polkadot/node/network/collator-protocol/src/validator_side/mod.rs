@@ -338,19 +338,14 @@ struct GroupAssignments {
 }
 
 struct PerRelayParent {
-	async_backing_params: AsyncBackingParams,
 	assignment: GroupAssignments,
 	collations: Collations,
 }
 
 impl PerRelayParent {
-	fn new(
-		async_backing_params: AsyncBackingParams,
-		assignments: GroupAssignments,
-		has_claim_queue: bool,
-	) -> Self {
+	fn new(assignments: GroupAssignments, has_claim_queue: bool) -> Self {
 		let collations = Collations::new(&assignments.current, has_claim_queue);
-		Self { async_backing_params, assignment: assignments, collations }
+		Self { assignment: assignments, collations }
 	}
 }
 
@@ -415,6 +410,9 @@ struct State {
 
 	/// Aggregated reputation change
 	reputation: ReputationAggregator,
+
+	/// Last known finalized block number
+	last_finalized_block_num: u32,
 }
 
 fn is_relay_parent_in_implicit_view(
@@ -1070,9 +1068,12 @@ where
 		)
 		.map_err(AdvertisementError::Invalid)?;
 
-	if per_relay_parent.collations.is_seconded_limit_reached(
-		per_relay_parent.async_backing_params.max_candidate_depth,
-		para_id,
+	if is_seconded_limit_reached(
+		&state.implicit_view,
+		&state.per_relay_parent,
+		relay_parent,
+		per_relay_parent,
+		&para_id,
 	) {
 		return Err(AdvertisementError::SecondedLimitReached)
 	}
@@ -1121,7 +1122,7 @@ where
 }
 
 /// Enqueue collation for fetching. The advertisement is expected to be
-/// validated.
+/// validated and the seconding limit checked.
 async fn enqueue_collation<Sender>(
 	sender: &mut Sender,
 	state: &mut State,
@@ -1141,7 +1142,6 @@ where
 		?relay_parent,
 		"Received advertise collation",
 	);
-
 	let per_relay_parent = match state.per_relay_parent.get_mut(&relay_parent) {
 		Some(rp_state) => rp_state,
 		None => {
@@ -1164,20 +1164,6 @@ where
 		});
 
 	let collations = &mut per_relay_parent.collations;
-	if collations.is_seconded_limit_reached(
-		per_relay_parent.async_backing_params.max_candidate_depth,
-		para_id,
-	) {
-		gum::trace!(
-			target: LOG_TARGET,
-			peer_id = ?peer_id,
-			%para_id,
-			?relay_parent,
-			"Limit of seconded collations reached for valid advertisement",
-		);
-		return Ok(())
-	}
-
 	let pending_collation =
 		PendingCollation::new(relay_parent, para_id, &peer_id, prospective_candidate);
 
@@ -1195,11 +1181,6 @@ where
 		CollationStatus::Waiting => {
 			// We were waiting for a collation to be advertised to us (we were idle) so we can fetch
 			// the new collation immediately
-			fetch_collation(sender, state, pending_collation, collator_id).await?;
-		},
-		CollationStatus::Seconded => {
-			// Limit is not reached (checked with `is_seconded_limit_reached` before the match
-			// expression), it's allowed to second another collation.
 			fetch_collation(sender, state, pending_collation, collator_id).await?;
 		},
 	}
@@ -1235,10 +1216,9 @@ where
 			assign_incoming(sender, &mut state.current_assignments, keystore, *leaf).await?;
 
 		state.active_leaves.insert(*leaf, async_backing_params);
-		state.per_relay_parent.insert(
-			*leaf,
-			PerRelayParent::new(async_backing_params, assignments, has_claim_queue_support),
-		);
+		state
+			.per_relay_parent
+			.insert(*leaf, PerRelayParent::new(assignments, has_claim_queue_support));
 
 		state
 			.implicit_view
@@ -1257,11 +1237,7 @@ where
 					assign_incoming(sender, &mut state.current_assignments, keystore, *block_hash)
 						.await?;
 
-				entry.insert(PerRelayParent::new(
-					async_backing_params,
-					assignments,
-					has_claim_queue_support,
-				));
+				entry.insert(PerRelayParent::new(assignments, has_claim_queue_support));
 			}
 		}
 	}
@@ -1288,6 +1264,8 @@ where
 			state.fetched_candidates.retain(|k, _| k.relay_parent != removed);
 			state.span_per_relay_parent.remove(&removed);
 		}
+
+		state.last_finalized_block_num = view.finalized_number;
 	}
 
 	// Remove blocked seconding requests that left the view.
@@ -1460,7 +1438,7 @@ async fn process_msg<Context>(
 				}
 
 				if let Some(rp_state) = state.per_relay_parent.get_mut(&parent) {
-					rp_state.collations.status = CollationStatus::Seconded;
+					rp_state.collations.status = CollationStatus::Waiting;
 					rp_state.collations.note_seconded(para_id);
 				}
 
@@ -1680,12 +1658,7 @@ async fn dequeue_next_collation_and_fetch<Context>(
 	// The collator we tried to fetch from last, optionally which candidate.
 	previous_fetch: (CollatorId, Option<CandidateHash>),
 ) {
-	while let Some((next, id)) =
-		state.per_relay_parent.get_mut(&relay_parent).and_then(|rp_state| {
-			rp_state
-				.collations
-				.get_next_collation_to_fetch(&previous_fetch, &rp_state.assignment.current)
-		}) {
+	while let Some((next, id)) = get_next_collation_to_fetch(&previous_fetch, relay_parent, state) {
 		gum::debug!(
 			target: LOG_TARGET,
 			?relay_parent,
@@ -2056,4 +2029,122 @@ async fn handle_collation_fetch_response(
 	};
 	state.metrics.on_request(metrics_result);
 	result
+}
+
+/// Checks if another collation can be accepted. The number of collations that can be seconded
+/// per parachain is limited by the entries in claim queue for the `ParaId` in question. Besides the
+/// seconded collations at the relay parent of the advertisement any pending or seconded collations
+/// at previous relay parents (up to `allowed_ancestry_len` blocks back or last finalized block) are
+/// also counted towards the limit.
+fn is_seconded_limit_reached(
+	implicit_view: &ImplicitView,
+	per_relay_parent: &HashMap<Hash, PerRelayParent>,
+	relay_parent: Hash,
+	relay_parent_state: &PerRelayParent,
+	para_id: &ParaId,
+) -> bool {
+	// Get the number of claims for `para_id` at `relay_parent`
+	// TODO: should be compared against the number of items in the claim queue!?
+	let claims_for_para = relay_parent_state.collations.claims_for_para(para_id);
+
+	let seconded_and_pending_at_ancestors = seconded_and_pending_for_para_in_view(
+		implicit_view,
+		per_relay_parent,
+		&relay_parent,
+		para_id,
+	);
+
+	claims_for_para >= seconded_and_pending_at_ancestors
+}
+
+fn seconded_and_pending_for_para_in_view(
+	implicit_view: &ImplicitView,
+	per_relay_parent: &HashMap<Hash, PerRelayParent>,
+	relay_parent: &Hash,
+	para_id: &ParaId,
+) -> usize {
+	// `known_allowed_relay_parents_under` returns all leaves within the view for the specified
+	// block hash including the block hash itself
+	implicit_view
+		.known_allowed_relay_parents_under(relay_parent, Some(*para_id))
+		.map(|ancestors| {
+			ancestors.iter().fold(0, |res, anc| {
+				res + per_relay_parent
+					.get(&anc)
+					.map(|rp| rp.collations.seconded_and_pending_for_para(para_id))
+					.unwrap_or(0)
+			})
+		})
+		.unwrap_or(0)
+}
+
+fn claim_queue_state(
+	relay_parent: &Hash,
+	per_relay_parent: &HashMap<Hash, PerRelayParent>,
+	implicit_view: &ImplicitView,
+) -> Option<Vec<(bool, ParaId)>> {
+	let relay_parent_state = per_relay_parent.get(relay_parent)?;
+	let scheduled_paras = relay_parent_state.assignment.current.iter().collect::<HashSet<_>>();
+	let mut claims_per_para = scheduled_paras
+		.into_iter()
+		.map(|para_id| {
+			(
+				*para_id,
+				seconded_and_pending_for_para_in_view(
+					implicit_view,
+					per_relay_parent,
+					relay_parent,
+					para_id,
+				),
+			)
+		})
+		.collect::<HashMap<_, _>>();
+	let claim_queue_state = relay_parent_state
+		.assignment
+		.current
+		.iter()
+		.map(|para_id| match claims_per_para.entry(*para_id) {
+			Entry::Occupied(mut entry) if *entry.get() > 0 => {
+				*entry.get_mut() -= 1;
+				(true, *para_id)
+			},
+			_ => (false, *para_id),
+		})
+		.collect::<Vec<_>>();
+	Some(claim_queue_state)
+}
+
+/// Returns the next collation to fetch from the `waiting_queue`.
+///
+/// This will reset the status back to `Waiting` using [`CollationStatus::back_to_waiting`].
+///
+/// Returns `Some(_)` if there is any collation to fetch, the `status` is not `Seconded` and
+/// the passed in `finished_one` is the currently `waiting_collation`.
+fn get_next_collation_to_fetch(
+	finished_one: &(CollatorId, Option<CandidateHash>),
+	relay_parent: Hash,
+	state: &mut State,
+) -> Option<(PendingCollation, CollatorId)> {
+	let claim_queue_state =
+		claim_queue_state(&relay_parent, &state.per_relay_parent, &state.implicit_view)?;
+	let rp_state = state.per_relay_parent.get_mut(&relay_parent)?; // TODO: this is looked up twice
+
+	// If finished one does not match waiting_collation, then we already dequeued another fetch
+	// to replace it.
+	if let Some((collator_id, maybe_candidate_hash)) = rp_state.collations.fetching_from.as_ref() {
+		// If a candidate hash was saved previously, `finished_one` must include this too.
+		if collator_id != &finished_one.0 &&
+			maybe_candidate_hash.map_or(true, |hash| Some(&hash) != finished_one.1.as_ref())
+		{
+			gum::trace!(
+				target: LOG_TARGET,
+				waiting_collation = ?rp_state.collations.fetching_from,
+				?finished_one,
+				"Not proceeding to the next collation - has already been done."
+			);
+			return None
+		}
+	}
+	rp_state.collations.status = CollationStatus::Waiting;
+	rp_state.collations.pick_a_collation_to_fetch(claim_queue_state)
 }
