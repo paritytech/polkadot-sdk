@@ -3259,6 +3259,37 @@ dependencies = [
 ]
 
 [[package]]
+name = "coretime-rococo-emulated-chain"
+version = "0.0.0"
+dependencies = [
+ "coretime-rococo-runtime",
+ "cumulus-primitives-core",
+ "emulated-integration-tests-common",
+ "frame-support",
+ "parachains-common",
+ "sp-core",
+ "testnet-parachains-constants",
+]
+
+[[package]]
+name = "coretime-rococo-integration-tests"
+version = "0.1.0"
+dependencies = [
+ "emulated-integration-tests-common",
+ "frame-support",
+ "pallet-balances",
+ "pallet-identity",
+ "pallet-message-queue",
+ "parachains-common",
+ "polkadot-runtime-common",
+ "rococo-runtime-constants",
+ "rococo-system-emulated-network",
+ "sp-runtime",
+ "staging-xcm",
+ "staging-xcm-executor",
+]
+
+[[package]]
 name = "coretime-rococo-runtime"
 version = "0.1.0"
 dependencies = [
@@ -3322,6 +3353,17 @@ dependencies = [
  "substrate-wasm-builder",
  "testnet-parachains-constants",
  "xcm-runtime-apis",
+]
+
+[[package]]
+name = "coretime-westend-emulated-chain"
+version = "0.0.0"
+
+[[package]]
+name = "coretime-westend-integration-tests"
+version = "0.1.0"
+dependencies = [
+ "emulated-integration-tests-common",
 ]
 
 [[package]]
@@ -16453,6 +16495,7 @@ version = "0.0.0"
 dependencies = [
  "asset-hub-rococo-emulated-chain",
  "bridge-hub-rococo-emulated-chain",
+ "coretime-rococo-emulated-chain",
  "emulated-integration-tests-common",
  "penpal-emulated-chain",
  "people-rococo-emulated-chain",
