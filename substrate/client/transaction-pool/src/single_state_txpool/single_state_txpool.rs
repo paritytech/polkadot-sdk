@@ -54,11 +54,8 @@ use sp_runtime::{
 };
 use std::time::Instant;
 
-use super::revalidation;
-use crate::{
-	common::{error, metrics::MetricsLink as PrometheusMetrics},
-	graph,
-};
+use super::{metrics::MetricsLink as PrometheusMetrics, revalidation};
+use crate::{common::error, graph};
 use prometheus_endpoint::Registry as PrometheusRegistry;
 
 use sp_blockchain::{HashAndNumber, TreeRoute};

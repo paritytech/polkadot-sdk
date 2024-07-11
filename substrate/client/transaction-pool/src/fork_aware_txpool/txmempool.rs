@@ -26,24 +26,22 @@
 //! - on some forks transaction can be invalid (view does not contain it), on other for tx can be
 //!   valid.
 
-use crate::{graph, log_xt_debug, LOG_TARGET};
+use super::{metrics::MetricsLink as PrometheusMetrics, multi_view_listener::MultiViewListener};
+use crate::{graph, graph::ExtrinsicHash, log_xt_debug, LOG_TARGET};
+use futures::FutureExt;
 use itertools::Itertools;
 use parking_lot::RwLock;
-use sp_runtime::transaction_validity::InvalidTransaction;
+use sc_transaction_pool_api::TransactionSource;
+use sp_blockchain::HashAndNumber;
+use sp_runtime::{
+	traits::Block as BlockT,
+	transaction_validity::{InvalidTransaction, TransactionValidityError},
+};
 use std::{
 	collections::HashMap,
 	sync::{atomic, atomic::AtomicU64, Arc},
+	time::Instant,
 };
-
-use crate::graph::ExtrinsicHash;
-use futures::FutureExt;
-use sc_transaction_pool_api::TransactionSource;
-use sp_runtime::traits::Block as BlockT;
-use std::time::Instant;
-
-use super::multi_view_listener::MultiViewListener;
-use sp_blockchain::HashAndNumber;
-use sp_runtime::transaction_validity::TransactionValidityError;
 
 /// Represents the transaction in the intermediary buffer.
 #[derive(Debug)]
@@ -100,6 +98,7 @@ where
 	//could be removed after removing watched field (and adding listener into tx)
 	listener: Arc<MultiViewListener<ChainApi>>,
 	xts2: RwLock<HashMap<graph::ExtrinsicHash<ChainApi>, Arc<TxInMemPool<Block>>>>,
+	metrics: PrometheusMetrics,
 }
 
 // Clumsy implementation - some improvements shall be done in the following code, use of Arc,
@@ -110,8 +109,12 @@ where
 	ChainApi: graph::ChainApi<Block = Block> + 'static,
 	<Block as BlockT>::Hash: Unpin,
 {
-	pub(super) fn new(api: Arc<ChainApi>, listener: Arc<MultiViewListener<ChainApi>>) -> Self {
-		Self { api, listener, xts2: Default::default() }
+	pub(super) fn new(
+		api: Arc<ChainApi>,
+		listener: Arc<MultiViewListener<ChainApi>>,
+		metrics: PrometheusMetrics,
+	) -> Self {
+		Self { api, listener, xts2: Default::default(), metrics }
 	}
 
 	pub(super) fn watched_xts(&self) -> impl Iterator<Item = Block::Extrinsic> {
@@ -246,6 +249,11 @@ where
 	pub(super) async fn purge_transactions(&self, finalized_block: HashAndNumber<Block>) {
 		log::debug!(target: LOG_TARGET, "purge_transactions at:{:?}", finalized_block);
 		let invalid_hashes = self.validate_array(finalized_block.clone()).await;
+
+		let _ = invalid_hashes.len().try_into().map(|v| {
+			self.metrics
+				.report(|metrics| metrics.mempool_revalidation_invalid_txs.inc_by(v))
+		});
 
 		self.xts2.write().retain(|hash, _| !invalid_hashes.contains(&hash));
 		self.listener.invalidate_transactions(invalid_hashes);

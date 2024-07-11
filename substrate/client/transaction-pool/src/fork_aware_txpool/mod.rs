@@ -19,8 +19,8 @@
 //! Substrate single state transaction pool implementation.
 
 pub(crate) mod fork_aware_txpool;
-// mod metrics;
 mod import_notification_sink;
+mod metrics;
 mod multi_view_listener;
 mod txmempool;
 mod view;
