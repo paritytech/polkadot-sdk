@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1720635549193,
+  "lastUpdate": 1720708469584,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -10198,6 +10198,53 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 2.931295102820137,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Javier Bullrich",
+            "username": "Bullrich",
+            "email": "javier@bullrich.dev"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "6dd777ffe62cff936e04a76134ccf07de9dee429",
+          "message": "fixed cmd bot commenting not working (#5000)\n\nFixed the mentioned issue:\nhttps://github.com/paritytech/command-bot/issues/113#issuecomment-2222277552\n\nNow it will properly comment when the old bot gets triggered.",
+          "timestamp": "2024-07-11T13:02:14Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/6dd777ffe62cff936e04a76134ccf07de9dee429"
+        },
+        "date": 1720708439920,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52936.40000000001,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63788.079999999994,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 7.080430591060052,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 9.921338179329922,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 3.181919748320156,
             "unit": "seconds"
           }
         ]
