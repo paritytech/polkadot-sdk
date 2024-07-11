@@ -226,13 +226,6 @@ fn destroy_pool_with_erroneous_consumer() {
 		// move to era 1
 		CurrentEra::<Runtime>::set(Some(1));
 
-		// depositor need to chill before unbonding
-		assert_noop!(
-			Pools::unbond(RuntimeOrigin::signed(10), 10, 50),
-			pallet_staking::Error::<Runtime>::InsufficientBond
-		);
-
-		assert_ok!(Pools::chill(RuntimeOrigin::signed(10), 1));
 		assert_ok!(Pools::unbond(RuntimeOrigin::signed(10), 10, 50));
 
 		assert_eq!(
