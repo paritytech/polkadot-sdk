@@ -250,6 +250,7 @@ pub fn run() -> Result<()> {
 					collator_options,
 					id,
 					hwbench,
+					cli.experimental_use_slot_based,
 				)
 				.await
 				.map(|r| r.0)

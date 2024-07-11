@@ -14,6 +14,9 @@ use parachain_template_runtime::{
 use cumulus_client_collator::service::CollatorService;
 #[docify::export(lookahead_collator)]
 use cumulus_client_consensus_aura::collators::lookahead::{self as aura, Params as AuraParams};
+use cumulus_client_consensus_aura::collators::slot_based::{
+	self as slot_based, Params as SlotBasedParams,
+};
 use cumulus_client_consensus_common::ParachainBlockImport as TParachainBlockImport;
 use cumulus_client_consensus_proposer::Proposer;
 use cumulus_client_service::{
@@ -177,6 +180,7 @@ fn start_consensus(
 	collator_key: CollatorPair,
 	overseer_handle: OverseerHandle,
 	announce_block: Arc<dyn Fn(Hash, Option<Vec<u8>>) + Send + Sync>,
+	use_slot_based: bool,
 ) -> Result<(), sc_service::Error> {
 	let proposer_factory = sc_basic_authorship::ProposerFactory::with_proof_recording(
 		task_manager.spawn_handle(),
@@ -195,29 +199,72 @@ fn start_consensus(
 		client.clone(),
 	);
 
-	let params = AuraParams {
-		create_inherent_data_providers: move |_, ()| async move { Ok(()) },
-		block_import,
-		para_client: client.clone(),
-		para_backend: backend,
-		relay_client: relay_chain_interface,
-		code_hash_provider: move |block_hash| {
-			client.code_at(block_hash).ok().map(|c| ValidationCode::from(c).hash())
-		},
-		keystore,
-		collator_key,
-		para_id,
-		overseer_handle,
-		relay_chain_slot_duration,
-		proposer,
-		collator_service,
-		authoring_duration: Duration::from_millis(2000),
-		reinitialize: false,
-	};
-	let fut = aura::run::<Block, sp_consensus_aura::sr25519::AuthorityPair, _, _, _, _, _, _, _, _>(
-		params,
-	);
-	task_manager.spawn_essential_handle().spawn("aura", None, fut);
+	if use_slot_based {
+		let params = SlotBasedParams {
+			create_inherent_data_providers: move |_, ()| async move { Ok(()) },
+			block_import,
+			para_client: client.clone(),
+			para_backend: backend,
+			relay_client: relay_chain_interface,
+			code_hash_provider: move |block_hash| {
+				client.code_at(block_hash).ok().map(|c| ValidationCode::from(c).hash())
+			},
+			keystore,
+			collator_key,
+			para_id,
+			relay_chain_slot_duration,
+			proposer,
+			collator_service,
+			authoring_duration: Duration::from_millis(2000),
+			reinitialize: false,
+			slot_drift: Duration::from_secs(1),
+		};
+		let (collation_future, block_builder_future) = slot_based::run::<
+			Block,
+			sp_consensus_aura::sr25519::AuthorityPair,
+			_,
+			_,
+			_,
+			_,
+			_,
+			_,
+			_,
+			_,
+		>(params);
+		task_manager
+			.spawn_essential_handle()
+			.spawn("collation-task", None, collation_future);
+		task_manager.spawn_essential_handle().spawn(
+			"block-builder-task",
+			None,
+			block_builder_future,
+		);
+	} else {
+		let params = AuraParams {
+			create_inherent_data_providers: move |_, ()| async move { Ok(()) },
+			block_import,
+			para_client: client.clone(),
+			para_backend: backend,
+			relay_client: relay_chain_interface,
+			code_hash_provider: move |block_hash| {
+				client.code_at(block_hash).ok().map(|c| ValidationCode::from(c).hash())
+			},
+			keystore,
+			collator_key,
+			para_id,
+			overseer_handle,
+			relay_chain_slot_duration,
+			proposer,
+			collator_service,
+			authoring_duration: Duration::from_millis(2000),
+			reinitialize: false,
+		};
+		let fut =
+			aura::run::<Block, sp_consensus_aura::sr25519::AuthorityPair, _, _, _, _, _, _, _, _>(
+				params,
+			);
+		task_manager.spawn_essential_handle().spawn("aura", None, fut);
+	}
 
 	Ok(())
 }
@@ -230,6 +277,7 @@ pub async fn start_parachain_node(
 	collator_options: CollatorOptions,
 	para_id: ParaId,
 	hwbench: Option<sc_sysinfo::HwBench>,
+	use_slot_based: bool,
 ) -> sc_service::error::Result<(TaskManager, Arc<ParachainClient>)> {
 	let parachain_config = prepare_node_config(parachain_config);
 
@@ -399,6 +447,7 @@ pub async fn start_parachain_node(
 			collator_key.expect("Command line arguments do not allow this. qed"),
 			overseer_handle,
 			announce_block,
+			use_slot_based,
 		)?;
 	}
 
