@@ -3518,13 +3518,8 @@ impl<T: Config> Pallet<T> {
 		// this is their balance in the pool
 		let expected_balance = pool_member.total_balance();
 
-		defensive_assert!(
-			actual_balance >= expected_balance,
-			"actual balance should always be greater or equal to the expected"
-		);
-
 		// return the amount to be slashed.
-		Ok(actual_balance.defensive_saturating_sub(expected_balance))
+		Ok(actual_balance.saturating_sub(expected_balance))
 	}
 
 	/// Apply freeze on reward account to restrict it from going below ED.
