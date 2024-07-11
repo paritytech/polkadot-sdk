@@ -20,11 +20,14 @@ use frame_support::{
 	assert_ok, derive_impl,
 	pallet_prelude::*,
 	parameter_types,
-	traits::{ConstU64, ConstU8},
+	traits::{ConstU64, ConstU8, VariantCountOf},
 	PalletId,
 };
 use frame_system::EnsureRoot;
-use pallet_nomination_pools::{adapter::StakeStrategyType, BondType};
+use pallet_nomination_pools::{
+	adapter::{Member, Pool, StakeStrategyType},
+	BondType,
+};
 use sp_runtime::{
 	traits::{Convert, IdentityLookup},
 	BuildStorage, FixedU128, Perbill,
@@ -42,29 +45,11 @@ pub(crate) const POOL1_REWARD: AccountId = 20397359637244482196168876781421u128;
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Runtime {
-	type BaseCallFilter = frame_support::traits::Everything;
-	type BlockWeights = ();
-	type BlockLength = ();
-	type DbWeight = ();
-	type RuntimeOrigin = RuntimeOrigin;
 	type Nonce = Nonce;
-	type RuntimeCall = RuntimeCall;
-	type Hash = sp_core::H256;
-	type Hashing = sp_runtime::traits::BlakeTwo256;
 	type AccountId = AccountId;
 	type Lookup = IdentityLookup<Self::AccountId>;
 	type Block = Block;
-	type RuntimeEvent = RuntimeEvent;
-	type BlockHashCount = ();
-	type Version = ();
-	type PalletInfo = PalletInfo;
 	type AccountData = pallet_balances::AccountData<Balance>;
-	type OnNewAccount = ();
-	type OnKilledAccount = ();
-	type SystemWeightInfo = ();
-	type SS58Prefix = ();
-	type OnSetCode = ();
-	type MaxConsumers = frame_support::traits::ConstU32<16>;
 }
 
 impl pallet_timestamp::Config for Runtime {
@@ -78,20 +63,15 @@ parameter_types! {
 	pub static ExistentialDeposit: Balance = 5;
 }
 
+#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Runtime {
-	type MaxLocks = ();
-	type MaxReserves = ();
-	type ReserveIdentifier = [u8; 8];
 	type Balance = Balance;
-	type RuntimeEvent = RuntimeEvent;
-	type DustRemoval = ();
 	type ExistentialDeposit = ExistentialDeposit;
 	type AccountStore = System;
-	type WeightInfo = ();
 	type FreezeIdentifier = RuntimeFreezeReason;
-	type MaxFreezes = ConstU32<1>;
+	type MaxFreezes = VariantCountOf<RuntimeFreezeReason>;
 	type RuntimeHoldReason = RuntimeHoldReason;
-	type RuntimeFreezeReason = ();
+	type RuntimeFreezeReason = RuntimeFreezeReason;
 }
 
 pallet_staking_reward_curve::build! {
@@ -110,36 +90,20 @@ parameter_types! {
 	pub static BondingDuration: u32 = 3;
 }
 
+#[derive_impl(pallet_staking::config_preludes::TestDefaultConfig)]
 impl pallet_staking::Config for Runtime {
 	type Currency = Balances;
-	type CurrencyBalance = Balance;
 	type UnixTime = pallet_timestamp::Pallet<Self>;
-	type CurrencyToVote = ();
-	type RewardRemainder = ();
-	type RuntimeEvent = RuntimeEvent;
-	type Slash = ();
-	type Reward = ();
-	type SessionsPerEra = ();
-	type SlashDeferDuration = ();
 	type AdminOrigin = frame_system::EnsureRoot<Self::AccountId>;
 	type BondingDuration = BondingDuration;
-	type SessionInterface = ();
 	type EraPayout = pallet_staking::ConvertCurve<RewardCurve>;
-	type NextNewSession = ();
-	type MaxExposurePageSize = ConstU32<64>;
 	type ElectionProvider =
 		frame_election_provider_support::NoElection<(AccountId, BlockNumber, Staking, ())>;
 	type GenesisElectionProvider = Self::ElectionProvider;
 	type VoterList = VoterList;
 	type TargetList = pallet_staking::UseValidatorsMap<Self>;
-	type NominationsQuota = pallet_staking::FixedNominationsQuota<16>;
-	type MaxUnlockingChunks = ConstU32<32>;
-	type MaxControllersInDeprecationBatch = ConstU32<100>;
-	type HistoryDepth = ConstU32<84>;
 	type EventListeners = (Pools, DelegatedStaking);
 	type BenchmarkingConfig = pallet_staking::TestBenchmarkingConfig;
-	type WeightInfo = ();
-	type DisablingStrategy = pallet_staking::UpToLimitDisablingStrategy;
 }
 
 parameter_types! {
@@ -190,21 +154,21 @@ impl pallet_nomination_pools::adapter::StakeStrategy for MockAdapter {
 		}
 		DelegateStake::strategy_type()
 	}
-	fn transferable_balance(pool_account: &Self::AccountId) -> Self::Balance {
+	fn transferable_balance(pool_account: Pool<Self::AccountId>) -> Self::Balance {
 		if LegacyAdapter::get() {
 			return TransferStake::transferable_balance(pool_account)
 		}
 		DelegateStake::transferable_balance(pool_account)
 	}
 
-	fn total_balance(pool_account: &Self::AccountId) -> Self::Balance {
+	fn total_balance(pool_account: Pool<Self::AccountId>) -> Option<Self::Balance> {
 		if LegacyAdapter::get() {
 			return TransferStake::total_balance(pool_account)
 		}
 		DelegateStake::total_balance(pool_account)
 	}
 
-	fn member_delegation_balance(member_account: &Self::AccountId) -> Self::Balance {
+	fn member_delegation_balance(member_account: Member<Self::AccountId>) -> Option<Self::Balance> {
 		if LegacyAdapter::get() {
 			return TransferStake::member_delegation_balance(member_account)
 		}
@@ -212,8 +176,8 @@ impl pallet_nomination_pools::adapter::StakeStrategy for MockAdapter {
 	}
 
 	fn pledge_bond(
-		who: &Self::AccountId,
-		pool_account: &Self::AccountId,
+		who: Member<Self::AccountId>,
+		pool_account: Pool<Self::AccountId>,
 		reward_account: &Self::AccountId,
 		amount: Self::Balance,
 		bond_type: BondType,
@@ -225,8 +189,8 @@ impl pallet_nomination_pools::adapter::StakeStrategy for MockAdapter {
 	}
 
 	fn member_withdraw(
-		who: &Self::AccountId,
-		pool_account: &Self::AccountId,
+		who: Member<Self::AccountId>,
+		pool_account: Pool<Self::AccountId>,
 		amount: Self::Balance,
 		num_slashing_spans: u32,
 	) -> DispatchResult {
@@ -236,16 +200,16 @@ impl pallet_nomination_pools::adapter::StakeStrategy for MockAdapter {
 		DelegateStake::member_withdraw(who, pool_account, amount, num_slashing_spans)
 	}
 
-	fn has_pending_slash(pool_account: &Self::AccountId) -> bool {
+	fn pending_slash(pool_account: Pool<Self::AccountId>) -> Self::Balance {
 		if LegacyAdapter::get() {
-			return TransferStake::has_pending_slash(pool_account)
+			return TransferStake::pending_slash(pool_account)
 		}
-		DelegateStake::has_pending_slash(pool_account)
+		DelegateStake::pending_slash(pool_account)
 	}
 
 	fn member_slash(
-		who: &Self::AccountId,
-		pool_account: &Self::AccountId,
+		who: Member<Self::AccountId>,
+		pool_account: Pool<Self::AccountId>,
 		amount: Self::Balance,
 		maybe_reporter: Option<Self::AccountId>,
 	) -> DispatchResult {
@@ -256,7 +220,7 @@ impl pallet_nomination_pools::adapter::StakeStrategy for MockAdapter {
 	}
 
 	fn migrate_nominator_to_agent(
-		agent: &Self::AccountId,
+		agent: Pool<Self::AccountId>,
 		reward_account: &Self::AccountId,
 	) -> DispatchResult {
 		if LegacyAdapter::get() {
@@ -266,8 +230,8 @@ impl pallet_nomination_pools::adapter::StakeStrategy for MockAdapter {
 	}
 
 	fn migrate_delegation(
-		agent: &Self::AccountId,
-		delegator: &Self::AccountId,
+		agent: Pool<Self::AccountId>,
+		delegator: Member<Self::AccountId>,
 		value: Self::Balance,
 	) -> DispatchResult {
 		if LegacyAdapter::get() {
