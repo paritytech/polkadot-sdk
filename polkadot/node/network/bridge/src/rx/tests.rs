@@ -545,7 +545,10 @@ async fn assert_sends_validation_event_to_all(
 	event: NetworkBridgeEvent<net_protocol::VersionedValidationProtocol>,
 	virtual_overseer: &mut TestSubsystemContextHandle<NetworkBridgeRxMessage>,
 ) {
-	let is_peer_view_change = matches!(event, NetworkBridgeEvent::PeerViewChange(..));
+	let is_prioritized = matches!(
+		event,
+		NetworkBridgeEvent::PeerConnected(..) | NetworkBridgeEvent::PeerViewChange(..)
+	);
 
 	// Ordering must be consistent across:
 	// `fn dispatch_validation_event_to_all_unbounded`
@@ -579,10 +582,10 @@ async fn assert_sends_validation_event_to_all(
 	);
 
 	// Peer view changes sent with high priority.
-	if is_peer_view_change {
+	if is_prioritized {
 		assert_eq!(
 			virtual_overseer.message_counter.with_high_priority(),
-			if is_peer_view_change { 4 } else { 0 }
+			if is_prioritized { 4 } else { 0 }
 		);
 		virtual_overseer.message_counter.reset();
 	}
