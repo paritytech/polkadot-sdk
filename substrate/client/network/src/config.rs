@@ -799,7 +799,7 @@ impl<B: BlockT + 'static, H: ExHashT, N: NetworkBackend<B, H>> FullNetworkConfig
 	/// Create new [`FullNetworkConfiguration`].
 	pub fn new(network_config: &NetworkConfiguration, metrics_registry: Option<Registry>) -> Self {
 		let bootnodes = network_config.boot_nodes.iter().map(|bootnode| bootnode.peer_id).collect();
-		let peer_store = N::peer_store(bootnodes);
+		let peer_store = N::peer_store(bootnodes, metrics_registry.clone());
 		let peer_store_handle = peer_store.handle();
 
 		Self {

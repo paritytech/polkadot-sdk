@@ -186,8 +186,11 @@ where
 	}
 
 	/// Create `PeerStore`.
-	fn peer_store(bootnodes: Vec<sc_network_types::PeerId>) -> Self::PeerStore {
-		PeerStore::new(bootnodes.into_iter().map(From::from).collect())
+	fn peer_store(
+		bootnodes: Vec<sc_network_types::PeerId>,
+		metrics_registry: Option<Registry>,
+	) -> Self::PeerStore {
+		PeerStore::new(bootnodes.into_iter().map(From::from).collect(), metrics_registry)
 	}
 
 	fn register_notification_metrics(registry: Option<&Registry>) -> NotificationMetrics {

@@ -238,7 +238,7 @@ pub struct PeerSetMetrics {
 }
 
 impl PeerSetMetrics {
-	fn register(registry: &Registry) -> Result<Self, PrometheusError> {
+	pub fn register(registry: &Registry) -> Result<Self, PrometheusError> {
 		Ok(Self {
 			num_banned_peers: prometheus::register(
 				Gauge::new(

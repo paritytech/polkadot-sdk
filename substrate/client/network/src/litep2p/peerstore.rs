@@ -28,6 +28,7 @@ use crate::{
 };
 
 use parking_lot::Mutex;
+use prometheus_endpoint::Registry;
 use wasm_timer::Delay;
 
 use sc_network_types::PeerId;
@@ -269,11 +270,22 @@ pub struct Peerstore {
 
 impl Peerstore {
 	/// Create new [`Peerstore`].
-	pub fn new(bootnodes: Vec<PeerId>) -> Self {
+	pub fn new(bootnodes: Vec<PeerId>, metrics_registry: Option<Registry>) -> Self {
+		let metrics = if let Some(registry) = &metrics_registry {
+			PeerSetMetrics::register(registry)
+				.map_err(|err| {
+					log::error!(target: LOG_TARGET, "Failed to register peer set metrics: {}", err);
+					err
+				})
+				.ok()
+		} else {
+			None
+		};
+
 		let peerstore_inner = PeerstoreHandleInner {
 			peers: bootnodes.into_iter().map(|peer_id| (peer_id, PeerInfo::default())).collect(),
 			protocols: Vec::new(),
-			metrics: None,
+			metrics,
 		};
 
 		let peerstore_handle = PeerstoreHandle(Arc::new(Mutex::new(peerstore_inner)));

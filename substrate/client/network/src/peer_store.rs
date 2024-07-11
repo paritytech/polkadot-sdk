@@ -25,6 +25,7 @@ use libp2p::PeerId;
 use log::trace;
 use parking_lot::Mutex;
 use partial_sort::PartialSort;
+use prometheus_endpoint::Registry;
 use sc_network_common::{role::ObservedRole, types::ReputationChange};
 use std::{
 	cmp::{Ord, Ordering, PartialOrd},
@@ -392,7 +393,18 @@ pub struct PeerStore {
 
 impl PeerStore {
 	/// Create a new peer store from the list of bootnodes.
-	pub fn new(bootnodes: Vec<PeerId>) -> Self {
+	pub fn new(bootnodes: Vec<PeerId>, metrics_registry: Option<Registry>) -> Self {
+		let metrics = if let Some(registry) = &metrics_registry {
+			PeerSetMetrics::register(registry)
+				.map_err(|err| {
+					log::error!(target: LOG_TARGET, "Failed to register peer set metrics: {}", err);
+					err
+				})
+				.ok()
+		} else {
+			None
+		};
+
 		PeerStore {
 			inner: Arc::new(Mutex::new(PeerStoreInner {
 				peers: bootnodes
@@ -400,7 +412,7 @@ impl PeerStore {
 					.map(|peer_id| (peer_id, PeerInfo::default()))
 					.collect(),
 				protocols: Vec::new(),
-				metrics: None,
+				metrics,
 			})),
 		}
 	}
