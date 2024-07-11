@@ -1138,7 +1138,10 @@ async fn dispatch_validation_events_to_all<I>(
 	macro_rules! send_message {
 		($event:expr, $message:ident) => {
 			if let Ok(event) = $event.focus() {
-				let has_high_priority = matches!(event, NetworkBridgeEvent::PeerViewChange(..));
+				let has_high_priority = matches!(
+					event,
+					NetworkBridgeEvent::PeerConnected(..) | NetworkBridgeEvent::PeerViewChange(..)
+				);
 				let message = $message::from(event);
 				if has_high_priority {
 					sender.send_message_with_priority::<overseer::HighPriority>(message).await;
