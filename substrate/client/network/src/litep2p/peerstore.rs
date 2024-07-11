@@ -281,15 +281,6 @@ impl Peerstore {
 		Self { peerstore_handle }
 	}
 
-	/// Create new [`Peerstore`] from a [`PeerstoreHandle`].
-	pub fn from_handle(peerstore_handle: PeerstoreHandle, bootnodes: Vec<PeerId>) -> Self {
-		for bootnode in bootnodes {
-			peerstore_handle.add_known_peer(bootnode);
-		}
-
-		Self { peerstore_handle }
-	}
-
 	/// Get mutable reference to the underlying [`PeerstoreHandle`].
 	pub fn handle(&mut self) -> &mut PeerstoreHandle {
 		&mut self.peerstore_handle
