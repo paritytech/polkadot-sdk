@@ -270,11 +270,13 @@ pub struct Peerstore {
 impl Peerstore {
 	/// Create new [`Peerstore`].
 	pub fn new(bootnodes: Vec<PeerId>) -> Self {
-		let peerstore_handle = PeerstoreHandle(Arc::new(Mutex::new(Default::default())));
+		let peerstore_inner = PeerstoreHandleInner {
+			peers: bootnodes.into_iter().map(|peer_id| (peer_id, PeerInfo::default())).collect(),
+			protocols: Vec::new(),
+			num_banned_peers: 0,
+		};
 
-		for bootnode in bootnodes {
-			peerstore_handle.add_known_peer(bootnode);
-		}
+		let peerstore_handle = PeerstoreHandle(Arc::new(Mutex::new(peerstore_inner)));
 
 		Self { peerstore_handle }
 	}
