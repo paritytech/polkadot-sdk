@@ -28,6 +28,7 @@
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
 pub mod bridge_common_config;
+pub mod bridge_to_ethereum_config;
 pub mod bridge_to_rococo_config;
 mod weights;
 pub mod xcm_config;
@@ -96,7 +97,12 @@ use parachains_common::{
 	impls::DealWithFees, AccountId, Balance, BlockNumber, Hash, Header, Nonce, Signature,
 	AVERAGE_ON_INITIALIZE_RATIO, NORMAL_DISPATCH_RATIO,
 };
+use snowbridge_core::{
+	outbound::{Command, Fee},
+	AgentId, PricingParameters,
+};
 use testnet_parachains_constants::westend::{consensus::*, currency::*, fee::WeightToFee, time::*};
+use xcm::VersionedLocation;
 
 /// The address format for describing accounts.
 pub type Address = MultiAddress<AccountId, ()>;
@@ -516,6 +522,11 @@ construct_runtime!(
 		BridgeRococoMessages: pallet_bridge_messages::<Instance1> = 44,
 		XcmOverBridgeHubRococo: pallet_xcm_bridge_hub::<Instance1> = 45,
 
+		EthereumInboundQueue: snowbridge_pallet_inbound_queue = 80,
+		EthereumOutboundQueue: snowbridge_pallet_outbound_queue = 81,
+		EthereumBeaconClient: snowbridge_pallet_ethereum_client = 82,
+		EthereumSystem: snowbridge_pallet_system = 83,
+
 		// Message Queue. Importantly, is registered last so that messages are processed after
 		// the `on_initialize` hooks of bridging pallets.
 		MessageQueue: pallet_message_queue = 250,
@@ -568,6 +579,11 @@ mod benches {
 		[pallet_bridge_grandpa, RococoFinality]
 		[pallet_bridge_parachains, WithinRococo]
 		[pallet_bridge_messages, WestendToRococo]
+		// Ethereum Bridge
+		[snowbridge_pallet_inbound_queue, EthereumInboundQueue]
+		[snowbridge_pallet_outbound_queue, EthereumOutboundQueue]
+		[snowbridge_pallet_system, EthereumSystem]
+		[snowbridge_pallet_ethereum_client, EthereumBeaconClient]
 	);
 }
 
@@ -827,6 +843,22 @@ impl_runtime_apis! {
 				Runtime,
 				bridge_to_rococo_config::WithBridgeHubRococoMessagesInstance,
 			>(lane, begin, end)
+		}
+	}
+
+	impl snowbridge_outbound_queue_runtime_api::OutboundQueueApi<Block, Balance> for Runtime {
+		fn prove_message(leaf_index: u64) -> Option<snowbridge_pallet_outbound_queue::MerkleProof> {
+			snowbridge_pallet_outbound_queue::api::prove_message::<Runtime>(leaf_index)
+		}
+
+		fn calculate_fee(command: Command, parameters: Option<PricingParameters<Balance>>) -> Fee<Balance> {
+			snowbridge_pallet_outbound_queue::api::calculate_fee::<Runtime>(command, parameters)
+		}
+	}
+
+	impl snowbridge_system_runtime_api::ControlApi<Block> for Runtime {
+		fn agent_id(location: VersionedLocation) -> Option<AgentId> {
+			snowbridge_pallet_system::api::agent_id::<Runtime>(location)
 		}
 	}
 

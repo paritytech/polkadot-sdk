@@ -100,11 +100,25 @@ pallet-xcm-bridge-hub = { workspace = true }
 bridge-runtime-common = { workspace = true }
 bridge-hub-common = { workspace = true }
 
+# Ethereum Bridge (Snowbridge)
+snowbridge-beacon-primitives = { path = "../../../../../bridges/snowbridge/primitives/beacon", default-features = false }
+snowbridge-pallet-system = { path = "../../../../../bridges/snowbridge/pallets/system", default-features = false }
+snowbridge-system-runtime-api = { path = "../../../../../bridges/snowbridge/pallets/system/runtime-api", default-features = false }
+snowbridge-core = { path = "../../../../../bridges/snowbridge/primitives/core", default-features = false }
+snowbridge-pallet-ethereum-client = { path = "../../../../../bridges/snowbridge/pallets/ethereum-client", default-features = false }
+snowbridge-pallet-inbound-queue = { path = "../../../../../bridges/snowbridge/pallets/inbound-queue", default-features = false }
+snowbridge-pallet-outbound-queue = { path = "../../../../../bridges/snowbridge/pallets/outbound-queue", default-features = false }
+snowbridge-outbound-queue-runtime-api = { path = "../../../../../bridges/snowbridge/pallets/outbound-queue/runtime-api", default-features = false }
+snowbridge-router-primitives = { path = "../../../../../bridges/snowbridge/primitives/router", default-features = false }
+snowbridge-runtime-common = { path = "../../../../../bridges/snowbridge/runtime/runtime-common", default-features = false }
+
+
 [dev-dependencies]
 static_assertions = { workspace = true, default-features = true }
 bridge-hub-test-utils = { workspace = true, default-features = true }
 bridge-runtime-common = { features = ["integrity-test"], workspace = true, default-features = true }
 sp-keyring = { workspace = true, default-features = true }
+snowbridge-runtime-test-common = { path = "../../../../../bridges/snowbridge/runtime/test-common" }
 
 [features]
 default = ["std"]
@@ -223,36 +237,42 @@ runtime-benchmarks = [
 ]
 
 try-runtime = [
-	"cumulus-pallet-aura-ext/try-runtime",
-	"cumulus-pallet-parachain-system/try-runtime",
-	"cumulus-pallet-xcm/try-runtime",
-	"cumulus-pallet-xcmp-queue/try-runtime",
-	"frame-executive/try-runtime",
-	"frame-support/try-runtime",
-	"frame-system/try-runtime",
-	"frame-try-runtime/try-runtime",
-	"pallet-aura/try-runtime",
-	"pallet-authorship/try-runtime",
-	"pallet-balances/try-runtime",
-	"pallet-bridge-grandpa/try-runtime",
-	"pallet-bridge-messages/try-runtime",
-	"pallet-bridge-parachains/try-runtime",
-	"pallet-bridge-relayers/try-runtime",
-	"pallet-collator-selection/try-runtime",
-	"pallet-message-queue/try-runtime",
-	"pallet-multisig/try-runtime",
-	"pallet-session/try-runtime",
-	"pallet-timestamp/try-runtime",
-	"pallet-transaction-payment/try-runtime",
-	"pallet-utility/try-runtime",
-	"pallet-xcm-bridge-hub/try-runtime",
-	"pallet-xcm/try-runtime",
-	"parachain-info/try-runtime",
-	"polkadot-runtime-common/try-runtime",
-	"sp-runtime/try-runtime",
+    "cumulus-pallet-aura-ext/try-runtime",
+    "cumulus-pallet-parachain-system/try-runtime",
+    "cumulus-pallet-xcm/try-runtime",
+    "cumulus-pallet-xcmp-queue/try-runtime",
+    "frame-executive/try-runtime",
+    "frame-support/try-runtime",
+    "frame-system/try-runtime",
+    "frame-try-runtime/try-runtime",
+    "pallet-aura/try-runtime",
+    "pallet-authorship/try-runtime",
+    "pallet-balances/try-runtime",
+    "pallet-bridge-grandpa/try-runtime",
+    "pallet-bridge-messages/try-runtime",
+    "pallet-bridge-parachains/try-runtime",
+    "pallet-bridge-relayers/try-runtime",
+    "pallet-collator-selection/try-runtime",
+    "pallet-message-queue/try-runtime",
+    "pallet-multisig/try-runtime",
+    "pallet-session/try-runtime",
+    "pallet-timestamp/try-runtime",
+    "pallet-transaction-payment/try-runtime",
+    "pallet-utility/try-runtime",
+    "pallet-xcm-bridge-hub/try-runtime",
+    "pallet-xcm/try-runtime",
+    "parachain-info/try-runtime",
+    "polkadot-runtime-common/try-runtime",
+    "snowbridge-pallet-ethereum-client/try-runtime",
+    "snowbridge-pallet-inbound-queue/try-runtime",
+    "snowbridge-pallet-outbound-queue/try-runtime",
+    "snowbridge-pallet-system/try-runtime",
+    "sp-runtime/try-runtime",
 ]
 
 # A feature that should be enabled when the runtime should be built for on-chain
 # deployment. This will disable stuff that shouldn't be part of the on-chain wasm
 # to make it smaller, like logging for example.
 on-chain-release-build = ["sp-api/disable-logging"]
+
+fast-runtime = []
