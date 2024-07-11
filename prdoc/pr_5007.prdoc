@@ -1,0 +1,11 @@
+title: Add experimental slot based collator to parachain template
+
+doc:
+  - audience: Node Dev
+    description: |
+      Adds an `--experimental-use-slot-based` CLI parameter to the default parachain template,
+      which enables the slot based collator.
+
+crates:
+  - name: parachain-template-node
+    bump: minor
