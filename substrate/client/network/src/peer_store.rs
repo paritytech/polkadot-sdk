@@ -511,8 +511,10 @@ mod tests {
 		let peer_b = sc_network_types::PeerId::random();
 		let peer_c = sc_network_types::PeerId::random();
 
-		let peerstore =
-			PeerStore::new(vec![peer_a, peer_b, peer_c].into_iter().map(Into::into).collect());
+		let peerstore = PeerStore::new(
+			vec![peer_a, peer_b, peer_c].into_iter().map(Into::into).collect(),
+			None,
+		);
 		let handle = peerstore.handle();
 
 		// Check initial state.
