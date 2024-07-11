@@ -1,0 +1,27 @@
+title: Define and implement `OnPollStatusChange`
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      The trait `OnPollStatusChange` was added to `frame-support` and implemented
+      in `pallet-referenda`. This enables a hook that is triggered every time the
+      status of a poll changes (e.g. start ongoing, tally changes, is completed).
+
+      Pallet developers can implement this trait to act accordingly on poll changes.
+
+      Runtimes that depend on this pallet can add a default tuple type if no hooks are
+      implemented to listen to this hook.
+
+      ```rs
+      impl pallet_referenda::Config for Runtime {
+        // ...
+        type OnPollStatusChange = ();
+        // ...
+      }
+      ```
+
+crates:
+  - name: frame-support
+    bump: major
+  - name: pallet-referenda
+    bump: major

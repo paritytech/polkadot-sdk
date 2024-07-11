@@ -106,6 +106,7 @@ impl pallet_referenda::Config<FellowshipReferendaInstance> for Runtime {
 	type AlarmInterval = ConstU32<1>;
 	type Tracks = tracks::TracksInfo;
 	type Preimages = Preimage;
+	type OnPollStatusChange = ();
 }
 
 pub type FellowshipCollectiveInstance = pallet_ranked_collective::Instance1;
