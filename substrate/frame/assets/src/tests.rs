@@ -1294,7 +1294,6 @@ fn finish_destroy_asset_destroys_asset() {
 
 #[test]
 fn freezer_should_work() {
-	let _ = env_logger::try_init();
 	new_test_ext().execute_with(|| {
 		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 0, 1, true, 10));
 		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), 0, 1, 100));
@@ -1330,6 +1329,50 @@ fn freezer_should_work() {
 		clear_frozen_balance(0, 1);
 		assert_ok!(Assets::transfer(RuntimeOrigin::signed(1), 0, 2, 49));
 		assert_eq!(hooks(), vec![Hook::Died(0, 1)]);
+	});
+}
+
+#[test]
+fn freezing_and_holds_work() {
+	new_test_ext().execute_with(|| {
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 0, 1, true, 10));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), 0, 1, 100));
+		assert_eq!(Assets::balance(0, 1), 100);
+
+		// Hold 50 of it
+		set_held_balance(0, 1, 50);
+		assert_eq!(Assets::balance(0, 1), 50);
+		assert_eq!(TestHolder::held_balance(0, &1), Some(50));
+
+		// Can freeze up to held + min_balance without affecting reducible
+		set_frozen_balance(0, 1, 59);
+		assert_eq!(Assets::reducible_balance(0, &1, true), Ok(40));
+		set_frozen_balance(0, 1, 61);
+		assert_eq!(Assets::reducible_balance(0, &1, true), Ok(39));
+
+		// Increasing hold is not necessarily restricted by the frozen balance
+		set_held_balance(0, 1, 62);
+		assert_eq!(Assets::reducible_balance(0, &1, true), Ok(28));
+
+		// Transfers are bound to the spendable amount
+		assert_noop!(
+			Assets::transfer(RuntimeOrigin::signed(1), 0, 2, 29),
+			Error::<Test>::BalanceLow
+		);
+		// Approved transfers fail as well
+		Balances::make_free_balance_be(&1, 2);
+		assert_ok!(Assets::approve_transfer(RuntimeOrigin::signed(1), 0, 2, 29));
+		assert_noop!(
+			Assets::transfer_approved(RuntimeOrigin::signed(2), 0, 1, 2, 29),
+			Error::<Test>::BalanceLow
+		);
+		// Also forced transfers fail
+		assert_noop!(
+			Assets::force_transfer(RuntimeOrigin::signed(1), 0, 1, 2, 29),
+			Error::<Test>::BalanceLow
+		);
+		// ...but transferring up to spendable works
+		assert_ok!(Assets::transfer(RuntimeOrigin::signed(1), 0, 2, 28));
 	});
 }
 

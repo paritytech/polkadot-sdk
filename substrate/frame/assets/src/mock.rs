@@ -22,7 +22,7 @@ use crate as pallet_assets;
 
 use codec::Encode;
 use frame_support::{
-	construct_runtime, derive_impl, parameter_types,
+	assert_ok, construct_runtime, derive_impl, parameter_types,
 	traits::{AsEnsureOriginWithArg, ConstU32},
 };
 use sp_io::storage;
@@ -103,7 +103,7 @@ impl Config for Test {
 	type CreateOrigin = AsEnsureOriginWithArg<frame_system::EnsureSigned<u64>>;
 	type ForceOrigin = frame_system::EnsureRoot<u64>;
 	type Freezer = TestFreezer;
-	type Holder = ();
+	type Holder = TestHolder;
 	type CallbackHandle = (AssetsCallbackHandle, AutoIncAssetId<Test>);
 }
 
@@ -115,9 +115,40 @@ pub enum Hook {
 }
 parameter_types! {
 	static Frozen: HashMap<(u32, u64), u64> = Default::default();
+	static Held: HashMap<(u32, u64), u64> = Default::default();
 	static Hooks: Vec<Hook> = Default::default();
 }
 
+pub struct TestHolder;
+impl HeldBalance<u32, u64, u64> for TestHolder {
+	fn held_balance(asset: u32, who: &u64) -> Option<u64> {
+		Held::get().get(&(asset, *who)).cloned()
+	}
+
+	fn died(_asset: u32, _who: &u64) {
+		// TODO: Connect with existing hooks list
+	}
+}
+
+pub(crate) fn set_held_balance(asset: u32, who: u64, amount: u64) {
+	Held::mutate(|v| {
+		let held_amount = v.get(&(asset, who)).unwrap_or(&0);
+
+		if &amount > held_amount {
+			// Hold more funds
+			let amount = amount - held_amount;
+			let f = DebitFlags { keep_alive: true, best_effort: false };
+			assert_ok!(Assets::decrease_balance(asset, &who, amount, f, |_, _| Ok(())));
+		} else {
+			// Release held funds
+			let amount = held_amount - amount;
+			assert_ok!(Assets::increase_balance(asset, &who, amount, |_| Ok(())));
+		}
+
+		// Asset amount still "exists", we just store it here
+		v.insert((asset, who), amount);
+	});
+}
 pub struct TestFreezer;
 impl FrozenBalance<u32, u64, u64> for TestFreezer {
 	fn frozen_balance(asset: u32, who: &u64) -> Option<u64> {
