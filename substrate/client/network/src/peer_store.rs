@@ -511,15 +511,16 @@ mod tests {
 		let peer_b = sc_network_types::PeerId::random();
 		let peer_c = sc_network_types::PeerId::random();
 
-		let metrics_registry = prometheus_endpoint::Registry::new().unwrap();
+		let metrics_registry = prometheus_endpoint::Registry::new();
 		let peerstore = PeerStore::new(
 			vec![peer_a, peer_b, peer_c].into_iter().map(Into::into).collect(),
 			Some(metrics_registry),
 		);
-		let metrics = peerstore.inner.lock().metrics.expect().clone();
+		let metrics = peerstore.inner.lock().metrics.as_ref().unwrap().clone();
 		let handle = peerstore.handle();
 
-		// Check initial state.
+		// Check initial state. Advance time to propagate peers.
+		handle.inner.lock().progress_time(1);
 		assert_eq!(metrics.num_discovered.get(), 3);
 		assert_eq!(metrics.num_banned_peers.get(), 0);
 
@@ -532,10 +533,10 @@ mod tests {
 			peer_b,
 			sc_network_common::types::ReputationChange { value: i32::MIN, reason: "test".into() },
 		);
+
 		// Advance time to propagate banned peers.
 		handle.inner.lock().progress_time(1);
-
 		assert_eq!(metrics.num_discovered.get(), 3);
-		assert_eq!(metrics.num_banned_peers.get(), 0);
+		assert_eq!(metrics.num_banned_peers.get(), 2);
 	}
 }
