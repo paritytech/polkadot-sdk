@@ -39,7 +39,7 @@ cat <<EOF
      |    \__/ |__/| \_/\_/|_/\_/|_/\__/ |_/  |____/|____/|_|\_\ 
                                                                     quickstart!
 
-🚀 We will be setting up an example template and its environment for you to experiment with.
+⚡ We will be setting up an example template and its environment for you to experiment with.
 EOF
 
 # Determine OS
