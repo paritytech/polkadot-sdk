@@ -106,9 +106,11 @@ pub trait StakeStrategy {
 
 	/// Balance that can be transferred from pool account to member.
 	///
-	/// This is part of the pool balance that is not actively staked. That is, tokens that are
-	/// in unbonding period or unbonded.
-	fn transferable_balance(pool_account: Pool<Self::AccountId>) -> Self::Balance;
+	/// This is part of the pool balance that can be withdrawn.
+	fn transferable_balance(
+		pool_account: Pool<Self::AccountId>,
+		member_account: Member<Self::AccountId>,
+	) -> Self::Balance;
 
 	/// Total balance of the pool including amount that is actively staked.
 	fn total_balance(pool_account: Pool<Self::AccountId>) -> Option<Self::Balance>;
@@ -253,7 +255,10 @@ impl<T: Config, Staking: StakingInterface<Balance = BalanceOf<T>, AccountId = T:
 		StakeStrategyType::Transfer
 	}
 
-	fn transferable_balance(pool_account: Pool<Self::AccountId>) -> BalanceOf<T> {
+	fn transferable_balance(
+		pool_account: Pool<Self::AccountId>,
+		_: Member<Self::AccountId>,
+	) -> BalanceOf<T> {
 		T::Currency::balance(&pool_account.0).saturating_sub(Self::active_stake(pool_account))
 	}
 
@@ -360,11 +365,14 @@ impl<
 		StakeStrategyType::Delegate
 	}
 
-	fn transferable_balance(pool_account: Pool<Self::AccountId>) -> BalanceOf<T> {
-		Delegation::agent_balance(pool_account.clone().into())
+	fn transferable_balance(
+		pool_account: Pool<Self::AccountId>,
+		member_account: Member<Self::AccountId>,
+	) -> BalanceOf<T> {
+		Delegation::agent_transferable_balance(pool_account.clone().into())
 			// pool should always be an agent.
 			.defensive_unwrap_or_default()
-			.saturating_sub(Self::active_stake(pool_account))
+			.min(Delegation::delegator_balance(member_account.into()).unwrap_or_default())
 	}
 
 	fn total_balance(pool_account: Pool<Self::AccountId>) -> Option<BalanceOf<T>> {
