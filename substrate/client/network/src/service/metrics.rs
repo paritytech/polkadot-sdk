@@ -230,6 +230,34 @@ impl Metrics {
 	}
 }
 
+/// PeerSet metrics.
+#[derive(Clone, Debug)]
+pub struct PeerSetMetrics {
+	pub num_banned_peers: Gauge<U64>,
+	pub num_discovered: Gauge<U64>,
+}
+
+impl PeerSetMetrics {
+	fn register(registry: &Registry) -> Result<Self, PrometheusError> {
+		Ok(Self {
+			num_banned_peers: prometheus::register(
+				Gauge::new(
+					"substrate_sub_libp2p_peerset_num_banned_peers",
+					"Number of banned peers stored in the peerset manager",
+				)?,
+				registry,
+			)?,
+			num_discovered: prometheus::register(
+				Gauge::new(
+					"substrate_sub_libp2p_peerset_num_discovered",
+					"Number of nodes stored in the peerset manager",
+				)?,
+				registry,
+			)?,
+		})
+	}
+}
+
 /// The bandwidth counter metric.
 #[derive(Clone)]
 pub struct BandwidthCounters(Arc<dyn BandwidthSink>);
