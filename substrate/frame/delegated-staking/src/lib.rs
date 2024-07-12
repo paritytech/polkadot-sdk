@@ -317,7 +317,7 @@ pub mod pallet {
 			let _ = frame_system::Pallet::<T>::dec_providers(&who).defensive();
 
 			// It is possible that there are some dangling delegators left in the system. They
-			// should be able to claim their funds back via `TODO: create a call.`
+			// should be able to claim their funds back via `TODO(ank4n): add a new call.`
 			<Agents<T>>::remove(who);
 
 			Ok(())
@@ -624,31 +624,8 @@ impl<T: Config> Pallet<T> {
 
 		// if we still do not have enough funds to release, abort.
 		ensure!(agent_ledger.ledger.unclaimed_withdrawals >= amount, Error::<T>::NotEnoughFunds);
-
-		// Claim withdraw from agent. Kill agent if no delegation left.
-		// TODO: Ideally if there is a register, there should be an unregister that should
-		// clean up the agent. Can be improved in future.
 		agent_ledger.remove_unclaimed_withdraw(amount)?.update();
-		/*
-				if agent_ledger.remove_unclaimed_withdraw(amount)?.update()? {
-					match stash_killed {
-						Some(killed) => {
-							// this implies we did a `CoreStaking::withdraw` before release. Ensure
-							// we killed the staker as well.
-							ensure!(killed, Error::<T>::BadState);
-						},
-						None => {
-							// We did not do a `CoreStaking::withdraw` before release. Ensure staker is
-							// already killed in `CoreStaking`.
-							ensure!(T::CoreStaking::status(&agent).is_err(), Error::<T>::BadState);
-						},
-					}
 
-					// Remove provider reference for `who`.
-					let _ = frame_system::Pallet::<T>::dec_providers(&agent).defensive();
-				}
-		*/
-		// book keep delegation
 		delegation.amount = delegation
 			.amount
 			.checked_sub(&amount)
