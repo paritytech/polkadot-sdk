@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1720708469584,
+  "lastUpdate": 1720749437025,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -10245,6 +10245,53 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 3.181919748320156,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Jun Jiang",
+            "username": "jasl",
+            "email": "jasl9187@hotmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "53598b8ef5c17d4328dab47f1540bfa80649b1a0",
+          "message": "Remove usage of `sp-std` on templates (#5001)\n\nFollowing PR for https://github.com/paritytech/polkadot-sdk/pull/4941\nthat removes usage of `sp-std` on templates\n\n`sp-std` crate was proposed to deprecate on\nhttps://github.com/paritytech/polkadot-sdk/issues/2101\n\n@kianenigma\n\n---------\n\nCo-authored-by: Kian Paimani <5588131+kianenigma@users.noreply.github.com>",
+          "timestamp": "2024-07-11T23:35:46Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/53598b8ef5c17d4328dab47f1540bfa80649b1a0"
+        },
+        "date": 1720749407588,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52939,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63814.030000000006,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting",
+            "value": 10.444424940880001,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 7.759988797190024,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 3.6208916435103,
             "unit": "seconds"
           }
         ]
