@@ -150,7 +150,7 @@ where
 		self.xts2
 			.read()
 			.iter()
-			.filter_map(|(hash, tx)| (!tx.is_watched()).then(|| (hash.clone(), tx.clone())))
+			.filter_map(|(hash, tx)| (!tx.is_watched()).then(|| (*hash, tx.clone())))
 			.collect::<HashMap<_, _>>()
 	}
 	pub(super) fn clone_watched(
@@ -159,7 +159,7 @@ where
 		self.xts2
 			.read()
 			.iter()
-			.filter_map(|(hash, tx)| (tx.is_watched()).then(|| (hash.clone(), tx.clone())))
+			.filter_map(|(hash, tx)| (tx.is_watched()).then(|| (*hash, tx.clone())))
 			.collect::<HashMap<_, _>>()
 	}
 
