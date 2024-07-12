@@ -480,7 +480,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // For more information, please refer to &lt;http://unlicense.org&gt;
 
 // External crates imports
-</span><span class="kw">use </span>frame_support::{
+</span><span class="kw">use </span>alloc::vec::Vec;
+<span class="kw">use </span>frame_support::{
 	genesis_builder_helper::{build_state, get_preset},
 	weights::Weight,
 };
@@ -493,7 +494,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	transaction_validity::{TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult,
 };
-<span class="kw">use </span>sp_std::prelude::Vec;
 <span class="kw">use </span>sp_version::RuntimeVersion;
 
 <span class="comment">// Local module imports
@@ -562,7 +562,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			Runtime::metadata_at_version(version)
 		}
 
-		<span class="kw">fn </span>metadata_versions() -&gt; sp_std::vec::Vec&lt;u32&gt; {
+		<span class="kw">fn </span>metadata_versions() -&gt; Vec&lt;u32&gt; {
 			Runtime::metadata_versions()
 		}
 	}
@@ -720,7 +720,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="kw">use </span>frame_system_benchmarking::Pallet <span class="kw">as </span>SystemBench;
 			<span class="kw">impl </span>frame_system_benchmarking::Config <span class="kw">for </span>Runtime {
-				<span class="kw">fn </span>setup_set_code_requirements(code: <span class="kw-2">&amp;</span>sp_std::vec::Vec&lt;u8&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), BenchmarkError&gt; {
+				<span class="kw">fn </span>setup_set_code_requirements(code: <span class="kw-2">&amp;</span>Vec&lt;u8&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), BenchmarkError&gt; {
 					ParachainSystem::initialize_for_set_code_benchmark(code.len() <span class="kw">as </span>u32);
 					<span class="prelude-val">Ok</span>(())
 				}

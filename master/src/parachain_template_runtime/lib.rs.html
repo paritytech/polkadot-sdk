@@ -459,6 +459,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#308" id="308">308</a>
 <a href="#309" id="309">309</a>
 <a href="#310" id="310">310</a>
+<a href="#311" id="311">311</a>
 </pre></div><pre class="rust"><code><span class="attr">#![cfg_attr(not(feature = <span class="string">"std"</span>), no_std)]
 </span><span class="comment">// `construct_runtime!` does a lot of recursion and requires us to increase the limit to 256.
 </span><span class="attr">#![recursion_limit = <span class="string">"256"</span>]
@@ -473,6 +474,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">mod </span>configs;
 <span class="kw">mod </span>weights;
 
+<span class="kw">extern crate </span>alloc;
+<span class="kw">use </span>alloc::{boxed::Box, vec::Vec};
 <span class="kw">use </span>smallvec::smallvec;
 <span class="kw">use </span>sp_runtime::{
 	create_runtime_str, generic, impl_opaque_keys,
@@ -480,7 +483,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	MultiSignature,
 };
 
-<span class="kw">use </span>sp_std::prelude::<span class="kw-2">*</span>;
 <span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">use </span>sp_version::NativeVersion;
 <span class="kw">use </span>sp_version::RuntimeVersion;

@@ -742,11 +742,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#591" id="591">591</a>
 <a href="#592" id="592">592</a>
 <a href="#593" id="593">593</a>
+<a href="#594" id="594">594</a>
 </pre></div><pre class="rust"><code><span class="attr">#![cfg_attr(not(feature = <span class="string">"std"</span>), no_std)]
 
 #[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="macro">include!</span>(<span class="macro">concat!</span>(<span class="macro">env!</span>(<span class="string">"OUT_DIR"</span>), <span class="string">"/wasm_binary.rs"</span>));
 
+<span class="kw">extern crate </span>alloc;
+<span class="kw">use </span>alloc::{boxed::Box, vec, vec::Vec};
 <span class="kw">use </span>pallet_grandpa::AuthorityId <span class="kw">as </span>GrandpaId;
 <span class="kw">use </span>sp_api::impl_runtime_apis;
 <span class="kw">use </span>sp_consensus_aura::sr25519::AuthorityId <span class="kw">as </span>AuraId;
@@ -757,7 +760,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	transaction_validity::{TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult, MultiSignature,
 };
-<span class="kw">use </span>sp_std::prelude::<span class="kw-2">*</span>;
 <span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">use </span>sp_version::NativeVersion;
 <span class="kw">use </span>sp_version::RuntimeVersion;
@@ -1114,7 +1116,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			Runtime::metadata_at_version(version)
 		}
 
-		<span class="kw">fn </span>metadata_versions() -&gt; sp_std::vec::Vec&lt;u32&gt; {
+		<span class="kw">fn </span>metadata_versions() -&gt; Vec&lt;u32&gt; {
 			Runtime::metadata_versions()
 		}
 	}
