@@ -2482,7 +2482,6 @@ dependencies = [
  "bp-xcm-bridge-hub-router",
  "frame-support",
  "frame-system",
- "hash-db",
  "log",
  "pallet-balances",
  "pallet-bridge-grandpa",
@@ -2493,8 +2492,6 @@ dependencies = [
  "pallet-utility",
  "parity-scale-codec",
  "scale-info",
- "sp-api 26.0.0",
- "sp-core 28.0.0",
  "sp-io 30.0.0",
  "sp-runtime 31.0.1",
  "sp-std 14.0.0",
@@ -9290,7 +9287,6 @@ dependencies = [
  "async-std",
  "async-trait",
  "bp-messages",
- "env_logger 0.11.3",
  "finality-relay",
  "futures",
  "hex",
@@ -10817,7 +10813,6 @@ dependencies = [
  "bp-header-chain",
  "bp-runtime",
  "bp-test-utils",
- "finality-grandpa",
  "frame-benchmarking",
  "frame-support",
  "frame-system",
@@ -10829,13 +10824,13 @@ dependencies = [
  "sp-io 30.0.0",
  "sp-runtime 31.0.1",
  "sp-std 14.0.0",
- "sp-trie 29.0.0",
 ]
 
 [[package]]
 name = "pallet-bridge-messages"
 version = "0.7.0"
 dependencies = [
+ "bp-header-chain",
  "bp-messages",
  "bp-runtime",
  "bp-test-utils",
@@ -10843,13 +10838,15 @@ dependencies = [
  "frame-support",
  "frame-system",
  "log",
- "num-traits",
  "pallet-balances",
+ "pallet-bridge-grandpa",
  "parity-scale-codec",
  "scale-info",
+ "sp-core 28.0.0",
  "sp-io 30.0.0",
  "sp-runtime 31.0.1",
  "sp-std 14.0.0",
+ "sp-trie 29.0.0",
 ]
 
 [[package]]
@@ -10872,7 +10869,6 @@ dependencies = [
  "sp-io 30.0.0",
  "sp-runtime 31.0.1",
  "sp-std 14.0.0",
- "sp-trie 29.0.0",
 ]
 
 [[package]]
@@ -12018,7 +12014,6 @@ dependencies = [
  "sp-core 28.0.0",
  "sp-io 30.0.0",
  "sp-runtime 31.0.1",
- "sp-std 14.0.0",
 ]
 
 [[package]]
@@ -12900,7 +12895,6 @@ dependencies = [
  "sp-offchain",
  "sp-runtime 31.0.1",
  "sp-session",
- "sp-std 14.0.0",
  "sp-transaction-pool",
  "sp-version 29.0.0",
  "staging-parachain-info",
@@ -17098,13 +17092,10 @@ dependencies = [
  "bp-runtime",
  "finality-relay",
  "frame-support",
- "frame-system",
  "futures",
  "jsonrpsee 0.23.2",
  "log",
  "num-traits",
- "pallet-balances",
- "pallet-bridge-messages",
  "pallet-transaction-payment",
  "pallet-transaction-payment-rpc-runtime-api",
  "pallet-utility",
@@ -21102,7 +21093,6 @@ dependencies = [
  "sp-offchain",
  "sp-runtime 31.0.1",
  "sp-session",
- "sp-std 14.0.0",
  "sp-storage 19.0.0",
  "sp-transaction-pool",
  "sp-version 29.0.0",
@@ -23235,7 +23225,6 @@ dependencies = [
  "frame-benchmarking",
  "frame-support",
  "impl-trait-for-tuples",
- "log",
  "parity-scale-codec",
  "scale-info",
  "sp-arithmetic 23.0.0",
@@ -23245,6 +23234,7 @@ dependencies = [
  "sp-std 14.0.0",
  "sp-weights 27.0.0",
  "staging-xcm",
+ "tracing",
 ]
 
 [[package]]
@@ -23580,9 +23570,7 @@ dependencies = [
  "bp-polkadot-core",
  "bp-relayers",
  "bp-runtime",
- "bridge-runtime-common",
  "equivocation-detector",
- "finality-grandpa",
  "finality-relay",
  "frame-support",
  "frame-system",
@@ -23602,9 +23590,11 @@ dependencies = [
  "rbtag",
  "relay-substrate-client",
  "relay-utils",
+ "scale-info",
  "sp-consensus-grandpa",
  "sp-core 28.0.0",
  "sp-runtime 31.0.1",
+ "sp-trie 29.0.0",
  "structopt",
  "strum 0.26.2",
  "thiserror",
@@ -26978,6 +26968,8 @@ dependencies = [
 [[package]]
 name = "zombienet-configuration"
 version = "0.2.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ecd24a5c580ce4d871a4f3291144a731f0cfc633fedd681b99e73825f38181b6"
 dependencies = [
  "anyhow",
  "lazy_static",
@@ -26994,6 +26986,8 @@ dependencies = [
 [[package]]
 name = "zombienet-orchestrator"
 version = "0.2.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6446839a7d10fdf49fcfd5367da6f111f1cd745e93731b9414e5d4665cdbe804"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -27023,6 +27017,8 @@ dependencies = [
 [[package]]
 name = "zombienet-prom-metrics-parser"
 version = "0.2.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "80ed716ba0901e603cbd3b5e3ddc59e3df20d69cd58109ef12bbea6097ffd325"
 dependencies = [
  "pest",
  "pest_derive",
@@ -27032,6 +27028,8 @@ dependencies = [
 [[package]]
 name = "zombienet-provider"
 version = "0.2.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5a7522089152c02622ac27f30f95652ff5b9e3d193ef7eafee41603e9d7cc785"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -27061,6 +27059,8 @@ dependencies = [
 [[package]]
 name = "zombienet-sdk"
 version = "0.2.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "daef344e96138af15f5f3300468cbe873fa5011e15099bb8722920b0c00d27ae"
 dependencies = [
  "async-trait",
  "futures",
@@ -27076,6 +27076,8 @@ dependencies = [
 [[package]]
 name = "zombienet-support"
 version = "0.2.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6026607084432996fd590d4beb9d4fb15937bce4f3bd6bddd7e8c0ead1bbc141"
 dependencies = [
  "anyhow",
  "async-trait",
