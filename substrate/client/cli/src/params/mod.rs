@@ -116,7 +116,6 @@ impl BlockNumberOrHash {
 	pub fn parse<B: BlockT>(&self) -> Result<BlockId<B>, String>
 	where
 		<B::Hash as FromStr>::Err: std::fmt::Debug,
-		NumberFor<B>: FromStr,
 		<NumberFor<B> as FromStr>::Err: std::fmt::Debug,
 	{
 		if self.0.starts_with("0x") {

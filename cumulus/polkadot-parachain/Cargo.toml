@@ -61,6 +61,7 @@ sp-tracing = { workspace = true, default-features = true }
 frame-support = { workspace = true, default-features = true }
 sc-cli = { workspace = true, default-features = true }
 sc-client-api = { workspace = true, default-features = true }
+sc-client-db = { workspace = true, default-features = true }
 sc-executor = { workspace = true, default-features = true }
 sc-service = { workspace = true, default-features = true }
 sc-telemetry = { workspace = true, default-features = true }

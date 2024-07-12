@@ -20,12 +20,15 @@ use crate::{
 	chain_spec,
 	chain_spec::GenericChainSpec,
 	cli::{Cli, RelayChainCli, Subcommand},
-	common::NodeExtraArgs,
+	common::{
+		parachain::{aura::new_aura_node_spec, DynParachainNodeSpec},
+		NodeExtraArgs,
+	},
 	fake_runtime_api::{
 		asset_hub_polkadot_aura::RuntimeApi as AssetHubPolkadotRuntimeApi,
 		aura::RuntimeApi as AuraRuntimeApi,
 	},
-	service::{new_aura_node_spec, DynNodeSpec, ShellNode},
+	service::ShellNode,
 };
 #[cfg(feature = "runtime-benchmarks")]
 use cumulus_client_service::storage_proof_size::HostFunctions as ReclaimHostFunctions;
@@ -389,7 +392,7 @@ impl SubstrateCli for RelayChainCli {
 fn new_node_spec(
 	config: &sc_service::Configuration,
 	extra_args: NodeExtraArgs,
-) -> std::result::Result<Box<dyn DynNodeSpec>, sc_cli::Error> {
+) -> std::result::Result<Box<dyn DynParachainNodeSpec>, sc_cli::Error> {
 	Ok(match config.chain_spec.runtime()? {
 		Runtime::AssetHubPolkadot =>
 			new_aura_node_spec::<AssetHubPolkadotRuntimeApi, AssetHubPolkadotAuraId>(extra_args),
