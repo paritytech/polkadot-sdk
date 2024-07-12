@@ -19,7 +19,7 @@
 use super::*;
 use crate::mock::*;
 
-use alloc::num::NonZeroU32;
+use core::num::NonZeroU32;
 use cumulus_primitives_core::{AbridgedHrmpChannel, InboundDownwardMessage, InboundHrmpMessage};
 use frame_support::{assert_ok, parameter_types, weights::Weight};
 use frame_system::RawOrigin;

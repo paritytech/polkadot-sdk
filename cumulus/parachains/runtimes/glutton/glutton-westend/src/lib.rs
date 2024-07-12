@@ -47,6 +47,8 @@ include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 pub mod weights;
 pub mod xcm_config;
 
+extern crate alloc;
+
 use cumulus_pallet_parachain_system::RelayNumberMonotonicallyIncreases;
 use sp_api::impl_runtime_apis;
 pub use sp_consensus_aura::sr25519::AuthorityId as AuraId;

@@ -42,6 +42,9 @@ mod weights;
 pub mod xcm_config;
 // Fellowship configurations.
 pub mod fellowship;
+
+extern crate alloc;
+
 pub use ambassador::pallet_ambassador_origins;
 
 use ambassador::AmbassadorCoreInstance;

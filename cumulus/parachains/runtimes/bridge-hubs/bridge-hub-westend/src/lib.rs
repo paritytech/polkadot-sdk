@@ -32,6 +32,8 @@ pub mod bridge_to_rococo_config;
 mod weights;
 pub mod xcm_config;
 
+extern crate alloc;
+
 use bridge_runtime_common::extensions::{
 	check_obsolete_extension::{
 		CheckAndBoostBridgeGrandpaTransactions, CheckAndBoostBridgeParachainsTransactions,

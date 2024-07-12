@@ -1277,7 +1277,7 @@ mod asset_hub_rococo_tests {
 			collator_session_keys(),
 			bridging_to_asset_hub_westend,
 			|| {
-				alloc::vec![
+				vec![
 					UnpaidExecution { weight_limit: Unlimited, check_origin: None },
 					Transact {
 						origin_kind: OriginKind::Xcm,
@@ -1296,7 +1296,7 @@ mod asset_hub_rococo_tests {
 				.into()
 			},
 			|| {
-				alloc::vec![
+				vec![
 					UnpaidExecution { weight_limit: Unlimited, check_origin: None },
 					Transact {
 						origin_kind: OriginKind::Xcm,

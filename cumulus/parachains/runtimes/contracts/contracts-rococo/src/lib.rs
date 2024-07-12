@@ -29,6 +29,8 @@ mod contracts;
 mod weights;
 mod xcm_config;
 
+extern crate alloc;
+
 use cumulus_pallet_parachain_system::RelayNumberMonotonicallyIncreases;
 use cumulus_primitives_core::AggregateMessageOrigin;
 use sp_api::impl_runtime_apis;

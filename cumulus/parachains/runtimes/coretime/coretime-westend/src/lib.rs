@@ -33,6 +33,8 @@ mod coretime;
 mod weights;
 pub mod xcm_config;
 
+extern crate alloc;
+
 use cumulus_pallet_parachain_system::RelayNumberMonotonicallyIncreases;
 use cumulus_primitives_core::{AggregateMessageOrigin, ParaId};
 use frame_support::{
