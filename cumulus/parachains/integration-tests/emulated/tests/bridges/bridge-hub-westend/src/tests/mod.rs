@@ -17,6 +17,7 @@ use crate::imports::*;
 
 mod asset_transfers;
 mod send_xcm;
+mod snowbridge;
 mod teleport;
 
 mod snowbridge {
