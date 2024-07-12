@@ -857,11 +857,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	}
 
 	fn get_bounties_count() -> u32 {
-		let mut count = 0;
-		for _ in <Bounties<T, I>>::iter() {
-			count += 1;
-		}
-		count as u32
+		Bounties::<T, I>::iter().count() as u32
 	}
 
 	fn get_bounties_description_count() -> u32 {
