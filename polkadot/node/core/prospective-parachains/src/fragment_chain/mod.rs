@@ -154,8 +154,6 @@ pub(crate) enum Error {
 	MultiplePaths,
 	#[error("Attempting to directly introduce a Backed candidate. It should first be introduced as Seconded")]
 	IntroduceBackedCandidate,
-	#[error("Current backed candidate chain reached the `max_candidate_depth + 1` limit")]
-	ChainTooLong,
 	#[error("Relay parent {0:?} of the candidate precedes the relay parent {0:?} of a pending availability candidate")]
 	RelayParentPrecedesCandidatePendingAvailability(Hash, Hash),
 	#[error("Candidate would introduce a fork with a pending availability candidate: {0:?}")]
@@ -968,34 +966,27 @@ impl FragmentChain {
 
 		// Try seeing if the parent candidate is in the current chain or if it is the latest
 		// included candidate. If so, get the constraints the candidate must satisfy.
-		let constraints = if let Some(parent_candidate) =
-			self.best_chain.by_output_head.get(&parent_head_hash)
-		{
-			let Some(parent_candidate_index) =
-				self.best_chain.chain.iter().position(|c| &c.candidate_hash == parent_candidate)
-			else {
-				// Should never really happen.
-				return Err(Error::ParentCandidateNotFound)
+		let constraints =
+			if let Some(parent_candidate) = self.best_chain.by_output_head.get(&parent_head_hash) {
+				let Some(parent_candidate) =
+					self.best_chain.chain.iter().find(|c| &c.candidate_hash == parent_candidate)
+				else {
+					// Should never really happen.
+					return Err(Error::ParentCandidateNotFound)
+				};
+
+				self.scope
+					.base_constraints
+					.apply_modifications(&parent_candidate.cumulative_modifications)
+					.map_err(Error::ComputeConstraints)?
+			} else if self.scope.base_constraints.required_parent.hash() == parent_head_hash {
+				// It builds on the latest included candidate.
+				self.scope.base_constraints.clone()
+			} else {
+				// If the parent is not yet part of the chain, there's nothing else we can check for
+				// now.
+				return Ok(())
 			};
-
-			// We already have enough candidates in this chain.
-			if parent_candidate_index >= self.scope.max_depth {
-				return Err(Error::ChainTooLong)
-			}
-
-			let parent_candidate = &self.best_chain.chain[parent_candidate_index];
-			self.scope
-				.base_constraints
-				.apply_modifications(&parent_candidate.cumulative_modifications)
-				.map_err(Error::ComputeConstraints)?
-		} else if self.scope.base_constraints.required_parent.hash() == parent_head_hash {
-			// It builds on the latest included candidate.
-			self.scope.base_constraints.clone()
-		} else {
-			// If the parent is not yet part of the chain, there's nothing else we can check for
-			// now.
-			return Ok(())
-		};
 
 		// Check for cycles or invalid tree transitions.
 		if let Some(ref output_head_hash) = candidate.output_head_data_hash() {
@@ -1037,6 +1028,9 @@ impl FragmentChain {
 		// Start out with the candidates in the chain. They are all valid candidates.
 		let mut queue: VecDeque<_> =
 			self.best_chain.chain.iter().map(|c| (c.parent_head_data_hash, true)).collect();
+		if queue.is_empty() {
+			queue.push_front((self.scope.base_constraints.required_parent.hash(), true));
+		}
 		// To make sure that cycles don't make us loop forever, keep track of the visited parent
 		// heads.
 		let mut visited = HashSet::new();
