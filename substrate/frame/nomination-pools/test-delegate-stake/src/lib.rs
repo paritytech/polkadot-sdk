@@ -1425,8 +1425,6 @@ fn pool_best_effort_release() {
 		);
 
 		// Set pools to destroying so alice can withdraw
-		println!("Alice pool member: {:?}", PoolMembers::<Runtime>::get(alice).unwrap());
-		println!("Pool 1: {:?}", BondedPools::<Runtime>::get(1).unwrap());
 		assert_ok!(Pools::set_state(RuntimeOrigin::signed(alice), 1, PoolState::Destroying));
 		assert_ok!(Pools::unbond(RuntimeOrigin::signed(alice), alice, 30));
 
@@ -1444,17 +1442,17 @@ fn pool_best_effort_release() {
 		);
 
 		CurrentEra::<Runtime>::set(Some(21));
-		assert_ok!(Pools::withdraw_unbonded(RuntimeOrigin::signed(10), 10, 0));
+		assert_ok!(Pools::withdraw_unbonded(RuntimeOrigin::signed(alice), alice, 0));
 
 		assert_eq!(
 			staking_events_since_last_call(),
-			vec![StakingEvent::Withdrawn { stash: POOL1_BONDED, amount: 10 }]
+			vec![StakingEvent::Withdrawn { stash: POOL1_BONDED, amount: 15 }]
 		);
 		assert_eq!(
 			pool_events_since_last_call(),
 			vec![
-				PoolsEvent::Withdrawn { member: 10, pool_id: 1, balance: 10 + 15, points: 30 },
-				PoolsEvent::MemberRemoved { pool_id: 1, member: 10 },
+				PoolsEvent::Withdrawn { member: alice, pool_id: 1, balance: 20, points: 25 },
+				PoolsEvent::MemberRemoved { pool_id: 1, member: alice },
 				PoolsEvent::Destroyed { pool_id: 1 }
 			]
 		);
