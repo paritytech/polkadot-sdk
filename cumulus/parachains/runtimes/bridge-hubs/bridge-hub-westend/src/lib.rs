@@ -189,7 +189,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("bridge-hub-westend"),
 	impl_name: create_runtime_str!("bridge-hub-westend"),
 	authoring_version: 1,
-	spec_version: 1_013_000,
+	spec_version: 1_014_000,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 5,
@@ -1118,7 +1118,7 @@ impl_runtime_apis! {
 					prepare_message_proof_from_parachain::<
 						Runtime,
 						bridge_to_rococo_config::BridgeGrandpaRococoInstance,
-						bridge_to_rococo_config::WithBridgeHubRococoMessageBridge,
+						bridge_to_rococo_config::WithBridgeHubRococoMessagesInstance,
 					>(params, generate_xcm_builder_bridge_message_sample([GlobalConsensus(Westend), Parachain(42)].into()))
 				}
 
@@ -1128,7 +1128,7 @@ impl_runtime_apis! {
 					prepare_message_delivery_proof_from_parachain::<
 						Runtime,
 						bridge_to_rococo_config::BridgeGrandpaRococoInstance,
-						bridge_to_rococo_config::WithBridgeHubRococoMessageBridge,
+						bridge_to_rococo_config::WithBridgeHubRococoMessagesInstance,
 					>(params)
 				}
 
@@ -1154,7 +1154,7 @@ impl_runtime_apis! {
 				fn prepare_parachain_heads_proof(
 					parachains: &[bp_polkadot_core::parachains::ParaId],
 					parachain_head_size: u32,
-					proof_size: bp_runtime::StorageProofSize,
+					proof_params: bp_runtime::UnverifiedStorageProofParams,
 				) -> (
 					pallet_bridge_parachains::RelayBlockNumber,
 					pallet_bridge_parachains::RelayBlockHash,
@@ -1164,7 +1164,7 @@ impl_runtime_apis! {
 					prepare_parachain_heads_proof::<Runtime, bridge_to_rococo_config::BridgeParachainRococoInstance>(
 						parachains,
 						parachain_head_size,
-						proof_size,
+						proof_params,
 					)
 				}
 			}

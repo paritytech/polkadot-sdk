@@ -27,7 +27,7 @@ use sp_weights::{Weight, WeightMeter};
 
 /// Errors that can happen when attempting to process a message with
 /// [`ProcessMessage::process_message()`].
-#[derive(Copy, Clone, Eq, PartialEq, Encode, Decode, TypeInfo, RuntimeDebug)]
+#[derive(Copy, Clone, Eq, PartialEq, Encode, Decode, TypeInfo, Debug)]
 pub enum ProcessMessageError {
 	/// The message data format is unknown (e.g. unrecognised header)
 	BadFormat,
