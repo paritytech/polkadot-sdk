@@ -61,18 +61,18 @@ use crate::{
 use codec::DecodeAll;
 use either::Either;
 use futures::{channel::oneshot, prelude::*};
-use libp2p::identity::ed25519;
 #[allow(deprecated)]
+use libp2p::swarm::THandlerErr;
 use libp2p::{
-	connection_limits::Exceeded,
+	connection_limits::{ConnectionLimits, Exceeded},
 	core::{upgrade, ConnectedPoint, Endpoint},
 	identify::Info as IdentifyInfo,
+	identity::ed25519,
 	kad::record::Key as KademliaKey,
 	multiaddr::{self, Multiaddr},
-	ping::Failure as PingFailure,
 	swarm::{
-		AddressScore, ConnectionError, ConnectionId, ConnectionLimits, DialError, Executor,
-		ListenError, NetworkBehaviour, Swarm, SwarmBuilder, SwarmEvent, THandlerErr,
+		Config as SwarmConfig, ConnectionError, ConnectionId, DialError, Executor, ListenError,
+		NetworkBehaviour, Swarm, SwarmEvent,
 	},
 	PeerId,
 };
@@ -89,6 +89,10 @@ use sc_network_common::{
 use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedReceiver, TracingUnboundedSender};
 use sp_runtime::traits::Block as BlockT;
 
+pub use behaviour::{InboundFailure, OutboundFailure, ResponseFailure};
+pub use libp2p::identity::{DecodingError, Keypair, PublicKey};
+pub use metrics::NotificationMetrics;
+pub use protocol::NotificationsSink;
 use std::{
 	cmp,
 	collections::{HashMap, HashSet},
@@ -101,13 +105,8 @@ use std::{
 		atomic::{AtomicUsize, Ordering},
 		Arc,
 	},
-	time::Duration,
+	time::{Duration, Instant},
 };
-
-pub use behaviour::{InboundFailure, OutboundFailure, ResponseFailure};
-pub use libp2p::identity::{DecodingError, Keypair, PublicKey};
-pub use metrics::NotificationMetrics;
-pub use protocol::NotificationsSink;
 
 pub(crate) mod metrics;
 pub(crate) mod out_events;
@@ -275,10 +274,6 @@ where
 		let local_identity: ed25519::Keypair = local_identity.into();
 		let local_public: ed25519::PublicKey = local_public.into();
 		let local_peer_id: PeerId = local_peer_id.into();
-		let listen_addresses: Vec<Multiaddr> =
-			network_config.listen_addresses.iter().cloned().map(Into::into).collect();
-		let public_addresses: Vec<Multiaddr> =
-			network_config.public_addresses.iter().cloned().map(Into::into).collect();
 
 		network_config.boot_nodes = network_config
 			.boot_nodes
@@ -560,6 +555,11 @@ where
 					request_response_protocols,
 					Arc::clone(&peer_store_handle),
 					external_addresses.clone(),
+					ConnectionLimits::default()
+						.with_max_established_per_peer(Some(crate::MAX_CONNECTIONS_PER_PEER as u32))
+						.with_max_established_incoming(Some(
+							crate::MAX_CONNECTIONS_ESTABLISHED_INCOMING,
+						)),
 				);
 
 				match result {
@@ -569,37 +569,27 @@ where
 				}
 			};
 
-			let builder = {
+			let swarm = {
 				struct SpawnImpl<F>(F);
 				impl<F: Fn(Pin<Box<dyn Future<Output = ()> + Send>>)> Executor for SpawnImpl<F> {
 					fn exec(&self, f: Pin<Box<dyn Future<Output = ()> + Send>>) {
 						(self.0)(f)
 					}
 				}
-				SwarmBuilder::with_executor(
-					transport,
-					behaviour,
-					local_peer_id,
-					SpawnImpl(params.executor),
-				)
-			};
-			#[allow(deprecated)]
-			let builder = builder
-				.connection_limits(
-					ConnectionLimits::default()
-						.with_max_established_per_peer(Some(crate::MAX_CONNECTIONS_PER_PEER as u32))
-						.with_max_established_incoming(Some(
-							crate::MAX_CONNECTIONS_ESTABLISHED_INCOMING,
-						)),
-				)
-				.substream_upgrade_protocol_override(upgrade::Version::V1)
-				.notify_handler_buffer_size(NonZeroUsize::new(32).expect("32 != 0; qed"))
-				// NOTE: 24 is somewhat arbitrary and should be tuned in the future if necessary.
-				// See <https://github.com/paritytech/substrate/pull/6080>
-				.per_connection_event_buffer_size(24)
-				.max_negotiating_inbound_streams(2048);
 
-			(builder.build(), Arc::new(Libp2pBandwidthSink { sink: bandwidth }))
+				let config = SwarmConfig::with_executor(SpawnImpl(params.executor))
+					.with_substream_upgrade_protocol_override(upgrade::Version::V1)
+					.with_notify_handler_buffer_size(NonZeroUsize::new(32).expect("32 != 0; qed"))
+					// NOTE: 24 is somewhat arbitrary and should be tuned in the future if
+					// necessary. See <https://github.com/paritytech/substrate/pull/6080>
+					.with_per_connection_event_buffer_size(24)
+					.with_max_negotiating_inbound_streams(2048)
+					.with_idle_connection_timeout(Duration::from_secs(10));
+
+				Swarm::new(transport, behaviour, local_peer_id, config)
+			};
+
+			(swarm, Arc::new(Libp2pBandwidthSink { sink: bandwidth }))
 		};
 
 		// Initialize the metrics.
@@ -615,19 +605,15 @@ where
 		};
 
 		// Listen on multiaddresses.
-		for addr in &listen_addresses {
-			if let Err(err) = Swarm::<Behaviour<B>>::listen_on(&mut swarm, addr.clone()) {
+		for addr in &network_config.listen_addresses {
+			if let Err(err) = Swarm::<Behaviour<B>>::listen_on(&mut swarm, addr.clone().into()) {
 				warn!(target: "sub-libp2p", "Can't listen on {} because: {:?}", addr, err)
 			}
 		}
 
 		// Add external addresses.
-		for addr in &public_addresses {
-			Swarm::<Behaviour<B>>::add_external_address(
-				&mut swarm,
-				addr.clone(),
-				AddressScore::Infinite,
-			);
+		for addr in &network_config.public_addresses {
+			Swarm::<Behaviour<B>>::add_external_address(&mut swarm, addr.clone().into());
 		}
 
 		let listen_addresses_set = Arc::new(Mutex::new(HashSet::new()));
@@ -808,7 +794,7 @@ where
 
 		let peer_id = Swarm::<Behaviour<B>>::local_peer_id(swarm).to_base58();
 		let listened_addresses = swarm.listeners().cloned().collect();
-		let external_addresses = swarm.external_addresses().map(|r| &r.addr).cloned().collect();
+		let external_addresses = swarm.external_addresses().cloned().collect();
 
 		NetworkState {
 			peer_id,
@@ -868,8 +854,7 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkService<B, H> {
 			.into_iter()
 			.map(|mut addr| {
 				let peer = match addr.pop() {
-					Some(multiaddr::Protocol::P2p(key)) => PeerId::from_multihash(key)
-						.map_err(|_| "Invalid PeerId format".to_string())?,
+					Some(multiaddr::Protocol::P2p(peer_id)) => peer_id,
 					_ => return Err("Missing PeerId from address".to_string()),
 				};
 
@@ -956,6 +941,21 @@ where
 	/// item on the [`NetworkWorker`] stream.
 	fn put_value(&self, key: KademliaKey, value: Vec<u8>) {
 		let _ = self.to_worker.unbounded_send(ServiceToWorkerMsg::PutValue(key, value));
+	}
+
+	fn store_record(
+		&self,
+		key: KademliaKey,
+		value: Vec<u8>,
+		publisher: Option<sc_network_types::PeerId>,
+		expires: Option<Instant>,
+	) {
+		let _ = self.to_worker.unbounded_send(ServiceToWorkerMsg::StoreRecord(
+			key,
+			value,
+			publisher.map(Into::into),
+			expires,
+		));
 	}
 }
 
@@ -1311,6 +1311,7 @@ impl<'a> NotificationSenderReadyT for NotificationSenderReady<'a> {
 enum ServiceToWorkerMsg {
 	GetValue(KademliaKey),
 	PutValue(KademliaKey, Vec<u8>),
+	StoreRecord(KademliaKey, Vec<u8>, Option<PeerId>, Option<Instant>),
 	AddKnownAddress(PeerId, Multiaddr),
 	EventStream(out_events::Sender),
 	Request {
@@ -1438,6 +1439,10 @@ where
 				self.network_service.behaviour_mut().get_value(key),
 			ServiceToWorkerMsg::PutValue(key, value) =>
 				self.network_service.behaviour_mut().put_value(key, value),
+			ServiceToWorkerMsg::StoreRecord(key, value, publisher, expires) => self
+				.network_service
+				.behaviour_mut()
+				.store_record(key, value, publisher, expires),
 			ServiceToWorkerMsg::AddKnownAddress(peer_id, addr) =>
 				self.network_service.behaviour_mut().add_known_address(peer_id, addr),
 			ServiceToWorkerMsg::EventStream(sender) => self.event_streams.push(sender),
@@ -1473,6 +1478,7 @@ where
 	}
 
 	/// Process the next event coming from `Swarm`.
+	#[allow(deprecated)]
 	fn handle_swarm_event(&mut self, event: SwarmEvent<BehaviourOut, THandlerErr<Behaviour<B>>>) {
 		match event {
 			SwarmEvent::Behaviour(BehaviourOut::InboundRequest { protocol, result, .. }) => {
@@ -1567,9 +1573,11 @@ where
 					listen_addrs.truncate(30);
 				}
 				for addr in listen_addrs {
-					self.network_service
-						.behaviour_mut()
-						.add_self_reported_address_to_dht(&peer_id, &protocols, addr);
+					self.network_service.behaviour_mut().add_self_reported_address_to_dht(
+						&peer_id,
+						&protocols,
+						addr.clone(),
+					);
 				}
 				self.peer_store_handle.add_known_peer(peer_id.into());
 			},
@@ -1639,17 +1647,21 @@ where
 					.report_notification_received(remote, notification);
 			},
 			SwarmEvent::Behaviour(BehaviourOut::Dht(event, duration)) => {
-				if let Some(metrics) = self.metrics.as_ref() {
-					let query_type = match event {
-						DhtEvent::ValueFound(_) => "value-found",
-						DhtEvent::ValueNotFound(_) => "value-not-found",
-						DhtEvent::ValuePut(_) => "value-put",
-						DhtEvent::ValuePutFailed(_) => "value-put-failed",
-					};
-					metrics
-						.kademlia_query_duration
-						.with_label_values(&[query_type])
-						.observe(duration.as_secs_f64());
+				match (self.metrics.as_ref(), duration) {
+					(Some(metrics), Some(duration)) => {
+						let query_type = match event {
+							DhtEvent::ValueFound(_) => "value-found",
+							DhtEvent::ValueNotFound(_) => "value-not-found",
+							DhtEvent::ValuePut(_) => "value-put",
+							DhtEvent::ValuePutFailed(_) => "value-put-failed",
+							DhtEvent::PutRecordRequest(_, _, _, _) => "put-record-request",
+						};
+						metrics
+							.kademlia_query_duration
+							.with_label_values(&[query_type])
+							.observe(duration.as_secs_f64());
+					},
+					_ => {},
 				}
 
 				self.event_streams.send(Event::Dht(event));
@@ -1682,8 +1694,14 @@ where
 					}
 				}
 			},
-			SwarmEvent::ConnectionClosed { peer_id, cause, endpoint, num_established } => {
-				debug!(target: "sub-libp2p", "Libp2p => Disconnected({:?}, {:?})", peer_id, cause);
+			SwarmEvent::ConnectionClosed {
+				connection_id,
+				peer_id,
+				cause,
+				endpoint,
+				num_established,
+			} => {
+				debug!(target: "sub-libp2p", "Libp2p => Disconnected({peer_id:?} via {connection_id:?}, {cause:?})");
 				if let Some(metrics) = self.metrics.as_ref() {
 					let direction = match endpoint {
 						ConnectedPoint::Dialer { .. } => "out",
@@ -1692,11 +1710,13 @@ where
 					let reason = match cause {
 						Some(ConnectionError::IO(_)) => "transport-error",
 						Some(ConnectionError::Handler(Either::Left(Either::Left(
-							Either::Right(Either::Left(PingFailure::Timeout)),
-						)))) => "ping-timeout",
-						Some(ConnectionError::Handler(Either::Left(Either::Left(
-							Either::Left(NotifsHandlerError::SyncNotificationsClogged),
+							Either::Left(Either::Right(
+								NotifsHandlerError::SyncNotificationsClogged,
+							)),
 						)))) => "sync-notifications-clogged",
+						Some(ConnectionError::Handler(Either::Left(Either::Left(
+							Either::Right(Either::Left(_)),
+						)))) => "ping-timeout",
 						Some(ConnectionError::Handler(_)) => "protocol-error",
 						Some(ConnectionError::KeepAliveTimeout) => "keep-alive-timeout",
 						None => "actively-closed",
@@ -1723,12 +1743,11 @@ where
 				}
 				self.listen_addresses.lock().remove(&address);
 			},
-			SwarmEvent::OutgoingConnectionError { peer_id, error } => {
+			SwarmEvent::OutgoingConnectionError { connection_id, peer_id, error } => {
 				if let Some(peer_id) = peer_id {
 					trace!(
 						target: "sub-libp2p",
-						"Libp2p => Failed to reach {:?}: {}",
-						peer_id, error,
+						"Libp2p => Failed to reach {peer_id:?} via {connection_id:?}: {error}",
 					);
 
 					let not_reported = !self.reported_invalid_boot_nodes.contains(&peer_id);
@@ -1766,12 +1785,9 @@ where
 							} else {
 								None
 							},
-						DialError::ConnectionLimit(_) => Some("limit-reached"),
-						DialError::InvalidPeerId(_) |
-						DialError::WrongPeerId { .. } |
-						DialError::LocalPeerId { .. } => Some("invalid-peer-id"),
+						DialError::LocalPeerId { .. } => Some("local-peer-id"),
+						DialError::WrongPeerId { .. } => Some("invalid-peer-id"),
 						DialError::Transport(_) => Some("transport-error"),
-						DialError::Banned |
 						DialError::NoAddresses |
 						DialError::DialPeerConditionFalse(_) |
 						DialError::Aborted => None, // ignore them
@@ -1781,21 +1797,24 @@ where
 					}
 				}
 			},
-			SwarmEvent::Dialing(peer_id) => {
-				trace!(target: "sub-libp2p", "Libp2p => Dialing({:?})", peer_id)
+			SwarmEvent::Dialing { connection_id, peer_id } => {
+				trace!(target: "sub-libp2p", "Libp2p => Dialing({peer_id:?}) via {connection_id:?}")
 			},
-			SwarmEvent::IncomingConnection { local_addr, send_back_addr } => {
-				trace!(target: "sub-libp2p", "Libp2p => IncomingConnection({},{}))",
-					local_addr, send_back_addr);
+			SwarmEvent::IncomingConnection { connection_id, local_addr, send_back_addr } => {
+				trace!(target: "sub-libp2p", "Libp2p => IncomingConnection({local_addr},{send_back_addr} via {connection_id:?}))");
 				if let Some(metrics) = self.metrics.as_ref() {
 					metrics.incoming_connections_total.inc();
 				}
 			},
-			SwarmEvent::IncomingConnectionError { local_addr, send_back_addr, error } => {
+			SwarmEvent::IncomingConnectionError {
+				connection_id,
+				local_addr,
+				send_back_addr,
+				error,
+			} => {
 				debug!(
 					target: "sub-libp2p",
-					"Libp2p => IncomingConnectionError({},{}): {}",
-					local_addr, send_back_addr, error,
+					"Libp2p => IncomingConnectionError({local_addr},{send_back_addr} via {connection_id:?}): {error}"
 				);
 				if let Some(metrics) = self.metrics.as_ref() {
 					#[allow(deprecated)]
@@ -1806,7 +1825,6 @@ where
 							} else {
 								None
 							},
-						ListenError::ConnectionLimit(_) => Some("limit-reached"),
 						ListenError::WrongPeerId { .. } | ListenError::LocalPeerId { .. } =>
 							Some("invalid-peer-id"),
 						ListenError::Transport(_) => Some("transport-error"),
@@ -1819,17 +1837,6 @@ where
 							.with_label_values(&[reason])
 							.inc();
 					}
-				}
-			},
-			#[allow(deprecated)]
-			SwarmEvent::BannedPeer { peer_id, endpoint } => {
-				debug!(
-					target: "sub-libp2p",
-					"Libp2p => BannedPeer({}). Connected via {:?}.",
-					peer_id, endpoint,
-				);
-				if let Some(metrics) = self.metrics.as_ref() {
-					metrics.incoming_connections_errors_total.with_label_values(&["banned"]).inc();
 				}
 			},
 			SwarmEvent::ListenerClosed { reason, addresses, .. } => {

@@ -16,10 +16,6 @@
 
 use self::test_helpers::mock::new_leaf;
 use super::*;
-use ::test_helpers::{
-	dummy_candidate_receipt_bad_sig, dummy_collator, dummy_collator_signature,
-	dummy_committed_candidate_receipt, dummy_hash, validator_pubkeys,
-};
 use assert_matches::assert_matches;
 use futures::{future, Future};
 use polkadot_node_primitives::{BlockData, InvalidCandidate, SignedFullStatement, Statement};
@@ -36,13 +32,20 @@ use polkadot_primitives::{
 	node_features, CandidateDescriptor, GroupRotationInfo, HeadData, PersistedValidationData,
 	PvfExecKind, ScheduledCore, SessionIndex, LEGACY_MIN_BACKING_VOTES,
 };
+use polkadot_primitives_test_helpers::{
+	dummy_candidate_receipt_bad_sig, dummy_collator, dummy_collator_signature,
+	dummy_committed_candidate_receipt, dummy_hash, validator_pubkeys,
+};
+use polkadot_statement_table::v2::Misbehavior;
 use rstest::rstest;
 use sp_application_crypto::AppCrypto;
 use sp_keyring::Sr25519Keyring;
 use sp_keystore::Keystore;
 use sp_tracing as _;
-use statement_table::v2::Misbehavior;
-use std::{collections::HashMap, time::Duration};
+use std::{
+	collections::{BTreeMap, HashMap, VecDeque},
+	time::Duration,
+};
 
 mod prospective_parachains;
 
@@ -75,6 +78,7 @@ pub(crate) struct TestState {
 	validator_groups: (Vec<Vec<ValidatorIndex>>, GroupRotationInfo),
 	validator_to_group: IndexedVec<ValidatorIndex, Option<GroupIndex>>,
 	availability_cores: Vec<CoreState>,
+	claim_queue: BTreeMap<CoreIndex, VecDeque<ParaId>>,
 	head_data: HashMap<ParaId, HeadData>,
 	signing_context: SigningContext,
 	relay_parent: Hash,
@@ -130,6 +134,10 @@ impl Default for TestState {
 			CoreState::Scheduled(ScheduledCore { para_id: chain_b, collator: None }),
 		];
 
+		let mut claim_queue = BTreeMap::new();
+		claim_queue.insert(CoreIndex(0), [chain_a].into_iter().collect());
+		claim_queue.insert(CoreIndex(1), [chain_b].into_iter().collect());
+
 		let mut head_data = HashMap::new();
 		head_data.insert(chain_a, HeadData(vec![4, 5, 6]));
 		head_data.insert(chain_b, HeadData(vec![5, 6, 7]));
@@ -153,6 +161,7 @@ impl Default for TestState {
 			validator_groups: (validator_groups, group_rotation_info),
 			validator_to_group,
 			availability_cores,
+			claim_queue,
 			head_data,
 			validation_data,
 			signing_context,
@@ -164,7 +173,8 @@ impl Default for TestState {
 	}
 }
 
-type VirtualOverseer = test_helpers::TestSubsystemContextHandle<CandidateBackingMessage>;
+type VirtualOverseer =
+	polkadot_node_subsystem_test_helpers::TestSubsystemContextHandle<CandidateBackingMessage>;
 
 fn test_harness<T: Future<Output = VirtualOverseer>>(
 	keystore: KeystorePtr,
@@ -172,7 +182,8 @@ fn test_harness<T: Future<Output = VirtualOverseer>>(
 ) {
 	let pool = sp_core::testing::TaskExecutor::new();
 
-	let (context, virtual_overseer) = test_helpers::make_subsystem_context(pool.clone());
+	let (context, virtual_overseer) =
+		polkadot_node_subsystem_test_helpers::make_subsystem_context(pool.clone());
 
 	let subsystem = async move {
 		if let Err(e) = super::run(context, keystore, Metrics(None)).await {
@@ -196,8 +207,9 @@ fn test_harness<T: Future<Output = VirtualOverseer>>(
 fn make_erasure_root(test: &TestState, pov: PoV, validation_data: PersistedValidationData) -> Hash {
 	let available_data = AvailableData { validation_data, pov: Arc::new(pov) };
 
-	let chunks = erasure_coding::obtain_chunks_v1(test.validators.len(), &available_data).unwrap();
-	erasure_coding::branches(&chunks).root()
+	let chunks =
+		polkadot_erasure_coding::obtain_chunks_v1(test.validators.len(), &available_data).unwrap();
+	polkadot_erasure_coding::branches(&chunks).root()
 }
 
 #[derive(Default, Clone)]
@@ -333,6 +345,26 @@ async fn test_startup(virtual_overseer: &mut VirtualOverseer, test_state: &TestS
 			RuntimeApiMessage::Request(parent, RuntimeApiRequest::DisabledValidators(tx))
 		) if parent == test_state.relay_parent => {
 			tx.send(Ok(test_state.disabled_validators.clone())).unwrap();
+		}
+	);
+
+	assert_matches!(
+		virtual_overseer.recv().await,
+		AllMessages::RuntimeApi(
+			RuntimeApiMessage::Request(parent, RuntimeApiRequest::Version(tx))
+		) if parent == test_state.relay_parent => {
+			tx.send(Ok(RuntimeApiRequest::CLAIM_QUEUE_RUNTIME_REQUIREMENT)).unwrap();
+		}
+	);
+
+	assert_matches!(
+		virtual_overseer.recv().await,
+		AllMessages::RuntimeApi(
+			RuntimeApiMessage::Request(parent, RuntimeApiRequest::ClaimQueue(tx))
+		) if parent == test_state.relay_parent => {
+			tx.send(Ok(
+				test_state.claim_queue.clone()
+			)).unwrap();
 		}
 	);
 }
@@ -671,7 +703,7 @@ fn backing_works(#[case] elastic_scaling_mvp: bool) {
 		virtual_overseer.send(FromOrchestra::Communication { msg: statement }).await;
 
 		let (tx, rx) = oneshot::channel();
-		let msg = CandidateBackingMessage::GetBackedCandidates(
+		let msg = CandidateBackingMessage::GetBackableCandidates(
 			std::iter::once((
 				test_state.chain_ids[0],
 				vec![(candidate_a_hash, test_state.relay_parent)],
@@ -727,11 +759,16 @@ fn get_backed_candidate_preserves_order() {
 	// Assign the second core to the same para as the first one.
 	test_state.availability_cores[1] =
 		CoreState::Scheduled(ScheduledCore { para_id: test_state.chain_ids[0], collator: None });
+	*test_state.claim_queue.get_mut(&CoreIndex(1)).unwrap() =
+		[test_state.chain_ids[0]].into_iter().collect();
 	// Add another availability core for paraid 2.
 	test_state.availability_cores.push(CoreState::Scheduled(ScheduledCore {
 		para_id: test_state.chain_ids[1],
 		collator: None,
 	}));
+	test_state
+		.claim_queue
+		.insert(CoreIndex(2), [test_state.chain_ids[1]].into_iter().collect());
 
 	test_harness(test_state.keystore.clone(), |mut virtual_overseer| async move {
 		test_startup(&mut virtual_overseer, &test_state).await;
@@ -858,7 +895,7 @@ fn get_backed_candidate_preserves_order() {
 
 		// Happy case, all candidates should be present.
 		let (tx, rx) = oneshot::channel();
-		let msg = CandidateBackingMessage::GetBackedCandidates(
+		let msg = CandidateBackingMessage::GetBackableCandidates(
 			[
 				(
 					test_state.chain_ids[0],
@@ -909,7 +946,7 @@ fn get_backed_candidate_preserves_order() {
 			],
 		] {
 			let (tx, rx) = oneshot::channel();
-			let msg = CandidateBackingMessage::GetBackedCandidates(
+			let msg = CandidateBackingMessage::GetBackableCandidates(
 				[
 					(test_state.chain_ids[0], candidates),
 					(test_state.chain_ids[1], vec![(candidate_c_hash, test_state.relay_parent)]),
@@ -948,7 +985,7 @@ fn get_backed_candidate_preserves_order() {
 			],
 		] {
 			let (tx, rx) = oneshot::channel();
-			let msg = CandidateBackingMessage::GetBackedCandidates(
+			let msg = CandidateBackingMessage::GetBackableCandidates(
 				[
 					(test_state.chain_ids[0], candidates),
 					(test_state.chain_ids[1], vec![(candidate_c_hash, test_state.relay_parent)]),
@@ -993,7 +1030,7 @@ fn get_backed_candidate_preserves_order() {
 			],
 		] {
 			let (tx, rx) = oneshot::channel();
-			let msg = CandidateBackingMessage::GetBackedCandidates(
+			let msg = CandidateBackingMessage::GetBackableCandidates(
 				[
 					(test_state.chain_ids[0], candidates),
 					(test_state.chain_ids[1], vec![(candidate_c_hash, test_state.relay_parent)]),
@@ -1100,7 +1137,8 @@ fn extract_core_index_from_statement_works() {
 	let core_index_1 = core_index_from_statement(
 		&test_state.validator_to_group,
 		&test_state.validator_groups.1,
-		&test_state.availability_cores,
+		test_state.availability_cores.len() as _,
+		&test_state.claim_queue.clone().into(),
 		&signed_statement_1,
 	)
 	.unwrap();
@@ -1110,7 +1148,8 @@ fn extract_core_index_from_statement_works() {
 	let core_index_2 = core_index_from_statement(
 		&test_state.validator_to_group,
 		&test_state.validator_groups.1,
-		&test_state.availability_cores,
+		test_state.availability_cores.len() as _,
+		&test_state.claim_queue.clone().into(),
 		&signed_statement_2,
 	);
 
@@ -1120,7 +1159,8 @@ fn extract_core_index_from_statement_works() {
 	let core_index_3 = core_index_from_statement(
 		&test_state.validator_to_group,
 		&test_state.validator_groups.1,
-		&test_state.availability_cores,
+		test_state.availability_cores.len() as _,
+		&test_state.claim_queue.clone().into(),
 		&signed_statement_3,
 	)
 	.unwrap();
@@ -1281,7 +1321,7 @@ fn backing_works_while_validation_ongoing() {
 		virtual_overseer.send(FromOrchestra::Communication { msg: statement }).await;
 
 		let (tx, rx) = oneshot::channel();
-		let msg = CandidateBackingMessage::GetBackedCandidates(
+		let msg = CandidateBackingMessage::GetBackableCandidates(
 			std::iter::once((
 				test_state.chain_ids[0],
 				vec![(candidate_a.hash(), test_state.relay_parent)],
@@ -1902,7 +1942,7 @@ fn backing_works_after_failed_validation() {
 		// Try to get a set of backable candidates to trigger _some_ action in the subsystem
 		// and check that it is still alive.
 		let (tx, rx) = oneshot::channel();
-		let msg = CandidateBackingMessage::GetBackedCandidates(
+		let msg = CandidateBackingMessage::GetBackableCandidates(
 			std::iter::once((
 				test_state.chain_ids[0],
 				vec![(candidate.hash(), test_state.relay_parent)],
@@ -1955,7 +1995,7 @@ fn candidate_backing_reorders_votes() {
 		data[32..36].copy_from_slice(idx.encode().as_slice());
 
 		let sig = ValidatorSignature::try_from(data).unwrap();
-		statement_table::generic::ValidityAttestation::Implicit(sig)
+		polkadot_statement_table::generic::ValidityAttestation::Implicit(sig)
 	};
 
 	let attested = TableAttestedCandidate {
