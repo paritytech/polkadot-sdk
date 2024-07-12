@@ -11,9 +11,9 @@ doc:
       - Number of PVF preparations per block is limited to not overload subsystem.
 
 crates:
+  - name: polkadot
+    bump: patch
   - name: polkadot-service
     bump: patch
   - name: polkadot-node-core-candidate-validation
     bump: major
-  - name: polkadot-node-core-pvf-common
-    bump: minor
