@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1720778547472,
+  "lastUpdate": 1720787226177,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
@@ -13901,6 +13901,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 13.161793651333335,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Andrei Eres",
+            "username": "AndreiEres",
+            "email": "eresav@me.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "d31285a1562318959a7b21dbfec95c2fd6f06d7a",
+          "message": "[statement-distribution] Add metrics for distributed statements in V2 (#4554)\n\nPart of https://github.com/paritytech/polkadot-sdk/issues/4334",
+          "timestamp": "2024-07-12T10:43:48Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/d31285a1562318959a7b21dbfec95c2fd6f06d7a"
+        },
+        "date": 1720787197203,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 13.039297010566665,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.2167490387,
             "unit": "seconds"
           }
         ]
