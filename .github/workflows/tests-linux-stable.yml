@@ -76,7 +76,7 @@ jobs:
   test-linux-stable:
     needs: [set-image, changes]
     runs-on: arc-runners-polkadot-sdk-beefy
-    timeout-minutes: 90
+    timeout-minutes: 120
     container:
       image: ${{ needs.set-image.outputs.IMAGE }}
     env:
